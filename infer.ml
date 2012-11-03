@@ -5,21 +5,16 @@ open Value
 
 let disable_typing = ref false
 
-let lookup x lst =
-  try
-    Some (List.assoc x lst)
-  with Not_found -> None
-
 let lookup_var x ctx =
-  try
-    List.assoc x ctx
-  with Not_found -> Error.typing "unkown identifier %t" (Print.variable x)
+  match Common.lookup x ctx with
+    | Some y -> y
+    | None -> Error.typing "unkown identifier %t" (Print.variable x)
 
 let extend x y lst = (x,y) :: lst
 
 let rec eval env = function
   | Var x ->
-    (match lookup x env with
+    (match Common.lookup x env with
       | Some v -> v
       | None -> VNeutral (VVar x))
   | Universe u -> VUniverse u
@@ -65,33 +60,6 @@ and equal_neutral n1 n2 =
     | VVar x, VVar y -> x = y
     | VApp (m1, v1), VApp (m2, v2) -> equal_neutral m1 m2 && equal_value v1 v2
     | (VVar _ | VApp _), _ -> false
-
-let rec fv lst = function
-  | Var x -> if List.mem x lst then [] else [x]
-  | Universe _ -> []
-  | Pi (x, t1, t2) -> fv lst t1 @ (fv (x::lst) t2)
-  | Lambda (x, t, e) -> fv lst t @ (fv (x::lst) e)
-  | App (e1, e2) -> fv lst e1 @ fv lst e2
-
-let refresh y sbst =
-  let lst = List.fold_left (fun lst (_, e) -> fv [] e @ lst) [] sbst in
-    if List.mem y lst
-    then fresh_var y
-    else y
-
-let rec subst sbst = function
-  | Var y ->
-    (match lookup y sbst with
-      | Some e -> e
-      | None -> Var y)
-  | Universe _ as e' -> e'
-  | Pi (y, t1, t2) ->
-    let z = refresh y sbst in
-      Pi (z, subst sbst t1, subst (extend y (Var z) sbst) t2)
-  | Lambda (y, t, e) ->
-    let z = refresh y sbst in
-      Lambda (z, subst sbst t, subst (extend y (Var z) sbst) e) 
-  | App (e1, e2) -> App (subst sbst e1, subst sbst e2)
 
 let rec infer_type ctx = function
   | Var x -> lookup_var x ctx

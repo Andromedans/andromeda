@@ -2,44 +2,38 @@
   open Syntax
 %}
 
-%token LPAREN RPAREN SEMISEMI
 %token FORALL FUN TYPE
 %token <int> NUMERAL
 %token <string> NAME
-%token COLON COMMA ARROW DARROW
-%token QUIT HELP ASSUME CONTEXT
+%token LPAREN RPAREN
+%token COLON COMMA PERIOD
+%token ARROW DARROW
+%token QUIT HELP PARAMETER CHECK EVAL CONTEXT
 %token EOF
 
-%start <Syntax.toplevel list> file
-%start <Syntax.toplevel> commandline
+%start <Syntax.directive list> directives
 
 %%
 
 (* Toplevel syntax *)
 
-file:
-  | e = expr EOF
-     { [Expr e] }
-  | e = expr SEMISEMI lst = file
-     { (Expr e) :: lst }
-  | dir = topdirective EOF
-     { [Directive dir] }
-  | dir = topdirective SEMISEMI lst = file
-     { Directive dir :: lst }
+directives:
+  | dir = directive PERIOD EOF
+     { [dir] }
+  | dir = directive PERIOD lst = directives
+     { dir :: lst }
 
-commandline:
-  | e = expr SEMISEMI
-    { Expr e }
-  | dir = topdirective SEMISEMI
-    { Directive dir }
-
-topdirective:
+directive:
   | QUIT
     { Quit }
   | HELP
     { Help }
-  | ASSUME x = NAME COLON e = expr
-    { Assume (String x, e) }
+  | PARAMETER x = NAME COLON e = expr
+    { Parameter (String x, e) }
+  | CHECK e = expr
+    { Check e }
+  | EVAL e = expr
+    { Eval e}
   | CONTEXT
     { Context }
 

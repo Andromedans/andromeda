@@ -28,8 +28,6 @@ type directive =
   | Quit
   | Help
   | Context
-  | Assume of variable * expr
-
-type toplevel =
-  | Expr of expr
-  | Directive of directive
+  | Parameter of variable * expr
+  | Check of expr
+  | Eval of expr

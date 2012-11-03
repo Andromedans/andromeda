@@ -6,6 +6,16 @@
     ("fun", FUN);
     ("Type", TYPE);
   ]
+
+  let directives = [
+    ("Check", CHECK) ;
+    ("Eval", EVAL) ;
+    ("Help", HELP) ;
+    ("Quit",  QUIT) ;
+    ("Parameter", PARAMETER) ;
+    ("Context", CONTEXT)
+  ]
+
 }
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
@@ -17,15 +27,16 @@ rule token = parse
   | [' ' '\r' '\t']     { token lexbuf }
   | numeral             { NUMERAL (int_of_string (Lexing.lexeme lexbuf)) }
   | name                { let s = Lexing.lexeme lexbuf in
-                          try List.assoc s reserved with Not_found -> NAME s
+                            match Common.lookup s reserved with
+                              | Some r -> r
+                              | None ->
+                                (match Common.lookup s directives with
+                                  | Some d -> d
+                                  | None -> NAME s)
                         }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
-  | "#quit"             { QUIT }
-  | "#help"             { HELP }
-  | "#assume"           { ASSUME }
-  | "#context"          { CONTEXT }
-  | ";;"                { SEMISEMI }
+  | "."                 { PERIOD }
   | ':'                 { COLON }
   | ','                 { COMMA }
   | "->"                { ARROW }
@@ -52,36 +63,23 @@ rule token = parse
 
 
   let read_toplevel parser () =
-
-    let has_semisemi str =
-      let last_semi = ref false in
-      let semisemi = ref false in
-      let i = ref 0 in
-      while !i < String.length str && not !semisemi do
-        begin
-          match str.[!i], !last_semi with
-            | ';', b -> semisemi := b; last_semi := true
-            | _, _ -> last_semi := false
-        end;
-        incr i
-      done;
-      if !semisemi then
-        Some (String.sub str 0 !i)
-      else
-        None
+    let ends_with_period str =
+      let i = ref (String.length str - 1) in
+        while !i >= 0 && List.mem str.[!i] [' '; '\n'; '\t'; '\r'] do decr i done ;
+        !i >= 0 && str.[!i] = '.' 
     in
 
     let rec read_more prompt acc =
-      match has_semisemi acc with
-      | Some acc -> acc
-      | None ->
-          print_string prompt;
-          let str = read_line () in
+      if ends_with_period acc
+      then acc
+      else begin
+        print_string prompt ;
+        let str = read_line () in
           read_more "  " (acc ^ "\n" ^ str)
+      end
     in
 
     let str = read_more "# " "" in
     let lex = Lexing.from_string (str ^ "\n") in
       parser lex
 }
-

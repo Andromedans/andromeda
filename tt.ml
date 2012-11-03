@@ -5,10 +5,10 @@ let interactive_shell = ref true
 let wrapper = ref (Some ["rlwrap"; "ledit"])
 
 let help_text = "Toplevel commands:
-#assume <ident> : <expr>;;   assume variable <ident> has type <expr>
-#context;;                   print current contex    
-#help;;                      print this help
-#quit;;                      exit" ;;
+Parameter <ident> : <expr>.   assume variable <ident> has type <expr>
+Context.                      print current contex    
+Help.                         print this help
+Quit.                         exit" ;;
 
 (* A list of files to be loaded and run. *)
 let files = ref []
@@ -61,43 +61,48 @@ let initial_ctx = []
     and return the new environment. *)
 let rec exec_cmd interactive ctx e =
   match e with
-  | Syntax.Expr e ->
+  | Syntax.Eval e ->
     let t = Infer.infer_type ctx e in
     let v = Infer.eval [] e in
     let e' = Infer.uneval v in
-      if interactive then Format.printf "@[- : %t = %t@]@."
+      if interactive then Format.printf "@[%t : %t@]@."
         (Print.expr t)
         (Print.expr e') ;
       ctx
-  | Syntax.Directive Syntax.Context ->
-    List.iter (fun (x, t) -> Format.printf "%t : %t@." (Print.variable x) (Print.expr t)) ctx ;
+  | Syntax.Context ->
+    List.iter (fun (x, t) -> Format.printf "@[%t : %t@]@." (Print.variable x) (Print.expr t)) ctx ;
     ctx
-  | Syntax.Directive (Syntax.Assume (x, t)) ->
+  | Syntax.Parameter (x, t) ->
     Infer.check_type ctx t ;
+    Format.printf "@[%t is assumed@]@." (Print.variable x) ;
     (x, t) :: ctx
-  | Syntax.Directive (Syntax.Help) ->
+  | Syntax.Check e ->
+    let t = Infer.infer_type ctx e in
+      Format.printf "@[%t : %t@]@." (Print.expr e) (Print.expr t) ;
+      ctx
+  | Syntax.Help ->
       print_endline help_text ; ctx
-  | Syntax.Directive (Syntax.Quit) -> exit 0
+  | Syntax.Quit -> exit 0
 
-and use_file env (filename, interactive) =
-  let cmds = Lexer.read_file (parse Parser.file) filename in
-    List.fold_left (exec_cmd interactive) env cmds
+and use_file ctx (filename, interactive) =
+  let cmds = Lexer.read_file (parse Parser.directives) filename in
+    List.fold_left (exec_cmd interactive) ctx cmds
 
 (* Interactive toplevel *)
-let toplevel ctxenv =
+let toplevel ctx =
   let eof = match Sys.os_type with
     | "Unix" | "Cygwin" -> "Ctrl-D"
     | "Win32" -> "Ctrl-Z"
     | _ -> "EOF"
   in
   print_endline ("tt " ^ Version.version);
-  print_endline ("[Type " ^ eof ^ " to exit or #help;; for help.]");
+  print_endline ("[Type " ^ eof ^ " to exit or \"Help.\" for help.]");
   try
-    let ctxenv = ref ctxenv in
+    let ctx = ref ctx in
     while true do
       try
-        let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
-        ctxenv := exec_cmd true !ctxenv cmd
+        let cmds = Lexer.read_toplevel (parse Parser.directives) () in
+        ctx := List.fold_left (exec_cmd true) !ctx cmds
       with
         | Error.Error err -> Print.error err
         | Sys.Break -> prerr_endline "Interrupted."
