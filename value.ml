@@ -12,4 +12,4 @@ and neutral =
   | VVar of variable
   | VApp of neutral * value
 
-and vabstraction = value * (value -> value)
+and vabstraction = value * variable * (value -> value)

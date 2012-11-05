@@ -65,20 +65,23 @@ let rec exec_cmd interactive ctx e =
     let t = Infer.infer_type ctx e in
     let v = Infer.eval [] e in
     let e' = Infer.uneval v in
-      if interactive then Format.printf "@[%t : %t@]@."
-        (Print.expr t)
-        (Print.expr e') ;
+      if interactive then Format.printf "    = @[%t@]@\n    : @[%t@]@."
+        (Print.expr e')
+        (Print.expr t) ;
       ctx
   | Syntax.Context ->
-    List.iter (fun (x, t) -> Format.printf "@[%t : %t@]@." (Print.variable x) (Print.expr t)) ctx ;
+    List.iter
+      (fun (x, t) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr t))
+      ctx ;
     ctx
   | Syntax.Parameter (x, t) ->
     Infer.check_type ctx t ;
-    Format.printf "@[%t is assumed@]@." (Print.variable x) ;
+    if interactive then
+      Format.printf "@[%t is assumed@]@." (Print.variable x) ;
     (x, t) :: ctx
   | Syntax.Check e ->
     let t = Infer.infer_type ctx e in
-      Format.printf "@[%t : %t@]@." (Print.expr e) (Print.expr t) ;
+      Format.printf "@[%t@]@\n    : @[%t@]@." (Print.expr e) (Print.expr t) ;
       ctx
   | Syntax.Help ->
       print_endline help_text ; ctx

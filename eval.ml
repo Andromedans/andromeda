@@ -1,5 +1,3 @@
-(** TT with pies and universes indexed by numerals *)
-
 open Syntax
 open Value
 
@@ -23,12 +21,12 @@ let rec eval env = function
   | App (e1, e2) ->
     let v2 = eval env e2 in
       (match eval env e1 with
-        | VLambda (_, f) -> f v2
+        | VLambda (_, _, f) -> f v2
         | VNeutral n -> VNeutral (VApp (n, v2))
         | _ -> Error.runtime "function expected")
 
 and eval_abstraction env (x, t, e) =
-  (eval env t, fun v -> eval (extend x v env) e)
+  (eval env t, x, fun v -> eval (extend x v env) e)
 
 let rec uneval = function
   | VNeutral n -> uneval_neutral n
@@ -40,8 +38,8 @@ and uneval_neutral = function
   | VVar x -> Var x
   | VApp (n, v) -> App (uneval_neutral n, uneval v)
 
-and uneval_vabstraction (t, f) =
-  let x = fresh_var (String "x") in
+and uneval_vabstraction (t, x, f) =
+  let x = fresh_var x in
     (x, uneval t, uneval (f (VNeutral (VVar x))))
 
 let rec equal_value v1 v2 =
@@ -52,8 +50,8 @@ let rec equal_value v1 v2 =
     | VLambda a1, VLambda a2 -> equal_vabstraction a1 a2
     | (VNeutral _ | VUniverse _ | VPi _ | VLambda _), _ -> false
 
-and equal_vabstraction (v1, f1) (v2, f2) =
-  v1 = v2 && (let x = VNeutral (VVar (fresh_var (String "y"))) in equal_value (f1 x) (f2 x))
+and equal_vabstraction (v1, x, f1) (v2, _, f2) =
+  v1 = v2 && (let x = VNeutral (VVar (fresh_var x)) in equal_value (f1 x) (f2 x))
 
 and equal_neutral n1 n2 =
   match n1, n2 with
@@ -89,7 +87,7 @@ and check_type ctx t = ignore (infer_universe ctx t)
 and infer_pi ctx e =
   let t = infer_type ctx e in
     match eval [] t with
-      | VPi (t, f) -> (uneval t, fun e -> uneval (f (eval [] e)))
+      | VPi (t, _, f) -> (uneval t, fun e -> uneval (f (eval [] e)))
       | VUniverse _ | VNeutral _ | VLambda _ -> Error.typing "function expected"
 
 and check_equal t1 t2 =

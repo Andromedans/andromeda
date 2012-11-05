@@ -64,11 +64,11 @@ simple_expr:
     { e }
 
 pi_abstraction:
-  | x = NAME COLON t = simple_expr COMMA e = expr
+  | x = NAME COLON t = expr COMMA e = expr
     { (String x, t, e) }
 
 fun_abstraction:
-  | x = NAME COLON t = simple_expr DARROW e = expr
+  | x = NAME COLON t = expr DARROW e = expr
     { (String x, t, e) }
 
 %%
