@@ -12,5 +12,5 @@ let error err_type =
 let fatal msg = error "Fatal error" msg
 let syntax msg = error "Syntax error" msg
 let typing msg = error "Typing error" msg
-let runtime msg = error "Runtime error" msg
+let runtime msg = error "Normalization error" msg
 let exc msg = error "Exception" msg

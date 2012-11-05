@@ -27,12 +27,12 @@ rule token = parse
   | [' ' '\r' '\t']     { token lexbuf }
   | numeral             { NUMERAL (int_of_string (Lexing.lexeme lexbuf)) }
   | name                { let s = Lexing.lexeme lexbuf in
-                            match Common.lookup s reserved with
-                              | Some r -> r
-                              | None ->
-                                (match Common.lookup s directives with
-                                  | Some d -> d
-                                  | None -> NAME s)
+                            try
+                              List.assoc s reserved
+                            with Not_found ->
+                              (try
+                                 List.assoc s directives
+                               with Not_found -> NAME s)
                         }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }

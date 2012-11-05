@@ -65,10 +65,7 @@ let beautify =
         y ^ string_of_int !k
   in
   let rec beautify sbst = function
-    | Var x ->
-      (match Common.lookup x sbst with
-        | Some y -> Var y
-        | None -> Var x)
+    | Var x -> (try Var (List.assoc x sbst) with Not_found -> Var x)
     | Universe k -> Universe k
     | Pi a -> Pi (beautify_abstraction sbst a)
     | Lambda a -> Lambda (beautify_abstraction sbst a)

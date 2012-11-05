@@ -33,9 +33,9 @@ session:
 The purpose of the implementation is to keep the source uncomplicated and short. The
 essential bits of source code can be found in the following files:
 
-* `syntax.ml` the abstract syntax of the type system
-* `value.ml` auxiliary datatype used during normalization
-* `eval.ml` type checking and normalization
+* `concrete.ml` the abstract syntax
+* `syntax.ml` compiled form of abstract syntax, where abstractions are Ocaml functions, normalization
+* `infer.ml` type checking
 
 The rest of the files are just logistics:
 

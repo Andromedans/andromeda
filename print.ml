@@ -14,22 +14,23 @@ let print ?(max_level=9999) ?(at_level=0) ppf =
 
 let variable x ppf =
   match x with
-    | Syntax.Dummy -> print ppf "_"
-    | Syntax.String x -> print ppf "%s" x
-    | Syntax.Gensym (x, k) -> print ppf "%s_%d" x k
+    | Concrete.Dummy -> print ppf "_"
+    | Concrete.String x -> print ppf "%s" x
+    | Concrete.Gensym (x, k) -> print ppf "%s_%d" x k
 
-let rec expr e ppf =
+let expr e ppf =
+  let e = Syntax.uneval e in
   let rec expr ?max_level e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       match e with
-        | Syntax.Var x -> variable x ppf
-        | Syntax.Universe k -> print "Type %d" k
-        | Syntax.Pi (Syntax.Dummy, t1, t2) -> print ~at_level:3 "%t ->@;%t" (expr ~max_level:2 t1) (expr t2)
-        | Syntax.Pi (x, t1, t2) -> print ~at_level:3 "forall %t : %t,@;%t" (variable x) (expr ~max_level:4 t1) (expr t2)
-        | Syntax.Lambda (x, t, e) -> print ~at_level:3 "fun %t : %t =>@;%t" (variable x) (expr t) (expr e)
-        | Syntax.App (e1, e2) -> print ~at_level:1 "%t %t" (expr ~max_level:1 e1) (expr ~max_level:0 e2)
+        | Concrete.Var x -> variable x ppf
+        | Concrete.Universe k -> print "Type %d" k
+        | Concrete.Pi (Concrete.Dummy, t1, t2) -> print ~at_level:3 "%t ->@;%t" (expr ~max_level:2 t1) (expr t2)
+        | Concrete.Pi (x, t1, t2) -> print ~at_level:3 "forall %t : %t,@;%t" (variable x) (expr ~max_level:4 t1) (expr t2)
+        | Concrete.Lambda (x, t, e) -> print ~at_level:3 "fun %t : %t =>@;%t" (variable x) (expr t) (expr e)
+        | Concrete.App (e1, e2) -> print ~at_level:1 "%t %t" (expr ~max_level:1 e1) (expr ~max_level:0 e2)
   in
-    expr (Syntax.beautify e) ppf
+    expr (Concrete.beautify e) ppf
       
 let verbosity = ref 3
 let message msg_type v =

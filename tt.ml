@@ -58,31 +58,33 @@ let initial_ctx = []
     and return the new environment. *)
 let rec exec_cmd interactive ctx e =
   match e with
-  | Syntax.Eval e ->
+  | Concrete.Eval e ->
+    let e = Syntax.compile e in
     let t = Infer.infer_type ctx e in
-    let v = Value.eval [] e in
-    let e' = Value.uneval v in
+    let e = Infer.normalize ctx e in
       if interactive then Format.printf "    = @[%t@]@\n    : @[%t@]@."
-        (Print.expr e')
+        (Print.expr e)
         (Print.expr t) ;
       ctx
-  | Syntax.Context ->
+  | Concrete.Context ->
     List.iter
-      (fun (x, t) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr t))
+      (fun (x, (t, _)) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr t))
       ctx ;
     ctx
-  | Syntax.Parameter (x, t) ->
-    Infer.check_type ctx t ;
-    if interactive then
-      Format.printf "@[%t is assumed@]@." (Print.variable x) ;
-    (x, t) :: ctx
-  | Syntax.Check e ->
+  | Concrete.Parameter (x, t) ->
+    let t = Syntax.compile t in
+      ignore (Infer.infer_universe ctx t) ;
+      if interactive then
+        Format.printf "@[%t is assumed@]@." (Print.variable x) ;
+      Infer.extend x t ctx
+  | Concrete.Check e ->
+    let e = Syntax.compile e in
     let t = Infer.infer_type ctx e in
       Format.printf "@[%t@]@\n    : @[%t@]@." (Print.expr e) (Print.expr t) ;
       ctx
-  | Syntax.Help ->
+  | Concrete.Help ->
       print_endline help_text ; ctx
-  | Syntax.Quit -> exit 0
+  | Concrete.Quit -> exit 0
 
 and use_file ctx (filename, interactive) =
   let cmds = Lexer.read_file (parse Parser.directives) filename in
