@@ -6,9 +6,9 @@
 %token <int> NUMERAL
 %token <string> NAME
 %token LPAREN RPAREN
-%token COLON COMMA PERIOD
+%token COLON COMMA PERIOD COLONEQUAL
 %token ARROW DARROW
-%token QUIT HELP PARAMETER CHECK EVAL CONTEXT
+%token QUIT HELP PARAMETER CHECK EVAL CONTEXT DEFINITION
 %token EOF
 
 %start <Concrete.directive list> directives
@@ -34,6 +34,8 @@ directive:
     { Check e }
   | EVAL e = expr
     { Eval e}
+  | DEFINITION x = NAME COLONEQUAL e = expr
+    { Definition (String x, e) }
   | CONTEXT
     { Context }
 

@@ -19,6 +19,7 @@ type directive =
   | Help
   | Context
   | Parameter of variable * expr
+  | Definition of variable * expr
   | Check of expr
   | Eval of expr
 

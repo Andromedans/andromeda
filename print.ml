@@ -19,7 +19,7 @@ let variable x ppf =
     | Concrete.Gensym (x, k) -> print ppf "%s_%d" x k
 
 let expr e ppf =
-  let e = Syntax.uneval e in
+  let e = Syntax.uncompile e in
   let rec expr ?max_level e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       match e with

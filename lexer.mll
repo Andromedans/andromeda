@@ -9,6 +9,7 @@
 
   let directives = [
     ("Check", CHECK) ;
+    ("Definition", DEFINITION) ;
     ("Eval", EVAL) ;
     ("Help", HELP) ;
     ("Quit",  QUIT) ;
@@ -41,6 +42,7 @@ rule token = parse
   | ','                 { COMMA }
   | "->"                { ARROW }
   | "=>"                { DARROW }
+  | ":="                { COLONEQUAL }
   | eof                 { EOF }
 
 

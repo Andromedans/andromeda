@@ -7,7 +7,7 @@ let lookup_ty x ctx = fst (lookup x ctx)
 
 let lookup_value x ctx = snd (lookup x ctx)
 
-let extend x t ?value lst = (x, (t, value)) :: lst
+let extend x t ?value ctx = (x, (t, value)) :: ctx
 
 (* Normalization. *)
 let rec normalize ctx = function
@@ -63,6 +63,7 @@ let rec infer_type ctx = function
   | Lambda (x, t, e) ->
     let _ = infer_universe ctx t in
     let x = Concrete.fresh_var x in
+    (* XXX: bug, infer_type does not get called immediately. *)
     let f v = infer_type (extend x t ~value:v ctx) (e (Var x)) in
       Pi (x, t, f)
   | App (e1, e2) ->

@@ -2,14 +2,14 @@ type variable = Concrete.variable
 
 type universe = Concrete.universe
 
-type value =
+type expr =
   | Var of variable
-  | App of value * value
+  | App of expr * expr
   | Universe of universe
   | Pi of abstraction
   | Lambda of abstraction
 
-and abstraction = variable * value * (value -> value)
+and abstraction = variable * expr * (expr -> expr)
 
 (* Compilation from concrete. *)
 let compile e =
@@ -25,13 +25,13 @@ let compile e =
     compile [] e
 
 (* Conversion back to concrete syntax, for pretty-printing. *)
-let rec uneval = function
+let rec uncompile = function
   | Var x -> Concrete.Var x
-  | App (e1, e2) -> Concrete.App (uneval e1, uneval e2)
+  | App (e1, e2) -> Concrete.App (uncompile e1, uncompile e2)
   | Universe u -> Concrete.Universe u
-  | Pi a -> Concrete.Pi (uneval_vabstraction a)
-  | Lambda a -> Concrete.Lambda (uneval_vabstraction a)
+  | Pi a -> Concrete.Pi (uncompile_vabstraction a)
+  | Lambda a -> Concrete.Lambda (uncompile_vabstraction a)
 
-and uneval_vabstraction (x, t, f) =
+and uncompile_vabstraction (x, t, f) =
   let x = Concrete.fresh_var x in
-    (x, uneval t, uneval (f (Var x)))
+    (x, uncompile t, uncompile (f (Var x)))

@@ -5,10 +5,12 @@ let interactive_shell = ref true
 let wrapper = ref (Some ["rlwrap"; "ledit"])
 
 let help_text = "Toplevel commands:
-Parameter <ident> : <expr>.   assume variable <ident> has type <expr>
-Context.                      print current contex    
-Help.                         print this help
-Quit.                         exit" ;;
+Parameter <ident> : <expr>.    assume variable <ident> has type <expr>
+Definition <indent> := <expr>. define <ident> to be <expr>
+Eval <expr>.                   normalize an expression
+Context.                       print current contex    
+Help.                          print this help
+Quit.                          exit" ;;
 
 (* A list of files to be loaded and run. *)
 let files = ref []
@@ -68,7 +70,10 @@ let rec exec_cmd interactive ctx e =
       ctx
   | Concrete.Context ->
     List.iter
-      (fun (x, (t, _)) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr t))
+      (function
+        | (x, (t, None)) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr t)
+        | (x, (t, Some e)) -> Format.printf "@[%t = %t@]@\n    : @[%t@]@."
+          (Print.variable x) (Print.expr e) (Print.expr t))
       ctx ;
     ctx
   | Concrete.Parameter (x, t) ->
@@ -77,6 +82,13 @@ let rec exec_cmd interactive ctx e =
       if interactive then
         Format.printf "@[%t is assumed@]@." (Print.variable x) ;
       Infer.extend x t ctx
+  | Concrete.Definition (x, e) ->
+    if List.mem_assoc x ctx then Error.typing "%t already exists" (Print.variable x) ;
+    let e = Syntax.compile e in
+    let t = Infer.infer_type ctx e in
+      if interactive then
+        Format.printf "@[%t is defined@]@." (Print.variable x) ;
+      Infer.extend x t ~value:e ctx
   | Concrete.Check e ->
     let e = Syntax.compile e in
     let t = Infer.infer_type ctx e in
