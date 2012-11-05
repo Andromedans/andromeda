@@ -1,85 +1,65 @@
-type variable =
-  | String of string
-  | Gensym of string * int
-  | Dummy
+type variable = Syntax.variable
 
-type universe = int
+type universe = Syntax.universe
 
-type expr =
-  | Var of variable
+type value =
+  | Neutral of neutral
   | Universe of universe
   | Pi of abstraction
   | Lambda of abstraction
-  | App of expr * expr
 
-and abstraction = variable * expr * expr
+and neutral =
+  | Var of variable
+  | App of neutral * value
 
-type directive =
-  | Quit
-  | Help
-  | Context
-  | Parameter of variable * expr
-  | Check of expr
-  | Eval of expr
+and abstraction = value * variable * (value -> value)
 
-let fresh_var =
-  let k = ref 0 in
-    function
-      | String x | Gensym (x, _) -> (incr k ; Gensym (x, !k))
-      | Dummy -> (incr k ; Gensym ("_", !k))
+let rec eval env = function
+  | Syntax.Var x ->
+    (match Common.lookup x env with
+      | Some v -> v
+      | None -> Neutral (Var x))
+  | Syntax.Universe u -> Universe u
+  | Syntax.Pi a -> Pi (eval_abstraction env a)
+  | Syntax.Lambda a -> Lambda (eval_abstraction env a)
+  | Syntax.App (e1, e2) ->
+    let v2 = eval env e2 in
+      (match eval env e1 with
+        | Lambda (_, _, f) -> f v2
+        | Neutral n -> Neutral (App (n, v2))
+        | _ -> Error.runtime "function expected")
 
-let rec occurs x = function
-  | Var y -> x = y
-  | Universe _ -> false
-  | Pi (y, e1, e2)
-  | Lambda (y, e1, e2) -> occurs x e1 || (x <> y && occurs x e2)
-  | App (e1, e2) -> occurs x e1 || occurs x e2
+and eval_abstraction env (x, t, e) =
+  (eval env t, x, fun v -> eval (Common.extend x v env) e)
 
-(* This nasty function is used to rename bound variables before
-   they are shown to the user. *)
-let beautify =
-  (* Split a variable name into base and numerical postfix. *)
-  let split s =
-    let n = String.length s in
-    let i = ref (n - 1) in
-      while !i >= 0 && '0' <= s.[!i] && s.[!i] <= '9' do decr i done ;
-      if !i < 0 || !i = n - 1 
-      then (s, None)
-      else
-        let k = int_of_string (String.sub s (!i+1) (n - !i - 1)) in
-          (String.sub s 0 (!i+1), Some k)
-  in
-  let rec used x = function
-    | [] -> false
-    | (_, (String y | Gensym (y, _))) :: lst -> x = y || used x lst
-    | (_, Dummy) :: lst -> used x lst
-  in
-  let find_available x sbst =
-    let x = (match x with String x | Gensym (x, _) -> x | Dummy -> "_") in
-    if not (used x sbst)
-    then x
-    else 
-      let (y, k) = split x in
-      let k = ref (match k with Some k -> k | None -> 0) in
-        while used (y ^ string_of_int !k) sbst do incr k done ;
-        y ^ string_of_int !k
-  in
-  let rec beautify sbst = function
-    | Var x ->
-      (match Common.lookup x sbst with
-        | Some y -> Var y
-        | None -> Var x)
-    | Universe k -> Universe k
-    | Pi a -> Pi (beautify_abstraction sbst a)
-    | Lambda a -> Lambda (beautify_abstraction sbst a)
-    | App (e1, e2) -> App (beautify sbst e1, beautify sbst e2)
-  and beautify_abstraction sbst (x, e1, e2) =
-    let e1 = beautify sbst e1 in
-    let y = 
-      if occurs x e2
-      then String (find_available x sbst)
-      else Dummy
-    in
-      (y, e1, beautify ((x,y) :: sbst) e2)
-  in
-    beautify []
+let rec equal_value v1 v2 =
+  match v1, v2 with
+    | Neutral n1, Neutral n2 -> equal_neutral n1 n2
+    | Universe u1, Universe u2 -> u1 = u2
+    | Pi a1, Pi a2 -> equal_abstraction a1 a2
+    | Lambda a1, Lambda a2 -> equal_abstraction a1 a2
+    | (Neutral _ | Universe _ | Pi _ | Lambda _), _ -> false
+
+and equal_abstraction (v1, x, f1) (v2, _, f2) =
+  v1 = v2 && (let x = Neutral (Var (Syntax.fresh_var x)) in equal_value (f1 x) (f2 x))
+
+and equal_neutral n1 n2 =
+  match n1, n2 with
+    | Var x, Var y -> x = y
+    | App (m1, v1), App (m2, v2) -> equal_neutral m1 m2 && equal_value v1 v2
+    | (Var _ | App _), _ -> false
+
+let rec uneval = function
+  | Neutral n -> uneval_neutral n
+  | Universe u -> Syntax.Universe u
+  | Pi a -> Syntax.Pi (uneval_vabstraction a)
+  | Lambda a -> Syntax.Lambda (uneval_vabstraction a)
+
+and uneval_neutral = function
+  | Var x -> Syntax.Var x
+  | App (n, v) -> Syntax.App (uneval_neutral n, uneval v)      
+
+and uneval_vabstraction (t, x, f) =
+  let x = Syntax.fresh_var x in
+    (x, uneval t, uneval (f (Neutral (Var x))))
+
