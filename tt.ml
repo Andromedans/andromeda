@@ -63,8 +63,8 @@ let rec exec_cmd interactive ctx e =
   match e with
   | Syntax.Eval e ->
     let t = Infer.infer_type ctx e in
-    let v = Infer.eval [] e in
-    let e' = Infer.uneval v in
+    let v = Value.eval [] e in
+    let e' = Value.uneval v in
       if interactive then Format.printf "    = @[%t@]@\n    : @[%t@]@."
         (Print.expr e')
         (Print.expr t) ;
