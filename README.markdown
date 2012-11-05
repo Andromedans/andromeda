@@ -6,6 +6,8 @@ dependent products. The concrete syntax is as follows:
 * A function is written as `fun x : T => e`
 * Application is written as `e1 e2`
 
+## Usage
+
 Type `Help.` in the interactive shell to see what the type system can do. Here is a sample
 session:
 
@@ -26,3 +28,20 @@ session:
         : forall A : Type 0, (A -> Type 1) -> A -> Type 1
 
 
+## Source code
+
+The purpose of the implementation is to keep the source uncomplicated and short. The
+essential bits of source code can be found in the following files:
+
+* `syntax.ml` the abstract syntax of the type system
+* `value.ml` auxiliary datatype used during normalization
+* `eval.ml` type checking and normalization
+
+The rest of the files are just logistics:
+
+* `lexer.mll` lexical analysis of concrete syntax
+* `parser.mly` parser which converts concrete syntax to abstract syntax
+* `print.ml` pretty-printing of expressions
+* `common.ml` commonly used functions
+* `error.ml` printing of errors
+* `tt.ml` toplevel interactive shell
