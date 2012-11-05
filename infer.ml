@@ -1,7 +1,5 @@
 open Syntax
 
-let disable_typing = ref false
-
 let lookup_var x ctx =
   match Common.lookup x ctx with
     | Some y -> y
@@ -19,10 +17,10 @@ let rec infer_type ctx = function
     let s = infer_type (Common.extend x t ctx) e in
       Pi (x, t, s)
   | App (e1, e2) ->
-    let (t, f) = infer_pi ctx e1 in
-    let r = infer_type ctx e2 in
-      check_equal t r ;
-      f e2
+    let (t1, f1) = infer_pi ctx e1 in
+    let t2 = infer_type ctx e2 in
+      check_equal t1 t2 ;
+      f1 e2
 
 and infer_universe ctx t =
   let u = infer_type ctx t in
@@ -40,4 +38,4 @@ and infer_pi ctx e =
 
 and check_equal t1 t2 =
   if not (Value.equal_value (Value.eval [] t1) (Value.eval [] t2))
-  then Error.typing "type mismatch"
+  then Error.typing "expressions %t and %t are not equal" (Print.expr t1) (Print.expr t2)

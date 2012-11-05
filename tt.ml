@@ -17,9 +17,6 @@ let wrapper = ref (Some ["rlwrap"; "ledit"])
 
 (* Command-line options *)
 let options = Arg.align [
-  ("--no-types",
-    Arg.Set Infer.disable_typing,
-    " Disable typechecking");
   ("--wrapper",
     Arg.String (fun str -> wrapper := Some [str]),
     "<program> Specify a command-line wrapper to be used (such as rlwrap or ledit)");

@@ -1,6 +1,6 @@
 type variable = Syntax.variable
 
-type universe = int
+type universe = Syntax.universe
 
 type value =
   | Neutral of neutral
