@@ -5,7 +5,7 @@ let rec normalize ctx = function
   | Var x ->
     (match
         (try Ctx.lookup_value x ctx
-         with Not_found -> Error.runtime "shit, unkown identifier %t" (Print.variable x))
+         with Not_found -> Error.runtime "unkown identifier %t" (Print.variable x))
      with
        | None -> Var x
        | Some e -> normalize ctx e)
