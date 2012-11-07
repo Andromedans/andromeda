@@ -4,25 +4,27 @@ type universe = Concrete.universe
 
 type expr =
   | Var of variable
+  | Bound of int
   | App of expr * expr
   | Universe of universe
   | Pi of abstraction
   | Lambda of abstraction
 
-and abstraction = variable * expr * (expr -> expr)
+and abstraction = variable * expr * expr
 
-(* Compilation from concrete. *)
-let compile e =
-  let rec compile env = function
-    | Concrete.Var x -> (try List.assoc x env with Not_found -> Var x)
-    | Concrete.Universe u -> Universe u
-    | Concrete.Pi a -> Pi (compile_abstraction env a)
-    | Concrete.Lambda a -> Lambda (compile_abstraction env a)
-    | Concrete.App (e1, e2) -> App (compile env e1, compile env e2)
-  and compile_abstraction env (x, t, e) =
-    (x, compile env t, fun v -> compile ((x,v)::env) e)
-  in
-    compile [] e
+(* Compilation from concrete syntax. *)
+let compile ctx e =
+  let rec compile k 
+
+ function
+  | Concrete.Var x -> (try List.assoc x ctx with Not_found -> Var x)
+  | Concrete.Universe u -> Universe u
+  | Concrete.Pi a -> Pi (compile_abstraction env a)
+  | Concrete.Lambda a -> Lambda (compile_abstraction env a)
+  | Concrete.App (e1, e2) -> App (compile env e1, compile env e2)
+
+and compile_abstraction env (x, t, e) =
+  (x, compile env t, fun v -> compile ((x,v)::env) e)
 
 (* Conversion back to concrete syntax, for pretty-printing. *)
 let rec uncompile = function

@@ -1,19 +1,10 @@
 open Syntax
 
-(* Contexts *)
-let lookup x ctx = List.assoc x ctx
-
-let lookup_ty x ctx = fst (lookup x ctx)
-
-let lookup_value x ctx = snd (lookup x ctx)
-
-let extend x t ?value ctx = (x, (t, value)) :: ctx
-
 (* Normalization. *)
 let rec normalize ctx = function
   | Var x ->
     (match
-        (try lookup_value x ctx
+        (try Ctx.lookup_value x ctx
          with Not_found -> Error.runtime "unkown identifier %t" (Print.variable x))
      with
        | None -> Var x
@@ -30,7 +21,7 @@ let rec normalize ctx = function
 and normalize_abstraction ctx (x, t, f) =
   let t = normalize ctx t in
   let x = Concrete.fresh_var x in
-  let f v = normalize (extend x t ~value:v ctx) (f (Var x)) in
+  let f v = normalize (Ctx.extend x t ~value:v ctx) (f (Var x)) in
     (x, t, f)
 
 (* Equality of expressions. *)
@@ -46,25 +37,25 @@ let rec equal ctx e1 e2 =
 and equal_abstraction ctx (x, t1, f1) (_, t2, f2) =
   equal ctx t1 t2 &&
   (let x = Concrete.fresh_var x in
-     equal (extend x t1 ctx) (f1 (Var x)) (f2 (Var x)))
+     equal (Ctx.extend x t1 ctx) (f1 (Var x)) (f2 (Var x)))
 
 (* Type inference. *)
 let rec infer_type ctx = function
   | Var x ->
-    (try lookup_ty x ctx
+    (try Ctx.lookup_ty x ctx
      with Not_found -> Error.typing "unkown identifier %t" (Print.variable x))
   | Universe u -> Universe (u + 1)
   | Pi (x, t1, t2) ->
     let u1 = infer_universe ctx t1 in
     let x = Concrete.fresh_var x in
-    let ctx = extend x t1 ctx in
+    let ctx = Ctx.extend x t1 ctx in
     let u2 = infer_universe ctx (t2 (Var x)) in
       Universe (max u1 u2)
   | Lambda (x, t, e) ->
     let _ = infer_universe ctx t in
     let x = Concrete.fresh_var x in
     (* XXX: bug, infer_type does not get called immediately. *)
-    let f v = infer_type (extend x t ~value:v ctx) (e (Var x)) in
+    let f v = infer_type (Ctx.extend x t ~value:v ctx) (e (Var x)) in
       Pi (x, t, f)
   | App (e1, e2) ->
     let (t1, f1) = infer_pi ctx e1 in
