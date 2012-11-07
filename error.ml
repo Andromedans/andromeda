@@ -1,3 +1,7 @@
+(** Error reporting. *)
+
+(** Exception [Error (err, msg)] indicates an error of type [err] with
+    error message [msg]. *)
 exception Error of (string * string)
 
 (** [error err_type msg] raises an error of type [err_type], and a message [msg]. The

@@ -1,6 +1,9 @@
+(** Type inference and normalization. *)
+
 open Syntax
 
-(* Normalization. *)
+(** [normalize ctx e] normalizes the given expression [e] in context [ctx]. It removes
+    all redexes and it unfolds all definitions. It performs normalization under binders.  *)
 let rec normalize ctx = function
   | Var x ->
     (match
@@ -22,21 +25,23 @@ and normalize_abstraction ctx (x, t, e) =
   let t = normalize ctx t in
     (x, t, normalize (Ctx.extend x t ctx) e)
 
-(* Equality of expressions. *)
-let rec equal ctx e1 e2 =
-  match normalize ctx e1, normalize ctx e2 with
-    | Var x1, Var x2 -> x1 = x2
-    | App (e11, e12), App (e21, e22) -> equal ctx e11 e21 && equal ctx e12 e22
-    | Universe u1, Universe u2 -> u1 = u2
-    | Pi a1, Pi a2 -> equal_abstraction ctx a1 a2
-    | Lambda a1, Lambda a2 -> equal_abstraction ctx a1 a2
-    | (Var _ | App _ | Universe _ | Pi _ | Lambda _), _ -> false
+(** [equal ctx e1 e2] determines whether normalized [e1] and [e2] are equal up to renaming
+    of bound variables. *)
+let equal ctx e1 e2 =
+  let rec equal e1 e2 =
+    match e1, e2 with
+      | Var x1, Var x2 -> x1 = x2
+      | App (e11, e12), App (e21, e22) -> equal e11 e21 && equal e12 e22
+      | Universe u1, Universe u2 -> u1 = u2
+      | Pi a1, Pi a2 -> equal_abstraction a1 a2
+      | Lambda a1, Lambda a2 -> equal_abstraction a1 a2
+      | (Var _ | App _ | Universe _ | Pi _ | Lambda _), _ -> false
+  and equal_abstraction (x, t1, e1) (y, t2, e2) =
+    equal t1 t2 && (equal e1 (subst [(y, Var x)] e2))
+  in
+    equal (normalize ctx e1) (normalize ctx e2)
 
-and equal_abstraction ctx (x, t1, e1) (y, t2, e2) =
-  equal ctx t1 t2 &&
-  (equal (Ctx.extend x t1 ctx) e1 (subst [(y, Var x)] e2))
-
-(* Type inference. *)
+(** [infer_type ctx e] infers the type of expression [e] in context [ctx].  *)
 let rec infer_type ctx = function
   | Var x ->
     (try Ctx.lookup_ty x ctx
@@ -56,18 +61,22 @@ let rec infer_type ctx = function
       check_equal ctx s te ;
       subst [(x, e2)] t
 
+(** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
   let u = infer_type ctx t in
     match normalize ctx u with
       | Universe u -> u
       | App _ | Var _ | Pi _ | Lambda _ -> Error.typing "type expected"
 
+(** [infer_pi ctx e] infers the type of [e] in context [ctx], verifies that it is
+    of the form [Pi (x, t1, t2)] and returns the triple [(x, t1, t2)]. *)
 and infer_pi ctx e =
   let t = infer_type ctx e in
     match normalize ctx t with
       | Pi a -> a
       | Var _ | App _ | Universe _ | Lambda _ -> Error.typing "function expected"
 
-and check_equal ctx t1 t2 =
-  if not (equal ctx t1 t2)
-  then Error.typing "expressions %t and %t are not equal" (Print.expr t1) (Print.expr t2)
+(** [check_equal ctx e1 e2] checks that expressions [e1] and [e2] are equal. *)
+and check_equal ctx e1 e2 =
+  if not (equal ctx e1 e2)
+  then Error.typing "expressions %t and %t are not equal" (Print.expr e1) (Print.expr e2)

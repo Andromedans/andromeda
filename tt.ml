@@ -1,4 +1,4 @@
-(** TT with pies and universes indexed by numerals *)
+(** Toplevel. *)
 
 let usage = "Usage: tt [option] ... [file] ..."
 let interactive_shell = ref true
@@ -12,12 +12,15 @@ Context.                       print current contex
 Help.                          print this help
 Quit.                          exit" ;;
 
-(* A list of files to be loaded and run. *)
+(** A list of files to be loaded and run. *)
 let files = ref []
+
 let add_file interactive filename = (files := (filename, interactive) :: !files)
+
+(** A list of command-line wrappers to look for. *)
 let wrapper = ref (Some ["rlwrap"; "ledit"])
 
-(* Command-line options *)
+(** Command-line options *)
 let options = Arg.align [
   ("--wrapper",
     Arg.String (fun str -> wrapper := Some [str]),
@@ -38,12 +41,12 @@ let options = Arg.align [
     "<file> Load <file> into the initial environment");
 ]
 
-(* Treat anonymous arguments as files to be run. *)
+(** Treat anonymous arguments as files to be run. *)
 let anonymous str =
   add_file true str;
   interactive_shell := false
 
-(* Parser wrapper *)
+(** Parser wrapper *)
 let parse parser lex =
   try
     parser Lexer.token lex
@@ -55,50 +58,50 @@ let parse parser lex =
 
 let initial_ctx = []
 
-(* [exec_cmd env c] executes toplevel command [c] in global
-    context [ctx]. It prints the result on standard output
-    and return the new environment. *)
-let rec exec_cmd interactive ctx e =
-  match e with
-  | Syntax.Eval e ->
-    let t = Infer.infer_type ctx e in
-    let e = Infer.normalize ctx e in
-      if interactive then Format.printf "    = @[%t@]@\n    : @[%t@]@."
-        (Print.expr e)
-        (Print.expr t) ;
+(** [exec_cmd ctx d] executes toplevel directive [d] in global context [ctx]. It prints the
+    result on standard output and return the new context. *)
+let rec exec_cmd interactive ctx d =
+  match d with
+    | Syntax.Eval e ->
+      let t = Infer.infer_type ctx e in
+      let e = Infer.normalize ctx e in
+        if interactive then Format.printf "    = @[%t@]@\n    : @[%t@]@."
+          (Print.expr e)
+          (Print.expr t) ;
+        ctx
+    | Syntax.Context ->
+      List.iter
+        (function
+          | (x, (t, None)) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr t)
+          | (x, (t, Some e)) -> Format.printf "@[%t = %t@]@\n    : @[%t@]@."
+            (Print.variable x) (Print.expr e) (Print.expr t))
+        ctx ;
       ctx
-  | Syntax.Context ->
-    List.iter
-      (function
-        | (x, (t, None)) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr t)
-        | (x, (t, Some e)) -> Format.printf "@[%t = %t@]@\n    : @[%t@]@."
-          (Print.variable x) (Print.expr e) (Print.expr t))
-      ctx ;
-    ctx
-  | Syntax.Parameter (x, t) ->
-    ignore (Infer.infer_universe ctx t) ;
-    if interactive then
-      Format.printf "@[%t is assumed@]@." (Print.variable x) ;
-    Ctx.extend x t ctx
-  | Syntax.Definition (x, e) ->
-    if List.mem_assoc x ctx then Error.typing "%t already exists" (Print.variable x) ;
-    let t = Infer.infer_type ctx e in
+    | Syntax.Parameter (x, t) ->
+      ignore (Infer.infer_universe ctx t) ;
       if interactive then
-        Format.printf "@[%t is defined@]@." (Print.variable x) ;
-      Ctx.extend x t ~value:e ctx
-  | Syntax.Check e ->
-    let t = Infer.infer_type ctx e in
-      Format.printf "@[%t@]@\n    : @[%t@]@." (Print.expr e) (Print.expr t) ;
-      ctx
-  | Syntax.Help ->
+        Format.printf "@[%t is assumed@]@." (Print.variable x) ;
+      Ctx.extend x t ctx
+    | Syntax.Definition (x, e) ->
+      if List.mem_assoc x ctx then Error.typing "%t already exists" (Print.variable x) ;
+      let t = Infer.infer_type ctx e in
+        if interactive then
+          Format.printf "@[%t is defined@]@." (Print.variable x) ;
+        Ctx.extend x t ~value:e ctx
+    | Syntax.Check e ->
+      let t = Infer.infer_type ctx e in
+        Format.printf "@[%t@]@\n    : @[%t@]@." (Print.expr e) (Print.expr t) ;
+        ctx
+    | Syntax.Help ->
       print_endline help_text ; ctx
-  | Syntax.Quit -> exit 0
+    | Syntax.Quit -> exit 0
 
+(** Load directives from the given file. *)
 and use_file ctx (filename, interactive) =
   let cmds = Lexer.read_file (parse Parser.directives) filename in
     List.fold_left (exec_cmd interactive) ctx cmds
 
-(* Interactive toplevel *)
+(** Interactive toplevel *)
 let toplevel ctx =
   let eof = match Sys.os_type with
     | "Unix" | "Cygwin" -> "Ctrl-D"
@@ -119,7 +122,7 @@ let toplevel ctx =
     done
   with End_of_file -> ()
 
-(* Main program *)
+(** Main program *)
 let main =
   Sys.catch_break true;
   (* Parse the arguments. *)
