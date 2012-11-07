@@ -1,5 +1,5 @@
 %{
-  open Concrete
+  open Syntax
 %}
 
 %token FORALL FUN TYPE
@@ -11,7 +11,7 @@
 %token QUIT HELP PARAMETER CHECK EVAL CONTEXT DEFINITION
 %token EOF
 
-%start <Concrete.directive list> directives
+%start <Syntax.directive list> directives
 
 %%
 

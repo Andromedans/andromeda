@@ -5,24 +5,22 @@ let rec normalize ctx = function
   | Var x ->
     (match
         (try Ctx.lookup_value x ctx
-         with Not_found -> Error.runtime "unkown identifier %t" (Print.variable x))
+         with Not_found -> Error.runtime "shit, unkown identifier %t" (Print.variable x))
      with
        | None -> Var x
        | Some e -> normalize ctx e)
   | App (e1, e2) ->
     let e2 = normalize ctx e2 in
       (match normalize ctx e1 with
-        | Lambda (_, _, f) -> normalize ctx (f e2)
+        | Lambda (x, _, e1') -> normalize ctx (subst [(x,e2)] e1')
         | e1 -> App (e1, e2))
   | Universe k -> Universe k
   | Pi a -> Pi (normalize_abstraction ctx a)
   | Lambda a -> Lambda (normalize_abstraction ctx a)
 
-and normalize_abstraction ctx (x, t, f) =
+and normalize_abstraction ctx (x, t, e) =
   let t = normalize ctx t in
-  let x = Concrete.fresh_var x in
-  let f v = normalize (Ctx.extend x t ~value:v ctx) (f (Var x)) in
-    (x, t, f)
+    (x, t, normalize (Ctx.extend x t ctx) e)
 
 (* Equality of expressions. *)
 let rec equal ctx e1 e2 =
@@ -34,10 +32,9 @@ let rec equal ctx e1 e2 =
     | Lambda a1, Lambda a2 -> equal_abstraction ctx a1 a2
     | (Var _ | App _ | Universe _ | Pi _ | Lambda _), _ -> false
 
-and equal_abstraction ctx (x, t1, f1) (_, t2, f2) =
+and equal_abstraction ctx (x, t1, e1) (y, t2, e2) =
   equal ctx t1 t2 &&
-  (let x = Concrete.fresh_var x in
-     equal (Ctx.extend x t1 ctx) (f1 (Var x)) (f2 (Var x)))
+  (equal (Ctx.extend x t1 ctx) e1 (subst [(y, Var x)] e2))
 
 (* Type inference. *)
 let rec infer_type ctx = function
@@ -47,21 +44,17 @@ let rec infer_type ctx = function
   | Universe u -> Universe (u + 1)
   | Pi (x, t1, t2) ->
     let u1 = infer_universe ctx t1 in
-    let x = Concrete.fresh_var x in
-    let ctx = Ctx.extend x t1 ctx in
-    let u2 = infer_universe ctx (t2 (Var x)) in
+    let u2 = infer_universe (Ctx.extend x t1 ctx) t2 in
       Universe (max u1 u2)
   | Lambda (x, t, e) ->
     let _ = infer_universe ctx t in
-    let x = Concrete.fresh_var x in
-    (* XXX: bug, infer_type does not get called immediately. *)
-    let f v = infer_type (Ctx.extend x t ~value:v ctx) (e (Var x)) in
-      Pi (x, t, f)
+    let te = infer_type (Ctx.extend x t ctx) e in
+      Pi (x, t, te)
   | App (e1, e2) ->
-    let (t1, f1) = infer_pi ctx e1 in
-    let t2 = infer_type ctx e2 in
-      check_equal ctx t1 t2 ;
-      f1 e2
+    let (x, s, t) = infer_pi ctx e1 in
+    let te = infer_type ctx e2 in
+      check_equal ctx s te ;
+      subst [(x, e2)] t
 
 and infer_universe ctx t =
   let u = infer_type ctx t in
@@ -72,7 +65,7 @@ and infer_universe ctx t =
 and infer_pi ctx e =
   let t = infer_type ctx e in
     match normalize ctx t with
-      | Pi (_, t, f) -> (t, f)
+      | Pi a -> a
       | Var _ | App _ | Universe _ | Lambda _ -> Error.typing "function expected"
 
 and check_equal ctx t1 t2 =

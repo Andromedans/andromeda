@@ -1,39 +1,41 @@
-type variable = Concrete.variable
+type variable =
+  | String of string
+  | Gensym of string * int
+  | Dummy
 
-type universe = Concrete.universe
+type universe = int
 
 type expr =
   | Var of variable
-  | Bound of int
-  | App of expr * expr
   | Universe of universe
   | Pi of abstraction
   | Lambda of abstraction
+  | App of expr * expr
 
 and abstraction = variable * expr * expr
 
-(* Compilation from concrete syntax. *)
-let compile ctx e =
-  let rec compile k 
+type directive =
+  | Quit
+  | Help
+  | Context
+  | Parameter of variable * expr
+  | Definition of variable * expr
+  | Check of expr
+  | Eval of expr
 
- function
-  | Concrete.Var x -> (try List.assoc x ctx with Not_found -> Var x)
-  | Concrete.Universe u -> Universe u
-  | Concrete.Pi a -> Pi (compile_abstraction env a)
-  | Concrete.Lambda a -> Lambda (compile_abstraction env a)
-  | Concrete.App (e1, e2) -> App (compile env e1, compile env e2)
+let refresh =
+  let k = ref 0 in
+    function
+      | String x | Gensym (x, _) -> (incr k ; Gensym (x, !k))
+      | Dummy -> (incr k ; Gensym ("_", !k))
 
-and compile_abstraction env (x, t, e) =
-  (x, compile env t, fun v -> compile ((x,v)::env) e)
+let rec subst s = function
+  | Var x -> (try List.assoc x s with Not_found -> Var x)
+  | Universe k -> Universe k
+  | Pi a -> Pi (subst_abstraction s a)
+  | Lambda a -> Lambda (subst_abstraction s a)
+  | App (e1, e2) -> App (subst s e1, subst s e2)
 
-(* Conversion back to concrete syntax, for pretty-printing. *)
-let rec uncompile = function
-  | Var x -> Concrete.Var x
-  | App (e1, e2) -> Concrete.App (uncompile e1, uncompile e2)
-  | Universe u -> Concrete.Universe u
-  | Pi a -> Concrete.Pi (uncompile_vabstraction a)
-  | Lambda a -> Concrete.Lambda (uncompile_vabstraction a)
-
-and uncompile_vabstraction (x, t, f) =
-  let x = Concrete.fresh_var x in
-    (x, uncompile t, uncompile (f (Var x)))
+and subst_abstraction s (x, t, e) =
+  let x' = refresh x in
+    (x', subst s t, subst ((x, Var x') :: s) e)
