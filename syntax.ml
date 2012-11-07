@@ -1,3 +1,4 @@
+(** Abstract syntax of expressions and toplevel directives. *)
 
 (** During substitution we generate fresh variable names. Because we want pretty printing,
     each freshly generated variable name should "remember" its preferred form. Thus a
@@ -21,6 +22,7 @@ type expr =
   | Lambda of abstraction
   | App of expr * expr
 
+(** An abstraction [(x,t,e)] indicates that [x] of type [t] is bound in [e]. *)
 and abstraction = variable * expr * expr
 
 (** Toplevel directives. *)

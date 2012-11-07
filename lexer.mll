@@ -1,4 +1,6 @@
 {
+  (** The lexer. *)
+
   open Parser
 
   let reserved = [

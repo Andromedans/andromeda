@@ -3,6 +3,7 @@ _build
 tt.native
 tt.byte
 parser.conflicts
+tt.docdir
 
 # Backup files
 *~
