@@ -1,10 +1,17 @@
-A minimalist implementation of type theory with universes and dependent products. The
-concrete syntax is as follows:
+A minimalist implementation of type theory in fewer than 500 lines of Ocaml code,
+including comments.
+
+## The type theory
+
+The dependent type theory `tt` has the following ingridients:
 
 * The universes are `Type 0`, `Type 1`, `Type 2`, ...
 * A dependent product is written as `forall x : T1, T2`
 * A function is written as `fun x : T => e`
 * Application is written as `e1 e2`
+
+The hierarchy of universes is not commulative, i.e., even though `Type k` has type `Type
+(k+1)`, `Type k` is *not* a subuniverse of `Type (k+1)`.
 
 ## Compilation
 
@@ -60,3 +67,17 @@ The code is meant to be short and sweet, and close to how type theory is present
 paper. Therefore, it is not suitable for a real implementation, as it will get horribly
 inefficient as soon as you try anything complicated. But it should be useful for
 experimentation.
+
+
+## What experiments should I perform to learn more?
+
+There are many things you can try, for example:
+
+* basic types `unit`, `bool` and `nat`
+* the eta rule for functions
+* dependent sums
+* de Bruijn indices
+* cummulative universes, so that [A : Type k] implies [A : Type (k+1)]
+* better type inference so that variables need not be explicitly typed
+* flexible syntax, e.g., allow `fun x y : nat => ...` instead of `fun x : nat => fun y : nat => ...`
+* prefix and infix operators
