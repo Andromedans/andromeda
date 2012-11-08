@@ -1,6 +1,4 @@
-A minimalist implementation of type theory in fewer than 500 lines of Ocaml code,
-including comments. This version corresponds to the one described in the blog post
-[How to implement dependent type theory I](http://math.andrej.com/2012/11/08/how-to-implement-dependent-type-theory-i/).
+A minimalist implementation of type theory in Ocaml. This is the master version.
 
 ## The type theory
 
