@@ -1,5 +1,10 @@
-all:
+default: native
+
+native:
 	ocamlbuild -lib unix -use-menhir tt.native
+
+byte:
+	ocamlbuild -lib unix -use-menhir tt.byte
 
 clean:
 	ocamlbuild -clean
