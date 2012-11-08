@@ -15,7 +15,7 @@ The hierarchy of universes is not commulative, i.e., even though `Type k` has ty
 
 ## Compilation
 
-You need `ocamlbuild` and `make`. You can type
+You need `ocamlbuild`, which is part of OCaml, `menhir`, and `make`. You can type
 
 * `make` to make the `tt.native` executable.
 * `make clean` to clean up.

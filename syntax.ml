@@ -11,17 +11,14 @@ type variable =
   | Gensym of string * int
   | Dummy
 
-(** Universes are indexed by numerals. *)
-type universe = int
-
 (** Abstract syntax of expressions. *)
 type expr =
   | Var of variable
-  | Universe of universe
+  | Universe of int
   | Pi of abstraction
   | Lambda of abstraction
   | App of expr * expr
-
+ 
 (** An abstraction [(x,t,e)] indicates that [x] of type [t] is bound in [e]. *)
 and abstraction = variable * expr * expr
 
