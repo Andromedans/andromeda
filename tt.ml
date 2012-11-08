@@ -7,7 +7,8 @@ let wrapper = ref (Some ["rlwrap"; "ledit"])
 let help_text = "Toplevel commands:
 Parameter <ident> : <expr>.    assume variable <ident> has type <expr>
 Definition <indent> := <expr>. define <ident> to be <expr>
-Eval <expr>.                   normalize an expression
+Check <expr>                   infer the type of expression <expr>
+Eval <expr>.                   normalize expression <expr>
 Context.                       print current contex    
 Help.                          print this help
 Quit.                          exit" ;;

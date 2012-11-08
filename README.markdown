@@ -29,21 +29,27 @@ You can type
 Type `Help.` in the interactive shell to see what the type system can do. Here is a sample
 session:
 
-    Type Ctrl-D to exit or "Help." for help.]
-    # Parameter nat : Type 0.
-    nat is assumed
-    # Parameter z : nat.
+    tt blog-part-I
+    [Type Ctrl-D to exit or "Help." for help.]
+    # Parameter N : Type 0.
+    N is assumed
+    # Parameter z : N. Parameter s : N -> N.
     z is assumed
-    # Parameter s : nat -> nat.
     s is assumed
-    # Eval (fun f : nat -> nat => fun n : nat => f (f (f (f n)))) (fun n : nat => s (s (s n))) (s (s (s (s z)))).
-        = s (s (s (s (s (s (s (s (s (s (s (s (s (s (s (s z)))))))))))))))
-        : nat
-    # Check (fun A : Type 0 => fun f : A -> Type 1 => fun a : A => f A).
-    Typing error: type mismatch
-    # Check (fun A : Type 0 => fun f : A -> Type 1 => fun a : A => f a).
-    fun A : Type 0 => fun f : A -> Type 1 => fun a : A => f a
-        : forall A : Type 0, (A -> Type 1) -> A -> Type 1
+    # Definition three := fun f : N -> N => fun x : N => f (f (f x)).
+    three is defined
+    # Context.
+    three = fun f : N -> N => fun x : N => f (f (f x))
+        : (N -> N) -> N -> N
+    s : N -> N
+    z : N
+    N : Type 0
+    # Check (three (three s)).
+    three (three s)
+        : N -> N
+    # Eval (three (three s)) z.
+        = s (s (s (s (s (s (s (s (s z))))))))
+        : N
 
 
 ## Source code
