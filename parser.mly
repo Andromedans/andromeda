@@ -1,5 +1,20 @@
 %{
   open Syntax
+
+  (* Build nested lambdas *)
+  let rec make_lambda e = function
+    | [] -> e
+    | (xs, t) :: lst ->
+      let e = make_lambda e lst in
+        List.fold_left (fun e x -> Lambda (x, t, e)) e xs
+
+  (* Build nested pies *)
+  let rec make_pi e = function
+    | [] -> e
+    | (xs, t) :: lst ->
+      let e = make_lambda e lst in
+        List.fold_left (fun e x -> Pi (x, t, e)) e xs
+
 %}
 
 %token FORALL FUN TYPE
@@ -44,12 +59,12 @@ directive:
 expr:
   | e = app_expr
     { e }
-  | FORALL a = pi_abstraction
-    { Pi a }
+  | FORALL lst = abstraction COMMA e = expr
+    { make_pi e lst }
   | t1 = app_expr ARROW t2 = expr
     { Pi (Dummy, t1, t2) }
-  | FUN a = fun_abstraction
-    { Lambda a }
+  | FUN lst = abstraction DARROW e = expr
+    { make_lambda e lst }
 
 app_expr:
   | e = simple_expr
@@ -65,12 +80,20 @@ simple_expr:
   | LPAREN e = expr RPAREN
     { e }
 
-pi_abstraction:
-  | x = NAME COLON t = expr COMMA e = expr
-    { (String x, t, e) }
+abstraction:
+  | b = bind1
+    { [b] }
+  | bs = binds
+    { bs }
 
-fun_abstraction:
-  | x = NAME COLON t = expr DARROW e = expr
-    { (String x, t, e) }
+bind1:
+  | xs = nonempty_list(NAME) COLON t = expr
+    { (List.map (fun x -> String x) xs, t) }
+
+binds:
+  | LPAREN b = bind1 RPAREN
+    { [b] }
+  | LPAREN b = bind1 RPAREN lst = binds
+    { b :: lst }
 
 %%
