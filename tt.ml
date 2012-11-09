@@ -53,9 +53,9 @@ let parse parser lex =
     parser Lexer.token lex
   with
   | Parser.Error ->
-      Error.syntax ""
+      Error.syntax ~loc:(Lexer.position_of_lex lex) ""
   | Failure "lexing: empty token" ->
-      Error.syntax "unrecognised symbol."
+      Error.syntax ~loc:(Lexer.position_of_lex lex) "unrecognised symbol."
 
 let initial_ctx = []
 
@@ -85,7 +85,7 @@ let rec exec_cmd interactive ctx (d, loc) =
         Format.printf "@[%t is assumed@]@." (Print.variable x) ;
       Ctx.extend x (fst t) ctx
     | Syntax.Definition (x, e) ->
-      if List.mem_assoc x ctx then Error.typing "%t already exists" (Print.variable x) ;
+      if List.mem_assoc x ctx then Error.typing ~loc "%t already exists" (Print.variable x) ;
       let t = Infer.infer_type ctx e in
         if interactive then
           Format.printf "@[%t is defined@]@." (Print.variable x) ;

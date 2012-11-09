@@ -21,6 +21,20 @@ let print ?(max_level=9999) ?(at_level=0) ppf =
       Format.kfprintf (fun ppf -> Format.fprintf ppf "@]") ppf
     end
 
+let position loc ppf =
+  match loc with
+  | Syntax.Nowhere ->
+      Format.fprintf ppf "unknown position"
+  | Syntax.Position (begin_pos, end_pos) ->
+      let begin_char = begin_pos.Lexing.pos_cnum - begin_pos.Lexing.pos_bol + 1 in
+      let begin_line = begin_pos.Lexing.pos_lnum in
+      let filename = begin_pos.Lexing.pos_fname in
+
+      if String.length filename != 0 then
+        Format.fprintf ppf "file %S, line %d, char %d" filename begin_line begin_char
+      else
+        Format.fprintf ppf "line %d, char %d" (begin_line - 1) begin_char
+
 (** Print the name of a variable. *)
 let variable x ppf =
   match x with
@@ -47,15 +61,15 @@ let expr' e ppf = expr (Syntax.nowhere e) ppf
   
 (** Support for printing of errors, warning and debugging information. *)
 let verbosity = ref 3
-let message msg_type v =
+let message ?(loc=Syntax.Nowhere) msg_type v =
   if v <= !verbosity then
     begin
-      Format.eprintf "@[%s: " msg_type;
+      Format.eprintf "@[%s (%t): " msg_type (position loc);
       Format.kfprintf (fun ppf -> Format.fprintf ppf "@]@.") Format.err_formatter
     end
   else
     Format.ifprintf Format.err_formatter
 
-let error (err_type, msg) = message (err_type) 1 "%s" msg
+let error (loc, err_type, msg) = message ~loc (err_type) 1 "%s" msg
 let warning msg = message "Warning" 2 msg
 let debug msg = message "Debug" 3 msg

@@ -19,6 +19,8 @@
     ("Context", CONTEXT)
   ]
 
+  let position_of_lex lex =
+    Syntax.Position (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
 }
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
@@ -63,7 +65,7 @@ rule token = parse
       Error.Error err -> close_in fh; raise (Error.Error err)
   with
     (* Any errors when opening or closing a file are fatal. *)
-    Sys_error msg -> Error.fatal "%s" msg
+    Sys_error msg -> Error.fatal ~loc:Syntax.Nowhere "%s" msg
 
 
   let read_toplevel parser () =

@@ -40,7 +40,7 @@ let eval ctx =
             begin
               match
                 (try Ctx.lookup_value x ctx
-                 with Not_found -> Error.runtime "unkown identifier %t" (Print.variable x))
+                 with Not_found -> Error.runtime ~loc "unkown identifier %t" (Print.variable x))
               with
                 | None -> Neutral (Var x)
                 | Some e -> eval env e
@@ -54,7 +54,7 @@ let eval ctx =
         (match eval env e1 with
           | Lambda (_, _, f) -> f v2
           | Neutral n -> Neutral (App (n, v2))
-          | Universe _ | Pi _ -> Error.runtime "Function expected")
+          | Universe _ | Pi _ -> Error.runtime ~loc:(snd e2) "Function expected")
   and eval_abstraction env (x, t, e) =
     (x, eval env t, fun v -> eval ((x, v) :: env) e)
   in
