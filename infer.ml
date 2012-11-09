@@ -5,26 +5,40 @@ open Ctx
 
 (** [normalize ctx e] normalizes the given expression [e] in context [ctx]. It removes
     all redexes and it unfolds all definitions. It performs normalization under binders.  *)
-let rec normalize ctx = function
-  | Var x ->
-    (match
-        (try lookup_value x ctx
-         with Not_found -> Error.runtime "unkown identifier %t" (Print.variable x))
-     with
-       | None -> Var x
-       | Some e -> normalize ctx e)
-  | App (e1, e2) ->
-    let e2 = normalize ctx e2 in
-      (match normalize ctx e1 with
-        | Lambda (x, _, e1') -> normalize ctx (subst [(x,e2)] e1')
-        | e1 -> App (e1, e2))
-  | Universe k -> Universe k
-  | Pi a -> Pi (normalize_abstraction ctx a)
-  | Lambda a -> Lambda (normalize_abstraction ctx a)
-
-and normalize_abstraction ctx (x, t, e) =
-  let t = normalize ctx t in
-    (x, t, normalize (extend x t ctx) e)
+let normalize ctx = 
+  (* A tenent of normalization is that it should not look at types. Therefore we carry
+     around an environment [env] which maps variables to optional normalized values,
+     without typing information. We still have to look inside the global context [ctx]
+     when a variable is not found in [env]. *)
+  let rec normalize env = function
+    | Var x ->
+      begin
+        try
+          (match List.assoc x env with
+            | Some v -> v
+            | None -> Var x)
+        with Not_found ->
+          begin
+            match
+              (try lookup_value x ctx
+               with Not_found -> Error.runtime "unkown identifier %t" (Print.variable x))
+            with
+              | None -> Var x
+              | Some e -> normalize env e
+          end
+      end
+    | App (e1, e2) ->
+      let e2 = normalize env e2 in
+        (match normalize env e1 with
+          | Lambda (x, _, e1') -> normalize ((x, Some e2) :: env) e1'
+          | e1 -> App (e1, e2))
+    | Universe k -> Universe k
+    | Pi a -> Pi (normalize_abstraction env a)
+    | Lambda a -> Lambda (normalize_abstraction env a)
+  and normalize_abstraction env (x, t, e) =
+    (x, normalize env t, normalize ((x, None) :: env) e)
+  in
+    normalize []
 
 (** [equal ctx e1 e2] determines whether normalized [e1] and [e2] are equal up to renaming
     of bound variables. *)
