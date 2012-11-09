@@ -30,7 +30,8 @@ let variable x ppf =
 
 (** [expr e ppf] prints (beautified) expression [e] using formatter [ppf]. *)
 let expr e ppf =
-  let rec expr ?max_level e ppf =
+  let rec expr ?max_level (e, _) ppf =  expr'?max_level e ppf
+  and expr' ?max_level e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       match e with
         | Syntax.Var x -> variable x ppf
@@ -41,7 +42,9 @@ let expr e ppf =
         | Syntax.App (e1, e2) -> print ~at_level:1 "%t@;%t" (expr ~max_level:1 e1) (expr ~max_level:0 e2)
   in
     expr (Beautify.beautify e) ppf
-      
+    
+let expr' e ppf = expr (Syntax.nowhere e) ppf
+  
 (** Support for printing of errors, warning and debugging information. *)
 let verbosity = ref 3
 let message msg_type v =

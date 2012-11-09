@@ -61,28 +61,29 @@ let initial_ctx = []
 
 (** [exec_cmd ctx d] executes toplevel directive [d] in global context [ctx]. It prints the
     result on standard output and return the new context. *)
-let rec exec_cmd interactive ctx d =
+let rec exec_cmd interactive ctx (d, loc) =
   match d with
     | Syntax.Eval e ->
       let t = Infer.infer_type ctx e in
       let e = Infer.normalize ctx e in
-        if interactive then Format.printf "    = @[%t@]@\n    : @[%t@]@."
-          (Print.expr e)
-          (Print.expr t) ;
+        if interactive then
+          Format.printf "    = @[%t@]@\n    : @[%t@]@."
+            (Print.expr' e)
+            (Print.expr' t) ;
         ctx
     | Syntax.Context ->
       List.iter
         (function
-          | (x, (t, None)) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr t)
+          | (x, (t, None)) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr' t)
           | (x, (t, Some e)) -> Format.printf "@[%t = %t@]@\n    : @[%t@]@."
-            (Print.variable x) (Print.expr e) (Print.expr t))
+            (Print.variable x) (Print.expr e) (Print.expr' t))
         ctx ;
       ctx
     | Syntax.Parameter (x, t) ->
       ignore (Infer.infer_universe ctx t) ;
       if interactive then
         Format.printf "@[%t is assumed@]@." (Print.variable x) ;
-      Ctx.extend x t ctx
+      Ctx.extend x (fst t) ctx
     | Syntax.Definition (x, e) ->
       if List.mem_assoc x ctx then Error.typing "%t already exists" (Print.variable x) ;
       let t = Infer.infer_type ctx e in
@@ -91,7 +92,7 @@ let rec exec_cmd interactive ctx d =
         Ctx.extend x t ~value:e ctx
     | Syntax.Check e ->
       let t = Infer.infer_type ctx e in
-        Format.printf "@[%t@]@\n    : @[%t@]@." (Print.expr e) (Print.expr t) ;
+        Format.printf "@[%t@]@\n    : @[%t@]@." (Print.expr e) (Print.expr' t) ;
         ctx
     | Syntax.Help ->
       print_endline help_text ; ctx

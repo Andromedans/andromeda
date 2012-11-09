@@ -34,22 +34,25 @@ let find_available x sbst =
         y ^ string_of_int !k
 
 (** Does [x] occur freely in the given expression? *)
-let rec occurs x = function
-  | Var y -> x = y
-  | Universe _ -> false
-  | Pi (y, e1, e2)
-  | Lambda (y, e1, e2) -> occurs x e1 || (x <> y && occurs x e2)
-  | App (e1, e2) -> occurs x e1 || occurs x e2
+let rec occurs x (e, _) =
+  match e with
+    | Var y -> x = y
+    | Universe _ -> false
+    | Pi (y, e1, e2)
+    | Lambda (y, e1, e2) -> occurs x e1 || (x <> y && occurs x e2)
+    | App (e1, e2) -> occurs x e1 || occurs x e2
 
 (** Rename bound variables in the given expression for the purposes of
     pretty printing. *)
 let beautify =
-  let rec beautify sbst = function
-    | Var x -> (try Var (List.assoc x sbst) with Not_found -> Var x)
-    | Universe k -> Universe k
-    | Pi a -> Pi (beautify_abstraction sbst a)
-    | Lambda a -> Lambda (beautify_abstraction sbst a)
-    | App (e1, e2) -> App (beautify sbst e1, beautify sbst e2)
+  let rec beautify sbst (e, loc) =
+    (match e with
+      | Var x -> (try Var (List.assoc x sbst) with Not_found -> Var x)
+      | Universe k -> Universe k
+      | Pi a -> Pi (beautify_abstraction sbst a)
+      | Lambda a -> Lambda (beautify_abstraction sbst a)
+      | App (e1, e2) -> App (beautify sbst e1, beautify sbst e2)),
+    loc
       
   and beautify_abstraction sbst (x, e1, e2) =
     let e1 = beautify sbst e1 in
