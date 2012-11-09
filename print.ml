@@ -24,7 +24,7 @@ let print ?(max_level=9999) ?(at_level=0) ppf =
 (** Print the name of a variable. *)
 let variable x ppf =
   match x with
-    | Syntax.Dummy -> assert false (* should never happen *)
+    | Syntax.Dummy -> print ppf "_"
     | Syntax.String x -> print ppf "%s" x
     | Syntax.Gensym (x, k) -> print ppf "%s_%d" x k
 
