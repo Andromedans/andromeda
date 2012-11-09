@@ -46,7 +46,7 @@ let eval ctx =
                 | Some e -> eval env e
             end
         end
-      | Syntax.Universe k -> Universe (k+1)
+      | Syntax.Universe k -> Universe k
       | Syntax.Pi a -> Pi (eval_abstraction env a)
       | Syntax.Lambda a -> Lambda (eval_abstraction env a)
       | Syntax.App (e1, e2) ->
