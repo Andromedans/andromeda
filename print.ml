@@ -38,7 +38,7 @@ let expr e ppf =
         | Syntax.Pi (Syntax.Dummy, t1, t2) -> print ~at_level:3 "%t ->@;%t" (expr ~max_level:2 t1) (expr t2)
         | Syntax.Pi (x, t1, t2) -> print ~at_level:3 "forall %t : %t,@;%t" (variable x) (expr ~max_level:4 t1) (expr t2)
         | Syntax.Lambda (x, t, e) -> print ~at_level:3 "fun %t : %t =>@;%t" (variable x) (expr t) (expr e)
-        | Syntax.App (e1, e2) -> print ~at_level:1 "%t %t" (expr ~max_level:1 e1) (expr ~max_level:0 e2)
+        | Syntax.App (e1, e2) -> print ~at_level:1 "%t@;%t" (expr ~max_level:1 e1) (expr ~max_level:0 e2)
   in
     expr (Beautify.beautify e) ppf
       
