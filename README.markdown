@@ -1,4 +1,5 @@
-A minimalist implementation of type theory in Ocaml. This is the master version.
+A minimalist implementation of type theory in Ocaml. This version corresponds to the one described
+in the blog post [How to implement dependent type theory II](http://math.andrej.com/2012/11/11/how-to-implement-dependent-type-theory-ii).
 
 ## The type theory
 
