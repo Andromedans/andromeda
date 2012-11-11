@@ -68,7 +68,7 @@ let rec exec_cmd interactive ctx (d, loc) =
       let e = Infer.normalize ctx e in
         if interactive then
           Format.printf "    = @[%t@]@\n    : @[%t@]@."
-            (Print.expr' e)
+            (Print.expr e)
             (Print.expr' t) ;
         ctx
     | Syntax.Context ->

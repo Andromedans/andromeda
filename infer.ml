@@ -4,10 +4,19 @@ open Syntax
 open Ctx
 
 (** [normalize ctx e] normalizes the given expression [e] in context [ctx]. It removes
-    all redexes and it unfolds all definitions. It performs normalization under binders.  *)
-let normalize ctx e = Value.reify' (Value.eval ctx e)
+    all redexes and it unfolds all definitions. It performs normalization under binders.
+    We use the "normalization by evaluation" technique, in which the expression is
+    evaluated to an Ocaml value, which is then reified back to an expression. The effect
+    of this is that two equal expressions get evaluated to (observationally) equivalent
+    values, and hence their reification are syntactically equal (up to renaming of bound
+    variables. *)
+let normalize ctx e = Value.reify (Value.eval ctx e)
 
-let equal ctx e1 e2 = Value.equal (Value.eval ctx e1) (Value.eval ctx e2)
+let normalize' ctx e = Value.reify' (Value.eval' ctx e)
+
+
+(** [equal ctx e1 e2] compares expressions [e1] and [e2] for equality. *)
+let equal ctx e1 e2 = Value.equal (Value.eval' ctx e1) (Value.eval' ctx e2)
 
 (** [infer_type ctx e] infers the type of expression [e] in context [ctx].  *)
 let rec infer_type ctx (e, loc) : expr' =
@@ -27,23 +36,23 @@ let rec infer_type ctx (e, loc) : expr' =
     | App (e1, e2) ->
       let (x, s, t) = infer_pi ctx e1 in
       let te = infer_type ctx e2 in
-        if not (equal ctx s (Syntax.nowhere te))
-        then Error.typing ~loc:(snd e2) "this expresion has type %t but %t was expected" (Print.expr' te) (Print.expr s) ;
+        if not (equal ctx (fst s) te)
+        then Error.typing ~loc:(snd e2) "this expresion has type@;@[%t@]@;but@;@[%t@]@;was expected" (Print.expr' te) (Print.expr s) ;
         fst (subst [(x, fst e2)] t)
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
   let u = infer_type ctx t in
-    match normalize ctx (u, snd t) with
+    match normalize' ctx u with
       | Universe k -> k
       | App _ | Var _ | Pi _ | Lambda _ ->
-        Error.typing ~loc:(snd t) "this expression has type %t but it should be a universe" (Print.expr' u)
+        Error.typing ~loc:(snd t) "this expression has type@;@[%t@]@;but it should be a universe" (Print.expr' u)
 
 (** [infer_pi ctx e] infers the type of [e] in context [ctx], verifies that it is
     of the form [Pi (x, t1, t2)] and returns the triple [(x, t1, t2)]. *)
 and infer_pi ctx e =
   let t = infer_type ctx e in
-    match normalize ctx (t, snd e) with
+    match normalize' ctx t with
       | Pi a -> a
       | Var _ | App _ | Universe _ | Lambda _ ->
-        Error.typing ~loc:(snd e) "this expression has type %t but it should be a function" (Print.expr' t)
+        Error.typing ~loc:(snd e) "this expression has type@;@[%t@]@;but it should be a function" (Print.expr' t)

@@ -1,5 +1,8 @@
+(** Values used for normalization-by-evaluation. *)
+
 type variable = Syntax.variable
 
+(** The type of values. The [Neutral] values are applications whose head is a variable. *)
 type value =
   | Neutral of neutral
   | Universe of int
@@ -12,6 +15,8 @@ and neutral =
   | Var of variable
   | App of neutral * value
 
+(** Comparison of values for equality. It descends into abstractions by first applying them
+    to freshly generated variables, which has the effect of alpha-equivalence. *)
 let rec equal v1 v2 =
   match v1, v2 with
     | Neutral n1, Neutral n2 -> equal_neutral n1 n2
@@ -30,6 +35,7 @@ and equal_neutral n1 n2 =
     | App (n1, v1), App (n2, v2) -> equal_neutral n1 n2 && equal v1 v2
     | (Var _ | App _), _ -> false
 
+(** [eval ctx e] evaluates expression [e] in context [ctx] to a value. *)
 let eval ctx =
   let rec eval env (e, loc) =
     match e with
@@ -60,7 +66,12 @@ let eval ctx =
   in
     eval []
 
-let rec reify x = Syntax.nowhere (reify' x)
+(** [eval' ctx e] is like [eval ctx e] except that [e] is an expression without
+    position. *)
+let eval' ctx e = eval ctx (Syntax.nowhere e)
+
+(** [reify v] reifies value [v] to an expression. *)
+let rec reify v = Syntax.nowhere (reify' v)
 
 and reify' = function
   | Neutral n -> reify_neutral' n
