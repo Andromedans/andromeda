@@ -21,19 +21,21 @@ let print ?(max_level=9999) ?(at_level=0) ppf =
       Format.kfprintf (fun ppf -> Format.fprintf ppf "@]") ppf
     end
 
+(** Print the given source code position. *)
 let position loc ppf =
   match loc with
   | Syntax.Nowhere ->
       Format.fprintf ppf "unknown position"
   | Syntax.Position (begin_pos, end_pos) ->
-      let begin_char = begin_pos.Lexing.pos_cnum - begin_pos.Lexing.pos_bol + 1 in
+      let begin_char = begin_pos.Lexing.pos_cnum - begin_pos.Lexing.pos_bol in
+      let end_char = end_pos.Lexing.pos_cnum - begin_pos.Lexing.pos_bol in
       let begin_line = begin_pos.Lexing.pos_lnum in
       let filename = begin_pos.Lexing.pos_fname in
 
       if String.length filename != 0 then
-        Format.fprintf ppf "file %S, line %d, char %d" filename begin_line begin_char
+        Format.fprintf ppf "file %S, line %d, charaters %d-%d" filename begin_line begin_char end_char
       else
-        Format.fprintf ppf "line %d, char %d" (begin_line - 1) begin_char
+        Format.fprintf ppf "line %d, characters %d-%d" (begin_line - 1) begin_char end_char
 
 (** Print the name of a variable. *)
 let variable x ppf =
@@ -64,7 +66,7 @@ let verbosity = ref 3
 let message ?(loc=Syntax.Nowhere) msg_type v =
   if v <= !verbosity then
     begin
-      Format.eprintf "@[%s (%t): " msg_type (position loc);
+      Format.eprintf "%s at %t:@\n  @[" msg_type (position loc) ;
       Format.kfprintf (fun ppf -> Format.fprintf ppf "@]@.") Format.err_formatter
     end
   else

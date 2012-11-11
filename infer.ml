@@ -37,7 +37,7 @@ let rec infer_type ctx (e, loc) : expr' =
       let (x, s, t) = infer_pi ctx e1 in
       let te = infer_type ctx e2 in
         if not (equal ctx (fst s) te)
-        then Error.typing ~loc:(snd e2) "this expresion has type@;@[%t@]@;but@;@[%t@]@;was expected" (Print.expr' te) (Print.expr s) ;
+        then Error.typing ~loc:(snd e2) "this expresion has type@ %t@ but@ %t@ was expected" (Print.expr' te) (Print.expr s) ;
         fst (subst [(x, fst e2)] t)
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
@@ -46,7 +46,7 @@ and infer_universe ctx t =
     match normalize' ctx u with
       | Universe k -> k
       | App _ | Var _ | Pi _ | Lambda _ ->
-        Error.typing ~loc:(snd t) "this expression has type@;@[%t@]@;but it should be a universe" (Print.expr' u)
+        Error.typing ~loc:(snd t) "this expression has type@ %t@ but it should be a universe" (Print.expr' u)
 
 (** [infer_pi ctx e] infers the type of [e] in context [ctx], verifies that it is
     of the form [Pi (x, t1, t2)] and returns the triple [(x, t1, t2)]. *)
@@ -55,4 +55,4 @@ and infer_pi ctx e =
     match normalize' ctx t with
       | Pi a -> a
       | Var _ | App _ | Universe _ | Lambda _ ->
-        Error.typing ~loc:(snd e) "this expression has type@;@[%t@]@;but it should be a function" (Print.expr' t)
+        Error.typing ~loc:(snd e) "this expression has type@ %t@ but it should be a function" (Print.expr' t)
