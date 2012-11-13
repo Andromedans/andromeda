@@ -13,6 +13,7 @@ and abstraction = variable * value * (value -> value)
 
 and neutral =
   | Var of variable
+  | EVar of int
   | App of neutral * value
 
 (** Comparison of values for equality. It descends into abstractions by first applying them
@@ -32,8 +33,9 @@ and equal_abstraction (x, v1, f1) (_, v2, f2) =
 and equal_neutral n1 n2 =
   match n1, n2 with
     | Var x1, Var x2 -> x1 = x2
+    | EVar x1, EVar x2 -> x1 = x2
     | App (n1, v1), App (n2, v2) -> equal_neutral n1 n2 && equal v1 v2
-    | (Var _ | App _), _ -> false
+    | (Var _ | EVar _ | App _), _ -> false
 
 (** [eval ctx e] evaluates expression [e] in context [ctx] to a value. *)
 let eval ctx =
@@ -52,6 +54,7 @@ let eval ctx =
                 | Some e -> eval env e
             end
         end
+      | Syntax.EVar k -> Neutral (EVar k)
       | Syntax.Universe k -> Universe k
       | Syntax.Pi a -> Pi (eval_abstraction env a)
       | Syntax.Lambda a -> Lambda (eval_abstraction env a)
@@ -61,6 +64,7 @@ let eval ctx =
           | Lambda (_, _, f) -> f v2
           | Neutral n -> Neutral (App (n, v2))
           | Universe _ | Pi _ -> Error.runtime ~loc:(snd e2) "Function expected")
+      | Syntax.Ascribe (e, _) -> eval env e
   and eval_abstraction env (x, t, e) =
     (x, eval env t, fun v -> eval ((x, v) :: env) e)
   in
@@ -87,4 +91,5 @@ and reify_neutral n = Common.nowhere (reify_neutral' n)
 
 and reify_neutral' = function
   | Var x -> Syntax.Var x
+  | EVar k -> Syntax.EVar k
   | App (n, v) -> Syntax.App (reify_neutral n, reify v)

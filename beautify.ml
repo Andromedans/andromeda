@@ -37,9 +37,11 @@ let find_available x sbst =
 let rec occurs x (e, _) =
   match e with
     | Var y -> x = y
+    | EVar _ -> false
     | Universe _ -> false
     | Pi a | Lambda a -> occurs_abstraction x a
     | App (e1, e2) -> occurs x e1 || occurs x e2
+    | Ascribe (e1, e2) -> occurs x e1 || occurs x e2
 
 and occurs_abstraction x (y, e1, e2) =
   occurs x e1 || (x <> y && occurs x e2)
@@ -50,10 +52,12 @@ let beautify =
   let rec beautify sbst (e, loc) =
     (match e with
       | Var x -> (try Var (List.assoc x sbst) with Not_found -> Var x)
+      | EVar k -> EVar k
       | Universe k -> Universe k
       | Pi a -> Pi (beautify_abstraction sbst a)
       | Lambda a -> Lambda (beautify_abstraction sbst a)
-      | App (e1, e2) -> App (beautify sbst e1, beautify sbst e2)),
+      | App (e1, e2) -> App (beautify sbst e1, beautify sbst e2)
+      | Ascribe (e1, e2) -> Ascribe (beautify sbst e1, beautify sbst e2)),
     loc
       
   and beautify_abstraction sbst (x, e1, e2) =

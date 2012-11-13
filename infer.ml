@@ -24,6 +24,7 @@ let rec infer_type ctx (e, loc) : expr' =
     | Var x ->
       (try lookup_ty x ctx
        with Not_found -> Error.typing ~loc "unkown identifier %t" (Print.variable x))
+    | EVar k -> Error.typing ~loc "underscores are not implemented yet"
     | Universe k -> Universe (k + 1)
     | Pi (x, t1, t2) ->
       let k1 = infer_universe ctx t1 in
@@ -39,13 +40,14 @@ let rec infer_type ctx (e, loc) : expr' =
         if not (equal ctx (fst s) te)
         then Error.typing ~loc:(snd e2) "this expresion has type@ %t@ but@ %t@ was expected" (Print.expr' te) (Print.expr s) ;
         fst (subst [(x, fst e2)] t)
+    | Ascribe (e1, e2) -> Error.typing ~loc "ascription not implemented"
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
   let u = infer_type ctx t in
     match normalize' ctx u with
       | Universe k -> k
-      | App _ | Var _ | Pi _ | Lambda _ ->
+      | App _ | EVar _ | Var _ | Pi _ | Lambda _ | Ascribe _ ->
         Error.typing ~loc:(snd t) "this expression has type@ %t@ but it should be a universe" (Print.expr' u)
 
 (** [infer_pi ctx e] infers the type of [e] in context [ctx], verifies that it is
@@ -54,5 +56,5 @@ and infer_pi ctx e =
   let t = infer_type ctx e in
     match normalize' ctx t with
       | Pi a -> a
-      | Var _ | App _ | Universe _ | Lambda _ ->
+      | Var _ | EVar _ | App _ | Universe _ | Lambda _ | Ascribe _ ->
         Error.typing ~loc:(snd e) "this expression has type@ %t@ but it should be a function" (Print.expr' t)

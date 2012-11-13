@@ -57,7 +57,8 @@ let sequence ?(sep="") f lst ppf =
 let rec pi a ppf =
   let rec collect (x, e1, e2) =
     match fst e2 with
-      | (Syntax.Var _ | Syntax.Universe _ | Syntax.Lambda _ | Syntax.App _) -> [([x], e1)], e2
+      | (Syntax.Var _ | Syntax.EVar _ | Syntax.Universe _ |
+          Syntax.Lambda _ | Syntax.App _ | Syntax.Ascribe _) -> [([x], e1)], e2
       | Syntax.Pi a ->
         begin match x, e1 with
           | Common.Anonymous, e1 -> let lst, e = collect a in ([x], e1) :: lst, e
@@ -82,7 +83,8 @@ let rec pi a ppf =
 and lambda a ppf =
   let rec collect (x, e1, e2) =
     match fst e2 with
-      | (Syntax.Var _ | Syntax.Universe _ | Syntax.Lambda _ | Syntax.App _) -> [([x], e1)], e2
+      | (Syntax.Var _ | Syntax.EVar _ | Syntax.Universe _ |
+          Syntax.Lambda _ | Syntax.App _ | Syntax.Ascribe _) -> [([x], e1)], e2
       | Syntax.Pi a ->
         (match collect a with
           | (ys, e1') :: lst, e when e1 = e1' -> (x::ys, e1') :: lst, e
@@ -104,10 +106,12 @@ and expr e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       match e with
         | Syntax.Var x -> variable x ppf
+        | Syntax.EVar k -> print "?%d" k
         | Syntax.Universe k -> print "Type %d" k
         | Syntax.Pi a -> pi a ppf
         | Syntax.Lambda a -> lambda a ppf
         | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 e1) (expr ~max_level:0 e2)
+        | Syntax.Ascribe (e1, e2) -> print ~at_level:4 "%t :@ %t" (expr e1) (expr e2)
   in
     expr (Beautify.beautify e) ppf
     

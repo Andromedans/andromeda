@@ -1,5 +1,5 @@
 %{
-  open Input
+  open Syntax
 
   (* Build nested lambdas *)
   let rec make_lambda e = function
@@ -26,7 +26,7 @@
 %token QUIT HELP PARAMETER CHECK EVAL CONTEXT DEFINITION
 %token EOF
 
-%start <Input.directive list> directives
+%start <Syntax.directive list> directives
 
 %%
 
@@ -60,6 +60,8 @@ expr: mark_position(plain_expr) { $1 }
 plain_expr:
   | e = plain_app_expr
     { e }
+  | e1 = app_expr COLON e2 = expr
+    { Ascribe (e1, e2) }
   | FORALL lst = abstraction COMMA e = expr
     { fst (make_pi e lst) }
   | FUN lst = abstraction DARROW e = expr
@@ -79,7 +81,7 @@ plain_simple_expr:
   | n = NAME
     { Var (Common.String n) }
   | UNDERSCORE
-    { Underscore }
+    { Syntax.fresh_evar () }
   | TYPE k = NUMERAL
     { Universe k }
   | LPAREN e = plain_expr RPAREN
@@ -99,7 +101,7 @@ plain_bind1:
 bind1_untyped: mark_position(plain_bind1_untyped) { $1 }
 plain_bind1_untyped:
   | x = NAME
-    { ([Common.String x], Common.nowhere Underscore) }
+    { ([Common.String x], Common.nowhere (Syntax.fresh_evar ())) }
 
 binds:
   | b = bind1_untyped
