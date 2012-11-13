@@ -1,5 +1,5 @@
 %{
-  open Syntax
+  open Input
 
   (* Build nested lambdas *)
   let rec make_lambda e = function
@@ -21,12 +21,12 @@
 %token <int> NUMERAL
 %token <string> NAME
 %token LPAREN RPAREN
-%token COLON COMMA PERIOD COLONEQUAL
+%token COLON COMMA PERIOD COLONEQUAL UNDERSCORE
 %token ARROW DARROW
 %token QUIT HELP PARAMETER CHECK EVAL CONTEXT DEFINITION
 %token EOF
 
-%start <Syntax.directive list> directives
+%start <Input.directive list> directives
 
 %%
 
@@ -45,13 +45,13 @@ plain_directive:
   | HELP
     { Help }
   | PARAMETER x = NAME COLON e = expr
-    { Parameter (String x, e) }
+    { Parameter (Common.String x, e) }
   | CHECK e = expr
     { Check e }
   | EVAL e = expr
     { Eval e}
   | DEFINITION x = NAME COLONEQUAL e = expr
-    { Definition (String x, e) }
+    { Definition (Common.String x, e) }
   | CONTEXT
     { Context }
 
@@ -65,7 +65,7 @@ plain_expr:
   | FUN lst = abstraction DARROW e = expr
     { fst (make_lambda e lst) }
   | t1 = app_expr ARROW t2 = expr
-    { Pi (Dummy, t1, t2) }
+    { Pi (Common.Anonymous, t1, t2) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
@@ -77,7 +77,9 @@ plain_app_expr:
 simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
   | n = NAME
-    { Var (String n) }
+    { Var (Common.String n) }
+  | UNDERSCORE
+    { Underscore }
   | TYPE k = NUMERAL
     { Universe k }
   | LPAREN e = plain_expr RPAREN
@@ -92,9 +94,16 @@ abstraction:
 bind1: mark_position(plain_bind1) { $1 }
 plain_bind1:
   | xs = nonempty_list(NAME) COLON t = expr
-    { (List.map (fun x -> String x) xs, t) }
+    { (List.map (fun x -> Common.String x) xs, t) }
+
+bind1_untyped: mark_position(plain_bind1_untyped) { $1 }
+plain_bind1_untyped:
+  | x = NAME
+    { ([Common.String x], Common.nowhere Underscore) }
 
 binds:
+  | b = bind1_untyped
+    { [b] }
   | LPAREN b = bind1 RPAREN
     { [b] }
   | LPAREN b = bind1 RPAREN lst = binds
@@ -102,6 +111,6 @@ binds:
 
 mark_position(X):
   x = X
-  { x, Position ($startpos, $endpos) }
+  { x, Common.Position ($startpos, $endpos) }
 
 %%
