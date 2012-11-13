@@ -32,7 +32,7 @@ let rec infer_type ctx (e, loc) : expr' =
     | Lambda (x, t, e) ->
       let _ = infer_universe ctx t in
       let te = infer_type (extend x (fst t) ctx) e in
-        Pi (x, t, nowhere te)
+        Pi (x, t, Common.nowhere te)
     | App (e1, e2) ->
       let (x, s, t) = infer_pi ctx e1 in
       let te = infer_type ctx e2 in

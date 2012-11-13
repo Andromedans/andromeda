@@ -18,13 +18,13 @@ let split s =
     in the codomain of the substitution? *)
 let rec used x = function
   | [] -> false
-  | (_, (String y | Gensym (y, _))) :: lst -> x = y || used x lst
-  | (_, Dummy) :: lst -> used x lst
+  | (_, (Common.String y | Common.Gensym (y, _))) :: lst -> x = y || used x lst
+  | (_, Common.Anonymous) :: lst -> used x lst
 
 (** Given a variable [x] and a substitution of variables to variables, find a variant of
     [x] which does not appear in the codomain of the substitution. *)
 let find_available x sbst =
-  let x = (match x with String x | Gensym (x, _) -> x | Dummy -> "_") in
+  let x = (match x with Common.String x | Common.Gensym (x, _) -> x | Common.Anonymous -> "_") in
     if not (used x sbst)
     then x
     else 
@@ -38,9 +38,11 @@ let rec occurs x (e, _) =
   match e with
     | Var y -> x = y
     | Universe _ -> false
-    | Pi (y, e1, e2)
-    | Lambda (y, e1, e2) -> occurs x e1 || (x <> y && occurs x e2)
+    | Pi a | Lambda a -> occurs_abstraction x a
     | App (e1, e2) -> occurs x e1 || occurs x e2
+
+and occurs_abstraction x (y, e1, e2) =
+  occurs x e1 || (x <> y && occurs x e2)
 
 (** Rename bound variables in the given expression for the purposes of
     pretty printing. *)
@@ -55,12 +57,11 @@ let beautify =
     loc
       
   and beautify_abstraction sbst (x, e1, e2) =
-    let e1 = beautify sbst e1 in
     let y = 
       if occurs x e2
-      then String (find_available x sbst)
-      else Dummy
+      then Common.String (find_available x sbst)
+      else Common.Anonymous
     in
-      (y, e1, beautify ((x,y) :: sbst) e2)
+      (y, beautify sbst e1, beautify ((x,y) :: sbst) e2)
   in
     beautify []

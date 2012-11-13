@@ -24,9 +24,9 @@ let print ?(max_level=9999) ?(at_level=0) ppf =
 (** Print the given source code position. *)
 let position loc ppf =
   match loc with
-  | Syntax.Nowhere ->
+  | Common.Nowhere ->
       Format.fprintf ppf "unknown position"
-  | Syntax.Position (begin_pos, end_pos) ->
+  | Common.Position (begin_pos, end_pos) ->
       let begin_char = begin_pos.Lexing.pos_cnum - begin_pos.Lexing.pos_bol in
       let end_char = end_pos.Lexing.pos_cnum - begin_pos.Lexing.pos_bol in
       let begin_line = begin_pos.Lexing.pos_lnum in
@@ -40,30 +40,82 @@ let position loc ppf =
 (** Print the name of a variable. *)
 let variable x ppf =
   match x with
-    | Syntax.Dummy -> print ppf "_"
-    | Syntax.String x -> print ppf "%s" x
-    | Syntax.Gensym (x, k) -> print ppf "%s_%d" x k
+    | Common.Anonymous -> print ppf "_"
+    | Common.String x -> print ppf "%s" x
+    | Common.Gensym (x, k) -> print ppf "%s_%d" x k
+
+(** Print a sequence of things with the given (optional) separator. *)
+let sequence ?(sep="") f lst ppf =
+  let rec seq = function
+    | [] -> print ppf ""
+    | [x] -> print ppf "%t" (f x)
+    | x :: xs -> print ppf "%t%s@ " (f x) sep ; seq xs
+  in
+    seq lst
+
+(** [pi a ppf] prints abstraction [a] as dependent product using formatter [ppf]. *)
+let rec pi a ppf =
+  let rec collect (x, e1, e2) =
+    match fst e2 with
+      | (Syntax.Var _ | Syntax.Universe _ | Syntax.Lambda _ | Syntax.App _) -> [([x], e1)], e2
+      | Syntax.Pi a ->
+        begin match x, e1 with
+          | Common.Anonymous, e1 -> let lst, e = collect a in ([x], e1) :: lst, e
+          | _, _ ->
+            (match collect a with
+              | (ys, e1') :: lst, e when e1 = e1' -> (x::ys, e1') :: lst, e
+              | lst, e -> ([x], e1) :: lst, e)
+        end
+  in
+  let lst, e = collect a in
+  let rec pi lst ppf =
+    match lst with
+      | [] -> print ppf ",@ %t" (expr e)
+      | ([], _) :: _ -> assert false
+      | [([Common.Anonymous], t)] -> print ppf "%t ->@ %t" (expr t) (expr e)
+      | ([Common.Anonymous], t) :: lst -> print ppf "%t ->@ %t" (expr t) (pi lst)
+      | (xs, t) :: lst -> print ppf "forall (%t :@ %t),@ %t" (sequence variable xs) (expr t) (pi lst)
+  in
+    print ppf "forall %t" (pi lst)
+
+(** [lambda a ppf] prints abstraction [a] as a function using formatter [ppf]. *)
+and lambda a ppf =
+  let rec collect (x, e1, e2) =
+    match fst e2 with
+      | (Syntax.Var _ | Syntax.Universe _ | Syntax.Lambda _ | Syntax.App _) -> [([x], e1)], e2
+      | Syntax.Pi a ->
+        (match collect a with
+          | (ys, e1') :: lst, e when e1 = e1' -> (x::ys, e1') :: lst, e
+          | lst, e -> ([x], e1) :: lst, e)
+  in
+  let lst, e = collect a in
+  let rec lambda lst ppf =
+    match lst with
+      | [] -> print ppf " =>@ %t" (expr e)
+      | ([], _) :: lst -> assert false
+      | (xs, t) :: lst -> print ppf "(%t :@ %t)@ %t" (sequence variable xs) (expr t) (lambda lst)
+  in
+    print ppf "fun %t" (lambda lst)
 
 (** [expr e ppf] prints (beautified) expression [e] using formatter [ppf]. *)
-let expr e ppf =
+and expr e ppf =
   let rec expr ?max_level (e, _) ppf =  expr'?max_level e ppf
   and expr' ?max_level e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       match e with
         | Syntax.Var x -> variable x ppf
         | Syntax.Universe k -> print "Type %d" k
-        | Syntax.Pi (Syntax.Dummy, t1, t2) -> print ~at_level:3 "%t ->@;%t" (expr ~max_level:2 t1) (expr t2)
-        | Syntax.Pi (x, t1, t2) -> print ~at_level:3 "forall %t : %t,@;%t" (variable x) (expr ~max_level:4 t1) (expr t2)
-        | Syntax.Lambda (x, t, e) -> print ~at_level:3 "fun %t : %t =>@;%t" (variable x) (expr t) (expr e)
-        | Syntax.App (e1, e2) -> print ~at_level:1 "%t@;%t" (expr ~max_level:1 e1) (expr ~max_level:0 e2)
+        | Syntax.Pi a -> pi a ppf
+        | Syntax.Lambda a -> lambda a ppf
+        | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 e1) (expr ~max_level:0 e2)
   in
     expr (Beautify.beautify e) ppf
     
-let expr' e ppf = expr (Syntax.nowhere e) ppf
+let expr' e ppf = expr (Common.nowhere e) ppf
   
 (** Support for printing of errors, warning and debugging information. *)
 let verbosity = ref 3
-let message ?(loc=Syntax.Nowhere) msg_type v =
+let message ?(loc=Common.Nowhere) msg_type v =
   if v <= !verbosity then
     begin
       Format.eprintf "%s at %t:@\n  @[" msg_type (position loc) ;

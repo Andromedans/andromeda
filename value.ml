@@ -27,7 +27,7 @@ let rec equal v1 v2 =
 
 and equal_abstraction (x, v1, f1) (_, v2, f2) =
   equal v1 v2 &&
-    (let x = Neutral (Var (Syntax.refresh x)) in equal (f1 x) (f2 x))
+    (let x = Neutral (Var (Common.refresh x)) in equal (f1 x) (f2 x))
 
 and equal_neutral n1 n2 =
   match n1, n2 with
@@ -68,10 +68,10 @@ let eval ctx =
 
 (** [eval' ctx e] is like [eval ctx e] except that [e] is an expression without
     position. *)
-let eval' ctx e = eval ctx (Syntax.nowhere e)
+let eval' ctx e = eval ctx (Common.nowhere e)
 
 (** [reify v] reifies value [v] to an expression. *)
-let rec reify v = Syntax.nowhere (reify' v)
+let rec reify v = Common.nowhere (reify' v)
 
 and reify' = function
   | Neutral n -> reify_neutral' n
@@ -80,10 +80,10 @@ and reify' = function
   | Lambda a -> Syntax.Lambda (reify_abstraction a)
 
 and reify_abstraction (x, t, f) =
-  let x = Syntax.refresh x in
+  let x = Common.refresh x in
     (x, reify t, reify (f (Neutral (Var x))))
 
-and reify_neutral n = Syntax.nowhere (reify_neutral' n)
+and reify_neutral n = Common.nowhere (reify_neutral' n)
 
 and reify_neutral' = function
   | Var x -> Syntax.Var x

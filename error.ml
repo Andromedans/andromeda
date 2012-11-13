@@ -2,7 +2,7 @@
 
 (** Exception [Error (err, msg)] indicates an error of type [err] with
     error message [msg]. *)
-exception Error of (Syntax.position * string * string)
+exception Error of (Common.position * string * string)
 
 (** [error ~loc err_type msg] raises an error of type [err_type], and a message [msg]. The
     [kfprintf] magic allows one to write [msg] using a format string. *)
