@@ -52,7 +52,7 @@ let beautify =
   let rec beautify sbst (e, loc) =
     (match e with
       | Var x -> (try Var (List.assoc x sbst) with Not_found -> Var x)
-      | EVar k -> EVar k
+      | EVar (k, e) -> EVar (k, beautify sbst e)
       | Universe k -> Universe k
       | Pi a -> Pi (beautify_abstraction sbst a)
       | Lambda a -> Lambda (beautify_abstraction sbst a)

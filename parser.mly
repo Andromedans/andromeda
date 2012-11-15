@@ -81,9 +81,9 @@ plain_simple_expr:
   | n = NAME
     { Var (Common.String n) }
   | UNDERSCORE
-    { Syntax.fresh_evar () }
+    { fst (Syntax.fresh_evar (Syntax.fresh_tvar ())) }
   | TYPE k = NUMERAL
-    { Universe k }
+    { Universe (k, []) }
   | LPAREN e = plain_expr RPAREN
     { e }
 
@@ -101,7 +101,7 @@ plain_bind1:
 bind1_untyped: mark_position(plain_bind1_untyped) { $1 }
 plain_bind1_untyped:
   | x = NAME
-    { ([Common.String x], Common.nowhere (Syntax.fresh_evar ())) }
+    { ([Common.String x], Syntax.fresh_tvar ()) }
 
 binds:
   | b = bind1_untyped

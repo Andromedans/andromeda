@@ -24,12 +24,12 @@ let rec infer_type ctx (e, loc) : expr' =
     | Var x ->
       (try lookup_ty x ctx
        with Not_found -> Error.typing ~loc "unkown identifier %t" (Print.variable x))
-    | EVar k -> Error.typing ~loc "underscores are not implemented yet"
-    | Universe k -> Universe (k + 1)
+    | EVar (k, t) -> fst t
+    | Universe u -> Universe (Universe.succ u)
     | Pi (x, t1, t2) ->
-      let k1 = infer_universe ctx t1 in
-      let k2 = infer_universe (extend x (fst t1) ctx) t2 in
-        Universe (max k1 k2)
+      let u1 = infer_universe ctx t1 in
+      let u2 = infer_universe (extend x (fst t1) ctx) t2 in
+        Universe (Universe.umax u1 u2)
     | Lambda (x, t, e) ->
       let _ = infer_universe ctx t in
       let te = infer_type (extend x (fst t) ctx) e in
@@ -37,24 +37,47 @@ let rec infer_type ctx (e, loc) : expr' =
     | App (e1, e2) ->
       let (x, s, t) = infer_pi ctx e1 in
       let te = infer_type ctx e2 in
+        unify ctx (fst s) te ;
+        (*
         if not (equal ctx (fst s) te)
-        then Error.typing ~loc:(snd e2) "this expresion has type@ %t@ but@ %t@ was expected" (Print.expr' te) (Print.expr s) ;
-        fst (subst [(x, fst e2)] t)
-    | Ascribe (e1, e2) -> Error.typing ~loc "ascription not implemented"
+        then Error.typing ~loc:(snd e2) "this expresion has type@ %t@ but@ %t@ was expected" (Print.expr' te) (Print.expr s) ; *)
+        fst (subst (extend_var x (fst e2) empty_subst) t)
+    | Ascribe (e1, e2) ->
+      let _ = infer_universe ctx e2 in
+      let t1 = infer_type ctx e1 in
+        unify ctx t1 (fst e2) ;
+        fst e2
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
   let u = infer_type ctx t in
+  let v = Universe.fresh_universe () in
+    unify ctx u (Universe v) ;
+    v
+(*
     match normalize' ctx u with
       | Universe k -> k
       | App _ | EVar _ | Var _ | Pi _ | Lambda _ | Ascribe _ ->
         Error.typing ~loc:(snd t) "this expression has type@ %t@ but it should be a universe" (Print.expr' u)
+*)
 
 (** [infer_pi ctx e] infers the type of [e] in context [ctx], verifies that it is
     of the form [Pi (x, t1, t2)] and returns the triple [(x, t1, t2)]. *)
 and infer_pi ctx e =
   let t = infer_type ctx e in
+  let x = Common.refresh (Common.String "x") in
+  let u = fresh_tvar () in
+  let v = fresh_evar (mk_pi (Common.Anonymous, u, mk_universe (Universe.fresh_universe ()))) in
+  let a = (x, u, mk_app v (mk_var x)) in
+    unify ctx t (Pi a) ;
+    a
+(*
     match normalize' ctx t with
       | Pi a -> a
       | Var _ | EVar _ | App _ | Universe _ | Lambda _ | Ascribe _ ->
         Error.typing ~loc:(snd e) "this expression has type@ %t@ but it should be a function" (Print.expr' t)
+*)
+
+and unify ctx e1 e2 =
+  if e1 <> e2 then
+    Format.printf "Constraint:@\n   %t = %t@." (Print.expr' e1) (Print.expr' e2)

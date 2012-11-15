@@ -2,10 +2,12 @@
 
 type variable = Syntax.variable
 
+type universe = Universe.universe
+
 (** The type of values. The [Neutral] values are applications whose head is a variable. *)
 type value =
   | Neutral of neutral
-  | Universe of int
+  | Universe of universe
   | Pi of abstraction
   | Lambda of abstraction
 
@@ -13,7 +15,7 @@ and abstraction = variable * value * (value -> value)
 
 and neutral =
   | Var of variable
-  | EVar of int
+  | EVar of int * value
   | App of neutral * value
 
 (** Comparison of values for equality. It descends into abstractions by first applying them
@@ -33,7 +35,7 @@ and equal_abstraction (x, v1, f1) (_, v2, f2) =
 and equal_neutral n1 n2 =
   match n1, n2 with
     | Var x1, Var x2 -> x1 = x2
-    | EVar x1, EVar x2 -> x1 = x2
+    | EVar (x1, _), EVar (x2, _) -> x1 = x2
     | App (n1, v1), App (n2, v2) -> equal_neutral n1 n2 && equal v1 v2
     | (Var _ | EVar _ | App _), _ -> false
 
@@ -54,7 +56,7 @@ let eval ctx =
                 | Some e -> eval env e
             end
         end
-      | Syntax.EVar k -> Neutral (EVar k)
+      | Syntax.EVar (k, e) -> Neutral (EVar (k, eval env e))
       | Syntax.Universe k -> Universe k
       | Syntax.Pi a -> Pi (eval_abstraction env a)
       | Syntax.Lambda a -> Lambda (eval_abstraction env a)
@@ -91,5 +93,5 @@ and reify_neutral n = Common.nowhere (reify_neutral' n)
 
 and reify_neutral' = function
   | Var x -> Syntax.Var x
-  | EVar k -> Syntax.EVar k
+  | EVar (k, v) -> Syntax.EVar (k, reify v)
   | App (n, v) -> Syntax.App (reify_neutral n, reify v)
