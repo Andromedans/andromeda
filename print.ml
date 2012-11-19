@@ -120,7 +120,7 @@ and expr ?max_level e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       match e with
         | Syntax.Var x -> variable x ppf
-        | Syntax.EVar (k, e) -> print "?(%d : %t)" k (expr e)
+        | Syntax.EVar (k, _, e) -> print "?(%d : %t)" k (expr e)
         | Syntax.Universe u -> print "Type %t" (universe u)
         | Syntax.Pi a -> print ~at_level:3 "%t" (pi a)
         | Syntax.Lambda a -> print ~at_level:3 "%t" (lambda a)
@@ -132,7 +132,9 @@ and expr ?max_level e ppf =
 let expr' e ppf = expr (Common.nowhere e) ppf
   
 (** Support for printing of errors, warning and debugging information. *)
+
 let verbosity = ref 3
+
 let message ?(loc=Common.Nowhere) msg_type v =
   if v <= !verbosity then
     begin

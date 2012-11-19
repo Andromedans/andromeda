@@ -34,6 +34,9 @@ let options = Arg.align [
       print_endline ("tt " ^ Version.version ^ "(" ^ Sys.os_type ^ ")");
       exit 0),
     " Print version information and exit");
+  ("-V",
+   Arg.Int (fun k -> Print.verbosity := k),
+   "<int> Set verbosity level");
   ("-n",
     Arg.Clear interactive_shell,
     " Do not run the interactive toplevel");
@@ -63,40 +66,40 @@ let initial_ctx = []
     result on standard output and return the new context. *)
 let rec exec_cmd interactive ctx (d, loc) =
   match d with
-    | Syntax.Eval e ->
-      let t = Infer.infer_type ctx e in
-      let e = Infer.normalize ctx e in
+    | Input.Eval e ->
+      let e, t, _ = Typing.infer ctx [] e in
+      let e = Typing.normalize ctx e in
         if interactive then
-          Format.printf "    = @[%t@]@\n    : @[%t@]@."
+          Format.printf "    = %t@\n    : %t@."
             (Print.expr e)
-            (Print.expr' t) ;
+            (Print.expr t) ;
         ctx
-    | Syntax.Context ->
+    | Input.Context ->
       List.iter
         (function
-          | (x, (t, None)) -> Format.printf "@[%t : @[%t@]@]@." (Print.variable x) (Print.expr' t)
-          | (x, (t, Some e)) -> Format.printf "@[%t = %t@]@\n    : @[%t@]@."
+          | (x, (t, None)) -> Format.printf "%t :@ %t.@." (Print.variable x) (Print.expr' t)
+          | (x, (t, Some e)) -> Format.printf "%t =@ %t@\n    : %t.@."
             (Print.variable x) (Print.expr e) (Print.expr' t))
         ctx ;
       ctx
-    | Syntax.Parameter (x, t) ->
-      ignore (Infer.infer_universe ctx t) ;
-      if interactive then
-        Format.printf "@[%t is assumed@]@." (Print.variable x) ;
-      Ctx.extend x (fst t) ctx
-    | Syntax.Definition (x, e) ->
-      if List.mem_assoc x ctx then Error.typing ~loc "%t already exists" (Print.variable x) ;
-      let t = Infer.infer_type ctx e in
+    | Input.Parameter (x, t) ->
+      let t, _, _ =  Typing.infer_universe ctx [] t in
         if interactive then
-          Format.printf "@[%t is defined@]@." (Print.variable x) ;
-        Ctx.extend x t ~value:e ctx
-    | Syntax.Check e ->
-      let t = Infer.infer_type ctx e in
-        Format.printf "@[%t@]@\n    : @[%t@]@." (Print.expr e) (Print.expr' t) ;
+          Format.printf "%t is assumed.@." (Print.variable x) ;
+        Syntax.extend x (fst t) ctx
+    | Input.Definition (x, e) ->
+      if List.mem_assoc x ctx then Error.typing ~loc "%t already exists" (Print.variable x) ;
+      let e, (t, _), _ = Typing.infer ctx [] e in
+        if interactive then
+          Format.printf "%t is defined.@." (Print.variable x) ;
+        Syntax.extend x t ~value:e ctx
+    | Input.Check e ->
+      let e, t = Typing.toplevel_infer ctx e in
+        Format.printf "%t@\n    : %t@." (Print.expr e) (Print.expr t) ;
         ctx
-    | Syntax.Help ->
+    | Input.Help ->
       print_endline help_text ; ctx
-    | Syntax.Quit -> exit 0
+    | Input.Quit -> exit 0
 
 (** Load directives from the given file. *)
 and use_file ctx (filename, interactive) =

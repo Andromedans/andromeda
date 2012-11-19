@@ -8,6 +8,11 @@ type position =
   | Position of Lexing.position * Lexing.position (** delimited position *)
   | Nowhere (** unknown position *)
 
+(** [nowhere e] is the expression [e] without a source position. It is used when
+    an expression is generated and there is not reasonable position that could be
+    assigned to it. *)
+let nowhere x = (x, Nowhere)
+
 (** During substitution we generate fresh variable names. Because we want pretty printing,
     each freshly generated variable name should "remember" its preferred form. Thus a
     variable name has three possible form. It can be a string, as originally given by
@@ -25,9 +30,3 @@ let refresh =
     function
       | String x | Gensym (x, _) -> (incr k ; Gensym (x, !k))
       | Anonymous -> (incr k ; Gensym ("_", !k))
-
-(** [nowhere e] is the expression [e] without a source position. It is used when
-    an expression is generated and there is not reasonable position that could be
-    assigned to it. *)
-let nowhere x = (x, Nowhere)
-
