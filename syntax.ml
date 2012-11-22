@@ -59,8 +59,8 @@ let mk_ascribe e1 e2 = Common.nowhere (Ascribe (e1, e2))
     - existential universe variables to universes
 *)
 type substitution = {
-  vars : (variable * expr') list ;
-  evars : (int * expr') list ;
+  vars : (variable * expr) list ;
+  evars : (int * expr) list ;
   uvars : (Universe.uvar * Universe.universe) list
 }
 
