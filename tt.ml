@@ -67,7 +67,7 @@ let initial_ctx = []
 let rec exec_cmd interactive ctx (d, loc) =
   match d with
     | Input.Eval e ->
-      let e, t, _ = Typing.infer ctx [] e in
+      let e, t = Typing.toplevel_infer ctx e in
       let e = Typing.normalize ctx e in
         if interactive then
           Format.printf "    = %t@\n    : %t@."
@@ -77,19 +77,19 @@ let rec exec_cmd interactive ctx (d, loc) =
     | Input.Context ->
       List.iter
         (function
-          | (x, (t, None)) -> Format.printf "%t :@ %t.@." (Print.variable x) (Print.expr' t)
+          | (x, (t, None)) -> Format.printf "%t :@ %t.@." (Print.variable x) (Print.expr t)
           | (x, (t, Some e)) -> Format.printf "%t =@ %t@\n    : %t.@."
-            (Print.variable x) (Print.expr e) (Print.expr' t))
+            (Print.variable x) (Print.expr e) (Print.expr t))
         ctx ;
       ctx
     | Input.Parameter (x, t) ->
-      let t, _, _ =  Typing.infer_universe ctx [] t in
+      let t, _ =  Typing.toplevel_infer_universe ctx t in
         if interactive then
           Format.printf "%t is assumed.@." (Print.variable x) ;
-        Syntax.extend x (fst t) ctx
+        Syntax.extend x t ctx
     | Input.Definition (x, e) ->
       if List.mem_assoc x ctx then Error.typing ~loc "%t already exists" (Print.variable x) ;
-      let e, (t, _), _ = Typing.infer ctx [] e in
+      let e, t = Typing.toplevel_infer ctx e in
         if interactive then
           Format.printf "%t is defined.@." (Print.variable x) ;
         Syntax.extend x t ~value:e ctx

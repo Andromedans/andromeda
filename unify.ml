@@ -22,8 +22,6 @@ let reduce_equation sbst (loc, ctx, e1, e2) =
           if List.length lst1 <> List.length lst2 then raise UnificationFailed ;
           (Syntax.extend_evar x1 (Syntax.mk_evar (x2, ctx2, t2)) Syntax.empty_subst),
             
-
-
       | Hnf.Spine (Hnf.EVar x1, lst1), (Hnf.Spine (Hnf.Var _, _) | Hnf.Universe _ | Hnf.Pi _ | Hnf.Lambda _)
       | (Hnf.Spine (Hnf.Var _, _) | Hnf.Universe _ | Hnf.Pi _ | Hnf.Lambda _), Hnf.Spine (Hnf.EVar x1, lst1) ->
           (* One EVar, the other not *)

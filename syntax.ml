@@ -27,7 +27,7 @@ and meta_variable = int * context * expr
 (** A context is represented as an associative list which maps a variable [x] to a pair
    [(t,e)] where [t] is its type and [e] is its value (optional).
 *)
-and context = (variable * (expr' * expr option)) list
+and context = (variable * (expr * expr option)) list
 
 (** Handling of contexts. *)
     
@@ -87,22 +87,29 @@ let fresh_evar' =
   let k = ref 0 in
     fun ctx t -> (incr k ; EVar (!k, ctx, t))
 
-let fresh_evar ctx t = Common.nowhere (fresh_evar' ctx t)
+let fresh_evar ?(loc=Common.Nowhere) ctx t = (fresh_evar' ctx t, loc)
 
-let fresh_tvar' () = fresh_evar' [] (mk_universe (Universe.fresh ()))
+let fresh_tvar () = fresh_evar [] (mk_universe (Universe.fresh ()))
 
 (** [subst s e] performs the given substitution [s] in expression [e]. *)
-let rec subst s (e, loc) = 
-  (match e with
+let rec subst s ((e', loc) as e) : expr = 
+  match e' with
     | Var x -> (try lookup_var x s with Not_found -> e)
     | EVar (k, _, _) -> (try lookup_evar k s with Not_found -> e)
-    | Universe u -> Universe (Universe.subst s.uvars u)
-    | Pi a -> Pi (subst_abstraction s a)
-    | Lambda a -> Lambda (subst_abstraction s a)
-    | App (e1, e2) -> App (subst s e1, subst s e2)
-    | Ascribe (e1, e2) -> Ascribe (subst s e1, subst s e2)),
-  loc
+    | Universe u -> Universe (Universe.subst s.uvars u), loc
+    | Pi a -> Pi (subst_abstraction s a), loc
+    | Lambda a -> Lambda (subst_abstraction s a), loc
+    | App (e1, e2) -> App (subst s e1, subst s e2), loc
+    | Ascribe (e1, e2) -> Ascribe (subst s e1, subst s e2), loc
 
 and subst_abstraction s (x, t, e) =
   let x' = Common.refresh x in
-    (x', subst s t, subst (extend_var x (Var x') s) e)
+    (x', subst s t, subst (extend_var x (mk_var x') s) e)
+
+let rename_var x y e = subst (extend_var x (mk_var y) empty_subst) e
+
+let compose_subst s1 s2 =
+  { vars = s2.vars @ List.map (fun (x, e) -> (x, subst s2 e)) s1.vars ;
+    evars = s2.evars @ List.map (fun (x, e) -> (x, subst s2 e)) s1.evars ;
+    uvars = s2.uvars @ List.map (fun (x, u) -> (x, Universe.subst s2.uvars u)) s1.uvars
+  }

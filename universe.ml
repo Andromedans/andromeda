@@ -48,4 +48,5 @@ let solve u1 u2 sbst =
       (match sub v m with
         | None -> None
         | Some v -> Some ((u,v) :: sbst))
+    | (k, []), (m, []) -> if k = m then Some [] else None
     | _, _ -> None
