@@ -21,7 +21,7 @@
 %token <int> NUMERAL
 %token <string> NAME
 %token LPAREN RPAREN
-%token COLON COMMA PERIOD COLONEQUAL UNDERSCORE
+%token COLON COMMA PERIOD COLONEQUAL
 %token ARROW DARROW
 %token QUIT HELP PARAMETER CHECK EVAL CONTEXT DEFINITION
 %token EOF
@@ -45,13 +45,13 @@ plain_directive:
   | HELP
     { Help }
   | PARAMETER x = NAME COLON e = expr
-    { Parameter (Common.String x, e) }
+    { Parameter (x, e) }
   | CHECK e = expr
     { Check e }
   | EVAL e = expr
     { Eval e}
   | DEFINITION x = NAME COLONEQUAL e = expr
-    { Definition (Common.String x, e) }
+    { Definition (x, e) }
   | CONTEXT
     { Context }
 
@@ -60,32 +60,26 @@ expr: mark_position(plain_expr) { $1 }
 plain_expr:
   | e = plain_app_expr
     { e }
-  | e1 = app_expr COLON e2 = expr
-    { Ascribe (e1, e2) }
   | FORALL lst = abstraction COMMA e = expr
     { fst (make_pi e lst) }
   | FUN lst = abstraction DARROW e = expr
     { fst (make_lambda e lst) }
   | t1 = app_expr ARROW t2 = expr
-    { Pi (Common.Anonymous, t1, t2) }
+    { Pi ("_", t1, t2) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
   | e = plain_simple_expr
     { e }
+  | TYPE k = NUMERAL
+    { Universe k }
   | e1 = app_expr e2 = simple_expr
     { App (e1, e2) }
 
 simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
   | n = NAME
-    { Var (Common.String n) }
-  | UNDERSCORE
-    { Underscore }
-  | TYPE
-    { Universe None }
-  | TYPE k = NUMERAL
-    { Universe (Some k) }
+    { Var n }
   | LPAREN e = plain_expr RPAREN
     { e }
 
@@ -98,16 +92,9 @@ abstraction:
 bind1: mark_position(plain_bind1) { $1 }
 plain_bind1:
   | xs = nonempty_list(NAME) COLON t = expr
-    { (List.map (fun x -> Common.String x) xs, t) }
-
-bind1_untyped: mark_position(plain_bind1_untyped) { $1 }
-plain_bind1_untyped:
-  | x = NAME
-    { ([Common.String x], Common.nowhere Underscore) }
+    { (xs, t) }
 
 binds:
-  | b = bind1_untyped
-    { [b] }
   | LPAREN b = bind1 RPAREN
     { [b] }
   | LPAREN b = bind1 RPAREN lst = binds

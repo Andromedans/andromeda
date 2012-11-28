@@ -1,20 +1,15 @@
 (** Abstract syntax of input files. *)
 
-type variable = Common.variable
-
-(** Abstract syntax of universe expressions. *)
-type universe = int option
+type variable = string
 
 (** Abstract syntax of expressions. *)
 type expr = expr' * Common.position
 and expr' =
-  | Underscore
   | Var of variable
-  | Universe of universe
+  | Universe of int
   | Pi of abstraction
   | Lambda of abstraction
   | App of expr * expr
-  | Ascribe of expr * expr
  
 (** An abstraction [(x,t,e)] indicates that [x] of (optionally given) type [t] is bound in [e]. *)
 and abstraction = variable * expr * expr

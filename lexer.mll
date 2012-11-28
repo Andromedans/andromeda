@@ -39,7 +39,6 @@ rule token = parse
                                  List.assoc s directives
                                with Not_found -> NAME s)
                         }
-  | '_'                 { UNDERSCORE }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
   | "."                 { PERIOD }

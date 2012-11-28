@@ -37,13 +37,6 @@ let position loc ppf =
       else
         Format.fprintf ppf "line %d, characters %d-%d" (begin_line - 1) begin_char end_char
 
-(** Print the name of a variable. *)
-let variable x ppf =
-  match x with
-    | Common.Anonymous -> print ppf "_"
-    | Common.String x -> print ppf "%s" x
-    | Common.Gensym (x, k) -> print ppf "%s_%d" x k
-
 (** Print a sequence of things with the given (optional) separator. *)
 let sequence ?(sep="") f lst ppf =
   let rec seq = function
@@ -53,83 +46,41 @@ let sequence ?(sep="") f lst ppf =
   in
     seq lst
 
-(** Print a universe level. *)
-let universe u ppf =
-  let uvar (Universe.UVar u, m) ppf =
-    if m = 0
-    then print ppf "?%d" u
-    else print ppf "(?%d + %d)" u m
-  in
-    match u with
-      | (k, [])  -> print ppf "%d" k
-      | (0, [u]) -> print ppf "%t" (uvar u)
-      | (0, lst) -> print ppf "(max %t)" (sequence uvar lst)
-      | (k, lst) -> print ppf "(max %d %t)" k (sequence uvar lst)
+(** [pi xs a ppf] prints abstraction [a] as dependent product using formatter [ppf]. *)
+let rec pi ?max_level xs (x, e1, e2) ppf =
+  if Syntax.occurs 0 e2
+  then
+    let x = Beautify.refresh x xs in
+      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (expr xs e1) (expr (x :: xs) e2)
+  else
+    print ~at_level:3 ppf "%t ->@ %t" (expr ~max_level:2 xs e1) (expr ("_" :: xs) e2)
 
-(** [pi a ppf] prints abstraction [a] as dependent product using formatter [ppf]. *)
-let rec pi ?max_level a ppf =
-  let rec collect (x, e1, e2) =
-    match fst e2 with
-      | (Syntax.Var _ | Syntax.EVar _ | Syntax.Universe _ |
-          Syntax.Lambda _ | Syntax.App _ | Syntax.Ascribe _) -> [([x], e1)], e2
-      | Syntax.Pi a ->
-        begin match x, e1 with
-          | Common.Anonymous, e1 -> let lst, e = collect a in ([x], e1) :: lst, e
-          | _, _ ->
-            (match collect a with
-              | (ys, e1') :: lst, e when e1 = e1' -> (x::ys, e1') :: lst, e
-              | lst, e -> ([x], e1) :: lst, e)
-        end
+(** [lambda xs a ppf] prints abstraction [a] as a function using formatter [ppf]. *)
+and lambda xs (x, e1, e2) ppf =
+  let x =
+    if Syntax.occurs 0 e2
+    then Beautify.refresh x xs 
+    else "_"
   in
-  let lst, e = collect a in
-  let rec pi lst ppf =
-    match lst with
-      | [] -> print ppf ",@ %t" (expr e)
-      | ([], _) :: _ -> assert false
-      | [([Common.Anonymous], t)] -> print ~at_level:3 ppf "%t ->@ %t" (expr ~max_level:2 t) (expr e)
-      | [(xs, t)] -> print ~at_level:3 ppf "forall %t :@ %t,@ %t" (sequence variable xs) (expr t) (expr e)
-      | ([Common.Anonymous], t) :: lst -> print ~at_level:3 ppf "%t ->@ %t" (expr ~max_level:2 t) (pi lst)
-      | (xs, t) :: lst -> print ~at_level:3 ppf "forall (%t :@ %t),@ %t" (sequence variable xs) (expr t) (pi lst)
-  in
-    print ~max_level:2 ppf "%t" (pi lst)
+    print ~at_level:3 ppf "fun %s :@  %t => %t" x (expr xs e1) (expr (x :: xs) e2)
 
-(** [lambda a ppf] prints abstraction [a] as a function using formatter [ppf]. *)
-and lambda a ppf =
-  let rec collect (x, e1, e2) =
-    match fst e2 with
-      | (Syntax.Var _ | Syntax.EVar _ | Syntax.Universe _ |
-          Syntax.Pi _ | Syntax.App _ | Syntax.Ascribe _) -> [([x], e1)], e2
-      | Syntax.Lambda a ->
-        (match collect a with
-          | (ys, e1') :: lst, e when e1 = e1' -> (x::ys, e1') :: lst, e
-          | lst, e -> ([x], e1) :: lst, e)
-  in
-  let lst, e = collect a in
-  let rec lambda lst ppf =
-    match lst with
-      | [] -> print ppf "=>@ %t" (expr e)
-      | ([], _) :: lst -> assert false
-      | (xs, t) :: lst -> print ppf "(%t :@ %t)@ %t" (sequence variable xs) (expr t) (lambda lst)
-  in
-    print ppf "fun %t" (lambda lst)
-
-(** [expr e ppf] prints (beautified) expression [e] using formatter [ppf]. *)
-and expr ?max_level e ppf =
-  let rec expr ?max_level (e, _) ppf =  expr'?max_level e ppf
-  and expr' ?max_level e ppf =
+(** [expr ctx e ppf] prints expression [e] using formatter [ppf]. *)
+and expr ?max_level xs e ppf =
+  let rec expr ?max_level xs (e, _) ppf =  expr'?max_level xs e ppf
+  and expr' ?max_level xs e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       match e with
-        | Syntax.Var x -> variable x ppf
-        | Syntax.EVar (k, _, e) -> print "?(%d : %t)" k (expr e)
-        | Syntax.Universe u -> print "Type %t" (universe u)
-        | Syntax.Pi a -> print ~at_level:3 "%t" (pi a)
-        | Syntax.Lambda a -> print ~at_level:3 "%t" (lambda a)
-        | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 e1) (expr ~max_level:0 e2)
-        | Syntax.Ascribe (e1, e2) -> print ~at_level:4 "%t :@ %t" (expr e1) (expr e2)
+        | Syntax.Var k -> print "%s" (List.nth xs k)
+        | Syntax.Subst (s, e) -> print "<subst>"
+        | Syntax.Universe u -> print ~at_level:1 "Type %d" u
+        | Syntax.Pi a -> print ~at_level:3 "%t" (pi xs a)
+        | Syntax.Lambda a -> print ~at_level:3 "%t" (lambda xs a)
+        | Syntax.App (e1, e2) ->
+          print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
   in
-    expr ?max_level (Beautify.beautify e) ppf
+    expr ?max_level xs (Syntax.reduce Syntax.idsubst e) ppf
     
-let expr' e ppf = expr (Common.nowhere e) ppf
+let expr' xs e ppf = expr xs (Common.nowhere e) ppf
   
 (** Support for printing of errors, warning and debugging information. *)
 
