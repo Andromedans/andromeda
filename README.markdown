@@ -1,5 +1,5 @@
 A minimalist implementation of type theory in Ocaml. This is the version from the 3rd
-part of my blog posts, see (How to implement dependent type theory III)[http://math.andrej.com/2012/11/29/how-to-implement-dependent-type-theory-iii/].
+part of my blog posts, see [How to implement dependent type theory III](http://math.andrej.com/2012/11/29/how-to-implement-dependent-type-theory-iii/).
 
 ## The type theory
 
