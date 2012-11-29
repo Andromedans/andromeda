@@ -69,7 +69,7 @@ let rec exec_cmd interactive ctx (d, loc) =
     | Input.Eval e ->
       let e = Desugar.desugar ctx e in
       let t = Typing.infer ctx e in
-      let e = Typing.nf ctx e in
+      let e = Norm.nf ctx e in
         if interactive then
           Format.printf "    = %t@\n    : %t@."
             (Print.expr ctx.names e)
