@@ -70,7 +70,7 @@ and expr ?max_level xs e ppf =
   and expr' ?max_level xs e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       match e with
-        | Syntax.Var k -> print "%s" (List.nth xs k)
+        | Syntax.Var k -> print "%s[%d]" (List.nth xs k) k
         | Syntax.Subst (s, e) -> print "<subst>"
         | Syntax.Universe u -> print ~at_level:1 "Type %d" u
         | Syntax.Pi a -> print ~at_level:3 "%t" (pi xs a)

@@ -1,33 +1,46 @@
 (** A context is represented as an associative list which maps a variable [x] to a pair
    [(t,e)] where [t] is its type and [e] is its value (optional).
 *)
+
+type declaration = 
+  | Parameter of Syntax.expr
+  | Value of Value.value
+  | Definition of Syntax.expr * Syntax.expr * Value.value
+
 type context = {
   names : string list ;
-  defs : (Syntax.expr option) list ;
-  tys : Syntax.expr list
+  decls : declaration list
 }
-
-(** Handling of contexts. *)
 
 let empty_context = {
   names = [] ;
-  defs = [] ;
-  tys = []
+  decls = []
 }
     
 (** [lookup_ty k ctx] returns the type of [k] in context [ctx]. *)
-let lookup_ty k {tys=lst} = Syntax.shift (k+1) (List.nth lst k)
-
-let lookup_definition k {defs=lst} = 
+let lookup_ty k {decls=lst} =
   match List.nth lst k with
-    | None -> None
-    | Some e -> Some (Syntax.shift (k+1) e)
+    | Parameter t | Definition (t, _, _) -> Syntax.shift (k+1) t
+    | Value _ -> assert false
 
-(** [extend x t ctx] returns [ctx] extended with variable [x] of type [t],
-    whereas [extend x t ~value:e ctx] returns [ctx] extended with variable [x]
-    of type [t] and assigned value [e]. *)
-let extend x t ?definition ctx =
-  { names = x :: ctx.names ;
-    defs = definition :: ctx.defs ;
-    tys = t :: ctx.tys }
+let lookup_definition k {decls=lst} = 
+  match List.nth lst k with
+    | Definition (_, e, _) -> Some (Syntax.shift (k+1) e)
+    | Value _ | Parameter _ -> None
 
+let lookup_value k {decls=lst} = 
+  match List.nth lst k with
+    | Value v | Definition (_, _, v) -> Some (Value.shift (k+1) v)
+    | Parameter _ -> None
+
+let add_parameter x t ctx =
+    { names = x :: ctx.names ;
+      decls = Parameter t :: ctx.decls }
+
+let add_value v ctx =
+  { names = "_" :: ctx.names ;
+    decls = Value v :: ctx.decls }
+
+let add_definition x t d v ctx =
+    { names = x :: ctx.names ;
+      decls = Definition (t, d, v) :: ctx.decls }

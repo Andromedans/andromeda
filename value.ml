@@ -11,9 +11,22 @@ and neutral =
   | Var of int
   | App of neutral * value
 
-and abstraction = string * value * (value -> value)
+and abstraction = string * value * value
 
-let var0 = Neutral (Var 0)
+let mk_var k = Neutral (Var k)
+let mk_app n v = Neutral (App (n, v))
+
+let var0 = mk_var 0
+
+let rec shift k = function
+  | Neutral n -> Neutral (shift_neutral k n)
+  | Universe _ as v -> v
+  | Pi a -> Pi (shift_abstraction k a)
+  | Lambda a -> Lambda shift_abstraction k a)
+
+and shift_abstraction k (x, v1, v2) =
+
+
 
 (** Comparison of values for equality. It descends into abstractions by first applying them
     to freshly generated variables, which has the effect of alpha-equivalence. *)
@@ -33,46 +46,3 @@ and equal_neutral n1 n2 =
     | Var x1, Var x2 -> x1 = x2
     | App (n1, v1), App (n2, v2) -> equal_neutral n1 n2 && equal v1 v2
     | (Var _ | App _), _ -> false
-
-(** [eval env e] evaluates expression [e] in environment [env] to a value. *)
-let rec eval ctx ((e', loc) as e) =
-  match e' with
-    | Syntax.Var k ->
-      (match Context.lookup_definition k ctx with
-        | None -> Neutral (Var k)
-        | Some e -> eval ctx e)
-    | Syntax.Universe u -> Universe u
-    | Syntax.Pi a -> Pi (eval_abstraction ctx a)
-    | Syntax.Lambda a -> Lambda (eval_abstraction ctx a)
-    | Syntax.Subst _ -> eval ctx (Syntax.reduce Syntax.idsubst e)
-    | Syntax.App (e1, e2) ->
-      let v2 = eval ctx e2 in
-        (match eval ctx e1 with
-          | Lambda (_, _, f) -> f v2
-          | Neutral n -> Neutral (App (n, v2))
-          | Universe _ | Pi _ -> Error.runtime ~loc:(snd e2) "Function expected")
-
-and eval_abstraction ctx (x, t, e) =
-  (x, eval ctx t, fun v -> eval (Context.extend x t ctx) e)
-
-(** [eval' ctx e] is like [eval ctx e] except that [e] is an expression without
-    position. *)
-let eval' ctx e = eval ctx (Common.nowhere e)
-
-(** [reify v] reifies value [v] to an expression. *)
-let rec reify v = Common.nowhere (reify' v)
-
-and reify' = function
-  | Neutral n -> reify_neutral' n
-  | Universe k -> Syntax.Universe k
-  | Pi a -> Syntax.Pi (reify_abstraction a)
-  | Lambda a -> Syntax.Lambda (reify_abstraction a)
-
-and reify_abstraction (x, t, f) =
-    (x, reify t, reify (f var0))
-
-and reify_neutral n = Common.nowhere (reify_neutral' n)
-
-and reify_neutral' = function
-  | Var x -> Syntax.Var x
-  | App (n, v) -> Syntax.App (reify_neutral n, reify v)

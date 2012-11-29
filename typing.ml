@@ -3,6 +3,42 @@
 open Syntax
 open Context
 
+(** [eval env e] evaluates expression [e] in environment [env] to a value. *)
+let rec eval ctx ((e', loc) as e) =
+  match e' with
+    | Var k ->
+      (match Context.lookup_value k ctx with
+        | None -> e
+        | Some v -> v)
+    | Universe _ -> e
+    | Pi a -> Pi (eval_abstraction ctx a), loc
+    | Lambda a -> Lambda (eval_abstraction ctx a), loc
+    | Subst _ -> eval ctx (reduce idsubst e)
+    | App (e1, e2) ->
+      let v2 = eval ctx e2 in
+        (match eval ctx e1 with
+          | Lambda (_, _, v1) -> eval (Context.add_value v2 ctx) v1
+          | App _ as v1 -> App (v1, v2), loc
+          | Universe _ | Pi _ -> Error.runtime ~loc:(snd e2) "Function expected")
+
+and eval_abstraction ctx (x, t, e) =
+  (x, eval ctx t, eval (Context.add_parameter x t ctx) e)
+
+(** [reify v] reifies value [v] to an expression. *)
+let rec reify v = Common.nowhere (reify' v)
+
+and reify = function
+  | Value.Neutral n -> reify_neutral n
+  | Value.Universe u -> mk_universe u
+  | Value.Pi a -> mk_pi (reify_abstraction a)
+  | Value.Lambda a -> mk_lambda (reify_abstraction a)
+
+and reify_abstraction (x, v1, v2) =
+    (x, reify v1, reify v2)
+
+and reify_neutral = function
+  | Value.Var k -> mk_var x
+  | Value.App (n, v) -> mk_app (reify_neutral n) (reify v)
 
 (** [normalize ctx e] normalizes the given expression [e] in context [ctx]. It removes
     all redexes and it unfolds all definitions. It performs normalization under binders.
@@ -11,9 +47,7 @@ open Context
     of this is that two equal expressions get evaluated to (observationally) equivalent
     values, and hence their reification are syntactically equal (up to renaming of bound
     variables.) *)
-let normalize ctx e = Value.reify (Value.eval ctx e)
-
-let normalize' ctx e = Value.reify' (Value.eval' ctx e)
+let normalize ctx e = reify (eval ctx e)
 
 (** [equal ctx e1 e2] compares expressions [e1] and [e2] for equality. *)
 let equal ctx e1 e2 = Value.equal (Value.eval ctx e1) (Value.eval ctx e2)
