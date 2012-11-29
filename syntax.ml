@@ -36,27 +36,34 @@ let idsubst = Shift 0
 
 let rec compose s t =
   match s, t with
-    | t, Shift 0 -> t
-    | Dot (e, t), Shift m -> compose t (Shift (m - 1))
+    | s, Shift 0 -> s
+    | Dot (e, s), Shift m -> compose s (Shift (m - 1))
     | Shift m, Shift n -> Shift (m + n)
-    | t, Dot (e, s) -> Dot (mk_subst t e, compose t s)
+    | s, Dot (e, t) -> Dot (mk_subst s e, compose s t)
 
-(** [reduce e] substitutes away all explicit substitions in expression [e]. *)
-let rec reduce s ((e', loc) as e) =
-  match s, e' with
-    | Shift m, Var k -> Var (k + m), loc
-    | Dot (a, s), Var 0 -> reduce idsubst a
-    | Dot (a, s), Var k -> reduce s (Var (k - 1), loc)
-      | s, Subst (t, e) -> reduce s (reduce t e)
+let shift k e = mk_subst (Shift k) e
+
+(** [subst s e] applies substitution [s] in expression [e]. *)
+let subst ?(weak=false) =
+  let rec subst s ((e', loc) as e) =
+    match s, e' with
+      | Shift m, Var k -> Var (k + m), loc
+      | Dot (a, s), Var 0 -> subst idsubst a
+      | Dot (a, s), Var k -> subst s (Var (k - 1), loc)
+      | s, Subst (t, e) -> subst s (subst t e)
       | _, Universe _ -> e
-      | s, Pi a -> Pi (reduce_abstraction s a), loc
-      | s, Lambda a -> Lambda (reduce_abstraction s a), loc
-      | s, App (e1, e2) -> App (reduce s e1, reduce s e2), loc
-
-and reduce_abstraction s (x, e1, e2) =
-  (x, reduce s e1, reduce (Dot (mk_var 0, compose (Shift 1) s)) e2)
-
-let shift k e = reduce (Shift k) e
+      | s, Pi a -> Pi (subst_abstraction s a), loc
+      | s, Lambda a -> Lambda (subst_abstraction s a), loc
+      | s, App (e1, e2) ->
+        let sb = if weak then mk_subst s else subst s in
+          App (sb e1, sb e2), loc
+  and subst_abstraction s (x, e1, e2) =
+    let sb = if weak then mk_subst else subst in
+    let e1 = sb s e1 in
+    let e2 = sb (Dot (mk_var 0, compose (Shift 1) s)) e2 in
+      (x, e1, e2)
+  in
+    subst
 
 let rec occurs k (e, _) =
   match e with

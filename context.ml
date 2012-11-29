@@ -33,3 +33,10 @@ let add_parameter x t ctx =
 let add_definition x t e ctx =
     { names = x :: ctx.names ;
       decls = Definition (t, e) :: ctx.decls }
+
+let chop k ctx =
+  let rec chop lst = function
+    | 0 -> lst
+    | k -> chop (List.tl lst) (k - 1)
+  in
+    { names = chop ctx.names k ; decls = chop ctx.decls k }

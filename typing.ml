@@ -8,19 +8,18 @@ let norm ?(weak=false) =
   let rec norm ctx ((e', loc) as e) =
     match e' with
       | Var k ->
-        (match Context.lookup_definition k ctx with
+        (match lookup_definition k ctx with
           | None -> e
           | Some e -> norm ctx e)
       | Universe _ -> e
       | Pi a -> 
         Pi (norm_abstraction ctx a), loc
       | Lambda a -> Lambda (norm_abstraction ctx a), loc
-      | Subst _ -> norm ctx (reduce idsubst e)
+      | Subst (s, e) -> norm ctx (subst ~weak s e)
       | App (e1, e2) ->
         let (e1', _) as e1 = norm ctx e1 in
           (match e1' with
-            | Lambda (x, _, e) ->
-                norm ctx (mk_subst (Dot (e2, idsubst)) e)
+            | Lambda (x, t, e) -> norm ctx (mk_subst (Dot (e2, idsubst)) e)
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm ctx e2) in 
                 App (e1, e2), loc
@@ -28,7 +27,7 @@ let norm ?(weak=false) =
   and norm_abstraction ctx ((x, t, e) as a) =
     if weak
     then a
-    else (x, norm ctx t, norm (Context.add_parameter x t ctx) e)
+    else (x, norm ctx t, norm (add_parameter x t ctx) e)
   in
     norm
 
@@ -48,7 +47,7 @@ let rec equal ctx e1 e2 =
       | (Var _ | Universe _ | Pi _ | Lambda _ | App _ | Subst _), _ -> false
 
 and equal_abstraction ctx (x, e1, e2) (_, e1', e2') =
-  equal ctx e1 e1' && equal (Context.add_parameter x e1 ctx) e2 e2'
+  equal ctx e1 e1' && equal (add_parameter x e1 ctx) e2 e2'
 
 let index ~loc x ctx =
   let rec index k = function
@@ -59,7 +58,7 @@ let index ~loc x ctx =
 
 (** [infer ctx e] infers the type of expression [e] of type [Input.expr] in context [ctx].
     It returns the expression converted to type [expr] and its type. *)
-let rec infer ctx (e, loc) : expr * expr =
+let rec infer ctx (e, loc) =
   match e with
     | Input.Var x -> 
       let k = index ~loc x ctx in

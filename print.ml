@@ -62,7 +62,7 @@ and lambda xs (x, e1, e2) ppf =
     then Beautify.refresh x xs 
     else "_"
   in
-    print ~at_level:3 ppf "fun %s :@  %t => %t" x (expr xs e1) (expr (x :: xs) e2)
+    print ~at_level:3 ppf "fun %s :@ %t => %t" x (expr xs e1) (expr (x :: xs) e2)
 
 (** [expr ctx e ppf] prints expression [e] using formatter [ppf]. *)
 and expr ?max_level xs e ppf =
@@ -78,7 +78,7 @@ and expr ?max_level xs e ppf =
         | Syntax.App (e1, e2) ->
           print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
   in
-    expr ?max_level xs (Syntax.reduce Syntax.idsubst e) ppf
+    expr ?max_level xs (Syntax.subst ~weak:false Syntax.idsubst e) ppf
     
 let expr' xs e ppf = expr xs (Common.nowhere e) ppf
   
