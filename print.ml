@@ -69,14 +69,15 @@ and expr ?max_level xs e ppf =
   let rec expr ?max_level xs (e, _) ppf =  expr'?max_level xs e ppf
   and expr' ?max_level xs e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
-      match e with
-        | Syntax.Var k -> print "%s" (List.nth xs k)
-        | Syntax.Subst (s, e) -> print "<subst>"
-        | Syntax.Universe u -> print ~at_level:1 "Type %d" u
-        | Syntax.Pi a -> print ~at_level:3 "%t" (pi xs a)
-        | Syntax.Lambda a -> print ~at_level:3 "%t" (lambda xs a)
-        | Syntax.App (e1, e2) ->
-          print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
+      if not (Format.over_max_boxes ()) then
+        match e with
+          | Syntax.Var k -> print "%s" (List.nth xs k)
+          | Syntax.Subst (s, e) -> print "<subst>"
+          | Syntax.Universe u -> print ~at_level:1 "Type %d" u
+          | Syntax.Pi a -> print ~at_level:3 "%t" (pi xs a)
+          | Syntax.Lambda a -> print ~at_level:3 "%t" (lambda xs a)
+          | Syntax.App (e1, e2) ->
+            print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
   in
     expr ?max_level xs (Syntax.subst ~weak:false Syntax.idsubst e) ppf
     
