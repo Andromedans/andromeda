@@ -16,7 +16,7 @@ and expr' =
 
 (** An abstraction [(x,t,e)] indicates that [x] of type [t] is bound in [e]. We also keep around
     the original name [x] of the bound variable for pretty-printing purposes. *)
-and abstraction = string * expr * expr
+and abstraction = Common.variable * expr * expr
 
 (** Explicit substitutions. *)
 and substitution =
