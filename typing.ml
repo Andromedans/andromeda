@@ -1,8 +1,9 @@
-(** Type checking and inference. *)
+(** Type inference. *)
 
 open Syntax
 open Context
 
+(** [equal ctx e1 e2] determines whether [e1] and [e2] are equal expressions. *)
 let rec equal ctx e1 e2 =
   let (e1, _) = Norm.hnf ctx e1 in
   let (e2, _) = Norm.hnf ctx e2 in
@@ -17,7 +18,7 @@ let rec equal ctx e1 e2 =
 and equal_abstraction ctx (x, e1, e2) (_, e1', e2') =
   equal ctx e1 e1' && equal (add_parameter x e1 ctx) e2 e2'
 
-(** [infer ctx e] infers the type of expression [e] of in context [ctx]. *)
+(** [infer ctx e] infers the type of expression [e] in context [ctx]. *)
 let rec infer ctx (e, loc) =
   match e with
     | Var k -> lookup_ty k ctx
@@ -26,7 +27,7 @@ let rec infer ctx (e, loc) =
       let u1 = infer_universe ctx e1 in
       let u2 = infer_universe (add_parameter x e1 ctx) e2 in
         mk_universe (max u1 u2)
-    | Subst (s, e) -> infer ctx (Syntax.subst ~weak:false s e)
+    | Subst (s, e) -> infer ctx (Syntax.subst s e)
     | Lambda (x, e1, e2) ->
       let _ = infer_universe ctx e1 in
       let t2 = infer (add_parameter x e1 ctx) e2 in

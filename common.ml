@@ -1,4 +1,4 @@
-(** Types and definitions in common use. *)
+(** Definitions in common use *)
 
 (** Variable names *)
 type variable = string

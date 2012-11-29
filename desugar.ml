@@ -1,5 +1,6 @@
-(* Desugaring of input syntax to syntax with de Bruijn indices. *)
+(** Desugaring of input syntax to internal syntax. *)
 
+(** [index ~loc x xs] finds the location of [x] in the list [xs]. *)
 let index ~loc x =
   let rec index k = function
     | [] -> Error.typing ~loc "unknown identifier %s" x
@@ -7,6 +8,8 @@ let index ~loc x =
   in
     index 0
 
+(** [desugar ctx e] converts an expression of type [Input.expr] to type
+    [Syntax.expr] by replacing names in [e] with de Bruijn indices. *)
 let desugar ctx =
   let rec desugar xs (e, loc) =
     (match e with

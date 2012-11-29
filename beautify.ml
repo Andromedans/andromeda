@@ -14,8 +14,8 @@ let split s =
       let k = int_of_string (String.sub s (!i+1) (n - !i - 1)) in
         (String.sub s 0 (!i+1), Some k)
 
-(** Given a variable [x] and a substitution of variables to variables, find a variant of
-    [x] which does not appear in the codomain of the substitution. *)
+(** Given a variable [x] and a list of variable names [xs], find a variant of [x] which
+    does not appear in [xs]. *)
 let refresh x xs =
   if not (List.mem x xs)
   then x

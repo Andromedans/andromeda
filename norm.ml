@@ -1,7 +1,10 @@
+(** Normalization of expressions. *)
+
 open Syntax
 open Context
 
-(** [norm env e] evaluates expression [e] in environment [env] to a value. *)
+(** [norm env e] evaluates expression [e] in environment [env] to a head normal form,
+    while [norm weak:false env e] evaluates to normal form. *)
 let norm ?(weak=false) =
   let rec norm ctx ((e', loc) as e) =
     match e' with
@@ -13,7 +16,7 @@ let norm ?(weak=false) =
       | Pi a -> 
         Pi (norm_abstraction ctx a), loc
       | Lambda a -> Lambda (norm_abstraction ctx a), loc
-      | Subst (s, e) -> norm ctx (subst ~weak s e)
+      | Subst (s, e) -> norm ctx (subst s e)
       | App (e1, e2) ->
         let (e1', _) as e1 = norm ctx e1 in
           (match e1' with
@@ -29,7 +32,9 @@ let norm ?(weak=false) =
   in
     norm
 
+(** [nf ctx e] computes the normal form of expression [e]. *)
 let nf = norm ~weak:false
 
+(** [hnf ctx e] computes the head normal form of expression [e]. *)
 let hnf = norm ~weak:true
 

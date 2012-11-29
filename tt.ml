@@ -2,10 +2,16 @@
 
 open Context
 
-let usage = "Usage: tt [option] ... [file] ..."
+(** Should the interactive shell be run? *)
 let interactive_shell = ref true
+
+(** The command-line wrappers that we look for. *)
 let wrapper = ref (Some ["rlwrap"; "ledit"])
 
+(** The usage message. *)
+let usage = "Usage: tt [option] ... [file] ..."
+
+(** The help text printed when [Help.] is used. *)
 let help_text = "Toplevel commands:
 Parameter <ident> : <expr>.    assume variable <ident> has type <expr>
 Definition <indent> := <expr>. define <ident> to be <expr>
@@ -13,11 +19,20 @@ Check <expr>                   infer the type of expression <expr>
 Eval <expr>.                   normalize expression <expr>
 Context.                       print current contex    
 Help.                          print this help
-Quit.                          exit" ;;
+Quit.                          exit
+
+Syntax:
+Type k                         the k-th universe, e.g. Type 42
+fun x : e1 => e2               function abstraction
+forall x : e1, e2              dependent product
+e1 e2                          application
+" ;;
 
 (** A list of files to be loaded and run. *)
 let files = ref []
 
+(** Add a file to the list of files to be loaded, and record whether it should
+    be processed in interactive mode. *)
 let add_file interactive filename = (files := (filename, interactive) :: !files)
 
 (** A list of command-line wrappers to look for. *)
@@ -52,7 +67,7 @@ let anonymous str =
   add_file true str;
   interactive_shell := false
 
-(** Parser wrapper *)
+(** Parser wrapper that reads extra lines on demand. *)
 let parse parser lex =
   try
     parser Lexer.token lex
@@ -62,8 +77,8 @@ let parse parser lex =
   | Failure "lexing: empty token" ->
       Error.syntax ~loc:(Lexer.position_of_lex lex) "unrecognised symbol."
 
-(** [exec_cmd ctx d] executes toplevel directive [d] in global context [ctx]. It prints the
-    result on standard output and return the new context. *)
+(** [exec_cmd ctx d] executes toplevel directive [d] in context [ctx]. It prints the
+    result if in interactive mode, and returns the new context. *)
 let rec exec_cmd interactive ctx (d, loc) =
   match d with
     | Input.Eval e ->

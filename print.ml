@@ -85,7 +85,7 @@ let expr' xs e ppf = expr xs (Common.nowhere e) ppf
   
 (** Support for printing of errors, warning and debugging information. *)
 
-let verbosity = ref 3
+let verbosity = ref 2
 
 let message ?(loc=Common.Nowhere) msg_type v =
   if v <= !verbosity then

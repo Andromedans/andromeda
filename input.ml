@@ -1,6 +1,6 @@
 (** Abstract syntax of input files. *)
 
-(** Abstract syntax of expressions as typed in by the user. *)
+(** Abstract syntax of expressions as given by the user. *)
 type expr = expr' * Common.position
 and expr' =
   | Var of Common.variable
