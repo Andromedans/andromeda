@@ -25,7 +25,7 @@ let rec shift k = function
   | Lambda a -> Lambda shift_abstraction k a)
 
 and shift_abstraction k (x, v1, v2) =
-
+ (x, shift k v1, shift 
 
 
 (** Comparison of values for equality. It descends into abstractions by first applying them

@@ -4,8 +4,7 @@
 
 type declaration = 
   | Parameter of Syntax.expr
-  | Value of Value.value
-  | Definition of Syntax.expr * Syntax.expr * Value.value
+  | Definition of Syntax.expr * Syntax.expr
 
 type context = {
   names : string list ;
@@ -20,27 +19,17 @@ let empty_context = {
 (** [lookup_ty k ctx] returns the type of [k] in context [ctx]. *)
 let lookup_ty k {decls=lst} =
   match List.nth lst k with
-    | Parameter t | Definition (t, _, _) -> Syntax.shift (k+1) t
-    | Value _ -> assert false
+    | Parameter t | Definition (t, _) -> Syntax.shift (k+1) t
 
-let lookup_definition k {decls=lst} = 
+let lookup_definition k {decls=lst;names=names} = 
   match List.nth lst k with
-    | Definition (_, e, _) -> Some (Syntax.shift (k+1) e)
-    | Value _ | Parameter _ -> None
-
-let lookup_value k {decls=lst} = 
-  match List.nth lst k with
-    | Value v | Definition (_, _, v) -> Some (Value.shift (k+1) v)
+    | Definition (_, e) -> Some (Syntax.shift (k+1) e)
     | Parameter _ -> None
 
 let add_parameter x t ctx =
     { names = x :: ctx.names ;
       decls = Parameter t :: ctx.decls }
 
-let add_value v ctx =
-  { names = "_" :: ctx.names ;
-    decls = Value v :: ctx.decls }
-
-let add_definition x t d v ctx =
+let add_definition x t e ctx =
     { names = x :: ctx.names ;
-      decls = Definition (t, d, v) :: ctx.decls }
+      decls = Definition (t, e) :: ctx.decls }

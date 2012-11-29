@@ -68,7 +68,7 @@ let rec exec_cmd interactive ctx (d, loc) =
   match d with
     | Input.Eval e ->
       let e, t = Typing.infer ctx e in
-      let e = Typing.normalize ctx e in
+      let e = Typing.nf ctx e in
         if interactive then
           Format.printf "    = %t@\n    : %t@."
             (Print.expr ctx.names e)
@@ -81,13 +81,13 @@ let rec exec_cmd interactive ctx (d, loc) =
       let t, _ =  Typing.infer_universe ctx t in
         if interactive then
           Format.printf "%s is assumed.@." x ;
-        extend x t ctx
+        add_parameter x t ctx
     | Input.Definition (x, e) ->
       if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
       let e, t = Typing.infer ctx e in
         if interactive then
           Format.printf "%s is defined.@." x ;
-        extend x t ~definition:e ctx
+        add_definition x t e ctx
     | Input.Check e ->
       let e, t = Typing.infer ctx e in
         Format.printf "%t@\n    : %t@." (Print.expr ctx.names e) (Print.expr ctx.names t) ;
