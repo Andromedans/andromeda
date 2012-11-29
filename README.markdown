@@ -1,6 +1,6 @@
 A minimalist implementation of type theory in Ocaml. The repository holds
 several branches which correspond to a series of blog posts about
-dependent type theory on the (Mathematics and Computation)[http://math.andrej.com/] blog.
+dependent type theory on the [Mathematics and Computation](http://math.andrej.com/) blog.
 
 ## The type theory
 
