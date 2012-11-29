@@ -67,7 +67,8 @@ let parse parser lex =
 let rec exec_cmd interactive ctx (d, loc) =
   match d with
     | Input.Eval e ->
-      let e, t = Typing.infer ctx e in
+      let e = Desugar.desugar ctx e in
+      let t = Typing.infer ctx e in
       let e = Typing.nf ctx e in
         if interactive then
           Format.printf "    = %t@\n    : %t@."
@@ -84,18 +85,21 @@ let rec exec_cmd interactive ctx (d, loc) =
         (List.combine ctx.names ctx.decls) ;
       ctx
     | Input.Parameter (x, t) ->
-      let t, _ =  Typing.infer_universe ctx t in
+      let t = Desugar.desugar ctx t in
+      let _ =  Typing.infer_universe ctx t in
         if interactive then
           Format.printf "%s is assumed.@." x ;
         add_parameter x t ctx
     | Input.Definition (x, e) ->
       if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
-      let e, t = Typing.infer ctx e in
+      let e = Desugar.desugar ctx e in
+      let t = Typing.infer ctx e in
         if interactive then
           Format.printf "%s is defined.@." x ;
         add_definition x t e ctx
     | Input.Check e ->
-      let e, t = Typing.infer ctx e in
+      let e = Desugar.desugar ctx e in
+      let t = Typing.infer ctx e in
         Format.printf "%t@\n    : %t@." (Print.expr ctx.names e) (Print.expr ctx.names t) ;
         ctx
     | Input.Help ->

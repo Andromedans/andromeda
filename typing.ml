@@ -56,47 +56,42 @@ let index ~loc x ctx =
   in
     index 0 ctx.names
 
-(** [infer ctx e] infers the type of expression [e] of type [Input.expr] in context [ctx].
-    It returns the expression converted to type [expr] and its type. *)
+(** [infer ctx e] infers the type of expression [e] of in context [ctx]. *)
 let rec infer ctx (e, loc) =
   match e with
-    | Input.Var x -> 
-      let k = index ~loc x ctx in
-        (Var k, loc), lookup_ty k ctx
-    | Input.Universe u -> (Universe u, loc), mk_universe (u + 1)
-    | Input.Pi (x, e1, e2) ->
-      let e1, u1 = infer_universe ctx e1 in
-      let e2, u2 = infer_universe (add_parameter x e1 ctx) e2 in
-        (Pi (x, e1, e2), loc),
+    | Var k -> lookup_ty k ctx
+    | Universe u -> mk_universe (u + 1)
+    | Pi (x, e1, e2) ->
+      let u1 = infer_universe ctx e1 in
+      let u2 = infer_universe (add_parameter x e1 ctx) e2 in
         mk_universe (max u1 u2)
-    | Input.Lambda (x, e1, e2) ->
-      let e1, _ = infer_universe ctx e1 in
-      let e2, t2 = infer (add_parameter x e1 ctx) e2 in
-        (Lambda (x, e1, e2), loc),
+    | Subst (s, e) -> infer ctx (Syntax.subst ~weak:false s e)
+    | Lambda (x, e1, e2) ->
+      let _ = infer_universe ctx e1 in
+      let t2 = infer (add_parameter x e1 ctx) e2 in
         mk_pi (x, e1, t2)
-    | Input.App (e1, e2) ->
-      let e1, (x, s, t) = infer_pi ctx e1 in
-      let e2, t2 = infer ctx e2 in
+    | App (e1, e2) ->
+      let (x, s, t) = infer_pi ctx e1 in
+      let t2 = infer ctx e2 in
         if not (equal ctx s t2)
         then
           Error.typing ~loc:(snd e2)
             "this expresion has type@ %t@ but@ %t@ was expected"
             (Print.expr ctx.names t2) (Print.expr ctx.names s)
         else
-          (App (e1, e2), loc), 
           mk_subst (Dot (e2, idsubst)) t
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
-  let t, u = infer ctx t in
+  let u = infer ctx t in
     match fst (hnf ctx u) with
-      | Universe u -> t, u
+      | Universe u -> u
       | Subst _ | App _ | Var _ | Pi _ | Lambda _ ->
         Error.typing ~loc:(snd t) "this expression has type@ %t@ but it should be a universe" (Print.expr ctx.names u)
 
 and infer_pi ctx e =
-  let e, t = infer ctx e in
+  let t = infer ctx e in
     match fst (hnf ctx t) with
-      | Pi a -> e, a
+      | Pi a -> a
       | Subst _ | Var _ | App _ | Universe _ | Lambda _ ->
         Error.typing ~loc:(snd e) "this expression has type@ %t@ but it should be a function" (Print.expr ctx.names t)
