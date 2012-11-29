@@ -1,4 +1,6 @@
-A minimalist implementation of type theory in Ocaml. This is the master version. 
+A minimalist implementation of type theory in Ocaml. This is the version from the 3rd
+part of my blog posts, see (How to implement dependent type theory III)[http://math.andrej.com/2012/11/29/how-to-implement-dependent-type-theory-iii/].
+
 ## The type theory
 
 The dependent type theory `tt` has the following ingridients:
@@ -56,13 +58,15 @@ essential bits of source code can be found in the following files. It should be 
 for you to just read the entire source code. You should start with the core
 
 * `syntax.ml` -- abstract syntax
-* `ctx.ml` -- contexts
-* `infer.ml` -- type inference and normalization
+* `context.ml` -- contexts
+* `norm.ml` -- normalization
+* `typing.ml` -- type inference and normalization
 
 and continue with the infrastructure
 
 * `tt.ml` -- interactive top level
 * `error.ml` -- error reporting
+* `desugar.ml` -- convert names to de Bruijn indices
 * `lexer.mll` and `parser.mly` -- concrete sytnax
 * `beautify.ml` and `print.ml` -- pretty printing
 
@@ -82,8 +86,6 @@ There are many things you can try, for example:
 * basic types `unit`, `bool` and `nat`
 * the eta rule for functions
 * dependent sums
-* de Bruijn indices
 * cummulative universes, so that [A : Type k] implies [A : Type (k+1)]
 * better type inference so that variables need not be explicitly typed
-* flexible syntax, e.g., allow `fun x y : nat => ...` instead of `fun x : nat => fun y : nat => ...`
 * prefix and infix operators
