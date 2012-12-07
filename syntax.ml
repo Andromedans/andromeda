@@ -71,8 +71,7 @@ let subst =
 let rec occurs k (e, _) =
   match e with
     | Var m -> m = k
-    | Subst (Shift m, e) -> k >= m && occurs (k - m) e
-    | Subst (Dot (e1, s), e2) -> (occurs 0 e2 && occurs k e1) || occurs (k - 1) (mk_subst s e2)
+    | Subst (s, e) -> occurs k (subst s e)
     | Universe _ -> false
     | Pi a -> occurs_abstraction k a
     | Lambda a -> occurs_abstraction k a
@@ -80,5 +79,3 @@ let rec occurs k (e, _) =
 
 and occurs_abstraction k (_, e1, e2) =
   occurs k e1 || occurs (k + 1) e2
-
-  
