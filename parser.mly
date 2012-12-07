@@ -6,14 +6,14 @@
     | [] -> e
     | ((xs, t), loc) :: lst ->
       let e = make_lambda e lst in
-        List.fold_left (fun e x -> (Lambda (x, t, e), loc)) e xs
+        List.fold_right (fun x e -> (Lambda (x, t, e), loc)) xs e
 
   (* Build nested pies *)
   let rec make_pi e = function
     | [] -> e
     | ((xs, t), loc) :: lst ->
       let e = make_pi e lst in
-        List.fold_left (fun e x -> (Pi (x, t, e), loc)) e xs
+        List.fold_right (fun x e -> (Pi (x, t, e), loc)) xs e
 
 %}
 
