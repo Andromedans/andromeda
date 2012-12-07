@@ -3,7 +3,7 @@
 open Syntax
 open Context
 
-(** [norm env e] evaluates expression [e] in environment [env] to a head normal form,
+(** [norm env e] evaluates expression [e] in environment [env] to a weak head normal form,
     while [norm weak:false env e] evaluates to normal form. *)
 let norm ?(weak=false) =
   let rec norm ctx ((e', loc) as e) =
@@ -35,6 +35,6 @@ let norm ?(weak=false) =
 (** [nf ctx e] computes the normal form of expression [e]. *)
 let nf = norm ~weak:false
 
-(** [hnf ctx e] computes the head normal form of expression [e]. *)
-let hnf = norm ~weak:true
+(** [whnf ctx e] computes the weak head normal form of expression [e]. *)
+let whnf = norm ~weak:true
 

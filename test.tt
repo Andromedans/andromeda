@@ -16,7 +16,7 @@ Definition times :=
   fun (m n : numeral) (A : Type 0) (f : A -> A) (x : A) => m A (n A f) x.
 
 Definition power :=
-  fun (m n : numeral) (A : Type 0) => m (A -> A) (n A).
+  fun (m n : numeral) (A : Type 0) => n (A -> A) (m A).
   
 Definition four := plus two two.
 

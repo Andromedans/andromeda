@@ -5,8 +5,8 @@ open Context
 
 (** [equal ctx e1 e2] determines whether [e1] and [e2] are equal expressions. *)
 let rec equal ctx e1 e2 =
-  let (e1, _) = Norm.hnf ctx e1 in
-  let (e2, _) = Norm.hnf ctx e2 in
+  let (e1, _) = Norm.whnf ctx e1 in
+  let (e2, _) = Norm.whnf ctx e2 in
     match e1, e2 with
       | Var k1, Var k2 -> k1 = k2
       | Universe u1, Universe u2 -> u1 = u2
@@ -46,14 +46,14 @@ let rec infer ctx (e, loc) =
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
   let u = infer ctx t in
-    match fst (Norm.hnf ctx u) with
+    match fst (Norm.whnf ctx u) with
       | Universe u -> u
       | Subst _ | App _ | Var _ | Pi _ | Lambda _ ->
         Error.typing ~loc:(snd t) "this expression has type@ %t@ but it should be a universe" (Print.expr ctx.names u)
 
 and infer_pi ctx e =
   let t = infer ctx e in
-    match fst (Norm.hnf ctx t) with
+    match fst (Norm.whnf ctx t) with
       | Pi a -> a
       | Subst _ | Var _ | App _ | Universe _ | Lambda _ ->
         Error.typing ~loc:(snd e) "this expression has type@ %t@ but it should be a function" (Print.expr ctx.names t)
