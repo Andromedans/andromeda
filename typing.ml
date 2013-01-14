@@ -7,7 +7,7 @@ let rec equal_at ctx e1 e2 t =
   match fst (Norm.whnf ctx t) with
     | Pi (x, t1, t2) ->
       equal_at (add_parameter x t1 ctx) (mk_app e1 (mk_var 0)) (mk_app e2 (mk_var 0)) t2
-    | Universe _ -> equal ctx e1 e2
+    | Universe _ -> equal_type ctx e1 e2
     | App _ -> equal ctx e1 e2
     | Lambda _ | Var _ | Subst _ | Ascribe _ -> assert false
 
@@ -20,12 +20,8 @@ and equal ctx e1 e2 =
         if k1 = k2 then Some (lookup_ty k1 ctx) else None
       | Universe u1, Universe u2 ->
         if u1 = u2 then Some (mk_universe (u1 + 1)) else None
-      | Pi (x, t1, t2), Pi (_, u1, u2) ->
-        (match equal ctx t1 t2 with
-          | None -> None
-          | Some (Universe _) -> 
-      | Lambda (_, e1), Lambda (_, e2) ->
-        equal_abstraction ctx a1 a2
+      | Pi a, Pi a' -> equal_abstraction ctx a a'
+      | Lambda a, Lambda a' -> equal_abstraction ctx a a'
       | App (n1, e1), App (n2, e2) -> equal ctx n1 n2 && equal ctx e1 e2
       | (Var _ | Universe _ | Pi _ | Lambda _ | App _ | Subst _), _ -> None
         
@@ -44,46 +40,39 @@ let rec infer ctx (e, loc) =
       let u2 = infer_universe (add_parameter x t1 ctx) t2 in
         mk_universe (max u1 u2)
     | Subst (s, e) -> infer ctx (Syntax.subst s e)
-    | Lambda (x, e1, e2) ->
-      let _ = infer_universe ctx e1 in
-      let t2 = infer (add_parameter x e1 ctx) e2 in
-        mk_pi (x, e1, t2)
     | App (e1, e2) ->
       let (x, s, t) = infer_pi ctx e1 in
-      let t2 = infer ctx e2 in
-        if not (equal ctx s t2)
-        then
-          Error.typing ~loc:(snd e2)
-            "this expresion has type@ %t@ but@ %t@ was expected"
-            (Print.expr ctx.names t2) (Print.expr ctx.names s)
-        else
-          mk_subst (Dot (e2, idsubst)) t
+        check ctx e2 s ;
+        mk_subst (Dot (e2, idsubst)) t
+    | Lambda _ ->
+      Error.typing ~loc "cannot infer the type of this expression"
 
 and check ctx ((e', loc) as e) t =
-  let ok =
-    match e' with
-      | Var _ | Pi _ | App _ -> let t' = infer ctx e in equal ctx t t'
-      | Universe u -> let v = infer_universe ctx t in u + 1 = v
-      | Subst (s, e) -> check ctx (Syntax.subst s e)
-      | Lambda (x, e) ->
-        (match Norm.whnf ctx t with
-          | Pi (_, t1, t2) -> check (add_parameter x t1 ctx) e t2
-          | _ -> false)
-      | Ascribe (e, t') -> check ctx e t' ; equal ctx t' t
-  in
-    Error.typing ~loc "this expression should have type@ %t@ but it does not" (Print.expr ctx.names t)
+  match e' with
+    | Var _ | Pi _ | App _ | Universe _ ->
+      let t' = infer ctx e in equal ctx t t'
+    | Subst (s, e) -> check ctx (Syntax.subst s e) t
+    | Lambda (x, e) ->
+      (match Norm.whnf ctx t with
+        | Pi (x, t1, t2) -> check (add_parameter x t1 ctx) e t2
+        | _ -> 
+          Error.typing ~loc "this expression should have type@ %t@ but it is a function" (Print.expr ctx.names t)
+      )
+    | Ascribe (e, t') -> check ctx e t' ; equal ctx t' t
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
   let u = infer ctx t in
     match fst (Norm.whnf ctx u) with
       | Universe u -> u
-      | Subst _ | App _ | Var _ | Pi _ | Lambda _ ->
+      | Subst _ -> assert false
+      | App _ | Var _ | Pi _ | Lambda _ ->
         Error.typing ~loc:(snd t) "this expression has type@ %t@ but it should be a universe" (Print.expr ctx.names u)
 
 and infer_pi ctx e =
   let t = infer ctx e in
     match fst (Norm.whnf ctx t) with
-      | Pi a -> a
-      | Subst _ | Var _ | App _ | Universe _ | Lambda _ ->
+      | Pi (x, t1, t2) -> (x, t1, t2)
+      | Subst _ -> assert false
+      | Var _ | App _ | Universe _ | Lambda _ ->
         Error.typing ~loc:(snd e) "this expression has type@ %t@ but it should be a function" (Print.expr ctx.names t)
