@@ -15,11 +15,9 @@ let desugar ctx =
     (match e with
       | Input.Var x -> Syntax.Var (index ~loc x xs)
       | Input.Universe u -> Syntax.Universe u
-      | Input.Pi a -> Syntax.Pi (desugar_abstraction xs a)
-      | Input.Lambda a -> Syntax.Lambda (desugar_abstraction xs a)
+      | Input.Pi (x, t1, t2) -> Syntax.Pi (x, desugar xs t1, desugar (x :: xs) t2)
+      | Input.Lambda (x, e) -> Syntax.Lambda (x, desugar (x :: xs) e)
       | Input.App (e1, e2) -> Syntax.App (desugar xs e1, desugar xs e2)),
     loc
-  and desugar_abstraction xs (x, t, e) =
-    (x, desugar xs t, desugar (x :: xs) e)
   in
     desugar ctx.Context.names

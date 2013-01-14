@@ -47,22 +47,22 @@ let sequence ?(sep="") f lst ppf =
     seq lst
 
 (** [pi xs a ppf] prints abstraction [a] as dependent product using formatter [ppf]. *)
-let rec pi ?max_level xs (x, e1, e2) ppf =
-  if Syntax.occurs 0 e2
+let rec pi ?max_level xs x t1 t2 ppf =
+  if Syntax.occurs 0 t2
   then
     let x = Beautify.refresh x xs in
-      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (expr xs e1) (expr (x :: xs) e2)
+      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (expr xs t1) (expr (x :: xs) t2)
   else
-    print ~at_level:3 ppf "%t ->@ %t" (expr ~max_level:2 xs e1) (expr ("_" :: xs) e2)
+    print ~at_level:3 ppf "%t ->@ %t" (expr ~max_level:2 xs t1) (expr ("_" :: xs) t2)
 
 (** [lambda xs a ppf] prints abstraction [a] as a function using formatter [ppf]. *)
-and lambda xs (x, e1, e2) ppf =
+and lambda xs x e ppf =
   let x =
-    if Syntax.occurs 0 e2
+    if Syntax.occurs 0 e
     then Beautify.refresh x xs 
     else "_"
   in
-    print ~at_level:3 ppf "fun %s :@ %t => %t" x (expr xs e1) (expr (x :: xs) e2)
+    print ~at_level:3 ppf "fun %s => %t" x (expr (x :: xs) e)
 
 (** [expr ctx e ppf] prints expression [e] using formatter [ppf]. *)
 and expr ?max_level xs e ppf =
@@ -74,10 +74,10 @@ and expr ?max_level xs e ppf =
           | Syntax.Var k -> print "%s" (List.nth xs k)
           | Syntax.Subst (s, e) -> let e = Syntax.subst s e in print "%t" (expr xs e)
           | Syntax.Universe u -> print ~at_level:1 "Type %d" u
-          | Syntax.Pi a -> print ~at_level:3 "%t" (pi xs a)
-          | Syntax.Lambda a -> print ~at_level:3 "%t" (lambda xs a)
-          | Syntax.App (e1, e2) ->
-            print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
+          | Syntax.Pi (x, t1, t2) -> print ~at_level:3 "%t" (pi xs x t1 t2)
+          | Syntax.Lambda (x, e) -> print ~at_level:3 "%t" (lambda xs x e)
+          | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
+          | Syntax.Ascribe (e, t) -> print ~at_level:2 "%t : %t" (expr ~max_level:1 xs e) (expr ~max_level:1 xs t)
   in
     expr ?max_level xs e ppf
     

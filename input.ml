@@ -5,13 +5,10 @@ type expr = expr' * Common.position
 and expr' =
   | Var of Common.variable
   | Universe of int
-  | Pi of abstraction
-  | Lambda of abstraction
+  | Pi of Common.variable * expr * expr
+  | Lambda of Common.variable * expr
   | App of expr * expr
  
-(** An abstraction [(x,t,e)] indicates that [x] of type [t] is bound in [e]. *)
-and abstraction = Common.variable * expr * expr
-
 (** Toplevel directives. *)
 type directive = directive' * Common.position
 and directive' =
