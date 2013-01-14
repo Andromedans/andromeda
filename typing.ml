@@ -20,7 +20,10 @@ and equal ctx e1 e2 =
         if k1 = k2 then Some (lookup_ty k1 ctx) else None
       | Universe u1, Universe u2 ->
         if u1 = u2 then Some (mk_universe (u1 + 1)) else None
-      | Pi (x, t1, t2), Pi (_, u1, u2) -> equal_abstraction ctx a1 a2
+      | Pi (x, t1, t2), Pi (_, u1, u2) ->
+        (match equal ctx t1 t2 with
+          | None -> None
+          | Some (Universe _) -> 
       | Lambda (_, e1), Lambda (_, e2) ->
         equal_abstraction ctx a1 a2
       | App (n1, e1), App (n2, e2) -> equal ctx n1 n2 && equal ctx e1 e2
