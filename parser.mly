@@ -4,7 +4,9 @@
   (* Build nested lambdas *)
   let rec make_lambda e = function
     | [] -> e
-    | (x, loc) :: lst -> Lambda (x, make_lambda e lst), loc
+    | ((xs, t), loc) :: lst ->
+      let e = make_lambda e lst in
+        List.fold_right (fun x e -> (Lambda (x, t, e), loc)) xs e
 
   (* Build nested pies *)
   let rec make_pi e = function
@@ -58,9 +60,9 @@ expr: mark_position(plain_expr) { $1 }
 plain_expr:
   | e = plain_app_expr
     { e }
-  | FORALL lst = typed_abstraction COMMA e = expr
+  | FORALL lst = abstraction COMMA e = expr
     { fst (make_pi e lst) }
-  | FUN lst = untyped_abstraction DARROW e = expr
+  | FUN lst = abstraction DARROW e = expr
     { fst (make_lambda e lst) }
   | t1 = app_expr ARROW t2 = expr
     { Pi ("_", t1, t2) }
@@ -81,7 +83,7 @@ plain_simple_expr:
   | LPAREN e = plain_expr RPAREN
     { e }
 
-typed_abstraction:
+abstraction:
   | b = bind1
     { [b] }
   | bs = binds
@@ -97,12 +99,6 @@ binds:
     { [b] }
   | LPAREN b = bind1 RPAREN lst = binds
     { b :: lst }
-
-untyped_abstraction:
-  | xs = nonempty_list(marked_name)
-    { xs }
-
-marked_name: mark_position(NAME) { $1 }
 
 mark_position(X):
   x = X

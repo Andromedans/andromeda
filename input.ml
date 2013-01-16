@@ -6,7 +6,7 @@ and expr' =
   | Var of Common.variable
   | Universe of int
   | Pi of Common.variable * expr * expr
-  | Lambda of Common.variable * expr
+  | Lambda of Common.variable * expr * expr
   | App of expr * expr
  
 (** Toplevel directives. *)
