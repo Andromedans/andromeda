@@ -43,6 +43,7 @@ rule token = parse
   | ')'                 { RPAREN }
   | "."                 { PERIOD }
   | ':'                 { COLON }
+  | "::"                { DCOLON }
   | ','                 { COMMA }
   | "->"                { ARROW }
   | "=>"                { DARROW }

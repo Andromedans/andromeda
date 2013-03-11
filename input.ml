@@ -8,6 +8,7 @@ and expr' =
   | Pi of Common.variable * expr * expr
   | Lambda of Common.variable * expr * expr
   | App of expr * expr
+  | Ascribe of expr * expr
  
 (** Toplevel directives. *)
 type directive = directive' * Common.position

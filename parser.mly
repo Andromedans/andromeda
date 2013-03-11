@@ -21,7 +21,7 @@
 %token <int> NUMERAL
 %token <string> NAME
 %token LPAREN RPAREN
-%token COLON COMMA PERIOD COLONEQUAL
+%token COLON DCOLON COMMA PERIOD COLONEQUAL
 %token ARROW DARROW
 %token QUIT HELP PARAMETER CHECK EVAL CONTEXT DEFINITION
 %token EOF
@@ -62,10 +62,12 @@ plain_expr:
     { e }
   | FORALL lst = abstraction COMMA e = expr
     { fst (make_pi e lst) }
-  | FUN lst = abstraction DARROW e = expr
-    { fst (make_lambda e lst) }
   | t1 = app_expr ARROW t2 = expr
     { Pi ("_", t1, t2) }
+  | FUN lst = abstraction DARROW e = expr
+    { fst (make_lambda e lst) }
+  | e = app_expr DCOLON t = app_expr
+    { Ascribe (e, t) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
