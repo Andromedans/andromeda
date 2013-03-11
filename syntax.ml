@@ -7,7 +7,7 @@ type universe = int
     variables. *)
 type expr = expr' * Common.position
 and expr' =
-  | Var of int                   (* de Briujn index *)
+  | Var of int                   (* de Bruijn index *)
   | Subst of substitution * expr (* explicit substitution *)
   | Universe of universe
   | Pi of abstraction
