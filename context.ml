@@ -24,6 +24,12 @@ let empty_context = {
   names = [] ;
   decls = []
 }
+
+(** [lookup k ctx] returns the type or definition of [Var k] in context [ctx]. *)
+let lookup k {decls=lst} =
+  match List.nth lst k with
+    | Parameter t -> Parameter (Syntax.shift (k+1) t)
+    | Definition (t, e) -> Definition (Syntax.shift (k+1) t, Syntax.shift (k+1) e)
     
 (** [lookup_ty k ctx] returns the type of [Var k] in context [ctx]. *)
 let lookup_ty k {decls=lst} =

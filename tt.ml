@@ -91,13 +91,16 @@ let rec exec_cmd interactive ctx (d, loc) =
             (Print.expr ctx.names t) ;
         ctx
     | Input.Context ->
-      List.iter
-        (function
-          | (x, Parameter t) ->
-            Format.printf "@[%s : %t@]@." x (Print.expr ctx.names t)
-          | (x, Definition (t, e)) ->
-            Format.printf "@[%s = %t@]@\n    : %t@." x (Print.expr ctx.names e) (Print.expr ctx.names t))
-        (List.combine ctx.names ctx.decls) ;
+      ignore
+        (List.fold_left
+           (fun k x ->
+             (match Context.lookup k ctx with
+               | Parameter t ->
+                 Format.printf "@[%s : %t@]@." x (Print.expr ctx.names t)
+               | Definition (t, e) ->
+                 Format.printf "@[%s = %t@]@\n    : %t@." x (Print.expr ctx.names e) (Print.expr ctx.names t)) ;
+             k + 1)
+           0 ctx.names) ;
       ctx
     | Input.Parameter (x, t) ->
       let t = Desugar.desugar ctx t in
