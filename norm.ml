@@ -3,7 +3,10 @@
 open Syntax
 open Context
 
-let lookup k env = List.nth env k
+let lookup k env =
+  match List.nth env k with
+    | Some e -> Some (Syntax.shift (k+1) e)
+    | None -> None
 
 let extend env = None :: env
 
