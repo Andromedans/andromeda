@@ -64,7 +64,9 @@ let subst =
       | s, App (e1, e2) -> App (mk_subst s e1, mk_subst s e2), loc
       | s, Ascribe (e, t) -> Ascribe (mk_subst s e, mk_subst s t), loc
   and subst_abstraction s (x, t, e) =
-    (x, mk_subst s t, mk_subst s e)
+    let t = mk_subst s t in
+    let e = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) e in
+      (x, t, e)
   in
     subst
 
