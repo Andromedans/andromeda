@@ -6,7 +6,7 @@ and expr' =
   | Var of Common.variable
   | Universe of int
   | Pi of Common.variable * expr * expr
-  | Lambda of Common.variable * expr * expr
+  | Lambda of Common.variable * expr
   | App of expr * expr
   | Ascribe of expr * expr
  

@@ -16,7 +16,7 @@ let desugar ctx =
       | Input.Var x -> Syntax.Var (index ~loc x xs)
       | Input.Universe u -> Syntax.Universe u
       | Input.Pi (x, t1, t2) -> Syntax.Pi (x, desugar xs t1, desugar (x :: xs) t2)
-      | Input.Lambda (x, t, e) -> Syntax.Lambda (x, desugar xs t, desugar (x :: xs) e)
+      | Input.Lambda (x, e) -> Syntax.Lambda (x, desugar (x :: xs) e)
       | Input.App (e1, e2) -> Syntax.App (desugar xs e1, desugar xs e2)
       | Input.Ascribe (e, t) -> Syntax.Ascribe (desugar xs e, desugar xs t)),
     loc

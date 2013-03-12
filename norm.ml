@@ -26,15 +26,15 @@ let norm ?(weak=false) =
         if weak
         then e
         else mk_pi x (norm env t1) (norm (extend env) t2)
-      | Lambda (x, t, e') -> 
+      | Lambda (x, e') -> 
         if weak
         then e
-        else mk_lambda x (norm env t) (norm (extend env) e')
+        else mk_lambda x (norm (extend env) e')
       | Subst (s, e) -> norm env (subst s e)
       | App (e1, e2) ->
         let (e1', _) as e1 = norm env e1 in
           (match e1' with
-            | Lambda (x, _, e) -> norm env (mk_subst (Dot (e2, idsubst)) e)
+            | Lambda (x, e) -> norm env (mk_subst (Dot (e2, idsubst)) e)
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc

@@ -83,23 +83,28 @@ let rec infer ctx (e, loc) =
       let (x, t1, t2) = infer_pi ctx e1 in
         check ctx e2 t1 ;
         mk_subst (Dot (e2, idsubst)) t2
-    | Lambda (x, t, e) ->
-      let _ = infer_universe ctx t in
-      let t' = infer (add_parameter x t ctx) e in
-        mk_pi x t t'
+    | Lambda (x, _) -> Error.typing ~loc "cannot infer the type of %s" x
     | Ascribe (e, t) ->
-      let _ = infer_universe ctx t in
-        check ctx e t ;
-        t
+      check ctx e t ;
+      t
 
 (** [t] must be a valid type *)
-and check ctx e t =
-  let t' = infer ctx e in
-    match equal_ty ctx t' t with
-      | Some _ -> ()
-      | None ->
-        Error.typing ~loc:(snd e) "this expression has type@ %t@ but it should have type %t"
-          (Print.expr ctx.names t') (Print.expr ctx.names t)
+and check ctx ((e', loc) as e) t =
+  let _ = infer_universe ctx t in
+    match e' with
+      | Subst (s, e) -> check ctx e t (* XXX avoid rechecking t *)
+      | Lambda (x, e) ->
+        (match fst (Norm.whnf ctx t) with
+          | Pi (x, t1, t2) -> check (add_parameter x t1 ctx) e t2
+          | _ -> Error.typing ~loc "this expression should have type@ %t but it is a function"
+                                   (Print.expr ctx.names t))
+      | Var _ | Universe _ | Pi _ | App _ | Ascribe _ ->
+        let t' = infer ctx e in
+          (match equal_ty ctx t' t with
+            | Some _ -> ()
+            | None ->
+              Error.typing ~loc:(snd e) "this expression has type@ %t but it should have type %t"
+                (Print.expr ctx.names t') (Print.expr ctx.names t))
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
@@ -108,7 +113,7 @@ and infer_universe ctx t =
       | Universe u -> u
       | Subst _ | Ascribe _ -> assert false
       | App _ | Var _ | Pi _ | Lambda _ ->
-        Error.typing ~loc:(snd t) "this expression has type@ %t@ but it should be a type" (Print.expr ctx.names u)
+        Error.typing ~loc:(snd t) "this expression has type@ %t but it should be a type" (Print.expr ctx.names u)
 
 and infer_pi ctx e =
   let t = infer ctx e in
@@ -116,4 +121,4 @@ and infer_pi ctx e =
       | Pi (x, t1, t2) -> (x, t1, t2)
       | Subst _ | Ascribe _ -> assert false
       | Var _ | App _ | Universe _ | Lambda _ ->
-        Error.typing ~loc:(snd e) "this expression has type@ %t@ but it should be a function" (Print.expr ctx.names t)
+        Error.typing ~loc:(snd e) "this expression has type@ %t but it should be a function" (Print.expr ctx.names t)

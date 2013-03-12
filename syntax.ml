@@ -10,14 +10,10 @@ and expr' =
   | Var of int                   (* de Bruijn index *)
   | Subst of substitution * expr (* explicit substitution *)
   | Universe of universe
-  | Pi of abstraction
-  | Lambda of abstraction
+  | Pi of Common.variable * expr * expr
+  | Lambda of Common.variable * expr
   | App of expr * expr
   | Ascribe of expr * expr
-
-(** An abstraction [(x,t,e)] indicates that [x] of type [t] is bound in [e]. We also keep around
-    the original name [x] of the bound variable for pretty-printing purposes. *)
-and abstraction = Common.variable * expr * expr
 
 (** Explicit substitutions. *)
 and substitution =
@@ -30,7 +26,7 @@ let mk_subst s e = Common.nowhere (Subst (s, e))
 let mk_universe u = Common.nowhere (Universe u)
 let mk_pi x t e = Common.nowhere (Pi (x, t, e))
 let mk_arrow s t = mk_pi "_" s t
-let mk_lambda x t e = Common.nowhere (Lambda (x, t, e))
+let mk_lambda x e = Common.nowhere (Lambda (x, e))
 let mk_app e1 e2 = Common.nowhere (App (e1, e2))
 let mk_ascribe e t = Common.nowhere (Ascribe (e, t))
 
@@ -59,14 +55,15 @@ let subst =
       | Dot (a, s), Var k -> subst s (Var (k - 1), loc)
       | s, Subst (t, e) -> subst s (subst t e)
       | _, Universe _ -> e
-      | s, Pi a -> Pi (subst_abstraction s a), loc
-      | s, Lambda a -> Lambda (subst_abstraction s a), loc
+      | s, Pi (x, t, e) -> 
+        let t = mk_subst s t in
+        let e = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) e in
+          Pi (x, t, e), loc
+      | s, Lambda (x, e) ->
+        let e = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) e in
+          Lambda (x, e), loc
       | s, App (e1, e2) -> App (mk_subst s e1, mk_subst s e2), loc
       | s, Ascribe (e, t) -> Ascribe (mk_subst s e, mk_subst s t), loc
-  and subst_abstraction s (x, t, e) =
-    let t = mk_subst s t in
-    let e = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) e in
-      (x, t, e)
   in
     subst
 
@@ -77,6 +74,6 @@ let rec occurs k (e, _) =
     | Subst (s, e) -> occurs k (subst s e)
     | Universe _ -> false
     | Pi (_, t1, t2) -> occurs k t1 || occurs (k + 1) t2
-    | Lambda (_, t, e) -> occurs k t || occurs (k + 1) e
+    | Lambda (_, e) -> occurs (k + 1) e
     | App (e1, e2) -> occurs k e1 || occurs k e2
     | Ascribe (e, t) -> occurs k e || occurs k t

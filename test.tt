@@ -4,19 +4,19 @@ Parameter s : N -> N.
 
 Definition numeral := forall A : Type 0, (A -> A) -> (A -> A).
 
-Definition zero := fun (A : Type 0) (f : A -> A) (x : A) => x.
-Definition one := fun (A : Type 0) (f : A -> A) => f.
-Definition two := fun (A : Type 0) (f : A -> A) (x : A) => f (f x).
-Definition three := fun (A : Type 0) (f : A -> A) (x : A) => f (f (f x)).
+Definition zero  :: numeral := fun A f x => x.
+Definition one   :: numeral := fun A f => f.
+Definition two   :: numeral := fun A f x => f (f x).
+Definition three :: numeral := fun A f x => f (f (f x)).
 
-Definition plus :=
-  fun (m n : numeral) (A : Type 0) (f : A -> A) (x : A) => m A f (n A f x).
+Definition plus :: numeral -> numeral -> numeral :=
+  fun m n A f x => m A f (n A f x).
 
-Definition times :=
-  fun (m n : numeral) (A : Type 0) (f : A -> A) (x : A) => m A (n A f) x.
+Definition times :: numeral -> numeral -> numeral :=
+  fun m n A f x => m A (n A f) x.
 
-Definition power :=
-  fun (m n : numeral) (A : Type 0) => n (A -> A) (m A).
+Definition power :: numeral -> numeral -> numeral :=
+  fun m n A => n (A -> A) (m A).
   
 Definition four := plus two two.
 
