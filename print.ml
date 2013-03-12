@@ -64,6 +64,9 @@ and lambda xs x t e ppf =
   in
     print ~at_level:3 ppf "fun %s :@ %t => %t" x (expr xs t) (expr (x :: xs) e)
 
+and universe u ppf =
+  print ppf "Type %d" u
+
 (** [expr ctx e ppf] prints expression [e] using formatter [ppf]. *)
 and expr ?max_level xs e ppf =
   let rec expr ?max_level xs (e, _) ppf = expr' ?max_level xs e ppf
@@ -73,7 +76,7 @@ and expr ?max_level xs e ppf =
         match e with
           | Syntax.Var k -> print "%s" (List.nth xs k)
           | Syntax.Subst (s, e) -> let e = Syntax.subst s e in print "%t" (expr ?max_level xs e)
-          | Syntax.Universe u -> print ~at_level:1 "Type %d" u
+          | Syntax.Universe u -> print ~at_level:1 "%t" (universe u)
           | Syntax.Pi (x, t1, t2) -> print ~at_level:3 "%t" (pi xs x t1 t2)
           | Syntax.Lambda (x, t, e) -> print ~at_level:3 "%t" (lambda xs x t e)
           | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
