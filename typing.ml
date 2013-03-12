@@ -9,19 +9,21 @@ let rec equal_at ctx e1 e2 t =
   let t = Norm.whnf ctx t in
     match fst t with
       | Pi (x, t1, t2) ->
-        equal_at (add_parameter x t1 ctx) (mk_app e1 (mk_var 0)) (mk_app e2 (mk_var 0)) t2
+        let e1' = mk_app (shift 1 e1) (mk_var 0) in
+        let e2' = mk_app (shift 1 e2) (mk_var 0) in
+          equal_at (add_parameter x t1 ctx) e1' e2' t2
       | Universe u ->
         (match equal_ty ctx e1 e2 with
           | Some u' -> u = u'
           | None -> false)
-      | App _ ->
+      | Var _ | App _ ->
         (match equal ctx e1 e2 with
           | None -> false
           | Some t' ->
             (match equal_ty ctx t t' with
               | None -> false
               | Some _ -> true))
-      | Lambda _ | Var _ | Subst _ | Ascribe _ -> assert false
+      | Lambda _ | Subst _ | Ascribe _ -> assert false
 
 and equal ctx e1 e2 =
   let e1 = Norm.whnf ctx e1 in
@@ -96,7 +98,7 @@ and check ctx e t =
     match equal_ty ctx t' t with
       | Some _ -> ()
       | None ->
-        Error.typing ~loc:(snd e) "this epression has type@ %t@ but it should have type %t"
+        Error.typing ~loc:(snd e) "this expression has type@ %t@ but it should have type %t"
           (Print.expr ctx.names t') (Print.expr ctx.names t)
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
