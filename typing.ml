@@ -32,7 +32,7 @@ and equal ctx e1 e2 =
         (match equal_ty ctx t1 s1 with
           | None -> None
           | Some u1 ->
-            (match equal_ty (add_parameter x t1 ctx) t1 s2 with
+            (match equal_ty (add_parameter x t1 ctx) t2 s2 with
               | None -> None
               | Some u2 -> Some (mk_universe (max u1 u2))))
       | Var _, Var _
@@ -58,6 +58,7 @@ and equal_spine ctx e1 e2 =
             | _ -> None))
     | (Var _ | Universe _ | Pi _ | Lambda _ | App _ | Subst _ | Ascribe _), _ -> None
 
+(** [t1] and [t2] must be valid types. *)
 and equal_ty ctx t1 t2 =
   match equal ctx t1 t2 with
     | Some t ->
@@ -77,41 +78,26 @@ let rec infer ctx (e, loc) =
         mk_universe (max u1 u2)
     | Subst (s, e) -> infer ctx (Syntax.subst s e)
     | App (e1, e2) ->
-      let (x, s, t) = infer_pi ctx e1 in
-        check ctx e2 s ;
-        mk_subst (Dot (e2, idsubst)) t
+      let (x, t1, t2) = infer_pi ctx e1 in
+        check ctx e2 t1 ;
+        mk_subst (Dot (e2, idsubst)) t2
     | Lambda (x, t, e) ->
+      let _ = infer_universe ctx t in
       let t' = infer (add_parameter x t ctx) e in
         mk_pi x t t'
     | Ascribe (e, t) ->
-      check ctx e t ;
       let _ = infer_universe ctx t in
+        check ctx e t ;
         t
 
-(** [check ctx e t] checks that [e] has type [t]. It is assumed that [t] is a valid type. *)
-and check ctx ((e', loc) as e) t =
-  match e' with
-    | Var _ | Pi _ | App _ | Universe _ ->
-      let t' = infer ctx e in
-        (match equal_ty ctx t t' with
-          | Some _ -> ()
-          | None -> Error.typing ~loc "this expression should have type@ %t." (Print.expr ctx.names t))
-    | Subst (s, e) -> check ctx (Syntax.subst s e) t
-    | Lambda (x, t', e) ->
-      (match fst (Norm.whnf ctx t) with
-        | Pi (x, t1, t2) ->
-          (match equal_ty ctx t' t1 with
-            | Some _ -> check (add_parameter x t1 ctx) e t2
-            | None ->
-              Error.typing ~loc "this function should have domain@ %t@ but it has domain@ %t."
-                (Print.expr ctx.names t1) (Print.expr ctx.names t'))
-        | _ -> 
-          Error.typing ~loc "this expression should have type@ %t@ but it is a function" (Print.expr ctx.names t)
-      )
-    | Ascribe (e, t') -> 
-      (match equal_ty ctx t' t with
-        | Some _ -> check ctx e t'
-        | None -> Error.typing ~loc:(snd t') "this expression should be type@ %t@" (Print.expr ctx.names t))
+(** [t] must be a valid type *)
+and check ctx e t =
+  let t' = infer ctx e in
+    match equal_ty ctx t' t with
+      | Some _ -> ()
+      | None ->
+        Error.typing ~loc:(snd e) "this epression has type@ %t@ but it should have type %t"
+          (Print.expr ctx.names t') (Print.expr ctx.names t)
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
@@ -120,7 +106,7 @@ and infer_universe ctx t =
       | Universe u -> u
       | Subst _ | Ascribe _ -> assert false
       | App _ | Var _ | Pi _ | Lambda _ ->
-        Error.typing ~loc:(snd t) "this expression has type@ %t@ but it should be a universe" (Print.expr ctx.names u)
+        Error.typing ~loc:(snd t) "this expression has type@ %t@ but it should be a type" (Print.expr ctx.names u)
 
 and infer_pi ctx e =
   let t = infer ctx e in
