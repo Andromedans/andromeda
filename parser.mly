@@ -24,7 +24,7 @@
 %token COLON DCOLON COMMA PERIOD COLONEQUAL
 %token ARROW DARROW
 %token EQUAL AT
-%token QUIT HELP PARAMETER CHECK EVAL CONTEXT DEFINITION
+%token QUIT HELP PARAMETER INFER EVAL CONTEXT DEFINITION
 %token EOF
 
 %start <Input.directive list> directives
@@ -47,8 +47,8 @@ plain_directive:
     { Help }
   | PARAMETER x = NAME COLON e = expr
     { Parameter (x, e) }
-  | CHECK e = expr
-    { Check e }
+  | INFER e = expr
+    { Infer e }
   | EVAL e = expr
     { Eval e}
   | DEFINITION x = NAME COLONEQUAL e = expr

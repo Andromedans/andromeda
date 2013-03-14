@@ -10,7 +10,7 @@
   ]
 
   let directives = [
-    ("Check", CHECK) ;
+    ("Infer", INFER) ;
     ("Definition", DEFINITION) ;
     ("Eval", EVAL) ;
     ("Help", HELP) ;

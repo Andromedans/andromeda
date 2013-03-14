@@ -15,7 +15,7 @@ let usage = "Usage: tt [option] ... [file] ..."
 let help_text = "Toplevel commands:
 Parameter <ident> : <expr>.    assume variable <ident> has type <expr>
 Definition <indent> := <expr>. define <ident> to be <expr>
-Check <expr>                   infer the type of expression <expr>
+Infer <expr>                   infer the type of expression <expr>
 Eval <expr>.                   normalize expression <expr>
 Context.                       print current contex    
 Help.                          print this help
@@ -116,7 +116,7 @@ let rec exec_cmd interactive ctx (d, loc) =
         if interactive then
           Format.printf "%s is defined.@." x ;
         add_definition x t e ctx
-    | Input.Check e ->
+    | Input.Infer e ->
       let e = Desugar.desugar ctx e in
       let t = Typing.infer ctx e in
         Format.printf "%t@\n    : %t@." (Print.expr ctx.names e) (Print.expr ctx.names t) ;

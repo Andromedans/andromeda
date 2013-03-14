@@ -19,5 +19,5 @@ and directive' =
   | Context
   | Parameter of Common.variable * expr
   | Definition of Common.variable * expr
-  | Check of expr
+  | Infer of expr
   | Eval of expr
