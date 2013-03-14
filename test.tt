@@ -1,8 +1,8 @@
-Parameter N : Type 0.
+Parameter N : Type.
 Parameter z : N.
 Parameter s : N -> N.
 
-Definition numeral := forall A : Type 0, (A -> A) -> (A -> A).
+Definition numeral := forall A : Type, (A -> A) -> (A -> A).
 
 Definition zero  :: numeral := fun A f x => x.
 Definition one   :: numeral := fun A f => f.

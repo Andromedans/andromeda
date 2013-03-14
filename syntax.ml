@@ -1,20 +1,18 @@
 (** Abstract syntax of internal expressions. *)
 
-type universe =
-  | Type
-  | Kind
-
 (** Abstract syntax of expressions, where de Bruijn indices are used to represent
     variables. *)
 type expr = expr' * Common.position
 and expr' =
   | Var of int                        (* de Bruijn index *)
   | Subst of substitution * expr      (* explicit substitution *)
-  | Universe of universe
-  | Pi of Common.variable * expr * expr
-  | Lambda of Common.variable * expr
+  | Type
+  | Pi of Common.variable * ty * ty
+  | Lambda of Common.variable * ty option * expr
   | App of expr * expr
-  | Ascribe of expr * expr
+  | Ascribe of expr * ty
+
+and ty = expr
 
 (** Explicit substitutions. *)
 and substitution =
@@ -24,10 +22,9 @@ and substitution =
 (** Expression constructors wrapped in "nowhere" positions. *)
 let mk_var k = Common.nowhere (Var k)
 let mk_subst s e = Common.nowhere (Subst (s, e))
-let mk_type = Common.nowhere (Universe Type)
-let mk_kind = Common.nowhere (Universe Kind)
+let mk_type = Common.nowhere Type
 let mk_pi x t1 t2 = Common.nowhere (Pi (x, t1, t2))
-let mk_lambda x e = Common.nowhere (Lambda (x, e))
+let mk_lambda x t e = Common.nowhere (Lambda (x, t, e))
 let mk_app e1 e2 = Common.nowhere (App (e1, e2))
 let mk_ascribe e t = Common.nowhere (Ascribe (e, t))
 
@@ -55,14 +52,15 @@ let subst =
       | Dot (a, s), Var 0 -> a
       | Dot (a, s), Var k -> subst s (Var (k - 1), loc)
       | s, Subst (t, e) -> subst s (subst t e)
-      | s, Universe u -> Universe u, loc
+      | s, Type -> Type, loc
       | s, Pi (x, t1, t2) ->
         let t1 = mk_subst s t1 in
         let t2 = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) t2 in
           Pi (x, t1, t2), loc
-      | s, Lambda (x, e) ->
+      | s, Lambda (x, t, e) ->
+        let t = (match t with None -> None | Some t -> Some (mk_subst s t)) in
         let e = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) e in
-          Lambda (x, e), loc
+          Lambda (x, t, e), loc
       | s, App (e1, e2) -> App (mk_subst s e1, mk_subst s e2), loc
       | s, Ascribe (e, t) -> Ascribe (mk_subst s e, mk_subst s t), loc
   in
@@ -73,8 +71,9 @@ let rec occurs k (e, _) =
   match e with
     | Var m -> m = k
     | Subst (s, e) -> occurs k (subst s e)
-    | Universe _ -> false
+    | Type -> false
     | Pi (_, t1, t2) -> occurs k t1 || occurs (k + 1) t2
-    | Lambda (_, e) -> occurs (k + 1) e
+    | Lambda (_, None, e) -> occurs (k + 1) e
+    | Lambda (_, Some t, e) -> occurs k t || occurs (k + 1) e
     | App (e1, e2) -> occurs k e1 || occurs k e2
     | Ascribe (e, t) -> occurs k e || occurs k t

@@ -6,7 +6,6 @@
   let reserved = [
     ("forall", FORALL);
     ("fun", FUN);
-    ("Kind", KIND);
     ("Type", TYPE);
   ]
 

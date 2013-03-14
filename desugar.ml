@@ -14,10 +14,10 @@ let desugar ctx =
   let rec desugar xs (e, loc) =
     (match e with
       | Input.Var x -> Syntax.Var (index ~loc x xs)
-      | Input.Type -> Syntax.Universe Syntax.Type
-      | Input.Kind -> Syntax.Universe Syntax.Kind
+      | Input.Type -> Syntax.Type
       | Input.Pi (x, t1, t2) -> Syntax.Pi (x, desugar xs t1, desugar (x :: xs) t2)
-      | Input.Lambda (x, e) -> Syntax.Lambda (x, desugar (x :: xs) e)
+      | Input.Lambda (x, None, e) -> Syntax.Lambda (x, None, desugar (x :: xs) e)
+      | Input.Lambda (x, Some t, e) -> Syntax.Lambda (x, Some (desugar xs t), desugar (x :: xs) e)
       | Input.App (e1, e2) -> Syntax.App (desugar xs e1, desugar xs e2)
       | Input.Ascribe (e, t) -> Syntax.Ascribe (desugar xs e, desugar xs t)),
     loc
