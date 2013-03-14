@@ -61,7 +61,7 @@ let rec infer ctx (e, loc) =
   match e with
     | Var k -> lookup_ty k ctx
     | Type -> mk_kind
-    | Kind -> Error.typing ~loc "internal error, I suppose"
+    | Kind -> Error.typing ~loc "internal error 13"
     | Pi (x, t1, t2) ->
       let u1 = check_sort ctx t1 in
       let u2 = check_sort (add_parameter x t1 ctx) t2 in
