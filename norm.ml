@@ -21,24 +21,28 @@ let norm ?(weak=false) =
         (match lookup k env with
           | None -> e
           | Some e -> norm env e)
-      | Universe _ -> e
+      | Type | Kind -> e
       | Pi (x, t1, t2) ->
         if weak
         then e
         else mk_pi x (norm env t1) (norm (extend env) t2)
-      | Lambda (x, e') -> 
+      | Lambda (x, t, e') -> 
         if weak
         then e
-        else mk_lambda x (norm (extend env) e')
+        else 
+          let t = (match t with None -> None | Some t -> Some (norm env t)) in
+          let e' = norm (extend env) e' in
+            mk_lambda x t e'
       | Subst (s, e) -> norm env (subst s e)
       | App (e1, e2) ->
         let (e1', _) as e1 = norm env e1 in
           (match e1' with
-            | Lambda (x, e) -> norm env (mk_subst (Dot (e2, idsubst)) e)
+            | Lambda (x, _, e) -> norm env (mk_subst (Dot (e2, idsubst)) e)
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc
-            | Subst _ | Universe _ | Pi _ | Ascribe _ -> Error.runtime ~loc:(snd e2) "Function expected")
+            | Subst _ | Type | Kind | Pi _ | Ascribe _ ->
+              Error.runtime ~loc:(snd e2) "Function expected")
       | Ascribe (e, _) -> norm env e
   in
     norm

@@ -51,21 +51,20 @@ let rec pi ?max_level xs x t1 t2 ppf =
   if Syntax.occurs 0 t2
   then
     let x = Beautify.refresh x xs in
-      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (expr xs t1) (expr (x :: xs) t2)
+      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (expr ~max_level:2 xs t1) (expr (x :: xs) t2)
   else
     print ~at_level:3 ppf "%t ->@ %t" (expr ~max_level:2 xs t1) (expr ("_" :: xs) t2)
 
-(** [lambda xs x e ppf] prints function [fun x => e] using formatter [ppf]. *)
-and lambda xs x e ppf =
+(** [lambda xs x t e ppf] prints function [fun x => e] using formatter [ppf]. *)
+and lambda xs x t e ppf =
   let x =
     if Syntax.occurs 0 e
     then Beautify.refresh x xs 
     else "_"
   in
-    print ~at_level:3 ppf "fun %s =>@ %t" x (expr (x :: xs) e)
-
-and universe u ppf =
-  print ppf "Type %d" u
+    match t with
+      | None -> print ~at_level:3 ppf "fun %s =>@ %t" x (expr (x :: xs) e)
+      | Some t -> print ~at_level:3 ppf "fun %s : %t =>@ %t" x (expr ~max_level:2 xs t) (expr (x :: xs) e)
 
 (** [expr ctx e ppf] prints expression [e] using formatter [ppf]. *)
 and expr ?max_level xs e ppf =
@@ -76,9 +75,10 @@ and expr ?max_level xs e ppf =
         match e with
           | Syntax.Var k -> print "%s" (List.nth xs k)
           | Syntax.Subst (s, e) -> let e = Syntax.subst s e in print "%t" (expr ?max_level xs e)
-          | Syntax.Universe u -> print ~at_level:1 "%t" (universe u)
+          | Syntax.Type -> print "Type"
+          | Syntax.Kind -> print "sort"
           | Syntax.Pi (x, t1, t2) -> print ~at_level:3 "%t" (pi xs x t1 t2)
-          | Syntax.Lambda (x, e) -> print ~at_level:3 "%t" (lambda xs x e)
+          | Syntax.Lambda (x, t, e) -> print ~at_level:3 "%t" (lambda xs x t e)
           | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
           | Syntax.Ascribe (e, t) -> print ~at_level:4 "%t :: %t" (expr ~max_level:3 xs e) (expr ~max_level:3 xs t)
   in

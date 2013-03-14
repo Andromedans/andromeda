@@ -2,8 +2,11 @@
   open Input
 
   (* Build nested lambdas *)
-  let rec make_lambda xs e =
-    List.fold_right (fun (x, loc) e -> (Lambda (x, e), loc)) xs e
+  let rec make_lambda e = function
+    | [] -> e
+    | ((xs, t), loc) :: lst ->
+      let e = make_lambda e lst in
+        List.fold_right (fun x e -> (Lambda (x, t, e), loc)) xs e
 
   (* Build nested pies *)
   let rec make_pi e = function
@@ -71,19 +74,19 @@ plain_quantifier_expr:
   | t1 = app_expr ARROW t2 = quantifier_expr
     { Pi ("_", t1, t2) }
   | FUN lst = fun_abstraction DARROW e = quantifier_expr
-    { fst (make_lambda lst e) }
+    { fst (make_lambda e lst) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
   | e = plain_simple_expr
     { e }
-  | TYPE k = NUMERAL
-    { Universe k }
   | e1 = app_expr e2 = simple_expr
     { App (e1, e2) }
 
 simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
+  | TYPE
+    { Type }
   | n = NAME
     { Var n }
   | LPAREN e = plain_expr RPAREN
@@ -107,10 +110,23 @@ pi_binds:
     { b :: lst }
 
 fun_abstraction:
-  | xs = nonempty_list(marked_name)
-    { xs }
+  | b = fun_bind1
+    { [b] }
+  | bs = fun_binds
+    { bs }
 
-marked_name: mark_position(NAME) { $1 }
+fun_bind1: mark_position(plain_fun_bind1) { $1 }
+plain_fun_bind1:
+  | xs = nonempty_list(NAME)
+    { (xs, None) }
+  | xs = nonempty_list(NAME) COLON t = expr
+    { (xs, Some t) }
+
+fun_binds:
+  | LPAREN b = fun_bind1 RPAREN
+    { [b] }
+  | LPAREN b = fun_bind1 RPAREN lst = fun_binds
+    { b :: lst }
 
 mark_position(X):
   x = X
