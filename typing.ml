@@ -92,7 +92,7 @@ let rec infer ctx (e, loc) =
 and check ctx ((e', loc) as e) t =
   let _ = infer_universe ctx t in
     match e' with
-      | Subst (s, e) -> check ctx e t (* XXX avoid rechecking t *)
+      | Subst (s, e) -> check ctx (subst s e) t (* XXX avoid rechecking t *)
       | Lambda (x, e) ->
         (match fst (Norm.whnf ctx t) with
           | Pi (x, t1, t2) -> check (add_parameter x t1 ctx) e t2
