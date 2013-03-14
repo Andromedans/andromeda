@@ -15,6 +15,7 @@ let desugar ctx =
     (match e with
       | Input.Var x -> Syntax.Var (index ~loc x xs)
       | Input.Type -> Syntax.Type
+      | Input.Eq (t, e1, e2) -> Syntax.Eq (desugar xs t, desugar xs e1, desugar xs e2)
       | Input.Pi (x, t1, t2) -> Syntax.Pi (x, desugar xs t1, desugar (x :: xs) t2)
       | Input.Lambda (x, None, e) -> Syntax.Lambda (x, None, desugar (x :: xs) e)
       | Input.Lambda (x, Some t, e) -> Syntax.Lambda (x, Some (desugar xs t), desugar (x :: xs) e)

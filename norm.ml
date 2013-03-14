@@ -22,6 +22,14 @@ let norm ?(weak=false) =
           | None -> e
           | Some e -> norm env e)
       | Type | Kind -> e
+      | Eq (t, e1, e2) ->
+        if weak
+        then e
+        else
+          let t = norm env t in
+          let e1 = norm env e1 in
+          let e2 = norm env e2 in
+            mk_eq t e1 e2
       | Pi (x, t1, t2) ->
         if weak
         then e
@@ -41,7 +49,7 @@ let norm ?(weak=false) =
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc
-            | Subst _ | Type | Kind | Pi _ | Ascribe _ ->
+            | Subst _ | Type | Kind | Eq _ | Pi _ | Ascribe _ ->
               Error.runtime ~loc:(snd e2) "Function expected")
       | Ascribe (e, _) -> norm env e
   in

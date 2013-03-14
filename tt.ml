@@ -103,6 +103,7 @@ let rec exec_cmd interactive ctx (d, loc) =
            0 ctx.names) ;
       ctx
     | Input.Parameter (x, t) ->
+      if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
       let t = Desugar.desugar ctx t in
         ignore (Typing.check_sort ctx t) ;
         if interactive then

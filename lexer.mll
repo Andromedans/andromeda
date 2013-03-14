@@ -48,6 +48,8 @@ rule token = parse
   | "->"                { ARROW }
   | "=>"                { DARROW }
   | ":="                { COLONEQUAL }
+  | "=="                { EQUAL }
+  | "@"                 { AT }
   | eof                 { EOF }
 
 

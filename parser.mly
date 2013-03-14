@@ -23,6 +23,7 @@
 %token LPAREN RPAREN
 %token COLON DCOLON COMMA PERIOD COLONEQUAL
 %token ARROW DARROW
+%token EQUAL AT
 %token QUIT HELP PARAMETER CHECK EVAL CONTEXT DEFINITION
 %token EOF
 
@@ -75,6 +76,8 @@ plain_quantifier_expr:
     { Pi ("_", t1, t2) }
   | FUN lst = fun_abstraction DARROW e = quantifier_expr
     { fst (make_lambda e lst) }
+  | e1 = app_expr EQUAL e2 = app_expr AT t = quantifier_expr
+    { Eq (t, e1, e2) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
