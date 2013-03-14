@@ -21,7 +21,7 @@ let norm ?(weak=false) =
         (match lookup k env with
           | None -> e
           | Some e -> norm env e)
-      | Type -> e
+      | Type | Kind -> e
       | Pi (x, t1, t2) ->
         if weak
         then e
@@ -41,7 +41,7 @@ let norm ?(weak=false) =
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc
-            | Subst _ | Type | Pi _ | Ascribe _ ->
+            | Subst _ | Type | Kind | Pi _ | Ascribe _ ->
               Error.runtime ~loc:(snd e2) "Function expected")
       | Ascribe (e, _) -> norm env e
   in

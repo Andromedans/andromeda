@@ -104,7 +104,7 @@ let rec exec_cmd interactive ctx (d, loc) =
       ctx
     | Input.Parameter (x, t) ->
       let t = Desugar.desugar ctx t in
-        Typing.check_sort ctx t ;
+        ignore (Typing.check_sort ctx t) ;
         if interactive then
           Format.printf "%s is assumed.@." x ;
         add_parameter x t ctx

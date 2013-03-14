@@ -7,6 +7,7 @@ and expr' =
   | Var of int                        (* de Bruijn index *)
   | Subst of substitution * expr      (* explicit substitution *)
   | Type
+  | Kind                              (* inaccessible to user *)
   | Pi of Common.variable * ty * ty
   | Lambda of Common.variable * ty option * expr
   | App of expr * expr
@@ -23,6 +24,7 @@ and substitution =
 let mk_var k = Common.nowhere (Var k)
 let mk_subst s e = Common.nowhere (Subst (s, e))
 let mk_type = Common.nowhere Type
+let mk_kind = Common.nowhere Kind
 let mk_pi x t1 t2 = Common.nowhere (Pi (x, t1, t2))
 let mk_lambda x t e = Common.nowhere (Lambda (x, t, e))
 let mk_app e1 e2 = Common.nowhere (App (e1, e2))
@@ -53,6 +55,7 @@ let subst =
       | Dot (a, s), Var k -> subst s (Var (k - 1), loc)
       | s, Subst (t, e) -> subst s (subst t e)
       | s, Type -> Type, loc
+      | s, Kind -> Kind, loc
       | s, Pi (x, t1, t2) ->
         let t1 = mk_subst s t1 in
         let t2 = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) t2 in
@@ -72,6 +75,7 @@ let rec occurs k (e, _) =
     | Var m -> m = k
     | Subst (s, e) -> occurs k (subst s e)
     | Type -> false
+    | Kind -> false
     | Pi (_, t1, t2) -> occurs k t1 || occurs (k + 1) t2
     | Lambda (_, None, e) -> occurs (k + 1) e
     | Lambda (_, Some t, e) -> occurs k t || occurs (k + 1) e
