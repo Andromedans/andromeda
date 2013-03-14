@@ -14,7 +14,7 @@
 
 %}
 
-%token FORALL FUN TYPE
+%token FORALL FUN TYPE KIND
 %token <int> NUMERAL
 %token <string> NAME
 %token LPAREN RPAREN
@@ -77,13 +77,15 @@ app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
   | e = plain_simple_expr
     { e }
-  | TYPE k = NUMERAL
-    { Universe k }
   | e1 = app_expr e2 = simple_expr
     { App (e1, e2) }
 
 simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
+  | TYPE
+    { Type }
+  | KIND
+    { Kind }
   | n = NAME
     { Var n }
   | LPAREN e = plain_expr RPAREN

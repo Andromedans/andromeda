@@ -3,6 +3,13 @@
 open Syntax
 open Context
 
+let max_universe u1 u2 =
+  match u1, u2 with
+    | Type, Type -> Type
+    | Type, Kind -> Kind
+    | Kind, Type -> Kind
+    | Kind, Kind -> Kind
+
 (** [equal_at ctx e1 e2 t] compares expressions [e1] and [e2] at type [t]. It is assumed
     that [t] is a valid type. It is not assumed that [e1] and [e2] have type [t]. *)
 let rec equal_at ctx e1 e2 t =
@@ -72,13 +79,19 @@ and equal_ty ctx t1 t2 =
 (** [infer ctx e] infers the type of expression [e] in context [ctx]. *)
 let rec infer ctx (e, loc) =
   match e with
-    | Var k -> lookup_ty k ctx
-    | Universe u -> mk_universe (u + 1)
+    | Var k -> 
+      let t = lookup_ty k ctx in
+        check_kind ctx t Type ;
+        t
+    | Universe u ->
+      (match u with
+        | Type -> Universe Kind
+        | Kind -> Error.typing ~loc "Kind does not have a type")
     | Pi (x, t1, t2) ->
       let u1 = infer_universe ctx t1 in
       let u2 = infer_universe (add_parameter x t1 ctx) t2 in
-        mk_universe (max u1 u2)
-    | Subst (s, e) -> infer ctx (Syntax.subst s e)
+        Universe (max_universe u1 u2)
+    | Subst (s, e) -> infer ctx (subst s e)
     | App (e1, e2) ->
       let (x, t1, t2) = infer_pi ctx e1 in
         check ctx e2 t1 ;
@@ -88,23 +101,32 @@ let rec infer ctx (e, loc) =
       check ctx e t ;
       t
 
-(** [t] must be a valid type *)
-and check ctx ((e', loc) as e) t =
-  let _ = infer_universe ctx t in
-    match e' with
-      | Subst (s, e) -> check ctx e t (* XXX avoid rechecking t *)
-      | Lambda (x, e) ->
-        (match fst (Norm.whnf ctx t) with
-          | Pi (x, t1, t2) -> check (add_parameter x t1 ctx) e t2
-          | _ -> Error.typing ~loc "this expression should have type@ %t but it is a function"
-                                   (Print.expr ctx.names t))
-      | Var _ | Universe _ | Pi _ | App _ | Ascribe _ ->
-        let t' = infer ctx e in
-          (match equal_ty ctx t' t with
-            | Some _ -> ()
-            | None ->
-              Error.typing ~loc:(snd e) "this expression has type@ %t but it should have type %t"
-                (Print.expr ctx.names t') (Print.expr ctx.names t))
+and check_type ctx ((e', loc) as e) t =
+  check_sort ctx t ;
+  match e' with
+    | Subst (s, e) -> check ctx (subst s e) t (* XXX avoid rechecking t *)
+    | Lambda (x, e) ->
+      (match fst (Norm.whnf ctx t) with
+        | Pi (x, t1, t2) -> check (add_parameter x t1 ctx) e t2
+        | _ -> Error.typing ~loc "this expression should have type@ %t but it is a function"
+          (Print.expr ctx.names t))
+    | Var _ | Universe _ | Pi _ | App _ | Ascribe _ ->
+      let t' = infer ctx e in
+        (match equal_sort ctx t' t with
+          | Some _ -> ()
+          | None ->
+            Error.typing ~loc:(snd e) "this expression has type@ %t but it should have type %t"
+              (Print.expr ctx.names t') (Print.expr ctx.names t))
+
+(** A sort is an expression [e] which is either [Kind], or it has a type of the form [Universe u].
+    [check_sort ctx e] returns either [None] if [e] is [Kind], or a universe [u] if [e] is a type
+    in universe [u]. *)
+and check_sort ctx t =
+  match fst (Norm.whnf ctx t) with
+    | Kind -> None
+    | _ ->
+      let u = infer_universe ctx t in
+        Some u
 
 (** [infer_universe ctx t] infers the universe level of type [t] in context [ctx]. *)
 and infer_universe ctx t =
@@ -120,5 +142,5 @@ and infer_pi ctx e =
     match fst (Norm.whnf ctx t) with
       | Pi (x, t1, t2) -> (x, t1, t2)
       | Subst _ | Ascribe _ -> assert false
-      | Var _ | App _ | Universe _ | Lambda _ ->
+      | Var _ | App _ | Type | Kind | Lambda _ ->
         Error.typing ~loc:(snd e) "this expression has type@ %t but it should be a function" (Print.expr ctx.names t)

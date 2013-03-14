@@ -1,14 +1,15 @@
 (** Abstract syntax of internal expressions. *)
 
-(** Universes are indexed by natural numbers. *)
-type universe = int
+type universe =
+  | Type
+  | Kind
 
 (** Abstract syntax of expressions, where de Bruijn indices are used to represent
     variables. *)
 type expr = expr' * Common.position
 and expr' =
-  | Var of int                   (* de Bruijn index *)
-  | Subst of substitution * expr (* explicit substitution *)
+  | Var of int                        (* de Bruijn index *)
+  | Subst of substitution * expr      (* explicit substitution *)
   | Universe of universe
   | Pi of Common.variable * expr * expr
   | Lambda of Common.variable * expr
@@ -23,9 +24,9 @@ and substitution =
 (** Expression constructors wrapped in "nowhere" positions. *)
 let mk_var k = Common.nowhere (Var k)
 let mk_subst s e = Common.nowhere (Subst (s, e))
-let mk_universe u = Common.nowhere (Universe u)
-let mk_pi x t e = Common.nowhere (Pi (x, t, e))
-let mk_arrow s t = mk_pi "_" s t
+let mk_type = Common.nowhere (Universe Type)
+let mk_kind = Common.nowhere (Universe Kind)
+let mk_pi x t1 t2 = Common.nowhere (Pi (x, t1, t2))
 let mk_lambda x e = Common.nowhere (Lambda (x, e))
 let mk_app e1 e2 = Common.nowhere (App (e1, e2))
 let mk_ascribe e t = Common.nowhere (Ascribe (e, t))
@@ -41,24 +42,24 @@ let shift k e = mk_subst (Shift k) e
 let rec compose s t =
   match s, t with
     | s, Shift 0 -> s
-    | Dot (e, s), Shift m -> compose s (Shift (m - 1))
+    | Dot (_, s), Shift m -> compose s (Shift (m - 1))
     | Shift m, Shift n -> Shift (m + n)
-    | s, Dot (e, t) -> Dot (mk_subst s e, compose s t)
+    | s, Dot (e, s') -> Dot (mk_subst s e, compose s s')
 
-(** [subst s e] applies explicit substitution [s] in expression [e]. It does so
+(** [subst_expr s e] applies explicit substitution [s] in expression [e]. It does so
     lazily, i.e., it does just enough to expose the outermost constructor of [e]. *)
 let subst =
-  let rec subst s ((e', loc) as e) =
+  let rec subst s (e', loc) =
     match s, e' with
       | Shift m, Var k -> Var (k + m), loc
-      | Dot (a, s), Var 0 -> subst idsubst a
+      | Dot (a, s), Var 0 -> a
       | Dot (a, s), Var k -> subst s (Var (k - 1), loc)
       | s, Subst (t, e) -> subst s (subst t e)
-      | _, Universe _ -> e
-      | s, Pi (x, t, e) -> 
-        let t = mk_subst s t in
-        let e = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) e in
-          Pi (x, t, e), loc
+      | s, Universe u -> Universe u, loc
+      | s, Pi (x, t1, t2) ->
+        let t1 = mk_subst s t1 in
+        let t2 = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) t2 in
+          Pi (x, t1, t2), loc
       | s, Lambda (x, e) ->
         let e = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) e in
           Lambda (x, e), loc

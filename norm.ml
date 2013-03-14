@@ -38,7 +38,8 @@ let norm ?(weak=false) =
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc
-            | Subst _ | Universe _ | Pi _ | Ascribe _ -> Error.runtime ~loc:(snd e2) "Function expected")
+            | Subst _ | Universe _ | Pi _ | Ascribe _ ->
+              Error.runtime ~loc:(snd e2) "Function expected")
       | Ascribe (e, _) -> norm env e
   in
     norm
