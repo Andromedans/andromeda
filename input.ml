@@ -14,7 +14,7 @@ and expr' =
 type computation = computation' * Common.position
 and computation' =
   | Infer of expr
-  | Check of expr * expr
+  | Check of bool * expr * expr
  
 (** Toplevel directives. *)
 type directive = directive' * Common.position

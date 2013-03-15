@@ -6,9 +6,10 @@ type expr = expr' * Common.position
 and expr' =
   | Var of int                        (* de Bruijn index *)
   | Subst of substitution * expr      (* explicit substitution *)
-  | Type
+  | Type                              (* Types *)
   | Eq of ty * expr * expr            (* Judgmental equality *)
-  | Kind                              (* inaccessible to user *)
+  | HasType of expr * ty              (* Typing judgment *)
+  | Kind                              (* Large sorts *)
   | Pi of Common.variable * ty * ty
   | Lambda of Common.variable * ty option * expr
   | App of expr * expr
@@ -20,15 +21,6 @@ and ty = expr
 and substitution =
   | Shift of int
   | Dot of expr * substitution
-
-type operation =
-  | Infer of expr                     (* infer the type of expression (only small ones) *)
-  | Check of expr * ty                (* check that expression has type *)
-  | Equal of ty * expr * expr         (* inhabit equality type *)
- 
-(** Computations, currently a very limited version. *)
-type computation =
-  | Op of operation
 
 (** Expression constructors wrapped in "nowhere" positions. *)
 let mk_var k = Common.nowhere (Var k)

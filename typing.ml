@@ -100,12 +100,12 @@ and check ctx ((e', loc) as e) t =
     | Lambda (x, None, e) ->
       (match fst (Norm.whnf ctx t) with
         | Pi (x, t1, t2) -> check (add_parameter x t1 ctx) e t2
-        | _ -> Error.typing ~loc "this expression should have type@ %t but it is a function"
+        | _ -> Error.typing ~loc "this expression is a function but should have type@ %t"
           (Print.expr ctx.names t))
     | Var _ | Type | Eq _ | Lambda (_, Some _, _) | Pi _ | App _ | Ascribe _ ->
       let t' = infer ctx e in
         if not (equal_sort ctx t' t) then
-          Error.typing ~loc:(snd e) "this expression has type@ %t but it should have type %t"
+          Error.typing ~loc:(snd e) "this expression has type %t@ but it should have type %t"
             (Print.expr ctx.names t') (Print.expr ctx.names t)
 
 (* Returns [Small] if the sort is small and [Large] otherwise. *)
@@ -116,7 +116,7 @@ and check_sort ctx (e',loc) =
       (match fst (Norm.whnf ctx t) with
         | Type -> Small
         | Kind -> Large
-        | _ -> Error.typing ~loc "this expression should be a sort but its type is %t" (Print.expr ctx.names t))
+        | _ -> Error.typing ~loc "this expression has type %t@ but should be a sort" (Print.expr ctx.names t))
     | Subst (s, e) -> check_sort ctx (subst s e)
     | Type -> Large
     | Kind -> Error.typing ~loc "internal error 3.141592"
@@ -144,7 +144,4 @@ and infer_pi ctx e =
       | Pi (x, t1, t2) -> (x, t1, t2)
       | Subst _ | Ascribe _ -> assert false
       | Var _ | App _ | Type | Kind | Eq _ | Lambda _ ->
-        Error.typing ~loc:(snd e) "this expression has type@ %t but it should be a function" (Print.expr ctx.names t)
-
-let infer_computation ctx c =
-  ()
+        Error.typing ~loc:(snd e) "this expression has type %t@ but it should be a function" (Print.expr ctx.names t)

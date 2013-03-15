@@ -28,5 +28,5 @@ let rec expr xs (e, loc) =
 let rec computation xs (c, loc) =
   (match c with
     | Input.Infer e -> Syntax.Infer (expr xs e)
-    | Input.Check (e1, e2) -> Syntax.Check (expr xs e1, expr xs e2)),
+    | Input.Check (b, e1, e2) -> Syntax.Check (b, expr xs e1, expr xs e2)),
   loc

@@ -24,7 +24,7 @@
 %token COLON DCOLON COMMA PERIOD COLONEQUAL
 %token ARROW DARROW
 %token EQ AT
-%token INFER CHECK
+%token INFER CHECK BRAZIL
 %token QUIT HELP PARAMETER EVAL CONTEXT DEFINITION
 %token EOF
 
@@ -63,8 +63,10 @@ computation: mark_position(plain_computation) { $1 }
 plain_computation:
   | INFER e = expr
     { Infer e }
-  | CHECK e1 = expr COLON e2 = expr
-    { Check (e1, e2) }
+  | CHECK e1 = expr DCOLON e2 = expr
+    { Check (false, e1, e2) }
+  | BRAZIL e1 = expr DCOLON e2 = expr
+    { Check (true, e1, e2) }
 
 (* Main syntax tree *)
 expr: mark_position(plain_expr) { $1 }

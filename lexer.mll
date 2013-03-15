@@ -10,7 +10,7 @@
   ]
 
   let directives = [
-    ("Brasil", CHECK) ;
+    ("Brazil", BRAZIL) ;
     ("Check", CHECK) ;
     ("Infer", INFER) ;
     ("Definition", DEFINITION) ;
