@@ -10,6 +10,8 @@
   ]
 
   let directives = [
+    ("Brasil", CHECK) ;
+    ("Check", CHECK) ;
     ("Infer", INFER) ;
     ("Definition", DEFINITION) ;
     ("Eval", EVAL) ;
@@ -48,7 +50,7 @@ rule token = parse
   | "->"                { ARROW }
   | "=>"                { DARROW }
   | ":="                { COLONEQUAL }
-  | "=="                { EQUAL }
+  | "=="                { EQ }
   | "@"                 { AT }
   | eof                 { EOF }
 

@@ -145,3 +145,6 @@ and infer_pi ctx e =
       | Subst _ | Ascribe _ -> assert false
       | Var _ | App _ | Type | Kind | Eq _ | Lambda _ ->
         Error.typing ~loc:(snd e) "this expression has type@ %t but it should be a function" (Print.expr ctx.names t)
+
+let infer_computation ctx c =
+  ()

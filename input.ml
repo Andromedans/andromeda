@@ -10,6 +10,11 @@ and expr' =
   | Lambda of Common.variable * expr option * expr
   | App of expr * expr
   | Ascribe of expr * expr
+
+type computation = computation' * Common.position
+and computation' =
+  | Infer of expr
+  | Check of expr * expr
  
 (** Toplevel directives. *)
 type directive = directive' * Common.position
@@ -19,5 +24,6 @@ and directive' =
   | Context
   | Parameter of Common.variable * expr
   | Definition of Common.variable * expr
-  | Infer of expr
   | Eval of expr
+  | Do of computation
+

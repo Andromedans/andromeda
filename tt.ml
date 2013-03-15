@@ -15,7 +15,8 @@ let usage = "Usage: tt [option] ... [file] ..."
 let help_text = "Toplevel commands:
 Parameter <ident> : <expr>.    assume variable <ident> has type <expr>
 Definition <indent> := <expr>. define <ident> to be <expr>
-Infer <expr>                   infer the type of expression <expr>
+Check <expr> : <expr>          check that <expr> has type <expr>
+Infer <expr>.                  infer the type of expression <expr>
 Eval <expr>.                   normalize expression <expr>
 Context.                       print current contex    
 Help.                          print this help
@@ -82,7 +83,7 @@ let parse parser lex =
 let rec exec_cmd interactive ctx (d, loc) =
   match d with
     | Input.Eval e ->
-      let e = Desugar.desugar ctx e in
+      let e = Desugar.expr ctx.names e in
       let t = Typing.infer ctx e in
       let e = Norm.nf ctx e in
         if interactive then
@@ -104,22 +105,22 @@ let rec exec_cmd interactive ctx (d, loc) =
       ctx
     | Input.Parameter (x, t) ->
       if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
-      let t = Desugar.desugar ctx t in
+      let t = Desugar.expr ctx.names t in
         ignore (Typing.check_sort ctx t) ;
         if interactive then
           Format.printf "%s is assumed.@." x ;
         add_parameter x t ctx
     | Input.Definition (x, e) ->
       if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
-      let e = Desugar.desugar ctx e in
+      let e = Desugar.expr ctx.names e in
       let t = Typing.infer ctx e in
         if interactive then
           Format.printf "%s is defined.@." x ;
         add_definition x t e ctx
-    | Input.Infer e ->
-      let e = Desugar.desugar ctx e in
-      let t = Typing.infer ctx e in
-        Format.printf "%t@\n    : %t@." (Print.expr ctx.names e) (Print.expr ctx.names t) ;
+    | Input.Do c ->
+      let c = Desugar.computation ctx.names c in
+      let _ = Typing.infer_computation ctx c in
+        Machine.run ctx c ;
         ctx
     | Input.Help ->
       print_endline help_text ; ctx

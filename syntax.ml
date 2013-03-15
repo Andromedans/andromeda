@@ -20,7 +20,16 @@ and ty = expr
 and substitution =
   | Shift of int
   | Dot of expr * substitution
+
+type operation =
+  | Infer of expr                     (* infer the type of expression (only small ones) *)
+  | Check of expr * ty                (* check that expression has type *)
+  | Equal of ty * expr * expr         (* inhabit equality type *)
  
+(** Computations, currently a very limited version. *)
+type computation =
+  | Op of operation
+
 (** Expression constructors wrapped in "nowhere" positions. *)
 let mk_var k = Common.nowhere (Var k)
 let mk_subst s e = Common.nowhere (Subst (s, e))

@@ -8,19 +8,25 @@ let index ~loc x =
   in
     index 0
 
-(** [desugar ctx e] converts an expression of type [Input.expr] to type
-    [Syntax.expr] by replacing names in [e] with de Bruijn indices. *)
-let desugar ctx =
-  let rec desugar xs (e, loc) =
-    (match e with
-      | Input.Var x -> Syntax.Var (index ~loc x xs)
-      | Input.Type -> Syntax.Type
-      | Input.Eq (t, e1, e2) -> Syntax.Eq (desugar xs t, desugar xs e1, desugar xs e2)
-      | Input.Pi (x, t1, t2) -> Syntax.Pi (x, desugar xs t1, desugar (x :: xs) t2)
-      | Input.Lambda (x, None, e) -> Syntax.Lambda (x, None, desugar (x :: xs) e)
-      | Input.Lambda (x, Some t, e) -> Syntax.Lambda (x, Some (desugar xs t), desugar (x :: xs) e)
-      | Input.App (e1, e2) -> Syntax.App (desugar xs e1, desugar xs e2)
-      | Input.Ascribe (e, t) -> Syntax.Ascribe (desugar xs e, desugar xs t)),
-    loc
-  in
-    desugar ctx.Context.names
+(** [expr xs e] converts an expression of type [Input.expr] to type [Syntax.expr] by
+    replacing names in [e] with de Bruijn indices. Here [xs] is the list of names
+    currently in scope (i.e., Context.names) *)
+let rec expr xs (e, loc) =
+  (match e with
+    | Input.Var x -> Syntax.Var (index ~loc x xs)
+    | Input.Type -> Syntax.Type
+    | Input.Eq (t, e1, e2) -> Syntax.Eq (expr xs t, expr xs e1, expr xs e2)
+    | Input.Pi (x, t1, t2) -> Syntax.Pi (x, expr xs t1, expr (x :: xs) t2)
+    | Input.Lambda (x, None, e) -> Syntax.Lambda (x, None, expr (x :: xs) e)
+    | Input.Lambda (x, Some t, e) -> Syntax.Lambda (x, Some (expr xs t), expr (x :: xs) e)
+    | Input.App (e1, e2) -> Syntax.App (expr xs e1, expr xs e2)
+    | Input.Ascribe (e, t) -> Syntax.Ascribe (expr xs e, expr xs t)),
+  loc
+
+(** [computation xs c] converts a computation of type [Input.computation]
+    to type [Syntax.computation]. *)
+let rec computation xs (c, loc) =
+  (match c with
+    | Input.Infer e -> Syntax.Infer (expr xs e)
+    | Input.Check (e1, e2) -> Syntax.Check (expr xs e1, expr xs e2)),
+  loc

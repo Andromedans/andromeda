@@ -23,8 +23,9 @@
 %token LPAREN RPAREN
 %token COLON DCOLON COMMA PERIOD COLONEQUAL
 %token ARROW DARROW
-%token EQUAL AT
-%token QUIT HELP PARAMETER INFER EVAL CONTEXT DEFINITION
+%token EQ AT
+%token INFER CHECK
+%token QUIT HELP PARAMETER EVAL CONTEXT DEFINITION
 %token EOF
 
 %start <Input.directive list> directives
@@ -47,16 +48,23 @@ plain_directive:
     { Help }
   | PARAMETER x = NAME COLON e = expr
     { Parameter (x, e) }
-  | INFER e = expr
-    { Infer e }
   | EVAL e = expr
-    { Eval e}
+    { Eval e }
   | DEFINITION x = NAME COLONEQUAL e = expr
     { Definition (x, e) }
   | DEFINITION x = NAME DCOLON t = expr COLONEQUAL e = expr
     { Definition (x, (Ascribe (e, t), snd e)) }
   | CONTEXT
     { Context }
+  | c = computation
+    { Do c }
+
+computation: mark_position(plain_computation) { $1 }
+plain_computation:
+  | INFER e = expr
+    { Infer e }
+  | CHECK e1 = expr COLON e2 = expr
+    { Check (e1, e2) }
 
 (* Main syntax tree *)
 expr: mark_position(plain_expr) { $1 }
@@ -76,7 +84,7 @@ plain_quantifier_expr:
     { Pi ("_", t1, t2) }
   | FUN lst = fun_abstraction DARROW e = quantifier_expr
     { fst (make_lambda e lst) }
-  | e1 = app_expr EQUAL e2 = app_expr AT t = quantifier_expr
+  | e1 = app_expr EQ e2 = app_expr AT t = quantifier_expr
     { Eq (t, e1, e2) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
