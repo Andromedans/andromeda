@@ -103,24 +103,25 @@ let rec exec_cmd interactive ctx (d, loc) =
              k + 1)
            0 ctx.names) ;
       ctx
-    | Input.Parameter (x, t) ->
+    | Input.TopParam (x, t) ->
       if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
       let t = Desugar.expr ctx.names t in
         ignore (Typing.check_sort ctx t) ;
         if interactive then
           Format.printf "%s is assumed.@." x ;
         add_parameter x t ctx
-    | Input.Definition (x, e) ->
+    | Input.TopLet (x, c) ->
       if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
-      let e = Desugar.expr ctx.names e in
-      let t = Typing.infer ctx e in
+      let c = Desugar.computation ctx.names c in
+      let e, t = Machine.run ctx c in
         if interactive then
           Format.printf "%s is defined.@." x ;
         add_definition x t e ctx
-    | Input.Do c ->
+    | Input.Computation c ->
       let c = Desugar.computation ctx.names c in
-      let _ = Typing.infer_computation ctx c in
-        Machine.run ctx c ;
+      let e, t = Machine.run ctx c in
+        if interactive then
+          Format.printf "|- @[%t :: %t@]@." (Print.expr ctx.names e) (Print.expr ctx.names t) ;
         ctx
     | Input.Help ->
       print_endline help_text ; ctx
@@ -128,7 +129,7 @@ let rec exec_cmd interactive ctx (d, loc) =
 
 (** Load directives from the given file. *)
 and use_file ctx (filename, interactive) =
-  let cmds = Lexer.read_file (parse Parser.directives) filename in
+  let cmds = Lexer.read_file (parse Parser.file) filename in
     List.fold_left (exec_cmd interactive) ctx cmds
 
 (** Interactive toplevel *)
@@ -144,8 +145,8 @@ let toplevel ctx =
     let ctx = ref ctx in
     while true do
       try
-        let cmds = Lexer.read_toplevel (parse Parser.directives) () in
-        ctx := List.fold_left (exec_cmd true) !ctx cmds
+        let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
+        ctx := exec_cmd true !ctx cmd
       with
         | Error.Error err -> Print.error err
         | Sys.Break -> prerr_endline "Interrupted."

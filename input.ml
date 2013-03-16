@@ -22,7 +22,9 @@ and operation' =
   | Equal of expr * expr * sort
 
 type computation = computation' * Common.position
-and computation' = ((Common.variable * sort) * Common.position) list * operation
+and computation' = 
+  | Abstraction of Common.variable * sort * computation
+  | Operation of operation
 
 (** Toplevel directives. *)
 type directive = directive' * Common.position

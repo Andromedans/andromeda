@@ -24,16 +24,17 @@ and substitution =
   | Shift of int
   | Dot of term * substitution
 
-type operation =
+type operation = operation' * Common.position
+and operation' =
   | Inhabit of sort                   (* inhabit a sort *)
   | Infer of term                     (* infer the sort of expression *)
   | HasType of term * sort            (* inhabit a typing judgment *)
   | Equal of term * term * sort       (* inhabit judgmental equality *)
 
 (** Computations. *)
-type computation =
-  | Let of Common.variable * computation * computation
-  | Param of Common.variable * sort * computation
+type computation = computation' * Common.position
+and computation' = 
+  | Abstraction of Common.variable * sort * computation
   | Operation of operation
 
 (** Expression constructors wrapped in "nowhere" positions. *)

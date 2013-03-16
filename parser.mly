@@ -15,16 +15,12 @@
       let e = make_pi e lst in
         List.fold_right (fun x e -> (Pi (x, t, e), loc)) xs e
 
-  (* Abstract a computation *)
-  let make_computation lst c =
-    let lst =
-      List.fold_right
-        (fun ((xs, t), loc) lst -> List.fold_right (fun x c -> ((x, t), loc) :: lst) xs lst)
-        lst
-        []
-    in
-      (lst, c)
-
+  (* Build nested pies *)
+  let rec make_computation c = function
+    | [] -> Operation c, snd c
+    | ((xs, t), loc) :: lst ->
+      let c = make_computation c lst in
+        List.fold_right (fun x c -> (Abstraction (x, t, c), loc)) xs c
 %}
 
 %token FORALL FUN TYPE
@@ -104,8 +100,8 @@ plain_topdirective:
 
 computation: mark_position(plain_computation) { $1 }
 plain_computation:
-  | lst = pi_abstraction VDASH j = operation
-    { make_computation lst j }
+  | lst = pi_abstraction VDASH op = operation
+    { fst (make_computation op lst) }
 
 operation: mark_position(plain_operation) { $1 }
 plain_operation:
@@ -134,7 +130,7 @@ plain_expr:
     { EqJdg (e1, e2, t) }
   | e = app_expr DCOLON t = expr
     { TyJdg (e, t) }
-  | e = expr COLON t = expr
+  | e = app_expr COLON t = expr
     { Ascribe (e, t) }
 
 app_expr: mark_position(plain_app_expr) { $1 }

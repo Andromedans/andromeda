@@ -15,18 +15,28 @@ let rec expr xs (e, loc) =
   (match e with
     | Input.Var x -> Syntax.Var (index ~loc x xs)
     | Input.Type -> Syntax.Type
-    | Input.Eq (t, e1, e2) -> Syntax.Eq (expr xs t, expr xs e1, expr xs e2)
     | Input.Pi (x, t1, t2) -> Syntax.Pi (x, expr xs t1, expr (x :: xs) t2)
     | Input.Lambda (x, None, e) -> Syntax.Lambda (x, None, expr (x :: xs) e)
     | Input.Lambda (x, Some t, e) -> Syntax.Lambda (x, Some (expr xs t), expr (x :: xs) e)
     | Input.App (e1, e2) -> Syntax.App (expr xs e1, expr xs e2)
-    | Input.Ascribe (e, t) -> Syntax.Ascribe (expr xs e, expr xs t)),
+    | Input.Ascribe (e, t) -> Syntax.Ascribe (expr xs e, expr xs t)
+    | Input.EqJdg (e1, e2, t) -> Syntax.EqJdg (expr xs e1, expr xs e2, expr xs t)
+    | Input.TyJdg (e, t) -> Syntax.TyJdg (expr xs e, expr xs t)), 
   loc
 
-(** [computation xs c] converts a computation of type [Input.computation]
-    to type [Syntax.computation]. *)
+let sort = expr
+
+let operation xs (op, loc) =
+  (match op with
+    | Input.Inhabit t -> Syntax.Inhabit (sort xs t)
+    | Input.Infer e -> Syntax.Infer (expr xs e)
+    | Input.HasType (e, t) -> Syntax.HasType (expr xs e, sort xs t)
+    | Input.Equal (e1, e2, t) -> Syntax.Equal (expr xs e1, expr xs e2, sort xs t)),
+  loc
+
 let rec computation xs (c, loc) =
   (match c with
-    | Input.Infer e -> Syntax.Infer (expr xs e)
-    | Input.Check (b, e1, e2) -> Syntax.Check (b, expr xs e1, expr xs e2)),
+    | Input.Abstraction (x, t, c) -> Syntax.Abstraction (x, sort xs t, computation (x :: xs) c)
+    | Input.Operation op -> Syntax.Operation (operation xs op)),
   loc
+
