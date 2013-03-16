@@ -79,9 +79,9 @@ plain_topcomp:
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | LET x = NAME EQ c = computation
-    { TopLet (x, c) }
-  | LET x = NAME COLON s = sort
+  | LET x = NAME EQ e = expr
+    { TopLet (x, e) }
+  | LET x = NAME COLON s = expr
     { TopParam (x, s) }
 
 (* Toplevel directive. *)
@@ -102,35 +102,40 @@ computation: mark_position(plain_computation) { $1 }
 plain_computation:
   | lst = pi_abstraction VDASH op = operation
     { fst (make_computation op lst) }
+  | VDASH op = operation
+    { Operation op }
 
 operation: mark_position(plain_operation) { $1 }
 plain_operation:
-  | QUESTIONMARK DCOLON s = sort
+  | QUESTIONMARK DCOLON s = quant_expr
     { Inhabit s }
-  | e = expr DCOLON QUESTIONMARK
+  | e = quant_expr DCOLON QUESTIONMARK
     { Infer e }
-  | e = expr DCOLON s = sort
+  | e = quant_expr DCOLON s = quant_expr
     { HasType (e, s) }
-  | e1 = expr EQEQ e2 = expr AT s = sort
+  | e1 = quant_expr EQEQ e2 = quant_expr AT s = quant_expr
     { Equal (e1, e2, s) }
-
-sort: expr { $1 }
 
 expr: mark_position(plain_expr) { $1 }
 plain_expr:
+  | e = plain_quant_expr
+    { e }
+  | e1 = quant_expr EQEQ e2 = quant_expr AT t = quant_expr
+    { EqJdg (e1, e2, t) }
+  | e = quant_expr DCOLON t = quant_expr
+    { TyJdg (e, t) }
+
+quant_expr: mark_position(plain_quant_expr) { $1 }
+plain_quant_expr:
   | e = plain_app_expr
     { e }
-  | FORALL lst = pi_abstraction COMMA e = expr
+  | FORALL lst = pi_abstraction COMMA e = quant_expr
     { fst (make_pi e lst) }
-  | t1 = app_expr ARROW t2 = expr
+  | t1 = app_expr ARROW t2 = quant_expr
     { Pi ("_", t1, t2) }
-  | FUN lst = fun_abstraction DARROW e = expr
+  | FUN lst = fun_abstraction DARROW e = quant_expr
     { fst (make_lambda e lst) }
-  | e1 = app_expr EQ e2 = app_expr AT t = expr
-    { EqJdg (e1, e2, t) }
-  | e = app_expr DCOLON t = expr
-    { TyJdg (e, t) }
-  | e = app_expr COLON t = expr
+  | e = app_expr COLON t = app_expr
     { Ascribe (e, t) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
@@ -144,8 +149,8 @@ simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
   | TYPE
     { Type }
-  | n = NAME
-    { Var n }
+  | x = NAME
+    { Var x }
   | LPAREN e = plain_expr RPAREN
     { e }
 

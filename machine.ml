@@ -30,7 +30,7 @@ let run_operation ctx (op, loc) =
         mk_tywtn, mk_tyjdg e t
     | HasType (e, t) ->
       Typing.check ctx e t ;
-      mk_eqwtn, mk_tyjdg e t
+      mk_tywtn, mk_tyjdg e t
     | Equal (e1, e2, t) ->
       ignore (Typing.check_sort ctx t) ;
       if Typing.equal_at ctx e1 e2 t

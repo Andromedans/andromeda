@@ -110,18 +110,18 @@ let rec exec_cmd interactive ctx (d, loc) =
         if interactive then
           Format.printf "%s is assumed.@." x ;
         add_parameter x t ctx
-    | Input.TopLet (x, c) ->
+    | Input.TopLet (x, e) ->
       if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
-      let c = Desugar.computation ctx.names c in
-      let e, t = Machine.run ctx c in
+      let e = Desugar.expr ctx.names e in
+      let t = Typing.infer ctx e in
         if interactive then
           Format.printf "%s is defined.@." x ;
         add_definition x t e ctx
     | Input.Computation c ->
       let c = Desugar.computation ctx.names c in
-      let e, t = Machine.run ctx c in
+      let _, t = Machine.run ctx c in
         if interactive then
-          Format.printf "|- @[%t :: %t@]@." (Print.expr ctx.names e) (Print.expr ctx.names t) ;
+          Format.printf "|- %t@." (Print.expr ctx.names t) ;
         ctx
     | Input.Help ->
       print_endline help_text ; ctx

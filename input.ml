@@ -37,7 +37,7 @@ and directive' =
 type toplevel = toplevel' * Common.position
 and toplevel' =
   | Computation of computation
-  | TopLet of Common.variable * computation
+  | TopLet of Common.variable * expr
   | TopParam of Common.variable * sort
   | Context
   | Eval of expr
