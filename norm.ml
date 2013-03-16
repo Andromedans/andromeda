@@ -17,23 +17,20 @@ let env_of_ctx ctx = List.map (function Parameter _ -> None | Definition (_, e) 
 let norm ?(weak=false) =
   let rec norm env ((e', loc) as e) =
     match e' with
+
       | Var k ->
         (match lookup k env with
           | None -> e
           | Some e -> norm env e)
-      | Type | Kind -> e
-      | Eq (t, e1, e2) ->
-        if weak
-        then e
-        else
-          let t = norm env t in
-          let e1 = norm env e1 in
-          let e2 = norm env e2 in
-            mk_eq t e1 e2
+
+      | Subst (s, e) ->
+        norm env (subst s e)
+
       | Pi (x, t1, t2) ->
         if weak
         then e
         else mk_pi x (norm env t1) (norm (extend env) t2)
+
       | Lambda (x, t, e') -> 
         if weak
         then e
@@ -41,7 +38,7 @@ let norm ?(weak=false) =
           let t = (match t with None -> None | Some t -> Some (norm env t)) in
           let e' = norm (extend env) e' in
             mk_lambda x t e'
-      | Subst (s, e) -> norm env (subst s e)
+
       | App (e1, e2) ->
         let (e1', _) as e1 = norm env e1 in
           (match e1' with
@@ -49,9 +46,29 @@ let norm ?(weak=false) =
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc
-            | Subst _ | Type | Kind | Eq _ | Pi _ | Ascribe _ ->
-              Error.runtime ~loc:(snd e2) "Function expected")
-      | Ascribe (e, _) -> norm env e
+            | Subst _ | Pi _ | Ascribe _ | Type | Kind | TyWtn | EqWtn | TyJdg _ | EqJdg _ ->
+              Error.runtime ~loc:(snd e2) "function expected")
+
+      | Ascribe (e, _) ->
+        norm env e
+
+      | Type | Kind | TyWtn | EqWtn -> e
+
+      | TyJdg (e, t) ->
+        if weak
+        then e
+        else
+          let e = norm env e in
+          let t = norm env t in
+            mk_tyjdg e t
+      | EqJdg (e1, e2, t) ->
+        if weak
+        then e
+        else
+          let e1 = norm env e1 in
+          let e2 = norm env e2 in
+          let t = norm env t in
+            mk_eqjdg e1 e2 t
   in
     norm
 

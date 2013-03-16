@@ -15,79 +15,127 @@
       let e = make_pi e lst in
         List.fold_right (fun x e -> (Pi (x, t, e), loc)) xs e
 
+  (* Abstract a computation *)
+  let make_computation lst c =
+    let lst =
+      List.fold_right
+        (fun ((xs, t), loc) lst -> List.fold_right (fun x c -> ((x, t), loc) :: lst) xs lst)
+        lst
+        []
+    in
+      (lst, c)
+
 %}
 
 %token FORALL FUN TYPE
-%token <int> NUMERAL
+(* %token <int> NUMERAL *)
 %token <string> NAME
 %token LPAREN RPAREN
-%token COLON DCOLON COMMA PERIOD COLONEQUAL
+%token COLON DCOLON COMMA QUESTIONMARK SEMISEMI VDASH
 %token ARROW DARROW
-%token EQ AT
-%token INFER CHECK BRAZIL
-%token QUIT HELP PARAMETER EVAL CONTEXT DEFINITION
+%token EQ EQEQ AT
+%token LET
+%token QUIT HELP EVAL CONTEXT
 %token EOF
 
-%start <Input.directive list> directives
+%start <Input.toplevel list> file
+%start <Input.toplevel> commandline
 
 %%
 
 (* Toplevel syntax *)
 
-directives:
-  | dir = directive PERIOD EOF
+(* If you're going to "optimize" this, please make sure we don't require;; at the
+   end of the file. *)
+file:
+  | lst = file_topdef
+    { lst }
+  | c = topcomp EOF
+     { [c] }
+  | c = topcomp SEMISEMI lst = file
+     { c :: lst }
+  | dir = topdirective EOF
      { [dir] }
-  | dir = directive PERIOD lst = directives
+  | dir = topdirective SEMISEMI lst = file
      { dir :: lst }
 
-directive: mark_position(plain_directive) { $1 }
-plain_directive:
-  | QUIT
-    { Quit }
-  | HELP
-    { Help }
-  | PARAMETER x = NAME COLON e = expr
-    { Parameter (x, e) }
-  | EVAL e = expr
-    { Eval e }
-  | DEFINITION x = NAME COLONEQUAL e = expr
-    { Definition (x, e) }
-  | DEFINITION x = NAME DCOLON t = expr COLONEQUAL e = expr
-    { Definition (x, (Ascribe (e, t), snd e)) }
+file_topdef:
+  | EOF
+     { [] }
+  | def = topdef SEMISEMI lst = file
+     { def :: lst }
+  | def = topdef lst = file_topdef
+     { def :: lst }
+
+commandline:
+  | def = topdef SEMISEMI
+    { def }
+  | c = topcomp SEMISEMI
+    { c }
+  | dir = topdirective SEMISEMI
+    { dir }
+
+topcomp: mark_position(plain_topcomp) { $1 }
+plain_topcomp:
+  | c = computation
+    { Computation c }
+
+(* Things that can be defined on toplevel. *)
+topdef: mark_position(plain_topdef) { $1 }
+plain_topdef:
+  | LET x = NAME EQ c = computation
+    { TopLet (x, c) }
+  | LET x = NAME COLON s = sort
+    { TopParam (x, s) }
+
+(* Toplevel directive. *)
+topdirective: mark_position(plain_topdirective) { $1 }
+plain_topdirective:
   | CONTEXT
     { Context }
-  | c = computation
-    { Do c }
+  | EVAL e = expr
+    { Eval e }
+  | HELP
+    { Help }
+  | QUIT
+    { Quit }
+
+(* Main syntax tree *)
 
 computation: mark_position(plain_computation) { $1 }
 plain_computation:
-  | INFER e = expr
-    { Infer e }
-  | CHECK e1 = expr DCOLON e2 = expr
-    { Check (false, e1, e2) }
-  | BRAZIL e1 = expr DCOLON e2 = expr
-    { Check (true, e1, e2) }
+  | lst = pi_abstraction VDASH j = operation
+    { make_computation lst j }
 
-(* Main syntax tree *)
+operation: mark_position(plain_operation) { $1 }
+plain_operation:
+  | QUESTIONMARK DCOLON s = sort
+    { Inhabit s }
+  | e = expr DCOLON QUESTIONMARK
+    { Infer e }
+  | e = expr DCOLON s = sort
+    { HasType (e, s) }
+  | e1 = expr EQEQ e2 = expr AT s = sort
+    { Equal (e1, e2, s) }
+
+sort: expr { $1 }
+
 expr: mark_position(plain_expr) { $1 }
 plain_expr:
-  | e = plain_quantifier_expr
-    { e }
-  | e = quantifier_expr DCOLON t = quantifier_expr
-    { Ascribe (e, t) }
-
-quantifier_expr: mark_position(plain_quantifier_expr) { $1 }
-plain_quantifier_expr:
   | e = plain_app_expr
     { e }
-  | FORALL lst = pi_abstraction COMMA e = quantifier_expr
+  | FORALL lst = pi_abstraction COMMA e = expr
     { fst (make_pi e lst) }
-  | t1 = app_expr ARROW t2 = quantifier_expr
+  | t1 = app_expr ARROW t2 = expr
     { Pi ("_", t1, t2) }
-  | FUN lst = fun_abstraction DARROW e = quantifier_expr
+  | FUN lst = fun_abstraction DARROW e = expr
     { fst (make_lambda e lst) }
-  | e1 = app_expr EQ e2 = app_expr AT t = quantifier_expr
-    { Eq (t, e1, e2) }
+  | e1 = app_expr EQ e2 = app_expr AT t = expr
+    { EqJdg (e1, e2, t) }
+  | e = app_expr DCOLON t = expr
+    { TyJdg (e, t) }
+  | e = expr COLON t = expr
+    { Ascribe (e, t) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:

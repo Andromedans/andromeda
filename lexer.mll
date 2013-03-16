@@ -6,19 +6,10 @@
   let reserved = [
     ("forall", FORALL);
     ("fun", FUN);
+    ("let", LET) ;
+    ("assume", LET) ;
+    ("rule", LET) ;
     ("Type", TYPE);
-  ]
-
-  let directives = [
-    ("Brazil", BRAZIL) ;
-    ("Check", CHECK) ;
-    ("Infer", INFER) ;
-    ("Definition", DEFINITION) ;
-    ("Eval", EVAL) ;
-    ("Help", HELP) ;
-    ("Quit",  QUIT) ;
-    ("Parameter", PARAMETER) ;
-    ("Context", CONTEXT)
   ]
 
   let position_of_lex lex =
@@ -27,30 +18,33 @@
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
 
-let numeral = ['0'-'9']+
+(* let numeral = ['0'-'9']+ *)
 
 rule token = parse
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
-  | numeral             { NUMERAL (int_of_string (Lexing.lexeme lexbuf)) }
+(*  | numeral             { NUMERAL (int_of_string (Lexing.lexeme lexbuf)) } *)
   | name                { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved
-                            with Not_found ->
-                              (try
-                                 List.assoc s directives
-                               with Not_found -> NAME s)
+                            with Not_found -> NAME s
                         }
+  | "#context"          { CONTEXT }
+  | "#eval"             { EVAL }
+  | "#help"             { HELP }
+  | "#quit"             { QUIT }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
-  | "."                 { PERIOD }
   | ':'                 { COLON }
   | "::"                { DCOLON }
+  | ";;"                { SEMISEMI }
   | ','                 { COMMA }
+  | '?'                 { QUESTIONMARK }
   | "->"                { ARROW }
   | "=>"                { DARROW }
-  | ":="                { COLONEQUAL }
-  | "=="                { EQ }
+  | "="                 { EQ }
+  | "=="                { EQEQ }
+  | "|-"                { VDASH }
   | "@"                 { AT }
   | eof                 { EOF }
 
@@ -74,14 +68,14 @@ rule token = parse
 
 
   let read_toplevel parser () =
-    let ends_with_period str =
+    let ends_with_semisemi str =
       let i = ref (String.length str - 1) in
         while !i >= 0 && List.mem str.[!i] [' '; '\n'; '\t'; '\r'] do decr i done ;
-        !i >= 0 && str.[!i] = '.' 
+        !i >= 1 && str.[!i - 1] = ';' && str.[!i] = ';'
     in
 
     let rec read_more prompt acc =
-      if ends_with_period acc
+      if ends_with_semisemi acc
       then acc
       else begin
         print_string prompt ;

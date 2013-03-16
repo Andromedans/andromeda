@@ -8,8 +8,8 @@
     A parameter declaration carries its type, while a definition carries the type and
     the defining expression. *)
 type declaration = 
-  | Parameter of Syntax.expr
-  | Definition of Syntax.expr * Syntax.expr
+  | Parameter of Syntax.term
+  | Definition of Syntax.sort * Syntax.term
 
 (** A context consists of a list of names, used for pretty-printing and
     desugaring of variable names to de Bruijn indices, and a list of

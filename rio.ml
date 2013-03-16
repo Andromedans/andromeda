@@ -1,41 +1,42 @@
+(** The Rio proof assistant language. *)
+
 open Syntax
 
+type term = term' * Common.position
+and term' =
+  | Var of int
+  | Subst of substitution * term
+  | Pi of Common.variable * sort * sort
+  | Lambda of Common.variable * sort option * term
+  | App of term * term
+  | Ascribe of term * sort
+  | Type
+  | Kind
+  | CheckWitness of term * sort
+  | EqWitness of term * term * sort
+  | TyJdg of term * sort
+  | EqJdg of term * term * sort
+
+and sort = term
+
 type operation =
-  | Infer of expr                     (* infer the type of expression (only small ones) *)
-  | Check of expr * ty                (* check that expression has type *)
-  | Equal of ty * expr * expr         (* inhabit equality type *)
+  | Inhabit of sort                   (* inhabit a sort *)
+  | Infer of term                     (* infer the sort of expression *)
+  | HasType of term * sort            (* inhabit a typing judgment *)
+  | Equal of term * term * sort       (* inhabit judgmental equality *)
 
-(** Computation types are types of results of computations. *)
-type ty =
-  | ExprTy
-  | SortTy                      (* result of infer *)
-  | Checked of expr * ty        (* result of checking *)
-  | Equated of ty * expr * expr (* result of verifying an equation *)
-
-type value =
-  | Sort of expr
-  | Expr of expr
-  | Sym of value (* symmetry *)
-  | EqualWitness of ty * expr * expr
-  | CheckWitness of expr * ty
- 
-(** Computations, currently a very limited version. *)
+(** Computations. *)
 type computation =
-  | Return of value
   | Let of Common.variable * computation * computation
   | Op of operation
+  | CLambda of Common.variable * sort * computation
 
 let rec infer_value ctx (v, loc) =
   match v with
     | Sort _ -> SortTy
     | Expr _ -> ExprTy
-    | Sym v ->
-      (match infer_value ctx v with
-        | Equated (t, e1, e2) -> Equated (t, e2, e1)
-        | _ -> Error.typing ~loc "this expression is %t
-      
-  | EqualWitness (t, e1, e2) -> Equal (t, e1, e2)
-  | CheckWitness (e, t) -> Check (false, e, t)
+    | EqualWitness (t, e1, e2) -> Equal (t, e1, e2)
+    | CheckWitness (e, t) -> Check (false, e, t)
 
 let infer_op ctx =
   | Infer _ -> SortTy
