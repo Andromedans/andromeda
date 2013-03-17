@@ -80,7 +80,7 @@ and expr ?max_level xs e ppf =
           | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
           | Syntax.Ascribe (e, t) -> print ~at_level:4 "%t : %t" (expr ~max_level:3 xs e) (expr ~max_level:3 xs t)
           | Syntax.Type -> print "Type"
-          | Syntax.Kind -> print "sort"
+          | Syntax.Sort -> print "sort"
           | Syntax.TyWtn -> print "<ty>"
           | Syntax.EqWtn -> print "<eq>"
           | Syntax.TyJdg (e, t) -> print ~at_level:3 "%t :: %t" (expr ~max_level:2 xs e) (expr ~max_level:2 xs t)

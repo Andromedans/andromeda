@@ -46,13 +46,13 @@ let norm ?(weak=false) =
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc
-            | Subst _ | Pi _ | Ascribe _ | Type | Kind | TyWtn | EqWtn | TyJdg _ | EqJdg _ ->
+            | Subst _ | Pi _ | Ascribe _ | Type | Sort | TyWtn | EqWtn | TyJdg _ | EqJdg _ ->
               Error.runtime ~loc:(snd e2) "function expected")
 
       | Ascribe (e', _) ->
         norm env e'
 
-      | Type | Kind | TyWtn | EqWtn -> e
+      | Type | Sort | TyWtn | EqWtn -> e
 
       | TyJdg (e', t) ->
         if weak
