@@ -134,7 +134,7 @@ and check ctx ((e', loc) as e) t =
     | Var _ | Lambda (_, Some _, _) | Pi _ | App _ | Ascribe _ | Type | TyJdg _ | EqJdg _ ->
       let t' = infer ctx e in
         if not (equal_sort ctx t' t) then
-          Error.typing ~loc:(snd e) "this expression has type %t@ but it should have sort %t"
+          Error.typing ~loc:(snd e) "this expression has sort %t@ but it should have sort %t"
             (Print.expr ctx.names t') (Print.expr ctx.names t)
 
 (* Returns [Small] if the sort is small and [Large] otherwise. *)
