@@ -26,6 +26,8 @@ let <indent> := <expr> ;;      define <ident> to be <expr>
 
 Syntax:
 Type                           the sort of types
+<expr> :: <sort>               the sort of typing judgments
+<expr> == <expr> @ <sort>      the sort of equality judgments
 fun x : e1 => e2               function abstraction
 forall x : e1, e2              dependent product
 e1 e2                          application
