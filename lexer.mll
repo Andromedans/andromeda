@@ -35,6 +35,8 @@ rule token = parse
   | "#quit"             { QUIT }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
+  | '['                 { LBRACK }
+  | ']'                 { RBRACK }
   | ':'                 { COLON }
   | "::"                { DCOLON }
   | ";;"                { SEMISEMI }
@@ -44,7 +46,6 @@ rule token = parse
   | "=>"                { DARROW }
   | ":="                { COLONEQ }
   | "=="                { EQEQ }
-  | "|-"                { VDASH }
   | "@"                 { AT }
   | eof                 { EOF }
 

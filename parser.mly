@@ -26,8 +26,8 @@
 %token FORALL FUN TYPE
 (* %token <int> NUMERAL *)
 %token <string> NAME
-%token LPAREN RPAREN
-%token COLON DCOLON COMMA QUESTIONMARK SEMISEMI VDASH
+%token LPAREN RPAREN LBRACK RBRACK
+%token COLON DCOLON COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW
 %token COLONEQ EQEQ AT
 %token LET
@@ -100,9 +100,9 @@ plain_topdirective:
 
 computation: mark_position(plain_computation) { $1 }
 plain_computation:
-  | lst = pi_abstraction VDASH op = operation
+  | FUN lst = pi_abstraction DARROW LBRACK op = operation RBRACK
     { fst (make_computation op lst) }
-  | VDASH op = operation
+  | LBRACK op = operation RBRACK
     { Operation op }
 
 operation: mark_position(plain_operation) { $1 }

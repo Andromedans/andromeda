@@ -20,9 +20,9 @@ let help_text = "Toplevel directives:
 
 assume <ident> : <sort> ;;     assume variable <ident> has sort <sort>
 let <indent> := <expr> ;;      define <ident> to be <expr>
-|- <expr> :: <sort> ;;         check that <expr> has sort <sort>
-|- <expr> :: ? ;;              infer the sort of expression <expr>
-|- ? :: <sort> ;;              inhabit sort <sort>
+[ <expr> :: <sort> ] ;;        check that <expr> has sort <sort>
+[ <expr> :: ? ] ;;             infer the sort of expression <expr>
+[ ? :: <sort> ] ;;             inhabit sort <sort>
 
 Syntax:
 Type                           the sort of types
@@ -123,9 +123,9 @@ let rec exec_cmd interactive ctx (d, loc) =
         add_definition x t e ctx
     | Input.Computation c ->
       let c = Desugar.computation ctx.names c in
-      let e, t = Machine.run ctx c in
+      let _, t = Machine.run ctx c in
         if interactive then
-          Format.printf "witness %t@\n has type %t@." (Print.expr ctx.names e) (Print.expr ctx.names t) ;
+          Format.printf "%t@." (Print.expr ctx.names t) ;
         ctx
     | Input.Help ->
       print_endline help_text ; ctx
