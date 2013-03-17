@@ -172,7 +172,6 @@ and check_sort ctx (e',loc) =
       ignore (check_sort ctx t)  ;
       check ctx e t ;
       Large
-      
 
 and infer_pi ctx e =
   let t = infer ctx e in

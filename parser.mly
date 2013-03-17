@@ -29,7 +29,7 @@
 %token LPAREN RPAREN
 %token COLON DCOLON COMMA QUESTIONMARK SEMISEMI VDASH
 %token ARROW DARROW
-%token EQ EQEQ AT
+%token COLONEQ EQEQ AT
 %token LET
 %token QUIT HELP EVAL CONTEXT
 %token EOF
@@ -79,7 +79,7 @@ plain_topcomp:
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | LET x = NAME EQ e = expr
+  | LET x = NAME COLONEQ e = expr
     { TopLet (x, e) }
   | LET x = NAME COLON s = expr
     { TopParam (x, s) }

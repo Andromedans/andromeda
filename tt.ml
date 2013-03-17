@@ -119,9 +119,9 @@ let rec exec_cmd interactive ctx (d, loc) =
         add_definition x t e ctx
     | Input.Computation c ->
       let c = Desugar.computation ctx.names c in
-      let _, t = Machine.run ctx c in
+      let e, t = Machine.run ctx c in
         if interactive then
-          Format.printf "|- %t@." (Print.expr ctx.names t) ;
+          Format.printf "witness %t@\n has type %t@." (Print.expr ctx.names e) (Print.expr ctx.names t) ;
         ctx
     | Input.Help ->
       print_endline help_text ; ctx

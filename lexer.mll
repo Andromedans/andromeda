@@ -42,7 +42,7 @@ rule token = parse
   | '?'                 { QUESTIONMARK }
   | "->"                { ARROW }
   | "=>"                { DARROW }
-  | "="                 { EQ }
+  | ":="                { COLONEQ }
   | "=="                { EQEQ }
   | "|-"                { VDASH }
   | "@"                 { AT }
