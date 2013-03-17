@@ -11,19 +11,21 @@ let wrapper = ref (Some ["rlwrap"; "ledit"])
 (** The usage message. *)
 let usage = "Usage: tt [option] ... [file] ..."
 
-(** The help text printed when [Help.] is used. *)
-let help_text = "Toplevel commands:
-Parameter <ident> : <expr>.    assume variable <ident> has type <expr>
-Definition <indent> := <expr>. define <ident> to be <expr>
-Check <expr> : <expr>          check that <expr> has type <expr>
-Infer <expr>.                  infer the type of expression <expr>
-Eval <expr>.                   normalize expression <expr>
-Context.                       print current contex    
-Help.                          print this help
-Quit.                          exit
+(** The help text printed when [#help] is used. *)
+let help_text = "Toplevel directives:
+#eval <expr> ;;                evaluate <expr>
+#context ;;                    print current contex    
+#help ;;                       print this help
+#quit ;;                       exit
+
+assume <ident> : <sort> ;;     assume variable <ident> has sort <sort>
+let <indent> := <expr> ;;      define <ident> to be <expr>
+|- <expr> :: <sort> ;;         check that <expr> has sort <sort>
+|- <expr> :: ? ;;              infer the sort of expression <expr>
+|- ? :: <sort> ;;              inhabit sort <sort>
 
 Syntax:
-Type k                         the k-th universe, e.g. Type 42
+Type                           the sort of types
 fun x : e1 => e2               function abstraction
 forall x : e1, e2              dependent product
 e1 e2                          application
@@ -140,7 +142,7 @@ let toplevel ctx =
     | _ -> "EOF"
   in
   print_endline ("tt " ^ Version.version);
-  print_endline ("[Type " ^ eof ^ " to exit or \"Help.\" for help.]");
+  print_endline ("[Type " ^ eof ^ " to exit or \"#help;;\" for help.]");
   try
     let ctx = ref ctx in
     while true do
