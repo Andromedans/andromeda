@@ -12,8 +12,8 @@ and term' =
   | Ascribe of term * sort
   | Type
   | Sort
-  | TyWtn
-  | EqWtn
+  | TyWtn of term * sort
+  | EqWtn of term * term * sort
   | TyJdg of term * sort
   | EqJdg of term * term * sort
 
@@ -46,9 +46,9 @@ let mk_app e1 e2 = Common.nowhere (App (e1, e2))
 let mk_ascribe e t = Common.nowhere (Ascribe (e, t))
 let mk_type = Common.nowhere Type
 let mk_kind = Common.nowhere Sort
-let mk_eqwtn = Common.nowhere EqWtn
+let mk_eqwtn e1 e2 t = Common.nowhere (EqWtn (e1, e2, t))
 let mk_eqjdg e1 e2 t = Common.nowhere (EqJdg (e1, e2, t))
-let mk_tywtn = Common.nowhere TyWtn
+let mk_tywtn e t = Common.nowhere (TyWtn (e, t))
 let mk_tyjdg e t = Common.nowhere (TyJdg (e, t))
 
 (** The identity substitution. *)
@@ -85,16 +85,25 @@ let subst =
           Lambda (x, t, e), loc
       | s, App (e1, e2) -> App (mk_subst s e1, mk_subst s e2), loc
       | s, Ascribe (e, t) -> Ascribe (mk_subst s e, mk_subst s t), loc
-      | s, (Type|Sort|TyWtn|EqWtn) -> e', loc
+      | s, (Type | Sort) -> e', loc
       | s, TyJdg (e, t) ->
         let e = mk_subst s e in
         let t = mk_subst s t in
           TyJdg (e, t), loc
+      | s, TyWtn (e, t) ->
+        let e = mk_subst s e in
+        let t = mk_subst s t in
+          TyWtn (e, t), loc
       | s, EqJdg (e1, e2, t) ->
         let e1 = mk_subst s e1 in
         let e2 = mk_subst s e2 in
         let t = mk_subst s t in
           EqJdg (e1, e2, t), loc
+      | s, EqWtn (e1, e2, t) ->
+        let e1 = mk_subst s e1 in
+        let e2 = mk_subst s e2 in
+        let t = mk_subst s t in
+          EqWtn (e1, e2, t), loc
   in
     subst
 
@@ -108,6 +117,8 @@ let rec occurs k (e, _) =
     | Lambda (_, Some t, e) -> occurs k t || occurs (k + 1) e
     | App (e1, e2) -> occurs k e1 || occurs k e2
     | Ascribe (e, t) -> occurs k e || occurs k t
-    | Type | Sort | TyWtn | EqWtn -> false
+    | Type | Sort -> false
     | EqJdg (e1, e2, t) -> occurs k t || occurs k e1 || occurs k e2
     | TyJdg (e, t) -> occurs k t || occurs k e
+    | EqWtn (e1, e2, t) -> occurs k t || occurs k e1 || occurs k e2
+    | TyWtn (e, t) -> occurs k t || occurs k e

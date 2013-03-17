@@ -81,8 +81,8 @@ and expr ?max_level xs e ppf =
           | Syntax.Ascribe (e, t) -> print ~at_level:4 "%t : %t" (expr ~max_level:3 xs e) (expr ~max_level:3 xs t)
           | Syntax.Type -> print "Type"
           | Syntax.Sort -> print "Sort"
-          | Syntax.TyWtn -> print "<ty>"
-          | Syntax.EqWtn -> print "<eq>"
+          | Syntax.TyWtn (e, t) -> print "<witness>"
+          | Syntax.EqWtn (e1, e2, t)-> print "<witness>"
           | Syntax.TyJdg (e, t) -> print ~at_level:3 "%t :: %t" (expr ~max_level:2 xs e) (expr ~max_level:2 xs t)
           | Syntax.EqJdg (e1, e2, t) -> print ~at_level:3 "%t == %t @@ %t"
                                           (expr ~max_level:2 xs e1) (expr ~max_level:2 xs e2) (expr ~max_level:2 xs t)
