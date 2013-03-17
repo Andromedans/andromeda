@@ -23,8 +23,8 @@ let norm ?(weak=false) =
           | None -> e
           | Some e -> norm env e)
 
-      | Subst (s, e) ->
-        norm env (subst s e)
+      | Subst (s, e') ->
+        norm env (subst s e')
 
       | Pi (x, t1, t2) ->
         if weak
@@ -49,18 +49,19 @@ let norm ?(weak=false) =
             | Subst _ | Pi _ | Ascribe _ | Type | Kind | TyWtn | EqWtn | TyJdg _ | EqJdg _ ->
               Error.runtime ~loc:(snd e2) "function expected")
 
-      | Ascribe (e, _) ->
-        norm env e
+      | Ascribe (e', _) ->
+        norm env e'
 
       | Type | Kind | TyWtn | EqWtn -> e
 
-      | TyJdg (e, t) ->
+      | TyJdg (e', t) ->
         if weak
         then e
         else
-          let e = norm env e in
+          let e' = norm env e' in
           let t = norm env t in
-            mk_tyjdg e t
+            mk_tyjdg e' t
+
       | EqJdg (e1, e2, t) ->
         if weak
         then e
