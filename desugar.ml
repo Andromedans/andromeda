@@ -37,6 +37,12 @@ let operation xs (op, loc) =
 let rec computation xs (c, loc) =
   (match c with
     | Input.Abstraction (x, t, c) -> Syntax.Abstraction (x, sort xs t, computation (x :: xs) c)
-    | Input.Operation op -> Syntax.Operation (operation xs op)),
+    | Input.Operation op -> Syntax.Operation (operation xs op)
+    | Input.Handle (c, h) -> Syntax.Handle (computation xs c, handler xs h)
+  ),
   loc
 
+and handler xs lst = List.map (handler_case xs) lst
+
+and handler_case xs (e1, e2, s, e) =
+  (expr xs e1, expr xs e2, sort xs s, expr xs e)

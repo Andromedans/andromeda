@@ -17,7 +17,7 @@
 
   (* Build nested pies *)
   let rec make_computation c = function
-    | [] -> Operation c, snd c
+    | [] -> c
     | ((xs, t), loc) :: lst ->
       let c = make_computation c lst in
         List.fold_right (fun x c -> (Abstraction (x, t, c), loc)) xs c
@@ -30,7 +30,8 @@
 %token COLON DCOLON COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW
 %token COLONEQ EQEQ AT
-%token LET
+%token LET ASSUME
+%token HANDLE WITH BAR
 %token QUIT HELP EVAL CONTEXT
 %token EOF
 
@@ -81,7 +82,7 @@ topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
   | LET x = NAME COLONEQ e = expr
     { TopLet (x, e) }
-  | LET x = NAME COLON s = expr
+  | ASSUME x = NAME COLON s = expr
     { TopParam (x, s) }
 
 (* Toplevel directive. *)
@@ -100,10 +101,12 @@ plain_topdirective:
 
 computation: mark_position(plain_computation) { $1 }
 plain_computation:
-  | FUN lst = pi_abstraction DARROW LBRACK op = operation RBRACK
-    { fst (make_computation op lst) }
+  | FUN lst = pi_abstraction DARROW LBRACK c = computation RBRACK
+    { fst (make_computation c lst) }
   | LBRACK op = operation RBRACK
     { Operation op }
+  | HANDLE c = computation WITH h = handler
+    { Handle (c, h) }
 
 operation: mark_position(plain_operation) { $1 }
 plain_operation:
@@ -115,6 +118,14 @@ plain_operation:
     { HasType (e, s) }
   | e1 = quant_expr EQEQ e2 = quant_expr AT s = quant_expr
     { Equal (e1, e2, s) }
+
+handler:
+  | BAR? cs = separated_list(BAR, handler_case)
+    { cs }
+
+handler_case:
+  | LBRACK e1 = quant_expr EQEQ e2 = quant_expr AT s = quant_expr RBRACK DARROW e = expr
+    { (e1, e2, s, e) }
 
 expr: mark_position(plain_expr) { $1 }
 plain_expr:

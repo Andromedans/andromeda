@@ -36,6 +36,9 @@ type computation = computation' * Common.position
 and computation' = 
   | Abstraction of Common.variable * sort * computation
   | Operation of operation
+  | Handle of computation * handler
+
+and handler = (term * term * sort * term) list
 
 (** Expression constructors wrapped in "nowhere" positions. *)
 let mk_var k = Common.nowhere (Var k)

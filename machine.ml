@@ -45,3 +45,4 @@ let rec run ctx (c, loc) =
         mk_lambda x (Some t) e, mk_pi x t t'
     | Operation op ->
       run_operation ctx op
+    | Handle _ -> Error.runtime ~loc "handlers are not supported yet, sorry"

@@ -4,12 +4,13 @@
   open Parser
 
   let reserved = [
-    ("forall", FORALL);
+    ("assume", ASSUME) ;
+    ("forall", FORALL) ;
     ("fun", FUN);
+    ("handle", HANDLE) ;
     ("let", LET) ;
-    ("assume", LET) ;
-    ("rule", LET) ;
-    ("Type", TYPE);
+    ("Type", TYPE) ;
+    ("with", WITH) ;
   ]
 
   let position_of_lex lex =
@@ -41,6 +42,7 @@ rule token = parse
   | "::"                { DCOLON }
   | ";;"                { SEMISEMI }
   | ','                 { COMMA }
+  | '|'                 { BAR }
   | '?'                 { QUESTIONMARK }
   | "->"                { ARROW }
   | "=>"                { DARROW }
