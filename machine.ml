@@ -5,35 +5,39 @@ open Value
 
 type handler =
   | EqualityHandler of (Syntax.term * Syntax.term * Syntax.sort * Syntax.term) list
-  | BuiltinHandler of (Context.context -> Syntax.operation -> Value.closure -> Value.result)
+  | BuiltinHandler of (Context.context -> Syntax.operation -> Value.result)
 
 let pattern_match (p1, p2, s) (e1, e2, t) =
   Syntax.alpha_equal p1 e1 && Syntax.alpha_equal p2 e2 && Syntax.alpha_equal s t
 
 let rec sequence k = function
-  | Value v -> k v
+  | Value v -> 
+    k v
   | Abstraction (x, t, r, k') ->
     let k'' u = sequence k (k' u) in
       Abstraction (x, t, r, k'')
+  | Definition (x, t, e, r, k') ->
+    let k'' u = sequence k (k' u) in
+      Definition (x, t, e, r, k'')
   | Operation (op, k') ->
       let k'' u = sequence k (k' u) in
         Operation (op, k'')
 
-let top_handler ctx (op, loc) k =
+let top_handler ctx (op, loc) =
   match op with
     | Syntax.Inhabit t ->
       ignore (Typing.check_sort ctx t) ;
       Error.runtime ~loc "sorry, this has not been implemented yet" (Print.expr ctx.names t)
     | Syntax.Infer e ->
       let t = Typing.infer ctx e in
-        Value.Value (Value.TyWtn (e, t))
+        Value (TyWtn (e, t))
     | Syntax.HasType (e, t) ->
       Typing.check ctx e t ;
-      Value.Value (Value.TyWtn (e, t))
+      Value (TyWtn (e, t))
     | Syntax.Equal (e1, e2, t) ->
       ignore (Typing.check_sort ctx t) ;
       if Typing.equal_at ctx e1 e2 t
-      then Value.Value (Value.EqWtn (e1, e2, t))
+      then Value (EqWtn (e1, e2, t))
       else Error.runtime ~loc "do not know how to derive %t" (Print.expr ctx.names (Syntax.mk_eqjdg e1 e2 t))
 
 let find_handler_case (op, _) lst =
@@ -63,7 +67,8 @@ let eval_handler ctx h op k =
       (match find_handler_case op lst with
         | Some f -> f k
         | None -> Operation (op, k))
-    | BuiltinHandler f -> f ctx op k
+    | BuiltinHandler f -> 
+      let r = f ctx op in sequence k r
 
 (** [handle ctx h c] handles computation [c] in context [ctx] using handler [h]. *)
 let rec handle ctx h = function
@@ -73,10 +78,17 @@ let rec handle ctx h = function
     let h = shift_handler h in
       (match handle (add_parameter x t ctx) h r with
         | Value v -> k (Lambda (x, t, v))
-        | (Operation _ | Abstraction _) as r -> Abstraction (x, t, r, k))
+        | (Operation _ | Abstraction _ | Definition _) as r -> Abstraction (x, t, r, k))
+  | Definition (x, t, e, r, k) ->
+    (* XXX ignore (Typing.check ctx e t) ; *)
+    let h = shift_handler h in
+      (match handle (add_definition x t e ctx) h r with
+        | Value v -> k (Lambda (x, t, v))
+        | (Operation _ | Abstraction _ | Definition _) as r -> Definition (x, t, e, r, k))
   | Operation (op, k) -> eval_handler ctx h op (fun v -> handle ctx h (k v))
 
 and eval ctx (c, loc) =
+Print.debug "Eval %t in %s.@." (Print.computation ctx.names (c, loc)) (String.concat "," ctx.names);
   match c with
     | Syntax.Abstraction (x, t, c) ->
       ignore (Typing.check_sort ctx t) ;
@@ -90,21 +102,22 @@ and eval ctx (c, loc) =
     | Syntax.Let (x, c1, c2) ->
       let r = eval ctx c1 in
         sequence (fun v ->
-          let e, t = Value.to_term ctx v in
-          let ctx = add_definition x t e ctx in
-            eval ctx c2)
+          let e, t = to_term ctx v in
+          let r = eval (add_definition x t e ctx) c2 in
+            Definition (x, t, e, r, (fun v -> Value v)))
           r
 
 let toplevel ctx c =
-  let r = eval ctx c in
-    handle ctx (BuiltinHandler top_handler) r
+  let rec run r =
+    let r = handle ctx (BuiltinHandler top_handler) r in
+    match r with
+      | Value v -> v
+      | _ -> run r
+  in
+    run (eval ctx c)
 
 let toplet ctx x c =
-  let r = toplevel ctx c in
-    match r with
-      | Value.Value v -> 
-        let e, t = Value.to_term ctx v in
-          add_definition x t e ctx
-      | _ -> Error.runtime ~loc:(snd c) "does not compute"
-
+  let v = toplevel ctx c in
+  let e, t = to_term ctx v in
+    add_definition x t e ctx
 

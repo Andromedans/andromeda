@@ -84,6 +84,8 @@ plain_topdef:
     { TopDefine (x, e) }
   | ASSUME xs = nonempty_list(NAME) COLON s = expr
     { TopParam (xs, s) }
+  | LET x = NAME COLONEQ c = computation
+    { TopLet (x, c) }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
@@ -120,7 +122,7 @@ plain_operation:
     { Infer e }
   | e = quant_expr DCOLON s = quant_expr
     { HasType (e, s) }
-  | e1 = app_expr EQEQ e2 = app_expr AT s = app_expr
+  | e1 = app_expr EQEQ e2 = app_expr AT s = quant_expr
     { Equal (e1, e2, s) }
 
 handler:
@@ -128,7 +130,7 @@ handler:
     { cs }
 
 handler_case:
-  | LBRACK e1 = quant_expr EQEQ e2 = quant_expr AT s = quant_expr RBRACK DARROW e = expr
+  | LBRACK e1 = app_expr EQEQ e2 = app_expr AT s = quant_expr RBRACK DARROW e = expr
     { (e1, e2, s, e) }
 
 expr: mark_position(plain_expr) { $1 }

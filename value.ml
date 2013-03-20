@@ -9,6 +9,7 @@ type result =
   | Value of value
   | Operation of Syntax.operation * closure
   | Abstraction of Common.variable * Syntax.sort * result * closure
+  | Definition of Common.variable * Syntax.sort * Syntax.term * result * closure
 
 and closure = value -> result
 
@@ -20,4 +21,3 @@ let rec to_term ctx = function
   | Lambda (x, t, v) ->
     let e, s = to_term (add_parameter x t ctx) v in
       Syntax.mk_lambda x (Some t) e, Syntax.mk_pi x t s
-
