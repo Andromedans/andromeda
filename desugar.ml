@@ -39,7 +39,7 @@ let rec computation xs (c, loc) =
     | Input.Abstraction (x, t, c) -> Syntax.Abstraction (x, sort xs t, computation (x :: xs) c)
     | Input.Operation op -> Syntax.Operation (operation xs op)
     | Input.Handle (c, h) -> Syntax.Handle (computation xs c, handler xs h)
-  ),
+    | Input.Let (x, c1, c2) -> Syntax.Let (x, computation xs c1, computation (x::xs) c2)),
   loc
 
 and handler xs lst = List.map (handler_case xs) lst

@@ -107,14 +107,20 @@ let rec exec_cmd interactive ctx (d, loc) =
              k + 1)
            0 ctx.names) ;
       ctx
-    | Input.TopParam (x, t) ->
-      if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
+    | Input.TopLet (x, c) ->
+      let c = Desugar.computation ctx.names c in
+        Machine.toplet ctx x c
+    | Input.TopParam (xs, t) ->
       let t = Desugar.expr ctx.names t in
         ignore (Typing.check_sort ctx t) ;
-        if interactive then
-          Format.printf "%s is assumed.@." x ;
-        add_parameter x t ctx
-    | Input.TopLet (x, e) ->
+        List.fold_left
+          (fun ctx x ->
+            if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
+            if interactive then
+              Format.printf "%s is assumed.@." x ;
+            add_parameter x t ctx)
+          ctx xs
+    | Input.TopDefine (x, e) ->
       if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
       let e = Desugar.expr ctx.names e in
       let t = Typing.infer ctx e in

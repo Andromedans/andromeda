@@ -26,6 +26,7 @@ and computation' =
   | Abstraction of Common.variable * sort * computation
   | Operation of operation
   | Handle of computation * handler
+  | Let of Common.variable * computation * computation
 
 and handler =
     (expr * expr * sort * expr) list
@@ -41,8 +42,9 @@ and directive' =
 type toplevel = toplevel' * Common.position
 and toplevel' =
   | Computation of computation
-  | TopLet of Common.variable * expr
-  | TopParam of Common.variable * sort
+  | TopDefine of Common.variable * expr
+  | TopLet of Common.variable * computation
+  | TopParam of Common.variable list * sort
   | Context
   | Eval of expr
   | Help

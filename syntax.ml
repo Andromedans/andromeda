@@ -37,6 +37,7 @@ and computation' =
   | Abstraction of Common.variable * sort * computation
   | Operation of operation
   | Handle of computation * handler
+  | Let of Common.variable * computation * computation
 
 and handler = (term * term * sort * term) list
 

@@ -30,7 +30,7 @@
 %token COLON DCOLON COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW
 %token COLONEQ EQEQ AT
-%token LET ASSUME
+%token DEFINE LET IN ASSUME
 %token HANDLE WITH BAR
 %token QUIT HELP EVAL CONTEXT
 %token EOF
@@ -80,10 +80,10 @@ plain_topcomp:
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | LET x = NAME COLONEQ e = expr
-    { TopLet (x, e) }
-  | ASSUME x = NAME COLON s = expr
-    { TopParam (x, s) }
+  | DEFINE x = NAME COLONEQ e = expr
+    { TopDefine (x, e) }
+  | ASSUME xs = nonempty_list(NAME) COLON s = expr
+    { TopParam (xs, s) }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
@@ -109,6 +109,8 @@ plain_computation:
     { Operation op }
   | HANDLE c = computation WITH h = handler
     { Handle (c, h) }
+  | LET x = NAME COLONEQ c1 = computation IN c2 = computation
+    { Let (x, c1, c2) }
 
 operation: mark_position(plain_operation) { $1 }
 plain_operation:
@@ -135,20 +137,20 @@ plain_expr:
     { e }
   | e = quant_expr DCOLON t = quant_expr
     { TyJdg (e, t) }
+  | e1 = app_expr EQEQ e2 = app_expr AT t = quant_expr
+    { EqJdg (e1, e2, t) }
 
 quant_expr: mark_position(plain_quant_expr) { $1 }
 plain_quant_expr:
   | e = plain_app_expr
     { e }
-  | e1 = app_expr EQEQ e2 = app_expr AT t = quant_expr
-    { EqJdg (e1, e2, t) }
   | FORALL lst = pi_abstraction COMMA e = quant_expr
     { fst (make_pi e lst) }
   | t1 = app_expr ARROW t2 = quant_expr
     { Pi ("_", t1, t2) }
   | FUN lst = fun_abstraction DARROW e = quant_expr
     { fst (make_lambda e lst) }
-  | e = app_expr COLON t = app_expr
+  | e = app_expr COLON t = quant_expr
     { Ascribe (e, t) }
 
 app_expr: mark_position(plain_app_expr) { $1 }

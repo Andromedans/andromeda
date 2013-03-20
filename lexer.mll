@@ -5,10 +5,12 @@
 
   let reserved = [
     ("assume", ASSUME) ;
+    ("define", DEFINE) ;
     ("forall", FORALL) ;
     ("fun", FUN);
     ("handle", HANDLE) ;
     ("let", LET) ;
+    ("in", IN) ;
     ("Type", TYPE) ;
     ("with", WITH) ;
   ]

@@ -87,8 +87,24 @@ and eval ctx (c, loc) =
     | Syntax.Handle (c, h) ->
       let r = eval ctx c in
         handle ctx (EqualityHandler h) r
+    | Syntax.Let (x, c1, c2) ->
+      let r = eval ctx c1 in
+        sequence (fun v ->
+          let e, t = Value.to_term ctx v in
+          let ctx = add_definition x t e ctx in
+            eval ctx c2)
+          r
 
 let toplevel ctx c =
   let r = eval ctx c in
     handle ctx (BuiltinHandler top_handler) r
+
+let toplet ctx x c =
+  let r = toplevel ctx c in
+    match r with
+      | Value.Value v -> 
+        let e, t = Value.to_term ctx v in
+          add_definition x t e ctx
+      | _ -> Error.runtime ~loc:(snd c) "does not compute"
+
 
