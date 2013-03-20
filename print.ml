@@ -90,7 +90,32 @@ and expr ?max_level xs e ppf =
     expr ?max_level xs e ppf
     
 let expr' xs e ppf = expr xs (Common.nowhere e) ppf
-  
+
+let value ?max_level xs v ppf =
+  match v with
+    | Value.EqWtn (e1, e2, t) ->
+      print ppf ~at_level:3 "%t == %t @@ %t"
+        (expr ~max_level:2 xs e1) (expr ~max_level:2 xs e2) (expr ~max_level:2 xs t)
+    | Value.TyWtn _ -> print ppf "<ty>"
+    | Value.Lambda _ -> print ppf "<lam>"
+
+let operation ?max_level xs (op, _) ppf =
+  match op with
+    | Syntax.Inhabit t -> print ppf "[ ? :: %t ]" (expr ~max_level:2 xs t)
+    | Syntax.Infer e -> print ppf "[ %t :: ? ]" (expr xs e)
+    | Syntax.HasType (e, t) ->
+      print ppf "[ %t :: %t ]" (expr  ~max_level:2 xs e) (expr ~max_level:2 xs t)
+    | Syntax.Equal (e1, e2, t) ->
+      print ppf "[ %t == %t @@ %t ]"
+        (expr ~max_level:2 xs e1) (expr ~max_level:2 xs e2) (expr ~max_level:2 xs t)
+
+let rec result ?max_level xs r ppf =
+  match r with
+    | Value.Value v -> print ppf "%t" (value xs v)
+    | Value.Operation (op, _) -> print ppf "%t ..." (operation xs op)
+    | Value.Abstraction (x, t, r, _) ->
+      print ppf "fun %s : %t => %t ..." x (expr ~max_level:2 xs t) (result (x::xs) r)
+
 (** Support for printing of errors, warning and debugging information. *)
 
 let verbosity = ref 2

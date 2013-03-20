@@ -101,7 +101,7 @@ plain_topdirective:
 
 computation: mark_position(plain_computation) { $1 }
 plain_computation:
-  | FUN lst = pi_abstraction DARROW LBRACK c = computation RBRACK
+  | FUN lst = pi_abstraction DARROW c = computation
     { fst (make_computation c lst) }
   | LBRACK op = operation RBRACK
     { Operation op }

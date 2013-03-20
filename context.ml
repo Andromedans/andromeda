@@ -25,6 +25,9 @@ let empty_context = {
   decls = []
 }
 
+(** Drop the most recently added thing from the context. *)
+let drop {names = ns; decls = ds} = {names = List.tl ns; decls = List.tl ds}
+
 (** [lookup k ctx] returns the type or definition of [Var k] in context [ctx]. *)
 let lookup k {decls=lst} =
   match List.nth lst k with

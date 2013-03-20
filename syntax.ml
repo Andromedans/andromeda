@@ -125,3 +125,25 @@ let rec occurs k (e, _) =
     | TyJdg (e, t) -> occurs k t || occurs k e
     | EqWtn (e1, e2, t) -> occurs k t || occurs k e1 || occurs k e2
     | TyWtn (e, t) -> occurs k t || occurs k e
+
+(** Compare two terms using alpha-equivalence only. *)
+let alpha_equal =
+  let rec equal e1loc e2loc =
+    match fst e1loc, fst e2loc with
+      | Subst (s, e1), _ -> equal (subst s e1loc) e2loc
+      | _, Subst (s, e2) -> equal e1loc (subst s e2loc)
+      | Var k, Var m -> k = m
+      | Pi (_, t1, t2), Pi (_, t1', t2') -> equal t1 t1' && equal t2 t2'
+      | Lambda (_, _, e1), Lambda (_, _, e2) -> equal e1 e2
+      | App (e11, e12), App (e21, e22) -> equal e11 e21 && equal e12 e22
+      | Ascribe (e1, _), _ -> equal e1 e2loc
+      | _, Ascribe (e2, _) -> equal e1loc e2
+      | Type, Type -> true
+      | Sort, Sort -> true
+      | TyWtn (e1, t1), TyWtn (e2, t2) -> equal e1 e2 && equal t1 t2
+      | EqWtn (e11, e12, t1), EqWtn (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
+      | TyJdg (e1, t1), TyJdg (e2, t2) -> equal e1 e2 && equal t1 t2
+      | EqJdg (e11, e12, t1), EqJdg (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
+      | (Var _ | Pi _ | Lambda _ | App _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _), _ -> false
+  in
+    equal
