@@ -123,7 +123,7 @@ let rec exec_cmd interactive ctx (d, loc) =
         add_definition x t e ctx
     | Input.Computation c ->
       let c = Desugar.computation ctx.names c in
-      let r = Machine.eval ctx c in
+      let r = Machine.toplevel ctx c in
         if interactive then
           Format.printf "%t@." (Print.result ctx.names r) ;
         ctx

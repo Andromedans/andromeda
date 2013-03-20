@@ -101,6 +101,8 @@ plain_topdirective:
 
 computation: mark_position(plain_computation) { $1 }
 plain_computation:
+  | LPAREN c = plain_computation RPAREN
+    { c }
   | FUN lst = pi_abstraction DARROW c = computation
     { fst (make_computation c lst) }
   | LBRACK op = operation RBRACK
@@ -116,7 +118,7 @@ plain_operation:
     { Infer e }
   | e = quant_expr DCOLON s = quant_expr
     { HasType (e, s) }
-  | e1 = quant_expr EQEQ e2 = quant_expr AT s = quant_expr
+  | e1 = app_expr EQEQ e2 = app_expr AT s = app_expr
     { Equal (e1, e2, s) }
 
 handler:
@@ -131,8 +133,6 @@ expr: mark_position(plain_expr) { $1 }
 plain_expr:
   | e = plain_quant_expr
     { e }
-  | e1 = quant_expr EQEQ e2 = quant_expr AT t = quant_expr
-    { EqJdg (e1, e2, t) }
   | e = quant_expr DCOLON t = quant_expr
     { TyJdg (e, t) }
 
@@ -140,6 +140,8 @@ quant_expr: mark_position(plain_quant_expr) { $1 }
 plain_quant_expr:
   | e = plain_app_expr
     { e }
+  | e1 = app_expr EQEQ e2 = app_expr AT t = quant_expr
+    { EqJdg (e1, e2, t) }
   | FORALL lst = pi_abstraction COMMA e = quant_expr
     { fst (make_pi e lst) }
   | t1 = app_expr ARROW t2 = quant_expr

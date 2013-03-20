@@ -3,24 +3,9 @@
 open Context
 open Value
 
-(*
-let run_operation ctx (op, loc) =
-  match op with
-    | Syntax.Inhabit t ->
-      ignore (Typing.check_sort ctx t) ;
-      Error.runtime ~loc "sorry, this has not been implemented yet" (Print.expr ctx.names t)
-    | Syntax.Infer e ->
-      let t = Typing.infer ctx e in
-        mk_tywtn e t, mk_tyjdg e t
-    | Syntax.HasType (e, t) ->
-      Typing.check ctx e t ;
-      mk_tywtn e t, mk_tyjdg e t
-    | Syntax.Equal (e1, e2, t) ->
-      ignore (Typing.check_sort ctx t) ;
-      if Typing.equal_at ctx e1 e2 t
-      then mk_eqwtn e1 e2 t, mk_eqjdg e1 e2 t
-      else Error.runtime ~loc "do not know how to derive %t" (Print.expr ctx.names (mk_eqjdg e1 e2 t))
-*)
+type handler =
+  | EqualityHandler of (Syntax.term * Syntax.term * Syntax.sort * Syntax.term) list
+  | BuiltinHandler of (Context.context -> Syntax.operation -> Value.closure -> Value.result)
 
 let pattern_match (p1, p2, s) (e1, e2, t) =
   Syntax.alpha_equal p1 e1 && Syntax.alpha_equal p2 e2 && Syntax.alpha_equal s t
@@ -33,6 +18,23 @@ let rec sequence k = function
   | Operation (op, k') ->
       let k'' u = sequence k (k' u) in
         Operation (op, k'')
+
+let top_handler ctx (op, loc) k =
+  match op with
+    | Syntax.Inhabit t ->
+      ignore (Typing.check_sort ctx t) ;
+      Error.runtime ~loc "sorry, this has not been implemented yet" (Print.expr ctx.names t)
+    | Syntax.Infer e ->
+      let t = Typing.infer ctx e in
+        Value.Value (Value.TyWtn (e, t))
+    | Syntax.HasType (e, t) ->
+      Typing.check ctx e t ;
+      Value.Value (Value.TyWtn (e, t))
+    | Syntax.Equal (e1, e2, t) ->
+      ignore (Typing.check_sort ctx t) ;
+      if Typing.equal_at ctx e1 e2 t
+      then Value.Value (Value.EqWtn (e1, e2, t))
+      else Error.runtime ~loc "do not know how to derive %t" (Print.expr ctx.names (Syntax.mk_eqjdg e1 e2 t))
 
 let find_handler_case (op, _) lst =
   match op with
@@ -49,24 +51,30 @@ let find_handler_case (op, _) lst =
       in
         find lst
 
-let shift_handler_case (e1, e2, s, e) =
-  (Syntax.shift 1 e1, Syntax.shift 1 e2, Syntax.shift 1 s, Syntax.shift 1 e)
+let shift_handler = function
+  | EqualityHandler lst ->
+    EqualityHandler
+      (List.map (fun (e1, e2, s, e) -> (Syntax.shift 1 e1, Syntax.shift 1 e2, Syntax.shift 1 s, Syntax.shift 1 e)) lst)
+  | BuiltinHandler _ as h -> h
 
-let rec eval_handler ctx lst =
-  let rec h = function
-    | Value _ as v -> v
-    | Abstraction (x, t, r, k) ->
-      let lst = List.map shift_handler_case lst in
-        (match eval_handler (add_parameter x t ctx) lst r with
-          | Value v -> k (Lambda (x, t, v))
-          | (Operation _ | Abstraction _) as r -> Abstraction (x, t, r, k))
-    | Operation (op, k) ->
-      let k' u = h (k u) in
-        (match find_handler_case op lst with
-          | Some f -> f k'
-          | None -> Operation (op, k'))
-  in
-    h
+let eval_handler ctx h op k =
+  match h with
+    | EqualityHandler lst ->
+      (match find_handler_case op lst with
+        | Some f -> f k
+        | None -> Operation (op, k))
+    | BuiltinHandler f -> f ctx op k
+
+(** [handle ctx h c] handles computation [c] in context [ctx] using handler [h]. *)
+let rec handle ctx h = function
+  | Value _ as v -> v
+  | Abstraction (x, t, r, k) ->
+    ignore (Typing.check_sort ctx t) ;
+    let h = shift_handler h in
+      (match handle (add_parameter x t ctx) h r with
+        | Value v -> k (Lambda (x, t, v))
+        | (Operation _ | Abstraction _) as r -> Abstraction (x, t, r, k))
+  | Operation (op, k) -> eval_handler ctx h op (fun v -> handle ctx h (k v))
 
 and eval ctx (c, loc) =
   match c with
@@ -78,5 +86,9 @@ and eval ctx (c, loc) =
       Operation (op, (fun v -> Value v))
     | Syntax.Handle (c, h) ->
       let r = eval ctx c in
-      let h = eval_handler ctx h in
-        h r
+        handle ctx (EqualityHandler h) r
+
+let toplevel ctx c =
+  let r = eval ctx c in
+    handle ctx (BuiltinHandler top_handler) r
+
