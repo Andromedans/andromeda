@@ -43,13 +43,13 @@ let norm ?(weak=false) =
             mk_refl e'
 
       | Transport (a, p, e') ->
-        if weak
-        then e'
-        else
-          let a = norm env a in
-          let p = norm env p in
-          let e' = norm env e' in
-            mk_transport a p e'
+        let (p', _) as p = norm env p in
+          (match p' with
+            | Refl _ -> norm env e'
+            | _ ->
+              let a = if weak then a else norm env a in
+              let e' = if weak then e' else norm env e' in
+                mk_transport a p e')
 
       | Pi (x, t1, t2) ->
         if weak
