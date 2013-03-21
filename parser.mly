@@ -29,7 +29,7 @@
 %token LPAREN RPAREN LBRACK RBRACK
 %token COLON DCOLON COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW
-%token COLONEQ EQEQ AT
+%token EQ COLONEQ EQEQ AT
 %token DEFINE LET IN ASSUME
 %token HANDLE WITH BAR END RETURN
 %token QUIT HELP EVAL CONTEXT
@@ -141,13 +141,15 @@ plain_expr:
     { e }
   | e = quant_expr DCOLON t = quant_expr
     { TyJdg (e, t) }
-  | e1 = app_expr EQEQ e2 = app_expr AT t = quant_expr
-    { EqJdg (e1, e2, t) }
 
 quant_expr: mark_position(plain_quant_expr) { $1 }
 plain_quant_expr:
   | e = plain_app_expr
     { e }
+  | e1 = app_expr EQEQ e2 = app_expr AT t = quant_expr
+    { EqJdg (e1, e2, t) }
+  | e1 = app_expr EQ e2 = app_expr AT t = quant_expr
+    { Id (e1, e2, t) }
   | FORALL lst = pi_abstraction COMMA e = quant_expr
     { fst (make_pi e lst) }
   | t1 = app_expr ARROW t2 = quant_expr

@@ -75,6 +75,8 @@ and expr ?max_level xs e ppf =
         match e with
           | Syntax.Var k -> print "%s" (List.nth xs k)
           | Syntax.Subst (s, e) -> let e = Syntax.subst s e in print "%t" (expr ?max_level xs e)
+          | Syntax.Id (e1, e2, t) -> print ~at_level:3 "%t = %t @@ %t"
+                                       (expr ~max_level:2 xs e1) (expr ~max_level:2 xs e2) (expr ~max_level:2 xs t)
           | Syntax.Pi (x, t1, t2) -> print ~at_level:3 "%t" (pi xs x t1 t2)
           | Syntax.Lambda (x, t, e) -> print ~at_level:3 "%t" (lambda xs x t e)
           | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)

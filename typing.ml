@@ -15,6 +15,7 @@ let max_size u1 u2 =
 let rec equal_at ctx e1 e2 t =
   let t = Norm.whnf ctx t in
     match fst t with
+      | Id _ -> equal ctx e1 e2
       | Pi (x, t1, t2) ->
         let e1' = mk_app (shift 1 e1) (mk_var 0) in
         let e2' = mk_app (shift 1 e2) (mk_var 0) in
@@ -31,6 +32,10 @@ and equal ctx e1 e2 =
     match fst e1, fst e2 with
       | Type, Type -> true
       | Sort, Sort -> true
+      | Id (e1, e2, t), Id (e1', e2', t') ->
+        equal_sort ctx t t' &&
+        equal_at ctx e1 e1' t &&
+        equal_at ctx e2 e2' t
       | EqJdg (e1, e2, t), EqJdg (e1', e2', t') ->
         equal_sort ctx t t' &&
         equal_at ctx e1 e1' t &&
@@ -50,7 +55,8 @@ and equal ctx e1 e2 =
         equal_sort (add_parameter x t1 ctx) t2 s2
       | Var _, Var _
       | App _, App _ -> None <> equal_spine ctx e1 e2
-      | (Var _ | Pi _ | Lambda _ | App _ | Subst _ | Ascribe _ | Type | Sort | EqWtn _ | TyWtn _ | EqJdg _ | TyJdg _), _ -> false
+      | (Var _ | Id _ | Pi _ | Lambda _ | App _ | Subst _ |
+         Ascribe _ | Type | Sort | EqWtn _ | TyWtn _ | EqJdg _ | TyJdg _), _ -> false
 
 and equal_spine ctx e1 e2 =
   match fst e1, fst e2 with
@@ -68,7 +74,8 @@ and equal_spine ctx e1 e2 =
               then Some (mk_subst (Dot (a2, idsubst)) u2)
               else None
             | _ -> None))
-    | (Var _ | Pi _ | Lambda _ | App _ | Subst _ | Ascribe _ | Type | Sort | EqWtn _ | TyWtn _ | EqJdg _ | TyJdg _), _ -> None
+    | (Var _ | Id _ | Pi _ | Lambda _ | App _ | Subst _ | Ascribe _ | Type |
+        Sort | EqWtn _ | TyWtn _ | EqJdg _ | TyJdg _), _ -> None
 
 (** [t1] and [t2] must be valid sorts. *)
 and equal_sort ctx t1 t2 = equal ctx t1 t2
@@ -78,6 +85,12 @@ let rec infer ctx (e, loc) =
   match e with
 
     | Var k -> lookup_ty k ctx
+
+    | Id (e1, e2, t) ->
+      ignore (check_sort ctx t) ;
+      check ctx e1 t ;
+      check ctx e2 t ;
+      mk_kind
 
     | Pi (x, t1, t2) ->
       let u1 = check_sort ctx t1 in
@@ -134,7 +147,7 @@ and check ctx ((e', loc) as e) t =
         | _ -> Error.typing ~loc "this expression is a function but should have sort@ %t"
           (Print.expr ctx.names t))
     | Sort -> Error.typing ~loc "internal error, cannot check sort"
-    | Var _ | Lambda (_, Some _, _) | Pi _ | App _ | Ascribe _ | Type | TyJdg _ | EqJdg _ | TyWtn _ | EqWtn _ ->
+    | Var _ | Lambda (_, Some _, _) | Id _ | Pi _ | App _ | Ascribe _ | Type | TyJdg _ | EqJdg _ | TyWtn _ | EqWtn _ ->
       let t' = infer ctx e in
         if not (equal_sort ctx t' t) then
           Error.typing ~loc:(snd e) "this expression has sort %t@ but it should have sort %t"
@@ -151,6 +164,11 @@ and check_sort ctx (e',loc) =
         | _ -> Error.typing ~loc "this expression has sort %t@ but should be a sort" (Print.expr ctx.names t))
     | Subst (s, e) -> check_sort ctx (subst s e)
     | Lambda _ -> Error.typing ~loc "this expression is a function but should be a sort"
+    | Id (e1, e2, t) ->
+      ignore (check_sort ctx t) ;
+      check ctx e1 t ;
+      check ctx e2 t ;
+      Small
     | Pi (x, t1, t2) ->
       let u1 = check_sort ctx t1 in
       let u2 = check_sort (add_parameter x t1 ctx) t2 in
@@ -181,5 +199,5 @@ and infer_pi ctx e =
     match fst (Norm.whnf ctx t) with
       | Pi (x, t1, t2) -> (x, t1, t2)
       | Subst _ | Ascribe _ -> assert false
-      | Var _ | App _ | Type | Sort | EqJdg _ | TyJdg _ | TyWtn _ | EqWtn _ | Lambda _ ->
+      | Var _ | Id _ | App _ | Type | Sort | EqJdg _ | TyJdg _ | TyWtn _ | EqWtn _ | Lambda _ ->
         Error.typing ~loc:(snd e) "this expression has sort %t@ but it should be a function" (Print.expr ctx.names t)

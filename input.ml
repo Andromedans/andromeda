@@ -5,6 +5,7 @@ type expr = expr' * Common.position
 and expr' =
   | Var of Common.variable
   | Type
+  | Id of expr * expr * sort
   | Pi of Common.variable * sort * expr
   | Lambda of Common.variable * sort option * expr
   | App of expr * expr

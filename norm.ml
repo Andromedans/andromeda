@@ -26,6 +26,15 @@ let norm ?(weak=false) =
       | Subst (s, e') ->
         norm env (subst s e')
 
+      | Id (e1, e2, t) ->
+        if weak
+        then e
+        else
+          let e1 = norm env e1 in
+          let e2 = norm env e2 in
+          let t = norm env t in
+            mk_id e1 e2 t
+
       | Pi (x, t1, t2) ->
         if weak
         then e
@@ -46,7 +55,7 @@ let norm ?(weak=false) =
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc
-            | Subst _ | Pi _ | Ascribe _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _ ->
+            | Subst _ | Id _ | Pi _ | Ascribe _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _ ->
               Error.runtime ~loc:(snd e2) "function expected")
 
       | Ascribe (e', _) ->

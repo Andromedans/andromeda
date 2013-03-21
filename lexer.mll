@@ -50,6 +50,7 @@ rule token = parse
   | '?'                 { QUESTIONMARK }
   | "->"                { ARROW }
   | "=>"                { DARROW }
+  | "="                 { EQ }
   | ":="                { COLONEQ }
   | "=="                { EQEQ }
   | "@"                 { AT }
