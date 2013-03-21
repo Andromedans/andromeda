@@ -7,7 +7,7 @@ and term' =
   | Var of int
   | Subst of substitution * term
   | Id of term * term * sort
-  | Refl of sort * term
+  | Refl of term
   | Transport of term * term * term
   | Pi of Common.variable * sort * sort
   | Lambda of Common.variable * sort option * term
@@ -49,7 +49,7 @@ and handler = (term * term * sort * computation) list
 let mk_var k = Common.nowhere (Var k)
 let mk_subst s e = Common.nowhere (Subst (s, e))
 let mk_id e1 e2 t = Common.nowhere (Id (e1, e2, t))
-let mk_refl t e = Common.nowhere (Refl (t, e))
+let mk_refl e = Common.nowhere (Refl e)
 let mk_transport a p e = Common.nowhere (Transport (a, p, e))
 let mk_pi x t1 t2 = Common.nowhere (Pi (x, t1, t2))
 let mk_lambda x t e = Common.nowhere (Lambda (x, t, e))
@@ -91,10 +91,9 @@ let subst =
         let e2 = mk_subst s e2 in
         let t = mk_subst s t in
           Id (e1, e2, t), loc
-      | s, Refl (t, e) ->
-        let t = mk_subst s t in
+      | s, Refl e ->
         let e = mk_subst s e in
-          Refl (t, e), loc
+          Refl e, loc
       | s, Transport (a, p, e) ->
         let a = mk_subst s a in
         let p = mk_subst s p in
@@ -138,7 +137,7 @@ let rec occurs k (e, _) =
     | Var m -> m = k
     | Subst (s, e) -> occurs k (subst s e)
     | Id (e1, e2, t) -> occurs k t || occurs k e1 || occurs k e2
-    | Refl (t, e) -> occurs k t || occurs k e
+    | Refl e -> occurs k e
     | Transport (a, p, e) -> occurs k a || occurs k p || occurs k e
     | Pi (_, t1, t2) -> occurs k t1 || occurs (k + 1) t2
     | Lambda (_, None, e) -> occurs (k + 1) e
@@ -159,7 +158,7 @@ let alpha_equal =
       | _, Subst (s, e2) -> equal e1loc (subst s e2loc)
       | Var k, Var m -> k = m
       | Id (e11, e12, t1), Id (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
-      | Refl (t1, e1), Refl (t2, e2) -> equal t1 t2 && equal e1 e2
+      | Refl e1, Refl e2 -> equal e1 e2
       | Transport (a1, p1, e1), Transport (a2, p2, e2) -> equal a1 a2 && equal p1 p2 && equal e1 e2
       | Pi (_, t1, t2), Pi (_, t1', t2') -> equal t1 t1' && equal t2 t2'
       | Lambda (_, _, e1), Lambda (_, _, e2) -> equal e1 e2

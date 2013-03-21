@@ -35,22 +35,21 @@ let norm ?(weak=false) =
           let t = norm env t in
             mk_id e1 e2 t
 
-      | Refl (t, e) ->
+      | Refl e' ->
         if weak
         then e
         else
-          let t = norm env t in
-          let e = norm env e in
-            mk_refl t e
+          let e' = norm env e' in
+            mk_refl e'
 
-      | Transport (a, p, e) ->
+      | Transport (a, p, e') ->
         if weak
-        then e
+        then e'
         else
           let a = norm env a in
           let p = norm env p in
-          let e = norm env e in
-            mk_transport a p e
+          let e' = norm env e' in
+            mk_transport a p e'
 
       | Pi (x, t1, t2) ->
         if weak

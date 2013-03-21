@@ -164,8 +164,8 @@ app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
   | e = plain_simple_expr
     { e }
-  | REFL t = simple_expr e = simple_expr
-    { Refl (t, e) }
+  | REFL e = simple_expr
+    { Refl e }
   | TRANSPORT a = simple_expr p = simple_expr e = simple_expr
     { Transport (a, p, e) }
   | e1 = app_expr e2 = simple_expr

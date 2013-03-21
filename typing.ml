@@ -37,8 +37,7 @@ and equal ctx e1 e2 =
         equal_sort ctx t t' &&
         equal_at ctx e1 e1' t &&
         equal_at ctx e2 e2' t
-      | Refl (t1, e1), Refl (t2, e2) ->
-        equal ctx t1 t2 &&
+      | Refl e1, Refl e2 ->
         equal ctx e1 e2
       | Transport (a1, p1, e1), Transport (a2, p2, e2) ->
         equal ctx a1 a2 &&
@@ -100,10 +99,11 @@ let rec infer ctx (e, loc) =
       check ctx e2 t ;
       mk_kind
 
-    | Refl (t, e) ->
-      (match check_sort ctx t with
-        | Large -> Error.typing ~loc:(snd t) "this sort is not a Type"
-        | Small -> check ctx e t ; mk_id t e e)
+    | Refl e ->
+      let t = infer ctx e in
+        (match check_sort ctx t with
+          | Large -> Error.typing ~loc:(snd t) "this sort is not a Type"
+          | Small -> mk_id e e t)
 
     | Transport (a, p, e) ->
       let (x, t1, t2) = infer_pi ctx a in
