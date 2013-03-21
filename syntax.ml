@@ -34,12 +34,13 @@ and operation' =
 (** Computations. *)
 type computation = computation' * Common.position
 and computation' = 
+  | Return of term
   | Abstraction of Common.variable * sort * computation
   | Operation of operation
   | Handle of computation * handler
   | Let of Common.variable * computation * computation
 
-and handler = (term * term * sort * term) list
+and handler = (term * term * sort * computation) list
 
 (** Expression constructors wrapped in "nowhere" positions. *)
 let mk_var k = Common.nowhere (Var k)
@@ -148,3 +149,39 @@ let alpha_equal =
       | (Var _ | Pi _ | Lambda _ | App _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _), _ -> false
   in
     equal
+
+let subst_operation s (op, loc) =
+  (match op with
+    | Inhabit t -> Inhabit (mk_subst s t)
+    | Infer t -> Infer (mk_subst s t)
+    | HasType (e, t) -> HasType (mk_subst s e, mk_subst s t)
+    | Equal (e1, e2, t) -> Equal (mk_subst s e1, mk_subst s e2, mk_subst s t)),
+  loc
+
+let rec subst_computation s =
+  let rec subst s (c, loc) =
+    match c with
+      | Return t -> Return (mk_subst s t), loc
+      | Abstraction (x, t, c) ->
+        let t = mk_subst s t in
+        let c = subst (Dot (mk_var 0, compose (Shift 1) s)) c in
+          Abstraction (x, t, c), loc
+      | Operation op -> Operation (subst_operation s op), loc
+      | Handle (c, h) -> Handle (subst s c, subst_handler s h), loc
+      | Let (x, c1, c2) ->
+        let c1 = subst s c1 in
+        let c2 = subst (Dot (mk_var 0, compose (Shift 1) s)) c2 in
+          Let (x, c1, c2), loc
+  in
+    subst s
+
+and subst_handler s lst = List.map (subst_handler_case s) lst
+
+and subst_handler_case s (e1, e2, t, c) =
+  let e1 = mk_subst s e1 in
+  let e2 = mk_subst s e2 in
+  let t = mk_subst s t in
+  let c = subst_computation s c in
+    (e1, e2, t, c)
+
+let shift_computation k c = subst_computation (Shift k) c

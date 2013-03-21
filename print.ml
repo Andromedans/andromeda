@@ -103,6 +103,7 @@ let operation ?max_level xs (op, _) ppf =
 
 let rec computation ?max_level xs (c, _) ppf =
   match c with
+    | Syntax.Return e -> print ppf "return %t" (expr ~max_level:4 xs e)
     | Syntax.Abstraction  (x, t, c) -> print ppf "fun %s : %t => %t" x (expr ~max_level:2 xs t) (computation (x::xs) c)
     | Syntax.Operation op -> print ppf "%t" (operation ?max_level xs op)
     | Syntax.Handle (c, h) -> print ppf "handle %t with <handler>" (computation xs c)

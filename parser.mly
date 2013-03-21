@@ -31,7 +31,7 @@
 %token ARROW DARROW
 %token COLONEQ EQEQ AT
 %token DEFINE LET IN ASSUME
-%token HANDLE WITH BAR
+%token HANDLE WITH BAR END RETURN
 %token QUIT HELP EVAL CONTEXT
 %token EOF
 
@@ -103,13 +103,15 @@ plain_topdirective:
 
 computation: mark_position(plain_computation) { $1 }
 plain_computation:
+  | RETURN e = expr
+    { Return e }
   | LPAREN c = plain_computation RPAREN
     { c }
   | FUN lst = pi_abstraction DARROW c = computation
     { fst (make_computation c lst) }
   | LBRACK op = operation RBRACK
     { Operation op }
-  | HANDLE c = computation WITH h = handler
+  | HANDLE c = computation WITH h = handler END
     { Handle (c, h) }
   | LET x = NAME COLONEQ c1 = computation IN c2 = computation
     { Let (x, c1, c2) }
@@ -130,8 +132,8 @@ handler:
     { cs }
 
 handler_case:
-  | LBRACK e1 = app_expr EQEQ e2 = app_expr AT s = quant_expr RBRACK DARROW e = expr
-    { (e1, e2, s, e) }
+  | LBRACK e1 = app_expr EQEQ e2 = app_expr AT s = quant_expr RBRACK DARROW c = computation
+    { (e1, e2, s, c) }
 
 expr: mark_position(plain_expr) { $1 }
 plain_expr:

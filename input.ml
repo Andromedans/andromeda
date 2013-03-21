@@ -23,13 +23,14 @@ and operation' =
 
 type computation = computation' * Common.position
 and computation' = 
+  | Return of expr
   | Abstraction of Common.variable * sort * computation
   | Operation of operation
   | Handle of computation * handler
   | Let of Common.variable * computation * computation
 
 and handler =
-    (expr * expr * sort * expr) list
+    (expr * expr * sort * computation) list
 
 (** Toplevel directives. *)
 type directive = directive' * Common.position

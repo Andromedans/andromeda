@@ -6,11 +6,13 @@
   let reserved = [
     ("assume", ASSUME) ;
     ("define", DEFINE) ;
+    ("end", END) ;
     ("forall", FORALL) ;
     ("fun", FUN);
     ("handle", HANDLE) ;
     ("let", LET) ;
     ("in", IN) ;
+    ("return", RETURN) ;
     ("Type", TYPE) ;
     ("with", WITH) ;
   ]
