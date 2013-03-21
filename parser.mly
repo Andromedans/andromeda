@@ -21,16 +21,18 @@
     | ((xs, t), loc) :: lst ->
       let c = make_computation c lst in
         List.fold_right (fun x c -> (Abstraction (x, t, c), loc)) xs c
+
 %}
 
 %token FORALL FUN TYPE
-(* %token <int> NUMERAL *)
+%token <int> NUMERAL
 %token <string> NAME
 %token LPAREN RPAREN LBRACK RBRACK
 %token COLON DCOLON COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW
 %token EQ COLONEQ EQEQ AT
 %token REFL TRANSPORT
+%token NAT SUCC NATREC
 %token DEFINE LET IN ASSUME
 %token HANDLE WITH BAR END RETURN
 %token QUIT HELP EVAL CONTEXT
@@ -168,6 +170,10 @@ plain_app_expr:
     { Refl e }
   | TRANSPORT a = simple_expr p = simple_expr e = simple_expr
     { Transport (a, p, e) }
+  | SUCC e = simple_expr
+    { Succ e }
+  | NATREC e1 = simple_expr e2 = simple_expr e3 = simple_expr
+    { NatRec (e1, e2, e3) }
   | e1 = app_expr e2 = simple_expr
     { App (e1, e2) }
 
@@ -175,6 +181,10 @@ simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
   | TYPE
     { Type }
+  | NAT
+    { Nat }
+  | n = NUMERAL
+    { Numeral n }
   | x = NAME
     { Var x }
   | LPAREN e = plain_expr RPAREN

@@ -51,6 +51,25 @@ let norm ?(weak=false) =
               let e' = if weak then e' else norm env e' in
                 mk_transport a p e')
 
+      | Nat -> e
+
+      | Zero -> e
+
+      | Succ e' -> if weak then e else mk_succ (norm env e')
+
+      | NatRec (x, f, n) ->
+        let (n', _) as n = norm env n in
+          (match n' with
+            | Zero -> norm env x
+            | Succ m ->
+              let f = if weak then f else norm env f in
+              let x = if weak then x else norm env x in
+              let e = mk_app (mk_app f m) (mk_natrec x f m) in
+                if weak then e else norm env e
+            | _ ->
+              let f = if weak then f else norm env f in
+              let x = if weak then x else norm env x in
+                mk_natrec x f n)
       | Pi (x, t1, t2) ->
         if weak
         then e
@@ -71,8 +90,8 @@ let norm ?(weak=false) =
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc
-            | Subst _ | Id _ | Refl _ | Transport _ | Pi _ | Ascribe _ | Type |
-                Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _ ->
+            | Subst _ | Id _ | Refl _ | Transport _ | Nat | Zero | Succ _ | NatRec _ |
+                Pi _ | Ascribe _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _ ->
               Error.runtime ~loc:(snd e2) "function expected")
 
       | Ascribe (e', _) ->
