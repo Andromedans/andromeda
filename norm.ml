@@ -35,6 +35,23 @@ let norm ?(weak=false) =
           let t = norm env t in
             mk_id e1 e2 t
 
+      | Refl (t, e) ->
+        if weak
+        then e
+        else
+          let t = norm env t in
+          let e = norm env e in
+            mk_refl t e
+
+      | Transport (a, p, e) ->
+        if weak
+        then e
+        else
+          let a = norm env a in
+          let p = norm env p in
+          let e = norm env e in
+            mk_transport a p e
+
       | Pi (x, t1, t2) ->
         if weak
         then e
@@ -55,7 +72,8 @@ let norm ?(weak=false) =
             | Var _ | App _ -> 
               let e2 = (if weak then e2 else norm env e2) in 
                 App (e1, e2), loc
-            | Subst _ | Id _ | Pi _ | Ascribe _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _ ->
+            | Subst _ | Id _ | Refl _ | Transport _ | Pi _ | Ascribe _ | Type |
+                Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _ ->
               Error.runtime ~loc:(snd e2) "function expected")
 
       | Ascribe (e', _) ->

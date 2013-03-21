@@ -30,6 +30,7 @@
 %token COLON DCOLON COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW
 %token EQ COLONEQ EQEQ AT
+%token REFL TRANSPORT
 %token DEFINE LET IN ASSUME
 %token HANDLE WITH BAR END RETURN
 %token QUIT HELP EVAL CONTEXT
@@ -163,6 +164,10 @@ app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
   | e = plain_simple_expr
     { e }
+  | REFL t = simple_expr e = simple_expr
+    { Refl (t, e) }
+  | TRANSPORT a = simple_expr p = simple_expr e = simple_expr
+    { Transport (a, p, e) }
   | e1 = app_expr e2 = simple_expr
     { App (e1, e2) }
 

@@ -12,7 +12,9 @@
     ("handle", HANDLE) ;
     ("let", LET) ;
     ("in", IN) ;
+    ("refl", REFL) ;
     ("return", RETURN) ;
+    ("transport", TRANSPORT) ;
     ("Type", TYPE) ;
     ("with", WITH) ;
   ]

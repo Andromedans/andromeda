@@ -6,6 +6,8 @@ and expr' =
   | Var of Common.variable
   | Type
   | Id of expr * expr * sort
+  | Refl of sort * expr
+  | Transport of expr * expr * expr
   | Pi of Common.variable * sort * expr
   | Lambda of Common.variable * sort option * expr
   | App of expr * expr
