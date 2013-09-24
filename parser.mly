@@ -48,183 +48,122 @@
 (* If you're going to "optimize" this, please make sure we don't require;; at the
    end of the file. *)
 file:
-  | lst = file_topdef
-    { lst }
-  | c = topcomp EOF
-     { [c] }
-  | c = topcomp SEMISEMI lst = file
-     { c :: lst }
-  | dir = topdirective EOF
-     { [dir] }
-  | dir = topdirective SEMISEMI lst = file
-     { dir :: lst }
+  | file_topdef                 { $1 }
+  | topcomp EOF                 { [$1] }
+  | topcomp SEMISEMI file       { $1 :: $3 }
+  | topdirective EOF            { [$1] }
+  | topdirective SEMISEMI file  { $1 :: $3 }
 
 file_topdef:
-  | EOF
-     { [] }
-  | def = topdef SEMISEMI lst = file
-     { def :: lst }
-  | def = topdef lst = file_topdef
-     { def :: lst }
+  | EOF                   { [] }
+  | topdef SEMISEMI file  { $1 :: $3 }
+  | topdef file_topdef    { $1 :: $2 }
 
 commandline:
-  | def = topdef SEMISEMI
-    { def }
-  | c = topcomp SEMISEMI
-    { c }
-  | dir = topdirective SEMISEMI
-    { dir }
+  | topdef SEMISEMI        { $1 }
+  | topcomp SEMISEMI       { $1 }
+  | topdirective SEMISEMI  { $1 }
 
 topcomp: mark_position(plain_topcomp) { $1 }
 plain_topcomp:
-  | c = computation
-    { Computation c }
+  |  computation  { Computation $1 }
 
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | DEFINE x = NAME COLONEQ e = expr
-    { TopDefine (x, e) }
-  | ASSUME xs = nonempty_list(NAME) COLON s = expr
-    { TopParam (xs, s) }
-  | LET x = NAME COLONEQ c = computation
-    { TopLet (x, c) }
+  | DEFINE NAME COLONEQ expr               { TopDefine ($2, $4) }
+  | ASSUME nonempty_list(NAME) COLON expr  { TopParam ($2, $4) }
+  | LET NAME COLONEQ computation           { TopLet ($2, $4) }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
 plain_topdirective:
-  | CONTEXT
-    { Context }
-  | EVAL e = expr
-    { Eval e }
-  | HELP
-    { Help }
-  | QUIT
-    { Quit }
+  | CONTEXT    { Context }
+  | EVAL expr  { Eval $2 }
+  | HELP       { Help }
+  | QUIT       { Quit }
 
 (* Main syntax tree *)
 
 computation: mark_position(plain_computation) { $1 }
 plain_computation:
-  | RETURN e = expr
-    { Return e }
-  | LPAREN c = plain_computation RPAREN
-    { c }
-  | FUN lst = pi_abstraction DARROW c = computation
-    { fst (make_computation c lst) }
-  | LBRACK op = operation RBRACK
-    { Operation op }
-  | HANDLE c = computation WITH h = handler END
-    { Handle (c, h) }
-  | LET x = NAME COLONEQ c1 = computation IN c2 = computation
-    { Let (x, c1, c2) }
+  | RETURN expr                                  { Return $2 }
+  | LPAREN plain_computation RPAREN              { $2 }
+  | FUN pi_abstraction DARROW computation        { fst (make_computation $4 $2) }
+  | LBRACK operation RBRACK                      { Operation $2 }
+  | HANDLE computation WITH handler END          { Handle ($2, $4) }
+  | LET NAME COLONEQ computation IN computation  { Let ($2, $4, $6) }
 
 operation: mark_position(plain_operation) { $1 }
 plain_operation:
-  | QUESTIONMARK DCOLON s = quant_expr
-    { Inhabit s }
-  | e = quant_expr DCOLON QUESTIONMARK
-    { Infer e }
-  | e = quant_expr DCOLON s = quant_expr
-    { HasType (e, s) }
-  | e1 = app_expr EQEQ e2 = app_expr AT s = quant_expr
-    { Equal (e1, e2, s) }
+  | QUESTIONMARK DCOLON quant_expr        { Inhabit $3 }
+  | quant_expr DCOLON QUESTIONMARK        { Infer $1 }
+  | quant_expr DCOLON quant_expr          { HasType ($1, $3) }
+  | app_expr EQEQ app_expr AT quant_expr  { Equal ($1, $3, $5) }
 
 handler:
-  | BAR? cs = separated_list(BAR, handler_case)
-    { cs }
+  | BAR? cs=separated_list(BAR, handler_case)  { cs }
 
 handler_case:
-  | LBRACK e1 = app_expr EQEQ e2 = app_expr AT s = quant_expr RBRACK DARROW c = computation
-    { (e1, e2, s, c) }
+  | LBRACK app_expr EQEQ app_expr AT quant_expr RBRACK DARROW computation
+                                            { ($2, $4, $6, $9) }
 
 expr: mark_position(plain_expr) { $1 }
 plain_expr:
-  | e = plain_quant_expr
-    { e }
-  | e = quant_expr DCOLON t = quant_expr
-    { TyJdg (e, t) }
+  | plain_quant_expr              { $1 }
+  | quant_expr DCOLON quant_expr  { TyJdg ($1, $3) }
 
 quant_expr: mark_position(plain_quant_expr) { $1 }
 plain_quant_expr:
-  | e = plain_app_expr
-    { e }
-  | e1 = app_expr EQEQ e2 = app_expr AT t = quant_expr
-    { EqJdg (e1, e2, t) }
-  | e1 = app_expr EQ e2 = app_expr AT t = quant_expr
-    { Id (e1, e2, t) }
-  | FORALL lst = pi_abstraction COMMA e = quant_expr
-    { fst (make_pi e lst) }
-  | t1 = app_expr ARROW t2 = quant_expr
-    { Pi ("_", t1, t2) }
-  | FUN lst = fun_abstraction DARROW e = quant_expr
-    { fst (make_lambda e lst) }
-  | e = app_expr COLON t = quant_expr
-    { Ascribe (e, t) }
+  | plain_app_expr                          { $1 }
+  | app_expr EQEQ app_expr AT quant_expr    { EqJdg ($1, $3, $5) }
+  | app_expr EQ app_expr AT quant_expr      { Id ($1, $3, $5) }
+  | app_expr ARROW quant_expr               { Pi ("_", $1, $3) }
+  | app_expr COLON quant_expr               { Ascribe ($1, $3) }
+  | FORALL pi_abstraction COMMA quant_expr  { fst (make_pi $4 $2) }
+  | FUN fun_abstraction DARROW quant_expr   { fst (make_lambda $4 $2) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
-  | e = plain_simple_expr
-    { e }
-  | REFL e = simple_expr
-    { Refl e }
-  | TRANSPORT a = simple_expr p = simple_expr e = simple_expr
-    { Transport (a, p, e) }
-  | SUCC e = simple_expr
-    { Succ e }
-  | NATREC e1 = simple_expr e2 = simple_expr e3 = simple_expr
-    { NatRec (e1, e2, e3) }
-  | e1 = app_expr e2 = simple_expr
-    { App (e1, e2) }
+  | plain_simple_expr                              { $1 }
+  | REFL simple_expr                               { Refl $2 }
+  | TRANSPORT simple_expr simple_expr simple_expr  { Transport ($2, $3, $4) }
+  | SUCC simple_expr                               { Succ $2 }
+  | NATREC simple_expr simple_expr simple_expr     { NatRec ($2, $3, $4) }
+  | app_expr simple_expr                           { App ($1, $2) }
 
 simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
-  | TYPE
-    { Type }
-  | NAT
-    { Nat }
-  | n = NUMERAL
-    { Numeral n }
-  | x = NAME
-    { Var x }
-  | LPAREN e = plain_expr RPAREN
-    { e }
+  | TYPE                      { Type }
+  | NAT                       { Nat }
+  | NUMERAL                   { Numeral $1 }
+  | NAME                      { Var $1 }
+  | LPAREN plain_expr RPAREN  { $2 }
 
 pi_abstraction:
-  | b = pi_bind1
-    { [b] }
-  | bs = pi_binds
-    { bs }
+  | pi_bind1  { [$1] }
+  | pi_binds  { $1 }
 
 pi_bind1: mark_position(plain_pi_bind1) { $1 }
 plain_pi_bind1:
-  | xs = nonempty_list(NAME) COLON t = expr
-    { (xs, t) }
+  | xs=nonempty_list(NAME) COLON expr  { (xs, $3) }
 
 pi_binds:
-  | LPAREN b = pi_bind1 RPAREN
-    { [b] }
-  | LPAREN b = pi_bind1 RPAREN lst = pi_binds
-    { b :: lst }
+  | LPAREN pi_bind1 RPAREN           { [$2] }
+  | LPAREN pi_bind1 RPAREN pi_binds  { $2 :: $4 }
 
 fun_abstraction:
-  | b = fun_bind1
-    { [b] }
-  | bs = fun_binds
-    { bs }
+  | fun_bind1  { [$1] }
+  | fun_binds  { $1 }
 
 fun_bind1: mark_position(plain_fun_bind1) { $1 }
 plain_fun_bind1:
-  | xs = nonempty_list(NAME)
-    { (xs, None) }
-  | xs = nonempty_list(NAME) COLON t = expr
-    { (xs, Some t) }
+  | xs=nonempty_list(NAME)             { (xs, None) }
+  | xs=nonempty_list(NAME) COLON expr  { (xs, Some $3) }
 
 fun_binds:
-  | LPAREN b = fun_bind1 RPAREN
-    { [b] }
-  | LPAREN b = fun_bind1 RPAREN lst = fun_binds
-    { b :: lst }
+  | LPAREN fun_bind1 RPAREN            { [$2] }
+  | LPAREN fun_bind1 RPAREN fun_binds  { $2 :: $4 }
 
 mark_position(X):
   x = X
