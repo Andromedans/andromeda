@@ -12,12 +12,7 @@
     ("handle", HANDLE) ;
     ("let", LET) ;
     ("in", IN) ;
-    ("nat", NAT) ;
-    ("natrec", NATREC) ;
-    ("refl", REFL) ;
     ("return", RETURN) ;
-    ("succ", SUCC) ;
-    ("transport", TRANSPORT) ;
     ("Type", TYPE) ;
     ("with", WITH) ;
   ]
@@ -33,7 +28,6 @@ let numeral = ['0'-'9']+
 rule token = parse
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
-  | numeral             { NUMERAL (int_of_string (Lexing.lexeme lexbuf)) }
   | name                { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved
@@ -55,7 +49,6 @@ rule token = parse
   | '?'                 { QUESTIONMARK }
   | "->"                { ARROW }
   | "=>"                { DARROW }
-  | "="                 { EQ }
   | ":="                { COLONEQ }
   | "=="                { EQEQ }
   | "@"                 { AT }

@@ -5,13 +5,6 @@ type expr = expr' * Common.position
 and expr' =
   | Var of Common.variable
   | Type
-  | Id of expr * expr * sort
-  | Refl of expr
-  | Transport of expr * expr * expr
-  | Nat
-  | Numeral of int
-  | Succ of expr
-  | NatRec of expr * expr * expr
   | Pi of Common.variable * sort * expr
   | Lambda of Common.variable * sort option * expr
   | App of expr * expr

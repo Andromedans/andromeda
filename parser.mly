@@ -25,14 +25,11 @@
 %}
 
 %token FORALL FUN TYPE
-%token <int> NUMERAL
 %token <string> NAME
 %token LPAREN RPAREN LBRACK RBRACK
 %token COLON DCOLON COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW
-%token EQ COLONEQ EQEQ AT
-%token REFL TRANSPORT
-%token NAT SUCC NATREC
+%token COLONEQ EQEQ AT
 %token DEFINE LET IN ASSUME
 %token HANDLE WITH BAR END RETURN
 %token QUIT HELP EVAL CONTEXT
@@ -117,7 +114,6 @@ quant_expr: mark_position(plain_quant_expr) { $1 }
 plain_quant_expr:
   | plain_app_expr                          { $1 }
   | app_expr EQEQ app_expr AT quant_expr    { EqJdg ($1, $3, $5) }
-  | app_expr EQ app_expr AT quant_expr      { Id ($1, $3, $5) }
   | app_expr ARROW quant_expr               { Pi ("_", $1, $3) }
   | app_expr COLON quant_expr               { Ascribe ($1, $3) }
   | FORALL pi_abstraction COMMA quant_expr  { fst (make_pi $4 $2) }
@@ -126,17 +122,11 @@ plain_quant_expr:
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
   | plain_simple_expr                              { $1 }
-  | REFL simple_expr                               { Refl $2 }
-  | TRANSPORT simple_expr simple_expr simple_expr  { Transport ($2, $3, $4) }
-  | SUCC simple_expr                               { Succ $2 }
-  | NATREC simple_expr simple_expr simple_expr     { NatRec ($2, $3, $4) }
   | app_expr simple_expr                           { App ($1, $2) }
 
 simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
   | TYPE                      { Type }
-  | NAT                       { Nat }
-  | NUMERAL                   { Numeral $1 }
   | NAME                      { Var $1 }
   | LPAREN plain_expr RPAREN  { $2 }
 

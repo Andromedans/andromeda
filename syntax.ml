@@ -6,13 +6,6 @@ type term = term' * Common.position
 and term' =
   | Var of int
   | Subst of substitution * term
-  | Id of term * term * sort
-  | Refl of term
-  | Transport of term * term * term
-  | Nat
-  | Zero
-  | Succ of term
-  | NatRec of term * term * term
   | Pi of Common.variable * sort * sort
   | Lambda of Common.variable * sort option * term
   | App of term * term
@@ -52,13 +45,6 @@ and handler = (term * term * sort * computation) list
 (** Expression constructors wrapped in "nowhere" positions. *)
 let mk_var k = Common.nowhere (Var k)
 let mk_subst s e = Common.nowhere (Subst (s, e))
-let mk_id e1 e2 t = Common.nowhere (Id (e1, e2, t))
-let mk_refl e = Common.nowhere (Refl e)
-let mk_transport a p e = Common.nowhere (Transport (a, p, e))
-let mk_nat = Common.nowhere Nat
-let mk_zero = Common.nowhere Zero
-let mk_succ e = Common.nowhere (Succ e)
-let mk_natrec x f n = Common.nowhere (NatRec (x, f, n))
 let mk_pi x t1 t2 = Common.nowhere (Pi (x, t1, t2))
 let mk_lambda x t e = Common.nowhere (Lambda (x, t, e))
 let mk_app e1 e2 = Common.nowhere (App (e1, e2))
@@ -96,22 +82,6 @@ let subst =
       | Dot (a, s), Var 0 -> a
       | Dot (a, s), Var k -> subst s (Var (k - 1), loc)
       | s, Subst (t, e) -> subst s (subst t e)
-      | s, Id (e1, e2, t) ->
-        let e1 = mk_subst s e1 in
-        let e2 = mk_subst s e2 in
-        let t = mk_subst s t in
-          Id (e1, e2, t), loc
-      | s, Refl e ->
-        let e = mk_subst s e in
-          Refl e, loc
-      | s, Transport (a, p, e) ->
-        let a = mk_subst s a in
-        let p = mk_subst s p in
-        let e = mk_subst s e in
-          Transport (a, p, e), loc
-      | _, (Nat | Zero) -> e', loc
-      | s, Succ e -> Succ (mk_subst s e), loc
-      | s, NatRec (x, f, n) -> NatRec (mk_subst s x, mk_subst s f, mk_subst s n), loc
       | s, Pi (x, t1, t2) ->
         let t1 = mk_subst s t1 in
         let t2 = mk_subst (Dot (mk_var 0, compose (Shift 1) s)) t2 in
@@ -149,12 +119,6 @@ let rec occurs k (e, _) =
   match e with
     | Var m -> m = k
     | Subst (s, e) -> occurs k (subst s e)
-    | Id (e1, e2, t) -> occurs k t || occurs k e1 || occurs k e2
-    | Refl e -> occurs k e
-    | Transport (a, p, e) -> occurs k a || occurs k p || occurs k e
-    | Nat | Zero -> false
-    | Succ e -> occurs k e
-    | NatRec (x, f, e) -> occurs k x || occurs k f || occurs k e
     | Pi (_, t1, t2) -> occurs k t1 || occurs (k + 1) t2
     | Lambda (_, None, e) -> occurs (k + 1) e
     | Lambda (_, Some t, e) -> occurs k t || occurs (k + 1) e
@@ -173,13 +137,6 @@ let alpha_equal =
       | Subst (s, e1), _ -> equal (subst s e1loc) e2loc
       | _, Subst (s, e2) -> equal e1loc (subst s e2loc)
       | Var k, Var m -> k = m
-      | Id (e11, e12, t1), Id (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
-      | Refl e1, Refl e2 -> equal e1 e2
-      | Transport (a1, p1, e1), Transport (a2, p2, e2) -> equal a1 a2 && equal p1 p2 && equal e1 e2
-      | Nat, Nat -> true
-      | Zero, Zero -> true
-      | Succ e1, Succ e2 -> equal e1 e2
-      | NatRec (x1, f1, n1), NatRec (x2, f2, n2) -> equal x1 x2 && equal f1 f2 && equal n1 n2
       | Pi (_, t1, t2), Pi (_, t1', t2') -> equal t1 t1' && equal t2 t2'
       | Lambda (_, _, e1), Lambda (_, _, e2) -> equal e1 e2
       | App (e11, e12), App (e21, e22) -> equal e11 e21 && equal e12 e22
@@ -191,8 +148,7 @@ let alpha_equal =
       | EqWtn (e11, e12, t1), EqWtn (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
       | TyJdg (e1, t1), TyJdg (e2, t2) -> equal e1 e2 && equal t1 t2
       | EqJdg (e11, e12, t1), EqJdg (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
-      | (Var _ | Id _ | Refl _ | Transport _ | Nat | Zero | Succ _ | NatRec _ | 
-          Pi _ | Lambda _ | App _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _), _ -> false
+      | (Var _ | Pi _ | Lambda _ | App _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _), _ -> false
   in
     equal
 
