@@ -46,7 +46,7 @@ let rec sequence k = function
 let top_handler ctx (op, loc) =
   match op with
     | Syntax.Inhabit t ->
-      ignore (Typing.check_sort ctx t) ;
+      ignore (Typing.check_kind ctx t) ;
       Error.runtime ~loc "sorry, this has not been implemented yet" (Print.expr ctx.names t)
     | Syntax.Infer e ->
       let t = Typing.infer ctx e in
@@ -55,7 +55,7 @@ let top_handler ctx (op, loc) =
       Typing.check ctx e t ;
       Value (TyWtn (e, t))
     | Syntax.Equal (e1, e2, t) ->
-      ignore (Typing.check_sort ctx t) ;
+      ignore (Typing.check_kind ctx t) ;
       if Typing.equal_at ctx e1 e2 t
       then Value (EqWtn (e1, e2, t))
       else Error.runtime ~loc "do not know how to derive %t" (Print.expr ctx.names (Syntax.mk_eqjdg e1 e2 t))
@@ -91,7 +91,7 @@ let rec eval_handler ctx h op k =
               (fun v ->
                 let t' = Syntax.mk_eqjdg e1 e2 t in
                  let _, t'' = to_term ctx v in
-                   if Typing.equal_sort ctx t'' t' 
+                   if Typing.equal_kind ctx t'' t' 
                    then k v
                    else Error.runtime ~loc:(snd c) "this computation should has type %t but should have type %t"
                           (Print.expr ctx.names t') (Print.expr ctx.names t'')
@@ -105,7 +105,7 @@ let rec eval_handler ctx h op k =
 and handle ctx h = function
   | Value _ as v -> v
   | Abstraction (x, t, r, k) ->
-    ignore (Typing.check_sort ctx t) ;
+    ignore (Typing.check_kind ctx t) ;
     let h = shift_handler h in
       (match handle (add_parameter x t ctx) h r with
         | Value v -> k (Lambda (x, t, v))
@@ -124,7 +124,7 @@ and eval ctx (c, loc) =
       let t = Typing.infer ctx e in
         Value (to_witness ctx t)
     | Syntax.Abstraction (x, t, c) ->
-      ignore (Typing.check_sort ctx t) ;
+      ignore (Typing.check_kind ctx t) ;
       let r = eval (add_parameter x t ctx) c in
         Abstraction (x, t, r, (fun v -> Value v))
     | Syntax.Operation op ->

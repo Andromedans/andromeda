@@ -24,7 +24,9 @@
 
 %}
 
-%token FORALL FUN TYPE
+%token FORALL FUN
+%token KIND
+%token <int> NUMERAL
 %token <string> NAME
 %token LPAREN RPAREN LBRACK RBRACK
 %token COLON DCOLON COMMA QUESTIONMARK SEMISEMI
@@ -126,7 +128,7 @@ plain_app_expr:
 
 simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
-  | TYPE                      { Type }
+  | KIND n = NUMERAL          { Kind n }
   | NAME                      { Var $1 }
   | LPAREN plain_expr RPAREN  { $2 }
 

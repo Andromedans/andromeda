@@ -113,7 +113,7 @@ let rec exec_cmd interactive ctx (d, loc) =
         Machine.toplet ctx x c
     | Input.TopParam (xs, t) ->
       let t = Desugar.expr ctx.names t in
-        ignore (Typing.check_sort ctx t) ;
+        ignore (Typing.check_kind ctx t) ;
         let ctx, _ = List.fold_left
           (fun (ctx, t) x ->
             if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;

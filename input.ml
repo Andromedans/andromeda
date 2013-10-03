@@ -4,7 +4,7 @@
 type expr = expr' * Common.position
 and expr' =
   | Var of Common.variable
-  | Type
+  | Kind of Common.level
   | Pi of Common.variable * sort * expr
   | Lambda of Common.variable * sort option * expr
   | App of expr * expr
