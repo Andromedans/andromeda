@@ -19,7 +19,8 @@ let help_text = "Toplevel directives:
 #quit ;;                       exit
 
 assume <ident> : <sort> ;;     assume variable <ident> has sort <sort>
-let <indent> := <expr> ;;      define <ident> to be <expr>
+define <ident> := <expr> ;;    define <ident> to be <expr>
+let <indent> := <comp> ;;      define <ident> to be the result of computation <comp>
 [ <expr> :: <sort> ] ;;        check that <expr> has sort <sort>
 [ <expr> :: ? ] ;;             infer the sort of expression <expr>
 [ ? :: <sort> ] ;;             inhabit sort <sort>
