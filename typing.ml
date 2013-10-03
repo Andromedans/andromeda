@@ -3,8 +3,8 @@
 open Syntax
 open Context
 
-(** [equal_at ctx e1 e2 t] compares expressions [e1] and [e2] at sort [t]. It is assumed
-    that [t] is a valid sort. It is also assumed that [e1] and [e2] have sort [t]. *)
+(** [equal_at ctx e1 e2 t] compares expressions [e1] and [e2] at kind [t]. It is assumed
+    that [t] is a valid kind. It is also assumed that [e1] and [e2] have kind [t]. *)
 let rec equal_at ctx e1 e2 t =
   let t = Norm.whnf ctx t in
     match fst t with
@@ -17,7 +17,7 @@ let rec equal_at ctx e1 e2 t =
       | Kind _ -> equal_kind ctx e1 e2
       | Var _ | App _ -> equal ctx e1 e2
       | TyWtn _ | EqWtn _ | Lambda _ | Subst _ | Ascribe _ ->
-        Error.runtime ~loc:(snd t) "internal error, compare at non-sort"
+        Error.runtime ~loc:(snd t) "internal error, compare at non-kind"
 
 and equal ctx e1 e2 =
   let e1 = Norm.whnf ctx e1 in
@@ -68,15 +68,15 @@ and equal_spine ctx e1 e2 =
 (** [t1] and [t2] must be valid kinds. *)
 and equal_kind ctx t1 t2 = equal ctx t1 t2
 
-(** [infer ctx e] infers the sort of expression [e] in context [ctx]. *)
+(** [infer ctx e] infers the kind of expression [e] in context [ctx]. *)
 let rec infer ctx (e, loc) =
   match e with
 
     | Var k -> lookup_ty k ctx
 
     | Pi (x, t1, t2) ->
-      let n1 = check_kind ctx t1 in
-      let n2 = check_kind (add_parameter x t1 ctx) t2 in
+      let n1 = infer_level ctx t1 in
+      let n2 = infer_level (add_parameter x t1 ctx) t2 in
       let n = Common.max_level n1 n2 in
         mk_kind n
 
@@ -90,7 +90,7 @@ let rec infer ctx (e, loc) =
     | Lambda (x, None, _) -> Error.typing ~loc "cannot infer the kind of %s" x
 
     | Lambda (x, Some t1, e) ->
-      ignore (check_kind ctx t1) ;
+      check_kind ctx t1 ;
       let t2 = infer (add_parameter x t1 ctx) e in
         mk_pi x t1 t2
 
@@ -105,19 +105,19 @@ let rec infer ctx (e, loc) =
     | EqWtn (e1, e2, t) -> mk_eqwtn e1 e2 t
 
     | EqJdg (e1, e2, t) ->
-      let n = check_kind ctx t in
+      let n = infer_level ctx t in
         check ctx e1 t ;
         check ctx e2 t ;
         mk_kind (Common.succ_level n)
 
     | TyJdg (e, t) ->
-      let n = check_kind ctx t in
+      let n = infer_level ctx t in
         check ctx e t ;
         mk_kind (Common.succ_level n)
 
 
 and check ctx ((e', loc) as e) t =
-  ignore (check_kind ctx t) ;
+  check_kind ctx t ;
   match e' with
     | Subst (s, e) -> check ctx (subst s e) t (* XXX avoid rechecking t *)
     | Lambda (x, None, e) ->
@@ -129,42 +129,51 @@ and check ctx ((e', loc) as e) t =
         Ascribe _ | Kind _ | TyJdg _ | EqJdg _ | TyWtn _ | EqWtn _ ->
       let t' = infer ctx e in
         if not (equal_kind ctx t' t) then
-          Error.typing ~loc:(snd e) "this expression has sort %t@ but it should have sort %t"
+          Error.typing ~loc:(snd e) "this expression has kind %t@ but it should have kind %t"
             (Print.expr ctx.names t') (Print.expr ctx.names t)
 
-(* Check that the given expression is a kind and return the level at which it resides. *)
-and check_kind ctx (e',loc) =
+(* Check that the given expression is a sort and return the level at which it resides. *)
+and infer_level ctx (e',loc) =
   match e' with
     | Var k ->
       let t = lookup_ty k ctx in
       (match fst (Norm.whnf ctx t) with
         | Kind n -> n
         | _ -> Error.typing ~loc "this expression has kind %t@ but should be a kind" (Print.expr ctx.names t))
-    | Subst (s, e) -> check_kind ctx (subst s e)
+    | Subst (s, e) -> infer_level ctx (subst s e)
     | Lambda _ -> Error.typing ~loc "this expression is a function but should be a kind"
     | Pi (x, t1, t2) ->
-      let u1 = check_kind ctx t1 in
-      let u2 = check_kind (add_parameter x t1 ctx) t2 in
+      let u1 = infer_level ctx t1 in
+      let u2 = infer_level (add_parameter x t1 ctx) t2 in
         Common.max_level u1 u2
     | App (e1, e2) ->
       let (x, t1, t2) = infer_pi ctx e1 in
         check ctx e2 t1 ;
-        check_kind (add_parameter x t1 ctx) t2
+        infer_kind ctx (mk_subst (Dot (e2, idsubst)) t2)
     | Ascribe (e1, e2) ->
       check ctx e1 e2 ;
-      check_kind ctx e1
+      infer_level ctx e1
     | Kind n -> Common.succ_level n
-    | EqWtn _ -> Error.typing ~loc "this expression is an equality witness but should be a sort"
-    | TyWtn _ -> Error.typing ~loc "this expression is a typing witness but should be a sort"
+    | EqWtn _ -> Error.typing ~loc "this expression is an equality witness but should be a kind"
+    | TyWtn _ -> Error.typing ~loc "this expression is a typing witness but should be a kind"
     | EqJdg (e1, e2, t) ->
-      let n = check_kind ctx t in
+      let n = infer_level ctx t in
       check ctx e1 t ;
       check ctx e2 t ;
       n
     | TyJdg (e, t) ->
-      let n = check_kind ctx t in
+      let n = infer_level ctx t in
       check ctx e t ;
       n
+
+and check_kind ctx e = ignore (infer_level ctx e)
+
+and infer_kind ctx e =
+  match fst (Norm.whnf ctx e) with
+    | Kind n -> n
+    | Subst _ | Ascribe _ -> assert false
+    | Pi _ | Var _ | App _ | EqJdg _ | TyJdg _ | TyWtn _ | EqWtn _ | Lambda _ ->
+        Error.typing ~loc:(snd e) "this expression is a %t@ but it should be a kind" (Print.expr ctx.names e)
 
 and infer_pi ctx e =
   let t = infer ctx e in
@@ -172,4 +181,4 @@ and infer_pi ctx e =
       | Pi (x, t1, t2) -> (x, t1, t2)
       | Subst _ | Ascribe _ -> assert false
       | Var _ | App _ | Kind _ | EqJdg _ | TyJdg _ | TyWtn _ | EqWtn _ | Lambda _ ->
-        Error.typing ~loc:(snd e) "this expression has sort %t@ but it should be a function" (Print.expr ctx.names t)
+        Error.typing ~loc:(snd e) "this expression has kind %t@ but it should be a function" (Print.expr ctx.names t)
