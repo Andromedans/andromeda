@@ -3,13 +3,6 @@
 (** Variable names *)
 type variable = string
 
-(** Kind level *)
-type level = int
-
-let max_level = (max : int -> int -> int)
-
-let succ_level = succ
-
 (** Position in source code. For each type in the abstract syntax we define two versions
     [t] and [t']. The former is the latter with a position tag. For example, [expr = expr'
     * position] and [expr'] is the type of expressions (without positions). 

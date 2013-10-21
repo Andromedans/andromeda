@@ -13,7 +13,7 @@
     ("let", LET) ;
     ("in", IN) ;
     ("return", RETURN) ;
-    ("Kind", KIND) ;
+    ("Type", TYPE) ;
     ("with", WITH) ;
   ]
 
@@ -28,7 +28,6 @@ let numeral = ['0'-'9']+
 rule token = parse
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
-  | numeral             { let s = Lexing.lexeme lexbuf in NUMERAL (int_of_string s) }
   | name                { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved

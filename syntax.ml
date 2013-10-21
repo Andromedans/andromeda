@@ -10,7 +10,8 @@ and term' =
   | Lambda of Common.variable * sort option * term
   | App of term * term
   | Ascribe of term * sort
-  | Kind of Common.level
+  | Type
+  | Sort
   | TyWtn of term * sort
   | EqWtn of term * term * sort
   | TyJdg of term * sort
@@ -48,7 +49,8 @@ let mk_pi x t1 t2 = Common.nowhere (Pi (x, t1, t2))
 let mk_lambda x t e = Common.nowhere (Lambda (x, t, e))
 let mk_app e1 e2 = Common.nowhere (App (e1, e2))
 let mk_ascribe e t = Common.nowhere (Ascribe (e, t))
-let mk_kind n = Common.nowhere (Kind n)
+let mk_type = Common.nowhere Type
+let mk_kind = Common.nowhere Sort
 let mk_eqwtn e1 e2 t = Common.nowhere (EqWtn (e1, e2, t))
 let mk_eqjdg e1 e2 t = Common.nowhere (EqJdg (e1, e2, t))
 let mk_tywtn e t = Common.nowhere (TyWtn (e, t))
@@ -90,7 +92,7 @@ let subst =
           Lambda (x, t, e), loc
       | s, App (e1, e2) -> App (mk_subst s e1, mk_subst s e2), loc
       | s, Ascribe (e, t) -> Ascribe (mk_subst s e, mk_subst s t), loc
-      | s, Kind _ -> e', loc
+      | s, (Type | Sort) -> e', loc
       | s, TyJdg (e, t) ->
         let e = mk_subst s e in
         let t = mk_subst s t in
@@ -122,7 +124,7 @@ let rec occurs k (e, _) =
     | Lambda (_, Some t, e) -> occurs k t || occurs (k + 1) e
     | App (e1, e2) -> occurs k e1 || occurs k e2
     | Ascribe (e, t) -> occurs k e || occurs k t
-    | Kind _ -> false
+    | Type | Sort -> false
     | EqJdg (e1, e2, t) -> occurs k t || occurs k e1 || occurs k e2
     | TyJdg (e, t) -> occurs k t || occurs k e
     | EqWtn (e1, e2, t) -> occurs k t || occurs k e1 || occurs k e2
@@ -140,12 +142,13 @@ let alpha_equal =
       | App (e11, e12), App (e21, e22) -> equal e11 e21 && equal e12 e22
       | Ascribe (e1, _), _ -> equal e1 e2loc
       | _, Ascribe (e2, _) -> equal e1loc e2
-      | Kind m, Kind n -> (m = n)
+      | Type, Type -> true
+      | Sort, Sort -> true
       | TyWtn (e1, t1), TyWtn (e2, t2) -> equal e1 e2 && equal t1 t2
       | EqWtn (e11, e12, t1), EqWtn (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
       | TyJdg (e1, t1), TyJdg (e2, t2) -> equal e1 e2 && equal t1 t2
       | EqJdg (e11, e12, t1), EqJdg (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
-      | (Var _ | Pi _ | Lambda _ | App _ | Kind _ | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _), _ -> false
+      | (Var _ | Pi _ | Lambda _ | App _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _), _ -> false
   in
     equal
 

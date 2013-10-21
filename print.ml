@@ -79,7 +79,8 @@ and expr ?max_level xs e ppf =
           | Syntax.Lambda (x, t, e) -> print ~at_level:3 "%t" (lambda xs x t e)
           | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
           | Syntax.Ascribe (e, t) -> print ~at_level:4 "%t : %t" (expr ~max_level:3 xs e) (expr ~max_level:3 xs t)
-          | Syntax.Kind n -> print "Kind %d" n
+          | Syntax.Type -> print "Type"
+          | Syntax.Sort -> print "Sort"
           | Syntax.TyWtn (e, t) -> print "<witness>"
           | Syntax.EqWtn (e1, e2, t)-> print "<witness>"
           | Syntax.TyJdg (e, t) -> print ~at_level:3 "%t :: %t" (expr ~max_level:2 xs e) (expr ~max_level:2 xs t)

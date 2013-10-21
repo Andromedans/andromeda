@@ -14,7 +14,7 @@ let index ~loc x =
 let rec expr xs (e, loc) =
   (match e with
     | Input.Var x -> Syntax.Var (index ~loc x xs)
-    | Input.Kind n -> Syntax.Kind n
+    | Input.Type -> Syntax.Type
     | Input.Pi (x, t1, t2) -> Syntax.Pi (x, expr xs t1, expr (x :: xs) t2)
     | Input.Lambda (x, None, e) -> Syntax.Lambda (x, None, expr (x :: xs) e)
     | Input.Lambda (x, Some t, e) -> Syntax.Lambda (x, Some (expr xs t), expr (x :: xs) e)
