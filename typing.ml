@@ -1,4 +1,4 @@
-(** Type checking and synthesis. *)
+(** Type inference. *)
 
 open Syntax
 open Context
