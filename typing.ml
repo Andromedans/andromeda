@@ -19,11 +19,9 @@ let rec equal_at ctx e1 e2 t =
         let e1' = mk_app (shift 1 e1) (mk_var 0) in
         let e2' = mk_app (shift 1 e2) (mk_var 0) in
           equal_at (add_parameter x t1 ctx) e1' e2' t2
-      | EqJdg _ -> equal ctx e1 e2
-      | TyJdg _ -> equal ctx e1 e2
       | Type | Sort -> equal_sort ctx e1 e2
       | Var _ | App _ -> equal ctx e1 e2
-      | TyWtn _ | EqWtn _ | Lambda _ | Subst _ | Ascribe _ ->
+      | Lambda _ | Subst _ | Ascribe _ ->
         Error.runtime ~loc:(snd t) "internal error, compare at non-sort"
 
 and equal ctx e1 e2 =
@@ -32,27 +30,12 @@ and equal ctx e1 e2 =
     match fst e1, fst e2 with
       | Type, Type -> true
       | Sort, Sort -> true
-      | EqJdg (e1, e2, t), EqJdg (e1', e2', t') ->
-        equal_sort ctx t t' &&
-        equal_at ctx e1 e1' t &&
-        equal_at ctx e2 e2' t
-      | EqWtn (e1, e2, t), EqWtn (e1', e2', t') ->
-        equal_sort ctx t t' &&
-        equal_at ctx e1 e1' t &&
-        equal_at ctx e2 e2' t
-      | TyJdg (e1, t1), TyJdg (e2, t2) ->
-        equal_sort ctx t1 t2 &&
-        equal_at ctx e1 e2 t1
-      | TyWtn (e1, t1), TyWtn (e2, t2) ->
-        equal_sort ctx t1 t2 &&
-        equal_at ctx e1 e2 t1
       | Pi (x, t1, t2), Pi (_, s1, s2) ->
         equal_sort ctx t1 s1 &&
         equal_sort (add_parameter x t1 ctx) t2 s2
       | Var _, Var _
       | App _, App _ -> None <> equal_spine ctx e1 e2
-      | (Var _ | Pi _ | Lambda _ | App _ | Subst _ |
-         Ascribe _ | Type | Sort | EqWtn _ | TyWtn _ | EqJdg _ | TyJdg _), _ -> false
+      | (Var _ | Pi _ | Lambda _ | App _ | Subst _ | Ascribe _ | Type | Sort), _ -> false
 
 and equal_spine ctx e1 e2 =
   match fst e1, fst e2 with
@@ -70,8 +53,7 @@ and equal_spine ctx e1 e2 =
               then Some (mk_subst (Dot (a2, idsubst)) u2)
               else None
             | _ -> None))
-    | (Var _ | Pi _ | Lambda _ | App _ |
-        Subst _ | Ascribe _ | Type | Sort | EqWtn _ | TyWtn _ | EqJdg _ | TyJdg _), _ -> None
+    | (Var _ | Pi _ | Lambda _ | App _ | Subst _ | Ascribe _ | Type | Sort), _ -> None
 
 (** [t1] and [t2] must be valid sorts. *)
 and equal_sort ctx t1 t2 = equal ctx t1 t2
@@ -111,21 +93,6 @@ let rec infer ctx (e, loc) =
 
     | Sort -> Error.typing ~loc "sorry, you cannot use Sort as a sort"
 
-    | TyWtn (e, t) -> mk_tyjdg e t
-
-    | EqWtn (e1, e2, t) -> mk_eqwtn e1 e2 t
-
-    | EqJdg (e1, e2, t) ->
-      ignore (check_sort ctx t) ;
-      check ctx e1 t ;
-      check ctx e2 t ;
-      mk_kind
-
-    | TyJdg (e, t) ->
-      ignore (check_sort ctx t) ;
-      check ctx e t ;
-      mk_kind
-
 
 and check ctx ((e', loc) as e) t =
   ignore (check_sort ctx t) ;
@@ -137,8 +104,7 @@ and check ctx ((e', loc) as e) t =
         | _ -> Error.typing ~loc "this expression is a function but should have sort@ %t"
           (Print.expr ctx.names t))
     | Sort -> Error.typing ~loc "Sort does not have sort %t" (Print.expr ctx.names t)
-    | Var _ | Lambda (_, Some _, _) | Pi _ | App _ |
-        Ascribe _ | Type | TyJdg _ | EqJdg _ | TyWtn _ | EqWtn _ ->
+    | Var _ | Lambda (_, Some _, _) | Pi _ | App _ | Ascribe _ | Type ->
       let t' = infer ctx e in
         if not (equal_sort ctx t' t) then
           Error.typing ~loc:(snd e) "this expression has sort %t@ but it should have sort %t"
@@ -168,22 +134,11 @@ and check_sort ctx (e',loc) =
       check_sort ctx e1
     | Type -> Large
     | Sort -> Error.typing ~loc "Sort is not a sort"
-    | EqWtn _ -> Error.typing ~loc "this expression is an equality witness but should be a sort"
-    | TyWtn _ -> Error.typing ~loc "this expression is a typing witness but should be a sort"
-    | EqJdg (e1, e2, t) ->
-      ignore (check_sort ctx t) ;
-      check ctx e1 t ;
-      check ctx e2 t ;
-      Large
-    | TyJdg (e, t) ->
-      ignore (check_sort ctx t)  ;
-      check ctx e t ;
-      Large
 
 and infer_pi ctx e =
   let t = infer ctx e in
     match fst (Norm.whnf ctx t) with
       | Pi (x, t1, t2) -> (x, t1, t2)
       | Subst _ | Ascribe _ -> assert false
-      | Var _ | App _ | Type | Sort | EqJdg _ | TyJdg _ | TyWtn _ | EqWtn _ | Lambda _ ->
+      | Var _ | App _ | Type | Sort | Lambda _ ->
         Error.typing ~loc:(snd e) "this expression has sort %t@ but it should be a function" (Print.expr ctx.names t)

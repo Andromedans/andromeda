@@ -12,10 +12,6 @@ and term' =
   | Ascribe of term * sort
   | Type
   | Sort
-  | TyWtn of term * sort
-  | EqWtn of term * term * sort
-  | TyJdg of term * sort
-  | EqJdg of term * term * sort
 
 and sort = term
 
@@ -27,9 +23,6 @@ and substitution =
 type operation = operation' * Common.position
 and operation' =
   | Inhabit of sort                   (* inhabit a sort *)
-  | Infer of term                     (* infer the sort of expression *)
-  | HasType of term * sort            (* inhabit a typing judgment *)
-  | Equal of term * term * sort       (* inhabit judgmental equality *)
 
 (** Computations. *)
 type computation = computation' * Common.position
@@ -51,10 +44,6 @@ let mk_app e1 e2 = Common.nowhere (App (e1, e2))
 let mk_ascribe e t = Common.nowhere (Ascribe (e, t))
 let mk_type = Common.nowhere Type
 let mk_kind = Common.nowhere Sort
-let mk_eqwtn e1 e2 t = Common.nowhere (EqWtn (e1, e2, t))
-let mk_eqjdg e1 e2 t = Common.nowhere (EqJdg (e1, e2, t))
-let mk_tywtn e t = Common.nowhere (TyWtn (e, t))
-let mk_tyjdg e t = Common.nowhere (TyJdg (e, t))
 
 (** The identity substitution. *)
 let idsubst = Shift 0
@@ -93,24 +82,6 @@ let subst =
       | s, App (e1, e2) -> App (mk_subst s e1, mk_subst s e2), loc
       | s, Ascribe (e, t) -> Ascribe (mk_subst s e, mk_subst s t), loc
       | s, (Type | Sort) -> e', loc
-      | s, TyJdg (e, t) ->
-        let e = mk_subst s e in
-        let t = mk_subst s t in
-          TyJdg (e, t), loc
-      | s, TyWtn (e, t) ->
-        let e = mk_subst s e in
-        let t = mk_subst s t in
-          TyWtn (e, t), loc
-      | s, EqJdg (e1, e2, t) ->
-        let e1 = mk_subst s e1 in
-        let e2 = mk_subst s e2 in
-        let t = mk_subst s t in
-          EqJdg (e1, e2, t), loc
-      | s, EqWtn (e1, e2, t) ->
-        let e1 = mk_subst s e1 in
-        let e2 = mk_subst s e2 in
-        let t = mk_subst s t in
-          EqWtn (e1, e2, t), loc
   in
     subst
 
@@ -125,10 +96,6 @@ let rec occurs k (e, _) =
     | App (e1, e2) -> occurs k e1 || occurs k e2
     | Ascribe (e, t) -> occurs k e || occurs k t
     | Type | Sort -> false
-    | EqJdg (e1, e2, t) -> occurs k t || occurs k e1 || occurs k e2
-    | TyJdg (e, t) -> occurs k t || occurs k e
-    | EqWtn (e1, e2, t) -> occurs k t || occurs k e1 || occurs k e2
-    | TyWtn (e, t) -> occurs k t || occurs k e
 
 (** Compare two terms using alpha-equivalence only. *)
 let alpha_equal =
@@ -144,20 +111,14 @@ let alpha_equal =
       | _, Ascribe (e2, _) -> equal e1loc e2
       | Type, Type -> true
       | Sort, Sort -> true
-      | TyWtn (e1, t1), TyWtn (e2, t2) -> equal e1 e2 && equal t1 t2
-      | EqWtn (e11, e12, t1), EqWtn (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
-      | TyJdg (e1, t1), TyJdg (e2, t2) -> equal e1 e2 && equal t1 t2
-      | EqJdg (e11, e12, t1), EqJdg (e21, e22, t2) -> equal t1 t2 && equal e11 e21 && equal e12 e22
-      | (Var _ | Pi _ | Lambda _ | App _ | Type | Sort | TyWtn _ | EqWtn _ | TyJdg _ | EqJdg _), _ -> false
+      | (Var _ | Pi _ | Lambda _ | App _ | Type | Sort), _ -> false
   in
     equal
 
 let subst_operation s (op, loc) =
   (match op with
     | Inhabit t -> Inhabit (mk_subst s t)
-    | Infer t -> Infer (mk_subst s t)
-    | HasType (e, t) -> HasType (mk_subst s e, mk_subst s t)
-    | Equal (e1, e2, t) -> Equal (mk_subst s e1, mk_subst s e2, mk_subst s t)),
+  ),
   loc
 
 let rec subst_computation s =

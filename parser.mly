@@ -94,9 +94,6 @@ plain_computation:
 operation: mark_position(plain_operation) { $1 }
 plain_operation:
   | QUESTIONMARK DCOLON quant_expr        { Inhabit $3 }
-  | quant_expr DCOLON QUESTIONMARK        { Infer $1 }
-  | quant_expr DCOLON quant_expr          { HasType ($1, $3) }
-  | app_expr EQEQ app_expr AT quant_expr  { Equal ($1, $3, $5) }
 
 handler:
   | BAR? cs=separated_list(BAR, handler_case)  { cs }
@@ -108,12 +105,10 @@ handler_case:
 expr: mark_position(plain_expr) { $1 }
 plain_expr:
   | plain_quant_expr              { $1 }
-  | quant_expr DCOLON quant_expr  { TyJdg ($1, $3) }
 
 quant_expr: mark_position(plain_quant_expr) { $1 }
 plain_quant_expr:
   | plain_app_expr                          { $1 }
-  | app_expr EQEQ app_expr AT quant_expr    { EqJdg ($1, $3, $5) }
   | app_expr ARROW quant_expr               { Pi ("_", $1, $3) }
   | app_expr COLON quant_expr               { Ascribe ($1, $3) }
   | FORALL pi_abstraction COMMA quant_expr  { fst (make_pi $4 $2) }

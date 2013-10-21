@@ -9,17 +9,12 @@ and expr' =
   | Lambda of Common.variable * sort option * expr
   | App of expr * expr
   | Ascribe of expr * sort
-  | TyJdg of expr * sort
-  | EqJdg of expr * expr * sort
 
 and sort = expr
 
 type operation = operation' * Common.position
 and operation' =
   | Inhabit of sort
-  | Infer of expr
-  | HasType of expr * sort
-  | Equal of expr * expr * sort
 
 type computation = computation' * Common.position
 and computation' = 

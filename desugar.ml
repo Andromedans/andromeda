@@ -20,8 +20,7 @@ let rec expr xs (e, loc) =
     | Input.Lambda (x, Some t, e) -> Syntax.Lambda (x, Some (expr xs t), expr (x :: xs) e)
     | Input.App (e1, e2) -> Syntax.App (expr xs e1, expr xs e2)
     | Input.Ascribe (e, t) -> Syntax.Ascribe (expr xs e, expr xs t)
-    | Input.EqJdg (e1, e2, t) -> Syntax.EqJdg (expr xs e1, expr xs e2, expr xs t)
-    | Input.TyJdg (e, t) -> Syntax.TyJdg (expr xs e, expr xs t)), 
+  ),
   loc
 
 let sort = expr
@@ -29,9 +28,7 @@ let sort = expr
 let operation xs (op, loc) =
   (match op with
     | Input.Inhabit t -> Syntax.Inhabit (sort xs t)
-    | Input.Infer e -> Syntax.Infer (expr xs e)
-    | Input.HasType (e, t) -> Syntax.HasType (expr xs e, sort xs t)
-    | Input.Equal (e1, e2, t) -> Syntax.Equal (expr xs e1, expr xs e2, sort xs t)),
+  ),
   loc
 
 let rec computation xs (c, loc) =

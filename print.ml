@@ -81,11 +81,6 @@ and expr ?max_level xs e ppf =
           | Syntax.Ascribe (e, t) -> print ~at_level:4 "%t : %t" (expr ~max_level:3 xs e) (expr ~max_level:3 xs t)
           | Syntax.Type -> print "Type"
           | Syntax.Sort -> print "Sort"
-          | Syntax.TyWtn (e, t) -> print "<witness>"
-          | Syntax.EqWtn (e1, e2, t)-> print "<witness>"
-          | Syntax.TyJdg (e, t) -> print ~at_level:3 "%t :: %t" (expr ~max_level:2 xs e) (expr ~max_level:2 xs t)
-          | Syntax.EqJdg (e1, e2, t) -> print ~at_level:3 "%t == %t @@ %t"
-                                          (expr ~max_level:2 xs e1) (expr ~max_level:2 xs e2) (expr ~max_level:2 xs t)
   in
     expr ?max_level xs e ppf
     
@@ -94,12 +89,6 @@ let expr' xs e ppf = expr xs (Common.nowhere e) ppf
 let operation ?max_level xs (op, _) ppf =
   match op with
     | Syntax.Inhabit t -> print ppf "[ ? :: %t ]" (expr ~max_level:2 xs t)
-    | Syntax.Infer e -> print ppf "[ %t :: ? ]" (expr xs e)
-    | Syntax.HasType (e, t) ->
-      print ppf "[ %t :: %t ]" (expr  ~max_level:2 xs e) (expr ~max_level:2 xs t)
-    | Syntax.Equal (e1, e2, t) ->
-      print ppf "[ %t == %t @@ %t ]"
-        (expr ~max_level:2 xs e1) (expr ~max_level:2 xs e2) (expr ~max_level:2 xs t)
 
 let rec computation ?max_level xs (c, _) ppf =
   match c with
@@ -111,10 +100,6 @@ let rec computation ?max_level xs (c, _) ppf =
 
 let rec value ?max_level xs v ppf =
   match v with
-    | Value.EqWtn (e1, e2, t) ->
-      print ppf ~at_level:3 "%t == %t @@ %t"
-        (expr ~max_level:2 xs e1) (expr ~max_level:2 xs e2) (expr ~max_level:2 xs t)
-    | Value.TyWtn (e, t) -> print ppf "%t :: %t" (expr ~max_level:2 xs e) (expr ~max_level:2 xs t)
     | Value.Lambda (x, t, v) -> print ppf "forall %s : %t, %t" x (expr ~max_level:2 xs t) (value (x::xs) v)
 
 let rec result ?max_level xs r ppf =

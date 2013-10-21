@@ -1,8 +1,6 @@
 open Context
 
 type value =
-  | EqWtn of Syntax.term * Syntax.term * Syntax.sort
-  | TyWtn of Syntax.term * Syntax.sort
   | Lambda of Common.variable * Syntax.sort * value
 
 type result =
