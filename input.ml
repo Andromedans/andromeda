@@ -1,48 +1,33 @@
 (** Abstract syntax of input files. *)
 
-(** Abstract syntax of expressions as given by the user. *)
-type expr = expr' * Common.position
-and expr' =
+(** Abstract syntax of terms as given by the user. *)
+type term = term' * Common.position
+and term' =
   | Var of Common.variable
   | Type
-  | Pi of Common.variable * sort * expr
-  | Lambda of Common.variable * sort option * expr
-  | App of expr * expr
-  | Ascribe of expr * sort
+  | Lambda of Common.variable * term option * term
+  | Pi of Common.variable * term * term
+  | App of term * term
+  | Ascribe of term * term
+  | Operation of operation_tag * term list
+  | Handle of term * handler
 
-and sort = expr
+and operation_tag =
+  | Inhabit
 
-type operation = operation' * Common.position
-and operation' =
-  | Inhabit of sort
-
-type computation = computation' * Common.position
-and computation' = 
-  | Return of expr
-  | Abstraction of Common.variable * sort * computation
-  | Operation of operation
-  | Handle of computation * handler
-  | Let of Common.variable * computation * computation
+and computation = computation' * Common.position
+and computation' =
+  | Return of term
+  | Let of Common.variable * term * computation
 
 and handler =
-    (expr * expr * sort * computation) list
-
-(** Toplevel directives. *)
-type directive = directive' * Common.position
-and directive' =
-  | Quit
-  | Help
-  | Context
-  | Eval of expr
+   (operation_tag * term list * computation) list
 
 type toplevel = toplevel' * Common.position
 and toplevel' =
-  | Computation of computation
-  | TopDefine of Common.variable * expr
-  | TopLet of Common.variable * computation
-  | TopParam of Common.variable list * sort
+  | TopDef of Common.variable * term
+  | TopParam of Common.variable list * term
   | Context
-  | Eval of expr
   | Help
   | Quit
 

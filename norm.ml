@@ -1,64 +1,72 @@
 (** Normalization of expressions. *)
 
-open Syntax
-open Context
+module S = Syntax
+module Ctx = Context
 
-let lookup k env =
-  match List.nth env k with
-    | Some e -> Some (Syntax.shift (k+1) e)
-    | None -> None
+(** [norm ctx e] evaluates expression [e] in environment [ctx] to a weak head normal form,
+    while [norm ~weak:false ctx e] evaluates to normal form. *)
+let rec norm ?(weak=true) =
+  let rec loop ctx e =
+    match e with
 
-let extend env = None :: env
+      | S.Var k ->
+          begin
+            match Ctx.lookup k ctx with
+            | Ctx.Definition (_, e') -> loop ctx e'
+            | _ -> e
+          end
 
-let env_of_ctx ctx = List.map (function Parameter _ -> None | Definition (_, e) -> Some e) ctx.decls
+      | S.Lambda (x, t1, e1) ->
+        if weak then
+          e
+        else
+          let t1' = normTy ~weak:true ctx t1  in
+          let e1' = loop (Ctx.add_parameter x t1' ctx) e1  in
+          S.Lambda (x, t1', e1')
 
-(** [norm env e] evaluates expression [e] in environment [env] to a weak head normal form,
-    while [norm ~weak:false env e] evaluates to normal form. *)
-let norm ?(weak=false) =
-  let rec norm env ((e', loc) as e) =
-    match e' with
+      | S.App (e1, e2) ->
+          begin
+            match loop ctx e1 with
+            | S.Lambda(x, _, eBody) ->
+                S.shift (-1) (S.subst 0 (S.shift 1 e2) eBody)
+            | (S.Var _ | S.App _) as e1' ->
+                let e2' = if weak then e2 else loop ctx e2 in
+                S.App(e1', e2')
+          end
 
-      | Var k ->
-        (match lookup k env with
-          | None -> e
-          | Some e -> norm env e)
-
-      | Subst (s, e') ->
-        norm env (subst s e')
-
-      | Pi (x, t1, t2) ->
-        if weak
-        then e
-        else mk_pi x (norm env t1) (norm (extend env) t2)
-
-      | Lambda (x, t, e') -> 
-        if weak
-        then e
-        else 
-          let t = (match t with None -> None | Some t -> Some (norm env t)) in
-          let e' = norm (extend env) e' in
-            mk_lambda x t e'
-
-      | App (e1, e2) ->
-        let (e1', _) as e1 = norm env e1 in
-          (match e1' with
-            | Lambda (x, _, e) -> norm env (mk_subst (Dot (e2, idsubst)) e)
-            | Var _ | App _ -> 
-              let e2 = (if weak then e2 else norm env e2) in 
-                App (e1, e2), loc
-            | Subst _ | Pi _ | Ascribe _ | Type | Sort ->
-              Error.runtime ~loc:(snd e2) "function expected")
-
-      | Ascribe (e', _) ->
-        norm env e'
-
-      | Type | Sort -> e
   in
-    norm
+    loop
+
+and normTy ?(weak=true) =
+  let rec loop ctx = function
+      | S.TVar k as t ->
+          begin
+            match Ctx.lookup k ctx with
+            | Ctx.TyDefinition (_, t') -> loop ctx t'
+            | _ -> t
+          end
+
+      | S.TPi (x, t1, t2) as t ->
+        if weak then
+          t
+        else
+          let t1' = loop ctx t1  in
+          let e1' = loop (Ctx.add_parameter x t1' ctx) t2  in
+          S.TPi (x, t1', e1')
+
+      | S.TApp (t1, e2) ->
+          let t1' = loop ctx t1 in
+          let e2' = if weak then e2 else norm ~weak:false ctx e2  in
+          S.TApp(t1', e2')
+  in
+    loop
+
+
 
 (** [nf ctx e] computes the normal form of expression [e]. *)
-let nf ctx = norm ~weak:false (env_of_ctx ctx)
+let nf ctx = norm ~weak:false ctx
 
 (** [whnf ctx e] computes the weak head normal form of expression [e]. *)
-let whnf ctx = norm ~weak:true (env_of_ctx ctx)
+let whnf ctx = norm ~weak:true ctx
+
 

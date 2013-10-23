@@ -21,22 +21,6 @@ let print ?(max_level=9999) ?(at_level=0) ppf =
       Format.kfprintf (fun ppf -> Format.fprintf ppf "@]") ppf
     end
 
-(** Print the given source code position. *)
-let position loc ppf =
-  match loc with
-  | Common.Nowhere ->
-      Format.fprintf ppf "unknown position"
-  | Common.Position (begin_pos, end_pos) ->
-      let begin_char = begin_pos.Lexing.pos_cnum - begin_pos.Lexing.pos_bol in
-      let end_char = end_pos.Lexing.pos_cnum - begin_pos.Lexing.pos_bol in
-      let begin_line = begin_pos.Lexing.pos_lnum in
-      let filename = begin_pos.Lexing.pos_fname in
-
-      if String.length filename != 0 then
-        Format.fprintf ppf "file %S, line %d, charaters %d-%d" filename begin_line begin_char end_char
-      else
-        Format.fprintf ppf "line %d, characters %d-%d" (begin_line - 1) begin_char end_char
-
 (** Print a sequence of things with the given (optional) separator. *)
 let sequence ?(sep="") f lst ppf =
   let rec seq = function
@@ -59,7 +43,7 @@ let rec pi ?max_level xs x t1 t2 ppf =
 and lambda xs x t e ppf =
   let x =
     if Syntax.occurs 0 e
-    then Beautify.refresh x xs 
+    then Beautify.refresh x xs
     else "_"
   in
     match t with
@@ -68,7 +52,7 @@ and lambda xs x t e ppf =
 
 (** [expr ctx e ppf] prints expression [e] using formatter [ppf]. *)
 and expr ?max_level xs e ppf =
-  let rec expr ?max_level xs (e, _) ppf = expr' ?max_level xs e ppf
+  let rec expr ?max_level xs e ppf = expr' ?max_level xs e ppf
   and expr' ?max_level xs e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       if not (Format.over_max_boxes ()) then
@@ -83,14 +67,12 @@ and expr ?max_level xs e ppf =
           | Syntax.Sort -> print "Sort"
   in
     expr ?max_level xs e ppf
-    
-let expr' xs e ppf = expr xs (Common.nowhere e) ppf
 
-let operation ?max_level xs (op, _) ppf =
+let operation ?max_level xs op ppf =
   match op with
     | Syntax.Inhabit t -> print ppf "[ ? :: %t ]" (expr ~max_level:2 xs t)
 
-let rec computation ?max_level xs (c, _) ppf =
+let rec computation ?max_level xs c ppf =
   match c with
     | Syntax.Return e -> print ppf "return %t" (expr ~max_level:4 xs e)
     | Syntax.Abstraction  (x, t, c) -> print ppf "fun %s : %t => %t" x (expr ~max_level:2 xs t) (computation (x::xs) c)
@@ -115,15 +97,16 @@ let rec result ?max_level xs r ppf =
 
 let verbosity = ref 2
 
-let message ?(loc=Common.Nowhere) msg_type v =
+let message msg_type v =
   if v <= !verbosity then
     begin
-      Format.eprintf "%s at %t:@\n@[" msg_type (position loc) ;
+      Format.eprintf "%s:@\n@[" msg_type ;
       Format.kfprintf (fun ppf -> Format.fprintf ppf "@]@.") Format.err_formatter
     end
   else
     Format.ifprintf Format.err_formatter
 
-let error (loc, err_type, msg) = message ~loc (err_type) 1 "%s" msg
+let error (err_type, msg) = message (err_type) 1 "%s" msg
 let warning msg = message "Warning" 2 msg
 let debug msg = message "Debug" 3 msg
+

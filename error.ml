@@ -13,8 +13,8 @@ let error ~loc err_type =
   in
     Format.kfprintf k Format.str_formatter
 
-let fatal ~loc msg = error ~loc "Fatal error" msg
-let syntax ~loc msg = error ~loc "Syntax error" msg
-let typing ~loc msg = error ~loc "Typing error" msg
-let runtime ~loc msg = error ~loc "Runtime error" msg
-let exc ~loc msg = error ~loc "Exception" msg
+let fatal   ?loc:(loc=Common.Nowhere) msg = error ~loc "Fatal error" msg
+let syntax  ?loc:(loc=Common.Nowhere) msg = error ~loc "Syntax error" msg
+let typing  ?loc:(loc=Common.Nowhere) msg = error ~loc "Typing error" msg
+let runtime ?loc:(loc=Common.Nowhere) msg = error ~loc "Runtime error" msg
+let exc     ?loc:(loc=Common.Nowhere) msg = error ~loc "Exception" msg

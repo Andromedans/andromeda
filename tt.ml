@@ -14,7 +14,7 @@ let usage = "Usage: tt [option] ... [file] ..."
 (** The help text printed when [#help] is used. *)
 let help_text = "Toplevel directives:
 #eval <expr> ;;                evaluate <expr>
-#context ;;                    print current contex    
+#context ;;                    print current contex
 #help ;;                       print this help
 #quit ;;                       exit
 
@@ -88,7 +88,7 @@ let parse parser lex =
 let rec exec_cmd interactive ctx (d, loc) =
   match d with
     | Input.Eval e ->
-      let e = Desugar.expr ctx.names e in
+      let e = Desugar.doExpr ctx.names e in
       let t = Typing.infer ctx e in
       let e = Norm.nf ctx e in
         if interactive then
