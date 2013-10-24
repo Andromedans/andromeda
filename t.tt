@@ -6,8 +6,21 @@ assume z : s;;
 define d := handle [ ? :: t ] with [ ? :: t] => x end;;
 
 
-define q := fun w : t =>
+define q1 := fun w : t =>
               handle [? :: t] with [?::t] => w end;;
+
+// Bug... Doesn't work, because the two [? :: t] operations are
+//   not identical in de Bruijn notation.
+//
+// define q2 :=  handle fun w : t => [? :: t]
+//               with [?::t] => z end;;
+//
+
+// Might work accidentally, if q2 were fixed. Oops.
+//
+// define q3 :=  handle fun w : t => [? :: t]
+//              with [?::t] => w end;;
+
 
 #context;;
 

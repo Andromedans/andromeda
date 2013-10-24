@@ -27,6 +27,7 @@ let numeral = ['0'-'9']+
 
 rule token = parse
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
+  | "//"[^'\n']*              { print_endline (Lexing.lexeme lexbuf); token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
   | name                { let s = Lexing.lexeme lexbuf in
                             try
