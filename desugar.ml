@@ -45,32 +45,32 @@ let index ~loc x =
   in
     index 0
 
-(** [doExpr xs e] converts an expression of type [I.expr] to type [expr] by
+(** [doTerm xs e] converts an expression of type [I.expr] to type [expr] by
     replacing names in [e] with de Bruijn indices. Here [xs] is the list of names
     currently in scope (i.e., Context.names) *)
-let rec doExpr xs (e, loc) =
+let rec doTerm xs (e, loc) =
   (match e with
     | I.Var x -> Var (index ~loc x xs)
     | I.Type  -> Type
-    | I.Pi (x, t1, t2) -> Pi (x, doExpr xs t1, doExpr (x :: xs) t2)
-    | I.Lambda (x, None  , e) -> Lambda (x, None, doExpr (x :: xs) e)
-    | I.Lambda (x, Some t, e) -> Lambda (x, Some (doExpr xs t), doExpr (x :: xs) e)
-    | I.App (e1, e2)   -> App (doExpr xs e1, doExpr xs e2)
-    | I.Ascribe (e, t) -> Ascribe (doExpr xs e, doExpr xs t)
-    | I.Operation (optag, terms) -> Operation (optag, List.map (doExpr xs) terms)
-    | I.Handle (term, h) -> Handle (doExpr xs term, handler xs h)
+    | I.Pi (x, t1, t2) -> Pi (x, doTerm xs t1, doTerm (x :: xs) t2)
+    | I.Lambda (x, None  , e) -> Lambda (x, None, doTerm (x :: xs) e)
+    | I.Lambda (x, Some t, e) -> Lambda (x, Some (doTerm xs t), doTerm (x :: xs) e)
+    | I.App (e1, e2)   -> App (doTerm xs e1, doTerm xs e2)
+    | I.Ascribe (e, t) -> Ascribe (doTerm xs e, doTerm xs t)
+    | I.Operation (optag, terms) -> Operation (optag, List.map (doTerm xs) terms)
+    | I.Handle (term, h) -> Handle (doTerm xs term, handler xs h)
   ),
   loc
 
 
 and doComputation xs (c, loc) =
   (match c with
-    | I.Return e -> Return (doExpr xs e)
-    | I.Let (x, term1, c2) -> Let (x, doExpr xs term1, doComputation (x::xs) c2)),
+    | I.Return e -> Return (doTerm xs e)
+    | I.Let (x, term1, c2) -> Let (x, doTerm xs term1, doComputation (x::xs) c2)),
   loc
 
 and handler xs lst = List.map (handler_case xs) lst
 
 and handler_case xs (optag, terms, c) =
-  (optag, List.map (doExpr xs) terms, doComputation xs c)
+  (optag, List.map (doTerm xs) terms, doComputation xs c)
 

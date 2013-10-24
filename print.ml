@@ -30,25 +30,32 @@ let sequence ?(sep="") f lst ppf =
   in
     seq lst
 
-(** [pi xs a ppf] prints abstraction [a] as dependent product using formatter [ppf]. *)
-let rec pi ?max_level xs x t1 t2 ppf =
-  if Syntax.occurs 0 t2
+(** [tpi xs a ppf] prints abstraction [a] as dependent product using formatter [ppf]. *)
+let rec tpi ?max_level xs x (t1:Syntax.ty) (t2:Syntax.ty) ppf =
+  if Syntax.occursTy 0 t2
   then
     let x = Beautify.refresh x xs in
-      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (expr ~max_level:2 xs t1) (expr (x :: xs) t2)
+      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (ty ~max_level:2 xs t1) (ty (x :: xs) t2)
   else
-    print ~at_level:3 ppf "%t ->@ %t" (expr ~max_level:2 xs t1) (expr ("_" :: xs) t2)
+    print ~at_level:3 ppf "%t ->@ %t" (ty ~max_level:2 xs t1) (ty ("_" :: xs) t2)
+
+(** [kpi xs x t1 k2 ppf] prints abstraction  as dependent product using formatter [ppf]. *)
+and kpi ?max_level xs x t1 k2 ppf =
+  if Syntax.occursKind 0 k2
+  then
+    let x = Beautify.refresh x xs in
+      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (ty ~max_level:2 xs t1) (kind (x :: xs) k2)
+  else
+    print ~at_level:3 ppf "%t ->@ %t" (ty ~max_level:2 xs t1) (kind ("_" :: xs) k2)
 
 (** [lambda xs x t e ppf] prints function [fun x => e] using formatter [ppf]. *)
-and lambda xs x t e ppf =
+and lambda xs x (t : Syntax.ty) e ppf =
   let x =
     if Syntax.occurs 0 e
     then Beautify.refresh x xs
     else "_"
   in
-    match t with
-      | None -> print ~at_level:3 ppf "fun %s =>@ %t" x (expr (x :: xs) e)
-      | Some t -> print ~at_level:3 ppf "fun %s : %t =>@ %t" x (expr ~max_level:2 xs t) (expr (x :: xs) e)
+    print ~at_level:3 ppf "fun %s : %t =>@ %t" x (ty ~max_level:2 xs t) (expr (x :: xs) e)
 
 (** [expr ctx e ppf] prints expression [e] using formatter [ppf]. *)
 and expr ?max_level xs e ppf =
@@ -58,16 +65,44 @@ and expr ?max_level xs e ppf =
       if not (Format.over_max_boxes ()) then
         match e with
           | Syntax.Var k -> print "%s" (List.nth xs k)
-          | Syntax.Subst (s, e) -> let e = Syntax.subst s e in print "%t" (expr ?max_level xs e)
-          | Syntax.Pi (x, t1, t2) -> print ~at_level:3 "%t" (pi xs x t1 t2)
           | Syntax.Lambda (x, t, e) -> print ~at_level:3 "%t" (lambda xs x t e)
           | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
-          | Syntax.Ascribe (e, t) -> print ~at_level:4 "%t : %t" (expr ~max_level:3 xs e) (expr ~max_level:3 xs t)
-          | Syntax.Type -> print "Type"
-          | Syntax.Sort -> print "Sort"
+          (*
+          | Syntax.Operation (tag, exps) -> print ppf "[%t %a]" (operation ?max_level xs op)
+                                              (sequence ~sep:" " (expr
+                                              ~max_level:1 xs) exps)
+          | Syntax.Handle (c, h) -> print ppf "handle %t with <handler>" (computation xs c)
+          *)
   in
     expr ?max_level xs e ppf
 
+(** [ty ctx t ppf] prints type [t] using formatter [ppf]. *)
+and ty ?max_level xs t ppf =
+  let rec ty ?max_level xs t ppf = ty' ?max_level xs t ppf
+  and ty' ?max_level xs t ppf =
+    let print ?at_level = print ?max_level ?at_level ppf in
+      if not (Format.over_max_boxes ()) then
+        match t with
+          | Syntax.TVar k -> print "%s" (List.nth xs k)
+          | Syntax.TPi (x, t1, t2) -> print ~at_level:3 "%t" (tpi xs x t1 t2)
+          | Syntax.TApp (t1, e2) -> print ~at_level:1 "%t@ %t" (ty ~max_level:1 xs t1) (expr ~max_level:0 xs e2)
+  in
+    ty ?max_level xs t ppf
+
+(** [kind ctx k ppf] prints kind [k] using formatter [ppf]. *)
+and kind ?max_level xs k ppf =
+  let rec kind ?max_level xs k ppf = kind' ?max_level xs k ppf
+  and kind' ?max_level xs k ppf =
+    let print ?at_level = print ?max_level ?at_level ppf in
+      if not (Format.over_max_boxes ()) then
+        match k with
+          | Syntax.KType -> print "Type"
+          | Syntax.KPi (x, t1, k2) -> print ~at_level:3 "%t" (kpi xs x t1 k2)
+  in
+    kind ?max_level xs k ppf
+
+
+    (*
 let operation ?max_level xs op ppf =
   match op with
     | Syntax.Inhabit t -> print ppf "[ ? :: %t ]" (expr ~max_level:2 xs t)
@@ -92,6 +127,7 @@ let rec result ?max_level xs r ppf =
       print ppf "fun %s : %t => %t ..." x (expr ~max_level:2 xs t) (result (x::xs) r)
     | Value.Definition (x, t, e, r, _) ->
       print ppf "let %s := %t : %t in %t ..." x (expr ~max_level:2 xs e) (expr ~max_level:2 xs t) (result (x::xs) r)
+*)
 
 (** Support for printing of errors, warning and debugging information. *)
 
@@ -106,7 +142,7 @@ let message msg_type v =
   else
     Format.ifprintf Format.err_formatter
 
-let error (err_type, msg) = message (err_type) 1 "%s" msg
+let error (loc, err_type, msg) = message (err_type) 1 "%s" msg
 let warning msg = message "Warning" 2 msg
 let debug msg = message "Debug" 3 msg
 

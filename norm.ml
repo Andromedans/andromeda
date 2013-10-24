@@ -69,4 +69,7 @@ let nf ctx = norm ~weak:false ctx
 (** [whnf ctx e] computes the weak head normal form of expression [e]. *)
 let whnf ctx = norm ~weak:true ctx
 
+let nfTy ctx = normTy ~weak:false ctx
+let whnfTy ctx = normTy ~weak:true ctx
+
 

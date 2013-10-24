@@ -1,6 +1,6 @@
 (** Toplevel. *)
 
-open Context
+module Ctx = Context
 
 (** Should the interactive shell be run? *)
 let interactive_shell = ref true
@@ -83,70 +83,46 @@ let parse parser lex =
   | Failure "lexing: empty token" ->
       Error.syntax ~loc:(Lexer.position_of_lex lex) "unrecognised symbol."
 
-(** [exec_cmd ctx d] executes toplevel directive [d] in context [ctx]. It prints the
+(** [exec_cmd env d] executes toplevel directive [d] in context [env]. It prints the
     result if in interactive mode, and returns the new context. *)
-let rec exec_cmd interactive ctx (d, loc) =
+let rec exec_cmd interactive env (d, loc) =
   match d with
-    | Input.Eval e ->
-      let e = Desugar.doExpr ctx.names e in
-      let t = Typing.infer ctx e in
-      let e = Norm.nf ctx e in
-        if interactive then
-          Format.printf "    = %t@\n    : %t@."
-            (Print.expr ctx.names e)
-            (Print.expr ctx.names t) ;
-        ctx
     | Input.Context ->
+        let names = env.Typing.ctx.Ctx.names in
       ignore
         (List.fold_left
            (fun k x ->
-             (match Context.lookup k ctx with
-               | Parameter t ->
-                 Format.printf "@[%s : %t@]@." x (Print.expr ctx.names t)
-               | Definition (t, e) ->
-                 Format.printf "@[%s = %t@]@\n    : %t@." x (Print.expr ctx.names e) (Print.expr ctx.names t)) ;
+             (match Typing.lookup k env with
+               | Ctx.Parameter t ->
+                 Format.printf "@[%s : %t@]@." x (Print.ty names t)
+               | Ctx.Definition (t, e) ->
+                 Format.printf "@[%s = %t@]@\n    : %t@." x (Print.expr names e) (Print.ty names t)
+               | Ctx.TyParameter k ->
+                 Format.printf "@[%s : %t@]@." x (Print.kind  names k)
+               | Ctx.TyDefinition (k, t) ->
+                 Format.printf "@[%s = %t@]@\n    : %t@." x (Print.ty names t) (Print.kind names k));
              k + 1)
-           0 ctx.names) ;
-      ctx
-    | Input.TopLet (x, c) ->
-      if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
-      let c = Desugar.computation ctx.names c in
-        Machine.toplet ctx x c
+           0 names) ;
+      env
     | Input.TopParam (xs, t) ->
-      let t = Desugar.expr ctx.names t in
-        ignore (Typing.check_sort ctx t) ;
-        let ctx, _ = List.fold_left
-          (fun (ctx, t) x ->
-            if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
-            if interactive then Format.printf "%s is assumed.@." x ;
-            (add_parameter x t ctx, Syntax.shift 1 t))
-          (ctx, t) xs
-        in
-          ctx
-    | Input.TopDefine (x, e) ->
-      if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;
-      let e = Desugar.expr ctx.names e in
-      let t = Typing.infer ctx e in
-        if interactive then
-          Format.printf "%s is defined.@." x ;
-        add_definition x t e ctx
-    | Input.Computation c ->
-      let c = Desugar.computation ctx.names c in
-      let v = Machine.toplevel ctx c in
-        if interactive then
-          Format.printf "%t@." (Print.value ctx.names v) ;
-        ctx
+        let t = Desugar.doTerm env.Typing.ctx.Ctx.names t in
+        let env' = Typing.inferParam ~verbose:interactive env xs t  in
+        env'
+    | Input.TopDef (x, e) ->
+        let e = Desugar.doTerm env.Typing.ctx.Ctx.names e in
+        let env' = Typing.inferDefinition ~verbose:interactive env x e  in
+        env'
     | Input.Help ->
-      print_endline help_text ; ctx
+      print_endline help_text ; env
     | Input.Quit -> exit 0
 
 (** Load directives from the given file. *)
-and use_file ctx (filename, interactive) =
+and use_file env (filename, interactive) =
   let cmds = Lexer.read_file (parse Parser.file) filename in
-    List.fold_left (exec_cmd interactive) ctx cmds
+    List.fold_left (exec_cmd interactive) env cmds
 
 (** Interactive toplevel *)
-let toplevel ctx =
+let toplevel env =
   let eof = match Sys.os_type with
     | "Unix" | "Cygwin" -> "Ctrl-D"
     | "Win32" -> "Ctrl-Z"
@@ -155,11 +131,11 @@ let toplevel ctx =
   print_endline ("tt " ^ Version.version);
   print_endline ("[Type " ^ eof ^ " to exit or \"#help;;\" for help.]");
   try
-    let ctx = ref ctx in
+    let env = ref env in
     while true do
       try
         let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
-        ctx := exec_cmd true !ctx cmd
+        env := exec_cmd true !env cmd
       with
         | Error.Error err -> Print.error err
         | Sys.Break -> prerr_endline "Interrupted."
@@ -195,7 +171,7 @@ let main =
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
-    let ctx = List.fold_left use_file empty_context !files in
-    if !interactive_shell then toplevel ctx
+    let env = List.fold_left use_file Typing.empty_env !files in
+    if !interactive_shell then toplevel env
   with
     Error.Error err -> Print.error err; exit 1

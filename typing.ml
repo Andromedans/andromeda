@@ -7,90 +7,159 @@ module Ctx = Context
 
 exception Unimplemented
 
-type size = Small | Large
-
 type synthAnswer =
   | AnsExp  of S.expr * S.ty
   | AnsTy   of S.ty * S.kind
   | AnsKind of S.kind
 
-(** [equal_at ctx e1 e2 t] compares expressions [e1] and [e2] at sort [t]. It is assumed
+type env = {
+  ctx : Ctx.context;
+  handlers : S.handler list;
+}
+
+let empty_env = { ctx = Ctx.empty_context;
+                  handlers = [];
+                 }
+
+let add_parameter x t env =
+  {env with ctx = Ctx.add_parameter x t env.ctx}
+let add_ty_parameter x k env =
+  {env with ctx = Ctx.add_ty_parameter x k env.ctx}
+let add_definition x t e env =
+  {env with ctx = Ctx.add_definition x t e env.ctx}
+let add_ty_definition x k t env =
+  {env with ctx = Ctx.add_ty_definition x k t env.ctx}
+
+let lookup v env = Ctx.lookup v env.ctx
+let lookup_ty v env = Ctx.lookup_ty v env.ctx
+let lookup_kind v env = Ctx.lookup_kind v env.ctx
+
+(** [equal_at env e1 e2 t] compares expressions [e1] and [e2] at sort [t]. It is assumed
     that [t] is a valid sort. It is also assumed that [e1] and [e2] have sort [t]. *)
-let rec equal_at ctx e1 e2 t =
-  let t = Norm.whnf ctx t in
+let rec equal_at env e1 e2 t =
+  S.equal (Norm.nf env.ctx e1) (Norm.nf env.ctx e2)
+
+  (*
+  let t = Norm.whnf env t in
     match t with
-      | S.Pi (x, t1, t2) ->
+      | S.Var k1, S.Var k2 -> (k1 = k2)
+      | S.
+      | S.TPi (x, t1, t2) ->
         let e1' = S.mk_app (S.shift 1 e1) (S.mk_var 0) in
         let e2' = S.mk_app (S.shift 1 e2) (S.mk_var 0) in
-          equal_at (Ctx.add_parameter x t1 ctx) e1' e2' t2
-      | S.Type | S.Sort -> equal_sort ctx e1 e2
-      | S.Var _ | S.App _ -> equal ctx e1 e2
-      | S.Lambda _ | S.Subst _ | S.Ascribe _ ->
-        Error.runtime "internal error, compare at non-sort"
+          equal_at (add_parameter x t1 env) e1' e2' t2
+      | S.TVar _ | S.TApp _ -> equal env e1 e2
 
-and equal ctx e1 e2 =
-  let e1 = Norm.whnf ctx e1 in
-  let e2 = Norm.whnf ctx e2 in
+and equal env e1 e2 =
+  let e1 = Norm.whnf env e1 in
+  let e2 = Norm.whnf env e2 in
     match e1, e2 with
-      | S.Type, S.Type -> true
-      | S.Sort, S.Sort -> true
-      | S.Pi (x, t1, t2), S.Pi (_, s1, s2) ->
-        equal_sort ctx t1 s1 &&
-        equal_sort (Ctx.add_parameter x t1 ctx) t2 s2
+      | S.TPi (x, t1, t2), S.Pi (_, s1, s2) ->
+        equal_sort env t1 s1 &&
+        equal_sort (add_parameter x t1 env) t2 s2
       | S.Var _, S.Var _
-      | S.App _, S.App _ -> None <> equal_spine ctx e1 e2
+      | S.App _, S.App _ -> None <> equal_spine env e1 e2
       | (S.Var _ | S.Pi _ | S.Lambda _ | S.App _
             | S.Subst _ | S.Ascribe _ | S.Type | S.Sort), _ -> false
 
-and equal_spine ctx e1 e2 =
+and equal_spine env e1 e2 =
   match e1, e2 with
     | S.Var k1, S.Var k2 ->
       if k1 = k2
-      then Some (Ctx.lookup_ty k2 ctx)
+      then Some (lookup_ty k2 env)
       else None
     | S.App (a1, a2), S.App (b1, b2) ->
-      (match equal_spine ctx a1 b1 with
+      (match equal_spine env a1 b1 with
         | None -> None
         | Some t ->
-          (match (Norm.whnf ctx t) with
+          (match (Norm.whnf env t) with
             | S.Pi (x, u1, u2) ->
-              if equal_at ctx a2 b2 u1
+              if equal_at env a2 b2 u1
               then Some (S.mk_subst (S.Dot (a2, S.idsubst)) u2)
               else None
             | _ -> None))
     | (S.Var _ | S.Pi _ | S.Lambda _ | S.App _ | S.Subst _ | S.Ascribe _ | S.Type | S.Sort), _ -> None
+    *)
+
+and equalTy_at env t1 t2 k =
+  match k with
+      | S.KPi (x, t3, k3) ->
+          let t1' = S.TApp (S.shiftTy 1 t1, S.Var 0) in
+          let t2' = S.TApp (S.shiftTy 1 t2, S.Var 0) in
+          equalTy_at (add_parameter x t3 env) t1' t2' k3
+      | S.KType ->
+          begin
+            let t1' = Norm.whnfTy env.ctx t1 in
+            let t2' = Norm.whnfTy env.ctx t2 in
+            match equalTy_spine env t1' t2' with
+            | Some _ -> true
+            | _      -> false
+          end
+
+and equalTy_spine env t1 t2 =
+  match t1, t2 with
+  | S.TVar v1, S.TVar v2 ->
+      if v1 = v2 then Some (lookup_kind v1 env) else None
+  | S.TPi (x, t11, t12), S.TPi (_, t21, t22) ->
+      if ( equalTy_at env t11 t21 S.KType &&
+           equalTy_at (add_parameter x t11 env) t12 t22 S.KType ) then
+        Some S.KType
+      else
+        None
+  | S.TApp (p1, e1), S.TApp (p2, e2) ->
+      begin
+        match equalTy_spine env p1 p2 with
+        | Some (S.KPi (x, t3, k3)) ->
+            if (equal_at env e1 e2 t3) then
+              Some (S.substKind 0 e1 k3)
+            else
+              None
+        | _ -> None
+      end
+
+  | (S.TVar _ | S.TPi _ | S.TApp _), _ -> None
+
+and equalKind env k1 k2 =
+  match k1, k2 with
+  | S.KType, S.KType -> true
+  | S.KPi(x, t1, k1'), S.KPi(_, t2, k2') ->
+      ( equalTy_at env t1 t2 S.KType &&
+        equalKind (add_parameter x t1 env) k1' k2' )
+
+  | (S.KType | S.KPi _), _ -> false
+
 
 (** [t1] and [t2] must be valid sorts. *)
-(*and equal_sort ctx t1 t2 = equal ctx t1 t2*)
+(*and equal_sort env t1 t2 = equal env t1 t2*)
 
 
-(** [inferExp ctx e] infers the type of expression [e] in context [ctx]. *)
+(** [inferExp env e] infers the type of expression [e] in context [env]. *)
 
-let rec inferExp ctx ((_,loc) as term) =
-  match (infer ctx term) with
+let rec inferExp env ((_,loc) as term) =
+  match (infer env term) with
   | AnsExp (e,t) -> (e,t)
   | AnsTy _   -> Error.typing ~loc:loc "Found a type where an expression was expected"
   | AnsKind _ -> Error.typing ~loc:loc "Found a kind where an expression was expected"
 
-and inferTy ctx ((_, loc) as term) =
-  match infer ctx term with
+and inferTy env ((_, loc) as term) =
+  match infer env term with
   | AnsExp _ -> Error.typing ~loc:loc "Found an expression where a type was expected"
   | AnsTy (t,k) -> (t,k)
   | AnsKind _ -> Error.typing ~loc:loc "Found a kind where a type was expected"
 
 
-and inferKind ctx ((_, loc) as term) =
-  match infer ctx term with
+and inferKind env ((_, loc) as term) =
+  match infer env term with
   | AnsExp _ -> Error.typing ~loc:loc "Found an expression where a kind was expected"
   | AnsTy _   -> Error.typing ~loc:loc "Found a type where an kind was expected"
   | AnsKind k -> k
 
-and infer ctx (term, loc) =
+and infer env (term, loc) =
   match term with
 
     | D.Var v ->
         begin
-          match Ctx.lookup v ctx with
+          match lookup v env with
           | (Ctx.Parameter t | Ctx.Definition (t, _)) -> AnsExp(S.Var v, t)
           | (Ctx.TyParameter k | Ctx.TyDefinition (k, _)) -> AnsTy(S.TVar v, k)
         end
@@ -100,27 +169,27 @@ and infer ctx (term, loc) =
           (* The domains of our Pi's are always types, for now *)
           let t1 =
             begin
-              match inferTy ctx term1 with
+              match inferTy env term1 with
               | t1, S.KType -> t1
               | _, _ -> Error.typing ~loc:loc "Domain of Pi is not a proper type"
             end  in
 
-          let ctx' = Ctx.add_parameter x t1 ctx in
+          let env' = add_parameter x t1 env in
 
-          match infer ctx' term2 with
-          | AnsTy (t2, KType) -> AnsTy (S.TPi(x, t1, t2), KType)
-          | AnsKind k2        -> AnsKind (S.KPi(x, t1, k2))
+          match infer env' term2 with
+          | AnsTy (t2, S.KType) -> AnsTy (S.TPi(x, t1, t2), S.KType)
+          | AnsKind k2          -> AnsKind (S.KPi(x, t1, k2))
           | _ -> Error.typing ~loc:loc "Codomain of Pi is neither a kind nor a proper type"
         end
 
     | D.App (term1, term2) ->
         begin
-          match infer ctx term1 with
+          match infer env term1 with
           | AnsExp (e1, t1) ->
               begin
-                match norm.whnf t1 with
+                match Norm.whnfTy env.ctx t1 with
                 | S.TPi(_, t11, t12) ->
-                    let e2 = checkExp ctx term2 t11  in
+                    let e2 = checkExp env term2 t11  in
                     AnsExp(S.App(e1, e2), S.substTy 0 e2 t12)
                 | (S.TVar _ | S.TApp _) ->
                     Error.typing ~loc:loc "Operand does not have a Pi type"
@@ -129,7 +198,7 @@ and infer ctx (term, loc) =
               begin
                 match k1 with
                 | S.KPi(_, t11, k12) ->
-                    let e2 = checkExp ctx term2 t11  in
+                    let e2 = checkExp env term2 t11  in
                     AnsTy(S.TApp(t1, e2), S.substKind 0 e2 k12)
                 | S.KType ->
                     Error.typing ~loc:loc "Application of a proper type"
@@ -139,12 +208,12 @@ and infer ctx (term, loc) =
 
     | D.Ascribe (term1, term2) ->
         begin
-          match infer ctx term2 with
+          match infer env term2 with
           | AnsTy (t2, S.KType) ->
-              let e1 = checkExp ctx term1 t2  in
+              let e1 = checkExp env term1 t2  in
               AnsExp (e1, t2)
           | AnsKind k2 ->
-              let t1 = checkTy ctx term1 k2  in
+              let t1 = checkTy env term1 k2  in
               AnsTy (t1, k2)
           | AnsExp _->
               Error.typing ~loc:loc "Ascription of an expression"
@@ -156,11 +225,11 @@ and infer ctx (term, loc) =
 
     | D.Lambda (x, Some term1, term2) ->
         begin
-          match inferTy ctx term1 with
+          match inferTy env term1 with
           | (t1, S.KType) ->
               begin
-                let (e2, t2) = inferExp (Ctx.add_parameter x t1 ctx) term2 in
-                AnsExp(S.Lambda (x, t1, e2), S.Pi(x, t1, t2))
+                let (e2, t2) = inferExp (add_parameter x t1 env) term2 in
+                AnsExp(S.Lambda (x, t1, e2), S.TPi(x, t1, t2))
               end
           | _ -> Error.typing ~loc "Parameter annotation not a proper type"
         end
@@ -168,53 +237,80 @@ and infer ctx (term, loc) =
     | D.Operation _ -> raise Unimplemented
     | D.Handle _ -> raise Unimplemented
 
+    | D.Type -> AnsKind S.KType
 
 
-and check ctx ((e', loc) as e) t =
-  ignore (check_sort ctx t) ;
-  match e' with
-    | Subst (s, e) -> check ctx (subst s e) t (* XXX avoid rechecking t *)
-    | Lambda (x, None, e) ->
-      (match (Norm.whnf ctx t) with
-        | Pi (x, t1, t2) -> check (Ctx.add_parameter x t1 ctx) e t2
-        | _ -> Error.typing ~loc "this expression is a function but should have sort@ %t"
-          (Print.expr ctx.names t))
-    | Sort -> Error.typing ~loc "Sort does not have sort %t" (Print.expr ctx.names t)
-    | Var _ | Lambda (_, Some _, _) | Pi _ | App _ | Ascribe _ | Type ->
-      let t' = infer ctx e in
-        if not (equal_sort ctx t' t) then
-          Error.typing ~loc:(snd e) "this expression has sort %t@ but it should have sort %t"
-            (Print.expr ctx.names t') (Print.expr ctx.names t)
+and checkExp env ((term1, loc) as term) t =
+  match term1 with
+    | D.Lambda (x, None, term2) ->
+        begin
+          match (Norm.whnfTy env.ctx t) with
+          | S.TPi (x, t1, t2) ->
+              begin
+                let e2 = checkExp (add_parameter x t1 env) term2 t2 in
+                S.Lambda(x, t1, e2)
+              end
+          | _ -> Error.typing ~loc "this expression is a function but should have type@ %t"
+              (Print.ty env.ctx.Ctx.names t)
+        end
+    | _ ->
+      let (e, t') = inferExp env term in
+        if not (equalTy_at env t' t S.KType) then
+          Error.typing ~loc "this expression has type %t@ but it should have type %t"
+            (Print.ty env.ctx.Ctx.names t') (Print.ty env.ctx.Ctx.names t)
+        else
+          e
 
-(* Returns [Small] if the sort is small and [Large] otherwise. *)
-and check_sort ctx (e',loc) =
-  match e' with
-    | Var k ->
-      let t = Ctx.lookup_ty k ctx in
-      (match (Norm.whnf ctx t) with
-        | Type -> Small
-        | Sort -> Large
-        | _ -> Error.typing ~loc "this expression has sort %t@ but should be a sort" (Print.expr ctx.names t))
-    | Subst (s, e) -> check_sort ctx (subst s e)
-    | Lambda _ -> Error.typing ~loc "this expression is a function but should be a sort"
-    | Pi (x, t1, t2) ->
-      let u1 = check_sort ctx t1 in
-      let u2 = check_sort (Ctx.add_parameter x t1 ctx) t2 in
-        max_size u1 u2
-    | App (e1, e2) ->
-      let (x, t1, t2) = infer_pi ctx e1 in
-        check ctx e2 t1 ;
-        check_sort (Ctx.add_parameter x t1 ctx) t2
-    | Ascribe (e1, e2) ->
-      check ctx e1 e2 ;
-      check_sort ctx e1
-    | Type -> Large
-    | Sort -> Error.typing ~loc "Sort is not a sort"
+and checkTy env ((_, loc) as term) k =
+  let (t, k') = inferTy env term  in
+  if (equalKind env k k') then
+    t
+  else
+    Error.typing ~loc "This type does not have the expected kind"
 
-and infer_pi ctx e =
-  let t = infer ctx e in
-    match (Norm.whnf ctx t) with
-      | Pi (x, t1, t2) -> (x, t1, t2)
-      | Subst _ | Ascribe _ -> assert false
-      | Var _ | App _ | Type | Sort | Lambda _ ->
-        Error.typing ~loc:(snd e) "this expression has sort %t@ but it should be a function" (Print.expr ctx.names t)
+let inferParam ?(verbose=false) env names ((_,loc) as term) =
+  match infer env term with
+    | AnsExp _ -> Error.typing ~loc "Parameter given with an expression"
+    | AnsTy (ty, S.KType) ->
+        let env, _ = List.fold_left
+          (fun (env, t) x ->
+            (*if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;*)
+            if verbose then Format.printf "%s is assumed.@." x ;
+            (add_parameter x t env, Syntax.shiftTy 1 t))
+          (env, ty) names
+        in
+          env
+    | AnsTy (ty, S.KPi _) ->
+        Error.typing ~loc "Parameter given with a non-proper type."
+    | AnsKind kind ->
+        let env, _ = List.fold_left
+          (fun (env, k) x ->
+            (*if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;*)
+            if verbose then Format.printf "%s is assumed.@." x ;
+            (add_ty_parameter x k env, Syntax.shiftKind 1 k))
+          (env, kind) names
+        in
+          env
+
+let inferDefinition ?(verbose=false) env name ((_,loc) as termDef) =
+  match infer env termDef with
+  | AnsTy (ty, kind) ->
+      add_ty_definition name kind ty env
+  | AnsKind kind ->
+      Error.typing ~loc "Cannot define kind variables"
+  | AnsExp (expr, ty) ->
+      add_definition name ty expr env
+
+let inferAnnotatedDefinition ?(verbose=false) env name ((_,loc) as term) termDef =
+  match infer env term with
+  | AnsTy (ty, S.KType) ->
+      let expr = checkExp env termDef ty  in
+      add_definition name ty expr env
+  | AnsKind kind ->
+      let ty = checkTy env termDef kind  in
+      add_ty_definition name kind ty env
+  | AnsExp _->
+      Error.typing ~loc:loc "Not a type or a kind"
+  | AnsTy _ ->
+      Error.typing ~loc:loc "Not a proper type"
+

@@ -34,7 +34,7 @@ rule token = parse
                             with Not_found -> NAME s
                         }
   | "#context"          { CONTEXT }
-  | "#eval"             { EVAL }
+  (*| "#eval"             { EVAL }*)
   | "#help"             { HELP }
   | "#quit"             { QUIT }
   | '('                 { LPAREN }
@@ -50,8 +50,8 @@ rule token = parse
   | "->"                { ARROW }
   | "=>"                { DARROW }
   | ":="                { COLONEQ }
-  | "=="                { EQEQ }
-  | "@"                 { AT }
+  (*| "=="                { EQEQ }*)
+  (*| "@"                 { AT }*)
   | eof                 { EOF }
 
 
