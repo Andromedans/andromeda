@@ -102,11 +102,14 @@ handler_case:
   | LBRACK plain_operation RBRACK DARROW computation
                                             { let (tag,args) = $2 in (tag,args, $5) }
 
+(*
 computation: mark_position(plain_computation) { $1 }
 plain_computation:
   | RETURN term                                  { Return $2 }
   | LPAREN plain_computation RPAREN              { $2 }
   | LET NAME COLONEQ term IN computation         { Let ($2, $4, $6) }
+  *)
+computation: term { $1 }
 
 (*operation: mark_position(plain_operation) { $1 }*)
 plain_operation:

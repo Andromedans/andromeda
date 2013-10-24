@@ -17,13 +17,17 @@ and term' =
 and operation_tag = I.operation_tag =
   | Inhabit
 
+  (*
 and computation = computation' * Common.position
 and computation' =
   | Return of term
   | Let of Common.variable * term * computation
+and handler_body = computation
+  *)
+and handler_body = term
 
 and handler =
-   (operation_tag * term list * computation) list
+   (operation_tag * term list * handler_body) list
 
 type toplevel = toplevel' * Common.position
 and toplevel' =
@@ -62,15 +66,18 @@ let rec doTerm xs (e, loc) =
   ),
   loc
 
-
+(*
 and doComputation xs (c, loc) =
   (match c with
     | I.Return e -> Return (doTerm xs e)
     | I.Let (x, term1, c2) -> Let (x, doTerm xs term1, doComputation (x::xs) c2)),
   loc
+  *)
 
 and handler xs lst = List.map (handler_case xs) lst
-
+(*
 and handler_case xs (optag, terms, c) =
   (optag, List.map (doTerm xs) terms, doComputation xs c)
-
+*)
+and handler_case xs (optag, terms, c) =
+  (optag, List.map (doTerm xs) terms, doTerm xs c)

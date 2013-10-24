@@ -1,5 +1,7 @@
 (** Abstract syntax of internal expressions. *)
 
+module D = Desugar
+
 (** Abstract syntax of expressions, where de Bruijn indices are used to represent
     variables. *)
 type expr =
@@ -193,12 +195,15 @@ let shift_computation k c = subst_computation (Shift k) c
 *)
 
 type operation =
-  | Inhabit of ty                   (* inhabit a type *)
+  | InhabitTy of ty                   (* inhabit a type *)
+  | InhabitKind of kind               (* inhabit a kind *)
 
-(** Computations. *)
+(** Computations.
 and computation =
   | Return of expr
-  | Operation of operation
+  | ReturnTy of ty
   | Let of Common.variable * expr * computation
+  *)
+and computation = D.term
 
 and handler = (operation * computation) list

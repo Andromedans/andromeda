@@ -15,13 +15,17 @@ and term' =
 and operation_tag =
   | Inhabit
 
+  (*
 and computation = computation' * Common.position
 and computation' =
   | Return of term
   | Let of Common.variable * term * computation
+and handler_body = computation
+  *)
+and handler_body = term
 
 and handler =
-   (operation_tag * term list * computation) list
+   (operation_tag * term list * handler_body) list
 
 type toplevel = toplevel' * Common.position
 and toplevel' =

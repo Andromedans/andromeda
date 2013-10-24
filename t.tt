@@ -1,0 +1,13 @@
+assume s t : Type;;
+assume x y : t;;
+assume z : s;;
+
+
+define d := handle [ ? :: t ] with [ ? :: t] => x end;;
+
+
+define q := fun w : t =>
+              handle [? :: t] with [?::t] => w end;;
+
+#context;;
+

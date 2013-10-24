@@ -14,7 +14,7 @@ type synthAnswer =
 
 type env = {
   ctx : Ctx.context;
-  handlers : S.handler list;
+  handlers : (S.operation * S.computation) list;
 }
 
 let empty_env = { ctx = Ctx.empty_context;
@@ -234,11 +234,36 @@ and infer env (term, loc) =
           | _ -> Error.typing ~loc "Parameter annotation not a proper type"
         end
 
-    | D.Operation _ -> raise Unimplemented
-    | D.Handle _ -> raise Unimplemented
+    | D.Operation (tag, terms) ->
+        let operation = inferOp env loc tag terms  in
+        inferHandler env loc operation
+
+    | D.Handle (term, handlers) ->
+        let env'= addHandlers env loc handlers in
+        infer env' term
 
     | D.Type -> AnsKind S.KType
 
+and inferOp env loc tag terms =
+  match tag, terms with
+  | D.Inhabit, [term] ->
+      begin
+        match infer env term with
+        | AnsTy (ty, S.KType) -> S.InhabitTy ty
+        | AnsTy _ -> Error.typing ~loc "Not a proper type"
+        | AnsKind kind -> S.InhabitKind kind
+        | AnsExp _ -> Error.typing ~loc "Cannot inhabit an expression"
+      end
+
+  | D.Inhabit, _ -> Error.typing ~loc "Wrong number of arguments to INHABIT"
+
+and addHandlers env loc = function
+  | [] -> env
+  | (tag, terms, handlerBody) :: rest ->
+      (* When we add patterns, we won't be able to use inferOp any more... *)
+      let operation = inferOp env loc tag terms  in
+      let env' = { env with handlers = ((operation, handlerBody) :: env.handlers) } in
+      addHandlers env' loc rest
 
 and checkExp env ((term1, loc) as term) t =
   match term1 with
@@ -268,15 +293,35 @@ and checkTy env ((_, loc) as term) k =
   else
     Error.typing ~loc "This type does not have the expected kind"
 
+
+and inferHandler env loc op =
+  let rec loop = function
+    | [] -> Error.typing ~loc "Unhandled operation"
+    | (op1,comp1)::rest ->
+        if (op = op1) then
+          begin
+            match op with
+            | S.InhabitTy ty ->
+                AnsExp (checkExp env comp1 ty, ty)
+            | S.InhabitKind kind ->
+                AnsTy (checkTy env comp1 kind, kind)
+          end
+        else
+          loop rest
+  in
+    loop (env.handlers)
+
+
+
 let inferParam ?(verbose=false) env names ((_,loc) as term) =
   match infer env term with
     | AnsExp _ -> Error.typing ~loc "Parameter given with an expression"
     | AnsTy (ty, S.KType) ->
         let env, _ = List.fold_left
-          (fun (env, t) x ->
+          (fun (env, t) name ->
             (*if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;*)
-            if verbose then Format.printf "%s is assumed.@." x ;
-            (add_parameter x t env, Syntax.shiftTy 1 t))
+            if verbose then Format.printf "Term %s is assumed.@." name ;
+            (add_parameter name t env, Syntax.shiftTy 1 t))
           (env, ty) names
         in
           env
@@ -284,10 +329,10 @@ let inferParam ?(verbose=false) env names ((_,loc) as term) =
         Error.typing ~loc "Parameter given with a non-proper type."
     | AnsKind kind ->
         let env, _ = List.fold_left
-          (fun (env, k) x ->
+          (fun (env, k) name ->
             (*if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;*)
-            if verbose then Format.printf "%s is assumed.@." x ;
-            (add_ty_parameter x k env, Syntax.shiftKind 1 k))
+            if verbose then Format.printf "Type %s is assumed.@." name ;
+            (add_ty_parameter name k env, Syntax.shiftKind 1 k))
           (env, kind) names
         in
           env
@@ -295,11 +340,17 @@ let inferParam ?(verbose=false) env names ((_,loc) as term) =
 let inferDefinition ?(verbose=false) env name ((_,loc) as termDef) =
   match infer env termDef with
   | AnsTy (ty, kind) ->
-      add_ty_definition name kind ty env
+      begin
+        if verbose then Format.printf "Type %s is defined.@." name;
+        add_ty_definition name kind ty env
+      end
   | AnsKind kind ->
       Error.typing ~loc "Cannot define kind variables"
   | AnsExp (expr, ty) ->
-      add_definition name ty expr env
+      begin
+        if verbose then Format.printf "Term %s is defined.@." name;
+        add_definition name ty expr env;
+      end
 
 let inferAnnotatedDefinition ?(verbose=false) env name ((_,loc) as term) termDef =
   match infer env term with
@@ -313,4 +364,6 @@ let inferAnnotatedDefinition ?(verbose=false) env name ((_,loc) as term) termDef
       Error.typing ~loc:loc "Not a type or a kind"
   | AnsTy _ ->
       Error.typing ~loc:loc "Not a proper type"
+
+
 
