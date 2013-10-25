@@ -4,24 +4,37 @@ assume O : nat ;;
 assume S : nat -> nat;;
 
 
-define d := handle [ ? :: nat ] with [?::nat] => O end;;
+define d0 := handle [ ? :: nat ] with [?::nat] => O end;;
 
 
-define q1 := fun w : nat =>
+define d1 := fun w : nat =>
               handle [?::nat] with [?::nat] => S w end;;
 
 // After desugaring the two [?::nat]'s are not syntactically identical
 //   [because the w binder increments the index for nat inside the function]
 // but the code now compensates for this difference.
-define q2 :=  handle fun w : nat => [? :: nat]
+define d2 :=  handle fun w : nat => [? :: nat]
                with [?::nat] => O end;;
-
 
 // d3 correctly fails to type check. The handler scoping is dynamic, but
 //   the bodies are statically scoped (thanks mostly to Desugar/de Bruijn)
 
-// define q3 :=  handle fun w : t => [? :: t]
+// define d3 :=  handle fun w : t => [? :: t]
 //              with [?::t] => w end;;
+
+
+define d4 := handle [ ? :: nat -> nat ] 
+             with [? :: nat -> nat] => fun n => O end;;
+
+
+// Works because handler scope is different than in Eff
+
+define d5 := handle 
+                handle [ ? :: nat -> nat ] 
+                with [? :: nat] => O
+                end
+             with [? :: nat -> nat] => fun n => [?::nat] 
+             end;;
 
 
 #context;;
