@@ -53,7 +53,12 @@ rule token = parse
   | ":="                { COLONEQ }
   (*| "=="                { EQEQ }*)
   (*| "@"                 { AT }*)
+
   | eof                 { EOF }
+
+  | _ as c              { Error.syntax ~loc:(position_of_lex lexbuf)
+                             "Unexpected character %s" (Char.escaped c) }
+
 
 
 {
