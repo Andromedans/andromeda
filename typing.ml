@@ -14,7 +14,7 @@ type synthAnswer =
 
 type env = {
   ctx : Ctx.context;
-  handlers : (S.operation * S.computation) list;
+  handlers : (int * int * S.operation * S.computation) list;  (* c, install-level *)
 }
 
 let empty_env = { ctx = Ctx.empty_context;
@@ -33,6 +33,8 @@ let add_ty_definition x k t env =
 let lookup v env = Ctx.lookup v env.ctx
 let lookup_ty v env = Ctx.lookup_ty v env.ctx
 let lookup_kind v env = Ctx.lookup_kind v env.ctx
+
+let currentLevel env = List.length env.ctx.Ctx.names
 
 (** [equal_at env e1 e2 t] compares expressions [e1] and [e2] at sort [t]. It is assumed
     that [t] is a valid sort. It is also assumed that [e1] and [e2] have sort [t]. *)
@@ -257,13 +259,17 @@ and inferOp env loc tag terms =
 
   | D.Inhabit, _ -> Error.typing ~loc "Wrong number of arguments to INHABIT"
 
-and addHandlers env loc = function
-  | [] -> env
-  | (tag, terms, handlerBody) :: rest ->
-      (* When we add patterns, we won't be able to use inferOp any more... *)
-      let operation = inferOp env loc tag terms  in
-      let env' = { env with handlers = ((operation, handlerBody) :: env.handlers) } in
-      addHandlers env' loc rest
+and addHandlers env loc handlers =
+  let c = 0  in (* only because we're not doing pattern-matching! *)
+  let installLevel = currentLevel env  in
+  let rec loop = function
+    | [] -> env
+    | (tag, terms, handlerBody) :: rest ->
+        (* When we add patterns, we won't be able to use inferOp any more... *)
+        let operation = inferOp env loc tag terms  in
+        let env' = { env with handlers = ((c, installLevel, operation, handlerBody) :: env.handlers) } in
+        addHandlers env' loc rest  in
+  loop handlers
 
 and checkExp env ((term1, loc) as term) t =
   match term1 with
@@ -295,11 +301,15 @@ and checkTy env ((_, loc) as term) k =
 
 
 and inferHandler env loc op =
+  let level = currentLevel env  in
   let rec loop = function
     | [] -> Error.typing ~loc "Unhandled operation"
-    | (op1,comp1)::rest ->
+    | (c, installLevel, op1, comp1)::rest ->
+        let d = level - installLevel in
+        let op1 = Syntax.shiftOperation ~c d op1  in
         if (op = op1) then
           begin
+            let comp1 = D.shift ~c d comp1  in
             match op with
             | S.InhabitTy ty ->
                 AnsExp (checkExp env comp1 ty, ty)
