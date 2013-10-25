@@ -11,6 +11,7 @@ let error ~loc err_type =
     let msg = Format.flush_str_formatter () in
       raise (Error (loc, err_type, msg))
   in
+    Format.fprintf Format.str_formatter "%s: " (Common.string_of_position loc);
     Format.kfprintf k Format.str_formatter
 
 let fatal   ?loc:(loc=Common.Nowhere) msg = error ~loc "Fatal error" msg
