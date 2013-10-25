@@ -81,3 +81,24 @@ and handler_case xs (optag, terms, c) =
 *)
 and handler_case xs (optag, terms, c) =
   (optag, List.map (doTerm xs) terms, doTerm xs c)
+
+
+  (* Based on similar shift code in Syntax *)
+
+let rec shift ?(c=0) d (e, loc) =
+  (match e with
+  | Var m -> if (m < c) then Var m else Var(m+d)
+  | Type  -> Type
+  | Pi (x, t1, t2) -> Pi(x, shift ~c d t1, shift ~c:(c+1) d t2)
+  | Lambda (x, None, e) -> Lambda (x, None, shift ~c:(c+1) d e)
+  | Lambda (x, Some t, e) -> Lambda (x, Some (shift ~c d t), shift ~c:(c+1) d e)
+  | App (e1, e2) -> App(shift ~c d e1, shift ~c d e2)
+  | Ascribe (e, t) -> Ascribe (shift ~c d e, shift ~c d t)
+  | Operation (optag, terms) -> Operation (optag, List.map (shift ~c d) terms)
+  | Handle (term, h) -> Handle (shift ~c d term, List.map (shift_handler_case ~c d) h)),
+  loc
+
+and shift_handler_case ?(c=0) d (optag, terms, term) =
+  (* Correct only because we have no pattern matching ! *)
+  (optag, List.map (shift ~c d) terms, shift ~c d term)
+
