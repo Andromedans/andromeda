@@ -1,23 +1,25 @@
-assume s t : Type;;
-assume x y : t;;
-assume z : s;;
+assume nat : Type;;
+assume O : nat ;;
+
+assume S : nat -> nat;;
 
 
-define d := handle [ ? :: t ] with [ ? :: t] => x end;;
+define d := handle [ ? :: nat ] with [?::nat] => O end;;
 
 
-define q1 := fun w : t =>
-              handle [? :: t] with [?::t] => w end;;
+define q1 := fun w : nat =>
+              handle [?::nat] with [?::nat] => S w end;;
 
-// Bug... Doesn't work, because the two [? :: t] operations are
-//   not identical in de Bruijn notation.
-//
-// define q2 :=  handle fun w : t => [? :: t]
-//               with [?::t] => z end;;
-//
+// After desugaring the two [?::nat]'s are not syntactically identical
+//   [because the w binder increments the index for nat inside the function]
+// but the code now compensates for this difference.
+define q2 :=  handle fun w : nat => [? :: nat]
+               with [?::nat] => O end;;
 
-// Might work accidentally, if q2 were fixed. Oops.
-//
+
+// d3 correctly fails to type check. The handler scoping is dynamic, but
+//   the bodies are statically scoped (thanks mostly to Desugar/de Bruijn)
+
 // define q3 :=  handle fun w : t => [? :: t]
 //              with [?::t] => w end;;
 
