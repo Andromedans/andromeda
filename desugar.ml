@@ -102,3 +102,39 @@ and shift_handler_case ?(c=0) d (optag, terms, term) =
   (* Correct only because we have no pattern matching ! *)
   (optag, List.map (shift ~c d) terms, shift ~c d term)
 
+
+let rec string_of_term (term, loc) =
+  begin
+  match term with
+  | Var i -> string_of_int i
+  | Type -> "Type"
+  | Lambda(x,None,t2) ->
+      "Lambda(" ^ x ^ "," ^ "_" ^ "," ^ (string_of_term t2) ^ ")"
+  | Lambda(x,Some t1,t2) ->
+      "Lambda(" ^ x ^ "," ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
+  | Pi(x,t1,t2) ->
+      "Pi(" ^ x ^ "," ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
+  | App(t1,t2) ->
+      "App(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
+  | Ascribe(t1,t2) ->
+      "Ascribe(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
+  | Operation(tag,terms) ->
+      "Operation(" ^ (string_of_tag tag) ^ "," ^ (string_of_terms terms) ^ ")"
+  | Handle(term, cases) ->
+      "Handle(" ^ (string_of_term term) ^ "," ^ (String.concat "|" (List.map
+      string_of_case cases)) ^ ")"
+  end
+
+and string_of_tag = function
+  | Inhabit -> "Inhabit"
+
+and string_of_terms terms = (String.concat "," (List.map string_of_term terms))
+
+and string_of_case (tag, terms, c) =
+  (string_of_tag tag) ^ "(" ^ (string_of_terms terms) ^ ") => " ^ (string_of_term c)
+
+
+let print term = print_endline (string_of_term term)
+
+
+
