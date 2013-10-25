@@ -198,6 +198,7 @@ type operation =
   | InhabitTy of ty                   (* inhabit a type *)
   | InhabitKind of kind               (* inhabit a kind *)
 
+
 (** Computations.
 and computation =
   | Return of expr
@@ -207,3 +208,9 @@ and computation =
 and computation = D.term
 
 and handler = (operation * computation) list
+
+
+let rec shiftOperation ?(c=0) d = function
+  | InhabitTy ty -> InhabitTy (shiftTy ~c d ty)
+  | InhabitKind kind -> InhabitKind (shiftKind ~c d kind)
+
