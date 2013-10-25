@@ -30,40 +30,45 @@ let empty_context = {
 (** Drop the most recently added thing from the context. *)
 let drop {names = ns; decls = ds} = {names = List.tl ns; decls = List.tl ds}
 
+let shift_entry ?(c=0) d = function
+  | Parameter t -> Parameter (Syntax.shiftTy ~c d t)
+  | Definition (t, e) -> Definition (Syntax.shiftTy ~c d t, Syntax.shift ~c d e)
+  | TyParameter k -> TyParameter (Syntax.shiftKind ~c d k)
+  | TyDefinition (k, t) -> TyDefinition (Syntax.shiftKind ~c d k, Syntax.shiftTy ~c d t)
+
 (** [lookup v ctx] returns the type or definition of [Var v] in context [ctx]. *)
 let lookup v {decls=lst} =
-  match List.nth lst v with
-    | Parameter t -> Parameter (Syntax.shiftTy (v+1) t)
-    | Definition (t, e) -> Definition (Syntax.shiftTy (v+1) t, Syntax.shift (v+1) e)
-    | TyParameter k -> TyParameter (Syntax.shiftKind (v+1) k)
-    | TyDefinition (k, t) -> TyDefinition (Syntax.shiftKind (v+1) k, Syntax.shiftTy (v+1) t)
+  shift_entry (v+1) (List.nth lst v)
 
 (** [lookup_ty v ctx] returns the type of [Var v] in context [ctx]. *)
-let lookup_ty v {decls} =
-  match List.nth decls v with
-    | Parameter t | Definition (t, _) -> Syntax.shiftTy (v+1) t
+let lookup_ty v ctx =
+  let entry = lookup v ctx in
+  match entry with
+    | Parameter t | Definition (t, _) -> t
     | (TyParameter _ | TyDefinition _) ->
         Error.runtime "lookup_ty: index denotes a type variable"
 
-let lookup_kind v {decls} =
-  match List.nth decls v with
+let lookup_kind v ctx =
+  let entry = lookup v ctx in
+  match entry with
     | Parameter _ | Definition _ ->
         Error.runtime "lookup_kind: index denotes an expr variable"
-    | TyParameter k | TyDefinition (k, _) ->
-        Syntax.shiftKind (v+1) k
+    | TyParameter k | TyDefinition (k, _) -> k
 
 (** [lookup_definition v ctx] returns the definition of [Var v] in context [ctx]. *)
-let lookup_definition v {decls} =
-  match List.nth decls v with
-    | Definition (_, e) -> Some (Syntax.shift (v+1) e)
+let lookup_definition v ctx =
+  let entry = lookup v ctx in
+  match entry with
+    | Definition (_, e) -> Some e
     | Parameter _       -> None
     | (TyParameter _ | TyDefinition _) ->
         Error.runtime "lookup_definition: index denotes a type variable"
 
 (** [lookup_tydefinition v ctx] returns the definition of [TVar v] in context [ctx]. *)
-let lookup_tydefinition v {decls} =
-  match List.nth decls v with
-    | TyDefinition (_, t) -> Some (Syntax.shiftTy (v+1) t)
+let lookup_tydefinition v ctx =
+  let entry = lookup v ctx in
+  match entry with
+    | TyDefinition (_, t) -> Some t
     | TyParameter _       -> None
     | (Parameter _ | Definition _) ->
         Error.runtime "lookup_tydefinition: index denotes a expr variable"
@@ -87,4 +92,24 @@ let add_definition x t e ctx =
 let add_ty_definition x k t ctx =
   { names = x :: ctx.names ;
     decls = TyDefinition (k, t) :: ctx.decls }
+
+
+let print ctx =
+  let names = ctx.names in
+  let decls = ctx.decls in
+  ignore
+    (List.fold_left2
+      (fun k x d ->
+        (match (shift_entry (k+1) d) with
+         | Parameter t ->
+             Format.printf "@[%s : %t@]@." x (Print.ty names t)
+         | Definition (t, e) ->
+             Format.printf "@[%s = %t@]@\n    : %t@." x (Print.expr names e) (Print.ty names t)
+         | TyParameter k ->
+             Format.printf "@[%s : %t@]@." x (Print.kind  names k)
+         | TyDefinition (k, t) ->
+             Format.printf "@[%s = %t@]@\n    : %t@." x (Print.ty names t) (Print.kind names k));
+             k + 1)
+      0 names decls)
+
 

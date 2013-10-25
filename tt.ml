@@ -88,22 +88,8 @@ let parse parser lex =
 let rec exec_cmd interactive env (d, loc) =
   match d with
     | Input.Context ->
-        let names = env.Typing.ctx.Ctx.names in
-      ignore
-        (List.fold_left
-           (fun k x ->
-             (match Typing.lookup k env with
-               | Ctx.Parameter t ->
-                 Format.printf "@[%s : %t@]@." x (Print.ty names t)
-               | Ctx.Definition (t, e) ->
-                 Format.printf "@[%s = %t@]@\n    : %t@." x (Print.expr names e) (Print.ty names t)
-               | Ctx.TyParameter k ->
-                 Format.printf "@[%s : %t@]@." x (Print.kind  names k)
-               | Ctx.TyDefinition (k, t) ->
-                 Format.printf "@[%s = %t@]@\n    : %t@." x (Print.ty names t) (Print.kind names k));
-             k + 1)
-           0 names) ;
-      env
+        let _ = Ctx.print env.Typing.ctx  in
+        env
     | Input.TopParam (xs, t) ->
         let t = Desugar.doTerm env.Typing.ctx.Ctx.names t in
         let env' = Typing.inferParam ~verbose:interactive env xs t  in
