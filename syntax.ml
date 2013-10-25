@@ -58,6 +58,14 @@ and substKind j e' = function
   | KPi (x, t, k) -> KPi(x, substTy j e' t, substKind j (shift 1 e') k)
 
 
+and beta eBody eArg =
+  shift (-1) (subst 0 (shift 1 eArg) eBody)
+
+and betaTy tBody eArg =
+  shiftTy (-1) (substTy 0 (shift 1 eArg) tBody)
+
+and betaKind kBody eArg =
+  shiftKind (-1) (substKind 0 (shift 1 eArg) kBody)
 
 (*
 let idsubst = Shift 0

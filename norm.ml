@@ -27,8 +27,8 @@ let rec norm ?(weak=true) =
       | S.App (e1, e2) ->
           begin
             match loop ctx e1 with
-            | S.Lambda(x, _, eBody) ->
-                S.shift (-1) (S.subst 0 (S.shift 1 e2) eBody)
+            | S.Lambda(_, _, eBody) ->
+                S.beta eBody e2
             | (S.Var _ | S.App _) as e1' ->
                 let e2' = if weak then e2 else loop ctx e2 in
                 S.App(e1', e2')
@@ -41,9 +41,17 @@ and normTy ?(weak=true) =
   let rec loop ctx = function
       | S.TVar k as t ->
           begin
-            match Ctx.lookup k ctx with
-            | Ctx.TyDefinition (_, t') -> loop ctx t'
-            | _ -> t
+            let entry =
+              (try Ctx.lookup k ctx with
+              | e ->
+                  begin
+                    print_endline ("normTy: Error in context lookup for variable " ^ (string_of_int k) ^ ". Context is:");
+                    Ctx.print ctx;
+                    raise e;
+                  end)  in
+              match entry with
+              | Ctx.TyDefinition (_, t') -> loop ctx t'
+              | _ -> t
           end
 
       | S.TPi (x, t1, t2) as t ->
@@ -70,6 +78,11 @@ let nf ctx = norm ~weak:false ctx
 let whnf ctx = norm ~weak:true ctx
 
 let nfTy ctx = normTy ~weak:false ctx
-let whnfTy ctx = normTy ~weak:true ctx
+let whnfTy ctx ty =
+  (
+   (*Format.printf "WHNFTY in %t@\n" (Print.ty ctx.Ctx.names ty); *)
+   let answer = normTy ~weak:true ctx ty in
+   (*Format.printf "WHNFTY out %t@\n" (Print.ty ctx.Ctx.names ty);*)
+   answer)
 
 

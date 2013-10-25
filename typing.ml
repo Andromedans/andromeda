@@ -111,9 +111,9 @@ and equalTy_spine env t1 t2 =
   | S.TApp (p1, e1), S.TApp (p2, e2) ->
       begin
         match equalTy_spine env p1 p2 with
-        | Some (S.KPi (x, t3, k3)) ->
+        | Some (S.KPi (_, t3, k3)) ->
             if (equal_at env e1 e2 t3) then
-              Some (S.substKind 0 e1 k3)
+              Some (S.betaKind k3 e1)
             else
               None
         | _ -> None
@@ -192,7 +192,8 @@ and infer env (term, loc) =
                 match Norm.whnfTy env.ctx t1 with
                 | S.TPi(_, t11, t12) ->
                     let e2 = checkExp env term2 t11  in
-                    AnsExp(S.App(e1, e2), S.substTy 0 e2 t12)
+                    let appTy = S.betaTy t12 e2  in
+                    AnsExp( S.App(e1, e2), appTy )
                 | (S.TVar _ | S.TApp _) ->
                     Error.typing ~loc:loc "Operand does not have a Pi type"
               end
@@ -201,7 +202,8 @@ and infer env (term, loc) =
                 match k1 with
                 | S.KPi(_, t11, k12) ->
                     let e2 = checkExp env term2 t11  in
-                    AnsTy(S.TApp(t1, e2), S.substKind 0 e2 k12)
+                    let appKind = S.betaKind k12 e2 in
+                    AnsTy(S.TApp(t1, e2), appKind)
                 | S.KType ->
                     Error.typing ~loc:loc "Application of a proper type"
               end
@@ -309,12 +311,14 @@ and inferHandler env loc op =
         let op1 = Syntax.shiftOperation ~c d op1  in
         if (op = op1) then
           begin
-            let comp1 = D.shift ~c d comp1  in
-            match op with
-            | S.InhabitTy ty ->
-                AnsExp (checkExp env comp1 ty, ty)
-            | S.InhabitKind kind ->
-                AnsTy (checkTy env comp1 kind, kind)
+            let comp1' = D.shift ~c d comp1  in
+            let ans = match op with
+              | S.InhabitTy ty ->
+                  AnsExp (checkExp env comp1' ty, ty)
+              | S.InhabitKind kind ->
+                  AnsTy (checkTy env comp1' kind, kind)  in
+            ans
+
           end
         else
           loop rest
