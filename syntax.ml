@@ -214,3 +214,18 @@ let rec shiftOperation ?(c=0) d = function
   | InhabitTy ty -> InhabitTy (shiftTy ~c d ty)
   | InhabitKind kind -> InhabitKind (shiftKind ~c d kind)
 
+
+let rec string_of_expr = function
+  | Var i -> string_of_int i
+  | Lambda(x,t,e) -> "Lambda(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_expr e ^ ")"
+  | App(e1,e2) -> "App(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2 ^ ")"
+
+and string_of_ty = function
+  | TVar i -> string_of_int i
+  | TPi(x,t,t') -> "TPi(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_ty t' ^ ")"
+  | TApp(t1,e2) -> "App(" ^ string_of_ty t1 ^ "," ^ string_of_expr e2 ^ ")"
+
+and string_of_kind = function
+  | KType -> "Type"
+  | KPi(x,t,k) -> "KPi(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_kind k ^ ")"
+
