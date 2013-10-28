@@ -37,5 +37,23 @@ define d5 := handle
              end;;
 
 
+define p1 := (O, S(O));;
+
+define n2 := p1.fst;;
+
+
+assume List : nat -> Type;;
+assume l3 : List (S(S(S(O))));;
+assume length : (n : nat) -> List n -> nat;;
+
+
+assume p2 : (n : nat) * (List n);;
+
+define ln := p2.snd;;
+
+define p3 := (S(S(S(O))), l3);;
+
+define p4 := ( (S(S(S(O))), l3) :> (n:nat) * List(n) );;
+
 #context;;
 

@@ -35,16 +35,25 @@ let rec tpi ?max_level xs x (t1:Syntax.ty) (t2:Syntax.ty) ppf =
   if Syntax.occursTy 0 t2
   then
     let x = Beautify.refresh x xs in
-      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (ty ~max_level:2 xs t1) (ty (x :: xs) t2)
+      print ~at_level:3 ppf "(%s :@ %t) ->@ %t" x (ty ~max_level:2 xs t1) (ty (x :: xs) t2)
   else
     print ~at_level:3 ppf "%t ->@ %t" (ty ~max_level:2 xs t1) (ty ("_" :: xs) t2)
+
+(** [tpi xs a ppf] prints abstraction [a] as dependent product using formatter [ppf]. *)
+and tsigma ?max_level xs x (t1:Syntax.ty) (t2:Syntax.ty) ppf =
+  if Syntax.occursTy 0 t2
+  then
+    let x = Beautify.refresh x xs in
+      print ~at_level:3 ppf "(%s :@ %t) *@ %t" x (ty ~max_level:2 xs t1) (ty (x :: xs) t2)
+  else
+    print ~at_level:3 ppf "%t *@ %t" (ty ~max_level:2 xs t1) (ty ("_" :: xs) t2)
 
 (** [kpi xs x t1 k2 ppf] prints abstraction  as dependent product using formatter [ppf]. *)
 and kpi ?max_level xs x t1 k2 ppf =
   if Syntax.occursKind 0 k2
   then
     let x = Beautify.refresh x xs in
-      print ~at_level:3 ppf "forall %s :@ %t,@ %t" x (ty ~max_level:2 xs t1) (kind (x :: xs) k2)
+      print ~at_level:3 ppf "(%s :@ %t) ->@ %t" x (ty ~max_level:2 xs t1) (kind (x :: xs) k2)
   else
     print ~at_level:3 ppf "%t ->@ %t" (ty ~max_level:2 xs t1) (kind ("_" :: xs) k2)
 
@@ -67,6 +76,10 @@ and expr ?max_level xs e ppf =
           | Syntax.Var k -> print "%s" (List.nth xs k)
           | Syntax.Lambda (x, t, e) -> print ~at_level:3 "%t" (lambda xs x t e)
           | Syntax.App (e1, e2) -> print ~at_level:1 "%t@ %t" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
+          | Syntax.Pair (e1, e2) -> print ~at_level:0 "(%t,@ %t)" (expr ~max_level:1 xs e1) (expr ~max_level:0 xs e2)
+          | Syntax.Proj (1, e2) -> print ~at_level:1 "%t.fst" (expr ~max_level:0 xs e2)
+          | Syntax.Proj (2, e2) -> print ~at_level:1 "%t.snd" (expr ~max_level:0 xs e2)
+          | Syntax.Proj (i1, e2) -> print ~at_level:1 "%t.%d" (expr ~max_level:0 xs e2) i1
           (*
           | Syntax.Operation (tag, exps) -> print ppf "[%t %a]" (operation ?max_level xs op)
                                               (sequence ~sep:" " (expr
@@ -85,6 +98,7 @@ and ty ?max_level xs t ppf =
         match t with
           | Syntax.TVar k -> print "%s" (List.nth xs k)
           | Syntax.TPi (x, t1, t2) -> print ~at_level:3 "%t" (tpi xs x t1 t2)
+          | Syntax.TSigma (x, t1, t2) -> print ~at_level:3 "%t" (tsigma xs x t1 t2)
           | Syntax.TApp (t1, e2) -> print ~at_level:1 "%t@ %t" (ty ~max_level:1 xs t1) (expr ~max_level:0 xs e2)
   in
     ty ?max_level xs t ppf

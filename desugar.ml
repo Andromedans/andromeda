@@ -10,6 +10,9 @@ and term' =
   | Lambda of Common.variable * term option * term
   | Pi of Common.variable * term * term
   | App of term * term
+  | Sigma of Common.variable * term * term
+  | Pair of term * term
+  | Proj of int * term (* 1 = fst, 2 = snd *)
   | Ascribe of term * term
   | Operation of operation_tag * term list
   | Handle of term * handler
@@ -57,9 +60,12 @@ let rec doTerm xs (e, loc) =
     | I.Var x -> Var (index ~loc x xs)
     | I.Type  -> Type
     | I.Pi (x, t1, t2) -> Pi (x, doTerm xs t1, doTerm (x :: xs) t2)
+    | I.Sigma (x, t1, t2) -> Sigma (x, doTerm xs t1, doTerm (x :: xs) t2)
     | I.Lambda (x, None  , e) -> Lambda (x, None, doTerm (x :: xs) e)
     | I.Lambda (x, Some t, e) -> Lambda (x, Some (doTerm xs t), doTerm (x :: xs) e)
     | I.App (e1, e2)   -> App (doTerm xs e1, doTerm xs e2)
+    | I.Pair (e1, e2)   -> Pair (doTerm xs e1, doTerm xs e2)
+    | I.Proj (i1, e2) -> Proj (i1, doTerm xs e2)
     | I.Ascribe (e, t) -> Ascribe (doTerm xs e, doTerm xs t)
     | I.Operation (optag, terms) -> Operation (optag, List.map (doTerm xs) terms)
     | I.Handle (term, h) -> Handle (doTerm xs term, handler xs h)
@@ -90,10 +96,13 @@ let rec shift ?(c=0) d (e, loc) =
   | Var m -> if (m < c) then Var m else Var(m+d)
   | Type  -> Type
   | Pi (x, t1, t2) -> Pi(x, shift ~c d t1, shift ~c:(c+1) d t2)
+  | Sigma (x, t1, t2) -> Sigma(x, shift ~c d t1, shift ~c:(c+1) d t2)
   | Lambda (x, None, e) -> Lambda (x, None, shift ~c:(c+1) d e)
   | Lambda (x, Some t, e) -> Lambda (x, Some (shift ~c d t), shift ~c:(c+1) d e)
   | App (e1, e2) -> App(shift ~c d e1, shift ~c d e2)
-  | Ascribe (e, t) -> Ascribe (shift ~c d e, shift ~c d t)
+  | Pair (e1, e2) -> Pair(shift ~c d e1, shift ~c d e2)
+  | Proj (i1, e2) -> Proj(i1, shift ~c d e2)
+  | Ascribe (e1, t2) -> Ascribe (shift ~c d e1, shift ~c d t2)
   | Operation (optag, terms) -> Operation (optag, List.map (shift ~c d) terms)
   | Handle (term, h) -> Handle (shift ~c d term, List.map (shift_handler_case ~c d) h)),
   loc
@@ -114,8 +123,14 @@ let rec string_of_term (term, loc) =
       "Lambda(" ^ x ^ "," ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
   | Pi(x,t1,t2) ->
       "Pi(" ^ x ^ "," ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
+  | Sigma(x,t1,t2) ->
+      "Sigma(" ^ x ^ "," ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
   | App(t1,t2) ->
       "App(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
+  | Pair(t1,t2) ->
+      "Pair(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
+  | Proj(i1, t2) ->
+      "Proj(" ^ (string_of_int i1) ^ "," ^ (string_of_term t2) ^ ")"
   | Ascribe(t1,t2) ->
       "Ascribe(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
   | Operation(tag,terms) ->

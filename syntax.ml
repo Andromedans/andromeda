@@ -8,10 +8,13 @@ type expr =
   | Var of int
   | Lambda of Common.variable * ty * expr
   | App of expr * expr
+  | Pair of expr * expr
+  | Proj of int * expr (* 1 = fst, 2 = snd *)
 
 and ty =
   | TVar of int
   | TPi of Common.variable * ty * ty
+  | TSigma of Common.variable * ty * ty
   | TApp of ty * expr
 
 and kind =
@@ -32,10 +35,13 @@ let rec shift ?(c=0) d = function
   | Var m -> if (m < c) then Var m else Var(m+d)
   | Lambda (x, t, e) -> Lambda (x, shiftTy ~c:c d t, shift ~c:(c+1) d e)
   | App (e1, e2) -> App(shift ~c:c d e1, shift ~c:c d e2)
+  | Pair (e1, e2) -> Pair(shift ~c:c d e1, shift ~c:c d e2)
+  | Proj (i1, e2) -> Proj(i1, shift ~c:c d e2)
 
 and shiftTy ?(c=0) (d:int) = function
   | TVar m -> if (m < c) then TVar m else TVar (m+d)
   | TPi (x, t1, t2) -> TPi(x, shiftTy ~c:c d t1, shiftTy ~c:(c+1) d t2)
+  | TSigma (x, t1, t2) -> TSigma(x, shiftTy ~c:c d t1, shiftTy ~c:(c+1) d t2)
   | TApp (t, e) -> TApp(shiftTy ~c:c d t, shift ~c:c d e)
 
 and shiftKind ?(c=0) (d:int) = function
@@ -47,10 +53,13 @@ let rec subst j e' = function
   | Var m -> if (j = m) then e' else Var m
   | Lambda (x,t,e) -> Lambda(x, substTy j e' t, subst j (shift 1 e') e)
   | App(e1, e2) -> App(subst j e' e1, subst j e' e2)
+  | Pair(e1, e2) -> Pair(subst j e' e1, subst j e' e2)
+  | Proj(i1, e2) -> Proj(i1, subst j e' e2)
 
 and substTy j e' = function
   | TVar m -> TVar m
   | TPi (x, t1, t2) -> TPi(x, substTy j e' t1, substTy j (shift 1 e') t2)
+  | TSigma (x, t1, t2) -> TSigma(x, substTy j e' t1, substTy j (shift 1 e') t2)
   | TApp (t, e) -> TApp(substTy j e' t, subst j e' e)
 
 and substKind j e' = function
@@ -134,11 +143,14 @@ let rec occurs v e =
     (*| Subst (s, e) -> occurs v (subst s e)*)
     | Lambda (_, t, e) -> occursTy v t || occurs (v + 1) e
     | App (e1, e2) -> occurs v e1 || occurs v e2
+    | Pair (e1, e2) -> occurs v e1 || occurs v e2
+    | Proj (_, e2) -> occurs v e2
 
 and occursTy v t =
   match t with
     | TVar m -> m = v
     | TPi (_, t1, t2) -> occursTy v t1 || occursTy (v + 1) t2
+    | TSigma (_, t1, t2) -> occursTy v t1 || occursTy (v + 1) t2
     (*| Lambda (_, None, e) -> occurs (v + 1) e*)
     (*| Lambda (_, Some t, e) -> occurs v t || occurs (v + 1) e*)
     | TApp (t1, e2) -> occursTy v t1 || occurs v e2
@@ -156,14 +168,17 @@ let rec equal e1 e2 =
   | Var k, Var m -> k = m
   | Lambda (_, t1, e1), Lambda (_, t2, e2) -> equalTy t1 t2 && equal e1 e2
   | App (e11, e12), App (e21, e22) -> equal e11 e21 && equal e12 e22
-  | (Var _ | Lambda _ | App _), _ -> false
+  | Pair (e11, e12), Pair (e21, e22) -> equal e11 e21 && equal e12 e22
+  | Proj (i11, e12), Proj (i21, e22) -> i11 = i21 && equal e12 e22
+  | (Var _ | Lambda _ | App _ | Pair _ | Proj _), _ -> false
 
 and equalTy t1 t2 =
   match t1, t2 with
   | TVar k, TVar m -> k = m
   | TPi (_, t1, t2), TPi (_, t1', t2') -> equalTy t1 t1' && equalTy t2 t2'
+  | TSigma (_, t1, t2), TSigma (_, t1', t2') -> equalTy t1 t1' && equalTy t2 t2'
   | TApp (t11, e12), TApp (t21, e22) -> equalTy t11 t21 && equal e12 e22
-  | (TVar _ | TPi _ | TApp _), _ -> false
+  | (TVar _ | TPi _ | TApp _ | TSigma _ ), _ -> false
 
 and equalKind k1 k2 =
   match k1, k2 with
@@ -227,10 +242,13 @@ let rec string_of_expr = function
   | Var i -> string_of_int i
   | Lambda(x,t,e) -> "Lambda(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_expr e ^ ")"
   | App(e1,e2) -> "App(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2 ^ ")"
+  | Pair(e1,e2) -> "Pair(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2 ^ ")"
+  | Proj(i1,e2) -> "Proj(" ^ string_of_int i1 ^ "," ^ string_of_expr e2 ^ ")"
 
 and string_of_ty = function
   | TVar i -> string_of_int i
   | TPi(x,t,t') -> "TPi(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_ty t' ^ ")"
+  | TSigma(x,t,t') -> "TSigma(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_ty t' ^ ")"
   | TApp(t1,e2) -> "App(" ^ string_of_ty t1 ^ "," ^ string_of_expr e2 ^ ")"
 
 and string_of_kind = function

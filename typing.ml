@@ -108,6 +108,12 @@ and equalTy_spine env t1 t2 =
         Some S.KType
       else
         None
+  | S.TSigma (x, t11, t12), S.TSigma (_, t21, t22) ->
+      if ( equalTy_at env t11 t21 S.KType &&
+           equalTy_at (add_parameter x t11 env) t12 t22 S.KType ) then
+        Some S.KType
+      else
+        None
   | S.TApp (p1, e1), S.TApp (p2, e2) ->
       begin
         match equalTy_spine env p1 p2 with
@@ -119,7 +125,7 @@ and equalTy_spine env t1 t2 =
         | _ -> None
       end
 
-  | (S.TVar _ | S.TPi _ | S.TApp _), _ -> None
+  | (S.TVar _ | S.TPi _ | S.TSigma _ | S.TApp _), _ -> None
 
 and equalKind env k1 k2 =
   match k1, k2 with
@@ -184,6 +190,23 @@ and infer env (term, loc) =
           | _ -> Error.typing ~loc:loc "Codomain of Pi is neither a kind nor a proper type"
         end
 
+    | D.Sigma (x, term1, term2) ->
+        begin
+          (* The domains of our Sigmas are always types, for now *)
+          let t1 =
+            begin
+              match inferTy env term1 with
+              | t1, S.KType -> t1
+              | _, _ -> Error.typing ~loc:loc "Domain of Sigma is not a proper type"
+            end  in
+
+          let env' = add_parameter x t1 env in
+
+          match infer env' term2 with
+          | AnsTy (t2, S.KType) -> AnsTy (S.TSigma(x, t1, t2), S.KType)
+          | _ -> Error.typing ~loc:loc "Codomain of Sigma is not a proper type"
+        end
+
     | D.App (term1, term2) ->
         begin
           match infer env term1 with
@@ -194,7 +217,7 @@ and infer env (term, loc) =
                     let e2 = checkExp env term2 t11  in
                     let appTy = S.betaTy t12 e2  in
                     AnsExp( S.App(e1, e2), appTy )
-                | (S.TVar _ | S.TApp _) ->
+                | (S.TVar _ | S.TApp _ | S.TSigma _) ->
                     Error.typing ~loc:loc "Operand does not have a Pi type"
               end
           | AnsTy (t1, k1) ->
@@ -209,6 +232,37 @@ and infer env (term, loc) =
               end
           | AnsKind _ -> Error.typing ~loc:loc "Application of a kind"
         end
+
+    | D.Pair (term1, term2) ->
+        begin
+          let e1, t1 = inferExp env term1  in
+          let e2, t2 = inferExp env term2  in
+          let ty = S.TSigma("_", t1, S.shiftTy 1 t2)  in
+          AnsExp( S.Pair(e1,e2), ty )
+        end
+
+    | D.Proj (1, term2) ->
+        begin
+          let e2, t2 = inferExp env term2  in
+          match (Norm.whnfTy env.ctx t2) with
+          | S.TSigma(_, t21, _) ->
+              AnsExp(S.Proj(1, e2), t21)
+          | (S.TVar _ | S.TApp _ | S.TPi _) ->
+              Error.typing ~loc "Operand of project does not have a Sigma type"
+        end
+
+    | D.Proj (2, term2) ->
+        begin
+          let e2, t2 = inferExp env term2  in
+          match (Norm.whnfTy env.ctx t2) with
+          | S.TSigma(_, _, t22) ->
+              AnsExp(S.Proj(2, e2),
+                     S.betaTy t22 (S.Proj(1, e2)))
+          | (S.TVar _ | S.TApp _ | S.TPi _) ->
+              Error.typing ~loc "Operand of project does not have a Sigma type"
+        end
+
+    | D.Proj _ -> Error.typing ~loc "Impossible: projection other than 1 or 2"
 
     | D.Ascribe (term1, term2) ->
         begin
@@ -274,19 +328,18 @@ and addHandlers env loc handlers =
   loop handlers
 
 and checkExp env ((term1, loc) as term) t =
-  match term1 with
-    | D.Lambda (x, None, term2) ->
+  match term1, Norm.whnfTy env.ctx t with
+    | D.Lambda (x, None, term2), S.TPi (_, t1, t2) ->
         begin
-          match (Norm.whnfTy env.ctx t) with
-          | S.TPi (x, t1, t2) ->
-              begin
-                let e2 = checkExp (add_parameter x t1 env) term2 t2 in
-                S.Lambda(x, t1, e2)
-              end
-          | _ -> Error.typing ~loc "this expression is a function but should have type@ %t"
-              (Print.ty env.ctx.Ctx.names t)
+          let e2 = checkExp (add_parameter x t1 env) term2 t2 in
+          S.Lambda(x, t1, e2)
         end
-    | _ ->
+    | D.Pair (term1, term2), S.TSigma(x, t1, t2) ->
+        let e1 = checkExp env term1 t1  in
+        let t2' = S.betaTy t2 e1  in
+        let e2 = checkExp env term2 t2'  in
+        S.Pair(e1, e2)
+    | _, _ ->
       let (e, t') = inferExp env term in
         if not (equalTy_at env t' t S.KType) then
           Error.typing ~loc "this expression has type %t@ but it should have type %t"

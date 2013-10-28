@@ -29,11 +29,36 @@ let rec norm ?(weak=true) =
             match loop ctx e1 with
             | S.Lambda(_, _, eBody) ->
                 S.beta eBody e2
-            | (S.Var _ | S.App _) as e1' ->
+            | (S.Var _ | S.App _ | S.Proj _) as e1' ->
                 let e2' = if weak then e2 else loop ctx e2 in
                 S.App(e1', e2')
+            | S.Pair _ ->
+                Error.typing "Normalization found pair applied to argument"
           end
 
+      | S.Proj (i, e2) ->
+          begin
+            match loop ctx e2 with
+            | S.Pair(e21, e22) ->
+                begin
+                  match i with
+                  (* The input might have been fst(pair(XX, YY)), in which case
+                   * weak head normalizing gives us e21 = XX, e22 = YY.
+                   * These are either unnormalized (if weak), or fully
+                   * normalized (otherwise)
+                   *)
+                  | 1 -> if weak then loop ctx e21 else e21
+                  | 2 -> if weak then loop ctx e22 else e22
+                  | i -> Error.typing "Bad projection <> 1 or 2: %d" i
+                end
+            | e2' -> S.Proj(i, e2')
+          end
+
+      | S.Pair (e1, e2) ->
+          if weak then
+            e
+          else
+            S.Pair(loop ctx e1, loop ctx e2)
   in
     loop
 
@@ -61,6 +86,14 @@ and normTy ?(weak=true) =
           let t1' = loop ctx t1  in
           let e1' = loop (Ctx.add_parameter x t1' ctx) t2  in
           S.TPi (x, t1', e1')
+
+      | S.TSigma (x, t1, t2) as t ->
+        if weak then
+          t
+        else
+          let t1' = loop ctx t1  in
+          let e1' = loop (Ctx.add_parameter x t1' ctx) t2  in
+          S.TSigma (x, t1', e1')
 
       | S.TApp (t1, e2) ->
           let t1' = loop ctx t1 in

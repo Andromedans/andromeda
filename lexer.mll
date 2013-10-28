@@ -44,8 +44,12 @@ rule token = parse
   | ']'                 { RBRACK }
   | ':'                 { COLON }
   | "::"                { DCOLON }
+  | ":>"                { ASCRIBE }
+  | "*"                 { STAR }
   | ";;"                { SEMISEMI }
   | ','                 { COMMA }
+  | ".fst"              { DOT1 }
+  | ".snd"              { DOT2 }
   | '|'                 { BAR }
   | '?'                 { QUESTIONMARK }
   | "->"                { ARROW }
