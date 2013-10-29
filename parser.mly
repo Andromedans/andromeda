@@ -22,7 +22,7 @@
 %token LPAREN RPAREN LBRACK RBRACK
 %token COLON DCOLON ASCRIBE COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW STAR
-%token DOT1 DOT2
+%token <string> PROJ
 %token COLONEQ
 (* %token EQEQ AT EVAL *)
 %token DEFINE LET IN ASSUME
@@ -99,8 +99,7 @@ plain_simple_term:
   | LPAREN term ASCRIBE term RPAREN    { Ascribe ($2, $4) }
   | LBRACK plain_operation RBRACK        { let (tag,args) = $2 in Operation(tag,args) }
   | HANDLE term WITH handler END   { Handle ($2, $4) }
-  | simple_term DOT1         { Proj(1, $1) }
-  | simple_term DOT2         { Proj(2, $1) }
+  | simple_term PROJ         { Proj($2, $1) }
 
 handler:
   | BAR? cs=separated_list(BAR, handler_case)  { cs }

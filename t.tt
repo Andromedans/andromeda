@@ -55,5 +55,11 @@ define p3 := (S(S(S(O))), l3);;
 
 define p4 := ( (S(S(S(O))), l3) :> (n:nat) * List(n) );;
 
+// EXPERIMENTAL CRUD
+
+define N2N := S.type;;
+define idN2N := fun (f:N2N) => fun (n : N2N.dom) => f n;;
+define S' := idN2N S;;
+
 #context;;
 

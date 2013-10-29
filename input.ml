@@ -10,7 +10,7 @@ and term' =
   | App of term * term
   | Sigma of Common.variable * term * term
   | Pair of term * term
-  | Proj of int * term (* 1 = fst, 2 = snd *)
+  | Proj of string * term
   | Ascribe of term * term
   | Operation of operation_tag * term list
   | Handle of term * handler
@@ -55,8 +55,8 @@ let rec string_of_term (term, loc) =
       "App(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
   | Pair(t1,t2) ->
       "Pair(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
-  | Proj(i1, t2) ->
-      "Proj(" ^ (string_of_int i1) ^ "," ^ (string_of_term t2) ^ ")"
+  | Proj(s1, t2) ->
+      "Proj(\"" ^ s1 ^ "\"," ^ (string_of_term t2) ^ ")"
   | Ascribe(t1,t2) ->
       "Ascribe(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
   | Operation(tag,terms) ->

@@ -102,6 +102,17 @@ and normTy ?(weak=true) =
   in
     loop
 
+let normKind ?(weak=true) =
+  let rec loop ctx = function
+    | S.KType -> S.KType
+    | S.KPi(x, t1, k2) as k ->
+        if weak then
+          k
+        else
+          let t1' = normTy ~weak:weak ctx t1 in
+          let k2' = loop ctx k2  in
+          S.KPi(x, t1', k2')
+  in loop
 
 
 (** [nf ctx e] computes the normal form of expression [e]. *)
@@ -118,4 +129,7 @@ let whnfTy ctx ty =
    (*Format.printf "WHNFTY out %t@\n" (Print.ty ctx.Ctx.names ty);*)
    answer)
 
+
+let nfKind ctx = normKind ~weak:false ctx
+let whnfKind ctx = normKind ~weak:true ctx
 

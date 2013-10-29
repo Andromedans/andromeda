@@ -12,7 +12,7 @@ and term' =
   | App of term * term
   | Sigma of Common.variable * term * term
   | Pair of term * term
-  | Proj of int * term (* 1 = fst, 2 = snd *)
+  | Proj of string * term
   | Ascribe of term * term
   | Operation of operation_tag * term list
   | Handle of term * handler
@@ -65,7 +65,7 @@ let rec doTerm xs (e, loc) =
     | I.Lambda (x, Some t, e) -> Lambda (x, Some (doTerm xs t), doTerm (x :: xs) e)
     | I.App (e1, e2)   -> App (doTerm xs e1, doTerm xs e2)
     | I.Pair (e1, e2)   -> Pair (doTerm xs e1, doTerm xs e2)
-    | I.Proj (i1, e2) -> Proj (i1, doTerm xs e2)
+    | I.Proj (s1, e2) -> Proj (s1, doTerm xs e2)
     | I.Ascribe (e, t) -> Ascribe (doTerm xs e, doTerm xs t)
     | I.Operation (optag, terms) -> Operation (optag, List.map (doTerm xs) terms)
     | I.Handle (term, h) -> Handle (doTerm xs term, handler xs h)
@@ -101,7 +101,7 @@ let rec shift ?(c=0) d (e, loc) =
   | Lambda (x, Some t, e) -> Lambda (x, Some (shift ~c d t), shift ~c:(c+1) d e)
   | App (e1, e2) -> App(shift ~c d e1, shift ~c d e2)
   | Pair (e1, e2) -> Pair(shift ~c d e1, shift ~c d e2)
-  | Proj (i1, e2) -> Proj(i1, shift ~c d e2)
+  | Proj (s1, e2) -> Proj(s1, shift ~c d e2)
   | Ascribe (e1, t2) -> Ascribe (shift ~c d e1, shift ~c d t2)
   | Operation (optag, terms) -> Operation (optag, List.map (shift ~c d) terms)
   | Handle (term, h) -> Handle (shift ~c d term, List.map (shift_handler_case ~c d) h)),
@@ -129,8 +129,8 @@ let rec string_of_term (term, loc) =
       "App(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
   | Pair(t1,t2) ->
       "Pair(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
-  | Proj(i1, t2) ->
-      "Proj(" ^ (string_of_int i1) ^ "," ^ (string_of_term t2) ^ ")"
+  | Proj(s1, t2) ->
+      "Proj(\"" ^ s1 ^ "\"," ^ (string_of_term t2) ^ ")"
   | Ascribe(t1,t2) ->
       "Ascribe(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2) ^ ")"
   | Operation(tag,terms) ->

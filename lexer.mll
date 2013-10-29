@@ -22,8 +22,11 @@
 }
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
+let patternvar = '?' name
 
 let numeral = ['0'-'9']+
+
+let projectee = name | numeral
 
 rule token = parse
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
@@ -48,8 +51,9 @@ rule token = parse
   | "*"                 { STAR }
   | ";;"                { SEMISEMI }
   | ','                 { COMMA }
-  | ".fst"              { DOT1 }
-  | ".snd"              { DOT2 }
+  | '.' projectee       { let s = Lexing.lexeme lexbuf in
+                          let field =  String.sub s 1 (String.length s - 1)
+                          in PROJ field }
   | '|'                 { BAR }
   | '?'                 { QUESTIONMARK }
   | "->"                { ARROW }

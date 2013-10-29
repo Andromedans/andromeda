@@ -241,17 +241,17 @@ and infer env (term, loc) =
           AnsExp( S.Pair(e1,e2), ty )
         end
 
-    | D.Proj (1, term2) ->
+    | D.Proj (("1"|"fst"), term2) ->
         begin
           let e2, t2 = inferExp env term2  in
           match (Norm.whnfTy env.ctx t2) with
           | S.TSigma(_, t21, _) ->
               AnsExp(S.Proj(1, e2), t21)
           | (S.TVar _ | S.TApp _ | S.TPi _) ->
-              Error.typing ~loc "Operand of project does not have a Sigma type"
+              Error.typing ~loc "Operand of projection does not have a Sigma type"
         end
 
-    | D.Proj (2, term2) ->
+    | D.Proj (("2"|"snd"), term2) ->
         begin
           let e2, t2 = inferExp env term2  in
           match (Norm.whnfTy env.ctx t2) with
@@ -259,10 +259,41 @@ and infer env (term, loc) =
               AnsExp(S.Proj(2, e2),
                      S.betaTy t22 (S.Proj(1, e2)))
           | (S.TVar _ | S.TApp _ | S.TPi _) ->
-              Error.typing ~loc "Operand of project does not have a Sigma type"
+              Error.typing ~loc "Operand of projection does not have a Sigma type"
         end
 
-    | D.Proj _ -> Error.typing ~loc "Impossible: projection other than 1 or 2"
+    (* EXPERIMENTAL *)
+    | D.Proj ("type", term2) ->
+        begin
+          let _, t2 = inferExp env term2  in
+          AnsTy(t2, S.KType)
+        end
+
+    | D.Proj("dom", term2) ->
+        begin
+          let domTy =
+            match infer env term2 with
+            | AnsExp(_, t)
+            | AnsTy(t,_ ) ->
+                begin
+                  match Norm.whnfTy env.ctx t with
+                  | S.TPi(_, domTy, _) -> domTy
+                  | _ -> Error.typing ~loc "Operand of projection has no domain"
+                end
+            | AnsKind k ->
+                begin
+                  match Norm.whnfKind env.ctx k with
+                  | S.KPi(_, domTy, _) -> domTy
+                  | _ -> Error.typing ~loc "Operand of projection has no domain"
+                end
+          in
+            AnsTy(domTy, S.KType)
+        end
+
+    (* END EXPERIMENTAL *)
+
+
+    | D.Proj (s1, _) -> Error.typing ~loc "Unrecognized projection %s" s1
 
     | D.Ascribe (term1, term2) ->
         begin
