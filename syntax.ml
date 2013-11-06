@@ -59,7 +59,7 @@ and shiftKind ?(c=0) (d:int) = function
 
 let rec subst j e' = function
   | Var m -> if (j = m) then e' else Var m
-  | Lambda (x,t,e) -> Lambda(x, substTy j e' t, subst j (shift 1 e') e)
+  | Lambda (x,t,e) -> Lambda(x, substTy j e' t, subst (j+1) (shift 1 e') e)
   | App(e1, e2) -> App(subst j e' e1, subst j e' e2)
   | Pair(e1, e2) -> Pair(subst j e' e1, subst j e' e2)
   | Proj(i1, e2) -> Proj(i1, subst j e' e2)
@@ -68,15 +68,15 @@ let rec subst j e' = function
 
 and substTy j e' = function
   | TVar m -> TVar m
-  | TPi (x, t1, t2) -> TPi(x, substTy j e' t1, substTy j (shift 1 e') t2)
-  | TSigma (x, t1, t2) -> TSigma(x, substTy j e' t1, substTy j (shift 1 e') t2)
+  | TPi (x, t1, t2) -> TPi(x, substTy j e' t1, substTy (j+1) (shift 1 e') t2)
+  | TSigma (x, t1, t2) -> TSigma(x, substTy j e' t1, substTy (j+1) (shift 1 e') t2)
   | TApp (t, e) -> TApp(substTy j e' t, subst j e' e)
   | TEquiv(e1, e2, t) -> TEquiv(subst j e' e1, subst j e' e2, substTy j e' t)
   | TEquivTy(t1, t2, k) -> TEquivTy(substTy j e' t1, substTy j e' t2, substKind j e' k)
 
 and substKind j e' = function
   | KType -> KType
-  | KPi (x, t, k) -> KPi(x, substTy j e' t, substKind j (shift 1 e') k)
+  | KPi (x, t, k) -> KPi(x, substTy j e' t, substKind (j+1) (shift 1 e') k)
 
 
 and beta eBody eArg =
