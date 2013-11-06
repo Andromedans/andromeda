@@ -34,6 +34,8 @@ let rec norm ?(weak=true) =
                 S.App(e1', e2')
             | S.Pair _ ->
                 Error.typing "Normalization found pair applied to argument"
+            | (S.Refl _ | S.ReflTy _) ->
+                Error.typing "Normalization found Refl/ReflTy applied to argument"
           end
 
       | S.Proj (i, e2) ->
@@ -59,6 +61,20 @@ let rec norm ?(weak=true) =
             e
           else
             S.Pair(loop ctx e1, loop ctx e2)
+
+      | S.Refl (e1, t1) ->
+          if weak then
+            e
+          else
+            S.Refl(loop ctx e1, normTy ~weak:false ctx t1)
+
+      | S.ReflTy (t1, k1) ->
+          if weak then
+            e
+          else
+            S.ReflTy(normTy ~weak:false ctx t1,
+                     normKind ~weak:false ctx k1)
+
   in
     loop
 
@@ -99,10 +115,28 @@ and normTy ?(weak=true) =
           let t1' = loop ctx t1 in
           let e2' = if weak then e2 else norm ~weak:false ctx e2  in
           S.TApp(t1', e2')
+
+      | S.TEquiv(e1, e2, t1) as t ->
+          if weak then
+            t
+          else
+            let e1' = norm ~weak:false ctx e1 in
+            let e2' = norm ~weak:false ctx e2 in
+            let t1' = loop ctx t1  in
+            S.TEquiv(e1', e2', t1')
+
+      | S.TEquivTy(t1, t2, k) as t ->
+          if weak then
+            t
+          else
+            let t1' = loop ctx t1  in
+            let t2' = loop ctx t2  in
+            let k' = normKind ~weak:false ctx k in
+            S.TEquivTy(t1', t2', k')
   in
     loop
 
-let normKind ?(weak=true) =
+and normKind ?(weak=true) =
   let rec loop ctx = function
     | S.KType -> S.KType
     | S.KPi(x, t1, k2) as k ->

@@ -17,6 +17,7 @@ and term' =
 
 and operation_tag =
   | Inhabit
+  | Equiv
 
   (*
 and computation = computation' * Common.position
@@ -68,6 +69,7 @@ let rec string_of_term (term, loc) =
 
 and string_of_tag = function
   | Inhabit -> "Inhabit"
+  | Equiv -> "Equiv"
 
 and string_of_terms terms = (String.concat "," (List.map string_of_term terms))
 

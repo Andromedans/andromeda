@@ -19,6 +19,7 @@ and term' =
 
 and operation_tag = I.operation_tag =
   | Inhabit
+  | Equiv
 
   (*
 and computation = computation' * Common.position
@@ -140,8 +141,7 @@ let rec string_of_term (term, loc) =
       string_of_case cases)) ^ ")"
   end
 
-and string_of_tag = function
-  | Inhabit -> "Inhabit"
+and string_of_tag tag = I.string_of_tag tag
 
 and string_of_terms terms = (String.concat "," (List.map string_of_term terms))
 

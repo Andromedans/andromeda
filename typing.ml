@@ -125,7 +125,28 @@ and equalTy_spine env t1 t2 =
         | _ -> None
       end
 
-  | (S.TVar _ | S.TPi _ | S.TSigma _ | S.TApp _), _ -> None
+  | S.TEquiv(e11, e12, t1), S.TEquiv(e21, e22, t2) ->
+      begin
+        if (equalTy_at env t1 t2 S.KType) &&
+           (equal_at env e11 e21 t1) &&
+           (equal_at env e12 e22 t1) then
+          Some S.KType
+        else
+          None
+      end
+
+  | S.TEquivTy(t11, t12, k1), S.TEquivTy(t21, t22, k2) ->
+      begin
+        if (equalKind env k1 k2) &&
+           (equalTy_at env t11 t21 k1) &&
+           (equalTy_at env t12 t22 k1) then
+          Some S.KType
+        else
+          None
+      end
+
+
+  | (S.TVar _ | S.TPi _ | S.TSigma _ | S.TApp _ | S.TEquiv _ | S.TEquivTy _ ), _ -> None
 
 and equalKind env k1 k2 =
   match k1, k2 with
@@ -217,7 +238,7 @@ and infer env (term, loc) =
                     let e2 = checkExp env term2 t11  in
                     let appTy = S.betaTy t12 e2  in
                     AnsExp( S.App(e1, e2), appTy )
-                | (S.TVar _ | S.TApp _ | S.TSigma _) ->
+                | (S.TVar _ | S.TApp _ | S.TSigma _ | S.TEquiv _ | S.TEquivTy _ ) ->
                     Error.typing ~loc:loc "Operand does not have a Pi type"
               end
           | AnsTy (t1, k1) ->
@@ -247,7 +268,7 @@ and infer env (term, loc) =
           match (Norm.whnfTy env.ctx t2) with
           | S.TSigma(_, t21, _) ->
               AnsExp(S.Proj(1, e2), t21)
-          | (S.TVar _ | S.TApp _ | S.TPi _) ->
+          | (S.TVar _ | S.TApp _ | S.TPi _ | S.TEquiv _ | S.TEquivTy _) ->
               Error.typing ~loc "Operand of projection does not have a Sigma type"
         end
 
@@ -258,7 +279,7 @@ and infer env (term, loc) =
           | S.TSigma(_, _, t22) ->
               AnsExp(S.Proj(2, e2),
                      S.betaTy t22 (S.Proj(1, e2)))
-          | (S.TVar _ | S.TApp _ | S.TPi _) ->
+          | (S.TVar _ | S.TApp _ | S.TPi _ | S.TEquiv _ | S.TEquivTy _) ->
               Error.typing ~loc "Operand of projection does not have a Sigma type"
         end
 
@@ -346,6 +367,28 @@ and inferOp env loc tag terms =
 
   | D.Inhabit, _ -> Error.typing ~loc "Wrong number of arguments to INHABIT"
 
+  | D.Equiv, [term1; term2; term3] ->
+      begin
+        match infer env term3 with
+        | AnsKind kind ->
+            let ty1 = checkTy env term1 kind  in
+            let ty2 = checkTy env term2 kind  in
+            S.EquivTy (ty1, ty2, kind)
+
+        | AnsTy (ty, S.KType) ->
+            let e1 = checkExp env term1 ty  in
+            let e2 = checkExp env term2 ty  in
+            S.EquivExp (e1, e2, ty)
+
+        | AnsTy _ ->
+            Error.typing ~loc "No equivalence at a non-proper type"
+
+        | AnsExp _ ->
+            Error.typing ~loc "Equivalence must be at a type or kind"
+      end
+
+  | D.Equiv, _ -> Error.typing ~loc "Wrong number of arguments to EQUIV"
+
 and addHandlers env loc handlers =
   let c = 0  in (* only because we're not doing pattern-matching! *)
   let installLevel = currentLevel env  in
@@ -386,6 +429,8 @@ and checkTy env ((_, loc) as term) k =
     Error.typing ~loc "This type does not have the expected kind"
 
 
+(* Find the first matching handler, and return the typechecked right-hand-side
+ *)
 and inferHandler env loc op =
   let level = currentLevel env  in
   let rec loop = function
@@ -395,12 +440,23 @@ and inferHandler env loc op =
         let op1 = Syntax.shiftOperation ~c d op1  in
         if (op = op1) then
           begin
+            (* comp1' is the right-hand-size of the handler,
+             * shifted so that its free variables are correct
+             * in the context where the operation occurred.
+             *)
             let comp1' = D.shift ~c d comp1  in
+
             let ans = match op with
               | S.InhabitTy ty ->
                   AnsExp (checkExp env comp1' ty, ty)
               | S.InhabitKind kind ->
-                  AnsTy (checkTy env comp1' kind, kind)  in
+                  AnsTy (checkTy env comp1' kind, kind)
+              | S.EquivExp (e1, e2, ty) ->
+                  let ty = S.TEquiv(e1, e2,ty)  in
+                  AnsExp (checkExp env comp1' ty, ty)
+              | S.EquivTy (ty1, ty2, kind) ->
+                  let ty = S.TEquivTy(ty1, ty2, kind)  in
+                  AnsExp (checkExp env comp1' ty, ty)  in
             ans
 
           end

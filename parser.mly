@@ -24,9 +24,13 @@
 %token ARROW DARROW STAR
 %token <string> PROJ
 %token COLONEQ
-(* %token EQEQ AT EVAL *)
-%token DEFINE LET IN ASSUME
-%token HANDLE WITH BAR END RETURN
+%token EQEQ AT
+(* %token EVAL *)
+%token DEFINE
+(*%token LET IN*)
+%token ASSUME
+%token HANDLE WITH BAR END
+(*%token RETURN*)
 %token QUIT HELP  CONTEXT
 %token EOF
 
@@ -120,6 +124,8 @@ computation: term { $1 }
 (*operation: mark_position(plain_operation) { $1 }*)
 plain_operation:
     | QUESTIONMARK DCOLON term        { (Inhabit, [$3]) }
+    | term                            { (Inhabit, [$1]) }
+    | term EQEQ term AT term          { (Equiv, [$1; $3; $5]) }
 
 pi_abstraction:
   | pi_bind1  { [$1] }

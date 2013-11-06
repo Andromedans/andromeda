@@ -80,6 +80,10 @@ and expr ?max_level xs e ppf =
           | Syntax.Proj (1, e2) -> print ~at_level:1 "%t.fst" (expr ~max_level:0 xs e2)
           | Syntax.Proj (2, e2) -> print ~at_level:1 "%t.snd" (expr ~max_level:0 xs e2)
           | Syntax.Proj (i1, e2) -> print ~at_level:1 "%t.%d" (expr ~max_level:0 xs e2) i1
+          | Syntax.Refl (e, t) -> print ~at_level:1 "refl[%t](%t)"
+               (ty ~max_level:3 xs t) (expr ~max_level:3 xs e)
+          | Syntax.ReflTy (t, k) -> print ~at_level:1 "refl[%t](%t)"
+               (kind ~max_level:3 xs k) (ty ~max_level:3 xs t)
           (*
           | Syntax.Operation (tag, exps) -> print ppf "[%t %a]" (operation ?max_level xs op)
                                               (sequence ~sep:" " (expr
@@ -100,6 +104,17 @@ and ty ?max_level xs t ppf =
           | Syntax.TPi (x, t1, t2) -> print ~at_level:3 "%t" (tpi xs x t1 t2)
           | Syntax.TSigma (x, t1, t2) -> print ~at_level:3 "%t" (tsigma xs x t1 t2)
           | Syntax.TApp (t1, e2) -> print ~at_level:1 "%t@ %t" (ty ~max_level:1 xs t1) (expr ~max_level:0 xs e2)
+          | Syntax.TEquiv(e1, e2, t) ->
+              print "(%t == %t @@ %t)"
+              (expr ~max_level:1 xs e1)
+              (expr ~max_level:1 xs e2)
+              (ty ~max_level:1 xs t)
+          | Syntax.TEquivTy(t1, t2, k) ->
+              print "(%t == %t @@ %t)"
+              (ty ~max_level:1 xs t1)
+              (ty ~max_level:1 xs t2)
+              (kind ~max_level:1 xs k)
+
   in
     ty ?max_level xs t ppf
 

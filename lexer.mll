@@ -10,9 +10,9 @@
     ("forall", FORALL) ;
     ("fun", FUN);
     ("handle", HANDLE) ;
-    ("let", LET) ;
-    ("in", IN) ;
-    ("return", RETURN) ;
+    (*("let", LET) ;*)
+    (*("in", IN) ;*)
+    (*("return", RETURN) ;*)
     ("Type", TYPE) ;
     ("with", WITH) ;
   ]
@@ -32,7 +32,7 @@ rule token = parse
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
   | "//"[^'\n']*        { token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
-  | name                { let s = Lexing.lexeme lexbuf in
+  | (name | patternvar) { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved
                             with Not_found -> NAME s
@@ -59,8 +59,8 @@ rule token = parse
   | "->"                { ARROW }
   | "=>"                { DARROW }
   | ":="                { COLONEQ }
-  (*| "=="                { EQEQ }*)
-  (*| "@"                 { AT }*)
+  | "=="                { EQEQ }
+  | "@"                 { AT }
 
   | eof                 { EOF }
 

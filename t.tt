@@ -63,3 +63,6 @@ define S' := idN2N S;;
 
 #context;;
 
+///////////////
+// Equivalence Types
+///////////////
