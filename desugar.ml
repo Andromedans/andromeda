@@ -16,10 +16,11 @@ and term' =
   | Ascribe of term * term
   | Operation of operation_tag * term list
   | Handle of term * handler
+  | Equiv of term * term * term
 
 and operation_tag = I.operation_tag =
   | Inhabit
-  | Equiv
+  | Coerce
 
   (*
 and computation = computation' * Common.position
@@ -70,6 +71,7 @@ let rec doTerm xs (e, loc) =
     | I.Ascribe (e, t) -> Ascribe (doTerm xs e, doTerm xs t)
     | I.Operation (optag, terms) -> Operation (optag, List.map (doTerm xs) terms)
     | I.Handle (term, h) -> Handle (doTerm xs term, handler xs h)
+    | I.Equiv (t1, t2, t3) -> Equiv (doTerm xs t1, doTerm xs t2, doTerm xs t3)
   ),
   loc
 
@@ -105,7 +107,8 @@ let rec shift ?(c=0) d (e, loc) =
   | Proj (s1, e2) -> Proj(s1, shift ~c d e2)
   | Ascribe (e1, t2) -> Ascribe (shift ~c d e1, shift ~c d t2)
   | Operation (optag, terms) -> Operation (optag, List.map (shift ~c d) terms)
-  | Handle (term, h) -> Handle (shift ~c d term, List.map (shift_handler_case ~c d) h)),
+  | Handle (term, h) -> Handle (shift ~c d term, List.map (shift_handler_case ~c d) h)
+  | Equiv (t1, t2, t3) -> Equiv (shift ~c d t1, shift ~c d t2, shift ~c d t3)),
   loc
 
 and shift_handler_case ?(c=0) d (optag, terms, term) =
@@ -139,6 +142,9 @@ let rec string_of_term (term, loc) =
   | Handle(term, cases) ->
       "Handle(" ^ (string_of_term term) ^ "," ^ (String.concat "|" (List.map
       string_of_case cases)) ^ ")"
+  | Equiv(t1,t2,t3) ->
+      "Equiv(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2)
+          ^ "," ^ (string_of_term t3) ^ ")"
   end
 
 and string_of_tag tag = I.string_of_tag tag

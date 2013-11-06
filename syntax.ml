@@ -32,6 +32,31 @@ and substitution =
   | Dot of expr * substitution
   *)
 
+let rec string_of_expr = function
+  | Var i -> string_of_int i
+  | Lambda(x,t,e) -> "Lambda(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_expr e ^ ")"
+  | App(e1,e2) -> "App(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2 ^ ")"
+  | Pair(e1,e2) -> "Pair(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2 ^ ")"
+  | Proj(i1,e2) -> "Proj(" ^ string_of_int i1 ^ "," ^ string_of_expr e2 ^ ")"
+  | Refl(e,t) -> "Refl(" ^ string_of_expr e ^ "," ^ string_of_ty t ^")"
+  | ReflTy(t,k) -> "Refl(" ^ string_of_ty t ^ "," ^ string_of_kind k ^")"
+
+and string_of_ty = function
+  | TVar i -> string_of_int i
+  | TPi(x,t,t') -> "TPi(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_ty t' ^ ")"
+  | TSigma(x,t,t') -> "TSigma(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_ty t' ^ ")"
+  | TApp(t1,e2) -> "TApp(" ^ string_of_ty t1 ^ "," ^ string_of_expr e2 ^ ")"
+  | TEquiv(e1, e2, t) -> "TEquiv(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2
+                            ^ "," ^ string_of_ty t ^ ")"
+  | TEquivTy(t1, t2, k) -> "TEquivTy(" ^ string_of_ty t1 ^ "," ^ string_of_ty t2
+                            ^ "," ^ string_of_kind k ^ ")"
+
+and string_of_kind = function
+  | KType -> "Type"
+  | KPi(x,t,k) -> "KPi(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_kind k ^ ")"
+
+
+
   (** [shift c d] shifts the indices by [d] with a cutoff of [c]. *)
   (* See, e.g., http://ecee.colorado.edu/~siek/ecen5013/spring10/lecture4.pdf *)
 
@@ -83,7 +108,15 @@ and beta eBody eArg =
   shift (-1) (subst 0 (shift 1 eArg) eBody)
 
 and betaTy tBody eArg =
-  shiftTy (-1) (substTy 0 (shift 1 eArg) tBody)
+  (*let _ = Printf.printf "betaTy\ntBody = %s\neArg = %s\n"*)
+             (*(string_of_ty tBody) (string_of_expr eArg)  in*)
+  let shiftArg = shift 1 eArg in
+  (*let _ = Printf.printf "shiftArg = %s\n" (string_of_expr shiftArg)  in*)
+  let afterSubst = substTy 0 shiftArg tBody in
+  (*let _ = Printf.printf "afterSubst = %s\n" (string_of_ty afterSubst)  in*)
+  let answer = shiftTy (-1) afterSubst  in
+  (*let _ = Printf.printf "answer = %s\n\n" (string_of_ty answer)  in*)
+  answer
 
 and betaKind kBody eArg =
   shiftKind (-1) (substKind 0 (shift 1 eArg) kBody)
@@ -242,8 +275,7 @@ let shift_computation k c = subst_computation (Shift k) c
 type operation =
   | InhabitTy of ty                   (* inhabit a type *)
   | InhabitKind of kind               (* inhabit a kind *)
-  | EquivExp of expr * expr * ty        (* term equivalence at a type *)
-  | EquivTy of ty * ty * kind         (* type equivalence at a kind *)
+  | Coerce of ty * ty                 (* t1 >-> t2 *)
 
 
 (** Computations.
@@ -260,32 +292,5 @@ and handler = (operation * computation) list
 let rec shiftOperation ?(c=0) d = function
   | InhabitTy ty -> InhabitTy (shiftTy ~c d ty)
   | InhabitKind kind -> InhabitKind (shiftKind ~c d kind)
-  | EquivExp (e1, e2, ty) ->
-      EquivExp (shift ~c d e1, shift ~c d e2, shiftTy ~c d ty)
-  | EquivTy (ty1, ty2, kind) ->
-      EquivTy (shiftTy ~c d ty1, shiftTy ~c d ty2, shiftKind ~c d kind)
-
-
-let rec string_of_expr = function
-  | Var i -> string_of_int i
-  | Lambda(x,t,e) -> "Lambda(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_expr e ^ ")"
-  | App(e1,e2) -> "App(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2 ^ ")"
-  | Pair(e1,e2) -> "Pair(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2 ^ ")"
-  | Proj(i1,e2) -> "Proj(" ^ string_of_int i1 ^ "," ^ string_of_expr e2 ^ ")"
-  | Refl(e,t) -> "Refl(" ^ string_of_expr e ^ "," ^ string_of_ty t ^")"
-  | ReflTy(t,k) -> "Refl(" ^ string_of_ty t ^ "," ^ string_of_kind k ^")"
-
-and string_of_ty = function
-  | TVar i -> string_of_int i
-  | TPi(x,t,t') -> "TPi(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_ty t' ^ ")"
-  | TSigma(x,t,t') -> "TSigma(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_ty t' ^ ")"
-  | TApp(t1,e2) -> "TApp(" ^ string_of_ty t1 ^ "," ^ string_of_expr e2 ^ ")"
-  | TEquiv(e1, e2, t) -> "TEquiv(" ^ string_of_expr e1 ^ "," ^ string_of_expr e2
-                            ^ "," ^ string_of_ty t ^ ")"
-  | TEquivTy(t1, t2, k) -> "TEquivTy(" ^ string_of_ty t1 ^ "," ^ string_of_ty t2
-                            ^ "," ^ string_of_kind k ^ ")"
-
-and string_of_kind = function
-  | KType -> "Type"
-  | KPi(x,t,k) -> "KPi(" ^ x ^ "," ^ string_of_ty t ^ "," ^ string_of_kind k ^ ")"
+  | Coerce (ty1, ty2) -> Coerce (shiftTy ~c d ty1, shiftTy ~c d ty2)
 

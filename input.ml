@@ -14,10 +14,11 @@ and term' =
   | Ascribe of term * term
   | Operation of operation_tag * term list
   | Handle of term * handler
+  | Equiv of term * term * term
 
 and operation_tag =
   | Inhabit
-  | Equiv
+  | Coerce
 
   (*
 and computation = computation' * Common.position
@@ -65,11 +66,14 @@ let rec string_of_term (term, loc) =
   | Handle(term, cases) ->
       "Handle(" ^ (string_of_term term) ^ "," ^ (String.concat "|" (List.map
       string_of_case cases)) ^ ")"
+  | Equiv(t1,t2,t3) ->
+      "Equiv(" ^ (string_of_term t1) ^ "," ^ (string_of_term t2)
+          ^ "," ^ (string_of_term t3) ^ ")"
   end
 
 and string_of_tag = function
   | Inhabit -> "Inhabit"
-  | Equiv -> "Equiv"
+  | Coerce -> "Coerce"
 
 and string_of_terms terms = (String.concat "," (List.map string_of_term terms))
 

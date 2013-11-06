@@ -61,8 +61,17 @@ define N2N := S.type;;
 define idN2N := fun (f:N2N) => fun (n : N2N.dom) => f n;;
 define S' := idN2N S;;
 
-#context;;
 
 ///////////////
 // Equivalence Types
 ///////////////
+
+assume plus : nat -> nat -> nat
+assume oneonetwo : plus (S O) (S O) == S(S(O)) @ nat
+assume sym : (x:nat) -> (y:nat) -> (x == y @ nat) -> (y == x @ nat)
+
+define twooneone := sym (plus (S O) (S O)) (S(S(O))) oneonetwo
+
+
+;;
+#context

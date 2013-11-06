@@ -22,6 +22,7 @@
 %token LPAREN RPAREN LBRACK RBRACK
 %token COLON DCOLON ASCRIBE COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW STAR
+%token COERCE
 %token <string> PROJ
 %token COLONEQ
 %token EQEQ AT
@@ -77,9 +78,14 @@ plain_topdirective:
 
 term: mark_position(plain_term) { $1 }
 plain_term:
-  | plain_arrow_term                    { $1 }
+  | plain_equiv_term                  { $1 }
   | FORALL pi_abstraction COMMA term  { fst (make_pi $4 $2) }
   | FUN fun_abstraction DARROW term   { fst (make_lambda $4 $2) }
+
+equiv_term: mark_position(plain_equiv_term) { $1 }
+plain_equiv_term:
+    | plain_arrow_term                         { $1 }
+    | arrow_term EQEQ arrow_term AT equiv_term { Equiv($1, $3, $5) }
 
 arrow_term: mark_position(plain_arrow_term) { $1 }
 plain_arrow_term:
@@ -125,7 +131,7 @@ computation: term { $1 }
 plain_operation:
     | QUESTIONMARK DCOLON term        { (Inhabit, [$3]) }
     | term                            { (Inhabit, [$1]) }
-    | term EQEQ term AT term          { (Equiv, [$1; $3; $5]) }
+    | term COERCE term                { (Coerce, [$1; $3]) }
 
 pi_abstraction:
   | pi_bind1  { [$1] }

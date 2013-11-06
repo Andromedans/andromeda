@@ -234,9 +234,15 @@ and infer env (term, loc) =
           | AnsExp (e1, t1) ->
               begin
                 match Norm.whnfTy env.ctx t1 with
-                | S.TPi(_, t11, t12) ->
+                | S.TPi(_, t11, t12) as ty0 ->
                     let e2 = checkExp env term2 t11  in
                     let appTy = S.betaTy t12 e2  in
+                    let _ = begin
+                      print_endline "D.App";
+                      print_endline ("ty0 = " ^ S.string_of_ty ty0);
+                      print_endline ("t12 = " ^ S.string_of_ty t12);
+                      print_endline ("appTy = " ^ S.string_of_ty appTy);
+                    end  in
                     AnsExp( S.App(e1, e2), appTy )
                 | (S.TVar _ | S.TApp _ | S.TSigma _ | S.TEquiv _ | S.TEquivTy _ ) ->
                     Error.typing ~loc:loc "Operand does not have a Pi type"
@@ -354,6 +360,26 @@ and infer env (term, loc) =
 
     | D.Type -> AnsKind S.KType
 
+    | D.Equiv(term1, term2, term3) ->
+        begin
+          match infer env term3 with
+          | AnsKind kind ->
+              let ty1 = checkTy env term1 kind  in
+              let ty2 = checkTy env term2 kind  in
+              AnsTy (S.TEquivTy (ty1, ty2, kind), S.KType)
+
+          | AnsTy (ty, S.KType) ->
+              let e1 = checkExp env term1 ty  in
+              let e2 = checkExp env term2 ty  in
+              AnsTy (S.TEquiv (e1, e2, ty), S.KType)
+
+          | AnsTy _ ->
+              Error.typing ~loc "No equivalence at a non-proper type"
+
+          | AnsExp _ ->
+              Error.typing ~loc "Equivalence must be at a type or kind"
+        end
+
 and inferOp env loc tag terms =
   match tag, terms with
   | D.Inhabit, [term] ->
@@ -367,27 +393,12 @@ and inferOp env loc tag terms =
 
   | D.Inhabit, _ -> Error.typing ~loc "Wrong number of arguments to INHABIT"
 
-  | D.Equiv, [term1; term2; term3] ->
-      begin
-        match infer env term3 with
-        | AnsKind kind ->
-            let ty1 = checkTy env term1 kind  in
-            let ty2 = checkTy env term2 kind  in
-            S.EquivTy (ty1, ty2, kind)
+  | D.Coerce, [term1; term2] ->
+      let t1 = checkTy env term1 S.KType  in
+      let t2 = checkTy env term2 S.KType  in
+      S.Coerce(t1, t2)
 
-        | AnsTy (ty, S.KType) ->
-            let e1 = checkExp env term1 ty  in
-            let e2 = checkExp env term2 ty  in
-            S.EquivExp (e1, e2, ty)
-
-        | AnsTy _ ->
-            Error.typing ~loc "No equivalence at a non-proper type"
-
-        | AnsExp _ ->
-            Error.typing ~loc "Equivalence must be at a type or kind"
-      end
-
-  | D.Equiv, _ -> Error.typing ~loc "Wrong number of arguments to EQUIV"
+  | D.Coerce, _ -> Error.typing ~loc "Wrong number of arguments to EQUIV"
 
 and addHandlers env loc handlers =
   let c = 0  in (* only because we're not doing pattern-matching! *)
@@ -451,11 +462,8 @@ and inferHandler env loc op =
                   AnsExp (checkExp env comp1' ty, ty)
               | S.InhabitKind kind ->
                   AnsTy (checkTy env comp1' kind, kind)
-              | S.EquivExp (e1, e2, ty) ->
-                  let ty = S.TEquiv(e1, e2,ty)  in
-                  AnsExp (checkExp env comp1' ty, ty)
-              | S.EquivTy (ty1, ty2, kind) ->
-                  let ty = S.TEquivTy(ty1, ty2, kind)  in
+              | S.Coerce (ty1, ty2) ->
+                  let ty = S.TPi("_", ty1, S.shiftTy 1 ty2)  in
                   AnsExp (checkExp env comp1' ty, ty)  in
             ans
 

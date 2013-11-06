@@ -61,6 +61,7 @@ rule token = parse
   | ":="                { COLONEQ }
   | "=="                { EQEQ }
   | "@"                 { AT }
+  | ">->"               { COERCE }
 
   | eof                 { EOF }
 
