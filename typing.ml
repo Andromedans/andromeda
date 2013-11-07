@@ -5,8 +5,8 @@ module S = Syntax
 module Ctx = Context
 
 
-exception Unimplemented
-
+(* Possible answers when doing type inference on a "term"
+ *)
 type synthAnswer =
   | AnsExp  of S.expr * S.ty
   | AnsTy   of S.ty * S.kind
@@ -14,7 +14,7 @@ type synthAnswer =
 
 type env = {
   ctx : Ctx.context;
-  handlers : (int * int * S.operation * S.computation) list;  (* c, install-level *)
+  handlers : (int * S.operation * S.computation) list;  (* install-level *)
 }
 
 let empty_env = { ctx = Ctx.empty_context;
@@ -167,20 +167,20 @@ and equalKind env k1 k2 =
 let rec inferExp env ((_,loc) as term) =
   match (infer env term) with
   | AnsExp (e,t) -> (e,t)
-  | AnsTy _   -> Error.typing ~loc:loc "Found a type where an expression was expected"
-  | AnsKind _ -> Error.typing ~loc:loc "Found a kind where an expression was expected"
+  | AnsTy _   -> Error.typing ~loc "Found a type where an expression was expected"
+  | AnsKind _ -> Error.typing ~loc "Found a kind where an expression was expected"
 
 and inferTy env ((_, loc) as term) =
   match infer env term with
-  | AnsExp _ -> Error.typing ~loc:loc "Found an expression where a type was expected"
+  | AnsExp _ -> Error.typing ~loc "Found an expression where a type was expected"
   | AnsTy (t,k) -> (t,k)
-  | AnsKind _ -> Error.typing ~loc:loc "Found a kind where a type was expected"
+  | AnsKind _ -> Error.typing ~loc "Found a kind where a type was expected"
 
 
 and inferKind env ((_, loc) as term) =
   match infer env term with
-  | AnsExp _ -> Error.typing ~loc:loc "Found an expression where a kind was expected"
-  | AnsTy _   -> Error.typing ~loc:loc "Found a type where an kind was expected"
+  | AnsExp _ -> Error.typing ~loc "Found an expression where a kind was expected"
+  | AnsTy _   -> Error.typing ~loc "Found a type where an kind was expected"
   | AnsKind k -> k
 
 and infer env (term, loc) =
@@ -200,7 +200,7 @@ and infer env (term, loc) =
             begin
               match inferTy env term1 with
               | t1, S.KType -> t1
-              | _, _ -> Error.typing ~loc:loc "Domain of Pi is not a proper type"
+              | _, _ -> Error.typing ~loc "Domain of Pi is not a proper type"
             end  in
 
           let env' = add_parameter x t1 env in
@@ -208,7 +208,7 @@ and infer env (term, loc) =
           match infer env' term2 with
           | AnsTy (t2, S.KType) -> AnsTy (S.TPi(x, t1, t2), S.KType)
           | AnsKind k2          -> AnsKind (S.KPi(x, t1, k2))
-          | _ -> Error.typing ~loc:loc "Codomain of Pi is neither a kind nor a proper type"
+          | _ -> Error.typing ~loc "Codomain of Pi is neither a kind nor a proper type"
         end
 
     | D.Sigma (x, term1, term2) ->
@@ -218,14 +218,14 @@ and infer env (term, loc) =
             begin
               match inferTy env term1 with
               | t1, S.KType -> t1
-              | _, _ -> Error.typing ~loc:loc "Domain of Sigma is not a proper type"
+              | _, _ -> Error.typing ~loc "Domain of Sigma is not a proper type"
             end  in
 
           let env' = add_parameter x t1 env in
 
           match infer env' term2 with
           | AnsTy (t2, S.KType) -> AnsTy (S.TSigma(x, t1, t2), S.KType)
-          | _ -> Error.typing ~loc:loc "Codomain of Sigma is not a proper type"
+          | _ -> Error.typing ~loc "Codomain of Sigma is not a proper type"
         end
 
     | D.App (term1, term2) ->
@@ -233,31 +233,29 @@ and infer env (term, loc) =
           match infer env term1 with
           | AnsExp (e1, t1) ->
               begin
+                (* Application of two expressions *)
                 match Norm.whnfTy env.ctx t1 with
-                | S.TPi(_, t11, t12) as ty0 ->
+                | S.TPi(_, t11, t12) ->
                     let e2 = checkExp env term2 t11  in
                     let appTy = S.betaTy t12 e2  in
-                    let _ = begin
-                      print_endline "D.App";
-                      print_endline ("ty0 = " ^ S.string_of_ty ty0);
-                      print_endline ("t12 = " ^ S.string_of_ty t12);
-                      print_endline ("appTy = " ^ S.string_of_ty appTy);
-                    end  in
                     AnsExp( S.App(e1, e2), appTy )
                 | (S.TVar _ | S.TApp _ | S.TSigma _ | S.TEquiv _ | S.TEquivTy _ ) ->
-                    Error.typing ~loc:loc "Operand does not have a Pi type"
+                    Error.typing ~loc "Operand does not have a Pi type"
               end
+
           | AnsTy (t1, k1) ->
               begin
+                (* Application of a type to an expression *)
                 match k1 with
                 | S.KPi(_, t11, k12) ->
                     let e2 = checkExp env term2 t11  in
                     let appKind = S.betaKind k12 e2 in
                     AnsTy(S.TApp(t1, e2), appKind)
                 | S.KType ->
-                    Error.typing ~loc:loc "Application of a proper type"
+                    Error.typing ~loc "Application of a proper type"
               end
-          | AnsKind _ -> Error.typing ~loc:loc "Application of a kind"
+
+          | AnsKind _ -> Error.typing ~loc "Application of a kind"
         end
 
     | D.Pair (term1, term2) ->
@@ -332,9 +330,9 @@ and infer env (term, loc) =
               let t1 = checkTy env term1 k2  in
               AnsTy (t1, k2)
           | AnsExp _->
-              Error.typing ~loc:loc "Ascription of an expression"
+              Error.typing ~loc "Ascription of an expression"
           | AnsTy _ ->
-              Error.typing ~loc:loc "Ascription of a non-proper type"
+              Error.typing ~loc "Ascription of a non-proper type"
         end
 
     | D.Lambda (x, None, _) -> Error.typing ~loc "cannot infer the sort of %s" x
@@ -401,14 +399,13 @@ and inferOp env loc tag terms =
   | D.Coerce, _ -> Error.typing ~loc "Wrong number of arguments to EQUIV"
 
 and addHandlers env loc handlers =
-  let c = 0  in (* only because we're not doing pattern-matching! *)
   let installLevel = currentLevel env  in
   let rec loop = function
     | [] -> env
     | (tag, terms, handlerBody) :: rest ->
         (* When we add patterns, we won't be able to use inferOp any more... *)
         let operation = inferOp env loc tag terms  in
-        let env' = { env with handlers = ((c, installLevel, operation, handlerBody) :: env.handlers) } in
+        let env' = { env with handlers = ((installLevel, operation, handlerBody) :: env.handlers) } in
         addHandlers env' loc rest  in
   loop handlers
 
@@ -446,16 +443,16 @@ and inferHandler env loc op =
   let level = currentLevel env  in
   let rec loop = function
     | [] -> Error.typing ~loc "Unhandled operation"
-    | (c, installLevel, op1, comp1)::rest ->
+    | (installLevel, op1, comp1)::rest ->
         let d = level - installLevel in
-        let op1 = Syntax.shiftOperation ~c d op1  in
+        let op1 = Syntax.shiftOperation d op1  in
         if (op = op1) then
           begin
             (* comp1' is the right-hand-size of the handler,
              * shifted so that its free variables are correct
              * in the context where the operation occurred.
              *)
-            let comp1' = D.shift ~c d comp1  in
+            let comp1' = D.shift d comp1  in
 
             let ans = match op with
               | S.InhabitTy ty ->
@@ -523,9 +520,9 @@ let inferAnnotatedDefinition ?(verbose=false) env name ((_,loc) as term) termDef
       let ty = checkTy env termDef kind  in
       add_ty_definition name kind ty env
   | AnsExp _->
-      Error.typing ~loc:loc "Not a type or a kind"
+      Error.typing ~loc "Not a type or a kind"
   | AnsTy _ ->
-      Error.typing ~loc:loc "Not a proper type"
+      Error.typing ~loc "Not a proper type"
 
 
 
