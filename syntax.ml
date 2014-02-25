@@ -1,6 +1,6 @@
 (** Abstract syntax of internal expressions. *)
 
-module D = Desugar
+module D = Input
 
 (** Abstract syntax of expressions, where de Bruijn indices are used to represent
     variables. *)
@@ -284,7 +284,7 @@ and computation =
   | ReturnTy of ty
   | Let of Common.variable * expr * computation
   *)
-and computation = D.term
+and computation = Common.debruijn D.term
 
 and handler = (operation * computation) list
 

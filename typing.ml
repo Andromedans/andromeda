@@ -1,6 +1,6 @@
 (** Type inference. *)
 
-module D = Desugar
+module D = Input
 module S = Syntax
 module Ctx = Context
 
@@ -358,7 +358,7 @@ and infer env (term, loc) =
 
     | D.Type -> AnsKind S.KType
 
-    | D.Equiv(term1, term2, term3) ->
+    | D.Equiv(o, term1, term2, term3) ->
         begin
           match infer env term3 with
           | AnsKind kind ->

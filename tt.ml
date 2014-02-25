@@ -91,11 +91,11 @@ let rec exec_cmd interactive env (d, loc) =
         let _ = Ctx.print env.Typing.ctx  in
         env
     | Input.TopParam (xs, t) ->
-        let t = Desugar.doTerm env.Typing.ctx.Ctx.names t in
+        let t = Input.doTerm env.Typing.ctx.Ctx.names t in
         let env' = Typing.inferParam ~verbose:interactive env xs t  in
         env'
     | Input.TopDef (x, e) ->
-        let e = Desugar.doTerm env.Typing.ctx.Ctx.names e in
+        let e = Input.doTerm env.Typing.ctx.Ctx.names e in
         let env' = Typing.inferDefinition ~verbose:interactive env x e  in
         env'
     | Input.Help ->

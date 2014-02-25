@@ -25,7 +25,7 @@
 %token COERCE
 %token <string> PROJ
 %token COLONEQ
-%token EQEQ AT
+%token EQ EQEQ AT
 (* %token EVAL *)
 %token DEFINE
 (*%token LET IN*)
@@ -36,8 +36,8 @@
 %token EOF
 
 
-%start <Input.toplevel list> file
-%start <Input.toplevel> commandline
+%start <Common.variable Input.toplevel list> file
+%start <Common.variable Input.toplevel> commandline
 
 
 %%
@@ -85,7 +85,9 @@ plain_term:
 equiv_term: mark_position(plain_equiv_term) { $1 }
 plain_equiv_term:
     | plain_arrow_term                         { $1 }
-    | arrow_term EQEQ arrow_term AT equiv_term { Equiv($1, $3, $5) }
+    | arrow_term EQEQ arrow_term AT equiv_term { Equiv(Ju, $1, $3, $5) }
+    | arrow_term EQ arrow_term AT equiv_term { Equiv(Pr, $1, $3, $5) }
+
 
 arrow_term: mark_position(plain_arrow_term) { $1 }
 plain_arrow_term:

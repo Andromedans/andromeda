@@ -58,31 +58,32 @@ let rec string_of_term string_of_var =
     | Universe u -> string_of_universe u
     | Lambda(x,None,t2) ->
       "Lambda(" ^ x ^ "," ^ "_" ^ "," ^ (loop t2) ^ ")"
-  | Lambda(x,Some t1,t2) ->
-      "Lambda(" ^ x ^ "," ^ (loops [t1;t2]) ^ ")"
-  | Pi(x,t1,t2) ->
-      "Pi(" ^ x ^ "," ^ (loops [t1;t2]) ^ ")"
-  | Sigma(x,t1,t2) ->
-      "Sigma(" ^ x ^ "," ^ (loops [t1;t2]) ^ ")"
-  | App(t1,t2) ->
-      "App(" ^ (loops [t1;t2]) ^ ")"
-  | Pair(t1,t2) ->
-      "Pair(" ^ (loops [t1;t2]) ^ ")"
-  | Proj(s1, t2) ->
-      "Proj(\"" ^ s1 ^ "\"," ^ (loop t2) ^ ")"
-  | Ascribe(t1,t2) ->
-      "Ascribe(" ^ (loops [t1;t2]) ^ ")"
-  | Handle(term, cases) ->
-      "Handle(" ^ (loop term) ^ "," ^
+    | Lambda(x,Some t1,t2) ->
+        "Lambda(" ^ x ^ "," ^ (loops [t1;t2]) ^ ")"
+    | Pi(x,t1,t2) ->
+        "Pi(" ^ x ^ "," ^ (loops [t1;t2]) ^ ")"
+    | Sigma(x,t1,t2) ->
+        "Sigma(" ^ x ^ "," ^ (loops [t1;t2]) ^ ")"
+    | App(t1,t2) ->
+        "App(" ^ (loops [t1;t2]) ^ ")"
+    | Pair(t1,t2) ->
+        "Pair(" ^ (loops [t1;t2]) ^ ")"
+    | Proj(s1, t2) ->
+        "Proj(\"" ^ s1 ^ "\"," ^ (loop t2) ^ ")"
+    | Ascribe(t1,t2) ->
+        "Ascribe(" ^ (loops [t1;t2]) ^ ")"
+    | Handle(term, cases) ->
+        "Handle(" ^ (loop term) ^ "," ^
       loops cases ^ ")"
-  | Equiv(o,t1,t2,t3) ->
-      "Equiv(" ^ (string_of_eqsort o) ^ "," ^ loops [t1; t2; t3] ^ ")"
-  | J(o,t1,t2,t3) ->
-      "J(" ^ (string_of_eqsort o) ^ "," ^ loops [t1; t2; t3] ^ ")"
-  | Refl(o,t) ->
-      "J(" ^ (string_of_eqsort o) ^ "," ^ loop t ^ ")"
-  and loops terms =
-    (String.concat "," (List.map loop terms))
+    | Equiv(o,t1,t2,t3) ->
+        "Equiv(" ^ (string_of_eqsort o) ^ "," ^ loops [t1; t2; t3] ^ ")"
+    | J(o,t1,t2,t3) ->
+        "J(" ^ (string_of_eqsort o) ^ "," ^ loops [t1; t2; t3] ^ ")"
+    | Refl(o,t) ->
+        "J(" ^ (string_of_eqsort o) ^ "," ^ loop t ^ ")"
+
+     and loops terms =
+        (String.concat "," (List.map loop terms))
 
   in loop
 

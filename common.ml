@@ -3,6 +3,9 @@
 (** Variable names *)
 type variable = string
 
+(** De Bruijn indices *)
+type debruijn = int
+
 (** Position in source code. For each type in the abstract syntax we define two versions
     [t] and [t']. The former is the latter with a position tag. For example, [expr = expr'
     * position] and [expr'] is the type of expressions (without positions).

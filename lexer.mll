@@ -59,6 +59,7 @@ rule token = parse
   | "->"                { ARROW }
   | "=>"                { DARROW }
   | ":="                { COLONEQ }
+  | "="                 { EQ }
   | "=="                { EQEQ }
   | "@"                 { AT }
   | ">->"               { COERCE }
