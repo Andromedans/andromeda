@@ -91,7 +91,7 @@ let printI term = print_endline (string_of_term (fun s -> s) term)
 
 
 (********************************************)
-(** Desugaring of input syntax to internal  *)
+(** desugaring of input syntax to internal  *)
 (********************************************)
 
 (** [index ~loc x xs] finds the location of [x] in the list [xs]. *)
@@ -102,45 +102,30 @@ let index ~loc x =
   in
     index 0
 
-(** [doTerm xs e] converts an expression of type [expr] to type [expr] by
+(** [desugar xs e] converts an expression of type [expr] to type [expr] by
     replacing names in [e] with de Bruijn indices. Here [xs] is the list of names
     currently in scope (e., Context.names) *)
-let rec doTerm xs (e, loc) =
+let rec desugar xs (e, loc) =
   (match e with
     | Var x -> Var (index ~loc x xs)
     | Num n -> Num n
     | Universe u -> Universe u
-    | Pi (x, t1, t2) -> Pi (x, doTerm xs t1, doTerm (x :: xs) t2)
-    | Sigma (x, t1, t2) -> Sigma (x, doTerm xs t1, doTerm (x :: xs) t2)
-    | Lambda (x, None  , e) -> Lambda (x, None, doTerm (x :: xs) e)
-    | Lambda (x, Some t, e) -> Lambda (x, Some (doTerm xs t), doTerm (x :: xs) e)
-    | App (e1, e2)   -> App (doTerm xs e1, doTerm xs e2)
-    | Pair (e1, e2)   -> Pair (doTerm xs e1, doTerm xs e2)
-    | Proj (s1, e2) -> Proj (s1, doTerm xs e2)
-    | Ascribe (e, t) -> Ascribe (doTerm xs e, doTerm xs t)
-    | Handle (term, h) -> Handle (doTerm xs term, handler xs h)
-    | Equiv (o, t1, t2, t3) -> Equiv (o, doTerm xs t1, doTerm xs t2, doTerm xs t3)
-    | J (o, t1, t2, t3) -> J (o, doTerm xs t1, doTerm xs t2, doTerm xs t3)
-    | Refl (o, t) -> Refl(o, doTerm xs t)
+    | Pi (x, t1, t2) -> Pi (x, desugar xs t1, desugar (x :: xs) t2)
+    | Sigma (x, t1, t2) -> Sigma (x, desugar xs t1, desugar (x :: xs) t2)
+    | Lambda (x, None  , e) -> Lambda (x, None, desugar (x :: xs) e)
+    | Lambda (x, Some t, e) -> Lambda (x, Some (desugar xs t), desugar (x :: xs) e)
+    | App (e1, e2)   -> App (desugar xs e1, desugar xs e2)
+    | Pair (e1, e2)   -> Pair (desugar xs e1, desugar xs e2)
+    | Proj (s1, e2) -> Proj (s1, desugar xs e2)
+    | Ascribe (e, t) -> Ascribe (desugar xs e, desugar xs t)
+    | Handle (term, h) -> Handle (desugar xs term, desugar_handler xs h)
+    | Equiv (o, t1, t2, t3) -> Equiv (o, desugar xs t1, desugar xs t2, desugar xs t3)
+    | J (o, t1, t2, t3) -> J (o, desugar xs t1, desugar xs t2, desugar xs t3)
+    | Refl (o, t) -> Refl(o, desugar xs t)
   ),
   loc
 
-(*
-and doComputation xs (c, loc) =
-  (match c with
-    | Return e -> Return (doTerm xs e)
-    | Let (x, term1, c2) -> Let (x, doTerm xs term1, doComputation (x::xs) c2)),
-  loc
-  *)
-
-and handler xs lst = List.map (doTerm xs) lst
-(*
-and handler_case xs (optag, terms, c) =
-  (optag, List.map (doTerm xs) terms, doComputation xs c)
-*)
-and handler_case xs (optag, terms, c) =
-  (optag, List.map (doTerm xs) terms, doTerm xs c)
-
+and desugar_handler xs lst = List.map (desugar xs) lst
 
   (* Based on similar shift code in Syntax *)
 
