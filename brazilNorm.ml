@@ -1,7 +1,7 @@
 (** Normalization of terms. *)
 
 module S = BrazilSyntax
-module Ctx = BrazilContext
+module Ctx = BrazilContext.Ctx
 
 (** [whnf ctx e] reduces expression [e] in environment [ctx] to
     weak head normal form *)

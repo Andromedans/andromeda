@@ -1,7 +1,6 @@
 (** Toplevel. *)
 
-module Ctx = BrazilContext
-module BD = BrazilDesugar
+module Ctx = BrazilContext.Ctx
 module BI = BrazilInput
 module BT = BrazilTyping
 module BP = BrazilPrint
@@ -93,15 +92,15 @@ let rec exec_cmd interactive env (d, loc) =
         let _ = Ctx.print env.BT.ctx  in
         env
     | BI.TopParam (xs, t) ->
-        let t = BD.doTerm env.BT.ctx.Ctx.names t in
+        let t = BI.doTerm env.BT.ctx.Ctx.names t in
         let env' = BT.inferParam ~verbose:interactive env xs t  in
         env'
     | BI.TopDef (x, e) ->
-        let e = BD.doTerm env.BT.ctx.Ctx.names e in
+        let e = BI.doTerm env.BT.ctx.Ctx.names e in
         let env' = BT.inferDefinition ~verbose:interactive env x e  in
         env'
     | BI.TopHandler hs ->
-        let hs = List.map (BD.doTerm env.BT.ctx.Ctx.names) hs   in
+        let hs = List.map (BI.doTerm env.BT.ctx.Ctx.names) hs   in
         let env' = BT.addHandlers env hs in
         env'
     | BI.Help ->

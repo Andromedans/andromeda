@@ -1,6 +1,6 @@
 (** Abstract syntax of internal expressions. *)
 
-module D = BrazilDesugar
+module D = BrazilInput
 
 (** Abstract syntax of expressions, where de Bruijn indices are used to represent
     variables. *)
@@ -295,7 +295,7 @@ let rec equal e1 e2 =
 type operation =
   | Inhabit of term
 
-and computation = D.term
+and computation = int D.term
 
 and handler = (operation * computation) list
 

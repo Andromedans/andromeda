@@ -1,7 +1,7 @@
 (** Type inference. *)
 
-module Ctx = BrazilContext
-module D = BrazilDesugar
+module Ctx = BrazilContext.Ctx
+module D = BrazilInput
 module P = BrazilPrint
 module S = BrazilSyntax
 

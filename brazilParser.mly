@@ -24,7 +24,8 @@
 %token COLON ASCRIBE COMMA SEMISEMI
 %token ARROW DARROW STAR
 %token <string> PROJ
-%token TYPE FIB
+%token <int> TYPE
+%token <int> FIB
 %token JEQUIV JEQUAL
 %token REFLEQUIV REFLEQUAL
 %token EQEQUIV EQEQUAL
@@ -40,8 +41,8 @@
 %token EOF
 
 
-%start <BrazilInput.toplevel list> file
-%start <BrazilInput.toplevel> commandline
+%start <Common.variable BrazilInput.toplevel list> file
+%start <Common.variable BrazilInput.toplevel> commandline
 
 
 %%
@@ -116,8 +117,8 @@ simple_term: mark_position(plain_simple_term) { $1 }
 plain_simple_term:
   | NAME                            { Var $1 }
   | NUM                             { Num $1 }
-  | FIB             { Universe Fib }
-  | TYPE            { Universe Type }
+  | FIB             { Universe (Fib $1) }
+  | TYPE            { Universe (Type $1) }
   | LPAREN plain_term RPAREN        { $2 }
   | LPAREN term COMMA term RPAREN   { Pair($2, $4) }
   | LPAREN term ASCRIBE term RPAREN { Ascribe ($2, $4) }

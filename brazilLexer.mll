@@ -14,8 +14,6 @@
     (*("in", IN) ;*)
     (*("return", RETURN) ;*)
     ("with", WITH) ;
-    ("type", FIB);
-    ("Type", TYPE);
     ("Refl", REFLEQUIV);
     ("refl", REFLEQUAL);
     ("eq", EQEQUIV);
@@ -34,15 +32,12 @@ let numeral = ['0'-'9']+
 let projectee = name | numeral
 
 rule token = parse
+  | eof                 { EOF }
+
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
   | "//"[^'\n']*        { token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
 
-  | (name | patternvar) { let s = Lexing.lexeme lexbuf in
-                            try
-                              List.assoc s reserved
-                            with Not_found -> NAME s
-                        }
   | "#context"          { CONTEXT }
   (*| "#eval"             { EVAL }*)
   | "#help"             { HELP }
@@ -69,9 +64,21 @@ rule token = parse
   | "@"                 { AT }
   (*| ">->"               { COERCE }*)
 
+  | "type" [' ' '\t']* (numeral as s) { FIB (int_of_string s) }
+  | "type"                            { FIB 0 }
+
+  | "Type" [' ' '\t']* (numeral as s) { TYPE (int_of_string s) }
+  | "Type"                            { TYPE 0 }
+
+  (* Catch-all Cases *)
+
   | (numeral as s)      { NUM (int_of_string s) }
 
-  | eof                 { EOF }
+  | (name | patternvar) { let s = Lexing.lexeme lexbuf in
+                            try
+                              List.assoc s reserved
+                            with Not_found -> NAME s
+                        }
 
   | _ as c              { Error.syntax ~loc:(position_of_lex lexbuf)
                              "Unexpected character %s" (Char.escaped c) }
