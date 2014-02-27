@@ -111,22 +111,26 @@ let handled env e1 e2 _ =
 
 
 let find_handler_reduction env k p =
-  whnf env k
-  (*
+  let level = currentLevel env  in
   let rec loop = function
     | [] -> whnf env k
-    | (handler::rest ->
-        let h1, h2 = unshift_handler env handler  in
+    | (installLevel, Inhabit(S.Eq(S.Ju,h1,h2,_)), comp)::rest ->
+        (* XXX: is it safe to ignore the classifier??? *)
+        let d = level - installLevel in
+        let h1 = S.shift d h1  in
+        let h2 = S.shift d h2  in
+        P.debug "handle search k = %t@. and h1 = %t@. and h2 = %t@."
+             (print_term env k)
+             (print_term env h1) (print_term env h2) ;
         if (S.equal h1 k && p h2) then
-          h2
+           h2
         else if (S.equal h2 k && p h1) then
-          h1
+           h1
         else
           loop rest
-    | _ :: rest -> loop rest  in
-
-  loop env.handlers
-  *)
+    | _ :: rest -> loop rest
+  in
+    loop env.handlers
 
 let as_pi env k =
   find_handler_reduction env k (function S.Pi _ -> true | _ -> false)

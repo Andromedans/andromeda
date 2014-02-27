@@ -13,8 +13,8 @@
     (*("let", LET) ;*)
     (*("in", IN) ;*)
     (*("return", RETURN) ;*)
-    ("Refl", REFLEQUAL) ;
-    ("refl", REFLEQUIV) ;
+    ("refl", REFLEQUAL) ;
+    ("Refl", REFLEQUIV) ;
     ("with", WITH) ;
   ]
 
