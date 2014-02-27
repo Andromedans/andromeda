@@ -1,352 +1,244 @@
 (** Type inference. *)
 
+module rec Equiv : sig
+                     val equal_at_some_universe : Infer.env ->
+                            Infer.term -> Infer.term
+                            -> Infer.handled_result option
+                   end =
+    Equivalence.Make(Infer)
+
+and Infer : sig
+    type term = BrazilSyntax.term
+
+  type env
+  val empty_env         : env
+  val get_ctx           : env -> BrazilContext.Ctx.context
+  val add_parameter     : Common.variable -> term -> env -> env
+  val lookup_classifier : Common.debruijn -> env -> term
+  val whnf              : env -> term -> term
+  val print_term        : env -> term -> Format.formatter -> unit
+
+  type handled_result = unit
+  val trivial_hr : handled_result
+  val join_hr    : handled_result -> handled_result -> handled_result
+
+  val handled : env -> term -> term -> term option -> handled_result option
+  val as_whnf_for_eta : env -> term -> term
+  val as_pi   : env -> term -> term
+  val as_sigma : env -> term -> term
+  (* val as_u     : env -> term -> term  *)
+
+
+  type iterm = Common.debruijn Input.term
+  val infer : env -> iterm -> term * term
+  val inferParam : ?verbose:bool -> env -> Common.variable list -> iterm -> env
+  val inferDefinition : ?verbose:bool -> env -> Common.variable -> iterm -> env
+  val inferAnnotatedDefinition : ?verbose:bool -> env -> Common.variable
+                                   -> iterm -> iterm -> env
+
+               end = struct
+
 module D = Input
-module S = Syntax
-module Ctx = Context
+module S = BrazilSyntax
+module Ctx = BrazilContext.Ctx
+module P = BrazilPrint
 
 
-(* Possible answers when doing type inference on a "term"
- *)
-type synthAnswer =
-  | AnsExp  of S.expr * S.ty
-  | AnsTy   of S.ty * S.kind
-  | AnsKind of S.kind
+type operation =
+  | Inhabit of S.term                   (* inhabit a type *)
+  | Coerce of S.term * S.term                 (* t1 >-> t2 *)
+
+let  shiftOperation ?(cut=0) d = function
+  | Inhabit term -> Inhabit (S.shift ~cut d term)
+  | Coerce (ty1, ty2) -> Coerce (S.shift ~cut d ty1, S.shift ~cut d ty2)
 
 type env = {
   ctx : Ctx.context;
-  handlers : (int * S.operation * S.computation) list;  (* install-level *)
+  handlers : (int * operation * Common.debruijn D.handler_body) list;  (* install-level *)
 }
+
 
 let empty_env = { ctx = Ctx.empty_context;
                   handlers = [];
                  }
 
-let add_parameter x t env =
-  {env with ctx = Ctx.add_parameter x t env.ctx}
-let add_ty_parameter x k env =
-  {env with ctx = Ctx.add_ty_parameter x k env.ctx}
-let add_definition x t e env =
-  {env with ctx = Ctx.add_definition x t e env.ctx}
-let add_ty_definition x k t env =
-  {env with ctx = Ctx.add_ty_definition x k t env.ctx}
-
-let lookup v env = Ctx.lookup v env.ctx
-let lookup_ty v env = Ctx.lookup_ty v env.ctx
-let lookup_kind v env = Ctx.lookup_kind v env.ctx
+let get_ctx { ctx } = ctx
 
 let currentLevel env = List.length env.ctx.Ctx.names
 
-(** [equal_at env e1 e2 t] compares expressions [e1] and [e2] at sort [t]. It is assumed
-    that [t] is a valid sort. It is also assumed that [e1] and [e2] have sort [t]. *)
-let rec equal_at env e1 e2 t =
-  S.equal (Norm.nf env.ctx e1) (Norm.nf env.ctx e2)
+let add_parameter x t env =
+  {env with ctx = Ctx.add_parameter x t env.ctx}
+let add_definition x t e env =
+  {env with ctx = Ctx.add_definition x t e env.ctx}
 
+let lookup v env = Ctx.lookup v env.ctx
+let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
+let whnf env e = BrazilNorm.whnf env.ctx e
+let print_term env e = P.term env.ctx.Ctx.names e
+
+type iterm = Common.debruijn Input.term
+
+type term = BrazilSyntax.term
+type handled_result = unit
+let join_hr _ _ = ()
+let trivial_hr = ()
+
+
+let handled env e1 e2 _ =
+  let level = currentLevel env  in
+  let rec loop = function
+    | [] -> None
+    | (installLevel, Inhabit(S.Eq(S.Ju,h1,h2,_)), comp)::rest ->
+        (* XXX: is it safe to ignore the classifier??? *)
+        let d = level - installLevel in
+        let h1 = S.shift d h1  in
+        let h2 = S.shift d h2  in
+        P.debug "handle search e1 = %t@. and e2 = %t@. and h1 = %t@. and h2 = %t@."
+             (print_term env e1) (print_term env e2)
+             (print_term env h1) (print_term env h2) ;
+        if ( (S.equal e1 h1 && S.equal e2 h2) ||
+             (S.equal e1 h2 && S.equal e2 h1) ) then
+          Some ()
+        else
+          loop rest
+    | _ :: rest -> loop rest
+  in
+    loop env.handlers
+
+
+let find_handler_reduction env k p =
+  whnf env k
   (*
-  let t = Norm.whnf env t in
-    match t with
-      | S.Var k1, S.Var k2 -> (k1 = k2)
-      | S.
-      | S.TPi (x, t1, t2) ->
-        let e1' = S.mk_app (S.shift 1 e1) (S.mk_var 0) in
-        let e2' = S.mk_app (S.shift 1 e2) (S.mk_var 0) in
-          equal_at (add_parameter x t1 env) e1' e2' t2
-      | S.TVar _ | S.TApp _ -> equal env e1 e2
-
-and equal env e1 e2 =
-  let e1 = Norm.whnf env e1 in
-  let e2 = Norm.whnf env e2 in
-    match e1, e2 with
-      | S.TPi (x, t1, t2), S.Pi (_, s1, s2) ->
-        equal_sort env t1 s1 &&
-        equal_sort (add_parameter x t1 env) t2 s2
-      | S.Var _, S.Var _
-      | S.App _, S.App _ -> None <> equal_spine env e1 e2
-      | (S.Var _ | S.Pi _ | S.Lambda _ | S.App _
-            | S.Subst _ | S.Ascribe _ | S.Type | S.Sort), _ -> false
-
-and equal_spine env e1 e2 =
-  match e1, e2 with
-    | S.Var k1, S.Var k2 ->
-      if k1 = k2
-      then Some (lookup_ty k2 env)
-      else None
-    | S.App (a1, a2), S.App (b1, b2) ->
-      (match equal_spine env a1 b1 with
-        | None -> None
-        | Some t ->
-          (match (Norm.whnf env t) with
-            | S.Pi (x, u1, u2) ->
-              if equal_at env a2 b2 u1
-              then Some (S.mk_subst (S.Dot (a2, S.idsubst)) u2)
-              else None
-            | _ -> None))
-    | (S.Var _ | S.Pi _ | S.Lambda _ | S.App _ | S.Subst _ | S.Ascribe _ | S.Type | S.Sort), _ -> None
-    *)
-
-and equalTy_at env t1 t2 k =
-  match k with
-      | S.KPi (x, t3, k3) ->
-          let t1' = S.TApp (S.shiftTy 1 t1, S.Var 0) in
-          let t2' = S.TApp (S.shiftTy 1 t2, S.Var 0) in
-          equalTy_at (add_parameter x t3 env) t1' t2' k3
-      | S.KType ->
-          begin
-            let t1' = Norm.whnfTy env.ctx t1 in
-            let t2' = Norm.whnfTy env.ctx t2 in
-            match equalTy_spine env t1' t2' with
-            | Some _ -> true
-            | _      -> false
-          end
-
-and equalTy_spine env t1 t2 =
-  match t1, t2 with
-  | S.TVar v1, S.TVar v2 ->
-      if v1 = v2 then Some (lookup_kind v1 env) else None
-  | S.TPi (x, t11, t12), S.TPi (_, t21, t22) ->
-      if ( equalTy_at env t11 t21 S.KType &&
-           equalTy_at (add_parameter x t11 env) t12 t22 S.KType ) then
-        Some S.KType
-      else
-        None
-  | S.TSigma (x, t11, t12), S.TSigma (_, t21, t22) ->
-      if ( equalTy_at env t11 t21 S.KType &&
-           equalTy_at (add_parameter x t11 env) t12 t22 S.KType ) then
-        Some S.KType
-      else
-        None
-  | S.TApp (p1, e1), S.TApp (p2, e2) ->
-      begin
-        match equalTy_spine env p1 p2 with
-        | Some (S.KPi (_, t3, k3)) ->
-            if (equal_at env e1 e2 t3) then
-              Some (S.betaKind k3 e1)
-            else
-              None
-        | _ -> None
-      end
-
-  | S.TEquiv(e11, e12, t1), S.TEquiv(e21, e22, t2) ->
-      begin
-        if (equalTy_at env t1 t2 S.KType) &&
-           (equal_at env e11 e21 t1) &&
-           (equal_at env e12 e22 t1) then
-          Some S.KType
+  let rec loop = function
+    | [] -> whnf env k
+    | (handler::rest ->
+        let h1, h2 = unshift_handler env handler  in
+        if (S.equal h1 k && p h2) then
+          h2
+        else if (S.equal h2 k && p h1) then
+          h1
         else
-          None
-      end
+          loop rest
+    | _ :: rest -> loop rest  in
 
-  | S.TEquivTy(t11, t12, k1), S.TEquivTy(t21, t22, k2) ->
-      begin
-        if (equalKind env k1 k2) &&
-           (equalTy_at env t11 t21 k1) &&
-           (equalTy_at env t12 t22 k1) then
-          Some S.KType
-        else
-          None
-      end
+  loop env.handlers
+  *)
 
+let as_pi env k =
+  find_handler_reduction env k (function S.Pi _ -> true | _ -> false)
 
-  | (S.TVar _ | S.TPi _ | S.TSigma _ | S.TApp _ | S.TEquiv _ | S.TEquivTy _ ), _ -> None
+let as_sigma env k =
+  find_handler_reduction env k (function S.Sigma _ -> true | _ -> false)
 
-and equalKind env k1 k2 =
-  match k1, k2 with
-  | S.KType, S.KType -> true
-  | S.KPi(x, t1, k1'), S.KPi(_, t2, k2') ->
-      ( equalTy_at env t1 t2 S.KType &&
-        equalKind (add_parameter x t1 env) k1' k2' )
+let as_u env k =
+  find_handler_reduction env k (function S.U _ -> true | _ -> false)
 
-  | (S.KType | S.KPi _), _ -> false
-
-
-(** [t1] and [t2] must be valid sorts. *)
-(*and equal_sort env t1 t2 = equal env t1 t2*)
+let as_whnf_for_eta env k =
+  find_handler_reduction env k
+     (function
+        | S.Pi _ | S.Sigma _ | S.U _
+        | S.Eq(S.Ju, _, _, _)
+        | S.Base S.TUnit                -> true
+        | _                             -> false)
 
 
 (** [inferExp env e] infers the type of expression [e] in context [env]. *)
 
-let rec inferExp env ((_,loc) as term) =
-  match (infer env term) with
-  | AnsExp (e,t) -> (e,t)
-  | AnsTy _   -> Error.typing ~loc "Found a type where an expression was expected"
-  | AnsKind _ -> Error.typing ~loc "Found a kind where an expression was expected"
-
-and inferTy env ((_, loc) as term) =
-  match infer env term with
-  | AnsExp _ -> Error.typing ~loc "Found an expression where a type was expected"
-  | AnsTy (t,k) -> (t,k)
-  | AnsKind _ -> Error.typing ~loc "Found a kind where a type was expected"
 
 
-and inferKind env ((_, loc) as term) =
-  match infer env term with
-  | AnsExp _ -> Error.typing ~loc "Found an expression where a kind was expected"
-  | AnsTy _   -> Error.typing ~loc "Found a type where an kind was expected"
-  | AnsKind k -> k
-
-and infer env (term, loc) =
+let rec infer env (term, loc) =
   match term with
 
     | D.Var v ->
-        begin
-          match lookup v env with
-          | (Ctx.Parameter t | Ctx.Definition (t, _)) -> AnsExp(S.Var v, t)
-          | (Ctx.TyParameter k | Ctx.TyDefinition (k, _)) -> AnsTy(S.TVar v, k)
-        end
+        S.Var v, lookup_classifier v env
 
     | D.Pi (x, term1, term2) ->
-        begin
-          (* The domains of our Pi's are always types, for now *)
-          let t1 =
-            begin
-              match inferTy env term1 with
-              | t1, S.KType -> t1
-              | _, _ -> Error.typing ~loc "Domain of Pi is not a proper type"
-            end  in
-
-          let env' = add_parameter x t1 env in
-
-          match infer env' term2 with
-          | AnsTy (t2, S.KType) -> AnsTy (S.TPi(x, t1, t2), S.KType)
-          | AnsKind k2          -> AnsKind (S.KPi(x, t1, k2))
-          | _ -> Error.typing ~loc "Codomain of Pi is neither a kind nor a proper type"
-        end
+     begin
+        let t1, u1 = infer_ty env term1 in
+        let env' = add_parameter x t1 env in
+        let t2, u2 = infer_ty env' term2  in
+        (*
+        let _ =
+                (print_endline ("Original Pi : " ^ Desugar.string_of_term
+        (term,loc));
+                 print_endline ("Translated domain: " ^ S.string_of_term t1);
+                 print_endline ("Translated codomain: " ^ S.string_of_term t2);
+                 print_endline ("Output Pi : " ^ S.string_of_term (S.Pi(x, t1,
+                 t2)))
+                )  in
+        *)
+        S.Pi(x, t1, t2), S.U (S.universe_join u1 u2)
+      end
 
     | D.Sigma (x, term1, term2) ->
-        begin
-          (* The domains of our Sigmas are always types, for now *)
-          let t1 =
-            begin
-              match inferTy env term1 with
-              | t1, S.KType -> t1
-              | _, _ -> Error.typing ~loc "Domain of Sigma is not a proper type"
-            end  in
+      begin
+        let t1, u1 = infer_ty env term1 in
+        let env' = add_parameter x t1 env in
+        let t2, u2 = infer_ty env' term2  in
+        S.Sigma(x, t1, t2), S.U (S.universe_join u1 u2)
+      end
 
-          let env' = add_parameter x t1 env in
+    | D.Universe u ->
+        S.U u, S.U (S.universe_classifier u)
 
-          match infer env' term2 with
-          | AnsTy (t2, S.KType) -> AnsTy (S.TSigma(x, t1, t2), S.KType)
-          | _ -> Error.typing ~loc "Codomain of Sigma is not a proper type"
-        end
 
     | D.App (term1, term2) ->
         begin
-          match infer env term1 with
-          | AnsExp (e1, t1) ->
-              begin
-                (* Application of two expressions *)
-                match Norm.whnfTy env.ctx t1 with
-                | S.TPi(_, t11, t12) ->
-                    let e2 = checkExp env term2 t11  in
-                    let appTy = S.betaTy t12 e2  in
-                    AnsExp( S.App(e1, e2), appTy )
-                | (S.TVar _ | S.TApp _ | S.TSigma _ | S.TEquiv _ | S.TEquivTy _ ) ->
-                    Error.typing ~loc "Operand does not have a Pi type"
-              end
-
-          | AnsTy (t1, k1) ->
-              begin
-                (* Application of a type to an expression *)
-                match k1 with
-                | S.KPi(_, t11, k12) ->
-                    let e2 = checkExp env term2 t11  in
-                    let appKind = S.betaKind k12 e2 in
-                    AnsTy(S.TApp(t1, e2), appKind)
-                | S.KType ->
-                    Error.typing ~loc "Application of a proper type"
-              end
-
-          | AnsKind _ -> Error.typing ~loc "Application of a kind"
+          let e1, t1 = infer env term1  in
+          let _, t11, t12 =
+            match (as_pi env t1) with
+            | S.Pi(x, t1, t2) -> x, t1, t2
+            | _ -> Error.typing ~loc "Not a function: %t" (print_term env t1)  in
+          let e2 = check env term2 t11  in
+          let appTy = S.beta t12 e2  in
+          S.App(e1, e2), appTy
         end
 
     | D.Pair (term1, term2) ->
         begin
-          let e1, t1 = inferExp env term1  in
-          let e2, t2 = inferExp env term2  in
-          let ty = S.TSigma("_", t1, S.shiftTy 1 t2)  in
-          AnsExp( S.Pair(e1,e2), ty )
+          let e1, t1 = infer env term1  in
+          let e2, t2 = infer env term2  in
+          let ty = S.Sigma("_", t1, S.shift 1 t2)  in
+          S.Pair(e1,e2), ty
         end
 
     | D.Proj (("1"|"fst"), term2) ->
         begin
-          let e2, t2 = inferExp env term2  in
-          match (Norm.whnfTy env.ctx t2) with
-          | S.TSigma(_, t21, _) ->
-              AnsExp(S.Proj(1, e2), t21)
-          | (S.TVar _ | S.TApp _ | S.TPi _ | S.TEquiv _ | S.TEquivTy _) ->
-              Error.typing ~loc "Operand of projection does not have a Sigma type"
+          let e2, t2 = infer env term2  in
+          match as_sigma env t2 with
+          | S.Sigma(_, t21, _) ->  S.Proj(1, e2), t21
+          | _ -> Error.typing ~loc "Projecting from %t with type %t"
+                    (print_term env e2) (print_term env t2)
         end
 
     | D.Proj (("2"|"snd"), term2) ->
         begin
-          let e2, t2 = inferExp env term2  in
-          match (Norm.whnfTy env.ctx t2) with
-          | S.TSigma(_, _, t22) ->
-              AnsExp(S.Proj(2, e2),
-                     S.betaTy t22 (S.Proj(1, e2)))
-          | (S.TVar _ | S.TApp _ | S.TPi _ | S.TEquiv _ | S.TEquivTy _) ->
-              Error.typing ~loc "Operand of projection does not have a Sigma type"
+          let e2, t2 = infer env term2  in
+          match as_sigma env t2 with
+          | S.Sigma(_, _, t22) -> S.Proj(2, e2), S.beta t22 (S.Proj(1, e2))
+          | _ -> Error.typing ~loc "Projecting from %t with type %t"
+                    (print_term env e2) (print_term env t2)
         end
-
-    (* EXPERIMENTAL *)
-    | D.Proj ("type", term2) ->
-        begin
-          let _, t2 = inferExp env term2  in
-          AnsTy(t2, S.KType)
-        end
-
-    | D.Proj("dom", term2) ->
-        begin
-          let domTy =
-            match infer env term2 with
-            | AnsExp(_, t)
-            | AnsTy(t,_ ) ->
-                begin
-                  match Norm.whnfTy env.ctx t with
-                  | S.TPi(_, domTy, _) -> domTy
-                  | _ -> Error.typing ~loc "Operand of projection has no domain"
-                end
-            | AnsKind k ->
-                begin
-                  match Norm.whnfKind env.ctx k with
-                  | S.KPi(_, domTy, _) -> domTy
-                  | _ -> Error.typing ~loc "Operand of projection has no domain"
-                end
-          in
-            AnsTy(domTy, S.KType)
-        end
-
-    (* END EXPERIMENTAL *)
-
 
     | D.Proj (s1, _) -> Error.typing ~loc "Unrecognized projection %s" s1
 
     | D.Ascribe (term1, term2) ->
         begin
-          match infer env term2 with
-          | AnsTy (t2, S.KType) ->
-              let e1 = checkExp env term1 t2  in
-              AnsExp (e1, t2)
-          | AnsKind k2 ->
-              let t1 = checkTy env term1 k2  in
-              AnsTy (t1, k2)
-          | AnsExp _->
-              Error.typing ~loc "Ascription of an expression"
-          | AnsTy _ ->
-              Error.typing ~loc "Ascription of a non-proper type"
+          let t2, _ = infer_ty env term2  in
+          let e1 = check env term1 t2  in
+          e1, t2
         end
 
-    | D.Lambda (x, None, _) -> Error.typing ~loc "cannot infer the sort of %s" x
+    | D.Lambda (x, None, _) -> Error.typing ~loc "cannot infer the domain type"
 
     | D.Lambda (x, Some term1, term2) ->
         begin
-          match inferTy env term1 with
-          | (t1, S.KType) ->
-              begin
-                let (e2, t2) = inferExp (add_parameter x t1 env) term2 in
-                AnsExp(S.Lambda (x, t1, e2), S.TPi(x, t1, t2))
-              end
-          | _ -> Error.typing ~loc "Parameter annotation not a proper type"
+          let t1, k1 = infer_ty env term1 in
+          let e2, t2 = infer (add_parameter x t1 env) term2 in
+          S.Lambda (x, t1, e2), S.Pi(x, t1, t2)
         end
+
+
 
     | D.Operation (tag, terms) ->
         let operation = inferOp env loc tag terms  in
@@ -356,47 +248,38 @@ and infer env (term, loc) =
         let env'= addHandlers env loc handlers in
         infer env' term
 
-    | D.Type -> AnsKind S.KType
-
     | D.Equiv(o, term1, term2, term3) ->
         begin
-          match infer env term3 with
-          | AnsKind kind ->
-              let ty1 = checkTy env term1 kind  in
-              let ty2 = checkTy env term2 kind  in
-              AnsTy (S.TEquivTy (ty1, ty2, kind), S.KType)
+          let ty3, u3 = infer_ty env term3 in
+          let e1 = check env term1 ty3  in
+          let e2 = check env term2 ty3  in
 
-          | AnsTy (ty, S.KType) ->
-              let e1 = checkExp env term1 ty  in
-              let e2 = checkExp env term2 ty  in
-              AnsTy (S.TEquiv (e1, e2, ty), S.KType)
+          (* Make sure that judgmental equivalences are not marked fibered *)
+          let ubase = match o with D.Pr -> S.Fib 0 | D.Ju -> S.Type 0 in
+          let u = S.universe_join ubase u3  in
 
-          | AnsTy _ ->
-              Error.typing ~loc "No equivalence at a non-proper type"
-
-          | AnsExp _ ->
-              Error.typing ~loc "Equivalence must be at a type or kind"
+          S.Eq (o, e1, e2, ty3), S.U u
         end
+
+    | D.Refl(o, term) ->
+        let e, t = infer env term in
+        S.Refl(o, e, t), S.Eq(o, e, e, t)
 
 and inferOp env loc tag terms =
   match tag, terms with
   | D.Inhabit, [term] ->
-      begin
-        match infer env term with
-        | AnsTy (ty, S.KType) -> S.InhabitTy ty
-        | AnsTy _ -> Error.typing ~loc "Not a proper type"
-        | AnsKind kind -> S.InhabitKind kind
-        | AnsExp _ -> Error.typing ~loc "Cannot inhabit an expression"
-      end
+      let ty, _ = infer_ty env term  in
+      Inhabit ty
 
   | D.Inhabit, _ -> Error.typing ~loc "Wrong number of arguments to INHABIT"
 
   | D.Coerce, [term1; term2] ->
-      let t1 = checkTy env term1 S.KType  in
-      let t2 = checkTy env term2 S.KType  in
-      S.Coerce(t1, t2)
+      let t1, _ = infer_ty env term1  in
+      let t2, _ = infer_ty env term2  in
+      Coerce(t1, t2)
 
-  | D.Coerce, _ -> Error.typing ~loc "Wrong number of arguments to EQUIV"
+  | D.Coerce, _ -> Error.typing ~loc "Wrong number of arguments to COERCE"
+
 
 and addHandlers env loc handlers =
   let installLevel = currentLevel env  in
@@ -409,32 +292,53 @@ and addHandlers env loc handlers =
         addHandlers env' loc rest  in
   loop handlers
 
-and checkExp env ((term1, loc) as term) t =
-  match term1, Norm.whnfTy env.ctx t with
-    | D.Lambda (x, None, term2), S.TPi (_, t1, t2) ->
+and check env ((term1, loc) as term) t =
+  match term1 with
+    | D.Lambda (x, None, term2) ->
         begin
-          let e2 = checkExp (add_parameter x t1 env) term2 t2 in
-          S.Lambda(x, t1, e2)
+          match as_pi env t with
+          | S.Pi (_, t1, t2) ->
+              let e2 = check (add_parameter x t1 env) term2 t2 in
+              S.Lambda(x, t1, e2)
+          | _ -> Error.typing ~loc "Lambda cannot have type %t"
+                     (print_term env t)
         end
-    | D.Pair (term1, term2), S.TSigma(x, t1, t2) ->
-        let e1 = checkExp env term1 t1  in
-        let t2' = S.betaTy t2 e1  in
-        let e2 = checkExp env term2 t2'  in
-        S.Pair(e1, e2)
-    | _, _ ->
-      let (e, t') = inferExp env term in
-        if not (equalTy_at env t' t S.KType) then
-          Error.typing ~loc "this expression has type %t@ but it should have type %t"
-            (Print.ty env.ctx.Ctx.names t') (Print.ty env.ctx.Ctx.names t)
-        else
-          e
+    | D.Pair (term1, term2) ->
+        begin
+          match as_sigma env t with
+          | S.Sigma(x, t1, t2) ->
+              let e1 = check env term1 t1  in
+              let t2' = S.beta t2 e1  in
+              let e2 = check env term2 t2'  in
+              S.Pair(e1, e2)
+          | _ -> Error.typing ~loc "Pair cannot have type %t"
+                     (print_term env t)
+        end
+    | _ ->
+      let e, t' = infer env term in
+        match t with
+        | S.U u ->
+            begin
+              match as_u env t' with
+              | S.U u' when S.universe_le u' u -> e
+              | _ ->
+                    Error.typing ~loc "expression %t@ has type %t@\nBut should have type %t"
+                      (print_term env e) (print_term env t') (print_term env t)
+            end
+        | _ ->
+            begin
+              match (Equiv.equal_at_some_universe env t' t ) with
+              | None ->
+                  Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
+                     (print_term env e) (print_term env t') (print_term env t)
+              | Some _ -> e
+            end
 
-and checkTy env ((_, loc) as term) k =
-  let (t, k') = inferTy env term  in
-  if (equalKind env k k') then
-    t
-  else
-    Error.typing ~loc "This type does not have the expected kind"
+and infer_ty env ((_,loc) as term) =
+  let t, k = infer env term in
+  match as_u env k with
+  | S.U u -> t, u
+  | _ -> Error.typing ~loc "Not a type: %t" (print_term env t)
 
 
 (* Find the first matching handler, and return the typechecked right-hand-side
@@ -445,7 +349,7 @@ and inferHandler env loc op =
     | [] -> Error.typing ~loc "Unhandled operation"
     | (installLevel, op1, comp1)::rest ->
         let d = level - installLevel in
-        let op1 = Syntax.shiftOperation d op1  in
+        let op1 = shiftOperation d op1  in
         if (op = op1) then
           begin
             (* comp1' is the right-hand-size of the handler,
@@ -454,16 +358,12 @@ and inferHandler env loc op =
              *)
             let comp1' = D.shift d comp1  in
 
-            let ans = match op with
-              | S.InhabitTy ty ->
-                  AnsExp (checkExp env comp1' ty, ty)
-              | S.InhabitKind kind ->
-                  AnsTy (checkTy env comp1' kind, kind)
-              | S.Coerce (ty1, ty2) ->
-                  let ty = S.TPi("_", ty1, S.shiftTy 1 ty2)  in
-                  AnsExp (checkExp env comp1' ty, ty)  in
-            ans
-
+            match op with
+            | Inhabit ty ->
+                check env comp1' ty, ty
+            | Coerce (ty1, ty2) ->
+                let ty = S.Pi("_", ty1, S.shift 1 ty2)  in
+                check env comp1' ty, ty
           end
         else
           loop rest
@@ -473,56 +373,26 @@ and inferHandler env loc op =
 
 
 let inferParam ?(verbose=false) env names ((_,loc) as term) =
-  match infer env term with
-    | AnsExp _ -> Error.typing ~loc "Parameter given with an expression"
-    | AnsTy (ty, S.KType) ->
-        let env, _ = List.fold_left
+  let ty, _ = infer_ty env term  in
+  let env, _ =
+      List.fold_left
           (fun (env, t) name ->
             (*if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;*)
             if verbose then Format.printf "Term %s is assumed.@." name ;
-            (add_parameter name t env, Syntax.shiftTy 1 t))
-          (env, ty) names
-        in
-          env
-    | AnsTy (ty, S.KPi _) ->
-        Error.typing ~loc "Parameter given with a non-proper type."
-    | AnsKind kind ->
-        let env, _ = List.fold_left
-          (fun (env, k) name ->
-            (*if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;*)
-            if verbose then Format.printf "Type %s is assumed.@." name ;
-            (add_ty_parameter name k env, Syntax.shiftKind 1 k))
-          (env, kind) names
-        in
-          env
+            (add_parameter name t env, S.shift 1 t))
+          (env, ty) names   in
+  env
 
 let inferDefinition ?(verbose=false) env name ((_,loc) as termDef) =
-  match infer env termDef with
-  | AnsTy (ty, kind) ->
-      begin
-        if verbose then Format.printf "Type %s is defined.@." name;
-        add_ty_definition name kind ty env
-      end
-  | AnsKind kind ->
-      Error.typing ~loc "Cannot define kind variables"
-  | AnsExp (expr, ty) ->
+  let expr, ty = infer env termDef in
       begin
         if verbose then Format.printf "Term %s is defined.@." name;
         add_definition name ty expr env;
       end
 
 let inferAnnotatedDefinition ?(verbose=false) env name ((_,loc) as term) termDef =
-  match infer env term with
-  | AnsTy (ty, S.KType) ->
-      let expr = checkExp env termDef ty  in
-      add_definition name ty expr env
-  | AnsKind kind ->
-      let ty = checkTy env termDef kind  in
-      add_ty_definition name kind ty env
-  | AnsExp _->
-      Error.typing ~loc "Not a type or a kind"
-  | AnsTy _ ->
-      Error.typing ~loc "Not a proper type"
+  let ty, _ = infer_ty env term in
+  let expr = check env termDef ty  in
+  add_definition name ty expr env
 
-
-
+end

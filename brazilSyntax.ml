@@ -295,7 +295,7 @@ let rec equal e1 e2 =
 type operation =
   | Inhabit of term
 
-and computation = int D.term
+and computation = Common.debruijn D.term
 
 and handler = (operation * computation) list
 

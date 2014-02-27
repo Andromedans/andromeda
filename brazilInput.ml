@@ -1,4 +1,4 @@
-(** Abstract syntax of input files. *)
+(** Absng_tract syntax of input files. *)
 
 (** Abstract syntax of terms as given by the user. *)
 type 'a term = 'a term' * Common.position
@@ -19,11 +19,11 @@ and 'a term' =
   | Refl of eqsort * 'a term
 
 
-and universe =
+and universe = Input.universe =
   | Type of int
   | Fib of int
 
-and eqsort =
+and eqsort = Input.eqsort =
   | Ju
   | Pr
 
@@ -80,7 +80,7 @@ let rec string_of_term string_of_var =
     | J(o,t1,t2,t3) ->
         "J(" ^ (string_of_eqsort o) ^ "," ^ loops [t1; t2; t3] ^ ")"
     | Refl(o,t) ->
-        "J(" ^ (string_of_eqsort o) ^ "," ^ loop t ^ ")"
+        "Refl(" ^ (string_of_eqsort o) ^ "," ^ loop t ^ ")"
 
      and loops terms =
         (String.concat "," (List.map loop terms))

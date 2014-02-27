@@ -18,7 +18,7 @@ type operation_tag =
 type 'a term = 'a term' * Common.position
 and 'a term' =
   | Var of 'a
-  | Type
+  | Universe of universe
   | Lambda of Common.variable * 'a term option * 'a term
   | Pi of Common.variable * 'a term * 'a term
   | App of 'a term * 'a term
@@ -28,6 +28,7 @@ and 'a term' =
   | Ascribe of 'a term * 'a term
   | Operation of operation_tag * 'a term list
   | Handle of 'a term * 'a handler
+  | Refl  of eqsort * 'a term
   | Equiv of eqsort * 'a term * 'a term * 'a term
 
 
@@ -48,6 +49,10 @@ let string_of_tag = function
   | Inhabit -> "Inhabit"
   | Coerce -> "Coerce"
 
+let string_of_universe = function
+  | Type i -> "Type(" ^ string_of_int i ^ ")"
+  | Fib  i -> "Fib(" ^ string_of_int i ^ ")"
+
 let string_of_eqsort = function
   | Ju -> "Ju"
   | Pr -> "Pr"
@@ -57,7 +62,7 @@ let string_of_term string_of_var =
   begin
     match term with
     | Var x -> string_of_var x
-    | Type -> "Type"
+    | Universe u -> string_of_universe u
     | Lambda(x,None,t2) ->
       "Lambda(" ^ x ^ "," ^ "_" ^ "," ^ (loop t2) ^ ")"
     | Lambda(x,Some t1,t2) ->
@@ -81,6 +86,9 @@ let string_of_term string_of_var =
          string_of_case cases)) ^ ")"
     | Equiv(o,t1,t2,t3) ->
         "Equiv(" ^ (string_of_eqsort o) ^ "," ^ loops [t1; t2; t3] ^ ")"
+    | Refl(o,t) ->
+        "Refl(" ^ (string_of_eqsort o) ^ "," ^ loop t ^ ")"
+
    end
 
      and loops terms = (String.concat "," (List.map loop terms))
@@ -111,7 +119,7 @@ let index ~loc x =
 let rec desugar xs (e, loc) =
   (match e with
     | Var x -> Var (index ~loc x xs)
-    | Type  -> Type
+    | Universe u  -> Universe u
     | Pi (x, t1, t2) -> Pi (x, desugar xs t1, desugar (x :: xs) t2)
     | Sigma (x, t1, t2) -> Sigma (x, desugar xs t1, desugar (x :: xs) t2)
     | Lambda (x, None  , e) -> Lambda (x, None, desugar (x :: xs) e)
@@ -123,6 +131,7 @@ let rec desugar xs (e, loc) =
     | Operation (optag, terms) -> Operation (optag, List.map (desugar xs) terms)
     | Handle (term, h) -> Handle (desugar xs term, desugar_handler xs h)
     | Equiv (o, t1, t2, t3) -> Equiv (o, desugar xs t1, desugar xs t2, desugar xs t3)
+    | Refl (o, t) -> Refl(o, desugar xs t)
   ),
   loc
 
@@ -137,7 +146,7 @@ and desugar_case xs (optag, terms, c) =
 let rec shift ?(c=0) d (e, loc) =
   (match e with
   | Var m -> if (m < c) then Var m else Var(m+d)
-  | Type  -> Type
+  | Universe u  -> Universe u
   | Pi (x, t1, t2) -> Pi(x, shift ~c d t1, shift ~c:(c+1) d t2)
   | Sigma (x, t1, t2) -> Sigma(x, shift ~c d t1, shift ~c:(c+1) d t2)
   | Lambda (x, None, e) -> Lambda (x, None, shift ~c:(c+1) d e)
@@ -148,7 +157,8 @@ let rec shift ?(c=0) d (e, loc) =
   | Ascribe (e1, t2) -> Ascribe (shift ~c d e1, shift ~c d t2)
   | Operation (optag, terms) -> Operation (optag, List.map (shift ~c d) terms)
   | Handle (term, h) -> Handle (shift ~c d term, List.map (shift_handler_case ~c d) h)
-  | Equiv (o, t1, t2, t3) -> Equiv (o, shift ~c d t1, shift ~c d t2, shift ~c d t3)),
+  | Equiv (o, t1, t2, t3) -> Equiv (o, shift ~c d t1, shift ~c d t2, shift ~c d t3)
+  | Refl (o, t) -> Refl (o, shift ~c d t)),
   loc
 
 and shift_handler_case ?(c=0) d (optag, terms, term) =
