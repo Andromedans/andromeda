@@ -30,13 +30,17 @@ and Infer : sig
 
 
   type iterm = Common.debruijn Input.term
+
   val infer : env -> iterm -> term * term
   val inferParam : ?verbose:bool -> env -> Common.variable list -> iterm -> env
   val inferDefinition : ?verbose:bool -> env -> Common.variable -> iterm -> env
   val inferAnnotatedDefinition : ?verbose:bool -> env -> Common.variable
                                    -> iterm -> iterm -> env
 
-               end = struct
+  val addHandlers: env -> Common.position
+                       -> Common.debruijn Input.handler
+                       -> env
+ end = struct
 
 module D = Input
 module S = BrazilSyntax
@@ -241,7 +245,7 @@ let rec infer env (term, loc) =
 
 
     | D.Operation (tag, terms) ->
-        let operation = inferOp env loc tag terms  in
+        let operation = inferOp env loc tag terms None in
         inferHandler env loc operation
 
     | D.Handle (term, handlers) ->
@@ -265,20 +269,25 @@ let rec infer env (term, loc) =
         let e, t = infer env term in
         S.Refl(o, e, t), S.Eq(o, e, e, t)
 
-and inferOp env loc tag terms =
-  match tag, terms with
-  | D.Inhabit, [term] ->
+and inferOp env loc tag terms handlerBodyOpt =
+  match tag, terms, handlerBodyOpt with
+  | D.Inhabit, [term], _ ->
       let ty, _ = infer_ty env term  in
       Inhabit ty
 
-  | D.Inhabit, _ -> Error.typing ~loc "Wrong number of arguments to INHABIT"
+  | D.Inhabit, [], Some handlerBody ->
+    (* Hack for Brazil compatibility *)
+    let _, ty = infer env handlerBody  in
+    Inhabit ty
 
-  | D.Coerce, [term1; term2] ->
+  | D.Inhabit, _, _ -> Error.typing ~loc "Wrong number of arguments to INHABIT"
+
+  | D.Coerce, [term1; term2], _ ->
       let t1, _ = infer_ty env term1  in
       let t2, _ = infer_ty env term2  in
       Coerce(t1, t2)
 
-  | D.Coerce, _ -> Error.typing ~loc "Wrong number of arguments to COERCE"
+  | D.Coerce, _, _ -> Error.typing ~loc "Wrong number of arguments to COERCE"
 
 
 and addHandlers env loc handlers =
@@ -287,7 +296,7 @@ and addHandlers env loc handlers =
     | [] -> env
     | (tag, terms, handlerBody) :: rest ->
         (* When we add patterns, we won't be able to use inferOp any more... *)
-        let operation = inferOp env loc tag terms  in
+        let operation = inferOp env loc tag terms (Some handlerBody) in
         let env' = { env with handlers = ((installLevel, operation, handlerBody) :: env.handlers) } in
         addHandlers env' loc rest  in
   loop handlers

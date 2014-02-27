@@ -34,6 +34,7 @@
 %token ASSUME
 %token HANDLE WITH BAR END
 (*%token RETURN*)
+%token REFLEQUIV REFLEQUAL
 %token QUIT HELP  CONTEXT
 %token EOF
 
@@ -42,21 +43,25 @@
 %start <Common.variable Input.toplevel> commandline
 
 
+%right ARROW
+%left  STAR
+
 %%
 
 (* Toplevel syntax *)
 
-(* If you're going to "optimize" this, please make sure we don't require;; at the
-   end of the file. *)
 file:
-  | file_topdef                 { $1 }
-  | topdirective EOF            { [$1] }
-  | topdirective SEMISEMI file  { $1 :: $3 }
+  | filecontents EOF            { $1 }
 
-file_topdef:
-  | EOF                   { [] }
-  | topdef SEMISEMI file  { $1 :: $3 }
-  | topdef file_topdef    { $1 :: $2 }
+filecontents:
+  |                              { [] }
+  | topdef filecontents          { $1 :: $2 }
+  | topdirective filecontents    { $1 :: $2 }
+  | tophandler filecontents      { $1 :: $2 }
+
+tophandler: mark_position(plain_tophandler) { $1 }
+plain_tophandler:
+  | WITH handler { TopHandler($2) }
 
 commandline:
   | topdef SEMISEMI        { $1 }
@@ -90,18 +95,20 @@ plain_equiv_term:
     | arrow_term EQEQ arrow_term AT equiv_term { Equiv(Ju, $1, $3, $5) }
     | arrow_term EQ arrow_term AT equiv_term { Equiv(Pr, $1, $3, $5) }
 
-
 arrow_term: mark_position(plain_arrow_term) { $1 }
 plain_arrow_term:
   | plain_app_term              { $1 }
-  | app_term ARROW arrow_term   { Pi ("_", $1, $3) }
+  | arrow_term ARROW arrow_term   { Pi ("_", $1, $3) }
   | LPAREN NAME COLON term RPAREN ARROW arrow_term      { Pi($2, $4, $7) }
+  | arrow_term STAR arrow_term    { Sigma ("_", $1, $3) }
   | LPAREN NAME COLON term RPAREN STAR arrow_term      { Sigma($2, $4, $7) }
 
 app_term: mark_position(plain_app_term) { $1 }
 plain_app_term:
   | plain_simple_term      { $1 }
   | app_term simple_term   { App ($1, $2) }
+  | REFLEQUIV simple_term          { Refl(Ju, $2) }
+  | REFLEQUAL simple_term          { Refl(Pr, $2) }
 
 
 simple_term: mark_position(plain_simple_term) { $1 }
@@ -122,6 +129,7 @@ handler:
 handler_case:
   | LBRACK plain_operation RBRACK DARROW computation
                                             { let (tag,args) = $2 in (tag,args, $5) }
+  | term                                    { (Inhabit, [], $1) }
 
 (*
 computation: mark_position(plain_computation) { $1 }

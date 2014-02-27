@@ -41,6 +41,7 @@ type 'a toplevel = 'a toplevel' * Common.position
 and 'a toplevel' =
   | TopDef of Common.variable * 'a term
   | TopParam of Common.variable list * 'a term
+  | TopHandler of 'a handler
   | Context
   | Help
   | Quit

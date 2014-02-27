@@ -99,6 +99,10 @@ let rec exec_cmd interactive env (d, loc) =
         let e = Input.desugar ctx.Ctx.names e in
         let env' = Typing.Infer.inferDefinition ~verbose:interactive env x e  in
         env'
+    | Input.TopHandler hs ->
+        let hs = Input.desugar_handler ctx.Ctx.names hs   in
+        let env' = Typing.Infer.addHandlers env loc hs in
+        env'
     | Input.Help ->
       print_endline help_text ; env
     | Input.Quit -> exit 0

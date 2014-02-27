@@ -64,11 +64,11 @@ with homonym          // The downside of this syntax is
                       // handler...
 define pair2 := (pair1 :> List one * (List one -> List won))
 
-// Multiple handlers, alternate == @ syntax
+// Multiple handlers
 
 assume red : nat
 assume crimson : nat
-assume synonym : eq nat red crimson 
+assume synonym : red == crimson @ nat
 
 assume pair3 : List red * List won
 
