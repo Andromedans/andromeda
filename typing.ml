@@ -18,7 +18,7 @@ and Infer : sig
   val whnf              : env -> term -> term
   val print_term        : env -> term -> Format.formatter -> unit
 
-  type handled_result = unit
+  type handled_result = BrazilSyntax.TermSet.t
   val trivial_hr : handled_result
   val join_hr    : handled_result -> handled_result -> handled_result
 
@@ -59,11 +59,13 @@ let  shiftOperation ?(cut=0) d = function
 type env = {
   ctx : Ctx.context;
   handlers : (int * operation * Common.debruijn D.handler_body) list;  (* install-level *)
+  equiv_entry_level : int;
 }
 
 
 let empty_env = { ctx = Ctx.empty_context;
                   handlers = [];
+                  equiv_entry_level = -1;
                  }
 
 let get_ctx { ctx } = ctx
@@ -75,6 +77,9 @@ let add_parameter x t env =
 let add_definition x t e env =
   {env with ctx = Ctx.add_definition x t e env.ctx}
 
+let enter_equiv env =
+  { env with equiv_entry_level = currentLevel env }
+
 let lookup v env = Ctx.lookup v env.ctx
 let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
 let whnf env e = BrazilNorm.whnf env.ctx e
@@ -83,37 +88,18 @@ let print_term env e = P.term env.ctx.Ctx.names e
 type iterm = Common.debruijn Input.term
 
 type term = BrazilSyntax.term
-type handled_result = unit
-let join_hr _ _ = ()
-let trivial_hr = ()
+type handled_result = BrazilSyntax.TermSet.t
+let join_hr hr1 hr2 = BrazilSyntax.TermSet.union hr1 hr2
+let trivial_hr = BrazilSyntax.TermSet.empty
 
-
-let handled env e1 e2 _ =
-  let level = currentLevel env  in
-  let rec loop = function
-    | [] -> None
-    | (installLevel, Inhabit(S.Eq(S.Ju,h1,h2,_)), comp)::rest ->
-        (* XXX: is it safe to ignore the classifier??? *)
-        let d = level - installLevel in
-        let h1 = S.shift d h1  in
-        let h2 = S.shift d h2  in
-        P.debug "handle search e1 = %t@. and e2 = %t@. and h1 = %t@. and h2 = %t@."
-             (print_term env e1) (print_term env e2)
-             (print_term env h1) (print_term env h2) ;
-        if ( (S.equal e1 h1 && S.equal e2 h2) ||
-             (S.equal e1 h2 && S.equal e2 h1) ) then
-          Some ()
-        else
-          loop rest
-    | _ :: rest -> loop rest
-  in
-    loop env.handlers
 
 
 let find_handler_reduction env k p =
   let level = currentLevel env  in
   let rec loop = function
-    | [] -> whnf env k
+    | [] ->
+        P.debug "find_handler_reduction defaulting to whnf@.";
+        whnf env k
     | (installLevel, Inhabit(S.Eq(S.Ju,h1,h2,_)), comp)::rest ->
         (* XXX: is it safe to ignore the classifier??? *)
         let d = level - installLevel in
@@ -340,11 +326,17 @@ and check env ((term1, loc) as term) t =
             end
         | _ ->
             begin
+              let env = enter_equiv env  in
               match (Equiv.equal_at_some_universe env t' t ) with
               | None ->
                   Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
                      (print_term env e) (print_term env t') (print_term env t)
-              | Some _ -> e
+              | Some witness_set ->
+                  begin
+                    match (S.TermSet.elements witness_set) with
+                    | [] -> e
+                    | witnesses -> S.Handle(e, witnesses)
+                  end
             end
 
 and infer_ty env ((_,loc) as term) =
@@ -352,6 +344,52 @@ and infer_ty env ((_,loc) as term) =
   match as_u env k with
   | S.U u -> t, u
   | _ -> Error.typing ~loc "Not a type: %t" (print_term env t)
+
+and handled env e1 e2 _ =
+  let level = currentLevel env  in
+  let rec loop = function
+    | [] ->
+        P.debug "handle search failed@.";
+        None
+    | (installLevel, op1, comp) :: rest ->
+        begin
+          (* XXX: is it safe to ignore the classifier??? *)
+          let d = level - installLevel in
+          let op1 = shiftOperation d op1  in
+          let comp = Input.shift d comp  in
+          match op1 with
+          | Inhabit( S.Eq( S.Ju, h1, h2, _) as ty) ->
+            P.debug "handle search e1 = %t@. and e2 = %t@. and h1 = %t@. and h2 = %t@."
+              (print_term env e1) (print_term env e2)
+              (print_term env h1) (print_term env h2) ;
+            if ( (S.equal e1 h1 && S.equal e2 h2) ||
+                 (S.equal e1 h2 && S.equal e2 h1) ) then
+              (P.debug "handler search succeeded. Witness %s@. with expected type %t@."
+                 (Input.string_of_term string_of_int comp) (print_term env ty);
+               let witness = check env comp ty  in
+               (* The problem is that we might be in the middle of some
+                * complex equivalence that has extended the context with
+                * additional variables, relative to where we were when
+                * type inference invoked the equivalence checker. The
+                * witness makes sense here, but due to de Bruijn notation,
+                * has to be "unshifted" in order to make sense in the
+                * original context. We therefore store the witness
+                * in the form that makes sense in the original [type inference]
+                * context. *)
+               let shift_out = env.equiv_entry_level - level  in
+               let shifted_witness = S.shift shift_out witness  in
+               P.debug "That witness %s will turn out to be %t@.Shifting it by %d to get %s"
+                 (Input.string_of_term string_of_int comp)
+                 (print_term env witness)
+                 shift_out
+                 (S.string_of_term shifted_witness);
+               Some (S.TermSet.singleton shifted_witness))
+            else
+              loop rest
+          | _ -> loop rest
+        end
+  in
+  loop env.handlers
 
 
 (* Find the first matching handler, and return the typechecked right-hand-side
@@ -409,3 +447,4 @@ let inferAnnotatedDefinition ?(verbose=false) env name ((_,loc) as term) termDef
   add_definition name ty expr env
 
 end
+

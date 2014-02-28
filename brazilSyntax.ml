@@ -18,6 +18,7 @@ type term =
   | U      of universe
   | Base   of basetype
   | Const  of constant
+  | Handle of term * term list
 
 and universe = D.universe =
   | Type of int
@@ -121,6 +122,11 @@ and constant =
 
 *)
 
+module TermSet = Set.Make(struct
+                             type t = term
+                             let compare = compare
+                          end)
+
 (** [universe_join u1 u2] returns the universe that includes both [u1] and [u2]
 *)
 let universe_join u1 u2 =
@@ -158,6 +164,7 @@ let rec string_of_term = function
   | Eq(o,e1,e2,t)  -> "Eq(" ^ string_of_eqsort o ^ "," ^ string_of_terms [e1;e2] ^ ")"
   | J(o,c,w,a,b,t,q)
     -> "J(" ^ string_of_eqsort o ^ "," ^ string_of_terms [c;w;a;b;t;q] ^ ")"
+  | Handle(e,es)   -> "Handle(" ^ string_of_terms (e::es) ^ ")"
   | U univ  -> "U(" ^ string_of_universe univ ^ ")"
   | Base b  -> string_of_basetype b
   | Const c -> string_of_constant c
@@ -187,7 +194,8 @@ and string_of_constant = function
 *)
 let shift ?(cut=0) delta =
   let rec loop cut = function
-    | Var m -> if (m < cut) then Var m else Var(m+delta)
+    | Var m -> if (m < cut) then Var m else (assert (m+delta >= 0);
+                                             Var(m+delta))
     | Lambda (x, t, e)  -> Lambda (x, loop cut t, loop (cut+1) e)
     | App (e1, e2)      -> App(loop cut e1, loop cut e2)
     | Pi (x, t1, t2)    -> Pi(x, loop cut t1, loop (cut+1) t2)
@@ -199,6 +207,7 @@ let shift ?(cut=0) delta =
     | J (o, c, w, a, b, t, q) -> J(o, loop (cut+3) c, loop (cut+1) w,
                                    loop cut a, loop cut b,
                                    loop cut t, loop cut q)
+    | Handle (e, es)   -> Handle(loop cut e, List.map (loop cut) es)
     | (U _ | Base _ | Const _) as term -> term  in
   loop cut
 
@@ -221,6 +230,7 @@ let rec subst j e' = function
                                 subst (j+1) (shift 1 e') w,
                                 subst j e' a, subst j e' b,
                                 subst j e' t, subst j e' q)
+  | Handle (e, es)   -> Handle (subst j e' e, List.map (subst j e') es)
   | (U _ | Base _ | Const _) as term -> term
 
 
@@ -252,6 +262,7 @@ let rec occurs v e =
   | J(_, c, w, a, b, t, p) -> occurs (v+3) c || occurs (v+1) w ||
                               occurs v a || occurs v b ||
                               occurs v t || occurs v p
+  | Handle (e, es)        -> occurs v e || List.exists (occurs v) es
 
   | (U _ | Base _ | Const _) -> false
 
@@ -289,17 +300,12 @@ let rec equal e1 e2 =
       o1 = o2 && equal t11 t21 && equal t12 t22 && equal t13 t23
       && equal t14 t24 && equal t15 t25 && equal t16 t26
 
+    (* XXX: We ignore handlers w.r.t. alpha equivalence, because they
+     * don't "really" exist in the term! *)
+  | Handle(e1', _), _ -> equal e1' e2
+  | _, Handle(e2', _) -> equal e1 e2'
+
   | (Var _ | Lambda _ | Pi _ | App _ | Sigma _ | Pair _ | Proj _
-      | Refl _ | Eq _ | J _ | U _ | Base _ | Const _), _ -> false
+      | Refl _ | Eq _ | J _ | U _ | Base _ | Const _ ), _ -> false
 
-type operation =
-  | Inhabit of term
-
-and computation = Common.debruijn D.term
-
-and handler = (operation * computation) list
-
-
-let rec shiftOperation ?(cut=0) delta = function
-  | Inhabit term -> Inhabit (shift ~cut delta term)
 

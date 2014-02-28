@@ -1,7 +1,50 @@
+module rec Equiv : sig
+                     val equal_at_some_universe : Infer.env ->
+                            Infer.term -> Infer.term
+                            -> Infer.handled_result option
+                   end =
+    Equivalence.Make(Infer)
+
+and Infer : sig
+  type term = BrazilSyntax.term
+
+  type env
+  val empty_env         : env
+  val get_ctx           : env -> BrazilContext.Ctx.context
+  val add_parameter     : Common.variable -> term -> env -> env
+  val lookup_classifier : Common.debruijn -> env -> term
+  val whnf              : env -> term -> term
+  val print_term        : env -> term -> Format.formatter -> unit
+
+  type handled_result = unit
+  val trivial_hr : handled_result
+  val join_hr    : handled_result -> handled_result -> handled_result
+
+  val handled : env -> term -> term -> term option -> handled_result option
+  val as_whnf_for_eta : env -> term -> term
+  val as_pi   : env -> term -> term
+  val as_sigma : env -> term -> term
+  (* val as_u     : env -> term -> term  *)
+
+
+  type iterm = BrazilSyntax.term
+
+  val infer : env -> iterm -> term * term
+  val inferParam : ?verbose:bool -> env -> Common.variable list -> iterm -> env
+  val inferDefinition : ?verbose:bool -> env -> Common.variable -> iterm -> env
+  val inferAnnotatedDefinition : ?verbose:bool -> env -> Common.variable
+                                   -> iterm -> iterm -> env
+
+  val addHandlers: env -> Common.position
+                       -> Common.debruijn Input.handler
+                       -> env
+ end = struct
+
+
 (** Type inference. *)
 
 module Ctx = BrazilContext.Ctx
-module D = BrazilInput
+module D = BrazilSyntax
 module P = BrazilPrint
 module S = BrazilSyntax
 
@@ -15,6 +58,7 @@ type env = {
 let empty_env = { ctx = Ctx.empty_context;
                   handlers = [];
                  }
+let get_ctx { ctx } = ctx
 
 let currentLevel env = List.length env.ctx.Ctx.names
 
@@ -28,174 +72,45 @@ let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
 let whnf env e = BrazilNorm.whnf env.ctx e
 let print_term env e = P.term env.ctx.Ctx.names e
 
+type iterm = BrazilSyntax.term
+
+type term = BrazilSyntax.term
+type handled_result = unit
+let join_hr _ _ = ()
+let trivial_hr = ()
 
 
-let rec equal env t1 t2 k =
-P.debug "equal: %t == %t at %t@." (print_term env t1) (print_term env t2) (print_term env k);
-  S.equal t1 t2 ||                    (* Short-circuit in the common case *)
-  handled env t1 t2 ||
-  match (as_whnf_for_eta env k) with
-      | S.Pi (x, t3, k3) ->
-          let env' = add_parameter x t3 env  in
-          let t1' = S.App (S.shift 1 t1, S.Var 0) in
-          let t2' = S.App (S.shift 1 t2, S.Var 0) in
-          equal env' t1' t2'  k3
-      | S.Sigma (x, c, d) ->
-          let t1' i = S.Proj (i, t1) in
-          let t2' i = S.Proj (i, t2) in
-          equal env (t1' 1) (t2' 1) c &&
-          equal env (t1' 2) (t2' 2) (S.beta d (t1' 1))
-      | S.Eq(S.Ju, _, _, _) ->
-          (* K rule for Judgmental equality! *)
-          true
-      | S.Base S.TUnit ->
-          (* Everything is equal at type unit *)
-          true
-      | _ -> equal_structural env t1 t2
-
-(* Relies on a subsumptive universe structure, so that we can be
- * sure that if t1 : U(i) and t2 : U(j) then they both belong to
- * some common universe U(max{i,j])
- *)
-and equal_at_some_universe env t1 t2 =
-  P.debug "equal_at_some_universe: %t == %t@."
-      (print_term env t1) (print_term env t2);
-  S.equal t1 t2 ||
-  handled env t1 t2 ||
-  equal_structural env t1 t2
 
 
-and equal_structural env t1 t2 =
-
-  P.debug "equal_structural: %t == %t@." (print_term env t1) (print_term env t2) ;
-
-  let t1' = whnf env t1 in
-  P.debug "t1' = %t@." (print_term env t1') ;
-  let t2' = whnf env t2 in
-  P.debug "t2' = %t@." (print_term env t2') ;
-
-  S.equal t1' t2' ||       (* Catches U/Var/Const/Base; also, might short-circuit *)
-
-  handled env t1' t2' ||
-
-  match t1', t2' with
-  | S.Pi    (x, t11, t12), S.Pi    (_, t21, t22)
-  | S.Sigma (x, t11, t12), S.Sigma (_, t21, t22) ->
-      equal_at_some_universe env                       t11 t21 &&
-      equal_at_some_universe (add_parameter x t11 env) t12 t22
-
-  | S.Refl(o1, t1, k1), S.Refl(o2, t2, k2) ->
-      o1 = o2 &&
-      equal_at_some_universe env k1 k2 &&
-      equal env t1 t2 k1
-
-  | S.Eq(o1, e11, e12, t1), S.Eq(o2, e21, e22, t2) ->
-      o1 = o2 &&
-      equal_at_some_universe env t1 t2 &&
-      equal env e11 e21 t1 &&
-      equal env e12 e22 t1
-
-  | S.Lambda(x, t1, e1), S.Lambda(_, t2, e2) ->
-      P.warning "Why is equal_structural comparing two lambdas?";
-      equal_at_some_universe env t1 t2 &&
-      equal_structural (add_parameter x t1 env) e1 e2
-
-  | S.Pair(e11, e12), S.Pair(e21, e22) ->
-      P.warning "Why is equal_structural comparing two pairs?";
-      equal_structural env e11 e21 &&
-      equal_structural env e12 e22
-
-  | S.J(o1, c1, w1, a1, b1, t1, p1),
-    S.J(o2, c2, w2, a2, b2, t2, p2) ->
-      let pathtype = S.Eq(o1, a1, b1, t1) in
-      o1 == o2 &&
-      equal_at_some_universe env t1 t2 &&
-      equal env a1 a2 t1 &&
-      equal env b1 b2 t1 &&
-      (* OK, at this point we are confident that both paths
-       * have the same type *)
-      equal env p1 p2 pathtype &&
-      equal_at_some_universe
-           (add_parameter "_p" pathtype
-              (add_parameter "_y" t1
-                (add_parameter "_x" t1 env))) c1 c2   &&
-      equal (add_parameter "_z" t1 env) w1 w2
-               (S.beta (S.beta (S.beta w1 (S.Var 0)) (S.Var 0))
-                       (S.Refl(o1, S.Var 0, t1)))
-
-  | S.App _, S.App _
-  | S.Proj _ , S.Proj _ ->
-      begin
-        match equal_path env t1' t2' with
-        | Some _ -> true
-        | None   ->
-            begin
-              P.equivalence "Why is %t == %t ?@."
-                (print_term env t1) (print_term env t2);
-              false
-            end
-      end
-
-  | (S.Var _ | S.Lambda _ | S.Pi _ | S.App _ | S.Sigma _ |
-     S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.J _ |
-     S.U _ | S.Base _ | S.Const _), _ ->
-            begin
-              P.equivalence "Why is %t == %t ?@."
-                (print_term env t1) (print_term env t2);
-              false
-            end
-
-
-and equal_path env e1 e2 =
-  match e1, e2 with
-  | S.Var v1, S.Var v2 ->
-      if v1 = v2 then Some (lookup_classifier v1 env) else None
-
-
-  | S.Proj (i1, e3), S.Proj (i2, e4) when i1 = i2 ->
-      begin
-        match i1, equal_path env e3 e4 with
-          | 1, Some (S.Sigma(_, t1, _)) -> Some t1
-          | 2, Some (S.Sigma(_, _, t2)) -> Some (S.beta t2 e1)
-          | _                           -> None
-      end
-
-  | S.App (e3, e5), S.App(e4, e6) ->
-      begin
-        match equal_path env e3 e4 with
-          | Some (S.Pi(_, t1, t2)) ->
-              if equal env e5 e6 t1 then
-                Some (S.beta t2 e5)
-              else
-                None
-          | _ -> None
-      end
-
-  | _, _ -> None
-
-
-and unshift_handler env (installLevel, h1, h2) =
+let unshift_handler env (installLevel, h1, h2) =
   let d = currentLevel env - installLevel in
   S.shift d h1, S.shift d h2
 
 (* We check handlers in both directions, so that the user is not required
  * to worry about symmetry, i.e., which direction to specify the equivalence *)
-and handled env e1 e2 =
+
+(* XXX : is it OK to ignore the classifier? *)
+let handled env e1 e2 _ =
   let rec loop = function
     | [] ->
-P.debug "handle search failed@.";
-false
+      P.debug "handle search failed@.";
+      None
     | handler :: rest ->
         let h1, h2 = unshift_handler env handler  in
-P.debug "handle search e1 = %t@. and e2 = %t@. and h1 = %t@. and h2 = %t@." (print_term env e1) (print_term env e2) (print_term env h1) (print_term env h2) ;
-        (S.equal e1 h1 && S.equal e2 h2) ||
-        (S.equal e1 h2 && S.equal e2 h1) ||
-        loop rest
+        P.debug "handle search e1 = %t@. and e2 = %t@. and h1 = %t@. and h2 = %t@."
+          (print_term env e1) (print_term env e2)
+          (print_term env h1) (print_term env h2) ;
+        if ( (S.equal e1 h1 && S.equal e2 h2) ||
+             (S.equal e1 h2 && S.equal e2 h1) ) then
+               (P.debug "handler search succeeded.@.";
+                Some ())
+        else
+          loop rest
   in
     loop (env.handlers)
 
 
-and find_handler_reduction env k p =
+let find_handler_reduction env k p =
   let rec loop = function
     | [] -> whnf env k
     | handler::rest ->
@@ -208,16 +123,16 @@ and find_handler_reduction env k p =
           loop rest  in
   loop env.handlers
 
-and as_pi env k =
+let as_pi env k =
   find_handler_reduction env k (function S.Pi _ -> true | _ -> false)
 
-and as_sigma env k =
+let as_sigma env k =
   find_handler_reduction env k (function S.Sigma _ -> true | _ -> false)
 
-and as_u env k =
+let as_u env k =
   find_handler_reduction env k (function S.U _ -> true | _ -> false)
 
-and as_whnf_for_eta env k =
+let as_whnf_for_eta env k =
   find_handler_reduction env k
      (function
         | S.Pi _ | S.Sigma _ | S.U _
@@ -412,11 +327,13 @@ and check env ((term1, loc) as term) t =
                       (print_term env e) (print_term env t') (print_term env t)
             end
         | _ ->
-            if not (equal_at_some_universe env t' t ) then
-              Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
-              (print_term env e) (print_term env t') (print_term env t)
-            else
-              e
+            begin
+              match (Equiv.equal_at_some_universe env t' t ) with
+              | None ->
+                  Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
+                     (print_term env e) (print_term env t') (print_term env t)
+              | Some () -> e
+            end
 
 
 
@@ -441,4 +358,4 @@ let inferAnnotatedDefinition ?(verbose=false) env name ((_,loc) as term) termDef
   add_definition name ty expr env
 
 
-
+ end

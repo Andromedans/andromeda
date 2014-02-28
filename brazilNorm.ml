@@ -59,6 +59,8 @@ let rec whnf ctx e =
       | S.J(S.Ju, _, u, _, b, _, _) ->
           S.beta u b
 
+      | S.Handle (e, es) -> whnf ctx e
+
         (* Everything else is already in whnf *)
       | S.Lambda _
       | S.Pair _
@@ -134,6 +136,9 @@ let rec nf ctx e =
 
       | S.J (S.Ju, _, _, _, _, _, _) ->
           Error.typing "Found a judgmental J after whnf"
+
+      | S.Handle (_,_) ->
+          Error.typing "Found a top-level handle after whnf"
 
       | (S.U _ | S.Base _ | S.Const _) as term -> term
 

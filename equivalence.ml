@@ -120,6 +120,7 @@ and equal_structural env t1 t2 =
         | S.Sigma (x, t11, t12), S.Sigma (_, t21, t22) ->
             hr_ands
             [lazy (equal_at_some_universe env                       t11 t21);
+             lazy (P.debug "halfway through Pi/Sigma@."; Some X.trivial_hr);
              lazy (equal_at_some_universe (X.add_parameter x t11 env) t12 t22)]
 
         | S.Refl(o1, t1, k1), S.Refl(o2, t2, k2) ->
@@ -149,6 +150,12 @@ and equal_structural env t1 t2 =
             [ lazy ( equal_structural env e11 e21 );
               lazy ( equal_structural env e12 e22 ) ]
 
+        | S.Handle (e1, es1), S.Handle (e2, es2) ->
+            P.warning "Why is equal_structural comparing two handles?";
+            hr_ands
+            ( lazy ( equal_structural env e1 e2) ::
+              List.map2 (fun x y -> lazy (equal_structural env x y)) es1 es2 )
+
             (*
   | S.J(o1, c1, w1, a1, b1, t1, p1),
     S.J(o2, c2, w2, a2, b2, t2, p2) ->
@@ -173,10 +180,13 @@ and equal_structural env t1 t2 =
         | S.Proj _ , S.Proj _ ->
           begin
             match equal_path env t1' t2' with
-            | Some (_,hr) -> Some hr
+            | Some (t,hr) ->
+                P.debug "Path equivalence succeeded at type %t"
+                   (X.print_term env t);
+                Some hr
             | None   ->
                 begin
-                   P.equivalence "Why is %t == %t ?@."
+                  P.equivalence "[Path] Why is %t == %t ?@."
                       (X.print_term env t1) (X.print_term env t2);
                    None
                 end
@@ -184,15 +194,17 @@ and equal_structural env t1 t2 =
 
         | (S.Var _ | S.Lambda _ | S.Pi _ | S.App _ | S.Sigma _ |
            S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.J _ |
-           S.U _ | S.Base _ | S.Const _), _ ->
+           S.U _ | S.Base _ | S.Const _ | S.Handle _ ), _ ->
           begin
-            P.equivalence "Why is %t == %t ?@."
+            P.equivalence "[Mismatch] Why is %t == %t ?@."
                 (X.print_term env t1) (X.print_term env t2);
             None
           end
 
 
 and equal_path env e1 e2 =
+  P.debug "equal_path: e1 = %t@. and e2 = %t@."
+     (X.print_term env e1) (X.print_term env e2);
   match e1, e2 with
   | S.Var v1, S.Var v2 ->
       if v1 = v2 then
@@ -222,7 +234,10 @@ and equal_path env e1 e2 =
                     |  Some hr2 -> Some (S.beta t2 e5, X.join_hr hr1 hr2)
                     |  None     -> None
                   end
-                | _ -> None
+                | _ ->
+                    P.equivalence "Why do %t and %t have a pi type?"
+                      (X.print_term env e3) (X.print_term env e4);
+                    None
               end
           | _ -> None
       end
