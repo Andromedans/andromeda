@@ -29,22 +29,15 @@ and Infer : sig
 
   type iterm = BrazilSyntax.term
 
-  val infer : env -> iterm -> term * term
-  val inferParam : ?verbose:bool -> env -> Common.variable list -> iterm -> env
-  val inferDefinition : ?verbose:bool -> env -> Common.variable -> iterm -> env
-  val inferAnnotatedDefinition : ?verbose:bool -> env -> Common.variable
-                                   -> iterm -> iterm -> env
+  val infer : env -> iterm -> term
+  val verifyContext : BrazilContext.Ctx.context -> env
 
-  val addHandlers: env -> Common.position
-                       -> Common.debruijn Input.handler
-                       -> env
  end = struct
 
 
 (** Type inference. *)
 
 module Ctx = BrazilContext.Ctx
-module D = BrazilSyntax
 module P = BrazilPrint
 module S = BrazilSyntax
 
@@ -141,121 +134,96 @@ let as_whnf_for_eta env k =
         | _                             -> false)
 
 
-let rec infer env (term, loc) =
+let rec infer env term =
   match term with
 
-    | D.Var v ->
-        (S.Var v, lookup_classifier v env)
+    | S.Var v -> lookup_classifier v env
 
-    | D.Pi (x, term1, term2) ->
+    | S.U u -> S.U (S.universe_classifier u)
+
+    | S.Pi    (x, term1, term2)
+    | S.Sigma (x, term1, term2) ->
       begin
-        let t1, u1 = infer_ty env term1 in
-        let env' = add_parameter x t1 env in
-        let t2, u2 = infer_ty env' term2  in
-        (*
-        let _ =
-                (print_endline ("Original Pi : " ^ Desugar.string_of_term
-        (term,loc));
-                 print_endline ("Translated domain: " ^ S.string_of_term t1);
-                 print_endline ("Translated codomain: " ^ S.string_of_term t2);
-                 print_endline ("Output Pi : " ^ S.string_of_term (S.Pi(x, t1,
-                 t2)))
-                )  in
-        *)
-        S.Pi(x, t1, t2), S.U (S.universe_join u1 u2)
+        let u1 = infer_ty env term1 in
+        let env' = add_parameter x term1 env in
+        let u2 = infer_ty env' term2  in
+        S.U (S.universe_join u1 u2)
       end
 
-    | D.Sigma (x, term1, term2) ->
-      begin
-        let t1, u1 = infer_ty env term1 in
-        let env' = add_parameter x t1 env in
-        let t2, u2 = infer_ty env' term2  in
-        S.Sigma(x, t1, t2), S.U (S.universe_join u1 u2)
-      end
-
-    | D.Universe u ->
-        S.U u, S.U (S.universe_classifier u)
-
-    | D.App (term1, term2) ->
+    | S.App (term1, term2) ->
         begin
-          let e1, t1 = infer env term1  in
-          let _, t11, t12 =
-            match (as_pi env t1) with
-            | S.Pi(x, t1, t2) -> x, t1, t2
-            | _ -> Error.typing ~loc "Not a function: %t" (print_term env t1)  in
-          let e2 = check env term2 t11  in
-          let appTy = S.beta t12 e2  in
-          S.App(e1, e2), appTy
+          let ty1 = infer env term1  in
+          match (as_pi env ty1) with
+          | S.Pi (_, ty11, ty12) ->
+            let _     = check env term2 ty11  in
+            let appTy = S.beta ty12 term2  in
+            appTy
+          | _ -> Error.verify "Not a function: %t" (print_term env term1)
         end
 
-    | D.Pair (term1, term2) ->
+    | S.Pair (term1, term2) ->
         begin
-          let e1, t1 = infer env term1  in
-          let e2, t2 = infer env term2  in
-          let ty = S.Sigma("_", t1, S.shift 1 t2)  in
-          S.Pair(e1,e2), ty
+          let ty1 = infer env term1  in
+          let ty2 = infer env term2  in
+          S.Sigma("_", ty1, S.shift 1 ty2)
         end
 
-    | D.Proj (("1"|"fst"), term2) ->
+    | S.Proj (1, term2) ->
         begin
-          let e2, t2 = infer env term2  in
-          match as_sigma env t2 with
-          | S.Sigma(_, t21, _) ->  S.Proj(1, e2), t21
-          | _ -> Error.typing ~loc "Projecting from %t with type %t"
-                    (print_term env e2) (print_term env t2)
+          let ty2 = infer env term2  in
+          match as_sigma env ty2 with
+          | S.Sigma(_, ty21, _) ->  ty21
+          | _ -> Error.verify "Projecting from %t with type %t"
+                    (print_term env term2) (print_term env ty2)
         end
 
-    | D.Proj (("2"|"snd"), term2) ->
+    | S.Proj (2, term2) ->
         begin
-          let e2, t2 = infer env term2  in
-          match as_sigma env t2 with
-          | S.Sigma(_, _, t22) -> S.Proj(2, e2), S.beta t22 (S.Proj(1, e2))
-          | _ -> Error.typing ~loc "Projecting from %t with type %t"
-                    (print_term env e2) (print_term env t2)
+          let ty2 = infer env term2  in
+          match as_sigma env ty2 with
+          | S.Sigma(_, _, ty22) ->  S.beta ty22 (S.Proj(1, term2))
+          | _ -> Error.verify "Projecting from %t with type %t"
+                    (print_term env term2) (print_term env ty2)
         end
 
-    | D.Proj (s1, _) -> Error.typing ~loc "Unrecognized projection %s" s1
+    | S.Proj (index, _) -> Error.verify "Unrecognized projection %d" index
 
-    | D.Ascribe (term1, term2) ->
+    | S.Lambda (x, term1, term2) ->
         begin
-          let t2, _ = infer_ty env term2  in
-          let e1 = check env term1 t2  in
-          e1, t2
+          let _   = infer_ty env term1 in
+          let ty2 = infer (add_parameter x term1 env) term2 in
+          S.Pi(x, term1, ty2)
         end
 
-    | D.Lambda (x, None, _) -> Error.typing ~loc "cannot infer the domain type"
-
-    | D.Lambda (x, Some term1, term2) ->
-        begin
-          let t1, k1 = infer_ty env term1 in
-          let e2, t2 = infer (add_parameter x t1 env) term2 in
-          S.Lambda (x, t1, e2), S.Pi(x, t1, t2)
-        end
-
-    | D.Handle (term, handlers) ->
+    | S.Handle (term, handlers) ->
         let env'= addHandlers env handlers in
         infer env' term
 
-    | D.Equiv(o, term1, term2, term3) ->
+    | S.Eq(o, term1, term2, term3) ->
         begin
-          let ty3, u3 = infer_ty env term3 in
-          let e1 = check env term1 ty3  in
-          let e2 = check env term2 ty3  in
+          let u3 = infer_ty env term3 in
+          let _  = check env term1 term3  in
+          let _  = check env term2 term3  in
 
           (* Make sure that judgmental equivalences are not marked fibered *)
-          let ubase = match o with D.Pr -> S.Fib 0 | D.Ju -> S.Type 0 in
+          let ubase = match o with S.Pr -> S.Fib 0 | S.Ju -> S.Type 0 in
           let u = S.universe_join ubase u3  in
 
-          S.Eq (o, e1, e2, ty3), S.U u
+          S.U u
         end
 
-    | D.Refl(o, term) ->
-        let e, t = infer env term in
-        S.Refl(o, e, t), S.Eq(o, e, e, t)
+    | S.Refl(o, term1, term2) ->
+        let _ = infer_ty env term2  in
+        let _ = check env term1 term2  in
+        S.Eq(o, term1, term1, term2)
 
+
+    | S.Base S.TUnit  -> S.U (Fib 0)
+
+    | S.Const Unit -> S.Base S.TUnit
 
 (*
-    | D.J(o, term1, term2, term3) ->
+    | S.J(o, term1, term2, term3) ->
         let exp, e1, e2, t = infer_eq env term3 o  in
         let e1 = check env term1 ty3  in
           let e2 = check env term2 ty3  in
@@ -269,93 +237,83 @@ and addHandlers env handlers =
   let rec loop = function
     | [] -> env
     | term :: rest ->
-        let _, e1, e2, _ = infer_eq env term S.Ju in
+        let e1, e2, _ = infer_eq env term S.Ju in
         let env' = { env with handlers = (installLevel,e1,e2) :: env.handlers } in
         addHandlers env' rest  in
   loop handlers
 
-and infer_ty env ((_,loc) as term) =
-  let t, k = infer env term in
+and infer_ty env term =
+  let k = infer env term in
   match as_u env k with
-  | S.U u -> t, u
-  | _ -> Error.typing ~loc "Not a type: %t" (print_term env t)
+  | S.U u -> u
+  | _ -> Error.verify "Not a type: %t" (print_term env term)
 
 
-and infer_eq env ((_,loc) as term) o =
-  let exp, ty = infer env term in
+and infer_eq env term o =
+  let ty = infer env term in
   match as_u env ty with
   | S.Eq(o', e1, e2, t) ->
       if (o = o') then
-        exp, e1, e2, t
+        e1, e2, t
       else
-        Error.typing ~loc "Wrong sort of equivalence: %t" (print_term env ty)
-  | _ -> Error.typing ~loc "Not an equivalence: %t" (print_term env exp)
+        Error.verify "Wrong sort of equivalence: %t" (print_term env ty)
+  | _ -> Error.verify "Not an equivalence: %t" (print_term env term)
 
 
 
-and check env ((term1, loc) as term) t =
-  match term1 with
-    | D.Lambda (x, None, term2) ->
-        begin
-          match as_pi env t with
-          | S.Pi (_, t1, t2) ->
-              let e2 = check (add_parameter x t1 env) term2 t2 in
-              S.Lambda(x, t1, e2)
-          | _ -> Error.typing ~loc "Lambda cannot have type %t"
-                     (print_term env t)
-        end
-    | D.Pair (term1, term2) ->
+and check env term t =
+  match term with
+    | S.Pair (term1, term2) ->
         begin
           match as_sigma env t with
           | S.Sigma(x, t1, t2) ->
-              let e1 = check env term1 t1  in
-              let t2' = S.beta t2 e1  in
-              let e2 = check env term2 t2'  in
-              S.Pair(e1, e2)
-          | _ -> Error.typing ~loc "Pair cannot have type %t"
+              let _ = check env term1 t1  in
+              let t2' = S.beta t2 term1  in
+              let _ = check env term2 t2'  in
+              ()
+          | _ -> Error.verify "Pair cannot have type %t"
                      (print_term env t)
         end
     | _ ->
-      let e, t' = infer env term in
+      let t' = infer env term in
         match t with
         | S.U u ->
             begin
               match as_u env t' with
-              | S.U u' when S.universe_le u' u -> e
+              | S.U u' when S.universe_le u' u -> ()
               | _ ->
-                    Error.typing ~loc "expression %t@ has type %t@\nBut should have type %t"
-                      (print_term env e) (print_term env t') (print_term env t)
+                    Error.verify "expression %t@ has type %t@\nBut should have type %t"
+                      (print_term env term) (print_term env t') (print_term env t)
             end
         | _ ->
             begin
               match (Equiv.equal_at_some_universe env t' t ) with
               | None ->
-                  Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
-                     (print_term env e) (print_term env t') (print_term env t)
-              | Some () -> e
+                  Error.verify "expression %t@ has type %t@\nbut should have type %t"
+                     (print_term env term) (print_term env t') (print_term env t)
+              | Some () -> ()
             end
 
 
 
-let inferParam ?(verbose=false) env names ((_,loc) as term) =
-  let ty,_ = infer_ty env term in
-  let env, _ = List.fold_left
-      (fun (env, t) name ->
-         (*if List.mem x ctx.names then Error.typing ~loc "%s already exists" x ;*)
-         if verbose then Format.printf "Term %s is assumed.@." name ;
-         (add_parameter name t env, S.shift 1 t))
-        (env, ty) names  in
-  env
+let inferParam ?(verbose=false) env name term =
+  P.debug "Verifying %s:%s@." name (S.string_of_term term);
+  let _ = infer_ty env term in
+  add_parameter name term env
 
-let inferDefinition ?(verbose=false) env name ((_,loc) as termDef) =
-  let expr, ty = infer env termDef in
-  if verbose then Format.printf "%s is defined.@." name;
-  add_definition name ty expr env
-
-let inferAnnotatedDefinition ?(verbose=false) env name ((_,loc) as term) termDef =
-  let ty, _ = infer_ty env term  in
-  let expr = check env termDef ty in
-  add_definition name ty expr env
+let inferDefinition env name term termDef =
+  P.debug "Verifying %s : %s := %s@."
+        name (S.string_of_term term) (S.string_of_term termDef);
+  let _ = infer_ty env term  in
+  let _ = check env termDef term in
+  add_definition name term termDef env
 
 
- end
+let verifyContext ctx =
+  let process_decl name decl env =
+    match decl with
+    | Ctx.Parameter term -> inferParam env name term
+    | Ctx.Definition (term1, term2) -> inferDefinition env name term1 term2  in
+  List.fold_right2 process_decl ctx.Ctx.names ctx.Ctx.decls empty_env
+
+end

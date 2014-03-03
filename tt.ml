@@ -163,6 +163,11 @@ let main =
   try
     (* Run and load all the specified files. *)
     let env = List.fold_left use_file Typing.Infer.empty_env !files in
-    if !interactive_shell then toplevel env
+    if !interactive_shell then
+      toplevel env
+    else
+      print_endline "Verifying";
+      let ctx = Typing.Infer.get_ctx env   in
+      BrazilTyping.Infer.verifyContext ctx
   with
     Error.Error err -> BrazilPrint.error err; exit 1

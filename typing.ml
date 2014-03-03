@@ -30,11 +30,13 @@ and Infer : sig
   val trivial_hr : handled_result
   val join_hr    : handled_result -> handled_result -> handled_result
 
-  val handled : env -> term -> term -> term option -> handled_result option
+  val handled         : env -> term -> term -> term option -> handled_result option
+
+  (* XXX FIXME
+   *    These use handlers, and hence need to return a handled_result too *)
   val as_whnf_for_eta : env -> term -> term
-  val as_pi   : env -> term -> term
-  val as_sigma : env -> term -> term
-  (* val as_u     : env -> term -> term  *)
+  val as_pi           : env -> term -> term
+  val as_sigma        : env -> term -> term
 
 
   type iterm = Common.debruijn Input.term
@@ -128,9 +130,10 @@ end = struct
         let d = level - installLevel in
         let h1 = S.shift d h1  in
         let h2 = S.shift d h2  in
+
         P.debug "handle search k = %t@. and h1 = %t@. and h2 = %t@."
-          (print_term env k)
-          (print_term env h1) (print_term env h2) ;
+          (print_term env k) (print_term env h1) (print_term env h2) ;
+
         if (S.equal h1 k && p h2) then
           h2
         else if (S.equal h2 k && p h1) then
