@@ -233,14 +233,14 @@ let rec infer env term =
 
 
 and addHandlers env handlers =
-  let installLevel = currentLevel env  in
-  let rec loop = function
-    | [] -> env
-    | term :: rest ->
-        let e1, e2, _ = infer_eq env term S.Ju in
-        let env' = { env with handlers = (installLevel,e1,e2) :: env.handlers } in
-        addHandlers env' rest  in
-  loop handlers
+  match handlers with
+  | [] -> env
+  | term :: rest ->
+     let e1, e2, _ = infer_eq env term S.Ju in
+     P.debug "Adding handler %t = %t@." (print_term env e1) (print_term env e2);
+     let installLevel = currentLevel env  in
+     let env' = { env with handlers = (installLevel,e1,e2) :: env.handlers } in
+     addHandlers env' rest
 
 and infer_ty env term =
   let k = infer env term in
@@ -263,6 +263,11 @@ and infer_eq env term o =
 
 and check env term t =
   match term with
+
+    | S.Handle (term1, handlers) ->
+        let env'= addHandlers env handlers in
+        check env' term1 t
+
     | S.Pair (term1, term2) ->
         begin
           match as_sigma env t with
@@ -274,6 +279,16 @@ and check env term t =
           | _ -> Error.verify "Pair cannot have type %t"
                      (print_term env t)
         end
+
+    | S.Lambda (x, term1, term2) ->
+      begin
+        match as_pi env t with
+        | S.Pi (_, ty11, ty12) ->
+          check (add_parameter x ty11 env) term2 ty12
+        | _ -> Error.verify "Lambda cannot have type %t"
+                 (print_term env t)
+      end
+
     | _ ->
       let t' = infer env term in
         match t with
@@ -297,12 +312,12 @@ and check env term t =
 
 
 let inferParam ?(verbose=false) env name term =
-  P.debug "Verifying %s:%s@." name (S.string_of_term term);
+  P.debug "@[<hov 4>Verifying %s@ : %s@]@." name (S.string_of_term term);
   let _ = infer_ty env term in
   add_parameter name term env
 
 let inferDefinition env name term termDef =
-  P.debug "Verifying %s : %s := %s@."
+  P.debug "@[<hov 4>Verifying %s@ : %s@ := %s@]@."
         name (S.string_of_term term) (S.string_of_term termDef);
   let _ = infer_ty env term  in
   let _ = check env termDef term in
