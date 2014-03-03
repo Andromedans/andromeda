@@ -81,7 +81,7 @@ and lambda xs x t e ppf =
           | S.Refl (S.Pr, e, t) -> print ~at_level:1 "refl[%t](%t)"
                (term ~max_level:3 xs t) (term ~max_level:3 xs e)
           | S.Eq(o,e1, e2, t) ->
-              print "(%t %s %t @@ %t)"
+              print "@[<hov>(%t@ %s@ %t @@ %t)@]"
               (term ~max_level:1 xs e1)
               (match o with S.Pr -> "=" | S.Ju -> "==")
               (term ~max_level:1 xs e2)

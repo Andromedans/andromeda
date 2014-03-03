@@ -53,7 +53,7 @@ module Make (X : EQUIV_ARG) =
           end
 
     let rec equal env t1 t2 k =
-      P.debug "equal: %t == %t at %t@."
+      P.debug "equal: @[<hov>%t@ ==@ %t@ at %t@]@."
               (X.print_term env t1) (X.print_term env t2) (X.print_term env k);
       if  S.equal t1 t2  then
         (* Short-circuit in the common case *)
@@ -88,7 +88,7 @@ module Make (X : EQUIV_ARG) =
  * some common universe U(max{i,j])
  *)
 and equal_at_some_universe env t1 t2 =
-  P.debug "equal_at_some_universe: %t == %t@."
+  P.debug "equal_at_some_universe: @[<hov>%t@ ==@ %t@]@."
       (X.print_term env t1) (X.print_term env t2);
   if  S.equal t1 t2   then
     Some X.trivial_hr
@@ -101,7 +101,8 @@ and equal_at_some_universe env t1 t2 =
 
 and equal_structural env t1 t2 =
 
-  P.debug "equal_structural: %t == %t@." (X.print_term env t1) (X.print_term env t2) ;
+  P.debug "equal_structural: @[<hov>%t@ ==@ %t@]@."
+    (X.print_term env t1) (X.print_term env t2) ;
 
   let t1' = X.whnf env t1 in
   P.debug "t1' = %t@." (X.print_term env t1') ;
@@ -120,7 +121,6 @@ and equal_structural env t1 t2 =
         | S.Sigma (x, t11, t12), S.Sigma (_, t21, t22) ->
             hr_ands
             [lazy (equal_at_some_universe env                       t11 t21);
-             lazy (P.debug "halfway through Pi/Sigma@."; Some X.trivial_hr);
              lazy (equal_at_some_universe (X.add_parameter x t11 env) t12 t22)]
 
         | S.Refl(o1, t1, k1), S.Refl(o2, t2, k2) ->
