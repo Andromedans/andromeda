@@ -268,7 +268,7 @@ end = struct
         let e2 = check env term2 ty3  in
 
         (* Make sure that judgmental equivalences are not marked fibered *)
-        let ubase = match o with D.Pr -> S.Fib 0 | D.Ju -> S.Type 0 in
+        let ubase = match o with D.Pr -> S.Fib 0 | D.Ju -> S.NonFib 0 in
         let u = S.universe_join ubase u3  in
 
         S.Eq (o, e1, e2, ty3), S.U u
@@ -289,7 +289,7 @@ end = struct
     | D.Inhabit, [], Some handlerBody ->
       (* Hack for Brazil compatibility *)
       let _, ty = infer env handlerBody  in
-      Inhabit ty
+      Inhabit (whnf env ty)
 
     | D.Inhabit, _, _ -> Error.typing ~loc "Wrong number of arguments to INHABIT"
 
