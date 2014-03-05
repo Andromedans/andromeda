@@ -1,11 +1,29 @@
-module rec Equiv : sig
-                     val equal_at_some_universe : Infer.env ->
-                            Infer.term -> Infer.term
-                            -> Infer.handled_result option
-                   end =
-    Equivalence.Make(Infer)
 
-and Infer : sig
+
+(* Note: It would be nicer to define Ctx here instead of in its own
+ *   "BrazilContext" file/module, but Verify needs to refer to Norm
+ *   and Norm needs to reference BrazilContext, so Norm would
+ *   have to be defined in this file too, or maybe in Equivalence.
+ *   And I'm not prepared to do that yet.
+ *)
+
+
+(***********************************)
+(** Equivalence Testing for Brazil *)
+(***********************************)
+
+module rec Equiv : sig
+                     val equal_at_some_universe : Verify.env ->
+                            Verify.term -> Verify.term
+                            -> Verify.handled_result option
+                   end =
+    Equivalence.Make(Verify)
+
+(****************************)
+(* Type Checking for Brazil *)
+(****************************)
+
+and Verify : sig
   type term = BrazilSyntax.term
 
   type env
@@ -62,7 +80,7 @@ let add_definition x t e env =
 
 let lookup v env = Ctx.lookup v env.ctx
 let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
-let whnf env e = BrazilNorm.whnf env.ctx e
+let whnf env e = Norm.whnf env.ctx e
 let print_term env e = P.term env.ctx.Ctx.names e
 
 type iterm = BrazilSyntax.term
@@ -218,9 +236,9 @@ let rec infer env term =
         S.Eq(o, term1, term1, term2)
 
 
-    | S.Base S.TUnit  -> S.U (Fib 0)
+    | S.Base S.TUnit  -> S.U (S.Fib 0)
 
-    | S.Const Unit -> S.Base S.TUnit
+    | S.Const S.Unit -> S.Base S.TUnit
 
 (*
     | S.J(o, term1, term2, term3) ->

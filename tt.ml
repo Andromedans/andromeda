@@ -168,6 +168,6 @@ let main =
     else
       print_endline "Verifying";
       let ctx = Typing.Infer.get_ctx env   in
-      BrazilTyping.Infer.verifyContext ctx
+      Brazil.Verify.verifyContext ctx
   with
     Error.Error err -> BrazilPrint.error err; exit 1

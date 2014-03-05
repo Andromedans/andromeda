@@ -98,7 +98,7 @@ end = struct
 
   let lookup v env = Ctx.lookup v env.ctx
   let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
-  let whnf env e = BrazilNorm.whnf env.ctx e
+  let whnf env e = Norm.whnf env.ctx e
   let print_term env e = P.term env.ctx.Ctx.names e
 
   type iterm = Common.debruijn Input.term
