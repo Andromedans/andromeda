@@ -60,11 +60,11 @@ rule token = parse
   | "@"                 { AT }
   | ">->"               { COERCE }
 
-  | "type" [' ' '\t']* (numeral as s) { FIB (int_of_string s) }
-  | "type"                            { FIB 0 }
-
   | "Type" [' ' '\t']* (numeral as s) { TYPE (int_of_string s) }
   | "Type"                            { TYPE 0 }
+
+  | "QuasiType" [' ' '\t']* (numeral as s) { QUASITYPE (int_of_string s) }
+  | "QuasiType"                            { QUASITYPE 0 }
 
 
   | eof                 { EOF }

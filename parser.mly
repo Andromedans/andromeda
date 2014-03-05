@@ -18,8 +18,8 @@
 %}
 
 %token FORALL FUN
+%token <int> QUASITYPE
 %token <int> TYPE
-%token <int> FIB
 %token <string> NAME
 %token LPAREN RPAREN LBRACK RBRACK
 %token COLON DCOLON ASCRIBE COMMA QUESTIONMARK SEMISEMI
@@ -118,8 +118,8 @@ plain_app_term:
 simple_term: mark_position(plain_simple_term) { $1 }
 plain_simple_term:
   | NAME                           { Var $1 }
-  | FIB             { Universe (Fib $1) }
-  | TYPE            { Universe (Type $1) }
+  | TYPE                 { Universe (Fib $1) }
+  | QUASITYPE            { Universe (NonFib $1) }
   | LPAREN plain_term RPAREN       { $2 }
   | LPAREN term COMMA term RPAREN  { Pair($2, $4) }
   | LPAREN term ASCRIBE term RPAREN    { Ascribe ($2, $4) }

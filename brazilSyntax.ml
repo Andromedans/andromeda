@@ -21,7 +21,7 @@ type term =
   | Handle of term * term list
 
 and universe = I.universe =
-  | Type of int
+  | NonFib of int
   | Fib of int
 
 and eqsort = I.eqsort =
@@ -113,7 +113,7 @@ and constant =
 
    G |- e : U(Fib, i)
    -------------------      [ An explicit coercion here seems painful ]
-   G |- e : U(Type, i)
+   G |- e : U(NonFib, i)
 
 
    G |- e : U(u, i)
@@ -132,22 +132,22 @@ module TermSet = Set.Make(struct
 let universe_join u1 u2 =
   match u1, u2 with
   | Fib i, Fib j -> Fib (max i j)
-  | Fib i, Type j
-  | Type i, Fib j
-  | Type i, Type j -> Type (max i j)
+  | Fib i, NonFib j
+  | NonFib i, Fib j
+  | NonFib i, NonFib j -> NonFib (max i j)
 
 let universe_le u1 u2 =
   match u1, u2 with
   | Fib i, Fib j
-  | Fib i, Type j
-  | Type i, Type j -> i <= j
-  | Type _, Fib _  -> false
+  | Fib i, NonFib j
+  | NonFib i, NonFib j -> i <= j
+  | NonFib _, Fib _  -> false
 
 (** [universe_classifier u] returns the universe classifying the given
  *  universe [u] *)
 let universe_classifier = function
   | Fib i  -> Fib (i+1)
-  | Type i -> Type (i+1)
+  | NonFib i -> NonFib (i+1)
 
 (** [string_of_term term] creates an accurate but not-very-pretty textual
  * representation of the [term] datatype value.
@@ -178,8 +178,8 @@ and string_of_eqsort = function
   | Pr -> "Pr"
 
 and string_of_universe = function
-  | Type i -> "Type_" ^ string_of_int i
-  | Fib i  -> "Fib_" ^ string_of_int i
+  | NonFib i -> "QuasiType " ^ string_of_int i
+  | Fib i  -> "Type " ^ string_of_int i
 
 and string_of_basetype = function
   | TUnit -> "TUnit"

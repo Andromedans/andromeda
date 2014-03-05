@@ -1,8 +1,8 @@
-assume nat : type 
+assume nat : Type 
 assume O : nat
 assume S : nat -> nat
 
-assume List : nat -> type
+assume List : nat -> Type
 
 /////////////////////////
 // Pairing and Projection
@@ -97,11 +97,11 @@ define Euv := make_pair_equality a b c d Eab Ecd
 
 
 //////////////////////////
-// Type-Conversion testing
+// QuasiType-Conversion testing
 //////////////////////////
 
-assume T : Type
-assume T_eq : (nat -> nat == T @ Type)
+assume T : QuasiType
+assume T_eq : (nat -> nat == T @ QuasiType)
 assume f : T
 
 with T_eq

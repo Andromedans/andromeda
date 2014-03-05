@@ -224,7 +224,7 @@ let rec infer env term =
           let _  = check env term2 term3  in
 
           (* Make sure that judgmental equivalences are not marked fibered *)
-          let ubase = match o with S.Pr -> S.Fib 0 | S.Ju -> S.Type 0 in
+          let ubase = match o with S.Pr -> S.Fib 0 | S.Ju -> S.NonFib 0 in
           let u = S.universe_join ubase u3  in
 
           S.U u

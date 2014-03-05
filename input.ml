@@ -3,7 +3,7 @@
 (** Abstract syntax of terms as given by the user. *)
 
 type universe =
-  | Type of int
+  | NonFib of int
   | Fib of int
 
 type eqsort =
@@ -51,7 +51,7 @@ let string_of_tag = function
   | Coerce -> "Coerce"
 
 let string_of_universe = function
-  | Type i -> "Type(" ^ string_of_int i ^ ")"
+  | NonFib i -> "NonFib(" ^ string_of_int i ^ ")"
   | Fib  i -> "Fib(" ^ string_of_int i ^ ")"
 
 let string_of_eqsort = function
