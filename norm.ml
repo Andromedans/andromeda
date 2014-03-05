@@ -1,46 +1,36 @@
-(** Normalization of expressions. *)
+(** Normalization of terms. *)
 
-module S = Syntax
-module Ctx = Context
+module S = BrazilSyntax
+module Ctx = BrazilContext.Ctx
 
-(** [norm ctx e] evaluates expression [e] in environment [ctx] to a weak head normal form,
-    while [norm ~weak:false ctx e] evaluates to normal form. *)
-let rec norm ?(weak=true) =
-  let rec loop ctx e =
-    match e with
+(** [whnf ctx e] reduces expression [e] in environment [ctx] to
+    weak head normal form *)
+let rec whnf ctx e =
+  match e with
 
       | S.Var k ->
           begin
             match Ctx.lookup k ctx with
-            | Ctx.Definition (_, e') -> loop ctx e'
-            | _ -> e
+            | Ctx.Definition (_, e') -> whnf ctx e'
+            | _                      -> e
           end
 
-      | S.Lambda (x, t1, e1) ->
-        if weak then
-          e
-        else
-          let t1' = normTy ~weak:true ctx t1  in
-          let e1' = loop (Ctx.add_parameter x t1' ctx) e1  in
-          S.Lambda (x, t1', e1')
 
       | S.App (e1, e2) ->
           begin
-            match loop ctx e1 with
+            match whnf ctx e1 with
             | S.Lambda(_, _, eBody) ->
-                S.beta eBody e2
-            | (S.Var _ | S.App _ | S.Proj _) as e1' ->
-                let e2' = if weak then e2 else loop ctx e2 in
-                S.App(e1', e2')
-            | S.Pair _ ->
-                Error.typing "Normalization found pair applied to argument"
-            | (S.Refl _ | S.ReflTy _) ->
-                Error.typing "Normalization found Refl/ReflTy applied to argument"
+                whnf ctx (S.beta eBody e2)
+            | (S.Var _ | S.App _ | S.Proj _ ) as e1' ->
+                S.App(e1', e2)
+            | e1' ->
+                Error.typing "Normalization found %s applied to argument"
+                    (S.string_of_term e1')
           end
 
       | S.Proj (i, e2) ->
           begin
-            match loop ctx e2 with
+            match whnf ctx e2 with
             | S.Pair(e21, e22) ->
                 begin
                   match i with
@@ -49,121 +39,107 @@ let rec norm ?(weak=true) =
                    * These are either unnormalized (if weak), or fully
                    * normalized (otherwise)
                    *)
-                  | 1 -> if weak then loop ctx e21 else e21
-                  | 2 -> if weak then loop ctx e22 else e22
+                  | 1 -> whnf ctx e21
+                  | 2 -> whnf ctx e22
                   | i -> Error.typing "Bad projection <> 1 or 2: %d" i
                 end
             | e2' -> S.Proj(i, e2')
           end
 
-      | S.Pair (e1, e2) ->
-          if weak then
-            e
-          else
-            S.Pair(loop ctx e1, loop ctx e2)
-
-      | S.Refl (e1, t1) ->
-          if weak then
-            e
-          else
-            S.Refl(loop ctx e1, normTy ~weak:false ctx t1)
-
-      | S.ReflTy (t1, k1) ->
-          if weak then
-            e
-          else
-            S.ReflTy(normTy ~weak:false ctx t1,
-                     normKind ~weak:false ctx k1)
-
-  in
-    loop
-
-and normTy ?(weak=true) =
-  let rec loop ctx = function
-      | S.TVar k as t ->
+      | S.J(S.Pr, q, u, a, b, t, p) ->
           begin
-            let entry =
-              (try Ctx.lookup k ctx with
-              | e ->
-                  begin
-                    print_endline ("normTy: Error in context lookup for variable " ^ (string_of_int k) ^ ". Context is:");
-                    Ctx.print ctx;
-                    raise e;
-                  end)  in
-              match entry with
-              | Ctx.TyDefinition (_, t') -> loop ctx t'
-              | _ -> t
+            match whnf ctx p with
+            | S.Refl _ ->
+                (* We can only reduce propositional equalities if we
+                   are sure they are reflexivity *)
+                whnf ctx (S.beta u b)
+            | p' -> S.J(S.Pr, q, u, a, b, t, p')
           end
 
-      | S.TPi (x, t1, t2) as t ->
-        if weak then
-          t
-        else
-          let t1' = loop ctx t1  in
-          let e1' = loop (Ctx.add_parameter x t1' ctx) t2  in
-          S.TPi (x, t1', e1')
+      | S.J(S.Ju, _, u, _, b, _, _) ->
+          S.beta u b
 
-      | S.TSigma (x, t1, t2) as t ->
-        if weak then
-          t
-        else
-          let t1' = loop ctx t1  in
-          let e1' = loop (Ctx.add_parameter x t1' ctx) t2  in
-          S.TSigma (x, t1', e1')
+      | S.Handle (e, es) -> whnf ctx e
 
-      | S.TApp (t1, e2) ->
-          let t1' = loop ctx t1 in
-          let e2' = if weak then e2 else norm ~weak:false ctx e2  in
-          S.TApp(t1', e2')
-
-      | S.TEquiv(e1, e2, t1) as t ->
-          if weak then
-            t
-          else
-            let e1' = norm ~weak:false ctx e1 in
-            let e2' = norm ~weak:false ctx e2 in
-            let t1' = loop ctx t1  in
-            S.TEquiv(e1', e2', t1')
-
-      | S.TEquivTy(t1, t2, k) as t ->
-          if weak then
-            t
-          else
-            let t1' = loop ctx t1  in
-            let t2' = loop ctx t2  in
-            let k' = normKind ~weak:false ctx k in
-            S.TEquivTy(t1', t2', k')
-  in
-    loop
-
-and normKind ?(weak=true) =
-  let rec loop ctx = function
-    | S.KType -> S.KType
-    | S.KPi(x, t1, k2) as k ->
-        if weak then
-          k
-        else
-          let t1' = normTy ~weak:weak ctx t1 in
-          let k2' = loop ctx k2  in
-          S.KPi(x, t1', k2')
-  in loop
+        (* Everything else is already in whnf *)
+      | S.Lambda _
+      | S.Pair _
+      | S.Refl _
+      | S.Pi _
+      | S.Sigma _
+      | S.Eq _
+      | S.U _
+      | S.Const _
+      | S.Base _ -> e
 
 
-(** [nf ctx e] computes the normal form of expression [e]. *)
-let nf ctx = norm ~weak:false ctx
-
-(** [whnf ctx e] computes the weak head normal form of expression [e]. *)
-let whnf ctx = norm ~weak:true ctx
-
-let nfTy ctx = normTy ~weak:false ctx
-let whnfTy ctx ty =
-  (
-   (*Format.printf "WHNFTY in %t@\n" (Print.ty ctx.Ctx.names ty); *)
-   let answer = normTy ~weak:true ctx ty in
-   (*Format.printf "WHNFTY out %t@\n" (Print.ty ctx.Ctx.names ty);*)
-   answer)
 
 
-let nfKind ctx = normKind ~weak:false ctx
-let whnfKind ctx = normKind ~weak:true ctx
+(** [nf ctx e] reduces expression [e] in environment [ctx] to a normal form *)
+let rec nf ctx e =
+
+    match whnf ctx e with
+
+      | S.Var _ as e' -> e'
+
+      | S.Lambda (x, t1, e1) ->
+          let t1' = nf ctx t1  in
+          let e1' = nf (Ctx.add_parameter x t1' ctx) e1  in
+          S.Lambda (x, t1', e1')
+
+      | S.App (e1, e2) ->
+          begin
+            (* If e1 e2 is in whnf, then e1 cannot reduce to a lambda *)
+            let e1' = nf ctx e1  in
+            let e2' = nf ctx e2  in
+            S.App(e1', e2')
+          end
+
+      | S.Proj (i, e2) ->
+          let e2' = nf ctx e2  in
+          S.Proj(i, e2')
+
+      | S.Pair (e1, e2) ->
+          let e1' = nf ctx e1  in
+          let e2' = nf ctx e2  in
+          S.Pair(e1', e2')
+
+      | S.Refl (z, e1, t1) ->
+          let e1' = nf ctx e1  in
+          let t1' = nf ctx t1  in
+          S.Refl(z, e1', t1')
+
+      | S.Pi (x, t1, t2) ->
+          let t1' = nf ctx t1  in
+          let e1' = nf (Ctx.add_parameter x t1' ctx) t2  in
+          S.Pi (x, t1', e1')
+
+      | S.Sigma (x, t1, t2) ->
+          let t1' = nf ctx t1  in
+          let e1' = nf (Ctx.add_parameter x t1' ctx) t2  in
+          S.Sigma (x, t1', e1')
+
+      | S.Eq(z, e1, e2, t1) ->
+            let e1' = nf ctx e1  in
+            let e2' = nf ctx e2  in
+            let t1' = nf ctx t1  in
+            S.Eq(z, e1', e2', t1')
+
+      | S.J(S.Pr, c, w, a, b, t, q) ->
+          let c' = nf ctx c  in
+          let w' = nf ctx w  in
+          let a' = nf ctx a  in
+          let b' = nf ctx b  in
+          let t' = nf ctx t  in
+          let q' = nf ctx q  in
+          S.J(S.Pr, c', w', a', b', t', q')
+
+      | S.J (S.Ju, _, _, _, _, _, _) ->
+          Error.typing "Found a judgmental J after whnf"
+
+      | S.Handle (_,_) ->
+          Error.typing "Found a top-level handle after whnf"
+
+      | (S.U _ | S.Base _ | S.Const _) as term -> term
+
 

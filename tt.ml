@@ -1,6 +1,6 @@
 (** Toplevel. *)
 
-module Ctx = Context
+module Ctx = BrazilContext.Ctx
 
 (** Should the interactive shell be run? *)
 let interactive_shell = ref true
@@ -58,7 +58,7 @@ let options = Arg.align [
       exit 0),
     " Print version information and exit");
   ("-V",
-   Arg.Int (fun k -> Print.verbosity := k),
+   Arg.Int (fun k -> BrazilPrint.verbosity := k),
    "<int> Set verbosity level");
   ("-n",
     Arg.Clear interactive_shell,
@@ -86,17 +86,22 @@ let parse parser lex =
 (** [exec_cmd env d] executes toplevel directive [d] in context [env]. It prints the
     result if in interactive mode, and returns the new context. *)
 let rec exec_cmd interactive env (d, loc) =
+  let ctx = Typing.Infer.get_ctx env  in
   match d with
     | Input.Context ->
-        let _ = Ctx.print env.Typing.ctx  in
+        let _ = Ctx.print ctx  in
         env
     | Input.TopParam (xs, t) ->
-        let t = Desugar.doTerm env.Typing.ctx.Ctx.names t in
-        let env' = Typing.inferParam ~verbose:interactive env xs t  in
+        let t = Input.desugar ctx.Ctx.names t in
+        let env' = Typing.Infer.inferParam ~verbose:interactive env xs t  in
         env'
     | Input.TopDef (x, e) ->
-        let e = Desugar.doTerm env.Typing.ctx.Ctx.names e in
-        let env' = Typing.inferDefinition ~verbose:interactive env x e  in
+        let e = Input.desugar ctx.Ctx.names e in
+        let env' = Typing.Infer.inferDefinition ~verbose:interactive env x e  in
+        env'
+    | Input.TopHandler hs ->
+        let hs = Input.desugar_handler ctx.Ctx.names hs   in
+        let env' = Typing.Infer.addHandlers env loc hs in
         env'
     | Input.Help ->
       print_endline help_text ; env
@@ -123,7 +128,7 @@ let toplevel env =
         let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
         env := exec_cmd true !env cmd
       with
-        | Error.Error err -> Print.error err
+        | Error.Error err -> BrazilPrint.error err
         | Sys.Break -> prerr_endline "Interrupted."
     done
   with End_of_file -> ()
@@ -157,7 +162,12 @@ let main =
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
-    let env = List.fold_left use_file Typing.empty_env !files in
-    if !interactive_shell then toplevel env
+    let env = List.fold_left use_file Typing.Infer.empty_env !files in
+    if !interactive_shell then
+      toplevel env
+    else
+      print_endline "Verifying";
+      let ctx = Typing.Infer.get_ctx env   in
+      Brazil.Verify.verifyContext ctx
   with
-    Error.Error err -> Print.error err; exit 1
+    Error.Error err -> BrazilPrint.error err; exit 1

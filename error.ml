@@ -19,3 +19,4 @@ let syntax  ?loc:(loc=Common.Nowhere) msg = error ~loc "Syntax error" msg
 let typing  ?loc:(loc=Common.Nowhere) msg = error ~loc "Typing error" msg
 let runtime ?loc:(loc=Common.Nowhere) msg = error ~loc "Runtime error" msg
 let exc     ?loc:(loc=Common.Nowhere) msg = error ~loc "Exception" msg
+let verify  ?loc:(loc=Common.Nowhere) msg = error ~loc "Verification" msg

@@ -1,0 +1,48 @@
+// Definition of propositional truncation from the Book.
+
+// The type former
+assume Trunc : Type -> Type ;;
+
+// Definition of something being an h-proposition
+define is_prop := fun (A : Type) => (x : A) -> (y : A) -> (x = y @ A) ;;
+
+// The type constructors
+assume trunc : (A : Type) -> A -> Trunc A ;;
+
+assume Trunc_is_prop : (A : Type) -> is_prop (Trunc A) ;;
+
+// The eliminator
+assume trunc_elim :
+  (A : Type) -> (B : Type) -> is_prop B -> (A -> B) -> (Trunc A -> B) ;;
+
+// The computation rule for trunc_elim
+
+assume trunc_comp :
+  (A : Type) -> (B : Type) -> (p : is_prop B) -> (f : A -> B) -> (x : A) ->
+  (trunc_elim A B p f (trunc A x) == f x @ B) ;;
+
+// Function extensionality is stated as follows
+
+assume funext :
+  forall (A : Type) (B : A -> Type) (f g : (x : A) -> B x),
+    (forall x : A, f x = g x @ B x) -> (f = g @ ((x : A) -> B x)) ;;
+
+// Contractible types:
+
+define is_contr := fun (A : Type) => (x : A) * ((y : A) -> (x = y @ A)) ;;
+
+// If A is an inhabited proposition then it is contractible
+
+define inhab_prop_is_contr :=
+  fun (A : Type) (p : is_prop A) (a : A) =>
+  ((a, (fun (b : A) => p a b)) :> is_contr A);;
+
+// If A is contractible then it is a proposition:
+// 
+// to finish this example we need elimination for =, but there seems to be
+// no syntax for it
+//
+// define contr_is_inhab_prop :=
+//  fun (A : Type) (c : is_contr A) =>
+//    ((c.1, (fun (x y : A) => concat (c.2 x) (opposite (c.2 y))) :> (A * is_prop A))
+  

@@ -17,7 +17,9 @@
 
 %}
 
-%token FORALL FUN TYPE
+%token FORALL FUN
+%token <int> QUASITYPE
+%token <int> TYPE
 %token <string> NAME
 %token LPAREN RPAREN LBRACK RBRACK
 %token COLON DCOLON ASCRIBE COMMA QUESTIONMARK SEMISEMI
@@ -25,36 +27,41 @@
 %token COERCE
 %token <string> PROJ
 %token COLONEQ
-%token EQEQ AT
+%token EQ EQEQ AT
 (* %token EVAL *)
 %token DEFINE
 (*%token LET IN*)
 %token ASSUME
 %token HANDLE WITH BAR END
 (*%token RETURN*)
+%token REFLEQUIV REFLEQUAL
 %token QUIT HELP  CONTEXT
 %token EOF
 
 
-%start <Input.toplevel list> file
-%start <Input.toplevel> commandline
+%start <Common.variable Input.toplevel list> file
+%start <Common.variable Input.toplevel> commandline
 
+
+%right ARROW
+%left  STAR
 
 %%
 
 (* Toplevel syntax *)
 
-(* If you're going to "optimize" this, please make sure we don't require;; at the
-   end of the file. *)
 file:
-  | file_topdef                 { $1 }
-  | topdirective EOF            { [$1] }
-  | topdirective SEMISEMI file  { $1 :: $3 }
+  | filecontents EOF            { $1 }
 
-file_topdef:
-  | EOF                   { [] }
-  | topdef SEMISEMI file  { $1 :: $3 }
-  | topdef file_topdef    { $1 :: $2 }
+filecontents:
+  |                                { [] }
+  | topdef sso filecontents        { $1 :: $3 }
+  | topdirective sso filecontents  { $1 :: $3 }
+  | tophandler sso filecontents    { $1 :: $3 }
+
+tophandler: mark_position(plain_tophandler) { $1 }
+plain_tophandler:
+  | WITH handler { TopHandler($2) }
 
 commandline:
   | topdef SEMISEMI        { $1 }
@@ -73,6 +80,10 @@ plain_topdirective:
   | HELP       { Help }
   | QUIT       { Quit }
 
+sso :
+  |          {}
+  | SEMISEMI {}
+
 (* Main syntax tree *)
 
 
@@ -85,25 +96,30 @@ plain_term:
 equiv_term: mark_position(plain_equiv_term) { $1 }
 plain_equiv_term:
     | plain_arrow_term                         { $1 }
-    | arrow_term EQEQ arrow_term AT equiv_term { Equiv($1, $3, $5) }
+    | arrow_term EQEQ arrow_term AT equiv_term { Equiv(Ju, $1, $3, $5) }
+    | arrow_term EQ arrow_term AT equiv_term { Equiv(Pr, $1, $3, $5) }
 
 arrow_term: mark_position(plain_arrow_term) { $1 }
 plain_arrow_term:
   | plain_app_term              { $1 }
-  | app_term ARROW arrow_term   { Pi ("_", $1, $3) }
+  | arrow_term ARROW arrow_term   { Pi ("_", $1, $3) }
   | LPAREN NAME COLON term RPAREN ARROW arrow_term      { Pi($2, $4, $7) }
+  | arrow_term STAR arrow_term    { Sigma ("_", $1, $3) }
   | LPAREN NAME COLON term RPAREN STAR arrow_term      { Sigma($2, $4, $7) }
 
 app_term: mark_position(plain_app_term) { $1 }
 plain_app_term:
   | plain_simple_term      { $1 }
   | app_term simple_term   { App ($1, $2) }
+  | REFLEQUIV simple_term          { Refl(Ju, $2) }
+  | REFLEQUAL simple_term          { Refl(Pr, $2) }
 
 
 simple_term: mark_position(plain_simple_term) { $1 }
 plain_simple_term:
   | NAME                           { Var $1 }
-  | TYPE                           { Type }
+  | TYPE                 { Universe (Fib $1) }
+  | QUASITYPE            { Universe (NonFib $1) }
   | LPAREN plain_term RPAREN       { $2 }
   | LPAREN term COMMA term RPAREN  { Pair($2, $4) }
   | LPAREN term ASCRIBE term RPAREN    { Ascribe ($2, $4) }
@@ -117,6 +133,7 @@ handler:
 handler_case:
   | LBRACK plain_operation RBRACK DARROW computation
                                             { let (tag,args) = $2 in (tag,args, $5) }
+  | term                                    { (Inhabit, [], $1) }
 
 (*
 computation: mark_position(plain_computation) { $1 }

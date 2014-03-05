@@ -13,7 +13,8 @@
     (*("let", LET) ;*)
     (*("in", IN) ;*)
     (*("return", RETURN) ;*)
-    ("Type", TYPE) ;
+    ("refl", REFLEQUAL) ;
+    ("Refl", REFLEQUIV) ;
     ("with", WITH) ;
   ]
 
@@ -32,11 +33,6 @@ rule token = parse
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
   | "//"[^'\n']*        { token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
-  | (name | patternvar) { let s = Lexing.lexeme lexbuf in
-                            try
-                              List.assoc s reserved
-                            with Not_found -> NAME s
-                        }
   | "#context"          { CONTEXT }
   (*| "#eval"             { EVAL }*)
   | "#help"             { HELP }
@@ -59,11 +55,25 @@ rule token = parse
   | "->"                { ARROW }
   | "=>"                { DARROW }
   | ":="                { COLONEQ }
+  | "="                 { EQ }
   | "=="                { EQEQ }
   | "@"                 { AT }
   | ">->"               { COERCE }
 
+  | "Type" [' ' '\t']* (numeral as s) { TYPE (int_of_string s) }
+  | "Type"                            { TYPE 0 }
+
+  | "QuasiType" [' ' '\t']* (numeral as s) { QUASITYPE (int_of_string s) }
+  | "QuasiType"                            { QUASITYPE 0 }
+
+
   | eof                 { EOF }
+
+  | (name | patternvar) { let s = Lexing.lexeme lexbuf in
+                            try
+                              List.assoc s reserved
+                            with Not_found -> NAME s
+                        }
 
   | _ as c              { Error.syntax ~loc:(position_of_lex lexbuf)
                              "Unexpected character %s" (Char.escaped c) }
