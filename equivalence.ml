@@ -21,7 +21,6 @@ end
 
 module Make (X : EQUIV_ARG) =
   struct
-    module D = BrazilInput
     module P = BrazilPrint
     module S = BrazilSyntax
 

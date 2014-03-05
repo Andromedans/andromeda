@@ -1,6 +1,6 @@
 (** Abstract syntax of internal expressions. *)
 
-module D = BrazilInput
+module I = Input
 
 (** Abstract syntax of expressions, where de Bruijn indices are used to represent
     variables. *)
@@ -20,11 +20,11 @@ type term =
   | Const  of constant
   | Handle of term * term list
 
-and universe = D.universe =
+and universe = I.universe =
   | Type of int
   | Fib of int
 
-and eqsort = D.eqsort =
+and eqsort = I.eqsort =
   | Ju
   | Pr
 
