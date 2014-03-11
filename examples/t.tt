@@ -68,13 +68,21 @@ define twooneone := sym (plus (S O) (S O)) (S(S(O))) oneonetwo
 
 
 /////////////////
-// Path Induction
+// Path Induction (propositional)
 /////////////////
 
 define path_symmetry :=
   fun (A : Type) (a b : A) (q : a=b @ A) =>
          Ind(x.y.p.(y = x @ A), z.idpath z, q)
 
+
+// An assymmetric definition of transitivity 
+
+define path_transitivity :=
+  fun (A : Type) (a b c : A) (q_ab : a = b @ A) (q_bc : b = c @ A) =>
+       Ind( x. y. p. (d : A) -> (q : y = d @ A ) -> (x = d @ A),
+            z. fun (d : A) (q : z = d @ A) => q,
+            q_ab) c q_bc
 
 #context
 
