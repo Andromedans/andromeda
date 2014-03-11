@@ -48,7 +48,7 @@ and Verify : sig
   type iterm = BrazilSyntax.term
 
   val infer : env -> iterm -> term
-  val verifyContext : BrazilContext.Ctx.context -> env
+  val verifyContext : BrazilContext.Ctx.context -> unit
 
  end = struct
 
@@ -151,7 +151,6 @@ let as_whnf_for_eta env k =
         | S.Base S.TUnit                -> true
         | _                             -> false)
 
-
 let rec infer env term =
   match term with
 
@@ -220,6 +219,13 @@ let rec infer env term =
     | S.Eq(o, term1, term2, term3) ->
         begin
           let u3 = infer_ty env term3 in
+          let _ = match o, u3 with
+                | S.Ju, _ -> ()
+                | _,    S.Fib _ -> ()
+                | _,    _ -> Error.verify
+                               "@[<hov>Propositional equality over non-fibered type@ %t@]"
+                               (print_term env term3)  in
+
           let _  = check env term1 term3  in
           let _  = check env term2 term3  in
 
@@ -240,15 +246,54 @@ let rec infer env term =
 
     | S.Const S.Unit -> S.Base S.TUnit
 
-(*
-    | S.J(o, term1, term2, term3) ->
-        let exp, e1, e2, t = infer_eq env term3 o  in
-        let e1 = check env term1 ty3  in
-          let e2 = check env term2 ty3  in
-          S.Eq (o, e1, e2, ty3), S.U u3
-        end
-        *)
+    | S.Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q) ->
+        begin
+            (*let _ = P.debug "!! Original term = %s" (S.string_of_term term) in*)
+            (*let _ = P.debug "!! Original term = %t" (print_term env term) in*)
+            (*let _ = Ctx.print env.ctx in*)
+            let _     = infer_ty env t  in
+            let _     = check env a t   in
+            let _     = check env b t   in
+            let pathtype = S.Eq(o, a, b, t) in
+            let _     = check env q pathtype  in
 
+            let illegal_variable_name = "eventual.z" in
+            let env_c' = add_parameter p (S.Eq(o, S.Var 0, S.Var 1, S.shift 3 t))
+                          (add_parameter y (S.shift 2 t)
+                             (add_parameter x (S.shift 1 t)
+                                (add_parameter illegal_variable_name t env)))  in
+            (* We've inserted eventual.z into position 3 of the context, where c wasn't
+             * expecting it. So we need to shift all references to variables 3 and up by 1,
+             * but leave variables 0, 1, and 2 alone. *)
+            let c' = S.shift ~cut:3 1 c  in
+            (*let _ = P.debug "!! c' = %s@." (S.string_of_term c')  in*)
+            (*let _ = P.debug "!! c' = %t@." (print_term env_c' c')  in*)
+            (*let _ = Ctx.print env_c'.ctx in*)
+            let _ = match o, infer_ty env_c' c' with
+                    | S.Pr, S.NonFib _ ->
+                         Error.verify "Eliminating prop equality %t@ in non-fibered family %t"
+                             (print_term env q) (print_term env_c' c')
+                    | _, _ -> ()  in
+
+            (*let _ = P.debug "!! AFTER infer_ty of c'"  in*)
+
+            let env_w = add_parameter z t env in
+            let w_ty_expected = S.beta (S.beta (S.beta c' (S.Refl(o, S.Var 3, S.shift 3 t)))
+                                               (S.Var 1))
+                                       (S.Var 0)  in
+
+            (*let _ = P.debug "!! w_ty_expected = %s@." (S.string_of_term w_ty_expected)  in*)
+            (*let _ = P.debug "!! w_ty_expected = %t@." (print_term env_w w_ty_expected)  in*)
+
+            let _ = check env_w w w_ty_expected  in
+
+            (* We're using c rather than c', so we don't have to worry about
+             * that eventual.z variable at all. *)
+            S.beta (S.beta (S.beta c
+                                   (S.shift 2 q))
+                           (S.shift 1 b))
+                   a
+        end
 
 and addHandlers env handlers =
   match handlers with
@@ -347,6 +392,7 @@ let verifyContext ctx =
     match decl with
     | Ctx.Parameter term -> inferParam env name term
     | Ctx.Definition (term1, term2) -> inferDefinition env name term1 term2  in
-  List.fold_right2 process_decl ctx.Ctx.names ctx.Ctx.decls empty_env
+  let _ = List.fold_right2 process_decl ctx.Ctx.names ctx.Ctx.decls empty_env in
+  Format.printf "Verification complete.@."
 
 end

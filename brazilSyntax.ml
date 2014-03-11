@@ -14,7 +14,8 @@ type term =
   | Proj   of int * term                   (* 1 = fst, 2 = snd *)
   | Refl   of eqsort * term * term
   | Eq     of eqsort * term * term * term
-  | J      of eqsort * term * term * term * term * term * term
+  | Ind_eq of eqsort * term * (Common.variable * Common.variable * Common.variable * term) *
+                              (Common.variable * term) * term * term * term
   | U      of universe
   | Base   of basetype
   | Const  of constant
@@ -92,13 +93,15 @@ and constant =
    G |- refl(o, e, t) : Id(o, e, e, t)
 
 
-   G |- t : U(u,i)    G |- a : t    G |- b : t
-   G |- q : Id(o, a, b, t)
-   G, x:t, y:t, p:Id(o,a,b,t) |- c : U(u, j)                [ i & j independent? ]
-   G, z : t |- w : [x,y,p->z,z,refl(o,z,t)]c
-   if o = Ju then u = Fib
+   G |- t : U(u,i)
+   G , x:t, y:t, z:Id(o,x,y,t) |- c(x,y,z) : U(u, j)    [ i & j independent? ]
+   G , z:t |- w(z) : c z z (refl(o, z, t))
+   G |- a : t    G |- b : t    G |- q : Id(o, a, b, t)
+   if o = Pr then u = Fib
    ----------------------------------------------------
-   G |- J(o, c, w, a, b, t, q) : [x,y,p->a,b,q]c
+   G |- Ind_eq(o, t, (_,_,_,c), (_,w), a, b, q) : c a b q
+
+        NB: at the TT level it's just  G |- Ind_eq(o, (_,_,_,c), (_,w), q) : c a b q
 
 
    -----------------
@@ -161,9 +164,12 @@ let rec string_of_term = function
   | Pair(e1,e2)    -> "Pair(" ^ string_of_terms [e1;e2] ^ ")"
   | Proj(i1,e2)    -> "Proj(" ^ string_of_int i1 ^ "," ^ string_of_term e2 ^ ")"
   | Refl(o,e,t)    -> "Refl("  ^ string_of_eqsort o ^ "," ^ string_of_terms [e;t] ^ ")"
-  | Eq(o,e1,e2,t)  -> "Eq(" ^ string_of_eqsort o ^ "," ^ string_of_terms [e1;e2] ^ ")"
-  | J(o,c,w,a,b,t,q)
-    -> "J(" ^ string_of_eqsort o ^ "," ^ string_of_terms [c;w;a;b;t;q] ^ ")"
+  | Eq(o,e1,e2,t)  -> "Eq(" ^ string_of_eqsort o ^ "," ^ string_of_terms [e1;e2;t] ^ ")"
+  | Ind_eq(o,t,(x,y,p,c),(z,w),a,b,q) ->
+      "J(" ^ string_of_eqsort o ^ "," ^ string_of_term t ^  ", (" ^
+      String.concat "," [x;y;p] ^ "," ^ string_of_term c ^ "), (" ^
+      z ^ "," ^ string_of_term w ^ "), " ^
+      string_of_terms [a;b;q] ^ ")"
   | Handle(e,es)   -> "Handle(" ^ string_of_terms (e::es) ^ ")"
   | U univ  -> "U(" ^ string_of_universe univ ^ ")"
   | Base b  -> string_of_basetype b
@@ -204,10 +210,12 @@ let shift ?(cut=0) delta =
     | Proj (i1, e2)     -> Proj(i1, loop cut e2)
     | Refl (o, e, t)    -> Refl(o, loop cut e, loop cut t)
     | Eq (o, e1, e2, t) -> Eq(o, loop cut e1, loop cut e2, loop cut t)
-    | J (o, c, w, a, b, t, q) -> J(o, loop (cut+3) c, loop (cut+1) w,
-                                   loop cut a, loop cut b,
-                                   loop cut t, loop cut q)
-    | Handle (e, es)   -> Handle(loop cut e, List.map (loop cut) es)
+    | Ind_eq (o, t, (x,y,p,c), (z,w), a, b, q)
+                        -> Ind_eq(o, loop cut t,
+                                  (x,y,p,loop (cut+3) c),
+                                  (z, loop (cut+1) w),
+                                  loop cut a, loop cut b, loop cut q)
+    | Handle (e, es)    -> Handle(loop cut e, List.map (loop cut) es)
     | (U _ | Base _ | Const _) as term -> term  in
   loop cut
 
@@ -226,10 +234,11 @@ let rec subst j e' = function
   | Sigma (x, t1, t2) -> Sigma(x, subst j e' t1, subst (j+1) (shift 1 e') t2)
   | Refl(o, e, t)     -> Refl(o, subst j e' e, subst j e' t)
   | Eq(o, e1, e2, t)  -> Eq(o, subst j e' e1, subst j e' e2, subst j e' t)
-  | J(o, c, w, a, b, t, q) -> J(o, subst (j+3) (shift 2 e') c,
-                                subst (j+1) (shift 1 e') w,
-                                subst j e' a, subst j e' b,
-                                subst j e' t, subst j e' q)
+  | Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q)
+                      -> Ind_eq(o, subst j e' t,
+                                (x,y,p,subst (j+3) e' c),
+                                (z, subst (j+1) e' w),
+                                subst j e' a, subst j e' b, subst j e' q)
   | Handle (e, es)   -> Handle (subst j e' e, List.map (subst j e') es)
   | (U _ | Base _ | Const _) as term -> term
 
@@ -259,9 +268,9 @@ let rec occurs v e =
   | Pi (_, t1, t2)         -> occurs v t1 || occurs (v+1) t2
   | Sigma (_, t1, t2)      -> occurs v t1 || occurs (v+1) t2
   | Eq (_, e1, e2, t)      -> occurs v e1 || occurs v e2 || occurs v t
-  | J(_, c, w, a, b, t, p) -> occurs (v+3) c || occurs (v+1) w ||
-                              occurs v a || occurs v b ||
-                              occurs v t || occurs v p
+  | Ind_eq(_, t, (_,_,_,c), (_,w), a, b, p)
+                           -> occurs v t || occurs (v+3) c || occurs (v+1) w ||
+                              occurs v a || occurs v b || occurs v p
   | Handle (e, es)        -> occurs v e || List.exists (occurs v) es
 
   | (U _ | Base _ | Const _) -> false
@@ -295,8 +304,8 @@ let rec equal e1 e2 =
   | Eq(o1, t11, t12, t13), Eq(o2, t21, t22, t23) ->
       o1 = o2 && equal t11 t21 && equal t12 t22 && equal t13 t23
 
-  | J(o1, t11, t12, t13, t14, t15, t16),
-    J(o2, t21, t22, t23, t24, t25, t26) ->
+  | Ind_eq(o1, t11, (_,_,_,t12), (_,t13), t14, t15, t16),
+    Ind_eq(o2, t21, (_,_,_,t22), (_,t23), t24, t25, t26) ->
       o1 = o2 && equal t11 t21 && equal t12 t22 && equal t13 t23
       && equal t14 t24 && equal t15 t25 && equal t16 t26
 
@@ -306,6 +315,6 @@ let rec equal e1 e2 =
   | _, Handle(e2', _) -> equal e1 e2'
 
   | (Var _ | Lambda _ | Pi _ | App _ | Sigma _ | Pair _ | Proj _
-      | Refl _ | Eq _ | J _ | U _ | Base _ | Const _ ), _ -> false
+      | Refl _ | Eq _ | Ind_eq _ | U _ | Base _ | Const _ ), _ -> false
 
 

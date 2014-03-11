@@ -67,5 +67,14 @@ assume sym : (x:nat) -> (y:nat) -> (x == y @ nat) -> (y == x @ nat)
 define twooneone := sym (plus (S O) (S O)) (S(S(O))) oneonetwo
 
 
+/////////////////
+// Path Induction
+/////////////////
+
+define path_symmetry :=
+  fun (A : Type) (a b : A) (q : a=b @ A) =>
+         Ind(x.y.p.(y = x @ A), z.idpath z, q)
+
 
 #context
+

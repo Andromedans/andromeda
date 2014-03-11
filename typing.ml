@@ -153,6 +153,9 @@ end = struct
   let as_u env k =
     find_handler_reduction env k (function S.U _ -> true | _ -> false)
 
+  let as_eq env k =
+    find_handler_reduction env k (function S.Eq _ -> true | _ -> false)
+
   let as_whnf_for_eta env k =
     find_handler_reduction env k
       (function
@@ -264,6 +267,12 @@ end = struct
     | D.Equiv(o, term1, term2, term3) ->
       begin
         let ty3, u3 = infer_ty env term3 in
+        let _ = match o, u3 with
+                | D.Ju, _ -> ()
+                | _,    D.Fib _ -> ()
+                | _,    _ -> Error.typing ~loc
+                               "@[<hov>Propositional equality over non-fibered type@ %t@]"
+                               (print_term env ty3)  in
         let e1 = check env term1 ty3  in
         let e2 = check env term2 ty3  in
 
@@ -278,6 +287,57 @@ end = struct
         begin
           let e2, t2 = infer env term2 in
           S.Refl(o, e2, t2), S.Eq(o, e2, e2, t2)
+        end
+
+    | D.Ind((x,y,p,term1), (z,term2), term3) ->
+        begin
+          let q, ty3 = infer env term3 in
+          match as_eq env ty3 with
+          | S.Eq(o, a, b, t) ->
+              begin
+                let illegal_variable_name = "eventual.z" in
+                let env_c' = add_parameter p (S.Eq(o, S.Var 0, S.Var 1, S.shift 3 t))
+                             (add_parameter y (S.shift 2 t)
+                               (add_parameter x (S.shift 1 t)
+                                 (add_parameter illegal_variable_name t env)))  in
+                (* We've inserted eventual.z into position 3 of the context
+                 * where desugaring wasn't expecting it. So we need to shift all
+                 * references to variables 3 and up by 1,but leave variables 0, 1, and 2
+                 * (i.e., p, y, and x) alone. *)
+                let c' = match infer_ty env_c' (D.shift ~cut:3 1 term1) with
+                        | c', S.NonFib _ when o = D.Pr ->
+                             Error.typing ~loc "Eliminating prop equality %t@ in non-fibered family %t"
+                                 (print_term env q) (print_term env_c' c')
+                        | c', _ -> c'  in
+                let env_w = add_parameter z t env in
+                let w_ty_expected = S.beta (S.beta (S.beta c' (S.Refl(o, S.Var 3, S.shift 3 t)))
+                                                   (S.Var 1))
+                                           (S.Var 0)  in
+                let w = check env_w term2 w_ty_expected  in
+
+                (* c was translated in a context with the extra eventual.z
+                 * variable, so we need to undo that by shifting variables
+                 * numbered 3 and above down by one. (We know that c does not refer to
+                 * eventual.z, so there's no chance of a reference to eventual.z
+                 * turning into a reference to variable 2, i.e., x. *)
+                let c = S.shift ~cut:3 (-1) c'  in
+                let expression = S.Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q)  in
+
+                (* Now we need to compute the expression's type. Basically this
+                 * is "c a b q", except that the variables are in the context
+                 * in the order x, y, p, so we need to apply p first.
+                 * We also need to adjust the arguments, because they are all
+                 * desugared in the context env. Note that c is in the
+                 * context without the extra eventual.z variable now. *)
+                let expression_type =
+                     (S.beta (S.beta (S.beta c
+                                             (S.shift 2 q))
+                                     (S.shift 1 b))
+                             a)  in
+
+                expression, expression_type
+              end
+          | _ -> Error.typing ~loc "Not a witness for equality or equivalence:@ %t" (print_term env q)
         end
 
   and inferOp env loc tag terms handlerBodyOpt =
@@ -362,6 +422,7 @@ end = struct
 
   and infer_ty env ((_,loc) as term) =
     let t, k = infer env term in
+    let _ = P.debug "infer_ty given %s" (D.string_of_term string_of_int term)  in
     match as_u env k with
     | S.U u -> t, u
     | _ -> Error.typing ~loc "Not a type: %t" (print_term env t)

@@ -155,25 +155,34 @@ and equal_structural env t1 t2 =
             ( lazy ( equal_structural env e1 e2) ::
               List.map2 (fun x y -> lazy (equal_structural env x y)) es1 es2 )
 
-            (*
-  | S.J(o1, c1, w1, a1, b1, t1, p1),
-    S.J(o2, c2, w2, a2, b2, t2, p2) ->
-      let pathtype = S.Eq(o1, a1, b1, t1) in
-      o1 == o2 &&
-      equal_at_some_universe env t1 t2 &&
-      equal env a1 a2 t1 &&
-      equal env b1 b2 t1 &&
-      (* OK, at this point we are confident that both paths
-       * have the same type *)
-      equal env p1 p2 pathtype &&
-      equal_at_some_universe
-           (X.add_parameter "_p" pathtype
-              (X.add_parameter "_y" t1
-                (X.add_parameter "_x" t1 env))) c1 c2   &&
-      equal (X.add_parameter "_z" t1 env) w1 w2
-               (S.beta (S.beta (S.beta w1 (S.Var 0)) (S.Var 0))
-                       (S.Refl(o1, S.Var 0, t1)))
-                       *)
+        | S.Ind_eq(o1, t1, (x,y,p,c1), (z,w1), a1, b1, q1),
+          S.Ind_eq(o2, t2, (_,_,_,c2), (_,w2), a2, b2, q2) ->
+            let pathtype = S.Eq(o1, a1, b1, t1) in
+            let env_c = X.add_parameter p (S.shift 2 pathtype)
+                           (X.add_parameter y (S.shift 1 t1)
+                              (X.add_parameter x t1 env))  in
+            let env_w = X.add_parameter z t1 env in
+
+            if o1 != o2  then
+              None
+            else hr_ands
+              [ lazy ( equal_at_some_universe env t1 t2 );
+                lazy ( equal env a1 a2 t1 );
+                lazy ( equal env b1 b2 t1 );
+
+                (* OK, at this point we are confident that both paths
+                   have the same type, assuming both terms are well-formed *)
+                lazy ( equal env q1 q2 pathtype );
+
+                (* We want to do eta-equivalence, but can't call "equal" because
+                   we don't know the universe to compare. *)
+                lazy ( equal_at_some_universe env_c c1 c2 );
+
+                lazy ( equal env_w w1 w2
+                         (S.beta (S.beta (S.beta c1 (S.Var 0))
+                                         (S.Var 0))
+                                 (S.Refl(o1, S.Var 0, S.shift 1 t1))) );
+              ]
 
         | S.App _, S.App _
         | S.Proj _ , S.Proj _ ->
@@ -192,7 +201,7 @@ and equal_structural env t1 t2 =
           end
 
         | (S.Var _ | S.Lambda _ | S.Pi _ | S.App _ | S.Sigma _ |
-           S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.J _ |
+           S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.Ind_eq _ |
            S.U _ | S.Base _ | S.Const _ | S.Handle _ ), _ ->
           begin
             P.equivalence "[Mismatch] Why is %t == %t ?@."

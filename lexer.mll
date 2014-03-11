@@ -13,9 +13,10 @@
     (*("let", LET) ;*)
     (*("in", IN) ;*)
     (*("return", RETURN) ;*)
-    ("refl", REFLEQUAL) ;
-    ("Refl", REFLEQUIV) ;
+    ("refl", REFLEQUIV) ;
+    ("idpath", REFLEQUAL) ;
     ("with", WITH) ;
+    ("Ind", IND);
   ]
 
   let position_of_lex lex =
@@ -27,9 +28,12 @@ let patternvar = '?' name
 
 let numeral = ['0'-'9']+
 
-let projectee = name | numeral
+let start_longcomment = "/*"
+let end_longcomment = "*/"
 
 rule token = parse
+  | start_longcomment { comments 0 lexbuf }
+
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
   | "//"[^'\n']*        { token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
@@ -47,9 +51,7 @@ rule token = parse
   | "*"                 { STAR }
   | ";;"                { SEMISEMI }
   | ','                 { COMMA }
-  | '.' projectee       { let s = Lexing.lexeme lexbuf in
-                          let field =  String.sub s 1 (String.length s - 1)
-                          in PROJ field }
+  | '.'                 { DOT }
   | '|'                 { BAR }
   | '?'                 { QUESTIONMARK }
   | "->"                { ARROW }
@@ -78,6 +80,18 @@ rule token = parse
   | _ as c              { Error.syntax ~loc:(position_of_lex lexbuf)
                              "Unexpected character %s" (Char.escaped c) }
 
+(* Code to skip over nested comments
+*)
+and comments level = parse
+  | end_longcomment     { if level = 0 then token lexbuf
+                          else comments (level-1) lexbuf
+                        }
+  | start_longcomment   { comments (level+1) lexbuf }
+  | '\n'        { Lexing.new_line lexbuf; comments level lexbuf }
+  | _           { comments level lexbuf }
+  | eof         { print_endline "Input ended inside (unclosed) comment";
+                  raise End_of_file
+                }
 
 
 {

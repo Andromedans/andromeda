@@ -25,7 +25,7 @@
 %token COLON DCOLON ASCRIBE COMMA QUESTIONMARK SEMISEMI
 %token ARROW DARROW STAR
 %token COERCE
-%token <string> PROJ
+%token DOT
 %token COLONEQ
 %token EQ EQEQ AT
 (* %token EVAL *)
@@ -35,6 +35,7 @@
 %token HANDLE WITH BAR END
 (*%token RETURN*)
 %token REFLEQUIV REFLEQUAL
+%token IND
 %token QUIT HELP  CONTEXT
 %token EOF
 
@@ -125,7 +126,10 @@ plain_simple_term:
   | LPAREN term ASCRIBE term RPAREN    { Ascribe ($2, $4) }
   | LBRACK plain_operation RBRACK        { let (tag,args) = $2 in Operation(tag,args) }
   | HANDLE term WITH handler END   { Handle ($2, $4) }
-  | simple_term PROJ         { Proj($2, $1) }
+  | simple_term DOT NAME         { Proj($3, $1) }
+  | IND LPAREN NAME DOT NAME DOT NAME DOT term COMMA NAME DOT term COMMA term RPAREN
+                             { Ind(($3, $5, $7, $9), ($11, $13), $15) }
+
 
 handler:
   | BAR? cs=separated_list(BAR, handler_case)  { cs }

@@ -1,30 +1,30 @@
-assume nat : Type;;
-assume O : nat ;;
+assume nat : Type
+assume O : nat 
 
-assume S : nat -> nat;;
+assume S : nat -> nat
 
 
-define d0 := handle [ ? :: nat ] with [?::nat] => O end;;
+define d0 := handle [ ? :: nat ] with [?::nat] => O end
 
 
 define d1 := fun w : nat =>
-              handle [?::nat] with [?::nat] => S w end;;
+              handle [?::nat] with [?::nat] => S w end
 
 // After desugaring the two [?::nat]'s are not syntactically identical
 //   [because the w binder increments the index for nat inside the function]
 // but the code now compensates for this difference.
 define d2 :=  handle fun w : nat => [? :: nat]
-               with [?::nat] => O end;;
+               with [?::nat] => O end
 
 // d3 correctly fails to type check. The handler scoping is dynamic, but
 //   the bodies are statically scoped (thanks mostly to Desugar/de Bruijn)
 
 // define d3 :=  handle fun w : t => [? :: t]
-//              with [?::t] => w end;;
+//              with [?::t] => w end
 
 
 define d4 := handle [ ? :: nat -> nat ] 
-             with [? :: nat -> nat] => fun n => O end;;
+             with [? :: nat -> nat] => fun n => O end
 
 
 // Works because handler scope is different than in Eff
@@ -34,32 +34,26 @@ define d5 := handle
                 with [? :: nat] => O
                 end
              with [? :: nat -> nat] => fun n => [?::nat] 
-             end;;
+             end
 
 
-define p1 := (O, S(O));;
+define p1 := (O, S(O))
 
-define n2 := p1.fst;;
-
-
-assume List : nat -> Type;;
-assume l3 : List (S(S(S(O))));;
-assume length : (n : nat) -> List n -> nat;;
+define n2 := p1.fst
 
 
-assume p2 : (n : nat) * (List n);;
+assume List : nat -> Type
+assume l3 : List (S(S(S(O))))
+assume length : (n : nat) -> List n -> nat
 
-define ln := p2.snd;;
 
-define p3 := (S(S(S(O))), l3);;
+assume p2 : (n : nat) * (List n)
 
-define p4 := ( (S(S(S(O))), l3) :> (n:nat) * List(n) );;
+define ln := p2.snd
 
-// EXPERIMENTAL CRUD
+define p3 := (S(S(S(O))), l3)
 
-define N2N := S.type;;
-define idN2N := fun (f:N2N) => fun (n : N2N.dom) => f n;;
-define S' := idN2N S;;
+define p4 := ( (S(S(S(O))), l3) :> (n:nat) * List(n) )
 
 
 ///////////////
@@ -73,5 +67,14 @@ assume sym : (x:nat) -> (y:nat) -> (x == y @ nat) -> (y == x @ nat)
 define twooneone := sym (plus (S O) (S O)) (S(S(O))) oneonetwo
 
 
-;;
+/////////////////
+// Path Induction
+/////////////////
+
+define path_symmetry :=
+  fun (A : Type) (a b : A) (q : a=b @ A) =>
+         Ind(x.y.p.(y = x @ A), z.idpath z, q)
+
+
 #context
+

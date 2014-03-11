@@ -86,15 +86,17 @@ and lambda xs x t e ppf =
               (match o with S.Pr -> "=" | S.Ju -> "==")
               (term ~max_level:1 xs e2)
               (term ~max_level:1 xs t)
-          | S.J(o, q, w, a, b, t, p) ->
-              print "%s(%t, %t, %t, %t, %t, %t)"
-              (match o with S.Pr -> "j" | S.Ju -> "J")
-              (term ~max_level:3 xs q)
-              (term ~max_level:3 xs w)
+          | S.Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q) ->
+              print "%s(%t, %s.%s.%s.%t, %s.%t, %t, %t, %t)"
+              (match o with S.Pr -> "J_F" | S.Ju -> "J")
+              (term ~max_level:3 xs t)
+              x y p
+              (term ~max_level:3 (p::y::x::xs) c)
+              z
+              (term ~max_level:3 (z::xs) w)
               (term ~max_level:3 xs a)
               (term ~max_level:3 xs b)
-              (term ~max_level:3 xs t)
-              (term ~max_level:3 xs p)
+              (term ~max_level:3 xs q)
           | S.U (S.NonFib i) -> print "QuasiType %d" i
           | S.U (S.Fib i)  -> print "Type %d" i
           | S.Base (S.TUnit) -> print "unit"

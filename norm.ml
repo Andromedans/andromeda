@@ -46,18 +46,18 @@ let rec whnf ctx e =
             | e2' -> S.Proj(i, e2')
           end
 
-      | S.J(S.Pr, q, u, a, b, t, p) ->
+      | S.Ind_eq(S.Pr, t, (x,y,p,c), (z,w), a, b, q) ->
           begin
-            match whnf ctx p with
-            | S.Refl _ ->
+            match whnf ctx q with
+            | S.Refl (_, a', _) ->
                 (* We can only reduce propositional equalities if we
                    are sure they are reflexivity *)
-                whnf ctx (S.beta u b)
-            | p' -> S.J(S.Pr, q, u, a, b, t, p')
+                whnf ctx (S.beta w a')
+            | q' -> S.Ind_eq(S.Pr, t, (x,y,p,c), (z,w), a, b, q')
           end
 
-      | S.J(S.Ju, _, u, _, b, _, _) ->
-          S.beta u b
+      | S.Ind_eq(S.Ju, _, _, (_,w), a, _, _) ->
+          S.beta w a
 
       | S.Handle (e, es) -> whnf ctx e
 
@@ -125,17 +125,22 @@ let rec nf ctx e =
             let t1' = nf ctx t1  in
             S.Eq(z, e1', e2', t1')
 
-      | S.J(S.Pr, c, w, a, b, t, q) ->
-          let c' = nf ctx c  in
-          let w' = nf ctx w  in
+      | S.Ind_eq(S.Pr, t, (x,y,p,c), (z,w), a, b, q) ->
+          (* whnf would have noticed if q reduces to refl *)
+          let ctx_c = Ctx.add_parameter p (S.shift 2 (S.Eq(S.Pr, a, b, t)))
+                           (Ctx.add_parameter y (S.shift 1 t)
+                              (Ctx.add_parameter x t ctx))  in
+          let ctx_w = Ctx.add_parameter z t ctx in
+          let t' = nf ctx t  in
+          let c' = nf ctx_c c  in
+          let w' = nf ctx_w w  in
           let a' = nf ctx a  in
           let b' = nf ctx b  in
-          let t' = nf ctx t  in
           let q' = nf ctx q  in
-          S.J(S.Pr, c', w', a', b', t', q')
+          S.Ind_eq(S.Pr, t', (x,y,p,c'), (z,w'), a', b', q')
 
-      | S.J (S.Ju, _, _, _, _, _, _) ->
-          Error.typing "Found a judgmental J after whnf"
+      | S.Ind_eq (S.Ju, _, _, _, _, _, _) ->
+          Error.typing "Found a judgmental Ind_eq after whnf"
 
       | S.Handle (_,_) ->
           Error.typing "Found a top-level handle after whnf"

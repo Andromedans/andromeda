@@ -30,6 +30,9 @@ and 'a term' =
   | Handle of 'a term * 'a handler
   | Refl  of eqsort * 'a term
   | Equiv of eqsort * 'a term * 'a term * 'a term
+  | Ind of (Common.variable * Common.variable * Common.variable * 'a term) *
+           (Common.variable * 'a term) *
+           'a term
 
 
 and 'a handler_body = 'a term
@@ -89,6 +92,9 @@ let string_of_term string_of_var =
         "Equiv(" ^ (string_of_eqsort o) ^ "," ^ loops [t1; t2; t3] ^ ")"
     | Refl(o,t) ->
         "Refl(" ^ (string_of_eqsort o) ^ "," ^ loop t ^ ")"
+    | Ind((x,y,p,c),(z,w),q) ->
+        "Ind((" ^ (String.concat "," [x;y;p]) ^ "," ^ loop c ^ "), (" ^
+        z ^ "," ^ loop w ^ "), " ^ loop q ^ ")"
 
    end
 
@@ -133,6 +139,10 @@ let rec desugar xs (e, loc) =
     | Handle (term, h) -> Handle (desugar xs term, desugar_handler xs h)
     | Equiv (o, t1, t2, t3) -> Equiv (o, desugar xs t1, desugar xs t2, desugar xs t3)
     | Refl (o, t) -> Refl(o, desugar xs t)
+    | Ind ((x,y,p,c), (z, w), q) ->
+         Ind((x,y,p, desugar (z::y::x::xs) c),
+                   (z, desugar (z::xs) w),
+                   desugar xs q)
   ),
   loc
 
@@ -144,27 +154,31 @@ and desugar_case xs (optag, terms, c) =
 
   (* Based on similar shift code in Syntax *)
 
-let rec shift ?(c=0) d (e, loc) =
+let rec shift ?(cut=0) delta (e, loc) =
   (match e with
-  | Var m -> if (m < c) then Var m else Var(m+d)
+  | Var m -> if (m < cut) then Var m else Var(m+delta)
   | Universe u  -> Universe u
-  | Pi (x, t1, t2) -> Pi(x, shift ~c d t1, shift ~c:(c+1) d t2)
-  | Sigma (x, t1, t2) -> Sigma(x, shift ~c d t1, shift ~c:(c+1) d t2)
-  | Lambda (x, None, e) -> Lambda (x, None, shift ~c:(c+1) d e)
-  | Lambda (x, Some t, e) -> Lambda (x, Some (shift ~c d t), shift ~c:(c+1) d e)
-  | App (e1, e2) -> App(shift ~c d e1, shift ~c d e2)
-  | Pair (e1, e2) -> Pair(shift ~c d e1, shift ~c d e2)
-  | Proj (s1, e2) -> Proj(s1, shift ~c d e2)
-  | Ascribe (e1, t2) -> Ascribe (shift ~c d e1, shift ~c d t2)
-  | Operation (optag, terms) -> Operation (optag, List.map (shift ~c d) terms)
-  | Handle (term, h) -> Handle (shift ~c d term, List.map (shift_handler_case ~c d) h)
-  | Equiv (o, t1, t2, t3) -> Equiv (o, shift ~c d t1, shift ~c d t2, shift ~c d t3)
-  | Refl (o, t) -> Refl (o, shift ~c d t)),
+  | Pi (x, t1, t2) -> Pi(x, shift ~cut delta t1, shift ~cut:(cut+1) delta t2)
+  | Sigma (x, t1, t2) -> Sigma(x, shift ~cut delta t1, shift ~cut:(cut+1) delta t2)
+  | Lambda (x, None, e) -> Lambda (x, None, shift ~cut:(cut+1) delta e)
+  | Lambda (x, Some t, e) -> Lambda (x, Some (shift ~cut delta t), shift ~cut:(cut+1) delta e)
+  | App (e1, e2) -> App(shift ~cut delta e1, shift ~cut delta e2)
+  | Pair (e1, e2) -> Pair(shift ~cut delta e1, shift ~cut delta e2)
+  | Proj (s1, e2) -> Proj(s1, shift ~cut delta e2)
+  | Ascribe (e1, t2) -> Ascribe (shift ~cut delta e1, shift ~cut delta t2)
+  | Operation (optag, terms) -> Operation (optag, List.map (shift ~cut delta) terms)
+  | Handle (term, h) -> Handle (shift ~cut delta term, List.map (shift_handler_case ~cut delta) h)
+  | Equiv (o, t1, t2, t3) -> Equiv (o, shift ~cut delta t1, shift ~cut delta t2, shift ~cut delta t3)
+  | Refl (o, t) -> Refl (o, shift ~cut delta t)
+  | Ind ((x,y,p,c), (z,w), q) ->
+        Ind ((x,y,p,shift ~cut:(cut+3) delta c),
+                  (z, shift ~cut:(cut+1) delta w),
+                  (shift ~cut delta q))),
   loc
 
-and shift_handler_case ?(c=0) d (optag, terms, term) =
+and shift_handler_case ?(cut=0) delta (optag, terms, term) =
   (* Correct only because we have no pattern matching ! *)
-  (optag, List.map (shift ~c d) terms, shift ~c d term)
+  (optag, List.map (shift ~cut delta) terms, shift ~cut delta term)
 
 let print =
   let to_string = string_of_term string_of_int  in
