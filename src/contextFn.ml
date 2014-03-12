@@ -71,6 +71,7 @@ struct
   let print ctx =
     let names = ctx.names in
     let decls = ctx.decls in
+    Format.printf "\n====vvv=====CONTEXT=====vvv====\n";
     ignore
       (List.fold_right2
          (fun  x d k ->
@@ -81,7 +82,9 @@ struct
                Format.printf "@[%s := %t@]@\n    : %t@." x (X.print names e)
                  (X.print names t));
             k - 1)
-         names decls (List.length names))
+      names decls (List.length names));
+    Format.printf "----^^^===END CONTEXT===^^^====\n@.";
+    ()
 
 end
 

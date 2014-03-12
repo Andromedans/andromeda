@@ -39,9 +39,9 @@ and Verify : sig
   val join_hr    : handled_result -> handled_result -> handled_result
 
   val handled : env -> term -> term -> term option -> handled_result option
-  val as_whnf_for_eta : env -> term -> term
-  val as_pi   : env -> term -> term
-  val as_sigma : env -> term -> term
+  val as_whnf_for_eta : env -> term -> term * handled_result
+  val as_pi   : env -> term -> term * handled_result
+  val as_sigma : env -> term -> term * handled_result
   (* val as_u     : env -> term -> term  *)
 
 
@@ -123,13 +123,13 @@ let handled env e1 e2 _ =
 
 let find_handler_reduction env k p =
   let rec loop = function
-    | [] -> whnf env k
+    | [] -> whnf env k, ()
     | handler::rest ->
         let h1, h2 = unshift_handler env handler  in
         if (S.equal h1 k && p h2) then
-          h2
+          h2, ()
         else if (S.equal h2 k && p h1) then
-          h1
+          h1, ()
         else
           loop rest  in
   loop env.handlers
@@ -171,7 +171,7 @@ let rec infer env term =
         begin
           let ty1 = infer env term1  in
           match (as_pi env ty1) with
-          | S.Pi (_, ty11, ty12) ->
+          | S.Pi (_, ty11, ty12), () ->
             let _     = check env term2 ty11  in
             let appTy = S.beta ty12 term2  in
             appTy
@@ -189,7 +189,7 @@ let rec infer env term =
         begin
           let ty2 = infer env term2  in
           match as_sigma env ty2 with
-          | S.Sigma(_, ty21, _) ->  ty21
+          | S.Sigma(_, ty21, _), () ->  ty21
           | _ -> Error.verify "Projecting from %t with type %t"
                     (print_term env term2) (print_term env ty2)
         end
@@ -198,7 +198,7 @@ let rec infer env term =
         begin
           let ty2 = infer env term2  in
           match as_sigma env ty2 with
-          | S.Sigma(_, _, ty22) ->  S.beta ty22 (S.Proj(1, term2))
+          | S.Sigma(_, _, ty22), () ->  S.beta ty22 (S.Proj(1, term2))
           | _ -> Error.verify "Projecting from %t with type %t"
                     (print_term env term2) (print_term env ty2)
         end
@@ -308,14 +308,14 @@ and addHandlers env handlers =
 and infer_ty env term =
   let k = infer env term in
   match as_u env k with
-  | S.U u -> u
+  | S.U u, () -> u
   | _ -> Error.verify "Not a type: %t" (print_term env term)
 
 
 and infer_eq env term o =
   let ty = infer env term in
   match as_u env ty with
-  | S.Eq(o', e1, e2, t) ->
+  | S.Eq(o', e1, e2, t), () ->
       if (o = o') then
         e1, e2, t
       else
@@ -334,7 +334,7 @@ and check env term t =
     | S.Pair (term1, term2) ->
         begin
           match as_sigma env t with
-          | S.Sigma(x, t1, t2) ->
+          | S.Sigma(x, t1, t2), () ->
               let _ = check env term1 t1  in
               let t2' = S.beta t2 term1  in
               let _ = check env term2 t2'  in
@@ -346,7 +346,7 @@ and check env term t =
     | S.Lambda (x, term1, term2) ->
       begin
         match as_pi env t with
-        | S.Pi (_, ty11, ty12) ->
+        | S.Pi (_, ty11, ty12), () ->
           check (add_parameter x ty11 env) term2 ty12
         | _ -> Error.verify "Lambda cannot have type %t"
                  (print_term env t)
@@ -358,7 +358,7 @@ and check env term t =
         | S.U u ->
             begin
               match as_u env t' with
-              | S.U u' when S.universe_le u' u -> ()
+              | S.U u', () when S.universe_le u' u -> ()
               | _ ->
                     Error.verify "expression %t@ has type %t@\nBut should have type %t"
                       (print_term env term) (print_term env t') (print_term env t)

@@ -32,11 +32,9 @@ and Infer : sig
 
   val handled         : env -> term -> term -> term option -> handled_result option
 
-  (* XXX FIXME
-   *    These use handlers, and hence need to return a handled_result too *)
-  val as_whnf_for_eta : env -> term -> term
-  val as_pi           : env -> term -> term
-  val as_sigma        : env -> term -> term
+  val as_whnf_for_eta : env -> term -> term * handled_result
+  val as_pi           : env -> term -> term * handled_result
+  val as_sigma        : env -> term -> term * handled_result
 
 
   type iterm = Common.debruijn Input.term
@@ -114,18 +112,21 @@ end = struct
   type handled_result = BrazilSyntax.TermSet.t
   let join_hr hr1 hr2 = BrazilSyntax.TermSet.union hr1 hr2
   let trivial_hr = BrazilSyntax.TermSet.empty
+  let singleton_hr = BrazilSyntax.TermSet.singleton
+
+  let wrap_with_handlers expr witness_set =
+    match (S.TermSet.elements witness_set) with
+    | [] -> expr
+    | witnesses -> S.Handle(expr, witnesses)
 
 
-  (* XXX FIXME
-   * THESE ARE SILENTLY USING HANDLERS WITHOUT TELLING EQUIVALENCE!!! *)
-
-  let find_handler_reduction env k p =
+  let rec find_handler_reduction env k p =
     let level = currentLevel env  in
     let rec loop = function
       | [] ->
         P.debug "find_handler_reduction defaulting to whnf@.";
-        whnf env k
-      | (installLevel, Inhabit(S.Eq(S.Ju,h1,h2,_)), comp)::rest ->
+        whnf env k, trivial_hr
+      | (installLevel, Inhabit(S.Eq(S.Ju,h1,h2,_) as unshifted_ty), unshifted_body)::rest ->
         (* XXX: is it safe to ignore the classifier??? *)
         let d = level - installLevel in
         let h1 = S.shift d h1  in
@@ -135,28 +136,34 @@ end = struct
           (print_term env k) (print_term env h1) (print_term env h2) ;
 
         if (S.equal h1 k && p h2) then
-          h2
+          let body = D.shift d unshifted_body in
+          let ty = S.shift d unshifted_ty in
+          let witness = check env body ty  in
+          h2, singleton_hr witness
         else if (S.equal h2 k && p h1) then
-          h1
+          let body = D.shift d unshifted_body in
+          let ty = S.shift d unshifted_ty in
+          let witness = check env body ty  in
+          h1, singleton_hr witness
         else
           loop rest
       | _ :: rest -> loop rest
     in
     loop env.handlers
 
-  let as_pi env k =
+  and as_pi env k =
     find_handler_reduction env k (function S.Pi _ -> true | _ -> false)
 
-  let as_sigma env k =
+  and as_sigma env k =
     find_handler_reduction env k (function S.Sigma _ -> true | _ -> false)
 
-  let as_u env k =
+  and as_u env k =
     find_handler_reduction env k (function S.U _ -> true | _ -> false)
 
-  let as_eq env k =
+  and as_eq env k =
     find_handler_reduction env k (function S.Eq _ -> true | _ -> false)
 
-  let as_whnf_for_eta env k =
+  and as_whnf_for_eta env k =
     find_handler_reduction env k
       (function
         | S.Pi _ | S.Sigma _ | S.U _
@@ -169,7 +176,10 @@ end = struct
       It returns a pair containing an internal (annotated) form of the
       expression, and its internal (annotated) type. *)
 
-  let rec infer env (term, loc) =
+  and infer env (term, loc) =
+    P.debug "Infer called with term = %s@." (D.string_of_term string_of_int (term,loc));
+    (*Ctx.print env.ctx;*)
+    let answer_expr, answer_type =
     match term with
 
     | D.Var v -> S.Var v, lookup_classifier v env
@@ -204,13 +214,15 @@ end = struct
     | D.App (term1, term2) ->
       begin
         let e1, t1 = infer env term1  in
-        let _, t11, t12 =
+        let _, t11, t12, hr =
           match (as_pi env t1) with
-          | S.Pi(x, t1, t2) -> x, t1, t2
+          | S.Pi(x, t1, t2), hr -> x, t1, t2, hr
           | _ -> Error.typing ~loc "Not a function: %t" (print_term env t1)  in
+        let _ = P.debug "Halfway through App: function %t has type %t"
+              (print_term env e1) (print_term env t1) in
         let e2 = check env term2 t11  in
         let appTy = S.beta t12 e2  in
-        S.App(e1, e2), appTy
+        wrap_with_handlers (S.App(e1, e2)) hr, appTy
       end
 
     | D.Pair (term1, term2) ->
@@ -229,9 +241,10 @@ end = struct
     | D.Proj (("1"|"fst"), term2) ->
       begin
         let e2, t2 = infer env term2  in
-        (* XXX FIXME. Need to wrap a handler around the projection *)
         match as_sigma env t2 with
-        | S.Sigma(_, t21, _) ->  S.Proj(1, e2), t21
+        | S.Sigma(_, t21, _), hr ->
+            wrap_with_handlers (S.Proj(1, e2)) hr,
+            t21
         | _ -> Error.typing ~loc "Projecting from %t with type %t"
                  (print_term env e2) (print_term env t2)
       end
@@ -239,9 +252,10 @@ end = struct
     | D.Proj (("2"|"snd"), term2) ->
       begin
         let e2, t2 = infer env term2  in
-        (* XXX FIXME. Need to wrap a handler around the projection *)
         match as_sigma env t2 with
-        | S.Sigma(_, _, t22) -> S.Proj(2, e2), S.beta t22 (S.Proj(1, e2))
+        | S.Sigma(_, _, t22), hr ->
+            wrap_with_handlers (S.Proj(2, e2)) hr,
+            S.beta t22 (S.Proj(1, e2))
         | _ -> Error.typing ~loc "Projecting from %t with type %t"
                  (print_term env e2) (print_term env t2)
       end
@@ -262,6 +276,7 @@ end = struct
 
     | D.Handle (term, handlers) ->
       let env'= addHandlers env loc handlers in
+      let _ = P.debug "About to infer the body of handle-expression"  in
       infer env' term
 
     | D.Equiv(o, term1, term2, term3) ->
@@ -293,7 +308,7 @@ end = struct
         begin
           let q, ty3 = infer env term3 in
           match as_eq env ty3 with
-          | S.Eq(o, a, b, t) ->
+          | S.Eq(o, a, b, t), hr ->
               begin
                 let illegal_variable_name = "eventual.z" in
                 let env_c' = add_parameter p (S.Eq(o, S.Var 0, S.Var 1, S.shift 3 t))
@@ -321,7 +336,8 @@ end = struct
                  * eventual.z, so there's no chance of a reference to eventual.z
                  * turning into a reference to variable 2, i.e., x. *)
                 let c = S.shift ~cut:3 (-1) c'  in
-                let expression = S.Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q)  in
+                let expression =
+                  wrap_with_handlers (S.Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q)) hr  in
 
                 (* Now we need to compute the expression's type. Basically this
                  * is "c a b q", except that the variables are in the context
@@ -338,7 +354,11 @@ end = struct
                 expression, expression_type
               end
           | _ -> Error.typing ~loc "Not a witness for equality or equivalence:@ %t" (print_term env q)
-        end
+        end  in
+    let _ = P.debug "infer returned@ %t with type %t@."
+               (print_term env answer_expr) (print_term env answer_type)  in
+    answer_expr, answer_type
+
 
   and inferOp env loc tag terms handlerBodyOpt =
     match tag, terms, handlerBodyOpt with
@@ -372,25 +392,28 @@ end = struct
         addHandlers env' loc rest  in
     loop handlers
 
+  (* It might be safer for check to return hr separately, and wrap the context
+   * of the check instead. But a handler here is compatible with
+   * the current Brazil verification algorithm. *)
   and check env ((term1, loc) as term) t =
     match term1 with
     | D.Lambda (x, None, term2) ->
       begin
         match as_pi env t with
-        | S.Pi (_, t1, t2) ->
+        | S.Pi (_, t1, t2), hr_whnf ->
           let e2 = check (add_parameter x t1 env) term2 t2 in
-          S.Lambda(x, t1, e2)
+          wrap_with_handlers (S.Lambda(x, t1, e2)) hr_whnf
         | _ -> Error.typing ~loc "Lambda cannot have type %t"
                  (print_term env t)
       end
     | D.Pair (term1, term2) ->
       begin
         match as_sigma env t with
-        | S.Sigma(x, t1, t2) ->
+        | S.Sigma(x, t1, t2), hr_whnf ->
           let e1 = check env term1 t1  in
           let t2' = S.beta t2 e1  in
           let e2 = check env term2 t2'  in
-          S.Pair(e1, e2)
+          wrap_with_handlers (S.Pair(e1, e2)) hr_whnf
         | _ -> Error.typing ~loc "Pair cannot have type %t"
                  (print_term env t)
       end
@@ -400,35 +423,37 @@ end = struct
       | S.U u ->
         begin
           match as_u env t' with
-          | S.U u' when S.universe_le u' u -> e
+          | S.U u', hr_whnf when S.universe_le u' u ->
+              wrap_with_handlers e hr_whnf
           | _ ->
             Error.typing ~loc "expression %t@ has type %t@\nBut should have type %t"
               (print_term env e) (print_term env t') (print_term env t)
         end
       | _ ->
         begin
+          let _ = P.debug "Switching from synthesis to checking."  in
+          let _ = P.debug "Expression %t@ has type %t@ and we expected type %t@."
+             (print_term env e) (print_term env t') (print_term env t)  in
           let env = enter_equiv env  in
           match (Equiv.equal_at_some_universe env t' t ) with
           | None ->
             Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
               (print_term env e) (print_term env t') (print_term env t)
-          | Some witness_set ->
-            begin
-              match (S.TermSet.elements witness_set) with
-              | [] -> e
-              | witnesses -> S.Handle(e, witnesses)
-            end
+          | Some witness_set -> wrap_with_handlers e witness_set
         end
 
   and infer_ty env ((_,loc) as term) =
     let t, k = infer env term in
-    let _ = P.debug "infer_ty given %s" (D.string_of_term string_of_int term)  in
+    let _ = P.debug "infer_ty given %t\ni.e., %s@."
+       (print_term env t) (D.string_of_term string_of_int term)  in
     match as_u env k with
-    | S.U u -> t, u
+    | S.U u, hr_whnf -> wrap_with_handlers t hr_whnf, u
     | _ -> Error.typing ~loc "Not a type: %t" (print_term env t)
 
   and handled env e1 e2 _ =
     let level = currentLevel env  in
+    let _ = P.debug "Entering 'handled' with@ e1 = %t and@ e2 = %t"
+                (print_term env e1) (print_term env e2)   in
     let rec loop = function
       | [] ->
         P.debug "handle search failed@.";

@@ -12,9 +12,9 @@ module type EQUIV_ARG = sig
   val join_hr    : handled_result -> handled_result -> handled_result
 
   val handled : env -> term -> term -> term option -> handled_result option
-  val as_whnf_for_eta : env -> term -> term
-  val as_pi   : env -> term -> term
-  val as_sigma : env -> term -> term
+  val as_whnf_for_eta : env -> term -> term * handled_result
+  val as_pi   : env -> term -> term * handled_result
+  val as_sigma : env -> term -> term * handled_result
   (* val as_u     : env -> term -> term  *)
 end
 
@@ -51,6 +51,13 @@ module Make (X : EQUIV_ARG) =
                 end
           end
 
+    let join_hr' hr1 op2 =
+      match op2 with
+      | Some hr2 -> Some (X.join_hr hr1 hr2)
+      | None     -> None
+
+    let join_hrs = List.fold_left X.join_hr X.trivial_hr
+
     let rec equal env t1 t2 k =
       P.debug "equal: @[<hov>%t@ ==@ %t@ at %t@]@."
               (X.print_term env t1) (X.print_term env t2) (X.print_term env k);
@@ -62,23 +69,25 @@ module Make (X : EQUIV_ARG) =
         | None ->
             begin
               match (X.as_whnf_for_eta env k) with
-              | S.Pi (x, t3, k3) ->
+              | S.Pi (x, t3, k3), hr ->
                   let env' = X.add_parameter x t3 env  in
                   let t1' = S.App (S.shift 1 t1, S.Var 0) in
                   let t2' = S.App (S.shift 1 t2, S.Var 0) in
-                  equal env' t1' t2'  k3
-              | S.Sigma (x, c, d) ->
+                  let recurse = equal env' t1' t2' k3  in
+                  join_hr' hr recurse
+              | S.Sigma (x, c, d), hr ->
                   let t1' i = S.Proj (i, t1) in
                   let t2' i = S.Proj (i, t2) in
-                  hr_ands
+                  let recurse = hr_ands
                     [lazy (equal env (t1' 1) (t2' 1) c);
-                     lazy (equal env (t1' 2) (t2' 2) (S.beta d (t1' 1)))]
-              | S.Eq(S.Ju, _, _, _) ->
+                     lazy (equal env (t1' 2) (t2' 2) (S.beta d (t1' 1)))]  in
+                  join_hr' hr recurse
+              | S.Eq(S.Ju, _, _, _), hr ->
                   (* K rule for Judgmental equality! *)
-                  Some X.trivial_hr
-              | S.Base S.TUnit ->
+                  Some hr
+              | S.Base S.TUnit, hr ->
                   (* Everything is equal at type unit *)
-                  Some X.trivial_hr
+                  Some hr
               | _ -> equal_structural env t1 t2
           end
 
@@ -90,6 +99,7 @@ and equal_at_some_universe env t1 t2 =
   P.debug "equal_at_some_universe: @[<hov>%t@ ==@ %t@]@."
       (X.print_term env t1) (X.print_term env t2);
   if  S.equal t1 t2   then
+    (* Alpha-equivalent; no handlers needed *)
     Some X.trivial_hr
   else
     match  X.handled env t1 t2 None  with
@@ -223,11 +233,23 @@ and equal_path env e1 e2 =
 
   | S.Proj (i1, e3), S.Proj (i2, e4) when i1 = i2 ->
       begin
-        (* XXX: Should use as_sigma here! *)
-        match i1, equal_path env e3 e4 with
-          | 1, Some (S.Sigma(_, t1, _), hr) -> Some (t1, hr)
-          | 2, Some (S.Sigma(_, _, t2), hr) -> Some (S.beta t2 e1, hr)
-          | _                               -> None
+        assert (i1 = 1 || i1 = 2);
+        match equal_path env e3 e4 with
+        | None -> None
+        | Some (t, hr_eq) ->
+            begin
+              match i1, X.as_sigma env t with
+              | 1, (S.Sigma(_, t1, _), hr_norm) -> Some (t1,
+                                                         X.join_hr hr_eq hr_norm)
+              | 2, (S.Sigma(_, _, t2), hr_norm) -> Some (S.beta t2 e1,
+                                                         X.join_hr hr_eq hr_norm)
+              | _, _                            ->
+                  (* Should never happen, if our type checker was satisfied *)
+                  P.equivalence "Why can I project from %t@ and %t@ which have type %t@ ?"
+                     (X.print_term env e1) (X.print_term env e2) (X.print_term
+                     env t);
+                  None
+            end
       end
 
   | S.App (e3, e5), S.App(e4, e6) ->
@@ -236,13 +258,14 @@ and equal_path env e1 e2 =
           | Some (tfn, hr1) ->
               begin
                 match X.as_pi env tfn with
-                | S.Pi(_, t1, t2) ->
+                | S.Pi(_, t1, t2), hr2 ->
                   begin
                     match equal env e5 e6 t1 with
-                    |  Some hr2 -> Some (S.beta t2 e5, X.join_hr hr1 hr2)
+                    |  Some hr3 -> Some (S.beta t2 e5, join_hrs [hr1; hr2; hr3])
                     |  None     -> None
                   end
                 | _ ->
+                    (* Should never happen, if our type checker was satisfied *)
                     P.equivalence "Why do %t and %t have a pi type?"
                       (X.print_term env e3) (X.print_term env e4);
                     None
