@@ -105,6 +105,7 @@ and lambda xs x t e ppf =
               print ~at_level:3 "handle %t with %t"
               (term xs e)
               (sequence ~sep:" | " (term xs) es)
+          | S.MetavarApp mva -> print "%s" (S.string_of_mva mva)
 
     (** Support for printing of errors, warning and debugging information. *)
 

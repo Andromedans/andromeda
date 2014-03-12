@@ -294,6 +294,12 @@ let rec infer env term =
                            (S.shift 1 b))
                    a
         end
+    | S.MetavarApp mva ->
+        begin
+          match S.get_mva mva with
+          | Some defn -> infer env defn
+          | None -> Error.verify "Unset metavariable %s" (S.string_of_mva mva)
+        end
 
 and addHandlers env handlers =
   match handlers with

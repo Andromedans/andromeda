@@ -20,6 +20,7 @@ type term =
   | Base   of basetype
   | Const  of constant
   | Handle of term * term list
+  | MetavarApp of metavarapp
 
 and universe = I.universe =
   | NonFib of int
@@ -34,6 +35,10 @@ and basetype =
 
 and constant =
   | Unit
+
+and metavarapp = term option ref * term list
+
+
 
 (**************************************
    The Typing Rules. In all cases, the prior well-formedness of G is assumed
@@ -174,6 +179,7 @@ let rec string_of_term = function
   | U univ  -> "U(" ^ string_of_universe univ ^ ")"
   | Base b  -> string_of_basetype b
   | Const c -> string_of_constant c
+  | MetavarApp mva -> string_of_mva mva
 
 (* comma-separated terms *)
 and string_of_terms ts =
@@ -198,7 +204,7 @@ and string_of_constant = function
 (* See, e.g., http://ecee.colorado.edu/~siek/ecen5013/spring10/lecture4.pdf
    The rule is: increase cut by one for each binder.
 *)
-let shift ?(cut=0) delta =
+and shift ?(cut=0) delta =
   let rec loop cut = function
     | Var m -> if (m < cut) then Var m else (assert (m+delta >= 0);
                                              Var(m+delta))
@@ -216,14 +222,14 @@ let shift ?(cut=0) delta =
                                   (z, loop (cut+1) w),
                                   loop cut a, loop cut b, loop cut q)
     | Handle (e, es)    -> Handle(loop cut e, List.map (loop cut) es)
-    | (U _ | Base _ | Const _) as term -> term  in
+    | (U _ | Base _ | Const _) as term -> term
+    | MetavarApp (r, args) -> MetavarApp (r, List.map (loop cut) args)  in
   loop cut
-
 
 (** [subst j e' e] replaces the free occurrences of variable [j] in [e] by [e'].  *)
 (* The rule is: shift the substituted expression e' by one for each binder
 *)
-let rec subst j e' = function
+and subst j e' = function
   | Var m             -> if (j = m) then e' else Var m
 
   | Lambda (x,t,e)    -> Lambda(x, subst j e' t, subst (j+1) (shift 1 e') e)
@@ -241,6 +247,7 @@ let rec subst j e' = function
                                 subst j e' a, subst j e' b, subst j e' q)
   | Handle (e, es)   -> Handle (subst j e' e, List.map (subst j e') es)
   | (U _ | Base _ | Const _) as term -> term
+  | MetavarApp (r, args) -> MetavarApp (r, List.map (subst j e') args)
 
 
 (** [beta body arg] substitutes [arg] in for variable [0] in [body].
@@ -252,6 +259,44 @@ let rec subst j e' = function
 and beta eBody eArg =
   shift (-1) (subst 0 (shift 1 eArg) eBody)
 
+
+and betas eBody eArgs =
+  let rec loop = function
+    | [] -> eBody
+    | eArg :: eArgs -> beta (loop eArgs) eArg  in
+  loop eArgs
+
+
+
+
+and fresh_mva context_length =
+  let rec loop = function
+    | 0 -> []
+    | n -> Var (n-1) :: loop (n-1) in
+  (ref None, List.rev (loop context_length))
+
+and get_mva (r, args) =
+  match !r with
+  | None -> None
+  | Some body -> Some (betas body args)
+
+and string_of_mva ((r,_) as mva) =
+  let base_string = "M-" ^ (Printf.sprintf "%x" (Obj.magic r : int)) in
+  match get_mva mva with
+  | Some defn -> "{{" ^ base_string ^ " = " ^ string_of_term defn ^ "}}"
+  | None -> "{{" ^ base_string ^ "}}"
+
+(* This function does **not** check reasonableness, or make sure
+ * it's referring to the right parameters. *)
+and set_mva ((r, _) as mva) body =
+  match !r with
+  | None -> r := body
+  | Some _ -> Error.fatal "Re-setting metavariable %s" (string_of_mva mva)
+
+let mva_is_set (r, _) =
+  match !r with
+  | None   -> false
+  | Some _ -> true
 
 (** [occurs v e] returns [true] when variable [Var v] occurs freely in [e]. *)
 (* The rule is: increase the variable number by one (shift it)
@@ -272,6 +317,13 @@ let rec occurs v e =
                            -> occurs v t || occurs (v+3) c || occurs (v+1) w ||
                               occurs v a || occurs v b || occurs v p
   | Handle (e, es)        -> occurs v e || List.exists (occurs v) es
+
+  | MetavarApp ((_, args) as mva) ->
+      begin
+        match get_mva mva with
+        | None      -> List.exists (occurs v) args
+        | Some defn -> occurs v defn
+      end
 
   | (U _ | Base _ | Const _) -> false
 
@@ -314,7 +366,25 @@ let rec equal e1 e2 =
   | Handle(e1', _), _ -> equal e1' e2
   | _, Handle(e2', _) -> equal e1 e2'
 
+  | MetavarApp mva, _   when mva_is_set mva ->
+      begin
+        match get_mva mva with
+        | None -> Error.fatal "impossible. mva is set but empty"
+        | Some defn -> equal defn e2
+      end
+
+  | _, MetavarApp mva   when mva_is_set mva ->
+      begin
+        match get_mva mva with
+        | None -> Error.fatal "impossible. mva is set but empty"
+        | Some defn -> equal e1 defn
+      end
+
+  | MetavarApp (_, args1), MetavarApp(_, args2) ->
+      (* If we got this far, then both are unset *)
+      List.for_all2 equal args1 args2
+
   | (Var _ | Lambda _ | Pi _ | App _ | Sigma _ | Pair _ | Proj _
-      | Refl _ | Eq _ | Ind_eq _ | U _ | Base _ | Const _ ), _ -> false
+      | Refl _ | Eq _ | Ind_eq _ | U _ | Base _ | Const _ | MetavarApp _ ), _ -> false
 
 

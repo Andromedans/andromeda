@@ -61,6 +61,13 @@ let rec whnf ctx e =
 
       | S.Handle (e, es) -> whnf ctx e
 
+      | S.MetavarApp mva ->
+          begin
+            match S.get_mva mva with
+            | None -> e
+            | Some defn -> whnf ctx defn
+          end
+
         (* Everything else is already in whnf *)
       | S.Lambda _
       | S.Pair _
@@ -71,6 +78,7 @@ let rec whnf ctx e =
       | S.U _
       | S.Const _
       | S.Base _ -> e
+
 
 
 
@@ -144,6 +152,11 @@ let rec nf ctx e =
 
       | S.Handle (_,_) ->
           Error.typing "Found a top-level handle after whnf"
+
+
+      | S.MetavarApp (r, args) ->
+          (* If r weren't ref None, whnf would have eliminated it. *)
+          S.MetavarApp(r, List.map (nf ctx) args)
 
       | (S.U _ | S.Base _ | S.Const _) as term -> term
 
