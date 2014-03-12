@@ -71,7 +71,8 @@ rule token = parse
 
   | eof                 { EOF }
 
-  | (name | patternvar) { let s = Lexing.lexeme lexbuf in
+  | (name | patternvar | numeral) 
+                       { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved
                             with Not_found -> NAME s

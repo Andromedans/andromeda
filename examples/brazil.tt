@@ -1,8 +1,8 @@
-assume nat : type 
+assume nat : Type 
 assume O : nat
 assume S : nat -> nat
 
-assume List : nat -> type
+assume List : nat -> Type
 
 /////////////////////////
 // Pairing and Projection
@@ -33,7 +33,6 @@ define twooneone := sym (plus (S O) (S O)) (S(S(O))) oneonetwo
 
 
 define zero_equal_zero := refl O
-define zero_equiv_zero := Refl O
 
 ////////////////////////
 // Brazil-Style Handlers
@@ -68,7 +67,7 @@ define pair2 := (pair1 :> List one * (List one -> List won))
 
 assume red : nat
 assume crimson : nat
-assume synonym : Eq nat red crimson 
+assume synonym : red == crimson @ nat
 
 assume pair3 : List red * List won
 

@@ -1,23 +1,26 @@
-Parameter N : Type.
-Parameter z : N.
-Parameter s : N -> N.
+assume N : Type
+assume z : N
+assume s : N -> N
 
-Definition numeral := forall A : Type, (A -> A) -> (A -> A).
+define numeral := forall A : Type, (A -> A) -> (A -> A) ;;
 
-Definition zero  :: numeral := fun A f x => x.
-Definition one   :: numeral := fun A f => f.
-Definition two   :: numeral := fun A f x => f (f x).
-Definition three :: numeral := fun A f x => f (f (f x)).
+define zero  := (fun A f x => x) :> numeral ;; 
+define one   := (fun A f => f) :> numeral ;;
+define two   := (fun A f x => f (f x)) :> numeral
+define three := (fun A f x => f (f (f x))) :> numeral
 
-Definition plus :: numeral -> numeral -> numeral :=
-  fun m n A f x => m A f (n A f x).
+define plus :=
+  (fun m n A f x => m A f (n A f x))
+  :> numeral -> numeral -> numeral
 
-Definition times :: numeral -> numeral -> numeral :=
-  fun m n A f x => m A (n A f) x.
+define times :=
+  (fun m n A f x => m A (n A f) x)
+  :> numeral -> numeral -> numeral
 
-Definition power :: numeral -> numeral -> numeral :=
-  fun m n A => n (A -> A) (m A).
+define power :=
+  (fun m n A => n (A -> A) (m A))
+  :> numeral -> numeral -> numeral
   
-Definition four := plus two two.
-
-Definition five := plus two three.
+define four := plus two two
+       
+define five := plus two three

@@ -1,6 +1,6 @@
 assume D : Type
 
-assume scott : D == D -> D @ Type
+assume scott : D == (D -> D) @ Type
 
 define fix :=
   fun (f : D -> D) =>
@@ -10,7 +10,7 @@ define fix :=
 
 define fix_works :=
   fun (f : D -> D) =>
-    (Refl (fix f) :> f (fix f) == fix f @ D)
+    (refl (fix f) :> f (fix f) == fix f @ D)
 
 define horrible := handle fix fix with scott end
 

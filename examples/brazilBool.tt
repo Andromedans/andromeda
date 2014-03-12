@@ -1,34 +1,34 @@
-assume bool : type
+assume bool : Type
 assume true false : bool
-assume cond : (A : Type 1) -> bool -> A -> A -> A
+assume cond : (A : QuasiType 1) -> bool -> A -> A -> A
 
-assume cond_true  : (A : Type 1) -> (a : A) -> (b : A) -> (cond A true a b == a @ A)
-assume cond_false : (A : Type 1) -> (a : A) -> (b : A) -> (cond A false a b == b @ A)
+assume cond_true  : (A : QuasiType 1) -> (a : A) -> (b : A) -> (cond A true a b == a @ A)
+assume cond_false : (A : QuasiType 1) -> (a : A) -> (b : A) -> (cond A false a b == b @ A)
 
-assume bool_ind : (P : bool -> Type 1) -> P false -> P true -> (b : bool) -> P b
+assume bool_ind : (P : bool -> QuasiType 1) -> P false -> P true -> (b : bool) -> P b
 
-assume nat : type
+assume nat : Type
 assume zero : nat
 
-define P := fun (b : bool) => cond (Type 0) b nat nat
+define P := fun (b : bool) => cond (QuasiType 0) b nat nat
 
 define P_is_constant :=
   fun b : bool =>
   handle
-    bool_ind (fun b => P b == nat @ Type 0)
-       (Refl (nat :> Type 0))
-       (Refl (nat :> Type 0))
+    bool_ind (fun b => P b == nat @ QuasiType 0)
+       (refl (nat :> QuasiType 0))
+       (refl (nat :> QuasiType 0))
        b
   with
-      (cond_true (Type 0) nat nat)
-    | (cond_false (Type 0) nat nat)
+      (cond_true (QuasiType 0) nat nat)
+    | (cond_false (QuasiType 0) nat nat)
   end
 
 define P_is_constant' :=
   fun b : bool =>
-    bool_ind (fun b => P b == nat @ Type 0)
-       (cond_false (Type 0) nat nat)
-       (cond_true (Type 0) nat nat)
+    bool_ind (fun b => P b == nat @ QuasiType 0)
+       (cond_false (QuasiType 0) nat nat)
+       (cond_true (QuasiType 0) nat nat)
        b
 
 assume x : bool

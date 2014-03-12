@@ -49,61 +49,53 @@ and 'a toplevel' =
   | Help
   | Quit
 
+(** String conversion functions to be used only for debugging where proper printing of
+    terms is not available. *)
+
+let embrace s = "(" ^ s ^ ")"
+let app_embrace h lst = h ^ embrace (String.concat ", " lst)
+
 let string_of_tag = function
   | Inhabit -> "Inhabit"
   | Coerce -> "Coerce"
 
 let string_of_universe = function
-  | NonFib i -> "NonFib(" ^ string_of_int i ^ ")"
-  | Fib  i -> "Fib(" ^ string_of_int i ^ ")"
+  | NonFib i -> app_embrace "NonFib" [string_of_int i]
+  | Fib  i -> app_embrace "Fib" [string_of_int i]
 
 let string_of_eqsort = function
   | Ju -> "Ju"
   | Pr -> "Pr"
 
 let string_of_term string_of_var =
-  let rec loop = function (term, loc) ->
+  let rec to_str (term, loc) =
   begin
     match term with
     | Var x -> string_of_var x
     | Universe u -> string_of_universe u
-    | Lambda(x,None,t2) ->
-      "Lambda(" ^ x ^ "," ^ "_" ^ "," ^ (loop t2) ^ ")"
-    | Lambda(x,Some t1,t2) ->
-        "Lambda(" ^ x ^ "," ^ (loops [t1;t2]) ^ ")"
-    | Pi(x,t1,t2) ->
-        "Pi(" ^ x ^ "," ^ (loops [t1;t2]) ^ ")"
-    | Sigma(x,t1,t2) ->
-        "Sigma(" ^ x ^ "," ^ (loops [t1;t2]) ^ ")"
-    | App(t1,t2) ->
-        "App(" ^ (loops [t1;t2]) ^ ")"
-    | Pair(t1,t2) ->
-        "Pair(" ^ (loops [t1;t2]) ^ ")"
-    | Proj(s1, t2) ->
-        "Proj(\"" ^ s1 ^ "\"," ^ (loop t2) ^ ")"
-    | Ascribe(t1,t2) ->
-        "Ascribe(" ^ (loops [t1;t2]) ^ ")"
-    | Operation(tag,terms) ->
-        "Operation(" ^ (string_of_tag tag) ^ "," ^ (loops terms) ^ ")"
+    | Lambda(x,None,t2) -> app_embrace "Lambda" [x; "_"; to_str t2]
+    | Lambda(x,Some t1,t2) -> app_embrace "Lambda" [x; to_str t1; to_str t2]
+    | Pi(x,t1,t2) -> app_embrace "Pi" [x; to_str t1; to_str t2]
+    | Sigma(x,t1,t2) -> app_embrace "Sigma" [x; to_str t1; to_str t2]
+    | App(t1,t2) -> app_embrace "App" [to_str t1; to_str t2]
+    | Pair(t1,t2) -> app_embrace "Pair" [to_str t1; to_str t2]
+    | Proj(s1, t2) -> app_embrace "Proj" [s1; to_str t2]
+    | Ascribe(t1,t2) -> app_embrace "Ascribe" [to_str t1; to_str t2]
+    | Operation(tag,terms) -> app_embrace "Operation" (string_of_tag tag :: List.map to_str terms)
     | Handle(term, cases) ->
-        "Handle(" ^ (loop term) ^ "," ^ (String.concat "|" (List.map
-         string_of_case cases)) ^ ")"
-    | Equiv(o,t1,t2,t3) ->
-        "Equiv(" ^ (string_of_eqsort o) ^ "," ^ loops [t1; t2; t3] ^ ")"
-    | Refl(o,t) ->
-        "Refl(" ^ (string_of_eqsort o) ^ "," ^ loop t ^ ")"
+      app_embrace "Handle" [to_str term; (String.concat "|" (List.map string_of_case cases))]
+    | Equiv(o,t1,t2,t3) -> app_embrace "Equiv" [string_of_eqsort o; to_str t1; to_str t2; to_str t3]
+    | Refl(o,t) -> app_embrace "Refl" [string_of_eqsort o; to_str t]
     | Ind((x,y,p,c),(z,w),q) ->
-        "Ind((" ^ (String.concat "," [x;y;p]) ^ "," ^ loop c ^ "), (" ^
-        z ^ "," ^ loop w ^ "), " ^ loop q ^ ")"
-
+      app_embrace "Ind" [embrace (String.concat " . " [x; y; p; to_str c]) ;
+                         embrace (z ^ " . " ^ to_str w) ;
+                         to_str q]
    end
 
-     and loops terms = (String.concat "," (List.map loop terms))
-
-     and string_of_case (tag, terms, c) =
-          (string_of_tag tag) ^ "(" ^ (loops terms) ^ ") => " ^ (loop c)
+  and string_of_case (tag, terms, c) =
+    app_embrace (string_of_tag tag) (List.map to_str terms) ^ " => " ^ to_str c
   in
-    loop
+    to_str
 
 let printI term = print_endline (string_of_term (fun s -> s) term)
 
