@@ -3,15 +3,20 @@
 // The type former
 assume Trunc : Type -> Type ;;
 
-// Definition of something being an h-proposition
+//
+// Definition of something being an 0-type
+//
+
 define is_prop := fun (A : Type) => (x : A) -> (y : A) -> (x = y @ A) ;;
 
-// The type constructors
+// The type constructors for propositional truncation
+
 assume trunc : (A : Type) -> A -> Trunc A ;;
 
 assume Trunc_is_prop : (A : Type) -> is_prop (Trunc A) ;;
 
 // The eliminator
+
 assume trunc_elim :
   (A : Type) -> (B : Type) -> is_prop B -> (A -> B) -> (Trunc A -> B) ;;
 
@@ -20,12 +25,6 @@ assume trunc_elim :
 assume trunc_comp :
   (A : Type) -> (B : Type) -> (p : is_prop B) -> (f : A -> B) -> (x : A) ->
   (trunc_elim A B p f (trunc A x) == f x @ B) ;;
-
-// Function extensionality is stated as follows
-
-assume funext :
-  forall (A : Type) (B : A -> Type) (f g : (x : A) -> B x),
-    (forall x : A, f x = g x @ B x) -> (f = g @ ((x : A) -> B x)) ;;
 
 // Contractible types:
 
@@ -37,12 +36,22 @@ define inhab_prop_is_contr :=
   fun (A : Type) (p : is_prop A) (a : A) =>
   ((a, (fun (b : A) => p a b)) :> is_contr A);;
 
+// Concatentaion and opposite paths
+define opp :=
+  fun (A : Type) (a b : A) (q : a = b @ A) =>
+         Ind (q, x . y . p . (y = x @ A), z . idpath z)
+
+define concat :=
+  fun (A : Type) (a b c : A) (r : a = b @ A) (s : b = c @ A) =>
+       Ind (r,
+            x . y . p . (d : A) -> (q : y = d @ A ) -> (x = d @ A),
+            z . fun (d : A) (q : z = d @ A) => q)
+           c s
+
 // If A is contractible then it is a proposition:
-// 
-// to finish this example we need elimination for =, but there seems to be
-// no syntax for it
-//
-// define contr_is_inhab_prop :=
-//  fun (A : Type) (c : is_contr A) =>
-//    ((c.1, (fun (x y : A) => concat (c.2 x) (opposite (c.2 y))) :> (A * is_prop A))
+
+define contr_is_inhab_prop :=
+  fun (A : Type) (c : is_contr A) =>
+    (c.1 , 
+     (fun (x y : A) => concat A x c.1 y (opp A c.1 x (c.2 x)) (c.2 y))) :> A * is_prop A
   
