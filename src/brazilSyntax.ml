@@ -204,10 +204,9 @@ and string_of_constant = function
 (* See, e.g., http://ecee.colorado.edu/~siek/ecen5013/spring10/lecture4.pdf
    The rule is: increase cut by one for each binder.
 *)
-and shift ?(cut=0) delta =
+and rewrite_vars ?(cut=0) ftrans =
   let rec loop cut = function
-    | Var m -> if (m < cut) then Var m else (assert (m+delta >= 0);
-                                             Var(m+delta))
+    | Var m -> ftrans cut m
     | Lambda (x, t, e)  -> Lambda (x, loop cut t, loop (cut+1) e)
     | App (e1, e2)      -> App(loop cut e1, loop cut e2)
     | Pi (x, t1, t2)    -> Pi(x, loop cut t1, loop (cut+1) t2)
@@ -226,28 +225,22 @@ and shift ?(cut=0) delta =
     | MetavarApp (r, args) -> MetavarApp (r, List.map (loop cut) args)  in
   loop cut
 
+and shift ?(cut=0) delta =
+  rewrite_vars ~cut (fun c m -> if (m < c) then
+                                  Var m
+                              else
+                                  ( assert (m+delta >= 0);
+                                    Var(m+delta) ) )
+
 (** [subst j e' e] replaces the free occurrences of variable [j] in [e] by [e'].  *)
 (* The rule is: shift the substituted expression e' by one for each binder
 *)
-and subst j e' = function
-  | Var m             -> if (j = m) then e' else Var m
 
-  | Lambda (x,t,e)    -> Lambda(x, subst j e' t, subst (j+1) (shift 1 e') e)
-  | App(e1, e2)       -> App(subst j e' e1, subst j e' e2)
-  | Pair(e1, e2)      -> Pair(subst j e' e1, subst j e' e2)
-  | Proj(i1, e2)      -> Proj(i1, subst j e' e2)
-  | Pi (x, t1, t2)    -> Pi(x, subst j e' t1, subst (j+1) (shift 1 e') t2)
-  | Sigma (x, t1, t2) -> Sigma(x, subst j e' t1, subst (j+1) (shift 1 e') t2)
-  | Refl(o, e, t)     -> Refl(o, subst j e' e, subst j e' t)
-  | Eq(o, e1, e2, t)  -> Eq(o, subst j e' e1, subst j e' e2, subst j e' t)
-  | Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q)
-                      -> Ind_eq(o, subst j e' t,
-                                (x,y,p,subst (j+3) e' c),
-                                (z, subst (j+1) e' w),
-                                subst j e' a, subst j e' b, subst j e' q)
-  | Handle (e, es)   -> Handle (subst j e' e, List.map (subst j e') es)
-  | (U _ | Base _ | Const _) as term -> term
-  | MetavarApp (r, args) -> MetavarApp (r, List.map (subst j e') args)
+and subst j e' =
+  rewrite_vars (fun c m -> if (m = j + c) then
+                             shift c e'
+                           else
+                             Var m)
 
 
 (** [beta body arg] substitutes [arg] in for variable [0] in [body].
@@ -290,7 +283,7 @@ and string_of_mva ((r,_) as mva) =
  * it's referring to the right parameters. *)
 and set_mva ((r, _) as mva) body =
   match !r with
-  | None -> r := body
+  | None -> r := Some body
   | Some _ -> Error.fatal "Re-setting metavariable %s" (string_of_mva mva)
 
 let mva_is_set (r, _) =
@@ -326,7 +319,6 @@ let rec occurs v e =
       end
 
   | (U _ | Base _ | Const _) -> false
-
 
 (** Compare two expressions using alpha-equivalence only. *)
 (* You'd think that this is where de Bruijn indices pay off,
@@ -387,4 +379,41 @@ let rec equal e1 e2 =
   | (Var _ | Lambda _ | Pi _ | App _ | Sigma _ | Pair _ | Proj _
       | Refl _ | Eq _ | Ind_eq _ | U _ | Base _ | Const _ | MetavarApp _ ), _ -> false
 
+    module VS = Set.Make(struct
+                            type t = Common.debruijn
+                            let compare = compare
+                         end)
 
+    module VM = Map.Make(struct
+                            type t = Common.debruijn
+                            let compare = compare
+                         end)
+
+  let union_list = List.fold_left VS.union VS.empty
+
+  let rec free_vars =
+    let rec loop cut = function
+    | Var m -> if (m < cut) then VS.empty else VS.singleton (m - cut)
+    | Lambda (_, t, e)  -> VS.union (loop cut t) (loop (cut+1) e)
+    | App (e1, e2)      -> VS.union (loop cut e1) (loop cut e2)
+    | Pi (_, t1, t2)    -> VS.union (loop cut t1) (loop (cut+1) t2)
+    | Sigma (_, t1, t2) -> VS.union (loop cut t1) (loop (cut+1) t2)
+    | Pair (e1, e2)     -> VS.union (loop cut e1) (loop cut e2)
+    | Proj (i1, e2)     -> loop cut e2
+    | Refl (_, e, t)    -> VS.union (loop cut e) (loop cut t)
+    | Eq (_, e1, e2, t) -> union_list
+                               [loop cut e1; loop cut e2; loop cut t]
+    | Ind_eq (o, t, (x,y,p,c), (z,w), a, b, q)
+                        -> union_list
+                               [loop cut t; loop (cut+3) c; loop (cut+1) w;
+                                loop cut a; loop cut b; loop cut q]
+    | Handle (e, es)    -> union_list
+                               ((loop cut e) :: List.map (loop cut) es)
+    | (U _ | Base _ | Const _) -> VS.empty
+    | MetavarApp ((r, args) as mva) ->
+        begin
+          match get_mva mva with
+          | Some defn -> loop cut defn
+          | None -> union_list (List.map (loop cut) args)
+        end  in
+  loop 0

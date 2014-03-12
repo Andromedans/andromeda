@@ -24,6 +24,7 @@ and Infer : sig
   val add_parameter     : Common.variable -> term -> env -> env
   val lookup_classifier : Common.debruijn -> env -> term
   val whnf              : env -> term -> term
+  val nf                : env -> term -> term
   val print_term        : env -> term -> Format.formatter -> unit
 
   type handled_result = BrazilSyntax.TermSet.t
@@ -97,6 +98,7 @@ end = struct
   let lookup v env = Ctx.lookup v env.ctx
   let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
   let whnf env e = Norm.whnf env.ctx e
+  let nf env e = Norm.nf env.ctx e
   let print_term env e = P.term env.ctx.Ctx.names e
 
   type iterm = Common.debruijn Input.term
@@ -186,6 +188,10 @@ end = struct
 
     | D.Universe u -> S.U u, S.U (S.universe_classifier u)
 
+    | D.Wildcard ->
+        let context_length = List.length env.ctx.Ctx.names in
+        S.MetavarApp (S.fresh_mva context_length), S.MetavarApp (S.fresh_mva context_length)
+         (* XXX: We're not tracking the connection between these two metavariables! *)
 
     | D.Pi (x, term1, term2) ->
       begin

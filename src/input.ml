@@ -33,6 +33,7 @@ and 'a term' =
   | Ind of (Common.variable * Common.variable * Common.variable * 'a term) *
            (Common.variable * 'a term) *
            'a term
+  | Wildcard
 
 
 and 'a handler_body = 'a term
@@ -90,6 +91,7 @@ let string_of_term string_of_var =
       app_embrace "Ind" [embrace (String.concat " . " [x; y; p; to_str c]) ;
                          embrace (z ^ " . " ^ to_str w) ;
                          to_str q]
+    | Wildcard -> "?"
    end
 
   and string_of_case (tag, terms, c) =
@@ -135,6 +137,7 @@ let rec desugar xs (e, loc) =
          Ind((x,y,p, desugar (z::y::x::xs) c),
                    (z, desugar (z::xs) w),
                    desugar xs q)
+    | Wildcard -> Wildcard
   ),
   loc
 
@@ -150,6 +153,7 @@ let rec shift ?(cut=0) delta (e, loc) =
   (match e with
   | Var m -> if (m < cut) then Var m else Var(m+delta)
   | Universe u  -> Universe u
+  | Wildcard -> Wildcard
   | Pi (x, t1, t2) -> Pi(x, shift ~cut delta t1, shift ~cut:(cut+1) delta t2)
   | Sigma (x, t1, t2) -> Sigma(x, shift ~cut delta t1, shift ~cut:(cut+1) delta t2)
   | Lambda (x, None, e) -> Lambda (x, None, shift ~cut:(cut+1) delta e)

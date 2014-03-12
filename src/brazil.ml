@@ -32,6 +32,7 @@ and Verify : sig
   val add_parameter     : Common.variable -> term -> env -> env
   val lookup_classifier : Common.debruijn -> env -> term
   val whnf              : env -> term -> term
+  val nf                : env -> term -> term
   val print_term        : env -> term -> Format.formatter -> unit
 
   type handled_result = unit
@@ -81,6 +82,7 @@ let add_definition x t e env =
 let lookup v env = Ctx.lookup v env.ctx
 let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
 let whnf env e = Norm.whnf env.ctx e
+let nf env e = Norm.nf env.ctx e
 let print_term env e = P.term env.ctx.Ctx.names e
 
 type iterm = BrazilSyntax.term

@@ -5,6 +5,7 @@ module type EQUIV_ARG = sig
   val add_parameter     : Common.variable -> term -> env -> env
   val lookup_classifier : Common.debruijn -> env -> term
   val whnf              : env -> term -> term
+  val nf                : env -> term -> term
   val print_term        : env -> term -> Format.formatter -> unit
 
   type handled_result
@@ -57,6 +58,70 @@ module Make (X : EQUIV_ARG) =
       | None     -> None
 
     let join_hrs = List.fold_left X.join_hr X.trivial_hr
+
+    (**************************)
+    (* METAVARIABLE UTILITIES *)
+    (**************************)
+
+
+    let patternCheck args =
+      let rec loop vars_seen = function
+        | [] -> Some vars_seen
+        | S.Var v :: rest  when not (S.VS.mem v vars_seen) ->
+            loop (S.VS.add v vars_seen) rest
+        | _ -> None
+      in
+         loop S.VS.empty args
+
+    let arg_map args =
+      let rec loop i = function
+        | []              -> S.VM.empty
+        | S.Var v :: rest -> S.VM.add v i (loop (i+1) rest)
+        | _               -> Error.fatal "arg_map: arg is not a Var"  in
+      loop 0 args
+
+    let build_renaming args defn_free_set =
+      let amap = arg_map args in      (* Map arg vars to their position *)
+      S.VS.fold (fun s m -> S.VM.add s (S.VM.find s amap) m) defn_free_set S.VM.empty
+
+    let instantiate env ((r,args) as mva) defn =
+      assert (!r = None);
+      match patternCheck args with
+      | None ->
+          Error.fatal "instantiate: not a pattern unification problem"
+      | Some arg_var_set ->
+          begin
+            (* Again, to stay in the pattern fragment we need the definition's
+             * free variables to be included in our argument variables.
+             * We try to minimize these free variables by normalizing,
+             * which might expand away definitions, etc. *)
+            let defn = X.nf env defn  in
+            let defn_free_set = S.free_vars defn  in
+            if not (S.VS.is_empty (S.VS.diff defn_free_set arg_var_set)) then
+              Error.fatal "instantiate: defn has extra free variables"
+            else
+              (* XXX Occurs check? *)
+              (* XXX Check that all variables and metavariables in definition
+               * are "older than" the * metavariable *)
+
+              let renaming_map : Common.debruijn S.VM.t = build_renaming args defn_free_set  in
+              let renamed_defn =
+                S.rewrite_vars (fun c m ->
+                                  if (m < c) then
+                                    S.Var m
+                                  else
+                                    S.Var (S.VM.find (m-c) renaming_map)) defn  in
+
+              S.set_mva mva renamed_defn;
+
+              Some X.trivial_hr
+          end
+
+
+    (*********************)
+    (* EQUALITY CHECKING *)
+    (*********************)
+
 
     let rec equal env t1 t2 k =
       P.debug "equal: @[<hov>%t@ ==@ %t@ at %t@]@."
@@ -209,6 +274,19 @@ and equal_structural env t1 t2 =
                    None
                 end
           end
+
+        | S.MetavarApp mva, other
+        | other, S.MetavarApp mva ->
+            begin
+              (* We know that mva has no definition yet; otherwise
+               * it would have been eliminated by whnf. *)
+
+              (* XXX: Really need to check that other is not
+               * a newer meta variable! *)
+
+              instantiate env mva other;
+            end
+
 
         | (S.Var _ | S.Lambda _ | S.Pi _ | S.App _ | S.Sigma _ |
            S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.Ind_eq _ |

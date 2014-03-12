@@ -40,6 +40,7 @@
 %token EOF
 
 
+
 %start <Common.variable Input.toplevel list> file
 %start <Common.variable Input.toplevel> commandline
 
@@ -117,14 +118,14 @@ plain_app_term:
   | REFLEQUAL simple_term          { Refl(Pr, $2) }
   | IND LPAREN
           q = term
-        COMMA 
-          x = NAME DOT 
+        COMMA
+          x = NAME DOT
           y = NAME DOT
           p = NAME DOT
           t = term
         COMMA
           z = NAME DOT
-          u = term 
+          u = term
         RPAREN
         { Ind((x, y, p, t), (z, u), q) }
 
@@ -135,8 +136,9 @@ plain_simple_term:
   | QUASITYPE            { Universe (NonFib $1) }
   | LPAREN plain_term RPAREN       { $2 }
   | LPAREN term COMMA term RPAREN  { Pair($2, $4) }
-  | LBRACK plain_operation RBRACK        { let (tag,args) = $2 in Operation(tag,args) }
-  | simple_term DOT NAME         { Proj($3, $1) }
+  | LBRACK plain_operation RBRACK  { let (tag,args) = $2 in Operation(tag,args) }
+  | simple_term DOT NAME           { Proj($3, $1) }
+  | QUESTIONMARK                   { Wildcard}
 
 handler:
   | BAR? cs=separated_list(BAR, handler_case)  { cs }
