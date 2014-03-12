@@ -43,10 +43,6 @@
 %start <Common.variable Input.toplevel list> file
 %start <Common.variable Input.toplevel> commandline
 
-
-%right ARROW
-%left  STAR
-
 %%
 
 (* Toplevel syntax *)
@@ -87,26 +83,31 @@ sso :
 
 (* Main syntax tree *)
 
-
 term: mark_position(plain_term) { $1 }
 plain_term:
-  | plain_equiv_term                  { $1 }
+  | plain_arrow_term                  { $1 }
   | FORALL pi_abstraction COMMA term  { fst (make_pi $4 $2) }
   | FUN fun_abstraction DARROW term   { fst (make_lambda $4 $2) }
-
-equiv_term: mark_position(plain_equiv_term) { $1 }
-plain_equiv_term:
-    | plain_arrow_term                         { $1 }
-    | arrow_term EQEQ arrow_term AT equiv_term { Equiv(Ju, $1, $3, $5) }
-    | arrow_term EQ arrow_term AT equiv_term { Equiv(Pr, $1, $3, $5) }
+  | t1 = arrow_term ASCRIBE t2 = term { Ascribe (t1, t2) }
+  | HANDLE term WITH handler END      { Handle ($2, $4) }
 
 arrow_term: mark_position(plain_arrow_term) { $1 }
 plain_arrow_term:
-  | plain_app_term              { $1 }
-  | arrow_term ARROW arrow_term   { Pi ("_", $1, $3) }
+  | plain_star_term              { $1 }
+  | star_term ARROW arrow_term   { Pi ("_", $1, $3) }
   | LPAREN NAME COLON term RPAREN ARROW arrow_term      { Pi($2, $4, $7) }
-  | arrow_term STAR arrow_term    { Sigma ("_", $1, $3) }
-  | LPAREN NAME COLON term RPAREN STAR arrow_term      { Sigma($2, $4, $7) }
+
+star_term: mark_position(plain_star_term) { $1 }
+plain_star_term:
+  | plain_equiv_term                               { $1 }
+  | equiv_term STAR star_term                      { Sigma ("_", $1, $3) }
+  | LPAREN NAME COLON term RPAREN STAR star_term   { Sigma($2, $4, $7) }
+
+equiv_term: mark_position(plain_equiv_term) { $1 }
+plain_equiv_term:
+    | plain_app_term                       { $1 }
+    | app_term EQEQ app_term AT app_term   { Equiv (Ju, $1, $3, $5) }
+    | app_term EQ app_term AT app_term     { Equiv (Pr, $1, $3, $5) }
 
 app_term: mark_position(plain_app_term) { $1 }
 plain_app_term:
@@ -114,19 +115,6 @@ plain_app_term:
   | app_term simple_term   { App ($1, $2) }
   | REFLEQUIV simple_term          { Refl(Ju, $2) }
   | REFLEQUAL simple_term          { Refl(Pr, $2) }
-
-
-simple_term: mark_position(plain_simple_term) { $1 }
-plain_simple_term:
-  | NAME                           { Var $1 }
-  | TYPE                 { Universe (Fib $1) }
-  | QUASITYPE            { Universe (NonFib $1) }
-  | LPAREN plain_term RPAREN       { $2 }
-  | LPAREN term COMMA term RPAREN  { Pair($2, $4) }
-  | LPAREN term ASCRIBE term RPAREN    { Ascribe ($2, $4) }
-  | LBRACK plain_operation RBRACK        { let (tag,args) = $2 in Operation(tag,args) }
-  | HANDLE term WITH handler END   { Handle ($2, $4) }
-  | simple_term DOT NAME         { Proj($3, $1) }
   | IND LPAREN
           q = term
         COMMA 
@@ -140,6 +128,15 @@ plain_simple_term:
         RPAREN
         { Ind((x, y, p, t), (z, u), q) }
 
+simple_term: mark_position(plain_simple_term) { $1 }
+plain_simple_term:
+  | NAME                           { Var $1 }
+  | TYPE                 { Universe (Fib $1) }
+  | QUASITYPE            { Universe (NonFib $1) }
+  | LPAREN plain_term RPAREN       { $2 }
+  | LPAREN term COMMA term RPAREN  { Pair($2, $4) }
+  | LBRACK plain_operation RBRACK        { let (tag,args) = $2 in Operation(tag,args) }
+  | simple_term DOT NAME         { Proj($3, $1) }
 
 handler:
   | BAR? cs=separated_list(BAR, handler_case)  { cs }
