@@ -127,8 +127,18 @@ plain_simple_term:
   | LBRACK plain_operation RBRACK        { let (tag,args) = $2 in Operation(tag,args) }
   | HANDLE term WITH handler END   { Handle ($2, $4) }
   | simple_term DOT NAME         { Proj($3, $1) }
-  | IND LPAREN NAME DOT NAME DOT NAME DOT term COMMA NAME DOT term COMMA term RPAREN
-                             { Ind(($3, $5, $7, $9), ($11, $13), $15) }
+  | IND LPAREN
+          q = term
+        COMMA 
+          x = NAME DOT 
+          y = NAME DOT
+          p = NAME DOT
+          t = term
+        COMMA
+          z = NAME DOT
+          u = term 
+        RPAREN
+        { Ind((x, y, p, t), (z, u), q) }
 
 
 handler:
