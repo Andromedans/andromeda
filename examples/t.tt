@@ -76,7 +76,7 @@ define path_symmetry :=
          Ind(x.y.p.(y = x @ A), z.idpath z, q)
 
 
-// An assymmetric definition of transitivity 
+// An asymmetric definition of transitivity
 
 define path_transitivity :=
   fun (A : Type) (a b c : A) (q_ab : a = b @ A) (q_bc : b = c @ A) =>
