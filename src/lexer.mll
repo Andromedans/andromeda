@@ -7,6 +7,7 @@
     ("assume", ASSUME) ;
     ("define", DEFINE) ;
     ("end", END) ;
+    ("exists", EXISTS) ;
     ("forall", FORALL) ;
     ("fun", FUN);
     ("handle", HANDLE) ;
