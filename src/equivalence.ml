@@ -102,31 +102,41 @@ module Make (X : EQUIV_ARG) =
              * free variables to be included in our argument variables.
              * We try to minimize these free variables by normalizing,
              * which might expand away definitions, etc. *)
-            let defn = X.nf env defn  in
-            let defn_free_set = S.free_vars defn  in
-            if not (S.VS.is_empty (S.VS.diff defn_free_set arg_var_set)) then
-              Error.fatal "instantiate: defn has extra free variables"
-            else
-              (* XXX Occurs check? *)
-              (* XXX Check that all variables and metavariables in definition
-               * are "older than" the * metavariable *)
+            let defn, free_in_defn =
+              (let first_try = S.free_vars defn  in
+              if (S.VS.is_empty (S.VS.diff first_try arg_var_set)) then
+                defn, first_try
+              else
+                let defn' = X.nf env defn in
+                let second_try = S.free_vars defn'  in
+                if (S.VS.is_empty (S.VS.diff second_try arg_var_set)) then
+                  defn', second_try
+                else
+                  Error.fatal "instantiate: defn has extra free variables")  in
 
-              let renaming_map : Common.debruijn S.VM.t = build_renaming mva.S.mv_args defn_free_set  in
-              let renamed_defn =
+            (* XXX Occurs check? *)
+            (* XXX Check that all variables and metavariables in definition
+             * are "older than" the * metavariable *)
+
+            let renaming_map : Common.debruijn S.VM.t =
+                build_renaming mva.S.mv_args free_in_defn  in
+
+            let renamed_defn =
                 S.rewrite_vars (fun c m ->
                                   if (m < c) then
                                     S.Var m
                                   else
                                     S.Var (S.VM.find (m-c) renaming_map)) defn  in
-              S.set_mva mva renamed_defn;
 
-              let _ = match S.get_mva mva with
+            S.set_mva mva renamed_defn;
+
+            let _ = match S.get_mva mva with
                 | Some term ->
                    (X.print_term env term);
                 | None ->
                     Error.fatal "nothing found in just-set mva!"  in
 
-              Some X.trivial_hr
+            Some X.trivial_hr
           end
 
 
