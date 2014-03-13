@@ -188,10 +188,6 @@ end = struct
 
     | D.Universe u -> S.U u, S.U (S.universe_classifier u)
 
-    | D.Wildcard ->
-        let context_length = List.length env.ctx.Ctx.names in
-        S.MetavarApp (S.fresh_mva context_length), S.MetavarApp (S.fresh_mva context_length)
-         (* XXX: We're not tracking the connection between these two metavariables! *)
 
     | D.Pi (x, term1, term2) ->
       begin
@@ -216,6 +212,7 @@ end = struct
 
     | D.Lambda (x, None, _) -> Error.typing ~loc "Cannot infer the argument type"
 
+    | D.Wildcard -> Error.typing ~loc "Cannot infer the wildcard's type"
 
     | D.App (term1, term2) ->
       begin
@@ -403,6 +400,9 @@ end = struct
    * the current Brazil verification algorithm. *)
   and check env ((term1, loc) as term) t =
     match term1 with
+    | D.Wildcard ->
+        let context_length = List.length env.ctx.Ctx.names in
+        S.MetavarApp (S.fresh_mva context_length)
     | D.Lambda (x, None, term2) ->
       begin
         match as_pi env t with
