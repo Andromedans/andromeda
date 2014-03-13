@@ -319,7 +319,7 @@ end = struct
           | S.Eq(o, a, b, t), hr ->
               begin
                 let illegal_variable_name = "eventual.z" in
-                let env_c' = add_parameter p (S.Eq(o, S.Var 0, S.Var 1, S.shift 3 t))
+                let env_c' = add_parameter p (S.Eq(o, S.Var 1, S.Var 0, S.shift 3 t))
                              (add_parameter y (S.shift 2 t)
                                (add_parameter x (S.shift 1 t)
                                  (add_parameter illegal_variable_name t env)))  in
