@@ -134,7 +134,7 @@ let rec desugar xs (e, loc) =
     | Equiv (o, t1, t2, t3) -> Equiv (o, desugar xs t1, desugar xs t2, desugar xs t3)
     | Refl (o, t) -> Refl(o, desugar xs t)
     | Ind ((x,y,p,c), (z, w), q) ->
-         Ind((x,y,p, desugar (z::y::x::xs) c),
+         Ind((x,y,p, desugar (p::y::x::xs) c),
                    (z, desugar (z::xs) w),
                    desugar xs q)
     | Wildcard -> Wildcard
