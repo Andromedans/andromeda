@@ -82,7 +82,7 @@ module Make (X : EQUIV_ARG) =
         | S.Var v :: rest ->
             let how_far_from_list_end = num_args - (i+1)  in
             S.VM.add v how_far_from_list_end (loop (i+1) rest)
-        | _               -> Error.fatal "arg_map: arg is not a Var"  in
+        | _               -> Error.impossible "arg_map: arg is not a Var"  in
       loop 0 args
 
     let build_renaming args defn_free_set =
@@ -95,7 +95,7 @@ module Make (X : EQUIV_ARG) =
           (*(S.string_of_mva ~show_meta:true mva) (X.print_term env defn);*)
       match patternCheck mva.S.mv_args with
       | None ->
-          Error.fatal "instantiate: not a pattern unification problem"
+          Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term; not a pattern unification problem"
       | Some arg_var_set ->
           begin
             (* Again, to stay in the pattern fragment we need the definition's
@@ -112,7 +112,7 @@ module Make (X : EQUIV_ARG) =
                 if (S.VS.is_empty (S.VS.diff second_try arg_var_set)) then
                   defn', second_try
                 else
-                  Error.fatal "instantiate: defn has extra free variables")  in
+                  Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term: defn has extra free variables")  in
 
             (* XXX Occurs check? *)
             (* XXX Check that all variables and metavariables in definition

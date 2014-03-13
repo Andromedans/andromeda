@@ -300,7 +300,7 @@ let rec infer env term =
         begin
           match S.get_mva mva with
           | Some defn -> infer env defn
-          | None -> Error.verify "Unset metavariable %s" (S.string_of_mva mva)
+          | None -> Error.verify ~loc:mva.S.mv_pos "Unset metavariable %s" (S.string_of_mva mva)
         end
 
 and addHandlers env handlers =
