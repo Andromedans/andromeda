@@ -78,17 +78,25 @@ define tr :=
 
 // How to prove that two elements of a sigma type are equal
 
-define total_path := 
-  (fun A P a b p u v q =>
-    Ind (p,
-         x . y . s . 
-           (forall (u : P x) (v : P y) (q : tr A P x y s u = v @ P y),
-             (x, u) = (y, v) @ ((x : A) * P x)),
-         z . (fun (u v : P z) (q : u = v @ P z) =>
-              Ind (q, u . v . q . (z, u) = (z, v) @ ((x : A) * P x), y . refl y))
-        )
-   ) :>
-   forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : b) (v : P b) (p : a = b @ A),
+// XXX Thereis a bug somehwew which reject the following:
+
+//define total_path := 
+//  (fun A P a b p u v q =>
+//    Ind (p,
+//         x . y . s . 
+//           (forall (u : P x) (v : P y) (q : tr A P x y s u = v @ P y),
+//             (x, u) = (y, v) @ ((x : A) * P x)),
+//         z . (fun (u v : P z) (q : u = v @ P z) =>
+//              Ind (q, u . v . q . (z, u) = (z, v) @ ((x : A) * P x), y . refl y))
+//        )
+//   ) :>
+//   forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b @ A),
+//       (q : tr A P a b p u = v @ P b) -> (a, u) = (b, v) @ ((x : A) * P x)
+
+// XXX so for the time being we just assume total_path, until the bug is gone
+
+assume total_path : 
+   forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b @ A),
        (q : tr A P a b p u = v @ P b) -> (a, u) = (b, v) @ ((x : A) * P x)
      
 // We need singletons
@@ -107,15 +115,31 @@ define one := trunc bool true
 define seg := Trunc_is_prop bool zero one
 
 // auxiliary definition
-define foo :=
-  (fun (A : Type) (a b : A) (p : a = b @ A) =>
-     rec_trunc bool A (exists (x : A), ) _ (fun (b : bool) => cond _ b _ _)
+define rec_I_aux :=
+  (fun A a b p =>
+     rec_trunc bool (singleton A a) (singleton_is_prop A a)
+                      (fun (c : bool) => cond (singleton A a) c (b, p) (a, idpath a))
   )
+  :>
+  forall (A : Type) (a b : A), (a = b @ A) -> I -> singleton A a
+
+define rec_I :=
+   (fun A a b p x => (rec_I_aux A a b p x).1)
+   :> 
+   forall (A : Type) (a b : A), (a = b @ A) -> I -> A
 
 
-//define rec_I :=
-//   (fun (A : Type) (a b : A) (p : a = b @ A) =>
-//     rec_trunc bool A _ _ (fun (b : bool) => cond _ b _ _)
+// rec_I has the correct computational behavior
+
+//define rec_I_aux_zero :=
+//   (fun A a b p =>
+//    handle
+//      refl ((a, idpath a) :> singleton A a)
+//    with 
+//      (trunc_comp bool (singleton A a) (singleton_is_prop A a) 
+//      ?
+//      false)
+//    end
 //   )
-//   :> 
-//     forall (A : Type) (a b : A), (a = b @ A) -> I -> A
+//   :>
+//   forall (A : Type) (a b : A) (p : a = b @ A), rec_I_aux A a b p zero == (a, idpath a) @ (singleton A a)
