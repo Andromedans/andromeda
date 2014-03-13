@@ -15,9 +15,16 @@
       let e = make_pi e lst in
         List.fold_right (fun x e -> (Pi (x, t, e), loc)) xs e
 
+  (* Build nested sigma's *)
+  let rec make_sigma e = function
+    | [] -> e
+    | ((xs, t), loc) :: lst ->
+      let e = make_sigma e lst in
+        List.fold_right (fun x e -> (Sigma (x, t, e), loc)) xs e
+
 %}
 
-%token FORALL FUN
+%token FORALL EXISTS FUN
 %token <int> QUASITYPE
 %token <int> TYPE
 %token <string> NAME
@@ -87,7 +94,8 @@ sso :
 term: mark_position(plain_term) { $1 }
 plain_term:
   | plain_arrow_term                  { $1 }
-  | FORALL pi_abstraction COMMA term  { fst (make_pi $4 $2) }
+  | FORALL quantifier_abstraction COMMA term  { fst (make_pi $4 $2) }
+  | EXISTS quantifier_abstraction COMMA term  { fst (make_sigma $4 $2) }
   | FUN fun_abstraction DARROW term   { fst (make_lambda $4 $2) }
   | t1 = arrow_term ASCRIBE t2 = term { Ascribe (t1, t2) }
   | HANDLE term WITH handler END      { Handle ($2, $4) }
@@ -163,17 +171,17 @@ plain_operation:
     | term                            { (Inhabit, [$1]) }
     | term COERCE term                { (Coerce, [$1; $3]) }
 
-pi_abstraction:
-  | pi_bind1  { [$1] }
-  | pi_binds  { $1 }
+quantifier_abstraction:
+  | quantifier_bind1  { [$1] }
+  | quantifier_binds  { $1 }
 
-pi_bind1: mark_position(plain_pi_bind1) { $1 }
-plain_pi_bind1:
-  | xs=nonempty_list(NAME) COLON term  { (xs, $3) }
+quantifier_bind1: mark_position(plain_quantifier_bind1) { $1 }
+plain_quantifier_bind1:
+  | xs=nonempty_list(NAME) COLON t=term  { (xs, t) }
 
-pi_binds:
-  | LPAREN pi_bind1 RPAREN           { [$2] }
-  | LPAREN pi_bind1 RPAREN pi_binds  { $2 :: $4 }
+quantifier_binds:
+  | LPAREN quantifier_bind1 RPAREN           { [$2] }
+  | LPAREN quantifier_bind1 RPAREN quantifier_binds  { $2 :: $4 }
 
 fun_abstraction:
   | fun_bind1  { [$1] }

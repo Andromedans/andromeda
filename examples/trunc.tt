@@ -15,16 +15,16 @@ assume trunc : (A : Type) -> A -> Trunc A ;;
 
 assume Trunc_is_prop : (A : Type) -> is_prop (Trunc A) ;;
 
-// The eliminator
+// The non-dependent eliminator
 
-assume trunc_elim :
+assume rec_trunc :
   (A : Type) -> (B : Type) -> is_prop B -> (A -> B) -> (Trunc A -> B) ;;
 
 // The computation rule for trunc_elim
 
 assume trunc_comp :
   (A : Type) -> (B : Type) -> (p : is_prop B) -> (f : A -> B) -> (x : A) ->
-  (trunc_elim A B p f (trunc A x) == f x @ B) ;;
+  (rec_trunc A B p f (trunc A x) == f x @ B) ;;
 
 // Contractible types:
 
@@ -55,3 +55,91 @@ define contr_is_inhab_prop :=
     (c.1 , 
      (fun (x y : A) => concat A x c.1 y (opp A c.1 x (c.2 x)) (c.2 y))) :> A * is_prop A
   
+// Now we show that the truncation of booleans is the interval
+
+// First we need the booleans
+
+assume bool : Type
+assume true false : bool
+assume cond : (A : QuasiType 1) -> bool -> A -> A -> A
+
+assume cond_true  : (A : QuasiType 1) -> (a : A) -> (b : A) -> cond A true a b == a @ A
+assume cond_false : (A : QuasiType 1) -> (a : A) -> (b : A) -> cond A false a b == b @ A
+
+assume ind_bool : (P : bool -> QuasiType 1) -> P false -> P true -> (b : bool) -> P b
+
+// We need transport
+
+define tr :=
+  fun (A : Type) (P : A -> Type) (a b : A) (s : a = b @ A) (u : P a) =>
+    Ind (s, 
+         x . y . p . (P x -> P y), 
+         z . (fun v : P z => v)) u 
+
+// How to prove that two elements of a sigma type are equal
+
+// XXX Thereis a bug somehwew which reject the following:
+
+//define total_path := 
+//  (fun A P a b p u v q =>
+//    Ind (p,
+//         x . y . s . 
+//           (forall (u : P x) (v : P y) (q : tr A P x y s u = v @ P y),
+//             (x, u) = (y, v) @ ((x : A) * P x)),
+//         z . (fun (u v : P z) (q : u = v @ P z) =>
+//              Ind (q, u . v . q . (z, u) = (z, v) @ ((x : A) * P x), y . refl y))
+//        )
+//   ) :>
+//   forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b @ A),
+//       (q : tr A P a b p u = v @ P b) -> (a, u) = (b, v) @ ((x : A) * P x)
+
+// XXX so for the time being we just assume total_path, until the bug is gone
+
+assume total_path : 
+   forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b @ A),
+       (q : tr A P a b p u = v @ P b) -> (a, u) = (b, v) @ ((x : A) * P x)
+     
+// We need singletons
+
+define singleton := fun (A : Type) (x : A) => exists (y : A), x = y @ A
+
+// TO DO
+assume singleton_is_prop :
+  forall (A : Type) (x : A), is_prop (singleton A x)
+    
+// Now we define the interval, but we only consider the non-dependent eliminator
+
+define I := Trunc bool
+define zero := trunc bool false
+define one := trunc bool true
+define seg := Trunc_is_prop bool zero one
+
+// auxiliary definition
+define rec_I_aux :=
+  (fun A a b p =>
+     rec_trunc bool (singleton A a) (singleton_is_prop A a)
+                      (fun (c : bool) => cond (singleton A a) c (b, p) (a, idpath a))
+  )
+  :>
+  forall (A : Type) (a b : A), (a = b @ A) -> I -> singleton A a
+
+define rec_I :=
+   (fun A a b p x => (rec_I_aux A a b p x).1)
+   :> 
+   forall (A : Type) (a b : A), (a = b @ A) -> I -> A
+
+
+// rec_I has the correct computational behavior
+
+//define rec_I_aux_zero :=
+//   (fun A a b p =>
+//    handle
+//      refl ((a, idpath a) :> singleton A a)
+//    with 
+//      (trunc_comp bool (singleton A a) (singleton_is_prop A a) 
+//      ?
+//      false)
+//    end
+//   )
+//   :>
+//   forall (A : Type) (a b : A) (p : a = b @ A), rec_I_aux A a b p zero == (a, idpath a) @ (singleton A a)
