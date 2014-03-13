@@ -1,44 +1,47 @@
-(** Type inference. *)
+(**********************************************************)
+(* Type inference for the TT (i.e., user-level) language. *)
+(**********************************************************)
 
-module rec Equiv : sig
-                     (* Assuming the given two terms belong to *some*
-                      * common universe (and in particular, are both
-                      * well-formed in the given environment), return
-                      *    None      if they are not provably equal
-                      *    Some hr   if they are, where hr encapsulates
-                      *                the information about handlers
-                      *                used to prove the equivalence
-                      *)
-                     val equal_at_some_universe :
-                            Infer.env -> Infer.term -> Infer.term
-                                      -> Infer.handled_result option
-                   end =
-  Equivalence.Make(Infer)
+(*
+ * We must define equivalence-checking and type checking mutually recursively.
+ * Obviously, type checking requires equality checking (e.g., when we have
+ * inferred a term has type T but the context expect a value of type U) but in
+ * TT, equivalence checking also requires type checking. This occurs because
+ * equivalence checking may require "running" TT handlers (e.g., inhabitation of
+ * equivalence types), and "running" in the context of TT really means type
+ * checking (and returning the annotated term).
+ *
+ * It is likely that we will soon need to add extra well-formedness checks to
+ * equivalence checking, because extending the equational theory may break some
+ * normally admissible rules (such as injectivity of Pi's, see Harper &
+ * Pfenning, TOCL 2005) that mean the usual equivalence algorithm can assume
+ * inputs are well-formed, without requiring extra well-formedness checks before
+ * recursive calls.
+ *
+ *)
 
-and Infer : sig
-  type term = BrazilSyntax.term
-  type env
 
-  val empty_env         : env
-  val get_ctx           : env -> BrazilContext.Ctx.context
-  val add_parameter     : Common.variable -> term -> env -> env
-  val lookup_classifier : Common.debruijn -> env -> term
-  val whnf              : env -> term -> term
-  val nf                : env -> term -> term
-  val print_term        : env -> term -> Format.formatter -> unit
+(**************)
+(* Signatures *)
+(**************)
 
-  type handled_result = BrazilSyntax.TermSet.t
-  val trivial_hr : handled_result
-  val join_hr    : handled_result -> handled_result -> handled_result
+(* The inference module will expose:
+ *   (1) Everything the equivalence algorithm (functor) needs;
+ *   (2) The type it uses when tracking handler usage (because this
+ *           seems necessary to get the recursive-module definition
+ *           type check);
+ *   (3) The functions called by the top-level code in tt.ml.
+ *)
 
-  val handled         : env -> term -> term -> term option -> handled_result option
+module type INFER_SIG = sig
 
-  val as_whnf_for_eta : env -> term -> term * handled_result
-  val as_pi           : env -> term -> term * handled_result
-  val as_sigma        : env -> term -> term * handled_result
-
+  include Equivalence.EQUIV_ARG
+             with type handled_result = BrazilSyntax.TermSet.t
 
   type iterm = Common.debruijn Input.term
+
+  val empty_env : env
+  val get_ctx   : env -> BrazilContext.Ctx.context
 
   val infer : env -> iterm -> term * term
   val inferParam : ?verbose:bool -> env -> Common.variable list -> iterm -> env
@@ -46,15 +49,50 @@ and Infer : sig
   val inferAnnotatedDefinition : ?verbose:bool -> env -> Common.variable
                                    -> iterm -> iterm -> env
 
-  val addHandlers: env -> Common.position
-                       -> Common.debruijn Input.handler
-                       -> env
+ val addHandlers: env -> Common.position
+                      -> Common.debruijn Input.handler
+                      -> env
 
-  val instantiate : env -> BrazilSyntax.metavarapp
-                        -> term
-                        -> handled_result option
 
-end = struct
+end
+
+
+(********)
+(* Code *)
+(********)
+
+(*
+ * We use the same equivalence algorithm (and even the same code/functor) for
+ * the TT and Brazil levels, so we can predict when checking TT inputs exactly
+ * what handlers will be needed during Brazil verification.
+ *
+ * We can't factor out the public signature of Equiv and give it a name, because
+ * it refers to the Infer module being defined in the recursion. Fortunately,
+ * the signature is fairly short.
+ *)
+
+module rec Equiv : sig
+
+      (*
+       * Assuming the given two terms belong to *some* common universe (and in
+       * particular, are both well-formed in the given environment), return
+       *   None      if they are not provably equal
+       *   Some hr   if they are, where hr encapsulates the information about
+       *                 handlers used to prove the equivalence
+       *)
+
+      val equal_at_some_universe : Infer.env -> Infer.term -> Infer.term
+                                      -> Infer.handled_result option
+
+  end = Equivalence.Make(Infer)
+
+(*
+ * The main job of type inference is to verify well-formedness of TT inputs. For
+ * well-formed inputs, we produce a fully annotated translation (the "Brazil"
+ * syntax) with very simplified handlers, and the (fully annotated) type.
+ *)
+
+and Infer : INFER_SIG = struct
 
   module D   = Input
   module S   = BrazilSyntax
