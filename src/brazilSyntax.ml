@@ -36,7 +36,8 @@ and basetype =
 and constant =
   | Unit
 
-and metavarapp = term option ref * term list
+and metavarapp = {mv_def  : term option ref;
+                  mv_args : term list}
 
 
 
@@ -211,6 +212,7 @@ and string_of_constant = function
 *)
 and rewrite_vars ?(cut=0) ftrans =
   let rec loop cut = function
+    | (U _ | Base _ | Const _) as term -> term
     | Var m -> ftrans cut m
     | Lambda (x, t, e)  -> Lambda (x, loop cut t, loop (cut+1) e)
     | App (e1, e2)      -> App(loop cut e1, loop cut e2)
@@ -226,8 +228,8 @@ and rewrite_vars ?(cut=0) ftrans =
                                   (z, loop (cut+1) w),
                                   loop cut a, loop cut b, loop cut q)
     | Handle (e, es)    -> Handle(loop cut e, List.map (loop cut) es)
-    | (U _ | Base _ | Const _) as term -> term
-    | MetavarApp (r, args) -> MetavarApp (r, List.map (loop cut) args)  in
+    | MetavarApp {mv_def; mv_args}
+         -> MetavarApp {mv_def; mv_args = List.map (loop cut) mv_args}  in
   loop cut
 
 and shift ?(cut=0) delta =
@@ -272,9 +274,10 @@ and fresh_mva context_length =
   let rec loop = function
     | 0 -> []
     | n -> Var (n-1) :: loop (n-1) in
-  (ref None, List.rev (loop context_length))
+  { mv_def = ref None;
+    mv_args = loop context_length }
 
-and get_mva (r, args) =
+and get_mva {mv_def = r; mv_args = args} =
   match !r with
   | None -> None
   | Some body ->
@@ -283,7 +286,7 @@ and get_mva (r, args) =
           List.fold_right (fun _ b -> Lambda ("???", Base TUnit, b)) args body  in
       Some (apply_list lambda_wrapped_body args)
 
-and string_of_mva ?(show_meta=false) ((r,args) as mva) =
+and string_of_mva ?(show_meta=false) ({mv_def = r; mv_args = args} as mva) =
   let base_string = "M-" ^ (Printf.sprintf "%x" (Obj.magic r : int)) in
   match get_mva mva with
   | Some defn ->
@@ -296,13 +299,13 @@ and string_of_mva ?(show_meta=false) ((r,args) as mva) =
 
 (* This function does **not** check reasonableness, or make sure
  * it's referring to the right parameters. *)
-and set_mva ((r, _) as mva) body =
-  match !r with
-  | None -> r := Some body
+and set_mva mva body =
+  match ! (mva.mv_def) with
+  | None -> mva.mv_def := Some body
   | Some _ -> Error.fatal "Re-setting metavariable %s" (string_of_mva mva)
 
-let mva_is_set (r, _) =
-  match !r with
+let mva_is_set mva =
+  match ! (mva.mv_def) with
   | None   -> false
   | Some _ -> true
 
@@ -326,10 +329,10 @@ let rec occurs v e =
                               occurs v a || occurs v b || occurs v p
   | Handle (e, es)        -> occurs v e || List.exists (occurs v) es
 
-  | MetavarApp ((_, args) as mva) ->
+  | MetavarApp mva ->
       begin
         match get_mva mva with
-        | None      -> List.exists (occurs v) args
+        | None      -> List.exists (occurs v) mva.mv_args
         | Some defn -> occurs v defn
       end
 
@@ -387,9 +390,9 @@ let rec equal e1 e2 =
         | Some defn -> equal e1 defn
       end
 
-  | MetavarApp (_, args1), MetavarApp(_, args2) ->
+  | MetavarApp mva1, MetavarApp mva2 ->
       (* If we got this far, then both are unset *)
-      List.for_all2 equal args1 args2
+      List.for_all2 equal mva1.mv_args mva2.mv_args
 
   | (Var _ | Lambda _ | Pi _ | App _ | Sigma _ | Pair _ | Proj _
       | Refl _ | Eq _ | Ind_eq _ | U _ | Base _ | Const _ | MetavarApp _ ), _ -> false
@@ -425,10 +428,10 @@ let rec equal e1 e2 =
     | Handle (e, es)    -> union_list
                                ((loop cut e) :: List.map (loop cut) es)
     | (U _ | Base _ | Const _) -> VS.empty
-    | MetavarApp ((r, args) as mva) ->
+    | MetavarApp mva ->
         begin
           match get_mva mva with
           | Some defn -> loop cut defn
-          | None -> union_list (List.map (loop cut) args)
+          | None      -> union_list (List.map (loop cut) mva.mv_args)
         end  in
   loop 0

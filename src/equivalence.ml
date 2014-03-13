@@ -89,11 +89,11 @@ module Make (X : EQUIV_ARG) =
       let amap = arg_map args in      (* Map arg vars to their position *)
       S.VS.fold (fun s m -> S.VM.add s (S.VM.find s amap) m) defn_free_set S.VM.empty
 
-    let instantiate env ((r,args) as mva) defn =
-      assert (!r = None);
-      (*Format.printf "instantiate: mva = %s, defn = %t@."*)
-          (*(S.string_of_mva mva) (X.print_term env defn);*)
-      match patternCheck args with
+    let instantiate env mva defn =
+      assert (not (S.mva_is_set mva));
+      Format.printf "instantiate: mva = %s, defn = %t@."
+          (S.string_of_mva ~show_meta:true mva) (X.print_term env defn);
+      match patternCheck mva.S.mv_args with
       | None ->
           Error.fatal "instantiate: not a pattern unification problem"
       | Some arg_var_set ->
@@ -111,7 +111,7 @@ module Make (X : EQUIV_ARG) =
               (* XXX Check that all variables and metavariables in definition
                * are "older than" the * metavariable *)
 
-              let renaming_map : Common.debruijn S.VM.t = build_renaming args defn_free_set  in
+              let renaming_map : Common.debruijn S.VM.t = build_renaming mva.S.mv_args defn_free_set  in
               let renamed_defn =
                 S.rewrite_vars (fun c m ->
                                   if (m < c) then
