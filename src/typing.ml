@@ -2,22 +2,22 @@
 (* Type inference for the TT (i.e., user-level) language. *)
 (**********************************************************)
 
-(*
- * We must define equivalence-checking and type checking mutually recursively.
- * Obviously, type checking requires equality checking (e.g., when we have
- * inferred a term has type T but the context expect a value of type U) but in
- * TT, equivalence checking also requires type checking. This occurs because
- * equivalence checking may require "running" TT handlers (e.g., inhabitation of
- * equivalence types), and "running" in the context of TT really means type
- * checking (and returning the annotated term).
- *
- * It is likely that we will soon need to add extra well-formedness checks to
- * equivalence checking, because extending the equational theory may break some
- * normally admissible rules (such as injectivity of Pi's, see Harper &
- * Pfenning, TOCL 2005) that mean the usual equivalence algorithm can assume
- * inputs are well-formed, without requiring extra well-formedness checks before
- * recursive calls.
- *
+(**
+  We must define equivalence-checking and type checking mutually recursively.
+  Obviously, type checking requires equality checking (e.g., when we have
+  inferred a term has type T but the context expect a value of type U) but in
+  TT, equivalence checking also requires type checking. This occurs because
+  equivalence checking may require "running" TT handlers (e.g., inhabitation of
+  equivalence types), and "running" in the context of TT really means type
+  checking (and returning the annotated term).
+
+  It is likely that we will soon need to add extra well-formedness checks to
+  equivalence checking, because extending the equational theory may break some
+  normally admissible rules (such as injectivity of Pi's, see Harper &
+  Pfenning, TOCL 2005) that mean the usual equivalence algorithm can assume
+  inputs are well-formed, without requiring extra well-formedness checks before
+  recursive calls.
+
  *)
 
 
@@ -30,7 +30,7 @@
  *   (2) The type it uses when tracking handler usage (because this
  *           seems necessary to get the recursive-module definition
  *           type check);
- *   (3) The functions called by the top-level code in tt.ml.
+ *   (3) Additional functions called by the top-level code in tt.ml.
  *)
 
 module type INFER_SIG = sig
@@ -49,9 +49,10 @@ module type INFER_SIG = sig
   val inferAnnotatedDefinition : ?verbose:bool -> env -> Common.variable
                                    -> iterm -> iterm -> env
 
- val addHandlers: env -> Common.position
-                      -> Common.debruijn Input.handler
-                      -> env
+  val addHandlers: env -> Common.position
+                       -> Common.debruijn Input.handler
+                       -> env
+
 
 
 end
@@ -100,8 +101,8 @@ and Infer : INFER_SIG = struct
   module P   = BrazilPrint
 
   type operation =
-    | Inhabit of S.term                   (* inhabit a type *)
-    | Coerce  of S.term * S.term          (* t1 >-> t2 *)
+    | Inhabit of S.term                   (** inhabit a type *)
+    | Coerce  of S.term * S.term          (** t1 >-> t2 *)
 
   let  shiftOperation ?(cut=0) d = function
     | Inhabit term -> Inhabit (S.shift ~cut d term)
@@ -219,8 +220,8 @@ and Infer : INFER_SIG = struct
 
   (** [infer env e] infers the type of expression [e] in context [env].
       It returns a pair containing an internal (annotated) form of the
-      expression, and its internal (annotated) type. *)
-
+      expression, and its internal (annotated) type.
+   *)
   and infer env (term, loc) =
     P.debug "Infer called with term = %s@." (D.string_of_term string_of_int (term,loc));
     (*Ctx.print env.ctx;*)
