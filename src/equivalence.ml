@@ -63,6 +63,8 @@ module Make (X : EQUIV_ARG) =
     (* METAVARIABLE UTILITIES *)
     (**************************)
 
+    (* Probably these should *not* be here, because
+     * Brazil has no business instantiating metavariables... *)
 
     let patternCheck args =
       let rec loop vars_seen = function
@@ -74,9 +76,12 @@ module Make (X : EQUIV_ARG) =
          loop S.VS.empty args
 
     let arg_map args =
+      let num_args = List.length args  in
       let rec loop i = function
         | []              -> S.VM.empty
-        | S.Var v :: rest -> S.VM.add v i (loop (i+1) rest)
+        | S.Var v :: rest ->
+            let how_far_from_list_end = num_args - (i+1)  in
+            S.VM.add v how_far_from_list_end (loop (i+1) rest)
         | _               -> Error.fatal "arg_map: arg is not a Var"  in
       loop 0 args
 
@@ -86,6 +91,8 @@ module Make (X : EQUIV_ARG) =
 
     let instantiate env ((r,args) as mva) defn =
       assert (!r = None);
+      (*Format.printf "instantiate: mva = %s, defn = %t@."*)
+          (*(S.string_of_mva mva) (X.print_term env defn);*)
       match patternCheck args with
       | None ->
           Error.fatal "instantiate: not a pattern unification problem"
@@ -111,8 +118,13 @@ module Make (X : EQUIV_ARG) =
                                     S.Var m
                                   else
                                     S.Var (S.VM.find (m-c) renaming_map)) defn  in
-
               S.set_mva mva renamed_defn;
+
+              let _ = match S.get_mva mva with
+                | Some term ->
+                   (X.print_term env term);
+                | None ->
+                    Error.fatal "nothing found in just-set mva!"  in
 
               Some X.trivial_hr
           end

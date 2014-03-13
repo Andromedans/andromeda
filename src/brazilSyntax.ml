@@ -250,17 +250,18 @@ and subst j e' =
  * the type of the codomain or second component, respectively).
 *)
 and beta eBody eArg =
-  shift (-1) (subst 0 (shift 1 eArg) eBody)
+  (*let _ = Format.printf "beta: eBody = %s, eArg = %s@."*)
+               (*(string_of_term eBody) (string_of_term eArg)  in*)
+  let answer = shift (-1) (subst 0 (shift 1 eArg) eBody)  in
+  (*let _ = Format.printf "      answer = %s@." (string_of_term answer)  in*)
+  answer
 
 
-and betas eBody eArgs =
-  let rec loop = function
-    | [] -> eBody
-    | eArg :: eArgs -> beta (loop eArgs) eArg  in
-  loop eArgs
-
-
-
+and apply_list eFn eArgs =
+  match eFn, eArgs with
+  | _, [] -> eFn
+  | Lambda(_, _, eBody), eArg :: eArgs -> apply_list (beta eBody eArg) eArgs
+  | _, eArg :: eArgs -> apply_list (App (eFn, eArg)) eArgs
 
 and fresh_mva context_length =
   let rec loop = function
@@ -271,13 +272,18 @@ and fresh_mva context_length =
 and get_mva (r, args) =
   match !r with
   | None -> None
-  | Some body -> Some (betas body args)
+  | Some body ->
+      let lambda_wrapped_body =
+           (* XXX: Not TUnit! *)
+          List.fold_right (fun _ b -> Lambda ("???", Base TUnit, b)) args body  in
+      Some (apply_list lambda_wrapped_body args)
 
-and string_of_mva ((r,_) as mva) =
+and string_of_mva ((r,args) as mva) =
   let base_string = "M-" ^ (Printf.sprintf "%x" (Obj.magic r : int)) in
   match get_mva mva with
   | Some defn -> "{{" ^ base_string ^ " = " ^ string_of_term defn ^ "}}"
-  | None -> "{{" ^ base_string ^ "}}"
+  | None -> "{{" ^ base_string ^ "}}[" ^
+                    String.concat "," (List.map string_of_term args) ^ "]"
 
 (* This function does **not** check reasonableness, or make sure
  * it's referring to the right parameters. *)
