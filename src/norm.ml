@@ -156,8 +156,9 @@ let rec nf ctx e =
 
       | S.MetavarApp mva ->
           (* If r weren't ref None, whnf would have eliminated it. *)
-          S.MetavarApp { S.mv_def = mva.S.mv_def;
-                         S.mv_args = List.map (nf ctx) mva.S.mv_args }
+          S.MetavarApp { S.mv_def  = mva.S.mv_def;
+                         S.mv_args = List.map (nf ctx) mva.S.mv_args;
+                         S.mv_ty   = mva.S.mv_ty}
 
       | (S.U _ | S.Base _ | S.Const _) as term -> term
 

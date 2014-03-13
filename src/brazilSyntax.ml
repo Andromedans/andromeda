@@ -36,8 +36,10 @@ and basetype =
 and constant =
   | Unit
 
-and metavarapp = {mv_def  : term option ref;
-                  mv_args : term list}
+and metavarapp = { mv_def  : term option ref;
+                   mv_args : term list;
+                   mv_ty   : term;
+                 }
 
 
 
@@ -228,8 +230,10 @@ and rewrite_vars ?(cut=0) ftrans =
                                   (z, loop (cut+1) w),
                                   loop cut a, loop cut b, loop cut q)
     | Handle (e, es)    -> Handle(loop cut e, List.map (loop cut) es)
-    | MetavarApp {mv_def; mv_args}
-         -> MetavarApp {mv_def; mv_args = List.map (loop cut) mv_args}  in
+    | MetavarApp {mv_def; mv_args; mv_ty}
+         -> MetavarApp { mv_def  = mv_def;
+                         mv_args = List.map (loop cut) mv_args;
+                         mv_ty   = loop cut mv_ty }  in
   loop cut
 
 and shift ?(cut=0) delta =
@@ -270,12 +274,14 @@ and apply_list eFn eArgs =
   | Lambda(_, _, eBody), eArg :: eArgs -> apply_list (beta eBody eArg) eArgs
   | _, eArg :: eArgs -> apply_list (App (eFn, eArg)) eArgs
 
-and fresh_mva context_length =
+and fresh_mva context_length ty =
   let rec loop = function
     | 0 -> []
     | n -> Var (n-1) :: loop (n-1) in
   { mv_def = ref None;
-    mv_args = loop context_length }
+    mv_args = loop context_length;
+    mv_ty = ty;
+  }
 
 and get_mva {mv_def = r; mv_args = args} =
   match !r with

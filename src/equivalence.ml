@@ -291,7 +291,9 @@ and equal_structural env t1 t2 =
         | other, S.MetavarApp mva ->
             begin
               (* We know that mva has no definition yet; otherwise
-               * it would have been eliminated by whnf. *)
+               * it would have been eliminated by whnf. Further,
+               * it can't be two of the same metavariables, because
+               * then alpha-equivalence would have short-circuited. *)
 
               (* XXX: Really need to check that other is not
                * a newer meta variable! *)
@@ -309,6 +311,7 @@ and equal_structural env t1 t2 =
             None
           end
 
+(* [equal_path] assumes inputs are already in whnf! *)
 
 and equal_path env e1 e2 =
   P.debug "equal_path: e1 = %t@. and e2 = %t@."
@@ -319,6 +322,22 @@ and equal_path env e1 e2 =
         Some (X.lookup_classifier v1 env, X.trivial_hr)
       else
         None
+
+  | S.MetavarApp mva1, S.MetavarApp mva2 when S.equal e1 e2 ->
+      Some (mva1.S.mv_ty, X.trivial_hr)
+
+  | S.MetavarApp mva, other
+  | other, S.MetavarApp mva ->
+      begin
+        (* XXX Need to do further checks, e.g., occurs *)
+        match instantiate env mva other with
+        | None    -> None
+        | Some hr -> Some (mva.S.mv_ty, hr)
+      end
+
+(** [subst j e' e] replaces the free occurrences of variable [j] in [e] by [e'].  *)
+(* The rule is: shift the substituted expression e' by one for each binder
+*)
 
 
   | S.Proj (i1, e3), S.Proj (i2, e4) when i1 = i2 ->

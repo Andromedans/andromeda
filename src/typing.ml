@@ -402,7 +402,7 @@ end = struct
     match term1 with
     | D.Wildcard ->
         let context_length = List.length env.ctx.Ctx.names in
-        S.MetavarApp (S.fresh_mva context_length)
+        S.MetavarApp (S.fresh_mva context_length t)
     | D.Lambda (x, None, term2) ->
       begin
         match as_pi env t with
