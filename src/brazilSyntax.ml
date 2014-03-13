@@ -160,30 +160,35 @@ let universe_classifier = function
 (** [string_of_term term] creates an accurate but not-very-pretty textual
  * representation of the [term] datatype value.
 *)
-let rec string_of_term = function
-  | Var i          -> string_of_int i
-  | Lambda(x,t,e)  -> "Lambda(" ^ x ^ "," ^ string_of_terms [t;e] ^ ")"
-  | Pi(x,t1,t2)    -> "Pi(" ^ x ^ "," ^ string_of_terms[t1;t2] ^ ")"
-  | App(e1,e2)     -> "App(" ^ string_of_terms [e1;e2] ^ ")"
-  | Sigma(x,t1,t2) -> "Sigma(" ^ x ^ "," ^ string_of_terms [t1;t2] ^ ")"
-  | Pair(e1,e2)    -> "Pair(" ^ string_of_terms [e1;e2] ^ ")"
-  | Proj(i1,e2)    -> "Proj(" ^ string_of_int i1 ^ "," ^ string_of_term e2 ^ ")"
-  | Refl(o,e,t)    -> "Refl("  ^ string_of_eqsort o ^ "," ^ string_of_terms [e;t] ^ ")"
-  | Eq(o,e1,e2,t)  -> "Eq(" ^ string_of_eqsort o ^ "," ^ string_of_terms [e1;e2;t] ^ ")"
+let rec string_of_term ?(show_meta=false) = function
+  | Var i          -> "var[" ^ string_of_int i ^ "]"
+  | Lambda(x,t,e)  -> "Lambda(" ^ x ^ "," ^ string_of_terms ~show_meta [t;e] ^ ")"
+  | Pi(x,t1,t2)    -> "Pi(" ^ x ^ "," ^ string_of_terms ~show_meta [t1;t2] ^ ")"
+  | App(e1,e2)     -> "App(" ^ string_of_terms ~show_meta [e1;e2] ^ ")"
+  | Sigma(x,t1,t2) -> "Sigma(" ^ x ^ "," ^ string_of_terms ~show_meta [t1;t2] ^ ")"
+  | Pair(e1,e2)    -> "Pair(" ^ string_of_terms ~show_meta [e1;e2] ^ ")"
+  | Proj(i1,e2)    -> "Proj(" ^ string_of_int i1 ^ ","
+                         ^ string_of_term ~show_meta e2 ^ ")"
+  | Refl(o,e,t)    -> "Refl("  ^ string_of_eqsort o ^ ","
+                         ^ string_of_terms ~show_meta [e;t] ^ ")"
+  | Eq(o,e1,e2,t)  -> "Eq(" ^ string_of_eqsort o ^ ","
+                         ^ string_of_terms ~show_meta [e1;e2;t] ^ ")"
   | Ind_eq(o,t,(x,y,p,c),(z,w),a,b,q) ->
-      "J(" ^ string_of_eqsort o ^ "," ^ string_of_term t ^  ", (" ^
-      String.concat "," [x;y;p] ^ "," ^ string_of_term c ^ "), (" ^
-      z ^ "," ^ string_of_term w ^ "), " ^
-      string_of_terms [a;b;q] ^ ")"
-  | Handle(e,es)   -> "Handle(" ^ string_of_terms (e::es) ^ ")"
+      "J(" ^ string_of_eqsort o ^ ","
+        ^ string_of_term ~show_meta t ^  ", ("
+        ^ String.concat "," [x;y;p] ^ ","
+        ^ string_of_term ~show_meta c ^ "), ("
+        ^ z ^ "," ^ string_of_term ~show_meta w ^ "), "
+        ^ string_of_terms ~show_meta [a;b;q] ^ ")"
+  | Handle(e,es)   -> "Handle(" ^ string_of_terms ~show_meta (e::es) ^ ")"
   | U univ  -> "U(" ^ string_of_universe univ ^ ")"
   | Base b  -> string_of_basetype b
   | Const c -> string_of_constant c
-  | MetavarApp mva -> string_of_mva mva
+  | MetavarApp mva -> string_of_mva ~show_meta mva
 
 (* comma-separated terms *)
-and string_of_terms ts =
-  String.concat "," (List.map string_of_term ts)
+and string_of_terms ?(show_meta=false) ts =
+  String.concat "," (List.map (string_of_term ~show_meta) ts)
 
 and string_of_eqsort = function
   | Ju -> "Ju"
@@ -278,10 +283,14 @@ and get_mva (r, args) =
           List.fold_right (fun _ b -> Lambda ("???", Base TUnit, b)) args body  in
       Some (apply_list lambda_wrapped_body args)
 
-and string_of_mva ((r,args) as mva) =
+and string_of_mva ?(show_meta=false) ((r,args) as mva) =
   let base_string = "M-" ^ (Printf.sprintf "%x" (Obj.magic r : int)) in
   match get_mva mva with
-  | Some defn -> "{{" ^ base_string ^ " = " ^ string_of_term defn ^ "}}"
+  | Some defn ->
+      if show_meta then
+        "{{" ^ base_string ^ " = " ^ string_of_term ~show_meta defn ^ "}}"
+      else
+        string_of_term ~show_meta defn
   | None -> "{{" ^ base_string ^ "}}[" ^
                     String.concat "," (List.map string_of_term args) ^ "]"
 
