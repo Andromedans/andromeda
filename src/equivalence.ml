@@ -91,8 +91,8 @@ module Make (X : EQUIV_ARG) =
 
     let instantiate env mva defn =
       assert (not (S.mva_is_set mva));
-      Format.printf "instantiate: mva = %s, defn = %t@."
-          (S.string_of_mva ~show_meta:true mva) (X.print_term env defn);
+      (*Format.printf "instantiate: mva = %s, defn = %t@."*)
+          (*(S.string_of_mva ~show_meta:true mva) (X.print_term env defn);*)
       match patternCheck mva.S.mv_args with
       | None ->
           Error.fatal "instantiate: not a pattern unification problem"
@@ -129,12 +129,6 @@ module Make (X : EQUIV_ARG) =
                                     S.Var (S.VM.find (m-c) renaming_map)) defn  in
 
             S.set_mva mva renamed_defn;
-
-            let _ = match S.get_mva mva with
-                | Some term ->
-                   (X.print_term env term);
-                | None ->
-                    Error.fatal "nothing found in just-set mva!"  in
 
             Some X.trivial_hr
           end
