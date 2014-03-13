@@ -17,6 +17,10 @@ module type EQUIV_ARG = sig
   val as_pi   : env -> term -> term * handled_result
   val as_sigma : env -> term -> term * handled_result
   (* val as_u     : env -> term -> term  *)
+
+  val instantiate : env -> BrazilSyntax.metavarapp
+                        -> term
+                        -> handled_result option
 end
 
 
@@ -58,81 +62,6 @@ module Make (X : EQUIV_ARG) =
       | None     -> None
 
     let join_hrs = List.fold_left X.join_hr X.trivial_hr
-
-    (**************************)
-    (* METAVARIABLE UTILITIES *)
-    (**************************)
-
-    (* Probably these should *not* be here, because
-     * Brazil has no business instantiating metavariables... *)
-
-    let patternCheck args =
-      let rec loop vars_seen = function
-        | [] -> Some vars_seen
-        | S.Var v :: rest  when not (S.VS.mem v vars_seen) ->
-            loop (S.VS.add v vars_seen) rest
-        | _ -> None
-      in
-         loop S.VS.empty args
-
-    let arg_map args =
-      let num_args = List.length args  in
-      let rec loop i = function
-        | []              -> S.VM.empty
-        | S.Var v :: rest ->
-            let how_far_from_list_end = num_args - (i+1)  in
-            S.VM.add v how_far_from_list_end (loop (i+1) rest)
-        | _               -> Error.impossible "arg_map: arg is not a Var"  in
-      loop 0 args
-
-    let build_renaming args defn_free_set =
-      let amap = arg_map args in      (* Map arg vars to their position *)
-      S.VS.fold (fun s m -> S.VM.add s (S.VM.find s amap) m) defn_free_set S.VM.empty
-
-    let instantiate env mva defn =
-      assert (not (S.mva_is_set mva));
-      (*Format.printf "instantiate: mva = %s, defn = %t@."*)
-          (*(S.string_of_mva ~show_meta:true mva) (X.print_term env defn);*)
-      match patternCheck mva.S.mv_args with
-      | None ->
-          Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term; not a pattern unification problem"
-      | Some arg_var_set ->
-          begin
-            (* Again, to stay in the pattern fragment we need the definition's
-             * free variables to be included in our argument variables.
-             * We try to minimize these free variables by normalizing,
-             * which might expand away definitions, etc. *)
-            let defn, free_in_defn =
-              (let first_try = S.free_vars defn  in
-              if (S.VS.is_empty (S.VS.diff first_try arg_var_set)) then
-                defn, first_try
-              else
-                let defn' = X.nf env defn in
-                let second_try = S.free_vars defn'  in
-                if (S.VS.is_empty (S.VS.diff second_try arg_var_set)) then
-                  defn', second_try
-                else
-                  Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term: defn has extra free variables")  in
-
-            (* XXX Occurs check? *)
-            (* XXX Check that all variables and metavariables in definition
-             * are "older than" the * metavariable *)
-
-            let renaming_map : Common.debruijn S.VM.t =
-                build_renaming mva.S.mv_args free_in_defn  in
-
-            let renamed_defn =
-                S.rewrite_vars (fun c m ->
-                                  if (m < c) then
-                                    S.Var m
-                                  else
-                                    S.Var (S.VM.find (m-c) renaming_map)) defn  in
-
-            S.set_mva mva renamed_defn;
-
-            Some X.trivial_hr
-          end
-
 
     (*********************)
     (* EQUALITY CHECKING *)
@@ -302,7 +231,7 @@ and equal_structural env t1 t2 =
               (* XXX: Really need to check that other is not
                * a newer meta variable! *)
 
-              instantiate env mva other;
+              X.instantiate env mva other;
             end
 
 
@@ -334,7 +263,7 @@ and equal_path env e1 e2 =
   | other, S.MetavarApp mva ->
       begin
         (* XXX Need to do further checks, e.g., occurs *)
-        match instantiate env mva other with
+        match X.instantiate env mva other with
         | None    -> None
         | Some hr -> Some (mva.S.mv_ty, hr)
       end

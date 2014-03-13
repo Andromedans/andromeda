@@ -45,12 +45,14 @@ and Verify : sig
   val as_sigma : env -> term -> term * handled_result
   (* val as_u     : env -> term -> term  *)
 
+  val instantiate : env -> BrazilSyntax.metavarapp
+                        -> term
+                        -> handled_result option
 
   type iterm = BrazilSyntax.term
 
   val infer : env -> iterm -> term
   val verifyContext : BrazilContext.Ctx.context -> unit
-
  end = struct
 
 
@@ -402,5 +404,8 @@ let verifyContext ctx =
     | Ctx.Definition (term1, term2) -> inferDefinition env name term1 term2  in
   let _ = List.fold_right2 process_decl ctx.Ctx.names ctx.Ctx.decls empty_env in
   Format.printf "Verification complete.@."
+
+let instantiate _ _ _ =
+  Error.verify "Verification must not instantiate metavariables!"
 
 end
