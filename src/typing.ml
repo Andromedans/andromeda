@@ -259,6 +259,129 @@ and Infer : INFER_SIG = struct
         | _                   -> false
       )
 
+  (*********************************)
+  (* Checking if a type is fibered *)
+  (*********************************)
+
+  (** [type_of env e] returns the (annotated) type of the (annotated) expression
+      e. This is very similar to the code in Brazil.Verify.infer, except that we
+      assume the input is well-formed rather than double-checking that it is.
+
+      Note: We currently assume that although the code uses as_u, as_pi, etc.,
+      this will not result in any handlers being invoked. (We do check this,
+      though.) If this assumption turns out to be wrong, we will have to rewrite
+      these functions to return handler_results.
+   *)
+  and type_of env e =
+    P.debug "type_of: e = %t@." (print_term env e);
+    match e with
+    | S.Var v -> lookup_classifier v env
+
+    | S.Lambda(x, ty1, e) ->
+        let env' = add_parameter x ty1 env in
+        let ty2 = type_of env' e  in
+        S.Pi(x, ty1, ty2)
+
+    | S.Pi(x, ty1, ty2)
+    | S.Sigma(x, ty1, ty2) ->
+        let u1 = universe_of env ty1  in
+        let env' = add_parameter x ty1 env  in
+        let u2 = universe_of env' ty2  in
+        S.U (S.universe_join u1 u2)
+
+    | S.App(e1, e2) ->
+        let x, ty1, ty2 = pi_type_of env e1  in
+        S.beta ty2 e2
+
+    | S.Pair(_, _, x, ty1, ty2) ->
+        S.Sigma(x, ty1, ty2)
+
+    | S.Proj(i, e) ->
+        begin
+          let x, ty1, ty2 = sigma_type_of env e  in
+          match i with
+          | 1 -> ty1
+          | 2 -> S.beta ty2 (S.Proj(1,e))
+          | _ -> Error.impossible "type_of found projection .%d" i
+        end
+
+    | S.Refl(o, e, ty) -> S.Eq(o, e, e, ty)
+
+    | S.Eq(o, _, _, ty) ->
+        begin
+          match o, universe_of env ty with
+          | S.Pr, S.Fib i    -> S.U (S.Fib i)
+          | S.Pr, S.NonFib _ -> Error.impossible "type_of found = at non-fibered type"
+
+          | S.Ju, S.NonFib i
+          | S.Ju, S.Fib i    -> S.U (S.NonFib i)
+        end
+
+    | S.Ind_eq(_, _, (_,_,_,c), _, a, b, q) ->
+        begin
+          (* XXX ICK! We *really* have to create a helper function... *)
+           S.beta (S.beta (S.beta c
+                                   (S.shift 2 q))
+                           (S.shift 1 b))
+                   a
+        end
+
+    | S.U u -> S.U (S.universe_classifier u)
+
+    | S.Base ty ->
+        begin
+          match ty with
+          | S.TUnit -> S.U (S.Fib 0)
+        end
+
+    | S.Const const ->
+        begin
+          match const with
+          | S.Unit -> S.Base S.TUnit
+        end
+
+    | S.Handle (e, _) ->
+        begin
+          (* Just in case we needed the handler to figure out the type *)
+          try
+            type_of env e
+          with Error.Error (loc, sort, msg) ->
+            let msg' = "in type_of that ignored handler...\n" ^ msg  in
+            raise (Error.Error (loc, sort, msg'))
+        end
+
+    | S.MetavarApp mva -> mva.S.mv_ty
+
+  and universe_of env ty =
+    match as_u env (type_of env ty) with
+    | S.U u, hr ->
+        if (S.TermSet.is_empty hr) then
+          u
+        else
+          Error.unimplemented "type_of: reduction to universe used a handler"
+    | _ -> Error.fatal "type_of: Could not find a universe type for@ %t"
+             (print_term env ty)
+
+  and pi_type_of env exp =
+    match as_pi env (type_of env exp) with
+    | S.Pi (x, ty1, ty2), hr ->
+        if (S.TermSet.is_empty hr) then
+          x, ty1, ty2
+        else
+          Error.unimplemented "type_of: reduction to Pi used a handler"
+    | _ -> Error.fatal "type_of: Could not find a Pi type for@ %t"
+             (print_term env exp)
+
+  and sigma_type_of env exp =
+    match as_sigma env (type_of env exp) with
+    | S.Sigma (x, ty1, ty2), hr ->
+        if (S.TermSet.is_empty hr) then
+          x, ty1, ty2
+        else
+          Error.unimplemented "type_of: reduction to Sigma used a handler"
+    | _ -> Error.fatal "type_of: Could not find a Sigma type for@ %t"
+             (print_term env exp)
+
   (**********************)
   (* {3 Type Inference} *)
   (**********************)
@@ -471,23 +594,35 @@ and Infer : INFER_SIG = struct
           equality_exp, equality_ty
         end
 
-    | D.Refl(o, term2) ->
+    | D.Refl(D.Ju, term1) ->
+        begin
+          (*
+               G |- e : ty
+               -----------------------------
+               G |- refl e : (e == e @ ty)
+           *)
+          let e, ty = infer env term1 in
+          let refl_exp = S.Refl(S.Ju, e, ty)  in
+          let refl_ty  = S.Eq(S.Ju, e, e, ty)  in
+          refl_exp, refl_ty
+        end
+
+    | D.Refl(D.Pr, term1) ->
         begin
           (*
                G |- e : ty    where ty is fibered
                ------------------------------------
                G |- idpath e : (e = e @ ty)
-
-               G |- e : ty
-               -----------------------------
-               G |- refl e : (e == e @ ty)
            *)
-
-          (* XXX: Need to check that ty is fibered if
-                  this is a propositional equality!
-           *)
-          let e2, t2 = infer env term2 in
-          S.Refl(o, e2, t2), S.Eq(o, e2, e2, t2)
+          let e, ty = infer env term1 in
+          match universe_of env ty with
+          | S.NonFib _ ->
+              Error.typing ~loc "idpath found at non-fibered type %t"
+                (print_term env ty)
+          | _ ->
+            let idpath_exp = S.Refl(S.Pr, e, ty)  in
+            let idpath_ty  = S.Eq(S.Pr, e, e, ty) in
+            idpath_exp, idpath_ty
         end
 
     | D.Ind((x,y,p,term1), (z,term2), term3) ->
