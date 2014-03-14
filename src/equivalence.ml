@@ -240,7 +240,7 @@ and equal_structural env t1 t2 =
            S.U _ | S.Base _ | S.Const _ | S.Handle _ ), _ ->
           begin
             P.equivalence "[Mismatch] Why is %t == %t ?@."
-                (X.print_term env t1) (X.print_term env t2);
+                (X.print_term env t1') (X.print_term env t2');
             None
           end
 
