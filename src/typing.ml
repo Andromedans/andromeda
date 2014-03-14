@@ -338,31 +338,31 @@ and Infer : INFER_SIG = struct
       Error.typing ~loc "Cannot infer this wildcard's type"
 
     | D.App (term1, term2) ->
-      begin
-        (*
-             G |- e1 : Pi x:ty1. ty2     G |- e2 : ty1
-             -----------------------------------------
-             G |- e1 e2  :  ty2[x->e2]
-         *)
-        let e1, x, ty1, ty2, hr = infer_pi env term1  in
-        let e2      = check env term2 ty1  in
-        let app_exp = wrap_with_handlers (S.App(e1, e2)) hr  in
-        let app_ty  = S.beta ty2 e2  in
-        app_exp, app_ty
-      end
+        begin
+          (*
+               G |- e1 : Pi x:ty1. ty2     G |- e2 : ty1
+               -----------------------------------------
+               G |- e1 e2  :  ty2[x->e2]
+           *)
+          let e1, x, ty1, ty2, hr = infer_pi env term1  in
+          let e2      = check env term2 ty1  in
+          let app_exp = wrap_with_handlers (S.App(e1, e2)) hr  in
+          let app_ty  = S.beta ty2 e2  in
+          app_exp, app_ty
+        end
 
     | D.Pair (term1, term2) ->
         begin
-            (*
-                 G |- e1 : ty1    G |- e2 : ty2
-                 -----------------------------------------------------
-                 G |- (e1, e2)  :  ty1 * ty2  [ === Sigma _:ty1. ty2 ]
+          (*
+               G |- e1 : ty1    G |- e2 : ty2
+               -----------------------------------------------------
+               G |- (e1, e2)  :  ty1 * ty2  [ === Sigma _:ty1. ty2 ]
 
-               For type synthesis, we always infer a non-dependent product type.  If
-               you want a dependent sigma type, the pair must be used in an
-               analysis context (e.g., a pair inside a type ascription or as a
-               function argument.)
-             *)
+             For type synthesis, we always infer a non-dependent product type.  If
+             you want a dependent sigma type, the pair must be used in an
+             analysis context (e.g., a pair inside a type ascription or as a
+             function argument.)
+           *)
           let e1, ty1 = infer env term1  in
           let e2, ty2 = infer env term2  in
 
@@ -421,48 +421,74 @@ and Infer : INFER_SIG = struct
                G |- (e : ty) : ty
 
                The typing rule doesn't look very interesting, but operationally
-               this is where we switch from synthesis to checking.
-
+               this is where we switch from synthesis to checking, which lets
+               us do things like give a pair a dependent-sigma type.
           *)
           let ty, _ = infer_ty env term2  in
           let e     = check env term1 ty  in
           e, ty
         end
 
-
-    | D.Operation (tag, terms) ->
-      let operation = inferOp env loc tag terms None in
-      inferHandler env loc operation
-
-    | D.Handle (term, handlers) ->
-      let env'= addHandlers env loc handlers in
-      let _ = P.debug "About to infer the body of handle-expression"  in
-      infer env' term
-
     | D.Equiv(o, term1, term2, term3) ->
-      begin
-        let ty3, u3 = infer_ty env term3 in
-        let _ = match o, u3 with
-          | D.Ju, _ -> ()
-          | _,    D.Fib _ -> ()
-          | _,    _ -> Error.typing ~loc
-                         "@[<hov>Propositional equality over non-fibered type@ %t@]"
-                         (print_term env ty3)  in
-        let e1 = check env term1 ty3  in
-        let e2 = check env term2 ty3  in
+        begin
+          (*
+               G |- ty: Uf_i   where Uf_i is fibered
+               G |- e1 : ty
+               G |- e2 : ty
+               -------------------------------------
+               G |- (e1 = e2 @ ty) : Uf_i
 
-        (* Make sure that judgmental equivalences are not marked fibered *)
-        let ubase = match o with D.Pr -> S.Fib 0 | D.Ju -> S.NonFib 0 in
-        let u = S.universe_join ubase u3  in
 
-        S.Eq (o, e1, e2, ty3), S.U u
-      end
+               G |- ty : U_i   where U_i is unfibered
+               G |- e1 : ty
+               G |- e2 : ty
+               --------------------------------------
+               G |- (e1 == e2 @ ty) : U_i
+           *)
+
+          let ty, u_i = infer_ty env term3 in
+
+          (* Confirm that the universe is fibered or that this
+             is a judgmental equality type (in which case the type is unfibered
+             or could be promoted to unfibered by universe inclusion).
+
+             Compute this potentially promoted universe type.
+           *)
+          let equality_ty = match o, u_i with
+            | D.Pr, D.Fib    i
+            | D.Ju, D.NonFib i -> S.U u_i
+
+            | D.Ju, D.Fib    i -> S.U (S.NonFib i)
+
+            | D.Pr, D.NonFib _ ->
+                Error.typing ~loc "@[<hov>Propositional equality over non-fibered type@ %t@]"
+                  (print_term env ty)  in
+
+          let e1 = check env term1 ty  in
+          let e2 = check env term2 ty  in
+          let equality_exp = S.Eq(o, e1, e2, ty)  in
+
+          equality_exp, equality_ty
+        end
 
     | D.Refl(o, term2) ->
-      begin
-        let e2, t2 = infer env term2 in
-        S.Refl(o, e2, t2), S.Eq(o, e2, e2, t2)
-      end
+        begin
+          (*
+               G |- e : ty    where ty is fibered
+               ------------------------------------
+               G |- idpath e : (e = e @ ty)
+
+               G |- e : ty
+               -----------------------------
+               G |- refl e : (e == e @ ty)
+           *)
+
+          (* XXX: Need to check that ty is fibered if
+                  this is a propositional equality!
+           *)
+          let e2, t2 = infer env term2 in
+          S.Refl(o, e2, t2), S.Eq(o, e2, e2, t2)
+        end
 
     | D.Ind((x,y,p,term1), (z,term2), term3) ->
       begin
@@ -515,6 +541,15 @@ and Infer : INFER_SIG = struct
           end
         | _ -> Error.typing ~loc "Not a witness for equality or equivalence:@ %t" (print_term env q)
       end
+
+    | D.Operation (tag, terms) ->
+      let operation = inferOp env loc tag terms None in
+      inferHandler env loc operation
+
+    | D.Handle (term, handlers) ->
+      let env'= addHandlers env loc handlers in
+      let _ = P.debug "About to infer the body of handle-expression"  in
+      infer env' term
   (* in let _ = P.debug "infer returned@ %t with type %t@."
              (print_term env answer_expr) (print_term env answer_type)  in
      answer_expr, answer_type *)
