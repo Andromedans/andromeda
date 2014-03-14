@@ -140,27 +140,30 @@ module TermSet = Set.Make(struct
                              let compare = compare
                           end)
 
-(** [universe_join u1 u2] returns the universe that includes both [u1] and [u2]
+(** [universe_join u1 u2] returns the (least) universe that includes
+    all the memebers of [u1] and all the members of [u2]
 *)
 let universe_join u1 u2 =
   match u1, u2 with
-  | Fib i, Fib j -> Fib (max i j)
-  | Fib i, NonFib j
-  | NonFib i, Fib j
+  | Fib    i, NonFib j
+  | NonFib i, Fib    j
   | NonFib i, NonFib j -> NonFib (max i j)
-
-let universe_le u1 u2 =
-  match u1, u2 with
-  | Fib i, Fib j
-  | Fib i, NonFib j
-  | NonFib i, NonFib j -> i <= j
-  | NonFib _, Fib _  -> false
+  | Fib    i, Fib    j -> Fib (max i j)
 
 (** [universe_classifier u] returns the universe classifying the given
  *  universe [u] *)
 let universe_classifier = function
-  | Fib i  -> Fib (i+1)
-  | NonFib i -> NonFib (i+1)
+  | Fib i    -> Fib (i+1)
+  | NonFib i -> Fib (i+1)   (* Surprise! *)
+
+(** Is every value of type [u1] also a value of [u2] ? *)
+let universe_le u1 u2 =
+  match u1, u2 with
+  | Fib    i, Fib    j
+  | Fib    i, NonFib j
+  | NonFib i, NonFib j  ->  i <= j
+  | NonFib _, Fib    _  ->  false
+
 
 (** [string_of_term term] creates an accurate but not-very-pretty textual
  * representation of the [term] datatype value.
