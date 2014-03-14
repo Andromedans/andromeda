@@ -365,7 +365,7 @@ and Infer : INFER_SIG = struct
              *)
           let e1, ty1 = infer env term1  in
           let e2, ty2 = infer env term2  in
-          let pair_exp = S.Pair(e1,e2)  in
+
 
           (* ty2 is well-formed in env, but the second component of the sigma
              needs to be well-formed in  (env, _:ty1).
@@ -374,6 +374,12 @@ and Infer : INFER_SIG = struct
            *)
           let ty2' = shift_to_env (env, ty2) (add_parameter "_" ty1 env)  in
           let pair_ty = S.Sigma("_", ty1, ty2')  in
+
+          (* We annotate all pairs with their component types, so that
+             the verifier can figure out whether we intended a dependent Sigma
+             type or not.
+           *)
+          let pair_exp = S.Pair(e1, e2, "_", ty1, ty2')  in
 
           pair_exp, pair_ty
         end
@@ -570,7 +576,7 @@ and Infer : INFER_SIG = struct
           let e1 = check env term1 t1  in
           let t2' = S.beta t2 e1  in
           let e2 = check env term2 t2'  in
-          wrap_with_handlers (S.Pair(e1, e2)) hr_whnf
+          wrap_with_handlers (S.Pair(e1, e2, x, t1, t2)) hr_whnf
         | _ -> Error.typing ~loc "Pair cannot have type %t"
                  (print_term env t)
       end

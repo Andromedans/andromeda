@@ -31,7 +31,7 @@ let rec whnf ctx e =
       | S.Proj (i, e2) ->
           begin
             match whnf ctx e2 with
-            | S.Pair(e21, e22) ->
+            | S.Pair(e21, e22, _, _, _) ->
                 begin
                   match i with
                   (* The input might have been fst(pair(XX, YY)), in which case
@@ -107,10 +107,12 @@ let rec nf ctx e =
           let e2' = nf ctx e2  in
           S.Proj(i, e2')
 
-      | S.Pair (e1, e2) ->
+      | S.Pair (e1, e2, x, ty1, ty2) ->
           let e1' = nf ctx e1  in
           let e2' = nf ctx e2  in
-          S.Pair(e1', e2')
+          let ty1' = nf ctx ty1  in
+          let ty2' = nf (Ctx.add_parameter x ty1 ctx) ty2  in
+          S.Pair(e1', e2', x, ty1', ty2')
 
       | S.Refl (z, e1, t1) ->
           let e1' = nf ctx e1  in

@@ -163,7 +163,7 @@ and equal_structural env t1 t2 =
             [ lazy ( equal_at_some_universe env t1 t2 );
               lazy ( equal_structural (X.add_parameter x t1 env) e1 e2 ) ]
 
-        | S.Pair(e11, e12), S.Pair(e21, e22) ->
+        | S.Pair(e11, e12, _, _, _), S.Pair(e21, e22, _, _, _) ->
             P.warning "Why is equal_structural comparing two pairs?";
             hr_ands
             [ lazy ( equal_structural env e11 e21 );

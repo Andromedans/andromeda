@@ -182,11 +182,11 @@ let rec infer env term =
           | _ -> Error.verify "Not a function: %t" (print_term env term1)
         end
 
-    | S.Pair (term1, term2) ->
+    | S.Pair (e1, e2, x, ty1, ty2) ->
         begin
-          let ty1 = infer env term1  in
-          let ty2 = infer env term2  in
-          S.Sigma("_", ty1, S.shift 1 ty2)
+          let _ = check env e1 ty1  in
+          let _ = check env e2 (S.beta ty2 e1)  in
+          S.Sigma("_", ty1, ty2)
         end
 
     | S.Proj (1, term2) ->
@@ -340,18 +340,6 @@ and check env term t =
     | S.Handle (term1, handlers) ->
         let env'= addHandlers env handlers in
         check env' term1 t
-
-    | S.Pair (term1, term2) ->
-        begin
-          match as_sigma env t with
-          | S.Sigma(x, t1, t2), () ->
-              let _ = check env term1 t1  in
-              let t2' = S.beta t2 term1  in
-              let _ = check env term2 t2'  in
-              ()
-          | _ -> Error.verify "Pair cannot have type %t"
-                     (print_term env t)
-        end
 
     | S.Lambda (x, term1, term2) ->
       begin

@@ -10,7 +10,8 @@ type term =
   | Pi     of Common.variable * term * term
   | App    of term * term
   | Sigma  of Common.variable * term * term
-  | Pair   of term * term
+  | Pair   of term * term * Common.variable * term * term
+         (* pack e1, e2 at Sigma x : t1. t2 *)
   | Proj   of int * term                   (* 1 = fst, 2 = snd *)
   | Refl   of eqsort * term * term
   | Eq     of eqsort * term * term * term
@@ -74,7 +75,7 @@ and metavarapp = { mv_def  : term option ref;
 
    G |- t' : U(u,i)   G , x:t' |- t'' : U(u,i)
    G |- e' : t'     G |- e'' : [x->e']t''
-   -------------------------------------------   [ annotate Pair with the Sigma?]
+   -------------------------------------------   [ +annotate the pair with the sigma]
    G |- <e', e''> :  Sigma(x, t', t'')
 
 
@@ -170,7 +171,8 @@ let rec string_of_term ?(show_meta=false) = function
   | Pi(x,t1,t2)    -> "Pi(" ^ x ^ "," ^ string_of_terms ~show_meta [t1;t2] ^ ")"
   | App(e1,e2)     -> "App(" ^ string_of_terms ~show_meta [e1;e2] ^ ")"
   | Sigma(x,t1,t2) -> "Sigma(" ^ x ^ "," ^ string_of_terms ~show_meta [t1;t2] ^ ")"
-  | Pair(e1,e2)    -> "Pair(" ^ string_of_terms ~show_meta [e1;e2] ^ ")"
+  | Pair(e1,e2,x,t1,t2)  -> "Pair(" ^ string_of_terms ~show_meta [e1;e2] ^ ","
+                               ^ x ^ string_of_terms ~show_meta [t1;t2] ^ ")"
   | Proj(i1,e2)    -> "Proj(" ^ string_of_int i1 ^ ","
                          ^ string_of_term ~show_meta e2 ^ ")"
   | Refl(o,e,t)    -> "Refl("  ^ string_of_eqsort o ^ ","
@@ -221,7 +223,8 @@ and rewrite_vars ?(cut=0) ftrans =
     | App (e1, e2)      -> App(loop cut e1, loop cut e2)
     | Pi (x, t1, t2)    -> Pi(x, loop cut t1, loop (cut+1) t2)
     | Sigma (x, t1, t2) -> Sigma(x, loop cut t1, loop (cut+1) t2)
-    | Pair (e1, e2)     -> Pair(loop cut e1, loop cut e2)
+    | Pair (e1, e2, x, ty1, ty2) -> Pair(loop cut e1, loop cut e2, x,
+                                         loop cut ty1, loop (cut+1) ty2)
     | Proj (i1, e2)     -> Proj(i1, loop cut e2)
     | Refl (o, e, t)    -> Refl(o, loop cut e, loop cut t)
     | Eq (o, e1, e2, t) -> Eq(o, loop cut e1, loop cut e2, loop cut t)
@@ -328,15 +331,16 @@ let rec occurs v e =
 
   | Lambda (_, t, e)       -> occurs v t  || occurs (v+1) e
   | App (e1, e2)           -> occurs v e1 || occurs v e2
-  | Pair (e1, e2)          -> occurs v e1 || occurs v e2
+  | Pair (e1, e2, x, ty1, ty2) -> occurs v e1 || occurs v e2
+                                    || occurs v ty1 || occurs (v+1) ty2
   | Proj (_, e2)           -> occurs v e2
   | Refl (_, e, t)         -> occurs v e  || occurs v t
   | Pi (_, t1, t2)         -> occurs v t1 || occurs (v+1) t2
   | Sigma (_, t1, t2)      -> occurs v t1 || occurs (v+1) t2
   | Eq (_, e1, e2, t)      -> occurs v e1 || occurs v e2 || occurs v t
   | Ind_eq(_, t, (_,_,_,c), (_,w), a, b, p)
-                           -> occurs v t || occurs (v+3) c || occurs (v+1) w ||
-                              occurs v a || occurs v b || occurs v p
+                           -> occurs v t || occurs (v+3) c || occurs (v+1) w
+                               || occurs v a || occurs v b || occurs v p
   | Handle (e, es)        -> occurs v e || List.exists (occurs v) es
 
   | MetavarApp mva ->
@@ -363,9 +367,12 @@ let rec equal e1 e2 =
   | Lambda(_, t11, t12), Lambda(_, t21, t22)
   | Pi(_, t11, t12), Pi(_, t21, t22)
   | Sigma(_, t11, t12), Sigma(_, t21, t22)
-  | Pair(t11, t12), Pair(t21, t22)
   | App(t11, t12), App(t21, t22) ->
       equal t11 t21 && equal t12 t22
+
+  | Pair(e11, e12, _, ty11, ty12), Pair(e21, e22, _, ty21, ty22) ->
+      equal e11 e21 && equal e12 e22
+       && equal ty11 ty21 && equal ty12 ty22
 
   | Proj(i1, t1), Proj(i2, t2) ->
       i1 = i2 && equal t1 t2
@@ -426,7 +433,10 @@ let rec equal e1 e2 =
     | App (e1, e2)      -> VS.union (loop cut e1) (loop cut e2)
     | Pi (_, t1, t2)    -> VS.union (loop cut t1) (loop (cut+1) t2)
     | Sigma (_, t1, t2) -> VS.union (loop cut t1) (loop (cut+1) t2)
-    | Pair (e1, e2)     -> VS.union (loop cut e1) (loop cut e2)
+    | Pair (e1, e2, _, ty1, ty2)
+                        -> union_list
+                               [loop cut e1; loop cut e2;
+                                loop cut ty1; loop (cut+1) ty2]
     | Proj (i1, e2)     -> loop cut e2
     | Refl (_, e, t)    -> VS.union (loop cut e) (loop cut t)
     | Eq (_, e1, e2, t) -> union_list

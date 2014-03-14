@@ -69,7 +69,7 @@ and lambda xs x t e ppf =
           | S.Var k -> print "%s" (List.nth xs k)
           | S.Lambda (x, t, e) -> print ~at_level:3 "%t" (lambda xs x t e)
           | S.App (e1, e2) -> print ~at_level:1 "%t@ %t" (term ~max_level:1 xs e1) (term ~max_level:0 xs e2)
-          | S.Pair (e1, e2) -> print ~at_level:0 "(%t,@ %t)" (term ~max_level:1 xs e1) (term ~max_level:0 xs e2)
+          | S.Pair (e1, e2, _, _, _) -> print ~at_level:0 "(%t,@ %t)" (term ~max_level:1 xs e1) (term ~max_level:0 xs e2)
           | S.Proj (1, e2) -> print ~at_level:1 "%t.fst" (term ~max_level:0 xs e2)
           | S.Proj (2, e2) -> print ~at_level:1 "%t.snd" (term ~max_level:0 xs e2)
           | S.Proj (i1, e2) -> print ~at_level:1 "%t.%d"
