@@ -23,17 +23,23 @@ struct
       declarations. *)
   type context = {
     names : string list ;
-    decls : declaration list
+    decls : declaration list;
+    ctx_depth : int;               (** Cached length of above lists *)
   }
 
   (** On the zeroth day there was the empty context. *)
   let empty_context = {
     names = [] ;
-    decls = []
+    decls = [] ;
+    ctx_depth = 0;
   }
 
   (** Drop the most recently added thing from the context. *)
-  let drop {names = ns; decls = ds} = {names = List.tl ns; decls = List.tl ds}
+  let drop {names; decls; ctx_depth} =
+    { names = List.tl names;
+      decls = List.tl decls;
+      ctx_depth = ctx_depth - 1;
+    }
 
   let shift_entry ?(cut=0) delta =
     let shift = X.shift ~cut delta in
@@ -61,16 +67,20 @@ struct
   (** [add_parameter x t ctx] returns [ctx] with the parameter [x] of type [t]. *)
   let add_parameter x t ctx =
     { names = x :: ctx.names ;
-      decls = Parameter t :: ctx.decls }
+      decls = Parameter t :: ctx.decls;
+      ctx_depth = ctx.ctx_depth + 1;
+    }
 
   (** [add_definition x t e ctx] returns [ctx] with [x] of type [t] defined as [e]. *)
   let add_definition x t e ctx =
     { names = x :: ctx.names ;
-      decls = Definition (t, e) :: ctx.decls }
+      decls = Definition (t, e) :: ctx.decls;
+      ctx_depth = ctx.ctx_depth + 1;
+    }
 
-  let print ctx =
-    let names = ctx.names in
-    let decls = ctx.decls in
+  let depth ctx = ctx.ctx_depth
+
+  let print {names; decls; ctx_depth} =
     Format.printf "\n====vvv=====CONTEXT=====vvv====\n";
     ignore
       (List.fold_right2
@@ -82,7 +92,7 @@ struct
                Format.printf "@[%s := %t@]@\n    : %t@." x (X.print names e)
                  (X.print names t));
             k - 1)
-      names decls (List.length names));
+      names decls ctx_depth);
     Format.printf "----^^^===END CONTEXT===^^^====\n@.";
     ()
 

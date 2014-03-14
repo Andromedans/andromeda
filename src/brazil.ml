@@ -66,7 +66,7 @@ module S = BrazilSyntax
 
 type env = {
   ctx : Ctx.context;
-  handlers : (int * S.term * S.term) list;  (* int is the install-level *)
+  handlers : (int * S.term * S.term) list;  (* int is the install-depth *)
 }
 
 let empty_env = { ctx = Ctx.empty_context;
@@ -74,7 +74,7 @@ let empty_env = { ctx = Ctx.empty_context;
                  }
 let get_ctx { ctx } = ctx
 
-let currentLevel env = List.length env.ctx.Ctx.names
+let depth env = Ctx.depth env.ctx
 
 let add_parameter x t env =
   {env with ctx = Ctx.add_parameter x t env.ctx}
@@ -97,8 +97,8 @@ let trivial_hr = ()
 
 
 
-let unshift_handler env (installLevel, h1, h2) =
-  let d = currentLevel env - installLevel in
+let unshift_handler env (installdepth, h1, h2) =
+  let d = depth env - installdepth in
   S.shift d h1, S.shift d h2
 
 (* We check handlers in both directions, so that the user is not required
@@ -311,8 +311,8 @@ and addHandlers env handlers =
   | term :: rest ->
      let e1, e2, _ = infer_eq env term S.Ju in
      P.debug "Adding handler %t = %t@." (print_term env e1) (print_term env e2);
-     let installLevel = currentLevel env  in
-     let env' = { env with handlers = (installLevel,e1,e2) :: env.handlers } in
+     let installdepth = depth env  in
+     let env' = { env with handlers = (installdepth,e1,e2) :: env.handlers } in
      addHandlers env' rest
 
 and infer_ty env term =

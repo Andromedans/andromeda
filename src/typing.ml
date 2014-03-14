@@ -140,10 +140,10 @@ and Infer : INFER_SIG = struct
 
   let get_ctx { ctx } = ctx
 
-  let currentdepth env = List.length env.ctx.Ctx.names
+  let depth env = Ctx.depth env.ctx
 
   let enter_equiv env =
-    { env with equiv_entry_depth = Some (currentdepth env) }
+    { env with equiv_entry_depth = Some (depth env) }
 
   let get_equiv_entry env =
     match env.equiv_entry_depth with
@@ -201,7 +201,7 @@ and Infer : INFER_SIG = struct
 
 
   let rec find_handler_reduction env expr predicate =
-    let depth = currentdepth env  in
+    let currentdepth = depth env  in
     let rec loop = function
 
       | [] ->
@@ -210,7 +210,7 @@ and Infer : INFER_SIG = struct
 
       | (installdepth, Inhabit(S.Eq(S.Ju,h1,h2,_) as unshifted_ty), unshifted_body)::rest ->
         (* XXX: is it safe to ignore the classifier??? *)
-        let d = depth - installdepth in
+        let d = currentdepth - installdepth in
         let h1 = S.shift d h1  in
         let h2 = S.shift d h2  in
 
@@ -536,7 +536,7 @@ and Infer : INFER_SIG = struct
 
 
   and addHandlers env loc handlers =
-    let installdepth = currentdepth env  in
+    let installdepth = depth env  in
     let rec loop = function
       | [] -> env
       | (tag, terms, handlerBody) :: rest ->
@@ -552,8 +552,8 @@ and Infer : INFER_SIG = struct
   and check env ((term1, loc) as term) t =
     match term1 with
     | D.Wildcard ->
-      let context_length = List.length env.ctx.Ctx.names in
-      S.MetavarApp (S.fresh_mva context_length t loc)
+      let currentdepth = depth env in
+      S.MetavarApp (S.fresh_mva currentdepth t loc)
     | D.Lambda (x, None, term2) ->
       begin
         match as_pi env t with
@@ -632,7 +632,7 @@ and Infer : INFER_SIG = struct
              (print_term env exp) (print_term env ty)
 
   and handled env e1 e2 _ =
-    let depth = currentdepth env  in
+    let currentdepth = depth env  in
     let _ = P.debug "Entering 'handled' with@ e1 = %t and@ e2 = %t"
         (print_term env e1) (print_term env e2)   in
     let rec loop = function
@@ -642,7 +642,7 @@ and Infer : INFER_SIG = struct
       | (installdepth, op1, comp) :: rest ->
         begin
           (* XXX: is it safe to ignore the classifier??? *)
-          let d = depth - installdepth in
+          let d = currentdepth - installdepth in
           let op1 = shiftOperation d op1  in
           let comp = Input.shift d comp  in
           match op1 with
@@ -664,7 +664,7 @@ and Infer : INFER_SIG = struct
                 * original context. We therefore store the witness
                 * in the form that makes sense in the original [type inference]
                 * context. *)
-               let shift_out = ( get_equiv_entry env )   - depth  in
+               let shift_out = ( get_equiv_entry env )   - currentdepth  in
                let shifted_witness = S.shift shift_out witness  in
                P.debug "That witness %s will turn out to be %t@.Shifting it by %d to get %s"
                  (Input.string_of_term string_of_int comp)
@@ -683,11 +683,11 @@ and Infer : INFER_SIG = struct
   (* Find the first matching handler, and return the typechecked right-hand-side
   *)
   and inferHandler env loc op =
-    let depth = currentdepth env  in
+    let currentdepth = depth env  in
     let rec loop = function
       | [] -> Error.typing ~loc "Unhandled operation"
       | (installdepth, op1, comp1)::rest ->
-        let d = depth - installdepth in
+        let d = currentdepth - installdepth in
         let op1 = shiftOperation d op1  in
         if (op = op1) then
           begin
