@@ -86,6 +86,17 @@ struct
     Format.printf "----^^^===END CONTEXT===^^^====\n@.";
     ()
 
+    (** [shift_to_ctx (gamma, term) delta] takes a term that
+        is well-formed in context gamma, and shifts the indices
+        so as to make it well-formed in context delta, which is
+        assumed to be an extension of delta.
+     *)
+    let shift_to_ctx (ctx1, term) ctx2 =
+      let depth1 = depth ctx1  in
+      let depth2 = depth ctx2  in
+      assert (depth1 <= depth2);
+      X.shift (depth2 - depth1) term
+
 end
 
 
