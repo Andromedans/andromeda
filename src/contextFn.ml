@@ -71,6 +71,27 @@ struct
       ctx_depth = ctx.ctx_depth + 1;
     }
 
+  (** [add_parameters [(x1,t1); ...; (xn,tn)] ctx] returns [ctx] with the given
+      parameters appended.
+
+      Note that this is not the same as a nested series of calls to
+      add_parameter, because we assume that all of t1, ..., tn are well-formed
+      in (i.e., have de Bruijn indices relative to) ctx. For nested calls, we
+      would need [ctx |- t1] but also [ctx, x1:t1 |- t2] and
+      [ctx, x1:t1, x2:t2 |- t3] and so on.
+   *)
+  let add_parameters bnds ctx =
+    let rec loop vars_added accum_ctx = function
+      | []          -> accum_ctx
+      | (x,t)::rest ->
+          loop (vars_added+1)
+               (add_parameter x (X.shift vars_added t) accum_ctx)
+               rest
+    in
+       (loop 0 ctx bnds : context)
+
+
+
   (** [add_definition x t e ctx] returns [ctx] with [x] of type [t] defined as [e]. *)
   let add_definition x t e ctx =
     { names = x :: ctx.names ;

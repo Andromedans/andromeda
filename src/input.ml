@@ -176,6 +176,15 @@ and shift_handler_case ?(cut=0) delta (optag, terms, term) =
   (* Correct only because we have no pattern matching ! *)
   (optag, List.map (shift ~cut delta) terms, shift ~cut delta term)
 
+(** [shift_to_depth (k,exp) l] moves the expression [exp] from a context
+      with depth [k] to a context of depth [l >= k].
+
+      Equivalently, weaken with [l - k] new variables at the end of the
+      context. *)
+let shift_to_depth (old_depth, exp) new_depth =
+  assert (new_depth >= old_depth);
+  shift (new_depth - old_depth) exp
+
 let print =
   let to_string = string_of_term string_of_int  in
   function term -> print_endline (to_string term)

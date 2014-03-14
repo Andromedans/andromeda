@@ -164,6 +164,7 @@ and Infer : INFER_SIG = struct
 
   let add_parameter  x t   env = {env with ctx = Ctx.add_parameter  x t   env.ctx}
   let add_definition x t e env = {env with ctx = Ctx.add_definition x t e env.ctx}
+  let add_parameters bnds  env = {env with ctx = Ctx.add_parameters bnds  env.ctx}
 
   let whnf env e = Norm.whnf env.ctx e
   let nf   env e = Norm.nf   env.ctx e
@@ -210,21 +211,20 @@ and Infer : INFER_SIG = struct
 
       | (installdepth, Inhabit(S.Eq(S.Ju,h1,h2,_) as unshifted_ty), unshifted_body)::rest ->
         (* XXX: is it safe to ignore the classifier??? *)
-        let d = currentdepth - installdepth in
-        let h1 = S.shift d h1  in
-        let h2 = S.shift d h2  in
+        let h1 = S.shift_to_depth (installdepth, h1) currentdepth  in
+        let h2 = S.shift_to_depth (installdepth, h2) currentdepth  in
 
         P.debug "handle search expr = %t@. and h1 = %t@. and h2 = %t@."
           (print_term env expr) (print_term env h1) (print_term env h2) ;
 
         if (S.equal h1 expr && predicate h2) then
-          let body    = D.shift d unshifted_body in
-          let ty      = S.shift d unshifted_ty in
+          let body    = D.shift_to_depth (installdepth, unshifted_body) currentdepth in
+          let ty      = S.shift_to_depth (installdepth, unshifted_ty) currentdepth in
           let witness = check env body ty  in
           h2, singleton_hr witness
         else if (S.equal h2 expr && predicate h1) then
-          let body    = D.shift d unshifted_body in
-          let ty      = S.shift d unshifted_ty in
+          let body    = D.shift_to_depth (installdepth, unshifted_body) currentdepth in
+          let ty      = S.shift_to_depth (installdepth, unshifted_ty) currentdepth  in
           let witness = check env body ty  in
           h1, singleton_hr witness
         else
@@ -318,13 +318,7 @@ and Infer : INFER_SIG = struct
         end
 
     | S.Ind_eq(_, _, (_,_,_,c), _, a, b, q) ->
-        begin
-          (* XXX ICK! We *really* have to create a helper function... *)
-           S.beta (S.beta (S.beta c
-                                   (S.shift 2 q))
-                           (S.shift 1 b))
-                   a
-        end
+        S.strengthen c [a;b;q]
 
     | S.U u -> S.U (S.universe_classifier u)
 
@@ -626,56 +620,107 @@ and Infer : INFER_SIG = struct
         end
 
     | D.Ind((x,y,p,term1), (z,term2), term3) ->
-      begin
-        let q, ty3 = infer env term3 in
-        match as_eq env ty3 with
-        | S.Eq(o, a, b, t), hr ->
-          begin
-            let illegal_variable_name = "eventual.z" in
-            let env_c' = add_parameter p (S.Eq(o, S.Var 1, S.Var 0, S.shift 3 t))
-                (add_parameter y (S.shift 2 t)
-                   (add_parameter x (S.shift 1 t)
-                      (add_parameter illegal_variable_name t env)))  in
-            (* We've inserted eventual.z into position 3 of the context
-               where desugaring wasn't expecting it. So we need to shift all
-               references to variables 3 and up by 1,but leave variables 0, 1, and 2
-               (i.e., p, y, and x) alone. *)
-            let c' = match infer_ty env_c' (D.shift ~cut:3 1 term1) with
-              | c', S.NonFib _ when o = D.Pr ->
+        begin
+          (*
+               G |- t : Uf_i                               [Must be fibered.]
+               G , x:t, y:t, z:(x = y @ t) |- c : Uf_j     [Must be fibered.]
+               G , z:t |- w : c[x,y,p->z,z,idpath(z, t)]
+               G |- a : t    G |- b : t    G |- q : (a = b @ t)
+               -------------------------------------------------------------
+               G |- Ind_eq(Pr, t, x.y.p.c, z.w, a, b, q) : c[x,y,p->a,b,q]
+
+
+               G |- t : U_i
+               G , x:t, y:t, z:(x == y @ t) |- c : U_j
+               G , z:t |- w : c[x,y,p->z,z,refl(z, t)]
+               G |- a : t    G |- b : t    G |- q : (a == b @ t)
+               -------------------------------------------------------------
+               G |- Ind_eq(Ju, t, x.y.p.c, z.w, a, b, q) : c[x,y,p->a,b,q]
+
+               Note: term is written Ind(x.y.p.c, z.w, q) at the source level;
+                     We infer a, b, and t from the type of q.
+
+               By induction, if term3 is well-formed then so is its type.  Thus,
+               if the path is a propositional equality, then it must be at a
+               fibered type; we don't have to re-check it here.
+          *)
+          let q, o, a, b, t, hr = infer_eq env term3 in
+
+
+
+          (* XXX: I think it would be slightly simpler to translate
+             c and then do a weakening in the *middle* to get c' *)
+          (* Term [term1] has indices relative to the context [env, x, y, p],
+             so we create that environment for use during translation.
+           *)
+          let env_c =
+            (* Unfortunately, add_parameters only works when there are
+               no dependencies between the variables, so we have to
+               do it in two stages. First we add x and y.
+             *)
+            let tmp_env =
+                  add_parameters [ (x, t); (y, t) ] env in
+            (* Then add p, with a type indexed relative to tmp_env
+             *)
+            let xvar = S.Var 1  in
+            let yvar = S.Var 0  in
+            let t'   = shift_to_env (env,t) tmp_env  in
+            add_parameter p (S.Eq(o, xvar, yvar, t')) tmp_env  in
+
+          (* Next, translate [term1] to annotated type [env, x, y, p |- c : U_j].
+           *)
+          let c, u_j = infer_ty env_c term1 in
+
+          (* If we're working propositionally, check that c is fibered *)
+          let _ = match o, u_j with
+            | S.Pr, S.NonFib _ ->
                 Error.typing ~loc "Eliminating prop equality %t@ in non-fibered family %t"
-                  (print_term env q) (print_term env_c' c')
-              | c', _ -> c'  in
-            let env_w = add_parameter z t env in
-            let w_ty_expected = S.beta (S.beta (S.beta c' (S.Refl(o, S.Var 3, S.shift 3 t)))
-                                          (S.Var 1))
-                (S.Var 0)  in
-            let w = check env_w term2 w_ty_expected  in
+                  (print_term env q) (print_term env_c c)
+            | _, _ -> ()  in
 
-            (* c was translated in a context with the extra eventual.z
-               variable, so we need to undo that by shifting variables
-               numbered 3 and above down by one. (We know that c does not refer to
-               eventual.z, so there's no chance of a reference to eventual.z
-               turning into a reference to variable 2, i.e., x. *)
-            let c = S.shift ~cut:3 (-1) c'  in
-            let expression =
-              wrap_with_handlers (S.Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q)) hr  in
+          (* [c] has indices relative to the context [env, x, y, p]
+             but when working with [w] it would be more helpful to
+             use the context [env, z, x, y, p] with z in position 3.
+             We can adjust the indices to get a term [c'] by using weakening.
+          *)
+          let c' = S.weaken 3 c in
 
-            (* Now we need to compute the expression's type. In the book
-               this is [c a b q], except that the variables are in the context
-               in the order [x, y, p], so we need to eliminate [p] first.
-               We also need to adjust the arguments, because they are all
-               well-formed in the context [env]. Note that [c] is in the
-               context without the extra [eventual.z] variable. *)
-            let expression_type =
-              (S.beta (S.beta (S.beta c
-                                 (S.shift 2 q))
-                         (S.shift 1 b))
-                 a)  in
+          (* [env_w] is the context [env, z:t].
+           *)
+          let env_w = add_parameter z t env in
 
-            expression, expression_type
-          end
-        | _ -> Error.typing ~loc "Not a witness for equality or equivalence:@ %t" (print_term env q)
-      end
+          (* [term2] will be our [w] input. We expect that
+                   [env, z:t |- w : c[x,y,p->z,z,refl z]],
+             so we construct the type
+                   [env, z:t |- c[x,y,p->z,z,refl z]].
+             Fortunately, we have [env, z, x, y, p |- c'] so we can
+             construct the desired substitution instance of [c]
+             using strengthening.
+           *)
+          let w_ty_expected =
+            (* We shift [env |- t] to get [env, z:t |- t']. *)
+            let t' = shift_to_env (env,t) env_w  in
+            (* In the context [env, z:t], variable z is represented by 0. *)
+            let zvar = S.Var 0   in
+            S.strengthen c' [zvar; zvar; S.Refl(o, zvar, t')]  in
+
+          (* Finally, verify that [w] has the right type, and translated it
+             into annotated form. *)
+          let w = check env_w term2 w_ty_expected  in
+
+          (* That's everything we needed to translate the induction expression
+           *)
+          let induction_exp =
+            wrap_with_handlers (S.Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q)) hr  in
+
+          (* Now we need to compute the expression's type, e.g.,
+                 c[x,y,p -> a,b,q].
+             Since [env, x, y, p |- c], we can get this by strengthening.
+           *)
+          let induction_type = S.strengthen c [a;b;q]  in
+
+          induction_exp, induction_type
+        end
 
     | D.Operation (tag, terms) ->
       let operation = inferOp env loc tag terms None in
@@ -683,8 +728,8 @@ and Infer : INFER_SIG = struct
 
     | D.Handle (term, handlers) ->
       let env'= addHandlers env loc handlers in
-      let _ = P.debug "About to infer the body of handle-expression"  in
       infer env' term
+
   (* in let _ = P.debug "infer returned@ %t with type %t@."
              (print_term env answer_expr) (print_term env answer_type)  in
      answer_expr, answer_type *)
@@ -805,6 +850,18 @@ and Infer : INFER_SIG = struct
     match (as_sigma env ty) with
     | S.Sigma(x, ty1, ty2), hr -> exp, x, ty1, ty2, hr
     | _ -> Error.typing ~loc "Expected a Sigma type, but@ %t@ has type@ %t"
+             (print_term env exp) (print_term env ty)
+
+  (* [infer_eq G term] does type synthesis on the given input [term],
+     and checks that its type is (convertible to) an Eq .  If so, it returns the
+     translated term and the 4 components of the Eq and any handlers used, all
+     together as a 6-tuple.
+  *)
+  and infer_eq env ((_,loc) as term) =
+    let exp, ty = infer env term in
+    match (as_eq env ty) with
+    | S.Eq(o, exp_lhs, exp_rhs, ty), hr -> exp, o, exp_lhs, exp_rhs, ty, hr
+    | _ -> Error.typing ~loc "Expected an equality type, but@ %t@ has type@ %t"
              (print_term env exp) (print_term env ty)
 
   and handled env e1 e2 _ =

@@ -140,6 +140,18 @@ module TermSet = Set.Make(struct
                              let compare = compare
                           end)
 
+(** [universe_classifier u] returns the universe classifying the given
+ *  universe [u] *)
+let universe_classifier = function
+  | Fib i    -> Fib (i+1)
+  | NonFib i -> Fib (i+1)   (* Surprise! *)
+
+
+(* Careful! Just because
+     NonFib(i) : Fib(i+1)
+   does *not* mean that every type in NonFib(i) is also in Fib(i+1).
+ *)
+
 (** [universe_join u1 u2] returns the (least) universe that includes
     all the memebers of [u1] and all the members of [u2]
 *)
@@ -149,12 +161,6 @@ let universe_join u1 u2 =
   | NonFib i, Fib    j
   | NonFib i, NonFib j -> NonFib (max i j)
   | Fib    i, Fib    j -> Fib (max i j)
-
-(** [universe_classifier u] returns the universe classifying the given
- *  universe [u] *)
-let universe_classifier = function
-  | Fib i    -> Fib (i+1)
-  | NonFib i -> Fib (i+1)   (* Surprise! *)
 
 (** Is every value of type [u1] also a value of [u2] ? *)
 let universe_le u1 u2 =
@@ -264,10 +270,14 @@ and subst j e' =
 
 
 (** [beta body arg] substitutes [arg] in for variable [0] in [body].
- * This is exactly the substitution required, for example, to
- * beta-reduce a function application ([body] is the body of the lambda),
- * or to substitute away the parameter in a [Pi] or [Sigma] type ([body] is
- * the type of the codomain or second component, respectively).
+
+  So, if [G, x:t |- body : ...] and [G |- arg : t] then
+  [beta body arg] is the term [body[x->arg]].
+
+  This is exactly the substitution required, for example, to
+  beta-reduce a function application ([body] is the body of the lambda),
+  or to substitute away the parameter in a [Pi] or [Sigma] type ([body] is
+  the type of the codomain or second component, respectively).
 *)
 and beta eBody eArg =
   (*let _ = Format.printf "beta: eBody = %s, eArg = %s@."*)
@@ -276,6 +286,43 @@ and beta eBody eArg =
   (*let _ = Format.printf "      answer = %s@." (string_of_term answer)  in*)
   answer
 
+(**
+  Suppose we have [G, x_1:t_1, ..., x_n:t_n |- exp : ...] and the inhabitants
+  [e_1; ...; e_n] all well-formed in [G] (!) with types [t_1] through [t_n]
+  respectively. Then [strengthen exp [e_1,...,e_n]] is the result of
+  substituting away the x_i's, resulting in a term well-formed in [G].
+
+  In particular, [strengthen env eBody [eArg]] is just [beta eBody
+ *)
+and strengthen exp inhabitants =
+  let rec loop n accum = function
+    | [] ->
+        begin
+          assert (n = 0);
+          accum
+        end
+    | inhabitant :: inhabitants ->
+        begin
+          let accum' = beta accum (shift (n-1) inhabitant)  in
+          loop (n-1) accum' inhabitants
+        end  in
+  loop (List.length inhabitants) exp (List.rev inhabitants)
+
+(** If [G |- exp] then [G' |- weaken i exp] where [G'] has an extra (unused)
+     variable inserted at position [i]. This is just a simple renumbering, with
+     all free variables [< i] unchanged, and all [>= i] incremented (because
+     there's a new variable in front of them). *)
+and weaken new_var_pos exp =
+  shift ~cut:new_var_pos 1 exp
+
+  (** [shift_to_depth (k,exp) l] moves the expression [exp] from a context
+      with depth [k] to a context of depth [l >= k].
+
+      Equivalently, weaken with [l - k] new variables at the end of the
+      context. *)
+and shift_to_depth (old_depth, exp) new_depth =
+  assert (new_depth >= old_depth);
+  shift (new_depth - old_depth) exp
 
 and apply_list eFn eArgs =
   match eFn, eArgs with
