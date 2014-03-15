@@ -18,6 +18,7 @@
     ("idpath", REFLEQUAL) ;
     ("with", WITH) ;
     ("Ind", IND);
+    ("ADMIT", ADMIT);
   ]
 
   let position_of_lex lex =
@@ -72,7 +73,7 @@ rule token = parse
 
   | eof                 { EOF }
 
-  | (name | patternvar | numeral) 
+  | (name | patternvar | numeral)
                        { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved

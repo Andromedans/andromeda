@@ -1,0 +1,58 @@
+assume false : Type
+assume ex_falso : false -> (T : QuasiType) -> T
+
+assume nat : Type
+assume 0 : nat
+assume S : nat -> nat
+
+assume nat_nonzero_succ : (n : nat) -> (0 = S(n) @ nat) -> false
+assume nat_nonzero_succ2 : (n : nat) -> (S(n) = 0 @ nat) -> false
+assume nat_injection : (n : nat) -> (m: nat) -> (S(n) = S(m) @ nat) -> (n = m @ nat)
+assume nat_ind : (P : nat -> QuasiType) -> (P 0) -> ((n : nat) -> P(n) -> P(S(n))) -> (n:nat) -> P(n)
+
+assume sum   : (P : QuasiType) -> (Q : QuasiType) -> QuasiType
+assume inj1  : (P : QuasiType) -> ( Q : QuasiType) -> P -> sum P Q
+assume inj2  : (P : QuasiType) -> (Q : QuasiType) -> Q -> sum P Q
+assume cases : (P : QuasiType) -> (Q : QuasiType) -> (R : QuasiType) -> (P -> R) -> (Q -> R) -> (sum P Q -> R)
+
+assume lemma : (n : nat) -> (S n = n @ nat) -> false
+
+// Main proof
+
+define P := fun (x:nat) (y:nat) =>  sum (x == y @ nat) ((x = y @ nat) -> false)
+
+define nat_dec  
+  := (fun (x :nat) =>
+       nat_ind (fun x => (y : nat) -> sum (x == y @ nat) ((x = y @ nat) -> false))
+               (fun y => nat_ind (fun y => sum (0 == y @ nat) ((0 = y @ nat) -> false))
+                                 (inj1 ? ? (refl 0))
+                                 (fun y => fun f => inj2 ? ? (nat_nonzero_succ y))
+                                 y)
+               (fun (n:nat) =>
+                 fun (IH1:(y:nat) -> sum (n == y @ nat) ((n = y @ nat) -> false)) =>
+                   nat_ind (fun y => sum (S n == y @ nat) ((S n = y @ nat) -> false))
+                   (inj2 ? ? (nat_nonzero_succ2 n))
+                   (fun (y:nat) => 
+                     fun (dec : sum (S n == y @ nat) ((S n = y @ nat) -> false)) =>
+                       (cases  ? ? (sum (S n == S y @ nat) ((S n = S y @ nat) -> false))
+                         (fun wit_equiv : (n == y @ nat) => 
+                            handle
+                               inj1 ? ? (refl (S n))
+                            with wit_equiv end)
+                         (fun wit_ne : ((n = y @ nat) -> false) => 
+                            inj2 ? ((S n = S y @ nat) -> false)
+                              (fun (w : S n = S y @ nat) =>
+                                 wit_ne (nat_injection n y w)))
+                         (IH1 y))))
+               x)
+
+     :> ((x : nat) -> (y : nat) -> P x y)
+
+define paths_to_id :=
+     (fun x => fun y => fun H =>
+        cases ? ? ?
+          (fun (wit_equiv : x == y @ nat) => wit_equiv)
+          (fun (wit_ne : (x = y @ nat) -> false) =>
+            ex_falso (wit_ne H) ?)
+          (nat_dec x y))
+     :> (x : nat) -> (y : nat) -> (x = y @ nat) -> (x == y @ nat)

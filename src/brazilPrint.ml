@@ -2,6 +2,26 @@
 
 module S = BrazilSyntax
 
+    (** Support for printing of errors, warning and debugging information. *)
+
+let default_verbosity = 2
+let verbosity = ref default_verbosity
+
+let message msg_type v =
+  if v <= !verbosity then
+    begin
+      Format.eprintf "%s:@\n@[" msg_type ;
+      Format.kfprintf (fun ppf -> Format.fprintf ppf "@]@.") Format.err_formatter
+    end
+  else
+    Format.ifprintf Format.err_formatter
+
+let error (loc, err_type, msg) = message (err_type) 1 "%s" msg
+let warning msg = message "Warning" 2 msg
+let debug msg = message "Debug" 3 msg
+let equivalence msg = message "Equivalence" 1 msg
+
+
 (** Print an term, possibly placing parentheses around it. We always
     print things at a given "level" [at_level]. If the level exceeds the
     maximum allowed level [max_level] then the term should be parenthesized.
@@ -109,24 +129,10 @@ and lambda xs x t e ppf =
               begin
                 match S.get_mva mva with
                 | Some defn -> print ~at_level:0 "%t" (term ~max_level:1 xs defn)
-                | None -> print "%s" (S.string_of_mva mva)
+                | None ->
+                    if (!verbosity > default_verbosity) then
+                      print "%s" (S.string_of_mva mva)
+                    else
+                      print "?"
               end
-
-    (** Support for printing of errors, warning and debugging information. *)
-
-let verbosity = ref 2
-
-let message msg_type v =
-  if v <= !verbosity then
-    begin
-      Format.eprintf "%s:@\n@[" msg_type ;
-      Format.kfprintf (fun ppf -> Format.fprintf ppf "@]@.") Format.err_formatter
-    end
-  else
-    Format.ifprintf Format.err_formatter
-
-let error (loc, err_type, msg) = message (err_type) 1 "%s" msg
-let warning msg = message "Warning" 2 msg
-let debug msg = message "Debug" 3 msg
-let equivalence msg = message "Equivalence" 1 msg
 

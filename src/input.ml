@@ -34,6 +34,7 @@ and 'a term' =
            (Common.variable * 'a term) *
            'a term
   | Wildcard
+  | Admit
 
 
 and 'a handler_body = 'a term
@@ -92,6 +93,7 @@ let string_of_term string_of_var =
                          embrace (z ^ " . " ^ to_str w) ;
                          to_str q]
     | Wildcard -> "?"
+    | Admit -> "ADMIT"
    end
 
   and string_of_case (tag, terms, c) =
@@ -138,6 +140,7 @@ let rec desugar xs (e, loc) =
                    (z, desugar (z::xs) w),
                    desugar xs q)
     | Wildcard -> Wildcard
+    | Admit -> Admit
   ),
   loc
 
@@ -154,6 +157,7 @@ let rec shift ?(cut=0) delta (e, loc) =
   | Var m -> if (m < cut) then Var m else Var(m+delta)
   | Universe u  -> Universe u
   | Wildcard -> Wildcard
+  | Admit -> Admit
   | Pi (x, t1, t2) -> Pi(x, shift ~cut delta t1, shift ~cut:(cut+1) delta t2)
   | Sigma (x, t1, t2) -> Sigma(x, shift ~cut delta t1, shift ~cut:(cut+1) delta t2)
   | Lambda (x, None, e) -> Lambda (x, None, shift ~cut:(cut+1) delta e)

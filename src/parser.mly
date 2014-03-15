@@ -43,6 +43,7 @@
 (*%token RETURN*)
 %token REFLEQUIV REFLEQUAL
 %token IND
+%token ADMIT
 %token QUIT HELP  CONTEXT
 %token EOF
 
@@ -146,7 +147,8 @@ plain_simple_term:
   | LPAREN term COMMA term RPAREN  { Pair($2, $4) }
   | LBRACK plain_operation RBRACK  { let (tag,args) = $2 in Operation(tag,args) }
   | simple_term DOT NAME           { Proj($3, $1) }
-  | QUESTIONMARK                   { Wildcard}
+  | QUESTIONMARK                   { Wildcard }
+  | ADMIT                          { Admit }
 
 handler:
   | BAR? cs=separated_list(BAR, handler_case)  { cs }

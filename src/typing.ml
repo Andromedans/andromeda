@@ -388,7 +388,7 @@ and Infer : INFER_SIG = struct
   and infer env ((term', loc) as term) =
     P.debug "Infer called with term = %s@." (D.string_of_term string_of_int term);
     (*Ctx.print env.ctx;*)
-    (*let answer_expr, answer_type =*)
+    let answer_expr, answer_type =
     match term' with
 
     | D.Var v      ->
@@ -453,6 +453,12 @@ and Infer : INFER_SIG = struct
          can infer their type
       *)
       Error.typing ~loc "Cannot infer this wildcard's type"
+
+    | D.Admit ->
+      (* Temporary admits only allowed in checking positions, where we
+         can infer their type
+      *)
+      Error.typing ~loc "Cannot infer this admit's type"
 
     | D.App (term1, term2) ->
         begin
@@ -730,9 +736,9 @@ and Infer : INFER_SIG = struct
       let env'= addHandlers env loc handlers in
       infer env' term
 
-  (* in let _ = P.debug "infer returned@ %t with type %t@."
+   in let _ = P.debug "infer returned@ %t with type %t@."
              (print_term env answer_expr) (print_term env answer_type)  in
-     answer_expr, answer_type *)
+     answer_expr, answer_type
 
 
   and inferOp env loc tag terms handlerBodyOpt =
@@ -771,16 +777,45 @@ and Infer : INFER_SIG = struct
    * of the check instead. But a handler here is compatible with
    * the current Brazil verification algorithm. *)
   and check env ((term1, loc) as term) t =
+    P.debug "Checked called with term = %s@ expecting type %t@."
+      (D.string_of_term string_of_int term) (print_term env t);
     match term1 with
     | D.Wildcard ->
       let currentdepth = depth env in
       S.MetavarApp (S.fresh_mva currentdepth t loc)
+    | D.Admit ->
+        let currentdepth = depth env in
+        Format.printf "@[<hov 4>ADMIT at %s has type@ %t@]@."
+           (Common.string_of_position loc) (print_term env (nf env t));
+        (* Could lead to weird error messages, but maybe we'll get lucky *)
+        S.MetavarApp (S.fresh_mva currentdepth t loc)
+    | D.Handle (term, handlers) ->
+      let env'= addHandlers env loc handlers in
+      check env' term t
+
     | D.Lambda (x, None, term2) ->
       begin
         match as_pi env t with
         | S.Pi (_, t1, t2), hr_whnf ->
           let e2 = check (add_parameter x t1 env) term2 t2 in
           wrap_with_handlers (S.Lambda(x, t1, e2)) hr_whnf
+        | _ -> Error.typing ~loc "Lambda cannot have type %t"
+                 (print_term env t)
+      end
+    | D.Lambda (x, Some term1, term2) ->
+      begin
+        match as_pi env t with
+        | S.Pi (_, t1, t2), hr_whnf ->
+            begin
+              let t1', _ = infer_ty env term1  in
+              match Equiv.equal_at_some_universe env t1 t1' with
+              | None -> Error.typing ~loc "Lambda should have domain %t"
+                            (print_term env t1)
+              | Some hr_equiv ->
+                let e2 = check (add_parameter x t1 env) term2 t2 in
+                let hr_all = join_hr hr_whnf hr_equiv  in
+                wrap_with_handlers (S.Lambda(x, t1, e2)) hr_all
+            end
         | _ -> Error.typing ~loc "Lambda cannot have type %t"
                  (print_term env t)
       end
@@ -816,7 +851,8 @@ and Infer : INFER_SIG = struct
           match (Equiv.equal_at_some_universe env t' t ) with
           | None ->
             Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
-              (print_term env e) (print_term env t') (print_term env t)
+              (print_term env e) (print_term env (whnf env t')) (print_term env
+              (whnf env t))
           | Some witness_set -> wrap_with_handlers e witness_set
         end
 
@@ -995,10 +1031,16 @@ and Infer : INFER_SIG = struct
     let amap = arg_map args in      (* Map arg vars to their position *)
     S.VS.fold (fun s m -> S.VM.add s (S.VM.find s amap) m) defn_free_set S.VM.empty
 
+
+
+
   let instantiate env mva defn =
     assert (not (S.mva_is_set mva));
-    (*Format.printf "instantiate: mva = %s, defn = %t@."*)
-    (*(S.string_of_mva ~show_meta:true mva) (X.print_term env defn);*)
+    (*P.debug "instantiate: mva = %s, defn = %t@ = %s."*)
+      (*(S.string_of_mva ~show_meta:true mva) (print_term env defn)*)
+      (*(S.string_of_term defn);*)
+    (*Ctx.print env.ctx;*)
+
     match patternCheck mva.S.mv_args with
     | None ->
       Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term; not a pattern unification problem"
@@ -1032,7 +1074,7 @@ and Infer : INFER_SIG = struct
               if (m < c) then
                 S.Var m
               else
-                S.Var (S.VM.find (m-c) renaming_map)) defn  in
+                S.Var (c + S.VM.find (m-c) renaming_map)) defn  in
 
         S.set_mva mva renamed_defn;
 

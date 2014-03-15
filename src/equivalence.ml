@@ -1,3 +1,13 @@
+(******************)
+(* {1 Signatures} *)
+(******************)
+
+(** A list of the items needed to make the equivalence algorithm independent of
+    its context (e.g., TT type checking or Brazil verification).
+
+    Of course, it does do a lot of pattern-matching, etc., so there is a
+    hard-coded assumption that we're using BrazilSyntax for the term structure.
+ *)
 module type EQUIV_ARG = sig
   type term = BrazilSyntax.term
 
@@ -16,7 +26,6 @@ module type EQUIV_ARG = sig
   val as_whnf_for_eta : env -> term -> term * handled_result
   val as_pi   : env -> term -> term * handled_result
   val as_sigma : env -> term -> term * handled_result
-  (* val as_u     : env -> term -> term  *)
 
   val instantiate : env -> BrazilSyntax.metavarapp
                         -> term
@@ -29,17 +38,13 @@ module Make (X : EQUIV_ARG) =
     module P = BrazilPrint
     module S = BrazilSyntax
 
-    type lazy_hr_opt = unit -> X.handled_result option
+    (********************************)
+    (* Handled Results and Laziness *)
+    (********************************)
 
-(*
- * let hr_and lhro1 lhro2 =
-      match lhro1() with
-        | None -> None
-        | Some hr1 ->
-            match lhro2() with
-            | None -> None
-            | Some hr2 ->  X.join_hr hr1 hr2
-*)
+    (* The equivalence algorithms keep track of.
+     *)
+
 
     let rec hr_ands = function
       | [] -> Some X.trivial_hr
@@ -214,8 +219,8 @@ and equal_structural env t1 t2 =
                 Some hr
             | None   ->
                 begin
-                  P.equivalence "[Path] Why is %t == %t ?@."
-                      (X.print_term env t1) (X.print_term env t2);
+                  P.equivalence "@[<hov>[Path] Why is %t ==@ %t ?@]@."
+                      (X.print_term env t1') (X.print_term env t2');
                    None
                 end
           end
