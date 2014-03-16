@@ -95,9 +95,14 @@ let rec exec_cmd interactive env (d, loc) =
         let t = Input.desugar ctx.Ctx.names t in
         let env' = Typing.Infer.inferParam ~verbose:interactive env xs t  in
         env'
-    | Input.TopDef (x, e) ->
+    | Input.TopDef (x, None, e) ->
         let e = Input.desugar ctx.Ctx.names e in
         let env' = Typing.Infer.inferDefinition ~verbose:interactive env x e  in
+        env'
+    | Input.TopDef (x, Some t, e) ->
+        let t = Input.desugar ctx.Ctx.names t in
+        let e = Input.desugar ctx.Ctx.names e in
+        let env' = Typing.Infer.inferAnnotatedDefinition ~verbose:interactive env x t e  in
         env'
     | Input.TopHandler hs ->
         let hs = Input.desugar_handler ctx.Ctx.names hs   in

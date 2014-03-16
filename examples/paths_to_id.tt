@@ -21,7 +21,7 @@ assume lemma : (n : nat) -> (S n = n @ nat) -> false
 
 define P := fun (x:nat) (y:nat) =>  sum (x == y @ nat) ((x = y @ nat) -> false)
 
-define nat_dec  
+define nat_dec  :  ((x : nat) -> (y : nat) -> P x y)
   := (fun (x :nat) =>
        nat_ind (fun x => (y : nat) -> sum (x == y @ nat) ((x = y @ nat) -> false))
                (fun y => nat_ind (fun y => sum (0 == y @ nat) ((0 = y @ nat) -> false))
@@ -46,13 +46,12 @@ define nat_dec
                          (IH1 y))))
                x)
 
-     :> ((x : nat) -> (y : nat) -> P x y)
-
-define paths_to_id :=
+    
+define paths_to_id : (x : nat) -> (y : nat) -> (x = y @ nat) -> (x == y @ nat) :=
      (fun x => fun y => fun H =>
         cases ? ? ?
           (fun (wit_equiv : x == y @ nat) => wit_equiv)
           (fun (wit_ne : (x = y @ nat) -> false) =>
             ex_falso (wit_ne H) ?)
+
           (nat_dec x y))
-     :> (x : nat) -> (y : nat) -> (x = y @ nat) -> (x == y @ nat)

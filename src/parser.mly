@@ -76,7 +76,8 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | DEFINE NAME COLONEQ term               { TopDef ($2, $4) }
+  | DEFINE NAME COLONEQ term               { TopDef ($2, None, $4) }
+  | DEFINE NAME COLON term COLONEQ term    { TopDef ($2, Some $4, $6) }
   | ASSUME nonempty_list(NAME) COLON term  { TopParam ($2, $4) }
 
 (* Toplevel directive. *)

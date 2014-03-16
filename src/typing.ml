@@ -44,6 +44,7 @@ module type INFER_SIG = sig
   val get_ctx   : env -> BrazilContext.Ctx.context
 
   val infer : env -> iterm -> term * term
+
   val inferParam               : ?verbose:bool -> env -> Common.variable list
     -> iterm -> env
   val inferDefinition          : ?verbose:bool -> env -> Common.variable
@@ -54,8 +55,6 @@ module type INFER_SIG = sig
   val addHandlers: env -> Common.position
     -> Common.debruijn Input.handler
     -> env
-
-
 
 end
 
@@ -171,9 +170,9 @@ and Infer : INFER_SIG = struct
 
   let print_term env e ppf =
     begin
-      Format.fprintf ppf "\027[38;5;4m";
+      Format.fprintf ppf "\027[38;5;4m"; (* blue *)
       P.term env.ctx.Ctx.names e ppf;
-      Format.fprintf ppf "\027[0m"
+      Format.fprintf ppf "\027[0m"       (* default colors *)
     end
 
 
