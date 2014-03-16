@@ -41,8 +41,12 @@ and metavarapp = { mv_def  : term option ref;
                    mv_args : term list;
                    mv_ty   : term;
                    mv_pos  : Common.position;
+                   mv_sort : metavar_sort;
                  }
 
+and metavar_sort =
+  | MV_wildcard
+  | MV_admit
 
 
 (**************************************
@@ -248,6 +252,7 @@ and rewrite_vars ?(cut=0) ftrans =
                          mv_args = List.map (loop cut) mva.mv_args;
                          mv_ty   = loop cut mva.mv_ty;
                          mv_pos  = mva.mv_pos;
+                         mv_sort = mva.mv_sort;
                        }  in
   loop cut
 
@@ -330,7 +335,7 @@ and apply_list eFn eArgs =
   | Lambda(_, _, eBody), eArg :: eArgs -> apply_list (beta eBody eArg) eArgs
   | _, eArg :: eArgs -> apply_list (App (eFn, eArg)) eArgs
 
-and fresh_mva context_length ty pos =
+and fresh_mva context_length ty pos sort =
   let rec loop = function
     | 0 -> []
     | n -> Var (n-1) :: loop (n-1) in
@@ -338,6 +343,7 @@ and fresh_mva context_length ty pos =
     mv_args = loop context_length;
     mv_ty = ty;
     mv_pos = pos;
+    mv_sort = sort;
   }
 
 and get_mva {mv_def = r; mv_args = args} =
@@ -349,8 +355,9 @@ and get_mva {mv_def = r; mv_args = args} =
           List.fold_right (fun _ b -> Lambda ("???", Base TUnit, b)) args body  in
       Some (apply_list lambda_wrapped_body args)
 
-and string_of_mva ?(show_meta=false) ({mv_def = r; mv_args = args} as mva) =
-  let base_string = "M-" ^ (Printf.sprintf "%x" (Obj.magic r : int)) in
+    and string_of_mva ?(show_meta=false) ({mv_def; mv_args; mv_pos} as mva) =
+  (*let base_string = "M-" ^ (Printf.sprintf "%x" (Obj.magic mv_def : int)) in*)
+  let base_string = "M-" ^ (Common.string_of_position mv_pos) in
   match get_mva mva with
   | Some defn ->
       if show_meta then
@@ -358,7 +365,7 @@ and string_of_mva ?(show_meta=false) ({mv_def = r; mv_args = args} as mva) =
       else
         string_of_term ~show_meta defn
   | None -> "{{" ^ base_string ^ "}}[" ^
-                    String.concat "," (List.map string_of_term args) ^ "]"
+                    String.concat "," (List.map string_of_term mv_args) ^ "]"
 
 (* This function does **not** check reasonableness, or make sure
  * it's referring to the right parameters. *)
@@ -371,6 +378,10 @@ let mva_is_set mva =
   match ! (mva.mv_def) with
   | None   -> false
   | Some _ -> true
+
+let get_mva_sort {mv_sort} = mv_sort
+let get_mva_pos {mv_pos} = mv_pos
+let get_mva_ty {mv_ty} = mv_ty
 
 (** [occurs v e] returns [true] when variable [Var v] occurs freely in [e]. *)
 (* The rule is: increase the variable number by one (shift it)

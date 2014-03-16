@@ -302,7 +302,22 @@ let rec infer env term =
         begin
           match S.get_mva mva with
           | Some defn -> infer env defn
-          | None -> Error.verify ~loc:mva.S.mv_pos "Unset metavariable %s" (S.string_of_mva mva)
+          | None ->
+              begin
+                let ty = S.get_mva_ty mva in
+                let _ = infer_ty env ty  in
+                let printable_ty = nf env ty  in
+                match S.get_mva_sort mva with
+                | S.MV_admit ->
+                    let loc = S.get_mva_pos mva in
+                    Format.printf "@[<hov 4>ADMIT at %s of type@ %t@]@."
+                      (Common.string_of_position loc)
+                      (print_term env printable_ty);
+                    ty
+                | S.MV_wildcard ->
+                    Error.verify ~loc:mva.S.mv_pos "Unset metavariable %s@ of type %t"
+                      (S.string_of_mva mva) (print_term env printable_ty)
+              end
         end
 
 and addHandlers env handlers =

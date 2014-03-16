@@ -169,7 +169,12 @@ and Infer : INFER_SIG = struct
   let whnf env e = Norm.whnf env.ctx e
   let nf   env e = Norm.nf   env.ctx e
 
-  let print_term env e = P.term env.ctx.Ctx.names e
+  let print_term env e ppf =
+    begin
+      Format.fprintf ppf "\027[38;5;4m";
+      P.term env.ctx.Ctx.names e ppf;
+      Format.fprintf ppf "\027[0m"
+    end
 
 
   (***********************)
@@ -782,13 +787,10 @@ and Infer : INFER_SIG = struct
     match term1 with
     | D.Wildcard ->
       let currentdepth = depth env in
-      S.MetavarApp (S.fresh_mva currentdepth t loc)
+      S.MetavarApp (S.fresh_mva currentdepth t loc S.MV_wildcard)
     | D.Admit ->
         let currentdepth = depth env in
-        Format.printf "@[<hov 4>ADMIT at %s has type@ %t@]@."
-           (Common.string_of_position loc) (print_term env (nf env t));
-        (* Could lead to weird error messages, but maybe we'll get lucky *)
-        S.MetavarApp (S.fresh_mva currentdepth t loc)
+        S.MetavarApp (S.fresh_mva currentdepth t loc S.MV_admit)
     | D.Handle (term, handlers) ->
       let env'= addHandlers env loc handlers in
       check env' term t
@@ -809,14 +811,14 @@ and Infer : INFER_SIG = struct
             begin
               let t1', _ = infer_ty env term1  in
               match Equiv.equal_at_some_universe env t1 t1' with
-              | None -> Error.typing ~loc "Lambda should have domain %t"
+              | None -> Error.typing ~loc "@[<hov 4>Lambda should have domain@ %t@]"
                             (print_term env t1)
               | Some hr_equiv ->
                 let e2 = check (add_parameter x t1 env) term2 t2 in
                 let hr_all = join_hr hr_whnf hr_equiv  in
                 wrap_with_handlers (S.Lambda(x, t1, e2)) hr_all
             end
-        | _ -> Error.typing ~loc "Lambda cannot have type %t"
+        | _ -> Error.typing ~loc "@[<hov 4>Lambda cannot have type@ %t@]"
                  (print_term env t)
       end
     | D.Pair (term1, term2) ->
@@ -827,7 +829,7 @@ and Infer : INFER_SIG = struct
           let t2' = S.beta t2 e1  in
           let e2 = check env term2 t2'  in
           wrap_with_handlers (S.Pair(e1, e2, x, t1, t2)) hr_whnf
-        | _ -> Error.typing ~loc "Pair cannot have type %t"
+        | _ -> Error.typing ~loc "@[<hov 4>Pair cannot have type@ %t@]"
                  (print_term env t)
       end
     | _ ->
@@ -1036,9 +1038,9 @@ and Infer : INFER_SIG = struct
 
   let instantiate env mva defn =
     assert (not (S.mva_is_set mva));
-    (*P.debug "instantiate: mva = %s, defn = %t@ = %s."*)
-      (*(S.string_of_mva ~show_meta:true mva) (print_term env defn)*)
-      (*(S.string_of_term defn);*)
+    P.debug "instantiate: mva = %s, defn = %t@ = %s."
+      (S.string_of_mva ~show_meta:true mva) (print_term env defn)
+      (S.string_of_term defn);
     (*Ctx.print env.ctx;*)
 
     match patternCheck mva.S.mv_args with
@@ -1060,7 +1062,16 @@ and Infer : INFER_SIG = struct
              if (S.VS.is_empty (S.VS.diff second_try arg_var_set)) then
                defn', second_try
              else
-               Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term: defn has extra free variables")  in
+               begin
+                 S.VS.iter (function i -> Format.printf "free var: %d  " i) first_try;
+                 Format.printf "@.";
+                 S.VS.iter (function i -> Format.printf "arg  var: %d  " i) arg_var_set;
+                 Format.printf "\nmetavariable= %s @."
+                    (S.string_of_mva ~show_meta:true mva);
+
+                 Error.fatal ~pos:mva.S.mv_pos
+                    "Cannot deduce term: defn has extra free variables"
+               end) in
 
         (* XXX Occurs check? *)
         (* XXX Check that all variables and metavariables in definition
