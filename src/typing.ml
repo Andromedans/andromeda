@@ -392,13 +392,22 @@ and Infer : INFER_SIG = struct
     loop env.handlers
 
   (**
-       Look for a handler that equates
+       Look for a handler that can equate the given expression with a Pi type.
+       If so, return that Pi. Otherwise, return the weak-head normal form.
+
+       If the input is an unset metavariable though, we can get it to be a Pi by
+       instantiating it with a Pi, with fresh metavariables for the domain and
+       codomain. For simplicity and determinacy, we instantiate with a
+       non-dependent arrow type. [We could instantiate it with a dependent pi
+       type, but that is much more likely to result in non-pattern-unification
+       instances with no unique solution.]
   *)
   and as_pi env expr =
   let reduct, hr = find_handler_reduction env expr
                   (function S.Pi _ -> true | _ -> false) in
   match reduct with
   | S.MetavarApp mva ->
+      (* reduct is in whnf, so mva cannot have a definition already *)
       let dom_mva = S.derived_mva mva in
       let cod_mva = S.derived_mva mva in
       let arrow_type = S.make_arrow (S.MetavarApp dom_mva) (S.MetavarApp cod_mva)  in
@@ -406,11 +415,21 @@ and Infer : INFER_SIG = struct
       arrow_type, join_hr hr hr_inst
   | _ -> reduct, hr
 
+  (**
+       Look for a handler that can equate the given expression with a Sigma
+       type.  If so, return that Sigma. Otherwise, return the weak-head normal
+       form.
+
+       If the input is (or reduces to) an unset metavariable, though, we make
+       it a Sigma by instantiating with a non-dependent * type. (See comments
+       for [as_pi] above.)
+   *)
   and as_sigma env expr =
   let reduct, hr = find_handler_reduction env expr
                   (function S.Sigma _ -> true | _ -> false)  in
   match reduct with
   | S.MetavarApp mva ->
+      (* reduct is in whnf, so mva cannot have a definition already *)
       let dom_mva = S.derived_mva mva in
       let cod_mva = S.derived_mva mva in
       let star_type = S.make_arrow (S.MetavarApp dom_mva) (S.MetavarApp cod_mva)  in
@@ -419,13 +438,36 @@ and Infer : INFER_SIG = struct
   | _ -> reduct, hr
 
 
+  (**
+       Look for a handler that can equate the given expression with a universe
+       type.  If so, return that universe. Otherwise, return the weak-head
+       normal form.
+
+       NOTE: we cannot handle unset metavariable here, as we don't know what
+       to instantiate it with. We could guess, but would likely be wrong
+       fairly frequently. Maybe someday we'll have metavariables ranging
+       over universe levels, in which case this code should be extended.
+   *)
   and as_u env expr =
     find_handler_reduction env expr (function S.U _ -> true | _ -> false)
 
+  (**
+       Look for a handler that can equate the given expression with a equality
+       type.  If so, return that equality type. Otherwise, return the weak-head
+       normal form.
+
+       NOTE: we cannot handle unset metavariable here, as we don't know what
+       to instantiate it with. To instantiate the comparison type with
+       a metavariable, in particular, we need to know it's type (universe).
+       But we don't, and we don't have a metavariable for universe levels.
+   *)
   and as_eq env expr =
     find_handler_reduction env expr (function S.Eq _ -> true | _ -> false)
 
-
+  (** Look for a handler that can equate the given expression with a type
+      with non-trivial eta equivalence. If so, return the equivalent type.
+      Otherwise, return the weak-head normal form.
+   *)
   and as_whnf_for_eta env expr =
     find_handler_reduction env expr
       (function
