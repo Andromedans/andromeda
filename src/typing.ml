@@ -170,6 +170,7 @@ and Infer : INFER_SIG = struct
 
   let print_term env e ppf =
     begin
+      (* We print Brazil syntax in color *)
       Format.fprintf ppf "\027[38;5;4m"; (* blue *)
       P.term env.ctx.Ctx.names e ppf;
       Format.fprintf ppf "\027[0m"       (* default colors *)
@@ -204,32 +205,109 @@ and Infer : INFER_SIG = struct
   (* {3 Metavariable Utilities} *)
   (******************************)
 
-  let patternCheck args =
+  (* If we create a fresh metavariable in the context a,b,c,d,
+     then we declare the unknown M to be a function of its free variables, and
+     actually build a term representing the application M a b c d. (More
+     precisely, [a;b;c;d] is the mv_args list.)
+
+     Thus, the unknown is a closed term, meaning that it is unaffected by shifts
+     or substitutions. (The arguments a,b,c,d are affected normally, of course.)
+
+     The trick is to do the de Bruijn bookkeeping properly when it's time to
+     instantiate the variable. WLOG shifts and substitutions have turned the
+     term into M c d b e, and suppose we've decided to instantiate
+
+         M c d b e ===  d * e
+
+     Intuitively we want M to be the function
+         fun c d b e => d * e
+     or, in de Bruijn notation,
+
+         lam lam lam lam . Var(2) * Var(0)
+
+     That is, the definition of the un-applied metavariable is like the
+     instantiating definition, except that all variables are replaced by their
+     distance from the end in the mv_args list. This translation of
+     variable indices is constructed by [build_renaming] below.
+
+     In the metavarapp data structure, the lambdas are implicit.
+
+
+     All of this assumes that we're doing a pattern unification problem, which
+     requires the arguments to the metavariable M are distinct variables, and
+     that these collectively include all the free variables of the instantiating
+     definition.
+  *)
+
+
+
+  (* Check that this is pattern unification, or transform it
+     into such a problem.
+   *)
+  let pattern_check env args defn =
     let rec loop vars_seen = function
       | [] -> Some vars_seen
       | S.Var v :: rest  when not (S.VS.mem v vars_seen) ->
         loop (S.VS.add v vars_seen) rest
       | _ -> None
-    in
-    loop S.VS.empty args
+    in match loop S.VS.empty args with
+    | None -> None
+    | Some arg_var_set ->
+        (* Arguments consist of distinct variables. Check they
+           include all free variables in the definition. *)
+        let free_in_defn = S.free_vars defn  in
+        if (S.VS.is_empty (S.VS.diff free_in_defn arg_var_set)) then
+           Some (defn, free_in_defn)
+        else
+           (* That didn't work. Lets try normalizing, in case some
+              of the free variables disappear. *)
+           let defn' = nf env defn in
+           let free_in_defn' = S.free_vars defn'  in
+           if (S.VS.is_empty (S.VS.diff free_in_defn' arg_var_set)) then
+             Some (defn', free_in_defn')
+           else
+             None
+             (*
+             begin
+               S.VS.iter (function i -> Format.printf "free var: %d  " i) first_try;
+               Format.printf "@.";
+               S.VS.iter (function i -> Format.printf "arg  var: %d  " i) arg_var_set;
+               Format.printf "\nmetavariable= %s @."
+                  (S.string_of_mva ~show_meta:true mva);
 
+               Error.fatal ~pos:mva.S.mv_pos
+                  "Cannot deduce term: defn has extra free variables"
+             end
+             *)
+
+  (* Builds a mapping from each variable to its distance from the
+     end of the list.
+
+     Assumes that the arguments have already been verified as distinct
+     variables.
+   *)
   let arg_map args =
     let num_args = List.length args  in
-    let rec loop i = function
+    let rec loop index_in_list = function
       | []              -> S.VM.empty
       | S.Var v :: rest ->
-        let how_far_from_list_end = num_args - (i+1)  in
-        S.VM.add v how_far_from_list_end (loop (i+1) rest)
+        let how_far_from_list_end = num_args - (index_in_list+1)  in
+        S.VM.add v how_far_from_list_end (loop (index_in_list+1) rest)
       | _               -> Error.impossible "arg_map: arg is not a Var"  in
     loop 0 args
 
+  (* Figure out the required renumbering of variables from the
+     instantiating definition to the metavariable's lambda body; see
+     further explanation above.
+  *)
   let build_renaming args defn_free_set =
     let amap = arg_map args in      (* Map arg vars to their position *)
     S.VS.fold (fun s m -> S.VM.add s (S.VM.find s amap) m) defn_free_set S.VM.empty
 
 
-
-
+  (* Try to set an unset metavariable (application) to a term.
+     Fails with an Error exception if this is not a pattern unification problem.
+   *)
   let instantiate env mva defn =
     assert (not (S.mva_is_set mva));
     P.debug "instantiate: mva = %s, defn = %t@ = %s@."
@@ -237,36 +315,11 @@ and Infer : INFER_SIG = struct
       (S.string_of_term defn);
     (*Ctx.print env.ctx;*)
 
-    match patternCheck mva.S.mv_args with
+    match pattern_check env mva.S.mv_args defn with
     | None ->
       Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term; not a pattern unification problem"
-    | Some arg_var_set ->
+    | Some (defn, free_in_defn) ->
       begin
-        (* Again, to stay in the pattern fragment we need the definition's
-         * free variables to be included in our argument variables.
-         * We try to minimize these free variables by normalizing,
-         * which might expand away definitions, etc. *)
-        let defn, free_in_defn =
-          (let first_try = S.free_vars defn  in
-           if (S.VS.is_empty (S.VS.diff first_try arg_var_set)) then
-             defn, first_try
-           else
-             let defn' = nf env defn in
-             let second_try = S.free_vars defn'  in
-             if (S.VS.is_empty (S.VS.diff second_try arg_var_set)) then
-               defn', second_try
-             else
-               begin
-                 S.VS.iter (function i -> Format.printf "free var: %d  " i) first_try;
-                 Format.printf "@.";
-                 S.VS.iter (function i -> Format.printf "arg  var: %d  " i) arg_var_set;
-                 Format.printf "\nmetavariable= %s @."
-                    (S.string_of_mva ~show_meta:true mva);
-
-                 Error.fatal ~pos:mva.S.mv_pos
-                    "Cannot deduce term: defn has extra free variables"
-               end) in
-
         (* XXX Occurs check? *)
         (* XXX Check that all variables and metavariables in definition
          * are "older than" the * metavariable *)
@@ -275,15 +328,26 @@ and Infer : INFER_SIG = struct
           build_renaming mva.S.mv_args free_in_defn  in
 
         let renamed_defn =
-          S.rewrite_vars (fun c m ->
-              if (m < c) then
-                S.Var m
+          (* Traverse all variables in the definition *)
+          S.rewrite_vars (fun bound_vars_in_term this_index ->
+              if (this_index < bound_vars_in_term) then
+                (* Leave bound variables alone *)
+                S.Var this_index
               else
-                S.Var (c + S.VM.find (m-c) renaming_map)) defn  in
+                (* Free variable. Subtract bound variable count to
+                   see what it's called on the outside of the definition,
+                   translate it to a top-level argument number, and then add
+                   bound variable count back when we insert it into the middle
+                   of the term.
+                 *)
+                 let renamed_index =
+                   S.VM.find (this_index - bound_vars_in_term) renaming_map in
+                 S.Var (bound_vars_in_term + renamed_index)) defn  in
 
+        (* Store the metavariable's function definition without the implicit lambdas *)
         S.set_mva mva renamed_defn;
 
-        P.debug "mva set to@ %t@." (print_term env (S.MetavarApp mva));
+        (* P.debug "mva set to@ %t@." (print_term env (S.MetavarApp mva)); *)
 
         trivial_hr
       end
