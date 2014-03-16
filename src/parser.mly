@@ -45,6 +45,7 @@
 %token IND
 %token ADMIT
 %token INHABIT
+%token UNDERSCORE
 %token QUIT HELP  CONTEXT
 %token EOF
 
@@ -140,6 +141,10 @@ plain_app_term:
         RPAREN
         { Ind((x, y, p, t), (z, u), q) }
 
+simple_param_name:
+  | NAME { $1 }
+  | UNDERSCORE { "_" }
+
 simple_term: mark_position(plain_simple_term) { $1 }
 plain_simple_term:
   | NAME                           { Var $1 }
@@ -182,7 +187,7 @@ quantifier_abstraction:
 
 quantifier_bind1: mark_position(plain_quantifier_bind1) { $1 }
 plain_quantifier_bind1:
-  | xs=nonempty_list(NAME) COLON t=term  { (xs, t) }
+  | xs=nonempty_list(simple_param_name) COLON t=term  { (xs, t) }
 
 quantifier_binds:
   | LPAREN quantifier_bind1 RPAREN           { [$2] }
@@ -194,8 +199,8 @@ fun_abstraction:
 
 fun_bind1: mark_position(plain_fun_bind1) { $1 }
 plain_fun_bind1:
-  | xs=nonempty_list(NAME)             { (xs, None) }
-  | xs=nonempty_list(NAME) COLON term  { (xs, Some $3) }
+  | xs=nonempty_list(simple_param_name)             { (xs, None) }
+  | xs=nonempty_list(simple_param_name) COLON term  { (xs, Some $3) }
 
 fun_binds:
   | LPAREN fun_bind1 RPAREN            { [$2] }

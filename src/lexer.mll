@@ -64,6 +64,7 @@ rule token = parse
   | "@"                 { AT }
   | ">->"               { COERCE }
   | "?!"                { INHABIT }
+  | "_"                 { UNDERSCORE }
 
   | "Type" [' ' '\t']* (numeral as s) { TYPE (int_of_string s) }
   | "Type"                            { TYPE 0 }
