@@ -343,7 +343,17 @@ and Infer : INFER_SIG = struct
   | _ -> reduct, hr
 
   and as_sigma env expr =
-    find_handler_reduction env expr (function S.Sigma _ -> true | _ -> false)
+  let reduct, hr = find_handler_reduction env expr
+                  (function S.Sigma _ -> true | _ -> false)  in
+  match reduct with
+  | S.MetavarApp mva ->
+      let dom_mva = S.derived_mva mva in
+      let cod_mva = S.derived_mva mva in
+      let star_type = S.make_arrow (S.MetavarApp dom_mva) (S.MetavarApp cod_mva)  in
+      let hr_inst = instantiate env mva star_type in
+      star_type, join_hr hr hr_inst
+  | _ -> reduct, hr
+
 
   and as_u env expr =
     find_handler_reduction env expr (function S.U _ -> true | _ -> false)
