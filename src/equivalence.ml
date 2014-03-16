@@ -29,7 +29,7 @@ module type EQUIV_ARG = sig
 
   val instantiate : env -> BrazilSyntax.metavarapp
                         -> term
-                        -> handled_result option
+                        -> handled_result
 end
 
 
@@ -236,7 +236,7 @@ and equal_structural env t1 t2 =
               (* XXX: Really need to check that other is not
                * a newer meta variable! *)
 
-              X.instantiate env mva other;
+              Some (X.instantiate env mva other);
             end
 
 
@@ -268,9 +268,8 @@ and equal_path env e1 e2 =
   | other, S.MetavarApp mva ->
       begin
         (* XXX Need to do further checks, e.g., occurs *)
-        match X.instantiate env mva other with
-        | None    -> None
-        | Some hr -> Some (mva.S.mv_ty, hr)
+        let hr = X.instantiate env mva other in
+        Some (mva.S.mv_ty, hr)
       end
 
 (** [subst j e' e] replaces the free occurrences of variable [j] in [e] by [e'].  *)

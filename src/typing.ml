@@ -200,6 +200,96 @@ and Infer : INFER_SIG = struct
     | witnesses -> S.Handle(expr, witnesses)
 
 
+  (******************************)
+  (* {3 Metavariable Utilities} *)
+  (******************************)
+
+  let patternCheck args =
+    let rec loop vars_seen = function
+      | [] -> Some vars_seen
+      | S.Var v :: rest  when not (S.VS.mem v vars_seen) ->
+        loop (S.VS.add v vars_seen) rest
+      | _ -> None
+    in
+    loop S.VS.empty args
+
+  let arg_map args =
+    let num_args = List.length args  in
+    let rec loop i = function
+      | []              -> S.VM.empty
+      | S.Var v :: rest ->
+        let how_far_from_list_end = num_args - (i+1)  in
+        S.VM.add v how_far_from_list_end (loop (i+1) rest)
+      | _               -> Error.impossible "arg_map: arg is not a Var"  in
+    loop 0 args
+
+  let build_renaming args defn_free_set =
+    let amap = arg_map args in      (* Map arg vars to their position *)
+    S.VS.fold (fun s m -> S.VM.add s (S.VM.find s amap) m) defn_free_set S.VM.empty
+
+
+
+
+  let instantiate env mva defn =
+    assert (not (S.mva_is_set mva));
+    P.debug "instantiate: mva = %s, defn = %t@ = %s@."
+      (S.string_of_mva ~show_meta:true mva) (print_term env defn)
+      (S.string_of_term defn);
+    (*Ctx.print env.ctx;*)
+
+    match patternCheck mva.S.mv_args with
+    | None ->
+      Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term; not a pattern unification problem"
+    | Some arg_var_set ->
+      begin
+        (* Again, to stay in the pattern fragment we need the definition's
+         * free variables to be included in our argument variables.
+         * We try to minimize these free variables by normalizing,
+         * which might expand away definitions, etc. *)
+        let defn, free_in_defn =
+          (let first_try = S.free_vars defn  in
+           if (S.VS.is_empty (S.VS.diff first_try arg_var_set)) then
+             defn, first_try
+           else
+             let defn' = nf env defn in
+             let second_try = S.free_vars defn'  in
+             if (S.VS.is_empty (S.VS.diff second_try arg_var_set)) then
+               defn', second_try
+             else
+               begin
+                 S.VS.iter (function i -> Format.printf "free var: %d  " i) first_try;
+                 Format.printf "@.";
+                 S.VS.iter (function i -> Format.printf "arg  var: %d  " i) arg_var_set;
+                 Format.printf "\nmetavariable= %s @."
+                    (S.string_of_mva ~show_meta:true mva);
+
+                 Error.fatal ~pos:mva.S.mv_pos
+                    "Cannot deduce term: defn has extra free variables"
+               end) in
+
+        (* XXX Occurs check? *)
+        (* XXX Check that all variables and metavariables in definition
+         * are "older than" the * metavariable *)
+
+        let renaming_map : Common.debruijn S.VM.t =
+          build_renaming mva.S.mv_args free_in_defn  in
+
+        let renamed_defn =
+          S.rewrite_vars (fun c m ->
+              if (m < c) then
+                S.Var m
+              else
+                S.Var (c + S.VM.find (m-c) renaming_map)) defn  in
+
+        S.set_mva mva renamed_defn;
+
+        P.debug "mva set to@ %t@." (print_term env (S.MetavarApp mva));
+
+        trivial_hr
+      end
+
+
+
   (*****************************************)
   (* {3 Searching for applicable handlers} *)
   (*****************************************)
@@ -241,7 +331,16 @@ and Infer : INFER_SIG = struct
        Look for a handler that equates
   *)
   and as_pi env expr =
-    find_handler_reduction env expr (function S.Pi _ -> true | _ -> false)
+  let reduct, hr = find_handler_reduction env expr
+                  (function S.Pi _ -> true | _ -> false) in
+  match reduct with
+  | S.MetavarApp mva ->
+      let dom_mva = S.derived_mva mva in
+      let cod_mva = S.derived_mva mva in
+      let arrow_type = S.make_arrow (S.MetavarApp dom_mva) (S.MetavarApp cod_mva)  in
+      let hr_inst = instantiate env mva arrow_type in
+      arrow_type, join_hr hr hr_inst
+  | _ -> reduct, hr
 
   and as_sigma env expr =
     find_handler_reduction env expr (function S.Sigma _ -> true | _ -> false)
@@ -1003,93 +1102,6 @@ and Infer : INFER_SIG = struct
     let ty, _ = infer_ty env term in
     let expr = check env termDef ty  in
     add_definition name ty expr env
-
-
-  (******************************)
-  (* {3 Metavariable Utilities} *)
-  (******************************)
-
-  let patternCheck args =
-    let rec loop vars_seen = function
-      | [] -> Some vars_seen
-      | S.Var v :: rest  when not (S.VS.mem v vars_seen) ->
-        loop (S.VS.add v vars_seen) rest
-      | _ -> None
-    in
-    loop S.VS.empty args
-
-  let arg_map args =
-    let num_args = List.length args  in
-    let rec loop i = function
-      | []              -> S.VM.empty
-      | S.Var v :: rest ->
-        let how_far_from_list_end = num_args - (i+1)  in
-        S.VM.add v how_far_from_list_end (loop (i+1) rest)
-      | _               -> Error.impossible "arg_map: arg is not a Var"  in
-    loop 0 args
-
-  let build_renaming args defn_free_set =
-    let amap = arg_map args in      (* Map arg vars to their position *)
-    S.VS.fold (fun s m -> S.VM.add s (S.VM.find s amap) m) defn_free_set S.VM.empty
-
-
-
-
-  let instantiate env mva defn =
-    assert (not (S.mva_is_set mva));
-    P.debug "instantiate: mva = %s, defn = %t@ = %s."
-      (S.string_of_mva ~show_meta:true mva) (print_term env defn)
-      (S.string_of_term defn);
-    (*Ctx.print env.ctx;*)
-
-    match patternCheck mva.S.mv_args with
-    | None ->
-      Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term; not a pattern unification problem"
-    | Some arg_var_set ->
-      begin
-        (* Again, to stay in the pattern fragment we need the definition's
-         * free variables to be included in our argument variables.
-         * We try to minimize these free variables by normalizing,
-         * which might expand away definitions, etc. *)
-        let defn, free_in_defn =
-          (let first_try = S.free_vars defn  in
-           if (S.VS.is_empty (S.VS.diff first_try arg_var_set)) then
-             defn, first_try
-           else
-             let defn' = nf env defn in
-             let second_try = S.free_vars defn'  in
-             if (S.VS.is_empty (S.VS.diff second_try arg_var_set)) then
-               defn', second_try
-             else
-               begin
-                 S.VS.iter (function i -> Format.printf "free var: %d  " i) first_try;
-                 Format.printf "@.";
-                 S.VS.iter (function i -> Format.printf "arg  var: %d  " i) arg_var_set;
-                 Format.printf "\nmetavariable= %s @."
-                    (S.string_of_mva ~show_meta:true mva);
-
-                 Error.fatal ~pos:mva.S.mv_pos
-                    "Cannot deduce term: defn has extra free variables"
-               end) in
-
-        (* XXX Occurs check? *)
-        (* XXX Check that all variables and metavariables in definition
-         * are "older than" the * metavariable *)
-
-        let renaming_map : Common.debruijn S.VM.t =
-          build_renaming mva.S.mv_args free_in_defn  in
-
-        let renamed_defn =
-          S.rewrite_vars (fun c m ->
-              if (m < c) then
-                S.Var m
-              else
-                S.Var (c + S.VM.find (m-c) renaming_map)) defn  in
-
-        S.set_mva mva renamed_defn;
-
-        Some trivial_hr
-      end
 
 end
 

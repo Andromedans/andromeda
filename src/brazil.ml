@@ -47,7 +47,7 @@ and Verify : sig
 
   val instantiate : env -> BrazilSyntax.metavarapp
                         -> term
-                        -> handled_result option
+                        -> handled_result
 
   type iterm = BrazilSyntax.term
 

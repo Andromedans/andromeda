@@ -73,7 +73,7 @@ let string_of_term string_of_var =
   let rec to_str (term, loc) =
   begin
     match term with
-    | Var x -> string_of_var x
+    | Var x -> "Var[" ^ string_of_var x ^ "]"
     | Universe u -> string_of_universe u
     | Lambda(x,None,t2) -> app_embrace "Lambda" [x; "_"; to_str t2]
     | Lambda(x,Some t1,t2) -> app_embrace "Lambda" [x; to_str t1; to_str t2]

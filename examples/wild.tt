@@ -56,5 +56,15 @@ define contr_is_inhab_prop :=
   fun (A : Type) (c : is_contr A) =>
     (c.1 , 
      (fun (x y : A) => concat ? ? ? ? (opp ? ? ? (c.2 x)) (c.2 y))) :> A * is_prop A
-  
+
+
+// Extra tests
+
+assume nat : Type
+assume 0 : nat
+assume S : nat -> nat
+
+define test :=
+   fun (f : (? :> Type)) => S (f 0)
+
 #context

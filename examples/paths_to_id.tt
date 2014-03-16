@@ -34,7 +34,7 @@ define nat_dec  :  ((x : nat) -> (y : nat) -> P x y)
                    (inj2 ? ? (nat_nonzero_succ2 n))
                    (fun (y:nat) => 
                      fun (dec : sum (S n == y @ nat) ((S n = y @ nat) -> false)) =>
-                       (cases  ? ? (sum (S n == S y @ nat) ((S n = S y @ nat) -> false))
+                       (cases  ? ? /*(sum (S n == S y @ nat) ((S n = S y @ nat) -> false))*/ ?
                          (fun wit_equiv : (n == y @ nat) => 
                             handle
                                inj1 ? ? (refl (S n))

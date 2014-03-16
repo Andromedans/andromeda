@@ -175,6 +175,7 @@ let universe_le u1 u2 =
   | NonFib _, Fib    _  ->  false
 
 
+
 (** [string_of_term term] creates an accurate but not-very-pretty textual
  * representation of the [term] datatype value.
 *)
@@ -222,7 +223,6 @@ and string_of_basetype = function
 
 and string_of_constant = function
   | Unit -> "Unit"
-
 
 (** [shift cut delta] shifts the indices by [delta] with a cutoff of [cut]. *)
 (* See, e.g., http://ecee.colorado.edu/~siek/ecen5013/spring10/lecture4.pdf
@@ -291,6 +291,12 @@ and beta eBody eArg =
   (*let _ = Format.printf "      answer = %s@." (string_of_term answer)  in*)
   answer
 
+and make_arrow dom cod =
+  Pi("_", dom, shift 1 cod)
+
+and make_star fst snd =
+  Pi("_", fst, shift 1 snd)
+
 (**
   Suppose we have [G, x_1:t_1, ..., x_n:t_n |- exp : ...] and the inhabitants
   [e_1; ...; e_n] all well-formed in [G] (!) with types [t_1] through [t_n]
@@ -345,6 +351,15 @@ and fresh_mva context_length ty pos sort =
     mv_pos = pos;
     mv_sort = sort;
   }
+
+and derived_mva mva =
+  { mv_def  = ref None;
+    mv_args = mva.mv_args;
+    mv_ty   = mva.mv_ty;
+    mv_pos  = mva.mv_pos;
+    mv_sort = mva.mv_sort;
+  }
+
 
 and get_mva {mv_def = r; mv_args = args} =
   match !r with
