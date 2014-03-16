@@ -940,6 +940,11 @@ and Infer : INFER_SIG = struct
         | _ -> Error.typing ~loc "@[<hov 4>Pair cannot have type@ %t@]"
                  (print_term env t)
       end
+
+    | D.Operation(D.Inhabit, []) ->
+        let exp, _ = inferHandler env loc (Inhabit t)  in
+        exp
+
     | _ ->
       let e, t' = infer env term in
       match t with

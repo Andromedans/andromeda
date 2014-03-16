@@ -37,6 +37,9 @@ define d5 := handle
              end
 
 
+define d6 :=  handle fun w : nat => S ?!
+               with [?::nat] => O end
+
 define p1 := (O, S(O))
 
 define n2 := p1.fst

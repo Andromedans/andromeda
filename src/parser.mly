@@ -44,6 +44,7 @@
 %token REFLEQUIV REFLEQUAL
 %token IND
 %token ADMIT
+%token INHABIT
 %token QUIT HELP  CONTEXT
 %token EOF
 
@@ -147,6 +148,7 @@ plain_simple_term:
   | LPAREN plain_term RPAREN       { $2 }
   | LPAREN term COMMA term RPAREN  { Pair($2, $4) }
   | LBRACK plain_operation RBRACK  { let (tag,args) = $2 in Operation(tag,args) }
+  | INHABIT                        { Operation(Inhabit, []) }
   | simple_term DOT NAME           { Proj($3, $1) }
   | QUESTIONMARK                   { Wildcard }
   | ADMIT                          { Admit }
