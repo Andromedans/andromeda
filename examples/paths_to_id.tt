@@ -23,8 +23,7 @@ assume lemma : (n : nat) -> (S n = n @ nat) -> false
 define P := fun (x:nat) (y:nat) => OR (x == y @ nat) (not (x = y @ nat))
 
 define nat_dec  :  ((x : nat) -> (y : nat) -> P x y)
-  := (fun (x :nat) =>
-       nat_ind (fun x => forall y : nat, OR (x == y @ nat) (not (x = y @ nat)))
+  :=   nat_ind (fun x => forall y : nat, OR (x == y @ nat) (not (x = y @ nat)))
                (fun y => nat_ind (P 0)
                                  (inj1 ? ? (refl 0))                         // P 0 0
                                  (fun y _ => inj2 ? ? (nat_nonzero_succ y))  // (y:nat) -> P 0 y -> P 0 (S y)
@@ -43,7 +42,6 @@ define nat_dec  :  ((x : nat) -> (y : nat) -> P x y)
                                  (fun wit_ne : (not (x = y @ nat)) => 
                                     inj2 ? ? (fun (w : S x = S y @ nat) => wit_ne (nat_injection x y w)))
                                  (IH1 y))))
-               x)
 
     
 define paths_to_id : (x : nat) -> (y : nat) -> (x = y @ nat) -> (x == y @ nat) :=
