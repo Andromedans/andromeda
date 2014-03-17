@@ -98,9 +98,9 @@ sso :
 term: mark_position(plain_term) { $1 }
 plain_term:
   | plain_arrow_term                  { $1 }
-  | FORALL abstraction COMMA term  { fst (make_pi $4 $2) }
-  | EXISTS abstraction COMMA term  { fst (make_sigma $4 $2) }
-  | FUN abstraction DARROW term   { fst (make_lambda $4 $2) }
+  | FORALL abstraction COMMA  term    { fst (make_pi $4 $2) }
+  | EXISTS abstraction COMMA  term    { fst (make_sigma $4 $2) }
+  | FUN    abstraction DARROW term    { fst (make_lambda $4 $2) }
   | t1 = arrow_term ASCRIBE t2 = term { Ascribe (t1, t2) }
   | HANDLE term WITH handler END      { Handle ($2, $4) }
 
@@ -148,8 +148,8 @@ simple_param_name:
 simple_term: mark_position(plain_simple_term) { $1 }
 plain_simple_term:
   | NAME                           { Var $1 }
-  | TYPE                 { Universe (Fib $1) }
-  | QUASITYPE            { Universe (NonFib $1) }
+  | TYPE                           { Universe (Fib $1) }
+  | QUASITYPE                      { Universe (NonFib $1) }
   | LPAREN plain_term RPAREN       { $2 }
   | LPAREN term COMMA term RPAREN  { Pair($2, $4) }
   | LBRACK plain_operation RBRACK  { let (tag,args) = $2 in Operation(tag,args) }
@@ -166,24 +166,19 @@ handler_case:
                                             { let (tag,args) = $2 in (tag,args, $5) }
   | term                                    { (Inhabit, [], $1) }
 
-(*
-computation: mark_position(plain_computation) { $1 }
-plain_computation:
-  | RETURN term                                  { Return $2 }
-  | LPAREN plain_computation RPAREN              { $2 }
-  | LET NAME COLONEQ term IN computation         { Let ($2, $4, $6) }
-  *)
 computation: term { $1 }
 
-(*operation: mark_position(plain_operation) { $1 }*)
 plain_operation:
     | QUESTIONMARK DCOLON term        { (Inhabit, [$3]) }
     | term                            { (Inhabit, [$1]) }
     | term COERCE term                { (Coerce, [$1; $3]) }
 
+(* returns a list of things individually annotated by positions.
+ * Since the list is not further annotated, consistency suggests
+ * this should be called plain_abstraction *)
 abstraction:
   | annotated_var_list  { [$1] }
-  | binds  { $1 }
+  | binds               { $1 }
 
 simple_bind1: mark_position(plain_simple_bind1) { $1 }
 plain_simple_bind1:
