@@ -487,7 +487,7 @@ and Infer : INFER_SIG = struct
       Note: We currently assume that although the code uses as_u, as_pi, etc.,
       this will not result in any handlers being invoked. (We do check this,
       though.) If this assumption turns out to be wrong, we will have to rewrite
-      these functions to return handler_results.
+      these functions to return handled_results.
    *)
   and type_of env e =
     P.debug "type_of: e = %t@." (print_term env e);
@@ -1081,13 +1081,18 @@ and Infer : INFER_SIG = struct
           | Some witness_set -> wrap_with_handlers e witness_set
         end
 
+  (* [infer_ty] is used when the context of an input term tells
+     us it must be a type or quasitype living in some universe.  Infer whatever
+     classifier it has, find an equivalent universe (possibly using handlers),
+     and return the annotated/translated term and the universe.
+   *)
   and infer_ty env ((_,loc) as term) =
-    let t, k = infer env term in
+    let ty, ty_classifier = infer env term in
     let _ = P.debug "infer_ty given %t\ni.e., %s@."
-        (print_term env t) (D.string_of_term string_of_int term)  in
-    match as_u env k with
-    | S.U u, hr_whnf -> wrap_with_handlers t hr_whnf, u
-    | _ -> Error.typing ~loc "Not a type: %t" (print_term env t)
+        (print_term env ty) (D.string_of_term string_of_int term)  in
+    match as_u env ty_classifier with
+    | S.U u, hr_whnf -> wrap_with_handlers ty hr_whnf, u
+    | _              -> Error.typing ~loc "Not a type: %t" (print_term env ty)
 
   (* [infer_pi G term] does type synthesis on the given input [term],
      and checks that its type is (convertible to) a Pi.  If so, it returns the
@@ -1125,6 +1130,19 @@ and Infer : INFER_SIG = struct
     | _ -> Error.typing ~loc "Expected an equality type, but@ %t@ has type@ %t"
              (print_term env exp) (print_term env ty)
 
+  (* [handled env e1 e2 ty] looks for a handler in scope that explains
+     how to inhabit e1==e2. If so, we "run" (type check) the handler
+     to find the witness. For compatibility with the rest of the code
+     that uses handled_results to track handler usage, we return the
+     witness as a singleton set (of annotated terms).
+
+     WARNING: Currently, the [ty] parameter is ignored.
+
+     WARNING: This is specifically shifting the result w.r.t the
+     context where an equivalence check began. This code is not
+     directly suitable for cases where the user invoked the
+     inhabit operation explicitly.
+  *)
   and handled env e1 e2 _ =
     let currentdepth = depth env  in
     let _ = P.debug "Entering 'handled' with@ e1 = %t and@ e2 = %t"
@@ -1165,6 +1183,7 @@ and Infer : INFER_SIG = struct
                  (print_term env witness)
                  shift_out
                  (S.string_of_term shifted_witness);
+               (* Return the witness *)
                Some (S.TermSet.singleton shifted_witness))
             else
               loop rest
@@ -1175,6 +1194,9 @@ and Infer : INFER_SIG = struct
 
 
   (* Find the first matching handler, and return the typechecked right-hand-side
+
+     This is the code to search the handlers in scope, when the operation was
+     explicitly invoked by the user.
   *)
   and inferHandler env loc op =
     let currentdepth = depth env  in
@@ -1195,7 +1217,7 @@ and Infer : INFER_SIG = struct
             | Inhabit ty ->
               check env comp1' ty, ty
             | Coerce (ty1, ty2) ->
-              let ty = S.Pi("_", ty1, S.shift 1 ty2)  in
+              let ty = S.make_arrow ty1 ty2  in
               check env comp1' ty, ty
           end
         else
@@ -1204,8 +1226,9 @@ and Infer : INFER_SIG = struct
     loop (env.handlers)
 
 
-
-  let inferParam ?(verbose=false) env names ((_,loc) as term) =
+  (* Add one or more variables, all with the same given type, to the environment
+   *)
+  let inferParam ?(verbose=false) env names term =
     let ty, _ = infer_ty env term  in
     let env, _ =
       List.fold_left
@@ -1216,6 +1239,8 @@ and Infer : INFER_SIG = struct
         (env, ty) names   in
     env
 
+  (* Add one definition to the environment.
+   *)
   let inferDefinition ?(verbose=false) env name termopt termDef =
     let expr, ty =
       (* The user may or may not have supplied a type annotation *)
@@ -1226,7 +1251,7 @@ and Infer : INFER_SIG = struct
                      expr, ty  in
     begin
       if verbose then Format.printf "Term %s is defined.@." name;
-      add_definition name ty expr env
+      add_definition name ty expr env;
     end
 
 end

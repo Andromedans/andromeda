@@ -24,34 +24,12 @@ module rec Equiv : sig
 (****************************)
 
 and Verify : sig
-  type term = BrazilSyntax.term
 
-  type env
-  val empty_env         : env
-  val get_ctx           : env -> BrazilContext.Ctx.context
-  val add_parameter     : Common.variable -> term -> env -> env
-  val lookup_classifier : Common.debruijn -> env -> term
-  val whnf              : env -> term -> term
-  val nf                : env -> term -> term
-  val print_term        : env -> term -> Format.formatter -> unit
+  (* Expose everything that the equivalence algorithm needs *)
+  include Equivalence.EQUIV_ARG
+    with type handled_result = unit    (* No handler-tracking *)
 
-  type handled_result = unit
-  val trivial_hr : handled_result
-  val join_hr    : handled_result -> handled_result -> handled_result
-
-  val handled : env -> term -> term -> term option -> handled_result option
-  val as_whnf_for_eta : env -> term -> term * handled_result
-  val as_pi   : env -> term -> term * handled_result
-  val as_sigma : env -> term -> term * handled_result
-  (* val as_u     : env -> term -> term  *)
-
-  val instantiate : env -> BrazilSyntax.metavarapp
-                        -> term
-                        -> handled_result
-
-  type iterm = BrazilSyntax.term
-
-  val infer : env -> iterm -> term
+  (* Needed by top-level TT *)
   val verifyContext : BrazilContext.Ctx.context -> unit
  end = struct
 
@@ -83,6 +61,7 @@ let add_definition x t e env =
 
 let lookup v env = Ctx.lookup v env.ctx
 let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
+let shift_to_env (env1, exp) env2 = Ctx.shift_to_ctx (env1.ctx, exp) env2.ctx
 let whnf env e = Norm.whnf env.ctx e
 let nf env e = Norm.nf env.ctx e
 let print_term env e = P.term env.ctx.Ctx.names e
