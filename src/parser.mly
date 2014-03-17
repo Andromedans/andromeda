@@ -98,23 +98,23 @@ sso :
 term: mark_position(plain_term) { $1 }
 plain_term:
   | plain_arrow_term                  { $1 }
-  | FORALL quantifier_abstraction COMMA term  { fst (make_pi $4 $2) }
-  | EXISTS quantifier_abstraction COMMA term  { fst (make_sigma $4 $2) }
-  | FUN fun_abstraction DARROW term   { fst (make_lambda $4 $2) }
+  | FORALL abstraction COMMA term  { fst (make_pi $4 $2) }
+  | EXISTS abstraction COMMA term  { fst (make_sigma $4 $2) }
+  | FUN abstraction DARROW term   { fst (make_lambda $4 $2) }
   | t1 = arrow_term ASCRIBE t2 = term { Ascribe (t1, t2) }
   | HANDLE term WITH handler END      { Handle ($2, $4) }
 
 arrow_term: mark_position(plain_arrow_term) { $1 }
 plain_arrow_term:
   | plain_star_term              { $1 }
-  | star_term ARROW arrow_term   { Pi ("_", $1, $3) }
-  | LPAREN NAME COLON term RPAREN ARROW arrow_term      { Pi($2, $4, $7) }
+  | star_term ARROW arrow_term   { Pi ("_", Some $1, $3) }
+  | LPAREN NAME COLON term RPAREN ARROW arrow_term      { Pi($2, Some $4, $7) }
 
 star_term: mark_position(plain_star_term) { $1 }
 plain_star_term:
   | plain_equiv_term                               { $1 }
-  | equiv_term STAR star_term                      { Sigma ("_", $1, $3) }
-  | LPAREN NAME COLON term RPAREN STAR star_term   { Sigma($2, $4, $7) }
+  | equiv_term STAR star_term                      { Sigma ("_", Some $1, $3) }
+  | LPAREN NAME COLON term RPAREN STAR star_term   { Sigma($2, Some $4, $7) }
 
 equiv_term: mark_position(plain_equiv_term) { $1 }
 plain_equiv_term:
@@ -181,44 +181,34 @@ plain_operation:
     | term                            { (Inhabit, [$1]) }
     | term COERCE term                { (Coerce, [$1; $3]) }
 
-quantifier_abstraction:
-  | quantifier_bind1  { [$1] }
-  | quantifier_binds  { $1 }
+abstraction:
+  | annotated_var_list  { [$1] }
+  | binds  { $1 }
 
-quantifier_bind1: mark_position(plain_quantifier_bind1) { $1 }
-plain_quantifier_bind1:
-  | xs=nonempty_list(simple_param_name) COLON t=term  { (xs, t) }
+simple_bind1: mark_position(plain_simple_bind1) { $1 }
+plain_simple_bind1:
+    | plain_unannotated_var_list  { $1 }
+    | plain_annotated_var_list    { $1 }
 
-quantifier_binds:
-  | LPAREN quantifier_bind1 RPAREN           { [$2] }
-  | LPAREN quantifier_bind1 RPAREN quantifier_binds  { $2 :: $4 }
-
-fun_abstraction:
-  | fun_bind1  { [$1] }
-  | fun_binds  { $1 }
-
-fun_bind1: mark_position(plain_fun_bind1) { $1 }
-plain_fun_bind1:
-  | plain_annotated_fun_bind1   { $1 }
-
-unannotated_fun_bind1: mark_position(plain_unannotated_fun_bind1) { $1 }
-plain_unannotated_fun_bind1:
+unannotated_var_list: mark_position(plain_unannotated_var_list) { $1 }
+plain_unannotated_var_list:
   | xs=nonempty_list(simple_param_name)             { (xs, None) }
 
-plain_annotated_fun_bind1:
+annotated_var_list: mark_position(plain_annotated_var_list) { $1 }
+plain_annotated_var_list:
   | xs=nonempty_list(simple_param_name) COLON term  { (xs, Some $3) }
 
-fun_binds:
-  | fun_binds_leading_paren            { $1 }
-  | unannotated_fun_bind1              { [$1] }
-  | unannotated_fun_bind1 fun_binds_leading_paren { $1 :: $2 }
+binds:
+  | binds_leading_paren            { $1 }
+  | unannotated_var_list              { [$1] }
+  | unannotated_var_list binds_leading_paren { $1 :: $2 }
 
-fun_binds_leading_paren:
-  | LPAREN fun_bind1 RPAREN            { [$2] }
-  | LPAREN fun_bind1 RPAREN fun_binds  { $2 :: $4 }
-  | LPAREN unannotated_fun_bind1 RPAREN { [$2] }
-  | LPAREN unannotated_fun_bind1 RPAREN fun_binds { $2 :: $4 }
+bind_leading_paren:
+  | LPAREN simple_bind1 RPAREN           { $2 }
 
+binds_leading_paren:
+  | bind_leading_paren       { [$1] }
+  | bind_leading_paren binds { $1 :: $2 }
 
 mark_position(X):
   x = X

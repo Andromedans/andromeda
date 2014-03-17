@@ -626,28 +626,34 @@ and Infer : INFER_SIG = struct
         S.U u, S.U (S.universe_classifier u)
       end
 
-    | D.Pi (x, term1, term2) ->
+    | D.Pi (x, term1_opt, term2) ->
       begin
           (*
                G |- ty1 : U_i     G, x:U_i |- ty2 : U_j
                ----------------------------------------
                G |- Pi x:ty1. ty2  : U_i \/ U_j
            *)
-        let ty1, u_i = infer_ty env term1 in
-        let ty2, u_j = infer_ty (add_parameter x ty1 env) term2  in
-        S.Pi(x, ty1, ty2), S.U (S.universe_join u_i u_j)
+        match term1_opt with
+        | None -> Error.typing ~loc "Cannot infer type of Pi's domain %s" x
+        | Some term1 ->
+            let ty1, u_i = infer_ty env term1 in
+            let ty2, u_j = infer_ty (add_parameter x ty1 env) term2  in
+            S.Pi(x, ty1, ty2), S.U (S.universe_join u_i u_j)
       end
 
-    | D.Sigma (x, term1, term2) ->
+    | D.Sigma (x, term1_opt, term2) ->
       begin
           (*
                G |- ty1 : U_i     G, x:U_i |- ty2 : U_j
                ----------------------------------------
                G |- Sigma x:ty1. ty2  : U_i \/ U_j
            *)
-        let ty1, u_i = infer_ty env term1 in
-        let ty2, u_j = infer_ty (add_parameter x ty1 env) term2  in
-        S.Sigma(x, ty1, ty2), S.U (S.universe_join u_i u_j)
+        match term1_opt with
+        | None -> Error.typing ~loc "Cannot infer type of Sigma's domain %s" x
+        | Some term1 ->
+            let ty1, u_i = infer_ty env term1 in
+            let ty2, u_j = infer_ty (add_parameter x ty1 env) term2  in
+            S.Sigma(x, ty1, ty2), S.U (S.universe_join u_i u_j)
       end
 
     | D.Lambda (x, Some term1, term2) ->

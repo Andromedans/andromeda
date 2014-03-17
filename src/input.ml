@@ -20,9 +20,9 @@ and 'a term' =
   | Var of 'a
   | Universe of universe
   | Lambda of Common.variable * 'a term option * 'a term
-  | Pi of Common.variable * 'a term * 'a term
+  | Pi of Common.variable * 'a term option * 'a term
   | App of 'a term * 'a term
-  | Sigma of Common.variable * 'a term * 'a term
+  | Sigma of Common.variable * 'a term option * 'a term
   | Pair of 'a term * 'a term
   | Proj of string * 'a term
   | Ascribe of 'a term * 'a term
@@ -75,10 +75,12 @@ let string_of_term string_of_var =
     match term with
     | Var x -> "Var[" ^ string_of_var x ^ "]"
     | Universe u -> string_of_universe u
-    | Lambda(x,None,t2) -> app_embrace "Lambda" [x; "_"; to_str t2]
+    | Lambda(x,None,t2) -> app_embrace "Lambda" [x; "-"; to_str t2]
     | Lambda(x,Some t1,t2) -> app_embrace "Lambda" [x; to_str t1; to_str t2]
-    | Pi(x,t1,t2) -> app_embrace "Pi" [x; to_str t1; to_str t2]
-    | Sigma(x,t1,t2) -> app_embrace "Sigma" [x; to_str t1; to_str t2]
+    | Pi(x,None,t2) -> app_embrace "Pi" [x; "-"; to_str t2]
+    | Pi(x,Some t1,t2) -> app_embrace "Pi" [x; to_str t1; to_str t2]
+    | Sigma(x,None,t2) -> app_embrace "Sigma" [x; "-"; to_str t2]
+    | Sigma(x,Some t1,t2) -> app_embrace "Sigma" [x; to_str t1; to_str t2]
     | App(t1,t2) -> app_embrace "App" [to_str t1; to_str t2]
     | Pair(t1,t2) -> app_embrace "Pair" [to_str t1; to_str t2]
     | Proj(s1, t2) -> app_embrace "Proj" [s1; to_str t2]
@@ -123,10 +125,9 @@ let rec desugar xs (e, loc) =
   (match e with
     | Var x -> Var (index ~loc x xs)
     | Universe u  -> Universe u
-    | Pi (x, t1, t2) -> Pi (x, desugar xs t1, desugar (x :: xs) t2)
-    | Sigma (x, t1, t2) -> Sigma (x, desugar xs t1, desugar (x :: xs) t2)
-    | Lambda (x, None  , e) -> Lambda (x, None, desugar (x :: xs) e)
-    | Lambda (x, Some t, e) -> Lambda (x, Some (desugar xs t), desugar (x :: xs) e)
+    | Pi (x, t_opt, e) -> Pi (x, desugar_opt xs t_opt, desugar (x :: xs) e)
+    | Sigma (x, t_opt, e) -> Sigma (x, desugar_opt xs t_opt, desugar (x :: xs) e)
+    | Lambda (x, t_opt, e) -> Lambda (x, desugar_opt xs t_opt, desugar (x :: xs) e)
     | App (e1, e2)   -> App (desugar xs e1, desugar xs e2)
     | Pair (e1, e2)   -> Pair (desugar xs e1, desugar xs e2)
     | Proj (s1, e2) -> Proj (s1, desugar xs e2)
@@ -149,6 +150,10 @@ and desugar_handler xs lst = List.map (desugar_case xs) lst
 and desugar_case xs (optag, terms, c) =
   (optag, List.map (desugar xs) terms, desugar xs c)
 
+and desugar_opt xs = function
+  | None -> None
+  | Some e -> Some (desugar xs e)
+
 
   (* Based on similar shift code in Syntax *)
 
@@ -158,10 +163,9 @@ let rec shift ?(cut=0) delta (e, loc) =
   | Universe u  -> Universe u
   | Wildcard -> Wildcard
   | Admit -> Admit
-  | Pi (x, t1, t2) -> Pi(x, shift ~cut delta t1, shift ~cut:(cut+1) delta t2)
-  | Sigma (x, t1, t2) -> Sigma(x, shift ~cut delta t1, shift ~cut:(cut+1) delta t2)
-  | Lambda (x, None, e) -> Lambda (x, None, shift ~cut:(cut+1) delta e)
-  | Lambda (x, Some t, e) -> Lambda (x, Some (shift ~cut delta t), shift ~cut:(cut+1) delta e)
+  | Pi (x, t_opt, e) -> Pi (x, shift_opt ~cut delta t_opt, shift ~cut:(cut+1) delta e)
+  | Sigma (x, t_opt, e) -> Sigma (x, shift_opt ~cut delta t_opt, shift ~cut:(cut+1) delta e)
+  | Lambda (x, t_opt, e) -> Lambda (x, shift_opt ~cut delta t_opt, shift ~cut:(cut+1) delta e)
   | App (e1, e2) -> App(shift ~cut delta e1, shift ~cut delta e2)
   | Pair (e1, e2) -> Pair(shift ~cut delta e1, shift ~cut delta e2)
   | Proj (s1, e2) -> Proj(s1, shift ~cut delta e2)
@@ -179,6 +183,10 @@ let rec shift ?(cut=0) delta (e, loc) =
 and shift_handler_case ?(cut=0) delta (optag, terms, term) =
   (* Correct only because we have no pattern matching ! *)
   (optag, List.map (shift ~cut delta) terms, shift ~cut delta term)
+
+and shift_opt ?(cut=0) delta = function
+  | None -> None
+  | Some e -> Some (shift ~cut delta e)
 
 (** [shift_to_depth (k,exp) l] moves the expression [exp] from a context
       with depth [k] to a context of depth [l >= k].

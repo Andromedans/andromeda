@@ -87,5 +87,13 @@ define path_transitivity :=
             z. fun (d : A) (q : z = d @ A) => q)
            c q_bc
 
+/////////////////
+// Parser testing
+/////////////////
+
+define mytype1 := forall x y z: nat, nat
+define myfun1 : nat -> (nat -> nat) -> (nat -> nat) -> nat -> nat 
+                  := fun x (y z : nat->nat) w => x
+
 #context
 
