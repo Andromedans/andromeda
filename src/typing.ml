@@ -48,9 +48,7 @@ module type INFER_SIG = sig
   val inferParam               : ?verbose:bool -> env -> Common.variable list
     -> iterm -> env
   val inferDefinition          : ?verbose:bool -> env -> Common.variable
-    -> iterm -> env
-  val inferAnnotatedDefinition : ?verbose:bool -> env -> Common.variable
-    -> iterm -> iterm -> env
+    -> iterm option -> iterm -> env
 
   val addHandlers: env -> Common.position
     -> Common.debruijn Input.handler
@@ -1218,17 +1216,18 @@ and Infer : INFER_SIG = struct
         (env, ty) names   in
     env
 
-  let inferDefinition ?(verbose=false) env name ((_,loc) as termDef) =
-    let expr, ty = infer env termDef in
+  let inferDefinition ?(verbose=false) env name termopt termDef =
+    let expr, ty =
+      (* The user may or may not have supplied a type annotation *)
+      match termopt with
+      | None      -> infer env termDef
+      | Some term -> let ty, _ = infer_ty env term in
+                     let expr = check env termDef ty  in
+                     expr, ty  in
     begin
       if verbose then Format.printf "Term %s is defined.@." name;
-      add_definition name ty expr env;
+      add_definition name ty expr env
     end
-
-  let inferAnnotatedDefinition ?(verbose=false) env name ((_,loc) as term) termDef =
-    let ty, _ = infer_ty env term in
-    let expr = check env termDef ty  in
-    add_definition name ty expr env
 
 end
 

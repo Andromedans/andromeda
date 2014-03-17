@@ -151,7 +151,7 @@ and desugar_case xs (optag, terms, c) =
   (optag, List.map (desugar xs) terms, desugar xs c)
 
 and desugar_opt xs = function
-  | None -> None
+  | None   -> None
   | Some e -> Some (desugar xs e)
 
 
