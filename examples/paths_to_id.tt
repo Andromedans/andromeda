@@ -28,7 +28,7 @@ define nat_dec  :  ((x : nat) -> (y : nat) -> P x y)
                                  (inj1 ? ? (refl 0))                         // P 0 0
                                  (fun y _ => inj2 ? ? (nat_nonzero_succ y))  // (y:nat) -> P 0 y -> P 0 (S y)
                                  y)
-               (fun (x) (IH1 : forall y:nat, P x y) =>
+               (fun x (IH1 : forall y:nat, P x y) =>
                    nat_ind (P (S x))
                            (inj2 ? ? (nat_nonzero_succ2 x))              // P (S x) 0
                            (fun y _ =>                                   // (y:nat) -> P (S x) y -> P (S x) P (S y)

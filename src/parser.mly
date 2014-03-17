@@ -199,12 +199,26 @@ fun_abstraction:
 
 fun_bind1: mark_position(plain_fun_bind1) { $1 }
 plain_fun_bind1:
+  | plain_annotated_fun_bind1   { $1 }
+
+unannotated_fun_bind1: mark_position(plain_unannotated_fun_bind1) { $1 }
+plain_unannotated_fun_bind1:
   | xs=nonempty_list(simple_param_name)             { (xs, None) }
+
+plain_annotated_fun_bind1:
   | xs=nonempty_list(simple_param_name) COLON term  { (xs, Some $3) }
 
 fun_binds:
+  | fun_binds_leading_paren            { $1 }
+  | unannotated_fun_bind1              { [$1] }
+  | unannotated_fun_bind1 fun_binds_leading_paren { $1 :: $2 }
+
+fun_binds_leading_paren:
   | LPAREN fun_bind1 RPAREN            { [$2] }
   | LPAREN fun_bind1 RPAREN fun_binds  { $2 :: $4 }
+  | LPAREN unannotated_fun_bind1 RPAREN { [$2] }
+  | LPAREN unannotated_fun_bind1 RPAREN fun_binds { $2 :: $4 }
+
 
 mark_position(X):
   x = X
