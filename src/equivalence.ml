@@ -184,13 +184,27 @@ struct
 
      Property INVERSION
 
-     - If [env |- (Pi x:ty1. ty2) : U] for some universe [U],
-       then
-         [env |- ty1 : U] and [env, x:ty1 |- ty2 : U].
+     - If [env |- (Pi x:ty1. ty2) : ty]
+       then [env |- ty1 : U] for some universe [U] and [env, x:ty1 |- ty2 : U].
 
-     - If [env |- (Sigma x:ty1. ty2) : U] for some universe [U],
-       then
-         [env |- ty1 : U] and [env, x:ty1 |- ty2 : U].
+     - If [env |- (Sigma x:ty1. ty2) : ty]
+       then [env |- ty1 : U] for some universe [U] and [env, x:ty1 |- ty2 : U].
+
+     - If [env |- Refl(o,exp1,ty2) : ty]
+       then [env |- ty2 : U] for some universe [U] and [env |- exp1 : ty2].
+
+     - If [env |- Eq(o, exp1, exp2, ty3) : ty]
+       then [env |- ty3 : U] for some universe [U]
+       and [env |- exp1 : ty3] and [env |- exp2 : ty3].
+
+     - If [env |- Lambda(x, ty1, ty2, exp3) : ty]
+       then [env |- ty1 : U] and [env, x:ty1 |- ty2 : U] for some universe [U],
+       and [env, x:ty1 |- exp3 : ty2].
+
+     - If [env |- Pair(exp1, exp2, x, ty1, ty2) : ty]
+       then [env |- ty1 : U] and [env, x:ty1 |- ty2 : U] for some universe [U],
+       and [env |- exp1 : ty1] and [env |- exp2 : ty2{x->exp1}].
+
 
 
     Property SUBST
@@ -230,7 +244,7 @@ struct
     Property EQUIV
 
      - If
-          [env1, x:ty1, env2 |- ...]
+          [env1, x:ty1, env2 |- ...] for any judgment
        and
           [env1 |- ty1 == ty2 : U] for some universe [U],
        then
@@ -478,44 +492,101 @@ struct
       | None ->
           begin
             match exp1', exp2' with
+
             | S.Pi    (x, ty11, ty12), S.Pi    (_, ty21, ty22)
             | S.Sigma (x, ty11, ty12), S.Sigma (_, ty21, ty22) ->
-              (* By INVERSION,
-                   [env |- ty11 : U1]   [env, x:ty11 |- ty12 : U1]
-                   [env |- ty21 : U2]   [env, x:ty21 |- ty22 : U2].
-                 By JOIN,
-                   [env |- ty11 : U]    [env, x:ty11 |- ty12 : U]
-                   [env |- ty21 : U]    [env, x:ty21 |- ty22 : U]
-               *)
-
               let env' = X.add_parameter x ty11 env  in
               hr_ands
-                [lazy (equal_at_some_universe env  ty11 ty21);
-                 (* Now we know that [env'] is well-formed.
+                [ (* By INVERSION,
+                       [env |- ty11 : U1] and [env |- ty21 : U2]
+                     By JOIN,
+                       [env |- ty11 : U] and [env |- ty21 : U].
+                   *)
+                  lazy (equal_at_some_universe env ty11 ty21);
+
+                 (* By INVERSION,
+                       [env, x:ty11 |- ty12 : U1]
+                       [env, x:ty21 |- ty22 : U2].
+                    By EQUIV,
+                       [env, x:ty11 |- ty22 : U2]
+                    By JOIN,
+                       [env, x:ty11 |- ty12 : U']
+                       [env, x:ty11 |- ty22 : U']
+                    Note that env' := env, x:ty11.
                   *)
                  lazy (equal_at_some_universe env' ty12 ty22)]
 
-            | S.Refl(o1, t1, k1), S.Refl(o2, t2, k2) ->
-              if o1 != o2  then
+            | S.Refl(o1, exp1, ty1), S.Refl(o2, exp2, ty2) ->
+              if o1 <> o2  then
                 None
               else hr_ands
-                  [ lazy (equal_at_some_universe env k1 k2);
-                    lazy (equal env t1 t2 k1) ]
+                  [ (* By INVERSION,
+                         [env |- ty1 : U1] and [env |- ty2 : U2]
+                         [env |- exp1 : ty1] and [env |- exp2 : ty2]
+                       By JOIN,
+                         [env |- ty1 : U] and [env |- ty2 :U] for some [U].
+                     *)
+                    lazy (equal_at_some_universe env ty1 ty2);
 
-            | S.Eq(o1, e11, e12, t1), S.Eq(o2, e21, e22, t2) ->
-              if o1 != o2  then
+                    (* By PER and SUBSUMPTION,
+                         [env |- exp2 : ty1].
+                     *)
+
+                    lazy (equal env exp1 exp2 ty1) ]
+
+            | S.Eq(o1, exp11, exp12, ty1), S.Eq(o2, exp21, exp22, ty2) ->
+              if o1 <> o2  then
                 None
               else hr_ands
-                  [ lazy ( equal_at_some_universe env t1 t2 );
-                    lazy ( equal env e11 e21 t1 );
-                    lazy ( equal env e12 e22 t1 ) ]
+                  [ (* By INVERSION,
+                         [env |- ty1 : U1] and [env |- ty2 : U2], so
+                       so by JOIN we have
+                         [env |_ ty1 : U] and [env |- ty2 : U].
+                    *)
+                    lazy ( equal_at_some_universe env ty1 ty2 );
+
+                    (* By INVERSION,
+                         [env |- exp11 : ty1] and [env |- exp21 : ty2]
+                       so by PER and SUBSUMPTION
+                         [env |- exp21 : ty1].
+                     *)
+                    lazy ( equal env exp11 exp21 ty1 );
+
+                    (* By INVERSION,
+                         [env |- exp12 : ty1] and [env |- exp22 : ty2]
+                       so by PER and SUBSUMPTION
+                         [env |- exp22 : ty1].
+                     *)
+                    lazy ( equal env exp12 exp22 ty1 ) ]
 
             | S.Lambda(x, t11, t12, e1), S.Lambda(_, t21, t22, e2) ->
               P.warning "Why is equal_whnfs comparing two lambdas?";
               let env' = X.add_parameter x t11 env  in
               hr_ands
-                [ lazy ( equal_at_some_universe env t11 t12 );
-                  lazy ( equal_at_some_universe env' t21 t22 );
+                [ (* By INVERSION,
+                      [env |- t11 : U1] and [env |- t21 : U2]
+                     By JOIN,
+                      [env |- t11 : U] and [env |- t21 : U]
+                   *)
+                  lazy ( equal_at_some_universe env t11 t21 );
+
+                  (* By INVERSION,
+                       [env, x:t11 |- t12 : U1] and [env, x:t21 |- t22 : U2].
+                     By JOIN,
+                       [env, x:t11 |- t12 : U] and [env, x:t21 |- t22 : U].
+                     By EQUIV,
+                       [env, x:t11 |- t22 : U].
+                     Note that env' := env, x:t11.
+                   *)
+                  lazy ( equal_at_some_universe env' t12 t22 );
+
+                  (* By INVERSION,
+                       [env, x:t11 |- e1 : t12] and [env, x:t21 |- e2 : t22].
+                     By EQUIV,
+                       [env, x:t11 |- e2 : t22].
+                     By PER and SUBSUMPTION,
+                       [env, x:t11 |- e2 : t12].
+                   *)
                   lazy ( equal env' e1 e2 t12) ]
 
             | S.Pair(e11, e12, x1, t11, t12), S.Pair(e21, e22, _, t21, t22) ->
@@ -537,7 +608,7 @@ struct
                      (X.add_parameter x t1 env))  in
               let env_w = X.add_parameter z t1 env in
 
-              if o1 != o2  then
+              if o1 <> o2  then
                 None
               else hr_ands
                   [ lazy ( equal_at_some_universe env t1 t2 );
