@@ -188,11 +188,13 @@ let rec infer env term =
 
     | S.Proj (index, _) -> Error.verify "Unrecognized projection %d" index
 
-    | S.Lambda (x, term1, term2) ->
+    | S.Lambda (x, term1, term2, term3) ->
         begin
-          let _   = infer_ty env term1 in
-          let ty2 = infer (add_parameter x term1 env) term2 in
-          S.Pi(x, term1, ty2)
+          let _    = infer_ty env term1 in
+          let env' = add_parameter x term1 env  in
+          let _    = infer_ty env' term2  in
+          let _    = check env' term3 term2 in
+          S.Pi(x, term1, term2)
         end
 
     | S.Handle (term, handlers) ->
@@ -335,11 +337,11 @@ and check env term t =
         let env'= addHandlers env handlers in
         check env' term1 t
 
-    | S.Lambda (x, term1, term2) ->
+    | S.Lambda (x, _, _, term3) ->
       begin
         match as_pi env t with
         | S.Pi (_, ty11, ty12), () ->
-          check (add_parameter x ty11 env) term2 ty12
+          check (add_parameter x ty11 env) term3 ty12
         | _ -> Error.verify "Lambda cannot have type %t"
                  (print_term env t)
       end

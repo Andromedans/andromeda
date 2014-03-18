@@ -6,7 +6,7 @@ module I = Input
     variables. *)
 type term =
   | Var    of int
-  | Lambda of Common.variable * term * term
+  | Lambda of Common.variable * term * term * term  (* Pi type + body *)
   | Pi     of Common.variable * term * term
   | App    of term * term
   | Sigma  of Common.variable * term * term
@@ -58,8 +58,8 @@ and metavar_sort =
 
 
    G |- t : U(u,i)   G, x:t |- e : t'
-   -----------------------------------    [ annotate Lambda with t' too? ]
-   G |- Lambda(x, t, e) : Pi(x, t, t')
+   ---------------------------------------
+   G |- Lambda(x, t, t', e) : Pi(x, t, t')
 
 
    G |- t' : U(u,i)   G, x:t' |- t'' : U(u,i)
@@ -79,8 +79,8 @@ and metavar_sort =
 
    G |- t' : U(u,i)   G , x:t' |- t'' : U(u,i)
    G |- e' : t'     G |- e'' : [x->e']t''
-   -------------------------------------------   [ +annotate the pair with the sigma]
-   G |- <e', e''> :  Sigma(x, t', t'')
+   -------------------------------------------
+   G |- <e', e'', x, t', t''> :  Sigma(x, t', t'')
 
 
    G |- e : Sigma(x, t', t'')
@@ -181,7 +181,7 @@ let universe_le u1 u2 =
 *)
 let rec string_of_term ?(show_meta=false) = function
   | Var i          -> "var[" ^ string_of_int i ^ "]"
-  | Lambda(x,t,e)  -> "Lambda(" ^ x ^ "," ^ string_of_terms ~show_meta [t;e] ^ ")"
+  | Lambda(x,t1,t2,e)  -> "Lambda(" ^ x ^ "," ^ string_of_terms ~show_meta [t1;t2;e] ^ ")"
   | Pi(x,t1,t2)    -> "Pi(" ^ x ^ "," ^ string_of_terms ~show_meta [t1;t2] ^ ")"
   | App(e1,e2)     -> "App(" ^ string_of_terms ~show_meta [e1;e2] ^ ")"
   | Sigma(x,t1,t2) -> "Sigma(" ^ x ^ "," ^ string_of_terms ~show_meta [t1;t2] ^ ")"
@@ -232,7 +232,8 @@ and rewrite_vars ?(cut=0) ftrans =
   let rec loop cut = function
     | (U _ | Base _ | Const _) as term -> term
     | Var m -> ftrans cut m
-    | Lambda (x, t, e)  -> Lambda (x, loop cut t, loop (cut+1) e)
+    | Lambda (x, t1, t2, e)  -> Lambda (x, loop cut t1,
+                                        loop (cut+1) t2, loop (cut+1) e)
     | App (e1, e2)      -> App(loop cut e1, loop cut e2)
     | Pi (x, t1, t2)    -> Pi(x, loop cut t1, loop (cut+1) t2)
     | Sigma (x, t1, t2) -> Sigma(x, loop cut t1, loop (cut+1) t2)
@@ -338,7 +339,7 @@ and shift_to_depth (old_depth, exp) new_depth =
 and apply_list eFn eArgs =
   match eFn, eArgs with
   | _, [] -> eFn
-  | Lambda(_, _, eBody), eArg :: eArgs -> apply_list (beta eBody eArg) eArgs
+  | Lambda(_, _, _, eBody), eArg :: eArgs -> apply_list (beta eBody eArg) eArgs
   | _, eArg :: eArgs -> apply_list (App (eFn, eArg)) eArgs
 
 and fresh_mva context_length ty pos sort =
@@ -367,7 +368,7 @@ and get_mva {mv_def = r; mv_args = args} =
   | Some body ->
       let lambda_wrapped_body =
            (* XXX: Not TUnit! *)
-          List.fold_right (fun _ b -> Lambda ("???", Base TUnit, b)) args body  in
+          List.fold_right (fun _ b -> Lambda ("???", Base TUnit, Base TUnit, b)) args body  in
       Some (apply_list lambda_wrapped_body args)
 
     and string_of_mva ?(show_meta=false) ({mv_def; mv_args; mv_pos} as mva) =
@@ -405,7 +406,7 @@ let rec occurs v e =
   match e with
   | Var m -> m = v
 
-  | Lambda (_, t, e)       -> occurs v t  || occurs (v+1) e
+  | Lambda (_, t1, t2, e)  -> occurs v t1  || occurs (v+1) t2 || occurs (v+1) e
   | App (e1, e2)           -> occurs v e1 || occurs v e2
   | Pair (e1, e2, x, ty1, ty2) -> occurs v e1 || occurs v e2
                                     || occurs v ty1 || occurs (v+1) ty2
@@ -440,11 +441,13 @@ let rec equal e1 e2 =
   | Base b1, Base b2   -> b1 = b2
   | Const c1, Const c2 -> c1 = c2
 
-  | Lambda(_, t11, t12), Lambda(_, t21, t22)
   | Pi(_, t11, t12), Pi(_, t21, t22)
   | Sigma(_, t11, t12), Sigma(_, t21, t22)
   | App(t11, t12), App(t21, t22) ->
       equal t11 t21 && equal t12 t22
+
+  | Lambda(_, t11, t12, t13), Lambda(_, t21, t22, t23) ->
+      equal t11 t21 && equal t12 t22 && equal t13 t23
 
   | Pair(e11, e12, _, ty11, ty12), Pair(e21, e22, _, ty21, ty22) ->
       equal e11 e21 && equal e12 e22
@@ -505,7 +508,6 @@ let rec equal e1 e2 =
   let rec free_vars =
     let rec loop cut = function
     | Var m -> if (m < cut) then VS.empty else VS.singleton (m - cut)
-    | Lambda (_, t, e)  -> VS.union (loop cut t) (loop (cut+1) e)
     | App (e1, e2)      -> VS.union (loop cut e1) (loop cut e2)
     | Pi (_, t1, t2)    -> VS.union (loop cut t1) (loop (cut+1) t2)
     | Sigma (_, t1, t2) -> VS.union (loop cut t1) (loop (cut+1) t2)
@@ -514,6 +516,8 @@ let rec equal e1 e2 =
                                [loop cut e1; loop cut e2;
                                 loop cut ty1; loop (cut+1) ty2]
     | Proj (i1, e2)     -> loop cut e2
+    | Lambda (_, t1, t2, e) -> union_list
+                                  [loop cut t1; loop (cut+1) t2; loop (cut+1) e]
     | Refl (_, e, t)    -> VS.union (loop cut e) (loop cut t)
     | Eq (_, e1, e2, t) -> union_list
                                [loop cut e1; loop cut e2; loop cut t]

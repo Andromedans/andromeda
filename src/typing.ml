@@ -494,9 +494,7 @@ and Infer : INFER_SIG = struct
     match e with
     | S.Var v -> lookup_classifier v env
 
-    | S.Lambda(x, ty1, e) ->
-        let env' = add_parameter x ty1 env in
-        let ty2 = type_of env' e  in
+    | S.Lambda(x, ty1, ty2, e) ->
         S.Pi(x, ty1, ty2)
 
     | S.Pi(x, ty1, ty2)
@@ -663,7 +661,7 @@ and Infer : INFER_SIG = struct
            *)
         let ty1, _  = infer_ty env                       term1 in
         let e2, ty2 = infer    (add_parameter x ty1 env) term2 in
-        S.Lambda (x, ty1, e2), S.Pi(x, ty1, ty2)
+        S.Lambda (x, ty1, ty2, e2), S.Pi(x, ty1, ty2)
       end
 
     | D.Lambda (x, None, _) ->
@@ -1018,7 +1016,7 @@ and Infer : INFER_SIG = struct
         match as_pi env t with
         | S.Pi (_, t1, t2), hr_whnf ->
           let e2 = check (add_parameter x t1 env) term2 t2 in
-          wrap_with_handlers (S.Lambda(x, t1, e2)) hr_whnf
+          wrap_with_handlers (S.Lambda(x, t1, t2, e2)) hr_whnf
         | _ -> Error.typing ~loc "Lambda cannot have type %t"
                  (print_term env t)
       end
@@ -1034,7 +1032,7 @@ and Infer : INFER_SIG = struct
               | Some hr_equiv ->
                 let e2 = check (add_parameter x t1 env) term2 t2 in
                 let hr_all = join_hr hr_whnf hr_equiv  in
-                wrap_with_handlers (S.Lambda(x, t1, e2)) hr_all
+                wrap_with_handlers (S.Lambda(x, t1, t2, e2)) hr_all
             end
         | _ -> Error.typing ~loc "@[<hov 4>Lambda cannot have type@ %t@]"
                  (print_term env t)

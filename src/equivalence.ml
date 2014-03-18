@@ -478,11 +478,13 @@ struct
                     lazy ( equal env e11 e21 t1 );
                     lazy ( equal env e12 e22 t1 ) ]
 
-            | S.Lambda(x, t1, e1), S.Lambda(_, t2, e2) ->
+            | S.Lambda(x, t11, t12, e1), S.Lambda(_, t21, t22, e2) ->
               P.warning "Why is equal_whnfs comparing two lambdas?";
+              let env' = X.add_parameter x t11 env  in
               hr_ands
-                [ lazy ( equal_at_some_universe env t1 t2 );
-                  lazy ( equal_whnfs (X.add_parameter x t1 env) e1 e2 ) ]
+                [ lazy ( equal_at_some_universe env t11 t12 );
+                  lazy ( equal_at_some_universe env' t21 t22 );
+                  lazy ( equal env' e1 e2 t12) ]
 
             | S.Pair(e11, e12, x1, t11, t12), S.Pair(e21, e22, _, t21, t22) ->
               hr_ands
@@ -491,11 +493,9 @@ struct
                   lazy ( equal env e11 e21 t11 );
                   lazy ( equal env e12 e22 (S.beta t12 e11)) ]
 
-            | S.Handle (e1, es1), S.Handle (e2, es2) ->
-              P.warning "Why is equal_whnfs comparing two handles?";
-              hr_ands
-                ( lazy ( equal_whnfs env e1 e2) ::
-                  List.map2 (fun x y -> lazy (equal_whnfs env x y)) es1 es2 )
+            | S.Handle _, _
+            | _, S.Handle _ ->
+                Error.impossible "equal_whnfs found a handle in whnf"
 
             | S.Ind_eq(o1, t1, (x,y,p,c1), (z,w1), a1, b1, q1),
               S.Ind_eq(o2, t2, (_,_,_,c2), (_,w2), a2, b2, q2) ->
@@ -559,7 +559,7 @@ struct
 
             | (S.Var _ | S.Lambda _ | S.Pi _ | S.App _ | S.Sigma _ |
                S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.Ind_eq _ |
-               S.U _ | S.Base _ | S.Const _ | S.Handle _ ), _ ->
+               S.U _ | S.Base _ | S.Const _ ), _ ->
               begin
                 P.equivalence "[Mismatch] Why is %t == %t ?@."
                   (X.print_term env exp1') (X.print_term env exp2');

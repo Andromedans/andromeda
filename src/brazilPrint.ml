@@ -87,7 +87,7 @@ and lambda xs x t e ppf =
       if not (Format.over_max_boxes ()) then
         match e with
           | S.Var k -> print "%s" (List.nth xs k)
-          | S.Lambda (x, t, e) -> print ~at_level:3 "%t" (lambda xs x t e)
+          | S.Lambda (x, t, _, e) -> print ~at_level:3 "%t" (lambda xs x t e)
           | S.App (e1, e2) -> print ~at_level:1 "%t@ %t" (term ~max_level:1 xs e1) (term ~max_level:0 xs e2)
           | S.Pair (e1, e2, _, _, _) -> print ~at_level:0 "(%t,@ %t)" (term ~max_level:1 xs e1) (term ~max_level:0 xs e2)
           | S.Proj (1, e2) -> print ~at_level:1 "%t.fst" (term ~max_level:0 xs e2)

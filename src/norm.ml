@@ -19,7 +19,7 @@ let rec whnf ctx e =
       | S.App (e1, e2) ->
           begin
             match whnf ctx e1 with
-            | S.Lambda(_, _, eBody) ->
+            | S.Lambda(_, _, _, eBody) ->
                 whnf ctx (S.beta eBody e2)
             | (S.Var _ | S.App _ | S.Proj _ ) as e1' ->
                 S.App(e1', e2)
@@ -90,10 +90,12 @@ let rec nf ctx e =
 
       | S.Var _ as e' -> e'
 
-      | S.Lambda (x, t1, e1) ->
+      | S.Lambda (x, t1, t2, e1) ->
           let t1' = nf ctx t1  in
-          let e1' = nf (Ctx.add_parameter x t1' ctx) e1  in
-          S.Lambda (x, t1', e1')
+          let ctx' = Ctx.add_parameter x t1' ctx  in
+          let t2' = nf ctx' t2   in
+          let e1' = nf ctx' e1  in
+          S.Lambda (x, t1', t2', e1')
 
       | S.App (e1, e2) ->
           begin
