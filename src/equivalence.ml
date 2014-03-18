@@ -227,6 +227,21 @@ struct
        then
          [env, env2[x->exp1] |- exp[x->exp1] == exp[x->exp2] : ty[x->exp1]]
 
+    Property EQUIV
+
+     - If
+          [env1, x:ty1, env2 |- ...]
+       and
+          [env1 |- ty1 == ty2 : U] for some universe [U],
+       then
+          [env1, x:ty2, env2 |- ...].
+
+    Property JOIN
+
+     - If [env1 |- ty1 : U1] and [env2 |- ty2 : U2] for universes [U1] and [U2],
+       then
+         [env1 |- ty1 : U] and [env2 |- ty2 : U] for some common universe [U].
+
 
   *)
 
@@ -417,6 +432,12 @@ struct
      If we fail (because they're not judgmentally equivalent, or we don't have
      enough handlers installed) return None. Otherwise return [Some hr] where
      [hr] records all handlers used in the equivalence proof.
+
+     WARNING: equal_whnfs does *not* check for alpha-equivalence or a suitable
+     handler before it reduces the two inputs to weak-head-normal form; it
+     assumes the caller has checked that already. Thus, equal_whnf should
+     not call itself directly because we might miss an alpha-equivalence
+     or (more likely) a suitable handler.
   *)
   and equal_whnfs env exp1 exp2 =
 
@@ -457,11 +478,22 @@ struct
       | None ->
           begin
             match exp1', exp2' with
-            | S.Pi    (x, t11, t12), S.Pi    (_, t21, t22)
-            | S.Sigma (x, t11, t12), S.Sigma (_, t21, t22) ->
+            | S.Pi    (x, ty11, ty12), S.Pi    (_, ty21, ty22)
+            | S.Sigma (x, ty11, ty12), S.Sigma (_, ty21, ty22) ->
+              (* By INVERSION,
+                   [env |- ty11 : U1]   [env, x:ty11 |- ty12 : U1]
+                   [env |- ty21 : U2]   [env, x:ty21 |- ty22 : U2].
+                 By JOIN,
+                   [env |- ty11 : U]    [env, x:ty11 |- ty12 : U]
+                   [env |- ty21 : U]    [env, x:ty21 |- ty22 : U]
+               *)
+
+              let env' = X.add_parameter x ty11 env  in
               hr_ands
-                [lazy (equal_at_some_universe env                       t11 t21);
-                 lazy (equal_at_some_universe (X.add_parameter x t11 env) t12 t22)]
+                [lazy (equal_at_some_universe env  ty11 ty21);
+                 (* Now we know that [env'] is well-formed.
+                  *)
+                 lazy (equal_at_some_universe env' ty12 ty22)]
 
             | S.Refl(o1, t1, k1), S.Refl(o2, t2, k2) ->
               if o1 != o2  then
