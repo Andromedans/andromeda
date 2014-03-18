@@ -446,119 +446,125 @@ struct
       Some X.trivial_hr
 
     else
+
+      (* Maybe there's an applicable handler? *)
       match  X.handled env exp1' exp2' None  with
+
       | Some hr ->
           (* Success by HANDLED *)
           Some hr
 
       | None ->
-        match exp1', exp2' with
-        | S.Pi    (x, t11, t12), S.Pi    (_, t21, t22)
-        | S.Sigma (x, t11, t12), S.Sigma (_, t21, t22) ->
-          hr_ands
-            [lazy (equal_at_some_universe env                       t11 t21);
-             lazy (equal_at_some_universe (X.add_parameter x t11 env) t12 t22)]
-
-        | S.Refl(o1, t1, k1), S.Refl(o2, t2, k2) ->
-          if o1 != o2  then
-            None
-          else hr_ands
-              [ lazy (equal_at_some_universe env k1 k2);
-                lazy (equal env t1 t2 k1) ]
-
-        | S.Eq(o1, e11, e12, t1), S.Eq(o2, e21, e22, t2) ->
-          if o1 != o2  then
-            None
-          else hr_ands
-              [ lazy ( equal_at_some_universe env t1 t2 );
-                lazy ( equal env e11 e21 t1 );
-                lazy ( equal env e12 e22 t1 ) ]
-
-        | S.Lambda(x, t1, e1), S.Lambda(_, t2, e2) ->
-          P.warning "Why is equal_whnfs comparing two lambdas?";
-          hr_ands
-            [ lazy ( equal_at_some_universe env t1 t2 );
-              lazy ( equal_whnfs (X.add_parameter x t1 env) e1 e2 ) ]
-
-        | S.Pair(e11, e12, _, _, _), S.Pair(e21, e22, _, _, _) ->
-          P.warning "Why is equal_whnfs comparing two pairs?";
-          hr_ands
-            [ lazy ( equal_whnfs env e11 e21 );
-              lazy ( equal_whnfs env e12 e22 ) ]
-
-        | S.Handle (e1, es1), S.Handle (e2, es2) ->
-          P.warning "Why is equal_whnfs comparing two handles?";
-          hr_ands
-            ( lazy ( equal_whnfs env e1 e2) ::
-              List.map2 (fun x y -> lazy (equal_whnfs env x y)) es1 es2 )
-
-        | S.Ind_eq(o1, t1, (x,y,p,c1), (z,w1), a1, b1, q1),
-          S.Ind_eq(o2, t2, (_,_,_,c2), (_,w2), a2, b2, q2) ->
-          let pathtype = S.Eq(o1, a1, b1, t1) in
-          let env_c = X.add_parameter p (S.shift 2 pathtype)
-              (X.add_parameter y (S.shift 1 t1)
-                 (X.add_parameter x t1 env))  in
-          let env_w = X.add_parameter z t1 env in
-
-          if o1 != o2  then
-            None
-          else hr_ands
-              [ lazy ( equal_at_some_universe env t1 t2 );
-                lazy ( equal env a1 a2 t1 );
-                lazy ( equal env b1 b2 t1 );
-
-                (* OK, at this point we are confident that both paths
-                   have the same type, assuming both terms are well-formed *)
-                lazy ( equal env q1 q2 pathtype );
-
-                (* We want to do eta-equivalence, but can't call "equal" because
-                   we don't know the universe to compare. *)
-                lazy ( equal_at_some_universe env_c c1 c2 );
-
-                lazy ( equal env_w w1 w2
-                         (S.beta (S.beta (S.beta c1 (S.Var 0))
-                                    (S.Var 0))
-                            (S.Refl(o1, S.Var 0, S.shift 1 t1))) );
-              ]
-
-        | S.App _, S.App _
-        | S.Proj _ , S.Proj _ ->
           begin
-            match equal_path env exp1' exp2' with
-            | Some (t,hr) ->
-              P.debug "Path equivalence succeeded at type %t"
-                (X.print_term env t);
-              Some hr
-            | None   ->
+            match exp1', exp2' with
+            | S.Pi    (x, t11, t12), S.Pi    (_, t21, t22)
+            | S.Sigma (x, t11, t12), S.Sigma (_, t21, t22) ->
+              hr_ands
+                [lazy (equal_at_some_universe env                       t11 t21);
+                 lazy (equal_at_some_universe (X.add_parameter x t11 env) t12 t22)]
+
+            | S.Refl(o1, t1, k1), S.Refl(o2, t2, k2) ->
+              if o1 != o2  then
+                None
+              else hr_ands
+                  [ lazy (equal_at_some_universe env k1 k2);
+                    lazy (equal env t1 t2 k1) ]
+
+            | S.Eq(o1, e11, e12, t1), S.Eq(o2, e21, e22, t2) ->
+              if o1 != o2  then
+                None
+              else hr_ands
+                  [ lazy ( equal_at_some_universe env t1 t2 );
+                    lazy ( equal env e11 e21 t1 );
+                    lazy ( equal env e12 e22 t1 ) ]
+
+            | S.Lambda(x, t1, e1), S.Lambda(_, t2, e2) ->
+              P.warning "Why is equal_whnfs comparing two lambdas?";
+              hr_ands
+                [ lazy ( equal_at_some_universe env t1 t2 );
+                  lazy ( equal_whnfs (X.add_parameter x t1 env) e1 e2 ) ]
+
+            | S.Pair(e11, e12, x1, t11, t12), S.Pair(e21, e22, _, t21, t22) ->
+              hr_ands
+                [ lazy ( equal_at_some_universe env t11 t12 );
+                  lazy ( equal_at_some_universe (X.add_parameter x1 t11 env) t12 t22 );
+                  lazy ( equal env e11 e21 t11 );
+                  lazy ( equal env e12 e22 (S.beta t12 e11)) ]
+
+            | S.Handle (e1, es1), S.Handle (e2, es2) ->
+              P.warning "Why is equal_whnfs comparing two handles?";
+              hr_ands
+                ( lazy ( equal_whnfs env e1 e2) ::
+                  List.map2 (fun x y -> lazy (equal_whnfs env x y)) es1 es2 )
+
+            | S.Ind_eq(o1, t1, (x,y,p,c1), (z,w1), a1, b1, q1),
+              S.Ind_eq(o2, t2, (_,_,_,c2), (_,w2), a2, b2, q2) ->
+              let pathtype = S.Eq(o1, a1, b1, t1) in
+              let env_c = X.add_parameter p (S.shift 2 pathtype)
+                  (X.add_parameter y (S.shift 1 t1)
+                     (X.add_parameter x t1 env))  in
+              let env_w = X.add_parameter z t1 env in
+
+              if o1 != o2  then
+                None
+              else hr_ands
+                  [ lazy ( equal_at_some_universe env t1 t2 );
+                    lazy ( equal env a1 a2 t1 );
+                    lazy ( equal env b1 b2 t1 );
+
+                    (* OK, at this point we are confident that both paths
+                       have the same type, assuming both terms are well-formed *)
+                    lazy ( equal env q1 q2 pathtype );
+
+                    (* We want to do eta-equivalence, but can't call "equal" because
+                       we don't know the universe to compare. *)
+                    lazy ( equal_at_some_universe env_c c1 c2 );
+
+                    lazy ( equal env_w w1 w2
+                             (S.beta (S.beta (S.beta c1 (S.Var 0))
+                                        (S.Var 0))
+                                (S.Refl(o1, S.Var 0, S.shift 1 t1))) );
+                  ]
+
+            | S.App _, S.App _
+            | S.Proj _ , S.Proj _ ->
               begin
-                P.equivalence "@[<hov>[Path] Why is %t ==@ %t ?@]@."
+                match equal_path env exp1' exp2' with
+                | Some (t,hr) ->
+                  P.debug "Path equivalence succeeded at type %t"
+                    (X.print_term env t);
+                  Some hr
+                | None   ->
+                  begin
+                    P.equivalence "@[<hov>[Path] Why is %t ==@ %t ?@]@."
+                      (X.print_term env exp1') (X.print_term env exp2');
+                    None
+                  end
+              end
+
+            | S.MetavarApp mva, other
+            | other, S.MetavarApp mva ->
+              begin
+                (* We know that mva has no definition yet; otherwise
+                 * it would have been eliminated by whnf. Further,
+                 * it can't be two of the same metavariables, because
+                 * then alpha-equivalence would have short-circuited. *)
+
+                (* XXX: Really need to check that other is not
+                 * a newer meta variable! *)
+
+                Some (X.instantiate env mva other);
+              end
+
+
+            | (S.Var _ | S.Lambda _ | S.Pi _ | S.App _ | S.Sigma _ |
+               S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.Ind_eq _ |
+               S.U _ | S.Base _ | S.Const _ | S.Handle _ ), _ ->
+              begin
+                P.equivalence "[Mismatch] Why is %t == %t ?@."
                   (X.print_term env exp1') (X.print_term env exp2');
                 None
               end
-          end
-
-        | S.MetavarApp mva, other
-        | other, S.MetavarApp mva ->
-          begin
-            (* We know that mva has no definition yet; otherwise
-             * it would have been eliminated by whnf. Further,
-             * it can't be two of the same metavariables, because
-             * then alpha-equivalence would have short-circuited. *)
-
-            (* XXX: Really need to check that other is not
-             * a newer meta variable! *)
-
-            Some (X.instantiate env mva other);
-          end
-
-
-        | (S.Var _ | S.Lambda _ | S.Pi _ | S.App _ | S.Sigma _ |
-           S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.Ind_eq _ |
-           S.U _ | S.Base _ | S.Const _ | S.Handle _ ), _ ->
-          begin
-            P.equivalence "[Mismatch] Why is %t == %t ?@."
-              (X.print_term env exp1') (X.print_term env exp2');
-            None
           end
 
   (* [equal_path] assumes inputs are already in whnf! *)
