@@ -120,7 +120,10 @@ struct
           [env |- ty == (X.as_whnf_for_eta env ty) : U].
 
 
-       is well-formed, then
+      - If [env |- exp : ty] for some universe U, then
+          [env |- (whnf env exp) : ty] and
+          [env |- exp == (whnf env exp) : ty].
+
 
 
      Property HANDLED
@@ -129,6 +132,9 @@ struct
           [X.handled env exp1 exp2 (Some ty) <> None] then
           [env |- exp1 == exp2 : ty].
 
+     - If [env |- exp1: ty] and [env |- exp2 : ty] and
+          [X.handled env exp1 exp2 None <> None] then
+          [env |- exp1 == exp2 : ty].                  <- Slightly questionable?
 
      Property PER
 
@@ -141,19 +147,85 @@ struct
      Property SUBSUMPTION
 
      - If [env |- exp : ty1] and [env |- ty1 == ty2 : U] for some
-       universe U, then [env |- exp : ty2].
+       universe U, then
+         [env |- exp : ty2].
 
      - If [env |- exp1 == exp2 : ty1] and [env |- ty1 == ty2 : U] for some
-       universe U, then [env |- exp1 == exp2 : ty2].
+       universe U, then
+         [env |- exp1 == exp2 : ty2].
 
      Property EXTENSIONALITY
 
      - if [env |- exp1 : Pi x:ty1. ty2] and [env |- exp2 : Pi x:ty1. ty2]
        (so that [env, x:ty1 |- exp1 x : ty2] and [env, x:ty1 |- exp2 x : ty2])
        and
-          [env, x:ty1 |- exp1 x = exp2 x : ty2]
+         [env, x:ty1 |- exp1 x == exp2 x : ty2]
        then
-          [env |- exp1 == exp2 : Pi x:ty1. ty2].
+         [env |- exp1 == exp2 : Pi x:ty1. ty2].
+
+     - if [env |- exp1 : Sigma x:ty1. ty2] and [env |- exp2 : Sigma x:ty1. ty2]
+       and
+         [env |- fst exp1 == fst exp2 : ty1]
+       and
+         [env |- snd exp1 == snd exp2 : ty2[x->fst exp1]],
+       then
+         [env |- exp1 == exp2 : Sigma x:ty1. ty2].
+
+     - If [env |- exp1 : unit] and [env |- exp2 : unit]
+       then
+         [env |- exp1 == exp2: unit]
+
+     - If
+          [env |- exp1 : (exp3 == exp4 @ ty1)]
+       and
+          [env |- exp2 : (exp3 == exp4 @ ty1)]
+       then
+          [env |- exp1 == exp2 : (exp3 == exp4 @ ty1)]    <- judgmental K rule
+
+     Property INVERSION
+
+     - If [env |- (Pi x:ty1. ty2) : U] for some universe [U],
+       then
+         [env |- ty1 : U] and [env, x:ty1 |- ty2 : U].
+
+     - If [env |- (Sigma x:ty1. ty2) : U] for some universe [U],
+       then
+         [env |- ty1 : U] and [env, x:ty1 |- ty2 : U].
+
+
+    Property SUBST
+
+     - If [env1, x:ty1, env2 |- exp : ty] and
+         [env |- exp1 : ty1]
+       then
+         [env1, env2[x->exp1] |- exp[x->exp1] : ty[x->exp1]]
+
+    Property WEAKENING
+
+    - If [env |- exp : ty] and [env |- ty1 : U] for some universe [U],
+      and x not in dom(env), then
+        [env, x:ty1 |- exp: ty]
+
+    Property VALIDITY
+
+    - If [env |- exp : ty]
+      then [env |- ty : U] for some universe [U].
+
+    - If [env |- exp1 == exp2 : ty] then
+      [env |- exp1 : ty] and [env |- exp2 : ty].
+
+
+    Property FUNCTIONALITY
+
+     - If [env1, x:ty1, exp2 |- ty : U] for some universe [U], and
+        [env1 |- exp1 == exp2 : ty1],
+       then
+        [env1, env2[x->exp1] |- ty[x->exp1] == ty[x->exp2] : U]
+
+     - If [env1, x:ty1, env2 |- exp : ty2] and
+        [env |- exp1 == exp2 : ty1],
+       then
+         [env, env2[x->exp1] |- exp[x->exp1] == exp[x->exp2] : ty[x->exp1]]
 
 
   *)
@@ -195,7 +267,10 @@ struct
         begin
           let reduced_ty = X.as_whnf_for_eta env ty in
 
-          (* By REDUCE, [env |- ty == reduced_ty : U] *)
+          (* By REDUCE,
+             [env |- reduced_ty : U] and
+             [env |- ty == reduced_ty : U]
+           *)
 
           match reduced_ty with
 
@@ -213,86 +288,171 @@ struct
                  [env, x:ty1 |- exp2 x : ty2].
                Construct these two applications, indexed appropriately
              *)
-            let env' = X.add_parameter x ty1 env  in
+            let env'  = X.add_parameter x ty1 env  in
             let exp1' = X.shift_to_env (env, exp1) env'  in
             let exp2' = X.shift_to_env (env, exp2) env'  in
-            let app1 = S.App (exp1', S.Var 0) in
-            let app2 = S.App (exp2', S.Var 0) in
+            let app1  = S.App (exp1', S.Var 0) in
+            let app2  = S.App (exp2', S.Var 0) in
 
             (*
-               By Properties PER, SUBSUMPTION, and EXTENSIONALITY,
+               Since [env |- (Pi x:ty1. ty2) : U], by INVERSION we have
+                [env |- ty1 : U] and [env, x:ty1 |- ty2 : U].
+
+               By PER, SUBSUMPTION, and EXTENSIONALITY,
                 [env |- exp1 == exp2 : ty]
                    if
                 [env |- exp1 == exp2 : Pi x:ty1. ty2]
                    if
                 [env, x:ty1 |- exp1' x == exp2' x : ty2]
+
+               So that's what we check.
             *)
             let hr_recurse = equal env' app1 app2 ty2  in
 
-            (* Report all handlers user *)
+            (* Report all handlers used *)
             join_hr' hr_whnf hr_recurse
 
-          | S.Sigma (x, c, d), hr_whnf ->
-            let exp1_proj i = S.Proj (i, exp1) in
-            let exp2_proj i = S.Proj (i, exp2) in
+          | S.Sigma (x, ty1, ty2), hr_whnf ->
+
+            (* By SUBSUMPTION, we know that
+               [env |- exp1 : Sigma x:ty1. ty2] and
+               [env |- exp2 : Sigma x:ty1. ty2].
+
+               By TYPING, then,
+               [env |- fst exp1 : ty1]
+               [env |- fst exp2 : ty1]
+               [env |- snd exp1 : ty2[x->fst exp1]]
+               [env |- snd exp2 : ty2[x->fst exp2]]
+             *)
+            let fst_exp1 = S.Proj(1, exp1)  in
+            let fst_exp2 = S.Proj(1, exp2)  in
+            let snd_exp1 = S.Proj(2, exp1)  in
+            let snd_exp2 = S.Proj(2, exp2)  in
+
+            (*
+                By PER, SUBSUMPTION, and EXTENSIONALITY,
+                [env |- exp1 == exp2 : ty]
+                   if
+                [env |- exp1 == exp2 : Sigma x:ty1. ty2]
+                   if
+                ( [env |- fst exp1 == fst exp2 : ty1]
+                  and
+                  [env |- snd exp1 == snd exp2 : ty2[x->fst exp1]] )
+
+                So that's what we check.
+             *)
             let hr_recurse = hr_ands
-                [lazy (equal env (exp1_proj 1) (exp2_proj 1) c);
-                 lazy (equal env (exp1_proj 2) (exp2_proj 2) (S.beta d (exp1_proj 1)))]  in
+                [lazy (equal env fst_exp1 fst_exp2 ty1);
+                 (* If we get this far, we know that
+                     [env |- fst exp1 == fst exp2 : ty1].
+                    Since we already know that
+                     [env |- Sigma x:ty1. ty2 : U],
+                    by INVERSION we get
+                     [env, x:ty1 |- ty2 : U].
+                    By FUNCTIONALITY, then,
+                     [env |- ty2[x->fst exp1] == ty2[x->fst exp2] : U],
+                    so by PER and SUBSUMPTION we have
+                     [env |- snd exp2 : ty2[x->fst exp1]]
+                  *)
+                 lazy (equal env snd_exp1 snd_exp2 (S.beta ty2 fst_exp1))]  in
+
+            (* Report all handlers used *)
             join_hr' hr_whnf hr_recurse
 
           | S.Eq(S.Ju, _, _, _), hr_whnf ->
-            (* K rule for Judgmental equality! *)
+
+            (* By EXTENSIONALITY, a.k.a. the K rule for judgmental equality. *)
             Some hr_whnf
+
           | S.Base S.TUnit, hr_whnf ->
 
-            (* Everything is equal at type unit *)
+            (* By EXTENSIONALITY, a.k.a. everything is equal at type unit *)
             Some hr_whnf
-          | _ -> equal_whnfs env exp1 exp2
+
+          | _ ->
+
+            (* We failed to prove that the comparison type [ty] is
+               equivalent to a type where extensionality applies (either
+               because it isn't, or because we didn't have the right handlers
+               in place). So, we invoke a helper function that computes
+               weak-head-normal forms and does mostly structural comparison.
+             *)
+            equal_whnfs env exp1 exp2
+
         end
 
-  (* Relies on a subsumptive universe structure, so that we can be
-   * sure that if t1 : U(i) and t2 : U(j) then they both belong to
-   * some common universe U(max{i,j])
-  *)
-  and equal_at_some_universe env t1 t2 =
+  (* Assuming that [env |- ty1 : U] and [env |- ty2 : U] for some
+     universe [U], try to prove that [env |- ty1 == ty2 : U]. If we fail (because
+     they're not judgmentally equivalent, or we don't have enough handlers
+     installed) return None. Otherwise return [Some hr] where [hr] records all
+     handlers used in the equivalence proof.
+   *)
+  and equal_at_some_universe env ty1 ty2 =
     begin
       P.debug "equal_at_some_universe: @[<hov>%t@ ==@ %t@]@."
-        (X.print_term env t1) (X.print_term env t2);
+        (X.print_term env ty1) (X.print_term env ty2);
 
-      if  S.equal t1 t2   then
-        (* Alpha-equivalent; no handlers needed *)
+      if  S.equal ty1 ty2   then
+
+        (* Alpha-equivalent; by PER, no handlers needed *)
         Some X.trivial_hr
+
       else
         (* See if there's an applicable handler *)
-        match  X.handled env t1 t2 None  with
-        | Some hr -> Some hr
+        match  X.handled env ty1 ty2 None  with
+        | Some hr ->
+            (* Success by HANDLED *)
+            Some hr
         | None    ->
-          (* Otherwise, try comparing whnfs *)
-          equal_whnfs env t1 t2
+            (* Otherwise, try comparing their whnfs *)
+            equal_whnfs env ty1 ty2
     end
 
+  (* Assuming that [exp1] and [exp2] are terms (possibly types, possibly not)
+     satisfying [env |- exp1 : ty] and [env |- exp2 : ty] for some (unspecified)
+     common type [ty], try to prove that [env |- exp1 == exp2 : ty] by reducing each
+     to a weak-head-normal form, and comparing the two terms using congruence
+     rules (i.e., without any top-level use of extensionality).
 
-  (* Given two types, reduce each to whnf and then (if no handler applies)
-     compare them structurally, i.e.,without any eta-equivalences.
+     If we fail (because they're not judgmentally equivalent, or we don't have
+     enough handlers installed) return None. Otherwise return [Some hr] where
+     [hr] records all handlers used in the equivalence proof.
   *)
-  and equal_whnfs env t1 t2 =
+  and equal_whnfs env exp1 exp2 =
 
     P.debug "equal_whnfs: @[<hov>%t@ ==@ %t@]@."
-      (X.print_term env t1) (X.print_term env t2) ;
+      (X.print_term env exp1) (X.print_term env exp2) ;
 
-    let t1' = X.whnf env t1 in
-    P.debug "t1' = %t@." (X.print_term env t1') ;
-    let t2' = X.whnf env t2 in
-    P.debug "t2' = %t@." (X.print_term env t2') ;
+    (* Compute weak-head-normal forms.*)
 
-    if  S.equal t1' t2'  then
-      (* Catches U/Var/Const/Base; also, might short-circuit *)
+    let exp1' = X.whnf env exp1 in
+    P.debug "exp1' = %t@." (X.print_term env exp1') ;
+
+    let exp2' = X.whnf env exp2 in
+    P.debug "exp2' = %t@." (X.print_term env exp2') ;
+
+    (* By REDUCE, we know that
+         [G |- exp1' : ty] and [G |- ty2' : ty]
+       and more importantly that
+         [G |- exp1 == exp1' : ty] and [G |- exp2 == exp2' : ty].
+     *)
+
+    if  S.equal exp1' exp2'  then
+
+      (* Note: this check is not just an optimization, but also covers
+         the cases where both sides are U/Var/Const/Base. *)
+
+      (* Success by PER *)
       Some X.trivial_hr
+
     else
-      match  X.handled env t1' t2' None  with
-      | Some hr -> Some hr
+      match  X.handled env exp1' exp2' None  with
+      | Some hr ->
+          (* Success by HANDLED *)
+          Some hr
+
       | None ->
-        match t1', t2' with
+        match exp1', exp2' with
         | S.Pi    (x, t11, t12), S.Pi    (_, t21, t22)
         | S.Sigma (x, t11, t12), S.Sigma (_, t21, t22) ->
           hr_ands
@@ -364,7 +524,7 @@ struct
         | S.App _, S.App _
         | S.Proj _ , S.Proj _ ->
           begin
-            match equal_path env t1' t2' with
+            match equal_path env exp1' exp2' with
             | Some (t,hr) ->
               P.debug "Path equivalence succeeded at type %t"
                 (X.print_term env t);
@@ -372,7 +532,7 @@ struct
             | None   ->
               begin
                 P.equivalence "@[<hov>[Path] Why is %t ==@ %t ?@]@."
-                  (X.print_term env t1') (X.print_term env t2');
+                  (X.print_term env exp1') (X.print_term env exp2');
                 None
               end
           end
@@ -397,7 +557,7 @@ struct
            S.U _ | S.Base _ | S.Const _ | S.Handle _ ), _ ->
           begin
             P.equivalence "[Mismatch] Why is %t == %t ?@."
-              (X.print_term env t1') (X.print_term env t2');
+              (X.print_term env exp1') (X.print_term env exp2');
             None
           end
 
