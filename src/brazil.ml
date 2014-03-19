@@ -58,6 +58,9 @@ let add_parameter x t env =
   {env with ctx = Ctx.add_parameter x t env.ctx}
 let add_definition x t e env =
   {env with ctx = Ctx.add_definition x t e env.ctx}
+let add_parameters bnds env =
+  {env with ctx = Ctx.add_parameters bnds env.ctx}
+
 
 let lookup v env = Ctx.lookup v env.ctx
 let lookup_classifier v env = Ctx.lookup_classifier v env.ctx

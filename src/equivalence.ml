@@ -13,6 +13,7 @@ module type EQUIV_ARG = sig
 
   type env
   val add_parameter     : Common.variable -> term -> env -> env
+  val add_parameters    : (Common.variable * term) list -> env -> env
   val lookup_classifier : Common.debruijn -> env -> term
   val whnf              : env -> term -> term
   val nf                : env -> term -> term
@@ -205,14 +206,18 @@ struct
        then [env |- ty1 : U] and [env, x:ty1 |- ty2 : U] for some universe [U],
        and [env |- exp1 : ty1] and [env |- exp2 : ty2{x->exp1}].
 
-
+     - If [env |- Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q) : ty]
+       then [env |- t : U_i]
+       and  [env |- a : t] and [env |- b : t],
+       and  [env |- Id(o,a,b,t) : U_i] and [env |- q : Id(o,a,b,t)],
+       and  [env, x:t, y:t, p:Id(o,x,y,t) |- c : U_j]
+       and  [env, z:t |- w : c{x,y,z->z,z,Refl(o,z,t)}].
 
     Property SUBST
 
-     - If [env1, x:ty1, env2 |- exp : ty] and
-         [env |- exp1 : ty1]
-       then
-         [env1, env2[x->exp1] |- exp[x->exp1] : ty[x->exp1]]
+     - If [env1, x:ty1, env2 |- exp : ty]
+       and [env |- exp1 : ty1]
+       then [env1, env2[x->exp1] |- exp[x->exp1] : ty[x->exp1]]
 
     Property WEAKENING
 
@@ -231,15 +236,9 @@ struct
 
     Property FUNCTIONALITY
 
-     - If [env1, x:ty1, exp2 |- ty : U] for some universe [U], and
-        [env1 |- exp1 == exp2 : ty1],
-       then
-        [env1, env2[x->exp1] |- ty[x->exp1] == ty[x->exp2] : U]
-
-     - If [env1, x:ty1, env2 |- exp : ty2] and
-        [env |- exp1 == exp2 : ty1],
-       then
-         [env, env2[x->exp1] |- exp[x->exp1] == exp[x->exp2] : ty[x->exp1]]
+     - If [env1, x:ty1, env2 |- exp : ty2]
+       and [env1 |- exp1 == exp2 : ty1],
+       then [env1, env2[x->exp1] |- exp[x->exp1] == exp[x->exp2] : ty[x->exp1]]
 
     Property EQUIV
 
@@ -590,45 +589,112 @@ struct
                   lazy ( equal env' e1 e2 t12) ]
 
             | S.Pair(e11, e12, x1, t11, t12), S.Pair(e21, e22, _, t21, t22) ->
+              (* This case is unlikely to occur, unless we managed to
+                 avoid eta-equivalence in the equals function. *)
               hr_ands
-                [ lazy ( equal_at_some_universe env t11 t12 );
+                [ (* By INVERSION,
+                       [env |- t11 : U1] and [env |- t21 : U2],
+                     so by JOIN,
+                       [env |- t11 : U] and [env |- t21 : U].
+                   *)
+                  lazy ( equal_at_some_universe env t11 t21 );
+
+                  (* By INVERSION and JOIN,
+                       [env, x:t11 |- t12 : U] and [env, x:t21 |- t22 : U].
+                     By EQUIV,
+                       [env, x:t11 |- t22 : U]
+                   *)
                   lazy ( equal_at_some_universe (X.add_parameter x1 t11 env) t12 t22 );
+
+                  (* By INVERSION,
+                       [env |- e11 : t11] and [env |- e21 : t21].
+                     By PER and SUBSUMPTION,
+                       [env |- e21 : t11].
+                   *)
                   lazy ( equal env e11 e21 t11 );
+
+                  (* By INVERSION,
+                       [env |- e12 : t12{x->e11}]
+                       [env |- e22 : t22{x->e21}].
+                     By FUNCTIONALITY,
+                       [env |- t22{x->e11} == t22{x->e21} : U].
+                     By SUBST,
+                       [env |- t12{x->e11} == t22{x->e11} : U].
+                     By PER and SUBSUMPTION,
+                       [env |= e22 : t12{x->e11}].
+                   *)
                   lazy ( equal env e12 e22 (S.beta t12 e11)) ]
 
             | S.Handle _, _
             | _, S.Handle _ ->
-                Error.impossible "equal_whnfs found a handle in whnf"
+                Error.impossible "equal_whnfs: whnf didn't eliminate Handle"
 
             | S.Ind_eq(o1, t1, (x,y,p,c1), (z,w1), a1, b1, q1),
               S.Ind_eq(o2, t2, (_,_,_,c2), (_,w2), a2, b2, q2) ->
+
+
               let pathtype = S.Eq(o1, a1, b1, t1) in
-              let env_c = X.add_parameter p (S.shift 2 pathtype)
-                  (X.add_parameter y (S.shift 1 t1)
-                     (X.add_parameter x t1 env))  in
-              let env_w = X.add_parameter z t1 env in
+              let env_xy = X.add_parameters [ (x, t1); (y, t1) ] env in
+              let env_xyp =
+                    let xvar = S.Var 1  in
+                    let yvar = S.Var 0  in
+                    let t1'   = X.shift_to_env (env,t1) env_xy  in
+                    X.add_parameter p (S.Eq(o1, xvar, yvar, t1')) env_xy  in
+
+              let env_z = X.add_parameter z t1 env in
 
               if o1 <> o2  then
                 None
               else hr_ands
-                  [ lazy ( equal_at_some_universe env t1 t2 );
+                  [ (* By INVERSION and JOIN,
+                         [env |- t1 : U_i] and [env |- t2 : U_i].
+                     *)
+                    lazy ( equal_at_some_universe env t1 t2 );
+
+                    (* By INVERSION,
+                         [env |- a1 : t1] and [env |- a2 : t2].
+                       By PER and SUBSUMPTION,
+                         [env |- a2 : t1].
+                     *)
                     lazy ( equal env a1 a2 t1 );
+
+                    (* By INVERSION,
+                         [env |- b1 : t1] and [env |- b2 : t2].
+                       By PER and SUBSUMPTION,
+                         [env |- b2 : t1].
+                     *)
                     lazy ( equal env b1 b2 t1 );
 
-                    (* OK, at this point we are confident that both paths
-                       have the same type, assuming both terms are well-formed *)
+                    (* By INVERSION,
+                         [env |- q1 : Id(o,a1,b1,t1)] and
+                         [env |- q2 : Id(o,a2,b2,t2)].
+                       By CONGRUENCE,
+                         [env |- Id(o,a1,b1,t1) == Id(o,a2,b2,t2) : U_i].
+                       By PER and SUBSUMPTION,
+                         [env |- q2 : Id(o,a1,b1,t1)].
+                     *)
                     lazy ( equal env q1 q2 pathtype );
 
-                    (* We want to do eta-equivalence, but can't call "equal" because
-                       we don't know the universe to compare. *)
-                    lazy ( equal_at_some_universe env_c c1 c2 );
+                    (* By INVERSION and JOIN,
+                         [env, x:t1, y:t1, z:Id(o,a1,b1,t1) |- c1 : U_j]
+                         [env, x:t2, y:t2, z:Id(o,a2,b2,t2) |- c2 : U_j]
+                       By SUBST and WEAKENING,
+                         [env, x:t1, y:t1, z:Id(o,a1,b2,t1) |- c2 : U_j].
+                       We call this last environment env_c.
+                     *)
+                    lazy ( equal_at_some_universe env_xyp c1 c2 );
 
-                    lazy ( equal env_w w1 w2
+
+              (* XXX NO! This is not the right type of w1 or w2 *)
+
+                    lazy ( equal env_z w1 w2
                              (S.beta (S.beta (S.beta c1 (S.Var 0))
                                         (S.Var 0))
                                 (S.Refl(o1, S.Var 0, S.shift 1 t1))) );
                   ]
 
+            | S.MetavarApp _, _
+            | _, S.MetavarApp _
             | S.App _, S.App _
             | S.Proj _ , S.Proj _ ->
               begin
@@ -644,21 +710,6 @@ struct
                     None
                   end
               end
-
-            | S.MetavarApp mva, other
-            | other, S.MetavarApp mva ->
-              begin
-                (* We know that mva has no definition yet; otherwise
-                 * it would have been eliminated by whnf. Further,
-                 * it can't be two of the same metavariables, because
-                 * then alpha-equivalence would have short-circuited. *)
-
-                (* XXX: Really need to check that other is not
-                 * a newer meta variable! *)
-
-                Some (X.instantiate env mva other);
-              end
-
 
             | (S.Var _ | S.Lambda _ | S.Pi _ | S.App _ | S.Sigma _ |
                S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.Ind_eq _ |
@@ -688,6 +739,12 @@ struct
     | S.MetavarApp mva, other
     | other, S.MetavarApp mva ->
       begin
+
+        (* We know that mva has no definition yet; otherwise
+         * it would have been eliminated by whnf. Further,
+         * it can't be two of the same metavariables, because
+         * then alpha-equivalence would have short-circuited. *)
+
         (* XXX Need to do further checks, e.g., occurs *)
         let hr = X.instantiate env mva other in
         Some (mva.S.mv_ty, hr)

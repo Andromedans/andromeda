@@ -873,10 +873,6 @@ and Infer : INFER_SIG = struct
           *)
           let q, o, a, b, t, hr = infer_eq env term3 in
 
-
-
-          (* XXX: I think it would be slightly simpler to translate
-             c and then do a weakening in the *middle* to get c' *)
           (* Term [term1] has indices relative to the context [env, x, y, p],
              so we create that environment for use during translation.
            *)
