@@ -158,30 +158,21 @@ struct
      Property EXTENSIONALITY
 
      - if [env |- exp1 : Pi x:ty1. ty2] and [env |- exp2 : Pi x:ty1. ty2]
-       (so that [env, x:ty1 |- exp1 x : ty2] and [env, x:ty1 |- exp2 x : ty2])
-       and
-         [env, x:ty1 |- exp1 x == exp2 x : ty2]
-       then
-         [env |- exp1 == exp2 : Pi x:ty1. ty2].
+          (so that [env, x:ty1 |- exp1 x : ty2] and [env, x:ty1 |- exp2 x : ty2])
+       and [env, x:ty1 |- exp1 x == exp2 x : ty2]
+       then [env |- exp1 == exp2 : Pi x:ty1. ty2].
 
      - if [env |- exp1 : Sigma x:ty1. ty2] and [env |- exp2 : Sigma x:ty1. ty2]
-       and
-         [env |- fst exp1 == fst exp2 : ty1]
-       and
-         [env |- snd exp1 == snd exp2 : ty2[x->fst exp1]],
-       then
-         [env |- exp1 == exp2 : Sigma x:ty1. ty2].
+       and [env |- fst exp1 == fst exp2 : ty1]
+       and [env |- snd exp1 == snd exp2 : ty2[x->fst exp1]],
+       then [env |- exp1 == exp2 : Sigma x:ty1. ty2].
 
      - If [env |- exp1 : unit] and [env |- exp2 : unit]
-       then
-         [env |- exp1 == exp2: unit]
+       then [env |- exp1 == exp2: unit]
 
-     - If
-          [env |- exp1 : (exp3 == exp4 @ ty1)]
-       and
-          [env |- exp2 : (exp3 == exp4 @ ty1)]
-       then
-          [env |- exp1 == exp2 : (exp3 == exp4 @ ty1)]    <- judgmental K rule
+     - If [env |- exp1 : (exp3 == exp4 @ ty1)]
+       and [env |- exp2 : (exp3 == exp4 @ ty1)]
+       then [env |- exp1 == exp2 : (exp3 == exp4 @ ty1)]    <- judgmental K rule
 
      Property INVERSION
 
@@ -221,17 +212,18 @@ struct
 
     Property WEAKENING
 
-    - If [env |- exp : ty] and [env |- ty1 : U] for some universe [U],
-      and x not in dom(env), then
-        [env, x:ty1 |- exp: ty]
+    - If [env1, env2 |- exp : ty]
+      and [env1 |- ty1 : U] for some universe [U],
+      and x not in dom(env1,env2),
+      then [env1, x:ty1, env2 |- exp: ty]
 
     Property VALIDITY
 
     - If [env |- exp : ty]
       then [env |- ty : U] for some universe [U].
 
-    - If [env |- exp1 == exp2 : ty] then
-      [env |- exp1 : ty] and [env |- exp2 : ty].
+    - If [env |- exp1 == exp2 : ty]
+      then [env |- exp1 : ty] and [env |- exp2 : ty].
 
 
     Property FUNCTIONALITY
@@ -242,18 +234,14 @@ struct
 
     Property EQUIV
 
-     - If
-          [env1, x:ty1, env2 |- ...] for any judgment
-       and
-          [env1 |- ty1 == ty2 : U] for some universe [U],
-       then
-          [env1, x:ty2, env2 |- ...].
+     - If [env1, x:ty1, env2 |- ...] for any judgment
+       and [env1 |- ty1 == ty2 : U] for some universe [U],
+       then [env1, x:ty2, env2 |- ...].
 
     Property JOIN
 
      - If [env1 |- ty1 : U1] and [env2 |- ty2 : U2] for universes [U1] and [U2],
-       then
-         [env1 |- ty1 : U] and [env2 |- ty2 : U] for some common universe [U].
+       then [env1 |- ty1 : U] and [env2 |- ty2 : U] for some common universe [U].
 
 
   *)
@@ -530,7 +518,6 @@ struct
                     (* By PER and SUBSUMPTION,
                          [env |- exp2 : ty1].
                      *)
-
                     lazy (equal env exp1 exp2 ty1) ]
 
             | S.Eq(o1, exp11, exp12, ty1), S.Eq(o2, exp21, exp22, ty2) ->
@@ -632,66 +619,80 @@ struct
             | S.Ind_eq(o1, t1, (x,y,p,c1), (z,w1), a1, b1, q1),
               S.Ind_eq(o2, t2, (_,_,_,c2), (_,w2), a2, b2, q2) ->
 
+                (* XXX: This belongs in equal_path, because (c a b q) might
+                 * have a Pi or Sigma type! *)
 
-              let pathtype = S.Eq(o1, a1, b1, t1) in
-              let env_xy = X.add_parameters [ (x, t1); (y, t1) ] env in
-              let env_xyp =
-                    let xvar = S.Var 1  in
-                    let yvar = S.Var 0  in
-                    let t1'   = X.shift_to_env (env,t1) env_xy  in
-                    X.add_parameter p (S.Eq(o1, xvar, yvar, t1')) env_xy  in
+                (* XXX: If o1 = Ju this is an error, because whnf didn't work *)
 
-              let env_z = X.add_parameter z t1 env in
+                let (env_xyp, env_z) =
+                  S.create_ind_eq_envs X.add_parameters env o1 t1 (x,y,p) z  in
 
-              if o1 <> o2  then
-                None
-              else hr_ands
-                  [ (* By INVERSION and JOIN,
-                         [env |- t1 : U_i] and [env |- t2 : U_i].
-                     *)
-                    lazy ( equal_at_some_universe env t1 t2 );
+                let w_ty_expected, induction_type =
+                  S.create_ind_eq_types env_xyp env_z o1 t1 (x,y,p,c1) z a1 b1 q1  in
 
-                    (* By INVERSION,
-                         [env |- a1 : t1] and [env |- a2 : t2].
-                       By PER and SUBSUMPTION,
-                         [env |- a2 : t1].
-                     *)
-                    lazy ( equal env a1 a2 t1 );
+                if o1 <> o2  then
+                  None
+                else hr_ands
+                    [ (* By INVERSION and JOIN,
+                           [env |- t1 : U_i] and [env |- t2 : U_i].
+                       *)
+                      lazy ( equal_at_some_universe env t1 t2 );
 
-                    (* By INVERSION,
-                         [env |- b1 : t1] and [env |- b2 : t2].
-                       By PER and SUBSUMPTION,
-                         [env |- b2 : t1].
-                     *)
-                    lazy ( equal env b1 b2 t1 );
+                      (* By INVERSION,
+                           [env |- a1 : t1] and [env |- a2 : t2].
+                         By PER and SUBSUMPTION,
+                           [env |- a2 : t1].
+                       *)
+                      lazy ( equal env a1 a2 t1 );
 
-                    (* By INVERSION,
-                         [env |- q1 : Id(o,a1,b1,t1)] and
-                         [env |- q2 : Id(o,a2,b2,t2)].
-                       By CONGRUENCE,
-                         [env |- Id(o,a1,b1,t1) == Id(o,a2,b2,t2) : U_i].
-                       By PER and SUBSUMPTION,
-                         [env |- q2 : Id(o,a1,b1,t1)].
-                     *)
-                    lazy ( equal env q1 q2 pathtype );
+                      (* By INVERSION,
+                           [env |- b1 : t1] and [env |- b2 : t2].
+                         By PER and SUBSUMPTION,
+                           [env |- b2 : t1].
+                       *)
+                      lazy ( equal env b1 b2 t1 );
 
-                    (* By INVERSION and JOIN,
-                         [env, x:t1, y:t1, z:Id(o,a1,b1,t1) |- c1 : U_j]
-                         [env, x:t2, y:t2, z:Id(o,a2,b2,t2) |- c2 : U_j]
-                       By SUBST and WEAKENING,
-                         [env, x:t1, y:t1, z:Id(o,a1,b2,t1) |- c2 : U_j].
-                       We call this last environment env_c.
-                     *)
-                    lazy ( equal_at_some_universe env_xyp c1 c2 );
+                      (* By INVERSION,
+                           [env |- q1 : Id(o1,a1,b1,t1)] and
+                           [env |- q2 : Id(o1,a2,b2,t2)].
+                         By CONGRUENCE,
+                           [env |- Id(o1,a1,b1,t1) == Id(o1,a2,b2,t2) : U_i].
+                         By PER and SUBSUMPTION,
+                           [env |- q2 : Id(o1,a1,b1,t1)].
+                       *)
+                      lazy ( equal env q1 q2 (S.Eq(o1,a1,b1,t1)) );
 
+                      (* By INVERSION and JOIN,
+                           [env, x:t1, y:t1, p:Id(o,x,y,t1) |- c1 : U_j]
+                           [env, x:t2, y:t2, p:Id(o,x,y,t2) |- c2 : U_j]
+                         By SUBST and WEAKENING,
+                           [env, x:t1, y:t1, p:Id(o,x,y,t1) |- c2 : U_j].
+                         We call this last environment env_c.
+                       *)
+                      lazy ( equal_at_some_universe env_xyp c1 c2 );
 
-              (* XXX NO! This is not the right type of w1 or w2 *)
+                      (* XXX: Careful! I have not necessarily proved that
+                       *    c1 == c2 : U_j, but rather that c1 == c2 at *some*
+                       *    universe!
+                       *
+                       *    If I want to claim that equal_at-some_universe
+                       *    always proves equality at specific the universe I'm
+                       *    thinking of, I have to check this in all cases.
+                       *)
 
-                    lazy ( equal env_z w1 w2
-                             (S.beta (S.beta (S.beta c1 (S.Var 0))
-                                        (S.Var 0))
-                                (S.Refl(o1, S.Var 0, S.shift 1 t1))) );
-                  ]
+                      (* By WEAKENING,
+                           [env, z:t1, x:t1, y:t1, p:Id(o,x,y,t1) |- c1 : U_j]
+                         By INVERSION,
+                           [env, z:t1 |- w1 : c1{x,y,p->z,z,refl(o,z,t1)}]
+                           [env, z:t2 |- w2 : c2{x,y,p->z,z,refl(o,z,t2)}]
+                         By EQUIV,
+                           [env, z:t1 |- w2 : c2{x,y,p->z,z,refl(o,z,t2)}]
+
+                         XXX: So why do w1 and w2 have equivalent types?
+                       *)
+
+                      lazy ( equal env_z w1 w2 w_ty_expected );
+                    ]
 
             | S.MetavarApp _, _
             | _, S.MetavarApp _
@@ -705,6 +706,9 @@ struct
                   Some hr
                 | None   ->
                   begin
+                    (* XXX: This will be a problem if we ever speculatively
+                     * try to invoke equivalences. Better to return the
+                     * message as a string... *)
                     P.equivalence "@[<hov>[Path] Why is %t ==@ %t ?@]@."
                       (X.print_term env exp1') (X.print_term env exp2');
                     None
@@ -715,6 +719,8 @@ struct
                S.Pair _ | S.Proj _ | S.Refl _ | S.Eq _ | S.Ind_eq _ |
                S.U _ | S.Base _ | S.Const _ ), _ ->
               begin
+                (* XXX: This will be a problem if we ever speculatively
+                 * try to invoke equivalences... *)
                 P.equivalence "[Mismatch] Why is %t == %t ?@."
                   (X.print_term env exp1') (X.print_term env exp2');
                 None
@@ -722,6 +728,15 @@ struct
           end
 
   (* [equal_path] assumes inputs are already in whnf! *)
+
+  (* XXX: To get metavariables to work properly, we may need to put this
+   * into spine form... *)
+
+  (* XXX: If M is a metavariable, we know how to deal with
+   *           M x y z = f(x,y,z).
+   *      What about
+   *           ((M x).1) y z = f(x,y,z) ?
+   *)
 
   and equal_path env e1 e2 =
     P.debug "equal_path: e1 = %t@. and e2 = %t@."

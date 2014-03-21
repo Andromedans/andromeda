@@ -873,74 +873,32 @@ and Infer : INFER_SIG = struct
           *)
           let q, o, a, b, t, hr = infer_eq env term3 in
 
-          (* Term [term1] has indices relative to the context [env, x, y, p],
-             so we create that environment for use during translation.
-           *)
-          let env_c =
-            (* Unfortunately, add_parameters only works when there are
-               no dependencies between the variables, so we have to
-               do it in two stages. First we add x and y.
-             *)
-            let tmp_env =
-                  add_parameters [ (x, t); (y, t) ] env in
-            (* Then add p, with a type indexed relative to tmp_env
-             *)
-            let xvar = S.Var 1  in
-            let yvar = S.Var 0  in
-            let t'   = shift_to_env (env,t) tmp_env  in
-            add_parameter p (S.Eq(o, xvar, yvar, t')) tmp_env  in
+          let (env_xyp, env_z) =
+             S.create_ind_eq_envs add_parameters env o t (x,y,p) z  in
+
 
           (* Next, translate [term1] to annotated type [env, x, y, p |- c : U_j].
            *)
-          let c, u_j = infer_ty env_c term1 in
+          let c, u_j = infer_ty env_xyp term1 in
 
           (* If we're working propositionally, check that c is fibered *)
           let _ = match o, u_j with
             | S.Pr, S.NonFib _ ->
                 Error.typing ~loc "Eliminating prop equality %t@ in non-fibered family %t"
-                  (print_term env q) (print_term env_c c)
+                  (print_term env q) (print_term env_xyp c)
             | _, _ -> ()  in
 
-          (* [c] has indices relative to the context [env, x, y, p]
-             but when working with [w] it would be more helpful to
-             use the context [env, z, x, y, p] with z in position 3.
-             We can adjust the indices to get a term [c'] by using weakening.
-          *)
-          let c' = S.weaken 3 c in
-
-          (* [env_w] is the context [env, z:t].
-           *)
-          let env_w = add_parameter z t env in
-
-          (* [term2] will be our [w] input. We expect that
-                   [env, z:t |- w : c[x,y,p->z,z,refl z]],
-             so we construct the type
-                   [env, z:t |- c[x,y,p->z,z,refl z]].
-             Fortunately, we have [env, z, x, y, p |- c'] so we can
-             construct the desired substitution instance of [c]
-             using strengthening.
-           *)
-          let w_ty_expected =
-            (* We shift [env |- t] to get [env, z:t |- t']. *)
-            let t' = shift_to_env (env,t) env_w  in
-            (* In the context [env, z:t], variable z is represented by 0. *)
-            let zvar = S.Var 0   in
-            S.strengthen c' [zvar; zvar; S.Refl(o, zvar, t')]  in
+          let w_ty_expected, induction_type =
+            S.create_ind_eq_types env_xyp env_z o t (x,y,p,c) z a b q  in
 
           (* Finally, verify that [w] has the right type, and translated it
              into annotated form. *)
-          let w = check env_w term2 w_ty_expected  in
+          let w = check env_z term2 w_ty_expected  in
 
           (* That's everything we needed to translate the induction expression
            *)
           let induction_exp =
             wrap_with_handlers (S.Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q)) hr  in
-
-          (* Now we need to compute the expression's type, e.g.,
-                 c[x,y,p -> a,b,q].
-             Since [env, x, y, p |- c], we can get this by strengthening.
-           *)
-          let induction_type = S.strengthen c [a;b;q]  in
 
           induction_exp, induction_type
         end

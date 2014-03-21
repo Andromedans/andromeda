@@ -239,48 +239,38 @@ let rec infer env term =
             (*let _ = P.debug "!! Original term = %s" (S.string_of_term term) in*)
             (*let _ = P.debug "!! Original term = %t" (print_term env term) in*)
             (*let _ = Ctx.print env.ctx in*)
-            let _     = infer_ty env t  in
+            let u_i   = infer_ty env t  in
             let _     = check env a t   in
             let _     = check env b t   in
+
+            (* Check that o and t are compatible, to be sure pathtype is
+               well-formed. *)
+            let _ =
+              match o, u_i with
+              | S.Pr, S.NonFib _ ->
+                  Error.verify "Ind_eq forming prop equality at non-fibered type %t"
+                     (print_term env t)
+              | _, _ -> ()  in
+
             let pathtype = S.Eq(o, a, b, t) in
             let _     = check env q pathtype  in
 
-            let illegal_variable_name = "eventual.z" in
-            let env_c' = add_parameter p (S.Eq(o, S.Var 1, S.Var 0, S.shift 3 t))
-                          (add_parameter y (S.shift 2 t)
-                             (add_parameter x (S.shift 1 t)
-                                (add_parameter illegal_variable_name t env)))  in
-            (* We've inserted eventual.z into position 3 of the context, where c wasn't
-             * expecting it. So we need to shift all references to variables 3 and up by 1,
-             * but leave variables 0, 1, and 2 alone. *)
-            let c' = S.shift ~cut:3 1 c  in
-            (*let _ = P.debug "!! c' = %s@." (S.string_of_term c')  in*)
-            (*let _ = P.debug "!! c' = %t@." (print_term env_c' c')  in*)
-            (*let _ = Ctx.print env_c'.ctx in*)
-            let _ = match o, infer_ty env_c' c' with
+            let env_xyp, env_z =
+               S.create_ind_eq_envs add_parameters env o t (x,y,p) z  in
+
+            let _ = match o, infer_ty env_xyp c with
                     | S.Pr, S.NonFib _ ->
                          Error.verify "Eliminating prop equality %t@ in non-fibered family %t"
-                             (print_term env q) (print_term env_c' c')
+                             (print_term env q) (print_term env_xyp c)
                     | _, _ -> ()  in
 
-            (*let _ = P.debug "!! AFTER infer_ty of c'"  in*)
 
-            let env_w = add_parameter z t env in
-            let w_ty_expected = S.beta (S.beta (S.beta c' (S.Refl(o, S.Var 3, S.shift 3 t)))
-                                               (S.Var 1))
-                                       (S.Var 0)  in
+            let w_ty_expected, ind_eq_type =
+              S.create_ind_eq_types env_xyp env_z o t (x,y,p,c) z a b q  in
 
-            (*let _ = P.debug "!! w_ty_expected = %s@." (S.string_of_term w_ty_expected)  in*)
-            (*let _ = P.debug "!! w_ty_expected = %t@." (print_term env_w w_ty_expected)  in*)
+            let _ = check env_z w w_ty_expected  in
 
-            let _ = check env_w w w_ty_expected  in
-
-            (* We're using c rather than c', so we don't have to worry about
-             * that eventual.z variable at all. *)
-            S.beta (S.beta (S.beta c
-                                   (S.shift 2 q))
-                           (S.shift 1 b))
-                   a
+            ind_eq_type
         end
     | S.MetavarApp mva ->
         begin

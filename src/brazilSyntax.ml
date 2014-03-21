@@ -535,3 +535,62 @@ let rec equal e1 e2 =
           | None      -> union_list (List.map (loop cut) mva.mv_args)
         end  in
   loop 0
+
+
+
+(*****************)
+
+let create_ind_eq_envs add_parameters env o t (x,y,p) z =
+  let env_xyp =
+        (* Unfortunately, add_parameters only works when there are
+           no dependencies between the variables, so we have to
+           do it in two stages. First we add x and y.
+         *)
+        let env_xy =
+              add_parameters [ (x, t); (y, t) ] env in
+        (* Then add p, with a type indexed relative to tmp_env
+         *)
+        let xvar = Var 1  in
+        let yvar = Var 0  in
+        let t'   = shift 2 t  (* (env,x,y) - env = 2 *)  in
+        add_parameters [ p, Eq(o, xvar, yvar, t') ] env_xy  in
+
+  let env_z = add_parameters [z, t] env in
+
+  (env_xyp, env_z)
+
+let create_ind_eq_types env_xyp env_z o t (x,y,p,c) z a b q =
+
+  (* [term2] will be our [w] input. We expect that
+           [env, z:t |- w : c[x,y,p->z,z,refl z]],
+     so we construct the type
+           [env, z:t |- c[x,y,p->z,z,refl z]].
+     We produce this type by weakening c into [env, z, x, y, p |- c']
+     and construct the desired substitution instance of
+     using strengthening.
+   *)
+  let w_ty_expected =
+
+    (* [c] has indices relative to the context [env, x, y, p]
+       but when working with [w] it would be more helpful to
+       use the context [env, z, x, y, p] with z in position 3.
+       We can adjust the indices to get a term [c'] by using weakening.
+    *)
+    let c' = weaken 3 c in
+
+    (* We shift [env |- t] to get [env, z:t |- t']. *)
+    let t' = shift 1 t in  (* (env,z) - env = 1 *)
+
+    (* In the context [env, z:t], variable z is represented by 0. *)
+    let zvar = Var 0   in
+
+    strengthen c' [zvar; zvar; Refl(o, zvar, t')]  in
+
+  (* Finally, we want to compute the whole expression's type, e.g.,
+         c[x,y,p -> a,b,q].
+     Since [env, x, y, p |- c], we can get this by strengthening.
+   *)
+  let ind_eq_type = strengthen c [a;b;q]  in
+
+  (w_ty_expected, ind_eq_type)
+
