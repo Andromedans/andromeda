@@ -236,9 +236,6 @@ let rec infer env term =
 
     | S.Ind_eq(o, t, (x,y,p,c), (z,w), a, b, q) ->
         begin
-            (*let _ = P.debug "!! Original term = %s" (S.string_of_term term) in*)
-            (*let _ = P.debug "!! Original term = %t" (print_term env term) in*)
-            (*let _ = Ctx.print env.ctx in*)
             let u_i   = infer_ty env t  in
             let _     = check env a t   in
             let _     = check env b t   in

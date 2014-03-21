@@ -616,88 +616,17 @@ struct
             | _, S.Handle _ ->
                 Error.impossible "equal_whnfs: whnf didn't eliminate Handle"
 
-            | S.Ind_eq(o1, t1, (x,y,p,c1), (z,w1), a1, b1, q1),
-              S.Ind_eq(o2, t2, (_,_,_,c2), (_,w2), a2, b2, q2) ->
 
-                (* XXX: This belongs in equal_path, because (c a b q) might
-                 * have a Pi or Sigma type! *)
-
-                (* XXX: If o1 = Ju this is an error, because whnf didn't work *)
-
-                let (env_xyp, env_z) =
-                  S.create_ind_eq_envs X.add_parameters env o1 t1 (x,y,p) z  in
-
-                let w_ty_expected, induction_type =
-                  S.create_ind_eq_types env_xyp env_z o1 t1 (x,y,p,c1) z a1 b1 q1  in
-
-                if o1 <> o2  then
-                  None
-                else hr_ands
-                    [ (* By INVERSION and JOIN,
-                           [env |- t1 : U_i] and [env |- t2 : U_i].
-                       *)
-                      lazy ( equal_at_some_universe env t1 t2 );
-
-                      (* By INVERSION,
-                           [env |- a1 : t1] and [env |- a2 : t2].
-                         By PER and SUBSUMPTION,
-                           [env |- a2 : t1].
-                       *)
-                      lazy ( equal env a1 a2 t1 );
-
-                      (* By INVERSION,
-                           [env |- b1 : t1] and [env |- b2 : t2].
-                         By PER and SUBSUMPTION,
-                           [env |- b2 : t1].
-                       *)
-                      lazy ( equal env b1 b2 t1 );
-
-                      (* By INVERSION,
-                           [env |- q1 : Id(o1,a1,b1,t1)] and
-                           [env |- q2 : Id(o1,a2,b2,t2)].
-                         By CONGRUENCE,
-                           [env |- Id(o1,a1,b1,t1) == Id(o1,a2,b2,t2) : U_i].
-                         By PER and SUBSUMPTION,
-                           [env |- q2 : Id(o1,a1,b1,t1)].
-                       *)
-                      lazy ( equal env q1 q2 (S.Eq(o1,a1,b1,t1)) );
-
-                      (* By INVERSION and JOIN,
-                           [env, x:t1, y:t1, p:Id(o,x,y,t1) |- c1 : U_j]
-                           [env, x:t2, y:t2, p:Id(o,x,y,t2) |- c2 : U_j]
-                         By SUBST and WEAKENING,
-                           [env, x:t1, y:t1, p:Id(o,x,y,t1) |- c2 : U_j].
-                         We call this last environment env_c.
-                       *)
-                      lazy ( equal_at_some_universe env_xyp c1 c2 );
-
-                      (* XXX: Careful! I have not necessarily proved that
-                       *    c1 == c2 : U_j, but rather that c1 == c2 at *some*
-                       *    universe!
-                       *
-                       *    If I want to claim that equal_at-some_universe
-                       *    always proves equality at specific the universe I'm
-                       *    thinking of, I have to check this in all cases.
-                       *)
-
-                      (* By WEAKENING,
-                           [env, z:t1, x:t1, y:t1, p:Id(o,x,y,t1) |- c1 : U_j]
-                         By INVERSION,
-                           [env, z:t1 |- w1 : c1{x,y,p->z,z,refl(o,z,t1)}]
-                           [env, z:t2 |- w2 : c2{x,y,p->z,z,refl(o,z,t2)}]
-                         By EQUIV,
-                           [env, z:t1 |- w2 : c2{x,y,p->z,z,refl(o,z,t2)}]
-
-                         XXX: So why do w1 and w2 have equivalent types?
-                       *)
-
-                      lazy ( equal env_z w1 w2 w_ty_expected );
-                    ]
+            | S.Ind_eq(S.Ju, _, _, _, _, _, _), _
+            | _, S.Ind_eq(S.Ju, _, _, _, _, _, _) ->
+                Error.impossible "equal_whnfs: whnf didn't eliminate Ind_eq(Ju"
 
             | S.MetavarApp _, _
             | _, S.MetavarApp _
             | S.App _, S.App _
-            | S.Proj _ , S.Proj _ ->
+            | S.Proj _ , S.Proj _
+            | S.Ind_eq(S.Pr, _, _, _, _, _, _),
+                S.Ind_eq(S.Pr, _, _, _, _, _, _) ->
               begin
                 match equal_path env exp1' exp2' with
                 | Some (t,hr) ->
@@ -806,6 +735,87 @@ struct
           end
         | _ -> None
       end
+
+    | S.Ind_eq(o1, t1, (x,y,p,c1), (z,w1), a1, b1, q1),
+      S.Ind_eq(o2, t2, (_,_,_,c2), (_,w2), a2, b2, q2) ->
+
+        assert (o1 = S.Pr && o2 = S.Pr); (* Otherwise not in whnf *)
+
+        let (env_xyp, env_z) =
+          S.create_ind_eq_envs X.add_parameters env o1 t1 (x,y,p) z  in
+
+        let w_ty_expected, induction_type =
+          S.create_ind_eq_types env_xyp env_z o1 t1 (x,y,p,c1) z a1 b1 q1  in
+
+        let hr_eq_opt = hr_ands
+
+            [ (* By INVERSION and JOIN,
+                   [env |- t1 : U_i] and [env |- t2 : U_i].
+               *)
+              lazy ( equal_at_some_universe env t1 t2 );
+
+              (* By INVERSION,
+                   [env |- a1 : t1] and [env |- a2 : t2].
+                 By PER and SUBSUMPTION,
+                   [env |- a2 : t1].
+               *)
+              lazy ( equal env a1 a2 t1 );
+
+              (* By INVERSION,
+                   [env |- b1 : t1] and [env |- b2 : t2].
+                 By PER and SUBSUMPTION,
+                   [env |- b2 : t1].
+               *)
+              lazy ( equal env b1 b2 t1 );
+
+              (* By INVERSION,
+                   [env |- q1 : Id(o1,a1,b1,t1)] and
+                   [env |- q2 : Id(o1,a2,b2,t2)].
+                 By CONGRUENCE,
+                   [env |- Id(o1,a1,b1,t1) == Id(o1,a2,b2,t2) : U_i].
+                 By PER and SUBSUMPTION,
+                   [env |- q2 : Id(o1,a1,b1,t1)].
+               *)
+              lazy ( equal env q1 q2 (S.Eq(o1,a1,b1,t1)) );
+
+              (* By INVERSION and JOIN,
+                   [env, x:t1, y:t1, p:Id(o,x,y,t1) |- c1 : U_j]
+                   [env, x:t2, y:t2, p:Id(o,x,y,t2) |- c2 : U_j]
+                 By SUBST and WEAKENING,
+                   [env, x:t1, y:t1, p:Id(o,x,y,t1) |- c2 : U_j].
+                 We call this last environment env_c.
+               *)
+              lazy ( equal_at_some_universe env_xyp c1 c2 );
+
+              (* XXX: Careful! I have not necessarily proved that
+               *    c1 == c2 : U_j, but rather that c1 == c2 at *some*
+               *    universe!
+               *
+               *    If I want to claim that equal_at-some_universe
+               *    always proves equality at specific the universe I'm
+               *    thinking of, I have to check this in all cases.
+               *)
+
+              (* By WEAKENING,
+                   [env, z:t1, x:t1, y:t1, p:Id(o,x,y,t1) |- c1 : U_j]
+                 By INVERSION,
+                   [env, z:t1 |- w1 : c1{x,y,p->z,z,refl(o,z,t1)}]
+                   [env, z:t2 |- w2 : c2{x,y,p->z,z,refl(o,z,t2)}]
+                 By EQUIV,
+                   [env, z:t1 |- w2 : c2{x,y,p->z,z,refl(o,z,t2)}]
+
+                 XXX: So why do w1 and w2 have equivalent types?
+               *)
+
+              lazy ( equal env_z w1 w2 w_ty_expected );
+            ]  in
+
+        begin
+          match hr_eq_opt with
+          | Some hr_eq -> Some (induction_type, hr_eq)
+          | None -> None
+        end
+
 
     | _, _ -> None
 
