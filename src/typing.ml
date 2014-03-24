@@ -132,6 +132,16 @@ and Infer : INFER_SIG = struct
   and operation =
     | Inhabit of S.term                   (** inhabit a type *)
     | Coerce  of S.term * S.term          (** t1 >-> t2 *)
+    | AsShape of shape * S.term * S.term  (** shape, term, type of term *)
+
+  and shape = D.shape =
+    | JEqShape
+    | LambdaShape
+    | PairShape
+    | PiShape
+    | SigmaShape
+    | UShape
+    | UnitShape
 
   let empty_env = { ctx               = Ctx.empty_context;
                     handlers          = [];
@@ -933,15 +943,29 @@ and Infer : INFER_SIG = struct
       let _, ty = infer env handlerBody  in
       Inhabit (whnf env ty)
 
-    | D.Inhabit, _, _ -> Error.typing ~loc "Wrong number of arguments to INHABIT"
+    | D.Inhabit, _, _ ->
+        Error.typing ~loc "Wrong number of arguments to %s"
+          (D.string_of_tag tag)
 
     | D.Coerce, [term1; term2], _ ->
       let t1, _ = infer_ty env term1  in
       let t2, _ = infer_ty env term2  in
       Coerce(t1, t2)
 
-    | D.Coerce, _, _ -> Error.typing ~loc "Wrong number of arguments to COERCE"
+    | D.Coerce, _, _ ->
+        Error.typing ~loc "Wrong number of arguments to %s"
+          (D.string_of_tag tag)
 
+    | D.AsShape D.PairShape, [term], _ ->
+        let exp, ty = infer env term  in
+        AsShape (PairShape, exp, ty)
+
+    | D.AsShape _shape, [term], _ ->
+        Error.unimplemented ~loc "AsShape"
+
+    | D.AsShape shape, _, _ ->
+        Error.typing ~loc "Wrong number of arguments to %s"
+          (D.string_of_tag tag)
 
   and addHandlers env loc handlers =
     let installdepth = depth env  in
@@ -1182,6 +1206,29 @@ and Infer : INFER_SIG = struct
             | Coerce (ty1, ty2) ->
               let ty = S.make_arrow ty1 ty2  in
               check env comp1' ty, ty
+            | AsShape (PairShape, exp, ty) ->
+                let u = universe_of env ty in
+                (* The handler for AsPair must produce
+                  (t.1 : U) * (t.2 : U) * (x.1 : t.1) * (x.2 * t.2) *
+                        (exp == <x.1, x.2> @ ty)
+                 *)
+                let goalTy =
+                  S.Sigma("t.1", S.U u,
+                    S.Sigma("t.2", S.U u,
+                      S.Sigma("x.1", S.Var 1, (* type t.1 *)
+                        S.Sigma("x.2", S.Var 1, (* type t.2 *)
+                          S.Eq(S.Ju,
+                            exp,
+                            S.Pair(S.Var 1, S.Var 0,
+                                   "_",
+                                   S.Var 3,
+                                   S.Var 3), (* <x.1, x.2> : (Sigma _:t.1, t.2) *)
+                            ty)))))  in
+                check env comp1' goalTy, goalTy
+
+            | AsShape _ ->
+                Error.unimplemented ~loc
+                  "inferHandler: Unimplemented handle instantiation"
           end
         else
           loop rest
@@ -1216,6 +1263,9 @@ and Infer : INFER_SIG = struct
       if verbose then Format.printf "Term %s is defined.@." name;
       add_definition name ty expr env;
     end
+
+
+
 
 end
 

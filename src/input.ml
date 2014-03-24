@@ -13,7 +13,16 @@ type eqsort =
 type operation_tag =
   | Inhabit
   | Coerce
+  | AsShape of shape
 
+and shape =         (* Sorted alphabetically by prefix*)
+  | JEqShape
+  | LambdaShape
+  | PairShape
+  | PiShape
+  | SigmaShape
+  | UShape
+  | UnitShape
 
 type 'a term = 'a term' * Common.position
 and 'a term' =
@@ -60,6 +69,13 @@ let app_embrace h lst = h ^ embrace (String.concat ", " lst)
 let string_of_tag = function
   | Inhabit -> "Inhabit"
   | Coerce -> "Coerce"
+  | AsShape JEqShape -> "AsJeq"
+  | AsShape LambdaShape -> "AsLambda"
+  | AsShape PairShape -> "AsPair"
+  | AsShape PiShape -> "AsPi"
+  | AsShape SigmaShape -> "AsSigma"
+  | AsShape UShape -> "AsU"
+  | AsShape UnitShape -> "AsUnit"
 
 let string_of_universe = function
   | NonFib i -> app_embrace "NonFib" [string_of_int i]

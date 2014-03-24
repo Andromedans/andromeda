@@ -46,6 +46,57 @@ struct
   module P = BrazilPrint
   module S = BrazilSyntax
 
+  (*****************************)
+  (* General Utility Functions *)
+  (*****************************)
+
+  (* Assuming that [ty] is well-formed in environment [env], try to
+     reduce [ty] to a type with at least [n] outer Pi's.
+
+     If so, return that type and any handlers used for the reduction.
+     If not, return the type with a maximal number of Pi's and
+       the handlers used there.
+
+     Generalizes the X.as_pi function.
+   *)
+  let rec as_pis env ty n =
+    if n <= 0 then
+      ty, X.trivial_hr
+    else
+      begin
+        (* Try to get an outermost Pi *)
+        match X.as_pi env ty with
+        | S.Pi(x,ty1,ty2), hr1 ->
+            (* Recursively extract n-1 Pis from the codomain *)
+            let env' = X.add_parameter x ty1 env  in
+            let ty2', hr2 = as_pis env' ty2 (n-1)  in
+            (* Put the pieces back together *)
+            S.Pi(x,ty1,ty2'), X.join_hr hr1 hr2
+        | ty', hr1 -> ty', hr1
+      end
+
+  (**********)
+  (* Spines *)
+  (**********)
+
+(*
+  type spine_component =
+    | Spine_app of S.term
+    | Spine_proj of int
+
+  let rec to_spine exp =
+    let rec loop = function
+    | S.App(exp1, exp2) ->
+        let head, rev_rest_spine = loop exp1 in
+        head, (Spine_app exp2) :: rev_rest_spine
+    | S.Proj(i, exp2) ->
+        let head, rev_rest_spine = loop exp2 in
+        head, (Spine_proj i) :: rev_rest_spine
+    | head -> head, []  in
+    let head, rev_spine= loop exp  in
+    head, List.rev rev_spine
+*)
+
   (********************************)
   (* Handled Results and Laziness *)
   (********************************)
