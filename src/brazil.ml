@@ -73,8 +73,6 @@ let lookup v env = Ctx.lookup v env.ctx
 let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
 let lookup_definition v env = Ctx.lookup_definition v env.ctx
 let shift_to_env (env1, exp) env2 = Ctx.shift_to_ctx (env1.ctx, exp) env2.ctx
-let whnf = Equiv.whnf
-let nf = Equiv.nf
 let print_term env e = P.term env.ctx.Ctx.names e
 
 type iterm = BrazilSyntax.term
@@ -117,7 +115,7 @@ let handled env e1 e2 _ =
 
 let find_handler_reduction env k p =
   let rec loop = function
-    | [] -> whnf env k, ()
+    | [] -> Equiv.whnf env k, ()
     | handler::rest ->
         let h1, h2 = unshift_handler env handler  in
         if (S.equal h1 k && p h2) then
@@ -285,7 +283,7 @@ let rec infer env term =
               begin
                 let ty = S.get_mva_ty mva in
                 let _ = infer_ty env ty  in
-                let printable_ty = nf env ty  in
+                let printable_ty = Equiv.nf env ty  in
                 match S.get_mva_sort mva with
                 | S.MV_admit ->
                     let loc = S.get_mva_pos mva in

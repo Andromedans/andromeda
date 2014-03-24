@@ -275,7 +275,7 @@ and Infer : INFER_SIG = struct
         else
            (* That didn't work. Lets try normalizing, in case some
               of the free variables disappear. *)
-           let defn' = nf env defn in
+           let defn' = Equiv.nf env defn in
            let free_in_defn' = S.free_vars defn'  in
            if (S.VS.is_empty (S.VS.diff free_in_defn' arg_var_set)) then
              Some (defn', free_in_defn')
@@ -379,7 +379,7 @@ and Infer : INFER_SIG = struct
 
       | [] ->
         P.debug "find_handler_reduction defaulting to whnf@.";
-        whnf env expr, trivial_hr
+        Equiv.whnf env expr, trivial_hr
 
       | (installdepth, Inhabit(S.Eq(S.Ju,h1,h2,_) as unshifted_ty), unshifted_body)::rest ->
         (* XXX: is it safe to ignore the classifier??? *)
@@ -941,7 +941,7 @@ and Infer : INFER_SIG = struct
     | D.Inhabit, [], Some handlerBody ->
       (* Hack for Brazil compatibility *)
       let _, ty = infer env handlerBody  in
-      Inhabit (whnf env ty)
+      Inhabit (Equiv.whnf env ty)
 
     | D.Coerce, [term1; term2], _ ->
       let t1, _ = infer_ty env term1  in
@@ -1061,8 +1061,9 @@ and Infer : INFER_SIG = struct
           match (Equiv.equal_at_some_universe env t' t ) with
           | None ->
             Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
-              (print_term env e) (print_term env (whnf env t')) (print_term env
-              (whnf env t))
+              (print_term env e)
+              (print_term env (Equiv.whnf env t'))
+              (print_term env (Equiv.whnf env t))
           | Some witness_set -> wrap_with_handlers e witness_set
         end
 
