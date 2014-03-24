@@ -5,6 +5,11 @@
  *   and Norm needs to reference BrazilContext, so Norm would
  *   have to be defined in this file too, or maybe in Equivalence.
  *   And I'm not prepared to do that yet.
+ *
+ * XXX: Normalization is now in Equivalence! So we could do this...
+ *
+ * Actually, Ctx should be defined in BrazilSyntax, not here in
+ * the verifier! I'm getting my Brazils confused, I think.
  *)
 
 
@@ -16,6 +21,8 @@ module rec Equiv : sig
                      val equal_at_some_universe : Verify.env ->
                             Verify.term -> Verify.term
                             -> Verify.handled_result option
+                     val whnf : Verify.env -> Verify.term -> Verify.term
+                     val nf : Verify.env -> Verify.term -> Verify.term
                    end =
     Equivalence.Make(Verify)
 
@@ -64,9 +71,10 @@ let add_parameters bnds env =
 
 let lookup v env = Ctx.lookup v env.ctx
 let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
+let lookup_definition v env = Ctx.lookup_definition v env.ctx
 let shift_to_env (env1, exp) env2 = Ctx.shift_to_ctx (env1.ctx, exp) env2.ctx
-let whnf env e = Norm.whnf env.ctx e
-let nf env e = Norm.nf env.ctx e
+let whnf = Equiv.whnf
+let nf = Equiv.nf
 let print_term env e = P.term env.ctx.Ctx.names e
 
 type iterm = BrazilSyntax.term

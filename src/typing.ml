@@ -83,6 +83,9 @@ module rec Equiv : sig
   val equal_at_some_universe : Infer.env -> Infer.term -> Infer.term
     -> Infer.handled_result option
 
+  val whnf : Infer.env -> Infer.term -> Infer.term
+  val nf   : Infer.env -> Infer.term -> Infer.term
+
 end = Equivalence.Make(Infer)
 
 (**
@@ -152,19 +155,22 @@ and Infer : INFER_SIG = struct
   let shiftOperation ?(cut=0) delta = function
     | Inhabit term      -> Inhabit (S.shift ~cut delta term)
     | Coerce (ty1, ty2) -> Coerce  (S.shift ~cut delta ty1, S.shift ~cut delta ty2)
+    | AsShape (shape, term, ty) -> AsShape (shape, S.shift ~cut delta term,
+                                            S.shift ~cut delta ty)
 
   (* {4 Wrap functions expecting raw Ctx info to accept env values} *)
 
   let lookup            v env = Ctx.lookup v env.ctx
   let lookup_classifier v env = Ctx.lookup_classifier v env.ctx
+  let lookup_definition v env = Ctx.lookup_definition v env.ctx
   let shift_to_env (env1, exp) env2 = Ctx.shift_to_ctx (env1.ctx, exp) env2.ctx
 
   let add_parameter  x t   env = {env with ctx = Ctx.add_parameter  x t   env.ctx}
   let add_definition x t e env = {env with ctx = Ctx.add_definition x t e env.ctx}
   let add_parameters bnds  env = {env with ctx = Ctx.add_parameters bnds  env.ctx}
 
-  let whnf env e = Norm.whnf env.ctx e
-  let nf   env e = Norm.nf   env.ctx e
+  let whnf = Equiv.whnf
+  let nf = Equiv.nf
 
   let print_term env e ppf =
     begin
@@ -1157,6 +1163,11 @@ and Infer : INFER_SIG = struct
       | (installdepth, op1, comp1)::rest ->
         let d = currentdepth - installdepth in
         let op1 = shiftOperation d op1  in
+
+        (* XXX: We shouldn't be using ML == to match
+            operation and handler! At the very least, we
+            want alpha-equivalence...*)
+
         if (op = op1) then
           begin
             (* comp1' is the right-hand-size of the handler,
