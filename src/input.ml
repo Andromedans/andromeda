@@ -13,7 +13,7 @@ type eqsort =
 type operation_tag =
   | Inhabit
   | Coerce
-  | AsShape of shape
+  | Rewrite
 
 and shape =         (* Sorted alphabetically by prefix*)
   | JEqShape
@@ -69,13 +69,7 @@ let app_embrace h lst = h ^ embrace (String.concat ", " lst)
 let string_of_tag = function
   | Inhabit -> "Inhabit"
   | Coerce -> "Coerce"
-  | AsShape JEqShape -> "AsJeq"
-  | AsShape LambdaShape -> "AsLambda"
-  | AsShape PairShape -> "AsPair"
-  | AsShape PiShape -> "AsPi"
-  | AsShape SigmaShape -> "AsSigma"
-  | AsShape UShape -> "AsU"
-  | AsShape UnitShape -> "AsUnit"
+  | Rewrite -> "Rewrite"
 
 let string_of_universe = function
   | NonFib i -> app_embrace "NonFib" [string_of_int i]

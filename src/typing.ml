@@ -130,18 +130,9 @@ and Infer : INFER_SIG = struct
   and depth = int
 
   and operation =
-    | Inhabit of S.term                   (** inhabit a type *)
-    | Coerce  of S.term * S.term          (** t1 >-> t2 *)
-    | AsShape of shape * S.term * S.term  (** shape, term, type of term *)
-
-  and shape = D.shape =
-    | JEqShape
-    | LambdaShape
-    | PairShape
-    | PiShape
-    | SigmaShape
-    | UShape
-    | UnitShape
+    | Inhabit of S.term                    (** inhabit a type *)
+    | Coerce  of S.term * S.term           (** t1 >-> t2 *)
+    | Rewrite of S.term * S.term * S.term  (** e1 == e2 @ ty *)
 
   let empty_env = { ctx               = Ctx.empty_context;
                     handlers          = [];
@@ -152,6 +143,13 @@ and Infer : INFER_SIG = struct
 
   let depth env = Ctx.depth env.ctx
 
+  (* When we invoke equivalence from the type checker, we need
+     to "shift" all the information about handlers used back to
+     that top-level context. So, we make sure to store the
+     size (depth) of the context at that point *before* invoking
+     the equivalence function. As equivalence accumulates handler
+     information, it shifts them all to that value.
+   *)
   let enter_equiv env =
     { env with equiv_entry_depth = Some (depth env) }
 
@@ -162,11 +160,12 @@ and Infer : INFER_SIG = struct
 
   (** [shiftOperation] extends the [S.shift] function to Brazil operation values
   *)
-  let shiftOperation ?(cut=0) delta = function
-    | Inhabit term      -> Inhabit (S.shift ~cut delta term)
-    | Coerce (ty1, ty2) -> Coerce  (S.shift ~cut delta ty1, S.shift ~cut delta ty2)
-    | AsShape (shape, term, ty) -> AsShape (shape, S.shift ~cut delta term,
-                                            S.shift ~cut delta ty)
+  let shiftOperation ?(cut=0) delta opn =
+    let shift = S.shift ~cut delta in
+    match opn with
+    | Inhabit term      -> Inhabit (shift term)
+    | Coerce (ty1, ty2) -> Coerce  (shift ty1, shift ty2)
+    | Rewrite (exp1, exp2, ty) -> Rewrite (shift exp1, shift exp2, shift ty)
 
   (* {4 Wrap functions expecting raw Ctx info to accept env values} *)
 
@@ -204,6 +203,7 @@ and Infer : INFER_SIG = struct
   let join_hr hr1 hr2 = S.TermSet.union hr1 hr2
   let trivial_hr      = S.TermSet.empty
   let singleton_hr    = S.TermSet.singleton
+  let is_trivial_hr   = S.TermSet.is_empty
 
   (** When we get the results back from equivalence, we want to record
       in the annotated term what was needed. This convenience function
@@ -943,27 +943,30 @@ and Infer : INFER_SIG = struct
       let _, ty = infer env handlerBody  in
       Inhabit (whnf env ty)
 
-    | D.Inhabit, _, _ ->
-        Error.typing ~loc "Wrong number of arguments to %s"
-          (D.string_of_tag tag)
-
     | D.Coerce, [term1; term2], _ ->
       let t1, _ = infer_ty env term1  in
       let t2, _ = infer_ty env term2  in
       Coerce(t1, t2)
 
-    | D.Coerce, _, _ ->
-        Error.typing ~loc "Wrong number of arguments to %s"
-          (D.string_of_tag tag)
+    | D.Rewrite, [], Some handlerBody ->
+        begin
+          let _witness, o, a, b, t, hr = infer_eq env handlerBody in
+          let _ = if not (is_trivial_hr hr) then
+                     Error.typing ~loc "Rewrite handler not obviously an equality"  in
+          match o with
+          | S.Pr -> Error.typing ~loc "Cannot rewrite with a propositional equality"
+          | S.Ju -> Rewrite(a, b, t)
+        end
 
-    | D.AsShape D.PairShape, [term], _ ->
-        let exp, ty = infer env term  in
-        AsShape (PairShape, exp, ty)
+    | D.Rewrite, [term], _ ->
+        begin
+          let ty, _ = infer_ty env term in
+          match as_eq env ty with
+          | S.Eq(S.Ju,a,b,t), hr -> Rewrite(a, b, t)
+          | _, _ -> Error.typing ~loc "Not a judgmental equivalence"
+        end
 
-    | D.AsShape _shape, [term], _ ->
-        Error.unimplemented ~loc "AsShape"
-
-    | D.AsShape shape, _, _ ->
+    | (D.Inhabit | D.Coerce | D.Rewrite), _, _ ->
         Error.typing ~loc "Wrong number of arguments to %s"
           (D.string_of_tag tag)
 
@@ -1206,29 +1209,9 @@ and Infer : INFER_SIG = struct
             | Coerce (ty1, ty2) ->
               let ty = S.make_arrow ty1 ty2  in
               check env comp1' ty, ty
-            | AsShape (PairShape, exp, ty) ->
-                let u = universe_of env ty in
-                (* The handler for AsPair must produce
-                  (t.1 : U) * (t.2 : U) * (x.1 : t.1) * (x.2 * t.2) *
-                        (exp == <x.1, x.2> @ ty)
-                 *)
-                let goalTy =
-                  S.Sigma("t.1", S.U u,
-                    S.Sigma("t.2", S.U u,
-                      S.Sigma("x.1", S.Var 1, (* type t.1 *)
-                        S.Sigma("x.2", S.Var 1, (* type t.2 *)
-                          S.Eq(S.Ju,
-                            exp,
-                            S.Pair(S.Var 1, S.Var 0,
-                                   "_",
-                                   S.Var 3,
-                                   S.Var 3), (* <x.1, x.2> : (Sigma _:t.1, t.2) *)
-                            ty)))))  in
-                check env comp1' goalTy, goalTy
-
-            | AsShape _ ->
-                Error.unimplemented ~loc
-                  "inferHandler: Unimplemented handle instantiation"
+            | Rewrite (exp1, exp2, ty) ->
+              let ty = S.Eq(S.Ju, exp1, exp2, ty)  in
+              check env comp1' ty, ty
           end
         else
           loop rest
