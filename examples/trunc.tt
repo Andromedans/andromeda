@@ -34,7 +34,7 @@ define is_contr := fun (A : Type) => (x : A) * ((y : A) -> (x = y @ A)) ;;
 
 define inhab_prop_is_contr :=
   fun (A : Type) (p : is_prop A) (a : A) =>
-  ((a, (fun (b : A) => p a b)) :> is_contr A);;
+  ((a, (fun (b : A) => p a b)) :> is_contr A)
 
 // Concatentaion and opposite paths
 define opp :=
@@ -80,8 +80,11 @@ define tr :=
 
 // How to prove that two elements of a sigma type are equal
 
-define total_path := 
-  (fun A P a u b v p q =>
+define total_path :
+  forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b @ A),
+    (tr A P a b p u = v @ P b) -> (a, u) = (b, v) @ ((x : A) * P x)
+  :=
+  fun A P a u b v p q =>
     Ind (p,
          x . y . s .
            (forall (u : P x) (v : P y) (q : tr A P x y s u = v @ P y),
@@ -92,13 +95,11 @@ define total_path :=
                    w . idpath ((z, w) :> ((x : A) * P x))
                   ))
         ) u v q
-   ) :>
-   forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b @ A),
-       (tr A P a b p u = v @ P b) -> (a, u) = (b, v) @ ((x : A) * P x)
 
 // We need singletons
 
-define singleton := fun (A : Type) (x : A) => exists (y : A), x = y @ A ;;
+define singleton := 
+  fun (A : Type) (x : A) => exists (y : A), x = y @ A ;;
 
 // TO DO
 assume singleton_is_prop : forall (A : Type) (x : A), is_prop (singleton A x)
@@ -111,24 +112,25 @@ define one := trunc bool true
 define seg := Trunc_is_prop bool zero one
 
 // auxiliary definition
-define rec_I_aux :=
-  (fun A a b p =>
+define rec_I_aux :
+  forall (A : Type) (a b : A), (a = b @ A) -> I -> singleton A a
+  :=
+  fun A a b p =>
      rec_trunc bool (singleton A a) (singleton_is_prop A a)
                       (fun (c : bool) => cond (singleton A a) c (b, p) (a, idpath a))
-  )
-  :>
-  forall (A : Type) (a b : A), (a = b @ A) -> I -> singleton A a
 
 define rec_I :=
    (fun A a b p x => (rec_I_aux A a b p x).1)
    :> 
    forall (A : Type) (a b : A), (a = b @ A) -> I -> A
 
-
 // rec_I has the correct computational behavior
 
-define rec_I_aux_zero :=
-   (fun A a b p =>
+define rec_I_aux_zero :
+  forall (A : Type) (a b : A) (p : a = b @ A),
+     rec_I_aux A a b p zero == (a, idpath a) @ (singleton A a)
+  :=
+    fun A a b p =>
       handle
         trunc_comp bool (singleton A a) (singleton_is_prop A a) 
         (fun (c : bool) => cond (singleton A a) c (b, p) (a, idpath a))
@@ -136,6 +138,3 @@ define rec_I_aux_zero :=
       with
         cond_false (singleton A a) (b, p) (a, idpath a)
       end
-   )
-   :>
-   forall (A : Type) (a b : A) (p : a = b @ A), rec_I_aux A a b p zero == (a, idpath a) @ (singleton A a)
