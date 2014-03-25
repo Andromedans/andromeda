@@ -14,6 +14,9 @@
 \newcommand{\FF}{\mathbb{F}} % the subposet of fibered universe indices
 \newcommand{\zero}{o} % this is not o, it is omicron
 
+\newcommand{\piClose}[2]{\mathsf{piClose}(#1,#2)}   % the universe containing a pi with given domain and codomain
+\newcommand{\uClose}[1]{\mathsf{uClose}(#1)}  % the universe containing the given universe's name.
+
 % Generic entities
 \newcommand{\G}{\Gamma} % a context
 \newcommand{\T}{T} % a type
@@ -41,7 +44,7 @@
 \newcommand{\Unit}{\mathtt{Unit}} % The unit type
 \newcommand{\Prod}[2]{{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 
-\newcommand{\lam}[2]{\lambda #1 {:} #2 \,.\,} % $\lambda$-abstraction
+\newcommand{\lam}[2]{\lambda #1 {:} #2 .\,} % $\lambda$-abstraction
 \newcommand{\app}[2]{#1\,#2} % application
 
 \newcommand{\unitTerm}{\star} % the element of the unit type
@@ -49,19 +52,23 @@
 % names
 \newcommand{\nUnit}{\mathtt{unit}} % name of unit type
 \newcommand{\nProd}[3]{\pi^{#1} #2 {:} #3 \,.\,} % name of a dependent product
+\newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
+
+\newcommand{\coerce}[3]{\mathsf{coerce}^{#2{\mapsto}#3}\ #1}
 
 % judgments
 \newcommand{\isctx}[1]{#1\;\mathtt{ctx}} % well formed context
 \newcommand{\istype}[2]{#1 \vdash #2\;\mathtt{type}} % well formed type
 \newcommand{\isfib}[2]{#1 \vdash #2\;\mathtt{fibered}} % is a fibered type
-\newcommand{\isterm}[3]{#1 \vdash #2 : #3} % well formed term
+\newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
 
-\newcommand{\eqtype}[3]{#1 \vdash #2 \equiv #3} % equal types
-\newcommand{\eqterm}[4]{#1 \vdash #2 \equiv #3 : #4} % equal terms
+\newcommand{\eqtype}[3]{#1 \vdash\, #2\, \equiv\, #3} % equal types
+\newcommand{\eqterm}[4]{#1 \vdash\, #2\, \equiv #3\,:\,#4} % equal terms
 
 \begin{document}
 
 \title{Brazilian type theory}
+\author{Andrej Bauer \and Christopher A. Stone}
 \maketitle
 
 \section{Universe indices}
@@ -78,6 +85,11 @@ For example, we may take
 with the lexicographic order, $\zero = (0,0)$ and $\FF = \{0\} \times
 \NN$. We use lower Greek letters for universe indices.
 
+We assume the following functions [or should they be partial functions?] are given:
+\begin{itemize}
+  \item $\piClose{\cdot}{\cdot} : \PP \times \PP \to \PP$
+  \item $\uClose{\cdot}  : \PP \to \PP$
+\end{itemize}
 \section{Syntax}
 \label{sec:syntax}
 
@@ -108,7 +120,9 @@ Terms:
   \app{\e_1}{\e_2} \bnfor
   \unitTerm \bnfor
   \nUnit \bnfor
-  \nProd{\alpha}{\x}{\e_1} \e_2
+  \nProd{\alpha,\beta}{\x}{\e_1} \e_2 \bnfor
+  \nUniverse{\alpha} \bnfor
+  \coerce{\e}{\alpha}{\beta}
 \end{align*}
 
 \section{Judgments}
@@ -128,7 +142,7 @@ Terms:
 
 \begin{mathpar}
   \infer[\rulename{ctx-empty}]
-  { } 
+  { }
   {\isctx{\ctxempty}}
 
   \infer[\rulename{ctx-extend}]
@@ -157,6 +171,10 @@ Terms:
   \infer[\rulename{ty-el}]
   {\isterm{\G}{\e}{\Universe{\alpha}}}
   {\istype{\G}{\El{\alpha}{\e}}}
+
+  \infer[\rulename{ty-unit}]
+  {\isctx{\G}}
+  {\istype{\G}{\Unit}}
 \end{mathpar}
 
 \section{Fibered types}
@@ -180,6 +198,11 @@ Terms:
    \alpha \in \FF
   }
   {\isfib{\G}{\El{\alpha}{\e}}}
+
+  \infer[\rulename{fib-unit}]
+  {\isctx{\G} \\
+   \zero\in\FF }
+  {\istype{\G}{\Unit}}
 
 \end{mathpar}
 
@@ -219,11 +242,146 @@ Terms:
 
   \infer[\rulename{name-prod}]
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
-   \isterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\alpha}}
+   \isterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\beta}}
   }
-  {\isterm{\G}{(\nProd{\alpha}{\x}{\e_1} \e_2)}{\Universe{\alpha}}}
+  {\isterm{\G}{(\nProd{\alpha,\beta}{\x}{\e_1} \e_2)}{\Universe{\piClose{\alpha}{\beta}}}}
+
+  \infer[\rulename{name-universe}]
+  { }
+  {\isterm{\G}{\nUniverse{\alpha}}{\Universe{\uClose{\alpha}}}}
+
+  \infer[\rulename{term-coerce}]
+  {\isterm{\G}{\e}{\Universe{\alpha}}\\
+   \alpha \leq \beta}
+  {\isterm{\G}{\coerce{\e}{\alpha}{\beta}}{\Universe{\beta}}}
 
 \end{mathpar}
+
+\section{Type Equality}
+
+\begin{mathpar}
+  \infer[\rulename{tyeq-refl}]
+  {\istype{\G}{\T}}
+  {\eqtype{\G}{\T}{\T}}
+
+  \infer[\rulename{tyeq-sym}]
+  {\eqtype{\G}{\U}{\T}}
+  {\eqtype{\G}{\T}{\U}}
+
+  \infer[\rulename{tyeq-trans}]
+  {\eqtype{\G}{\T}{\T'}\\
+   \eqtype{\G}{\T'}{\U}}
+  {\eqtype{\G}{\T}{\U}}
+
+  \infer[\rulename{tyeq-el}]
+  {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
+  {\eqtype{\G}{\El{\alpha}{\e_1}}{\El{\alpha}{\e_2}}}
+
+  \infer[\rulename{tyeq-prod}]
+  {\eqtype{\G}{\T_1}{\U_1}\\
+   \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}}
+  {\eqtype{\G}{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}}
+
+  \infer[\rulename{tyeq-el-pi}]
+  { }
+  {\eqtype{\G}{\El{\piClose{\alpha}{\beta}}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}}
+              {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}}}
+
+  \infer[\rulename{tyeq-el-unit}]
+  { }
+  {\eqtype{\G}{\El{\zero}{\nUnit}}{\Unit}}
+
+  \infer[\rulename{tyeq-el-coerce}]
+  {\isterm{\G}{\e}{\Universe{\alpha}} }
+  {\eqtype{\G}{\El{\beta}(\coerce{\e}{\alpha}{\beta})}
+              {\El{\alpha}{e}}}
+
+\end{mathpar}
+
+\section{Term Equality}
+
+\begin{mathpar}
+
+% PER rules
+
+  \infer[\rulename{eq-refl}]
+  {\isterm{\G}{\e}{\T}}
+  {\eqterm{\G}{\e}{\e}{\T}}
+
+  \infer[\rulename{eq-sym}]
+  {\eqterm{\G}{\e_2}{\e_1}{\T}}
+  {\eqterm{\G}{\e_1}{\e_2}{\T}}
+
+  \infer[\rulename{eq-trans}]
+  {\eqterm{\G}{\e_1}{\e_2}{\T}\\
+   \eqterm{\G}{\e_2}{\e_3}{\T}}
+  {\eqterm{\G}{\e_1}{\e_3}{\T}}
+
+  \infer[\rulename{eq-eq}]
+  {\eqterm{\G}{\e_1}{\e_2}{\T}\\
+    \eqtype{\G}{\T}{\U}}
+  {\eqterm{\G}{\e_1}{\e_2}{\U}}
+
+  \infer[\rulename{eq-abs}]
+  {\eqtype{\G}{\T_1}{\U_1}\\
+    \eqterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\e_2}{\T_2}}
+  {\eqterm{\G}{(\lam{\x}{\T_1}{\e_1})}
+              {(\lam{\x}{\U_1}{\e_2})}
+              {\Prod{\x}{\T_1}{\T_2}}}
+
+  \infer[\rulename{eq-app}]
+  {\eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\T}{\U}}\\
+   \eqterm{\G}{\e_2}{\e'_2}{\T}}
+  {\eqterm{\G}{\app{\e_1}{\e_2}}{\app{\e'_1}{\e'_2}}{\subst{\U}{\x}{\e_2}}}
+
+  \infer[\rulename{eq-beta}]
+  {\isterm{\ctxextend{\G}{\x}{\T}}{e_1}{\U}\\
+    \isterm{\G}{\e_2}{\T}}
+  {\eqterm{\G}{\app{(\lam{\x}{\T}{\e_1})}{\e_2}}
+              {\subst{\e_1}{\x}{\e_2}}
+              {\subst{\U}{\x}{\e_2}}}
+
+  \infer[\rulename{eq-prod}]
+  {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+   \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}}}
+  {\eqterm{\G}{\nProd{\alpha,\beta}{\x}{\e_1}{\e_2}}{\nProd{\alpha,\beta}{\x}{\e'_1}{\e'_2}}{\Universe{\piClose{\alpha}{\beta}}}}
+
+  \infer[\rulename{eq-coerce}]
+  {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
+  {\eqterm{\G}{(\coerce{\e_1}{\alpha}{\beta})}
+              {(\coerce{\e_2}{\alpha}{\beta})}
+              {\Universe{\beta}}}
+
+  \infer[\rulename{eq-coerce-refl}]
+  {\isterm{\G}{\e}{\Universe{\alpha}}}
+  {\eqterm{\G}{(\coerce{\e}{\alpha}{\alpha})}{e}{\Universe{\alpha}}}
+
+  \infer[\rulename{eq-coerce-trans}]
+  {\isterm{\G}{\e}{\Universe{\alpha}} \\
+    \alpha \leq \gamma \leq \beta}
+  {\eqterm{\G}{\coerce{(\coerce{\e}{\alpha}{\gamma}}{\gamma}{\beta})}
+              {\coerce{\e}{\alpha}{\beta}}
+              {\Universe{\beta}}}
+
+\end{mathpar}
+\bigskip
+
+Question: Assuming that $\piClose{0}{1} = \piClose{1}{1} = 1$, should we be able to prove that
+\[ \eqterm{\ctxempty}{(\nProd{0,1}{\_}{\nUnit}{\nUniverse{1}})}{(\nProd{1,1}{\_}{(\coerce{\nUnit}{0}{1})}{\nUniverse{1}})}
+                     {\Universe{1}}  ? \]
+
+This would follow if we had a reflection rule
+\[
+  \infer
+   {\eqtype{\G}{\El{\alpha}{\e_1}}{\El{\alpha}{\e_2}}}
+   {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
+\]
+but we definitely need Rule~\rulename{tyeq-el}, for example, to prove that
+\[ \eqtype{\ctxempty}
+          {\El{\zero}{(\app{(\lam{\x}{\Universe{\zero}}{\x})}{\nUnit})}}
+                    {\El{\zero}{\nUnit}}
+\]
+and I'm a little nervous (algorithmically) about making this a bidirectional inference rule.
 
 
 \end{document}
