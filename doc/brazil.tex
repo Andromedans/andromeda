@@ -49,12 +49,18 @@
 
 \newcommand{\unitTerm}{\star} % the element of the unit type
 
+\newcommand{\coerce}[3]{\mathsf{coerce}^{#2{\mapsto}#3}\ #1}
+
+\newcommand{\PrEqual}[3]{\mathsf{Paths}^{#3}(#1,#2)} % Propositional Equality type
+\newcommand{\JuEqual}[3]{\mathsf{Id}^{#3}(#1,#2)} % Judgmental Equality type
+
 % names
 \newcommand{\nUnit}{\mathtt{unit}} % name of unit type
 \newcommand{\nProd}[3]{\pi^{#1} #2 {:} #3 \,.\,} % name of a dependent product
 \newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
+\newcommand{\nPrEqual}[3]{\mathsf{paths}^{#3}(#1,#2)} % Propositional Equality type
+\newcommand{\nJuEqual}[3]{\mathsf{id}^{#3}(#1,#2)} % Judgmental Equality type
 
-\newcommand{\coerce}[3]{\mathsf{coerce}^{#2{\mapsto}#3}\ #1}
 
 % judgments
 \newcommand{\isctx}[1]{#1\;\mathtt{ctx}} % well formed context
@@ -108,7 +114,9 @@ Types:
   \Universe{\alpha} \bnfor
   \El{\alpha}{\e} \bnfor
   \Unit \bnfor
-  \Prod{x}{\T} \U
+  \Prod{x}{\T} \U \bnfor
+  \PrEqual{\e_1}{\e_2}{\T} \bnfor
+  \JuEqual{\e_1}{\e_2}{\T}
 \end{align*}
 %
 Terms:
@@ -122,8 +130,12 @@ Terms:
   \nUnit \bnfor
   \nProd{\alpha,\beta}{\x}{\e_1} \e_2 \bnfor
   \nUniverse{\alpha} \bnfor
-  \coerce{\e}{\alpha}{\beta}
+  \coerce{\e}{\alpha}{\beta} \bnfor
+  \nPrEqual{\e_1}{\e_2}{\T} \bnfor
+  \nJuEqual{\e_1}{\e_2}{\T}
 \end{align*}
+
+We also need an elim form for propositional equality. Should we have an elim form for definitional equality too, or is it an implicit rule (if something has an Id type, then the definitional equivalence holds)?
 
 \section{Judgments}
 \label{sec:judgments}
@@ -175,6 +187,22 @@ Terms:
   \infer[\rulename{ty-unit}]
   {\isctx{\G}}
   {\istype{\G}{\Unit}}
+
+  \infer[\rulename{ty-paths}]
+  {\isfib{\G}{\T}\\
+   \isterm{\G}{\e_1}{\T}\\
+   \isterm{\G}{\e_2}{\T}
+  }
+  {\istype{\G}{\PrEqual{\e_1}{\e_2}{\T}}}
+
+  \infer[\rulename{ty-id}]
+  {\istype{\G}{\T}\\
+   \isterm{\G}{\e_1}{\T}\\
+   \isterm{\G}{\e_2}{\T}
+  }
+  {\istype{\G}{\JuEqual{\e_1}{\e_2}{\T}}}
+
+
 \end{mathpar}
 
 \section{Fibered types}
@@ -203,6 +231,15 @@ Terms:
   {\isctx{\G} \\
    \zero\in\FF }
   {\istype{\G}{\Unit}}
+
+  \infer[\rulename{fib-paths}]
+  {\isfib{\G}{\T}\\
+   \isterm{\G}{\e_1}{\T}\\
+   \isterm{\G}{\e_2}{\T}
+  }
+  {\isfib{\G}{\PrEqual{\e_1}{\e_2}{\T}}}
+
+
 
 \end{mathpar}
 
@@ -236,6 +273,11 @@ Terms:
   {\isctx{\G}}
   {\isterm{\G}{\unitTerm}{\Unit}}
 
+  \infer[\rulename{term-coerce}]
+  {\isterm{\G}{\e}{\Universe{\alpha}}\\
+   \alpha \leq \beta}
+  {\isterm{\G}{\coerce{\e}{\alpha}{\beta}}{\Universe{\beta}}}
+
   \infer[\rulename{name-unit}]
   {\isctx{\G}}
   {\isterm{\G}{\nUnit}{\Universe{\zero}}}
@@ -250,10 +292,20 @@ Terms:
   { }
   {\isterm{\G}{\nUniverse{\alpha}}{\Universe{\uClose{\alpha}}}}
 
-  \infer[\rulename{term-coerce}]
-  {\isterm{\G}{\e}{\Universe{\alpha}}\\
-   \alpha \leq \beta}
-  {\isterm{\G}{\coerce{\e}{\alpha}{\beta}}{\Universe{\beta}}}
+  \infer[\rulename{name-paths}]
+  {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
+   \alpha\in\FF\\
+   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+  }
+  {\isterm{\G}{\nPrEqual{\e_1}{\e_2}{\e_\T}}{\Universe{\alpha}}}
+
+  \infer[\rulename{name-id}]
+  {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
+   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+  }
+  {\isterm{\G}{\nJuEqual{\e_1}{\e_2}{\e_\T}}{\Universe{\alpha}}}
 
 \end{mathpar}
 
@@ -282,6 +334,24 @@ Terms:
    \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}}
   {\eqtype{\G}{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}}
 
+  \infer[\rulename{tyeq-paths}]
+  {\isfib{\G}{\T}\\
+   \isfib{\G}{\U}\\
+   \eqtype{\G}{\T}{\U}\\
+   \eqterm{\G}{\e_1}{\e'_1}{\T}\\
+   \eqterm{\G}{\e_2}{\e'_2}{\T}
+  }
+  {\eqtype{\G}{\PrEqual{\e_1}{\e_2}{\T}}
+              {\PrEqual{\e'_1}{\e'_2}{\U}}}
+
+  \infer[\rulename{tyeq-id}]
+  {\eqtype{\G}{\T}{\U}\\
+   \eqterm{\G}{\e_1}{\e'_1}{\T}\\
+   \eqterm{\G}{\e_2}{\e'_2}{\T}
+  }
+  {\eqtype{\G}{\JuEqual{\e_1}{\e_2}{\T}}
+              {\JuEqual{\e'_1}{\e'_2}{\T}}}
+
   \infer[\rulename{tyeq-el-pi}]
   { }
   {\eqtype{\G}{\El{\piClose{\alpha}{\beta}}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}}
@@ -295,6 +365,23 @@ Terms:
   {\isterm{\G}{\e}{\Universe{\alpha}} }
   {\eqtype{\G}{\El{\beta}(\coerce{\e}{\alpha}{\beta})}
               {\El{\alpha}{e}}}
+
+  \infer[\rulename{tyeq-el-paths}]
+  {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
+   \alpha\in\FF\\
+   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+  }
+  {\eqtype{\G}{\El{\alpha}{(\nPrEqual{\e_1}{\e_2}{\e_\T})}}
+          {\PrEqual{\e_1}{\e_2}{\El{\alpha}{\e_\T}}}}
+
+  \infer[\rulename{tyeq-el-id}]
+  {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
+   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+  }
+  {\eqtype{\G}{\El{\alpha}{(\nJuEqual{\e_1}{\e_2}{\e_\T})}}
+          {\JuEqual{\e_1}{\e_2}{\El{\alpha}{\e_\T}}}}
 
 \end{mathpar}
 
