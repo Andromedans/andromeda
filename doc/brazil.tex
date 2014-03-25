@@ -85,15 +85,15 @@ For example, we may take
 with the lexicographic order, $\zero = (0,0)$ and $\FF = \{0\} \times
 \NN$. We use lower Greek letters for universe indices.
 
-We assume the following functions [or should they be partial functions?] are given:
+We assume the following partial functions are given:
 \begin{itemize}
-  \item $\piClose{\cdot}{\cdot} : \PP \times \PP \to \PP$
-  \item $\uClose{\cdot}  : \PP \to \PP$
+  \item $\piClose{\cdot}{\cdot} : \PP \times \PP \rightharpoonup \PP$
+  \item $\uClose{\cdot}  : \PP \rightharpoonup \PP$
 \end{itemize}
 \section{Syntax}
 \label{sec:syntax}
 
-Context:
+Contexts:
 %
 \begin{align*}
   \G \bnf
@@ -301,9 +301,9 @@ Terms:
 \section{Term Equality}
 
 \begin{mathpar}
-
+%
 % PER rules
-
+%
   \infer[\rulename{eq-refl}]
   {\isterm{\G}{\e}{\T}}
   {\eqterm{\G}{\e}{\e}{\T}}
@@ -317,11 +317,19 @@ Terms:
    \eqterm{\G}{\e_2}{\e_3}{\T}}
   {\eqterm{\G}{\e_1}{\e_3}{\T}}
 
+
+%
+% Subsumption-like rule
+%
+
   \infer[\rulename{eq-eq}]
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
     \eqtype{\G}{\T}{\U}}
   {\eqterm{\G}{\e_1}{\e_2}{\U}}
 
+%
+% Congruence and other rules
+%
   \infer[\rulename{eq-abs}]
   {\eqtype{\G}{\T_1}{\U_1}\\
     \eqterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\e_2}{\T_2}}
@@ -341,6 +349,18 @@ Terms:
               {\subst{\e_1}{\x}{\e_2}}
               {\subst{\U}{\x}{\e_2}}}
 
+  \infer[\rulename{eq-ext}]
+  {\isterm{\G}{\e_1}{\Prod{\x}{\T}{\U}}\\
+   \isterm{\G}{\e_2}{\Prod{\x}{\T}{\U}}\\
+   \eqterm{\ctxextend{\G}{\x}{\T}}{(\app{\e_1}{\x})}
+          {(\app{\e_2}{\x})}{\U}
+  }
+  {\eqterm{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}}
+\end{mathpar}
+
+% Allow page break
+
+\begin{mathpar}
   \infer[\rulename{eq-prod}]
   {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
    \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}}}
