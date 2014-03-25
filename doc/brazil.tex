@@ -1,0 +1,229 @@
+\documentclass{article}
+
+\usepackage{times}
+\usepackage{mathpartir}
+\usepackage{amsmath,amsfonts}
+
+%% Macros here
+
+% Universe indices
+
+\newcommand{\NN}{\mathbb{N}} % God-given numbers
+
+\newcommand{\PP}{\mathbb{P}} % the poset of universe indices
+\newcommand{\FF}{\mathbb{F}} % the subposet of fibered universe indices
+\newcommand{\zero}{o} % this is not o, it is omicron
+
+% Generic entities
+\newcommand{\G}{\Gamma} % a context
+\newcommand{\T}{T} % a type
+\newcommand{\U}{U} % another type
+\newcommand{\x}{x} % a term variable
+\newcommand{\y}{y} % another term variable
+\newcommand{\e}{e} % a term
+
+\newcommand{\rulename}[1]{\text{\textsc{#1}}}
+
+%% Syntax
+\newcommand{\bnf}{\mathrel{{:}{:}{=}}}
+\newcommand{\bnfor}{\mid}
+
+%% Syntactic constructs
+\newcommand{\ctxempty}{\bullet} % empty context
+\newcommand{\ctxextend}[3]{#1, #2 {:} #3} % extended context
+
+\newcommand{\subst}[3]{#1[#3/#2]} % substitution
+
+\newcommand{\Universe}[1]{\mathbb{U}_{#1}} % non-fibered universe
+\newcommand{\El}[2]{\mathsf{El}^{#1} #2} % the type named by #2
+
+
+\newcommand{\Unit}{\mathtt{Unit}} % The unit type
+\newcommand{\Prod}[2]{{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
+
+\newcommand{\lam}[2]{\lambda #1 {:} #2 \,.\,} % $\lambda$-abstraction
+\newcommand{\app}[2]{#1\,#2} % application
+
+\newcommand{\unitTerm}{\star} % the element of the unit type
+
+% names
+\newcommand{\nUnit}{\mathtt{unit}} % name of unit type
+\newcommand{\nProd}[3]{\pi^{#1} #2 {:} #3 \,.\,} % name of a dependent product
+
+% judgments
+\newcommand{\isctx}[1]{#1\;\mathtt{ctx}} % well formed context
+\newcommand{\istype}[2]{#1 \vdash #2\;\mathtt{type}} % well formed type
+\newcommand{\isfib}[2]{#1 \vdash #2\;\mathtt{fibered}} % is a fibered type
+\newcommand{\isterm}[3]{#1 \vdash #2 : #3} % well formed term
+
+\newcommand{\eqtype}[3]{#1 \vdash #2 \equiv #3} % equal types
+\newcommand{\eqterm}[4]{#1 \vdash #2 \equiv #3 : #4} % equal terms
+
+\begin{document}
+
+\title{Brazilian type theory}
+\maketitle
+
+\section{Universe indices}
+\label{sec:universe-indices}
+
+There is a pointed poset $(\PP, {\leq}, \zero)$ of \emph{universe
+  indices} and a subset $\FF \subseteq \PP$ of \emph{fibered indices}.
+For example, we may take
+%
+\begin{equation*}
+  \PP = \{0,1\} \times \NN
+\end{equation*}
+%
+with the lexicographic order, $\zero = (0,0)$ and $\FF = \{0\} \times
+\NN$. We use lower Greek letters for universe indices.
+
+\section{Syntax}
+\label{sec:syntax}
+
+Context:
+%
+\begin{align*}
+  \G \bnf
+  \ctxempty \bnfor
+  \ctxextend{\G}{\x}{\T}
+\end{align*}
+%
+Types:
+%
+\begin{align*}
+  \T, \U \bnf
+  \Universe{\alpha} \bnfor
+  \El{\alpha}{\e} \bnfor
+  \Unit \bnfor
+  \Prod{x}{\T} \U
+\end{align*}
+%
+Terms:
+%
+\begin{align*}
+  \e \bnf
+  \x \bnfor
+  \lam{\x}{\T} \e \bnfor
+  \app{\e_1}{\e_2} \bnfor
+  \unitTerm \bnfor
+  \nUnit \bnfor
+  \nProd{\alpha}{\x}{\e_1} \e_2
+\end{align*}
+
+\section{Judgments}
+\label{sec:judgments}
+
+\begin{align*}
+& \isctx{\G} & & \text{$\G$ is a well formed context} \\
+& \istype{\G}{\T} & & \text{$\T$ is a type in context $\G$} \\
+& \isfib{\G}{\T} & & \text{$\T$ is a fibered type in context $\G$} \\
+& \isterm{\G}{\e}{\T} & & \text{$\e$ is a well formed term of type $\T$ in context $\G$} \\
+& \eqtype{\G}{\T}{\U} & & \text{$\T$ and $\U$ are equal types in context $\G$} \\
+& \eqterm{\G}{\e_1}{\e_2}{\T} & & \text{$e_1$ and $e_2$ are equal terms of type $\T$ in context $\G$}
+\end{align*}
+
+\section{Contexts}
+\label{sec:contexts}
+
+\begin{mathpar}
+  \infer[\rulename{ctx-empty}]
+  { } 
+  {\isctx{\ctxempty}}
+
+  \infer[\rulename{ctx-extend}]
+  {\isctx{\G} \\
+   \istype{\G}{\T}
+  }
+  {\isctx{\ctxextend{\G}{\x}{\T}}}
+\end{mathpar}
+
+\section{Types}
+\label{sec:types}
+
+\begin{mathpar}
+  \infer[\rulename{ty-universe}]
+  {\isctx{\G} \\
+   \alpha \in \PP
+  }
+  {\istype{\G}{\Universe{\alpha}}}
+
+  \infer[\rulename{ty-prod}]
+  {\istype{\G}{\T} \\
+   \istype{\ctxextend{\G}{\x}{\T}}{\U}
+  }
+  {\istype{\G}{\Prod{\x}{\T}{\U}}}
+
+  \infer[\rulename{ty-el}]
+  {\isterm{\G}{\e}{\Universe{\alpha}}}
+  {\istype{\G}{\El{\alpha}{\e}}}
+\end{mathpar}
+
+\section{Fibered types}
+\label{sec:fibered-types}
+
+\begin{mathpar}
+  \infer[\rulename{fib-universe}]
+  {\isctx{\G} \\
+   \alpha \in \PP
+  }
+  {\isfib{\G}{\Universe{\alpha}}}
+
+  \infer[\rulename{fib-prod}]
+  {\isfib{\G}{\T} \\
+   \isfib{\ctxextend{\G}{\x}{\T}}{\U}
+  }
+  {\isfib{\G}{\Prod{\x}{\T}{\U}}}
+
+  \infer[\rulename{fib-el}]
+  {\isterm{\G}{\e}{\Universe{\alpha}} \\
+   \alpha \in \FF
+  }
+  {\isfib{\G}{\El{\alpha}{\e}}}
+
+\end{mathpar}
+
+\section{Terms}
+\label{sec:terms}
+
+\begin{mathpar}
+  \infer[\rulename{term-eq}]
+  {\isterm{\G}{\e}{\T} \\
+   \eqtype{\G}{\T}{\U}
+  }
+  {\isterm{\G}{\e}{\U}}
+
+  \infer[\rulename{term-var}]
+  {\isctx{\G} \\
+   (\x{:}\T) \in \G
+  }
+  {\isterm{\G}{\x}{\T}}
+
+  \infer[\rulename{term-abs}]
+  {\isterm{\ctxextend{\G}{\x}{\T}}{\e}{\U}}
+  {\isterm{\G}{(\lam{\x}{\T}{\e})}{\Prod{\x}{\T}{\U}}}
+
+  \infer[\rulename{term-app}]
+  {\isterm{\G}{\e_1}{\Prod{x}{\T} \U} \\
+   \isterm{\G}{\e_2}{\T}
+  }
+  {\isterm{\G}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}}}
+
+  \infer[\rulename{term-star}]
+  {\isctx{\G}}
+  {\isterm{\G}{\unitTerm}{\Unit}}
+
+  \infer[\rulename{name-unit}]
+  {\isctx{\G}}
+  {\isterm{\G}{\nUnit}{\Universe{\zero}}}
+
+  \infer[\rulename{name-prod}]
+  {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
+   \isterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\alpha}}
+  }
+  {\isterm{\G}{(\nProd{\alpha}{\x}{\e_1} \e_2)}{\Universe{\alpha}}}
+
+\end{mathpar}
+
+
+\end{document}

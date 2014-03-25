@@ -1,3 +1,5 @@
+// On nat propositional equality implies judgmental equality
+
 assume false : Type
 define not := fun (P : QuasiType) => P -> false
 assume ex_falso : false -> (T : QuasiType) -> T
