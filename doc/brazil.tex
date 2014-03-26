@@ -28,7 +28,7 @@
 \newcommand{\rulename}[1]{\text{\textsc{#1}}}
 
 %% Syntax
-\newcommand{\bnf}{\mathrel{{:}{:}{=}}}
+\newcommand{\bnf}{\ \mathrel{{:}{:}{=}}\ }
 \newcommand{\bnfor}{\mid}
 
 %% Syntactic constructs
@@ -49,20 +49,20 @@
 
 \newcommand{\unitTerm}{\star} % the element of the unit type
 
-\newcommand{\coerce}[3]{\mathsf{coerce}^{#2{\mapsto}#3}\ #1}
+\newcommand{\coerce}[3]{\mathsf{lift}^{#2{\mapsto}#3}\ #1}
 
-\newcommand{\PrEqual}[3]{\mathsf{Paths}^{#3}(#1,#2)} % Propositional Equality type
-\newcommand{\JuEqual}[3]{\mathsf{Id}^{#3}(#1,#2)} % Judgmental Equality type
+\newcommand{\PrEqual}[3]{\mathsf{Paths}_{#1}(#2,#3)} % Propositional Equality type
+\newcommand{\JuEqual}[3]{\mathsf{Id}_{#1}(#2,#3)} % Judgmental Equality type
 
-\newcommand{\prRefl}[1]{\mathsf{idpath}^{#1}}  % Propositional refl
-\newcommand{\juRefl}[1]{\mathsf{refl}^{#1}}    % Judgmental refl
+\newcommand{\prRefl}[1]{\mathsf{idpath}_{#1}}  % Propositional refl
+\newcommand{\juRefl}[1]{\mathsf{refl}_{#1}}    % Judgmental refl
 
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
 \newcommand{\nProd}[3]{\pi^{#1} #2 {:} #3 \,.\,} % name of a dependent product
 \newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
-\newcommand{\nPrEqual}[3]{\mathsf{paths}^{#3}(#1,#2)} % Propositional Equality type
-\newcommand{\nJuEqual}[3]{\mathsf{id}^{#3}(#1,#2)} % Judgmental Equality type
+\newcommand{\nPrEqual}[3]{\mathsf{paths}_{#1}(#2,#3)} % Propositional Equality type
+\newcommand{\nJuEqual}[3]{\mathsf{id}_{#1}(#2,#3)} % Judgmental Equality type
 
 
 % judgments
@@ -118,24 +118,24 @@ Types:
   \El{\alpha}{\e} \bnfor
   \Unit \bnfor
   \Prod{x}{\T} \U \bnfor
-  \PrEqual{\e_1}{\e_2}{\T} \bnfor
-  \JuEqual{\e_1}{\e_2}{\T}
+  \PrEqual{T}{\e_1}{\e_2} \bnfor
+  \JuEqual{T}{\e_1}{\e_2}
 \end{align*}
 %
 Terms:
 %
 \begin{align*}
   \e \bnf
-  \x \bnfor
+  &\x \bnfor
   \lam{\x}{\T} \e \bnfor
   \app{\e_1}{\e_2} \bnfor
   \unitTerm \bnfor
   \nUnit \bnfor
   \nProd{\alpha,\beta}{\x}{\e_1} \e_2 \bnfor
-  \nUniverse{\alpha} \bnfor
-  \coerce{\e}{\alpha}{\beta} \bnfor
-  \nPrEqual{\e_1}{\e_2}{\T} \bnfor
-  \nJuEqual{\e_1}{\e_2}{\T}
+  \nUniverse{\alpha} \bnfor {} \\
+  & \coerce{\e}{\alpha}{\beta} \bnfor
+  \nPrEqual{\e_1}{\e_2}{\e_3} \bnfor
+  \nJuEqual{\e_1}{\e_2}{\e_3}
 \end{align*}
 
 We also need an elim form for propositional equality. Should we have an elim form for definitional equality too, or is it an implicit rule (if something has an Id type, then the definitional equivalence holds)?
@@ -196,14 +196,14 @@ We also need an elim form for propositional equality. Should we have an elim for
    \isterm{\G}{\e_1}{\T}\\
    \isterm{\G}{\e_2}{\T}
   }
-  {\istype{\G}{\PrEqual{\e_1}{\e_2}{\T}}}
+  {\istype{\G}{\PrEqual{\T}{\e_1}{\e_2}}}
 
   \infer[\rulename{ty-id}]
   {\istype{\G}{\T}\\
    \isterm{\G}{\e_1}{\T}\\
    \isterm{\G}{\e_2}{\T}
   }
-  {\istype{\G}{\JuEqual{\e_1}{\e_2}{\T}}}
+  {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
 
 
 \end{mathpar}
@@ -240,7 +240,7 @@ We also need an elim form for propositional equality. Should we have an elim for
    \isterm{\G}{\e_1}{\T}\\
    \isterm{\G}{\e_2}{\T}
   }
-  {\isfib{\G}{\PrEqual{\e_1}{\e_2}{\T}}}
+  {\isfib{\G}{\PrEqual{\T}{\e_1}{\e_2}}}
 
 
 
@@ -284,12 +284,12 @@ We also need an elim form for propositional equality. Should we have an elim for
   \infer[\rulename{term-idpath}]
   {\isterm{\G}{\e}{\T}\\
    \isfib{\G}{\T}}
-  {\isterm{\G}{\prRefl{\T}{\e}}{\PrEqual{\e}{\e}{\T}}}
+  {\isterm{\G}{\prRefl{\T}{\e}}{\PrEqual{\T}{\e}{\e}}}
 
 
   \infer[\rulename{term-refl}]
   {\isterm{\G}{\e}{\T}}
-  {\isterm{\G}{\juRefl{\T}{\e}}{\JuEqual{\e}{\e}{\T}}}
+  {\isterm{\G}{\juRefl{\T}{\e}}{\JuEqual{\T}{\e}{\e}}}
 
 
   \infer[\rulename{name-unit}]
@@ -312,14 +312,14 @@ We also need an elim form for propositional equality. Should we have an elim for
    \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\isterm{\G}{\nPrEqual{\e_1}{\e_2}{\e_\T}}{\Universe{\alpha}}}
+  {\isterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{name-id}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\isterm{\G}{\nJuEqual{\e_1}{\e_2}{\e_\T}}{\Universe{\alpha}}}
+  {\isterm{\G}{\nJuEqual{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
 \end{mathpar}
 
@@ -350,21 +350,21 @@ We also need an elim form for propositional equality. Should we have an elim for
 
   \infer[\rulename{tyeq-paths}]
   {\isfib{\G}{\T}\\
-   \isfib{\G}{\U}\\
+   \isfib{\G}{\U}\\\\
    \eqtype{\G}{\T}{\U}\\
    \eqterm{\G}{\e_1}{\e'_1}{\T}\\
    \eqterm{\G}{\e_2}{\e'_2}{\T}
   }
-  {\eqtype{\G}{\PrEqual{\e_1}{\e_2}{\T}}
-              {\PrEqual{\e'_1}{\e'_2}{\U}}}
+  {\eqtype{\G}{\PrEqual{\T}{\e_1}{\e_2}}
+              {\PrEqual{\U}{\e'_1}{\e'_2}}}
 
   \infer[\rulename{tyeq-id}]
   {\eqtype{\G}{\T}{\U}\\
    \eqterm{\G}{\e_1}{\e'_1}{\T}\\
    \eqterm{\G}{\e_2}{\e'_2}{\T}
   }
-  {\eqtype{\G}{\JuEqual{\e_1}{\e_2}{\T}}
-              {\JuEqual{\e'_1}{\e'_2}{\T}}}
+  {\eqtype{\G}{\JuEqual{\T}{\e_1}{\e_2}}
+              {\JuEqual{\T}{\e'_1}{\e'_2}}}
 
   \infer[\rulename{tyeq-el-pi}]
   { }
@@ -386,16 +386,16 @@ We also need an elim form for propositional equality. Should we have an elim for
    \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\eqtype{\G}{\El{\alpha}{(\nPrEqual{\e_1}{\e_2}{\e_\T})}}
-          {\PrEqual{\e_1}{\e_2}{\El{\alpha}{\e_\T}}}}
+  {\eqtype{\G}{\El{\alpha}{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
+          {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
 
   \infer[\rulename{tyeq-el-id}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\eqtype{\G}{\El{\alpha}{(\nJuEqual{\e_1}{\e_2}{\e_\T})}}
-          {\JuEqual{\e_1}{\e_2}{\El{\alpha}{\e_\T}}}}
+  {\eqtype{\G}{\El{\alpha}{(\nJuEqual{\e_\T}{\e_1}{\e_2})}}
+          {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
 
 \end{mathpar}
 
@@ -468,12 +468,12 @@ We also need an elim form for propositional equality. Should we have an elim for
    \eqtype{\G}{\T}{\U}\\
    \isfib{\G}{\T}\\
    \isfib{\G}{\U}}
-  {\eqterm{\G}{\prRefl{\T}{\e_1}}{\prRefl{\U}{\e_2}}{\PrEqual{\e_1}{\e_1}{\T}}}
+  {\eqterm{\G}{\prRefl{\T}{\e_1}}{\prRefl{\U}{\e_2}}{\PrEqual{\T}{\e_1}{\e_1}}}
 
 \infer[\rulename{eq-refl}]
 {\eqterm{\G}{\e_1}{\e_2}{\T}\\
  \eqtype{\G}{\T}{\U}}
-{\eqterm{\G}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}{\JuEqual{\e_1}{\e_1}{\T}}}
+{\eqterm{\G}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}{\JuEqual{\T}{\e_1}{\e_1}}}
 
 \infer[\rulename{eq-coerce}]
   {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
