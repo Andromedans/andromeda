@@ -402,10 +402,10 @@ We also need an elim form for propositional equality. Should we have an elim for
 
 \section{Term Equality}
 
-\begin{mathpar}
 %
 % PER rules
 %
+\begin{mathpar}
   \infer[\rulename{eq-refl}]
   {\isterm{\G}{\e}{\T}}
   {\eqterm{\G}{\e}{\e}{\T}}
@@ -418,12 +418,12 @@ We also need an elim form for propositional equality. Should we have an elim for
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
    \eqterm{\G}{\e_2}{\e_3}{\T}}
   {\eqterm{\G}{\e_1}{\e_3}{\T}}
+\end{mathpar}
 
-
+\begin{mathpar}
 %
 % Subsumption-like rule
 %
-
   \infer[\rulename{eq-eq}]
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
     \eqtype{\G}{\T}{\U}}
@@ -459,12 +459,6 @@ We also need an elim form for propositional equality. Should we have an elim for
   }
   {\eqterm{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}}
 
-\infer[\rulename{eq-prod}]
-  {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-   \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
-   \piClose{\alpha}{\beta} = \gamma}
-  {\eqterm{\G}{\nProd{\alpha,\beta}{\x}{\e_1}{\e_2}}{\nProd{\alpha,\beta}{\x}{\e'_1}{\e'_2}}{\Universe{\gamma}}}
-
 \infer[\rulename{eq-idpath}]
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
    \eqtype{\G}{\T}{\U}\\
@@ -476,23 +470,55 @@ We also need an elim form for propositional equality. Should we have an elim for
 {\eqterm{\G}{\e_1}{\e_2}{\T}\\
  \eqtype{\G}{\T}{\U}}
 {\eqterm{\G}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}{\JuEqual{\T}{\e_1}{\e_1}}}
+\end{mathpar}
 
-\infer[\rulename{eq-coerce}]
+\begin{mathpar}
+%
+% Rules about names
+%
+\infer[\rulename{eq-name-prod}]
+  {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+   \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
+   \piClose{\alpha}{\beta} = \gamma}
+  {\eqterm{\G}{\nProd{\alpha,\beta}{\x}{\e_1}{\e_2}}{\nProd{\alpha,\beta}{\x}{\e'_1}{\e'_2}}{\Universe{\gamma}}}
+
+\infer[\rulename{eq-name-universe}]
+{\isctx{\G} \\
+  \alpha = \beta \\
+  \uClose{\alpha} = \gamma
+}
+{\eqterm{\G}{\nUniverse{\alpha}}{\nUniverse{\beta}}{\Universe{\gamma}}}
+
+\infer[\rulename{eq-name-coerce}]
   {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
   {\eqterm{\G}{(\coerce{\e_1}{\alpha}{\beta})}
               {(\coerce{\e_2}{\alpha}{\beta})}
               {\Universe{\beta}}}
 
-\infer[\rulename{eq-coerce-refl}]
+\infer[\rulename{eq-name-coerce-refl}]
   {\isterm{\G}{\e}{\Universe{\alpha}}}
   {\eqterm{\G}{(\coerce{\e}{\alpha}{\alpha})}{e}{\Universe{\alpha}}}
 
-\infer[\rulename{eq-coerce-trans}]
+\infer[\rulename{eq-name-coerce-trans}]
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
     \alpha \leq \gamma \leq \beta}
   {\eqterm{\G}{\coerce{(\coerce{\e}{\alpha}{\gamma}}{\gamma}{\beta})}
               {\coerce{\e}{\alpha}{\beta}}
               {\Universe{\beta}}}
+
+\infer[\rulename{eq-name-paths}]
+{\eqterm{\G}{\e_T}{\e'_U}{\Universe{\alpha}}\\
+  \eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+  \eqterm{\G}{\e_2}{\e'_2}{\Universe{\alpha}}
+}
+{\eqterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\nPrEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+
+\infer[\rulename{eq-name-id}]
+{\eqterm{\G}{\e_T}{\e'_U}{\Universe{\alpha}}\\
+  \eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+  \eqterm{\G}{\e_2}{\e'_2}{\Universe{\alpha}}
+}
+{\eqterm{\G}{\nJuEqual{\e_T}{\e_1}{\e_2}}{\nJuEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
 \end{mathpar}
 \bigskip
