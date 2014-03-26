@@ -61,8 +61,8 @@
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
 \newcommand{\nProd}[3]{\pi^{#1} #2 {:} #3 \,.\,} % name of a dependent product
 \newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
-\newcommand{\nPrEqual}[3]{\mathsf{paths}_{#1}(#2,#3)} % Propositional Equality type
-\newcommand{\nJuEqual}[3]{\mathsf{id}_{#1}(#2,#3)} % Judgmental Equality type
+\newcommand{\nPrEqual}[4]{\mathsf{paths}^{#1}_{#2}(#3,#4)} % Propositional Equality type
+\newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
 
 
 % judgments
@@ -134,8 +134,8 @@ Terms:
   \nProd{\alpha,\beta}{\x}{\e_1} \e_2 \bnfor
   \nUniverse{\alpha} \bnfor {} \\
   & \coerce{\e}{\alpha}{\beta} \bnfor
-  \nPrEqual{\e_1}{\e_2}{\e_3} \bnfor
-  \nJuEqual{\e_1}{\e_2}{\e_3}
+  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3} \bnfor
+  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}
 \end{align*}
 
 We also need an elim form for propositional equality. Should we have an elim form for definitional equality too, or is it an implicit rule (if something has an Id type, then the definitional equivalence holds)?
@@ -313,14 +313,14 @@ We also need an elim form for propositional equality. Should we have an elim for
    \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\isterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\isterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{name-id}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\isterm{\G}{\nJuEqual{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\isterm{\G}{\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
 \end{mathpar}
 
@@ -387,7 +387,7 @@ We also need an elim form for propositional equality. Should we have an elim for
    \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\eqtype{\G}{\El{\alpha}{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
+  {\eqtype{\G}{\El{\alpha}{(\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
           {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
 
   \infer[\rulename{tyeq-el-id}]
@@ -395,7 +395,7 @@ We also need an elim form for propositional equality. Should we have an elim for
    \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\eqtype{\G}{\El{\alpha}{(\nJuEqual{\e_\T}{\e_1}{\e_2})}}
+  {\eqtype{\G}{\El{\alpha}{(\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2})}}
           {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
 
 \end{mathpar}
@@ -511,14 +511,14 @@ We also need an elim form for propositional equality. Should we have an elim for
   \eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
   \eqterm{\G}{\e_2}{\e'_2}{\Universe{\alpha}}
 }
-{\eqterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\nPrEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+{\eqterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nPrEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
 \infer[\rulename{eq-name-id}]
 {\eqterm{\G}{\e_T}{\e'_U}{\Universe{\alpha}}\\
   \eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
   \eqterm{\G}{\e_2}{\e'_2}{\Universe{\alpha}}
 }
-{\eqterm{\G}{\nJuEqual{\e_T}{\e_1}{\e_2}}{\nJuEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+{\eqterm{\G}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
 \end{mathpar}
 \bigskip
