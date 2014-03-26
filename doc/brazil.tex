@@ -41,7 +41,7 @@
 \newcommand{\El}[2]{\mathsf{El}^{#1} #2} % the type named by #2
 
 
-\newcommand{\Unit}{\mathtt{Unit}} % The unit type
+\newcommand{\Unit}{\mathsf{Unit}} % The unit type
 \newcommand{\Prod}[2]{{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 
 \newcommand{\lam}[2]{\lambda #1 {:} #2 .\,} % $\lambda$-abstraction
@@ -54,8 +54,11 @@
 \newcommand{\PrEqual}[3]{\mathsf{Paths}^{#3}(#1,#2)} % Propositional Equality type
 \newcommand{\JuEqual}[3]{\mathsf{Id}^{#3}(#1,#2)} % Judgmental Equality type
 
+\newcommand{\prRefl}[1]{\mathsf{idpath}^{#1}}  % Propositional refl
+\newcommand{\juRefl}[1]{\mathsf{refl}^{#1}}    % Judgmental refl
+
 % names
-\newcommand{\nUnit}{\mathtt{unit}} % name of unit type
+\newcommand{\nUnit}{\mathsf{unit}} % name of unit type
 \newcommand{\nProd}[3]{\pi^{#1} #2 {:} #3 \,.\,} % name of a dependent product
 \newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
 \newcommand{\nPrEqual}[3]{\mathsf{paths}^{#3}(#1,#2)} % Propositional Equality type
@@ -63,9 +66,9 @@
 
 
 % judgments
-\newcommand{\isctx}[1]{#1\;\mathtt{ctx}} % well formed context
-\newcommand{\istype}[2]{#1 \vdash #2\;\mathtt{type}} % well formed type
-\newcommand{\isfib}[2]{#1 \vdash #2\;\mathtt{fibered}} % is a fibered type
+\newcommand{\isctx}[1]{#1\;\mathsf{ctx}} % well formed context
+\newcommand{\istype}[2]{#1 \vdash #2\;\mathsf{type}} % well formed type
+\newcommand{\isfib}[2]{#1 \vdash #2\;\mathsf{fibered}} % is a fibered type
 \newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
 
 \newcommand{\eqtype}[3]{#1 \vdash\, #2\, \equiv\, #3} % equal types
@@ -278,6 +281,17 @@ We also need an elim form for propositional equality. Should we have an elim for
    \alpha \leq \beta}
   {\isterm{\G}{\coerce{\e}{\alpha}{\beta}}{\Universe{\beta}}}
 
+  \infer[\rulename{term-idpath}]
+  {\isterm{\G}{\e}{\T}\\
+   \isfib{\G}{\T}}
+  {\isterm{\G}{\prRefl{\T}{\e}}{\PrEqual{\e}{\e}{\T}}}
+
+
+  \infer[\rulename{term-refl}]
+  {\isterm{\G}{\e}{\T}}
+  {\isterm{\G}{\juRefl{\T}{\e}}{\JuEqual{\e}{\e}{\T}}}
+
+
   \infer[\rulename{name-unit}]
   {\isctx{\G}}
   {\isterm{\G}{\nUnit}{\Universe{\zero}}}
@@ -443,27 +457,35 @@ We also need an elim form for propositional equality. Should we have an elim for
           {(\app{\e_2}{\x})}{\U}
   }
   {\eqterm{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}}
-\end{mathpar}
 
-% Allow page break
-
-\begin{mathpar}
-  \infer[\rulename{eq-prod}]
+\infer[\rulename{eq-prod}]
   {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
    \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}}}
   {\eqterm{\G}{\nProd{\alpha,\beta}{\x}{\e_1}{\e_2}}{\nProd{\alpha,\beta}{\x}{\e'_1}{\e'_2}}{\Universe{\piClose{\alpha}{\beta}}}}
 
-  \infer[\rulename{eq-coerce}]
+\infer[\rulename{eq-idpath}]
+  {\eqterm{\G}{\e_1}{\e_2}{\T}\\
+   \eqtype{\G}{\T}{\U}\\
+   \isfib{\G}{\T}\\
+   \isfib{\G}{\U}}
+  {\eqterm{\G}{\prRefl{\T}{\e_1}}{\prRefl{\U}{\e_2}}{\PrEqual{\e_1}{\e_1}{\T}}}
+
+\infer[\rulename{eq-refl}]
+{\eqterm{\G}{\e_1}{\e_2}{\T}\\
+ \eqtype{\G}{\T}{\U}}
+{\eqterm{\G}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}{\JuEqual{\e_1}{\e_1}{\T}}}
+
+\infer[\rulename{eq-coerce}]
   {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
   {\eqterm{\G}{(\coerce{\e_1}{\alpha}{\beta})}
               {(\coerce{\e_2}{\alpha}{\beta})}
               {\Universe{\beta}}}
 
-  \infer[\rulename{eq-coerce-refl}]
+\infer[\rulename{eq-coerce-refl}]
   {\isterm{\G}{\e}{\Universe{\alpha}}}
   {\eqterm{\G}{(\coerce{\e}{\alpha}{\alpha})}{e}{\Universe{\alpha}}}
 
-  \infer[\rulename{eq-coerce-trans}]
+\infer[\rulename{eq-coerce-trans}]
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
     \alpha \leq \gamma \leq \beta}
   {\eqterm{\G}{\coerce{(\coerce{\e}{\alpha}{\gamma}}{\gamma}{\beta})}
@@ -474,21 +496,26 @@ We also need an elim form for propositional equality. Should we have an elim for
 \bigskip
 
 Question: Assuming that $\piClose{0}{1} = \piClose{1}{1} = 1$, should we be able to prove that
-\[ \eqterm{\ctxempty}{(\nProd{0,1}{\_}{\nUnit}{\nUniverse{1}})}{(\nProd{1,1}{\_}{(\coerce{\nUnit}{0}{1})}{\nUniverse{1}})}
+\[ \eqterm{\ctxempty}{(\nProd{0,1}{\_}{\nUnit}{\nUniverse{1}})}{(\nProd{1,1}{\_}{(\coerce{\nUnit}{0}{1})}{\nUniverse{2}})}
                      {\Universe{1}}  ? \]
 
-This would follow if we had a reflection rule
+This would follow from the reflection rule
 \[
   \infer
    {\eqtype{\G}{\El{\alpha}{\e_1}}{\El{\alpha}{\e_2}}}
    {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
 \]
-but we definitely need Rule~\rulename{tyeq-el}, for example, to prove that
+because both sides correspond to the type $\Unit\to\Universe{1}$.
+But we definitely need the inverse Rule~\rulename{tyeq-el}, for example, to prove that
 \[ \eqtype{\ctxempty}
           {\El{\zero}{(\app{(\lam{\x}{\Universe{\zero}}{\x})}{\nUnit})}}
                     {\El{\zero}{\nUnit}}
 \]
-and I'm a little nervous (algorithmically) about making this a bidirectional inference rule.
+and I'm a little nervous about making \rulename{tyeq-el} into a bidirectional
+inference rule. Certainly if we want an algorithm, we can't have name-equality
+in a universe just invoke the algorithm for type equality on the corresponding
+$\El{}{}$ types \emph{and} have the algorithm for equality of $\El{}{}$ types
+check for name-equality.
 
 
 \end{document}
