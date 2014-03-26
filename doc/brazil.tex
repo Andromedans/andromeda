@@ -298,13 +298,14 @@ We also need an elim form for propositional equality. Should we have an elim for
 
   \infer[\rulename{name-prod}]
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
-   \isterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\beta}}
+   \isterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\beta}} \\
+   \piClose{\alpha}{\beta} = \gamma
   }
-  {\isterm{\G}{(\nProd{\alpha,\beta}{\x}{\e_1} \e_2)}{\Universe{\piClose{\alpha}{\beta}}}}
+  {\isterm{\G}{(\nProd{\alpha,\beta}{\x}{\e_1} \e_2)}{\Universe{\gamma}}}
 
   \infer[\rulename{name-universe}]
-  { }
-  {\isterm{\G}{\nUniverse{\alpha}}{\Universe{\uClose{\alpha}}}}
+  {\isctx{\G} \\ \uClose{\alpha} = \beta }
+  {\isterm{\G}{\nUniverse{\alpha}}{\Universe{\beta}}}
 
   \infer[\rulename{name-paths}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
@@ -364,11 +365,11 @@ We also need an elim form for propositional equality. Should we have an elim for
    \eqterm{\G}{\e_2}{\e'_2}{\T}
   }
   {\eqtype{\G}{\JuEqual{\T}{\e_1}{\e_2}}
-              {\JuEqual{\T}{\e'_1}{\e'_2}}}
+              {\JuEqual{\U}{\e'_1}{\e'_2}}}
 
   \infer[\rulename{tyeq-el-pi}]
-  { }
-  {\eqtype{\G}{\El{\piClose{\alpha}{\beta}}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}}
+  {\piClose{\alpha}{\beta} = \gamma}
+  {\eqtype{\G}{\El{\gamma}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}}
               {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}}}
 
   \infer[\rulename{tyeq-el-unit}]
@@ -460,8 +461,9 @@ We also need an elim form for propositional equality. Should we have an elim for
 
 \infer[\rulename{eq-prod}]
   {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-   \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}}}
-  {\eqterm{\G}{\nProd{\alpha,\beta}{\x}{\e_1}{\e_2}}{\nProd{\alpha,\beta}{\x}{\e'_1}{\e'_2}}{\Universe{\piClose{\alpha}{\beta}}}}
+   \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
+   \piClose{\alpha}{\beta} = \gamma}
+  {\eqterm{\G}{\nProd{\alpha,\beta}{\x}{\e_1}{\e_2}}{\nProd{\alpha,\beta}{\x}{\e'_1}{\e'_2}}{\Universe{\gamma}}}
 
 \infer[\rulename{eq-idpath}]
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
@@ -496,7 +498,7 @@ We also need an elim form for propositional equality. Should we have an elim for
 \bigskip
 
 Question: Assuming that $\piClose{0}{1} = \piClose{1}{1} = 1$, should we be able to prove that
-\[ \eqterm{\ctxempty}{(\nProd{0,1}{\_}{\nUnit}{\nUniverse{1}})}{(\nProd{1,1}{\_}{(\coerce{\nUnit}{0}{1})}{\nUniverse{1}})}
+\[ \eqterm{\ctxempty}{(\nProd{0,1}{\unitTerm}{\nUnit}{\nUniverse{1}})}{(\nProd{1,1}{\unitTerm}{(\coerce{\nUnit}{0}{1})}{\nUniverse{1}})}
                      {\Universe{2}}  ? \]
 
 This would follow from the reflection rule
