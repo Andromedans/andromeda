@@ -36,6 +36,7 @@
 \newcommand{\ctxextend}[3]{#1, #2 {:} #3} % extended context
 
 \newcommand{\subst}[3]{#1[#3/#2]} % substitution
+\newcommand{\substs}[2]{#1[#2]} % substitution of many variables
 
 \newcommand{\Universe}[1]{\mathbb{U}_{#1}} % non-fibered universe
 \newcommand{\El}[2]{\mathsf{El}^{#1} #2} % the type named by #2
@@ -47,12 +48,17 @@
 \newcommand{\lam}[2]{\lambda #1 {:} #2 .\,} % $\lambda$-abstraction
 \newcommand{\app}[2]{#1\,#2} % application
 
+\newcommand{\abst}[2]{[#1 \,.\, #2]} % abstraction
+
 \newcommand{\unitTerm}{\star} % the element of the unit type
 
 \newcommand{\coerce}[3]{\mathsf{lift}^{#2{\mapsto}#3}\ #1}
 
 \newcommand{\PrEqual}[3]{\mathsf{Paths}_{#1}(#2,#3)} % Propositional Equality type
 \newcommand{\JuEqual}[3]{\mathsf{Id}_{#1}(#2,#3)} % Judgmental Equality type
+
+\newcommand{\PrElim}[6]{\mathsf{J}_{#1}(#2, #3, #4, #5, #6)} % Propositional equality eliminator
+\newcommand{\JuElim}[6]{\mathsf{G}_{#1}(#2, #3, #4, #5, #6)} % Judgmental equality eliminator
 
 \newcommand{\prRefl}[1]{\mathsf{idpath}_{#1}}  % Propositional refl
 \newcommand{\juRefl}[1]{\mathsf{refl}_{#1}}    % Judgmental refl
@@ -142,10 +148,10 @@ Terms:
   \nUniverse{\alpha} \bnfor {} \\
   & \coerce{\e}{\alpha}{\beta} \bnfor
   \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3} \bnfor
-  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}
+  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3} \bnfor {} \\
+  & \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4} \bnfor
+    \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}
 \end{align*}
-
-We also need an elim form for propositional equality. Should we have an elim form for definitional equality too, or is it an implicit rule (if something has an Id type, then the definitional equivalence holds)?
 
 \subsection{Judgments}
 \label{sec:judgments}
@@ -256,6 +262,7 @@ We also need an elim form for propositional equality. Should we have an elim for
 \subsection{Terms}
 \label{sec:terms}
 
+General terms:
 \begin{mathpar}
   \infer[\rulename{term-eq}]
   {\isterm{\G}{\e}{\T} \\
@@ -268,7 +275,11 @@ We also need an elim form for propositional equality. Should we have an elim for
    (\x{:}\T) \in \G
   }
   {\isterm{\G}{\x}{\T}}
+\end{mathpar}
 
+\noindent
+Products:
+\begin{mathpar}
   \infer[\rulename{term-abs}]
   {\isterm{\ctxextend{\G}{\x}{\T}}{\e}{\U}}
   {\isterm{\G}{(\lam{\x}{\T}{\e})}{\Prod{\x}{\T}{\U}}}
@@ -278,26 +289,98 @@ We also need an elim form for propositional equality. Should we have an elim for
    \isterm{\G}{\e_2}{\T}
   }
   {\isterm{\G}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}}}
+\end{mathpar}
 
-  \infer[\rulename{term-star}]
-  {\isctx{\G}}
-  {\isterm{\G}{\unitTerm}{\Unit}}
+\noindent
+Paths:
+\begin{mathpar}
+  \infer[\rulename{term-refl}]
+  {\isterm{\G}{\e}{\T}}
+  {\isterm{\G}{\juRefl{\T}{\e}}{\JuEqual{\T}{\e}{\e}}}
 
-  \infer[\rulename{term-coerce}]
-  {\isterm{\G}{\e}{\Universe{\alpha}}\\
-   \alpha \leq \beta}
-  {\isterm{\G}{\coerce{\e}{\alpha}{\beta}}{\Universe{\beta}}}
+  \infer[\rulename{term-j}]
+  {\isfib{\G}{\T}
+   \\\\
+   \isfib{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}}
+   }{P}
+   \\
+   \isterm
+     {\ctxextend{\G}{z}{\T}}
+     {e_1}
+     {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
+   \\
+   \isterm{\G}{\e_2}{\T} \\
+   \isterm{\G}{\e_3}{\T} \\
+   \isterm{\G}{\e_4}{\PrEqual{\T}{e_2}{e_3}}
+  }
+  {\isterm
+     {\G}
+     {\PrElim{\T}
+        {\abst{x\,y\,p}{P}}
+        {\abst{z}{\e_1}}
+        {\e_2}
+        {\e_3}
+        {\e_4}
+     }
+     {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
+  }
+\end{mathpar}
 
+\noindent
+Equality types:
+\begin{mathpar}
   \infer[\rulename{term-idpath}]
   {\isterm{\G}{\e}{\T}\\
    \isfib{\G}{\T}}
   {\isterm{\G}{\prRefl{\T}{\e}}{\PrEqual{\T}{\e}{\e}}}
 
+  \infer[\rulename{term-g}]
+  {\istype{\G}{\T}
+   \\\\
+   \istype{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
+   }{P}
+   \\\\
+   \isterm
+     {\ctxextend{\G}{z}{\T}}
+     {e_1}
+     {\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
+   \\
+   \isterm{\G}{\e_2}{\T} \\
+   \isterm{\G}{\e_3}{\T} \\
+   \isterm{\G}{\e_4}{\JuEqual{\T}{e_2}{e_3}}
+  }
+  {\isterm
+     {\G}
+     {\JuElim{\T}
+        {\abst{x\,y\,p}{P}}
+        {\abst{z}{\e_1}}
+        {\e_2}
+        {\e_3}
+        {\e_4}
+     }
+     {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
+  }
 
-  \infer[\rulename{term-refl}]
-  {\isterm{\G}{\e}{\T}}
-  {\isterm{\G}{\juRefl{\T}{\e}}{\JuEqual{\T}{\e}{\e}}}
+\end{mathpar}
 
+
+\noindent
+Unit:
+\begin{mathpar}
+\infer[\rulename{term-star}]
+  {\isctx{\G}}
+  {\isterm{\G}{\unitTerm}{\Unit}}
+\end{mathpar}
+
+\noindent
+Names:
+\begin{mathpar}
+  \infer[\rulename{term-coerce}]
+  {\isterm{\G}{\e}{\Universe{\alpha}}\\
+   \alpha \leq \beta}
+  {\isterm{\G}{\coerce{\e}{\alpha}{\beta}}{\Universe{\beta}}}
 
   \infer[\rulename{name-unit}]
   {\isctx{\G}}
@@ -333,6 +416,8 @@ We also need an elim form for propositional equality. Should we have an elim for
 
 \subsection{Type Equality}
 
+\noindent
+General rules:
 \begin{mathpar}
   \infer[\rulename{tyeq-refl}]
   {\istype{\G}{\T}}
@@ -346,7 +431,11 @@ We also need an elim form for propositional equality. Should we have an elim for
   {\eqtype{\G}{\T}{\T'}\\
    \eqtype{\G}{\T'}{\U}}
   {\eqtype{\G}{\T}{\U}}
+\end{mathpar}
 
+\noindent
+Type formers are congruences:
+\begin{mathpar}
   \infer[\rulename{tyeq-el}]
   {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
   {\eqtype{\G}{\El{\alpha}{\e_1}}{\El{\alpha}{\e_2}}}
@@ -373,7 +462,11 @@ We also need an elim form for propositional equality. Should we have an elim for
   }
   {\eqtype{\G}{\JuEqual{\T}{\e_1}{\e_2}}
               {\JuEqual{\U}{\e'_1}{\e'_2}}}
+\end{mathpar}
 
+\noindent
+Computation of types from names:
+\begin{mathpar}
   \infer[\rulename{tyeq-el-pi}]
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
    \isterm{\ctxextend{\G}{x}{\El{\alpha}{\e_1}}}{e_2}{\Universe{\beta}} \\
@@ -472,7 +565,7 @@ Other rules for products:
 \end{mathpar}
 
 \noindent
-Congruence rules for equality types:
+Congruence rules for paths:
 %
 \begin{mathpar}
 \infer[\rulename{eq-idpath}]
@@ -481,11 +574,78 @@ Congruence rules for equality types:
    \isfib{\G}{\T}\\
    \isfib{\G}{\U}}
   {\eqterm{\G}{\prRefl{\T}{\e_1}}{\prRefl{\U}{\e_2}}{\PrEqual{\T}{\e_1}{\e_1}}}
+\end{mathpar}
 
+\noindent
+Computation rule for paths:
+%
+\begin{mathpar}
+  \infer[\rulename{eq-J}]
+  {\isfib{\G}{\T}
+   \\
+   \isfib{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}}
+   }{P}
+   \\\\
+   \isterm
+     {\ctxextend{\G}{z}{\T}}
+     {e_1}
+     {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
+   \\
+   \isterm{\G}{\e_2}{\T}
+  }
+  {\eqterm{\G}
+   {\PrElim{\T}
+        {\abst{x\,y\,p}{P}}
+        {\abst{z}{\e_1}}
+        {\e_2}
+        {\e_2}
+        {\prRefl{\T}{\e_2}}
+   }
+   {\subst{\e_1}{e_2}{z}}
+   {\substs{P}{\e_2/x, \e_2/x, (\prRefl{T}{\e_2})/p}}
+  }
+\end{mathpar}
+
+\noindent
+Congruence rules for equalities:
+%
+\begin{mathpar}
 \infer[\rulename{eq-refl}]
 {\eqterm{\G}{\e_1}{\e_2}{\T}\\
  \eqtype{\G}{\T}{\U}}
 {\eqterm{\G}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}{\JuEqual{\T}{\e_1}{\e_1}}}
+\end{mathpar}
+
+\noindent
+Computation rule for equality:
+%
+\begin{mathpar}
+  \infer[\rulename{eq-G}]
+  {\istype{\G}{\T}
+   \\
+   \istype{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
+   }{P}
+   \\\\
+   \isterm
+     {\ctxextend{\G}{z}{\T}}
+     {e_1}
+     {\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
+   \\
+   \isterm{\G}{\e_2}{\T}
+  }
+  {\eqterm{\G}
+   {\JuElim{\T}
+        {\abst{x\,y\,p}{P}}
+        {\abst{z}{\e_1}}
+        {\e_2}
+        {\e_2}
+        {\juRefl{\T}{\e_2}}
+   }
+   {\subst{\e_1}{e_2}{z}}
+   {\substs{P}{\e_2/x, \e_2/x, (\juRefl{T}{\e_2})/p}}
+  }
 \end{mathpar}
 
 \noindent
