@@ -626,6 +626,15 @@ Congruence rules for equalities:
 \end{mathpar}
 
 \noindent
+Equality reflection
+%
+\begin{mathpar}
+  \infer[\rulename{eq-reflection}]
+  {\isterm{\G}{\e}{\JuEqual{\T}{\e_1}{\e_2}}}
+  {\eqterm{\G}{\e_1}{\e_2}{\T}}
+\end{mathpar}
+
+\noindent
 Computation rule for equality:
 %
 \begin{mathpar}
