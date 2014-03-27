@@ -29,7 +29,7 @@
 
 %% Syntax
 \newcommand{\bnf}{\ \mathrel{{:}{:}{=}}\ }
-\newcommand{\bnfor}{\mid}
+\newcommand{\bnfor}{\ \mid\ \ }
 
 %% Syntactic constructs
 \newcommand{\ctxempty}{\bullet} % empty context
@@ -118,39 +118,47 @@ typing and equality judgments.
 Contexts:
 %
 \begin{align*}
-  \G \bnf
-  \ctxempty \bnfor
-  \ctxextend{\G}{\x}{\T}
+  \G &
+  \begin{aligned}[t]
+    \bnf   {}& \ctxempty & & \text{empty context}\\
+    \bnfor {}& \ctxextend{\G}{\x}{\T} & & \text{context extended with $x : T$}
+  \end{aligned}
 \end{align*}
 %
 Types:
 %
 \begin{align*}
-  \T, \U \bnf
-  \Universe{\alpha} \bnfor
-  \El{\alpha}{\e} \bnfor
-  \Unit \bnfor
-  \Prod{x}{\T} \U \bnfor
-  \PrEqual{T}{\e_1}{\e_2} \bnfor
-  \JuEqual{T}{\e_1}{\e_2}
+  \T, \U &
+  \begin{aligned}[t]
+    \bnf   {}& \Universe{\alpha} & & \text{universe}\\
+    \bnfor {}& \El{\alpha}{\e} & & \text{type named by $e$}\\
+    \bnfor {}& \Unit & & \text{the unit type}\\
+    \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
+    \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
+    \bnfor {}& \JuEqual{T}{\e_1}{\e_2} & & \text{equality type}   
+  \end{aligned}
 \end{align*}
 %
 Terms:
 %
 \begin{align*}
-  \e \bnf
-  &\x \bnfor
-  \lam{\x}{\T} \e \bnfor
-  \app{\e_1}{\e_2} \bnfor
-  \unitTerm \bnfor
-  \nUnit \bnfor
-  \nProd{\alpha,\beta}{\x}{\e_1} \e_2 \bnfor
-  \nUniverse{\alpha} \bnfor {} \\
-  & \coerce{\e}{\alpha}{\beta} \bnfor
-  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3} \bnfor
-  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3} \bnfor {} \\
-  & \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4} \bnfor
-    \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}
+  \e &
+  \begin{aligned}[t]
+    \bnf   {}&  \x   &&\text{variable} \\
+    \bnfor {}&  \lam{\x}{\T} \e  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&   \app{\e_1}{\e_2}  &&\text{application} \\
+    \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
+    \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
+    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
+    \bnfor {}&  \juRefl{\T}{\e}  &&\text{reflexivity} \\
+    \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{equality eliminator} \\
+    \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
+    \bnfor {}&  \nProd{\alpha,\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
+    \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
+    \bnfor {}&  \coerce{\e}{\alpha}{\beta}  &&\text{universe coercion} \\
+    \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
+    \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
+  \end{aligned}
 \end{align*}
 
 \subsection{Judgments}
