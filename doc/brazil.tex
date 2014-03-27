@@ -582,6 +582,66 @@ Congruence rules for paths:
    \isfib{\G}{\T}\\
    \isfib{\G}{\U}}
   {\eqterm{\G}{\prRefl{\T}{\e_1}}{\prRefl{\U}{\e_2}}{\PrEqual{\T}{\e_1}{\e_1}}}
+
+  \infer[\rulename{cong-j}]
+  {\isfib{\G}{\T} \\
+   \isfib{\G}{\U}
+   \\\\
+   \isfib{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}}
+   }{P}
+   \\
+   \isfib{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\U}}{y}{\U}}{p}{\PrEqual{\U}{x}{y}}
+   }{Q}
+   \\\\
+   \isterm
+     {\ctxextend{\G}{z}{\T}}
+     {e_1}
+     {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
+   \\
+   \isterm
+     {\ctxextend{\G}{z}{\U}}
+     {e'_1}
+     {\substs{Q}{z/x, z/y, (\prRefl{\U}{z})/p}}
+   \\\\
+   \isterm{\G}{\e_2}{\T} \\
+   \isterm{\G}{\e_3}{\T} \\
+   \isterm{\G}{\e_4}{\PrEqual{\T}{\e_2}{\e_3}}
+   \\\\
+   \isterm{\G}{\e'_2}{\U} \\
+   \isterm{\G}{\e'_3}{\U} \\
+   \isterm{\G}{\e'_4}{\PrEqual{\U}{\e'_2}{\e'_3}}
+   \\\\
+   \eqtype{\G}{\T}{\U} \\
+   \eqtype{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}}
+   }{P}{Q} \\\\
+   \eqterm{\ctxextend{\G}{z}{\T}}{\e_1}{\e'_1}{\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
+   \\\\
+   \eqterm{\G}{e_2}{e'_2}{T} \\
+   \eqterm{\G}{e_3}{e'_3}{T} \\
+   \eqterm{\G}{e_4}{e'_4}{\PrEqual{\T}{e_2}{e_3}}
+  }
+  {\eqterm
+     {\G}
+     {\PrElim{\T}
+        {\abst{x\,y\,p}{P}}
+        {\abst{z}{\e_1}}
+        {\e_2}
+        {\e_3}
+        {\e_4}
+     }
+     {\PrElim{\U}
+        {\abst{x\,y\,p}{Q}}
+        {\abst{z}{\e'_1}}
+        {\e'_2}
+        {\e'_3}
+        {\e'_4}
+     }
+     {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
+  }
+
 \end{mathpar}
 
 \noindent
@@ -623,6 +683,64 @@ Congruence rules for equalities:
 {\eqterm{\G}{\e_1}{\e_2}{\T}\\
  \eqtype{\G}{\T}{\U}}
 {\eqterm{\G}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}{\JuEqual{\T}{\e_1}{\e_1}}}
+
+\infer[\rulename{cong-g}]
+  {\istype{\G}{\T} \\
+   \istype{\G}{\U}
+   \\\\
+   \istype{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
+   }{P}
+   \\
+   \istype{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\U}}{y}{\U}}{z}{\JuEqual{\U}{x}{y}}
+   }{Q}
+   \\\\
+   \isterm
+     {\ctxextend{\G}{z}{\T}}
+     {e_1}
+     {\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
+   \\
+   \isterm
+     {\ctxextend{\G}{z}{\U}}
+     {e'_1}
+     {\substs{Q}{z/x, z/y, (\juRefl{\U}{z})/p}}
+   \\\\
+   \isterm{\G}{\e_2}{\T} \\
+   \isterm{\G}{\e_3}{\T} \\
+   \isterm{\G}{\e_4}{\JuEqual{\T}{e_2}{e_3}} \\\\
+   \isterm{\G}{\e'_2}{\U} \\
+   \isterm{\G}{\e'_3}{\U} \\
+   \isterm{\G}{\e'_4}{\JuEqual{\U}{e'_2}{e'_3}}
+   \\\\
+   \eqtype{\G}{\T}{\U} \\
+   \eqtype{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
+   }{P}{Q} \\\\
+   \eqterm{\ctxextend{\G}{z}{\T}}{\e_1}{\e'_1}{\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
+   \\\\
+   \eqterm{\G}{e_2}{e'_2}{T} \\
+   \eqterm{\G}{e_3}{e'_3}{T} \\
+   \eqterm{\G}{e_4}{e'_4}{\JuEqual{\T}{e_2}{e_3}}
+  }
+  {\eqterm
+     {\G}
+     {\JuElim{\T}
+        {\abst{x\,y\,p}{P}}
+        {\abst{z}{\e_1}}
+        {\e_2}
+        {\e_3}
+        {\e_4}
+     }
+     {\JuElim{\U}
+        {\abst{x\,y\,p}{Q}}
+        {\abst{z}{\e'_1}}
+        {\e'_2}
+        {\e'_3}
+        {\e'_4}
+     }
+     {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
+  }
 \end{mathpar}
 
 \noindent
