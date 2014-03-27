@@ -99,7 +99,14 @@ We assume the following partial functions are given:
   \item $\piClose{\cdot}{\cdot} : \PP \times \PP \rightharpoonup \PP$
   \item $\uClose{\cdot}  : \PP \rightharpoonup \PP$
 \end{itemize}
-\section{Syntax}
+
+\section{The orthodox formulation}
+\label{sec:orthodox-formulation}
+
+In this section we give the formulation of Brazilian type theory in the orthodox way, with
+typing and equality judgments.
+
+\subsection{Syntax}
 \label{sec:syntax}
 
 Contexts:
@@ -140,7 +147,7 @@ Terms:
 
 We also need an elim form for propositional equality. Should we have an elim form for definitional equality too, or is it an implicit rule (if something has an Id type, then the definitional equivalence holds)?
 
-\section{Judgments}
+\subsection{Judgments}
 \label{sec:judgments}
 
 \begin{align*}
@@ -152,7 +159,7 @@ We also need an elim form for propositional equality. Should we have an elim for
 & \eqterm{\G}{\e_1}{\e_2}{\T} & & \text{$e_1$ and $e_2$ are equal terms of type $\T$ in context $\G$}
 \end{align*}
 
-\section{Contexts}
+\subsection{Contexts}
 \label{sec:contexts}
 
 \begin{mathpar}
@@ -167,7 +174,7 @@ We also need an elim form for propositional equality. Should we have an elim for
   {\isctx{\ctxextend{\G}{\x}{\T}}}
 \end{mathpar}
 
-\section{Types}
+\subsection{Types}
 \label{sec:types}
 
 \begin{mathpar}
@@ -208,7 +215,7 @@ We also need an elim form for propositional equality. Should we have an elim for
 
 \end{mathpar}
 
-\section{Fibered types}
+\subsection{Fibered types}
 \label{sec:fibered-types}
 
 \begin{mathpar}
@@ -246,7 +253,7 @@ We also need an elim form for propositional equality. Should we have an elim for
 
 \end{mathpar}
 
-\section{Terms}
+\subsection{Terms}
 \label{sec:terms}
 
 \begin{mathpar}
@@ -324,7 +331,7 @@ We also need an elim form for propositional equality. Should we have an elim for
 
 \end{mathpar}
 
-\section{Type Equality}
+\subsection{Type Equality}
 
 \begin{mathpar}
   \infer[\rulename{tyeq-refl}]
@@ -404,11 +411,9 @@ We also need an elim form for propositional equality. Should we have an elim for
 
 \end{mathpar}
 
-\section{Term Equality}
+\subsection{Term Equality}
 
-%
-% PER rules
-%
+General rules:
 \begin{mathpar}
   \infer[\rulename{eq-refl}]
   {\isterm{\G}{\e}{\T}}
@@ -422,20 +427,17 @@ We also need an elim form for propositional equality. Should we have an elim for
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
    \eqterm{\G}{\e_2}{\e_3}{\T}}
   {\eqterm{\G}{\e_1}{\e_3}{\T}}
-\end{mathpar}
 
-\begin{mathpar}
-%
-% Subsumption-like rule
-%
   \infer[\rulename{eq-eq}]
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
     \eqtype{\G}{\T}{\U}}
   {\eqterm{\G}{\e_1}{\e_2}{\U}}
+\end{mathpar}
 
+\noindent
+Congruence rules for products:
 %
-% Congruence and other rules
-%
+\begin{mathpar}
   \infer[\rulename{eq-abs}]
   {\eqtype{\G}{\T_1}{\U_1}\\
     \eqterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\e_2}{\T_2}}
@@ -447,8 +449,13 @@ We also need an elim form for propositional equality. Should we have an elim for
   {\eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\T}{\U}}\\
    \eqterm{\G}{\e_2}{\e'_2}{\T}}
   {\eqterm{\G}{\app{\e_1}{\e_2}}{\app{\e'_1}{\e'_2}}{\subst{\U}{\x}{\e_2}}}
+\end{mathpar}
 
-  \infer[\rulename{eq-beta}]
+\noindent
+Other rules for products:
+%
+\begin{mathpar}
+\infer[\rulename{eq-beta}]
   {\isterm{\ctxextend{\G}{\x}{\T}}{e_1}{\U}\\
     \isterm{\G}{\e_2}{\T}}
   {\eqterm{\G}{\app{(\lam{\x}{\T}{\e_1})}{\e_2}}
@@ -458,11 +465,16 @@ We also need an elim form for propositional equality. Should we have an elim for
   \infer[\rulename{eq-ext}]
   {\isterm{\G}{\e_1}{\Prod{\x}{\T}{\U}}\\
    \isterm{\G}{\e_2}{\Prod{\x}{\T}{\U}}\\
-   \eqterm{\ctxextend{\G}{\x}{\T}}{(\app{\e_1}{\x})}
-          {(\app{\e_2}{\x})}{\U}
+   \eqterm{\ctxextend{\G}{\x}{\T}}{\app{\e_1}{\x}}
+          {\app{\e_2}{\x}}{\U}
   }
   {\eqterm{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}}
+\end{mathpar}
 
+\noindent
+Congruence rules for equality types:
+%
+\begin{mathpar}
 \infer[\rulename{eq-idpath}]
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
    \eqtype{\G}{\T}{\U}\\
@@ -476,10 +488,10 @@ We also need an elim form for propositional equality. Should we have an elim for
 {\eqterm{\G}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}{\JuEqual{\T}{\e_1}{\e_1}}}
 \end{mathpar}
 
+\noindent
+Congruence rules for names:
+%
 \begin{mathpar}
-%
-% Rules about names
-%
 \infer[\rulename{eq-name-prod}]
   {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
    \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
@@ -492,23 +504,6 @@ We also need an elim form for propositional equality. Should we have an elim for
   \uClose{\alpha} = \gamma
 }
 {\eqterm{\G}{\nUniverse{\alpha}}{\nUniverse{\beta}}{\Universe{\gamma}}}
-
-\infer[\rulename{eq-name-coerce}]
-  {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
-  {\eqterm{\G}{(\coerce{\e_1}{\alpha}{\beta})}
-              {(\coerce{\e_2}{\alpha}{\beta})}
-              {\Universe{\beta}}}
-
-\infer[\rulename{eq-name-coerce-refl}]
-  {\isterm{\G}{\e}{\Universe{\alpha}}}
-  {\eqterm{\G}{(\coerce{\e}{\alpha}{\alpha})}{e}{\Universe{\alpha}}}
-
-\infer[\rulename{eq-name-coerce-trans}]
-  {\isterm{\G}{\e}{\Universe{\alpha}} \\
-    \alpha \leq \gamma \leq \beta}
-  {\eqterm{\G}{\coerce{(\coerce{\e}{\alpha}{\gamma}}{\gamma}{\beta})}
-              {\coerce{\e}{\alpha}{\beta}}
-              {\Universe{\beta}}}
 
 \infer[\rulename{eq-name-paths}]
 {\eqterm{\G}{\e_T}{\e'_U}{\Universe{\alpha}}\\
@@ -523,7 +518,35 @@ We also need an elim form for propositional equality. Should we have an elim for
   \eqterm{\G}{\e_2}{\e'_2}{\Universe{\alpha}}
 }
 {\eqterm{\G}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
-
 \end{mathpar}
+
+\noindent
+Congruence rule for coercions:
+%
+\begin{mathpar}
+  \infer[\rulename{eq-name-coerce}]
+  {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
+  {\eqterm{\G}{(\coerce{\e_1}{\alpha}{\beta})}
+              {(\coerce{\e_2}{\alpha}{\beta})}
+              {\Universe{\beta}}}
+\end{mathpar}
+
+\noindent
+Functoriality of corecions:
+%
+\begin{mathpar}
+\infer[\rulename{eq-name-coerce-refl}]
+  {\isterm{\G}{\e}{\Universe{\alpha}}}
+  {\eqterm{\G}{(\coerce{\e}{\alpha}{\alpha})}{e}{\Universe{\alpha}}}
+
+\infer[\rulename{eq-name-coerce-trans}]
+  {\isterm{\G}{\e}{\Universe{\alpha}} \\
+    \alpha \leq \beta \leq \gamma}
+  {\eqterm{\G}{\coerce{(\coerce{\e}{\alpha}{\beta}}{\beta}{\gamma})}
+              {\coerce{\e}{\alpha}{\gamma}}
+              {\Universe{\gamma}}}
+\end{mathpar}
+
+
 
 \end{document}
