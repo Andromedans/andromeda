@@ -368,7 +368,9 @@ We also need an elim form for propositional equality. Should we have an elim for
               {\JuEqual{\U}{\e'_1}{\e'_2}}}
 
   \infer[\rulename{tyeq-el-pi}]
-  {\piClose{\alpha}{\beta} = \gamma}
+  {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
+   \isterm{\ctxextend{\G}{x}{\El{\alpha}{\e_1}}}{e_2}{\Universe{\beta}} \\
+   \piClose{\alpha}{\beta} = \gamma}
   {\eqtype{\G}{\El{\gamma}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}}
               {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}}}
 
@@ -377,7 +379,9 @@ We also need an elim form for propositional equality. Should we have an elim for
   {\eqtype{\G}{\El{\zero}{\nUnit}}{\Unit}}
 
   \infer[\rulename{tyeq-el-coerce}]
-  {\isterm{\G}{\e}{\Universe{\alpha}} }
+  {\isterm{\G}{\e}{\Universe{\alpha}} \\
+    \alpha \leq \beta
+  }
   {\eqtype{\G}{\El{\beta}(\coerce{\e}{\alpha}{\beta})}
               {\El{\alpha}{e}}}
 
@@ -521,29 +525,5 @@ We also need an elim form for propositional equality. Should we have an elim for
 {\eqterm{\G}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
 \end{mathpar}
-\bigskip
-
-Question: Assuming that $\piClose{0}{1} = \piClose{1}{1} = 1$, should we be able to prove that
-\[ \eqterm{\ctxempty}{(\nProd{0,1}{\unitTerm}{\nUnit}{\nUniverse{1}})}{(\nProd{1,1}{\unitTerm}{(\coerce{\nUnit}{0}{1})}{\nUniverse{1}})}
-                     {\Universe{2}}  ? \]
-
-This would follow from the reflection rule
-\[
-  \infer
-   {\eqtype{\G}{\El{\alpha}{\e_1}}{\El{\alpha}{\e_2}}}
-   {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
-\]
-because both sides correspond to the type $\Unit\to\Universe{1}$.
-But we definitely need the inverse Rule~\rulename{tyeq-el}, for example, to prove that
-\[ \eqtype{\ctxempty}
-          {\El{\zero}{(\app{(\lam{\x}{\Universe{\zero}}{\x})}{\nUnit})}}
-                    {\El{\zero}{\nUnit}}
-\]
-and I'm a little nervous about making \rulename{tyeq-el} into a bidirectional
-inference rule. Certainly if we want an algorithm, we can't have name-equality
-in a universe just invoke the algorithm for type equality on the corresponding
-$\El{}{}$ types \emph{and} have the algorithm for equality of $\El{}{}$ types
-check for name-equality.
-
 
 \end{document}
