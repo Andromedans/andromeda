@@ -315,12 +315,12 @@ Paths:
    \\
    \isterm
      {\ctxextend{\G}{z}{\T}}
-     {e_1}
+     {\e_1}
      {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
    \\
    \isterm{\G}{\e_2}{\T} \\
    \isterm{\G}{\e_3}{\T} \\
-   \isterm{\G}{\e_4}{\PrEqual{\T}{e_2}{e_3}}
+   \isterm{\G}{\e_4}{\PrEqual{\T}{\e_2}{\e_3}}
   }
   {\isterm
      {\G}
@@ -352,12 +352,12 @@ Equality types:
    \\\\
    \isterm
      {\ctxextend{\G}{z}{\T}}
-     {e_1}
+     {\e_1}
      {\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
    \\
    \isterm{\G}{\e_2}{\T} \\
    \isterm{\G}{\e_3}{\T} \\
-   \isterm{\G}{\e_4}{\JuEqual{\T}{e_2}{e_3}}
+   \isterm{\G}{\e_4}{\JuEqual{\T}{\e_2}{\e_3}}
   }
   {\isterm
      {\G}
@@ -477,7 +477,7 @@ Computation of types from names:
 \begin{mathpar}
   \infer[\rulename{tyeq-el-pi}]
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
-   \isterm{\ctxextend{\G}{x}{\El{\alpha}{\e_1}}}{e_2}{\Universe{\beta}} \\
+   \isterm{\ctxextend{\G}{x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
   {\eqtype{\G}{\El{\gamma}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}}
               {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}}}
@@ -557,7 +557,7 @@ Other rules for products:
 %
 \begin{mathpar}
 \infer[\rulename{eq-beta}]
-  {\isterm{\ctxextend{\G}{\x}{\T}}{e_1}{\U}\\
+  {\isterm{\ctxextend{\G}{\x}{\T}}{\e_1}{\U}\\
     \isterm{\G}{\e_2}{\T}}
   {\eqterm{\G}{\app{(\lam{\x}{\T}{\e_1})}{\e_2}}
               {\subst{\e_1}{\x}{\e_2}}
@@ -597,12 +597,12 @@ Congruence rules for paths:
    \\\\
    \isterm
      {\ctxextend{\G}{z}{\T}}
-     {e_1}
+     {\e_1}
      {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
    \\
    \isterm
      {\ctxextend{\G}{z}{\U}}
-     {e'_1}
+     {\e'_1}
      {\substs{Q}{z/x, z/y, (\prRefl{\U}{z})/p}}
    \\\\
    \isterm{\G}{\e_2}{\T} \\
@@ -619,9 +619,9 @@ Congruence rules for paths:
    }{P}{Q} \\\\
    \eqterm{\ctxextend{\G}{z}{\T}}{\e_1}{\e'_1}{\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
    \\\\
-   \eqterm{\G}{e_2}{e'_2}{T} \\
-   \eqterm{\G}{e_3}{e'_3}{T} \\
-   \eqterm{\G}{e_4}{e'_4}{\PrEqual{\T}{e_2}{e_3}}
+   \eqterm{\G}{\e_2}{\e'_2}{T} \\
+   \eqterm{\G}{\e_3}{\e'_3}{T} \\
+   \eqterm{\G}{\e_4}{\e'_4}{\PrEqual{\T}{\e_2}{\e_3}}
   }
   {\eqterm
      {\G}
@@ -657,7 +657,7 @@ Computation rule for paths:
    \\\\
    \isterm
      {\ctxextend{\G}{z}{\T}}
-     {e_1}
+     {\e_1}
      {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
    \\
    \isterm{\G}{\e_2}{\T}
@@ -670,7 +670,7 @@ Computation rule for paths:
         {\e_2}
         {\prRefl{\T}{\e_2}}
    }
-   {\subst{\e_1}{e_2}{z}}
+   {\subst{\e_1}{\e_2}{z}}
    {\substs{P}{\e_2/x, \e_2/x, (\prRefl{T}{\e_2})/p}}
   }
 \end{mathpar}
@@ -698,20 +698,20 @@ Congruence rules for equalities:
    \\\\
    \isterm
      {\ctxextend{\G}{z}{\T}}
-     {e_1}
+     {\e_1}
      {\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
    \\
    \isterm
      {\ctxextend{\G}{z}{\U}}
-     {e'_1}
+     {\e'_1}
      {\substs{Q}{z/x, z/y, (\juRefl{\U}{z})/p}}
    \\\\
    \isterm{\G}{\e_2}{\T} \\
    \isterm{\G}{\e_3}{\T} \\
-   \isterm{\G}{\e_4}{\JuEqual{\T}{e_2}{e_3}} \\\\
+   \isterm{\G}{\e_4}{\JuEqual{\T}{\e_2}{\e_3}} \\\\
    \isterm{\G}{\e'_2}{\U} \\
    \isterm{\G}{\e'_3}{\U} \\
-   \isterm{\G}{\e'_4}{\JuEqual{\U}{e'_2}{e'_3}}
+   \isterm{\G}{\e'_4}{\JuEqual{\U}{\e'_2}{\e'_3}}
    \\\\
    \eqtype{\G}{\T}{\U} \\
    \eqtype{
@@ -719,9 +719,9 @@ Congruence rules for equalities:
    }{P}{Q} \\\\
    \eqterm{\ctxextend{\G}{z}{\T}}{\e_1}{\e'_1}{\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
    \\\\
-   \eqterm{\G}{e_2}{e'_2}{T} \\
-   \eqterm{\G}{e_3}{e'_3}{T} \\
-   \eqterm{\G}{e_4}{e'_4}{\JuEqual{\T}{e_2}{e_3}}
+   \eqterm{\G}{\e_2}{\e'_2}{T} \\
+   \eqterm{\G}{\e_3}{\e'_3}{T} \\
+   \eqterm{\G}{\e_4}{\e'_4}{\JuEqual{\T}{\e_2}{\e_3}}
   }
   {\eqterm
      {\G}
@@ -765,7 +765,7 @@ Computation rule for equality:
    \\\\
    \isterm
      {\ctxextend{\G}{z}{\T}}
-     {e_1}
+     {\e_1}
      {\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
    \\
    \isterm{\G}{\e_2}{\T}
@@ -778,7 +778,7 @@ Computation rule for equality:
         {\e_2}
         {\juRefl{\T}{\e_2}}
    }
-   {\subst{\e_1}{e_2}{z}}
+   {\subst{\e_1}{\e_2}{z}}
    {\substs{P}{\e_2/x, \e_2/x, (\juRefl{T}{\e_2})/p}}
   }
 \end{mathpar}
