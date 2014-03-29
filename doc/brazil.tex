@@ -14,8 +14,8 @@
 \newcommand{\FF}{\mathbb{F}} % the subposet of fibered universe indices
 \newcommand{\zero}{o} % this is not o, it is omicron
 
-\newcommand{\piClose}[2]{\mathsf{piClose}(#1,#2)}   % the universe containing a pi with given domain and codomain
-\newcommand{\uClose}[1]{\mathsf{uClose}(#1)}  % the universe containing the given universe's name.
+\newcommand{\piClose}[2]{\mathsf{max}(#1,#2)}   % the universe containing a pi with given domain and codomain
+\newcommand{\uClose}[1]{\mathsf{succ}(#1)}  % the universe containing the given universe's name.
 
 % Generic entities
 \newcommand{\G}{\Gamma} % a context
@@ -24,6 +24,8 @@
 \newcommand{\x}{x} % a term variable
 \newcommand{\y}{y} % another term variable
 \newcommand{\e}{e} % a term
+\newcommand{\cc}{c} % a term computation
+\newcommand{\CC}{C} % a type computation
 
 \newcommand{\rulename}[1]{\text{\textsc{#1}}}
 
@@ -41,7 +43,6 @@
 \newcommand{\Universe}[1]{\mathbb{U}_{#1}} % non-fibered universe
 \newcommand{\El}[2]{\mathsf{El}^{#1} #2} % the type named by #2
 
-
 \newcommand{\Unit}{\mathsf{Unit}} % The unit type
 \newcommand{\Prod}[2]{{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 
@@ -49,6 +50,7 @@
 \newcommand{\app}[2]{#1\,#2} % application
 
 \newcommand{\abst}[2]{[#1 \,.\, #2]} % abstraction
+\newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
 
 \newcommand{\unitTerm}{\star} % the element of the unit type
 
@@ -62,6 +64,14 @@
 
 \newcommand{\prRefl}[1]{\mathsf{idpath}_{#1}}  % Propositional refl
 \newcommand{\juRefl}[1]{\mathsf{refl}_{#1}}    % Judgmental refl
+
+% computations
+\newcommand{\handle}[2]{\mathsf{handle}\;#1\;\mathsf{with}\;#2} % handler
+\newcommand{\val}[1]{\mathsf{val}\;#1} % pure value
+\newcommand{\cheq}[3]{\mathsf{check}\;#1 \equiv #2 : #3\;\mathsf{in}\;}
+\newcommand{\cheqty}[2]{\mathsf{check}\;#1 \equiv #2 \;\mathsf{in}\;}
+\newcommand{\letin}[1]{\mathsf{let}\;#1\;\mathsf{in}\;} % let statement
+\newcommand{\letty}[1]{\mathsf{type}\;#1\;\mathsf{in}\;} % let-type statement
 
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
@@ -77,8 +87,16 @@
 \newcommand{\isfib}[2]{#1 \vdash #2\;\mathsf{fibered}} % is a fibered type
 \newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
 
-\newcommand{\eqtype}[3]{#1 \vdash\, #2\, \equiv\, #3} % equal types
-\newcommand{\eqterm}[4]{#1 \vdash\, #2\, \equiv #3\,:\,#4} % equal terms
+\newcommand{\comptype}[3]{#1 \vdash #2 \mapsto #3 \;\mathsf{type}} % well formed type
+\newcommand{\compfib}[3]{#1 \vdash #2 \mapsto #3  \;\mathsf{fibered}} % is a fibered type
+
+
+\newcommand{\eqtype}[3]{#1 \vdash #2 \equiv #3} % equal types
+\newcommand{\eqterm}[4]{#1 \vdash #2 \equiv #3 : #4} % equal terms
+
+\newcommand{\chkterm}[4]{#1 \vdash #2 \mapsto #3 \Leftarrow #4} % well formed term
+\newcommand{\synterm}[4]{#1 \vdash #2 \mapsto #3 \Rightarrow #4} % well formed term
+
 
 \begin{document}
 
@@ -105,6 +123,9 @@ We assume the following partial functions are given:
   \item $\piClose{\cdot}{\cdot} : \PP \times \PP \rightharpoonup \PP$
   \item $\uClose{\cdot}  : \PP \rightharpoonup \PP$
 \end{itemize}
+%
+These are \emph{not} required to compute maximum or successor, but we use the suggestive
+notation because in the standard case they do compute maxima and succesors.
 
 \section{The orthodox formulation}
 \label{sec:orthodox-formulation}
@@ -117,18 +138,18 @@ typing and equality judgments.
 
 Contexts:
 %
-\begin{align*}
-  \G &
+\begin{equation*}
+  \G
   \begin{aligned}[t]
     \bnf   {}& \ctxempty & & \text{empty context}\\
     \bnfor {}& \ctxextend{\G}{\x}{\T} & & \text{context extended with $x : T$}
   \end{aligned}
-\end{align*}
+\end{equation*}
 %
 Types:
 %
-\begin{align*}
-  \T, \U &
+\begin{equation*}
+  \T, \U
   \begin{aligned}[t]
     \bnf   {}& \Universe{\alpha} & & \text{universe}\\
     \bnfor {}& \El{\alpha}{\e} & & \text{type named by $e$}\\
@@ -137,12 +158,12 @@ Types:
     \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
     \bnfor {}& \JuEqual{T}{\e_1}{\e_2} & & \text{equality type}   
   \end{aligned}
-\end{align*}
+\end{equation*}
 %
 Terms:
 %
-\begin{align*}
-  \e &
+\begin{equation*}
+  \e
   \begin{aligned}[t]
     \bnf   {}&  \x   &&\text{variable} \\
     \bnfor {}&  \lam{\x}{\T} \e  &&\text{$\lambda$-abstraction} \\
@@ -159,7 +180,7 @@ Terms:
     \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
     \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
-\end{align*}
+\end{equation*}
 
 \subsection{Judgments}
 \label{sec:judgments}
@@ -842,6 +863,187 @@ Functoriality of corecions:
               {\Universe{\gamma}}}
 \end{mathpar}
 
+
+\section{Bidirectional type theory with handlers}
+\label{sec:bidir-type-theory}
+
+We now define another theory which should capture the same type theory as the orthodox
+one, but is amenable to algorithmic treatment.
+
+\subsection{Syntax}
+\label{sec:syntax-bidirectional}
+
+Contexts:
+%
+\begin{equation*}
+  \G
+  \begin{aligned}[t]
+    \bnf   {}& \ctxempty & & \text{empty context}\\
+    \bnfor {}& \ctxextend{\G}{\x}{\T} & & \text{context extended with $x : T$}
+  \end{aligned}
+\end{equation*}
+%
+Type computations:
+%
+\begin{equation*}
+  \CC
+  \begin{aligned}[t]
+    \bnf   {}& \val{\T}                  &&\text{pure type}\\
+    \bnfor {}& \cheq{\e_1}{\e_2}{\T} \CC &&\text{term equality check}\\
+    \bnfor {}& \cheqty{\T}{\U} \CC       &&\text{type equality check}\\
+    \bnfor {}& \letin{\x = c} \CC        &&\text{term binding}\\
+    \bnfor {}& \letty{\T = \CC_1} \CC_2  &&\text{type binding}\\
+    \bnfor {}& \handle{\CC}{\e}          &&\text{handling construct}
+  \end{aligned}
+\end{equation*}
+%
+Types:
+%
+\begin{equation*}
+  \T, \U
+  \begin{aligned}[t]
+    \bnf   {}& \Universe{\alpha} & & \text{universe}\\
+    \bnfor {}& \El{\alpha}{\e} & & \text{type named by $e$}\\
+    \bnfor {}& \Unit & & \text{the unit type}\\
+    \bnfor {}& \Prod{x}{\T} \CC & & \text{product}\\
+    \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
+    \bnfor {}& \JuEqual{T}{\e_1}{\e_2} & & \text{equality type}   
+  \end{aligned}
+\end{equation*}
+%
+Term computations:
+%
+\begin{equation*}
+  \cc
+  \begin{aligned}[t]
+    \bnf   {}& \val{\e}                  &&\text{pure expression}\\
+    \bnfor {}& \cheq{\e_1}{\e_2}{\T} \cc &&\text{term equality check}\\
+    \bnfor {}& \cheqty{\T}{\U} \cc       &&\text{type equality check}\\
+    \bnfor {}& \letin{\x = \cc_1} \cc_2  &&\text{term binding}\\
+    \bnfor {}& \letty{\x = \CC} \cc      &&\text{type  binding}\\
+    \bnfor {}& \handle{\cc}{\e}          &&\text{handling construct}
+  \end{aligned}
+\end{equation*}
+%
+Terms:
+%
+\begin{equation*}
+  \e
+  \begin{aligned}[t]
+    \bnf   {}&  \x   &&\text{variable} \\
+    \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
+    \bnfor {}&  \lam{\x}{\T} \cc  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&   \app{\e_1}{\e_2}  &&\text{application} \\
+    \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
+    \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
+    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\CC}}{\abst{z}{\cc}}{\e_1}{\e_2}{\e_3}  &&\text{path eliminator} \\
+    \bnfor {}&  \juRefl{\T}{\e}  &&\text{reflexivity} \\
+    \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\CC}}{\abst{z}{\cc}}{\e_1}{\e_2}{\e_3}  &&\text{equality eliminator} \\
+    \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
+    \bnfor {}&  \nProd{\alpha,\beta}{\x}{\e} \cc  &&\text{the name of product type} \\
+    \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
+    \bnfor {}&  \coerce{\e}{\alpha}{\beta}  &&\text{universe coercion} \\
+    \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
+    \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
+  \end{aligned}
+\end{equation*}
+
+\subsection{Judgments}
+\label{sec:judgments}
+
+\begin{align*}
+& \isctx{\G} & & \text{$\G$ is a well formed context} \\
+& \comptype{\G}{\CC}{\T} & & \text{$\CC$ computes type $\T$ in context $\G$} \\
+& \compfib{\G}{\CC}{\T} & & \text{$\CC$ computes fibered type $\T$ in context $\G$} \\
+& \chkterm{\G}{\cc}{\e}{\T} & & \text{$\cc$ computes term $\e$ checked to have type $T$ in $\G$} \\
+& \synterm{\G}{\cc}{\e}{\T} & & \text{$\cc$ computes term $\e$ and synthesizes its type $T$ in $\G$} \\
+& \eqtype{\G}{\T}{\U} & & \text{$\T$ and $\U$ are equal types in context $\G$} \\
+& \eqterm{\G}{\e_1}{\e_2}{\T} & & \text{$e_1$ and $e_2$ are equal terms of type $\T$ in context $\G$}
+\end{align*}
+
+\subsection{Contexts}
+\label{sec:contexts}
+
+\begin{mathpar}
+  \infer[\rulename{ctx-empty}]
+  { }
+  {\isctx{\ctxempty}}
+
+  \infer[\rulename{ctx-extend}]
+  {\isctx{\G} \\
+   \istype{\G}{\T}
+  }
+  {\isctx{\ctxextend{\G}{\x}{\T}}}
+\end{mathpar}
+
+\subsection{Types}
+\label{sec:types}
+
+\noindent
+General computation rules:
+%
+\begin{mathpar}
+  \infer[\rulename{compty-let-term}]
+  {\synterm{\G}{\cc}{\e}{\U} \\
+   \comptype{\G}{\subst{\CC}{x}{\e}}{\T}
+  }
+  {\comptype{\G}{(\letin{x = \cc} \CC)}{\T}}
+
+  \infer[\rulename{compty-let-ty}]
+  {\comptype{\G}{\CC_1}{\U} \\
+   \comptype{\G}{\subst{\CC_2}{x}{\U}}{\T}
+  }
+  {\comptype{\G}{(\letty{x = \CC_1} \CC_2)}{\T}}
+
+  \infer[\rulename{compty-handle}]
+  {\isterm{\G}{\e}{\JuEqual{\U}{\e_1}{\e_2}} \\
+   \comptype{\G}{\handle{\CC}{\e}}{\T}
+  }
+  {\comptype{\G}{(\handle{(\cheq{\e_1}{\e_2}{\U} \CC)}{\e})}{\T} }
+
+  \infer[\rulename{comp-XXX}]
+  { }
+  { }
+
+
+\end{mathpar}
+
+
+\begin{mathpar}
+  \infer[\rulename{comp-universe}]
+  {\isctx{\G} \\
+   \alpha \in \PP
+  }
+  {\comptype{\G}{\val{\Universe{\alpha}}}{\Universe{\alpha}}}
+
+  \infer[\rulename{ty-prod}]
+  {\istype{\G}{\T} \\
+   \istype{\ctxextend{\G}{\x}{\T}}{\U}
+  }
+  {\istype{\G}{\Prod{\x}{\T}{\U}}}
+
+  \infer[\rulename{ty-el}]
+  {\isterm{\G}{\e}{\Universe{\alpha}}}
+  {\istype{\G}{\El{\alpha}{\e}}}
+
+  \infer[\rulename{ty-unit}]
+  {\isctx{\G}}
+  {\istype{\G}{\Unit}}
+
+  \infer[\rulename{ty-paths}]
+  {\isfib{\G}{\T}\\
+   \isterm{\G}{\e_1}{\T}\\
+   \isterm{\G}{\e_2}{\T}
+  }
+  {\istype{\G}{\PrEqual{\T}{\e_1}{\e_2}}}
+
+  \infer[\rulename{ty-id}]
+  {\istype{\G}{\T}\\
+   \isterm{\G}{\e_1}{\T}\\
+   \isterm{\G}{\e_2}{\T}
+  }
+  {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
+\end{mathpar}
 
 
 \end{document}
