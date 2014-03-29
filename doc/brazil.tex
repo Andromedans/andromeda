@@ -24,8 +24,6 @@
 \newcommand{\x}{x} % a term variable
 \newcommand{\y}{y} % another term variable
 \newcommand{\e}{e} % a term
-\newcommand{\cc}{c} % a term computation
-\newcommand{\CC}{C} % a type computation
 
 \newcommand{\rulename}[1]{\text{\textsc{#1}}}
 
@@ -65,14 +63,6 @@
 \newcommand{\prRefl}[1]{\mathsf{idpath}_{#1}}  % Propositional refl
 \newcommand{\juRefl}[1]{\mathsf{refl}_{#1}}    % Judgmental refl
 
-% computations
-\newcommand{\handle}[2]{\mathsf{handle}\;#1\;\mathsf{with}\;#2} % handler
-\newcommand{\val}[1]{\mathsf{val}\;#1} % pure value
-\newcommand{\cheq}[3]{\mathsf{check}\;#1 \equiv #2 : #3\;\mathsf{in}\;}
-\newcommand{\cheqty}[2]{\mathsf{check}\;#1 \equiv #2 \;\mathsf{in}\;}
-\newcommand{\letin}[1]{\mathsf{let}\;#1\;\mathsf{in}\;} % let statement
-\newcommand{\letty}[1]{\mathsf{type}\;#1\;\mathsf{in}\;} % let-type statement
-
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
 \newcommand{\nProd}[3]{\pi^{#1} #2 {:} #3 \,.\,} % name of a dependent product
@@ -87,16 +77,20 @@
 \newcommand{\isfib}[2]{#1 \vdash #2\;\mathsf{fibered}} % is a fibered type
 \newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
 
-\newcommand{\comptype}[3]{#1 \vdash #2 \mapsto #3 \;\mathsf{type}} % well formed type
-\newcommand{\compfib}[3]{#1 \vdash #2 \mapsto #3  \;\mathsf{fibered}} % is a fibered type
-
-
 \newcommand{\eqtype}[3]{#1 \vdash #2 \equiv #3} % equal types
 \newcommand{\eqterm}[4]{#1 \vdash #2 \equiv #3 : #4} % equal terms
 
-\newcommand{\chkterm}[4]{#1 \vdash #2 \mapsto #3 \Leftarrow #4} % well formed term
-\newcommand{\synterm}[4]{#1 \vdash #2 \mapsto #3 \Rightarrow #4} % well formed term
+\newcommand{\chkterm}[3]{#1 \vdash #2 \Leftarrow #3} % checking
+\newcommand{\synterm}[3]{#1 \vdash #2 \Rightarrow #3} % synthesis
 
+% hints
+
+\newcommand{\hintin}[1]{\mathsf{hint}\;#1\;\mathsf{in}\;} % term equality hint
+\newcommand{\ishint}[2]{#1 ; #2 \; \mathsf{hctx}}
+\renewcommand{\H}{\mathcal{H}}      % term hint list
+\newcommand{\hintempty}{\circ}      % empty hint list
+\newcommand{\hintextend}[4]{#1, (#2 \,{\equiv}\, #3 \,{:}\, #4)} % extended hint list
+\newcommand{\GH}{\G ; \H}           % combined context and hints
 
 \begin{document}
 
@@ -864,11 +858,11 @@ Functoriality of corecions:
 \end{mathpar}
 
 
-\section{Bidirectional type theory with handlers}
+\section{Bidirectional type theory with hints}
 \label{sec:bidir-type-theory}
 
-We now define another theory which should capture the same type theory as the orthodox
-one, but is amenable to algorithmic treatment.
+We now define a bidirectional version of type theory with equality hints. This version
+only allows hints about term equality. We need to do something about type equality hints.
 
 \subsection{Syntax}
 \label{sec:syntax-bidirectional}
@@ -883,17 +877,13 @@ Contexts:
   \end{aligned}
 \end{equation*}
 %
-Type computations:
+Equality hints:
 %
 \begin{equation*}
-  \CC
+  \H
   \begin{aligned}[t]
-    \bnf   {}& \val{\T}                  &&\text{pure type}\\
-    \bnfor {}& \cheq{\e_1}{\e_2}{\T} \CC &&\text{term equality check}\\
-    \bnfor {}& \cheqty{\T}{\U} \CC       &&\text{type equality check}\\
-    \bnfor {}& \letin{\x = c} \CC        &&\text{term binding}\\
-    \bnfor {}& \letty{\T = \CC_1} \CC_2  &&\text{type binding}\\
-    \bnfor {}& \handle{\CC}{\e}          &&\text{handling construct}
+    \bnf   {}& \ctxempty & & \text{empty hints}\\
+    \bnfor {}& \hintextend{\H}{\e_1}{\e_2}{\T} & & \text{extend hints with a term equation} \\
   \end{aligned}
 \end{equation*}
 %
@@ -905,23 +895,9 @@ Types:
     \bnf   {}& \Universe{\alpha} & & \text{universe}\\
     \bnfor {}& \El{\alpha}{\e} & & \text{type named by $e$}\\
     \bnfor {}& \Unit & & \text{the unit type}\\
-    \bnfor {}& \Prod{x}{\T} \CC & & \text{product}\\
+    \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
     \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
     \bnfor {}& \JuEqual{T}{\e_1}{\e_2} & & \text{equality type}   
-  \end{aligned}
-\end{equation*}
-%
-Term computations:
-%
-\begin{equation*}
-  \cc
-  \begin{aligned}[t]
-    \bnf   {}& \val{\e}                  &&\text{pure expression}\\
-    \bnfor {}& \cheq{\e_1}{\e_2}{\T} \cc &&\text{term equality check}\\
-    \bnfor {}& \cheqty{\T}{\U} \cc       &&\text{type equality check}\\
-    \bnfor {}& \letin{\x = \cc_1} \cc_2  &&\text{term binding}\\
-    \bnfor {}& \letty{\x = \CC} \cc      &&\text{type  binding}\\
-    \bnfor {}& \handle{\cc}{\e}          &&\text{handling construct}
   \end{aligned}
 \end{equation*}
 %
@@ -931,16 +907,17 @@ Terms:
   \e
   \begin{aligned}[t]
     \bnf   {}&  \x   &&\text{variable} \\
+    \bnfor {}&  \hintin{\e_1} e_2 &&\text{use hint $\e_1$ in $\e_2$} \\
     \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
-    \bnfor {}&  \lam{\x}{\T} \cc  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&  \lam{\x}{\T} \e  &&\text{$\lambda$-abstraction} \\
     \bnfor {}&   \app{\e_1}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
-    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\CC}}{\abst{z}{\cc}}{\e_1}{\e_2}{\e_3}  &&\text{path eliminator} \\
+    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
     \bnfor {}&  \juRefl{\T}{\e}  &&\text{reflexivity} \\
-    \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\CC}}{\abst{z}{\cc}}{\e_1}{\e_2}{\e_3}  &&\text{equality eliminator} \\
+    \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{equality eliminator} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
-    \bnfor {}&  \nProd{\alpha,\beta}{\x}{\e} \cc  &&\text{the name of product type} \\
+    \bnfor {}&  \nProd{\alpha,\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
     \bnfor {}&  \coerce{\e}{\alpha}{\beta}  &&\text{universe coercion} \\
     \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
@@ -949,101 +926,40 @@ Terms:
 \end{equation*}
 
 \subsection{Judgments}
-\label{sec:judgments}
+\label{sec:bidirectional-judgments}
 
 \begin{align*}
-& \isctx{\G} & & \text{$\G$ is a well formed context} \\
-& \comptype{\G}{\CC}{\T} & & \text{$\CC$ computes type $\T$ in context $\G$} \\
-& \compfib{\G}{\CC}{\T} & & \text{$\CC$ computes fibered type $\T$ in context $\G$} \\
-& \chkterm{\G}{\cc}{\e}{\T} & & \text{$\cc$ computes term $\e$ checked to have type $T$ in $\G$} \\
-& \synterm{\G}{\cc}{\e}{\T} & & \text{$\cc$ computes term $\e$ and synthesizes its type $T$ in $\G$} \\
-& \eqtype{\G}{\T}{\U} & & \text{$\T$ and $\U$ are equal types in context $\G$} \\
-& \eqterm{\G}{\e_1}{\e_2}{\T} & & \text{$e_1$ and $e_2$ are equal terms of type $\T$ in context $\G$}
+& \ishint{\G}{\H} & & \text{$\G$ and $\H$ form a typing context with hints} \\
+& \istype{\GH}{\T} & & \text{$\T$ is a well-formed type} \\
+& \isfib{\GH}{\T} & & \text{$\T$ is a well-formed fibered} \\
+& \chkterm{\GH}{\e}{\T} & & \text{check that term $\e$ has type $T$} \\
+& \synterm{\GH}{\e}{\T} & & \text{synthetsize type $\T$ of term $e$} \\
+& \eqtype{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal types} \\
+& \eqterm{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of type $\T$}
 \end{align*}
 
-\subsection{Contexts}
-\label{sec:contexts}
+\subsection{Contexts with hints}
+\label{sec:contexts-with-hints}
 
 \begin{mathpar}
-  \infer[\rulename{ctx-empty}]
+  \infer[\rulename{ctx-hint-empty}]
   { }
-  {\isctx{\ctxempty}}
+  {\ishint{\ctxempty}{\hintempty}}
 
-  \infer[\rulename{ctx-extend}]
-  {\isctx{\G} \\
-   \istype{\G}{\T}
+  \infer[\rulename{ctx-hint-extend-ctx}]
+  {\ishint{\G}{\H} \\
+   \istype{\GH}{\T}
   }
-  {\isctx{\ctxextend{\G}{\x}{\T}}}
-\end{mathpar}
+  {\ishint{\ctxextend{\G}{\x}{\T}}{\H}}
 
-\subsection{Types}
-\label{sec:types}
-
-\noindent
-General computation rules:
-%
-\begin{mathpar}
-  \infer[\rulename{compty-let-term}]
-  {\synterm{\G}{\cc}{\e}{\U} \\
-   \comptype{\G}{\subst{\CC}{x}{\e}}{\T}
+  \infer[\rulename{ctx-hint-extend-hint}]
+  {\ishint{\G}{\H} \\
+   \eqterm{\GH}{\e_1}{\e_2}{\T}
   }
-  {\comptype{\G}{(\letin{x = \cc} \CC)}{\T}}
-
-  \infer[\rulename{compty-let-ty}]
-  {\comptype{\G}{\CC_1}{\U} \\
-   \comptype{\G}{\subst{\CC_2}{x}{\U}}{\T}
-  }
-  {\comptype{\G}{(\letty{x = \CC_1} \CC_2)}{\T}}
-
-  \infer[\rulename{compty-handle}]
-  {\isterm{\G}{\e}{\JuEqual{\U}{\e_1}{\e_2}} \\
-   \comptype{\G}{\handle{\CC}{\e}}{\T}
-  }
-  {\comptype{\G}{(\handle{(\cheq{\e_1}{\e_2}{\U} \CC)}{\e})}{\T} }
-
-  \infer[\rulename{comp-XXX}]
-  { }
-  { }
-
-
+  {\ishint{\G}{\hintextend{\H}{\e_1}{\e_2}{\T}}}
 \end{mathpar}
 
 
-\begin{mathpar}
-  \infer[\rulename{comp-universe}]
-  {\isctx{\G} \\
-   \alpha \in \PP
-  }
-  {\comptype{\G}{\val{\Universe{\alpha}}}{\Universe{\alpha}}}
-
-  \infer[\rulename{ty-prod}]
-  {\istype{\G}{\T} \\
-   \istype{\ctxextend{\G}{\x}{\T}}{\U}
-  }
-  {\istype{\G}{\Prod{\x}{\T}{\U}}}
-
-  \infer[\rulename{ty-el}]
-  {\isterm{\G}{\e}{\Universe{\alpha}}}
-  {\istype{\G}{\El{\alpha}{\e}}}
-
-  \infer[\rulename{ty-unit}]
-  {\isctx{\G}}
-  {\istype{\G}{\Unit}}
-
-  \infer[\rulename{ty-paths}]
-  {\isfib{\G}{\T}\\
-   \isterm{\G}{\e_1}{\T}\\
-   \isterm{\G}{\e_2}{\T}
-  }
-  {\istype{\G}{\PrEqual{\T}{\e_1}{\e_2}}}
-
-  \infer[\rulename{ty-id}]
-  {\istype{\G}{\T}\\
-   \isterm{\G}{\e_1}{\T}\\
-   \isterm{\G}{\e_2}{\T}
-  }
-  {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
-\end{mathpar}
 
 
 \end{document}
