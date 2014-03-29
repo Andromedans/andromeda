@@ -942,17 +942,17 @@ Terms:
 \label{sec:contexts-with-hints}
 
 \begin{mathpar}
-  \infer[\rulename{ctx-hint-empty}]
+  \infer[\rulename{htctx-empty}]
   { }
   {\ishint{\ctxempty}{\hintempty}}
 
-  \infer[\rulename{ctx-hint-extend-ctx}]
+  \infer[\rulename{htctx-extend-ctx}]
   {\ishint{\G}{\H} \\
    \istype{\GH}{\T}
   }
   {\ishint{\ctxextend{\G}{\x}{\T}}{\H}}
 
-  \infer[\rulename{ctx-hint-extend-hint}]
+  \infer[\rulename{htctx-extend-hint}]
   {\ishint{\G}{\H} \\
    \eqterm{\GH}{\e_1}{\e_2}{\T}
   }
