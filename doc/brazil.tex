@@ -52,7 +52,7 @@
 
 \newcommand{\unitTerm}{\star} % the element of the unit type
 
-\newcommand{\coerce}[3]{\mathsf{lift}^{#2{\mapsto}#3}\ #1}
+\newcommand{\coerce}[3]{\mathsf{coerce}^{#2{\mapsto}#3}\ #1}
 
 \newcommand{\PrEqual}[3]{\mathsf{Paths}_{#1}(#2,#3)} % Propositional Equality type
 \newcommand{\JuEqual}[3]{\mathsf{Id}_{#1}(#2,#3)} % Judgmental Equality type
@@ -66,7 +66,7 @@
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
 \newcommand{\nProd}[3]{\pi^{#1} #2 {:} #3 \,.\,} % name of a dependent product
-\newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
+\newcommand{\nUniverse}[1]{u^{#1}}  % name of a universe
 \newcommand{\nPrEqual}[4]{\mathsf{paths}^{#1}_{#2}(#3,#4)} % Propositional Equality type
 \newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
 
@@ -86,10 +86,13 @@
 % hints
 
 \newcommand{\hintin}[1]{\mathsf{hint}\;#1\;\mathsf{in}\;} % term equality hint
+
 \newcommand{\ishint}[2]{#1 ; #2 \; \mathsf{hctx}}
+\newcommand{\eqtermhint}[3]{(#1 \,{\equiv}\, #2 \,{:}\, #3)}
+
 \renewcommand{\H}{\mathcal{H}}      % term hint list
 \newcommand{\hintempty}{\circ}      % empty hint list
-\newcommand{\hintextend}[4]{#1, (#2 \,{\equiv}\, #3 \,{:}\, #4)} % extended hint list
+\newcommand{\hintextend}[4]{#1, #2} % extended hint list
 \newcommand{\GH}{\G ; \H}           % combined context and hints
 
 \begin{document}
@@ -326,12 +329,12 @@ Paths:
    \\\\
    \isfib{
      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}}
-   }{P}
+   }{\U}
    \\
    \isterm
      {\ctxextend{\G}{z}{\T}}
      {\e_1}
-     {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
+     {\substs{\U}{z/x, z/y, (\prRefl{\T}{z})/p}}
    \\
    \isterm{\G}{\e_2}{\T} \\
    \isterm{\G}{\e_3}{\T} \\
@@ -340,13 +343,13 @@ Paths:
   {\isterm
      {\G}
      {\PrElim{\T}
-        {\abst{x\,y\,p}{P}}
+        {\abst{x\,y\,p}{\U}}
         {\abst{z}{\e_1}}
         {\e_2}
         {\e_3}
         {\e_4}
      }
-     {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
+     {\substs{\U}{\e_2/x, \e_3/y, \e_4/p}}
   }
 \end{mathpar}
 
@@ -883,7 +886,7 @@ Equality hints:
   \H
   \begin{aligned}[t]
     \bnf   {}& \ctxempty & & \text{empty hints}\\
-    \bnfor {}& \hintextend{\H}{\e_1}{\e_2}{\T} & & \text{extend hints with a term equation} \\
+    \bnfor {}& \hintextend{\H}{\eqtermhint{\e_1}{\e_2}{\T}} & & \text{extend hints with a term equation} \\
   \end{aligned}
 \end{equation*}
 %
@@ -933,7 +936,7 @@ Terms:
 & \istype{\GH}{\T} & & \text{$\T$ is a well-formed type} \\
 & \isfib{\GH}{\T} & & \text{$\T$ is a well-formed fibered} \\
 & \chkterm{\GH}{\e}{\T} & & \text{check that term $\e$ has type $T$} \\
-& \synterm{\GH}{\e}{\T} & & \text{synthetsize type $\T$ of term $e$} \\
+& \synterm{\GH}{\e}{\T} & & \text{synthesize type $\T$ of term $e$} \\
 & \eqtype{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal types} \\
 & \eqterm{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of type $\T$}
 \end{align*}
@@ -959,7 +962,273 @@ Terms:
   {\ishint{\G}{\hintextend{\H}{\e_1}{\e_2}{\T}}}
 \end{mathpar}
 
+\subsection{Types}
+\label{sec:bidirectional-types}
+
+\subsection{Fibered types}
+\label{sec:bidirectional-fibered-types}
+
+\subsection{Terms}
+\label{sec:bidirectional-terms}
+
+General rules:
+%
+\begin{mathpar}
+  \infer[\rulename{syn-var}]
+  { \ishint{\G}{\H} \\
+    (\x {:} \T) \in \G
+  }
+  { \synterm{\GH}{\x}{\T}}
+
+  \infer[\rulename{syn-ascribe}]
+  { \chkterm{\GH}{\e}{\T}}
+  { \synterm{\GH}{\ascribe{\e}{\T}}{\T} }
+
+  \infer[\rulename{chk-syn}]
+  { \synterm{\GH}{\e}{\U} \\
+    \eqtype{\GH}{\U}{\T}
+  }
+  { \chkterm{\GH}{\e}{\T} }
+\end{mathpar}
+%
+Hints:
+%
+\begin{mathpar}
+  \infer[\rulename{syn-hint}]
+  { \synterm{\GH}{\e_1}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \synterm{\G ; \hintextend{\H}{\e_3}{\e_4}{\U}}{\e_2}{\T}
+  }
+  { \synterm{\GH}{(\hintin{\e_1} \e_2)}{\T} }
+
+  \infer[\rulename{chk-hint}]
+  { \synterm{\GH}{\e_1}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \chkterm{\G ; \hintextend{\H}{\e_3}{\e_4}{\U}}{\e_2}{\T}
+  }
+  { \chkterm{\GH}{(\hintin{\e_1} \e_2)}{\T} }
+\end{mathpar}
+%
+Products:
+%
+\begin{mathpar}
+  \infer[\rulename{syn-abs}]
+  { \synterm{\ctxextend{\G}{\x}{\T} ; \H}{\e}{\U} }
+  { \synterm{\GH}{(\lam{\x}{\T}{\e})}{\Prod{\x}{\T} \U} }
+
+  \infer[\rulename{syn-app}]
+  { \synterm{\GH}{\e_1}{\Prod{\x}{\T} \U}
+    \\
+    \chkterm{\GH}{\e_2}{\T}
+  }
+  { \chkterm{\GH}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}} }
+\end{mathpar}
+%
+Unit type:
+%
+\begin{mathpar}
+  \infer[\rulename{syn-unit}]
+  { }
+  { \synterm{\GH}{\unitTerm}{\Unit} }
+\end{mathpar}
+%
+Path type:
+%
+\begin{mathpar}
+  \infer[\rulename{syn-idpath}]
+  { \chkterm{\GH}{\e}{\T} }
+  { \synterm{\GH}{\prRefl{\T}{\e}}{\PrEqual{\T}{\e}{\e}} }
+
+  \infer[\rulename{syn-j}]
+  { \isfib{\GH}{\T} 
+     \\\\
+    \isfib{
+      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}} ;
+      \H
+    }{\U} 
+    \\\\
+    \chkterm
+      {\ctxextend{\G}{z}{\T} ; \H}
+      {\e_1}
+      {\substs{\U}{z/x, z/y, (\prRefl{\T}{z})/p}}
+    \\\\
+    \chkterm{\GH}{\e_2}{\T} \\\\
+    \chkterm{\GH}{\e_3}{\T} \\\\
+    \chkterm{\GH}{\e_4}{\PrEqual{\T}{\e_2}{\e_3}}
+  }
+  { \synterm{\GH}{
+      \PrElim{\T}
+             {\abst{x\,y\,p}{\U}}
+             {\abst{z}{\e_1}}
+             {\e_2}
+             {\e_3}
+             {\e_4}
+    }{\substs{\U}{\e_2/x, \e_3/y, \e_4/p}} }
+\end{mathpar}
+%
+Equality type:
+%
+\begin{mathpar}
+  \infer[\rulename{syn-refl}]
+  { \chkterm{\GH}{\e}{\T} }
+  { \synterm{\GH}{\juRefl{\T}{\e}}{\JuEqual{\T}{\e}{\e}} }
+
+  \infer[\rulename{syn-g}]
+  { \istype{\GH}{\T} 
+     \\\\
+    \istype{
+      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}} ;
+      \H
+    }{\U} 
+    \\\\
+    \chkterm
+      {\ctxextend{\G}{z}{\T} ; \H}
+      {\e_1}
+      {\substs{\U}{z/x, z/y, (\juRefl{\T}{z})/p}}
+    \\\\
+    \chkterm{\GH}{\e_2}{\T} \\\\
+    \chkterm{\GH}{\e_3}{\T} \\\\
+    \chkterm{\GH}{\e_4}{\JuEqual{\T}{\e_2}{\e_3}}
+  }
+  { \synterm{\GH}{
+      \JuElim{\T}
+             {\abst{x\,y\,p}{\U}}
+             {\abst{z}{\e_1}}
+             {\e_2}
+             {\e_3}
+             {\e_4}
+    }{\substs{\U}{\e_2/x, \e_3/y, \e_4/p}} }
+\end{mathpar}
+%
+Names:
+%
+\begin{mathpar}
+  \infer[\rulename{syn-name-unit}]
+  { \ishint{\G}{\H} }
+  { \synterm{\GH}{\nUnit}{\Universe{\zero}} }
+
+  \infer[\rulename{syn-name-universe}]
+  { \ishint{\G}{\H} \\
+    \uClose{\alpha} = \beta
+  }
+  { \synterm{\GH}{\nUniverse{\alpha}}{\Universe{\beta}} }
+  
+  \infer[\rulename{syn-name-prod}]
+  { \chkterm{\GH}{\e_1}{\Universe{\alpha}}
+    \\
+    \chkterm
+    {\ctxextend{\G}{\x}{\El{\alpha}{\e_1}} ; \H}
+    {\e_2}
+    {\Universe{\beta}}
+    \\
+    \piClose{\alpha}{\beta} = \gamma
+  }
+  { \synterm{\GH}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
+
+  \infer[\rulename{syn-name-coerce}]
+  { \chkterm{\GH}{\e}{\Universe{\alpha}} 
+    \\
+    \alpha \leq \beta
+  }  
+  { \synterm{\GH}{\coerce{\alpha}{\beta}{\e}}{\Universe{\beta}} }
+
+  \infer[\rulename{syn-name-paths}]
+  {\chkterm{\G}{\e_\T}{\Universe{\alpha}}\\
+   \alpha\in\FF\\
+   \chkterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \chkterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+  }
+  {\synterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
 
+  \infer[\rulename{syn-name-id}]
+  {\chkterm{\G}{\e_\T}{\Universe{\alpha}}\\
+   \chkterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \chkterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+  }
+  {\synterm{\G}{\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+\end{mathpar}
+
+\subsection{Type equality}
+\label{sec:bidirectional-type-equality}
+
+Reflexivity is (ought to be) admissible, but we include it for efficiency:
+%
+\begin{mathpar}
+  \infer[\rulename{chk-tyeq-refl}]
+  { \istype{\GH}{\T} }
+  { \eqtype{\GH}{\T}{\T} }
+\end{mathpar}
+%
+Other types:
+\begin{mathpar}
+  \infer[\rulename{chk-tyeq-universe}]
+  {\ishint{\G}{\H} \\ \alpha = \beta}
+  {\eqtype{\GH}{\Universe{\alpha}}{\Universe{\beta}}}
+
+  \infer[\rulename{chk-tyeq-el}]
+  { \eqterm{\GH}{\e_1}{\e_2}{\Universe{\alpha}}
+    \\
+    \alpha = \beta
+  }{
+    \eqtype{\GH}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}
+  }
+
+  \infer[\rulename{chk-tyeq-prod}]
+  { \eqtype{\GH}{\T_1}{\U_1}
+    \\
+    \eqtype
+    {\ctxextend{\G}{\x}{\T_1} ; \H}
+    {\T_2}
+    {\U_2}
+  }
+  { \eqtype{\GH}
+    {\Prod{\x}{\T_1}{\T_2}}
+    {\Prod{\x}{\U_1}{\U_2}}
+  }
+
+  \infer[\rulename{chk-tyeq-paths}]
+  {\isfib{\GH}{\T}\\
+   \isfib{\GH}{\U}\\\\
+   \eqtype{\GH}{\T}{\U}\\
+   \eqterm{\GH}{\e_1}{\e'_1}{\T}\\
+   \eqterm{\GH}{\e_2}{\e'_2}{\T}
+  }
+  {\eqtype{\GH}{\PrEqual{\T}{\e_1}{\e_2}}
+               {\PrEqual{\U}{\e'_1}{\e'_2}}}
+
+  \infer[\rulename{chk-tyeq-id}]
+  {\eqtype{\GH}{\T}{\U}\\
+   \eqterm{\GH}{\e_1}{\e'_1}{\T}\\
+   \eqterm{\GH}{\e_2}{\e'_2}{\T}
+  }
+  {\eqtype{\GH}{\JuEqual{\T}{\e_1}{\e_2}}
+               {\JuEqual{\U}{\e'_1}{\e'_2}}}
+\end{mathpar}
+%
+
+\subsection{Term equality}
+\label{sec:bidirectional-term-equality}
+
+For algorithmic purposes we should try to apply reflexivity and hints before doing
+anything else:
+%
+\begin{mathpar}
+  \infer[\rulename{chk-eq-refl}]
+  { \chkterm{\GH}{\e}{\T} }
+  { \eqterm{\GH}{\e}{\e}{\T} }
+
+  \infer[\rulename{chk-eq-hint}]
+  { \ishint{\G}{\H}
+    \\
+    \eqtermhint{\e_1}{\e_2}{\T} \in \H
+  }
+  { \eqterm{\GH}{\e_1}{\e_2}{\T} }
+
+  \infer[\rulename{chk-eq-hint-sym}]
+  { \ishint{\G}{\H}
+    \\
+    \eqtermhint{\e_2}{\e_1}{\T} \in \H
+  }
+  { \eqterm{\GH}{\e_1}{\e_2}{\T} }
+\end{mathpar}
 
 \end{document}
