@@ -95,6 +95,10 @@
 \newcommand{\hintextend}[4]{#1, #2} % extended hint list
 \newcommand{\GH}{\G ; \H}           % combined context and hints
 
+% normalization
+
+\newcommand{\whnf}[4]{#1 \vdash #2 \leadsto #3 : #4} % "normalization" at a type
+
 \begin{document}
 
 \title{Brazilian type theory}
@@ -938,7 +942,8 @@ Terms:
 & \chkterm{\GH}{\e}{\T} & & \text{check that term $\e$ has type $T$} \\
 & \synterm{\GH}{\e}{\T} & & \text{synthesize type $\T$ of term $e$} \\
 & \eqtype{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal types} \\
-& \eqterm{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of type $\T$}
+& \eqterm{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of type $\T$} \\
+& \whnf{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ normalizes to $\e_2$ at type $\T$}
 \end{align*}
 
 \subsection{Contexts with hints}
@@ -1204,6 +1209,64 @@ Other types:
                {\JuEqual{\U}{\e'_1}{\e'_2}}}
 \end{mathpar}
 %
+
+\subsection{Term normalization}
+\label{sec:term-normalization}
+
+Normalization by hints:
+%
+\begin{mathpar}
+  \infer[\rulename{norm-hint-abs}]
+  { \ishint{\G}{\H} \\
+    \eqtermhint{\e}{(\lam{\x}{\U}{\e'})}{\T} \in \H
+  }
+  { \whnf{\GH}{\e}{(\lam{\x}{\U}{\e'})}{\T} }
+
+  \infer[\rulename{norm-hint-idpath}]
+  { \ishint{\G}{\H} \\
+    \eqtermhint{\e}{\prRefl{\U}{\e'}}{\T} \in \H
+  }
+  { \whnf{\GH}{\e}{\prRefl{\U}{\e'}}{\T} }
+
+  \infer[\rulename{norm-hint-refl}]
+  { \ishint{\G}{\H} \\
+    \eqtermhint{\e}{\juRefl{\U}{\e'}}{\T} \in \H
+  }
+  { \whnf{\GH}{\e}{\juRefl{\U}{\e'}}{\T} }
+\end{mathpar}
+%
+Cancelation of eliminators and constructors:
+%
+\begin{mathpar}
+  \infer[\rulename{norm-app-beta}]
+  { \whnf{\GH}{\subst{\e_1}{\x}{\e_2}}{\e_3}{\T} }
+  { \whnf
+    {\GH}
+    {\app{(\lam{\x}{\U}{\e_1})}{\e_2}}
+    {\e_3}
+    {\T}
+  }
+    
+  \infer[\rulename{norm-idpath}]
+  {
+    \ishint{\G}{\H}
+  }
+  {
+    \whnf
+    {\GH}
+    {\PrElim
+      {\T}
+      {\abst{x\,y\,p}{\U}}
+      {\abst{z}{\e_1}}
+      {\e_2}
+      {\e_2}
+      {\prRefl{\T}{\e_2}}
+    }
+    {\subst{\e_1}{z}{\e_2}}
+    {\substs{\U}{\e_2/x, \e_2/y, (\prRefl{\T}{\e_2})/p}}
+  }
+
+\end{mathpar}
 
 \subsection{Term equality}
 \label{sec:bidirectional-term-equality}
