@@ -2,7 +2,7 @@
 
 \usepackage{times}
 \usepackage{mathpartir}
-\usepackage{amsmath,amsfonts}
+\usepackage{amsmath,amsfonts,amssymb}
 
 %% Macros here
 
@@ -42,7 +42,7 @@
 \newcommand{\El}[2]{\mathsf{El}^{#1} #2} % the type named by #2
 
 \newcommand{\Unit}{\mathsf{Unit}} % The unit type
-\newcommand{\Prod}[2]{{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
+\newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 
 \newcommand{\lam}[2]{\lambda #1 {:} #2 .\,} % $\lambda$-abstraction
 \newcommand{\app}[2]{#1\,#2} % application
@@ -65,7 +65,7 @@
 
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
-\newcommand{\nProd}[3]{\pi^{#1} #2 {:} #3 \,.\,} % name of a dependent product
+\newcommand{\nProd}[3]{\pi^{#1} \,#2\,{:}\,#3 \,.\ } % name of a dependent product
 \newcommand{\nUniverse}[1]{u^{#1}}  % name of a universe
 \newcommand{\nPrEqual}[4]{\mathsf{paths}^{#1}_{#2}(#3,#4)} % Propositional Equality type
 \newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
@@ -87,17 +87,26 @@
 
 \newcommand{\hintin}[1]{\mathsf{hint}\;#1\;\mathsf{in}\;} % term equality hint
 
-\newcommand{\ishint}[2]{#1 ; #2 \; \mathsf{hctx}}
-\newcommand{\eqtermhint}[3]{(#1 \,{\equiv}\, #2 )} %\,{:}\, #3)}
+\newcommand{\isctxalg}[2]{\ctxs{#1}{#2} \Leftarrow \mathsf{ctx}}
+\newcommand{\istypealg}[2]{#1 \vdash #2 \Leftarrow \mathsf{type}} % well formed type
+\newcommand{\isfibalg}[2]{#1 \vdash #2 \Leftarrow \mathsf{fibered}} % is a fibered type
+\newcommand{\eqtypealg}[3]{#1 \vdash #2 \thickapprox #3} % equal types
+\newcommand{\eqtermalg}[4]{#1 \vdash #2 \thickapprox #3 : #4} % equal terms
+
+\newcommand{\eqtermhint}[2]{#1 \,{\equiv}\, #2 } %\,{:}\, #3)}
+\newcommand{\redtermhint}[2]{#1 \,{\leadsto}\, #2 } %\,{:}\, #3)}
 
 \renewcommand{\H}{\mathcal{H}}      % term hint list
 \newcommand{\hintempty}{\circ}      % empty hint list
-\newcommand{\hintextend}[4]{#1, \eqtermhint{#2}{#3}{#4}} % extended hint list
-\newcommand{\GH}{\G ; \H}           % combined context and hints
+\newcommand{\addhinteq}[3]{#1, \eqtermhint{#2}{#3}} % extended hint list
+\newcommand{\addhintred}[3]{#1, \redtermhint{#2}{#3}} % extended hint list
+\newcommand{\ctxs}[2]{#1\,;\,#2}
+\newcommand{\GH}{\ctxs{\G}{\H}}           % combined context and hints
+
 
 % normalization
 
-\newcommand{\whnf}[4]{#1 \vdash #2 \leadsto #3 : #4} % "normalization" at a type
+\newcommand{\whnf}[3]{#1 \vdash #2 \leadsto #3 } % "normalization"
 
 \begin{document}
 
@@ -247,8 +256,6 @@ Terms:
    \isterm{\G}{\e_2}{\T}
   }
   {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
-
-
 \end{mathpar}
 
 \subsection{Fibered types}
@@ -891,7 +898,8 @@ Equality hints:
   \H
   \begin{aligned}[t]
     \bnf   {}& \ctxempty & & \text{empty hints}\\
-    \bnfor {}& \hintextend{\H}{\e_1}{\e_2}{\T} & & \text{extend hints with a term equation} \\
+    \bnfor {}& \addhinteq{\H}{\e_1}{\e_2} & & \text{extend hints with a term equation} \\
+    \bnfor {}& \addhintred{\H}{\e_1}{\e_2} & & \text{extend hints with a term reduction} \\
   \end{aligned}
 \end{equation*}
 %
@@ -937,14 +945,14 @@ Terms:
 \label{sec:bidirectional-judgments}
 
 \begin{align*}
-& \ishint{\G}{\H} & & \text{$\G$ and $\H$ form a typing context with hints} \\
-& \istype{\GH}{\T} & & \text{$\T$ is a well-formed type} \\
-& \isfib{\GH}{\T} & & \text{$\T$ is a well-formed fibered} \\
+& \isctxalg{\G}{\H} & & \text{$\G$ and $\H$ form a typing context with hints} \\
+& \istypealg{\GH}{\T} & & \text{$\T$ is a well-formed type} \\
+& \isfibalg{\GH}{\T} & & \text{$\T$ is a well-formed fibered type} \\
 & \chkterm{\GH}{\e}{\T} & & \text{check that term $\e$ has type $T$} \\
 & \synterm{\GH}{\e}{\T} & & \text{synthesize type $\T$ of term $e$} \\
-& \eqtype{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal types} \\
-& \eqterm{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of type $\T$} \\
-& \whnf{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ normalizes to $\e_2$ at type $\T$}
+& \eqtypealg{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal types} \\
+& \eqtermalg{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of type $\T$} \\
+& \whnf{\GH}{\e_1}{\e_2} & & \text{$\e_1$ weak-head-normalizes to $\e_2$ }
 \end{align*}
 
 \subsection{Contexts with hints}
@@ -953,26 +961,104 @@ Terms:
 \begin{mathpar}
   \infer[\rulename{htctx-empty}]
   { }
-  {\ishint{\ctxempty}{\hintempty}}
+  {\isctxalg{\ctxempty}{\hintempty}}
 
   \infer[\rulename{htctx-extend-ctx}]
-  {\ishint{\G}{\H} \\
-   \istype{\GH}{\T}
+  {\isctxalg{\G}{\H} \\
+   \istypealg{\GH}{\T}
   }
-  {\ishint{\ctxextend{\G}{\x}{\T}}{\H}}
+  {\isctxalg{(\ctxextend{\G}{\x}{\T})}{\H}}
 
-  \infer[\rulename{htctx-extend-hint}]
-  {\ishint{\G}{\H} \\
-   \eqterm{\GH}{\e_1}{\e_2}{\T}
+  \infer[\rulename{htctx-extend-eq-hint}]
+  {\isctxalg{\G}{\H} \\
+   \eqtermalg{\GH}{\e_1}{\e_2}{\T}
   }
-  {\ishint{\G}{\hintextend{\H}{\e_1}{\e_2}{\T}}}
+  {\isctxalg{\G}{(\addhinteq{\H}{\e_1}{\e_2})}}
+
+  \infer[\rulename{htctx-extend-red-hint}]
+  {\isctxalg{\G}{\H} \\
+   \eqtermalg{\GH}{\e_1}{\e_2}{\T}
+  }
+  {\isctxalg{\G}{(\addhintred{\H}{\e_1}{\e_2})}}
+
 \end{mathpar}
+
+Actually, this whole section should be written in a declarative fashion.
 
 \subsection{Types}
 \label{sec:bidirectional-types}
 
-\subsection{Fibered types}
+\begin{mathpar}
+  \infer[\rulename{tychk-universe}]
+  {\alpha \in \PP
+  }
+  {\istypealg{\GH}{\Universe{\alpha}}}
+
+  \infer[\rulename{tychk-prod}]
+  {\istypealg{\GH}{\T} \\
+   \istypealg{\ctxs{(\ctxextend{\G}{\x}{\T})}{\H}}{\U}
+  }
+  {\istypealg{\GH}{\Prod{\x}{\T}{\U}}}
+
+  \infer[\rulename{tychk-el}]
+  {\chkterm{\GH}{\e}{\Universe{\alpha}}}
+  {\istypealg{\GH}{\El{\alpha}{\e}}}
+
+  \infer[\rulename{tychk-unit}]
+  {\isctxalg{\G}{\H}}
+  {\istypealg{\GH}{\Unit}}
+
+  \infer[\rulename{tychk-paths}]
+  {\isfibalg{\GH}{\T}\\
+   \chkterm{\GH}{\e_1}{\T}\\
+   \chkterm{\GH}{\e_2}{\T}
+  }
+  {\istypealg{\GH}{\PrEqual{\T}{\e_1}{\e_2}}}
+
+  \infer[\rulename{tychk-id}]
+  {\istypealg{\GH}{\T}\\
+   \chkterm{\GH}{\e_1}{\T}\\
+   \chkterm{\GH}{\e_2}{\T}
+  }
+  {\istypealg{\GH}{\JuEqual{\T}{\e_1}{\e_2}}}
+\end{mathpar}
+
+
+\subsection{Well-Formed Fibered types}
 \label{sec:bidirectional-fibered-types}
+
+\begin{mathpar}
+  \infer[\rulename{fibchk-universe}]
+  {\alpha \in \PP
+  }
+  {\isfibalg{\GH}{\Universe{\alpha}}}
+
+  \infer[\rulename{fibchk-prod}]
+  {\isfibalg{\GH}{\T} \\
+   \isfibalg{\ctxs{(\ctxextend{\G}{\x}{\T})}{\H}}{\U}
+  }
+  {\isfibalg{\GH}{\Prod{\x}{\T}{\U}}}
+
+  \infer[\rulename{fibchk-el}]
+  {\chkterm{\GH}{\e}{\Universe{\alpha}}\\
+   \alpha\in\FF
+  }
+  {\isfibalg{\GH}{\El{\alpha}{\e}}}
+
+  \infer[\rulename{fibchk-unit}]
+  {}
+  {\isfibalg{\GH}{\Unit}}
+
+  \infer[\rulename{fibchk-paths}]
+  {\isfibalg{\GH}{\T}\\
+   \chkterm{\GH}{\e_1}{\T}\\
+   \chkterm{\GH}{\e_2}{\T}
+  }
+  {\isfibalg{\GH}{\PrEqual{\T}{\e_1}{\e_2}}}
+\end{mathpar}
+
+If we already know the given type is well-formed, there's an even simpler algorithm to see if it is fibered.
+
 
 \subsection{Terms}
 \label{sec:bidirectional-terms}
@@ -981,7 +1067,7 @@ General rules:
 %
 \begin{mathpar}
   \infer[\rulename{syn-var}]
-  { \ishint{\G}{\H} \\
+  { \isctxalg{\G}{\H} \\
     (\x {:} \T) \in \G
   }
   { \synterm{\GH}{\x}{\T}}
@@ -1000,15 +1086,17 @@ General rules:
 Hints:
 %
 \begin{mathpar}
-  \infer[\rulename{syn-hint}]
-  { \synterm{\GH}{\e_1}{\JuEqual{\U}{\e_3}{\e_4}} \\
-    \synterm{\G ; \hintextend{\H}{\e_3}{\e_4}{\U}}{\e_2}{\T}
+  \infer[\rulename{syn-eq-hint}]
+  { \synterm{\GH}{\e_1}{\U'} \\
+    \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \synterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \synterm{\GH}{(\hintin{\e_1} \e_2)}{\T} }
 
-  \infer[\rulename{chk-hint}]
-  { \synterm{\GH}{\e_1}{\JuEqual{\U}{\e_3}{\e_4}} \\
-    \chkterm{\G ; \hintextend{\H}{\e_3}{\e_4}{\U}}{\e_2}{\T}
+  \infer[\rulename{chk-eq-hint}]
+  { \synterm{\GH}{\e_1}{\U'} \\
+    \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \chkterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \chkterm{\GH}{(\hintin{\e_1} \e_2)}{\T} }
 \end{mathpar}
@@ -1044,9 +1132,9 @@ Path type:
   { \synterm{\GH}{\prRefl{\T}{\e}}{\PrEqual{\T}{\e}{\e}} }
 
   \infer[\rulename{syn-j}]
-  { \isfib{\GH}{\T}
+  { \isfibalg{\GH}{\T}
      \\\\
-    \isfib{
+    \isfibalg{
       \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}} ;
       \H
     }{\U}
@@ -1078,9 +1166,9 @@ Equality type:
   { \synterm{\GH}{\juRefl{\T}{\e}}{\JuEqual{\T}{\e}{\e}} }
 
   \infer[\rulename{syn-g}]
-  { \istype{\GH}{\T}
+  { \istypealg{\GH}{\T}
      \\\\
-    \istype{
+    \istypealg{
       \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}} ;
       \H
     }{\U}
@@ -1108,11 +1196,11 @@ Names:
 %
 \begin{mathpar}
   \infer[\rulename{syn-name-unit}]
-  { \ishint{\G}{\H} }
+  { }
   { \synterm{\GH}{\nUnit}{\Universe{\zero}} }
 
   \infer[\rulename{syn-name-universe}]
-  { \ishint{\G}{\H} \\
+  {
     \uClose{\alpha} = \beta
   }
   { \synterm{\GH}{\nUniverse{\alpha}}{\Universe{\beta}} }
@@ -1121,7 +1209,7 @@ Names:
   { \chkterm{\GH}{\e_1}{\Universe{\alpha}}
     \\
     \chkterm
-    {\ctxextend{\G}{\x}{\El{\alpha}{\e_1}} ; \H}
+    {\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}
     {\e_2}
     {\Universe{\beta}}
     \\
@@ -1167,7 +1255,7 @@ Reflexivity is (ought to be) admissible, but we include it for efficiency:
 Other types:
 \begin{mathpar}
   \infer[\rulename{chk-tyeq-universe}]
-  {\ishint{\G}{\H} \\ \alpha = \beta}
+  {\isctxalg{\G}{\H} \\ \alpha = \beta}
   {\eqtype{\GH}{\Universe{\alpha}}{\Universe{\beta}}}
 
   \infer[\rulename{chk-tyeq-el}]
@@ -1218,22 +1306,22 @@ Normalization by hints:
 %
 \begin{mathpar}
   \infer[\rulename{norm-hint-abs}]
-  { \ishint{\G}{\H} \\
+  { \isctxalg{\G}{\H} \\
     \eqtermhint{\e}{(\lam{\x}{\U}{\e'})}{\T} \in \H
   }
-  { \whnf{\GH}{\e}{(\lam{\x}{\U}{\e'})}{\T} }
+  { \whnf{\GH}{\e}{(\lam{\x}{\U}{\e'})} }
 
   \infer[\rulename{norm-hint-idpath}]
-  { \ishint{\G}{\H} \\
-    \eqtermhint{\e}{\prRefl{\U}{\e'}}{\T} \in \H
+  { \isctxalg{\G}{\H} \\
+    \eqtermhint{\e}{\prRefl{\U}{\e'}} \in \H
   }
-  { \whnf{\GH}{\e}{\prRefl{\U}{\e'}}{\T} }
+  { \whnf{\GH}{\e}{\prRefl{\U}{\e'}} }
 
   \infer[\rulename{norm-hint-refl}]
-  { \ishint{\G}{\H} \\
-    \eqtermhint{\e}{\juRefl{\U}{\e'}}{\T} \in \H
+  { \isctxalg{\G}{\H} \\
+    \eqtermhint{\e}{\juRefl{\U}{\e'}} \in \H
   }
-  { \whnf{\GH}{\e}{\juRefl{\U}{\e'}}{\T} }
+  { \whnf{\GH}{\e}{\juRefl{\U}{\e'}} }
 \end{mathpar}
 %
 Cancelation of eliminators and constructors:
@@ -1250,7 +1338,7 @@ Cancelation of eliminators and constructors:
 
   \infer[\rulename{norm-idpath}]
   {
-    \ishint{\G}{\H}
+    \isctxalg{\G}{\H}
   }
   {
     \whnf
@@ -1278,21 +1366,21 @@ anything else:
 \begin{mathpar}
   \infer[\rulename{chk-eq-refl}]
   { \chkterm{\GH}{\e}{\T} }
-  { \eqterm{\GH}{\e}{\e}{\T} }
+  { \eqtermalg{\GH}{\e}{\e}{\T} }
 
   \infer[\rulename{chk-eq-hint}]
-  { \ishint{\G}{\H}
+  { \isctxalg{\G}{\H}
     \\
     \eqtermhint{\e_1}{\e_2}{\T} \in \H
   }
-  { \eqterm{\GH}{\e_1}{\e_2}{\T} }
+  { \eqtermalg{\GH}{\e_1}{\e_2}{\T} }
 
   \infer[\rulename{chk-eq-hint-sym}]
-  { \ishint{\G}{\H}
+  { \isctxalg{\G}{\H}
     \\
     \eqtermhint{\e_2}{\e_1}{\T} \in \H
   }
-  { \eqterm{\GH}{\e_1}{\e_2}{\T} }
+  { \eqtermalg{\GH}{\e_1}{\e_2}{\T} }
 \end{mathpar}
 
 \end{document}
