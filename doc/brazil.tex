@@ -71,7 +71,7 @@
 \newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
 
 
-% judgments
+% orthodox judgments
 \newcommand{\isctx}[1]{#1\;\mathsf{ctx}} % well formed context
 \newcommand{\istype}[2]{#1 \vdash #2\;\mathsf{type}} % well formed type
 \newcommand{\isfib}[2]{#1 \vdash #2\;\mathsf{fibered}} % is a fibered type
@@ -80,22 +80,25 @@
 \newcommand{\eqtype}[3]{#1 \vdash #2 \equiv #3} % equal types
 \newcommand{\eqterm}[4]{#1 \vdash #2 \equiv #3 : #4} % equal terms
 
+% algorithmic judgments
+
 \newcommand{\chkterm}[3]{#1 \vdash #2 \Leftarrow #3} % checking
 \newcommand{\synterm}[3]{#1 \vdash #2 \Rightarrow #3} % synthesis
 
-% hints
-
-\newcommand{\hintin}[1]{\mathsf{hint}\;#1\;\mathsf{in}\;} % term equality hint
+\newcommand{\eqtypealg}[3]{#1 \vdash #2 \thickapprox #3} % equal types
+\newcommand{\eqtypepath}[3]{#1 \vdash #2 \thicksim #3} % equal types in normal form
+\newcommand{\eqtermalg}[4]{#1 \vdash #2 \thickapprox #3 : #4} % equal terms
+\newcommand{\eqtermext}[4]{#1 \vdash #2 \simequal #3 : #4} % equal terms
+\newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3 : #4} % equal terms
 
 \newcommand{\ishints}[2]{#1 \vdash #2 \; \mathsf{hints}}
 
 \newcommand{\istypealg}[2]{#1 \vdash #2 \Leftarrow \mathsf{type}} % well formed type
 \newcommand{\isfibalg}[2]{#1 \vdash #2 \Leftarrow \mathsf{fibered}} % is a fibered type
-\newcommand{\eqtypealg}[3]{#1 \vdash #2 \thickapprox #3} % equal types
-\newcommand{\eqtypepath}[3]{#1 \vdash #2 \thicksim #3} % equal types
-\newcommand{\eqtermalg}[4]{#1 \vdash #2 \thickapprox #3 : #4} % equal terms
-\newcommand{\eqtermext}[4]{#1 \vdash #2 \simequal #3 : #4} % equal terms
-\newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3 : #4} % equal terms
+
+% hints
+
+\newcommand{\hintin}[1]{\mathsf{hint}\;#1\;\mathsf{in}\;} % term equality hint
 
 \newcommand{\eqtermhint}[2]{#1 \,{\equiv}\, #2 } %\,{:}\, #3)}
 \newcommand{\redtermhint}[2]{#1 \,{\leadsto}\, #2 } %\,{:}\, #3)}
@@ -958,6 +961,7 @@ Terms:
 & \chkterm{\GH}{\e}{\T} & & \text{check that term $\e$ has type $T$} \\
 & \synterm{\GH}{\e}{\T} & & \text{synthesize type $\T$ of term $e$} \\
 & \eqtypealg{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal types} \\
+& \eqtypepath{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal types in normal form} \\
 & \eqtermalg{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of type $\T$} \\
 & \whnf{\GH}{\e_1}{\e_2} & & \text{$\e_1$ weak-head-normalizes to $\e_2$ }
 \end{align*}
