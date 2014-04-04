@@ -87,11 +87,15 @@
 
 \newcommand{\hintin}[1]{\mathsf{hint}\;#1\;\mathsf{in}\;} % term equality hint
 
-\newcommand{\isctxalg}[2]{\ctxs{#1}{#2} \Leftarrow \mathsf{ctx}}
+\newcommand{\ishints}[2]{#1 \vdash #2 \; \mathsf{hints}}
+
 \newcommand{\istypealg}[2]{#1 \vdash #2 \Leftarrow \mathsf{type}} % well formed type
 \newcommand{\isfibalg}[2]{#1 \vdash #2 \Leftarrow \mathsf{fibered}} % is a fibered type
 \newcommand{\eqtypealg}[3]{#1 \vdash #2 \thickapprox #3} % equal types
+\newcommand{\eqtypepath}[3]{#1 \vdash #2 \thicksim #3} % equal types
 \newcommand{\eqtermalg}[4]{#1 \vdash #2 \thickapprox #3 : #4} % equal terms
+\newcommand{\eqtermext}[4]{#1 \vdash #2 \simequal #3 : #4} % equal terms
+\newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3 : #4} % equal terms
 
 \newcommand{\eqtermhint}[2]{#1 \,{\equiv}\, #2 } %\,{:}\, #3)}
 \newcommand{\redtermhint}[2]{#1 \,{\leadsto}\, #2 } %\,{:}\, #3)}
@@ -106,8 +110,11 @@
 
 % normalization
 
-\newcommand{\whnf}[3]{#1 \vdash #2 \leadsto #3 } % "normalization"
+\newcommand{\tywhnf}[3]{#1 \vdash #2 \leadsto #3 } % "one-step type normalization"
+\newcommand{\whnf}[3]{#1 \vdash #2 \leadsto #3 } % "one-step term normalization"
 
+\newcommand{\tywhnfs}[3]{#1 \vdash #2 \leadsto^* #3 \not\leadsto } % "type normalization"
+\newcommand{\whnfs}[3]{#1 \vdash #2 \leadsto^* #3 \not\leadsto } % "term normalization"
 \begin{document}
 
 \title{Brazilian type theory}
@@ -945,7 +952,7 @@ Terms:
 \label{sec:bidirectional-judgments}
 
 \begin{align*}
-& \isctxalg{\G}{\H} & & \text{$\G$ and $\H$ form a typing context with hints} \\
+& \ishints{\G}{\H} & & \text{$\H$ consists of legal hints} \\
 & \istypealg{\GH}{\T} & & \text{$\T$ is a well-formed type} \\
 & \isfibalg{\GH}{\T} & & \text{$\T$ is a well-formed fibered type} \\
 & \chkterm{\GH}{\e}{\T} & & \text{check that term $\e$ has type $T$} \\
@@ -959,31 +966,25 @@ Terms:
 \label{sec:contexts-with-hints}
 
 \begin{mathpar}
-  \infer[\rulename{htctx-empty}]
-  { }
-  {\isctxalg{\ctxempty}{\hintempty}}
+  \infer[\rulename{hint-empty}]
+  {\isctx{\G}}
+  {\ishints{\G}{\hintempty}}
 
-  \infer[\rulename{htctx-extend-ctx}]
-  {\isctxalg{\G}{\H} \\
-   \istypealg{\GH}{\T}
+  \infer[\rulename{hint-eq}]
+  {\ishints{\G}{\H} \\
+   \eqterm{\G}{\e_1}{\e_2}{\T}
   }
-  {\isctxalg{(\ctxextend{\G}{\x}{\T})}{\H}}
+  {\ishints{\G}{(\addhinteq{\H}{\e_1}{\e_2})}}
 
-  \infer[\rulename{htctx-extend-eq-hint}]
-  {\isctxalg{\G}{\H} \\
-   \eqtermalg{\GH}{\e_1}{\e_2}{\T}
+  \infer[\rulename{hint-reduce}]
+  {\ishints{\G}{\H} \\
+   \eqterm{\G}{\e_1}{\e_2}{\T}
   }
-  {\isctxalg{\G}{(\addhinteq{\H}{\e_1}{\e_2})}}
-
-  \infer[\rulename{htctx-extend-red-hint}]
-  {\isctxalg{\G}{\H} \\
-   \eqtermalg{\GH}{\e_1}{\e_2}{\T}
-  }
-  {\isctxalg{\G}{(\addhintred{\H}{\e_1}{\e_2})}}
+  {\ishints{\G}{(\addhintred{\H}{\e_1}{\e_2})}}
 
 \end{mathpar}
 
-Actually, this whole section should be written in a declarative fashion.
+Note that this judgment is \emph{not} invoked by the algorithm. It is used only in describing the conditions under which the algorithm is expected to work.
 
 \subsection{Types}
 \label{sec:bidirectional-types}
@@ -1005,7 +1006,7 @@ Actually, this whole section should be written in a declarative fashion.
   {\istypealg{\GH}{\El{\alpha}{\e}}}
 
   \infer[\rulename{tychk-unit}]
-  {\isctxalg{\G}{\H}}
+  {}
   {\istypealg{\GH}{\Unit}}
 
   \infer[\rulename{tychk-paths}]
@@ -1057,7 +1058,23 @@ Actually, this whole section should be written in a declarative fashion.
   {\isfibalg{\GH}{\PrEqual{\T}{\e_1}{\e_2}}}
 \end{mathpar}
 
-If we already know the given type is well-formed, there's an even simpler algorithm to see if it is fibered.
+\medskip
+
+If we already know the given type is well-formed, there's an even simpler algorithm to see if it is fibered:
+
+\newcommand{\simplefib}{\mathop{\mathsf{isfib}}\,}
+\newcommand{\true}{\mathsf{true}}
+\newcommand{\false}{\mathsf{false}}
+\[
+\begin{array}{lcl}
+\simplefib{\Universe{\alpha}} & := & \true\\
+\simplefib{\Prod{\x}{\T}{\U}} & := & \simplefib{T}\ \land\ \simplefib{U}\\
+\simplefib{\El{\alpha}{\e}} & := & \alpha\in\FF\\
+\simplefib{\Unit} & := & \true\\
+\simplefib{\PrEqual{\T}{\e_1}{\e_2}} & := & \true\\
+\simplefib{\JuEqual{\T}{\e_1}{\e_2}} & := & \false\\
+\end{array}
+\]
 
 
 \subsection{Terms}
@@ -1109,8 +1126,7 @@ Products:
   { \synterm{\GH}{(\lam{\x}{\T}{\e})}{\Prod{\x}{\T} \U} }
 
   \infer[\rulename{syn-app}]
-  { \synterm{\GH}{\e_1}{\Prod{\x}{\T} \U}
-    \\
+  { \synterm{\GH}{\e_1}{\Prod{\x}{\T} \U} \\
     \chkterm{\GH}{\e_2}{\T}
   }
   { \synterm{\GH}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}} }
@@ -1241,104 +1257,157 @@ Names:
   {\synterm{\G}{\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 \end{mathpar}
 
+\subsection{Type normalization}
+\label{sec:type-normalization}
+
+\paragraph{Name reduction (possibly using hints):}
+\begin{mathpar}
+  \infer[\rulename{tynorm-el}]
+  {
+    \whnf{\H}{\e}{\e'}
+  }
+  {
+    \whnf{\H}{\El{\alpha}{\e}}{\El{\alpha}{\e'}}
+  }
+\end{mathpar}
+
+\paragraph{Conversion from name to type:}
+
+\begin{mathpar}
+
+  \infer[\rulename{tynorm-pi}]
+  {
+  }
+  {
+    \tywhnf{\H}{\El{\alpha}{(\nProd{\beta,\gamma}{\x}{\e_1}{e_2})}}
+                {\Prod{\x}{\El{\beta}{\e_1}}{\El{\gamma}{\e}}}
+  }
+
+  \infer[\rulename{tynorm-unit}]
+  {
+  }
+  {
+    \tywhnf{\H}{\El{\alpha}{\nUnit}}{\Unit}
+  }
+
+  \infer[\rulename{tynorm-coerce}]
+  {
+  }
+  {
+    \tywhnf{\H}{\El{\beta}{(\coerce{\alpha}{\beta}{\e}})}{\El{\alpha}{\e}}
+  }
+
+  \infer[\rulename{tynorm-paths}]
+  {
+  }
+  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
+          {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
+  }
+
+  \infer[\rulename{tynorm-id}]
+  {
+  }
+  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
+          {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
+  }
+\end{mathpar}
+%
+If $(\redtermhint{\nUnit}{\mathsf{nat}}) \in \H$, then the priority of the rules
+shown will make us try $\whnf{\H}{\El{\zero}{\nUnit}}{\El{\zero}{\mathsf{nat}}}$ first.
+Only if we backtrack will we consider $\whnf{\H}{\El{\zero}{\nUnit}}{\Unit}$.
+
 \subsection{Type equality}
 \label{sec:bidirectional-type-equality}
 
-Reflexivity is (ought to be) admissible, but we include it for efficiency:
-%
+\paragraph{General Type equality:}
+
 \begin{mathpar}
   \infer[\rulename{chk-tyeq-refl}]
-  { \istype{\GH}{\T} }
-  { \eqtype{\GH}{\T}{\T} }
+  { }
+  { \eqtypealg{\GH}{\T}{\T} }
+
+  \infer[\rulename{chk-tyeq-hnf}]
+  { \whnfs{\H}{\T}{\T'}\\
+    \whnfs{\H}{\U}{\U'}\\
+    \eqtypepath{\GH}{\T'}{\U'}
+  }
+  {
+    \eqtypealg{\GH}{\T}{\U}
+  }
 \end{mathpar}
-%
-Other types:
+
+Reflexivity is an optimization for the common case.
+
+\paragraph{Equality of head-normal forms:}
 \begin{mathpar}
-  \infer[\rulename{chk-tyeq-universe}]
-  {\isctxalg{\G}{\H} \\ \alpha = \beta}
-  {\eqtype{\GH}{\Universe{\alpha}}{\Universe{\beta}}}
+  \infer[\rulename{chk-tyeq-path-refl}]
+  { }
+  { \eqtypepath{\GH}{\T}{\T} }
 
   \infer[\rulename{chk-tyeq-el}]
-  { \eqterm{\GH}{\e_1}{\e_2}{\Universe{\alpha}}
-    \\
-    \alpha = \beta
-  }{
-    \eqtype{\GH}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}
+  { \alpha = \beta \\
+    \eqtermalg{\GH}{\e_1}{\e_2}{\Universe{\alpha}}
+  }
+  {
+    \eqtypepath{\GH}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}
   }
 
   \infer[\rulename{chk-tyeq-prod}]
-  { \eqtype{\GH}{\T_1}{\U_1}
-    \\
-    \eqtype
-    {\ctxextend{\G}{\x}{\T_1} ; \H}
-    {\T_2}
-    {\U_2}
+  { \eqtypealg{\GH}{\T_1}{\U_1} \\
+    \eqtypealg {\ctxs{(\ctxextend{\G}{\x}{\T_1})}{\H}}{\T_2}{\U_2}
   }
-  { \eqtype{\GH}
+  { \eqtypepath{\GH}
     {\Prod{\x}{\T_1}{\T_2}}
     {\Prod{\x}{\U_1}{\U_2}}
   }
 
   \infer[\rulename{chk-tyeq-paths}]
-  {\isfib{\GH}{\T}\\
-   \isfib{\GH}{\U}\\\\
-   \eqtype{\GH}{\T}{\U}\\
-   \eqterm{\GH}{\e_1}{\e'_1}{\T}\\
-   \eqterm{\GH}{\e_2}{\e'_2}{\T}
+  {\eqtypealg{\GH}{\T}{\U}\\
+   \eqtermalg{\GH}{\e_1}{\e'_1}{\T}\\
+   \eqtermalg{\GH}{\e_2}{\e'_2}{\T}
   }
-  {\eqtype{\GH}{\PrEqual{\T}{\e_1}{\e_2}}
-               {\PrEqual{\U}{\e'_1}{\e'_2}}}
+  {\eqtypepath{\GH}{\PrEqual{\T}{\e_1}{\e_2}}
+                  {\PrEqual{\U}{\e'_1}{\e'_2}}}
 
   \infer[\rulename{chk-tyeq-id}]
-  {\eqtype{\GH}{\T}{\U}\\
-   \eqterm{\GH}{\e_1}{\e'_1}{\T}\\
-   \eqterm{\GH}{\e_2}{\e'_2}{\T}
+  {\eqtypealg{\GH}{\T}{\U}\\
+   \eqtermalg{\GH}{\e_1}{\e'_1}{\T}\\
+   \eqtermalg{\GH}{\e_2}{\e'_2}{\T}
   }
-  {\eqtype{\GH}{\JuEqual{\T}{\e_1}{\e_2}}
-               {\JuEqual{\U}{\e'_1}{\e'_2}}}
+  {\eqtypepath{\GH}{\JuEqual{\T}{\e_1}{\e_2}}
+                   {\JuEqual{\U}{\e'_1}{\e'_2}}}
 \end{mathpar}
-%
+
+The reflexivity rule is not just an optimization, but also handles
+equivalence of base types and equivalence of universes.
 
 \subsection{Term normalization}
 \label{sec:term-normalization}
 
-Normalization by hints:
-%
+\paragraph{Normalization by hints:}
 \begin{mathpar}
-  \infer[\rulename{norm-hint-abs}]
-  { \isctxalg{\G}{\H} \\
-    \eqtermhint{\e}{(\lam{\x}{\U}{\e'})}{\T} \in \H
+  \infer[\rulename{norm-hint}]
+  {
+    (\redtermhint{\e}{\e'}) \in \H\\
+    \whnf{\GH}{\e'}{\e''}\\
   }
-  { \whnf{\GH}{\e}{(\lam{\x}{\U}{\e'})} }
-
-  \infer[\rulename{norm-hint-idpath}]
-  { \isctxalg{\G}{\H} \\
-    \eqtermhint{\e}{\prRefl{\U}{\e'}} \in \H
-  }
-  { \whnf{\GH}{\e}{\prRefl{\U}{\e'}} }
-
-  \infer[\rulename{norm-hint-refl}]
-  { \isctxalg{\G}{\H} \\
-    \eqtermhint{\e}{\juRefl{\U}{\e'}} \in \H
-  }
-  { \whnf{\GH}{\e}{\juRefl{\U}{\e'}} }
+  { \whnf{\GH}{\e}{\e''} }
 \end{mathpar}
-%
-Cancelation of eliminators and constructors:
-%
+
+In the case of multiple hints for reducing $\e'$, we try the most-recently-added hint (last in the sequence $\H$) first.
+
+\paragraph{Redices}
 \begin{mathpar}
   \infer[\rulename{norm-app-beta}]
-  { \whnf{\GH}{\subst{\e_1}{\x}{\e_2}}{\e_3}{\T} }
+  { \whnf{\GH}{\subst{\e_1}{\x}{\e_2}}{\e_3} }
   { \whnf
     {\GH}
     {\app{(\lam{\x}{\U}{\e_1})}{\e_2}}
     {\e_3}
-    {\T}
   }
 
   \infer[\rulename{norm-idpath}]
   {
-    \isctxalg{\G}{\H}
   }
   {
     \whnf
@@ -1352,10 +1421,39 @@ Cancelation of eliminators and constructors:
       {\prRefl{\T}{\e_2}}
     }
     {\subst{\e_1}{z}{\e_2}}
-    {\substs{\U}{\e_2/x, \e_2/y, (\prRefl{\T}{\e_2})/p}}
   }
 
+  \infer[\rulename{norm-refl}]
+  {
+  }
+  {
+    \whnf
+    {\GH}
+    {\JuElim
+      {\T}
+      {\abst{x\,y\,p}{\U}}
+      {\abst{z}{\e_1}}
+      {\e_2}
+      {\e_3}
+      {\e_4}
+    }
+    {\subst{\e_1}{z}{\e_2}}
+  }
+
+  This is formalized as a K rule.
 \end{mathpar}
+
+\emph{Recursion}
+\begin{mathpar}
+ \infer[\rulename{norm-app}]
+ {\whnf{\GH}{\e_1}{\e'_1}}
+ {\whnf{\GH}{\app{\e_1}{\e_2}}{\app{\e'_1}{\e_2}}}
+\end{mathpar}
+
+By rule priority, at the next reduction step we will start again looking for a hint
+to reduce $\app{\e'_1}{\e_2}$.
+
+
 
 \subsection{Term equality}
 \label{sec:bidirectional-term-equality}
@@ -1369,15 +1467,13 @@ anything else:
   { \eqtermalg{\GH}{\e}{\e}{\T} }
 
   \infer[\rulename{chk-eq-hint}]
-  { \isctxalg{\G}{\H}
-    \\
+  {
     \eqtermhint{\e_1}{\e_2} \in \H
   }
   { \eqtermalg{\GH}{\e_1}{\e_2}{\T} }
 
   \infer[\rulename{chk-eq-hint-sym}]
-  { \isctxalg{\G}{\H}
-    \\
+  {
     \eqtermhint{\e_2}{\e_1} \in \H
   }
   { \eqtermalg{\GH}{\e_1}{\e_2}{\T} }
