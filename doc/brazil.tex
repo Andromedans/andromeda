@@ -1646,17 +1646,25 @@ same expressions before invoking the general comparison function.
 \paragraph{Whnf equivalence of names}
 \begin{mathpar}
   \infer[\rulename{chk-eq-whnf-prod}]
-  {\eqtermalg{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+  {\alpha = \gamma \\
+   \beta = \delta \\
+   \piClose{\alpha}{\beta} = \epsilon
+   \eqtermalg{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
    \eqtermalg{\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}{\e_2}{\e'_2}{\Universe{\beta}} \\
-   \piClose{\alpha}{\beta} = \gamma}
-  {\eqpath{\GH}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}{(\nProd{\alpha,\beta}{\x}{\e'_1}{\e'_2})}{\Universe{\gamma}}}
+  }
+  {\eqpath{\GH}
+    {(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}
+    {(\nProd{\gamma,\delta}{\x}{\e'_1}{\e'_2})}
+    {\Universe{\epsilon}}
+  }
 
   \infer[\rulename{chk-eq-whnf-universe}]
   {
+    \alpha = \beta \\
     \uClose{\alpha} = \gamma
   }
   {
-    \eqpath{\GH}{\nUniverse{\alpha}}{\nUniverse{\alpha}}{\Universe{\gamma}}
+    \eqpath{\GH}{\nUniverse{\alpha}}{\nUniverse{\beta}}{\Universe{\gamma}}
   }
 
   \infer[\rulename{chk-eq-whnf-unit}]
