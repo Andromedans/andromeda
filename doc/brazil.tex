@@ -92,7 +92,7 @@
 
 \renewcommand{\H}{\mathcal{H}}      % term hint list
 \newcommand{\hintempty}{\circ}      % empty hint list
-\newcommand{\hintextend}[4]{#1, #2} % extended hint list
+\newcommand{\hintextend}[2]{#1, #2} % extended hint list
 \newcommand{\GH}{\G ; \H}           % combined context and hints
 
 % normalization
@@ -1001,13 +1001,13 @@ Hints:
 \begin{mathpar}
   \infer[\rulename{syn-hint}]
   { \synterm{\GH}{\e_1}{\JuEqual{\U}{\e_3}{\e_4}} \\
-    \synterm{\G ; \hintextend{\H}{\e_3}{\e_4}{\U}}{\e_2}{\T}
+    \synterm{\G ; \hintextend{\H}{\eqtermhint{\e_3}{\e_4}{\U}}}{\e_2}{\T}
   }
   { \synterm{\GH}{(\hintin{\e_1} \e_2)}{\T} }
 
   \infer[\rulename{chk-hint}]
   { \synterm{\GH}{\e_1}{\JuEqual{\U}{\e_3}{\e_4}} \\
-    \chkterm{\G ; \hintextend{\H}{\e_3}{\e_4}{\U}}{\e_2}{\T}
+    \chkterm{\G ; \hintextend{\H}{\eqtermhint{\e_3}{\e_4}{\U}}}{\e_2}{\T}
   }
   { \chkterm{\GH}{(\hintin{\e_1} \e_2)}{\T} }
 \end{mathpar}
@@ -1024,7 +1024,7 @@ Products:
     \\
     \chkterm{\GH}{\e_2}{\T}
   }
-  { \chkterm{\GH}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}} }
+  { \synterm{\GH}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}} }
 \end{mathpar}
 %
 Unit type:
