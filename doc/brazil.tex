@@ -90,7 +90,7 @@
 \newcommand{\istypealg}[2]{#1 \vdash #2 \Leftarrow \mathsf{type}} % well formed type
 \newcommand{\isfibalg}[2]{#1 \vdash #2 \Leftarrow \mathsf{fibered}} % is a fibered type
 \newcommand{\eqtypealg}[3]{#1 \vdash #2 \thickapprox #3} % equal types
-\newcommand{\eqtypepath}[3]{#1 \vdash #2 \thicksim #3} % equal normal-form types 
+\newcommand{\eqtypepath}[3]{#1 \vdash #2 \thicksim #3} % equal normal-form types
 \newcommand{\eqtermalg}[4]{#1 \vdash #2 \thickapprox #3 \Leftarrow #4} % equal terms of normalized type
 \newcommand{\eqtermext}[4]{#1 \vdash #2 \simeq #3 \Leftarrow #4} % equal normal-form terms
 \newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3 \Rightarrow #4} % equal terms
@@ -633,24 +633,6 @@ General rules:
      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\U}}{y}{\U}}{p}{\PrEqual{\U}{x}{y}}
    }{Q}
    \\\\
-   \isterm
-     {\ctxextend{\G}{z}{\T}}
-     {\e_1}
-     {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
-   \\
-   \isterm
-     {\ctxextend{\G}{z}{\U}}
-     {\e'_1}
-     {\substs{Q}{z/x, z/y, (\prRefl{\U}{z})/p}}
-   \\\\
-   \isterm{\G}{\e_2}{\T} \\
-   \isterm{\G}{\e_3}{\T} \\
-   \isterm{\G}{\e_4}{\PrEqual{\T}{\e_2}{\e_3}}
-   \\\\
-   \isterm{\G}{\e'_2}{\U} \\
-   \isterm{\G}{\e'_3}{\U} \\
-   \isterm{\G}{\e'_4}{\PrEqual{\U}{\e'_2}{\e'_3}}
-   \\\\
    \eqtype{\G}{\T}{\U} \\
    \eqtype{
      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}}
@@ -725,35 +707,7 @@ General rules:
 {\eqterm{\G}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}{\JuEqual{\T}{\e_1}{\e_1}}}
 
 \infer[\rulename{cong-g}]
-  {\istype{\G}{\T} \\
-   \istype{\G}{\U}
-   \\\\
-   \istype{
-     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
-   }{P}
-   \\
-   \istype{
-     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\U}}{y}{\U}}{z}{\JuEqual{\U}{x}{y}}
-   }{Q}
-   \\\\
-   \isterm
-     {\ctxextend{\G}{z}{\T}}
-     {\e_1}
-     {\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
-   \\
-   \isterm
-     {\ctxextend{\G}{z}{\U}}
-     {\e'_1}
-     {\substs{Q}{z/x, z/y, (\juRefl{\U}{z})/p}}
-   \\\\
-   \isterm{\G}{\e_2}{\T} \\
-   \isterm{\G}{\e_3}{\T} \\
-   \isterm{\G}{\e_4}{\JuEqual{\T}{\e_2}{\e_3}} \\\\
-   \isterm{\G}{\e'_2}{\U} \\
-   \isterm{\G}{\e'_3}{\U} \\
-   \isterm{\G}{\e'_4}{\JuEqual{\U}{\e'_2}{\e'_3}}
-   \\\\
-   \eqtype{\G}{\T}{\U} \\
+  {\eqtype{\G}{\T}{\U} \\
    \eqtype{
      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
    }{P}{Q} \\\\
@@ -1722,7 +1676,7 @@ same expressions before invoking the general comparison function.
     \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
     \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
   }
-  {\eqterm{\GH}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nPrEqual{\beta}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+  {\eqpath{\GH}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nPrEqual{\beta}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-id}]
   {\alpha = \beta \\
@@ -1730,7 +1684,7 @@ same expressions before invoking the general comparison function.
     \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
     \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
   }
-  {\eqtermalg{\GH}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\beta}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+  {\eqpath{\GH}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\beta}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-coerce}]
   {
