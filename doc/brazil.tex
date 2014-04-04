@@ -98,11 +98,11 @@
 
 \renewcommand{\H}{\mathcal{H}}      % term hint list
 \newcommand{\hintempty}{\circ}      % empty hint list
+
 \newcommand{\addhinteq}[3]{#1, \eqtermhint{#2}{#3}} % extended hint list
 \newcommand{\addhintred}[3]{#1, \redtermhint{#2}{#3}} % extended hint list
 \newcommand{\ctxs}[2]{#1\,;\,#2}
 \newcommand{\GH}{\ctxs{\G}{\H}}           % combined context and hints
-
 
 % normalization
 
@@ -1113,7 +1113,7 @@ Products:
     \\
     \chkterm{\GH}{\e_2}{\T}
   }
-  { \chkterm{\GH}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}} }
+  { \synterm{\GH}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}} }
 \end{mathpar}
 %
 Unit type:

@@ -81,7 +81,7 @@ and lambda xs x t e ppf =
   in
     print ~at_level:3 ppf "fun %s : %t =>@ %t" x (term ~max_level:2 xs t) (term (x :: xs) e)
 
-(** [term ctx e ppf] prints termession [e] using formatter [ppf]. *)
+(** [term ctx e ppf] prints term [e] using formatter [ppf]. *)
   and term ?max_level xs e ppf =
     let print ?at_level = print ?max_level ?at_level ppf in
       if not (Format.over_max_boxes ()) then
