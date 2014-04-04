@@ -875,7 +875,7 @@ General rules:
 
 %
 \begin{mathpar}
-\infer[\rulename{eq-name-coerce-refl}]
+\infer[\rulename{eq-name-coerce-trivial}]
   {\isterm{\G}{\e}{\Universe{\alpha}}}
   {\eqterm{\G}{(\coerce{\alpha}{\alpha}{\e})}{e}{\Universe{\alpha}}}
 
@@ -1099,12 +1099,13 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{\x}{\T}}
 
   \infer[\rulename{syn-ascribe}]
-  { \chkterm{\GH}{\e}{\T}}
+  {\istypealg{\GH}{\T} \\
+   \chkterm{\GH}{\e}{\T}}
   { \synterm{\GH}{\ascribe{\e}{\T}}{\T} }
 
   \infer[\rulename{chk-syn}]
   { \synterm{\GH}{\e}{\U} \\
-    \eqtype{\GH}{\U}{\T}
+    \eqtypealg{\GH}{\U}{\T}
   }
   { \chkterm{\GH}{\e}{\T} }
 \end{mathpar}
@@ -1422,11 +1423,35 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
 
 \paragraph{Redices}
 \begin{mathpar}
+  \infer[\rulename{norm-equation}]
+  { }
+  { \whnf
+    {\H}
+    {(\equationin{\e_1}{\e_2})}
+    {\e_2}
+  }
+
+  \infer[\rulename{norm-rewrite}]
+  { }
+  { \whnf
+    {\H}
+    {(\rewritein{\e_1}{\e_2})}
+    {\e_2}
+  }
+
+  \infer[\rulename{norm-ascribe}]
+  { }
+  { \whnf
+    {\H}
+    {(\ascribe{\e}{\T})}
+    {\e}
+  }
+
   \infer[\rulename{norm-app-beta}]
   { \whnf{\GH}{\subst{\e_1}{\x}{\e_2}}{\e_3} }
   { \whnf
     {\H}
-    {\app{(\lam{\x}{\U}{\e_1})}{\e_2}}
+    {\app{(\lam{\x}{\T}{\e_1})}{\e_2}}
     {\e_3}
   }
 
@@ -1464,7 +1489,7 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
     {\subst{\e_1}{z}{\e_2}}
   }
 
-  \infer[\rulename{norm-coerce-refl}]
+  \infer[\rulename{norm-coerce-trivial}]
   {
   }
   {
@@ -1475,10 +1500,10 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   {
   }
   {
-    \whnf{\H}{\coerce{\beta}{\gamma}{(\coerce{\alpha}{\beta}{\e})}}
-             {\coerce{\alpha}{\gamma}{\e}}
-           }
-
+    \whnf{\H}
+    {\coerce{\beta}{\gamma}{(\coerce{\alpha}{\beta}{\e})}}
+    {\coerce{\alpha}{\gamma}{\e}}
+  }
 \end{mathpar}
 %
 Rule~\rulename{norm-G} is very general, being essentially a K rule.
