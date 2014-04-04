@@ -95,7 +95,8 @@
 \newcommand{\eqtermext}[4]{#1 \vdash #2 \simeq #3 \Leftarrow #4} % equal normal-form terms
 \newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3 \Rightarrow #4} % equal terms
 
-\newcommand{\hintin}[1]{\mathsf{hint}\; #1 \; \mathsf{in} \;} % use hint
+\newcommand{\equationin}[1]{\mathsf{equation}\; #1 \; \mathsf{in} \;} % use equation hint
+\newcommand{\rewritein}[1]{\mathsf{rewrite}\; #1 \; \mathsf{in} \;} % use rewrite hint
 \newcommand{\eqtermhint}[2]{#1 \,{\equiv}\, #2 } %\,{:}\, #3)}
 \newcommand{\redtermhint}[2]{#1 \,{\leadsto}\, #2 } %\,{:}\, #3)}
 
@@ -938,7 +939,8 @@ Terms:
   \e
   \begin{aligned}[t]
     \bnf   {}&  \x   &&\text{variable} \\
-    \bnfor {}&  \hintin{\e_1} e_2 &&\text{use hint $\e_1$ in $\e_2$} \\
+    \bnfor {}&  \equationin{\e_1} e_2 &&\text{use equality hint $\e_1$ in $\e_2$} \\
+    \bnfor {}&  \rewritein{\e_1} e_2 &&\text{use normalization hint $\e_1$ in $\e_2$} \\
     \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
     \bnfor {}&  \lam{\x}{\T} \e  &&\text{$\lambda$-abstraction} \\
     \bnfor {}&   \app{\e_1}{\e_2}  &&\text{application} \\
@@ -995,9 +997,10 @@ Terms:
 
 \end{mathpar}
 %
-Note that this judgment is \emph{not} invoked by the algorithm. It is used only in describing the conditions under which the algorithm is expected to work.
+Note that this judgment is \emph{not} invoked by the algorithm. It is used only in
+describing the conditions under which the algorithm is expected to work.
 
-\subsection{Types}
+\subsection{Well-formed types}
 \label{sec:bidirectional-types}
 
 \begin{mathpar}
@@ -1036,7 +1039,7 @@ Note that this judgment is \emph{not} invoked by the algorithm. It is used only 
 \end{mathpar}
 
 
-\subsection{Well-Formed Fibered types}
+\subsection{Well-formed fibered types}
 \label{sec:bidirectional-fibered-types}
 
 \begin{mathpar}
@@ -1114,14 +1117,28 @@ If we already know the given type is well-formed, there's an even simpler algori
     \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
     \synterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
-  { \synterm{\GH}{(\hintin{\e_1} \e_2)}{\T} }
+  { \synterm{\GH}{(\equationin{\e_1} \e_2)}{\T} }
 
   \infer[\rulename{chk-eq-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
     \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
     \chkterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
-  { \chkterm{\GH}{(\hintin{\e_1} \e_2)}{\T} }
+  { \chkterm{\GH}{(\equationin{\e_1} \e_2)}{\T} }
+
+  \infer[\rulename{syn-eq-hint}]
+  { \synterm{\GH}{\e_1}{\U'} \\
+    \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \synterm{\ctxs{\G}{(\addhintred{\H}{\e_3}{\e_4})}}{\e_2}{\T}
+  }
+  { \synterm{\GH}{(\rewritein{\e_1} \e_2)}{\T} }
+
+  \infer[\rulename{chk-eq-hint}]
+  { \synterm{\GH}{\e_1}{\U'} \\
+    \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \chkterm{\ctxs{\G}{(\addhintred{\H}{\e_3}{\e_4})}}{\e_2}{\T}
+  }
+  { \chkterm{\GH}{(\rewritein{\e_1} \e_2)}{\T} }
 \end{mathpar}
 
 \paragraph{Products}
