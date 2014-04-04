@@ -1067,7 +1067,7 @@ General rules:
 %
 \begin{mathpar}
   \infer[\rulename{syn-var}]
-  { \isctxalg{\G}{\H} \\
+  {
     (\x {:} \T) \in \G
   }
   { \synterm{\GH}{\x}{\T}}
@@ -1371,14 +1371,14 @@ anything else:
   \infer[\rulename{chk-eq-hint}]
   { \isctxalg{\G}{\H}
     \\
-    \eqtermhint{\e_1}{\e_2}{\T} \in \H
+    \eqtermhint{\e_1}{\e_2} \in \H
   }
   { \eqtermalg{\GH}{\e_1}{\e_2}{\T} }
 
   \infer[\rulename{chk-eq-hint-sym}]
   { \isctxalg{\G}{\H}
     \\
-    \eqtermhint{\e_2}{\e_1}{\T} \in \H
+    \eqtermhint{\e_2}{\e_1} \in \H
   }
   { \eqtermalg{\GH}{\e_1}{\e_2}{\T} }
 \end{mathpar}
