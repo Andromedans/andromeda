@@ -52,7 +52,7 @@
 
 \newcommand{\unitTerm}{\star} % the element of the unit type
 
-\newcommand{\coerce}[3]{\mathsf{coerce}^{#2{\mapsto}#3}\ #1}
+\newcommand{\coerce}[3]{\mathsf{coerce}^{#1{\mapsto}#2}\ #3}
 
 \newcommand{\PrEqual}[3]{\mathsf{Paths}_{#1}(#2,#3)} % Propositional Equality type
 \newcommand{\JuEqual}[3]{\mathsf{Id}_{#1}(#2,#3)} % Judgmental Equality type
@@ -193,7 +193,7 @@ Terms:
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\alpha,\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
-    \bnfor {}&  \coerce{\e}{\alpha}{\beta}  &&\text{universe coercion} \\
+    \bnfor {}&  \coerce{\alpha}{\beta}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
     \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
@@ -424,7 +424,7 @@ Names:
   \infer[\rulename{term-coerce}]
   {\isterm{\G}{\e}{\Universe{\alpha}}\\
    \alpha \leq \beta}
-  {\isterm{\G}{\coerce{\e}{\alpha}{\beta}}{\Universe{\beta}}}
+  {\isterm{\G}{\coerce{\alpha}{\beta}{\e}}{\Universe{\beta}}}
 
   \infer[\rulename{name-unit}]
   {\isctx{\G}}
@@ -526,7 +526,7 @@ Computation of types from names:
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
     \alpha \leq \beta
   }
-  {\eqtype{\G}{\El{\beta}(\coerce{\e}{\alpha}{\beta})}
+  {\eqtype{\G}{\El{\beta}(\coerce{\alpha}{\beta}{\e})}
               {\El{\alpha}{e}}}
 
   \infer[\rulename{tyeq-el-paths}]
@@ -857,8 +857,8 @@ Congruence rule for coercions:
 \begin{mathpar}
   \infer[\rulename{cong-name-coerce}]
   {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
-  {\eqterm{\G}{(\coerce{\e_1}{\alpha}{\beta})}
-              {(\coerce{\e_2}{\alpha}{\beta})}
+  {\eqterm{\G}{(\coerce{\alpha}{\beta}{\e_1})}
+              {(\coerce{\alpha}{\beta}{\e_2})}
               {\Universe{\beta}}}
 \end{mathpar}
 
@@ -868,13 +868,13 @@ Functoriality of corecions:
 \begin{mathpar}
 \infer[\rulename{eq-name-coerce-refl}]
   {\isterm{\G}{\e}{\Universe{\alpha}}}
-  {\eqterm{\G}{(\coerce{\e}{\alpha}{\alpha})}{e}{\Universe{\alpha}}}
+  {\eqterm{\G}{(\coerce{\alpha}{\alpha}{\e})}{e}{\Universe{\alpha}}}
 
 \infer[\rulename{eq-name-coerce-trans}]
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
     \alpha \leq \beta \leq \gamma}
-  {\eqterm{\G}{\coerce{(\coerce{\e}{\alpha}{\beta}}{\beta}{\gamma})}
-              {\coerce{\e}{\alpha}{\gamma}}
+  {\eqterm{\G}{\coerce{\beta}{\gamma}{(\coerce{\alpha}{\beta}{\e})})}
+              {\coerce{\alpha}{\gamma}{\e}}
               {\Universe{\gamma}}}
 \end{mathpar}
 
@@ -942,7 +942,7 @@ Terms:
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\alpha,\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
-    \bnfor {}&  \coerce{\e}{\alpha}{\beta}  &&\text{universe coercion} \\
+    \bnfor {}&  \coerce{\alpha}{\beta}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
     \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
