@@ -2,7 +2,7 @@
 
 module S = Syntax
 
-    (** Support for printing of errors, warning and debugging information. *)
+(** Support for printing of errors, warning and debugging information. *)
 
 let default_verbosity = 2
 let verbosity = ref default_verbosity
@@ -21,6 +21,30 @@ let warning msg = message "Warning" 2 msg
 let debug msg = message "Debug" 3 msg
 let equivalence msg = message "Equivalence" 1 msg
 
+
+(** Given a variable [x] and a list of variable names [xs], find a variant of [x] which
+    does not appear in [xs]. *)
+let find_name x xs =
+  (** Split a variable name into base and numerical postfix, e.g.,
+      ["x42"] is split into [("x", 42)]. *)
+  let split s =
+    let n = String.length s in
+    let i = ref (n - 1) in
+      while !i >= 0 && '0' <= s.[!i] && s.[!i] <= '9' do decr i done ;
+      if !i < 0 || !i = n - 1
+      then (s, None)
+      else
+        let k = int_of_string (String.sub s (!i+1) (n - !i - 1)) in
+          (String.sub s 0 (!i+1), Some k)
+  in
+
+  if not (List.mem x xs)
+  then x
+  else
+    let (y, k) = split x in
+    let k = ref (match k with Some k -> k | None -> 0) in
+      while List.mem (y ^ string_of_int !k) xs do incr k done ;
+      y ^ string_of_int !k
 
 (** Print an term, possibly placing parentheses around it. We always
     print things at a given "level" [at_level]. If the level exceeds the
@@ -56,7 +80,7 @@ let sequence ?(sep="") f lst ppf =
 (** [tpi xs a ppf] prints abstraction [a] as dependent product using formatter [ppf]. *)
 let rec pi ?max_level xs x t1 t2 ppf =
   if S.occurs 0 t2 then
-    let x = Beautify.refresh x xs in
+    let x = find_name x xs in
       print ~at_level:3 ppf "(%s :@ %t) ->@ %t"
              x (term ~max_level:2 xs t1) (term (x :: xs) t2)
   else
@@ -65,7 +89,7 @@ let rec pi ?max_level xs x t1 t2 ppf =
 (** [tpi xs a ppf] prints abstraction [a] as dependent product using formatter [ppf]. *)
 and sigma ?max_level xs x t1 t2 ppf =
   if S.occurs 0 t2 then
-    let x = Beautify.refresh x xs in
+    let x = find_name x xs in
       print ~at_level:3 ppf "(%s :@ %t) *@ %t"
              x (term ~max_level:2 xs t1) (term (x :: xs) t2)
   else
@@ -76,7 +100,7 @@ and sigma ?max_level xs x t1 t2 ppf =
 and lambda xs x t e ppf =
   let x =
     if S.occurs 0 e
-    then Beautify.refresh x xs
+    then find_name x xs
     else "_"
   in
     print ~at_level:3 ppf "fun %s : %t =>@ %t" x (term ~max_level:2 xs t) (term (x :: xs) e)
