@@ -1067,34 +1067,40 @@ If we already know the given type is well-formed, there's an even simpler algori
 \paragraph{Hints}
 
 \begin{mathpar}
-  \infer[\rulename{syn-eq-hint}]
+  \infer[\rulename{syn-equation-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
     \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
     \synterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \synterm{\GH}{(\equationin{\e_1} \e_2)}{\T} }
 
-  \infer[\rulename{chk-eq-hint}]
+  \infer[\rulename{chk-equation-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
     \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
     \chkterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \chkterm{\GH}{(\equationin{\e_1} \e_2)}{\T} }
 
-  \infer[\rulename{syn-eq-hint}]
+  \infer[\rulename{syn-rewrite-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
     \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
     \synterm{\ctxs{\G}{(\addhintred{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \synterm{\GH}{(\rewritein{\e_1} \e_2)}{\T} }
 
-  \infer[\rulename{chk-eq-hint}]
+  \infer[\rulename{chk-rewrite-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
     \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
     \chkterm{\ctxs{\G}{(\addhintred{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \chkterm{\GH}{(\rewritein{\e_1} \e_2)}{\T} }
 \end{mathpar}
+
+Rules~\rulename{chk-equation-hint} and~\rulename{chk-reduce-hint} are among the
+few rules that perform checking differently than the default
+Rule~\rulename{chk-syn}. When they apply, we try them first (despite
+Rule~\rulename{chk-syn} being listed first in this section). In practice, if the
+rule fails, we will not backtrack and try to check without the hint.
 
 \paragraph{Products}
 
