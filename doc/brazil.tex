@@ -97,8 +97,8 @@
 
 \newcommand{\equationin}[1]{\mathsf{equation}\; #1 \; \mathsf{in} \;} % use equation hint
 \newcommand{\rewritein}[1]{\mathsf{rewrite}\; #1 \; \mathsf{in} \;} % use rewrite hint
-\newcommand{\eqtermhint}[2]{#1 \,{\equiv}\, #2 } %\,{:}\, #3)}
-\newcommand{\redtermhint}[2]{#1 \,{\leadsto}\, #2 } %\,{:}\, #3)}
+\newcommand{\eqtermhint}[2]{(#1 \,{\equiv}\, #2)} % equality hint
+\newcommand{\redtermhint}[2]{(#1 \,{\leadsto}\, #2)} % rewrite hint
 
 \renewcommand{\H}{\mathcal{H}}      % term hint list
 \newcommand{\hintempty}{\circ}      % empty hint list
@@ -135,14 +135,23 @@ For example, we may take
 with the lexicographic order, $\zero = (0,0)$ and $\FF = \{0\} \times
 \NN$. We use lowercase Greek letters for universe indices.
 
-We assume the following partial functions are given:
+We assume partial functions 
 \begin{itemize}
   \item $\piClose{\cdot}{\cdot} : \PP \times \PP \rightharpoonup \PP$
   \item $\uClose{\cdot}  : \PP \rightharpoonup \PP$
 \end{itemize}
 %
-These are \emph{not} required to compute maximum or successor, but we use the suggestive
-notation because in the standard case they do compute maxima and succesors.
+satisfying
+%
+\begin{itemize}
+\item for all $\alpha, \beta \in \FF$, if $\piClose{\alpha}{\beta}$ is defined then
+  $\piClose{\alpha}{\beta} \in \FF$,
+\item for all $\alpha \in \PP$, if $\uClose{\alpha}$ is defined then $\uClose{\alpha} \in
+  \FF$.
+\end{itemize}
+%
+The functions are \emph{not} required to compute maximum or successor, but we use the
+suggestive notation because in the standard case they do compute maxima and succesors.
 
 \section{The orthodox formulation}
 \label{sec:orthodox-formulation}
@@ -514,8 +523,8 @@ Terms:
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
    \isterm{\ctxextend{\G}{x}{\El{\e_1}}}{\e_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
-  {\eqtype{\G}{\El{\gamma}{(\nProd{\x}{\e_1}{\e_2})}}
-              {\Prod{\x}{\El{\e_1}}{\El{\beta}{\e_2}}}}
+  {\eqtype{\G}{\El{(\nProd{\x}{\e_1}{\e_2})}}
+              {\Prod{\x}{\El{\e_1}}{\El{\e_2}}}}
 
   \infer[\rulename{tyeq-el-unit}]
   { }
@@ -788,7 +797,7 @@ General rules:
   {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
    \eqterm{\ctxextend{\G}{\x}{\El{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
-  {\eqterm{\G}{\nProd{\x}{\e_1}{\e_2}}{\nProd{\x}{\e'_1}{\e'_2}}{\Universe{\gamma}}}
+  {\eqterm{\G}{(\nProd{\x}{\e_1}{\e_2})}{(\nProd{\x}{\e'_1}{\e'_2})}{\Universe{\gamma}}}
 
 \infer[\rulename{cong-name-universe}]
 {\isctx{\G} \\
@@ -970,7 +979,7 @@ describing the conditions under which the algorithm is expected to work.
   {\istypealg{\GH}{\Prod{\x}{\T}{\U}}}
 
   \infer[\rulename{tychk-el}]
-  {\chkterm{\GH}{\e}{\Universe{\alpha}}}
+  {\synterm{\GH}{\e}{\Universe{\alpha}}}
   {\istypealg{\GH}{\El{\e}}}
 
   \infer[\rulename{tychk-unit}]
@@ -1009,7 +1018,7 @@ describing the conditions under which the algorithm is expected to work.
   {\isfibalg{\GH}{\Prod{\x}{\T}{\U}}}
 
   \infer[\rulename{fibchk-el}]
-  {\chkterm{\GH}{\e}{\Universe{\alpha}}\\
+  {\synterm{\GH}{\e}{\Universe{\alpha}}\\
    \alpha\in\FF
   }
   {\isfibalg{\GH}{\El{\e}}}
@@ -1200,9 +1209,9 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{\nUniverse{\alpha}}{\Universe{\beta}} }
 
   \infer[\rulename{syn-name-prod}]
-  { \chkterm{\GH}{\e_1}{\Universe{\alpha}}
+  { \synterm{\GH}{\e_1}{\Universe{\alpha}}
     \\
-    \chkterm
+    \synterm
     {\ctxs{(\ctxextend{\G}{\x}{\El{\e_1}})}{\H}}
     {\e_2}
     {\Universe{\beta}}
@@ -1219,7 +1228,7 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{\coerce{\alpha}{\beta}{\e}}{\Universe{\beta}} }
 
   \infer[\rulename{syn-name-paths}]
-  {\chkterm{\G}{\e_\T}{\Universe{\alpha}}\\
+  {\synterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \alpha\in\FF\\
    \chkterm{\G}{\e_1}{\El{\e_\T}}\\
    \chkterm{\G}{\e_2}{\El{\e_\T}}
@@ -1228,7 +1237,7 @@ If we already know the given type is well-formed, there's an even simpler algori
 
 
   \infer[\rulename{syn-name-id}]
-  {\chkterm{\G}{\e_\T}{\Universe{\alpha}}\\
+  {\synterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \chkterm{\G}{\e_1}{\El{\e_\T}}\\
    \chkterm{\G}{\e_2}{\El{\e_\T}}
   }
@@ -1258,7 +1267,7 @@ If we already know the given type is well-formed, there's an even simpler algori
   }
   {
     \tywhnf{\H}{\El{(\nProd{\x}{\e_1}{e_2})}}
-                {\Prod{\x}{\El{\e_1}}{\El{\gamma}{\e}}}
+                {\Prod{\x}{\El{\e_1}}{\El{\e}}}
   }
 
   \infer[\rulename{tynorm-unit}]
@@ -1272,7 +1281,7 @@ If we already know the given type is well-formed, there's an even simpler algori
   {
   }
   {
-    \tywhnf{\H}{\El{\beta}{(\coerce{\alpha}{\beta}{\e}})}{\El{\e}}
+    \tywhnf{\H}{\El{(\coerce{\alpha}{\beta}{\e}})}{\El{\e}}
   }
 
   \infer[\rulename{tynorm-paths}]
@@ -1291,8 +1300,8 @@ If we already know the given type is well-formed, there's an even simpler algori
 \end{mathpar}
 %
 If $(\redtermhint{\nUnit}{\mathsf{nat}}) \in \H$, then the priority of the rules
-shown will make us try $\whnf{\H}{\El{\zero}{\nUnit}}{\El{\zero}{\mathsf{nat}}}$ first.
-Only if we backtrack will we consider $\whnf{\H}{\El{\zero}{\nUnit}}{\Unit}$.
+shown will make us try $\whnf{\H}{\El{\nUnit}}{\El{\mathsf{nat}}}$ first.
+Only if we backtrack will we consider $\whnf{\H}{\El{\nUnit}}{\Unit}$.
 
 \subsection{Type equality}
 \label{sec:bidirectional-type-equality}
@@ -1327,7 +1336,7 @@ Reflexivity is an optimization for the common case.
     \eqtermalg{\GH}{\e_1}{\e_2}{\Universe{\alpha}}
   }
   {
-    \eqtypepath{\GH}{\El{\e_1}}{\El{\beta}{\e_2}}
+    \eqtypepath{\GH}{\El{\e_1}}{\El{\e_2}}
   }
 
   \infer[\rulename{chk-tyeq-prod}]
@@ -1642,16 +1651,14 @@ same expressions before invoking the general comparison function.
 \paragraph{Whnf equivalence of names}
 \begin{mathpar}
   \infer[\rulename{chk-eq-whnf-prod}]
-  {\alpha = \gamma \\
-   \beta = \delta \\
-   \piClose{\alpha}{\beta} = \epsilon
-   \eqtermalg{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-   \eqtermalg{\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}{\e_2}{\e'_2}{\Universe{\beta}} \\
+  {\eqpath{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+   \eqpath{\ctxs{(\ctxextend{\G}{\x}{\El{\e_1}})}{\H}}{\e_2}{\e'_2}{\Universe{\beta}} \\
+   \piClose{\alpha}{\beta} = \gamma
   }
   {\eqpath{\GH}
-    {(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}
-    {(\nProd{\gamma,\delta}{\x}{\e'_1}{\e'_2})}
-    {\Universe{\epsilon}}
+    {(\nProd{\x}{\e_1}{\e_2})}
+    {(\nProd{\x}{\e'_1}{\e'_2})}
+    {\Universe{\gamma}}
   }
 
   \infer[\rulename{chk-eq-whnf-universe}]
@@ -1671,20 +1678,20 @@ same expressions before invoking the general comparison function.
   }
 
   \infer[\rulename{chk-eq-whnf-paths}]
-  {\alpha = \beta\\
-    \eqtermalg{\GH}{\e_{\T}}{\e_{\U}}{\Universe{\alpha}}\\
-    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
-    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
+  {
+    \eqpath{\GH}{\e_{\T}}{\e_{\U}}{\Universe{\alpha}}\\
+    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
+    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\e_{\T}}}
   }
-  {\eqpath{\GH}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nPrEqual{\beta}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+  {\eqpath{\GH}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\nPrEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-id}]
-  {\alpha = \beta \\
-    \eqtermalg{\GH}{\e_T}{\e_U}{\Universe{\alpha}}\\
-    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
-    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
+  {
+    \eqpath{\GH}{\e_T}{\e_U}{\Universe{\alpha}}\\
+    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
+    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\e_{\T}}}
   }
-  {\eqpath{\GH}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\beta}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+  {\eqpath{\GH}{\nJuEqual{\e_T}{\e_1}{\e_2}}{\nJuEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-coerce}]
   {
