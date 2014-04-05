@@ -52,7 +52,7 @@
 
 \newcommand{\unitTerm}{\star} % the element of the unit type
 
-\newcommand{\coerce}[3]{\mathsf{coerce}^{#1{\mapsto}#2}\ #3}
+\newcommand{\coerce}[2]{\mathsf{coerce}_{#1} \, #2}
 
 \newcommand{\PrEqual}[3]{\mathsf{Paths}_{#1}(#2,#3)} % Propositional Equality type
 \newcommand{\JuEqual}[3]{\mathsf{Id}_{#1}(#2,#3)} % Judgmental Equality type
@@ -199,10 +199,10 @@ Terms:
     \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
     \bnfor {}&  \juRefl{\T}{\e}  &&\text{reflexivity} \\
     \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{equality eliminator} \\
+    \bnfor {}&  \coerce{\alpha}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
-    \bnfor {}&  \coerce{\alpha}{\beta}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nPrEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
     \bnfor {}&  \nJuEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
@@ -430,7 +430,7 @@ Terms:
   \infer[\rulename{term-coerce}]
   {\isterm{\G}{\e}{\Universe{\alpha}}\\
    \alpha \leq \beta}
-  {\isterm{\G}{\coerce{\alpha}{\beta}{\e}}{\Universe{\beta}}}
+  {\isterm{\G}{\coerce{\beta}{\e}}{\Universe{\beta}}}
 
   \infer[\rulename{name-unit}]
   {\isctx{\G}}
@@ -534,8 +534,8 @@ Terms:
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
     \alpha \leq \beta
   }
-  {\eqtype{\G}{\El{(\coerce{\alpha}{\beta}{\e})}}
-              {\El{e}}}
+  {\eqtype{\G}{\El{(\coerce{\beta}{\e})}}
+              {\El{\e}}}
 
   \infer[\rulename{tyeq-el-paths}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
@@ -827,9 +827,11 @@ General rules:
 %
 \begin{mathpar}
   \infer[\rulename{cong-name-coerce}]
-  {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
-  {\eqterm{\G}{(\coerce{\alpha}{\beta}{\e_1})}
-              {(\coerce{\alpha}{\beta}{\e_2})}
+  {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}} \\
+    \alpha \leq \beta
+  }
+  {\eqterm{\G}{(\coerce{\beta}{\e_1})}
+              {(\coerce{\beta}{\e_2})}
               {\Universe{\beta}}}
 \end{mathpar}
 
@@ -840,13 +842,13 @@ General rules:
 \begin{mathpar}
 \infer[\rulename{eq-name-coerce-trivial}]
   {\isterm{\G}{\e}{\Universe{\alpha}}}
-  {\eqterm{\G}{(\coerce{\alpha}{\alpha}{\e})}{e}{\Universe{\alpha}}}
+  {\eqterm{\G}{(\coerce{\alpha}{\e})}{\e}{\Universe{\alpha}}}
 
 \infer[\rulename{eq-name-coerce-trans}]
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
     \alpha \leq \beta \leq \gamma}
-  {\eqterm{\G}{\coerce{\beta}{\gamma}{(\coerce{\alpha}{\beta}{\e})})}
-              {\coerce{\alpha}{\gamma}{\e}}
+  {\eqterm{\G}{\coerce{\gamma}{(\coerce{\beta}{\e})})}
+              {\coerce{\gamma}{\e}}
               {\Universe{\gamma}}}
 \end{mathpar}
 
@@ -912,10 +914,10 @@ Terms:
     \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
     \bnfor {}&  \juRefl{\T}{\e}  &&\text{reflexivity} \\
     \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{equality eliminator} \\
+    \bnfor {}&  \coerce{\e}{\alpha}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
-    \bnfor {}&  \coerce{\e}{\alpha}{\beta}  &&\text{universe coercion} \\
     \bnfor {}&  \nPrEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
     \bnfor {}&  \nJuEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
@@ -1221,11 +1223,11 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{(\nProd{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
 
   \infer[\rulename{syn-name-coerce}]
-  { \chkterm{\GH}{\e}{\Universe{\alpha}}
+  { \synterm{\GH}{\e}{\Universe{\alpha}}
     \\
     \alpha \leq \beta
   }
-  { \synterm{\GH}{\coerce{\alpha}{\beta}{\e}}{\Universe{\beta}} }
+  { \synterm{\GH}{\coerce{\beta}{\e}}{\Universe{\beta}} }
 
   \infer[\rulename{syn-name-paths}]
   {\synterm{\G}{\e_\T}{\Universe{\alpha}}\\
@@ -1281,7 +1283,7 @@ If we already know the given type is well-formed, there's an even simpler algori
   {
   }
   {
-    \tywhnf{\H}{\El{(\coerce{\alpha}{\beta}{\e}})}{\El{\e}}
+    \tywhnf{\H}{\El{(\coerce{\beta}{\e}})}{\El{\e}}
   }
 
   \infer[\rulename{tynorm-paths}]
@@ -1456,7 +1458,7 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   {
   }
   {
-    \whnf{\H}{(\coerce{\alpha}{\alpha}{\e})}{\e}
+    \whnf{\H}{(\coerce{\alpha}{\e})}{\e}
   }
 
   \infer[\rulename{norm-coerce-trans}]
@@ -1464,8 +1466,8 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   }
   {
     \whnf{\H}
-    {\coerce{\beta}{\gamma}{(\coerce{\alpha}{\beta}{\e})}}
-    {\coerce{\alpha}{\gamma}{\e}}
+    {\coerce{\gamma}{(\coerce{\beta}{\e})}}
+    {\coerce{\gamma}{\e}}
   }
 \end{mathpar}
 %
@@ -1695,13 +1697,12 @@ same expressions before invoking the general comparison function.
 
   \infer[\rulename{chk-eq-whnf-coerce}]
   {
-    \alpha = \gamma\\
-    \beta = \delta\\
-    \eqtermalg{\GH}{\e_1}{\e_2}{\Universe{\alpha}}
+    \eqpath{\GH}{\e_1}{\e_2}{\Universe{\alpha}} \\
+    \alpha \leq \beta = \gamma
   }
   {
-    \eqpath{\GH}{\coerce{\alpha}{\beta}{\e_1}}
-                {\coerce{\gamma}{\delta}{\e_2}}
+    \eqpath{\GH}{\coerce{\beta}{\e_1}}
+                {\coerce{\gamma}{\e_2}}
                 {\Universe{\beta}}
   }
 
