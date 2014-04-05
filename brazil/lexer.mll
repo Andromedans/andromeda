@@ -5,22 +5,21 @@
 
   let reserved = [
     ("coerce", COERCE) ;
-    ("ind_id", IDELIM) ;
     ("equation", EQUATION) ;
-    ("in", IN) ;
+    ("forall", FORALL) ;
+    ("fun", FUN);
     ("idpath", IDPATH) ;
-    ("ind_path", IND_PATH);
-    ("ind_id", IND_ID);
-    ("lambda", LAMBDA) ;
-    ("forall", PROD) ;
+    ("in", IN) ;
+    ("ind_eq", IND_EQ);
+    ("ind_paths", IND_PATH);
     ("refl", REFL) ;
     ("rewrite", REWRITE) ;
     ("unit", UNIT) ;
-    ("universe", UNIVERSE) ;
+    ("Universe", UNIVERSE) ;
   ]
 
   let position_of_lex lex =
-    Common.Position (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
+    Position.t (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
 }
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
@@ -34,27 +33,38 @@ rule token = parse
   | start_longcomment { comments 0 lexbuf }
 
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
+  | "//"[^'\n']*        { token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
+  | "#context"          { CONTEXT }
+  | "#quit"             { QUIT }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
+  | '['                 { LBRACK }
+  | ']'                 { RBRACK }
   | ':'                 { COLON }
   | "::"                { ASCRIBE }
   | ','                 { COMMA }
+  | "->"                { ARROW }
+  | "=>"                { DARROW }
+  | "="                 { EQ }
+  | "=="                { EQEQ }
+  | "@"                 { AT }
   | "_"                 { UNDERSCORE }
 
   | eof                 { EOF }
 
-  | (name | numeral)
+  | (name | patternvar | numeral)
                        { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved
                             with Not_found -> NAME s
                         }
 
-  | _ as c              { Error.syntax ~loc:(position_of_lex lexbuf)
+  | _ as c              { Error.syntax ~pos:(position_of_lex lexbuf)
                              "Unexpected character %s" (Char.escaped c) }
 
-(* Code to skip over nested comments *)
+(* Code to skip over nested comments
+*)
 and comments level = parse
   | end_longcomment     { if level = 0 then token lexbuf
                           else comments (level-1) lexbuf

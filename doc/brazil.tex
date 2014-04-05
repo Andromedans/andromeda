@@ -44,13 +44,14 @@
 \newcommand{\Unit}{\mathsf{Unit}} % The unit type
 \newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 
-\newcommand{\lam}[2]{\lambda #1 {:} #2 .\,} % $\lambda$-abstraction
+\newcommand{\lam}[2]{\lambda #1 {:} #2 \,.\,} % $\lambda$-abstraction
+\newcommand{\lamx}[2]{\lambda #1 \,.\,} % $\lambda$-abstraction without type annotation
 \newcommand{\app}[2]{#1\,#2} % application
 
 \newcommand{\abst}[2]{[#1 \,.\, #2]} % abstraction
 \newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
 
-\newcommand{\unitTerm}{\star} % the element of the unit type
+\newcommand{\unitTerm}{(\,)} % the element of the unit type
 
 \newcommand{\coerce}[2]{\mathsf{coerce}_{#1} \, #2}
 
@@ -193,6 +194,7 @@ Terms:
   \begin{aligned}[t]
     \bnf   {}&  \x   &&\text{variable} \\
     \bnfor {}&  \lam{\x}{\T} \e  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&  \lamx{\x}\e  &&\text{$\lambda$-abstraction} \\
     \bnfor {}&   \app{\e_1}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\

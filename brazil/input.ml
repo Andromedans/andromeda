@@ -14,9 +14,10 @@ and expr = expr' * Position.t
 and expr' =
   (* terms *)
   | Var of variable
-  | Hint of term * term
+  | EquationIn of term * term
+  | RewriteIn of term * term
   | Ascribe of term * ty
-  | Lambda of name * ty * term
+  | Lambda of name * ty option * term
   | App of term * term
   | UnitTerm
   | Idpath of term
