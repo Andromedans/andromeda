@@ -1,6 +1,4 @@
-(** Abstract syntax of input files. *)
-
-(** Abstract syntax of terms as given by the user. *)
+(** Abstract syntax of parsed input. *)
 
 type universe =
   | NonFib of int

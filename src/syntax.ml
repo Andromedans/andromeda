@@ -1,7 +1,5 @@
 (** Abstract syntax of internal expressions. *)
 
-module I = Input
-
 (** Abstract syntax of expressions, where de Bruijn indices are used to represent
     variables. *)
 type term =
@@ -23,11 +21,11 @@ type term =
   | Handle of term * term list
   | MetavarApp of metavarapp
 
-and universe = I.universe =
+and universe = Input.universe =
   | NonFib of int
   | Fib of int
 
-and eqsort = I.eqsort =
+and eqsort = Input.eqsort =
   | Ju
   | Pr
 
