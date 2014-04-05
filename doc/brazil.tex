@@ -38,8 +38,8 @@
 \newcommand{\subst}[3]{#1[#3/#2]} % substitution
 \newcommand{\substs}[2]{#1[#2]} % substitution of many variables
 
-\newcommand{\Universe}[1]{\mathbb{U}^{#1}} % non-fibered universe
-\newcommand{\El}[2]{\mathsf{El}^{#1} #2} % the type named by #2
+\newcommand{\Universe}[1]{\mathbb{U}_{#1}} % non-fibered universe
+\newcommand{\El}[1]{\mathsf{El}\, #1} % the type named by the term
 
 \newcommand{\Unit}{\mathsf{Unit}} % The unit type
 \newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
@@ -65,10 +65,10 @@
 
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
-\newcommand{\nProd}[3]{\pi^{#1} \,#2\,{:}\,#3 \,.\ } % name of a dependent product
-\newcommand{\nUniverse}[1]{u^{#1}}  % name of a universe
-\newcommand{\nPrEqual}[4]{\mathsf{paths}^{#1}_{#2}(#3,#4)} % Propositional Equality type
-\newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
+\newcommand{\nProd}[2]{\pi #1\,{:}\,#2 \,.\ } % name of a dependent product
+\newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
+\newcommand{\nPrEqual}[3]{\mathsf{paths}_{#1}(#2,#3)} % Propositional Equality type
+\newcommand{\nJuEqual}[3]{\mathsf{id}_{#1}(#2,#3)} % Judgmental Equality type
 
 
 % judgments
@@ -169,7 +169,7 @@ Types:
   \T, \U
   \begin{aligned}[t]
     \bnf   {}& \Universe{\alpha} & & \text{universe}\\
-    \bnfor {}& \El{\alpha}{\e} & & \text{type named by $e$}\\
+    \bnfor {}& \El{\e} & & \text{type named by $e$}\\
     \bnfor {}& \Unit & & \text{the unit type}\\
     \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
     \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
@@ -191,11 +191,11 @@ Terms:
     \bnfor {}&  \juRefl{\T}{\e}  &&\text{reflexivity} \\
     \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{equality eliminator} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
-    \bnfor {}&  \nProd{\alpha,\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
+    \bnfor {}&  \nProd{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
-    \bnfor {}&  \coerce{\e}{\alpha}{\beta}  &&\text{universe coercion} \\
-    \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
-    \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
+    \bnfor {}&  \coerce{\alpha}{\beta}{\e}  &&\text{universe coercion} \\
+    \bnfor {}&  \nPrEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
+    \bnfor {}&  \nJuEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
 \end{equation*}
 
@@ -244,7 +244,7 @@ Terms:
 
   \infer[\rulename{ty-el}]
   {\isterm{\G}{\e}{\Universe{\alpha}}}
-  {\istype{\G}{\El{\alpha}{\e}}}
+  {\istype{\G}{\El{\e}}}
 
   \infer[\rulename{ty-unit}]
   {\isctx{\G}}
@@ -285,7 +285,7 @@ Terms:
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
    \alpha \in \FF
   }
-  {\isfib{\G}{\El{\alpha}{\e}}}
+  {\isfib{\G}{\El{\e}}}
 
   \infer[\rulename{fib-unit}]
   {\isctx{\G} \\
@@ -436,25 +436,25 @@ Names:
 
   \infer[\rulename{name-prod}]
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
-   \isterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\beta}} \\
+   \isterm{\ctxextend{\G}{\x}{\El{\e_1}}}{\e_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma
   }
-  {\isterm{\G}{(\nProd{\alpha,\beta}{\x}{\e_1} \e_2)}{\Universe{\gamma}}}
+  {\isterm{\G}{(\nProd{\x}{\e_1} \e_2)}{\Universe{\gamma}}}
 
   \infer[\rulename{name-paths}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \alpha\in\FF\\
-   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
-   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+   \isterm{\G}{\e_1}{\El{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\isterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\isterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{name-id}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
-   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
-   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+   \isterm{\G}{\e_1}{\El{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\isterm{\G}{\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\isterm{\G}{\nJuEqual{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
 \end{mathpar}
 
@@ -482,7 +482,7 @@ Type formers are congruences:
 \begin{mathpar}
   \infer[\rulename{tycong-el}]
   {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
-  {\eqtype{\G}{\El{\alpha}{\e_1}}{\El{\alpha}{\e_2}}}
+  {\eqtype{\G}{\El{\e_1}}{\El{\e_2}}}
 
   \infer[\rulename{tycong-prod}]
   {\eqtype{\G}{\T_1}{\U_1}\\
@@ -513,38 +513,38 @@ Computation of types from names:
 \begin{mathpar}
   \infer[\rulename{tyeq-el-pi}]
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
-   \isterm{\ctxextend{\G}{x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\beta}} \\
+   \isterm{\ctxextend{\G}{x}{\El{\e_1}}}{\e_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
-  {\eqtype{\G}{\El{\gamma}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}}
-              {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}}}
+  {\eqtype{\G}{\El{\gamma}{(\nProd{\x}{\e_1}{\e_2})}}
+              {\Prod{\x}{\El{\e_1}}{\El{\beta}{\e_2}}}}
 
   \infer[\rulename{tyeq-el-unit}]
   { }
-  {\eqtype{\G}{\El{\zero}{\nUnit}}{\Unit}}
+  {\eqtype{\G}{\El{\nUnit}}{\Unit}}
 
   \infer[\rulename{tyeq-el-coerce}]
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
     \alpha \leq \beta
   }
   {\eqtype{\G}{\El{\beta}(\coerce{\e}{\alpha}{\beta})}
-              {\El{\alpha}{e}}}
+              {\El{e}}}
 
   \infer[\rulename{tyeq-el-paths}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \alpha\in\FF\\
-   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
-   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+   \isterm{\G}{\e_1}{\El{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\eqtype{\G}{\El{\alpha}{(\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
-          {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
+  {\eqtype{\G}{\El{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
+          {\PrEqual{\El{\e_\T}}{\e_1}{\e_2}}}
 
   \infer[\rulename{tyeq-el-id}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
-   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
-   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+   \isterm{\G}{\e_1}{\El{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\eqtype{\G}{\El{\alpha}{(\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2})}}
-          {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
+  {\eqtype{\G}{\El{(\nJuEqual{\e_\T}{\e_1}{\e_2})}}
+          {\JuEqual{\El{\e_\T}}{\e_1}{\e_2}}}
 
 \end{mathpar}
 
@@ -825,9 +825,9 @@ Congruence rules for names:
 \begin{mathpar}
 \infer[\rulename{cong-name-prod}]
   {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-   \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
+   \eqterm{\ctxextend{\G}{\x}{\El{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
-  {\eqterm{\G}{\nProd{\alpha,\beta}{\x}{\e_1}{\e_2}}{\nProd{\alpha,\beta}{\x}{\e'_1}{\e'_2}}{\Universe{\gamma}}}
+  {\eqterm{\G}{\nProd{\x}{\e_1}{\e_2}}{\nProd{\x}{\e'_1}{\e'_2}}{\Universe{\gamma}}}
 
 \infer[\rulename{cong-name-universe}]
 {\isctx{\G} \\
@@ -838,17 +838,17 @@ Congruence rules for names:
 \infer[\rulename{cong-name-paths}]
 {\alpha\in\FF\\
   \eqterm{\G}{\e_{\T}}{\e_{\U}}{\Universe{\alpha}}\\
-  \eqterm{\G}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
-  \eqterm{\G}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
+  \eqterm{\G}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
+  \eqterm{\G}{\e_2}{\e'_2}{\El{\e_{\T}}}
 }
-{\eqterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nPrEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+{\eqterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\nPrEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
 \infer[\rulename{cong-name-id}]
 {\eqterm{\G}{\e_T}{\e_U}{\Universe{\alpha}}\\
-  \eqterm{\G}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
-  \eqterm{\G}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
+  \eqterm{\G}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
+  \eqterm{\G}{\e_2}{\e'_2}{\El{\e_{\T}}}
 }
-{\eqterm{\G}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+{\eqterm{\G}{\nJuEqual{\e_T}{\e_1}{\e_2}}{\nJuEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 \end{mathpar}
 
 \noindent
@@ -916,7 +916,7 @@ Types:
   \T, \U
   \begin{aligned}[t]
     \bnf   {}& \Universe{\alpha} & & \text{universe}\\
-    \bnfor {}& \El{\alpha}{\e} & & \text{type named by $e$}\\
+    \bnfor {}& \El{\e} & & \text{type named by $e$}\\
     \bnfor {}& \Unit & & \text{the unit type}\\
     \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
     \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
@@ -940,11 +940,11 @@ Terms:
     \bnfor {}&  \juRefl{\T}{\e}  &&\text{reflexivity} \\
     \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{equality eliminator} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
-    \bnfor {}&  \nProd{\alpha,\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
+    \bnfor {}&  \nProd{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
     \bnfor {}&  \coerce{\e}{\alpha}{\beta}  &&\text{universe coercion} \\
-    \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
-    \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
+    \bnfor {}&  \nPrEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
+    \bnfor {}&  \nJuEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
 \end{equation*}
 
@@ -1003,7 +1003,7 @@ Note that this judgment is \emph{not} invoked by the algorithm. It is used only 
 
   \infer[\rulename{tychk-el}]
   {\chkterm{\GH}{\e}{\Universe{\alpha}}}
-  {\istypealg{\GH}{\El{\alpha}{\e}}}
+  {\istypealg{\GH}{\El{\e}}}
 
   \infer[\rulename{tychk-unit}]
   {}
@@ -1044,7 +1044,7 @@ Note that this judgment is \emph{not} invoked by the algorithm. It is used only 
   {\chkterm{\GH}{\e}{\Universe{\alpha}}\\
    \alpha\in\FF
   }
-  {\isfibalg{\GH}{\El{\alpha}{\e}}}
+  {\isfibalg{\GH}{\El{\e}}}
 
   \infer[\rulename{fibchk-unit}]
   {}
@@ -1069,7 +1069,7 @@ If we already know the given type is well-formed, there's an even simpler algori
 \begin{array}{lcl}
 \simplefib{\Universe{\alpha}} & := & \true\\
 \simplefib{\Prod{\x}{\T}{\U}} & := & \simplefib{T}\ \land\ \simplefib{U}\\
-\simplefib{\El{\alpha}{\e}} & := & \alpha\in\FF\\
+\simplefib{\El{\e}} & := & \alpha\in\FF\\
 \simplefib{\Unit} & := & \true\\
 \simplefib{\PrEqual{\T}{\e_1}{\e_2}} & := & \true\\
 \simplefib{\JuEqual{\T}{\e_1}{\e_2}} & := & \false\\
@@ -1225,13 +1225,13 @@ Names:
   { \chkterm{\GH}{\e_1}{\Universe{\alpha}}
     \\
     \chkterm
-    {\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}
+    {\ctxs{(\ctxextend{\G}{\x}{\El{\e_1}})}{\H}}
     {\e_2}
     {\Universe{\beta}}
     \\
     \piClose{\alpha}{\beta} = \gamma
   }
-  { \synterm{\GH}{(\nProd{\alpha,\beta}{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
+  { \synterm{\GH}{(\nProd{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
 
   \infer[\rulename{syn-name-coerce}]
   { \chkterm{\GH}{\e}{\Universe{\alpha}}
@@ -1243,18 +1243,18 @@ Names:
   \infer[\rulename{syn-name-paths}]
   {\chkterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \alpha\in\FF\\
-   \chkterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
-   \chkterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+   \chkterm{\G}{\e_1}{\El{\e_\T}}\\
+   \chkterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\synterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\synterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
 
   \infer[\rulename{syn-name-id}]
   {\chkterm{\G}{\e_\T}{\Universe{\alpha}}\\
-   \chkterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
-   \chkterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+   \chkterm{\G}{\e_1}{\El{\e_\T}}\\
+   \chkterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\synterm{\G}{\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\synterm{\G}{\nJuEqual{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 \end{mathpar}
 
 \subsection{Type normalization}
@@ -1267,7 +1267,7 @@ Names:
     \whnf{\H}{\e}{\e'}
   }
   {
-    \whnf{\H}{\El{\alpha}{\e}}{\El{\alpha}{\e'}}
+    \whnf{\H}{\El{\e}}{\El{\e'}}
   }
 \end{mathpar}
 
@@ -1279,36 +1279,36 @@ Names:
   {
   }
   {
-    \tywhnf{\H}{\El{\alpha}{(\nProd{\beta,\gamma}{\x}{\e_1}{e_2})}}
-                {\Prod{\x}{\El{\beta}{\e_1}}{\El{\gamma}{\e}}}
+    \tywhnf{\H}{\El{(\nProd{\x}{\e_1}{e_2})}}
+                {\Prod{\x}{\El{\e_1}}{\El{\gamma}{\e}}}
   }
 
   \infer[\rulename{tynorm-unit}]
   {
   }
   {
-    \tywhnf{\H}{\El{\alpha}{\nUnit}}{\Unit}
+    \tywhnf{\H}{\El{\nUnit}}{\Unit}
   }
 
   \infer[\rulename{tynorm-coerce}]
   {
   }
   {
-    \tywhnf{\H}{\El{\beta}{(\coerce{\alpha}{\beta}{\e}})}{\El{\alpha}{\e}}
+    \tywhnf{\H}{\El{\beta}{(\coerce{\alpha}{\beta}{\e}})}{\El{\e}}
   }
 
   \infer[\rulename{tynorm-paths}]
   {
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
-          {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
+  {\tywhnf{\H}{\El{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
+          {\PrEqual{\El{\e_\T}}{\e_1}{\e_2}}
   }
 
   \infer[\rulename{tynorm-id}]
   {
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
-          {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
+  {\tywhnf{\H}{\El{(\nJuEqual{\e_T}{\e_1}{\e_2})}}
+          {\JuEqual{\El{\e_\T}}{\e_1}{\e_2}}
   }
 \end{mathpar}
 %
@@ -1349,7 +1349,7 @@ Reflexivity is an optimization for the common case.
     \eqtermalg{\GH}{\e_1}{\e_2}{\Universe{\alpha}}
   }
   {
-    \eqtypepath{\GH}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}
+    \eqtypepath{\GH}{\El{\e_1}}{\El{\beta}{\e_2}}
   }
 
   \infer[\rulename{chk-tyeq-prod}]

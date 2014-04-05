@@ -1,6 +1,12 @@
-(** Convert input syntax to abstract syntax. Essentially, all we have to do is convert
-    variable names to De Bruijn indices. *)
+(** Convert input syntax to abstract syntax.
 
+    We convert variables do De Bruijn indices, although binders remember
+    the variables names for later printing out. We also have to decouple
+    terms from types by figuring out which expressions are types and which
+    ones are names of types. We insert [El] as necessary.
+*)
+
+(** Find the De Bruijn index of a variable. *)
 let lookup x =
   let rec search k = function
     | [] -> None
@@ -12,12 +18,7 @@ let lookup x =
 let rec ty xs (t, pos) =
   let t = 
     begin match t with
-
       | Input.Universe u -> Syntax.Universe u
-
-      | Input.El (u, e) ->
-        let e = term xs e in 
-          Syntax.El (u, term xs e)
 
       | Input.Unit -> Syntax.Unit
 
@@ -37,6 +38,23 @@ let rec ty xs (t, pos) =
         let e1 = term xs e1 in
         let e2 = term xs e2 in
           Syntax.Id (t, e1, e2)
+
+      (* We treat everything else as an element of a universe.
+         In some cases we can tell this will be an error, but we let
+         typechecking figure this out (as it has to in any case) *)
+      | (Input.Var _
+        | Input.Hint _ 
+        | Input.Ascribe _ 
+        | Input.App _
+        | Input.Lambda _
+        | Input.UnitTerm
+        | Input.Idpath _
+        | Input.J _
+        | Input.Refl _
+        | Input.G _
+        | Input.Coerce _) ->
+        let e = term xs (t, pos) in
+          Syntax.El e
     end
   in
     (t, pos)
@@ -99,10 +117,10 @@ and term xs (e, pos) =
         let e4 = term xs e4 in
           Syntax.G (t, (x, y, p, u), (z, e1), e2, e3, e4)
 
-      | Input.NameProd (u, v, x, e1, e2) ->
+      | Input.Prod (x, e1, e2) ->
         let e1 = term xs e1 in
         let e2 = term (x :: xs) e2 in
-          Syntax.NameProd (u, v, x, e1, e2)
+          Syntax.NameProd (x, e1, e2)
 
       | Input.NameUniverse u -> Syntax.NameUniverse u
 

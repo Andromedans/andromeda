@@ -3,17 +3,16 @@ type name = string
 (** Users refer to variables as strings *)
 type variable = string
 
-type ty = ty' * Position.t
-and ty' =
-  | Universe of Universe.t
-  | El of Universe.t * term
-  | Unit
-  | Prod of name * ty * ty
-  | Paths of ty * term * term
-  | Id of ty * term * term
+(** At the input level we only have expressions, which can refer either to terms
+    or types. This is so because we do not distinguish between types and their names.
+    A desugaring phase figures out what is what. *)
 
-and term = term' * Position.t
-and term' =
+type ty = expr
+
+and expr = expr' * Position.t
+
+and expr' =
+  (* terms *)
   | Var of variable
   | Hint of term * term
   | Ascribe of term * ty
@@ -24,8 +23,11 @@ and term' =
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of term
   | G of ty * (name * name * name * ty) * (name * term) * term * term * term
-  | NameProd of Universe.t * Universe.t * name * term * term
-  | NameUniverse of Universe.t
   | Coerce of Universe.t * Universe.t * term
-  | NamePaths of Universe.t * term * term * term
-  | NameId of Universe.t * term * term * term
+  (* types or their names *)
+  | Universe of Universe.t
+  | Unit
+  | Prod of name * ty * ty
+  | Paths of ty * term * term
+  | Id of ty * term * term
+

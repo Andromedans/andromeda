@@ -8,7 +8,7 @@ type variable = int
 type ty = ty' * Position.t
 and ty' =
   | Universe of Universe.t
-  | El of Universe.t * term
+  | El of term
   | Unit
   | Prod of name * ty * ty
   | Paths of ty * term * term
