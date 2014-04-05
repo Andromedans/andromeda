@@ -1,14 +1,14 @@
 
 
 (* Note: It would be nicer to define Ctx here instead of in its own
- *   "BrazilContext" file/module, but Verify needs to refer to Norm
- *   and Norm needs to reference BrazilContext, so Norm would
+ *   "Context" file/module, but Verify needs to refer to Norm
+ *   and Norm needs to reference Context, so Norm would
  *   have to be defined in this file too, or maybe in Equivalence.
  *   And I'm not prepared to do that yet.
  *
  * XXX: Normalization is now in Equivalence! So we could do this...
  *
- * Actually, Ctx should be defined in BrazilSyntax, not here in
+ * Actually, Ctx should be defined in Syntax, not here in
  * the verifier! I'm getting my Brazils confused, I think.
  *)
 
@@ -37,15 +37,15 @@ and Verify : sig
     with type handled_result = unit    (* No handler-tracking *)
 
   (* Needed by top-level TT *)
-  val verifyContext : BrazilContext.Ctx.context -> unit
+  val verifyContext : Context.Ctx.context -> unit
  end = struct
 
 
 (** Type inference. *)
 
-module Ctx = BrazilContext.Ctx
-module P = BrazilPrint
-module S = BrazilSyntax
+module Ctx = Context.Ctx
+module P = Print
+module S = Syntax
 
 
 
@@ -75,9 +75,9 @@ let lookup_definition v env = Ctx.lookup_definition v env.ctx
 let shift_to_env (env1, exp) env2 = Ctx.shift_to_ctx (env1.ctx, exp) env2.ctx
 let print_term env e = P.term env.ctx.Ctx.names e
 
-type iterm = BrazilSyntax.term
+type iterm = Syntax.term
 
-type term = BrazilSyntax.term
+type term = Syntax.term
 type handled_result = unit
 let join_hr _ _ = ()
 let trivial_hr = ()

@@ -36,12 +36,12 @@
 module type INFER_SIG = sig
 
   include Equivalence.EQUIV_ARG
-    with type handled_result = BrazilSyntax.TermSet.t
+    with type handled_result = Syntax.TermSet.t
 
   type iterm = Common.debruijn Input.term
 
   val empty_env : env
-  val get_ctx   : env -> BrazilContext.Ctx.context
+  val get_ctx   : env -> Context.Ctx.context
 
   val infer : env -> iterm -> term * term
 
@@ -100,12 +100,12 @@ and Infer : INFER_SIG = struct
   (*******************************************************)
 
   module D   = Input                 (** TT [input] syntax *)
-  module S   = BrazilSyntax          (** Fully-annotated Brazil [output] syntax *)
-  module Ctx = BrazilContext.Ctx     (** Fully-annotated typing contexts *)
-  module P   = BrazilPrint           (** Printing functions for Brazil syntax *)
+  module S   = Syntax          (** Fully-annotated Brazil [output] syntax *)
+  module Ctx = Context.Ctx     (** Fully-annotated typing contexts *)
+  module P   = Print           (** Printing functions for Brazil syntax *)
 
   type iterm = Common.debruijn Input.term  (** Input terms *)
-  type term  = BrazilSyntax.term           (** Output terms *)
+  type term  = Syntax.term           (** Output terms *)
 
   (***************************)
   (** {3 Typing Enviroments} *)
