@@ -5,24 +5,18 @@
 
   let reserved = [
     ("coerce", COERCE) ;
-    ("El", EL) ;
-    ("indId", IDELIM) ;
-    ("handle", HANDLE) ;
-    ("hint", HINT) ;
+    ("ind_id", IDELIM) ;
+    ("equation", EQUATION) ;
     ("in", IN) ;
-    ("Id", ID) ;
-    ("id", NAME_ID) ;
     ("idpath", IDPATH) ;
-    ("indPaths", PATHELIM);
+    ("ind_path", IND_PATH);
+    ("ind_id", IND_ID);
     ("lambda", LAMBDA) ;
-    ("Paths", PATHS) ;
-    ("paths", NAME_PATHS) ;
-    ("Prod", PROD) ;
-    ("prod", NAME_PROD) ;
+    ("forall", PROD) ;
     ("refl", REFL) ;
-    ("Unit", UNIT) ;
-    ("Universe", UNIVERSE) ;
-    ("universe", NAME_UNIVERSE) ;
+    ("rewrite", REWRITE) ;
+    ("unit", UNIT) ;
+    ("universe", UNIVERSE) ;
   ]
 
   let position_of_lex lex =

@@ -124,17 +124,17 @@ and term xs (e, pos) =
 
       | Input.NameUniverse u -> Syntax.NameUniverse u
 
-      | Input.Coerce (u, v, e) ->
+      | Input.Coerce (u, e) ->
         let e = term xs e in
-          Syntax.Coerce (u, v, e)
+          Syntax.Coerce (u, e)
 
-      | Input.NamePaths (u, e1, e2, e3) ->
+      | Input.NamePaths (e1, e2, e3) ->
         let e1 = term xs e1 in
         let e2 = term xs e2 in
         let e3 = term xs e3 in
-          Syntax.NamePaths (u, e1, e2, e3)
+          Syntax.NamePaths (e1, e2, e3)
 
-      | Input.NameId (u, e1, e2, e3) ->
+      | Input.NameId (e1, e2, e3) ->
         let e1 = term xs e1 in
         let e2 = term xs e2 in
         let e3 = term xs e3 in

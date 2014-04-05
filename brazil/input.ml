@@ -23,7 +23,7 @@ and expr' =
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of term
   | G of ty * (name * name * name * ty) * (name * term) * term * term * term
-  | Coerce of Universe.t * Universe.t * term
+  | Coerce of Universe.t * * term
   (* types or their names *)
   | Universe of Universe.t
   | Unit

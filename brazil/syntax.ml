@@ -26,8 +26,8 @@ and term' =
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of term
   | G of ty * (name * name * name * ty) * (name * term) * term * term * term
-  | NameProd of Universe.t * Universe.t * name * term * term
+  | Coerce of Universe.t * term
+  | NameProd of name * term * term
   | NameUniverse of Universe.t
-  | Coerce of Universe.t * Universe.t * term
-  | NamePaths of Universe.t * term * term * term
-  | NameId of Universe.t * term * term * term
+  | NamePaths of term * term * term
+  | NameId of term * term * term
