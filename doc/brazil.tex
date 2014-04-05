@@ -1299,7 +1299,7 @@ If we already know the given type is well-formed, there's an even simpler algori
   }
 \end{mathpar}
 %
-If $(\redtermhint{\nUnit}{\mathsf{nat}}) \in \H$, then the priority of the rules
+If $\redtermhint{\nUnit}{\mathsf{nat}} \in \H$, then the priority of the rules
 shown will make us try $\whnf{\H}{\El{\nUnit}}{\El{\mathsf{nat}}}$ first.
 Only if we backtrack will we consider $\whnf{\H}{\El{\nUnit}}{\Unit}$.
 
@@ -1375,8 +1375,8 @@ equivalence of base types and equivalence of universes.
 \begin{mathpar}
   \infer[\rulename{norm-hint}]
   {
-    (\redtermhint{\e}{\e'}) \in \H\\
-    \whnf{\GH}{\e'}{\e''}\\
+    \redtermhint{\e}{\e'} \in \H \\
+    \whnf{\GH}{\e'}{\e''}
   }
   { \whnf{\GH}{\e}{\e''} }
 \end{mathpar}
