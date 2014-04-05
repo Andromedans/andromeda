@@ -1,6 +1,6 @@
 (** Pretty-printing of termessions with the Ocaml [Format] library. *)
 
-module S = BrazilSyntax
+module S = Syntax
 
     (** Support for printing of errors, warning and debugging information. *)
 

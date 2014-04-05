@@ -6,10 +6,10 @@
     its context (e.g., TT type checking or Brazil verification).
 
     Of course, it does do a lot of pattern-matching, etc., so there is a
-    hard-coded assumption that we're using BrazilSyntax for the term structure.
+    hard-coded assumption that we're using Syntax for the term structure.
 *)
 module type EQUIV_ARG = sig
-  type term = BrazilSyntax.term
+  type term = Syntax.term
 
   type env
   val add_parameter     : Common.variable -> term -> env -> env
@@ -30,7 +30,7 @@ module type EQUIV_ARG = sig
 
   val shift_to_env : (env * term) -> env -> term
 
-  val instantiate : env -> BrazilSyntax.metavarapp
+  val instantiate : env -> Syntax.metavarapp
     -> term
     -> handled_result
 end
@@ -43,8 +43,8 @@ end
 
 module Make (X : EQUIV_ARG) =
 struct
-  module P = BrazilPrint
-  module S = BrazilSyntax
+  module P = Print
+  module S = Syntax
 
   (*****************************)
   (* General Utility Functions *)

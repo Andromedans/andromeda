@@ -1,6 +1,6 @@
 (** Toplevel. *)
 
-module Ctx = BrazilContext.Ctx
+module Ctx = Context.Ctx
 
 (** Should the interactive shell be run? *)
 let interactive_shell = ref true
@@ -58,7 +58,7 @@ let options = Arg.align [
       exit 0),
     " Print version information and exit");
   ("-V",
-   Arg.Int (fun k -> BrazilPrint.verbosity := k),
+   Arg.Int (fun k -> Print.verbosity := k),
    "<int> Set verbosity level");
   ("-n",
     Arg.Clear interactive_shell,
@@ -130,7 +130,7 @@ let toplevel env =
         let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
         env := exec_cmd true !env cmd
       with
-        | Error.Error err -> BrazilPrint.error err
+        | Error.Error err -> Print.error err
         | Sys.Break -> prerr_endline "Interrupted."
     done
   with End_of_file -> ()
@@ -172,4 +172,4 @@ let main =
       let ctx = Typing.Infer.get_ctx env   in
       Brazil.Verify.verifyContext ctx
   with
-    Error.Error err -> BrazilPrint.error err; exit 1
+    Error.Error err -> Print.error err; exit 1
