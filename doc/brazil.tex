@@ -45,7 +45,7 @@
 \newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 
 \newcommand{\lam}[2]{\lambda #1 {:} #2 \,.\,} % $\lambda$-abstraction
-\newcommand{\lamx}[1]{\lambda #1 \,.\,} % $\lambda$-abstraction without type annotation
+\newcommand{\lamS}[1]{\lambda #1 \,.\,} % $\lambda$-abstraction without type annotation
 \newcommand{\app}[2]{#1\,#2} % application
 
 \newcommand{\abst}[2]{[#1 \,.\, #2]} % abstraction
@@ -58,8 +58,10 @@
 \newcommand{\PrEqual}[3]{\mathsf{Paths}_{#1}(#2,#3)} % Propositional Equality type
 \newcommand{\JuEqual}[3]{\mathsf{Id}_{#1}(#2,#3)} % Judgmental Equality type
 
-\newcommand{\PrElim}[6]{\mathsf{J}_{#1}(#2, #3, #4, #5, #6)} % Propositional equality eliminator
-\newcommand{\JuElim}[6]{\mathsf{G}_{#1}(#2, #3, #4, #5, #6)} % Judgmental equality eliminator
+\newcommand{\PrElim}[4]{\mathsf{J}_{#1}(#2, #3, #4)} % Propositional equality eliminator
+\newcommand{\JuElim}[4]{\mathsf{G}_{#1}(#2, #3, #4)} % Judgmental equality eliminator
+\newcommand{\PrElimS}[3]{\mathsf{J}(#1, #2, #3)} % Synthesizing propositional equality eliminator
+\newcommand{\JuElimS}[3]{\mathsf{G}(#1, #2, #3)} % Synthesizing propositional equality eliminator
 
 \newcommand{\prRefl}[1]{\mathop{\mathsf{idpath}_{#1}}}  % Propositional refl
 \newcommand{\juRefl}[1]{\mathop{\mathsf{refl}_{#1}}}    % Judgmental refl
@@ -197,9 +199,9 @@ Terms:
     \bnfor {}&  \app{\e_1}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
-    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
-    \bnfor {}&  \juRefl{\T}{\e}  &&\text{reflexivity} \\
-    \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{equality eliminator} \\
+    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}  &&\text{path eliminator} \\
+    \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
+    \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}  &&\text{equality eliminator} \\
     \bnfor {}&  \coerce{\alpha}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\x}{\e_1} \e_2  &&\text{the name of product type} \\
@@ -364,9 +366,9 @@ Terms:
      {\e_1}
      {\substs{\U}{z/x, z/y, (\prRefl{\T}{z})/p}}
    \\
-   \isterm{\G}{\e_2}{\T} \\
    \isterm{\G}{\e_3}{\T} \\
-   \isterm{\G}{\e_4}{\PrEqual{\T}{\e_2}{\e_3}}
+   \isterm{\G}{\e_4}{\T} \\
+   \isterm{\G}{\e_2}{\PrEqual{\T}{\e_3}{\e_4}}
   }
   {\isterm
      {\G}
@@ -374,8 +376,6 @@ Terms:
         {\abst{x\,y\,p}{\U}}
         {\abst{z}{\e_1}}
         {\e_2}
-        {\e_3}
-        {\e_4}
      }
      {\substs{\U}{\e_2/x, \e_3/y, \e_4/p}}
   }
@@ -386,34 +386,32 @@ Terms:
 \begin{mathpar}
   \infer[\rulename{term-refl}]
   {\isterm{\G}{\e}{\T}}
-  {\isterm{\G}{\juRefl{\T}{\e}}{\JuEqual{\T}{\e}{\e}}}
+  {\isterm{\G}{\juRefl{\T} \e}{\JuEqual{\T}{\e}{\e}}}
 
   \infer[\rulename{term-g}]
   {\istype{\G}{\T}
    \\\\
    \istype{
      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
-   }{P}
+   }{\U}
    \\\\
    \isterm
      {\ctxextend{\G}{z}{\T}}
      {\e_1}
-     {\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
+     {\substs{\U}{z/x, z/y, (\juRefl{\T} z)/p}}
    \\
-   \isterm{\G}{\e_2}{\T} \\
    \isterm{\G}{\e_3}{\T} \\
-   \isterm{\G}{\e_4}{\JuEqual{\T}{\e_2}{\e_3}}
+   \isterm{\G}{\e_4}{\T} \\
+   \isterm{\G}{\e_2}{\JuEqual{\T}{\e_3}{\e_4}}
   }
   {\isterm
      {\G}
      {\JuElim{\T}
-        {\abst{x\,y\,p}{P}}
+        {\abst{x\,y\,p}{\U}}
         {\abst{z}{\e_1}}
         {\e_2}
-        {\e_3}
-        {\e_4}
      }
-     {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
+     {\substs{\U}{\e_2/x, \e_3/y, \e_4/p}}
   }
 
 \end{mathpar}
@@ -649,9 +647,9 @@ General rules:
    }{P}{Q} \\\\
    \eqterm{\ctxextend{\G}{z}{\T}}{\e_1}{\e'_1}{\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
    \\\\
-   \eqterm{\G}{\e_2}{\e'_2}{T} \\
    \eqterm{\G}{\e_3}{\e'_3}{T} \\
-   \eqterm{\G}{\e_4}{\e'_4}{\PrEqual{\T}{\e_2}{\e_3}}
+   \eqterm{\G}{\e_4}{\e'_4}{T} \\
+   \eqterm{\G}{\e_2}{\e'_2}{\PrEqual{\T}{\e_3}{\e_4}}
   }
   {\eqterm
      {\G}
@@ -659,15 +657,11 @@ General rules:
         {\abst{x\,y\,p}{P}}
         {\abst{z}{\e_1}}
         {\e_2}
-        {\e_3}
-        {\e_4}
      }
      {\PrElim{\U}
         {\abst{x\,y\,p}{Q}}
         {\abst{z}{\e'_1}}
         {\e'_2}
-        {\e'_3}
-        {\e'_4}
      }
      {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
   }
@@ -684,25 +678,25 @@ General rules:
    \\
    \isfib{
      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}}
-   }{P}
+   }{\U}
    \\\\
    \isterm
      {\ctxextend{\G}{z}{\T}}
      {\e_1}
-     {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
+     {\substs{\U}{z/x, z/y, (\prRefl{\T}{z})/p}}
    \\
    \isterm{\G}{\e_2}{\T}
   }
   {\eqterm{\G}
    {\PrElim{\T}
-        {\abst{x\,y\,p}{P}}
+        {\abst{x\,y\,p}{\U}}
         {\abst{z}{\e_1}}
         {\e_2}
         {\e_2}
         {\prRefl{\T}{\e_2}}
    }
    {\subst{\e_1}{z}{\e_2}}
-   {\substs{P}{\e_2/x, \e_2/x, (\prRefl{T}{\e_2})/p}}
+   {\substs{\U}{\e_2/x, \e_2/x, (\prRefl{T}{\e_2})/p}}
   }
 \end{mathpar}
 
@@ -714,36 +708,32 @@ General rules:
 \infer[\rulename{cong-refl}]
 {\eqterm{\G}{\e_1}{\e_2}{\T}\\
  \eqtype{\G}{\T}{\U}}
-{\eqterm{\G}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}{\JuEqual{\T}{\e_1}{\e_1}}}
+{\eqterm{\G}{\juRefl{\T} \e_1}{\juRefl{\U} \e_2}{\JuEqual{\T}{\e_1}{\e_1}}}
 
 \infer[\rulename{cong-g}]
   {\eqtype{\G}{\T}{\U} \\
    \eqtype{
      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
-   }{P}{Q} \\\\
-   \eqterm{\ctxextend{\G}{z}{\T}}{\e_1}{\e'_1}{\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
+   }{\U}{Q} \\\\
+   \eqterm{\ctxextend{\G}{z}{\T}}{\e_1}{\e'_1}{\substs{\U}{z/x, z/y, (\juRefl{\T} z)/p}}
    \\\\
-   \eqterm{\G}{\e_2}{\e'_2}{T} \\
-   \eqterm{\G}{\e_3}{\e'_3}{T} \\
-   \eqterm{\G}{\e_4}{\e'_4}{\JuEqual{\T}{\e_2}{\e_3}}
+   \isterm{\G}{\e_3}{T} \\
+   \isterm{\G}{\e_4}{T} \\
+   \eqterm{\G}{\e_2}{\e'_2}{\JuEqual{\T}{\e_3}{\e_4}}
   }
   {\eqterm
      {\G}
      {\JuElim{\T}
-        {\abst{x\,y\,p}{P}}
+        {\abst{x\,y\,p}{\U}}
         {\abst{z}{\e_1}}
         {\e_2}
-        {\e_3}
-        {\e_4}
      }
      {\JuElim{\U}
         {\abst{x\,y\,p}{Q}}
         {\abst{z}{\e'_1}}
         {\e'_2}
-        {\e'_3}
-        {\e'_4}
      }
-     {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
+     {\substs{\U}{\e_2/x, \e_3/y, \e_4/p}}
   }
 \end{mathpar}
 
@@ -767,25 +757,25 @@ General rules:
    \\
    \istype{
      \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
-   }{P}
+   }{\U}
    \\\\
    \isterm
      {\ctxextend{\G}{z}{\T}}
      {\e_1}
-     {\substs{P}{z/x, z/y, (\juRefl{\T}{z})/p}}
+     {\substs{\U}{z/x, z/y, (\juRefl{\T} z)/p}}
    \\
    \isterm{\G}{\e_2}{\T}
   }
   {\eqterm{\G}
    {\JuElim{\T}
-        {\abst{x\,y\,p}{P}}
+        {\abst{x\,y\,p}{\U}}
         {\abst{z}{\e_1}}
         {\e_2}
         {\e_2}
-        {\juRefl{\T}{\e_2}}
+        {\juRefl{\T} \e_2}
    }
    {\subst{\e_1}{z}{\e_2}}
-   {\substs{P}{\e_2/x, \e_2/x, (\juRefl{T}{\e_2})/p}}
+   {\substs{\U}{\e_2/x, \e_2/x, (\juRefl{T} \e_2)/p}}
   }
 \end{mathpar}
 
@@ -909,13 +899,13 @@ Terms:
     \bnfor {}&  \rewritein{\e_1} e_2 &&\text{use normalization hint $\e_1$ in $\e_2$} \\
     \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
     \bnfor {}&  \lam{\x}{\T} \e  &&\text{synthesizing $\lambda$-abstraction} \\
-    \bnfor {}&  \lamx{\x} \e  &&\text{checking $\lambda$-abstraction} \\
+    \bnfor {}&  \lamS{\x} \e  &&\text{checking $\lambda$-abstraction} \\
     \bnfor {}&  \app{\e_1}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
-    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
-    \bnfor {}&  \juRefl{\T}{\e}  &&\text{reflexivity} \\
-    \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{equality eliminator} \\
+    \bnfor {}&  \PrElimS{\e_1}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_2}}  &&\text{path eliminator} \\
+    \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
+    \bnfor {}&  \JuElimS{\e_1}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_2}}  &&\text{equality eliminator} \\
     \bnfor {}&  \coerce{\e}{\alpha}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\x}{\e_1} \e_2  &&\text{the name of product type} \\
@@ -1118,7 +1108,7 @@ If we already know the given type is well-formed, there's an even simpler algori
 
   \infer[\rulename{check-abs}]
   { \chkterm{\ctxextend{\G}{\x}{\T} ; \H}{\e}{\U} }
-  { \chkterm{\GH}{(\lamx{\x} \e)}{\Prod{\x}{\T} \U} }
+  { \chkterm{\GH}{(\lamS{\x} \e)}{\Prod{\x}{\T} \U} }
 
   \infer[\rulename{syn-app}]
   { \synterm{\GH}{\e_1}{\Prod{\x}{\T} \U} \\
@@ -1143,30 +1133,29 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{\prRefl{\T}{\e}}{\PrEqual{\T}{\e}{\e}} }
 
   \infer[\rulename{syn-j}]
-  { \isfibalg{\GH}{\T}
-     \\\\
+  {
+    \synterm{\GH}{\e_1}{\PrEqual{\T}{\e_3}{\e_4}}
+    \\
+    \isfibalg{\GH}{\T}
+     \\
     \isfibalg{
       \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}} ;
       \H
     }{\U}
-    \\\\
+    \\
     \chkterm
       {\ctxextend{\G}{z}{\T} ; \H}
-      {\e_1}
+      {\e_2}
       {\substs{\U}{z/x, z/y, (\prRefl{\T}{z})/p}}
-    \\\\
-    \chkterm{\GH}{\e_2}{\T} \\\\
-    \chkterm{\GH}{\e_3}{\T} \\\\
-    \chkterm{\GH}{\e_4}{\PrEqual{\T}{\e_2}{\e_3}}
   }
   { \synterm{\GH}{
-      \PrElim{\T}
+     \PrElimS{\e_1}
              {\abst{x\,y\,p}{\U}}
-             {\abst{z}{\e_1}}
-             {\e_2}
-             {\e_3}
-             {\e_4}
-    }{\substs{\U}{\e_2/x, \e_3/y, \e_4/p}} }
+             {\abst{z}{\e_2}}
+    }{
+      \substs{\U}{\e_3/x, \e_4/y, \e_1/p}
+    }
+  }
 \end{mathpar}
 
 \paragraph{Equality type}
@@ -1177,30 +1166,28 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{\juRefl{\T}{\e}}{\JuEqual{\T}{\e}{\e}} }
 
   \infer[\rulename{syn-g}]
-  { \istypealg{\GH}{\T}
-     \\\\
+  { \synterm{\GH}{\e_1}{\JuEqual{\T}{\e_3}{\e_4}}
+    \\
+    \istypealg{\GH}{\T}
+    \\
     \istypealg{
       \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}} ;
       \H
     }{\U}
-    \\\\
+    \\
     \chkterm
       {\ctxextend{\G}{z}{\T} ; \H}
-      {\e_1}
+      {\e_2}
       {\substs{\U}{z/x, z/y, (\juRefl{\T}{z})/p}}
-    \\\\
-    \chkterm{\GH}{\e_2}{\T} \\\\
-    \chkterm{\GH}{\e_3}{\T} \\\\
-    \chkterm{\GH}{\e_4}{\JuEqual{\T}{\e_2}{\e_3}}
   }
   { \synterm{\GH}{
-      \JuElim{\T}
-             {\abst{x\,y\,p}{\U}}
-             {\abst{z}{\e_1}}
-             {\e_2}
-             {\e_3}
-             {\e_4}
-    }{\substs{\U}{\e_2/x, \e_3/y, \e_4/p}} }
+      \JuElimS{\e_1}
+              {\abst{x\,y\,p}{\U}}
+              {\abst{z}{\e_2}}
+    }{
+      \substs{\U}{\e_3/x, \e_4/y, \e_1/p}
+    }
+  }
 \end{mathpar}
 
 \paragraph{Names}
@@ -1430,7 +1417,7 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   { \whnf{\GH}{\subst{\e_1}{\x}{\e_2}}{\e_3} }
   { \whnf
     {\H}
-    {\app{(\lamx{\x} \e_1)}{\e_2}}
+    {\app{(\lamS{\x} \e_1)}{\e_2}}
     {\e_3}
   }
 
@@ -1440,15 +1427,12 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   {
     \whnf
     {\H}
-    {\PrElim
-      {\T}
+    {\PrElimS
+      {\prRefl{\T}{\e_1}}
       {\abst{x\,y\,p}{\U}}
-      {\abst{z}{\e_1}}
-      {\e_2}
-      {\e_2}
-      {\prRefl{\T}{\e_2}}
+      {\abst{z}{\e_2}}
     }
-    {\subst{\e_1}{z}{\e_2}}
+    {\subst{\e_2}{z}{\e_1}}
   }
 
   \infer[\rulename{norm-G}]
@@ -1457,15 +1441,12 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   {
     \whnf
     {\H}
-    {\JuElim
-      {\T}
+    {\JuElimS
+      {\juRefl{\T} \e_1}
       {\abst{x\,y\,p}{\U}}
-      {\abst{z}{\e_1}}
-      {\e_2}
-      {\e_3}
-      {\e_4}
+      {\abst{z}{\e_2}}
     }
-    {\subst{\e_1}{z}{\e_2}}
+    {\subst{\e_2}{z}{\e_1}}
   }
 
   \infer[\rulename{norm-coerce-trivial}]
@@ -1495,19 +1476,16 @@ Rule~\rulename{norm-G} is very general, being essentially a K rule.
  {\whnf{\H}{\app{\e_1}{\e_2}}{\app{\e'_1}{\e_2}}}
 
  \infer[\rulename{norm-J}]
-  { \whnf{\H}{\e_4}{\e'_4}}
-  { \whnf{\G}{\PrElim{\T}
+  { \whnf{\H}{\e_1}{\e'_1}}
+  { \whnf{\G}{\PrElimS{\e_1}
                {\abst{x\,y\,p}{\U}}
-               {\abst{z}{\e_1}}
-               {\e_2}
-               {\e_3}
-               {\e_4}}
-             {\PrElim{\T}
+               {\abst{z}{\e_2}}
+             }
+             {\PrElimS{\e'_1}
                {\abst{x\,y\,p}{\U}}
-               {\abst{z}{\e_1}}
-               {\e_2}
-               {\e_3}
-               {\e'_4}}}
+               {\abst{z}{\e_2}}
+             }
+  }
 \end{mathpar}
 %
 By rule priority, if $\app{\e_1}{\e_2}$ has no hint and we take one step to
@@ -1624,32 +1602,28 @@ same expressions before invoking the general comparison function.
 
   \infer[\rulename{chk-eq-whnf-j}]
   {
-   \eqtypealg{\GH}{\T}{\U} \\
-   \eqtypealg{
-    \ctxs{
-     (\ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}})}{\H}}
-    {P}{Q} \\\\
-   \eqtermalg{\ctxs{(\ctxextend{\G}{z}{\T})}{\H}}{\e_1}{\e'_1}{\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
-   \\\\
-   \eqtermalg{\GH}{\e_2}{\e'_2}{T} \\
-   \eqtermalg{\GH}{\e_3}{\e'_3}{T} \\
-   \eqtermalg{\GH}{\e_4}{\e'_4}{\PrEqual{\T}{\e_2}{\e_3}}
+   \eqpath{\GH}{\e_1}{\e'_1}{\PrEqual{\T}{\e_3}{\e_4}} 
+    \\
+   \eqtypealg
+     {\ctxs{(\ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}})}{\H}}
+     {P}
+     {Q}
+   \\
+   \eqtermalg 
+     {\ctxs{(\ctxextend{\G}{z}{\T})}{\H}}
+     {\e_2}
+     {\e'_2}
+     {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
   }
   {\eqpath
      {\GH}
-     {\PrElim{\T}
+     {\PrElimS{\e_1}
         {\abst{x\,y\,p}{P}}
-        {\abst{z}{\e_1}}
-        {\e_2}
-        {\e_3}
-        {\e_4}
+        {\abst{z}{\e_2}}
      }
-     {\PrElim{\U}
+     {\PrElimS{\e'_1}
         {\abst{x\,y\,p}{Q}}
-        {\abst{z}{\e'_1}}
-        {\e'_2}
-        {\e'_3}
-        {\e'_4}
+        {\abst{z}{\e'_2}}
      }
      {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
   }
