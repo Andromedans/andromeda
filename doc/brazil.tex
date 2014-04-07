@@ -1569,6 +1569,15 @@ same expressions before invoking the general comparison function.
 
 \paragraph{Whnf equivalence}
 \begin{mathpar}
+  \infer[\rulename{chk-eq-whnf-equation}]
+  {
+    \eqtermhint{\e_1}{\e_2} \in \H
+  }
+  {
+    \eqpath{\GH}{\e_1}{\e_2}{\T}
+  }
+
+
   \infer[\rulename{chk-eq-whnf-var}]
   {
     (\x{:}\T)\in \G
