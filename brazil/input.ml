@@ -1,5 +1,7 @@
 type name = string
 
+let anonymous = "_"
+
 (** Users refer to variables as strings *)
 type variable = string
 
@@ -9,13 +11,15 @@ type variable = string
 
 type ty = expr
 
+and term = expr
+
 and expr = expr' * Position.t
 
 and expr' =
   (* terms *)
   | Var of variable
-  | EquationIn of term * term
-  | RewriteIn of term * term
+  | Equation of term * term
+  | Rewrite of term * term
   | Ascribe of term * ty
   | Lambda of name * ty option * term
   | App of term * term
@@ -24,7 +28,7 @@ and expr' =
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of term
   | G of ty * (name * name * name * ty) * (name * term) * term * term * term
-  | Coerce of Universe.t * * term
+  | Coerce of Universe.t * term
   (* types or their names *)
   | Universe of Universe.t
   | Unit
@@ -32,3 +36,9 @@ and expr' =
   | Paths of ty * term * term
   | Id of ty * term * term
 
+type toplevel =
+  | Help
+  | Quit
+  | Context
+  | Assume of variable list * ty
+  | Define of variable * ty option * term

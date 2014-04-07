@@ -4,14 +4,16 @@
   open Parser
 
   let reserved = [
+    ("assume", ASSUME ) ;
     ("coerce", COERCE) ;
+    ("define", DEFINE) ;
     ("equation", EQUATION) ;
     ("forall", FORALL) ;
     ("fun", FUN);
+    ("G", IND_EQ);
     ("idpath", IDPATH) ;
     ("in", IN) ;
-    ("ind_eq", IND_EQ);
-    ("ind_paths", IND_PATH);
+    ("J", IND_PATH);
     ("refl", REFL) ;
     ("rewrite", REWRITE) ;
     ("unit", UNIT) ;
@@ -42,6 +44,7 @@ rule token = parse
   | '['                 { LBRACK }
   | ']'                 { RBRACK }
   | ':'                 { COLON }
+  | ":="                { COLONEQ }
   | "::"                { ASCRIBE }
   | ','                 { COMMA }
   | "->"                { ARROW }
@@ -50,7 +53,6 @@ rule token = parse
   | "=="                { EQEQ }
   | "@"                 { AT }
   | "_"                 { UNDERSCORE }
-
   | eof                 { EOF }
 
   | (name | patternvar | numeral)
@@ -91,24 +93,25 @@ and comments level = parse
       Error.Error err -> close_in fh; raise (Error.Error err)
   with
     (* Any errors when opening or closing a file are fatal. *)
-    Sys_error msg -> Error.fatal ~loc:Common.Nowhere "%s" msg
+    Sys_error msg -> Error.fatal ~pos:Common.Nowhere "%s" msg
 
 
   let read_toplevel parser () =
-    let ends_with_semisemi str =
-      let i = ref (String.length str - 1) in
-        while !i >= 0 && List.mem str.[!i] [' '; '\n'; '\t'; '\r'] do decr i done ;
-        !i >= 1 && str.[!i - 1] = ';' && str.[!i] = ';'
+    let ends_with_backslash str =
+      let i = String.length str - 1 in
+        if i >= 0 && str.[i] = '\\'
+        then (true, String.sub str 0 i)
+        else (false, str)
     in
-
+      
     let rec read_more prompt acc =
-      if ends_with_semisemi acc
-      then acc
-      else begin
-        print_string prompt ;
-        let str = read_line () in
-          read_more "  " (acc ^ "\n" ^ str)
-      end
+      print_string prompt ;
+      let str = read_line () in
+      let more, str = ends_with_backslash str in
+      let acc = acc ^ "\n" ^ str in
+        if more
+        then read_more "  " acc
+        else acc
     in
 
     let str = read_more "# " "" in
