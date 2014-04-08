@@ -16,7 +16,7 @@ let of_string s =
     with Failure _ -> None
 
 let to_string = function
-  | Fibered k -> "fib" ^ string_of_int k
+  | Fibered k -> "f" ^ string_of_int k
   | NonFibered k -> string_of_int k
 
 let zero = Fibered 0
