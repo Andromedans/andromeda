@@ -5,9 +5,11 @@ type name = string
 (** We use de Bruijn indices *)
 type variable = int
 
+type universe = Universe.t * Position.t
+
 type ty = ty' * Position.t
 and ty' =
-  | Universe of Universe.t
+  | Universe of universe
   | El of term
   | Unit
   | Prod of name * ty * ty
@@ -26,8 +28,9 @@ and term' =
   | Idpath of ty * term
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of ty * term
-  | Coerce of Universe.t * Universe.t * term
+  | Coerce of universe * universe * term
+  | NameUnit
   | NameProd of name * term * term
-  | NameUniverse of Universe.t
+  | NameUniverse of universe
   | NamePaths of term * term * term
   | NameId of term * term * term

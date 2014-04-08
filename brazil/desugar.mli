@@ -4,4 +4,4 @@
 val ty : Input.variable list -> Input.ty -> Syntax.ty
 
 (** Convert a term from concrete to abstract syntax. *)
-val ty : Input.variable list -> Input.term -> Syntax.term
+val term : Input.variable list -> Input.term -> Syntax.term
