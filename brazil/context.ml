@@ -6,6 +6,8 @@ type t = {
   hints : (Syntax.term * Syntax.term * Syntax.ty) list
 }
 
+let empty = { vars = [] ; names = [] ; hints = [] }
+
 let add_var x t ctx =
   { ctx with
     vars = t :: ctx.vars ;

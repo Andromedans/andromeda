@@ -10,7 +10,6 @@
     ("equation", EQUATION) ;
     ("forall", FORALL) ;
     ("fun", FUN);
-    ("G", IND_EQ);
     ("idpath", IDPATH) ;
     ("in", IN) ;
     ("J", IND_PATH);
@@ -20,8 +19,6 @@
     ("Universe", UNIVERSE) ;
   ]
 
-  let position_of_lex lex =
-    Position.t (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
 }
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
@@ -55,15 +52,17 @@ rule token = parse
   | "_"                 { UNDERSCORE }
   | eof                 { EOF }
 
-  | (name | patternvar | numeral)
+  | (name | numeral)
                        { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved
                             with Not_found -> NAME s
                         }
 
-  | _ as c              { Error.syntax ~pos:(position_of_lex lexbuf)
-                             "Unexpected character %s" (Char.escaped c) }
+  | _ as c              { Error.syntax
+                          ~loc:(Position.make (Lexing.lexeme_start_p lexbuf) (Lexing.lexeme_end_p lexbuf))
+                          "Unexpected character %s" (Char.escaped c)
+                        }
 
 (* Code to skip over nested comments
 *)
@@ -93,7 +92,7 @@ and comments level = parse
       Error.Error err -> close_in fh; raise (Error.Error err)
   with
     (* Any errors when opening or closing a file are fatal. *)
-    Sys_error msg -> Error.fatal ~pos:Common.Nowhere "%s" msg
+    Sys_error msg -> Error.fatal ~loc:Position.nowhere "%s" msg
 
 
   let read_toplevel parser () =

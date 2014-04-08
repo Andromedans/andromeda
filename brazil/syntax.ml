@@ -17,16 +17,16 @@ and ty' =
 and term = term' * Position.t
 and term' =
   | Var of variable
-  | Hint of term * term
+  | Equation of term * term
+  | Rewrite of term * term
   | Ascribe of term * ty
-  | Lambda of name * ty option * term
-  | App of term * term
+  | Lambda of name * ty * ty * term
+  | App of (name * ty * ty) * term * term
   | UnitTerm
-  | Idpath of term
+  | Idpath of ty * term
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
-  | Refl of term
-  | G of ty * (name * name * name * ty) * (name * term) * term * term * term
-  | Coerce of Universe.t * term
+  | Refl of ty * term
+  | Coerce of Universe.t * Universe.t * term
   | NameProd of name * term * term
   | NameUniverse of Universe.t
   | NamePaths of term * term * term
