@@ -45,7 +45,7 @@
 \newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 
 \newcommand{\lam}[2]{\lambda #1 {:} #2 \,.\,} % $\lambda$-abstraction
-\newcommand{\app}[2]{#1\,#2} % application
+\newcommand{\app}[5]{#1\mathbin{@^{#2{:}#3.#4}} #5} % application
 
 \newcommand{\abst}[2]{[#1 \,.\, #2]} % abstraction
 \newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
@@ -93,7 +93,7 @@
 \newcommand{\eqtypepath}[3]{#1 \vdash #2 \thicksim #3} % equal normal-form types
 \newcommand{\eqtermalg}[4]{#1 \vdash #2 \thickapprox #3 \Leftarrow #4} % equal terms of normalized type
 \newcommand{\eqtermext}[4]{#1 \vdash #2 \simeq #3 \Leftarrow #4} % equal normal-form terms
-\newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3 \Rightarrow #4} % equal terms
+\newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3 \Leftarrow #4} % equal terms
 
 \newcommand{\equationin}[1]{\mathsf{equation}\; #1 \; \mathsf{in} \;} % use equation hint
 \newcommand{\rewritein}[1]{\mathsf{rewrite}\; #1 \; \mathsf{in} \;} % use rewrite hint
@@ -193,7 +193,7 @@ Terms:
   \begin{aligned}[t]
     \bnf   {}&  \x   &&\text{variable} \\
     \bnfor {}&  \lam{\x}{\T} \e  &&\text{$\lambda$-abstraction} \\
-    \bnfor {}&  \app{\e_1}{\e_2}  &&\text{application} \\
+    \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
     \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}  &&\text{path eliminator} \\
@@ -339,7 +339,7 @@ Terms:
   {\isterm{\G}{\e_1}{\Prod{x}{\T} \U} \\
    \isterm{\G}{\e_2}{\T}
   }
-  {\isterm{\G}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}}}
+  {\isterm{\G}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\subst{\U}{\x}{\e_2}}}
 \end{mathpar}
 
 \paragraph{Paths}
@@ -560,11 +560,15 @@ General rules:
               {\Prod{\x}{\T_1}{\T_2}}}
 
   \infer[\rulename{cong-app}]
-  {\eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\T}{\U}}\\
-   \eqterm{\G}{\e_2}{\e'_2}{\T}}
-  {\eqterm{\G}{\app{\e_1}{\e_2}}{\app{\e'_1}{\e'_2}}{\subst{\U}{\x}{\e_2}}}
+  {\eqtype{\G}{\T_1}{\U_1}\\
+   \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\\\
+   \eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\T_1}{\T_2}}\\
+   \eqterm{\G}{\e_2}{\e'_2}{\T_1}}
+  {\eqterm{\G}{(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})}{(\app{\e'_1}{\x}{\U_1}{\U_2}{\e'_2})}{\subst{\U_2}{\x}{\e_2}}}
 \end{mathpar}
 
+Under this rule, it seems possible for the identical-except-for-annotations terms $(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})$ and
+$(\app{\e_1}{\x}{\U_1}{\U_2}{\e_2})$ to be \emph{not} equivalent, because we cannot necessarily guarantee that $ \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}$. That seems unfortunate.  Could we safely relax this premises?
 
 \paragraph{Other rules for products}
 
@@ -573,15 +577,15 @@ General rules:
 \infer[\rulename{eq-beta}]
   {\isterm{\ctxextend{\G}{\x}{\T}}{\e_1}{\U}\\
     \isterm{\G}{\e_2}{\T}}
-  {\eqterm{\G}{\app{(\lam{\x}{\T}{\e_1})}{\e_2}}
+  {\eqterm{\G}{\app{(\lam{\x}{\T}{\e_1})}{\x}{\T}{\U}{\e_2}}
               {\subst{\e_1}{\x}{\e_2}}
               {\subst{\U}{\x}{\e_2}}}
 
   \infer[\rulename{eq-ext}]
   {\isterm{\G}{\e_1}{\Prod{\x}{\T}{\U}}\\
-   \isterm{\G}{\e_2}{\Prod{\x}{\T}{\U}}\\
-   \eqterm{\ctxextend{\G}{\x}{\T}}{\app{\e_1}{\x}}
-          {\app{\e_2}{\x}}{\U}
+   \isterm{\G}{\e_2}{\Prod{\x}{\T}{\U}}\\\\
+   \eqterm{\ctxextend{\G}{\x}{\T}}{(\app{\e_1}{\x}{\T}{\U}{\x})}
+          {(\app{\e_2}{\x}{\T}{\U}{\x})}{\U}
   }
   {\eqterm{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}}
 \end{mathpar}
@@ -809,6 +813,7 @@ Terms:
     \bnfor {}&  \rewritein{\e_1} e_2 &&\text{use normalization hint $\e_1$ in $\e_2$} \\
     \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
     \bnfor {}&  \lam{\x}{\T} \e  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
     \bnfor {}&  \PrElimS{\e_1}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_2}}  &&\text{path eliminator} \\
@@ -1014,10 +1019,10 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{(\lam{\x}{\T} \e)}{\Prod{\x}{\T} \U} }
 
   \infer[\rulename{syn-app}]
-  { \synterm{\GH}{\e_1}{\Prod{\x}{\T} \U} \\
+  { \chkterm{\GH}{\e_1}{\Prod{\x}{\T} \U} \\
     \chkterm{\GH}{\e_2}{\T}
   }
-  { \synterm{\GH}{\app{\e_1}{\e_2}}{\subst{\U}{\x}{\e_2}} }
+  { \synterm{\GH}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\subst{\U}{\x}{\e_2}} }
 \end{mathpar}
 
 \paragraph{Unit type}
@@ -1264,7 +1269,7 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   \infer[\rulename{norm-equation}]
   { }
   { \whnf
-    {\H}
+    {\GH}
     {(\equationin{\e_1}{\e_2})}
     {\e_2}
   }
@@ -1272,7 +1277,7 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   \infer[\rulename{norm-rewrite}]
   { }
   { \whnf
-    {\H}
+    {\GH}
     {(\rewritein{\e_1}{\e_2})}
     {\e_2}
   }
@@ -1280,16 +1285,18 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   \infer[\rulename{norm-ascribe}]
   { }
   { \whnf
-    {\H}
+    {\GH}
     {(\ascribe{\e}{\T})}
     {\e}
   }
 
   \infer[\rulename{norm-app-beta}]
-  { \whnf{\GH}{\subst{\e_1}{\x}{\e_2}}{\e_3} }
+  { \eqtypealg{\GH}{\T_1}{\U_1}\\
+    \eqtypealg{\ctxs{\ctxextend{\G}{\x}{\T_1}}{\H}}{\T_2}{\U_2}\\
+    \whnf{\GH}{\subst{\e_1}{\x}{\e_2}}{\e_3} }
   { \whnf
-    {\H}
-    {\app{(\lam{\x}{\T}{\e_1})}{\e_2}}
+    {\GH}
+    {\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}}
     {\e_3}
   }
 
@@ -1298,7 +1305,7 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   }
   {
     \whnf
-    {\H}
+    {\GH}
     {\PrElimS
       {\prRefl{\T}{\e_1}}
       {\abst{x\,y\,p}{\U}}
@@ -1311,14 +1318,14 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   {
   }
   {
-    \whnf{\H}{(\coerce{\alpha}{\e})}{\e}
+    \whnf{\GH}{(\coerce{\alpha}{\e})}{\e}
   }
 
   \infer[\rulename{norm-coerce-trans}]
   {
   }
   {
-    \whnf{\H}
+    \whnf{\GH}
     {\coerce{\gamma}{(\coerce{\beta}{\e})}}
     {\coerce{\gamma}{\e}}
   }
@@ -1329,12 +1336,12 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
 
 \begin{mathpar}
  \infer[\rulename{norm-app}]
- {\whnf{\H}{\e_1}{\e'_1}}
- {\whnf{\H}{\app{\e_1}{\e_2}}{\app{\e'_1}{\e_2}}}
+ {\whnf{\GH}{\e_1}{\e'_1}}
+ {\whnf{\GH}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\app{\e'_1}{\x}{\T}{\U}{\e_2}}}
 
  \infer[\rulename{norm-J}]
-  { \whnf{\H}{\e_1}{\e'_1}}
-  { \whnf{\G}{\PrElimS{\e_1}
+  { \whnf{\GH}{\e_1}{\e'_1}}
+  { \whnf{\GH}{\PrElimS{\e_1}
                {\abst{x\,y\,p}{\U}}
                {\abst{z}{\e_2}}
              }
@@ -1345,8 +1352,8 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   }
 \end{mathpar}
 %
-By rule priority, if $\app{\e_1}{\e_2}$ has no hint and we take one step to
-$\app{\e'_1}{\e_2}$, we will look again for a hint for that term before
+By rule priority, if $\app{\e_1}{\x}{\T}{\U}{\e_2}$ has no hint and we take one step to
+$\app{\e'_1}{\x}{\T}{\U}{\e_2}$, we will look again for a hint for that term before
 applying the other rules.
 
 \subsection{Term equality}
@@ -1391,7 +1398,7 @@ Otherwise, we check whether extensionality applies:
 \begin{mathpar}
   \infer[\rulename{chk-eq-ext-prod}]
   {
-    \eqtermalg{\ctxs{(\ctxextend{\G}{\x}{\T})}{\H}}{\app{\e_1}{\x}}{\app{\e_2}{\x}}{\U}
+    \eqtermalg{\ctxs{(\ctxextend{\G}{\x}{\T})}{\H}}{\app{\e_1}{\x}{\T}{\U}{\x}}{\app{\e_2}{\x}{\T}{\U}{\x}}{\U}
   }
   {
     \eqtermext{\GH}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}
@@ -1446,14 +1453,14 @@ same expressions before invoking the general comparison function.
 
   \infer[\rulename{chk-eq-whnf-app}]
   {
-    \eqpath{\GH}{\e_1}{\e'_1}{\T}\\
-    \whnfs{\H}{\T}{\Prod{\x}{\T_1}{\T_2}}\\\\
-    [ \chkterm{\GH}{\e_2}{\T_1} ]\\
-    [ \chkterm{\GH}{\e'_2}{\T_1} ] \\\\
+    \eqtypealg{\GH}{\T_1}{\T_2}\\
+    \eqtypealg{\ctxs{(\ctxextend{\G}{\x}{\T_1})}{\H}}{\T_2}{\U_2}\\\\
+    \eqpath{\GH}{\e_1}{\e'_1}{\Prod{\x}{\T_1}{\T_2}}\\
     \eqtermalg{\GH}{\e_2}{\e'_2}{\T_1}\\
   }
   {
-    \eqpath{\GH}{\app{\e_1}{\e_2}}{\app{\e'_1}{\e'_2}}
+    \eqpath{\GH}{(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})}
+                {(\app{\e'_1}{\x}{\U_1}{\U_2}{\e'_2})}
                 {\subst{\T_2}{\x}{\e_2}}
   }
 
