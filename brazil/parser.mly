@@ -83,7 +83,8 @@ expr: mark_position(plain_expr) { $1 }
 plain_expr:
   | e=plain_arrow_expr                    { e }
   | FORALL a=abstraction COMMA  e=expr    { fst (make_pi e a) }
-  | FUN    a=abstraction LBRACK u=expr RBRACK DARROW e=expr    { fst (make_lambda u e a) }
+  | FUN    a=abstraction DARROW LBRACK u=expr RBRACK e=expr
+                                          { fst (make_lambda u e a) }
   | e1=arrow_expr ASCRIBE e2=expr         { Ascribe (e1, e2) }
   | EQUATION e1=arrow_expr IN e2=expr     { Equation (e1, e2) }
   | REWRITE e1=arrow_expr IN e2=expr      { Rewrite (e1, e2) }
@@ -97,8 +98,8 @@ plain_arrow_expr:
 equiv_expr: mark_position(plain_equiv_expr) { $1 }
 plain_equiv_expr:
     | e=plain_app_expr                                     { e }
-    | e1=app_expr EQEQ e2=app_expr AT e3=app_expr          { Id (e1, e2, e3) }
-    | e1=app_expr EQ   e2=app_expr AT e3=app_expr          { Paths (e1, e2, e3) }
+    | e1=app_expr EQEQ LBRACK e3=expr RBRACK e2=app_expr   { Id (e1, e2, e3) }
+    | e1=app_expr EQ LBRACK e3=expr RBRACK e2=app_expr     { Paths (e1, e2, e3) }
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:

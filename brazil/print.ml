@@ -135,15 +135,15 @@ let rec term ?max_level xs (e,_) ppf =
 
       | Syntax.NamePaths (e1, e2, e3) ->
         print ~at_level:2 "%t =%t %t"
-          (term ~max_level:1 xs e2)
-          (annot (term ~max_level:4 xs e1))
-          (term ~max_level:1 xs e3) 
+          (term ~max_level:1 xs e1)
+          (annot (term ~max_level:4 xs e3))
+          (term ~max_level:1 xs e2) 
 
       | Syntax.NameId (e1, e2, e3) ->
         print ~at_level:2 "%t ==%t %t"
+          (term ~max_level:1 xs e1)
+          (annot (term ~max_level:4 xs e3))
           (term ~max_level:1 xs e2)
-          (annot (term ~max_level:4 xs e1))
-          (term ~max_level:1 xs e3)
 
 and ty ?max_level xs (t,_) ppf =
   let print ?at_level = print ?max_level ?at_level ppf in
