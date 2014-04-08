@@ -2,25 +2,35 @@
   open Input
 
   (* Build nested lambdas *)
-  let rec make_lambda e = function
-    | [] -> e
-    | ((xs, t), loc) :: lst ->
-      let e = make_lambda e lst in
-        List.fold_right (fun x e -> (Lambda (x, t, e), loc)) xs e
+  let make_lambda e u bs =
+    let rec make u e = function
+      | [] -> u, e
+      | ((xs, t), loc) :: lst ->
+        let u, e = make e u lst in
+          List.fold_right
+            (fun x (u, e) ->
+              ((Prod (x, t, u), loc), (Lambda (x, t, u, e), loc)))
+            xs
+            (u, e)
+    in
+      snd (make u e bs)
 
   (* Build nested pi's *)
   let rec make_pi e = function
     | [] -> e
-    | ((xs, None), loc) :: lst ->
-      Error.syntax ~loc "missing type annotation in product"
-    | ((xs, Some t), loc) :: lst ->
+    | ((xs, t), loc) :: lst ->
       let e = make_pi e lst in
         List.fold_right (fun x e -> (Prod (x, t, e), loc)) xs e
+
+  let make_universe (u, loc) =
+    match Universe.of_string u with
+      | None -> Error.syntax "invalid universe index %s" u
+      | Some u -> (u, loc)
 
 %}
 
 %token FORALL FUN
-%token <Universe.t> UNIVERSE
+%token UNIVERSE UNIT
 %token <string> NAME
 %token LPAREN RPAREN LBRACK RBRACK
 %token COLON ASCRIBE COMMA DOT
@@ -29,14 +39,14 @@
 %token EQ EQEQ AT
 %token EQUATION REWRITE IN
 %token REFL IDPATH
-%token IND_EQ IND_PATH
+%token IND_PATH
 %token UNDERSCORE
 %token DEFINE COLONEQ ASSUME
 %token CONTEXT HELP QUIT
 %token EOF
 
-%start <Common.variable Input.toplevel list> file
-%start <Common.variable Input.toplevel> commandline
+%start <Input.toplevel list> file
+%start <Input.toplevel> commandline
 
 %%
 
@@ -51,15 +61,14 @@ filecontents:
   | d=topdirective ds=filecontents  { d :: ds }
 
 commandline:
-  | topdef        { $1 }
-  | topdirective  { $1 }
+  | topdef EOF       { $1 }
+  | topdirective EOF { $1 }
 
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | DEFINE NAME COLONEQ expr               { Define ($2, None, $4) }
-  | DEFINE NAME COLON expr COLONEQ expr    { Define ($2, Some $4, $6) }
-  | ASSUME nonempty_list(NAME) COLON expr  { Assume ($2, $4) }
+  | DEFINE x=NAME COLON t=expr COLONEQ e=expr   { Define (x, t, e) }
+  | ASSUME xs=nonempty_list(NAME) COLON t=expr  { Assume (xs, t) }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
@@ -74,7 +83,7 @@ expr: mark_position(plain_expr) { $1 }
 plain_expr:
   | e=plain_arrow_expr                    { e }
   | FORALL a=abstraction COMMA  e=expr    { fst (make_pi e a) }
-  | FUN    a=abstraction DARROW e=expr    { fst (make_lambda e a) }
+  | FUN    a=abstraction LBRACK u=expr RBRACK DARROW e=expr    { fst (make_lambda u e a) }
   | e1=arrow_expr ASCRIBE e2=expr         { Ascribe (e1, e2) }
   | EQUATION e1=arrow_expr IN e2=expr     { Equation (e1, e2) }
   | REWRITE e1=arrow_expr IN e2=expr      { Rewrite (e1, e2) }
@@ -93,89 +102,73 @@ plain_equiv_expr:
 
 app_expr: mark_position(plain_app_expr) { $1 }
 plain_app_expr:
-  | e=plain_simple_expr             { e }
-  | e1=app_expr e2=simple_expr      { App (e1, e2) }
-  | COERCE u=universe_index e=expr  { Coerce (u, e) }
-  | REFL e=simple_expr              { Refl e }
-  | IDPATH e=simple_expr            { Idpath e }
+  | e=plain_simple_expr                       { e }
+  | e1=app_expr
+    AT LBRACK x=param COLON t1=equiv_expr DOT t2=expr RBRACK
+    e2=simple_expr
+                                              { App ((x, t1, t2), e1, e2) }
+  | COERCE LPAREN u1=universe COMMA u2=universe COMMA e=expr RPAREN
+                                              { let u1 = make_universe u1 in
+                                                let u2 = make_universe u2 in
+                                                  Coerce (u1, u2, e) }
+  | UNIVERSE u=universe                       { let u = make_universe u in
+                                                  Universe u }
+  | REFL LBRACK t=expr RBRACK e=simple_expr   { Refl (t, e) }
+  | IDPATH LBRACK t=expr RBRACK e=simple_expr { Idpath (t, e) }
   | IND_PATH LPAREN
-          q=expr
-        COMMA
-          LBRACK
-          x=NAME DOT
-          y=NAME DOT
-          p=NAME DOT
-          t=expr
-          RBRACK
-        COMMA
-          LBRACK
-          z=NAME DOT
-          u=expr
-          RBRACK
-        RPAREN
-                                    { J (q, (x, y, p, t), (z, u)) }
-  | IND_EQ LPAREN
-          q=expr
-        COMMA
-          x=NAME DOT
-          y=NAME DOT
-          p=NAME DOT
           t=expr
         COMMA
-          z=NAME DOT
+          LBRACK
+          x=param DOT
+          y=param DOT
+          p=param DOT
           u=expr
+          RBRACK
+        COMMA
+          LBRACK
+          z=param DOT
+          e1=expr
+          RBRACK
+        COMMA
+          e2=expr
+        COMMA
+          e3=expr
+        COMMA
+          e4=expr
         RPAREN
-                                    { G (q, (x, y, p, t), (z, u)) }
+                                              { J (t, (x, y, p, u), (z, e1), e2, e3, e4) }
 
-simple_param_name:
+param:
   | NAME { $1 }
   | UNDERSCORE { anonymous }
 
 simple_expr: mark_position(plain_simple_expr) { $1 }
 plain_simple_expr:
+  | UNIT                         { Unit }
   | x=NAME                       { Var x }
-  | UNIVERSE u=universe_index    { Universe u }
   | LPAREN e=plain_expr RPAREN   { e }
 
-universe_index: mark_position(plain_universe_index) { $1 }
-plain_universe_index:
-  | LBRACK u=NAME RBRACK         { u }
+universe: mark_position(plain_universe) { $1 }
+plain_universe:
+  | u=NAME { u }
 
 (* returns a list of things individually annotated by positions.
   Since the list is not further annotated, consistency suggests
   this should be called plain_abstraction, but as we know,
   consistency is the hemoglobin of mindless lights. *)
 abstraction:
-  | annotated_var_list  { [$1] }
-  | binds               { $1 }
+  | bind   { [$1] }
+  | nonempty_list(paren_bind)  { $1 }
 
-simple_bind1: mark_position(plain_simple_bind1) { $1 }
-plain_simple_bind1:
-    | plain_unannotated_var_list  { $1 }
-    | plain_annotated_var_list    { $1 }
+bind: mark_position(plain_bind) { $1 }
+plain_bind:
+  | xs=nonempty_list(param) COLON t=expr   { (xs, t) }
 
-unannotated_var_list: mark_position(plain_unannotated_var_list) { $1 }
-plain_unannotated_var_list:
-  | xs=nonempty_list(simple_param_name)                { (xs, None) }
-
-annotated_var_list: mark_position(plain_annotated_var_list) { $1 }
-plain_annotated_var_list:
-  | xs=nonempty_list(simple_param_name) COLON t=expr   { (xs, Some t) }
-
-binds:
-  | b=binds_leading_paren                            { b }
-  | xs=unannotated_var_list                          { [xs] }
-  | xs=unannotated_var_list bs=binds_leading_paren   { xs :: bs }
-
-bind_leading_paren:
-  | LPAREN b=simple_bind1 RPAREN                     { b }
-
-binds_leading_paren:
-  | b=bind_leading_paren                             { [b] }
-  | b=bind_leading_paren bs=binds                    { b :: bs }
+paren_bind:
+  | LPAREN b=bind RPAREN               { b }
 
 mark_position(X):
   x=X
-  { x, Common.Position ($startpos, $endpos) }
+  { x, Position.make $startpos $endpos }
 
 %%

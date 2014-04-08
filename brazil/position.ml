@@ -10,6 +10,8 @@ type t =
     assigned to it. *)
 let nowhere x = (x, Nowhere)
 
+let make start_post end_pos = Position (start_post, end_pos)
+
 let to_string ?(full=false) = function
   | Nowhere -> "?:?"
   | Position (p1,p2) when full ->
