@@ -21,7 +21,7 @@ and expr' =
   | Equation of term * term (* equation e1 in e2 *)
   | Rewrite of term * term (* rewrite e1 in e2 *)
   | Ascribe of term * ty (* e :: T *)
-  | Lambda of variable * ty * ty * term (* fun (x : T) [U] => e *)
+  | Lambda of variable * ty * ty * term (* fun (x : T) =>[U] e *)
   | App of (variable * ty * ty) * term * term (* e1 @[x : T . U] e2 *)
   | UnitTerm (* () *)
   | Idpath of ty * term (* idpath [T] e *)

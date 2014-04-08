@@ -5,12 +5,12 @@ type t =
   | Position of Lexing.position * Lexing.position (** delimited position *)
   | Nowhere (** unknown position *)
 
-(** [nowhere e] is the expression [e] without a source position. It is used when
-    an expression is generated and there is not reasonable position that could be
-    assigned to it. *)
-let nowhere x = (x, Nowhere)
+let nowhere = Nowhere
 
 let make start_post end_pos = Position (start_post, end_pos)
+
+let of_lex lex = 
+  Position (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
 
 let to_string ?(full=false) = function
   | Nowhere -> "?:?"

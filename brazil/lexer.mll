@@ -40,6 +40,7 @@ rule token = parse
   | ')'                 { RPAREN }
   | '['                 { LBRACK }
   | ']'                 { RBRACK }
+  | "."                 { DOT }
   | ':'                 { COLON }
   | ":="                { COLONEQ }
   | "::"                { ASCRIBE }

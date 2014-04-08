@@ -2,7 +2,18 @@ type t =
   | Fibered of int
   | NonFibered of int
 
-let of_string s = failwith "not implemented"
+let of_string s =
+  let n = String.length s in
+  if n = 0 then None
+  else
+    try
+      if s.[0] = 'f' || s.[0] = 'F' then
+        let u = int_of_string (String.sub s 1 (n - 1)) in
+          Some (Fibered u)
+      else
+        let u = int_of_string s in
+          Some (NonFibered u)
+    with Failure _ -> None
 
 let to_string = function
   | Fibered k -> "fib" ^ string_of_int k

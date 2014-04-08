@@ -39,7 +39,7 @@ let options = Arg.align [
     " Do not use a command-line wrapper");
   ("-v",
     Arg.Unit (fun () ->
-      Print.message "Brazil %s (%s)@." Version.version Sys.os_type ;
+      Format.printf "Brazil %s (%s)@." Config.version Sys.os_type ;
       exit 0),
     " Print version information and exit");
   ("-V",
@@ -64,9 +64,9 @@ let parse parser lex =
     parser Lexer.token lex
   with
   | Parser.Error ->
-      Error.syntax ~loc:(Lexer.position_of_lex lex) ""
+      Error.syntax ~loc:(Position.of_lex lex) ""
   | Failure "lexing: empty token" ->
-      Error.syntax ~loc:(Lexer.position_of_lex lex) "unrecognised symbol."
+      Error.syntax ~loc:(Position.of_lex lex) "unrecognised symbol."
 
 (** [exec_cmd ctx d] executes toplevel directive [d] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
@@ -76,18 +76,20 @@ let rec exec_cmd interactive ctx (d, loc) =
     | Input.Assume (xs, t) ->
         let t = Desugar.ty names t in
           if interactive then
-            List.iter (fun x -> Print.message "assume %s : %t" x (Print.ty names t)) xs ;
+            begin
+              List.iter (fun x -> Format.printf "%s is assumed.@\n" x) xs ;
+              Format.printf "@."
+            end ;
           List.fold_left (fun ctx x -> Context.add_var x t ctx) ctx xs
     | Input.Define (x, t, e) ->
       let t = Desugar.ty names t in
       let e = Desugar.term names e in
-        if interactive then
-          Print.message"define %s : %t := %t" x (Print.ty names) (Print.term names e) ;
-        Contex.add_def x t e ctx
+        if interactive then Format.printf "%s is defined.@\n@." x ;
+        Context.add_def x t e ctx
     | Input.Context ->
         Context.print ctx ; ctx
     | Input.Help ->
-      Print.message "%s" help_text ; ctx
+      Format.printf "%s" help_text ; ctx
     | Input.Quit ->
       exit 0
 
@@ -98,7 +100,7 @@ and use_file ctx (filename, interactive) =
 
 (** Interactive toplevel *)
 let toplevel ctx =
-  Print.message "Brazil %s@\n[Type #help for help.]@\n" Version.version ;
+  Format.printf "Brazil %s@\n[Type #help for help.]@." Config.version ;
   try
     let ctx = ref ctx in
     while true do
@@ -107,7 +109,7 @@ let toplevel ctx =
         ctx := exec_cmd true !ctx cmd
       with
         | Error.Error err -> Print.error err
-        | Sys.Break -> Print.message "Interrupted.@."
+        | Sys.Break -> Format.printf "Interrupted.@."
     done
   with End_of_file -> ()
 

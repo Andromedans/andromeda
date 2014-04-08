@@ -119,8 +119,8 @@ plain_app_expr:
           t=expr
         COMMA
           LBRACK
-          x=param DOT
-          y=param DOT
+          x=param
+          y=param
           p=param DOT
           u=expr
           RBRACK
