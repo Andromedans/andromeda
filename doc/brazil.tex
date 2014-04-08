@@ -44,7 +44,7 @@
 \newcommand{\Unit}{\mathsf{Unit}} % The unit type
 \newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 
-\newcommand{\lam}[2]{\lambda #1 {:} #2 \,.\,} % $\lambda$-abstraction
+\newcommand{\lam}[3]{\lambda #1 {:} #2.{#3}\,.\,} % $\lambda$-abstraction
 \newcommand{\app}[5]{#1\mathbin{@^{#2{:}#3.#4}} #5} % application
 
 \newcommand{\abst}[2]{[#1 \,.\, #2]} % abstraction
@@ -60,8 +60,8 @@
 \newcommand{\PrElim}[4]{\mathsf{J}_{#1}(#2, #3, #4)} % Propositional equality eliminator
 \newcommand{\PrElimS}[3]{\mathsf{J}(#1, #2, #3)} % Synthesizing propositional equality eliminator
 
-\newcommand{\prRefl}[1]{\mathop{\mathsf{idpath}_{#1}}}  % Propositional refl
-\newcommand{\juRefl}[1]{\mathop{\mathsf{refl}_{#1}}}    % Judgmental refl
+\newcommand{\prRefl}[1]{{\mathsf{idpath}_{#1}}\ }  % Propositional refl
+\newcommand{\juRefl}[1]{{\mathsf{refl}_{#1}}\ }    % Judgmental refl
 
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
@@ -192,7 +192,7 @@ Terms:
   \e
   \begin{aligned}[t]
     \bnf   {}&  \x   &&\text{variable} \\
-    \bnfor {}&  \lam{\x}{\T} \e  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&  \lam{\x}{\T_1}{\T_2} \e  &&\text{$\lambda$-abstraction} \\
     \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
@@ -333,7 +333,7 @@ Terms:
 \begin{mathpar}
   \infer[\rulename{term-abs}]
   {\isterm{\ctxextend{\G}{\x}{\T}}{\e}{\U}}
-  {\isterm{\G}{(\lam{\x}{\T}{\e})}{\Prod{\x}{\T}{\U}}}
+  {\isterm{\G}{(\lam{\x}{\T}{\U}{\e})}{\Prod{\x}{\T}{\U}}}
 
   \infer[\rulename{term-app}]
   {\isterm{\G}{\e_1}{\Prod{x}{\T} \U} \\
@@ -554,9 +554,10 @@ General rules:
 \begin{mathpar}
   \infer[\rulename{cong-abs}]
   {\eqtype{\G}{\T_1}{\U_1}\\
+    \eqterm{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\
     \eqterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\e_2}{\T_2}}
-  {\eqterm{\G}{(\lam{\x}{\T_1}{\e_1})}
-              {(\lam{\x}{\U_1}{\e_2})}
+  {\eqterm{\G}{(\lam{\x}{\T_1}{\T_2}{\e_1})}
+              {(\lam{\x}{\U_1}{\U_2}{\e_2})}
               {\Prod{\x}{\T_1}{\T_2}}}
 
   \infer[\rulename{cong-app}]
@@ -575,11 +576,13 @@ $(\app{\e_1}{\x}{\U_1}{\U_2}{\e_2})$ to be \emph{not} equivalent, because we can
 %
 \begin{mathpar}
 \infer[\rulename{eq-beta}]
-  {\isterm{\ctxextend{\G}{\x}{\T}}{\e_1}{\U}\\
+  {\eqtype{\G}{\T_1}{\U_1}\\
+    \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\
+    \isterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\T_2}\\
     \isterm{\G}{\e_2}{\T}}
-  {\eqterm{\G}{\app{(\lam{\x}{\T}{\e_1})}{\x}{\T}{\U}{\e_2}}
+  {\eqterm{\G}{\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}}
               {\subst{\e_1}{\x}{\e_2}}
-              {\subst{\U}{\x}{\e_2}}}
+              {\subst{\T_2}{\x}{\e_2}}}
 
   \infer[\rulename{eq-ext}]
   {\isterm{\G}{\e_1}{\Prod{\x}{\T}{\U}}\\
@@ -812,7 +815,7 @@ Terms:
     \bnfor {}&  \equationin{\e_1} e_2 &&\text{use equality hint $\e_1$ in $\e_2$} \\
     \bnfor {}&  \rewritein{\e_1} e_2 &&\text{use normalization hint $\e_1$ in $\e_2$} \\
     \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
-    \bnfor {}&  \lam{\x}{\T} \e  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&  \lam{\x}{\T_1}{\T_2} \e  &&\text{$\lambda$-abstraction} \\
     \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
@@ -1016,7 +1019,7 @@ If we already know the given type is well-formed, there's an even simpler algori
 \begin{mathpar}
   \infer[\rulename{syn-abs}]
   { \synterm{\ctxextend{\G}{\x}{\T} ; \H}{\e}{\U} }
-  { \synterm{\GH}{(\lam{\x}{\T} \e)}{\Prod{\x}{\T} \U} }
+  { \synterm{\GH}{(\lam{\x}{\T}{\U} \e)}{\Prod{\x}{\T} \U} }
 
   \infer[\rulename{syn-app}]
   { \chkterm{\GH}{\e_1}{\Prod{\x}{\T} \U} \\
