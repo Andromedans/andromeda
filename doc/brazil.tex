@@ -3,6 +3,7 @@
 \usepackage{times}
 \usepackage{mathpartir}
 \usepackage{amsmath,amsfonts,amssymb}
+\usepackage{xcolor}
 
 %% Macros here
 
@@ -50,22 +51,21 @@
 \newcommand{\abst}[2]{[#1 \,.\, #2]} % abstraction
 \newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
 
-\newcommand{\unitTerm}{(\,)} % the element of the unit type
+\newcommand{\unitTerm}{\star} % the element of the unit type
 
 \newcommand{\coerce}[2]{\mathsf{coerce}_{#1} \, #2}
 
 \newcommand{\PrEqual}[3]{\mathsf{Paths}_{#1}(#2,#3)} % Propositional Equality type
 \newcommand{\JuEqual}[3]{\mathsf{Id}_{#1}(#2,#3)} % Judgmental Equality type
 
-\newcommand{\PrElim}[4]{\mathsf{J}_{#1}(#2, #3, #4)} % Propositional equality eliminator
-\newcommand{\PrElimS}[3]{\mathsf{J}(#1, #2, #3)} % Synthesizing propositional equality eliminator
+\newcommand{\PrElim}[6]{\mathsf{J}_{#1}(#2, #3, #4, #5, #6)} % Propositional equality eliminator
 
 \newcommand{\prRefl}[1]{{\mathsf{idpath}_{#1}}\ }  % Propositional refl
 \newcommand{\juRefl}[1]{{\mathsf{refl}_{#1}}\ }    % Judgmental refl
 
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
-\newcommand{\nProd}[2]{\pi #1\,{:}\,#2 \,.\ } % name of a dependent product
+\newcommand{\nProd}[4]{\pi #1\,{:}\,#2 \,.\ } % name of a dependent product
 \newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
 \newcommand{\nPrEqual}[3]{\mathsf{paths}_{#1}(#2,#3)} % Propositional Equality type
 \newcommand{\nJuEqual}[3]{\mathsf{id}_{#1}(#2,#3)} % Judgmental Equality type
@@ -196,7 +196,7 @@ Terms:
     \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
-    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}  &&\text{path eliminator} \\
+    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
     \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
     \bnfor {}&  \coerce{\alpha}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
@@ -372,6 +372,7 @@ Terms:
         {\abst{x\,y\,p}{\U}}
         {\abst{z}{\e_1}}
         {\e_2}
+        {\e_3}{\e_4}
      }
      {\substs{\U}{\e_2/x, \e_3/y, \e_4/p}}
   }
@@ -554,7 +555,7 @@ General rules:
 \begin{mathpar}
   \infer[\rulename{cong-abs}]
   {\eqtype{\G}{\T_1}{\U_1}\\
-    \eqterm{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\
+    \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\
     \eqterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\e_2}{\T_2}}
   {\eqterm{\G}{(\lam{\x}{\T_1}{\T_2}{\e_1})}
               {(\lam{\x}{\U_1}{\U_2}{\e_2})}
@@ -565,11 +566,15 @@ General rules:
    \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\\\
    \eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\T_1}{\T_2}}\\
    \eqterm{\G}{\e_2}{\e'_2}{\T_1}}
-  {\eqterm{\G}{(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})}{(\app{\e'_1}{\x}{\U_1}{\U_2}{\e'_2})}{\subst{\U_2}{\x}{\e_2}}}
+  {\eqterm{\G}{(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})}{(\app{\e'_1}{\x}{\U_1}{\U_2}{\e'_2})}{\subst{\T_2}{\x}{\e_2}}}
 \end{mathpar}
 
-Under this rule, it seems possible for the identical-except-for-annotations terms $(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})$ and
-$(\app{\e_1}{\x}{\U_1}{\U_2}{\e_2})$ to be \emph{not} equivalent, because we cannot necessarily guarantee that $ \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}$. That seems unfortunate.  Could we safely relax this premises?
+The annotations on an application really do matter for determining when two
+terms are equal. For example, if $X,Y : \Universe{\zero}$, $f : \mathsf{nat}\to X$ and $e
+: \JuEqual{\Universe{\zero}}{\mathsf{nat}{\to}X}{\mathsf{nat}{\to}Y}$, then
+$(\app{f}{\_}{\mathsf{nat}}{X} 0) : X$ and $(\app{f}{\_}{\mathsf{nat}}{Y} 0) : Y$,
+so the two identical-but-for-annotations terms have different types and thus
+cannot be equivalent.
 
 \paragraph{Other rules for products}
 
@@ -579,11 +584,53 @@ $(\app{\e_1}{\x}{\U_1}{\U_2}{\e_2})$ to be \emph{not} equivalent, because we can
   {\eqtype{\G}{\T_1}{\U_1}\\
     \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\
     \isterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\T_2}\\
-    \isterm{\G}{\e_2}{\T}}
-  {\eqterm{\G}{\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}}
+    \isterm{\G}{\e_2}{\U_1}}
+  {\eqterm{\G}{\bigl(\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}\bigr)}
               {\subst{\e_1}{\x}{\e_2}}
               {\subst{\T_2}{\x}{\e_2}}}
+\end{mathpar}
 
+
+{  \color{blue}
+
+\begin{mathpar}
+\infer[\rulename{eq-beta-alternate}]
+  {\eqtype{\G}{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}\\
+    \isterm{\ctxextend{\G}{\x}{\U_1}}{\e_1}{\U_2}\\
+    \isterm{\G}{\e_2}{\U_1}}
+  {\eqterm{\G}{\bigl(\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}\bigr)}
+              {\subst{\e_1}{\x}{\e_2}}
+              {\subst{\U_2}{\x}{\e_2}}}
+\end{mathpar}
+
+This alternate formulation of the beta rule is more general. For example,
+we can use it to derive:
+\[
+  \eqterm{w:\JuEqual{\Universe{\zero}}{\mathsf{Nat}{\to}\Unit}{\mathsf{Bool}{\to}\Unit}}
+         {\bigl(\app{(\lam{\x}{\mathsf{Nat}}{\Unit}{\unitTerm})}
+               {\_}{\mathsf{Bool}}{\Unit}
+               {\mathsf{true}}\bigr)}
+         {\unitTerm}
+         {\Unit}
+       \]
+The cost is is that it's more
+expensive to check whether this rule safe to apply during normalization.
+In Rule~\rulename{eq-beta}, the well-formedness premises must hold
+(if the beta-redex is well-formed) and don't need to be checked.
+For Rule~\rulename{eq-beta-alternate}, we are guaranteed only that
+$\isterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\T_2}$ and so the well-formedness
+premise
+$\isterm{\ctxextend{\G}{\x}{\U_1}}{\e_1}{\U_2}$ would have to be
+re-checked algorithmically at run-time.
+
+Of course, Rule~\rulename{eq-beta-alternate} implies Rule~\rulename{eq-beta}, and the latter is by
+far the most common case (i.e., the Pi types are equivalent because their domains are
+equivalent and their codomains are equivalent, not because of some weird equation). So
+in practice, we might always try to justify beta-reductions by \rulename{eq-beta},
+and try the more expensive \rulename{eq-beta-alternate} only when that fails.
+}
+
+\begin{mathpar}
   \infer[\rulename{eq-ext}]
   {\isterm{\G}{\e_1}{\Prod{\x}{\T}{\U}}\\
    \isterm{\G}{\e_2}{\Prod{\x}{\T}{\U}}\\\\
@@ -593,6 +640,13 @@ $(\app{\e_1}{\x}{\U_1}{\U_2}{\e_2})$ to be \emph{not} equivalent, because we can
   {\eqterm{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}}
 \end{mathpar}
 
+\paragraph{Eta rule for unit type}
+
+\begin{mathpar}
+  \infer[\rulename{eta-star}]
+  {\isterm{\G}{\e}{\Unit}}
+  {\eqterm{\G}{\e}{\unitTerm}{\Unit}}
+\end{mathpar}
 
 \paragraph{Congruence rules for paths}
 
@@ -633,11 +687,13 @@ $(\app{\e_1}{\x}{\U_1}{\U_2}{\e_2})$ to be \emph{not} equivalent, because we can
         {\abst{x\,y\,p}{P}}
         {\abst{z}{\e_1}}
         {\e_2}
+        {\e_3}{\e_4}
      }
      {\PrElim{\U}
         {\abst{x\,y\,p}{Q}}
         {\abst{z}{\e'_1}}
         {\e'_2}
+        {\e'_3}{\e'_4}
      }
      {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
   }
@@ -667,9 +723,9 @@ $(\app{\e_1}{\x}{\U_1}{\U_2}{\e_2})$ to be \emph{not} equivalent, because we can
    {\PrElim{\T}
         {\abst{x\,y\,p}{\U}}
         {\abst{z}{\e_1}}
-        {\e_2}
-        {\e_2}
         {\prRefl{\T}{\e_2}}
+        {\e_2}
+        {\e_2}
    }
    {\subst{\e_1}{z}{\e_2}}
    {\substs{\U}{\e_2/x, \e_2/x, (\prRefl{T}{\e_2})/p}}
@@ -688,6 +744,15 @@ $(\app{\e_1}{\x}{\U_1}{\U_2}{\e_2})$ to be \emph{not} equivalent, because we can
 \end{mathpar}
 
 
+\paragraph{Eta rules for equalities}
+
+%
+\begin{mathpar}
+\infer[\rulename{K-refl}]
+{\isterm{\G}{\e_1}{\JuEqual{\T}{\e_2}{\e_2}}}
+{\eqterm{\G}{\e_1}{(\juRefl{\T} \e_2)}{\JuEqual{\T}{\e_2}{\e_2}}}
+\end{mathpar}
+
 \paragraph{Equality reflection}
 
 %
@@ -696,6 +761,7 @@ $(\app{\e_1}{\x}{\U_1}{\U_2}{\e_2})$ to be \emph{not} equivalent, because we can
   {\isterm{\G}{\e}{\JuEqual{\T}{\e_1}{\e_2}}}
   {\eqterm{\G}{\e_1}{\e_2}{\T}}
 \end{mathpar}
+
 
 \paragraph{Congruence rules for names}
 
@@ -819,7 +885,7 @@ Terms:
     \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
-    \bnfor {}&  \PrElimS{\e_1}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_2}}  &&\text{path eliminator} \\
+    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
     \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
     \bnfor {}&  \coerce{\e}{\alpha}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
@@ -1045,8 +1111,6 @@ If we already know the given type is well-formed, there's an even simpler algori
 
   \infer[\rulename{syn-j}]
   {
-    \synterm{\GH}{\e_1}{\PrEqual{\T}{\e_3}{\e_4}}
-    \\
     \isfibalg{\GH}{\T}
      \\
     \isfibalg{
@@ -1058,13 +1122,18 @@ If we already know the given type is well-formed, there's an even simpler algori
       {\ctxextend{\G}{z}{\T} ; \H}
       {\e_2}
       {\substs{\U}{z/x, z/y, (\prRefl{\T}{z})/p}}
+    \\
+    \chkterm{\GH}{\e_3}{\T}\\
+    \chkterm{\GH}{\e_4}{\T}\\
+    \chkterm{\GH}{\e_2}{\PrEqual{\T}{\e_3}{\e_4}} \\
   }
   { \synterm{\GH}{
-     \PrElimS{\e_1}
+     \PrElim{\T}
              {\abst{x\,y\,p}{\U}}
-             {\abst{z}{\e_2}}
+             {\abst{z}{\e_1}}
+             {\e_2}{\e_3}{\e_4}
     }{
-      \substs{\U}{\e_3/x, \e_4/y, \e_1/p}
+      \substs{\U}{\e_3/x, \e_4/y, \e_2/p}
     }
   }
 \end{mathpar}
@@ -1295,28 +1364,54 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
 
   \infer[\rulename{norm-app-beta}]
   { \eqtypealg{\GH}{\T_1}{\U_1}\\
-    \eqtypealg{\ctxs{\ctxextend{\G}{\x}{\T_1}}{\H}}{\T_2}{\U_2}\\
-    \whnf{\GH}{\subst{\e_1}{\x}{\e_2}}{\e_3} }
+    \eqtypealg{\ctxs{\ctxextend{\G}{\x}{\T_1}}{\H}}{\T_2}{\U_2}}
   { \whnf
     {\GH}
     {\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}}
-    {\e_3}
+    {\subst{\e_1}{\x}{\e_2}}
   }
+\end{mathpar}
 
+{\color{blue}
+
+  If we have Rule~\rulename{eq-beta-alternate}, then the algorithm can have this rule:
+
+  \begin{mathpar}
+  \infer[\rulename{norm-app-beta}]
+  { \eqtypealg{\GH}{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}\\
+    \chkterm{\ctxs{(\ctxextend{\G}{\x}{\U_1})}{\H}}{\e_1}{\U_2}
+  }
+  { \whnf
+    {\GH}
+    {\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}}
+    {\subst{\e_1}{\x}{\e_2}}
+  }
+\end{mathpar}
+}
+
+\begin{mathpar}
   \infer[\rulename{norm-idpath}]
   {
+    \eqtypealg{\GH}{\T}{\T'}
   }
   {
     \whnf
     {\GH}
-    {\PrElimS
-      {\prRefl{\T}{\e_1}}
+    {\PrElim
+      {\T}
       {\abst{x\,y\,p}{\U}}
-      {\abst{z}{\e_2}}
+      {\abst{z}{\e_1}}
+      {\prRefl{\T'}{\e_2}}{\e_3}{\e_4}
     }
-    {\subst{\e_2}{z}{\e_1}}
+    {\subst{\e_1}{z}{\e_2}}
   }
+\end{mathpar}
 
+{\color{blue}
+  Do we need further checks to ensure Rule~\rulename{norm-idpath} is valid and type-preserving?
+}
+
+\begin{mathpar}
   \infer[\rulename{norm-coerce-trivial}]
   {
   }
@@ -1343,14 +1438,18 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
  {\whnf{\GH}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\app{\e'_1}{\x}{\T}{\U}{\e_2}}}
 
  \infer[\rulename{norm-J}]
-  { \whnf{\GH}{\e_1}{\e'_1}}
-  { \whnf{\GH}{\PrElimS{\e_1}
+  { \whnf{\GH}{\e_2}{\e'_2}}
+  { \whnf{\GH}{\PrElim
+               {\T}
                {\abst{x\,y\,p}{\U}}
-               {\abst{z}{\e_2}}
+               {\abst{z}{\e_1}}
+               {\e_2}{\e_3}{\e_4}
              }
-             {\PrElimS{\e'_1}
+             {\PrElim
+               {\T}
                {\abst{x\,y\,p}{\U}}
-               {\abst{z}{\e_2}}
+               {\abst{z}{\e_1}}
+               {\e'_2}{\e_3}{\e_4}
              }
   }
 \end{mathpar}
@@ -1469,6 +1568,7 @@ same expressions before invoking the general comparison function.
 
   \infer[\rulename{chk-eq-whnf-idpath}]
   {
+    \eqtypealg{\GH}{\T}{\U}\\
     \eqtermalg{\GH}{\e_1}{\e_2}{\T}
   }
   {
@@ -1478,8 +1578,7 @@ same expressions before invoking the general comparison function.
 
   \infer[\rulename{chk-eq-whnf-j}]
   {
-   \eqpath{\GH}{\e_1}{\e'_1}{\PrEqual{\T}{\e_3}{\e_4}}
-    \\
+   \eqtypealg{\GH}{\T}{\T'}\\
    \eqtypealg
      {\ctxs{(\ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}})}{\H}}
      {P}
@@ -1487,25 +1586,34 @@ same expressions before invoking the general comparison function.
    \\
    \eqtermalg
      {\ctxs{(\ctxextend{\G}{z}{\T})}{\H}}
-     {\e_2}
-     {\e'_2}
+     {\e_1}
+     {\e'_1}
      {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
+     \\
+   \eqtermalg{\GH}{\e_3}{\e'_3}{\T}\\
+   \eqtermalg{\GH}{\e_4}{\e'_4}{\T}\\
+   \eqpath{\GH}{\e_2}{\e'_2}{\PrEqual{\T}{\e_3}{\e_4}}
   }
   {\eqpath
      {\GH}
-     {\PrElimS{\e_1}
+     {\PrElim
+        {\T}
         {\abst{x\,y\,p}{P}}
-        {\abst{z}{\e_2}}
+        {\abst{z}{\e_1}}
+        {\e_2}{\e_3}{\e_4}
      }
-     {\PrElimS{\e'_1}
+     {\PrElim
+        {\T'}
         {\abst{x\,y\,p}{Q}}
         {\abst{z}{\e'_2}}
+        {\e'_2}{\e'_3}{\e'_4}
      }
      {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
   }
 
   \infer[\rulename{chk-eq-whnf-refl}]
   {
+    \eqtypealg{\GH}{\T}{\U}\\
     \eqtermalg{\GH}{\e_1}{\e_2}{\T}
   }
   {
@@ -1515,6 +1623,15 @@ same expressions before invoking the general comparison function.
 \end{mathpar}
 
 \paragraph{Whnf equivalence of names}
+
+{\color{blue}
+  The following \rulename{chk-eq-whnf-XXX} rules don't work, because we lost all the universe subscripts,
+  and we're recursively invoking checking rules. Either we have to switch back
+  to a synthesizing judgment (which would, among other things, require equivalence
+  hints to be tagged with their types, or reconstruct that type from the hint terms
+  on the fly), or put the subscripts back.
+}
+
 \begin{mathpar}
   \infer[\rulename{chk-eq-whnf-prod}]
   {\eqpath{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
