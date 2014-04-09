@@ -1070,28 +1070,28 @@ If we already know the given type is well-formed, there's an even simpler algori
 \begin{mathpar}
   \infer[\rulename{syn-eq-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
-    \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\\\
     \synterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \synterm{\GH}{(\equationin{\e_1} \e_2)}{\T} }
 
   \infer[\rulename{chk-eq-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
-    \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\\\
     \chkterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \chkterm{\GH}{(\equationin{\e_1} \e_2)}{\T} }
 
   \infer[\rulename{syn-eq-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
-    \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\\\
     \synterm{\ctxs{\G}{(\addhintred{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \synterm{\GH}{(\rewritein{\e_1} \e_2)}{\T} }
 
   \infer[\rulename{chk-eq-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
-    \whnf{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\
+    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\\\
     \chkterm{\ctxs{\G}{(\addhintred{\H}{\e_3}{\e_4})}}{\e_2}{\T}
   }
   { \chkterm{\GH}{(\rewritein{\e_1} \e_2)}{\T} }
