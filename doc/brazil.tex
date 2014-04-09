@@ -67,8 +67,8 @@
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
 \newcommand{\nProd}[4]{\pi^{#1,#2} #3\,{:}\,#4 \,.\ } % name of a dependent product
 \newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
-\newcommand{\nPrEqual}[3]{\mathsf{paths}_{#1}(#2,#3)} % Propositional Equality type
-\newcommand{\nJuEqual}[3]{\mathsf{id}_{#1}(#2,#3)} % Judgmental Equality type
+\newcommand{\nPrEqual}[4]{\mathsf{paths}^{#1}_{#2}(#3,#4)} % Propositional Equality type
+\newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
 
 
 % orthodox judgments
@@ -202,8 +202,8 @@ Terms:
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\alpha}{\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
-    \bnfor {}&  \nPrEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
-    \bnfor {}&  \nJuEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
+    \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
+    \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
 \end{equation*}
 
@@ -422,14 +422,14 @@ Terms:
    \isterm{\G}{\e_1}{\El{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\isterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\isterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{name-id}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \isterm{\G}{\e_1}{\El{\e_\T}}\\
    \isterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\isterm{\G}{\nJuEqual{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\isterm{\G}{\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
 \end{mathpar}
 
@@ -513,7 +513,7 @@ Terms:
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
   {\eqtype{\G}
-          {\El{\alpha}{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
+          {\El{\alpha}{(\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
           {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
 
   \infer[\rulename{tyeq-el-id}]
@@ -522,7 +522,7 @@ Terms:
    \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
   {\eqtype{\G}
-          {\El{\alpha}{(\nJuEqual{\e_\T}{\e_1}{\e_2})}}
+          {\El{\alpha}{(\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2})}}
           {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
 
 \end{mathpar}
@@ -787,14 +787,14 @@ and try the more expensive \rulename{eq-beta-alternate} only when that fails.
   \eqterm{\G}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
   \eqterm{\G}{\e_2}{\e'_2}{\El{\e_{\T}}}
 }
-{\eqterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\nPrEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+{\eqterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nPrEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
 \infer[\rulename{cong-name-id}]
 {\eqterm{\G}{\e_T}{\e_U}{\Universe{\alpha}}\\
   \eqterm{\G}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
   \eqterm{\G}{\e_2}{\e'_2}{\El{\e_{\T}}}
 }
-{\eqterm{\G}{\nJuEqual{\e_T}{\e_1}{\e_2}}{\nJuEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+{\eqterm{\G}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 \end{mathpar}
 
 
@@ -893,8 +893,8 @@ Terms:
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\alpha}{\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
-    \bnfor {}&  \nPrEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
-    \bnfor {}&  \nJuEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
+    \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
+    \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
 \end{equation*}
 
@@ -1187,7 +1187,7 @@ If we already know the given type is well-formed, there's an even simpler algori
    \chkterm{\G}{\e_1}{\El{\e_\T}}\\
    \chkterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\synterm{\G}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\synterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
 
   \infer[\rulename{syn-name-id}]
@@ -1195,7 +1195,7 @@ If we already know the given type is well-formed, there's an even simpler algori
    \chkterm{\G}{\e_1}{\El{\e_\T}}\\
    \chkterm{\G}{\e_2}{\El{\e_\T}}
   }
-  {\synterm{\G}{\nJuEqual{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\synterm{\G}{\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 \end{mathpar}
 
 \subsection{Type normalization}
@@ -1241,14 +1241,14 @@ If we already know the given type is well-formed, there's an even simpler algori
   \infer[\rulename{tynorm-paths}]
   {
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
+  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
           {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
   }
 
   \infer[\rulename{tynorm-id}]
   {
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\e_T}{\e_1}{\e_2})}}
+  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
           {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
   }
 \end{mathpar}
@@ -1666,19 +1666,21 @@ same expressions before invoking the general comparison function.
 
   \infer[\rulename{chk-eq-whnf-paths}]
   {
+    \alpha = \alpha'\\
     \eqpath{\GH}{\e_{\T}}{\e_{\U}}{\Universe{\alpha}}\\
     \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
     \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
   }
-  {\eqpath{\GH}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\nPrEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+  {\eqpath{\GH}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nPrEqual{\alpha'}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-id}]
   {
+    \alpha = \alpha'\\
     \eqtermalg{\GH}{\e_T}{\e_U}{\Universe{\alpha}}\\
     \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
     \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
   }
-  {\eqpath{\GH}{\nJuEqual{\e_T}{\e_1}{\e_2}}{\nJuEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+  {\eqpath{\GH}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\alpha'}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-coerce}]
   {
