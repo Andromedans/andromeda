@@ -289,7 +289,7 @@ and Infer : INFER_SIG = struct
                Format.printf "\nmetavariable= %s @."
                   (S.string_of_mva ~show_meta:true mva);
 
-               Error.fatal ~pos:mva.S.mv_pos
+               Error.fatal ~loc:mva.S.mv_loc
                   "Cannot deduce term: defn has extra free variables"
              end
              *)
@@ -331,7 +331,7 @@ and Infer : INFER_SIG = struct
 
     match pattern_check env mva.S.mv_args defn with
     | None ->
-      Error.fatal ~pos:mva.S.mv_pos "Cannot deduce term; not a pattern unification problem"
+      Error.fatal ~loc:mva.S.mv_loc "Cannot deduce term; not a pattern unification problem"
     | Some (defn, free_in_defn) ->
       begin
         (* XXX Occurs check? *)

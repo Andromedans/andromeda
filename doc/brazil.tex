@@ -65,7 +65,7 @@
 
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
-\newcommand{\nProd}[4]{\pi #1\,{:}\,#2 \,.\ } % name of a dependent product
+\newcommand{\nProd}[2]{\pi #1\,{:}\,#2 \,.\ } % name of a dependent product
 \newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
 \newcommand{\nPrEqual}[3]{\mathsf{paths}_{#1}(#2,#3)} % Propositional Equality type
 \newcommand{\nJuEqual}[3]{\mathsf{id}_{#1}(#2,#3)} % Judgmental Equality type
@@ -298,7 +298,7 @@ Terms:
   \infer[\rulename{fib-unit}]
   {\isctx{\G} \\
    \zero\in\FF }
-  {\istype{\G}{\Unit}}
+  {\isfib{\G}{\Unit}}
 
   \infer[\rulename{fib-paths}]
   {\isfib{\G}{\T}\\
@@ -852,7 +852,7 @@ Equality hints:
 \begin{equation*}
   \H
   \begin{aligned}[t]
-    \bnf   {}& \ctxempty & & \text{empty hints}\\
+    \bnf   {}& \hintempty & & \text{empty hints}\\
     \bnfor {}& \addhinteq{\H}{\e_1}{\e_2} & & \text{extend hints with a term equation} \\
     \bnfor {}& \addhintred{\H}{\e_1}{\e_2} & & \text{extend hints with a term reduction} \\
   \end{aligned}
@@ -999,7 +999,7 @@ describing the conditions under which the algorithm is expected to work.
   {\isfibalg{\GH}{\El{\e}}}
 
   \infer[\rulename{fibchk-unit}]
-  {}
+  {\zero \in \FF}
   {\isfibalg{\GH}{\Unit}}
 
   \infer[\rulename{fibchk-paths}]
@@ -1019,7 +1019,7 @@ If we already know the given type is well-formed, there's an even simpler algori
 \simplefib{\Universe{\alpha}}        & \;\mathrel{{:}{=}}\;  \true \\
 \simplefib{\Prod{\x}{\T}{\U}}        & \;\mathrel{{:}{=}}\;  \simplefib{T}\ \land\ \simplefib{U} \\
 \simplefib{\El{\e}}                  & \;\mathrel{{:}{=}}\;  \alpha\in\FF \\
-\simplefib{\Unit}                    & \;\mathrel{{:}{=}}\;  \true \\
+\simplefib{\Unit}                    & \;\mathrel{{:}{=}}\;  \zero\in\FF \\
 \simplefib{\PrEqual{\T}{\e_1}{\e_2}} & \;\mathrel{{:}{=}}\;  \true \\
 \simplefib{\JuEqual{\T}{\e_1}{\e_2}} & \;\mathrel{{:}{=}}\;  \false
 \end{align*}

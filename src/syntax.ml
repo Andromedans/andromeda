@@ -38,7 +38,7 @@ and constant =
 and metavarapp = { mv_def  : term option ref;
                    mv_args : term list;
                    mv_ty   : term;
-                   mv_pos  : Common.position;
+                   mv_loc  : Common.position;
                    mv_sort : metavar_sort;
                  }
 
@@ -250,7 +250,7 @@ and rewrite_vars ?(cut=0) ftrans =
          -> MetavarApp { mv_def  = mva.mv_def;
                          mv_args = List.map (loop cut) mva.mv_args;
                          mv_ty   = loop cut mva.mv_ty;
-                         mv_pos  = mva.mv_pos;
+                         mv_loc  = mva.mv_loc;
                          mv_sort = mva.mv_sort;
                        }  in
   loop cut
@@ -340,14 +340,14 @@ and apply_list eFn eArgs =
   | Lambda(_, _, _, eBody), eArg :: eArgs -> apply_list (beta eBody eArg) eArgs
   | _, eArg :: eArgs -> apply_list (App (eFn, eArg)) eArgs
 
-and fresh_mva context_length ty pos sort =
+and fresh_mva context_length ty loc sort =
   let rec loop = function
     | 0 -> []
     | n -> Var (n-1) :: loop (n-1) in
   { mv_def = ref None;
     mv_args = loop context_length;
     mv_ty = ty;
-    mv_pos = pos;
+    mv_loc = loc;
     mv_sort = sort;
   }
 
@@ -355,7 +355,7 @@ and derived_mva mva =
   { mv_def  = ref None;
     mv_args = mva.mv_args;
     mv_ty   = mva.mv_ty;
-    mv_pos  = mva.mv_pos;
+    mv_loc  = mva.mv_loc;
     mv_sort = mva.mv_sort;
   }
 
@@ -369,9 +369,9 @@ and get_mva {mv_def = r; mv_args = args} =
           List.fold_right (fun _ b -> Lambda ("???", Base TUnit, Base TUnit, b)) args body  in
       Some (apply_list lambda_wrapped_body args)
 
-    and string_of_mva ?(show_meta=false) ({mv_def; mv_args; mv_pos} as mva) =
+    and string_of_mva ?(show_meta=false) ({mv_def; mv_args; mv_loc} as mva) =
   (*let base_string = "M-" ^ (Printf.sprintf "%x" (Obj.magic mv_def : int)) in*)
-  let base_string = "M-" ^ (Common.string_of_position mv_pos) in
+  let base_string = "M-" ^ (Common.string_of_position mv_loc) in
   match get_mva mva with
   | Some defn ->
       if show_meta then
@@ -394,7 +394,7 @@ let mva_is_set mva =
   | Some _ -> true
 
 let get_mva_sort {mv_sort} = mv_sort
-let get_mva_pos {mv_pos} = mv_pos
+let get_mva_pos {mv_loc} = mv_loc
 let get_mva_ty {mv_ty} = mv_ty
 
 (** [occurs v e] returns [true] when variable [Var v] occurs freely in [e]. *)

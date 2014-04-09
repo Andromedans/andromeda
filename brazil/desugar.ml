@@ -15,7 +15,7 @@ let lookup x =
   in
     search 0
 
-let rec ty xs (t, pos) =
+let rec ty xs (t, loc) =
   let t = 
     begin match t with
       | Input.Universe u -> Syntax.Universe u
@@ -53,11 +53,11 @@ let rec ty xs (t, pos) =
         | Input.J _
         | Input.Refl _
         | Input.Coerce _) ->
-        let e = term xs (t, pos) in
+        let e = term xs (t, loc) in
           Syntax.El e
     end
   in
-    (t, pos)
+    (t, loc)
 
 and term xs (e, loc) =
   let e =

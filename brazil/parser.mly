@@ -24,7 +24,7 @@
 
   let make_universe (u, loc) =
     match Universe.of_string u with
-      | None -> Error.syntax "invalid universe index %s" u
+      | None -> Error.syntax ~loc "invalid universe index %s" u
       | Some u -> (u, loc)
 
 %}
