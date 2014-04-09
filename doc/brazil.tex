@@ -261,7 +261,7 @@ Terms:
 
   \infer[\rulename{ty-el}]
   {\isterm{\G}{\e}{\Universe{\alpha}}}
-  {\istype{\G}{\El{\e}}}
+  {\istype{\G}{\El{\alpha}{\e}}}
 
   \infer[\rulename{ty-unit}]
   {\isctx{\G}}
@@ -302,7 +302,7 @@ Terms:
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
    \alpha \in \FF
   }
-  {\isfib{\G}{\El{\e}}}
+  {\isfib{\G}{\El{\alpha}{\e}}}
 
   \infer[\rulename{fib-unit}]
   {\isctx{\G} \\
@@ -420,7 +420,7 @@ Terms:
 
   \infer[\rulename{name-prod}]
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
-   \isterm{\ctxextend{\G}{\x}{\El{\e_1}}}{\e_2}{\Universe{\beta}} \\
+   \isterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma
   }
   {\isterm{\G}{(\nProd{\alpha}{\beta}{\x}{\e_1} \e_2)}{\Universe{\gamma}}}
@@ -428,15 +428,15 @@ Terms:
   \infer[\rulename{name-paths}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \alpha\in\FF\\
-   \isterm{\G}{\e_1}{\El{\e_\T}}\\
-   \isterm{\G}{\e_2}{\El{\e_\T}}
+   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
   {\isterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{name-id}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
-   \isterm{\G}{\e_1}{\El{\e_\T}}\\
-   \isterm{\G}{\e_2}{\El{\e_\T}}
+   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
   {\isterm{\G}{\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
@@ -467,7 +467,7 @@ Terms:
 \begin{mathpar}
   \infer[\rulename{tycong-el}]
   {\eqterm{\G}{\e_1}{\e_2}{\Universe{\alpha}}}
-  {\eqtype{\G}{\El{\e_1}}{\El{\e_2}}}
+  {\eqtype{\G}{\El{\alpha}{\e_1}}{\El{\alpha}{\e_2}}}
 
   \infer[\rulename{tycong-prod}]
   {\eqtype{\G}{\T_1}{\U_1}\\
@@ -499,7 +499,7 @@ Terms:
 \begin{mathpar}
   \infer[\rulename{tyeq-el-pi}]
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
-   \isterm{\ctxextend{\G}{x}{\El{\e_1}}}{\e_2}{\Universe{\beta}} \\
+   \isterm{\ctxextend{\G}{x}{\El{\alpha}{\e_1}}}{\e_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
   {\eqtype{\G}{\El{\gamma}{(\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2})}}
               {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}}}
@@ -761,8 +761,8 @@ cannot be equivalent.
 
 \infer[\rulename{cong-name-id}]
 { \eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-  \eqterm{\G}{\e_2}{\e'_2}{\El{\e_1}}\\
-  \eqterm{\G}{\e_3}{\e'_3}{\El{\e_1}}
+  \eqterm{\G}{\e_2}{\e'_2}{\El{\alpha}{\e_1}}\\
+  \eqterm{\G}{\e_3}{\e'_3}{\El{\alpha}{\e_1}}
 }
 {\eqterm{\G}{\nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}}{\nJuEqual{\alpha}{\e'_1}{\e'_2}{\e'_3}}{\Universe{\alpha}}}
 \end{mathpar}
