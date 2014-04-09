@@ -115,6 +115,9 @@
 
 \newcommand{\tywhnfs}[3]{#1 \vdash #2 \leadsto^* #3 \not\leadsto } % "type normalization"
 \newcommand{\whnfs}[3]{#1 \vdash #2 \leadsto^* #3 \not\leadsto } % "term normalization"
+
+\newcommand{\inferred}[1]{{\color{magenta}{#1}}}
+
 \begin{document}
 
 \title{Brazilian type theory}
@@ -866,7 +869,7 @@ Types:
   \T, \U
   \begin{aligned}[t]
     \bnf   {}& \Universe{\alpha} & & \text{universe}\\
-    \bnfor {}& \El{\e} & & \text{type named by $e$}\\
+    \bnfor {}& \El{\inferred\alpha}{\e} & & \text{type named by $e$}\\
     \bnfor {}& \Unit & & \text{the unit type}\\
     \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
     \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
@@ -883,20 +886,24 @@ Terms:
     \bnfor {}&  \equationin{\e_1} e_2 &&\text{use equality hint $\e_1$ in $\e_2$} \\
     \bnfor {}&  \rewritein{\e_1} e_2 &&\text{use normalization hint $\e_1$ in $\e_2$} \\
     \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
-    \bnfor {}&  \lam{\x}{\T_1}{\T_2} \e  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&  \lam{\x}{\T_1}{\inferred{\T_2}} \e  &&\text{$\lambda$-abstraction} \\
     \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
     \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
     \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
-    \bnfor {}&  \coerce{\alpha}{\beta}{\e}  &&\text{universe coercion} \\
+    \bnfor {}&  \coerce{\inferred\alpha}{\beta}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
-    \bnfor {}&  \nProd{\alpha}{\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
+    \bnfor {}&  \nProd{\inferred\alpha}{\inferred\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
-    \bnfor {}&  \nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
-    \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
+    \bnfor {}&  \nPrEqual{\inferred\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
+    \bnfor {}&  \nJuEqual{\inferred\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
 \end{equation*}
+
+The annotations marked {\inferred{like this}} could be omitted from the initial input because they
+can be reconstructed on the fly during type checking/synthesis. They are extremely useful during
+equivalence checking.
 
 \subsection{Judgments}
 \label{sec:bidirectional-judgments}
@@ -957,7 +964,7 @@ describing the conditions under which the algorithm is expected to work.
 
   \infer[\rulename{tychk-el}]
   {\synterm{\GH}{\e}{\Universe{\alpha}}}
-  {\istypealg{\GH}{\El{\e}}}
+  {\istypealg{\GH}{\El{\inferred\alpha}{\e}}}
 
   \infer[\rulename{tychk-unit}]
   {}
@@ -998,7 +1005,7 @@ describing the conditions under which the algorithm is expected to work.
   {\synterm{\GH}{\e}{\Universe{\alpha}}\\
    \alpha\in\FF
   }
-  {\isfibalg{\GH}{\El{\e}}}
+  {\isfibalg{\GH}{\El{\inferred\alpha}{\e}}}
 
   \infer[\rulename{fibchk-unit}]
   {\zero \in \FF}
@@ -1087,7 +1094,7 @@ If we already know the given type is well-formed, there's an even simpler algori
 \begin{mathpar}
   \infer[\rulename{syn-abs}]
   { \synterm{\ctxextend{\G}{\x}{\T} ; \H}{\e}{\U} }
-  { \synterm{\GH}{(\lam{\x}{\T}{\U} \e)}{\Prod{\x}{\T} \U} }
+  { \synterm{\GH}{(\lam{\x}{\T}{\inferred\U} \e)}{\Prod{\x}{\T} \U} }
 
   \infer[\rulename{syn-app}]
   { \chkterm{\GH}{\e_1}{\Prod{\x}{\T} \U} \\
@@ -1158,7 +1165,7 @@ If we already know the given type is well-formed, there's an even simpler algori
 
   \infer[\rulename{syn-name-universe}]
   {
-    \uClose{\alpha} = \beta
+    \beta = \uClose{\alpha}
   }
   { \synterm{\GH}{\nUniverse{\alpha}}{\Universe{\beta}} }
 
@@ -1166,36 +1173,36 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{\e_1}{\Universe{\alpha}}
     \\
     \synterm
-    {\ctxs{(\ctxextend{\G}{\x}{\El{\e_1}})}{\H}}
+    {\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}
     {\e_2}
     {\Universe{\beta}}
     \\
     \piClose{\alpha}{\beta} = \gamma
   }
-  { \synterm{\GH}{(\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
+  { \synterm{\GH}{(\nProd{\inferred\alpha}{\inferred\beta}{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
 
   \infer[\rulename{syn-name-coerce}]
   { \synterm{\GH}{\e}{\Universe{\alpha}}
     \\
     \alpha \leq \beta
   }
-  { \synterm{\GH}{\coerce{\beta}{\e}}{\Universe{\beta}} }
+  { \synterm{\GH}{\coerce{\inferred\alpha}{\beta}{\e}}{\Universe{\beta}} }
 
   \infer[\rulename{syn-name-paths}]
   {\synterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \alpha\in\FF\\
-   \chkterm{\G}{\e_1}{\El{\e_\T}}\\
-   \chkterm{\G}{\e_2}{\El{\e_\T}}
+   \chkterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \chkterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\synterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\synterm{\G}{\nPrEqual{\inferred\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 
 
   \infer[\rulename{syn-name-id}]
   {\synterm{\G}{\e_\T}{\Universe{\alpha}}\\
-   \chkterm{\G}{\e_1}{\El{\e_\T}}\\
-   \chkterm{\G}{\e_2}{\El{\e_\T}}
+   \chkterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \chkterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\synterm{\G}{\nJuEqual{\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\synterm{\G}{\nJuEqual{\inferred\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
 \end{mathpar}
 
 \subsection{Type normalization}
@@ -1208,7 +1215,7 @@ If we already know the given type is well-formed, there's an even simpler algori
     \whnf{\H}{\e}{\e'}
   }
   {
-    \whnf{\H}{\El{\e}}{\El{\e'}}
+    \whnf{\H}{\El{\alpha}{\e}}{\El{\alpha}{\e'}}
   }
 \end{mathpar}
 
@@ -1228,7 +1235,7 @@ If we already know the given type is well-formed, there's an even simpler algori
   {
   }
   {
-    \tywhnf{\H}{\El{\nUnit}}{\Unit}
+    \tywhnf{\H}{\El{\zero}{\nUnit}}{\Unit}
   }
 
   \infer[\rulename{tynorm-coerce}]
