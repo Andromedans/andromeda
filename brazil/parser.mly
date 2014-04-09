@@ -2,25 +2,18 @@
   open Input
 
   (* Build nested lambdas *)
-  let make_lambda e u bs =
-    let rec make u e = function
-      | [] -> u, e
-      | ((xs, t), loc) :: lst ->
-        let u, e = make e u lst in
-          List.fold_right
-            (fun x (u, e) ->
-              ((Prod (x, t, u), loc), (Lambda (x, t, u, e), loc)))
-            xs
-            (u, e)
-    in
-      snd (make u e bs)
-
-  (* Build nested pi's *)
-  let rec make_pi e = function
+  let rec make_lambda e = function
     | [] -> e
     | ((xs, t), loc) :: lst ->
-      let e = make_pi e lst in
-        List.fold_right (fun x e -> (Prod (x, t, e), loc)) xs e
+      let e = make_lambda e lst in
+        List.fold_right (fun x e -> (Lambda (x, t, e), loc)) xs e
+
+  (* Build nested name pi's *)
+  let rec make_prod e = function
+    | [] -> e
+    | ((xs, t), loc) :: lst ->
+      let e = make_prod e lst in
+        List.fold_right (fun x e -> (NameProd (x, t, e), loc)) xs e
 
   let make_universe (u, loc) =
     match Universe.of_string u with
@@ -36,7 +29,7 @@
 %token COLON ASCRIBE COMMA DOT
 %token ARROW DARROW
 %token COERCE
-%token EQ EQEQ AT
+%token EQ EQEQ
 %token EQUATION REWRITE IN
 %token REFL IDPATH
 %token IND_PATH
@@ -67,8 +60,8 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | DEFINE x=NAME COLON t=expr COLONEQ e=expr   { Define (x, t, e) }
-  | ASSUME xs=nonempty_list(NAME) COLON t=expr  { Assume (xs, t) }
+  | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, t, e) }
+  | ASSUME xs=nonempty_list(NAME) COLON t=ty    { Assume (xs, t) }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
@@ -79,75 +72,67 @@ plain_topdirective:
 
 (* Main syntax tree *)
 
-expr: mark_position(plain_expr) { $1 }
-plain_expr:
-  | e=plain_arrow_expr                    { e }
-  | FORALL a=abstraction COMMA  e=expr    { fst (make_pi e a) }
-  | FUN    a=abstraction DARROW LBRACK u=expr RBRACK e=expr
-                                          { fst (make_lambda u e a) }
-  | e1=arrow_expr ASCRIBE e2=expr         { Ascribe (e1, e2) }
-  | EQUATION e1=arrow_expr IN e2=expr     { Equation (e1, e2) }
-  | REWRITE e1=arrow_expr IN e2=expr      { Rewrite (e1, e2) }
+term: mark_position(plain_term) { $1 }
+plain_term:
+  | e=plain_arrow_term                          { e }
+  | FORALL a=abstraction(term) COMMA  e=term    { fst (make_prod e a) }
+  | FUN a=abstraction(ty) DARROW e=term         { fst (make_lambda e a) }
+  | e=arrow_term ASCRIBE t=ty                   { Ascribe (e, t) }
+  | EQUATION e1=arrow_term IN e2=term           { Equation (e1, e2) }
+  | REWRITE e1=arrow_term IN e2=term            { Rewrite (e1, e2) }
 
-arrow_expr: mark_position(plain_arrow_expr) { $1 }
-plain_arrow_expr:
-  | e=plain_equiv_expr                                     { e }
-  | e1=equiv_expr ARROW e2=arrow_expr                      { Prod (anonymous, e1, e2) }
-  | LPAREN x=NAME COLON e1=expr RPAREN ARROW e2=arrow_expr { Prod (x, e1, e2) }
+arrow_term: mark_position(plain_arrow_term) { $1 }
+plain_arrow_term:
+  | e=plain_equiv_term                                    { e }
+  | t1=equiv_term ARROW t2=arrow_term                     { NameProd (anonymous, t1, t2) }
+  | LPAREN x=NAME COLON t=term RPAREN ARROW e=arrow_term  { NameProd (x, t, e) }
 
-equiv_expr: mark_position(plain_equiv_expr) { $1 }
-plain_equiv_expr:
-    | e=plain_app_expr                                     { e }
-    | e1=app_expr EQEQ LBRACK e3=expr RBRACK e2=app_expr   { Id (e1, e2, e3) }
-    | e1=app_expr EQ LBRACK e3=expr RBRACK e2=app_expr     { Paths (e1, e2, e3) }
+equiv_term: mark_position(plain_equiv_term) { $1 }
+plain_equiv_term:
+    | e=plain_app_term               { e }
+    | e1=app_term EQEQ e2=app_term   { NameId (e1, e2) }
+    | e1=app_term EQ e2=app_term     { NamePaths (e1, e2) }
 
-app_expr: mark_position(plain_app_expr) { $1 }
-plain_app_expr:
-  | e=plain_simple_expr                       { e }
-  | e1=app_expr
-    AT LBRACK x=param COLON t1=equiv_expr DOT t2=expr RBRACK
-    e2=simple_expr
-                                              { App ((x, t1, t2), e1, e2) }
-  | COERCE LPAREN u1=universe COMMA u2=universe COMMA e=expr RPAREN
-                                              { let u1 = make_universe u1 in
-                                                let u2 = make_universe u2 in
-                                                  Coerce (u1, u2, e) }
-  | UNIVERSE u=universe                       { let u = make_universe u in
-                                                  Universe u }
-  | REFL LBRACK t=expr RBRACK e=simple_expr   { Refl (t, e) }
-  | IDPATH LBRACK t=expr RBRACK e=simple_expr { Idpath (t, e) }
+app_term: mark_position(plain_app_term) { $1 }
+plain_app_term:
+  | e=plain_simple_term                       { e }
+  | e1=app_term e2=simple_term                { App (e1, e2) }
+  | COERCE u=universe COMMA e=term RPAREN     { let u = make_universe u in Coerce (u, e) }
+  | UNIVERSE u=universe                       { let u = make_universe u in NameUniverse u }
+  | REFL e=simple_term                        { Refl e }
+  | IDPATH LBRACK t=term RBRACK e=simple_term { Idpath e }
   | IND_PATH LPAREN
-          t=expr
+          t=ty
         COMMA
           LBRACK
           x=param
           y=param
           p=param DOT
-          u=expr
+          u=ty
           RBRACK
         COMMA
           LBRACK
           z=param DOT
-          e1=expr
+          e1=term
           RBRACK
         COMMA
-          e2=expr
-        COMMA
-          e3=expr
-        COMMA
-          e4=expr
+          e2=term
         RPAREN
-                                              { J (t, (x, y, p, u), (z, e1), e2, e3, e4) }
+                                              { J (t, (x, y, p, u), (z, e1), e2) }
 
 param:
   | NAME { $1 }
   | UNDERSCORE { anonymous }
 
-simple_expr: mark_position(plain_simple_expr) { $1 }
-plain_simple_expr:
-  | UNIT                         { Unit }
+simple_term: mark_position(plain_simple_term) { $1 }
+plain_simple_term:
+  | UNIT                         { NameUnit }
   | x=NAME                       { Var x }
-  | LPAREN e=plain_expr RPAREN   { e }
+  | LPAREN e=plain_term RPAREN   { e }
+
+
+ty:
+  | t=term { let (_,loc) = t in (El t, loc) }
 
 universe: mark_position(plain_universe) { $1 }
 plain_universe:
@@ -157,16 +142,16 @@ plain_universe:
   Since the list is not further annotated, consistency suggests
   this should be called plain_abstraction, but as we know,
   consistency is the hemoglobin of mindless lights. *)
-abstraction:
-  | bind   { [$1] }
-  | nonempty_list(paren_bind)  { $1 }
+abstraction(X):
+  | bind(X)                            { [$1] }
+  | nonempty_list(paren_bind(X))       { $1 }
 
-bind: mark_position(plain_bind) { $1 }
-plain_bind:
-  | xs=nonempty_list(param) COLON t=expr   { (xs, t) }
+bind(X): mark_position(plain_bind(X)) { $1 }
+plain_bind(X):
+  | xs=nonempty_list(param) COLON t=X { (xs, t) }
 
-paren_bind:
-  | LPAREN b=bind RPAREN               { b }
+paren_bind(X):
+  | LPAREN b=bind(X) RPAREN           { b }
 
 mark_position(X):
   x=X

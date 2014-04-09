@@ -50,7 +50,6 @@ rule token = parse
   | "=>"                { DARROW }
   | "="                 { EQ }
   | "=="                { EQEQ }
-  | "@"                 { AT }
   | "_"                 { UNDERSCORE }
   | eof                 { EOF }
 
