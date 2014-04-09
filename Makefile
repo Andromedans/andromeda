@@ -35,4 +35,4 @@ smoketest: tt.byte
 clean:
 	ocamlbuild -clean
 
-.PHONY: smoketest clean
+.PHONY: smoketest clean brazil.byte brazil.native tt.byte tt.native
