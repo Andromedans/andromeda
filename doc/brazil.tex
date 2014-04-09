@@ -65,7 +65,7 @@
 
 % names
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
-\newcommand{\nProd}[2]{\pi #1\,{:}\,#2 \,.\ } % name of a dependent product
+\newcommand{\nProd}[4]{\pi^{#1,#2} #3\,{:}\,#4 \,.\ } % name of a dependent product
 \newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
 \newcommand{\nPrEqual}[3]{\mathsf{paths}_{#1}(#2,#3)} % Propositional Equality type
 \newcommand{\nJuEqual}[3]{\mathsf{id}_{#1}(#2,#3)} % Judgmental Equality type
@@ -92,8 +92,8 @@
 \newcommand{\eqtypealg}[3]{#1 \vdash #2 \thickapprox #3} % equal types
 \newcommand{\eqtypepath}[3]{#1 \vdash #2 \thicksim #3} % equal normal-form types
 \newcommand{\eqtermalg}[4]{#1 \vdash #2 \thickapprox #3 \Leftarrow #4} % equal terms of normalized type
-\newcommand{\eqtermext}[4]{#1 \vdash #2 \simeq #3 \Leftarrow #4} % equal normal-form terms
-\newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3 \Leftarrow #4} % equal terms
+\newcommand{\eqtermext}[4]{#1 \vdash #2 \simeq #3 \Leftarrow #4} % equal terms w/o eta
+\newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3}  % equal paths
 
 \newcommand{\equationin}[1]{\mathsf{equation}\; #1 \; \mathsf{in} \;} % use equation hint
 \newcommand{\rewritein}[1]{\mathsf{rewrite}\; #1 \; \mathsf{in} \;} % use rewrite hint
@@ -200,7 +200,7 @@ Terms:
     \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
     \bnfor {}&  \coerce{\alpha}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
-    \bnfor {}&  \nProd{\x}{\e_1} \e_2  &&\text{the name of product type} \\
+    \bnfor {}&  \nProd{\alpha}{\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
     \bnfor {}&  \nPrEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
     \bnfor {}&  \nJuEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
@@ -414,7 +414,7 @@ Terms:
    \isterm{\ctxextend{\G}{\x}{\El{\e_1}}}{\e_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma
   }
-  {\isterm{\G}{(\nProd{\x}{\e_1} \e_2)}{\Universe{\gamma}}}
+  {\isterm{\G}{(\nProd{\alpha}{\beta}{\x}{\e_1} \e_2)}{\Universe{\gamma}}}
 
   \infer[\rulename{name-paths}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
@@ -492,7 +492,7 @@ Terms:
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
    \isterm{\ctxextend{\G}{x}{\El{\e_1}}}{\e_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
-  {\eqtype{\G}{\El{\gamma}{(\nProd{\x}{\e_1}{\e_2})}}
+  {\eqtype{\G}{\El{\gamma}{(\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2})}}
               {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}}}
 
   \infer[\rulename{tyeq-el-unit}]
@@ -773,7 +773,7 @@ and try the more expensive \rulename{eq-beta-alternate} only when that fails.
   {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
    \eqterm{\ctxextend{\G}{\x}{\El{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
-  {\eqterm{\G}{(\nProd{\x}{\e_1}{\e_2})}{(\nProd{\x}{\e'_1}{\e'_2})}{\Universe{\gamma}}}
+  {\eqterm{\G}{(\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2})}{(\nProd{\alpha}{\beta}{\x}{\e'_1}{\e'_2})}{\Universe{\gamma}}}
 
 \infer[\rulename{cong-name-universe}]
 {\isctx{\G} \\
@@ -891,7 +891,7 @@ Terms:
     \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
     \bnfor {}&  \coerce{\e}{\alpha}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
-    \bnfor {}&  \nProd{\x}{\e_1} \e_2  &&\text{the name of product type} \\
+    \bnfor {}&  \nProd{\alpha}{\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
     \bnfor {}&  \nUniverse{\alpha} &&\text{the name of a universe} \\
     \bnfor {}&  \nPrEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of a path type} \\
     \bnfor {}&  \nJuEqual{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
@@ -1172,7 +1172,7 @@ If we already know the given type is well-formed, there's an even simpler algori
     \\
     \piClose{\alpha}{\beta} = \gamma
   }
-  { \synterm{\GH}{(\nProd{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
+  { \synterm{\GH}{(\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
 
   \infer[\rulename{syn-name-coerce}]
   { \synterm{\GH}{\e}{\Universe{\alpha}}
@@ -1220,7 +1220,7 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \gamma = \piClose{\alpha}{\beta}
   }
   {
-    \tywhnf{\H}{\El{\gamma}{(\nProd{\x}{\e_1}{e_2})}}
+    \tywhnf{\H}{\El{\gamma}{(\nProd{\alpha}{\beta}{\x}{\e_1}{e_2})}}
                 {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e}}}
   }
 
@@ -1643,8 +1643,8 @@ same expressions before invoking the general comparison function.
    \eqpath{\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}{\e_2}{\e'_2}{\Universe{\beta}} \\
   }
   {\eqpath{\GH}
-    {(\nProd{\x}{\e_1}{\e_2})}
-    {(\nProd{\x}{\e'_1}{\e'_2})}
+    {(\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2})}
+    {(\nProd{\alpha'}{\beta'}{\x}{\e'_1}{\e'_2})}
     {\Universe{\gamma}}
   }
 
@@ -1667,27 +1667,27 @@ same expressions before invoking the general comparison function.
   \infer[\rulename{chk-eq-whnf-paths}]
   {
     \eqpath{\GH}{\e_{\T}}{\e_{\U}}{\Universe{\alpha}}\\
-    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
-    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\e_{\T}}}
+    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
+    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
   }
   {\eqpath{\GH}{\nPrEqual{\e_T}{\e_1}{\e_2}}{\nPrEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-id}]
   {
     \eqtermalg{\GH}{\e_T}{\e_U}{\Universe{\alpha}}\\
-    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
-    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\e_{\T}}}
+    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
+    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
   }
   {\eqpath{\GH}{\nJuEqual{\e_T}{\e_1}{\e_2}}{\nJuEqual{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-coerce}]
   {
-    \eqpath{\GH}{\e_1}{\e_2}{\Universe{\alpha}} \\
-    \alpha \leq \beta = \gamma
+    \alpha = \beta \\
+    \eqpath{\GH}{\e_1}{\e_2}{\Universe{\gamma}} \\
   }
   {
-    \eqpath{\GH}{\coerce{\beta}{\e_1}}
-                {\coerce{\gamma}{\e_2}}
+    \eqpath{\GH}{\coerce{\alpha}{\e_1}}
+                {\coerce{\beta}{\e_2}}
                 {\Universe{\beta}}
   }
 
