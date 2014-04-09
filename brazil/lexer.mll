@@ -35,6 +35,7 @@ rule token = parse
   | "//"[^'\n']*        { token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
   | "#context"          { CONTEXT }
+  | "#help"             { HELP }
   | "#quit"             { QUIT }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }

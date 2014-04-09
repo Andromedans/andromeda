@@ -11,12 +11,12 @@ let usage = "Usage: brazil [option] ... [file] ..."
 
 (** The help text printed when [#help] is used. *)
 let help_text = "Toplevel directives:
-#context .... print current contex
+#context .... print current context
 #help ....... print this help
 #quit ....... exit
 
-assume <ident> .... <ident> : <sort> ..... assume variable <ident> has sort <sort>
-define <ident> : <type> := <expr> ........ define <ident> to be <expr> of <type>
+assume <ident> ... <ident> : <sort> .... assume variable <ident> has sort <sort>
+define <ident> : <type> := <expr> ...... define <ident> to be <expr> of <type>
 " ;;
 
 (** A list of files to be loaded and run. *)
