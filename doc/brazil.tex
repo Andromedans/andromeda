@@ -118,6 +118,11 @@
 
 \newcommand{\inferred}[1]{{\color{magenta}{#1}}}
 
+\newcommand{\simplefib}{\mathop{\mathsf{isfib}}\,}
+\newcommand{\true}{\mathsf{true}}
+\newcommand{\false}{\mathsf{false}}
+
+
 \begin{document}
 
 \title{Brazilian type theory}
@@ -887,11 +892,11 @@ Terms:
     \bnfor {}&  \rewritein{\e_1} e_2 &&\text{use normalization hint $\e_1$ in $\e_2$} \\
     \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
     \bnfor {}&  \lam{\x}{\T_1}{\inferred{\T_2}} \e  &&\text{$\lambda$-abstraction} \\
-    \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
+    \bnfor {}&  \app{\e_1}{\inferred\x}{\inferred{\T_1}}{\inferred{\T_2}}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
-    \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
-    \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
-    \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
+    \bnfor {}&  \prRefl{\inferred\T}{\e}  &&\text{identity path} \\
+    \bnfor {}&  \PrElim{\inferred\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
+    \bnfor {}&  \juRefl{\inferred\T} \e  &&\text{reflexivity} \\
     \bnfor {}&  \coerce{\inferred\alpha}{\beta}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\inferred\alpha}{\inferred\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
@@ -963,26 +968,30 @@ describing the conditions under which the algorithm is expected to work.
   {\istypealg{\GH}{\Prod{\x}{\T}{\U}}}
 
   \infer[\rulename{tychk-el}]
-  {\synterm{\GH}{\e}{\Universe{\alpha}}}
+  {\synterm{\GH}{\e}{\T}\\
+   \whnfs{\GH}{\T}{\Universe{\alpha}}
+  }
   {\istypealg{\GH}{\El{\inferred\alpha}{\e}}}
 
   \infer[\rulename{tychk-unit}]
-  {}
+  {
+  }
   {\istypealg{\GH}{\Unit}}
 
   \infer[\rulename{tychk-paths}]
-  {\isfibalg{\GH}{\T}\\
-   \chkterm{\GH}{\e_1}{\T}\\
+  {
+   \synterm{\GH}{\e_1}{\T}\\
+   \simplefib{\T} = \true\\
    \chkterm{\GH}{\e_2}{\T}
   }
-  {\istypealg{\GH}{\PrEqual{\T}{\e_1}{\e_2}}}
+  {\istypealg{\GH}{\PrEqual{\inferred\T}{\e_1}{\e_2}}}
 
   \infer[\rulename{tychk-id}]
-  {\istypealg{\GH}{\T}\\
-   \chkterm{\GH}{\e_1}{\T}\\
+  {
+   \synterm{\GH}{\e_1}{\T}\\
    \chkterm{\GH}{\e_2}{\T}
   }
-  {\istypealg{\GH}{\JuEqual{\T}{\e_1}{\e_2}}}
+  {\istypealg{\GH}{\JuEqual{\inferred\T}{\e_1}{\e_2}}}
 \end{mathpar}
 
 
@@ -1012,18 +1021,17 @@ describing the conditions under which the algorithm is expected to work.
   {\isfibalg{\GH}{\Unit}}
 
   \infer[\rulename{fibchk-paths}]
-  {\isfibalg{\GH}{\T}\\
-   \chkterm{\GH}{\e_1}{\T}\\
+  {
+   \synterm{\GH}{\e_1}{\T}\\
+   \simplefib{\T} = \true\\
    \chkterm{\GH}{\e_2}{\T}
   }
-  {\isfibalg{\GH}{\PrEqual{\T}{\e_1}{\e_2}}}
+  {\isfibalg{\GH}{\PrEqual{\inferred\T}{\e_1}{\e_2}}}
 \end{mathpar}
 %
 If we already know the given type is well-formed, there's an even simpler algorithm to see if it is fibered:
 %
-\newcommand{\simplefib}{\mathop{\mathsf{isfib}}\,}
-\newcommand{\true}{\mathsf{true}}
-\newcommand{\false}{\mathsf{false}}
+
 \begin{align*}
 \simplefib{\Universe{\alpha}}        & \;\mathrel{{:}{=}}\;  \true \\
 \simplefib{\Prod{\x}{\T}{\U}}        & \;\mathrel{{:}{=}}\;  \simplefib{T}\ \land\ \simplefib{U} \\
@@ -1097,10 +1105,11 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{(\lam{\x}{\T}{\inferred\U} \e)}{\Prod{\x}{\T} \U} }
 
   \infer[\rulename{syn-app}]
-  { \chkterm{\GH}{\e_1}{\Prod{\x}{\T} \U} \\
+  { \synterm{\GH}{\e_1}{\T_1} \\
+    \whnfs{\GH}{\T_1}{\Prod{\x}{\T} \U}\\
     \chkterm{\GH}{\e_2}{\T}
   }
-  { \synterm{\GH}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\subst{\U}{\x}{\e_2}} }
+  { \synterm{\GH}{\app{\e_1}{\inferred{\x}}{\inferred\T}{\inferred\U}{\e_2}}{\subst{\U}{\x}{\e_2}} }
 \end{mathpar}
 
 \paragraph{Unit type}
@@ -1115,8 +1124,8 @@ If we already know the given type is well-formed, there's an even simpler algori
 
 \begin{mathpar}
   \infer[\rulename{syn-idpath}]
-  { \chkterm{\GH}{\e}{\T} }
-  { \synterm{\GH}{\prRefl{\T}{\e}}{\PrEqual{\T}{\e}{\e}} }
+  { \synterm{\GH}{\e}{\T} }
+  { \synterm{\GH}{\prRefl{\inferred\T}{\e}}{\PrEqual{\T}{\e}{\e}} }
 
   \infer[\rulename{syn-j}]
   {
@@ -1132,15 +1141,14 @@ If we already know the given type is well-formed, there's an even simpler algori
       {\e_2}
       {\substs{\U}{z/x, z/y, (\prRefl{\T}{z})/p}}
     \\
-    \chkterm{\GH}{\e_3}{\T}\\
-    \chkterm{\GH}{\e_4}{\T}\\
-    \chkterm{\GH}{\e_2}{\PrEqual{\T}{\e_3}{\e_4}} \\
+    \synterm{\GH}{\e_2}{\T_2}\\
+    \whnfs{\GH}{\T_2}{\PrEqual{\T}{\e_3}{\e_4}} \\
   }
   { \synterm{\GH}{
      \PrElim{\T}
              {\abst{x\,y\,p}{\U}}
              {\abst{z}{\e_1}}
-             {\e_2}{\e_3}{\e_4}
+             {\e_2}{\inferred{\e_3}}{\inferred{\e_4}}
     }{
       \substs{\U}{\e_3/x, \e_4/y, \e_2/p}
     }
@@ -1151,8 +1159,8 @@ If we already know the given type is well-formed, there's an even simpler algori
 
 \begin{mathpar}
   \infer[\rulename{syn-refl}]
-  { \chkterm{\GH}{\e}{\T} }
-  { \synterm{\GH}{\juRefl{\T}{\e}}{\JuEqual{\T}{\e}{\e}} }
+  { \synterm{\GH}{\e}{\T} }
+  { \synterm{\GH}{\juRefl{\inferred\T}{\e}}{\JuEqual{\inferred\T}{\e}{\e}} }
 
 \end{mathpar}
 
@@ -1170,39 +1178,38 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{\nUniverse{\alpha}}{\Universe{\beta}} }
 
   \infer[\rulename{syn-name-prod}]
-  { \synterm{\GH}{\e_1}{\Universe{\alpha}}
-    \\
-    \synterm
-    {\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}
-    {\e_2}
-    {\Universe{\beta}}
-    \\
+  { \synterm{\GH}{\e_1}{\T_1}\\
+    \whnfs{\GH}{\T_1}{\Universe{\alpha}}\\\\
+    \synterm{\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}{\e_2}{\T_2}\\
+    \whnfs{\GH}{\T_2}{\Universe{\beta}}\\\\
     \piClose{\alpha}{\beta} = \gamma
   }
   { \synterm{\GH}{(\nProd{\inferred\alpha}{\inferred\beta}{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
 
   \infer[\rulename{syn-name-coerce}]
-  { \synterm{\GH}{\e}{\Universe{\alpha}}
-    \\
+  { \synterm{\GH}{\e}{\T}\\
+    \whnfs{\GH}{\T}{\Universe{\alpha}}\\
     \alpha \leq \beta
   }
   { \synterm{\GH}{\coerce{\inferred\alpha}{\beta}{\e}}{\Universe{\beta}} }
 
   \infer[\rulename{syn-name-paths}]
-  {\synterm{\G}{\e_\T}{\Universe{\alpha}}\\
+  {
+   \synterm{\GH}{\e_2}{\T_2}\\
+   \whnfs{\GH}{\T_2}{\El{\alpha}{\e_1}}\\\\
+   \chkterm{\GH}{\e_3}{\El{\alpha}{\e_1}}\\
    \alpha\in\FF\\
-   \chkterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
-   \chkterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\synterm{\G}{\nPrEqual{\inferred\alpha}{\e_T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\synterm{\GH}{\nPrEqual{\inferred\alpha}{\inferred{\e_1}}{\e_2}{\e_3}}{\Universe{\alpha}}}
 
 
   \infer[\rulename{syn-name-id}]
-  {\synterm{\G}{\e_\T}{\Universe{\alpha}}\\
-   \chkterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
-   \chkterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
+  {
+   \synterm{\GH}{\e_2}{\T_2}\\
+   \whnfs{\GH}{\T_2}{\El{\alpha}{\e_1}}\\
+   \chkterm{\GH}{\e_3}{\El{\alpha}{\e_1}}
   }
-  {\synterm{\G}{\nJuEqual{\inferred\alpha}{\e_\T}{\e_1}{\e_2}}{\Universe{\alpha}}}
+  {\synterm{\GH}{\nJuEqual{\inferred\alpha}{\inferred{\e_1}}{\e_2}{\e_3}}{\Universe{\alpha}}}
 \end{mathpar}
 
 \subsection{Type normalization}
@@ -1248,15 +1255,15 @@ If we already know the given type is well-formed, there's an even simpler algori
   \infer[\rulename{tynorm-paths}]
   {
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
-          {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
+  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\alpha}{\e_1}{\e_2}{\e_3})}}
+          {\PrEqual{\El{\alpha}{\e_1}}{\e_2}{\e_3}}
   }
 
   \infer[\rulename{tynorm-id}]
   {
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2})}}
-          {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
+  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\alpha}{\e_1}{\e_2}{\e_3})}}
+          {\JuEqual{\El{\alpha}{\e_1}}{\e_2}{\e_3}}
   }
 \end{mathpar}
 %
@@ -1362,7 +1369,11 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
     {(\rewritein{\e_1}{\e_2})}
     {\e_2}
   }
+\end{mathpar}
 
+We might want to have normalization accumlate these hints...especially equation hints, which are always harmless.
+
+\begin{mathpar}
   \infer[\rulename{norm-ascribe}]
   { }
   { \whnf
@@ -1513,7 +1524,7 @@ Otherwise, we check whether extensionality applies:
 \begin{mathpar}
   \infer[\rulename{chk-eq-ext-prod}]
   {
-    \eqtermalg{\ctxs{(\ctxextend{\G}{\x}{\T})}{\H}}{\app{\e_1}{\x}{\T}{\U}{\x}}{\app{\e_2}{\x}{\T}{\U}{\x}}{\U}
+    \eqtermalg{\ctxs{(\ctxextend{\G}{\x}{\T})}{\H}}{(\app{\e_1}{\x}{\T}{\U}{\x})}{(\app{\e_2}{\x}{\T}{\U}{\x})}{\U}
   }
   {
     \eqtermext{\GH}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}
@@ -1670,20 +1681,20 @@ same expressions before invoking the general comparison function.
   \infer[\rulename{chk-eq-whnf-paths}]
   {
     \alpha = \alpha'\\
-    \eqpath{\GH}{\e_{\T}}{\e_{\U}}{\Universe{\alpha}}\\
-    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
-    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
+    \eqpath{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_1}}\\
+    \eqtermalg{\GH}{\e_3}{\e'_3}{\El{\alpha}{\e_2}}
   }
-  {\eqpath{\GH}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nPrEqual{\alpha'}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+  {\eqpath{\GH}{\nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}}{\nPrEqual{\alpha'}{\e'_1}{\e'_2}{\e'_3}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-id}]
   {
     \alpha = \alpha'\\
-    \eqtermalg{\GH}{\e_T}{\e_U}{\Universe{\alpha}}\\
-    \eqtermalg{\GH}{\e_1}{\e'_1}{\El{\alpha}{\e_{\T}}}\\
-    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_{\T}}}
+    \eqtermalg{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+    \eqtermalg{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_1}}\\
+    \eqtermalg{\GH}{\e_3}{\e'_3}{\El{\alpha}{\e_2}}
   }
-  {\eqpath{\GH}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\alpha'}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+  {\eqpath{\GH}{\nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}}{\nJuEqual{\alpha'}{\e'_1}{\e'_2}{\e'_3}}{\Universe{\alpha}}}
 
   \infer[\rulename{chk-eq-whnf-coerce}]
   {
