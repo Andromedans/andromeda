@@ -1070,7 +1070,7 @@ struct
             S.MetavarApp { S.mv_def  = mva.S.mv_def;
                            S.mv_args = List.map (nf env) mva.S.mv_args;
                            S.mv_ty   = mva.S.mv_ty;
-                           S.mv_pos  = mva.S.mv_pos;
+                           S.mv_loc  = mva.S.mv_loc;
                            S.mv_sort = mva.S.mv_sort;
                          }
 

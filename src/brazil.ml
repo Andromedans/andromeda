@@ -292,7 +292,7 @@ let rec infer env term =
                       (print_term env printable_ty);
                     ty
                 | S.MV_wildcard ->
-                    Error.verify ~loc:mva.S.mv_pos "Unset metavariable %s@ of type %t"
+                    Error.verify ~loc:mva.S.mv_loc "Unset metavariable %s@ of type %t"
                       (S.string_of_mva mva) (print_term env printable_ty)
               end
         end
