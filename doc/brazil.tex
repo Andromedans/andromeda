@@ -40,7 +40,7 @@
 \newcommand{\substs}[2]{#1[#2]} % substitution of many variables
 
 \newcommand{\Universe}[1]{\mathbb{U}_{#1}} % non-fibered universe
-\newcommand{\El}[1]{\mathsf{El}\, #1} % the type named by the term
+\newcommand{\El}[2]{\mathsf{El}^{#1}\, #2} % the type named by the term
 
 \newcommand{\Unit}{\mathsf{Unit}} % The unit type
 \newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
@@ -178,7 +178,7 @@ Types:
   \T, \U
   \begin{aligned}[t]
     \bnf   {}& \Universe{\alpha} & & \text{universe}\\
-    \bnfor {}& \El{\e} & & \text{type named by $e$}\\
+    \bnfor {}& \El{\alpha}{\e} & & \text{type named by $e$}\\
     \bnfor {}& \Unit & & \text{the unit type}\\
     \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
     \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
@@ -492,8 +492,8 @@ Terms:
   {\isterm{\G}{\e_1}{\Universe{\alpha}} \\
    \isterm{\ctxextend{\G}{x}{\El{\e_1}}}{\e_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
-  {\eqtype{\G}{\El{(\nProd{\x}{\e_1}{\e_2})}}
-              {\Prod{\x}{\El{\e_1}}{\El{\e_2}}}}
+  {\eqtype{\G}{\El{\gamma}{(\nProd{\x}{\e_1}{\e_2})}}
+              {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}}}
 
   \infer[\rulename{tyeq-el-unit}]
   { }
@@ -509,19 +509,21 @@ Terms:
   \infer[\rulename{tyeq-el-paths}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
    \alpha\in\FF\\
-   \isterm{\G}{\e_1}{\El{\e_\T}}\\
-   \isterm{\G}{\e_2}{\El{\e_\T}}
+   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\eqtype{\G}{\El{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
-          {\PrEqual{\El{\e_\T}}{\e_1}{\e_2}}}
+  {\eqtype{\G}
+          {\El{\alpha}{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
+          {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
 
   \infer[\rulename{tyeq-el-id}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
-   \isterm{\G}{\e_1}{\El{\e_\T}}\\
-   \isterm{\G}{\e_2}{\El{\e_\T}}
+   \isterm{\G}{\e_1}{\El{\alpha}{\e_\T}}\\
+   \isterm{\G}{\e_2}{\El{\alpha}{\e_\T}}
   }
-  {\eqtype{\G}{\El{(\nJuEqual{\e_\T}{\e_1}{\e_2})}}
-          {\JuEqual{\El{\e_\T}}{\e_1}{\e_2}}}
+  {\eqtype{\G}
+          {\El{\alpha}{(\nJuEqual{\e_\T}{\e_1}{\e_2})}}
+          {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}}
 
 \end{mathpar}
 
@@ -1018,7 +1020,7 @@ If we already know the given type is well-formed, there's an even simpler algori
 \begin{align*}
 \simplefib{\Universe{\alpha}}        & \;\mathrel{{:}{=}}\;  \true \\
 \simplefib{\Prod{\x}{\T}{\U}}        & \;\mathrel{{:}{=}}\;  \simplefib{T}\ \land\ \simplefib{U} \\
-\simplefib{\El{\e}}                  & \;\mathrel{{:}{=}}\;  \alpha\in\FF \\
+\simplefib{\El{\alpha}{\e}}          & \;\mathrel{{:}{=}}\;  \alpha\in\FF \\
 \simplefib{\Unit}                    & \;\mathrel{{:}{=}}\;  \zero\in\FF \\
 \simplefib{\PrEqual{\T}{\e_1}{\e_2}} & \;\mathrel{{:}{=}}\;  \true \\
 \simplefib{\JuEqual{\T}{\e_1}{\e_2}} & \;\mathrel{{:}{=}}\;  \false
@@ -1215,11 +1217,11 @@ If we already know the given type is well-formed, there's an even simpler algori
 \begin{mathpar}
 
   \infer[\rulename{tynorm-pi}]
-  {
+  { \gamma = \piClose{\alpha}{\beta}
   }
   {
-    \tywhnf{\H}{\El{(\nProd{\x}{\e_1}{e_2})}}
-                {\Prod{\x}{\El{\e_1}}{\El{\e}}}
+    \tywhnf{\H}{\El{\gamma}{(\nProd{\x}{\e_1}{e_2})}}
+                {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e}}}
   }
 
   \infer[\rulename{tynorm-unit}]
@@ -1239,15 +1241,15 @@ If we already know the given type is well-formed, there's an even simpler algori
   \infer[\rulename{tynorm-paths}]
   {
   }
-  {\tywhnf{\H}{\El{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
-          {\PrEqual{\El{\e_\T}}{\e_1}{\e_2}}
+  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\e_T}{\e_1}{\e_2})}}
+          {\PrEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
   }
 
   \infer[\rulename{tynorm-id}]
   {
   }
-  {\tywhnf{\H}{\El{(\nJuEqual{\e_T}{\e_1}{\e_2})}}
-          {\JuEqual{\El{\e_\T}}{\e_1}{\e_2}}
+  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\e_T}{\e_1}{\e_2})}}
+          {\JuEqual{\El{\alpha}{\e_\T}}{\e_1}{\e_2}}
   }
 \end{mathpar}
 %
@@ -1547,7 +1549,7 @@ same expressions before invoking the general comparison function.
 
   \infer[\rulename{chk-eq-whnf-var}]
   {
-    (\x{:}\T)\in \G
+    %(\x{:}\T)\in \G
   }
   {
     \eqpath{\GH}{\x}{\x}{\T}
@@ -1634,9 +1636,11 @@ same expressions before invoking the general comparison function.
 
 \begin{mathpar}
   \infer[\rulename{chk-eq-whnf-prod}]
-  {\eqpath{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-   \eqpath{\ctxs{(\ctxextend{\G}{\x}{\El{\e_1}})}{\H}}{\e_2}{\e'_2}{\Universe{\beta}} \\
-   \piClose{\alpha}{\beta} = \gamma
+  {\alpha = \alpha' \\
+   \beta = \beta' \\
+   \piClose{\alpha}{\beta} = \gamma\\\\
+   \eqpath{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+   \eqpath{\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}{\e_2}{\e'_2}{\Universe{\beta}} \\
   }
   {\eqpath{\GH}
     {(\nProd{\x}{\e_1}{\e_2})}
