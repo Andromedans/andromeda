@@ -1304,7 +1304,7 @@ Reflexivity is an optimization for the common case.
     \eqtermalg{\GH}{\e_1}{\e_2}{\Universe{\alpha}}
   }
   {
-    \eqtypepath{\GH}{\El{\e_1}}{\El{\e_2}}
+    \eqtypepath{\GH}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}
   }
 
   \infer[\rulename{chk-tyeq-prod}]
@@ -1371,7 +1371,7 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   }
 \end{mathpar}
 
-We might want to have normalization accumlate these hints...especially equation hints, which are always harmless.
+We might want to have normalization accumulate these hints...especially equation hints, which are always harmless.
 
 \begin{mathpar}
   \infer[\rulename{norm-ascribe}]
@@ -1459,7 +1459,7 @@ Rule~\rulename{norm-coerce-trivial} makes no sense if we don't label universe co
 \begin{mathpar}
  \infer[\rulename{norm-app}]
  {\whnf{\GH}{\e_1}{\e'_1}}
- {\whnf{\GH}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\app{\e'_1}{\x}{\T}{\U}{\e_2}}}
+ {\whnf{\GH}{(\app{\e_1}{\x}{\T}{\U}{\e_2})}{(\app{\e'_1}{\x}{\T}{\U}{\e_2})}}
 
  \infer[\rulename{norm-J}]
   { \whnf{\GH}{\e_2}{\e'_2}}
@@ -1720,8 +1720,8 @@ These rules should not be necessary (due to eta), but sufficiently nasty hints m
    \eqtypealg{\ctxs{(\ctxextend{\G}{\x}{\T_1})}{\H}}{\T_2}{\U_2}\\\\
    \eqtermalg{\ctxs{(\ctxextend{\G}{\x}{\T_1})}{\H}}{\e_1}{\e_2}{\T_2}\\
   }
-  {\eqpath{\GH}{\lam{\x}{\T_1}{\T_2}{\e_1}}
-               {\lam{\x}{\U_1}{\U_2}{\e_2}}
+  {\eqpath{\GH}{(\lam{\x}{\T_1}{\T_2}{\e_1})}
+               {(\lam{\x}{\U_1}{\U_2}{\e_2})}
                {\Prod{\x}{\T_1}{\T_2}}}
 
   \infer[\rulename{chk-eq-whnf-unit-right}]
