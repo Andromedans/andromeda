@@ -1630,14 +1630,6 @@ same expressions before invoking the general comparison function.
 
 \paragraph{Whnf equivalence of names}
 
-{\color{blue}
-  The following \rulename{chk-eq-whnf-XXX} rules don't work, because we lost all the universe subscripts,
-  and we're recursively invoking checking rules. Either we have to switch back
-  to a synthesizing judgment (which would, among other things, require equivalence
-  hints to be tagged with their types, or reconstruct that type from the hint terms
-  on the fly), or put the subscripts back.
-}
-
 \begin{mathpar}
   \infer[\rulename{chk-eq-whnf-prod}]
   {\alpha = \alpha' \\
@@ -1688,18 +1680,51 @@ same expressions before invoking the general comparison function.
 
   \infer[\rulename{chk-eq-whnf-coerce}]
   {
-    \alpha = \beta \\
+    \alpha = \alpha'\\
+    \beta = \beta'\\
     \eqpath{\GH}{\e_1}{\e_2}{\Universe{\gamma}} \\
   }
   {
-    \eqpath{\GH}{\coerce{\alpha}{\e_1}}
-                {\coerce{\beta}{\e_2}}
+    \eqpath{\GH}{\coerce{\alpha}{\beta}{\e_1}}
+                {\coerce{\alpha'}{\beta'}{\e_2}}
                 {\Universe{\beta}}
   }
 
 \end{mathpar}
-%
-Right now we do not have rules for whnf equivalence of the unit value, or of
-$\lambda$-abstractions. In principle, extensionality should get rid of these.
 
+\paragraph{Last-ditch whnf equivalence rules}
+
+These rules should not be necessary (due to eta), but sufficiently nasty hints might get us here.
+
+\begin{mathpar}
+  \infer[\rulename{chk-eq-whnf-abs}]
+  {\eqtypealg{\GH}{\T_1}{\U_1}\\
+   \eqtypealg{\ctxs{(\ctxextend{\G}{\x}{\T_1})}{\H}}{\T_2}{\U_2}\\\\
+   \eqtermalg{\ctxs{(\ctxextend{\G}{\x}{\T_1})}{\H}}{\e_1}{\e_2}{\T_2}\\
+  }
+  {\eqpath{\GH}{\lam{\x}{\T_1}{\T_2}{\e_1}}
+               {\lam{\x}{\U_1}{\U_2}{\e_2}}
+               {\Prod{\x}{\T_1}{\T_2}}}
+
+  \infer[\rulename{chk-eq-whnf-unit-right}]
+  { }
+  {\eqpath{\GH}{\e}{\unitTerm}{\Unit}}
+
+  \infer[\rulename{chk-eq-whnf-unit-left}]
+  { }
+  {\eqpath{\GH}{\unitTerm}{\e}{\Unit}}
+
+  \infer[\rulename{chk-eq-whnf-refl-left}]
+  { }
+  {\eqpath{\GH}{\juRefl{\T}{\e_1}}{\e_2}
+          {\JuEqual{\T}{\e_3}{\e_4}}}
+
+  \infer[\rulename{chk-eq-whnf-refl-right}]
+  { }
+  {\eqpath{\GH}{\e_1}{\juRefl{\T}{\e_2}}
+          {\JuEqual{\T}{\e_3}{\e_4}}}
+\end{mathpar}
+
+We rely heavily on the precondition that the two terms being compared are already known to be well-formed with the same type.
+Rule~\rulename{chk-eq-whnf-abs} still has to conservatively re-check the equivalence of the type annotations; in the absence of Pi injectivity, just because we know the two lambda abstractions have judgmentally equal Pi types, there's no guarantee that they are componentwise equal.
 \end{document}
