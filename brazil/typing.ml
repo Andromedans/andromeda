@@ -160,7 +160,150 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
         false
   end
 
-and equiv ctx term1 term2 ty = failwith "not implemented "
+(* Precondition: t is well-formed
+                 term1 : t
+                 term2 : t
+ *)
+and equiv ctx term1 term2 t =
+
+  (* chk-eq-refl *)
+  if (Syntax.equal term1 term2) then
+    true
+
+  (* chk-eq-hint *)
+  else if (Context.lookup_equation term1 term2 ctx) then
+    true
+
+  else
+    let t' = whnfs_ty ctx t in
+    equiv_ext ctx term1 term2 t'
+
+(* Precondition: ty is well-formed *and weak-head-normal*
+                 e1 : ty
+                 e2 : ty
+ *)
+and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) (ty', _) =
+  begin
+    match ty' with
+
+    (* chk-eq-ext-prod *)
+    | Syntax.Prod(x, t, u) ->
+        equiv (Context.add_var x t ctx)
+              (Syntax.App((x, t, u), e1, (Syntax.Var 0, Position.nowhere)), loc1)
+              (Syntax.App((x, t, u), e2, (Syntax.Var 0, Position.nowhere)), loc2)
+              u
+
+    (* chk-eq-ext-unit *)
+    | Syntax.Unit ->
+        true
+
+    (* chk-eq-ext-K *)
+    | Syntax.Id (_T, _e3, _e4) ->
+        true
+
+    (* chk-eq-ext-whnf *)
+    | _ ->
+        let e1' = whnfs ctx e1  in
+        let e2' = whnfs ctx e2  in
+        equiv_whnf ctx e1' e2'
+  end
+
+and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
+  begin
+    match term1', term2' with
+
+    (* chk-eq-whnf-reflexivity *)
+    | _, _ when Syntax.equal term1 term2 ->
+        true
+
+    (* chk-eq-whnf-equation *)
+    | _, _ when Context.lookup_equation term1 term2 ctx ->
+        true
+
+    (* chk-eq-whnf-var *)
+    | Syntax.Var index1, Syntax.Var index2 -> index1 = index2
+
+    (* chk-eq-whnf-app *)
+    | Syntax.App((x, t1, t2), e1, e2), Syntax.App((_, u1, u2), e1', e2') ->
+        equiv_ty ctx t1 u1
+        && equiv_ty (Context.add_var x t1 ctx) t2 u2   (* Do we really need to check this? *)
+        && equiv_whnf ctx e1 e2
+        && equiv ctx e2 e2' t1
+
+    (* chk-eq-whnf-idpath *)
+    | Syntax.Idpath(t, e1), Syntax.Idpath(u, e2) ->
+        equiv_ty ctx t u && equiv ctx e1 e2 t
+
+    (* chk-eq-whnf-j *)
+    (*| Syntax.J(t,(x,y,p,u),(z,e1),e2, e3, e4), Syntax.J(t', (_,_,_,u'), (_,e1'), e2, e3, e4) ->*)
+    | Syntax.J _, Syntax.J _ ->
+        failwith "unimplemented because de bruijn indices are nasty"
+
+    (* chk-eq-whnf-refl *)
+    | Syntax.Refl(t, e1), Syntax.Refl(u, e2) ->
+        equiv_ty ctx t u && equiv ctx e1 e2 t
+
+    (* chk-eq-whnf-prod *)
+    | Syntax.NameProd(alpha, beta, x, e1, e2), Syntax.NameProd(alpha', beta', _, e1', e2') ->
+        alpha = alpha' && beta = beta'
+        && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
+        && equiv (Context.add_var x (Syntax.El(alpha,e1), Position.nowhere) ctx)
+                 e2 e2' (Syntax.Universe beta, Position.nowhere)
+
+    (* chk-eq-whnf-universe *)
+    | Syntax.NameUniverse alpha, Syntax.NameUniverse beta ->
+        alpha = beta
+
+    (* chk-eq-whnf-unit *)              (** Subsumed by reflexivity check! *)
+    (*| Syntax.NameUnit, Syntax.NameUnit -> true *)
+
+    (* chk-eq-whnf-paths *)
+    | Syntax.NamePaths(alpha, e1, e2, e3), Syntax.NamePaths(alpha', e1', e2', e3') ->
+        alpha = alpha'
+        && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
+        && equiv ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
+        && equiv ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
+
+    (* chk-eq-whnf-id *)
+    | Syntax.NameId(alpha, e1, e2, e3), Syntax.NameId(alpha', e1', e2', e3') ->
+        alpha = alpha'
+        && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
+        && equiv ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
+        && equiv ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
+
+    (* chk-eq-whnf-coerce *)
+    | Syntax.Coerce(alpha, _beta, e1), Syntax.Coerce(alpha', _beta', e1') ->
+        alpha = alpha'
+        && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
+
+    (* chk-eq-whnf-abs *)
+    | Syntax.Lambda(x,t1,t2,e1), Syntax.Lambda(_,u1,u2,e2) ->
+        equiv_ty ctx t1 u1
+        && let ctx' = Context.add_var x t1 ctx  in
+           equiv_ty ctx' t2 u2 && equiv ctx' e1 e2 t2
+
+    (* chk-eq-whnf-unit-right *)
+    | _, Syntax.UnitTerm ->
+        true
+
+    (* chk-eq-whnf-unit-left *)
+    | Syntax.UnitTerm, _ ->
+        true
+
+    (* chk-eq-whnf-refl-left *)
+    | Syntax.Refl _, _ ->
+        true
+
+    (* chk-eq-whnf-refl-right *)
+    | _, Syntax.Refl _ ->
+        true
+
+    | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
+      | Syntax.Lambda _ | Syntax.App _ | Syntax.Idpath _
+      | Syntax.J _ | Syntax.Coerce _ | Syntax.NameUnit
+      | Syntax.NameProd _ | Syntax.NameUniverse _ | Syntax.NamePaths _
+      | Syntax.NameId _), _ -> false
+  end
 
 let rec syn_term ctx e = failwith "not implemented"
 
