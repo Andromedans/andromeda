@@ -105,19 +105,62 @@ and whnf ctx1 ((term',loc) as term) =
         | _ -> None
       end
 
-and equiv_ty ctx ty1 ty2 = failwith "not implemented"
-
 (* Repeatedly apply whnf until nothing changes *)
-let rec whnfs ctx1 term1 =
+and whnfs ctx1 term1 =
   match whnf ctx1 term1 with
   | Some (ctx2, term2) -> whnfs ctx2 term2
   | None               -> term1
 
 (* Repeatedly apply whnf_ty until nothing changes *)
-let rec whnfs_ty ctx1 ty1 =
+and whnfs_ty ctx1 ty1 =
   match whnf_ty ctx1 ty1 with
   | Some (ctx2, ty2) -> whnfs_ty ctx2 ty2
   | None             -> ty1
+
+
+and equiv_ty ctx t u =
+  (* chk-tyeq-refl *)
+  if (Syntax.equal_ty t u) then
+    true
+  else
+    let t' = whnfs_ty ctx t  in
+    let u' = whnfs_ty ctx u  in
+    equiv_whnf_ty ctx t' u'
+
+and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
+  begin
+    match t', u' with
+
+    (* chk-tyeq-path-refl *)
+    | _, _ when Syntax.equal_ty t u -> true
+
+    (* chk-tyeq-el *)
+    | Syntax.El(alpha, e1), Syntax.El(beta, e2) ->
+        alpha = beta && equiv ctx e1 e2 (Syntax.Universe alpha, uloc)
+
+    (* chk-tyeq-prod *)
+    | Syntax.Prod(x, t1, t2), Syntax.Prod(_, u1, u2) ->
+        equiv_ty ctx t1 u1 &&
+        equiv_ty (Context.add_var x t1 ctx) t2 u2
+
+    (* chk-tyeq-paths *)
+    | Syntax.Paths(t,e1,e2), Syntax.Paths(u,e1',e2') ->
+        equiv_ty ctx t u &&
+        equiv ctx e1 e1' t &&
+        equiv ctx e2 e2' t
+
+    (* chk-tyeq-id *)
+    | Syntax.Id(t,e1,e2), Syntax.Id(u,e1',e2') ->
+        equiv_ty ctx t u &&
+        equiv ctx e1 e1' t &&
+        equiv ctx e2 e2' t
+
+    | (Syntax.Universe _ | Syntax.El _ | Syntax.Unit
+       | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _), _ ->
+        false
+  end
+
+and equiv ctx term1 term2 ty = failwith "not implemented "
 
 let rec syn_term ctx e = failwith "not implemented"
 
