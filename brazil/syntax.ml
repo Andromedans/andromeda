@@ -35,6 +35,85 @@ and term' =
   | NamePaths of term * term * term
   | NameId of term * term * term
 
+(*********************)
+(* Alpha-Equivalence *)
+(*********************)
+
+(** Unfortunately, we cannot use ML's built-in = operator for alpha equivalence,
+    because we maintain variable names and source locations (for debugging and
+    error-reporting) in terms.
+*)
+
+let rec equal (left,_) (right,_) =
+  match left, right with
+
+  | Var index1, Var index2 -> index1 = index2
+
+  | Equation(   term1, term2), Equation(   term3, term4)
+  | Rewrite (   term1, term2), Rewrite (   term3, term4)
+  | NameProd(_, term1, term2), NameProd(_, term3, term4) ->
+      equal term1 term3 && equal term2 term4
+
+  | Ascribe(term1, ty2), Ascribe(term3, ty4) ->
+      equal term1 term3 && equal_ty ty2 ty4
+
+  | Lambda(_, ty1, ty2, term3), Lambda(_, ty4, ty5, term6) ->
+      equal_ty ty1 ty4 && equal_ty ty2 ty5 && equal term3 term6
+
+  | App((_,ty1,ty2),term3,term4), App((_,ty5,ty6),term7,term8) ->
+      equal_ty ty1 ty5 && equal_ty ty2 ty6
+      && equal term3 term7 && equal term4 term8
+
+  | UnitTerm, UnitTerm
+  | NameUnit, NameUnit -> true
+
+  | Idpath(ty1, term2), Idpath(ty3, term4)
+  | Refl  (ty1, term2), Refl  (ty3, term4) ->
+      equal_ty ty1 ty3 && equal term2 term4
+
+  | J(ty1, (_, _, _, ty2), (_, term3), term4, term5, term6),
+    J(ty7, (_, _, _, ty8), (_, term9), term10, term11, term12) ->
+      equal_ty ty1 ty7 && equal_ty ty2 ty8 && equal term3 term9
+      && equal term4 term10 && equal term5 term11 && equal term6 term12
+
+  | Coerce(universe1, universe2, term3), Coerce(universe4, universe5, term6) ->
+      universe1 = universe4 && universe2 = universe5 && equal term3 term6
+
+  | NameUniverse universe1, NameUniverse universe2 ->
+      universe1 = universe2
+
+  | NamePaths(term1, term2, term3), NamePaths(term4, term5, term6)
+  | NameId   (term1, term2, term3), NameId   (term4, term5, term6) ->
+      equal term1 term4 && equal term2 term5 && equal term3 term6
+
+  | (Var _ | Equation _ | Rewrite _ | Ascribe _ | Lambda _ | App _
+     | UnitTerm | Idpath _ | J _ | Refl _ | Coerce _
+     | NameUnit | NameProd _ | NameUniverse _ | NamePaths _| NameId _), _ ->
+         false
+
+
+and equal_ty (left_ty,_) (right_ty,_) =
+  match left_ty, right_ty with
+
+  | Universe universe1, Universe universe2 ->
+      universe1 = universe2
+
+  | El(universe1, term2), El(universe3, term4) ->
+      universe1 = universe3 && equal term2 term4
+
+  | Unit, Unit -> true
+
+  | Prod(_, ty1, ty2), Prod(_, ty3, ty4) ->
+      equal_ty ty1 ty3 && equal_ty ty2 ty4
+
+  | Paths(ty1, term2, term3), Paths(ty4, term5, term6)
+  | Id   (ty1, term2, term3), Id   (ty4, term5, term6) ->
+      equal_ty ty1 ty4 && equal term2 term5 && equal term3 term6
+
+  | (Universe _ | El _ | Unit | Prod _ | Paths _ | Id _), _ ->
+      false
+
+
 (** Shifting and substitution are almost exactly the same code. We
    factor out this common pattern into [transform], which rewrites all the
    *free* variables of a term using a generic transformation function [ftrans].

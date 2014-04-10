@@ -1,5 +1,7 @@
 (** Brazil main program *)
 
+module Ctx = Context
+(*
 (** Should the interactive shell be run? *)
 let interactive_shell = ref true
 
@@ -147,3 +149,4 @@ let main =
       toplevel ctx
   with
     Error.Error err -> Print.error err ; exit 1
+*)

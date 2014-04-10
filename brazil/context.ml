@@ -78,15 +78,15 @@ let lookup_equation e1 e2 ctx =
   let predicate = function
     | Equation(term1, term2)
     | Rewrite(term1, term2) ->
-       (e1 = term1 && e2 = term2) ||
-       (e2 = term1 && e1 = term2)
+       (Syntax.equal e1 term1 && Syntax.equal e2 term2) ||
+       (Syntax.equal e2 term1 && Syntax.equal e1 term2)
   in
     List.exists predicate ctx.hints
 
 let lookup_rewrite e1 ctx =
   begin
     let predicate = function
-      | Rewrite(term1, _) -> e1 = term1
+      | Rewrite(term1, _) -> Syntax.equal e1 term1
       | _ -> false  in
     match List.filter predicate ctx.hints with
     | [] -> None
