@@ -41,7 +41,8 @@ and term' =
 
 (** Unfortunately, we cannot use ML's built-in = operator for alpha equivalence,
     because we maintain variable names and source locations (for debugging and
-    error-reporting) in terms.
+    error-reporting) in terms. So, we write the obvious recursive traversal
+    code.
 *)
 
 let rec equal (left,_) (right,_) =
@@ -113,6 +114,9 @@ and equal_ty (left_ty,_) (right_ty,_) =
   | (Universe _ | El _ | Unit | Prod _ | Paths _ | Id _), _ ->
       false
 
+(*******************)
+(* Transformations *)
+(*******************)
 
 (** Shifting and substitution are almost exactly the same code. We
    factor out this common pattern into [transform], which rewrites all the
@@ -229,9 +233,11 @@ let ftrans_subst free_index replacement_term bvs index =
 (** [subst j e' e] is a transformation that replaces free occurrences
     of variable [j] in [e] (relative to the "outside" of the term) by [e'].
 *)
-let subst    free_index replacement_term = transform    (ftrans_subst free_index replacement_term) 0
-let subst_ty free_index replacement_term = transform_ty (ftrans_subst free_index replacement_term) 0
+let subst    free_index (replacement_term,_) = transform    (ftrans_subst free_index replacement_term) 0
+let subst_ty free_index (replacement_term,_) = transform_ty (ftrans_subst free_index replacement_term) 0
 
 
-
+(* XXX: substitution loses the outer location of the term being substituted,
+ * replacing it with the location of the variable being replaced. Inner
+ * positions are unaffected *)
 
