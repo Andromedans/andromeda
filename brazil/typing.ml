@@ -204,7 +204,7 @@ and equiv ctx term1 term2 t =
     let t' = whnfs_ty ctx t in
     equiv_ext ctx term1 term2 t'
 
-(* Equivalence of termsat a weak-head-normal type.
+(* Equivalence of terms at a weak-head-normal type.
 
    Precondition: ty is well-formed *and weak-head-normal*
                  e1 : ty
