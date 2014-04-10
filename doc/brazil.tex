@@ -95,23 +95,23 @@
 \newcommand{\eqtermext}[4]{#1 \vdash #2 \simeq #3 \Leftarrow #4} % equal terms w/o eta
 \newcommand{\eqpath}[4]{#1 \vdash #2 \thicksim #3}  % equal paths
 
-\newcommand{\equationin}[1]{\mathsf{equation}\; #1 \; \mathsf{in} \;} % use equation hint
-\newcommand{\rewritein}[1]{\mathsf{rewrite}\; #1 \; \mathsf{in} \;} % use rewrite hint
-\newcommand{\eqtermhint}[2]{(#1 \,{\equiv}\, #2)} % equality hint
-\newcommand{\redtermhint}[2]{(#1 \,{\leadsto}\, #2)} % rewrite hint
+\newcommand{\equationin}[3]{\mathsf{equation}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use equation hint
+\newcommand{\rewritein}[3]{\mathsf{rewrite}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use rewrite hint
+\newcommand{\eqhint}[2]{(#1 \,{\equiv}\, #2)} % equality hint
+\newcommand{\rwhint}[2]{(#1 \,{\leadsto}\, #2)} % rewrite hint
 
 \renewcommand{\H}{\mathcal{H}}      % term hint list
 \newcommand{\hintempty}{\circ}      % empty hint list
 
-\newcommand{\addhinteq}[3]{#1, \eqtermhint{#2}{#3}} % extended hint list
-\newcommand{\addhintred}[3]{#1, \redtermhint{#2}{#3}} % extended hint list
+\newcommand{\addhinteq}[3]{#1, \eqhint{#2}{#3}} % extended hint list
+\newcommand{\addhintrw}[3]{#1, \rwhint{#2}{#3}} % extended hint list
 \newcommand{\ctxs}[2]{#1\,;\,#2}
 \newcommand{\GH}{\ctxs{\G}{\H}}           % combined context and hints
 
 % normalization
 
-\newcommand{\tywhnf}[3]{#1 \vdash #2 \leadsto #3 } % "one-step type normalization"
-\newcommand{\whnf}[3]{#1 \vdash #2 \leadsto #3 } % "one-step term normalization"
+\newcommand{\tywhnf}[4]{#1 \vdash #2 \leadsto #3 / #4} % "one-step type normalization"
+\newcommand{\whnf}[4]{#1 \vdash #2 \leadsto #3 / #4} % "one-step term normalization"
 
 \newcommand{\tywhnfs}[3]{#1 \vdash #2 \leadsto^* #3 \not\leadsto } % "type normalization"
 \newcommand{\whnfs}[3]{#1 \vdash #2 \leadsto^* #3 \not\leadsto } % "term normalization"
@@ -863,8 +863,8 @@ Equality hints:
   \H
   \begin{aligned}[t]
     \bnf   {}& \hintempty & & \text{empty hints}\\
-    \bnfor {}& \addhinteq{\H}{\e_1}{\e_2} & & \text{extend hints with a term equation} \\
-    \bnfor {}& \addhintred{\H}{\e_1}{\e_2} & & \text{extend hints with a term reduction} \\
+    \bnfor {}& \addhinteq{\H}{\e_1}{\e_2}{\T} & & \text{extend hints with an equation} \\
+    \bnfor {}& \addhintrw{\H}{\e_1}{\e_2}{\T} & & \text{extend hints with a reduction} \\
   \end{aligned}
 \end{equation*}
 %
@@ -877,8 +877,8 @@ Types:
     \bnfor {}& \El{\inferred\alpha}{\e} & & \text{type named by $e$}\\
     \bnfor {}& \Unit & & \text{the unit type}\\
     \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
-    \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
-    \bnfor {}& \JuEqual{T}{\e_1}{\e_2} & & \text{equality type}
+    \bnfor {}& \PrEqual{\inferred{T}}{\e_1}{\e_2} & & \text{path type}\\
+    \bnfor {}& \JuEqual{\inferred{T}}{\e_1}{\e_2} & & \text{equality type}
   \end{aligned}
 \end{equation*}
 %
@@ -888,14 +888,14 @@ Terms:
   \e
   \begin{aligned}[t]
     \bnf   {}&  \x   &&\text{variable} \\
-    \bnfor {}&  \equationin{\e_1} e_2 &&\text{use equality hint $\e_1$ in $\e_2$} \\
-    \bnfor {}&  \rewritein{\e_1} e_2 &&\text{use normalization hint $\e_1$ in $\e_2$} \\
+    \bnfor {}&  \equationin{\e_1}{\inferred{\e_2}}{\inferred{\e_3}} e_4 &&\text{use equality hint $\e_1$ in $\e_4$} \\
+    \bnfor {}&  \rewritein{\e_1}{\inferred{\e_2}}{\inferred{\e_3}} e_4 &&\text{use rewrite hint $\e_1$ in $\e_4$} \\
     \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
     \bnfor {}&  \lam{\x}{\T_1}{\inferred{\T_2}} \e  &&\text{$\lambda$-abstraction} \\
     \bnfor {}&  \app{\e_1}{\inferred\x}{\inferred{\T_1}}{\inferred{\T_2}}{\e_2}  &&\text{application} \\
     \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
     \bnfor {}&  \prRefl{\inferred\T}{\e}  &&\text{identity path} \\
-    \bnfor {}&  \PrElim{\inferred\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
+    \bnfor {}&  \PrElim{\inferred\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\inferred{\e_3}}{\inferred{\e_4}}  &&\text{path eliminator} \\
     \bnfor {}&  \juRefl{\inferred\T} \e  &&\text{reflexivity} \\
     \bnfor {}&  \coerce{\inferred\alpha}{\beta}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
@@ -920,11 +920,14 @@ equivalence checking.
 & \chkterm{\GH}{\e}{\T} & & \text{check that term $\e$ has type $T$} \\
 & \synterm{\GH}{\e}{\T} & & \text{synthesize type $\T$ of term $e$} \\
 & \eqtypealg{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal types} \\
-& \eqtypepath{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal head-normal types} \\
+& \eqtypepath{\GH}{\T}{\U} & & \text{$\T$ and $\U$ are equal normal types} \\
 & \eqtermalg{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of type $\T$} \\
-& \eqtermext{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of normalized type $\T$} \\
-& \eqpath{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal normal forms of type $\T$} \\
-& \whnf{\GH}{\e_1}{\e_2} & & \text{$\e_1$ weak-head-normalizes to $\e_2$ }
+& \eqtermext{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal terms of normal type $\T$} \\
+& \eqpath{\GH}{\e_1}{\e_2}{\T} & & \text{$\e_1$ and $\e_2$ are equal normal terms of same type} \\
+& \tywhnf{\GH}{\T_1}{\T_2}{\H'} & & \text{type $\T_1$ has a reduction step to $\T_2$ yielding hints $\H'$ } \\
+& \tywhnfs{\GH}{\T_1}{\T_2} & & \text{type $\T_1$ normalizes to $\T_2$ } \\
+& \whnf{\GH}{\e_1}{\e_2}{\H'} & & \text{term $\e_1$ has a reduction step to $\e_2$ yielding hints $\H'$} \\
+& \whnfs{\GH}{\e_1}{\e_2} & & \text{term $\e_1$ normalizes to $\e_2$ }
 \end{align*}
 
 \subsection{Contexts with hints}
@@ -945,7 +948,7 @@ equivalence checking.
   {\ishints{\G}{\H} \\
    \eqterm{\G}{\e_1}{\e_2}{\T}
   }
-  {\ishints{\G}{(\addhintred{\H}{\e_1}{\e_2})}}
+  {\ishints{\G}{(\addhintrw{\H}{\e_1}{\e_2})}}
 
 \end{mathpar}
 %
@@ -1070,31 +1073,31 @@ If we already know the given type is well-formed, there's an even simpler algori
 \begin{mathpar}
   \infer[\rulename{syn-eq-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
-    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\\\
-    \synterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
+    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_2}{\e_3}} \\\\
+    \synterm{\ctxs{\G}{(\addhinteq{\H}{\e_2}{\e_3})}}{\e_4}{\T}
   }
-  { \synterm{\GH}{(\equationin{\e_1} \e_2)}{\T} }
+  { \synterm{\GH}{(\equationin{\e_1}{\inferred{\e_2}}{\inferred{\e_3}} \e_4)}{\T} }
 
   \infer[\rulename{chk-eq-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
-    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\\\
-    \chkterm{\ctxs{\G}{(\addhinteq{\H}{\e_3}{\e_4})}}{\e_2}{\T}
+    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_2}{\e_3}} \\\\
+    \chkterm{\ctxs{\G}{(\addhinteq{\H}{\e_2}{\e_3})}}{\e_4}{\T}
   }
-  { \chkterm{\GH}{(\equationin{\e_1} \e_2)}{\T} }
+  { \chkterm{\GH}{(\equationin{\e_1}{\inferred{\e_2}}{\inferred{\e_3}} \e_4)}{\T} }
 
   \infer[\rulename{syn-eq-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
-    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\\\
-    \synterm{\ctxs{\G}{(\addhintred{\H}{\e_3}{\e_4})}}{\e_2}{\T}
+    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_2}{\e_3}} \\\\
+    \synterm{\ctxs{\G}{(\addhintrw{\H}{\e_2}{\e_3})}}{\e_4}{\T}
   }
-  { \synterm{\GH}{(\rewritein{\e_1} \e_2)}{\T} }
+  { \synterm{\GH}{(\rewritein{\e_1}{\inferred{\e_2}}{\inferred{\e_3}} \e_4)}{\T} }
 
   \infer[\rulename{chk-eq-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
-    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_3}{\e_4}} \\\\
-    \chkterm{\ctxs{\G}{(\addhintred{\H}{\e_3}{\e_4})}}{\e_2}{\T}
+    \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_2}{\e_3}} \\\\
+    \chkterm{\ctxs{\G}{(\addhintrw{\H}{\e_2}{\e_3})}}{\e_4}{\T}
   }
-  { \chkterm{\GH}{(\rewritein{\e_1} \e_2)}{\T} }
+  { \chkterm{\GH}{(\rewritein{\e_1}{\inferred{\e_2}}{\inferred{\e_3}} \e_4)}{\T} }
 \end{mathpar}
 
 \paragraph{Products}
@@ -1219,10 +1222,18 @@ If we already know the given type is well-formed, there's an even simpler algori
 \begin{mathpar}
   \infer[\rulename{tynorm-el}]
   {
-    \whnf{\H}{\e}{\e'}
+    \whnf
+    {\GH}
+    {\e}
+    {\e'}
+    {\H'}
   }
   {
-    \whnf{\H}{\El{\alpha}{\e}}{\El{\alpha}{\e'}}
+    \whnf
+    {\GH}
+    {\El{\alpha}{\e}}
+    {\El{\alpha}{\e'}}
+    {\H'}
   }
 \end{mathpar}
 
@@ -1235,8 +1246,11 @@ If we already know the given type is well-formed, there's an even simpler algori
     %\alpha = \piClose{\beta}{\gamma}  %% Guaranteed by well-formedness
   }
   {
-    \tywhnf{\H}{\El{\alpha}{(\nProd{\beta}{\gamma}{\x}{\e_1}{e_2})}}
-                {\Prod{\x}{\El{\beta}{\e_1}}{\El{\gamma}{\e_2}}}
+    \tywhnf
+    {\GH}
+    {\El{\alpha}{(\nProd{\beta}{\gamma}{\x}{\e_1}{e_2})}}
+    {\Prod{\x}{\El{\beta}{\e_1}}{\El{\gamma}{\e_2}}}
+    {\H}
   }
 
   \infer[\rulename{tynorm-unit}]
@@ -1244,37 +1258,51 @@ If we already know the given type is well-formed, there's an even simpler algori
     %\alpha = \zero %% Guaranteed by well-formedness
   }
   {
-    \tywhnf{\H}{\El{\alpha}{\nUnit}}{\Unit}
+    \tywhnf
+    {\GH}
+    {\El{\alpha}{\nUnit}}
+    {\Unit}
+    {\H}
   }
 
   \infer[\rulename{tynorm-coerce}]
   {
   }
   {
-    \tywhnf{\H}{\El{\alpha}{(\coerce{\beta}{\gamma}{\e}})}{\El{\alpha}{\e}}
+    \tywhnf
+    {\GH}
+    {\El{\alpha}{(\coerce{\beta}{\gamma}{\e}})}
+    {\El{\alpha}{\e}}
+    {\H}
   }
 
   \infer[\rulename{tynorm-paths}]
   {
     %\alpha = \beta %% Guaranteed by well-formedness
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\beta}{\e_1}{\e_2}{\e_3})}}
-          {\PrEqual{\El{\alpha}{\e_1}}{\e_2}{\e_3}}
+  {\tywhnf
+    {\GH}
+    {\El{\alpha}{(\nPrEqual{\beta}{\e_1}{\e_2}{\e_3})}}
+    {\PrEqual{\El{\alpha}{\e_1}}{\e_2}{\e_3}}
+    {\H}
   }
 
   \infer[\rulename{tynorm-id}]
   {
     %\alpha = \beta %% Guaranteed by well-formedness
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\beta}{\e_1}{\e_2}{\e_3})}}
-          {\JuEqual{\El{\alpha}{\e_1}}{\e_2}{\e_3}}
+  {\tywhnf
+    {\GH}
+    {\El{\alpha}{(\nJuEqual{\beta}{\e_1}{\e_2}{\e_3})}}
+    {\JuEqual{\El{\alpha}{\e_1}}{\e_2}{\e_3}}
+    {\H}
   }
 \end{mathpar}
 %
-If $\redtermhint{\nUnit}{\mathsf{nat}} \in \H$, then rule ordering
-will give us $\whnf{\H}{\El{\zero}{\nUnit}}{\El{\zero}{\mathsf{nat}}}$. Only
+If $\rwhint{\nUnit}{\mathsf{nat}} \in \H$, then rule ordering
+will give us $\whnf{\GH}{\El{\zero}{\nUnit}}{\El{\zero}{\mathsf{nat}}}{\H}$. Only
 if we were to backtrack (and we don't, in the current implementation) would we
-consider $\whnf{\H}{\El{\zero}{\nUnit}}{\Unit}$.
+consider $\whnf{\GH}{\El{\zero}{\nUnit}}{\Unit}{\H}$.
 
 \subsection{Type equality}
 \label{sec:bidirectional-type-equality}
@@ -1348,10 +1376,19 @@ equivalence of base types and equivalence of universes.
 \begin{mathpar}
   \infer[\rulename{norm-hint}]
   {
-    \redtermhint{\e}{\e'} \in \H \\
-    \whnf{\GH}{\e'}{\e''}
+    \rwhint{\e}{\e'} \in \H \\
+    \whnf
+    {\GH}
+    {\e'}
+    {\e''}
+    {\H}
   }
-  { \whnf{\GH}{\e}{\e''} }
+  { \whnf
+    {\GH}
+    {\e}
+    {\e''}
+    {\H}
+  }
 \end{mathpar}
 %
 In the case of multiple hints for reducing $\e'$, we try the most-recently-added hint
@@ -1363,16 +1400,18 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   { }
   { \whnf
     {\GH}
-    {(\equationin{\e_1}{\e_2})}
-    {\e_2}
+    {(\equationin{\e_1}{\e_2}{\e_3} \e_4)}
+    {\e_4}
+    {\H}
   }
 
   \infer[\rulename{norm-rewrite}]
   { }
   { \whnf
     {\GH}
-    {(\rewritein{\e_1}{\e_2})}
-    {\e_2}
+    {(\rewritein{\e_1}{\e_2}{\e_3} \e_4)}
+    {\e_4}
+    {\H}
   }
 \end{mathpar}
 
@@ -1439,9 +1478,14 @@ We might want to have normalization accumulate these hints...especially equation
 \begin{mathpar}
   \infer[\rulename{norm-coerce-trivial}]
   {
+    \alpha = \beta
   }
   {
-    \whnf{\GH}{(\coerce{\alpha}{\alpha}{\e})}{\e}
+    \whnf
+    {\GH}
+    {(\coerce{\alpha}{\beta}{\e})}
+    {\e}
+    {\H}
   }
 \end{mathpar}
 
@@ -1452,9 +1496,11 @@ Rule~\rulename{norm-coerce-trivial} makes no sense if we don't label universe co
   {
   }
   {
-    \whnf{\GH}
+    \whnf
+    {\GH}
     {\coerce{\beta}{\gamma}{(\coerce{\alpha}{\beta}{\e})}}
     {\coerce{\alpha}{\gamma}{\e}}
+    {\H}
   }
 \end{mathpar}
 
@@ -1462,24 +1508,44 @@ Rule~\rulename{norm-coerce-trivial} makes no sense if we don't label universe co
 \paragraph{Recursion}
 
 \begin{mathpar}
- \infer[\rulename{norm-app}]
- {\whnf{\GH}{\e_1}{\e'_1}}
- {\whnf{\GH}{(\app{\e_1}{\x}{\T}{\U}{\e_2})}{(\app{\e'_1}{\x}{\T}{\U}{\e_2})}}
+  \infer[\rulename{norm-app}]
+  {
+    \whnf{\GH}
+    {\e_1}
+    {\e'_1}
+    {\H'}
+  }
+  {
+    \whnf
+    {\GH}
+    {(\app{\e_1}{\x}{\T}{\U}{\e_2})}
+    {(\app{\e'_1}{\x}{\T}{\U}{\e_2})}
+    {\H'}
+  }
 
  \infer[\rulename{norm-J}]
-  { \whnf{\GH}{\e_2}{\e'_2}}
-  { \whnf{\GH}{\PrElim
-               {\T}
-               {\abst{x\,y\,p}{\U}}
-               {\abst{z}{\e_1}}
-               {\e_2}{\e_3}{\e_4}
-             }
-             {\PrElim
-               {\T}
-               {\abst{x\,y\,p}{\U}}
-               {\abst{z}{\e_1}}
-               {\e'_2}{\e_3}{\e_4}
-             }
+  {
+    \whnf
+    {\GH}
+    {\e_2}
+    {\e'_2}
+    {\H'}
+  }
+  { \whnf
+    {\GH}
+    {\PrElim
+      {\T}
+      {\abst{x\,y\,p}{\U}}
+      {\abst{z}{\e_1}}
+      {\e_2}{\e_3}{\e_4}
+    }
+    {\PrElim
+      {\T}
+      {\abst{x\,y\,p}{\U}}
+      {\abst{z}{\e_1}}
+      {\e'_2}{\e_3}{\e_4}
+    }
+    {\H'}
   }
 \end{mathpar}
 %
@@ -1500,13 +1566,13 @@ anything else:
 
   \infer[\rulename{chk-eq-hint}]
   {
-    \eqtermhint{\e_1}{\e_2} \in \H
+    \eqhint{\e_1}{\e_2} \in \H
   }
   { \eqtermalg{\GH}{\e_1}{\e_2}{\T} }
 
   \infer[\rulename{chk-eq-hint-sym}]
   {
-    \eqtermhint{\e_2}{\e_1} \in \H
+    \eqhint{\e_2}{\e_1} \in \H
   }
   { \eqtermalg{\GH}{\e_1}{\e_2}{\T} }
 \end{mathpar}
@@ -1574,7 +1640,7 @@ same expressions before invoking the general comparison function.
 
   \infer[\rulename{chk-eq-whnf-equation}]
   {
-    \eqtermhint{\e_1}{\e_2} \in \H
+    \eqhint{\e_1}{\e_2} \in \H
   }
   {
     \eqpath{\GH}{\e_1}{\e_2}{\T}
