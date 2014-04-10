@@ -601,45 +601,6 @@ cannot be equivalent.
 \end{mathpar}
 
 
-{  \color{blue}
-
-\begin{mathpar}
-\infer[\rulename{eq-beta-alternate}]
-  {\eqtype{\G}{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}\\
-    \isterm{\ctxextend{\G}{\x}{\U_1}}{\e_1}{\U_2}\\
-    \isterm{\G}{\e_2}{\U_1}}
-  {\eqterm{\G}{\bigl(\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}\bigr)}
-              {\subst{\e_1}{\x}{\e_2}}
-              {\subst{\U_2}{\x}{\e_2}}}
-\end{mathpar}
-
-This alternate formulation of the beta rule is more general. For example,
-we can use it to derive:
-\[
-  \eqterm{w:\JuEqual{\Universe{\zero}}{\mathsf{Nat}{\to}\Unit}{\mathsf{Bool}{\to}\Unit}}
-         {\bigl(\app{(\lam{\x}{\mathsf{Nat}}{\Unit}{\unitTerm})}
-               {\_}{\mathsf{Bool}}{\Unit}
-               {\mathsf{true}}\bigr)}
-         {\unitTerm}
-         {\Unit}
-       \]
-The cost is is that it's more
-expensive to check whether this rule safe to apply during normalization.
-In Rule~\rulename{eq-beta}, the well-formedness premises must hold
-(if the beta-redex is well-formed) and don't need to be checked.
-For Rule~\rulename{eq-beta-alternate}, we are guaranteed only that
-$\isterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\T_2}$ and so the well-formedness
-premise
-$\isterm{\ctxextend{\G}{\x}{\U_1}}{\e_1}{\U_2}$ would have to be
-re-checked algorithmically at run-time.
-
-Of course, Rule~\rulename{eq-beta-alternate} implies Rule~\rulename{eq-beta}, and the latter is by
-far the most common case (i.e., the Pi types are equivalent because their domains are
-equivalent and their codomains are equivalent, not because of some weird equation). So
-in practice, we might always try to justify beta-reductions by \rulename{eq-beta},
-and try the more expensive \rulename{eq-beta-alternate} only when that fails.
-}
-
 \begin{mathpar}
   \infer[\rulename{eq-ext}]
   {\isterm{\G}{\e_1}{\Prod{\x}{\T}{\U}}\\
@@ -1415,8 +1376,6 @@ In the case of multiple hints for reducing $\e'$, we try the most-recently-added
   }
 \end{mathpar}
 
-We might want to have normalization accumulate these hints...especially equation hints, which are always harmless.
-
 \begin{mathpar}
   \infer[\rulename{norm-ascribe}]
   { }
@@ -1436,23 +1395,6 @@ We might want to have normalization accumulate these hints...especially equation
   }
 \end{mathpar}
 
-{\color{blue}
-
-  If we have Rule~\rulename{eq-beta-alternate}, then the algorithm can have this rule:
-
-  \begin{mathpar}
-  \infer[\rulename{norm-app-beta}]
-  { \eqtypealg{\GH}{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}\\
-    \chkterm{\ctxs{(\ctxextend{\G}{\x}{\U_1})}{\H}}{\e_1}{\U_2}
-  }
-  { \whnf
-    {\GH}
-    {\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}}
-    {\subst{\e_1}{\x}{\e_2}}
-  }
-\end{mathpar}
-}
-
 \begin{mathpar}
   \infer[\rulename{norm-idpath}]
   {
@@ -1471,9 +1413,6 @@ We might want to have normalization accumulate these hints...especially equation
   }
 \end{mathpar}
 
-{\color{blue}
-  Do we need further checks to ensure Rule~\rulename{norm-idpath} is valid and type-preserving?
-}
 
 \begin{mathpar}
   \infer[\rulename{norm-coerce-trivial}]
