@@ -1,7 +1,5 @@
 (** Brazil main program *)
 
-module Ctx = Context
-(*
 (** Should the interactive shell be run? *)
 let interactive_shell = ref true
 
@@ -77,6 +75,7 @@ let rec exec_cmd interactive ctx (d, loc) =
   match d with
     | Input.Assume (xs, t) ->
         let t = Debruijn.ty names t in
+        let t = Typing.is_type ctx t  in
           if interactive then
             begin
               List.iter (fun x -> Format.printf "%s is assumed.@\n" x) xs ;
@@ -85,7 +84,9 @@ let rec exec_cmd interactive ctx (d, loc) =
           List.fold_left (fun ctx x -> Context.add_var x t ctx) ctx xs
     | Input.Define (x, t, e) ->
       let t = Debruijn.ty names t in
+      let t = Typing.is_type ctx t  in
       let e = Debruijn.term names e in
+      let e = Typing.chk_term ctx e t  in
         if interactive then Format.printf "%s is defined.@\n@." x ;
         Context.add_def x t e ctx
     | Input.Context ->
@@ -149,4 +150,4 @@ let main =
       toplevel ctx
   with
     Error.Error err -> Print.error err ; exit 1
-*)
+
