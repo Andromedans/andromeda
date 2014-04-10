@@ -42,6 +42,16 @@ let add_var x t ctx =
     names = x :: ctx.names;
   }
 
+let add_vars bnds ctx =
+  let rec loop vars_added accum_ctx = function
+    | []          -> accum_ctx
+    | (x,t)::rest ->
+        loop (vars_added+1)
+             (add_var x (Syntax.shift_ty vars_added t) accum_ctx)
+             rest
+  in
+     loop 0 ctx bnds
+
 let add_def x t ((_,loc) as e) ctx =
   {
     decls = Definition (t, e) :: ctx.decls ;
