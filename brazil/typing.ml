@@ -104,6 +104,18 @@ and whnf ctx ((term',loc) as term) =
 
 and equiv_ty ctx ty1 ty2 = failwith "not implemented"
 
+(* Repeatedly apply whnf until nothing changes *)
+let rec whnfs ctx term1 =
+  match whnf ctx term1 with
+  | Some term2 -> whnfs ctx term2
+  | None       -> term1
+
+(* Repeatedly apply whnf_ty until nothing changes *)
+let rec whnfs_ty ctx ty1 =
+  match whnfs_ty ctx ty1 with
+  | Some ty2 -> whnfs_ty ctx ty2
+  | None     -> ty1
+
 let rec syn_term ctx e = failwith "not implemented"
 
 and chk_term ctx e t = failwith "not implemented"
