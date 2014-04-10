@@ -327,17 +327,46 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
       | Syntax.NameId _), _ -> false
   end
 
-(**************************)
-(* Synthesis and Checking *)
-(**************************)
+(***********************************)
+(* Synthesis and Checking of Terms *)
+(***********************************)
+
 
 let rec syn_term ctx e = failwith "not implemented"
 
 and chk_term ctx e t = failwith "not implemented"
 
-and is_type ctx ty = failwith "not implemented"
 
-and is_fibered ctx ty = failwith "not implemented"
+(***********************************)
+(* Synthesis and Checking of Types *)
+(***********************************)
 
 
+(* Can the given unannotated type be verified and translated into an annotated type?
+ *)
+and is_type ctx ty =
+  failwith "not implemented"
+
+
+(* Can the given unannotated type be verified and translated into an annotated fibered type?
+ *)
+and is_fibered ctx ((_, loc) as ty) =
+  let annotated_ty = is_type ctx ty  in
+  if wf_type_is_fibered annotated_ty then
+    annotated_ty
+  else
+    Error.typing ~loc "Unfibered type"
+
+(* wf_type_is_fibered: Syntax.ty -> bool
+    Is the given well-formed type also a fibered type?
+*)
+and wf_type_is_fibered (ty', _) =
+  match ty' with
+  | Syntax.Universe alpha -> Universe.is_fibered (fst alpha)
+  | Syntax.Prod(_, t, u) ->
+      wf_type_is_fibered t && wf_type_is_fibered u
+  | Syntax.El(alpha, _) -> Universe.is_fibered (fst alpha)
+  | Syntax.Unit -> true
+  | Syntax.Paths _ -> true
+  | Syntax.Id _ -> false
 
