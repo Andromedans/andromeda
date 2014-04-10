@@ -43,55 +43,67 @@ and term' =
     because we maintain variable names and source locations (for debugging and
     error-reporting) in terms. So, we write the obvious recursive traversal
     code.
+
+    We ignore magenta annotations, because they are deterministically
+    constructed from non-magenta terms and types.
+
+    We also ignore equation and rewrite hints, because at some level they
+    "don't really exist"
 *)
 
-let rec equal (left,_) (right,_) =
-  match left, right with
+let rec equal ((left',_) as left) ((right',_) as right) =
+  match left', right' with
 
   | Var index1, Var index2 -> index1 = index2
 
-  | Equation(term1, (term2, term3), term4), Equation(term5, (term6, term7), term8)
-  | Rewrite(term1, (term2, term3), term4), Rewrite(term5, (term6, term7), term8) ->
-      equal term1 term5 && equal term2 term6 && equal term3 term7 && equal term4 term8
+  | Equation(_, _, term1), _ -> equal term1 right
+  | _, Equation(_, _, term1) -> equal left  term1
 
-  | NameProd(universe1, universe2, _, term3, term4),
-    NameProd(universe5, universe6, _, term7, term8) ->
-      universe1 = universe5 && universe2 == universe6
-      && equal term3 term7 && equal term4 term8
+  | Rewrite(_, _, term1), _ -> equal term1 right
+  | _, Rewrite(_, _, term1) -> equal left  term1
+
+  | NameProd(_universe1, _universe2, _, term3, term4),
+    NameProd(_universe5, _universe6, _, term7, term8) ->
+      (* universe1 = universe5 && universe2 == universe6 && *)
+      equal term3 term7 && equal term4 term8
 
   | Ascribe(term1, ty2), Ascribe(term3, ty4) ->
       equal term1 term3 && equal_ty ty2 ty4
 
-  | Lambda(_, ty1, ty2, term3), Lambda(_, ty4, ty5, term6) ->
-      equal_ty ty1 ty4 && equal_ty ty2 ty5 && equal term3 term6
+  | Lambda(_, ty1, _ty2, term3), Lambda(_, ty4, _ty5, term6) ->
+      equal_ty ty1 ty4 (* && equal_ty ty2 ty5 *) && equal term3 term6
 
-  | App((_,ty1,ty2),term3,term4), App((_,ty5,ty6),term7,term8) ->
-      equal_ty ty1 ty5 && equal_ty ty2 ty6
-      && equal term3 term7 && equal term4 term8
+  | App((_,_ty1,_ty2),term3,term4), App((_,_ty5,_ty6),term7,term8) ->
+      (* equal_ty ty1 ty5 && equal_ty ty2 ty6 && *)
+      equal term3 term7 && equal term4 term8
 
   | UnitTerm, UnitTerm
   | NameUnit, NameUnit -> true
 
-  | Idpath(ty2, term3), Idpath(ty5, term6)
-  | Refl  (ty2, term3), Refl  (ty5, term6) ->
-      equal_ty ty2 ty5 && equal term3 term6
+  | Idpath(_ty2, term3), Idpath(_ty5, term6)
+  | Refl  (_ty2, term3), Refl  (_ty5, term6) ->
+      (* equal_ty ty2 ty5 && *)
+      equal term3 term6
 
-  | J(ty1, (_, _, _, ty2), (_, term3), term4, term5, term6),
-    J(ty7, (_, _, _, ty8), (_, term9), term10, term11, term12) ->
-      equal_ty ty1 ty7 && equal_ty ty2 ty8 && equal term3 term9
-      && equal term4 term10 && equal term5 term11 && equal term6 term12
+  | J(ty1, (_, _, _, ty2), (_, term3), term4, _term5, _term6),
+    J(ty7, (_, _, _, ty8), (_, term9), term10, _term11, _term12) ->
+      (* equal_ty ty1 ty7 && *)
+      equal_ty ty2 ty8 && equal term3 term9 && equal term4 term10
+      (* && equal term5 term11 && equal term6 term12 *)
 
-  | Coerce(universe1, universe2, term3), Coerce(universe4, universe5, term6) ->
-      universe1 = universe4 && universe2 = universe5 && equal term3 term6
+  | Coerce(_universe1, universe2, term3), Coerce(_universe4, universe5, term6) ->
+      (* universe1 = universe4 && *)
+      universe2 = universe5 && equal term3 term6
 
   | NameUniverse universe1, NameUniverse universe2 ->
       universe1 = universe2
 
-  | NamePaths(universe1, term2, term3, term4), NamePaths(universe5, term6, term7, term8)
-  | NameId   (universe1, term2, term3, term4), NameId   (universe5, term6, term7, term8) ->
-      universe1 = universe5 && equal term2 term6 && equal term3 term7 && equal term4 term8
+  | NamePaths(_universe1, term2, term3, term4), NamePaths(_universe5, term6, term7, term8)
+  | NameId   (_universe1, term2, term3, term4), NameId   (_universe5, term6, term7, term8) ->
+      (* universe1 = universe5 && *)
+      equal term2 term6 && equal term3 term7 && equal term4 term8
 
-  | (Var _ | Equation _ | Rewrite _ | Ascribe _ | Lambda _ | App _
+  | (Var _ | Ascribe _ | Lambda _ | App _
      | UnitTerm | Idpath _ | J _ | Refl _ | Coerce _
      | NameUnit | NameProd _ | NameUniverse _ | NamePaths _| NameId _), _ ->
          false
