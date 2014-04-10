@@ -66,15 +66,15 @@ let rec term ?max_level xs (e,_) ppf =
       | Syntax.Var k ->
         print ~at_level:0 "%s" (List.nth xs k)
 
-      | Syntax.Equation (e1, e2) ->
+      | Syntax.Equation (e1, (_e2, _e3), e4) ->
         print ~at_level:4 "equation %t in %t"
           (term ~max_level:3 xs e1)
-          (term ~max_level:4 xs e2)
+          (term ~max_level:4 xs e4)
 
-      | Syntax.Rewrite (e1, e2) ->
+      | Syntax.Rewrite (e1, (_e2, _e3), e4) ->
         print ~at_level:4 "rewrite %t in %t"
           (term ~max_level:3 xs e1)
-          (term ~max_level:4 xs e2)
+          (term ~max_level:4 xs e4)
 
       | Syntax.Ascribe (e, t) ->
         print ~at_level:4 "%t :: %t"

@@ -19,8 +19,8 @@ and ty' =
 and term = term' * Position.t
 and term' =
   | Var of variable
-  | Equation of term * term
-  | Rewrite of term * term
+  | Equation of term * (term * term) * term
+  | Rewrite of term * (term * term) * term
   | Ascribe of term * ty
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
@@ -50,9 +50,9 @@ let rec equal (left,_) (right,_) =
 
   | Var index1, Var index2 -> index1 = index2
 
-  | Equation(   term1, term2), Equation(   term3, term4)
-  | Rewrite (   term1, term2), Rewrite (   term3, term4) ->
-      equal term1 term3 && equal term2 term4
+  | Equation(term1, (term2, term3), term4), Equation(term5, (term6, term7), term8)
+  | Rewrite(term1, (term2, term3), term4), Rewrite(term5, (term6, term7), term8) ->
+      equal term1 term5 && equal term2 term6 && equal term3 term7 && equal term4 term8
 
   | NameProd(universe1, universe2, _, term3, term4),
     NameProd(universe5, universe6, _, term7, term8) ->
@@ -148,9 +148,11 @@ let rec transform ftrans bvs (term', loc) =
         (* This is a free variable; transform *)
         ftrans bvs index
 
-  | Equation(term1, term2) -> Equation(recurse term1, recurse term2)
+  | Equation(term1, (term2,term3), term4) ->
+      Equation(recurse term1, (recurse term2, recurse term3), recurse term4)
 
-  | Rewrite(term1, term2)  -> Rewrite(recurse term1, recurse term2)
+  | Rewrite(term1, (term2,term3), term4) ->
+      Rewrite(recurse term1, (recurse term2, recurse term3), recurse term4)
 
   | Ascribe(term1, ty2)    -> Ascribe(recurse term1, recurse_ty ty2)
 

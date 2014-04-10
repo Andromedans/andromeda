@@ -50,12 +50,12 @@ and whnf ctx1 ((term',loc) as term) =
       begin
         match term' with
         (* norm-equation *)
-        | Syntax.Equation(_e1, e2) ->
-            Some (ctx1, e2) (* XXX: add hint to this context! *)
+        | Syntax.Equation(_e1, (e2,e3), e4) ->
+            Some (Context.add_equation e2 e3 ctx1, e4)
 
         (* norm-rewrite *)
-        | Syntax.Rewrite(_e1, e2)  ->
-            Some (ctx1, e2)  (* XXX: add hint to this context! *)
+        | Syntax.Rewrite(_e1, (e2,e3), e4)  ->
+            Some (Context.add_rewrite e2 e3 ctx1, e4)
 
         (* norm-ascribe *)
         | Syntax.Ascribe(e, _t) -> Some (ctx1, e)
