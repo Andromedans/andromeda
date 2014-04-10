@@ -1,3 +1,8 @@
+(*************************)
+(* Weak-Head Normalizing *)
+(*************************)
+
+(* Single step for a type *)
 
 let rec whnf_ty ctx1 (ty',loc) =
   match ty' with
@@ -117,6 +122,11 @@ and whnfs_ty ctx1 ty1 =
   | Some (ctx2, ty2) -> whnfs_ty ctx2 ty2
   | None             -> ty1
 
+(***************)
+(* Equivalence *)
+(***************)
+
+(* equivalence of types *)
 
 and equiv_ty ctx t u =
   (* chk-tyeq-refl *)
@@ -126,6 +136,8 @@ and equiv_ty ctx t u =
     let t' = whnfs_ty ctx t  in
     let u' = whnfs_ty ctx u  in
     equiv_whnf_ty ctx t' u'
+
+(* equivalence of weak-head-normal types *)
 
 and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
   begin
@@ -160,7 +172,9 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
         false
   end
 
-(* Precondition: t is well-formed
+(* equivalence of terms.
+
+   Precondition: t is well-formed
                  term1 : t
                  term2 : t
  *)
@@ -178,7 +192,9 @@ and equiv ctx term1 term2 t =
     let t' = whnfs_ty ctx t in
     equiv_ext ctx term1 term2 t'
 
-(* Precondition: ty is well-formed *and weak-head-normal*
+(* Equivalence of termsat a weak-head-normal type.
+
+   Precondition: ty is well-formed *and weak-head-normal*
                  e1 : ty
                  e2 : ty
  *)
@@ -208,6 +224,12 @@ and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) (ty', _) =
         equiv_whnf ctx e1' e2'
   end
 
+(* equivalence of two weak-head-normal terms.
+
+   Precondition: term1 : ty
+                 term2 : ty
+                    for some (unspecified) common type ty.
+ *)
 and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
   begin
     match term1', term2' with
@@ -305,9 +327,17 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
       | Syntax.NameId _), _ -> false
   end
 
+(**************************)
+(* Synthesis and Checking *)
+(**************************)
+
 let rec syn_term ctx e = failwith "not implemented"
 
 and chk_term ctx e t = failwith "not implemented"
+
+and is_type ctx ty = failwith "not implemented"
+
+and is_fibered ctx ty = failwith "not implemented"
 
 
 
