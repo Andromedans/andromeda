@@ -1276,8 +1276,8 @@ consider $\whnf{\GH}{\El{\zero}{\nUnit}}{\Unit}{\H}$.
   { \eqtypealg{\GH}{\T}{\T} }
 
   \infer[\rulename{chk-tyeq-hnf}]
-  { \whnfs{\H}{\T}{\T'}\\
-    \whnfs{\H}{\U}{\U'}\\
+  { \whnfs{\GH}{\T}{\T'}\\
+    \whnfs{\GH}{\U}{\U'}\\
     \eqtypepath{\GH}{\T'}{\U'}
   }
   {
@@ -1521,7 +1521,7 @@ Otherwise, we check whether extensionality applies:
 \begin{mathpar}
   \infer[\rulename{chk-eq-ext}]
   {
-    \whnfs{\H}{\T}{\T'} \\
+    \whnfs{\GH}{\T}{\T'} \\
     \eqtermext{\GH}{\e_1}{\e_2}{\T'}
   }
   {
@@ -1556,8 +1556,8 @@ Otherwise, we check whether extensionality applies:
 
   \infer[\rulename{chk-eq-ext-whnf}]
   {
-    \whnfs{\H}{\e_1}{\e'_1}\\
-    \whnfs{\H}{\e_2}{\e'_2}\\\\
+    \whnfs{\GH}{\e_1}{\e'_1}\\
+    \whnfs{\GH}{\e_2}{\e'_2}\\\\
     \eqpath{\GH}{\e'_1}{\e'_2}{\U}
   }
   {
