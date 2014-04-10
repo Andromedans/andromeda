@@ -123,9 +123,9 @@ let rec term ?max_level xs (e,_) ppf =
 
       | Syntax.NameUnit -> print ~at_level:0 "unit"
 
-      | Syntax.NameProd (x, e1, e2) ->
+      | Syntax.NameProd (_alpha, _beta, x, e1, e2) ->
         print ~at_level:3 "(%s : %t) -> %t"
-          x 
+          x
           (term ~max_level:4 xs e1)
           (term ~max_level:3 (x::xs) e2)
 
@@ -133,13 +133,13 @@ let rec term ?max_level xs (e,_) ppf =
         print ~at_level:1 "Universe %t"
           (universe u)
 
-      | Syntax.NamePaths (e1, e2, e3) ->
+      | Syntax.NamePaths (_alpha, e1, e2, e3) ->
         print ~at_level:2 "%t =%t %t"
           (term ~max_level:1 xs e1)
           (annot (term ~max_level:4 xs e3))
-          (term ~max_level:1 xs e2) 
+          (term ~max_level:1 xs e2)
 
-      | Syntax.NameId (e1, e2, e3) ->
+      | Syntax.NameId (_alpha, e1, e2, e3) ->
         print ~at_level:2 "%t ==%t %t"
           (term ~max_level:1 xs e1)
           (annot (term ~max_level:4 xs e3))

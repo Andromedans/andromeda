@@ -30,10 +30,10 @@ and term' =
   | Refl of ty * term
   | Coerce of universe * universe * term
   | NameUnit
-  | NameProd of name * term * term
+  | NameProd of universe * universe * name * term * term
   | NameUniverse of universe
-  | NamePaths of term * term * term
-  | NameId of term * term * term
+  | NamePaths of universe * term * term * term
+  | NameId of universe *term * term * term
 
 (*********************)
 (* Alpha-Equivalence *)
@@ -51,9 +51,13 @@ let rec equal (left,_) (right,_) =
   | Var index1, Var index2 -> index1 = index2
 
   | Equation(   term1, term2), Equation(   term3, term4)
-  | Rewrite (   term1, term2), Rewrite (   term3, term4)
-  | NameProd(_, term1, term2), NameProd(_, term3, term4) ->
+  | Rewrite (   term1, term2), Rewrite (   term3, term4) ->
       equal term1 term3 && equal term2 term4
+
+  | NameProd(universe1, universe2, _, term3, term4),
+    NameProd(universe5, universe6, _, term7, term8) ->
+      universe1 = universe5 && universe2 == universe6
+      && equal term3 term7 && equal term4 term8
 
   | Ascribe(term1, ty2), Ascribe(term3, ty4) ->
       equal term1 term3 && equal_ty ty2 ty4
@@ -68,9 +72,9 @@ let rec equal (left,_) (right,_) =
   | UnitTerm, UnitTerm
   | NameUnit, NameUnit -> true
 
-  | Idpath(ty1, term2), Idpath(ty3, term4)
-  | Refl  (ty1, term2), Refl  (ty3, term4) ->
-      equal_ty ty1 ty3 && equal term2 term4
+  | Idpath(ty2, term3), Idpath(ty5, term6)
+  | Refl  (ty2, term3), Refl  (ty5, term6) ->
+      equal_ty ty2 ty5 && equal term3 term6
 
   | J(ty1, (_, _, _, ty2), (_, term3), term4, term5, term6),
     J(ty7, (_, _, _, ty8), (_, term9), term10, term11, term12) ->
@@ -83,9 +87,9 @@ let rec equal (left,_) (right,_) =
   | NameUniverse universe1, NameUniverse universe2 ->
       universe1 = universe2
 
-  | NamePaths(term1, term2, term3), NamePaths(term4, term5, term6)
-  | NameId   (term1, term2, term3), NameId   (term4, term5, term6) ->
-      equal term1 term4 && equal term2 term5 && equal term3 term6
+  | NamePaths(universe1, term2, term3, term4), NamePaths(universe5, term6, term7, term8)
+  | NameId   (universe1, term2, term3, term4), NameId   (universe5, term6, term7, term8) ->
+      universe1 = universe5 && equal term2 term6 && equal term3 term7 && equal term4 term8
 
   | (Var _ | Equation _ | Rewrite _ | Ascribe _ | Lambda _ | App _
      | UnitTerm | Idpath _ | J _ | Refl _ | Coerce _
@@ -168,22 +172,23 @@ let rec transform ftrans bvs (term', loc) =
           (name1, name2, name3, recurse_ty_in_binders 3 ty2),
           (name4, recurse_in_binders 1 term2),
           recurse term3, recurse term4, recurse term5)
+
   | Refl(ty1, term2)  -> Refl (recurse_ty ty1, recurse term2)
 
   | Coerce(universe1, universe2, term1) -> Coerce(universe1, universe2, recurse term1)
 
   | NameUnit -> NameUnit
 
-  | NameProd(name, term1, term2) ->
-      NameProd(name, recurse term1, recurse_in_binders 1 term2)
+  | NameProd(universe1, universe2, name, term1, term2) ->
+      NameProd(universe1, universe2, name, recurse term1, recurse_in_binders 1 term2)
 
   | NameUniverse universe1 -> NameUniverse universe1
 
-  | NamePaths(term1, term2, term3) ->
-      NamePaths(recurse term1, recurse term2, recurse term3)
+  | NamePaths(universe1, term1, term2, term3) ->
+      NamePaths(universe1, recurse term1, recurse term2, recurse term3)
 
-  | NameId(term1, term2, term3) ->
-      NameId(recurse term1, recurse term2, recurse term3)),
+  | NameId(universe1, term1, term2, term3) ->
+      NameId(universe1, recurse term1, recurse term2, recurse term3)),
   loc
 
 and transform_ty ftrans bvs (ty', loc) =
