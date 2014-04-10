@@ -1,3 +1,15 @@
+(********************)
+(* Helper Functions *)
+(********************)
+
+
+let print_ty ctx ty =
+  Print.ty (Context.names ctx) ty
+
+let print_term ctx term =
+  Print.term (Context.names ctx) term
+
+
 (*************************)
 (* Weak-Head Normalizing *)
 (*************************)
@@ -334,8 +346,25 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
 
 let rec syn_term ctx e = failwith "not implemented"
 
-and chk_term ctx e t = failwith "not implemented"
+and chk_term ctx ((term', loc) as term) t =
 
+  match term' with
+
+  | Input.Equation _ ->
+      failwith "chk-eq-hint unimplemented"
+
+  | Input.Rewrite _ ->
+      failwith "chk-rw-hint unimplemented"
+
+  (* chk-syn *)
+  | _ -> let e_annot, u = syn_term ctx term  in
+         if (equiv_ty ctx u t) then
+            e_annot
+         else
+            Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
+              (print_term ctx e_annot)
+              (print_ty ctx u)
+              (print_ty ctx t)
 
 (***********************************)
 (* Synthesis and Checking of Types *)
@@ -351,11 +380,12 @@ and is_type ctx ty =
 (* Can the given unannotated type be verified and translated into an annotated fibered type?
  *)
 and is_fibered ctx ((_, loc) as ty) =
-  let annotated_ty = is_type ctx ty  in
+  let annotated_ty = is_type ctx ty   in
   if wf_type_is_fibered annotated_ty then
     annotated_ty
   else
-    Error.typing ~loc "Unfibered type"
+    Error.typing ~loc "expected a fibered type but found@ %t"
+         (print_ty ctx annotated_ty)
 
 (* wf_type_is_fibered: Syntax.ty -> bool
     Is the given well-formed type also a fibered type?
