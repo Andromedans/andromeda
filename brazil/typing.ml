@@ -269,9 +269,38 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
         equiv_ty ctx t u && equiv ctx e1 e2 t
 
     (* chk-eq-whnf-j *)
-    (*| Syntax.J(t,(x,y,p,u),(z,e1),e2, e3, e4), Syntax.J(t', (_,_,_,u'), (_,e1'), e2, e3, e4) ->*)
-    | Syntax.J _, Syntax.J _ ->
-        failwith "unimplemented because de bruijn indices are nasty"
+    | Syntax.J(t1,(x,y,p,u2),(z,e3),e4, e5, e6), Syntax.J(t7, (_,_,_,u8), (_,e9), e10, e11, e12) ->
+        let ctx_xyp = Context.add_vars
+                       [  (x, t1);
+                          (y, t1);
+                          (p, (Syntax.Paths
+                                (t1,
+                                (Syntax.Var (-1) (* x *), Position.nowhere),
+                                (Syntax.Var (-2) (* y *), Position.nowhere)),
+                                Position.nowhere)) ] ctx  in
+        let ctx_z = Context.add_var z t1 ctx  in
+
+        let e3_ty_expected =
+                                                         (* ctx,    x, y, p |- u2 type *)
+          let u2' = Syntax.weaken_ty 3 u2  in            (* ctx, z, x, y, p |- u2' type *)
+                                                         (* ctx    |- t1 type *)
+          let t1' = Syntax.weaken_ty 0 t1  in            (* ctx, z |- t1' type *)
+          let zvar = (Syntax.Var 0, Position.nowhere) in (* ctx, z:t |- z : t *)
+          Syntax.strengthen_ty u2'
+             [zvar; zvar; (Syntax.Idpath(t1', zvar), Position.nowhere)]
+                                              (* ctx, z |- u2'[x,y,p->z,z,idpath z]  type *)  in
+
+        (*
+        let j_ty_expected =
+          Syntax.strengthen_ty u2 [e5; e6; e4]  in       (* ctx |- u2[x,y,p->e5,e6,e4] *)
+        *)
+
+        equiv_ty ctx t1 t7
+        && equiv_ty ctx_xyp u2 u8
+        && equiv ctx_z e3 e9 e3_ty_expected
+        && equiv ctx e5 e11 t1
+        && equiv ctx e6 e12 t1
+        && equiv_whnf ctx e4 e10
 
     (* chk-eq-whnf-refl *)
     | Syntax.Refl(t, e1), Syntax.Refl(u, e2) ->

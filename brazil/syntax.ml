@@ -260,3 +260,65 @@ let subst_ty free_index (replacement_term,_) = transform_ty (ftrans_subst free_i
  * replacing it with the location of the variable being replaced. Inner
  * positions are unaffected *)
 
+
+(**************************)
+
+ (** [beta body arg] substitutes [arg] in for variable [0] in [body].
+
+  So, if [G, x:t |- body : ...] and [G |- arg : t] then
+  [beta body arg] is the term [body[x->arg]].
+
+  This is exactly the substitution required, for example, to
+  beta-reduce a function application ([body] is the body of the lambda),
+  or to substitute away the parameter in a [Pi] or [Sigma] type ([body] is
+  the type of the codomain or second component, respectively).
+*)
+let beta eBody eArg =
+  shift (-1) (subst 0 (shift 1 eArg) eBody)
+
+let beta_ty eBody eArg =
+  shift_ty (-1) (subst_ty 0 (shift 1 eArg) eBody)
+
+let make_arrow ?(loc=Position.nowhere) dom cod =
+  Prod("_", dom, shift_ty 1 cod), loc
+
+(*let make_star ?(loc=Position.nowhere) fst snd =*)
+  (*Sum("_", fst, shift 1 snd), loc*)
+
+(**
+  Suppose we have [G, x_1:t_1, ..., x_n:t_n |- exp : ...] and the inhabitants
+  [e_1; ...; e_n] all well-formed in [G] (!) with types [t_1] through [t_n]
+  respectively. Then [strengthen exp [e_1,...,e_n]] is the result of
+  substituting away the x_i's, resulting in a term well-formed in [G].
+
+  In particular, [strengthen env eBody [eArg]] is just [beta eBody
+ *)
+let strengthen exp inhabitants =
+  let rec loop n accum = function
+    | [] -> accum
+    | inhabitant :: inhabitants ->
+        begin
+          let accum' = beta accum (shift (n-1) inhabitant)  in
+          loop (n-1) accum' inhabitants
+        end  in
+  loop (List.length inhabitants) exp (List.rev inhabitants)
+
+let strengthen_ty ty inhabitants =
+  let rec loop n accum = function
+    | [] -> accum
+    | inhabitant :: inhabitants ->
+        begin
+          let accum' = beta_ty accum (shift (n-1) inhabitant)  in
+          loop (n-1) accum' inhabitants
+        end  in
+  loop (List.length inhabitants) ty (List.rev inhabitants)
+
+(** If [G |- exp] then [G' |- weaken i exp] where [G'] has an extra (unused)
+     variable inserted at position [i]. This is just a simple renumbering, with
+     all free variables [< i] unchanged, and all [>= i] incremented (because
+     there's a new variable in front of them). *)
+let weaken new_var_pos exp =
+  shift ~bvs:new_var_pos 1 exp
+
+let weaken_ty new_var_pos ty =
+  shift_ty ~bvs:new_var_pos 1 ty
