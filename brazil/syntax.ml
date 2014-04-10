@@ -10,7 +10,7 @@ type universe = Universe.t * Position.t
 type ty = ty' * Position.t
 and ty' =
   | Universe of universe
-  | El of term
+  | El of universe * term
   | Unit
   | Prod of name * ty * ty
   | Paths of ty * term * term

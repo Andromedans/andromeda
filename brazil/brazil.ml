@@ -74,7 +74,7 @@ let rec exec_cmd interactive ctx (d, loc) =
   let names = Context.names ctx in
   match d with
     | Input.Assume (xs, t) ->
-        let t = Desugar.ty names t in
+        let t = Debruijn.ty names t in
           if interactive then
             begin
               List.iter (fun x -> Format.printf "%s is assumed.@\n" x) xs ;
@@ -82,8 +82,8 @@ let rec exec_cmd interactive ctx (d, loc) =
             end ;
           List.fold_left (fun ctx x -> Context.add_var x t ctx) ctx xs
     | Input.Define (x, t, e) ->
-      let t = Desugar.ty names t in
-      let e = Desugar.term names e in
+      let t = Debruijn.ty names t in
+      let e = Debruijn.term names e in
         if interactive then Format.printf "%s is defined.@\n@." x ;
         Context.add_def x t e ctx
     | Input.Context ->

@@ -153,7 +153,7 @@ and ty ?max_level xs (t,_) ppf =
         print ~at_level:1 "Universe %t"
           (universe u)
 
-      | Syntax.El e ->
+      | Syntax.El (u, e) ->
         print "%t"
           (term ?max_level xs e)
 
