@@ -505,14 +505,14 @@ Terms:
 
   \infer[\rulename{tyeq-el-unit}]
   { }
-  {\eqtype{\G}{\El{\nUnit}}{\Unit}}
+  {\eqtype{\G}{\El{\zero}{\nUnit}}{\Unit}}
 
   \infer[\rulename{tyeq-el-coerce}]
   {\isterm{\G}{\e}{\Universe{\alpha}} \\
     \alpha \leq \beta
   }
-  {\eqtype{\G}{\El{(\coerce{\alpha}{\beta}{\e})}}
-              {\El{\e}}}
+  {\eqtype{\G}{\El{\beta}{(\coerce{\alpha}{\beta}{\e})}}
+              {\El{\alpha}{\e}}}
 
   \infer[\rulename{tyeq-el-paths}]
   {\isterm{\G}{\e_\T}{\Universe{\alpha}}\\
@@ -779,7 +779,7 @@ and try the more expensive \rulename{eq-beta-alternate} only when that fails.
 \begin{mathpar}
 \infer[\rulename{cong-name-prod}]
   {\eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-   \eqterm{\ctxextend{\G}{\x}{\El{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
+   \eqterm{\ctxextend{\G}{\x}{\El{\alpha}{\e_1}}}{\e_2}{\e'_2}{\Universe{\beta}} \\
    \piClose{\alpha}{\beta} = \gamma}
   {\eqterm{\G}{(\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2})}{(\nProd{\alpha}{\beta}{\x}{\e'_1}{\e'_2})}{\Universe{\gamma}}}
 
@@ -791,18 +791,18 @@ and try the more expensive \rulename{eq-beta-alternate} only when that fails.
 
 \infer[\rulename{cong-name-paths}]
 {\alpha\in\FF\\
-  \eqterm{\G}{\e_{\T}}{\e_{\U}}{\Universe{\alpha}}\\
-  \eqterm{\G}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
-  \eqterm{\G}{\e_2}{\e'_2}{\El{\e_{\T}}}
+  \eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+  \eqterm{\G}{\e_2}{\e'_2}{\El{\alpha}{\e_1}}\\
+  \eqterm{\G}{\e_3}{\e'_3}{\El{\alpha}{\e_1}}
 }
-{\eqterm{\G}{\nPrEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nPrEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+{\eqterm{\G}{\nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}}{\nPrEqual{\alpha}{\e'_1}{\e'_2}{\e'_3}}{\Universe{\alpha}}}
 
 \infer[\rulename{cong-name-id}]
-{\eqterm{\G}{\e_T}{\e_U}{\Universe{\alpha}}\\
-  \eqterm{\G}{\e_1}{\e'_1}{\El{\e_{\T}}}\\
-  \eqterm{\G}{\e_2}{\e'_2}{\El{\e_{\T}}}
+{ \eqterm{\G}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+  \eqterm{\G}{\e_2}{\e'_2}{\El{\e_1}}\\
+  \eqterm{\G}{\e_3}{\e'_3}{\El{\e_1}}
 }
-{\eqterm{\G}{\nJuEqual{\alpha}{\e_T}{\e_1}{\e_2}}{\nJuEqual{\alpha}{\e_U}{\e'_1}{\e'_2}}{\Universe{\alpha}}}
+{\eqterm{\G}{\nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}}{\nJuEqual{\alpha}{\e'_1}{\e'_2}{\e'_3}}{\Universe{\alpha}}}
 \end{mathpar}
 
 
@@ -1231,45 +1231,50 @@ If we already know the given type is well-formed, there's an even simpler algori
 \begin{mathpar}
 
   \infer[\rulename{tynorm-pi}]
-  { \gamma = \piClose{\alpha}{\beta}
+  {
+    %\alpha = \piClose{\beta}{\gamma}  %% Guaranteed by well-formedness
   }
   {
-    \tywhnf{\H}{\El{\gamma}{(\nProd{\alpha}{\beta}{\x}{\e_1}{e_2})}}
-                {\Prod{\x}{\El{\alpha}{\e_1}}{\El{\beta}{\e}}}
+    \tywhnf{\H}{\El{\alpha}{(\nProd{\beta}{\gamma}{\x}{\e_1}{e_2})}}
+                {\Prod{\x}{\El{\beta}{\e_1}}{\El{\gamma}{\e_2}}}
   }
 
   \infer[\rulename{tynorm-unit}]
   {
+    %\alpha = \zero %% Guaranteed by well-formedness
   }
   {
-    \tywhnf{\H}{\El{\zero}{\nUnit}}{\Unit}
+    \tywhnf{\H}{\El{\alpha}{\nUnit}}{\Unit}
   }
 
   \infer[\rulename{tynorm-coerce}]
   {
   }
   {
-    \tywhnf{\H}{\El{\beta}{(\coerce{\alpha}{\beta}{\e}})}{\El{\alpha}{\e}}
+    \tywhnf{\H}{\El{\alpha}{(\coerce{\beta}{\gamma}{\e}})}{\El{\alpha}{\e}}
   }
 
   \infer[\rulename{tynorm-paths}]
   {
+    %\alpha = \beta %% Guaranteed by well-formedness
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\alpha}{\e_1}{\e_2}{\e_3})}}
+  {\tywhnf{\H}{\El{\alpha}{(\nPrEqual{\beta}{\e_1}{\e_2}{\e_3})}}
           {\PrEqual{\El{\alpha}{\e_1}}{\e_2}{\e_3}}
   }
 
   \infer[\rulename{tynorm-id}]
   {
+    %\alpha = \beta %% Guaranteed by well-formedness
   }
-  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\alpha}{\e_1}{\e_2}{\e_3})}}
+  {\tywhnf{\H}{\El{\alpha}{(\nJuEqual{\beta}{\e_1}{\e_2}{\e_3})}}
           {\JuEqual{\El{\alpha}{\e_1}}{\e_2}{\e_3}}
   }
 \end{mathpar}
 %
-If $\redtermhint{\nUnit}{\mathsf{nat}} \in \H$, then the priority of the rules
-shown will make us try $\whnf{\H}{\El{\nUnit}}{\El{\mathsf{nat}}}$ first.
-Only if we backtrack will we consider $\whnf{\H}{\El{\nUnit}}{\Unit}$.
+If $\redtermhint{\nUnit}{\mathsf{nat}} \in \H$, then rule ordering
+will give us $\whnf{\H}{\El{\zero}{\nUnit}}{\El{\zero}{\mathsf{nat}}}$. Only
+if we were to backtrack (and we don't, in the current implementation) would we
+consider $\whnf{\H}{\El{\zero}{\nUnit}}{\Unit}$.
 
 \subsection{Type equality}
 \label{sec:bidirectional-type-equality}
