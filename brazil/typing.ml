@@ -1,9 +1,48 @@
+(* This is the version of normalization that does not return an updated context *)
 
-(* I strongly suspect that we will want to return a reduct
- * and a context with added hints. But that's not what the
- * LaTeX rules say right now...
- *)
-let rec whnf ctx ((term',loc) as term) =
+let rec whnf_ty ctx (ty',loc) =
+  match ty' with
+
+  | Syntax.El(alpha, ((e', _) as e)) ->
+      begin
+        (* tynorm-el *)
+        match whnf ctx e with
+      | Some e2 ->
+          (* Non-backtracking, for now *)
+          Some (Syntax.El(alpha, e2), loc)
+      | None ->
+          begin
+            match e' with
+
+            (* tynorm-pi *)
+            | Syntax.NameProd(beta, gamma, x, e1, e2) ->
+                Some (Syntax.Prod(x,
+                      (Syntax.El(beta, e1), loc),
+                      (Syntax.El(gamma, e2), loc)), loc)
+
+            (* tynorm-unit *)
+            | Syntax.NameUnit ->
+                Some (Syntax.Unit, loc)
+
+            (* tynorm-coerce *)
+            | Syntax.Coerce(_beta,_gamma, e) ->
+                Some (Syntax.El(alpha, e), loc)
+
+            (* tynorm-paths *)
+            | Syntax.NamePaths(_beta, e1, e2, e3) ->
+                Some (Syntax.Paths((Syntax.El(alpha, e1), loc), e2, e3), loc)
+
+            (* tynorm-id *)
+            | Syntax.NameId(_beta, e1, e2, e3) ->
+                Some (Syntax.Id((Syntax.El(alpha, e1), loc), e2, e3), loc)
+
+            | _ -> None
+          end
+      end
+
+  | (Syntax.Universe _ | Syntax.Unit | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _) -> None
+
+and whnf ctx ((term',loc) as term) =
   match Context.lookup_rewrite term ctx with
   | Some reduct -> Some reduct
   | None ->
