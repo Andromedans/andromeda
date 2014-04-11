@@ -83,13 +83,13 @@ and whnf ctx1 ((term',loc) as term) =
                      e2)
             when equiv_ty ctx1 t1 u1
                  && equiv_ty (Context.add_var x t1 ctx1) t2 u2 ->
-            Some (ctx1, Syntax.subst 0 e2 e1)
+            Some (ctx1, Syntax.beta e1 e2)
 
         (* norm-idpath *)
         | Syntax.J(t, (_x,_y,_p,u), (_z,e1),
                    (Syntax.Idpath(t',e2), _), _e3, _e4)
             when equiv_ty ctx1 t t' ->
-            Some (ctx1, Syntax.subst 0 e2 e1)
+            Some (ctx1, Syntax.beta e1 e2)
 
         (* norm-coerce-trivial *)
         | Syntax.Coerce(alpha1, alpha2, e)
@@ -216,10 +216,23 @@ and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) (ty', _) =
 
     (* chk-eq-ext-prod *)
     | Syntax.Prod(x, t, u) ->
-        equiv (Context.add_var x t ctx)
-              (Syntax.App((x, t, u), e1, (Syntax.Var 0, Position.nowhere)), loc1)
-              (Syntax.App((x, t, u), e2, (Syntax.Var 0, Position.nowhere)), loc2)
-              u
+        (* To keep the two x binders straight, we'll call the one in
+           the context z. *)
+        let ctx' = Context.add_var x t ctx  in   (* ctx' === ctx, z *)
+                                           (* ctx       |- e1  : ... *)
+        let e1' = Syntax.weaken 0 e1 in    (* ctx, z    |- e1' : ... *)
+                                           (* ctx       |- e2  : ... *)
+        let e2' = Syntax.weaken 0 e2 in    (* ctx, z    |- e2' : ... *)
+                                           (* ctx       |- t  type *)
+        let t'  = Syntax.weaken_ty 0 t in  (* ctx, z    |- t' type *)
+                                           (* ctx,    x |- u type *)
+        let u' = Syntax.weaken_ty 1 u  in  (* ctx, z, x |- u type *)
+        let z = (Syntax.Var 0,
+                 Position.nowhere) in      (* ctx, z    |- z : ... *)
+        equiv ctx'
+              (Syntax.App((x, t', u'), e1', z), loc1)
+              (Syntax.App((x, t', u'), e2', z), loc2)
+              u'
 
     (* chk-eq-ext-unit *)
     | Syntax.Unit ->
@@ -260,7 +273,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
     (* chk-eq-whnf-app *)
     | Syntax.App((x, t1, t2), e1, e2), Syntax.App((_, u1, u2), e1', e2') ->
         equiv_ty ctx t1 u1
-        && equiv_ty (Context.add_var x t1 ctx) t2 u2   (* Do we really need to check this? *)
+        && equiv_ty (Context.add_var x t1 ctx) t2 u2
         && equiv_whnf ctx e1 e2
         && equiv ctx e2 e2' t1
 
