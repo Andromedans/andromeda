@@ -386,7 +386,69 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
 (***********************************)
 
 
-let rec syn_term ctx e = failwith "not implemented"
+let rec syn_term ctx ((term', loc) as term) =
+
+  match term' with
+
+  (* syn-var *)
+
+
+  (* syn-ascribe *)
+  | Input.Ascribe (e,t) ->
+      let t_annot = is_type ctx t  in
+      let e_annot = chk_term ctx e t_annot  in
+      e_annot, t_annot
+
+  (* syn-eq-hint *)
+
+
+  (* syn-rw-hint *)
+
+
+  (* syn-abs *)
+
+
+  (* syn-app *)
+
+
+  (* syn-unit *)
+  | Input.UnitTerm ->
+      (Syntax.UnitTerm, loc),
+      (Syntax.Unit, loc)
+
+  (* syn-idpath *)
+
+
+  (* syn-J *)
+
+
+  (* syn-refl *)
+
+
+  (* syn-name-unit *)
+  | Input.NameUnit ->
+      (Syntax.NameUnit, loc),
+      (Syntax.Universe (Universe.zero, Position.nowhere), loc)
+
+
+  (* syn-name-universe *)
+
+
+  (* syn-name-prod *)
+
+
+  (* syn-name-coerce *)
+
+
+  (* syn-name-paths *)
+
+
+  (* syn-name-id *)
+
+
+  | _ -> (ignore term; failwith "not implemented")
+
+
 
 and chk_term ctx ((term', loc) as term) t =
 
