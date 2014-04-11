@@ -76,9 +76,9 @@ val make_arrow: ?loc:Position.t -> ty -> ty -> ty
 
 (**
   Suppose we have [G, x_1:t_1, ..., x_n:t_n |- exp : ...] and the inhabitants
-  [e_1; ...; e_n] all well-formed in (i.e., indexed relative to) [G] (!).
-  Then [strengthen exp [e_1,...,e_n]] is the result of
-  substituting away the [x_i]'s, resulting in a term well-formed in [G].
+  [e_1; ...; e_n] all well-formed in (i.e., indexed relative to) [G] (!).  Then
+  [strengthen exp [e_1,...,e_n]] is the result of substituting away the
+  [x_i]'s, resulting in a term well-formed in [G].
 
   In particular, [strengthen eBody [eArg]] is just [beta eBody eArg].
  *)
@@ -88,10 +88,14 @@ val strengthen    : term -> term list -> term
 val strengthen_ty : ty   -> term list -> ty
 
 
-(** If [G |- exp : ...] then [G' |- weaken i exp : ...] where [G'] has
-    one extra (unused) variable inserted at position [i].
+(** If [G |- exp] then [G' |- weaken i exp], where [G'] has
+    one extra (unused) variable inserted at former position [i]. The name of
+    that variable doesn't matter, because we're in de Bruijn notation.
 
-    In particular, [weaken 0 e] is just [shift 1 e].
+    E.g., if   [x3,    x2, x1, x0 |- e : t] then
+          then [x3, z, x2, x1, x0 |- (weaken 2 e) : (weaken_ty 2 t)]
+
+    In particular, [weaken 0 e] is the same as [shift 1 e].
 *)
 val weaken : int -> term -> term
 
