@@ -440,9 +440,54 @@ and chk_term ctx ((term', loc) as term) t =
 
 (* Can the given unannotated type be verified and translated into an annotated type?
  *)
-and is_type ctx ty =
-  failwith "not implemented"
+and is_type ctx (ty, loc) =
+  let t =
+    begin match ty with
 
+      (* tychk-universe *)
+      | Input.Universe u -> Syntax.Universe u
+        
+      (* tychk-el *)
+      | Input.El e ->
+        begin
+          let (e, t) = syn_term ctx e in
+          let t = whnfs_ty ctx t in
+            match fst t with
+              | Syntax.Universe u -> Syntax.El (u, e)
+              | _ -> Error.typing ~loc "this expression should be a type but it has type@ %t"
+                (print_ty ctx t)
+        end
+
+    (* tychk-unit *)
+      | Input.Unit -> Syntax.Unit
+
+    (* tychk-prod *)
+      | Input.Prod (x, t, u) ->
+        let t = is_type ctx t in
+        let u = is_type (Context.add_var x t ctx) u in
+          Syntax.Prod (x, t, u)
+
+    (* tychk-paths *)
+      | Input.Paths (e1, e2) ->
+        begin
+          let (e1, t) = syn_term ctx e1 in
+            match wf_type_is_fibered t with
+              | true ->
+                let e2 = chk_term ctx e2 t in
+                  Syntax.Paths (t, e1, e2)
+              | false ->
+                Error.typing ~loc "invalid pahts because %t is not fibered"
+                  (print_ty ctx t)
+        end
+
+    (* tychk-id *)
+      | Input.Id (e1, e2) ->
+        let (e1, t) = syn_term ctx e1 in
+        let e2 = chk_term ctx e2 t in
+          Syntax.Paths (t, e1, e2)
+    end
+  in
+    (t, loc)
 
 (* Can the given unannotated type be verified and translated into an annotated fibered type?
  *)
