@@ -91,12 +91,12 @@ let rec equal ((left',_) as left) ((right',_) as right) =
       equal_ty ty2 ty8 && equal term3 term9 && equal term4 term10
       (* && equal term5 term11 && equal term6 term12 *)
 
-  | Coerce(_universe1, universe2, term3), Coerce(_universe4, universe5, term6) ->
+  | Coerce(_universe1, (universe2',_), term3), Coerce(_universe4, (universe5',_), term6) ->
       (* universe1 = universe4 && *)
-      universe2 = universe5 && equal term3 term6
+      universe2' = universe5' && equal term3 term6
 
-  | NameUniverse universe1, NameUniverse universe2 ->
-      universe1 = universe2
+  | NameUniverse (universe1',_), NameUniverse (universe2',_) ->
+      universe1' = universe2'
 
   | NamePaths(_universe1, term2, term3, term4), NamePaths(_universe5, term6, term7, term8)
   | NameId   (_universe1, term2, term3, term4), NameId   (_universe5, term6, term7, term8) ->
@@ -112,11 +112,11 @@ let rec equal ((left',_) as left) ((right',_) as right) =
 and equal_ty (left_ty,_) (right_ty,_) =
   match left_ty, right_ty with
 
-  | Universe universe1, Universe universe2 ->
-      universe1 = universe2
+  | Universe (universe1',_), Universe (universe2',_) ->
+      universe1' = universe2'
 
-  | El(universe1, term2), El(universe3, term4) ->
-      universe1 = universe3 && equal term2 term4
+  | El((universe1',_), term2), El((universe3',_), term4) ->
+      universe1' = universe3' && equal term2 term4
 
   | Unit, Unit -> true
 

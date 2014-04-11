@@ -117,8 +117,8 @@ let print {decls=ds; names=xs} =
       | d::ds, x::xs ->
         loop ds xs ;
         begin match d with
-          | Parameter t -> Format.printf "assume %s : %t@\n" x (Print.ty xs t)
-          | Definition (t, e) -> Format.printf "define %s : %t := %t@\n" x (Print.ty xs t) (Print.term xs e)
+          | Parameter t -> Format.printf "assume %s@ : %t@\n" x (Print.ty xs t)
+          | Definition (t, e) -> Format.printf "define %s@ : %t :=@ %t@\n" x (Print.ty xs t) (Print.term xs e)
         end
       | [], _::_ -> Error.impossible "fewer declarations than names in context"
       | _::_, [] -> Error.impossible "fewer names than declarations in context"

@@ -168,8 +168,8 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
     | _, _ when Syntax.equal_ty t u -> true
 
     (* chk-tyeq-el *)
-    | Syntax.El(alpha, e1), Syntax.El(beta, e2) ->
-        alpha = beta && equiv ctx e1 e2 (Syntax.Universe alpha, uloc)
+    | Syntax.El(((alpha',_) as alpha), e1), Syntax.El((beta',_), e2) ->
+        alpha' = beta' && equiv ctx e1 e2 (Syntax.Universe alpha, uloc)
 
     (* chk-tyeq-prod *)
     | Syntax.Prod(x, t1, t2), Syntax.Prod(_, u1, u2) ->
@@ -643,7 +643,7 @@ and chk_term ctx ((term', loc) as term) t =
          if (equiv_ty ctx u t) then
             e
          else
-            Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
+            Error.typing ~loc "expression@ %t@ has type@ %t@\nbut should have type %t"
               (print_term ctx e)
               (print_ty ctx u)
               (print_ty ctx t)
@@ -669,7 +669,8 @@ and is_type ctx (ty, loc) =
           let t = whnfs_ty ctx t in
             match fst t with
               | Syntax.Universe u -> Syntax.El (u, e)
-              | _ -> Error.typing ~loc "this expression should be a type but it has type@ %t"
+              | _ -> Error.typing ~loc "expression %t should be a name but it has type@ %t"
+                (print_term ctx e)
                 (print_ty ctx t)
         end
 
