@@ -1065,7 +1065,8 @@ If we already know the given type is well-formed, there's an even simpler algori
 
 \begin{mathpar}
   \infer[\rulename{syn-abs}]
-  { \synterm{\ctxextend{\G}{\x}{\T} ; \H}{\e}{\U} }
+  { \istypealg{\GH}{\T} \\
+    \synterm{\ctxextend{\G}{\x}{\T} ; \H}{\e}{\U} }
   { \synterm{\GH}{(\lam{\x}{\T}{\inferred\U} \e)}{\Prod{\x}{\T} \U} }
 
   \infer[\rulename{syn-app}]
@@ -1093,8 +1094,8 @@ If we already know the given type is well-formed, there's an even simpler algori
 
   \infer[\rulename{syn-j}]
   {
-    \isfibalg{\GH}{\T}
-     \\
+    \synterm{\GH}{\e_2}{\T_2}\\
+    \whnfs{\GH}{\T_2}{\PrEqual{\T}{\e_3}{\e_4}} \\
     \isfibalg{
       \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}} ;
       \H
@@ -1102,14 +1103,11 @@ If we already know the given type is well-formed, there's an even simpler algori
     \\
     \chkterm
       {\ctxextend{\G}{z}{\T} ; \H}
-      {\e_2}
+      {\e_1}
       {\substs{\U}{z/x, z/y, (\prRefl{\T}{z})/p}}
-    \\
-    \synterm{\GH}{\e_2}{\T_2}\\
-    \whnfs{\GH}{\T_2}{\PrEqual{\T}{\e_3}{\e_4}} \\
   }
   { \synterm{\GH}{
-     \PrElim{\T}
+     \PrElim{\inferred{\T}}
              {\abst{x\,y\,p}{\U}}
              {\abst{z}{\e_1}}
              {\e_2}{\inferred{\e_3}}{\inferred{\e_4}}
