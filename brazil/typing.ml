@@ -298,7 +298,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
           let u2' = Syntax.weaken_ty 3 u2  in            (* ctx, z, x, y, p |- u2' type *)
                                                          (* ctx    |- t1 type *)
           let t1' = Syntax.weaken_ty 0 t1  in            (* ctx, z |- t1' type *)
-          let zvar = (Syntax.Var 0, Position.nowhere) in (* ctx, z:t |- z : t *)
+          let zvar = (Syntax.Var 0, Position.nowhere) in (* ctx, z |- z *)
           Syntax.strengthen_ty u2'
              [zvar; zvar; (Syntax.Idpath(t1', zvar), Position.nowhere)]
                                               (* ctx, z |- u2'[x,y,p->z,z,idpath z]  type *)  in
@@ -392,11 +392,36 @@ and chk_term ctx ((term', loc) as term) t =
 
   match term' with
 
-  | Input.Equation _ ->
-      failwith "chk-eq-hint unimplemented"
+  (* chk-eq-hint *)
+  | Input.Equation (e1, e4) ->
+      begin
+        let e1_annot, u' = syn_term ctx e1  in
+        match whnfs_ty ctx u' with
+        | Syntax.Id(u,e2,e3),_ ->
+            let ctx' = Context.add_equation e2 e3 ctx  in
+            let (e4_annot : Syntax.term) = chk_term ctx' e4 t in
+            (Syntax.Equation(e1_annot, (e2, e3), e4_annot), loc)
+        | _ ->
+            Error.typing ~loc "hint@ %t@ has type@ %t@ but an equality type was expected."
+               (print_term ctx e1_annot)
+               (print_ty   ctx u')
+      end
 
-  | Input.Rewrite _ ->
-      failwith "chk-rw-hint unimplemented"
+  (* chk-rw-hint *)
+  | Input.Rewrite (e1, e4) ->
+      begin
+        let e1_annot, u' = syn_term ctx e1  in
+        match whnfs_ty ctx u' with
+        | Syntax.Id(u,e2,e3),_ ->
+            let ctx' = Context.add_equation e2 e3 ctx  in
+            let (e4_annot : Syntax.term) = chk_term ctx' e4 t in
+            (Syntax.Rewrite(e1_annot, (e2, e3), e4_annot), loc)
+        | _ ->
+            Error.typing ~loc "hint@ %t@ has type@ %t@ but an equality type was expected."
+               (print_term ctx e1_annot)
+               (print_ty   ctx u')
+      end
+
 
   (* chk-syn *)
   | _ -> let e_annot, u = syn_term ctx term  in
