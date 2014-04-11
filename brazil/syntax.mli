@@ -102,3 +102,5 @@ val weaken : int -> term -> term
 (** Like [weaken], but for types *)
 val weaken_ty : int -> ty -> ty
 
+(** Try to compute the name of a type *)
+val name_of : ty -> (term * universe) option
