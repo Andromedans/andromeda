@@ -386,7 +386,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
 (***********************************)
 
 
-let rec syn_term ctx ((term', loc) as term) =
+let rec syn_term ctx (term', loc) =
 
   match term' with
 
@@ -497,7 +497,10 @@ let rec syn_term ctx ((term', loc) as term) =
     end
 
   (* syn-refl *)
-
+  | Input.Refl e ->
+      let e, t = syn_term ctx e  in
+      (Syntax.Refl(t,e), loc),
+      (Syntax.Id(t,e,e), loc)
 
   (* syn-name-unit *)
   | Input.NameUnit ->
@@ -506,22 +509,89 @@ let rec syn_term ctx ((term', loc) as term) =
 
 
   (* syn-name-universe *)
-
+  | Input.NameUniverse ((alpha', _) as alpha) ->
+     let beta' = Universe.succ alpha'  in
+     (Syntax.NameUniverse alpha, loc),
+     (Syntax.Universe (beta', Position.nowhere), loc)
 
   (* syn-name-prod *)
-
+  | Input.NameProd(x,e1,e2) ->
+      begin
+        let e1, t1 = syn_term ctx e1  in
+        match whnfs_ty ctx t1 with
+        | Syntax.Universe ((alpha',_) as alpha), _ ->
+            begin
+              let ctx' = Context.add_var
+                               x (Syntax.El (alpha, e1), Position.nowhere) ctx in
+              let e2, t2 = syn_term ctx' e2  in
+              match whnfs_ty ctx' t2 with
+              | Syntax.Universe ((beta',_) as beta), _ ->
+                  let gamma' = Universe.max alpha' beta'  in
+                  ((Syntax.NameProd(alpha,beta, x, e1, e2), loc),
+                   (Syntax.Universe(gamma', Position.nowhere), loc))
+              | _ ->
+                  Error.typing ~loc "Expected %t@ to belong to a universe, but it has type@ %t"
+                     (print_term ctx e2)
+                     (print_ty ctx t2)
+            end
+        | _ ->
+            Error.typing ~loc "Expected %t@ to belong to a universe, but it has type@ %t"
+               (print_term ctx e1)
+               (print_ty ctx t1)
+      end
 
   (* syn-name-coerce *)
-
+  | Input.Coerce(((beta',_) as beta), e) ->
+      begin
+        let e, t = syn_term ctx e  in
+        match whnfs_ty ctx t with
+        | Syntax.Universe ((alpha',_) as alpha), _ ->
+            if Universe.leq alpha' beta' then
+              ((Syntax.Coerce(alpha, beta, e), loc),
+               (Syntax.Universe beta, loc))
+            else
+              Error.typing ~loc "Term %t@ in universe %s@ cannot be coerced to universe %s"
+                 (print_term ctx e)
+                 (Universe.to_string alpha')
+                 (Universe.to_string beta')
+        | _ ->
+            Error.typing ~loc "Expected %t@ to belong to a universe, but it has type@ %t"
+               (print_term ctx e)
+               (print_ty ctx t)
+      end
 
   (* syn-name-paths *)
-
+  | Input.NamePaths(e2,e3) ->
+     begin
+        let e2, t2 = syn_term ctx e2  in
+        match Syntax.name_of t2 with
+        | None -> Error.typing ~loc "could not derive a name for type@ %t,@ the type of %t"
+                         (print_ty ctx t2)
+                         (print_term ctx e2)
+        | Some (e1, ((alpha',_) as alpha)) ->
+            if (Universe.is_fibered alpha') then
+              let e3 = chk_term ctx e3 t2 in
+              ((Syntax.NameId(alpha, e1, e2, e3), loc),
+               (Syntax.Universe alpha, loc))
+            else
+              Error.typing ~loc "unfibered type@ %t@ for term@ %t"
+                (print_ty ctx t2)
+                (print_term ctx e2)
+      end
 
   (* syn-name-id *)
-
-
-  | _ -> (ignore term; failwith "not implemented")
-
+  | Input.NameId(e2,e3) ->
+      begin
+        let e2, t2 = syn_term ctx e2  in
+        match Syntax.name_of t2 with
+        | None -> Error.typing ~loc "could not derive a name for type@ %t,@ the type of %t"
+                         (print_ty ctx t2)
+                         (print_term ctx e2)
+        | Some (e1, alpha) ->
+            let e3 = chk_term ctx e3 t2 in
+            ((Syntax.NameId(alpha, e1, e2, e3), loc),
+             (Syntax.Universe alpha, loc))
+      end
 
 
 and chk_term ctx ((term', loc) as term) t =
@@ -531,41 +601,41 @@ and chk_term ctx ((term', loc) as term) t =
   (* chk-eq-hint *)
   | Input.Equation (e1, e4) ->
       begin
-        let e1_annot, u' = syn_term ctx e1  in
+        let e1, u' = syn_term ctx e1  in
         match whnfs_ty ctx u' with
         | Syntax.Id(u,e2,e3),_ ->
             let ctx' = Context.add_equation e2 e3 ctx  in
-            let (e4_annot : Syntax.term) = chk_term ctx' e4 t in
-            (Syntax.Equation(e1_annot, (e2, e3), e4_annot), loc)
+            let (e4 : Syntax.term) = chk_term ctx' e4 t in
+            (Syntax.Equation(e1, (e2, e3), e4), loc)
         | _ ->
             Error.typing ~loc "hint@ %t@ has type@ %t@ but an equality type was expected."
-               (print_term ctx e1_annot)
+               (print_term ctx e1)
                (print_ty   ctx u')
       end
 
   (* chk-rw-hint *)
   | Input.Rewrite (e1, e4) ->
       begin
-        let e1_annot, u' = syn_term ctx e1  in
+        let e1, u' = syn_term ctx e1  in
         match whnfs_ty ctx u' with
         | Syntax.Id(u,e2,e3),_ ->
             let ctx' = Context.add_equation e2 e3 ctx  in
-            let (e4_annot : Syntax.term) = chk_term ctx' e4 t in
-            (Syntax.Rewrite(e1_annot, (e2, e3), e4_annot), loc)
+            let (e4 : Syntax.term) = chk_term ctx' e4 t in
+            (Syntax.Rewrite(e1, (e2, e3), e4), loc)
         | _ ->
             Error.typing ~loc "hint@ %t@ has type@ %t@ but an equality type was expected."
-               (print_term ctx e1_annot)
+               (print_term ctx e1)
                (print_ty   ctx u')
       end
 
 
   (* chk-syn *)
-  | _ -> let e_annot, u = syn_term ctx term  in
+  | _ -> let e, u = syn_term ctx term  in
          if (equiv_ty ctx u t) then
-            e_annot
+            e
          else
             Error.typing ~loc "expression %t@ has type %t@\nbut should have type %t"
-              (print_term ctx e_annot)
+              (print_term ctx e)
               (print_ty ctx u)
               (print_ty ctx t)
 
@@ -582,7 +652,7 @@ and is_type ctx (ty, loc) =
 
       (* tychk-universe *)
       | Input.Universe u -> Syntax.Universe u
-        
+
       (* tychk-el *)
       | Input.El e ->
         begin
@@ -612,7 +682,7 @@ and is_type ctx (ty, loc) =
                 let e2 = chk_term ctx e2 t in
                   Syntax.Paths (t, e1, e2)
               | false ->
-                Error.typing ~loc "invalid pahts because %t is not fibered"
+                Error.typing ~loc "invalid paths because %t is not fibered"
                   (print_ty ctx t)
         end
 

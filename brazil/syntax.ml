@@ -325,3 +325,56 @@ let weaken new_var_pos exp =
 
 let weaken_ty new_var_pos ty =
   shift_ty' new_var_pos 1 ty
+
+
+
+(* Try to find the (candidate) name and universe of a given type.
+   If the type is well-formed, then this will be the name
+   and the universe of that name *)
+
+let rec name_of (ty', loc) =
+
+  (* Compute the name term and the universe, without the outermost loc *)
+  let answer' =
+
+    match ty' with
+
+    | Universe ((alpha',_) as alpha) ->
+        Some( NameUniverse alpha, Universe.succ alpha' )
+
+    | El ((alpha,_), (e', _)) ->
+        Some( e', alpha )
+
+    | Unit ->
+        Some( NameUnit, Universe.zero )
+
+    | Prod(x,t,u) ->
+        begin
+          match name_of t, name_of u with
+          | Some (name_t, ((alpha',_) as alpha)), Some (name_u, ((beta',_) as beta)) ->
+              Some( NameProd(alpha, beta, x, name_t, name_u),
+                    Universe.max alpha' beta' )
+          | _ -> None
+        end
+
+    | Paths(t,e2,e3) ->
+        begin
+          match name_of t with
+          | Some (name_t, ((alpha',_) as alpha)) ->
+              Some ( NamePaths(alpha, name_t, e2, e3), alpha')
+          | None -> None
+        end
+
+    | Id(t,e2,e3) ->
+        begin
+          match name_of t with
+          | Some (name_t, ((alpha',_) as alpha)) ->
+              Some ( NameId(alpha, name_t, e2, e3), alpha')
+          | None -> None
+        end
+
+  in
+     (* Reattach the location, if we succeeded *)
+     match answer' with
+     | None -> None
+     | Some (name', universe') -> Some ((name', loc), (universe', loc))
