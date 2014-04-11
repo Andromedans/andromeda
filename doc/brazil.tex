@@ -122,6 +122,7 @@
 \newcommand{\true}{\mathsf{true}}
 \newcommand{\false}{\mathsf{false}}
 
+\newcommand{\nameof}{\mathop{\mathsf{name\_of}}\,}
 
 \begin{document}
 
@@ -1160,8 +1161,8 @@ If we already know the given type is well-formed, there's an even simpler algori
   \infer[\rulename{syn-name-paths}]
   {
    \synterm{\GH}{\e_2}{\T_2}\\
-   \whnfs{\GH}{\T_2}{\El{\alpha}{\e_1}}\\\\
-   \chkterm{\GH}{\e_3}{\El{\alpha}{\e_1}}\\
+   \nameof{\T_2} = \e_1 : \Universe{\alpha}\\
+   \chkterm{\GH}{\e_3}{\T_2}\\
    \alpha\in\FF\\
   }
   {\synterm{\GH}{\nPrEqual{\inferred\alpha}{\inferred{\e_1}}{\e_2}{\e_3}}{\Universe{\alpha}}}
@@ -1170,8 +1171,8 @@ If we already know the given type is well-formed, there's an even simpler algori
   \infer[\rulename{syn-name-id}]
   {
    \synterm{\GH}{\e_2}{\T_2}\\
-   \whnfs{\GH}{\T_2}{\El{\alpha}{\e_1}}\\
-   \chkterm{\GH}{\e_3}{\El{\alpha}{\e_1}}
+   \nameof{\T_2} = \e_1 : \Universe{\alpha}\\
+   \chkterm{\GH}{\e_3}{\T_2}\\
   }
   {\synterm{\GH}{\nJuEqual{\inferred\alpha}{\inferred{\e_1}}{\e_2}{\e_3}}{\Universe{\alpha}}}
 \end{mathpar}
