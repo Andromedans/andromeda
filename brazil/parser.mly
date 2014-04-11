@@ -60,7 +60,8 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, t, e) }
+  | DEFINE x=NAME COLONEQ e=term                { Define (x, e) }
+  | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, (Ascribe(e,t), Position.nowhere)) }
   | ASSUME xs=nonempty_list(NAME) COLON t=ty    { Assume (xs, t) }
 
 (* Toplevel directive. *)
