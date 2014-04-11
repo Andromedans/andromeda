@@ -92,8 +92,8 @@ val strengthen_ty : ty   -> term list -> ty
     one extra (unused) variable inserted at former position [i]. The name of
     that variable doesn't matter, because we're in de Bruijn notation.
 
-    E.g., if   [x3,    x2, x1, x0 |- e : t] then
-          then [x3, z, x2, x1, x0 |- (weaken 2 e) : (weaken_ty 2 t)]
+    E.g., if   [x3, x2,    x1, x0 |- e : t] then
+          then [x3, x2, z, x1, x0 |- (weaken 2 e) : (weaken_ty 2 t)]
 
     In particular, [weaken 0 e] is the same as [shift 1 e].
 *)
