@@ -67,12 +67,12 @@ let rec term ?max_level xs (e,_) ppf =
         print ~at_level:0 "%s" (List.nth xs k)
 
       | Syntax.Equation (e1, (_e2, _e3), e4) ->
-        print ~at_level:4 "equation %t in %t"
+        print ~at_level:4 "equation %t@ in %t"
           (term ~max_level:3 xs e1)
           (term ~max_level:4 xs e4)
 
       | Syntax.Rewrite (e1, (_e2, _e3), e4) ->
-        print ~at_level:4 "rewrite %t in %t"
+        print ~at_level:4 "rewrite %t@ in %t"
           (term ~max_level:3 xs e1)
           (term ~max_level:4 xs e4)
 
@@ -82,17 +82,17 @@ let rec term ?max_level xs (e,_) ppf =
           (ty ~max_level:4 xs t)
 
       | Syntax.Lambda (x, t, u, e) ->
-        print ~at_level:4 "fun (%s : %t) =>%t %t"
+        print ~at_level:4 "fun (%s : %t) =>%t@ %t"
           x
           (ty ~max_level:4 xs t)
           (annot (ty ~max_level:4 (x::xs) u))
           (term ~max_level:4 (x::xs) e)
 
       | Syntax.App ((x, t, u), e1, e2) ->
-        print ~at_level:1 "%t%t %t"
+        print ~at_level:1 "%t@,%t@ %t"
           (term ~max_level:1 xs e1)
           (annot ~prefix:" @"
-             (fun ppf -> print' ~max_level:4 ppf "%s : %t . %t" x (ty ~max_level:4 xs t) (ty ~max_level:4 (x::xs) u)))
+             (fun ppf -> print' ~max_level:4 ppf "%s :@ %t .@ %t" x (ty ~max_level:4 xs t) (ty ~max_level:4 (x::xs) u)))
           (term ~max_level:0 xs e2)
 
       | Syntax.UnitTerm -> print ~at_level:0 "()"
@@ -116,7 +116,7 @@ let rec term ?max_level xs (e,_) ppf =
           (term ~max_level:0 xs e)
 
       | Syntax.Coerce (u1, u2, e) ->
-        print ~at_level:1 "coerce (%t, %t, %t)"
+        print ~at_level:1 "coerce (%t,@ %t,@ %t)"
           (universe u1)
           (universe u2)
           (term ~max_level:4 xs e)
@@ -124,7 +124,7 @@ let rec term ?max_level xs (e,_) ppf =
       | Syntax.NameUnit -> print ~at_level:0 "unit"
 
       | Syntax.NameProd (_alpha, _beta, x, e1, e2) ->
-        print ~at_level:3 "(%s : %t) -> %t"
+        print ~at_level:3 "(%s : %t) ->@ %t"
           x
           (term ~max_level:4 xs e1)
           (term ~max_level:3 (x::xs) e2)
@@ -134,13 +134,13 @@ let rec term ?max_level xs (e,_) ppf =
           (universe u)
 
       | Syntax.NamePaths (_alpha, e1, e2, e3) ->
-        print ~at_level:2 "%t =%t %t"
+        print ~at_level:2 "@[<hv 2>%t@ =%t@ %t@]"
           (term ~max_level:1 xs e2)
           (annot (term ~max_level:4 xs e1))
           (term ~max_level:1 xs e3)
 
       | Syntax.NameId (_alpha, e1, e2, e3) ->
-        print ~at_level:2 "%t ==%t %t"
+        print ~at_level:2 "@[<hv 2>%t@ ==%t@ %t@]"
           (term ~max_level:1 xs e2)
           (annot (term ~max_level:4 xs e1))
           (term ~max_level:1 xs e3)
@@ -154,26 +154,30 @@ and ty ?max_level xs (t,_) ppf =
           (universe u)
 
       | Syntax.El (u, e) ->
-        print "%t"
-          (term ?max_level xs e)
+          if (!annotate) then
+            print "El(%t,%t)" (universe u) (term ~max_level:4 xs e)
+          else
+            print "%t"
+              (term ?max_level xs e)
 
       | Syntax.Unit ->
         print ~at_level:0 "unit"
 
       | Syntax.Prod (x, t1, t2) ->
-        print ~at_level:3 "(%s : %t) -> %t"
+        print ~at_level:3 "(%s : %t) ->@ %t"
           x
           (ty ~max_level:4 xs t1)
           (ty ~max_level:3 (x::xs) t2)
 
       | Syntax.Paths (t, e1, e2) ->
-        print ~at_level:2 "%t =%t %t"
+        print ~at_level:2 "@[<hv 2>%t@ =%t %t@]"
           (term ~max_level:1 xs e1)
           (annot (ty ~max_level:4 xs t))
           (term ~max_level:1 xs e2)
 
       | Syntax.Id (t, e1, e2) ->
-        print ~at_level:2 "%t ==%t %t"
+        print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
           (term ~max_level:1 xs e1)
           (annot (ty ~max_level:4 xs t))
           (term ~max_level:1 xs e2)
+
