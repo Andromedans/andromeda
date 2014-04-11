@@ -42,6 +42,10 @@ let rec whnf_ty ctx1 (ty',loc) =
             | Syntax.NameUnit ->
                 Some (ctx1, (Syntax.Unit, loc))
 
+            (* tynorm-universe *)
+            | Syntax.NameUniverse beta ->
+                Some (ctx1, (Syntax.Universe beta, loc))
+
             (* tynorm-coerce *)
             | Syntax.Coerce(_beta,_gamma, e) ->
                 Some (ctx1, (Syntax.El(alpha, e), loc))
@@ -54,7 +58,13 @@ let rec whnf_ty ctx1 (ty',loc) =
             | Syntax.NameId(_beta, e1, e2, e3) ->
                 Some (ctx1, (Syntax.Id((Syntax.El(alpha, e1), loc), e2, e3), loc))
 
-            | _ -> None
+            | Syntax.Var _ | Syntax.App _ | Syntax.J _ | Syntax.Lambda _
+            | Syntax.UnitTerm | Syntax.Idpath _ | Syntax.Refl _ -> 
+              None
+
+            (* could have taken a step *)
+            | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _ ->
+              Error.impossible "normalization of universe names is suprised, please report"
           end
       end
 
