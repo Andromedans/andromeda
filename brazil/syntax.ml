@@ -247,8 +247,9 @@ let shift_ty delta = shift_ty' 0 delta
 
 let ftrans_subst free_index replacement_term bvs index =
   if index - bvs = free_index then
-    (* It's the variable we're looking for. *)
-    replacement_term
+    (* It's the variable we're looking for.
+       Shift it to match the local context *)
+    fst(shift bvs (replacement_term, Position.nowhere))
   else
     Var index
 
