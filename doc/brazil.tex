@@ -1146,7 +1146,7 @@ If we already know the given type is well-formed, there's an even simpler algori
   { \synterm{\GH}{\e_1}{\T_1}\\
     \whnfs{\GH}{\T_1}{\Universe{\alpha}}\\\\
     \synterm{\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}{\e_2}{\T_2}\\
-    \whnfs{\GH}{\T_2}{\Universe{\beta}}\\\\
+    \whnfs{\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}{\T_2}{\Universe{\beta}}\\\\
     \piClose{\alpha}{\beta} = \gamma
   }
   { \synterm{\GH}{(\nProd{\inferred\alpha}{\inferred\beta}{\x}{\e_1}{\e_2})}{\Universe{\gamma}} }
