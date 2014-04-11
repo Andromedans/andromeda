@@ -45,4 +45,4 @@ and toplevel' =
   | Quit (* #quit *)
   | Context (* #context *)
   | Assume of name list * name ty (* assume x1 ... xn : t *)
-  | Define of name * name ty * name term (* define x : T := e *)
+  | Define of name * name term (* define x := e *)

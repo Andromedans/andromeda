@@ -16,6 +16,7 @@ let help_text = "Toplevel directives:
 #quit ....... exit
 
 assume <ident> ... <ident> : <sort> .... assume variable <ident> has sort <sort>
+define <ident> := <expr>          ...... define <ident> to be <expr>
 define <ident> : <type> := <expr> ...... define <ident> to be <expr> of <type>
 " ;;
 
@@ -85,11 +86,9 @@ let rec exec_cmd interactive ctx (d, loc) =
               Format.printf "@."
             end ;
           List.fold_left (fun ctx x -> Context.add_var x t ctx) ctx xs
-    | Input.Define (x, t, e) ->
-      let t = Debruijn.ty names t in
-      let t = Typing.is_type ctx t  in
+    | Input.Define (x, e) ->
       let e = Debruijn.term names e in
-      let e = Typing.chk_term ctx e t  in
+      let e,t = Typing.syn_term ctx e in
         if interactive then Format.printf "%s is defined.@\n@." x ;
         Context.add_def x t e ctx
     | Input.Context ->
