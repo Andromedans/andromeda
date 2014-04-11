@@ -100,7 +100,7 @@ plain_app_term:
   | COERCE u=universe COMMA e=term RPAREN     { let u = make_universe u in Coerce (u, e) }
   | UNIVERSE u=universe                       { let u = make_universe u in NameUniverse u }
   | REFL e=simple_term                        { Refl e }
-  | IDPATH LBRACK t=term RBRACK e=simple_term { Idpath e }
+  | IDPATH e=simple_term { Idpath e }
   | IND_PATH LPAREN
           LBRACK
           x=param
@@ -126,6 +126,7 @@ simple_term: mark_position(plain_simple_term) { $1 }
 plain_simple_term:
   | UNIT                         { NameUnit }
   | x=NAME                       { Var x }
+  | LPAREN RPAREN                { UnitTerm }
   | LPAREN e=plain_term RPAREN   { e }
 
 
