@@ -31,6 +31,9 @@ let wrapper = ref (Some ["rlwrap"; "ledit"])
 
 (** Command-line options *)
 let options = Arg.align [
+  ("--annotate",
+   Arg.Set Print.annotate,
+   "print type annotations");
   ("--wrapper",
     Arg.String (fun str -> wrapper := Some [str]),
     "<program> Specify a command-line wrapper to be used (such as rlwrap or ledit)");
