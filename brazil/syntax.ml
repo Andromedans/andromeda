@@ -239,8 +239,11 @@ let ftrans_shift delta _ index =
     Var (index + delta);
   end
 
-let shift    ?(bvs=0) delta = transform    (ftrans_shift delta) bvs
-let shift_ty ?(bvs=0) delta = transform_ty (ftrans_shift delta) bvs
+let shift'    bvs delta = transform    (ftrans_shift delta) bvs
+let shift_ty' bvs delta = transform_ty (ftrans_shift delta) bvs
+
+let shift delta    = shift' 0 delta
+let shift_ty delta = shift_ty' 0 delta
 
 let ftrans_subst free_index replacement_term bvs index =
   if index - bvs = free_index then
@@ -318,7 +321,7 @@ let strengthen_ty ty inhabitants =
      all free variables [< i] unchanged, and all [>= i] incremented (because
      there's a new variable in front of them). *)
 let weaken new_var_pos exp =
-  shift ~bvs:new_var_pos 1 exp
+  shift' new_var_pos 1 exp
 
 let weaken_ty new_var_pos ty =
-  shift_ty ~bvs:new_var_pos 1 ty
+  shift_ty' new_var_pos 1 ty
