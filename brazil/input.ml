@@ -29,8 +29,8 @@ and 'a term' =
   | App of 'a term * 'a term (* e1 e2 *)
   | UnitTerm (* () *)
   | Idpath of 'a term (* idpath e *)
-  | J of 'a ty * (name * name * name * 'a ty) * (name * 'a term) * 'a term
-    (* J (T, [x . y . p . U], [z . e1], e2) *)
+  | J of (name * name * name * 'a ty) * (name * 'a term) * 'a term
+    (* J ([x . y . p . U], [z . e1], e2) *)
   | Refl of 'a term (* refl T e *)
   | Coerce of universe * 'a term (* coerce i j e *)
   | NameUniverse of universe (* Universe i *)

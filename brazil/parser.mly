@@ -102,8 +102,6 @@ plain_app_term:
   | REFL e=simple_term                        { Refl e }
   | IDPATH LBRACK t=term RBRACK e=simple_term { Idpath e }
   | IND_PATH LPAREN
-          t=ty
-        COMMA
           LBRACK
           x=param
           y=param
@@ -118,7 +116,7 @@ plain_app_term:
         COMMA
           e2=term
         RPAREN
-                                              { J (t, (x, y, p, u), (z, e1), e2) }
+                                              { J ((x, y, p, u), (z, e1), e2) }
 
 param:
   | NAME { $1 }

@@ -85,12 +85,11 @@ and term xs (e, loc) =
         let e = term xs e in
           Input.Idpath e
 
-      | Input.J (t, (x, y, p, u), (z, e1), e2) ->
-        let t = ty xs t in
+      | Input.J ((x, y, p, u), (z, e1), e2) ->
         let u = ty (x :: y :: p :: xs) u in
         let e1 = term (z :: xs) e1 in
         let e2 = term xs e2 in
-          Input.J (t, (x, y, p, u), (z, e1), e2)
+          Input.J ((x, y, p, u), (z, e1), e2)
 
       | Input.Refl e ->
         let e = term xs e in
