@@ -571,7 +571,7 @@ let rec syn_term ctx (term', loc) =
         | Some (e1, ((alpha',_) as alpha)) ->
             if (Universe.is_fibered alpha') then
               let e3 = chk_term ctx e3 t2 in
-              ((Syntax.NameId(alpha, e1, e2, e3), loc),
+              ((Syntax.NamePaths(alpha, e1, e2, e3), loc),
                (Syntax.Universe alpha, loc))
             else
               Error.typing ~loc "unfibered type@ %t@ for term@ %t"
