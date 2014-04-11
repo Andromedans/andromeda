@@ -1225,6 +1225,18 @@ If we already know the given type is well-formed, there's an even simpler algori
     {\H}
   }
 
+  \infer[\rulename{tynorm-universe}]
+  {
+    %\alpha = \uClose(\beta) %% Guaranteed by well-formedness
+  }
+  {
+    \tywhnf
+    {\GH}
+    {\El{\alpha}{\nUniverse{\beta}}}
+    {\Universe{\beta}}
+    {\H}
+  }
+
   \infer[\rulename{tynorm-coerce}]
   {
   }
