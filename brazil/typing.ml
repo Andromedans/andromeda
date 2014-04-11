@@ -391,24 +391,70 @@ let rec syn_term ctx ((term', loc) as term) =
   match term' with
 
   (* syn-var *)
-
+  | Input.Var k ->
+    begin
+      let t = Context.lookup_var k ctx in
+        (Syntax.Var k, loc),
+        t
+    end
 
   (* syn-ascribe *)
   | Input.Ascribe (e,t) ->
-      let t_annot = is_type ctx t  in
-      let e_annot = chk_term ctx e t_annot  in
-      e_annot, t_annot
+      let t = is_type ctx t  in
+      let e = chk_term ctx e t  in
+        e,
+        t
 
   (* syn-eq-hint *)
-
+  | Input.Equation (e1, e4) ->
+    begin
+      let e1, u' = syn_term ctx e1 in
+        match whnfs_ty ctx u' with
+          | Syntax.Id (u, e2, e3), _ ->
+            let ctx = Context.add_equation e2 e3 ctx in
+            let e4, t = syn_term ctx e4 in
+              (Syntax.Equation (e1, (e2, e3), e4), loc),
+              t
+          | _ -> Error.typing ~loc "this expression should be an equality proof but has type@ %t"
+                   (print_ty ctx u')
+    end
 
   (* syn-rw-hint *)
-
+  | Input.Rewrite (e1, e4) ->
+    begin
+      let e1, u' = syn_term ctx e1 in
+        match whnfs_ty ctx u' with
+          | Syntax.Id (u, e2, e3), _ ->
+            let ctx = Context.add_rewrite e2 e3 ctx in
+            let e4, t = syn_term ctx e4 in
+              (Syntax.Rewrite (e1, (e2, e3), e4), loc),
+              t
+          | _ -> Error.typing ~loc "this expression should be an equality proof but has type@ %t"
+                   (print_ty ctx u')
+    end
 
   (* syn-abs *)
-
+  | Input.Lambda (x, t, e) ->
+    begin
+      let t = is_type ctx t in
+      let ctx = Context.add_var x t ctx in
+      let e, u = syn_term ctx e in
+        (Syntax.Lambda (x, t, u, e), loc),
+        (Syntax.Prod (x, t, u), loc)
+    end
 
   (* syn-app *)
+  | Input.App (e1, e2) ->
+    begin
+      let e1, t1 = syn_term ctx e1 in
+        match whnfs_ty ctx t1 with
+          | Syntax.Prod (x, t, u), _ ->
+            let e2 = chk_term ctx e2 t in
+              (Syntax.App ((x, t, u), e1, e2), loc),
+              Syntax.beta_ty u e2
+          | _ -> Error.typing ~loc:(snd e1) "this expression should be a function but has type@ %t"
+                   (print_ty ctx t1)
+    end
 
 
   (* syn-unit *)
@@ -417,10 +463,38 @@ let rec syn_term ctx ((term', loc) as term) =
       (Syntax.Unit, loc)
 
   (* syn-idpath *)
-
+  | Input.Idpath e ->
+    let e, t = syn_term ctx e in
+      (Syntax.Idpath (t, e), loc),
+      (Syntax.Paths (t, e, e), loc)
 
   (* syn-J *)
+  | Input.J ((x, y, p, u), (z, e1), e2) ->
+    begin
+    let e2, t2 = syn_term ctx e2 in
+      match whnfs_ty ctx t2 with
 
+        | Syntax.Paths (t, e3, e4), _ ->
+          let ctx_xyp = Context.add_vars
+            [  (x, t);
+               (y, t);
+               (p, (Syntax.Paths
+                      (t,
+                       (Syntax.Var (-1) (* x *), Position.nowhere),
+                       (Syntax.Var (-2) (* y *), Position.nowhere)),
+                    Position.nowhere)) ] ctx  in
+          let u = is_fibered ctx_xyp u in
+          let ctx_z = Context.add_var z t ctx  in
+          let zvar = (Syntax.Var 0, Position.nowhere) in (* ctx, z |- z *)
+          let t' = Syntax.weaken_ty 0 t in (* ctx, z |- t type *)
+          let u' = Syntax.strengthen_ty u [zvar; zvar; (Syntax.Idpath (t', zvar), Position.nowhere)] in
+          let e1 = chk_term ctx_z e1 u' in
+            (Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4), loc),
+            Syntax.strengthen_ty u [e3; e4; e2]
+
+        | _ -> Error.typing ~loc:(snd e2) "Thiis expression should be a path but its type is@ %t"
+                 (print_ty ctx t2)
+    end
 
   (* syn-refl *)
 
