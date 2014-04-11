@@ -59,7 +59,7 @@ let rec whnf_ty ctx1 (ty',loc) =
                 Some (ctx1, (Syntax.Id((Syntax.El(alpha, e1), loc), e2, e3), loc))
 
             | Syntax.Var _ | Syntax.App _ | Syntax.J _ | Syntax.Lambda _
-            | Syntax.UnitTerm | Syntax.Idpath _ | Syntax.Refl _ -> 
+            | Syntax.UnitTerm | Syntax.Idpath _ | Syntax.Refl _ ->
               None
 
             (* could have taken a step *)
@@ -163,10 +163,12 @@ and equiv_ty ctx t u =
 
 and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
   begin
+    Print.debug "equiv_whnf_ty: %t == %t@." (print_ty ctx t) (print_ty ctx u);
     match t', u' with
 
     (* chk-tyeq-path-refl *)
-    | _, _ when Syntax.equal_ty t u -> true
+    | _, _ when Syntax.equal_ty t u ->
+        true
 
     (* chk-tyeq-el *)
     | Syntax.El(((alpha',_) as alpha), e1), Syntax.El((beta',_), e2) ->
@@ -191,7 +193,7 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
 
     | (Syntax.Universe _ | Syntax.El _ | Syntax.Unit
        | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _), _ ->
-        false
+           false
   end
 
 (* equivalence of terms.
@@ -201,6 +203,9 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
                  term2 : t
  *)
 and equiv ctx term1 term2 t =
+
+  Print.debug "equiv: %t == %t @ %t @."
+      (print_term ctx term1) (print_term ctx term2) (print_ty ctx t);
 
   (* chk-eq-refl *)
   if (Syntax.equal term1 term2) then
@@ -220,8 +225,10 @@ and equiv ctx term1 term2 t =
                  e1 : ty
                  e2 : ty
  *)
-and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) (ty', _) =
+and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
   begin
+    Print.debug "equiv_ext: %t == %t @ %t @."
+      (print_term ctx e1) (print_term ctx e2) (print_ty ctx ty);
     match ty' with
 
     (* chk-eq-ext-prod *)
