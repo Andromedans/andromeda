@@ -905,7 +905,7 @@ equivalence checking.
   }
   {\ishints{\G}{(\addhinteq{\H}{\e_1}{\e_2})}}
 
-  \infer[\rulename{hint-reduce}]
+  \infer[\rulename{hint-rw}]
   {\ishints{\G}{\H} \\
    \eqterm{\G}{\e_1}{\e_2}{\T}
   }
@@ -1046,14 +1046,14 @@ If we already know the given type is well-formed, there's an even simpler algori
   }
   { \chkterm{\GH}{(\equationin{\e_1}{\inferred{\e_2}}{\inferred{\e_3}} \e_4)}{\T} }
 
-  \infer[\rulename{syn-eq-hint}]
+  \infer[\rulename{syn-rw-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
     \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_2}{\e_3}} \\\\
     \synterm{\ctxs{\G}{(\addhintrw{\H}{\e_2}{\e_3})}}{\e_4}{\T}
   }
   { \synterm{\GH}{(\rewritein{\e_1}{\inferred{\e_2}}{\inferred{\e_3}} \e_4)}{\T} }
 
-  \infer[\rulename{chk-eq-hint}]
+  \infer[\rulename{chk-rw-hint}]
   { \synterm{\GH}{\e_1}{\U'} \\
     \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_2}{\e_3}} \\\\
     \chkterm{\ctxs{\G}{(\addhintrw{\H}{\e_2}{\e_3})}}{\e_4}{\T}
