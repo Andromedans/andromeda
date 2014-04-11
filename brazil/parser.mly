@@ -95,12 +95,12 @@ plain_equiv_term:
 
 app_term: mark_position(plain_app_term) { $1 }
 plain_app_term:
-  | e=plain_simple_term                       { e }
-  | e1=app_term e2=simple_term                { App (e1, e2) }
-  | COERCE u=universe COMMA e=term RPAREN     { let u = make_universe u in Coerce (u, e) }
-  | UNIVERSE u=universe                       { let u = make_universe u in NameUniverse u }
-  | REFL e=simple_term                        { Refl e }
-  | IDPATH LBRACK t=term RBRACK e=simple_term { Idpath e }
+  | e=plain_simple_term                          { e }
+  | e1=app_term e2=simple_term                   { App (e1, e2) }
+  | COERCE LPAREN u=universe COMMA e=term RPAREN { let u = make_universe u in Coerce (u, e) }
+  | UNIVERSE u=universe                          { let u = make_universe u in NameUniverse u }
+  | REFL e=simple_term                           { Refl e }
+  | IDPATH LBRACK t=term RBRACK e=simple_term    { Idpath e }
   | IND_PATH LPAREN
           LBRACK
           x=param
