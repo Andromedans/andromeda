@@ -9,9 +9,11 @@ exception Error of (Position.t * string * string)
     [kfprintf] magic allows one to write [msg] using a format string. *)
 let error ~loc err_type =
   let k _ =
+    let _ = Format.pp_close_box Format.str_formatter () in
     let msg = Format.flush_str_formatter () in
       raise (Error (loc, err_type, msg))
   in
+    Format.pp_open_hovbox Format.str_formatter 2;
     Format.fprintf Format.str_formatter "%s: " (Position.to_string loc);
     Format.kfprintf k Format.str_formatter
 

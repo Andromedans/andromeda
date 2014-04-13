@@ -214,7 +214,7 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
  *)
 and equiv ctx term1 term2 t =
 
-  Print.debug "equiv: %t == %t @ %t @."
+  Print.debug "equiv: %t == %t @@ %t @."
       (print_term ctx term1) (print_term ctx term2) (print_ty ctx t);
 
   (* chk-eq-refl *)
@@ -237,7 +237,7 @@ and equiv ctx term1 term2 t =
  *)
 and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
   begin
-    Print.debug "equiv_ext: %t == %t @ %t @."
+    Print.debug "equiv_ext: %t == %t @@ %t @."
       (print_term ctx e1) (print_term ctx e2) (print_ty ctx ty);
     match ty' with
 
@@ -445,8 +445,9 @@ let rec syn_term ctx ((term', loc) as term) =
             let e4, t = syn_term ctx e4 in
               (Syntax.Equation (e1, (e2, e3), e4), loc),
               t
-          | _ -> Error.typing ~loc "this expression should be an equality proof but has type@ %t"
-                   (print_ty ctx u')
+          | u'' -> Error.typing ~loc "the equation witness@ %t@;<1 -2>should be an equality proof but has type@ %t"
+                     (print_term ctx e1)
+                     (print_ty ctx u'')
     end
 
   (* syn-rw-hint *)
@@ -459,8 +460,9 @@ let rec syn_term ctx ((term', loc) as term) =
             let e4, t = syn_term ctx e4 in
               (Syntax.Rewrite (e1, (e2, e3), e4), loc),
               t
-          | _ -> Error.typing ~loc "this expression should be an equality proof but has type@ %t"
-                   (print_ty ctx u')
+          | u'' -> Error.typing ~loc "the rewrite witness@ %t@;<1 -2>should be an equality proof but has type@ %t"
+                     (print_term ctx e1)
+                     (print_ty ctx u'')
     end
 
   (* syn-abs *)
@@ -482,8 +484,9 @@ let rec syn_term ctx ((term', loc) as term) =
             let e2 = chk_term ctx e2 t in
               (Syntax.App ((x, t, u), e1, e2), loc),
               Syntax.beta_ty u e2
-          | _ -> Error.typing ~loc:(snd e1) "this expression should be a function but has type@ %t"
-                   (print_ty ctx t1)
+          | t1' -> Error.typing ~loc:(snd e1) "the expression@ %t@;<1 -2>is applied to an argument, but it has type@ %t"
+                     (print_term ctx e1)
+                     (print_ty ctx t1')
     end
 
 
@@ -522,8 +525,9 @@ let rec syn_term ctx ((term', loc) as term) =
             (Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4), loc),
             Syntax.strengthen_ty u [e3; e4; e2]
 
-        | _ -> Error.typing ~loc:(snd e2) "Thiis expression should be a path but its type is@ %t"
-                 (print_ty ctx t2)
+        | t2' -> Error.typing ~loc:(snd e2) "the argument@ %t@;<1 -2>to J should be a path, but its type is@ %t"
+                 (print_term ctx e2)
+                 (print_ty ctx t2')
     end
 
   (* syn-refl *)
@@ -559,15 +563,15 @@ let rec syn_term ctx ((term', loc) as term) =
                   let gamma' = Universe.max alpha' beta'  in
                   ((Syntax.NameProd(alpha,beta, x, e1, e2), loc),
                    (Syntax.Universe(gamma', Position.nowhere), loc))
-              | _ ->
-                  Error.typing ~loc "Expected %t@ to belong to a universe, but it has type@ %t"
+              | t2' ->
+                  Error.typing ~loc "Expected Pi/Arrow codomain@ %t@;<1 -2>to belong to a universe, but it has type@ %t"
                      (print_term ctx e2)
-                     (print_ty ctx t2)
+                     (print_ty ctx t2')
             end
-        | _ ->
-            Error.typing ~loc "Expected %t@ to belong to a universe, but it has type@ %t"
+        | t1' ->
+            Error.typing ~loc "Expected Pi/Arrow domain@ %t@;<1 -2>to belong to a universe, but it has type@ %t"
                (print_term ctx e1)
-               (print_ty ctx t1)
+               (print_ty ctx t1')
       end
 
   (* syn-name-coerce *)
@@ -580,14 +584,14 @@ let rec syn_term ctx ((term', loc) as term) =
               ((Syntax.Coerce(alpha, beta, e), loc),
                (Syntax.Universe beta, loc))
             else
-              Error.typing ~loc "Term %t@ in universe %s@ cannot be coerced to universe %s"
+              Error.typing ~loc "Term %t@;<1 -2>in universe@ %s@ cannot be coerced to universe %s"
                  (print_term ctx e)
                  (Universe.to_string alpha')
                  (Universe.to_string beta')
-        | _ ->
-            Error.typing ~loc "Expected %t@ to belong to a universe, but it has type@ %t"
+        | t' ->
+            Error.typing ~loc "Expected coerced term@ %t@;<1 -2>to belong to a universe, but it has type@ %t"
                (print_term ctx e)
-               (print_ty ctx t)
+               (print_ty ctx t')
       end
 
   (* syn-name-paths *)
@@ -604,7 +608,7 @@ let rec syn_term ctx ((term', loc) as term) =
               ((Syntax.NamePaths(alpha, e1, e2, e3), loc),
                (Syntax.Universe alpha, loc))
             else
-              Error.typing ~loc "unfibered type@ %t@ for term@ %t"
+              Error.typing ~loc "unfibered type@ %t@;<1 -2>for term@ %t"
                 (print_ty ctx t2)
                 (print_term ctx e2)
       end
@@ -641,7 +645,7 @@ and chk_term ctx ((term', loc) as term) t =
             let (e4 : Syntax.term) = chk_term ctx' e4 t in
             (Syntax.Equation(e1, (e2, e3), e4), loc)
         | _ ->
-            Error.typing ~loc "hint@ %t@ has type@ %t@ but an equality type was expected."
+            Error.typing ~loc "hint@ %t@;<1 -2>has type@ %t@;<1 -2>but an equality type was expected."
                (print_term ctx e1)
                (print_ty   ctx u')
       end
@@ -656,7 +660,7 @@ and chk_term ctx ((term', loc) as term) t =
             let e4 = chk_term ctx' e4 t in
               (Syntax.Rewrite(e1, (e2, e3), e4), loc)
         | _ ->
-            Error.typing ~loc "hint@ %t@ has type@ %t@ but an equality type was expected."
+            Error.typing ~loc "hint@ %t@;<1 -2>has type@ %t@;<1 -2>but an equality type was expected."
                (print_term ctx e1)
                (print_ty   ctx u')
       end
@@ -667,7 +671,7 @@ and chk_term ctx ((term', loc) as term) t =
          if (equiv_ty ctx u t) then
             e
          else
-            Error.typing ~loc "expression@ %t@ has type@ %t@\nbut should have type %t"
+            Error.typing ~loc "expression@ %t@;<1 -2>has type@ %t@;<1 -2>but should have type %t"
               (print_term ctx e)
               (print_ty ctx u)
               (print_ty ctx t)
