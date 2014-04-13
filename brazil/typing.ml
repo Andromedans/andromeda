@@ -413,7 +413,10 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
 (***********************************)
 
 
-let rec syn_term ctx (term', loc) =
+let rec syn_term ctx ((term', loc) as term) =
+
+  Print.debug "Synthesizing term %s@."
+      (Input.string_of_term string_of_int term);
 
   match term' with
 
@@ -622,6 +625,9 @@ let rec syn_term ctx (term', loc) =
 
 
 and chk_term ctx ((term', loc) as term) t =
+
+  Print.debug "Checking term %s@ against type@ %t@."
+      (Input.string_of_term string_of_int term) (print_ty ctx t);
 
   match term' with
 
