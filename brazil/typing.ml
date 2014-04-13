@@ -143,6 +143,17 @@ and whnfs_ty ctx1 ty1 =
   | Some (ctx2, ty2) -> whnfs_ty ctx2 ty2
   | None             -> ty1
 
+
+(** Repeatedly apply whnfs_ty until we get a non-Pi type. Returns the
+    parameters (unshifted!) and the whnf of the remaining type (unshifed!) *)
+(*      extract_pis : Context.t -> Syntax.ty -> (Syntax.ty list * Syntax.ty) *)
+and extract_pis ctx ty =
+  match whnfs_ty ctx ty with
+  | Syntax.Prod(x, ty1, ty2),_ ->
+     let ty1s, core_ty = extract_pis (Context.add_var x ty ctx) ty2 in
+     (ty1 :: ty1s), core_ty
+  | whnf_ty -> [], whnf_ty
+
 (***************)
 (* Equivalence *)
 (***************)
