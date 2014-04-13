@@ -379,3 +379,87 @@ let rec name_of (ty', loc) =
      match answer' with
      | None -> None
      | Some (name', universe') -> Some ((name', loc), (universe', loc))
+
+
+
+(***************)
+(* Occurrences *)
+(***************)
+
+(* Main functions that keep track of how many bound variables
+   we're in the scope of.
+*)
+let rec occurs1 goal_var bvs (term', _) =
+  (* Shorthand for recursive calls *)
+  let recurse    = occurs1 goal_var bvs in
+  let recurse_ty = occurs_ty1 goal_var bvs in
+  (* Shorthand for recursive calls on terms/types that are
+     inside n new binders *)
+  let recurse_in_binders    n = occurs1    goal_var (bvs+n) in
+  let recurse_ty_in_binders n = occurs_ty1 goal_var (bvs+n) in
+
+  match term' with
+
+  | Var index ->
+      index - bvs = goal_var
+
+  | Equation(term1, (term2,term3), term4)
+  | Rewrite(term1, (term2,term3), term4) ->
+      recurse term1 || recurse term2 || recurse term3 || recurse term4
+
+  | Ascribe(term1, ty2)    ->
+      recurse term1 || recurse_ty ty2
+
+  | Lambda(_name, ty1, ty2, term1) ->
+      recurse_ty ty1 || recurse_ty_in_binders 1 ty2 || recurse_in_binders 1 term1
+
+  | App((_name, ty1, ty2), term1, term2) ->
+
+     recurse_ty ty1 || recurse_ty_in_binders 1 ty2 || recurse term1 || recurse term2
+
+  | UnitTerm -> false
+
+  | Idpath(ty1, term2)
+  | Refl  (ty1, term2) ->
+     recurse_ty ty1 || recurse term2
+
+  | J(ty1, (_, _, _, ty2), (_, term2), term3, term4, term5) ->
+      recurse_ty ty1 || recurse_ty_in_binders 3 ty2 || recurse_in_binders 1 term2
+          || recurse term3 || recurse term4 || recurse term5
+
+  | Coerce(_, _, term1) -> recurse term1
+
+  | NameUnit -> false
+
+  | NameProd(_, _, _, term1, term2) ->
+      recurse term1 || recurse_in_binders 1 term2
+
+  | NameUniverse _ -> false
+
+  | NamePaths(_, term1, term2, term3)
+  | NameId   (_, term1, term2, term3) ->
+      recurse term1 || recurse term2 || recurse term3
+
+and occurs_ty1 goal_var bvs (ty', _) =
+  let recurse    = occurs1    goal_var bvs in
+  let recurse_ty = occurs_ty1 goal_var bvs in
+
+  let recurse_ty_in_binders n = occurs_ty1 goal_var (bvs+n)  in
+  match ty' with
+
+  | Universe _ -> false
+
+  | El(_, term1) -> recurse term1
+
+  | Unit -> false
+
+  | Prod(_, ty1, ty2) ->
+      recurse_ty ty1 || recurse_ty_in_binders 1 ty2
+
+  | Paths(ty1, term1, term2)
+  | Id(ty1, term1, term2) ->
+      recurse_ty ty1 || recurse term1 || recurse term2
+
+(* Public wrapper functions *)
+let occurs    goal_var term = occurs1    goal_var 0 term
+let occurs_ty goal_var ty   = occurs_ty1 goal_var 0 ty

@@ -104,3 +104,10 @@ val weaken_ty : int -> ty -> ty
 
 (** Try to compute the name of a type *)
 val name_of : ty -> (term * universe) option
+
+(** Check for occurrences of a free variable in a term *)
+val occurs : Common.debruijn -> term -> bool
+
+(** Check for occurrences of a free variable in a type *)
+val occurs_ty : Common.debruijn -> ty -> bool
+
