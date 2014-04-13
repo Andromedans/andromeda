@@ -1,0 +1,23 @@
+define Set := Universe f0
+assume N : Set
+assume 0 : N
+assume S : N -> N
+
+assume N_ind :
+  forall (P : N -> Set),
+  P 0 ->
+  (forall n : N, P n -> P (S n)) ->
+  forall (m : N), P m
+
+define id := N_ind (fun _ : N => N)
+
+(*
+define plus :=
+  N_ind
+    (fun _ : N => N -> N)
+    (fun n : N => n) ->
+    (fun (n : N) (f : N -> N) (m : N) => S (f m))
+
+*)
+
+#context

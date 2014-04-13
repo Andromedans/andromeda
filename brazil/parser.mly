@@ -75,18 +75,14 @@ plain_topdirective:
 
 term: mark_position(plain_term) { $1 }
 plain_term:
-  | e=plain_arrow_term                          { e }
-  | FORALL a=abstraction(term) COMMA  e=term    { fst (make_prod e a) }
-  | FUN a=abstraction(ty) DARROW e=term         { fst (make_lambda e a) }
-  | e=arrow_term ASCRIBE t=ty                   { Ascribe (e, t) }
-  | EQUATION e1=arrow_term IN e2=term           { Equation (e1, e2) }
-  | REWRITE e1=arrow_term IN e2=term            { Rewrite (e1, e2) }
-
-arrow_term: mark_position(plain_arrow_term) { $1 }
-plain_arrow_term:
-  | e=plain_equiv_term                                    { e }
-  | t1=equiv_term ARROW t2=arrow_term                     { NameProd (anonymous, t1, t2) }
-  | LPAREN x=NAME COLON t=term RPAREN ARROW e=arrow_term  { NameProd (x, t, e) }
+  | e=plain_equiv_term                              { e }
+  | FORALL a=abstraction(term) COMMA  e=term        { fst (make_prod e a) }
+  | FUN a=abstraction(ty) DARROW e=term             { fst (make_lambda e a) }
+  | e=equiv_term ASCRIBE t=ty                       { Ascribe (e, t) }
+  | EQUATION e1=equiv_term IN e2=term               { Equation (e1, e2) }
+  | REWRITE e1=equiv_term IN e2=term                { Rewrite (e1, e2) }
+  | t1=equiv_term ARROW t2=term                     { NameProd (anonymous, t1, t2) }
+  | LPAREN x=NAME COLON t=term RPAREN ARROW e=term  { NameProd (x, t, e) }
 
 equiv_term: mark_position(plain_equiv_term) { $1 }
 plain_equiv_term:
@@ -96,12 +92,12 @@ plain_equiv_term:
 
 app_term: mark_position(plain_app_term) { $1 }
 plain_app_term:
-  | e=plain_simple_term                       { e }
-  | e1=app_term e2=simple_term                { App (e1, e2) }
-  | COERCE u=universe COMMA e=term RPAREN     { let u = make_universe u in Coerce (u, e) }
-  | UNIVERSE u=universe                       { let u = make_universe u in NameUniverse u }
-  | REFL e=simple_term                        { Refl e }
-  | IDPATH e=simple_term { Idpath e }
+  | e=plain_simple_term                          { e }
+  | e1=app_term e2=simple_term                   { App (e1, e2) }
+  | COERCE LPAREN u=universe COMMA e=term RPAREN { let u = make_universe u in Coerce (u, e) }
+  | UNIVERSE u=universe                          { let u = make_universe u in NameUniverse u }
+  | REFL e=simple_term                           { Refl e }
+  | IDPATH e=simple_term                         { Idpath e }
   | IND_PATH LPAREN
           LBRACK
           x=param

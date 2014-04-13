@@ -19,10 +19,9 @@ let print_term ctx term =
 let rec whnf_ty ctx1 (ty',loc) =
   match ty' with
 
+  (* tynorm-el *)
   | Syntax.El(alpha, ((e', _) as e)) ->
-      begin
-        (* tynorm-el *)
-        match whnf ctx1 e with
+    begin match whnf ctx1 e with
       | Some (ctx2, e2) ->
           (* Non-backtracking, for now *)
           Some (ctx2, (Syntax.El(alpha, e2), loc))
@@ -157,7 +156,7 @@ and equiv_ty ctx t u =
   else
     let t' = whnfs_ty ctx t  in
     let u' = whnfs_ty ctx u  in
-    equiv_whnf_ty ctx t' u'
+      equiv_whnf_ty ctx t' u'
 
 (* equivalence of weak-head-normal types *)
 
@@ -637,8 +636,8 @@ and chk_term ctx ((term', loc) as term) t =
         match whnfs_ty ctx u' with
         | Syntax.Id(u,e2,e3),_ ->
             let ctx' = Context.add_equation e2 e3 ctx  in
-            let (e4 : Syntax.term) = chk_term ctx' e4 t in
-            (Syntax.Rewrite(e1, (e2, e3), e4), loc)
+            let e4 = chk_term ctx' e4 t in
+              (Syntax.Rewrite(e1, (e2, e3), e4), loc)
         | _ ->
             Error.typing ~loc "hint@ %t@ has type@ %t@ but an equality type was expected."
                (print_term ctx e1)
