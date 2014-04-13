@@ -11,13 +11,13 @@ assume N_ind :
 
 define id := N_ind (fun _ : N => N)
 
-(*
+#context
+
 define plus :=
   N_ind
     (fun _ : N => N -> N)
-    (fun n : N => n) ->
+    (fun n : N => n) 
     (fun (n : N) (f : N -> N) (m : N) => S (f m))
 
-*)
 
 #context
