@@ -422,84 +422,62 @@ and occurs_ty k (t, _) =
 
 (* Counting Occurrences *)
 
-(* Main functions that keep track of how many bound variables
-   we're in the scope of.
-*)
-let rec occurrences1 goal_var bvs (term', _) =
-  (* Shorthand for recursive calls *)
-  let recurse    = occurrences1 goal_var bvs in
-  let recurse_ty = occurrences_ty1 goal_var bvs in
-  (* Shorthand for recursive calls on terms/types that are
-     inside n new binders *)
-  let recurse_in_binders    n = occurrences1    goal_var (bvs+n) in
-  let recurse_ty_in_binders n = occurrences_ty1 goal_var (bvs+n) in
+(** Count occurrences of DeBruijn index in a term? *)
+let rec occurrences k (e, _) =
+  match e with
 
-  match term' with
+    | Var m -> if k = m then 1 else 0
 
-  | Var index ->
-      if (index - bvs = goal_var) then 1 else 0
+    | Equation (e1, (e2, e3), e4) ->
+      occurrences k e1 + occurrences k e2 + occurrences k e3 + occurrences k e4
 
-  | Equation(term1, (term2,term3), term4)
-  | Rewrite(term1, (term2,term3), term4) ->
-      recurse term1 + recurse term2 + recurse term3 + recurse term4
+    | Rewrite (e1, (e2, e3), e4) ->
+      occurrences k e1 + occurrences k e2 + occurrences k e3 + occurrences k e4
 
-  | Ascribe(term1, ty2)    ->
-      recurse term1 + recurse_ty ty2
+    | Ascribe (e, t) ->
+      occurrences k e + occurrences_ty k t
 
-  | Lambda(_name, ty1, ty2, term1) ->
-      recurse_ty ty1 + recurse_ty_in_binders 1 ty2 + recurse_in_binders 1 term1
+    | Lambda (_, t, u, e) ->
+      occurrences_ty k t + occurrences_ty (k+1) u + occurrences (k+1) e
 
-  | App((_name, ty1, ty2), term1, term2) ->
+    | App ((_, t, u), e1, e2) ->
+      occurrences_ty k t + occurrences_ty (k+1) u + occurrences k e1 + occurrences k e2
 
-     recurse_ty ty1 + recurse_ty_in_binders 1 ty2 + recurse term1 + recurse term2
+    | UnitTerm -> 0
 
-  | UnitTerm -> 0
+    | Idpath (t, e) ->
+      occurrences_ty k t + occurrences k e
 
-  | Idpath(ty1, term2)
-  | Refl  (ty1, term2) ->
-     recurse_ty ty1 + recurse term2
+    | J (t, (_, _, _, u), (_, e1), e2, e3, e4) ->
+      occurrences_ty k t + occurrences_ty (k+3) u + occurrences (k+1) e1 +
+        occurrences k e2 + occurrences k e3 + occurrences k e4
 
-  | J(ty1, (_, _, _, ty2), (_, term2), term3, term4, term5) ->
-      recurse_ty ty1 + recurse_ty_in_binders 3 ty2 + recurse_in_binders 1 term2
-          + recurse term3 + recurse term4 + recurse term5
+    | Refl (t, e) -> occurrences_ty k t + occurrences k e
 
-  | Coerce(_, _, term1) -> recurse term1
+    | Coerce (_, _, e) -> occurrences k e
 
-  | NameUnit -> 0
+    | NameUnit -> 0
 
-  | NameProd(_, _, _, term1, term2) ->
-      recurse term1 + recurse_in_binders 1 term2
+    | NameProd (_, _, _, e1, e2) ->
+      occurrences k e1 + occurrences (k+1) e2
 
-  | NameUniverse _ -> 0
+    | NameUniverse _ -> 0
 
-  | NamePaths(_, term1, term2, term3)
-  | NameId   (_, term1, term2, term3) ->
-      recurse term1 + recurse term2 + recurse term3
+    | NamePaths (_, e1, e2, e3) ->
+      occurrences k e1 + occurrences k e2 + occurrences k e3
 
-and occurrences_ty1 goal_var bvs (ty', _) =
-  let recurse    = occurrences1    goal_var bvs in
-  let recurse_ty = occurrences_ty1 goal_var bvs in
+    | NameId (_, e1, e2, e3) ->
+      occurrences k e1 + occurrences k e2 + occurrences k e3
 
-  let recurse_ty_in_binders n = occurrences_ty1 goal_var (bvs+n)  in
-  match ty' with
-
-  | Universe _ -> 0
-
-  | El(_, term1) -> recurse term1
-
-  | Unit -> 0
-
-  | Prod(_, ty1, ty2) ->
-      recurse_ty ty1 + recurse_ty_in_binders 1 ty2
-
-  | Paths(ty1, term1, term2)
-  | Id(ty1, term1, term2) ->
-      recurse_ty ty1 + recurse term1 + recurse term2
-
-(* Public wrapper functions *)
-let occurrences    goal_var term = occurrences1    goal_var 0 term
-let occurrences_ty goal_var ty   = occurrences_ty1 goal_var 0 ty
-
+(** Count occurrences of DeBruijn index in a type? *)
+and occurrences_ty k (t, _) =
+  match t with
+    | Universe _ -> 0
+    | El (_, e) -> occurrences k e
+    | Unit -> 0
+    | Prod (_, t1, t2) -> occurrences_ty k t1 + occurrences_ty (k+1) t2
+    | Paths (t, e1, e2) -> occurrences_ty k t + occurrences k e1 + occurrences k e2
+    | Id (t, e1, e2) -> occurrences_ty k t + occurrences k e1 + occurrences k e2
 
 (******************)
 (* Simplification *)
