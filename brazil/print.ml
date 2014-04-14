@@ -90,11 +90,11 @@ let rec prod ?max_level xs x t1 t2 ppf =
     let x = find_name x xs in
       print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
         x 
-        (ty ~max_level:2 xs t1)
+        (ty ~max_level:4 xs t1)
         (ty ~max_level:3 (x :: xs) t2)
   else
     print ?max_level ~at_level:3 ppf "%t ->@ %t"
-      (ty ~max_level:2 xs t1)
+      (ty ~max_level:4 xs t1)
       (ty ~max_level:3 (Input.anonymous :: xs) t2)
 
 (** [name_prod xs x e1 e2 ppf] prints a dependent product name using formatter [ppf]. *)
@@ -103,7 +103,7 @@ and name_prod ?max_level xs x e1 e2 ppf =
     let x = find_name x xs in
       print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
         x 
-        (term ~max_level:2 xs e1)
+        (term ~max_level:4 xs e1)
         (term ~max_level:3 (x :: xs) e2)
   else
     print ?max_level ~at_level:3 ppf "%t ->@ %t"
