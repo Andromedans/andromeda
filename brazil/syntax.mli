@@ -111,3 +111,9 @@ val occurs : Common.debruijn -> term -> bool
 (** Check for occurrences of a free variable in a type *)
 val occurs_ty : Common.debruijn -> ty -> bool
 
+
+(** Simplify a term *)
+val simplify : term -> term
+
+(** Simplify a type *)
+val simplify_ty : ty -> ty

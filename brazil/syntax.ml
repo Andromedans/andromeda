@@ -464,3 +464,29 @@ and occurs_ty1 goal_var bvs (ty', _) =
 (* Public wrapper functions *)
 let occurs    goal_var term = occurs1    goal_var 0 term
 let occurs_ty goal_var ty   = occurs_ty1 goal_var 0 ty
+
+
+(******************)
+(* Simplification *)
+(******************)
+
+
+let rec path_term term =
+  match fst term with
+  | Var _          -> true
+  | App(_, e1, e2) -> path_term e1 && path_term e2
+  | _              -> false
+
+let ftrans_simplify bvs term =
+  match fst term with
+  | App((x1,ty2,ty3), (Lambda(x4,ty5,ty6,e7),_), e8) when equal_ty ty2 ty5
+                                                       && equal_ty ty3 ty6 ->
+      if path_term e8 || not (occurs 0 e7) then
+        beta e7 e8
+      else
+        term
+
+  | _ -> term
+
+let simplify = transform ftrans_simplify 0
+let simplify_ty = transform_ty ftrans_simplify 0
