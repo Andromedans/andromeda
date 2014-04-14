@@ -35,39 +35,6 @@ and term' =
   | NamePaths of universe * term * term * term
   | NameId of universe * term * term * term
 
-(** Does DeBruijn index occur in a term? *)
-let rec occurrs k (e, _) =
-  match e with
-    | Var m -> k = m
-    | Equation (e1, (e2, e3), e4) -> occurrs k e1 || occurrs k e2 || occurrs k e3 || occurrs k e4
-    | Rewrite (e1, (e2, e3), e4) -> occurrs k e1 || occurrs k e2 || occurrs k e3 || occurrs k e4
-    | Ascribe (e, t) -> occurrs k e || occurrs_ty k t
-    | Lambda (_, t, u, e) -> occurrs_ty k t || occurrs_ty (k+1) u || occurrs (k+1) e
-    | App ((_, t, u), e1, e2) -> occurrs_ty k t || occurrs_ty (k+1) u || occurrs k e1 || occurrs k e2
-    | UnitTerm -> false
-    | Idpath (t, e) -> occurrs_ty k t || occurrs k e
-    | J (t, (_, _, _, u), (_, e1), e2, e3, e4) ->
-      occurrs_ty k t || occurrs_ty (k+3) u || occurrs (k+1) e1 ||
-        occurrs k e2 || occurrs k e3 || occurrs k e4
-    | Refl (t, e) -> occurrs_ty k t || occurrs k e
-    | Coerce (_, _, e) -> occurrs k e
-    | NameUnit -> false
-    | NameProd (_, _, _, e1, e2) -> occurrs k e1 || occurrs (k+1) e2
-    | NameUniverse _ -> false
-    | NamePaths (_, e1, e2, e3) -> occurrs k e1 || occurrs k e2 || occurrs k e3
-    | NameId (_, e1, e2, e3) -> occurrs k e1 || occurrs k e2 || occurrs k e3
-
-(** Does DeBruijn index occur in a type? *)
-and occurrs_ty k (t, _) =
-  match t with
-    | Universe _ -> false
-    | El (_, e) -> occurrs k e
-    | Unit -> false
-    | Prod (_, t1, t2) -> occurrs_ty k t1 || occurrs_ty (k+1) t2
-    | Paths (t, e1, e2) -> occurrs_ty k t || occurrs k e1 || occurrs k e2
-    | Id (t, e1, e2) -> occurrs_ty k t || occurrs k e1 || occurrs k e2
-
-
 (*********************)
 (* Alpha-Equivalence *)
 (*********************)
@@ -421,84 +388,37 @@ let rec name_of (ty', loc) =
 (* Occurrences *)
 (***************)
 
-(* Main functions that keep track of how many bound variables
-   we're in the scope of.
-*)
-let rec occurs1 goal_var bvs (term', _) =
-  (* Shorthand for recursive calls *)
-  let recurse    = occurs1 goal_var bvs in
-  let recurse_ty = occurs_ty1 goal_var bvs in
-  (* Shorthand for recursive calls on terms/types that are
-     inside n new binders *)
-  let recurse_in_binders    n = occurs1    goal_var (bvs+n) in
-  let recurse_ty_in_binders n = occurs_ty1 goal_var (bvs+n) in
+(** Does DeBruijn index occur in a term? *)
+let rec occurs k (e, _) =
+  match e with
+    | Var m -> k = m
+    | Equation (e1, (e2, e3), e4) -> occurs k e1 || occurs k e2 || occurs k e3 || occurs k e4
+    | Rewrite (e1, (e2, e3), e4) -> occurs k e1 || occurs k e2 || occurs k e3 || occurs k e4
+    | Ascribe (e, t) -> occurs k e || occurs_ty k t
+    | Lambda (_, t, u, e) -> occurs_ty k t || occurs_ty (k+1) u || occurs (k+1) e
+    | App ((_, t, u), e1, e2) -> occurs_ty k t || occurs_ty (k+1) u || occurs k e1 || occurs k e2
+    | UnitTerm -> false
+    | Idpath (t, e) -> occurs_ty k t || occurs k e
+    | J (t, (_, _, _, u), (_, e1), e2, e3, e4) ->
+      occurs_ty k t || occurs_ty (k+3) u || occurs (k+1) e1 ||
+        occurs k e2 || occurs k e3 || occurs k e4
+    | Refl (t, e) -> occurs_ty k t || occurs k e
+    | Coerce (_, _, e) -> occurs k e
+    | NameUnit -> false
+    | NameProd (_, _, _, e1, e2) -> occurs k e1 || occurs (k+1) e2
+    | NameUniverse _ -> false
+    | NamePaths (_, e1, e2, e3) -> occurs k e1 || occurs k e2 || occurs k e3
+    | NameId (_, e1, e2, e3) -> occurs k e1 || occurs k e2 || occurs k e3
 
-  match term' with
-
-  | Var index ->
-      index - bvs = goal_var
-
-  | Equation(term1, (term2,term3), term4)
-  | Rewrite(term1, (term2,term3), term4) ->
-      recurse term1 || recurse term2 || recurse term3 || recurse term4
-
-  | Ascribe(term1, ty2)    ->
-      recurse term1 || recurse_ty ty2
-
-  | Lambda(_name, ty1, ty2, term1) ->
-      recurse_ty ty1 || recurse_ty_in_binders 1 ty2 || recurse_in_binders 1 term1
-
-  | App((_name, ty1, ty2), term1, term2) ->
-
-     recurse_ty ty1 || recurse_ty_in_binders 1 ty2 || recurse term1 || recurse term2
-
-  | UnitTerm -> false
-
-  | Idpath(ty1, term2)
-  | Refl  (ty1, term2) ->
-     recurse_ty ty1 || recurse term2
-
-  | J(ty1, (_, _, _, ty2), (_, term2), term3, term4, term5) ->
-      recurse_ty ty1 || recurse_ty_in_binders 3 ty2 || recurse_in_binders 1 term2
-          || recurse term3 || recurse term4 || recurse term5
-
-  | Coerce(_, _, term1) -> recurse term1
-
-  | NameUnit -> false
-
-  | NameProd(_, _, _, term1, term2) ->
-      recurse term1 || recurse_in_binders 1 term2
-
-  | NameUniverse _ -> false
-
-  | NamePaths(_, term1, term2, term3)
-  | NameId   (_, term1, term2, term3) ->
-      recurse term1 || recurse term2 || recurse term3
-
-and occurs_ty1 goal_var bvs (ty', _) =
-  let recurse    = occurs1    goal_var bvs in
-  let recurse_ty = occurs_ty1 goal_var bvs in
-
-  let recurse_ty_in_binders n = occurs_ty1 goal_var (bvs+n)  in
-  match ty' with
-
-  | Universe _ -> false
-
-  | El(_, term1) -> recurse term1
-
-  | Unit -> false
-
-  | Prod(_, ty1, ty2) ->
-      recurse_ty ty1 || recurse_ty_in_binders 1 ty2
-
-  | Paths(ty1, term1, term2)
-  | Id(ty1, term1, term2) ->
-      recurse_ty ty1 || recurse term1 || recurse term2
-
-(* Public wrapper functions *)
-let occurs    goal_var term = occurs1    goal_var 0 term
-let occurs_ty goal_var ty   = occurs_ty1 goal_var 0 ty
-
+(** Does DeBruijn index occur in a type? *)
+and occurs_ty k (t, _) =
+  match t with
+    | Universe _ -> false
+    | El (_, e) -> occurs k e
+    | Unit -> false
+    | Prod (_, t1, t2) -> occurs_ty k t1 || occurs_ty (k+1) t2
+    | Paths (t, e1, e2) -> occurs_ty k t || occurs k e1 || occurs k e2
+    | Id (t, e1, e2) -> occurs_ty k t || occurs k e1 || occurs k e2
 
 (* Counting Occurrences *)
 

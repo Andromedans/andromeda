@@ -39,12 +39,6 @@ and term' =
 (* Code *)
 (********)
 
-(** Does DeBruijn index occur in a term? *)
-val occurrs: Common.debruijn -> term -> bool
-
-(** Does DeBruijn index occur in a type? *)
-val occurrs_ty: Common.debruijn -> ty -> bool
-
 (** alpha equivalence of terms, ignoring hints *)
 val equal    : term -> term -> bool
 

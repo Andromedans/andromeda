@@ -86,7 +86,7 @@ let universe (u,_) ppf =
 
 (** [prod xs x t1 t2 ppf] prints a dependent product using formatter [ppf]. *)
 let rec prod ?max_level xs x t1 t2 ppf =
-  if Syntax.occurrs_ty 0 t2 then
+  if Syntax.occurs_ty 0 t2 then
     let x = find_name x xs in
       print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
         x 
@@ -99,7 +99,7 @@ let rec prod ?max_level xs x t1 t2 ppf =
 
 (** [name_prod xs x e1 e2 ppf] prints a dependent product name using formatter [ppf]. *)
 and name_prod ?max_level xs x e1 e2 ppf =
-  if Syntax.occurrs 0 e2 then
+  if Syntax.occurs 0 e2 then
     let x = find_name x xs in
       print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
         x 
@@ -114,7 +114,7 @@ and name_prod ?max_level xs x e1 e2 ppf =
 and lambda xs x t u e ppf =
   let rec collect xs y ys t e =
     let y =
-      if Syntax.occurrs_ty 0 u || Syntax.occurrs 0 e
+      if Syntax.occurs_ty 0 u || Syntax.occurs 0 e
       then find_name y xs
       else Input.anonymous
     in
