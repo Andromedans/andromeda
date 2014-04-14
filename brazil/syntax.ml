@@ -33,22 +33,56 @@ and term' =
   | NameProd of universe * universe * name * term * term
   | NameUniverse of universe
   | NamePaths of universe * term * term * term
-  | NameId of universe *term * term * term
+  | NameId of universe * term * term * term
+
+(** Does DeBruijn index occur in a term? *)
+let rec occurrs k (e, _) =
+  match e with
+    | Var m -> k = m
+    | Equation (e1, (e2, e3), e4) -> occurrs k e1 || occurrs k e2 || occurrs k e3 || occurrs k e4
+    | Rewrite (e1, (e2, e3), e4) -> occurrs k e1 || occurrs k e2 || occurrs k e3 || occurrs k e4
+    | Ascribe (e, t) -> occurrs k e || occurrs_ty k t
+    | Lambda (_, t, u, e) -> occurrs_ty k t || occurrs_ty (k+1) u || occurrs (k+1) e
+    | App ((_, t, u), e1, e2) -> occurrs_ty k t || occurrs_ty (k+1) u || occurrs k e1 || occurrs k e2
+    | UnitTerm -> false
+    | Idpath (t, e) -> occurrs_ty k t || occurrs k e
+    | J (t, (_, _, _, u), (_, e1), e2, e3, e4) ->
+      occurrs_ty k t || occurrs_ty (k+3) u || occurrs (k+1) e1 ||
+        occurrs k e2 || occurrs k e3 || occurrs k e4
+    | Refl (t, e) -> occurrs_ty k t || occurrs k e
+    | Coerce (_, _, e) -> occurrs k e
+    | NameUnit -> false
+    | NameProd (_, _, _, e1, e2) -> occurrs k e1 || occurrs (k+1) e2
+    | NameUniverse _ -> false
+    | NamePaths (_, e1, e2, e3) -> occurrs k e1 || occurrs k e2 || occurrs k e3
+    | NameId (_, e1, e2, e3) -> occurrs k e1 || occurrs k e2 || occurrs k e3
+
+(** Does DeBruijn index occur in a type? *)
+and occurrs_ty k (t, _) =
+  match t with
+    | Universe _ -> false
+    | El (_, e) -> occurrs k e
+    | Unit -> false
+    | Prod (_, t1, t2) -> occurrs_ty k t1 || occurrs_ty (k+1) t2
+    | Paths (t, e1, e2) -> occurrs_ty k t || occurrs k e1 || occurrs k e2
+    | Id (t, e1, e2) -> occurrs_ty k t || occurrs k e1 || occurrs k e2
+
 
 (*********************)
 (* Alpha-Equivalence *)
 (*********************)
 
-(** Unfortunately, we cannot use ML's built-in = operator for alpha equivalence,
+(** We cannot use ML's built-in = operator for alpha equivalence,
     because we maintain variable names and source locations (for debugging and
     error-reporting) in terms. So, we write the obvious recursive traversal
     code.
 
-    We ignore magenta annotations, because they are deterministically
-    constructed from non-magenta terms and types.
+    Also, and more importantly, we need a traversal because we ignore magenta
+    annotations, because they are deterministically constructed from non-magenta
+    terms and types.
 
-    We also ignore equation and rewrite hints, because at some level they
-    "don't really exist"
+    We also ignore equation and rewrite hints, because they should be thought
+    of as computations rather than expressions.
 *)
 
 let rec equal ((left',_) as left) ((right',_) as right) =
