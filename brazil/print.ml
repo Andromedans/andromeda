@@ -91,11 +91,11 @@ let rec prod ?max_level xs x t1 t2 ppf =
       print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
         x 
         (ty ~max_level:2 xs t1)
-        (ty (x :: xs) t2)
+        (ty ~max_level:3 (x :: xs) t2)
   else
     print ?max_level ~at_level:3 ppf "%t ->@ %t"
       (ty ~max_level:2 xs t1)
-      (ty (Input.anonymous :: xs) t2)
+      (ty ~max_level:3 (Input.anonymous :: xs) t2)
 
 (** [name_prod xs x e1 e2 ppf] prints a dependent product name using formatter [ppf]. *)
 and name_prod ?max_level xs x e1 e2 ppf =
@@ -103,11 +103,11 @@ and name_prod ?max_level xs x e1 e2 ppf =
     let x = find_name x xs in
       print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
         x 
-        (term ~max_level:4 xs e1)
+        (term ~max_level:2 xs e1)
         (term ~max_level:3 (x :: xs) e2)
   else
     print ?max_level ~at_level:3 ppf "%t ->@ %t"
-      (term ~max_level:4 xs e1)
+      (term ~max_level:2 xs e1)
       (term ~max_level:3 (Input.anonymous :: xs) e2)
 
 (** [lambda xs x t u e ppf] prints a lambda abstraction using formatter [ppf]. *)
@@ -143,7 +143,7 @@ and lambda xs x t u e ppf =
           | Syntax.Lambda (x, t, u, e) -> abstraction xs' x t u e ppf
           | _ -> print ~at_level:0 ppf "=>@ %t" (term ~max_level:4 xs' e)
   in          
-    print ~at_level:4 ppf "fun %t" (abstraction xs x t u e)
+    print ~at_level:3 ppf "fun %t" (abstraction xs x t u e)
       
 and term ?max_level xs (e,_) ppf =
   let print' = print
@@ -169,7 +169,7 @@ and term ?max_level xs (e,_) ppf =
           (ty ~max_level:4 xs t)
 
       | Syntax.Lambda (x, t, u, e) ->
-        lambda xs x t u e ppf
+        print ~at_level:3 "%t" (lambda xs x t u e)
 
       | Syntax.App ((x, t, u), e1, e2) ->
         print ~at_level:1 "%t@,%t@ %t"
@@ -211,7 +211,7 @@ and term ?max_level xs (e,_) ppf =
       | Syntax.NameUnit -> print ~at_level:0 "unit"
 
       | Syntax.NameProd (_, _, x, e1, e2) ->
-        name_prod xs x e1 e2 ppf
+        print ~at_level:3 "%t" (name_prod xs x e1 e2)
 
       | Syntax.NameUniverse u ->
         print ~at_level:1 "Universe %t"
@@ -248,7 +248,7 @@ and ty ?max_level xs (t,_) ppf =
         print ~at_level:0 "unit"
 
       | Syntax.Prod (x, t1, t2) ->
-        prod xs x t1 t2 ppf
+        print ~at_level:3 "%t" (prod xs x t1 t2)
 
       | Syntax.Paths (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ =%t %t@]"
