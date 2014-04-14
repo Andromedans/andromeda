@@ -80,6 +80,7 @@ let rec exec_cmd interactive ctx (d, loc) =
     | Input.Assume (xs, t) ->
         let t = Debruijn.ty names t in
         let t = Typing.is_type ctx t  in
+        let t = Syntax.simplify_ty t  in
           if interactive then
             begin
               List.iter (fun x -> Format.printf "%s is assumed.@\n" x) xs ;
@@ -89,6 +90,8 @@ let rec exec_cmd interactive ctx (d, loc) =
     | Input.Define (x, e) ->
       let e = Debruijn.term names e in
       let e,t = Typing.syn_term ctx e in
+      let e = Syntax.simplify e  in
+      let t = Syntax.simplify_ty t  in
         if interactive then Format.printf "%s is defined.@\n@." x ;
         Context.add_def x t e ctx
     | Input.Context ->
