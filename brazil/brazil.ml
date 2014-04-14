@@ -86,7 +86,10 @@ let rec exec_cmd interactive ctx (d, loc) =
               List.iter (fun x -> Format.printf "%s is assumed.@\n" x) xs ;
               Format.printf "@."
             end ;
-          List.fold_left (fun ctx x -> Context.add_var x t ctx) ctx xs
+          fst (List.fold_left
+                 (fun (ctx,t) x -> (Context.add_var x t ctx, Syntax.shift_ty 1 t))
+                 (ctx, t)
+                 xs)
     | Input.Define (x, e) ->
       let e = Debruijn.term names e in
       let e,t = Typing.syn_term ctx e in
