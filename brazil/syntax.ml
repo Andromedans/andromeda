@@ -466,22 +466,116 @@ let occurs    goal_var term = occurs1    goal_var 0 term
 let occurs_ty goal_var ty   = occurs_ty1 goal_var 0 ty
 
 
+(* Counting Occurrences *)
+
+(* Main functions that keep track of how many bound variables
+   we're in the scope of.
+*)
+let rec occurrences1 goal_var bvs (term', _) =
+  (* Shorthand for recursive calls *)
+  let recurse    = occurrences1 goal_var bvs in
+  let recurse_ty = occurrences_ty1 goal_var bvs in
+  (* Shorthand for recursive calls on terms/types that are
+     inside n new binders *)
+  let recurse_in_binders    n = occurrences1    goal_var (bvs+n) in
+  let recurse_ty_in_binders n = occurrences_ty1 goal_var (bvs+n) in
+
+  match term' with
+
+  | Var index ->
+      if (index - bvs = goal_var) then 1 else 0
+
+  | Equation(term1, (term2,term3), term4)
+  | Rewrite(term1, (term2,term3), term4) ->
+      recurse term1 + recurse term2 + recurse term3 + recurse term4
+
+  | Ascribe(term1, ty2)    ->
+      recurse term1 + recurse_ty ty2
+
+  | Lambda(_name, ty1, ty2, term1) ->
+      recurse_ty ty1 + recurse_ty_in_binders 1 ty2 + recurse_in_binders 1 term1
+
+  | App((_name, ty1, ty2), term1, term2) ->
+
+     recurse_ty ty1 + recurse_ty_in_binders 1 ty2 + recurse term1 + recurse term2
+
+  | UnitTerm -> 0
+
+  | Idpath(ty1, term2)
+  | Refl  (ty1, term2) ->
+     recurse_ty ty1 + recurse term2
+
+  | J(ty1, (_, _, _, ty2), (_, term2), term3, term4, term5) ->
+      recurse_ty ty1 + recurse_ty_in_binders 3 ty2 + recurse_in_binders 1 term2
+          + recurse term3 + recurse term4 + recurse term5
+
+  | Coerce(_, _, term1) -> recurse term1
+
+  | NameUnit -> 0
+
+  | NameProd(_, _, _, term1, term2) ->
+      recurse term1 + recurse_in_binders 1 term2
+
+  | NameUniverse _ -> 0
+
+  | NamePaths(_, term1, term2, term3)
+  | NameId   (_, term1, term2, term3) ->
+      recurse term1 + recurse term2 + recurse term3
+
+and occurrences_ty1 goal_var bvs (ty', _) =
+  let recurse    = occurrences1    goal_var bvs in
+  let recurse_ty = occurrences_ty1 goal_var bvs in
+
+  let recurse_ty_in_binders n = occurrences_ty1 goal_var (bvs+n)  in
+  match ty' with
+
+  | Universe _ -> 0
+
+  | El(_, term1) -> recurse term1
+
+  | Unit -> 0
+
+  | Prod(_, ty1, ty2) ->
+      recurse_ty ty1 + recurse_ty_in_binders 1 ty2
+
+  | Paths(ty1, term1, term2)
+  | Id(ty1, term1, term2) ->
+      recurse_ty ty1 + recurse term1 + recurse term2
+
+(* Public wrapper functions *)
+let occurrences    goal_var term = occurrences1    goal_var 0 term
+let occurrences_ty goal_var ty   = occurrences_ty1 goal_var 0 ty
+
+
 (******************)
 (* Simplification *)
 (******************)
 
+(* Reduce very simple (almost administrative) lambdas *)
 
-let rec path_term term =
+(** Is this argument simple enought to be worth plugging into an
+   arbitrary lambda?
+*)
+let rec simple_term term =
   match fst term with
+  | UnitTerm       -> true
   | Var _          -> true
-  | App(_, e1, e2) -> path_term e1 && path_term e2
+  | App(_, e1, e2) -> simple_term e1 && simple_term e2
+  | NameUnit       -> true
+  | NameUniverse _ -> true
+  | Refl (t,e)     -> simple_term e
+  | Idpath (t,e)   -> simple_term e
   | _              -> false
 
 let ftrans_simplify bvs term =
   match fst term with
   | App((x1,ty2,ty3), (Lambda(x4,ty5,ty6,e7),_), e8) when equal_ty ty2 ty5
                                                        && equal_ty ty3 ty6 ->
-      if path_term e8 || not (occurs 0 e7) then
+      (* Reduce if the type annotations match literally,
+       * and either the argument is very simple or the
+       * lambda ignores its term or is linear.
+       *)
+      if simple_term e8 || (occurrences 0 e7 <= 1) then
         beta e7 e8
       else
         term
