@@ -82,7 +82,7 @@ plain_term:
   | EQUATION e1=equiv_term IN e2=term               { Equation (e1, e2) }
   | REWRITE e1=equiv_term IN e2=term                { Rewrite (e1, e2) }
   | t1=equiv_term ARROW t2=term                     { NameProd (anonymous, t1, t2) }
-  | LPAREN x=NAME COLON t=term RPAREN ARROW e=term  { NameProd (x, t, e) }
+  | LPAREN x=param COLON t=term RPAREN ARROW e=term { NameProd (x, t, e) }
 
 equiv_term: mark_position(plain_equiv_term) { $1 }
 plain_equiv_term:
