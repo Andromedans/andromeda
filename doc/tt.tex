@@ -1,0 +1,207 @@
+\documentclass{article}
+
+\usepackage{times}
+\usepackage{mathpartir}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{xcolor}
+
+%%%%%% Macros here %%%%%%
+
+%% Syntax
+\newcommand{\bnf}{\ \mathrel{{:}{:}{=}}\ }
+\newcommand{\bnfor}{\ \mid\ \ }
+
+\newcommand{\x}{x}     % variable
+\newcommand{\y}{y}     % another variable
+\newcommand{\C}{C}     % computation
+\newcommand{\e}{e}     % expression
+\newcommand{\rgn}{r}   % region
+\newcommand{\h}{h}     % handler
+\newcommand{\T}{T}     % type
+
+\newcommand{\val}{\mathsf{val}\,} % val e
+\newcommand{\letin}[1]{\mathsf{let}\; #1 \;\mathsf{in}\;} % let x = c1 in c2
+\newcommand{\op}[3]{\mathsf{op}_{#1}(#2, #3)} % operation
+\newcommand{\inhabit}[2]{\mathsf{inhabit}(#1, #2)} % the inhabit operation
+\newcommand{\withhandle}[1]{\mathsf{with}\;#1\;\mathsf{handle}\;} % handle
+\newcommand{\cont}[2]{(#1 \,.\, #2)} % continuation
+\newcommand{\abs}[1]{\mathsf{abs}\;#1\;\mathsf{in}\;} % abstraction
+\newcommand{\new}[2]{\mathsf{new}(#1,#2)} % new(r,T)
+\newcommand{\fun}[1]{\mathsf{fun}\;#1\Rightarrow} % tt-level function
+\newcommand{\app}[2]{#1\,#2} % application
+\newcommand{\lam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
+
+\newcommand{\handler}[5]{\mathsf{handler}\; \val #1 \mapsto #2 \mid \inhabit{#3}{#4} \mapsto #5}
+
+\newcommand{\makeApp}[2]{\mathsf{app}(#1,#2)} % introduce a Brazil application
+
+\newcommand{\debruijn}[1]{\mathsf{debruijn}\,#1} % ugly hack
+
+\newcommand{\subst}[3]{#1[#3/#2]} % substitution
+\newcommand{\substs}[2]{#1[#2]} % substitution of many things
+
+%%% Operational semantics
+
+\newcommand{\ctx}{\Gamma}
+\newcommand{\ctxextend}[3][\ctx]{#1, #2 {:} #3}
+
+\newcommand{\evalto}[3][\ctx]{#1 \vdash #2 \Downarrow #3}
+\newcommand{\resultok}[2][\ctx]{#1 \vdash #2 \ \mathsf{ok}}
+\begin{document}
+
+\title{TT}
+\author{Andrej Bauer \and Matija Pretnar \and Christopher A. Stone}
+\maketitle
+
+\section{Abstract syntax}
+\label{sec:abstract-syntax}
+
+\begin{equation*}
+  \text{Expression $\e$}
+  \begin{aligned}[t]
+    &\bnf   {} && \x          && \text{variable} \\
+    &\bnfor {} && \fun{x} \C  && \text{function} \\
+    &\bnfor {} && h           && \text{handler} \\
+    &\bnfor {} && B           && \text{Brazilian term} \\
+    &\bnfor {} && T           && \text{Brazilian types}
+  \end{aligned}  
+\end{equation*}
+%
+\begin{equation*}
+  \text{Computation $\C$}
+  \begin{aligned}[t]
+    &\bnf   {} && \val \e                && \text{pure expression} \\
+    &\bnfor {} && \app{\e_1}{\e_2}   && \text{application} \\
+    &\bnfor {} && \letin{\x = \C_1} \C_2  && \text{$\mathsf{let}$-binding} \\
+    &\bnfor {} && \inhabit{\e}{\cont{\x}{\C}} && \text{the inhabitation operation} \\
+    &\bnfor {} && \debruijn{n} && \text{ugly hack to be deleted later} \\
+    &\bnfor {} && \withhandle{\e} \C && \text{handling} \\
+%    &\bnfor {} && \abs{\rgn}{\C} && \text{abstraction} \\
+%    &\bnfor {} && \new{\rgn}{\T} && \text{new variable} \\
+    &\bnfor {} && \lam{\x}{\e} \C   && \text{$\lambda$-abstraction} \\
+    &\bnfor {} && \makeApp{\e_1}{\e_2}   && \text{Brazilian application}
+  \end{aligned}  
+\end{equation*}
+%
+\begin{equation*}
+  \text{Handler $\h$}
+  \bnf \handler{\x}{\C_1}{\x}{k}{\C_2}
+\end{equation*}
+
+
+
+\section{Operational semantics}
+\label{sec:oper-semant}
+
+Results:
+%
+\begin{equation*}
+  \text{Result $R$}
+  \begin{aligned}[t]
+    &\bnf   {} && \val \e \\
+    &\bnfor {} && \lam{\vec{x}}{\vec{\T}} \inhabit{\e}{\cont{\x}{\C}} \\
+  \end{aligned}  
+\end{equation*}
+%
+Judgement:
+%
+\begin{align*}
+  &\evalto[\ctx]{C}{R} &&\text{$C$ evaluates to $R$ in context $\ctx$} \\
+  &\resultok[\ctx]{R}  &&\text{$R$ is a valid result in context $\ctx$}
+\end{align*}
+%
+Rules:
+\begin{mathpar}
+
+  \infer[eval-val]
+  { }
+  { \evalto{\val \e}{\val \e}}
+  
+
+  \infer[eval-app]
+  {
+    \evalto{\subst{\C}{\x}{\e}}{R}
+  }
+  { \evalto
+    {\app{(\fun{\x}{\C})}{\e}}
+    {R}
+  }
+
+  \infer[eval-let-val]
+  {
+    \evalto{\C_1}{\val \e}
+    \\
+    \evalto{\subst{\C_2}{\x}{\e}}{R}
+  }
+  { \evalto
+    {\letin{\x = \C_1} \C_2}
+    {R}
+  }
+
+  \infer[eval-let-op]
+  {
+    \evalto
+    {\C_1}
+    {\lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\C'_1}}}
+    \\
+    \evalto[\ctxextend{\vec{\x}}{\vec{\T}}]
+    { \inhabit{\e}{\cont{y}{\C'_1}} }
+    { R }
+  }
+  { \evalto
+    {\letin{\x = \C_1} \C_2}
+    {\lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\letin{x = \C'_1} \C_2}} }
+  }
+
+  \infer[eval-handle-val]
+  {
+    \evalto{\C}{\val \e}
+    \\
+    \evalto{\subst{\C_1}{\x}{\e}}{R}
+  }
+  { \evalto
+    {\withhandle{\h}{\C}}
+    {R}
+  }
+
+  \infer[eval-handle-op]
+  {
+    \evalto{\C}{\lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\C'}}}
+    \\
+    \evalto[\ctxextend{\vec{\x}}{\vec{\T}}]
+    {\substs{\C_2}{\e/\x, (\fun{y} \withhandle{h}{C'})/k}}
+    {R}
+    \\\\
+    \evalto{\lam{\vec{\x}}{\vec{\T}} R}{R'}
+  }
+  { \evalto
+    {\withhandle{\h}{\C}}
+    {R'}
+  }
+
+  \infer[eval-lambda-val]
+  {
+    \evalto[\ctxextend{\x}{\T}]
+    {\C}
+    {\val \e}
+  }
+  { \evalto
+    {\lam{\x}{\T} \C}
+    {\val (\lam{\x}{\T} \e)}
+  }
+
+  \infer[eval-lambda-op]
+  {
+    \evalto[\ctxextend{\x}{\T}]
+    {\C}
+    {\lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\C'}}}
+  }
+  { \evalto
+    {\lam{\x}{\T} \C}
+    {\lam{\x}{\T} \lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\C'}}}
+  }
+
+\end{mathpar}
+
+
+\end{document}

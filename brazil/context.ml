@@ -55,8 +55,7 @@ let add_vars bnds ctx =
 let add_def x t ((_,loc) as e) ctx =
   {
     decls = Definition (t, e) :: ctx.decls ;
-    hints = Rewrite((Syntax.Var 0, loc), e) ::
-            List.map (shift_hint 1) ctx.hints;
+    hints = List.map (shift_hint 1) (Rewrite((Syntax.Var (-1), loc), e) :: ctx.hints);
     names = x :: ctx.names;
   }
 
