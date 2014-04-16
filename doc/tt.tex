@@ -42,11 +42,17 @@
 
 %%% Operational semantics
 
-\newcommand{\ctx}{\Gamma}
-\newcommand{\ctxextend}[3][\ctx]{#1, #2 {:} #3}
+\newcommand{\emptyG}{\bullet} % empty context
+\newcommand{\emptyH}{\circ} % empty handlers
 
-\newcommand{\evalto}[3][\ctx]{#1 \vdash #2 \Downarrow #3}
-\newcommand{\resultok}[2][\ctx]{#1 \vdash #2 \ \mathsf{ok}}
+\newcommand{\G}{\Gamma}
+\renewcommand{\H}{\mathcal{H}} % A stack of handlers
+\newcommand{\GH}{\G, \H} % combined context & handler
+
+\newcommand{\ctxextend}[3][\G]{#1, #2 {:} #3}
+
+\newcommand{\evalto}[3][\GH]{#1 \vdash #2 \Downarrow #3}
+\newcommand{\resultok}[2][\GH]{#1 \vdash #2 \ \mathsf{ok}}
 \begin{document}
 
 \title{TT}
@@ -106,17 +112,20 @@ Results:
 Judgement:
 %
 \begin{align*}
-  &\evalto[\ctx]{C}{R} &&\text{$C$ evaluates to $R$ in context $\ctx$} \\
-  &\resultok[\ctx]{R}  &&\text{$R$ is a valid result in context $\ctx$}
+  &\evalto[\GH]{C}{e} &&\text{$C$ evaluates to $e$ in context $\GH$} \\
+  &\resultok[\GH]{R}  &&\text{$R$ is a valid result in context $\GH$}
 \end{align*}
 %
 Rules:
 \begin{mathpar}
 
-  \infer[eval-val]
+  \infer[eval-val-1]
   { }
-  { \evalto{\val \e}{\val \e}}
+  { \evalto[\G, \emptyH]{\val \e}{\val \e}}
   
+  \infer[eval-val-2]
+  { }
+  { \evalto[\G, (h, \H)]{\val \e}{\val \e}}
 
   \infer[eval-app]
   {
