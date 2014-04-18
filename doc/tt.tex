@@ -149,7 +149,7 @@ Results:
   \text{Result $R$}
   \begin{aligned}[t]
     &\bnf   {} && \val \e \\
-    &\bnfor {} && \inhabit{\D}{\e}{\cont} \\
+    &\bnfor {} && \inhabit{\D}{\T}{\cont} \\
   \end{aligned}
 \end{equation*}
 %
@@ -191,11 +191,11 @@ Rules:
   {
     \evalto
     {\C_1}
-    {\inhabit{\D}{\e}{\cont}}
+    {\inhabit{\D}{\T}{\cont}}
   }
   { \evalto
     {\letin{\X = \C_1} \C_2}
-    {\inhabit{\D}{\e}{\letin{\X = \cont} \C_2}}
+    {\inhabit{\D}{\T}{\letin{\X = \cont} \C_2}}
   }
 
   \infer[eval-inhabit]
@@ -203,8 +203,8 @@ Rules:
   }
   {
     \evalto
-    {\inhabitOp{\e}}
-    {\inhabit{\ctxempty}{\e}{\hole}}
+    {\inhabitOp{\T}}
+    {\inhabit{\ctxempty}{\T}{\hole}}
   }
 
   \infer[eval-hack]
@@ -231,10 +231,10 @@ Rules:
 
   \infer[eval-handle-op]
   {
-    \evalto{\C}{\inhabit{\D}{\e}{\cont}}
+    \evalto{\C}{\inhabit{\D}{\T}{\cont}}
     \\\\
     \evalto[\G,\D]
-    {\substs{\C_2}{\e/\X, (\withhandle{h}{\cont})/\K}}
+    {\substs{\C_2}{\T/\X, (\withhandle{h}{\cont})/\K}}
     {R}
     \\\\
     \resultok{R}\\
@@ -261,11 +261,11 @@ Rules:
   {
     \evalto[\ctxextend{\x}{\T}]
     {\C}
-    {\inhabit{\D}{\e}{\cont}}
+    {\inhabit{\D}{\U}{\cont}}
   }
   { \evalto
     {\lam{\x}{\T} \C}
-    {\inhabit{(\x{:}\T,\Delta)}{\e}{\lam{\x}{\T}{\cont}}}
+    {\inhabit{(\x{:}\T,\Delta)}{\U}{\lam{\x}{\T}{\cont}}}
   }
 
   \\
@@ -289,7 +289,7 @@ Rules:
 This last rule isn't quite right, because $T_1$ and $U_1$ are types, and so
 $\T_1\equiv\U_1$ is not a Brazil type.
 
-Also, either here or (more likely) in Rule~\textsc{handle-op}, we need to check that the result of an inhabit operation (i.e., the value passed to the continuation) is a Brazil term of the correct type. That also might invoke handlers\ldots
+Also, here or somewhere we need to check that the result of an inhabit operation is a Brazil term of the correct type. That checking might invoke handlers, if we're not careful\ldots
 
 \section{Well-Formedness}
 
@@ -478,11 +478,11 @@ Also, either here or (more likely) in Rule~\textsc{handle-op}, we need to check 
 
   \infer[ok-result-inhabit]
   {
-    \eok[\G,\D]{\e} \\
+    \eok[\G,\D]{\T} \\
     \kok{\K} \\
   }
   {
-    \resultok{\inhabit{\D}{\e}{\K}}
+    \resultok{\inhabit{\D}{\T}{\K}}
   }
 
 \end{mathpar}
