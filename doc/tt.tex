@@ -1,4 +1,4 @@
-\documentclass{article}
+\documentclass[11pt]{article}
 
 \usepackage{times}
 \usepackage{mathpartir}
@@ -11,27 +11,32 @@
 \newcommand{\bnf}{\ \mathrel{{:}{:}{=}}\ }
 \newcommand{\bnfor}{\ \mid\ \ }
 
-\newcommand{\x}{x}     % variable
+\newcommand{\x}{x}     % brazil variable
 \newcommand{\y}{y}     % another variable
+\newcommand{\z}{z}     % another variable
 \newcommand{\C}{C}     % computation
+\newcommand{\K}{K}     % continuation variable
+\newcommand{\X}{X}     % TT (computation) variable
 \newcommand{\e}{e}     % expression
 \newcommand{\rgn}{r}   % region
 \newcommand{\h}{h}     % handler
 \newcommand{\T}{T}     % type
+\newcommand{\U}{U}     % another type
 
 \newcommand{\val}{\mathsf{val}\,} % val e
 \newcommand{\letin}[1]{\mathsf{let}\; #1 \;\mathsf{in}\;} % let x = c1 in c2
 \newcommand{\op}[3]{\mathsf{op}_{#1}(#2, #3)} % operation
-\newcommand{\inhabit}[2]{\mathsf{inhabit}(#1, #2)} % the inhabit operation
+\newcommand{\inhabitPat}[2]{\mathsf{inhabit}(#1, #2)} % the inhabit pattern
+\newcommand{\inhabit}[3]{\mathsf{inhabit}(#1, #2, #3)} % the inhabit operation
 \newcommand{\withhandle}[1]{\mathsf{with}\;#1\;\mathsf{handle}\;} % handle
-\newcommand{\cont}[2]{(#1 \,.\, #2)} % continuation
 \newcommand{\abs}[1]{\mathsf{abs}\;#1\;\mathsf{in}\;} % abstraction
 \newcommand{\new}[2]{\mathsf{new}(#1,#2)} % new(r,T)
 \newcommand{\fun}[1]{\mathsf{fun}\;#1\Rightarrow} % tt-level function
 \newcommand{\app}[2]{#1\,#2} % application
 \newcommand{\lam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
+\newcommand{\kapp}[2]{#1[#2]} % continuation application
 
-\newcommand{\handler}[5]{\mathsf{handler}\; \val #1 \mapsto #2 \mid \inhabit{#3}{#4} \mapsto #5}
+\newcommand{\handler}[5]{\mathsf{handler}\; \val #1 \mapsto #2 \mid \inhabitPat{#3}{#4} \mapsto #5}
 
 \newcommand{\makeApp}[2]{\mathsf{app}(#1,#2)} % introduce a Brazil application
 
@@ -40,19 +45,28 @@
 \newcommand{\subst}[3]{#1[#3/#2]} % substitution
 \newcommand{\substs}[2]{#1[#2]} % substitution of many things
 
+\newcommand{\cont}{{\cal K}}     % continuation
+\newcommand{\hole}{\bullet}
+
 %%% Operational semantics
 
 \newcommand{\emptyG}{\bullet} % empty context
 \newcommand{\emptyH}{\circ} % empty handlers
 
 \newcommand{\G}{\Gamma}
+\newcommand{\D}{\Delta}
+\newcommand{\xcT}{\vec{\x}{:}\vec{\T}}
+\newcommand{\xT}{{\vec{\x}}{\vec{\T}}}
 \renewcommand{\H}{\mathcal{H}} % A stack of handlers
 \newcommand{\GH}{\G, \H} % combined context & handler
 
 \newcommand{\ctxextend}[3][\G]{#1, #2 {:} #3}
 
-\newcommand{\evalto}[3][\GH]{#1 \vdash #2 \Downarrow #3}
-\newcommand{\resultok}[2][\GH]{#1 \vdash #2 \ \mathsf{ok}}
+\newcommand{\evalto}[3][\G]{#1 \vdash #2 \ \Downarrow\  #3}
+\newcommand{\resultok}[2][\G]{#1 \vdash #2 \ \mathsf{ok}}
+
+\newcommand{\typicalhandler}{\handler{\X}{\C_1}{\X}{\K}{\C_2}}
+
 \begin{document}
 
 \title{TT}
@@ -65,12 +79,12 @@
 \begin{equation*}
   \text{Expression $\e$}
   \begin{aligned}[t]
-    &\bnf   {} && \x          && \text{variable} \\
-    &\bnfor {} && \fun{x} \C  && \text{function} \\
+    &\bnf   {} && \X          && \text{variable} \\
+    &\bnfor {} && \fun{\X} \C  && \text{function} \\
     &\bnfor {} && h           && \text{handler} \\
     &\bnfor {} && B           && \text{Brazilian term} \\
-    &\bnfor {} && T           && \text{Brazilian types}
-  \end{aligned}  
+    &\bnfor {} && T           && \text{Brazilian type} \\
+  \end{aligned}
 \end{equation*}
 %
 \begin{equation*}
@@ -78,20 +92,33 @@
   \begin{aligned}[t]
     &\bnf   {} && \val \e                && \text{pure expression} \\
     &\bnfor {} && \app{\e_1}{\e_2}   && \text{application} \\
-    &\bnfor {} && \letin{\x = \C_1} \C_2  && \text{$\mathsf{let}$-binding} \\
-    &\bnfor {} && \inhabit{\e}{\cont{\x}{\C}} && \text{the inhabitation operation} \\
+    &\bnfor {} && \letin{\X = \C_1} \C_2  && \text{$\mathsf{let}$-binding} \\
+    &\bnfor {} && \inhabit{\D}{\e}{\cont} && \text{the inhabitation operation} \\
     &\bnfor {} && \debruijn{n} && \text{ugly hack to be deleted later} \\
     &\bnfor {} && \withhandle{\e} \C && \text{handling} \\
 %    &\bnfor {} && \abs{\rgn}{\C} && \text{abstraction} \\
 %    &\bnfor {} && \new{\rgn}{\T} && \text{new variable} \\
-    &\bnfor {} && \lam{\x}{\e} \C   && \text{$\lambda$-abstraction} \\
-    &\bnfor {} && \makeApp{\e_1}{\e_2}   && \text{Brazilian application}
-  \end{aligned}  
+    &\bnfor {} && \kapp{\K}{\e_2}   && \text{Invoke a continuation variable} \\
+    &\bnfor {} && \lam{\x}{\e} \C   && \text{Build Brazilian abstraction} \\
+    &\bnfor {} && \makeApp{\e_1}{\e_2} && \text{Build Brazilian application} \\
+  \end{aligned}
 \end{equation*}
 %
 \begin{equation*}
+  \text{(Capturing!) Continuation $\cont$}
+  \begin{aligned}[t]
+    &\bnf   {} && \hole                && \text{hole} \\
+    &\bnfor {} && \letin{\X = \cont_1} \C_2  && \text{$\mathsf{let}$-binding} \\
+    &\bnfor {} && \withhandle{\e} \cont && \text{handling} \\
+%    &\bnfor {} && \abs{\rgn}{\cont} && \text{abstraction} \\
+    &\bnfor {} && \lam{\x}{\T} \cont   && \text{$\lambda$-abstraction} \\
+  \end{aligned}
+\end{equation*}
+
+%
+\begin{equation*}
   \text{Handler $\h$}
-  \bnf \handler{\x}{\C_1}{\x}{k}{\C_2}
+  \bnf (\typicalhandler)\\
 \end{equation*}
 
 
@@ -105,27 +132,23 @@ Results:
   \text{Result $R$}
   \begin{aligned}[t]
     &\bnf   {} && \val \e \\
-    &\bnfor {} && \lam{\vec{x}}{\vec{\T}} \inhabit{\e}{\cont{\x}{\C}} \\
-  \end{aligned}  
+    &\bnfor {} && \inhabit{\D}{\e}{\cont} \\
+  \end{aligned}
 \end{equation*}
 %
 Judgement:
 %
 \begin{align*}
-  &\evalto[\GH]{C}{e} &&\text{$C$ evaluates to $e$ in context $\GH$} \\
-  &\resultok[\GH]{R}  &&\text{$R$ is a valid result in context $\GH$}
+  &\evalto[\G]{C}{e} &&\text{$C$ evaluates to $e$ in context $\G$} \\
+  &\resultok[\G]{R}  &&\text{$R$ is a valid result in context $\G$}
 \end{align*}
 %
 Rules:
 \begin{mathpar}
 
-  \infer[eval-val-1]
+  \infer[eval-val]
   { }
-  { \evalto[\G, \emptyH]{\val \e}{\val \e}}
-  
-  \infer[eval-val-2]
-  { }
-  { \evalto[\G, (h, \H)]{\val \e}{\val \e}}
+  { \evalto{\val \e}{\val \e}}
 
   \infer[eval-app]
   {
@@ -140,10 +163,10 @@ Rules:
   {
     \evalto{\C_1}{\val \e}
     \\
-    \evalto{\subst{\C_2}{\x}{\e}}{R}
+    \evalto{\subst{\C_2}{\X}{\e}}{R}
   }
   { \evalto
-    {\letin{\x = \C_1} \C_2}
+    {\letin{\X = \C_1} \C_2}
     {R}
   }
 
@@ -151,15 +174,11 @@ Rules:
   {
     \evalto
     {\C_1}
-    {\lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\C'_1}}}
-    \\
-    \evalto[\ctxextend{\vec{\x}}{\vec{\T}}]
-    { \inhabit{\e}{\cont{y}{\C'_1}} }
-    { R }
+    {\inhabit{\D}{\e}{\cont}}
   }
   { \evalto
-    {\letin{\x = \C_1} \C_2}
-    {\lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\letin{x = \C'_1} \C_2}} }
+    {\letin{\X = \C_1} \C_2}
+    {\inhabit{\D}{\e}{\letin{\X = \cont} \C_2}}
   }
 
   \infer[eval-handle-val]
@@ -169,48 +188,46 @@ Rules:
     \evalto{\subst{\C_1}{\x}{\e}}{R}
   }
   { \evalto
-    {\withhandle{\h}{\C}}
+    {\withhandle{(\typicalhandler)}{\C}}
     {R}
   }
 
   \infer[eval-handle-op]
   {
-    \evalto{\C}{\lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\C'}}}
-    \\
-    \evalto[\ctxextend{\vec{\x}}{\vec{\T}}]
-    {\substs{\C_2}{\e/\x, (\fun{y} \withhandle{h}{C'})/k}}
+    \evalto{\C}{\inhabit{\D}{\e}{\cont}}
+    \\\\
+    \evalto[\G,\D]
+    {\substs{\C_2}{\e/\X, (\withhandle{h}{\cont})/\K}}
     {R}
     \\\\
-    \evalto{\lam{\vec{\x}}{\vec{\T}} R}{R'}
+    \resultok{R}\\
   }
   { \evalto
-    {\withhandle{\h}{\C}}
-    {R'}
+    {\withhandle{(\typicalhandler)}{\C}}
+    {R}
   }
 
   \infer[eval-lambda-val]
   {
     \evalto[\ctxextend{\x}{\T}]
     {\C}
-    {\val \e}
+    {\val B}
   }
   { \evalto
     {\lam{\x}{\T} \C}
-    {\val (\lam{\x}{\T} \e)}
+    {\val (\lam{\x}{\T} B)}
   }
 
   \infer[eval-lambda-op]
   {
     \evalto[\ctxextend{\x}{\T}]
     {\C}
-    {\lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\C'}}}
+    {\inhabit{\D}{\e}{\cont}}
   }
   { \evalto
     {\lam{\x}{\T} \C}
-    {\lam{\x}{\T} \lam{\vec{\x}}{\vec{\T}} \inhabit{\e}{\cont{y}{\C'}}}
+    {\inhabit{(\x{:}\T,\Delta)}{\e}{\lam{\x}{\T}{\cont}}}
   }
-
 \end{mathpar}
-
 
 \end{document}
