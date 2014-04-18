@@ -63,7 +63,15 @@
 \newcommand{\ctxextend}[3][\G]{#1, #2 {:} #3}
 
 \newcommand{\evalto}[3][\G]{#1 \vdash #2 \ \Downarrow\  #3}
+
 \newcommand{\resultok}[2][\G]{#1 \vdash #2 \ \mathsf{ok}}
+\newcommand{\eok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
+\newcommand{\cok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
+\newcommand{\kok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
+
+\newcommand{\istype}[2]{#1 \vdash #2\;\mathsf{type}} % well formed type
+\newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
+
 
 \newcommand{\typicalhandler}{\handler{\X}{\C_1}{\X}{\K}{\C_2}}
 
@@ -229,5 +237,179 @@ Rules:
     {\inhabit{(\x{:}\T,\Delta)}{\e}{\lam{\x}{\T}{\cont}}}
   }
 \end{mathpar}
+
+\section{Well-Formedness}
+
+\subsection*{Expressions}
+
+\begin{mathpar}
+
+  \infer[ok-brazil-term]
+  {
+    \isterm{\G}{B}{\T}
+  }
+  {
+    \eok{B}
+  }
+
+
+  \infer[ok-brazil-type]
+  {
+    \istype{\G}{\T}
+  }
+  {
+    \eok{B}
+  }
+
+  \infer[ok-var]
+  {
+  }
+  {
+    \eok{\X}
+  }
+
+  \infer[ok-fun]
+  {
+    \cok{\C}
+  }
+  {
+    \eok{\fun{\X} \C}
+  }
+
+  \infer[ok-handler]
+  {
+    \cok{\C_1} \\
+    \cok{\C_2} \\
+  }
+  {
+    \eok{(\typicalhandler)}
+  }
+\end{mathpar}
+
+\subsection*{Continuations}
+
+\begin{mathpar}
+
+  \infer[ok-hole]
+  {
+  }
+  {
+    \kok{\hole}
+  }
+
+  \infer[ok-let-cont]
+  {
+    \kok{\K_1} \\
+    \cok{\C_2} \\
+  }
+  {
+    \kok{(\letin{\X = \K_1} \C_2)}
+  }
+
+  \\
+
+  \infer[ok-handle-cont]
+  {
+    \eok{\e_1} \\
+    \kok{\K_2} \\
+  }
+  {
+    \kok{(\withhandle{\e_1} \K_2)}
+  }
+
+  \infer[ok-lam-cont]
+  {
+    \kok[\ctxextend{\x}{\T_1}]{\K_2}
+  }
+  {
+    \kok{(\lam{\x}{\T_1} \K_2)}
+  }
+\end{mathpar}
+
+\subsection*{Computations (and results)}
+
+\begin{mathpar}
+
+  \infer[ok-val]
+  {
+    \eok{\e}
+  }
+  {
+    \cok{\val{\e}}
+  }
+
+  \infer[ok-app]
+  {
+    \eok{\e_1} \\
+    \eok{\e_2} \\
+  }
+  {
+    \cok{\app{\e_1}{\e_2}}
+  }
+
+  \infer[ok-let]
+  {
+    \cok{\C_1} \\
+    \cok{\C_2} \\
+  }
+  {
+    \cok{(\letin{\X = \C_1} \C_2)}
+  }
+
+  \infer[ok-inhabit]
+  {
+    \eok[\G,\D]{\e} \\
+    \kok{\K} \\
+  }
+  {
+    \cok{\inhabit{\D}{\e}{\K}}
+  }
+
+  \infer[ok-hack]
+  {
+  }
+  {
+    \cok{(\debruijn{n})}
+  }
+
+  \infer[ok-handle]
+  {
+    \eok{\e_1} \\
+    \cok{\C_1} \\
+  }
+  {
+    \cok{(\withhandle{\e_1} \C_2)}
+  }
+
+  \infer[ok-cont-app]
+  {
+    \eok{\e_2}
+  }
+  {
+    \cok{\kapp{\K_1}{\e_2}}
+  }
+
+  \\
+
+  \infer[ok-make-lam]
+  {
+    \cok{\C_2}
+  }
+  {
+    \cok{(\lam{\x}{\e_1} \C_2)}
+  }
+
+  \infer[ok-make-app]
+  {
+    \eok{\e_1} \\
+    \eok{\e_2} \\
+  }
+  {
+    \cok{\makeApp{\e_1}{\e_2}}
+  }
+
+\end{mathpar}
+
+
 
 \end{document}
