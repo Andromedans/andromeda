@@ -27,7 +27,8 @@
 \newcommand{\letin}[1]{\mathsf{let}\; #1 \;\mathsf{in}\;} % let x = c1 in c2
 \newcommand{\op}[3]{\mathsf{op}_{#1}(#2, #3)} % operation
 \newcommand{\inhabitPat}[2]{\mathsf{inhabit}(#1, #2)} % the inhabit pattern
-\newcommand{\inhabit}[3]{\mathsf{inhabit}(#1, #2, #3)} % the inhabit operation
+\newcommand{\inhabitOp}[1]{\mathsf{inhabit}\,#1} % the inhabit operation
+\newcommand{\inhabit}[3]{\mathsf{inhabit}(#1, #2, #3)} % the inhabit result
 \newcommand{\withhandle}[1]{\mathsf{with}\;#1\;\mathsf{handle}\;} % handle
 \newcommand{\abs}[1]{\mathsf{abs}\;#1\;\mathsf{in}\;} % abstraction
 \newcommand{\new}[2]{\mathsf{new}(#1,#2)} % new(r,T)
@@ -46,7 +47,7 @@
 \newcommand{\substs}[2]{#1[#2]} % substitution of many things
 
 \newcommand{\cont}{{\cal K}}     % continuation
-\newcommand{\hole}{\bullet}
+\newcommand{\hole}{\diamond}
 
 %%% Operational semantics
 
@@ -60,6 +61,7 @@
 \renewcommand{\H}{\mathcal{H}} % A stack of handlers
 \newcommand{\GH}{\G, \H} % combined context & handler
 
+\newcommand{\ctxempty}{\bullet}
 \newcommand{\ctxextend}[3][\G]{#1, #2 {:} #3}
 
 \newcommand{\evalto}[3][\G]{#1 \vdash #2 \ \Downarrow\  #3}
@@ -74,6 +76,13 @@
 
 
 \newcommand{\typicalhandler}{\handler{\X}{\C_1}{\X}{\K}{\C_2}}
+
+%% Copied from brazil.tex
+\newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
+\newcommand{\brazilapp}[5]{#1\mathbin{@^{#2{:}#3.#4}} #5} % application
+\newcommand{\equationin}[3]{\mathsf{equation}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use equation hint
+\newcommand{\rewritein}[3]{\mathsf{rewrite}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use rewrite hint
+
 
 \begin{document}
 
@@ -101,7 +110,7 @@
     &\bnf   {} && \val \e                && \text{pure expression} \\
     &\bnfor {} && \app{\e_1}{\e_2}   && \text{application} \\
     &\bnfor {} && \letin{\X = \C_1} \C_2  && \text{$\mathsf{let}$-binding} \\
-    &\bnfor {} && \inhabit{\D}{\e}{\cont} && \text{the inhabitation operation} \\
+    &\bnfor {} && \inhabitOp{\e} && \text{the inhabitation operation} \\
     &\bnfor {} && \debruijn{n} && \text{ugly hack to be deleted later} \\
     &\bnfor {} && \withhandle{\e} \C && \text{handling} \\
 %    &\bnfor {} && \abs{\rgn}{\C} && \text{abstraction} \\
@@ -189,6 +198,26 @@ Rules:
     {\inhabit{\D}{\e}{\letin{\X = \cont} \C_2}}
   }
 
+  \infer[eval-inhabit]
+  {
+  }
+  {
+    \evalto
+    {\inhabitOp{\e}}
+    {\inhabit{\ctxempty}{\e}{\hole}}
+  }
+
+  \infer[eval-hack]
+  {
+    \G = x_{m{-}1}{:}\T_{m{-}1}\ldots,x_0{:}T_0\\
+    n < m\\
+  }
+  {
+    \evalto
+    {\debruijn{n}}
+    {\x_n}
+  }
+
   \infer[eval-handle-val]
   {
     \evalto{\C}{\val \e}
@@ -214,7 +243,9 @@ Rules:
     {\withhandle{(\typicalhandler)}{\C}}
     {R}
   }
+\end{mathpar}
 
+\begin{mathpar}
   \infer[eval-lambda-val]
   {
     \evalto[\ctxextend{\x}{\T}]
@@ -236,7 +267,29 @@ Rules:
     {\lam{\x}{\T} \C}
     {\inhabit{(\x{:}\T,\Delta)}{\e}{\lam{\x}{\T}{\cont}}}
   }
+
+  \\
+
+  \infer[eval-makeapp]
+  {
+    \mathsf{typeOf}(B_1) = \Prod{\x}{\T_1}{\T_2}\\
+    \mathsf{typeOf}(B_2) = \U_1\\
+    \\\\
+    \evalto
+      {\bigl(\letin{\X = \inhabitOp{(\T_1\equiv\U_1)}}
+         {\val (\equationin{\X}{\T_1}{\U_1}{(\brazilapp{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
+      {R}
+  }
+  { \evalto
+      {\makeApp{B_1}{B_2}}
+      {R}
+  }
 \end{mathpar}
+
+This last rule isn't quite right, because $T_1$ and $U_1$ are types, and so
+$\T_1\equiv\U_1$ is not a Brazil type.
+
+Also, either here or (more likely) in Rule~\textsc{handle-op}, we need to check that the result of an inhabit operation (i.e., the value passed to the continuation) is a Brazil term of the correct type. That also might invoke handlers\ldots
 
 \section{Well-Formedness}
 
@@ -326,7 +379,7 @@ Rules:
   }
 \end{mathpar}
 
-\subsection*{Computations (and results)}
+\subsection*{Computations}
 
 \begin{mathpar}
 
@@ -358,11 +411,10 @@ Rules:
 
   \infer[ok-inhabit]
   {
-    \eok[\G,\D]{\e} \\
-    \kok{\K} \\
+    \eok{\e} \\
   }
   {
-    \cok{\inhabit{\D}{\e}{\K}}
+    \cok{\inhabitOp{\e}}
   }
 
   \infer[ok-hack]
@@ -411,5 +463,28 @@ Rules:
 \end{mathpar}
 
 
+
+\subsection*{Results}
+
+\begin{mathpar}
+
+  \infer[ok-result-val]
+  {
+    \eok{\e}
+  }
+  {
+    \resultok{\val{\e}}
+  }
+
+  \infer[ok-result-inhabit]
+  {
+    \eok[\G,\D]{\e} \\
+    \kok{\K} \\
+  }
+  {
+    \resultok{\inhabit{\D}{\e}{\K}}
+  }
+
+\end{mathpar}
 
 \end{document}
