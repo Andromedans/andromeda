@@ -254,11 +254,11 @@ Judgement:
 
   \infer[eval-handle-op]
   {
-    \evalto{\C}{\inhabit{\D}{\T}{\cont}}
-    \\\\
-    \cont' = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{cont_\D}{\X''}}}\bigr)\\
-    \\\\
     \h = \typicalhandler
+    \\\\
+    \evalto{\C}{\inhabit{\D}{\T}{\cont_\D}}
+    \\\\
+    \cont' = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\cont_\D}{\X''}}}\bigr)\\
     \\\\
     \evalto[\G,\D]
     {\substs{\C_2}{\T/\X, \cont'/\K}}
@@ -531,6 +531,54 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   }
 
 \end{mathpar}
+\bigskip
+
+I don't think these rules are right. As far as I can tell,
+\begin{verbatim}
+  handle
+     lambda x:void. [inhabit void]
+  with
+     [inhabit void K] -> let Z = <x:void> in K[Z]
+\end{verbatim}
+is legal and evaluates to \verb|< lambda x:void.x  :  void->void >|. On the other hand,
+\begin{verbatim}
+  handle
+    handle
+      lambda x:void. [inhabit void]
+    with
+      [inhabit void K] -> let Y = [inhabit int] in let Z = <x:void> in K[Z]
+  with
+    [inhabit int K] -> K 0
+\end{verbatim}
+does not seem to be legal under our well-formedness rules, because the inner handler evaluates to the result
+\begin{verbatim}
+  inhabit(-, int, let Y = [] in let Z = <x:void> in lambda x:void. Z)
+\end{verbatim}
+and this continuation refers to the variable \verb|x|. It's true that this variable
+is in scope only during the execution of the inner handler, but the continuation of the
+outer handler returns back to the inner handler, where referring to \verb|x| is
+perfectly legal.
+
+In comparison,
+\begin{verbatim}
+  handle
+    handle
+      lambda x:void. [inhabit void]
+    with
+      [inhabit void K] -> let Y = [inhabit int] in let Z = <x:void> in Z
+  with
+    [inhabit int K] -> K 0
+\end{verbatim}
+(where the inner handler does not call its continuation) should result in a run-time error somewhere,
+preventing the code from constructing the ill-formed Brazil term \verb|x|.
+
+The following stack-of-handlers system seems to solve the problem by checking for well-formedness only
+on the \emph{final} return value of the handler (whether or not the handler calls its
+continuation), not the well-formedness of intermediate operations with their continuations.
+
+It's not completely obvious how to get equivalent behavior in the above system.
+Maybe we just say that \emph{every} operation result is ``ok,'' and only require
+expression results to be well-formed in the handler context?
 
 \section{Operational semantics with a Stack of Handlers}
 \label{sec:oper-semant-stack}
