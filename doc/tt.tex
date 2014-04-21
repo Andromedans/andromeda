@@ -23,6 +23,7 @@
 \newcommand{\T}{T}     % type
 \newcommand{\U}{U}     % another type
 \newcommand{\B}{B}     % Brazil term
+\newcommand{\R}{R}     % Result
 
 \newcommand{\val}{\mathsf{val}\,} % val e
 \newcommand{\letin}[1]{\mathsf{let}\; #1 \;\mathsf{in}\;} % let x = c1 in c2
@@ -75,6 +76,7 @@
 \newcommand{\istype}[2]{#1 \vdash #2\;\mathsf{type}} % well formed type
 \newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
 
+\newcommand{\typeOf}{\mathsf{typeOf}\,}
 
 \newcommand{\typicalhandler}{\handler{\X}{\C_1}{\X}{\K}{\C_2}}
 
@@ -89,6 +91,7 @@
 \newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
 \newcommand{\coerce}[3]{\mathsf{coerce}^{#1{\mapsto}#2} \, #3}
 \newcommand{\El}[2]{\mathsf{El}^{#1}\, #2} % the type named by the term
+\newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
 
 
 
@@ -125,6 +128,7 @@
 %    &\bnfor {} && \abs{\rgn}{\C} && \text{abstraction} \\
 %    &\bnfor {} && \new{\rgn}{\T} && \text{new variable} \\
     &\bnfor {} && \kapp{\K}{\e_2}   && \text{Invoke a continuation variable} \\
+    &\bnfor {} && \ascribe{\e_1}{\e_2} && \text{Type Ascription} \\
     &\bnfor {} && \debruijn{n} && \text{Build Brazilian term: variable} \\
     &\bnfor {} && \lam{\x}{\e} \C   && \text{Build Brazilian term: abstraction} \\
     &\bnfor {} && \makeApp{\e_1}{\e_2} && \text{Build Brazilian term: application} \\
@@ -166,7 +170,7 @@ Results:
 Judgement:
 %
 \begin{align*}
-  &\evalto[\G]{C}{e} &&\text{$C$ evaluates to $e$ in context $\G$} \\
+  &\evalto[\G]{C}{R} &&\text{$C$ evaluates to result $R$ in context $\G$} \\
   &\resultok[\G]{R}  &&\text{$R$ is a valid result in context $\G$} \\
   &\eok[\G]{\e} &&\text{$\e$ is a valid expression in context $\G$} \\
   &\cok[\G]{\C} &&\text{$\C$ is a valid computation in context $\G$} \\
@@ -210,6 +214,16 @@ Judgement:
     {\letin{\X = \C_1} \C_2}
     {\inhabit{\D}{\T}{\letin{\X = \cont} \C_2}}
   }
+
+  \infer[eval-ascribe]
+  {
+    \typeOf{\e} = \T\\
+  }
+  {
+    \evalto{(\ascribe{\e}{\T})}{\val \e}
+  }
+
+
 \end{mathpar}
 
 \paragraph{Operations and Handlers}
@@ -238,14 +252,18 @@ Judgement:
   {
     \evalto{\C}{\inhabit{\D}{\T}{\cont}}
     \\\\
+    \cont' = \bigl(\withhandle{\h}{\letin{\X' = \ascribe{\hole}{\T}}{\kapp{\cont}{\X'}}}\bigr)\\
+    \\\\
+    \h = \typicalhandler
+    \\\\
     \evalto[\G,\D]
-    {\substs{\C_2}{\T/\X, (\withhandle{h}{\cont})/\K}}
+    {\substs{\C_2}{\T/\X, \cont'/\K}}
     {R}
     \\\\
     \resultok{R}\\
   }
   { \evalto
-    {\withhandle{(\typicalhandler)}{\C}}
+    {\withhandle{\h}{\C}}
     {R}
   }
 \end{mathpar}
@@ -314,8 +332,6 @@ Judgement:
 
 This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Brazil will think
 to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1 = \El{\gamma}{\B''_1}$ and $\T_3 = \El{\gamma}{\B''_3}$
-
-Also, here or somewhere we need to check that the result of an inhabit operation is a Brazil term of the correct type. That checking might invoke handlers, if we're not careful\ldots
 
 \section{Well-Formedness}
 
@@ -514,5 +530,150 @@ Also, here or somewhere we need to check that the result of an inhabit operation
   }
 
 \end{mathpar}
+
+\section{Operational semantics with a Stack of Handlers}
+\label{sec:oper-semant-stack}
+
+\paragraph{Syntax}
+
+\begin{equation*}
+  \text{(Capturing!) Continuation $\cont$}
+  \begin{aligned}[t]
+    &\bnf   {} && \hole                && \text{hole} \\
+    &\bnfor {} && \letin{\X = \cont_1} \C_2  && \text{$\mathsf{let}$-binding} \\
+%    &\bnfor {} && \abs{\rgn}{\cont} && \text{abstraction} \\
+    &\bnfor {} && \lam{\x}{\T} \cont   && \text{$\lambda$-abstraction} \\
+  \end{aligned}
+\end{equation*}
+
+\paragraph{Judgement}
+
+\renewcommand{\S}{{\cal S}}
+\newcommand{\GS}{\Gamma; \S}
+\newcommand{\emptystack}{\bullet}
+
+\begin{align*}
+  &\evalto[\GS]{C}{\e} &&\text{$C$ evaluates to $e$ in context $\G$} \\
+\end{align*}
+%
+\paragraph{Control Flow}
+\begin{mathpar}
+
+  \infer[eval-val]
+  { }
+  { \evalto[\G;\emptystack]{\val \e}{\e}}
+
+  \infer[eval-val]
+  { \h = \typicalhandler \\
+    \evalto[\GS]{\subst{\C_1}{\X}{\e_1}}{\e}}
+  { \evalto[\G;(\S,\h)]{\val \e_1}{\e}}
+
+  \infer[eval-app]
+  {
+    \evalto[\GS]{\subst{\C}{\X}{\e_1}}{\e}
+  }
+  { \evalto[\GS]
+    {\app{(\fun{\X}{\C})}{\e_1}}
+    {\e}
+  }
+
+  \infer[eval-let-val]
+  {
+    \evalto[\GS]{\C_1}{\e_1}
+    \\
+    \evalto[\GS]{\subst{\C_2}{\X}{\e_1}}{\e}
+  }
+  { \evalto[\GS]
+    {\letin{\X = \C_1} \C_2}
+    {\e}
+  }
+
+  \infer[eval-ascribe]
+  {
+    \typeOf{\e} = \T\\
+  }
+  {
+    \evalto{(\ascribe{\e}{\T})}{\val \e}
+  }
+
+\end{mathpar}
+
+\paragraph{Operations and Handlers}
+\begin{mathpar}
+  \infer[eval-inhabit]
+  {
+    \h = \typicalhandler\\
+    \cont' = \bigl(\withhandle{\h}{\letin{\X' = \ascribe{\hole}{\T}}{\kapp{\cont_\D}{\X'}}}\bigr)\\
+    \evalto[(\G,\D);\S]{\substs{\C_2}{\T/\X, \cont'/\K}}{\e}\\
+    \eok[\G]{\e}
+  }
+  {
+    \evalto[\G;(\S,\h)]
+    {{\cont_\D}[\inhabitOp{\T}]}
+    {\e}
+  }
+
+  \infer[eval-handle]
+  {
+    \evalto[\G;(S,\h)]{\C}{\e}
+  }
+  { \evalto[\GS]
+    {\withhandle{\h}{\C}}
+    {\e}
+  }
+
+\end{mathpar}
+
+\paragraph{Computations that build Brazil terms}
+\begin{mathpar}
+  \infer[eval-make-var]
+  {
+    \G = x_{m{-}1}{:}\T_{m{-}1}\ldots,x_0{:}T_0\\
+    n < m\\
+  }
+  {
+    \evalto[\GS]
+    {\debruijn{n}}
+    {\x_n}
+  }
+
+  \infer[eval-make-lambda-val]
+  {
+    \evalto[(\ctxextend{\x}{\T});\S]
+    {\C}
+    {B}
+  }
+  { \evalto[\GS]
+    {\lam{\x}{\T} \C}
+    {\lam{\x}{\T} B}
+  }
+
+  \infer[eval-make-app]
+  {
+    \mathsf{typeOf}(B_1) = \Prod{\x}{\T_1}{\T_2}\\
+    \mathsf{typeOf}(B_2) = \T_3 \\
+    \\\\
+    \mathsf{nameOf}(\T_1) = B'_1 : \Universe{\alpha}\\
+    \mathsf{nameOf}(\T_3) = B'_3 : \Universe{\beta}\\
+    \\\\
+    \gamma = \piClose{\alpha}{\beta}\\
+    \gamma' = \uClose{\gamma}\\
+    \\\\
+    \B''_1 = \coerce{\alpha}{\gamma}{\B'_1}\\
+    \B''_3 = \coerce{\beta}{\gamma}{\B'_3}\\
+    \\\\
+    \evalto[\GS]
+      {\bigl(\letin{\X = \inhabitOp{(\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3})}}
+         {\val (\equationin{\X}{\B''_1}{\B''_3}{(\brazilapp{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
+      {R}
+  }
+  { \evalto[\GS]
+      {\makeApp{B_1}{B_2}}
+      {R}
+  }
+\end{mathpar}
+
+This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Brazil will think
+to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1 = \El{\gamma}{\B''_1}$ and $\T_3 = \El{\gamma}{\B''_3}$
 
 \end{document}
