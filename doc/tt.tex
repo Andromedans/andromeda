@@ -38,6 +38,8 @@
 \newcommand{\app}[2]{#1\,#2} % application
 \newcommand{\lam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
 \newcommand{\kapp}[2]{#1[#2]} % continuation application
+\newcommand{\bterm}[2]{\langle\,#1\, :\, #2\,\rangle} % brazil (typed) term as data
+\newcommand{\bty}[1]{\langle\,#1\,\rangle} % brazil type as data
 
 \newcommand{\handler}[5]{\mathsf{handler}\; \val #1 \mapsto #2 \mid \inhabitPat{#3}{#4} \mapsto #5}
 
@@ -117,8 +119,8 @@
     &\bnf   {} & \X          && \text{variable} \\
     &\bnfor {} & \fun{\X} \C  && \text{function} \\
     &\bnfor {} & h           && \text{handler} \\
-    &\bnfor {} & B           && \text{Brazilian term} \\
-    &\bnfor {} & T           && \text{Brazilian type} \\
+    &\bnfor {} & \bterm{\B}{\T}           && \text{Brazilian term} \\
+    &\bnfor {} & \bty{\T}           && \text{Brazilian type} \\
   \end{aligned}
 \end{equation*}
 %
@@ -189,6 +191,13 @@ Judgement:
   { }
   { \evalto{\val \e}{\val \e}}
 
+  \infer[eval-ascribe]
+  {
+  }
+  {
+    \evalto{(\ascribe{\bterm{\B}{\T}}{\T})}{\val \bterm{\B}{\T}}
+  }
+
   \infer[eval-app]
   {
     \evalto{\subst{\C}{\X}{\e}}{R}
@@ -219,16 +228,6 @@ Judgement:
     {\letin{\X = \C_1} \C_2}
     {\inhabit{\D}{\T}{\letin{\X = \cont} \C_2}}
   }
-
-  \infer[eval-ascribe]
-  {
-    \typeOf{\e} = \T\\
-  }
-  {
-    \evalto{(\ascribe{\e}{\T})}{\val \e}
-  }
-
-
 \end{mathpar}
 
 \paragraph{Operations and Handlers}
@@ -312,9 +311,6 @@ Judgement:
 
   \infer[eval-make-app]
   {
-    \typeOf(B_1) = \Prod{\x}{\T_1}{\T_2}\\
-    \typeOf(B_2) = \T_3 \\
-    \\\\
     \mathsf{nameOf}(\T_1) = B'_1 : \Universe{\alpha}\\
     \mathsf{nameOf}(\T_3) = B'_3 : \Universe{\beta}\\
     \\\\
@@ -325,12 +321,12 @@ Judgement:
     \B''_3 = \coerce{\beta}{\gamma}{\B'_3}\\
     \\\\
     \evalto
-      {\bigl(\letin{\X = \inhabitOp{(\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3})}}
+      {\bigl(\letin{\X = \inhabitOp{\bty{\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3}}}}
          {\val (\equationin{\X}{\B''_1}{\B''_3}{(\brazilapp{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
       {R}
   }
   { \evalto
-      {\makeApp{B_1}{B_2}}
+      {\makeApp{\bterm{B_1}{\Prod{\x}{\T_1}{\T_2}}}{\bterm{B_2}{\T_3}}}
       {R}
   }
 \end{mathpar}
@@ -346,10 +342,10 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
 
   \infer[ok-brazil-term]
   {
-    \isterm{\G}{B}{\T}
+    \isterm{\G}{\B}{\T}
   }
   {
-    \eok{B}
+    \eok{\bterm{\B}{\T}}
   }
 
 
@@ -358,7 +354,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \istype{\G}{\T}
   }
   {
-    \eok{\T}
+    \eok{\bty{\T}}
   }
 
   \infer[ok-var]
@@ -583,6 +579,13 @@ exactly $n$ lambdas with the given parameters.
   { }
   { \evalto[\G;\emptystack]{\val \e}{\e}}
 
+  \infer[eval-ascribe]
+  {
+  }
+  {
+    \evalto{(\ascribe{\bterm{\B}{\T}}{\T})}{\bterm{\B}{\T}}
+  }
+
   \infer[eval-val]
   { \h = \typicalhandler \\
     \evalto[\GS]{\subst{\C_1}{\X}{\e_1}}{\e}}
@@ -608,13 +611,6 @@ exactly $n$ lambdas with the given parameters.
     {\e}
   }
 
-  \infer[eval-ascribe]
-  {
-    \typeOf{\e} = \T\\
-  }
-  {
-    \evalto{(\ascribe{\e}{\T})}{\e}
-  }
 
 \end{mathpar}
 
@@ -629,7 +625,7 @@ exactly $n$ lambdas with the given parameters.
   }
   {
     \evalto[\G;(\S,\h)]
-    {{\hfcont_\D}[\inhabitOp{\T}]}
+    {{\hfcont_\D}[\inhabitOp{\bty{\T}}]}
     {\e}
   }
 
@@ -645,6 +641,8 @@ exactly $n$ lambdas with the given parameters.
 \end{mathpar}
 
 \paragraph{Computations that build Brazil terms}
+
+
 \begin{mathpar}
   \infer[eval-make-var]
   {
@@ -654,25 +652,22 @@ exactly $n$ lambdas with the given parameters.
   {
     \evalto[\GS]
     {\debruijn{n}}
-    {\x_n}
+    {\bterm{\x_n}{\T_n}}
   }
 
   \infer[eval-make-lambda-val]
   {
     \evalto[(\ctxextend{\x}{\T});\S]
     {\C}
-    {B}
+    {\bterm{\B}{\U}}
   }
   { \evalto[\GS]
     {\lam{\x}{\T} \C}
-    {\lam{\x}{\T} B}
+    {\bterm{\lam{\x}{\T} \B}{\Prod{\x}{\T}{\U}}}
   }
 
   \infer[eval-make-app]
   {
-    \mathsf{typeOf}(B_1) = \Prod{\x}{\T_1}{\T_2}\\
-    \mathsf{typeOf}(B_2) = \T_3 \\
-    \\\\
     \mathsf{nameOf}(\T_1) = B'_1 : \Universe{\alpha}\\
     \mathsf{nameOf}(\T_3) = B'_3 : \Universe{\beta}\\
     \\\\
@@ -683,13 +678,13 @@ exactly $n$ lambdas with the given parameters.
     \B''_3 = \coerce{\beta}{\gamma}{\B'_3}\\
     \\\\
     \evalto[\GS]
-      {\bigl(\letin{\X = \inhabitOp{(\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3})}}
+      {\bigl(\letin{\X = \inhabitOp{\bty{\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3}}}}
          {\val (\equationin{\X}{\B''_1}{\B''_3}{(\brazilapp{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
-      {R}
+      {\e}
   }
   { \evalto[\GS]
-      {\makeApp{B_1}{B_2}}
-      {R}
+      {\makeApp{\bterm{B_1}{\Prod{\x}{\T_1}{\T_2}}}{\bterm{B_2}{\T_3}}}
+      {\e}
   }
 \end{mathpar}
 
