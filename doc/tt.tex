@@ -8,8 +8,8 @@
 %%%%%% Macros here %%%%%%
 
 %% Syntax
-\newcommand{\bnf}{\ \mathrel{{:}{:}{=}}\ }
-\newcommand{\bnfor}{\ \mid\ \ }
+\newcommand{\bnf}{\mathrel{{:}{:}{=}}}
+\newcommand{\bnfor}{|}
 
 \newcommand{\x}{x}     % brazil variable
 \newcommand{\y}{y}     % another variable
@@ -49,6 +49,7 @@
 \newcommand{\substs}[2]{#1[#2]} % substitution of many things
 
 \newcommand{\cont}{{\cal K}}     % continuation
+\newcommand{\hfcont}{\hat{\cal K}}     % handler-free continuation
 \newcommand{\hole}{\diamond}
 
 %%% Operational semantics
@@ -80,6 +81,10 @@
 
 \newcommand{\typicalhandler}{\handler{\X}{\C_1}{\X}{\K}{\C_2}}
 
+\renewcommand{\S}{{\cal S}}
+\newcommand{\GS}{\Gamma; \S}
+\newcommand{\emptystack}{\bullet}
+
 %% Copied from brazil.tex
 \newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 \newcommand{\brazilapp}[5]{#1\mathbin{@^{#2{:}#3.#4}} #5} % application
@@ -109,11 +114,11 @@
 \begin{equation*}
   \text{Expression $\e$}
   \begin{aligned}[t]
-    &\bnf   {} && \X          && \text{variable} \\
-    &\bnfor {} && \fun{\X} \C  && \text{function} \\
-    &\bnfor {} && h           && \text{handler} \\
-    &\bnfor {} && B           && \text{Brazilian term} \\
-    &\bnfor {} && T           && \text{Brazilian type} \\
+    &\bnf   {} & \X          && \text{variable} \\
+    &\bnfor {} & \fun{\X} \C  && \text{function} \\
+    &\bnfor {} & h           && \text{handler} \\
+    &\bnfor {} & B           && \text{Brazilian term} \\
+    &\bnfor {} & T           && \text{Brazilian type} \\
   \end{aligned}
 \end{equation*}
 %
@@ -252,7 +257,7 @@ Judgement:
   {
     \evalto{\C}{\inhabit{\D}{\T}{\cont}}
     \\\\
-    \cont' = \bigl(\withhandle{\h}{\letin{\X' = \ascribe{\hole}{\T}}{\kapp{\cont}{\X'}}}\bigr)\\
+    \cont' = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{cont_\D}{\X''}}}\bigr)\\
     \\\\
     \h = \typicalhandler
     \\\\
@@ -307,8 +312,8 @@ Judgement:
 
   \infer[eval-make-app]
   {
-    \mathsf{typeOf}(B_1) = \Prod{\x}{\T_1}{\T_2}\\
-    \mathsf{typeOf}(B_2) = \T_3 \\
+    \typeOf(B_1) = \Prod{\x}{\T_1}{\T_2}\\
+    \typeOf(B_2) = \T_3 \\
     \\\\
     \mathsf{nameOf}(\T_1) = B'_1 : \Universe{\alpha}\\
     \mathsf{nameOf}(\T_3) = B'_3 : \Universe{\beta}\\
@@ -537,20 +542,35 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
 \paragraph{Syntax}
 
 \begin{equation*}
-  \text{(Capturing!) Continuation $\cont$}
+  \begin{array}{rll}
+  \text{Handler-Free Continuation $\hfcont$}  \bnf   {} & \hole                & \text{hole} \\
+    \bnfor {} & \letin{\X = \hfcont_1} \C_2  & \text{$\mathsf{let}$-binding} \\
+    %&\bnfor {} && \withhandle{\e} \cont && \text{handling} \\
+%   \bnfor {} & \abs{\rgn}{\cont} & \text{abstraction} \\
+    \bnfor {} & \lam{\x}{\T} \hfcont   & \text{$\lambda$-abstraction} \\
+    \\
+  \text{Continuation $\cont$}  \bnf   {} & \hole                & \text{hole} \\
+    \bnfor {} & \letin{\X = \cont_1} \C_2  & \text{$\mathsf{let}$-binding} \\
+    \bnfor {} & \withhandle{\e} \cont & \text{handling} \\
+%   \bnfor {} & \abs{\rgn}{\cont} & \text{abstraction} \\
+    \bnfor {} & \lam{\x}{\T} \cont   & \text{$\lambda$-abstraction} \\[10pt]
+  \end{array}
+\end{equation*}
+%
+We write $\hfcont_\D$ where $\D = {\x_1{:}\T_1,\ldots,x_n{:}T_n}$ to denote that the hole $\hole$ in $\hfcont$ is inside
+exactly $n$ lambdas with the given parameters.
+
+\begin{equation*}
+  \text{Stack of Handlers $\S$}
   \begin{aligned}[t]
-    &\bnf   {} && \hole                && \text{hole} \\
-    &\bnfor {} && \letin{\X = \cont_1} \C_2  && \text{$\mathsf{let}$-binding} \\
-%    &\bnfor {} && \abs{\rgn}{\cont} && \text{abstraction} \\
-    &\bnfor {} && \lam{\x}{\T} \cont   && \text{$\lambda$-abstraction} \\
+    &\bnf   {} && \emptystack                && \text{empty stack} \\
+    &\bnfor {} && \S,\h                      && \text{Stack $\S$ with pushed handler $\h$} \\
   \end{aligned}
 \end{equation*}
+%
+
 
 \paragraph{Judgement}
-
-\renewcommand{\S}{{\cal S}}
-\newcommand{\GS}{\Gamma; \S}
-\newcommand{\emptystack}{\bullet}
 
 \begin{align*}
   &\evalto[\GS]{C}{\e} &&\text{$C$ evaluates to $e$ in context $\G$} \\
@@ -593,7 +613,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \typeOf{\e} = \T\\
   }
   {
-    \evalto{(\ascribe{\e}{\T})}{\val \e}
+    \evalto{(\ascribe{\e}{\T})}{\e}
   }
 
 \end{mathpar}
@@ -603,13 +623,13 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   \infer[eval-inhabit]
   {
     \h = \typicalhandler\\
-    \cont' = \bigl(\withhandle{\h}{\letin{\X' = \ascribe{\hole}{\T}}{\kapp{\cont_\D}{\X'}}}\bigr)\\
+    \cont' = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\hfcont_\D}{\X''}}}\bigr)\\
     \evalto[(\G,\D);\S]{\substs{\C_2}{\T/\X, \cont'/\K}}{\e}\\
     \eok[\G]{\e}
   }
   {
     \evalto[\G;(\S,\h)]
-    {{\cont_\D}[\inhabitOp{\T}]}
+    {{\hfcont_\D}[\inhabitOp{\T}]}
     {\e}
   }
 
