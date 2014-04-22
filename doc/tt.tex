@@ -252,7 +252,7 @@ Judgement:
     {R}
   }
 
-  \infer[eval-handle-op]
+  \infer[eval-handle-op-val]
   {
     \h = \typicalhandler
     \\\\
@@ -262,13 +262,30 @@ Judgement:
     \\\\
     \evalto[\G,\D]
     {\substs{\C_2}{\T/\X, \cont'/\K}}
-    {R}
+    {\val \e}
     \\\\
-    \resultok{R}\\
+    \eok{\e}\\
   }
   { \evalto
     {\withhandle{\h}{\C}}
-    {R}
+    {\e}
+  }
+
+  \infer[eval-handle-op-op]
+  {
+    \h = \typicalhandler
+    \\\\
+    \evalto{\C}{\inhabit{\D}{\T}{\cont_\D}}
+    \\\\
+    \cont' = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\cont_\D}{\X''}}}\bigr)\\
+    \\\\
+    \evalto[\G,\D]
+    {\substs{\C_2}{\T/\X, \cont'/\K}}
+    {\inhabit{\D'}{\e'}{\cont''}}
+  }
+  { \evalto
+    {\withhandle{\h}{\C}}
+    {\inhabit{(\D,\D')}{\e'}{\cont''}}
   }
 \end{mathpar}
 
@@ -538,7 +555,7 @@ I don't think these rules are right. As far as I can tell,
   handle
      lambda x:void. [inhabit void]
   with
-     [inhabit void K] -> let Z = <x:void> in K[Z]
+     [inhabit void K] -> let Z = debruijn 0 in K[Z]
 \end{verbatim}
 is legal and evaluates to \verb|< lambda x:void.x  :  void->void >|. On the other hand,
 \begin{verbatim}
@@ -579,6 +596,8 @@ continuation), not the well-formedness of intermediate operations with their con
 It's not completely obvious how to get equivalent behavior in the above system.
 Maybe we just say that \emph{every} operation result is ``ok,'' and only require
 expression results to be well-formed in the handler context?
+
+The question then is what it means for a TT \emph{function} to be well-formed\ldots
 
 \section{Operational semantics with a Stack of Handlers}
 \label{sec:oper-semant-stack}
