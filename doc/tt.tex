@@ -5,6 +5,8 @@
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{xcolor}
 
+\newtheorem{lemma}{Lemma}
+
 %%%%%% Macros here %%%%%%
 
 %contexts
@@ -168,14 +170,15 @@ Results:
   \end{aligned}
 \end{equation*}
 %
-Judgment:
+Judgments:
 %
 \begin{align*}
   &\evalto[\G]{C}{R} &&\text{$C$ evaluates to result $R$ in context $\G$} \\
   &\resultok[\G]{R}  &&\text{$R$ is a valid result in context $\G$} \\
   &\eok[\G]{\e} &&\text{$\e$ is a valid expression in context $\G$} \\
   &\cok[\G]{\C} &&\text{$\C$ is a valid computation in context $\G$} \\
-  &\kok[\G]{\D}{\K} &&\text{$\K$ is a valid continuation in context $\G$} \\
+  &\kok[\G]{\D}{\K} &&\text{$\K$ is a valid continuation in context $\G$,
+                              with its hole inside additional binders $\D$} \\
 \end{align*}
 %
 \paragraph{Control Flow}
@@ -576,8 +579,24 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   }
 
 \end{mathpar}
-\bigskip
 
+\begin{lemma}[Substitution]
+  \mbox{}
+  \begin{enumerate}
+    \item If $\cok{\C}$ and $\eok{\e}$ then $\cok{\subst{\C}{\X}{\e}}$.
+    \item If $\kok{\D}{\KK}$ and $\eok{\e}$ then $\kok{\D}{\subst{\KK}{\X}{\e}}$.
+  \end{enumerate}
+\end{lemma}
+
+\begin{lemma}[Continuation Invocation]
+  If $\kok{\D}{\KK}$ and $\eok[\G,\D]{\e}$ then $\cok{\KK[\hole:=\e]}$.
+\end{lemma}
+
+\begin{lemma}[Preservation]
+   If $\cok{\C}$ and $\evalto{\C}{\R}$ then $\resultok{\R}$.
+\end{lemma}
+
+\iffalse
 
 \section{Operational semantics with a Stack of Handlers}
 \label{sec:oper-semant-stack}
@@ -737,5 +756,6 @@ exactly $n$ lambdas with the given parameters.
 
 This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Brazil will think
 to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1 = \El{\gamma}{\B''_1}$ and $\T_3 = \El{\gamma}{\B''_3}$
+\fi % \iffalse
 
 \end{document}
