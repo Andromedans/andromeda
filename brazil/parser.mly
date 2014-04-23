@@ -61,7 +61,7 @@ commandline:
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
   | DEFINE x=NAME COLONEQ e=term                { Define (x, e) }
-  | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, (Ascribe(e,t), Position.nowhere)) }
+  | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, (Ascribe(e,t), snd e)) }
   | ASSUME xs=nonempty_list(NAME) COLON t=ty    { Assume (xs, t) }
 
 (* Toplevel directive. *)
