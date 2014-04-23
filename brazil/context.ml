@@ -126,19 +126,14 @@ let lookup_equation e1 e2 ctx =
     List.exists predicate ctx.hints
 
 let lookup_rewrite e1 ctx =
-  begin
-    let predicate = function
-      | Rewrite(term1, _) -> Syntax.equal e1 term1
-      | _ -> false  in
-    match List.filter predicate ctx.hints with
+  let rec search = function
     | [] -> None
-    | [Rewrite(_,term2)] -> Some term2
-    | Rewrite(_,term2) :: _ ->
-        begin
-          Print.warning "Choosing first of multiple rewrites for term";
-          Some term2
-        end
-    | Equation _ :: _ ->
-        Error.impossible "lookup_rewrite found an Equation after filtering"
-  end
+    | Rewrite (term1, term2) :: lst ->
+      if Syntax.equal e1 term1 then
+        Some term2
+      else
+        search lst
+    | Equation _ :: lst -> search lst
+  in
+    search ctx.hints
 

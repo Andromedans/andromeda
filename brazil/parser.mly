@@ -35,7 +35,7 @@
 %token IND_PATH
 %token UNDERSCORE
 %token DEFINE COLONEQ ASSUME
-%token CONTEXT HELP QUIT
+%token HINTS CONTEXT HELP QUIT
 %token EOF
 
 %start <Input.toplevel list> file

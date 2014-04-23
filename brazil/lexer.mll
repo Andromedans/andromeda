@@ -9,7 +9,7 @@
     ("define", DEFINE) ;
     ("equation", EQUATION) ;
     ("forall", FORALL) ;
-    ("fun", FUN);
+    ("fun", FUN) ;
     ("idpath", IDPATH) ;
     ("in", IN) ;
     ("J", IND_PATH);
