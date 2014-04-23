@@ -55,7 +55,7 @@
 \newcommand{\bterm}[2]{\langle\,#1\, :\, #2\,\rangle} % brazil (typed) term as data
 \newcommand{\bty}[1]{\langle\,#1\,\rangle} % brazil type as data
 
-\newcommand{\handler}[6][i]{\mathsf{handler}\; \val #2 \mapsto #3 \mid (\opPat{#4}{#5} \mapsto #6_{#1})_{#1}\;\mathsf{end}}
+\newcommand{\handler}[6][n]{\mathsf{handler}\; \val #2 \mapsto #3 \mid (\opPat{#4}{#5} \mapsto #6_{#1})_{i=1}^{#1}}
 
 \newcommand{\makeApp}[2]{\mathsf{app}(#1,#2)} % introduce a Brazil application
 
@@ -67,6 +67,14 @@
 \newcommand{\cont}[2][\G,\D]{\mathsf{cont}(#1,#2)}     % continuation
 \newcommand{\hfcont}{\hat{\cal K}}     % handler-free continuation
 \newcommand{\hole}{\diamond}
+\newcommand{\tuple}[1]{(#1)}
+\newcommand{\generictuple}[1][n]{\tuple{e_1,\ldots,\e_{#1}}}
+
+
+\newcommand{\pat}{P}
+\newcommand{\match}[2]{\mathsf{match}\; #1\; \mathsf{with}\;#2}
+\newcommand{\genericPats}[1][n]{(\pat_i \Rightarrow \C_i)_{i=1}^n}
+\newcommand{\genericmatch}[1][\e]{\match{#1}{\genericPats}}
 
 %%% Operational semantics
 
@@ -95,6 +103,7 @@
 \renewcommand{\S}{{\cal S}}
 \newcommand{\GS}{\Gamma; \S}
 \newcommand{\emptystack}{\bullet}
+
 
 %% Copied from brazil.tex
 \newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
@@ -131,6 +140,7 @@
     \bnfor  & \cont{\KK} & \text{Continuation value} \\
     \bnfor  & \bterm{\B}{\T}           & \text{Brazilian term} \\
     \bnfor  & \bty{\T}           & \text{Brazilian type} \\
+    \bnfor  & \generictuple   & \text{Tuple}\\
     \\
     \text{Computation $\C$}
       \bnf  & \val \e                & \text{Pure expression} \\
@@ -142,6 +152,7 @@
 %    \bnfor  & \new{\rgn}{\T} & \text{new variable} \\
     \bnfor  & \kapp{\e_1}{\e_2}   & \text{Invoke a continuation} \\
     \bnfor  & \ascribe{\e_1}{\e_2} & \text{Type ascription} \\
+    \bnfor  & \genericmatch& \text{Pattern-match}\\
     \bnfor  & \debruijn{n} & \text{Build Brazilian term: variable} \\
     \bnfor  & \lam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
     \bnfor  & \makeApp{\e_1}{\e_2} & \text{Build Brazilian term: application} \\
@@ -155,6 +166,9 @@
 
   \text{Handler $\h$}
   \bnf & \multicolumn{2}{l}{\typicalhandler}\\
+  \\
+  \text{Pattern $\pat$}
+  \bnf & \tuple{\X_1,\ldots,\X_n}\\
 \end{array}
 \end{equation*}
 
@@ -237,6 +251,16 @@ Judgments:
     {\kapp{\cont{\KK}}{\e}}
     {\R}
   }
+
+  \infer[eval-match]
+  {
+    P_j = \tuple{\X_1,\ldots,\X_m}\\
+    \evalto{\substs{\C_j}{\e_1/\X_1,\ldots,\e_m/\X_m}}{\R}
+  }
+  {
+    \evalto{\genericmatch[{\generictuple[m]}]}
+           {\R}
+  }
 \end{mathpar}
 
 \paragraph{Operations and Handlers}
@@ -257,7 +281,7 @@ Judgments:
     \evalto{\subst{\C_v}{\X}{\e}}{\R}
   }
   { \evalto
-    {\withhandle{(\typicalhandler)}{\C}}
+    {\withhandle{\bigl(\typicalhandler\bigr)}{\C}}
     {\R}
   }
 
@@ -402,13 +426,48 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \eok{\fun{\X} \C}
   }
 
+  \infer[ok-tuple]
+  {
+    \eok{\e_1} \\
+    \cdots \\
+    \eok{\e_n} \\
+  }
+  {
+    \eok{\generictuple}
+  }
+
   \infer[ok-handler]
   {
     \cok{\C_1} \\
     \cok{\C_2} \\
   }
   {
-    \eok{(\typicalhandler)}
+    \eok{\typicalhandler}
+  }
+
+\end{mathpar}
+
+
+
+\subsection*{Results}
+
+\begin{mathpar}
+
+  \infer[ok-result-val]
+  {
+    \eok{\e}
+  }
+  {
+    \resultok{\val{\e}}
+  }
+
+  \infer[ok-result-inhabit]
+  {
+    \istype{\G,\D}{\T} \\
+    \kok{\D}{\K} \\
+  }
+  {
+    \resultok{\opRes{\D}{\T}{\K}}
   }
 
 \end{mathpar}
@@ -519,6 +578,15 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \cok{\ascribe{\e_1}{\e_2}}
   }
 
+  \infer[ok-match]
+  {
+    \eok{\e}\\
+    \cok{\C_1} \\ \cdots\\ \cok{\C_n}
+  }
+  {
+    \cok{\genericmatch}
+  }
+
   \infer[ok-make-var]
   {
   }
@@ -555,29 +623,6 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
 \end{mathpar}
 
 
-
-\subsection*{Results}
-
-\begin{mathpar}
-
-  \infer[ok-result-val]
-  {
-    \eok{\e}
-  }
-  {
-    \resultok{\val{\e}}
-  }
-
-  \infer[ok-result-inhabit]
-  {
-    \istype{\G,\D}{\T} \\
-    \kok{\D}{\K} \\
-  }
-  {
-    \resultok{\opRes{\D}{\T}{\K}}
-  }
-
-\end{mathpar}
 
 \begin{lemma}[Substitution]
   \mbox{}
