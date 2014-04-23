@@ -30,6 +30,8 @@ let leq u v =
     | (Fibered k | NonFibered k), (Fibered m | NonFibered m) ->
       k < m || (k = m && is_fibered u)
 
+let eq u v = (u = v)
+
 let succ = function
   | Fibered k -> Fibered (k + 1)
   | NonFibered k -> Fibered (k + 1)

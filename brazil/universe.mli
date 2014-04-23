@@ -11,6 +11,8 @@ val zero : t
 
 val leq : t -> t -> bool
 
+val eq : t -> t -> bool
+
 val is_fibered : t -> bool
 
 (** The level of at which [Universe a] lives. *)

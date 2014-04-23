@@ -2,12 +2,27 @@
 (* Helper Functions *)
 (********************)
 
-
 let print_ty ctx ty =
   Print.ty (Context.names ctx) ty
 
 let print_term ctx term =
   Print.term (Context.names ctx) term
+
+let print_universe = Print.universe
+
+(***********************)
+(* Universe operations *)
+(***********************)
+
+let leq_universe (alpha, _) (beta, _) = Universe.leq alpha beta
+
+let equiv_universe (alpha, _) (beta, _) = Universe.eq alpha beta
+
+let max_universe (alpha, loc) (beta, _) = (Universe.max alpha beta, loc)
+
+let succ_universe (alpha, loc) = (Universe.succ alpha, loc)
+
+let is_fibered_universe (alpha, _) = Universe.is_fibered alpha
 
 
 (*************************)
@@ -102,13 +117,13 @@ and whnf ctx1 ((term',loc) as term) =
 
         (* norm-coerce-trivial *)
         | Syntax.Coerce(alpha1, alpha2, e)
-            when alpha1 = alpha2 ->
+            when equiv_universe alpha1 alpha2 ->
             Some (ctx1, e)
 
         (* norm-coerce-trans *)
         | Syntax.Coerce(beta1, gamma,
                         (Syntax.Coerce(alpha, beta2, e), _))
-            when beta1 = beta2 ->
+            when equiv_universe beta1 beta2 ->
             Some (ctx1, e)
 
         (* norm-app *)
@@ -181,8 +196,8 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
         true
 
     (* chk-tyeq-el *)
-    | Syntax.El(((alpha',_) as alpha), e1), Syntax.El((beta',_), e2) ->
-        alpha' = beta' && equiv ctx e1 e2 (Syntax.Universe alpha, uloc)
+    | Syntax.El(alpha, e1), Syntax.El(beta, e2) ->
+        equiv_universe alpha beta && equiv ctx e1 e2 (Syntax.Universe alpha, uloc)
 
     (* chk-tyeq-prod *)
     | Syntax.Prod(x, t1, t2), Syntax.Prod(_, u1, u2) ->
@@ -348,35 +363,35 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
 
     (* chk-eq-whnf-prod *)
     | Syntax.NameProd(alpha, beta, x, e1, e2), Syntax.NameProd(alpha', beta', _, e1', e2') ->
-        alpha = alpha' && beta = beta'
+        equiv_universe alpha alpha' && equiv_universe beta beta'
         && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
         && equiv (Context.add_var x (Syntax.El(alpha,e1), Position.nowhere) ctx)
                  e2 e2' (Syntax.Universe beta, Position.nowhere)
 
     (* chk-eq-whnf-universe *)
     | Syntax.NameUniverse alpha, Syntax.NameUniverse beta ->
-        alpha = beta
+        equiv_universe alpha beta
 
     (* chk-eq-whnf-unit *)              (** Subsumed by reflexivity check! *)
     (*| Syntax.NameUnit, Syntax.NameUnit -> true *)
 
     (* chk-eq-whnf-paths *)
     | Syntax.NamePaths(alpha, e1, e2, e3), Syntax.NamePaths(alpha', e1', e2', e3') ->
-        alpha = alpha'
+        equiv_universe alpha alpha'
         && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
         && equiv ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
         && equiv ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
 
     (* chk-eq-whnf-id *)
     | Syntax.NameId(alpha, e1, e2, e3), Syntax.NameId(alpha', e1', e2', e3') ->
-        alpha = alpha'
+        equiv_universe alpha alpha'
         && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
         && equiv ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
         && equiv ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
 
     (* chk-eq-whnf-coerce *)
     | Syntax.Coerce(alpha, _beta, e1), Syntax.Coerce(alpha', _beta', e1') ->
-        alpha = alpha'
+        equiv_universe alpha alpha'
         && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
 
     (* chk-eq-whnf-abs *)
@@ -543,26 +558,26 @@ let rec syn_term ctx ((term', loc) as term) =
 
 
   (* syn-name-universe *)
-  | Input.NameUniverse ((alpha', _) as alpha) ->
-     let beta' = Universe.succ alpha'  in
+  | Input.NameUniverse alpha ->
+     let beta = succ_universe alpha  in
      (Syntax.NameUniverse alpha, loc),
-     (Syntax.Universe (beta', Position.nowhere), loc)
+     (Syntax.Universe beta, loc)
 
   (* syn-name-prod *)
   | Input.NameProd(x,e1,e2) ->
       begin
         let e1, t1 = syn_term ctx e1  in
         match whnfs_ty ctx t1 with
-        | Syntax.Universe ((alpha',_) as alpha), _ ->
+        | Syntax.Universe alpha, _ ->
             begin
               let ctx' = Context.add_var
                                x (Syntax.El (alpha, e1), Position.nowhere) ctx in
               let e2, t2 = syn_term ctx' e2  in
               match whnfs_ty ctx' t2 with
-              | Syntax.Universe ((beta',_) as beta), _ ->
-                  let gamma' = Universe.max alpha' beta'  in
-                  ((Syntax.NameProd(alpha,beta, x, e1, e2), loc),
-                   (Syntax.Universe(gamma', Position.nowhere), loc))
+              | Syntax.Universe beta, _ ->
+                  let gamma = max_universe alpha beta  in
+                  ((Syntax.NameProd(alpha, beta, x, e1, e2), loc),
+                   (Syntax.Universe gamma, loc))
               | t2' ->
                   Error.typing ~loc "Expected Pi/Arrow codomain@ %t@;<1 -2>to belong to a universe, but it has type@ %t"
                      (print_term ctx e2)
@@ -575,19 +590,19 @@ let rec syn_term ctx ((term', loc) as term) =
       end
 
   (* syn-name-coerce *)
-  | Input.Coerce(((beta',_) as beta), e) ->
+  | Input.Coerce(beta, e) ->
       begin
         let e, t = syn_term ctx e  in
         match whnfs_ty ctx t with
-        | Syntax.Universe ((alpha',_) as alpha), _ ->
-            if Universe.leq alpha' beta' then
+        | Syntax.Universe alpha, _ ->
+            if leq_universe alpha beta then
               ((Syntax.Coerce(alpha, beta, e), loc),
                (Syntax.Universe beta, loc))
             else
-              Error.typing ~loc "Term %t@;<1 -2>in universe@ %s@ cannot be coerced to universe %s"
+              Error.typing ~loc "Term %t@;<1 -2>in universe@ %t@ cannot be coerced to universe %t"
                  (print_term ctx e)
-                 (Universe.to_string alpha')
-                 (Universe.to_string beta')
+                 (print_universe alpha)
+                 (print_universe beta)
         | t' ->
             Error.typing ~loc "Expected coerced term@ %t@;<1 -2>to belong to a universe, but it has type@ %t"
                (print_term ctx e)
@@ -602,8 +617,8 @@ let rec syn_term ctx ((term', loc) as term) =
         | None -> Error.typing ~loc "could not derive a name for type@ %t,@ the type of %t"
                          (print_ty ctx t2)
                          (print_term ctx e2)
-        | Some (e1, ((alpha',_) as alpha)) ->
-            if (Universe.is_fibered alpha') then
+        | Some (e1, alpha) ->
+            if (is_fibered_universe alpha) then
               let e3 = chk_term ctx e3 t2 in
               ((Syntax.NamePaths(alpha, e1, e2, e3), loc),
                (Syntax.Universe alpha, loc))
