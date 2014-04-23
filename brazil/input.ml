@@ -46,7 +46,8 @@ and toplevel' =
   | Context (* #context *)
   | Assume of name list * name ty (* assume x1 ... xn : t *)
   | Define of name * name term (* define x := e *)
-
+  | TopRewrite of name term (* rewrite e *)
+  | TopEquation of name term (* equation e *)
 
 let paren tag strings = tag ^ "(" ^ String.concat "," strings ^ ")"
 

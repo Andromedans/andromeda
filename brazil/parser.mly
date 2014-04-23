@@ -63,6 +63,8 @@ plain_topdef:
   | DEFINE x=NAME COLONEQ e=term                { Define (x, e) }
   | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, (Ascribe(e,t), snd e)) }
   | ASSUME xs=nonempty_list(NAME) COLON t=ty    { Assume (xs, t) }
+  | REWRITE e=term                              { TopRewrite e }
+  | EQUATION e=term                             { TopEquation e }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
