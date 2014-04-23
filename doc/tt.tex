@@ -1,0 +1,766 @@
+\documentclass{article}
+
+\usepackage{times}
+\usepackage{mathpartir}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{xcolor}
+
+%%%%%% Macros here %%%%%%
+
+%contexts
+%
+\newcommand{\emptyG}{\bullet} % empty context
+\newcommand{\G}{\Gamma}
+\newcommand{\D}{\Delta}
+\newcommand{\emptyH}{\circ} % empty handlers
+
+%% Syntax
+\newcommand{\bnf}{\mathrel{{:}{:}{=}}}
+\newcommand{\bnfor}{|}
+
+\newcommand{\x}{x}     % brazil variable
+\newcommand{\y}{y}     % another variable
+\newcommand{\z}{z}     % another variable
+\newcommand{\C}{C}     % computation
+\newcommand{\K}{K}     % continuation variable
+\newcommand{\X}{X}     % TT (computation) variable
+\newcommand{\e}{e}     % expression
+\newcommand{\rgn}{r}   % region
+\newcommand{\h}{h}     % handler
+\newcommand{\T}{T}     % type
+\newcommand{\U}{U}     % another type
+\newcommand{\B}{B}     % Brazil term
+\newcommand{\R}{R}     % Result
+\newcommand{\KK}{{\cal K}} % continuation term with hole
+
+
+\newcommand{\val}{\mathsf{val}\,} % val e
+\newcommand{\letin}[1]{\mathsf{let}\; #1 \;\mathsf{in}\;} % let x = c1 in c2
+\newcommand{\op}[3]{\mathsf{op}_{#1}(#2, #3)} % operation
+\newcommand{\inhabitPat}[2]{\mathsf{inhabit}(#1, #2)} % the inhabit pattern
+\newcommand{\inhabitOp}[1]{\mathsf{inhabit}\,#1} % the inhabit operation
+\newcommand{\inhabit}[3]{\mathsf{inhabit}(#1, #2, #3)} % the inhabit result
+\newcommand{\withhandle}[1]{\mathsf{with}\;#1\;\mathsf{handle}\;} % handle
+\newcommand{\abs}[1]{\mathsf{abs}\;#1\;\mathsf{in}\;} % abstraction
+\newcommand{\new}[2]{\mathsf{new}(#1,#2)} % new(r,T)
+\newcommand{\fun}[1]{\mathsf{fun}\;#1\Rightarrow} % tt-level function
+\newcommand{\app}[2]{#1\,#2} % application
+\newcommand{\lam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
+\newcommand{\kapp}[2]{#1{}[#2]} % continuation application
+\newcommand{\bterm}[2]{\langle\,#1\, :\, #2\,\rangle} % brazil (typed) term as data
+\newcommand{\bty}[1]{\langle\,#1\,\rangle} % brazil type as data
+
+\newcommand{\handler}[5]{\mathsf{handler}\; \val #1 \mapsto #2 \mid \inhabitPat{#3}{#4} \mapsto #5}
+
+\newcommand{\makeApp}[2]{\mathsf{app}(#1,#2)} % introduce a Brazil application
+
+\newcommand{\debruijn}[1]{\mathsf{debruijn}\,#1} % ugly hack
+
+\newcommand{\subst}[3]{#1[#3/#2]} % substitution
+\newcommand{\substs}[2]{#1[#2]} % substitution of many things
+
+\newcommand{\cont}[2][\G,\D]{\mathsf{cont}(#1,#2)}     % continuation
+\newcommand{\hfcont}{\hat{\cal K}}     % handler-free continuation
+\newcommand{\hole}{\diamond}
+
+%%% Operational semantics
+
+\newcommand{\xcT}{\vec{\x}{:}\vec{\T}}
+\newcommand{\xT}{{\vec{\x}}{\vec{\T}}}
+\renewcommand{\H}{\mathcal{H}} % A stack of handlers
+\newcommand{\GH}{\G, \H} % combined context & handler
+
+\newcommand{\ctxempty}{\bullet}
+\newcommand{\ctxextend}[3][\G]{#1, #2 {:} #3}
+
+\newcommand{\evalto}[3][\G]{#1 \vdash #2 \ \Downarrow\  #3}
+
+\newcommand{\resultok}[2][\G]{#1 \vdash #2 \ \mathsf{ok}}
+\newcommand{\eok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
+\newcommand{\cok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
+\newcommand{\kok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
+
+\newcommand{\istype}[2]{#1 \vdash #2\;\mathsf{type}} % well formed type
+\newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
+
+\newcommand{\typeOf}{\mathsf{typeOf}\,}
+
+\newcommand{\typicalhandler}{\handler{\X}{\C_1}{\X}{\K}{\C_2}}
+
+\renewcommand{\S}{{\cal S}}
+\newcommand{\GS}{\Gamma; \S}
+\newcommand{\emptystack}{\bullet}
+
+%% Copied from brazil.tex
+\newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
+\newcommand{\brazilapp}[5]{#1\mathbin{@^{#2{:}#3.#4}} #5} % application
+\newcommand{\equationin}[3]{\mathsf{equation}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use equation hint
+\newcommand{\rewritein}[3]{\mathsf{rewrite}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use rewrite hint
+\newcommand{\piClose}[2]{\mathsf{max}(#1,#2)}   % the universe containing a pi with given domain and codomain
+\newcommand{\uClose}[1]{\mathsf{succ}(#1)}  % the universe containing the given universe's name.
+\newcommand{\Universe}[1]{\mathbb{U}_{#1}}
+\newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
+\newcommand{\coerce}[3]{\mathsf{coerce}^{#1{\mapsto}#2} \, #3}
+\newcommand{\El}[2]{\mathsf{El}^{#1}\, #2} % the type named by the term
+\newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
+
+
+
+
+
+\begin{document}
+
+\title{TT}
+\author{Andrej Bauer \and Matija Pretnar \and Christopher A. Stone}
+\maketitle
+
+\section{Abstract syntax}
+\label{sec:abstract-syntax}
+
+\begin{equation*}
+  \begin{array}{rl@{\qquad}l}
+  \text{Expression $\e$}
+    \bnf    & \X          & \text{Variable} \\
+    \bnfor  & \fun{\X} \C  & \text{Function} \\
+    \bnfor  & h           & \text{Handler} \\
+    \bnfor  & \cont{\KK} & \text{Continuation value} \\
+    \bnfor  & \bterm{\B}{\T}           & \text{Brazilian term} \\
+    \bnfor  & \bty{\T}           & \text{Brazilian type} \\
+    \\
+    \text{Computation $\C$}
+      \bnf  & \val \e                & \text{Pure expression} \\
+    \bnfor  & \app{\e_1}{\e_2}   & \text{Application} \\
+    \bnfor  & \letin{\X = \C_1} \C_2  & \text{$\mathsf{let}$-binding} \\
+    \bnfor  & \inhabitOp{\e} & \text{The inhabitation operation} \\
+    \bnfor  & \withhandle{\e} \C & \text{Handling} \\
+%    \bnfor  & \abs{\rgn}{\C} & \text{abstraction} \\
+%    \bnfor  & \new{\rgn}{\T} & \text{new variable} \\
+    \bnfor  & \kapp{\K}{\e_2}   & \text{Invoke a continuation variable} \\
+    \bnfor  & \ascribe{\e_1}{\e_2} & \text{Type ascription} \\
+    \bnfor  & \debruijn{n} & \text{Build Brazilian term: variable} \\
+    \bnfor  & \lam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
+    \bnfor  & \makeApp{\e_1}{\e_2} & \text{Build Brazilian term: application} \\
+    \\
+    \text{Continuation $\KK$} \bnf    & \hole                & \text{Hole} \\
+    \bnfor  & \letin{\X = \KK} \C_2  & \text{$\mathsf{let}$-binding} \\
+    \bnfor  & \withhandle{\e} \KK & \text{Handling} \\
+    \bnfor  & \lam{\x}{\T}{\KK} & \text{Abstraction} \\
+%    \bnfor  & \abs{\rgn}{\KK} & \text{abstraction} \\
+    \\
+
+  \text{Handler $\h$}
+  \bnf & \multicolumn{2}{l}{(\typicalhandler)}\\
+\end{array}
+\end{equation*}
+
+
+
+\section{Operational semantics}
+\label{sec:oper-semant}
+
+Results:
+%
+\begin{equation*}
+  \text{Result $R$}
+  \begin{aligned}[t]
+    &\bnf   {} && \val \e \\
+    &\bnfor {} && \inhabit{\D}{\T}{\KK} \\
+  \end{aligned}
+\end{equation*}
+%
+Judgment:
+%
+\begin{align*}
+  &\evalto[\G]{C}{R} &&\text{$C$ evaluates to result $R$ in context $\G$} \\
+  &\resultok[\G]{R}  &&\text{$R$ is a valid result in context $\G$} \\
+  &\eok[\G]{\e} &&\text{$\e$ is a valid expression in context $\G$} \\
+  &\cok[\G]{\C} &&\text{$\C$ is a valid computation in context $\G$} \\
+  &\kok[\G]{\K} &&\text{$\K$ is a valid continuation in context $\G$} \\
+\end{align*}
+%
+\paragraph{Control Flow}
+\begin{mathpar}
+
+  \infer[eval-val]
+  { }
+  { \evalto{\val \e}{\val \e}}
+
+  \infer[eval-ascribe]
+  {
+  }
+  {
+    \evalto{(\ascribe{\bterm{\B}{\T}}{\T})}{\val \bterm{\B}{\T}}
+  }
+
+  \infer[eval-app]
+  {
+    \evalto{\subst{\C}{\X}{\e}}{R}
+  }
+  { \evalto
+    {\app{(\fun{\X}{\C})}{\e}}
+    {R}
+  }
+
+  \infer[eval-let-val]
+  {
+    \evalto{\C_1}{\val \e}
+    \\
+    \evalto{\subst{\C_2}{\X}{\e}}{R}
+  }
+  { \evalto
+    {\letin{\X = \C_1} \C_2}
+    {R}
+  }
+
+  \infer[eval-let-op]
+  {
+    \evalto
+    {\C_1}
+    {\inhabit{\D}{\T}{\KK}}
+  }
+  { \evalto
+    {\letin{\X = \C_1} \C_2}
+    {\inhabit{\D}{\T}{\letin{\X = \KK} \C_2}}
+  }
+
+  \infer[eval-kapp]
+  {
+    \evalto[\G,\D]{\KK[\hole:=\e]}{\R}
+  }
+  { \evalto[\G,\D]
+    {\kapp{\cont{\KK}}{\e}}
+    {\R}
+  }
+\end{mathpar}
+
+\paragraph{Operations and Handlers}
+\begin{mathpar}
+  \infer[eval-inhabit]
+  {
+  }
+  {
+    \evalto
+    {\inhabitOp{\T}}
+    {\inhabit{\ctxempty}{\T}{\hole}}
+  }
+
+  \infer[eval-handle-val]
+  {
+    \evalto{\C}{\val \e}
+    \\
+    \evalto{\subst{\C_1}{\X}{\e}}{\R}
+  }
+  { \evalto
+    {\withhandle{(\typicalhandler)}{\C}}
+    {\R}
+  }
+
+  \infer[eval-handle-op-val]
+  {
+    \h = \typicalhandler
+    \\\\
+    \evalto{\C}{\inhabit{\D}{\T}{\KK_1}}
+    \\\\
+    \KK_2 = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\KK_1}{\X''}}}\bigr)\\
+    \\\\
+    \evalto[\G,\D]
+    {\substs{\C_2}{\T/\X, \cont{\KK_2}/\K}}
+    {\val \e}
+    \\\\
+    \eok{\e}
+  }
+  { \evalto
+    {\withhandle{\h}{\C}}
+    {\val \e}
+  }
+
+  \infer[eval-handle-op-op]
+  {
+    \h = \typicalhandler
+    \\\\
+    \evalto{\C}{\inhabit{\D}{\T}{\KK_1}}
+    \\\\
+    \KK_2 = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\KK_1}{\X''}}}\bigr)\\
+    \\\\
+    \evalto[\G,\D]
+    {\substs{\C_2}{\T/\X, \cont{\KK_2}/\K}}
+    {\inhabit{\D'}{\e'}{\KK_3}}
+  }
+  { \evalto
+    {\withhandle{\h}{\C}}
+    {\inhabit{(\D,\D')}{\e'}{\KK_3}}
+  }
+\end{mathpar}
+
+\paragraph{Computations that build Brazil terms}
+\begin{mathpar}
+  \infer[eval-make-var]
+  {
+    \G = x_{m{-}1}{:}\T_{m{-}1}\ldots,x_0{:}T_0\\
+    n < m\\
+  }
+  {
+    \evalto
+    {\debruijn{n}}
+    {\x_n}
+  }
+
+  \infer[eval-make-lambda-val]
+  {
+    \evalto[\ctxextend{\x}{\T}]
+    {\C}
+    {\val B}
+  }
+  { \evalto
+    {\lam{\x}{\T} \C}
+    {\val (\lam{\x}{\T} B)}
+  }
+
+  \infer[eval-make-lambda-op]
+  {
+    \evalto[\ctxextend{\x}{\T}]
+    {\C}
+    {\inhabit{\D}{\U}{\KK}}
+  }
+  { \evalto
+    {\lam{\x}{\T} \C}
+    {\inhabit{(\x{:}\T,\Delta)}{\U}{\lam{\x}{\T}{\KK}}}
+  }
+
+  \\
+
+  \infer[eval-make-app]
+  {
+    \mathsf{nameOf}(\T_1) = B'_1 : \Universe{\alpha}\\
+    \mathsf{nameOf}(\T_3) = B'_3 : \Universe{\beta}\\
+    \\\\
+    \gamma = \piClose{\alpha}{\beta}\\
+    \gamma' = \uClose{\gamma}\\
+    \\\\
+    \B''_1 = \coerce{\alpha}{\gamma}{\B'_1}\\
+    \B''_3 = \coerce{\beta}{\gamma}{\B'_3}\\
+    \\\\
+    \evalto
+      {\bigl(\letin{\X = \inhabitOp{\bty{\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3}}}}
+         {\val (\equationin{\X}{\B''_1}{\B''_3}{(\brazilapp{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
+      {R}
+  }
+  { \evalto
+      {\makeApp{\bterm{B_1}{\Prod{\x}{\T_1}{\T_2}}}{\bterm{B_2}{\T_3}}}
+      {R}
+  }
+\end{mathpar}
+
+This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Brazil will think
+to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1 = \El{\gamma}{\B''_1}$ and $\T_3 = \El{\gamma}{\B''_3}$
+
+\section{Well-Formedness}
+
+\subsection*{Expressions}
+
+\begin{mathpar}
+
+  \infer[ok-brazil-term]
+  {
+    \isterm{\G}{\B}{\T}
+  }
+  {
+    \eok{\bterm{\B}{\T}}
+  }
+
+
+  \infer[ok-brazil-type]
+  {
+    \istype{\G}{\T}
+  }
+  {
+    \eok{\bty{\T}}
+  }
+
+  \infer[ok-var]
+  {
+  }
+  {
+    \eok{\X}
+  }
+
+  \infer[ok-fun]
+  {
+    \cok{\C}
+  }
+  {
+    \eok{\fun{\X} \C}
+  }
+
+  \infer[ok-handler]
+  {
+    \cok{\C_1} \\
+    \cok{\C_2} \\
+  }
+  {
+    \eok{(\typicalhandler)}
+  }
+\end{mathpar}
+
+\iffalse
+\subsection*{Continuations}
+
+\begin{mathpar}
+
+  \infer[ok-hole]
+  {
+  }
+  {
+    \kok{\hole}
+  }
+
+  \infer[ok-let-cont]
+  {
+    \kok{\K_1} \\
+    \cok{\C_2} \\
+  }
+  {
+    \kok{(\letin{\X = \K_1} \C_2)}
+  }
+
+  \\
+
+  \infer[ok-handle-cont]
+  {
+    \eok{\e_1} \\
+    \kok{\K_2} \\
+  }
+  {
+    \kok{(\withhandle{\e_1} \K_2)}
+  }
+
+  \infer[ok-lam-cont]
+  {
+    \kok[\ctxextend{\x}{\T_1}]{\K_2}
+  }
+  {
+    \kok{(\lam{\x}{\T_1} \K_2)}
+  }
+\end{mathpar}
+
+\subsection*{Computations}
+
+\begin{mathpar}
+
+  \infer[ok-val]
+  {
+    \eok{\e}
+  }
+  {
+    \cok{\val{\e}}
+  }
+
+  \infer[ok-app]
+  {
+    \eok{\e_1} \\
+    \eok{\e_2} \\
+  }
+  {
+    \cok{\app{\e_1}{\e_2}}
+  }
+
+  \infer[ok-let]
+  {
+    \cok{\C_1} \\
+    \cok{\C_2} \\
+  }
+  {
+    \cok{(\letin{\X = \C_1} \C_2)}
+  }
+
+  \infer[ok-inhabit]
+  {
+    \eok{\e} \\
+  }
+  {
+    \cok{\inhabitOp{\e}}
+  }
+
+
+  \infer[ok-handle]
+  {
+    \eok{\e_1} \\
+    \cok{\C_1} \\
+  }
+  {
+    \cok{(\withhandle{\e_1} \C_2)}
+  }
+
+  \infer[ok-cont-app]
+  {
+    \eok{\e_2}
+  }
+  {
+    \cok{\kapp{\K_1}{\e_2}}
+  }
+
+  \\
+
+  \infer[ok-make-var]
+  {
+  }
+  {
+    \cok{(\debruijn{n})}
+  }
+
+  \infer[ok-make-lam]
+  {
+    \eok{\e_1} \\
+    \cok{\C_2} \\
+  }
+  {
+    \cok{(\lam{\x}{\e_1} \C_2)}
+  }
+
+  \infer[ok-make-app]
+  {
+    \eok{\e_1} \\
+    \eok{\e_2} \\
+  }
+  {
+    \cok{\makeApp{\e_1}{\e_2}}
+  }
+
+\end{mathpar}
+
+
+
+\subsection*{Results}
+
+\begin{mathpar}
+
+  \infer[ok-result-val]
+  {
+    \eok{\e}
+  }
+  {
+    \resultok{\val{\e}}
+  }
+
+  \infer[ok-result-inhabit]
+  {
+    \eok[\G,\D]{\T} \\
+    \kok{\K} \\
+  }
+  {
+    \resultok{\inhabit{\D}{\T}{\K}}
+  }
+
+\end{mathpar}
+\bigskip
+
+I don't think these rules are right. As far as I can tell,
+\begin{verbatim}
+  handle
+     lambda x:void. [inhabit void]
+  with
+     [inhabit void K] -> let Z = debruijn 0 in K[Z]
+\end{verbatim}
+is legal and evaluates to \verb|< lambda x:void.x  :  void->void >|. On the other hand,
+\begin{verbatim}
+  handle
+    handle
+      lambda x:void. [inhabit void]
+    with
+      [inhabit void K] -> let Y = [inhabit int] in let Z = <x:void> in K[Z]
+  with
+    [inhabit int K] -> K 0
+\end{verbatim}
+does not seem to be legal under our well-formedness rules, because the inner handler evaluates to the result
+\begin{verbatim}
+  inhabit(-, int, let Y = [] in let Z = <x:void> in lambda x:void. Z)
+\end{verbatim}
+and this continuation refers to the variable \verb|x|. It's true that this variable
+is in scope only during the execution of the inner handler, but the continuation of the
+outer handler returns back to the inner handler, where referring to \verb|x| is
+perfectly legal.
+
+In comparison,
+\begin{verbatim}
+  handle
+    handle
+      lambda x:void. [inhabit void]
+    with
+      [inhabit void K] -> let Y = [inhabit int] in let Z = <x:void> in Z
+  with
+    [inhabit int K] -> K 0
+\end{verbatim}
+(where the inner handler does not call its continuation) should result in a run-time error somewhere,
+preventing the code from constructing the ill-formed Brazil term \verb|x|.
+
+The following stack-of-handlers system seems to solve the problem by checking for well-formedness only
+on the \emph{final} return value of the handler (whether or not the handler calls its
+continuation), not the well-formedness of intermediate operations with their continuations.
+
+It's not completely obvious how to get equivalent behavior in the above system.
+Maybe we just say that \emph{every} operation result is ``ok,'' and only require
+expression results to be well-formed in the handler context?
+
+The question then is what it means for a TT \emph{function} to be well-formed\ldots
+\fi
+
+\section{Operational semantics with a Stack of Handlers}
+\label{sec:oper-semant-stack}
+
+\paragraph{Syntax}
+
+\begin{equation*}
+  \begin{array}{rll}
+  \text{Handler-Free Continuation $\hfcont$}  \bnf   {} & \hole                & \text{hole} \\
+    \bnfor {} & \letin{\X = \hfcont_1} \C_2  & \text{$\mathsf{let}$-binding} \\
+    %&\bnfor {} && \withhandle{\e} \KK && \text{handling} \\
+%   \bnfor {} & \abs{\rgn}{\KK} & \text{abstraction} \\
+    \bnfor {} & \lam{\x}{\T} \hfcont   & \text{$\lambda$-abstraction} \\
+    \\
+  \text{Continuation $\KK$}  \bnf   {} & \hole                & \text{hole} \\
+    \bnfor {} & \letin{\X = \KK_1} \C_2  & \text{$\mathsf{let}$-binding} \\
+    \bnfor {} & \withhandle{\e} \KK & \text{handling} \\
+%   \bnfor {} & \abs{\rgn}{\KK} & \text{abstraction} \\
+    \bnfor {} & \lam{\x}{\T} \KK   & \text{$\lambda$-abstraction} \\[10pt]
+  \end{array}
+\end{equation*}
+%
+We write $\hfcont_\D$ where $\D = {\x_1{:}\T_1,\ldots,x_n{:}T_n}$ to denote that the hole $\hole$ in $\hfcont$ is inside
+exactly $n$ lambdas with the given parameters.
+
+\begin{equation*}
+  \text{Stack of Handlers $\S$}
+  \begin{aligned}[t]
+    &\bnf   {} && \emptystack                && \text{empty stack} \\
+    &\bnfor {} && \S,\h                      && \text{Stack $\S$ with pushed handler $\h$} \\
+  \end{aligned}
+\end{equation*}
+%
+
+
+\paragraph{Judgement}
+
+\begin{align*}
+  &\evalto[\GS]{C}{\e} &&\text{$C$ evaluates to $e$ in context $\G$} \\
+\end{align*}
+%
+\paragraph{Control Flow}
+\begin{mathpar}
+
+  \infer[eval-val]
+  { }
+  { \evalto[\G;\emptystack]{\val \e}{\e}}
+
+  \infer[eval-ascribe]
+  {
+  }
+  {
+    \evalto{(\ascribe{\bterm{\B}{\T}}{\T})}{\bterm{\B}{\T}}
+  }
+
+  \infer[eval-val]
+  { \h = \typicalhandler \\
+    \evalto[\GS]{\subst{\C_1}{\X}{\e_1}}{\e}}
+  { \evalto[\G;(\S,\h)]{\val \e_1}{\e}}
+
+  \infer[eval-app]
+  {
+    \evalto[\GS]{\subst{\C}{\X}{\e_1}}{\e}
+  }
+  { \evalto[\GS]
+    {\app{(\fun{\X}{\C})}{\e_1}}
+    {\e}
+  }
+
+  \infer[eval-let-val]
+  {
+    \evalto[\GS]{\C_1}{\e_1}
+    \\
+    \evalto[\GS]{\subst{\C_2}{\X}{\e_1}}{\e}
+  }
+  { \evalto[\GS]
+    {\letin{\X = \C_1} \C_2}
+    {\e}
+  }
+
+
+\end{mathpar}
+
+\paragraph{Operations and Handlers}
+\begin{mathpar}
+  \infer[eval-inhabit]
+  {
+    \h = \typicalhandler\\
+    \KK_2 = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\hfcont_\D}{\X''}}}\bigr)\\
+    \evalto[(\G,\D);\S]{\substs{\C_2}{\T/\X, \cont{\KK_2}/\K}}{\e}\\
+    \eok[\G]{\e}
+  }
+  {
+    \evalto[\G;(\S,\h)]
+    {{\hfcont_\D}[\inhabitOp{\bty{\T}}]}
+    {\e}
+  }
+
+  \infer[eval-handle]
+  {
+    \evalto[\G;(S,\h)]{\C}{\e}
+  }
+  { \evalto[\GS]
+    {\withhandle{\h}{\C}}
+    {\e}
+  }
+
+\end{mathpar}
+
+\paragraph{Computations that build Brazil terms}
+
+
+\begin{mathpar}
+  \infer[eval-make-var]
+  {
+    \G = x_{m{-}1}{:}\T_{m{-}1}\ldots,x_0{:}T_0\\
+    n < m\\
+  }
+  {
+    \evalto[\GS]
+    {\debruijn{n}}
+    {\bterm{\x_n}{\T_n}}
+  }
+
+  \infer[eval-make-lambda-val]
+  {
+    \evalto[(\ctxextend{\x}{\T});\S]
+    {\C}
+    {\bterm{\B}{\U}}
+  }
+  { \evalto[\GS]
+    {\lam{\x}{\T} \C}
+    {\bterm{\lam{\x}{\T} \B}{\Prod{\x}{\T}{\U}}}
+  }
+
+  \infer[eval-make-app]
+  {
+    \mathsf{nameOf}(\T_1) = B'_1 : \Universe{\alpha}\\
+    \mathsf{nameOf}(\T_3) = B'_3 : \Universe{\beta}\\
+    \\\\
+    \gamma = \piClose{\alpha}{\beta}\\
+    \gamma' = \uClose{\gamma}\\
+    \\\\
+    \B''_1 = \coerce{\alpha}{\gamma}{\B'_1}\\
+    \B''_3 = \coerce{\beta}{\gamma}{\B'_3}\\
+    \\\\
+    \evalto[\GS]
+      {\bigl(\letin{\X = \inhabitOp{\bty{\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3}}}}
+         {\val (\equationin{\X}{\B''_1}{\B''_3}{(\brazilapp{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
+      {\e}
+  }
+  { \evalto[\GS]
+      {\makeApp{\bterm{B_1}{\Prod{\x}{\T_1}{\T_2}}}{\bterm{B_2}{\T_3}}}
+      {\e}
+  }
+\end{mathpar}
+
+This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Brazil will think
+to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1 = \El{\gamma}{\B''_1}$ and $\T_3 = \El{\gamma}{\B''_3}$
+
+\end{document}
