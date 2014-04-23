@@ -316,7 +316,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
     | Syntax.App((x, t1, t2), e1, e2), Syntax.App((_, u1, u2), e1', e2') ->
         equiv_ty ctx t1 u1
         && equiv_ty (Context.add_var x t1 ctx) t2 u2
-        && equiv_whnf ctx e1 e2
+        && equiv_whnf ctx e1 e1'
         && equiv ctx e2 e2' t1
 
     (* chk-eq-whnf-idpath *)
