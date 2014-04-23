@@ -175,6 +175,7 @@
   \\
   \text{Pattern $\pat$}
   \bnf & \tuple{\X_1,\ldots,\X_n}\\
+  \bnfor & \c\\
 \end{array}
 \end{equation*}
 
@@ -250,13 +251,23 @@ Judgments:
     {\R}
   }
 
-  \infer[eval-match]
+  \infer[eval-match-tuple]
   {
     P_j = \tuple{\X_1,\ldots,\X_m}\\
     \evalto{\substs{\C_j}{\e_1/\X_1,\ldots,\e_m/\X_m}}{\R}
   }
   {
     \evalto{\genericmatch[{\generictuple[m]}]}
+           {\R}
+  }
+
+  \infer[eval-match-const]
+  {
+    P_j = \c\\
+    \evalto{\C_j}{\R}
+  }
+  {
+    \evalto{\genericmatch[\c]}
            {\R}
   }
 \end{mathpar}
