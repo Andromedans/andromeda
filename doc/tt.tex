@@ -41,7 +41,10 @@
 \newcommand{\op}[3]{\mathsf{op}_{#1}(#2, #3)} % operation
 \newcommand{\inhabitPat}[2]{\mathsf{inhabit}(#1, #2)} % the inhabit pattern
 \newcommand{\inhabitOp}[1]{\mathsf{inhabit}\,#1} % the inhabit operation
-\newcommand{\inhabit}[3]{\mathsf{inhabit}(#1, #2, #3)} % the inhabit result
+\newcommand{\inhabitRes}[3]{\mathsf{inhabit}(#1, #2, #3)} % the inhabit result
+\newcommand{\opPat}[3][i]{\mathsf{op}_{#1}(#2, #3)} % the operation pattern
+\newcommand{\opOp}[2][i]{\mathsf{op}_{#1}\,#2} % the operation operation
+\newcommand{\opRes}[4][i]{\mathsf{op}_{#1}(#2, #3, #4)} % the operation result
 \newcommand{\withhandle}[1]{\mathsf{with}\;#1\;\mathsf{handle}\;} % handle
 \newcommand{\abs}[1]{\mathsf{abs}\;#1\;\mathsf{in}\;} % abstraction
 \newcommand{\new}[2]{\mathsf{new}(#1,#2)} % new(r,T)
@@ -52,7 +55,7 @@
 \newcommand{\bterm}[2]{\langle\,#1\, :\, #2\,\rangle} % brazil (typed) term as data
 \newcommand{\bty}[1]{\langle\,#1\,\rangle} % brazil type as data
 
-\newcommand{\handler}[5]{\mathsf{handler}\; \val #1 \mapsto #2 \mid \inhabitPat{#3}{#4} \mapsto #5}
+\newcommand{\handler}[6][i]{\mathsf{handler}\; \val #2 \mapsto #3 \mid (\opPat{#4}{#5} \mapsto #6_{#1})_{#1}\;\mathsf{end}}
 
 \newcommand{\makeApp}[2]{\mathsf{app}(#1,#2)} % introduce a Brazil application
 
@@ -87,7 +90,7 @@
 
 \newcommand{\typeOf}{\mathsf{typeOf}\,}
 
-\newcommand{\typicalhandler}{\handler{\X}{\C_1}{\X}{\K}{\C_2}}
+\newcommand{\typicalhandler}{\handler{\X}{\C_v}{\X}{\K}{\C}}
 
 \renewcommand{\S}{{\cal S}}
 \newcommand{\GS}{\Gamma; \S}
@@ -133,7 +136,7 @@
       \bnf  & \val \e                & \text{Pure expression} \\
     \bnfor  & \app{\e_1}{\e_2}   & \text{Application} \\
     \bnfor  & \letin{\X = \C_1} \C_2  & \text{$\mathsf{let}$-binding} \\
-    \bnfor  & \inhabitOp{\e} & \text{The inhabitation operation} \\
+    \bnfor  & \opOp{\e} & \text{Operation} \\
     \bnfor  & \withhandle{\e} \C & \text{Handling} \\
 %    \bnfor  & \abs{\rgn}{\C} & \text{abstraction} \\
 %    \bnfor  & \new{\rgn}{\T} & \text{new variable} \\
@@ -151,7 +154,7 @@
     \\
 
   \text{Handler $\h$}
-  \bnf & \multicolumn{2}{l}{(\typicalhandler)}\\
+  \bnf & \multicolumn{2}{l}{\typicalhandler}\\
 \end{array}
 \end{equation*}
 
@@ -166,7 +169,7 @@ Results:
   \text{Result $R$}
   \begin{aligned}[t]
     &\bnf   {} && \val \e \\
-    &\bnfor {} && \inhabit{\D}{\T}{\KK} \\
+    &\bnfor {} && \opRes{\D}{\e}{\KK} \\
   \end{aligned}
 \end{equation*}
 %
@@ -219,11 +222,11 @@ Judgments:
   {
     \evalto
     {\C_1}
-    {\inhabit{\D}{\T}{\KK}}
+    {\opRes{\D}{\e}{\KK}}
   }
   { \evalto
     {\letin{\X = \C_1} \C_2}
-    {\inhabit{\D}{\T}{\letin{\X = \KK} \C_2}}
+    {\opRes{\D}{\e}{\letin{\X = \KK} \C_2}}
   }
 
   \infer[eval-kapp]
@@ -243,15 +246,15 @@ Judgments:
   }
   {
     \evalto
-    {\inhabitOp{\bty{\T}}}
-    {\inhabit{\ctxempty}{\T}{\hole}}
+    {\opOp{\e}}
+    {\opRes{\ctxempty}{\e}{\hole}}
   }
 
   \infer[eval-handle-val]
   {
     \evalto{\C}{\val \e}
     \\
-    \evalto{\subst{\C_1}{\X}{\e}}{\R}
+    \evalto{\subst{\C_v}{\X}{\e}}{\R}
   }
   { \evalto
     {\withhandle{(\typicalhandler)}{\C}}
@@ -262,12 +265,10 @@ Judgments:
   {
     \h = \typicalhandler
     \\\\
-    \evalto{\C}{\inhabit{\D}{\T}{\KK_1}}
-    \\\\
-    \KK_2 = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\KK_1}{\X''}}}\bigr)\\
+    \evalto{\C}{\opRes{\D}{\e}{\KK_1}}
     \\\\
     \evalto[\G,\D]
-    {\substs{\C_2}{\bty{\T}/\X, \cont{\KK_2}/\K}}
+    {\substs{\C_i}{\e/\X, \cont{\withhandle{\h}{\KK_1}}/\K}}
     {\val \e}
     \\\\
     \eok{\e}
@@ -281,17 +282,15 @@ Judgments:
   {
     \h = \typicalhandler
     \\\\
-    \evalto{\C}{\inhabit{\D}{\T}{\KK_1}}
-    \\\\
-    \KK_2 = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\KK_1}{\X''}}}\bigr)\\
+    \evalto{\C}{\opRes{\D}{\e}{\KK_1}}
     \\\\
     \evalto[\G,\D]
-    {\substs{\C_2}{\bty{\T}/\X, \cont{\KK_2}/\K}}
-    {\inhabit{\D'}{\e'}{\KK_3}}
+    {\substs{\C_i}{\e/\X, \cont{\withhandle{\h}{\KK_1}}/\K}}
+    {\opRes[j]{\D'}{\e'}{\KK_2}}
   }
   { \evalto
     {\withhandle{\h}{\C}}
-    {\inhabit{(\D,\D')}{\e'}{\KK_3}}
+    {\opRes[j]{(\D,\D')}{\e'}{\KK_2}}
   }
 \end{mathpar}
 
@@ -323,11 +322,11 @@ Judgments:
   {
     \evalto[\ctxextend{\x}{\T}]
     {\C}
-    {\inhabit{\D}{\U}{\KK}}
+    {\opRes{\D}{\e}{\KK}}
   }
   { \evalto
     {\lam{\x}{\T} \C}
-    {\inhabit{(\x{:}\T,\Delta)}{\U}{\lam{\x}{\T}{\KK}}}
+    {\opRes{(\x{:}\T,\Delta)}{\e}{\lam{\x}{\T}{\KK}}}
   }
 
   \\
@@ -484,12 +483,12 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \cok{(\letin{\X = \C_1} \C_2)}
   }
 
-  \infer[ok-inhabit]
+  \infer[ok-op]
   {
     \eok{\e} \\
   }
   {
-    \cok{\inhabitOp{\e}}
+    \cok{\opOp{\e}}
   }
 
 
@@ -575,7 +574,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \kok{\D}{\K} \\
   }
   {
-    \resultok{\inhabit{\D}{\T}{\K}}
+    \resultok{\opRes{\D}{\T}{\K}}
   }
 
 \end{mathpar}
