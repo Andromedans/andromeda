@@ -14,6 +14,38 @@ type t = {
   hints : hint list
 }
 
+let print {decls=ds; names=xs; hints=hs} =
+  let rec loop ds xs =
+    match ds, xs with
+      | [], [] -> ()
+      | d::ds, x::xs ->
+        loop ds xs ;
+        begin match d with
+          | Parameter t ->
+              Format.printf "@[<hov 4>assume %s@;<1 -2>: %t@]@\n" x (Print.ty xs t)
+          | Definition (t, e) ->
+              Format.printf "@[<hov 4>define %s@;<1 -2>: %t@;<1 -2>:= %t@]@\n"
+                x (Print.ty xs t) (Print.term xs e)
+        end
+      | [], _::_ -> Error.impossible "fewer declarations than names in context"
+      | _::_, [] -> Error.impossible "fewer names than declarations in context"
+  in
+
+  let rec hloop = function
+    [] -> ()
+      | Equation(e1,e2)::rest ->
+          Format.printf "%t == %t@\n" (Print.term xs e1) (Print.term xs e2);
+          hloop rest
+      | Rewrite(e1,e2)::rest ->
+          Format.printf "%t ~> %t@\n" (Print.term xs e1) (Print.term xs e2);
+          hloop rest
+
+  in
+    loop ds xs ;
+    Format.printf "@.Hints:@.";
+    hloop hs ;
+    Format.printf "@."
+
 let empty = { decls = [] ; names = [] ; hints = [] }
 
 let names {names=lst} = lst
@@ -55,7 +87,8 @@ let add_vars bnds ctx =
 let add_def x t ((_,loc) as e) ctx =
   {
     decls = Definition (t, e) :: ctx.decls ;
-    hints = List.map (shift_hint 1) (Rewrite((Syntax.Var (-1), loc), e) :: ctx.hints);
+    hints = Rewrite((Syntax.Var 0, loc),
+                    Syntax.shift 1 e) :: List.map (shift_hint 1) ctx.hints;
     names = x :: ctx.names;
   }
 
@@ -109,21 +142,3 @@ let lookup_rewrite e1 ctx =
         Error.impossible "lookup_rewrite found an Equation after filtering"
   end
 
-let print {decls=ds; names=xs} =
-  let rec loop ds xs =
-    match ds, xs with
-      | [], [] -> ()
-      | d::ds, x::xs ->
-        loop ds xs ;
-        begin match d with
-          | Parameter t ->
-              Format.printf "@[<hov 4>assume %s@;<1 -2>: %t@]@\n" x (Print.ty xs t)
-          | Definition (t, e) ->
-              Format.printf "@[<hov 4>define %s@;<1 -2>: %t@;<1 -2>:= %t@]@\n"
-                x (Print.ty xs t) (Print.term xs e)
-        end
-      | [], _::_ -> Error.impossible "fewer declarations than names in context"
-      | _::_, [] -> Error.impossible "fewer names than declarations in context"
-  in
-    loop ds xs ;
-    Format.printf "@."
