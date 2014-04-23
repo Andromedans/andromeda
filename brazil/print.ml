@@ -3,7 +3,7 @@
 (** Printing of messages. *)
 
 let verbosity = ref 2
-let annotate = ref false
+let annotate = ref true
 
 let message msg_type v =
   if v <= !verbosity then
@@ -89,7 +89,7 @@ let rec prod ?max_level xs x t1 t2 ppf =
   if Syntax.occurs_ty 0 t2 then
     let x = find_name x xs in
       print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
-        x 
+        x
         (ty ~max_level:4 xs t1)
         (ty ~max_level:3 (x :: xs) t2)
   else
@@ -102,7 +102,7 @@ and name_prod ?max_level xs x e1 e2 ppf =
   if Syntax.occurs 0 e2 then
     let x = find_name x xs in
       print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
-        x 
+        x
         (term ~max_level:4 xs e1)
         (term ~max_level:3 (x :: xs) e2)
   else
@@ -123,7 +123,7 @@ and lambda xs x t u e ppf =
           if Syntax.equal_ty (Syntax.shift_ty 1 t) t'
           then collect (y::xs) z (y::ys) t' e'
           else (y::xs, y::ys, e)
-        | _ -> 
+        | _ ->
           (y::xs, y::ys, e)
   in
   let rec abstraction xs x t u e ppf =
@@ -142,16 +142,22 @@ and lambda xs x t u e ppf =
         match fst e with
           | Syntax.Lambda (x, t, u, e) -> abstraction xs' x t u e ppf
           | _ -> print ~at_level:0 ppf "=>@ %t" (term ~max_level:4 xs' e)
-  in          
+  in
     print ~at_level:3 ppf "fun %t" (abstraction xs x t u e)
-      
+
 and term ?max_level xs (e,_) ppf =
   let print' = print
   and print ?at_level = print ?max_level ?at_level ppf in
     match e with
 
       | Syntax.Var k ->
-        print ~at_level:0 "%s" (List.nth xs k)
+          begin
+            try
+              print ~at_level:0 "%s" (List.nth xs k)
+            with
+              _ ->
+                print ~at_level:0 "BAD_INDEX[%d/%d]" k (List.length xs)
+          end
 
       | Syntax.Equation (e1, (_e2, _e3), e4) ->
         print ~at_level:4 "equation %t@ in %t"
