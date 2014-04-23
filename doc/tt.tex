@@ -527,6 +527,15 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \cok{(\debruijn{n})}
   }
 
+  \infer[ok-make-app]
+  {
+    \eok{\e_1} \\
+    \eok{\e_2} \\
+  }
+  {
+    \cok{\makeApp{\e_1}{\e_2}}
+  }
+
   \infer[ok-make-lam1]
   {
     \eok{\e_1} \\
@@ -539,20 +548,11 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   \infer[ok-make-lam2]
   {
     \eok{\e_1} \\
-    \cok[\ctxextend{\G}{\x}{\T_1}]{\C_2} \\
+    \cok[\ctxextend{\x}{\T_1}]{\C_2} \\
   }
   {
     \cok{(\lam{\x}{\bty{\T_1}} \C_2)}
   }
-  \infer[ok-make-app]
-  {
-    \eok{\e_1} \\
-    \eok{\e_2} \\
-  }
-  {
-    \cok{\makeApp{\e_1}{\e_2}}
-  }
-
 \end{mathpar}
 
 
@@ -571,7 +571,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
 
   \infer[ok-result-inhabit]
   {
-    \istype[\G,\D]{\T} \\
+    \istype{\G,\D}{\T} \\
     \kok{\D}{\K} \\
   }
   {
