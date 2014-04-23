@@ -325,14 +325,15 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
 
     (* chk-eq-whnf-j *)
     | Syntax.J(t1,(x,y,p,u2),(z,e3),e4, e5, e6), Syntax.J(t7, (_,_,_,u8), (_,e9), e10, e11, e12) ->
-        let ctx_xyp = Context.add_vars
+        let ctx_xy = Context.add_vars
                        [  (x, t1);
-                          (y, t1);
-                          (p, (Syntax.Paths
-                                (t1,
-                                (Syntax.Var (-1) (* x *), Position.nowhere),
-                                (Syntax.Var (-2) (* y *), Position.nowhere)),
-                                Position.nowhere)) ] ctx  in
+                          (y, t1); ] ctx in
+        let ctx_xyp = Context.add_vars
+                       [  (p, (Syntax.Paths
+                                (Syntax.shift_ty 2 t1,  (* Weaken twice for x and y *)
+                                (Syntax.Var 0 (* x *), Position.nowhere),
+                                (Syntax.Var 1 (* y *), Position.nowhere)),
+                                Position.nowhere)) ] ctx_xy  in
         let ctx_z = Context.add_var z t1 ctx  in
 
         let e3_ty_expected =
