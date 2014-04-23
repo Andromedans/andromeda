@@ -265,7 +265,7 @@ Judgments:
 
 \paragraph{Operations and Handlers}
 \begin{mathpar}
-  \infer[eval-inhabit]
+  \infer[eval-op]
   {
   }
   {
@@ -438,8 +438,10 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
 
   \infer[ok-handler]
   {
+    \cok{\C_v} \\
     \cok{\C_1} \\
-    \cok{\C_2} \\
+    \cdots \\
+    \cok{\C_n}
   }
   {
     \eok{\typicalhandler}
@@ -461,7 +463,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \resultok{\val{\e}}
   }
 
-  \infer[ok-result-inhabit]
+  \infer[ok-result-op]
   {
     \istype{\G,\D}{\T} \\
     \kok{\D}{\K} \\
