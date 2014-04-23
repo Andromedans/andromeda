@@ -76,6 +76,10 @@
 \newcommand{\genericPats}[1][n]{(\pat_i \Rightarrow \C_i)_{i=1}^n}
 \newcommand{\genericmatch}[1][\e]{\match{#1}{\genericPats}}
 
+\renewcommand{\c}{c} % constant
+\newcommand{\prim}[2][f]{#1(#2)} % primitive  application
+\newcommand{\genericprim}{\prim{\e_1,\ldots,\e_n}}
+
 %%% Operational semantics
 
 \newcommand{\xcT}{\vec{\x}{:}\vec{\T}}
@@ -141,6 +145,7 @@
     \bnfor  & \bterm{\B}{\T}           & \text{Brazilian term} \\
     \bnfor  & \bty{\T}           & \text{Brazilian type} \\
     \bnfor  & \generictuple   & \text{Tuple}\\
+    \bnfor  & \c              & \text{TT Constant}\\
     \\
     \text{Computation $\C$}
       \bnf  & \val \e                & \text{Pure expression} \\
@@ -152,6 +157,7 @@
 %    \bnfor  & \new{\rgn}{\T} & \text{new variable} \\
     \bnfor  & \kapp{\e_1}{\e_2}   & \text{Invoke a continuation} \\
     \bnfor  & \ascribe{\e_1}{\e_2} & \text{Type ascription} \\
+    \bnfor  & \genericprim & \text{Primitive operations}\\
     \bnfor  & \genericmatch& \text{Pattern-match}\\
     \bnfor  & \debruijn{n} & \text{Build Brazilian term: variable} \\
     \bnfor  & \lam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
@@ -198,19 +204,11 @@ Judgments:
                               with its hole inside additional binders $\D$} \\
 \end{align*}
 %
-\paragraph{Control Flow}
+\paragraph{Generic Computations}
 \begin{mathpar}
-
   \infer[eval-val]
   { }
   { \evalto{\val \e}{\val \e}}
-
-  \infer[eval-ascribe]
-  {
-  }
-  {
-    \evalto{(\ascribe{\bterm{\B}{\T}}{\T})}{\val \bterm{\B}{\T}}
-  }
 
   \infer[eval-app]
   {
@@ -262,6 +260,7 @@ Judgments:
            {\R}
   }
 \end{mathpar}
+
 
 \paragraph{Operations and Handlers}
 \begin{mathpar}
@@ -318,8 +317,24 @@ Judgments:
   }
 \end{mathpar}
 
-\paragraph{Computations that build Brazil terms}
+\paragraph{Built-In Functions}
 \begin{mathpar}
+  \infer[eval-prim]
+  {
+    \e = \prim[{[\![f]\!]}]{\e_1,\ldots,\e_n}\\
+    \bigl[\eok{\e}\bigr]
+  }
+  {
+    \evalto{\genericprim}{\val \e}
+  }
+
+  \infer[eval-ascribe]
+  {
+  }
+  {
+    \evalto{(\ascribe{\bterm{\B}{\T}}{\T})}{\val \bterm{\B}{\T}}
+  }
+
   \infer[eval-make-var]
   {
     \G = x_{m{-}1}{:}\T_{m{-}1}\ldots,x_0{:}T_0\\
@@ -424,6 +439,13 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   }
   {
     \eok{\fun{\X} \C}
+  }
+
+  \infer[ok-const]
+  {
+  }
+  {
+    \eok{\c}
   }
 
   \infer[ok-tuple]
@@ -578,6 +600,16 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   }
   {
     \cok{\ascribe{\e_1}{\e_2}}
+  }
+
+  \infer[ok-prim]
+  {
+    \eok{\e_1}\\
+    \cdots
+    \eok{\e_n}
+  }
+  {
+    \cok{\prim{\e_1,\ldots,\e_n}}
   }
 
   \infer[ok-match]
