@@ -80,6 +80,8 @@
 \newcommand{\prim}[2][f]{#1(#2)} % primitive  application
 \newcommand{\genericprim}{\prim{\e_1,\ldots,\e_n}}
 
+\newcommand{\inj}[2][i]{\mathsf{inj}_{#1}\, #2}
+
 %%% Operational semantics
 
 \newcommand{\xcT}{\vec{\x}{:}\vec{\T}}
@@ -146,6 +148,7 @@
     \bnfor  & \bty{\T}           & \text{Brazilian type} \\
     \bnfor  & \generictuple   & \text{Tuple}\\
     \bnfor  & \c              & \text{TT Constant}\\
+    \bnfor  & \inj{\e}        & \text{Coproduct}\\
     \\
     \text{Computation $\C$}
       \bnf  & \val \e                & \text{Pure expression} \\
@@ -175,6 +178,7 @@
   \\
   \text{Pattern $\pat$}
   \bnf & \tuple{\X_1,\ldots,\X_n}\\
+  \bnfor & \inj{\X}\\
   \bnfor & \c\\
 \end{array}
 \end{equation*}
@@ -258,6 +262,16 @@ Judgments:
   }
   {
     \evalto{\genericmatch[{\generictuple[m]}]}
+           {\R}
+  }
+
+  \infer[eval-match-inj]
+  {
+    P_j = \inj[k]{X}\\
+    \evalto{\subst{\C_j}{\X}{\e}}{\R}
+  }
+  {
+    \evalto{\genericmatch[{\inj[k]{\e}}]}
            {\R}
   }
 
@@ -467,6 +481,14 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   }
   {
     \eok{\generictuple}
+  }
+
+  \infer[ok-inj]
+  {
+    \eok{\e}
+  }
+  {
+    \eok{\inj{\e}}
   }
 
   \infer[ok-handler]
