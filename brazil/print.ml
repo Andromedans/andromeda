@@ -3,7 +3,7 @@
 (** Printing of messages. *)
 
 let verbosity = ref 2
-let annotate = ref true
+let annotate = ref false
 
 let message msg_type v =
   if v <= !verbosity then
