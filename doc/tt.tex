@@ -78,7 +78,7 @@
 \newcommand{\resultok}[2][\G]{#1 \vdash #2 \ \mathsf{ok}}
 \newcommand{\eok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
 \newcommand{\cok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
-\newcommand{\kok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
+\newcommand{\kok}[3][\G]{#1 \vdash #3 \ : \ #2\to\mathsf{ok}}
 
 \newcommand{\istype}[2]{#1 \vdash #2\;\mathsf{type}} % well formed type
 \newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
@@ -135,7 +135,7 @@
     \bnfor  & \withhandle{\e} \C & \text{Handling} \\
 %    \bnfor  & \abs{\rgn}{\C} & \text{abstraction} \\
 %    \bnfor  & \new{\rgn}{\T} & \text{new variable} \\
-    \bnfor  & \kapp{\K}{\e_2}   & \text{Invoke a continuation variable} \\
+    \bnfor  & \kapp{\e_1}{\e_2}   & \text{Invoke a continuation} \\
     \bnfor  & \ascribe{\e_1}{\e_2} & \text{Type ascription} \\
     \bnfor  & \debruijn{n} & \text{Build Brazilian term: variable} \\
     \bnfor  & \lam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
@@ -175,7 +175,7 @@ Judgment:
   &\resultok[\G]{R}  &&\text{$R$ is a valid result in context $\G$} \\
   &\eok[\G]{\e} &&\text{$\e$ is a valid expression in context $\G$} \\
   &\cok[\G]{\C} &&\text{$\C$ is a valid computation in context $\G$} \\
-  &\kok[\G]{\K} &&\text{$\K$ is a valid continuation in context $\G$} \\
+  &\kok[\G]{\D}{\K} &&\text{$\K$ is a valid continuation in context $\G$} \\
 \end{align*}
 %
 \paragraph{Control Flow}
@@ -240,7 +240,7 @@ Judgment:
   }
   {
     \evalto
-    {\inhabitOp{\T}}
+    {\inhabitOp{\bty{\T}}}
     {\inhabit{\ctxempty}{\T}{\hole}}
   }
 
@@ -255,7 +255,7 @@ Judgment:
     {\R}
   }
 
-  \infer[eval-handle-op-val]
+\infer[eval-handle-op-val]
   {
     \h = \typicalhandler
     \\\\
@@ -264,7 +264,7 @@ Judgment:
     \KK_2 = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\KK_1}{\X''}}}\bigr)\\
     \\\\
     \evalto[\G,\D]
-    {\substs{\C_2}{\T/\X, \cont{\KK_2}/\K}}
+    {\substs{\C_2}{\bty{\T}/\X, \cont{\KK_2}/\K}}
     {\val \e}
     \\\\
     \eok{\e}
@@ -283,7 +283,7 @@ Judgment:
     \KK_2 = \bigl(\withhandle{\h}{\letin{\X' = \hole} \letin{\X'' = \ascribe{\X'}{\T}}{\kapp{\KK_1}{\X''}}}\bigr)\\
     \\\\
     \evalto[\G,\D]
-    {\substs{\C_2}{\T/\X, \cont{\KK_2}/\K}}
+    {\substs{\C_2}{\bty{\T}/\X, \cont{\KK_2}/\K}}
     {\inhabit{\D'}{\e'}{\KK_3}}
   }
   { \evalto
@@ -302,14 +302,14 @@ Judgment:
   {
     \evalto
     {\debruijn{n}}
-    {\x_n}
+    {\val \bterm{\x_n}{\T_n}}
   }
 
   \infer[eval-make-lambda-val]
   {
     \evalto[\ctxextend{\x}{\T}]
     {\C}
-    {\val B}
+    {\val \bterm{\B}{\U}}
   }
   { \evalto
     {\lam{\x}{\T} \C}
@@ -377,11 +377,19 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \eok{\bty{\T}}
   }
 
-  \infer[ok-var]
+  \infer[ok-tt-var]
   {
   }
   {
     \eok{\X}
+  }
+
+  \infer[ok-cont]
+  {
+    \kok{\D}{\KK}
+  }
+  {
+    \eok{\cont{\KK}}
   }
 
   \infer[ok-fun]
@@ -400,9 +408,9 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   {
     \eok{(\typicalhandler)}
   }
+
 \end{mathpar}
 
-\iffalse
 \subsection*{Continuations}
 
 \begin{mathpar}
@@ -411,16 +419,16 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   {
   }
   {
-    \kok{\hole}
+    \kok[\G]{\ctxempty}{\hole}
   }
 
   \infer[ok-let-cont]
   {
-    \kok{\K_1} \\
+    \kok{\D}{\K_1} \\
     \cok{\C_2} \\
   }
   {
-    \kok{(\letin{\X = \K_1} \C_2)}
+    \kok{\D}{(\letin{\X = \K_1} \C_2)}
   }
 
   \\
@@ -428,18 +436,18 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   \infer[ok-handle-cont]
   {
     \eok{\e_1} \\
-    \kok{\K_2} \\
+    \kok{\D}{\K_2} \\
   }
   {
-    \kok{(\withhandle{\e_1} \K_2)}
+    \kok{\D}{(\withhandle{\e_1} \K_2)}
   }
 
   \infer[ok-lam-cont]
   {
-    \kok[\ctxextend{\x}{\T_1}]{\K_2}
+    \kok[\ctxextend{\x}{\T_1}]{\D}{\K_2}
   }
   {
-    \kok{(\lam{\x}{\T_1} \K_2)}
+    \kok{(\ctxextend[\D]{\x}{\T_1})}{(\lam{\x}{\T_1} \K_2)}
   }
 \end{mathpar}
 
@@ -485,7 +493,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
   \infer[ok-handle]
   {
     \eok{\e_1} \\
-    \cok{\C_1} \\
+    \cok{\C_2} \\
   }
   {
     \cok{(\withhandle{\e_1} \C_2)}
@@ -493,13 +501,21 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
 
   \infer[ok-cont-app]
   {
+    \eok{\e_1}\\
     \eok{\e_2}
   }
   {
-    \cok{\kapp{\K_1}{\e_2}}
+    \cok{\kapp{\e_1}{\e_2}}
   }
 
-  \\
+  \infer[ok-ascribe]
+  {
+    \eok{\e_1}\\
+    \eok{\e_2}\\
+  }
+  {
+    \cok{\ascribe{\e_1}{\e_2}}
+  }
 
   \infer[ok-make-var]
   {
@@ -508,7 +524,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \cok{(\debruijn{n})}
   }
 
-  \infer[ok-make-lam]
+  \infer[ok-make-lam1]
   {
     \eok{\e_1} \\
     \cok{\C_2} \\
@@ -517,6 +533,14 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \cok{(\lam{\x}{\e_1} \C_2)}
   }
 
+  \infer[ok-make-lam2]
+  {
+    \eok{\e_1} \\
+    \cok[\ctxextend{\G}{\x}{\T_1}]{\C_2} \\
+  }
+  {
+    \cok{(\lam{\x}{\bty{\T_1}} \C_2)}
+  }
   \infer[ok-make-app]
   {
     \eok{\e_1} \\
@@ -544,8 +568,8 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
 
   \infer[ok-result-inhabit]
   {
-    \eok[\G,\D]{\T} \\
-    \kok{\K} \\
+    \istype[\G,\D]{\T} \\
+    \kok{\D}{\K} \\
   }
   {
     \resultok{\inhabit{\D}{\T}{\K}}
@@ -554,55 +578,6 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
 \end{mathpar}
 \bigskip
 
-I don't think these rules are right. As far as I can tell,
-\begin{verbatim}
-  handle
-     lambda x:void. [inhabit void]
-  with
-     [inhabit void K] -> let Z = debruijn 0 in K[Z]
-\end{verbatim}
-is legal and evaluates to \verb|< lambda x:void.x  :  void->void >|. On the other hand,
-\begin{verbatim}
-  handle
-    handle
-      lambda x:void. [inhabit void]
-    with
-      [inhabit void K] -> let Y = [inhabit int] in let Z = <x:void> in K[Z]
-  with
-    [inhabit int K] -> K 0
-\end{verbatim}
-does not seem to be legal under our well-formedness rules, because the inner handler evaluates to the result
-\begin{verbatim}
-  inhabit(-, int, let Y = [] in let Z = <x:void> in lambda x:void. Z)
-\end{verbatim}
-and this continuation refers to the variable \verb|x|. It's true that this variable
-is in scope only during the execution of the inner handler, but the continuation of the
-outer handler returns back to the inner handler, where referring to \verb|x| is
-perfectly legal.
-
-In comparison,
-\begin{verbatim}
-  handle
-    handle
-      lambda x:void. [inhabit void]
-    with
-      [inhabit void K] -> let Y = [inhabit int] in let Z = <x:void> in Z
-  with
-    [inhabit int K] -> K 0
-\end{verbatim}
-(where the inner handler does not call its continuation) should result in a run-time error somewhere,
-preventing the code from constructing the ill-formed Brazil term \verb|x|.
-
-The following stack-of-handlers system seems to solve the problem by checking for well-formedness only
-on the \emph{final} return value of the handler (whether or not the handler calls its
-continuation), not the well-formedness of intermediate operations with their continuations.
-
-It's not completely obvious how to get equivalent behavior in the above system.
-Maybe we just say that \emph{every} operation result is ``ok,'' and only require
-expression results to be well-formed in the handler context?
-
-The question then is what it means for a TT \emph{function} to be well-formed\ldots
-\fi
 
 \section{Operational semantics with a Stack of Handlers}
 \label{sec:oper-semant-stack}
