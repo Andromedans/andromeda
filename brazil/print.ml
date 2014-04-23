@@ -151,7 +151,12 @@ and term ?max_level xs (e,_) ppf =
     match e with
 
       | Syntax.Var k ->
-        print ~at_level:0 "%s" (List.nth xs k)
+        begin
+          try
+            print ~at_level:0 "%s" (List.nth xs k)
+          with 
+            | Invalid_argument _ -> print ~at_level:0 "?%d" k
+        end
 
       | Syntax.Equation (e1, (_e2, _e3), e4) ->
         print ~at_level:4 "equation %t@ in %t"
