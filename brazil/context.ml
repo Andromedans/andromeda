@@ -55,7 +55,9 @@ let add_vars bnds ctx =
 let add_def x t ((_,loc) as e) ctx =
   {
     decls = Definition (t, e) :: ctx.decls ;
-    hints = List.map (shift_hint 1) (Rewrite((Syntax.Var (-1), loc), e) :: ctx.hints);
+    hints = 
+      (Rewrite ((Syntax.Var 0, loc), Syntax.shift 1 e)) ::
+      (List.map (shift_hint 1) ctx.hints);
     names = x :: ctx.names;
   }
 
@@ -104,12 +106,12 @@ let lookup_rewrite e1 ctx =
   in
     search ctx.hints
 
-let print {decls=ds; names=xs} =
-  let rec loop ds xs =
+let print {decls=ds; hints=hs; names=xs} =
+  let rec print_names ds xs =
     match ds, xs with
       | [], [] -> ()
       | d::ds, x::xs ->
-        loop ds xs ;
+        print_names ds xs ;
         begin match d with
           | Parameter t ->
               Format.printf "@[<hov 4>assume %s@;<1 -2>: %t@]@\n" x (Print.ty xs t)
@@ -120,5 +122,14 @@ let print {decls=ds; names=xs} =
       | [], _::_ -> Error.impossible "fewer declarations than names in context"
       | _::_, [] -> Error.impossible "fewer names than declarations in context"
   in
-    loop ds xs ;
+  let print_hints xs =
+    List.iter (function 
+      | Rewrite (e1, e2) ->
+        Format.printf "rewrite (_ :: %t == %t)" (Print.term xs e1) (Print.term xs e2)
+      | Equation (e1, e2) ->
+        Format.printf "equation (_ :: %t == %t)" (Print.term xs e1) (Print.term xs e2)
+    )
+  in
+    print_names ds xs ;
+    print_hints xs hs ;
     Format.printf "@."
