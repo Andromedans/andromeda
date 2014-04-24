@@ -5,7 +5,7 @@ type name = string
 (** We use de Bruijn indices *)
 type variable = Common.debruijn
 
-type universe = Universe.t * Position.t
+type universe = Universe.t
 
 type ty = ty' * Position.t
 and ty' =
@@ -92,16 +92,16 @@ let rec equal ((left',_) as left) ((right',_) as right) =
       equal_ty ty2 ty8 && equal term3 term9 && equal term4 term10
       (* && equal term5 term11 && equal term6 term12 *)
 
-  | Coerce(_universe1, (universe2',_), term3), Coerce(_universe4, (universe5',_), term6) ->
-      (* universe1 = universe4 && *)
-      universe2' = universe5' && equal term3 term6
+  | Coerce(_universe1, universe2, term3), Coerce(_universe4, universe5, term6) ->
+      (* Universe.eq universe1 universe4 && *)
+      Universe.eq universe2 universe5 && equal term3 term6
 
-  | NameUniverse (universe1',_), NameUniverse (universe2',_) ->
-      universe1' = universe2'
+  | NameUniverse universe1, NameUniverse universe2 ->
+      Universe.eq universe1 universe2
 
   | NamePaths(_universe1, term2, term3, term4), NamePaths(_universe5, term6, term7, term8)
   | NameId   (_universe1, term2, term3, term4), NameId   (_universe5, term6, term7, term8) ->
-      (* universe1 = universe5 && *)
+      (* Universe.eq universe1 universe5 && *)
       equal term2 term6 && equal term3 term7 && equal term4 term8
 
   | (Var _ | Ascribe _ | Lambda _ | App _
@@ -113,11 +113,11 @@ let rec equal ((left',_) as left) ((right',_) as right) =
 and equal_ty (left_ty,_) (right_ty,_) =
   match left_ty, right_ty with
 
-  | Universe (universe1',_), Universe (universe2',_) ->
-      universe1' = universe2'
+  | Universe universe1, Universe universe2 ->
+      Universe.eq universe1 universe2
 
-  | El((universe1',_), term2), El((universe3',_), term4) ->
-      universe1' = universe3' && equal term2 term4
+  | El(universe1, term2), El(universe3, term4) ->
+      Universe.eq universe1 universe3 && equal term2 term4
 
   | Unit, Unit -> true
 
@@ -342,37 +342,37 @@ let rec name_of (ty', loc) =
 
     match ty' with
 
-    | Universe ((alpha',_) as alpha) ->
-        Some( NameUniverse alpha, Universe.succ alpha' )
+    | Universe alpha ->
+        Some(NameUniverse alpha, Universe.succ alpha)
 
-    | El ((alpha,_), (e', _)) ->
-        Some( e', alpha )
+    | El (alpha, (e', _)) ->
+        Some(e', alpha)
 
     | Unit ->
-        Some( NameUnit, Universe.zero )
+        Some (NameUnit, Universe.zero)
 
     | Prod(x,t,u) ->
         begin
           match name_of t, name_of u with
-          | Some (name_t, ((alpha',_) as alpha)), Some (name_u, ((beta',_) as beta)) ->
+          | Some (name_t, alpha), Some (name_u, beta) ->
               Some( NameProd(alpha, beta, x, name_t, name_u),
-                    Universe.max alpha' beta' )
+                    Universe.max alpha beta )
           | _ -> None
         end
 
     | Paths(t,e2,e3) ->
         begin
           match name_of t with
-          | Some (name_t, ((alpha',_) as alpha)) ->
-              Some ( NamePaths(alpha, name_t, e2, e3), alpha')
+          | Some (name_t, alpha) ->
+              Some (NamePaths(alpha, name_t, e2, e3), alpha)
           | None -> None
         end
 
     | Id(t,e2,e3) ->
         begin
           match name_of t with
-          | Some (name_t, ((alpha',_) as alpha)) ->
-              Some ( NameId(alpha, name_t, e2, e3), alpha')
+          | Some (name_t, alpha) ->
+              Some (NameId(alpha, name_t, e2, e3), alpha)
           | None -> None
         end
 
@@ -380,7 +380,7 @@ let rec name_of (ty', loc) =
      (* Reattach the location, if we succeeded *)
      match answer' with
      | None -> None
-     | Some (name', universe') -> Some ((name', loc), (universe', loc))
+     | Some (name', universe) -> Some ((name', loc), universe)
 
 
 

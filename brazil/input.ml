@@ -7,7 +7,7 @@ type name = string
     or types. This is so because we do not distinguish between types and their names.
     A desugaring phase figures out what is what. *)
 
-type universe = Universe.t * Position.t
+type universe = Universe.t
 
 type 'a ty = 'a ty' * Position.t
 and 'a ty' =
@@ -57,7 +57,7 @@ let rec string_of_ty string_of_var (ty,_) =
 
   match ty with
   | El term -> paren "El" [recurse term]
-  | Universe (u,_) -> paren "Universe" [Universe.to_string u]
+  | Universe u -> paren "Universe" [Universe.to_string u]
   | Unit -> "Unit"
   | Prod(name, ty1, ty2) -> paren "Prod" [name; recurse_ty ty1; recurse_ty ty2]
   | Paths(term1, term2) -> paren "Paths" [recurse term1; recurse term2]
@@ -81,8 +81,8 @@ and string_of_term string_of_var (term,_) =
                  paren "" [name5; recurse term6];
                  recurse term7]
   | Refl term1 -> paren "Refl" [recurse term1]
-  | Coerce((u1,_), term2) -> paren "Coerce" [Universe.to_string u1; recurse term2]
-  | NameUniverse (u1,_) -> paren "NameUniverse" [Universe.to_string u1]
+  | Coerce(u1, term2) -> paren "Coerce" [Universe.to_string u1; recurse term2]
+  | NameUniverse u1 -> paren "NameUniverse" [Universe.to_string u1]
   | NameUnit -> "NameUnit"
   | NameProd(name1, term2, term3) ->
       paren "NameProd" [name1; recurse term2; recurse term3]

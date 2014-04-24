@@ -18,7 +18,7 @@
   let make_universe (u, loc) =
     match Universe.of_string u with
       | None -> Error.syntax ~loc "invalid universe index %s" u
-      | Some u -> (u, loc)
+      | Some u -> u
 
 %}
 
@@ -94,12 +94,12 @@ plain_equiv_term:
 
 app_term: mark_position(plain_app_term) { $1 }
 plain_app_term:
-  | e=plain_simple_term                          { e }
-  | e1=app_term e2=simple_term                   { App (e1, e2) }
-  | COERCE LPAREN u=universe COMMA e=term RPAREN { let u = make_universe u in Coerce (u, e) }
-  | UNIVERSE u=universe                          { let u = make_universe u in NameUniverse u }
-  | REFL e=simple_term                           { Refl e }
-  | IDPATH e=simple_term                         { Idpath e }
+  | e=plain_simple_term                           { e }
+  | e1=app_term e2=simple_term                    { App (e1, e2) }
+  | COERCE LPAREN ul=universe COMMA e=term RPAREN { let u = make_universe ul in Coerce (u, e) }
+  | UNIVERSE ul=universe                          { let u = make_universe ul in NameUniverse u }
+  | REFL e=simple_term                            { Refl e }
+  | IDPATH e=simple_term                          { Idpath e }
   | IND_PATH LPAREN
           LBRACK
           x=param
@@ -128,13 +128,12 @@ plain_simple_term:
   | LPAREN RPAREN                { UnitTerm }
   | LPAREN e=plain_term RPAREN   { e }
 
-
-ty:
-  | t=term { let (_,loc) = t in (El t, loc) }
-
 universe: mark_position(plain_universe) { $1 }
 plain_universe:
   | u=NAME { u }
+
+ty:
+  | t=term { let (_,loc) = t in (El t, loc) }
 
 (* returns a list of things individually annotated by positions.
   Since the list is not further annotated, consistency suggests

@@ -81,7 +81,7 @@ let sequence ?(sep="") f lst ppf =
 
 let name x ppf = print ~at_level:0 ppf "%s" x
 
-let universe (u,_) ppf =
+let universe u ppf =
   print ~at_level:0 ppf "%s" (Universe.to_string u)
 
 (** [prod xs x t1 t2 ppf] prints a dependent product using formatter [ppf]. *)

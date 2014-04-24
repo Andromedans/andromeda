@@ -5,7 +5,7 @@ type name = string
 (** We use de Bruijn indices *)
 type variable = Common.debruijn
 
-type universe = Universe.t * Position.t
+type universe = Universe.t
 
 type ty = ty' * Position.t
 and ty' =
