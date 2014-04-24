@@ -4,33 +4,22 @@
 \usepackage{mathpartir}
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{xcolor}
+\usepackage{ifmtarg}
 
 \newtheorem{lemma}{Lemma}
 
 %%%%%% Macros here %%%%%%
 
-%contexts
-%
-\newcommand{\emptyG}{\bullet} % empty context
-\newcommand{\G}{\Gamma}
-\newcommand{\D}{\Delta}
-\newcommand{\emptyH}{\circ} % empty handlers
+\input brazilmacros
+
 
 %% Syntax
-\newcommand{\bnf}{\mathrel{{:}{:}{=}}}
-\newcommand{\bnfor}{|}
 
-\newcommand{\x}{x}     % brazil variable
-\newcommand{\y}{y}     % another variable
-\newcommand{\z}{z}     % another variable
 \newcommand{\C}{C}     % computation
 \newcommand{\K}{K}     % continuation variable
 \newcommand{\X}{X}     % TT (computation) variable
-\newcommand{\e}{e}     % expression
 \newcommand{\rgn}{r}   % region
 \newcommand{\h}{h}     % handler
-\newcommand{\T}{T}     % type
-\newcommand{\U}{U}     % another type
 \newcommand{\B}{B}     % Brazil term
 \newcommand{\R}{R}     % Result
 \newcommand{\KK}{{\cal K}} % continuation term with hole
@@ -49,8 +38,8 @@
 \newcommand{\abs}[1]{\mathsf{abs}\;#1\;\mathsf{in}\;} % abstraction
 \newcommand{\new}[2]{\mathsf{new}(#1,#2)} % new(r,T)
 \newcommand{\fun}[1]{\mathsf{fun}\;#1\Rightarrow} % tt-level function
-\newcommand{\app}[2]{#1\,#2} % application
-\newcommand{\lam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
+\newcommand{\ttapp}[2]{#1\,#2} % application
+\newcommand{\ttlam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
 \newcommand{\kapp}[2]{#1{}[#2]} % continuation application
 \newcommand{\bterm}[2]{\langle\,#1\, :\, #2\,\rangle} % brazil (typed) term as data
 \newcommand{\bty}[1]{\langle\,#1\,\rangle} % brazil type as data
@@ -61,8 +50,6 @@
 
 \newcommand{\debruijn}[1]{\mathsf{debruijn}\,#1} % ugly hack
 
-\newcommand{\subst}[3]{#1[#3/#2]} % substitution
-\newcommand{\substs}[2]{#1[#2]} % substitution of many things
 
 \newcommand{\cont}[2][\G,\D]{\mathsf{cont}(#1,#2)}     % continuation
 \newcommand{\hfcont}{\hat{\cal K}}     % handler-free continuation
@@ -86,11 +73,7 @@
 
 \newcommand{\xcT}{\vec{\x}{:}\vec{\T}}
 \newcommand{\xT}{{\vec{\x}}{\vec{\T}}}
-\renewcommand{\H}{\mathcal{H}} % A stack of handlers
-\newcommand{\GH}{\G, \H} % combined context & handler
 
-\newcommand{\ctxempty}{\bullet}
-\newcommand{\ctxextend}[3][\G]{#1, #2 {:} #3}
 
 \newcommand{\evalto}[3][\G]{#1 \vdash #2 \ \Downarrow\  #3}
 
@@ -99,32 +82,25 @@
 \newcommand{\cok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
 \newcommand{\kok}[3][\G]{#1 \vdash #3 \ : \ #2\to\mathsf{ok}}
 
-\newcommand{\istype}[2]{#1 \vdash #2\;\mathsf{type}} % well formed type
-\newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
-
-\newcommand{\typeOf}{\mathsf{typeOf}\,}
-
 \newcommand{\typicalhandler}{\handler{\X}{\C_v}{\X}{\K}{\C}}
 
 \renewcommand{\S}{{\cal S}}
 \newcommand{\GS}{\Gamma; \S}
-\newcommand{\emptystack}{\bullet}
 
 
 %% Copied from brazil.tex
-\newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
-\newcommand{\brazilapp}[5]{#1\mathbin{@^{#2{:}#3.#4}} #5} % application
-\newcommand{\equationin}[3]{\mathsf{equation}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use equation hint
-\newcommand{\rewritein}[3]{\mathsf{rewrite}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use rewrite hint
-\newcommand{\piClose}[2]{\mathsf{max}(#1,#2)}   % the universe containing a pi with given domain and codomain
-\newcommand{\uClose}[1]{\mathsf{succ}(#1)}  % the universe containing the given universe's name.
-\newcommand{\Universe}[1]{\mathbb{U}_{#1}}
-\newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
-\newcommand{\coerce}[3]{\mathsf{coerce}^{#1{\mapsto}#2} \, #3}
-\newcommand{\El}[2]{\mathsf{El}^{#1}\, #2} % the type named by the term
-\newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
 
+%% Revised from brazil.tex
 
+\newcommand{\ws}{\vec{w}}
+\newcommand{\maybeDownarrow}[1]{\if\relax\detokenize{#1}\relax \else \Downarrow #1 \fi}
+\renewcommand{\istypealg}[3][\ws]{#2 \vdash #3 \Leftarrow \mathsf{type} \maybeDownarrow{#1}} % well formed type
+\renewcommand{\isfibalg}[4][\ws]{#2 \vdash #3 \Leftarrow \mathsf{fibered} \maybeDownarrow{#1}} % is a fibered type
+\renewcommand{\eqtypealg}[4][\ws]{#2 \vdash #3 \thickapprox #4 \maybeDownarrow{#1}} % equal types
+\renewcommand{\eqtypepath}[4][\ws]{#2 \vdash #3 \thicksim #4 \maybeDownarrow{#1}} % equal normal-form types
+\renewcommand{\eqtermalg}[5][\ws]{#2 \vdash #3 \thickapprox #4 \Leftarrow #5 \maybeDownarrow{#1}} % equal terms of normalized type
+\renewcommand{\eqtermext}[5][\ws]{#2 \vdash #3 \simeq #4 \Leftarrow #5 \maybeDownarrow{#1}} % equal terms w/o eta
+\renewcommand{\eqpath}[5][\ws]{#2 \vdash #3 \thicksim #4 \maybeDownarrow{#1}}  % equal paths
 
 
 
@@ -152,7 +128,7 @@
     \\
     \text{Computation $\C$}
       \bnf  & \val \e                & \text{Pure expression} \\
-    \bnfor  & \app{\e_1}{\e_2}   & \text{Application} \\
+    \bnfor  & \ttapp{\e_1}{\e_2}   & \text{Application} \\
     \bnfor  & \letin{\X = \C_1} \C_2  & \text{$\mathsf{let}$-binding} \\
     \bnfor  & \opOp{\e} & \text{Operation} \\
     \bnfor  & \withhandle{\e} \C & \text{Handling} \\
@@ -163,13 +139,13 @@
     \bnfor  & \genericprim & \text{Primitive operations}\\
     \bnfor  & \genericmatch& \text{Pattern-match}\\
     \bnfor  & \debruijn{n} & \text{Build Brazilian term: variable} \\
-    \bnfor  & \lam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
+    \bnfor  & \ttlam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
     \bnfor  & \makeApp{\e_1}{\e_2} & \text{Build Brazilian term: application} \\
     \\
     \text{Continuation $\KK$} \bnf    & \hole                & \text{Hole} \\
     \bnfor  & \letin{\X = \KK} \C_2  & \text{$\mathsf{let}$-binding} \\
     \bnfor  & \withhandle{\e} \KK & \text{Handling} \\
-    \bnfor  & \lam{\x}{\T}{\KK} & \text{Abstraction} \\
+    \bnfor  & \ttlam{\x}{\T}{\KK} & \text{Abstraction} \\
 %    \bnfor  & \abs{\rgn}{\KK} & \text{abstraction} \\
     \\
 
@@ -220,7 +196,7 @@ Judgments:
     \evalto{\subst{\C}{\X}{\e}}{R}
   }
   { \evalto
-    {\app{(\fun{\X}{\C})}{\e}}
+    {\ttapp{(\fun{\X}{\C})}{\e}}
     {R}
   }
 
@@ -378,8 +354,8 @@ Judgments:
     {\val \bterm{\B}{\U}}
   }
   { \evalto
-    {\lam{\x}{\T} \C}
-    {\val (\lam{\x}{\T} B)}
+    {\ttlam{\x}{\T} \C}
+    {\val (\ttlam{\x}{\T} B)}
   }
 
   \infer[eval-make-lambda-op]
@@ -389,8 +365,8 @@ Judgments:
     {\opRes{\D}{\e}{\KK}}
   }
   { \evalto
-    {\lam{\x}{\T} \C}
-    {\opRes{(\x{:}\T,\Delta)}{\e}{\lam{\x}{\T}{\KK}}}
+    {\ttlam{\x}{\T} \C}
+    {\opRes{(\x{:}\T,\Delta)}{\e}{\ttlam{\x}{\T}{\KK}}}
   }
 
   \\
@@ -408,7 +384,7 @@ Judgments:
     \\\\
     \evalto
       {\bigl(\letin{\X = \inhabitOp{\bty{\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3}}}}
-         {\val (\equationin{\X}{\B''_1}{\B''_3}{(\brazilapp{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
+         {\val (\equationin{\X}{\B''_1}{\B''_3}{(\app{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
       {R}
   }
   { \evalto
@@ -565,7 +541,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \kok[\ctxextend{\x}{\T_1}]{\D}{\K_2}
   }
   {
-    \kok{(\ctxextend[\D]{\x}{\T_1})}{(\lam{\x}{\T_1} \K_2)}
+    \kok{(\ctxextend[\D]{\x}{\T_1})}{(\ttlam{\x}{\T_1} \K_2)}
   }
 \end{mathpar}
 
@@ -587,7 +563,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \eok{\e_2} \\
   }
   {
-    \cok{\app{\e_1}{\e_2}}
+    \cok{\ttapp{\e_1}{\e_2}}
   }
 
   \infer[ok-let]
@@ -676,7 +652,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \cok{\C_2} \\
   }
   {
-    \cok{(\lam{\x}{\e_1} \C_2)}
+    \cok{(\ttlam{\x}{\e_1} \C_2)}
   }
 
   \infer[ok-make-lam2]
@@ -685,7 +661,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \cok[\ctxextend{\x}{\T_1}]{\C_2} \\
   }
   {
-    \cok{(\lam{\x}{\bty{\T_1}} \C_2)}
+    \cok{(\ttlam{\x}{\bty{\T_1}} \C_2)}
   }
 \end{mathpar}
 
