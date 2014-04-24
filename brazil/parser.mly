@@ -18,7 +18,7 @@
   let make_universe (u, loc) =
     match Universe.of_string u with
       | None -> Error.syntax ~loc "invalid universe index %s" u
-      | Some u -> (u, loc)
+      | Some u -> u
 
 %}
 
@@ -30,7 +30,7 @@
 %token ARROW DARROW
 %token COERCE
 %token EQ EQEQ
-%token EQUATION REWRITE IN
+%token ADVICE EQUATION REWRITE IN
 %token REFL IDPATH
 %token IND_PATH
 %token UNDERSCORE
@@ -63,6 +63,7 @@ plain_topdef:
   | DEFINE x=NAME COLONEQ e=term                { Define (x, e) }
   | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, (Ascribe(e,t), snd e)) }
   | ASSUME xs=nonempty_list(NAME) COLON t=ty    { Assume (xs, t) }
+  | ADVICE e=term                               { TopAdvice e }
   | REWRITE e=term                              { TopRewrite e }
   | EQUATION e=term                             { TopEquation e }
 
@@ -81,6 +82,7 @@ plain_term:
   | FORALL a=abstraction(term) COMMA  e=term        { fst (make_prod e a) }
   | FUN a=abstraction(ty) DARROW e=term             { fst (make_lambda e a) }
   | e=equiv_term ASCRIBE t=ty                       { Ascribe (e, t) }
+  | ADVICE e1=equiv_term IN e2=term                 { Advice (e1, e2) }
   | EQUATION e1=equiv_term IN e2=term               { Equation (e1, e2) }
   | REWRITE e1=equiv_term IN e2=term                { Rewrite (e1, e2) }
   | t1=equiv_term ARROW t2=term                     { NameProd (anonymous, t1, t2) }
@@ -94,12 +96,12 @@ plain_equiv_term:
 
 app_term: mark_position(plain_app_term) { $1 }
 plain_app_term:
-  | e=plain_simple_term                          { e }
-  | e1=app_term e2=simple_term                   { App (e1, e2) }
-  | COERCE LPAREN u=universe COMMA e=term RPAREN { let u = make_universe u in Coerce (u, e) }
-  | UNIVERSE u=universe                          { let u = make_universe u in NameUniverse u }
-  | REFL e=simple_term                           { Refl e }
-  | IDPATH e=simple_term                         { Idpath e }
+  | e=plain_simple_term                           { e }
+  | e1=app_term e2=simple_term                    { App (e1, e2) }
+  | COERCE LPAREN ul=universe COMMA e=term RPAREN { let u = make_universe ul in Coerce (u, e) }
+  | UNIVERSE ul=universe                          { let u = make_universe ul in NameUniverse u }
+  | REFL e=simple_term                            { Refl e }
+  | IDPATH e=simple_term                          { Idpath e }
   | IND_PATH LPAREN
           LBRACK
           x=param
@@ -128,13 +130,12 @@ plain_simple_term:
   | LPAREN RPAREN                { UnitTerm }
   | LPAREN e=plain_term RPAREN   { e }
 
-
-ty:
-  | t=term { let (_,loc) = t in (El t, loc) }
-
 universe: mark_position(plain_universe) { $1 }
 plain_universe:
   | u=NAME { u }
+
+ty:
+  | t=term { let (_,loc) = t in (El t, loc) }
 
 (* returns a list of things individually annotated by positions.
   Since the list is not further annotated, consistency suggests

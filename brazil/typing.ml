@@ -10,21 +10,6 @@ let print_term ctx term =
 
 let print_universe = Print.universe
 
-(***********************)
-(* Universe operations *)
-(***********************)
-
-let leq_universe (alpha, _) (beta, _) = Universe.leq alpha beta
-
-let equiv_universe (alpha, _) (beta, _) = Universe.eq alpha beta
-
-let max_universe (alpha, loc) (beta, _) = (Universe.max alpha beta, loc)
-
-let succ_universe (alpha, loc) = (Universe.succ alpha, loc)
-
-let is_fibered_universe (alpha, _) = Universe.is_fibered alpha
-
-
 (*************************)
 (* Weak-Head Normalizing *)
 (*************************)
@@ -77,7 +62,7 @@ let rec whnf_ty ctx1 (ty',loc) =
               None
 
             (* could have taken a step *)
-            | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _ ->
+            | Syntax.Advice _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _ ->
               Error.impossible "normalization of universe names is suprised, please report"
           end
       end
@@ -117,13 +102,13 @@ and whnf ctx1 ((term',loc) as term) =
 
         (* norm-coerce-trivial *)
         | Syntax.Coerce(alpha1, alpha2, e)
-            when equiv_universe alpha1 alpha2 ->
+            when Universe.eq alpha1 alpha2 ->
             Some (ctx1, e)
 
         (* norm-coerce-trans *)
         | Syntax.Coerce(beta1, gamma,
                         (Syntax.Coerce(alpha, beta2, e), _))
-            when equiv_universe beta1 beta2 ->
+            when Universe.eq beta1 beta2 ->
             Some (ctx1, e)
 
         (* norm-app *)
@@ -197,7 +182,7 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
 
     (* chk-tyeq-el *)
     | Syntax.El(alpha, e1), Syntax.El(beta, e2) ->
-        equiv_universe alpha beta && equiv ctx e1 e2 (Syntax.Universe alpha, uloc)
+        Universe.eq alpha beta && equiv ctx e1 e2 (Syntax.Universe alpha, uloc)
 
     (* chk-tyeq-prod *)
     | Syntax.Prod(x, t1, t2), Syntax.Prod(_, u1, u2) ->
@@ -364,35 +349,35 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
 
     (* chk-eq-whnf-prod *)
     | Syntax.NameProd(alpha, beta, x, e1, e2), Syntax.NameProd(alpha', beta', _, e1', e2') ->
-        equiv_universe alpha alpha' && equiv_universe beta beta'
+        Universe.eq alpha alpha' && Universe.eq beta beta'
         && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
         && equiv (Context.add_var x (Syntax.El(alpha,e1), Position.nowhere) ctx)
                  e2 e2' (Syntax.Universe beta, Position.nowhere)
 
     (* chk-eq-whnf-universe *)
     | Syntax.NameUniverse alpha, Syntax.NameUniverse beta ->
-        equiv_universe alpha beta
+        Universe.eq alpha beta
 
     (* chk-eq-whnf-unit *)              (** Subsumed by reflexivity check! *)
     (*| Syntax.NameUnit, Syntax.NameUnit -> true *)
 
     (* chk-eq-whnf-paths *)
     | Syntax.NamePaths(alpha, e1, e2, e3), Syntax.NamePaths(alpha', e1', e2', e3') ->
-        equiv_universe alpha alpha'
+        Universe.eq alpha alpha'
         && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
         && equiv ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
         && equiv ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
 
     (* chk-eq-whnf-id *)
     | Syntax.NameId(alpha, e1, e2, e3), Syntax.NameId(alpha', e1', e2', e3') ->
-        equiv_universe alpha alpha'
+        Universe.eq alpha alpha'
         && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
         && equiv ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
         && equiv ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
 
     (* chk-eq-whnf-coerce *)
     | Syntax.Coerce(alpha, _beta, e1), Syntax.Coerce(alpha', _beta', e1') ->
-        equiv_universe alpha alpha'
+        Universe.eq alpha alpha'
         && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
 
     (* chk-eq-whnf-abs *)
@@ -417,7 +402,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
     | _, Syntax.Refl _ ->
         true
 
-    | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
+    | (Syntax.Var _ | Syntax.Advice _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
       | Syntax.Lambda _ | Syntax.App _ | Syntax.Idpath _
       | Syntax.J _ | Syntax.Coerce _ | Syntax.NameUnit
       | Syntax.NameProd _ | Syntax.NameUniverse _ | Syntax.NamePaths _
@@ -450,6 +435,14 @@ let rec syn_term ctx ((term', loc) as term) =
       let e = chk_term ctx e t  in
         e,
         t
+
+  (* syn-advice *)
+  | Input.Advice (e1, e2) ->
+    let e1, u' = syn_term ctx e1 in
+    let u = whnfs_ty ctx u' in
+    let ctx = Context.add_advice u ctx in
+    let e2, t = syn_term ctx e2 in
+      (Syntax.Advice (e1, u, e2), loc), t
 
   (* syn-eq-hint *)
   | Input.Equation (e1, e4) ->
@@ -555,12 +548,12 @@ let rec syn_term ctx ((term', loc) as term) =
   (* syn-name-unit *)
   | Input.NameUnit ->
       (Syntax.NameUnit, loc),
-      (Syntax.Universe (Universe.zero, Position.nowhere), loc)
+      (Syntax.Universe Universe.zero, loc)
 
 
   (* syn-name-universe *)
   | Input.NameUniverse alpha ->
-     let beta = succ_universe alpha  in
+    let beta = Universe.succ alpha  in
      (Syntax.NameUniverse alpha, loc),
      (Syntax.Universe beta, loc)
 
@@ -576,7 +569,7 @@ let rec syn_term ctx ((term', loc) as term) =
               let e2, t2 = syn_term ctx' e2  in
               match whnfs_ty ctx' t2 with
               | Syntax.Universe beta, _ ->
-                  let gamma = max_universe alpha beta  in
+                  let gamma = Universe.max alpha beta  in
                   ((Syntax.NameProd(alpha, beta, x, e1, e2), loc),
                    (Syntax.Universe gamma, loc))
               | t2' ->
@@ -596,7 +589,7 @@ let rec syn_term ctx ((term', loc) as term) =
         let e, t = syn_term ctx e  in
         match whnfs_ty ctx t with
         | Syntax.Universe alpha, _ ->
-            if leq_universe alpha beta then
+            if Universe.leq alpha beta then
               ((Syntax.Coerce(alpha, beta, e), loc),
                (Syntax.Universe beta, loc))
             else
@@ -619,7 +612,7 @@ let rec syn_term ctx ((term', loc) as term) =
                          (print_ty ctx t2)
                          (print_term ctx e2)
         | Some (e1, alpha) ->
-            if (is_fibered_universe alpha) then
+            if (Universe.is_fibered alpha) then
               let e3 = chk_term ctx e3 t2 in
               ((Syntax.NamePaths(alpha, e1, e2, e3), loc),
                (Syntax.Universe alpha, loc))
@@ -764,10 +757,10 @@ and is_fibered ctx ((_, loc) as ty) =
 *)
 and wf_type_is_fibered (ty', _) =
   match ty' with
-  | Syntax.Universe alpha -> Universe.is_fibered (fst alpha)
+  | Syntax.Universe alpha -> Universe.is_fibered alpha
   | Syntax.Prod(_, t, u) ->
       wf_type_is_fibered t && wf_type_is_fibered u
-  | Syntax.El(alpha, _) -> Universe.is_fibered (fst alpha)
+  | Syntax.El(alpha, _) -> Universe.is_fibered alpha
   | Syntax.Unit -> true
   | Syntax.Paths _ -> true
   | Syntax.Id _ -> false

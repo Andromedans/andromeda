@@ -5,7 +5,7 @@ type name = string
 (** We use de Bruijn indices *)
 type variable = Common.debruijn
 
-type universe = Universe.t * Position.t
+type universe = Universe.t
 
 type ty = ty' * Position.t
 and ty' =
@@ -19,6 +19,7 @@ and ty' =
 and term = term' * Position.t
 and term' =
   | Var of variable
+  | Advice of term * ty * term
   | Equation of term * (term * term) * term
   | Rewrite of term * (term * term) * term
   | Ascribe of term * ty
@@ -57,6 +58,9 @@ let rec equal ((left',_) as left) ((right',_) as right) =
 
   | Var index1, Var index2 -> index1 = index2
 
+  | Advice(_, _, term1), _ -> equal term1 right
+  | _, Advice(_, _, term1) -> equal left  term1
+
   | Equation(_, _, term1), _ -> equal term1 right
   | _, Equation(_, _, term1) -> equal left  term1
 
@@ -92,16 +96,16 @@ let rec equal ((left',_) as left) ((right',_) as right) =
       equal_ty ty2 ty8 && equal term3 term9 && equal term4 term10
       (* && equal term5 term11 && equal term6 term12 *)
 
-  | Coerce(_universe1, (universe2',_), term3), Coerce(_universe4, (universe5',_), term6) ->
-      (* universe1 = universe4 && *)
-      universe2' = universe5' && equal term3 term6
+  | Coerce(_universe1, universe2, term3), Coerce(_universe4, universe5, term6) ->
+      (* Universe.eq universe1 universe4 && *)
+      Universe.eq universe2 universe5 && equal term3 term6
 
-  | NameUniverse (universe1',_), NameUniverse (universe2',_) ->
-      universe1' = universe2'
+  | NameUniverse universe1, NameUniverse universe2 ->
+      Universe.eq universe1 universe2
 
   | NamePaths(_universe1, term2, term3, term4), NamePaths(_universe5, term6, term7, term8)
   | NameId   (_universe1, term2, term3, term4), NameId   (_universe5, term6, term7, term8) ->
-      (* universe1 = universe5 && *)
+      (* Universe.eq universe1 universe5 && *)
       equal term2 term6 && equal term3 term7 && equal term4 term8
 
   | (Var _ | Ascribe _ | Lambda _ | App _
@@ -113,11 +117,11 @@ let rec equal ((left',_) as left) ((right',_) as right) =
 and equal_ty (left_ty,_) (right_ty,_) =
   match left_ty, right_ty with
 
-  | Universe (universe1',_), Universe (universe2',_) ->
-      universe1' = universe2'
+  | Universe universe1, Universe universe2 ->
+      Universe.eq universe1 universe2
 
-  | El((universe1',_), term2), El((universe3',_), term4) ->
-      universe1' = universe3' && equal term2 term4
+  | El(universe1, term2), El(universe3, term4) ->
+      Universe.eq universe1 universe3 && equal term2 term4
 
   | Unit, Unit -> true
 
@@ -157,6 +161,9 @@ let rec transform ftrans bvs (term', loc) =
     ((match term' with
 
       | Var _index -> term'
+
+      | Advice(term1, ty2, term3) ->
+          Advice(recurse term1, recurse_ty ty2, term3)
 
       | Equation(term1, (term2,term3), term4) ->
           Equation(recurse term1, (recurse term2, recurse term3), recurse term4)
@@ -230,7 +237,7 @@ and transform_ty ftrans bvs (ty', loc) =
     free variable indices in [e].
 *)
 
-let ftrans_shift delta bvs = function
+let ftrans_shift ?exn delta bvs = function
   | (Var index, loc) as var ->
       if (index < bvs) then
         (* This is a reference to a bound variable; don't transform *)
@@ -238,17 +245,21 @@ let ftrans_shift delta bvs = function
       else
         begin
           (* Add delta to the index of this free variable *)
-          assert (index + delta >= 0);
-          (Var (index + delta), loc);
+          if index + delta < 0 then begin
+            match exn with
+            | None -> Error.impossible ~loc "shifting produced a negative index"
+            | Some e -> raise e
+          end ;
+          (Var (index + delta), loc)
         end
 
   | nonvar -> nonvar
 
-let shift'    bvs delta = transform    (ftrans_shift delta) bvs
-let shift_ty' bvs delta = transform_ty (ftrans_shift delta) bvs
+let shift' ?exn bvs delta = transform (ftrans_shift ?exn delta) bvs
+let shift_ty' ?exn bvs delta = transform_ty (ftrans_shift ?exn delta) bvs
 
-let shift delta    = shift' 0 delta
-let shift_ty delta = shift_ty' 0 delta
+let shift ?exn delta    = shift' ?exn 0 delta
+let shift_ty ?exn delta = shift_ty' ?exn 0 delta
 
 let ftrans_subst free_index replacement_term bvs = function
   | (Var index, loc) as var ->
@@ -342,37 +353,37 @@ let rec name_of (ty', loc) =
 
     match ty' with
 
-    | Universe ((alpha',_) as alpha) ->
-        Some( NameUniverse alpha, Universe.succ alpha' )
+    | Universe alpha ->
+        Some(NameUniverse alpha, Universe.succ alpha)
 
-    | El ((alpha,_), (e', _)) ->
-        Some( e', alpha )
+    | El (alpha, (e', _)) ->
+        Some(e', alpha)
 
     | Unit ->
-        Some( NameUnit, Universe.zero )
+        Some (NameUnit, Universe.zero)
 
     | Prod(x,t,u) ->
         begin
           match name_of t, name_of u with
-          | Some (name_t, ((alpha',_) as alpha)), Some (name_u, ((beta',_) as beta)) ->
+          | Some (name_t, alpha), Some (name_u, beta) ->
               Some( NameProd(alpha, beta, x, name_t, name_u),
-                    Universe.max alpha' beta' )
+                    Universe.max alpha beta )
           | _ -> None
         end
 
     | Paths(t,e2,e3) ->
         begin
           match name_of t with
-          | Some (name_t, ((alpha',_) as alpha)) ->
-              Some ( NamePaths(alpha, name_t, e2, e3), alpha')
+          | Some (name_t, alpha) ->
+              Some (NamePaths(alpha, name_t, e2, e3), alpha)
           | None -> None
         end
 
     | Id(t,e2,e3) ->
         begin
           match name_of t with
-          | Some (name_t, ((alpha',_) as alpha)) ->
-              Some ( NameId(alpha, name_t, e2, e3), alpha')
+          | Some (name_t, alpha) ->
+              Some (NameId(alpha, name_t, e2, e3), alpha)
           | None -> None
         end
 
@@ -380,7 +391,7 @@ let rec name_of (ty', loc) =
      (* Reattach the location, if we succeeded *)
      match answer' with
      | None -> None
-     | Some (name', universe') -> Some ((name', loc), (universe', loc))
+     | Some (name', universe) -> Some ((name', loc), universe)
 
 
 
@@ -392,6 +403,7 @@ let rec name_of (ty', loc) =
 let rec occurs k (e, _) =
   match e with
     | Var m -> k = m
+    | Advice (e1, t, e2) -> occurs k e1 || occurs_ty k t || occurs k e2
     | Equation (e1, (e2, e3), e4) -> occurs k e1 || occurs k e2 || occurs k e3 || occurs k e4
     | Rewrite (e1, (e2, e3), e4) -> occurs k e1 || occurs k e2 || occurs k e3 || occurs k e4
     | Ascribe (e, t) -> occurs k e || occurs_ty k t
@@ -427,6 +439,9 @@ let rec occurrences k (e, _) =
   match e with
 
     | Var m -> if k = m then 1 else 0
+
+    | Advice (e1, t, e2) ->
+      occurrences k e1 + occurrences_ty k t + occurrences k e2
 
     | Equation (e1, (e2, e3), e4) ->
       occurrences k e1 + occurrences k e2 + occurrences k e3 + occurrences k e4

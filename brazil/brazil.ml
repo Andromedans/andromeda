@@ -97,6 +97,14 @@ let rec exec_cmd interactive ctx (d, loc) =
       let t = Syntax.simplify_ty t  in
         if interactive then Format.printf "%s is defined.@\n@." x ;
         Context.add_def x t e ctx
+
+    | Input.TopAdvice e ->
+      let e = Debruijn.term names e in
+      let e, t = Typing.syn_term ctx e in
+      let t = Typing.whnfs_ty ctx t in
+        if interactive then Format.printf "Advice heeded.@\n@." ;
+        Context.add_advice t ctx
+
     | Input.TopRewrite e ->
       let e = Debruijn.term names e in
       let e, t = Typing.syn_term ctx e in
@@ -108,6 +116,7 @@ let rec exec_cmd interactive ctx (d, loc) =
             Error.runtime ~loc:(snd e) "this term has type %t but should be an equality proof."
               (Print.ty names t)
         end
+
     | Input.TopEquation e ->
       let e = Debruijn.term names e in
       let e, t = Typing.syn_term ctx e in
@@ -122,8 +131,10 @@ let rec exec_cmd interactive ctx (d, loc) =
 
     | Input.Context ->
         Context.print ctx ; ctx
+
     | Input.Help ->
       Format.printf "%s" help_text ; ctx
+
     | Input.Quit ->
       exit 0
 

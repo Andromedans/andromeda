@@ -5,6 +5,7 @@ type declaration =
   | Definition of Syntax.ty * Syntax.term
 
 type hint =
+  | Advice of Syntax.ty
   | Equation of Syntax.term * Syntax.term
   | Rewrite of Syntax.term * Syntax.term
 
@@ -32,10 +33,12 @@ let print {decls=ds; hints=hs; names=xs} =
   in
   let print_hints xs =
     List.iter (function
+      | Advice t ->
+        Format.printf "advice (_ :: %t)@\n" (Print.ty xs t)
       | Rewrite (e1, e2) ->
-        Format.printf "rewrite (_ :: %t == %t)" (Print.term xs e1) (Print.term xs e2)
+        Format.printf "rewrite (_ :: %t == %t)@\n" (Print.term xs e1) (Print.term xs e2)
       | Equation (e1, e2) ->
-        Format.printf "equation (_ :: %t == %t)" (Print.term xs e1) (Print.term xs e2)
+        Format.printf "equation (_ :: %t == %t)@\n" (Print.term xs e1) (Print.term xs e2)
     )
   in
     print_names ds xs ;
@@ -57,9 +60,13 @@ let shift_declaration delta declaration =
 
 let shift_hint delta hint =
   match hint with
+
+  | Advice t -> Advice (Syntax.shift_ty delta t)
+
   | Equation(term1, term2) ->
       Equation( Syntax.shift delta term1,
                 Syntax.shift delta term2 )
+
   | Rewrite(term1, term2) ->
       Rewrite( Syntax.shift delta term1,
                Syntax.shift delta term2 )
@@ -90,6 +97,10 @@ let add_def x t ((_,loc) as e) ctx =
     names = x :: ctx.names;
   }
 
+let add_advice t ctx =
+  { ctx with
+    hints = Advice t :: ctx.hints }
+
 let add_equation e1 e2 ctx =
   { ctx with
     hints = Equation (e1, e2) :: ctx.hints }
@@ -116,6 +127,7 @@ let lookup_var index {decls=lst} =
 
 let lookup_equation e1 e2 ctx =
   let predicate = function
+    | Advice _ -> false
     | Equation(term1, term2)
     | Rewrite(term1, term2) ->
        (Syntax.equal e1 term1 && Syntax.equal e2 term2) ||
@@ -131,7 +143,7 @@ let lookup_rewrite e1 ctx =
         Some term2
       else
         search lst
-    | Equation _ :: lst -> search lst
+    | (Advice _ | Equation _) :: lst -> search lst
   in
     search ctx.hints
 

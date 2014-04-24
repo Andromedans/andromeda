@@ -81,7 +81,7 @@ let sequence ?(sep="") f lst ppf =
 
 let name x ppf = print ~at_level:0 ppf "%s" x
 
-let universe (u,_) ppf =
+let universe u ppf =
   print ~at_level:0 ppf "%s" (Universe.to_string u)
 
 (** [prod xs x t1 t2 ppf] prints a dependent product using formatter [ppf]. *)
@@ -158,6 +158,11 @@ and term ?max_level xs (e,_) ppf =
               _ ->
                 print ~at_level:0 "BAD_INDEX[%d/%d]" k (List.length xs)
           end
+
+      | Syntax.Advice (e1, _t, e2) ->
+        print ~at_level:4 "advice %t@ in %t"
+          (term ~max_level:3 xs e1)
+          (term ~max_level:4 xs e2)
 
       | Syntax.Equation (e1, (_e2, _e3), e4) ->
         print ~at_level:4 "equation %t@ in %t"

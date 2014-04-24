@@ -5,7 +5,7 @@ type name = string
 (** We use de Bruijn indices *)
 type variable = Common.debruijn
 
-type universe = Universe.t * Position.t
+type universe = Universe.t
 
 type ty = ty' * Position.t
 and ty' =
@@ -19,6 +19,7 @@ and ty' =
 and term = term' * Position.t
 and term' =
   | Var of variable
+  | Advice of term * ty * term
   | Equation of term * (term * term) * term
   | Rewrite of term * (term * term) * term
   | Ascribe of term * ty
@@ -46,10 +47,10 @@ val equal    : term -> term -> bool
 val equal_ty : ty -> ty -> bool
 
 (** [shift delta term] shifts the free variables in [term] by [delta] *)
-val shift : int -> term -> term
+val shift : ?exn:exn -> int -> term -> term
 
 (** [shift_ty delta ty] shifts the free variables in [ty] by [delta] *)
-val shift_ty : int -> ty -> ty
+val shift_ty : ?exn:exn -> int -> ty -> ty
 
 (**
   If [G, x:t |- body : ...] and [G |- arg : t] then

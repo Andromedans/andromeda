@@ -4,33 +4,22 @@
 \usepackage{mathpartir}
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{xcolor}
+\usepackage{ifmtarg}
 
 \newtheorem{lemma}{Lemma}
 
 %%%%%% Macros here %%%%%%
 
-%contexts
-%
-\newcommand{\emptyG}{\bullet} % empty context
-\newcommand{\G}{\Gamma}
-\newcommand{\D}{\Delta}
-\newcommand{\emptyH}{\circ} % empty handlers
+\input brazilmacros
+
 
 %% Syntax
-\newcommand{\bnf}{\mathrel{{:}{:}{=}}}
-\newcommand{\bnfor}{|}
 
-\newcommand{\x}{x}     % brazil variable
-\newcommand{\y}{y}     % another variable
-\newcommand{\z}{z}     % another variable
 \newcommand{\C}{C}     % computation
 \newcommand{\K}{K}     % continuation variable
 \newcommand{\X}{X}     % TT (computation) variable
-\newcommand{\e}{e}     % expression
 \newcommand{\rgn}{r}   % region
 \newcommand{\h}{h}     % handler
-\newcommand{\T}{T}     % type
-\newcommand{\U}{U}     % another type
 \newcommand{\B}{B}     % Brazil term
 \newcommand{\R}{R}     % Result
 \newcommand{\KK}{{\cal K}} % continuation term with hole
@@ -49,8 +38,8 @@
 \newcommand{\abs}[1]{\mathsf{abs}\;#1\;\mathsf{in}\;} % abstraction
 \newcommand{\new}[2]{\mathsf{new}(#1,#2)} % new(r,T)
 \newcommand{\fun}[1]{\mathsf{fun}\;#1\Rightarrow} % tt-level function
-\newcommand{\app}[2]{#1\,#2} % application
-\newcommand{\lam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
+\newcommand{\ttapp}[2]{#1\,#2} % application
+\newcommand{\ttlam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
 \newcommand{\kapp}[2]{#1{}[#2]} % continuation application
 \newcommand{\bterm}[2]{\langle\,#1\, :\, #2\,\rangle} % brazil (typed) term as data
 \newcommand{\bty}[1]{\langle\,#1\,\rangle} % brazil type as data
@@ -61,14 +50,15 @@
 
 \newcommand{\debruijn}[1]{\mathsf{debruijn}\,#1} % ugly hack
 
-\newcommand{\subst}[3]{#1[#3/#2]} % substitution
-\newcommand{\substs}[2]{#1[#2]} % substitution of many things
 
 \newcommand{\cont}[2][\G,\D]{\mathsf{cont}(#1,#2)}     % continuation
 \newcommand{\hfcont}{\hat{\cal K}}     % handler-free continuation
 \newcommand{\hole}{\diamond}
 \newcommand{\tuple}[1]{(#1)}
 \newcommand{\generictuple}[1][n]{\tuple{e_1,\ldots,\e_{#1}}}
+
+\newcommand{\pp}{\mathop{\text{\footnotesize{+}{+}}}}
+\newcommand{\tupleappend}[2]{#1 \pp #2}
 
 
 \newcommand{\pat}{P}
@@ -86,11 +76,7 @@
 
 \newcommand{\xcT}{\vec{\x}{:}\vec{\T}}
 \newcommand{\xT}{{\vec{\x}}{\vec{\T}}}
-\renewcommand{\H}{\mathcal{H}} % A stack of handlers
-\newcommand{\GH}{\G, \H} % combined context & handler
 
-\newcommand{\ctxempty}{\bullet}
-\newcommand{\ctxextend}[3][\G]{#1, #2 {:} #3}
 
 \newcommand{\evalto}[3][\G]{#1 \vdash #2 \ \Downarrow\  #3}
 
@@ -99,33 +85,27 @@
 \newcommand{\cok}[2][\G]{#1 \vdash #2 \ \ \mathsf{ok}}
 \newcommand{\kok}[3][\G]{#1 \vdash #3 \ : \ #2\to\mathsf{ok}}
 
-\newcommand{\istype}[2]{#1 \vdash #2\;\mathsf{type}} % well formed type
-\newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
-
-\newcommand{\typeOf}{\mathsf{typeOf}\,}
-
 \newcommand{\typicalhandler}{\handler{\X}{\C_v}{\X}{\K}{\C}}
 
 \renewcommand{\S}{{\cal S}}
 \newcommand{\GS}{\Gamma; \S}
-\newcommand{\emptystack}{\bullet}
 
 
 %% Copied from brazil.tex
-\newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
-\newcommand{\brazilapp}[5]{#1\mathbin{@^{#2{:}#3.#4}} #5} % application
-\newcommand{\equationin}[3]{\mathsf{equation}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use equation hint
-\newcommand{\rewritein}[3]{\mathsf{rewrite}\; #1 \,{:}\, #2 \,{\equiv}\, #3 \; \mathsf{in} \;} % use rewrite hint
-\newcommand{\piClose}[2]{\mathsf{max}(#1,#2)}   % the universe containing a pi with given domain and codomain
-\newcommand{\uClose}[1]{\mathsf{succ}(#1)}  % the universe containing the given universe's name.
-\newcommand{\Universe}[1]{\mathbb{U}_{#1}}
-\newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
-\newcommand{\coerce}[3]{\mathsf{coerce}^{#1{\mapsto}#2} \, #3}
-\newcommand{\El}[2]{\mathsf{El}^{#1}\, #2} % the type named by the term
-\newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
 
+%% Revised from brazil.tex
 
+\newcommand{\ws}{\vec{w}}
+\newcommand{\maybeDownarrow}[1]{\if\relax\detokenize{#1}\relax \else \Downarrow #1 \fi}
+\renewcommand{\istypealg}[3][\ws]{#2 \vdash #3 \Leftarrow \mathsf{type} \maybeDownarrow{#1}} % well formed type
+\renewcommand{\isfibalg}[4][\ws]{#2 \vdash #3 \Leftarrow \mathsf{fibered} \maybeDownarrow{#1}} % is a fibered type
+\renewcommand{\eqtypealg}[4][\ws]{#2 \vdash #3 \thickapprox #4 \maybeDownarrow{#1}} % equal types
+\renewcommand{\eqtypepath}[4][\ws]{#2 \vdash #3 \thicksim #4 \maybeDownarrow{#1}} % equal normal-form types
+\renewcommand{\eqtermalg}[5][\ws]{#2 \vdash #3 \thickapprox #4 \Leftarrow #5 \maybeDownarrow{#1}} % equal terms of normalized type
+\renewcommand{\eqtermext}[5][\ws]{#2 \vdash #3 \simeq #4 \Leftarrow #5 \maybeDownarrow{#1}} % equal terms w/o eta
+\renewcommand{\eqpath}[5][\ws]{#2 \vdash #3 \thicksim #4 \maybeDownarrow{#1}}  % equal paths
 
+\newcommand{\equationsin}[1]{\mathsf{equation}\; #1 \;\mathsf{in}\;} % let x = c1 in c2
 
 
 \begin{document}
@@ -152,7 +132,7 @@
     \\
     \text{Computation $\C$}
       \bnf  & \val \e                & \text{Pure expression} \\
-    \bnfor  & \app{\e_1}{\e_2}   & \text{Application} \\
+    \bnfor  & \ttapp{\e_1}{\e_2}   & \text{Application} \\
     \bnfor  & \letin{\X = \C_1} \C_2  & \text{$\mathsf{let}$-binding} \\
     \bnfor  & \opOp{\e} & \text{Operation} \\
     \bnfor  & \withhandle{\e} \C & \text{Handling} \\
@@ -163,13 +143,13 @@
     \bnfor  & \genericprim & \text{Primitive operations}\\
     \bnfor  & \genericmatch& \text{Pattern-match}\\
     \bnfor  & \debruijn{n} & \text{Build Brazilian term: variable} \\
-    \bnfor  & \lam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
+    \bnfor  & \ttlam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
     \bnfor  & \makeApp{\e_1}{\e_2} & \text{Build Brazilian term: application} \\
     \\
     \text{Continuation $\KK$} \bnf    & \hole                & \text{Hole} \\
     \bnfor  & \letin{\X = \KK} \C_2  & \text{$\mathsf{let}$-binding} \\
     \bnfor  & \withhandle{\e} \KK & \text{Handling} \\
-    \bnfor  & \lam{\x}{\T}{\KK} & \text{Abstraction} \\
+    \bnfor  & \ttlam{\x}{\T}{\KK} & \text{Abstraction} \\
 %    \bnfor  & \abs{\rgn}{\KK} & \text{abstraction} \\
     \\
 
@@ -220,7 +200,7 @@ Judgments:
     \evalto{\subst{\C}{\X}{\e}}{R}
   }
   { \evalto
-    {\app{(\fun{\X}{\C})}{\e}}
+    {\ttapp{(\fun{\X}{\C})}{\e}}
     {R}
   }
 
@@ -378,8 +358,8 @@ Judgments:
     {\val \bterm{\B}{\U}}
   }
   { \evalto
-    {\lam{\x}{\T} \C}
-    {\val (\lam{\x}{\T} B)}
+    {\ttlam{\x}{\T} \C}
+    {\val (\ttlam{\x}{\T} B)}
   }
 
   \infer[eval-make-lambda-op]
@@ -389,36 +369,367 @@ Judgments:
     {\opRes{\D}{\e}{\KK}}
   }
   { \evalto
-    {\lam{\x}{\T} \C}
-    {\opRes{(\x{:}\T,\Delta)}{\e}{\lam{\x}{\T}{\KK}}}
+    {\ttlam{\x}{\T} \C}
+    {\opRes{(\x{:}\T,\Delta)}{\e}{\ttlam{\x}{\T}{\KK}}}
   }
 
   \\
 
   \infer[eval-make-app]
   {
-    \mathsf{nameOf}(\T_1) = B'_1 : \Universe{\alpha}\\
-    \mathsf{nameOf}(\T_3) = B'_3 : \Universe{\beta}\\
-    \\\\
-    \gamma = \piClose{\alpha}{\beta}\\
-    \gamma' = \uClose{\gamma}\\
-    \\\\
-    \B''_1 = \coerce{\alpha}{\gamma}{\B'_1}\\
-    \B''_3 = \coerce{\beta}{\gamma}{\B'_3}\\
-    \\\\
-    \evalto
-      {\bigl(\letin{\X = \inhabitOp{\bty{\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3}}}}
-         {\val (\equationin{\X}{\B''_1}{\B''_3}{(\brazilapp{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
-      {R}
+    \eqtypealg{\G}{\T_1}{\T_2}
   }
   { \evalto
-      {\makeApp{\bterm{B_1}{\Prod{\x}{\T_1}{\T_2}}}{\bterm{B_2}{\T_3}}}
-      {R}
+      {\makeApp{\bterm{\B_1}{\Prod{\x}{\T_1}{\T_2}}}{\bterm{B_2}{\T_3}}}
+      {\bterm{\equationsin{\ws}{\app{B_1}{\x}{\T_1}{\T_2}{B_2}}}
+             {\subst{\T_2}{\x}{\B_2}}}
   }
 \end{mathpar}
 
 This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Brazil will think
 to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1 = \El{\gamma}{\B''_1}$ and $\T_3 = \El{\gamma}{\B''_3}$
+
+\subsection*{Type Equivalence Search}
+
+\paragraph{General Type equality}
+
+\begin{mathpar}
+  \infer[\rulename{chk-tyeq-refl}]
+  { }
+  { \eqtypealg[()]{\G}{\T}{\T} }
+
+  \infer[\rulename{chk-tyeq-hnf}]
+  { \whnfs{\G}{\T}{\T'}\\
+    \whnfs{\G}{\U}{\U'}\\
+    \eqtypepath{\G}{\T'}{\U'}
+  }
+  {
+    \eqtypealg{\GH}{\T}{\U}
+  }
+
+  \infer[\rulename{chk-tyeq-op}]
+  {
+    \evalto[\G]{\mathsf{equivTy}(\bty{\T_1},\bty{\T_2})}{\val \ws}
+    \\
+    \ws =
+         \tuple{\ \bterm{\B_1}{\JuEqual{\U_1}{\e'_1}{\e''_1}},
+                \ldots,
+                \bterm{\B_n}{\JuEqual{\U_n}{\e'_n}{\e''_n}}\ }
+    \\
+    \eqtypealg[]{\ctxs{\G}{\eqhint{\e'_i}{\e''_i}_{i=1}^{n}}}{\T_1}{\T_2}\\
+  }
+  {
+    \eqtypealg{\G}{\T_1}{\T_2}
+  }
+
+\end{mathpar}
+
+\paragraph{Equality of head-normal forms}
+\begin{mathpar}
+  \infer[\rulename{chk-tyeq-path-refl}]
+  { }
+  { \eqtypepath[()]{\G}{\T}{\T} }
+
+  \infer[\rulename{chk-tyeq-el}]
+  { \alpha = \beta \\
+    \eqtermalg{\G}{\e_1}{\e_2}{\Universe{\alpha}}
+  }
+  {
+    \eqtypepath{\G}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}
+  }
+
+  \infer[\rulename{chk-tyeq-prod}]
+  { \eqtypealg[\ws_1]{\GH}{\T_1}{\U_1} \\
+    \eqtypealg[\ws_2]{\ctxs{(\ctxextend{\G}{\x}{\T_1})}{\H}}{\T_2}{\U_2}
+  }
+  { \eqtypepath[\tupleappend{\ws_1}{\ws_2}]{\GH}
+    {\Prod{\x}{\T_1}{\T_2}}
+    {\Prod{\x}{\U_1}{\U_2}}
+  }
+
+  \infer[\rulename{chk-tyeq-paths}]
+  {\eqtypealg[\ws_1]{\GH}{\T}{\U}\\
+   \eqtermalg[\ws_2]{\GH}{\e_1}{\e'_1}{\T}\\
+   \eqtermalg[\ws_3]{\GH}{\e_2}{\e'_2}{\T}
+  }
+  {\eqtypepath[\tupleappend{\tupleappend{\ws_1}{\ws_2}}{\ws_3}]{\GH}{\PrEqual{\T}{\e_1}{\e_2}}
+                  {\PrEqual{\U}{\e'_1}{\e'_2}}}
+
+  \infer[\rulename{chk-tyeq-id}]
+  {\eqtypealg{\G}{\T}{\U}\\
+   \eqtermalg{\G}{\e_1}{\e'_1}{\T}\\
+   \eqtermalg{\G}{\e_2}{\e'_2}{\T}
+  }
+  {\eqtypepath{\G}{\JuEqual{\T}{\e_1}{\e_2}}
+                   {\JuEqual{\U}{\e'_1}{\e'_2}}}
+
+\iffalse
+  \infer[\rulename{chk-tyeq-path-op}]
+  {
+    \evalto[\GH]{\mathsf{equivTy}(\bty{\T_1},\bty{\T_2})}{\val \ws}
+    \\
+    \ws =
+         \tuple{\ \bterm{\B_1}{\JuEqual{\U_1}{\e'_1}{\e''_1}},
+                \ldots,
+                \bterm{\B_n}{\JuEqual{\U_n}{\e'_n}{\e''_n}}\ }
+    \\
+    \eqtypealg[]{\ctxs{\G}{\eqhint{\e'_i}{\e''_i}_{i=1}^{n}}}{\T_1}{\T_2}\\
+  }
+  {
+    \eqtypepath{\GH}{\T_1}{\T_2}
+  }
+\fi
+
+\end{mathpar}
+%
+The reflexivity rule is not just an optimization, but also handles
+equivalence of base types and equivalence of universes.
+
+
+\subsection{Term equality}
+\label{sec:bidirectional-term-equality}
+
+For algorithmic purposes we should try to apply reflexivity and hints before doing
+anything else:
+%
+\begin{mathpar}
+  \infer[\rulename{chk-eq-refl}]
+  { }
+  { \eqtermalg[()]{\G}{\e}{\e}{\T} }
+\end{mathpar}
+%
+Otherwise, we check whether extensionality applies:
+%
+\begin{mathpar}
+  \infer[\rulename{chk-eq-ext}]
+  {
+    \whnfs{\G}{\T}{\T'} \\
+    \eqtermext{\G}{\e_1}{\e_2}{\T'}
+  }
+  {
+    \eqtermalg{\G}{\e_1}{\e_2}{\T}
+  }
+\end{mathpar}
+%
+If that doesn't work either, we look for a handler
+%
+\begin{mathpar}
+  \infer[\rulename{chk-tyeq-op}]
+  {
+    \evalto[\G]{\mathsf{equiv}(\bterm{\e_1}{\T},\bterm{\e_2}{\T},\bty{\T})}{\ws}
+    \\
+    \ws =
+         \tuple{\ \bterm{\B_1}{\JuEqual{\U_1}{\e'_1}{\e''_1}},
+                \ldots,
+                \bterm{\B_n}{\JuEqual{\U_n}{\e'_n}{\e''_n}}\ }
+    \\
+    \eqtermalg[]{\ctxs{\G}{\eqhint{\e'_i}{\e''_i}_{i=1}^{n}}}{\e_1}{\e_2}{\T}\\
+  }
+  {
+    \eqtermalg{\G}{\e_1}{\e_2}{\T}
+  }
+\end{mathpar}
+although arguably we should wait until we have head-normalized the terms.
+
+\paragraph{Extensionality}
+
+\begin{mathpar}
+  \infer[\rulename{chk-eq-ext-prod}]
+  {
+    \eqtermalg{\ctxextend{\G}{\x}{\T}}{(\app{\e_1}{\x}{\T}{\U}{\x})}{(\app{\e_2}{\x}{\T}{\U}{\x})}{\U}
+  }
+  {
+    \eqtermext{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}
+  }
+
+  \infer[\rulename{chk-eq-ext-unit}]
+  {
+  }
+  {
+    \eqtermext[()]{\G}{\e_1}{\e_2}{\Unit}
+  }
+
+  \infer[\rulename{chk-eq-ext-K}]
+  {
+  }
+  {
+    \eqtermext[()]{\G}{\e_1}{\e_2}{\JuEqual{\T}{\e_3}{\e_4}}
+  }
+
+  \infer[\rulename{chk-eq-ext-whnf}]
+  {
+    \whnfs{\G}{\e_1}{\e'_1}\\
+    \whnfs{\G}{\e_2}{\e'_2}\\\\
+    \eqpath{\G}{\e'_1}{\e'_2}{\U}
+  }
+  {
+    \eqtermext{\G}{\e_1}{\e_2}{\T}
+  }
+\end{mathpar}
+%
+In \rulename{chk-eq-ext-whnf}, we might want to check whether $\e'_1$ and $\e'_2$ are the
+same expressions before invoking the general comparison function.
+
+\renewcommand{\GH}{\G}
+\paragraph{Whnf equivalence}
+\begin{mathpar}
+  \infer[\rulename{chk-eq-whnf-reflexivity}]
+  {
+  }
+  {
+    \eqpath[()]{\GH}{\e}{\e}{\T}
+  }
+
+
+  \infer[\rulename{chk-eq-whnf-var}]
+  {
+    %(\x{:}\T)\in \G
+  }
+  {
+    \eqpath[()]{\GH}{\x}{\x}{\T}
+  }
+
+  \infer[\rulename{chk-eq-whnf-app}]
+  {
+    \eqtypealg[\ws_1]{\GH}{\T_1}{\U_1}\\
+    \eqtypealg[\ws_2]{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\\\
+    \eqpath[\ws_3]{\GH}{\e_1}{\e'_1}{\Prod{\x}{\T_1}{\T_2}}\\
+    \eqtermalg[\ws_4]{\GH}{\e_2}{\e'_2}{\T_1}\\
+  }
+  {
+    \eqpath[\tupleappend{\tupleappend{\tupleappend{\ws_1}{\lambda\x{:}\T_2.\ws_2}}{\ws_3}}{\ws_4}]
+           {\GH}{(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})}
+                {(\app{\e'_1}{\x}{\U_1}{\U_2}{\e'_2})}
+                {\subst{\T_2}{\x}{\e_2}}
+  }
+\end{mathpar}
+By $\lambda\x{:}\T_2.\ws_2$ we mean lambda-abstracting each individual element of tuple $\ws_2$.
+
+\begin{mathpar}
+  \infer[\rulename{chk-eq-whnf-idpath}]
+  {
+    \eqtypealg[\ws_1]{\GH}{\T}{\U}\\
+    \eqtermalg[\ws_2]{\GH}{\e_1}{\e_2}{\T}
+  }
+  {
+    \eqpath[\tupleappend{\ws_1}{\ws_2}]
+           {\GH}{\prRefl{\T}{\e_1}}{\prRefl{\U}{\e_2}}
+                {\PrEqual{\T}{\e_1}{\e_1}}
+  }
+
+  \infer[\rulename{chk-eq-whnf-j}]
+  {
+   \eqtypealg[\ws_1]{\GH}{\T}{\T'}\\
+   \eqtypealg[\ws_2]
+     {\ctxs{(\ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\PrEqual{\T}{x}{y}})}{\H}}
+     {\U}
+     {\U'}
+   \\
+   \eqtermalg[\ws_3]
+     {\ctxs{(\ctxextend{\G}{z}{\T})}{\H}}
+     {\e_1}
+     {\e'_1}
+     {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
+     \\
+   \eqtermalg[\ws_4]{\GH}{\e_3}{\e'_3}{\T}\\
+   \eqtermalg[\ws_5]{\GH}{\e_4}{\e'_4}{\T}\\
+   \eqpath[\ws_6]{\GH}{\e_2}{\e'_2}{\PrEqual{\T}{\e_3}{\e_4}}\\
+   \ws = \ws_1 \pp (\lambda{\x}{:}{\T}.\lambda{\y}{:}{\T}.\lambda{p}{:}{\PrEqual{\T}{\x}{\y}}.\ws_2) \pp
+        \lambda z{:}\T.\ws_3 \pp \ws_4 \pp \ws_5 \pp \ws_6\\
+  }
+  {\eqpath
+     {\GH}
+     {\PrElim
+        {\T}
+        {\abst{x\,y\,p}{\U}}
+        {\abst{z}{\e_1}}
+        {\e_2}{\e_3}{\e_4}
+     }
+     {\PrElim
+        {\T'}
+        {\abst{x\,y\,p}{\U'}}
+        {\abst{z}{\e'_1}}
+        {\e'_2}{\e'_3}{\e'_4}
+     }
+     {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
+  }
+
+  \infer[\rulename{chk-eq-whnf-refl}]
+  {
+    \eqtypealg[\ws_1]{\GH}{\T}{\U}\\
+    \eqtermalg[\ws_2]{\GH}{\e_1}{\e_2}{\T}
+  }
+  {
+    \eqpath[\tupleappend{\ws_1}{\ws_2}]
+           {\GH}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}
+                {\JuEqual{\T}{\e_1}{\e_1}}
+  }
+\end{mathpar}
+
+\paragraph{Whnf equivalence of names}
+
+\begin{mathpar}
+  \infer[\rulename{chk-eq-whnf-prod}]
+  {\alpha = \alpha' \\
+   \beta = \beta' \\\\
+   \eqtermalg[\ws_1]{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+   \eqtermalg[\ws_2]{\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}{\e_2}{\e'_2}{\Universe{\beta}} \\
+  }
+  {\eqpath[\tupleappend{\ws_1}{\ws_2}]
+    {\GH}
+    {(\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2})}
+    {(\nProd{\alpha'}{\beta'}{\x}{\e'_1}{\e'_2})}
+    {\Universe{\gamma}}
+  }
+
+\infer[\rulename{chk-eq-whnf-universe}]
+  {
+    \alpha = \beta \\
+  }
+  {
+    \eqpath[()]{\GH}{\nUniverse{\alpha}}{\nUniverse{\beta}}{\Universe{\gamma}}
+  }
+%% Subsumed by reflexivity rule
+  %\infer[\rulename{chk-eq-whnf-unit}]
+  %{
+  %}
+  %{
+    %\eqpath{\GH}{\nUnit}{\nUnit}{\Universe{\zero}}
+  %}
+
+\infer[\rulename{chk-eq-whnf-paths}]
+  {
+    \alpha = \alpha'\\
+    \eqtermalg[\ws_1]{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+    \eqtermalg[\ws_2]{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_1}}\\
+    \eqtermalg[\ws_3]{\GH}{\e_3}{\e'_3}{\El{\alpha}{\e_2}}
+  }
+  {\eqpath[\tupleappend{\tupleappend{\ws_1}{\ws_2}}{\ws_3}]
+          {\GH}{\nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}}{\nPrEqual{\alpha'}{\e'_1}{\e'_2}{\e'_3}}{\Universe{\alpha}}}
+
+  \infer[\rulename{chk-eq-whnf-id}]
+  {
+    \alpha = \alpha'\\
+    \eqtermalg[\ws_1]{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
+    \eqtermalg[\ws_2]{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_1}}\\
+    \eqtermalg[\ws_3]{\GH}{\e_3}{\e'_3}{\El{\alpha}{\e_2}}
+  }
+  {\eqpath[\tupleappend{\tupleappend{\ws_1}{\ws_2}}{\ws_3}]
+          {\GH}{\nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}}{\nJuEqual{\alpha'}{\e'_1}{\e'_2}{\e'_3}}{\Universe{\alpha}}}
+
+  \infer[\rulename{chk-eq-whnf-coerce}]
+  {
+    \alpha = \alpha'\\
+    \eqtermalg{\GH}{\e_1}{\e'_1}{\Universe{\alpha}} \\
+  }
+  {
+    \eqpath{\GH}{\coerce{\alpha}{\beta}{\e_1}}
+                {\coerce{\alpha'}{\beta'}{\e'_1}}
+                {\Universe{\beta}}
+  }
+
+\end{mathpar}
+
 
 \section{Well-Formedness}
 
@@ -565,7 +876,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \kok[\ctxextend{\x}{\T_1}]{\D}{\K_2}
   }
   {
-    \kok{(\ctxextend[\D]{\x}{\T_1})}{(\lam{\x}{\T_1} \K_2)}
+    \kok{(\ctxextend[\D]{\x}{\T_1})}{(\ttlam{\x}{\T_1} \K_2)}
   }
 \end{mathpar}
 
@@ -587,7 +898,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \eok{\e_2} \\
   }
   {
-    \cok{\app{\e_1}{\e_2}}
+    \cok{\ttapp{\e_1}{\e_2}}
   }
 
   \infer[ok-let]
@@ -676,7 +987,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \cok{\C_2} \\
   }
   {
-    \cok{(\lam{\x}{\e_1} \C_2)}
+    \cok{(\ttlam{\x}{\e_1} \C_2)}
   }
 
   \infer[ok-make-lam2]
@@ -685,7 +996,7 @@ to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1
     \cok[\ctxextend{\x}{\T_1}]{\C_2} \\
   }
   {
-    \cok{(\lam{\x}{\bty{\T_1}} \C_2)}
+    \cok{(\ttlam{\x}{\bty{\T_1}} \C_2)}
   }
 \end{mathpar}
 
