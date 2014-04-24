@@ -125,6 +125,27 @@ let lookup_var index {decls=lst} =
   with
     | Failure _ -> Error.impossible "invalid de Bruijn index"
 
+let lookup_advice t ctx =
+  List.exists
+    (function
+      | Advice tprod ->
+        begin match Apply.apply tprod t with
+          | None -> 
+            Print.debug "Rejecting advice %t for %t"
+              (Print.ty ctx.names tprod) 
+              (Print.ty ctx.names t) ;
+            false
+          | Some _ -> 
+            Print.debug "Accepting advice %t for %t"
+              (Print.ty ctx.names tprod) 
+              (Print.ty ctx.names t) ;
+            true
+        end
+      | Equation _ -> false
+      | Rewrite _ -> false
+    )
+    ctx.hints
+
 let lookup_equation e1 e2 ctx =
   let predicate = function
     | Advice _ -> false

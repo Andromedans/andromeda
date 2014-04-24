@@ -22,4 +22,6 @@ val lookup_rewrite : Syntax.term -> t -> Syntax.term option
 
 val lookup_equation : Syntax.term -> Syntax.term -> t -> bool
 
+val lookup_advice : Syntax.ty -> t -> bool
+
 val print : t -> unit

@@ -225,6 +225,13 @@ and equiv ctx term1 term2 t =
   else if (Context.lookup_equation term1 term2 ctx) then
     true
 
+  (* check-advice *)
+  else if (Context.lookup_advice (Syntax.Id (t, term1, term2), Position.nowhere) ctx) then
+    true
+
+  else if (Context.lookup_advice (Syntax.Id (t, term2, term1), Position.nowhere) ctx) then
+    true
+
   else
     let t' = whnfs_ty ctx t in
     equiv_ext ctx term1 term2 t'
