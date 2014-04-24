@@ -105,6 +105,7 @@
 \renewcommand{\eqtermext}[5][\ws]{#2 \vdash #3 \simeq #4 \Leftarrow #5 \maybeDownarrow{#1}} % equal terms w/o eta
 \renewcommand{\eqpath}[5][\ws]{#2 \vdash #3 \thicksim #4 \maybeDownarrow{#1}}  % equal paths
 
+\newcommand{\equationsin}[1]{\mathsf{equation}\; #1 \;\mathsf{in}\;} % let x = c1 in c2
 
 
 \begin{document}
@@ -376,23 +377,12 @@ Judgments:
 
   \infer[eval-make-app]
   {
-    \mathsf{nameOf}(\T_1) = B'_1 : \Universe{\alpha}\\
-    \mathsf{nameOf}(\T_3) = B'_3 : \Universe{\beta}\\
-    \\\\
-    \gamma = \piClose{\alpha}{\beta}\\
-    \gamma' = \uClose{\gamma}\\
-    \\\\
-    \B''_1 = \coerce{\alpha}{\gamma}{\B'_1}\\
-    \B''_3 = \coerce{\beta}{\gamma}{\B'_3}\\
-    \\\\
-    \evalto
-      {\bigl(\letin{\X = \inhabitOp{\bty{\nJuEqual{\gamma'}{\Universe{\gamma}}{\B''_1}{\B''_3}}}}
-         {\val (\equationin{\X}{\B''_1}{\B''_3}{(\app{B_1}{\x}{\T_1}{\T_2}{B_2})})}\bigr)}
-      {R}
+    \eqtypealg{\G}{\T_1}{\T_2}
   }
   { \evalto
-      {\makeApp{\bterm{B_1}{\Prod{\x}{\T_1}{\T_2}}}{\bterm{B_2}{\T_3}}}
-      {R}
+      {\makeApp{\bterm{\B_1}{\Prod{\x}{\T_1}{\T_2}}}{\bterm{B_2}{\T_3}}}
+      {\bterm{\equationsin{\ws}{\app{B_1}{\x}{\T_1}{\T_2}{B_2}}}
+             {\subst{\T_2}{\x}{\B_2}}}
   }
 \end{mathpar}
 
