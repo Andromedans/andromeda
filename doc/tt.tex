@@ -41,13 +41,12 @@
 \newcommand{\ttapp}[2]{#1\,#2} % application
 \newcommand{\ttlam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
 \newcommand{\kapp}[2]{#1{}[#2]} % continuation application
-\newcommand{\bterm}[2]{\langle\,#1\, :\, #2\,\rangle} % brazil (typed) term as data
+\newcommand{\bterm}[1]{\langle\,#1\,\rangle} % brazil (typed) term as data
 \newcommand{\bty}[1]{\langle\,#1\,\rangle} % brazil type as data
 
 \newcommand{\handler}[6][n]{\mathsf{handler}\; \val #2 \mapsto #3 \mid (\opPat{#4}{#5} \mapsto #6_{#1})_{i=1}^{#1}}
 
 \newcommand{\makeApp}[2]{\mathsf{app}(#1,#2)} % introduce a Brazil application
-
 \newcommand{\debruijn}[1]{\mathsf{debruijn}\,#1} % ugly hack
 
 
@@ -87,9 +86,10 @@
 
 \newcommand{\typicalhandler}{\handler{\X}{\C_v}{\X}{\K}{\C}}
 
-\renewcommand{\S}{{\cal S}}
-\newcommand{\GS}{\Gamma; \S}
+\newcommand{\assertEquivType}[3]{\mathsf{check}\;#1\equiv #2\;\mathsf{using}\;#3\;\mathsf{in}\;}
 
+\newcommand{\qqquad}{\qquad\quad}     % three quads of space
+\newcommand{\qqqquad}{\qquad\qquad}   % four quads of space
 
 %% Copied from brazil.tex
 
@@ -108,6 +108,13 @@
 \newcommand{\equationsin}[1]{\mathsf{equation}\; #1 \;\mathsf{in}\;} % let x = c1 in c2
 
 
+
+\newcommand{\eqtypealgOp}[2]{\mathsf{equivTy}(\bty{#1},\bty{#2})} % equal types
+\newcommand{\eqtypepathOp}[2]{\mathsf{equivWhnfTy}(\bty{#1}, \bty{#2})} % equal normal-form types
+\newcommand{\eqtermalgOp}[3]{\mathsf{equivTerm}({#1},{#2},#3)} % equal terms of normalized type
+\newcommand{\eqtermextOp}[3]{\mathsf{equivExtTerm}(#1,#2,\bty{#3})} % equal terms of normalized type
+\newcommand{\eqpathOp}[2]{\mathsf{equivWhnf}(\bterm{#1},\bterm{#2})} % equal normalized term
+
 \begin{document}
 
 \title{TT}
@@ -124,7 +131,7 @@
     \bnfor  & \fun{\X} \C  & \text{Function} \\
     \bnfor  & h           & \text{Handler} \\
     \bnfor  & \cont{\KK} & \text{Continuation value} \\
-    \bnfor  & \bterm{\B}{\T}           & \text{Brazilian term} \\
+    \bnfor  & \bterm{\B}         & \text{Brazilian term} \\
     \bnfor  & \bty{\T}           & \text{Brazilian type} \\
     \bnfor  & \generictuple   & \text{Tuple}\\
     \bnfor  & \c              & \text{TT Constant}\\
@@ -335,9 +342,10 @@ Judgments:
 
   \infer[eval-ascribe]
   {
+    \typeof{\B} = \T
   }
   {
-    \evalto{(\ascribe{\bterm{\B}{\T}}{\T})}{\val \bterm{\B}{\T}}
+    \evalto{(\ascribe{\bterm{\B}}{\T})}{\val \bterm{\B}}
   }
 
   \infer[eval-make-var]
@@ -348,18 +356,32 @@ Judgments:
   {
     \evalto
     {\debruijn{n}}
-    {\val \bterm{\x_n}{\T_n}}
+    {\val \bterm{\x_n}}
   }
 
   \infer[eval-make-lambda-val]
   {
     \evalto[\ctxextend{\x}{\T}]
-    {\C}
-    {\val \bterm{\B}{\U}}
+      {\C}
+      {\val \bterm{\B}}\\
+    \typeof{\B} = U\\
   }
   { \evalto
     {\ttlam{\x}{\T} \C}
-    {\val (\ttlam{\x}{\T} B)}
+    {\val \ \bterm{\lam{\x}{\T}{\U} B}}
+  }
+
+  % For hint abstraction
+  \infer[eval-make-lambda-val-tuple]
+  {
+    \evalto[\ctxextend{\x}{\T}]
+      {\C}
+      {\val \tuple{\bterm{\B_1},\ldots,\bterm{\B_n}}}\\
+    (\U_i = \typeof{\B_i})_{i=1}^n\\
+  }
+  { \evalto
+    {\ttlam{\x}{\T} \C}
+    {\val \tuple{\bterm{\lam{\x}{\T}{\U_1} B_1},\ldots,\bterm{\lam{\x}{\T}{\U_n} B_n}}}
   }
 
   \infer[eval-make-lambda-op]
@@ -373,113 +395,120 @@ Judgments:
     {\opRes{(\x{:}\T,\Delta)}{\e}{\ttlam{\x}{\T}{\KK}}}
   }
 
-  \\
+  \infer[eval-assert-type]
+  {
+    \ws = \tuple{\bterm{\B_1},\ldots,\bterm{\B_n}}\\
+    (\U_i = \typeof{\B_i})_{i=1}^n\\
+    \eqtypealg[]{\ctxs{\G}{\U_1,\ldots,\U_n}}{\T_1}{\T_2}\\
+    \evalto{\C}{\R}\\
+  }
+  {
+    \evalto
+    {\assertEquivType{\T_1}{\T_2}{\ws}{\C}}
+    {\R}
+  }
 
+\end{mathpar}
+
+
+\begin{mathpar}
   \infer[eval-make-app]
   {
-    \eqtypealg{\G}{\T_1}{\T_2}
+    \evalto
+      {\begin{array}[t]{l}
+          \typeof{\B_1} = \Prod{\x}{\T_1}{\T_2}\\
+          \quad \typeof{\B_2} = T_3\\
+          \qquad \letin{\X = \mathsf{equivTy}(\bty{\T_1},\bty{\T_2})}\\
+          \qqquad \assertEquivType{\T_1}{\T_2}{\X}\\
+          \qqqquad \bterm{\equationsin{\ws}{\app{B_1}{\x}{\T_1}{\T_2}{B_2}}}
+       \end{array}}
+     {\R}
   }
   { \evalto
-      {\makeApp{\bterm{\B_1}{\Prod{\x}{\T_1}{\T_2}}}{\bterm{B_2}{\T_3}}}
-      {\bterm{\equationsin{\ws}{\app{B_1}{\x}{\T_1}{\T_2}{B_2}}}
-             {\subst{\T_2}{\x}{\B_2}}}
+      {\makeApp{\bterm{\B_1}}{\bterm{B_2}}}
+      {\R}
   }
 \end{mathpar}
 
-This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Brazil will think
-to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1 = \El{\gamma}{\B''_1}$ and $\T_3 = \El{\gamma}{\B''_3}$
+
+
+%This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Brazil will think
+%to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1 = \El{\gamma}{\B''_1}$ and $\T_3 = \El{\gamma}{\B''_3}$
 
 \subsection*{Type Equivalence Search}
 
 \paragraph{General Type equality}
 
 \begin{mathpar}
-  \infer[\rulename{chk-tyeq-refl}]
+  \infer[\rulename{chk-tyeq-reflexivity}]
   { }
-  { \eqtypealg[()]{\G}{\T}{\T} }
+  { \evalto{\eqtypealgOp{\T}{\T}}{\val ()} }
 
   \infer[\rulename{chk-tyeq-hnf}]
   { \whnfs{\G}{\T}{\T'}\\
-    \whnfs{\G}{\U}{\U'}\\
-    \eqtypepath{\G}{\T'}{\U'}
+    \whnfs{\G}{\U}{\U'}\\\\
+    \evalto{\eqtypepathOp{\T'}{\U'}}{\R}
   }
   {
-    \eqtypealg{\GH}{\T}{\U}
-  }
-
-  \infer[\rulename{chk-tyeq-op}]
-  {
-    \evalto[\G]{\mathsf{equivTy}(\bty{\T_1},\bty{\T_2})}{\val \ws}
-    \\
-    \ws =
-         \tuple{\ \bterm{\B_1}{\JuEqual{\U_1}{\e'_1}{\e''_1}},
-                \ldots,
-                \bterm{\B_n}{\JuEqual{\U_n}{\e'_n}{\e''_n}}\ }
-    \\
-    \eqtypealg[]{\ctxs{\G}{\eqhint{\e'_i}{\e''_i}_{i=1}^{n}}}{\T_1}{\T_2}\\
-  }
-  {
-    \eqtypealg{\G}{\T_1}{\T_2}
+    \evalto{\eqtypealgOp{\T}{\U}}{\R}
   }
 
 \end{mathpar}
 
 \paragraph{Equality of head-normal forms}
 \begin{mathpar}
-  \infer[\rulename{chk-tyeq-path-refl}]
+  \infer[\rulename{chk-tyeq-path-reflexivity}]
   { }
-  { \eqtypepath[()]{\G}{\T}{\T} }
+  { \evalto{\eqtypepathOp{\T}{\T}}{\val ()} }
 
   \infer[\rulename{chk-tyeq-el}]
   { \alpha = \beta \\
-    \eqtermalg{\G}{\e_1}{\e_2}{\Universe{\alpha}}
+    \evalto{\eqtermalgOp{\e_1}{\Universe{\alpha}}{\e_2}{\Universe{\alpha}}{\Universe{\alpha}}}{\R}
   }
   {
-    \eqtypepath{\G}{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}
+    \evalto{\eqtypepathOp{\El{\alpha}{\e_1}}{\El{\beta}{\e_2}}}{\R}
   }
 
   \infer[\rulename{chk-tyeq-prod}]
-  { \eqtypealg[\ws_1]{\GH}{\T_1}{\U_1} \\
-    \eqtypealg[\ws_2]{\ctxs{(\ctxextend{\G}{\x}{\T_1})}{\H}}{\T_2}{\U_2}
+  %{ \eqtypealg[\ws_1]{\GH}{\T_1}{\U_1} \\
+    %\eqtypealg[\ws_2]{\ctxs{(\ctxextend{\G}{\x}{\T_1})}{\H}}{\T_2}{\U_2}
+  %}
+  { \evalto{\begin{array}[t]{l}
+                \letin{\X_1 = \eqtypealgOp{\T_1}{\U_1}}\\
+                \quad \assertEquivType{\T_1}{\U_1}{\X_1}\\
+                \qquad \letin{\X_2 = \ttlam{\x}{\T_1}{\eqtypealgOp{\T_2}{\U_2}}}\\
+                \qqquad {\X_1 \pp \X_2}\\
+            \end{array}}
+           {\R}
   }
-  { \eqtypepath[\tupleappend{\ws_1}{\ws_2}]{\GH}
-    {\Prod{\x}{\T_1}{\T_2}}
-    {\Prod{\x}{\U_1}{\U_2}}
+  { \evalto{\eqtypepathOp{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}}{\R}
   }
 
   \infer[\rulename{chk-tyeq-paths}]
-  {\eqtypealg[\ws_1]{\GH}{\T}{\U}\\
-   \eqtermalg[\ws_2]{\GH}{\e_1}{\e'_1}{\T}\\
-   \eqtermalg[\ws_3]{\GH}{\e_2}{\e'_2}{\T}
+  {\evalto{\begin{array}[t]{l}
+             \letin{\X_1 = \eqtypealgOp{\T}{\U}}\\
+             \quad \assertEquivType{\T}{\U}{\X_1}\\
+             \qquad \letin{\X_2 = \eqtermalgOp{\e_1}{\T}{\e'_1}{\T}{\T}}\\
+             \qqquad \letin{\X_3 = \eqtermalgOp{\e_2}{\T}{\e'_2}{\T}{\T}}\\
+             \qqqquad \X_1 \pp \X_2 \pp \X_3
+           \end{array}}{\R}
   }
-  {\eqtypepath[\tupleappend{\tupleappend{\ws_1}{\ws_2}}{\ws_3}]{\GH}{\PrEqual{\T}{\e_1}{\e_2}}
-                  {\PrEqual{\U}{\e'_1}{\e'_2}}}
+  {\evalto{\eqtypepathOp{\PrEqual{\T}{\e_1}{\e_2}}
+                        {\PrEqual{\U}{\e'_1}{\e'_2}}}
+          {\R}}
 
   \infer[\rulename{chk-tyeq-id}]
-  {\eqtypealg{\G}{\T}{\U}\\
-   \eqtermalg{\G}{\e_1}{\e'_1}{\T}\\
-   \eqtermalg{\G}{\e_2}{\e'_2}{\T}
+  {\evalto{\begin{array}[t]{l}
+             \letin{\X_1 = \eqtypealgOp{\T}{\U}}\\
+             \quad \assertEquivType{\T}{\U}{\X_1}\\
+             \qquad \letin{\X_2 = \eqtermalgOp{\e_1}{\T}{\e'_1}{\T}{\T}}\\
+             \qqquad \letin{\X_3 = \eqtermalgOp{\e_2}{\T}{\e'_2}{\T}{\T}}\\
+             \qqqquad \X_1 \pp \X_2 \pp \X_3
+           \end{array}}{\R}
   }
-  {\eqtypepath{\G}{\JuEqual{\T}{\e_1}{\e_2}}
-                   {\JuEqual{\U}{\e'_1}{\e'_2}}}
-
-\iffalse
-  \infer[\rulename{chk-tyeq-path-op}]
-  {
-    \evalto[\GH]{\mathsf{equivTy}(\bty{\T_1},\bty{\T_2})}{\val \ws}
-    \\
-    \ws =
-         \tuple{\ \bterm{\B_1}{\JuEqual{\U_1}{\e'_1}{\e''_1}},
-                \ldots,
-                \bterm{\B_n}{\JuEqual{\U_n}{\e'_n}{\e''_n}}\ }
-    \\
-    \eqtypealg[]{\ctxs{\G}{\eqhint{\e'_i}{\e''_i}_{i=1}^{n}}}{\T_1}{\T_2}\\
-  }
-  {
-    \eqtypepath{\GH}{\T_1}{\T_2}
-  }
-\fi
-
+  {\evalto{\eqtypepathOp{\JuEqual{\T}{\e_1}{\e_2}}
+                        {\JuEqual{\U}{\e'_1}{\e'_2}}}
+          {\R}}
 \end{mathpar}
 %
 The reflexivity rule is not just an optimization, but also handles
@@ -489,81 +518,66 @@ equivalence of base types and equivalence of universes.
 \subsection{Term equality}
 \label{sec:bidirectional-term-equality}
 
-For algorithmic purposes we should try to apply reflexivity and hints before doing
-anything else:
-%
 \begin{mathpar}
   \infer[\rulename{chk-eq-refl}]
   { }
-  { \eqtermalg[()]{\G}{\e}{\e}{\T} }
-\end{mathpar}
-%
-Otherwise, we check whether extensionality applies:
-%
-\begin{mathpar}
+  { \evalto{\eqtermalgOp{\e}{\e}{\T}}{\val ()} }
+
   \infer[\rulename{chk-eq-ext}]
   {
     \whnfs{\G}{\T}{\T'} \\
-    \eqtermext{\G}{\e_1}{\e_2}{\T'}
+    \evalto{\eqtermextOp{\e_1}{\e_2}{\T'}}{\R}
   }
   {
-    \eqtermalg{\G}{\e_1}{\e_2}{\T}
+    \evalto{\eqtermalgOp{\e_1}{\e_2}{\T}}
+           {\R}
   }
 \end{mathpar}
-%
-If that doesn't work either, we look for a handler
-%
-\begin{mathpar}
-  \infer[\rulename{chk-tyeq-op}]
-  {
-    \evalto[\G]{\mathsf{equiv}(\bterm{\e_1}{\T},\bterm{\e_2}{\T},\bty{\T})}{\ws}
-    \\
-    \ws =
-         \tuple{\ \bterm{\B_1}{\JuEqual{\U_1}{\e'_1}{\e''_1}},
-                \ldots,
-                \bterm{\B_n}{\JuEqual{\U_n}{\e'_n}{\e''_n}}\ }
-    \\
-    \eqtermalg[]{\ctxs{\G}{\eqhint{\e'_i}{\e''_i}_{i=1}^{n}}}{\e_1}{\e_2}{\T}\\
-  }
-  {
-    \eqtermalg{\G}{\e_1}{\e_2}{\T}
-  }
-\end{mathpar}
-although arguably we should wait until we have head-normalized the terms.
 
 \paragraph{Extensionality}
 
 \begin{mathpar}
   \infer[\rulename{chk-eq-ext-prod}]
   {
-    \eqtermalg{\ctxextend{\G}{\x}{\T}}{(\app{\e_1}{\x}{\T}{\U}{\x})}{(\app{\e_2}{\x}{\T}{\U}{\x})}{\U}
+    \evalto
+      {\ttlam{\x}{\T} \!
+        \left(\begin{array}{l}
+            \letin{\X_1 = \makeApp{\e_1}{\bterm\x}}\\
+            \quad \letin{\X_2 = \makeApp{\e_2}{\bterm\x}}\\
+            \qquad \eqtermalgOp{\X_1}{\X_2}{\bty{\U}}\\
+           \end{array}\right)}
+      {\R}
   }
   {
-    \eqtermext{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}
+    \evalto
+      {\eqtermextOp{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}}
+      {\R}
   }
+\end{mathpar}
 
+\begin{mathpar}
   \infer[\rulename{chk-eq-ext-unit}]
   {
   }
   {
-    \eqtermext[()]{\G}{\e_1}{\e_2}{\Unit}
+    \evalto{\eqtermextOp{\e_1}{\e_2}{\Unit}}{\val ()}
   }
 
   \infer[\rulename{chk-eq-ext-K}]
   {
   }
   {
-    \eqtermext[()]{\G}{\e_1}{\e_2}{\JuEqual{\T}{\e_3}{\e_4}}
+    \evalto{\eqtermextOp{\e_1}{\e_2}{\JuEqual{\T}{\e_3}{\e_4}}}{\val ()}
   }
 
   \infer[\rulename{chk-eq-ext-whnf}]
   {
     \whnfs{\G}{\e_1}{\e'_1}\\
     \whnfs{\G}{\e_2}{\e'_2}\\\\
-    \eqpath{\G}{\e'_1}{\e'_2}{\U}
+    \evalto{\eqpathOp{\e'_1}{\e'_2}}{\R}
   }
   {
-    \eqtermext{\G}{\e_1}{\e_2}{\T}
+    \evalto{\mathsf{equivExtTerm}(\e_1,\e_2,\e_3)}{\R}
   }
 \end{mathpar}
 %
@@ -577,44 +591,53 @@ same expressions before invoking the general comparison function.
   {
   }
   {
-    \eqpath[()]{\GH}{\e}{\e}{\T}
+    \evalto{\eqpathOp{\B}{\B}}{\val ()}
   }
 
-
-  \infer[\rulename{chk-eq-whnf-var}]
-  {
-    %(\x{:}\T)\in \G
-  }
-  {
-    \eqpath[()]{\GH}{\x}{\x}{\T}
-  }
 
   \infer[\rulename{chk-eq-whnf-app}]
   {
-    \eqtypealg[\ws_1]{\GH}{\T_1}{\U_1}\\
-    \eqtypealg[\ws_2]{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\\\
-    \eqpath[\ws_3]{\GH}{\e_1}{\e'_1}{\Prod{\x}{\T_1}{\T_2}}\\
-    \eqtermalg[\ws_4]{\GH}{\e_2}{\e'_2}{\T_1}\\
+    \evalto
+      {\left(\begin{array}{l}
+        \letin{\X_1 = \eqtypealgOp{\T_1}{\U_1}}\\
+        \ \assertEquivType{\T_1}{\T_2}{\X_1}\\
+        \ \ \letin{\X_2 = \ttlam{\x}{\T_1}\!
+                  \begin{array}[t]{l}
+                    \letin{X' = \eqtypealgOp{\T_2}{\U_2}}\\
+                    \ \assertEquivType{\T_2}{\U_2}{\X'}\\
+                    \ \ \val \X'\\
+                  \end{array}}\\
+        \ \ \ \letin{\X_3 = \eqpathOp{\B_1}{\B'_1}}\\
+        \ \ \ \ \letin{\X_4 = \eqtermalgOp{\B_2}{\B'_2}{\T_1}}\\
+        \ \ \ \ \ \X_1 \pp \X_2 \pp \X_3 \pp \X_4
+       \end{array}\right)}
+      {\R}
   }
   {
-    \eqpath[\tupleappend{\tupleappend{\tupleappend{\ws_1}{\lambda\x{:}\T_2.\ws_2}}{\ws_3}}{\ws_4}]
-           {\GH}{(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})}
-                {(\app{\e'_1}{\x}{\U_1}{\U_2}{\e'_2})}
-                {\subst{\T_2}{\x}{\e_2}}
+    \evalto{\eqpathOp
+             {\app{\B_1}{\x}{\T_1}{\T_2}{\B_2}}
+             {\app{\B'_1}{\x}{\U_1}{\U_2}{\B'_2}}}
+         {\R}
   }
 \end{mathpar}
-By $\lambda\x{:}\T_2.\ws_2$ we mean lambda-abstracting each individual element of tuple $\ws_2$.
 
 \begin{mathpar}
   \infer[\rulename{chk-eq-whnf-idpath}]
   {
-    \eqtypealg[\ws_1]{\GH}{\T}{\U}\\
-    \eqtermalg[\ws_2]{\GH}{\e_1}{\e_2}{\T}
+    \evalto
+      {\begin{array}[t]{l}
+          \letin{\X_1 = \eqtypealgOp{\T}{\U}}\\
+          \quad \assertEquivType{\T}{\U}{\X_1}\\
+          \qquad \letin{\X_2 = \eqtermalgOp{\B_1}{\B_2}{\T}}\\
+          \qqquad \X_1 \pp \X_2\\
+        \end{array}}
+      {\R}
   }
   {
-    \eqpath[\tupleappend{\ws_1}{\ws_2}]
-           {\GH}{\prRefl{\T}{\e_1}}{\prRefl{\U}{\e_2}}
-                {\PrEqual{\T}{\e_1}{\e_1}}
+    \evalto
+      {\eqpathOp{\prRefl{\T}{\B_1}}
+                {\prRefl{\U}{\B_2}}}
+      {\R}
   }
 
   \infer[\rulename{chk-eq-whnf-j}]
@@ -627,13 +650,13 @@ By $\lambda\x{:}\T_2.\ws_2$ we mean lambda-abstracting each individual element o
    \\
    \eqtermalg[\ws_3]
      {\ctxs{(\ctxextend{\G}{z}{\T})}{\H}}
-     {\e_1}
-     {\e'_1}
+     {\B_1}
+     {\B'_1}
      {\substs{P}{z/x, z/y, (\prRefl{\T}{z})/p}}
      \\
-   \eqtermalg[\ws_4]{\GH}{\e_3}{\e'_3}{\T}\\
-   \eqtermalg[\ws_5]{\GH}{\e_4}{\e'_4}{\T}\\
-   \eqpath[\ws_6]{\GH}{\e_2}{\e'_2}{\PrEqual{\T}{\e_3}{\e_4}}\\
+   \eqtermalg[\ws_4]{\GH}{\B_3}{\B'_3}{\T}\\
+   \eqtermalg[\ws_5]{\GH}{\B_4}{\B'_4}{\T}\\
+   \eqpath[\ws_6]{\GH}{\B_2}{\B'_2}{\PrEqual{\T}{\B_3}{\B_4}}\\
    \ws = \ws_1 \pp (\lambda{\x}{:}{\T}.\lambda{\y}{:}{\T}.\lambda{p}{:}{\PrEqual{\T}{\x}{\y}}.\ws_2) \pp
         \lambda z{:}\T.\ws_3 \pp \ws_4 \pp \ws_5 \pp \ws_6\\
   }
@@ -642,27 +665,34 @@ By $\lambda\x{:}\T_2.\ws_2$ we mean lambda-abstracting each individual element o
      {\PrElim
         {\T}
         {\abst{x\,y\,p}{\U}}
-        {\abst{z}{\e_1}}
-        {\e_2}{\e_3}{\e_4}
+        {\abst{z}{\B_1}}
+        {\B_2}{\B_3}{\B_4}
      }
      {\PrElim
         {\T'}
         {\abst{x\,y\,p}{\U'}}
-        {\abst{z}{\e'_1}}
-        {\e'_2}{\e'_3}{\e'_4}
+        {\abst{z}{\B'_1}}
+        {\B'_2}{\B'_3}{\B'_4}
      }
-     {\substs{P}{\e_2/x, \e_3/y, \e_4/p}}
+     {\substs{P}{\B_2/x, \B_3/y, \B_4/p}}
   }
 
   \infer[\rulename{chk-eq-whnf-refl}]
   {
-    \eqtypealg[\ws_1]{\GH}{\T}{\U}\\
-    \eqtermalg[\ws_2]{\GH}{\e_1}{\e_2}{\T}
+    \evalto
+      {\begin{array}[t]{l}
+          \letin{\X_1 = \eqtypealgOp{\T}{\U}}\\
+          \quad \assertEquivType{\T}{\U}{\X_1}\\
+          \qquad \letin{\X_2 = \eqtermalgOp{\B_1}{\B_2}{\T}}\\
+          \qqquad \X_1 \pp \X_2\\
+        \end{array}}
+      {\R}
   }
   {
-    \eqpath[\tupleappend{\ws_1}{\ws_2}]
-           {\GH}{\juRefl{\T}{\e_1}}{\juRefl{\U}{\e_2}}
-                {\JuEqual{\T}{\e_1}{\e_1}}
+    \evalto
+      {\eqpathOp{\juRefl{\T}{\B_1}}
+                {\juRefl{\U}{\B_2}}}
+      {\R}
   }
 \end{mathpar}
 
@@ -672,14 +702,20 @@ By $\lambda\x{:}\T_2.\ws_2$ we mean lambda-abstracting each individual element o
   \infer[\rulename{chk-eq-whnf-prod}]
   {\alpha = \alpha' \\
    \beta = \beta' \\\\
-   \eqtermalg[\ws_1]{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-   \eqtermalg[\ws_2]{\ctxs{(\ctxextend{\G}{\x}{\El{\alpha}{\e_1}})}{\H}}{\e_2}{\e'_2}{\Universe{\beta}} \\
+   \evalto
+     {\left(\begin{array}{l}
+        \letin{\X_1 = \eqtermalgOp{\B_1}{\B'_1}{\Universe{\alpha}}}\\
+        \quad \assertEquivType{\El{\alpha}{\B_1}}{\El{\alpha}{\B'_1}}{\X_1}\\
+        \qquad \letin{\X_2 = \ttlam{\x}{\El{\alpha}{\B_1}}\eqtermalgOp{\e_2}{\B'_2}{\Universe{\beta}}} \\
+      \end{array}\right)}
+     {\R}
   }
-  {\eqpath[\tupleappend{\ws_1}{\ws_2}]
-    {\GH}
-    {(\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2})}
-    {(\nProd{\alpha'}{\beta'}{\x}{\e'_1}{\e'_2})}
-    {\Universe{\gamma}}
+  {
+    \evalto
+      {\eqpathOp
+          {\nProd{\alpha}{\beta}{\x}{\B_1}{\B_2}}
+          {\nProd{\alpha'}{\beta'}{\x}{\B'_1}{\B'_2}}}
+      {\R}
   }
 
 \infer[\rulename{chk-eq-whnf-universe}]
@@ -687,7 +723,9 @@ By $\lambda\x{:}\T_2.\ws_2$ we mean lambda-abstracting each individual element o
     \alpha = \beta \\
   }
   {
-    \eqpath[()]{\GH}{\nUniverse{\alpha}}{\nUniverse{\beta}}{\Universe{\gamma}}
+    \evalto
+      {\eqpathOp{\nUniverse{\alpha}}{\nUniverse{\beta}}}
+      {\val ()}
   }
 %% Subsumed by reflexivity rule
   %\infer[\rulename{chk-eq-whnf-unit}]
@@ -700,32 +738,53 @@ By $\lambda\x{:}\T_2.\ws_2$ we mean lambda-abstracting each individual element o
 \infer[\rulename{chk-eq-whnf-paths}]
   {
     \alpha = \alpha'\\
-    \eqtermalg[\ws_1]{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-    \eqtermalg[\ws_2]{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_1}}\\
-    \eqtermalg[\ws_3]{\GH}{\e_3}{\e'_3}{\El{\alpha}{\e_2}}
+    \evalto
+      {\left(\begin{array}{l}
+          \letin{\X_1 = \eqtermalgOp{\B_1}{\B'_1}{\Universe{\alpha}}}\\
+          \quad \assertEquivType{\El{\alpha}{\B_1}}{\El{\alpha}{\B'_1}}{\X_1}\\
+          \qquad \letin{\X_2 = \eqtermalgOp{\B_2}{\B'_2}{\El{\alpha}{\B_1}}}\\
+          \qqquad \letin{\X_3 = \eqtermalgOp{\B_3}{\B'_3}{\El{\alpha}{\B_1}}}\\
+          \qqqquad \X_1 \pp \X_2 \pp \X_3\\
+       \end{array}\right)}
+      {\R}
   }
-  {\eqpath[\tupleappend{\tupleappend{\ws_1}{\ws_2}}{\ws_3}]
-          {\GH}{\nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}}{\nPrEqual{\alpha'}{\e'_1}{\e'_2}{\e'_3}}{\Universe{\alpha}}}
+  {
+    \evalto
+      {\eqpathOp{\nPrEqual{\alpha}{\B_1}{\B_2}{\B_3}}{\nPrEqual{\alpha'}{\B'_1}{\B'_2}{\B'_3}}}
+      {\R}
+    }
 
   \infer[\rulename{chk-eq-whnf-id}]
   {
     \alpha = \alpha'\\
-    \eqtermalg[\ws_1]{\GH}{\e_1}{\e'_1}{\Universe{\alpha}}\\
-    \eqtermalg[\ws_2]{\GH}{\e_2}{\e'_2}{\El{\alpha}{\e_1}}\\
-    \eqtermalg[\ws_3]{\GH}{\e_3}{\e'_3}{\El{\alpha}{\e_2}}
+    \evalto
+      {\left(\begin{array}{l}
+          \letin{\X_1 = \eqtermalgOp{\B_1}{\B'_1}{\Universe{\alpha}}}\\
+          \quad \assertEquivType{\El{\alpha}{\B_1}}{\El{\alpha}{\B'_1}}{\X_1}\\
+          \qquad \letin{\X_2 = \eqtermalgOp{\B_2}{\B'_2}{\El{\alpha}{\B_1}}}\\
+          \qqquad \letin{\X_3 = \eqtermalgOp{\B_3}{\B'_3}{\El{\alpha}{\B_1}}}\\
+          \qqqquad \val (\X_1 \pp \X_2 \pp \X_3)\\
+       \end{array}\right)}
+      {\R}
   }
-  {\eqpath[\tupleappend{\tupleappend{\ws_1}{\ws_2}}{\ws_3}]
-          {\GH}{\nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}}{\nJuEqual{\alpha'}{\e'_1}{\e'_2}{\e'_3}}{\Universe{\alpha}}}
+  {
+    \evalto
+      {\eqpathOp{\nJuEqual{\alpha}{\B_1}{\B_2}{\B_3}}{\nJuEqual{\alpha'}{\B'_1}{\B'_2}{\B'_3}}}
+      {\R}
+  }
+
 
   \infer[\rulename{chk-eq-whnf-coerce}]
   {
     \alpha = \alpha'\\
-    \eqtermalg{\GH}{\e_1}{\e'_1}{\Universe{\alpha}} \\
+    \beta = \beta'\\
+    \evalto{\eqtermalgOp{\B_1}{\B'_1}{\Universe{\alpha}}}{\R} \\
   }
   {
-    \eqpath{\GH}{\coerce{\alpha}{\beta}{\e_1}}
-                {\coerce{\alpha'}{\beta'}{\e'_1}}
-                {\Universe{\beta}}
+    \evalto
+      {\eqpathOp{\coerce{\alpha}{\beta}{\B_1}}
+                {\coerce{\alpha'}{\beta'}{\B'_1}}}
+      {\R}
   }
 
 \end{mathpar}
@@ -742,7 +801,7 @@ By $\lambda\x{:}\T_2.\ws_2$ we mean lambda-abstracting each individual element o
     \isterm{\G}{\B}{\T}
   }
   {
-    \eok{\bterm{\B}{\T}}
+    \eok{\bterm{\B}}
   }
 
 
@@ -998,6 +1057,16 @@ By $\lambda\x{:}\T_2.\ws_2$ we mean lambda-abstracting each individual element o
   {
     \cok{(\ttlam{\x}{\bty{\T_1}} \C_2)}
   }
+
+  \infer[eval-assert-type]
+  {
+    \eok{\e}\\\\
+    \text{if}\ (\eqtype{\G}{\T_1}{\T_2})\ \text{then}\ (\cok{\C})\\
+  }
+  {
+    \cok{\assertEquivType{\T_1}{\T_2}{\e}{\C}}
+  }
+
 \end{mathpar}
 
 
