@@ -10,6 +10,8 @@ val add_vars : (Syntax.name * Syntax.ty) list -> t -> t
 
 val add_def : Syntax.name -> Syntax.ty -> Syntax.term -> t -> t
 
+val add_advice : Syntax.ty -> t -> t
+
 val add_equation : Syntax.term -> Syntax.term -> t -> t
 
 val add_rewrite : Syntax.term -> Syntax.term -> t -> t

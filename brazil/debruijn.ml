@@ -54,6 +54,11 @@ and term xs (e, loc) =
           | None -> Error.typing ~loc "unknown identifier %s" x
         end
 
+      | Input.Advice (e1, e2) ->
+        let e1 = term xs e1 in
+        let e2 = term xs e2 in
+          Input.Advice (e1, e2)
+
       | Input.Equation (e1, e2) ->
         let e1 = term xs e1 in
         let e2 = term xs e2 in

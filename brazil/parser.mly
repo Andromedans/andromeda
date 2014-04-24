@@ -30,7 +30,7 @@
 %token ARROW DARROW
 %token COERCE
 %token EQ EQEQ
-%token EQUATION REWRITE IN
+%token ADVICE EQUATION REWRITE IN
 %token REFL IDPATH
 %token IND_PATH
 %token UNDERSCORE
@@ -63,6 +63,7 @@ plain_topdef:
   | DEFINE x=NAME COLONEQ e=term                { Define (x, e) }
   | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, (Ascribe(e,t), snd e)) }
   | ASSUME xs=nonempty_list(NAME) COLON t=ty    { Assume (xs, t) }
+  | ADVICE e=term                               { TopAdvice e }
   | REWRITE e=term                              { TopRewrite e }
   | EQUATION e=term                             { TopEquation e }
 
@@ -81,6 +82,7 @@ plain_term:
   | FORALL a=abstraction(term) COMMA  e=term        { fst (make_prod e a) }
   | FUN a=abstraction(ty) DARROW e=term             { fst (make_lambda e a) }
   | e=equiv_term ASCRIBE t=ty                       { Ascribe (e, t) }
+  | ADVICE e1=equiv_term IN e2=term                 { Advice (e1, e2) }
   | EQUATION e1=equiv_term IN e2=term               { Equation (e1, e2) }
   | REWRITE e1=equiv_term IN e2=term                { Rewrite (e1, e2) }
   | t1=equiv_term ARROW t2=term                     { NameProd (anonymous, t1, t2) }

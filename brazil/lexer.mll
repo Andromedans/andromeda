@@ -8,6 +8,7 @@
     ("coerce", COERCE) ;
     ("define", DEFINE) ;
     ("equation", EQUATION) ;
+    ("advice", ADVICE) ;
     ("forall", FORALL) ;
     ("fun", FUN) ;
     ("idpath", IDPATH) ;

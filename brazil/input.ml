@@ -23,6 +23,7 @@ and 'a term' =
   (* terms *)
   | Var of 'a (* x *)
   | Equation of 'a term * 'a term (* equation e1 in e2 *)
+  | Advice of 'a term * 'a term (* advice e1 in e2 *)
   | Rewrite of 'a term * 'a term (* rewrite e1 in e2 *)
   | Ascribe of 'a term * 'a ty (* e :: T *)
   | Lambda of name * 'a ty * 'a term (* fun (x : T) => e *)
@@ -46,6 +47,7 @@ and toplevel' =
   | Context (* #context *)
   | Assume of name list * name ty (* assume x1 ... xn : t *)
   | Define of name * name term (* define x := e *)
+  | TopAdvice of name term (* advice e *)
   | TopRewrite of name term (* rewrite e *)
   | TopEquation of name term (* equation e *)
 
@@ -69,6 +71,7 @@ and string_of_term string_of_var (term,_) =
 
   match term with
   | Var v -> paren "Var" [string_of_var v]
+  | Advice(term1, term2) -> paren "Advice" [recurse term1; recurse term2]
   | Equation(term1, term2) -> paren "Equation" [recurse term1; recurse term2]
   | Rewrite(term1, term2) -> paren "Rewrite" [recurse term1; recurse term2]
   | Ascribe(term1, ty2) -> paren "Ascribe" [recurse term1; recurse_ty ty2]

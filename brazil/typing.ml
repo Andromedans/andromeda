@@ -62,7 +62,7 @@ let rec whnf_ty ctx1 (ty',loc) =
               None
 
             (* could have taken a step *)
-            | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _ ->
+            | Syntax.Advice _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _ ->
               Error.impossible "normalization of universe names is suprised, please report"
           end
       end
@@ -402,7 +402,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
     | _, Syntax.Refl _ ->
         true
 
-    | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
+    | (Syntax.Var _ | Syntax.Advice _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
       | Syntax.Lambda _ | Syntax.App _ | Syntax.Idpath _
       | Syntax.J _ | Syntax.Coerce _ | Syntax.NameUnit
       | Syntax.NameProd _ | Syntax.NameUniverse _ | Syntax.NamePaths _
@@ -435,6 +435,14 @@ let rec syn_term ctx ((term', loc) as term) =
       let e = chk_term ctx e t  in
         e,
         t
+
+  (* syn-advice *)
+  | Input.Advice (e1, e2) ->
+    let e1, u' = syn_term ctx e1 in
+    let u = whnfs_ty ctx u' in
+    let ctx = Context.add_advice u ctx in
+    let e2, t = syn_term ctx e2 in
+      (Syntax.Advice (e1, u, e2), loc), t
 
   (* syn-eq-hint *)
   | Input.Equation (e1, e4) ->

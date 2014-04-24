@@ -19,6 +19,7 @@ and ty' =
 and term = term' * Position.t
 and term' =
   | Var of variable
+  | Advice of term * ty * term
   | Equation of term * (term * term) * term
   | Rewrite of term * (term * term) * term
   | Ascribe of term * ty
@@ -56,6 +57,9 @@ let rec equal ((left',_) as left) ((right',_) as right) =
   match left', right' with
 
   | Var index1, Var index2 -> index1 = index2
+
+  | Advice(_, _, term1), _ -> equal term1 right
+  | _, Advice(_, _, term1) -> equal left  term1
 
   | Equation(_, _, term1), _ -> equal term1 right
   | _, Equation(_, _, term1) -> equal left  term1
@@ -158,6 +162,9 @@ let rec transform ftrans bvs (term', loc) =
 
       | Var _index -> term'
 
+      | Advice(term1, ty2, term3) ->
+          Advice(recurse term1, recurse_ty ty2, term3)
+
       | Equation(term1, (term2,term3), term4) ->
           Equation(recurse term1, (recurse term2, recurse term3), recurse term4)
 
@@ -230,7 +237,7 @@ and transform_ty ftrans bvs (ty', loc) =
     free variable indices in [e].
 *)
 
-let ftrans_shift delta bvs = function
+let ftrans_shift ?exn delta bvs = function
   | (Var index, loc) as var ->
       if (index < bvs) then
         (* This is a reference to a bound variable; don't transform *)
@@ -238,17 +245,21 @@ let ftrans_shift delta bvs = function
       else
         begin
           (* Add delta to the index of this free variable *)
-          assert (index + delta >= 0);
-          (Var (index + delta), loc);
+          if index + delta < 0 then begin
+            match exn with
+            | None -> Error.impossible ~loc "shifting produced a negative index"
+            | Some e -> raise e
+          end ;
+          (Var (index + delta), loc)
         end
 
   | nonvar -> nonvar
 
-let shift'    bvs delta = transform    (ftrans_shift delta) bvs
-let shift_ty' bvs delta = transform_ty (ftrans_shift delta) bvs
+let shift' ?exn bvs delta = transform (ftrans_shift ?exn delta) bvs
+let shift_ty' ?exn bvs delta = transform_ty (ftrans_shift ?exn delta) bvs
 
-let shift delta    = shift' 0 delta
-let shift_ty delta = shift_ty' 0 delta
+let shift ?exn delta    = shift' ?exn 0 delta
+let shift_ty ?exn delta = shift_ty' ?exn 0 delta
 
 let ftrans_subst free_index replacement_term bvs = function
   | (Var index, loc) as var ->
@@ -392,6 +403,7 @@ let rec name_of (ty', loc) =
 let rec occurs k (e, _) =
   match e with
     | Var m -> k = m
+    | Advice (e1, t, e2) -> occurs k e1 || occurs_ty k t || occurs k e2
     | Equation (e1, (e2, e3), e4) -> occurs k e1 || occurs k e2 || occurs k e3 || occurs k e4
     | Rewrite (e1, (e2, e3), e4) -> occurs k e1 || occurs k e2 || occurs k e3 || occurs k e4
     | Ascribe (e, t) -> occurs k e || occurs_ty k t
@@ -427,6 +439,9 @@ let rec occurrences k (e, _) =
   match e with
 
     | Var m -> if k = m then 1 else 0
+
+    | Advice (e1, t, e2) ->
+      occurrences k e1 + occurrences_ty k t + occurrences k e2
 
     | Equation (e1, (e2, e3), e4) ->
       occurrences k e1 + occurrences k e2 + occurrences k e3 + occurrences k e4
