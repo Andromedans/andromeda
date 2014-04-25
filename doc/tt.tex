@@ -135,8 +135,8 @@
     \bnfor  & \bty{\T}           & \text{Brazilian type} \\
     \bnfor  & \generictuple   & \text{Tuple}\\
     \bnfor  & \c              & \text{TT Constant}\\
-    \bnfor  & \inj{\e}        & \text{Coproduct}\\
-    \\
+    \bnfor  & \inj{\e}        & \text{Coproduct}\\[5pt]
+
     \text{Computation $\C$}
       \bnf  & \val \e                & \text{Pure expression} \\
     \bnfor  & \ttapp{\e_1}{\e_2}   & \text{Application} \\
@@ -149,20 +149,20 @@
     \bnfor  & \ascribe{\e_1}{\e_2} & \text{Type ascription} \\
     \bnfor  & \genericprim & \text{Primitive operations}\\
     \bnfor  & \genericmatch& \text{Pattern-match}\\
+    \bnfor  & \assertEquivType{\T_1}{\T_2}{\e}{\C} & \text{Run-time Equivalence Check}\\
     \bnfor  & \debruijn{n} & \text{Build Brazilian term: variable} \\
     \bnfor  & \ttlam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
-    \bnfor  & \makeApp{\e_1}{\e_2} & \text{Build Brazilian term: application} \\
-    \\
+    \bnfor  & \makeApp{\e_1}{\e_2} & \text{Build Brazilian term: application} \\[5pt]
+
     \text{Continuation $\KK$} \bnf    & \hole                & \text{Hole} \\
     \bnfor  & \letin{\X = \KK} \C_2  & \text{$\mathsf{let}$-binding} \\
     \bnfor  & \withhandle{\e} \KK & \text{Handling} \\
-    \bnfor  & \ttlam{\x}{\T}{\KK} & \text{Abstraction} \\
+    \bnfor  & \ttlam{\x}{\T}{\KK} & \text{Abstraction} \\[5pt]
 %    \bnfor  & \abs{\rgn}{\KK} & \text{abstraction} \\
-    \\
 
   \text{Handler $\h$}
-  \bnf & \multicolumn{2}{l}{\typicalhandler}\\
-  \\
+  \bnf & \multicolumn{2}{l}{\typicalhandler}\\[5pt]
+
   \text{Pattern $\pat$}
   \bnf & \tuple{\X_1,\ldots,\X_n}\\
   \bnfor & \inj{\X}\\
