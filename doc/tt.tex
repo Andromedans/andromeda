@@ -342,10 +342,17 @@ Judgments:
 
   \infer[eval-ascribe]
   {
-    \typeof{\B} = \T
+    \typeof{\Gamma}{\B} = \U\\
+    \evalto
+      {\left(\begin{array}{l}
+       \letin{\X_1 = \eqtypealgOp{\T}{\U}}\\
+       \quad \assertEquivType{\T}{\U}{\X_1}\\
+       \qquad \val \bterm{\ascribe{\B}{\T}}\\
+       \end{array}\right)}
+      {\R}
   }
   {
-    \evalto{(\ascribe{\bterm{\B}}{\T})}{\val \bterm{\B}}
+    \evalto{\ascribe{\bterm{\B}}{\T}}{\R}
   }
 
   \infer[eval-make-var]
@@ -364,7 +371,7 @@ Judgments:
     \evalto[\ctxextend{\x}{\T}]
       {\C}
       {\val \bterm{\B}}\\
-    \typeof{\B} = U\\
+    \typeof{\Gamma}{\B} = U\\
   }
   { \evalto
     {\ttlam{\x}{\T} \C}
@@ -377,7 +384,7 @@ Judgments:
     \evalto[\ctxextend{\x}{\T}]
       {\C}
       {\val \tuple{\bterm{\B_1},\ldots,\bterm{\B_n}}}\\
-    (\U_i = \typeof{\B_i})_{i=1}^n\\
+    (\U_i = \typeof{\Gamma}{\B_i})_{i=1}^n\\
   }
   { \evalto
     {\ttlam{\x}{\T} \C}
@@ -398,7 +405,7 @@ Judgments:
   \infer[eval-assert-type]
   {
     \ws = \tuple{\bterm{\B_1},\ldots,\bterm{\B_n}}\\
-    (\U_i = \typeof{\B_i})_{i=1}^n\\
+    (\U_i = \typeof{\Gamma}{\B_i})_{i=1}^n\\
     \eqtypealg[]{\ctxs{\G}{\U_1,\ldots,\U_n}}{\T_1}{\T_2}\\
     \evalto{\C}{\R}\\
   }
@@ -416,8 +423,8 @@ Judgments:
   {
     \evalto
       {\left(\begin{array}{l}
-          \typeof{\B_1} = \Prod{\x}{\T_1}{\T_2}\\
-          \quad \typeof{\B_2} = T_3\\
+          \typeof{\Gamma}{\B_1} = \Prod{\x}{\T_1}{\T_2}\\
+          \quad \typeof{\Gamma}{\B_2} = T_3\\
           \qquad \letin{\X = \mathsf{equivTy}(\bty{\T_1},\bty{\T_2})}\\
           \qqquad \assertEquivType{\T_1}{\T_2}{\X}\\
           \qqqquad \bterm{\equationsin{\ws}{\app{B_1}{\x}{\T_1}{\T_2}{B_2}}}
@@ -1073,8 +1080,9 @@ same expressions before invoking the general comparison function.
 \begin{lemma}[Substitution]
   \mbox{}
   \begin{enumerate}
-    \item If $\cok{\C}$ and $\eok{\e}$ then $\cok{\subst{\C}{\X}{\e}}$.
-    \item If $\kok{\D}{\KK}$ and $\eok{\e}$ then $\kok{\D}{\subst{\KK}{\X}{\e}}$.
+    \item If $\eok{\e}$ and $\eok{\e'}$ then $\eok{\subst{\e}{\X}{\e'}}$.
+    \item If $\cok{\C}$ and $\eok{\e'}$ then $\cok{\subst{\C}{\X}{\e'}}$.
+    \item If $\kok{\D}{\KK}$ and $\eok{\e'}$ then $\kok{\D}{\subst{\KK}{\X}{\e'}}$.
   \end{enumerate}
 \end{lemma}
 
@@ -1083,7 +1091,7 @@ same expressions before invoking the general comparison function.
 \end{lemma}
 
 \begin{lemma}[Preservation]
-   If $\cok{\C}$ and $\evalto{\C}{\R}$ then $\resultok{\R}$.
+   If $\isctx{\G}$ and $\cok{\C}$ and $\evalto{\C}{\R}$ then $\resultok{\R}$.
 \end{lemma}
 
 
