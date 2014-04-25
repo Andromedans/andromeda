@@ -1,6 +1,6 @@
 (** Abstract syntax of parsed input. *)
 
-type universe =
+type universe = Universe.t
   | NonFib of int
   | Fib of int
 
@@ -8,46 +8,68 @@ type eqsort =
   | Ju
   | Pr
 
-type operation_tag =
-  | Inhabit
-  | Coerce
-  | Rewrite
+type operation_tag = string
 
-and shape =         (* Sorted alphabetically by prefix*)
-  | JEqShape
-  | LambdaShape
-  | PairShape
-  | PiShape
-  | SigmaShape
-  | UShape
-  | UnitShape
+type tt_var = Common.name
 
-type 'a term = 'a term' * Common.position
-and 'a term' =
-  | Var of 'a
-  | Universe of universe
-  | Lambda of Common.variable * 'a term option * 'a term
-  | Pi of Common.variable * 'a term option * 'a term
-  | App of 'a term * 'a term
-  | Sigma of Common.variable * 'a term option * 'a term
-  | Pair of 'a term * 'a term
-  | Proj of string * 'a term
-  | Ascribe of 'a term * 'a term
-  | Operation of operation_tag * 'a term list
-  | Handle of 'a term * 'a handler
-  | Refl  of eqsort * 'a term
-  | Equiv of eqsort * 'a term * 'a term * 'a term
-  | Ind of (Common.variable * Common.variable * Common.variable * 'a term) *
-           (Common.variable * 'a term) *
-           'a term
-  | Wildcard
-  | Admit
+type const =
+  | Int of int
+  | Bool of bool
+  | Unit
 
+type primop =
+  | Plus
+  | Not
+  | And
+  | Append
 
-and 'a handler_body = 'a term
+type 'a exp = 'a exp' * Common.position
+and 'a exp' =
+  | Var of tt_var
+  | Fun of tt_var * 'a computation
+  | Handler of handler
+  | ContExp of Brazil.ty list * Brazil.ty list * 'a cont
+  | Term   of Brazil.term
+  | Type   of Brazil.type
+  | Tuple  of 'a exp list
+  | Const  of const
+  | Inj    of int * 'a exp
+
+and 'a computation =
+  | Val of 'a exp
+  | App of 'a exp * 'a exp
+  | Let of tt_var * 'a computation * 'a computation
+  | Op  of operation_tag * exp list
+  | WithHandle of 'a exp * 'a computation
+  | KApp of 'a exp * 'a exp
+  | Ascribe of 'a exp * 'a exp
+  | Prim of primop * 'a exp list
+  | Match of 'a exp * 'a arm list
+  | MkVar of int
+  | MkLam of Common.name * 'a exp * 'a computation
+  | MkApp of 'a exp * 'a exp
+
+and 'a cont =
+  | KHole
+  | KLet of tt-var * 'a cont * 'a computation
+  | KWithHAndle of 'a exp * 'a cont
+  | KMkLam of Common.name * Brazil.ty * 'a cont
+
+and 'a arm = pattern * 'a computation
 
 and 'a handler =
-   (operation_tag * 'a term list * 'a handler_body) list
+  { valH : (tt_var * 'a cont);
+    opH  : operation_tag * (tt_var list * tt_var * 'a computation) list;
+  }
+
+and pattern =
+  | PTuple of tt_var list
+  | PInj of int * tt_var
+  | PConst of const
+
+and result =
+  | RVal of Common.debruijn exp
+  | ROp of operation-tag * (tt_var list * Common.debruijn exp * Common.debruijn cont)
 
 type 'a toplevel = 'a toplevel' * Common.position
 and 'a toplevel' =
@@ -64,18 +86,9 @@ and 'a toplevel' =
 let embrace s = "(" ^ s ^ ")"
 let app_embrace h lst = h ^ embrace (String.concat ", " lst)
 
-let string_of_tag = function
-  | Inhabit -> "Inhabit"
-  | Coerce -> "Coerce"
-  | Rewrite -> "Rewrite"
+let string_of_tag otag = otag
 
-let string_of_universe = function
-  | NonFib i -> app_embrace "NonFib" [string_of_int i]
-  | Fib  i -> app_embrace "Fib" [string_of_int i]
-
-let string_of_eqsort = function
-  | Ju -> "Ju"
-  | Pr -> "Pr"
+let string_of_universe = Universe.string_of_universe
 
 let string_of_term string_of_var =
   let rec to_str (term, loc) =
