@@ -405,8 +405,8 @@ Judgments:
   \infer[eval-assert-type]
   {
     \ws = \tuple{\bterm{\B_1},\ldots,\bterm{\B_n}}\\
-    (\U_i = \typeof{\Gamma}{\B_i})_{i=1}^n\\
-    \eqtypealg[]{\ctxs{\G}{\U_1,\ldots,\U_n}}{\T_1}{\T_2}\\
+    (\JuEqual{\U_i}{\e'_i}{\e''_i} = \typeof{\G}{\B_i})_{i=1}^n\\
+    \eqtypealg[]{\ctxs{\G}{\eqhint{\e'_i}{\e''_i}_{i=1}^n}}{\T_1}{\T_2}\\
     \evalto{\C}{\R}\\
   }
   {
