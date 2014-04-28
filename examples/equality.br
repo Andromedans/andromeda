@@ -1,0 +1,5 @@
+define Set := Universe f0
+
+define sym : forall (A : Set) (a b : A), a == b -> b == a :=
+  fun (A : Set) (a b : A) (p : a == b) => equation p in (refl a)
+

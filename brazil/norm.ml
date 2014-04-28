@@ -1,18 +1,18 @@
 (** Strong normalization that ignores hints. *)
 
-let rec norm_ty ((t', loc) as t) : Syntax.ty =
+let rec ty ((t', loc) as t) : Syntax.ty =
   match t' with
 
   (* norm-ty-universe *)
   | Syntax.Universe _ -> t
 
   | Syntax.El (alpha, e) ->
-    begin match norm e with
+    begin match term e with
 
       (* norm-ty-el-coerce *)
       | (Syntax.Coerce (beta, gamma, e), _)
           when Universe.eq alpha gamma ->
-        norm_ty (Syntax.El (beta, e), loc)
+        ty (Syntax.El (beta, e), loc)
 
       (* norm-ty-el-unit *)
       | (Syntax.NameUnit, _)
@@ -22,8 +22,8 @@ let rec norm_ty ((t', loc) as t) : Syntax.ty =
       (* norm-ty-el-prod *)
       | (Syntax.NameProd (beta, gamma, x, e1, e2), _)
           when Universe.eq (Universe.max beta gamma) alpha ->
-        let t1 = norm_ty (Syntax.El (beta, e1), snd e1) in
-        let t2 = norm_ty (Syntax.El (gamma, e2), snd e2) in
+        let t1 = ty (Syntax.El (beta, e1), snd e1) in
+        let t2 = ty (Syntax.El (gamma, e2), snd e2) in
           (Syntax.Prod (x, t1, t2), loc)
 
       (* norm-ty-el-universe *)
@@ -34,17 +34,17 @@ let rec norm_ty ((t', loc) as t) : Syntax.ty =
       (* norm-ty-el-paths *)
       | (Syntax.NamePaths (beta, e1, e2, e3), _)
           when Universe.eq beta alpha ->
-        let t1 = norm_ty (Syntax.El (alpha, e1), loc) in
-        let e2' = norm e2 in
-        let e3' = norm e3 in
+        let t1 = ty (Syntax.El (alpha, e1), loc) in
+        let e2' = term e2 in
+        let e3' = term e3 in
           (Syntax.Paths (t1, e2', e3'), loc)
 
       (* norm-ty-el-id *)
       | (Syntax.NameId (beta, e1, e2, e3), _)
           when Universe.eq beta alpha ->
-        let t1 = norm_ty (Syntax.El (alpha, e1), loc) in
-        let e2' = norm e2 in
-        let e3' = norm e3 in
+        let t1 = ty (Syntax.El (alpha, e1), loc) in
+        let e2' = term e2 in
+        let e3' = term e3 in
           (Syntax.Id (t1, e2', e3'), loc)
 
       (* norm-ty-el-other *)
@@ -57,26 +57,26 @@ let rec norm_ty ((t', loc) as t) : Syntax.ty =
 
   (* norm-ty-prod *)
   | Syntax.Prod (x, t, u) ->
-    let t' = norm_ty t in
-    let u' = norm_ty u in
+    let t' = ty t in
+    let u' = ty u in
       (Syntax.Prod (x, t', u'), loc)
 
   (* norm-ty-paths *)
   | Syntax.Paths (t, e1, e2) ->
-    let t' = norm_ty t in
-    let e1' = norm e1 in
-    let e2' = norm e2 in
+    let t' = ty t in
+    let e1' = term e1 in
+    let e2' = term e2 in
       (Syntax.Paths (t', e1', e2'), loc)
 
   (* norm-ty-id *)
   | Syntax.Id (t, e1, e2) ->
-    let t' = norm_ty t in
-    let e1' = norm e1 in
-    let e2' = norm e2 in
+    let t' = ty t in
+    let e1' = term e1 in
+    let e2' = term e2 in
       (Syntax.Id (t', e1', e2'), loc)
 
 
-and norm ((e', loc) as e) : Syntax.term =
+and term ((e', loc) as e) : Syntax.term =
   match e' with
 
     (* norm-var *)    
@@ -85,80 +85,80 @@ and norm ((e', loc) as e) : Syntax.term =
 
     (* norm-advice *)
     | Syntax.Advice (_, _, e) ->
-      norm e
+      term e
 
     (* norm-equation *)
     | Syntax.Equation (_e1, (_e2, _e3), e4) ->
-      norm e4
+      term e4
 
     (* norm-rewrite *)
     | Syntax.Rewrite (_e1, (_e2, _e3), e4) ->
-      norm e4
+      term e4
 
     (* norm-ascribe *)
     | Syntax.Ascribe (e, _t) ->
-      norm e
+      term e
 
     (* norm-star *)
     | Syntax.UnitTerm -> e
 
     (* norm-abs *)
     | Syntax.Lambda (x, t1, t2, e) ->
-      let t1' = norm_ty t1 in
-      let t2' = norm_ty t2 in
-      let e' = norm e in
+      let t1' = ty t1 in
+      let t2' = ty t2 in
+      let e' = term e in
         (Syntax.Lambda (x, t1', t2', e'), loc)
 
     | Syntax.App ((x, t1, t2), e1, e2) ->
-      let t1' = norm_ty t1 in
-      let t2' = norm_ty t2 in
-        begin match norm e1 with
+      let t1' = ty t1 in
+      let t2' = ty t2 in
+        begin match term e1 with
 
           (* norm-app-redex *)
           | (Syntax.Lambda (_, u1, u2, e1'), _)
               when Syntax.equal_ty t1' u1 && Syntax.equal_ty t2' u2 ->
-            let e2' = norm e2 in
-              norm (Syntax.beta e1' e2')
+            let e2' = term e2 in
+              term (Syntax.beta e1' e2')
 
           (* norm-app-other *)
           | e1' ->
-            let e2' = norm e2 in
+            let e2' = term e2 in
               (Syntax.App ((x, t1', t2'), e1', e2'), loc)
         end
 
     (* norm-idpath *)
     | Syntax.Idpath (t, e) ->
-      let t' = norm_ty t in
-      let e' = norm e in
+      let t' = ty t in
+      let e' = term e in
         (Syntax.Idpath (t', e'), loc)
 
     (* norm-refl *)
     | Syntax.Refl (t, e) ->
-      let t' = norm_ty t in
-      let e' = norm e in
+      let t' = ty t in
+      let e' = term e in
         (Syntax.Refl (t', e'), loc)
 
     | Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4) ->
-      let t' = norm_ty t in
-        begin match norm e2 with
+      let t' = ty t in
+        begin match term e2 with
 
           (* norm-j-redex *)
           | (Syntax.Idpath (t'', e2'), _)
                when Syntax.equal_ty t' t'' ->
-             let e1' = norm e1 in
-               norm (Syntax.beta e1' e2')
+             let e1' = term e1 in
+               term (Syntax.beta e1' e2')
                  
           (* norm-j-other *)
           | e2' ->
-            let u' = norm_ty u in
-            let e1' = norm e1 in
-            let e3' = norm e3 in
-            let e4' = norm e4 in
+            let u' = ty u in
+            let e1' = term e1 in
+            let e3' = term e3 in
+            let e4' = term e4 in
               (Syntax.J (t', (x, y, p, u'), (z, e1'), e2', e3', e4'), loc)
         end
 
     | Syntax.Coerce (alpha, beta, e) ->
-      begin match norm e with
+      begin match term e with
 
         (* norm-coerce-trivial *)
         | e' when Universe.eq alpha beta -> e'
@@ -166,30 +166,30 @@ and norm ((e', loc) as e) : Syntax.term =
         (* norm-coerce-trans *)
         | (Syntax.Coerce (gamma, delta, e'), loc)
             when Universe.eq alpha delta ->
-          norm (Syntax.Coerce (gamma, beta, e'), loc)
+          term (Syntax.Coerce (gamma, beta, e'), loc)
 
         (* norm-coerce-pi *)
         | (Syntax.NameProd (gamma, delta, x, e1, e2), loc)
             when Universe.eq alpha (Universe.max gamma delta) &&
                  Universe.leq gamma alpha && Universe.leq delta alpha ->
-          let e1' = norm (Syntax.Coerce (gamma, beta, e1), snd e1) in
-          let e2' = norm (Syntax.Coerce (delta, beta, e2), snd e2) in
+          let e1' = term (Syntax.Coerce (gamma, beta, e1), snd e1) in
+          let e2' = term (Syntax.Coerce (delta, beta, e2), snd e2) in
             (Syntax.NameProd (beta, beta, x, e1', e2'), loc)
 
         (* norm-coerce-paths *)
         | (Syntax.NamePaths (gamma, e1, e2, e3), loc)
             when Universe.eq alpha gamma ->
-          let e1' = norm (Syntax.Coerce (alpha, beta, e1), snd e1) in
-          let e2' = norm e2 in
-          let e3' = norm e3 in
+          let e1' = term (Syntax.Coerce (alpha, beta, e1), snd e1) in
+          let e2' = term e2 in
+          let e3' = term e3 in
             (Syntax.NamePaths (beta, e1', e2', e3'), loc)
 
         (* norm-coerce-id *)
         | (Syntax.NameId (gamma, e1, e2, e3), loc)
             when Universe.eq alpha gamma ->
-          let e1' = norm (Syntax.Coerce (alpha, beta, e1), snd e1) in
-          let e2' = norm e2 in
-          let e3' = norm e3 in
+          let e1' = term (Syntax.Coerce (alpha, beta, e1), snd e1) in
+          let e2' = term e2 in
+          let e3' = term e3 in
             (Syntax.NameId (beta, e1', e2', e3'), loc)
 
         (* name-coerce-other *)
@@ -202,8 +202,8 @@ and norm ((e', loc) as e) : Syntax.term =
 
     (* norm-name-prod *)
     | Syntax.NameProd (alpha, beta, x, e1, e2) ->
-      let e1' = norm e1 in
-      let e2' = norm e2 in
+      let e1' = term e1 in
+      let e2' = term e2 in
         (Syntax.NameProd (alpha, beta, x, e1', e2'), loc)
 
     (* norm-name-universe *)
@@ -211,14 +211,14 @@ and norm ((e', loc) as e) : Syntax.term =
 
     (* norm-name-paths *)
     | Syntax.NamePaths (alpha, e1, e2, e3) ->
-      let e1' = norm e1 in
-      let e2' = norm e2 in
-      let e3' = norm e3 in
+      let e1' = term e1 in
+      let e2' = term e2 in
+      let e3' = term e3 in
         (Syntax.NamePaths (alpha, e1', e2', e3'), loc)
 
     (* norm-name-id *)
     | Syntax.NameId (alpha, e1, e2, e3) ->
-      let e1' = norm e1 in
-      let e2' = norm e2 in
-      let e3' = norm e3 in
+      let e1' = term e1 in
+      let e2' = term e2 in
+      let e3' = term e3 in
         (Syntax.NameId (alpha, e1', e2', e3'), loc)

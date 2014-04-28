@@ -97,15 +97,22 @@ let add_def x t ((_,loc) as e) ctx =
     names = x :: ctx.names;
   }
 
+(** We always store all hints strongly normalized. Then we try
+    to apply them, we strongly normalize the target as well. *)
 let add_advice t ctx =
+  let t = Norm.ty t in
   { ctx with
     hints = Advice t :: ctx.hints }
 
 let add_equation e1 e2 ctx =
+  let e1 = Norm.term e1
+  and e2 = Norm.term e2 in
   { ctx with
     hints = Equation (e1, e2) :: ctx.hints }
 
 let add_rewrite e1 e2 ctx =
+  let e1 = Norm.term e1
+  and e2 = Norm.term e2 in
   { ctx with
     hints = Rewrite (e1, e2) :: ctx.hints }
 
@@ -126,6 +133,7 @@ let lookup_var index {decls=lst} =
     | Failure _ -> Error.impossible "invalid de Bruijn index"
 
 let lookup_advice t ctx =
+  let t = Norm.ty t in
   List.exists
     (function
       | Advice tprod ->
@@ -147,6 +155,8 @@ let lookup_advice t ctx =
     ctx.hints
 
 let lookup_equation e1 e2 ctx =
+  let e1 = Norm.term e1
+  and e2 = Norm.term e2 in
   let predicate = function
     | Advice _ -> false
     | Equation(term1, term2)
@@ -157,6 +167,7 @@ let lookup_equation e1 e2 ctx =
     List.exists predicate ctx.hints
 
 let lookup_rewrite e1 ctx =
+  let e1 = Norm.term e1 in
   let rec search = function
     | [] -> None
     | Rewrite (term1, term2) :: lst ->

@@ -153,8 +153,6 @@ and match_term k inst lvl e_pttrn e =
       raise Mismatch
      
 let apply tprod t =
-  let tprod = Norm.norm_ty tprod in
-  let t = Norm.norm_ty t in
   (* Compute the number of variables that need to be instantiated. *)
   let k = pi_depth tprod - pi_depth t in
     if k < 0 then None

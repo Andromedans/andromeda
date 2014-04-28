@@ -19,5 +19,4 @@ define plus :=
     (fun n : N => n) 
     (fun (n : N) (f : N -> N) (m : N) => S (f m))
 
-
 #context

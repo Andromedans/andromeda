@@ -123,7 +123,7 @@ let rec exec_cmd interactive ctx (d, loc) =
         begin match Typing.whnfs_ty ctx t with
           | Syntax.Id (t, e1, e2), _ ->
             if interactive then Format.printf "Equation added.@\n@." ;
-            Context.add_rewrite e1 e2 ctx
+            Context.add_equation e1 e2 ctx
           | _ -> 
             Error.runtime ~loc:(snd e) "this term has type %t but should be an equality proof."
               (Print.ty names t)
