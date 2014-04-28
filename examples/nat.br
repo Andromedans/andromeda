@@ -9,14 +9,25 @@ assume N_ind :
   (forall n : N, P n -> P (S n)) ->
   forall (m : N), P m
 
-define id := N_ind (fun _ : N => N)
+assume N_ind_0 :
+  forall 
+    (P : N -> Set) 
+    (z : P 0)
+    (f : forall n : N, P n -> P (S n)),
+  N_ind P z f 0 == z
 
-#context
+assume N_ind_S :
+  forall 
+    (P : N -> Set) 
+    (z : P 0)
+    (f : forall n : N, P n -> P (S n))
+    (m : N),
+  N_ind P z f (S m) == f m (N_ind P z f m)
+
+define id := N_ind (fun _ : N => N)
 
 define plus :=
   N_ind
     (fun _ : N => N -> N)
     (fun n : N => n) 
     (fun (n : N) (f : N -> N) (m : N) => S (f m))
-
-#context

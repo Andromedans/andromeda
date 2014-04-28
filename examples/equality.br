@@ -1,5 +1,20 @@
 define Set := Universe f0
 
 define sym : forall (A : Set) (a b : A), a == b -> b == a :=
-  fun (A : Set) (a b : A) (p : a == b) => equation p in (refl a)
+  fun (A : Set) (a b : A) (p : a == b) => equation p in (refl a :: b == a)
+
+define G :
+  forall
+    (A : Set)
+    (P : forall (x y : A), x == y -> Set),
+    (forall x : A, P x x (refl x)) ->
+    (forall (x y : A) (p : x == y), P x y p)
+  := 
+  fun (A : Set)
+      (P : forall (x y : A), x == y -> Set)
+      (r : forall a : A, P a a (refl a))
+      (x y : A) (p : x == y)
+  =>
+    equation p in (r x :: P x y p)
+
 

@@ -21,19 +21,19 @@ let rec strip k t =
       Syntax.Paths _ | Syntax.Id _ -> assert false
     end
 
-exception Mismatch
+exception Mismatch of string
 
-let check b = if not b then raise Mismatch 
+let check b msg = if not b then raise (Mismatch msg)
 
 let rec match_ty k inst lvl (tprod, _) (t, _) =
   match tprod, t with
 
   | (Syntax.Universe alpha, Syntax.Universe beta) ->
-    check (Universe.eq alpha beta) ;
+    check (Universe.eq alpha beta) "Universe index compare";
     inst
 
   | Syntax.El (alpha, e1), Syntax.El (beta, e2) ->
-    check (Universe.eq alpha beta) ;
+    check (Universe.eq alpha beta) "El index compare";
     match_term k inst lvl e1 e2
 
   | Syntax.Unit, Syntax.Unit -> inst
@@ -54,7 +54,7 @@ let rec match_ty k inst lvl (tprod, _) (t, _) =
 
   | (Syntax.Prod _ | Syntax.Universe _ | Syntax.El _ |
      Syntax.Unit | Syntax.Paths _| Syntax.Id _), _ ->
-    raise Mismatch
+    raise (Mismatch "match_ty: different heads")
 
 and match_term k inst lvl e_pttrn e =
   match fst e_pttrn, fst e with
@@ -71,18 +71,23 @@ and match_term k inst lvl e_pttrn e =
 
     | (Syntax.Var i, _) when (0 <= i - lvl && i - lvl < k) ->
       begin
+        Print.debug "match_term: trying to match variable %d (k = %d, lvl = %d)" i k lvl ;
         let i = i - lvl in
         let rec lookup x = function
           | [] -> None
           | (x',y)::lst -> if x = x' then Some y else lookup x lst
         in
-        let e = Syntax.shift ~exn:Mismatch (-lvl) e in
+        let e = Syntax.shift ~exn:(Mismatch "negative shift") (-lvl) e in
           match lookup i inst with
-          | Some e' -> if Syntax.equal e' e then inst else raise Mismatch
-          | None -> (i, e) :: inst
+          | Some e' -> if Syntax.equal e' e then inst else raise (Mismatch "variable already set")
+          | None -> 
+            Print.debug "match_term: instantiated variable %d" i ;
+            (i, e) :: inst
       end
 
-    | Syntax.Var i, Syntax.Var j -> check (i = j) ; inst
+    | Syntax.Var i, Syntax.Var j ->
+      check (i = j) "Var DeBruijn compare";
+      inst
 
     | Syntax.Ascribe (e, t), Syntax.Ascribe (e', t') ->
       let inst = match_term k inst lvl e e' in
@@ -95,7 +100,7 @@ and match_term k inst lvl e_pttrn e =
 
     | Syntax.App ((_, t1, t2), e1, e2), Syntax.App ((_, t1', t2'), e1', e2') ->
       let inst = match_ty k inst lvl t1 t1' in
-      let inst = match_ty (k+1) inst lvl t2 t2' in
+      let inst = match_ty k inst (lvl+1) t2 t2' in
       let inst = match_term k inst lvl e1 e1' in
         match_term k inst lvl e2 e2'
 
@@ -108,8 +113,8 @@ and match_term k inst lvl e_pttrn e =
     | (Syntax.J (t, (_, _, _, u), (_, e1), e2, e3, e4),
        Syntax.J (t', (_, _, _, u'), (_, e1'), e2', e3', e4')) ->
       let inst = match_ty k inst lvl t t' in
-      let inst = match_ty (k+3) inst lvl u u' in
-      let inst = match_term (k+1) inst lvl e1 e1' in
+      let inst = match_ty k inst (lvl+3) u u' in
+      let inst = match_term k inst (lvl+1) e1 e1' in
       let inst = match_term k inst lvl e2 e2' in
       let inst = match_term k inst lvl e3 e3' in
         match_term k inst lvl e4 e4'
@@ -119,30 +124,31 @@ and match_term k inst lvl e_pttrn e =
         match_term k inst lvl e e'
 
     | Syntax.Coerce (alpha, beta, e), Syntax.Coerce (alpha', beta', e') ->
-      check (Universe.eq alpha alpha' ) ;
-      check (Universe.eq beta beta' ) ;
+      check (Universe.eq alpha alpha') "Coerce alpha compare" ;
+      check (Universe.eq beta beta') "Coerece beta compare" ; 
       match_term k inst lvl e e'
 
     | Syntax.NameUnit, Syntax.NameUnit -> inst
 
     | Syntax.NameProd (alpha, beta, _, e1, e2),
       Syntax.NameProd (alpha', beta', _, e1', e2') ->
-      check (Universe.eq alpha alpha') ;
-      check (Universe.eq beta beta') ;
+      check (Universe.eq alpha alpha') "NameProd alpha compare";
+      check (Universe.eq beta beta') "NameProd beta compare";
       let inst = match_term k inst lvl e1 e1 in
         match_term k inst (lvl+1) e2 e2'
 
     | Syntax.NameUniverse alpha, Syntax.NameUniverse beta -> 
-      check (Universe.eq alpha beta) ; inst
+      check (Universe.eq alpha beta) "NameUniverse index compare";
+      inst
 
     | Syntax.NamePaths (alpha, e1, e2, e3), Syntax.NameId (beta, e1', e2', e3') ->
-      check (Universe.eq alpha beta) ;
+      check (Universe.eq alpha beta) "NamePaths index compare";
       let inst = match_term k inst lvl e1 e1' in
       let inst = match_term k inst lvl e2 e2' in
         match_term k inst lvl e3 e3'
 
     | Syntax.NameId (alpha, e1, e2, e3), Syntax.NameId (beta, e1', e2', e3') ->
-      check (Universe.eq alpha beta) ;
+      check (Universe.eq alpha beta) "NameId index compare";
       let inst = match_term k inst lvl e1 e1' in
       let inst = match_term k inst lvl e2 e2' in
         match_term k inst lvl e3 e3'
@@ -150,7 +156,7 @@ and match_term k inst lvl e_pttrn e =
     | (Syntax.Var _ | Syntax.Ascribe _ | Syntax.Lambda _ | Syntax.App _ | Syntax.UnitTerm | 
        Syntax.Idpath _ | Syntax.J _ | Syntax.Refl _ | Syntax.Coerce _ | Syntax.NameUnit |
        Syntax.NameProd _ | Syntax.NameUniverse _ | Syntax.NamePaths _ | Syntax.NameId _ ), _ ->
-      raise Mismatch
+      raise (Mismatch "match: different heads")
      
 let apply tprod t =
   (* Compute the number of variables that need to be instantiated. *)
@@ -162,11 +168,13 @@ let apply tprod t =
         try
           (* compute an instance *)
           let inst = match_ty k [] 0 tprod t in
-           (* compute the list of terms than should be applied *)
+          (* compute the list of terms than should be applied *)
           let rec compute j =
             if j >= k then []
             else (List.assoc j inst) :: compute (j + 1)
           in
             Some (compute 0)
         with
-        | Mismatch -> None
+        | Mismatch msg -> 
+          Print.debug "Mismatch %s" msg ;
+          None

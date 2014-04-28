@@ -29,7 +29,7 @@ let rec ty ((t', loc) as t) : Syntax.ty =
       (* norm-ty-el-universe *)
       | (Syntax.NameUniverse beta, _)
           when Universe.eq (Universe.succ beta) alpha ->
-        (Syntax.Universe alpha, loc)
+        (Syntax.Universe beta, loc)
 
       (* norm-ty-el-paths *)
       | (Syntax.NamePaths (beta, e1, e2, e3), _)

@@ -9,10 +9,13 @@ assume cond_true : (A : Set) -> (a : A) -> (b : A) -> cond A true a b == a
 
 assume cond_false : (A : Set) -> (a : A) -> (b : A) -> cond A false a b == b
 
+advice cond_true
+advice cond_false
+
 assume T : Set
 assume x y : T
 assume P : T -> Set
 assume u : P x
 assume v : P (cond T true x y)
 
-define foo := advice cond_true T x in (u == v)
+define foo := (u == v)

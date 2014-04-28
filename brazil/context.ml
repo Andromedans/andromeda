@@ -133,18 +133,20 @@ let lookup_var index {decls=lst} =
     | Failure _ -> Error.impossible "invalid de Bruijn index"
 
 let lookup_advice t ctx =
+  Print.debug "lookup_advice: looking for %t" (Print.ty ctx.names t) ;
   let t = Norm.ty t in
+  Print.debug "lookup_advice*: looking for %t" (Print.ty ctx.names t) ;
   List.exists
     (function
       | Advice tprod ->
         begin match Apply.apply tprod t with
           | None -> 
-            Print.debug "Rejecting advice %t for %t"
+            Print.debug "lookup_advice: rejecting advice %t for %t"
               (Print.ty ctx.names tprod) 
               (Print.ty ctx.names t) ;
             false
           | Some _ -> 
-            Print.debug "Accepting advice %t for %t"
+            Print.debug "lookup_advice: accepting advice %t for %t"
               (Print.ty ctx.names tprod) 
               (Print.ty ctx.names t) ;
             true
@@ -155,12 +157,17 @@ let lookup_advice t ctx =
     ctx.hints
 
 let lookup_equation e1 e2 ctx =
+  Print.debug "lookup_equation: %t == %t" (Print.term ctx.names e1) (Print.term ctx.names e2) ;
   let e1 = Norm.term e1
   and e2 = Norm.term e2 in
+  Print.debug "lookup_equation*: %t == %t" (Print.term ctx.names e1) (Print.term ctx.names e2) ;
   let predicate = function
     | Advice _ -> false
     | Equation(term1, term2)
     | Rewrite(term1, term2) ->
+       Print.debug "lookup_equation: considering %t == %t"
+         (Print.term ctx.names term1)
+         (Print.term ctx.names term2) ;
        (Syntax.equal e1 term1 && Syntax.equal e2 term2) ||
        (Syntax.equal e2 term1 && Syntax.equal e1 term2)
   in
