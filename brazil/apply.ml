@@ -153,6 +153,8 @@ and match_term k inst lvl e_pttrn e =
       raise Mismatch
      
 let apply tprod t =
+  let tprod = Norm.norm_ty tprod in
+  let t = Norm.norm_ty t in
   (* Compute the number of variables that need to be instantiated. *)
   let k = pi_depth tprod - pi_depth t in
     if k < 0 then None
@@ -162,8 +164,11 @@ let apply tprod t =
         try
           (* compute an instance *)
           let inst = match_ty k [] 0 tprod t in
-           (* verify that all variables are instantiated *)
-          let rec check j = (j >= k) || (List.mem_assoc j inst && check (j+1)) in
-            if check 0 then Some inst else None
+           (* compute the list of terms than should be applied *)
+          let rec compute j =
+            if j >= k then []
+            else (List.assoc j inst) :: compute (j + 1)
+          in
+            Some (compute 0)
         with
         | Mismatch -> None
