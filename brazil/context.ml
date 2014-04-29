@@ -35,18 +35,19 @@ let print {decls=ds; hints=hs; names=xs} =
       | [], _::_ -> Error.impossible "fewer declarations than names in context"
       | _::_, [] -> Error.impossible "fewer names than declarations in context"
   in
-  let print_hints xs =
+  let rec metanames j = if j <= 0 then xs else ("?" ^ string_of_int (j-1)) :: metanames (j-1) in
+  let print_hints = 
     List.iter (function
       | Rewrite (k, t, e1, e2) ->
         Format.printf "rewrite (_ :: %t)@\n"
-          (Print.ty xs (Syntax.Id (t, e1, e2), Position.nowhere))
+          (Print.ty (metanames k) (Syntax.Id (t, e1, e2), Position.nowhere))
       | Equation (k, t, e1, e2) ->
         Format.printf "equation (_ :: %t)@\n"
-          (Print.ty xs (Syntax.Id (t, e1, e2), Position.nowhere))
+          (Print.ty (metanames k) (Syntax.Id (t, e1, e2), Position.nowhere))
     )
   in
     print_names ds xs ;
-    print_hints xs hs ;
+    print_hints hs ;
     Format.printf "@."
 
 
@@ -54,8 +55,7 @@ let empty = { decls = [] ; names = [] ; hints = [] }
 
 let names {names=lst} = lst
 
-let shift_declaration delta declaration =
-  match declaration with
+let shift_declaration delta = function
   | Parameter ty1 ->
       Parameter( Syntax.shift_ty delta ty1 )
   | Definition(ty1, term1) ->
@@ -64,9 +64,13 @@ let shift_declaration delta declaration =
 
 let shift_hint delta = function
   | Equation (k, t, e1, e2) ->
-    Equation (k, Syntax.shift_ty delta t, Syntax.shift delta e1, Syntax.shift delta e2)
+    Equation (k, Syntax.shift_ty ~bound:k delta t,
+                 Syntax.shift ~bound:k delta e1,
+                 Syntax.shift ~bound:k delta e2)
   | Rewrite (k, t, e1, e2) ->
-    Rewrite (k, Syntax.shift_ty delta t, Syntax.shift delta e1, Syntax.shift delta e2)
+    Rewrite (k, Syntax.shift_ty ~bound:k delta t,
+                Syntax.shift ~bound:k delta e1,
+                Syntax.shift ~bound:k delta e2)
 
 let add_var x t ctx =
   {
@@ -131,8 +135,6 @@ let lookup_equation t e1 e2 ctx =
   let t = Norm.ty t
   and e1 = Norm.term e1
   and e2 = Norm.term e2 in
-    Print.debug "lookup_equation: %t == %t @ %t"
-      (Print.term ctx.names e1) (Print.term ctx.names e2) (Print.ty ctx.names t) ;
     List.exists
       (function Equation h | Rewrite h ->
         Hint.instantiate h t e1 e2 || Hint.instantiate h t e2 e1)

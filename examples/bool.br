@@ -3,19 +3,22 @@ define Set := Universe f0
 assume bool : Set
 assume true false : bool
 
-assume cond : (A : Set) -> bool -> A -> A -> A
+assume bool_ind : (P : bool -> Set) -> (b : bool) -> P true -> P false -> P b
 
-assume cond_true : (A : Set) -> (a : A) -> (b : A) -> cond A true a b == a
+assume bool_ind_true :
+  (P : bool -> Set) -> (x : P true) -> (y : P false) ->
+    bool_ind P true x y == x
 
-assume cond_false : (A : Set) -> (a : A) -> (b : A) -> cond A false a b == b
+rewrite bool_ind_true
 
-advice cond_true
-advice cond_false
+assume bool_ind_false :
+  (P : bool -> Set) -> (x : P true) -> (y : P false) ->
+    bool_ind P false x y == y
 
-assume T : Set
-assume x y : T
-assume P : T -> Set
-assume u : P x
-assume v : P (cond T true x y)
+rewrite bool_ind_false
 
-define foo := (u == v)
+define cond := fun (A : Set) => bool_ind (fun (_ : bool) => A)
+
+define cond_true :=
+  fun (A : Set) (x : A) (y : A) => (refl x :: cond A true x y == x)
+

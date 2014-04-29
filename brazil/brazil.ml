@@ -102,14 +102,14 @@ let rec exec_cmd interactive ctx (d, loc) =
       let e = Debruijn.term names e in
       let e, t = Typing.syn_term ctx e in
       let ctx = Context.add_rewrite e t ctx in
-        if interactive then Format.printf "Rewrite added.@\n@." ;
+        if interactive then Format.printf "rewrite added.@\n@." ;
         ctx
 
     | Input.TopEquation e ->
       let e = Debruijn.term names e in
       let e, t = Typing.syn_term ctx e in
       let ctx = Context.add_equation e t ctx in
-        if interactive then Format.printf "Equation added.@\n@." ;
+        if interactive then Format.printf "equation added.@\n@." ;
         ctx
 
     | Input.Context ->

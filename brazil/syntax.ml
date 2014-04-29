@@ -248,11 +248,8 @@ let ftrans_shift ?exn delta bvs = function
 
   | nonvar -> nonvar
 
-let shift' ?exn bvs delta = transform (ftrans_shift ?exn delta) bvs
-let shift_ty' ?exn bvs delta = transform_ty (ftrans_shift ?exn delta) bvs
-
-let shift ?exn delta    = shift' ?exn 0 delta
-let shift_ty ?exn delta = shift_ty' ?exn 0 delta
+let shift ?exn ?(bound=0) delta = transform (ftrans_shift ?exn delta) bound
+let shift_ty ?exn ?(bound=0) delta = transform_ty (ftrans_shift ?exn delta) bound
 
 let ftrans_subst free_index replacement_term bvs = function
   | (Var index, loc) as var ->
@@ -328,12 +325,10 @@ let strengthen_ty ty inhabitants =
      all free variables [< i] unchanged, and all [>= i] incremented (because
      there's a new variable in front of them). *)
 let weaken new_var_pos exp =
-  shift' new_var_pos 1 exp
+  shift ~bound:new_var_pos 1 exp
 
 let weaken_ty new_var_pos ty =
-  shift_ty' new_var_pos 1 ty
-
-
+  shift_ty ~bound:new_var_pos 1 ty
 
 (* Try to find the (candidate) name and universe of a given type.
    If the type is well-formed, then this will be the name

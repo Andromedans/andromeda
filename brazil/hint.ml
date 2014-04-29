@@ -79,11 +79,12 @@ and match_term k inst lvl e_pttrn e =
       
     | Syntax.Rewrite (_, _, e1), _ -> match_term k inst lvl e1 e
     | _, Syntax.Rewrite (_, _, e2) -> match_term k inst lvl e_pttrn e2
-      
+
+    (* a variable that must be instantiated *)      
     | (Syntax.Var i, _) when (0 <= i - lvl && i - lvl < k) ->
       begin
-        Print.debug "match_term k: trying to match variable %d (k = %d, lvl = %d)" i k lvl ;
         let i = i - lvl in
+        Print.debug "match_term: trying to match variable %d (k = %d, lvl = %d)" i k lvl ;
         let rec lookup x = function
           | [] -> None
           | (x',y)::lst -> if x = x' then Some y else lookup x lst
@@ -92,11 +93,17 @@ and match_term k inst lvl e_pttrn e =
           match lookup i inst with
             | Some e' -> if Syntax.equal e' e then inst else raise (Mismatch "variable already set")
             | None -> 
-              Print.debug "match_term k: instantiated variable %d" i ;
+              Print.debug "match_term: instantiated variable %d" i ;
               (i, e) :: inst
       end
 
-    | Syntax.Var i, Syntax.Var j ->
+    (* a bound variable *)
+    | (Syntax.Var i, Syntax.Var j) when i <= lvl ->
+      check (i = j) "bound variable" ;
+      inst
+
+    (* a variable referring to the context *)
+    | (Syntax.Var i, Syntax.Var j) ->
       check (i = j + k) "Var DeBruijn compare";
       inst
 
@@ -172,9 +179,13 @@ and match_term k inst lvl e_pttrn e =
 (** Instantiate a hint against an equation. *)
 let instantiate (k, t, e1, e2) t' e1' e2' =
   try
+Print.debug "INSTANTIATE 1" ;
     let inst = match_ty k [] 0 t t' in
+Print.debug "INSTANTIATE 2" ;
     let inst = match_term k inst 0 e1 e1' in
+Print.debug "INSTANTIATE 3" ;
     let inst = match_term k inst 0 e2 e2' in
+Print.debug "INSTANTIATE 4" ;
       for j = 0 to k - 1 do
         check (List.mem_assoc j inst) "missing instantiation"
       done ;

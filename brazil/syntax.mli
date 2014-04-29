@@ -45,11 +45,17 @@ val equal    : term -> term -> bool
 (** alpha equivalence of types, ignoring hints inside terms *)
 val equal_ty : ty -> ty -> bool
 
-(** [shift delta term] shifts the free variables in [term] by [delta] *)
-val shift : ?exn:exn -> int -> term -> term
+(** [shift delta term] shifts the free variables in [term] by [delta],
+    raising [exn] if a negative variable is produced by the shift.
+    Variables whose index is below [bound] are considered bound and therefore
+    not shifted. *)
+val shift : ?exn:exn -> ?bound:int -> int -> term -> term
 
-(** [shift_ty delta ty] shifts the free variables in [ty] by [delta] *)
-val shift_ty : ?exn:exn -> int -> ty -> ty
+(** [shift_ty delta ty] shifts the free variables in [ty] by [delta],
+    raising [exn] if a negative variable is produced by the shift.
+    Variables whose index is below [bound] are considered bound and therefore
+    not shifted. *)
+val shift_ty : ?exn:exn -> ?bound:int -> int -> ty -> ty
 
 (**
   If [G, x:t |- body : ...] and [G |- arg : t] then

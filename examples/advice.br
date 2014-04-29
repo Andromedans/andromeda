@@ -7,6 +7,6 @@ assume t : f a
 
 assume e : (x : A) -> f x == g x
 
-advice e
+equation e
 
 define foo := (t :: g a)
