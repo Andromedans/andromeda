@@ -21,7 +21,7 @@ let rec whnf_ty ctx1 (ty',loc) =
 
   (* tynorm-el *)
   | Syntax.El(alpha, ((e', _) as e)) ->
-    begin match whnf ctx1 e with
+    begin match whnf ctx1 e (Syntax.Universe alpha, loc) with
       | Some (ctx2, e2) ->
           (* Non-backtracking, for now *)
           Some (ctx2, (Syntax.El(alpha, e2), loc))
@@ -62,26 +62,26 @@ let rec whnf_ty ctx1 (ty',loc) =
               None
 
             (* could have taken a step *)
-            | Syntax.Advice _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _ ->
+            | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _ ->
               Error.impossible "normalization of universe names is suprised, please report"
           end
       end
 
   | (Syntax.Universe _ | Syntax.Unit | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _) -> None
 
-and whnf ctx1 ((term',loc) as term) =
-  match Context.lookup_rewrite term ctx1 with
+and whnf ctx1 ((term',loc) as term) ty =
+  match Context.lookup_rewrite ty term ctx1 with
   | Some reduct -> Some (ctx1, reduct)
   | None ->
       begin
         match term' with
         (* norm-equation *)
-        | Syntax.Equation(_e1, (e2,e3), e4) ->
-            Some (Context.add_equation e2 e3 ctx1, e4)
+        | Syntax.Equation(e1, t, e2) ->
+            Some (Context.add_equation e1 t ctx1, e2)
 
         (* norm-rewrite *)
-        | Syntax.Rewrite(_e1, (e2,e3), e4)  ->
-            Some (Context.add_rewrite e2 e3 ctx1, e4)
+        | Syntax.Rewrite(e1, t, e2)  ->
+            Some (Context.add_rewrite e1 t ctx1, e2)
 
         (* norm-ascribe *)
         | Syntax.Ascribe(e, _t) -> Some (ctx1, e)
@@ -114,7 +114,7 @@ and whnf ctx1 ((term',loc) as term) =
         (* norm-app *)
         | Syntax.App((x,t,u), e1, e2) ->
             begin
-              match whnf ctx1 e1 with
+              match whnf ctx1 e1 t with
               | Some (ctx2, e1') -> Some (ctx2, (Syntax.App((x,t,u), e1', e2), loc))
               | None -> None
             end
@@ -122,7 +122,7 @@ and whnf ctx1 ((term',loc) as term) =
         (* norm-J *)
         | Syntax.J(t, (x,y,p,u), (z,e1), e2, e3, e4) ->
             begin
-              match whnf ctx1 e2 with
+              match whnf ctx1 e2 (Syntax.Paths (t, e3, e4), loc) with
               | Some (ctx2, e2') ->
                   Some (ctx2, (Syntax.J(t, (x,y,p,u), (z,e1), e2', e3, e4), loc))
               | None -> None
@@ -132,9 +132,9 @@ and whnf ctx1 ((term',loc) as term) =
       end
 
 (* Repeatedly apply whnf until nothing changes *)
-and whnfs ctx1 term1 =
-  match whnf ctx1 term1 with
-  | Some (ctx2, term2) -> whnfs ctx2 term2
+and whnfs ctx1 term1 ty1 =
+  match whnf ctx1 term1 ty1 with
+  | Some (ctx2, term2) -> whnfs ctx2 term2 ty1
   | None               -> term1
 
 (* Repeatedly apply whnf_ty until nothing changes *)
@@ -222,14 +222,7 @@ and equiv ctx term1 term2 t =
     true
 
   (* chk-eq-hint *)
-  else if (Context.lookup_equation term1 term2 ctx) then
-    true
-
-  (* check-advice *)
-  else if (Context.lookup_advice (Syntax.Id (t, term1, term2), Position.nowhere) ctx) then
-    true
-
-  else if (Context.lookup_advice (Syntax.Id (t, term2, term1), Position.nowhere) ctx) then
+  else if (Context.lookup_equation t term1 term2 ctx) then
     true
 
   else
@@ -278,9 +271,9 @@ and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
 
     (* chk-eq-ext-whnf *)
     | _ ->
-        let e1' = whnfs ctx e1  in
-        let e2' = whnfs ctx e2  in
-        equiv_whnf ctx e1' e2'
+        let e1' = whnfs ctx e1 ty in
+        let e2' = whnfs ctx e2 ty in
+        equiv_whnf ctx e1' e2' ty
   end
 
 (* equivalence of two weak-head-normal terms.
@@ -289,7 +282,7 @@ and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
                  term2 : ty
                     for some (unspecified) common type ty.
  *)
-and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
+and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) ty =
   begin
     match term1', term2' with
 
@@ -298,7 +291,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
         true
 
     (* chk-eq-whnf-equation *)
-    | _, _ when Context.lookup_equation term1 term2 ctx ->
+    | _, _ when Context.lookup_equation ty term1 term2 ctx ->
         true
 
     (* chk-eq-whnf-var *)
@@ -308,7 +301,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
     | Syntax.App((x, t1, t2), e1, e2), Syntax.App((_, u1, u2), e1', e2') ->
         equiv_ty ctx t1 u1
         && equiv_ty (Context.add_var x t1 ctx) t2 u2
-        && equiv_whnf ctx e1 e1'
+        && equiv_whnf ctx e1 e1' (Syntax.Prod (x, t1, t2), loc1)
         && equiv ctx e2 e2' t1
 
     (* chk-eq-whnf-idpath *)
@@ -348,7 +341,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
         && equiv ctx_z e3 e9 e3_ty_expected
         && equiv ctx e5 e11 t1
         && equiv ctx e6 e12 t1
-        && equiv_whnf ctx e4 e10
+        && equiv_whnf ctx e4 e10 (Syntax.Paths (t1, e5, e6), loc1)
 
     (* chk-eq-whnf-refl *)
     | Syntax.Refl(t, e1), Syntax.Refl(u, e2) ->
@@ -409,7 +402,7 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) =
     | _, Syntax.Refl _ ->
         true
 
-    | (Syntax.Var _ | Syntax.Advice _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
+    | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
       | Syntax.Lambda _ | Syntax.App _ | Syntax.Idpath _
       | Syntax.J _ | Syntax.Coerce _ | Syntax.NameUnit
       | Syntax.NameProd _ | Syntax.NameUniverse _ | Syntax.NamePaths _
@@ -443,42 +436,22 @@ let rec syn_term ctx ((term', loc) as term) =
         e,
         t
 
-  (* syn-advice *)
-  | Input.Advice (e1, e2) ->
-    let e1, u' = syn_term ctx e1 in
-    let u = whnfs_ty ctx u' in
-    let ctx = Context.add_advice u ctx in
-    let e2, t = syn_term ctx e2 in
-      (Syntax.Advice (e1, u, e2), loc), t
-
   (* syn-eq-hint *)
   | Input.Equation (e1, e4) ->
     begin
-      let e1, u' = syn_term ctx e1 in
-        match whnfs_ty ctx u' with
-          | Syntax.Id (u, e2, e3), _ ->
-            let ctx = Context.add_equation e2 e3 ctx in
-            let e4, t = syn_term ctx e4 in
-              (Syntax.Equation (e1, (e2, e3), e4), loc),
-              t
-          | u'' -> Error.typing ~loc "the equation witness@ %t@;<1 -2>should be an equality proof but has type@ %t"
-                     (print_term ctx e1)
-                     (print_ty ctx u'')
+      let e1, u = syn_term ctx e1 in
+      let ctx = Context.add_equation e1 u ctx in
+      let e4, t = syn_term ctx e4 in
+        (Syntax.Equation (e1, u, e4), loc), t
     end
 
   (* syn-rw-hint *)
   | Input.Rewrite (e1, e4) ->
     begin
-      let e1, u' = syn_term ctx e1 in
-        match whnfs_ty ctx u' with
-          | Syntax.Id (u, e2, e3), _ ->
-            let ctx = Context.add_rewrite e2 e3 ctx in
-            let e4, t = syn_term ctx e4 in
-              (Syntax.Rewrite (e1, (e2, e3), e4), loc),
-              t
-          | u'' -> Error.typing ~loc "the rewrite witness@ %t@;<1 -2>should be an equality proof but has type@ %t"
-                     (print_term ctx e1)
-                     (print_ty ctx u'')
+      let e1, u = syn_term ctx e1 in
+      let ctx = Context.add_rewrite e1 u ctx in
+      let e4, t = syn_term ctx e4 in
+        (Syntax.Rewrite (e1, u, e4), loc), t
     end
 
   (* syn-abs *)
@@ -654,33 +627,20 @@ and chk_term ctx ((term', loc) as term) t =
   (* chk-eq-hint *)
   | Input.Equation (e1, e4) ->
       begin
-        let e1, u' = syn_term ctx e1  in
-        match whnfs_ty ctx u' with
-        | Syntax.Id(u,e2,e3),_ ->
-            let ctx' = Context.add_equation e2 e3 ctx  in
-            let (e4 : Syntax.term) = chk_term ctx' e4 t in
-            (Syntax.Equation(e1, (e2, e3), e4), loc)
-        | _ ->
-            Error.typing ~loc "hint@ %t@;<1 -2>has type@ %t@;<1 -2>but an equality type was expected."
-               (print_term ctx e1)
-               (print_ty   ctx u')
+        let e1, u = syn_term ctx e1  in
+        let ctx = Context.add_equation e1 u ctx  in
+        let e4 = chk_term ctx e4 t in
+          (Syntax.Equation(e1, u, e4), loc)
       end
 
   (* chk-rw-hint *)
   | Input.Rewrite (e1, e4) ->
       begin
-        let e1, u' = syn_term ctx e1  in
-        match whnfs_ty ctx u' with
-        | Syntax.Id(u,e2,e3),_ ->
-            let ctx' = Context.add_equation e2 e3 ctx  in
-            let e4 = chk_term ctx' e4 t in
-              (Syntax.Rewrite(e1, (e2, e3), e4), loc)
-        | _ ->
-            Error.typing ~loc "hint@ %t@;<1 -2>has type@ %t@;<1 -2>but an equality type was expected."
-               (print_term ctx e1)
-               (print_ty   ctx u')
+        let e1, u = syn_term ctx e1  in
+        let ctx = Context.add_rewrite e1 u ctx  in
+        let e4 = chk_term ctx e4 t in
+          (Syntax.Rewrite(e1, u, e4), loc)
       end
-
 
   (* chk-syn *)
   | _ -> let e, u = syn_term ctx term  in

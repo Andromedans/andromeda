@@ -19,9 +19,8 @@ and ty' =
 and term = term' * Position.t
 and term' =
   | Var of variable
-  | Advice of term * ty * term
-  | Equation of term * (term * term) * term
-  | Rewrite of term * (term * term) * term
+  | Equation of term * ty * term
+  | Rewrite of term * ty * term
   | Ascribe of term * ty
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term

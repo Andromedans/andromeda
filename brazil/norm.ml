@@ -83,10 +83,6 @@ and term ((e', loc) as e) : Syntax.term =
     | Syntax.Var _ ->
       e
 
-    (* norm-advice *)
-    | Syntax.Advice (_, _, e) ->
-      term e
-
     (* norm-equation *)
     | Syntax.Equation (_e1, (_e2, _e3), e4) ->
       term e4

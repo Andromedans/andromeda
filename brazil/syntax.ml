@@ -19,9 +19,8 @@ and ty' =
 and term = term' * Position.t
 and term' =
   | Var of variable
-  | Advice of term * ty * term
-  | Equation of term * (term * term) * term
-  | Rewrite of term * (term * term) * term
+  | Equation of term * ty * term
+  | Rewrite of term * ty * term
   | Ascribe of term * ty
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
@@ -57,9 +56,6 @@ let rec equal ((left',_) as left) ((right',_) as right) =
   match left', right' with
 
   | Var index1, Var index2 -> index1 = index2
-
-  | Advice(_, _, term1), _ -> equal term1 right
-  | _, Advice(_, _, term1) -> equal left  term1
 
   | Equation(_, _, term1), _ -> equal term1 right
   | _, Equation(_, _, term1) -> equal left  term1
@@ -162,14 +158,11 @@ let rec transform ftrans bvs (term', loc) =
 
       | Var _index -> term'
 
-      | Advice(term1, ty2, term3) ->
-          Advice(recurse term1, recurse_ty ty2, term3)
+      | Equation(term1, ty2, term3) ->
+          Equation(recurse term1, recurse_ty ty2, recurse term3)
 
-      | Equation(term1, (term2,term3), term4) ->
-          Equation(recurse term1, (recurse term2, recurse term3), recurse term4)
-
-      | Rewrite(term1, (term2,term3), term4) ->
-          Rewrite(recurse term1, (recurse term2, recurse term3), recurse term4)
+      | Rewrite(term1, ty2, term3) ->
+          Rewrite(recurse term1, recurse_ty ty2, recurse term3)
 
       | Ascribe(term1, ty2)    -> Ascribe(recurse term1, recurse_ty ty2)
 
@@ -403,9 +396,8 @@ let rec name_of (ty', loc) =
 let rec occurs k (e, _) =
   match e with
     | Var m -> k = m
-    | Advice (e1, t, e2) -> occurs k e1 || occurs_ty k t || occurs k e2
-    | Equation (e1, (e2, e3), e4) -> occurs k e1 || occurs k e2 || occurs k e3 || occurs k e4
-    | Rewrite (e1, (e2, e3), e4) -> occurs k e1 || occurs k e2 || occurs k e3 || occurs k e4
+    | Equation (e1, t, e2) -> occurs k e1 || occurs_ty k t || occurs k e2
+    | Rewrite (e1, t, e2) -> occurs k e1 || occurs_ty k t || occurs k e2
     | Ascribe (e, t) -> occurs k e || occurs_ty k t
     | Lambda (_, t, u, e) -> occurs_ty k t || occurs_ty (k+1) u || occurs (k+1) e
     | App ((_, t, u), e1, e2) -> occurs_ty k t || occurs_ty (k+1) u || occurs k e1 || occurs k e2
@@ -440,14 +432,11 @@ let rec occurrences k (e, _) =
 
     | Var m -> if k = m then 1 else 0
 
-    | Advice (e1, t, e2) ->
+    | Equation (e1, t, e2) ->
       occurrences k e1 + occurrences_ty k t + occurrences k e2
 
-    | Equation (e1, (e2, e3), e4) ->
-      occurrences k e1 + occurrences k e2 + occurrences k e3 + occurrences k e4
-
-    | Rewrite (e1, (e2, e3), e4) ->
-      occurrences k e1 + occurrences k e2 + occurrences k e3 + occurrences k e4
+    | Rewrite (e1, t, e2) ->
+      occurrences k e1 + occurrences_ty k t + occurrences k e2
 
     | Ascribe (e, t) ->
       occurrences k e + occurrences_ty k t
