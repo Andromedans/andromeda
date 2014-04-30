@@ -1,9 +1,9 @@
 
 (** Weak-head-normalization (multi-step) of a term *)
-val whnfs    : Context.t -> Syntax.term -> Syntax.term
+val whnfs    : Context.t -> Syntax.term -> Syntax.ty -> Syntax.term
 
 (** Weak-head-normalization (multi-step) of a type *)
-val whnfs_ty : Context.t -> Syntax.ty   -> Syntax.ty
+val whnfs_ty : Context.t -> Syntax.ty -> Syntax.ty
 
 (** Algorithmic type equivalence *)
 val equiv_ty : Context.t -> Syntax.ty -> Syntax.ty -> bool

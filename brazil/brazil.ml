@@ -98,36 +98,19 @@ let rec exec_cmd interactive ctx (d, loc) =
         if interactive then Format.printf "%s is defined.@\n@." x ;
         Context.add_def x t e ctx
 
-    | Input.TopAdvice e ->
-      let e = Debruijn.term names e in
-      let e, t = Typing.syn_term ctx e in
-      let t = Typing.whnfs_ty ctx t in
-        if interactive then Format.printf "Advice heeded.@\n@." ;
-        Context.add_advice t ctx
-
     | Input.TopRewrite e ->
       let e = Debruijn.term names e in
       let e, t = Typing.syn_term ctx e in
-        begin match Typing.whnfs_ty ctx t with
-          | Syntax.Id (t, e1, e2), _ ->
-            if interactive then Format.printf "Rewrite added.@\n@." ;
-            Context.add_rewrite e1 e2 ctx
-          | _ -> 
-            Error.runtime ~loc:(snd e) "this term has type %t but should be an equality proof."
-              (Print.ty names t)
-        end
+      let ctx = Context.add_rewrite e t ctx in
+        if interactive then Format.printf "rewrite added.@\n@." ;
+        ctx
 
     | Input.TopEquation e ->
       let e = Debruijn.term names e in
       let e, t = Typing.syn_term ctx e in
-        begin match Typing.whnfs_ty ctx t with
-          | Syntax.Id (t, e1, e2), _ ->
-            if interactive then Format.printf "Equation added.@\n@." ;
-            Context.add_rewrite e1 e2 ctx
-          | _ -> 
-            Error.runtime ~loc:(snd e) "this term has type %t but should be an equality proof."
-              (Print.ty names t)
-        end
+      let ctx = Context.add_equation e t ctx in
+        if interactive then Format.printf "equation added.@\n@." ;
+        ctx
 
     | Input.Context ->
         Context.print ctx ; ctx

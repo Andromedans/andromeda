@@ -1,0 +1,24 @@
+define Set := Universe f0
+
+assume bool : Set
+assume true false : bool
+
+assume bool_ind : (P : bool -> Set) -> (b : bool) -> P true -> P false -> P b
+
+assume bool_ind_true :
+  (P : bool -> Set) -> (x : P true) -> (y : P false) ->
+    bool_ind P true x y == x
+
+rewrite bool_ind_true
+
+assume bool_ind_false :
+  (P : bool -> Set) -> (x : P true) -> (y : P false) ->
+    bool_ind P false x y == y
+
+rewrite bool_ind_false
+
+define cond := fun (A : Set) => bool_ind (fun (_ : bool) => A)
+
+define cond_true :=
+  fun (A : Set) (x : A) (y : A) => (refl x :: cond A true x y == x)
+
