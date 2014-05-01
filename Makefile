@@ -7,16 +7,16 @@ default: brazil.byte
 all: brazil.byte tt.byte
 
 brazil.native:
-	ocamlbuild -I brazil -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) brazil.native
+	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) brazil.native
 
 brazil.byte:
-	ocamlbuild -I brazil -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) brazil.byte
+	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) brazil.byte
 
 tt.native:
-	ocamlbuild -I src -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) tt.native
+	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) tt.native
 
 tt.byte:
-	ocamlbuild -I src -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) tt.byte
+	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) tt.byte
 
 smoketest: tt.byte
 	./tt.native examples/t.tt && \
