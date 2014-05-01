@@ -17,40 +17,62 @@
 \section{Universe indices}
 \label{sec:universe-indices}
 
-There is a pointed poset $(\PP, {\leq}, \zero)$ of \emph{universe
-  indices} and a subset $\FF \subseteq \PP$ of \emph{fibered indices}.
-For example, we may take
+There is a pointed preorder $(\PP, {\leq}, \zero)$ of \emph{universe indices}, i.e.,
+$\leq$ is reflexive and transitive, with a decidable equality, and a subset $\FF \subseteq
+\PP$ of \emph{fibered indices}. We use lowercase Greek letters for universe indices.
+
+For example, we could take
 %
 \begin{equation*}
-  \PP = \{0,1\} \times \NN
+  \PP = \NN \times \{0,1\}
 \end{equation*}
 %
-with the lexicographic order, $\zero = (0,0)$ and $\FF = \{0\} \times
-\NN$. We use lowercase Greek letters for universe indices.
-
-We assume partial functions
+with the lexicographic order, $\zero = (0,0)$ and $\FF = \NN \times \{0\}$. Write
+$\mathcal{F}_i$ for the universe indexed by $(i,0)$ and $\mathcal{U}_j$ for the universe
+indexed by $(i,1)$. Then the poset structure of $\PP$ reflects a hierachy of inclusions
+%
+\begin{equation*}
+  \mathcal{F}_0 \subseteq
+  \mathcal{U}_0 \subseteq
+  \mathcal{F}_1 \subseteq
+  \mathcal{U}_1 \subseteq
+  \cdots
+\end{equation*}
+%
+To express the fact that a universe may be a member of another one, and to calculate which
+dependent products may be formed and at what universe they land in, we assume given two
+partial functions
+%
 \begin{itemize}
-  \item $\piClose{\cdot}{\cdot} : \PP \times \PP \rightharpoonup \PP$
   \item $\uClose{\cdot}  : \PP \rightharpoonup \PP$
+  \item $\piClose{\cdot}{\cdot} : \PP \times \PP \rightharpoonup \PP$
 \end{itemize}
 %
-satisfying
+whose domains of definition are decidable and
 %
 \begin{itemize}
-\item for all $\alpha, \beta \in \FF$, if $\piClose{\alpha}{\beta}$ is defined then
-  $\piClose{\alpha}{\beta} \in \FF$,
 \item for all $\alpha \in \PP$, if $\uClose{\alpha}$ is defined then $\uClose{\alpha} \in
   \FF$.
+\item for all $\alpha, \beta \in \FF$, if $\piClose{\alpha}{\beta}$ is defined then
+  $\piClose{\alpha}{\beta} \in \FF$,
 \end{itemize}
 %
+That is, a dependent product of fibered types is again fibered, if it is defined, and each
+universe is itself fibered, as long as it is a member of a universe. It seems that these
+are non essential assumptions -- a more flexibile scheme of universe indices would work
+just as well -- but we are followng Voevodsky's HTS formulation.
+
 The functions are \emph{not} required to compute maximum or successor, but we use the
-suggestive notation because in the standard case they do compute maxima and succesors.
+suggestive notation because in the standard case they do compute maxima and succesors. For
+instance, we could express the fact that $\beta$ is the index of an impredicative universe
+by setting $\piClose{\alpha}{\beta} = \beta$ for all $\alpha \in \PP$.
 
-\section{The orthodox formulation}
-\label{sec:orthodox-formulation}
+\section{The declarative formulation}
+\label{sec:declarative-formulation}
 
-In this section we give the formulation of Brazilian type theory in the orthodox way, with
-typing and equality judgments.
+In this section we give the formulation of Brazilian type theory in a declarative way
+which minimizes the number of judgments, is better suited for a semantic account, but is
+not susceptible to an algorithmic treatment.
 
 \subsection{Syntax}
 \label{sec:syntax}
@@ -74,8 +96,8 @@ Types:
     \bnfor {}& \El{\alpha}{\e} & & \text{type named by $e$}\\
     \bnfor {}& \Unit & & \text{the unit type}\\
     \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
-    \bnfor {}& \PrEqual{T}{\e_1}{\e_2} & & \text{path type}\\
-    \bnfor {}& \JuEqual{T}{\e_1}{\e_2} & & \text{equality type}
+    \bnfor {}& \PrEqual{\T}{\e_1}{\e_2} & & \text{path type}\\
+    \bnfor {}& \JuEqual{\T}{\e_1}{\e_2} & & \text{equality type}
   \end{aligned}
 \end{equation*}
 %
@@ -91,6 +113,7 @@ Terms:
     \bnfor {}&  \prRefl{\T}{\e}  &&\text{identity path} \\
     \bnfor {}&  \PrElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{path eliminator} \\
     \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
+    \bnfor {}&  \JuElim{\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\e_3}{\e_4}  &&\text{equality eliminator} \\
     \bnfor {}&  \coerce{\alpha}{\beta}{\e}  &&\text{universe coercion} \\
     \bnfor {}&  \nUnit  &&\text{the name of unit type} \\
     \bnfor {}&  \nProd{\alpha}{\beta}{\x}{\e_1} \e_2  &&\text{the name of product type} \\
@@ -99,6 +122,19 @@ Terms:
     \bnfor {}&  \nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}  &&\text{the name of an equality type}
   \end{aligned}
 \end{equation*}
+%
+Note that $\lambda$-abstraction and application are tagged with extra types not usually
+seen in type theory. An abstraction $\lam{\x}{\T_1}{\T_2} \e$ speficies not only the type
+$\T_1$ of $\x$ but also the type $\T_2$ of $e$, where $\x$ is bound in $\T_2$ and $\e$.
+Similarly, an application $\app{\e_1}{\x}{\T_1}{\T_2}{\e_2}$ specifies that $\e_1$ and
+$\e_2$ have types $\Prod{\x}{\T_1} \T_2$ and $\T_2$, respectively. This is necessary
+because in the presence of exotic equalities (think ``$\mathsf{nat} \to \mathsf{bool}
+\equiv \mathsf{nat} \to \mathsf{nat}$'') we must be \emph{very} careful about
+$\beta$-reductions.
+
+Following Voevodsky's HTS we include an equality eliminator. Note that it is not strictly
+necessary because every instance of it can be derived using the reflection rule
+\rulename{eq-reflection}. \textcolor{red}{[XXX IS THIS TRUE?!]}
 
 \subsection{Judgments}
 \label{sec:judgments}
@@ -243,7 +279,7 @@ Terms:
    \isfib{\G}{\T}}
   {\isterm{\G}{\prRefl{\T}{\e}}{\PrEqual{\T}{\e}{\e}}}
 
-  \infer[\rulename{term-j}]
+  \infer[\rulename{term-J}]
   {\isfib{\G}{\T}
    \\\\
    \isfib{
@@ -277,9 +313,37 @@ Terms:
   \infer[\rulename{term-refl}]
   {\isterm{\G}{\e}{\T}}
   {\isterm{\G}{\juRefl{\T} \e}{\JuEqual{\T}{\e}{\e}}}
+
+  \infer[\rulename{term-G}]
+  {\istype{\G}{\T}
+   \\\\
+   \istype{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
+   }{\U}
+   \\\\
+   \isterm
+     {\ctxextend{\G}{z}{\T}}
+     {\e_1}
+     {\substs{\U}{z/x, z/y, (\juRefl{\T}{z})/p}}
+   \\\\
+   \isterm{\G}{\e_3}{\T} \\
+   \isterm{\G}{\e_4}{\T} \\
+   \isterm{\G}{\e_2}{\JuEqual{\T}{\e_3}{\e_4}}
+  }
+  {\isterm
+     {\G}
+     {\JuElim{\T}
+        {\abst{x\,y\,p}{\U}}
+        {\abst{z}{\e_1}}
+        {\e_2}
+        {\e_3}{\e_4}
+     }
+     {\substs{\U}{\e_2/x, \e_3/y, \e_4/p}}
+  }
 \end{mathpar}
 
 \paragraph{Unit}
+
 \begin{mathpar}
 \infer[\rulename{term-star}]
   {\isctx{\G}}
@@ -515,7 +579,7 @@ cannot be equivalent.
    \isfib{\G}{\U}}
   {\eqterm{\G}{\prRefl{\T}{\e_1}}{\prRefl{\U}{\e_2}}{\PrEqual{\T}{\e_1}{\e_1}}}
 
-  \infer[\rulename{cong-j}]
+  \infer[\rulename{cong-J}]
   {\isfib{\G}{\T} \\
    \isfib{\G}{\U}
    \\\\
@@ -597,6 +661,34 @@ cannot be equivalent.
 {\eqterm{\G}{\e_1}{\e_2}{\T}\\
  \eqtype{\G}{\T}{\U}}
 {\eqterm{\G}{\juRefl{\T} \e_1}{\juRefl{\U} \e_2}{\JuEqual{\T}{\e_1}{\e_1}}}
+
+\infer[\rulename{cong-G}]
+  {\eqtype{\G}{\T}{\U} \\
+   \eqtype{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
+   }{\U}{V} \\\\
+   \eqterm{\ctxextend{\G}{z}{\T}}{\e_1}{\e'_1}{\substs{\U}{z/x, z/y, (\juRefl{\T} z)/p}}
+   \\\\
+   \isterm{\G}{\e_3}{T} \\
+   \isterm{\G}{\e_4}{T} \\
+   \eqterm{\G}{\e_3}{\e'_3}{\T} \\
+   \eqterm{\G}{\e_4}{\e'_4}{\T} \\
+   \eqterm{\G}{\e_2}{\e'_2}{\JuEqual{\T}{\e_3}{\e_4}}
+  }
+  {\eqterm
+     {\G}
+     {\JuElim{\T}
+        {\abst{x\,y\,p}{\U}}
+        {\abst{z}{\e_1}}
+        {\e_2}{\e_3}{\e_4}
+     }
+     {\JuElim{\U}
+        {\abst{x\,y\,p}{V}}
+        {\abst{z}{\e'_1}}
+        {\e'_2}{\e_3'}{\e_4'}
+     }
+     {\substs{\U}{\e_2/x, \e_3/y, \e_4/p}}
+  }
 \end{mathpar}
 
 
@@ -618,6 +710,37 @@ cannot be equivalent.
   {\eqterm{\G}{\e_1}{\e_2}{\T}}
 \end{mathpar}
 
+
+\paragraph{Computation rule for equality}
+
+%
+\begin{mathpar}
+  \infer[\rulename{eq-G}]
+  {\istype{\G}{\T}
+   \\
+   \istype{
+     \ctxextend{\ctxextend{\ctxextend{\G}{x}{\T}}{y}{\T}}{p}{\JuEqual{\T}{x}{y}}
+   }{\U}
+   \\\\
+   \isterm
+     {\ctxextend{\G}{z}{\T}}
+     {\e_1}
+     {\substs{\U}{z/x, z/y, (\juRefl{\T} z)/p}}
+   \\
+   \isterm{\G}{\e_2}{\T}
+  }
+  {\eqterm{\G}
+   {\JuElim{\T}
+        {\abst{x\,y\,p}{\U}}
+        {\abst{z}{\e_1}}
+        {\juRefl{\T} \e_2}
+        {\e_2}
+        {\e_2}
+   }
+   {\subst{\e_1}{z}{\e_2}}
+   {\substs{\U}{\e_2/x, \e_2/x, (\juRefl{T} \e_2)/p}}
+  }
+\end{mathpar}
 
 \paragraph{Congruence rules for names}
 
@@ -683,12 +806,11 @@ cannot be equivalent.
 \end{mathpar}
 
 
-\section{Bidirectional type theory with hints}
+\section{Algorithmic formulation}
 \label{sec:bidir-type-theory}
 
-We now define a bidirectional version of type theory with equality hints. This version
-only allows hints about term equality, because we only have witnesses for term equality,
-not type equality.
+We now define a bidirectional version of type theory amenable to algorithmic treatment. We
+replace the equality eliminator with equality and rewrite hints.
 
 \subsection{Syntax}
 \label{sec:syntax-bidirectional}
@@ -757,7 +879,7 @@ can be reconstructed on the fly during type checking/synthesis. They are extreme
 equivalence checking.
 
 \subsection{Judgments}
-\label{sec:bidirectional-judgments}
+\label{sec:algorithmic-judgments}
 
 \begin{align*}
 & \ishints{\G}{\H} & & \text{$\H$ consists of legal hints} \\
@@ -802,7 +924,7 @@ Note that this judgment is \emph{not} invoked by the algorithm. It is used only 
 describing the conditions under which the algorithm is expected to work.
 
 \subsection{Well-formed types}
-\label{sec:bidirectional-types}
+\label{sec:algorithmic-types}
 
 \begin{mathpar}
   \infer[\rulename{tychk-universe}]
@@ -845,7 +967,7 @@ describing the conditions under which the algorithm is expected to work.
 
 
 \subsection{Well-formed fibered types}
-\label{sec:bidirectional-fibered-types}
+\label{sec:algorithmic-fibered-types}
 
 \begin{mathpar}
   \infer[\rulename{fibchk-universe}]
@@ -891,7 +1013,7 @@ If we already know the given type is well-formed, there's an even simpler algori
 \end{align*}
 
 \subsection{Terms}
-\label{sec:bidirectional-terms}
+\label{sec:algorithmic-terms}
 
 \paragraph{General rules}
 
@@ -1167,7 +1289,7 @@ if we were to backtrack (and we don't, in the current implementation) would we
 consider $\whnf{\GH}{\El{\zero}{\nUnit}}{\Unit}{\H}$.
 
 \subsection{Type equality}
-\label{sec:bidirectional-type-equality}
+\label{sec:algorithmic-type-equality}
 
 \paragraph{General Type equality}
 
@@ -1394,7 +1516,7 @@ $\app{\e'_1}{\x}{\T}{\U}{\e_2}$, we will look again for a hint for that term bef
 applying the other rules.
 
 \subsection{Term equality}
-\label{sec:bidirectional-term-equality}
+\label{sec:algorithmic-term-equality}
 
 For algorithmic purposes we should try to apply reflexivity and hints before doing
 anything else:
@@ -1660,4 +1782,455 @@ These rules should not be necessary (due to eta), but sufficiently nasty hints m
 
 We rely heavily on the precondition that the two terms being compared are already known to be well-formed with the same type.
 Rule~\rulename{chk-eq-whnf-abs} still has to conservatively re-check the equivalence of the type annotations; in the absence of Pi injectivity, just because we know the two lambda abstractions have judgmentally equal Pi types, there's no guarantee that they are componentwise equal.
+
+\subsection{Normalization}
+\label{sec:normalization}
+
+We provide a normalization procedure which ignores hints. It is used to compute whether a
+universally quantified equation applies in a given situation. We introduce the following
+judgments:
+%
+\begin{align*}
+  & \tynorm{\T}{\T'} && \text{type $\T$ normalizes to $\T'$} \\
+  & \norm{\e}{\e'} && \text{term $\e$ normalizes to $\e'$}
+\end{align*}
+%
+Normalization preserves well-formedness and types.
+
+\paragraph{Types}
+
+\begin{mathpar}
+  \infer[\rulename{norm-ty-universe}]
+  { }
+  { \tynorm
+    {\Universe{\alpha}}
+    {\Universe{\alpha}}
+  }
+
+  \infer[\rulename{norm-ty-el-coerce}]
+  { \norm
+    {\e}
+    {\coerce{\beta}{\gamma}{\e'}}
+    \\
+    \gamma = \alpha
+    \\
+    \tynorm{\El{\beta}{\e'}}{\T}
+  }
+  { \tynorm
+    {\El{\alpha}{\e}}
+    {\T}
+  }
+
+  \infer[\rulename{norm-ty-el-unit}]
+  { \norm{\e}{\nUnit}
+    \\
+    \alpha = \zero
+  }
+  { \tynorm
+    {\El{\alpha}{\e}}
+    {\Unit}
+  }
+
+  \infer[\rulename{norm-ty-el-prod}]
+  { \norm
+    {\e}
+    {\nProd{\beta}{\gamma}{\x}{\e_1}{\e_2}}
+    \\
+    \piClose{\beta}{\gamma} = \alpha \\\\
+    \tynorm
+    {\El{\beta}{\e_1}}
+    {\T_1} \\
+    \tynorm
+    {\El{\gamma}{\e_2}}
+    {\T_2}
+  }
+  { \tynorm
+    {\El{\alpha}{\e}}
+    {\Prod{\x}{\T_1} \T_2}
+  }
+
+  \infer[\rulename{norm-ty-el-universe}]
+  { \norm{\e}{\nUniverse{\beta}}
+    \\
+    \uClose{\beta} = \alpha
+  }
+  { \tynorm
+    {\El{\alpha}{\e}}
+    {\Universe{\beta}}
+  }
+
+  \infer[\rulename{norm-ty-el-paths}]
+  { \norm
+    {\e}
+    {\nPrEqual{\beta}{\e_1}{\e_2}{\e_3}}
+    \\
+    \beta = \alpha
+    \\\\
+    \tynorm
+    {\El{\alpha}{\e_1}}
+    {\T_1}
+    \\
+    \norm{\e_2}{\e_2'}
+    \\
+    \norm{\e_3}{\e_3'}
+  }
+  { 
+    \tynorm
+    {\El{\alpha}{\e}}
+    {\PrEqual{\T_1}{\e_2'}{\e_3'}}
+  }
+
+  \infer[\rulename{norm-ty-el-id}]
+  { \norm
+    {\e}
+    {\nJuEqual{\beta}{\e_1}{\e_2}{\e_3}}
+    \\
+    \beta = \alpha
+    \\\\
+    \tynorm
+    {\El{\alpha}{\e_1}}
+    {\T_1}
+    \\
+    \norm{\e_2}{\e_2'}
+    \\
+    \norm{\e_3}{\e_3'}
+  }
+  { 
+    \tynorm
+    {\El{\alpha}{\e}}
+    {\JuEqual{\T_1}{\e_2'}{\e_3'}}
+  }
+
+  \infer[\rulename{norm-ty-el-other}]
+  { \norm{\e}{\e'}
+  }
+  { 
+    \tynorm
+    {\El{\alpha}{\e}}
+    {\El{\alpha}{\e'}}
+  }
+
+  \infer[\rulename{norm-ty-unit}]
+  {
+  }
+  { \tynorm
+    {\Unit}
+    {\Unit}
+  }
+
+  \infer[\rulename{norm-ty-prod}]
+  { \tynorm{\T}{\T'}
+    \\
+    \tynorm{\U}{\U'}
+  }
+  { \tynorm
+    {\Prod{\x}{\T}{\U}}
+    {\Prod{\x}{\T'}{\U'}}
+  }
+
+  \infer[\rulename{norm-ty-paths}]
+  { \tynorm{\T}{\T'}
+    \\
+    \norm{\e_1}{\e_1'}
+    \\
+    \norm{\e_2}{\e_2'}
+  }
+  { \tynorm
+    {\PrEqual{\T}{\e_1}{\e_2}}
+    {\PrEqual{\T'}{\e_1'}{\e_2'}}
+  }
+
+  \infer[\rulename{norm-ty-id}]
+  { \tynorm{\T}{\T'}
+    \\
+    \norm{\e_1}{\e_1'}
+    \\
+    \norm{\e_2}{\e_2'}
+  }
+  { \tynorm
+    {\JuEqual{\T}{\e_1}{\e_2}}
+    {\JuEqual{\T'}{\e_1'}{\e_2'}}
+  }
+\end{mathpar}
+
+\paragraph{General terms}
+
+\begin{mathpar}
+  \infer[\rulename{norm-var}]
+  {
+  }
+  { \norm
+    {\x}
+    {\x}
+  }
+
+  \infer[\rulename{norm-equation}]
+  { \norm
+    {\e_4}
+    {\e_4'}    
+  }
+  { \norm
+    {\equationin{\e_1}{\e_2}{\e_3}{\e_4}}
+    {\e_4'}
+  }
+
+  \infer[\rulename{norm-rewrite}]
+  { \norm
+    {\e_4}
+    {\e_4'}    
+  }
+  { \norm
+    {\rewritein{\e_1}{\e_2}{\e_3}{\e_4}}
+    {\e_4'}
+  }
+
+  \infer[\rulename{norm-ascribe}]
+  {
+    \norm
+    {\e}
+    {\e'}
+  }
+  { \norm
+    {\ascribe{\e}{\T}}
+    {\e'}
+  }
+
+  \infer[\rulename{norm-star}]
+  {
+  }
+  { 
+    \norm{\unitTerm}{\unitTerm}
+  }
+\end{mathpar}
+
+\paragraph{Application and $\lambda$-abstraction}
+
+\begin{mathpar}
+
+  \infer[\rulename{norm-abs}]
+  {
+    \tynorm{\T_1}{\T_1'} \\
+    \tynorm{\T_2}{\T_2'} \\
+    \norm{\e}{\e'}
+  }
+  { \norm
+    {\lam{\x}{\T_1}{\T_2} \e}
+    {\lam{\x}{\T_1'}{\T_2'} \e'}
+  }
+
+  \infer[\rulename{norm-app-redex}]
+  {
+    \tynorm{\T_1}{\T_1'} \\
+    \tynorm{\T_2}{\T_2'} \\
+    \norm{\e_1}{\lam{\x}{\U_1}{\U_2} \e_1'} \\\\
+    \T_1' \equiv U_1 \\
+    \T_2' \equiv U_2 \\
+    \norm{\e_2}{\e_2'} \\
+    \norm{\subst{\e_1'}{\x}{\e_2'}}{\e'}
+  }
+  { \norm
+    {\app{\e_1}{\x}{\T_1}{\T_2}{\e_2}}
+    {\e'}
+  }
+  
+  \infer[\rulename{norm-app-other}]
+  {
+    \tynorm{\T_1}{\T_1'} \\
+    \tynorm{\T_2}{\T_2'} \\
+    \norm{\e_1}{\e_1'} \\
+    \norm{\e_2}{\e_2'}
+  }
+  { \norm
+    {\app{\e_1}{\x}{\T_1}{\T_2}{\e_2}}
+    {\app{\e_1'}{\x}{\T_1'}{\T_2'}{\e_2'}}
+  }
+\end{mathpar}
+
+\paragraph{Paths and equality}
+
+
+\begin{mathpar}
+
+  \infer[\rulename{norm-idpath}]
+  { \tynorm{\T}{\T'} \\
+    \norm{\e}{\e'}
+  }
+  { 
+    \norm
+    {\prRefl{\T}{\e}}
+    {\prRefl{\T'}{\e'}}
+  }
+
+  \infer[\rulename{norm-refl}]
+  { \tynorm{\T}{\T'} \\
+    \norm{\e}{\e'}
+  }
+  { 
+    \norm
+    {\juRefl{\T}{\e}}
+    {\juRefl{\T'}{\e'}}
+  }
+
+  \infer[\rulename{norm-J-redex}]
+  { \tynorm{\T}{\T'} \\
+    \norm{\e_2}{\prRefl{\T''}{\e_2'}} \\
+    T' \equiv \T'' \\\\
+    \norm{\e_1}{\e_1'} \\
+    \norm{\subst{\e_1'}{z}{\e_2'}}{\e'}
+  }
+  { 
+    \norm
+     {\PrElim{\T}
+        {\abst{x\,y\,p}{\U}}
+        {\abst{z}{\e_1}}
+        {\e_2}
+        {\e_3}{\e_4}
+     }
+     {\e'}
+  }
+
+  \infer[\rulename{norm-J-other}]
+  { \tynorm{\T}{\T'} \\
+    \norm{\e_2}{\e_2'} \\
+    \tynorm{\U}{\U'} \\\\
+    \norm{\e_1}{\e_1'} \\
+    \norm{\e_3}{\e_3'} \\
+    \norm{\e_4}{\e_4'}
+  }
+  { 
+    \norm
+     {\PrElim{\T}
+        {\abst{x\,y\,p}{\U}}
+        {\abst{z}{\e_1}}
+        {\e_2}
+        {\e_3}{\e_4}
+     }
+     {\PrElim{\T'}
+        {\abst{x\,y\,p}{\U'}}
+        {\abst{z}{\e_1'}}
+        {\e_2'}
+        {\e_3'}{\e_4'}
+     }
+  }
+
+\end{mathpar}
+
+\paragraph{Coercions}
+
+\begin{mathpar}
+  \infer[\rulename{norm-coerce-trivial}]
+  {
+    \alpha = \beta \\
+    \norm{\e}{\e'}
+  }
+  { 
+    \norm
+    {\coerce{\alpha}{\beta}{\e}}
+    {\e'}
+  }
+
+  \infer[\rulename{norm-coerce-trans}]
+  {
+    \norm{\e}{\coerce{\gamma}{\delta}{\e'}} \\
+    \alpha = \delta \\
+    \norm{\coerce{\gamma}{\beta}{\e'}}{\e''}
+  }
+  { 
+    \norm
+    {\coerce{\alpha}{\beta}{\e}}
+    {\e''}
+  }
+
+  \infer[\rulename{norm-coerce-pi}]
+  {
+    \norm{\e}{\nProd{\gamma}{\delta}{\x}{\e_1}{\e_2}} \\
+    \alpha = \piClose{\gamma}{\delta} \\
+    \gamma \leq \alpha \\
+    \delta \leq \alpha \\\\
+    \norm{\coerce{\gamma}{\beta}{\e_1}}{\e_1'} \\
+    \norm{\coerce{\delta}{\beta}{\e_2}}{\e_2'}
+  }
+  { 
+    \norm
+    {\coerce{\alpha}{\beta}{\e}}
+    {\nProd{\beta}{\beta}{\x}{\e_1'}{\e_2'}}
+  }
+
+  \infer[\rulename{norm-coerce-paths}]
+  { \norm{\e}{\nPrEqual{\gamma}{\e_1}{\e_2}{\e_3}} \\
+    \alpha = \gamma \\\\
+    \norm{\coerce{\alpha}{\beta}{\e_1}}{\e_1'} \\\\
+    \norm{\e_2}{\e_2'} \\
+    \norm{\e_3}{\e_3'}
+  }
+  { 
+    \norm
+    {\coerce{\alpha}{\beta}{\e}}
+    {\nPrEqual{\beta}{\e_1'}{\e_2'}{\e_3'}}
+  }
+  
+  \infer[\rulename{norm-coerce-id}]
+  { \norm{\e}{\nJuEqual{\gamma}{\e_1}{\e_2}{\e_3}} \\
+    \alpha = \gamma \\\\
+    \norm{\coerce{\alpha}{\beta}{\e_1}}{\e_1'} \\\\
+    \norm{\e_2}{\e_2'} \\
+    \norm{\e_3}{\e_3'}
+  }
+  { 
+    \norm
+    {\coerce{\alpha}{\beta}{\e}}
+    {\nJuEqual{\beta}{\e_1'}{\e_2'}{\e_3'}}
+  }
+
+  \infer[\rulename{norm-coerce-other}]
+  { \norm{\e}{\e'}  }
+  { 
+    \norm
+    {\coerce{\alpha}{\beta}{\e}}
+    {\coerce{\alpha}{\beta}{\e'}}
+  }
+\end{mathpar}
+
+\paragraph{Names}
+
+\begin{mathpar}
+  \infer[\rulename{norm-name-unit}]
+  { }
+  { \norm{\nUnit}{\nUnit} }
+
+  \infer[\rulename{norm-name-prod}]
+  { \norm{\e_1}{\e_1'} \\
+    \norm{\e_2}{\e_2'}
+  }
+  { \norm
+    {\nProd{\alpha}{\beta}{\x}{\e_1}{\e_2}}
+    {\nProd{\alpha}{\beta}{\x}{\e_1'}{\e_2'}}
+  }
+
+  \infer[\rulename{norm-name-universe}]
+  { }
+  { \norm{\nUniverse{\alpha}}{\nUniverse{\alpha}} }
+
+  \infer[\rulename{norm-name-paths}]
+  { \norm{\e_1}{\e_1'} \\
+    \norm{\e_2}{\e_2'} \\
+    \norm{\e_3}{\e_3'}
+  }
+  { \norm
+    {\nPrEqual{\alpha}{\e_1}{\e_2}{\e_3}}
+    {\nPrEqual{\alpha}{\e_1'}{\e_2'}{\e_3'}}
+  }
+
+  \infer[\rulename{norm-name-id}]
+  { \norm{\e_1}{\e_1'} \\
+    \norm{\e_2}{\e_2'} \\
+    \norm{\e_3}{\e_3'}
+  }
+  { \norm
+    {\nJuEqual{\alpha}{\e_1}{\e_2}{\e_3}}
+    {\nJuEqual{\alpha}{\e_1'}{\e_2'}{\e_3'}}
+  }
+\end{mathpar}
+
+
 \end{document}

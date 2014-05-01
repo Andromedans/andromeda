@@ -4,10 +4,14 @@ type declaration =
   | Parameter of Syntax.ty
   | Definition of Syntax.ty * Syntax.term
 
+(** A hint is stored as a quadruple [(k, t, e1, e2)], meaning
+    that it is possible to inhabit [Syntax.Id (t', e1', e2')]
+    by matching [t = t'], [e1 = e1'] and [e2 = e2'] and instantiating
+    variables [0, ..., k-1].
+*)
 type hint =
-  | Advice of Syntax.ty
-  | Equation of Syntax.term * Syntax.term
-  | Rewrite of Syntax.term * Syntax.term
+  | Equation of (int * Syntax.ty * Syntax.term * Syntax.term)
+  | Rewrite of (int * Syntax.ty * Syntax.term * Syntax.term)
 
 type t = {
   decls : declaration list ;
@@ -31,18 +35,19 @@ let print {decls=ds; hints=hs; names=xs} =
       | [], _::_ -> Error.impossible "fewer declarations than names in context"
       | _::_, [] -> Error.impossible "fewer names than declarations in context"
   in
-  let print_hints xs =
+  let rec metanames j = if j <= 0 then xs else ("?" ^ string_of_int (j-1)) :: metanames (j-1) in
+  let print_hints =
     List.iter (function
-      | Advice t ->
-        Format.printf "advice (_ :: %t)@\n" (Print.ty xs t)
-      | Rewrite (e1, e2) ->
-        Format.printf "rewrite (_ :: %t == %t)@\n" (Print.term xs e1) (Print.term xs e2)
-      | Equation (e1, e2) ->
-        Format.printf "equation (_ :: %t == %t)@\n" (Print.term xs e1) (Print.term xs e2)
+      | Rewrite (k, t, e1, e2) ->
+        Format.printf "rewrite (_ :: %t)@\n"
+          (Print.ty (metanames k) (Syntax.Id (t, e1, e2), Position.nowhere))
+      | Equation (k, t, e1, e2) ->
+        Format.printf "equation (_ :: %t)@\n"
+          (Print.ty (metanames k) (Syntax.Id (t, e1, e2), Position.nowhere))
     )
   in
     print_names ds xs ;
-    print_hints xs hs ;
+    print_hints hs ;
     Format.printf "@."
 
 
@@ -50,26 +55,22 @@ let empty = { decls = [] ; names = [] ; hints = [] }
 
 let names {names=lst} = lst
 
-let shift_declaration delta declaration =
-  match declaration with
+let shift_declaration delta = function
   | Parameter ty1 ->
       Parameter( Syntax.shift_ty delta ty1 )
   | Definition(ty1, term1) ->
       Definition( Syntax.shift_ty delta ty1,
                   Syntax.shift delta term1 )
 
-let shift_hint delta hint =
-  match hint with
-
-  | Advice t -> Advice (Syntax.shift_ty delta t)
-
-  | Equation(term1, term2) ->
-      Equation( Syntax.shift delta term1,
-                Syntax.shift delta term2 )
-
-  | Rewrite(term1, term2) ->
-      Rewrite( Syntax.shift delta term1,
-               Syntax.shift delta term2 )
+let shift_hint delta = function
+  | Equation (k, t, e1, e2) ->
+    Equation (k, Syntax.shift_ty ~bound:k delta t,
+                 Syntax.shift ~bound:k delta e1,
+                 Syntax.shift ~bound:k delta e2)
+  | Rewrite (k, t, e1, e2) ->
+    Rewrite (k, Syntax.shift_ty ~bound:k delta t,
+                Syntax.shift ~bound:k delta e1,
+                Syntax.shift ~bound:k delta e2)
 
 let add_var x t ctx =
   {
@@ -89,25 +90,30 @@ let add_vars bnds ctx =
      loop 0 ctx bnds
 
 let add_def x t ((_,loc) as e) ctx =
+  let h = Rewrite (0, Syntax.shift_ty 1 t, (Syntax.Var 0, loc), Syntax.shift 1 e) in
   {
     decls = Definition (t, e) :: ctx.decls ;
-    hints =
-      (Rewrite ((Syntax.Var 0, loc), Syntax.shift 1 e)) ::
-      List.map (shift_hint 1) ctx.hints ;
+    hints = h :: List.map (shift_hint 1) ctx.hints ;
     names = x :: ctx.names;
   }
 
-let add_advice t ctx =
-  { ctx with
-    hints = Advice t :: ctx.hints }
+(** We always store all hints strongly normalized. Then we try
+    to apply them, we strongly normalize the target as well. *)
+let add_equation (_, loc) t ctx =
+  match Hint.prepare t with
+    | Some (k, t, e1, e2) ->
+      { ctx with hints = Equation (k, t, e1, e2) :: ctx.hints }
+    | None ->
+      Error.typing ~loc "this expression has type %t but should be a universally quantified equality"
+        (Print.ty ctx.names t)
 
-let add_equation e1 e2 ctx =
-  { ctx with
-    hints = Equation (e1, e2) :: ctx.hints }
-
-let add_rewrite e1 e2 ctx =
-  { ctx with
-    hints = Rewrite (e1, e2) :: ctx.hints }
+let add_rewrite (_, loc) t ctx =
+  match Hint.prepare t with
+    | Some (k, t, e1, e2) ->
+      { ctx with hints = Rewrite (k, t, e1, e2) :: ctx.hints }
+    | None ->
+      Error.typing ~loc "this expression has type %t but should be a universally quantified equality"
+        (Print.ty ctx.names t)
 
 let lookup_var index {decls=lst} =
   try begin
@@ -125,25 +131,26 @@ let lookup_var index {decls=lst} =
   with
     | Failure _ -> Error.impossible "invalid de Bruijn index"
 
-let lookup_equation e1 e2 ctx =
-  let predicate = function
-    | Advice _ -> false
-    | Equation(term1, term2)
-    | Rewrite(term1, term2) ->
-       (Syntax.equal e1 term1 && Syntax.equal e2 term2) ||
-       (Syntax.equal e2 term1 && Syntax.equal e1 term2)
-  in
-    List.exists predicate ctx.hints
+let lookup_equation t e1 e2 ctx =
+  let t = Norm.ty t
+  and e1 = Norm.term e1
+  and e2 = Norm.term e2 in
+    List.exists
+      (function Equation h | Rewrite h ->
+        Hint.instantiate h t e1 e2 || Hint.instantiate h t e2 e1)
+      ctx.hints
 
-let lookup_rewrite e1 ctx =
+let lookup_rewrite t e1 ctx =
+  let t = Norm.ty t
+  and e1 = Norm.term e1 in
   let rec search = function
     | [] -> None
-    | Rewrite (term1, term2) :: lst ->
-      if Syntax.equal e1 term1 then
-        Some term2
-      else
-        search lst
-    | (Advice _ | Equation _) :: lst -> search lst
+    | Equation _ :: lst -> search lst
+    | Rewrite h :: lst ->
+        begin match Hint.rewrite h t e1  with
+          | None -> search lst
+          | Some _ as e2 -> e2
+        end
   in
     search ctx.hints
 

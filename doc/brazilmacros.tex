@@ -48,10 +48,11 @@
 
 \newcommand{\coerce}[3]{\mathsf{coerce}^{#1{\mapsto}#2} \, #3}
 
-\newcommand{\PrEqual}[3]{\mathsf{Paths}_{#1}(#2,#3)} % Propositional Equality type
-\newcommand{\JuEqual}[3]{\mathsf{Id}_{#1}(#2,#3)} % Judgmental Equality type
+\newcommand{\PrEqual}[3]{\mathsf{Paths}_{#1}(#2,#3)} % Path type
+\newcommand{\JuEqual}[3]{\mathsf{Id}_{#1}(#2,#3)} % Equality type
 
-\newcommand{\PrElim}[6]{\mathsf{J}_{#1}(#2, #3, #4, #5, #6)} % Propositional equality eliminator
+\newcommand{\PrElim}[6]{\mathsf{J}_{#1}(#2, #3, #4, #5, #6)} % Path eliminator
+\newcommand{\JuElim}[6]{\mathsf{G}_{#1}(#2, #3, #4, #5, #6)} % Equality eliminator
 
 \newcommand{\prRefl}[1]{{\mathsf{idpath}_{#1}}\ }  % Propositional refl
 \newcommand{\juRefl}[1]{{\mathsf{refl}_{#1}}\ }    % Judgmental refl
@@ -60,8 +61,8 @@
 \newcommand{\nUnit}{\mathsf{unit}} % name of unit type
 \newcommand{\nProd}[4]{\pi^{#1,#2} #3\,{:}\,#4 \,.\ } % name of a dependent product
 \newcommand{\nUniverse}[1]{u_{#1}}  % name of a universe
-\newcommand{\nPrEqual}[4]{\mathsf{paths}^{#1}_{#2}(#3,#4)} % Propositional Equality type
-\newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Judgmental Equality type
+\newcommand{\nPrEqual}[4]{\mathsf{paths}^{#1}_{#2}(#3,#4)} % Path type name
+\newcommand{\nJuEqual}[4]{\mathsf{id}^{#1}_{#2}(#3,#4)} % Strict type name
 
 
 % orthodox judgments
@@ -118,3 +119,5 @@
 \newcommand{\nameof}{{\mathsf{name\_of}}\,}
 \newcommand{\typeof}[2]{{\mathsf{type\_of}}(#1,#2)}
 
+\newcommand{\tynorm}[2]{#1 \hookrightarrow #2} % (strong) normalization of terms
+\newcommand{\norm}[2]{#1 \hookrightarrow #2} % (strong) normalization of terms

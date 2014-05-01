@@ -164,8 +164,8 @@ let rec shift cut delta (exp, loc) =
   | Handler h -> Handler (shift_handler cut delta h)
   | ContExp(delta, gamma, k) ->
       Error.syntax ~loc "Cannot shift a continuation"
-  | Term b -> Term (Syntax.shift' cut delta b)
-  | Type t -> Type (Syntax.shift_ty' cut delta t)
+  | Term b -> Term (Syntax.shift ~bound:cut delta b)
+  | Type t -> Type (Syntax.shift_ty ~bound:cut delta t)
   | Tuple exps -> Tuple (List.map (shift cut delta) exps)
   | Const _ -> exp
   | Inj (i, exp2) -> Inj(i, shift cut delta exp2)),
@@ -185,8 +185,8 @@ and shift_computation cut delta (comp, loc) =
   | Prim(op, es) -> Prim(op, List.map recur es)
   | Match(e, pcs) -> Match(recur e,
                            List.map (fun (p,c) -> (p, recurc c)) pcs)
-  | Check (t1, t2, e, c) -> Check (Syntax.shift_ty' cut delta t1,
-                                   Syntax.shift_ty' cut delta t2,
+  | Check (t1, t2, e, c) -> Check (Syntax.shift_ty ~bound:cut delta t1,
+                                   Syntax.shift_ty ~bound:cut delta t2,
                                    recur e, recurc c)
   | MkVar _n -> comp
   | MkLam(x,e,c) -> MkLam(x, recur e, recurc c)
