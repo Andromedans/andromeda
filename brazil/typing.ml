@@ -732,3 +732,28 @@ and wf_type_is_fibered (ty', _) =
   | Syntax.Paths _ -> true
   | Syntax.Id _ -> false
 
+(***********)
+(* type_of *)
+(***********)
+
+let rec type_of ctx (exp, _) =
+  let loc = Position.nowhere in
+  match exp with
+  | Syntax.Var v -> Context.lookup_var v ctx
+  | Syntax.Equation (_, _, body)
+  | Syntax.Rewrite (_, _, body) -> type_of ctx body
+  | Syntax.Ascribe (_, ty) -> ty
+  | Syntax.Lambda (x, t1, t2, _) -> Syntax.Prod(x, t1, t2), loc
+  | Syntax.App ((_, _, t2), _, e2) -> Syntax.beta_ty t2 e2
+  | Syntax.UnitTerm -> Syntax.Unit, loc
+  | Syntax.Idpath (t, e) -> Syntax.Paths(t, e, e), loc
+  | Syntax.J (_, (_, _, _, u), _, e2, e3, e4) -> Syntax.strengthen_ty u [e2; e3; e4]
+  | Syntax.Refl (t, e) -> Syntax.Id(t, e, e), loc
+  | Syntax.Coerce (_, beta, _) -> Syntax.Universe beta, loc
+  | Syntax.NameUnit -> Syntax.Universe Universe.zero, loc
+  | Syntax.NameProd (alpha, beta, _, _, _) -> Syntax.Universe (Universe.max alpha beta), loc
+  | Syntax.NameUniverse alpha -> Syntax.Universe (Universe.succ alpha), loc
+  | Syntax.NamePaths (alpha, _, _, _)
+  | Syntax.NameId    (alpha, _, _, _) -> Syntax.Universe alpha, loc
+
+
