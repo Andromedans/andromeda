@@ -52,6 +52,12 @@ val shift : ?exn:exn -> int -> term -> term
 (** [shift_ty delta ty] shifts the free variables in [ty] by [delta] *)
 val shift_ty : ?exn:exn -> int -> ty -> ty
 
+(** [shift bvs delta term] shifts free indices >= [bvs] in [term] by [delta] *)
+val shift' : ?exn:exn -> int -> int -> term -> term
+
+(** [shift_ty bvs delta ty] shifts free indices >= [bvs] in [ty] by [delta] *)
+val shift_ty' : ?exn:exn -> int -> int -> ty -> ty
+
 (**
   If [G, x:t |- body : ...] and [G |- arg : t] then
   [beta body arg] is the substituted term [body[x->arg]].

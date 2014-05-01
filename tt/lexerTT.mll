@@ -1,28 +1,24 @@
 {
   (** The lexer. *)
 
-  open Parser
+  open ParserTT
 
   let reserved = [
     ("assume", ASSUME) ;
+    ("debruijn", DEBRUIJN);
     ("define", DEFINE) ;
-    ("end", END) ;
-    ("exists", EXISTS) ;
-    ("forall", FORALL) ;
+    ("end", END);
     ("fun", FUN);
     ("handle", HANDLE) ;
-    (*("let", LET) ;*)
-    (*("in", IN) ;*)
-    (*("return", RETURN) ;*)
-    ("refl", REFLEQUIV) ;
-    ("idpath", REFLEQUAL) ;
+    ("handler", HANDLER) ;
+    ("lambda", LAMBDA) ;
+    ("let", LET) ;
+    ("in", IN) ;
+    ("match", MATCH);
     ("with", WITH) ;
-    ("Ind", IND);
-    ("ADMIT", ADMIT);
+    ("op", OP);
   ]
 
-  let position_of_lex lex =
-    Common.Position (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
 }
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
@@ -43,47 +39,39 @@ rule token = parse
   (*| "#eval"             { EVAL }*)
   | "#help"             { HELP }
   | "#quit"             { QUIT }
-  | '('                 { LPAREN }
-  | ')'                 { RPAREN }
-  | '['                 { LBRACK }
-  | ']'                 { RBRACK }
-  | ':'                 { COLON }
-  | "::"                { DCOLON }
+
   | ":>"                { ASCRIBE }
-  | "*"                 { STAR }
-  | ";;"                { SEMISEMI }
-  | ','                 { COMMA }
-  | '.'                 { DOT }
   | '|'                 { BAR }
-  | '?'                 { QUESTIONMARK }
-  | "->"                { ARROW }
-  | "=>"                { DARROW }
+  | ':'                 { COLON }
   | ":="                { COLONEQ }
-  | "="                 { EQ }
-  | "=="                { EQEQ }
-  | "@"                 { AT }
-  | ">->"               { COERCE }
-  | "?!"                { INHABIT }
-  | "_"                 { UNDERSCORE }
-
-  | "Type" [' ' '\t']* (numeral as s) { TYPE (int_of_string s) }
-  | "Type"                            { TYPE 0 }
-
-  | "QuasiType" [' ' '\t']* (numeral as s) { QUASITYPE (int_of_string s) }
-  | "QuasiType"                            { QUASITYPE 0 }
-
-
+  | ','                 { COMMA }
+  | "=>"                { DARROW }
   | eof                 { EOF }
+  | "="                 { EQ }
+  | '['                 { LBRACK }
+  | '('                 { LPAREN }
+  | ']'                 { RBRACK }
+  | ')'                 { RPAREN }
 
-  | (name | patternvar | numeral)
+
+  | numeral as s        { INT (int_of_string s) }
+  | "true"              { BOOL true }
+  | "false"             { BOOL false }
+  | "()"                { UNIT }
+
+  | "inj" [' ' '\t']* (numeral as s) { INJ (int_of_string s) }
+
+  | name
                        { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved
                             with Not_found -> NAME s
                         }
 
-  | _ as c              { Error.syntax ~loc:(position_of_lex lexbuf)
-                             "Unexpected character %s" (Char.escaped c) }
+  | _ as c              { Error.syntax
+                          ~loc:(Position.make (Lexing.lexeme_start_p lexbuf) (Lexing.lexeme_end_p lexbuf))
+                          "Unexpected character %s" (Char.escaped c)
+                        }
 
 (* Code to skip over nested comments
 *)
@@ -114,27 +102,29 @@ and comments level = parse
       Error.Error err -> close_in fh; raise (Error.Error err)
   with
     (* Any errors when opening or closing a file are fatal. *)
-    Sys_error msg -> Error.fatal ~loc:Common.Nowhere "%s" msg
+    Sys_error msg -> Error.fatal ~loc:Position.nowhere "%s" msg
 
 
   let read_toplevel parser () =
-    let ends_with_semisemi str =
-      let i = ref (String.length str - 1) in
-        while !i >= 0 && List.mem str.[!i] [' '; '\n'; '\t'; '\r'] do decr i done ;
-        !i >= 1 && str.[!i - 1] = ';' && str.[!i] = ';'
+    let ends_with_backslash str =
+      let i = String.length str - 1 in
+        if i >= 0 && str.[i] = '\\'
+        then (true, String.sub str 0 i)
+        else (false, str)
     in
 
     let rec read_more prompt acc =
-      if ends_with_semisemi acc
-      then acc
-      else begin
-        print_string prompt ;
-        let str = read_line () in
-          read_more "  " (acc ^ "\n" ^ str)
-      end
+      print_string prompt ;
+      let str = read_line () in
+      let more, str = ends_with_backslash str in
+      let acc = acc ^ "\n" ^ str in
+        if more
+        then read_more "  " acc
+        else acc
     in
 
     let str = read_more "# " "" in
     let lex = Lexing.from_string (str ^ "\n") in
       parser lex
 }
+

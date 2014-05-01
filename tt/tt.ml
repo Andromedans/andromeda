@@ -1,6 +1,6 @@
 (** Toplevel. *)
 
-module Ctx = Context.Ctx
+module Ctx = Context
 
 (** Should the interactive shell be run? *)
 let interactive_shell = ref true
@@ -70,52 +70,55 @@ let options = Arg.align [
 
 (** Treat anonymous arguments as files to be run. *)
 let anonymous str =
-  add_file true str;
-  interactive_shell := false
+  begin
+    add_file true str;
+    interactive_shell := false
+  end
 
 (** Parser wrapper that reads extra lines on demand. *)
-let parse parser lex =
+let parse parse lex =
   try
-    parser Lexer.token lex
+    parse LexerTT.token lex
   with
-  | Parser.Error ->
-      Error.syntax ~loc:(Lexer.position_of_lex lex) ""
+  | ParserTT.Error ->
+      Error.syntax ~loc:(Position.of_lex lex) ""
   | Failure "lexing: empty token" ->
-      Error.syntax ~loc:(Lexer.position_of_lex lex) "unrecognised symbol."
+      Error.syntax ~loc:(Position.of_lex lex) "unrecognised symbol."
+
 
 (** [exec_cmd env d] executes toplevel directive [d] in context [env]. It prints the
     result if in interactive mode, and returns the new context. *)
-let rec exec_cmd interactive env (d, loc) =
-  let ctx = Typing.Infer.get_ctx env  in
-  let ctx_names = ctx.Ctx.names in
+let rec exec_cmd interactive ctx (d, loc) =
   match d with
-    | Input.Context ->
+    | InputTT.Context ->
         let _ = Ctx.print ctx  in
-        env
-    | Input.TopParam (xs, t) ->
-        let t    = Input.desugar ctx_names t in
-        let env' = Typing.Infer.inferParam ~verbose:interactive env xs t  in
-        env'
-    | Input.TopDef (x, topt, e) ->
-        let e    = Input.desugar ctx_names e in
-        let topt = Input.desugar_opt ctx_names topt in
-        let env' = Typing.Infer.inferDefinition ~verbose:interactive env x topt e  in
-        env'
-    | Input.TopHandler hs ->
-        let hs   = Input.desugar_handler ctx_names hs   in
-        let env' = Typing.Infer.addHandlers env loc hs in
-        env'
-    | Input.Help ->
-      print_endline help_text ; env
-    | Input.Quit -> exit 0
+        ctx
+    | InputTT.TopParam (xs, t) ->
+        ctx
+        (*let t    = Input.desugar ctx_names t in*)
+        (*let env' = Typing.Infer.inferParam ~verbose:interactive env xs t  in*)
+        (*env'*)
+    | InputTT.TopDef (x, topt, e) ->
+        ctx
+        (*let e    = Input.desugar ctx_names e in*)
+        (*let topt = Input.desugar_opt ctx_names topt in*)
+        (*let env' = Typing.Infer.inferDefinition ~verbose:interactive env x topt e  in*)
+        (*env'*)
+    (*| Input.TopHandler hs ->*)
+        (*let hs   = Input.desugar_handler ctx_names hs   in*)
+        (*let env' = Typing.Infer.addHandlers env loc hs in*)
+        (*env'*)
+    | InputTT.Help ->
+      print_endline help_text ; ctx
+    | InputTT.Quit -> exit 0
 
 (** Load directives from the given file. *)
-and use_file env (filename, interactive) =
-  let cmds = Lexer.read_file (parse Parser.file) filename in
-    List.fold_left (exec_cmd interactive) env cmds
+and use_file ctx (filename, interactive) =
+  let cmds = LexerTT.read_file (parse ParserTT.file) filename in
+    List.fold_left (exec_cmd interactive) ctx cmds
 
 (** Interactive toplevel *)
-let toplevel env =
+let toplevel ctx =
   let eof = match Sys.os_type with
     | "Unix" | "Cygwin" -> "Ctrl-D"
     | "Win32" -> "Ctrl-Z"
@@ -124,11 +127,11 @@ let toplevel env =
   print_endline ("tt " ^ Version.version);
   print_endline ("[Type " ^ eof ^ " to exit or \"#help;;\" for help.]");
   try
-    let env = ref env in
+    let ctx = ref ctx in
     while true do
       try
-        let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
-        env := exec_cmd true !env cmd
+        let cmd = Lexer.read_toplevel (parse ParserTT.commandline) () in
+        ctx := exec_cmd true !ctx cmd
       with
         | Error.Error err -> Print.error err
         | Sys.Break -> prerr_endline "Interrupted."
@@ -164,12 +167,10 @@ let main =
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
-    let env = List.fold_left use_file Typing.Infer.empty_env !files in
+    let ctx = List.fold_left use_file Context.empty !files in
     if !interactive_shell then
-      toplevel env
+      toplevel ctx
     else
-      print_endline "Verifying";
-      let ctx = Typing.Infer.get_ctx env   in
-      Brazil.Verify.verifyContext ctx
+      () (*Brazil.Verify.verifyContext ctx*)
   with
     Error.Error err -> Print.error err; exit 1

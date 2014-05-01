@@ -147,4 +147,11 @@ let lookup_rewrite e1 ctx =
   in
     search ctx.hints
 
+let append ctx1 ctx2 =
+  let delta = List.length ctx2.decls in
+  {
+    decls = ctx1.decls @ ctx2.decls;
+    hints = List.map (shift_hint delta) ctx1.hints @ ctx2.hints;
+    names = ctx1.names @ ctx2.names;
+  }
 

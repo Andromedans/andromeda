@@ -63,9 +63,9 @@ let anonymous str =
   interactive_shell := false
 
 (** Parser wrapper that reads extra lines on demand. *)
-let parse parser lex =
+let parse parse lex =
   try
-    parser Lexer.token lex
+    parse Lexer.token lex
   with
   | Parser.Error ->
       Error.syntax ~loc:(Position.of_lex lex) ""
@@ -112,7 +112,7 @@ let rec exec_cmd interactive ctx (d, loc) =
           | Syntax.Id (t, e1, e2), _ ->
             if interactive then Format.printf "Rewrite added.@\n@." ;
             Context.add_rewrite e1 e2 ctx
-          | _ -> 
+          | _ ->
             Error.runtime ~loc:(snd e) "this term has type %t but should be an equality proof."
               (Print.ty names t)
         end
@@ -124,7 +124,7 @@ let rec exec_cmd interactive ctx (d, loc) =
           | Syntax.Id (t, e1, e2), _ ->
             if interactive then Format.printf "Equation added.@\n@." ;
             Context.add_rewrite e1 e2 ctx
-          | _ -> 
+          | _ ->
             Error.runtime ~loc:(snd e) "this term has type %t but should be an equality proof."
               (Print.ty names t)
         end

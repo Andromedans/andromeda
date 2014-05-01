@@ -1,8 +1,6 @@
-(** Abstract syntax of parsed input. *)
+(** Abstract syntax of TT *)
 
 type universe = Universe.t
-  | NonFib of int
-  | Fib of int
 
 type eqsort =
   | Ju
@@ -23,43 +21,45 @@ type primop =
   | And
   | Append
 
-type 'a exp = 'a exp' * Common.position
-and 'a exp' =
+type exp = exp' * Position.t
+and exp' =
   | Var of tt_var
-  | Fun of tt_var * 'a computation
+  | Fun of tt_var * computation
   | Handler of handler
-  | ContExp of Brazil.ty list * Brazil.ty list * 'a cont
-  | Term   of Brazil.term
-  | Type   of Brazil.type
-  | Tuple  of 'a exp list
+  | ContExp of Context.t * Context.t * cont
+  | Term   of Syntax.term
+  | Type   of Syntax.ty
+  | Tuple  of exp list
   | Const  of const
-  | Inj    of int * 'a exp
+  | Inj    of int * exp
 
-and 'a computation =
-  | Val of 'a exp
-  | App of 'a exp * 'a exp
-  | Let of tt_var * 'a computation * 'a computation
-  | Op  of operation_tag * exp list
-  | WithHandle of 'a exp * 'a computation
-  | KApp of 'a exp * 'a exp
-  | Ascribe of 'a exp * 'a exp
-  | Prim of primop * 'a exp list
-  | Match of 'a exp * 'a arm list
+and computation = computation' * Position.t
+and computation' =
+  | Val of exp
+  | App of exp * exp
+  | Let of tt_var * computation * computation
+  | Op  of operation_tag * exp
+  | WithHandle of exp * computation
+  (*| KApp of exp * exp*)
+  | Ascribe of exp * exp
+  | Prim of primop * exp list
+  | Match of exp * arm list
+  | Check of Syntax.ty * Syntax.ty * exp * computation
   | MkVar of int
-  | MkLam of Common.name * 'a exp * 'a computation
-  | MkApp of 'a exp * 'a exp
+  | MkLam of Common.name * exp * computation
+  (*| MkApp of exp * exp*)
 
-and 'a cont =
+and cont =
   | KHole
-  | KLet of tt-var * 'a cont * 'a computation
-  | KWithHAndle of 'a exp * 'a cont
-  | KMkLam of Common.name * Brazil.ty * 'a cont
+  | KLet of tt_var * cont * computation
+  | KWithHandle of exp * cont
+  | KMkLam of Common.name * Syntax.ty * cont
 
-and 'a arm = pattern * 'a computation
+and arm = pattern * computation
 
-and 'a handler =
-  { valH : (tt_var * 'a cont);
-    opH  : operation_tag * (tt_var list * tt_var * 'a computation) list;
+and handler =
+  { valH : tt_var * computation;
+    opH  : (operation_tag * pattern * tt_var * computation) list;
   }
 
 and pattern =
@@ -68,14 +68,13 @@ and pattern =
   | PConst of const
 
 and result =
-  | RVal of Common.debruijn exp
-  | ROp of operation-tag * (tt_var list * Common.debruijn exp * Common.debruijn cont)
+  | RVal of exp
+  | ROp of operation_tag * Context.t * exp * cont
 
-type 'a toplevel = 'a toplevel' * Common.position
-and 'a toplevel' =
-  | TopDef of Common.variable * 'a term option * 'a term
-  | TopParam of Common.variable list * 'a term
-  | TopHandler of 'a handler
+type toplevel = toplevel' * Position.t
+and toplevel' =
+  | TopDef of Common.name * computation option * computation
+  | TopParam of Common.name list * computation
   | Context
   | Help
   | Quit
@@ -84,143 +83,222 @@ and 'a toplevel' =
     terms is not available. *)
 
 let embrace s = "(" ^ s ^ ")"
-let app_embrace h lst = h ^ embrace (String.concat ", " lst)
+let tag h lst = h ^ embrace (String.concat ", " lst)
 
-let string_of_tag otag = otag
+let string_of_primop = function
+  | Plus -> "Plus"
+  | Not -> "Not"
+  | And -> "And"
+  | Append -> "Append"
 
-let string_of_universe = Universe.string_of_universe
+let rec string_of_exp (exp, _loc) =
+  match exp with
+  | Var x -> tag "Var" [x]
+  | Fun (x,c) -> tag "Fun" [x; string_of_computation c]
+  | Handler h -> tag "Handler" [string_of_handler h]
+  | ContExp (_gamma,_delta,k) -> tag "ContExp" ["-"; "-"; string_of_cont k]
+  | Term _b -> "<term>"
+  | Type _t -> "<type>"
+  | Tuple es -> tag "Tuple" (List.map string_of_exp es)
+  | Const c -> string_of_const c
+  | Inj (i,e) -> tag "Inj" [string_of_int i; string_of_exp e]
 
-let string_of_term string_of_var =
-  let rec to_str (term, loc) =
-  begin
-    match term with
-    | Var x -> "Var[" ^ string_of_var x ^ "]"
-    | Universe u -> string_of_universe u
-    | Lambda(x,None,t2) -> app_embrace "Lambda" [x; "-"; to_str t2]
-    | Lambda(x,Some t1,t2) -> app_embrace "Lambda" [x; to_str t1; to_str t2]
-    | Pi(x,None,t2) -> app_embrace "Pi" [x; "-"; to_str t2]
-    | Pi(x,Some t1,t2) -> app_embrace "Pi" [x; to_str t1; to_str t2]
-    | Sigma(x,None,t2) -> app_embrace "Sigma" [x; "-"; to_str t2]
-    | Sigma(x,Some t1,t2) -> app_embrace "Sigma" [x; to_str t1; to_str t2]
-    | App(t1,t2) -> app_embrace "App" [to_str t1; to_str t2]
-    | Pair(t1,t2) -> app_embrace "Pair" [to_str t1; to_str t2]
-    | Proj(s1, t2) -> app_embrace "Proj" [s1; to_str t2]
-    | Ascribe(t1,t2) -> app_embrace "Ascribe" [to_str t1; to_str t2]
-    | Operation(tag,terms) -> app_embrace "Operation" (string_of_tag tag :: List.map to_str terms)
-    | Handle(term, cases) ->
-      app_embrace "Handle" [to_str term; (String.concat "|" (List.map string_of_case cases))]
-    | Equiv(o,t1,t2,t3) -> app_embrace "Equiv" [string_of_eqsort o; to_str t1; to_str t2; to_str t3]
-    | Refl(o,t) -> app_embrace "Refl" [string_of_eqsort o; to_str t]
-    | Ind((x,y,p,c),(z,w),q) ->
-      app_embrace "Ind" [embrace (String.concat " . " [x; y; p; to_str c]) ;
-                         embrace (z ^ " . " ^ to_str w) ;
-                         to_str q]
-    | Wildcard -> "?"
-    | Admit -> "ADMIT"
-   end
+and string_of_computation (comp, _loc) =
+  match comp with
+  | Val e -> string_of_exp e
+  | App (e1, e2) -> tag "App" [string_of_exp e1; string_of_exp e2]
+  | Let (x,c1,c2) -> tag "Let" [x;
+                                string_of_computation c1;
+                                string_of_computation c2]
+  | Op (op, e) -> tag "Op" [op; string_of_exp e]
+  | WithHandle (e,c) -> tag "WithHandle" [string_of_exp e; string_of_computation c]
+  (*| KApp (e1, e2) -> tag "KApp" [string_of_exp e1; string_of_exp e2]*)
+  | Ascribe (e1, e2) -> tag "Ascribe" [string_of_exp e1; string_of_exp e2]
+  | Prim (op, es) -> tag "Prim" (string_of_primop op :: List.map string_of_exp es)
+  | Match (e, arms) -> tag "match" (string_of_exp e ::
+                                    List.map string_of_arm arms)
+  | Check (t1, t2, e, c) -> tag "Check" ["<type 1>"; "<type 2>"; string_of_exp e;
+                                          string_of_computation c]
+  | MkVar n -> tag "MkVar" [string_of_int n]
+  | MkLam (x,e,c) -> tag "MkLam" [x; string_of_exp e; string_of_computation c]
+  (*| MkApp (e1, e2) -> tag "MkApp" [string_of_exp e1; string_of_exp e2]*)
 
-  and string_of_case (tag, terms, c) =
-    app_embrace (string_of_tag tag) (List.map to_str terms) ^ " => " ^ to_str c
-  in
-    to_str
+and string_of_cont k =
+  match k with
+  | KHole -> "KHole"
+  | KLet (x,k,c) -> tag "KLet" [x; string_of_cont k;
+                                string_of_computation c]
+  | KWithHandle (e,k) -> tag "KWithHandle" [string_of_exp e; string_of_cont k]
+  | KMkLam (x,t,k) -> tag "KMkLam" [x; "<type>"; string_of_cont k]
 
-let printI term = print_endline (string_of_term (fun s -> s) term)
+and string_of_arm (p,c) = tag "" [string_of_pat p; string_of_computation c]
 
-(********************************************)
-(** Desugaring of input syntax to internal  *)
-(********************************************)
+and string_of_handler _ = "<handler>"
 
-(** [index ~loc x xs] finds the location of [x] in the list [xs]. *)
-let index ~loc x =
-  let rec index k = function
-    | [] -> Error.typing ~loc "unknown identifier %s" x
-    | y :: ys -> if x = y then k else index (k + 1) ys
-  in
-    index 0
+(*and string_of_case (op, terms, c) =*)
+    (*tag op  (List.map to_str terms) ^ " => " ^ to_str c*)
+  (*in*)
+    (*to_str*)
 
-(** [desugar xs e] converts an expression of type [Common.variable expr] to type
-    [Common.debruijn expr] by
-    replacing names in [e] with de Bruijn indices. Here [xs] is the list of names
-    currently in scope (e., Context.names) *)
-let rec desugar xs (e, loc) =
-  (match e with
-    | Var x -> Var (index ~loc x xs)
-    | Universe u  -> Universe u
-    | Pi (x, t_opt, e) -> Pi (x, desugar_opt xs t_opt, desugar (x :: xs) e)
-    | Sigma (x, t_opt, e) -> Sigma (x, desugar_opt xs t_opt, desugar (x :: xs) e)
-    | Lambda (x, t_opt, e) -> Lambda (x, desugar_opt xs t_opt, desugar (x :: xs) e)
-    | App (e1, e2)   -> App (desugar xs e1, desugar xs e2)
-    | Pair (e1, e2)   -> Pair (desugar xs e1, desugar xs e2)
-    | Proj (s1, e2) -> Proj (s1, desugar xs e2)
-    | Ascribe (e, t) -> Ascribe (desugar xs e, desugar xs t)
-    | Operation (optag, terms) -> Operation (optag, List.map (desugar xs) terms)
-    | Handle (term, h) -> Handle (desugar xs term, desugar_handler xs h)
-    | Equiv (o, t1, t2, t3) -> Equiv (o, desugar xs t1, desugar xs t2, desugar xs t3)
-    | Refl (o, t) -> Refl(o, desugar xs t)
-    | Ind ((x,y,p,c), (z, w), q) ->
-         Ind((x,y,p, desugar (p::y::x::xs) c),
-                   (z, desugar (z::xs) w),
-                   desugar xs q)
-    | Wildcard -> Wildcard
-    | Admit -> Admit
-  ),
+and string_of_pat = function
+  | PTuple xs -> tag "PTuple" xs
+  | PInj (i,x) -> tag "PInj" [string_of_int i; x]
+  | PConst c -> tag "PConst" [string_of_const c]
+
+and string_of_const = function
+  | Int n -> string_of_int n
+  | Bool b -> string_of_bool b
+  | Unit -> "()"
+
+let print exp =
+  print_endline (string_of_exp exp)
+
+(************)
+(* Shifting *)
+(************)
+
+let rec shift cut delta (exp, loc) =
+  (match exp with
+  | Var v -> exp
+  | Fun (x, c) -> Fun(x, shift_computation cut delta c)
+  | Handler h -> Handler (shift_handler cut delta h)
+  | ContExp(delta, gamma, k) ->
+      Error.syntax ~loc "Cannot shift a continuation"
+  | Term b -> Term (Syntax.shift' cut delta b)
+  | Type t -> Type (Syntax.shift_ty' cut delta t)
+  | Tuple exps -> Tuple (List.map (shift cut delta) exps)
+  | Const _ -> exp
+  | Inj (i, exp2) -> Inj(i, shift cut delta exp2)),
   loc
 
-and desugar_handler xs lst = List.map (desugar_case xs) lst
+and shift_computation cut delta (comp, loc) =
+  let recur = shift cut delta in
+  let recurc = shift_computation cut delta in
+  (match comp with
+  | Val e -> Val (recur e)
+  | App (e1, e2) -> App(recur e1, recur e2)
+  | Let (x,c1,c2) -> Let(x, recurc c1, recurc c2)
+  | Op (op, e) -> Op(op, recur e)
+  | WithHandle(e,c) -> WithHandle(recur e, recurc c)
+  (*| KApp(e1,e2) -> KApp(recur e1, recur e2)*)
+  | Ascribe(e1,e2) -> Ascribe(recur e1, recur e2)
+  | Prim(op, es) -> Prim(op, List.map recur es)
+  | Match(e, pcs) -> Match(recur e,
+                           List.map (fun (p,c) -> (p, recurc c)) pcs)
+  | Check (t1, t2, e, c) -> Check (Syntax.shift_ty' cut delta t1,
+                                   Syntax.shift_ty' cut delta t2,
+                                   recur e, recurc c)
+  | MkVar _n -> comp
+  | MkLam(x,e,c) -> MkLam(x, recur e, recurc c)
+  (*| MkApp(e1,e2) -> MkApp(recur e1, recur e2)*)
+  ), loc
 
-and desugar_case xs (optag, terms, c) =
-  (optag, List.map (desugar xs) terms, desugar xs c)
+and shift_handler cut delta {valH=(x,c); opH} =
+  let shift_case (tag, xs, k, c) = (tag, xs, k, shift_computation cut delta c)  in
+  {
+    valH = (x, shift_computation cut delta c);
+    opH = List.map shift_case opH;
+  }
 
-and desugar_opt xs = function
-  | None   -> None
-  | Some e -> Some (desugar xs e)
+(****************)
+(* Substitution *)
+(****************)
 
-
-  (* Based on similar shift code in Syntax *)
-
-let rec shift ?(cut=0) delta (e, loc) =
-  (match e with
-  | Var m -> if (m < cut) then Var m else Var(m+delta)
-  | Universe u  -> Universe u
-  | Wildcard -> Wildcard
-  | Admit -> Admit
-  | Pi (x, t_opt, e) -> Pi (x, shift_opt ~cut delta t_opt, shift ~cut:(cut+1) delta e)
-  | Sigma (x, t_opt, e) -> Sigma (x, shift_opt ~cut delta t_opt, shift ~cut:(cut+1) delta e)
-  | Lambda (x, t_opt, e) -> Lambda (x, shift_opt ~cut delta t_opt, shift ~cut:(cut+1) delta e)
-  | App (e1, e2) -> App(shift ~cut delta e1, shift ~cut delta e2)
-  | Pair (e1, e2) -> Pair(shift ~cut delta e1, shift ~cut delta e2)
-  | Proj (s1, e2) -> Proj(s1, shift ~cut delta e2)
-  | Ascribe (e1, t2) -> Ascribe (shift ~cut delta e1, shift ~cut delta t2)
-  | Operation (optag, terms) -> Operation (optag, List.map (shift ~cut delta) terms)
-  | Handle (term, h) -> Handle (shift ~cut delta term, List.map (shift_handler_case ~cut delta) h)
-  | Equiv (o, t1, t2, t3) -> Equiv (o, shift ~cut delta t1, shift ~cut delta t2, shift ~cut delta t3)
-  | Refl (o, t) -> Refl (o, shift ~cut delta t)
-  | Ind ((x,y,p,c), (z,w), q) ->
-        Ind ((x,y,p,shift ~cut:(cut+3) delta c),
-                  (z, shift ~cut:(cut+1) delta w),
-                  (shift ~cut delta q))),
-  loc
-
-and shift_handler_case ?(cut=0) delta (optag, terms, term) =
-  (* Correct only because we have no pattern matching ! *)
-  (optag, List.map (shift ~cut delta) terms, shift ~cut delta term)
-
-and shift_opt ?(cut=0) delta = function
-  | None -> None
-  | Some e -> Some (shift ~cut delta e)
-
-(** [shift_to_depth (k,exp) l] moves the expression [exp] from a context
-      with depth [k] to a context of depth [l >= k].
-
-      Equivalently, weaken with [l - k] new variables at the end of the
-      context. *)
-let shift_to_depth (old_depth, exp) new_depth =
-  assert (new_depth >= old_depth);
-  shift (new_depth - old_depth) exp
-
-let print =
-  let to_string = string_of_term string_of_int  in
-  function term -> print_endline (to_string term)
+let bound_in_pat var = function
+  | PTuple xs -> List.mem var xs
+  | PInj(_, x) -> var = x
+  | PConst _ -> false
 
 
+let rec psubst ?(bvs=0) sigma exp1 =
+  let recur = psubst ~bvs sigma in
+  let recurk = psubst_continuation ~bvs sigma  in
+  match exp1 with
+  | Var x1, loc ->
+      if List.mem_assoc x1 sigma then
+        List.assoc x1 sigma
+      else
+        shift 0 bvs exp1
+  | Fun (x1, c2), loc ->
+      let sigma' = List.remove_assoc x1 sigma in
+      Fun(x1, psubst_computation ~bvs sigma' c2), loc
+  | Handler h, loc -> Handler (psubst_handler ~bvs sigma h), loc
+  | ContExp(delta, gamma, k), loc -> ContExp(delta, gamma, recurk k), loc
+  | Term _b, loc -> exp1
+  | Type _t, loc -> exp1
+  | Tuple es, loc -> Tuple(List.map recur es), loc
+  | Const _c, loc -> exp1
+  | Inj(i1, exp2), loc -> Inj(i1, recur exp2), loc
+
+and psubst_computation ?(bvs=0) sigma (comp1, loc) =
+  let recur = psubst ~bvs sigma in
+  let recurc = psubst_computation ~bvs sigma  in
+  (match comp1 with
+  | Val e -> Val (recur e)
+  | App (e1, e2) -> App (recur e1, recur e2)
+  | Let (x, c1, c2) ->
+      let c1' = recurc c1  in
+      let sigma' = List.remove_assoc x sigma  in
+      let c2' = psubst_computation ~bvs sigma' c2  in
+      Let (x, c1', c2')
+  | Op (op, e) -> Op (op, recur e)
+  | WithHandle(e,c) -> WithHandle(recur e, recurc c)
+  (*| KApp (e1, e2) -> KApp (recur e1, recur e2)*)
+  | Ascribe (e1, e2) -> Ascribe (recur e1, recur e2)
+  | Prim (op, es) -> Prim(op, List.map recur es)
+  | Match(e, pcs) -> Match(recur e, List.map (psubst_arm ~bvs sigma) pcs)
+  | Check(t1, t2, e, c) -> Check(t1, t2, recur e, recurc c)
+  | MkVar _n -> comp1
+  | MkLam (x, e, c) ->
+      let e' = recur e  in
+      let sigma' = List.remove_assoc x sigma in
+      let c' = psubst_computation ~bvs:(bvs+1) sigma' c  in
+      MkLam(x, e', c')
+  (*| MkApp (e1, e2) -> MkApp (recur e1, recur e2)*)
+  ), loc
+
+and psubst_handler ?(bvs=0) sigma {valH=(x,c); opH} =
+  let subst_case (tag, p, k, c) =
+    let unshadowed (v,_) = not (bound_in_pat v p || v = k)  in
+    let sigma' = List.filter unshadowed sigma  in
+      (tag, p, k, psubst_computation ~bvs sigma' c)  in
+  {
+    valH = (x, psubst_computation ~bvs (List.remove_assoc x sigma) c);
+    opH = List.map subst_case opH;
+  }
+
+and psubst_continuation ?(bvs=0) sigma k =
+  let recur  = psubst ~bvs sigma in
+  let recurk = psubst_continuation ~bvs sigma in
+  match k with
+    | KHole -> k
+    | KLet (x,k,c) ->
+        let k' = recurk k  in
+        let sigma' = List.remove_assoc x sigma  in
+        let c' = psubst_computation ~bvs sigma' c  in
+        KLet(x, k', c')
+    | KWithHandle(e, k) -> KWithHandle(recur e, recurk k)
+    | KMkLam(x,t,k) ->
+        let sigma' = List.remove_assoc x sigma  in
+        KMkLam(x, t, psubst_continuation ~bvs:(bvs+1) sigma' k)
+
+and psubst_arm ~bvs sigma (pat, comp) =
+  let unshadowed (v,_) = not (bound_in_pat v pat)  in
+  let sigma' = List.filter unshadowed sigma  in
+  (pat, psubst_computation ~bvs sigma' comp)
+
+and subst_computation x2 e2 = psubst_computation [(x2,e2)]
+
+(****************)
+(* Hole-filling *)
+(****************)
+
+
+(* Not capture-avoiding! *)
+
+let rec kfill ((_, loc) as exp) = function
+  | KHole -> Val exp, loc
+  | KLet (x,k,c) -> Let(x, kfill exp k, c), Position.nowhere
+  | KWithHandle(e, k) -> WithHandle(e, kfill exp k), Position.nowhere
+  | KMkLam(x, t, k) -> MkLam(x, (Type t, snd t), kfill exp k), Position.nowhere
 
