@@ -304,13 +304,13 @@ Judgments:
     \\\\
     \evalto[\G,\D]
     {\substs{\C_i}{\e/\X, \cont{\withhandle{\h}{\KK_1}}/\K}}
-    {\val \e}
+    {\val \e'}
     \\\\
-    \eok{\e}
+    \eok{\e'}
   }
   { \evalto
     {\withhandle{\h}{\C}}
-    {\val \e}
+    {\val \e'}
   }
 
   \infer[eval-handle-op-op]
@@ -352,7 +352,7 @@ Judgments:
       {\R}
   }
   {
-    \evalto{\ascribe{\bterm{\B}}{\T}}{\R}
+    \evalto{\ascribe{\bterm{\B}}{\bty\T}}{\R}
   }
 
   \infer[eval-make-var]
@@ -368,7 +368,7 @@ Judgments:
 
   \infer[eval-make-lambda-val]
   {
-    \evalto[\ctxextend{\x}{\T}]
+    \evalto[\ctxextend{\G}{\x}{\T}]
       {\C}
       {\val \bterm{\B}}\\
     \typeof{\Gamma}{\B} = U\\
@@ -381,7 +381,7 @@ Judgments:
   % For hint abstraction
   \infer[eval-make-lambda-val-tuple]
   {
-    \evalto[\ctxextend{\x}{\T}]
+    \evalto[\ctxextend{\G}{\x}{\T}]
       {\C}
       {\val \tuple{\bterm{\B_1},\ldots,\bterm{\B_n}}}\\
     (\U_i = \typeof{\Gamma}{\B_i})_{i=1}^n\\
@@ -393,7 +393,7 @@ Judgments:
 
   \infer[eval-make-lambda-op]
   {
-    \evalto[\ctxextend{\x}{\T}]
+    \evalto[\ctxextend{\G}{\x}{\T}]
     {\C}
     {\opRes{\D}{\e}{\KK}}
   }
