@@ -9,10 +9,10 @@
 %token <int> INT
 %token <string> NAME
 
-%token AND
-%token APPEND
+%token ANDAND
 %token ASCRIBE
 %token ASSUME
+%token BANG
 %token BAR
 %token COLON
 %token COLONEQ
@@ -36,9 +36,9 @@
 %token LET
 %token LPAREN
 %token MATCH
-%token NOT
 %token OP
 %token PLUS
+%token PLUSPLUS
 %token QUIT
 %token RBRACK
 %token RPAREN
@@ -50,6 +50,10 @@
 
 %start <InputTT.toplevel list> file
 %start <InputTT.toplevel> commandline
+
+(*%nonassoc ASCRIBE*)
+(*%right PLUSPLUS*)
+(*%left PLUS ANDAND*)
 
 %%
 
@@ -116,7 +120,10 @@ plain_comp:
     | MATCH e=exp WITH option(BAR) lst=separated_list(BAR, arm) END { Match (e, lst) }
     | DEBRUIJN INT       { MkVar $2 }
     | LAMBDA NAME COLON exp COMMA comp { MkLam($2, $4, $6) }
-    | p=prim LPAREN  es=separated_list(COMMA,exp) RPAREN  { Prim(p,es) }
+    | exp PLUS exp { Prim(Plus, [$1; $3]) }
+    | exp PLUSPLUS exp { Prim(Append, [$1; $3]) }
+    | exp ANDAND exp   { Prim(And, [$1; $3]) }
+    | BANG exp         { Prim(Not, [$2]) }
 
 arm:
   pat DARROW comp { ($1, $3) }
@@ -136,12 +143,6 @@ const:
     | INT  { Int $1 }
     | BOOL { Bool $1 }
     | UNIT { Unit }
-
-prim:
-    | PLUS { Plus }
-    | NOT  { Not }
-    | AND  { And }
-    | APPEND { Append }
 
 mark_position(X):
   x = X

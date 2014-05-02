@@ -20,11 +20,6 @@
     ("op", OP);
     ("val", VAL);
     ("with", WITH) ;
-
-    ("AND", AND);
-    ("NOT", NOT);
-    ("PLUS", PLUS);
-    ("APPEND", APPEND);
   ]
 
 }
@@ -48,7 +43,9 @@ rule token = parse
   | "#help"             { HELP }
   | "#quit"             { QUIT }
 
+  | "&&"                { ANDAND }
   | ":>"                { ASCRIBE }
+  | '!'                 { BANG }
   | '|'                 { BAR }
   | ':'                 { COLON }
   | ":="                { COLONEQ }
@@ -58,6 +55,8 @@ rule token = parse
   | "="                 { EQ }
   | '['                 { LBRACK }
   | '('                 { LPAREN }
+  | "+"                 { PLUS }
+  | "++"                { PLUSPLUS }
   | ']'                 { RBRACK }
   | ')'                 { RPAREN }
   | ";;"                { SEMISEMI }
