@@ -138,10 +138,14 @@ pat:
     | UNDERSCORE { PWild }
 
 handler:
-    | HANDLER VAL x=NAME DARROW c=comp hcs=list(hcase) END { { valH = (x,c); opH = hcs } }
+    | HANDLER option(BAR) hcs=separated_nonempty_list(BAR,hcase) END
+                   { { valH = "<1>", (Val (Var "<1>", Position.nowhere), Position.nowhere); opH = hcs } }
+    | HANDLER VAL x=NAME DARROW c=comp hcs=list(preceded(BAR, hcase)) END
+                   { { valH = (x,c); opH = hcs } }
+
 
 hcase:
-    | BAR OP op=NAME p=pat k=NAME DARROW c=comp { (op,p,k,c) }
+    | OP op=NAME p=pat k=NAME DARROW c=comp { (op,p,k,c) }
 
 const:
     | INT  { Int $1 }
