@@ -1,20 +1,37 @@
-define Set := Universe f0
+define Type := Universe f0
 
-define sym : forall (A : Set) (a b : A), a == b -> b == a :=
-  fun (A : Set) (a b : A) (p : a == b) => equation p in (refl a :: b == a)
+(** Symmetry of equality *)
+define sym : forall (A : Type) (a b : A), a == b -> b == a :=
+  fun (A : Type) (a b : A) (p : a == b) => equation p in (refl a :: b == a)
 
+(** Transitivity of equality *)
+define trans :=
+  fun (A : Type) (a b c : A) (p : a == b) (q : b == c) =>
+    equation p in
+    equation q in (refl b :: a == c)
+
+(** Equality eliminator *)
 define G :
   forall
-    (A : Set)
-    (P : forall (x y : A), x == y -> Set),
+    (A : Type)
+    (P : forall (x y : A), x == y -> Type),
     (forall x : A, P x x (refl x)) ->
     (forall (x y : A) (p : x == y), P x y p)
   := 
-  fun (A : Set)
-      (P : forall (x y : A), x == y -> Set)
+  fun (A : Type)
+      (P : forall (x y : A), x == y -> Type)
       (r : forall a : A, P a a (refl a))
       (x y : A) (p : x == y)
   =>
     equation p in (r x :: P x y p)
 
+(* Strict function extensionality is built in, we can derive it. *)
+define funext :=
+  fun
+    (A : Type)
+    (P : A -> Type)
+    (f g : (x : A) -> P x)
+    (H : forall x : A, f x == g x) =>
+    equation H in (refl f :: f == g)
 
+#context

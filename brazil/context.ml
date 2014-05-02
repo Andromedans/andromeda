@@ -132,13 +132,27 @@ let lookup_var index {decls=lst} =
     | Failure _ -> Error.impossible "invalid de Bruijn index"
 
 let lookup_equation t e1 e2 ctx =
+  Print.debug "lookup_equation: %t == %t @@ %t"
+    (Print.term ctx.names e1)
+    (Print.term ctx.names e2)
+    (Print.ty ctx.names t) ;
   let t = Norm.ty t
   and e1 = Norm.term e1
   and e2 = Norm.term e2 in
-    List.exists
+  let b = List.exists
       (function Equation h | Rewrite h ->
+        let (k, t', e1', e2') = h in
+        let rec metas j = if j < 0 then ctx.names else ("?" ^ string_of_int j) :: metas (j-1) in
+        let xs = metas (k-1) in
+          Print.debug "lookup_equation: hint %t == %t @@ %t"
+            (Print.term xs e1')
+            (Print.term xs e2')
+            (Print.ty xs t') ;
         Hint.instantiate h t e1 e2 || Hint.instantiate h t e2 e1)
       ctx.hints
+  in
+    Print.debug "lookup_equation: %b" b ;
+    b
 
 let lookup_rewrite t e1 ctx =
   let t = Norm.ty t
