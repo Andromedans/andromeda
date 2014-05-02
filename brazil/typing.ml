@@ -166,8 +166,8 @@ and equiv_ty ctx t u =
   ||
   begin match Syntax.name_of t, Syntax.name_of u with
     (* chk-tyeq-el *)
-    | Some (e1, alpha1), Some (e2, alpha2) ->
-      Universe.eq alpha beta && equiv ctx e1 e2 (Syntax.Universe alpha, fst t)
+    | Some (e1, alpha), Some (e2, beta) ->
+      Universe.eq alpha beta && equiv ctx e1 e2 (Syntax.Universe alpha, snd t)
     | (_, None) | (None, _) -> false
   end
   ||
