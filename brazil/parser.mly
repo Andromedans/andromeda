@@ -77,17 +77,17 @@ plain_topdirective:
 
 term: mark_position(plain_term) { $1 }
 plain_term:
-  | e=plain_equiv_term                              { e }
+  | e=plain_equal_term                              { e }
   | FORALL a=abstraction(term) COMMA  e=term        { fst (make_prod e a) }
   | FUN a=abstraction(ty) DARROW e=term             { fst (make_lambda e a) }
-  | e=equiv_term ASCRIBE t=ty                       { Ascribe (e, t) }
-  | EQUATION e1=equiv_term IN e2=term               { Equation (e1, e2) }
-  | REWRITE e1=equiv_term IN e2=term                { Rewrite (e1, e2) }
-  | t1=equiv_term ARROW t2=term                     { NameProd (anonymous, t1, t2) }
+  | e=equal_term ASCRIBE t=ty                       { Ascribe (e, t) }
+  | EQUATION e1=equal_term IN e2=term               { Equation (e1, e2) }
+  | REWRITE e1=equal_term IN e2=term                { Rewrite (e1, e2) }
+  | t1=equal_term ARROW t2=term                     { NameProd (anonymous, t1, t2) }
   | LPAREN x=param COLON t=term RPAREN ARROW e=term { NameProd (x, t, e) }
 
-equiv_term: mark_position(plain_equiv_term) { $1 }
-plain_equiv_term:
+equal_term: mark_position(plain_equal_term) { $1 }
+plain_equal_term:
     | e=plain_app_term               { e }
     | e1=app_term EQEQ e2=app_term   { NameId (e1, e2) }
     | e1=app_term EQ e2=app_term     { NamePaths (e1, e2) }

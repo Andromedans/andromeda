@@ -39,10 +39,10 @@ and term' =
 (* Code *)
 (********)
 
-(** alpha equivalence of terms, ignoring hints *)
+(** alpha equality of terms, ignoring hints *)
 val equal    : term -> term -> bool
 
-(** alpha equivalence of types, ignoring hints inside terms *)
+(** alpha equality of types, ignoring hints inside terms *)
 val equal_ty : ty -> ty -> bool
 
 (** [shift delta term] shifts the free variables in [term] by [delta],

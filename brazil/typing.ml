@@ -10,6 +10,10 @@ let print_term ctx term =
 
 let print_universe = Print.universe
 
+(************)
+(* Equality *)
+(************)
+
 (*************************)
 (* Weak-Head Normalizing *)
 (*************************)
@@ -90,14 +94,14 @@ and whnf ctx1 ((term',loc) as term) ty =
         | Syntax.App((x,u1,u2),
                      (Syntax.Lambda(_x',t1,t2,e1), _),
                      e2)
-            when equiv_ty ctx1 t1 u1
-                 && equiv_ty (Context.add_var x t1 ctx1) t2 u2 ->
+            when equal_ty ctx1 t1 u1
+                 && equal_ty (Context.add_var x t1 ctx1) t2 u2 ->
             Some (ctx1, Syntax.beta e1 e2)
 
         (* norm-idpath *)
         | Syntax.J(t, (_x,_y,_p,u), (_z,e1),
                    (Syntax.Idpath(t',e2), _), _e3, _e4)
-            when equiv_ty ctx1 t t' ->
+            when equal_ty ctx1 t t' ->
             Some (ctx1, Syntax.beta e1 e2)
 
         (* norm-coerce-trivial *)
@@ -143,45 +147,30 @@ and whnfs_ty ctx1 ty1 =
   | Some (ctx2, ty2) -> whnfs_ty ctx2 ty2
   | None             -> ty1
 
+(* equality of types *)
 
-(** Repeatedly apply whnfs_ty until we get a non-Pi type. Returns the
-    parameters (unshifted!) and the whnf of the remaining type (unshifed!) *)
-(*      extract_pis : Context.t -> Syntax.ty -> (Syntax.ty list * Syntax.ty) *)
-and extract_pis ctx ty =
-  match whnfs_ty ctx ty with
-  | Syntax.Prod(x, ty1, ty2),_ ->
-     let ty1s, core_ty = extract_pis (Context.add_var x ty ctx) ty2 in
-     (ty1 :: ty1s), core_ty
-  | whnf_ty -> [], whnf_ty
-
-(***************)
-(* Equivalence *)
-(***************)
-
-(* equivalence of types *)
-
-and equiv_ty ctx t u =
+and equal_ty ctx t u =
   (* chk-tyeq-refl *)
   (Syntax.equal_ty t u)
   ||
   begin match Syntax.name_of t, Syntax.name_of u with
     (* chk-tyeq-el *)
     | Some (e1, alpha), Some (e2, beta) ->
-      Universe.eq alpha beta && equiv ctx e1 e2 (Syntax.Universe alpha, snd t)
+      Universe.eq alpha beta && equal ctx e1 e2 (Syntax.Universe alpha, snd t)
     | (_, None) | (None, _) -> false
   end
   ||
   begin
     let t' = whnfs_ty ctx t  in
     let u' = whnfs_ty ctx u  in
-      equiv_whnf_ty ctx t' u'
+      equal_whnf_ty ctx t' u'
   end
 
-(* equivalence of weak-head-normal types *)
+(* equality of weak-head-normal types *)
 
-and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
+and equal_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
   begin
-    Print.debug "equiv_whnf_ty: %t == %t@." (print_ty ctx t) (print_ty ctx u);
+    Print.debug "equal_whnf_ty: %t == %t@." (print_ty ctx t) (print_ty ctx u);
     match t', u' with
 
     (* chk-tyeq-path-refl *)
@@ -190,35 +179,35 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
 
     (* chk-tyeq-prod *)
     | Syntax.Prod(x, t1, t2), Syntax.Prod(_, u1, u2) ->
-        equiv_ty ctx t1 u1 &&
-        equiv_ty (Context.add_var x t1 ctx) t2 u2
+        equal_ty ctx t1 u1 &&
+        equal_ty (Context.add_var x t1 ctx) t2 u2
 
     (* chk-tyeq-paths *)
     | Syntax.Paths(t,e1,e2), Syntax.Paths(u,e1',e2') ->
-        equiv_ty ctx t u &&
-        equiv ctx e1 e1' t &&
-        equiv ctx e2 e2' t
+        equal_ty ctx t u &&
+        equal ctx e1 e1' t &&
+        equal ctx e2 e2' t
 
     (* chk-tyeq-id *)
     | Syntax.Id(t,e1,e2), Syntax.Id(u,e1',e2') ->
-        equiv_ty ctx t u &&
-        equiv ctx e1 e1' t &&
-        equiv ctx e2 e2' t
+        equal_ty ctx t u &&
+        equal ctx e1 e1' t &&
+        equal ctx e2 e2' t
 
     | (Syntax.Universe _ | Syntax.El _ | Syntax.Unit
        | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _), _ ->
            false
   end
 
-(* equivalence of terms.
+(* equality of terms.
 
    Precondition: t is well-formed
                  term1 : t
                  term2 : t
  *)
-and equiv ctx term1 term2 t =
+and equal ctx term1 term2 t =
 
-  Print.debug "equiv: %t == %t @@ %t @."
+  Print.debug "equal: %t == %t @@ %t @."
       (print_term ctx term1) (print_term ctx term2) (print_ty ctx t);
 
   (* chk-eq-refl *)
@@ -231,17 +220,17 @@ and equiv ctx term1 term2 t =
 
   else
     let t' = whnfs_ty ctx t in
-    equiv_ext ctx term1 term2 t'
+    equal_ext ctx term1 term2 t'
 
-(* Equivalence of terms at a weak-head-normal type.
+(* Equality of terms at a weak-head-normal type.
 
    Precondition: ty is well-formed *and weak-head-normal*
                  e1 : ty
                  e2 : ty
  *)
-and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
+and equal_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
   begin
-    Print.debug "equiv_ext: %t == %t @@ %t @."
+    Print.debug "equal_ext: %t == %t @@ %t @."
       (print_term ctx e1) (print_term ctx e2) (print_ty ctx ty);
     match ty' with
 
@@ -260,7 +249,7 @@ and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
         let u' = Syntax.weaken_ty 1 u  in  (* ctx, z, x |- u' type *)
         let z = (Syntax.Var 0,
                  Position.nowhere) in      (* ctx, z    |- z : ... *)
-        equiv ctx'
+        equal ctx'
               (Syntax.App((x, t', u'), e1', z), loc1)
               (Syntax.App((x, t', u'), e2', z), loc2)
               u
@@ -277,16 +266,16 @@ and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
     | _ ->
         let e1' = whnfs ctx e1 ty in
         let e2' = whnfs ctx e2 ty in
-        equiv_whnf ctx e1' e2' ty
+        equal_whnf ctx e1' e2' ty
   end
 
-(* equivalence of two weak-head-normal terms.
+(* equality of two weak-head-normal terms.
 
    Precondition: term1 : ty
                  term2 : ty
                     for some (unspecified) common type ty.
  *)
-and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) ty =
+and equal_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) ty =
   begin
     match term1', term2' with
 
@@ -303,14 +292,14 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) ty =
 
     (* chk-eq-whnf-app *)
     | Syntax.App((x, t1, t2), e1, e2), Syntax.App((_, u1, u2), e1', e2') ->
-        equiv_ty ctx t1 u1
-        && equiv_ty (Context.add_var x t1 ctx) t2 u2
-        && equiv_whnf ctx e1 e1' (Syntax.Prod (x, t1, t2), loc1)
-        && equiv ctx e2 e2' t1
+        equal_ty ctx t1 u1
+        && equal_ty (Context.add_var x t1 ctx) t2 u2
+        && equal_whnf ctx e1 e1' (Syntax.Prod (x, t1, t2), loc1)
+        && equal ctx e2 e2' t1
 
     (* chk-eq-whnf-idpath *)
     | Syntax.Idpath(t, e1), Syntax.Idpath(u, e2) ->
-        equiv_ty ctx t u && equiv ctx e1 e2 t
+        equal_ty ctx t u && equal ctx e1 e2 t
 
     (* chk-eq-whnf-j *)
     | Syntax.J(t1,(x,y,p,u2),(z,e3),e4, e5, e6), Syntax.J(t7, (_,_,_,u8), (_,e9), e10, e11, e12) ->
@@ -340,22 +329,22 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) ty =
           Syntax.strengthen_ty u2 [e5; e6; e4]  in       (* ctx |- u2[x,y,p->e5,e6,e4] *)
         *)
 
-        equiv_ty ctx t1 t7
-        && equiv_ty ctx_xyp u2 u8
-        && equiv ctx_z e3 e9 e3_ty_expected
-        && equiv ctx e5 e11 t1
-        && equiv ctx e6 e12 t1
-        && equiv_whnf ctx e4 e10 (Syntax.Paths (t1, e5, e6), loc1)
+        equal_ty ctx t1 t7
+        && equal_ty ctx_xyp u2 u8
+        && equal ctx_z e3 e9 e3_ty_expected
+        && equal ctx e5 e11 t1
+        && equal ctx e6 e12 t1
+        && equal_whnf ctx e4 e10 (Syntax.Paths (t1, e5, e6), loc1)
 
     (* chk-eq-whnf-refl *)
     | Syntax.Refl(t, e1), Syntax.Refl(u, e2) ->
-        equiv_ty ctx t u && equiv ctx e1 e2 t
+        equal_ty ctx t u && equal ctx e1 e2 t
 
     (* chk-eq-whnf-prod *)
     | Syntax.NameProd(alpha, beta, x, e1, e2), Syntax.NameProd(alpha', beta', _, e1', e2') ->
         Universe.eq alpha alpha' && Universe.eq beta beta'
-        && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
-        && equiv (Context.add_var x (Syntax.El(alpha,e1), Position.nowhere) ctx)
+        && equal ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
+        && equal (Context.add_var x (Syntax.El(alpha,e1), Position.nowhere) ctx)
                  e2 e2' (Syntax.Universe beta, Position.nowhere)
 
     (* chk-eq-whnf-universe *)
@@ -368,27 +357,27 @@ and equiv_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) ty =
     (* chk-eq-whnf-paths *)
     | Syntax.NamePaths(alpha, e1, e2, e3), Syntax.NamePaths(alpha', e1', e2', e3') ->
         Universe.eq alpha alpha'
-        && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
-        && equiv ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
-        && equiv ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
+        && equal ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
+        && equal ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
+        && equal ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
 
     (* chk-eq-whnf-id *)
     | Syntax.NameId(alpha, e1, e2, e3), Syntax.NameId(alpha', e1', e2', e3') ->
         Universe.eq alpha alpha'
-        && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
-        && equiv ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
-        && equiv ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
+        && equal ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
+        && equal ctx e2 e2' (Syntax.El (alpha, e1), Position.nowhere)
+        && equal ctx e3 e3' (Syntax.El (alpha, e1), Position.nowhere)
 
     (* chk-eq-whnf-coerce *)
     | Syntax.Coerce(alpha, _beta, e1), Syntax.Coerce(alpha', _beta', e1') ->
         Universe.eq alpha alpha'
-        && equiv ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
+        && equal ctx e1 e1' (Syntax.Universe alpha, Position.nowhere)
 
     (* chk-eq-whnf-abs *)
     | Syntax.Lambda(x,t1,t2,e1), Syntax.Lambda(_,u1,u2,e2) ->
-        equiv_ty ctx t1 u1
+        equal_ty ctx t1 u1
         && let ctx' = Context.add_var x t1 ctx  in
-           equiv_ty ctx' t2 u2 && equiv ctx' e1 e2 t2
+           equal_ty ctx' t2 u2 && equal ctx' e1 e2 t2
 
     (* chk-eq-whnf-unit-right *)
     | _, Syntax.UnitTerm ->
@@ -477,11 +466,11 @@ let rec syn_term ctx ((term', loc) as term) =
             let e2 = chk_term ctx e2 t in
               (Syntax.App ((x, t, u), e1, e2), loc),
               Syntax.beta_ty u e2
-          | t1' -> Error.typing ~loc:(snd e1) "the expression@ %t@;<1 -2>is applied to an argument, but it has type@ %t"
-                     (print_term ctx e1)
-                     (print_ty ctx t1')
+          | t1' ->
+            Error.typing ~loc:(snd e1)
+              "this expression is used as a function, but it has type@ %t"
+              (print_ty ctx t1')
     end
-
 
   (* syn-unit *)
   | Input.UnitTerm ->
@@ -557,13 +546,11 @@ let rec syn_term ctx ((term', loc) as term) =
                   ((Syntax.NameProd(alpha, beta, x, e1, e2), loc),
                    (Syntax.Universe gamma, loc))
               | t2' ->
-                  Error.typing ~loc "Expected Pi/Arrow codomain@ %t@;<1 -2>to belong to a universe, but it has type@ %t"
-                     (print_term ctx e2)
+                  Error.typing ~loc "this expression should be a type, but it has type@ %t"
                      (print_ty ctx t2')
             end
         | t1' ->
-            Error.typing ~loc "Expected Pi/Arrow domain@ %t@;<1 -2>to belong to a universe, but it has type@ %t"
-               (print_term ctx e1)
+            Error.typing ~loc "this expression should be a type, but it has type@ %t"
                (print_ty ctx t1')
       end
 
@@ -577,33 +564,30 @@ let rec syn_term ctx ((term', loc) as term) =
               ((Syntax.Coerce(alpha, beta, e), loc),
                (Syntax.Universe beta, loc))
             else
-              Error.typing ~loc "Term %t@;<1 -2>in universe@ %t@ cannot be coerced to universe %t"
-                 (print_term ctx e)
+              Error.typing ~loc "cannot coerce from universe@ %t@ to universe %t"
                  (print_universe alpha)
                  (print_universe beta)
         | t' ->
-            Error.typing ~loc "Expected coerced term@ %t@;<1 -2>to belong to a universe, but it has type@ %t"
-               (print_term ctx e)
+            Error.typing ~loc "this expression should be a type,, but it has type@ %t"
                (print_ty ctx t')
       end
 
   (* syn-name-paths *)
-  | Input.NamePaths(e2,e3) ->
+  | Input.NamePaths (e2, e3) ->
      begin
         let e2, t2 = syn_term ctx e2  in
         match Syntax.name_of t2 with
-        | None -> Error.typing ~loc "could not derive a name for type@ %t,@ the type of %t"
-                         (print_ty ctx t2)
-                         (print_term ctx e2)
+        | None ->
+          Error.typing ~loc:(snd e2) "this expression should be a fibered type but its type is %t"
+            (print_ty ctx t2)
         | Some (e1, alpha) ->
             if (Universe.is_fibered alpha) then
               let e3 = chk_term ctx e3 t2 in
               ((Syntax.NamePaths(alpha, e1, e2, e3), loc),
                (Syntax.Universe alpha, loc))
             else
-              Error.typing ~loc "unfibered type@ %t@;<1 -2>for term@ %t"
+              Error.typing ~loc "this expression should be a fibered type, but its type is %t"
                 (print_ty ctx t2)
-                (print_term ctx e2)
       end
 
   (* syn-name-id *)
@@ -611,9 +595,8 @@ let rec syn_term ctx ((term', loc) as term) =
       begin
         let e2, t2 = syn_term ctx e2  in
         match Syntax.name_of t2 with
-        | None -> Error.typing ~loc "could not derive a name for type@ %t,@ the type of %t"
+        | None -> Error.typing ~loc "this expression should be a type but its type is %t"
                          (print_ty ctx t2)
-                         (print_term ctx e2)
         | Some (e1, alpha) ->
             let e3 = chk_term ctx e3 t2 in
             ((Syntax.NameId(alpha, e1, e2, e3), loc),
@@ -648,7 +631,7 @@ and chk_term ctx ((term', loc) as term) t =
 
   (* chk-syn *)
   | _ -> let e, u = syn_term ctx term  in
-         if (equiv_ty ctx u t) then
+         if (equal_ty ctx u t) then
             e
          else
             Error.typing ~loc "expression@ %t@;<1 -2>has type@ %t@;<1 -2>but should have type %t"

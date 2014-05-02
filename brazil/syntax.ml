@@ -36,10 +36,10 @@ and term' =
   | NameId of universe * term * term * term
 
 (*********************)
-(* Alpha-Equivalence *)
+(* Alpha equality    *)
 (*********************)
 
-(** We cannot use ML's built-in = operator for alpha equivalence,
+(** We cannot use ML's built-in = operator for alpha equality,
     because we maintain variable names and source locations (for debugging and
     error-reporting) in terms. So, we write the obvious recursive traversal
     code.
