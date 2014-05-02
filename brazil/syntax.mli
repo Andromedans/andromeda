@@ -68,7 +68,7 @@ val beta    : term -> term -> term
 
 (**
   If [G, x:t |- body : type] and [G |- arg : t] then
-  [beta body arg] is the substituted type [body[x->arg]].
+  [beta_ty body arg] is the substituted type [body[x->arg]].
 
   This is exactly the substitution required, for example, to
   to substitute away the parameter in a [Pi] or [Sigma] type ([body] is
@@ -76,9 +76,14 @@ val beta    : term -> term -> term
 *)
 val beta_ty : ty -> term -> ty
 
+(**
+  If [G, x_1:t_1, .., x_n:t_n |- body : type] and [G |- arg_i : t_i]
+  [betas_ty body [arg_1; ...; arg_n]] is the substituted type
+  [G |- body[x_1->arg_1, ..., x_n->arg_n]].
+*)
+val betas_ty : ty -> term list -> ty
 
-val make_arrow: ?loc:Position.t -> ty -> ty -> ty
-(*val make_star : ?loc:Position.t -> ty -> ty -> ty*)
+(* val make_arrow: ?loc:Position.t -> ty -> ty -> ty *)
 
 (**
   Suppose we have [G, x_1:t_1, ..., x_n:t_n |- exp : ...] and the inhabitants

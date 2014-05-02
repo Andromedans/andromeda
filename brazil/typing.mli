@@ -7,5 +7,5 @@ val chk_term : Context.t -> Common.debruijn Input.term -> Syntax.ty -> Syntax.te
 (** Synthesize an annotated type *)
 val is_type : Context.t -> Common.debruijn Input.ty -> Syntax.ty
 
-(** Synthesize a fibered annotated type *)
-val is_fibered : Context.t -> Common.debruijn Input.ty -> Syntax.ty
+(* (\** Synthesize a fibered annotated type *\) *)
+(* val is_fibered : Context.t -> Common.debruijn Input.ty -> Syntax.ty *)

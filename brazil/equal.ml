@@ -20,136 +20,145 @@ let print_universe = Print.universe
 
 (* Single step for a type *)
 
-let rec whnf_ty ctx1 (ty',loc) =
-  match ty' with
+let rec whnf_ty ctx ((t',loc) as t) =
+  Print.debug "whnf_ty: %t" (print_ty ctx t) ;
+  begin match t' with
 
-  (* tynorm-el *)
-  | Syntax.El(alpha, ((e', _) as e)) ->
-    begin match whnf ctx1 e (Syntax.Universe alpha, loc) with
-      | Some (ctx2, e2) ->
-          (* Non-backtracking, for now *)
-          Some (ctx2, (Syntax.El(alpha, e2), loc))
-      | None ->
-          begin
-            match e' with
+    (* tynorm-el *)
+    | Syntax.El (alpha, e) ->
+      begin match fst (whnf ctx (Syntax.Universe alpha, loc) e) with
+          
+        (* tynorm-pi *)
+        | Syntax.NameProd (beta, gamma, x, e1, e2) 
+            when Universe.eq alpha (Universe.max beta gamma) ->
+          let t1 = whnf_ty ctx (Syntax.El (beta, e1), snd e1) in
+          let t2 = whnf_ty (Context.add_var x t1 ctx) (Syntax.El (gamma, e2), snd e2) in
+            Syntax.Prod (x, t1, t2),
+            loc
 
-            (* tynorm-pi *)
-            | Syntax.NameProd(beta, gamma, x, e1, e2) ->
-                Some (ctx1,
-                      (Syntax.Prod(
-                        x,
-                        (Syntax.El(beta, e1), loc),
-                        (Syntax.El(gamma, e2), loc)), loc))
+        (* tynorm-unit *)
+        | Syntax.NameUnit ->
+          Syntax.Unit,
+          loc
+            
+        (* tynorm-universe *)
+        | Syntax.NameUniverse beta
+            when Universe.eq alpha (Universe.succ beta) ->
+          Syntax.Universe beta,
+          loc
 
-            (* tynorm-unit *)
-            | Syntax.NameUnit ->
-                Some (ctx1, (Syntax.Unit, loc))
+        (* tynorm-coerce *)
+        | Syntax.Coerce (beta, gamma, e)
+            when Universe.eq alpha gamma ->
+          whnf_ty ctx (Syntax.El (beta, e), snd e)
 
-            (* tynorm-universe *)
-            | Syntax.NameUniverse beta ->
-                Some (ctx1, (Syntax.Universe beta, loc))
+        (* tynorm-paths *)
+        | Syntax.NamePaths (beta, e1, e2, e3)
+            when Universe.eq alpha beta ->
+          let t1 = whnf_ty ctx (Syntax.El (alpha, e1), snd e1) in
+          let e2 = whnf ctx t1 e2 in
+          let e3 = whnf ctx t1 e3 in
+            Syntax.Paths (t1, e2, e3),
+            loc
 
-            (* tynorm-coerce *)
-            | Syntax.Coerce(_beta,_gamma, e) ->
-                Some (ctx1, (Syntax.El(alpha, e), loc))
+        (* tynorm-id *)
+        | Syntax.NameId (beta, e1, e2, e3) 
+            when Universe.eq alpha beta ->
+          let t1 = whnf_ty ctx (Syntax.El (alpha, e1), snd e1) in
+          let e2 = whnf ctx t1 e2 in
+          let e3 = whnf ctx t1 e3 in
+            Syntax.Id (t1, e2, e3),
+            loc
 
-            (* tynorm-paths *)
-            | Syntax.NamePaths(_beta, e1, e2, e3) ->
-                Some (ctx1, (Syntax.Paths((Syntax.El(alpha, e1), loc), e2, e3), loc))
-
-            (* tynorm-id *)
-            | Syntax.NameId(_beta, e1, e2, e3) ->
-                Some (ctx1, (Syntax.Id((Syntax.El(alpha, e1), loc), e2, e3), loc))
-
-            | Syntax.Var _ | Syntax.App _ | Syntax.J _ | Syntax.Lambda _
-            | Syntax.UnitTerm | Syntax.Idpath _ | Syntax.Refl _ ->
-              None
-
-            (* could have taken a step *)
-            | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _ ->
-              Error.impossible "normalization of universe names is suprised, please report"
-          end
+        (* tynorm-other *)
+        | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _ 
+              | Syntax.Lambda _ | Syntax.App _ | Syntax.UnitTerm | Syntax.Idpath _
+              | Syntax.J _ | Syntax.Refl _ | Syntax.Coerce _ | Syntax.NameProd _
+              | Syntax.NameUniverse _ | Syntax.NamePaths _ | Syntax.NameId _) as e' ->
+          Syntax.El (alpha, (e', loc)),
+          loc
       end
 
-  | (Syntax.Universe _ | Syntax.Unit | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _) -> None
+    | (Syntax.Universe _ | Syntax.Unit | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _) ->
+      t
+  end
 
-and whnf ctx ((e',loc) as e) t =
-  match Context.lookup_rewrite t e ctx with
-  | Some reduct -> Some (ctx, reduct)
-  | None ->
-      begin
-        match e' with
-        (* norm-equation *)
-        | Syntax.Equation(e1, t, e2) ->
-            Some (Context.add_equation e1 t ctx, e2)
+and whnf ctx t ((e',loc) as e) =
+  Print.debug "whnf: %t" (print_term ctx e) ;
+  let e =
+    begin match e' with
+      (* norm-equation *)
+      | Syntax.Equation (e1, t1, e2) ->
+        whnf (Context.add_equation e1 t1 ctx) t e2
 
-        (* norm-rewrite *)
-        | Syntax.Rewrite(e1, t, e2)  ->
-            Some (Context.add_rewrite e1 t ctx, e2)
+      (* norm-rewrite *)
+      | Syntax.Rewrite (e1, t1, e2)  ->
+        whnf (Context.add_rewrite e1 t1 ctx) t e2
 
-        (* norm-ascribe *)
-        | Syntax.Ascribe(e, _t) -> Some (ctx, e)
+      (* norm-ascribe *)
+      | Syntax.Ascribe(e, _) ->
+        whnf ctx t e
 
-        (* norm-app-beta *)
-        | Syntax.App((x,u1,u2),
-                     (Syntax.Lambda(_x',t1,t2,e1), _),
-                     e2)
-            when ty ctx t1 u1
-                 && ty (Context.add_var x t1 ctx) t2 u2 ->
-            Some (ctx, Syntax.beta e1 e2)
+      | Syntax.App ((x, u1, u2), e1, e2) ->
+        begin
+          let e1 = whnf ctx (Syntax.Prod (x, u1, u2), loc) e1 in
+            match fst e1 with
+              (* norm-app-beta *)
+              | Syntax.Lambda (y, t1, t2, e1')
+                  when ty ctx u1 t1 && ty (Context.add_var x u1 ctx) u2 t2 ->
+                whnf ctx (Syntax.beta_ty u2 e2) (Syntax.beta e1' e2)
 
-        (* norm-idpath *)
-        | Syntax.J(t, (_x,_y,_p,u), (_z,e1),
-                   (Syntax.Idpath(t',e2), _), _e3, _e4)
-            when ty ctx t t' ->
-            Some (ctx, Syntax.beta e1 e2)
+              (* norm-app-other *)
+              | _ ->
+                Syntax.App ((x, u1, u2), e1, e2), loc
+        end
+          
+      | Syntax.J (t, (x,y,p,u), (z,e1), e2, e3, e4) ->
+        begin
+          let e2 = whnf ctx (Syntax.Paths (t, e3, e4), loc) e2 in
+            match fst e2 with
+              (* norm-J-idpath *)
+              | Syntax.Idpath (t', e2')
+                  when ty ctx t t' ->
+                whnf ctx (Syntax.betas_ty u [e2; e2'; e2]) (Syntax.beta e1 e2')
 
-        (* norm-coerce-trivial *)
-        | Syntax.Coerce(alpha1, alpha2, e)
-            when Universe.eq alpha1 alpha2 ->
-            Some (ctx, e)
+              (* norm-J-other *)
+              | _ ->
+                Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4), loc
+        end
 
-        (* norm-coerce-trans *)
-        | Syntax.Coerce(beta1, gamma,
-                        (Syntax.Coerce(alpha, beta2, e), _))
-            when Universe.eq beta1 beta2 ->
-            Some (ctx, e)
+      (* norm-coerce-trivial *)
+      | Syntax.Coerce (alpha, beta, e)
+          when Universe.eq alpha beta ->
+        whnf ctx (Syntax.Universe alpha, loc) e
 
-        (* norm-app *)
-        | Syntax.App((x,t,u), e1, e2) ->
-            begin
-              match whnf ctx e1 t with
-              | Some (ctx, e1') -> Some (ctx, (Syntax.App((x,t,u), e1', e2), loc))
-              | None -> None
-            end
+      | Syntax.Coerce (alpha, beta, e) ->
+        begin match whnf ctx (Syntax.Universe alpha, loc) e with
+          (* norm-coerce-trans *)
+          | (Syntax.Coerce (gamma, delta, e), _) when Universe.eq delta alpha ->
+            if Universe.eq gamma beta
+            then 
+              (* norm-coerce-trivial *)
+              e
+            else 
+              Syntax.Coerce (gamma, beta, e), loc
 
-        (* norm-J *)
-        | Syntax.J(t, (x,y,p,u), (z,e1), e2, e3, e4) ->
-            begin
-              match whnf ctx e2 (Syntax.Paths (t, e3, e4), loc) with
-              | Some (ctx, e2') ->
-                  Some (ctx, (Syntax.J(t, (x,y,p,u), (z,e1), e2', e3, e4), loc))
-              | None -> None
-            end
+          (* norm-coerce-other *)
+          | e ->
+            Syntax.Coerce (alpha, beta, e), loc
+        end
 
-        | _ -> None
-      end
+      | _ -> e
+    end
+  in
+    match Context.lookup_rewrite t e ctx with
+      | None -> e
+      | Some e' -> whnf ctx t e'
 
-(* Repeatedly apply whnf until nothing changes *)
-and whnfs ctx1 term1 ty1 =
-  match whnf ctx1 term1 ty1 with
-  | Some (ctx2, term2) -> whnfs ctx2 term2 ty1
-  | None               -> term1
-
-(* Repeatedly apply whnf_ty until nothing changes *)
-and whnfs_ty ctx1 ty1 =
-  match whnf_ty ctx1 ty1 with
-  | Some (ctx2, ty2) -> whnfs_ty ctx2 ty2
-  | None             -> ty1
 
 (* equality of types *)
-
 and ty ctx t u =
+  Print.debug "Equal.ty: %t and %t" (print_ty ctx t) (print_ty ctx u) ;
   (* chk-tyeq-refl *)
   (Syntax.equal_ty t u)
   ||
@@ -161,8 +170,8 @@ and ty ctx t u =
   end
   ||
   begin
-    let t' = whnfs_ty ctx t  in
-    let u' = whnfs_ty ctx u  in
+    let t' = whnf_ty ctx t  in
+    let u' = whnf_ty ctx u  in
       equal_whnf_ty ctx t' u'
   end
 
@@ -219,7 +228,7 @@ and term ctx term1 term2 t =
     true
 
   else
-    let t' = whnfs_ty ctx t in
+    let t' = whnf_ty ctx t in
     equal_ext ctx term1 term2 t'
 
 (* Equality of terms at a weak-head-normal type.
@@ -228,11 +237,11 @@ and term ctx term1 term2 t =
                  e1 : ty
                  e2 : ty
  *)
-and equal_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
+and equal_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
   begin
     Print.debug "equal_ext: %t == %t @@ %t @."
-      (print_term ctx e1) (print_term ctx e2) (print_ty ctx ty);
-    match ty' with
+      (print_term ctx e1) (print_term ctx e2) (print_ty ctx t);
+    match t' with
 
     (* chk-eq-ext-prod *)
     | Syntax.Prod(x, t, u) ->
@@ -259,14 +268,14 @@ and equal_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
         true
 
     (* chk-eq-ext-K *)
-    | Syntax.Id (_T, _e3, _e4) ->
+    | Syntax.Id (_, _, _) ->
         true
 
     (* chk-eq-ext-whnf *)
     | _ ->
-        let e1' = whnfs ctx e1 ty in
-        let e2' = whnfs ctx e2 ty in
-        equal_whnf ctx e1' e2' ty
+        let e1' = whnf ctx t e1 in
+        let e2' = whnf ctx t e2  in
+        equal_whnf ctx e1' e2' t
   end
 
 (* equality of two weak-head-normal terms.
@@ -404,7 +413,7 @@ and equal_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
 
 
 let as_prod ctx t =
-  match fst (whnfs_ty ctx t) with
+  match fst (whnf_ty ctx t) with
 
     | Syntax.Prod (x, t1, t2) ->
       Some (x, t1, t2)
@@ -413,7 +422,7 @@ let as_prod ctx t =
       None
 
 let as_universe ctx t =
-  match fst (whnfs_ty ctx t) with
+  match fst (whnf_ty ctx t) with
 
     | Syntax.Universe alpha ->
       Some alpha
@@ -422,7 +431,7 @@ let as_universe ctx t =
         None
 
 let as_paths ctx t =
-  match fst (whnfs_ty ctx t) with
+  match fst (whnf_ty ctx t) with
 
     | Syntax.Paths (t, e1, e2) ->
       Some (t, e1, e2)
