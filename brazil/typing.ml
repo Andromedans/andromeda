@@ -162,12 +162,20 @@ and extract_pis ctx ty =
 
 and equiv_ty ctx t u =
   (* chk-tyeq-refl *)
-  if (Syntax.equal_ty t u) then
-    true
-  else
+  (Syntax.equal_ty t u)
+  ||
+  begin match Syntax.name_of t, Syntax.name_of u with
+    (* chk-tyeq-el *)
+    | Some (e1, alpha1), Some (e2, alpha2) ->
+      Universe.eq alpha beta && equiv ctx e1 e2 (Syntax.Universe alpha, fst t)
+    | (_, None) | (None, _) -> false
+  end
+  ||
+  begin
     let t' = whnfs_ty ctx t  in
     let u' = whnfs_ty ctx u  in
       equiv_whnf_ty ctx t' u'
+  end
 
 (* equivalence of weak-head-normal types *)
 
@@ -179,10 +187,6 @@ and equiv_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
     (* chk-tyeq-path-refl *)
     | _, _ when Syntax.equal_ty t u ->
         true
-
-    (* chk-tyeq-el *)
-    | Syntax.El(alpha, e1), Syntax.El(beta, e2) ->
-        Universe.eq alpha beta && equiv ctx e1 e2 (Syntax.Universe alpha, uloc)
 
     (* chk-tyeq-prod *)
     | Syntax.Prod(x, t1, t2), Syntax.Prod(_, u1, u2) ->
