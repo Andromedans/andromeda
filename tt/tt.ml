@@ -76,19 +76,19 @@ let parse parse_it lex =
 
 (** [exec_cmd env d] executes toplevel directive [d] in context [env]. It prints the
     result if in interactive mode, and returns the new context. *)
-let rec exec_cmd interactive ctx (d, loc) =
+let rec exec_cmd interactive env (d, loc) =
   match d with
     | InputTT.Context ->
-        let _ = Ctx.print ctx  in
-        ctx
+        let _ = Ctx.print env.Interp.ctx  in
+        env
     | InputTT.TopParam (xs, comp) ->
         begin
-          match Interp.run ctx comp with
+          match Interp.run env comp with
           | InputTT.RVal e ->
               begin
                 match fst e with
                 | InputTT.Type t ->
-                    Ctx.add_vars (List.map (fun x -> (x,t)) xs) ctx
+                    {env with Interp.ctx = Ctx.add_vars (List.map (fun x -> (x,t)) xs) env.Interp.ctx}
                 | _ -> Error.runtime "Classifier is not a type"
               end
           | InputTT.ROp (op, _, _, _) ->
@@ -96,13 +96,13 @@ let rec exec_cmd interactive ctx (d, loc) =
         end
     | InputTT.TopLet (x, comp) ->
         begin
-          match Interp.run ctx comp with
+          match Interp.run env comp with
           | InputTT.RVal e ->
               begin
                 match fst e with
                 | InputTT.Term b ->
-                    let t = Typing.type_of ctx b  in
-                    Ctx.add_def x t b ctx
+                    let t = Typing.type_of env.Interp.ctx b  in
+                    {env with Interp.ctx = Ctx.add_def x t b env.Interp.ctx}
                 | _ -> Error.runtime "Result of definition is %s, not a term"
                             (InputTT.string_of_exp e)
               end
@@ -111,21 +111,21 @@ let rec exec_cmd interactive ctx (d, loc) =
         end
     | InputTT.TopEval comp ->
         (begin
-          match Interp.run ctx comp with
+          match Interp.run env comp with
           | InputTT.RVal e ->
               Format.printf "%s@." (InputTT.string_of_exp e)
           | InputTT.ROp (op, _, _, _) ->
               Format.printf "Uncaught operation %s" op
-        end; ctx)
+        end; env)
     | InputTT.TopDef (x, comp) ->
         begin
-          match Interp.run ctx comp with
+          match Interp.run env comp with
           | InputTT.RVal e ->
               begin
                 match fst e with
                 | InputTT.Term b ->
-                    let t = Typing.type_of ctx b  in
-                    Ctx.add_def x t b ctx
+                    let t = Typing.type_of env.Interp.ctx b  in
+                    {env with Interp.ctx = Ctx.add_def x t b env.Interp.ctx}
                 | _ -> Error.runtime "Result of definition is %s, not a term"
                             (InputTT.string_of_exp e)
               end
@@ -133,20 +133,20 @@ let rec exec_cmd interactive ctx (d, loc) =
               Error.runtime "Uncaught operation %s" op
         end
     (*| Input.TopHandler hs ->*)
-        (*let hs   = Input.desugar_handler ctx_names hs   in*)
+        (*let hs   = Input.desugar_handler env_names hs   in*)
         (*let env' = Typing.Infer.addHandlers env loc hs in*)
         (*env'*)
     | InputTT.Help ->
-      print_endline help_text ; ctx
+      print_endline help_text ; env
     | InputTT.Quit -> exit 0
 
 (** Load directives from the given file. *)
-and use_file ctx (filename, interactive) =
+and use_file env (filename, interactive) =
   let cmds = LexerTT.read_file (parse ParserTT.file) filename in
-    List.fold_left (exec_cmd interactive) ctx cmds
+    List.fold_left (exec_cmd interactive) env cmds
 
 (** Interactive toplevel *)
-let toplevel ctx =
+let toplevel env =
   let eof = match Sys.os_type with
     | "Unix" | "Cygwin" -> "Ctrl-D"
     | "Win32" -> "Ctrl-Z"
@@ -155,11 +155,11 @@ let toplevel ctx =
   print_endline ("tt " ^ Version.version);
   print_endline ("[Type " ^ eof ^ " to exit or \"#help;;\" for help.]");
   try
-    let ctx = ref ctx in
+    let env = ref env in
     while true do
       try
         let cmd = Lexer.read_toplevel (parse ParserTT.commandline) () in
-        ctx := exec_cmd true !ctx cmd
+        env := exec_cmd true !env cmd
       with
         | Error.Error err -> Print.error err
         | Sys.Break -> prerr_endline "Interrupted."
@@ -195,10 +195,10 @@ let main =
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
-    let ctx = List.fold_left use_file Context.empty !files in
+    let env = List.fold_left use_file Interp.empty_env !files in
     if !interactive_shell then
-      toplevel ctx
+      toplevel env
     else
-      () (*Brazil.Verify.verifyContext ctx*)
+      () (*Brazil.Verify.verifyContext env*)
   with
     Error.Error err -> Print.error err; exit 1

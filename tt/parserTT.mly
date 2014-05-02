@@ -100,12 +100,12 @@ sso :
 exp: mark_position(plain_exp) { $1 }
 plain_exp:
     | NAME                              { Var $1 }
-    | FUN NAME DARROW comp    { Fun ($2, $4) }
     | handler                { Handler $1 }
     | LBRACK es=separated_list(COMMA, exp) RBRACK    { Tuple es }
     | const                  { Const $1 }
     | INJ exp               { Inj ($1, $2) }
     | LPAREN plain_exp RPAREN      { $2 }
+    | FUN NAME DARROW comp    { Fun ($2, $4) }
     | DEFAULT { DefaultHandler }
 
 comp: mark_position(plain_comp) { $1 }

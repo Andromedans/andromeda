@@ -1,5 +1,11 @@
 (** Abstract syntax of TT *)
 
+module StringMap = Map.Make(struct
+                                type t = string
+                                let compare = compare
+                            end)
+
+
 type universe = Universe.t
 
 type eqsort =
@@ -25,6 +31,7 @@ type exp = exp' * Position.t
 and exp' =
   | Var of tt_var
   | Fun of tt_var * computation
+  | Closure of tt_var * computation * exp StringMap.t
   | Handler of handler
   | ContExp of Context.t * Context.t * cont
   | Term   of Syntax.term
@@ -98,6 +105,7 @@ let rec string_of_exp (exp, _loc) =
   match exp with
   | Var x -> tag "Var" [x]
   | Fun (x,c) -> tag "Fun" [x; string_of_computation c]
+  | Closure (x,c,_) -> tag "Closure" [x; string_of_computation c; "-"]
   | Handler h -> tag "Handler" [string_of_handler h]
   | ContExp (_gamma,_delta,k) -> tag "ContExp" ["-"; "-"; string_of_cont k]
   | Term _b -> "<term>"
@@ -165,6 +173,8 @@ let rec shift cut delta (exp, loc) =
   (match exp with
   | Var v -> exp
   | Fun (x, c) -> Fun(x, shift_computation cut delta c)
+  | Closure (x, c, eta) -> Closure(x, shift_computation cut delta c,
+                               StringMap.map (shift cut delta) eta)
   | Handler h -> Handler (shift_handler cut delta h)
   | ContExp(delta, gamma, k) ->
       Error.syntax ~loc "Cannot shift a continuation"
@@ -227,6 +237,11 @@ let rec psubst ?(bvs=0) sigma exp1 =
   | Fun (x1, c2), loc ->
       let sigma' = List.remove_assoc x1 sigma in
       Fun(x1, psubst_computation ~bvs sigma' c2), loc
+  | Closure (x1, c2, eta), loc ->
+      let eta' = StringMap.map (psubst ~bvs sigma) eta  in
+      let sigma = List.remove_assoc x1 sigma in
+      let sigma = List.filter (fun (k,_) -> not (StringMap.mem k eta)) sigma in
+      Closure(x1, psubst_computation ~bvs sigma c2, eta'), loc
   | Handler h, loc -> Handler (psubst_handler ~bvs sigma h), loc
   | ContExp(delta, gamma, k), loc -> ContExp(delta, gamma, recurk k), loc
   | Term _b, loc -> exp1
