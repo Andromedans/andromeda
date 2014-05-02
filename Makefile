@@ -7,10 +7,10 @@ default: brazil.byte
 all: brazil.byte tt.byte
 
 brazil.native:
-	ocamlbuild -I brazil -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) brazil.native
+	ocamlbuild -cflag -absname -I brazil -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) brazil.native
 
 brazil.byte:
-	ocamlbuild -I brazil -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) brazil.byte
+	ocamlbuild -cflag -absname -I brazil -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) brazil.byte
 
 tt.native:
 	ocamlbuild -I src -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) tt.native
