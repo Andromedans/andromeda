@@ -256,14 +256,14 @@ and equiv_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
         let e2' = Syntax.weaken 0 e2 in    (* ctx, z    |- e2' : ... *)
                                            (* ctx       |- t  type *)
         let t'  = Syntax.weaken_ty 0 t in  (* ctx, z    |- t' type *)
-                                           (* ctx,    x |- u type *)
-        let u' = Syntax.weaken_ty 1 u  in  (* ctx, z, x |- u type *)
+                                           (* ctx,    x |- u  type *)
+        let u' = Syntax.weaken_ty 1 u  in  (* ctx, z, x |- u' type *)
         let z = (Syntax.Var 0,
                  Position.nowhere) in      (* ctx, z    |- z : ... *)
         equiv ctx'
               (Syntax.App((x, t', u'), e1', z), loc1)
               (Syntax.App((x, t', u'), e2', z), loc2)
-              u'
+              u
 
     (* chk-eq-ext-unit *)
     | Syntax.Unit ->
