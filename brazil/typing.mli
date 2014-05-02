@@ -1,16 +1,3 @@
-
-(** Weak-head-normalization (multi-step) of a term *)
-val whnfs    : Context.t -> Syntax.term -> Syntax.ty -> Syntax.term
-
-(** Weak-head-normalization (multi-step) of a type *)
-val whnfs_ty : Context.t -> Syntax.ty -> Syntax.ty
-
-(** Algorithmic type equality *)
-val equal_ty : Context.t -> Syntax.ty -> Syntax.ty -> bool
-
-(** Algorithmic term equality at a type *)
-val equal : Context.t -> Syntax.term -> Syntax.term -> Syntax.ty -> bool
-
 (** Synthesize the type of a term *)
 val syn_term : Context.t -> Common.debruijn Input.term -> Syntax.term * Syntax.ty
 
