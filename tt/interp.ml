@@ -115,12 +115,12 @@ let rec run env (comp, loc) =
     | I.WithHandle(h,c) ->
         begin
           match fst h with
-          | I.Handler {I.valH=(x,cv); I.opH}  ->
+          | I.Handler {I.valH=(xv,cv); I.opH; I.finH=(xf,cf)}  ->
               begin
                 match run env c with
                 | I.RVal ev ->
                     (* eval-handle-val *)
-                    run env (I.subst_computation x ev cv)
+                    run env (I.subst_computation xv ev cv)
                 | I.ROp (opi, delta, e, k1) as r ->
                     begin
                       Print.debug "Handler body produced operation %s" opi;
@@ -155,10 +155,11 @@ let rec run env (comp, loc) =
                       match handler_result with
                       | I.RVal e' ->
                           if eok env e' then
-                            I.RVal e'
+                            run env (I.psubst_computation [xf, e'] cf)
                           else
                             Error.runtime ~loc "Handler returned value with too many variables"
                       | I.ROp(opj, delta', e', k2) ->
+                          (* XXX Do we need to do anything about the finally clause here? *)
                           I.ROp(opj, Context.append delta delta', e', k2)
                     end
               end

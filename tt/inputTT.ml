@@ -66,8 +66,10 @@ and cont =
 and arm = pattern * computation
 
 and handler =
-  { valH : tt_var * computation;
+  {
+    valH : tt_var * computation;
     opH  : (operation_tag * pattern * tt_var * computation) list;
+    finH : tt_var * computation;
   }
 
 and pattern =
@@ -212,11 +214,12 @@ and shift_computation cut delta (comp, loc) =
   (*| MkApp(e1,e2) -> MkApp(recur e1, recur e2)*)
   ), loc
 
-and shift_handler cut delta {valH=(x,c); opH} =
+and shift_handler cut delta {valH=(xv,cv); opH; finH=(xf,cf)} =
   let shift_case (tag, xs, k, c) = (tag, xs, k, shift_computation cut delta c)  in
   {
-    valH = (x, shift_computation cut delta c);
+    valH = (xv, shift_computation cut delta cv);
     opH = List.map shift_case opH;
+    finH = (xf, shift_computation cut delta cf);
   }
 
 (****************)
@@ -284,14 +287,15 @@ and psubst_computation ?(bvs=0) sigma (comp1, loc) =
   (*| MkApp (e1, e2) -> MkApp (recur e1, recur e2)*)
   ), loc
 
-and psubst_handler ?(bvs=0) sigma {valH=(x,c); opH} =
+and psubst_handler ?(bvs=0) sigma {valH=(xv,cv); opH; finH=(xf,cf)} =
   let subst_case (tag, p, k, c) =
     let unshadowed (v,_) = not (bound_in_pat v p || v = k)  in
-    let sigma' = List.filter unshadowed sigma  in
-      (tag, p, k, psubst_computation ~bvs sigma' c)  in
+    let sigma = List.filter unshadowed sigma  in
+      (tag, p, k, psubst_computation ~bvs sigma c)  in
   {
-    valH = (x, psubst_computation ~bvs (List.remove_assoc x sigma) c);
+    valH = (xv, psubst_computation ~bvs (List.remove_assoc xv sigma) cv);
     opH = List.map subst_case opH;
+    finH = (xf, psubst_computation ~bvs (List.remove_assoc xf sigma) cf);
   }
 
 and psubst_continuation ?(bvs=0) sigma k =

@@ -10,6 +10,7 @@
     ("define", DEFINE) ;
     ("end", END);
     ("eval", EVAL);
+    ("finally", FINALLY);
     ("fun", FUN);
     ("handle", HANDLE) ;
     ("handler", HANDLER) ;

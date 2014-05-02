@@ -14,7 +14,7 @@ eval
       val [a,b]
 
 eval
-  let hchoice = val handler val x => val x | op decide _ k => k true end
+  let hchoice = val handler val x => val x | op decide _ k => k true | finally z => z + 99 end
   in
     with hchoice handle
       let z = op decide () in

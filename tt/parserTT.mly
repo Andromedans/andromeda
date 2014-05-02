@@ -26,6 +26,7 @@
 %token EOF
 %token EVAL
 %token EQ
+%token FINALLY
 %token FUN
 %token HANDLE
 %token HANDLER
@@ -51,6 +52,9 @@
 
 %start <InputTT.toplevel list> file
 %start <InputTT.toplevel> commandline
+
+%type <InputTT.handler> hcases
+%type <InputTT.handler> handler
 
 (*%nonassoc ASCRIBE*)
 (*%right PLUSPLUS*)
@@ -138,14 +142,19 @@ pat:
     | UNDERSCORE { PWild }
 
 handler:
-    | HANDLER option(BAR) hcs=separated_nonempty_list(BAR,hcase) END
-                   { { valH = "<1>", (Val (Var "<1>", Position.nowhere), Position.nowhere); opH = hcs } }
-    | HANDLER VAL x=NAME DARROW c=comp hcs=list(preceded(BAR, hcase)) END
-                   { { valH = (x,c); opH = hcs } }
+    | HANDLER hcs=hcases END { hcs }
+
+    (*| HANDLER VAL x=NAME DARROW c=comp hcs=list(preceded(BAR, hcase)) END*)
+                   (*{ { valH = (x,c); opH = hcs } }*)
 
 
-hcase:
-    | OP op=NAME p=pat k=NAME DARROW c=comp { (op,p,k,c) }
+hcases:
+    |              { { valH = "<1>", (Val (Var "<1>", Position.nowhere), Position.nowhere);
+                       opH = [];
+                       finH = "<2>", (Val (Var "<2>", Position.nowhere), Position.nowhere); } }
+    | option(BAR) OP op=NAME p=pat k=NAME DARROW c=comp hcs=hcases { { hcs with opH = (op,p,k,c)::hcs.opH }  }
+    | option(BAR) VAL     xv=NAME DARROW cv=comp hcs=hcases { { hcs with valH=(xv,cv) } }
+    | option(BAR) FINALLY xf=NAME DARROW cf=comp hcs=hcases { { hcs with finH=(xf,cf) } }
 
 const:
     | INT  { Int $1 }
