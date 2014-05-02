@@ -43,6 +43,7 @@
 %token RBRACK
 %token RPAREN
 %token SEMISEMI
+%token UNDERSCORE
 %token UNIT
 %token VAL
 %token WITH
@@ -105,7 +106,7 @@ plain_exp:
     | const                  { Const $1 }
     | INJ exp               { Inj ($1, $2) }
     | LPAREN plain_exp RPAREN      { $2 }
-    | FUN NAME DARROW comp    { Fun ($2, $4) }
+    | FUN name DARROW comp    { Fun ($2, $4) }
     | DEFAULT { DefaultHandler }
 
 comp: mark_position(plain_comp) { $1 }
@@ -113,13 +114,13 @@ plain_comp:
     | VAL exp        { Val $2 }
     | exp exp        { App ($1, $2) }
     | exp ASCRIBE exp        { Ascribe ($1, $3) }
-    | LET NAME EQ comp IN comp { Let($2, $4, $6) }
+    | LET name EQ comp IN comp { Let($2, $4, $6) }
     | OP NAME exp    { Op ($2, $3) }
     | WITH exp HANDLE comp  { WithHandle ($2, $4) }
     | HANDLE comp WITH exp  { WithHandle ($4, $2) }
     | MATCH e=exp WITH option(BAR) lst=separated_list(BAR, arm) END { Match (e, lst) }
     | DEBRUIJN INT       { MkVar $2 }
-    | LAMBDA NAME COLON exp COMMA comp { MkLam($2, $4, $6) }
+    | LAMBDA name COLON exp COMMA comp { MkLam($2, $4, $6) }
     | exp PLUS exp { Prim(Plus, [$1; $3]) }
     | exp PLUSPLUS exp { Prim(Append, [$1; $3]) }
     | exp ANDAND exp   { Prim(And, [$1; $3]) }
@@ -134,6 +135,7 @@ pat:
     | INJ NAME  { PInj($1, $2) }
     | NAME      { PVar $1 }
     | const     { PConst $1 }
+    | UNDERSCORE { PWild }
 
 handler:
     | HANDLER VAL x=NAME DARROW c=comp hcs=list(hcase) END { { valH = (x,c); opH = hcs } }
@@ -146,6 +148,9 @@ const:
     | BOOL { Bool $1 }
     | UNIT { Unit }
 
+name:
+    | NAME       { $1 }
+    | UNDERSCORE { "_" }
 mark_position(X):
   x = X
   { x, Position.make $startpos $endpos }

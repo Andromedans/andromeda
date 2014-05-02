@@ -60,6 +60,7 @@ rule token = parse
   | ']'                 { RBRACK }
   | ')'                 { RPAREN }
   | ";;"                { SEMISEMI }
+  | "_"                 { UNDERSCORE }
 
 
   | numeral as s        { INT (int_of_string s) }
