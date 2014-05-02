@@ -20,18 +20,6 @@ let help_text = "Toplevel directives:
 
 assume <ident> : <sort> ;;     assume variable <ident> has sort <sort>
 define <ident> := <expr> ;;    define <ident> to be <expr>
-let <indent> := <comp> ;;      define <ident> to be the result of computation <comp>
-[ <expr> :: <sort> ] ;;        check that <expr> has sort <sort>
-[ <expr> :: ? ] ;;             infer the sort of expression <expr>
-[ ? :: <sort> ] ;;             inhabit sort <sort>
-
-Syntax:
-Type                           the sort of types
-<expr> :: <sort>               the sort of typing judgments
-<expr> == <expr> @ <sort>      the sort of equality judgments
-fun x : e1 => e2               function abstraction
-forall x : e1, e2              dependent product
-e1 e2                          application
 " ;;
 
 (** A list of files to be loaded and run. *)
@@ -76,9 +64,9 @@ let anonymous str =
   end
 
 (** Parser wrapper that reads extra lines on demand. *)
-let parse parse lex =
+let parse parse_it lex =
   try
-    parse LexerTT.token lex
+    parse_it LexerTT.token lex
   with
   | ParserTT.Error ->
       Error.syntax ~loc:(Position.of_lex lex) ""
@@ -93,17 +81,57 @@ let rec exec_cmd interactive ctx (d, loc) =
     | InputTT.Context ->
         let _ = Ctx.print ctx  in
         ctx
-    | InputTT.TopParam (xs, t) ->
-        ctx
-        (*let t    = Input.desugar ctx_names t in*)
-        (*let env' = Typing.Infer.inferParam ~verbose:interactive env xs t  in*)
-        (*env'*)
-    | InputTT.TopDef (x, topt, e) ->
-        ctx
-        (*let e    = Input.desugar ctx_names e in*)
-        (*let topt = Input.desugar_opt ctx_names topt in*)
-        (*let env' = Typing.Infer.inferDefinition ~verbose:interactive env x topt e  in*)
-        (*env'*)
+    | InputTT.TopParam (xs, comp) ->
+        begin
+          match Interp.run ctx comp with
+          | InputTT.RVal e ->
+              begin
+                match fst e with
+                | InputTT.Type t ->
+                    Ctx.add_vars (List.map (fun x -> (x,t)) xs) ctx
+                | _ -> Error.runtime "Classifier is not a type"
+              end
+          | InputTT.ROp (op, _, _, _) ->
+              Error.runtime "Uncaught operation %s" op
+        end
+    | InputTT.TopLet (x, comp) ->
+        begin
+          match Interp.run ctx comp with
+          | InputTT.RVal e ->
+              begin
+                match fst e with
+                | InputTT.Term b ->
+                    let t = Typing.type_of ctx b  in
+                    Ctx.add_def x t b ctx
+                | _ -> Error.runtime "Result of definition is %s, not a term"
+                            (InputTT.string_of_exp e)
+              end
+          | InputTT.ROp (op, _, _, _) ->
+              Error.runtime "Uncaught operation %s" op
+        end
+    | InputTT.TopEval comp ->
+        (begin
+          match Interp.run ctx comp with
+          | InputTT.RVal e ->
+              Format.printf "%s@." (InputTT.string_of_exp e)
+          | InputTT.ROp (op, _, _, _) ->
+              Format.printf "Uncaught operation %s" op
+        end; ctx)
+    | InputTT.TopDef (x, comp) ->
+        begin
+          match Interp.run ctx comp with
+          | InputTT.RVal e ->
+              begin
+                match fst e with
+                | InputTT.Term b ->
+                    let t = Typing.type_of ctx b  in
+                    Ctx.add_def x t b ctx
+                | _ -> Error.runtime "Result of definition is %s, not a term"
+                            (InputTT.string_of_exp e)
+              end
+          | InputTT.ROp (op, _, _, _) ->
+              Error.runtime "Uncaught operation %s" op
+        end
     (*| Input.TopHandler hs ->*)
         (*let hs   = Input.desugar_handler ctx_names hs   in*)
         (*let env' = Typing.Infer.addHandlers env loc hs in*)

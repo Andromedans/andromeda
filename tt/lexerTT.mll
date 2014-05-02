@@ -6,17 +6,25 @@
   let reserved = [
     ("assume", ASSUME) ;
     ("debruijn", DEBRUIJN);
+    ("default", DEFAULT);
     ("define", DEFINE) ;
     ("end", END);
+    ("eval", EVAL);
     ("fun", FUN);
     ("handle", HANDLE) ;
     ("handler", HANDLER) ;
+    ("in", IN) ;
     ("lambda", LAMBDA) ;
     ("let", LET) ;
-    ("in", IN) ;
     ("match", MATCH);
-    ("with", WITH) ;
     ("op", OP);
+    ("val", VAL);
+    ("with", WITH) ;
+
+    ("AND", AND);
+    ("NOT", NOT);
+    ("PLUS", PLUS);
+    ("APPEND", APPEND);
   ]
 
 }
@@ -52,6 +60,7 @@ rule token = parse
   | '('                 { LPAREN }
   | ']'                 { RBRACK }
   | ')'                 { RPAREN }
+  | ";;"                { SEMISEMI }
 
 
   | numeral as s        { INT (int_of_string s) }
@@ -88,13 +97,13 @@ and comments level = parse
 
 
 {
-  let read_file parser fn =
+  let read_file parse fn =
   try
     let fh = open_in fn in
     let lex = Lexing.from_channel fh in
     lex.Lexing.lex_curr_p <- {lex.Lexing.lex_curr_p with Lexing.pos_fname = fn};
     try
-      let terms = parser lex in
+      let terms = parse lex in
       close_in fh;
       terms
     with
@@ -105,7 +114,7 @@ and comments level = parse
     Sys_error msg -> Error.fatal ~loc:Position.nowhere "%s" msg
 
 
-  let read_toplevel parser () =
+  let read_toplevel parse () =
     let ends_with_backslash str =
       let i = String.length str - 1 in
         if i >= 0 && str.[i] = '\\'
@@ -125,6 +134,6 @@ and comments level = parse
 
     let str = read_more "# " "" in
     let lex = Lexing.from_string (str ^ "\n") in
-      parser lex
+      parse lex
 }
 

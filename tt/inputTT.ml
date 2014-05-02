@@ -32,6 +32,7 @@ and exp' =
   | Tuple  of exp list
   | Const  of const
   | Inj    of int * exp
+  | DefaultHandler
 
 and computation = computation' * Position.t
 and computation' =
@@ -73,8 +74,10 @@ and result =
 
 type toplevel = toplevel' * Position.t
 and toplevel' =
-  | TopDef of Common.name * computation option * computation
+  | TopLet of Common.name * computation
+  | TopDef of Common.name * computation
   | TopParam of Common.name list * computation
+  | TopEval of computation
   | Context
   | Help
   | Quit
@@ -102,6 +105,7 @@ let rec string_of_exp (exp, _loc) =
   | Tuple es -> tag "Tuple" (List.map string_of_exp es)
   | Const c -> string_of_const c
   | Inj (i,e) -> tag "Inj" [string_of_int i; string_of_exp e]
+  | DefaultHandler -> "default"
 
 and string_of_computation (comp, _loc) =
   match comp with
@@ -168,6 +172,7 @@ let rec shift cut delta (exp, loc) =
   | Type t -> Type (Syntax.shift_ty ~bound:cut delta t)
   | Tuple exps -> Tuple (List.map (shift cut delta) exps)
   | Const _ -> exp
+  | DefaultHandler -> exp
   | Inj (i, exp2) -> Inj(i, shift cut delta exp2)),
   loc
 
@@ -228,6 +233,7 @@ let rec psubst ?(bvs=0) sigma exp1 =
   | Type _t, loc -> exp1
   | Tuple es, loc -> Tuple(List.map recur es), loc
   | Const _c, loc -> exp1
+  | DefaultHandler, loc -> exp1
   | Inj(i1, exp2), loc -> Inj(i1, recur exp2), loc
 
 and psubst_computation ?(bvs=0) sigma (comp1, loc) =

@@ -9,7 +9,8 @@
 %token <int> INT
 %token <string> NAME
 
-
+%token AND
+%token APPEND
 %token ASCRIBE
 %token ASSUME
 %token BAR
@@ -19,9 +20,11 @@
 %token CONTEXT
 %token DARROW
 %token DEBRUIJN
+%token DEFAULT
 %token DEFINE
 %token END
 %token EOF
+%token EVAL
 %token EQ
 %token FUN
 %token HANDLE
@@ -33,7 +36,9 @@
 %token LET
 %token LPAREN
 %token MATCH
+%token NOT
 %token OP
+%token PLUS
 %token QUIT
 %token RBRACK
 %token RPAREN
@@ -70,8 +75,9 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | DEFINE NAME COLONEQ comp               { TopDef ($2, None, $4) }
-  | DEFINE NAME COLON comp COLONEQ comp    { TopDef ($2, Some $4, $6) }
+  | LET NAME COLONEQ comp                  { TopLet ($2, $4) }
+  | DEFINE NAME COLONEQ comp               { TopDef ($2, $4) }
+  | EVAL comp                              { TopEval $2 }
   | ASSUME nonempty_list(NAME) COLON comp  { TopParam ($2, $4) }
 
 (* Toplevel directive. *)
@@ -96,6 +102,7 @@ plain_exp:
     | const                  { Const $1 }
     | INJ exp               { Inj ($1, $2) }
     | LPAREN plain_exp RPAREN      { $2 }
+    | DEFAULT { DefaultHandler }
 
 comp: mark_position(plain_comp) { $1 }
 plain_comp:
@@ -109,6 +116,7 @@ plain_comp:
     | MATCH e=exp WITH option(BAR) lst=separated_list(BAR, arm) END { Match (e, lst) }
     | DEBRUIJN INT       { MkVar $2 }
     | LAMBDA NAME COLON exp COMMA comp { MkLam($2, $4, $6) }
+    | p=prim LPAREN  es=separated_list(COMMA,exp) RPAREN  { Prim(p,es) }
 
 arm:
   pat DARROW comp { ($1, $3) }
@@ -128,6 +136,12 @@ const:
     | INT  { Int $1 }
     | BOOL { Bool $1 }
     | UNIT { Unit }
+
+prim:
+    | PLUS { Plus }
+    | NOT  { Not }
+    | AND  { And }
+    | APPEND { Append }
 
 mark_position(X):
   x = X

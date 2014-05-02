@@ -79,13 +79,13 @@ and comments level = parse
                 }
 
 {
-  let read_file parser fn =
+  let read_file parse fn =
   try
     let fh = open_in fn in
     let lex = Lexing.from_channel fh in
     lex.Lexing.lex_curr_p <- {lex.Lexing.lex_curr_p with Lexing.pos_fname = fn};
     try
-      let terms = parser lex in
+      let terms = parse lex in
       close_in fh;
       terms
     with
@@ -96,14 +96,14 @@ and comments level = parse
     Sys_error msg -> Error.fatal ~loc:Position.nowhere "%s" msg
 
 
-  let read_toplevel parser () =
+  let read_toplevel parse () =
     let ends_with_backslash str =
       let i = String.length str - 1 in
         if i >= 0 && str.[i] = '\\'
         then (true, String.sub str 0 i)
         else (false, str)
     in
-      
+
     let rec read_more prompt acc =
       print_string prompt ;
       let str = read_line () in
@@ -116,5 +116,5 @@ and comments level = parse
 
     let str = read_more "# " "" in
     let lex = Lexing.from_string (str ^ "\n") in
-      parser lex
+      parse lex
 }
