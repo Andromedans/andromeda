@@ -74,6 +74,8 @@ and pattern =
   | PTuple of tt_var list
   | PInj of int * tt_var
   | PConst of const
+  | PVar of tt_var
+  | PWild
 
 and result =
   | RVal of exp
@@ -156,6 +158,8 @@ and string_of_pat = function
   | PTuple xs -> tag "PTuple" xs
   | PInj (i,x) -> tag "PInj" [string_of_int i; x]
   | PConst c -> tag "PConst" [string_of_const c]
+  | PVar v -> tag "PVar" [v]
+  | PWild -> "PWild"
 
 and string_of_const = function
   | Int n -> string_of_int n
@@ -222,6 +226,8 @@ and shift_handler cut delta {valH=(x,c); opH} =
 let bound_in_pat var = function
   | PTuple xs -> List.mem var xs
   | PInj(_, x) -> var = x
+  | PVar x -> var = x
+  | PWild -> false
   | PConst _ -> false
 
 

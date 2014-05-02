@@ -1,8 +1,9 @@
 OCAMLBUILD_CFLAGS = -cflags -g,-annot,"-warn-error +a"
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
+#OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
 
-default: brazil.byte
+default: tt.byte
 
 all: brazil.byte tt.byte
 

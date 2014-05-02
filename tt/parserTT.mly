@@ -124,6 +124,7 @@ plain_comp:
     | exp PLUSPLUS exp { Prim(Append, [$1; $3]) }
     | exp ANDAND exp   { Prim(And, [$1; $3]) }
     | BANG exp         { Prim(Not, [$2]) }
+    | LPAREN plain_comp RPAREN { $2 }
 
 arm:
   pat DARROW comp { ($1, $3) }
@@ -131,6 +132,7 @@ arm:
 pat:
     | LBRACK xs=separated_list(COMMA, NAME) RBRACK { PTuple xs }
     | INJ NAME  { PInj($1, $2) }
+    | NAME      { PVar $1 }
     | const     { PConst $1 }
 
 handler:

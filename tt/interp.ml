@@ -40,6 +40,7 @@ let rec eval env ((exp',loc) as exp) =
 *)
 
 let rec run env (comp, loc) =
+  Print.debug "%s" (I.string_of_computation (comp,loc));
   match comp with
   | I.Val e  ->
       (* eval-val *)
@@ -84,6 +85,9 @@ let rec run env (comp, loc) =
           |  arm::arms ->
               begin
                 match fst e, arm with
+                | _, (I.PVar x, c) ->
+                    run env (I.subst_computation x e c)
+
                 | I.Tuple es, (I.PTuple xs, c) when List.length es = List.length xs ->
                     (* eval-match-tuple *)
                     let sigma = List.combine xs es  in
@@ -97,6 +101,9 @@ let rec run env (comp, loc) =
                     (* eval-match-const *)
                     run env c
 
+                | _, (I.PWild, c) ->
+                    run env c
+
                 | _, _ -> loop arms
               end  in
         loop arms
@@ -105,9 +112,9 @@ let rec run env (comp, loc) =
         (* eval-op *)
         I.ROp(tag, Context.empty, e, I.KHole)
 
-    | I.WithHandle(e,c) ->
+    | I.WithHandle(h,c) ->
         begin
-          match fst e with
+          match fst h with
           | I.Handler {I.valH=(x,cv); I.opH}  ->
               begin
                 match run env c with
@@ -116,12 +123,13 @@ let rec run env (comp, loc) =
                     run env (I.subst_computation x ev cv)
                 | I.ROp (opi, delta, e, k1) as r ->
                     begin
+                      Print.debug "Handler body produced operation %s" opi;
                       let env' = {env with ctx = Context.append env.ctx delta}  in
-                      let k1' = I.ContExp(env.ctx, delta, I.KWithHandle(e, k1)), Position.nowhere  in
+                      let k1' = I.ContExp(env.ctx, delta, I.KWithHandle(h, k1)), Position.nowhere  in
                       let handler_result =
                         let rec loop = function
                           | [] -> r
-                          | (op, pat, kvar, c)::rest ->
+                          | (op, pat, kvar, c)::rest when op = opi ->
                               begin
                                 match fst e, pat with
                                 | I.Tuple es, I.PTuple xs when List.length es = List.length xs ->
@@ -134,8 +142,15 @@ let rec run env (comp, loc) =
                                 | I.Const a1, I.PConst a2 when a1 = a2 ->
                                     run env' (I.psubst_computation [kvar,k1'] c)
 
+                                | _, I.PVar x ->
+                                    run env' (I.psubst_computation [x,e;kvar,k1'] c)
+
+                                | _, I.PWild ->
+                                    run env' (I.psubst_computation [kvar,k1'] c)
+
                                 | _, _ -> loop rest
-                              end  in
+                              end
+                          | _ :: rest -> loop rest  in
                         loop opH  in
                       match handler_result with
                       | I.RVal e' ->
