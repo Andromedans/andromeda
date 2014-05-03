@@ -3,9 +3,10 @@ OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
 
-default: tt.byte
 
 all: brazil.byte tt.byte
+
+default: tt.byte
 
 brazil.native:
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) brazil.native
