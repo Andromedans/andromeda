@@ -1,0 +1,7 @@
+eval
+  `fun (b : unit) => b`
+
+eval
+   let ty = t`unit` in 
+   lambda x : ty,  debruijn 0
+

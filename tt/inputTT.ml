@@ -56,6 +56,8 @@ and computation' =
   | MkVar of int
   | MkLam of Common.name * exp * computation
   (*| MkApp of exp * exp*)
+  | BrazilTermCode of string
+  | BrazilTypeCode of string
 
 and cont =
   | KHole
@@ -105,51 +107,57 @@ let string_of_primop = function
   | And -> "And"
   | Append -> "Append"
 
-let rec string_of_exp (exp, _loc) =
+let rec string_of_exp ctx (exp, _loc) =
+  let recur = string_of_exp ctx  in
+  let recurc = string_of_computation ctx  in
   match exp with
   | Var x -> tag "Var" [x]
-  | Fun (x,c) -> tag "Fun" [x; string_of_computation c]
-  | Closure (x,c,_) -> tag "Closure" [x; string_of_computation c; "-"]
-  | Handler h -> tag "Handler" [string_of_handler h]
-  | ContExp (_gamma,_delta,k) -> tag "ContExp" ["-"; "-"; string_of_cont k]
-  | Term _b -> "<term>"
-  | Type _t -> "<type>"
-  | Tuple es -> tag "Tuple" (List.map string_of_exp es)
+  | Fun (x,c) -> tag "Fun" [x; recurc c]
+  | Closure (x,c,_) -> tag "Closure" [x; recurc c; "-"]
+  | Handler h -> tag "Handler" [string_of_handler ctx h]
+  | ContExp (_gamma,_delta,k) -> tag "ContExp" ["-"; "-"; string_of_cont ctx k]
+  | Term b -> "`" ^ string_of_term ctx b ^ "`"
+  | Type t -> "t`" ^ string_of_ty ctx t ^ "`"
+  | Tuple es -> tag "Tuple" (List.map recur es)
   | Const c -> string_of_const c
-  | Inj (i,e) -> tag "Inj" [string_of_int i; string_of_exp e]
+  | Inj (i,e) -> tag "Inj" [string_of_int i; recur e]
   | DefaultHandler -> "default"
 
-and string_of_computation (comp, _loc) =
+and string_of_computation ctx (comp, _loc) =
+  let recur = string_of_exp ctx  in
+  let recurc = string_of_computation ctx  in
   match comp with
-  | Val e -> string_of_exp e
-  | App (e1, e2) -> tag "App" [string_of_exp e1; string_of_exp e2]
-  | Let (x,c1,c2) -> tag "Let" [x;
-                                string_of_computation c1;
-                                string_of_computation c2]
-  | Op (op, e) -> tag "Op" [op; string_of_exp e]
-  | WithHandle (e,c) -> tag "WithHandle" [string_of_exp e; string_of_computation c]
-  (*| KApp (e1, e2) -> tag "KApp" [string_of_exp e1; string_of_exp e2]*)
-  | Ascribe (e1, e2) -> tag "Ascribe" [string_of_exp e1; string_of_exp e2]
-  | Prim (op, es) -> tag "Prim" (string_of_primop op :: List.map string_of_exp es)
-  | Match (e, arms) -> tag "match" (string_of_exp e ::
-                                    List.map string_of_arm arms)
-  | Check (t1, t2, e, c) -> tag "Check" ["<type 1>"; "<type 2>"; string_of_exp e;
-                                          string_of_computation c]
+  | Val e -> recur e
+  | App (e1, e2) -> tag "App" [recur e1; recur e2]
+  | Let (x,c1,c2) -> tag "Let" [x; recurc c1; recurc c2]
+  | Op (op, e) -> tag "Op" [op; recur e]
+  | WithHandle (e,c) -> tag "WithHandle" [recur e; recurc c]
+  (*| KApp (e1, e2) -> tag "KApp" [recur e1; recur e2]*)
+  | Ascribe (e1, e2) -> tag "Ascribe" [recur e1; recur e2]
+  | Prim (op, es) -> tag "Prim" (string_of_primop op :: List.map recur es)
+  | Match (e, arms) -> tag "match" (recur e ::
+                                    List.map (string_of_arm ctx) arms)
+  | Check (t1, t2, e, c) -> tag "Check" ["<type 1>"; "<type 2>"; recur e;
+                                          recurc c]
   | MkVar n -> tag "MkVar" [string_of_int n]
-  | MkLam (x,e,c) -> tag "MkLam" [x; string_of_exp e; string_of_computation c]
-  (*| MkApp (e1, e2) -> tag "MkApp" [string_of_exp e1; string_of_exp e2]*)
+  | MkLam (x,e,c) -> tag "MkLam" [x; recur e; recurc c]
+  (*| MkApp (e1, e2) -> tag "MkApp" [recur e1; recur e2]*)
+  | BrazilTermCode s -> "`" ^ s ^ "`"
+  | BrazilTypeCode s -> "t`" ^ s ^ "`"
 
-and string_of_cont k =
+and string_of_cont ctx k =
+  let recur  = string_of_exp ctx in
+  let recurc = string_of_computation ctx  in
+  let recurk = string_of_cont ctx  in
   match k with
   | KHole -> "KHole"
-  | KLet (x,k,c) -> tag "KLet" [x; string_of_cont k;
-                                string_of_computation c]
-  | KWithHandle (e,k) -> tag "KWithHandle" [string_of_exp e; string_of_cont k]
-  | KMkLam (x,t,k) -> tag "KMkLam" [x; "<type>"; string_of_cont k]
+  | KLet (x,k,c) -> tag "KLet" [x; recurk k; recurc c]
+  | KWithHandle (e,k) -> tag "KWithHandle" [recur e; recurk k]
+  | KMkLam (x,t,k) -> tag "KMkLam" [x; "<type>"; recurk k]
 
-and string_of_arm (p,c) = tag "" [string_of_pat p; string_of_computation c]
+and string_of_arm ctx (p,c) = tag "" [string_of_pat p; string_of_computation ctx c]
 
-and string_of_handler _ = "<handler>"
+and string_of_handler ctx _ = "<handler>"
 
 (*and string_of_case (op, terms, c) =*)
     (*tag op  (List.map to_str terms) ^ " => " ^ to_str c*)
@@ -168,8 +176,15 @@ and string_of_const = function
   | Bool b -> string_of_bool b
   | Unit -> "()"
 
-let print exp =
-  print_endline (string_of_exp exp)
+and string_of_term ctx term =
+  ignore (Format.flush_str_formatter ());
+  Print.print Format.str_formatter "%t" (Print.term (Context.names ctx) term);
+  Format.flush_str_formatter ()
+
+and string_of_ty ctx ty =
+  ignore (Format.flush_str_formatter ());
+  Print.print Format.str_formatter "%t" (Print.ty (Context.names ctx) ty);
+  Format.flush_str_formatter ()
 
 (************)
 (* Shifting *)
@@ -211,6 +226,8 @@ and shift_computation cut delta (comp, loc) =
                                    recur e, recurc c)
   | MkVar _n -> comp
   | MkLam(x,e,c) -> MkLam(x, recur e, recurc c)
+  | BrazilTermCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTermCode"
+  | BrazilTypeCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTypeCode"
   (*| MkApp(e1,e2) -> MkApp(recur e1, recur e2)*)
   ), loc
 
@@ -286,6 +303,8 @@ and psubst_computation ?(bvs=0) sigma (comp1, loc) =
       let sigma' = List.remove_assoc x sigma in
       let c' = psubst_computation ~bvs:(bvs+1) sigma' c  in
       MkLam(x, e', c')
+  | BrazilTermCode _ -> comp1
+  | BrazilTypeCode _ -> comp1
   (*| MkApp (e1, e2) -> MkApp (recur e1, recur e2)*)
   ), loc
 

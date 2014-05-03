@@ -40,6 +40,8 @@
 
 %start <Input.toplevel list> file
 %start <Input.toplevel> commandline
+%start <Common.name Input.term> topterm
+%start <Common.name Input.ty> topty
 
 %%
 
@@ -56,6 +58,12 @@ filecontents:
 commandline:
   | topdef EOF       { $1 }
   | topdirective EOF { $1 }
+
+topterm:
+  | term EOF { $1 }
+
+topty:
+  | ty EOF { $1 }
 
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }

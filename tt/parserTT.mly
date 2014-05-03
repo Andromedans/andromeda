@@ -5,6 +5,8 @@
 
 
 %token <bool> BOOL
+%token <string> BRAZILTERM
+%token <string> BRAZILTYPE
 %token <int> INJ
 %token <int> INT
 %token <string> NAME
@@ -130,6 +132,8 @@ plain_comp:
     | exp ANDAND exp   { Prim(And, [$1; $3]) }
     | BANG exp         { Prim(Not, [$2]) }
     | LPAREN plain_comp RPAREN { $2 }
+    | BRAZILTERM       { BrazilTermCode $1 }
+    | BRAZILTYPE       { BrazilTypeCode $1 }
 
 arm:
   pat DARROW comp { ($1, $3) }
@@ -164,6 +168,7 @@ const:
 name:
     | NAME       { $1 }
     | UNDERSCORE { "_" }
+
 mark_position(X):
   x = X
   { x, Position.make $startpos $endpos }

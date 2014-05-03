@@ -104,7 +104,7 @@ let rec exec_cmd interactive env (d, loc) =
                     let t = Typing.type_of env.Interp.ctx b  in
                     {env with Interp.ctx = Ctx.add_def x t b env.Interp.ctx}
                 | _ -> Error.runtime "Result of definition is %s, not a term"
-                            (InputTT.string_of_exp e)
+                            (InputTT.string_of_exp env.Interp.ctx e)
               end
           | InputTT.ROp (op, _, _, _) ->
               Error.runtime "Uncaught operation %s" op
@@ -113,7 +113,7 @@ let rec exec_cmd interactive env (d, loc) =
         (begin
           match Interp.run env comp with
           | InputTT.RVal e ->
-              Format.printf "%s@." (InputTT.string_of_exp e)
+              Format.printf "%s@." (InputTT.string_of_exp env.Interp.ctx e)
           | InputTT.ROp (op, _, _, _) ->
               Format.printf "Uncaught operation %s" op
         end; env)
@@ -127,7 +127,7 @@ let rec exec_cmd interactive env (d, loc) =
                     let t = Typing.type_of env.Interp.ctx b  in
                     {env with Interp.ctx = Ctx.add_def x t b env.Interp.ctx}
                 | _ -> Error.runtime "Result of definition is %s, not a term"
-                            (InputTT.string_of_exp e)
+                            (InputTT.string_of_exp env.Interp.ctx e)
               end
           | InputTT.ROp (op, _, _, _) ->
               Error.runtime "Uncaught operation %s" op

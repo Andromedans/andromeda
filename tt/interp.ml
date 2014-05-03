@@ -40,7 +40,7 @@ let rec eval env ((exp',loc) as exp) =
 *)
 
 let rec run env (comp, loc) =
-  Print.debug "%s" (I.string_of_computation (comp,loc));
+  Print.debug "%s" (I.string_of_computation env.ctx (comp,loc));
   match comp with
   | I.Val e  ->
       (* eval-val *)
@@ -252,6 +252,39 @@ let rec run env (comp, loc) =
           | I.Term _, _ -> Error.runtime ~loc "Non-type in ascribe"
           | _, _ -> Error.runtime ~loc "Non-term in ascribe"
         end
+
+    | I.BrazilTermCode text ->
+        begin
+          let lexbuf = Lexing.from_string text in
+          let term =
+             try
+                Parser.topterm Lexer.token lexbuf
+             with
+              | Parser.Error ->
+                  Error.syntax ~loc:(Position.of_lex lexbuf) "Brazil code at %s" (Position.to_string loc)
+              | Failure "lexing: empty token" ->
+                  Error.syntax ~loc:(Position.of_lex lexbuf) "unrecognised symbol in Brazil literal at %s." (Position.to_string loc)   in
+          let term = Debruijn.term (Context.names env.ctx) term in
+          let term, _ty = Typing.syn_term env.ctx term  in
+          I.RVal (I.Term term, loc)
+        end
+
+    | I.BrazilTypeCode text ->
+        begin
+          let lexbuf = Lexing.from_string text in
+          let term =
+             try
+                Parser.topty Lexer.token lexbuf
+             with
+              | Parser.Error ->
+                  Error.syntax ~loc:(Position.of_lex lexbuf) "Brazil code at %s" (Position.to_string loc)
+              | Failure "lexing: empty token" ->
+                  Error.syntax ~loc:(Position.of_lex lexbuf) "unrecognised symbol in Brazil literal at %s." (Position.to_string loc)   in
+          let ty = Debruijn.ty (Context.names env.ctx) term in
+          let ty = Typing.is_type env.ctx ty  in
+          I.RVal (I.Type ty, loc)
+        end
+
 
 and eok env exp =
   (* XXX *)

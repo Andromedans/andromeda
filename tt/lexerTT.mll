@@ -33,6 +33,9 @@ let numeral = ['0'-'9']+
 let start_longcomment = "/*"
 let end_longcomment = "*/"
 
+let brazil_term_code = '`' [^ '`' '\n']* '`'
+let brazil_type_code = "t`" [^ '`' '\n']* '`'
+
 rule token = parse
   | start_longcomment { comments 0 lexbuf }
 
@@ -77,6 +80,15 @@ rule token = parse
                               List.assoc s reserved
                             with Not_found -> NAME s
                         }
+
+  | brazil_term_code as s   { (* Strip quotes *)
+                              let code = String.sub s 1 (String.length s - 2) in
+                              BRAZILTERM code }
+
+  | brazil_type_code as s   { (* Strip quotes *)
+                              let code = String.sub s 2 (String.length s - 3) in
+                              BRAZILTYPE code
+                            }
 
   | _ as c              { Error.syntax
                           ~loc:(Position.make (Lexing.lexeme_start_p lexbuf) (Lexing.lexeme_end_p lexbuf))
