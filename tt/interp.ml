@@ -112,10 +112,10 @@ let rec run env (comp, loc) =
         (* eval-op *)
         I.ROp(tag, Context.empty, e, I.KHole)
 
-    | I.WithHandle(h,c) ->
+    | I.WithHandle(h0,c) ->
         begin
-          match fst h with
-          | I.Handler {I.valH=(xv,cv); I.opH; I.finH=(xf,cf)}  ->
+          match fst h0 with
+          | I.Handler {I.valH=(xv,cv); I.opH; I.finH=None}  ->
               begin
                 match run env c with
                 | I.RVal ev ->
@@ -125,7 +125,7 @@ let rec run env (comp, loc) =
                     begin
                       Print.debug "Handler body produced operation %s" opi;
                       let env' = {env with ctx = Context.append env.ctx delta}  in
-                      let k1' = I.ContExp(env.ctx, delta, I.KWithHandle(h, k1)), Position.nowhere  in
+                      let k1' = I.ContExp(env.ctx, delta, I.KWithHandle(h0, k1)), Position.nowhere  in
                       let handler_result =
                         let rec loop = function
                           | [] -> r
@@ -155,14 +155,16 @@ let rec run env (comp, loc) =
                       match handler_result with
                       | I.RVal e' ->
                           if eok env e' then
-                            run env (I.psubst_computation [xf, e'] cf)
+                            I.RVal e'
                           else
                             Error.runtime ~loc "Handler returned value with too many variables"
                       | I.ROp(opj, delta', e', k2) ->
-                          (* XXX Do we need to do anything about the finally clause here? *)
                           I.ROp(opj, Context.append delta delta', e', k2)
                     end
               end
+         | I.Handler ({I.finH=Some (xf,cf)} as h) ->
+             let h' = { h with I.finH = None }  in
+             run env (I.Let(xf, (I.WithHandle((I.Handler h',snd h0),c),loc), cf), loc)
          | _ ->
               Error.runtime ~loc "Non-handler expression given to with/handle"
         end
