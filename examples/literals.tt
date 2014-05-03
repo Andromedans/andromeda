@@ -5,3 +5,11 @@ eval
    let ty = t`unit` in 
    lambda x : ty,  debruijn 0
 
+eval
+   let ty = t`unit` in 
+   lambda z : ty, `z` 
+     
+
+eval
+   let ty = t`unit` in
+   lambda z : ty, (let z = `z` in z :> ty)
