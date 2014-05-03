@@ -95,6 +95,21 @@ and toplevel' =
   | Help
   | Quit
 
+
+let mkAscribe ?(loc=Position.nowhere) e1 e2 = Ascribe (e1,e2), loc
+let mkCheck ?(loc=Position.nowhere) t1 t2 e c = Check (t1,t2,e,c), loc
+let mkConst ?(loc=Position.nowhere) const = Const const, loc
+let mkContExp ?(loc=Position.nowhere) delta gamma k = ContExp(delta, gamma, k), loc
+let mkLet ?(loc=Position.nowhere) x c1 c2 = Let (x,c1,c2), loc
+let mkOp ?(loc=Position.nowhere) op arg = Op(op, arg), loc
+let mkTerm ?(loc=Position.nowhere) term = Term term, loc
+let mkTuple ?(loc=Position.nowhere) es = Tuple es, loc
+let mkType ?(loc=Position.nowhere) ty = Type ty, loc
+let mkVal ?(loc=Position.nowhere) e = Val e, loc
+
+
+
+
 (** String conversion functions to be used only for debugging where proper printing of
     terms is not available. *)
 
@@ -352,7 +367,7 @@ and subst_computation x2 e2 = psubst_computation [(x2,e2)]
 
 let rec kfill ((_, loc) as exp) = function
   | KHole -> Val exp, loc
-  | KLet (x,k,c) -> Let(x, kfill exp k, c), Position.nowhere
+  | KLet (x,k,c) -> mkLet x (kfill exp k) c
   | KWithHandle(e, k) -> WithHandle(e, kfill exp k), Position.nowhere
   | KMkLam(x, t, k) -> MkLam(x, (Type t, snd t), kfill exp k), Position.nowhere
 

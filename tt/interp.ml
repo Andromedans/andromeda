@@ -125,7 +125,7 @@ let rec run env (comp, loc) =
                     begin
                       Print.debug "Handler body produced operation %s" opi;
                       let env' = {env with ctx = Context.append env.ctx delta}  in
-                      let k1' = I.ContExp(env.ctx, delta, I.KWithHandle(h0, k1)), Position.nowhere  in
+                      let k1' = I.mkContExp env.ctx delta (I.KWithHandle(h0, k1))  in
                       let handler_result =
                         let rec loop = function
                           | [] -> r
@@ -222,15 +222,15 @@ let rec run env (comp, loc) =
           (* eval-prim *)
           let answer =
             match op, es with
-            | I.Not, [I.Const(I.Bool b), _] -> I.Const(I.Bool (not b))
+            | I.Not, [I.Const(I.Bool b), _] -> I.mkConst(I.Bool (not b))
             | I.And, [I.Const(I.Bool b1), _; I.Const(I.Bool b2), _] ->
-                  I.Const(I.Bool (b1 && b2))
+                  I.mkConst(I.Bool (b1 && b2))
             | I.Plus, [I.Const(I.Int n1), _; I.Const(I.Int n2), _] ->
-                  I.Const(I.Int (n1 + n2))
+                  I.mkConst(I.Int (n1 + n2))
             | I.Append, [I.Tuple es1, _; I.Tuple es2, _] ->
-                  I.Tuple (es1 @ es2)
+                  I.mkTuple (es1 @ es2)
             | _, _ -> Error.runtime ~loc "Bad arguments to primitive"  in
-          I.RVal (answer, Position.nowhere)
+          I.RVal answer
         end
 
     | I.Ascribe(e1, e2) ->
@@ -241,11 +241,10 @@ let rec run env (comp, loc) =
                 let u = Typing.type_of env.ctx b  in
                 let computation =
                   let x1 = fresh_name() in
-                  let loc = Position.nowhere in
-                  I.Let(x1, (I.Op("equivTy", (I.Tuple [I.Type t, loc; I.Type u, loc], loc)), loc),
-                        (I.Check(t, u, (I.Var x1, loc),
-                              (I.Val (I.Term (Syntax.Ascribe(b, t), loc), loc), loc)),
-                              loc)), loc in
+                  I.mkLet x1 (I.mkOp "equivTy" (I.mkTuple [I.mkType t; I.mkType u]))
+                          (I.mkCheck
+                              t u (I.Var x1, loc)
+                              (I.mkVal (I.mkTerm (Syntax.Ascribe(b, t), Position.nowhere))))  in
                 run env computation
 
               end
