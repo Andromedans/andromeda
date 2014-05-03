@@ -45,6 +45,7 @@
 \newcommand{\bty}[1]{\langle\,#1\,\rangle} % brazil type as data
 
 \newcommand{\handler}[6][n]{\mathsf{handler}\; \val #2 \mapsto #3 \mid (\opPat{#4}{#5} \mapsto #6_{#1})_{i=1}^{#1}}
+\newcommand{\fhandler}[8][n]{\mathsf{handler}\; \val #2 \mapsto #3 \mid (\opPat{#4}{#5} \mapsto #6_{#1})_{i=1}^{#1} \mid \mathsf{finally}\; #7\mapsto #8}
 
 \newcommand{\makeApp}[2]{\mathsf{app}(#1,#2)} % introduce a Brazil application
 \newcommand{\debruijn}[1]{\mathsf{debruijn}\,#1} % ugly hack
@@ -85,6 +86,7 @@
 \newcommand{\kok}[3][\G]{#1 \vdash #3 \ : \ #2\to\mathsf{ok}}
 
 \newcommand{\typicalhandler}{\handler{\X}{\C_v}{\X}{\K}{\C}}
+\newcommand{\finallyhandler}{\fhandler{\X}{\C_v}{\X}{\K}{\C}{\X_f}{\C_f}}
 
 \newcommand{\assertEquivType}[3]{\mathsf{check}\;#1\equiv #2\;\mathsf{using}\;#3\;\mathsf{in}\;}
 
@@ -161,7 +163,8 @@
 %    \bnfor  & \abs{\rgn}{\KK} & \text{abstraction} \\
 
   \text{Handler $\h$}
-  \bnf & \multicolumn{2}{l}{\typicalhandler}\\[5pt]
+  \bnf & \multicolumn{2}{l}{\typicalhandler}\\
+  \bnfor & \multicolumn{2}{l}{\finallyhandler}\\[5pt]
 
   \text{Pattern $\pat$}
   \bnf & \tuple{\X_1,\ldots,\X_n}\\
@@ -312,6 +315,19 @@ Judgments:
     {\withhandle{\h}{\C}}
     {\val \e'}
   }
+
+\infer[eval-handle-finally]
+  {
+    \h = \finallyhandler\\
+    \h' = \typicalhandler\\
+    \evalto{(\letin{\X_f = \withhandle{\h'}{\C}} {\C_f})}{\R}
+  }
+  {
+    \evalto
+    {\withhandle{\h}{\C}}
+    {\R}
+  }
+
 
   \infer[eval-handle-op-op]
   {
