@@ -108,9 +108,9 @@ let rec run env (comp, loc) =
               end  in
         loop arms
 
-    | I.Op(tag, e) ->
-        (* eval-op *)
-        I.ROp(tag, Context.empty, e, I.KHole)
+    | I.Op(tag, arg) ->
+      (* eval-op *)
+      I.ROp(tag, Context.empty, arg, I.KHole)
 
     | I.WithHandle(h0,c) ->
         begin
@@ -300,5 +300,59 @@ and lambdaize env x t =
   loop
 
 
+(* Adapted from brazil/typing.ml and the original src/equivalence.ml *)
+
+(* [firstSome lst ] takes a list of [lazy] thunks returning ['a option]s. If any
+   is [Some x] then the answer is [Some x] and no following thunks are forced).
+   If all thunks return None, the final answer is [None].
+*)
+let rec firstSome = function
+  | [] -> Error.runtime "firstSome called with no thunks"
+  | [lazy thunkResult] -> thunkResult
+  | (lazy thunkResult) :: thunks ->
+    begin
+      match thunkResult with
+      | None -> firstSome thunks
+      | Some answer -> Some answer
+    end
 
 
+let rec joinSome = function
+  | [] -> Error.runtime "joinSome called with no thunks"
+  | [lazy thunkresult] -> thunkresult
+  | (lazy thunkresult) :: thunks ->
+    begin
+      match thunkresult with
+      | None -> None
+      | Some firstAnswers ->
+        begin
+          match joinSome thunks with
+          | None -> None
+          | Some restAnswers ->  Some (firstAnswers @ restAnswers)
+        end
+    end
+
+let rec equiv_ty env t u =
+  if Syntax.equal_ty t u then
+    Some []
+  else
+    match Syntax.name_of t, Syntax.name_of u with
+    | Some (e_t, alpha), Some (e_u, beta) ->
+        begin
+          if Universe.eq alpha beta then
+            equiv env e_t e_u (Syntax.Universe alpha, Position.nowhere)
+          else
+            None
+        end
+    | _, _ -> None
+
+and equiv env term1 term2 t =
+
+  (* chk-eq-refl *)
+  if (Syntax.equal term1 term2) then
+    Some []
+
+  else
+    let _t' = Typing.whnfs_ty env.ctx t in
+    None
+    (* equiv_ext env term1 term2 t' *)
