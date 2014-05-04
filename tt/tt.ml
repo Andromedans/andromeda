@@ -88,6 +88,7 @@ let rec exec_cmd interactive env (d, loc) =
               begin
                 match fst e with
                 | InputTT.Type t ->
+                    let t = Syntax.simplify_ty t  in
                     {env with Interp.ctx = Ctx.add_vars (List.map (fun x -> (x,t)) xs) env.Interp.ctx}
                 | _ -> Error.runtime "Classifier is not a type"
               end
@@ -124,7 +125,9 @@ let rec exec_cmd interactive env (d, loc) =
               begin
                 match fst e with
                 | InputTT.Term b ->
+                    let b = Syntax.simplify b  in
                     let t = Typing.type_of env.Interp.ctx b  in
+                    let t = Syntax.simplify_ty t  in
                     {env with Interp.ctx = Ctx.add_def x t b env.Interp.ctx}
                 | _ -> Error.runtime "Result of definition is %s, not a term"
                             (InputTT.string_of_exp env.Interp.ctx e)

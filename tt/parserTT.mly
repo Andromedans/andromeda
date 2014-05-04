@@ -87,9 +87,9 @@ commandline:
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
   | LET NAME COLONEQ comp                  { TopLet ($2, $4) }
-  | DEFINE NAME COLONEQ comp               { TopDef ($2, $4) }
+  | DEFINE ttname COLONEQ comp               { TopDef ($2, $4) }
   | EVAL comp                              { TopEval $2 }
-  | ASSUME nonempty_list(NAME) COLON comp  { TopParam ($2, $4) }
+  | ASSUME nonempty_list(ttname) COLON comp  { TopParam ($2, $4) }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
@@ -168,6 +168,10 @@ const:
 name:
     | NAME       { $1 }
     | UNDERSCORE { "_" }
+
+ttname:
+    | NAME { $1 }
+    | INT  { string_of_int $1 }
 
 mark_position(X):
   x = X

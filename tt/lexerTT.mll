@@ -23,6 +23,30 @@
     ("with", WITH) ;
   ]
 
+(* Code for recording where newlines are found in the input, so that
+   we can use the built-in support for converting error locations
+   (character-in-the-file) into a more human-readable line/column
+   format.⎵
+
+   This function was adapted from the example code at
+   http://plus.kaist.ac.kr/~shoh/ocaml/ocamllex-ocamlyacc/ocamlyacc-tutorial/sec-tracking-locations.html
+*)
+let incr_linenums n lexbuf =
+    let pos = lexbuf.Lexing.lex_curr_p in
+    lexbuf.Lexing.lex_curr_p <- { pos with
+      Lexing.pos_lnum = pos.Lexing.pos_lnum + n;
+      Lexing.pos_bol =  pos.Lexing.pos_cnum;
+    }
+
+let incr_linenum = incr_linenums 1
+
+let incr_linenum_string str lexbuf =
+  let f = function
+    | '\n' -> incr_linenum lexbuf
+    | _ -> ()
+  in
+    String.iter f str
+
 }
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
@@ -33,13 +57,13 @@ let numeral = ['0'-'9']+
 let start_longcomment = "/*"
 let end_longcomment = "*/"
 
-let brazil_term_code = '`' [^ '`' '\n']* '`'
-let brazil_type_code = "t`" [^ '`' '\n']* '`'
+let brazil_term_code = '`' [^ '`']* '`'
+let brazil_type_code = "t`" [^ '`']* '`'
 
 rule token = parse
   | start_longcomment { comments 0 lexbuf }
 
-  | '\n'                { Lexing.new_line lexbuf; token lexbuf }
+  | '\n'                { incr_linenum lexbuf; token lexbuf }
   | "//"[^'\n']*        { token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
   | "#context"          { CONTEXT }
@@ -83,10 +107,12 @@ rule token = parse
 
   | brazil_term_code as s   { (* Strip quotes *)
                               let code = String.sub s 1 (String.length s - 2) in
+                              incr_linenum_string s lexbuf;
                               BRAZILTERM code }
 
   | brazil_type_code as s   { (* Strip quotes *)
                               let code = String.sub s 2 (String.length s - 3) in
+                              incr_linenum_string s lexbuf;
                               BRAZILTYPE code
                             }
 
