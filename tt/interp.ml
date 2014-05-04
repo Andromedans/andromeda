@@ -13,11 +13,28 @@ let empty_env =
     ttenv = SM.empty;
   }
 
+(********************)
+(* Helper Functions *)
+(********************)
+
+(* Printing *Syntax* types and terms *)
+
+let print_ty env ty =
+  Print.ty (Context.names env.ctx) ty
+
+let print_term env term =
+  Print.term (Context.names env.ctx) term
+
+let print_universe = Print.universe
+
+(* Gensym *)
+
 let fresh_name =
   let counter = ref 0 in
   fun () -> (let n = !counter in
              let _ = incr counter in
              "X$" ^ string_of_int n)
+
 (*
 let rec eval env ((exp',loc) as exp) =
   match exp' with
@@ -38,6 +55,59 @@ let rec eval env ((exp',loc) as exp) =
   | I.Term _ -> exp
   | I.Type _ -> exp
 *)
+
+let lambdaize env x t =
+  let ctx' = Context.add_var x t env.ctx in
+  let rec loop = function
+    | I.Term body, loc ->
+        I.Term (Syntax.Lambda(x, t, Typing.type_of ctx' body, body), loc), loc
+    | I.Tuple es, loc ->
+        I.Tuple (List.map loop es), loc
+    | (_, loc) -> Error.runtime ~loc "Bad body to MkLam"  in
+  loop
+
+
+
+(* [firstSome lst ] takes a list of [lazy] thunks returning ['a option]s. If any
+   is [Some x] then the answer is [Some x] and no following thunks are forced).
+   If all thunks return None, the final answer is [None].
+*)
+let rec firstSome = function
+  | [] -> Error.runtime "firstSome called with no thunks"
+  | [lazy thunkResult] -> thunkResult
+  | (lazy thunkResult) :: thunks ->
+    begin
+      match thunkResult with
+      | None -> firstSome thunks
+      | Some answer -> Some answer
+    end
+
+
+let rec joinSome = function
+  | [] -> Error.runtime "joinSome called with no thunks"
+  | [lazy thunkresult] -> thunkresult
+  | (lazy thunkresult) :: thunks ->
+    begin
+      match thunkresult with
+      | None -> None
+      | Some firstAnswers ->
+        begin
+          match joinSome thunks with
+          | None -> None
+          | Some restAnswers ->  Some (firstAnswers @ restAnswers)
+        end
+    end
+let extend_context_with_witnesses ctx0 loc =
+  let rec loop = function
+    | [] -> ctx0
+    | w::ws ->
+        begin
+          match fst w with
+          | I.Term b -> Context.add_equation b (Typing.type_of ctx0 b) (loop ws)
+          | _ -> Error.runtime ~loc "Witness is not a term"
+        end  in
+  loop
+
 
 let rec run env (comp, loc) =
   Print.debug "%s" (I.string_of_computation env.ctx (comp,loc));
@@ -62,6 +132,27 @@ let rec run env (comp, loc) =
               run env (I.kfill e2 k)
             else
               Error.runtime ~loc "Context length mismatch in eval-kapp"
+
+        | I.Term b1, I.Term b2 ->
+            begin
+              let t1 = Typing.type_of env.ctx b1  in
+              match Typing.whnfs_ty env.ctx t1 with
+              | Syntax.Prod(x,t,u), _ ->
+                  begin
+                    let t2 = Typing.type_of env.ctx b2 in
+                    match equiv_ty env t t2 with
+                    | Some ws ->
+                        let ctx' = extend_context_with_witnesses env.ctx loc ws in
+                        if Typing.equiv_ty ctx' t t2 then
+                          I.RVal (I.mkTerm (Syntax.App((x,t,u),b1,b2), loc))
+                        else
+                          Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
+                    | None -> Error.runtime ~loc
+                      "Bad mkApp. Why is@ %t@ == %t" (print_ty env t) (print_ty env t2)
+
+                  end
+              | _ -> Error.runtime ~loc "Can't prove operator in application is a product"
+            end
 
         | _, _ -> Error.runtime ~loc "Bad application"
       end
@@ -289,50 +380,10 @@ and eok env exp =
   (* XXX *)
   true
 
-and lambdaize env x t =
-  let ctx' = Context.add_var x t env.ctx in
-  let rec loop = function
-    | I.Term body, loc ->
-        I.Term (Syntax.Lambda(x, t, Typing.type_of ctx' body, body), loc), loc
-    | I.Tuple es, loc ->
-        I.Tuple (List.map loop es), loc
-    | (_, loc) -> Error.runtime ~loc "Bad body to MkLam"  in
-  loop
-
 
 (* Adapted from brazil/typing.ml and the original src/equivalence.ml *)
 
-(* [firstSome lst ] takes a list of [lazy] thunks returning ['a option]s. If any
-   is [Some x] then the answer is [Some x] and no following thunks are forced).
-   If all thunks return None, the final answer is [None].
-*)
-let rec firstSome = function
-  | [] -> Error.runtime "firstSome called with no thunks"
-  | [lazy thunkResult] -> thunkResult
-  | (lazy thunkResult) :: thunks ->
-    begin
-      match thunkResult with
-      | None -> firstSome thunks
-      | Some answer -> Some answer
-    end
-
-
-let rec joinSome = function
-  | [] -> Error.runtime "joinSome called with no thunks"
-  | [lazy thunkresult] -> thunkresult
-  | (lazy thunkresult) :: thunks ->
-    begin
-      match thunkresult with
-      | None -> None
-      | Some firstAnswers ->
-        begin
-          match joinSome thunks with
-          | None -> None
-          | Some restAnswers ->  Some (firstAnswers @ restAnswers)
-        end
-    end
-
-let rec equiv_ty env t u =
+and equiv_ty env t u =
   if Syntax.equal_ty t u then
     Some []
   else
@@ -342,12 +393,16 @@ let rec equiv_ty env t u =
           if Universe.eq alpha beta then
             equiv env e_t e_u (Syntax.Universe alpha, Position.nowhere)
           else
-            None
+            (Print.debug "Unequal universes in equiv_ty!";
+             None)
         end
-    | _, _ -> None
+    | _, _ ->
+        Error.runtime "equiv_ty couldn't find the name of a type!"
 
 and equiv env term1 term2 t =
 
+  Print.debug "equiv: %t == %t @ %t"
+    (print_term env term1) (print_term env term2) (print_ty env t);
   (* chk-eq-refl *)
   if (Syntax.equal term1 term2) then
     Some []

@@ -26,14 +26,12 @@ assume N_ind_S :
     N_ind P z f (S m) == f m (N_ind P z f m)
    `
 
-define id := `N_ind (fun _ : N => N)`
+// define id := `N_ind (fun _ : N => N)`
 
-/*
 define id := 
   let x = `N_ind` in
   let y = `(fun _ : N => N)` in
   x y
-  */
 
 define plus :=
    `
