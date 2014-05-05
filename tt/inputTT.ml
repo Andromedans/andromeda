@@ -102,6 +102,7 @@ let mkCheck ?(loc=Position.nowhere) t1 t2 e c = Check (t1,t2,e,c), loc
 let mkConst ?(loc=Position.nowhere) const = Const const, loc
 let mkContExp ?(loc=Position.nowhere) delta gamma k = ContExp(delta, gamma, k), loc
 let mkHandler ?(loc=Position.nowhere) h = Handler h, loc
+let mkLam ?(loc=Position.nowhere) x e c = MkLam (x,e,c), loc
 let mkLet ?(loc=Position.nowhere) x c1 c2 = Let (x,c1,c2), loc
 let mkOp ?(loc=Position.nowhere) op arg = Op(op, arg), loc
 let mkTerm ?(loc=Position.nowhere) term = Term term, loc

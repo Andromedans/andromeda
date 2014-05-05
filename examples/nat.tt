@@ -29,9 +29,8 @@ assume N_ind_S :
 // define id := `N_ind (fun _ : N => N)`
 
 define id := 
-  let x = `N_ind` in
-  let y = `(fun _ : N => N)` in
-  x y
+   // makeApp variant
+  `N_ind` `(fun _ : N => N)`
 
 define plus :=
    `

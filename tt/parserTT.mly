@@ -86,10 +86,10 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | LET NAME COLONEQ comp                  { TopLet ($2, $4) }
-  | DEFINE ttname COLONEQ comp               { TopDef ($2, $4) }
-  | EVAL comp                              { TopEval $2 }
-  | ASSUME nonempty_list(ttname) COLON comp  { TopParam ($2, $4) }
+  | LET NAME COLONEQ comp0                  { TopLet ($2, $4) }
+  | DEFINE ttname COLONEQ comp0               { TopDef ($2, $4) }
+  | EVAL comp0                              { TopEval $2 }
+  | ASSUME nonempty_list(ttname) COLON comp0  { TopParam ($2, $4) }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
@@ -104,39 +104,72 @@ sso :
 
 (* Main syntax tree *)
 
-exp: mark_position(plain_exp) { $1 }
-plain_exp:
+(* Only know the end when we see it *)
+exp0: mark_position(plain_exp0) { $1 }
+plain_exp0:
+    | FUN name DARROW comp0   { Fun ($2, $4) }
+    | plain_exp1              { $1 }
+
+
+(* Has a clearly demarcated end token, known from the start *)
+exp1: mark_position(plain_exp1) { $1 }
+plain_exp1:
     | NAME                              { Var $1 }
     | handler                { Handler $1 }
-    | LBRACK es=separated_list(COMMA, exp) RBRACK    { Tuple es }
+    | LBRACK es=separated_list(COMMA, exp0) RBRACK    { Tuple es }
     | const                  { Const $1 }
-    | INJ exp               { Inj ($1, $2) }
-    | LPAREN plain_exp RPAREN      { $2 }
-    | FUN name DARROW comp    { Fun ($2, $4) }
+    | INJ exp1               { Inj ($1, $2) }
+    | LPAREN plain_exp0 RPAREN      { $2 }
     | DEFAULT { DefaultHandler }
 
-comp: mark_position(plain_comp) { $1 }
-plain_comp:
-    | VAL exp        { Val $2 }
-    | exp exp        { App ($1, $2) }
-    | exp ASCRIBE exp        { Ascribe ($1, $3) }
-    | LET name EQ comp IN comp { Let($2, $4, $6) }
-    | OP NAME exp    { Op ($2, $3) }
-    | WITH exp HANDLE comp  { WithHandle ($2, $4) }
-    | HANDLE comp WITH exp  { WithHandle ($4, $2) }
-    | MATCH e=exp WITH option(BAR) lst=separated_list(BAR, arm) END { Match (e, lst) }
+(* Only know the ending when we see it *)
+comp0: mark_position(plain_comp0) { $1 }
+plain_comp0:
+    | VAL exp0        { Val $2 }
+
+    | exp1 exp1        { App ($1, $2) }
+    | exp1 comp1       { let loc = Position.make $startpos $endpos in
+                          Let("arg val", $2, mkApp ~loc $1 (mkVar ~loc "arg val")) }
+    | comp1 exp1       { let loc = Position.make $startpos $endpos in
+                          Let("fn val", $1, mkApp ~loc (mkVar ~loc "fn val") $2) }
+    | comp1 comp1      { let loc = Position.make $startpos $endpos in
+                                 Let("fn val", $1,
+                                      mkLet ~loc "arg val" $2
+                                            (mkApp ~loc (mkVar ~loc "fn val") (mkVar ~loc "arg val"))) }
+
+    | exp1 ASCRIBE exp1        { Ascribe ($1, $3) }
+    | exp1 ASCRIBE comp0       { let loc = Position.make $startpos $endpos in
+                                 Let("ascribe annot", $3, mkAscribe ~loc $1 (mkVar ~loc "ascribe annot")) }
+    | comp1 ASCRIBE exp1       { let loc = Position.make $startpos $endpos in
+                                 Let("ascribe val", $1, mkAscribe ~loc (mkVar ~loc "ascribe val") $3) }
+    | comp1 ASCRIBE comp0      { let loc = Position.make $startpos $endpos in
+                                 Let("ascribe val", $1,
+                                      mkLet ~loc "ascribe annot" $3
+                                            (mkAscribe ~loc (mkVar ~loc "ascribe val") (mkVar ~loc "ascribe annot"))) }
+
+    | OP NAME exp1    { Op ($2, $3) }
+    | LET name EQ comp0 IN comp0 { Let($2, $4, $6) }
+    | HANDLE comp0 WITH exp1  { WithHandle ($4, $2) }
+    | WITH exp1 HANDLE comp0  { WithHandle ($2, $4) }
+    | LAMBDA name COLON exp0 COMMA comp0 { MkLam($2, $4, $6) }
+    | LAMBDA name COLON comp0 COMMA comp0
+         { Let("lambda annot", $4, mkLam $2 (mkVar "lambda annot") $6) }
+    | exp1 PLUS exp1 { Prim(Plus, [$1; $3]) }
+    | exp1 PLUSPLUS exp1 { Prim(Append, [$1; $3]) }
+    | exp1 ANDAND exp1   { Prim(And, [$1; $3]) }
+    | BANG exp1         { Prim(Not, [$2]) }
+    | plain_comp1    { $1 }
+
+(* From the start, we know what the final token will be *)
+comp1: mark_position(plain_comp1) { $1 }
+plain_comp1:
+    | MATCH e=exp1 WITH option(BAR) lst=separated_list(BAR, arm) END { Match (e, lst) }
     | DEBRUIJN INT       { MkVar $2 }
-    | LAMBDA name COLON exp COMMA comp { MkLam($2, $4, $6) }
-    | exp PLUS exp { Prim(Plus, [$1; $3]) }
-    | exp PLUSPLUS exp { Prim(Append, [$1; $3]) }
-    | exp ANDAND exp   { Prim(And, [$1; $3]) }
-    | BANG exp         { Prim(Not, [$2]) }
-    | LPAREN plain_comp RPAREN { $2 }
+    | LPAREN plain_comp0 RPAREN { $2 }
     | BRAZILTERM       { BrazilTermCode $1 }
     | BRAZILTYPE       { BrazilTypeCode $1 }
-
 arm:
-  pat DARROW comp { ($1, $3) }
+  pat DARROW comp0 { ($1, $3) }
 
 pat:
     | LBRACK xs=separated_list(COMMA, NAME) RBRACK { PTuple xs }
@@ -154,10 +187,10 @@ handler:
 
 hcases:
     |              { { valH = None; opH = []; finH = None; } }
-    | option(BAR) OP op=NAME p=pat k=NAME DARROW c=comp hcs=hcases { { hcs with opH = (op,p,k,c)::hcs.opH }  }
-    | option(BAR) VAL     xv=NAME DARROW cv=comp hcs=hcases { { hcs with
+    | option(BAR) OP op=NAME p=pat k=NAME DARROW c=comp0 hcs=hcases { { hcs with opH = (op,p,k,c)::hcs.opH }  }
+    | option(BAR) VAL     xv=NAME DARROW cv=comp0 hcs=hcases { { hcs with
     valH=Some (xv,cv) } }
-    | option(BAR) FINALLY xf=NAME DARROW cf=comp hcs=hcases { { hcs with finH=Some (xf,cf) } }
+    | option(BAR) FINALLY xf=NAME DARROW cf=comp0 hcs=hcases { { hcs with finH=Some (xf,cf) } }
 
 const:
     | INT  { Int $1 }
