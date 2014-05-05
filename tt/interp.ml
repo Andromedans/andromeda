@@ -109,10 +109,28 @@ let extend_context_with_witnesses ctx0 =
         end  in
   loop
 
+let wrap_syntax_with_witnesses ctx0 e =
+  let rec loop = function
+    | [] -> e
+    | w::ws ->
+        begin
+          match fst w with
+          | I.Term b -> Syntax.Equation(b, Typing.type_of ctx0 b, loop ws), Position.nowhere
+          | _ -> Error.runtime "Witness %s is not a term" (I.string_of_exp ctx0 w)
+        end  in
+  loop
 
 let rec run env (comp, loc) =
   Print.debug "%s" (I.string_of_computation env.ctx (comp,loc));
   match comp with
+
+  | I.Val (I.DefaultHandler,_) ->
+      begin
+        Context.print env.ctx;
+        Error.runtime ~loc "Context dumped"
+      end
+
+
   | I.Val e  ->
       (* eval-val *)
       I.RVal e
@@ -164,6 +182,9 @@ let rec run env (comp, loc) =
 
         | I.RVal e ->
             (* eval-let-val *)
+            Print.debug "Let before: %s@." (I.string_of_computation env.ctx c2);
+            Print.debug "Let after : %s@." (I.string_of_computation env.ctx
+                                  (I.subst_computation x e c2));
             run env (I.subst_computation x e c2)
 
         | I.ROp(op, delta, e, k) ->
@@ -213,6 +234,7 @@ let rec run env (comp, loc) =
 
                 | I.RVal ev ->
                     begin
+                      Print.debug "Handler body produced value %s@." (I.string_of_exp env.ctx ev);
                       match valH with
                       | Some (xv,cv) ->
                           (* eval-handle-val *)
@@ -223,7 +245,7 @@ let rec run env (comp, loc) =
 
                 | I.ROp (opi, delta, e, k1) as r ->
                     begin
-                      Print.debug "Handler body produced operation %s" opi;
+                      Print.debug "Handler body produced operation %s@." opi;
                       let env' = {env with ctx = Context.append env.ctx delta}  in
                       let k1' = I.mkContExp env.ctx delta (I.KWithHandle(h0, k1))  in
                       let handler_result =
@@ -233,8 +255,13 @@ let rec run env (comp, loc) =
                               begin
                                 match fst e, pat with
                                 | I.Tuple es, I.PTuple xs when List.length es = List.length xs ->
+                                    Print.debug "Found a matching handler %s@."
+                                        (I.string_of_computation env.ctx c);
                                     let sigma = (List.combine xs es) @ [ (kvar, k1') ] in
-                                    run env' (I.psubst_computation sigma c)
+                                    let body = I.psubst_computation sigma c  in
+                                    Print.debug "Running handler body %s@."
+                                        (I.string_of_computation env.ctx body);
+                                    run env' body
 
                                 | I.Inj(i1,e1), I.PInj(i2,x) ->
                                     run env' (I.psubst_computation [x,e1; kvar,k1'] c)
@@ -283,6 +310,9 @@ let rec run env (comp, loc) =
           | I.Type t ->
               begin
                 let env' = {env with ctx = Context.add_var x1 t env.ctx }  in
+             Print.debug "c3 in env is %s" (I.string_of_computation env.ctx c3);
+             Print.debug "c3 in env' is %s" (I.string_of_computation env'.ctx c3);
+             Context.print env'.ctx;
                 match (run env' c3) with
                 | I.RVal v ->
                     (* eval-make-lambda-val *)
@@ -339,14 +369,15 @@ let rec run env (comp, loc) =
           | I.Term b, I.Type t ->
               begin
                 let u = Typing.type_of env.ctx b  in
-                let computation =
-                  let x1 = fresh_name() in
-                  I.mkLet x1 (I.mkOp "equivTy" (I.mkTuple [I.mkType t; I.mkType u]))
-                          (I.mkCheck
-                              t u (I.Var x1, loc)
-                              (I.mkVal (I.mkTerm (Syntax.Ascribe(b, t), Position.nowhere))))  in
-                run env computation
+                match equiv_ty env t u with
+                | Some ws ->
+                    I.RVal
+                     (I.mkTerm
+                      (wrap_syntax_with_witnesses env.ctx
+                           (Syntax.Ascribe(b,t), Position.nowhere) ws ))
 
+                | None ->
+                    Error.runtime ~loc "Cannot prove ascription valid"
               end
           | I.Term _, _ -> Error.runtime ~loc "Non-type in ascribe"
           | _, _ -> Error.runtime ~loc "Non-term in ascribe"
@@ -611,8 +642,16 @@ and equiv_whnf env ((term1', loc1) as term1) ((term2', _loc2) as term2) ty =
   end
 
 
-(*
 let toplevel_handler =
+  let k = "toplevel k" in
   {
-    I.valH :
-      *)
+    I.valH = None ;
+    I.opH  = [ ("equiv", I.PWild, k,
+                I.mkApp (I.mkVar k) (I.mkConst I.Unit)) ] ;
+    I.finH = None ;
+  }
+
+let rec toprun env c =
+  let c' = I.mkWithHandle (I.mkHandler toplevel_handler) c in
+  run env c'
+

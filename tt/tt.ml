@@ -83,7 +83,7 @@ let rec exec_cmd interactive env (d, loc) =
         env
     | InputTT.TopParam (xs, comp) ->
         begin
-          match Interp.run env comp with
+          match Interp.toprun env comp with
           | InputTT.RVal e ->
               begin
                 match fst e with
@@ -97,7 +97,7 @@ let rec exec_cmd interactive env (d, loc) =
         end
     | InputTT.TopLet (x, comp) ->
         begin
-          match Interp.run env comp with
+          match Interp.toprun env comp with
           | InputTT.RVal e ->
               begin
                 match fst e with
@@ -112,7 +112,7 @@ let rec exec_cmd interactive env (d, loc) =
         end
     | InputTT.TopEval comp ->
         (begin
-          match Interp.run env comp with
+          match Interp.toprun env comp with
           | InputTT.RVal e ->
               Format.printf "%s@." (InputTT.string_of_exp env.Interp.ctx e)
           | InputTT.ROp (op, _, _, _) ->
@@ -120,7 +120,7 @@ let rec exec_cmd interactive env (d, loc) =
         end; env)
     | InputTT.TopDef (x, comp) ->
         begin
-          match Interp.run env comp with
+          match Interp.toprun env comp with
           | InputTT.RVal e ->
               begin
                 match fst e with

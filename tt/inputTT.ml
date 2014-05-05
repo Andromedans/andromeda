@@ -96,16 +96,21 @@ and toplevel' =
   | Quit
 
 
+let mkApp ?(loc=Position.nowhere) e1 e2 = App (e1, e2), loc
 let mkAscribe ?(loc=Position.nowhere) e1 e2 = Ascribe (e1,e2), loc
 let mkCheck ?(loc=Position.nowhere) t1 t2 e c = Check (t1,t2,e,c), loc
 let mkConst ?(loc=Position.nowhere) const = Const const, loc
 let mkContExp ?(loc=Position.nowhere) delta gamma k = ContExp(delta, gamma, k), loc
+let mkHandler ?(loc=Position.nowhere) h = Handler h, loc
 let mkLet ?(loc=Position.nowhere) x c1 c2 = Let (x,c1,c2), loc
 let mkOp ?(loc=Position.nowhere) op arg = Op(op, arg), loc
 let mkTerm ?(loc=Position.nowhere) term = Term term, loc
 let mkTuple ?(loc=Position.nowhere) es = Tuple es, loc
 let mkType ?(loc=Position.nowhere) ty = Type ty, loc
 let mkVal ?(loc=Position.nowhere) e = Val e, loc
+let mkVar ?(loc=Position.nowhere) e = Var e, loc
+let mkWithHandle ?(loc=Position.nowhere) e c = WithHandle (e, c), loc
+
 
 
 
@@ -131,8 +136,8 @@ let rec string_of_exp ctx (exp, _loc) =
   | Closure (x,c,_) -> tag "Closure" [x; recurc c; "-"]
   | Handler h -> tag "Handler" [string_of_handler ctx h]
   | ContExp (_gamma,_delta,k) -> tag "ContExp" ["-"; "-"; string_of_cont ctx k]
-  | Term b -> "`" ^ string_of_term ctx b ^ "`"
-  | Type t -> "t`" ^ string_of_ty ctx t ^ "`"
+  | Term b -> tag "Term" [string_of_term ctx b]
+  | Type t -> tag "Type" [string_of_ty ctx t]
   | Tuple es -> tag "Tuple" (List.map recur es)
   | Const c -> string_of_const c
   | Inj (i,e) -> tag "Inj" [string_of_int i; recur e]
@@ -155,7 +160,10 @@ and string_of_computation ctx (comp, _loc) =
   | Check (t1, t2, e, c) -> tag "Check" ["<type 1>"; "<type 2>"; recur e;
                                           recurc c]
   | MkVar n -> tag "MkVar" [string_of_int n]
-  | MkLam (x,e,c) -> tag "MkLam" [x; recur e; recurc c]
+  | MkLam (x,e,c) ->
+      (* XXX: Need to add x to the context! *)
+      let dummy_ty = (Syntax.Unit, Position.nowhere)  in
+      tag "MkLam" [x; recur e; string_of_computation (Context.add_var x dummy_ty ctx ) c]
   (*| MkApp (e1, e2) -> tag "MkApp" [recur e1; recur e2]*)
   | BrazilTermCode s -> "`" ^ s ^ "`"
   | BrazilTypeCode s -> "t`" ^ s ^ "`"
@@ -206,7 +214,8 @@ and string_of_ty ctx ty =
 (************)
 
 let rec shift cut delta (exp, loc) =
-  (match exp with
+  if delta = 0 then (exp,loc) else
+  ((match exp with
   | Var v -> exp
   | Fun (x, c) -> Fun(x, shift_computation cut delta c)
   | Closure (x, c, eta) -> Closure(x, shift_computation cut delta c,
@@ -220,10 +229,11 @@ let rec shift cut delta (exp, loc) =
   | Const _ -> exp
   | DefaultHandler -> exp
   | Inj (i, exp2) -> Inj(i, shift cut delta exp2)),
-  loc
+  loc)
 
 and shift_computation cut delta (comp, loc) =
-  let recur = shift cut delta in
+  if delta = 0 then (comp,loc) else
+  (let recur = shift cut delta in
   let recurc = shift_computation cut delta in
   (match comp with
   | Val e -> Val (recur e)
@@ -240,14 +250,15 @@ and shift_computation cut delta (comp, loc) =
                                    Syntax.shift_ty ~bound:cut delta t2,
                                    recur e, recurc c)
   | MkVar _n -> comp
-  | MkLam(x,e,c) -> MkLam(x, recur e, recurc c)
+  | MkLam(x,e,c) -> MkLam(x, recur e, shift_computation (cut+1) delta c)
   | BrazilTermCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTermCode"
   | BrazilTypeCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTypeCode"
   (*| MkApp(e1,e2) -> MkApp(recur e1, recur e2)*)
-  ), loc
+  ), loc)
 
-and shift_handler cut delta {valH; opH; finH} =
-  let shift_case (tag, xs, k, c) = (tag, xs, k, shift_computation cut delta c)  in
+and shift_handler cut delta ({valH; opH; finH} as h) =
+  if delta = 0 then h else
+  (let shift_case (tag, xs, k, c) = (tag, xs, k, shift_computation cut delta c)  in
   {
     valH = (match valH with
               None -> None
@@ -256,7 +267,7 @@ and shift_handler cut delta {valH; opH; finH} =
     finH = (match finH with
               None -> None
             | Some (xf,cf) -> Some (xf, shift_computation cut delta cf));
-  }
+  })
 
 (****************)
 (* Substitution *)
@@ -276,9 +287,9 @@ let rec psubst ?(bvs=0) sigma exp1 =
   match exp1 with
   | Var x1, loc ->
       if List.mem_assoc x1 sigma then
-        List.assoc x1 sigma
+        shift 0 bvs (List.assoc x1 sigma)
       else
-        shift 0 bvs exp1
+        exp1
   | Fun (x1, c2), loc ->
       let sigma' = List.remove_assoc x1 sigma in
       Fun(x1, psubst_computation ~bvs sigma' c2), loc
