@@ -153,11 +153,10 @@ handler:
 
 
 hcases:
-    |              { { valH = "<1>", (Val (Var "<1>", Position.nowhere), Position.nowhere);
-                       opH = [];
-                       finH = None; } }
+    |              { { valH = None; opH = []; finH = None; } }
     | option(BAR) OP op=NAME p=pat k=NAME DARROW c=comp hcs=hcases { { hcs with opH = (op,p,k,c)::hcs.opH }  }
-    | option(BAR) VAL     xv=NAME DARROW cv=comp hcs=hcases { { hcs with valH=(xv,cv) } }
+    | option(BAR) VAL     xv=NAME DARROW cv=comp hcs=hcases { { hcs with
+    valH=Some (xv,cv) } }
     | option(BAR) FINALLY xf=NAME DARROW cf=comp hcs=hcases { { hcs with finH=Some (xf,cf) } }
 
 const:

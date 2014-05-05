@@ -207,12 +207,20 @@ let rec run env (comp, loc) =
     | I.WithHandle(h0,c) ->
         begin
           match fst h0 with
-          | I.Handler {I.valH=(xv,cv); I.opH; I.finH=None}  ->
+          | I.Handler {I.valH; I.opH; I.finH=None}  ->
               begin
                 match run env c with
+
                 | I.RVal ev ->
-                    (* eval-handle-val *)
-                    run env (I.subst_computation xv ev cv)
+                    begin
+                      match valH with
+                      | Some (xv,cv) ->
+                          (* eval-handle-val *)
+                          run env (I.subst_computation xv ev cv)
+                      | None ->
+                          I.RVal ev
+                    end
+
                 | I.ROp (opi, delta, e, k1) as r ->
                     begin
                       Print.debug "Handler body produced operation %s" opi;
@@ -603,4 +611,8 @@ and equiv_whnf env ((term1', loc1) as term1) ((term2', _loc2) as term2) ty =
   end
 
 
-
+(*
+let toplevel_handler =
+  {
+    I.valH :
+      *)
