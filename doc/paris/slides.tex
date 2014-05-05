@@ -1,0 +1,381 @@
+\documentclass[14pt]{beamer}
+\usepackage{pgfpages}
+%\setbeameroption{hide notes}
+\setbeameroption{show notes on second screen=right}
+\setbeamertemplate{note page}{\pagecolor{yellow!10}\insertnote}
+
+\newcommand{\nat}{\mathtt{nat}}
+\newcommand{\bool}{\mathtt{bool}}
+\newcommand{\NN}{\mathbb{N}}
+\newcommand{\UU}{\mathsf{U}}
+
+\newcommand{\istype}[1]{#1\ \mathsf{type}}
+\newcommand{\isfib}[1]{#1\ \mathsf{fib}}
+
+\newcommand{\refl}[1]{\mathsf{refl}\,#1}
+\newcommand{\idpath}[1]{\mathsf{idpath}\,#1}
+
+\newcommand{\Id}[3]{\mathsf{Id}_{#1}(#2, #3)}
+\newcommand{\Paths}[3]{\mathsf{Paths}_{#1}(#2, #3)}
+
+\newcommand{\J}[5]{\mathsf{J}_{#1}(#2, #3, #4, #5)}
+\newcommand{\transport}[6]{\mathsf{transport}_{#1}^{#2}(#3,#4,#5,#6)}
+\usepackage{palatino}
+% \usepackage{xypic}
+\usepackage{amsfonts}
+%\usepackage[llbracket,rrbracket]{stmaryrd}
+\usepackage{graphicx}
+
+\usepackage{tikz}
+\usetikzlibrary{decorations}
+
+\usepackage{color}
+\usepackage{booktabs}
+\usepackage{mathpartir}
+
+%\input{macros.tex}
+
+\title{Brazilian type theory}
+\author{
+\parbox{0.42\textwidth}{Andrej Bauer \\[4pt] \small University of Ljubljana}
+\and
+\parbox{0.42\textwidth}{Christopher Stone \\[4pt] \small Harvey Mudd College}
+}
+
+\date{\small
+Formalization of mathematics in proof assistants\\
+Institut Henri Poincare\\
+May 2014}
+
+% Comment out the following line to avoid overlayed items
+% in itemize.
+% \beamerdefaultoverlayspecification{<+->}
+
+\mode<presentation>
+% \usetheme{Goettingen}
+\usecolortheme{rose}
+\usefonttheme{serif}
+\setbeamertemplate{navigation symbols}{}
+
+% Frame number
+\setbeamertemplate{footline}[frame number]{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+
+  \note[item]{Thanks to organizers for the invitation. This is promising
+    to be a very exciting meeting.}
+
+  \note[item]{The work I will present is being done jointly with Chris Stone,
+    who is sitting somewhere in the audience. Hi Chris!}
+\end{frame}
+
+
+\begin{frame}
+  \LARGE
+  \begin{enumerate}
+  \item Brazil
+  \item TT
+  \end{enumerate}
+
+  \note[item]{My talk is about an ongoing experiment in the \emph{design} of a proof
+    checker, called ``Brasil'' for reasons I will explain, and a programming language
+    ``tt'' which is geared toward implementation of proof assistants. I shall speak about
+    tt later.}
+\end{frame}
+
+\begin{frame}
+  \LARGE
+  \begin{enumerate}
+  \item Brazil
+  \item<0> TT
+  \end{enumerate}
+
+  \note[item]{Brazil is based on a type theory proposed by VV, so in this sense it is
+    closely related to HoTT. However, I think some ideas are relevant also to other kinds
+    of foundation. VV's type theory is quite general and is likely able to accomodate
+    special cases, such as classical mathematics.}
+
+  \note[item]{Various aspects of Brazil in TT, in particular the programming language
+    ideas, are independent of the foundation altogether. So you may be able to take some
+    ideas from us and use them for your work. We'd be deligthed.}
+\end{frame}
+
+\begin{frame}
+  
+  Strict equality:
+  %
+  \begin{equation*}
+    \infer
+    {\istype{A} \\
+      a : A \\
+      b : A}
+    {\istype{\Id{A}{a}{b}}}
+    \qquad
+    \infer
+    {a : A}
+    {\refl{a} : \Id{A}{a}{a}}
+  \end{equation*}
+  %
+  Paths:
+  \begin{equation*}
+    \infer
+    {\istype{A} \\
+      a : A \\
+      b : A}
+    {\istype{\Paths{A}{a}{b}}}
+    \qquad
+    \infer
+    {a : A}
+    {\idpath{a} : \Paths{A}{a}{a}}
+  \end{equation*}
+
+  \note[item]{
+    To motivate the setup, consider the fact that there are \emph{two} ways to introduce
+    equality in type theory. They go by many different names. Let me call them \emph{strict    
+    equality} and \emph{paths}, because I want to use your topological intuitions.
+  }
+
+  \note[item]{If you are familiar with type theory you will recognize these by their
+    elimination rules on the next slide. If not, think of the strict equality as the usual
+    equality, presented as a set. If $a$ and $b$ are equal then $\Id{A}{a}{b}$ contains the element $\refl{a}$, and nothing else. If not, then $\Id{A}{a}{b}$ is empty.}
+
+  \note[item]{$\mathsf{Paths}$ is the type of \emph{paths} between $a$ and $b$ in a space
+    $A$. Under this view, all types are ``some sort of spaces''. Here $\idpath{A}{a}$ is
+    the constant path at point $a$.
+  }
+
+  \note[item]{I am not going to give you pages upon pages of inference rules, you can look
+    them up on our GitHub project.}
+\end{frame}
+
+\begin{frame}
+  
+  Equality elimination:
+  %
+  \begin{equation*}
+    \infer
+    {x : A \vdash \istype{P(x)} \\
+     a : A \\ b : A \\
+     e : \Id{A}{a}{b} \\
+     u : P(a)
+    }
+    {u : P(b)}
+  \end{equation*}
+  %
+  Path elimination:
+  %
+  \begin{equation*}
+    \infer
+    {x : A \vdash \istype{P(x)} \\
+     a : A \\ b : A \\
+     p : \Paths{A}{a}{b} \\
+     u : P(a)
+    }
+    {\transport{A}{x.P}{a}{b}{p}{u} : P(b)}
+  \end{equation*}
+
+  \note[item]{Here are the \emph{non-dependent} versions of elimination rules. The
+    dependent ones are more complex, and need not be considered here.}
+
+  \note[item]{The strict version is just replacement of equals for equals. Since $a$ and
+    $b$ are equal, we may use $a$ in place of $b$.}
+
+  \note[item]{The path version can be explained as follows: $a$ and $b$ are not equal, but
+    there is a path $p$ between them. We can \emph{transport} $u$ along $p$ from the fiber
+    $P(a)$ to the fiber $P(b)$. We think of $P$ as a topological fibration, i.e., a family
+    of spaces indexed by $A$, with a path-lifting property. This is at the core of the
+    HoTT.}
+
+  \note[item]{The homotopical way of doing things has many benefits, among others the
+    Univalence axiom. But it can also lead to complications.}
+\end{frame}
+
+
+\begin{frame}
+  
+  Equality elimination:
+  %
+  \begin{equation*}
+    \infer
+    {x : A \vdash \istype{P(x)} \\
+     a : A \\ b : A \\
+     e : \Id{A}{a}{b} \\
+     u : P(a)
+    }
+    {u : P(b)}
+  \end{equation*}
+  %
+  Path elimination:
+  %
+  \begin{equation*}
+    \infer
+    {x : A \vdash \istype{P(x)} \\
+     a : A \\ b : A \\
+     p : \Paths{A}{a}{b} \\
+     u : P(a)
+    }
+    {\transport{A}{x.P}{a}{b}{p}{u} : P(b)}
+  \end{equation*}
+  
+  \note[item]{One such complication is the construction of a model of HoTT inside HoTT.
+    (Note that there is no problem with Gödelian phenomena because the inner model has
+    fewer universe.)}
+
+  \note[item]{We would like to perform the construction of semisimplicial types to create
+    a model. However, even though the construction seems intuitively clear, using paths
+    and transport makes everything horribly complicated because the type theory makes us
+    write down all the transports, even though they are all trivial.}
+
+  \note[item]{VV therefore proposed to have \emph{both} equality types at the same time.
+    Then we can use the strict equality where appropriate, to keep the construction
+    manageable.}
+\end{frame}
+
+\begin{frame}
+
+  Fibered types:
+  %
+  \begin{equation*}
+    \istype{A}
+    \qquad\quad
+    \isfib{A}
+    \qquad\quad
+    \infer{\isfib{A}}{\istype{A}}
+  \end{equation*}
+  %
+  Equality:
+  %
+  \begin{gather*}
+    \infer
+    {\istype{A} \\
+      a : A \\
+      b : A}
+    {\istype{\Id{A}{a}{b}}}
+    %
+    \\[0.75\baselineskip]
+    %
+    \infer
+    {\isfib{A} \\
+      a : A \\
+      b : A}
+    {\isfib{\Paths{A}{a}{b}}}
+  \end{gather*}
+
+  \note[item]{We cannot just throw in both equalities -- it would turn out that they
+    coincide, and that would then contradict Univalence.}
+
+  \note[item]{Instead, we should distinguish some of the types as \emph{fibered}. These
+    behave nicely with respect to paths: they have the path lifting property necessary to
+    interpret transport.}
+ 
+  \note[item]{Paths can only be formed and used on fibered types. Since strict equality is
+    not fibered, we cannot show that path equality implies strict equality.}
+
+  \note[item]{There are other complications. Let me show how crazy things get.}
+\end{frame}
+
+\begin{frame}
+  \begin{multline*}
+    e : \Id{\UU}{\nat \to \bool}{\nat \to \nat} \\
+    \vdash
+    (\lambda n : \nat \,.\, n + 3) \, \mathsf{42} : \bool
+  \end{multline*}
+
+
+  \note[item]{
+    We may \emph{assume} that the Baire space and the Cantor space
+    are equal. Therefore $\lambda n : \nat \,.\, n + 3$ is map from
+    $\nat$ to $\bool$, so the application is a $\bool$.
+  }
+
+  \note[item]{
+    But we \emph{cannot} $\beta$-reduce because on a careful reading
+    of the $\beta$-rule we discover that it does not apply in this case.
+    This destroys any hope for having normal forms.
+  }
+
+  \note[item]{
+    By the way, the assumption that the Baire space and Cantor space
+    are equal is \emph{not} inconsistent. As homework, you should find
+    \emph{two} models which validate the assumption.
+  }
+\end{frame}
+
+
+\begin{frame}
+  
+  \begin{multline*}
+    e : \Id{\UU}{D}{D \to D} \\
+    \vdash
+    (\lambda x : D \,.\, x \, x) (\lambda x : D \,.\, x \, x) : D
+  \end{multline*}
+
+
+  \note[item]{
+    Worse, we may assume that a type is equal to its own function space.
+  }
+
+  \note[item]{
+    The ``pardoxical'' $\lambda$-term which does not normalize becomes
+    well-typed.
+  }
+
+  \note[item]{
+    Therefore, it is going to be easy to get the proof checker into an
+    infinite loop, as long as any sort of normalization is built in.
+  }
+
+  \note[item]{
+    Is this a problem? Maybe theoretically, but certainly not in practice.
+    The typical user is going to hit Ctrl-C well before the Sun becomes a
+    red giant.
+  }
+\end{frame}
+
+\begin{frame}
+
+  \begin{equation*}
+    \infer
+    {x : A \vdash \istype{P(x)} \\
+     a : A \\ b : A \\
+     e : \Id{A}{a}{b} \\
+     u : P(a)
+    }
+    {u : P(b)}
+  \end{equation*}
+  
+  \note[item]{
+    Imagine that we would like to send formalized mathematics to people
+    in a faraway country, such as Brazil. They will check our development
+    independently.
+  }
+
+  \note[item]{
+    But how will they deal with strict equality elimination? If we send them
+    the proof object $u$ and $P(b)$, how can they ever guess what $a$ and $e$ are?
+  }
+
+  \note[item]{
+    In fact, type checking in the presence of strict equality is undecidable.
+    Without some divine help, Brazilians are doomed.
+  }
+
+  \note[item]{
+    By the way, with path equality there is no problem because transport records
+    $a$ and the path from $a$ to $b$.
+  }
+
+  \note[item]{
+    Thus, we must also send to Brazil \emph{additional advice}, which however
+    is not part of the proof object proper. It is \emph{extra}.
+  }
+
+\end{frame}
+
+
+
+
+\end{document}
