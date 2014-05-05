@@ -10,14 +10,14 @@ val add_vars : (Syntax.name * Syntax.ty) list -> t -> t
 
 val add_def : Syntax.name -> Syntax.ty -> Syntax.term -> t -> t
 
-val add_equation : Syntax.term -> Syntax.ty -> t -> t
+val add_equation : Syntax.term -> Syntax.ty -> (int * Pattern.ty * Pattern.term * Pattern.term) -> t -> t
 
-val add_rewrite : Syntax.term -> Syntax.ty -> t -> t
+val add_rewrite : Syntax.term -> Syntax.ty -> (int * Pattern.ty * Pattern.term * Pattern.term) -> t -> t
 
 val lookup_var : Syntax.variable -> t -> Syntax.ty
 
-val lookup_rewrite : Syntax.ty -> Syntax.term -> t -> Syntax.term option
+val rewrites : t -> (int * Pattern.ty * Pattern.term * Pattern.term) list
 
-val lookup_equation : Syntax.ty -> Syntax.term -> Syntax.term -> t -> bool
+val equations : t -> (int * Pattern.ty * Pattern.term * Pattern.term) list
 
 val print : t -> unit

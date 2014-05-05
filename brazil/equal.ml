@@ -89,11 +89,13 @@ and whnf ctx t ((e',loc) as e) =
     begin match e' with
       (* norm-equation *)
       | Syntax.Equation (e1, t1, e2) ->
-        whnf (Context.add_equation e1 t1 ctx) t e2
+        let p = as_hint ctx e1 t1 in
+          whnf (Context.add_equation e1 t1 p ctx) t e2
 
       (* norm-rewrite *)
       | Syntax.Rewrite (e1, t1, e2)  ->
-        whnf (Context.add_rewrite e1 t1 ctx) t e2
+        let p = as_hint ctx e1 t1 in
+          whnf (Context.add_rewrite e1 t1 p ctx) t e2
 
       (* norm-ascribe *)
       | Syntax.Ascribe(e, _) ->
@@ -151,10 +153,15 @@ and whnf ctx t ((e',loc) as e) =
       | _ -> e
     end
   in
-    match Context.lookup_rewrite t e ctx with
-      | None -> e
-      | Some e' -> whnf ctx t e'
+    rewrite ctx e t (Context.rewrites ctx)
 
+and rewrite ctx e t = function
+  | [] -> e
+  | h :: hs ->
+    begin match match_rewrite ctx t e h with
+      | None -> rewrite ctx e t hs
+      | Some e' -> whnf ctx t e'
+    end
 
 (* equality of types *)
 and ty ctx t u =
@@ -176,7 +183,6 @@ and ty ctx t u =
   end
 
 (* equality of weak-head-normal types *)
-
 and equal_whnf_ty ctx ((t', tloc) as t) ((u', uloc) as u) =
   begin
     Print.debug "equal_whnf_ty: %t == %t@." (print_ty ctx t) (print_ty ctx u);
@@ -272,7 +278,7 @@ and equal_ext ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
         true
 
     (* chk-eq-ext-whnf *)
-    | _ ->
+      | Universe _ | El _ | Paths _ ->
         let e1' = whnf ctx t e1 in
         let e2' = whnf ctx t e2  in
         equal_whnf ctx e1' e2' t
@@ -411,8 +417,102 @@ and equal_whnf ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
       | Syntax.NameId _), _ -> false
   end
 
+and as_hint ctx (_, loc) t =
+  let rec collect u =
+    match fst (whnf_ty ctx u) with
+      | Syntax.Prod (x, t1, t2) ->
+        let (args, t, e1, e2) = collect t2 in
+          (t1 :: args, t, e1, e2)
+      | Syntax.Id (t, e1, e2) -> ([], t, e1, e2)
+      | Universe _ | El _ | Unit | Paths _ ->
+        Error.typing ~loc "this expression cannot be used as an equality hint, its type is %t"
+          (print_ty ctx t)
+  in
+  let (args, t, e1, e2) = collect t in
+  let k = List.length args in
+  let pt = Pattern.of_ty k t in
+  let pe1 = Pattern.of_term k e1 in
+  let pe2 = Pattern.of_term k e2 in
+    (k, pt, pe1, pe2)
 
-let as_prod ctx t =
+and match_ty inst l ctx pt ((t',loc) as t) =
+  match pt with
+
+    | Pattern.Ty u  ->
+      if ty ctx u t then inst else raise Mismatch
+
+    | Pattern.El (alpha, pe) ->
+      begin match Syntax.name_of t with
+        | Some (e', beta) when Universe.eq alpha beta ->
+          match_term inst ctx (Syntax.Universe alpha, loc) pe e'
+        | None -> raise Mismatch
+      end
+
+    | Pattern.Prod (pt1, pt2) ->
+      begin match as_prod ctx t with
+        | None -> raise Mismatch
+        | Some (x, t1, t2) ->
+          let inst = match_ty inst l ctx pt1 t1 in
+          let inst = match_ty inst (l+1) (Context.add_var x t1 ctx) pt2 t2 in
+            inst
+      end
+
+    | Pattern.Paths (pt, pe1, pe2) ->
+      begin match as_paths ctx t with
+        | None -> raise Mismatch
+        | Some (t, e1, e2) ->
+          let inst = match_ty inst l ctx pt1 t1 in
+          let inst = match_term inst l ctx pe1 e1 in
+          let inst = match_term inst l ctx pe2 e2 in
+            inst
+      end
+
+    | Pattern.Id (pt, pe1, pe2) ->
+      begin match as_id ctx t with
+        | None -> raise Mismatch
+        | Some (t, e1, e2) ->
+          let inst = match_ty inst l ctx pt1 t1 in
+          let inst = match_term inst l ctx pe1 e1 in
+          let inst = match_term inst l ctx pe2 e2 in
+            inst
+      end
+
+and match_term inst l ctx p e =
+  match p with
+
+  | Pattern.Term e' -> 
+    if term ctx e' e then inst else raise Mismatch
+
+  | Pattern.PVar _ -> failwith "not implemented"
+
+  | Pattern.Lambda _ -> failwith "not implemented"
+
+  | Pattern.App (pt1, pt2, pe1, pe2) ->
+    begin match as_app ctx e with
+      | None -> raise Mismatch
+      | Some (x, t1, t2, e1, e2) ->
+        let inst = match_ty inst l ctx pt1 t1 in
+        let inst = match_ty inst (l+1) (Context.add_var x t1 ctx) pt2 t2 in
+        let inst = match_term inst ctx l p1 e1 in
+        let inst = match_term inst ctx l p2 e2 in
+          inst
+    end
+
+  | Pattern.Idpath _ -> failwith "not implemented"
+
+  | Pattern.J _ -> failwith "not implemented"
+
+  | Pattern.Refl _ -> failwith "not implemented"
+
+  | Pattern.Coerce _ -> failwith "not implemented"
+
+  | Pattern.NameProd _ -> failwith "not implemented"
+
+  | Pattern.NamePaths _ -> failwith "not implemented"
+
+  | Pattern.NameId _ -> failwith "not implemented"
+
+and as_prod ctx t =
   match fst (whnf_ty ctx t) with
 
     | Syntax.Prod (x, t1, t2) ->
@@ -421,7 +521,7 @@ let as_prod ctx t =
     | Syntax.Universe _ | Syntax.El _ | Syntax.Unit | Syntax.Paths _ | Syntax.Id _ ->
       None
 
-let as_universe ctx t =
+and as_universe ctx t =
   match fst (whnf_ty ctx t) with
 
     | Syntax.Universe alpha ->
@@ -430,11 +530,20 @@ let as_universe ctx t =
     | Syntax.El _ | Syntax.Unit | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _ ->
         None
 
-let as_paths ctx t =
+and as_paths ctx t =
   match fst (whnf_ty ctx t) with
 
     | Syntax.Paths (t, e1, e2) ->
       Some (t, e1, e2)
 
     | Syntax.Universe _ | Syntax.El _ | Syntax.Unit | Syntax.Prod _ | Syntax.Id _ ->
+      None
+
+and as_id ctx t =
+  match fst (whnf_ty ctx t) with
+
+    | Syntax.Id (t, e1, e2) ->
+      Some (t, e1, e2)
+
+    | Syntax.Universe _ | Syntax.El _ | Syntax.Unit | Syntax.Prod _ | Syntax.Paths _ ->
       None

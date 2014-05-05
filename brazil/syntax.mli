@@ -39,6 +39,9 @@ and term' =
 (* Code *)
 (********)
 
+(** Anonymous identifier *)
+val anonymous : name
+
 (** alpha equality of terms, ignoring hints *)
 val equal    : term -> term -> bool
 

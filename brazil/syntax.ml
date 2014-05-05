@@ -2,6 +2,8 @@
 
 type name = string
 
+let anonymous = Input.anonymous
+
 (** We use de Bruijn indices *)
 type variable = Common.debruijn
 
