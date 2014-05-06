@@ -3,10 +3,11 @@ define Type := Universe f0
 assume bool : Type
 assume true false : bool
 
-assume bool_ind : (P : bool -> Type) -> (b : bool) -> P true -> P false -> P b
+assume bool_ind : 
+  forall (P : bool -> Type) (b : bool), P true -> P false -> P b
 
 assume bool_ind_true :
-  (P : bool -> Type) -> (x : P true) -> (y : P false) ->
+  forall (P : bool -> Type) (x : P true)  (y : P false),
     bool_ind P true x y == x
 
 rewrite bool_ind_true

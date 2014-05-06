@@ -21,7 +21,7 @@
 \newcommand{\Id}[3]{\mathsf{Id}_{#1}(#2, #3)}
 \newcommand{\Paths}[3]{\mathsf{Paths}_{#1}(#2, #3)}
 
-\renewcommand{\rulename}[1]{\text{\textsc{\small #1}}}
+\renewcommand{\rulename}[1]{\text{\textsc{\footnotesize #1}}}
 \renewcommand{\eqhint}[3]{(#1 \,{\equiv}_{#3}\, #2)} % equality hint
 \renewcommand{\rwhint}[3]{(#1 \,{\leadsto}_{#3}\, #2)} % rewrite hint
 \renewcommand{\addhinteq}[4]{#1, \eqhint{#2}{#3}{#4}} % extended hint list
@@ -95,7 +95,7 @@ May 2014}
     checker, called ``Brazil'' for reasons that will become apparent.}
 
   \note[item]{We are also working on an extension of Brazil, called ``tt''. This is a more
-    ambituous piece of work. You can think of it as a special-purpose programming language
+    ambitious piece of work. You can think of it as a special-purpose programming language
     for implementation of unification algorithms, tactics, search procedures, etc.
     Alternatively, you can think of it as a trusted kernel on top of which we can build
     ever more complex tools for formalization.}
@@ -115,12 +115,12 @@ May 2014}
 
   \note[item]{Brazil is based on a type theory proposed by VV, so in this sense it is
     closely related to HoTT. However, I think some ideas are relevant also to other kinds
-    of foundation. VV's type theory is quite general and is likely able to accomodate
+    of foundation. VV's type theory is quite general and is likely able to accommodate
     special cases, such as classical mathematics.}
 
   \note[item]{Various aspects of Brazil in TT, in particular the programming language
     ideas, are independent of the foundation altogether. So you may be able to take some
-    ideas from us and use them for your work. We'd be deligthed.}
+    ideas from us and use them for your work. We'd be delighted.}
 \end{frame}
 
 \begin{frame}
@@ -346,7 +346,7 @@ May 2014}
   }
 
   \note[item]{
-    The ``pardoxical'' $\lambda$-term which does not normalize becomes
+    The ``paradoxical'' $\lambda$-term which does not normalize becomes
     well-typed.
   }
 
@@ -593,7 +593,7 @@ May 2014}
     {\isterm{\G}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\subst{\U}{\x}{\e_2}}}
   \end{equation*}
 
-  Application (synthetis \& checking):
+  Application (synthesis \& checking):
   %
   \begin{equation*}
     \infer[\rulename{syn-app}]
@@ -606,7 +606,7 @@ May 2014}
 
 
   \note[item]{
-    For example, consider the traditional appication rule and how it is done
+    For example, consider the traditional application rule and how it is done
     by synthesis and checking.
   }
 
@@ -649,7 +649,7 @@ May 2014}
 
   \note[item]{Our version consults the hints. For example, to check that $e_1$ and $e_2$
     are equal at type $T$, we first check whether they are syntactically equal, then we
-    consult the hints, then we proceed with the Harper-Stone algoithm (which calls itself
+    consult the hints, then we proceed with the Harper-Stone algorithm (which calls itself
     recursively at a smaller type).
   }
 
@@ -658,16 +658,49 @@ May 2014}
 \end{frame}
 
 \begin{frame}[fragile]
+
 Symmetry of equality:
 \begin{verbatim}
-Define sym :=
-  fun (A : Type) (a b : A) (p : a == b) => 
-    equation p in (refl a :: b == a).
+Definition sym :=
+fun (A : Type) (a b : A) (p : a == b) => 
+  equation p in (refl a :: b == a).
 \end{verbatim}
+
+Strict equality eliminator:
+{\small
+\begin{verbatim}
+Definition G :=
+fun (A : Universe 0)
+  (P : forall (x y : A), x == y -> Universe 0)
+  (r : forall z : A, P z z (refl z))
+  (x y : A) (p : x == y)
+  =>
+    equation p in (r x :: P x y p).
+\end{verbatim}
+}
 \end{frame}
 
-\begin{frame}
-  Discussion.
+\begin{frame}[fragile]
+
+\small 
+\begin{verbatim}
+Definition Type := Universe f0.
+
+Parameter bool : Type.
+Parameter true false : bool.
+
+Parameter bool_ind : 
+  forall (P : bool -> Type) (b : bool),
+    P true -> P false -> P b.
+
+Parameter bool_ind_true :
+  forall (P : bool -> Type)
+         (x : P true) (y : P false),
+    bool_ind P true x y == x.
+
+Rewrite bool_ind_true.
+\end{verbatim}
+
 \end{frame}
 
 \begin{frame}
@@ -677,11 +710,7 @@ Define sym :=
   \item TT
   \end{enumerate}
 
-  \note[item]{Finally, let me say a few words about TT.}
-\end{frame}
-
-\begin{frame}
-  
+  \note[item]{In conclusion let me say a few words about TT.}
 
   \note[item]{
     We heard yesterday that there is a distinction between
@@ -693,10 +722,41 @@ Define sym :=
     In the theory of programming languages procedural programming
     is just one case of a more general concept known as \emph{computational effect}.
     All sort of things are computational effects: state, I/O, non-determinism, exceptions, etc.
+    The typical operations of a proof assistant may be viewed as computational
+    effects: unification, context manipulation, backtracking, etc.
   }
 
   \note[item]{
-    A typical proof assistant has 
+    In fact, Brazilian equality hints are a very simple form of computatinal effect, too.
+  }
+  
+\end{frame}
+
+\begin{frame}
+  \LARGE
+  \begin{enumerate}
+  \item<0> Brazil
+  \item TT
+  \end{enumerate}
+  
+
+  \note[item]{
+    We are developing a language based on a general theory of so-called algebraic effects
+    and handlers that is tailored to the needs of a proof assistant. The handlers are a
+    powerful programming concepts, a generalization of exception handlers and delimited
+    continuations. They allow us to write purely functional programs in a procedural style
+    (and more).
+  }
+
+  \note[item]{
+    For example, it will be possible in TT to implement meta-variables and
+    unification as a \emph{derived} concept. At the same time, tt will have a
+    soundness guarantee: it will refuse to generate invalid Brazilian terms.
+  }
+
+  \note[item]{
+    But it is too early to tell how successful the experiment will be.
+    Ask us again on Friday, Chris will be done by then.
   }
 \end{frame}
 
