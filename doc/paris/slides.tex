@@ -21,6 +21,14 @@
 \newcommand{\Id}[3]{\mathsf{Id}_{#1}(#2, #3)}
 \newcommand{\Paths}[3]{\mathsf{Paths}_{#1}(#2, #3)}
 
+\renewcommand{\rulename}[1]{\text{\textsc{\small #1}}}
+\renewcommand{\eqhint}[3]{(#1 \,{\equiv}_{#3}\, #2)} % equality hint
+\renewcommand{\rwhint}[3]{(#1 \,{\leadsto}_{#3}\, #2)} % rewrite hint
+\renewcommand{\addhinteq}[4]{#1, \eqhint{#2}{#3}{#4}} % extended hint list
+\renewcommand{\addhintrw}[4]{#1, \rwhint{#2}{#3}{#4}} % extended hint list
+\renewcommand{\equationin}[4]{\mathsf{equation}\; #1 \,{:}\, #2 \,{\equiv}_{#4}\, #3 \; \mathsf{in} \;} % use equation hint
+\renewcommand{\rewritein}[4]{\mathsf{rewrite}\; #1 \,{:}\, #2 \,{\equiv}_{#4}\, #3 \; \mathsf{in} \;} % 
+
 \newcommand{\J}[5]{\mathsf{J}_{#1}(#2, #3, #4, #5)}
 \newcommand{\transport}[6]{\mathsf{transport}_{#1}^{#2}(#3,#4,#5,#6)}
 \usepackage{palatino}
@@ -93,7 +101,7 @@ May 2014}
     ever more complex tools for formalization.}
 
   \note[item]{As tt is more experimental than Brazil, I will focus on Brazil and discuss
-    tt only brieflt at the end. But please talk to Chris and me, and we'll show you both
+    tt only briefly at the end. But please talk to Chris and me, and we'll show you both
     prototypes in action. Even better, you can participate on GitHub.}
 
 \end{frame}
@@ -310,6 +318,13 @@ May 2014}
   }
 
   \note[item]{
+    This and similar examples force us to equip each application
+    with explicit typing information. Luckily, all such annotations
+    can be derived because they are unique, if they exist. Nevertheless,
+    we need them.
+  }
+
+  \note[item]{
     By the way, the assumption that the Baire space and Cantor space
     are equal is \emph{not} inconsistent. As homework, you should find
     \emph{two} models which validate the assumption.
@@ -362,7 +377,7 @@ May 2014}
   \note[item]{
     We would like to send formalized mathematics to people
     in a faraway country, such as Brazil. They will check our development
-    independently.
+    independently. [VV tried Bolivia but that didn't work.]
   }
 
   \note[item]{
@@ -406,8 +421,119 @@ May 2014}
     By ``practical'' we mean that hints should be used infrequently
     and need not be very large.
   }
+
+  \note[item]{
+    The soundness guarantee is: \emph{if} the checker accepts 
+    a proof object (with hints), then there is a derivation that
+    the proof object has the given type.
+  }
+
+  \note[item]{
+    By now it is obvious that our proof checker is called ``Brazil''.
+  }
 \end{frame}
 
+\begin{frame}
+  
+  Contexts:
+  % 
+  \begin{equation*}
+    \G
+    \begin{aligned}[t]
+      \bnf   {}& \ctxempty & & \text{empty context}\\
+      \bnfor {}& \ctxextend{\G}{\x}{\T} & & \text{context extended with $x : T$}
+    \end{aligned}
+  \end{equation*}
+  % 
+  Equality hints:
+  % 
+  \begin{equation*}
+    \H
+    \begin{aligned}[t]
+      \bnf   {}& \hintempty & & \text{empty hints}\\
+      \bnfor {}& \addhinteq{\H}{\e_1}{\e_2}{\T} & & \text{extend hints with an equation} \\
+      \bnfor {}& \addhintrw{\H}{\e_1}{\e_2}{\T} & & \text{extend hints with a rewrite}
+    \end{aligned}
+  \end{equation*}
+
+  \note[item]{The typing contexts are as usual.}
+
+  \note[item]{We also carry around a list of equality hints. These are of two
+    kinds: ordinary equations and rewrite rules (directed equations) to be used
+    during weak head normalization.}
+
+\end{frame}
+
+\begin{frame}
+
+  Types:
+  % 
+  \begin{equation*}
+    \T, \U
+    \begin{aligned}[t]
+      \bnf   {}& \Universe{\alpha} & & \text{universe}\\
+      \bnfor {}& \El{\inferred\alpha}{\e} & & \text{type named by $e$}\\
+      \bnfor {}& \Unit & & \text{the unit type}\\
+      \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
+      \bnfor {}& \PrEqual{\inferred{T}}{\e_1}{\e_2} & & \text{path type}\\
+      \bnfor {}& \JuEqual{\inferred{T}}{\e_1}{\e_2} & & \text{equality type}
+    \end{aligned}
+  \end{equation*}
+
+  \note[item]{We use Tarski-style universes. With Russell-style universes and
+    cummulativity it is not clear at all how to perform equality checks (at what
+    universe -- it matters!). I shall not say more about this, except that contrary
+    to folk opinion, Tarski universes are \emph{not} annoying to implement. And
+    they are completely hidden from the user.
+  }
+
+  \note[item]{The magenta bits are type annotations. They must be present, but luckily
+    it is easier to derive them than to require that they be provided. So, the magenta
+    bits are not there in the concrete syntax. They get added during type checking
+    and synthesis, we will see an example.}
+  
+\end{frame}
+
+\small
+
+\begin{frame}
+  Terms:
+%
+\begin{equation*}
+  \e
+  \begin{aligned}[t]
+    \bnf   {}&  \x   &&\text{variable} \\
+    \bnfor {}&  \equationin{\e_1}{\inferred{\e_2}}{\inferred{\e_3}}{\inferred{T}} e_4 &&\text{use equality hint $\e_1$ in $\e_4$} \\
+    \bnfor {}&  \rewritein{\e_1}{\inferred{\e_2}}{\inferred{\e_3}}{\inferred{T}} e_4 &&\text{use rewrite hint $\e_1$ in $\e_4$} \\
+    \bnfor {}&  \ascribe{\e}{\T}  &&\text{ascribe type $\T$ to term $\e$} \\
+    \bnfor {}&  \lam{\x}{\T_1}{\inferred{\T_2}} \e  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&  \app{\e_1}{\inferred\x}{\inferred{\T_1}}{\inferred{\T_2}}{\e_2}  &&\text{application} \\
+    \bnfor {}&  \unitTerm  &&\text{the element of unit type} \\
+    \bnfor {}&  \prRefl{\inferred\T}{\e}  &&\text{identity path} \\
+    \bnfor {}&  \PrElim{\inferred\T}{\abst{x\,y\,p}{\U}}{\abst{z}{\e_1}}{\e_2}{\inferred{\e_3}}{\inferred{\e_4}}  &&\text{path eliminator} \\
+    \bnfor {}&  \juRefl{\inferred\T} \e  &&\text{reflexivity} \\
+           {}&  \vdots  &&\text{\vdots}
+  \end{aligned}
+\end{equation*}
+
+ \note[item]{Here is the abstract syntax of terms, without universe names}
+
+ \note[item]{Again, type annotations in magenta are derived automatically.
+   I emphasize that this is \emph{simpler} than having them provided and having
+   to check that they are correct.}
+
+ \note[item]{
+   The ``equation'' and ``rewrite'' constructs are how hints are added to the
+   system. This is a \emph{local} construct, so you can tell Brazilians to use a specific
+   hint only in a specific term.
+ }
+
+ \note[item]{
+   When terms are compared for syntactic equality, the hints constructs are ignored.
+   The hints are \emph{not} part of the proof object proper.
+ }
+
+\end{frame}
 
 \begin{frame}
 
@@ -456,19 +582,88 @@ May 2014}
 \end{frame}
 
 \begin{frame}
-  
+
+  Application (traditional):
+  %
+  \begin{equation*}
+    \infer[\rulename{term-app}]
+      {\isterm{\G}{\e_1}{\Prod{x}{\T} \U} \\
+      \isterm{\G}{\e_2}{\T}
+    }
+    {\isterm{\G}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\subst{\U}{\x}{\e_2}}}
+  \end{equation*}
+
+  Application (synthetis \& checking):
+  %
+  \begin{equation*}
+    \infer[\rulename{syn-app}]
+    { \synterm{\GH}{\e_1}{\T_1} \\
+      \whnfs{\GH}{\T_1}{\Prod{\x}{\T} \U}\\
+      \chkterm{\GH}{\e_2}{\T}
+    }
+    { \synterm{\GH}{\app{\e_1}{\inferred{\x}}{\inferred\T}{\inferred\U}{\e_2}}{\subst{\U}{\x}{\e_2}} }
+  \end{equation*}
+
+
+  \note[item]{
+    For example, consider the traditional appication rule and how it is done
+    by synthesis and checking.
+  }
+
+  \note[item]{
+    Application is a synthesizing form. Notice that we need to weak head
+    normalize in order to verify that $e_1$ has the correct type. Also,
+    the magenta annotations are read off the synthesized parts. This is the
+    case with all magenta annotations.}
+
+\end{frame}
+
+
+\begin{frame}
+
+  Install a new hint:
+  %
+  \begin{equation*}
+    \infer[\rulename{chk-equation-hint}]
+    { \synterm{\GH}{\e_1}{\U'} \\
+      \whnfs{\GH}{\U'}{\JuEqual{\U}{\e_2}{\e_3}} \\\\
+      \chkterm{\ctxs{\G}{(\addhinteq{\H}{\e_2}{\e_3}{\U})}}{\e_4}{\T}
+    }
+    { \chkterm{\GH}{(\equationin{\e_1}{\inferred{\e_2}}{\inferred{\e_3}}{\inferred{\U}} \e_4)}{\T} }
+  \end{equation*}
+
+  Using a hint:
+  %
+  \begin{equation*}
+    \infer[\rulename{chk-eq-hint}]
+    {
+      \eqhint{\e_1}{\e_2}{\T} \in \H
+    }
+    { \eqtermalg{\GH}{\e_1}{\e_2}{\T} }
+  \end{equation*}
+
   \note[item]{Next, equality checking is done by an adaptation of an algorithm developed
-    by Bob Harper and Chris Stone. The original algorithm is augmented with a
-    \emph{database of equality hints} which it consults whenever it gets stuck.}
+    by Bob Harper and Chris Stone. The algorithm has function extensionality and various
+    $\eta$-rules built in.
+  }
 
+  \note[item]{Our version consults the hints. For example, to check that $e_1$ and $e_2$
+    are equal at type $T$, we first check whether they are syntactically equal, then we
+    consult the hints, then we proceed with the Harper-Stone algoithm (which calls itself
+    recursively at a smaller type).
+  }
+
+  \note[item]{At a base type the algorithm uses weak-head normalization to compare terms.
+    There we use rewrite hints.}
 \end{frame}
 
-\begin{frame}
-  Brazilian syntax.
-\end{frame}
-
-\begin{frame}
-  Examples.
+\begin{frame}[fragile]
+Symmetry of equality:
+\begin{verbatim}
+Define sym :=
+  fun (A : Type) (a b : A) (p : a == b) => 
+    equation p in (refl a :: b == a).
+\end{verbatim}
 \end{frame}
 
 \begin{frame}

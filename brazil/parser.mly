@@ -54,7 +54,7 @@ filecontents:
   | d=topdirective ds=filecontents  { d :: ds }
 
 commandline:
-  | topdef EOF       { $1 }
+  | topdef DOT EOF       { $1 }
   | topdirective EOF { $1 }
 
 (* Things that can be defined on toplevel. *)
