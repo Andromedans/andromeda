@@ -126,6 +126,9 @@ let rec run env (comp, loc) =
 
   | I.Val (I.DefaultHandler,_) ->
       begin
+        (* XXX Terrible hack, hijacking the
+         * currently unused DefaultHandler constant
+         * for debugging purposes *)
         Context.print env.ctx;
         Error.runtime ~loc "Context dumped"
       end
@@ -182,9 +185,6 @@ let rec run env (comp, loc) =
 
         | I.RVal e ->
             (* eval-let-val *)
-            Print.debug "Let before: %s@." (I.string_of_computation env.ctx c2);
-            Print.debug "Let after : %s@." (I.string_of_computation env.ctx
-                                  (I.subst_computation x e c2));
             run env (I.subst_computation x e c2)
 
         | I.ROp(op, delta, e, k) ->
@@ -310,9 +310,6 @@ let rec run env (comp, loc) =
           | I.Type t ->
               begin
                 let env' = {env with ctx = Context.add_var x1 t env.ctx }  in
-             Print.debug "c3 in env is %s" (I.string_of_computation env.ctx c3);
-             Print.debug "c3 in env' is %s" (I.string_of_computation env'.ctx c3);
-             Context.print env'.ctx;
                 match (run env' c3) with
                 | I.RVal v ->
                     (* eval-make-lambda-val *)
