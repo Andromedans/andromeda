@@ -4,7 +4,7 @@ module SM = InputTT.StringMap
 type env =
   {
     ctx : Context.t;
-    ttenv : I.exp SM.t;
+    ttenv : I.environment;
   }
 
 let empty_env =
@@ -12,6 +12,10 @@ let empty_env =
     ctx = Context.empty;
     ttenv = SM.empty;
   }
+
+let insert_ttvar x v env =
+  let current_depth = List.length (Context.names env.ctx) in
+  { env with ttenv = SM.add x (v,current_depth) env.ttenv }
 
 (********************)
 (* Helper Functions *)
@@ -35,34 +39,16 @@ let fresh_name =
              let _ = incr counter in
              "X$" ^ string_of_int n)
 
-(*
-let rec eval env ((exp',loc) as exp) =
-  match exp' with
-  | I.Var v ->
-      if SM.mem v env.ttenv then
-        SM.find v env.ttenv
-      else
-        Error.runtime ~loc "Undefined variable %s" v
-  | I.Fun (x,c) ->
-      I.Closure(x, c, env.ttenv), loc
-  | I.Closure _ -> exp
-  | I.Handler _ -> exp
-  | I.ContExp _ -> exp
-  | I.Tuple es -> I.Tuple (List.map (eval env) es), loc
-  | I.Const _ -> exp
-  | I.Inj(i,e) -> I.Inj(i, eval env e), loc
-  | I.DefaultHandler -> exp
-  | I.Term _ -> exp
-  | I.Type _ -> exp
-*)
+
+
 
 let lambdaize env x t =
   let ctx' = Context.add_var x t env.ctx in
   let rec loop = function
-    | I.Term body, loc ->
-        I.Term (Syntax.Lambda(x, t, Typing.type_of ctx' body, body), loc), loc
-    | I.Tuple es, loc ->
-        I.Tuple (List.map loop es), loc
+    | I.VTerm body, loc ->
+        I.VTerm (Syntax.Lambda(x, t, Typing.type_of ctx' body, body), loc), loc
+    | I.VTuple es, loc ->
+        I.VTuple (List.map loop es), loc
     | (_, loc) -> Error.runtime ~loc "Bad body to MkLam"  in
   loop
 
@@ -104,8 +90,8 @@ let extend_context_with_witnesses ctx0 =
     | w::ws ->
         begin
           match fst w with
-          | I.Term b -> Context.add_equation b (Typing.type_of ctx0 b) (loop ws)
-          | _ -> Error.runtime "Witness %s is not a term" (I.string_of_exp ctx0 w)
+          | I.VTerm b -> Context.add_equation b (Typing.type_of ctx0 b) (loop ws)
+          | _ -> Error.runtime "Witness %s is not a term" (I.string_of_value ctx0 w)
         end  in
   loop
 
@@ -115,47 +101,92 @@ let wrap_syntax_with_witnesses ctx0 e =
     | w::ws ->
         begin
           match fst w with
-          | I.Term b -> Syntax.Equation(b, Typing.type_of ctx0 b, loop ws), Position.nowhere
-          | _ -> Error.runtime "Witness %s is not a term" (I.string_of_exp ctx0 w)
+          | I.VTerm b -> Syntax.Equation(b, Typing.type_of ctx0 b, loop ws), Position.nowhere
+          | _ -> Error.runtime "Witness %s is not a term" (I.string_of_value ctx0 w)
         end  in
   loop
 
-let rec run env (comp, loc) =
+(**************************)
+(* Evaluating Expressions *)
+(**************************)
+
+(* [eval env e] deterministically reduces TT expression [e] to a
+   value, without side-effects. This largely involves looking up
+   variables in the environment, and building closures.
+ *)
+let rec eval env (exp', loc) =
+  match exp' with
+  | I.Value v   -> v
+  | I.Var x ->
+      if SM.mem x env.ttenv then
+        let (value, insert_depth) = SM.find x env.ttenv  in
+        let current_depth = List.length (Context.names env.ctx) in
+        let delta = current_depth - insert_depth in
+        assert (delta >= 0);
+        I.shiftv 0 delta value
+      else
+        Error.runtime ~loc "Undefined variable %s" x
+  | I.Const a   -> I.VConst a, loc
+  | I.Term b    -> I.VTerm b, loc
+  | I.Type t    -> I.VType t, loc
+  | I.Fun (x,c) -> I.VFun(x, c, env.ttenv), loc
+  | I.Handler h -> I.VHandler (h, env.ttenv), loc
+  | I.Tuple es  -> I.VTuple (List.map (eval env) es), loc
+  | I.Inj(i,e)  -> I.VInj(i, eval env e), loc
+
+(********************)
+(* Pattern-Matching *)
+(********************)
+
+exception NoPatternMatch
+
+(* [extend_match env (v,pat)] either inserts the TT values from [v] where there
+   are corresponding variables in [pat], or raises the [NoPatternMatch]
+   exception if [pat] and [v] don't have the same form.
+ *)
+let rec extend_match env (v,pat) =
+  match fst v, pat with
+  | _,             I.PWild    -> env
+  | _,             I.PVar x   -> insert_ttvar x v env
+  | I.VConst a1,   I.PConst a2    when a1 = a2  ->  env
+  | I.VInj(i1,v1), I.PInj (i2,p2) when i1 = i2  ->  extend_match env (v1, p2)
+  | I.VTuple vs,   I.PTuple ps    when List.length vs = List.length ps ->
+      List.fold_left extend_match env (List.combine vs ps)
+  | _, _ -> raise NoPatternMatch
+
+
+let rec run (env : env) (comp, loc) =
   Print.debug "%s" (I.string_of_computation env.ctx (comp,loc));
   match comp with
 
-  | I.Val (I.DefaultHandler,_) ->
-      begin
-        (* XXX Terrible hack, hijacking the
-         * currently unused DefaultHandler constant
-         * for debugging purposes *)
-        Context.print env.ctx;
-        Error.runtime ~loc "Context dumped"
-      end
-
-
-  | I.Val e  ->
-      (* eval-val *)
-      I.RVal e
+  | I.Return e  ->
+      I.RVal (eval env e)
 
   | I.App (e1, e2) ->
       begin
-        match fst e1, fst e2 with
+        let v1 = eval env e1  in
+        let v2 = eval env e2  in
+        match fst v1, fst v2 with
 
-        | I.Fun (x,c), _ ->
-            (* eval-app *)
-            run env (I.subst_computation x e2 c)
+        | I.VFun (x,c,eta), _ ->
+            (* Extend _closure_ environment with argument
+               and run the function body
+             *)
+            run (insert_ttvar x v2 { env with ttenv = eta }) c
 
-        | I.ContExp(gamma,delta,k), _ ->
+        | I.VCont(gamma,delta,k,eta), _ ->
             (* eval-kapp *)
             if (List.length (Context.names env.ctx) =
                 List.length (Context.names gamma) + List.length (Context.names delta)) then
               (* XXX: Should actually check that types match too... *)
-              run env (I.kfill e2 k)
+              (* Fill the hole with the given value and run in the
+                 continuation (closure)'s environment.
+               *)
+              run {env with ttenv = eta} (I.kfill v2 k)
             else
               Error.runtime ~loc "Context length mismatch in eval-kapp"
 
-        | I.Term b1, I.Term b2 ->
+        | I.VTerm b1, I.VTerm b2 ->
             begin
               let t1 = Typing.type_of env.ctx b1  in
               match Typing.whnfs_ty env.ctx t1 with
@@ -166,11 +197,11 @@ let rec run env (comp, loc) =
                     | Some ws ->
                         let ctx' = extend_context_with_witnesses env.ctx ws in
                         if Typing.equiv_ty ctx' t t2 then
-                          I.RVal (I.mkTerm (Syntax.App((x,t,u),b1,b2), loc))
+                          I.RVal (I.mkVTerm (Syntax.App((x,t,u),b1,b2), loc))
                         else
                           Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
                     | None -> Error.runtime ~loc
-                      "Bad mkApp. Why is@ %t@ == %t" (print_ty env t) (print_ty env t2)
+                      "Bad mkApp. Why is@ %t@ == %t ?" (print_ty env t) (print_ty env t2)
 
                   end
               | _ -> Error.runtime ~loc "Can't prove operator in application is a product"
@@ -183,102 +214,80 @@ let rec run env (comp, loc) =
       begin
         match run env c1 with
 
-        | I.RVal e ->
+        | I.RVal v ->
             (* eval-let-val *)
-            run env (I.subst_computation x e c2)
+            run (insert_ttvar x v env) c2
 
-        | I.ROp(op, delta, e, k) ->
+        | I.ROp(op, delta, v, (k,eta)) ->
             (* eval-let-op *)
-            I.ROp(op, delta, e, I.KLet(x,k,c2))
+            I.ROp(op, delta, v, (I.KLet(x,k,c2), eta))
+            (* Justify moving c2 into eta *)
       end
 
     | I.Match(e, arms) ->
+        let v = eval env e  in
         let rec loop = function
           | [] -> Error.runtime ~loc "No matching pattern found"
-          |  arm::arms ->
+          |  (pat,c)::arms ->
               begin
-                match fst e, arm with
-                | _, (I.PVar x, c) ->
-                    run env (I.subst_computation x e c)
-
-                | I.Tuple es, (I.PTuple xs, c) when List.length es = List.length xs ->
-                    (* eval-match-tuple *)
-                    let sigma = List.combine xs es  in
-                    run env (I.psubst_computation sigma c)
-
-                | I.Inj(i1, e1), (I.PInj (i2, x), c) when i1 = i2 ->
-                    (* eval-match-inj *)
-                    run env (I.subst_computation x e1 c)
-
-                | I.Const a1, (I.PConst a2, c) when a1 = a2 ->
-                    (* eval-match-const *)
-                    run env c
-
-                | _, (I.PWild, c) ->
-                    run env c
-
-                | _, _ -> loop arms
+                try
+                  extend_match env (v,pat), c
+                with
+                  | NoPatternMatch -> loop arms
               end  in
-        loop arms
+        let env', c = loop arms  in
+        run env' c
 
-    | I.Op(tag, arg) ->
+    | I.Op(tag, e) ->
       (* eval-op *)
-      I.ROp(tag, Context.empty, arg, I.KHole)
+      let v = eval env e  in
+      I.ROp(tag, Context.empty, v, (I.KHole, env.ttenv))
 
-    | I.WithHandle(h0,c) ->
+    | I.WithHandle(e,c) ->
         begin
-          match fst h0 with
-          | I.Handler {I.valH; I.opH; I.finH=None}  ->
+          let h = eval env e  in
+          match fst h with
+          | I.VHandler ({I.valH; I.opH; I.finH=None}, eta_h)  ->
               begin
                 match run env c with
 
-                | I.RVal ev ->
+                | I.RVal v ->
                     begin
-                      Print.debug "Handler body produced value %s@." (I.string_of_exp env.ctx ev);
+                      Print.debug "Handler body produced value %s@." (I.string_of_value env.ctx v);
                       match valH with
                       | Some (xv,cv) ->
                           (* eval-handle-val *)
-                          run env (I.subst_computation xv ev cv)
+                          run (insert_ttvar xv v {env with ttenv = eta_h})  cv
                       | None ->
-                          I.RVal ev
+                          I.RVal v
                     end
 
-                | I.ROp (opi, delta, e, k1) as r ->
+                | I.ROp (opi, delta, v, (k1,eta1)) as r ->
                     begin
                       Print.debug "Handler body produced operation %s@." opi;
-                      let env' = {env with ctx = Context.append env.ctx delta}  in
-                      let k1' = I.mkContExp env.ctx delta (I.KWithHandle(h0, k1))  in
+                      let env' = {
+                                  ctx = Context.append env.ctx delta ;
+                                  ttenv = eta_h ;
+                                 }  in
+                      let k1' = I.mkVCont env.ctx delta (I.KWithHandle(I.mkValue h, k1)) eta1  in
+
                       let handler_result =
                         let rec loop = function
-                          | [] -> r
+                          | [] ->
+                              r
                           | (op, pat, kvar, c)::rest when op = opi ->
                               begin
-                                match fst e, pat with
-                                | I.Tuple es, I.PTuple xs when List.length es = List.length xs ->
-                                    Print.debug "Found a matching handler %s@."
-                                        (I.string_of_computation env.ctx c);
-                                    let sigma = (List.combine xs es) @ [ (kvar, k1') ] in
-                                    let body = I.psubst_computation sigma c  in
-                                    Print.debug "Running handler body %s@."
-                                        (I.string_of_computation env.ctx body);
-                                    run env' body
-
-                                | I.Inj(i1,e1), I.PInj(i2,x) ->
-                                    run env' (I.psubst_computation [x,e1; kvar,k1'] c)
-
-                                | I.Const a1, I.PConst a2 when a1 = a2 ->
-                                    run env' (I.psubst_computation [kvar,k1'] c)
-
-                                | _, I.PVar x ->
-                                    run env' (I.psubst_computation [x,e;kvar,k1'] c)
-
-                                | _, I.PWild ->
-                                    run env' (I.psubst_computation [kvar,k1'] c)
-
-                                | _, _ -> loop rest
+                                try
+                                  let env'' = extend_match env' (v,pat) in
+                                  let env'' = insert_ttvar kvar k1' env''  in
+                                  run env'' c
+                                with
+                                  | NoPatternMatch -> loop rest
                               end
                           | _ :: rest -> loop rest  in
-                        loop opH  in
+
+                        loop opH   in
+
                       match handler_result with
                       | I.RVal e' ->
                           if eok env e' then
@@ -289,9 +298,9 @@ let rec run env (comp, loc) =
                           I.ROp(opj, Context.append delta delta', e', k2)
                     end
               end
-         | I.Handler ({I.finH=Some (xf,cf)} as h) ->
+         | I.VHandler ({I.finH=Some (xf,cf)} as h, eta_h) ->
              let h' = { h with I.finH = None }  in
-             run env (I.Let(xf, (I.WithHandle((I.Handler h',snd h0),c),loc), cf), loc)
+             run env (I.Let(xf, (I.WithHandle(I.mkValue (I.mkVHandler h' eta_h),c),loc), cf), loc)
          | _ ->
               Error.runtime ~loc "Non-handler expression given to with/handle"
         end
@@ -300,25 +309,26 @@ let rec run env (comp, loc) =
         (* eval-make-var *)
         let nvars = List.length (Context.names env.ctx)  in
         if nvars > n then
-          I.RVal (I.Term (Syntax.Var n, loc), loc)
+          I.RVal (I.VTerm (Syntax.Var n, loc), loc)
         else
           Error.runtime ~loc "Index is %d but context has length %d" n nvars
 
     | I.MkLam (x1, e2, c3) ->
         begin
-          match fst e2 with
-          | I.Type t ->
+          let v2 = eval env e2  in
+          match fst v2 with
+          | I.VType t2 ->
               begin
-                let env' = {env with ctx = Context.add_var x1 t env.ctx }  in
+                let env' = {env with ctx = Context.add_var x1 t2 env.ctx }  in
                 match (run env' c3) with
-                | I.RVal v ->
+                | I.RVal v3 ->
                     (* eval-make-lambda-val *)
                     (* eval-make-lambda-val-tuple *)
-                    I.RVal (lambdaize env x1 t v)
-                | I.ROp (op, delta, e, k) ->
+                    I.RVal (lambdaize env x1 t2 v3)
+                | I.ROp (op, delta, e, (k, eta)) ->
                     (* eval-make-lambda-op *)
-                    let delta0 = Context.add_var x1 t Context.empty in
-                    I.ROp (op, Context.append delta0 delta, e, I.KMkLam(x1, t, k))
+                    let delta0 = Context.add_var x1 t2 Context.empty in
+                    I.ROp (op, Context.append delta0 delta, e, (I.KMkLam(x1, t2, k), eta))
               end
           | _ -> Error.runtime ~loc "Annotation in MkLam is not a type"
         end
@@ -326,14 +336,15 @@ let rec run env (comp, loc) =
     | I.Check(t1, t2, e, c) ->
         begin
           (* eval-assert-type *)
-          match fst e with
-          | I.Tuple ws ->
+          let v = eval env e  in
+          match fst v with
+          | I.VTuple ws ->
               let rec loop = function
                 | [] -> env.ctx
                 | w::ws ->
                     begin
                       match fst w with
-                      | I.Term b -> Context.add_equation b (Typing.type_of env.ctx b) (loop ws)
+                      | I.VTerm b -> Context.add_equation b (Typing.type_of env.ctx b) (loop ws)
                       | _ -> Error.runtime ~loc "Witness is not a term"
                     end  in
               let ctx' = loop ws in
@@ -347,36 +358,39 @@ let rec run env (comp, loc) =
     | I.Prim(op, es) ->
         begin
           (* eval-prim *)
+          let vs = List.map (eval env) es  in
           let answer =
-            match op, es with
-            | I.Not, [I.Const(I.Bool b), _] -> I.mkConst(I.Bool (not b))
-            | I.And, [I.Const(I.Bool b1), _; I.Const(I.Bool b2), _] ->
-                  I.mkConst(I.Bool (b1 && b2))
-            | I.Plus, [I.Const(I.Int n1), _; I.Const(I.Int n2), _] ->
-                  I.mkConst(I.Int (n1 + n2))
-            | I.Append, [I.Tuple es1, _; I.Tuple es2, _] ->
-                  I.mkTuple (es1 @ es2)
+            match op, vs with
+            | I.Not, [I.VConst(I.Bool b), _] -> I.mkVConst(I.Bool (not b))
+            | I.And, [I.VConst(I.Bool b1), _; I.VConst(I.Bool b2), _] ->
+                  I.mkVConst(I.Bool (b1 && b2))
+            | I.Plus, [I.VConst(I.Int n1), _; I.VConst(I.Int n2), _] ->
+                  I.mkVConst(I.Int (n1 + n2))
+            | I.Append, [I.VTuple es1, _; I.VTuple es2, _] ->
+                  I.mkVTuple (es1 @ es2)
             | _, _ -> Error.runtime ~loc "Bad arguments to primitive"  in
           I.RVal answer
         end
 
     | I.Ascribe(e1, e2) ->
         begin
-          match fst e1, fst e2 with
-          | I.Term b, I.Type t ->
+          let v1 = eval env e1  in
+          let v2 = eval env e2  in
+          match fst v1, fst v2 with
+          | I.VTerm b, I.VType t ->
               begin
                 let u = Typing.type_of env.ctx b  in
                 match equiv_ty env t u with
                 | Some ws ->
                     I.RVal
-                     (I.mkTerm
+                     (I.mkVTerm
                       (wrap_syntax_with_witnesses env.ctx
                            (Syntax.Ascribe(b,t), Position.nowhere) ws ))
 
                 | None ->
                     Error.runtime ~loc "Cannot prove ascription valid"
               end
-          | I.Term _, _ -> Error.runtime ~loc "Non-type in ascribe"
+          | I.VTerm _, _ -> Error.runtime ~loc "Non-type in ascribe"
           | _, _ -> Error.runtime ~loc "Non-term in ascribe"
         end
 
@@ -393,7 +407,7 @@ let rec run env (comp, loc) =
                   Error.syntax ~loc:(Position.of_lex lexbuf) "unrecognised symbol in Brazil literal at %s." (Position.to_string loc)   in
           let term = Debruijn.term (Context.names env.ctx) term in
           let term, _ty = Typing.syn_term env.ctx term  in
-          I.RVal (I.Term term, loc)
+          I.RVal (I.VTerm term, loc)
         end
 
     | I.BrazilTypeCode text ->
@@ -409,7 +423,7 @@ let rec run env (comp, loc) =
                   Error.syntax ~loc:(Position.of_lex lexbuf) "unrecognised symbol in Brazil literal at %s." (Position.to_string loc)   in
           let ty = Debruijn.ty (Context.names env.ctx) term in
           let ty = Typing.is_type env.ctx ty  in
-          I.RVal (I.Type ty, loc)
+          I.RVal (I.VType ty, loc)
         end
 
 
@@ -453,7 +467,7 @@ and equiv env term1 term2 t =
                         I.mkType t ;
                       ])  in
              match run env userCmd with
-             | I.RVal (I.Inj(1, (I.Tuple ws, _)), _) ->
+             | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
                  let ctx' = extend_context_with_witnesses env.ctx ws in
                  if (Typing.equiv ctx' term1 term2 t) then
                    Some ws

@@ -27,23 +27,35 @@ type primop =
   | And
   | Append
 
-type exp = exp' * Position.t
+type environment = (value * int) StringMap.t
+
+(* Closed values *)
+and value = value' * Position.t
+and value' =
+  | VFun     of tt_var * computation * environment
+  | VHandler of handler * environment
+  | VCont    of Context.t * Context.t * continuation * environment
+  | VTuple   of value list
+  | VConst   of const
+  | VInj     of int * value
+  | VTerm   of Syntax.term
+  | VType   of Syntax.ty
+
+and exp = exp' * Position.t
 and exp' =
+  | Value of value
   | Var of tt_var
   | Fun of tt_var * computation
-  | Closure of tt_var * computation * exp StringMap.t
   | Handler of handler
-  | ContExp of Context.t * Context.t * cont
-  | Term   of Syntax.term
-  | Type   of Syntax.ty
   | Tuple  of exp list
   | Const  of const
   | Inj    of int * exp
-  | DefaultHandler
+  | Term   of Syntax.term
+  | Type   of Syntax.ty
 
 and computation = computation' * Position.t
 and computation' =
-  | Val of exp
+  | Return of exp
   | App of exp * exp
   | Let of tt_var * computation * computation
   | Op  of operation_tag * exp
@@ -59,11 +71,11 @@ and computation' =
   | BrazilTermCode of string
   | BrazilTypeCode of string
 
-and cont =
+and continuation =
   | KHole
-  | KLet of tt_var * cont * computation
-  | KWithHandle of exp * cont
-  | KMkLam of Common.name * Syntax.ty * cont
+  | KLet of tt_var * continuation * computation
+  | KWithHandle of exp * continuation
+  | KMkLam of Common.name * Syntax.ty * continuation
 
 and arm = pattern * computation
 
@@ -75,15 +87,15 @@ and handler =
   }
 
 and pattern =
-  | PTuple of tt_var list
-  | PInj of int * tt_var
+  | PTuple of pattern list
+  | PInj of int * pattern
   | PConst of const
   | PVar of tt_var
   | PWild
 
 and result =
-  | RVal of exp
-  | ROp of operation_tag * Context.t * exp * cont
+  | RVal of value
+  | ROp of operation_tag * Context.t * value * (continuation * environment)
 
 type toplevel = toplevel' * Position.t
 and toplevel' =
@@ -100,19 +112,25 @@ let mkApp ?(loc=Position.nowhere) e1 e2 = App (e1, e2), loc
 let mkAscribe ?(loc=Position.nowhere) e1 e2 = Ascribe (e1,e2), loc
 let mkCheck ?(loc=Position.nowhere) t1 t2 e c = Check (t1,t2,e,c), loc
 let mkConst ?(loc=Position.nowhere) const = Const const, loc
-let mkContExp ?(loc=Position.nowhere) delta gamma k = ContExp(delta, gamma, k), loc
 let mkHandler ?(loc=Position.nowhere) h = Handler h, loc
-let mkLam ?(loc=Position.nowhere) x e c = MkLam (x,e,c), loc
 let mkLet ?(loc=Position.nowhere) x c1 c2 = Let (x,c1,c2), loc
+let mkMkLam ?(loc=Position.nowhere) x e c = MkLam (x,e,c), loc
 let mkOp ?(loc=Position.nowhere) op arg = Op(op, arg), loc
+let mkReturn ?(loc=Position.nowhere) e = Return e, loc
 let mkTerm ?(loc=Position.nowhere) term = Term term, loc
 let mkTuple ?(loc=Position.nowhere) es = Tuple es, loc
 let mkType ?(loc=Position.nowhere) ty = Type ty, loc
-let mkVal ?(loc=Position.nowhere) e = Val e, loc
 let mkVar ?(loc=Position.nowhere) e = Var e, loc
+let mkValue ?(loc=Position.nowhere) v = Value v, loc
 let mkWithHandle ?(loc=Position.nowhere) e c = WithHandle (e, c), loc
 
 
+let mkVCont ?(loc=Position.nowhere) g d k eta = VCont (g,d,k,eta), loc
+let mkVConst ?(loc=Position.nowhere) a = VConst a, loc
+let mkVHandler ?(loc=Position.nowhere) h eta = VHandler (h,eta), loc
+let mkVTerm ?(loc=Position.nowhere) term = VTerm term, loc
+let mkVTuple ?(loc=Position.nowhere) es = VTuple es, loc
+let mkVType ?(loc=Position.nowhere) ty = VType ty, loc
 
 
 
@@ -133,22 +151,20 @@ let rec string_of_exp ctx (exp, _loc) =
   let recurc = string_of_computation ctx  in
   match exp with
   | Var x -> tag "Var" [x]
+  | Value value -> tag "Value" []
   | Fun (x,c) -> tag "Fun" [x; recurc c]
-  | Closure (x,c,_) -> tag "Closure" [x; recurc c; "-"]
   | Handler h -> tag "Handler" [string_of_handler ctx h]
-  | ContExp (_gamma,_delta,k) -> tag "ContExp" ["-"; "-"; string_of_cont ctx k]
   | Term b -> tag "Term" [string_of_term ctx b]
   | Type t -> tag "Type" [string_of_ty ctx t]
   | Tuple es -> tag "Tuple" (List.map recur es)
   | Const c -> string_of_const c
   | Inj (i,e) -> tag "Inj" [string_of_int i; recur e]
-  | DefaultHandler -> "default"
 
 and string_of_computation ctx (comp, _loc) =
   let recur = string_of_exp ctx  in
   let recurc = string_of_computation ctx  in
   match comp with
-  | Val e -> recur e
+  | Return e -> recur e
   | App (e1, e2) -> tag "App" [recur e1; recur e2]
   | Let (x,c1,c2) -> tag "Let" [x; recurc c1; recurc c2]
   | Op (op, e) -> tag "Op" [op; recur e]
@@ -168,6 +184,21 @@ and string_of_computation ctx (comp, _loc) =
   (*| MkApp (e1, e2) -> tag "MkApp" [recur e1; recur e2]*)
   | BrazilTermCode s -> "`" ^ s ^ "`"
   | BrazilTypeCode s -> "t`" ^ s ^ "`"
+
+and string_of_value ctx (value, _loc) =
+  let recurv = string_of_value ctx  in
+  let recurc = string_of_computation ctx  in
+  let recurk = string_of_cont ctx  in
+  match value with
+  | VFun(x,c,_eta) -> tag "VFun" [x; recurc c; "-"]
+  | VHandler(h,_eta) -> tag "VHandler" [string_of_handler ctx h; "-"]
+  | VCont (_delta,_gamma, k, _eta) -> tag "VCont" ["?"; "?"; recurk k; "?"]
+  | VTuple vs -> tag "VTuple" (List.map recurv vs)
+  | VConst a -> tag "VConst" [string_of_const a]
+  | VInj (i,v) -> tag "VInj" [string_of_int i; recurv v]
+  | VTerm b -> tag "VTerm" [string_of_term ctx b]
+  | VType t -> tag "VType" [string_of_ty ctx t]
+
 
 and string_of_cont ctx k =
   let recur  = string_of_exp ctx in
@@ -189,8 +220,8 @@ and string_of_handler ctx _ = "<handler>"
     (*to_str*)
 
 and string_of_pat = function
-  | PTuple xs -> tag "PTuple" xs
-  | PInj (i,x) -> tag "PInj" [string_of_int i; x]
+  | PTuple ps -> tag "PTuple" (List.map string_of_pat ps)
+  | PInj (i,p) -> tag "PInj" [string_of_int i; string_of_pat p]
   | PConst c -> tag "PConst" [string_of_const c]
   | PVar v -> tag "PVar" [v]
   | PWild -> "PWild"
@@ -210,26 +241,47 @@ and string_of_ty ctx ty =
   Print.print Format.str_formatter "%t" (Print.ty (Context.names ctx) ty);
   Format.flush_str_formatter ()
 
+and string_of_eta ctx eta =
+  let binds = StringMap.bindings eta  in
+  let string_of_bind (x, _) = x ^ "= ?" in
+  let strings = List.map string_of_bind binds  in
+  "[" ^ (String.concat ", " strings) ^ "]"
+
+
 (************)
 (* Shifting *)
 (************)
 
 let rec shift cut delta (exp, loc) =
   if delta = 0 then (exp,loc) else
-  ((match exp with
+  (let recur = shift cut delta in
+   let recurv = shiftv cut delta in
+   let recurc = shift_computation cut delta in
+   (match exp with
   | Var v -> exp
-  | Fun (x, c) -> Fun(x, shift_computation cut delta c)
-  | Closure (x, c, eta) -> Closure(x, shift_computation cut delta c,
-                               StringMap.map (shift cut delta) eta)
+  | Value value -> Value (recurv value)
+  | Fun (x, c) -> Fun(x, recurc c)
   | Handler h -> Handler (shift_handler cut delta h)
-  | ContExp(delta, gamma, k) ->
-      Error.syntax ~loc "Cannot shift a continuation"
   | Term b -> Term (Syntax.shift ~bound:cut delta b)
   | Type t -> Type (Syntax.shift_ty ~bound:cut delta t)
-  | Tuple exps -> Tuple (List.map (shift cut delta) exps)
+  | Tuple exps -> Tuple (List.map recur exps)
   | Const _ -> exp
-  | DefaultHandler -> exp
-  | Inj (i, exp2) -> Inj(i, shift cut delta exp2)),
+  | Inj (i, exp2) -> Inj(i, recur exp2)),
+  loc)
+
+and shiftv cut delta (value, loc) =
+  if delta = 0 then (value,loc) else
+  (let recurv = shiftv cut delta in
+   let recurc = shift_computation cut delta in
+  (match value with
+  | VFun(x, c, eta) -> VFun(x, recurc c, eta)
+  | VHandler (h, eta) -> VHandler (shift_handler cut delta h, eta)
+  | VCont _ -> Error.runtime ~loc "shiftv: Cannot shift a continuation"
+  | VTuple vs -> VTuple (List.map recurv vs)
+  | VConst _ -> value
+  | VInj (i,v) -> VInj(i, recurv v)
+  | VTerm b -> VTerm (Syntax.shift ~bound:cut delta b)
+  | VType t -> VType (Syntax.shift_ty ~bound:cut delta t)),
   loc)
 
 and shift_computation cut delta (comp, loc) =
@@ -237,7 +289,7 @@ and shift_computation cut delta (comp, loc) =
   (let recur = shift cut delta in
   let recurc = shift_computation cut delta in
   (match comp with
-  | Val e -> Val (recur e)
+  | Return e -> Return (recur e)
   | App (e1, e2) -> App(recur e1, recur e2)
   | Let (x,c1,c2) -> Let(x, recurc c1, recurc c2)
   | Op (op, e) -> Op(op, recur e)
@@ -270,109 +322,6 @@ and shift_handler cut delta ({valH; opH; finH} as h) =
             | Some (xf,cf) -> Some (xf, shift_computation cut delta cf));
   })
 
-(****************)
-(* Substitution *)
-(****************)
-
-let bound_in_pat var = function
-  | PTuple xs -> List.mem var xs
-  | PInj(_, x) -> var = x
-  | PVar x -> var = x
-  | PWild -> false
-  | PConst _ -> false
-
-
-let rec psubst ?(bvs=0) sigma exp1 =
-  let recur = psubst ~bvs sigma in
-  let recurk = psubst_continuation ~bvs sigma  in
-  match exp1 with
-  | Var x1, loc ->
-      if List.mem_assoc x1 sigma then
-        shift 0 bvs (List.assoc x1 sigma)
-      else
-        exp1
-  | Fun (x1, c2), loc ->
-      let sigma' = List.remove_assoc x1 sigma in
-      Fun(x1, psubst_computation ~bvs sigma' c2), loc
-  | Closure (x1, c2, eta), loc ->
-      let eta' = StringMap.map (psubst ~bvs sigma) eta  in
-      let sigma = List.remove_assoc x1 sigma in
-      let sigma = List.filter (fun (k,_) -> not (StringMap.mem k eta)) sigma in
-      Closure(x1, psubst_computation ~bvs sigma c2, eta'), loc
-  | Handler h, loc -> Handler (psubst_handler ~bvs sigma h), loc
-  | ContExp(delta, gamma, k), loc -> ContExp(delta, gamma, recurk k), loc
-  | Term _b, loc -> exp1
-  | Type _t, loc -> exp1
-  | Tuple es, loc -> Tuple(List.map recur es), loc
-  | Const _c, loc -> exp1
-  | DefaultHandler, loc -> exp1
-  | Inj(i1, exp2), loc -> Inj(i1, recur exp2), loc
-
-and psubst_computation ?(bvs=0) sigma (comp1, loc) =
-  let recur = psubst ~bvs sigma in
-  let recurc = psubst_computation ~bvs sigma  in
-  (match comp1 with
-  | Val e -> Val (recur e)
-  | App (e1, e2) -> App (recur e1, recur e2)
-  | Let (x, c1, c2) ->
-      let c1' = recurc c1  in
-      let sigma' = List.remove_assoc x sigma  in
-      let c2' = psubst_computation ~bvs sigma' c2  in
-      Let (x, c1', c2')
-  | Op (op, e) -> Op (op, recur e)
-  | WithHandle(e,c) -> WithHandle(recur e, recurc c)
-  (*| KApp (e1, e2) -> KApp (recur e1, recur e2)*)
-  | Ascribe (e1, e2) -> Ascribe (recur e1, recur e2)
-  | Prim (op, es) -> Prim(op, List.map recur es)
-  | Match(e, pcs) -> Match(recur e, List.map (psubst_arm ~bvs sigma) pcs)
-  | Check(t1, t2, e, c) -> Check(t1, t2, recur e, recurc c)
-  | MkVar _n -> comp1
-  | MkLam (x, e, c) ->
-      let e' = recur e  in
-      let sigma' = List.remove_assoc x sigma in
-      let c' = psubst_computation ~bvs:(bvs+1) sigma' c  in
-      MkLam(x, e', c')
-  | BrazilTermCode _ -> comp1
-  | BrazilTypeCode _ -> comp1
-  (*| MkApp (e1, e2) -> MkApp (recur e1, recur e2)*)
-  ), loc
-
-and psubst_handler ?(bvs=0) sigma {valH; opH; finH} =
-  let subst_case (tag, p, k, c) =
-    let unshadowed (v,_) = not (bound_in_pat v p || v = k)  in
-    let sigma = List.filter unshadowed sigma  in
-      (tag, p, k, psubst_computation ~bvs sigma c)  in
-  {
-    valH = (match valH with
-              None -> None
-            | Some (xv,cv) -> Some (xv, psubst_computation ~bvs (List.remove_assoc xv sigma) cv));
-    opH = List.map subst_case opH;
-    finH = (match finH with
-              None -> None
-            | Some (xf,cf) -> Some (xf, psubst_computation ~bvs (List.remove_assoc xf sigma) cf));
-  }
-
-and psubst_continuation ?(bvs=0) sigma k =
-  let recur  = psubst ~bvs sigma in
-  let recurk = psubst_continuation ~bvs sigma in
-  match k with
-    | KHole -> k
-    | KLet (x,k,c) ->
-        let k' = recurk k  in
-        let sigma' = List.remove_assoc x sigma  in
-        let c' = psubst_computation ~bvs sigma' c  in
-        KLet(x, k', c')
-    | KWithHandle(e, k) -> KWithHandle(recur e, recurk k)
-    | KMkLam(x,t,k) ->
-        let sigma' = List.remove_assoc x sigma  in
-        KMkLam(x, t, psubst_continuation ~bvs:(bvs+1) sigma' k)
-
-and psubst_arm ~bvs sigma (pat, comp) =
-  let unshadowed (v,_) = not (bound_in_pat v pat)  in
-  let sigma' = List.filter unshadowed sigma  in
-  (pat, psubst_computation ~bvs sigma' comp)
-
-and subst_computation x2 e2 = psubst_computation [(x2,e2)]
 
 (****************)
 (* Hole-filling *)
@@ -381,9 +330,9 @@ and subst_computation x2 e2 = psubst_computation [(x2,e2)]
 
 (* Not capture-avoiding! *)
 
-let rec kfill ((_, loc) as exp) = function
-  | KHole -> Val exp, loc
-  | KLet (x,k,c) -> mkLet x (kfill exp k) c
-  | KWithHandle(e, k) -> WithHandle(e, kfill exp k), Position.nowhere
-  | KMkLam(x, t, k) -> MkLam(x, (Type t, snd t), kfill exp k), Position.nowhere
+let rec kfill ((_, loc) as v) = function
+  | KHole -> mkReturn ~loc (mkValue ~loc v)
+  | KLet (x,k,c) -> mkLet x (kfill v k) c
+  | KWithHandle(e, k) -> mkWithHandle e (kfill v k)
+  | KMkLam(x, t, k) -> mkMkLam x (Type t, snd t) (kfill v k)
 

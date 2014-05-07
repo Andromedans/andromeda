@@ -84,10 +84,10 @@ let rec exec_cmd interactive env (d, loc) =
     | InputTT.TopParam (xs, comp) ->
         begin
           match Interp.toprun env comp with
-          | InputTT.RVal e ->
+          | InputTT.RVal v ->
               begin
-                match fst e with
-                | InputTT.Type t ->
+                match fst v with
+                | InputTT.VType t ->
                     let t = Syntax.simplify_ty t  in
                     {env with Interp.ctx = Ctx.add_vars (List.map (fun x -> (x,t)) xs) env.Interp.ctx}
                 | _ -> Error.runtime "Classifier is not a type"
@@ -98,14 +98,14 @@ let rec exec_cmd interactive env (d, loc) =
     | InputTT.TopLet (x, comp) ->
         begin
           match Interp.toprun env comp with
-          | InputTT.RVal e ->
+          | InputTT.RVal v ->
               begin
-                match fst e with
-                | InputTT.Term b ->
+                match fst v with
+                | InputTT.VTerm b ->
                     let t = Typing.type_of env.Interp.ctx b  in
                     {env with Interp.ctx = Ctx.add_def x t b env.Interp.ctx}
                 | _ -> Error.runtime "Result of definition is %s, not a term"
-                            (InputTT.string_of_exp env.Interp.ctx e)
+                            (InputTT.string_of_value env.Interp.ctx v)
               end
           | InputTT.ROp (op, _, _, _) ->
               Error.runtime "Uncaught operation %s" op
@@ -113,24 +113,24 @@ let rec exec_cmd interactive env (d, loc) =
     | InputTT.TopEval comp ->
         (begin
           match Interp.toprun env comp with
-          | InputTT.RVal e ->
-              Format.printf "%s@." (InputTT.string_of_exp env.Interp.ctx e)
+          | InputTT.RVal v ->
+              Format.printf "%s@." (InputTT.string_of_value env.Interp.ctx v)
           | InputTT.ROp (op, _, _, _) ->
               Format.printf "Uncaught operation %s" op
         end; env)
     | InputTT.TopDef (x, comp) ->
         begin
           match Interp.toprun env comp with
-          | InputTT.RVal e ->
+          | InputTT.RVal v ->
               begin
-                match fst e with
-                | InputTT.Term b ->
+                match fst v with
+                | InputTT.VTerm b ->
                     let b = Syntax.simplify b  in
                     let t = Typing.type_of env.Interp.ctx b  in
                     let t = Syntax.simplify_ty t  in
                     {env with Interp.ctx = Ctx.add_def x t b env.Interp.ctx}
                 | _ -> Error.runtime "Result of definition is %s, not a term"
-                            (InputTT.string_of_exp env.Interp.ctx e)
+                            (InputTT.string_of_value env.Interp.ctx v)
               end
           | InputTT.ROp (op, _, _, _) ->
               Error.runtime "Uncaught operation %s" op

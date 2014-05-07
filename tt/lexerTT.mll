@@ -6,7 +6,6 @@
   let reserved = [
     ("assume", ASSUME) ;
     ("debruijn", DEBRUIJN);
-    ("default", DEFAULT);
     ("define", DEFINE) ;
     ("end", END);
     ("eval", EVAL);

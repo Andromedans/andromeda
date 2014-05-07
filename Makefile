@@ -4,7 +4,7 @@ OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 
 
 
-all: brazil.byte tt.byte
+all: brazil.byte tt.byte tt-smoketest
 
 default: tt.byte
 
@@ -20,21 +20,18 @@ tt.native:
 tt.byte:
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) tt.byte
 
-smoketest: tt.byte
-	./tt.native examples/t.tt && \
-	  ./tt.native examples/wild.tt && \
-	  ./tt.native examples/brazil.tt && \
-	  ./tt.native examples/brazilBool.tt && \
-	  ./tt.native examples/evil.tt && \
-	  ./tt.native examples/paths_to_id.tt
+tt-smoketest: tt.byte
+	./tt.byte examples/eff.tt 
+	./tt.byte examples/literals.tt 
+	./tt.byte examples/nat.tt 
 	@echo
-	@echo "************************"
-	@echo "* Smoke test succeeded *"
-	@echo "************************"
+	@echo "***************************"
+	@echo "* TT Smoke test succeeded *"
+	@echo "***************************"
 	@echo
 
 
 clean:
 	ocamlbuild -clean
 
-.PHONY: smoketest clean brazil.byte brazil.native tt.byte tt.native
+.PHONY: tt-smoketest clean brazil.byte brazil.native tt.byte tt.native

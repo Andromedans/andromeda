@@ -22,7 +22,6 @@
 %token CONTEXT
 %token DARROW
 %token DEBRUIJN
-%token DEFAULT
 %token DEFINE
 %token END
 %token EOF
@@ -120,12 +119,11 @@ plain_exp1:
     | const                  { Const $1 }
     | INJ exp1               { Inj ($1, $2) }
     | LPAREN plain_exp0 RPAREN      { $2 }
-    | DEFAULT { DefaultHandler }
 
 (* Only know the ending when we see it *)
 comp0: mark_position(plain_comp0) { $1 }
 plain_comp0:
-    | VAL exp0        { Val $2 }
+    | VAL exp0        { Return $2 }
 
     | exp1 exp1        { App ($1, $2) }
     | exp1 comp1       { let loc = Position.make $startpos $endpos in
@@ -153,7 +151,8 @@ plain_comp0:
     | WITH exp1 HANDLE comp0  { WithHandle ($2, $4) }
     | LAMBDA name COLON exp0 COMMA comp0 { MkLam($2, $4, $6) }
     | LAMBDA name COLON comp0 COMMA comp0
-         { Let("lambda annot", $4, mkLam $2 (mkVar "lambda annot") $6) }
+         { let loc = Position.make $startpos $endpos in
+           Let("lambda annot", $4, mkMkLam ~loc $2 (mkVar "lambda annot") $6) }
     | exp1 PLUS exp1 { Prim(Plus, [$1; $3]) }
     | exp1 PLUSPLUS exp1 { Prim(Append, [$1; $3]) }
     | exp1 ANDAND exp1   { Prim(And, [$1; $3]) }
@@ -172,8 +171,8 @@ arm:
   pat DARROW comp0 { ($1, $3) }
 
 pat:
-    | LBRACK xs=separated_list(COMMA, NAME) RBRACK { PTuple xs }
-    | INJ NAME  { PInj($1, $2) }
+    | LBRACK xs=separated_list(COMMA, pat) RBRACK { PTuple xs }
+    | INJ pat  { PInj($1, $2) }
     | NAME      { PVar $1 }
     | const     { PConst $1 }
     | UNDERSCORE { PWild }
