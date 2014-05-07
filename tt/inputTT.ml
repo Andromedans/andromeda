@@ -128,6 +128,7 @@ let mkWithHandle ?(loc=Position.nowhere) e c = WithHandle (e, c), loc
 let mkVCont ?(loc=Position.nowhere) g d k eta = VCont (g,d,k,eta), loc
 let mkVConst ?(loc=Position.nowhere) a = VConst a, loc
 let mkVHandler ?(loc=Position.nowhere) h eta = VHandler (h,eta), loc
+let mkVInj ?(loc=Position.nowhere) i v = VInj(i,v), loc
 let mkVTerm ?(loc=Position.nowhere) term = VTerm term, loc
 let mkVTuple ?(loc=Position.nowhere) es = VTuple es, loc
 let mkVType ?(loc=Position.nowhere) ty = VType ty, loc

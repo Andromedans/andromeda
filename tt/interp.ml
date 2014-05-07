@@ -45,6 +45,7 @@ let fresh_name =
 
 
 
+
 (** [abstract ctx x t v] wraps every *Brazil* term in v with a (Brazil) lambda.
     For simplicity, we assume that x:t is already the (last) binding in ctx
     It expects that v is either a term or a tuple of terms (or a tuple of these, etc.)
@@ -107,6 +108,11 @@ let wrap_syntax_with_witness ctx b v =
 
 let wrap_syntax_with_witnesses ctx =
   List.fold_left (wrap_syntax_with_witness ctx)
+
+
+let retSomeTuple ws = I.RVal (I.mkVInj 1 (I.mkVTuple ws))
+let retNone         = I.RVal (I.mkVInj 0 (I.mkVConst I.Unit))
+
 
 (**************************)
 (* Evaluating Expressions *)
@@ -190,12 +196,12 @@ let parse_literal parse_fn loc text =
 (* Running a Computation *)
 (*************************)
 
-let rec run (env : env) (comp, loc) =
+let rec run (env : env) (comp, loc) k0 =
   Print.debug "%s" (I.string_of_computation env.ctx (comp,loc));
   match comp with
 
   | I.Return e  ->
-      I.RVal (eval env e)
+      k0 (I.RVal (eval env e))
 
   | I.App (e1, e2) ->
       begin
@@ -207,7 +213,7 @@ let rec run (env : env) (comp, loc) =
             (* Extend _closure_ environment with argument
                and run the function body
              *)
-            run (insert_ttvar x v2 { env with ttenv = eta }) c
+            run (insert_ttvar x v2 { env with ttenv = eta }) c k0
 
         | I.VCont(gamma,delta,k,eta), _ ->
             (* eval-kapp *)
@@ -217,7 +223,7 @@ let rec run (env : env) (comp, loc) =
               (* Fill the hole with the given value and run in the
                  continuation (closure)'s environment.
                *)
-              run {env with ttenv = eta} (I.kfill v2 k)
+              run {env with ttenv = eta} (I.kfill v2 k) k0
             else
               Error.runtime ~loc "Context length mismatch in eval-kapp"
 
@@ -232,7 +238,7 @@ let rec run (env : env) (comp, loc) =
                     | Some ws ->
                         let ctx' = extend_context_with_witnesses env.ctx ws in
                         if Typing.equiv_ty ctx' t t2 then
-                          I.RVal (I.mkVTerm (Syntax.App((x,t,u),b1,b2), loc))
+                          k0 (I.RVal (I.mkVTerm (Syntax.App((x,t,u),b1,b2), loc)))
                         else
                           Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
                     | None -> Error.runtime ~loc
@@ -247,10 +253,12 @@ let rec run (env : env) (comp, loc) =
 
   | I.Let(x,c1,c2) ->
       begin
-        match run env c1 with
-        | I.RVal v                     -> run (insert_ttvar x v env) c2
-        | I.ROp(op, delta, v, (k,eta)) -> I.ROp(op, delta, v, (I.KLet(x,k,c2), eta))
-                                           (* XXX Justify moving c2 into eta? *)
+        run env c1
+        (function
+          | I.RVal v                     -> run (insert_ttvar x v env) c2 k0
+          | I.ROp(op, delta, v, (k,eta)) -> k0 (I.ROp(op, delta, v, (I.KLet(x,k,c2), eta)))
+                                             (* XXX Justify moving c2 into eta? *)
+        )
       end
 
     | I.Match(e, arms) ->
@@ -265,37 +273,37 @@ let rec run (env : env) (comp, loc) =
                   | NoPatternMatch -> find_match arms
               end  in
         let env', c = find_match arms  in
-        run env' c
+        run env' c k0
 
     | I.Op(tag, e) ->
       (* eval-op *)
       let v = eval env e  in
-      I.ROp(tag, Context.empty, v, (I.KHole, env.ttenv))
+      k0 (I.ROp(tag, Context.empty, v, (I.KHole, env.ttenv)))
 
     | I.WithHandle(e,c) ->
         begin
           let h = eval env e  in
+          Print.debug "Handler case; h = %s@." (I.string_of_value env.ctx h);
           match fst h with
           | I.VHandler ({I.valH; I.opH; I.finH=None}, eta_h)  ->
               begin
-                match run env c with
-
+                run env c
+                (function
                 | I.RVal v ->
                     begin
                       Print.debug "Handler body produced value %s@." (I.string_of_value env.ctx v);
                       match valH with
                       | Some (xv,cv) ->
                           (* eval-handle-val *)
-                          run (insert_ttvar xv v {env with ttenv = eta_h})  cv
+                          run (insert_ttvar xv v {env with ttenv = eta_h}) cv k0
                       | None ->
-                          I.RVal v
+                          k0 (I.RVal v)
                     end
 
                 | I.ROp (opi, delta, v, (k1,eta1)) as r ->
                     begin
                       Print.debug "Handler body produced operation %s@." opi;
 
-                      let handler_result =
                         let rec loop = function
                           | [] ->
                               r
@@ -310,28 +318,30 @@ let rec run (env : env) (comp, loc) =
                                   let env_h = insert_matched env_h (v,pat) in
                                   let env_h = insert_ttvar kvar kval env_h  in
                                   run env_h c
+                                  (function
+                                    | I.RVal v' ->
+                                        let unshift_amount = - (List.length (Context.names delta)) in
+                                        if vok env v' then
+                                          k0 (I.RVal (I.shiftv 0 unshift_amount v'))
+                                        else
+                                          Error.runtime ~loc "Handler returned value with too many variables"
+                                    | I.ROp(opj, delta', e', k2) ->
+                                        k0 (I.ROp(opj, Context.append delta delta', e', k2))
+                                  )
                                 with
                                   NoPatternMatch -> loop rest
                               end
                           | _ :: rest -> loop rest  in
 
-                        loop opH   in
+                        loop opH
 
-                      match handler_result with
-                      | I.RVal v' ->
-                          let unshift_amount = - (List.length (Context.names delta)) in
-                          if vok env v' then
-                            I.RVal (I.shiftv 0 unshift_amount v')
-                          else
-                            Error.runtime ~loc "Handler returned value with too many variables"
-                      | I.ROp(opj, delta', e', k2) ->
-                          I.ROp(opj, Context.append delta delta', e', k2)
                     end
+                )
               end
 
          | I.VHandler ({I.finH=Some (xf,cf)} as h, eta_h) ->
              let h' = { h with I.finH = None }  in
-             run env (I.mkLet ~loc xf (I.mkWithHandle ~loc (I.mkValue (I.mkVHandler h' eta_h)) c) cf)
+             run env (I.mkLet ~loc xf (I.mkWithHandle ~loc (I.mkValue (I.mkVHandler h' eta_h)) c) cf) k0
 
          | _ ->
               Error.runtime ~loc "Non-handler expression given to with/handle"
@@ -340,7 +350,7 @@ let rec run (env : env) (comp, loc) =
     | I.MkVar i ->
         let vars = depth env  in
         if i < vars then
-          I.RVal (I.mkVTerm ~loc (Syntax.Var i, loc))
+          k0 (I.RVal (I.mkVTerm ~loc (Syntax.Var i, loc)))
         else
           Error.runtime ~loc "Index is %d but context has length %d" i vars
 
@@ -350,12 +360,14 @@ let rec run (env : env) (comp, loc) =
           | I.VType t2, _ ->
               begin
                 let env' = {env with ctx = Context.add_var x1 t2 env.ctx }  in
-                match (run env' c3) with
+                run env' c3
+                (function
                 | I.RVal v3 ->
-                    I.RVal (abstract env'.ctx x1 t2 v3)
+                    k0 (I.RVal (abstract env'.ctx x1 t2 v3))
                 | I.ROp (op, delta, e, (k, eta)) ->
                     let delta0 = Context.add_var x1 t2 Context.empty in
-                    I.ROp (op, Context.append delta0 delta, e, (I.KMkLam(x1, t2, k), eta))
+                    k0 (I.ROp (op, Context.append delta0 delta, e, (I.KMkLam(x1, t2, k), eta)))
+                )
               end
           | _, _ -> Error.runtime ~loc "Annotation in MkLam is not a type"
         end
@@ -366,7 +378,7 @@ let rec run (env : env) (comp, loc) =
           | I.VTuple ws, _ ->
               let ctx' = extend_context_with_witnesses env.ctx ws in
               if Typing.equiv_ty ctx' t1 t2 then
-                run {env with ctx = ctx'} c   (* Run the body with the added hints *)
+                run {env with ctx = ctx'} c k0  (* Run the body with the added hints *)
               else
                 Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
           | _, _ -> Error.runtime ~loc "Evidence in Check was not a tuple"
@@ -381,9 +393,9 @@ let rec run (env : env) (comp, loc) =
                 let u = Typing.type_of env.ctx b  in
                 match equiv_ty env t u with
                 | Some ws ->
-                    I.RVal
-                     (I.mkVTerm (wrap_syntax_with_witnesses env.ctx
-                                   (Syntax.Ascribe(b,t), Position.nowhere) ws ))
+                    k0 (I.RVal
+                         (I.mkVTerm (wrap_syntax_with_witnesses env.ctx
+                                       (Syntax.Ascribe(b,t), Position.nowhere) ws )))
 
                 | None -> Error.runtime ~loc "Brazil cannot prove the ascription valid"
               end
@@ -397,7 +409,7 @@ let rec run (env : env) (comp, loc) =
           let term = parse_literal Parser.topterm loc text  in
           let term = Debruijn.term (Context.names env.ctx) term in
           let term, _ty = Typing.syn_term env.ctx term  in
-          I.RVal (I.mkVTerm ~loc term)
+          k0 (I.RVal (I.mkVTerm ~loc term))
         end
 
     | I.BrazilTypeCode text ->
@@ -405,7 +417,7 @@ let rec run (env : env) (comp, loc) =
           let term = parse_literal Parser.topty loc text  in
           let ty = Debruijn.ty (Context.names env.ctx) term in
           let ty = Typing.is_type env.ctx ty  in
-          I.RVal (I.mkVType ~loc ty)
+          k0 (I.RVal (I.mkVType ~loc ty))
         end
 
 
@@ -414,7 +426,8 @@ and vok env exp =
   true
 
 
-(* Adapted from brazil/typing.ml and the original src/equivalence.ml *)
+
+
 
 and equiv_ty env t u =
   if Syntax.equal_ty t u then
@@ -440,7 +453,7 @@ and equiv env term1 term2 t =
   firstSome
   [
     lazy ( if (Syntax.equal term1 term2) then Some [] else None ) ;
-
+(*
     lazy ( let userCmd =
              I.mkOp "equiv"
                     (I.mkTuple
@@ -448,19 +461,19 @@ and equiv env term1 term2 t =
                         I.mkTerm term2 ;
                         I.mkType t ;
                       ])  in
-             match run env userCmd with
+             run env userCmd
+             (function
              | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
                  let ctx' = extend_context_with_witnesses env.ctx ws in
                  if (Typing.equiv ctx' term1 term2 t) then
-                   Some ws
+                   retSomeTuple ws
                  else
                    Error.runtime "Insufficient witnesses for equivalence"
 
-             | _ -> None ) ;
-(*
+             | _ -> None ) ) ;
+*)
     lazy ( let t' = Typing.whnfs_ty env.ctx t in
            equiv_ext env term1 term2 t' ) ;
-           *)
   ]
 
 and equiv_ext env ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
@@ -646,5 +659,5 @@ let toplevel_handler =
 
 let rec toprun env c =
   let c' = I.mkWithHandle (I.mkHandler toplevel_handler) c in
-  run env c'
+  run env c' (fun r -> r)
 
