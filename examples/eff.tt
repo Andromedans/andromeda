@@ -1,9 +1,11 @@
+// 7
 eval
-  let hdouble = val handler val x => x + 1 | op double x k => let y = x + x in k y end
+  let hdouble = val handler val x => val x + 1 | op double x k => k (x + x) end
   in
     with hdouble handle
       op double 3;;
 
+// [4,5]
 eval 
   let f = val fun b => match b with
                           | true => val 4
@@ -13,8 +15,9 @@ eval
       let b = f false in
       val [a,b]
 
+// 100
 eval
-  let hchoice = val handler val x => val x | op decide _ k => k true | finally z => z + 99 end
+  let hchoice = val handler val x => val x | op decide _ k => k true | finally z => val z + 99 end
   in
     with hchoice handle
       let z = op decide () in
@@ -22,7 +25,8 @@ eval
       | true => val 1
       | false => val 0
       end
- 
+
+// 10
 eval
   let hchoice = val handler op decide _ k => k true end
   in
@@ -37,13 +41,14 @@ eval
               | true => val 0
               | false => val 5 
               end  in
-      x + y 
+      val x + y 
 
+// [10, 15, 20, 25]
 eval
   let choose_all = val handler val x => val [x] | op decide _ k => 
                                                     let l1 = k true in
                                                     let l2 = k false in
-                                                    l1 ++ l2 
+                                                    val l1 ++ l2 
                        end
   in
     with choose_all handle
@@ -57,9 +62,10 @@ eval
               | true => val 0
               | false => val 5 
               end  in
-      x + y 
+      val x + y 
 
 
+// [27, 42]
 eval
   let store = val handler val x => val (fun s => val x) 
                           op lookup _ k => val (fun s => let z = k s in z s) 

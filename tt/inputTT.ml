@@ -52,6 +52,7 @@ and exp' =
   | Inj    of int * exp
   | Term   of Syntax.term
   | Type   of Syntax.ty
+  | Prim of primop * exp list
 
 and computation = computation' * Position.t
 and computation' =
@@ -62,7 +63,6 @@ and computation' =
   | WithHandle of exp * computation
   (*| KApp of exp * exp*)
   | Ascribe of exp * exp
-  | Prim of primop * exp list
   | Match of exp * arm list
   | Check of Syntax.ty * Syntax.ty * exp * computation
   | MkVar of int
@@ -159,6 +159,7 @@ let rec string_of_exp ctx (exp, _loc) =
   | Tuple es -> tag "Tuple" (List.map recur es)
   | Const c -> string_of_const c
   | Inj (i,e) -> tag "Inj" [string_of_int i; recur e]
+  | Prim (op, es) -> tag "Prim" (string_of_primop op :: List.map recur es)
 
 and string_of_computation ctx (comp, _loc) =
   let recur = string_of_exp ctx  in
@@ -171,7 +172,6 @@ and string_of_computation ctx (comp, _loc) =
   | WithHandle (e,c) -> tag "WithHandle" [recur e; recurc c]
   (*| KApp (e1, e2) -> tag "KApp" [recur e1; recur e2]*)
   | Ascribe (e1, e2) -> tag "Ascribe" [recur e1; recur e2]
-  | Prim (op, es) -> tag "Prim" (string_of_primop op :: List.map recur es)
   | Match (e, arms) -> tag "match" (recur e ::
                                     List.map (string_of_arm ctx) arms)
   | Check (t1, t2, e, c) -> tag "Check" ["<type 1>"; "<type 2>"; recur e;
@@ -266,8 +266,9 @@ let rec shift cut delta (exp, loc) =
   | Type t -> Type (Syntax.shift_ty ~bound:cut delta t)
   | Tuple exps -> Tuple (List.map recur exps)
   | Const _ -> exp
-  | Inj (i, exp2) -> Inj(i, recur exp2)),
-  loc)
+  | Inj (i, exp2) -> Inj(i, recur exp2)
+  | Prim(op, es) -> Prim(op, List.map recur es)
+   ), loc)
 
 and shiftv cut delta (value, loc) =
   if delta = 0 then (value,loc) else
@@ -296,7 +297,6 @@ and shift_computation cut delta (comp, loc) =
   | WithHandle(e,c) -> WithHandle(recur e, recurc c)
   (*| KApp(e1,e2) -> KApp(recur e1, recur e2)*)
   | Ascribe(e1,e2) -> Ascribe(recur e1, recur e2)
-  | Prim(op, es) -> Prim(op, List.map recur es)
   | Match(e, pcs) -> Match(recur e,
                            List.map (fun (p,c) -> (p, recurc c)) pcs)
   | Check (t1, t2, e, c) -> Check (Syntax.shift_ty ~bound:cut delta t1,

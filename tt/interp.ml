@@ -133,6 +133,19 @@ let rec eval env (exp', loc) =
   | I.Handler h -> I.VHandler (h, env.ttenv), loc
   | I.Tuple es  -> I.VTuple (List.map (eval env) es), loc
   | I.Inj(i,e)  -> I.VInj(i, eval env e), loc
+  | I.Prim(op, es) -> eval_prim env loc op (List.map (eval env) es)
+
+
+and eval_prim env loc op vs =
+    match op, vs with
+    | I.Not, [I.VConst(I.Bool b), _]  -> I.mkVConst(I.Bool (not b))
+    | I.And, [I.VConst(I.Bool b1), _;
+              I.VConst(I.Bool b2), _] -> I.mkVConst(I.Bool (b1 && b2))
+    | I.Plus, [I.VConst(I.Int n1), _;
+               I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 + n2))
+    | I.Append, [I.VTuple es1, _;
+                 I.VTuple es2, _]     -> I.mkVTuple (es1 @ es2)
+    | _, _ -> Error.runtime ~loc "Bad arguments to primitive"
 
 (********************)
 (* Pattern-Matching *)
@@ -355,22 +368,6 @@ let rec run (env : env) (comp, loc) =
           | _ -> Error.runtime ~loc "Evidence in Check was not a tuple"
         end
 
-    | I.Prim(op, es) ->
-        begin
-          (* eval-prim *)
-          let vs = List.map (eval env) es  in
-          let answer =
-            match op, vs with
-            | I.Not, [I.VConst(I.Bool b), _] -> I.mkVConst(I.Bool (not b))
-            | I.And, [I.VConst(I.Bool b1), _; I.VConst(I.Bool b2), _] ->
-                  I.mkVConst(I.Bool (b1 && b2))
-            | I.Plus, [I.VConst(I.Int n1), _; I.VConst(I.Int n2), _] ->
-                  I.mkVConst(I.Int (n1 + n2))
-            | I.Append, [I.VTuple es1, _; I.VTuple es2, _] ->
-                  I.mkVTuple (es1 @ es2)
-            | _, _ -> Error.runtime ~loc "Bad arguments to primitive"  in
-          I.RVal answer
-        end
 
     | I.Ascribe(e1, e2) ->
         begin

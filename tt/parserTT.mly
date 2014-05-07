@@ -107,6 +107,10 @@ sso :
 exp0: mark_position(plain_exp0) { $1 }
 plain_exp0:
     | FUN name DARROW comp0   { Fun ($2, $4) }
+    | exp1 PLUS exp1 { Prim(Plus, [$1; $3]) }
+    | exp1 PLUSPLUS exp1 { Prim(Append, [$1; $3]) }
+    | exp1 ANDAND exp1   { Prim(And, [$1; $3]) }
+    | BANG exp1         { Prim(Not, [$2]) }
     | plain_exp1              { $1 }
 
 
@@ -153,10 +157,6 @@ plain_comp0:
     | LAMBDA name COLON comp0 COMMA comp0
          { let loc = Position.make $startpos $endpos in
            Let("lambda annot", $4, mkMkLam ~loc $2 (mkVar "lambda annot") $6) }
-    | exp1 PLUS exp1 { Prim(Plus, [$1; $3]) }
-    | exp1 PLUSPLUS exp1 { Prim(Append, [$1; $3]) }
-    | exp1 ANDAND exp1   { Prim(And, [$1; $3]) }
-    | BANG exp1         { Prim(Not, [$2]) }
     | plain_comp1    { $1 }
 
 (* From the start, we know what the final token will be *)
