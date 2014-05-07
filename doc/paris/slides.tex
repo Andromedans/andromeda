@@ -5,6 +5,7 @@
 
 \usepackage{pgfpages}
 %\setbeameroption{hide notes}
+%\setbeameroption{show only notes}
 \setbeameroption{show notes on second screen=right}
 \setbeamertemplate{note page}{\pagecolor{yellow!10}\insertnote}
 
@@ -91,8 +92,9 @@ May 2014}
   \item TT
   \end{enumerate}
 
-  \note[item]{My talk is about an ongoing experiment in the \emph{design} of a proof
-    checker, called ``Brazil'' for reasons that will become apparent.}
+  \note[item]{My talk is about the \emph{design} of a proof
+    checker, called ``Brazil'' for reasons that will become apparent. We have a working
+    prototype which changes every day.}
 
   \note[item]{We are also working on an extension of Brazil, called ``tt''. This is a more
     ambitious piece of work. You can think of it as a special-purpose programming language
@@ -197,8 +199,8 @@ May 2014}
     {\transport{A}{x.P}{a}{b}{p}{u} : P(b)}
   \end{equation*}
 
-  \note[item]{Here are the \emph{non-dependent} versions of elimination rules. The
-    dependent ones are more complex, and need not be considered here.}
+  \note[item]{Here are the somwhat simplified versions of elimination rules. The
+    fully dependent ones are more complex, and need not be considered here.}
 
   \note[item]{The strict version is just replacement of equals for equals. Since $a$ and
     $b$ are equal, we may use $a$ in place of $b$.}
@@ -565,7 +567,7 @@ May 2014}
 
   \note[item]{
     For the experts: we use standard synthesis/checking distinction,
-    Harper-Stone style equality checking, and we consult an equality hints
+    type-directed equality checking, and we consult an equality hints
     database to overcome limitations of the equality checking algorithm.
   }
   
@@ -649,9 +651,8 @@ May 2014}
 
   \note[item]{Our version consults the hints. For example, to check that $e_1$ and $e_2$
     are equal at type $T$, we first check whether they are syntactically equal, then we
-    consult the hints, then we proceed with the Harper-Stone algorithm (which calls itself
-    recursively at a smaller type).
-  }
+    consult the hints, then we proceed with the type-directed equality algorithm (which
+    calls itself recursively at a smaller type). }
 
   \note[item]{At a base type the algorithm uses weak-head normalization to compare terms.
     There we use rewrite hints.}
@@ -663,7 +664,7 @@ Symmetry of equality:
 \begin{verbatim}
 Definition sym :=
 fun (A : Type) (a b : A) (p : a == b) => 
-  equation p in (refl a :: b == a).
+  equation p in (refl a :: (b == a)).
 \end{verbatim}
 
 Strict equality eliminator:
@@ -678,6 +679,9 @@ fun (A : Universe 0)
     equation p in (r x :: P x y p).
 \end{verbatim}
 }
+
+\note[item]{The basic facts about equality can be derived using hints.}
+
 \end{frame}
 
 \begin{frame}[fragile]
@@ -701,6 +705,28 @@ Parameter bool_ind_true :
 Rewrite bool_ind_true.
 \end{verbatim}
 
+\note[item]{Here we have an example using rewrites. Essentially, we can
+  \emph{define} booleans with the usual conversion rules. Of course this
+  idea is not limited just to Booleans.}
+
+\note[item]{One thing to note: we are installing a \emph{universal} hint.}
+
+\end{frame}
+
+\begin{frame}
+  \LARGE
+  \begin{enumerate}
+  \item Brazil
+  \item<0> TT
+  \end{enumerate}
+  
+  \note[item]{ Brazil is an \emph{experiment}. One may worry about various parts of it: Do
+    the type annotations get large? Is it complete and in what sense? How do we
+    incorporate universe management?}
+
+  \note[item]{ These are all valid concerns, and will have to be addressed. We are happy
+    to discuss them with you.}
+  
 \end{frame}
 
 \begin{frame}
