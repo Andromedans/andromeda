@@ -170,6 +170,26 @@ let rec insert_matched env (v,pat) =
   | _, _ -> raise NoPatternMatch
 
 
+(*******************************************)
+(* Run-time parsing of literal Brazil code *)
+(*******************************************)
+
+let parse_literal parse_fn loc text =
+     let lexbuf = Lexing.from_string text in
+     try
+        parse_fn Lexer.token lexbuf
+     with
+      | Parser.Error ->
+          let inner_loc = Position.of_lex lexbuf  in
+          Error.syntax ~loc "Brazil code at %s" (Position.to_string inner_loc)
+      | Failure "lexing: empty token" ->
+          let inner_loc = Position.of_lex lexbuf  in
+          Error.syntax ~loc "unrecognized symbol in Brazil literal at %s." (Position.to_string inner_loc)
+
+(*************************)
+(* Running a Computation *)
+(*************************)
+
 let rec run (env : env) (comp, loc) =
   Print.debug "%s" (I.string_of_computation env.ctx (comp,loc));
   match comp with
@@ -311,7 +331,7 @@ let rec run (env : env) (comp, loc) =
 
          | I.VHandler ({I.finH=Some (xf,cf)} as h, eta_h) ->
              let h' = { h with I.finH = None }  in
-             run env (I.Let(xf, (I.WithHandle(I.mkValue (I.mkVHandler h' eta_h),c),loc), cf), loc)
+             run env (I.mkLet ~loc xf (I.mkWithHandle ~loc (I.mkValue (I.mkVHandler h' eta_h)) c) cf)
 
          | _ ->
               Error.runtime ~loc "Non-handler expression given to with/handle"
@@ -320,7 +340,7 @@ let rec run (env : env) (comp, loc) =
     | I.MkVar i ->
         let vars = depth env  in
         if i < vars then
-          I.RVal (I.VTerm (Syntax.Var i, loc), loc)
+          I.RVal (I.mkVTerm ~loc (Syntax.Var i, loc))
         else
           Error.runtime ~loc "Index is %d but context has length %d" i vars
 
@@ -342,23 +362,14 @@ let rec run (env : env) (comp, loc) =
 
     | I.Check(t1, t2, e, c) ->
         begin
-          let v = eval env e  in
-          match fst v with
-          | I.VTuple ws ->
-              let rec loop = function
-                | [] -> env.ctx
-                | w::ws ->
-                    begin
-                      match fst w with
-                      | I.VTerm b -> Context.add_equation b (Typing.type_of env.ctx b) (loop ws)
-                      | _ -> Error.runtime ~loc "Witness is not a term"
-                    end  in
-              let ctx' = loop ws in
+          match eval env e  with
+          | I.VTuple ws, _ ->
+              let ctx' = extend_context_with_witnesses env.ctx ws in
               if Typing.equiv_ty ctx' t1 t2 then
-                run env c   (* XXX questionable whether this should be env' *)
+                run {env with ctx = ctx'} c   (* Run the body with the added hints *)
               else
                 Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
-          | _ -> Error.runtime ~loc "Evidence in Check was not a tuple"
+          | _, _ -> Error.runtime ~loc "Evidence in Check was not a tuple"
         end
 
 
@@ -383,38 +394,18 @@ let rec run (env : env) (comp, loc) =
 
     | I.BrazilTermCode text ->
         begin
-          let lexbuf = Lexing.from_string text in
-          let term =
-             try
-                Parser.topterm Lexer.token lexbuf
-             with
-              | Parser.Error ->
-                  let inner_loc = Position.of_lex lexbuf  in
-                  Error.syntax ~loc "Brazil code at %s" (Position.to_string inner_loc)
-              | Failure "lexing: empty token" ->
-                  let inner_loc = Position.of_lex lexbuf  in
-                  Error.syntax ~loc "unrecognized symbol in Brazil literal at %s." (Position.to_string inner_loc)   in
+          let term = parse_literal Parser.topterm loc text  in
           let term = Debruijn.term (Context.names env.ctx) term in
           let term, _ty = Typing.syn_term env.ctx term  in
-          I.RVal (I.VTerm term, loc)
+          I.RVal (I.mkVTerm ~loc term)
         end
 
     | I.BrazilTypeCode text ->
         begin
-          let lexbuf = Lexing.from_string text in
-          let term =
-             try
-                Parser.topty Lexer.token lexbuf
-             with
-              | Parser.Error ->
-                  let inner_loc = Position.of_lex lexbuf  in
-                  Error.syntax ~loc "Brazil code at %s" (Position.to_string inner_loc)
-              | Failure "lexing: empty token" ->
-                  let inner_loc = Position.of_lex lexbuf  in
-                  Error.syntax ~loc "unrecognized symbol in Brazil literal at %s." (Position.to_string inner_loc)   in
+          let term = parse_literal Parser.topty loc text  in
           let ty = Debruijn.ty (Context.names env.ctx) term in
           let ty = Typing.is_type env.ctx ty  in
-          I.RVal (I.VType ty, loc)
+          I.RVal (I.mkVType ~loc ty)
         end
 
 
