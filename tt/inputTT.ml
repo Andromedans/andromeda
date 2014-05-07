@@ -34,7 +34,7 @@ and value = value' * Position.t
 and value' =
   | VFun     of tt_var * computation * environment
   | VHandler of handler * environment
-  | VCont    of Context.t * Context.t * continuation * environment
+  | VCont    of Context.t * Context.t * (value -> computation) * environment
   | VTuple   of value list
   | VConst   of const
   | VInj     of int * value
@@ -71,12 +71,6 @@ and computation' =
   | BrazilTermCode of string
   | BrazilTypeCode of string
 
-and continuation =
-  | KHole
-  | KLet of tt_var * continuation * computation
-  | KWithHandle of exp * continuation
-  | KMkLam of Common.name * Syntax.ty * continuation
-
 and arm = pattern * computation
 
 and handler =
@@ -95,7 +89,7 @@ and pattern =
 
 and result =
   | RVal of value
-  | ROp of operation_tag * Context.t * value * (continuation * environment)
+  | ROp of operation_tag * Context.t * value * ((value -> computation) * environment)
 
 type toplevel = toplevel' * Position.t
 and toplevel' =
@@ -202,14 +196,7 @@ and string_of_value ctx (value, _loc) =
 
 
 and string_of_cont ctx k =
-  let recur  = string_of_exp ctx in
-  let recurc = string_of_computation ctx  in
-  let recurk = string_of_cont ctx  in
-  match k with
-  | KHole -> "KHole"
-  | KLet (x,k,c) -> tag "KLet" [x; recurk k; recurc c]
-  | KWithHandle (e,k) -> tag "KWithHandle" [recur e; recurk k]
-  | KMkLam (x,t,k) -> tag "KMkLam" [x; "<type>"; recurk k]
+  "cont"
 
 and string_of_arm ctx (p,c) = tag "" [string_of_pat p; string_of_computation ctx c]
 
@@ -322,18 +309,4 @@ and shift_handler cut delta ({valH; opH; finH} as h) =
               None -> None
             | Some (xf,cf) -> Some (xf, shift_computation cut delta cf));
   })
-
-
-(****************)
-(* Hole-filling *)
-(****************)
-
-
-(* Not capture-avoiding! *)
-
-let rec kfill ((_, loc) as v) = function
-  | KHole -> mkReturn ~loc (mkValue ~loc v)
-  | KLet (x,k,c) -> mkLet x (kfill v k) c
-  | KWithHandle(e, k) -> mkWithHandle e (kfill v k)
-  | KMkLam(x, t, k) -> mkMkLam x (Type t, snd t) (kfill v k)
 

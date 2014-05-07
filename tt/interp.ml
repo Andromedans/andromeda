@@ -223,7 +223,7 @@ let rec run (env : env) (comp, loc) k0 =
               (* Fill the hole with the given value and run in the
                  continuation (closure)'s environment.
                *)
-              run {env with ttenv = eta} (I.kfill v2 k) k0
+              run {env with ttenv = eta} (k v2) k0
             else
               Error.runtime ~loc "Context length mismatch in eval-kapp"
 
@@ -256,7 +256,7 @@ let rec run (env : env) (comp, loc) k0 =
         run env c1
         (function
           | I.RVal v                     -> run (insert_ttvar x v env) c2 k0
-          | I.ROp(op, delta, v, (k,eta)) -> k0 (I.ROp(op, delta, v, (I.KLet(x,k,c2), eta)))
+          | I.ROp(op, delta, v, (k,eta)) -> k0 (I.ROp(op, delta, v, ((fun v -> I.mkLet x (k v) c2), eta)))
                                              (* XXX Justify moving c2 into eta? *)
         )
       end
@@ -278,7 +278,7 @@ let rec run (env : env) (comp, loc) k0 =
     | I.Op(tag, e) ->
       (* eval-op *)
       let v = eval env e  in
-      k0 (I.ROp(tag, Context.empty, v, (I.KHole, env.ttenv)))
+      k0 (I.ROp(tag, Context.empty, v, ((fun v -> I.mkReturn (I.mkValue v)), env.ttenv)))
 
     | I.WithHandle(e,c) ->
         begin
@@ -310,7 +310,7 @@ let rec run (env : env) (comp, loc) k0 =
                           | (op, pat, kvar, c)::rest when op = opi ->
                               begin
                                 try
-                                  let kval = I.mkVCont env.ctx delta (I.KWithHandle(I.mkValue h, k1)) eta1  in
+                                  let kval = I.mkVCont env.ctx delta (fun v -> I.mkWithHandle (I.mkValue h) (k1 v)) eta1  in
                                   let env_h = {
                                                 ctx = Context.append env.ctx delta ;
                                                 ttenv = eta_h ;
@@ -325,8 +325,8 @@ let rec run (env : env) (comp, loc) k0 =
                                           k0 (I.RVal (I.shiftv 0 unshift_amount v'))
                                         else
                                           Error.runtime ~loc "Handler returned value with too many variables"
-                                    | I.ROp(opj, delta', e', k2) ->
-                                        k0 (I.ROp(opj, Context.append delta delta', e', k2))
+                                    | I.ROp(opj, delta', e', (k',eta')) ->
+                                        k0 (I.ROp(opj, Context.append delta delta', e', (k',eta')))
                                   )
                                 with
                                   NoPatternMatch -> loop rest
@@ -366,8 +366,8 @@ let rec run (env : env) (comp, loc) k0 =
                     k0 (I.RVal (abstract env'.ctx x1 t2 v3))
                 | I.ROp (op, delta, e, (k, eta)) ->
                     let delta0 = Context.add_var x1 t2 Context.empty in
-                    k0 (I.ROp (op, Context.append delta0 delta, e, (I.KMkLam(x1, t2, k), eta)))
-                )
+                    k0 (I.ROp (op, Context.append delta0 delta, e,
+                               ((fun v -> I.mkMkLam x1 (I.mkType t2) (k v)), eta))))
               end
           | _, _ -> Error.runtime ~loc "Annotation in MkLam is not a type"
         end
