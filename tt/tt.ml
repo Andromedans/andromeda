@@ -74,6 +74,8 @@ let parse parse_it lex =
       Error.syntax ~loc:(Position.of_lex lex) "unrecognised symbol."
 
 
+let uncaught_exception_count = ref 0
+
 (** [exec_cmd env d] executes toplevel directive [d] in context [env]. It prints the
     result if in interactive mode, and returns the new context. *)
 let rec exec_cmd interactive env (d, loc) =
@@ -90,10 +92,11 @@ let rec exec_cmd interactive env (d, loc) =
                 | InputTT.VType t ->
                     let t = Syntax.simplify_ty t  in
                     {env with Interp.ctx = Ctx.add_vars (List.map (fun x -> (x,t)) xs) env.Interp.ctx}
-                | _ -> Error.runtime "Classifier is not a type"
+                | _ -> Error.runtime "Classifier is not a type@."
               end
           | InputTT.ROp (op, _, _, _) ->
-              Error.runtime "Uncaught operation %s" op
+              (incr uncaught_exception_count;
+              Error.runtime "Uncaught operation %s@." op)
         end
     | InputTT.TopLet (x, comp) ->
         begin
@@ -108,7 +111,8 @@ let rec exec_cmd interactive env (d, loc) =
                             (InputTT.string_of_value env.Interp.ctx v)
               end
           | InputTT.ROp (op, _, _, _) ->
-              Error.runtime "Uncaught operation %s" op
+              (incr uncaught_exception_count;
+              Error.runtime "Uncaught operation %s@." op)
         end
     | InputTT.TopEval comp ->
         (begin
@@ -116,7 +120,8 @@ let rec exec_cmd interactive env (d, loc) =
           | InputTT.RVal v ->
               Format.printf "%s@." (InputTT.string_of_value env.Interp.ctx v)
           | InputTT.ROp (op, _, _, _) ->
-              Format.printf "Uncaught operation %s" op
+              (incr uncaught_exception_count;
+              Format.printf "Uncaught operation %s@." op)
         end; env)
     | InputTT.TopDef (x, comp) ->
         begin
@@ -133,7 +138,8 @@ let rec exec_cmd interactive env (d, loc) =
                             (InputTT.string_of_value env.Interp.ctx v)
               end
           | InputTT.ROp (op, _, _, _) ->
-              Error.runtime "Uncaught operation %s" op
+              (incr uncaught_exception_count;
+              Error.runtime "Uncaught operation %s@." op)
         end
     (*| Input.TopHandler hs ->*)
         (*let hs   = Input.desugar_handler env_names hs   in*)
@@ -146,7 +152,12 @@ let rec exec_cmd interactive env (d, loc) =
 (** Load directives from the given file. *)
 and use_file env (filename, interactive) =
   let cmds = LexerTT.read_file (parse ParserTT.file) filename in
-    List.fold_left (exec_cmd interactive) env cmds
+  let answer = List.fold_left (exec_cmd interactive) env cmds  in
+  let n = ! uncaught_exception_count in
+  if n > 0 then
+    failwith (string_of_int n ^ " uncaught exceptions")
+  else
+    answer
 
 (** Interactive toplevel *)
 let toplevel env =
