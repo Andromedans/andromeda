@@ -1,3 +1,14 @@
+let equiv := val fun X => 
+ (match X with
+ | [e1, e2, t] => 
+     (match e1 = e2 with
+     | true => val inj 1 []
+     | false => op EQUIV X
+     end
+     )
+ | _ => op EQUIV X
+ end)
+
 define Set := `Universe f0`
 assume N : t`Set`
 assume 0 : t`N`
@@ -16,6 +27,7 @@ assume N_ind_0 : t`
       N_ind P z f 0 == z
     `
 
+#context
 assume N_ind_S :
   t`
     forall 

@@ -57,7 +57,7 @@ let abstract ctx x t =
     | (_, loc) -> Error.runtime ~loc "Bad body to MkLam"  in
   loop
 
-
+(*
 
 (* [firstSome lst ] takes a list of [lazy] thunks returning ['a option]s. If any
    is [Some x] then the answer is [Some x] and no following thunks are forced).
@@ -88,6 +88,7 @@ let rec joinSome = function
           | Some restAnswers ->  Some (firstAnswers @ restAnswers)
         end
     end
+*)
 
 
 let witness_of_value ctx0 = function
@@ -237,13 +238,13 @@ let rec run (env : env) (comp, loc) k0 =
                   begin
                     let t2 = Typing.type_of env.ctx b2 in
                     match equiv_ty env t t2 with
-                    | Some ws ->
+                    | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
                         let ctx' = extend_context_with_witnesses env.ctx ws in
                         if Typing.equiv_ty ctx' t t2 then
                           k0 (I.RVal (I.mkVTerm (Syntax.App((x,t,u),b1,b2), loc)))
                         else
                           Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
-                    | None -> Error.runtime ~loc
+                    | _ -> Error.runtime ~loc
                       "Bad mkApp. Why is@ %t@ == %t ?" (print_ty env t) (print_ty env t2)
 
                   end
@@ -394,12 +395,12 @@ let rec run (env : env) (comp, loc) k0 =
               begin
                 let u = Typing.type_of env.ctx b  in
                 match equiv_ty env t u with
-                | Some ws ->
+                | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
                     k0 (I.RVal
                          (I.mkVTerm (wrap_syntax_with_witnesses env.ctx
                                        (Syntax.Ascribe(b,t), Position.nowhere) ws )))
 
-                | None -> Error.runtime ~loc "Brazil cannot prove the ascription valid"
+                | _ -> Error.runtime ~loc "Brazil cannot prove the ascription valid"
               end
 
           | (I.VTerm _, _), _ -> Error.runtime ~loc "Non-type in ascribe"
@@ -433,7 +434,7 @@ and vok env exp =
 
 and equiv_ty env t u =
   if Syntax.equal_ty t u then
-    Some []
+    retSomeTuple []
   else
     match Syntax.name_of t, Syntax.name_of u with
     | Some (e_t, alpha), Some (e_u, beta) ->
@@ -442,7 +443,7 @@ and equiv_ty env t u =
             equiv env e_t e_u (Syntax.Universe alpha, Position.nowhere)
           else
             (Print.debug "Unequal universes in equiv_ty!";
-             None)
+             retNone)
         end
     | _, _ ->
         Error.runtime "equiv_ty couldn't find the name of a type!"
@@ -452,31 +453,24 @@ and equiv env term1 term2 t =
   Print.debug "equiv: %t == %t @@ %t"
     (print_term env term1) (print_term env term2) (print_ty env t);
 
-  firstSome
-  [
-    lazy ( if (Syntax.equal term1 term2) then Some [] else None ) ;
-(*
-    lazy ( let userCmd =
-             I.mkOp "equiv"
-                    (I.mkTuple
-                      [ I.mkTerm term1 ;
-                        I.mkTerm term2 ;
-                        I.mkType t ;
-                      ])  in
-             run env userCmd
-             (function
-             | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
-                 let ctx' = extend_context_with_witnesses env.ctx ws in
-                 if (Typing.equiv ctx' term1 term2 t) then
-                   retSomeTuple ws
-                 else
-                   Error.runtime "Insufficient witnesses for equivalence"
+  if (Syntax.equal term1 term2) then
+    retSomeTuple []
+  else
+    let userCmd =
+      I.mkApp (I.mkVar "equiv")
+              (I.mkTuple [ I.mkTerm term1 ; I.mkTerm term2 ; I.mkType t ])  in
+    run env userCmd
+    (function
+    | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
+         let ctx' = extend_context_with_witnesses env.ctx ws in
+         if (Typing.equiv ctx' term1 term2 t) then
+           retSomeTuple ws
+         else
+           Error.runtime "Insufficient witnesses for equivalence"
 
-             | _ -> None ) ) ;
-*)
-    lazy ( let t' = Typing.whnfs_ty env.ctx t in
-           equiv_ext env term1 term2 t' ) ;
-  ]
+    | _ -> retNone )
+
+(*
 
 and equiv_ext env ((_, loc1) as e1) ((_, loc2) as e2) ((ty', _) as ty) =
   begin
@@ -648,6 +642,7 @@ and equiv_whnf env ((term1', loc1) as term1) ((term2', _loc2) as term2) ty =
       | Syntax.NameId _ | Syntax.UnitTerm | Syntax.Refl _ ), _ -> None
 
   end
+*)
 
 
 let toplevel_handler =

@@ -166,7 +166,7 @@ plain_comp0:
 (* From the start, we know what the final token will be *)
 comp1: mark_position(plain_comp1) { $1 }
 plain_comp1:
-    | MATCH e=exp1 WITH option(BAR) lst=separated_list(BAR, arm) END { Match (e, lst) }
+    | MATCH e=exp0 WITH option(BAR) lst=separated_list(BAR, arm) END { Match (e, lst) }
     | DEBRUIJN INT       { MkVar $2 }
     | LPAREN plain_comp0 RPAREN { $2 }
     | BRAZILTERM       { BrazilTermCode $1 }
