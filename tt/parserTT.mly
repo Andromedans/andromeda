@@ -37,6 +37,7 @@
 %token LBRACK
 %token LET
 %token LPAREN
+%token LTGT
 %token MATCH
 %token OP
 %token PLUS
@@ -58,8 +59,9 @@
 %type <InputTT.handler> handler
 
 (*%nonassoc ASCRIBE*)
-(*%right PLUSPLUS*)
-(*%left PLUS ANDAND*)
+(*%left ANDAND*)
+(*%left PLUSPLUS*)
+(*%left PLUS*)
 
 %%
 
@@ -110,6 +112,8 @@ plain_exp0:
     | exp1 PLUS exp1 { Prim(Plus, [$1; $3]) }
     | exp1 PLUSPLUS exp1 { Prim(Append, [$1; $3]) }
     | exp1 ANDAND exp1   { Prim(And, [$1; $3]) }
+    | exp1 EQ exp1    { Prim(Eq, [$1; $3]) }
+    | exp1 LTGT exp1   { Prim(Neq, [$1; $3]) }
     | BANG exp1         { Prim(Not, [$2]) }
     | plain_exp1              { $1 }
 

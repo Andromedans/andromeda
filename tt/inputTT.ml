@@ -26,6 +26,8 @@ type primop =
   | Not
   | And
   | Append
+  | Eq
+  | Neq
 
 type environment = (value * int) StringMap.t
 
@@ -61,13 +63,11 @@ and computation' =
   | Let of tt_var * computation * computation
   | Op  of operation_tag * exp
   | WithHandle of exp * computation
-  (*| KApp of exp * exp*)
   | Ascribe of exp * exp
   | Match of exp * arm list
   | Check of Syntax.ty * Syntax.ty * exp * computation
   | MkVar of int
   | MkLam of Common.name * exp * computation
-  (*| MkApp of exp * exp*)
   | BrazilTermCode of string
   | BrazilTypeCode of string
 
@@ -140,6 +140,8 @@ let string_of_primop = function
   | Not -> "Not"
   | And -> "And"
   | Append -> "Append"
+  | Eq -> "Eq"
+  | Neq -> "Neq"
 
 let rec string_of_exp ctx (exp, _loc) =
   let recur = string_of_exp ctx  in
@@ -309,4 +311,16 @@ and shift_handler cut delta ({valH; opH; finH} as h) =
               None -> None
             | Some (xf,cf) -> Some (xf, shift_computation cut delta cf));
   })
+
+(* Equality *)
+
+let rec eqvalue value1 value2 =
+  match fst value1, fst value2 with
+  | VTuple vs1, VTuple vs2 -> List.for_all2 eqvalue vs1 vs2
+  | VConst a1, VConst a2 -> a1 = a2
+  | VInj (i1,v1), VInj(i2,v2) -> i1 = i2 && eqvalue v1 v2
+  | VTerm b1, VTerm b2 -> Syntax.equal b1 b2
+  | VType t1, VType t2 -> Syntax.equal_ty t1 t2
+  | (VFun _ | VHandler _ | VCont _ | VTuple _ | VConst _ |
+     VInj _ | VTerm _ | VType _), _ -> false
 

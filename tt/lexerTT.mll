@@ -82,6 +82,7 @@ rule token = parse
   | "="                 { EQ }
   | '['                 { LBRACK }
   | '('                 { LPAREN }
+  | "<>"                { LTGT }
   | "+"                 { PLUS }
   | "++"                { PLUSPLUS }
   | ']'                 { RBRACK }
