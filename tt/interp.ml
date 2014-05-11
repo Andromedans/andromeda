@@ -156,6 +156,12 @@ and eval_prim env loc op vs =
                  I.VTuple es2, _]     -> I.mkVTuple (es1 @ es2)
     | I.Eq,  [a1; a2] -> I.mkVConst( I.Bool (     I.eqvalue a1 a2))
     | I.Neq, [a1; a2] -> I.mkVConst( I.Bool (not (I.eqvalue a1 a2)))
+    | I.Whnf, [I.VTerm b, _] ->
+        let t = Typing.type_of env.ctx b  in
+        I.mkVTerm (Typing.whnfs env.ctx b t)
+    | I.Whnf, [I.VType t, _] ->
+        I.mkVType (Typing.whnfs_ty env.ctx t)
+
     | _, _ -> Error.runtime ~loc "Bad arguments to primitive"
 
 (********************)
@@ -176,7 +182,10 @@ let rec insert_matched env (v,pat) =
   | I.VInj(i1,v1), I.PInj (i2,p2) when i1 = i2  ->  insert_matched env (v1, p2)
   | I.VTuple vs,   I.PTuple ps    when List.length vs = List.length ps ->
       List.fold_left insert_matched env (List.combine vs ps)
-  | _, _ -> raise NoPatternMatch
+  | I.VType (Syntax.Id(_,b1,b2),loc), I.PJuEqual(pat1, pat2) ->
+      List.fold_left insert_matched env [I.mkVTerm ~loc b1,pat1; I.mkVTerm ~loc b2,pat2]
+  | _, (I.PConst _ | I.PInj _ | I.PTuple _
+        | I.PJuEqual _) -> raise NoPatternMatch
 
 
 (*******************************************)

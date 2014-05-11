@@ -27,6 +27,7 @@
 %token EOF
 %token EVAL
 %token EQ
+%token EQEQ
 %token FINALLY
 %token FUN
 %token HANDLE
@@ -49,6 +50,7 @@
 %token UNDERSCORE
 %token UNIT
 %token VAL
+%token WHNF
 %token WITH
 
 
@@ -62,6 +64,10 @@
 (*%left ANDAND*)
 (*%left PLUSPLUS*)
 (*%left PLUS*)
+
+
+%nonassoc EQEQ
+%right INJ
 
 %%
 
@@ -115,6 +121,7 @@ plain_exp0:
     | exp1 EQ exp1    { Prim(Eq, [$1; $3]) }
     | exp1 LTGT exp1   { Prim(Neq, [$1; $3]) }
     | BANG exp1         { Prim(Not, [$2]) }
+    | WHNF exp1         { Prim(Whnf, [$2]) }
     | plain_exp1              { $1 }
 
 
@@ -180,6 +187,7 @@ pat:
     | NAME      { PVar $1 }
     | const     { PConst $1 }
     | UNDERSCORE { PWild }
+    | pat EQEQ pat  { PJuEqual ($1, $3) }
 
 handler:
     | HANDLER hcs=hcases END { hcs }

@@ -28,6 +28,7 @@ type primop =
   | Append
   | Eq
   | Neq
+  | Whnf
 
 type environment = (value * int) StringMap.t
 
@@ -87,6 +88,8 @@ and pattern =
   | PVar of tt_var
   | PWild
 
+  | PJuEqual of pattern * pattern
+
 and result =
   | RVal of value
   | ROp of operation_tag * Context.t * value * ((value -> computation) * environment)
@@ -142,6 +145,7 @@ let string_of_primop = function
   | Append -> "Append"
   | Eq -> "Eq"
   | Neq -> "Neq"
+  | Whnf -> "Whnf"
 
 let rec string_of_exp ctx (exp, _loc) =
   let recur = string_of_exp ctx  in
@@ -215,6 +219,7 @@ and string_of_pat = function
   | PConst c -> tag "PConst" [string_of_const c]
   | PVar v -> tag "PVar" [v]
   | PWild -> "PWild"
+  | PJuEqual (p1,p2) -> string_of_pat p1 ^ " == " ^ string_of_pat p2
 
 and string_of_const = function
   | Int n -> string_of_int n

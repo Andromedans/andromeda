@@ -19,6 +19,7 @@
     ("match", MATCH);
     ("op", OP);
     ("val", VAL);
+    ("whnf", WHNF) ;
     ("with", WITH) ;
   ]
 
@@ -80,6 +81,7 @@ rule token = parse
   | "=>"                { DARROW }
   | eof                 { EOF }
   | "="                 { EQ }
+  | "=="                { EQEQ }
   | '['                 { LBRACK }
   | '('                 { LPAREN }
   | "<>"                { LTGT }
