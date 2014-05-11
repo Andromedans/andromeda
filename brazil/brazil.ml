@@ -101,30 +101,18 @@ let rec exec_cmd interactive ctx (d, loc) =
     | Input.TopRewrite e ->
       let e = Debruijn.term names e in
       let e, t = Typing.syn_term ctx e in
-        begin match Equal.as_pattern ctx t with
-          | None ->
-            Error.typing ~loc:(snd e)
-              "universally quantified equality proof expected, but got %t"
-              (Print.ty (Context.names ctx) t)
-          | Some p ->
-            let ctx = Context.add_rewrite e t p ctx in
-              if interactive then Format.printf "Rewrite added.@\n@." ;
-              ctx
-        end
+      let h = Equal.as_hint ctx e t in
+      let ctx = Context.add_rewrite h ctx in
+        if interactive then Format.printf "Rewrite added.@\n@." ;
+        ctx
 
     | Input.TopEquation e ->
       let e = Debruijn.term names e in
       let e, t = Typing.syn_term ctx e in
-        begin match Equal.as_pattern ctx t with
-          | None ->
-            Error.typing ~loc:(snd e)
-              "universally quantified equality proof expected, but got %t"
-              (Print.ty (Context.names ctx) t)
-          | Some p ->
-            let ctx = Context.add_equation e t p ctx in
-              if interactive then Format.printf "Equation added.@\n@." ;
-              ctx
-        end
+      let h = Equal.as_hint ctx e t in
+      let ctx = Context.add_equation h ctx in
+        if interactive then Format.printf "Equation added.@\n@." ;
+        ctx
 
     | Input.Context ->
         Context.print ctx ; ctx

@@ -1,10 +1,12 @@
 (** Context with hints. *)
 
+type hint = int * Pattern.ty * Pattern.term * Pattern.term
+
 type entry =
   | Variable of Syntax.ty
   | Definition of Syntax.ty * Syntax.term
-  | Equation of Syntax.term * Syntax.ty * (int * Pattern.ty * Pattern.term * Pattern.term)
-  | Rewrite of Syntax.term * Syntax.ty * (int * Pattern.ty * Pattern.term * Pattern.term)
+  | Equation of hint
+  | Rewrite of hint
 
 type t = {
   decls : entry list ;
@@ -22,16 +24,12 @@ let print {decls=ds; names=xs} =
         print_names ds xs ;
         Format.printf "@[<hov 4>define %s@;<1 -2>: %t@;<1 -2>:= %t@]@\n"
           x (Print.ty xs t) (Print.term xs e)
-      | (Equation (e, t, _) :: ds), xs ->
+      | (Equation _ :: ds), xs ->
         print_names ds xs ;
-        Format.printf "@[<hov 4>equation %t%t@]@\n"
-          (Print.term xs e)
-          (Print.annot (Print.ty ~max_level:4 xs t))
-      | (Rewrite (e, t, _) :: ds), xs ->
+        Format.printf "@[<hov 4>equation <pattern>@]@\n"
+      | (Rewrite _ :: ds), xs ->
         print_names ds xs ;
-        Format.printf "@[<hov 4>rewrite %t%t@]@\n"
-          (Print.term xs e)
-          (Print.annot (Print.ty ~max_level:4 xs t))
+        Format.printf "@[<hov 4>rewrite <pattern>@]@\n"
       | [], _::_ -> Error.impossible "fewer declarations than names in context"
       | _::_, [] -> Error.impossible "fewer names than declarations in context"
   in
@@ -60,12 +58,12 @@ let add_def x t e ctx =
   { decls = Definition (t, e) :: ctx.decls ;
     names = x :: ctx.names }
 
-let add_equation e t p ctx =
-  { decls = Equation (e, t, p) :: ctx.decls ;
+let add_equation h ctx =
+  { decls = Equation h :: ctx.decls ;
     names = ctx.names }
 
-let add_rewrite e t p ctx =
-  { decls = Rewrite (e, t, p) :: ctx.decls ;
+let add_rewrite h ctx =
+  { decls = Rewrite h :: ctx.decls ;
     names = ctx.names }
 
 let lookup_var index {decls=ds} =
@@ -85,7 +83,7 @@ let equations {decls=lst} =
     | [] -> []
     | (Variable _ | Definition _) :: lst -> collect (k+1) lst
     | Rewrite _ :: lst -> collect k lst
-    | Equation (_, _, (j, pt, pe1, pe2)) :: lst ->
+    | Equation (j, pt, pe1, pe2) :: lst ->
       let pt = Pattern.shift_ty k pt
       and pe1 = Pattern.shift k pe1
       and pe2 = Pattern.shift k pe2
@@ -106,7 +104,7 @@ let rewrites {decls=lst} =
       and pe2 = Pattern.shift (k+1) (Pattern.Term e)
       in
         (j, pt, pe1, pe2) :: (collect (k+1) lst)
-    | Rewrite (_, _, (j, pt, pe1, pe2)) :: lst ->
+    | Rewrite (j, pt, pe1, pe2) :: lst ->
       let pt = Pattern.shift_ty k pt
       and pe1 = Pattern.shift k pe1
       and pe2 = Pattern.shift k pe2

@@ -21,6 +21,7 @@ There is a pointed preorder $(\PP, {\leq}, \zero)$ of \emph{universe indices}, i
 $\leq$ is reflexive and transitive, with a decidable equality, and a subset $\FF \subseteq
 \PP$ of \emph{fibered indices}. We use lowercase Greek letters for universe indices.
 
+\textcolor{red}{FIX THIS PARAGRAPH, IT IS A MISLEADING EXAMPLE WHICH BREAKS THINGS.}
 For example, we could take
 %
 \begin{equation*}
@@ -32,10 +33,10 @@ $\mathcal{F}_i$ for the universe indexed by $(i,0)$ and $\mathcal{U}_j$ for the 
 indexed by $(i,1)$. Then the poset structure of $\PP$ reflects a hierachy of inclusions
 %
 \begin{equation*}
-  \mathcal{F}_0 \subseteq
-  \mathcal{U}_0 \subseteq
-  \mathcal{F}_1 \subseteq
-  \mathcal{U}_1 \subseteq
+  \mathcal{F}_0 \leq
+  \mathcal{U}_0 \leq
+  \mathcal{F}_1 \leq
+  \mathcal{U}_1 \leq
   \cdots
 \end{equation*}
 %
@@ -51,8 +52,8 @@ partial functions
 whose domains of definition are decidable and
 %
 \begin{itemize}
-\item for all $\alpha \in \PP$, if $\uClose{\alpha}$ is defined then $\uClose{\alpha} \in
-  \FF$.
+%\item for all $\alpha \in \PP$, if $\uClose{\alpha}$ is defined then $\uClose{\alpha} \in
+%  \FF$.
 \item for all $\alpha, \beta \in \FF$, if $\piClose{\alpha}{\beta}$ is defined then
   $\piClose{\alpha}{\beta} \in \FF$,
 \end{itemize}

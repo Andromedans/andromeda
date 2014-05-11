@@ -1,26 +1,30 @@
 (** Lazy pattern matching, to figure out which rewrite rules apply. *)
 
+type name = string
+
+type universe = Universe.t
+
 type ty =
   | Ty of Syntax.ty
-  | El of Universe.t * term
-  | Prod of ty * ty
+  | El of universe * term
+  | Prod of name * ty * ty
   | Paths of ty * term * term
   | Id of ty * term * term
 
 and term =
   | Term of Syntax.term
   | PVar of int
-  | Lambda of ty * ty * term
-  | App of (ty * ty) * term * term
+  | Lambda of name * ty * ty * term
+  | App of (name * ty * ty) * term * term
   | Idpath of ty * term
-  | J of ty * (ty) * (term) * term * term * term
+  | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of ty * term
-  | Coerce of Universe.t * Universe.t * term
-  | NameProd of Universe.t * Universe.t * term * term
-  | NamePaths of Universe.t * term * term * term
-  | NameId of Universe.t * term * term * term
+  | Coerce of universe * universe * term
+  | NameProd of universe * universe * name * term * term
+  | NamePaths of universe * term * term * term
+  | NameId of universe * term * term * term
 
-let of_ty' k l ((t', loc) as t) =
+let rec of_ty' k l ((t', loc) as t) =
   match t' with
 
     | Syntax.Universe _ ->
@@ -42,7 +46,7 @@ let of_ty' k l ((t', loc) as t) =
       in
         begin match t1, t2 with
           | Ty t1, Ty t2 -> Ty (Syntax.Prod (x, t1, t2), loc)
-          | _ -> Prod (t1, t2)
+          | _ -> Prod (x, t1, t2)
         end
 
     | Syntax.Paths (t, e1, e2) ->
@@ -65,7 +69,6 @@ let of_ty' k l ((t', loc) as t) =
           | _ -> Id (t, e1, e2)
         end
 
-
 and of_term' k l ((e', loc) as e) =
   match e' with
 
@@ -86,23 +89,23 @@ and of_term' k l ((e', loc) as e) =
     | Syntax.Lambda (x, t1, t2, e) ->
       let t1 = of_ty' k l t1
       and t2 = of_ty' k (l+1) t2
-      and e = of_term'' k l e
+      and e = of_term' k l e
       in
         begin match t1, t2, e with
           | Ty t1, Ty t2, Term e -> Term (Syntax.Lambda (x, t1, t2, e), loc)
-          | _ -> Lambda (t1, t2, e)
+          | _ -> Lambda (x, t1, t2, e)
         end
 
     | Syntax.App ((x, t1, t2), e1, e2) ->
       let e1 = of_term' k l  e1
       and e2 = of_term' k l e2
-      and t2 = of_term' k (l+1) t2
+      and t2 = of_ty' k (l+1) t2
       and t1 = of_ty' k l t1
       in
         begin match t1, t2, e1, e2 with
           | Ty t1, Ty t2, Term e1, Term e2 ->
             Term (Syntax.App ((x, t1, t2), e1, e2), loc)
-          | _ -> App ((t1, t2), e1, e2)
+          | _ -> App ((x, t1, t2), e1, e2)
         end
 
     | Syntax.UnitTerm ->
@@ -121,14 +124,14 @@ and of_term' k l ((e', loc) as e) =
       let t = of_ty' k l t
       and u = of_ty' k (l+3) u
       and e1 = of_term' k (l+1) e1
-      and e2 = of_term' k e2
-      and e3 = of_term' k e3
-      and e4 = of_term' k e4
+      and e2 = of_term' k l e2
+      and e3 = of_term' k l e3
+      and e4 = of_term' k l e4
       in
         begin match t, u, e1, e2, e3, e4 with
           | Ty t, Ty u, Term e1, Term e2, Term e3, Term e4 ->
-            Term (Syntax.J (t, (x,y,p,u), (z,e1), e2, e3), loc)
-          | _ -> J (t, u, e1, e2, e3, e4)
+            Term (Syntax.J (t, (x,y,p,u), (z,e1), e2, e3, e4), loc)
+          | _ -> J (t, (x,y,p,u), (z,e1), e2, e3, e4)
         end
 
     | Syntax.Refl (t, e) ->          
@@ -156,8 +159,8 @@ and of_term' k l ((e', loc) as e) =
       and e2 = of_term' k (l+1) e2
       in
         begin match e1, e2 with
-          | Term e1, Term e2 -> Term (Syntax.NameProd (alpha, beta, e1, e2), loc)
-          | _ -> NameProd (alpha, beta, e1, e2)
+          | Term e1, Term e2 -> Term (Syntax.NameProd (alpha, beta, x, e1, e2), loc)
+          | _ -> NameProd (alpha, beta, x, e1, e2)
         end
 
     | Syntax.NameUniverse _ ->
@@ -186,3 +189,121 @@ and of_term' k l ((e', loc) as e) =
 let of_term k e = of_term' k 0 e
 
 let of_ty k t = of_ty' k 0 t
+
+(** Substitute terms for pattern variables in the given pattern. *)
+let rec subst_ty inst k = function
+
+  | Ty t -> t
+        
+  | El (alpha, e) ->
+    let e = subst_term inst k e in
+      Syntax.El (alpha, e), Position.nowhere
+            
+  | Prod (x, t1, t2) ->
+    let t1 = subst_ty inst k t1
+    and t2 = subst_ty inst (k+1) t2
+    in
+      Syntax.Prod (x, t1, t2),
+      Position.nowhere
+          
+  | Paths (t, e1, e2) ->
+    let t = subst_ty inst k t
+    and e1 = subst_term inst k e1
+    and e2 = subst_term inst k e2
+    in
+      Syntax.Paths (t, e1, e2),
+      Position.nowhere
+          
+  | Id (t, e1, e2) ->
+    let t = subst_ty inst k t
+    and e1 = subst_term inst k e1
+    and e2 = subst_term inst k e2
+    in
+      Syntax.Id (t, e1, e2),
+      Position.nowhere
+
+and subst_term inst k = function
+  | Term e -> e
+    
+  | PVar i ->
+    (* will raise [Not_found] if the [PVar i] is not unbound by [inst] *)
+    let e = List.assoc i inst
+    in
+      Syntax.shift k e
+
+  | Lambda (x, t1, t2, e) ->
+    let t1 = subst_ty inst k t1
+    and t2 = subst_ty inst (k+1) t2
+    and e = subst_term inst (k+1) e
+    in
+      Syntax.Lambda (x, t1, t2, e),
+      Position.nowhere
+
+  | App ((x, t1, t2), e1, e2) ->
+    let t1 = subst_ty inst k t1
+    and t2 = subst_ty inst (k+1) t2
+    and e1 = subst_term inst k e1
+    and e2 = subst_term inst k e2
+    in
+      Syntax.App ((x, t1, t2), e1, e2),
+      Position.nowhere
+
+  | Idpath (t, e) ->
+    let t = subst_ty inst k t
+    and e = subst_term inst k e
+    in
+      Syntax.Idpath (t, e),
+      Position.nowhere
+
+  | J (t, (x, y, p, u), (z, e1), e2, e3, e4) ->
+    let t = subst_ty inst k t
+    and u = subst_ty inst (k+3) u
+    and e1 = subst_term inst (k+1) e1
+    and e2 = subst_term inst k e2
+    and e3 = subst_term inst k e3
+    and e4 = subst_term inst k e4
+    in
+      Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4),
+      Position.nowhere
+
+  | Refl (t, e) ->
+    let t = subst_ty inst k t
+    and e = subst_term inst k e
+    in
+      Syntax.Refl (t, e),
+      Position.nowhere
+
+  | Coerce (alpha, beta, e) ->
+    let e = subst_term inst k e
+    in
+      Syntax.Coerce (alpha, beta, e),
+      Position.nowhere
+
+  | NameProd (alpha, beta, x, e1, e2) ->
+    let e1 = subst_term inst k e1
+    and e2 = subst_term inst (k+1) e2
+    in
+      Syntax.NameProd (alpha, beta, x, e1, e2),
+      Position.nowhere
+
+  | NamePaths (alpha, e1, e2, e3) ->
+    let e1 = subst_term inst k e1
+    and e2 = subst_term inst k e2
+    and e3 = subst_term inst k e3
+    in
+      Syntax.NamePaths (alpha, e1, e2, e3),
+      Position.nowhere
+
+  | NameId (alpha, e1, e2, e3) ->
+    let e1 = subst_term inst k e1
+    and e2 = subst_term inst k e2
+    and e3 = subst_term inst k e3
+    in
+      Syntax.NameId (alpha, e1, e2, e3),
+      Position.nowhere
+
+let shift_ty k t =
+  failwith "Pattern.shift_ty not implemented"
+
+let shift k e =
+  failwith "Pattern.shift not implemented"

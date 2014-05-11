@@ -41,7 +41,8 @@ let rec syn_term ctx ((term', loc) as term) =
   | Input.Equation (e1, e4) ->
     begin
       let e1, u = syn_term ctx e1 in
-      let ctx = Context.add_equation e1 u ctx in
+      let h = Equal.as_hint ctx e1 u in
+      let ctx = Context.add_equation h ctx in
       let e4, t = syn_term ctx e4 in
         (Syntax.Equation (e1, u, e4), loc), t
     end
@@ -50,7 +51,8 @@ let rec syn_term ctx ((term', loc) as term) =
   | Input.Rewrite (e1, e4) ->
     begin
       let e1, u = syn_term ctx e1 in
-      let ctx = Context.add_rewrite e1 u ctx in
+      let h = Equal.as_hint ctx e1 u in
+      let ctx = Context.add_rewrite h ctx in
       let e4, t = syn_term ctx e4 in
         (Syntax.Rewrite (e1, u, e4), loc), t
     end
@@ -222,7 +224,8 @@ and chk_term ctx ((term', loc) as term) t =
   | Input.Equation (e1, e4) ->
       begin
         let e1, u = syn_term ctx e1  in
-        let ctx = Context.add_equation e1 u ctx  in
+        let h = Equal.as_hint ctx e1 u in
+        let ctx = Context.add_equation h ctx  in
         let e4 = chk_term ctx e4 t in
           (Syntax.Equation(e1, u, e4), loc)
       end
@@ -231,14 +234,15 @@ and chk_term ctx ((term', loc) as term) t =
   | Input.Rewrite (e1, e4) ->
       begin
         let e1, u = syn_term ctx e1  in
-        let ctx = Context.add_rewrite e1 u ctx  in
+        let h = Equal.as_hint ctx e1 u in
+        let ctx = Context.add_rewrite h ctx  in
         let e4 = chk_term ctx e4 t in
           (Syntax.Rewrite(e1, u, e4), loc)
       end
 
   (* chk-syn *)
   | _ -> let e, u = syn_term ctx term  in
-         if (Equal.ty ctx u t) then
+         if (Equal.equal_ty ctx u t) then
             e
          else
             Error.typing ~loc "expression@ %t@;<1 -2>has type@ %t@;<1 -2>but should have type %t"
