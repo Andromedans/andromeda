@@ -1,3 +1,4 @@
+/*
 // 7
 eval
   let hdouble = val handler val x => val x + 1 | op double x k => k (x + x) end
@@ -63,7 +64,7 @@ eval
               end  in
       val x + y 
 
-
+*/
 // [27, 42]
 let store := val handler val x => val (fun s => val x) 
                           op lookup _ k => val (fun s => let z = k s in z s) 
@@ -73,9 +74,21 @@ let store := val handler val x => val (fun s => val x)
 
 eval
    with store handle
+     let a = op lookup () in
+     op print a
+
+/*
+eval
+   with store handle
      let _ = op update 27 in
      let a = op lookup () in
      let _ = op update 42 in
      let b = op lookup () in
-     val [a,b]
+     op print [a,b]
 
+let stutter := val handler op print x k => let _ = op print x in op print x end
+
+eval
+   with stutter handle
+     op print 22
+*/

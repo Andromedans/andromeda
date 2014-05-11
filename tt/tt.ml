@@ -111,7 +111,7 @@ let rec exec_cmd interactive env (d, loc) =
         (begin
           match Interp.toprun env comp with
           | InputTT.RVal v ->
-              Format.printf "%s@." (InputTT.string_of_value env.Interp.ctx v)
+              Format.printf "%s@." (InputTT.string_of_value ~brief:true env.Interp.ctx v)
           | InputTT.ROp (op, _, _, _) ->
               (incr uncaught_exception_count;
               Format.printf "Uncaught operation %s@." op)
@@ -128,7 +128,7 @@ let rec exec_cmd interactive env (d, loc) =
                     let t = Syntax.simplify_ty t  in
                     {env with Interp.ctx = Ctx.add_def x t b env.Interp.ctx}
                 | _ -> Error.runtime "Result of definition is %s, not a term"
-                            (InputTT.string_of_value env.Interp.ctx v)
+                            (InputTT.string_of_value ~brief:true env.Interp.ctx v)
               end
           | InputTT.ROp (op, _, _, _) ->
               (incr uncaught_exception_count;

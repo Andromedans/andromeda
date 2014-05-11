@@ -71,6 +71,7 @@ and computation' =
   | MkLam of Common.name * exp * computation
   | BrazilTermCode of string
   | BrazilTypeCode of string
+  | RunML of (Context.t -> environment -> value -> result) * exp
 
 and arm = pattern * computation
 
@@ -114,6 +115,7 @@ let mkLet ?(loc=Position.nowhere) x c1 c2 = Let (x,c1,c2), loc
 let mkMkLam ?(loc=Position.nowhere) x e c = MkLam (x,e,c), loc
 let mkOp ?(loc=Position.nowhere) op arg = Op(op, arg), loc
 let mkReturn ?(loc=Position.nowhere) e = Return e, loc
+let mkRunML ?(loc=Position.nowhere) f e = RunML (f,e), loc
 let mkTerm ?(loc=Position.nowhere) term = Term term, loc
 let mkTuple ?(loc=Position.nowhere) es = Tuple es, loc
 let mkType ?(loc=Position.nowhere) ty = Type ty, loc
@@ -152,7 +154,7 @@ let rec string_of_exp ctx (exp, _loc) =
   let recurc = string_of_computation ctx  in
   match exp with
   | Var x -> tag "Var" [x]
-  | Value value -> tag "Value" []
+  | Value value -> tag "Value" [string_of_value ctx value]
   | Fun (x,c) -> tag "Fun" [x; recurc c]
   | Handler h -> tag "Handler" [string_of_handler ctx h]
   | Term b -> tag "Term" [string_of_term ctx b]
@@ -185,19 +187,25 @@ and string_of_computation ctx (comp, _loc) =
   (*| MkApp (e1, e2) -> tag "MkApp" [recur e1; recur e2]*)
   | BrazilTermCode s -> "`" ^ s ^ "`"
   | BrazilTypeCode s -> "t`" ^ s ^ "`"
+  | RunML _ -> tag "RunML" ["-"]
 
-and string_of_value ctx (value, _loc) =
-  let recurv = string_of_value ctx  in
+and string_of_value ?(brief=false) ctx (value, _loc) =
+  let recurv = string_of_value ~brief ctx  in
   let recurc = string_of_computation ctx  in
   let recurk = string_of_cont ctx  in
   match value with
   | VFun(x,c,_eta) -> tag "VFun" [x; recurc c; "-"]
   | VHandler(h,_eta) -> tag "VHandler" [string_of_handler ctx h; "-"]
   | VCont (_delta,_gamma, k, _eta) -> tag "VCont" ["?"; "?"; recurk k; "?"]
+  | VTuple vs when brief -> "[" ^ String.concat "," (List.map recurv vs) ^ "]"
   | VTuple vs -> tag "VTuple" (List.map recurv vs)
+  | VConst a when brief -> string_of_const a
   | VConst a -> tag "VConst" [string_of_const a]
+  | VInj (i,v) when brief -> "inj " ^ string_of_int i ^ " " ^ recurv v
   | VInj (i,v) -> tag "VInj" [string_of_int i; recurv v]
+  | VTerm b when brief -> string_of_term ctx b
   | VTerm b -> tag "VTerm" [string_of_term ctx b]
+  | VType t when brief -> string_of_ty ctx t
   | VType t -> tag "VType" [string_of_ty ctx t]
 
 
@@ -301,6 +309,7 @@ and shift_computation cut delta (comp, loc) =
   | MkLam(x,e,c) -> MkLam(x, recur e, shift_computation (cut+1) delta c)
   | BrazilTermCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTermCode"
   | BrazilTypeCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTypeCode"
+  | RunML _ -> Error.runtime ~loc "Unimplemented: shifting of RunML"
   (*| MkApp(e1,e2) -> MkApp(recur e1, recur e2)*)
   ), loc)
 

@@ -303,7 +303,7 @@ let rec run (env : env) (comp, loc) k0 =
                 (function
                 | I.RVal v ->
                     begin
-                      Print.debug "Handler body produced value %s@." (I.string_of_value env.ctx v);
+                      Print.debug "Handler body at %s produced value %s@." (Position.to_string loc) (I.string_of_value env.ctx v);
                       match valH with
                       | Some (xv,cv) ->
                           (* eval-handle-val *)
@@ -318,7 +318,8 @@ let rec run (env : env) (comp, loc) k0 =
 
                         let rec loop = function
                           | [] ->
-                              r
+                              (Print.debug "No matching case found for body %s@." (Position.to_string loc);
+                              k0 r)
                           | (op, pat, kvar, c)::rest when op = opi ->
                               begin
                                 try
@@ -432,6 +433,9 @@ let rec run (env : env) (comp, loc) k0 =
           k0 (I.RVal (I.mkVType ~loc ty))
         end
 
+    | I.RunML (f, e) ->
+        let v = eval env e in
+        k0 (f env.ctx env.ttenv v)
 
 and vok env exp =
   (* XXX *)
@@ -656,10 +660,16 @@ and equiv_whnf env ((term1', loc1) as term1) ((term2', _loc2) as term2) ty =
 
 let toplevel_handler =
   let k = "toplevel k" in
+  let continue_with_unit = I.mkApp (I.mkVar k) (I.mkConst I.Unit)  in
+  let doPrint ctx _ v =
+    (print_endline (I.string_of_value ~brief:true ctx v); I.RVal (I.mkVConst I.Unit))  in
   {
     I.valH = None ;
-    I.opH  = [ ("equiv", I.PWild, k,
-                I.mkApp (I.mkVar k) (I.mkConst I.Unit)) ] ;
+    I.opH  = [ ("equiv", I.PWild, k, continue_with_unit);
+               ("print", I.PVar "x", k, I.mkLet "_" (I.mkRunML doPrint (I.mkVar "x"))
+                                          continue_with_unit) ;
+             ] ;
+
     I.finH = None ;
   }
 
