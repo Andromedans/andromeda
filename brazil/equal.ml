@@ -211,17 +211,22 @@ and rewrite_term ctx e t =
     *directly* by an equality hint. In other words, try to apply
     chk-eq-hint without any normalization *)
 and equal_by_equation ctx t e1 e2 =
-  Print.debug "equal_by_equation: %t == %t @@ %t"
+  Print.debug "equal_by_equation: %t and %t at %t"
     (print_term ctx e1) (print_term ctx e2) (print_ty ctx t) ;
   let rec match_equation = function
     | [] -> false
     | (k, pt, pe1, pe2) :: hs ->
       begin
         try
+          Print.debug "---> equal_by_equation 1" ;
           let inst = match_ty [] 0 ctx pt t in
+          Print.debug "---> equal_by_equation 2" ;
           let inst = match_term inst 0 ctx pe1 e1 t in
+          Print.debug "---> equal_by_equation 3" ;
           let inst = match_term inst 0 ctx pe2 e2 t in
+          Print.debug "---> equal_by_equation 4" ;
             check_complete_match inst k ;
+            Print.debug "---> equal_by_equation worked" ;
             true
         with
           | Mismatch -> match_equation hs
@@ -306,7 +311,7 @@ and equal_term ~use ctx e1 e2 t =
   ||
 
   (* chk-eq-hint *)
-  (use.use_eqs && equal_by_equation ctx t e1 e2)
+  (use.use_eqs && (equal_by_equation ctx t e1 e2 || equal_by_equation ctx t e2 e1))
 
   ||
   begin
