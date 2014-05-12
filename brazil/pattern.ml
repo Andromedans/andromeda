@@ -302,8 +302,102 @@ and subst_term inst k = function
       Syntax.NameId (alpha, e1, e2, e3),
       Position.nowhere
 
-let shift_ty k t =
-  failwith "Pattern.shift_ty not implemented"
+let rec shift_ty k l = function
 
-let shift k e =
-  failwith "Pattern.shift not implemented"
+  | Ty t -> Ty (Syntax.shift_ty ~bound:l k t)
+
+  | El (alpha, e) ->
+    let e = shift k l e in
+      El (alpha, e)
+
+  | Prod (x, t1, t2) ->
+    let t1 = shift_ty k l t1
+    and t2 = shift_ty k (l+1) t2
+    in
+      Prod (x, t1, t2)
+
+  | Paths (t, e1, e2) ->
+    let t = shift_ty k l t
+    and e1 = shift k l e1
+    and e2 = shift k l e2
+    in
+      Paths (t, e1, e2)
+
+  | Id (t, e1, e2) ->
+    let t = shift_ty k l t
+    and e1 = shift k l e1
+    and e2 = shift k l e2
+    in
+      Id (t, e1, e2)
+
+and shift k l = function
+
+  | Term e ->
+    let e = Syntax.shift ~bound:l k e
+    in
+      Term e
+
+  | PVar i ->
+    PVar i
+
+  | Lambda (x, t1, t2, e) ->
+    let t1 = shift_ty k l t1
+    and t2 = shift_ty k (l+1) t2
+    and e = shift k l e
+    in
+      Lambda (x, t1, t2, e)
+
+  | App ((x, t1, t2), e1, e2) ->
+    let t1 = shift_ty k l t1
+    and t2 = shift_ty k (l+1) t2
+    and e1 = shift k l e1
+    and e2 = shift k l e2
+    in
+      App ((x, t1, t2), e1, e2)
+
+  | Idpath (t, e) ->
+    let t = shift_ty k l t
+    and e = shift k l e
+    in
+      Idpath (t, e)
+
+  | J (t, (x, y, p, u), (z, e1), e2, e3, e4) ->
+    let t = shift_ty k l t
+    and u = shift_ty k (l+3) u
+    and e1 = shift k (l+1) e1
+    and e2 = shift k l e2
+    and e3 = shift k l e3
+    and e4 = shift k l e4
+    in
+      J (t, (x, y, p, u), (z, e1), e2, e3, e4)
+
+  | Refl (t, e) ->
+    let t = shift_ty k l t
+    and e = shift k l e
+    in
+      Refl (t, e)
+
+  | Coerce (alpha, beta, e) ->
+    let e = shift k l e
+    in
+      Coerce (alpha, beta, e)
+
+  | NameProd (alpha, beta, x, e1, e2) ->
+    let e1 = shift k l e1
+    and e2 = shift k (l+1) e2
+    in
+      NameProd (alpha, beta, x, e1, e2)
+
+  | NamePaths (alpha, e1, e2, e3) ->
+    let e1 = shift k l e1
+    and e2 = shift k l e2
+    and e3 = shift k l e3
+    in
+      NamePaths (alpha, e1, e2, e3)
+
+  | NameId (alpha, e1, e2, e3) ->
+    let e1 = shift k l e1
+    and e2 = shift k l e2
+    and e3 = shift k l e3
+    in
+      NameId (alpha, e1, e2, e3)

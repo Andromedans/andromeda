@@ -6,15 +6,17 @@
   let reserved = [
     ("Parameter", ASSUME ) ;
     ("coerce", COERCE) ;
-    ("Define", DEFINE) ;
-    ("Equation", EQUATION) ;
+    ("Definition", DEFINE) ;
+    ("Equation", TOPEQUATION) ;
+    ("equation", EQUATION) ;
     ("forall", FORALL) ;
     ("fun", FUN) ;
     ("idpath", IDPATH) ;
     ("in", IN) ;
     ("J", IND_PATH);
     ("refl", REFL) ;
-    ("Rewrite", REWRITE) ;
+    ("Rewrite", TOPREWRITE) ;
+    ("rewrite", REWRITE) ;
     ("unit", UNIT) ;
     ("Universe", UNIVERSE) ;
   ]

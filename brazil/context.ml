@@ -84,9 +84,9 @@ let equations {decls=lst} =
     | (Variable _ | Definition _) :: lst -> collect (k+1) lst
     | Rewrite _ :: lst -> collect k lst
     | Equation (j, pt, pe1, pe2) :: lst ->
-      let pt = Pattern.shift_ty k pt
-      and pe1 = Pattern.shift k pe1
-      and pe2 = Pattern.shift k pe2
+      let pt = Pattern.shift_ty k 0 pt
+      and pe1 = Pattern.shift k 0 pe1
+      and pe2 = Pattern.shift k 0 pe2
       in
         (j, pt, pe1, pe2) :: (collect k lst)
   in
@@ -99,15 +99,15 @@ let rewrites {decls=lst} =
     | Equation _ :: lst -> collect k lst
     | Definition (t, e) :: lst ->
       let j = 0
-      and pt = Pattern.shift_ty k (Pattern.Ty t)
-      and pe1 = Pattern.shift k (Pattern.Term (Syntax.Var 0, Position.nowhere))
-      and pe2 = Pattern.shift (k+1) (Pattern.Term e)
+      and pt = Pattern.shift_ty k 0 (Pattern.Ty t)
+      and pe1 = Pattern.shift k 0 (Pattern.Term (Syntax.Var 0, Position.nowhere))
+      and pe2 = Pattern.shift (k+1) 0 (Pattern.Term e)
       in
         (j, pt, pe1, pe2) :: (collect (k+1) lst)
     | Rewrite (j, pt, pe1, pe2) :: lst ->
-      let pt = Pattern.shift_ty k pt
-      and pe1 = Pattern.shift k pe1
-      and pe2 = Pattern.shift k pe2
+      let pt = Pattern.shift_ty k 0 pt
+      and pe1 = Pattern.shift k 0 pe1
+      and pe2 = Pattern.shift k 0 pe2
       in
         (j, pt, pe1, pe2) :: (collect k lst)
   in

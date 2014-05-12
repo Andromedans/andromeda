@@ -24,8 +24,8 @@ val of_ty : int -> Syntax.ty -> ty
 
 val of_term : int -> Syntax.term -> term
 
-val shift_ty : int -> ty -> ty
+val shift_ty : int -> int -> ty -> ty
 
-val shift : int -> term -> term
+val shift : int -> int -> term -> term
 
 val subst_term : (int * Syntax.term) list -> int -> term -> Syntax.term

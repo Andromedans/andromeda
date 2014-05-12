@@ -34,7 +34,7 @@
 %token REFL IDPATH
 %token IND_PATH
 %token UNDERSCORE
-%token DEFINE COLONEQ ASSUME
+%token DEFINE COLONEQ ASSUME TOPEQUATION TOPREWRITE
 %token CONTEXT HELP QUIT
 %token EOF
 
@@ -54,17 +54,17 @@ filecontents:
   | d=topdirective ds=filecontents  { d :: ds }
 
 commandline:
-  | topdef DOT EOF       { $1 }
+  | topdef EOF       { $1 }
   | topdirective EOF { $1 }
 
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | DEFINE x=NAME COLONEQ e=term                { Define (x, e) }
-  | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, (Ascribe(e,t), snd e)) }
-  | ASSUME xs=nonempty_list(NAME) COLON t=ty    { Assume (xs, t) }
-  | REWRITE e=term                              { TopRewrite e }
-  | EQUATION e=term                             { TopEquation e }
+  | DEFINE x=NAME COLONEQ e=term DOT             { Define (x, e) }
+  | DEFINE x=NAME COLON t=ty COLONEQ e=term DOT  { Define (x, (Ascribe(e,t), snd e)) }
+  | ASSUME xs=nonempty_list(NAME) COLON t=ty DOT { Assume (xs, t) }
+  | TOPREWRITE e=term DOT                        { TopRewrite e }
+  | TOPEQUATION e=term DOT                       { TopEquation e }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
