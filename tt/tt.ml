@@ -126,7 +126,8 @@ let rec exec_cmd interactive env (d, loc) =
                     let b = Syntax.simplify b  in
                     let t = Typing.type_of env.Interp.ctx b  in
                     let t = Syntax.simplify_ty t  in
-                    {env with Interp.ctx = Ctx.add_def x t b env.Interp.ctx}
+                    let ctx = Ctx.add_def x t b env.Interp.ctx  in
+                    {env with Interp.ctx = ctx}
                 | _ -> Error.runtime "Result of definition is %s, not a term"
                             (InputTT.string_of_value ~brief:true env.Interp.ctx v)
               end

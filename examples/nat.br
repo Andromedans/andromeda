@@ -24,10 +24,19 @@ assume N_ind_S :
     (m : N),
   N_ind P z f (S m) == f m (N_ind P z f m)
 
-define id := N_ind (fun _ : N => N)
+rewrite N_ind_0
+rewrite N_ind_S
 
 define plus :=
   N_ind
     (fun _ : N => N -> N)
     (fun n : N => n) 
     (fun (n : N) (f : N -> N) (m : N) => S (f m))
+
+#context
+
+define foo := (refl 0 :: 0 == plus 0 0)
+
+define two_plus_two := 
+   refl (S (S (S (S (S 0))))) :: 
+   (S (S (S (S (S 0))))) == plus (S (S 0)) (S (S (S 0)))

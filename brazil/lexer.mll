@@ -4,9 +4,10 @@
   open Parser
 
   let reserved = [
-    ("assume", ASSUME ) ;
+    ("Parameter", ASSUME ) ;
     ("coerce", COERCE) ;
-    ("define", DEFINE) ;
+    ("Definition", DEFINE) ;
+    ("Equation", TOPEQUATION) ;
     ("equation", EQUATION) ;
     ("forall", FORALL) ;
     ("fun", FUN) ;
@@ -14,6 +15,7 @@
     ("in", IN) ;
     ("J", IND_PATH);
     ("refl", REFL) ;
+    ("Rewrite", TOPREWRITE) ;
     ("rewrite", REWRITE) ;
     ("unit", UNIT) ;
     ("Universe", UNIVERSE) ;

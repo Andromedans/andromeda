@@ -2,6 +2,8 @@
 
 type name = string
 
+let anonymous = Input.anonymous
+
 (** We use de Bruijn indices *)
 type variable = Common.debruijn
 
@@ -36,10 +38,10 @@ and term' =
   | NameId of universe * term * term * term
 
 (*********************)
-(* Alpha-Equivalence *)
+(* Alpha equality    *)
 (*********************)
 
-(** We cannot use ML's built-in = operator for alpha equivalence,
+(** We cannot use ML's built-in = operator for alpha equality,
     because we maintain variable names and source locations (for debugging and
     error-reporting) in terms. So, we write the obvious recursive traversal
     code.
@@ -283,14 +285,20 @@ let subst_ty free_index replacement_term = transform_ty (ftrans_subst free_index
 let beta eBody eArg =
   shift (-1) (subst 0 (shift 1 eArg) eBody)
 
-let beta_ty eBody eArg =
-  shift_ty (-1) (subst_ty 0 (shift 1 eArg) eBody)
+let beta_ty tBody eArg =
+  shift_ty (-1) (subst_ty 0 (shift 1 eArg) tBody)
 
-let make_arrow ?(loc=Position.nowhere) dom cod =
-  Prod("_", dom, shift_ty 1 cod), loc
+let betas_ty tBody eArgs =
+  let rec betas k t = function
+    | [] -> t
+    | e :: es ->
+      let t = betas (k+1) t es in
+        shift_ty (-1) (subst_ty 0 (shift k e) t)
+  in
+    betas 1 tBody eArgs
 
-(*let make_star ?(loc=Position.nowhere) fst snd =*)
-  (*Sum("_", fst, shift 1 snd), loc*)
+(* let make_arrow ?(loc=Position.nowhere) dom cod = *)
+(*   Prod("_", dom, shift_ty 1 cod), loc *)
 
 (**
   Suppose we have [G, x_1:t_1, ..., x_n:t_n |- exp : ...] and the inhabitants

@@ -34,7 +34,7 @@
 %token REFL IDPATH
 %token IND_PATH
 %token UNDERSCORE
-%token DEFINE COLONEQ ASSUME
+%token DEFINE COLONEQ ASSUME TOPEQUATION TOPREWRITE
 %token CONTEXT HELP QUIT
 %token EOF
 
@@ -68,11 +68,11 @@ topty:
 (* Things that can be defined on toplevel. *)
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
-  | DEFINE x=NAME COLONEQ e=term                { Define (x, e) }
-  | DEFINE x=NAME COLON t=ty COLONEQ e=term     { Define (x, (Ascribe(e,t), snd e)) }
-  | ASSUME xs=nonempty_list(NAME) COLON t=ty    { Assume (xs, t) }
-  | REWRITE e=term                              { TopRewrite e }
-  | EQUATION e=term                             { TopEquation e }
+  | DEFINE x=NAME COLONEQ e=term DOT             { Define (x, e) }
+  | DEFINE x=NAME COLON t=ty COLONEQ e=term DOT  { Define (x, (Ascribe(e,t), snd e)) }
+  | ASSUME xs=nonempty_list(NAME) COLON t=ty DOT { Assume (xs, t) }
+  | TOPREWRITE e=term DOT                        { TopRewrite e }
+  | TOPEQUATION e=term DOT                       { TopEquation e }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
@@ -85,17 +85,17 @@ plain_topdirective:
 
 term: mark_position(plain_term) { $1 }
 plain_term:
-  | e=plain_equiv_term                              { e }
+  | e=plain_equal_term                              { e }
   | FORALL a=abstraction(term) COMMA  e=term        { fst (make_prod e a) }
   | FUN a=abstraction(ty) DARROW e=term             { fst (make_lambda e a) }
-  | e=equiv_term ASCRIBE t=ty                       { Ascribe (e, t) }
-  | EQUATION e1=equiv_term IN e2=term               { Equation (e1, e2) }
-  | REWRITE e1=equiv_term IN e2=term                { Rewrite (e1, e2) }
-  | t1=equiv_term ARROW t2=term                     { NameProd (anonymous, t1, t2) }
+  | e=equal_term ASCRIBE t=ty                       { Ascribe (e, t) }
+  | EQUATION e1=equal_term IN e2=term               { Equation (e1, e2) }
+  | REWRITE e1=equal_term IN e2=term                { Rewrite (e1, e2) }
+  | t1=equal_term ARROW t2=term                     { NameProd (anonymous, t1, t2) }
   | LPAREN x=param COLON t=term RPAREN ARROW e=term { NameProd (x, t, e) }
 
-equiv_term: mark_position(plain_equiv_term) { $1 }
-plain_equiv_term:
+equal_term: mark_position(plain_equal_term) { $1 }
+plain_equal_term:
     | e=plain_app_term               { e }
     | e1=app_term EQEQ e2=app_term   { NameId (e1, e2) }
     | e1=app_term EQ e2=app_term     { NamePaths (e1, e2) }
