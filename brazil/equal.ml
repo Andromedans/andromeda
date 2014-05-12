@@ -105,6 +105,13 @@ and whnf ~use_rws ctx t ((e',loc) as e) =
   let e =
     begin match e' with
 
+      (* norm-var-def *)
+      | Syntax.Var k ->
+        begin match Context.lookup_def k ctx with
+          | None -> e
+          | Some e' -> whnf ctx t e'
+        end
+
       (* norm-equation *)
       | Syntax.Equation (e1, t1, e2) ->
         let h = as_hint' ~use_rws ctx e1 t1 in
@@ -168,7 +175,10 @@ and whnf ~use_rws ctx t ((e',loc) as e) =
             Syntax.Coerce (alpha, beta, e), loc
         end
 
-      | _ -> e
+      | (Syntax.Lambda _ | Syntax.UnitTerm | Syntax.Idpath _ |
+         Syntax.Refl _ | Syntax.NameUnit | Syntax.NameProd _ |
+         Syntax.NameUniverse _ | Syntax.NamePaths _ | Syntax.NameId _) ->
+        e
     end
   in
     if use_rws
