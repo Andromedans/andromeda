@@ -10,6 +10,8 @@ val add_var : Syntax.name -> Syntax.ty -> t -> t
 
 val add_vars : (Syntax.name * Syntax.ty) list -> t -> t
 
+val for_J : Syntax.ty -> Syntax.name -> Syntax.name -> Syntax.name -> Syntax.name -> t -> t * t
+
 val add_def : Syntax.name -> Syntax.ty -> Syntax.term -> t -> t
 
 val add_equation : hint -> t -> t

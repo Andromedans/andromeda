@@ -100,16 +100,8 @@ let rec syn_term ctx ((term', loc) as term) =
       match Equal.as_paths ctx t2 with
 
         | Some (t, e3, e4) ->
-          let ctx_xyp = Context.add_vars
-            [  (x, t);
-               (y, t);
-               (p, (Syntax.Paths
-                      (t,
-                       (Syntax.Var (-1) (* x *), Position.nowhere),
-                       (Syntax.Var (-2) (* y *), Position.nowhere)),
-                    Position.nowhere)) ] ctx  in
+          let ctx_xyp, ctx_z = Context.for_J t x y p z ctx in
           let u = is_fibered ctx_xyp u in
-          let ctx_z = Context.add_var z t ctx  in
           let zvar = (Syntax.Var 0, Position.nowhere) in (* ctx, z |- z *)
           let t' = Syntax.weaken_ty 0 t in (* ctx, z |- t type *)
           let u' = Syntax.strengthen_ty u [zvar; zvar; (Syntax.Idpath (t', zvar), Position.nowhere)] in

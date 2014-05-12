@@ -404,18 +404,8 @@ and equal_whnf ~use ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
 
     (* chk-eq-whnf-j *)
     | Syntax.J(t1,(x,y,p,u2),(z,e3),e4, e5, e6), Syntax.J(t7, (_,_,_,u8), (_,e9), e10, e11, e12) ->
-        let ctx_xy = Context.add_vars
-                       [  (x, t1);
-                          (y, t1); ] ctx in
-        let ctx_xyp = Context.add_vars
-                       [  (p, (Syntax.Paths
-                                (Syntax.shift_ty 2 t1,  (* Weaken twice for x and y *)
-                                (Syntax.Var 0 (* x *), Position.nowhere),
-                                (Syntax.Var 1 (* y *), Position.nowhere)),
-                                Position.nowhere)) ] ctx_xy  in
-        let ctx_z = Context.add_var z t1 ctx  in
-
-        let e3_ty_expected =
+      let ctx_xyp, ctx_z = Context.for_J t1 x y p z ctx in
+      let e3_ty_expected =
                                                          (* ctx,    x, y, p |- u2 type *)
           let u2' = Syntax.weaken_ty 3 u2  in            (* ctx, z, x, y, p |- u2' type *)
                                                          (* ctx    |- t1 type *)
@@ -572,34 +562,124 @@ and match_term inst l ctx p e t =
   | Pattern.Term e' -> 
     if equal_term ~use:{use_eqs=false; use_rws=false} ctx e' e t then inst else raise Mismatch
 
-  | Pattern.PVar _ -> failwith "Equal.match_term not implemented"
-
-  | Pattern.Lambda _ -> failwith "Equal.match_term not implemented"
-
-  | Pattern.App ((_, pt1, pt2), pe1, pe2) ->
-    begin match as_app ~use_rws:false ctx t e with
-      | None -> raise Mismatch
-      | Some ((x, t1, t2), e1, e2) ->
-        let inst = match_ty inst l ctx pt1 t1 in
-        let inst = match_ty inst (l+1) (Context.add_var x t1 ctx) pt2 t2 in
-        let inst = match_term inst l ctx pe1 e1 t in
-        let inst = match_term inst l ctx pe2 e2 t in
-          inst
+  | Pattern.PVar i ->
+    begin
+      try
+        let e' = Syntax.shift l (List.assoc i inst) in
+          if equal_term ~use:{use_eqs=false; use_rws=false} ctx e e' t
+          then inst
+          else raise Mismatch
+      with
+        | Not_found ->
+          (* [PVar i] is not bound yet *)
+          let e = Syntax.shift ~exn:Mismatch (-l) e in
+            (i, e) :: inst
     end
 
-  | Pattern.Idpath _ -> failwith "Equal.match_term not implemented"
+  | Pattern.Lambda (_, pt1, pt2, pe) ->
+    begin match fst (whnf ~use_rws:false ctx t e) with
+      | Syntax.Lambda (x, t1, t2, e) ->
+        let inst = match_ty inst l ctx pt1 t1 in
+        let ctx' = Context.add_var x t1 ctx in
+        let inst = match_ty inst (l+1) ctx' pt2 t2 in
+        let inst = match_term inst (l+1) ctx' pe e t2 in
+          inst
+      | _ -> raise Mismatch
+    end
 
-  | Pattern.J _ -> failwith "Equal.match_term not implemented"
+  | Pattern.App ((_, pt1, pt2), pe1, pe2) ->
+    begin match fst (whnf ~use_rws:false ctx t e) with
+      | Syntax.App ((x, t1, t2), e1, e2) ->
+        let inst = match_ty inst l ctx pt1 t1 in
+        let inst = match_ty inst (l+1) (Context.add_var x t1 ctx) pt2 t2 in
+        let inst = match_term inst l ctx pe1 e1 (Syntax.Prod (x, t1, t2), Position.nowhere) in
+        let inst = match_term inst l ctx pe2 e2 t1 in
+          inst
+      | _ -> raise Mismatch
+    end
 
-  | Pattern.Refl _ -> failwith "Equal.match_term not implemented"
+  | Pattern.Idpath (pt, pe) ->
+    begin match fst (whnf ~use_rws:false ctx t e) with
+      | Syntax.Idpath (t, e) ->
+        let inst = match_ty inst l ctx pt t in
+        let inst = match_term inst l ctx pe e t in
+          inst
+      | _ -> raise Mismatch
+    end
 
-  | Pattern.Coerce _ -> failwith "Equal.match_term not implemented"
+  | Pattern.J (pt, (_,_,_,pu), (_,pe1), pe2, pe3, pe4) ->
+    begin match fst (whnf ~use_rws:false ctx t e) with
+      | Syntax.J (t, (x,y,p,u), (z,e1), e2, e3, e4) ->
+        let inst = match_ty inst l ctx pt t in
+        let ctx_xyp, ctx_z = Context.for_J t x y p z ctx in
+        let inst = match_ty inst (l+3) ctx_xyp pt t in
+        let inst = match_term inst (l+1) ctx_z pe1 e1 t in
+        let inst = match_term inst l ctx pe2 e2 t in
+        let inst = match_term inst l ctx pe3 e3 t in
+        let inst = match_term inst l ctx pe4 e4 t in
+          inst
+      | _ -> raise Mismatch
+    end
 
-  | Pattern.NameProd _ -> failwith "Equal.match_term not implemented"
+  | Pattern.Refl (pt, pe) ->
+    begin match fst (whnf ~use_rws:false ctx t e) with
+      | Syntax.Refl (t, e) ->
+        let inst = match_ty inst l ctx pt t in
+        let inst = match_term inst l ctx pe e t in
+          inst
+      | _ -> raise Mismatch
+    end
 
-  | Pattern.NamePaths _ -> failwith "Equal.match_term not implemented"
+   (** XXX should switch to comparing type names *)
 
-  | Pattern.NameId _ -> failwith "Equal.match_term not implemented"
+  | Pattern.Coerce (alpha, beta, pe) ->
+    begin match fst (whnf ~use_rws:false ctx t e) with
+      | Syntax.Coerce (gamma, delta, e) 
+          when Universe.eq alpha gamma && Universe.eq beta delta ->
+        let inst = match_term inst l ctx pe e (Syntax.Universe alpha, Position.nowhere) in
+          inst
+      | _ -> raise Mismatch
+    end
+    
+  | Pattern.NameProd (alpha, beta, _, pe1, pe2) ->
+    begin match fst (whnf ~use_rws:false ctx t e) with
+      | Syntax.NameProd (gamma, delta, x, e1, e2) 
+          when Universe.eq alpha gamma && Universe.eq beta delta ->
+        let inst = match_term inst l ctx pe1 e1 (Syntax.Universe gamma, Position.nowhere) in
+        let inst =
+          match_term
+            inst
+            (l+1)
+            (Context.add_var x (Syntax.El (gamma, e1), Position.nowhere) ctx)
+            pe2
+            e2
+            (Syntax.Universe delta, Position.nowhere)
+        in
+          inst
+      | _ -> raise Mismatch
+    end
+
+  | Pattern.NamePaths (alpha, pe1, pe2, pe3) ->
+    begin match fst (whnf ~use_rws:false ctx t e) with
+      | Syntax.NamePaths (beta, e1, e2, e3) 
+          when Universe.eq alpha beta ->
+        let inst = match_term inst l ctx pe1 e1 (Syntax.Universe beta, Position.nowhere) in
+        let inst = match_term inst l ctx pe2 e1 (Syntax.El (beta, e1), Position.nowhere) in
+        let inst = match_term inst l ctx pe3 e1 (Syntax.El (beta, e1), Position.nowhere) in
+          inst
+      | _ -> raise Mismatch
+    end
+
+  | Pattern.NameId (alpha, pe1, pe2, pe3) ->
+    begin match fst (whnf ~use_rws:false ctx t e) with
+      | Syntax.NameId (beta, e1, e2, e3) 
+          when Universe.eq alpha beta ->
+        let inst = match_term inst l ctx pe1 e1 (Syntax.Universe beta, Position.nowhere) in
+        let inst = match_term inst l ctx pe2 e1 (Syntax.El (beta, e1), Position.nowhere) in
+        let inst = match_term inst l ctx pe3 e1 (Syntax.El (beta, e1), Position.nowhere) in
+          inst
+      | _ -> raise Mismatch
+    end
 
 and as_prod' ~use_rws ctx t =
   match fst (whnf_ty ~use_rws ctx t) with
@@ -635,19 +715,6 @@ and as_id' ~use_rws ctx t =
       Some (t, e1, e2)
 
     | Syntax.Universe _ | Syntax.El _ | Syntax.Unit | Syntax.Prod _ | Syntax.Paths _ ->
-      None
-
-and as_app ~use_rws ctx t e =
-  match fst (whnf ~use_rws ctx t e) with
-
-    | Syntax.App (t12, e1, e2) ->
-      Some (t12, e1, e2)
-
-    | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
-      | Syntax.Lambda _ | Syntax.Idpath _ | Syntax.UnitTerm | Syntax.Refl _
-      | Syntax.J _ | Syntax.Coerce _ | Syntax.NameUnit
-      | Syntax.NameProd _ | Syntax.NameUniverse _ | Syntax.NamePaths _
-      | Syntax.NameId _) ->
       None
 
 let equal_ty = equal_ty' ~use:{use_eqs=true;use_rws=true}

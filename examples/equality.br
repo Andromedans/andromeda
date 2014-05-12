@@ -33,5 +33,3 @@ Definition funext :=
     (f g : (x : A) -> P x)
     (H : forall x : A, f x == g x) =>
     equation H in (refl f :: f == g).
-
-#context
