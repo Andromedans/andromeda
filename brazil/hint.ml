@@ -98,7 +98,7 @@ and match_term k inst lvl e_pttrn e =
       end
 
     (* a bound variable *)
-    | (Syntax.Var i, Syntax.Var j) when i <= lvl ->
+    | (Syntax.Var i, Syntax.Var j) when i < lvl ->
       check (i = j) "bound variable" ;
       inst
 
