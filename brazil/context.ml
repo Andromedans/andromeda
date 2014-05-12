@@ -78,6 +78,22 @@ let lookup_var index {decls=ds} =
     if index < 0 then Error.impossible "negative de Bruijn index" ;
     lookup index ds
 
+let lookup_def index {decls=ds} =
+  let rec lookup k = function
+    | [] -> Error.impossible "invalid de Bruijn index"
+    | (Equation _ | Rewrite _) :: ds -> lookup k ds
+    | Variable _ :: ds ->
+      if k = 0
+      then None
+      else lookup (k-1) ds
+    | Definition (_, e) :: ds ->
+      if k = 0 
+      then Some (Syntax.shift (index+1) e)
+      else lookup (k-1) ds
+  in
+    if index < 0 then Error.impossible "negative de Bruijn index" ;
+    lookup index ds
+  
 let equations {decls=lst} =
   let rec collect k = function
     | [] -> []
@@ -95,15 +111,8 @@ let equations {decls=lst} =
 let rewrites {decls=lst} =
   let rec collect k = function
     | [] -> []
-    | Variable _ :: lst -> collect (k+1) lst
+    | (Variable _ | Definition _) :: lst -> collect (k+1) lst
     | Equation _ :: lst -> collect k lst
-    | Definition (t, e) :: lst ->
-      let j = 0
-      and pt = Pattern.shift_ty k 0 (Pattern.Ty t)
-      and pe1 = Pattern.shift k 0 (Pattern.Term (Syntax.Var 0, Position.nowhere))
-      and pe2 = Pattern.shift (k+1) 0 (Pattern.Term e)
-      in
-        (j, pt, pe1, pe2) :: (collect (k+1) lst)
     | Rewrite (j, pt, pe1, pe2) :: lst ->
       let pt = Pattern.shift_ty k 0 pt
       and pe1 = Pattern.shift k 0 pe1

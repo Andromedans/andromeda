@@ -18,6 +18,8 @@ val add_rewrite : hint -> t -> t
 
 val lookup_var : Syntax.variable -> t -> Syntax.ty
 
+val lookup_def : Syntax.variable -> t -> Syntax.term option
+
 val rewrites : t -> hint list
 
 val equations : t -> hint list

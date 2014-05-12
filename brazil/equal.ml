@@ -171,31 +171,28 @@ and whnf ~use_rws ctx t ((e',loc) as e) =
       | _ -> e
     end
   in
-    rewrite_term ~use_rws ctx e t
+    if use_rws
+    then rewrite_term ctx e t
+    else e
 
 (* [rewrite_term ctx e t hs] attempts to rewrite term [e] of type [t] using
    rewrite hints [hs]. After rewriting it re-runs weak head-normalization
    on the resulting term. *)
-and rewrite_term ~use_rws ctx e t =
+and rewrite_term ctx e t =
   Print.debug "rewrite_term: %t @@ %t"
     (print_term ctx e) (print_ty ctx t) ;
   let rec match_rewrite = function
     | [] -> e
     | (k, pt, pe1, pe2) :: hs ->
-      begin match pe1, use_rws with
-        | Pattern.Term (Syntax.Var _, _), _
-        | _, true ->
-          begin try
-            let inst = match_ty [] 0 ctx pt t in
-            let inst = match_term inst 0 ctx pe1 e t in
-              check_complete_match inst k ;
-              let e2 = Pattern.subst_term inst 0 pe2 in
-                Print.debug "rewrite_term ---> %t" (print_term ctx e2) ;
-                whnf ~use_rws ctx t e2
-            with
-              | Mismatch -> match_rewrite hs
-          end
-        | _, false -> match_rewrite hs
+      begin try
+        let inst = match_ty [] 0 ctx pt t in
+        let inst = match_term inst 0 ctx pe1 e t in
+          check_complete_match inst k ;
+          let e2 = Pattern.subst_term inst 0 pe2 in
+            Print.debug "rewrite_term ---> %t" (print_term ctx e2) ;
+            whnf ~use_rws:true ctx t e2
+        with
+          | Mismatch -> match_rewrite hs
       end
   in
     match_rewrite (Context.rewrites ctx)
