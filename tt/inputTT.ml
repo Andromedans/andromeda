@@ -72,6 +72,7 @@ and computation' =
   | BrazilTermCode of string
   | BrazilTypeCode of string
   | RunML of (Context.t -> environment -> value -> result) * exp
+  | InEnv of environment * computation
 
 and arm = pattern * computation
 
@@ -111,6 +112,7 @@ let mkAscribe ?(loc=Position.nowhere) e1 e2 = Ascribe (e1,e2), loc
 let mkCheck ?(loc=Position.nowhere) t1 t2 e c = Check (t1,t2,e,c), loc
 let mkConst ?(loc=Position.nowhere) const = Const const, loc
 let mkHandler ?(loc=Position.nowhere) h = Handler h, loc
+let mkInEnv ?(loc=Position.nowhere) eta c = InEnv(eta,c), loc
 let mkLet ?(loc=Position.nowhere) x c1 c2 = Let (x,c1,c2), loc
 let mkMkLam ?(loc=Position.nowhere) x e c = MkLam (x,e,c), loc
 let mkOp ?(loc=Position.nowhere) op arg = Op(op, arg), loc
@@ -188,8 +190,9 @@ and string_of_computation ctx (comp, _loc) =
   | BrazilTermCode s -> "`" ^ s ^ "`"
   | BrazilTypeCode s -> "t`" ^ s ^ "`"
   | RunML _ -> tag "RunML" ["-"]
+  | InEnv _ -> tag "InEnv" ["-"]
 
-and string_of_value ?(brief=false) ctx (value, _loc) =
+and string_of_value ?(brief=true) ctx (value, _loc) =
   let recurv = string_of_value ~brief ctx  in
   let recurc = string_of_computation ctx  in
   let recurk = string_of_cont ctx  in
@@ -278,8 +281,8 @@ and shiftv cut delta (value, loc) =
   (let recurv = shiftv cut delta in
    let recurc = shift_computation cut delta in
   (match value with
-  | VFun(x, c, eta) -> VFun(x, recurc c, eta)
-  | VHandler (h, eta) -> VHandler (shift_handler cut delta h, eta)
+  | VFun(x, c, eta) -> VFun(x, recurc c, eta)   (* XXX: Don't I have to shift eta? *)
+  | VHandler (h, eta) -> VHandler (shift_handler cut delta h, eta)  (* XXX: Don't I have to shift eta? *)
   | VCont _ -> Error.runtime ~loc "shiftv: Cannot shift a continuation"
   | VTuple vs -> VTuple (List.map recurv vs)
   | VConst _ -> value
@@ -310,6 +313,7 @@ and shift_computation cut delta (comp, loc) =
   | BrazilTermCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTermCode"
   | BrazilTypeCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTypeCode"
   | RunML _ -> Error.runtime ~loc "Unimplemented: shifting of RunML"
+  | InEnv _ -> Error.runtime ~loc "Unimplemented: shifting of InEnv"
   (*| MkApp(e1,e2) -> MkApp(recur e1, recur e2)*)
   ), loc)
 

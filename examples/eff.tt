@@ -68,7 +68,6 @@ eval
 // [27, 42]
 let store := val handler val x => val (fun s => val x) 
                           op lookup _ k => val (fun s => let z = k s in z s) 
-                          op update s2 k => val (fun _ => let z = k () in z s2)
                           finally f => f 99 
              end
 

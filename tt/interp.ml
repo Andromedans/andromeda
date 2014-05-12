@@ -35,6 +35,11 @@ let print_term env term =
 
 let print_universe = Print.universe
 
+let string_of_env env =
+        let current_depth = depth env in
+  "[" ^ String.concat "," (List.map (fun (k,(v,i)) -> k^"="^(I.string_of_value
+  env.ctx (I.shiftv 0 (current_depth - i) v))) (SM.bindings env.ttenv)) ^ "]"
+
 (* Gensym *)
 
 let fresh_name =
@@ -217,8 +222,11 @@ let rec run (env : env) (comp, loc) k0 =
 
   | I.App (e1, e2) ->
       begin
+        Print.debug "App. env = %s@." (string_of_env env);
         let v1 = eval env e1  in
         let v2 = eval env e2  in
+        Print.debug "v1 = %s, v2 = %s@." (I.string_of_value env.ctx v1)
+        (I.string_of_value  env.ctx v2);
         match fst v1, fst v2 with
 
         | I.VFun (x,c,eta), _ ->
@@ -229,6 +237,7 @@ let rec run (env : env) (comp, loc) k0 =
 
         | I.VCont(gamma,delta,k,eta), _ ->
             (* eval-kapp *)
+            Print.debug "Applying vcont. eta = %s@." (string_of_env env);
             if (List.length (Context.names env.ctx) =
                 List.length (Context.names gamma) + List.length (Context.names delta)) then
               (* XXX: Should actually check that types match too... *)
@@ -268,8 +277,10 @@ let rec run (env : env) (comp, loc) k0 =
         run env c1
         (function
           | I.RVal v                     -> run (insert_ttvar x v env) c2 k0
-          | I.ROp(op, delta, v, (k,eta)) -> k0 (I.ROp(op, delta, v, ((fun v -> I.mkLet x (k v) c2), eta)))
-                                             (* XXX Justify moving c2 into eta? *)
+          | I.ROp(op, delta, v, (k,eta)) ->
+              k0 (I.ROp(op, delta, v,
+                  ((fun v -> I.mkLet x (I.mkInEnv eta (k v)) c2), env.ttenv)))
+                                             (* XXX Can't Justify moving c2 into eta!? *)
         )
       end
 
@@ -436,6 +447,10 @@ let rec run (env : env) (comp, loc) k0 =
     | I.RunML (f, e) ->
         let v = eval env e in
         k0 (f env.ctx env.ttenv v)
+
+
+    | I.InEnv (eta, c) ->
+        run {env with ttenv=eta} c k0
 
 and vok env exp =
   (* XXX *)
@@ -661,8 +676,9 @@ and equiv_whnf env ((term1', loc1) as term1) ((term2', _loc2) as term2) ty =
 let toplevel_handler =
   let k = "toplevel k" in
   let continue_with_unit = I.mkApp (I.mkVar k) (I.mkConst I.Unit)  in
-  let doPrint ctx _ v =
-    (print_endline (I.string_of_value ~brief:true ctx v); I.RVal (I.mkVConst I.Unit))  in
+  let doPrint ctx ttenv v =
+    (print_endline (string_of_env {ctx=ctx; ttenv=ttenv});
+     print_endline (I.string_of_value ~brief:true ctx v); I.RVal (I.mkVConst I.Unit))  in
   {
     I.valH = None ;
     I.opH  = [ ("equiv", I.PWild, k, continue_with_unit);
