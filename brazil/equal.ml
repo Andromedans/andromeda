@@ -45,8 +45,8 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
         (* tynorm-pi *)
         | Syntax.NameProd (beta, gamma, x, e1, e2) 
             when Universe.eq alpha (Universe.max beta gamma) ->
-          let t1 = whnf_ty ctx (Syntax.El (beta, e1), snd e1) in
-          let t2 = whnf_ty (Context.add_var x t1 ctx) (Syntax.El (gamma, e2), snd e2) in
+          let t1 = (Syntax.El (beta, e1), snd e1) in
+          let t2 = (Syntax.El (gamma, e2), snd e2) in
             Syntax.Prod (x, t1, t2),
             loc
 
@@ -69,18 +69,14 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
         (* tynorm-paths *)
         | Syntax.NamePaths (beta, e1, e2, e3)
             when Universe.eq alpha beta ->
-          let t1 = whnf_ty ctx (Syntax.El (alpha, e1), snd e1) in
-          let e2 = whnf ctx t1 e2 in
-          let e3 = whnf ctx t1 e3 in
+          let t1 = (Syntax.El (alpha, e1), snd e1) in
             Syntax.Paths (t1, e2, e3),
             loc
 
         (* tynorm-id *)
         | Syntax.NameId (beta, e1, e2, e3) 
             when Universe.eq alpha beta ->
-          let t1 = whnf_ty ctx (Syntax.El (alpha, e1), snd e1) in
-          let e2 = whnf ctx t1 e2 in
-          let e3 = whnf ctx t1 e3 in
+          let t1 = (Syntax.El (alpha, e1), snd e1) in
             Syntax.Id (t1, e2, e3),
             loc
 
@@ -98,7 +94,7 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
   end
 
 and whnf ~use_rws ctx t ((e',loc) as e) =
-  Print.debug "whnf: %t" (print_term ctx e) ;
+  Print.debug "whnf (%b): %t" use_rws (print_term ctx e) ;
   let equal_ty' = equal_ty' ~use:{use_eqs=false; use_rws=use_rws}
   and whnf = whnf ~use_rws
   in
@@ -328,7 +324,7 @@ and equal_term ~use ctx e1 e2 t =
  *)
 and equal_ext ~use ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
   begin
-    Print.debug "equal_ext: %t == %t @@ %t @."
+    Print.debug "equal_ext: %t and %t at %t@."
       (print_term ctx e1) (print_term ctx e2) (print_ty ctx t);
     match t' with
 
