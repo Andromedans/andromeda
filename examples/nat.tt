@@ -8,19 +8,20 @@ let equiv := val fun X =>
          match t2 with
          | _ == _  => val []
          /*
-         | t`unit`              -> val []
-         | t`forall ?t21, ?t22` ->
+         | t`unit`              => val []
+         | t`forall ?t21, ?t22` =>
                  \lambda x : t21, equiv [e1 `x`, e2 `x`, t22 `x`]
-         | _ -> let e3 = whnf e1  in
-                let e4 = whnf e2  in
+          */
+         | _ => let e3 = val whnf e1  in
+                let e4 = val whnf e2  in
                 match e3 = e4 with
-                | true  -> val []
-                | false -> 
-                    match [e3,e4] with
+                | true  => val []
+                | false => op EQUIV X
+                end
+               /*     match [e3,e4] with
                     | [`?f1 ?a1`, `?f2 ?a2`] ->
                           let [ws, 
-          */      
-         | _ => op EQUIV X
+                */
          end
      end
      )
