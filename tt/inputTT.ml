@@ -35,9 +35,9 @@ type environment = (value * int) StringMap.t
 (* Closed values *)
 and value = value' * Position.t
 and value' =
-  | VFun     of tt_var * computation * environment
-  | VHandler of handler * environment
-  | VCont    of Context.t * Context.t * (value -> computation) * environment
+  | VFun     of (value -> result)
+  | VHandler of (result -> result)
+  | VCont    of Context.t * Context.t * (value -> result)
   | VTuple   of value list
   | VConst   of const
   | VInj     of int * value
@@ -72,7 +72,6 @@ and computation' =
   | BrazilTermCode of string
   | BrazilTypeCode of string
   | RunML of (Context.t -> environment -> value -> result) * exp
-  | InEnv of environment * computation
 
 and arm = pattern * computation
 
@@ -94,7 +93,7 @@ and pattern =
 
 and result =
   | RVal of value
-  | ROp of operation_tag * Context.t * value * ((value -> computation) * environment)
+  | ROp of operation_tag * Context.t * value * (value -> result)
 
 type toplevel = toplevel' * Position.t
 and toplevel' =
@@ -112,7 +111,6 @@ let mkAscribe ?(loc=Position.nowhere) e1 e2 = Ascribe (e1,e2), loc
 let mkCheck ?(loc=Position.nowhere) t1 t2 e c = Check (t1,t2,e,c), loc
 let mkConst ?(loc=Position.nowhere) const = Const const, loc
 let mkHandler ?(loc=Position.nowhere) h = Handler h, loc
-let mkInEnv ?(loc=Position.nowhere) eta c = InEnv(eta,c), loc
 let mkLet ?(loc=Position.nowhere) x c1 c2 = Let (x,c1,c2), loc
 let mkMkLam ?(loc=Position.nowhere) x e c = MkLam (x,e,c), loc
 let mkOp ?(loc=Position.nowhere) op arg = Op(op, arg), loc
@@ -126,9 +124,9 @@ let mkValue ?(loc=Position.nowhere) v = Value v, loc
 let mkWithHandle ?(loc=Position.nowhere) e c = WithHandle (e, c), loc
 
 
-let mkVCont ?(loc=Position.nowhere) g d k eta = VCont (g,d,k,eta), loc
+let mkVCont ?(loc=Position.nowhere) g d k = VCont (g,d,k), loc
 let mkVConst ?(loc=Position.nowhere) a = VConst a, loc
-let mkVHandler ?(loc=Position.nowhere) h eta = VHandler (h,eta), loc
+let mkVHandler ?(loc=Position.nowhere) f = VHandler f, loc
 let mkVInj ?(loc=Position.nowhere) i v = VInj(i,v), loc
 let mkVTerm ?(loc=Position.nowhere) term = VTerm term, loc
 let mkVTuple ?(loc=Position.nowhere) es = VTuple es, loc
@@ -190,16 +188,15 @@ and string_of_computation ctx (comp, _loc) =
   | BrazilTermCode s -> "`" ^ s ^ "`"
   | BrazilTypeCode s -> "t`" ^ s ^ "`"
   | RunML _ -> tag "RunML" ["-"]
-  | InEnv _ -> tag "InEnv" ["-"]
 
 and string_of_value ?(brief=true) ctx (value, _loc) =
   let recurv = string_of_value ~brief ctx  in
-  let recurc = string_of_computation ctx  in
+  (*let recurc = string_of_computation ctx  in*)
   let recurk = string_of_cont ctx  in
   match value with
-  | VFun(x,c,_eta) -> tag "VFun" [x; recurc c; "-"]
-  | VHandler(h,_eta) -> tag "VHandler" [string_of_handler ctx h; "-"]
-  | VCont (_delta,_gamma, k, _eta) -> tag "VCont" ["?"; "?"; recurk k; "?"]
+  | VFun(_f) -> tag "VFun" ["-"]
+  | VHandler(h) -> tag "VHandler" ["-"]
+  | VCont (_delta,_gamma, k) -> tag "VCont" ["?"; "?"; recurk k]
   | VTuple vs when brief -> "[" ^ String.concat "," (List.map recurv vs) ^ "]"
   | VTuple vs -> tag "VTuple" (List.map recurv vs)
   | VConst a when brief -> string_of_const a
@@ -279,10 +276,10 @@ let rec shift cut delta (exp, loc) =
 and shiftv cut delta (value, loc) =
   if delta = 0 then (value,loc) else
   (let recurv = shiftv cut delta in
-   let recurc = shift_computation cut delta in
+   (*let recurc = shift_computation cut delta in*)
   (match value with
-  | VFun(x, c, eta) -> VFun(x, recurc c, eta)   (* XXX: Don't I have to shift eta? *)
-  | VHandler (h, eta) -> VHandler (shift_handler cut delta h, eta)  (* XXX: Don't I have to shift eta? *)
+  | VFun(f) -> (Error.runtime "shift of VHandler unimp")   (* XXX: Don't I have to shift eta? *)
+  | VHandler (h) -> VHandler (Error.runtime "shift of VHandler unimp")  (* XXX: Don't I have to shift eta? *)
   | VCont _ -> Error.runtime ~loc "shiftv: Cannot shift a continuation"
   | VTuple vs -> VTuple (List.map recurv vs)
   | VConst _ -> value
@@ -313,7 +310,6 @@ and shift_computation cut delta (comp, loc) =
   | BrazilTermCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTermCode"
   | BrazilTypeCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTypeCode"
   | RunML _ -> Error.runtime ~loc "Unimplemented: shifting of RunML"
-  | InEnv _ -> Error.runtime ~loc "Unimplemented: shifting of InEnv"
   (*| MkApp(e1,e2) -> MkApp(recur e1, recur e2)*)
   ), loc)
 

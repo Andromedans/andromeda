@@ -89,55 +89,6 @@ let retSomeTuple ws = I.RVal (I.mkVInj 1 (I.mkVTuple ws))
 let retNone         = I.RVal (I.mkVInj 0 (I.mkVConst I.Unit))
 
 
-(**************************)
-(* Evaluating Expressions *)
-(**************************)
-
-(* [eval env e] deterministically reduces TT expression [e] to a
-   value, without side-effects. This largely involves looking up
-   variables in the environment, and building closures.
- *)
-let rec eval env (exp', loc) =
-  match exp' with
-  | I.Value v   -> v
-  | I.Var x ->
-      if SM.mem x env.ttenv then
-        let (value, insert_depth) = SM.find x env.ttenv  in
-        let current_depth = depth env in
-        let delta = current_depth - insert_depth in
-        assert (delta >= 0);
-        I.shiftv 0 delta value
-      else
-        Error.runtime ~loc "Undefined variable %s" x
-  | I.Const a   -> I.VConst a, loc
-  | I.Term b    -> I.VTerm b, loc
-  | I.Type t    -> I.VType t, loc
-  | I.Fun (x,c) -> I.VFun(x, c, env.ttenv), loc
-  | I.Handler h -> I.VHandler (h, env.ttenv), loc
-  | I.Tuple es  -> I.VTuple (List.map (eval env) es), loc
-  | I.Inj(i,e)  -> I.VInj(i, eval env e), loc
-  | I.Prim(op, es) -> eval_prim env loc op (List.map (eval env) es)
-
-
-and eval_prim env loc op vs =
-    match op, vs with
-    | I.Not, [I.VConst(I.Bool b), _]  -> I.mkVConst(I.Bool (not b))
-    | I.And, [I.VConst(I.Bool b1), _;
-              I.VConst(I.Bool b2), _] -> I.mkVConst(I.Bool (b1 && b2))
-    | I.Plus, [I.VConst(I.Int n1), _;
-               I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 + n2))
-    | I.Append, [I.VTuple es1, _;
-                 I.VTuple es2, _]     -> I.mkVTuple (es1 @ es2)
-    | I.Eq,  [a1; a2] -> I.mkVConst( I.Bool (     I.eqvalue a1 a2))
-    | I.Neq, [a1; a2] -> I.mkVConst( I.Bool (not (I.eqvalue a1 a2)))
-    | I.Whnf, [I.VTerm b, _] ->
-        let t = Typing.type_of env.ctx b  in
-        I.mkVTerm (Equal.whnf ~use_rws:true env.ctx t b)
-    | I.Whnf, [I.VType t, _] ->
-        I.mkVType (Equal.whnf_ty ~use_rws:true env.ctx t)
-
-    | _, _ -> Error.runtime ~loc "Bad arguments to primitive"
-
 (********************)
 (* Pattern-Matching *)
 (********************)
@@ -178,12 +129,128 @@ let parse_literal parse_fn loc text =
           let inner_loc = Position.of_lex lexbuf  in
           Error.syntax ~loc "unrecognized symbol in Brazil literal at %s." (Position.to_string inner_loc)
 
+(**************************)
+(* Evaluating Expressions *)
+(**************************)
+
+(* [eval env e] deterministically reduces TT expression [e] to a
+   value, without side-effects. This largely involves looking up
+   variables in the environment, and building closures.
+ *)
+let rec eval env (exp', loc) =
+  match exp' with
+  | I.Value v   -> v
+  | I.Var x ->
+      if SM.mem x env.ttenv then
+        let (value, insert_depth) = SM.find x env.ttenv  in
+        let current_depth = depth env in
+        let delta = current_depth - insert_depth in
+        assert (delta >= 0);
+        I.shiftv 0 delta value
+      else
+        Error.runtime ~loc "Undefined variable %s" x
+  | I.Const a   -> I.VConst a, loc
+  | I.Term b    -> I.VTerm b, loc
+  | I.Type t    -> I.VType t, loc
+  | I.Fun (x,c) -> I.VFun(fun v -> run (insert_ttvar x v env) c), loc
+  | I.Handler h -> I.VHandler (eval_handler env loc h), loc
+  | I.Tuple es  -> I.VTuple (List.map (eval env) es), loc
+  | I.Inj(i,e)  -> I.VInj(i, eval env e), loc
+  | I.Prim(op, es) -> eval_prim env loc op (List.map (eval env) es)
+
+
+and eval_prim env loc op vs =
+    match op, vs with
+    | I.Not, [I.VConst(I.Bool b), _]  -> I.mkVConst(I.Bool (not b))
+    | I.And, [I.VConst(I.Bool b1), _;
+              I.VConst(I.Bool b2), _] -> I.mkVConst(I.Bool (b1 && b2))
+    | I.Plus, [I.VConst(I.Int n1), _;
+               I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 + n2))
+    | I.Append, [I.VTuple es1, _;
+                 I.VTuple es2, _]     -> I.mkVTuple (es1 @ es2)
+    | I.Eq,  [a1; a2] -> I.mkVConst( I.Bool (     I.eqvalue a1 a2))
+    | I.Neq, [a1; a2] -> I.mkVConst( I.Bool (not (I.eqvalue a1 a2)))
+    | I.Whnf, [I.VTerm b, _] ->
+        let t = Typing.type_of env.ctx b  in
+        I.mkVTerm (Equal.whnf ~use_rws:true env.ctx t b)
+    | I.Whnf, [I.VType t, _] ->
+        I.mkVType (Equal.whnf_ty ~use_rws:true env.ctx t)
+
+    | _, _ -> Error.runtime ~loc "Bad arguments to primitive"
+
+
+and eval_handler env loc {I.valH; I.opH; I.finH} =
+  let rec hfun = function
+    | I.RVal v ->
+        begin
+          Print.debug "Handler %s produced value %s@." (Position.to_string loc) (I.string_of_value env.ctx v);
+          match valH with
+          | Some (xv,cv) ->
+              (* eval-handle-val *)
+              run (insert_ttvar xv v env) cv
+          | None ->
+              I.RVal v
+        end
+
+    | I.ROp (opi, delta, v, k) ->
+        begin
+          Print.debug "Handler produced operation %s@." opi;
+
+          let k' u = hfun (k u)  in
+          let rec loop = function
+            | [] ->
+                (Print.debug "No matching case found for body %s@." (Position.to_string loc);
+                I.ROp(opi, delta, v, k'))
+            | (op, pat, kvar, c)::rest when op = opi ->
+                begin
+                  try
+                    Print.debug "Found matching case %s. Creating VCont with env =
+                      %s" op (string_of_env env);
+                    let kval = I.mkVCont env.ctx delta k' in
+                    let env_h = { env with ctx = Context.append env.ctx delta }  in
+                    let env_h = insert_matched env_h (v,pat) in
+                    let env_h = insert_ttvar kvar kval env_h  in
+                    match run env_h c with
+                      | I.RVal v' ->
+                          let unshift_amount = - (List.length (Context.names delta)) in
+                          if vok env v' then
+                            I.RVal (I.shiftv 0 unshift_amount v')
+                          else
+                            Error.runtime ~loc "Handler returned value with too many variables"
+                      | I.ROp(opj, delta', e', k') ->
+                          I.ROp(opj, Context.append delta delta', e', k')
+                  with
+                    NoPatternMatch -> loop rest
+                end
+            | _ :: rest -> loop rest in
+          loop opH
+        end
+    in
+       fun r ->
+         begin
+           match finH with
+           | None -> hfun r
+           | Some (xf,cf) ->
+               sequence (fun v -> run (insert_ttvar xf v env) cf) (hfun r)
+         end
+
+
+
+
 (*************************)
 (* Running a Computation *)
 (*************************)
 
-let rec run (env : env) (comp, loc) =
-  Print.debug "%s" (I.string_of_computation env.ctx (comp,loc));
+and sequence k = function
+  | I.RVal v -> k v
+  | I.ROp(tag,delta,v,k') ->
+      let k'' u = sequence k (k' u)  in
+      I.ROp(tag,delta,v,k'')
+
+and run (env : env) (comp, loc) =
+  Print.debug "run: %s\n%s" (I.string_of_computation env.ctx (comp,loc))
+  (string_of_env env);
+
   match comp with
 
   | I.Return e  ->
@@ -198,22 +265,22 @@ let rec run (env : env) (comp, loc) =
         (I.string_of_value  env.ctx v2);
         match fst v1, fst v2 with
 
-        | I.VFun (x,c,eta), _ ->
+        | I.VFun f, _ ->
             (* Extend _closure_ environment with argument
                and run the function body
              *)
-            run (insert_ttvar x v2 { env with ttenv = eta }) c
+            f v2
 
-        | I.VCont(gamma,delta,k,eta), _ ->
+        | I.VCont(gamma,delta,k), _ ->
             (* eval-kapp *)
-            Print.debug "Applying vcont. eta = %s@." (string_of_env env);
+            Print.debug "Applying vcont. env = %s@." (string_of_env env);
             if (List.length (Context.names env.ctx) =
                 List.length (Context.names gamma) + List.length (Context.names delta)) then
               (* XXX: Should actually check that types match too... *)
               (* Fill the hole with the given value and run in the
                  continuation (closure)'s environment.
                *)
-              run {env with ttenv = eta} (k v2)
+              k v2
             else
               Error.runtime ~loc "Context length mismatch in eval-kapp"
 
@@ -243,12 +310,8 @@ let rec run (env : env) (comp, loc) =
 
   | I.Let(x,c1,c2) ->
       begin
-        match run env c1 with
-          | I.RVal v                     -> run (insert_ttvar x v env) c2
-          | I.ROp(op, delta, v, (k,eta)) ->
-              I.ROp(op, delta, v,
-                  ((fun v -> I.mkLet x (k v) c2), eta))
-                                             (* XXX Can't Justify moving c2 into eta!? *)
+        let r = run env c1  in
+        sequence (fun v -> run (insert_ttvar x v env) c2) r
       end
 
     | I.Match(e, arms) ->
@@ -268,69 +331,16 @@ let rec run (env : env) (comp, loc) =
     | I.Op(tag, e) ->
       (* eval-op *)
       let v = eval env e  in
-      I.ROp(tag, Context.empty, v, ((fun v -> I.mkReturn (I.mkValue v)), env.ttenv))
+      I.ROp(tag, Context.empty, v, (fun v -> I.RVal v))
 
     | I.WithHandle(e,c) ->
         begin
           let h = eval env e  in
-          Print.debug "Handler case; h = %s@." (I.string_of_value env.ctx h);
+          let r = run env c  in
           match fst h with
-          | I.VHandler ({I.valH; I.opH; I.finH=None}, eta_h)  ->
-              begin
-                match run env c with
-                | I.RVal v ->
-                    begin
-                      Print.debug "Handler body at %s produced value %s@." (Position.to_string loc) (I.string_of_value env.ctx v);
-                      match valH with
-                      | Some (xv,cv) ->
-                          (* eval-handle-val *)
-                          run (insert_ttvar xv v {env with ttenv = eta_h}) cv
-                      | None ->
-                          I.RVal v
-                    end
-
-                | I.ROp (opi, delta, v, (k1,eta1)) as r ->
-                    begin
-                      Print.debug "Handler body produced operation %s@." opi;
-
-                        let rec loop = function
-                          | [] ->
-                              (Print.debug "No matching case found for body %s@." (Position.to_string loc);
-                              r)
-                          | (op, pat, kvar, c)::rest when op = opi ->
-                              begin
-                                try
-                                  let kval = I.mkVCont env.ctx delta (fun v -> I.mkWithHandle (I.mkValue h) (k1 v)) eta1  in
-                                  let env_h = {
-                                                ctx = Context.append env.ctx delta ;
-                                                ttenv = eta_h ;
-                                               }  in
-                                  let env_h = insert_matched env_h (v,pat) in
-                                  let env_h = insert_ttvar kvar kval env_h  in
-                                  match run env_h c with
-                                    | I.RVal v' ->
-                                        let unshift_amount = - (List.length (Context.names delta)) in
-                                        if vok env v' then
-                                          I.RVal (I.shiftv 0 unshift_amount v')
-                                        else
-                                          Error.runtime ~loc "Handler returned value with too many variables"
-                                    | I.ROp(opj, delta', e', (k',eta')) ->
-                                        I.ROp(opj, Context.append delta delta', e', (k',eta'))
-                                with
-                                  NoPatternMatch -> loop rest
-                              end
-                          | _ :: rest -> loop rest  in
-
-                        loop opH
-
-                    end
-              end
-
-         | I.VHandler ({I.finH=Some (xf,cf)} as h, eta_h) ->
-             let h' = { h with I.finH = None }  in
-             run env (I.mkLet ~loc xf (I.mkWithHandle ~loc (I.mkValue (I.mkVHandler h' eta_h)) c) cf)
-
-         | _ ->
+          | I.VHandler hfun  ->
+              hfun r
+          | _ ->
               Error.runtime ~loc "Non-handler expression given to with/handle"
         end
 
@@ -347,13 +357,8 @@ let rec run (env : env) (comp, loc) =
           | I.VType t2, _ ->
               begin
                 let env' = {env with ctx = Context.add_var x1 t2 env.ctx }  in
-                match run env' c3 with
-                | I.RVal v3 ->
-                    I.RVal (abstract env'.ctx x1 t2 v3)
-                | I.ROp (op, delta, e, (k, eta)) ->
-                    let delta0 = Context.add_var x1 t2 Context.empty in
-                    I.ROp (op, Context.append delta0 delta, e,
-                               ((fun v -> I.mkMkLam x1 (I.mkType t2) (k v)), eta))
+                let r3 = run env' c3  in
+                sequence (fun v3 -> I.RVal (abstract env'.ctx x1 t2 v3)) r3
               end
           | _, _ -> Error.runtime ~loc "Annotation in MkLam is not a type"
         end
@@ -411,9 +416,6 @@ let rec run (env : env) (comp, loc) =
         f env.ctx env.ttenv v
 
 
-    | I.InEnv (eta, c) ->
-        run {env with ttenv=eta} c
-
 and vok env exp =
   (* XXX *)
   true
@@ -464,8 +466,7 @@ let toplevel_handler =
   let k = "toplevel k" in
   let continue_with_unit = I.mkApp (I.mkVar k) (I.mkConst I.Unit)  in
   let doPrint ctx ttenv v =
-    (print_endline (string_of_env {ctx=ctx; ttenv=ttenv});
-     print_endline (I.string_of_value ~brief:true ctx v); I.RVal (I.mkVConst I.Unit))  in
+    (print_endline (I.string_of_value ~brief:true ctx v); I.RVal (I.mkVConst I.Unit))  in
   {
     I.valH = None ;
     I.opH  = [ ("equiv", I.PWild, k, continue_with_unit);
