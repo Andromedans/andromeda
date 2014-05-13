@@ -173,7 +173,6 @@ and string_of_computation ctx (comp, _loc) =
   | Let (x,c1,c2) -> tag "Let" [x; recurc c1; recurc c2]
   | Op (op, e) -> tag "Op" [op; recur e]
   | WithHandle (e,c) -> tag "WithHandle" [recur e; recurc c]
-  (*| KApp (e1, e2) -> tag "KApp" [recur e1; recur e2]*)
   | Ascribe (e1, e2) -> tag "Ascribe" [recur e1; recur e2]
   | Match (e, arms) -> tag "match" (recur e ::
                                     List.map (string_of_arm ctx) arms)
@@ -184,7 +183,6 @@ and string_of_computation ctx (comp, _loc) =
       (* XXX: Need to add x to the context! *)
       let dummy_ty = (Syntax.Unit, Position.nowhere)  in
       tag "MkLam" [x; recur e; string_of_computation (Context.add_var x dummy_ty ctx ) c]
-  (*| MkApp (e1, e2) -> tag "MkApp" [recur e1; recur e2]*)
   | BrazilTermCode s -> "`" ^ s ^ "`"
   | BrazilTypeCode s -> "t`" ^ s ^ "`"
   | RunML _ -> tag "RunML" ["-"]
@@ -244,12 +242,6 @@ and string_of_ty ctx ty =
   Print.print Format.str_formatter "%t" (Print.ty (Context.names ctx) ty);
   Format.flush_str_formatter ()
 
-and string_of_eta ctx eta =
-  let binds = StringMap.bindings eta  in
-  let string_of_bind (x, _) = x ^ "= ?" in
-  let strings = List.map string_of_bind binds  in
-  "[" ^ (String.concat ", " strings) ^ "]"
-
 
 (************)
 (* Shifting *)
@@ -298,7 +290,6 @@ and shift_computation cut delta (comp, loc) =
   | Let (x,c1,c2) -> Let(x, recurc c1, recurc c2)
   | Op (op, e) -> Op(op, recur e)
   | WithHandle(e,c) -> WithHandle(recur e, recurc c)
-  (*| KApp(e1,e2) -> KApp(recur e1, recur e2)*)
   | Ascribe(e1,e2) -> Ascribe(recur e1, recur e2)
   | Match(e, pcs) -> Match(recur e,
                            List.map (fun (p,c) -> (p, recurc c)) pcs)
@@ -310,7 +301,6 @@ and shift_computation cut delta (comp, loc) =
   | BrazilTermCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTermCode"
   | BrazilTypeCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTypeCode"
   | RunML _ -> Error.runtime ~loc "Unimplemented: shifting of RunML"
-  (*| MkApp(e1,e2) -> MkApp(recur e1, recur e2)*)
   ), loc)
 
 and shift_handler cut delta ({valH; opH; finH} as h) =
