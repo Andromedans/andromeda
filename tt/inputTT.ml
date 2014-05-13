@@ -35,9 +35,9 @@ type environment = (value * int) StringMap.t
 (* Closed values *)
 and value = value' * Position.t
 and value' =
-  | VFun     of (value -> result)
-  | VHandler of (result -> result)
-  | VCont    of Context.t * Context.t * (value -> result)
+  | VFun     of (environment -> Context.t -> value -> result) * environment
+  | VHandler of (environment -> Context.t -> result -> result) * environment
+  | VCont    of Context.t * Context.t * ((environment -> Context.t -> value -> result) * environment)
   | VTuple   of value list
   | VConst   of const
   | VInj     of int * value
@@ -93,7 +93,7 @@ and pattern =
 
 and result =
   | RVal of value
-  | ROp of operation_tag * Context.t * value * (value -> result)
+  | ROp of operation_tag * Context.t * value * ((environment -> Context.t -> value -> result) * environment)
 
 type toplevel = toplevel' * Position.t
 and toplevel' =
@@ -126,7 +126,7 @@ let mkWithHandle ?(loc=Position.nowhere) e c = WithHandle (e, c), loc
 
 let mkVCont ?(loc=Position.nowhere) g d k = VCont (g,d,k), loc
 let mkVConst ?(loc=Position.nowhere) a = VConst a, loc
-let mkVHandler ?(loc=Position.nowhere) f = VHandler f, loc
+let mkVHandler ?(loc=Position.nowhere) f eta = VHandler (f,eta), loc
 let mkVInj ?(loc=Position.nowhere) i v = VInj(i,v), loc
 let mkVTerm ?(loc=Position.nowhere) term = VTerm term, loc
 let mkVTuple ?(loc=Position.nowhere) es = VTuple es, loc
@@ -194,8 +194,8 @@ and string_of_value ?(brief=true) ctx (value, _loc) =
   (*let recurc = string_of_computation ctx  in*)
   let recurk = string_of_cont ctx  in
   match value with
-  | VFun(_f) -> tag "VFun" ["-"]
-  | VHandler(h) -> tag "VHandler" ["-"]
+  | VFun(_f,_eta) -> tag "VFun" ["-"]
+  | VHandler(h,_eta) -> tag "VHandler" ["-"]
   | VCont (_delta,_gamma, k) -> tag "VCont" ["?"; "?"; recurk k]
   | VTuple vs when brief -> "[" ^ String.concat "," (List.map recurv vs) ^ "]"
   | VTuple vs -> tag "VTuple" (List.map recurv vs)
@@ -278,8 +278,8 @@ and shiftv cut delta (value, loc) =
   (let recurv = shiftv cut delta in
    (*let recurc = shift_computation cut delta in*)
   (match value with
-  | VFun(f) -> (Error.runtime "shift of VHandler unimp")   (* XXX: Don't I have to shift eta? *)
-  | VHandler (h) -> VHandler (Error.runtime "shift of VHandler unimp")  (* XXX: Don't I have to shift eta? *)
+  | VFun(f,eta) -> VFun (f, shift_environment cut delta eta)
+  | VHandler (h,eta) -> VHandler (h, shift_environment cut delta eta)
   | VCont _ -> Error.runtime ~loc "shiftv: Cannot shift a continuation"
   | VTuple vs -> VTuple (List.map recurv vs)
   | VConst _ -> value
@@ -325,6 +325,10 @@ and shift_handler cut delta ({valH; opH; finH} as h) =
               None -> None
             | Some (xf,cf) -> Some (xf, shift_computation cut delta cf));
   })
+
+and shift_environment cut delta env =
+  (* XXX Is it really correct to keep lvl unchanged? *)
+  StringMap.map (fun (v,lvl) -> (shiftv cut delta v,lvl)) env
 
 (* Equality *)
 

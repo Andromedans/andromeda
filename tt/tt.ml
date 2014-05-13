@@ -78,20 +78,20 @@ let uncaught_exception_count = ref 0
 
 (** [exec_cmd env d] executes toplevel directive [d] in context [env]. It prints the
     result if in interactive mode, and returns the new context. *)
-let rec exec_cmd interactive env (d, loc) =
+let rec exec_cmd interactive (ctx,env) (d, loc) =
   match d with
     | InputTT.Context ->
-        let _ = Ctx.print env.Interp.ctx  in
-        env
+        let _ = Ctx.print ctx  in
+        ctx, env
     | InputTT.TopParam (xs, comp) ->
         begin
-          match Interp.toprun env comp with
+          match Interp.toprun ctx env comp with
           | InputTT.RVal v ->
               begin
                 match fst v with
                 | InputTT.VType t ->
                     let t = Syntax.simplify_ty t  in
-                    {env with Interp.ctx = Ctx.add_vars (List.map (fun x -> (x,t)) xs) env.Interp.ctx}
+                    Ctx.add_vars (List.map (fun x -> (x,t)) xs) ctx, env
                 | _ -> Error.runtime "Classifier is not a type@."
               end
           | InputTT.ROp (op, _, _, _) ->
@@ -100,36 +100,37 @@ let rec exec_cmd interactive env (d, loc) =
         end
     | InputTT.TopLet (x, comp) ->
         begin
-          match Interp.toprun env comp with
+          match Interp.toprun ctx env comp with
           | InputTT.RVal v ->
-              Interp.insert_ttvar x v env
+              ctx, Interp.insert_ttvar x v ctx env
           | InputTT.ROp (op, _, _, _) ->
               (incr uncaught_exception_count;
               Error.runtime "Uncaught operation %s@." op)
         end
     | InputTT.TopEval comp ->
         (begin
-          match Interp.toprun env comp with
+          match Interp.toprun ctx env comp with
           | InputTT.RVal v ->
-              Format.printf "%s@." (InputTT.string_of_value ~brief:true env.Interp.ctx v)
+              Format.printf "%s@." (InputTT.string_of_value ~brief:true ctx v)
           | InputTT.ROp (op, _, _, _) ->
               (incr uncaught_exception_count;
               Format.printf "Uncaught operation %s@." op)
-        end; env)
+        end;
+        ctx, env)
     | InputTT.TopDef (x, comp) ->
         begin
-          match Interp.toprun env comp with
+          match Interp.toprun ctx env comp with
           | InputTT.RVal v ->
               begin
                 match fst v with
                 | InputTT.VTerm b ->
                     let b = Syntax.simplify b  in
-                    let t = Typing.type_of env.Interp.ctx b  in
+                    let t = Typing.type_of ctx b  in
                     let t = Syntax.simplify_ty t  in
-                    let ctx = Ctx.add_def x t b env.Interp.ctx  in
-                    {env with Interp.ctx = ctx}
+                    let ctx = Ctx.add_def x t b ctx  in
+                    ctx, env
                 | _ -> Error.runtime "Result of definition is %s, not a term"
-                            (InputTT.string_of_value ~brief:true env.Interp.ctx v)
+                            (InputTT.string_of_value ~brief:true ctx v)
               end
           | InputTT.ROp (op, _, _, _) ->
               (incr uncaught_exception_count;
@@ -140,7 +141,8 @@ let rec exec_cmd interactive env (d, loc) =
         (*let env' = Typing.Infer.addHandlers env loc hs in*)
         (*env'*)
     | InputTT.Help ->
-      print_endline help_text ; env
+      print_endline help_text ;
+      ctx, env
     | InputTT.Quit -> exit 0
 
 (** Load directives from the given file. *)
@@ -203,7 +205,7 @@ let main =
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
-    let env = List.fold_left use_file Interp.empty_env !files in
+    let env = List.fold_left use_file (Context.empty, InputTT.StringMap.empty) !files in
     if !interactive_shell then
       toplevel env
     else
