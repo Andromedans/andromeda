@@ -8,7 +8,7 @@ let annotate = ref false
 let message msg_type v =
   if v <= !verbosity then
     begin
-      Format.eprintf "%s:@\n@[" msg_type ;
+      Format.eprintf "%s: @[" msg_type ;
       Format.kfprintf (fun ppf -> Format.fprintf ppf "@]@.") Format.err_formatter
     end
   else
