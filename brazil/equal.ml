@@ -185,15 +185,21 @@ and whnf ~use_rws ctx t ((e',loc) as e) =
    rewrite hints [hs]. After rewriting it re-runs weak head-normalization
    on the resulting term. *)
 and rewrite_term ctx e t =
-  Print.debug "rewrite_term: %t @@ %t"
+  Print.debug "rewrite_term: %t at %t"
     (print_term ctx e) (print_ty ctx t) ;
   let rec match_rewrite = function
-    | [] -> e
+    | [] -> 
+      Print.debug "rewrite_term ---> NONE" ;
+      e
     | (k, pt, pe1, pe2) :: hs ->
       begin try
+Print.debug "match_rewrite phase 1" ;
         let inst = match_ty [] 0 ctx pt t in
+Print.debug "match_rewrite phase 2" ;
         let inst = match_term inst 0 ctx pe1 e t in
+Print.debug "match_rewrite phase 3" ;
           check_complete_match inst k ;
+Print.debug "match_rewrite phase 4" ;
           let e2 = Pattern.subst_term inst 0 pe2 in
             Print.debug "rewrite_term ---> %t" (print_term ctx e2) ;
             whnf ~use_rws:true ctx t e2
@@ -490,17 +496,17 @@ and equal_whnf ~use ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
   end
 
 and as_hint' ~use_rws ctx (_, loc) t =
-  let rec collect u =
-    match fst (whnf_ty ~use_rws ctx u) with
+  let rec collect ctx' u =
+    match fst (whnf_ty ~use_rws ctx' u) with
       | Syntax.Prod (x, t1, t2) ->
-        let (k, t, e1, e2) = collect t2 in
+        let (k, t, e1, e2) = collect (Context.add_var x t1 ctx') t2 in
           (k + 1, t, e1, e2)
       | Syntax.Id (t, e1, e2) -> (0, t, e1, e2)
       | Syntax.Universe _ | Syntax.El _ | Syntax.Unit | Syntax.Paths _ ->
         Error.typing ~loc "this expression cannot be used as an equality hint, its type is %t"
           (print_ty ctx t)
   in
-  let (k, t, e1, e2) = collect t in
+  let (k, t, e1, e2) = collect ctx t in
   let pt = Pattern.of_ty k t in
   let pe1 = Pattern.of_term k e1 in
   let pe2 = Pattern.of_term k e2 in
