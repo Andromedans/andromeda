@@ -19,6 +19,7 @@
     ("match", MATCH);
     ("op", OP);
     ("val", VAL);
+    ("when", WHEN) ;
     ("whnf", WHNF) ;
     ("with", WITH) ;
   ]

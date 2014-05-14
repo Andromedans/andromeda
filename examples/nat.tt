@@ -7,8 +7,8 @@ let equiv := val fun X =>
          let t2 = val whnf t  in
          match t2 with
          | _ == _  => val []
+         | _ when (t2 = t`unit`) => val []
          /*
-         | t`unit`              => val []
          | t`forall ?t21, ?t22` =>
                  \lambda x : t21, equiv [e1 `x`, e2 `x`, t22 `x`]
           */

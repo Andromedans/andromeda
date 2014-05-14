@@ -21,9 +21,9 @@ eval
   in
     with hchoice handle
       let z = op decide () in
-      match z with
-      | true => val 1
-      | false => val 0
+      match () with
+      | _ when (!z) => val 0
+      | _ when z => val 1
       end
 
 // 10

@@ -50,6 +50,7 @@
 %token UNDERSCORE
 %token UNIT
 %token VAL
+%token WHEN
 %token WHNF
 %token WITH
 
@@ -120,8 +121,6 @@ plain_exp0:
     | exp1 ANDAND exp1   { Prim(And, [$1; $3]) }
     | exp1 EQ exp1    { Prim(Eq, [$1; $3]) }
     | exp1 LTGT exp1   { Prim(Neq, [$1; $3]) }
-    | BANG exp1         { Prim(Not, [$2]) }
-    | WHNF exp1         { Prim(Whnf, [$2]) }
     | plain_exp1              { $1 }
 
 
@@ -134,6 +133,8 @@ plain_exp1:
     | const                  { Const $1 }
     | INJ exp1               { Inj ($1, $2) }
     | LPAREN plain_exp0 RPAREN      { $2 }
+    | BANG exp1         { Prim(Not, [$2]) }
+    | WHNF exp1         { Prim(Whnf, [$2]) }
 
 (* Only know the ending when we see it *)
 comp0: mark_position(plain_comp0) { $1 }
@@ -179,7 +180,7 @@ plain_comp1:
     | BRAZILTERM       { BrazilTermCode $1 }
     | BRAZILTYPE       { BrazilTypeCode $1 }
 arm:
-  pat DARROW comp0 { ($1, $3) }
+  toppat DARROW comp0 { ($1, $3) }
 
 pat:
     | LBRACK xs=separated_list(COMMA, pat) RBRACK { PTuple xs }
@@ -188,6 +189,10 @@ pat:
     | const     { PConst $1 }
     | UNDERSCORE { PWild }
     | pat EQEQ pat  { PJuEqual ($1, $3) }
+
+toppat:
+    | pat  { $1 }
+    | pat WHEN exp1 { PWhen($1, $3) }
 
 handler:
     | HANDLER hcs=hcases END { hcs }
@@ -198,7 +203,7 @@ handler:
 
 hcases:
     |              { { valH = None; opH = []; finH = None; } }
-    | option(BAR) OP op=NAME p=pat k=NAME DARROW c=comp0 hcs=hcases { { hcs with opH = (op,p,k,c)::hcs.opH }  }
+    | option(BAR) OP op=NAME p=toppat k=NAME DARROW c=comp0 hcs=hcases { { hcs with opH = (op,p,k,c)::hcs.opH }  }
     | option(BAR) VAL     xv=NAME DARROW cv=comp0 hcs=hcases { { hcs with
     valH=Some (xv,cv) } }
     | option(BAR) FINALLY xf=NAME DARROW cf=comp0 hcs=hcases { { hcs with finH=Some (xf,cf) } }

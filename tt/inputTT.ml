@@ -88,6 +88,7 @@ and pattern =
   | PConst of const
   | PVar of tt_var
   | PWild
+  | PWhen of pattern * exp
 
   | PJuEqual of pattern * pattern
 
@@ -210,7 +211,7 @@ and string_of_value ?(brief=true) ctx (value, _loc) =
 and string_of_cont ctx k =
   "cont"
 
-and string_of_arm ctx (p,c) = tag "" [string_of_pat p; string_of_computation ctx c]
+and string_of_arm ctx (p,c) = tag "" [string_of_pat ctx p; string_of_computation ctx c]
 
 and string_of_handler ctx _ = "<handler>"
 
@@ -219,13 +220,14 @@ and string_of_handler ctx _ = "<handler>"
   (*in*)
     (*to_str*)
 
-and string_of_pat = function
-  | PTuple ps -> tag "PTuple" (List.map string_of_pat ps)
-  | PInj (i,p) -> tag "PInj" [string_of_int i; string_of_pat p]
+and string_of_pat ctx = function
+  | PTuple ps -> tag "PTuple" (List.map (string_of_pat ctx) ps)
+  | PInj (i,p) -> tag "PInj" [string_of_int i; string_of_pat ctx p]
   | PConst c -> tag "PConst" [string_of_const c]
   | PVar v -> tag "PVar" [v]
   | PWild -> "PWild"
-  | PJuEqual (p1,p2) -> string_of_pat p1 ^ " == " ^ string_of_pat p2
+  | PJuEqual (p1,p2) -> string_of_pat ctx p1 ^ " == " ^ string_of_pat ctx p2
+  | PWhen(p,e) -> tag "PWhen" [string_of_pat ctx p; string_of_exp ctx e]
 
 and string_of_const = function
   | Int n -> string_of_int n

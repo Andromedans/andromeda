@@ -76,6 +76,22 @@ let retSomeTuple ws = I.RVal (I.mkVInj 1 (I.mkVTuple ws))
 let retNone         = I.RVal (I.mkVInj 0 (I.mkVConst I.Unit))
 
 
+(*******************************************)
+(* Run-time parsing of literal Brazil code *)
+(*******************************************)
+
+let parse_literal parse_fn loc text =
+     let lexbuf = Lexing.from_string text in
+     try
+        parse_fn Lexer.token lexbuf
+     with
+      | Parser.Error ->
+          let inner_loc = Position.of_lex lexbuf  in
+          Error.syntax ~loc "Brazil code at %s" (Position.to_string inner_loc)
+      | Failure "lexing: empty token" ->
+          let inner_loc = Position.of_lex lexbuf  in
+          Error.syntax ~loc "unrecognized symbol in Brazil literal at %s." (Position.to_string inner_loc)
+
 (********************)
 (* Pattern-Matching *)
 (********************)
@@ -96,25 +112,16 @@ let rec insert_matched ctx env (v,pat) =
       List.fold_left (insert_matched ctx) env (List.combine vs ps)
   | I.VType (Syntax.Id(_,b1,b2),loc), I.PJuEqual(pat1, pat2) ->
       List.fold_left (insert_matched ctx) env [I.mkVTerm ~loc b1,pat1; I.mkVTerm ~loc b2,pat2]
+  | _, I.PWhen(p,e) ->
+      begin
+        let answer = insert_matched ctx env (v,p)  in
+        match eval ctx env e with
+        | I.VConst(I.Bool true), _ -> answer
+        | _ -> raise NoPatternMatch
+      end
   | _, (I.PConst _ | I.PInj _ | I.PTuple _
         | I.PJuEqual _) -> raise NoPatternMatch
 
-
-(*******************************************)
-(* Run-time parsing of literal Brazil code *)
-(*******************************************)
-
-let parse_literal parse_fn loc text =
-     let lexbuf = Lexing.from_string text in
-     try
-        parse_fn Lexer.token lexbuf
-     with
-      | Parser.Error ->
-          let inner_loc = Position.of_lex lexbuf  in
-          Error.syntax ~loc "Brazil code at %s" (Position.to_string inner_loc)
-      | Failure "lexing: empty token" ->
-          let inner_loc = Position.of_lex lexbuf  in
-          Error.syntax ~loc "unrecognized symbol in Brazil literal at %s." (Position.to_string inner_loc)
 
 (**************************)
 (* Evaluating Expressions *)
@@ -124,7 +131,7 @@ let parse_literal parse_fn loc text =
    value. This largely involves looking up
    variables in the environment, and building closures.
  *)
-let rec eval ctx env (exp', loc) =
+and eval ctx env (exp', loc) =
   match exp' with
   | I.Value v   -> v
   | I.Var x ->
