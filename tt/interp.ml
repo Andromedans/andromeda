@@ -307,17 +307,19 @@ and run ctx env  (comp, loc) =
               | Syntax.Prod(x,t,u), _ ->
                   begin
                     let t2 = Typing.type_of ctx b2 in
-                    match equiv_ty ctx env t t2 with
-                    | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
-                        let ctx' = extend_context_with_witnesses ctx ws in
-                        if Equal.equal_ty ctx' t t2 then
-                          (* XXX Add the witnesses to the term!!! *)
-                          I.RVal (I.mkVTerm (Syntax.App((x,t,u),b1,b2), loc))
-                        else
-                          Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
-                    | _ -> Error.runtime ~loc "Bad mkApp. Why is@ %t@ == %t ?"
-                             (print_ty ctx t) (print_ty ctx t2)
-
+                    sequence
+                      (function
+                        | I.VInj(1, (I.VTuple ws, _)), _ ->
+                            let ctx' = extend_context_with_witnesses ctx ws in
+                            if Equal.equal_ty ctx' t t2 then
+                              (* XXX Add the witnesses to the term!!! *)
+                              I.RVal (I.mkVTerm (Syntax.App((x,t,u),b1,b2), loc))
+                            else
+                              Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
+                        | v' ->  Error.runtime ~loc "Bad mkApp. Why is@ %t@ == %t ? (%s)"
+                                 (print_ty ctx t) (print_ty ctx t2) (I.string_of_value ctx v')
+                      )
+                      (equiv_ty ctx env t t2)
                   end
               | _ -> Error.runtime ~loc "Can't prove operator in application is a product"
             end
@@ -452,22 +454,13 @@ and equiv ctx env term1 term2 t =
     let userCmd =
       I.mkApp (I.mkVar "equiv")
               (I.mkTuple [ I.mkTerm term1 ; I.mkTerm term2 ; I.mkType t ])  in
-    match run ctx env userCmd with
-    | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
-         let ctx' = extend_context_with_witnesses ctx ws in
-         if (Equal.equal_term {Equal.use_eqs = true; Equal.use_rws = true} ctx' term1 term2 t) then
-           retSomeTuple ws
-         else
-           Error.runtime "Insufficient witnesses for equivalence"
-
-    | _ -> retNone
-
+    run ctx env userCmd
 
 let toplevel_handler =
   let k = "toplevel k" in
   let continue_with_unit = I.mkApp (I.mkVar k) (I.mkConst I.Unit)  in
   let doPrint ctx ttenv v =
-    (print_endline (I.string_of_value ~brief:true ctx v); I.RVal (I.mkVConst I.Unit))  in
+    (Format.printf "%s@." (I.string_of_value ~brief:true ctx v); I.RVal (I.mkVConst I.Unit))  in
   {
     I.valH = None ;
     I.opH  = [ ("equiv", I.PWild, k, continue_with_unit);
