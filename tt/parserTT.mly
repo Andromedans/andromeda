@@ -135,6 +135,8 @@ plain_exp1:
     | LPAREN plain_exp0 RPAREN      { $2 }
     | BANG exp1         { Prim(Not, [$2]) }
     | WHNF exp1         { Prim(Whnf, [$2]) }
+    | BRAZILTERM       { BrazilTermCode $1 }
+    | BRAZILTYPE       { BrazilTypeCode $1 }
 
 (* Only know the ending when we see it *)
 comp0: mark_position(plain_comp0) { $1 }
@@ -177,8 +179,6 @@ plain_comp1:
     | MATCH e=exp0 WITH option(BAR) lst=separated_list(BAR, arm) END { Match (e, lst) }
     | DEBRUIJN INT       { MkVar $2 }
     | LPAREN plain_comp0 RPAREN { $2 }
-    | BRAZILTERM       { BrazilTermCode $1 }
-    | BRAZILTYPE       { BrazilTypeCode $1 }
 arm:
   toppat DARROW comp0 { ($1, $3) }
 

@@ -151,6 +151,27 @@ and eval ctx env (exp', loc) =
   | I.Tuple es  -> I.VTuple (List.map (eval ctx env) es), loc
   | I.Inj(i,e)  -> I.VInj(i, eval ctx env e), loc
   | I.Prim(op, es) -> eval_prim ctx env loc op (List.map (eval ctx env) es)
+  | I.BrazilTermCode text -> eval_brazilterm ctx loc text
+  | I.BrazilTypeCode text -> eval_braziltype ctx loc text
+
+
+
+and eval_brazilterm ctx loc text =
+        begin
+          let term = parse_literal Parser.topterm loc text  in
+          let term = Debruijn.term (Context.names ctx) term in
+          let term, _ty = Typing.syn_term ctx term  in
+          I.mkVTerm ~loc term
+        end
+
+and eval_braziltype ctx loc text =
+        begin
+          let term = parse_literal Parser.topty loc text  in
+          let ty = Debruijn.ty (Context.names ctx) term in
+          let ty = Typing.is_type ctx ty  in
+          I.mkVType ~loc ty
+        end
+
 
 
 and eval_prim ctx env loc op vs =
@@ -389,22 +410,6 @@ and run ctx env  (comp, loc) =
 
           | (I.VTerm _, _), _ -> Error.runtime ~loc "Non-type in ascribe"
           | _,              _ -> Error.runtime ~loc "Non-term in ascribe"
-        end
-
-    | I.BrazilTermCode text ->
-        begin
-          let term = parse_literal Parser.topterm loc text  in
-          let term = Debruijn.term (Context.names ctx) term in
-          let term, _ty = Typing.syn_term ctx term  in
-          I.RVal (I.mkVTerm ~loc term)
-        end
-
-    | I.BrazilTypeCode text ->
-        begin
-          let term = parse_literal Parser.topty loc text  in
-          let ty = Debruijn.ty (Context.names ctx) term in
-          let ty = Typing.is_type ctx ty  in
-          I.RVal (I.mkVType ~loc ty)
         end
 
     | I.RunML (f, e) ->

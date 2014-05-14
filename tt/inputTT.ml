@@ -56,6 +56,8 @@ and exp' =
   | Term   of Syntax.term
   | Type   of Syntax.ty
   | Prim of primop * exp list
+  | BrazilTermCode of string
+  | BrazilTypeCode of string
 
 and computation = computation' * Position.t
 and computation' =
@@ -69,8 +71,6 @@ and computation' =
   | Check of Syntax.ty * Syntax.ty * exp * computation
   | MkVar of int
   | MkLam of Common.name * exp * computation
-  | BrazilTermCode of string
-  | BrazilTypeCode of string
   | RunML of (Context.t -> environment -> value -> result) * exp
 
 and arm = pattern * computation
@@ -164,6 +164,8 @@ let rec string_of_exp ctx (exp, _loc) =
   | Const c -> string_of_const c
   | Inj (i,e) -> tag "Inj" [string_of_int i; recur e]
   | Prim (op, es) -> tag "Prim" (string_of_primop op :: List.map recur es)
+  | BrazilTermCode s -> "`" ^ s ^ "`"
+  | BrazilTypeCode s -> "t`" ^ s ^ "`"
 
 and string_of_computation ctx (comp, _loc) =
   let recur = string_of_exp ctx  in
@@ -184,8 +186,6 @@ and string_of_computation ctx (comp, _loc) =
       (* XXX: Need to add x to the context! *)
       let dummy_ty = (Syntax.Unit, Position.nowhere)  in
       tag "MkLam" [x; recur e; string_of_computation (Context.add_var x dummy_ty ctx ) c]
-  | BrazilTermCode s -> "`" ^ s ^ "`"
-  | BrazilTypeCode s -> "t`" ^ s ^ "`"
   | RunML _ -> tag "RunML" ["-"]
 
 and string_of_value ?(brief=true) ctx (value, _loc) =
@@ -265,6 +265,8 @@ let rec shift cut delta (exp, loc) =
   | Const _ -> exp
   | Inj (i, exp2) -> Inj(i, recur exp2)
   | Prim(op, es) -> Prim(op, List.map recur es)
+  | BrazilTermCode s -> (Print.warning "Shifting BrazilTermCode has no effect"; exp)
+  | BrazilTypeCode s -> (Print.warning "Shifting BrazilTypeCode has no effect"; exp)
    ), loc)
 
 and shiftv cut delta (value, loc) =
@@ -300,8 +302,6 @@ and shift_computation cut delta (comp, loc) =
                                    recur e, recurc c)
   | MkVar _n -> comp
   | MkLam(x,e,c) -> MkLam(x, recur e, shift_computation (cut+1) delta c)
-  | BrazilTermCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTermCode"
-  | BrazilTypeCode s -> Error.runtime ~loc "Unimplemented: shifting of BrazilTypeCode"
   | RunML _ -> Error.runtime ~loc "Unimplemented: shifting of RunML"
   ), loc)
 

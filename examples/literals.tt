@@ -1,15 +1,14 @@
 eval
-  `fun (b : unit) => b`
+  val `fun (b : unit) => b`
 
 eval
-   let ty = t`unit` in 
+   let ty = val t`unit` in 
    lambda x : ty,  debruijn 0
 
 eval
-   let ty = t`unit` in 
-   lambda z : ty, `z` 
+   let ty = val t`unit` in 
+   lambda z : ty, val `z` 
      
 
 eval
-   let ty = t`unit` in
-   lambda z : ty, (let z = `z` in z :> ty)
+   lambda z : t`unit`, (`z` :> t`unit`)
