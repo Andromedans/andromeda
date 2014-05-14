@@ -91,6 +91,7 @@ and pattern =
   | PWhen of pattern * exp
 
   | PJuEqual of pattern * pattern
+  | PProd of pattern * pattern
 
 and result =
   | RVal of value
@@ -228,6 +229,7 @@ and string_of_pat ctx = function
   | PWild -> "PWild"
   | PJuEqual (p1,p2) -> string_of_pat ctx p1 ^ " == " ^ string_of_pat ctx p2
   | PWhen(p,e) -> tag "PWhen" [string_of_pat ctx p; string_of_exp ctx e]
+  | PProd(p1,p2) -> tag "PWhen" [string_of_pat ctx p1; string_of_pat ctx p2]
 
 and string_of_const = function
   | Int n -> string_of_int n

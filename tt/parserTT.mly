@@ -29,6 +29,7 @@
 %token EQ
 %token EQEQ
 %token FINALLY
+%token FORALL
 %token FUN
 %token HANDLE
 %token HANDLER
@@ -182,6 +183,10 @@ plain_comp1:
 arm:
   toppat DARROW comp0 { ($1, $3) }
 
+pat0:
+  | NAME { PVar $1 }
+  | UNDERSCORE { PWild }
+
 pat:
     | LBRACK xs=separated_list(COMMA, pat) RBRACK { PTuple xs }
     | INJ pat  { PInj($1, $2) }
@@ -189,6 +194,7 @@ pat:
     | const     { PConst $1 }
     | UNDERSCORE { PWild }
     | pat EQEQ pat  { PJuEqual ($1, $3) }
+    | FORALL pat COMMA pat0 { PProd ($2, $4) }
 
 toppat:
     | pat  { $1 }

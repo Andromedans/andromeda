@@ -110,8 +110,6 @@ let rec insert_matched ctx env (v,pat) =
   | I.VInj(i1,v1), I.PInj (i2,p2) when i1 = i2  ->  insert_matched ctx env (v1, p2)
   | I.VTuple vs,   I.PTuple ps    when List.length vs = List.length ps ->
       List.fold_left (insert_matched ctx) env (List.combine vs ps)
-  | I.VType (Syntax.Id(_,b1,b2),loc), I.PJuEqual(pat1, pat2) ->
-      List.fold_left (insert_matched ctx) env [I.mkVTerm ~loc b1,pat1; I.mkVTerm ~loc b2,pat2]
   | _, I.PWhen(p,e) ->
       begin
         let answer = insert_matched ctx env (v,p)  in
@@ -119,8 +117,16 @@ let rec insert_matched ctx env (v,pat) =
         | I.VConst(I.Bool true), _ -> answer
         | _ -> raise NoPatternMatch
       end
+
+  | I.VType (Syntax.Id(_,b1,b2),loc), I.PJuEqual(pat1, pat2) ->
+      List.fold_left (insert_matched ctx) env [I.mkVTerm ~loc b1,pat1; I.mkVTerm ~loc b2,pat2]
+  | I.VTerm (Syntax.NameProd(alpha,beta,x,b1,b2),loc), I.PProd(pat1,pat2) ->
+      insert_matched ctx (insert_matched ctx env (I.mkVTerm ~loc b1, pat1))
+             (I.mkVTerm ~loc
+             (Syntax.Lambda(x,(Syntax.El(alpha,b1),loc),(Syntax.Universe beta, loc), b2),loc), pat2)
+
   | _, (I.PConst _ | I.PInj _ | I.PTuple _
-        | I.PJuEqual _) -> raise NoPatternMatch
+        | I.PJuEqual _ | I.PProd _) -> raise NoPatternMatch
 
 
 (**************************)
