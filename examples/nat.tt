@@ -1,5 +1,20 @@
 let equiv := val fun equiv(X) => 
   let _ = op print ["equiv",X]  in
+  let eqspine = val fun eqspine(Y) =>
+    let _ = op print ["eqspine",Y] in
+    match Y with
+    | [e1,e2] when (e1 = e2) => val []
+    | [(forall e1, f1), (forall e2,f2)] =>
+        let w1 = eqspine [e1,e2] in
+        let _ = op print "forall domains ok" in
+        let w2 =
+          lambda x:e1,
+            let e3 = f1 `x` in
+            let e4 = f2 `x` in
+            eqspine [e3, e4]  in
+        val w1 ++ w2
+    | _ => op EQUIV Y
+    end  in
  (match X with
  | [e1, e2, t] => 
      (match e1 = e2 with
@@ -22,11 +37,7 @@ let equiv := val fun equiv(X) =>
                 let _ = op print ["e3 =", e3, " e4 = ", e4]  in
                 match e3 = e4 with
                 | true  => val []
-                | false => val [] /* XXX */
-               /*     match [e3,e4] with
-                    | [`?f1 ?a1`, `?f2 ?a2`] ->
-                          let [ws, 
-                */
+                | false => eqspine [e3,e4]
                 end
          end
      end

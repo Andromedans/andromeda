@@ -112,9 +112,9 @@ let rec insert_matched ctx env (v,pat) =
       List.fold_left (insert_matched ctx) env (List.combine vs ps)
   | _, I.PWhen(p,e) ->
       begin
-        let answer = insert_matched ctx env (v,p)  in
-        match eval ctx env e with
-        | I.VConst(I.Bool true), _ -> answer
+        let env' = insert_matched ctx env (v,p)  in
+        match eval ctx env' e with
+        | I.VConst(I.Bool true), _ -> env'
         | _ -> raise NoPatternMatch
       end
 
@@ -413,14 +413,24 @@ and run ctx env  (comp, loc) =
 
     | I.MkLam (x1, e2, c3) ->
         begin
+          let domain =
           match eval ctx env e2 with
-          | I.VType t2, _ ->
-              begin
-                let ctx' = Context.add_var x1 t2 ctx  in
-                let r3 = run ctx' env c3  in
-                sequence (fun v3 -> I.RVal (abstract ctx' x1 t2 v3)) r3
-              end
-          | _, _ -> Error.runtime ~loc "Annotation in MkLam is not a type"
+            | I.VType t2, _ -> t2
+            | I.VTerm b, _ ->
+                 begin
+                   let t = Typing.type_of ctx b  in
+                   match Equal.as_universe ctx t with
+                   | Some alpha -> Syntax.El(alpha, b), snd e2
+                   | None -> Error.runtime ~loc
+                              "Bad type annotation in lambda.@ Why does %t belong to a universe?"
+                              (print_term ctx b)
+                 end
+            | v2 -> Error.runtime ~loc "Bad type annotation in lambda; found %s"
+                         (I.string_of_value ~brief:false ctx v2)   in
+
+          let ctx' = Context.add_var x1 domain ctx  in
+          let r3 = run ctx' env c3  in
+          sequence (fun v3 -> I.RVal (abstract ctx' x1 domain v3)) r3
         end
 
     | I.Check(t1, t2, e, c) ->
