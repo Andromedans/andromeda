@@ -88,12 +88,12 @@ eval
    with stutter handle
      op print 22
 
-// 120
+// [15,120]
 eval
-   let f = val fun s(x) =>
+   let f = val fun g(x) =>
              match x with
-             | 0 => val 1
-             | _ => let y = s (x - 1) in val x * y
+             | 0 => val [0,1]
+             | _ => let [sum,fact] = g (x - 1) in val [sum+x, fact*x]
              end
    in 
       f 5

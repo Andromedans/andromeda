@@ -342,10 +342,16 @@ and run ctx env  (comp, loc) =
         | _, _ -> Error.runtime ~loc "Bad application"
       end
 
-  | I.Let(x,c1,c2) ->
+  | I.Let(pat,c1,c2) ->
       begin
         let r = run ctx env c1  in
-        sequence (fun v -> run ctx (insert_ttvar x v ctx env) c2) r
+        sequence (fun v ->
+                    let env' =
+                      (try insert_matched ctx env (v,pat)
+                       with
+                        | NoPatternMatch ->
+                           Error.runtime ~loc "let pattern-match failed") in
+                    run ctx env' c2) r
       end
 
 (*
@@ -499,7 +505,7 @@ let toplevel_handler =
   {
     I.valH = None ;
     I.opH  = [ ("equiv", I.PWild, k, continue_with_unit);
-               ("print", I.PVar "x", k, I.mkLet "_" (I.mkRunML doPrint (I.mkVar "x"))
+               ("print", I.PVar "x", k, I.mkLet I.PWild (I.mkRunML doPrint (I.mkVar "x"))
                                           continue_with_unit) ;
              ] ;
 

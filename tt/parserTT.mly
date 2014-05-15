@@ -152,32 +152,32 @@ plain_comp0:
 
     | exp1 exp1        { App ($1, $2) }
     | exp1 comp1       { let loc = Position.make $startpos $endpos in
-                          Let("arg val", $2, mkApp ~loc $1 (mkVar ~loc "arg val")) }
+                          Let(PVar "arg val", $2, mkApp ~loc $1 (mkVar ~loc "arg val")) }
     | comp1 exp1       { let loc = Position.make $startpos $endpos in
-                          Let("fn val", $1, mkApp ~loc (mkVar ~loc "fn val") $2) }
+                          Let(PVar "fn val", $1, mkApp ~loc (mkVar ~loc "fn val") $2) }
     | comp1 comp1      { let loc = Position.make $startpos $endpos in
-                                 Let("fn val", $1,
-                                      mkLet ~loc "arg val" $2
+                                 Let(PVar "fn val", $1,
+                                      mkLet ~loc (PVar "arg val") $2
                                             (mkApp ~loc (mkVar ~loc "fn val") (mkVar ~loc "arg val"))) }
 
     | exp1 ASCRIBE exp1        { Ascribe ($1, $3) }
     | exp1 ASCRIBE comp0       { let loc = Position.make $startpos $endpos in
-                                 Let("ascribe annot", $3, mkAscribe ~loc $1 (mkVar ~loc "ascribe annot")) }
+                                 Let(PVar "ascribe annot", $3, mkAscribe ~loc $1 (mkVar ~loc "ascribe annot")) }
     | comp1 ASCRIBE exp1       { let loc = Position.make $startpos $endpos in
-                                 Let("ascribe val", $1, mkAscribe ~loc (mkVar ~loc "ascribe val") $3) }
+                                 Let(PVar "ascribe val", $1, mkAscribe ~loc (mkVar ~loc "ascribe val") $3) }
     | comp1 ASCRIBE comp0      { let loc = Position.make $startpos $endpos in
-                                 Let("ascribe val", $1,
-                                      mkLet ~loc "ascribe annot" $3
+                                 Let(PVar "ascribe val", $1,
+                                      mkLet ~loc (PVar "ascribe annot") $3
                                             (mkAscribe ~loc (mkVar ~loc "ascribe val") (mkVar ~loc "ascribe annot"))) }
 
     | OP NAME exp1    { Op ($2, $3) }
-    | LET name EQ comp0 IN comp0 { Let($2, $4, $6) }
+    | LET pat EQ comp0 IN comp0 { Let($2, $4, $6) }
     | HANDLE comp0 WITH exp1  { WithHandle ($4, $2) }
     | WITH exp1 HANDLE comp0  { WithHandle ($2, $4) }
     | LAMBDA name COLON exp0 COMMA comp0 { MkLam($2, $4, $6) }
     | LAMBDA name COLON comp0 COMMA comp0
          { let loc = Position.make $startpos $endpos in
-           Let("lambda annot", $4, mkMkLam ~loc $2 (mkVar "lambda annot") $6) }
+           Let(PVar "lambda annot", $4, mkMkLam ~loc $2 (mkVar "lambda annot") $6) }
     | plain_comp1    { $1 }
 
 (* From the start, we know what the final token will be *)

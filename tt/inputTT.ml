@@ -66,7 +66,7 @@ and computation = computation' * Position.t
 and computation' =
   | Return of exp
   | App of exp * exp
-  | Let of tt_var * computation * computation
+  | Let of pattern * computation * computation
   | Op  of operation_tag * exp
   | WithHandle of exp * computation
   | Ascribe of exp * exp
@@ -179,7 +179,7 @@ and string_of_computation ctx (comp, _loc) =
   match comp with
   | Return e -> recur e
   | App (e1, e2) -> tag "App" [recur e1; recur e2]
-  | Let (x,c1,c2) -> tag "Let" [x; recurc c1; recurc c2]
+  | Let (p,c1,c2) -> tag "Let" [string_of_pat ctx p; recurc c1; recurc c2]
   | Op (op, e) -> tag "Op" [op; recur e]
   | WithHandle (e,c) -> tag "WithHandle" [recur e; recurc c]
   | Ascribe (e1, e2) -> tag "Ascribe" [recur e1; recur e2]
