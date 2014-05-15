@@ -8,6 +8,9 @@ let interactive_shell = ref true
 (** The command-line wrappers that we look for. *)
 let wrapper = ref (Some ["rlwrap"; "ledit"])
 
+(** The predule file *)
+let prelude = ref "Prelude.tt"
+
 (** The usage message. *)
 let usage = "Usage: tt [option] ... [file] ..."
 
@@ -40,6 +43,9 @@ let options = Arg.align [
   ("--no-wrapper",
     Arg.Unit (fun () -> wrapper := None),
     " Do not use a command-line wrapper");
+  ("--prelude",
+    Arg.String (fun str -> prelude := str),
+    "<tt file> Specify an alternate prelude file");
   ("-v",
     Arg.Unit (fun () ->
       print_endline ("tt " ^ Version.version ^ "(" ^ Sys.os_type ^ ")");
@@ -147,13 +153,16 @@ let rec exec_cmd interactive (ctx,env) (d, loc) =
 
 (** Load directives from the given file. *)
 and use_file env (filename, interactive) =
-  let cmds = LexerTT.read_file (parse ParserTT.file) filename in
-  let answer = List.fold_left (exec_cmd interactive) env cmds  in
-  let n = ! uncaught_exception_count in
-  if n > 0 then
-    failwith (string_of_int n ^ " uncaught exceptions")
+  if Sys.file_exists filename then
+    let cmds = LexerTT.read_file (parse ParserTT.file) filename in
+    let answer = List.fold_left (exec_cmd interactive) env cmds  in
+    let n = ! uncaught_exception_count in
+    if n > 0 then
+      failwith (string_of_int n ^ " uncaught exceptions")
+    else
+      answer
   else
-    answer
+    failwith ("No such file: " ^ filename)
 
 (** Interactive toplevel *)
 let toplevel env =
@@ -204,8 +213,10 @@ let main =
   Format.set_max_boxes 42 ;
   Format.set_ellipsis_text "..." ;
   try
+    (* Load and run the prelude *)
+    let env0 = use_file (Context.empty, InputTT.StringMap.empty) (!prelude, true)  in
     (* Run and load all the specified files. *)
-    let env = List.fold_left use_file (Context.empty, InputTT.StringMap.empty) !files in
+    let env = List.fold_left use_file env0 !files in
     if !interactive_shell then
       toplevel env
     else
