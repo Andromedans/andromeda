@@ -21,6 +21,7 @@
 %token COMMA
 %token CONTEXT
 %token DARROW
+%token DASH
 %token DEBRUIJN
 %token DEFINE
 %token END
@@ -48,6 +49,7 @@
 %token RBRACK
 %token RPAREN
 %token SEMISEMI
+%token STAR
 %token UNDERSCORE
 %token UNIT
 %token VAL
@@ -116,8 +118,11 @@ sso :
 (* Only know the end when we see it *)
 exp0: mark_position(plain_exp0) { $1 }
 plain_exp0:
-    | FUN name DARROW comp0   { Fun ($2, $4) }
+    | FUN name DARROW comp0   { Fun ("_", $2, $4) }
+    | FUN name LPAREN name RPAREN DARROW comp0   { Fun ($2, $4, $7) }
     | exp1 PLUS exp1 { Prim(Plus, [$1; $3]) }
+    | exp1 DASH exp1 { Prim(Minus, [$1; $3]) }
+    | exp1 STAR exp1 { Prim(Times, [$1; $3]) }
     | exp1 PLUSPLUS exp1 { Prim(Append, [$1; $3]) }
     | exp1 ANDAND exp1   { Prim(And, [$1; $3]) }
     | exp1 EQ exp1    { Prim(Eq, [$1; $3]) }

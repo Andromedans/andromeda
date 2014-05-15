@@ -87,3 +87,14 @@ let stutter := val handler op print x k => let _ = op print x in op print x end
 eval
    with stutter handle
      op print 22
+
+// 120
+eval
+   let f = val fun s(x) =>
+             match x with
+             | 0 => val 1
+             | _ => let y = s (x - 1) in val x * y
+             end
+   in 
+      f 5
+

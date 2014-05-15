@@ -23,6 +23,8 @@ type const =
 
 type primop =
   | Plus
+  | Minus
+  | Times
   | Not
   | And
   | Append
@@ -35,7 +37,7 @@ type environment = (value * int) StringMap.t
 (* Closed values *)
 and value = value' * Position.t
 and value' =
-  | VFun     of (environment -> Context.t -> value -> result) * environment
+  | VFun     of (environment -> Context.t -> value -> value -> result) * environment
   | VHandler of (environment -> Context.t -> result -> result) * environment
   | VCont    of Context.t * Context.t * ((environment -> Context.t -> value -> result) * environment)
   | VTuple   of value list
@@ -48,7 +50,7 @@ and exp = exp' * Position.t
 and exp' =
   | Value of value
   | Var of tt_var
-  | Fun of tt_var * computation
+  | Fun of tt_var * tt_var * computation  (* self, arg, body *)
   | Handler of handler
   | Tuple  of exp list
   | Const  of const
@@ -144,6 +146,8 @@ let tag h lst = h ^ embrace (String.concat ", " lst)
 
 let string_of_primop = function
   | Plus -> "Plus"
+  | Minus -> "Minus"
+  | Times -> "Times"
   | Not -> "Not"
   | And -> "And"
   | Append -> "Append"
@@ -157,7 +161,7 @@ let rec string_of_exp ctx (exp, _loc) =
   match exp with
   | Var x -> tag "Var" [x]
   | Value value -> tag "Value" [string_of_value ctx value]
-  | Fun (x,c) -> tag "Fun" [x; recurc c]
+  | Fun (f,x,c) -> tag "Fun" [f; x; recurc c]
   | Handler h -> tag "Handler" [string_of_handler ctx h]
   | Term b -> tag "Term" [string_of_term ctx b]
   | Type t -> tag "Type" [string_of_ty ctx t]
@@ -259,7 +263,7 @@ let rec shift cut delta (exp, loc) =
    (match exp with
   | Var v -> exp
   | Value value -> Value (recurv value)
-  | Fun (x, c) -> Fun(x, recurc c)
+  | Fun (f, x, c) -> Fun(f, x, recurc c)
   | Handler h -> Handler (shift_handler cut delta h)
   | Term b -> Term (Syntax.shift ~bound:cut delta b)
   | Type t -> Type (Syntax.shift_ty ~bound:cut delta t)

@@ -81,6 +81,7 @@ rule token = parse
   | ":="                { COLONEQ }
   | ','                 { COMMA }
   | "=>"                { DARROW }
+  | '-'                 { DASH }
   | eof                 { EOF }
   | "="                 { EQ }
   | "=="                { EQEQ }
@@ -92,6 +93,7 @@ rule token = parse
   | ']'                 { RBRACK }
   | ')'                 { RPAREN }
   | ";;"                { SEMISEMI }
+  | "*"                 { STAR }
   | "_"                 { UNDERSCORE }
 
 

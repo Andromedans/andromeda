@@ -152,7 +152,10 @@ and eval ctx env (exp', loc) =
   | I.Const a   -> I.VConst a, loc
   | I.Term b    -> I.VTerm b, loc
   | I.Type t    -> I.VType t, loc
-  | I.Fun (x,c) -> I.VFun((fun env ctx v -> run ctx (insert_ttvar x v ctx env) c), env ), loc
+  | I.Fun (f, x,c) -> I.VFun((fun env ctx self v ->
+                                 let env' = insert_ttvar f self ctx env  in
+                                 let env' = insert_ttvar x v ctx env'  in
+                                 run ctx env' c), env ), loc
   | I.Handler h -> I.VHandler (eval_handler loc h, env), loc
   | I.Tuple es  -> I.VTuple (List.map (eval ctx env) es), loc
   | I.Inj(i,e)  -> I.VInj(i, eval ctx env e), loc
@@ -187,6 +190,10 @@ and eval_prim ctx env loc op vs =
               I.VConst(I.Bool b2), _] -> I.mkVConst(I.Bool (b1 && b2))
     | I.Plus, [I.VConst(I.Int n1), _;
                I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 + n2))
+    | I.Minus, [I.VConst(I.Int n1), _;
+               I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 - n2))
+    | I.Times, [I.VConst(I.Int n1), _;
+               I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 * n2))
     | I.Append, [I.VTuple es1, _;
                  I.VTuple es2, _]     -> I.mkVTuple (es1 @ es2)
     | I.Eq,  [a1; a2] -> I.mkVConst( I.Bool (     I.eqvalue a1 a2))
@@ -291,7 +298,7 @@ and run ctx env  (comp, loc) =
             (* Extend _closure_ environment with argument
                and run the function body
              *)
-            f eta ctx v2
+            f eta ctx v1 v2
 
         | I.VCont(gamma,delta,(k,eta)), _ ->
             (* eval-kapp *)
@@ -338,6 +345,26 @@ and run ctx env  (comp, loc) =
         let r = run ctx env c1  in
         sequence (fun v -> run ctx (insert_ttvar x v ctx env) c2) r
       end
+
+(*
+  | I.LetRec(defs,c2) ->
+      let env =
+        let env' = ref env in
+        let env = List.fold_right
+          (fun (f, (x,c)) env ->
+             let g = I.VFun((fun env ctx v -> run ctx (insert_ttvar x v ctx env) c), env ), loc
+
+             V.Closure (fun v -> ceval (extend p v !env') c) in
+             insert_ttvar f g env)
+          defs env in
+        env' := env;
+        env
+
+      begin
+        let r = run ctx env c1  in
+        sequence (fun v -> run ctx (insert_ttvar x v ctx env) c2) r
+      end
+      *)
 
     | I.Match(e, arms) ->
         let v = eval ctx env e  in
