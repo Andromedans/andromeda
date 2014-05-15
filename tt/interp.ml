@@ -196,6 +196,8 @@ and eval_prim ctx env loc op vs =
                I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 * n2))
     | I.Append, [I.VTuple es1, _;
                  I.VTuple es2, _]     -> I.mkVTuple (es1 @ es2)
+    | I.Append, [I.VConst(I.String s1), _;
+                 I.VConst(I.String s2), _]     -> I.mkVConst (I.String (s1 ^ s2))
     | I.Eq,  [a1; a2] -> I.mkVConst( I.Bool (     I.eqvalue a1 a2))
     | I.Neq, [a1; a2] -> I.mkVConst( I.Bool (not (I.eqvalue a1 a2)))
     | I.Whnf, [I.VTerm b, _] ->

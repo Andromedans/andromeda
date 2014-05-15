@@ -1,12 +1,13 @@
-let equiv := val fun X => 
-let _ = op print 1234  in
+let equiv := val fun equiv(X) => 
+  let _ = op print ["equiv",X]  in
  (match X with
  | [e1, e2, t] => 
      (match e1 = e2 with
      | true => val []
      | false => 
          let t2 = val whnf t  in
-         let _ = op print t2  in
+         let _ = op print ["t2 = ", t2]  in
+
          match t2 with
          | _ == _  => val []
          | _ when (t2 = t`unit`) => val []
@@ -15,13 +16,10 @@ let _ = op print 1234  in
                  let a = e1 `x`  in
                  let b = e2 `x`  in
                  let c = u2 `x`  in
-                 let _ = op print 99  in
                  equiv [a,b,c]
-         /*
-         | t`forall ?t21, ?t22` =>
-          */
          | _ => let e3 = val whnf e1  in
                 let e4 = val whnf e2  in
+                let _ = op print ["e3 =", e3, " e4 = ", e4]  in
                 match e3 = e4 with
                 | true  => val []
                 | false => val [] /* XXX */

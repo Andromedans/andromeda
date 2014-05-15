@@ -20,6 +20,7 @@ type const =
   | Int of int
   | Bool of bool
   | Unit
+  | String of string
 
 type primop =
   | Plus
@@ -239,6 +240,7 @@ and string_of_const = function
   | Int n -> string_of_int n
   | Bool b -> string_of_bool b
   | Unit -> "()"
+  | String s -> "\"" ^ String.escaped s ^ "\""
 
 and string_of_term ctx term =
   ignore (Format.flush_str_formatter ());

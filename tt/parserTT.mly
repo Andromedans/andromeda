@@ -10,6 +10,7 @@
 %token <int> INJ
 %token <int> INT
 %token <string> NAME
+%token <string> STRING
 
 %token ANDAND
 %token ASCRIBE
@@ -223,6 +224,7 @@ const:
     | INT  { Int $1 }
     | BOOL { Bool $1 }
     | UNIT { Unit }
+    | STRING { String $1 }
 
 name:
     | NAME       { $1 }

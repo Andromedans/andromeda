@@ -101,6 +101,7 @@ rule token = parse
   | "true"              { BOOL true }
   | "false"             { BOOL false }
   | "()"                { UNIT }
+  | '"' ([^ '"' '\n']* as s) '"' { STRING s }
 
   | "inj" [' ' '\t']* (numeral as s) { INJ (int_of_string s) }
 
