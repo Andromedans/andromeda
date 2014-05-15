@@ -1,11 +1,20 @@
 let equiv := val fun equiv(X) => 
   let _ = op print ["equiv",X]  in
+
+  let fun join(Y) = 
+    match Y with
+    | [inj 1 xs, inj 1 ys] => val inj 1 (xs ++ ys)
+    | _                    => val inj 0 ()
+    end  in
+
+  let fun SOME (Y) = val inj 1 Y  in
+
   let fun eqspine (Y) =
     let _ = op print ["eqspine",Y] in
     match Y with
     | [e1,e2] when (e1 = e2) => 
         let _ = op print "alpha-equivalent"  in
-        val []
+        SOME []
 
     | [(forall e1, f1), (forall e2,f2)] =>
         let w1 = eqspine [e1,e2] in
@@ -17,20 +26,27 @@ let equiv := val fun equiv(X) =>
             let e5 = val whnf e3 in
             let e6 = val whnf e4 in
             eqspine [e5, e6]  in
-        val w1 ++ w2
+        match [w1, w2] with
+        | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
+        | _                    => op EQUIV Y
+        end
+
     | _ => op EQUIV Y
     end  in
- (match X with
+
+ /* Body of equiv starts here */
+
+ match X with
  | [e1, e2, t] => 
      (match e1 = e2 with
-     | true => val []
+     | true => SOME []
      | false => 
          let t2 = val whnf t  in
          let _ = op print ["t2 = ", t2]  in
 
          match t2 with
-         | _ == _  => val []
-         | _ when (t2 = t`unit`) => val []
+         | _ == _  => SOME []
+         | _ when (t2 = t`unit`) => SOME []
          | forall u1, u2 =>
                lambda x : t21, 
                  let a = e1 `x`  in
@@ -41,14 +57,12 @@ let equiv := val fun equiv(X) =>
                 let e4 = val whnf e2  in
                 let _ = op print ["e3 =", e3, " e4 = ", e4]  in
                 match e3 = e4 with
-                | true  => val []
+                | true  => SOME []
                 | false => eqspine [e3,e4]
                 end
          end
-     end
-     )
- | _ => op EQUIV X
- end)
+     end)
+ end
 
 define Set := val `Universe f0`
 
