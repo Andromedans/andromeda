@@ -1,9 +1,12 @@
 let equiv := val fun equiv(X) => 
   let _ = op print ["equiv",X]  in
-  let eqspine = val fun eqspine(Y) =>
+  let fun eqspine (Y) =
     let _ = op print ["eqspine",Y] in
     match Y with
-    | [e1,e2] when (e1 = e2) => val []
+    | [e1,e2] when (e1 = e2) => 
+        let _ = op print "alpha-equivalent"  in
+        val []
+
     | [(forall e1, f1), (forall e2,f2)] =>
         let w1 = eqspine [e1,e2] in
         let _ = op print "forall domains ok" in
@@ -11,7 +14,9 @@ let equiv := val fun equiv(X) =>
           lambda x:e1,
             let e3 = f1 `x` in
             let e4 = f2 `x` in
-            eqspine [e3, e4]  in
+            let e5 = val whnf e3 in
+            let e6 = val whnf e4 in
+            eqspine [e5, e6]  in
         val w1 ++ w2
     | _ => op EQUIV Y
     end  in

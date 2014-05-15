@@ -72,7 +72,7 @@ let wrap_syntax_with_witnesses ctx =
   List.fold_left (wrap_syntax_with_witness ctx)
 
 
-let retSomeTuple ws = I.RVal (I.mkVInj 1 (I.mkVTuple ws))
+let retSomeTuple ws = I.RVal (I.mkVTuple ws)
 let retNone         = I.RVal (I.mkVInj 0 (I.mkVConst I.Unit))
 
 
@@ -324,7 +324,7 @@ and run ctx env  (comp, loc) =
                     let t2 = Typing.type_of ctx b2 in
                     sequence
                       (function
-                        | I.VInj(1, (I.VTuple ws, _)), _ ->
+                        | I.VTuple ws, _ ->
                             let ctx' = extend_context_with_witnesses ctx ws in
                             if Equal.equal_ty ctx' t t2 then
                               (* XXX Add the witnesses to the term!!! *)
@@ -453,7 +453,7 @@ and run ctx env  (comp, loc) =
               begin
                 let u = Typing.type_of ctx b  in
                 match equiv_ty ctx env t u with
-                | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
+                | I.RVal (I.VTuple ws, _) ->
                     I.RVal
                          (I.mkVTerm (wrap_syntax_with_witnesses ctx
                                        (Syntax.Ascribe(b,t), Position.nowhere) ws ))
