@@ -172,6 +172,11 @@ plain_comp0:
 
     | OP NAME exp1    { Op ($2, $3) }
     | LET pat EQ comp0 IN comp0 { Let($2, $4, $6) }
+    | LET FUN NAME LPAREN name RPAREN EQ comp0 IN comp0
+        { let floc = Position.make $startpos($2) $endpos($8)  in
+          let f = Fun($3, $5, $8), floc  in
+          Let(PVar $3, (Return f, floc), $10)
+        }
     | HANDLE comp0 WITH exp1  { WithHandle ($4, $2) }
     | WITH exp1 HANDLE comp0  { WithHandle ($2, $4) }
     | LAMBDA name COLON exp0 COMMA comp0 { MkLam($2, $4, $6) }
