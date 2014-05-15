@@ -33,6 +33,7 @@
 %token FINALLY
 %token FORALL
 %token FUN
+%token GETCTX
 %token HANDLE
 %token HANDLER
 %token HELP
@@ -144,6 +145,7 @@ plain_exp1:
     | WHNF exp1         { Prim(Whnf, [$2]) }
     | BRAZILTERM       { BrazilTermCode $1 }
     | BRAZILTYPE       { BrazilTypeCode $1 }
+    | GETCTX           { Prim(GetCtx, []) }
 
 (* Only know the ending when we see it *)
 comp0: mark_position(plain_comp0) { $1 }
@@ -206,11 +208,13 @@ pat:
     | UNDERSCORE { PWild }
     | pat EQEQ pat  { PJuEqual ($1, $3) }
     | FORALL pat COMMA pat0 { PProd ($2, $4) }
+    | FORALL pat COLON pat COMMA pat COLON pat0 { PProdFull ($2, $4, $6, $8) }
     | LPAREN pat RPAREN { $2 }
 
 toppat:
     | pat  { $1 }
     | pat WHEN exp1 { PWhen($1, $3) }
+    | LPAREN toppat RPAREN { $2 }
 
 handler:
     | HANDLER hcs=hcases END { hcs }

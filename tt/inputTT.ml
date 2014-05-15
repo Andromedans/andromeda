@@ -32,6 +32,7 @@ type primop =
   | Eq
   | Neq
   | Whnf
+  | GetCtx
 
 type environment = (value * int) StringMap.t
 
@@ -95,6 +96,8 @@ and pattern =
 
   | PJuEqual of pattern * pattern
   | PProd of pattern * pattern
+  | PProdFull of pattern * pattern * pattern * pattern
+  (*| App of pattern * pattern*)
 
 and result =
   | RVal of value
@@ -155,6 +158,7 @@ let string_of_primop = function
   | Eq -> "Eq"
   | Neq -> "Neq"
   | Whnf -> "Whnf"
+  | GetCtx -> "GetCtx"
 
 let rec string_of_exp ctx (exp, _loc) =
   let recur = string_of_exp ctx  in
@@ -234,7 +238,9 @@ and string_of_pat ctx = function
   | PWild -> "PWild"
   | PJuEqual (p1,p2) -> string_of_pat ctx p1 ^ " == " ^ string_of_pat ctx p2
   | PWhen(p,e) -> tag "PWhen" [string_of_pat ctx p; string_of_exp ctx e]
-  | PProd(p1,p2) -> tag "PWhen" [string_of_pat ctx p1; string_of_pat ctx p2]
+  | PProd(p1,p2) -> tag "PProd" [string_of_pat ctx p1; string_of_pat ctx p2]
+  | PProdFull(p1,p2,p3,p4) -> tag "PProdFull" [string_of_pat ctx p1; string_of_pat ctx p2;
+                                               string_of_pat ctx p3; string_of_pat ctx p4 ]
 
 and string_of_const = function
   | Int n -> string_of_int n

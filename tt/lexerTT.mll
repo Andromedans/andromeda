@@ -12,6 +12,7 @@
     ("finally", FINALLY);
     ("forall", FORALL);
     ("fun", FUN);
+    ("getctx", GETCTX);
     ("handle", HANDLE) ;
     ("handler", HANDLER) ;
     ("in", IN) ;

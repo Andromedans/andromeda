@@ -125,9 +125,16 @@ let rec insert_matched ctx env (v,pat) =
       insert_matched ctx (insert_matched ctx env (I.mkVTerm ~loc b1, pat1))
              (I.mkVTerm ~loc
              (Syntax.Lambda(x,(Syntax.El(alpha,b1),loc),(Syntax.Universe beta, loc), b2),loc), pat2)
+  | I.VTerm (Syntax.NameProd(alpha,beta,x,b1,b2),loc), I.PProdFull(pat1,pat2,pat3,pat4) ->
+      let env = insert_matched ctx env (I.mkVTerm ~loc b1, pat1)  in
+      let env = insert_matched ctx env
+           (I.mkVTerm ~loc (Syntax.Lambda(x,(Syntax.El(alpha,b1),loc),(Syntax.Universe beta, loc), b2),loc), pat3)  in
+      let env = insert_matched ctx env (I.mkVType ~loc (Syntax.Universe alpha, loc), pat2)  in
+      let env = insert_matched ctx env (I.mkVType ~loc (Syntax.Universe beta, loc), pat4)  in
+      env
 
   | _, (I.PConst _ | I.PInj _ | I.PTuple _
-        | I.PJuEqual _ | I.PProd _) -> raise NoPatternMatch
+        | I.PJuEqual _ | I.PProd _ | I.PProdFull _ ) -> raise NoPatternMatch
 
 
 (**************************)
@@ -206,6 +213,12 @@ and eval_prim ctx env loc op vs =
         I.mkVTerm (Equal.whnf ~use_rws:true ctx t b)
     | I.Whnf, [I.VType t, _] ->
         I.mkVType (Equal.whnf_ty ~use_rws:true ctx t)
+    | I.GetCtx, [] ->
+        (Context.print ctx;
+        I.mkVConst ~loc (I.Int (List.length (Context.names ctx))))
+
+
+
 
     | _, _ -> Error.runtime ~loc "Bad arguments to primitive"
 
@@ -266,11 +279,17 @@ and eval_handler loc {I.valH; I.opH; I.finH} =
          end
 
 
-and sequence k = function
+and sequence ?withdelta k = function
   | I.RVal v -> k v
   | I.ROp(tag,delta,v,(k',eta)) ->
-      let k'' env ctx u = sequence k (k' env ctx u)  in
-      I.ROp(tag,delta,v,(k'',eta))
+      begin
+        let k'' env ctx u = sequence k (k' env ctx u)  in
+        match withdelta with
+        | None -> I.ROp(tag,delta,v,(k'',eta))
+        | Some (x,t) ->
+            let ctx0 = Context.add_var x t Context.empty in
+            I.ROp(tag, Context.append ctx0 delta, v, (k'',eta))
+      end
 
 
 
@@ -431,7 +450,7 @@ and run ctx env  (comp, loc) =
 
           let ctx' = Context.add_var x1 domain ctx  in
           let r3 = run ctx' env c3  in
-          sequence (fun v3 -> I.RVal (abstract ctx' x1 domain v3)) r3
+          sequence ~withdelta:(x1,domain) (fun v3 -> I.RVal (abstract ctx' x1 domain v3)) r3
         end
 
     | I.Check(t1, t2, e, c) ->
@@ -453,13 +472,20 @@ and run ctx env  (comp, loc) =
           | (I.VTerm b, _), (I.VType t, _) ->
               begin
                 let u = Typing.type_of ctx b  in
-                match equiv_ty ctx env t u with
-                | I.RVal (I.VInj(1, (I.VTuple ws, _)), _) ->
-                    I.RVal
-                         (I.mkVTerm (wrap_syntax_with_witnesses ctx
-                                       (Syntax.Ascribe(b,t), Position.nowhere) ws ))
-
-                | _ -> Error.runtime ~loc "Brazil cannot prove the ascription valid"
+                sequence
+                  (function
+                    | I.VInj(1, (I.VTuple ws, _)), _ ->
+                        let ctx' = extend_context_with_witnesses ctx ws in
+                        if Equal.equal_ty ctx' t u then
+                          I.RVal
+                               (I.mkVTerm (wrap_syntax_with_witnesses ctx
+                                             (Syntax.Ascribe(b,t), Position.nowhere) ws ))
+                        else
+                          Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
+                    | _ ->
+                        Error.runtime ~loc "Brazil could not produce witnesses for the ascription"
+                  )
+                 (equiv_ty ctx env t u)
               end
 
           | (I.VTerm _, _), _ -> Error.runtime ~loc "Non-type in ascribe"
@@ -512,7 +538,9 @@ let toplevel_handler =
   let k = "toplevel k" in
   let continue_with_unit = I.mkApp (I.mkVar k) (I.mkConst I.Unit)  in
   let doPrint ctx ttenv v =
-    (Format.printf "%s@." (I.string_of_value ~brief:true ctx v); I.RVal (I.mkVConst I.Unit))  in
+    (Format.printf "%s@." (I.string_of_value ~brief:true ctx v);
+     Print.debug "finished printing, I hope";
+     I.RVal (I.mkVConst I.Unit))  in
   {
     I.valH = None ;
     I.opH  = [ ("equiv", I.PWild, k, continue_with_unit);

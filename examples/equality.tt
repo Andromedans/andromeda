@@ -1,13 +1,12 @@
-define Set := `Universe f0`
+define Set := val `Universe f0`
 
 define sym /* : forall (A : Set) (a b : A), a == b -> b == a */ :=
-  let Set_t = t`Set`  in
-  lambda A : Set_t,
+  lambda A : t`Set`,
     lambda a : t`A`,
     lambda b : t`A`,
     lambda p : t`a == b`,
     with
-      handler op equiv [a1,a2,u] k => k `p` end
+      handler op EQUIV ([a1,a2,u] when ((a1=`a`) && (a2=`b`))) k => k `p` end
     handle
       `refl a` :> t`b == a`
 

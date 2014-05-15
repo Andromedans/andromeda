@@ -33,8 +33,9 @@ let print {decls=ds; names=xs} =
       | [], _::_ -> Error.impossible "fewer declarations than names in context"
       | _::_, [] -> Error.impossible "fewer names than declarations in context"
   in
+    Format.printf "---vvv---@.";
     print_names ds xs ;
-    Format.printf "@."
+    Format.printf "---^^^---@."
 
 let empty = { decls = [] ; names = [] }
 
@@ -139,7 +140,9 @@ let rewrites {decls=lst} =
 
 let append ctx1 ctx2 =
   {
-    decls = ctx1.decls @ ctx2.decls;
-    names = ctx1.names @ ctx2.names;
+    (* "backwards" because the contexts are stored backwards,
+     * with the newest variable at the front of the list. *)
+    decls = ctx2.decls @ ctx1.decls;
+    names = ctx2.names @ ctx1.names;
   }
 
