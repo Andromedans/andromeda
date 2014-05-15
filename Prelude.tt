@@ -22,10 +22,10 @@ let equiv := val fun equiv(X) =>
             equiv [e5, e6, u3]  in
         match [w1, w2] with
         | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
-        | _                    => op equiv Y
+        | _                    => val NONE 
         end
 
-    | _ => op equiv Y
+    | _ => val NONE
     end  in
 
  /* Body of equiv starts here */
@@ -52,7 +52,13 @@ let equiv := val fun equiv(X) =>
                 let _ = op print ["e3 =", e3, " e4 = ", e4]  in
                 match e3 = e4 with
                 | true  => SOME []
-                | false => eqspine [e3,e4]
+                | false => 
+                   (let d = eqspine [e3,e4] in
+                    let _ = op print ["eqspine returned", d] in
+                    match d with
+                    | inj 1 ws => val d
+                    | _ => op equiv [e3,e4,t]
+                    end)
                 end
          end
      end)
