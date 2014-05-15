@@ -98,3 +98,17 @@ eval
    in 
       f 5
 
+
+// ["zero", "one", "many"]
+eval
+   let counth = val handler
+                   | op count [] k => k "zero"
+                   | op count [_] k => k "one"
+                   | op count _ k => k "many"
+                end in
+   with counth handle
+     let a = op count []  in
+     let b = op count [0]  in
+     let c = op count [0,1]  in
+     val [a,b,c]
+
