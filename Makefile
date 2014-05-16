@@ -18,13 +18,13 @@ tt.native:
 tt.byte:
 	ocamlbuild -I src -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_CFLAGS) tt.byte
 
-smoketest: tt.byte
+smoketest: tt.native brazil.native
 	./tt.native examples/t.tt && \
 	  ./tt.native examples/wild.tt && \
 	  ./tt.native examples/brazil.tt && \
 	  ./tt.native examples/brazilBool.tt && \
-	  ./tt.native examples/evil.tt && \
-	  ./tt.native examples/paths_to_id.tt
+	  ./tt.native examples/paths_to_id.tt && \
+	  ./brazil.native examples/coerce.br
 	@echo
 	@echo "************************"
 	@echo "* Smoke test succeeded *"
