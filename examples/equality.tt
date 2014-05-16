@@ -6,9 +6,8 @@ define sym /* : forall (A : Set) (a b : A), a == b -> b == a */ :=
     lambda b : t`A`,
     lambda p : t`a == b`,
     with
-      handler op equiv ([a1,a2,u] when ((a1=`a`) && (a2=`b`))) k => k `p` 
-              | op equiv _ k => let answer = SOME [`p`] in
-                                k answer
+      handler op equiv ([a1,a2,u] when ((a1=`a`) && (a2=`b`))) k => 
+                     let hints = SOME [`p`] in k hints 
       end
 
     handle

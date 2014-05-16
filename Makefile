@@ -24,6 +24,7 @@ tt-smoketest: tt.byte
 	./tt.byte examples/eff.tt 
 	./tt.byte examples/literals.tt 
 	./tt.byte examples/nat.tt 
+	./tt.byte examples/equality.tt
 	@echo
 	@echo "***************************"
 	@echo "* TT Smoke test succeeded *"

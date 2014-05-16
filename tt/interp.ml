@@ -164,6 +164,9 @@ let rec insert_matched ctx env (v,pat) =
   | I.VType (Syntax.Id(_,b1,b2),loc), I.PJuEqual(pat1, pat2) ->
       List.fold_left (insert_matched ctx) env [I.mkVTerm ~loc b1,pat1; I.mkVTerm ~loc b2,pat2]
 
+  | I.VTerm (Syntax.NameId(_,_,b1,b2),loc), I.PJuEqual(pat1, pat2) ->
+      List.fold_left (insert_matched ctx) env [I.mkVTerm ~loc b1,pat1; I.mkVTerm ~loc b2,pat2]
+
   | I.VTerm (Syntax.NameProd(alpha,beta,x,b1,b2),loc), I.PProd(pat1,pat2) ->
       insert_matched ctx (insert_matched ctx env (I.mkVTerm ~loc b1, pat1))
              (I.mkVTerm ~loc
@@ -704,7 +707,7 @@ and run ctx env  (comp, loc) =
                   (function
                     | I.VInj(1, (I.VTuple ws, _)), _ ->
                         let ctx' = extend_context_with_witnesses ctx ws in
-                        if Equal.equal_ty ctx' t u then
+                        if Equal.equal_ty ctx' u t then
                           I.RVal
                                (I.mkVTerm (wrap_syntax_with_witnesses ctx
                                              (Syntax.Ascribe(b,t), Position.nowhere) ws ))
@@ -713,7 +716,7 @@ and run ctx env  (comp, loc) =
                     | _ ->
                         Error.runtime ~loc "Brazil could not produce witnesses for the ascription"
                   )
-                 (equiv_ty ctx env t u)
+                 (equiv_ty ctx env u t)
               end
 
           | (I.VTerm _, _), _ -> Error.runtime ~loc "Non-type in ascribe"

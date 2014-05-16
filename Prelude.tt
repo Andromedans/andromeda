@@ -25,6 +25,17 @@ let equiv := val fun equiv(X) =>
         | _                    => val NONE 
         end
 
+    | [e1 == e2, e3 == e4] =>
+        /* XXX: Bogus. Need to check that both equivalences are at equal types,
+         *             which lives in the same universe! */
+        let w1 = equiv [e1,e3,`Universe 42`]  in
+        let w2 = equiv [e2,e4,`Universe 42`]  in
+        let _ = op print ["eqspine ==", w1, w2]  in
+        match [w1, w2] with
+        | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
+        | _                    => val NONE 
+        end
+
     | _ => val NONE
     end  in
 
