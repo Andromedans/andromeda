@@ -9,7 +9,7 @@ let interactive_shell = ref true
 let wrapper = ref (Some ["rlwrap"; "ledit"])
 
 (** The predule file *)
-let prelude = ref "Prelude.tt"
+let prelude = ref (Some "Prelude.tt")
 
 (** The usage message. *)
 let usage = "Usage: tt [option] ... [file] ..."
@@ -44,8 +44,16 @@ let options = Arg.align [
     Arg.Unit (fun () -> wrapper := None),
     " Do not use a command-line wrapper");
   ("--prelude",
-    Arg.String (fun str -> prelude := str),
-    "<tt file> Specify an alternate prelude file");
+    Arg.String (fun str -> prelude := Some str),
+    "<file> Specify an alternate prelude file");
+  ("--raw",
+    Arg.Unit (fun () ->
+       begin
+         prelude := None;
+         Interp.wrap := false
+       end),
+    "No wrappers or prelude"
+    );
   ("-v",
     Arg.Unit (fun () ->
       print_endline ("tt " ^ Version.version ^ "(" ^ Sys.os_type ^ ")");
@@ -214,7 +222,11 @@ let main =
   Format.set_ellipsis_text "..." ;
   try
     (* Load and run the prelude *)
-    let env0 = use_file (Context.empty, InputTT.StringMap.empty) (!prelude, true)  in
+    let env0 = (Context.empty, InputTT.StringMap.empty)  in
+    let env0 =
+      (match !prelude with
+      | Some filename -> use_file env0 (filename, true)
+      | None -> env0)  in
     (* Run and load all the specified files. *)
     let env = List.fold_left use_file env0 !files in
     if !interactive_shell then
