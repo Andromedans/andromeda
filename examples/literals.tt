@@ -12,3 +12,7 @@ eval
 
 eval
    lambda z : t`unit`, (`z` :> t`unit`)
+
+eval
+   lambda A : t`Universe 0`,
+     lambda x : t`A`, val `x`

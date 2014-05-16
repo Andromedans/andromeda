@@ -9,7 +9,7 @@ let nowhere = Nowhere
 
 let make start_post end_pos = Position (start_post, end_pos)
 
-let of_lex lex = 
+let of_lex lex =
   Position (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
 
 let to_string ?(full=false) = function
@@ -30,3 +30,6 @@ let to_string ?(full=false) = function
       let col1  = p1.Lexing.pos_cnum - p1.Lexing.pos_bol + 1  in
       Printf.sprintf "%s:%d:%d" filename line1 col1
 
+let get_range = function
+  | Nowhere -> Lexing.dummy_pos, Lexing.dummy_pos
+  | Position(startp, endp) -> startp, endp

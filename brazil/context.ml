@@ -13,7 +13,7 @@ type t = {
   names : Syntax.name list
 }
 
-let print {decls=ds; names=xs} =
+let print ?(label="") {decls=ds; names=xs} =
   let rec print_names ds xs =
     match ds, xs with
       | [], [] -> ()
@@ -33,9 +33,9 @@ let print {decls=ds; names=xs} =
       | [], _::_ -> Error.impossible "fewer declarations than names in context"
       | _::_, [] -> Error.impossible "fewer names than declarations in context"
   in
-    Format.printf "---vvv---@.";
+    Format.printf "------%s---@." label;
     print_names ds xs ;
-    Format.printf "---^^^---@."
+    Format.printf "---END%s---@." label
 
 let empty = { decls = [] ; names = [] }
 
@@ -54,6 +54,16 @@ let add_vars bnds ctx =
              rest
   in
     loop 0 ctx bnds
+
+let pop_var ctx =
+  { decls = List.tl ctx.decls;
+    names = List.tl ctx.names;
+  }
+
+let rec pop_vars n ctx =
+  match n with
+  | 0 -> ctx
+  | n -> pop_vars (n-1) (pop_var ctx)
 
 let for_J t x y p z ctx =
   let ctx_xy = add_vars [(x, t); (y, t)] ctx in

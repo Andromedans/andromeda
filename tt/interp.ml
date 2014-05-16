@@ -1,6 +1,8 @@
 module I = InputTT
 module SM = InputTT.StringMap
 
+let wrap = ref true
+
 let depth ctx =
   List.length (Context.names ctx)
 
@@ -50,39 +52,74 @@ let abstract ctx x t =
     | (_, loc) -> Error.runtime ~loc "Bad body to MkLam"  in
   loop
 
-
+(** [witness_of_value ctx v] returns [b] if [v] is the Brazil term [b],
+      and reports an error otherwise. The context is used just for error
+      reporting (converting [v] to a string).
+*)
 let witness_of_value ctx0 = function
   | I.VTerm b, _  -> b
   | (_, loc) as w -> Error.runtime ~loc "Witness %s is not a term" (I.string_of_value ctx0 w)
 
+(** If [v] is the Brazil term [b], [extend_context_with_witness ctx v] adds [b]
+    to [ctx] as a generic hint. Otherwise, reports a runtime error.
+  *)
 let extend_context_with_witness ctx v =
   let w = witness_of_value ctx v  in
   let t = Typing.type_of ctx w  in
   let hint = Equal.as_hint ctx w t  in
   Context.add_equation hint ctx
 
+(** If [l] is a list of Brazil terms, [extend_context_with_witnesses ctx l]
+    adds them all to [ctx]. Otherwise, reports a runtime error.
+  *)
 let extend_context_with_witnesses =
   List.fold_left extend_context_with_witness
 
 
+(** If [v] is the Brazil term [b'], [wrap_syntax_with_witness ctx b v]
+    produces a brazil term wraps the Brazil term [b] with hint [b'].
+    Otherwise, reports a runtime error.
+  *)
 let wrap_syntax_with_witness ctx b v =
   let w = witness_of_value ctx v in
   Syntax.Equation(w, Typing.type_of ctx w, b), Position.nowhere
 
+(** [wrap_syntax_with_witnesses ctx b l] produces a Brazil term
+    wrapping [b], but for a list [l] of Brazil term values.
+ *)
 let wrap_syntax_with_witnesses ctx =
   List.fold_left (wrap_syntax_with_witness ctx)
 
 
-let retSomeTuple ws = I.RVal (I.mkVInj 1 (I.mkVTuple ws))
-let retNone         = I.RVal (I.mkVInj 0 (I.mkVConst I.Unit))
+(** Representation of option types in TT *)
+
+let none   = I.mkVInj 0 (I.mkVConst I.Unit)
+let some x = I.mkVInj 1 x
+
+let retSomeTuple ws = I.RVal (some (I.mkVTuple ws))
+let retNone         = I.RVal none
 
 
 (*******************************************)
 (* Run-time parsing of literal Brazil code *)
 (*******************************************)
 
-let parse_literal parse_fn loc text =
+(** Shifts the Lexing.position [p] rightwards [n] characters *)
+let rightwards n p =
+  { p with Lexing.pos_cnum = p.Lexing.pos_cnum + n }
+
+(** Given a parsing function, the Position of the literal in the input, the
+    number of characters within that literal where the Brazil syntax began, and
+    the text itself, parse.
+
+    Purposely not recursively defined with anything below, because
+    we want to use it polymorphically (i.e., given a term-parser
+    it returns a term, and given a type-parser it returns a type.
+*)
+let parse_literal parse_fn loc skipchars text =
      let lexbuf = Lexing.from_string text in
+     let (startp, _) = Position.get_range loc  in
+     lexbuf.Lexing.lex_curr_p <- (rightwards skipchars startp);
      try
         parse_fn Lexer.token lexbuf
      with
@@ -99,18 +136,23 @@ let parse_literal parse_fn loc text =
 
 exception NoPatternMatch
 
-(* [insert_matched env (v,pat)] either inserts the TT values from [v] where there
+(** [insert_matched env (v,pat)] either inserts the TT values from [v] where there
    are corresponding variables in [pat], or raises the [NoPatternMatch]
    exception if [pat] and [v] don't have the same form.
  *)
 let rec insert_matched ctx env (v,pat) =
   match fst v, pat with
   | _,             I.PWild    -> env
+
   | _,             I.PVar x   -> insert_ttvar x v ctx env
+
   | I.VConst a1,   I.PConst a2    when a1 = a2  ->  env
+
   | I.VInj(i1,v1), I.PInj (i2,p2) when i1 = i2  ->  insert_matched ctx env (v1, p2)
+
   | I.VTuple vs,   I.PTuple ps    when List.length vs = List.length ps ->
       List.fold_left (insert_matched ctx) env (List.combine vs ps)
+
   | _, I.PWhen(p,e) ->
       begin
         let env' = insert_matched ctx env (v,p)  in
@@ -121,10 +163,12 @@ let rec insert_matched ctx env (v,pat) =
 
   | I.VType (Syntax.Id(_,b1,b2),loc), I.PJuEqual(pat1, pat2) ->
       List.fold_left (insert_matched ctx) env [I.mkVTerm ~loc b1,pat1; I.mkVTerm ~loc b2,pat2]
+
   | I.VTerm (Syntax.NameProd(alpha,beta,x,b1,b2),loc), I.PProd(pat1,pat2) ->
       insert_matched ctx (insert_matched ctx env (I.mkVTerm ~loc b1, pat1))
              (I.mkVTerm ~loc
              (Syntax.Lambda(x,(Syntax.El(alpha,b1),loc),(Syntax.Universe beta, loc), b2),loc), pat2)
+
   | I.VTerm (Syntax.NameProd(alpha,beta,x,b1,b2),loc), I.PProdFull(pat1,pat2,pat3,pat4) ->
       let env = insert_matched ctx env (I.mkVTerm ~loc b1, pat1)  in
       let env = insert_matched ctx env
@@ -141,41 +185,73 @@ let rec insert_matched ctx env (v,pat) =
 (* Evaluating Expressions *)
 (**************************)
 
-(* [eval env e] deterministically reduces TT expression [e] to a
-   value. This largely involves looking up
-   variables in the environment, and building closures.
+(* [eval ctx env e] deterministically reduces TT expression [e] to a
+   value. This largely involves looking up variables in the environment, running
+   primitives, and building closures.
  *)
 and eval ctx env (exp', loc) =
   match exp' with
   | I.Value v   -> v
+  | I.Const a   -> I.VConst a, loc
+  | I.Term b    -> I.VTerm b, loc
+  | I.Type t    -> I.VType t, loc
+
+  | I.Tuple es  -> I.VTuple (List.map (eval ctx env) es), loc
+
+  | I.Inj(i,e)  -> I.VInj(i, eval ctx env e), loc
+
+  | I.BrazilTermCode text ->
+      (* Parse the string as a Brazil term *)
+      eval_brazilterm ctx loc text
+
+  | I.BrazilTypeCode text ->
+      (* Parse the string as a Brazil type *)
+      eval_braziltype ctx loc text
+
+  | I.Prim(op, es) ->
+      let vs = List.map (eval ctx env) es  in
+      eval_prim ctx env loc op vs
+
   | I.Var x ->
       if SM.mem x env then
+        (* Values in the environment are tagged with the depth of the
+           context when they were inserted. We might have entered some
+           lambdas or definitions since then, so any de Bruijn indices
+           in that value would be wrong. Fix this, by shifting appropriately.
+         *)
         let (value, insert_depth) = SM.find x env  in
         let current_depth = depth ctx in
         let delta = current_depth - insert_depth in
+        (* The number of brazil variables only goes down when we leave the
+           scope of a [lambda] computation, which any TT variables at that
+           depth should already have gone out of scope. Thus, the shift
+           should always be positive (referencing a TT variable created outside
+           the [lambda] in the body of that [lambda]).
+         *)
         assert (delta >= 0);
         I.shiftv 0 delta value
       else
         Error.runtime ~loc "Undefined variable %s" x
-  | I.Const a   -> I.VConst a, loc
-  | I.Term b    -> I.VTerm b, loc
-  | I.Type t    -> I.VType t, loc
-  | I.Fun (f, x,c) -> I.VFun((fun env ctx self v ->
-                                 let env' = insert_ttvar f self ctx env  in
-                                 let env' = insert_ttvar x v ctx env'  in
-                                 run ctx env' c), env ), loc
+
+  | I.Fun (f, x, c) ->
+     (* Create a closure *)
+     I.VFun((fun env ctx self v ->
+               let env' = insert_ttvar f self ctx env   in
+               let env' = insert_ttvar x v    ctx env'  in
+               run ctx env' c),
+            env ), loc
+
   | I.Handler h -> I.VHandler (eval_handler loc h, env), loc
-  | I.Tuple es  -> I.VTuple (List.map (eval ctx env) es), loc
-  | I.Inj(i,e)  -> I.VInj(i, eval ctx env e), loc
-  | I.Prim(op, es) -> eval_prim ctx env loc op (List.map (eval ctx env) es)
-  | I.BrazilTermCode text -> eval_brazilterm ctx loc text
-  | I.BrazilTypeCode text -> eval_braziltype ctx loc text
 
 
-
+(** [eval_brazilterm ctx loc text] takes the string [text] and tries to parse it
+    as a Brazil term relative to [ctx]. The position [loc] is used for
+    error-reporting.
+    *)
 and eval_brazilterm ctx loc text =
         begin
-          let term = parse_literal Parser.topterm loc text  in
+          let skipchars = 1 in  (* skip the opening ` character *)
+          let term = parse_literal Parser.topterm loc skipchars text  in
           let term = Debruijn.term (Context.names ctx) term in
           let term, _ty = Typing.syn_term ctx term  in
           I.mkVTerm ~loc term
@@ -183,54 +259,127 @@ and eval_brazilterm ctx loc text =
 
 and eval_braziltype ctx loc text =
         begin
-          let term = parse_literal Parser.topty loc text  in
+          let skipchars = 2 in (* skip the opening t` characters *)
+          let term = parse_literal Parser.topty loc skipchars text  in
           let ty = Debruijn.ty (Context.names ctx) term in
           let ty = Typing.is_type ctx ty  in
           I.mkVType ~loc ty
         end
 
 
-
+(** Apply the operation [op] to the given list of values [vs].
+    Reports a runtime error if the arguments have the wrong
+    number or type.
+ *)
 and eval_prim ctx env loc op vs =
     match op, vs with
     | I.Not, [I.VConst(I.Bool b), _]  -> I.mkVConst(I.Bool (not b))
+
     | I.And, [I.VConst(I.Bool b1), _;
               I.VConst(I.Bool b2), _] -> I.mkVConst(I.Bool (b1 && b2))
+
     | I.Plus, [I.VConst(I.Int n1), _;
                I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 + n2))
+
     | I.Minus, [I.VConst(I.Int n1), _;
                I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 - n2))
+
     | I.Times, [I.VConst(I.Int n1), _;
                I.VConst(I.Int n2), _] -> I.mkVConst(I.Int (n1 * n2))
+
     | I.Append, [I.VTuple es1, _;
                  I.VTuple es2, _]     -> I.mkVTuple (es1 @ es2)
+
     | I.Append, [I.VConst(I.String s1), _;
                  I.VConst(I.String s2), _]     -> I.mkVConst (I.String (s1 ^ s2))
+
     | I.Eq,  [a1; a2] -> I.mkVConst( I.Bool (     I.eqvalue a1 a2))
+
     | I.Neq, [a1; a2] -> I.mkVConst( I.Bool (not (I.eqvalue a1 a2)))
+
     | I.Whnf, [I.VTerm b, _] ->
         let t = Typing.type_of ctx b  in
         I.mkVTerm (Equal.whnf ~use_rws:true ctx t b)
+
     | I.Whnf, [I.VType t, _] ->
         I.mkVType (Equal.whnf_ty ~use_rws:true ctx t)
+
     | I.GetCtx, [] ->
-        (Context.print ctx;
+        (Context.print ~label:"getctx" ctx;
         I.mkVConst ~loc (I.Int (List.length (Context.names ctx))))
 
+    | _, _ -> Error.runtime ~loc "Primitive %s cannot handle argument list %s"
+                                     (I.string_of_primop op) (I.string_of_value ctx (I.mkVTuple vs))
 
 
 
-    | _, _ -> Error.runtime ~loc "Bad arguments to primitive"
+(** [sequence k r] is a kind of bind operator for computations.
+   It takes a computation that (already) evaluated to result $r$,
+   and a continuation [k : I.value -> I.Result] that says what to do
+   with that result once it has resolved to a value.
 
 
+   If the result is an operation with continuation k', we want to handle that
+   operation (including running the continuation k') and only then come back and
+   do [k]. Equivalently, we want to handle the operation, and then do (result of
+   [k'], followed by [k]).
+
+   Now it may be that result r was running in an extended Brazil context, and
+   that continuation [k] captures one or more Brazil variables (i.e., is the
+   continuation of something like MkLam that locally introduces Brazil
+   variables) result r is running in an extended Brazil context. If r produces a
+   value, that's fine. But if it produces an operation, we want to report to the
+   handler that the operation was in this extended context, so that the handler
+   can similarly run in this extended context.
+
+   For example, suppose the input is
+      lambda x:`unit`, let z = op foo () in debruijn 0
+      then the result r given to MkLam's sequence is basically
+           ROp("foo", -, (), 'let z = [] in debruijn 0')
+      where k is basically
+           fun v -> abstract (...,x:unit) "x" 'unit' v
+   The result of sequence thus floats to operation out, i.e.,
+           ROp("foo", x:unit, (),
+                'let v = (let z = [] in debruijn 0) in abstract (...,x:unit) "x" 'unit' v')
+
+   Note that we expect the handler will invoke the continuation
+   in the operation with its [ctx] parameter being the extended context.
+   (handler's [ctx] ++ the [delta] in the operation).
+
+ *)
+and sequence ?(prependctx=Context.empty) ?(label="") k = function
+  | I.RVal v -> k v
+  | I.ROp(tag,delta,v,(k',eta)) ->
+       Print.debug "sequence %s propagating operation %s" label tag;
+       (*Context.print ~label:"prependctx" prependctx;*)
+       let k'' env ctx u = sequence ~prependctx ~label k (k' env ctx u)  in
+       I.ROp(tag, Context.append prependctx delta, v, (k'',eta) )
+
+(** [eval_handler loc h] turns the syntactic handler [h] into a function
+    from results to results, i.e., what to do with the result of the handled
+    expression.
+  *)
 and eval_handler loc {I.valH; I.opH; I.finH} =
+  (* In [hfun], parameter [env] stands for the TT environment at the point where
+     the handler was *installed* (which by static scoping/closures should be the same
+     as the environment where the handler is running).
+
+     Parameter [ctx] stands for the context at the point where the handler
+     is *installed*. In the [val] handler, this is the same as the context
+     where the handler is running, but in the general case of other operations
+     (originally invoked from inside lambda compuations), the handler will
+     be running in an extended handler context ctx_h.
+   *)
   let rec hfun env ctx = function
     | I.RVal v ->
         begin
+          (* If the body is a value, then we run the "val" handler (outside
+           * the scope of [h]). A missing val handler is equivalent to
+           * "val x => val x", an identity transformation *)
+
           Print.debug "Handler %s produced value %s@." (Position.to_string loc) (I.string_of_value ctx v);
           match valH with
           | Some (xv,cv) ->
-              (* eval-handle-val *)
               run ctx (insert_ttvar xv v ctx env) cv
           | None ->
               I.RVal v
@@ -238,35 +387,128 @@ and eval_handler loc {I.valH; I.opH; I.finH} =
 
     | I.ROp (opi, delta, v, (k,eta)) ->
         begin
-          Print.debug "Handler produced operation %s@." opi;
+          (* If the body of the handler is an operation, we need to handle it *)
 
-          let k' env ctx u = hfun env ctx (k eta ctx u)  in
+          Print.debug "Handler produced operation %s@." opi;
+          (*Context.print ~label:"ctx" ctx;*)
+          (*Context.print ~label:"delta" delta;*)
+
+          (* See comment for hfun *)
+          let ctx_h = Context.append ctx delta  in
+
+          (* If we find a match, the continuation of the handler is specified
+             in the ROp, except we want to wrap that continuation with the
+             handler.
+
+             In theory, since we are reinstalling the handler, the environment
+             and context may have grown. But, static scoping tells us that
+             the handler should be reinvoked with the same environment
+               i.e.,
+                 h = handler
+                      op foo _ k =>  x   + let x = 42 in k ()
+                     end
+                 should not cause the rewrapping of k by h to cause
+                 the inner wrapping to capture the outer x with the
+                 inner binding x=42.
+
+             Since we don't permit shifting of continuations [for now, at
+             least], the context ctx' at the point where k' is invoked should
+             also be the same (extended) context ctx_h we had when the handler
+             began running.
+
+             More importantly, we want the val case of the handler to run
+             in the same context where the handler was originally installed.
+             If the rewrapped handler catches an exception, it will
+             reconstruct the extended ctx_h from ctx + an appropriate delta.
+
+             The tricky bit is that the continuation k returns a value
+             well-formed in *ctx* (not ctx_h where the handler was running).
+           *)
+          let k' env' ctx' u =
+            (* We expect ctx_h = ctx', but for now we're simplifying by
+               checking only the names *)
+            if (Context.names ctx_h <> Context.names ctx') then
+              begin
+                Context.print ~label:"ctx_h" ctx_h;
+                Context.print ~label:"ctx'" ctx';
+                failwith "assertion failure: these contexts should be identical"
+              end
+            else
+              hfun env ctx
+                 (sequence
+                   (* Even though k resumes in an extended context ctx',
+                      it will eventually bind all the extra variables, and return
+                      a final result in context ctx. The handler thinks it's
+                      always running in the extended context ctx_h, though, so we
+                      fix this by weakening the result of k from context ctx to
+                      ctx_h = ctx+delta, i.e., by shifting by delta.
+                    *)
+                   (fun v ->
+                       I.RVal (I.shiftv 0 (List.length (Context.names delta)) v))
+                   (k eta ctx' u))  in
+
+          (* Continuation function [k'] as a TT run-time value *)
+          let k'val = I.mkVCont ctx delta (k',env) in
+
+
           let rec loop = function
             | [] ->
-                (Print.debug "No matching case found for body %s@." (Position.to_string loc);
+                (Print.debug "No matching case found for body at position %s@." (Position.to_string loc);
+                (*Context.print ~label:"ctx" ctx;*)
+                (*Context.print ~label:"delta" delta;*)
                 I.ROp(opi, delta, v, (k',env)))
+
             | (op, pat, kvar, c)::rest when op = opi ->
                 begin
                   try
-                    Print.debug "Found matching case %s. Creating VCont with env =
-                      %s" op (string_of_env ctx env);
-                    let kval = I.mkVCont ctx delta (k',env) in
-                    let ctx_h = Context.append ctx delta  in
+                    (* The handler's tag is correct, but don't report a true match
+                     * unless that pattern-matching goes through as well.
+                     *)
                     let env_h = insert_matched ctx_h env (v,pat) in
-                    let env_h = insert_ttvar kvar kval ctx_h env_h  in
-                    match run ctx_h env_h c with
-                      | I.RVal v' ->
+
+                    (* We found a match *)
+                    Print.debug "Found matching case %s. Creating VCont with env = %s." op (string_of_env ctx env);
+                    (*Context.print ~label:"ctx" ctx;*)
+                    (*Context.print ~label:"delta" delta;*)
+
+                    (* Add the continuation to the handler's environment env_h *)
+                    let env_h = insert_ttvar kvar k'val ctx_h env_h  in
+
+                    (* We want to run the handler body *including the
+                      continuation of the original operation* (if the handler
+                      actually invokes the continuation, that is).  As soon as
+                      that resolves to a value [v'] (possibly because of outer
+                      handlers), we want to check that the value makes sense.
+                      Specifically, the handler was running in extended context
+                      ctx_h = ctx ++ delta. We want the result to make sense in
+                      context ctx, where this handler was installed.
+
+                      If it does, there should be no references in the value [v']
+                      to variables in delta, and hence we safely strengthen [v']
+                      from ctx_h to ctx by shifting indices down by the length
+                      of delta.
+                    *)
+                    sequence ~prependctx:delta
+                     (fun v' ->
+                          Print.debug "Eval_handler on %s computed value %s@." opi (I.string_of_value ctx_h v');
+                          (*Context.print ~label:"ctx" ctx;*)
+                          (*Context.print ~label:"delta" delta;*)
                           let unshift_amount = - (List.length (Context.names delta)) in
-                          if vok env v' then
+                          Print.debug "unshift_amount = %d@." unshift_amount;
+                          if vok ctx v' then
                             I.RVal (I.shiftv 0 unshift_amount v')
                           else
-                            Error.runtime ~loc "Handler returned value with too many variables"
-                      | I.ROp(opj, delta', e', k') ->
-                          I.ROp(opj, Context.append delta delta', e', k')
+                            Error.runtime ~loc "Handler returned value with too
+                            many variables")
+                     (run ctx_h env_h c)
                   with
-                    NoPatternMatch -> loop rest
+                    NoPatternMatch ->
+                      (* tag matched but pattern didn't; try the remaining handlers *)
+                      loop rest
                 end
-            | _ :: rest -> loop rest in
+            | _ :: rest ->
+                (* tag didn't match; try the remaining handlers. *)
+                loop rest in
           loop opH
         end
     in
@@ -279,19 +521,6 @@ and eval_handler loc {I.valH; I.opH; I.finH} =
          end
 
 
-and sequence ?withdelta k = function
-  | I.RVal v -> k v
-  | I.ROp(tag,delta,v,(k',eta)) ->
-      begin
-        let k'' env ctx u = sequence k (k' env ctx u)  in
-        match withdelta with
-        | None -> I.ROp(tag,delta,v,(k'',eta))
-        | Some (x,t) ->
-            let ctx0 = Context.add_var x t Context.empty in
-            I.ROp(tag, Context.append ctx0 delta, v, (k'',eta))
-      end
-
-
 
 (*************************)
 (* Running a Computation *)
@@ -301,6 +530,7 @@ and sequence ?withdelta k = function
 and run ctx env  (comp, loc) =
   Print.debug "run: %s\n%s" (I.string_of_computation ctx (comp,loc))
   (string_of_env ctx env);
+  (*Context.print ~label:"run ctx" ctx;*)
 
   match comp with
 
@@ -325,6 +555,7 @@ and run ctx env  (comp, loc) =
         | I.VCont(gamma,delta,(k,eta)), _ ->
             (* eval-kapp *)
             Print.debug "Applying vcont. env = %s@." (string_of_env ctx env);
+            (*Context.print ~label:"ctx" ctx;*)
             if (List.length (Context.names ctx) =
                 List.length (Context.names gamma) + List.length (Context.names delta)) then
               (* XXX: Should actually check that types match too... *)
@@ -342,7 +573,7 @@ and run ctx env  (comp, loc) =
               | Syntax.Prod(x,t,u), _ ->
                   begin
                     let t2 = Typing.type_of ctx b2 in
-                    sequence
+                    sequence ~label:"App"
                       (function
                         | I.VInj(1, (I.VTuple ws, _)), _ ->
                             let ctx' = extend_context_with_witnesses ctx ws in
@@ -365,7 +596,8 @@ and run ctx env  (comp, loc) =
   | I.Let(pat,c1,c2) ->
       begin
         let r = run ctx env c1  in
-        sequence (fun v ->
+        sequence ~label:"Let"
+                 (fun v ->
                     let env' =
                       (try insert_matched ctx env (v,pat)
                        with
@@ -373,26 +605,6 @@ and run ctx env  (comp, loc) =
                            Error.runtime ~loc "let pattern-match failed") in
                     run ctx env' c2) r
       end
-
-(*
-  | I.LetRec(defs,c2) ->
-      let env =
-        let env' = ref env in
-        let env = List.fold_right
-          (fun (f, (x,c)) env ->
-             let g = I.VFun((fun env ctx v -> run ctx (insert_ttvar x v ctx env) c), env ), loc
-
-             V.Closure (fun v -> ceval (extend p v !env') c) in
-             insert_ttvar f g env)
-          defs env in
-        env' := env;
-        env
-
-      begin
-        let r = run ctx env c1  in
-        sequence (fun v -> run ctx (insert_ttvar x v ctx env) c2) r
-      end
-      *)
 
     | I.Match(e, arms) ->
         let v = eval ctx env e  in
@@ -434,23 +646,39 @@ and run ctx env  (comp, loc) =
     | I.MkLam (x1, e2, c3) ->
         begin
           let domain =
-          match eval ctx env e2 with
-            | I.VType t2, _ -> t2
-            | I.VTerm b, _ ->
-                 begin
-                   let t = Typing.type_of ctx b  in
-                   match Equal.as_universe ctx t with
-                   | Some alpha -> Syntax.El(alpha, b), snd e2
-                   | None -> Error.runtime ~loc
-                              "Bad type annotation in lambda.@ Why does %t belong to a universe?"
-                              (print_term ctx b)
-                 end
-            | v2 -> Error.runtime ~loc "Bad type annotation in lambda; found %s"
-                         (I.string_of_value ~brief:false ctx v2)   in
+            match eval ctx env e2 with
+              | I.VType t2, _ -> t2
+              | I.VTerm b, _ ->
+                   begin
+                     let t = Typing.type_of ctx b  in
+                     match Equal.as_universe ctx t with
+                     | Some alpha -> Syntax.El(alpha, b), snd e2
+                     | None -> Error.runtime ~loc
+                                "Bad type annotation in lambda.@ Why does %t belong to a universe?"
+                                (print_term ctx b)
+                   end
+              | v2 -> Error.runtime ~loc "Bad type annotation in lambda; found %s"
+                           (I.string_of_value ~brief:false ctx v2)   in
+
+          let _ = Print.debug "MkLam: domain = %t@." (print_ty ctx domain)  in
 
           let ctx' = Context.add_var x1 domain ctx  in
           let r3 = run ctx' env c3  in
-          sequence ~withdelta:(x1,domain) (fun v3 -> I.RVal (abstract ctx' x1 domain v3)) r3
+
+          (*let domain' = Syntax.weaken_ty 0 domain  in*)  (* Why does t.tt want me to abstract here? *)
+
+          (* r3 is the result of running the body. Once that has resolved to
+             value, we want to abstract it as "lambda x1:domain, ..."
+
+             But r3 was running in the extended context ctx'...
+
+          *)
+          sequence ~prependctx:(Context.add_var x1 domain Context.empty) ~label:"MkLam"
+            (fun v3 -> (Print.debug "At the point where we actually abstract the lambda@.";
+                        (*Context.print ~label:"ctx" ctx;*)
+                        Print.debug "and the abstracting type domain = %t"
+                            (print_ty ctx domain);
+                        I.RVal (abstract ctx' x1 domain v3))) r3
         end
 
     | I.Check(t1, t2, e, c) ->
@@ -472,7 +700,7 @@ and run ctx env  (comp, loc) =
           | (I.VTerm b, _), (I.VType t, _) ->
               begin
                 let u = Typing.type_of ctx b  in
-                sequence
+                sequence ~label:"Ascribe"
                   (function
                     | I.VInj(1, (I.VTuple ws, _)), _ ->
                         let ctx' = extend_context_with_witnesses ctx ws in
@@ -552,6 +780,10 @@ let toplevel_handler =
   }
 
 let rec toprun ctx env c =
-  let c' = I.mkWithHandle (I.mkHandler toplevel_handler) c in
+  let c' =
+    if !wrap then
+      I.mkWithHandle (I.mkHandler toplevel_handler) c
+    else
+      c in
   run ctx env c'
 

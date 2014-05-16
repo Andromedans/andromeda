@@ -28,4 +28,9 @@ val equations : t -> hint list
 
 val append : t -> t -> t
 
-val print : t -> unit
+val print : ?label:string -> t -> unit
+
+val pop_var : t -> t
+
+val pop_vars: int -> t -> t
+

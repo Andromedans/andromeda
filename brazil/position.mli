@@ -14,3 +14,6 @@ val of_lex : Lexing.lexbuf -> t
 (** Convert position to a string. *)
 val to_string : ?full:bool -> t -> string
 
+(** Convert back to a pair of lexer positions *)
+val get_range : t -> Lexing.position * Lexing.position
+
