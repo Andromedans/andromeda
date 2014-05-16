@@ -190,54 +190,69 @@ let of_term k e = of_term' k 0 e
 
 let of_ty k t = of_ty' k 0 t
 
-(** Substitute terms for pattern variables in the given pattern. *)
+(** Substitute terms for pattern variables in the given pattern, coalescing resulting
+    types and terms that are free of pattern variables. *)
 let rec subst_ty inst k = function
 
-  | Ty t -> t
+  | Ty _ as t -> t
         
   | El (alpha, e) ->
     let e = subst_term inst k e in
-      Syntax.El (alpha, e), Position.nowhere
-            
+      begin match e with
+        | Term e -> Ty (Syntax.El (alpha, e), Position.nowhere)
+        | _ -> El (alpha, e)
+      end            
+
   | Prod (x, t1, t2) ->
     let t1 = subst_ty inst k t1
     and t2 = subst_ty inst (k+1) t2
     in
-      Syntax.Prod (x, t1, t2),
-      Position.nowhere
+      begin match t1, t2 with
+        | Ty t1, Ty t2 -> Ty (Syntax.Prod (x, t1, t2), Position.nowhere)
+        | _ -> Prod (x, t1, t2)
+      end
           
   | Paths (t, e1, e2) ->
     let t = subst_ty inst k t
     and e1 = subst_term inst k e1
     and e2 = subst_term inst k e2
     in
-      Syntax.Paths (t, e1, e2),
-      Position.nowhere
+      begin match t, e1, e2 with
+        | Ty t, Term e1, Term e2 -> Ty (Syntax.Paths (t, e1, e2), Position.nowhere)
+        | _ -> Paths (t, e1, e2)
+      end
           
   | Id (t, e1, e2) ->
     let t = subst_ty inst k t
     and e1 = subst_term inst k e1
     and e2 = subst_term inst k e2
     in
-      Syntax.Id (t, e1, e2),
-      Position.nowhere
+      begin match t, e1, e2 with
+        | Ty t, Term e1, Term e2 -> Ty (Syntax.Id (t, e1, e2), Position.nowhere)
+        | _ -> Id (t, e1, e2)
+      end
 
 and subst_term inst k = function
-  | Term e -> e
+  | Term _ as pe -> pe
     
-  | PVar i ->
-    (* will raise [Not_found] if the [PVar i] is not unbound by [inst] *)
-    let e = List.assoc i inst
-    in
-      Syntax.shift k e
+  | (PVar i) as pe ->
+    begin try
+      let e = List.assoc i inst in
+      let e = Syntax.shift k e in
+        Term e
+      with
+        | Not_found -> pe
+    end
 
   | Lambda (x, t1, t2, e) ->
     let t1 = subst_ty inst k t1
     and t2 = subst_ty inst (k+1) t2
     and e = subst_term inst (k+1) e
     in
-      Syntax.Lambda (x, t1, t2, e),
-      Position.nowhere
+      begin match t1, t2, e with
+        | Ty t1, Ty t2, Term e -> Term (Syntax.Lambda (x, t1, t2, e), Position.nowhere)
+        | _ -> Lambda (x, t1, t2, e)
+      end
 
   | App ((x, t1, t2), e1, e2) ->
     let t1 = subst_ty inst k t1
@@ -245,15 +260,20 @@ and subst_term inst k = function
     and e1 = subst_term inst k e1
     and e2 = subst_term inst k e2
     in
-      Syntax.App ((x, t1, t2), e1, e2),
-      Position.nowhere
+      begin match t1, t2, e1, e2 with
+        | Ty t1, Ty t2, Term e1, Term e2 ->
+          Term (Syntax.App ((x, t1, t2), e1, e2), Position.nowhere)
+        | _ -> App ((x, t1, t2), e1, e2)
+      end
 
   | Idpath (t, e) ->
     let t = subst_ty inst k t
     and e = subst_term inst k e
     in
-      Syntax.Idpath (t, e),
-      Position.nowhere
+      begin match t, e with
+        | Ty t, Term e -> Term (Syntax.Idpath (t, e), Position.nowhere)
+        | _ -> Idpath (t, e)
+      end
 
   | J (t, (x, y, p, u), (z, e1), e2, e3, e4) ->
     let t = subst_ty inst k t
@@ -263,44 +283,60 @@ and subst_term inst k = function
     and e3 = subst_term inst k e3
     and e4 = subst_term inst k e4
     in
-      Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4),
-      Position.nowhere
+      begin match t, u, e1, e2, e3, e4 with
+        | Ty t, Ty u, Term e1, Term e2, Term e3, Term e4 ->
+          Term (Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4), Position.nowhere)
+        | _ -> J (t, (x, y, p, u), (z, e1), e2, e3, e4)
+      end
 
   | Refl (t, e) ->
     let t = subst_ty inst k t
     and e = subst_term inst k e
     in
-      Syntax.Refl (t, e),
-      Position.nowhere
+      begin match t, e with
+        | Ty t, Term e -> Term (Syntax.Refl (t, e), Position.nowhere)
+        | _ -> Refl (t, e)
+      end
 
   | Coerce (alpha, beta, e) ->
     let e = subst_term inst k e
     in
-      Syntax.Coerce (alpha, beta, e),
-      Position.nowhere
+      begin match e with
+        | Term e -> Term (Syntax.Coerce (alpha, beta, e), Position.nowhere)
+        | _ -> Coerce (alpha, beta, e)
+      end
 
   | NameProd (alpha, beta, x, e1, e2) ->
     let e1 = subst_term inst k e1
     and e2 = subst_term inst (k+1) e2
     in
-      Syntax.NameProd (alpha, beta, x, e1, e2),
-      Position.nowhere
+      begin match e1, e2 with
+        | Term e1, Term e2 ->
+          Term (Syntax.NameProd (alpha, beta, x, e1, e2), Position.nowhere)
+        | _ -> NameProd (alpha, beta, x, e1, e2)
+      end
 
   | NamePaths (alpha, e1, e2, e3) ->
     let e1 = subst_term inst k e1
     and e2 = subst_term inst k e2
     and e3 = subst_term inst k e3
     in
-      Syntax.NamePaths (alpha, e1, e2, e3),
-      Position.nowhere
+      begin match e1, e2, e3 with
+        | Term e1, Term e2, Term e3 ->
+          Term (Syntax.NamePaths (alpha, e1, e2, e3), Position.nowhere)
+        | _ -> NamePaths (alpha, e1, e2, e3)
+      end
 
   | NameId (alpha, e1, e2, e3) ->
     let e1 = subst_term inst k e1
     and e2 = subst_term inst k e2
     and e3 = subst_term inst k e3
     in
-      Syntax.NameId (alpha, e1, e2, e3),
-      Position.nowhere
+      begin match e1, e2, e3 with
+        | Term e1, Term e2, Term e3 ->
+          Term (Syntax.NameId (alpha, e1, e2, e3), Position.nowhere)
+        | _ -> NameId (alpha, e1, e2, e3)
+      end
 
 let rec shift_ty k l = function
 

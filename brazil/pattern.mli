@@ -28,4 +28,6 @@ val shift_ty : int -> int -> ty -> ty
 
 val shift : int -> int -> term -> term
 
-val subst_term : (int * Syntax.term) list -> int -> term -> Syntax.term
+val subst_term : (int * Syntax.term) list -> int -> term -> term
+
+val subst_ty : (int * Syntax.term) list -> int -> ty -> ty

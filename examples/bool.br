@@ -16,18 +16,18 @@ Parameter bool_ind_true :
 
 Definition cond := fun (A : Type) => bool_ind (fun (_ : bool) => A).
 
+Rewrite bool_ind_false.
+Rewrite bool_ind_true.
+
+
+
 Definition cond_true :=
   fun (A : Type) (x : A) (y : A) =>
-    rewrite bool_ind_true (fun _ : bool => A) in
-    (refl x :: cond A true x y == x).
+    (refl x :: bool_ind (fun _ : bool => A) true x y == x).
 
 Definition cond_false :=
   fun (A : Type) (x : A) (y : A) =>
-    rewrite bool_ind_false (fun _ : bool => A) in
-    (refl y :: cond A false x y == y).
-
-Rewrite cond_true.
-Rewrite cond_false.
+    (refl y :: bool_ind (fun _ : bool => A) false x y == y).
 
 Definition or := fun (a b : bool) => cond bool a true b.
 Definition and := fun (a b : bool) => cond bool a b false.
