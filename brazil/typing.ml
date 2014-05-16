@@ -263,7 +263,7 @@ and is_type ctx (ty, loc) =
             match Equal.as_universe ctx t with
               | Some alpha -> Syntax.El (alpha, e)
               | None ->
-                Error.typing ~loc "tis expression should be a type but it has type@ %t"
+                Error.typing ~loc "this expression should be a type but it has type@ %t"
                   (print_ty ctx t)
         end
 
@@ -320,4 +320,3 @@ and wf_type_is_fibered (ty', _) =
   | Syntax.Unit -> true
   | Syntax.Paths _ -> true
   | Syntax.Id _ -> false
-
