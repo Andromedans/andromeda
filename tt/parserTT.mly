@@ -27,9 +27,10 @@
 %token DEFINE
 %token END
 %token EOF
-%token EVAL
 %token EQ
 %token EQEQ
+%token EVAL
+%token EXPLODE
 %token FINALLY
 %token FORALL
 %token FUN
@@ -146,6 +147,7 @@ plain_exp1:
     | BRAZILTERM       { BrazilTermCode $1 }
     | BRAZILTYPE       { BrazilTypeCode $1 }
     | GETCTX           { Prim(GetCtx, []) }
+    | EXPLODE exp1     { Prim(Explode, [$2]) }
 
 (* Only know the ending when we see it *)
 comp0: mark_position(plain_comp0) { $1 }

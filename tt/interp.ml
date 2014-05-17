@@ -167,6 +167,11 @@ let rec insert_matched ctx env (v,pat) =
   | I.VTerm (Syntax.NameId(_,_,b1,b2),loc), I.PJuEqual(pat1, pat2) ->
       List.fold_left (insert_matched ctx) env [I.mkVTerm ~loc b1,pat1; I.mkVTerm ~loc b2,pat2]
 
+
+  | I.VType ((Syntax.Prod(x,t1,t2),loc) as t), I.PProd(pat1, pat2) ->
+      insert_matched ctx (insert_matched ctx env (I.mkVType ~loc:(snd t1) t1, pat1))
+             (I.mkVFakeTypeFamily ~loc 1 t, pat2)
+
   | I.VTerm (Syntax.NameProd(alpha,beta,x,b1,b2),loc), I.PProd(pat1,pat2) ->
       insert_matched ctx (insert_matched ctx env (I.mkVTerm ~loc b1, pat1))
              (I.mkVTerm ~loc
@@ -311,8 +316,83 @@ and eval_prim ctx env loc op vs =
         (Context.print ~label:"getctx" ctx;
         I.mkVConst ~loc (I.Int (List.length (Context.names ctx))))
 
+    | I.Explode, [v] -> eval_explode ctx env loc v
+
     | _, _ -> Error.runtime ~loc "Primitive %s cannot handle argument list %s"
                                      (I.string_of_primop op) (I.string_of_value ctx (I.mkVTuple vs))
+
+and eval_explode ctx env loc value =
+
+  let mkstr s = I.mkVConst (I.String s)  in
+
+  let do_u u = mkstr (Universe.to_string u)  in
+
+  let rec do_type ((ty',loc) as ty) =
+    let components =
+        match ty' with
+        | Syntax.Universe u -> [mkstr "Universe"; do_u u]
+        | Syntax.El(u,e) -> [mkstr "El"; do_u u; I.mkVTerm e]
+        | Syntax.Unit -> [mkstr "Unit"]
+        | Syntax.Prod(x1,t2,_) -> [mkstr "Prod"; I.mkVType t2; I.mkVFakeTypeFamily ~loc 1 ty]
+        | Syntax.Paths(t1,e2,e3) -> [mkstr "Paths"; I.mkVType t1; I.mkVTerm e2; I.mkVTerm e3]
+        | Syntax.Id(t1,e2,e3) -> [mkstr "Id"; I.mkVType t1; I.mkVTerm e2; I.mkVTerm e3]
+    in
+       I.mkVTuple ~loc components
+
+   and do_term ((term',_) as term) =
+    let components =
+        match term' with
+        | Syntax.Var v -> [mkstr "Var"; I.mkVTerm term]
+        | Syntax.Equation(e1,t2,e3) ->
+            [mkstr "Equation"; I.mkVTerm e1; I.mkVType t2; I.mkVTerm e3]
+        | Syntax.Rewrite(e1,t2,e3) ->
+            [mkstr "Rewrite"; I.mkVTerm e1; I.mkVType t2; I.mkVTerm e3]
+        | Syntax.Ascribe(e1,t2) ->
+            [mkstr "Ascribe"; I.mkVTerm e1; I.mkVType t2]
+        | Syntax.Lambda(x1,t2,t3,e4) ->
+            [mkstr "Lambda"; mkstr x1; I.mkVType t2; I.mkVType t3; I.mkVTerm e4]
+        | Syntax.App((_,t2,t3),e4,e5) ->
+            [mkstr "App"; I.mkVType t2; I.mkVType t3; I.mkVTerm e4; I.mkVTerm e5]
+        | Syntax.UnitTerm -> [mkstr "UnitTerm"]
+        | Syntax.Idpath(t1,e2) -> [mkstr "Idpath"; I.mkVType t1; I.mkVTerm e2]
+        | Syntax.J(t1,(x2,x3,x4,t5),(x6,e7),e8,e9,e10) ->
+            let e7_as_lambda =
+              (Syntax.Lambda(x6, t1,
+                             Typing.type_of (Context.add_var x6 t1 ctx) e7,
+                             e7), Position.nowhere)  in
+            let t5_as_3_pis =
+              (Syntax.Prod(x2, t1,
+                 (Syntax.Prod(x3, Syntax.shift_ty 1 t1,
+                    (Syntax.Prod(x3, (Syntax.Paths(Syntax.shift_ty 2 t1,
+                                                (Syntax.Var 1, Position.nowhere),
+                                                (Syntax.Var 0, Position.nowhere)), Position.nowhere),
+                               t5), Position.nowhere)), Position.nowhere)), Position.nowhere)  in
+
+            [mkstr "J"; I.mkVType t1;
+             I.mkVFakeTypeFamily 3 t5_as_3_pis;
+             I.mkVTerm e7_as_lambda;
+             I.mkVTerm e8; I.mkVTerm e9; I.mkVTerm e10]
+        | Syntax.Refl(t1,e2) -> [mkstr "Refl"; I.mkVType t1; I.mkVTerm e2]
+        | Syntax.Coerce (u1,u2,e3) ->
+            [mkstr "Coerce"; do_u u1; do_u u2; I.mkVTerm e3]
+        | Syntax.NameUnit -> [mkstr "NameUnit"]
+        | Syntax.NameProd(u1,u2,x3,e4,e5) ->
+            [mkstr "NameProd"; do_u u1; do_u u2; mkstr x3; I.mkVTerm e4; I.mkVTerm e5]
+        | Syntax.NameUniverse u ->
+            [mkstr "NameUniverse"; do_u u]
+        | Syntax.NamePaths(u1,e2,e3,e4) ->
+            [mkstr "NamePaths"; do_u u1; I.mkVTerm e2; I.mkVTerm e3; I.mkVTerm e4]
+        | Syntax.NameId(u1,e2,e3,e4) ->
+            [mkstr "NameId"; do_u u1; I.mkVTerm e2; I.mkVTerm e3; I.mkVTerm e4]
+    in
+       I.mkVTuple ~loc components  in
+
+    match fst value with
+    | I.VType t -> do_type t
+    | I.VTerm b -> do_term b
+    | _ -> Error.runtime ~loc "Can't explode %s@." (I.string_of_value ctx value)
+
+
 
 
 
@@ -576,13 +656,13 @@ and run ctx env  (comp, loc) =
               | Syntax.Prod(x,t,u), _ ->
                   begin
                     let t2 = Typing.type_of ctx b2 in
-                    sequence ~label:"App"
+                    sequence ~label:"App(Term)"
                       (function
                         | I.VInj(1, (I.VTuple ws, _)), _ ->
                             let ctx' = extend_context_with_witnesses ctx ws in
                             if Equal.equal_ty ctx' t t2 then
-                              (* XXX Add the witnesses to the term!!! *)
-                              I.RVal (I.mkVTerm (Syntax.App((x,t,u),b1,b2), loc))
+                              I.RVal (I.mkVTerm (wrap_syntax_with_witnesses ctx
+                                                    (Syntax.App((x,t,u),b1,b2), loc) ws))
                             else
                               Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
                         | v' ->  Error.runtime ~loc "Bad mkApp. Why is@ %t@ == %t ? (%s)"
@@ -591,6 +671,33 @@ and run ctx env  (comp, loc) =
                       (equiv_ty ctx env t t2)
                   end
               | _ -> Error.runtime ~loc "Can't prove operator in application is a product"
+            end
+
+        | I.VFakeTypeFamily (n,t1), I.VTerm b2 ->
+            begin
+              match t1 with
+              | Syntax.Prod(x,t,u), _ ->
+                  begin
+                    let t2 = Typing.type_of ctx b2 in
+                    sequence ~label:"App(TypeFamily)"
+                      (function
+                        | I.VInj(1, (I.VTuple ws, _)), _ ->
+                            let ctx' = extend_context_with_witnesses ctx ws in
+                            if Equal.equal_ty ctx' t t2 then
+                              let t1' = Syntax.beta_ty u
+                                          (wrap_syntax_with_witnesses ctx b2 ws) in
+                              if (n = 1) then
+                                I.RVal (I.mkVType t1')
+                              else
+                                I.RVal (I.mkVFakeTypeFamily (n-1) t1')
+                            else
+                              Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
+                        | v' ->  Error.runtime ~loc "Bad mkApp. Why is@ %t@ == %t ? (%s)"
+                                 (print_ty ctx t) (print_ty ctx t2) (I.string_of_value ctx v')
+                      )
+                      (equiv_ty ctx env t t2)
+                  end
+              | _ -> Error.runtime ~loc "Can't prove operator is a type family"
             end
 
         | _, _ -> Error.runtime ~loc "Bad application"

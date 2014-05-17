@@ -33,6 +33,7 @@ type primop =
   | Neq
   | Whnf
   | GetCtx
+  | Explode
 
 type environment = (value * int) StringMap.t
 
@@ -47,6 +48,7 @@ and value' =
   | VInj     of int * value
   | VTerm   of Syntax.term
   | VType   of Syntax.ty
+  | VFakeTypeFamily of int * Syntax.ty (* An n-ary Pi we are pretending is an n-ary lambda *)
 
 and exp = exp' * Position.t
 and exp' =
@@ -96,7 +98,7 @@ and pattern =
 
   | PJuEqual of pattern * pattern
   | PProd of pattern * pattern
-  | PProdFull of pattern * pattern * pattern * pattern
+  | PProdFull of pattern * pattern * pattern * pattern   (* Prod T1:U2. T3:U4 *)
   (*| App of pattern * pattern*)
 
 and result =
@@ -136,9 +138,10 @@ let mkVCont ?(loc=Position.nowhere) g d k = VCont (g,d,k), loc
 let mkVConst ?(loc=Position.nowhere) a = VConst a, loc
 let mkVHandler ?(loc=Position.nowhere) f eta = VHandler (f,eta), loc
 let mkVInj ?(loc=Position.nowhere) i v = VInj(i,v), loc
-let mkVTerm ?(loc=Position.nowhere) term = VTerm term, loc
+let mkVTerm ?loc ((_,loc') as term) = VTerm term, (match loc with None -> loc' | Some l -> l)
 let mkVTuple ?(loc=Position.nowhere) es = VTuple es, loc
-let mkVType ?(loc=Position.nowhere) ty = VType ty, loc
+let mkVType ?loc ((_,loc') as ty) = VType ty, (match loc with None -> loc' | Some l -> l)
+let mkVFakeTypeFamily ?(loc=Position.nowhere) n1 t2 = VFakeTypeFamily (n1,t2), loc
 
 
 
@@ -159,6 +162,7 @@ let string_of_primop = function
   | Neq -> "Neq"
   | Whnf -> "Whnf"
   | GetCtx -> "GetCtx"
+  | Explode -> "Explode"
 
 let rec string_of_exp ctx (exp, _loc) =
   let recur = string_of_exp ctx  in
@@ -216,6 +220,9 @@ and string_of_value ?(brief=true) ctx (value, _loc) =
   | VTerm b -> tag "VTerm" [string_of_term ctx b]
   | VType t when brief -> string_of_ty ctx t
   | VType t -> tag "VType" [string_of_ty ctx t]
+  | VFakeTypeFamily (n1,t2) ->
+      tag "VFakeTypeFamily" [string_of_int n1; string_of_ty ctx t2]
+
 
 
 and string_of_cont ctx k =
@@ -295,8 +302,10 @@ and shiftv cut delta (value, loc) =
   | VConst _ -> value
   | VInj (i,v) -> VInj(i, recurv v)
   | VTerm b -> VTerm (Syntax.shift ~bound:cut delta b)
-  | VType t -> VType (Syntax.shift_ty ~bound:cut delta t)),
-  loc)
+  | VType t -> VType (Syntax.shift_ty ~bound:cut delta t)
+  | VFakeTypeFamily (n1,t2) ->
+      VFakeTypeFamily(n1, Syntax.shift_ty ~bound:cut delta t2)
+  ), loc)
 
 and shift_computation cut delta (comp, loc) =
   if delta = 0 then (comp,loc) else
@@ -345,6 +354,10 @@ let rec eqvalue value1 value2 =
   | VInj (i1,v1), VInj(i2,v2) -> i1 = i2 && eqvalue v1 v2
   | VTerm b1, VTerm b2 -> Syntax.equal b1 b2
   | VType t1, VType t2 -> Syntax.equal_ty t1 t2
+  | VFakeTypeFamily (n1,t2), VFakeTypeFamily(n3,t4) ->
+      n1 = n3 && Syntax.equal_ty t2 t4
   | (VFun _ | VHandler _ | VCont _ | VTuple _ | VConst _ |
-     VInj _ | VTerm _ | VType _), _ -> false
+     VInj _ | VTerm _ | VType _ | VFakeTypeFamily _), _ ->
+       (* pointer equality *)
+       (fst value1 == fst value2)
 

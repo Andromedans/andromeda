@@ -2,10 +2,12 @@ let NONE := val inj 0 ()
 let SOME := val fun Y => val inj 1 Y
 
 let equiv := val fun equiv(X) => 
-  let _ = op print ["equiv",X]  in
+  let [e1,e2,t] = val X in
+  let _ = op print ["equiv",explode e1, explode e2, explode t]  in
 
   let fun eqspine (Y) =
-    let _ = op print ["eqspine",Y] in
+    let [e1,e2] = val Y in
+    let _ = op print ["eqspine", explode e1, explode e2] in
     match Y with
     | [e1,e2] when (e1 = e2) => 
         let _ = op print "alpha-equivalent"  in
@@ -47,7 +49,7 @@ let equiv := val fun equiv(X) =>
      | true => SOME []
      | false => 
          let t2 = val whnf t  in
-         let _ = op print ["t2 = ", t2]  in
+         let _ = op print ["t2 = ", explode t2]  in
 
          match t2 with
          | _ == _  => SOME []

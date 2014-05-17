@@ -9,6 +9,7 @@
     ("define", DEFINE) ;
     ("end", END);
     ("eval", EVAL);
+    ("explode", EXPLODE);
     ("finally", FINALLY);
     ("forall", FORALL);
     ("fun", FUN);
