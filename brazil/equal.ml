@@ -237,25 +237,21 @@ and rewrite_term ctx e t =
 and equal_by_equation ctx t e1 e2 =
   Print.debug "equal_by_equation: %t and %t at %t"
     (print_term ctx e1) (print_term ctx e2) (print_ty ctx t) ;
-  let rec match_hint pt pe1 pe2 =
+  let match_hint pt pe1 pe2 =
     let inst = match_ty [] 0 ctx pt t in
     let inst = match_term inst 0 ctx pe1 e1 t in
     let inst = match_term inst 0 ctx pe2 e2 t in
-      begin match inst with
-        | [] ->
-          begin match pt, pe1, pe2 with
-            | Pattern.Ty t', Pattern.Term e1', Pattern.Term e2' ->
-              if Syntax.equal_ty t t' && Syntax.equal e1 e1' && Syntax.equal e2 e2'
-              then ()
-              else raise Mismatch
-            | _ -> raise Mismatch
-          end
-        | _ :: _ ->
-          let pt = Pattern.subst_ty inst 0 pt
-          and pe1 = Pattern.subst_term inst 0 pe1
-          and pe2 = Pattern.subst_term inst 0 pe2
-          in
-            match_hint pt pe1 pe2
+    let pt = Pattern.subst_ty inst 0 pt
+    and pe1 = Pattern.subst_term inst 0 pe1
+    and pe2 = Pattern.subst_term inst 0 pe2 in
+      begin match pt, pe1, pe2 with
+        | Pattern.Ty t', Pattern.Term e1', Pattern.Term e2' ->
+          if equal_ty' ~use:{use_eqs=false; use_rws=false} ctx t t' &&
+             equal_term ~use:{use_eqs=false; use_rws=false} ctx e1 e1' t &&
+             equal_term ~use:{use_eqs=false; use_rws=false} ctx e2 e2' t
+          then ()
+          else (Print.debug "final equal fail"; raise Mismatch)
+        | _ -> Print.debug "did not get terms" ; raise Mismatch
       end
   in
   let rec match_hints = function
