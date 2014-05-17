@@ -1,4 +1,4 @@
-OCAMLBUILD_FLAGS = -cflags -g,-annot,"-warn-error +a" -use-ocamlfind -pkgs delimcc
+OCAMLBUILD_FLAGS = -cflags -g,-annot,"-warn-error +a" 
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
