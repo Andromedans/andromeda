@@ -216,7 +216,7 @@ pat:
 toppat:
     | pat  { $1 }
     | pat WHEN exp1 { PWhen($1, $3) }
-    | LPAREN toppat RPAREN { $2 }
+    | LPAREN pat WHEN exp1 RPAREN { PWhen($2,$4) }
 
 handler:
     | HANDLER hcs=hcases END { hcs }
