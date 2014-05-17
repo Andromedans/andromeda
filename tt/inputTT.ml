@@ -35,6 +35,8 @@ type primop =
   | GetCtx
   | Explode
   | Universe
+  | NameOf
+  | TypeOf
 
 type environment = (value * int) StringMap.t
 
@@ -165,6 +167,8 @@ let string_of_primop = function
   | GetCtx -> "GetCtx"
   | Explode -> "Explode"
   | Universe -> "Universe"
+  | NameOf -> "NameOf"
+  | TypeOf -> "TypeOf"
 
 let rec string_of_exp ctx (exp, _loc) =
   let recur = string_of_exp ctx  in

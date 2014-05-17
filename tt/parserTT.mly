@@ -47,6 +47,7 @@
 %token LPAREN
 %token LTGT
 %token MATCH
+%token NAMEOF
 %token OP
 %token PLUS
 %token PLUSPLUS
@@ -56,6 +57,7 @@
 %token SEMISEMI
 %token STAR
 %token THEN
+%token TYPEOF
 %token UNDERSCORE
 %token UNIT
 %token UNIVERSE
@@ -153,6 +155,8 @@ plain_exp1:
     | GETCTX           { Prim(GetCtx, []) }
     | EXPLODE exp1     { Prim(Explode, [$2]) }
     | UNIVERSE exp1    { Prim(Universe, [$2]) }
+    | NAMEOF exp1      { Prim(NameOf, [$2]) }
+    | TYPEOF exp1      { Prim(TypeOf, [$2]) }
 
 (* Only know the ending when we see it *)
 comp0: mark_position(plain_comp0) { $1 }

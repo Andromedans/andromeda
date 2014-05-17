@@ -16,3 +16,9 @@ eval
 eval
    lambda A : t`Universe 0`,
      lambda x : t`A`, val `x`
+
+eval
+   val type_of `fun (b : unit) => b`
+
+eval
+   val name_of (type_of `fun (b : unit) => b`)

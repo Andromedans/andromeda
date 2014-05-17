@@ -325,6 +325,18 @@ and eval_prim ctx env loc op vs =
           | None -> Error.runtime ~loc "'%s' is not a valid universe" s
         end
 
+    | I.NameOf, [I.VType t, tloc] ->
+        begin
+          match Syntax.name_of t with
+          | Some (e,u) ->
+              I.mkVTuple [I.mkVTerm ~loc:tloc e;
+                          I.mkVConst ~loc:tloc (I.String (Universe.to_string u))]   (* universe strings? *)
+          | None -> Error.runtime ~loc "Type %s has no name" (I.string_of_ty ctx t)
+        end
+
+    | I.TypeOf, [I.VTerm b, bloc] ->
+        I.mkVType ~loc:bloc (Typing.type_of ctx b)
+
     | _, _ -> Error.runtime ~loc "Primitive %s cannot handle argument list %s"
                                      (I.string_of_primop op) (I.string_of_value ctx (I.mkVTuple vs))
 

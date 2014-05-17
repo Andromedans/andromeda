@@ -22,6 +22,8 @@
     ("lambda", LAMBDA) ;
     ("let", LET) ;
     ("match", MATCH);
+    ("name_of", NAMEOF);
+    ("type_of", TYPEOF);
     ("op", OP);
     ("then", THEN);
     ("universe", UNIVERSE);
