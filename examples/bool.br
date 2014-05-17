@@ -14,24 +14,28 @@ Parameter bool_ind_true :
   forall (P : bool -> Type) (x : P true)  (y : P false),
     bool_ind P true x y == x.
 
-Definition cond := fun (A : Type) => bool_ind (fun (_ : bool) => A).
+Definition cond := fun (A : Type) => bool_ind (fun (C : bool) => A).
 
-Rewrite bool_ind_false.
+
+(*
 Rewrite bool_ind_true.
-
-
-
-Definition cond_true :=
-  fun (A : Type) (x : A) (y : A) =>
-    (refl x :: bool_ind (fun _ : bool => A) true x y == x).
+Rewrite bool_ind_false.
+*)
 
 Definition cond_false :=
   fun (A : Type) (x : A) (y : A) =>
-    (refl y :: bool_ind (fun _ : bool => A) false x y == y).
+    rewrite bool_ind_false (fun _ : bool => A) in
+    (refl y :: bool_ind (fun U : bool => A) false x y == y).
+
+Definition cond_true :=
+  fun (A : Type) (x : A) (y : A) =>
+    rewrite bool_ind_true (fun _ : bool => A) in
+    (refl x :: bool_ind (fun V : bool => A) true x y == x).
 
 Definition or := fun (a b : bool) => cond bool a true b.
 Definition and := fun (a b : bool) => cond bool a b false.
 
 Definition test1 := 
   fun (A : Type) (a b : A) =>
-    (refl a :: (a == cond A (or false true) a b)).
+    rewrite cond_true A in
+    (refl a :: (a == cond A ((fun x : bool => x) true) a b)).
