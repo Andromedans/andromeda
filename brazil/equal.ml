@@ -198,12 +198,12 @@ and rewrite_term ctx e t =
   let match_hint pt pe1 pe2 =
 Print.debug "PHASE 1" ;
     (* match [pe1] against [e] and instantiate, ignore magenta *)
-    let inst = match_term ~ty:false [] 0 ctx pe1 e t in
+    let inst = match_term ~magenta:false [] 0 ctx pe1 e t in
     let pt = Pattern.subst_ty inst 0 pt
     and pe1 = Pattern.subst_term inst 0 pe1
     and pe2 = Pattern.subst_term inst 0 pe2 in
     (* match [pt] against [e] and instantiate *)
-    let inst = match_ty [] 0 ctx pt t in
+    let inst = match_ty ~magenta:true [] 0 ctx pt t in
     let pt = Pattern.subst_ty inst 0 pt
     and pe1 = Pattern.subst_term inst 0 pe1
     and pe2 = Pattern.subst_term inst 0 pe2 in
@@ -245,17 +245,17 @@ and equal_by_equation ctx t e1 e2 =
     (print_term ctx e1) (print_term ctx e2) (print_ty ctx t) ;
   let match_hint pt pe1 pe2 =
     (* match [pe1] against [e1] and instantiate, ignore magenta *)
-    let inst = match_term ~ty:false [] 0 ctx pe1 e1 t in
+    let inst = match_term ~magenta:false [] 0 ctx pe1 e1 t in
     let pt = Pattern.subst_ty inst 0 pt
     and pe1 = Pattern.subst_term inst 0 pe1
     and pe2 = Pattern.subst_term inst 0 pe2 in
     (* match [pe2] against [e2] and instantiate, ignore magenta *)
-    let inst = match_term ~ty:false [] 0 ctx pe2 e2 t in
+    let inst = match_term ~magenta:false [] 0 ctx pe2 e2 t in
     let pt = Pattern.subst_ty inst 0 pt
     and pe1 = Pattern.subst_term inst 0 pe1
     and pe2 = Pattern.subst_term inst 0 pe2 in
     (* match [pt] against [t] and instantiate *)
-    let inst = match_ty [] 0 ctx pt t in
+    let inst = match_ty ~magenta:true [] 0 ctx pt t in
     let pt = Pattern.subst_ty inst 0 pt
     and pe1 = Pattern.subst_term inst 0 pe1
     and pe2 = Pattern.subst_term inst 0 pe2 in
@@ -558,8 +558,11 @@ and as_hint' ~use_rws ctx (_, loc) t =
     (k, pt, pe1, pe2)
 
 (* Simple matching of a type pattern against a type. *)
-and match_ty inst l ctx pt ((t',loc) as t) =
-  let match_term = match_term ~ty:true in
+and match_ty ~magenta inst l ctx pt ((t',loc) as t) =
+  let match_term = match_term ~magenta
+  and match_magenta = if magenta then match_ty ~magenta else (fun inst _ _ _ _ -> inst)
+  and match_ty = match_ty ~magenta
+  in
   match pt with
 
     | Pattern.Ty u  ->
@@ -591,7 +594,7 @@ and match_ty inst l ctx pt ((t',loc) as t) =
       begin match as_paths' ~use_rws:false ctx t with
         | None -> raise Mismatch
         | Some (t, e1, e2) ->
-          let inst = match_ty inst l ctx pt t in
+          let inst = match_magenta inst l ctx pt t in
           let inst = match_term inst l ctx pe1 e1 t in
           let inst = match_term inst l ctx pe2 e2 t in
             inst
@@ -601,21 +604,22 @@ and match_ty inst l ctx pt ((t',loc) as t) =
       begin match as_id' ~use_rws:false ctx t with
         | None -> raise Mismatch
         | Some (t, e1, e2) ->
-          let inst = match_ty inst l ctx pt t in
+          let inst = match_magenta inst l ctx pt t in
           let inst = match_term inst l ctx pe1 e1 t in
           let inst = match_term inst l ctx pe2 e2 t in
             inst
       end
 
 (* Simple matching of a term pattern against a term. *)
-and match_term ~ty inst l ctx p e t =
-  let match_term = match_term ~ty
-  and match_ty = if ty then match_ty else (fun inst _ _ _ _ -> inst)
+and match_term ~magenta inst l ctx p e t =
+  let match_term = match_term ~magenta
+  and match_magenta = if magenta then match_ty ~magenta else (fun inst _ _ _ _ -> inst)
+  and match_ty = match_ty ~magenta
   in
   match p with
 
   | Pattern.Term e' -> 
-    if equal_term ~use:{use_eqs=false; use_rws=false} ctx e' e t
+    if equal_term ~use:{use_eqs=false; use_rws=true} ctx e' e t
     then inst
     else raise Mismatch
 
@@ -635,7 +639,7 @@ and match_term ~ty inst l ctx p e t =
       | Syntax.Lambda (x, t1, t2, e) ->
         let inst = match_ty inst l ctx pt1 t1 in
         let ctx' = Context.add_var x t1 ctx in
-        let inst = match_ty inst (l+1) ctx' pt2 t2 in
+        let inst = match_magenta inst (l+1) ctx' pt2 t2 in
         let inst = match_term inst (l+1) ctx' pe e t2 in
           inst
       | _ -> raise Mismatch
@@ -644,8 +648,8 @@ and match_term ~ty inst l ctx p e t =
   | Pattern.App ((_, pt1, pt2), pe1, pe2) ->
     begin match fst (whnf ~use_rws:false ctx t e) with
       | Syntax.App ((x, t1, t2), e1, e2) ->
-        let inst = match_ty inst l ctx pt1 t1 in
-        let inst = match_ty inst (l+1) (Context.add_var x t1 ctx) pt2 t2 in
+        let inst = match_magenta inst l ctx pt1 t1 in
+        let inst = match_magenta inst (l+1) (Context.add_var x t1 ctx) pt2 t2 in
         let inst = match_term inst l ctx pe1 e1 (Syntax.Prod (x, t1, t2), Position.nowhere) in
         let inst = match_term inst l ctx pe2 e2 t1 in
           inst
@@ -655,7 +659,7 @@ and match_term ~ty inst l ctx p e t =
   | Pattern.Idpath (pt, pe) ->
     begin match fst (whnf ~use_rws:false ctx t e) with
       | Syntax.Idpath (t, e) ->
-        let inst = match_ty inst l ctx pt t in
+        let inst = match_magenta inst l ctx pt t in
         let inst = match_term inst l ctx pe e t in
           inst
       | _ -> raise Mismatch
@@ -664,11 +668,12 @@ and match_term ~ty inst l ctx p e t =
   | Pattern.J (pt, (_,_,_,pu), (_,pe1), pe2, pe3, pe4) ->
     begin match fst (whnf ~use_rws:false ctx t e) with
       | Syntax.J (t, (x,y,p,u), (z,e1), e2, e3, e4) ->
-        let inst = match_ty inst l ctx pt t in
+        let inst = match_magenta inst l ctx pt t in
         let ctx_xyp, ctx_z = Context.for_J t x y p z ctx in
-        let inst = match_ty inst (l+3) ctx_xyp pt t in
+        let inst = match_ty inst (l+3) ctx_xyp pu u in
         let inst = match_term inst (l+1) ctx_z pe1 e1 t in
         let inst = match_term inst l ctx pe2 e2 t in
+        (* XXX strictly speaking, [e3] and [e4] are magenta, so we could skip them *)
         let inst = match_term inst l ctx pe3 e3 t in
         let inst = match_term inst l ctx pe4 e4 t in
           inst
@@ -678,7 +683,7 @@ and match_term ~ty inst l ctx p e t =
   | Pattern.Refl (pt, pe) ->
     begin match fst (whnf ~use_rws:false ctx t e) with
       | Syntax.Refl (t, e) ->
-        let inst = match_ty inst l ctx pt t in
+        let inst = match_magenta inst l ctx pt t in
         let inst = match_term inst l ctx pe e t in
           inst
       | _ -> raise Mismatch
