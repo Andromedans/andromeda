@@ -318,6 +318,13 @@ and eval_prim ctx env loc op vs =
 
     | I.Explode, [v] -> eval_explode ctx env loc v
 
+    | I.Universe, [I.VConst(I.String s), sloc] ->
+        begin
+          match Universe.of_string s with
+          | Some u -> I.mkVType (Syntax.Universe u, sloc)
+          | None -> Error.runtime ~loc "'%s' is not a valid universe" s
+        end
+
     | _, _ -> Error.runtime ~loc "Primitive %s cannot handle argument list %s"
                                      (I.string_of_primop op) (I.string_of_value ctx (I.mkVTuple vs))
 

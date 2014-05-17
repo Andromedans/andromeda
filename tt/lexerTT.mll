@@ -24,6 +24,7 @@
     ("match", MATCH);
     ("op", OP);
     ("then", THEN);
+    ("universe", UNIVERSE);
     ("val", VAL);
     ("when", WHEN) ;
     ("whnf", WHNF) ;

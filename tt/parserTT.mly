@@ -58,6 +58,7 @@
 %token THEN
 %token UNDERSCORE
 %token UNIT
+%token UNIVERSE
 %token VAL
 %token WHEN
 %token WHNF
@@ -151,6 +152,7 @@ plain_exp1:
     | BRAZILTYPE       { BrazilTypeCode $1 }
     | GETCTX           { Prim(GetCtx, []) }
     | EXPLODE exp1     { Prim(Explode, [$2]) }
+    | UNIVERSE exp1    { Prim(Universe, [$2]) }
 
 (* Only know the ending when we see it *)
 comp0: mark_position(plain_comp0) { $1 }

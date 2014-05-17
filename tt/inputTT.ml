@@ -34,6 +34,7 @@ type primop =
   | Whnf
   | GetCtx
   | Explode
+  | Universe
 
 type environment = (value * int) StringMap.t
 
@@ -163,6 +164,7 @@ let string_of_primop = function
   | Whnf -> "Whnf"
   | GetCtx -> "GetCtx"
   | Explode -> "Explode"
+  | Universe -> "Universe"
 
 let rec string_of_exp ctx (exp, _loc) =
   let recur = string_of_exp ctx  in
