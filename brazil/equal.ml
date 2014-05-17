@@ -193,11 +193,17 @@ and whnf ~use_rws ctx t ((e',loc) as e) =
    rewrite hints [hs]. After rewriting it re-runs weak head-normalization
    on the resulting term. *)
 and rewrite_term ctx e t =
-  Print.debug "rewrite_term: %t at %t"
+  Print.debug "rewrite_term:@ %t at@ %t"
     (print_term ctx e) (print_ty ctx t) ;
   let match_hint pt pe1 pe2 =
+Print.debug "PHASE 1" ;
+    (* match [pe1] against [e] and instantiate, ignore magenta *)
+    let inst = match_term ~ty:false [] 0 ctx pe1 e t in
+    let pt = Pattern.subst_ty inst 0 pt
+    and pe1 = Pattern.subst_term inst 0 pe1
+    and pe2 = Pattern.subst_term inst 0 pe2 in
+    (* match [pt] against [e] and instantiate *)
     let inst = match_ty [] 0 ctx pt t in
-    let inst = match_term inst 0 ctx pe1 e t in
     let pt = Pattern.subst_ty inst 0 pt
     and pe1 = Pattern.subst_term inst 0 pe1
     and pe2 = Pattern.subst_term inst 0 pe2 in
@@ -238,9 +244,18 @@ and equal_by_equation ctx t e1 e2 =
   Print.debug "equal_by_equation: %t and %t at %t"
     (print_term ctx e1) (print_term ctx e2) (print_ty ctx t) ;
   let match_hint pt pe1 pe2 =
+    (* match [pe1] against [e1] and instantiate, ignore magenta *)
+    let inst = match_term ~ty:false [] 0 ctx pe1 e1 t in
+    let pt = Pattern.subst_ty inst 0 pt
+    and pe1 = Pattern.subst_term inst 0 pe1
+    and pe2 = Pattern.subst_term inst 0 pe2 in
+    (* match [pe2] against [e2] and instantiate, ignore magenta *)
+    let inst = match_term ~ty:false [] 0 ctx pe2 e2 t in
+    let pt = Pattern.subst_ty inst 0 pt
+    and pe1 = Pattern.subst_term inst 0 pe1
+    and pe2 = Pattern.subst_term inst 0 pe2 in
+    (* match [pt] against [t] and instantiate *)
     let inst = match_ty [] 0 ctx pt t in
-    let inst = match_term inst 0 ctx pe1 e1 t in
-    let inst = match_term inst 0 ctx pe2 e2 t in
     let pt = Pattern.subst_ty inst 0 pt
     and pe1 = Pattern.subst_term inst 0 pe1
     and pe2 = Pattern.subst_term inst 0 pe2 in
@@ -544,6 +559,7 @@ and as_hint' ~use_rws ctx (_, loc) t =
 
 (* Simple matching of a type pattern against a type. *)
 and match_ty inst l ctx pt ((t',loc) as t) =
+  let match_term = match_term ~ty:true in
   match pt with
 
     | Pattern.Ty u  ->
@@ -591,8 +607,11 @@ and match_ty inst l ctx pt ((t',loc) as t) =
             inst
       end
 
-(* Simple matching of a term pattern against a term *)
-and match_term inst l ctx p e t =
+(* Simple matching of a term pattern against a term. *)
+and match_term ~ty inst l ctx p e t =
+  let match_term = match_term ~ty
+  and match_ty = if ty then match_ty else (fun inst _ _ _ _ -> inst)
+  in
   match p with
 
   | Pattern.Term e' -> 
