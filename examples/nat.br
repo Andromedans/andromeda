@@ -1,42 +1,78 @@
-define Set := Universe f0
-assume N : Set
-assume 0 : N
-assume S : N -> N
+Definition Type := Universe f0.
 
-assume N_ind :
-  forall (P : N -> Set),
+Parameter N : Type.
+Parameter 0 : N.
+Parameter S : N -> N.
+
+Parameter N_ind :
+  forall (P : N -> Type),
   P 0 ->
   (forall n : N, P n -> P (S n)) ->
-  forall (m : N), P m
+  forall (m : N), P m.
 
-assume N_ind_0 :
+Parameter N_ind_0 :
   forall 
-    (P : N -> Set) 
+    (P : N -> Type) 
     (z : P 0)
     (f : forall n : N, P n -> P (S n)),
-  N_ind P z f 0 == z
+  N_ind P z f 0 == z.
 
-assume N_ind_S :
+Parameter N_ind_S :
   forall 
-    (P : N -> Set) 
+    (P : N -> Type) 
     (z : P 0)
     (f : forall n : N, P n -> P (S n))
     (m : N),
-  N_ind P z f (S m) == f m (N_ind P z f m)
+  N_ind P z f (S m) == f m (N_ind P z f m).
 
-rewrite N_ind_0
-rewrite N_ind_S
+Rewrite N_ind_0.
+Rewrite N_ind_S.
 
-define plus :=
-  N_ind
-    (fun _ : N => N -> N)
+Definition N_rec :=
+  fun (A : Type) (x : A) (f : N -> A -> A) =>
+    N_ind (fun (_ : N) => A) x f.
+    
+Definition plus :=
+  N_rec (N -> N)
     (fun n : N => n) 
-    (fun (n : N) (f : N -> N) (m : N) => S (f m))
+    (fun (_ : N) (f : N -> N) (m : N) => S (f m)).
 
-#context
+Definition mult :=
+  N_rec (N -> N)
+    (fun n : N => 0)
+    (fun (_ : N) (f : N -> N) (m : N) => plus m (f m)).
 
-define foo := (refl 0 :: 0 == plus 0 0)
+Definition one := S 0.
+Definition two := S (S 0).
+Definition three := S (S (S 0)).
+Definition four := S (S (S (S 0))).
+Definition five := plus two three.
+Definition six := mult two three.
+Definition seven := S (S (S (S (S (S (S 0)))))).
+Definition ten := 
+  S (S (S (S (S (S (S (S (S (S 0))))))))).
+Definition twenty := 
+  S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S 0))))))))))))))))))).
 
-define two_plus_two := 
-   refl (S (S (S (S (S 0))))) :: 
-   (S (S (S (S (S 0))))) == plus (S (S 0)) (S (S (S 0)))
+Definition check_2_x_2 :=
+   refl (S (S (S (S 0)))) :: S (S (S (S 0))) == four.
+
+Definition check_2_x_3 :=
+   refl (S (S (S (S (S (S 0)))))) :: six == plus two four.
+
+Definition check_3 :=
+   refl three :: three == plus two one.
+
+Definition check_5 :=
+   refl five :: five == plus two three.
+
+Definition check_6 :=
+   refl six :: six == plus two four.
+
+(* Getting slow *)
+Definition check_20 :=
+   refl (mult ten ten) :: mult ten ten == mult twenty (S (S (S (S (S 0))))).
+
+(* At the moment this cycles. *)
+Definition check_4 :=
+   refl four :: four == plus (plus one one) two.

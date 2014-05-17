@@ -194,9 +194,10 @@ and rewrite_term ctx e t =
         | Pattern.Ty t', Pattern.Term e', Pattern.Term e2 ->
           (* Until someone proves that pattern matching works, we should
              keep this asssert here. *)
-          assert (equal_ty' ~use_eqs:false ~use_rws:false ctx t t' &&
-                  equal_term ~use_eqs:false ~use_rws:false ctx e e' t) ;
-          e2
+          if equal_ty' ~use_eqs:false ~use_rws:false ctx t t' &&
+             equal_term ~use_eqs:false ~use_rws:false ctx e e' t
+          then e2
+          else raise Mismatch
         | _ -> raise Mismatch
       end
   in
@@ -236,10 +237,11 @@ and equal_by_equation ctx t e1 e2 =
         | Pattern.Ty t', Pattern.Term e1', Pattern.Term e2' ->
           (* Until someone proves that pattern matching works, keep the assert
              around *)
-          assert 
-             (equal_ty' ~use_eqs:false ~use_rws:false ctx t t' &&
-              equal_term ~use_eqs:false ~use_rws:false ctx e1 e1' t &&
-              equal_term ~use_eqs:false ~use_rws:false ctx e2 e2' t)
+          if equal_ty' ~use_eqs:false ~use_rws:false ctx t t' &&
+             equal_term ~use_eqs:false ~use_rws:false ctx e1 e1' t &&
+             equal_term ~use_eqs:false ~use_rws:false ctx e2 e2' t
+          then ()
+          else raise Mismatch
         | _ -> raise Mismatch
       end
   in
