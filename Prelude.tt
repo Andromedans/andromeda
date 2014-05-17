@@ -2,18 +2,18 @@ let NONE := val inj 0 ()
 let SOME := val fun Y => val inj 1 Y
 
 let equiv := val fun equiv(X) => 
-  let [e1,e2,t] = val X in
-  let _ = op print ["equiv",explode e1, explode e2, explode t]  in
+  let [X1,X2,t] = val X in
+  let _ = op print ["equiv",explode X1, explode X2, explode t]  in
 
   let fun eqspine (Y) =
-    let [e1,e2] = val Y in
-    let _ = op print ["eqspine", explode e1, explode e2] in
-    if e1 = e2 then
+    let [Y1,Y2] = val Y in
+    let _ = op print ["eqspine", explode Y1, explode Y2] in
+    if Y1 = Y2 then
         let _ = op print "alpha-equivalent"  in
         SOME []
     else
-      match Y with
-      | [(forall e1 : u1, f3 : u3), (forall e2 : u2, f4 : u4)] when ((u1 = u2) && (u3 = u4)) =>
+      match [explode Y1, explode Y2] with
+      | [["NameProd", u1, u3, e1, f3], ["NameProd", u2, u4, e2, f4]] when ((u1 = u2) && (u3 = u4)) =>
           let w1 = equiv [e1,e2,u1] in
           let w2 =
             lambda x:e1,
@@ -27,52 +27,46 @@ let equiv := val fun equiv(X) =>
           | _                    => val NONE 
           end
 
-      | [e1 == e2, e3 == e4] =>
-          /* XXX: Bogus. Need to check that both equivalences are at equal types,
-           *             which lives in the same universe! */
-          let w1 = equiv [e1,e3,`Universe 42`]  in
-          let w2 = equiv [e2,e4,`Universe 42`]  in
-          let _ = op print ["eqspine ==", w1, w2]  in
-          match [w1, w2] with
-          | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
+      | [["NameId", u1, e2, e3, e4], ["NameId", u5, e6, e7, e8]] when (u1 = u5) => 
+          let w1 = equiv [e2,e6,universe u1]  in
+          let w2 = equiv [e3,e7,universe u1]  in
+          let w3 = equiv [e4,e8,universe u1]  in
+          let _ = op print ["eqspine ==", w1, w2, w3]  in
+          match [w1, w2, w3] with
+          | [inj 1 xs, inj 1 ys, inj 1 zs] => SOME ((xs ++ ys) ++ zs)
           | _                    => val NONE 
           end
 
       | _ => val NONE
       end  in
 
- /* Body of equiv starts here */
+  /* Body of equiv starts here */
+  if (X1 = X2) then
+     SOME []
+  else
+     let t2  = val whnf t  in
+     let ex2 = val explode t2  in
+     let _ = op print ["t2 = ", ex2]  in
 
- match X with
- | [e1, e2, t] => 
-     (match e1 = e2 with
-     | true => SOME []
-     | false => 
-         let t2 = val whnf t  in
-         let _ = op print ["t2 = ", explode t2]  in
-
-         match t2 with
-         | _ == _  => SOME []
-         | _ when (t2 = t`unit`) => SOME []
-         | forall u1, u2 =>
-               lambda x : t21, 
-                 let a = e1 `x`  in
-                 let b = e2 `x`  in
-                 let c = u2 `x`  in
-                 equiv [a,b,c]
-         | _ => let e3 = val whnf e1  in
-                let e4 = val whnf e2  in
-                let _ = op print ["e3 =", e3, " e4 = ", e4]  in
-                match e3 = e4 with
-                | true  => SOME []
-                | false => 
-                   (let d = eqspine [e3,e4] in
-                    let _ = op print ["eqspine returned", d] in
-                    match d with
-                    | inj 1 ws => val d
-                    | _ => op equiv [e3,e4,t]
-                    end)
-                end
-         end
-     end)
- end
+     match ex2 with
+     | ["Id", _, _, _] => SOME []
+     | ["Unit"]        => SOME []
+     | ["Prod", t21, t22] => 
+           lambda x : t21, 
+             let a = X1 `x`  in
+             let b = X2 `x`  in
+             let c = t22 `x`  in
+             equiv [a,b,c]
+     | _ => let e3 = val whnf X1  in
+            let e4 = val whnf X2  in
+            let _ = op print ["e3 =", explode e3, " e4 = ", explode e4]  in
+            if (e3 = e4) then
+              SOME []
+            else
+              let d = eqspine [e3,e4] in
+              let _ = op print ["eqspine returned", d] in
+              match d with
+              | inj 1 ws => val d
+              | _ => op equiv [e3,e4,t2]
+              end
+     end
