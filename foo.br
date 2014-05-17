@@ -1,0 +1,16 @@
+Parameter A : Universe 0.
+Parameter a b : A.
+
+Parameter e : a == b.
+
+Parameter id : forall (P : A -> Universe 0), A -> A.
+
+Parameter h : forall (S : A -> Universe 0) (x : A), id S x == x.
+
+Definition b := a.
+
+Definition Q := fun (a : A) => a == a.
+
+Definition k := fun (a : A) => id Q a.
+
+Definition r := equation h in (refl b :: k a == k b).

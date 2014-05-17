@@ -21,12 +21,10 @@ let print_universe = Print.universe
 exception Mismatch
 
 (* Check that an assoc list binds all numbers from 0 to k-1. *)
-let rec check_complete_match lst k =
-  if k > 0 then
-    let k = k - 1 in
-      if List.mem_assoc k lst
-      then check_complete_match lst k
-      else raise Mismatch
+let rec is_complete_match lst k =
+  (k > 0) &&
+  (let k = k - 1 in
+     List.mem_assoc k lst && is_complete_match lst k)
 
 (*************************)
 (* Weak-Head Normalizing *)
@@ -45,8 +43,8 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
         (* tynorm-pi *)
         | Syntax.NameProd (beta, gamma, x, e1, e2) 
             when Universe.eq alpha (Universe.max beta gamma) ->
-          let t1 = whnf_ty ctx (Syntax.El (beta, e1), snd e1) in
-          let t2 = whnf_ty (Context.add_var x t1 ctx) (Syntax.El (gamma, e2), snd e2) in
+          let t1 = (Syntax.El (beta, e1), snd e1) in
+          let t2 = (Syntax.El (gamma, e2), snd e2) in
             Syntax.Prod (x, t1, t2),
             loc
 
@@ -69,18 +67,14 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
         (* tynorm-paths *)
         | Syntax.NamePaths (beta, e1, e2, e3)
             when Universe.eq alpha beta ->
-          let t1 = whnf_ty ctx (Syntax.El (alpha, e1), snd e1) in
-          let e2 = whnf ctx t1 e2 in
-          let e3 = whnf ctx t1 e3 in
+          let t1 = (Syntax.El (alpha, e1), snd e1) in
             Syntax.Paths (t1, e2, e3),
             loc
 
         (* tynorm-id *)
         | Syntax.NameId (beta, e1, e2, e3) 
             when Universe.eq alpha beta ->
-          let t1 = whnf_ty ctx (Syntax.El (alpha, e1), snd e1) in
-          let e2 = whnf ctx t1 e2 in
-          let e3 = whnf ctx t1 e3 in
+          let t1 = (Syntax.El (alpha, e1), snd e1) in
             Syntax.Id (t1, e2, e3),
             loc
 
@@ -98,7 +92,7 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
   end
 
 and whnf ~use_rws ctx t ((e',loc) as e) =
-  Print.debug "whnf: %t" (print_term ctx e) ;
+  Print.debug "whnf (%b): %t" use_rws (print_term ctx e) ;
   let equal_ty' = equal_ty' ~use:{use_eqs=false; use_rws=use_rws}
   and whnf = whnf ~use_rws
   in
@@ -189,23 +183,41 @@ and whnf ~use_rws ctx t ((e',loc) as e) =
    rewrite hints [hs]. After rewriting it re-runs weak head-normalization
    on the resulting term. *)
 and rewrite_term ctx e t =
-  Print.debug "rewrite_term: %t @@ %t"
+  Print.debug "rewrite_term: %t at %t"
     (print_term ctx e) (print_ty ctx t) ;
-  let rec match_rewrite = function
-    | [] -> e
-    | (k, pt, pe1, pe2) :: hs ->
-      begin try
-        let inst = match_ty [] 0 ctx pt t in
-        let inst = match_term inst 0 ctx pe1 e t in
-          check_complete_match inst k ;
-          let e2 = Pattern.subst_term inst 0 pe2 in
-            Print.debug "rewrite_term ---> %t" (print_term ctx e2) ;
-            whnf ~use_rws:true ctx t e2
-        with
-          | Mismatch -> match_rewrite hs
+  let rec match_hint pt pe1 pe2 =
+    let inst = match_ty [] 0 ctx pt t in
+    let inst = match_term inst 0 ctx pe1 e t in
+      Print.debug "match-hint:" ;
+      List.iter (fun (k, e) -> Print.debug "... %d is %t" k (print_term ctx e)) inst ;
+      begin match inst with
+        | [] ->
+          begin match pt, pe1, pe2 with
+            | Pattern.Ty _, Pattern.Term _, Pattern.Term e2 -> e2
+            | _ -> raise Mismatch
+          end
+        | _ :: _ ->
+          let pt = Pattern.subst_ty inst 0 pt
+          and pe1 = Pattern.subst_term inst 0 pe1
+          and pe2 = Pattern.subst_term inst 0 pe2
+          in
+            match_hint pt pe1 pe2
       end
   in
-    match_rewrite (Context.rewrites ctx)
+  let rec match_hints = function
+    | [] -> 
+      Print.debug "rewrite_term ---> NONE" ;
+      e
+    | (_, pt, pe1, pe2) :: hs ->
+      begin try
+        let e2 = match_hint pt pe1 pe2 in
+          Print.debug "rewrite_term success ---> %t" (print_term ctx e2) ;
+          whnf ~use_rws:true ctx t e2
+        with
+          | Mismatch -> match_hints hs
+      end
+  in
+    match_hints (Context.rewrites ctx)
 
 (** See if terms [e1] and [e2] which have type [t] are equal
     *directly* by an equality hint. In other words, try to apply
@@ -213,26 +225,35 @@ and rewrite_term ctx e t =
 and equal_by_equation ctx t e1 e2 =
   Print.debug "equal_by_equation: %t and %t at %t"
     (print_term ctx e1) (print_term ctx e2) (print_ty ctx t) ;
-  let rec match_equation = function
-    | [] -> false
-    | (k, pt, pe1, pe2) :: hs ->
-      begin
-        try
-          Print.debug "---> equal_by_equation 1" ;
-          let inst = match_ty [] 0 ctx pt t in
-          Print.debug "---> equal_by_equation 2" ;
-          let inst = match_term inst 0 ctx pe1 e1 t in
-          Print.debug "---> equal_by_equation 3" ;
-          let inst = match_term inst 0 ctx pe2 e2 t in
-          Print.debug "---> equal_by_equation 4" ;
-            check_complete_match inst k ;
-            Print.debug "---> equal_by_equation worked" ;
-            true
-        with
-          | Mismatch -> match_equation hs
+  let rec match_hint pt pe1 pe2 =
+    let inst = match_ty [] 0 ctx pt t in
+    let inst = match_term inst 0 ctx pe1 e1 t in
+    let inst = match_term inst 0 ctx pe2 e2 t in
+      begin match inst with
+        | [] ->
+          begin match pt, pe1, pe2 with
+            | Pattern.Ty _, Pattern.Term _, Pattern.Term _ -> ()
+            | _ -> raise Mismatch
+          end
+        | _ :: _ ->
+          let pt = Pattern.subst_ty inst 0 pt
+          and pe1 = Pattern.subst_term inst 0 pe1
+          and pe2 = Pattern.subst_term inst 0 pe2
+          in
+            match_hint pt pe1 pe2
       end
   in
-    match_equation (Context.equations ctx)
+  let rec match_hints = function
+    | [] -> false
+    | (_, pt, pe1, pe2) :: hs ->
+      begin try
+        match_hint pt pe1 pe2 ;
+        true
+        with
+          | Mismatch -> match_hints hs
+      end
+  in
+    match_hints (Context.equations ctx)
 
 (* equality of types *)
 and equal_ty' ~use ctx t u =
@@ -328,7 +349,7 @@ and equal_term ~use ctx e1 e2 t =
  *)
 and equal_ext ~use ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
   begin
-    Print.debug "equal_ext: %t == %t @@ %t @."
+    Print.debug "equal_ext: %t and %t at %t@."
       (print_term ctx e1) (print_term ctx e2) (print_ty ctx t);
     match t' with
 
@@ -494,22 +515,24 @@ and equal_whnf ~use ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
   end
 
 and as_hint' ~use_rws ctx (_, loc) t =
-  let rec collect u =
-    match fst (whnf_ty ~use_rws ctx u) with
+  let rec collect ctx' u =
+    match fst (whnf_ty ~use_rws ctx' u) with
       | Syntax.Prod (x, t1, t2) ->
-        let (k, t, e1, e2) = collect t2 in
+        let (k, t, e1, e2) = collect (Context.add_var x t1 ctx') t2 in
           (k + 1, t, e1, e2)
       | Syntax.Id (t, e1, e2) -> (0, t, e1, e2)
       | Syntax.Universe _ | Syntax.El _ | Syntax.Unit | Syntax.Paths _ ->
         Error.typing ~loc "this expression cannot be used as an equality hint, its type is %t"
           (print_ty ctx t)
   in
-  let (k, t, e1, e2) = collect t in
+  let (k, t, e1, e2) = collect ctx t in
   let pt = Pattern.of_ty k t in
   let pe1 = Pattern.of_term k e1 in
   let pe2 = Pattern.of_term k e2 in
     (k, pt, pe1, pe2)
 
+(* Partial matching, i.e., it never fails, it just matches
+   what it can. *)
 and match_ty inst l ctx pt ((t',loc) as t) =
   match pt with
 
@@ -518,18 +541,18 @@ and match_ty inst l ctx pt ((t',loc) as t) =
 
     | Pattern.El (alpha, pe) ->
       begin match Syntax.name_of t with
+        | None -> inst
         | Some (e', beta) ->
           if Universe.eq alpha beta then
             let t = Syntax.Universe alpha, loc in
               match_term inst l ctx pe e' t
           else
-            raise Mismatch
-        | None -> raise Mismatch
+            inst
       end
 
     | Pattern.Prod (_, pt1, pt2) ->
       begin match as_prod' ~use_rws:false ctx t with
-        | None -> raise Mismatch
+        | None -> inst
         | Some (x, t1, t2) ->
           let inst = match_ty inst l ctx pt1 t1 in
           let inst = match_ty inst (l+1) (Context.add_var x t1 ctx) pt2 t2 in
@@ -538,7 +561,7 @@ and match_ty inst l ctx pt ((t',loc) as t) =
 
     | Pattern.Paths (pt, pe1, pe2) ->
       begin match as_paths' ~use_rws:false ctx t with
-        | None -> raise Mismatch
+        | None -> inst
         | Some (t, e1, e2) ->
           let inst = match_ty inst l ctx pt t in
           let inst = match_term inst l ctx pe1 e1 t in
@@ -548,7 +571,7 @@ and match_ty inst l ctx pt ((t',loc) as t) =
 
     | Pattern.Id (pt, pe1, pe2) ->
       begin match as_id' ~use_rws:false ctx t with
-        | None -> raise Mismatch
+        | None -> inst
         | Some (t, e1, e2) ->
           let inst = match_ty inst l ctx pt t in
           let inst = match_term inst l ctx pe1 e1 t in
@@ -556,15 +579,17 @@ and match_ty inst l ctx pt ((t',loc) as t) =
             inst
       end
 
+(* partial matching *)
 and match_term inst l ctx p e t =
   match p with
 
   | Pattern.Term e' -> 
-    if equal_term ~use:{use_eqs=false; use_rws=false} ctx e' e t then inst else raise Mismatch
+    inst
 
   | Pattern.PVar i ->
     begin
       try
+        (* [PVar i] is bound, see if the term matches its binding. *)
         let e' = Syntax.shift l (List.assoc i inst) in
           if equal_term ~use:{use_eqs=false; use_rws=false} ctx e e' t
           then inst
@@ -584,7 +609,7 @@ and match_term inst l ctx p e t =
         let inst = match_ty inst (l+1) ctx' pt2 t2 in
         let inst = match_term inst (l+1) ctx' pe e t2 in
           inst
-      | _ -> raise Mismatch
+      | _ -> inst
     end
 
   | Pattern.App ((_, pt1, pt2), pe1, pe2) ->
@@ -595,7 +620,7 @@ and match_term inst l ctx p e t =
         let inst = match_term inst l ctx pe1 e1 (Syntax.Prod (x, t1, t2), Position.nowhere) in
         let inst = match_term inst l ctx pe2 e2 t1 in
           inst
-      | _ -> raise Mismatch
+      | _ -> inst
     end
 
   | Pattern.Idpath (pt, pe) ->
@@ -604,7 +629,7 @@ and match_term inst l ctx p e t =
         let inst = match_ty inst l ctx pt t in
         let inst = match_term inst l ctx pe e t in
           inst
-      | _ -> raise Mismatch
+      | _ -> inst
     end
 
   | Pattern.J (pt, (_,_,_,pu), (_,pe1), pe2, pe3, pe4) ->
@@ -618,7 +643,7 @@ and match_term inst l ctx p e t =
         let inst = match_term inst l ctx pe3 e3 t in
         let inst = match_term inst l ctx pe4 e4 t in
           inst
-      | _ -> raise Mismatch
+      | _ -> inst
     end
 
   | Pattern.Refl (pt, pe) ->
@@ -627,7 +652,7 @@ and match_term inst l ctx p e t =
         let inst = match_ty inst l ctx pt t in
         let inst = match_term inst l ctx pe e t in
           inst
-      | _ -> raise Mismatch
+      | _ -> inst
     end
 
    (** XXX should switch to comparing type names *)
@@ -638,7 +663,7 @@ and match_term inst l ctx p e t =
           when Universe.eq alpha gamma && Universe.eq beta delta ->
         let inst = match_term inst l ctx pe e (Syntax.Universe alpha, Position.nowhere) in
           inst
-      | _ -> raise Mismatch
+      | _ -> inst
     end
     
   | Pattern.NameProd (alpha, beta, _, pe1, pe2) ->
@@ -656,7 +681,7 @@ and match_term inst l ctx p e t =
             (Syntax.Universe delta, Position.nowhere)
         in
           inst
-      | _ -> raise Mismatch
+      | _ -> inst
     end
 
   | Pattern.NamePaths (alpha, pe1, pe2, pe3) ->
@@ -667,7 +692,7 @@ and match_term inst l ctx p e t =
         let inst = match_term inst l ctx pe2 e1 (Syntax.El (beta, e1), Position.nowhere) in
         let inst = match_term inst l ctx pe3 e1 (Syntax.El (beta, e1), Position.nowhere) in
           inst
-      | _ -> raise Mismatch
+      | _ -> inst
     end
 
   | Pattern.NameId (alpha, pe1, pe2, pe3) ->
@@ -678,7 +703,7 @@ and match_term inst l ctx p e t =
         let inst = match_term inst l ctx pe2 e1 (Syntax.El (beta, e1), Position.nowhere) in
         let inst = match_term inst l ctx pe3 e1 (Syntax.El (beta, e1), Position.nowhere) in
           inst
-      | _ -> raise Mismatch
+      | _ -> inst
     end
 
 and as_prod' ~use_rws ctx t =
