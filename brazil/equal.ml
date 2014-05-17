@@ -1,10 +1,3 @@
-(** We define an auxiliary "configuration" type which specifies
-    exactly what needs to be done during equality checking. *)
-type use_hints = {
-  use_eqs : bool ; (* use both equations *)
-  use_rws : bool   (* use rewrites *)
-} 
-
 (********************)
 (* Helper Functions *)
 (********************)
@@ -102,8 +95,7 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
   end
 
 and whnf ~use_rws ctx t ((e',loc) as e) =
-  (* Print.debug "whnf (%b): %t" use_rws (print_term ctx e) ; *)
-  let equal_ty' = equal_ty' ~use:{use_eqs=false; use_rws=use_rws}
+  let equal_ty' = equal_ty' ~use_eqs:false ~use_rws
   and whnf = whnf ~use_rws
   in
   let e =
@@ -209,8 +201,8 @@ Print.debug "PHASE 1" ;
     and pe2 = Pattern.subst_term inst 0 pe2 in
       begin match pt, pe1, pe2 with
         | Pattern.Ty t', Pattern.Term e', Pattern.Term e2 ->
-          let bt = equal_ty' ~use:{use_eqs=false; use_rws=false} ctx t t'
-          and be = equal_term ~use:{use_eqs=false; use_rws=false} ctx e e' t
+          let bt = equal_ty' ~use_eqs:false ~use_rws:false ctx t t'
+          and be = equal_term ~use_eqs:false ~use_rws:false ctx e e' t
           in
             Print.debug "COMPARE TYPES %t AND %t RESULT %b" (print_ty ctx t) (print_ty ctx t') bt;
             Print.debug "COMPARE TERMS %t AND %t RESULT %b" (print_term ctx e) (print_term ctx e') be;
@@ -261,9 +253,9 @@ and equal_by_equation ctx t e1 e2 =
     and pe2 = Pattern.subst_term inst 0 pe2 in
       begin match pt, pe1, pe2 with
         | Pattern.Ty t', Pattern.Term e1', Pattern.Term e2' ->
-          if equal_ty' ~use:{use_eqs=false; use_rws=false} ctx t t' &&
-             equal_term ~use:{use_eqs=false; use_rws=false} ctx e1 e1' t &&
-             equal_term ~use:{use_eqs=false; use_rws=false} ctx e2 e2' t
+          if equal_ty' ~use_eqs:false ~use_rws:false ctx t t' &&
+             equal_term ~use_eqs:false ~use_rws:false ctx e1 e1' t &&
+             equal_term ~use_eqs:false ~use_rws:false ctx e2 e2' t
           then ()
           else (Print.debug "final equal fail"; raise Mismatch)
         | _ -> Print.debug "did not get terms" ; raise Mismatch
@@ -282,8 +274,7 @@ and equal_by_equation ctx t e1 e2 =
     match_hints (Context.equations ctx)
 
 (* equality of types *)
-and equal_ty' ~use ctx t u =
-  (* Print.debug "Equal.equal_ty': %t and %t" (print_ty ctx t) (print_ty ctx u) ; *)
+and equal_ty' ~use_rws ~use_eqs ctx t u =
 
   (* chk-tyeq-refl *)
   (Syntax.equal_ty t u)
@@ -293,23 +284,24 @@ and equal_ty' ~use ctx t u =
   begin match Syntax.name_of t, Syntax.name_of u with
     (* chk-tyeq-el *)
     | Some (e1, alpha), Some (e2, beta) ->
-      Universe.eq alpha beta && equal_term ~use ctx e1 e2 (Syntax.Universe alpha, snd t)
+      Universe.eq alpha beta && 
+      equal_term ~use_eqs ~use_rws ctx e1 e2 (Syntax.Universe alpha, snd t)
     | (_, None) | (None, _) -> false
   end
 
   ||
 
   begin
-    let t = whnf_ty ~use_rws:use.use_rws ctx t
-    and u = whnf_ty ~use_rws:use.use_rws ctx u
+    let t = whnf_ty ~use_rws ctx t
+    and u = whnf_ty ~use_rws ctx u
     in
-      equal_whnf_ty ~use ctx (t : Syntax.ty) (u : Syntax.ty)
+      equal_whnf_ty ~use_eqs ~use_rws ctx (t : Syntax.ty) (u : Syntax.ty)
   end
 
 (* equality of weak-head-normal types *)
-and equal_whnf_ty ~use ctx ((t', tloc) as t) ((u', uloc) as u) =
-  let equal_ty' = equal_ty' ~use
-  and equal_term = equal_term ~use
+and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
+  let equal_ty' = equal_ty' ~use_eqs ~use_rws
+  and equal_term = equal_term ~use_eqs ~use_rws
   in
   begin
     Print.debug "equal_whnf_ty: %t == %t@." (print_ty ctx t) (print_ty ctx u);
@@ -347,10 +339,7 @@ and equal_whnf_ty ~use ctx ((t', tloc) as t) ((u', uloc) as u) =
                  e1 : t
                  e2 : t
  *)
-and equal_term ~use ctx e1 e2 t =
-
-  (* Print.debug "equal_term: %t == %t @@ %t"
-      (print_term ctx e1) (print_term ctx e2) (print_ty ctx t) ; *)
+and equal_term ~use_eqs ~use_rws ctx e1 e2 t =
 
   (* chk-eq-refl *)
   (Syntax.equal e1 e2)
@@ -358,12 +347,12 @@ and equal_term ~use ctx e1 e2 t =
   ||
 
   (* chk-eq-hint *)
-  (use.use_eqs && (equal_by_equation ctx t e1 e2 || equal_by_equation ctx t e2 e1))
+  (use_eqs && (equal_by_equation ctx t e1 e2 || equal_by_equation ctx t e2 e1))
 
   ||
   begin
-    let t' = whnf_ty ~use_rws:use.use_rws ctx t in
-    equal_ext ~use ctx e1 e2 t'
+    let t' = whnf_ty ~use_rws ctx t in
+    equal_ext ~use_eqs ~use_rws ctx e1 e2 t'
   end
 
 
@@ -373,14 +362,14 @@ and equal_term ~use ctx e1 e2 t =
                  e1 : ty
                  e2 : ty
  *)
-and equal_ext ~use ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
+and equal_ext ~use_eqs ~use_rws ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
   begin
     Print.debug "equal_ext: %t and %t at %t@."
       (print_term ctx e1) (print_term ctx e2) (print_ty ctx t);
     match t' with
 
     (* chk-eq-ext-prod *)
-    | Syntax.Prod(x, t, u) ->
+    | Syntax.Prod (x, t, u) ->
         (* To keep the two x binders straight, we'll call the one in
            the context z. *)
         let ctx' = Context.add_var x t ctx  in   (* ctx' === ctx, z *)
@@ -394,7 +383,7 @@ and equal_ext ~use ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
         let u' = Syntax.weaken_ty 1 u  in  (* ctx, z, x |- u' type *)
         let z = (Syntax.Var 0,
                  Position.nowhere) in      (* ctx, z    |- z : ... *)
-        equal_term ~use ctx'
+        equal_term ~use_eqs ~use_rws ctx'
               (Syntax.App((x, t', u'), e1', z), loc1)
               (Syntax.App((x, t', u'), e2', z), loc2)
               u
@@ -409,9 +398,9 @@ and equal_ext ~use ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
 
     (* chk-eq-ext-whnf *)
       | Syntax.Universe _ | Syntax.El _ | Syntax.Paths _ ->
-        let e1' = whnf ~use_rws:use.use_rws ctx t e1 in
-        let e2' = whnf ~use_rws:use.use_rws ctx t e2  in
-        equal_whnf ~use ctx e1' e2' t
+        let e1' = whnf ~use_rws ctx t e1 in
+        let e2' = whnf ~use_rws ctx t e2  in
+        equal_whnf ~use_eqs ~use_rws ctx e1' e2' t
   end
 
 (* equality of two weak-head-normal terms.
@@ -420,9 +409,9 @@ and equal_ext ~use ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
                  term2 : ty
                     for some (unspecified) common type ty.
  *)
-and equal_whnf ~use ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
-  let equal_ty' = equal_ty' ~use
-  and equal_term = equal_term ~use
+and equal_whnf ~use_eqs ~use_rws ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
+  let equal_ty' = equal_ty' ~use_eqs ~use_rws
+  and equal_term = equal_term ~use_eqs ~use_rws
   in
   begin
     match term1', term2' with
@@ -432,7 +421,7 @@ and equal_whnf ~use ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
         true
 
     (* chk-eq-whnf-equation *)
-    | _, _ when use.use_eqs && equal_by_equation ctx t term1 term2 ->
+    | _, _ when use_eqs && equal_by_equation ctx t term1 term2 ->
         true
 
     (* chk-eq-whnf-var *)
@@ -442,7 +431,7 @@ and equal_whnf ~use ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
     | Syntax.App((x, t1, t2), e1, e2), Syntax.App((_, u1, u2), e1', e2') ->
         equal_ty' ctx t1 u1
         && equal_ty' (Context.add_var x t1 ctx) t2 u2
-        && equal_whnf ~use ctx e1 e1' (Syntax.Prod (x, t1, t2), loc1)
+        && equal_whnf ~use_eqs ~use_rws ctx e1 e1' (Syntax.Prod (x, t1, t2), loc1)
         && equal_term ctx e2 e2' t1
 
     (* chk-eq-whnf-idpath *)
@@ -472,7 +461,7 @@ and equal_whnf ~use ctx ((term1', loc1) as term1) ((term2', loc2) as term2) t =
         && equal_term ctx_z e3 e9 e3_ty_expected
         && equal_term ctx e5 e11 t1
         && equal_term ctx e6 e12 t1
-        && equal_whnf ~use ctx e4 e10 (Syntax.Paths (t1, e5, e6), loc1)
+        && equal_whnf ~use_eqs ~use_rws ctx e4 e10 (Syntax.Paths (t1, e5, e6), loc1)
 
     (* chk-eq-whnf-refl *)
     | Syntax.Refl(t, e1), Syntax.Refl(u, e2) ->
@@ -566,7 +555,7 @@ and match_ty ~magenta inst l ctx pt ((t',loc) as t) =
   match pt with
 
     | Pattern.Ty u  ->
-      if equal_ty' ~use:{use_eqs=false; use_rws=false} ctx t u
+      if equal_ty' ~use_eqs:false ~use_rws:false ctx t u
       then inst
       else raise Mismatch
 
@@ -619,7 +608,7 @@ and match_term ~magenta inst l ctx p e t =
   match p with
 
   | Pattern.Term e' -> 
-    if equal_term ~use:{use_eqs=false; use_rws=true} ctx e' e t
+    if equal_term ~use_eqs:false ~use_rws:true ctx e' e t
     then inst
     else raise Mismatch
 
@@ -627,7 +616,7 @@ and match_term ~magenta inst l ctx p e t =
     begin
       try
         let e' = List.assoc i inst in
-        if equal_term ~use:{use_eqs=false; use_rws=true} ctx e' e t
+        if equal_term ~use_eqs:false ~use_rws:true ctx e' e t
         then inst
         else raise Mismatch
       with
@@ -776,7 +765,7 @@ and as_id' ~use_rws ctx t =
     | Syntax.Universe _ | Syntax.El _ | Syntax.Unit | Syntax.Prod _ | Syntax.Paths _ ->
       None
 
-let equal_ty = equal_ty' ~use:{use_eqs=true;use_rws=true}
+let equal_ty = equal_ty' ~use_eqs:true ~use_rws:true
 
 let as_prod = as_prod' ~use_rws:true
 let as_paths = as_paths' ~use_rws:true
