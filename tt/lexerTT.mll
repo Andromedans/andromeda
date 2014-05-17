@@ -7,6 +7,7 @@
     ("assume", ASSUME) ;
     ("debruijn", DEBRUIJN);
     ("define", DEFINE) ;
+    ("else", ELSE);
     ("end", END);
     ("eval", EVAL);
     ("explode", EXPLODE);
@@ -16,11 +17,13 @@
     ("getctx", GETCTX);
     ("handle", HANDLE) ;
     ("handler", HANDLER) ;
+    ("if", IF);
     ("in", IN) ;
     ("lambda", LAMBDA) ;
     ("let", LET) ;
     ("match", MATCH);
     ("op", OP);
+    ("then", THEN);
     ("val", VAL);
     ("when", WHEN) ;
     ("whnf", WHNF) ;

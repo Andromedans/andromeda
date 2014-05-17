@@ -25,6 +25,7 @@
 %token DASH
 %token DEBRUIJN
 %token DEFINE
+%token ELSE
 %token END
 %token EOF
 %token EQ
@@ -38,6 +39,7 @@
 %token HANDLE
 %token HANDLER
 %token HELP
+%token IF
 %token IN
 %token LAMBDA
 %token LBRACK
@@ -53,6 +55,7 @@
 %token RPAREN
 %token SEMISEMI
 %token STAR
+%token THEN
 %token UNDERSCORE
 %token UNIT
 %token VAL
@@ -187,6 +190,10 @@ plain_comp0:
     | LAMBDA name COLON comp0 COMMA comp0
          { let loc = Position.make $startpos $endpos in
            Let(PVar "lambda annot", $4, mkMkLam ~loc $2 (mkVar "lambda annot") $6) }
+    | IF exp0 THEN comp0 ELSE comp0
+         {  Match($2, [PConst (Bool true), $4;
+                       PConst (Bool false), $6]) }
+
     | plain_comp1    { $1 }
 
 (* From the start, we know what the final token will be *)

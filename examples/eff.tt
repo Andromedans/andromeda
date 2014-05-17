@@ -32,10 +32,11 @@ eval
   in
     with hchoice handle
       let x = let z = op decide () in
-              match z with
-              | true => val 10
-              | false => val 20 
-              end  in
+              if z then
+                val 10
+              else
+                val 20
+              in
       let y = let z = op decide () in
               match z with
               | true => val 0

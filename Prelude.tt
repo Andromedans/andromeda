@@ -8,38 +8,38 @@ let equiv := val fun equiv(X) =>
   let fun eqspine (Y) =
     let [e1,e2] = val Y in
     let _ = op print ["eqspine", explode e1, explode e2] in
-    match Y with
-    | [e1,e2] when (e1 = e2) => 
+    if e1 = e2 then
         let _ = op print "alpha-equivalent"  in
         SOME []
+    else
+      match Y with
+      | [(forall e1 : u1, f3 : u3), (forall e2 : u2, f4 : u4)] when ((u1 = u2) && (u3 = u4)) =>
+          let w1 = equiv [e1,e2,u1] in
+          let w2 =
+            lambda x:e1,
+              let e3 = f3 `x` in
+              let e4 = f4 `x` in
+              let e5 = val whnf e3 in
+              let e6 = val whnf e4 in
+              equiv [e5, e6, u3]  in
+          match [w1, w2] with
+          | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
+          | _                    => val NONE 
+          end
 
-    | [(forall e1 : u1, f3 : u3), (forall e2 : u2, f4 : u4)] when ((u1 = u2) && (u3 = u4)) =>
-        let w1 = equiv [e1,e2,u1] in
-        let w2 =
-          lambda x:e1,
-            let e3 = f3 `x` in
-            let e4 = f4 `x` in
-            let e5 = val whnf e3 in
-            let e6 = val whnf e4 in
-            equiv [e5, e6, u3]  in
-        match [w1, w2] with
-        | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
-        | _                    => val NONE 
-        end
+      | [e1 == e2, e3 == e4] =>
+          /* XXX: Bogus. Need to check that both equivalences are at equal types,
+           *             which lives in the same universe! */
+          let w1 = equiv [e1,e3,`Universe 42`]  in
+          let w2 = equiv [e2,e4,`Universe 42`]  in
+          let _ = op print ["eqspine ==", w1, w2]  in
+          match [w1, w2] with
+          | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
+          | _                    => val NONE 
+          end
 
-    | [e1 == e2, e3 == e4] =>
-        /* XXX: Bogus. Need to check that both equivalences are at equal types,
-         *             which lives in the same universe! */
-        let w1 = equiv [e1,e3,`Universe 42`]  in
-        let w2 = equiv [e2,e4,`Universe 42`]  in
-        let _ = op print ["eqspine ==", w1, w2]  in
-        match [w1, w2] with
-        | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
-        | _                    => val NONE 
-        end
-
-    | _ => val NONE
-    end  in
+      | _ => val NONE
+      end  in
 
  /* Body of equiv starts here */
 
