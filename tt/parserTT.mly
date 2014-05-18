@@ -40,6 +40,7 @@
 %token HANDLER
 %token HELP
 %token IF
+%token IMPLODE
 %token IN
 %token LAMBDA
 %token LBRACK
@@ -60,7 +61,6 @@
 %token TYPEOF
 %token UNDERSCORE
 %token UNIT
-%token UNIVERSE
 %token VAL
 %token WHEN
 %token WHNF
@@ -154,7 +154,7 @@ plain_exp1:
     | BRAZILTYPE       { BrazilTypeCode $1 }
     | GETCTX           { Prim(GetCtx, []) }
     | EXPLODE exp1     { Prim(Explode, [$2]) }
-    | UNIVERSE exp1    { Prim(Universe, [$2]) }
+    | IMPLODE exp1     { Prim(Implode, [$2]) }
     | NAMEOF exp1      { Prim(NameOf, [$2]) }
     | TYPEOF exp1      { Prim(TypeOf, [$2]) }
 

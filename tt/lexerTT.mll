@@ -18,6 +18,7 @@
     ("handle", HANDLE) ;
     ("handler", HANDLER) ;
     ("if", IF);
+    ("implode", IMPLODE);
     ("in", IN) ;
     ("lambda", LAMBDA) ;
     ("let", LET) ;
@@ -26,7 +27,6 @@
     ("type_of", TYPEOF);
     ("op", OP);
     ("then", THEN);
-    ("universe", UNIVERSE);
     ("val", VAL);
     ("when", WHEN) ;
     ("whnf", WHNF) ;

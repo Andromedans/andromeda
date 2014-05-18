@@ -1,72 +1,178 @@
 let NONE := val inj 0 ()
 let SOME := val fun Y => val inj 1 Y
+/*
+let equiv_ty := val fun equiv_ty(Z) =>
+  let [Z1,Z2] = val Z in
+  let - = op print ["equiv_ty", Z1, Z2] in
+*/
+  let equiv := val fun equiv(X) => 
+    let [X1,X2,t] = val X in
+    let _ = op print ["equiv", X1,  X2,  t]  in
 
-let equiv := val fun equiv(X) => 
-  let [X1,X2,t] = val X in
-  let _ = op print ["equiv",explode X1, explode X2, explode t]  in
+    let fun eqspine (Y) =
+      let [Y1,Y2] = val Y in
+      let _ = op print ["eqspine", Y1, Y2] in
+      if Y1 = Y2 then
+          let _ = op print "alpha-equivalent"  in
+          SOME []
+      else
+        match [explode Y1, explode Y2] with
+        | [["NameProd", u1, u3, e1, f3], ["NameProd", u2, u4, e2, f4]] when ((u1 = u2) && (u3 = u4)) =>
+            let w1 = equiv [e1,e2,u1] in
+            let w2 =
+              lambda x:e1,
+                let e3 = f3 `x` in
+                let e4 = f4 `x` in
+                let e5 = val whnf e3 in
+                let e6 = val whnf e4 in
+                equiv [e5, e6, u3]  in
+            match [w1, w2] with
+            | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
+            | _                    => val NONE 
+            end
 
-  let fun eqspine (Y) =
-    let [Y1,Y2] = val Y in
-    let _ = op print ["eqspine", explode Y1, explode Y2] in
-    if Y1 = Y2 then
-        let _ = op print "alpha-equivalent"  in
-        SOME []
+        | [["NameId", u1, e2, e3, e4], ["NameId", u5, e6, e7, e8]] when (u1 = u5) => 
+            let w1 = equiv [e2,e6,u1]  in
+            let w2 = equiv [e3,e7,u1]  in
+            let w3 = equiv [e4,e8,u1]  in
+            let _ = op print ["eqspine ==", w1, w2, w3]  in
+            match [w1, w2, w3] with
+            | [inj 1 xs, inj 1 ys, inj 1 zs] => SOME ((xs ++ ys) ++ zs)
+            | _                    => val NONE 
+            end
+
+        | [["NamePaths", u1, e2, e3, e4], ["NamePaths", u5, e6, e7, e8]] when (u1 = u5) => 
+            let w1 = equiv [e2,e6,u1]  in
+            let w2 = equiv [e3,e7,u1]  in
+            let w3 = equiv [e4,e8,u1]  in
+            let _ = op print ["eqspine ==", w1, w2, w3]  in
+            match [w1, w2, w3] with
+            | [inj 1 xs, inj 1 ys, inj 1 zs] => SOME ((xs ++ ys) ++ zs)
+            | _                    => val NONE 
+            end
+
+        | [["App", t1, t2, e3, e4], ["App", t5, t6, e7, e8]] =>
+            let w1 = equiv_ty [t1,t5] in
+            match w1 with
+            | inj 1 xs =>
+                let w2 = 
+                   lambda x : t1,
+                      let a = t2 `x` in
+                      let b = t6 `x` in
+                      equiv_ty [a,b]  in
+                match w2 with
+                | inj 1 ys =>
+                    let w3 = equiv [e3, e7, implode ["Prod", t1, t2]] in
+                    let w4 = equiv [e4, e8, t1]  in
+                    match [w3,w4] with
+                    | [inj 1 zs, inj 1 qs] => SOME (xs ++ (ys ++ (zs ++ qs)))
+                    | _ => val NONE
+                    end
+                | _ => val NONE
+                end
+           | _ => val NONE
+           end
+
+        | _ => val NONE
+        end  in
+
+    // Body of equiv starts here
+    if (X1 = X2) then
+       SOME []
     else
-      match [explode Y1, explode Y2] with
-      | [["NameProd", u1, u3, e1, f3], ["NameProd", u2, u4, e2, f4]] when ((u1 = u2) && (u3 = u4)) =>
-          let w1 = equiv [e1,e2,u1] in
-          let w2 =
-            lambda x:e1,
-              let e3 = f3 `x` in
-              let e4 = f4 `x` in
-              let e5 = val whnf e3 in
-              let e6 = val whnf e4 in
-              equiv [e5, e6, u3]  in
-          match [w1, w2] with
-          | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
-          | _                    => val NONE 
-          end
+       let t2  = val whnf t  in
+       let ex2 = val explode t2  in
+       let _ = op print ["t2 = ", ex2]  in
 
-      | [["NameId", u1, e2, e3, e4], ["NameId", u5, e6, e7, e8]] when (u1 = u5) => 
-          let w1 = equiv [e2,e6,universe u1]  in
-          let w2 = equiv [e3,e7,universe u1]  in
-          let w3 = equiv [e4,e8,universe u1]  in
-          let _ = op print ["eqspine ==", w1, w2, w3]  in
-          match [w1, w2, w3] with
-          | [inj 1 xs, inj 1 ys, inj 1 zs] => SOME ((xs ++ ys) ++ zs)
-          | _                    => val NONE 
-          end
+       match ex2 with
+       | ["Id", _, _, _] => SOME []
+       | ["Unit"]        => SOME []
+       | ["Prod", t21, t22] => 
+             lambda x : t21, 
+               let a = X1 `x`  in
+               let b = X2 `x`  in
+               let c = t22 `x`  in
+               equiv [a,b,c]
+       | _ => let e3 = val whnf X1  in
+              let e4 = val whnf X2  in
+              let _ = op print ["e3 =", e3, " e4 = ", e4]  in
+              if (e3 = e4) then
+                SOME []
+              else
+                let d = eqspine [e3,e4] in
+                let _ = op print ["eqspine returned", d] in
+                match d with
+                | inj 1 ws => val d
+                | _ => op equiv [e3,e4,t2]
+                end
+       end /* in
 
-      | _ => val NONE
-      end  in
+  let equiv_ty_name = fun Q =>
+    let [Q1,Q1] = Q in
+    let [n1,u1] = val name_of Q1  in
+    let [n2,u2] = val name_of Q2  in
+    if u1 = u2 then
+      equiv [n1, n2, u1]
+    else
+      NONE  in
 
-  /* Body of equiv starts here */
-  if (X1 = X2) then
-     SOME []
-  else
-     let t2  = val whnf t  in
-     let ex2 = val explode t2  in
-     let _ = op print ["t2 = ", ex2]  in
+  // Body of equiv_ty starts here 
+  if (Z1 = Z2) then
+    // Also handles Unit/Unit and Universe/Universe cases
+    SOME []
+  else match [explode (whnf Z1), explode (whnf Z2)] with
+    | [["Prod", t1, t2], ["Prod", t3, t4]] =>
+        let w1 = equivty [t1, t3]  in
 
-     match ex2 with
-     | ["Id", _, _, _] => SOME []
-     | ["Unit"]        => SOME []
-     | ["Prod", t21, t22] => 
-           lambda x : t21, 
-             let a = X1 `x`  in
-             let b = X2 `x`  in
-             let c = t22 `x`  in
-             equiv [a,b,c]
-     | _ => let e3 = val whnf X1  in
-            let e4 = val whnf X2  in
-            let _ = op print ["e3 =", explode e3, " e4 = ", explode e4]  in
-            if (e3 = e4) then
-              SOME []
-            else
-              let d = eqspine [e3,e4] in
-              let _ = op print ["eqspine returned", d] in
-              match d with
-              | inj 1 ws => val d
-              | _ => op equiv [e3,e4,t2]
-              end
-     end
+        match w1 with
+        | inj 1 xs =>
+            let w2 = 
+              lambda x:t1,
+                let t5 = t2 `x`  in
+                let t6 = t4 `x`  in
+                equiv_ty [t5, t6]  in
+            match w2 with
+            | Inj 1 ys =>
+               SOME (xs ++ ys)
+            | _ => 
+               equiv_ty_by_name [Z1,Z2]
+            end
+
+        | _ => equiv_ty_by_name [Z1,Z2]
+        end
+
+    | [["Paths", t1, e2, e3], ["Paths", t4, e5, e6]] =>
+      let w1 = equiv_ty [t1,t4] in
+      match w1 with
+      | inj 1 xs =>
+         let w2 = equiv [e2, e5, t1] in
+         let w3 = equiv [e3, e6, t1] in
+         match [w2,w3] with
+         | [inj 1 ys, inj 1 zs] => SOME (xs ++ (ys ++ zs))
+         | _ => equiv_ty_by_name [Z1,Z2]
+         end
+      | _ => equiv_ty_by_name [Z1,Z2]
+      end
+
+    | [["Id", t1, e2, e3], ["Id", t4, e5,e6]] =>
+      let w1 = equiv_ty [t1,t4] in
+      match w1 with
+      | inj 1 xs =>
+         let w2 = equiv [e2, e5, t1] in
+         let w3 = equiv [e3, e6, t1] in
+         match [w2,w3] with
+         | [inj 1 ys, inj 1 zs] => SOME (xs ++ (ys ++ zs))
+         | _ => equiv_ty_by_name [Z1,Z2]
+         end
+      | _ => equiv_ty_by_name [Z1,Z2]
+      end
+
+    | [["El", u1, e2], ["El", u3, e4]] when (u1 = u3) =>
+      /* No point in trying equiv_ty_by_name, since it
+         would just compare e2 with e4 again */
+      equiv [e2, e4, u1] 
+
+    | _ =>
+       equiv_ty_by_name [Z1,Z2]
+        
+*/

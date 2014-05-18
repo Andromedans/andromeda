@@ -318,13 +318,6 @@ and eval_prim ctx env loc op vs =
 
     | I.Explode, [v] -> eval_explode ctx env loc v
 
-    | I.Universe, [I.VConst(I.String s), sloc] ->
-        begin
-          match Universe.of_string s with
-          | Some u -> I.mkVType (Syntax.Universe u, sloc)
-          | None -> Error.runtime ~loc "'%s' is not a valid universe" s
-        end
-
     | I.NameOf, [I.VType t, tloc] ->
         begin
           match Syntax.name_of t with
@@ -340,16 +333,16 @@ and eval_prim ctx env loc op vs =
     | _, _ -> Error.runtime ~loc "Primitive %s cannot handle argument list %s"
                                      (I.string_of_primop op) (I.string_of_value ctx (I.mkVTuple vs))
 
-and eval_explode ctx env loc value =
+and eval_explode ctx _env loc value =
 
   let mkstr s = I.mkVConst (I.String s)  in
 
-  let do_u u = mkstr (Universe.to_string u)  in
+  let do_u u = I.mkVType (Syntax.Universe u, Position.nowhere)in
 
   let rec do_type ((ty',loc) as ty) =
     let components =
         match ty' with
-        | Syntax.Universe u -> [mkstr "Universe"; do_u u]
+        | Syntax.Universe u -> [mkstr "Universe"; mkstr (Universe.to_string u)]
         | Syntax.El(u,e) -> [mkstr "El"; do_u u; I.mkVTerm e]
         | Syntax.Unit -> [mkstr "Unit"]
         | Syntax.Prod(x1,t2,_) -> [mkstr "Prod"; I.mkVType t2; I.mkVFakeTypeFamily ~loc 1 ty]
@@ -358,10 +351,10 @@ and eval_explode ctx env loc value =
     in
        I.mkVTuple ~loc components
 
-   and do_term ((term',_) as term) =
+   and do_term (term',_) =
     let components =
         match term' with
-        | Syntax.Var v -> [mkstr "Var"; I.mkVTerm term]
+        | Syntax.Var i -> [mkstr "Var"; I.mkVConst (I.Int i)]
         | Syntax.Equation(e1,t2,e3) ->
             [mkstr "Equation"; I.mkVTerm e1; I.mkVType t2; I.mkVTerm e3]
         | Syntax.Rewrite(e1,t2,e3) ->
@@ -411,7 +404,43 @@ and eval_explode ctx env loc value =
     | I.VTerm b -> do_term b
     | _ -> Error.runtime ~loc "Can't explode %s@." (I.string_of_value ctx value)
 
+and eval_implode ctx env ((v',loc) as v) =
+  match v' with
+  | I.VTuple ((I.VConst (I.String s), _)::vs) ->
+      begin
+        match s,vs with
+        | "Var", [I.VConst (I.Int i), iloc] ->
+            if (i >= 0 && i < List.length (Context.names ctx)) then
+              I.mkVTerm ~loc (Syntax.Var i, iloc)
+            else
+              Error.runtime ~loc "implode: invalid variable"
 
+        | "NameUniverse", [I.VConst(I.String s), sloc] ->
+          begin
+            match Universe.of_string s with
+            | Some u -> I.mkVTerm (Syntax.NameUniverse u, sloc)
+            | None -> Error.runtime ~loc "'%s' is not a valid universe" s
+          end
+
+        | "Universe", [I.VConst(I.String s), sloc] ->
+          begin
+            match Universe.of_string s with
+            | Some u -> I.mkVType (Syntax.Universe u, sloc)
+            | None -> Error.runtime ~loc "'%s' is not a valid universe" s
+          end
+
+        | "Prod", [I.VType _t1, _; I.VFakeTypeFamily (1, ((Syntax.Prod(_,t1',t2'),_) as u)), _] ->
+            (*if (Syntax.equal_ty t1 t1') then*)
+               I.mkVType u
+            (*else*)
+              (*Error.runtime ~loc "implode: type family has wrong domain"*)
+
+        | _ -> Error.runtime ~loc "Invalid list %s passed to implode"
+                     (I.string_of_value ctx v)
+      end
+  | I.VTuple _ ->
+      Error.runtime ~loc "Input to implode must start with a string"
+  | _ -> Error.runtime ~loc "Input to implode must be a list"
 
 
 

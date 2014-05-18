@@ -34,7 +34,7 @@ type primop =
   | Whnf
   | GetCtx
   | Explode
-  | Universe
+  | Implode
   | NameOf
   | TypeOf
 
@@ -166,7 +166,7 @@ let string_of_primop = function
   | Whnf -> "Whnf"
   | GetCtx -> "GetCtx"
   | Explode -> "Explode"
-  | Universe -> "Universe"
+  | Implode -> "Implode"
   | NameOf -> "NameOf"
   | TypeOf -> "TypeOf"
 
