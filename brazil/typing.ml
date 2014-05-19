@@ -293,7 +293,7 @@ and is_type ctx (ty, loc) =
       | Input.Id (e1, e2) ->
         let (e1, t) = syn_term ctx e1 in
         let e2 = chk_term ctx e2 t in
-          Syntax.Paths (t, e1, e2)
+          Syntax.Id (t, e1, e2)
     end
   in
     (t, loc)
