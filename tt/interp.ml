@@ -900,30 +900,14 @@ and equiv_ty ctx env t u =
   if Syntax.equal_ty t u then
     retSomeTuple []
   else
-    match Syntax.name_of t, Syntax.name_of u with
-    | Some (e_t, alpha), Some (e_u, beta) ->
-        begin
-          if Universe.eq alpha beta then
-            equiv ctx env e_t e_u (Syntax.Universe alpha, Position.nowhere)
-          else
-            (Print.debug "Unequal universes in equiv_ty!";
-             retNone)
-        end
-    | _, _ ->
-        Error.runtime "equiv_ty couldn't find the name of a type!"
+    begin
+      Print.debug "equiv_ty: %t == %t" (print_ty ctx t) (print_ty ctx u);
+      let userCmd =
+        I.mkApp (I.mkVar "equiv_ty")
+                (I.mkTuple [ I.mkType t ; I.mkType u ])  in
+      run ctx env userCmd
+    end
 
-and equiv ctx env term1 term2 t =
-
-  Print.debug "equiv: %t == %t @@ %t"
-    (print_term ctx term1) (print_term ctx term2) (print_ty ctx t);
-
-  if (Syntax.equal term1 term2) then
-    retSomeTuple []
-  else
-    let userCmd =
-      I.mkApp (I.mkVar "equiv")
-              (I.mkTuple [ I.mkTerm term1 ; I.mkTerm term2 ; I.mkType t ])  in
-    run ctx env userCmd
 
 let toplevel_handler =
   let k = "toplevel k" in
@@ -934,7 +918,7 @@ let toplevel_handler =
      I.RVal (I.mkVConst I.Unit))  in
   {
     I.valH = None ;
-    I.opH  = [ ("equiv", I.PWild, k, continue_with_unit);
+    I.opH  = [ ("equiv_ty", I.PWild, k, continue_with_unit);
                ("print", I.PVar "x", k, I.mkLet I.PWild (I.mkRunML doPrint (I.mkVar "x"))
                                           continue_with_unit) ;
              ] ;

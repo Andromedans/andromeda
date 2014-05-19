@@ -1,16 +1,16 @@
 let NONE := val inj 0 ()
 let SOME := val fun Y => val inj 1 Y
-/*
+
 let equiv_ty := val fun equiv_ty(Z) =>
   let [Z1,Z2] = val Z in
-  let - = op print ["equiv_ty", Z1, Z2] in
-*/
-  let equiv := val fun equiv(X) => 
+  let _ = op print ["equiv_ty", Z1, Z2] in
+
+  let equiv = val fun equiv(X) => 
     let [X1,X2,t] = val X in
     let _ = op print ["equiv", X1,  X2,  t]  in
 
     let fun eqspine (Y) =
-      let [Y1,Y2] = val Y in
+      (let [Y1,Y2] = val Y in
       let _ = op print ["eqspine", Y1, Y2] in
       if Y1 = Y2 then
           let _ = op print "alpha-equivalent"  in
@@ -74,10 +74,10 @@ let equiv_ty := val fun equiv_ty(Z) =>
            end
 
         | _ => val NONE
-        end  in
+        end)  in
 
     // Body of equiv starts here
-    if (X1 = X2) then
+    (if (X1 = X2) then
        SOME []
     else
        let t2  = val whnf t  in
@@ -105,16 +105,16 @@ let equiv_ty := val fun equiv_ty(Z) =>
                 | inj 1 ws => val d
                 | _ => op equiv [e3,e4,t2]
                 end
-       end /* in
+       end)   in
 
-  let equiv_ty_name = fun Q =>
-    let [Q1,Q1] = Q in
+  let fun equiv_ty_by_name (Q) = 
+    let [Q1,Q1] = val Q in
     let [n1,u1] = val name_of Q1  in
     let [n2,u2] = val name_of Q2  in
     if u1 = u2 then
       equiv [n1, n2, u1]
     else
-      NONE  in
+      val NONE  in
 
   // Body of equiv_ty starts here 
   if (Z1 = Z2) then
@@ -122,7 +122,7 @@ let equiv_ty := val fun equiv_ty(Z) =>
     SOME []
   else match [explode (whnf Z1), explode (whnf Z2)] with
     | [["Prod", t1, t2], ["Prod", t3, t4]] =>
-        let w1 = equivty [t1, t3]  in
+        let w1 = equiv_ty [t1, t3]  in
 
         match w1 with
         | inj 1 xs =>
@@ -132,7 +132,7 @@ let equiv_ty := val fun equiv_ty(Z) =>
                 let t6 = t4 `x`  in
                 equiv_ty [t5, t6]  in
             match w2 with
-            | Inj 1 ys =>
+            | inj 1 ys =>
                SOME (xs ++ ys)
             | _ => 
                equiv_ty_by_name [Z1,Z2]
@@ -174,5 +174,5 @@ let equiv_ty := val fun equiv_ty(Z) =>
 
     | _ =>
        equiv_ty_by_name [Z1,Z2]
+  end
         
-*/
