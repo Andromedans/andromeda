@@ -1,16 +1,16 @@
-let NONE := val inj 0 ()
-let SOME := val fun Y => val inj 1 Y
+let NONE := inj 0 ()
+let SOME := fun Y => val inj 1 Y
 
-let equiv_ty := val fun equiv_ty(Z) =>
-  let [Z1,Z2] = val Z in
+let equiv_ty := fun equiv_ty(Z) =>
+  let [Z1,Z2] = return Z in
   let _ = op print ["equiv_ty", Z1, Z2] in
 
-  let equiv = val fun equiv(X) => 
-    let [X1,X2,t] = val X in
+  let equiv = return fun equiv(X) => 
+    let [X1,X2,t] = return X in
     let _ = op print ["equiv", X1,  X2,  t]  in
 
     let fun eqspine (Y) =
-      (let [Y1,Y2] = val Y in
+      (let [Y1,Y2] = return Y in
       let _ = op print ["eqspine", Y1, Y2] in
       if Y1 = Y2 then
           let _ = op print "alpha-equivalent"  in
@@ -23,12 +23,12 @@ let equiv_ty := val fun equiv_ty(Z) =>
               lambda x:e1,
                 let e3 = f3 `x` in
                 let e4 = f4 `x` in
-                let e5 = val whnf e3 in
-                let e6 = val whnf e4 in
+                let e5 = return whnf e3 in
+                let e6 = return whnf e4 in
                 equiv [e5, e6, u3]  in
             match [w1, w2] with
             | [inj 1 xs, inj 1 ys] => SOME (xs ++ ys)
-            | _                    => val NONE 
+            | _                    => return NONE 
             end
 
         | [["NameId", u1, e2, e3, e4], ["NameId", u5, e6, e7, e8]] when (u1 = u5) => 
@@ -38,7 +38,7 @@ let equiv_ty := val fun equiv_ty(Z) =>
             let _ = op print ["eqspine ==", w1, w2, w3]  in
             match [w1, w2, w3] with
             | [inj 1 xs, inj 1 ys, inj 1 zs] => SOME ((xs ++ ys) ++ zs)
-            | _                    => val NONE 
+            | _                    => return NONE 
             end
 
         | [["NamePaths", u1, e2, e3, e4], ["NamePaths", u5, e6, e7, e8]] when (u1 = u5) => 
@@ -48,7 +48,7 @@ let equiv_ty := val fun equiv_ty(Z) =>
             let _ = op print ["eqspine ==", w1, w2, w3]  in
             match [w1, w2, w3] with
             | [inj 1 xs, inj 1 ys, inj 1 zs] => SOME ((xs ++ ys) ++ zs)
-            | _                    => val NONE 
+            | _                    => return NONE 
             end
 
         | [["App", t1, t2, e3, e4], ["App", t5, t6, e7, e8]] =>
@@ -66,22 +66,22 @@ let equiv_ty := val fun equiv_ty(Z) =>
                     let w4 = equiv [e4, e8, t1]  in
                     match [w3,w4] with
                     | [inj 1 zs, inj 1 qs] => SOME (xs ++ (ys ++ (zs ++ qs)))
-                    | _ => val NONE
+                    | _ => return NONE
                     end
-                | _ => val NONE
+                | _ => return NONE
                 end
-           | _ => val NONE
+           | _ => return NONE
            end
 
-        | _ => val NONE
+        | _ => return NONE
         end)  in
 
     // Body of equiv starts here
     (if (X1 = X2) then
        SOME []
     else
-       let t2  = val whnf t  in
-       let ex2 = val explode t2  in
+       let t2  = return whnf t  in
+       let ex2 = return explode t2  in
        let _ = op print ["t2 = ", ex2]  in
 
        match ex2 with
@@ -93,8 +93,8 @@ let equiv_ty := val fun equiv_ty(Z) =>
                let b = X2 `x`  in
                let c = t22 `x`  in
                equiv [a,b,c]
-       | _ => let e3 = val whnf X1  in
-              let e4 = val whnf X2  in
+       | _ => let e3 = return whnf X1  in
+              let e4 = return whnf X2  in
               let _ = op print ["e3 =", e3, " e4 = ", e4]  in
               if (e3 = e4) then
                 SOME []
@@ -102,19 +102,19 @@ let equiv_ty := val fun equiv_ty(Z) =>
                 let d = eqspine [e3,e4] in
                 let _ = op print ["eqspine returned", d] in
                 match d with
-                | inj 1 ws => val d
+                | inj 1 ws => return d
                 | _ => op equiv [e3,e4,t2]
                 end
        end)   in
 
   let fun equiv_ty_by_name (Q) = 
-    let [Q1,Q1] = val Q in
-    let [n1,u1] = val name_of Q1  in
-    let [n2,u2] = val name_of Q2  in
+    let [Q1,Q1] = return Q in
+    let [n1,u1] = return name_of Q1  in
+    let [n2,u2] = return name_of Q2  in
     if u1 = u2 then
       equiv [n1, n2, u1]
     else
-      val NONE  in
+      return NONE  in
 
   // Body of equiv_ty starts here 
   if (Z1 = Z2) then

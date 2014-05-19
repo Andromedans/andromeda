@@ -26,6 +26,7 @@
     ("name_of", NAMEOF);
     ("type_of", TYPEOF);
     ("op", OP);
+    ("return", VAL);
     ("then", THEN);
     ("val", VAL);
     ("when", WHEN) ;

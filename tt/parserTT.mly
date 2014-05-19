@@ -107,9 +107,12 @@ commandline:
 topdef: mark_position(plain_topdef) { $1 }
 plain_topdef:
   | LET NAME COLONEQ comp0                  { TopLet ($2, $4) }
+  | LET NAME COLONEQ exp0                  { TopLet ($2, (Return $4, snd $4)) }
   | DEFINE ttname COLONEQ comp0               { TopDef ($2, $4) }
+  | DEFINE ttname COLONEQ exp0               { TopDef ($2, (Return $4, snd $4)) }
   | EVAL comp0                              { TopEval $2 }
   | ASSUME nonempty_list(ttname) COLON comp0  { TopParam ($2, $4) }
+  | ASSUME nonempty_list(ttname) COLON exp0  { TopParam ($2, (Return $4, snd $4)) }
 
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
@@ -164,25 +167,7 @@ plain_comp0:
     | VAL exp0        { Return $2 }
 
     | exp1 exp1        { App ($1, $2) }
-    | exp1 comp1       { let loc = Position.make $startpos $endpos in
-                          Let(PVar "arg val", $2, mkApp ~loc $1 (mkVar ~loc "arg val")) }
-    | comp1 exp1       { let loc = Position.make $startpos $endpos in
-                          Let(PVar "fn val", $1, mkApp ~loc (mkVar ~loc "fn val") $2) }
-    | comp1 comp1      { let loc = Position.make $startpos $endpos in
-                                 Let(PVar "fn val", $1,
-                                      mkLet ~loc (PVar "arg val") $2
-                                            (mkApp ~loc (mkVar ~loc "fn val") (mkVar ~loc "arg val"))) }
-
     | exp1 ASCRIBE exp1        { Ascribe ($1, $3) }
-    | exp1 ASCRIBE comp0       { let loc = Position.make $startpos $endpos in
-                                 Let(PVar "ascribe annot", $3, mkAscribe ~loc $1 (mkVar ~loc "ascribe annot")) }
-    | comp1 ASCRIBE exp1       { let loc = Position.make $startpos $endpos in
-                                 Let(PVar "ascribe val", $1, mkAscribe ~loc (mkVar ~loc "ascribe val") $3) }
-    | comp1 ASCRIBE comp0      { let loc = Position.make $startpos $endpos in
-                                 Let(PVar "ascribe val", $1,
-                                      mkLet ~loc (PVar "ascribe annot") $3
-                                            (mkAscribe ~loc (mkVar ~loc "ascribe val") (mkVar ~loc "ascribe annot"))) }
-
     | OP NAME exp1    { Op ($2, $3) }
     | LET pat EQ comp0 IN comp0 { Let($2, $4, $6) }
     | LET FUN NAME LPAREN name RPAREN EQ comp0 IN comp0
@@ -200,14 +185,10 @@ plain_comp0:
          {  Match($2, [PConst (Bool true), $4;
                        PConst (Bool false), $6]) }
 
-    | plain_comp1    { $1 }
-
-(* From the start, we know what the final token will be *)
-comp1: mark_position(plain_comp1) { $1 }
-plain_comp1:
     | MATCH e=exp0 WITH option(BAR) lst=separated_list(BAR, arm) END { Match (e, lst) }
     | DEBRUIJN INT       { MkVar $2 }
     | LPAREN plain_comp0 RPAREN { $2 }
+
 arm:
   toppat DARROW comp0 { ($1, $3) }
 
@@ -233,10 +214,6 @@ toppat:
 
 handler:
     | HANDLER hcs=hcases END { hcs }
-
-    (*| HANDLER VAL x=NAME DARROW c=comp hcs=list(preceded(BAR, hcase)) END*)
-                   (*{ { valH = (x,c); opH = hcs } }*)
-
 
 hcases:
     |              { { valH = None; opH = []; finH = None; } }
