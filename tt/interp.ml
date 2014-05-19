@@ -49,6 +49,8 @@ let abstract ctx x t =
     | I.VTerm body, loc -> I.mkVTerm ~loc (Syntax.Lambda(x, t, Typing.type_of ctx body, body), loc)
     | I.VTuple es, loc  -> I.mkVTuple ~loc (List.map loop es)
     | I.VInj (i, e), loc -> I.mkVInj ~loc i (loop e)
+    | I.VType u, loc -> I.mkVFakeTypeFamily 1 (Syntax.Prod(x, t, u), loc)
+    | I.VFakeTypeFamily (n,u), loc -> I.mkVFakeTypeFamily (n+1) (Syntax.Prod(x, t, u), loc)
     | (_, loc) -> Error.runtime ~loc "Bad body to MkLam"  in
   loop
 
@@ -428,6 +430,9 @@ and eval_implode ctx env ((v',loc) as v) =
             | Some u -> I.mkVType (Syntax.Universe u, sloc)
             | None -> Error.runtime ~loc "'%s' is not a valid universe" s
           end
+
+        | "El", _ ->
+            Error.unimplemented "implode of El"
 
         | "Prod", [I.VType _t1, _; I.VFakeTypeFamily (1, ((Syntax.Prod(_,t1',t2'),_) as u)), _] ->
             (*if (Syntax.equal_ty t1 t1') then*)
@@ -832,11 +837,11 @@ and run ctx env  (comp, loc) =
 
           *)
           sequence ~prependctx:(Context.add_var x1 domain Context.empty) ~label:"MkLam"
-            (fun v3 -> (Print.debug "At the point where we actually abstract the lambda@.";
-                        (*Context.print ~label:"ctx" ctx;*)
-                        Print.debug "and the abstracting type domain = %t"
-                            (print_ty ctx domain);
-                        I.RVal (abstract ctx' x1 domain v3))) r3
+            (fun v3 ->
+                 (Print.debug "At the point where we actually abstract the lambda@.";
+                  (*Context.print ~label:"ctx" ctx;*)
+                  Print.debug "and the abstracting type domain = %t" (print_ty ctx domain);
+                  I.RVal (abstract ctx' x1 domain v3))) r3
         end
 
     | I.Check(t1, t2, e, c) ->

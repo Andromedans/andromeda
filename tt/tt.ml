@@ -102,11 +102,24 @@ let rec exec_cmd interactive (ctx,env) (d, loc) =
           match Interp.toprun ctx env comp with
           | InputTT.RVal v ->
               begin
-                match fst v with
-                | InputTT.VType t ->
-                    let t = Syntax.simplify_ty t  in
-                    Ctx.add_vars (List.map (fun x -> (x,t)) xs) ctx, env
-                | _ -> Error.runtime "Classifier is not a type@."
+                let t =
+                  match v with
+                  | InputTT.VType t, _ -> t
+                  | InputTT.VTerm b, _ ->
+                      begin
+                        match Equal.as_universe ctx (Typing.type_of ctx b) with
+                        | Some alpha -> (Syntax.El(alpha, b), loc)
+                        | None -> Error.runtime ~loc
+                             "Cannot see why classifier %s of %s belongs to a universe"
+                             (InputTT.string_of_value ctx v)
+                             (String.concat "," xs)
+                      end
+                  | _ -> Error.runtime ~loc "Classifier %s of %s is not a Brazil value@."
+                               (InputTT.string_of_value ctx v)
+                               (String.concat "," xs)  in
+                (*let t = Equal.whnf_ty ~use_rws:false ctx t in*)
+                let t = Syntax.simplify_ty t in
+                      Ctx.add_vars (List.map (fun x -> (x,t)) xs) ctx, env
               end
           | InputTT.ROp (op, _, _, _) ->
               (incr uncaught_exception_count;
