@@ -42,6 +42,12 @@ Definition mult :=
     (fun n : N => 0)
     (fun (_ : N) (f : N -> N) (m : N) => plus m (f m)).
 
+Definition id := N_ind (fun _ : N => N) 0 (fun (_ : N) (k : N) => S k).
+
+(* At the moment this cycles. *)
+Definition check_evil :=
+   refl (id (id (S (S 0)))) :: S (S 0) == S (S 0).
+
 Definition one := S 0.
 Definition two := S (S 0).
 Definition three := S (S (S 0)).
@@ -72,7 +78,3 @@ Definition check_6 :=
 (* Getting slow *)
 Definition check_20 :=
    refl (mult ten ten) :: mult ten ten == mult twenty (S (S (S (S (S 0))))).
-
-(* At the moment this cycles. *)
-Definition check_4 :=
-   refl four :: four == plus (plus one one) two.

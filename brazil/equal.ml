@@ -178,7 +178,7 @@ and whnf ~use_rws ctx t ((e',loc) as e) =
     from [ctx]. After rewriting it re-runs weak head-normalization on the
     resulting term. *)
 and rewrite_term ctx e t =
-
+  Print.debug "rewrite_term %t at %t" (print_term ctx e) (print_ty ctx t) ;
   let match_hint pt pe1 pe2 =
     (* match [pe1] against [e] and instantiate, ignore magenta *)
     let inst = match_term ~magenta:false [] 0 ctx pe1 e t in
@@ -207,6 +207,9 @@ and rewrite_term ctx e t =
     | (k, pt, pe1, pe2) :: hs ->
       begin try
         let e2 = match_hint pt pe1 pe2 in
+          Print.debug "rewrote@ %t at@ %t to@ %t using@ %t and@ %t"
+            (print_term ctx e) (print_ty ctx t) (print_term ctx e2)
+            (print_pattern ctx k pe1) (print_pattern ctx k pe2) ;
           whnf ~use_rws:true ctx t e2
         with
           | Mismatch -> match_hints hs
