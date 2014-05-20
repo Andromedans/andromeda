@@ -35,6 +35,39 @@ and term' =
   | NamePaths of universe * term * term * term
   | NameId of universe *term * term * term
 
+
+(*********************************)
+(* Construction helper functions *)
+(*********************************)
+
+val mkUniverse : ?loc:Position.t -> universe -> ty
+val mkEl : ?loc:Position.t -> universe -> term  -> ty
+val mkUnit : ?loc:Position.t -> unit  -> ty
+val mkProd : ?loc:Position.t -> name -> ty -> ty  -> ty
+val mkPaths : ?loc:Position.t -> ty -> term -> term -> ty
+val mkId  : ?loc:Position.t -> ty -> term -> term -> ty
+
+val make_arrow: ?loc:Position.t -> ty -> ty -> ty
+
+val mkVar : ?loc:Position.t -> variable -> term
+val mkEquation : ?loc:Position.t -> term -> ty -> term -> term
+val mkRewrite : ?loc:Position.t -> term -> ty -> term -> term
+val mkAscribe : ?loc:Position.t -> term -> ty -> term
+val mkLambda : ?loc:Position.t -> name -> ty -> ty -> term -> term
+val mkApp : ?loc:Position.t -> name -> ty -> ty -> term -> term -> term
+val mkUnitTerm : ?loc:Position.t -> unit -> term
+val mkIdpath : ?loc:Position.t -> ty -> term -> term
+val mkJ : ?loc:Position.t -> ty -> (name*name*name*ty) -> (name*term) -> term -> term -> term -> term
+val mkRefl : ?loc:Position.t -> ty -> term -> term
+val mkCoerce : ?loc:Position.t -> universe -> universe -> term -> term
+val mkNameUnit : ?loc:Position.t -> unit -> term
+val mkNameProd : ?loc:Position.t -> universe -> universe -> name -> term -> term -> term
+val mkNameUniverse : ?loc:Position.t -> universe -> term
+val mkNamePaths : ?loc:Position.t -> universe -> term -> term -> term -> term
+val mkNameId : ?loc:Position.t -> universe -> term -> term -> term -> term
+
+
+
 (********)
 (* Code *)
 (********)
@@ -86,7 +119,6 @@ val beta_ty : ty -> term -> ty
 *)
 val betas_ty : ty -> term list -> ty
 
-(* val make_arrow: ?loc:Position.t -> ty -> ty -> ty *)
 
 (**
   Suppose we have [G, x_1:t_1, ..., x_n:t_n |- exp : ...] and the inhabitants

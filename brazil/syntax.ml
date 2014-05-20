@@ -37,6 +37,35 @@ and term' =
   | NamePaths of universe * term * term * term
   | NameId of universe * term * term * term
 
+(* Helper functions for construction *)
+
+let mkUniverse ?(loc=Position.nowhere) u = Universe u, loc
+let mkEl ?(loc=Position.nowhere) u e = El(u,e), loc
+let mkUnit ?(loc=Position.nowhere) () = Unit, loc
+let mkProd ?(loc=Position.nowhere) x t1 t2 = Prod(x,t1,t2), loc
+let mkPaths ?(loc=Position.nowhere) t e1 e2 = Paths(t,e1,e2), loc
+let mkId  ?(loc=Position.nowhere) t e1 e2 = Id(t,e1,e2), loc
+
+let mkVar ?(loc=Position.nowhere) v = Var v, loc
+let mkEquation ?(loc=Position.nowhere) e1 t e2 = Equation(e1,t,e2), loc
+let mkRewrite ?(loc=Position.nowhere) e1 t e2 = Rewrite(e1,t,e2), loc
+let mkAscribe ?(loc=Position.nowhere) e t = Ascribe(e,t), loc
+let mkLambda ?(loc=Position.nowhere) x t1 t2 e = Lambda(x,t1,t2,e), loc
+let mkApp ?(loc=Position.nowhere) x t1 t2 e1 e2 = App((x,t1,t2),e1,e2), loc
+let mkUnitTerm ?(loc=Position.nowhere) () = UnitTerm, loc
+let mkIdpath ?(loc=Position.nowhere) t e = Idpath(t,e), loc
+let mkJ ?(loc=Position.nowhere) a b c d e f = J(a,b,c,d,e,f), loc
+let mkRefl ?(loc=Position.nowhere) t e = Refl(t,e), loc
+let mkCoerce ?(loc=Position.nowhere) u1 u2 e = Coerce(u1,u2,e), loc
+let mkNameUnit ?(loc=Position.nowhere) () = NameUnit, loc
+let mkNameProd ?(loc=Position.nowhere) u1 u2 x e1 e2 = NameProd(u1, u2, x, e1, e2), loc
+let mkNameUniverse ?(loc=Position.nowhere) u = NameUniverse u, loc
+let mkNamePaths ?(loc=Position.nowhere) u e1 e2 e3 = NamePaths(u,e1,e2,e3), loc
+let mkNameId ?(loc=Position.nowhere) u e1 e2 e3 = NameId(u,e1,e2,e3), loc
+
+
+
+
 (*********************)
 (* Alpha equality    *)
 (*********************)
@@ -297,8 +326,8 @@ let betas_ty tBody eArgs =
   in
     betas 1 tBody eArgs
 
-(* let make_arrow ?(loc=Position.nowhere) dom cod = *)
-(*   Prod("_", dom, shift_ty 1 cod), loc *)
+let make_arrow ?(loc=Position.nowhere) dom cod =
+   Prod("_", dom, shift_ty 1 cod), loc
 
 (**
   Suppose we have [G, x_1:t_1, ..., x_n:t_n |- exp : ...] and the inhabitants
