@@ -15,6 +15,7 @@ brazil.byte:
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) brazil.byte
 
 br-smoketest: brazil.byte
+	./brazil.byte examples/bool.br
 	./brazil.byte examples/nat.br
 	@echo
 	@echo "*******************************"
