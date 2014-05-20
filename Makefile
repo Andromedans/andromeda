@@ -4,7 +4,7 @@ OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 
 
 
-all: brazil.byte tt.byte tt-smoketest
+all: brazil.byte #tt.byte tt-smoketest
 
 default: tt.byte
 
