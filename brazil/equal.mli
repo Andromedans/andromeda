@@ -13,14 +13,6 @@ val as_universe : Context.t -> Syntax.ty -> Universe.t option
 (** Convert a universally quantified equality to a pattern *)
 val as_hint : Context.t -> Syntax.term -> Syntax.ty -> Context.hint
 
-type use_hints = {
-  use_eqs : bool ; (* use both equations *)
-  use_rws : bool   (* use rewrites *)
-}
-
-(** Algorithmic term equality *)
-val equal_term: use:use_hints -> Context.t -> Syntax.term -> Syntax.term -> Syntax.ty -> bool
-
 (** Weak-head normalize a type *)
 val whnf_ty : use_rws:bool -> Context.t -> Syntax.ty -> Syntax.ty
 
