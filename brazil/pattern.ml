@@ -134,7 +134,7 @@ and of_term' k l ((e', loc) as e) =
           | _ -> J (t, (x,y,p,u), (z,e1), e2, e3, e4)
         end
 
-    | Syntax.Refl (t, e) ->          
+    | Syntax.Refl (t, e) ->
       let t = of_ty' k l t
       and e = of_term' k l e
       in
@@ -195,13 +195,13 @@ let of_ty k t = of_ty' k 0 t
 let rec subst_ty inst k = function
 
   | Ty _ as t -> t
-        
+
   | El (alpha, e) ->
     let e = subst_term inst k e in
       begin match e with
         | Term e -> Ty (Syntax.El (alpha, e), Position.nowhere)
         | _ -> El (alpha, e)
-      end            
+      end
 
   | Prod (x, t1, t2) ->
     let t1 = subst_ty inst k t1
@@ -211,7 +211,7 @@ let rec subst_ty inst k = function
         | Ty t1, Ty t2 -> Ty (Syntax.Prod (x, t1, t2), Position.nowhere)
         | _ -> Prod (x, t1, t2)
       end
-          
+
   | Paths (t, e1, e2) ->
     let t = subst_ty inst k t
     and e1 = subst_term inst k e1
@@ -221,7 +221,7 @@ let rec subst_ty inst k = function
         | Ty t, Term e1, Term e2 -> Ty (Syntax.Paths (t, e1, e2), Position.nowhere)
         | _ -> Paths (t, e1, e2)
       end
-          
+
   | Id (t, e1, e2) ->
     let t = subst_ty inst k t
     and e1 = subst_term inst k e1
@@ -234,7 +234,7 @@ let rec subst_ty inst k = function
 
 and subst_term inst k = function
   | Term _ as pe -> pe
-    
+
   | (PVar i) as pe ->
     begin try
       let e = List.assoc i inst in
@@ -437,3 +437,145 @@ and shift k l = function
     and e3 = shift k l e3
     in
       NameId (alpha, e1, e2, e3)
+
+
+(**********)
+(* Spines *)
+(**********)
+
+type ('y,'r) spine = head * ((name * 'y * 'y) * 'r) list
+
+and head =
+  | HVar of int   (* Brazil variable, not a pattern variable! *)
+  | HNameProd of Universe.t * Universe.t
+  | HNamePaths of Universe.t
+  | HNameId of Universe.t
+  | HCoerce of Universe.t * Universe.t
+  | HRefl of Syntax.ty
+  | HIdpath of Syntax.ty
+  | HUnitTerm
+
+let eq_head head1 head2 =
+  match head1, head2 with
+  | HVar n, HVar n' -> n = n'
+
+  | HNameProd(alpha, beta), HNameProd(alpha',beta')
+  | HCoerce(alpha, beta), HCoerce(alpha',beta') ->
+      alpha = alpha' && beta = beta'
+
+  | HNamePaths alpha, HNamePaths alpha'
+  | HNameId alpha, HNameId alpha' ->
+      alpha = alpha'
+
+  | HRefl t, HRefl t'
+  | HIdpath t, HIdpath t' -> Syntax.equal_ty t t'
+
+  | HUnitTerm, HUnitTerm -> true
+
+  | (HVar _ | HNameProd _ | HNamePaths _ | HNameId _
+      | HCoerce _ | HRefl _ | HIdpath _
+      | HUnitTerm ), _ -> false
+
+
+
+
+let rec spine_of_syntax doTy doTerm ((term', _) as term) =
+  let recur = spine_of_syntax doTy doTerm in
+  match term' with
+  | Syntax.Var v ->
+      HVar v, []
+
+  | Syntax.App ((x,t1,t2), e1, e2) ->
+        let (h, args) = recur e1  in
+        h, (args @ [(x,doTy t1,doTy t2), doTerm e2])
+
+  | Syntax.Coerce(alpha, beta, e) ->
+      HCoerce (alpha, beta),
+      [("_", doTy (Syntax.mkUniverse alpha), doTy (Syntax.mkUniverse beta)), doTerm e]
+
+  | Syntax.UnitTerm ->
+      HUnitTerm, []
+
+  | Syntax.NameId(alpha, e1, e2, e3) ->
+      HNameId alpha,
+      [("nameid-arg", doTy(Syntax.mkUniverse alpha),
+        doTy(Syntax.make_arrow
+             (Syntax.mkEl alpha (Syntax.mkVar 0))
+             (Syntax.make_arrow
+                (Syntax.mkEl alpha (Syntax.mkVar 0))
+          (Syntax.mkUniverse alpha)))), doTerm e1;
+       ("_", doTy (Syntax.mkEl alpha (Syntax.mkVar 0)),
+             doTy (Syntax.make_arrow
+                  (Syntax.mkEl alpha (Syntax.mkVar 1))
+                  (Syntax.mkUniverse alpha))), doTerm e2;
+       ("_", doTy (Syntax.mkEl alpha (Syntax.mkVar 1)),
+                doTy (Syntax.mkUniverse alpha)), doTerm e3;
+      ]
+
+  | _ -> Error.unimplemented "need to finish spine_of_syntax %t"
+                (Print.term []  term)
+
+
+let rec spine_of_term = function
+  | Term e -> spine_of_syntax (fun t -> Ty t) (fun e -> Term e) e
+
+  | PVar i -> Error.unimplemented "Top-level pattern variable cannot be a spine"
+
+  | Lambda _ -> Error.unimplemented "Top-level lambda cannot be a spine"
+
+  | App ((x,t1,t2), p1, p2) ->
+        let (h, args) = spine_of_term p1  in
+        h, (args @ [(x,t1,t2), p2])
+
+  | Idpath(Ty t, p) ->
+      HIdpath t,
+      [("idpath-arg", Ty t,
+            Paths (Ty(Syntax.weaken_ty 0 t), Term (Syntax.mkVar 0), Term (Syntax.mkVar 0))),
+       p]
+
+  | Idpath _ ->
+      Error.unimplemented "Top-level Idpath cannot have a pattern type"
+
+  | J _ -> Error.unimplemented "Top-level J cannot be a spine"
+
+  | Refl(Ty t, p) ->
+      HRefl t,
+      [("refl-arg", Ty t,
+            Id (Ty(Syntax.weaken_ty 0 t), Term (Syntax.mkVar 0), Term (Syntax.mkVar 0))),
+       p]
+
+  | Refl _ ->
+      Error.unimplemented "Top-level Refl cannot have a pattern type"
+
+  | Coerce(alpha, beta, p) ->
+      HCoerce (alpha, beta),
+      [("_", Ty (Syntax.mkUniverse alpha), Ty(Syntax.mkUniverse beta)), p]
+
+  | NameId(alpha, p1, p2, p3) ->
+      HNameId alpha,
+      [("nameid-arg", Ty(Syntax.mkUniverse alpha),
+        Ty(Syntax.make_arrow
+             (Syntax.mkEl alpha (Syntax.mkVar 0))
+             (Syntax.make_arrow
+                (Syntax.mkEl alpha (Syntax.mkVar 0))
+          (Syntax.mkUniverse alpha)))), p1;
+       ("_", Ty (Syntax.mkEl alpha (Syntax.mkVar 0)),
+             Ty (Syntax.make_arrow
+                  (Syntax.mkEl alpha (Syntax.mkVar 1))
+                  (Syntax.mkUniverse alpha))), p2;
+       ("_", Ty (Syntax.mkEl alpha (Syntax.mkVar 1)),
+                Ty (Syntax.mkUniverse alpha)), p3;
+      ]
+
+  | _ -> Error.unimplemented "Need to finish names in spine_of_term"
+
+
+let spine_of_brazil  = spine_of_syntax (fun t -> t) (fun e -> e)
+
+let subst_pattern_args inst k =
+  List.map
+    (fun ((x,t1,t2),e) ->
+      ((x, subst_ty inst k t1,
+           subst_ty inst (k+1) t2),
+           subst_term inst k e))
+
