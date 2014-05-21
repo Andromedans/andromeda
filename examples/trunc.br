@@ -1,34 +1,40 @@
-// Definition of propositional truncation from the Book.
+(* Definition of propositional truncation from the Book. *)
 
-// The type former
-assume Trunc : Type -> Type ;;
+Definition Type := Universe f0.
 
-//
-// Definition of something being an 0-type
-//
+(* The type former *)
+Parameter Trunc : Type -> Type.
 
-define is_prop := fun (A : Type) => (x : A) -> (y : A) -> (x = y @ A) ;;
+(* Definition of something being a (-1)-type *)
 
-// The type constructors for propositional truncation
+Definition is_prop := fun (A : Type) => forall (x y : A), x = y.
 
-assume trunc : (A : Type) -> A -> Trunc A ;;
+(* The type constructors for propositional truncation *)
 
-assume Trunc_is_prop : (A : Type) -> is_prop (Trunc A) ;;
+Parameter trunc : forall (A : Type), A -> Trunc A.
 
-// The non-dependent eliminator
+Parameter Trunc_is_prop : forall (A : Type), is_prop (Trunc A).
 
-assume rec_trunc :
-  (A : Type) -> (B : Type) -> is_prop B -> (A -> B) -> (Trunc A -> B) ;;
+(* The non-dependent eliminator *)
 
-// The computation rule for trunc_elim
+Parameter rec_trunc :
+  forall (A B : Type), is_prop B -> (A -> B) -> (Trunc A -> B).
 
-assume trunc_comp :
-  (A : Type) -> (B : Type) -> (p : is_prop B) -> (f : A -> B) -> (x : A) ->
-  (rec_trunc A B p f (trunc A x) == f x @ B) ;;
+(* The computation rule for trunc_elim *)
 
-// Contractible types:
+Parameter trunc_comp :
+  forall (A B : Type)
+         (p : is_prop B)
+         (f : A -> B)
+         (x : A),
+    rec_trunc A B p f (trunc A x) == f x.
 
-define is_contr := fun (A : Type) => (x : A) * ((y : A) -> (x = y @ A)) ;;
+(* Contractible types *)
+
+(* Got stuck here because there are no sigmas anymore. *)
+
+Definition is_contr :=
+   fun (A : Type) => (x : A) * ((y : A) -> (x = y @ A)) ;;
 
 // If A is an inhabited proposition then it is contractible
 
