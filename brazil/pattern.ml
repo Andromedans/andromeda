@@ -443,6 +443,8 @@ and shift k l = function
 (* Spines *)
 (**********)
 
+exception NoSpine
+
 type ('y,'r) spine = head * ((name * 'y * 'y) * 'r) list
 
 and head =
@@ -450,10 +452,12 @@ and head =
   | HNameProd of Universe.t * Universe.t
   | HNamePaths of Universe.t
   | HNameId of Universe.t
+  | HNameUniverse of Universe.t
   | HCoerce of Universe.t * Universe.t
   | HRefl of Syntax.ty
   | HIdpath of Syntax.ty
   | HUnitTerm
+  | HNameUnit
 
 let eq_head head1 head2 =
   match head1, head2 with
@@ -461,25 +465,74 @@ let eq_head head1 head2 =
 
   | HNameProd(alpha, beta), HNameProd(alpha',beta')
   | HCoerce(alpha, beta), HCoerce(alpha',beta') ->
-      alpha = alpha' && beta = beta'
+      Universe.eq alpha alpha' && Universe.eq beta beta'
 
   | HNamePaths alpha, HNamePaths alpha'
-  | HNameId alpha, HNameId alpha' ->
-      alpha = alpha'
+  | HNameId alpha, HNameId alpha'
+  | HNameUniverse alpha, HNameUniverse alpha' ->
+      Universe.eq alpha alpha'
 
   | HRefl t, HRefl t'
   | HIdpath t, HIdpath t' -> Syntax.equal_ty t t'
 
-  | HUnitTerm, HUnitTerm -> true
+  | HUnitTerm, HUnitTerm
+  | HNameUnit, HNameUnit -> true
 
   | (HVar _ | HNameProd _ | HNamePaths _ | HNameId _
       | HCoerce _ | HRefl _ | HIdpath _
-      | HUnitTerm ), _ -> false
+      | HUnitTerm | HNameUniverse _ | HNameUnit ), _ -> false
 
 
+let id x = x
 
+(* Factored out because spine_of_idpath and spine_of_namepaths were
+ * nearly identical. They take the same arguments; the only difference
+ * is the head.
+ *)
+let spine_of_pathlike head doTy doTerm alpha e1 e2 e3 =
+  let u_alpha = Syntax.mkUniverse alpha  in
+  let el_v0 = Syntax.mkEl alpha (Syntax.mkVar 0)  in
+  let el_v1 = Syntax.mkEl alpha (Syntax.mkVar 1)  in
 
-let rec spine_of_syntax doTy doTerm ((term', _) as term) =
+  head,     (* Head basically has type
+                x:U_alpha -> El[alpha](x) -> El[alpha](x) -> U_alpha
+               so we annotate the applications below accordingly. *)
+
+  [ ( "nameid-arg", doTy u_alpha, doTy (Syntax.make_arrow el_v0 (Syntax.make_arrow el_v0 u_alpha)) ),
+    doTerm e1;
+
+   ( "_", doTy el_v0, doTy (Syntax.make_arrow el_v1 u_alpha) ),  (* We're in the scope of "_" var, so shift 0->1 *)
+   doTerm e2;
+
+   ( "_", doTy el_v1, doTy u_alpha ),
+   doTerm e3;
+  ]
+
+let spine_of_nameid doTy doTerm alpha e1 e2 e3 =
+  spine_of_pathlike (HNameId alpha) doTy doTerm alpha e1 e2 e3
+
+let spine_of_namepaths doTy doTerm alpha e1 e2 e3 =
+  spine_of_pathlike (HNamePaths alpha) doTy doTerm alpha e1 e2 e3
+
+let spine_of_idpath doTy doTerm t p =
+    HIdpath t,
+    [ ( "idpath-arg",
+        doTy t,
+        doTy (Syntax.mkPaths (Syntax.weaken_ty 0 t) (Syntax.mkVar 0) (Syntax.mkVar 0)) ),
+      doTerm p]
+
+let spine_of_refl doTy doTerm t p =
+    HIdpath t,
+    [ ( "refl-arg",
+        doTy t,
+        doTy (Syntax.mkId (Syntax.weaken_ty 0 t) (Syntax.mkVar 0) (Syntax.mkVar 0)) ),
+      doTerm p]
+
+let spine_of_coerce doTy doTerm alpha beta e =
+    HCoerce (alpha, beta),
+    [("_", doTy (Syntax.mkUniverse alpha), doTy (Syntax.mkUniverse beta)), doTerm e]
+
+let rec spine_of_syntax doTy doTerm (term', _) =
   let recur = spine_of_syntax doTy doTerm in
   match term' with
   | Syntax.Var v ->
@@ -489,88 +542,109 @@ let rec spine_of_syntax doTy doTerm ((term', _) as term) =
         let (h, args) = recur e1  in
         h, (args @ [(x,doTy t1,doTy t2), doTerm e2])
 
-  | Syntax.Coerce(alpha, beta, e) ->
-      HCoerce (alpha, beta),
-      [("_", doTy (Syntax.mkUniverse alpha), doTy (Syntax.mkUniverse beta)), doTerm e]
+  | Syntax.Coerce(alpha, beta, e) -> spine_of_coerce doTy doTerm alpha beta e
 
-  | Syntax.UnitTerm ->
-      HUnitTerm, []
+  | Syntax.UnitTerm -> HUnitTerm, []
 
-  | Syntax.NameId(alpha, e1, e2, e3) ->
-      HNameId alpha,
-      [("nameid-arg", doTy(Syntax.mkUniverse alpha),
-        doTy(Syntax.make_arrow
-             (Syntax.mkEl alpha (Syntax.mkVar 0))
-             (Syntax.make_arrow
-                (Syntax.mkEl alpha (Syntax.mkVar 0))
-          (Syntax.mkUniverse alpha)))), doTerm e1;
-       ("_", doTy (Syntax.mkEl alpha (Syntax.mkVar 0)),
-             doTy (Syntax.make_arrow
-                  (Syntax.mkEl alpha (Syntax.mkVar 1))
-                  (Syntax.mkUniverse alpha))), doTerm e2;
-       ("_", doTy (Syntax.mkEl alpha (Syntax.mkVar 1)),
-                doTy (Syntax.mkUniverse alpha)), doTerm e3;
-      ]
+  | Syntax.Idpath(t, p) -> spine_of_idpath doTy doTerm t p
 
-  | _ -> Error.unimplemented "need to finish spine_of_syntax %t"
-                (Print.term []  term)
+  | Syntax.Refl(t, p) -> spine_of_refl doTy doTerm t p
 
+  | Syntax.NameId(alpha, e1, e2, e3) -> spine_of_nameid doTy doTerm alpha e1 e2 e3
 
-let rec spine_of_term = function
-  | Term e -> spine_of_syntax (fun t -> Ty t) (fun e -> Term e) e
+  | Syntax.NamePaths(alpha, e1, e2, e3) -> spine_of_namepaths doTy doTerm alpha e1 e2 e3
 
-  | PVar i -> Error.unimplemented "Top-level pattern variable cannot be a spine"
+  | Syntax.NameUniverse alpha -> HNameUniverse alpha, []
 
-  | Lambda _ -> Error.unimplemented "Top-level lambda cannot be a spine"
+  | Syntax.NameUnit -> HNameUnit, []
+
+  | Syntax.NameProd (_alpha, _beta, _x, _e1, _e2) ->
+
+      (* XXX We don't try to handle matches against nameProds *)
+      raise NoSpine
+
+      (*
+      let u_alpha = Syntax.mkUniverse alpha  in
+      let el_v0 = Syntax.mkEl alpha (Syntax.mkVar 0)  in
+      let el_v1 = Syntax.mkEl alpha (Syntax.mkVar 1)  in
+
+      HNameProd (alpha, beta),
+      [ ( "nameprod-arg",
+          doTy u_alpha,
+
+        ),
+        doTerm e1,
+        *)
+
+  | Syntax.Lambda _ ->
+      (* XXX We don't try to handle matches against lambdas *)
+      raise NoSpine
+
+  | Syntax.Equation (_, _, e)
+  | Syntax.Rewrite (_, _, e)
+  | Syntax.Ascribe (e, _) ->
+      recur e
+
+  | Syntax.J _ ->
+      (* XXX We don't try to handle matches against J *)
+      raise NoSpine
+
+let rec spine_of_term =
+  let wrapTy t = Ty t  in
+  let wrapTerm e = Term e  in
+  let warn s = Print.warning "spine_of_term: %s" s  in
+  function
+  | Term e -> spine_of_syntax wrapTy wrapTerm e
+
+  | PVar i -> Error.impossible "spine_of_term: top-level pattern variable cannot be a spine"
 
   | App ((x,t1,t2), p1, p2) ->
         let (h, args) = spine_of_term p1  in
         h, (args @ [(x,t1,t2), p2])
 
-  | Idpath(Ty t, p) ->
-      HIdpath t,
-      [("idpath-arg", Ty t,
-            Paths (Ty(Syntax.weaken_ty 0 t), Term (Syntax.mkVar 0), Term (Syntax.mkVar 0))),
-       p]
+  | Idpath(typat, p) ->
+      begin
+        match typat with
+        | Ty t -> spine_of_idpath wrapTy id t p
+        | _ -> warn "can't handle type patterns in top-level Idpath; skipping";
+               raise NoSpine
+      end
 
-  | Idpath _ ->
-      Error.unimplemented "Top-level Idpath cannot have a pattern type"
+  | J _ ->
+      begin
+        warn "We don't currently handle patterns with top-level J";
+        raise NoSpine
+      end
 
-  | J _ -> Error.unimplemented "Top-level J cannot be a spine"
+  | Refl(typat, p) ->
+      begin
+        match typat with
+        | Ty t -> spine_of_refl wrapTy id t p
+        | _ -> warn "can't handle type patterns in top-level Refk; skipping";
+               raise NoSpine
+      end
 
-  | Refl(Ty t, p) ->
-      HRefl t,
-      [("refl-arg", Ty t,
-            Id (Ty(Syntax.weaken_ty 0 t), Term (Syntax.mkVar 0), Term (Syntax.mkVar 0))),
-       p]
+  | Coerce(alpha, beta, p) -> spine_of_coerce wrapTy id alpha beta p
 
-  | Refl _ ->
-      Error.unimplemented "Top-level Refl cannot have a pattern type"
+  | NameId(alpha, p1, p2, p3) -> spine_of_nameid wrapTy id alpha p1 p2 p3
 
-  | Coerce(alpha, beta, p) ->
-      HCoerce (alpha, beta),
-      [("_", Ty (Syntax.mkUniverse alpha), Ty(Syntax.mkUniverse beta)), p]
+  | NamePaths(alpha, p1, p2, p3) -> spine_of_namepaths wrapTy id alpha p1 p2 p3
 
-  | NameId(alpha, p1, p2, p3) ->
-      HNameId alpha,
-      [("nameid-arg", Ty(Syntax.mkUniverse alpha),
-        Ty(Syntax.make_arrow
-             (Syntax.mkEl alpha (Syntax.mkVar 0))
-             (Syntax.make_arrow
-                (Syntax.mkEl alpha (Syntax.mkVar 0))
-          (Syntax.mkUniverse alpha)))), p1;
-       ("_", Ty (Syntax.mkEl alpha (Syntax.mkVar 0)),
-             Ty (Syntax.make_arrow
-                  (Syntax.mkEl alpha (Syntax.mkVar 1))
-                  (Syntax.mkUniverse alpha))), p2;
-       ("_", Ty (Syntax.mkEl alpha (Syntax.mkVar 1)),
-                Ty (Syntax.mkUniverse alpha)), p3;
-      ]
-
-  | _ -> Error.unimplemented "Need to finish names in spine_of_term"
+  | NameProd _ ->
+      begin
+        warn "we don't currently handle patterns with top-level NameProd";
+        raise NoSpine
+      end
 
 
-let spine_of_brazil  = spine_of_syntax (fun t -> t) (fun e -> e)
+  | Lambda _ ->
+      begin
+        warn "we don't currently handle patterns with top-level Lambda";
+        raise NoSpine
+      end
+
+
+let spine_of_brazil  = spine_of_syntax id id
 
 let subst_pattern_args inst k =
   List.map

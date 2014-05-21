@@ -185,16 +185,16 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
       answer
     end
 
-(** [rewrite_term ctx e t] rewrites term [e] of type [t] using rewrite hints
-    from [ctx]. After rewriting it re-runs weak head-normalization on the
-    resulting term. *)
+(** new_match_term ctx pat e t
+ *)
+and new_match_term ctx inst0 k pat _pat_ty term _ty  =
 
-and rewrite_term ctx e t =
-  (*Print.debug "rewrite_term %t at %t" (print_term ctx e) (print_ty ctx t) ;*)
-  let match_spine (pat_head, pat_args) rhs (term_head, term_args) =
+  let match_spine (pat_head, pat_args) (term_head, term_args) =
     if Pattern.eq_head pat_head term_head &&
          List.length pat_args = List.length term_args then
        begin
+         Print.debug "Maybe %t@ will match %t"
+            (print_pattern ctx k pat) (print_term ctx term);
          let rec loop pat_args term_args inst =
            match pat_args, term_args with
            | [], [] -> inst
@@ -202,59 +202,112 @@ and rewrite_term ctx e t =
            (* XXX we're not checking that the annotations on the applications
             * are equal! *)
 
-           | (_, p)::prest, ((_, t1,_), e)::erest ->
-               let (inst : (int * Syntax.term) list) =
-                 try match_term ~magenta:false inst 0 ctx p e t1
+           | ((_,pt1,_), p)::prest, ((_, t1,_), e)::erest ->
+               let inst =
+                 try
+                   Print.debug "Subpattern %t@ might match %t"
+                      (print_pattern ctx k p) (print_term ctx e);
+                   (* XXX This gets rid of head beta redices, but also expands
+                    * head definitions. That might be more than we want... *)
+                   let e = whnf ~use_rws:false ctx t1 e  in
+                   new_match_term ctx inst k p pt1 e t1
                  with
                    | Mismatch ->
                        let e = whnf ~use_rws:true ctx t1 e in
-                       match_term ~magenta:false inst 0 ctx p e t1   in
+                       new_match_term ctx inst k p pt1 e t1
+               in
                let prest = Pattern.subst_pattern_args inst 0 prest  in
                loop prest erest inst
            | _, _ -> Error.impossible "match_spine/loop got lists with different lengths!"
-         in let inst = loop pat_args term_args [] in
-           match Pattern.subst_term inst 0 rhs with
-           | Pattern.Term e2 ->
-               begin
-                 (*Print.debug "Success! Hint rewrote to %t" (print_term ctx e2);*)
-                 e2
-               end
-           | _ ->
-               begin
-                 (*Print.debug "Match succeeded, but rhs isn't a term";*)
-                 raise Mismatch
-               end
+         in let inst = loop pat_args term_args inst0 in
+         inst
        end
     else
-      raise Mismatch   in
+      begin
+        if (Pattern.eq_head pat_head term_head) then
+          Print.debug "Nope; lengths are different"
+        else
+          Print.debug "Nope; heads don't match";
+        raise Mismatch
+       end   in
 
-  let match_hint pt pe1 pe2 =
+  match pat with
+   | Pattern.PVar i ->
+       begin
+         (* Substitutions should have gotten rid of this variable
+          * if it already had a definition. *)
+         assert (not (List.mem_assoc i inst0));
+         (i,term) :: inst0
+       end
 
-    (* XXX Spine creation might fail, e.g., if the
-     * pattern Pe1 is simply a single pattern variable.
-     * If so, we need to do something else (probably
-     * involving checking pt against t *)
+   | _ ->
+       begin
+        (* XXX Spine creation might fail, e.g., if the
+         * pattern Pe1 is a lambda
+         * If so, we need to do something else.
+         *)
+        Print.debug "About to spine pattern %t" (print_pattern ctx k pat);
+        let pat_spine =
+          try Pattern.spine_of_term pat
+          with e -> (Print.debug "pattern not spinable"; raise e) in
 
-    let pe1_spine = Pattern.spine_of_term pe1  in
-    let e_spine = Pattern.spine_of_brazil e in
-    match_spine pe1_spine pe2 e_spine
+        let _ = Print.debug "About to spine term %t" (print_term ctx term) in
+        let term_spine =
+          try Pattern.spine_of_brazil term
+          with e -> (Print.debug "term %t not spinable" (print_term ctx term); raise e) in
 
+        match_spine pat_spine term_spine
+       end
+
+
+
+
+(** [rewrite_term ctx e t] rewrites term [e] of type [t] using rewrite hints
+    from [ctx]. After rewriting it re-runs weak head-normalization on the
+    resulting term. *)
+
+and rewrite_term ctx e t =
+  Print.debug "@\nrewrite_term %t at@ %t" (print_term ctx e) (print_ty ctx t) ;
+
+  let match_hint k pt pe1 pe2 =
+    let inst = new_match_term ctx [] k pe1 pt e t  in
+    let pe2 = Pattern.subst_term inst 0 pe2  in
+    match pe2 with
+    | Pattern.Term e2 ->
+       begin
+         (* XXX: This is *not* sufficient to detect uninstantiated variables;
+          * only uninstantiated variables used in the right-hand-side.
+          * We really need to examine the instantiation. Maybe compare
+          * Length.list inst and k? *)
+
+         (*Print.debug "Success! Hint rewrote to %t" (print_term ctx e2);*)
+         e2
+       end
+    | _ ->
+       begin
+         (*Print.debug "Match succeeded, but there were uninstantiated variables";*)
+         (* XXX  Per Jason, backtrack instead of failing here *)
+         raise Mismatch
+       end
   in
   let rec match_hints = function
     | [] ->
       e
     | (k, pt, pe1, pe2) :: hs ->
       begin try
-        (*Print.debug "considering rewriting %t to %t"*)
-            (*(print_pattern ctx k pe1) (print_pattern ctx k pe2);*)
-        let e2 = match_hint pt pe1 pe2 in
+        Print.debug "considering rewriting %t to %t"
+            (print_pattern ctx k pe1) (print_pattern ctx k pe2);
+        let e2 = match_hint k pt pe1 pe2 in
         Print.debug "@[<hv 2>rewrote@ %t at@ %t@;<1 -2>to@ %t using@ %t and@ %t@]"
             (print_term ctx e) (print_ty ctx t) (print_term ctx e2)
             (print_pattern ctx k pe1) (print_pattern ctx k pe2) ;
           whnf ~use_rws:true ctx t e2
         with
           | Mismatch -> match_hints hs
-          | _ -> match_hints hs
+          | Pattern.NoSpine -> match_hints hs
+          (*| Error.Error (_,s1,s2) -> (Print.debug "unexpected Error %s %s" s1 s2; match_hints hs)*)
+          (*| ex -> (Print.debug "unexpected exception %s"*)
+                        (*(Printexc.to_string ex); match_hints hs)*)
       end
   in
   let hs = Context.rewrites ctx in
@@ -263,19 +316,17 @@ and rewrite_term ctx e t =
 
 (** See if terms [e1] and [e2] of type [t] are equal by an equality hint. *)
 and equal_by_equation ctx t e1 e2 =
-  let match_hint pt pe1 pe2 =
-    (* match [pe1] against [e1] and instantiate, ignore magenta *)
-    let inst = match_term ~magenta:false [] 0 ctx pe1 e1 t in
+  let match_hint k pt pe1 pe2 =
+    let inst = []  in
+    (* Match the left-hand-side and incorporate results into the right-hand-side *)
+    let inst = new_match_term ctx inst k pe1 pt e1 t  in
     let pt = Pattern.subst_ty inst 0 pt
-    and pe1 = Pattern.subst_term inst 0 pe1
     and pe2 = Pattern.subst_term inst 0 pe2 in
-    (* match [pe2] against [e2] and instantiate, ignore magenta *)
-    let inst = match_term ~magenta:false [] 0 ctx pe2 e2 t in
-    let pt = Pattern.subst_ty inst 0 pt
-    and pe1 = Pattern.subst_term inst 0 pe1
-    and pe2 = Pattern.subst_term inst 0 pe2 in
-    (* match [pt] against [t] and instantiate *)
-    let inst = match_ty ~magenta:true [] 0 ctx pt t in
+
+    (* Match the right-hand-side *)
+    let inst = new_match_term ctx inst k pe2 pt e2 t  in
+
+    (* Instantiate and check *)
     let pt = Pattern.subst_ty inst 0 pt
     and pe1 = Pattern.subst_term inst 0 pe1
     and pe2 = Pattern.subst_term inst 0 pe2 in
@@ -283,20 +334,18 @@ and equal_by_equation ctx t e1 e2 =
         | Pattern.Ty t', Pattern.Term e1', Pattern.Term e2' ->
           (* Until someone proves that pattern matching works, keep the assert
              around *)
-          if equal_ty' ~use_eqs:false ~use_rws:false ctx t t' &&
+          assert (equal_ty' ~use_eqs:false ~use_rws:false ctx t t' &&
              equal_term ~use_eqs:false ~use_rws:false ctx e1 e1' t &&
-             equal_term ~use_eqs:false ~use_rws:false ctx e2 e2' t
-          then ()
-          else raise Mismatch
+             equal_term ~use_eqs:false ~use_rws:false ctx e2 e2' t);
+          ()
         | _ -> raise Mismatch
       end
   in
   let rec match_hints = function
     | [] -> false
-    | (_, pt, pe1, pe2) :: hs ->
+    | (k, pt, pe1, pe2) :: hs ->
       begin try
-        match_hint pt pe1 pe2 ;
-        true
+        match_hint k pt pe1 pe2 ; true
         with
           | Mismatch -> match_hints hs
       end
@@ -577,6 +626,8 @@ and as_hint' ~use_rws ctx (_, loc) t =
   let pe2 = Pattern.of_term k e2 in
     (k, pt, pe1, pe2)
 
+(*
+
 (* Simple matching of a type pattern against a type. *)
 and match_ty ~magenta inst l ctx pt ((t',loc) as t) =
   let match_term = match_term ~magenta
@@ -759,6 +810,8 @@ and match_term ~magenta inst l ctx p e t =
           inst
       | _ -> raise Mismatch
     end
+*)
+
 
 and as_prod' ~use_rws ctx t =
   match fst (whnf_ty ~use_rws ctx t) with
