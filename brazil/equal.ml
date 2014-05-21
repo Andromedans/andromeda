@@ -250,9 +250,15 @@ and new_match_term ctx inst0 k pat pat_ty term ty  =
          inst
        end
       else
-        ( Print.debug "Nope; lengths are different"; raise Mismatch )
+        begin
+           (*Print.debug "Nope; lengths are different"; *)
+           raise Mismatch
+        end
     else
-      ( Print.debug "Nope; heads don't match"; raise Mismatch )   in
+      begin
+        (*Print.debug "Nope; heads don't match";*)
+        raise Mismatch
+      end   in
 
   match pat, pat_ty with
    | Pattern.PVar i, Pattern.Ty ty' ->
@@ -289,12 +295,12 @@ and new_match_term ctx inst0 k pat pat_ty term ty  =
          * pattern Pe1 is a lambda
          * If so, we need to do something else.
          *)
-        Print.debug "About to spine pattern %t" (print_pattern ctx k pat);
+        (*Print.debug "About to spine pattern %t" (print_pattern ctx k pat);*)
         let pat_spine =
           try Pattern.spine_of_term pat
           with e -> (Print.debug "pattern not spinable"; raise e) in
 
-        let _ = Print.debug "About to spine term %t" (print_term ctx term) in
+        (*let _ = Print.debug "About to spine term %t" (print_term ctx term) in*)
         let term_spine =
           try Pattern.spine_of_brazil term
           with e -> (Print.debug "term %t not spinable" (print_term ctx term); raise e) in
