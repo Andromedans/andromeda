@@ -443,10 +443,21 @@ and shift k l = function
 (* Spines *)
 (**********)
 
+(** The [NoSpine] is raised when we cannot convert a term or a term pattern to a spine
+ *)
 exception NoSpine
 
+(* A [spine] consists of a head followed by a series of applications.
+ * Each application includes the Pi type where the application is occuring,
+ * as in the magenta annotation in Syntax.App.
+ *
+ * We parameterize the type so that we can talk about spints where the
+ * parameters involve Syntax terms and types, or Pattern terms and types.
+ *)
 type ('y,'r) spine = head * ((name * 'y * 'y) * 'r) list
 
+(* The head of a spine never involves pattern variables.
+ *)
 and head =
   | HVar of int   (* Brazil variable, not a pattern variable! *)
   | HNameProd of Universe.t * Universe.t
@@ -459,7 +470,12 @@ and head =
   | HUnitTerm
   | HNameUnit
 
-let eq_head head1 head2 =
+(* Compares two heads for equality.
+ *
+ * Syntax.ty parameters [which by definition contain no pattern variables] are
+ * compared using the [eqTy] parameter.
+ *)
+let eq_head eqTy head1 head2 =
   match head1, head2 with
   | HVar n, HVar n' -> n = n'
 
@@ -473,7 +489,7 @@ let eq_head head1 head2 =
       Universe.eq alpha alpha'
 
   | HRefl t, HRefl t'
-  | HIdpath t, HIdpath t' -> Syntax.equal_ty t t'
+  | HIdpath t, HIdpath t' -> eqTy t t'
 
   | HUnitTerm, HUnitTerm
   | HNameUnit, HNameUnit -> true
@@ -483,21 +499,72 @@ let eq_head head1 head2 =
       | HUnitTerm | HNameUniverse _ | HNameUnit ), _ -> false
 
 
-let id x = x
+(* Helper functions for conversion of [Syntax.term]s to spines.
+ *
+ * We use the same functions to convert to terms to term spines
+ * and patterns to pattern spines.
+ *
+ * We assume that input type are always [Syntax.ty] form (with no pattern
+ * variables), but that other inputs are terms or term patterns as appropriate.
+ * So, we take a wrapper function doTy that converts types to type patterns
+ * (if we're processing a pattern) or that leaves types unchanged (if we're
+ * processing a term).
+ *
+ * For generality, we permit a wrapper function for the non-type arguments,
+ * but so far it's always the identity function in practice.
+ *)
+
+(* Given wrapper functions [doTy] and [doTerm] as described above,
+ * a type [t], and a term/pattern p, construct the appropriate IdPath spine.
+ *
+ * The [HIdpath t] head can be viewed as having type
+ *    ( x : t ) -> Paths(t,x,x)
+ *)
+let spine_of_idpath doTy doTerm t p =
+    HIdpath t,
+    [ ( "idpath-arg",
+        doTy t,
+        doTy (Syntax.mkPaths (Syntax.weaken_ty 0 t) (Syntax.mkVar 0) (Syntax.mkVar 0)) ),
+      doTerm p]
+
+(* Given wrapper functions [doTy] and [doTerm] as described above,
+ * a type [t], and a term/pattern p, construct the appropriate Refl spine.
+ *
+ * The [HRefl t] head can be viewed as having type
+ *    ( x : t ) -> Id(t,x,x)
+ *)
+let spine_of_refl doTy doTerm t p =
+    HRefl t,
+    [ ( "refl-arg",
+        doTy t,
+        doTy (Syntax.mkId (Syntax.weaken_ty 0 t) (Syntax.mkVar 0) (Syntax.mkVar 0)) ),
+      doTerm p]
+(* Given wrapper functions [doTy] and [doTerm] as described above,
+ * universes [alpha] and [beta] and a term/pattern p, construct the appropriate
+ * [Coerce] spine.
+ *
+ * The [HCoerce (alpha,beta)] head can be viewed as having type
+ *    Universe alpha -> Universe beta
+ *)
+let spine_of_coerce doTy doTerm alpha beta p =
+    HCoerce (alpha, beta),
+    [("_", doTy (Syntax.mkUniverse alpha), doTy (Syntax.mkUniverse beta)), doTerm p]
+
 
 (* Factored out because spine_of_idpath and spine_of_namepaths were
  * nearly identical. They take the same arguments; the only difference
- * is the head.
+ * is the head, [HNameId alpha] or [HNamePaths alpha].
+ *
+ * In either case the head has type
+ *    (x : Universe alpha) -> El[alpha](x) -> El[alpha](x) -> Universe alpha
+ * and we annotate the applications below accordingly.
  *)
 let spine_of_pathlike head doTy doTerm alpha e1 e2 e3 =
   let u_alpha = Syntax.mkUniverse alpha  in
   let el_v0 = Syntax.mkEl alpha (Syntax.mkVar 0)  in
   let el_v1 = Syntax.mkEl alpha (Syntax.mkVar 1)  in
 
-  head,     (* Head basically has type
-                x:U_alpha -> El[alpha](x) -> El[alpha](x) -> U_alpha
-               so we annotate the applications below accordingly. *)
-
+  head,
   [ ( "nameid-arg", doTy u_alpha, doTy (Syntax.make_arrow el_v0 (Syntax.make_arrow el_v0 u_alpha)) ),
     doTerm e1;
 
@@ -514,27 +581,15 @@ let spine_of_nameid doTy doTerm alpha e1 e2 e3 =
 let spine_of_namepaths doTy doTerm alpha e1 e2 e3 =
   spine_of_pathlike (HNamePaths alpha) doTy doTerm alpha e1 e2 e3
 
-let spine_of_idpath doTy doTerm t p =
-    HIdpath t,
-    [ ( "idpath-arg",
-        doTy t,
-        doTy (Syntax.mkPaths (Syntax.weaken_ty 0 t) (Syntax.mkVar 0) (Syntax.mkVar 0)) ),
-      doTerm p]
 
-let spine_of_refl doTy doTerm t p =
-    HIdpath t,
-    [ ( "refl-arg",
-        doTy t,
-        doTy (Syntax.mkId (Syntax.weaken_ty 0 t) (Syntax.mkVar 0) (Syntax.mkVar 0)) ),
-      doTerm p]
-
-let spine_of_coerce doTy doTerm alpha beta e =
-    HCoerce (alpha, beta),
-    [("_", doTy (Syntax.mkUniverse alpha), doTy (Syntax.mkUniverse beta)), doTerm e]
-
-let rec spine_of_syntax doTy doTerm (term', _) =
+(* [spine_of_syntax] converts a [Syntax.term] into either a pattern spine or a
+ * term spine, as desired. The difference is determined by the wrapper
+ * functions [doTy] and [doTerm], that either coerce Syntax types and terms
+ * into Patterns, or else act as identity functions.
+ *)
+let rec spine_of_syntax doTy doTerm term =
   let recur = spine_of_syntax doTy doTerm in
-  match term' with
+  match fst term with
   | Syntax.Var v ->
       HVar v, []
 
@@ -559,22 +614,8 @@ let rec spine_of_syntax doTy doTerm (term', _) =
   | Syntax.NameUnit -> HNameUnit, []
 
   | Syntax.NameProd (_alpha, _beta, _x, _e1, _e2) ->
-
       (* XXX We don't try to handle matches against nameProds *)
       raise NoSpine
-
-      (*
-      let u_alpha = Syntax.mkUniverse alpha  in
-      let el_v0 = Syntax.mkEl alpha (Syntax.mkVar 0)  in
-      let el_v1 = Syntax.mkEl alpha (Syntax.mkVar 1)  in
-
-      HNameProd (alpha, beta),
-      [ ( "nameprod-arg",
-          doTy u_alpha,
-
-        ),
-        doTerm e1,
-        *)
 
   | Syntax.Lambda _ ->
       (* XXX We don't try to handle matches against lambdas *)
@@ -589,6 +630,11 @@ let rec spine_of_syntax doTy doTerm (term', _) =
       (* XXX We don't try to handle matches against J *)
       raise NoSpine
 
+let id x = x
+
+(* [spine_of_term] converts a *pattern* term into a pattern spine.
+ * We assume that the "head" of the input pattern is not a pattern variable.
+ *)
 let rec spine_of_term =
   let wrapTy t = Ty t  in
   let wrapTerm e = Term e  in
@@ -596,7 +642,9 @@ let rec spine_of_term =
   function
   | Term e -> spine_of_syntax wrapTy wrapTerm e
 
-  | PVar i -> Error.impossible "spine_of_term: top-level pattern variable cannot be a spine"
+  | PVar i ->
+      (* We should have handled this separately. *)
+      Error.impossible "spine_of_term: top-level pattern variable cannot be a spine"
 
   | App ((x,t1,t2), p1, p2) ->
         let (h, args) = spine_of_term p1  in
@@ -620,7 +668,7 @@ let rec spine_of_term =
       begin
         match typat with
         | Ty t -> spine_of_refl wrapTy id t p
-        | _ -> warn "can't handle type patterns in top-level Refk; skipping";
+        | _ -> warn "can't handle type patterns in top-level Refl; skipping";
                raise NoSpine
       end
 
@@ -644,12 +692,23 @@ let rec spine_of_term =
       end
 
 
+(* [spine_of_brazil] converts a *Brazil* term into a term spine.
+ *)
 let spine_of_brazil  = spine_of_syntax id id
 
-let subst_pattern_args inst k =
+
+(* Apply a pattern-variable substitution to the argument list in a pattern
+ * spine.
+ *
+ * [bvs] is the initial count of bound variables (how much to shift the
+ * instantiation), but due to the flat nature of spines it's probably
+ * always zero in practice.
+ *)
+
+let subst_pattern_args inst bvs =
   List.map
     (fun ((x,t1,t2),e) ->
-      ((x, subst_ty inst k t1,
-           subst_ty inst (k+1) t2),
-           subst_term inst k e))
+      ((x, subst_ty inst bvs t1,
+           subst_ty inst (bvs+1) t2),
+           subst_term inst bvs e))
 

@@ -50,7 +50,7 @@ and head =
   | HUnitTerm
   | HNameUnit
 
-val eq_head : head -> head -> bool
+val eq_head : (Syntax.ty -> Syntax.ty -> bool) -> head -> head -> bool
 
 val spine_of_term : term -> (ty, term) spine
 val spine_of_brazil : Syntax.term -> (Syntax.ty, Syntax.term) spine

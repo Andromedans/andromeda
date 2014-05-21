@@ -189,30 +189,43 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
  *)
 and new_match_term ctx inst0 k pat _pat_ty term _ty  =
 
+  (* Match a the pattern (as a spine) against the term (as a spine)
+   *)
   let match_spine (pat_head, pat_args) (term_head, term_args) =
-    if Pattern.eq_head pat_head term_head &&
-         List.length pat_args = List.length term_args then
-       begin
+    if Pattern.eq_head (equal_ty' ~use_eqs:true ~use_rws:true ctx) pat_head term_head then
+      if List.length pat_args = List.length term_args then
+        begin
+         (* The two spines have equal heads and the same length *)
          Print.debug "Maybe %t@ will match %t"
             (print_pattern ctx k pat) (print_term ctx term);
+
+         (* Loop throught the arguments and check that they correspond *)
          let rec loop pat_args term_args inst =
            match pat_args, term_args with
            | [], [] -> inst
 
-           (* XXX we're not checking that the annotations on the applications
-            * are equal! *)
-
            | ((_,pt1,_), p)::prest, ((_, t1,_), e)::erest ->
+               (* XXX
+                * Also need to check that the annotations on the applications
+                * are equal!!! *)
+
                let inst =
                  try
                    Print.debug "Subpattern %t@ might match %t"
                       (print_pattern ctx k p) (print_term ctx e);
-                   (* XXX This gets rid of head beta redices, but also expands
-                    * head definitions. That might be more than we want... *)
+                   (* XXX This call to whnf gets rid of head beta redices in the term
+                    * arguments, but also expands head definitions. That might be
+                    * more than we want... *)
                    let e = whnf ~use_rws:false ctx t1 e  in
                    new_match_term ctx inst k p pt1 e t1
                  with
                    | Mismatch ->
+                       (* Try to more aggressively weak-head normalize the term
+                          argument being matched, using other rewrites.
+                          Note that we are reducing a *subterm* of the term
+                          argument to new_match_term, so we're not going
+                          into an infinite loop, at least not immediately.
+                        *)
                        let e = whnf ~use_rws:true ctx t1 e in
                        new_match_term ctx inst k p pt1 e t1
                in
@@ -222,14 +235,10 @@ and new_match_term ctx inst0 k pat _pat_ty term _ty  =
          in let inst = loop pat_args term_args inst0 in
          inst
        end
+      else
+        ( Print.debug "Nope; lengths are different"; raise Mismatch )
     else
-      begin
-        if (Pattern.eq_head pat_head term_head) then
-          Print.debug "Nope; lengths are different"
-        else
-          Print.debug "Nope; heads don't match";
-        raise Mismatch
-       end   in
+      ( Print.debug "Nope; heads don't match"; raise Mismatch )   in
 
   match pat with
    | Pattern.PVar i ->
