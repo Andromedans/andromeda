@@ -357,6 +357,7 @@ and equal_by_equation ctx t e1 e2 =
         match_hint k pt pe1 pe2 ; true
         with
           | Mismatch -> match_hints hs
+          | Pattern.NoSpine -> match_hints hs
       end
   in
     match_hints (Context.equations ctx)
