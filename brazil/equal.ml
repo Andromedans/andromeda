@@ -23,6 +23,17 @@ let print_pattern ctx k p =
 (** Signal that pattern matching failed. *)
 exception Mismatch
 
+(** Should we suppress failure messages? *)
+let tentative = ref false
+
+let tentatively f =
+  let old = ! tentative  in
+  let _ = tentative := true  in
+  let answer = f()  in
+  tentative := old;
+  answer
+
+
 (*************************)
 (* Weak-Head Normalizing *)
 (*************************)
@@ -121,7 +132,8 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
             match fst e1 with
               (* norm-app-beta *)
               | Syntax.Lambda (y, t1, t2, e1')
-                  when equal_ty' ctx u1 t1 && equal_ty' (Context.add_var x u1 ctx) u2 t2 ->
+                  when tentatively (fun () -> equal_ty' ctx u1 t1 &&
+                                         equal_ty' (Context.add_var x u1 ctx) u2 t2) ->
                 whnf ctx (Syntax.beta_ty u2 e2) (Syntax.beta e1' e2)
 
               (* norm-app-other *)
@@ -135,7 +147,7 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
             match fst e2 with
               (* norm-J-idpath *)
               | Syntax.Idpath (t', e2')
-                  when equal_ty' ctx t t' ->
+                  when tentatively (fun () -> equal_ty' ctx t t') ->
                 whnf ctx (Syntax.betas_ty u [e2; e2'; e2]) (Syntax.beta e1 e2')
 
               (* norm-J-other *)
@@ -187,12 +199,14 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
 
 (** new_match_term ctx pat e t
  *)
-and new_match_term ctx inst0 k pat _pat_ty term _ty  =
+and new_match_term ctx inst0 k pat pat_ty term ty  =
+  let tentative_equal_ty t1 t2 =
+    tentatively (fun () -> equal_ty' ~use_eqs:true ~use_rws:true ctx t1 t2)  in
 
   (* Match a the pattern (as a spine) against the term (as a spine)
    *)
   let match_spine (pat_head, pat_args) (term_head, term_args) =
-    if Pattern.eq_head (equal_ty' ~use_eqs:true ~use_rws:true ctx) pat_head term_head then
+    if Pattern.eq_head tentative_equal_ty pat_head term_head then
       if List.length pat_args = List.length term_args then
         begin
          (* The two spines have equal heads and the same length *)
@@ -216,7 +230,7 @@ and new_match_term ctx inst0 k pat _pat_ty term _ty  =
                    (* XXX This call to whnf gets rid of head beta redices in the term
                     * arguments, but also expands head definitions. That might be
                     * more than we want... *)
-                   let e = whnf ~use_rws:false ctx t1 e  in
+                   let e =  whnf ~use_rws:false ctx t1 e  in
                    new_match_term ctx inst k p pt1 e t1
                  with
                    | Mismatch ->
@@ -240,14 +254,34 @@ and new_match_term ctx inst0 k pat _pat_ty term _ty  =
     else
       ( Print.debug "Nope; heads don't match"; raise Mismatch )   in
 
-  match pat with
-   | Pattern.PVar i ->
+  match pat, pat_ty with
+   | Pattern.PVar i, Pattern.Ty ty' ->
        begin
-         (* Substitutions should have gotten rid of this variable
-          * if it already had a definition. *)
-         assert (not (List.mem_assoc i inst0));
-         (i,term) :: inst0
+         if (tentatively
+               (fun () -> equal_ty' ~use_eqs:false ~use_rws:false ctx ty' ty)) then
+           begin
+             (* Substitutions should have gotten rid of this variable
+              * if it already had a definition. *)
+             assert (not (List.mem_assoc i inst0));
+             (i,term) :: inst0
+           end
+         else raise Mismatch
        end
+
+   | Pattern.PVar _, _ ->
+       (* XXX: Unimplemented! *)
+       raise Mismatch
+
+   | Pattern.Term pterm, Pattern.Ty ty' when
+       (* XXX Overly conservative? *)
+       tentatively (fun () ->
+          equal_ty' ~use_eqs:false ~use_rws:false ctx ty' ty
+          && equal_term ~use_eqs:false ~use_rws:false ctx pterm term ty) ->
+       inst0
+
+   | Pattern.Term _, _ ->
+       (* XXX: Unimplemented! *)
+       raise Mismatch
 
    | _ ->
        begin
@@ -418,6 +452,9 @@ and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
 
     | (Syntax.Universe _ | Syntax.El _ | Syntax.Unit
        | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _), _ ->
+           (if (not (!tentative)) then
+             Print.warning "@[<hv 2>Why are types@ %t@;<1 -2>and@ %t@;<1 -2>equal?@]"
+                  (print_ty ctx t) (print_ty ctx u));
            false
   end
 
@@ -616,7 +653,12 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
       | Syntax.Lambda _ | Syntax.App _ | Syntax.Idpath _
       | Syntax.J _ | Syntax.Coerce _ | Syntax.NameUnit
       | Syntax.NameProd _ | Syntax.NameUniverse _ | Syntax.NamePaths _
-      | Syntax.NameId _), _ -> false
+      | Syntax.NameId _), _ ->
+         (if (not (!tentative)) then
+             Print.warning "@[<hv 2>Why are terms@ %t@;<1 -2>and@ %t@;<1 -2>equal?@]"
+                  (print_term ctx e1) (print_term ctx e2));
+
+          false
   end
 
 and as_hint' ~use_rws ctx (_, loc) t =

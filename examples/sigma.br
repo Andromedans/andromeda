@@ -43,7 +43,7 @@ Definition fst :=
 Definition snd :=
   fun (A : Type) (P : A -> Type) (u : sigma A P) =>
     sigma_elim
-      A P u 
+      A P u
       (fun (u : sigma A P) => P (fst A P u))
       (fun (a : A) (b : P a) => b).
 
@@ -62,37 +62,43 @@ Parameter R : sigma X Q -> Type.
 Parameter z : R (pair X Q x y).
 
 Definition check_fst_fst :=
-  refl x :: 
+  refl x ::
     fst X Q
-      (fst (sigma X Q) R 
+      (fst (sigma X Q) R
         (pair (sigma X Q) R (pair X Q x y) z)
       )
      == x.
 
 Definition check_snd_fst :=
-  refl y :: 
+  refl y ::
     snd X Q
-      (fst (sigma X Q) R 
+      (fst (sigma X Q) R
         (pair (sigma X Q) R (pair X Q x y) z)
       )
      == y.
 
 Definition check_snd_snd :=
-  refl z :: 
-     snd (sigma X Q) R 
+  refl z ::
+     snd (sigma X Q) R
         (pair (sigma X Q) R (pair X Q x y) z)
      == z.
 
-(* Would be nice to actually define this one. *)
-Parameter sigma_eta' :
-  forall
+Definition sigma_eta' :=
+  fun
     (A : Type)
     (P : A -> Type)
     (u v : sigma A P)
-    (e1 : fst A P u == fst A P v),
+    (e1 : fst A P u == fst A P v) =>
     equation e1 in
-      forall (e2 : snd A P u == snd A P v),
-      u == v.
+      fun (e2 : snd A P u == snd A P v) =>
+      equation sigma_eta A P u in
+      equation sigma_eta A P v in
+      ((refl u
+        :: sigma_elim A P u (fun (_ : sigma A P) => sigma A P)
+                     (fun (a : A) (b : P a) => pair A P a b)
+           == sigma_elim A P u (fun (_ : sigma A P) => sigma A P)
+                         (fun (a : A) (b : P a) => pair A P a b))
+        :: u == v).
 
 Definition sigma_eta_pair :=
   fun (A : Type)
