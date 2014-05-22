@@ -19,6 +19,17 @@ let print_pattern ctx k p =
   let e = (match Pattern.subst_term (inst 0) 0 p with Pattern.Term e -> e | _ -> assert false) in
     Print.term (names 0) e
 
+let print_pattern_ty ctx k p =
+  let rec names i =
+    if i < k then ("?" ^ string_of_int i) :: names (i + 1) else Context.names ctx
+  in
+  let rec inst i =
+    if i <= k then (i, (Syntax.Var i, Position.nowhere)) :: inst (i+1) else []
+  in
+  let p = Pattern.shift_ty k 0 p in
+  let t = (match Pattern.subst_ty (inst 0) 0 p with Pattern.Ty t -> t | _ -> assert false) in
+    Print.ty (names 0) t
+
 
 (** Signal that pattern matching failed. *)
 exception Mismatch
@@ -32,7 +43,6 @@ let tentatively f =
   let answer = f()  in
   tentative := old;
   answer
-
 
 (*************************)
 (* Weak-Head Normalizing *)
@@ -201,7 +211,7 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
  *)
 and new_match_term ctx inst0 k pat pat_ty term ty  =
   let tentative_equal_ty t1 t2 =
-    tentatively (fun () -> equal_ty' ~use_eqs:true ~use_rws:true ctx t1 t2)  in
+    tentatively (fun () -> equal_ty' ~use_eqs:false ~use_rws:false ctx t1 t2)  in
 
   (* Match a the pattern (as a spine) against the term (as a spine)
    *)
@@ -251,12 +261,12 @@ and new_match_term ctx inst0 k pat pat_ty term ty  =
        end
       else
         begin
-           (*Print.debug "Nope; lengths are different"; *)
+           Print.debug "Nope; lengths are different";
            raise Mismatch
         end
     else
       begin
-        (*Print.debug "Nope; heads don't match";*)
+        Print.debug "Nope; heads don't match";
         raise Mismatch
       end   in
 
@@ -276,6 +286,7 @@ and new_match_term ctx inst0 k pat pat_ty term ty  =
 
    | Pattern.PVar _, _ ->
        (* XXX: Unimplemented! *)
+       Print.debug "XXX new_match_term: PVar without a Ty";
        raise Mismatch
 
    | Pattern.Term pterm, Pattern.Ty ty' when
@@ -285,9 +296,16 @@ and new_match_term ctx inst0 k pat pat_ty term ty  =
           && equal_term ~use_eqs:false ~use_rws:false ctx pterm term ty) ->
        inst0
 
-   | Pattern.Term _, _ ->
-       (* XXX: Unimplemented! *)
+
+   | Pattern.Term pterm, _ ->
        raise Mismatch
+       (* XXX: Unsound!  *)
+       (*
+        when tentatively (fun () ->
+          equal_term ~use_eqs:true ~use_rws:false ctx pterm term ty) ->
+       Print.warning "XXX new_match_term: skipping type matching";
+       inst0
+       *)
 
    | _ ->
        begin
@@ -295,15 +313,17 @@ and new_match_term ctx inst0 k pat pat_ty term ty  =
          * pattern Pe1 is a lambda
          * If so, we need to do something else.
          *)
-        (*Print.debug "About to spine pattern %t" (print_pattern ctx k pat);*)
+        Print.debug "About to spine pattern %t" (print_pattern ctx k pat);
         let pat_spine =
           try Pattern.spine_of_term pat
-          with e -> (Print.debug "pattern not spinable"; raise e) in
+          with e -> (Print.debug "pattern not spine-able %s"
+                           (Printexc.to_string e); raise e) in
 
-        (*let _ = Print.debug "About to spine term %t" (print_term ctx term) in*)
+        let _ = Print.debug "About to spine term %t" (print_term ctx term) in
         let term_spine =
           try Pattern.spine_of_brazil term
-          with e -> (Print.debug "term %t not spinable" (print_term ctx term); raise e) in
+          with e -> (Print.debug "term@ %t not spine-able %s"
+                         (print_term ctx term) (Printexc.to_string e); raise e) in
 
         match_spine pat_spine term_spine
        end
@@ -316,9 +336,15 @@ and new_match_term ctx inst0 k pat pat_ty term ty  =
     resulting term. *)
 
 and rewrite_term ctx e t =
-  Print.debug "@\nrewrite_term %t at@ %t" (print_term ctx e) (print_ty ctx t) ;
+  Print.debug "@[<hv 4>rewrite_term %d:@ %t@]"
+  (List.length (Context.rewrites ctx)) (print_term ctx e) ;
 
   let match_hint k pt pe1 pe2 =
+        Print.debug "@[<hv 2>match_hint considering@ %t  vs@ %t at@ %t@]"
+            (print_term ctx e)
+            (print_pattern ctx k pe1)
+            (print_pattern_ty ctx k pt) ;
+
     let inst = new_match_term ctx [] k pe1 pt e t  in
     let pe2 = Pattern.subst_term inst 0 pe2  in
     match pe2 with
@@ -344,10 +370,10 @@ and rewrite_term ctx e t =
       e
     | (k, pt, pe1, pe2) :: hs ->
       begin try
-        Print.debug "considering rewriting %t to %t"
-            (print_pattern ctx k pe1) (print_pattern ctx k pe2);
+        (*Print.debug "considering rewriting %t to %t"*)
+            (*(print_pattern ctx k pe1) (print_pattern ctx k pe2);*)
         let e2 = match_hint k pt pe1 pe2 in
-        Print.debug "@[<hv 2>rewrote@ %t at@ %t@;<1 -2>to@ %t using@ %t and@ %t@]"
+        Print.debug "@[<hv 2>rewrote@ %t at@ %t@;<1 -2>to@ %t@;<1 -2> using@ %t and@ %t@]"
             (print_term ctx e) (print_ty ctx t) (print_term ctx e2)
             (print_pattern ctx k pe1) (print_pattern ctx k pe2) ;
           whnf ~use_rws:true ctx t e2
@@ -355,8 +381,8 @@ and rewrite_term ctx e t =
           | Mismatch -> match_hints hs
           | Pattern.NoSpine -> match_hints hs
           (*| Error.Error (_,s1,s2) -> (Print.debug "unexpected Error %s %s" s1 s2; match_hints hs)*)
-          (*| ex -> (Print.debug "unexpected exception %s"*)
-                        (*(Printexc.to_string ex); match_hints hs)*)
+          | ex -> (Print.debug "unexpected exception %s"
+                        (Printexc.to_string ex); match_hints hs)
       end
   in
   let hs = Context.rewrites ctx in
@@ -365,7 +391,11 @@ and rewrite_term ctx e t =
 
 (** See if terms [e1] and [e2] of type [t] are equal by an equality hint. *)
 and equal_by_equation ctx t e1 e2 =
+  Print.debug "equal_by_equation? %t@ and %t"
+     (print_term ctx e1) (print_term ctx e2);
   let match_hint k pt pe1 pe2 =
+    Print.debug "considering hint %t = %t"
+      (print_pattern ctx k pe1) (print_pattern ctx k pe2);
     let inst = []  in
     (* Match the left-hand-side and incorporate results into the right-hand-side *)
     let inst = new_match_term ctx inst k pe1 pt e1 t  in
@@ -383,9 +413,9 @@ and equal_by_equation ctx t e1 e2 =
         | Pattern.Ty t', Pattern.Term e1', Pattern.Term e2' ->
           (* Until someone proves that pattern matching works, keep the assert
              around *)
-          assert (equal_ty' ~use_eqs:false ~use_rws:false ctx t t' &&
-             equal_term ~use_eqs:false ~use_rws:false ctx e1 e1' t &&
-             equal_term ~use_eqs:false ~use_rws:false ctx e2 e2' t);
+          (*assert (equal_ty' ~use_eqs:false ~use_rws:false ctx t t' &&*)
+             (*equal_term ~use_eqs:false ~use_rws:false ctx e1 e1' t &&*)
+             (*equal_term ~use_eqs:false ~use_rws:false ctx e2 e2' t);*)
           ()
         | _ -> raise Mismatch
       end
@@ -418,14 +448,6 @@ and equal_ty' ~use_rws ~use_eqs ctx t u =
     | (_, None) | (None, _) -> false
   end
 
-  ||
-
-  begin
-    let t = whnf_ty ~use_rws ctx t
-    and u = whnf_ty ~use_rws ctx u
-    in
-      equal_whnf_ty ~use_eqs ~use_rws ctx (t : Syntax.ty) (u : Syntax.ty)
-  end
 
 (* equality of weak-head-normal types *)
 and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
@@ -456,7 +478,17 @@ and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
         equal_term ctx e1 e1' t &&
         equal_term ctx e2 e2' t
 
-    | (Syntax.Universe _ | Syntax.El _ | Syntax.Unit
+    | Syntax.El _, _
+    | _, Syntax.El _ ->
+        begin match Syntax.name_of t, Syntax.name_of u with
+          (* chk-tyeq-el *)
+          | Some (e1, alpha), Some (e2, beta) ->
+            Universe.eq alpha beta &&
+            equal_term ctx e1 e2 (Syntax.Universe alpha, snd t)
+          | (_, None) | (None, _) -> false
+        end
+
+    | (Syntax.Universe _ | Syntax.Unit
        | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _), _ ->
            (if (not (!tentative)) then
              Print.warning "@[<hv 2>Why are types@ %t@;<1 -2>and@ %t@;<1 -2>equal?@]"
@@ -471,6 +503,10 @@ and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
                  e2 : t
  *)
 and equal_term ~use_eqs ~use_rws ctx e1 e2 t =
+
+  (*if (not (!tentative)) then*)
+    Print.debug "@[<hv 4>equal_term %b %b:@ %t@;<1 -4> and@ %t@]"
+          use_eqs use_rws (print_term ctx e1) (print_term ctx e2);
 
   (* chk-eq-refl *)
   (Syntax.equal e1 e2)
@@ -495,6 +531,10 @@ and equal_term ~use_eqs ~use_rws ctx e1 e2 t =
  *)
 and equal_ext ~use_eqs ~use_rws ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
   begin
+    if (not (!tentative)) then
+      Print.debug "@[<hv 4>equal_ext %b %b:@ %t@;<1 -4> and@ %t@ at %t@]"
+            use_eqs use_rws (print_term ctx e1) (print_term ctx e2)
+            (print_ty ctx t);
     match t' with
 
     (* chk-eq-ext-prod *)

@@ -143,7 +143,7 @@ and lambda xs x t u e ppf =
           | Syntax.Lambda (x, t, u, e) -> abstraction xs' x t u e ppf
           | _ -> print ~at_level:0 ppf "=>@ %t" (term ~max_level:4 xs' e)
   in
-    print ~at_level:3 ppf "fun %t" (abstraction xs x t u e)
+    print ~at_level:3 ppf "@[<hov>fun %t@]" (abstraction xs x t u e)
 
 and term ?max_level xs (e,_) ppf =
   let print' = print

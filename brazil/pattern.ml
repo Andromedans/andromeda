@@ -638,12 +638,13 @@ let id x = x
 let rec spine_of_term =
   let wrapTy t = Ty t  in
   let wrapTerm e = Term e  in
-  let warn s = Print.warning "spine_of_term: %s" s  in
+  let warn s = Print.warning "spine_of_term: %s@." s  in
   function
   | Term e -> spine_of_syntax wrapTy wrapTerm e
 
   | PVar i ->
       (* We should have handled this separately. *)
+      warn "spine_of_term: top-level pattern variable cannot be a spine";
       Error.impossible "spine_of_term: top-level pattern variable cannot be a spine"
 
   | App ((x,t1,t2), p1, p2) ->
