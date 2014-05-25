@@ -1,0 +1,87 @@
+Definition Type := Universe f0.
+
+Parameter list : Type -> Type.
+Parameter nil : forall T : Type, list T.
+Parameter cons : forall (T : Type) (x : T) (xs : list T), list T.
+
+Parameter list_elim :
+  forall (T : Type) (ls : list T) (P : list T -> Type) (IHnil : P (nil T)) (IHcons : forall (x : T) (xs : list T), P xs -> P (cons T x xs)),
+         P ls.
+
+Parameter list_beta_nil :
+  forall (T : Type) (P : list T -> Type) (IHnil : P (nil T)) (IHcons : forall (x : T) (xs : list T), P xs -> P (cons T x xs)),
+    list_elim T (nil T) P IHnil IHcons == IHnil.
+
+Parameter list_beta_cons :
+  forall (T : Type) (P : list T -> Type) (IHnil : P (nil T)) (IHcons : forall (x : T) (xs : list T), P xs -> P (cons T x xs)) (x : T) (xs : list T),
+    list_elim T (cons T x xs) P IHnil IHcons == IHcons x xs (list_elim T xs P IHnil IHcons).
+
+Rewrite list_beta_nil.
+Rewrite list_beta_cons.
+
+(*
+match u as u' return Q u' (match u' as u'' return P u'' with [] => pNil | x::xs => pCons x xs end) with
+  | [] => f _ pNil
+  | x::xs => f _ (pCons x xs)
+end
+==
+f u (match u as u' return P u' with
+       | [] => pNil
+       | x::xs => pCons x xs
+     end)
+*)
+
+Parameter list_comm_no_recr :
+    forall (A : Type)
+           (P : list A -> Type)
+           (pNil : P (nil A))
+           (pCons : forall (x : A) (xs : list A), P (cons A x xs))
+           (Q : forall (xs : list A), P xs -> Type)
+           (f : forall (xs : list A) (p : P xs), Q xs p)
+           (u : list A),
+    list_elim A u
+              (fun (x : list A) => Q x (list_elim A x P pNil (fun (x : A) (xs : list A) (_ : P xs) => pCons x xs)))
+              (f (nil A) pNil)
+              (fun (x : A) (xs : list A) (_ : Q xs (list_elim A xs P pNil (fun (x : A) (xs : list A) (_ : P xs) => pCons x xs))) =>
+                f (cons A x xs) (pCons x xs))
+    ==
+    f u (list_elim A u P pNil (fun (x : A) (xs : list A) (_ : P xs) => pCons x xs)).
+
+(*
+(fix g u := match u return Q with
+              | [] => f [] pNil
+              | x::xs => f (x::xs) (pCons x (g xs))
+            end) u
+==
+f u ((fix g u := match u return P with
+                   | [] => pNil
+                   | x::xs => pCons x (g xs)
+                 end) u)
+*)
+Parameter list_comm_non_dep :
+    forall (A : Type)
+           (P : (* list A -> *) Type)
+           (pNil : P (* nil A *))
+           (pCons : forall (x : A) (xs : list A), (* P xs -> *) P (* cons A x xs *))
+           (Q : forall (xs : list A), P (* xs *) -> Type)
+           (f : forall (xs : list A) (p : P (* xs *) ), Q xs p)
+           (u : list A),
+    list_elim A u
+              (fun (x : list A) => Q x (list_elim A x (fun _ : list A => P) pNil (fun (x : A) (xs : list A) (_ : P) => pCons x xs)))
+              (f (nil A) pNil)
+              (fun (x : A) (xs : list A) (_ : Q xs (list_elim A xs (fun _ : list A => P) pNil (fun (x : A) (xs : list A) (_ : P) => pCons x xs))) =>
+                 f (cons A x xs) (pCons x xs))
+    ==
+    f u (list_elim A u (fun _ : list A => P) pNil (fun (x : A) (xs : list A) (_ : P) => pCons x xs)).
+
+(* TODO: Can we combine the above rules into one? *)
+
+Definition list_half_eta :=
+  fun (A : Type)
+      (u : list A) =>
+    list_comm_non_dep A (list A) (nil A) (cons A) (fun _ _ : list A => list A) (fun (xs _ : list A) => xs) u
+    :: list_elim A u (fun (_ : list A) => list A)
+                 (nil A)
+                 (fun (x : A) (xs : list A) (_ : list A) => cons A x xs)
+       ==
+       u.

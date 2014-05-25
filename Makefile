@@ -16,6 +16,7 @@ br-smoketest: andromeda.byte
 	./andromeda.byte examples/bool.m31
 	./andromeda.byte examples/nat.m31
 	./andromeda.byte examples/records.m31
+	./andromeda.byte examples/list.m31
 # ./andromeda.byte examples/sigma.m31
 	@echo
 	@echo "*******************************"
