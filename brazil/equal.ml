@@ -8,7 +8,13 @@ let print_ty ctx t =
 let print_term ctx term =
   Print.term (Context.names ctx) term
 
-let print_pattern ctx k p =
+(* It's important to eta-expand the next two functions, because they're
+ * expensive, and we don't want to do all the administrative computation
+ * if debugging output has been disabled (so that this function will never
+ * be applied to a ppf argument).
+ *)
+
+let print_pattern ctx k p ppf =
   let rec names i =
     if i < k then ("?" ^ string_of_int i) :: names (i + 1) else Context.names ctx
   in
@@ -17,9 +23,9 @@ let print_pattern ctx k p =
   in
   let p = Pattern.shift k 0 p in
   let e = (match Pattern.subst_term (inst 0) 0 p with Pattern.Term e -> e | _ -> assert false) in
-    Print.term (names 0) e
+    Print.term (names 0) e ppf
 
-let print_pattern_ty ctx k p =
+let print_pattern_ty ctx k p ppf =
   let rec names i =
     if i < k then ("?" ^ string_of_int i) :: names (i + 1) else Context.names ctx
   in
@@ -28,7 +34,7 @@ let print_pattern_ty ctx k p =
   in
   let p = Pattern.shift_ty k 0 p in
   let t = (match Pattern.subst_ty (inst 0) 0 p with Pattern.Ty t -> t | _ -> assert false) in
-    Print.ty (names 0) t
+    Print.ty (names 0) t ppf
 
 
 (** Signal that pattern matching failed. *)
