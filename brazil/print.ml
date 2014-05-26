@@ -153,7 +153,10 @@ and term ?max_level xs (e,_) ppf =
       | Syntax.Var k ->
           begin
             try
-              print ~at_level:0 "%s" (List.nth xs k)
+              (*if (!annotate) then                           *)
+              (*  print ~at_level:0 "%s<%d>" (List.nth xs k) k*)
+              (*else                                          *)
+                print ~at_level:0 "%s" (List.nth xs k)
             with
               _ ->
                 print ~at_level:0 "BAD_INDEX[%d/%d]" k (List.length xs)
@@ -199,7 +202,7 @@ and term ?max_level xs (e,_) ppf =
       | Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4) ->
         print ~at_level:1 "J (%t, [%s %s %s . %t], [%s . %t], %t, %t, %t)"
           (ty ~max_level:4 xs t)
-          x y p (ty ~max_level:4 (x::y::p::xs) u)
+          x y p (ty ~max_level:4 (p::y::x::xs) u)
           z (term ~max_level:4 (z::xs) e1)
           (term ~max_level:4 xs e2)
           (term ~max_level:4 xs e3)

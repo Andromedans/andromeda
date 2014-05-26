@@ -14,8 +14,7 @@ let print_input_term ctx term ppf =
   Format.fprintf ppf "%s"
     (Input.string_of_term
       (fun bvs i ->
-        if (i >= bvs) then
-          List.nth (Context.names ctx) (i-bvs)
+        if (i >= bvs) then List.nth (Context.names ctx) (i-bvs)
         else
           "Var[" ^ string_of_int i ^ "]")
       term)
@@ -113,10 +112,14 @@ let rec syn_term ctx ((term', loc) as term) =
         | Some (t, e3, e4) ->
           let ctx_xyp, ctx_z = Context.for_J t x y p z ctx in
           let u = is_fibered ctx_xyp u in
-          let zvar = Syntax.mkVar 0 in (* ctx, z |- z *)
           let t' = Syntax.weaken_ty 0 t in (* ctx, z |- t type *)
-          let u' = Syntax.strengthen_ty u [zvar; zvar; Syntax.mkIdpath t' zvar] in
-          let e1 = chk_term ctx_z e1 u' in
+          let u' = Syntax.weaken_ty 3 u in (* ctx, z, x, y, p |- z *)
+          let zvar = Syntax.mkVar 0     in (* ctx, z |- z *)
+          (* Strengthen expects its arguments to be well-formed relative to
+           * the *post*-strengthening context, and z will be variable 0
+           * after substituting away x, y, and p *)
+          let u'' = Syntax.strengthen_ty u' [zvar; zvar; Syntax.mkIdpath t' zvar] in
+          let e1 = chk_term ctx_z e1 u'' in
             Syntax.mkJ ~loc t (x, y, p, u) (z, e1) e2 e3 e4,
             Syntax.strengthen_ty u [e3; e4; e2]
 
