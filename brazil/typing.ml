@@ -26,7 +26,7 @@ let rec syn_term ctx ((term', loc) as term) =
   | Input.Var k ->
     begin
       let t = Context.lookup_var k ctx in
-        (Syntax.Var k, loc),
+        Syntax.mkVar ~loc k,
         t
     end
 
@@ -44,7 +44,7 @@ let rec syn_term ctx ((term', loc) as term) =
       let h = Equal.as_hint ctx e1 u in
       let ctx = Context.add_equation h ctx in
       let e4, t = syn_term ctx e4 in
-        (Syntax.Equation (e1, u, e4), loc), t
+        (Syntax.mkEquation ~loc e1 u e4), t
     end
 
   (* syn-rw-hint *)
@@ -54,7 +54,7 @@ let rec syn_term ctx ((term', loc) as term) =
       let h = Equal.as_hint ctx e1 u in
       let ctx = Context.add_rewrite h ctx in
       let e4, t = syn_term ctx e4 in
-        (Syntax.Rewrite (e1, u, e4), loc), t
+        (Syntax.mkRewrite ~loc e1 u e4), t
     end
 
   (* syn-abs *)
@@ -63,8 +63,8 @@ let rec syn_term ctx ((term', loc) as term) =
       let t = is_type ctx t in
       let ctx = Context.add_var x t ctx in
       let e, u = syn_term ctx e in
-        (Syntax.Lambda (x, t, u, e), loc),
-        (Syntax.Prod (x, t, u), loc)
+        (Syntax.mkLambda ~loc x t u e),
+        (Syntax.mkProd ~loc x t u)
     end
 
   (* syn-app *)
@@ -74,7 +74,7 @@ let rec syn_term ctx ((term', loc) as term) =
         match Equal.as_prod ctx t1 with
           | Some (x, t, u) ->
             let e2 = chk_term ctx e2 t in
-              (Syntax.App ((x, t, u), e1, e2), loc),
+              Syntax.mkApp ~loc x t u e1 e2,
               Syntax.beta_ty u e2
           | None ->
             Error.typing ~loc:(snd e1)
@@ -84,14 +84,14 @@ let rec syn_term ctx ((term', loc) as term) =
 
   (* syn-unit *)
   | Input.UnitTerm ->
-      (Syntax.UnitTerm, loc),
-      (Syntax.Unit, loc)
+      Syntax.mkUnitTerm ~loc (),
+      Syntax.mkUnit ~loc ()
 
   (* syn-idpath *)
   | Input.Idpath e ->
     let e, t = syn_term ctx e in
-      (Syntax.Idpath (t, e), loc),
-      (Syntax.Paths (t, e, e), loc)
+      Syntax.mkIdpath ~loc t e,
+      Syntax.mkPaths ~loc t e e
 
   (* syn-J *)
   | Input.J ((x, y, p, u), (z, e1), e2) ->
@@ -102,11 +102,11 @@ let rec syn_term ctx ((term', loc) as term) =
         | Some (t, e3, e4) ->
           let ctx_xyp, ctx_z = Context.for_J t x y p z ctx in
           let u = is_fibered ctx_xyp u in
-          let zvar = (Syntax.Var 0, Position.nowhere) in (* ctx, z |- z *)
+          let zvar = Syntax.mkVar 0 in (* ctx, z |- z *)
           let t' = Syntax.weaken_ty 0 t in (* ctx, z |- t type *)
-          let u' = Syntax.strengthen_ty u [zvar; zvar; (Syntax.Idpath (t', zvar), Position.nowhere)] in
+          let u' = Syntax.strengthen_ty u [zvar; zvar; Syntax.mkIdpath t' zvar] in
           let e1 = chk_term ctx_z e1 u' in
-            (Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4), loc),
+            Syntax.mkJ ~loc t (x, y, p, u) (z, e1) e2 e3 e4,
             Syntax.strengthen_ty u [e3; e4; e2]
 
         | None ->
@@ -117,20 +117,20 @@ let rec syn_term ctx ((term', loc) as term) =
   (* syn-refl *)
   | Input.Refl e ->
       let e, t = syn_term ctx e  in
-      (Syntax.Refl(t,e), loc),
-      (Syntax.Id(t,e,e), loc)
+      Syntax.mkRefl ~loc t e,
+      Syntax.mkId ~loc t e e
 
   (* syn-name-unit *)
   | Input.NameUnit ->
-      (Syntax.NameUnit, loc),
-      (Syntax.Universe Universe.zero, loc)
+      Syntax.mkNameUnit ~loc (),
+      Syntax.mkUniverse ~loc Universe.zero
 
 
   (* syn-name-universe *)
   | Input.NameUniverse alpha ->
     let beta = Universe.succ alpha  in
-     (Syntax.NameUniverse alpha, loc),
-     (Syntax.Universe beta, loc)
+     Syntax.mkNameUniverse ~loc alpha,
+     Syntax.mkUniverse ~loc beta
 
   (* syn-name-prod *)
   | Input.NameProd(x,e1,e2) ->
@@ -139,13 +139,13 @@ let rec syn_term ctx ((term', loc) as term) =
         match Equal.as_universe ctx t1 with
         | Some alpha ->
             begin
-              let ctx' = Context.add_var x (Syntax.El (alpha, e1), Position.nowhere) ctx in
+              let ctx' = Context.add_var x (Syntax.mkEl alpha e1) ctx in
               let e2, t2 = syn_term ctx' e2  in
               match Equal.as_universe ctx' t2 with
                 | Some beta ->
                   let gamma = Universe.max alpha beta  in
-                    ((Syntax.NameProd(alpha, beta, x, e1, e2), loc),
-                     (Syntax.Universe gamma, loc))
+                    Syntax.mkNameProd ~loc alpha beta x e1 e2,
+                    Syntax.mkUniverse ~loc gamma
                 | None ->
                   Error.typing ~loc:(snd e2) "this expression should be a type, but it has type@ %t"
                     (print_ty ctx t2)
@@ -162,8 +162,8 @@ let rec syn_term ctx ((term', loc) as term) =
         match Equal.as_universe ctx t with
         | Some alpha ->
             if Universe.leq alpha beta then
-              ((Syntax.Coerce(alpha, beta, e), loc),
-               (Syntax.Universe beta, loc))
+              Syntax.mkCoerce ~loc alpha beta e,
+              Syntax.mkUniverse ~loc beta
             else
               Error.typing ~loc "cannot coerce from universe@ %t@ to universe %t"
                  (print_universe alpha)
@@ -184,8 +184,8 @@ let rec syn_term ctx ((term', loc) as term) =
         | Some (e1, alpha) ->
             if (Universe.is_fibered alpha) then
               let e3 = chk_term ctx e3 t2 in
-              ((Syntax.NamePaths(alpha, e1, e2, e3), loc),
-               (Syntax.Universe alpha, loc))
+              Syntax.mkNamePaths ~loc alpha e1 e2 e3,
+              Syntax.mkUniverse ~loc alpha
             else
               Error.typing ~loc "this expression should be a fibered type, but its type is %t"
                 (print_ty ctx t2)
@@ -200,8 +200,8 @@ let rec syn_term ctx ((term', loc) as term) =
                          (print_ty ctx t2)
         | Some (e1, alpha) ->
             let e3 = chk_term ctx e3 t2 in
-            ((Syntax.NameId(alpha, e1, e2, e3), loc),
-             (Syntax.Universe alpha, loc))
+            Syntax.mkNameId ~loc alpha e1 e2 e3,
+            Syntax.mkUniverse ~loc alpha
       end
 
 
@@ -219,7 +219,7 @@ and chk_term ctx ((term', loc) as term) t =
         let h = Equal.as_hint ctx e1 u in
         let ctx = Context.add_equation h ctx  in
         let e4 = chk_term ctx e4 t in
-          (Syntax.Equation(e1, u, e4), loc)
+        Syntax.mkEquation ~loc e1 u e4
       end
 
   (* chk-rw-hint *)
@@ -229,7 +229,7 @@ and chk_term ctx ((term', loc) as term) t =
         let h = Equal.as_hint ctx e1 u in
         let ctx = Context.add_rewrite h ctx  in
         let e4 = chk_term ctx e4 t in
-          (Syntax.Rewrite(e1, u, e4), loc)
+        Syntax.mkRewrite ~loc e1 u e4
       end
 
   (* chk-syn *)
@@ -250,31 +250,30 @@ and chk_term ctx ((term', loc) as term) t =
 (* Can the given unannotated type be verified and translated into an annotated type?
  *)
 and is_type ctx (ty, loc) =
-  let t =
     begin match ty with
 
       (* tychk-universe *)
-      | Input.Universe u -> Syntax.Universe u
+      | Input.Universe u -> Syntax.mkUniverse ~loc u
 
       (* tychk-el *)
       | Input.El e ->
         begin
           let (e, t) = syn_term ctx e in
             match Equal.as_universe ctx t with
-              | Some alpha -> Syntax.El (alpha, e)
+              | Some alpha -> Syntax.mkEl ~loc alpha e
               | None ->
                 Error.typing ~loc "this expression should be a type but it has type@ %t"
                   (print_ty ctx t)
         end
 
     (* tychk-unit *)
-      | Input.Unit -> Syntax.Unit
+      | Input.Unit -> Syntax.mkUnit ~loc ()
 
     (* tychk-prod *)
       | Input.Prod (x, t, u) ->
         let t = is_type ctx t in
         let u = is_type (Context.add_var x t ctx) u in
-          Syntax.Prod (x, t, u)
+          Syntax.mkProd ~loc x t u
 
     (* tychk-paths *)
       | Input.Paths (e1, e2) ->
@@ -283,7 +282,7 @@ and is_type ctx (ty, loc) =
             match wf_type_is_fibered t with
               | true ->
                 let e2 = chk_term ctx e2 t in
-                  Syntax.Paths (t, e1, e2)
+                  Syntax.mkPaths ~loc t e1 e2
               | false ->
                 Error.typing ~loc "invalid paths because %t is not fibered"
                   (print_ty ctx t)
@@ -293,10 +292,8 @@ and is_type ctx (ty, loc) =
       | Input.Id (e1, e2) ->
         let (e1, t) = syn_term ctx e1 in
         let e2 = chk_term ctx e2 t in
-          Syntax.Id (t, e1, e2)
+          Syntax.mkId ~loc t e1 e2
     end
-  in
-    (t, loc)
 
 (* Can the given unannotated type be verified and translated into an annotated fibered type?
  *)
