@@ -325,10 +325,20 @@ let ftrans_shift ?exn delta bvs = function
   | nonvar -> nonvar
 
 
+(* Adding the short-circut when shifting by zero sped up
+ * one (native-code) benchmark by 10%.
+ *)
+
 let shift ?exn ?(bound=0) delta term =
+  if delta = 0 then
+    term
+  else
     transform (ftrans_shift ?exn delta) bound term
 
 let shift_ty ?exn ?(bound=0) delta ty =
+  if delta = 0 then
+    ty
+  else
     transform_ty (ftrans_shift ?exn delta) bound ty
 
 
