@@ -120,6 +120,9 @@ let rec exec_cmd interactive ctx (d, loc) =
     | Input.Help ->
       Format.printf "%s" help_text ; ctx
 
+    | Input.Verbose n ->
+        Print.verbosity := n; ctx
+
     | Input.Quit ->
       exit 0
 

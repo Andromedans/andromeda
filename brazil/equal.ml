@@ -224,12 +224,10 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
           else e
     in
     begin
-      (*
       if (Syntax.equal answer e0) then
             Print.debug "Term %t was head-normal" (print_term ctx e0)
           else
-            Print.debug "Rewrote %t to %t" (print_term ctx e0) (print_term ctx answer);
-            *)
+            Print.debug "@[<hv 4>Rewrote@ %t@;<1 -4> to@ %t@]" (print_term ctx e0) (print_term ctx answer);
       answer
     end
 
@@ -238,8 +236,9 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
     resulting term. *)
 
 and rewrite_term ctx e t =
-  Print.debug "@[<hv 4>rewrite_term %d:@ %t@]"
-      (List.length (Context.rewrites ctx)) (print_term ctx e) ;
+  let count = Common.next()  in
+  Print.debug "@[<hv 4>rewrite_term <<%s>> %d:@ %t@]"
+      count (List.length (Context.rewrites ctx)) (print_term ctx e) ;
 
   let match_hint k pt pe1 pe2 =
     (*Print.debug "@[<hv 4>Can we use the hint@ %t@;<1 -4> at@ %t@]"*)
@@ -273,17 +272,19 @@ and rewrite_term ctx e t =
     | [] ->
       e
     | (k, pt, pe1, pe2) :: hs ->
+      let count' = count  in
       begin try
-        Print.debug "@[<hv 4>Can we use hint that rewrites@ %t@;<1 -4> to@ %t@]"
-            (print_pattern ctx k pe1) (print_pattern ctx k pe2);
+        Print.debug "@[<hv 4><<%s>> Can we use hint that rewrites@ %t@;<1 -4> to@ %t@]"
+            count' (print_pattern ctx k pe1) (print_pattern ctx k pe2);
         let e2 = match_hint k pt pe1 pe2 in
-        Print.debug "@[<hv 2>rewrote@ %t at@ %t@;<1 -2>to@ %t@;<1 -2> using@ %t and@ %t@]"
+        Print.debug "@[<hv 2><<%s>> rewrote@ %t at@ %t@;<1 -2>to@ %t@;<1 -2> using@ %t and@ %t@]"
+            count'
             (print_term ctx e) (print_ty ctx t) (print_term ctx e2)
             (print_pattern ctx k pe1) (print_pattern ctx k pe2) ;
           whnf ~use_rws:true ctx t e2
         with
           | Mismatch ->
-              Print.debug "nope";
+              Print.debug "<<%s>> nope" count;
                 match_hints hs
           (*| Error.Error (_,s1,s2) -> (Print.debug "unexpected Error %s %s" s1 s2; match_hints hs)*)
           | ex -> (Print.debug "unexpected exception %s"
@@ -355,8 +356,8 @@ and equal_ty' ~use_rws ~use_eqs ctx t u =
 
 (* equality of weak-head-normal types *)
 and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
-  let equal_ty' = equal_ty' ~use_eqs ~use_rws
-  and equal_term = equal_term ~use_eqs ~use_rws
+  let equal_ty' = equal_ty' ~use_eqs ~use_rws:true
+  and equal_term = equal_term ~use_eqs ~use_rws:true
   in
   begin
     match t', u' with
@@ -435,9 +436,10 @@ and equal_term ~use_eqs ~use_rws ctx e1 e2 t =
  *)
 and equal_ext ~use_eqs ~use_rws ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _) as t) =
   begin
-    if (not (!tentative)) then
-      Print.debug "@[<hv 4>equal_ext %b %b:@ %t@;<1 -4> and@ %t@ at %t@]"
-            use_eqs use_rws (print_term ctx e1) (print_term ctx e2)
+    let count = Common.next() in
+    (*if (not (!tentative)) then*)
+      Print.debug "@[<hv 4>equal_ext <<%s>> %b %b:@ %t@;<1 -4> and@ %t@ at %t@]"
+            count use_eqs use_rws (print_term ctx e1) (print_term ctx e2)
             (print_ty ctx t);
     match t' with
 
@@ -485,8 +487,8 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
       Print.debug "@[<hv 4>equal_whnf <<%s>> %b %b:@ %t@;<1 -4> and@ %t@ at %t@]"
             count use_eqs use_rws (print_term ctx e1) (print_term ctx e2)
             (print_ty ctx t);
-  let equal_ty' = equal_ty' ~use_eqs ~use_rws
-  and equal_term = equal_term ~use_eqs ~use_rws
+  let equal_ty' = equal_ty' ~use_eqs ~use_rws:true
+  and equal_term = equal_term ~use_eqs ~use_rws:true
   in
   begin
     match e1', e2' with
@@ -641,8 +643,10 @@ and as_hint' ~use_rws ctx (_, loc) t =
 
 (* Simple matching of a type pattern against a type. *)
 and match_ty k inst l ctx pt ((t',loc) as t) =
+  let count = Common.next() in
   let pt = (match inst with [] -> pt | _ -> Pattern.subst_ty inst l pt) in
-  Print.debug "match_ty: type %t, pat %t" (print_ty ctx t) (print_pattern_ty ctx k pt);
+  Print.debug "@[<hv>match_ty <<%s>>: comparing type %t@;<1 -4> with pattern@ %t@]"
+   count (print_ty ctx t) (print_pattern_ty ctx k pt);
 
   (* We can't try to apply reductions to the original term
    * when pattern-matching, because we're probably trying to
@@ -656,8 +660,11 @@ and match_ty k inst l ctx pt ((t',loc) as t) =
         try
           match_term k inst l ctx p e t
         with Mismatch ->
+          begin
+           Print.debug "<<%s>> match_ty's match_term trying again with whnf" count;
            let e = whnf ~use_rws:true ctx t e in
            match_term k inst l ctx p e t
+          end
 
   and match_magenta = match_ty k
   and match_ty = match_ty k
@@ -665,7 +672,7 @@ and match_ty k inst l ctx pt ((t',loc) as t) =
   match pt with
 
     | Pattern.Ty u  ->
-      if equal_ty' ~use_eqs:false ~use_rws:false ctx t u
+      if tentatively (fun () -> equal_ty' ~use_eqs:false ~use_rws:false ctx t u)
       then inst
       else raise Mismatch
 
@@ -727,17 +734,21 @@ and count_pattern_apps = function
 
 (* Simple matching of a term pattern against a term. *)
 and match_term k inst l ctx p e t =
+  let count = Common.next() in
   let p = (match inst with [] -> p | _ -> Pattern.subst_term inst l p)  in
   (*Print.debug "match_term, term %t,@ pat %t"   *)
   (*  (print_term ctx e) (print_pattern ctx k p);*)
-  Print.debug "match_term: %t"
-    (print_term ctx e);
+  Print.debug "match_term <<%s>>: %t"
+    count (print_term ctx e);
 
   let match_term inst l ctx p e t =
         try match_term k inst l ctx p e t
         with Mismatch ->
-           let e = whnf ~use_rws:true ctx t e in
-           match_term k inst l ctx p e t
+          begin
+            Print.debug "<<%s>> math_term's match_term trying again with whnf" count;
+            let e = whnf ~use_rws:true ctx t e in
+            match_term k inst l ctx p e t
+          end
 
   and match_magenta = match_ty k
   and match_ty = match_ty k

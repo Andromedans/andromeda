@@ -48,6 +48,7 @@ and toplevel' =
   | Define of name * name term (* define x := e *)
   | TopRewrite of name term (* rewrite e *)
   | TopEquation of name term (* equation e *)
+  | Verbose of int
 
 let paren tag strings = tag ^ "(" ^ String.concat "," strings ^ ")"
 

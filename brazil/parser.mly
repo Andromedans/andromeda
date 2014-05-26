@@ -36,6 +36,7 @@
 %token UNDERSCORE
 %token DEFINE COLONEQ ASSUME TOPEQUATION TOPREWRITE
 %token CONTEXT HELP QUIT
+%token <int> VERBOSE
 %token EOF
 
 %start <Input.toplevel list> file
@@ -80,6 +81,7 @@ plain_topdirective:
   | CONTEXT    { Context }
   | HELP       { Help }
   | QUIT       { Quit }
+  | n=VERBOSE    { Verbose n }
 
 (* Main syntax tree *)
 

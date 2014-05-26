@@ -39,6 +39,8 @@ rule token = parse
   | "#context"          { CONTEXT }
   | "#help"             { HELP }
   | "#quit"             { QUIT }
+  | "#verbose" [' ' '\t']* (numeral as s)
+                        { VERBOSE (int_of_string s) }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
   | '['                 { LBRACK }
