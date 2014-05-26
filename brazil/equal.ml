@@ -683,6 +683,22 @@ and match_ty k inst l ctx pt ((t',loc) as t) =
             inst
       end
 
+
+and count_apps = function
+  | Syntax.App (_, e, _), _ -> 1 + count_apps e
+  | _ -> 0
+
+and count_pattern_apps = function
+  | Pattern.App (_, p, _) ->
+      begin
+        match count_pattern_apps p with
+        | Some n -> Some (n+1)
+        | None   -> None
+      end
+  | Pattern.PVar _ -> None
+  | Pattern.Term e -> Some (count_apps e)
+  | _ -> Some 0
+
 (* Simple matching of a term pattern against a term. *)
 and match_term k inst l ctx p e t =
   let p = (match inst with [] -> p | _ -> Pattern.subst_term inst l p)  in
@@ -737,6 +753,20 @@ and match_term k inst l ctx p e t =
   | Pattern.App ((_, pt1, pt2), pe1, pe2) ->
     begin match fst e with
       | Syntax.App ((x, t1, t2), e1, e2) ->
+        (* We know that the term was already whnf'ed, though possibly
+         *    without rewrites. Thus, we're unlikely to match unless
+         *    we have two "spines" of equal length.
+         *)
+        begin
+          match count_pattern_apps pe1 with
+          | Some n -> if n <> (count_apps e1) then
+            (* Fail fast if the spine shapes don't match! *)
+            raise Mismatch
+          | None -> ()  (* Pattern starts with a pattern variable, so
+                           a match is possible even with different
+                           numbers of applications, e.g,
+                            ?P z  matches   f x y z. *)
+        end;
         (* We need to match the function part first, since in
            the case of a spine it probably sets metavariables
            (including type families) that occur in the type. *)
