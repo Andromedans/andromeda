@@ -10,6 +10,16 @@ let print_term ctx term =
 
 let print_universe = Print.universe
 
+let print_input_term ctx term ppf =
+  Format.fprintf ppf "%s"
+    (Input.string_of_term
+      (fun bvs i ->
+        if (i >= bvs) then
+          List.nth (Context.names ctx) (i-bvs)
+        else
+          "Var[" ^ string_of_int i ^ "]")
+      term)
+
 (***********************************)
 (* Synthesis and Checking of Terms *)
 (***********************************)
@@ -17,9 +27,10 @@ let print_universe = Print.universe
 
 let rec syn_term ctx ((term', loc) as term) =
 
-  Print.debug "Synthesizing term %s@."
-      (Input.string_of_term string_of_int term);
+  Print.debug "Synthesizing term %t@."
+     (print_input_term ctx term);
 
+  let answer =
   match term' with
 
   (* syn-var *)
@@ -203,13 +214,18 @@ let rec syn_term ctx ((term', loc) as term) =
             Syntax.mkNameId ~loc alpha e1 e2 e3,
             Syntax.mkUniverse ~loc alpha
       end
-
+  in
+      Print.debug "Term %t has type %t@."
+       (print_input_term ctx term)
+       (print_ty ctx (snd answer));
+      answer
 
 and chk_term ctx ((term', loc) as term) t =
 
-  Print.debug "Checking term %s@ against type@ %t@."
-      (Input.string_of_term string_of_int term) (print_ty ctx t);
+  Print.debug "Checking term %t@ against type@ %t@."
+      (print_input_term ctx term) (print_ty ctx t);
 
+  let answer =
   match term' with
 
   (* chk-eq-hint *)
@@ -241,6 +257,12 @@ and chk_term ctx ((term', loc) as term) t =
               (print_term ctx e)
               (print_ty ctx u)
               (print_ty ctx t)
+
+  in
+     Print.debug "Yes, %t had type@ %t"
+        (print_input_term ctx term)
+        (print_ty ctx t);
+     answer
 
 (***********************************)
 (* Synthesis and Checking of Types *)
