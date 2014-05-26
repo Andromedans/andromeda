@@ -2,6 +2,7 @@
 (* Helper Functions *)
 (********************)
 
+
 let print_ty ctx t =
   Print.ty (Context.names ctx) t
 
@@ -49,6 +50,31 @@ let tentatively f =
   let answer = f()  in
   tentative := old;
   answer
+
+(***********)
+(* type_of *)
+(***********)
+
+let rec type_of ctx (exp, _) =
+  let loc = Position.nowhere in
+  match exp with
+  | Syntax.Var v -> Context.lookup_var v ctx
+  | Syntax.Equation (_, _, body)
+  | Syntax.Rewrite (_, _, body) -> type_of ctx body
+  | Syntax.Ascribe (_, ty) -> ty
+  | Syntax.Lambda (x, t1, t2, _) -> Syntax.Prod(x, t1, t2), loc
+  | Syntax.App ((_, _, t2), _, e2) -> Syntax.beta_ty t2 e2
+  | Syntax.UnitTerm -> Syntax.Unit, loc
+  | Syntax.Idpath (t, e) -> Syntax.Paths(t, e, e), loc
+  | Syntax.J (_, (_, _, _, u), _, e2, e3, e4) -> Syntax.strengthen_ty u [e2; e3; e4]
+  | Syntax.Refl (t, e) -> Syntax.Id(t, e, e), loc
+  | Syntax.Coerce (_, beta, _) -> Syntax.Universe beta, loc
+  | Syntax.NameUnit -> Syntax.Universe Universe.zero, loc
+  | Syntax.NameProd (alpha, beta, _, _, _) -> Syntax.Universe (Universe.max alpha beta), loc
+  | Syntax.NameUniverse alpha -> Syntax.Universe (Universe.succ alpha), loc
+  | Syntax.NamePaths (alpha, _, _, _)
+  | Syntax.NameId    (alpha, _, _, _) -> Syntax.Universe alpha, loc
+
 
 (*************************)
 (* Weak-Head Normalizing *)
@@ -212,18 +238,18 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
     resulting term. *)
 
 and rewrite_term ctx e t =
-  (*Print.debug "@[<hv 4>rewrite_term %d:@ %t@]"                 *)
-  (*    (List.length (Context.rewrites ctx)) (print_term ctx e) ;*)
+  Print.debug "@[<hv 4>rewrite_term %d:@ %t@]"
+      (List.length (Context.rewrites ctx)) (print_term ctx e) ;
 
   let match_hint k pt pe1 pe2 =
-    (*Print.debug "@[<hv 2>match_hint considering if@ %t  matches pattern@ %t at@ %t@]"*)
-    (*    (print_term ctx e)                                                           *)
-    (*    (print_pattern ctx k pe1)                                                    *)
-    (*    (print_pattern_ty ctx k pt) ;                                                *)
+    (*Print.debug "@[<hv 4>Can we use the hint@ %t@;<1 -4> at@ %t@]"*)
+    (*    (print_term ctx e)                                        *)
+    (*    (print_pattern ctx k pe1)                                 *)
+    (*    (print_pattern_ty ctx k pt) ;                             *)
 
     let inst = []  in
     let inst =  match_term k inst 0 ctx pe1 e t  in
-    (*let _ = Print.debug "match_hint: instantiation succeeded" in*)
+    let _ = Print.debug "match_hint: instantiation succeeded" in
     let pe2 = Pattern.subst_term inst 0 pe2  in
     match pe2 with
     | Pattern.Term e2 ->
@@ -233,7 +259,7 @@ and rewrite_term ctx e t =
           * We really need to examine the instantiation. Maybe compare
           * Length.list inst and k? *)
 
-         (*Print.debug "Success! Hint rewrote to %t" (print_term ctx e2);*)
+         Print.debug "Success! Hint rewrote to %t" (print_term ctx e2);
          e2
        end
     | _ ->
@@ -248,16 +274,16 @@ and rewrite_term ctx e t =
       e
     | (k, pt, pe1, pe2) :: hs ->
       begin try
-        (*Print.debug "considering rewriting %t to %t"            *)
-        (*    (print_pattern ctx k pe1) (print_pattern ctx k pe2);*)
+        Print.debug "@[<hv 4>Can we use hint that rewrites@ %t@;<1 -4> to@ %t@]"
+            (print_pattern ctx k pe1) (print_pattern ctx k pe2);
         let e2 = match_hint k pt pe1 pe2 in
-        (*Print.debug "@[<hv 2>rewrote@ %t at@ %t@;<1 -2>to@ %t@;<1 -2> using@ %t and@ %t@]"*)
-        (*    (print_term ctx e) (print_ty ctx t) (print_term ctx e2)                       *)
-        (*    (print_pattern ctx k pe1) (print_pattern ctx k pe2) ;                         *)
+        Print.debug "@[<hv 2>rewrote@ %t at@ %t@;<1 -2>to@ %t@;<1 -2> using@ %t and@ %t@]"
+            (print_term ctx e) (print_ty ctx t) (print_term ctx e2)
+            (print_pattern ctx k pe1) (print_pattern ctx k pe2) ;
           whnf ~use_rws:true ctx t e2
         with
           | Mismatch ->
-              (*Print.debug "nope";*)
+              Print.debug "nope";
                 match_hints hs
           (*| Error.Error (_,s1,s2) -> (Print.debug "unexpected Error %s %s" s1 s2; match_hints hs)*)
           | ex -> (Print.debug "unexpected exception %s"
@@ -279,7 +305,6 @@ and equal_by_equation ctx t e1 e2 =
     (*  (print_pattern ctx k pe1) (print_pattern ctx k pe2);*)
     let inst = []  in
     (* Match the left-hand-side and incorporate results into the right-hand-side *)
-    (*let inst = new_match_term ctx inst k pe1 pt e1 t  in*)
     let inst =  match_term k inst 0 ctx pe1 e1 t  in
     let pt = Pattern.subst_ty inst 0 pt
     and pe1 = Pattern.subst_term inst 0 pe1
@@ -317,7 +342,7 @@ and equal_by_equation ctx t e1 e2 =
 
 (* Equality of types *)
 and equal_ty' ~use_rws ~use_eqs ctx t u =
-  Print.debug "equal_ty'@ %t@ %t" (print_ty ctx t) (print_ty ctx u);
+  Print.debug "@[<hv 4>equal_ty'@ %t@;<1 -4> and@ %t@]"  (print_ty ctx t) (print_ty ctx u);
 
   (* chk-tyeq-refl *)
   (Syntax.equal_ty t u)
@@ -456,9 +481,10 @@ and equal_ext ~use_eqs ~use_rws ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _)
                  e2 : t
  *)
 and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
-      (*Print.debug "@[<hv 4>equal_whnf %b %b:@ %t@;<1 -4> and@ %t@ at %t@]"*)
-      (*      use_eqs use_rws (print_term ctx e1) (print_term ctx e2)       *)
-      (*      (print_ty ctx t);                                             *)
+  let count = Common.next() in
+      Print.debug "@[<hv 4>equal_whnf <<%s>> %b %b:@ %t@;<1 -4> and@ %t@ at %t@]"
+            count use_eqs use_rws (print_term ctx e1) (print_term ctx e2)
+            (print_ty ctx t);
   let equal_ty' = equal_ty' ~use_eqs ~use_rws
   and equal_term = equal_term ~use_eqs ~use_rws
   in
@@ -486,8 +512,8 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
         else
           begin
            ((if (not (!tentative)) then
-               Print.warning "@[<hv 2>Why are applications@ %t@;<1 -2>and@ %t@;<1 -2>equal?@]"
-                    (print_term ctx e1) (print_term ctx e2));
+               Print.warning "@[<hv 2><<%s>>Why are applications@ %t@;<1 -2>and@ %t@;<1 -2>equal?@]"
+                    count (print_term ctx e1) (print_term ctx e2));
            false)
           end
 
@@ -590,8 +616,8 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
       | Syntax.NameProd _ | Syntax.NameUniverse _ | Syntax.NamePaths _
       | Syntax.NameId _), _ ->
          (if (not (!tentative)) then
-             Print.warning "@[<hv 2>Why are terms@ %t@;<1 -2>and@ %t@;<1 -2>equal?@]"
-                  (print_term ctx e1) (print_term ctx e2));
+             Print.warning "@[<hv 2><<%s>>Why are terms@ %t@;<1 -2>and@ %t@;<1 -2>equal?@]"
+                  count (print_term ctx e1) (print_term ctx e2));
 
           false
   end
@@ -616,7 +642,7 @@ and as_hint' ~use_rws ctx (_, loc) t =
 (* Simple matching of a type pattern against a type. *)
 and match_ty k inst l ctx pt ((t',loc) as t) =
   let pt = (match inst with [] -> pt | _ -> Pattern.subst_ty inst l pt) in
-  (*Print.debug "match_ty: type %t, pat %t" (print_ty ctx t) (print_pattern_ty ctx k pt);*)
+  Print.debug "match_ty: type %t, pat %t" (print_ty ctx t) (print_pattern_ty ctx k pt);
 
   (* We can't try to apply reductions to the original term
    * when pattern-matching, because we're probably trying to
@@ -704,6 +730,8 @@ and match_term k inst l ctx p e t =
   let p = (match inst with [] -> p | _ -> Pattern.subst_term inst l p)  in
   (*Print.debug "match_term, term %t,@ pat %t"   *)
   (*  (print_term ctx e) (print_pattern ctx k p);*)
+  Print.debug "match_term: %t"
+    (print_term ctx e);
 
   let match_term inst l ctx p e t =
         try match_term k inst l ctx p e t
@@ -717,7 +745,9 @@ and match_term k inst l ctx p e t =
   match p with
 
   | Pattern.Term e' ->
-    if Syntax.equal e' e
+    let t' = type_of ctx e'  in (* XXX! *)
+    let inst = tentatively (fun () -> match_ty inst l ctx (Pattern.Ty t') t)  in
+    if tentatively (fun () -> equal_term ~use_eqs:false ~use_rws:false ctx e' e t)
     then inst
     else raise Mismatch
 

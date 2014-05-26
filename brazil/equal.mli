@@ -19,3 +19,5 @@ val whnf_ty : use_rws:bool -> Context.t -> Syntax.ty -> Syntax.ty
 (** Weak-head normalize a term *)
 val whnf : use_rws:bool -> Context.t -> Syntax.ty -> Syntax.term -> Syntax.term
 
+(** Extract the type of an annotated term *)
+val type_of : Context.t -> Syntax.term -> Syntax.ty
