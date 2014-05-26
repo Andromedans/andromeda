@@ -16,7 +16,7 @@ let lookup x =
     search 0
 
 let rec ty xs (t, loc) =
-  let t = 
+  let t =
     begin match t with
       | Input.El e ->
         let e = term xs e in
@@ -30,7 +30,7 @@ let rec ty xs (t, loc) =
         let t1 = ty xs t1 in
         let t2 = ty (x :: xs) t2 in
           Input.Prod (x, t1, t2)
-            
+
       | Input.Paths (e1, e2) ->
         let e1 = term xs e1 in
         let e2 = term xs e2 in
@@ -86,7 +86,7 @@ and term xs (e, loc) =
           Input.Idpath e
 
       | Input.J ((x, y, p, u), (z, e1), e2) ->
-        let u = ty (x :: y :: p :: xs) u in
+        let u = ty (p :: y :: x :: xs) u in
         let e1 = term (z :: xs) e1 in
         let e2 = term xs e2 in
           Input.J ((x, y, p, u), (z, e1), e2)
