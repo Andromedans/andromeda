@@ -440,14 +440,9 @@ and equal_ty' ~use_rws ~use_eqs ctx t u =
 
   ||
 
-  begin match Syntax.name_of t, Syntax.name_of u with
-    (* chk-tyeq-el *)
-    | Some (e1, alpha), Some (e2, beta) ->
-      Universe.eq alpha beta &&
-      equal_term ~use_eqs ~use_rws ctx e1 e2 (Syntax.Universe alpha, snd t)
-    | (_, None) | (None, _) -> false
-  end
-
+  let t = whnf_ty ~use_rws ctx t  in
+  let u = whnf_ty ~use_rws ctx u  in
+  equal_whnf_ty ~use_eqs ~use_rws ctx t u
 
 (* equality of weak-head-normal types *)
 and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
