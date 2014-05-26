@@ -70,17 +70,41 @@ let mkNameId ?(loc=Position.nowhere) u e1 e2 e3 = NameId(u,e1,e2,e3), loc
 (* Alpha equality    *)
 (*********************)
 
-(** We cannot use ML's built-in = operator for alpha equality,
+(** If [equal term1 term2] returns true, then the terms are identical modulo
+    names of bound variables (and the presence/absence of hints). Moreover,
+    if one is well-typed, then so is the other and they are provably
+    equivalent.
+
+    We don't use ML's built-in = operator for alpha equality,
     because we maintain variable names and source locations (for debugging and
-    error-reporting) in terms. So, we write the obvious recursive traversal
-    code.
+    error-reporting) in terms, and want to ignore names of bound variables. i
 
-    Also, and more importantly, we need a traversal because we ignore magenta
-    annotations, because they are deterministically constructed from non-magenta
-    terms and types.
+    We do ignore equation and rewrite hints, because they should be thought
+    of as (theoretically optional) guidance for the algorithm, rather than
+    being officially part of the language.
 
-    We also ignore equation and rewrite hints, because they should be thought
-    of as computations rather than expressions.
+    We do not ignore all magenta annotations, because two terms can be
+    equal in all their non-magenta parts yet not be interchangeable because they
+    have different types.
+
+    E.g., if  T -> U == T -> V  (without U == V)
+              f : T -> U
+              t : T
+          then
+              f @[T->U] t : U
+          but
+              f @[T->V] t : V
+
+    Further, we want this equality to respect provable equality, and if
+              (x:nat) -> U(x)  ==  nat -> U(0)
+              f : (x:nat) -> U(x)
+    then
+              f @[x:nat.U(x)] 0 : U(0)
+              f @[s:nat.U(0)] 0 : U(0)
+    have the same non-magenta terms and even the same type, but
+    but we cannot prove in general that these terms are equal because
+    the congruence-of-application rule doesn't apply (because the
+    two Pi types involved are not *componentwise* equal).
 *)
 
 let rec equal ((left',_) as left) ((right',_) as right) =
@@ -94,46 +118,59 @@ let rec equal ((left',_) as left) ((right',_) as right) =
   | Rewrite(_, _, term1), _ -> equal term1 right
   | _, Rewrite(_, _, term1) -> equal left  term1
 
-  | NameProd(_universe1, _universe2, _, term3, term4),
-    NameProd(_universe5, _universe6, _, term7, term8) ->
-      (* universe1 = universe5 && universe2 == universe6 && *)
-      equal term3 term7 && equal term4 term8
+  | NameProd(universe1, universe2, _, term3, term4),
+    NameProd(universe5, universe6, _, term7, term8) ->
+         Universe.eq universe1 universe5
+      && Universe.eq universe2 universe6
+      && equal term3 term7
+      && equal term4 term8
 
   | Ascribe(term1, ty2), Ascribe(term3, ty4) ->
-      equal term1 term3 && equal_ty ty2 ty4
+         equal_ty ty2 ty4
+      && equal term1 term3
 
-  | Lambda(_, ty1, _ty2, term3), Lambda(_, ty4, _ty5, term6) ->
-      equal_ty ty1 ty4 (* && equal_ty ty2 ty5 *) && equal term3 term6
+  | Lambda(_, ty1, ty2, term3), Lambda(_, ty4, ty5, term6) ->
+         equal_ty ty1 ty4
+      && equal_ty ty2 ty5
+      && equal term3 term6
 
-  | App((_,_ty1,_ty2),term3,term4), App((_,_ty5,_ty6),term7,term8) ->
-      (* equal_ty ty1 ty5 && equal_ty ty2 ty6 && *)
-      equal term3 term7 && equal term4 term8
+  | App((_,ty1,ty2),term3,term4), App((_,ty5,ty6),term7,term8) ->
+         equal_ty ty1 ty5
+      && equal_ty ty2 ty6
+      && equal term3 term7
+      && equal term4 term8
 
   | UnitTerm, UnitTerm
   | NameUnit, NameUnit -> true
 
-  | Idpath(_ty2, term3), Idpath(_ty5, term6)
-  | Refl  (_ty2, term3), Refl  (_ty5, term6) ->
-      (* equal_ty ty2 ty5 && *)
-      equal term3 term6
+  | Idpath(ty2, term3), Idpath(ty5, term6)
+  | Refl  (ty2, term3), Refl  (ty5, term6) ->
+      equal_ty ty2 ty5
+      && equal term3 term6
 
-  | J(ty1, (_, _, _, ty2), (_, term3), term4, _term5, _term6),
-    J(ty7, (_, _, _, ty8), (_, term9), term10, _term11, _term12) ->
-      (* equal_ty ty1 ty7 && *)
-      equal_ty ty2 ty8 && equal term3 term9 && equal term4 term10
-      (* && equal term5 term11 && equal term6 term12 *)
+  | J(ty1, (_, _, _, ty2), (_, term3), term4, term5, term6),
+    J(ty7, (_, _, _, ty8), (_, term9), term10, term11, term12) ->
+         equal_ty ty1 ty7
+      && equal_ty ty2 ty8
+      && equal term3 term9
+      && equal term4 term10
+      && equal term5 term11
+      && equal term6 term12
 
-  | Coerce(_universe1, universe2, term3), Coerce(_universe4, universe5, term6) ->
-      (* Universe.eq universe1 universe4 && *)
-      Universe.eq universe2 universe5 && equal term3 term6
+  | Coerce(universe1, universe2, term3), Coerce(universe4, universe5, term6) ->
+         Universe.eq universe1 universe4
+      && Universe.eq universe2 universe5
+      && equal term3 term6
 
   | NameUniverse universe1, NameUniverse universe2 ->
       Universe.eq universe1 universe2
 
-  | NamePaths(_universe1, term2, term3, term4), NamePaths(_universe5, term6, term7, term8)
-  | NameId   (_universe1, term2, term3, term4), NameId   (_universe5, term6, term7, term8) ->
-      (* Universe.eq universe1 universe5 && *)
-      equal term2 term6 && equal term3 term7 && equal term4 term8
+  | NamePaths(universe1, term2, term3, term4), NamePaths(universe5, term6, term7, term8)
+  | NameId   (universe1, term2, term3, term4), NameId   (universe5, term6, term7, term8) ->
+         Universe.eq universe1 universe5
+      && equal term2 term6
+      && equal term3 term7
+      && equal term4 term8
 
   | (Var _ | Ascribe _ | Lambda _ | App _
      | UnitTerm | Idpath _ | J _ | Refl _ | Coerce _
@@ -161,7 +198,6 @@ and equal_ty (left_ty,_) (right_ty,_) =
 
   | (Universe _ | El _ | Unit | Prod _ | Paths _ | Id _), _ ->
       false
-
 (*******************)
 (* Transformations *)
 (*******************)
