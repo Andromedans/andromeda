@@ -32,35 +32,3 @@ val subst_term : (int * Syntax.term) list -> int -> term -> term
 
 val subst_ty : (int * Syntax.term) list -> int -> ty -> ty
 
-(* Spines *)
-
-exception NoSpine
-
-type ('y,'r) spine = head * ((name * 'y * 'y) * 'r) list
-
-and head =
-  | HVar of int   (* Brazil variable, not a pattern variable! *)
-  | HNameProd of Universe.t * Universe.t
-  | HNamePaths of Universe.t
-  | HNameId of Universe.t
-  | HNameUniverse of Universe.t
-  | HCoerce of Universe.t * Universe.t
-  | HRefl of Syntax.ty
-  | HIdpath of Syntax.ty
-  | HUnitTerm
-  | HNameUnit
-
-val eq_head : (Syntax.ty -> Syntax.ty -> bool) -> head -> head -> bool
-
-val spine_of_term : term -> (ty, term) spine
-val spine_of_brazil : Syntax.term -> (Syntax.ty, Syntax.term) spine
-
-val subst_pattern_args :
-    (int * Syntax.term) list ->
-    int ->
-    ((name * ty * ty) * term) list ->
-    ((name * ty * ty) * term) list
-
-
-
-
