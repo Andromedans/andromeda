@@ -4,6 +4,7 @@
   open Parser
 
   let reserved = [
+    ("as", AS) ;
     ("Parameter", ASSUME ) ;
     ("coerce", COERCE) ;
     ("Definition", DEFINE) ;
@@ -45,10 +46,13 @@ rule token = parse
   | ')'                 { RPAREN }
   | '['                 { LBRACK }
   | ']'                 { RBRACK }
+  | '{'                 { LBRACE }
+  | '}'                 { RBRACE }
   | "."                 { DOT }
   | ':'                 { COLON }
   | ":="                { COLONEQ }
   | "::"                { ASCRIBE }
+  | ';'                 { SEMICOLON }
   | ','                 { COMMA }
   | "->"                { ARROW }
   | "=>"                { DARROW }

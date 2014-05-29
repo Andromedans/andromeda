@@ -31,6 +31,7 @@
 %token COERCE
 %token EQ EQEQ
 %token EQUATION REWRITE IN
+%token AS LBRACE RBRACE SEMICOLON
 %token REFL IDPATH
 %token IND_PATH
 %token UNDERSCORE
@@ -137,6 +138,16 @@ plain_simple_term:
   | x=NAME                       { Var x }
   | LPAREN RPAREN                { UnitTerm }
   | LPAREN e=plain_term RPAREN   { e }
+  | LBRACE l=separated_nonempty_list(SEMICOLON, record_field) RBRACE { Record l }
+  | LBRACE l=separated_nonempty_list(SEMICOLON, record_ty_field) RBRACE { NameRecordTy l }
+
+record_field:
+  | lbl=NAME EQ e=term            { (lbl, anonymous, e) }
+  | lbl=NAME AS x=param EQ e=term { (lbl, x, e) }
+
+record_ty_field:
+  | lbl=NAME COLON t=term              { (lbl, anonymous, t) }
+  | lbl=NAME AS x=param COLON t=term   { (lbl, x, t) }
 
 universe: mark_position(plain_universe) { $1 }
 plain_universe:

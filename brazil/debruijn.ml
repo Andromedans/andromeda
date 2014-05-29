@@ -26,6 +26,17 @@ let rec ty xs (t, loc) =
 
       | Input.Unit -> Input.Unit
 
+      | Input.RecordTy lst ->
+        let rec fold xs = function
+          | [] -> []
+          | (lbl, x, t) :: lst ->
+            let t = ty xs t
+            and lst = fold (x::xs) lst
+            in
+              (lbl, x, t) :: lst
+        in
+        Input.RecordTy (fold xs lst)
+
       | Input.Prod (x, t1, t2) ->
         let t1 = ty xs t1 in
         let t2 = ty (x :: xs) t2 in
@@ -79,6 +90,17 @@ and term xs (e, loc) =
         let e2 = term xs e2 in
           Input.App (e1, e2)
 
+      | Input.Record lst ->
+        let rec fold xs = function
+          | [] -> []
+          | (lbl, x, e) :: lst ->
+            let e = term xs e
+            and lst = fold (x::xs) lst
+            in
+              (lbl, x, e) :: lst
+        in
+        Input.Record (fold xs lst)
+
       | Input.UnitTerm -> Input.UnitTerm
 
       | Input.Idpath e ->
@@ -94,6 +116,17 @@ and term xs (e, loc) =
       | Input.Refl e ->
         let e = term xs e in
           Input.Refl e
+
+      | Input.NameRecordTy lst ->
+        let rec fold xs = function
+          | [] -> []
+          | (lbl, x, e) :: lst ->
+            let e = term xs e
+            and lst = fold (x::xs) lst
+            in
+              (lbl, x, e) :: lst
+        in
+        Input.NameRecordTy (fold xs lst)
 
       | Input.NameUnit -> Input.NameUnit
 

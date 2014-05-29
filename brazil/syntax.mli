@@ -2,6 +2,8 @@
 
 type name = string
 
+type label = string (* field label *)
+
 (** We use de Bruijn indices *)
 type variable = Common.debruijn
 
@@ -12,6 +14,7 @@ and ty' =
   | Universe of universe
   | El of universe * term
   | Unit
+  | RecordTy of (label * name * ty) list
   | Prod of name * ty * ty
   | Paths of ty * term * term
   | Id of ty * term * term
@@ -25,16 +28,17 @@ and term' =
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
   | UnitTerm
+  | Record of (label * name * ty * term) list
   | Idpath of ty * term
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of ty * term
   | Coerce of universe * universe * term
+  | NameRecordTy of (label * name * universe * term) list
   | NameUnit
   | NameProd of universe * universe * name * term * term
   | NameUniverse of universe
   | NamePaths of universe * term * term * term
-  | NameId of universe *term * term * term
-
+  | NameId of universe * term * term * term
 
 (*********************************)
 (* Construction helper functions *)
@@ -42,6 +46,7 @@ and term' =
 
 val mkUniverse : ?loc:Position.t -> universe -> ty
 val mkEl : ?loc:Position.t -> universe -> term  -> ty
+val mkRecordTy : ?loc:Position.t -> (label * name * ty) list -> ty
 val mkUnit : ?loc:Position.t -> unit  -> ty
 val mkProd : ?loc:Position.t -> name -> ty -> ty  -> ty
 val mkPaths : ?loc:Position.t -> ty -> term -> term -> ty
@@ -55,11 +60,13 @@ val mkRewrite : ?loc:Position.t -> term -> ty -> term -> term
 val mkAscribe : ?loc:Position.t -> term -> ty -> term
 val mkLambda : ?loc:Position.t -> name -> ty -> ty -> term -> term
 val mkApp : ?loc:Position.t -> name -> ty -> ty -> term -> term -> term
+val mkRecord : ?loc:Position.t -> (label * name * ty * term) list -> ty
 val mkUnitTerm : ?loc:Position.t -> unit -> term
 val mkIdpath : ?loc:Position.t -> ty -> term -> term
 val mkJ : ?loc:Position.t -> ty -> (name*name*name*ty) -> (name*term) -> term -> term -> term -> term
 val mkRefl : ?loc:Position.t -> ty -> term -> term
 val mkCoerce : ?loc:Position.t -> universe -> universe -> term -> term
+val mkNameRecordTy : ?loc:Position.t -> (label * name * universe * ty) list -> ty
 val mkNameUnit : ?loc:Position.t -> unit -> term
 val mkNameProd : ?loc:Position.t -> universe -> universe -> name -> term -> term -> term
 val mkNameUniverse : ?loc:Position.t -> universe -> term

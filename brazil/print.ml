@@ -110,6 +110,45 @@ and name_prod ?max_level xs x e1 e2 ppf =
       (term ~max_level:2 xs e1)
       (term ~max_level:3 (Input.anonymous :: xs) e2)
 
+and record_fields xs lst ppf =
+  let rec fold xs = function
+    | [] -> ()
+    | [(lbl,x,t,e)] ->
+      print ~at_level:0 ppf "%s as %s =%t@ %t"
+        lbl x (annot (ty ~max_level:4 xs t)) (term ~max_level:4 xs e)
+    | (lbl,x,t,e) :: lst ->
+      print ~at_level:0 ppf "%s as %s =%t@ %t;@ "
+        lbl x (annot (ty ~max_level:4 xs t)) (term ~max_level:4 xs e) ;
+      fold (x::xs) lst
+  in
+    fold xs lst
+
+and name_record_ty_fields xs lst ppf =
+  let rec fold xs = function
+    | [] -> ()
+    | [(lbl,x,u,e)] ->
+      print ~at_level:0 ppf "%s as %s :%t@ %t"
+        lbl x (annot (universe u)) (term ~max_level:4 xs e)
+    | (lbl,x,u,e) :: lst ->
+      print ~at_level:0 ppf "%s as %s :%t@ %t;@ "
+        lbl x (annot (universe u)) (term ~max_level:4 xs e) ;
+      fold (x::xs) lst
+  in
+    fold xs lst
+
+and record_ty_fields xs lst ppf =
+  let rec fold xs = function
+    | [] -> ()
+    | [(lbl,x,t)] ->
+      print ~at_level:0 ppf "%s as %s :@ %t"
+        lbl x (ty ~max_level:4 xs t)
+    | (lbl,x,t) :: lst ->
+      print ~at_level:0 ppf "%s as %s :@ %t;@ "
+        lbl x (ty ~max_level:4 xs t) ;
+      fold (x::xs) lst
+  in
+    fold xs lst
+
 (** [lambda xs x t u e ppf] prints a lambda abstraction using formatter [ppf]. *)
 and lambda xs x t u e ppf =
   let rec collect xs y ys t e =
@@ -193,6 +232,9 @@ and term ?max_level xs (e,_) ppf =
                            u)))
           (term ~max_level:0 xs e2)
 
+      | Syntax.Record lst ->
+        print ~at_level:0 "{%t}" (record_fields xs lst)
+
       | Syntax.UnitTerm -> print ~at_level:0 "()"
 
       | Syntax.Idpath (t, e) -> print ~at_level:0 "idpath%t %t"
@@ -218,6 +260,9 @@ and term ?max_level xs (e,_) ppf =
           (universe u1)
           (universe u2)
           (term ~max_level:4 xs e)
+
+      | Syntax.NameRecordTy lst ->
+        print ~at_level:0 "{%t}" (name_record_ty_fields xs lst)
 
       | Syntax.NameUnit -> print ~at_level:0 "unit"
 
@@ -254,6 +299,9 @@ and ty ?max_level xs (t,_) ppf =
           else
             print "%t"
               (term ?max_level xs e)
+
+      | Syntax.RecordTy lst ->
+        print ~at_level:0 "{%t}" (record_ty_fields xs lst)
 
       | Syntax.Unit ->
         print ~at_level:0 "unit"

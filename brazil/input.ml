@@ -3,6 +3,8 @@ let anonymous = "_"
 (** Users refer to variables as strings *)
 type name = string
 
+type label = string (* field label *)
+
 (** At the input level we only have expressions, which can refer either to terms
     or types. This is so because we do not distinguish between types and their names.
     A desugaring phase figures out what is what. *)
@@ -14,6 +16,7 @@ and 'a ty' =
   | El of 'a term
   | Universe of universe (* Universe i *)
   | Unit (* unit *)
+  | RecordTy of (label * name * 'a ty) list
   | Prod of name * 'a ty * 'a ty (* forall (x : T) , U *)
   | Paths of 'a term * 'a term (* e1 = e2 *)
   | Id of 'a term * 'a term (* e1 == e2 *)
@@ -27,6 +30,7 @@ and 'a term' =
   | Ascribe of 'a term * 'a ty (* e :: T *)
   | Lambda of name * 'a ty * 'a term (* fun (x : T) => e *)
   | App of 'a term * 'a term (* e1 e2 *)
+  | Record of (label * name * 'a term) list
   | UnitTerm (* () *)
   | Idpath of 'a term (* idpath e *)
   | J of (name * name * name * 'a ty) * (name * 'a term) * 'a term
@@ -35,6 +39,7 @@ and 'a term' =
   | Coerce of universe * 'a term (* coerce i j e *)
   | NameUniverse of universe (* Universe i *)
   | NameUnit (* unit *)
+  | NameRecordTy of (label * name * 'a term) list
   | NameProd of name * 'a term * 'a term (* forall (x : T) , U *)
   | NamePaths of 'a term * 'a term (* e1 = e2 *)
   | NameId of 'a term * 'a term (* e1 == e2 *)
@@ -60,6 +65,13 @@ let rec string_of_ty' string_of_var bv (ty,_) =
   | El term -> paren "El" [recurse bv term]
   | Universe u -> paren "Universe" [Universe.to_string u]
   | Unit -> "Unit"
+  | RecordTy lst ->
+    let rec fold bv = function
+      | [] -> []
+      | (lbl, x, ty) :: lst ->
+        (lbl ^ " as " ^ x ^ " : " ^ recurse_ty bv ty) :: fold (bv+1) lst
+    in
+    "{" ^ (String.concat " ; " (fold bv lst)) ^ "}"
   | Prod(name, ty1, ty2) -> paren "Prod" [name; recurse_ty bv ty1; recurse_ty (bv+1) ty2]
   | Paths(term1, term2) -> paren "Paths" [recurse bv term1; recurse bv term2]
   | Id(term1, term2) -> paren "Id" [recurse bv term1; recurse bv term2]
@@ -75,6 +87,13 @@ and string_of_term' string_of_var bv (term,_) =
   | Ascribe(term1, ty2) -> paren "Ascribe" [recurse bv term1; recurse_ty bv ty2]
   | Lambda(name,ty1,term2) -> paren "Lambda" [name; recurse_ty bv ty1; recurse (bv+1) term2]
   | App(term1, term2) -> paren "App" [recurse bv term1; recurse bv term2]
+  | Record lst ->
+    let rec fold bv = function
+      | [] -> []
+      | (lbl, x, e) :: lst ->
+        (lbl ^ " as " ^ x ^ " = " ^ recurse bv e) :: fold (bv+1) lst
+    in
+    "{" ^ (String.concat " ; " (fold bv lst)) ^ "}"
   | UnitTerm -> "UnitTerm"
   | Idpath term1 -> paren "Idpath" [recurse bv term1]
   | J((name1,name2,name3,ty4),(name5,term6),term7) ->
@@ -84,6 +103,13 @@ and string_of_term' string_of_var bv (term,_) =
   | Refl term1 -> paren "Refl" [recurse bv term1]
   | Coerce(u1, term2) -> paren "Coerce" [Universe.to_string u1; recurse bv term2]
   | NameUniverse u1 -> paren "NameUniverse" [Universe.to_string u1]
+  | NameRecordTy lst ->
+    let rec fold bv = function
+      | [] -> []
+      | (lbl, x, e) :: lst ->
+        (lbl ^ " as " ^ x ^ " : " ^ recurse bv e) :: fold (bv+1) lst
+    in
+    "{" ^ (String.concat " ; " (fold bv lst)) ^ "}"
   | NameUnit -> "NameUnit"
   | NameProd(name1, term2, term3) ->
       paren "NameProd" [name1; recurse bv term2; recurse (bv+1) term3]

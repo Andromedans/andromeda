@@ -2,6 +2,8 @@
 
 type name = string
 
+type label = string (* field label *)
+
 let anonymous = Input.anonymous
 
 (** We use de Bruijn indices *)
@@ -14,6 +16,7 @@ and ty' =
   | Universe of universe
   | El of universe * term
   | Unit
+  | RecordTy of (label * name * ty) list
   | Prod of name * ty * ty
   | Paths of ty * term * term
   | Id of ty * term * term
@@ -27,10 +30,12 @@ and term' =
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
   | UnitTerm
+  | Record of (label * name * ty * term) list
   | Idpath of ty * term
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of ty * term
   | Coerce of universe * universe * term
+  | NameRecordTy of (label * name * universe * term) list
   | NameUnit
   | NameProd of universe * universe * name * term * term
   | NameUniverse of universe
@@ -41,6 +46,7 @@ and term' =
 
 let mkUniverse ?(loc=Position.nowhere) u = Universe u, loc
 let mkEl ?(loc=Position.nowhere) u e = El(u,e), loc
+let mkRecordTy ?(loc=Position.nowhere) lst = RecordTy lst, loc
 let mkUnit ?(loc=Position.nowhere) () = Unit, loc
 let mkProd ?(loc=Position.nowhere) x t1 t2 = Prod(x,t1,t2), loc
 let mkPaths ?(loc=Position.nowhere) t e1 e2 = Paths(t,e1,e2), loc
@@ -52,11 +58,13 @@ let mkRewrite ?(loc=Position.nowhere) e1 t e2 = Rewrite(e1,t,e2), loc
 let mkAscribe ?(loc=Position.nowhere) e t = Ascribe(e,t), loc
 let mkLambda ?(loc=Position.nowhere) x t1 t2 e = Lambda(x,t1,t2,e), loc
 let mkApp ?(loc=Position.nowhere) x t1 t2 e1 e2 = App((x,t1,t2),e1,e2), loc
+let mkRecord ?(loc=Position.nowhere) lst = Record lst, loc
 let mkUnitTerm ?(loc=Position.nowhere) () = UnitTerm, loc
 let mkIdpath ?(loc=Position.nowhere) t e = Idpath(t,e), loc
 let mkJ ?(loc=Position.nowhere) a b c d e f = J(a,b,c,d,e,f), loc
 let mkRefl ?(loc=Position.nowhere) t e = Refl(t,e), loc
 let mkCoerce ?(loc=Position.nowhere) u1 u2 e = Coerce(u1,u2,e), loc
+let mkNameRecordTy ?(loc=Position.nowhere) lst = NameRecordTy lst, loc
 let mkNameUnit ?(loc=Position.nowhere) () = NameUnit, loc
 let mkNameProd ?(loc=Position.nowhere) u1 u2 x e1 e2 = NameProd(u1, u2, x, e1, e2), loc
 let mkNameUniverse ?(loc=Position.nowhere) u = NameUniverse u, loc
@@ -140,6 +148,13 @@ let rec equal ((left',_) as left) ((right',_) as right) =
       && equal term3 term7
       && equal term4 term8
 
+  | Record lst1, Record lst2 ->
+    List.length lst1 = List.length lst2 &&
+    List.for_all2
+     (fun (lbl1,_,t1,e1) (lbl2,_,t2,e2) -> 
+       lbl1 = lbl2 && equal_ty t1 t2 && equal e1 e2)
+     lst1 lst2
+
   | UnitTerm, UnitTerm
   | NameUnit, NameUnit -> true
 
@@ -165,6 +180,13 @@ let rec equal ((left',_) as left) ((right',_) as right) =
   | NameUniverse universe1, NameUniverse universe2 ->
       Universe.eq universe1 universe2
 
+  | NameRecordTy lst1, NameRecordTy lst2 ->
+    List.length lst1 = List.length lst2 &&
+    List.for_all2
+     (fun (lbl1,_,u1,e1) (lbl2,_,u2,e2) ->
+       lbl1 = lbl2 && Universe.eq u1 u2 && equal e1 e2)
+     lst1 lst2
+
   | NamePaths(universe1, term2, term3, term4), NamePaths(universe5, term6, term7, term8)
   | NameId   (universe1, term2, term3, term4), NameId   (universe5, term6, term7, term8) ->
          Universe.eq universe1 universe5
@@ -172,8 +194,8 @@ let rec equal ((left',_) as left) ((right',_) as right) =
       && equal term3 term7
       && equal term4 term8
 
-  | (Var _ | Ascribe _ | Lambda _ | App _
-     | UnitTerm | Idpath _ | J _ | Refl _ | Coerce _
+  | (Var _ | Ascribe _ | Lambda _ | App _ | Record _
+     | UnitTerm | Idpath _ | J _ | Refl _ | Coerce _ | NameRecordTy _
      | NameUnit | NameProd _ | NameUniverse _ | NamePaths _| NameId _), _ ->
          false
 
@@ -187,6 +209,12 @@ and equal_ty (left_ty,_) (right_ty,_) =
   | El(universe1, term2), El(universe3, term4) ->
       Universe.eq universe1 universe3 && equal term2 term4
 
+  | RecordTy lst1, RecordTy lst2 ->
+    List.length lst1 = List.length lst2 &&
+    List.for_all2
+     (fun (lbl1,_,t1) (lbl2,_,t2) -> lbl1 = lbl2 && equal_ty t1 t2)
+     lst1 lst2
+
   | Unit, Unit -> true
 
   | Prod(_, ty1, ty2), Prod(_, ty3, ty4) ->
@@ -196,7 +224,7 @@ and equal_ty (left_ty,_) (right_ty,_) =
   | Id   (ty1, term2, term3), Id   (ty4, term5, term6) ->
       equal_ty ty1 ty4 && equal term2 term5 && equal term3 term6
 
-  | (Universe _ | El _ | Unit | Prod _ | Paths _ | Id _), _ ->
+  | (Universe _ | El _ | RecordTy _ | Unit | Prod _ | Paths _ | Id _), _ ->
       false
 
 (*******************)
@@ -243,6 +271,17 @@ let rec transform ftrans bvs ((term', loc) as term) =
           mkApp ~loc name (recurse_ty ty1) (recurse_ty_in_binders 1 ty2)
                 (recurse term1) (recurse term2)
 
+      | Record lst ->
+        let rec fold k = function
+          | [] -> []
+          | (lbl,x,t,e) :: lst ->
+            let t = recurse_ty_in_binders k t
+            and e = recurse_in_binders k e
+            in
+              (lbl, x, t, e) :: fold (k+1) lst
+        in
+          mkRecord ~loc (fold 0 lst)
+
       | UnitTerm -> mkUnitTerm ~loc ()
 
       | Idpath(ty1, term2) ->
@@ -259,6 +298,16 @@ let rec transform ftrans bvs ((term', loc) as term) =
 
       | Coerce(universe1, universe2, term1) ->
           mkCoerce ~loc universe1 universe2 (recurse term1)
+
+      | NameRecordTy lst ->
+        let rec fold k = function
+          | [] -> []
+          | (lbl,x,u,e) :: lst ->
+            let e = recurse_in_binders k e
+            in
+              (lbl, x, u, e) :: fold (k+1) lst
+        in
+          mkNameRecordTy ~loc (fold 0 lst)
 
       | NameUnit ->
           mkNameUnit ~loc ()
@@ -289,6 +338,16 @@ and transform_ty ftrans bvs (ty', loc) =
 
   | El(universe1, term1) ->
       mkEl ~loc universe1 (recurse term1)
+
+  | RecordTy lst ->
+    let rec fold k = function
+      | [] -> []
+      | (lbl,x,t) :: lst ->
+        let t = recurse_ty_in_binders k t
+        in
+          (lbl, x, t) :: fold (k+1) lst
+    in
+      mkRecordTy ~loc (fold 0 lst)
 
   | Unit ->
       mkUnit ~loc ()
@@ -442,6 +501,24 @@ let rec name_of (ty', loc) =
     | El (alpha, e') ->
         Some(e', alpha)
 
+    | RecordTy lst ->
+      let rec fold = function
+        | [] -> Some ([], Universe.zero)
+        | (lbl,x,t) :: lst ->
+          begin match name_of t with
+          | None -> None
+          | Some (e,u) ->
+            begin match fold lst with
+            | None -> None
+            | Some (lst, u') -> Some ((lbl,x,u,e) :: lst, Universe.max u u')
+            end
+          end
+      in
+        begin match fold lst with
+          | None -> None
+          | Some (lst, u) -> Some (mkNameRecordTy ~loc lst, u)
+        end
+
     | Unit ->
         Some (mkNameUnit ~loc (), Universe.zero)
 
@@ -484,6 +561,13 @@ let rec occurs k (e, _) =
     | Ascribe (e, t) -> occurs k e || occurs_ty k t
     | Lambda (_, t, u, e) -> occurs_ty k t || occurs_ty (k+1) u || occurs (k+1) e
     | App ((_, t, u), e1, e2) -> occurs_ty k t || occurs_ty (k+1) u || occurs k e1 || occurs k e2
+    | Record lst ->
+      let rec fold k = function
+        | [] -> false
+        | (_, _,t,e) :: lst ->
+          occurs_ty k t || occurs k e || fold (k+1) lst
+      in
+        fold k lst
     | UnitTerm -> false
     | Idpath (t, e) -> occurs_ty k t || occurs k e
     | J (t, (_, _, _, u), (_, e1), e2, e3, e4) ->
@@ -491,6 +575,13 @@ let rec occurs k (e, _) =
         occurs k e2 || occurs k e3 || occurs k e4
     | Refl (t, e) -> occurs_ty k t || occurs k e
     | Coerce (_, _, e) -> occurs k e
+    | NameRecordTy lst ->
+      let rec fold k = function
+        | [] -> false
+        | (_, _,_,e) :: lst ->
+          occurs k e || fold (k+1) lst
+      in
+        fold k lst
     | NameUnit -> false
     | NameProd (_, _, _, e1, e2) -> occurs k e1 || occurs (k+1) e2
     | NameUniverse _ -> false
@@ -502,6 +593,12 @@ and occurs_ty k (t, _) =
   match t with
     | Universe _ -> false
     | El (_, e) -> occurs k e
+    | RecordTy lst ->
+      let rec fold k = function
+        | [] -> false
+        | (_, _,t) :: lst -> occurs_ty k t || fold (k+1) lst
+      in
+        fold k lst
     | Unit -> false
     | Prod (_, t1, t2) -> occurs_ty k t1 || occurs_ty (k+1) t2
     | Paths (t, e1, e2) -> occurs_ty k t || occurs k e1 || occurs k e2
@@ -530,6 +627,14 @@ let rec occurrences k (e, _) =
     | App ((_, t, u), e1, e2) ->
       occurrences_ty k t + occurrences_ty (k+1) u + occurrences k e1 + occurrences k e2
 
+    | Record lst ->
+      let rec fold k = function
+        | [] -> 0
+        | (_, _,t,e) :: lst ->
+          occurrences_ty k t + occurrences k e + fold (k+1) lst
+      in
+        fold k lst
+
     | UnitTerm -> 0
 
     | Idpath (t, e) ->
@@ -542,6 +647,14 @@ let rec occurrences k (e, _) =
     | Refl (t, e) -> occurrences_ty k t + occurrences k e
 
     | Coerce (_, _, e) -> occurrences k e
+
+    | NameRecordTy lst ->
+      let rec fold k = function
+        | [] -> 0
+        | (_, _,_,e) :: lst ->
+          occurrences k e + fold (k+1) lst
+      in
+        fold k lst
 
     | NameUnit -> 0
 
@@ -561,6 +674,13 @@ and occurrences_ty k (t, _) =
   match t with
     | Universe _ -> 0
     | El (_, e) -> occurrences k e
+    | RecordTy lst ->
+      let rec fold k = function
+        | [] -> 0
+        | (_,_,t) :: lst ->
+          occurrences_ty k t + fold (k+1) lst
+      in
+        fold k lst
     | Unit -> 0
     | Prod (_, t1, t2) -> occurrences_ty k t1 + occurrences_ty (k+1) t2
     | Paths (t, e1, e2) -> occurrences_ty k t + occurrences k e1 + occurrences k e2
