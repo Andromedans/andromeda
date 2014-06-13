@@ -24,7 +24,6 @@
 	    ;; is redundant with compile-command above as M-x compile
 	    ;; always CD's to default directory. To enable it add this
 	    ;; to your emacs config: (setq tt-project-find-file t)
-	    (when tt-project-find-file
-	      (setq default-directory tt-root-directory))))
+	    (setq default-directory tt-root-directory)))
       ))
   ))

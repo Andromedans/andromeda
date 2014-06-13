@@ -31,6 +31,7 @@ and 'a term' =
   | Lambda of name * 'a ty * 'a term (* fun (x : T) => e *)
   | App of 'a term * 'a term (* e1 e2 *)
   | Record of (label * name * 'a term) list
+  | Project of 'a term * label
   | UnitTerm (* () *)
   | Idpath of 'a term (* idpath e *)
   | J of (name * name * name * 'a ty) * (name * 'a term) * 'a term
@@ -94,6 +95,7 @@ and string_of_term' string_of_var bv (term,_) =
         (lbl ^ " as " ^ x ^ " = " ^ recurse bv e) :: fold (bv+1) lst
     in
     "{" ^ (String.concat " ; " (fold bv lst)) ^ "}"
+  | Project (e, lbl) -> "Project[" ^ recurse bv e ^ ", " ^ lbl ^ "]"
   | UnitTerm -> "UnitTerm"
   | Idpath term1 -> paren "Idpath" [recurse bv term1]
   | J((name1,name2,name3,ty4),(name5,term6),term7) ->

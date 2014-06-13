@@ -31,6 +31,7 @@ and term' =
   | App of (name * ty * ty) * term * term
   | UnitTerm
   | Record of (label * name * ty * term) list
+  | Project of term * ty * label
   | Idpath of ty * term
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of ty * term
@@ -59,6 +60,7 @@ let mkAscribe ?(loc=Position.nowhere) e t = Ascribe(e,t), loc
 let mkLambda ?(loc=Position.nowhere) x t1 t2 e = Lambda(x,t1,t2,e), loc
 let mkApp ?(loc=Position.nowhere) x t1 t2 e1 e2 = App((x,t1,t2),e1,e2), loc
 let mkRecord ?(loc=Position.nowhere) lst = Record lst, loc
+let mkProject ?(loc=Position.nowhere) e t lbl = Project (e, t, lbl), loc
 let mkUnitTerm ?(loc=Position.nowhere) () = UnitTerm, loc
 let mkIdpath ?(loc=Position.nowhere) t e = Idpath(t,e), loc
 let mkJ ?(loc=Position.nowhere) a b c d e f = J(a,b,c,d,e,f), loc

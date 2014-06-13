@@ -20,3 +20,7 @@ val succ : t -> t
 
 (** The level at which a product lives. *)
 val max : t -> t -> t
+
+(** Compute the max of many universes. *)
+val maxs : t list -> t
+

@@ -44,3 +44,4 @@ let max u v =
     | NonFibered k, NonFibered m ->
       NonFibered (Pervasives.max k m)
 
+let maxs = List.fold_left max zero

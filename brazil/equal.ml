@@ -37,7 +37,6 @@ let print_pattern_ty ctx k p ppf =
   let t = (match Pattern.subst_ty (inst 0) 0 p with Pattern.Ty t -> t | _ -> assert false) in
     Print.ty (names 0) t ppf
 
-
 (** Signal that pattern matching failed. *)
 exception Mismatch
 
@@ -58,21 +57,43 @@ let tentatively f =
 let rec type_of ctx (exp, _) =
   let loc = Position.nowhere in
   match exp with
+
   | Syntax.Var v -> Context.lookup_var v ctx
+
   | Syntax.Equation (_, _, body)
+
   | Syntax.Rewrite (_, _, body) -> type_of ctx body
+
   | Syntax.Ascribe (_, ty) -> ty
+
   | Syntax.Lambda (x, t1, t2, _) -> Syntax.Prod(x, t1, t2), loc
+
   | Syntax.App ((_, _, t2), _, e2) -> Syntax.beta_ty t2 e2
+
+  | Syntax.Record lst ->
+    Syntax.RecordTy (List.map (fun (lbl, x, t, _) -> (lbl, x, t)) lst), loc
+
   | Syntax.UnitTerm -> Syntax.Unit, loc
+
   | Syntax.Idpath (t, e) -> Syntax.Paths(t, e, e), loc
+
   | Syntax.J (_, (_, _, _, u), _, e2, e3, e4) -> Syntax.strengthen_ty u [e2; e3; e4]
+
   | Syntax.Refl (t, e) -> Syntax.Id(t, e, e), loc
+
   | Syntax.Coerce (_, beta, _) -> Syntax.Universe beta, loc
+
+  | Syntax.NameRecordTy lst ->
+    Syntax.Universe (Universe.maxs (List.map (fun (_,_,u,_) -> u) lst)), loc
+
   | Syntax.NameUnit -> Syntax.Universe Universe.zero, loc
+
   | Syntax.NameProd (alpha, beta, _, _, _) -> Syntax.Universe (Universe.max alpha beta), loc
+
   | Syntax.NameUniverse alpha -> Syntax.Universe (Universe.succ alpha), loc
+
   | Syntax.NamePaths (alpha, _, _, _)
+
   | Syntax.NameId    (alpha, _, _, _) -> Syntax.Universe alpha, loc
 
 
@@ -100,6 +121,13 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
         | Syntax.NameUnit ->
           Syntax.mkUnit ~loc ()
 
+        | Syntax.NameRecordTy lst 
+            when Universe.eq alpha (Universe.maxs (List.map (fun (_,_,u,_) -> u) lst)) ->
+          Syntax.mkRecordTy ~loc
+            (List.map 
+               (fun (lbl, x, beta, e) -> (lbl, x, Syntax.mkEl ~loc:(snd e) beta e))
+               lst)
+
         (* tynorm-universe *)
         | Syntax.NameUniverse beta
             when Universe.eq alpha (Universe.succ beta) ->
@@ -124,13 +152,15 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
 
         (* tynorm-other *)
         | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
-              | Syntax.Lambda _ | Syntax.App _ | Syntax.UnitTerm | Syntax.Idpath _
+              | Syntax.Lambda _ | Syntax.App _ | Syntax.Record _
+              | Syntax.UnitTerm | Syntax.Idpath _ | Syntax.NameRecordTy _
               | Syntax.J _ | Syntax.Refl _ | Syntax.Coerce _ | Syntax.NameProd _
               | Syntax.NameUniverse _ | Syntax.NamePaths _ | Syntax.NameId _) as e' ->
           Syntax.mkEl ~loc alpha (e', loc)
       end
 
-    | (Syntax.Universe _ | Syntax.Unit | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _) ->
+    | (Syntax.Universe _ | Syntax.RecordTy _ | Syntax.Unit |
+       Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _) ->
       t
   end
 
@@ -212,8 +242,8 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
             Syntax.mkCoerce ~loc alpha beta e
         end
 
-      | (Syntax.Lambda _ | Syntax.UnitTerm | Syntax.Idpath _ |
-         Syntax.Refl _ | Syntax.NameUnit | Syntax.NameProd _ |
+      | (Syntax.Lambda _ | Syntax.Record _ | Syntax.UnitTerm | Syntax.Idpath _ |
+         Syntax.Refl _ | Syntax.NameRecordTy _ | Syntax.NameUnit | Syntax.NameProd _ |
          Syntax.NameUniverse _ | Syntax.NamePaths _ | Syntax.NameId _) ->
         e0
     end
@@ -382,6 +412,18 @@ and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
         equal_ty' ctx t u &&
         equal_term ctx e1 e1' t &&
         equal_term ctx e2 e2' t
+   
+    | Syntax.RecordTy lst1, Syntax.RecordTy lst2 ->
+      let rec fold ctx lst1 lst2 =
+        match lst1, lst2 with
+          | [], [] -> true
+          | (_::_, []) | ([], _::_) -> false
+          | (lbl1,x,t1) :: lst1, (lbl2,_,t2) :: lst2 ->
+            lbl1 = lbl2 && 
+            equal_ty' ctx t1 t2 &&
+            (let ctx = Context.add_var x t1 ctx in fold ctx lst1 lst2)
+      in
+        fold ctx lst1 lst2
 
     | Syntax.El _, _
     | _, Syntax.El _ ->
@@ -393,7 +435,7 @@ and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
           | (_, None) | (None, _) -> false
         end
 
-    | (Syntax.Universe _ | Syntax.Unit
+    | (Syntax.Universe _ | Syntax.Unit | Syntax.RecordTy _
        | Syntax.Prod _ | Syntax.Paths _ | Syntax.Id _), _ ->
            (if (not (!tentative)) then
              Print.warning "@[<hv 2>Why are types@ %t@;<1 -2>and@ %t@;<1 -2>equal?@]"
@@ -461,6 +503,20 @@ and equal_ext ~use_eqs ~use_rws ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _)
               (Syntax.mkApp ~loc:loc1 x t' u' e1' z)
               (Syntax.mkApp ~loc:loc2 x t' u' e2' z)
               u
+
+    | Syntax.RecordTy lst ->
+      let rec fold ctx = function
+        | [] -> true
+        | (lbl,x,tlbl) :: lst ->
+          let e1' = Syntax.mkProject ~loc:loc1 e1 t lbl
+          and e2' = Syntax.mkProject ~loc:loc2 e2 t lbl
+          in
+            equal_term ~use_eqs ~use_rws ctx e1' e2' tlbl &&
+            (* XXX Could we add to context x whose value is e1'.lbl? *)
+            (let ctx = Context.add_var x tlbl ctx in fold ctx lst)
+      in
+        fold ctx lst
+      
 
     (* chk-eq-ext-unit *)
     | Syntax.Unit ->

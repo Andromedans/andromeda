@@ -136,6 +136,7 @@ simple_term: mark_position(plain_simple_term) { $1 }
 plain_simple_term:
   | UNIT                         { NameUnit }
   | x=NAME                       { Var x }
+  | e=simple_term DOT lbl=NAME   { Project (e, lbl) }
   | LPAREN RPAREN                { UnitTerm }
   | LPAREN e=plain_term RPAREN   { e }
   | LBRACE l=separated_nonempty_list(SEMICOLON, record_field) RBRACE { Record l }

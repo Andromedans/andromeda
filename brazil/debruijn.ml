@@ -101,6 +101,11 @@ and term xs (e, loc) =
         in
         Input.Record (fold xs lst)
 
+      | Input.Project (e, lbl) ->
+        let e = term xs e
+        in
+          Input.Project (e, lbl)
+
       | Input.UnitTerm -> Input.UnitTerm
 
       | Input.Idpath e ->

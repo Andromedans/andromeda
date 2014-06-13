@@ -60,7 +60,8 @@ val mkRewrite : ?loc:Position.t -> term -> ty -> term -> term
 val mkAscribe : ?loc:Position.t -> term -> ty -> term
 val mkLambda : ?loc:Position.t -> name -> ty -> ty -> term -> term
 val mkApp : ?loc:Position.t -> name -> ty -> ty -> term -> term -> term
-val mkRecord : ?loc:Position.t -> (label * name * ty * term) list -> ty
+val mkRecord : ?loc:Position.t -> (label * name * ty * term) list -> term
+val mkProject : ?loc:Position.t -> term -> ty -> label -> term
 val mkUnitTerm : ?loc:Position.t -> unit -> term
 val mkIdpath : ?loc:Position.t -> ty -> term -> term
 val mkJ : ?loc:Position.t -> ty -> (name*name*name*ty) -> (name*term) -> term -> term -> term -> term
