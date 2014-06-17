@@ -28,10 +28,10 @@ Parameter sigma_beta :
 Parameter sigma_comm :
     forall (A : Type)
            (P : A -> Type)
-         (Q : sigma A P -> Type)
-         (q : forall (x : A) (p : P x), Q (pair A P x p))
-         (R : forall (x : sigma A P), Q x -> Type)
-         (f : forall (x : sigma A P) (q : Q x), R x q)
+           (Q : sigma A P -> Type)
+           (q : forall (x : A) (p : P x), Q (pair A P x p))
+           (R : forall (x : sigma A P), Q x -> Type)
+           (f : forall (x : sigma A P) (q : Q x), R x q)
            (u : sigma A P),
   rewrite sigma_beta in
     sigma_elim A P u
@@ -62,6 +62,51 @@ Definition snd :=
       A P u
       (fun (u : sigma A P) => P (fst A P u))
       (fun (a : A) (b : P a) => b).
+
+(* We follow this sequence of type transformations to prove eta:
+match u as u' with (a; b) => (fun u p => (fst p; snd p)) (a; b) end == match u with (a; b) => (a; b) end
+match u as u' with (a; b) => (fun u p => (fst p; snd p)) (a; b) end == match u with (a; b) => (a; b) end
+(fun u p => (fst p; snd p)) u ... == match u with (a; b) => (a; b) end
+(fst u; snd u) == (fun u p => p) u (match u with (a; b) => (a; b) end)
+(fst u; snd u) == match u with (a; b) => (a; b) end
+(fst u; snd u) == u
+*)
+
+Definition sigma_half_eta_with_dummy_unit := fun _ : unit => sigma_half_eta.
+
+(* We probably don't have to take so many steps in these next two definitions, but doing so makes it easier to debug when things break. *)
+Definition sigma_eta_helper :=
+  fun (A : Type)
+      (P : A -> Type)
+      (u : sigma A P)
+  =>
+    rewrite (fun (a : A) (b : P a) => sigma_beta A P a b (fun (_ : sigma A P) => A) (fun (a : A) (_ : P a) => a) :: (fst A P (pair A P a b) == a)) in
+    (((((fun dummy : unit =>
+         rewrite sigma_half_eta_with_dummy_unit dummy A P u in
+         refl u
+         :: sigma_elim A P u (fun (_ : sigma A P) => sigma A P) (fun (a : A) (b : P a) => pair A P a b)
+            == u) ()) (* match u with (a; b) => (a; b) end == u *)
+        :: sigma_elim A P u (fun (_ : sigma A P) => sigma A P) (fun (a : A) (b : P a) => pair A P (fst A P (pair A P a b)) (snd A P (pair A P a b)))
+          == u)       (* match u with (a; b) => (fst (a; b); snd (a; b)) end == u *)
+      :: sigma_elim A P u (fun (_ : sigma A P) => sigma A P) (fun (a : A) (b : P a) => (fun (u : sigma A P) (p : sigma A P) => pair A P (fst A P p) (snd A P p)) (pair A P a b) (pair A P a b))
+          == u)       (* match u with (a; b) => (fun u p => (fst p; snd p)) (a; b) (a; b) end == u *)).
+
+Definition sigma_eta :=
+  fun (A : Type)
+      (P : A -> Type)
+      (u : sigma A P)
+  =>
+    rewrite (fun (a : A) (b : P a) => sigma_beta A P a b (fun (_ : sigma A P) => A) (fun (a : A) (_ : P a) => a) :: (fst A P (pair A P a b) == a)) in
+    (rewrite sigma_half_eta A P u in
+     (rewrite sigma_comm A P (fun (_ : sigma A P) => sigma A P) (pair A P) (fun (_ : sigma A P) (_ : sigma A P) => sigma A P) (fun (_ : sigma A P) (x : sigma A P) => pair A P (fst A P x) (snd A P x)) u in
+      sigma_eta_helper A P u
+      :: (fun (u : sigma A P) (p : sigma A P) => pair A P (fst A P p) (snd A P p)) u (sigma_elim A P u (fun (_ : sigma A P) => sigma A P) (fun (a : A) (b : P a) => pair A P a b))
+          == u)  (* (fun u p => (fst p; snd p)) u (match u with (a; b) => (a; b) end) == u *)
+     :: (fun (u : sigma A P) (p : sigma A P) => pair A P (fst A P p) (snd A P p)) u u
+        == u)    (* (fun u p => (fst p; snd p)) u u == u *)
+    :: pair A P (fst A P u) (snd A P u)
+       == u      (* (fst u; snd u)) == u *).
+
 
 Parameter X : Type.
 Parameter Q : X -> Type.
@@ -99,7 +144,7 @@ Definition check_snd_snd :=
         (pair (sigma X Q) R (pair X Q x y) z)
      == z.
 
-Definition sigma_eta' :=
+Definition id_sigma :=
   fun
     (A : Type)
     (P : A -> Type)
@@ -107,22 +152,14 @@ Definition sigma_eta' :=
     (e1 : fst A P u == fst A P v) =>
     equation e1 in
       fun (e2 : snd A P u == snd A P v) =>
-      equation sigma_half_eta A P u in
-      equation sigma_half_eta A P v in
-      ((refl u
-        :: sigma_elim A P u (fun (_ : sigma A P) => sigma A P)
-                     (fun (a : A) (b : P a) => pair A P a b)
-           == sigma_elim A P u (fun (_ : sigma A P) => sigma A P)
-                         (fun (a : A) (b : P a) => pair A P a b))
-        :: u == v).
-
-Definition sigma_eta_pair :=
-  fun (A : Type)
-      (P : A -> Type)
-      (u : sigma A P)
-  =>
-    sigma_eta' A P u (pair A P (fst A P u) (snd A P u))
-      (refl (fst A P u))
-      (refl (snd A P u)).
+      equation sigma_eta A P u in
+      equation sigma_eta A P v in
+      (equation e2 in
+       (refl u
+        :: pair A P (fst A P u) (snd A P u)
+           == pair A P (fst A P u) (snd A P u))
+       :: pair A P (fst A P u) (snd A P u)
+          == pair A P (fst A P v) (snd A P v))
+      :: u == v.
 
 #context
