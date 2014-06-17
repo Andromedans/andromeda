@@ -16,7 +16,7 @@ and ty' =
   | Universe of universe
   | El of universe * term
   | Unit
-  | RecordTy of (label * name * ty) list
+  | RecordTy of (label * (name * ty)) list
   | Prod of name * ty * ty
   | Paths of ty * term * term
   | Id of ty * term * term
@@ -30,13 +30,13 @@ and term' =
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
   | UnitTerm
-  | Record of (label * name * ty * term) list
-  | Project of term * ty * label
+  | Record of (label * (name * ty * term)) list
+  | Project of term * (label * (name * ty)) list * label
   | Idpath of ty * term
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of ty * term
   | Coerce of universe * universe * term
-  | NameRecordTy of (label * name * universe * term) list
+  | NameRecordTy of (label * (name * universe * term)) list
   | NameUnit
   | NameProd of universe * universe * name * term * term
   | NameUniverse of universe
@@ -153,9 +153,15 @@ let rec equal ((left',_) as left) ((right',_) as right) =
   | Record lst1, Record lst2 ->
     List.length lst1 = List.length lst2 &&
     List.for_all2
-     (fun (lbl1,_,t1,e1) (lbl2,_,t2,e2) -> 
+     (fun (lbl1,(_,t1,e1)) (lbl2,(_,t2,e2)) -> 
        lbl1 = lbl2 && equal_ty t1 t2 && equal e1 e2)
      lst1 lst2
+
+  | Project (e1, lst1, lbl1), Project (e2, lst2, lbl2) ->
+    lbl1 = lbl2 &&
+    List.length lst1 = List.length lst2 &&
+    List.for_all2 (fun (lbl1,(_,t1)) (lbl2,(_,t2)) -> lbl1 = lbl2 && equal_ty t1 t2) lst1 lst2 &&
+    equal e1 e2
 
   | UnitTerm, UnitTerm
   | NameUnit, NameUnit -> true
@@ -185,7 +191,7 @@ let rec equal ((left',_) as left) ((right',_) as right) =
   | NameRecordTy lst1, NameRecordTy lst2 ->
     List.length lst1 = List.length lst2 &&
     List.for_all2
-     (fun (lbl1,_,u1,e1) (lbl2,_,u2,e2) ->
+     (fun (lbl1,(_,u1,e1)) (lbl2,(_,u2,e2)) ->
        lbl1 = lbl2 && Universe.eq u1 u2 && equal e1 e2)
      lst1 lst2
 
@@ -196,7 +202,7 @@ let rec equal ((left',_) as left) ((right',_) as right) =
       && equal term3 term7
       && equal term4 term8
 
-  | (Var _ | Ascribe _ | Lambda _ | App _ | Record _
+  | (Var _ | Ascribe _ | Lambda _ | App _ | Record _ | Project _
      | UnitTerm | Idpath _ | J _ | Refl _ | Coerce _ | NameRecordTy _
      | NameUnit | NameProd _ | NameUniverse _ | NamePaths _| NameId _), _ ->
          false
@@ -214,7 +220,7 @@ and equal_ty (left_ty,_) (right_ty,_) =
   | RecordTy lst1, RecordTy lst2 ->
     List.length lst1 = List.length lst2 &&
     List.for_all2
-     (fun (lbl1,_,t1) (lbl2,_,t2) -> lbl1 = lbl2 && equal_ty t1 t2)
+     (fun (lbl1,(_,t1)) (lbl2,(_,t2)) -> lbl1 = lbl2 && equal_ty t1 t2)
      lst1 lst2
 
   | Unit, Unit -> true
@@ -276,13 +282,25 @@ let rec transform ftrans bvs ((term', loc) as term) =
       | Record lst ->
         let rec fold k = function
           | [] -> []
-          | (lbl,x,t,e) :: lst ->
+          | (lbl,(x,t,e)) :: lst ->
             let t = recurse_ty_in_binders k t
             and e = recurse_in_binders k e
             in
-              (lbl, x, t, e) :: fold (k+1) lst
+              (lbl, (x, t, e)) :: fold (k+1) lst
         in
           mkRecord ~loc (fold 0 lst)
+
+      | Project (e, lst, lbl) ->
+        let rec fold k = function
+          | [] -> []
+          | (lbl,(x,t)) :: lst ->
+            let t = recurse_ty_in_binders k t in
+              (lbl, (x, t)) :: fold (k+1) lst
+        in
+        let lst = fold 0 lst
+        and e = recurse e
+        in
+          mkProject ~loc e lst lbl              
 
       | UnitTerm -> mkUnitTerm ~loc ()
 
@@ -304,10 +322,10 @@ let rec transform ftrans bvs ((term', loc) as term) =
       | NameRecordTy lst ->
         let rec fold k = function
           | [] -> []
-          | (lbl,x,u,e) :: lst ->
+          | (lbl,(x,u,e)) :: lst ->
             let e = recurse_in_binders k e
             in
-              (lbl, x, u, e) :: fold (k+1) lst
+              (lbl, (x, u, e)) :: fold (k+1) lst
         in
           mkNameRecordTy ~loc (fold 0 lst)
 
@@ -344,10 +362,10 @@ and transform_ty ftrans bvs (ty', loc) =
   | RecordTy lst ->
     let rec fold k = function
       | [] -> []
-      | (lbl,x,t) :: lst ->
+      | (lbl,(x,t)) :: lst ->
         let t = recurse_ty_in_binders k t
         in
-          (lbl, x, t) :: fold (k+1) lst
+          (lbl, (x, t)) :: fold (k+1) lst
     in
       mkRecordTy ~loc (fold 0 lst)
 
@@ -506,13 +524,13 @@ let rec name_of (ty', loc) =
     | RecordTy lst ->
       let rec fold = function
         | [] -> Some ([], Universe.zero)
-        | (lbl,x,t) :: lst ->
+        | (lbl,(x,t)) :: lst ->
           begin match name_of t with
           | None -> None
           | Some (e,u) ->
             begin match fold lst with
             | None -> None
-            | Some (lst, u') -> Some ((lbl,x,u,e) :: lst, Universe.max u u')
+            | Some (lst, u') -> Some ((lbl,(x,u,e)) :: lst, Universe.max u u')
             end
           end
       in
@@ -557,53 +575,87 @@ let rec name_of (ty', loc) =
 (** Does DeBruijn index occur in a term? *)
 let rec occurs k (e, _) =
   match e with
+
     | Var m -> k = m
+
     | Equation (e1, t, e2) -> occurs k e1 || occurs_ty k t || occurs k e2
+
     | Rewrite (e1, t, e2) -> occurs k e1 || occurs_ty k t || occurs k e2
+
     | Ascribe (e, t) -> occurs k e || occurs_ty k t
+
     | Lambda (_, t, u, e) -> occurs_ty k t || occurs_ty (k+1) u || occurs (k+1) e
+
     | App ((_, t, u), e1, e2) -> occurs_ty k t || occurs_ty (k+1) u || occurs k e1 || occurs k e2
+
     | Record lst ->
       let rec fold k = function
         | [] -> false
-        | (_, _,t,e) :: lst ->
+        | (_, (_,t,e)) :: lst ->
           occurs_ty k t || occurs k e || fold (k+1) lst
       in
         fold k lst
+
+    | Project (e, lst, lbl) ->
+      let rec fold k = function
+        | [] -> false
+        | (_, (_, t)) :: lst ->
+          occurs_ty k t || fold (k+1) lst
+      in
+        occurs k e || fold k lst
+
     | UnitTerm -> false
+
     | Idpath (t, e) -> occurs_ty k t || occurs k e
+
     | J (t, (_, _, _, u), (_, e1), e2, e3, e4) ->
       occurs_ty k t || occurs_ty (k+3) u || occurs (k+1) e1 ||
         occurs k e2 || occurs k e3 || occurs k e4
+
     | Refl (t, e) -> occurs_ty k t || occurs k e
+
     | Coerce (_, _, e) -> occurs k e
+
     | NameRecordTy lst ->
       let rec fold k = function
         | [] -> false
-        | (_, _,_,e) :: lst ->
+        | (_, (_,_,e)) :: lst ->
           occurs k e || fold (k+1) lst
       in
         fold k lst
+
     | NameUnit -> false
+
     | NameProd (_, _, _, e1, e2) -> occurs k e1 || occurs (k+1) e2
+
     | NameUniverse _ -> false
+
     | NamePaths (_, e1, e2, e3) -> occurs k e1 || occurs k e2 || occurs k e3
+
     | NameId (_, e1, e2, e3) -> occurs k e1 || occurs k e2 || occurs k e3
+
 
 (** Does DeBruijn index occur in a type? *)
 and occurs_ty k (t, _) =
   match t with
+
     | Universe _ -> false
+
     | El (_, e) -> occurs k e
+
     | RecordTy lst ->
       let rec fold k = function
         | [] -> false
-        | (_, _,t) :: lst -> occurs_ty k t || fold (k+1) lst
+        | (_, (_,t)) :: lst -> occurs_ty k t || fold (k+1) lst
       in
         fold k lst
+
     | Unit -> false
+
     | Prod (_, t1, t2) -> occurs_ty k t1 || occurs_ty (k+1) t2
+
     | Paths (t, e1, e2) -> occurs_ty k t || occurs k e1 || occurs k e2
+
     | Id (t, e1, e2) -> occurs_ty k t || occurs k e1 || occurs k e2
 
 (* Counting Occurrences *)
@@ -632,10 +684,18 @@ let rec occurrences k (e, _) =
     | Record lst ->
       let rec fold k = function
         | [] -> 0
-        | (_, _,t,e) :: lst ->
+        | (_, (_,t,e)) :: lst ->
           occurrences_ty k t + occurrences k e + fold (k+1) lst
       in
         fold k lst
+
+    | Project (e, lst, lbl) ->
+      let rec fold k = function
+        | [] -> 0
+        | (_, (_, t)) :: lst ->
+          occurrences_ty k t + fold (k+1) lst
+      in
+        occurrences k e + fold k lst
 
     | UnitTerm -> 0
 
@@ -653,7 +713,7 @@ let rec occurrences k (e, _) =
     | NameRecordTy lst ->
       let rec fold k = function
         | [] -> 0
-        | (_, _,_,e) :: lst ->
+        | (_, (_,_,e)) :: lst ->
           occurrences k e + fold (k+1) lst
       in
         fold k lst
@@ -679,7 +739,7 @@ and occurrences_ty k (t, _) =
     | RecordTy lst ->
       let rec fold k = function
         | [] -> 0
-        | (_,_,t) :: lst ->
+        | (_,(_,t)) :: lst ->
           occurrences_ty k t + fold (k+1) lst
       in
         fold k lst

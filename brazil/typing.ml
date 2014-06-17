@@ -94,6 +94,36 @@ let rec syn_term ctx ((term', loc) as term) =
               (print_ty ctx t1)
     end
 
+  | Input.Record lst ->
+    let rec fold ctx = function
+      | [] -> [], []
+      | (lbl,x,e) :: lst ->
+        let e, t = syn_term ctx e in
+        let ctx = Context.add_def x t e ctx in
+        let elst, tlst = fold ctx lst in
+          (lbl, (x, t, e)) :: elst,
+          (lbl, (x, t)) :: tlst
+    in
+    let elst, tlst = fold ctx lst in
+      Syntax.mkRecord ~loc elst,
+      Syntax.mkRecordTy ~loc tlst
+
+  | Input.Project (e, lbl) ->
+    begin
+      let e, t = syn_term ctx e in
+        match Equal.as_recordty ctx t with
+          | Some lst ->
+            begin
+              try
+                let (_,t) = List.assoc lbl lst in
+                  Syntax.mkProject ~loc e lst lbl, t
+              with Not_found -> Error.typing ~loc "invalid label %s" lbl
+            end
+          | None ->
+            Error.typing ~loc:(snd e) "this expression should be a recird, but its type is@ %t"
+              (print_ty ctx t)
+    end
+
   (* syn-unit *)
   | Input.UnitTerm ->
       Syntax.mkUnitTerm ~loc (),
@@ -132,7 +162,7 @@ let rec syn_term ctx ((term', loc) as term) =
 
   (* syn-refl *)
   | Input.Refl e ->
-      let e, t = syn_term ctx e  in
+      let e, t = syn_term ctx e in
       Syntax.mkRefl ~loc t e,
       Syntax.mkId ~loc t e e
 
@@ -141,6 +171,26 @@ let rec syn_term ctx ((term', loc) as term) =
       Syntax.mkNameUnit ~loc (),
       Syntax.mkUniverse ~loc Universe.zero
 
+  | Input.NameRecordTy lst ->
+    let rec fold ctx = function
+      | [] -> [], Universe.zero
+      | (lbl,x,e) :: lst ->
+        begin
+          let e, t = syn_term ctx e in
+            match Equal.as_universe ctx t with
+              | Some beta ->
+                let ctx = Context.add_def x t e ctx in
+                let lst, alpha = fold ctx lst in
+                  (lbl, (x, beta, e)) :: lst, Universe.max alpha beta
+              | None ->
+                Error.typing ~loc:(snd e)
+                  "this expression should be a type, but it has type@ %t" (print_ty ctx t)
+        end
+    in
+    let lst, alpha = fold ctx lst
+    in
+      Syntax.mkNameRecordTy ~loc lst,
+      Syntax.mkUniverse ~loc alpha
 
   (* syn-name-universe *)
   | Input.NameUniverse alpha ->
@@ -279,50 +329,64 @@ and chk_term ctx ((term', loc) as term) t =
 (* Can the given unannotated type be verified and translated into an annotated type?
  *)
 and is_type ctx (ty, loc) =
-    begin match ty with
+  match ty with
 
-      (* tychk-universe *)
-      | Input.Universe u -> Syntax.mkUniverse ~loc u
+    (* tychk-universe *)
+    | Input.Universe u ->
+      Syntax.mkUniverse ~loc u
 
-      (* tychk-el *)
-      | Input.El e ->
-        begin
-          let (e, t) = syn_term ctx e in
-            match Equal.as_universe ctx t with
-              | Some alpha -> Syntax.mkEl ~loc alpha e
-              | None ->
-                Error.typing ~loc "this expression should be a type but it has type@ %t"
-                  (print_ty ctx t)
-        end
+    (* tychk-el *)
+    | Input.El e ->
+      begin
+        let (e, t) = syn_term ctx e in
+          match Equal.as_universe ctx t with
+            | Some alpha -> Syntax.mkEl ~loc alpha e
+            | None ->
+              Error.typing ~loc "this expression should be a type but it has type@ %t"
+                (print_ty ctx t)
+      end
+
+    | Input.RecordTy lst ->
+      let rec fold ctx = function
+        | [] -> []
+        | (lbl, x, t) :: lst ->
+          let t = is_type ctx t in
+          let ctx = Context.add_var x t ctx in
+          let lst = fold ctx lst in
+            (lbl, (x, t)) :: lst
+      in
+      let lst = fold ctx lst
+      in
+        Syntax.mkRecordTy ~loc lst
 
     (* tychk-unit *)
-      | Input.Unit -> Syntax.mkUnit ~loc ()
+    | Input.Unit -> Syntax.mkUnit ~loc ()
 
     (* tychk-prod *)
-      | Input.Prod (x, t, u) ->
-        let t = is_type ctx t in
-        let u = is_type (Context.add_var x t ctx) u in
-          Syntax.mkProd ~loc x t u
+    | Input.Prod (x, t, u) ->
+      let t = is_type ctx t in
+      let u = is_type (Context.add_var x t ctx) u in
+        Syntax.mkProd ~loc x t u
 
     (* tychk-paths *)
-      | Input.Paths (e1, e2) ->
-        begin
-          let (e1, t) = syn_term ctx e1 in
-            match wf_type_is_fibered t with
-              | true ->
-                let e2 = chk_term ctx e2 t in
-                  Syntax.mkPaths ~loc t e1 e2
-              | false ->
-                Error.typing ~loc "invalid paths because %t is not fibered"
-                  (print_ty ctx t)
-        end
+    | Input.Paths (e1, e2) ->
+      begin
+        let (e1, t) = syn_term ctx e1 in
+          match wf_type_is_fibered t with
+            | true ->
+              let e2 = chk_term ctx e2 t in
+                Syntax.mkPaths ~loc t e1 e2
+            | false ->
+              Error.typing ~loc "invalid paths because %t is not fibered"
+                (print_ty ctx t)
+      end
 
     (* tychk-id *)
-      | Input.Id (e1, e2) ->
-        let (e1, t) = syn_term ctx e1 in
-        let e2 = chk_term ctx e2 t in
-          Syntax.mkId ~loc t e1 e2
-    end
+    | Input.Id (e1, e2) ->
+      let (e1, t) = syn_term ctx e1 in
+      let e2 = chk_term ctx e2 t in
+        Syntax.mkId ~loc t e1 e2
+
 
 (* Can the given unannotated type be verified and translated into an annotated fibered type?
  *)
@@ -339,11 +403,20 @@ and is_fibered ctx ((_, loc) as ty) =
 *)
 and wf_type_is_fibered (ty', _) =
   match ty' with
+
   | Syntax.Universe alpha -> Universe.is_fibered alpha
+
   | Syntax.Prod(_, t, u) ->
       wf_type_is_fibered t && wf_type_is_fibered u
+
   | Syntax.El(alpha, _) -> Universe.is_fibered alpha
+
+  | Syntax.RecordTy lst ->
+    List.for_all (fun (_, (_, t)) -> wf_type_is_fibered t) lst
+
   | Syntax.Unit -> true
+
   | Syntax.Paths _ -> true
+
   | Syntax.Id _ -> false
 

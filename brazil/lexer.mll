@@ -26,6 +26,8 @@
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
 
+let project = '.' name
+
 let numeral = ['0'-'9']+
 
 let start_longcomment = "(*"
@@ -61,8 +63,12 @@ rule token = parse
   | "_"                 { UNDERSCORE }
   | eof                 { EOF }
 
+  | project             { let s = Lexing.lexeme lexbuf in
+                            PROJECT (String.sub s 1 (String.length s - 1))
+                        }
+
   | (name | numeral)
-                       { let s = Lexing.lexeme lexbuf in
+                        { let s = Lexing.lexeme lexbuf in
                             try
                               List.assoc s reserved
                             with Not_found -> NAME s

@@ -113,10 +113,10 @@ and name_prod ?max_level xs x e1 e2 ppf =
 and record_fields xs lst ppf =
   let rec fold xs = function
     | [] -> ()
-    | [(lbl,x,t,e)] ->
+    | [(lbl,(x,t,e))] ->
       print ~at_level:0 ppf "%s as %s =%t@ %t"
         lbl x (annot (ty ~max_level:4 xs t)) (term ~max_level:4 xs e)
-    | (lbl,x,t,e) :: lst ->
+    | (lbl,(x,t,e)) :: lst ->
       print ~at_level:0 ppf "%s as %s =%t@ %t;@ "
         lbl x (annot (ty ~max_level:4 xs t)) (term ~max_level:4 xs e) ;
       fold (x::xs) lst
@@ -126,10 +126,10 @@ and record_fields xs lst ppf =
 and name_record_ty_fields xs lst ppf =
   let rec fold xs = function
     | [] -> ()
-    | [(lbl,x,u,e)] ->
+    | [(lbl,(x,u,e))] ->
       print ~at_level:0 ppf "%s as %s :%t@ %t"
         lbl x (annot (universe u)) (term ~max_level:4 xs e)
-    | (lbl,x,u,e) :: lst ->
+    | (lbl,(x,u,e)) :: lst ->
       print ~at_level:0 ppf "%s as %s :%t@ %t;@ "
         lbl x (annot (universe u)) (term ~max_level:4 xs e) ;
       fold (x::xs) lst
@@ -139,10 +139,10 @@ and name_record_ty_fields xs lst ppf =
 and record_ty_fields xs lst ppf =
   let rec fold xs = function
     | [] -> ()
-    | [(lbl,x,t)] ->
+    | [(lbl,(x,t))] ->
       print ~at_level:0 ppf "%s as %s :@ %t"
         lbl x (ty ~max_level:4 xs t)
-    | (lbl,x,t) :: lst ->
+    | (lbl,(x,t)) :: lst ->
       print ~at_level:0 ppf "%s as %s :@ %t;@ "
         lbl x (ty ~max_level:4 xs t) ;
       fold (x::xs) lst
@@ -234,6 +234,9 @@ and term ?max_level xs (e,_) ppf =
 
       | Syntax.Record lst ->
         print ~at_level:0 "{%t}" (record_fields xs lst)
+
+      | Syntax.Project (e, _, lbl) ->
+        print ~at_level:0 "%t.%s" (term ~max_level:0 xs e) lbl
 
       | Syntax.UnitTerm -> print ~at_level:0 "()"
 

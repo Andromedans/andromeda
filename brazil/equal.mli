@@ -10,6 +10,9 @@ val as_paths : Context.t -> Syntax.ty -> (Syntax.ty * Syntax.term * Syntax.term)
 (** Express a type as a universe *)
 val as_universe : Context.t -> Syntax.ty -> Universe.t option
 
+(** Express a type as a record type *)
+val as_recordty : Context.t -> Syntax.ty -> (Syntax.label * (Syntax.name * Syntax.ty)) list option
+
 (** Convert a universally quantified equality to a pattern *)
 val as_hint : Context.t -> Syntax.term -> Syntax.ty -> Context.hint
 

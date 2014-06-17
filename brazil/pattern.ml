@@ -1,12 +1,15 @@
 (** Lazy pattern matching, to figure out which rewrite rules apply. *)
 
-type name = string
+type label = Syntax.label
+
+type name = Syntax.name
 
 type universe = Universe.t
 
 type ty =
   | Ty of Syntax.ty
   | El of universe * term
+  | RecordTy of (label * (name * ty)) list
   | Prod of name * ty * ty
   | Paths of ty * term * term
   | Id of ty * term * term
@@ -16,10 +19,13 @@ and term =
   | PVar of int
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
+  | Record of (label * (name * ty * term)) list
+  | Project of term * (label * (name * ty * term)) list * label
   | Idpath of ty * term
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of ty * term
   | Coerce of universe * universe * term
+  | NameRecordTy of (label * (name * universe * term)) list
   | NameProd of universe * universe * name * term * term
   | NamePaths of universe * term * term * term
   | NameId of universe * term * term * term
@@ -35,6 +41,25 @@ let rec of_ty' k l ((t', loc) as t) =
       begin match e with
         | Term e -> Ty (Syntax.El (alpha, e), loc)
         | _ -> El (alpha, e)
+      end
+
+    | Syntax.RecordTy lst ->
+      begin
+        let rec fold l = function
+          | [] -> [], true
+          | (lbl,(x,t)) :: lst ->
+            let t = of_ty' k l t
+            and lst, b = fold (l+1) lst
+            in
+              (lbl,(x,t)) :: lst,
+              begin match t with
+                | Ty _ -> b
+                | _ -> false
+              end
+        in
+          match fold l lst with
+            | _, true -> Ty t
+            | lst, false -> RecordTy lst
       end
 
     | Syntax.Unit ->
@@ -111,6 +136,29 @@ and of_term' k l ((e', loc) as e) =
     | Syntax.UnitTerm ->
       Term e
 
+    | Syntax.Record lst ->
+      begin
+        let rec fold l = function
+          | [] -> [], true
+          | (lbl,(x,t,e)) :: lst ->
+            let t = of_ty' k l t
+            and e = of_term' k l e
+            and lst, b = fold (l+1) lst
+            in
+              (lbl,(x,t,e)) :: lst,
+              begin match t with
+                | Ty _ -> b
+                | _ -> false
+              end
+        in
+          match fold l lst with
+            | _, true -> Term e
+            | lst, false -> Record lst
+      end
+
+    | Syntax.Project (e, lst, lbl) ->
+      Error.impossible "pattern projections not implemented"
+
     | Syntax.Idpath (t, e) ->
       let t = of_ty' k l t
       and e = of_term' k l e
@@ -153,6 +201,26 @@ and of_term' k l ((e', loc) as e) =
 
     | Syntax.NameUnit ->
       Term e
+
+    | Syntax.NameRecordTy lst ->
+      begin
+        let rec fold l = function
+          | [] -> [], true
+          | (lbl,(x,u,e)) :: lst ->
+            let e = of_term' k l e
+            and lst, b = fold (l+1) lst
+            in
+              (lbl,(x,u,e)) :: lst,
+              begin match e with
+                | Term _ -> b
+                | _ -> false
+              end
+        in
+          match fold l lst with
+            | _, true -> Term e
+            | lst, false -> NameRecordTy lst
+      end
+
 
     | Syntax.NameProd (alpha, beta, x, e1, e2) ->
       let e1 = of_term' k l e1
@@ -202,6 +270,25 @@ let rec subst_ty inst k = function
         | Term e -> Ty (Syntax.El (alpha, e), Position.nowhere)
         | _ -> El (alpha, e)
       end
+
+  | RecordTy lst ->
+    begin
+      let rec fold k = function
+        | [] -> [], Some []
+        | (lbl,(x,t)) :: lst ->
+          let t = subst_ty inst k t
+          and lst', lst'' = fold (k+1) lst
+          in
+            (lbl,(x,t)) :: lst',
+            begin match t, lst'' with
+              | Ty t, Some lst'' -> Some ((lbl,(x,t)) :: lst'')
+              | _, _ -> None
+            end
+      in
+        match fold k lst with
+          | _, Some lst -> Ty (Syntax.mkRecordTy lst)
+          | lst, None -> RecordTy lst
+    end      
 
   | Prod (x, t1, t2) ->
     let t1 = subst_ty inst k t1
@@ -253,6 +340,29 @@ and subst_term inst k = function
         | Ty t1, Ty t2, Term e -> Term (Syntax.Lambda (x, t1, t2, e), Position.nowhere)
         | _ -> Lambda (x, t1, t2, e)
       end
+
+  | Record lst ->
+    begin
+      let rec fold k = function
+        | [] -> [], Some []
+        | (lbl,(x,t,e)) :: lst ->
+          let t = subst_ty inst k t
+          and e = subst_term inst k e
+          and lst', lst'' = fold (k+1) lst
+          in
+            (lbl,(x,t,e)) :: lst',
+            begin match t, e, lst'' with
+              | Ty t, Term e, Some lst'' -> Some ((lbl,(x,t,e)) :: lst'')
+              | _, _, _ -> None
+            end
+      in
+        match fold k lst with
+          | _, Some lst -> Term (Syntax.mkRecord lst)
+          | lst, None -> Record lst
+    end      
+
+  | Project (e, lst, lbl) ->
+    Error.impossible "Pattern.subst_term: projections not implemented"
 
   | App ((x, t1, t2), e1, e2) ->
     let t1 = subst_ty inst k t1
@@ -306,6 +416,25 @@ and subst_term inst k = function
         | _ -> Coerce (alpha, beta, e)
       end
 
+  | NameRecordTy lst ->
+    begin
+      let rec fold k = function
+        | [] -> [], Some []
+        | (lbl,(x,u,e)) :: lst ->
+          let e = subst_term inst k e
+          and lst', lst'' = fold (k+1) lst
+          in
+            (lbl,(x,u,e)) :: lst',
+            begin match e, lst'' with
+              | Term e, Some lst'' -> Some ((lbl,(x,u,e)) :: lst'')
+              | _, _ -> None
+            end
+      in
+        match fold k lst with
+          | _, Some lst -> Term (Syntax.mkNameRecordTy lst)
+          | lst, None -> NameRecordTy lst
+    end      
+
   | NameProd (alpha, beta, x, e1, e2) ->
     let e1 = subst_term inst k e1
     and e2 = subst_term inst (k+1) e2
@@ -345,6 +474,17 @@ let rec shift_ty k l = function
   | El (alpha, e) ->
     let e = shift k l e in
       El (alpha, e)
+
+  | RecordTy lst ->
+    let rec fold l = function
+      | [] -> []
+      | (lbl,(x,t)) :: lst ->
+        let t = shift_ty k l t
+        and lst = fold (l+1) lst
+        in
+          (lbl,(x,t)) :: lst
+    in
+      RecordTy (fold l lst)
 
   | Prod (x, t1, t2) ->
     let t1 = shift_ty k l t1
@@ -391,6 +531,21 @@ and shift k l = function
     in
       App ((x, t1, t2), e1, e2)
 
+  | Record lst ->
+    let rec fold l = function
+      | [] -> []
+      | (lbl,(x,t,e)) :: lst ->
+        let t = shift_ty k l t
+        and e = shift k l e
+        and lst = fold (l+1) lst
+        in
+          (lbl,(x,t,e)) :: lst
+    in
+      Record (fold l lst)
+
+  | Project (e, lst, lbl) ->
+    Error.impossible "Patter.shift: projections now implemented"
+
   | Idpath (t, e) ->
     let t = shift_ty k l t
     and e = shift k l e
@@ -417,6 +572,17 @@ and shift k l = function
     let e = shift k l e
     in
       Coerce (alpha, beta, e)
+
+  | NameRecordTy lst ->
+    let rec fold l = function
+      | [] -> []
+      | (lbl,(x,u,e)) :: lst ->
+        let e = shift k l e
+        and lst = fold (l+1) lst
+        in
+          (lbl,(x,u,e)) :: lst
+    in
+      NameRecordTy (fold l lst)
 
   | NameProd (alpha, beta, x, e1, e2) ->
     let e1 = shift k l e1

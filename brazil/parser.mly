@@ -32,6 +32,7 @@
 %token EQ EQEQ
 %token EQUATION REWRITE IN
 %token AS LBRACE RBRACE SEMICOLON
+%token <string> PROJECT
 %token REFL IDPATH
 %token IND_PATH
 %token UNDERSCORE
@@ -105,8 +106,8 @@ plain_equal_term:
 
 app_term: mark_position(plain_app_term) { $1 }
 plain_app_term:
-  | e=plain_simple_term                           { e }
-  | e1=app_term e2=simple_term                    { App (e1, e2) }
+  | e=plain_project_term                          { e }
+  | e1=app_term e2=project_term                   { App (e1, e2) }
   | COERCE LPAREN ul=universe COMMA e=term RPAREN { let u = make_universe ul in Coerce (u, e) }
   | UNIVERSE ul=universe                          { let u = make_universe ul in NameUniverse u }
   | REFL e=simple_term                            { Refl e }
@@ -132,11 +133,15 @@ param:
   | NAME { $1 }
   | UNDERSCORE { anonymous }
 
+project_term: mark_position(plain_project_term) { $1 }
+plain_project_term:
+  | e=plain_simple_term           { e }
+  | e=project_term lbl=PROJECT    { Project (e, lbl) }
+
 simple_term: mark_position(plain_simple_term) { $1 }
 plain_simple_term:
   | UNIT                         { NameUnit }
   | x=NAME                       { Var x }
-  | e=simple_term DOT lbl=NAME   { Project (e, lbl) }
   | LPAREN RPAREN                { UnitTerm }
   | LPAREN e=plain_term RPAREN   { e }
   | LBRACE l=separated_nonempty_list(SEMICOLON, record_field) RBRACE { Record l }
