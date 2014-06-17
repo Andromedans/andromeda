@@ -1,3 +1,5 @@
+[![Build Status](https://api.travis-ci.org/andrejbauer/tt.png?branch=master)](https://travis-ci.org/andrejbauer/tt)
+
 A minimalist implementation of type theory in Ocaml. The repository holds
 several branches which correspond to a series of blog posts about
 dependent type theory on the [Mathematics and Computation](http://math.andrej.com/) blog.
