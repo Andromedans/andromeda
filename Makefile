@@ -17,7 +17,8 @@ brazil.byte:
 br-smoketest: brazil.byte
 	./brazil.byte examples/bool.br
 	./brazil.byte examples/nat.br
-	./brazil.byte examples/sigma.br
+	./brazil.byte examples/records.br
+# ./brazil.byte examples/sigma.br
 	@echo
 	@echo "*******************************"
 	@echo "* Brazil Smoke Test succeeded *"
