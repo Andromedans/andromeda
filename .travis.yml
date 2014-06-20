@@ -4,4 +4,4 @@ before_script:
   - sudo apt-get install -q ocaml menhir
   - ocamlbuild -version
 
-script: make br-smoketest tt-smoketest && make all brazil.byte brazil.native tt.byte tt.native
+script: make all

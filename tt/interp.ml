@@ -46,7 +46,7 @@ let fresh_name =
  *)
 let abstract ctx x t =
   let rec loop = function
-    | I.VTerm body, loc -> I.mkVTerm ~loc (Syntax.Lambda(x, t, Typing.type_of ctx body, body), loc)
+    | I.VTerm body, loc -> I.mkVTerm ~loc (Syntax.Lambda(x, t, Equal.type_of ctx body, body), loc)
     | I.VTuple es, loc  -> I.mkVTuple ~loc (List.map loop es)
     | I.VInj (i, e), loc -> I.mkVInj ~loc i (loop e)
     | I.VType u, loc -> I.mkVFakeTypeFamily 1 (Syntax.Prod(x, t, u), loc)
@@ -67,7 +67,7 @@ let witness_of_value ctx0 = function
   *)
 let extend_context_with_witness ctx v =
   let w = witness_of_value ctx v  in
-  let t = Typing.type_of ctx w  in
+  let t = Equal.type_of ctx w  in
   let hint = Equal.as_hint ctx w t  in
   Context.add_equation hint ctx
 
@@ -84,7 +84,7 @@ let extend_context_with_witnesses =
   *)
 let wrap_syntax_with_witness ctx b v =
   let w = witness_of_value ctx v in
-  Syntax.Equation(w, Typing.type_of ctx w, b), Position.nowhere
+  Syntax.Equation(w, Equal.type_of ctx w, b), Position.nowhere
 
 (** [wrap_syntax_with_witnesses ctx b l] produces a Brazil term
     wrapping [b], but for a list [l] of Brazil term values.
@@ -308,7 +308,7 @@ and eval_prim ctx env loc op vs =
     | I.Neq, [a1; a2] -> I.mkVConst( I.Bool (not (I.eqvalue a1 a2)))
 
     | I.Whnf, [I.VTerm b, _] ->
-        let t = Typing.type_of ctx b  in
+        let t = Equal.type_of ctx b  in
         I.mkVTerm (Equal.whnf ~use_rws:true ctx t b)
 
     | I.Whnf, [I.VType t, _] ->
@@ -330,7 +330,7 @@ and eval_prim ctx env loc op vs =
         end
 
     | I.TypeOf, [I.VTerm b, bloc] ->
-        I.mkVType ~loc:bloc (Typing.type_of ctx b)
+        I.mkVType ~loc:bloc (Equal.type_of ctx b)
 
     | _, _ -> Error.runtime ~loc "Primitive %s cannot handle argument list %s"
                                      (I.string_of_primop op) (I.string_of_value ctx (I.mkVTuple vs))
@@ -372,7 +372,7 @@ and eval_explode ctx _env loc value =
         | Syntax.J(t1,(x2,x3,x4,t5),(x6,e7),e8,e9,e10) ->
             let e7_as_lambda =
               (Syntax.Lambda(x6, t1,
-                             Typing.type_of (Context.add_var x6 t1 ctx) e7,
+                             Equal.type_of (Context.add_var x6 t1 ctx) e7,
                              e7), Position.nowhere)  in
             let t5_as_3_pis =
               (Syntax.Prod(x2, t1,
@@ -704,11 +704,11 @@ and run ctx env  (comp, loc) =
 
         | I.VTerm b1, I.VTerm b2 ->
             begin
-              let t1 = Typing.type_of ctx b1  in
+              let t1 = Equal.type_of ctx b1  in
               match Equal.whnf_ty ~use_rws:true ctx t1 with
               | Syntax.Prod(x,t,u), _ ->
                   begin
-                    let t2 = Typing.type_of ctx b2 in
+                    let t2 = Equal.type_of ctx b2 in
                     sequence ~label:"App(Term)"
                       (function
                         | I.VInj(1, (I.VTuple ws, _)), _ ->
@@ -731,7 +731,7 @@ and run ctx env  (comp, loc) =
               match t1 with
               | Syntax.Prod(x,t,u), _ ->
                   begin
-                    let t2 = Typing.type_of ctx b2 in
+                    let t2 = Equal.type_of ctx b2 in
                     sequence ~label:"App(TypeFamily)"
                       (function
                         | I.VInj(1, (I.VTuple ws, _)), _ ->
@@ -813,7 +813,7 @@ and run ctx env  (comp, loc) =
               | I.VType t2, _ -> t2
               | I.VTerm b, _ ->
                    begin
-                     let t = Typing.type_of ctx b  in
+                     let t = Equal.type_of ctx b  in
                      match Equal.as_universe ctx t with
                      | Some alpha -> Syntax.El(alpha, b), snd e2
                      | None -> Error.runtime ~loc
@@ -862,7 +862,7 @@ and run ctx env  (comp, loc) =
           match eval ctx env e1, eval ctx env e2 with
           | (I.VTerm b, _), (I.VType t, _) ->
               begin
-                let u = Typing.type_of ctx b  in
+                let u = Equal.type_of ctx b  in
                 sequence ~label:"Ascribe"
                   (function
                     | I.VInj(1, (I.VTuple ws, _)), _ ->
