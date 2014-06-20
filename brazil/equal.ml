@@ -219,25 +219,18 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
         begin
           let e' = whnf ctx (Syntax.mkRecordTy lst) e in
             match fst e' with
-              | Syntax.Record lst' ->
-                let rec fold ctx r lst1 lst2 =
-                  match lst1, lst2 with
-                    | [], [] ->
-                      begin match r with
-                        | Some e -> e
-                        | None -> Error.impossible "Equal.whnf: invalid projection during whnf"
-                      end
-                    | _::_, [] | [], _::_ ->
-                      Syntax.mkProject e' lst lbl
-                    | (lbl1,(x1,t1,e1)) :: lst1, (lbl2,(x2,t2)) :: lst2 ->
-                      if lbl1 = lbl2 && equal_ty' ctx t1 t2
-                      then
-                        let r = (if lbl1 = lbl then Some e1 else r) in
-                        let ctx = Context.add_var x1 t1 ctx in
-                          fold ctx r lst1 lst2
-                      else Syntax.mkProject e' lst lbl
+              | Syntax.Record lst' 
+                  (* when equal_ty' ctx (type_of ctx e') (Syntax.mkRecordTy lst) *) ->
+                let rec fold es = function
+                  | [] -> Error.impossible "Equal.whnf: invalid projection during whnf"
+                  | (lbl',(_,_,e)) :: lst ->
+                    if lbl = lbl'
+                    then
+                      List.fold_left Syntax.beta e es
+                    else
+                      fold (e::es) lst
                 in
-                  fold ctx None lst' lst
+                  fold [] lst'
               | _ ->
                 Syntax.mkProject e' lst lbl
         end
@@ -540,16 +533,19 @@ and equal_ext ~use_eqs ~use_rws ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _)
               u
 
     | Syntax.RecordTy lst ->
-      let rec fold ctx = function
+      let rec fold ctx e1 e2 = function
         | [] -> true
-        | (lbl,(x,tlbl)) :: lst' ->
+        | (lbl,(x,t)) :: lst' ->
           let e1' = Syntax.mkProject ~loc:loc1 e1 lst lbl
           and e2' = Syntax.mkProject ~loc:loc2 e2 lst lbl
           in
-            equal_term ~use_eqs ~use_rws ctx e1' e2' tlbl &&
-            (let ctx = Context.add_def x tlbl e1' ctx in fold ctx lst')
+            equal_term ~use_eqs ~use_rws ctx e1' e2' t &&
+            (let ctx = Context.add_def x t e1' ctx
+             and e1 = Syntax.shift 1 e1
+             and e2 = Syntax.shift 1 e2
+             in fold ctx e1 e2 lst')
       in
-        fold ctx lst
+        fold ctx e1 e2 lst
       
 
     (* chk-eq-ext-unit *)

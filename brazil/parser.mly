@@ -110,8 +110,8 @@ plain_app_term:
   | e1=app_term e2=project_term                   { App (e1, e2) }
   | COERCE LPAREN ul=universe COMMA e=term RPAREN { let u = make_universe ul in Coerce (u, e) }
   | UNIVERSE ul=universe                          { let u = make_universe ul in NameUniverse u }
-  | REFL e=simple_term                            { Refl e }
-  | IDPATH e=simple_term                          { Idpath e }
+  | REFL e=project_term                           { Refl e }
+  | IDPATH e=project_term                         { Idpath e }
   | IND_PATH LPAREN
           LBRACK
           x=param
@@ -148,11 +148,11 @@ plain_simple_term:
   | LBRACE l=separated_nonempty_list(SEMICOLON, record_ty_field) RBRACE { NameRecordTy l }
 
 record_field:
-  | lbl=NAME EQ e=term            { (lbl, anonymous, e) }
+  | lbl=NAME EQ e=term            { (lbl, lbl, e) }
   | lbl=NAME AS x=param EQ e=term { (lbl, x, e) }
 
 record_ty_field:
-  | lbl=NAME COLON t=term              { (lbl, anonymous, t) }
+  | lbl=NAME COLON t=term              { (lbl, lbl, t) }
   | lbl=NAME AS x=param COLON t=term   { (lbl, x, t) }
 
 universe: mark_position(plain_universe) { $1 }

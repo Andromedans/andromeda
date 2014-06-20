@@ -114,13 +114,20 @@ let rec syn_term ctx ((term', loc) as term) =
         match Equal.as_recordty ctx t with
           | Some lst ->
             begin
-              try
-                let (_,t) = List.assoc lbl lst in
-                  Syntax.mkProject ~loc e lst lbl, t
-              with Not_found -> Error.typing ~loc "invalid label %s" lbl
+              let rec fold es = function
+                | [] -> Error.typing ~loc:(snd e) "this record does not have field %s" lbl
+                | (lbl',(_,t')) :: lst' ->
+                  if lbl = lbl'
+                  then
+                    Syntax.mkProject e lst lbl,
+                    Syntax.betas_ty t' es
+                  else
+                    let es = (Syntax.mkProject e lst lbl) :: es
+                    in fold es lst'
+              in fold [] lst
             end
           | None ->
-            Error.typing ~loc:(snd e) "this expression should be a recird, but its type is@ %t"
+            Error.typing ~loc:(snd e) "this expression should be a record, but its type is@ %t"
               (print_ty ctx t)
     end
 
@@ -179,7 +186,7 @@ let rec syn_term ctx ((term', loc) as term) =
           let e, t = syn_term ctx e in
             match Equal.as_universe ctx t with
               | Some beta ->
-                let ctx = Context.add_def x t e ctx in
+                let ctx = Context.add_var x (Syntax.mkEl beta e) ctx in
                 let lst, alpha = fold ctx lst in
                   (lbl, (x, beta, e)) :: lst, Universe.max alpha beta
               | None ->

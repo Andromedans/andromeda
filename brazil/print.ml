@@ -84,6 +84,12 @@ let name x ppf = print ~at_level:0 ppf "%s" x
 let universe u ppf =
   print ~at_level:0 ppf "%s" (Universe.to_string u)
 
+let label lbl x ppf =
+  if lbl = x then
+    print ~at_level:0 ppf "%s" lbl
+  else
+    print ~at_level:0 ppf "%s as %s" lbl x
+
 (** [prod xs x t1 t2 ppf] prints a dependent product using formatter [ppf]. *)
 let rec prod ?max_level xs x t1 t2 ppf =
   if Syntax.occurs_ty 0 t2 then
@@ -114,11 +120,11 @@ and record_fields xs lst ppf =
   let rec fold xs = function
     | [] -> ()
     | [(lbl,(x,t,e))] ->
-      print ~at_level:0 ppf "%s as %s =%t@ %t"
-        lbl x (annot (ty ~max_level:4 xs t)) (term ~max_level:4 xs e)
+      print ~at_level:0 ppf "%t@ =%t@ %t"
+        (label lbl x) (annot (ty ~max_level:4 xs t)) (term ~max_level:4 xs e)
     | (lbl,(x,t,e)) :: lst ->
-      print ~at_level:0 ppf "%s as %s =%t@ %t;@ "
-        lbl x (annot (ty ~max_level:4 xs t)) (term ~max_level:4 xs e) ;
+      print ~at_level:0 ppf "%t@ =%t@ %t;@ "
+        (label lbl x) (annot (ty ~max_level:4 xs t)) (term ~max_level:4 xs e) ;
       fold (x::xs) lst
   in
     fold xs lst
@@ -127,11 +133,11 @@ and name_record_ty_fields xs lst ppf =
   let rec fold xs = function
     | [] -> ()
     | [(lbl,(x,u,e))] ->
-      print ~at_level:0 ppf "%s as %s :%t@ %t"
-        lbl x (annot (universe u)) (term ~max_level:4 xs e)
+      print ~at_level:0 ppf "%t:%t@ %t"
+        (label lbl x) (annot (universe u)) (term ~max_level:4 xs e)
     | (lbl,(x,u,e)) :: lst ->
-      print ~at_level:0 ppf "%s as %s :%t@ %t;@ "
-        lbl x (annot (universe u)) (term ~max_level:4 xs e) ;
+      print ~at_level:0 ppf "%t:%t@ %t;@ "
+        (label lbl x) (annot (universe u)) (term ~max_level:4 xs e) ;
       fold (x::xs) lst
   in
     fold xs lst
