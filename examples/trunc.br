@@ -1,4 +1,4 @@
-(* Definition of propositional truncation from the Book. *)
+(* Definition of propositional truncation. *)
 
 Definition Type := Universe f0.
 
@@ -29,38 +29,57 @@ Parameter trunc_comp :
          (x : A),
     rec_trunc A B p f (trunc A x) == f x.
 
+Rewrite trunc_comp.
+
 (* Contractible types *)
 
-(* Got stuck here because there are no sigmas anymore. *)
-
 Definition is_contr :=
-   fun (A : Type) => (x : A) * ((y : A) -> (x = y @ A)) ;;
+   fun (A : Type) =>
+   { center: A ;
+     center_to: (forall y : A, center = y)
+    }.
 
-// If A is an inhabited proposition then it is contractible
+Definition sanity :=
+  fun (A : Type) (c : is_contr A) (a : A) => c.center_to.
 
-define inhab_prop_is_contr :=
+#context
+
+(* If A is an inhabited proposition then it is contractible. *)
+
+Definition inhab_prop_is_contr :
+  forall (A : Type) (p : is_prop A), A -> is_contr A 
+  :=
   fun (A : Type) (p : is_prop A) (a : A) =>
-  ((a, (fun (b : A) => p a b)) :> is_contr A)
+  { center = a ;
+    center_to = (fun b : A => p center b) }.
 
-// Concatentaion and opposite paths
-define opp :=
-  fun (A : Type) (a b : A) (q : a = b @ A) =>
-         Ind (q, x . y . p . (y = x @ A), z . idpath z)
+#context
 
-define concat :=
-  fun (A : Type) (a b c : A) (r : a = b @ A) (s : b = c @ A) =>
-       Ind (r,
-            x . y . p . (d : A) -> (q : y = d @ A ) -> (x = d @ A),
-            z . fun (d : A) (q : z = d @ A) => q)
-           c s
+(* Concatentaion and opposite paths *)
+Definition opp :=
+  fun (A : Type) (a b : A) (q : a = b) =>
+    J ([x y p . y = x], [z . idpath z], q).
 
-// If A is contractible then it is a proposition:
+Definition concat :=
+  fun (A : Type) (a b c : A) (r : a = b) (s : b = c) =>
+    J ([x y p . forall (d : A)  (q : y = d), x = d],
+       [z . fun (d : A) (q : z = d) => q],
+       r)
+    c s.        
 
-define contr_is_inhab_prop :=
+#context
+        
+(*
+
+(* If A is contractible then it is a proposition *)
+Definition contr_is_inhab_prop :
+  forall (A : Type), is_contr A -> { 1 : A ; 2 : is_prop A }
+  :=
   fun (A : Type) (c : is_contr A) =>
-    (c.1 , 
-     (fun (x y : A) => concat A x c.1 y (opp A c.1 x (c.2 x)) (c.2 y))) :> A * is_prop A
-  
+    { 1 = c.center ;
+      2 = (fun (x y : A) => concat A x c.center y (opp A c.center x (c.center_to x)) (c.center_to y))
+    }.
+
 // Now we show that the truncation of booleans is the interval
 
 // First we need the booleans
@@ -144,3 +163,4 @@ define rec_I_aux_zero :
       with
         cond_false (singleton A a) (b, p) (a, idpath a)
       end
+*)
