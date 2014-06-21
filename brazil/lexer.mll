@@ -26,9 +26,9 @@
 
 let name = ['a'-'z' 'A'-'Z'] ['_' 'a'-'z' 'A'-'Z' '0'-'9' '\'']*
 
-let project = '.' name
-
 let numeral = ['0'-'9']+
+
+let project = '.' (name | numeral)
 
 let start_longcomment = "(*"
 let end_longcomment = "*)"
