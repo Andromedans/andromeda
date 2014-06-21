@@ -37,12 +37,10 @@ Definition is_contr :=
    fun (A : Type) =>
    { center: A ;
      center_to: (forall y : A, center = y)
-    }.
+   }.
 
 Definition sanity :=
-  fun (A : Type) (c : is_contr A) (a : A) => c.center_to.
-
-#context
+  fun (A : Type) (c : is_contr A) => c.center_to.
 
 (* If A is an inhabited proposition then it is contractible. *)
 
@@ -52,8 +50,6 @@ Definition inhab_prop_is_contr :
   fun (A : Type) (p : is_prop A) (a : A) =>
   { center = a ;
     center_to = (fun b : A => p center b) }.
-
-#context
 
 (* Concatentaion and opposite paths *)
 Definition opp :=
@@ -67,10 +63,6 @@ Definition concat :=
        r)
     c s.        
 
-#context
-        
-(*
-
 (* If A is contractible then it is a proposition *)
 Definition contr_is_inhab_prop :
   forall (A : Type), is_contr A -> { 1 : A ; 2 : is_prop A }
@@ -80,87 +72,107 @@ Definition contr_is_inhab_prop :
       2 = (fun (x y : A) => concat A x c.center y (opp A c.center x (c.center_to x)) (c.center_to y))
     }.
 
-// Now we show that the truncation of booleans is the interval
+(* Now we show that the truncation of booleans is the interval *)
 
-// First we need the booleans
+(* First we need the booleans *)
 
-assume bool : Type
-assume true false : bool
-assume cond : (A : QuasiType 1) -> bool -> A -> A -> A
+Parameter bool : Type.
+Parameter true false : bool.
 
-assume cond_true  : (A : QuasiType 1) -> (a : A) -> (b : A) -> cond A true a b == a @ A
-assume cond_false : (A : QuasiType 1) -> (a : A) -> (b : A) -> cond A false a b == b @ A
+Parameter bool_ind :
+  forall (P : bool -> Type) (b : bool), P true -> P false -> P b.
 
-assume ind_bool : (P : bool -> QuasiType 1) -> P false -> P true -> (b : bool) -> P b
+Parameter bool_ind_false :
+  forall (P : bool -> Type) (x : P true) (y : P false),
+    bool_ind P false x y == y.
 
-// We need transport
+Parameter bool_ind_true :
+  forall (P : bool -> Type) (x : P true)  (y : P false),
+    bool_ind P true x y == x.
 
-define tr :=
-  (fun (A : Type) (P : A -> Type) (a b : A) (s : a = b @ A) (u : P a) =>
-    Ind (s, 
-         x . y . p . (P x -> P y), 
-         z . (fun v : P z => v)) u)
-  :>
-  forall (A : Type) (P : A -> Type) (a b : A) (s : a = b @ A), P a -> P b
+Rewrite bool_ind_true.
+Rewrite bool_ind_false.
 
-// How to prove that two elements of a sigma type are equal
+Definition cond := fun (A : Type) => bool_ind (fun (_ : bool) => A).
 
-define total_path :
-  forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b @ A),
-    (tr A P a b p u = v @ P b) -> (a, u) = (b, v) @ ((x : A) * P x)
+(* We need transport and ap *)
+
+Definition tr :
+  forall (A : Type) (P : A -> Type) (a b : A) (s : a = b), P a -> P b
   :=
-  fun A P a u b v p q =>
-    Ind (p,
-         x . y . s .
-           (forall (u : P x) (v : P y) (q : tr A P x y s u = v @ P y),
-             (x, u) = (y, v) @ ((x : A) * P x)),
-         z . (fun (u v : P z) (q : u = v @ P z) =>
-              Ind (q,
-                   u . v . q . (z, u) = (z, v) @ ((x : A) * P x),
-                   w . idpath ((z, w) :> ((x : A) * P x))
-                  ))
-        ) u v q
+  fun (A : Type) (P : A -> Type) (a b : A) (s : a = b) (u : P a) =>
+    J ([x y p . (P x -> P y)], 
+       [z . fun v : P z => v], s)
+    u.
 
-// We need singletons
+Definition ap :
+  forall (A B : Type) (f : A -> B) (a b : A), a = b -> f a = f b
+  :=
+    fun (A B : Type) (f : A -> B) (a b : A) (p : a = b) =>
+      J ([x y p . f x = f y],
+         [z . idpath (f z)],
+         p).
 
-define singleton := 
-  fun (A : Type) (x : A) => exists (y : A), x = y @ A ;;
+(* How to prove that two elements of a sigma type are equal *)
 
-// TO DO
-assume singleton_is_prop : forall (A : Type) (x : A), is_prop (singleton A x)
+Definition total_path :
+  forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b),
+    (tr A P a b p u = v) -> {1 as x = a; 2 = (u :: P x)} = {1 as x = b; 2 = (v :: P x)}
+  :=
+  fun (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b)
+      (p : a = b) (q : tr A P a b p u = v) =>
+    J ([x y s .
+         forall (u : P x) (v : P y) (q : tr A P x y s u = v),
+           {1 as x=x; 2=(u :: P x)} = {1 as y=y; 2=(v :: P y)}
+       ],
+       [z . fun (u v : P z) (q : u = v) =>
+              J ([u v q . {1 as z=z; 2=(u :: P z)} = {1 as z=z; 2=(v :: P z)}],
+                 [w . idpath ({1 as z=z; 2=(w :: P z)} :: {1 as x: A; 2 : P x})],
+                 q)
+       ],
+       p) u v q.
+
+(* We need singletons *)
+
+Definition singleton := 
+  fun (A : Type) (x : A) => {1 as y : A; 2 : (x = y)}.
+
+(* TO DO *)
+Parameter singleton_is_prop : forall (A : Type) (x : A), is_prop (singleton A x).
     
-// Now we define the interval, but we only consider the non-dependent eliminator
+(* Now we define the interval, but we only consider the non-dependent eliminator *)
 
-define I := Trunc bool
-define zero := trunc bool false
-define one := trunc bool true
-define seg := Trunc_is_prop bool zero one
+Definition I := Trunc bool.
+Definition zero := trunc bool false.
+Definition one := trunc bool true.
+Definition seg := Trunc_is_prop bool zero one.
 
-// auxiliary definition
-define rec_I_aux :
-  forall (A : Type) (a b : A), (a = b @ A) -> I -> singleton A a
+(* Auxiliary definition *)
+Definition rec_I_aux :
+  forall (A : Type) (a b : A), (a = b) -> I -> singleton A a
   :=
-  fun A a b p =>
+  fun (A : Type) (a b : A) (p : a = b) =>
      rec_trunc bool (singleton A a) (singleton_is_prop A a)
-                      (fun (c : bool) => cond (singleton A a) c (b, p) (a, idpath a))
+                      (fun (c : bool) => cond (singleton A a) c 
+                                              {1 as y=b; 2=(p :: a=y)}
+                                              {1 as y=a; 2=(idpath a :: a=y)}).
 
-define rec_I :=
-   (fun A a b p x => (rec_I_aux A a b p x).1)
-   :> 
-   forall (A : Type) (a b : A), (a = b @ A) -> I -> A
-
-// rec_I has the correct computational behavior
-
-define rec_I_aux_zero :
-  forall (A : Type) (a b : A) (p : a = b @ A),
-     rec_I_aux A a b p zero == (a, idpath a) @ (singleton A a)
+Definition rec_I :
+  forall (A : Type) (a b : A), (a = b) -> I -> A 
   :=
-    fun A a b p =>
-      handle
-        trunc_comp bool (singleton A a) (singleton_is_prop A a) 
-        (fun (c : bool) => cond (singleton A a) c (b, p) (a, idpath a))
-        false
-      with
-        cond_false (singleton A a) (b, p) (a, idpath a)
-      end
-*)
+  fun (A : Type) (a b : A) (p : a = b) (x : I) =>
+    (rec_I_aux A a b p x).1.
+   
+(* rec_I has the correct computational behavior at zero and one *)
+
+Definition rec_I_zero :
+  forall (A : Type) (a b : A) (p : a = b),
+    rec_I A a b p zero == a
+  :=
+  fun (A : Type) (a b : A) (p : a = b) => refl a.
+
+Definition rec_I_one :
+  forall (A : Type) (a b : A) (p : a = b),
+    rec_I A a b p one == b
+  :=
+  fun (A : Type) (a b : A) (p : a = b) => refl b.
