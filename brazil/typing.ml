@@ -119,10 +119,10 @@ let rec syn_term ctx ((term', loc) as term) =
                 | (lbl',(_,t')) :: lst' ->
                   if lbl = lbl'
                   then
-                    Syntax.mkProject e lst lbl,
+                    Syntax.mkProject ~loc e lst lbl,
                     Syntax.betas_ty t' es
                   else
-                    let es = (Syntax.mkProject e lst lbl) :: es
+                    let es = (Syntax.mkProject e lst lbl') :: es
                     in fold es lst'
               in fold [] lst
             end
