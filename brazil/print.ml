@@ -94,7 +94,7 @@ let label lbl x ppf =
 let rec prod ?max_level xs x t1 t2 ppf =
   if Syntax.occurs_ty 0 t2 then
     let x = find_name x xs in
-      print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
+      print ?max_level ~at_level:3 ppf "forall (%s :@ %t), @ %t"
         x
         (ty ~max_level:4 xs t1)
         (ty ~max_level:3 (x :: xs) t2)
@@ -107,7 +107,7 @@ let rec prod ?max_level xs x t1 t2 ppf =
 and name_prod ?max_level xs x e1 e2 ppf =
   if Syntax.occurs 0 e2 then
     let x = find_name x xs in
-      print ?max_level ~at_level:3 ppf "(%s :@ %t) ->@ %t"
+      print ?max_level ~at_level:3 ppf "forall (%s :@ %t), @ %t"
         x
         (term ~max_level:4 xs e1)
         (term ~max_level:3 (x :: xs) e2)
