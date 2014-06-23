@@ -146,11 +146,11 @@ and record_ty_fields xs lst ppf =
   let rec fold xs = function
     | [] -> ()
     | [(lbl,(x,t))] ->
-      print ~at_level:0 ppf "%s as %s :@ %t"
-        lbl x (ty ~max_level:4 xs t)
+      print ~at_level:0 ppf "%t:@ %t"
+        (label lbl x) (ty ~max_level:4 xs t)
     | (lbl,(x,t)) :: lst ->
-      print ~at_level:0 ppf "%s as %s :@ %t;@ "
-        lbl x (ty ~max_level:4 xs t) ;
+      print ~at_level:0 ppf "%t:@ %t;@ "
+        (label lbl x) (ty ~max_level:4 xs t) ;
       fold (x::xs) lst
   in
     fold xs lst
