@@ -219,8 +219,8 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
         begin
           let e' = whnf ctx (Syntax.mkRecordTy lst) e in
             match fst e' with
-              | Syntax.Record lst' 
-                  (* when equal_ty' ctx (type_of ctx e') (Syntax.mkRecordTy lst) *) ->
+              | Syntax.Record lst'
+                when (equal_ty' ctx (type_of ctx e') (Syntax.mkRecordTy lst)) ->
                 let rec fold es = function
                   | [] -> Error.impossible "Equal.whnf: invalid projection during whnf"
                   | (lbl',(_,_,e)) :: lst ->
@@ -533,20 +533,20 @@ and equal_ext ~use_eqs ~use_rws ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _)
               u
 
     | Syntax.RecordTy lst ->
-      let rec fold ctx e1 e2 = function
+      let rec fold ctx e1 e2 lst0 = function
         | [] -> true
         | (lbl,(x,t)) :: lst' ->
-          let e1' = Syntax.mkProject ~loc:loc1 e1 lst lbl
-          and e2' = Syntax.mkProject ~loc:loc2 e2 lst lbl
+          let e1' = Syntax.mkProject ~loc:loc1 e1 lst0 lbl
+          and e2' = Syntax.mkProject ~loc:loc2 e2 lst0 lbl
           in
             equal_term ~use_eqs ~use_rws ctx e1' e2' t &&
             (let ctx = Context.add_def x t e1' ctx
              and e1 = Syntax.shift 1 e1
              and e2 = Syntax.shift 1 e2
-             in fold ctx e1 e2 lst')
+             and lst0 = List.map (fun (lbl,(x,t)) -> (lbl, (x, Syntax.shift_ty 1 t))) lst0
+             in fold ctx e1 e2 lst0 lst')
       in
-        fold ctx e1 e2 lst
-      
+        fold ctx e1 e2 lst lst
 
     (* chk-eq-ext-unit *)
     | Syntax.Unit ->
