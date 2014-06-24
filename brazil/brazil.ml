@@ -1,5 +1,14 @@
 (** Brazil main program *)
 
+(** The location of prelude file *)
+
+type prelude =
+  | PreludeNone
+  | PreludeDefault
+  | PreludeFile of string
+
+let prelude_file = ref PreludeDefault
+
 (** Should the interactive shell be run? *)
 let interactive_shell = ref true
 
@@ -20,7 +29,8 @@ define <ident> := <expr>          ...... define <ident> to be <expr>
 define <ident> : <type> := <expr> ...... define <ident> to be <expr> of <type>
 " ;;
 
-(** A list of files to be loaded and run. *)
+(** A list of files to be loaded and run, together with information on whether they should
+    be loaded in interactive mode. *)
 let files = ref []
 
 (** Add a file to the list of files to be loaded, and record whether it should
@@ -41,6 +51,12 @@ let options = Arg.align [
   ("--no-wrapper",
     Arg.Unit (fun () -> wrapper := None),
     " Do not use a command-line wrapper");
+  ("--no-prelude",
+    Arg.Unit (fun () -> prelude_file := PreludeNone),
+    " Do not load the prelude.br file");
+  ("--prelude",
+    Arg.String (fun str -> prelude_file := PreludeFile str),
+    "<file> Specify the prelude file to load initially");
   ("-v",
     Arg.Unit (fun () ->
       Format.printf "Brazil %s (%s)@." Config.version Sys.os_type ;
@@ -167,9 +183,21 @@ let main =
                    Unix.execvp wrapper args
                  with Unix.Unix_error _ -> ())
               lst
-    end;
+    end ;
   (* Files were listed in the wrong order, so we reverse them *)
   files := List.rev !files;
+  (* Should we load the prelude file? *)
+  begin
+    match !prelude_file with
+      | PreludeNone -> ()
+      | PreludeFile f -> files := (f, false) :: !files
+      | PreludeDefault ->
+        (* look for prelude next to the executable, don't whine if it is not there *)
+        let f = Filename.concat (Filename.dirname Sys.argv.(0)) "prelude.br" in
+          if Sys.file_exists f
+          then files := (f, false) :: !files
+  end ;
+
   (* Set the maximum depth of pretty-printing, after which it prints ellipsis. *)
   Format.set_max_boxes 42 ;
   Format.set_ellipsis_text "..." ;

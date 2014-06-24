@@ -1,0 +1,72 @@
+(* The Brazil prelude file. *)
+
+(* We'll just pretend that there is a single Type. *)
+Definition Type := Universe f0.
+
+(* Booleans. *)
+
+Parameter bool : Type.
+Parameter true false : bool.
+
+Parameter bool_ind :
+  forall (P : bool -> Type) (b : bool), P true -> P false -> P b.
+
+Parameter bool_ind_false :
+  forall (P : bool -> Type) (x : P true) (y : P false),
+    bool_ind P false x y == y.
+
+Parameter bool_ind_true :
+  forall (P : bool -> Type) (x : P true)  (y : P false),
+    bool_ind P true x y == x.
+
+Rewrite bool_ind_true.
+Rewrite bool_ind_false.
+
+Definition cond := fun (A : Type) => bool_ind (fun (C : bool) => A).
+Definition not := fun (b : bool) => cond bool b false true.
+Definition or := fun (a b : bool) => cond bool a true b.
+Definition and := fun (a b : bool) => cond bool a b false.
+
+(* Natural numbers. *)
+
+Parameter N : Type.
+Parameter 0 : N.
+Parameter S : N -> N.
+
+Parameter N_ind :
+  forall (P : N -> Type),
+  P 0 ->
+  (forall n : N, P n -> P (S n)) ->
+  forall (m : N), P m.
+
+Parameter N_ind_0 :
+  forall 
+    (P : N -> Type) 
+    (z : P 0)
+    (f : forall n : N, P n -> P (S n)),
+  N_ind P z f 0 == z.
+
+Parameter N_ind_S :
+  forall 
+    (P : N -> Type) 
+    (z : P 0)
+    (f : forall n : N, P n -> P (S n))
+    (m : N),
+  N_ind P z f (S m) == f m (N_ind P z f m).
+
+Rewrite N_ind_0.
+Rewrite N_ind_S.
+
+Definition N_rec :=
+  fun (A : Type) (x : A) (f : N -> A -> A) =>
+    N_ind (fun (_ : N) => A) x f.
+    
+Definition plus :=
+  N_rec (N -> N)
+    (fun n : N => n) 
+    (fun (_ : N) (f : N -> N) (m : N) => S (f m)).
+
+Definition mult :=
+  N_rec (N -> N)
+    (fun n : N => 0)
+    (fun (_ : N) (f : N -> N) (m : N) => plus m (f m)).
