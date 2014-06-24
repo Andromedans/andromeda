@@ -23,7 +23,6 @@ let print_input_term ctx term ppf =
 (* Synthesis and Checking of Terms *)
 (***********************************)
 
-
 let rec syn_term ctx ((term', loc) as term) =
   let count = Common.next() in
 
@@ -312,15 +311,31 @@ and chk_term ctx ((term', loc) as term) t =
       end
 
   (* chk-syn *)
-  | _ -> let e, u = syn_term ctx term  in
-         if (Equal.equal_ty ctx u t) then
-            e
-         else
-            Error.typing ~loc "expression@ %t@;<1 -2>has type@ %t@;<1 -2>but should have type %t"
-              (print_term ctx e)
-              (print_ty ctx u)
-              (print_ty ctx t)
-
+  | Input.Var _
+  | Input.Ascribe _
+  | Input.Lambda _
+  | Input.App _
+  | Input.Project _
+  | Input.Record _
+  | Input.UnitTerm
+  | Input.Idpath _
+  | Input.J _
+  | Input.Refl _
+  | Input.Coerce _
+  | Input.NameUniverse _
+  | Input.NameUnit
+  | Input.NameRecordTy _
+  | Input.NameProd _
+  | Input.NamePaths _
+  | Input.NameId _ ->
+    let e, u = syn_term ctx term  in
+      if (Equal.equal_ty ctx u t) then
+        e
+      else
+        Error.typing ~loc "expression@ %t@;<1 -2>has type@ %t@;<1 -2>but should have type %t"
+          (print_term ctx e)
+          (print_ty ctx u)
+          (print_ty ctx t)
   in
      Print.debug "<<%s>>Yes, %t had type@ %t"
        count
