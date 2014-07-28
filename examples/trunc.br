@@ -68,9 +68,8 @@ Definition contr_is_inhab_prop :
   forall (A : Type), is_contr A -> { 1 : A ; 2 : is_prop A }
   :=
   fun (A : Type) (c : is_contr A) =>
-    { 1 = c.center ;
-      2 = (fun (x y : A) => concat A x c.center y (opp A c.center x (c.center_to x)) (c.center_to y))
-    }.
+    (c.center,
+     (fun (x y : A) => concat A x c.center y (opp A c.center x (c.center_to x)) (c.center_to y))).
 
 (* Now we show that the truncation of booleans is the interval *)
 
@@ -119,17 +118,17 @@ Definition sigma := fun (A : Type) (P : A -> Type) => {1 as x : A ; 2 : P x}.
 
 Definition total_path :
   forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b),
-    (tr A P a b p u = v) -> ({1 = a; 2 = u} :: sigma A P) = ({1 = b; 2 = v} :: sigma A P)
+    (tr A P a b p u = v) -> ((a,u) :: sigma A P) = ((b,v) :: sigma A P)
   :=
   fun (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b)
       (p : a = b) (q : tr A P a b p u = v) =>
     J ([x y s .
          forall (u : P x) (v : P y) (q : tr A P x y s u = v),
-           ({1 = x; 2 = u } :: sigma A P) = ({1 = y; 2 = v} :: sigma A P)
+           ((x,u) :: sigma A P) = ((y, v) :: sigma A P)
        ],
        [z . fun (u v : P z) (q : u = v) =>
-              J ([u v q . ({1=z; 2=u} :: sigma A P) = ({1=z; 2=v} :: sigma A P)],
-                 [w . idpath ({1=z; 2=w} :: sigma A P)],
+              J ([u v q . ((z,u) :: sigma A P) = ((z,v) :: sigma A P)],
+                 [w . idpath ((z,w) :: sigma A P)],
                  q)
        ],
        p) u v q.
@@ -156,8 +155,8 @@ Definition rec_I_aux :
   fun (A : Type) (a b : A) (p : a = b) =>
      rec_trunc bool (singleton A a) (singleton_is_prop A a)
                       (fun (c : bool) => cond (singleton A a) c 
-                                              ({1=b; 2=p} :: singleton A a)
-                                              ({1=a; 2=idpath a} :: singleton A a)).
+                                              ((b, p) :: singleton A a)
+                                              ((a, idpath a) :: singleton A a)).
 
 Definition rec_I :
   forall (A : Type) (a b : A), (a = b) -> I -> A 

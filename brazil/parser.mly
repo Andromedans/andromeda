@@ -20,6 +20,14 @@
       | None -> Error.syntax ~loc "invalid universe index %s" u
       | Some u -> u
 
+  let make_tuple lst =
+    let rec loop k = function
+      | [] -> []
+      | e::lst ->
+        let lbl = string_of_int k in
+          (lbl, lbl, e) :: (loop (k+1) lst)
+    in
+      loop 1 lst
 %}
 
 %token FORALL FUN
@@ -138,13 +146,15 @@ plain_project_term:
   | e=plain_simple_term           { e }
   | e=project_term lbl=PROJECT    { Project (e, lbl) }
 
-simple_term: mark_position(plain_simple_term) { $1 }
+(* simple_term: mark_position(plain_simple_term) { $1 } *)
 plain_simple_term:
   | UNIT                         { NameUnit }
   | x=NAME                       { Var x }
-  | LPAREN RPAREN                { UnitTerm }
-  | LPAREN e=plain_term RPAREN   { e }
-  | LBRACE l=separated_nonempty_list(SEMICOLON, record_field) RBRACE { Record l }
+  | LPAREN l=separated_list(COMMA, term) RPAREN  { match l with
+                                                     | [] -> UnitTerm
+                                                     | [(e, _)] -> e
+                                                     | _::_ -> Record (make_tuple l) }
+  | LBRACE l=separated_nonempty_list(SEMICOLON, record_field) RBRACE    { Record l }
   | LBRACE l=separated_nonempty_list(SEMICOLON, record_ty_field) RBRACE { NameRecordTy l }
 
 record_field:
