@@ -1,0 +1,130 @@
+Definition Type := Universe f0.
+
+Parameter bool : Type.
+Parameter true false : bool.
+
+Parameter bool_ind :
+  forall (P : bool -> Type) (b : bool), P true -> P false -> P b.
+
+Parameter bool_ind_false :
+  forall (P : bool -> Type) (x : P true) (y : P false),
+    bool_ind P false x y == y.
+
+Parameter bool_ind_true :
+  forall (P : bool -> Type) (x : P true)  (y : P false),
+    bool_ind P true x y == x.
+
+Rewrite bool_ind_true.
+Rewrite bool_ind_false.
+
+Definition cond := fun (A : Type) => bool_ind (fun (C : bool) => A).
+
+Definition cond_false :=
+  fun (A : Type) (x : A) (y : A) =>
+    (refl y :: bool_ind (fun U : bool => A) false x y == y).
+
+Definition cond_true :=
+  fun (A : Type) (x : A) (y : A) =>
+    (refl x :: bool_ind (fun V : bool => A) true x y == x).
+
+Definition or := fun (a b : bool) => cond bool a true b.
+Definition and := fun (a b : bool) => cond bool a b false.
+
+(*Definition prodR := fun (A B : Type) => { fst : A ; snd : B }.
+Definition pairR := fun (A B : Type) (a : A) (b : B) => ({ fst = a ; snd = b } :: prodR A B).
+Definition fstR := fun (A B : Type) (x : prodR A B) => (x.fst :: A).
+Definition sndR := fun (A B : Type) (x : prodR A B) => (x.snd :: B).*)
+
+
+Definition sigmaR := fun (A : Type) (P : A -> Type) => { fst : A ; snd : P fst }.
+Definition pairR := fun (A : Type) (P : A -> Type) (x : A) (p : P x)
+  => { fst = x ; snd = (p :: P fst) } :: sigmaR A P.
+
+
+Parameter sigma : forall (A : Type), (A -> Type) -> Type.
+
+Parameter pair :
+  forall (A : Type)
+         (P : A -> Type)
+         (a : A)
+         (b : P a),
+         sigma A P.
+
+Parameter sigma_elim :
+  forall (A : Type)
+         (P : A -> Type)
+         (u : sigma A P)
+         (C : sigma A P -> Type),
+         (forall (a : A) (b : P a), C (pair A P a b)) -> C u.
+
+Parameter sigma_beta :
+  forall (A : Type)
+         (P : A -> Type)
+         (a : A)
+         (b : P a)
+         (C : sigma A P -> Type)
+         (f : forall (a : A) (b : P a), C (pair A P a b)),
+         sigma_elim A P (pair A P a b) C f == f a b.
+
+Parameter sigma_comm :
+    forall (A : Type)
+           (P : A -> Type)
+           (Q : sigma A P -> Type)
+           (q : forall (x : A) (p : P x), Q (pair A P x p))
+           (R : forall (x : sigma A P), Q x -> Type)
+           (f : forall (x : sigma A P) (q : Q x), R x q)
+           (u : sigma A P),
+  rewrite sigma_beta in
+    sigma_elim A P u
+               (fun (x : sigma A P) => R x (sigma_elim A P x Q (fun (x : A) (p : P x) => q x p)))
+               (fun (x : A) (p : P x) => f (pair A P x p) (q x p) :: R (pair A P x p) (sigma_elim A P (pair A P x p) Q q))
+      ==
+    f u (sigma_elim A P u Q q).
+
+Definition sigma_half_eta :=
+  fun (A : Type)
+      (P : A -> Type)
+      (u : sigma A P) =>
+    sigma_comm A P (fun (_ : sigma A P) => sigma A P) (pair A P) (fun (_ : sigma A P) (_ : sigma A P) => sigma A P) (fun (x : sigma A P) (_ : sigma A P) => x) u
+    :: sigma_elim A P u (fun (_ : sigma A P) => sigma A P)
+         (fun (a : A) (b : P a) => pair A P a b)
+       ==
+       u.
+
+Rewrite sigma_beta.
+
+Definition fst :=
+  fun (A : Type) (P : A -> Type) (u : sigma A P) =>
+    sigma_elim A P u (fun (_ : sigma  A P) => A) (fun (a : A) (_ : P a) => a).
+
+Definition snd :=
+  fun (A : Type) (P : A -> Type) (u : sigma A P) =>
+    sigma_elim
+      A P u
+      (fun (u : sigma A P) => P (fst A P u))
+      (fun (a : A) (b : P a) => b).
+
+
+Definition contrR_true := sigmaR bool (fun (b : bool) => b = true).
+Definition contrR_false := sigmaR bool (fun (b : bool) => b = false).
+Definition contrR_true_inhab : contrR_true := ({ fst = true ; snd = (idpath true :: fst = true) } :: { fst : bool ; snd : fst = true }).
+Definition contrR_false_inhab : contrR_false := ({ fst = false ; snd = (idpath false :: fst = false) } :: { fst : bool ; snd : fst = false }).
+Parameter reflectR : contrR_true == contrR_false.
+Definition fooR : true = true := (contrR_true_inhab.snd :: contrR_true_inhab.fst = true).
+Definition barR : true = false := ((rewrite reflectR in (contrR_true_inhab :: contrR_false)).snd :: contrR_true_inhab.fst = false). (* succeeds *)
+
+Definition contr_true := sigma bool (fun (b : bool) => b = true).
+Definition contr_false := sigma bool (fun (b : bool) => b = false).
+Definition contr_true_inhab : contr_true := pair bool (fun (b : bool) => b = true) true (idpath true).
+Definition contr_false_inhab : contr_false := pair bool (fun (b : bool) => b = false) false (idpath false).
+Parameter reflect : contr_true == contr_false.
+Definition foo : true = true := (snd bool (fun (b : bool) => b = true) contr_true_inhab :: fst bool (fun (b : bool) => b = true) contr_true_inhab = true).
+Definition bar : true = false := (snd bool (fun (b : bool) => b = false) (rewrite reflect in (contr_true_inhab :: contr_false)) :: fst bool (fun (b : bool) => b = false) (rewrite reflect in contr_true_inhab :: contr_false) = false). (* errors with
+Typing error: sig.br:122:34: expression
+  snd bool (fun (b : bool) => b = false)
+  (rewrite reflect in contr_true_inhab) has type
+  fst bool (fun (b : bool) => b = false)
+  (rewrite reflect in contr_true_inhab)
+    =
+    false but should have type true = false
+*)

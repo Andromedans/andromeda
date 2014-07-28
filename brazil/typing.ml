@@ -284,64 +284,93 @@ let rec syn_term ctx ((term', loc) as term) =
 
 and chk_term ctx ((term', loc) as term) t =
   let count = Common.next() in
-  Print.debug "<<%s>> Checking term %t@ against type@ %t@."
+    Print.debug "<<%s>> Checking term %t@ against type@ %t@."
       count (print_input_term ctx term) (print_ty ctx t);
 
   let answer =
-  match term' with
+    begin match term' with
+        
+      (* chk-eq-hint *)
+      | Input.Equation (e1, e4) ->
+        begin
+          let e1, u = syn_term ctx e1  in
+          let h = Equal.as_hint ctx e1 u in
+          let ctx = Context.add_equation h ctx  in
+          let e4 = chk_term ctx e4 t in
+            Syntax.mkEquation ~loc e1 u e4
+        end
 
-  (* chk-eq-hint *)
-  | Input.Equation (e1, e4) ->
-      begin
-        let e1, u = syn_term ctx e1  in
-        let h = Equal.as_hint ctx e1 u in
-        let ctx = Context.add_equation h ctx  in
-        let e4 = chk_term ctx e4 t in
-        Syntax.mkEquation ~loc e1 u e4
-      end
+      (* chk-rw-hint *)
+      | Input.Rewrite (e1, e4) ->
+        begin
+          let e1, u = syn_term ctx e1  in
+          let h = Equal.as_hint ctx e1 u in
+          let ctx = Context.add_rewrite h ctx  in
+          let e4 = chk_term ctx e4 t in
+            Syntax.mkRewrite ~loc e1 u e4
+        end
 
-  (* chk-rw-hint *)
-  | Input.Rewrite (e1, e4) ->
-      begin
-        let e1, u = syn_term ctx e1  in
-        let h = Equal.as_hint ctx e1 u in
-        let ctx = Context.add_rewrite h ctx  in
-        let e4 = chk_term ctx e4 t in
-        Syntax.mkRewrite ~loc e1 u e4
-      end
-
-  (* chk-syn *)
-  | Input.Var _
-  | Input.Ascribe _
-  | Input.Lambda _
-  | Input.App _
-  | Input.Project _
-  | Input.Record _
-  | Input.UnitTerm
-  | Input.Idpath _
-  | Input.J _
-  | Input.Refl _
-  | Input.Coerce _
-  | Input.NameUniverse _
-  | Input.NameUnit
-  | Input.NameRecordTy _
-  | Input.NameProd _
-  | Input.NamePaths _
-  | Input.NameId _ ->
-    let e, u = syn_term ctx term  in
-      if (Equal.equal_ty ctx u t) then
-        e
-      else
-        Error.typing ~loc "expression@ %t@;<1 -2>has type@ %t@;<1 -2>but should have type %t"
-          (print_term ctx e)
-          (print_ty ctx u)
-          (print_ty ctx t)
+      | Input.Record lst ->
+        begin
+          match Equal.as_recordty ctx t with
+            | None -> chk_syn ctx term t
+            | Some tlst ->
+              let rec fold ctx lst tlst =
+                match lst, tlst with
+                  | [], [] -> []
+                  | (lbl,x,e)::lst, (lbl',(_,t))::tlst ->
+                    if lbl <> lbl' then
+                      Error.typing ~loc "this record has field label %s instead of %s" lbl lbl'
+                    else
+                      let e = chk_term ctx e t in
+                      let ctx = Context.add_def x t e ctx in
+                      let lst = fold ctx lst tlst in
+                        (lbl, (x, t, e)) :: lst
+                  | [], _::_ ->
+                    Error.typing ~loc "this record should have type %t but it has too few fields"
+                      (print_ty ctx t)
+                  | _::_, [] ->
+                    Error.typing ~loc "this record should have type %t but it has too many fields"
+                      (print_ty ctx t)
+              in
+              let lst = fold ctx lst tlst in
+                Syntax.mkRecord ~loc lst
+        end
+          
+      (* chk-syn *)
+      | Input.Var _
+      | Input.Ascribe _
+      | Input.Lambda _
+      | Input.App _
+      | Input.Project _
+      | Input.UnitTerm
+      | Input.Idpath _
+      | Input.J _
+      | Input.Refl _
+      | Input.Coerce _
+      | Input.NameUniverse _
+      | Input.NameUnit
+      | Input.NameRecordTy _
+      | Input.NameProd _
+      | Input.NamePaths _
+      | Input.NameId _ -> 
+        chk_syn ctx term t
+    end
   in
      Print.debug "<<%s>>Yes, %t had type@ %t"
        count
        (print_input_term ctx term)
        (print_ty ctx t);
      answer
+
+and chk_syn ctx e t =
+  let e, u = syn_term ctx e in
+    if (Equal.equal_ty ctx u t) then
+      e
+    else
+      Error.typing ~loc:(snd e) "this expression has type@ %t@;<1 -2>but should have type %t"
+        (print_ty ctx u)
+        (print_ty ctx t)
 
 (***********************************)
 (* Synthesis and Checking of Types *)

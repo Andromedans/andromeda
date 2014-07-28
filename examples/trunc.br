@@ -115,19 +115,21 @@ Definition ap :
 
 (* How to prove that two elements of a sigma type are equal *)
 
+Definition sigma := fun (A : Type) (P : A -> Type) => {1 as x : A ; 2 : P x}.
+
 Definition total_path :
   forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b),
-    (tr A P a b p u = v) -> {1 as x = a; 2 = (u :: P x)} = {1 as x = b; 2 = (v :: P x)}
+    (tr A P a b p u = v) -> ({1 = a; 2 = u} :: sigma A P) = ({1 = b; 2 = v} :: sigma A P)
   :=
   fun (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b)
       (p : a = b) (q : tr A P a b p u = v) =>
     J ([x y s .
          forall (u : P x) (v : P y) (q : tr A P x y s u = v),
-           {1 as x=x; 2=(u :: P x)} = {1 as y=y; 2=(v :: P y)}
+           ({1 = x; 2 = u } :: sigma A P) = ({1 = y; 2 = v} :: sigma A P)
        ],
        [z . fun (u v : P z) (q : u = v) =>
-              J ([u v q . {1 as z=z; 2=(u :: P z)} = {1 as z=z; 2=(v :: P z)}],
-                 [w . idpath ({1 as z=z; 2=(w :: P z)} :: {1 as x: A; 2 : P x})],
+              J ([u v q . ({1=z; 2=u} :: sigma A P) = ({1=z; 2=v} :: sigma A P)],
+                 [w . idpath ({1=z; 2=w} :: sigma A P)],
                  q)
        ],
        p) u v q.
@@ -154,8 +156,8 @@ Definition rec_I_aux :
   fun (A : Type) (a b : A) (p : a = b) =>
      rec_trunc bool (singleton A a) (singleton_is_prop A a)
                       (fun (c : bool) => cond (singleton A a) c 
-                                              {1 as y=b; 2=(p :: a=y)}
-                                              {1 as y=a; 2=(idpath a :: a=y)}).
+                                              ({1=b; 2=p} :: singleton A a)
+                                              ({1=a; 2=idpath a} :: singleton A a)).
 
 Definition rec_I :
   forall (A : Type) (a b : A), (a = b) -> I -> A 
