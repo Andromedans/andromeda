@@ -11,7 +11,7 @@ define fix :=
     equation scott in
       (fun (x : D) => f ((x :: D -> D) x)) (fun (x : D) => f ((x :: D -> D) x))
 
-(* This seems hard to prove, either Brazil doesn't get it,
+(* This seems hard to prove, either Andromeda doesn't get it,
    or it goes into a loop.
 
 define fix_eq :=

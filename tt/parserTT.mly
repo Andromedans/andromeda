@@ -5,8 +5,8 @@
 
 
 %token <bool> BOOL
-%token <string> BRAZILTERM
-%token <string> BRAZILTYPE
+%token <string> ANDROMEDATERM
+%token <string> ANDROMEDATYPE
 %token <int> INJ
 %token <int> INT
 %token <string> NAME
@@ -153,13 +153,13 @@ plain_exp1:
     | LPAREN plain_exp0 RPAREN      { $2 }
     | BANG exp1         { Prim(Not, [$2]) }
     | WHNF exp1         { Prim(Whnf, [$2]) }
-    | BRAZILTERM       { BrazilTermCode $1 }
-    | BRAZILTYPE       { BrazilTypeCode $1 }
-    | GETCTX           { Prim(GetCtx, []) }
-    | EXPLODE exp1     { Prim(Explode, [$2]) }
-    | IMPLODE exp1     { Prim(Implode, [$2]) }
-    | NAMEOF exp1      { Prim(NameOf, [$2]) }
-    | TYPEOF exp1      { Prim(TypeOf, [$2]) }
+    | ANDROMEDATERM     { AndromedaTermCode $1 }
+    | ANDROMEDATYPE     { AndromedaTypeCode $1 }
+    | GETCTX            { Prim(GetCtx, []) }
+    | EXPLODE exp1      { Prim(Explode, [$2]) }
+    | IMPLODE exp1      { Prim(Implode, [$2]) }
+    | NAMEOF exp1       { Prim(NameOf, [$2]) }
+    | TYPEOF exp1       { Prim(TypeOf, [$2]) }
 
 (* Only know the ending when we see it *)
 comp0: mark_position(plain_comp0) { $1 }

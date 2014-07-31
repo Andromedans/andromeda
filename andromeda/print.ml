@@ -1,4 +1,4 @@
-(** Pretty-printing of Brazilian type theory. *)
+(** Pretty-printing of Andromedan type theory. *)
 
 (** Printing of messages. *)
 

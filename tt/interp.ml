@@ -40,7 +40,7 @@ let fresh_name =
 
 
 
-(** [abstract ctx x t v] wraps every *Brazil* term in v with a (Brazil) lambda.
+(** [abstract ctx x t v] wraps every *Andromeda* term in v with a (Andromeda) lambda.
     For simplicity, we assume that x:t is already the (last) binding in ctx
     It expects that v is either a term or a tuple of terms (or a tuple of these, etc.)
  *)
@@ -54,7 +54,7 @@ let abstract ctx x t =
     | (_, loc) -> Error.runtime ~loc "Bad body to MkLam"  in
   loop
 
-(** [witness_of_value ctx v] returns [b] if [v] is the Brazil term [b],
+(** [witness_of_value ctx v] returns [b] if [v] is the Andromeda term [b],
       and reports an error otherwise. The context is used just for error
       reporting (converting [v] to a string).
 *)
@@ -62,7 +62,7 @@ let witness_of_value ctx0 = function
   | I.VTerm b, _  -> b
   | (_, loc) as w -> Error.runtime ~loc "Witness %s is not a term" (I.string_of_value ctx0 w)
 
-(** If [v] is the Brazil term [b], [extend_context_with_witness ctx v] adds [b]
+(** If [v] is the Andromeda term [b], [extend_context_with_witness ctx v] adds [b]
     to [ctx] as a generic hint. Otherwise, reports a runtime error.
   *)
 let extend_context_with_witness ctx v =
@@ -71,23 +71,23 @@ let extend_context_with_witness ctx v =
   let hint = Equal.as_hint ctx w t  in
   Context.add_equation hint ctx
 
-(** If [l] is a list of Brazil terms, [extend_context_with_witnesses ctx l]
+(** If [l] is a list of Andromeda terms, [extend_context_with_witnesses ctx l]
     adds them all to [ctx]. Otherwise, reports a runtime error.
   *)
 let extend_context_with_witnesses =
   List.fold_left extend_context_with_witness
 
 
-(** If [v] is the Brazil term [b'], [wrap_syntax_with_witness ctx b v]
-    produces a brazil term wraps the Brazil term [b] with hint [b'].
+(** If [v] is the Andromeda term [b'], [wrap_syntax_with_witness ctx b v]
+    produces a andromeda term wraps the Andromeda term [b] with hint [b'].
     Otherwise, reports a runtime error.
   *)
 let wrap_syntax_with_witness ctx b v =
   let w = witness_of_value ctx v in
   Syntax.Equation(w, Equal.type_of ctx w, b), Position.nowhere
 
-(** [wrap_syntax_with_witnesses ctx b l] produces a Brazil term
-    wrapping [b], but for a list [l] of Brazil term values.
+(** [wrap_syntax_with_witnesses ctx b l] produces a Andromeda term
+    wrapping [b], but for a list [l] of Andromeda term values.
  *)
 let wrap_syntax_with_witnesses ctx =
   List.fold_left (wrap_syntax_with_witness ctx)
@@ -103,7 +103,7 @@ let retNone         = I.RVal none
 
 
 (*******************************************)
-(* Run-time parsing of literal Brazil code *)
+(* Run-time parsing of literal Andromeda code *)
 (*******************************************)
 
 (** Shifts the Lexing.position [p] rightwards [n] characters *)
@@ -111,7 +111,7 @@ let rightwards n p =
   { p with Lexing.pos_cnum = p.Lexing.pos_cnum + n }
 
 (** Given a parsing function, the Position of the literal in the input, the
-    number of characters within that literal where the Brazil syntax began, and
+    number of characters within that literal where the Andromeda syntax began, and
     the text itself, parse.
 
     Purposely not recursively defined with anything below, because
@@ -127,10 +127,10 @@ let parse_literal parse_fn loc skipchars text =
      with
       | Parser.Error ->
           let inner_loc = Position.of_lex lexbuf  in
-          Error.syntax ~loc "Brazil code at %s" (Position.to_string inner_loc)
+          Error.syntax ~loc "Andromeda code at %s" (Position.to_string inner_loc)
       | Failure "lexing: empty token" ->
           let inner_loc = Position.of_lex lexbuf  in
-          Error.syntax ~loc "unrecognized symbol in Brazil literal at %s." (Position.to_string inner_loc)
+          Error.syntax ~loc "unrecognized symbol in Andromeda literal at %s." (Position.to_string inner_loc)
 
 (********************)
 (* Pattern-Matching *)
@@ -210,13 +210,13 @@ and eval ctx env (exp', loc) =
 
   | I.Inj(i,e)  -> I.VInj(i, eval ctx env e), loc
 
-  | I.BrazilTermCode text ->
-      (* Parse the string as a Brazil term *)
-      eval_brazilterm ctx loc text
+  | I.AndromedaTermCode text ->
+      (* Parse the string as a Andromeda term *)
+      eval_andromedaterm ctx loc text
 
-  | I.BrazilTypeCode text ->
-      (* Parse the string as a Brazil type *)
-      eval_braziltype ctx loc text
+  | I.AndromedaTypeCode text ->
+      (* Parse the string as a Andromeda type *)
+      eval_andromedatype ctx loc text
 
   | I.Prim(op, es) ->
       let vs = List.map (eval ctx env) es  in
@@ -232,7 +232,7 @@ and eval ctx env (exp', loc) =
         let (value, insert_depth) = SM.find x env  in
         let current_depth = depth ctx in
         let delta = current_depth - insert_depth in
-        (* The number of brazil variables only goes down when we leave the
+        (* The number of andromeda variables only goes down when we leave the
            scope of a [lambda] computation, which any TT variables at that
            depth should already have gone out of scope. Thus, the shift
            should always be positive (referencing a TT variable created outside
@@ -254,11 +254,11 @@ and eval ctx env (exp', loc) =
   | I.Handler h -> I.VHandler (eval_handler loc h, env), loc
 
 
-(** [eval_brazilterm ctx loc text] takes the string [text] and tries to parse it
-    as a Brazil term relative to [ctx]. The position [loc] is used for
+(** [eval_andromedaterm ctx loc text] takes the string [text] and tries to parse it
+    as a Andromeda term relative to [ctx]. The position [loc] is used for
     error-reporting.
     *)
-and eval_brazilterm ctx loc text =
+and eval_andromedaterm ctx loc text =
         begin
           let skipchars = 1 in  (* skip the opening ` character *)
           let term = parse_literal Parser.topterm loc skipchars text  in
@@ -267,7 +267,7 @@ and eval_brazilterm ctx loc text =
           I.mkVTerm ~loc term
         end
 
-and eval_braziltype ctx loc text =
+and eval_andromedatype ctx loc text =
         begin
           let skipchars = 2 in (* skip the opening t` characters *)
           let term = parse_literal Parser.topty loc skipchars text  in
@@ -460,10 +460,10 @@ and eval_implode ctx env ((v',loc) as v) =
    do [k]. Equivalently, we want to handle the operation, and then do (result of
    [k'], followed by [k]).
 
-   Now it may be that result r was running in an extended Brazil context, and
-   that continuation [k] captures one or more Brazil variables (i.e., is the
-   continuation of something like MkLam that locally introduces Brazil
-   variables) result r is running in an extended Brazil context. If r produces a
+   Now it may be that result r was running in an extended Andromeda context, and
+   that continuation [k] captures one or more Andromeda variables (i.e., is the
+   continuation of something like MkLam that locally introduces Andromeda
+   variables) result r is running in an extended Andromeda context. If r produces a
    value, that's fine. But if it produces an operation, we want to report to the
    handler that the operation was in this extended context, so that the handler
    can similarly run in this extended context.
@@ -874,7 +874,7 @@ and run ctx env  (comp, loc) =
                         else
                           Error.runtime ~loc "Witnesses weren't enough to prove equivalence"
                     | _ ->
-                        Error.runtime ~loc "Brazil could not produce witnesses for the ascription"
+                        Error.runtime ~loc "Andromeda could not produce witnesses for the ascription"
                   )
                  (equiv_ty ctx env u t)
               end

@@ -1,4 +1,4 @@
-(** Brazil main program *)
+(** Andromeda main program *)
 
 (** The location of prelude file *)
 
@@ -16,7 +16,7 @@ let interactive_shell = ref true
 let wrapper = ref (Some ["rlwrap"; "ledit"])
 
 (** The usage message. *)
-let usage = "Usage: brazil [option] ... [file] ..."
+let usage = "Usage: andromeda [option] ... [file] ..."
 
 (** The help text printed when [#help] is used. *)
 let help_text = "Toplevel directives:
@@ -53,13 +53,13 @@ let options = Arg.align [
     " Do not use a command-line wrapper");
   ("--no-prelude",
     Arg.Unit (fun () -> prelude_file := PreludeNone),
-    " Do not load the prelude.br file");
+    " Do not load the prelude.m31 file");
   ("--prelude",
     Arg.String (fun str -> prelude_file := PreludeFile str),
     "<file> Specify the prelude file to load initially");
   ("-v",
     Arg.Unit (fun () ->
-      Format.printf "Brazil %s (%s)@." Config.version Sys.os_type ;
+      Format.printf "Andromeda %s (%s)@." Config.version Sys.os_type ;
       exit 0),
     " Print version information and exit");
   ("-V",
@@ -149,7 +149,7 @@ and use_file ctx (filename, interactive) =
 
 (** Interactive toplevel *)
 let toplevel ctx =
-  Format.printf "Brazil %s@\n[Type #help for help.]@." Config.version ;
+  Format.printf "Andromeda %s@\n[Type #help for help.]@." Config.version ;
   try
     let ctx = ref ctx in
     while true do
@@ -193,7 +193,7 @@ let main =
       | PreludeFile f -> files := (f, false) :: !files
       | PreludeDefault ->
         (* look for prelude next to the executable, don't whine if it is not there *)
-        let f = Filename.concat (Filename.dirname Sys.argv.(0)) "prelude.br" in
+        let f = Filename.concat (Filename.dirname Sys.argv.(0)) "prelude.m31" in
           if Sys.file_exists f
           then files := (f, false) :: !files
   end ;

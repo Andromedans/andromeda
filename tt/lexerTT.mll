@@ -68,8 +68,8 @@ let numeral = ['0'-'9']+
 let start_longcomment = "/*"
 let end_longcomment = "*/"
 
-let brazil_term_code = '`' [^ '`']* '`'
-let brazil_type_code = "t`" [^ '`']* '`'
+let andromeda_term_code = '`' [^ '`']* '`'
+let andromeda_type_code = "t`" [^ '`']* '`'
 
 rule token = parse
   | start_longcomment { comments 0 lexbuf }
@@ -121,15 +121,15 @@ rule token = parse
                             with Not_found -> NAME s
                         }
 
-  | brazil_term_code as s   { (* Strip quotes *)
+  | andromeda_term_code as s   { (* Strip quotes *)
                               let code = String.sub s 1 (String.length s - 2) in
                               incr_linenum_string s lexbuf;
-                              BRAZILTERM code }
+                              ANDROMEDATERM code }
 
-  | brazil_type_code as s   { (* Strip quotes *)
+  | andromeda_type_code as s   { (* Strip quotes *)
                               let code = String.sub s 2 (String.length s - 3) in
                               incr_linenum_string s lexbuf;
-                              BRAZILTYPE code
+                              ANDROMEDATYPE code
                             }
 
   | _ as c              { Error.syntax

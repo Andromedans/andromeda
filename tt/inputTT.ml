@@ -65,8 +65,8 @@ and exp' =
   | Term   of Syntax.term
   | Type   of Syntax.ty
   | Prim of primop * exp list
-  | BrazilTermCode of string
-  | BrazilTypeCode of string
+  | AndromedaTermCode of string
+  | AndromedaTypeCode of string
 
 and computation = computation' * Position.t
 and computation' =
@@ -184,8 +184,8 @@ let rec string_of_exp ctx (exp, _loc) =
   | Const c -> string_of_const c
   | Inj (i,e) -> tag "Inj" [string_of_int i; recur e]
   | Prim (op, es) -> tag "Prim" (string_of_primop op :: List.map recur es)
-  | BrazilTermCode s -> "`" ^ s ^ "`"
-  | BrazilTypeCode s -> "t`" ^ s ^ "`"
+  | AndromedaTermCode s -> "`" ^ s ^ "`"
+  | AndromedaTypeCode s -> "t`" ^ s ^ "`"
 
 and string_of_computation ctx (comp, _loc) =
   let recur = string_of_exp ctx  in
@@ -292,8 +292,8 @@ let rec shift cut delta (exp, loc) =
   | Const _ -> exp
   | Inj (i, exp2) -> Inj(i, recur exp2)
   | Prim(op, es) -> Prim(op, List.map recur es)
-  | BrazilTermCode s -> (Print.warning "Shifting BrazilTermCode has no effect"; exp)
-  | BrazilTypeCode s -> (Print.warning "Shifting BrazilTypeCode has no effect"; exp)
+  | AndromedaTermCode s -> (Print.warning "Shifting AndromedaTermCode has no effect"; exp)
+  | AndromedaTypeCode s -> (Print.warning "Shifting AndromedaTypeCode has no effect"; exp)
    ), loc)
 
 and shiftv cut delta (value, loc) =

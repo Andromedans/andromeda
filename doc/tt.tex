@@ -10,7 +10,7 @@
 
 %%%%%% Macros here %%%%%%
 
-\input brazilmacros
+\input{macros}
 
 
 %% Syntax
@@ -20,7 +20,7 @@
 \newcommand{\X}{X}     % TT (computation) variable
 \newcommand{\rgn}{r}   % region
 \newcommand{\h}{h}     % handler
-\newcommand{\B}{B}     % Brazil term
+\newcommand{\B}{B}     % Andromedan term
 \newcommand{\R}{R}     % Result
 \newcommand{\KK}{{\cal K}} % continuation term with hole
 
@@ -39,15 +39,15 @@
 \newcommand{\new}[2]{\mathsf{new}(#1,#2)} % new(r,T)
 \newcommand{\fun}[1]{\mathsf{fun}\;#1\Rightarrow} % tt-level function
 \newcommand{\ttapp}[2]{#1\,#2} % application
-\newcommand{\ttlam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of Brazilian lambda
+\newcommand{\ttlam}[2]{\lambda #1 \,{:}\, #2 \,.\,} % Kind of galactic lambda
 \newcommand{\kapp}[2]{#1{}[#2]} % continuation application
-\newcommand{\bterm}[1]{\langle\,#1\,\rangle} % brazil (typed) term as data
-\newcommand{\bty}[1]{\langle\,#1\,\rangle} % brazil type as data
+\newcommand{\bterm}[1]{\langle\,#1\,\rangle} % galactic (typed) term as data
+\newcommand{\bty}[1]{\langle\,#1\,\rangle} % galactic type as data
 
 \newcommand{\handler}[6][n]{\mathsf{handler}\; \val #2 \mapsto #3 \mid (\opPat{#4}{#5} \mapsto #6_{#1})_{i=1}^{#1}}
 \newcommand{\fhandler}[8][n]{\mathsf{handler}\; \val #2 \mapsto #3 \mid (\opPat{#4}{#5} \mapsto #6_{#1})_{i=1}^{#1} \mid \mathsf{finally}\; #7\mapsto #8}
 
-\newcommand{\makeApp}[2]{\mathsf{app}(#1,#2)} % introduce a Brazil application
+\newcommand{\makeApp}[2]{\mathsf{app}(#1,#2)} % introduce a galactic application
 \newcommand{\debruijn}[1]{\mathsf{debruijn}\,#1} % ugly hack
 
 
@@ -93,9 +93,9 @@
 \newcommand{\qqquad}{\qquad\quad}     % three quads of space
 \newcommand{\qqqquad}{\qquad\qquad}   % four quads of space
 
-%% Copied from brazil.tex
+%% Copied from andromeda.tex
 
-%% Revised from brazil.tex
+%% Revised from andromeda.tex
 
 \newcommand{\ws}{\vec{w}}
 \newcommand{\maybeDownarrow}[1]{\if\relax\detokenize{#1}\relax \else \Downarrow #1 \fi}
@@ -133,8 +133,8 @@
     \bnfor  & \fun{\X} \C  & \text{Function} \\
     \bnfor  & h           & \text{Handler} \\
     \bnfor  & \cont{\KK} & \text{Continuation value} \\
-    \bnfor  & \bterm{\B}         & \text{Brazilian term} \\
-    \bnfor  & \bty{\T}           & \text{Brazilian type} \\
+    \bnfor  & \bterm{\B}         & \text{Galactic term} \\
+    \bnfor  & \bty{\T}           & \text{Galactic type} \\
     \bnfor  & \generictuple   & \text{Tuple}\\
     \bnfor  & \c              & \text{TT Constant}\\
     \bnfor  & \inj{\e}        & \text{Coproduct}\\[5pt]
@@ -152,9 +152,9 @@
     \bnfor  & \genericprim & \text{Primitive operations}\\
     \bnfor  & \genericmatch& \text{Pattern-match}\\
     \bnfor  & \assertEquivType{\T_1}{\T_2}{\e}{\C} & \text{Run-time Equivalence Check}\\
-    \bnfor  & \debruijn{n} & \text{Build Brazilian term: variable} \\
-    \bnfor  & \ttlam{\x}{\e} \C   & \text{Build Brazilian term: abstraction} \\
-    \bnfor  & \makeApp{\e_1}{\e_2} & \text{Build Brazilian term: application} \\[5pt]
+    \bnfor  & \debruijn{n} & \text{Build galactic term: variable} \\
+    \bnfor  & \ttlam{\x}{\e} \C   & \text{Build galactic term: abstraction} \\
+    \bnfor  & \makeApp{\e_1}{\e_2} & \text{Build galactic term: application} \\[5pt]
 
     \text{Continuation $\KK$} \bnf    & \hole                & \text{Hole} \\
     \bnfor  & \letin{\X = \KK} \C_2  & \text{$\mathsf{let}$-binding} \\
@@ -455,7 +455,7 @@ Judgments:
 
 
 
-%This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Brazil will think
+%This last rule isn't quite right, because if, for example, $\T_1$ and $\T_3$ are Pi types, it's doubtful that Andromeda will think
 %to look for two names $\B''_1\equiv \B''_3$ in the hint database such that $\T_1 = \El{\gamma}{\B''_1}$ and $\T_3 = \El{\gamma}{\B''_3}$
 
 \subsection*{Type Equivalence Search}
@@ -818,7 +818,7 @@ same expressions before invoking the general comparison function.
 
 \begin{mathpar}
 
-  \infer[ok-brazil-term]
+  \infer[ok-galactic-term]
   {
     \isterm{\G}{\B}{\T}
   }
@@ -827,7 +827,7 @@ same expressions before invoking the general comparison function.
   }
 
 
-  \infer[ok-brazil-type]
+  \infer[ok-galactic-type]
   {
     \istype{\G}{\T}
   }

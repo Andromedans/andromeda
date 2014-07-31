@@ -1,4 +1,4 @@
-(** Annotated abstract syntax for Brazilian type theory. *)
+(** Annotated abstract syntax for Andromedan type theory. *)
 
 type name = string
 

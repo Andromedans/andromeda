@@ -114,7 +114,7 @@ let rec exec_cmd interactive (ctx,env) (d, loc) =
                              (InputTT.string_of_value ctx v)
                              (String.concat "," xs)
                       end
-                  | _ -> Error.runtime ~loc "Classifier %s of %s is not a Brazil value@."
+                  | _ -> Error.runtime ~loc "Classifier %s of %s is not a Andromeda value@."
                                (InputTT.string_of_value ctx v)
                                (String.concat "," xs)  in
                 (*let t = Equal.whnf_ty ~use_rws:false ctx t in*)
@@ -245,6 +245,6 @@ let main =
     if !interactive_shell then
       toplevel env
     else
-      () (*Brazil.Verify.verifyContext env*)
+      () (*Andromeda.Verify.verifyContext env*)
   with
     Error.Error err -> Print.error err; exit 1

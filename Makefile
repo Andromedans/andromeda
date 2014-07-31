@@ -2,26 +2,24 @@ OCAMLBUILD_FLAGS = -cflags -g,-annot,"-warn-error +a"
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
-
-
 all: br-smoketest #tt-smoketest
 
 default: tt.byte
 
-brazil.native:
-	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) brazil.native
+andromeda.native:
+	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.native
 
-brazil.byte:
-	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) brazil.byte
+andromeda.byte:
+	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.byte
 
-br-smoketest: brazil.byte
-	./brazil.byte examples/bool.br
-	./brazil.byte examples/nat.br
-	./brazil.byte examples/records.br
-# ./brazil.byte examples/sigma.br
+br-smoketest: andromeda.byte
+	./andromeda.byte examples/bool.m31
+	./andromeda.byte examples/nat.m31
+	./andromeda.byte examples/records.m31
+# ./andromeda.byte examples/sigma.m31
 	@echo
 	@echo "*******************************"
-	@echo "* Brazil Smoke Test succeeded *"
+	@echo "* Andromeda Smoke Test succeeded *"
 	@echo "*******************************"
 	@echo
 
@@ -46,4 +44,4 @@ tt-smoketest: tt.byte
 clean:
 	ocamlbuild -clean
 
-.PHONY: tt-smoketest br-smoketest clean brazil.byte brazil.native tt.byte tt.native
+.PHONY: tt-smoketest br-smoketest clean andromeda.byte andromeda.native tt.byte tt.native
