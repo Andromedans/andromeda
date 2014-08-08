@@ -27,6 +27,7 @@ and term' =
   | Ascribe of term * ty
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
+  | Spine of variable * term list
   | UnitTerm
   | Record of (label * (name * ty * term)) list
   | Project of term * (label * (name * ty)) list * label
@@ -61,6 +62,7 @@ val mkRewrite : ?loc:Position.t -> term -> ty -> term -> term
 val mkAscribe : ?loc:Position.t -> term -> ty -> term
 val mkLambda : ?loc:Position.t -> name -> ty -> ty -> term -> term
 val mkApp : ?loc:Position.t -> name -> ty -> ty -> term -> term -> term
+val mkSpine : ?loc:Position.t -> variable -> term list -> term
 val mkRecord : ?loc:Position.t -> (label * (name * ty * term)) list -> term
 val mkProject : ?loc:Position.t -> term -> (label * (name * ty)) list -> label -> term
 val mkUnitTerm : ?loc:Position.t -> unit -> term

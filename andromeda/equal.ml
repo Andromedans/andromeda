@@ -50,6 +50,41 @@ let tentatively f =
   tentative := old;
   answer
 
+
+
+(*****************)
+(* spine removal *)
+(*****************)
+
+let from_spine ?(loc=Position.nowhere) ctx f es =
+  let rec mkApps fn fnty args =
+    match args with
+    | [] -> fn
+    | arg::args ->
+        match fst fnty with
+        | Syntax.Prod(n, t1, t2) ->
+            (*    f e1 e2 ... en == (f e1) e2 ... en *)
+            let fn' = Syntax.mkApp ~loc n t1 t2 fn arg  in
+            let fn_ty' = Syntax.beta_ty t2 arg  in
+            mkApps fn' fn_ty' args
+        | _ -> Error.runtime ~loc "Spine without a Pi type"
+  in
+    mkApps (Syntax.mkVar ~loc f) (Context.lookup_var f ctx) es
+
+let from_spine_pat ctx f es =
+  let rec mkApps fn fnty args =
+    match args with
+    | [] -> fn
+    | arg::args ->
+        match fst fnty with
+        | Syntax.Prod(n, t1, t2) ->
+            (*    f e1 e2 ... en == (f e1) e2 ... en *)
+            let fn' = Pattern.App ((n, Pattern.Ty t1, Pattern.Ty t2), fn, arg)  in
+            let fn_ty' = Syntax.beta_ty t2 arg  in
+            mkApps fn' fn_ty' args
+        | _ -> Error.runtime ~loc "Spine Pattern without a Pi type"
+  in
+    mkApps (Pattern.Term (Syntax.mkVar f)) (Context.lookup_var f ctx) es
 (***********)
 (* type_of *)
 (***********)
@@ -69,6 +104,9 @@ let rec type_of ctx (exp, loc') =
   | Syntax.Lambda (x, t1, t2, _) -> Syntax.Prod(x, t1, t2), loc
 
   | Syntax.App ((_, _, t2), _, e2) -> Syntax.beta_ty t2 e2
+
+  | Syntax.Spine (f, es) ->
+      type_of ctx (from_spine ~loc:loc' ctx f es)
 
   | Syntax.Record lst ->
     Syntax.RecordTy (List.map (fun (lbl, (x, t, _)) -> (lbl, (x, t))) lst), loc
@@ -129,10 +167,10 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
         | Syntax.NameUnit ->
           Syntax.mkUnit ~loc ()
 
-        | Syntax.NameRecordTy lst 
+        | Syntax.NameRecordTy lst
             when Universe.eq alpha (Universe.maxs (List.map (fun (_,(_,u,_)) -> u) lst)) ->
           Syntax.mkRecordTy ~loc
-            (List.map 
+            (List.map
                (fun (lbl, (x, beta, e)) -> (lbl, (x, Syntax.mkEl ~loc:(snd e) beta e)))
                lst)
 
@@ -160,7 +198,8 @@ let rec whnf_ty ~use_rws ctx ((t',loc) as t) =
 
         (* tynorm-other *)
         | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
-              | Syntax.Lambda _ | Syntax.App _ | Syntax.Record _ | Syntax.Project _
+              | Syntax.Lambda _ | Syntax.App _ | Syntax.Spine _
+              | Syntax.Record _ | Syntax.Project _
               | Syntax.UnitTerm | Syntax.Idpath _ | Syntax.NameRecordTy _
               | Syntax.J _ | Syntax.Refl _ | Syntax.Coerce _ | Syntax.NameProd _
               | Syntax.NameUniverse _ | Syntax.NamePaths _ | Syntax.NameId _) as e' ->
@@ -214,6 +253,8 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
               | _ ->
                 Syntax.mkApp ~loc x u1 u2 e1 e2
         end
+
+      | Syntax.Spine _ -> e0    (* Spines are always in whnf *)
 
       | Syntax.Project (e, lst, lbl) ->
         begin
@@ -440,14 +481,14 @@ and equal_whnf_ty ~use_eqs ~use_rws ctx ((t', tloc) as t) ((u', uloc) as u) =
         equal_ty' ctx t u &&
         equal_term ctx e1 e1' t &&
         equal_term ctx e2 e2' t
-   
+
     | Syntax.RecordTy lst1, Syntax.RecordTy lst2 ->
       let rec fold ctx lst1 lst2 =
         match lst1, lst2 with
           | [], [] -> true
           | (_::_, []) | ([], _::_) -> false
           | (lbl1,(x,t1)) :: lst1, (lbl2,(_,t2)) :: lst2 ->
-            lbl1 = lbl2 && 
+            lbl1 = lbl2 &&
             equal_ty' ctx t1 t2 &&
             (let ctx = Context.add_var x t1 ctx in fold ctx lst1 lst2)
       in
@@ -590,6 +631,13 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
     (* chk-eq-whnf-var *)
     | Syntax.Var i1, Syntax.Var i2 -> i1 = i2
 
+
+    | Syntax.Spine (f1, es1), _ ->
+        equal_whnf ~use_eqs ~use_rws ctx (from_spine ~loc:loc1 ctx f1 es1) e2 t
+
+    | _, Syntax.Spine (f2, es2) ->
+        equal_whnf ~use_eqs ~use_rws ctx e1 (from_spine ~loc:loc2 ctx f2 es2) t
+
     (* chk-eq-whnf-app *)
     | Syntax.App((x, t1, u1), ef1, ex1), Syntax.App((_, t2, u2), ef2, ex2) ->
         if tentatively (fun () -> equal_ty' ctx t1 t2
@@ -622,7 +670,7 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
       lbl1 = lbl2 &&
       equal_ty' ctx (Syntax.mkRecordTy lst1) (Syntax.mkRecordTy lst2) &&
       equal_term ctx e1 e2 (Syntax.mkRecordTy lst1)
-      
+
     (* chk-eq-whnf-idpath *)
     | Syntax.Idpath(t, e1), Syntax.Idpath(u, e2) ->
         equal_ty' ctx t u && equal_term ctx e1 e2 t
@@ -684,7 +732,7 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
             (let ctx = Context.add_var x1 (Syntax.mkEl alpha1 e1) ctx in fold ctx lst1 lst2)
       in
         fold ctx lst1 lst2
-      
+
     (* chk-eq-whnf-unit *)              (** Subsumed by reflexivity check! *)
     (*| Syntax.NameUnit, Syntax.NameUnit -> true *)
 
@@ -730,7 +778,8 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
         true
 
     | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
-      | Syntax.Lambda _ | Syntax.App _ | Syntax.Record _ | Syntax.Project _ 
+      | Syntax.Lambda _ | Syntax.App _
+      | Syntax.Record _ | Syntax.Project _
       | Syntax.Idpath _ | Syntax.J _ | Syntax.Coerce _ | Syntax.NameUnit
       | Syntax.NameRecordTy _ | Syntax.NameProd _ | Syntax.NameUniverse _
       | Syntax.NamePaths _ | Syntax.NameId _), _ ->
@@ -951,8 +1000,31 @@ and match_term k inst l ctx p e t =
         let inst = match_magenta inst (l+1) (Context.add_var x t1 ctx) pt2 t2 in
         let inst = match_term inst l ctx pe2 e2 t1 in
           inst
+      | Syntax.Spine (f,es) ->
+          match_term inst l ctx p (from_spine ctx f es) t
       | _ -> raise Mismatch
     end
+
+  | Pattern.Spine (pf, pes) ->
+      match_term inst l ctx (from_spine_pat ctx pf pes) e t
+(*
+      begin
+        match fst e with
+        | Syntax.Spine (f, es) ->
+            if ( pf <> f || List.length pes <> List.length es ) then
+              raise Mismatch
+            else
+              match_term inst l ctx (from_spine_pat ctx pf pes)
+            begin
+              List.fold_left2 inst (fun inst' p' e' -> match_term inst' l ctx p'
+              e'
+            end
+
+        | Syntax.App _ ->
+          match_term inst l ctx (from_spine_pat ctx pf pes) e t
+        | _ -> raise Mismatch
+      end
+*)
 
   | Pattern.Record plst ->
     let rec fold inst l ctx plst elst =
@@ -1100,7 +1172,7 @@ and as_universe' ~use_rws ctx t =
 
 and as_recordty' ~use_rws ctx t =
   match fst (whnf_ty ~use_rws ctx t) with
-    
+
     | Syntax.RecordTy lst ->
       Some lst
 

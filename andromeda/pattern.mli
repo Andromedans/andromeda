@@ -15,6 +15,7 @@ and term =
   | PVar of int
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
+  | Spine of Syntax.variable * term list
   | Record of (label * (name * ty * term)) list
   | Project of term * (label * (name * ty * term)) list * label
   | Idpath of ty * term

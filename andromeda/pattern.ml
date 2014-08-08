@@ -16,9 +16,10 @@ type ty =
 
 and term =
   | Term of Syntax.term
-  | PVar of int
+  | PVar of Syntax.variable
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
+  | Spine of Syntax.variable * term list
   | Record of (label * (name * ty * term)) list
   | Project of term * (label * (name * ty * term)) list * label
   | Idpath of ty * term
@@ -29,6 +30,11 @@ and term =
   | NameProd of universe * universe * name * term * term
   | NamePaths of universe * term * term * term
   | NameId of universe * term * term * term
+
+
+(***************************)
+(* Translation to patterns *)
+(***************************)
 
 let rec of_ty' k l ((t', loc) as t) =
   match t' with
@@ -120,6 +126,16 @@ and of_term' k l ((e', loc) as e) =
           | Ty t1, Ty t2, Term e -> Term (Syntax.Lambda (x, t1, t2, e), loc)
           | _ -> Lambda (x, t1, t2, e)
         end
+
+    | Syntax.Spine (f, es) ->
+       let es = List.map (of_term' k l) es  in
+       let es_are_terms = List.for_all (function Term e -> true | _ -> false) es  in
+       if es_are_terms then
+         let es = List.map (function Term e -> e | _ -> Error.impossible "of_term'") es  in
+         Term (Syntax.Spine(f, es), loc)
+       else
+         Spine(f, es)
+
 
     | Syntax.App ((x, t1, t2), e1, e2) ->
       let e1 = of_term' k l  e1
@@ -288,7 +304,7 @@ let rec subst_ty inst k = function
         match fold k lst with
           | _, Some lst -> Ty (Syntax.mkRecordTy lst)
           | lst, None -> RecordTy lst
-    end      
+    end
 
   | Prod (x, t1, t2) ->
     let t1 = subst_ty inst k t1
@@ -359,7 +375,7 @@ and subst_term inst k = function
         match fold k lst with
           | _, Some lst -> Term (Syntax.mkRecord lst)
           | lst, None -> Record lst
-    end      
+    end
 
   | Project (e, lst, lbl) ->
     Error.impossible "Pattern.subst_term: projections not implemented"
@@ -433,7 +449,7 @@ and subst_term inst k = function
         match fold k lst with
           | _, Some lst -> Term (Syntax.mkNameRecordTy lst)
           | lst, None -> NameRecordTy lst
-    end      
+    end
 
   | NameProd (alpha, beta, x, e1, e2) ->
     let e1 = subst_term inst k e1

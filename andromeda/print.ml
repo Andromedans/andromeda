@@ -238,6 +238,11 @@ and term ?max_level xs (e,_) ppf =
                            u)))
           (term ~max_level:0 xs e2)
 
+      | Syntax.Spine (f, es) ->
+        print ~at_level:1 "%t@,%t"
+          (term ~max_level:1 xs (Syntax.mkVar f))
+          (sequence (term ~max_level:0 xs) es)
+
       | Syntax.Record lst ->
         print ~at_level:0 "{%t}" (record_fields xs lst)
 

@@ -29,6 +29,7 @@ and term' =
   | Ascribe of term * ty
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
+  | Spine of variable * term list
   | UnitTerm
   | Record of (label * (name * ty * term)) list
   | Project of term * (label * (name * ty)) list * label
@@ -42,6 +43,7 @@ and term' =
   | NameUniverse of universe
   | NamePaths of universe * term * term * term
   | NameId of universe * term * term * term
+
 
 (* Helper functions for construction *)
 
@@ -59,6 +61,7 @@ let mkRewrite ?(loc=Position.nowhere) e1 t e2 = Rewrite(e1,t,e2), loc
 let mkAscribe ?(loc=Position.nowhere) e t = Ascribe(e,t), loc
 let mkLambda ?(loc=Position.nowhere) x t1 t2 e = Lambda(x,t1,t2,e), loc
 let mkApp ?(loc=Position.nowhere) x t1 t2 e1 e2 = App((x,t1,t2),e1,e2), loc
+let mkSpine ?(loc=Position.nowhere) f es = Spine (f, es), loc
 let mkRecord ?(loc=Position.nowhere) lst = Record lst, loc
 let mkProject ?(loc=Position.nowhere) e t lbl = Project (e, t, lbl), loc
 let mkUnitTerm ?(loc=Position.nowhere) () = UnitTerm, loc
@@ -150,10 +153,14 @@ let rec equal ((left',_) as left) ((right',_) as right) =
       && equal term3 term7
       && equal term4 term8
 
+  | Spine (f1, es1), Spine (f2, es2) ->
+         f1 = f2
+      && List.for_all2 equal es1 es2
+
   | Record lst1, Record lst2 ->
     List.length lst1 = List.length lst2 &&
     List.for_all2
-     (fun (lbl1,(_,t1,e1)) (lbl2,(_,t2,e2)) -> 
+     (fun (lbl1,(_,t1,e1)) (lbl2,(_,t2,e2)) ->
        lbl1 = lbl2 && equal_ty t1 t2 && equal e1 e2)
      lst1 lst2
 
@@ -202,7 +209,9 @@ let rec equal ((left',_) as left) ((right',_) as right) =
       && equal term3 term7
       && equal term4 term8
 
-  | (Var _ | Ascribe _ | Lambda _ | App _ | Record _ | Project _
+  | (Var _ | Ascribe _ | Lambda _
+     | App _ | Spine _
+     | Record _ | Project _
      | UnitTerm | Idpath _ | J _ | Refl _ | Coerce _ | NameRecordTy _
      | NameUnit | NameProd _ | NameUniverse _ | NamePaths _| NameId _), _ ->
          false
@@ -279,6 +288,9 @@ let rec transform ftrans bvs ((term', loc) as term) =
           mkApp ~loc name (recurse_ty ty1) (recurse_ty_in_binders 1 ty2)
                 (recurse term1) (recurse term2)
 
+      | Spine (f, es) ->
+          mkSpine ~loc f (List.map recurse es)
+
       | Record lst ->
         let rec fold k = function
           | [] -> []
@@ -300,7 +312,7 @@ let rec transform ftrans bvs ((term', loc) as term) =
         let lst = fold 0 lst
         and e = recurse e
         in
-          mkProject ~loc e lst lbl              
+          mkProject ~loc e lst lbl
 
       | UnitTerm -> mkUnitTerm ~loc ()
 
@@ -588,6 +600,9 @@ let rec occurs k (e, _) =
 
     | App ((_, t, u), e1, e2) -> occurs_ty k t || occurs_ty (k+1) u || occurs k e1 || occurs k e2
 
+    | Spine (f, es) ->
+        k = f || List.exists (occurs k) es
+
     | Record lst ->
       let rec fold k = function
         | [] -> false
@@ -680,6 +695,10 @@ let rec occurrences k (e, _) =
 
     | App ((_, t, u), e1, e2) ->
       occurrences_ty k t + occurrences_ty (k+1) u + occurrences k e1 + occurrences k e2
+
+    | Spine (f, es) ->
+        List.fold_left (+) 0
+          ( (if k = f then 1 else 0) :: List.map (occurrences k) es )
 
     | Record lst ->
       let rec fold k = function
