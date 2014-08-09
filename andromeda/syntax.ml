@@ -29,7 +29,7 @@ and term' =
   | Ascribe of term * ty
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
-  | Spine of variable * term list
+  | Spine of variable * ty * term list
   | UnitTerm
   | Record of (label * (name * ty * term)) list
   | Project of term * (label * (name * ty)) list * label
@@ -60,8 +60,7 @@ let mkEquation ?(loc=Position.nowhere) e1 t e2 = Equation(e1,t,e2), loc
 let mkRewrite ?(loc=Position.nowhere) e1 t e2 = Rewrite(e1,t,e2), loc
 let mkAscribe ?(loc=Position.nowhere) e t = Ascribe(e,t), loc
 let mkLambda ?(loc=Position.nowhere) x t1 t2 e = Lambda(x,t1,t2,e), loc
-let mkApp ?(loc=Position.nowhere) x t1 t2 e1 e2 = App((x,t1,t2),e1,e2), loc
-let mkSpine ?(loc=Position.nowhere) f es = Spine (f, es), loc
+let mkSpine ?(loc=Position.nowhere) f fty es = Spine (f, fty, es), loc
 let mkRecord ?(loc=Position.nowhere) lst = Record lst, loc
 let mkProject ?(loc=Position.nowhere) e t lbl = Project (e, t, lbl), loc
 let mkUnitTerm ?(loc=Position.nowhere) () = UnitTerm, loc
@@ -77,6 +76,15 @@ let mkNamePaths ?(loc=Position.nowhere) u e1 e2 e3 = NamePaths(u,e1,e2,e3), loc
 let mkNameId ?(loc=Position.nowhere) u e1 e2 e3 = NameId(u,e1,e2,e3), loc
 
 
+
+(* XXX. Technically, we ought to check that the application isn't at a "weird" type
+ * before we assume it can be a spine.
+ *)
+let mkApp ?(loc=Position.nowhere) x t1 t2 e1 e2 =
+  match fst e1 with
+  | Var v              -> Spine (v, mkProd ~loc x t1 t2, [e2]), loc
+  | Spine (f, fty, es) -> Spine (f, fty, es @ [e2]), loc
+  | _                  -> App((x,t1,t2),e1,e2), loc
 
 
 (*********************)
@@ -153,8 +161,9 @@ let rec equal ((left',_) as left) ((right',_) as right) =
       && equal term3 term7
       && equal term4 term8
 
-  | Spine (f1, es1), Spine (f2, es2) ->
+  | Spine (f1, fty1, es1), Spine (f2, fty2, es2) ->
          f1 = f2
+      && equal_ty fty1 fty2
       && List.for_all2 equal es1 es2
 
   | Record lst1, Record lst2 ->
@@ -288,8 +297,13 @@ let rec transform ftrans bvs ((term', loc) as term) =
           mkApp ~loc name (recurse_ty ty1) (recurse_ty_in_binders 1 ty2)
                 (recurse term1) (recurse term2)
 
-      | Spine (f, es) ->
-          mkSpine ~loc f (List.map recurse es)
+      | Spine (f, fty, es) ->
+          begin
+            match recurse (mkVar f) with
+            | Var f, _ -> mkSpine ~loc f fty (List.map recurse es)
+            | _ ->
+                Error.impossible "Syntax.transform/Spine"
+          end
 
       | Record lst ->
         let rec fold k = function
@@ -393,11 +407,55 @@ and transform_ty ftrans bvs (ty', loc) =
   | Id(ty1, term1, term2) ->
       mkId ~loc (recurse_ty ty1) (recurse term1) (recurse term2)
 
+(*****************)
+(* spine removal *)
+(*****************)
+
+and fold_left_spine : 'b . Position.t ->
+                            (name -> ty -> ty -> 'b -> term -> 'b) ->
+                            'b -> variable -> ty -> term list -> 'b
+
+  = fun loc funct base f fty es ->
+  let rec loop accum ty = function
+    | []    -> accum
+    | e::es ->
+        match fst ty with
+        | Prod(n, t1, t2) ->
+            let accum' = funct n t1 t2 accum e  in
+            let ty' =  beta_ty t2 e  in
+            loop accum' ty' es
+        | _ -> Error.runtime ~loc "fold_left_spine: Spine without a Pi type"
+  in
+        loop base fty es
+
+and from_spine ?(loc=Position.nowhere) f fty es =
+  fold_left_spine loc (fun n t1 t2 e1 e2 -> App((n,t1,t2),e1,e2),loc) (mkVar ~loc f) f fty es
+
+and fold_left2_spine : 'p 'a .
+                            Position.t ->
+                            (name -> ty -> ty -> 'a -> 'p -> term -> 'a) ->
+                            'a -> variable -> ty -> 'p list -> term list -> 'a
+  = fun loc funct base f fty ps es  ->
+  let rec loop accum ty = function
+    | [], []    -> accum
+    | (p::ps, e::es) ->
+        begin
+          match fst ty with
+            | Prod(n, t1, t2) ->
+                let accum' = funct n t1 t2 accum p e  in
+                let ty' =  beta_ty t2 e  in
+                loop accum' ty' (ps, es)
+            | _ -> Error.runtime ~loc "fold_left2_spine: Spine without a Pi type"
+        end
+    | _, _ -> Error.runtime ~loc "Length mismatch in fold_left2_spine"
+  in
+        loop base fty (ps,es)
+
 (** [shift delta e] is a transformation that adds [delta] to all
     free variable indices in [e].
 *)
 
-let ftrans_shift ?exn delta bvs = function
+and ftrans_shift ?exn delta bvs = function
   | (Var index, loc) as var ->
       if (index < bvs) then
         (* This is a reference to a bound variable; don't transform *)
@@ -420,20 +478,20 @@ let ftrans_shift ?exn delta bvs = function
  * one (native-code) benchmark by 10%.
  *)
 
-let shift ?exn ?(bound=0) delta term =
+and shift ?exn ?(bound=0) delta term =
   if delta = 0 then
     term
   else
     transform (ftrans_shift ?exn delta) bound term
 
-let shift_ty ?exn ?(bound=0) delta ty =
+and shift_ty ?exn ?(bound=0) delta ty =
   if delta = 0 then
     ty
   else
     transform_ty (ftrans_shift ?exn delta) bound ty
 
 
-let ftrans_subst free_index replacement_term bvs = function
+and ftrans_subst free_index replacement_term bvs = function
   | (Var index, loc) as var ->
       if index - bvs = free_index then
         (* It's the variable we're looking for.
@@ -446,8 +504,8 @@ let ftrans_subst free_index replacement_term bvs = function
 (** [subst j e' e] is a transformation that replaces free occurrences
     of variable [j] in [e] (relative to the "outside" of the term) by [e'].
 *)
-let subst    free_index replacement_term = transform    (ftrans_subst free_index replacement_term) 0
-let subst_ty free_index replacement_term = transform_ty (ftrans_subst free_index replacement_term) 0
+and subst    free_index replacement_term = transform    (ftrans_subst free_index replacement_term) 0
+and subst_ty free_index replacement_term = transform_ty (ftrans_subst free_index replacement_term) 0
 
 
 (**************************)
@@ -462,13 +520,13 @@ let subst_ty free_index replacement_term = transform_ty (ftrans_subst free_index
   or to substitute away the parameter in a [Pi] or [Sigma] type ([body] is
   the type of the codomain or second component, respectively).
 *)
-let beta eBody eArg =
+and beta eBody eArg =
   shift (-1) (subst 0 (shift 1 eArg) eBody)
 
-let beta_ty tBody eArg =
+and beta_ty tBody eArg =
   shift_ty (-1) (subst_ty 0 (shift 1 eArg) tBody)
 
-let betas_ty tBody eArgs =
+and betas_ty tBody eArgs =
   let rec betas k t = function
     | [] -> t
     | e :: es ->
@@ -600,8 +658,8 @@ let rec occurs k (e, _) =
 
     | App ((_, t, u), e1, e2) -> occurs_ty k t || occurs_ty (k+1) u || occurs k e1 || occurs k e2
 
-    | Spine (f, es) ->
-        k = f || List.exists (occurs k) es
+    | Spine (f, fty, es) ->
+        k = f || occurs_ty k fty || List.exists (occurs k) es
 
     | Record lst ->
       let rec fold k = function
@@ -696,9 +754,11 @@ let rec occurrences k (e, _) =
     | App ((_, t, u), e1, e2) ->
       occurrences_ty k t + occurrences_ty (k+1) u + occurrences k e1 + occurrences k e2
 
-    | Spine (f, es) ->
+    | Spine (f, fty, es) ->
         List.fold_left (+) 0
-          ( (if k = f then 1 else 0) :: List.map (occurrences k) es )
+          ( (if k = f then 1 else 0) ::
+            occurrences_ty k fty ::
+            List.map (occurrences k) es )
 
     | Record lst ->
       let rec fold k = function

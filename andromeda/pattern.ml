@@ -19,7 +19,7 @@ and term =
   | PVar of Syntax.variable
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
-  | Spine of Syntax.variable * term list
+  | Spine of Syntax.variable * ty * term list
   | Record of (label * (name * ty * term)) list
   | Project of term * (label * (name * ty * term)) list * label
   | Idpath of ty * term
@@ -31,6 +31,17 @@ and term =
   | NamePaths of universe * term * term * term
   | NameId of universe * term * term * term
 
+let mkSpine ?(loc=Position.nowhere) f fty es =
+   let es_are_terms = List.for_all (function Term e -> true | _ -> false) es  in
+   if es_are_terms then
+     match fty with
+     | Ty fty ->
+         let es = List.map (function Term e -> e | _ -> Error.impossible "Pattern.mkSpine") es  in
+         Term (Syntax.Spine(f, fty, es), loc)
+     | _ ->
+         Spine(f, fty, es)
+   else
+     Spine(f, fty, es)
 
 (***************************)
 (* Translation to patterns *)
@@ -127,14 +138,10 @@ and of_term' k l ((e', loc) as e) =
           | _ -> Lambda (x, t1, t2, e)
         end
 
-    | Syntax.Spine (f, es) ->
+    | Syntax.Spine (f, fty, es) ->
+       let fty = of_ty' k l fty  in
        let es = List.map (of_term' k l) es  in
-       let es_are_terms = List.for_all (function Term e -> true | _ -> false) es  in
-       if es_are_terms then
-         let es = List.map (function Term e -> e | _ -> Error.impossible "of_term'") es  in
-         Term (Syntax.Spine(f, es), loc)
-       else
-         Spine(f, es)
+       mkSpine ~loc f fty es
 
 
     | Syntax.App ((x, t1, t2), e1, e2) ->
@@ -392,6 +399,11 @@ and subst_term inst k = function
         | _ -> App ((x, t1, t2), e1, e2)
       end
 
+  | Spine (f, fty, es) ->
+      let fty = subst_ty inst k fty  in
+      let es = List.map (subst_term inst k) es  in
+      mkSpine f fty es
+
   | Idpath (t, e) ->
     let t = subst_ty inst k t
     and e = subst_term inst k e
@@ -546,6 +558,16 @@ and shift k l = function
     and e2 = shift k l e2
     in
       App ((x, t1, t2), e1, e2)
+
+  | Spine (f, fty, es) ->
+    begin
+      match Syntax.shift ~bound:l k (Syntax.mkVar f) with
+      | Syntax.Var f, _ ->
+          let fty = shift_ty k l fty  in
+          let es = List.map (shift k l) es  in
+          Spine (f, fty, es)
+      | _ -> Error.impossible "Pattern.shift/spine"
+    end
 
   | Record lst ->
     let rec fold l = function

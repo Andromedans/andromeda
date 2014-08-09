@@ -27,7 +27,7 @@ and term' =
   | Ascribe of term * ty
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
-  | Spine of variable * term list
+  | Spine of variable * ty * term list
   | UnitTerm
   | Record of (label * (name * ty * term)) list
   | Project of term * (label * (name * ty)) list * label
@@ -62,7 +62,7 @@ val mkRewrite : ?loc:Position.t -> term -> ty -> term -> term
 val mkAscribe : ?loc:Position.t -> term -> ty -> term
 val mkLambda : ?loc:Position.t -> name -> ty -> ty -> term -> term
 val mkApp : ?loc:Position.t -> name -> ty -> ty -> term -> term -> term
-val mkSpine : ?loc:Position.t -> variable -> term list -> term
+val mkSpine : ?loc:Position.t -> variable -> ty -> term list -> term
 val mkRecord : ?loc:Position.t -> (label * (name * ty * term)) list -> term
 val mkProject : ?loc:Position.t -> term -> (label * (name * ty)) list -> label -> term
 val mkUnitTerm : ?loc:Position.t -> unit -> term
@@ -174,3 +174,11 @@ val simplify : term -> term
 
 (** Simplify a type *)
 val simplify_ty : ty -> ty
+
+val from_spine : ?loc:Position.t -> variable -> ty -> term list -> term
+val fold_left_spine : Position.t ->
+                            (name -> ty -> ty -> 'b -> term -> 'b) ->
+                            'b -> variable -> ty -> term list -> 'b
+val fold_left2_spine : Position.t ->
+                            (name -> ty -> ty -> 'b -> 'a -> term -> 'b) ->
+                            'b -> variable -> ty -> 'a list -> term list -> 'b

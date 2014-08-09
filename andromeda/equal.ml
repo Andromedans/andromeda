@@ -52,39 +52,7 @@ let tentatively f =
 
 
 
-(*****************)
-(* spine removal *)
-(*****************)
 
-let from_spine ?(loc=Position.nowhere) ctx f es =
-  let rec mkApps fn fnty args =
-    match args with
-    | [] -> fn
-    | arg::args ->
-        match fst fnty with
-        | Syntax.Prod(n, t1, t2) ->
-            (*    f e1 e2 ... en == (f e1) e2 ... en *)
-            let fn' = Syntax.mkApp ~loc n t1 t2 fn arg  in
-            let fn_ty' = Syntax.beta_ty t2 arg  in
-            mkApps fn' fn_ty' args
-        | _ -> Error.runtime ~loc "Spine without a Pi type"
-  in
-    mkApps (Syntax.mkVar ~loc f) (Context.lookup_var f ctx) es
-
-let from_spine_pat ctx f es =
-  let rec mkApps fn fnty args =
-    match args with
-    | [] -> fn
-    | arg::args ->
-        match fst fnty with
-        | Syntax.Prod(n, t1, t2) ->
-            (*    f e1 e2 ... en == (f e1) e2 ... en *)
-            let fn' = Pattern.App ((n, Pattern.Ty t1, Pattern.Ty t2), fn, arg)  in
-            let fn_ty' = Syntax.beta_ty t2 arg  in
-            mkApps fn' fn_ty' args
-        | _ -> Error.runtime ~loc "Spine Pattern without a Pi type"
-  in
-    mkApps (Pattern.Term (Syntax.mkVar f)) (Context.lookup_var f ctx) es
 (***********)
 (* type_of *)
 (***********)
@@ -105,8 +73,8 @@ let rec type_of ctx (exp, loc') =
 
   | Syntax.App ((_, _, t2), _, e2) -> Syntax.beta_ty t2 e2
 
-  | Syntax.Spine (f, es) ->
-      type_of ctx (from_spine ~loc:loc' ctx f es)
+  | Syntax.Spine (f, fty, es) ->
+      type_of ctx (Syntax.from_spine ~loc:loc' f fty es)
 
   | Syntax.Record lst ->
     Syntax.RecordTy (List.map (fun (lbl, (x, t, _)) -> (lbl, (x, t))) lst), loc
@@ -611,8 +579,11 @@ and equal_ext ~use_eqs ~use_rws ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _)
  *)
 and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
   let count = Common.next() in
-      Print.debug "@[<hv 4>equal_whnf <<%s>> %b %b:@ %t@;<1 -4> and@ %t@ at %t@]"
-            count use_eqs use_rws (print_term ctx e1) (print_term ctx e2)
+      Print.debug "@[<hv 4>equal_whnf <<%s>>%s%s:@ %t@;<1 -4> and@ %t@ at %t@]"
+            count
+            (if use_eqs then " +eqs" else "")
+            (if use_rws then " +rws" else "")
+            (print_term ctx e1) (print_term ctx e2)
             (print_ty ctx t);
   let equal_ty' = equal_ty' ~use_eqs ~use_rws:true
   and equal_term = equal_term ~use_eqs ~use_rws:true
@@ -632,11 +603,11 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
     | Syntax.Var i1, Syntax.Var i2 -> i1 = i2
 
 
-    | Syntax.Spine (f1, es1), _ ->
-        equal_whnf ~use_eqs ~use_rws ctx (from_spine ~loc:loc1 ctx f1 es1) e2 t
+    | Syntax.Spine (f1, fty1, es1), _ ->
+        equal_whnf ~use_eqs ~use_rws ctx (Syntax.from_spine ~loc:loc1 f1 fty1 es1) e2 t
 
-    | _, Syntax.Spine (f2, es2) ->
-        equal_whnf ~use_eqs ~use_rws ctx e1 (from_spine ~loc:loc2 ctx f2 es2) t
+    | _, Syntax.Spine (f2, fty2, es2) ->
+        equal_whnf ~use_eqs ~use_rws ctx e1 (Syntax.from_spine ~loc:loc2 f2 fty2 es2) t
 
     (* chk-eq-whnf-app *)
     | Syntax.App((x, t1, u1), ef1, ex1), Syntax.App((_, t2, u2), ef2, ex2) ->
@@ -1000,31 +971,23 @@ and match_term k inst l ctx p e t =
         let inst = match_magenta inst (l+1) (Context.add_var x t1 ctx) pt2 t2 in
         let inst = match_term inst l ctx pe2 e2 t1 in
           inst
-      | Syntax.Spine (f,es) ->
-          match_term inst l ctx p (from_spine ctx f es) t
+      | Syntax.Spine (f,fty,es) ->
+          match_term inst l ctx p (Syntax.from_spine f fty es) t
       | _ -> raise Mismatch
     end
 
-  | Pattern.Spine (pf, pes) ->
-      match_term inst l ctx (from_spine_pat ctx pf pes) e t
-(*
+  | Pattern.Spine (pf, _, pes) ->
       begin
+        let loc = snd e in
         match fst e with
-        | Syntax.Spine (f, es) ->
-            if ( pf <> f || List.length pes <> List.length es ) then
-              raise Mismatch
-            else
-              match_term inst l ctx (from_spine_pat ctx pf pes)
-            begin
-              List.fold_left2 inst (fun inst' p' e' -> match_term inst' l ctx p'
-              e'
-            end
+        | Syntax.Spine (f, fty, es) when ( pf = f && List.length pes = List.length es) ->
+            Syntax.fold_left2_spine
+              loc
+              (fun n t1 t2 inst p e -> match_term inst l ctx p e t1)
+              inst f fty pes es
 
-        | Syntax.App _ ->
-          match_term inst l ctx (from_spine_pat ctx pf pes) e t
         | _ -> raise Mismatch
       end
-*)
 
   | Pattern.Record plst ->
     let rec fold inst l ctx plst elst =

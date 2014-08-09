@@ -3,7 +3,7 @@
 (** Printing of messages. *)
 
 let verbosity = ref 2
-let annotate = ref false
+let annotate = ref true
 
 let message msg_type v =
   if v <= !verbosity then
@@ -238,10 +238,11 @@ and term ?max_level xs (e,_) ppf =
                            u)))
           (term ~max_level:0 xs e2)
 
-      | Syntax.Spine (f, es) ->
-        print ~at_level:1 "%t@,%t"
+      | Syntax.Spine (f, fty, es) ->
+        print ~at_level:1 "%t @@@@%t %t"
           (term ~max_level:1 xs (Syntax.mkVar f))
-          (sequence (term ~max_level:0 xs) es)
+          (annot (ty ~max_level:4 xs fty))
+          (sequence ~sep:"@@" (term ~max_level:0 xs) es)
 
       | Syntax.Record lst ->
         print ~at_level:0 "{%t}" (record_fields xs lst)
