@@ -178,7 +178,10 @@ val simplify_ty : ty -> ty
 val from_spine : ?loc:Position.t -> variable -> ty -> term list -> term
 val fold_left_spine : Position.t ->
                             (name -> ty -> ty -> 'b -> term -> 'b) ->
-                            'b -> variable -> ty -> term list -> 'b
+                            'b -> ty -> term list -> 'b
 val fold_left2_spine : Position.t ->
                             (name -> ty -> ty -> 'b -> 'a -> term -> 'b) ->
-                            'b -> variable -> ty -> 'a list -> term list -> 'b
+                            'b -> ty -> 'a list -> term list -> 'b
+
+val whnf : ty -> term -> term
+val whnf_ty : ty -> ty

@@ -74,6 +74,7 @@ let rec type_of ctx (exp, loc') =
   | Syntax.App ((_, _, t2), _, e2) -> Syntax.beta_ty t2 e2
 
   | Syntax.Spine (f, fty, es) ->
+      Print.debug "type_of invoking from_spine\n";
       type_of ctx (Syntax.from_spine ~loc:loc' f fty es)
 
   | Syntax.Record lst ->
@@ -224,9 +225,11 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
 
       | Syntax.Spine (f, fty, es) ->
           begin
-            (* match Context.lookup_def f ctx with
+            match Context.lookup_def f ctx with
             | None -> e0
-            | Some _ -> *) whnf ctx t (Syntax.from_spine f fty es)
+            | Some _ ->
+                Print.debug "whnf invoking from_spine\n";
+                whnf ctx t (Syntax.from_spine f fty es)
           end
 
       | Syntax.Project (e, lst, lbl) ->
@@ -359,7 +362,7 @@ and rewrite_term ctx e t =
           | Mismatch ->
               Print.debug "<<%s>> nope" count;
                 match_hints hs
-          (*| Error.Error (_,s1,s2) -> (Print.debug "unexpected Error %s %s" s1 s2; match_hints hs)*)
+          | Error.Error (_,s1,s2) -> (Print.debug "unexpected Error %s %s" s1 s2; match_hints hs)
           | ex -> (Print.debug "unexpected exception %s"
                         (Printexc.to_string ex); match_hints hs)
       end
@@ -608,11 +611,12 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
     (* chk-eq-whnf-var *)
     | Syntax.Var i1, Syntax.Var i2 -> i1 = i2
 
-
     | Syntax.Spine (f1, fty1, es1), _ ->
+        Print.debug "equal_whnf converting left spine with from_spine\n";
         equal_whnf ~use_eqs ~use_rws ctx (Syntax.from_spine ~loc:loc1 f1 fty1 es1) e2 t
 
     | _, Syntax.Spine (f2, fty2, es2) ->
+        Print.debug "equal_whnf converting right spine with from_spine\n";
         equal_whnf ~use_eqs ~use_rws ctx e1 (Syntax.from_spine ~loc:loc2 f2 fty2 es2) t
 
     (* chk-eq-whnf-app *)
@@ -978,6 +982,7 @@ and match_term k inst l ctx p e t =
         let inst = match_term inst l ctx pe2 e2 t1 in
           inst
       | Syntax.Spine (f,fty,es) ->
+          Print.debug "Matching an Pattern.App against a Syntax.spine %t; using from_spine\n" (print_term ctx e);
           match_term inst l ctx p (Syntax.from_spine f fty es) t
       | _ -> raise Mismatch
     end
@@ -987,10 +992,18 @@ and match_term k inst l ctx p e t =
         let loc = snd e in
         match fst e with
         | Syntax.Spine (f, fty, es) when ( pf = f && List.length pes = List.length es) ->
+            Print.debug "Spine vs. Spine: %t@." (print_term ctx e);
+            let answer =
             Syntax.fold_left2_spine
               loc
-              (fun n t1 t2 inst p e -> match_term inst l ctx p e t1)
-              inst f fty pes es
+              (fun n t1 t2 inst p e ->
+                (Print.debug "Spine result will be %t@."
+                     (print_ty ctx (Syntax.whnf_ty (Syntax.beta_ty t2 e)));
+                 match_term inst l ctx p e t1))
+              inst fty pes es
+
+            in Print.debug "finished Spine vs. Spine@.";
+               answer
 
         | _ -> raise Mismatch
       end

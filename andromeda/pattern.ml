@@ -139,10 +139,20 @@ and of_term' k l ((e', loc) as e) =
         end
 
     | Syntax.Spine (f, fty, es) ->
-       let fty = of_ty' k l fty  in
-       let es = List.map (of_term' k l) es  in
-       mkSpine ~loc f fty es
-
+        if f < l then
+           (* Bound variable *)
+           let fty = of_ty' k l fty  in
+           let es = List.map (of_term' k l) es  in
+           mkSpine ~loc f fty es
+        else if f < k + l then
+           (* Pattern variable *)
+           of_term' k l (Syntax.from_spine f fty es)
+        else
+          (* Other variable *)
+           let f = f - k  in
+           let fty = of_ty' k l fty  in
+           let es = List.map (of_term' k l) es  in
+           mkSpine ~loc f fty es
 
     | Syntax.App ((x, t1, t2), e1, e2) ->
       let e1 = of_term' k l  e1

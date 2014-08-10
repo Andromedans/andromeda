@@ -412,9 +412,9 @@ and transform_ty ftrans bvs (ty', loc) =
 
 and fold_left_spine : 'b . Position.t ->
                             (name -> ty -> ty -> 'b -> term -> 'b) ->
-                            'b -> variable -> ty -> term list -> 'b
+                            'b -> ty -> term list -> 'b
 
-  = fun loc funct base f fty es ->
+  = fun loc funct base fty es ->
   let rec loop accum ty = function
     | []    -> accum
     | e::es ->
@@ -428,18 +428,21 @@ and fold_left_spine : 'b . Position.t ->
         loop base fty es
 
 and from_spine ?(loc=Position.nowhere) f fty es =
-  fold_left_spine loc (fun n t1 t2 e1 e2 -> App((n,t1,t2),e1,e2),loc) (mkVar ~loc f) f fty es
+  from_spine' ~loc (mkVar ~loc f) fty es
+
+and from_spine' ?(loc=Position.nowhere) fn fty es =
+  fold_left_spine loc (fun n t1 t2 e1 e2 -> App((n,t1,t2),e1,e2),loc) fn fty es
 
 and fold_left2_spine : 'p 'a .
                             Position.t ->
                             (name -> ty -> ty -> 'a -> 'p -> term -> 'a) ->
-                            'a -> variable -> ty -> 'p list -> term list -> 'a
-  = fun loc funct base f fty ps es  ->
+                            'a -> ty -> 'p list -> term list -> 'a
+  = fun loc funct base fty ps es  ->
   let rec loop accum ty = function
     | [], []    -> accum
     | (p::ps, e::es) ->
         begin
-          match fst ty with
+          match fst (whnf_ty ty) with
             | Prod(n, t1, t2) ->
                 let accum' = funct n t1 t2 accum p e  in
                 let ty' =  beta_ty t2 e  in
