@@ -276,9 +276,10 @@ let rec syn_term ctx ((term', loc) as term) =
             Syntax.mkUniverse ~loc alpha
       end
   in
-      Print.debug "@[<hv 4><<%s>> Term@ %t@;<1 -4> has type@ %t@]@."
+      Print.debug "@[<hv 4><<%s>> Term@ %t@;<1 -4>translates as %t@;<1 -4>with type@ %t@]@."
        count
        (print_input_term ctx term)
+       (print_term ctx (fst answer))
        (print_ty ctx (snd answer));
       answer
 
@@ -289,7 +290,7 @@ and chk_term ctx ((term', loc) as term) t =
 
   let answer =
     begin match term' with
-        
+
       (* chk-eq-hint *)
       | Input.Equation (e1, e4) ->
         begin
@@ -336,7 +337,7 @@ and chk_term ctx ((term', loc) as term) t =
               let lst = fold ctx lst tlst in
                 Syntax.mkRecord ~loc lst
         end
-          
+
       (* chk-syn *)
       | Input.Var _
       | Input.Ascribe _
@@ -353,7 +354,7 @@ and chk_term ctx ((term', loc) as term) t =
       | Input.NameRecordTy _
       | Input.NameProd _
       | Input.NamePaths _
-      | Input.NameId _ -> 
+      | Input.NameId _ ->
         chk_syn ctx term t
     end
   in

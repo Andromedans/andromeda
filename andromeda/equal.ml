@@ -222,7 +222,12 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
                 Syntax.mkApp ~loc x u1 u2 e1 e2
         end
 
-      | Syntax.Spine _ -> e0    (* Spines are always in whnf *)
+      | Syntax.Spine (f, fty, es) ->
+          begin
+            (* match Context.lookup_def f ctx with
+            | None -> e0
+            | Some _ -> *) whnf ctx t (Syntax.from_spine f fty es)
+          end
 
       | Syntax.Project (e, lst, lbl) ->
         begin
@@ -286,9 +291,10 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
     end
   in
     let answer =
-          if use_rws
-          then rewrite_term ctx e t
-          else e
+      match use_rws, fst e with
+      | true, Syntax.Spine _ ->
+          rewrite_term ctx e t
+      | _, _ -> e
     in
     begin
       if (Syntax.equal answer e0) then

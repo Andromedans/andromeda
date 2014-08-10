@@ -44,6 +44,8 @@ Definition mult :=
 
 Definition id := N_ind (fun _ : N => N) 0 (fun (_ : N) (k : N) => S k).
 
+#context 
+
 Definition check_evil :=
    refl (id (id (S (S 0)))) :: S (S 0) == S (S 0).
 

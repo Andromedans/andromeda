@@ -300,9 +300,8 @@ let rec transform ftrans bvs ((term', loc) as term) =
       | Spine (f, fty, es) ->
           begin
             match recurse (mkVar f) with
-            | Var f, _ -> mkSpine ~loc f fty (List.map recurse es)
-            | _ ->
-                Error.impossible "Syntax.transform/Spine"
+            | Var f, _ -> mkSpine ~loc f (recurse_ty fty) (List.map recurse es)
+            | _ -> recurse (from_spine f fty es)
           end
 
       | Record lst ->
@@ -419,7 +418,7 @@ and fold_left_spine : 'b . Position.t ->
   let rec loop accum ty = function
     | []    -> accum
     | e::es ->
-        match fst ty with
+        match fst (whnf_ty ty) with
         | Prod(n, t1, t2) ->
             let accum' = funct n t1 t2 accum e  in
             let ty' =  beta_ty t2 e  in
@@ -450,6 +449,172 @@ and fold_left2_spine : 'p 'a .
     | _, _ -> Error.runtime ~loc "Length mismatch in fold_left2_spine"
   in
         loop base fty (ps,es)
+
+
+and whnf_ty ((t',loc) as t) =
+  begin match t' with
+
+    (* tynorm-el *)
+    | El (alpha, e) ->
+      begin match fst (whnf (mkUniverse ~loc alpha) e) with
+
+        (* tynorm-pi *)
+        | NameProd (beta, gamma, x, e1, e2)
+            when Universe.eq alpha (Universe.max beta gamma) ->
+          let t1 = mkEl ~loc:(snd e1) beta e1 in
+          let t2 = mkEl ~loc:(snd e2) gamma e2 in
+          mkProd ~loc x t1 t2
+
+        (* tynorm-unit *)
+        | NameUnit ->
+          mkUnit ~loc ()
+
+        | NameRecordTy lst
+            when Universe.eq alpha (Universe.maxs (List.map (fun (_,(_,u,_)) -> u) lst)) ->
+          mkRecordTy ~loc
+            (List.map
+               (fun (lbl, (x, beta, e)) -> (lbl, (x, mkEl ~loc:(snd e) beta e)))
+               lst)
+
+        (* tynorm-universe *)
+        | NameUniverse beta
+            when Universe.eq alpha (Universe.succ beta) ->
+          mkUniverse ~loc beta
+
+        (* tynorm-coerce *)
+        | Coerce (beta, gamma, e)
+            when Universe.eq alpha gamma ->
+          whnf_ty (mkEl ~loc:(snd e) beta e)
+
+        (* tynorm-paths *)
+        | NamePaths (beta, e1, e2, e3)
+            when Universe.eq alpha beta ->
+          let t1 = mkEl ~loc:(snd e1) alpha e1  in
+            mkPaths ~loc t1 e2 e3
+
+        (* tynorm-id *)
+        | NameId (beta, e1, e2, e3)
+            when Universe.eq alpha beta ->
+          let t1 = mkEl ~loc:(snd e1) alpha e1  in
+            mkId ~loc t1 e2 e3
+
+        (* tynorm-other *)
+        | (Var _ | Equation _ | Rewrite _ | Ascribe _
+              | Lambda _ | App _ | Spine _
+              | Record _ | Project _
+              | UnitTerm | Idpath _ | NameRecordTy _
+              | J _ | Refl _ | Coerce _ | NameProd _
+              | NameUniverse _ | NamePaths _ | NameId _) as e' ->
+          mkEl ~loc alpha (e', loc)
+      end
+
+    | (Universe _ | RecordTy _ | Unit |
+       Prod _ | Paths _ | Id _) ->
+      t
+  end
+
+and whnf t ((e',loc) as e0) =
+  let e =
+    begin match e' with
+
+      (* norm-var-def *)
+      | Var _ -> e0
+
+      (* norm-equation *)
+      | Equation (_, _, e2) ->
+          whnf t e2
+
+      (* norm-rewrite *)
+      | Rewrite (_, _, e2)  ->
+          whnf t e2
+
+      (* norm-ascribe *)
+      | Ascribe(e, _) ->
+        whnf t e
+
+      | App ((x, u1, u2), e1, e2) ->
+        begin
+          let e1 = whnf (mkProd ~loc x u1 u2) e1 in
+            match fst e1 with
+              (* norm-app-beta *)
+              | Lambda (y, t1, t2, e1')
+                  when equal_ty u1 t1 && equal_ty u2 t2 ->
+                whnf (beta_ty u2 e2) (beta e1' e2)
+
+              (* norm-app-other *)
+              | _ ->
+                mkApp ~loc x u1 u2 e1 e2
+        end
+
+      | Spine _ -> e0    (* Spines are always in whnf *)
+
+      | Project (e, lst, lbl) ->
+        begin
+          let e' = whnf (mkRecordTy lst) e in
+            match fst e' with
+              | Record lst' ->
+                  (* XXX: Was this check necessary? *)
+                (* when (equal_ty (type_of ctx e') (mkRecordTy lst)) -> * *)
+                let rec fold es = function
+                  | [] -> Error.impossible "whnf: invalid projection during whnf"
+                  | (lbl',(_,_,e)) :: lst ->
+                    if lbl = lbl'
+                    then
+                      List.fold_left beta e es
+                    else
+                      fold (e::es) lst
+                in
+                  fold [] lst'
+              | _ ->
+                mkProject e' lst lbl
+        end
+
+      | J (t, (x,y,p,u), (z,e1), e2, e3, e4) ->
+        begin
+          let e2 = whnf (mkPaths ~loc t e3 e4) e2 in
+            match fst e2 with
+              (* norm-J-idpath *)
+              | Idpath (t', e2') when equal_ty t t' ->
+                whnf (betas_ty u [e2; e2'; e2]) (beta e1 e2')
+
+              (* norm-J-other *)
+              | _ ->
+                mkJ ~loc t (x,y,p,u) (z,e1) e2 e3 e4
+        end
+
+      (* norm-coerce-trivial *)
+      | Coerce (alpha, beta, e)
+          when Universe.eq alpha beta ->
+        whnf (mkUniverse ~loc alpha) e
+
+      | Coerce (alpha, beta, e) ->
+        begin match whnf (mkUniverse ~loc alpha) e with
+          (* norm-coerce-trans *)
+          | (Coerce (gamma, delta, e), _) when Universe.eq delta alpha ->
+            if Universe.eq gamma beta
+            then
+              (* norm-coerce-trivial *)
+              e
+            else
+              mkCoerce ~loc gamma beta e
+
+          (* norm-coerce-other *)
+          | e ->
+            mkCoerce ~loc alpha beta e
+        end
+
+      | (Lambda _ | Record _ | UnitTerm | Idpath _ |
+         Refl _ | NameRecordTy _ | NameUnit | NameProd _ |
+         NameUniverse _ | NamePaths _ | NameId _) ->
+        e0
+    end
+  in
+    e
+
+(******************************)
+(* Shifting de Bruijn indices *)
+(******************************)
+
 
 (** [shift delta e] is a transformation that adds [delta] to all
     free variable indices in [e].
