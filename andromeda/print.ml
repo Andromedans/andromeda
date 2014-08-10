@@ -75,7 +75,7 @@ let sequence ?(sep="") f lst ppf =
   let rec seq = function
     | [] -> print ppf ""
     | [x] -> print ppf "%t" (f x)
-    | x :: xs -> print ppf "%t%s@ " (f x) sep ; seq xs
+    | x :: xs -> print ppf "%t%s@\n " (f x) sep ; seq xs
   in
     seq lst
 
@@ -188,7 +188,7 @@ and lambda xs x t u e ppf =
           | Syntax.Lambda (x, t, u, e) -> abstraction xs' x t u e ppf
           | _ -> print ~at_level:0 ppf "=>@ %t" (term ~max_level:4 xs' e)
   in
-    print ~at_level:3 ppf "@[<hov>fun %t@]" (abstraction xs x t u e)
+    print ~at_level:3 ppf "@[<hv 2>fun@ %t@]" (abstraction xs x t u e)
 
 and term ?max_level xs (e,_) ppf =
   let print' = print
@@ -228,7 +228,7 @@ and term ?max_level xs (e,_) ppf =
         print ~at_level:3 "%t" (lambda xs x t u e)
 
       | Syntax.App ((x, t, u), e1, e2) ->
-        print ~at_level:1 "%t@,%t@ %t"
+          print ~at_level:1 "@[<v 2>%t%t@ %t@]"
           (term ~max_level:1 xs e1)
           (annot ~prefix:" @"
              (fun ppf -> print' ~max_level:4 ppf "%s :@ %t .@ %t"
@@ -239,10 +239,10 @@ and term ?max_level xs (e,_) ppf =
           (term ~max_level:0 xs e2)
 
       | Syntax.Spine (f, fty, es) ->
-        print ~at_level:1 "%t @@@@%t %t"
+          print ~at_level:1 "@[<v 2>%t @@@@!%t@ %t@]"
           (term ~max_level:1 xs (Syntax.mkVar f))
           (annot (ty ~max_level:4 xs fty))
-          (sequence ~sep:"@@" (term ~max_level:0 xs) es)
+          (sequence ~sep:" @@ " (term ~max_level:0 xs) es)
 
       | Syntax.Record lst ->
         print ~at_level:0 "{%t}" (record_fields xs lst)

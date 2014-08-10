@@ -362,9 +362,11 @@ and rewrite_term ctx e t =
           | Mismatch ->
               Print.debug "<<%s>> nope" count;
                 match_hints hs
+                (*
           | Error.Error (_,s1,s2) -> (Print.debug "unexpected Error %s %s" s1 s2; match_hints hs)
           | ex -> (Print.debug "unexpected exception %s"
                         (Printexc.to_string ex); match_hints hs)
+                        *)
       end
   in
   let hs = Context.rewrites ctx in
@@ -884,6 +886,7 @@ and match_ty k inst l ctx pt ((t',loc) as t) =
 
 and count_apps = function
   | Syntax.App (_, e, _), _ -> 1 + count_apps e
+  | Syntax.Spine (_, _, es), _ -> List.length es
   | _ -> 0
 
 and count_pattern_apps = function
@@ -894,6 +897,7 @@ and count_pattern_apps = function
         | None   -> None
       end
   | Pattern.PVar _ -> None
+  | Pattern.Spine (_, _, ps) -> Some (List.length ps)
   | Pattern.Term e -> Some (count_apps e)
   | _ -> Some 0
 
@@ -901,9 +905,9 @@ and count_pattern_apps = function
 and match_term k inst l ctx p e t =
   let count = Common.next() in
   let p = (match inst with [] -> p | _ -> Pattern.subst_term inst l p)  in
-  (*Print.debug "match_term, term %t,@ pat %t"   *)
-  (*  (print_term ctx e) (print_pattern ctx k p);*)
-  Print.debug "match_term <<%s>>: %t"
+  (*Print.debug "match_term, term %t,@ pat %t"*)
+    (*(print_term ctx e) (print_pattern ctx k p);*)
+  Print.debug "@[<hv 4>match_term <<%s>>:@ %t@]"
     count (print_term ctx e);
 
   let match_term inst l ctx p e t =
@@ -1004,6 +1008,9 @@ and match_term k inst l ctx p e t =
 
             in Print.debug "finished Spine vs. Spine@.";
                answer
+
+        | Syntax.Spine (f, fty, es) when pf = f && List.length pes < List.length es ->
+            Error.unimplemented "Need to handle the case of spine 'f a b' where 'f a' rewrites!"
 
         | _ -> raise Mismatch
       end
