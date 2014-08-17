@@ -228,7 +228,7 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
             match Context.lookup_def f ctx with
             | None -> e0
             | Some _ ->
-                Print.debug "whnf invoking from_spine\n";
+                (*Print.debug "whnf invoking from_spine\n";*)
                 whnf ctx t (Syntax.from_spine f fty es)
           end
 
@@ -301,7 +301,7 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
     in
     begin
       if (Syntax.equal answer e0) then
-            Print.debug "Term %t was head-normal" (print_term ctx e0)
+            Print.debug ~category:"whnf" "Term %t was head-normal" (print_term ctx e0)
           else
             Print.debug "@[<hv 4>Rewrote@ %t@;<1 -4> to@ %t@]" (print_term ctx e0) (print_term ctx answer);
       answer
@@ -313,11 +313,11 @@ and check_possible_match ctx k e p =
   | Syntax.Spine (f1, fty, es), Pattern.Spine (f2, _, ps) ->
       begin
         if (f1 <> f2) then
-          (Print.debug "check_possible_match: different head variables %d and %d (%d)"
+          (Print.debug ~category:"check_possible_match" "check_possible_match: different head variables %d and %d (%d)"
                f1 f2 k;
           None)
         else if (List.length es < List.length ps) then
-          (Print.debug "check_possible_match: not enough arguments";
+          (Print.debug ~category:"check_possible_match" "check_possible_match: not enough arguments";
           None)
         else
           let rec loop rev_args fixup_fn ty = function
@@ -358,11 +358,11 @@ and check_possible_match ctx k e p =
       end
 
   | Syntax.Spine _, _ ->
-      (Print.debug "check_possible_match: term is a Spine, and not the pattern";
+      (Print.debug ~category:"check_possible_match" "check_possible_match: term is a Spine, and not the pattern";
       None)
 
   | _, Pattern.Spine _ ->
-      (Print.debug "check_possible_match: pattern is a Spine, and not the term";
+      (Print.debug ~category:"check_possible_match" "check_possible_match: pattern is a Spine, and not the term";
       None)
 
   | _, _ -> None
@@ -374,7 +374,7 @@ and check_possible_match ctx k e p =
 
 and rewrite_term ctx (e : Syntax.term) t =
   let count = Common.next()  in
-  Print.debug "@[<hv 4>rewrite_term <<%s>> %d:@ %t@]"
+  Print.debug ~category:"rewrite_term" "@[<hv 4>rewrite_term <<%s>> %d:@ %t@]"
       count (List.length (Context.rewrites ctx)) (print_term ctx e) ;
 
   let match_hint k pt pe1 pe2 =
@@ -386,12 +386,12 @@ and rewrite_term ctx (e : Syntax.term) t =
     match check_possible_match ctx k e pe1 with
     | None ->
         (* Not matching spines *)
-        Print.debug "match_hint: Not a possible match";
+        Print.debug ~category:"match_hint" "match_hint: Not a possible match";
         raise Mismatch
 
     | Some (e, fixup_fn) ->
 
-        Print.debug "match_hints: Spines have consistent heads and lengths";
+        Print.debug ~category:"match_hint" "match_hints: Spines have consistent heads and lengths";
         let inst = []  in
         let inst =  match_term k inst 0 ctx pe1 e t  in
         let _ = Print.debug "match_hint: instantiation succeeded" in
@@ -404,7 +404,7 @@ and rewrite_term ctx (e : Syntax.term) t =
               * We really need to examine the instantiation. Maybe compare
               * Length.list inst and k? *)
 
-             (*let e2 = fixup_fn e2  in*)
+             let e2 = fixup_fn e2  in
              Print.debug "Success! Hint rewrote to %t" (print_term ctx e2);
              e2
            end
@@ -421,7 +421,7 @@ and rewrite_term ctx (e : Syntax.term) t =
     | (k, pt, pe1, pe2) :: hs ->
       let count' = count  in
       begin try
-        Print.debug "@[<hv 4><<%s>> Can we use hint that rewrites@ %t@;<1 -4> to@ %t@]"
+        Print.debug ~category:"match_hints" "@[<hv 4><<%s>> Can we use hint that rewrites@ %t@;<1 -4> to@ %t@]"
             count' (print_pattern ctx k pe1) (print_pattern ctx k pe2);
         let e2 = match_hint k pt pe1 pe2 in
         Print.debug "@[<hv 2><<%s>> rewrote@ %t at@ %t@;<1 -2>to@ %t@;<1 -2> using@ %t and@ %t@]"
@@ -431,7 +431,7 @@ and rewrite_term ctx (e : Syntax.term) t =
           whnf ~use_rws:true ctx t e2
         with
           | Mismatch ->
-              Print.debug "<<%s>> nope" count;
+              Print.debug ~category:"match_hints" "<<%s>> nope" count;
                 match_hints hs
                 (*
           | Error.Error (_,s1,s2) -> (Print.debug "unexpected Error %s %s" s1 s2; match_hints hs)
@@ -442,7 +442,8 @@ and rewrite_term ctx (e : Syntax.term) t =
   in
   let hs = Context.rewrites ctx in
   let answer = match_hints hs  in
-  let _ = Print.debug "rewrite_term returned %t" (print_term ctx answer) in
+  let _ = Print.debug ~category:"rewrite_term" "rewrite_term <<%s>> returned %t"
+              count (print_term ctx answer) in
   answer
 
 
@@ -599,8 +600,11 @@ and equal_ext ~use_eqs ~use_rws ctx ((_, loc1) as e1) ((_, loc2) as e2) ((t', _)
   begin
     let count = Common.next() in
     (*if (not (!tentative)) then*)
-      Print.debug "@[<hv 4>equal_ext <<%s>> %b %b:@ %t@;<1 -4> and@ %t@ at %t@]"
-            count use_eqs use_rws (print_term ctx e1) (print_term ctx e2)
+      Print.debug "@[<hv 4>equal_ext <<%s>>%s%s:@ %t@;<1 -4> and@ %t@ at %t@]"
+            count
+            (if use_eqs then " +eqs" else "")
+            (if use_rws then " +rws" else "")
+            (print_term ctx e1) (print_term ctx e2)
             (print_ty ctx t);
     match t' with
 
@@ -687,6 +691,17 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
     (* Spine comparison would do all this same work anyway. And it would
      * still be better to make it a primitve operation. *)
 
+    | Syntax.Spine (f1, fty1, es1), Syntax.Spine (f2, fty2, es2)
+        when f1 = f2 && List.length es1 = List.length es2 ->
+      let answer =
+            Syntax.fold_left2_spine
+              loc1
+              (fun n t1 t2 is_eq e1 e2 ->
+                 is_eq && equal_term ctx e1 e2 t1)
+              true fty1 es1 es2  in
+      answer
+
+(*
     | Syntax.Spine (f1, fty1, es1), _ ->
         Print.debug "equal_whnf converting left spine with from_spine\n";
         equal_whnf ~use_eqs ~use_rws ctx (Syntax.from_spine ~loc:loc1 f1 fty1 es1) e2 t
@@ -694,6 +709,7 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
     | _, Syntax.Spine (f2, fty2, es2) ->
         Print.debug "equal_whnf converting right spine with from_spine\n";
         equal_whnf ~use_eqs ~use_rws ctx e1 (Syntax.from_spine ~loc:loc2 f2 fty2 es2) t
+        *)
 
     (* chk-eq-whnf-app *)
     | Syntax.App((x, t1, u1), ef1, ex1), Syntax.App((_, t2, u2), ef2, ex2) ->
@@ -835,7 +851,7 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
         true
 
     | (Syntax.Var _ | Syntax.Equation _ | Syntax.Rewrite _ | Syntax.Ascribe _
-      | Syntax.Lambda _ | Syntax.App _
+      | Syntax.Lambda _ | Syntax.App _ | Syntax.Spine _
       | Syntax.Record _ | Syntax.Project _
       | Syntax.Idpath _ | Syntax.J _ | Syntax.Coerce _ | Syntax.NameUnit
       | Syntax.NameRecordTy _ | Syntax.NameProd _ | Syntax.NameUniverse _
@@ -981,7 +997,7 @@ and match_term k inst l ctx p e t =
   let p = (match inst with [] -> p | _ -> Pattern.subst_term inst l p)  in
   (*Print.debug "match_term, term %t,@ pat %t"*)
     (*(print_term ctx e) (print_pattern ctx k p);*)
-  Print.debug "@[<hv 4>match_term <<%s>>:@ %t@]"
+  Print.debug ~category:"match_term" "@[<hv 4>match_term <<%s>>:@ %t@]"
     count (print_term ctx e);
 
   let match_term inst l ctx p e t =
@@ -1076,8 +1092,8 @@ and match_term k inst l ctx p e t =
             Syntax.fold_left2_spine
               loc
               (fun n t1 t2 inst p e ->
-               ( Print.debug "Spine result will be %t@."
-                     (print_ty ctx (Syntax.whnf_ty (Syntax.beta_ty t2 e)));
+               ( (* Print.debug "Spine result will be %t@."
+                     (print_ty ctx (Syntax.whnf_ty (Syntax.beta_ty t2 e))); *)
                  match_term inst l ctx p e t1))
               inst fty pes es
 
