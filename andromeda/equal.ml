@@ -51,7 +51,10 @@ let tentatively f =
   answer
 
 
-
+let _ = Print.displayable := Print.StringSet.add "match_hint" (!(Print.displayable))
+let _ = Print.displayable := Print.StringSet.add "match_hints" (!(Print.displayable))
+let _ = Print.displayable := Print.StringSet.add "rewrite_term" (!(Print.displayable))
+let _ = Print.displayable := Print.StringSet.add "check_possible_match" (!(Print.displayable))
 
 (***********)
 (* type_of *)
@@ -310,6 +313,11 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
 (* For now, we are only looking for rewrites where the LHS is a Spine *)
 and check_possible_match ctx k e p =
   match fst e, p with
+  | Syntax.Spine _, Pattern.Term (Syntax.Spine (f, fty, es), _) ->
+      check_possible_match ctx k e (Pattern.Spine (f,
+                                                   Pattern.Ty fty,
+                                                   List.map (fun e -> Pattern.Term e) es))
+
   | Syntax.Spine (f1, fty, es), Pattern.Spine (f2, _, ps) ->
       begin
         if (f1 <> f2) then
@@ -358,7 +366,7 @@ and check_possible_match ctx k e p =
       end
 
   | Syntax.Spine _, _ ->
-      (Print.debug ~category:"check_possible_match" "check_possible_match: term is a Spine, and not the pattern";
+      (Print.debug ~category:"check_possible_match" "check_possible_match: term is a Spine, and not the pattern@ %t" (print_pattern ctx k p);
       None)
 
   | _, Pattern.Spine _ ->
