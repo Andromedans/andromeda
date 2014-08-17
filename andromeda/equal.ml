@@ -310,13 +310,26 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
       answer
     end
 
+
+(* The question is whether [spine] pattern p matches [spine] term e.  Because we
+ * use this function for rewriting, the question is really whether p matches a
+ * prefix of e. E.g., if p says that "f a" can be rewritten (to x, say), and e
+ * is "f a b", then we want to rewrite "f a b" to "x b".  This function returns
+ * an option. If it's None, then p does not match a prefix of e [or at least one
+ * is not a spine]. If it's Some, we get back the pair (e', g) where e' is the
+ * prefix of e with the same length and head variable as p (though we still to
+ * just check that e' and p match term-wise), and g is a 'fixup' function that
+ * turns e' back into e (by applying the remaining arguments not included in
+ * e'). In the example above, then, e would be "f a" and g would be "fun z =>
+ * mkApp(z,"b")"
+ *)
 (* For now, we are only looking for rewrites where the LHS is a Spine *)
-and check_possible_match ctx k e p =
-  match fst e, p with
-  | Syntax.Spine _, Pattern.Term (Syntax.Spine (f, fty, es), _) ->
-      check_possible_match ctx k e (Pattern.Spine (f,
-                                                   Pattern.Ty fty,
-                                                   List.map (fun e -> Pattern.Term e) es))
+and check_possible_match ctx k e p = match fst e, p with | Syntax.Spine _,
+Pattern.Term (Syntax.Spine (f, fty, es), _) ->
+      (* Reduce the case of comparing two specific spine terms to comparing a
+       * spine against a pattern. *)
+      check_possible_match ctx k e (Pattern.Spine (f, Pattern.Ty fty, List.map
+      (fun e -> Pattern.Term e) es))
 
   | Syntax.Spine (f1, fty, es), Pattern.Spine (f2, _, ps) ->
       begin
