@@ -294,10 +294,10 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
     end
   in
     let answer =
-      match use_rws, fst e with
-      | true, Syntax.Spine _ ->
-          rewrite_term ctx e t
-      | _, _ -> e
+      if use_rws then
+        rewrite_term ctx e t
+      else
+        e
     in
     begin
       if (Syntax.equal answer e0) then
@@ -307,11 +307,72 @@ and whnf ~use_rws ctx t ((e',loc) as e0) =
       answer
     end
 
+(* For now, we are only looking for rewrites where the LHS is a Spine *)
+and check_possible_match ctx k e p =
+  match fst e, p with
+  | Syntax.Spine (f1, fty, es), Pattern.Spine (f2, _, ps) ->
+      begin
+        if (f1 <> f2) then
+          (Print.debug "check_possible_match: different head variables %d and %d (%d)"
+               f1 f2 k;
+          None)
+        else if (List.length es < List.length ps) then
+          (Print.debug "check_possible_match: not enough arguments";
+          None)
+        else
+          let rec loop rev_args fixup_fn ty = function
+            | [], []    ->
+                let loc = snd e in
+                Some (Syntax.mkSpine ~loc f1 fty (List.rev rev_args), fixup_fn)
+
+            | _::ps, e::es ->
+                begin
+                  let loc = snd e  in
+                  match fst (Syntax.whnf_ty ty) with
+                  (*match fst (whnf_ty ~use_rws:false ctx ty) with*)
+                    | Syntax.Prod(n, t1, t2) ->
+                        let rev_args = e :: rev_args  in
+                        let ty       =  Syntax.beta_ty t2 e  in
+                        loop rev_args fixup_fn ty (ps,es)
+
+                    | _ -> Error.runtime ~loc "check_possible_match: Spine without a Pi type (1)"
+                end
+
+            | [], e::es ->
+                begin
+                  let loc = snd e  in
+                  match fst (Syntax.whnf_ty ty) with
+                  (*match fst (whnf_ty ~use_rws:false ctx ty) with*)
+                    | Syntax.Prod(n, t1, t2) ->
+                        (* Non-recursive definition extends fixup_fn! *)
+                        let fixup_fn x = Syntax.mkApp ~loc n t1 t2 (fixup_fn x) e  in
+                        let ty       =  Syntax.beta_ty t2 e  in
+                        loop rev_args fixup_fn ty ([],es)
+
+                    | _ -> Error.runtime ~loc "check_possible_match: Spine without a Pi type (2)"
+                end
+
+            | _, _ -> Error.impossible "check_possible_match: ran out of expressions"
+          in
+            loop [] (fun (x : Syntax.term) -> x) fty (ps,es)
+      end
+
+  | Syntax.Spine _, _ ->
+      (Print.debug "check_possible_match: term is a Spine, and not the pattern";
+      None)
+
+  | _, Pattern.Spine _ ->
+      (Print.debug "check_possible_match: pattern is a Spine, and not the term";
+      None)
+
+  | _, _ -> None
+
+
 (** [rewrite_term ctx e t] rewrites term [e] of type [t] using rewrite hints
     from [ctx]. After rewriting it re-runs weak head-normalization on the
     resulting term. *)
 
-and rewrite_term ctx e t =
+and rewrite_term ctx (e : Syntax.term) t =
   let count = Common.next()  in
   Print.debug "@[<hv 4>rewrite_term <<%s>> %d:@ %t@]"
       count (List.length (Context.rewrites ctx)) (print_term ctx e) ;
@@ -322,27 +383,37 @@ and rewrite_term ctx e t =
     (*    (print_pattern ctx k pe1)                                 *)
     (*    (print_pattern_ty ctx k pt) ;                             *)
 
-    let inst = []  in
-    let inst =  match_term k inst 0 ctx pe1 e t  in
-    let _ = Print.debug "match_hint: instantiation succeeded" in
-    let pe2 = Pattern.subst_term inst 0 pe2  in
-    match pe2 with
-    | Pattern.Term e2 ->
-       begin
-         (* XXX: This is *not* sufficient to detect uninstantiated variables;
-          * only uninstantiated variables used in the right-hand-side.
-          * We really need to examine the instantiation. Maybe compare
-          * Length.list inst and k? *)
+    match check_possible_match ctx k e pe1 with
+    | None ->
+        (* Not matching spines *)
+        Print.debug "match_hint: Not a possible match";
+        raise Mismatch
 
-         Print.debug "Success! Hint rewrote to %t" (print_term ctx e2);
-         e2
-       end
-    | _ ->
-       begin
-         (*Print.debug "Match succeeded, but there were uninstantiated variables";*)
-         (* XXX  Per Jason, backtrack instead of failing here *)
-         raise Mismatch
-       end
+    | Some (e, fixup_fn) ->
+
+        Print.debug "match_hints: Spines have consistent heads and lengths";
+        let inst = []  in
+        let inst =  match_term k inst 0 ctx pe1 e t  in
+        let _ = Print.debug "match_hint: instantiation succeeded" in
+        let pe2 = Pattern.subst_term inst 0 pe2  in
+        match pe2 with
+        | Pattern.Term e2 ->
+           begin
+             (* XXX: This is *not* sufficient to detect uninstantiated variables;
+              * only uninstantiated variables used in the right-hand-side.
+              * We really need to examine the instantiation. Maybe compare
+              * Length.list inst and k? *)
+
+             (*let e2 = fixup_fn e2  in*)
+             Print.debug "Success! Hint rewrote to %t" (print_term ctx e2);
+             e2
+           end
+        | _ ->
+           begin
+             (*Print.debug "Match succeeded, but there were uninstantiated variables";*)
+             (* XXX  Per Jason, backtrack instead of failing here *)
+             raise Mismatch
+           end
   in
   let rec match_hints = function
     | [] ->
@@ -371,7 +442,7 @@ and rewrite_term ctx e t =
   in
   let hs = Context.rewrites ctx in
   let answer = match_hints hs  in
-  (*let _ = Print.debug "rewrite_term returned %t" (print_term ctx answer) in*)
+  let _ = Print.debug "rewrite_term returned %t" (print_term ctx answer) in
   answer
 
 
@@ -612,6 +683,9 @@ and equal_whnf ~use_eqs ~use_rws ctx ((e1', loc1) as e1) ((e2', loc2) as e2) t =
 
     (* chk-eq-whnf-var *)
     | Syntax.Var i1, Syntax.Var i2 -> i1 = i2
+
+    (* Spine comparison would do all this same work anyway. And it would
+     * still be better to make it a primitve operation. *)
 
     | Syntax.Spine (f1, fty1, es1), _ ->
         Print.debug "equal_whnf converting left spine with from_spine\n";
@@ -914,7 +988,7 @@ and match_term k inst l ctx p e t =
         try match_term k inst l ctx p e t
         with Mismatch ->
           begin
-            Print.debug "<<%s>> math_term's match_term trying again with whnf" count;
+            Print.debug "<<%s>> match_term's match_term trying again with whnf" count;
             let e = whnf ~use_rws:true ctx t e in
             match_term k inst l ctx p e t
           end
@@ -996,17 +1070,18 @@ and match_term k inst l ctx p e t =
         let loc = snd e in
         match fst e with
         | Syntax.Spine (f, fty, es) when ( pf = f && List.length pes = List.length es) ->
-            Print.debug "Spine vs. Spine: %t@." (print_term ctx e);
+            Print.debug "@[<v>Spine vs. Spine: %t@ with type %t @]@."
+            (print_term ctx e) (print_ty ctx (Syntax.whnf_ty fty));
             let answer =
             Syntax.fold_left2_spine
               loc
               (fun n t1 t2 inst p e ->
-                (Print.debug "Spine result will be %t@."
+               ( Print.debug "Spine result will be %t@."
                      (print_ty ctx (Syntax.whnf_ty (Syntax.beta_ty t2 e)));
                  match_term inst l ctx p e t1))
               inst fty pes es
 
-            in Print.debug "finished Spine vs. Spine@.";
+            in (* Print.debug "finished Spine vs. Spine@."; *)
                answer
 
         | Syntax.Spine (f, fty, es) when pf = f && List.length pes < List.length es ->
