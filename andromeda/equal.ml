@@ -50,11 +50,12 @@ let tentatively f =
   tentative := old;
   answer
 
-
+(*
 let _ = Print.displayable := Print.StringSet.add "match_hint" (!(Print.displayable))
 let _ = Print.displayable := Print.StringSet.add "match_hints" (!(Print.displayable))
 let _ = Print.displayable := Print.StringSet.add "rewrite_term" (!(Print.displayable))
 let _ = Print.displayable := Print.StringSet.add "check_possible_match" (!(Print.displayable))
+*)
 
 (***********)
 (* type_of *)
