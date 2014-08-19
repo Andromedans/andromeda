@@ -1,4 +1,4 @@
-[![Build Status](https://api.travis-ci.org/andrejbauer/tt.png?branch=master)](https://travis-ci.org/andrejbauer/tt)
+[![Build Status](https://api.travis-ci.org/andrejbauer/andromeda.png?branch=master)](https://travis-ci.org/andrejbauer/andromeda)
 
 A minimalist implementation of type theory in Ocaml. The repository holds
 several branches which correspond to a series of blog posts about
