@@ -1,21 +1,19 @@
-(* We assume the existence of a type D which is equal to its function space. Then we show
-   that D has a fixpoint opreator that computes the fixed point of any function. We also
-   inhabit an arbitrary type. *)
+(* We potulate the existence of a type D which is equal to its function space. Then we show
+   that D has a fixpoint opreator that computes the fixed point of any function. *)
 
-assume D : Universe f0
-assume scott : (D -> D) == D
-equation scott
+Definition Type := Universe 0.
 
-define fix :=
+Parameter D : Type.
+Parameter scott : (D -> D) == D.
+
+(* Fixpoint combinator *)
+Definition fix :=
   fun (f : D -> D) =>
     equation scott in
-      (fun (x : D) => f ((x :: D -> D) x)) (fun (x : D) => f ((x :: D -> D) x))
+      (fun (x : D) => f ((x :: D -> D) x)) (fun (x : D) => f ((x :: D -> D) x)).
 
-(* This seems hard to prove, either Andromeda doesn't get it,
-   or it goes into a loop.
-
-define fix_eq :=
+(* Fixpoint combinator computes fixed ponints. *)
+Definition fix_eq :=
   fun (f : D -> D) =>
-    (refl (fix f) :: f (fix f) == fix f)
-
-*)
+    (refl (fix f) :: f (fix f) == fix f).
+  
