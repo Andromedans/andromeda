@@ -24,9 +24,13 @@ let help_text = "Toplevel directives:
 #help ....... print this help
 #quit ....... exit
 
-assume <ident> ... <ident> : <sort> .... assume variable <ident> has sort <sort>
-define <ident> := <expr>          ...... define <ident> to be <expr>
-define <ident> : <type> := <expr> ...... define <ident> to be <expr> of <type>
+Parameter <ident> ... <ident> : <sort>.  .... assume variable <ident> has sort <sort>
+Definition <ident> := <expr>.            .... define <ident> to be <expr>
+Definition <ident> : <type> := <expr>.   .... define <ident> to be <expr> of <type>
+Equation e.                              .... install a global equation hint
+Rewrite e.                               .... install a global rewrite hint
+
+The syntax is vaugely Coq-like. The strict equalit is written with a double ==.
 " ;;
 
 (** A list of files to be loaded and run, together with information on whether they should
@@ -59,7 +63,7 @@ let options = Arg.align [
     "<file> Specify the prelude file to load initially");
   ("-v",
     Arg.Unit (fun () ->
-      Format.printf "Andromeda %s (%s)@." Config.version Sys.os_type ;
+      Format.printf "Andromeda %s (%s)@." Version.version Sys.os_type ;
       exit 0),
     " Print version information and exit");
   ("-V",
@@ -149,7 +153,7 @@ and use_file ctx (filename, interactive) =
 
 (** Interactive toplevel *)
 let toplevel ctx =
-  Format.printf "Andromeda %s@\n[Type #help for help.]@." Config.version ;
+  Format.printf "Andromeda %s@\n[Type #help for help.]@." Version.version ;
   try
     let ctx = ref ctx in
     while true do

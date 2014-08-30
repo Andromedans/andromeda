@@ -9,7 +9,7 @@ default: tt.byte
 andromeda.native:
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.native
 
-andromeda.byte:
+andromeda.byte: andromeda/version.ml
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.byte
 
 m31-smoketest: andromeda.byte
@@ -22,6 +22,11 @@ m31-smoketest: andromeda.byte
 	@echo "* Andromeda Smoke Test succeeded *"
 	@echo "**********************************"
 	@echo
+
+andromeda/version.ml:
+	/bin/echo -n 'let version="' > andromeda/version.ml
+	git describe --always --long | tr -d '\n' >> andromeda/version.ml
+	/bin/echo '";;' >> andromeda/version.ml
 
 tt.native:
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) tt.native
@@ -44,4 +49,4 @@ tt-smoketest: tt.byte
 clean:
 	ocamlbuild -clean
 
-.PHONY: tt-smoketest m31-smoketest clean andromeda.byte andromeda.native tt.byte tt.native
+.PHONY: andromeda/version.ml tt-smoketest m31-smoketest clean andromeda.byte andromeda.native tt.byte tt.native
