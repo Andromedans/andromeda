@@ -24,9 +24,9 @@ let help_text = "Toplevel directives:
 #help ....... print this help
 #quit ....... exit
 
-assume <ident> ... <ident> : <sort> .... assume variable <ident> has sort <sort>
-define <ident> := <expr>          ...... define <ident> to be <expr>
-define <ident> : <type> := <expr> ...... define <ident> to be <expr> of <type>
+Parameter <ident> ... <ident> : <sort> .   (assume identifiers have sort <sort>)
+Definition <ident> := <expr> .             (define <ident> to be <expr>)
+Definition <ident> : <type> := <expr> .    (define <ident> to be <expr> of <type>)
 " ;;
 
 (** A list of files to be loaded and run, together with information on whether they should
@@ -42,32 +42,41 @@ let wrapper = ref (Some ["rlwrap"; "ledit"])
 
 (** Command-line options *)
 let options = Arg.align [
+
   ("--annotate",
    Arg.Set Print.annotate,
    "print type annotations");
+
   ("--wrapper",
     Arg.String (fun str -> wrapper := Some [str]),
     "<program> Specify a command-line wrapper to be used (such as rlwrap or ledit)");
+
   ("--no-wrapper",
     Arg.Unit (fun () -> wrapper := None),
     " Do not use a command-line wrapper");
+
   ("--no-prelude",
     Arg.Unit (fun () -> prelude_file := PreludeNone),
     " Do not load the prelude.m31 file");
+
   ("--prelude",
     Arg.String (fun str -> prelude_file := PreludeFile str),
     "<file> Specify the prelude file to load initially");
+
   ("-v",
     Arg.Unit (fun () ->
       Format.printf "Andromeda %s (%s)@." Config.version Sys.os_type ;
       exit 0),
     " Print version information and exit");
+
   ("-V",
    Arg.Int (fun k -> Print.verbosity := k),
    "<int> Set verbosity level");
+
   ("-n",
     Arg.Clear interactive_shell,
     " Do not run the interactive toplevel");
+
   ("-l",
     Arg.String (fun str -> add_file false str),
     "<file> Load <file> into the initial environment");
@@ -93,40 +102,42 @@ let parse parse lex =
 let rec exec_cmd interactive ctx (d, loc) =
   let names = Context.names ctx in
   match d with
+
     | Input.Assume (xs, t) ->
         let t = Debruijn.ty names t in
         let t = Typing.is_type ctx t  in
         let t = Syntax.simplify_ty t  in
-          if interactive then
-            begin
-              List.iter (fun x -> Format.printf "%s is assumed.@\n" x) xs ;
-              Format.printf "@."
-            end ;
-          fst (List.fold_left
+        (if interactive then
+          begin
+            List.iter (fun x -> Format.printf "%s is assumed.@\n" x) xs ;
+            Format.printf "@."
+          end) ;
+        fst (List.fold_left
                  (fun (ctx,t) x -> (Context.add_var x t ctx, Syntax.shift_ty 1 t))
                  (ctx, t)
                  xs)
+
     | Input.Define (x, e) ->
-      let e = Debruijn.term names e in
-      let e,t = Typing.syn_term ctx e in
-      let e = Syntax.simplify e  in
-      let t = Syntax.simplify_ty t  in
+        let e = Debruijn.term names e in
+        let e,t = Typing.syn_term ctx e in
+        let e = Syntax.simplify e  in
+        let t = Syntax.simplify_ty t  in
         if interactive then Format.printf "%s is defined.@\n@." x ;
         Context.add_def x t e ctx
 
     | Input.TopRewrite e ->
-      let e = Debruijn.term names e in
-      let e, t = Typing.syn_term ctx e in
-      let h = Equal.as_hint ctx e t in
-      let ctx = Context.add_rewrite h ctx in
+        let e = Debruijn.term names e in
+        let e, t = Typing.syn_term ctx e in
+        let h = Equal.as_hint ctx e t in
+        let ctx = Context.add_rewrite h ctx in
         if interactive then Format.printf "Rewrite added.@\n@." ;
         ctx
 
     | Input.TopEquation e ->
-      let e = Debruijn.term names e in
-      let e, t = Typing.syn_term ctx e in
-      let h = Equal.as_hint ctx e t in
-      let ctx = Context.add_equation h ctx in
+        let e = Debruijn.term names e in
+        let e, t = Typing.syn_term ctx e in
+        let h = Equal.as_hint ctx e t in
+        let ctx = Context.add_equation h ctx in
         if interactive then Format.printf "Equation added.@\n@." ;
         ctx
 
@@ -184,7 +195,7 @@ let main =
                  with Unix.Unix_error _ -> ())
               lst
     end ;
-  (* Files were listed in the wrong order, so we reverse them *)
+  (* Files were accumulated in the wrong order, so we reverse them *)
   files := List.rev !files;
   (* Should we load the prelude file? *)
   begin
