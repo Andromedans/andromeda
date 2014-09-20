@@ -2,26 +2,31 @@ OCAMLBUILD_FLAGS = -cflags -g,-annot,"-warn-error +a"
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
-all: br-smoketest #tt-smoketest
+all: m31-smoketest #tt-smoketest
 
 default: tt.byte
 
 andromeda.native:
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.native
 
-andromeda.byte:
+andromeda.byte: andromeda/version.ml
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.byte
 
-br-smoketest: andromeda.byte
+m31-smoketest: andromeda.byte
 	./andromeda.byte examples/bool.m31
 	./andromeda.byte examples/nat.m31
 	./andromeda.byte examples/records.m31
 # ./andromeda.byte examples/sigma.m31
 	@echo
-	@echo "*******************************"
+	@echo "**********************************"
 	@echo "* Andromeda Smoke Test succeeded *"
-	@echo "*******************************"
+	@echo "**********************************"
 	@echo
+
+andromeda/version.ml:
+	/bin/echo -n 'let version="' > andromeda/version.ml
+	git describe --always --long | tr -d '\n' >> andromeda/version.ml
+	/bin/echo '";;' >> andromeda/version.ml
 
 tt.native:
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) tt.native
@@ -44,4 +49,4 @@ tt-smoketest: tt.byte
 clean:
 	ocamlbuild -clean
 
-.PHONY: tt-smoketest br-smoketest clean andromeda.byte andromeda.native tt.byte tt.native
+.PHONY: andromeda/version.ml tt-smoketest m31-smoketest clean andromeda.byte andromeda.native tt.byte tt.native
