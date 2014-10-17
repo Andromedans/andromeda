@@ -4,12 +4,12 @@ OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 
 all: m31-smoketest #tt-smoketest
 
-default: tt.byte
+default: andromeda.byte
 
 andromeda.native:
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.native
 
-andromeda.byte: andromeda/version.ml
+andromeda.byte: src/version.ml
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.byte
 
 m31-smoketest: andromeda.byte
@@ -23,30 +23,12 @@ m31-smoketest: andromeda.byte
 	@echo "**********************************"
 	@echo
 
-andromeda/version.ml:
-	/bin/echo -n 'let version="' > andromeda/version.ml
-	git describe --always --long | tr -d '\n' >> andromeda/version.ml
-	/bin/echo '";;' >> andromeda/version.ml
-
-tt.native:
-	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) tt.native
-
-tt.byte:
-	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) tt.byte
-
-tt-smoketest: tt.byte
-	./tt.byte examples/eff.tt
-	./tt.byte examples/literals.tt
-	./tt.byte examples/nat.tt
-	./tt.byte examples/equality.tt
-	@echo
-	@echo "***************************"
-	@echo "* TT Smoke Test succeeded *"
-	@echo "***************************"
-	@echo
-
+src/version.ml:
+	/bin/echo -n 'let version="' > src/version.ml
+	git describe --always --long | tr -d '\n' >> src/version.ml
+	/bin/echo '";;' >> src/version.ml
 
 clean:
 	ocamlbuild -clean
 
-.PHONY: andromeda/version.ml tt-smoketest m31-smoketest clean andromeda.byte andromeda.native tt.byte tt.native
+.PHONY: src/version.ml m31-smoketest clean andromeda.byte andromeda.native
