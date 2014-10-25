@@ -1,7 +1,4 @@
-(********************)
 (* Helper Functions *)
-(********************)
-
 
 let print_ty ctx t =
   Print.ty (Context.names ctx) t
@@ -9,11 +6,9 @@ let print_ty ctx t =
 let print_term ctx term =
   Print.term (Context.names ctx) term
 
-(* It's important to eta-expand the next two functions, because they're
- * expensive, and we don't want to do all the administrative computation
- * if debugging output has been disabled (so that this function will never
- * be applied to a ppf argument).
- *)
+(** It's important to eta-expand the next two functions, because they're expensive, and we
+    don't want to do all the administrative computation if debugging output has been
+    disabled (so that this function will never be applied to a ppf argument). *)
 
 let print_pattern ctx k p ppf =
   let rec names i =

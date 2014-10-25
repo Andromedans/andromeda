@@ -1,12 +1,12 @@
 (** Andromeda main program *)
 
-(** The location of prelude file *)
-
+(** Possible locations of prelude file *)
 type prelude =
   | PreludeNone
   | PreludeDefault
   | PreludeFile of string
 
+(** Location of the prelude file *)
 let prelude_file = ref PreludeDefault
 
 (** Should the interactive shell be run? *)
