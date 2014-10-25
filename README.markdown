@@ -8,7 +8,7 @@ Andromeda is an experimental implementation of dependent type theory which suppo
 * a *strict* equality type `a == b` with an equality reflection rule
 * an identity type `a = b` from Martin-Löf intensional type theory
 
-The reflection rule allows the user to define new equality compuation rules (which we call
+The reflection rule allows the user to define new equality computation rules (which we call
 *rewrite* rules), as well give the type checker general equality hints. This allows the
 user to define types (such as the natural numbers, booleans, propositional truncation from
 homotopy type theory, and others) *and* impose computation rules for them.
