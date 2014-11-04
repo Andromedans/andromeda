@@ -1,12 +1,28 @@
-(** Synthesize the type of a term *)
-val syn_term : Context.t -> Common.debruijn Input.term -> Syntax.term * Syntax.ty
+type 'a cont = ('a -> 'b) -> 'b
 
-(** Check the type of a term *)
-val chk_term : Context.t -> Common.debruijn Input.term -> Syntax.ty -> Syntax.term
+(** A valid type *)
+type ty
 
-(** Synthesize an annotated type *)
-val is_type : Context.t -> Common.debruijn Input.ty -> Syntax.ty
+(** The fact that a given term has a given type *)
+type judge
 
-(** Synthesize a fibered annotated type *)
-val is_fibered : Context.t -> Common.debruijn Input.ty -> Syntax.ty
+(** Is a given term a type, and if so, convert it to a type. *)
+val is_type : Syntax.context -> Syntax.term -> judge_ty cont
 
+(** Check that the given term has the given type. *)
+val check : Syntax.context -> judge -> judge_ty -> judge cont
+
+(** Synthesize a name. *)
+val syn_name : Syntax.context -> Common.name -> judge
+
+(** Synthesize an ascription. *)
+val syn_ascribe : Syntax.context -> judge -> judge_ty -> judge
+
+(** Synthesize an application. *)
+val syn_app : Syntax.context -> judge -> judge -> judge cont
+
+(** Synthesize a lambda. *)
+val syn_lambda : Syntax.context -> Common.name -> judge_ty -> Input.term -> judge cont
+
+(** Synthesize an application. *)
+val syn_app : Syntax.context -> judge -> Input.term -> 

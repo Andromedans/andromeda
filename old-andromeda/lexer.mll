@@ -4,15 +4,22 @@
   open Parser
 
   let reserved = [
-    ("Check", TOPCHECK) ;
-    ("Let", TOPLET) ;
-    ("let", LET) ;
-    ("Parameter", PARAMETER) ;
+    ("as", AS) ;
+    ("Parameter", ASSUME ) ;
+    ("coerce", COERCE) ;
+    ("Definition", DEFINE) ;
+    ("Equation", TOPEQUATION) ;
+    ("equation", EQUATION) ;
     ("forall", FORALL) ;
     ("fun", FUN) ;
+    ("idpath", IDPATH) ;
     ("in", IN) ;
+    ("J", IND_PATH);
     ("refl", REFL) ;
-    ("Type", TYPE) ;
+    ("Rewrite", TOPREWRITE) ;
+    ("rewrite", REWRITE) ;
+    ("unit", UNIT) ;
+    ("Universe", UNIVERSE) ;
   ]
 
 }
@@ -30,22 +37,35 @@ rule token = parse
   | start_longcomment { comments 0 lexbuf }
 
   | '\n'                { Lexing.new_line lexbuf; token lexbuf }
+  | "//"[^'\n']*        { token lexbuf }
   | [' ' '\r' '\t']     { token lexbuf }
   | "#context"          { CONTEXT }
   | "#help"             { HELP }
   | "#quit"             { QUIT }
+  | "#verbose" [' ' '\t']* (numeral as s)
+                        { VERBOSE (int_of_string s) }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
+  | '['                 { LBRACK }
+  | ']'                 { RBRACK }
+  | '{'                 { LBRACE }
+  | '}'                 { RBRACE }
+  | "."                 { DOT }
   | ':'                 { COLON }
   | ":="                { COLONEQ }
   | "::"                { ASCRIBE }
+  | ';'                 { SEMICOLON }
   | ','                 { COMMA }
-  | '.'                 { DOT }
-  | '_'                 { UNDERSCORE }
   | "->"                { ARROW }
   | "=>"                { DARROW }
+  | "="                 { EQ }
   | "=="                { EQEQ }
+  | "_"                 { UNDERSCORE }
   | eof                 { EOF }
+
+  | project             { let s = Lexing.lexeme lexbuf in
+                            PROJECT (String.sub s 1 (String.length s - 1))
+                        }
 
   | (name | numeral)
                         { let s = Lexing.lexeme lexbuf in

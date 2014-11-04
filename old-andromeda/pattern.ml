@@ -4,11 +4,9 @@ type label = Syntax.label
 
 type name = Syntax.name
 
-type universe = Universe.t
-
 type ty =
   | Ty of Syntax.ty
-  | El of universe * term
+  | El of term
   | RecordTy of (label * (name * ty)) list
   | Prod of name * ty * ty
   | Paths of ty * term * term
@@ -22,14 +20,7 @@ and term =
   | Spine of Syntax.variable * ty * term list
   | Record of (label * (name * ty * term)) list
   | Project of term * (label * (name * ty * term)) list * label
-  | Idpath of ty * term
-  | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of ty * term
-  | Coerce of universe * universe * term
-  | NameRecordTy of (label * (name * universe * term)) list
-  | NameProd of universe * universe * name * term * term
-  | NamePaths of universe * term * term * term
-  | NameId of universe * term * term * term
 
 let mkSpine ?(loc=Position.nowhere) f fty es =
    let es_are_terms = List.for_all (function Term e -> true | _ -> false) es  in

@@ -1,8 +1,6 @@
 type name = string
 
-type debruijn = int
+(** Bound variables are represented by de Bruijn indices *)
+type bound = int
 
-let next =
-  (* Hide the counter in the closure *)
-  let counter = ref 0  in
-  fun () -> (incr counter ; string_of_int (!counter))
+let eqname (s : name) (t : name) = (s = t)

@@ -2,7 +2,7 @@ OCAMLBUILD_FLAGS = -cflags -g,-annot,"-warn-error +a"
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
-all: m31-smoketest #tt-smoketest
+all: andromeda.byte
 
 default: andromeda.byte
 

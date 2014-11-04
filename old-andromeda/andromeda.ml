@@ -25,7 +25,10 @@ let help_text = "Toplevel directives:
 #quit ....... exit
 
 Parameter <ident> ... <ident> : <sort> .     assume variable <ident> has sort <sort>
-Let <ident> := <expr> .                      define <ident> to be <expr>
+Definition <ident> := <expr> .               define <ident> to be <expr>
+Definition <ident> : <type> := <expr> .      define <ident> to be <expr> of <type>
+Equation e .                                 install a global equation hint
+Rewrite e .                                  install a global rewrite hint
 
 The syntax is vaguely Coq-like. The strict equalit is written with a double ==.
 " ;;
@@ -70,6 +73,10 @@ let options = Arg.align [
       exit 0),
     " Print version information and exit");
 
+  ("-V",
+   Arg.Int (fun k -> Print.verbosity := k),
+   "<int> Set verbosity level");
+
   ("-n",
     Arg.Clear interactive_shell,
     " Do not run the interactive toplevel");
@@ -97,32 +104,45 @@ let parse parse lex =
 (** [exec_cmd ctx d] executes toplevel directive [d] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
 let rec exec_cmd interactive ctx (d, loc) =
+  let names = Context.names ctx in
   match d with
 
-    | Input.Parameter (xs, t) ->
-      let t = Eval.is_type ctx t in
-      let ctx =
-        List.fold_left
-          (fun ctx x -> 
-            let ctx = Context.add_free x t ctx in
-              if interactive then Format.printf "%s is assumed.@\n" x ;
-              ctx)
-          ctx
-          xs
-      in
-        Format.printf "@." ;
-        ctx
+    | Input.Assume (xs, t) ->
+        let t = Debruijn.ty names t in
+        let t = Typing.is_type ctx t  in
+        let t = Syntax.simplify_ty t  in
+        (if interactive then
+          begin
+            List.iter (fun x -> Format.printf "%s is assumed.@\n" x) xs ;
+            Format.printf "@."
+          end) ;
+        fst (List.fold_left
+                 (fun (ctx,t) x -> (Context.add_var x t ctx, Syntax.shift_ty 1 t))
+                 (ctx, t)
+                 xs)
 
-    | Input.TopLet (x, c) ->
-      let v = Eval.ceval ctx c in
-      let ctx = Context.add_value x v ctx in
+    | Input.Define (x, e) ->
+        let e = Debruijn.term names e in
+        let e,t = Typing.syn_term ctx e in
+        let e = Syntax.simplify e  in
+        let t = Syntax.simplify_ty t  in
         if interactive then Format.printf "%s is defined.@\n@." x ;
+        Context.add_def x t e ctx
+
+    | Input.TopRewrite e ->
+        let e = Debruijn.term names e in
+        let e, t = Typing.syn_term ctx e in
+        let h = Equal.as_hint ctx e t in
+        let ctx = Context.add_rewrite h ctx in
+        if interactive then Format.printf "Rewrite added.@\n@." ;
         ctx
 
-    | Input.TopCheck c ->
-      let v = Eval.ceval ctx c in
-      let xs = Context.names ctx in 
-        Format.printf "%t" (Print.value xs v) ;
+    | Input.TopEquation e ->
+        let e = Debruijn.term names e in
+        let e, t = Typing.syn_term ctx e in
+        let h = Equal.as_hint ctx e t in
+        let ctx = Context.add_equation h ctx in
+        if interactive then Format.printf "Equation added.@\n@." ;
         ctx
 
     | Input.Context ->
@@ -130,6 +150,9 @@ let rec exec_cmd interactive ctx (d, loc) =
 
     | Input.Help ->
       Format.printf "%s" help_text ; ctx
+
+    | Input.Verbose n ->
+        Print.verbosity := n; ctx
 
     | Input.Quit ->
       exit 0
