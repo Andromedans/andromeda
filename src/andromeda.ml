@@ -121,12 +121,12 @@ let rec exec_cmd interactive ctx (d, loc) =
 
     | Input.TopCheck c ->
       let v = Eval.ceval ctx c in
-      let xs = Context.names ctx in 
-        Format.printf "%t" (Print.value xs v) ;
+        Format.printf "%t" (Print.value ctx v) ;
         ctx
 
     | Input.Context ->
-        Context.print ctx ; ctx
+        Format.printf "%t" (Print.context ctx) ;
+        ctx
 
     | Input.Help ->
       Format.printf "%s" help_text ; ctx

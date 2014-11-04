@@ -24,24 +24,25 @@ let rec syn_term ctx (e,loc) =
       let t1 = is_type ctx t in
       let ctx = Context.add_free x t1 ctx in
       let (e, t2) = syn_term ctx e in
-      let t2 = Syntax.abstract x t2 in
+      let t2 = Syntax.abstract_ty x t2 in
+      let e = Syntax.abstract x e in
       let e' = Syntax.mk_lambda ~loc x t1 t2 e
       and t' = Syntax.mk_prod ~loc x t1 t2 in
         (e', t')
 
     | Input.App (e1, e2) ->
       let (e1, t1) = syn_term ctx e1 in
-      let (x, t11, t12) = as_prod ctx t1 in
+      let (x, t11, t12) = Equal.as_prod ctx t1 in
       let e2 = check_term ctx e2 t11 in
       let e' = Syntax.mk_app ~loc x t11 t12 e1 e2
-      and t' = Syntax.instantiate_ty e1 t12 in
+      and t' = Syntax.instantiate_ty e2 t12 in
         (e', t')
 
     | Input.Prod (x, t1, t2) ->
       let t1 = is_type ctx t1 in
       let ctx = Context.add_free x t1 ctx in
       let t2 = is_type ctx t2 in
-      let t2 = Syntax.abstract x t2 in
+      let t2 = Syntax.abstract_ty x t2 in
       let e' = Syntax.mk_prod ~loc x t1 t2
       and t' = Syntax.mk_type ~loc in
         (e', t')
@@ -66,15 +67,12 @@ and check_term ctx e t =
     if Equal.equal_ty ctx t' t then
       e
     else
-      let xs = Context.names ctx in
-        Error.typing ~loc:(snd e) "this expression should have type %t but has type %t"
-          (Print.ty xs t)
-          (Print.ty xs t')
+      Error.typing ~loc:(snd e) "this expression should have type %t but has type %t"
+        (Print.ty ctx t)
+        (Print.ty ctx t')
 
 and is_type ctx e =
   check_term ctx e Syntax.typ
-
-and as_prod ctx e = failwith "not implemented"
 
 let rec ceval ctx (c,_) =
   begin match c with

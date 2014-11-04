@@ -14,7 +14,7 @@ and term' =
 
 and ty = term
 
-and bare_term = private Bare of term
+and bare_term = Bare of term
 
 and bare_ty = bare_term
 
@@ -140,13 +140,16 @@ let abstract x e =
   in
     Bare (abstract 0 x e)
 
+let abstract_ty = abstract
+
+
 let instantiate e0 (Bare e) =
   let rec instantiate k e0 ((e',loc) as e) =
     begin match e' with
 
       | Name _ -> e
 
-      | Bound m -> if k = m then e else e0
+      | Bound m -> if k = m then e0 else e
 
       | Ascribe (e, t) ->
         let e = instantiate k e0 e 
@@ -196,7 +199,7 @@ let instantiate e0 (Bare e) =
 
 let instantiate_ty = instantiate
 
-let occurs e =
+let occurs (Bare e) =
   let rec occurs k (e, loc) =
     begin match e with
 

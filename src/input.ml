@@ -12,7 +12,7 @@ and expr' =
   | Ascribe of term * ty
   | Lambda of Common.name * ty * term
   | App of term * term
-  | Prod of Common.name * ty * term
+  | Prod of Common.name * ty * ty
   | Eq of term * term
   | Refl of term
 
