@@ -6,7 +6,7 @@ and term' =
   | Bound of Common.bound
   | Ascribe of term * ty
   | Lambda of Common.name * ty * bare_ty * bare_term
-  | App of (Common.name * ty * bare_ty) * term * term
+  | Spine of ty * term * term list
   | Type
   | Prod of Common.name * ty * bare_ty
   | Eq of ty * term * term
@@ -22,9 +22,26 @@ let mk_name ~loc x = Name x, loc
 let mk_bound ~loc k = Bound k, loc
 let mk_ascribe ~loc e t = Ascribe (e, t), loc
 let mk_lambda ~loc x t1 t2 e = Lambda (x, t1, t2, e), loc
-let mk_app ~loc x t1 t2 e1 e2 = App ((x, t1, t2), e1, e2), loc
-let mk_type ~loc = Type, loc
 let mk_prod ~loc x t1 t2 = Prod (x, t1, t2), loc
+
+let rec spine_depth (t,loc) =
+  match t with
+    | Prod (_, _, Bare t) -> 1 + spine_depth t
+    | Name _ | Bound _ | Ascribe _ | Spine _ | Type | Eq _ -> 0
+    | Lambda _ | Refl _ -> Error.impossible ~loc "invalid argument to spine depth"
+
+let mk_spine ~loc t e es = 
+  match es with
+    | [] -> Error.impossible "cannot create a spine without arguments in mk_spine"
+    | _ ->
+      if spine_depth t < List.length es then Error.impossible "invalid spine type in mk_spine" ;
+      Spine (t, e, es), loc
+
+let mk_app ~loc x t1 t2 e1 e2 =
+  let t = mk_prod ~loc x t1 t2 in
+    Spine (t, e1, [e2]), loc
+
+let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
 
@@ -52,11 +69,10 @@ let rec equal (e1,_) (e2,_) =
       equal_bare_ty t2 t2' &&
       equal_bare e e'
 
-    | App ((_, t1, t2), e1, e2), App ((_, t1', t2'), e1', e2') ->
-      equal_ty t1 t1' && 
-      equal_bare_ty t2 t2' &&
-      equal e1 e1' && 
-      equal e2 e2'
+    | Spine (t, e, es), Spine (t', e', es') ->
+      equal_ty t t' &&
+      equal e e' &&
+      equals es es'
 
     | Type, Type -> true
 
@@ -73,9 +89,23 @@ let rec equal (e1,_) (e2,_) =
       equal_ty t t' && 
       equal e e'
 
-    | (Name _ | Bound _ | Ascribe _ | Lambda _ | App _ | Type | Prod _ | Eq _ | Refl _), _ ->
+    | (Name _ | Bound _ | Ascribe _ | Lambda _ | Spine _ |
+        Type | Prod _ | Eq _ | Refl _), _ ->
       false
   end
+
+and equals lst1 lst2 =
+  match lst1, lst2 with
+    | [], [] -> true
+    | e1::lst1, e2::lst2 -> equal e1 e2 && equals lst1 lst2
+    | [], _::_ | _::_, [] -> false
+
+and equal_bare_tys lst1 lst2 =
+  match lst1, lst2 with
+    | [], [] -> true
+    | (_,t1)::lst1, (_,t2)::lst2 ->
+      equal_bare_ty t1 t2 && equal_bare_tys lst1 lst2
+    | [], _::_ | _::_, [] -> false
 
 and equal_ty t1 t2 = equal t1 t2
 
@@ -88,12 +118,12 @@ and equal_bare_ty (Bare t1) (Bare t2) = equal_ty t1 t2
 let abstract x e =
   let rec abstract k x ((e',loc) as e) =
     begin match e' with
-
+        
       | Name y ->
         if Common.eqname x y then (Bound k, loc) else e
-
+          
       | Bound _ -> e
-
+        
       | Ascribe (e, t) ->
         let e = abstract k x e
         and t = abstract_ty k x t
@@ -105,12 +135,11 @@ let abstract x e =
         and e = abstract_bare k x e
         in Lambda (y, t1, t2, e), loc
 
-      | App ((y, t1, t2), e1, e2) ->
-        let t1 = abstract_ty k x t1
-        and t2 = abstract_bare_ty k x t2
-        and e1 = abstract k x e1
-        and e2 = abstract k x e2
-        in App ((y, t1, t2), e1, e2), loc
+      | Spine (t, e, es) ->
+        let t = abstract_ty k x t
+        and e = abstract k x e
+        and es = List.map (abstract k x) es
+        in Spine (t, e, es), loc
 
       | Type -> e
 
@@ -130,13 +159,13 @@ let abstract x e =
         and e = abstract k x e
         in Refl (t, e), loc
     end
-
+      
   and abstract_ty k x t = abstract k x t
-
+    
   and abstract_bare k x (Bare e) = Bare (abstract (k+1) x e)
-
+    
   and abstract_bare_ty k x (Bare t) = Bare (abstract_ty (k+1) x t)
-
+    
   in
     Bare (abstract 0 x e)
 
@@ -162,12 +191,11 @@ let instantiate e0 (Bare e) =
         and e = instantiate_bare k e0 e
         in Lambda (y, t1, t2, e), loc
 
-      | App ((y, t1, t2), e1, e2) ->
-        let t1 = instantiate_ty k e0 t1
-        and t2 = instantiate_bare_ty k e0 t2
-        and e1 = instantiate k e0 e1
-        and e2 = instantiate k e0 e2
-        in App ((y, t1, t2), e1, e2), loc
+      | Spine (t, e, es) ->
+        let t = instantiate_ty k e0 t
+        and e = instantiate k e0 e
+        and es = List.map (instantiate k e0) es
+        in Spine (t, e, es), loc
 
       | Type -> e
 
@@ -212,8 +240,8 @@ let occurs (Bare e) =
       | Lambda (_, t1, t2, e) ->
         occurs_ty k t1 || occurs_bare_ty k t2 || occurs_bare k e
           
-      | App ((_, t1, t2), e1, e2) ->
-        occurs_ty k t1 || occurs_bare_ty k t2 || occurs k e1 || occurs k e2
+      | Spine (t, e, es) ->
+        occurs_ty k e || occurs k e || List.exists (occurs k) es
           
       | Type -> false
         

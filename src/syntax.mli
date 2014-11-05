@@ -11,7 +11,7 @@ and term' = private
   | Bound of Common.bound
   | Ascribe of term * ty
   | Lambda of Common.name * ty * bare_ty * bare_term
-  | App of (Common.name * ty * bare_ty) * term * term
+  | Spine of term * ty * term list
   | Type
   | Prod of Common.name * ty * bare_ty
   | Eq of ty * term * term
@@ -31,6 +31,7 @@ val mk_bound: loc:Position.t -> Common.bound -> term
 val mk_ascribe: loc:Position.t -> term -> ty -> term
 val mk_lambda: loc:Position.t -> Common.name -> ty -> bare_ty -> bare_term -> term
 val mk_app: loc:Position.t -> Common.name -> ty -> bare_ty -> term -> term -> term
+val mk_spine: loc:Position.t -> ty -> term -> term list -> term
 val mk_type: loc:Position.t -> term
 val mk_prod: loc:Position.t -> Common.name -> ty -> bare_ty -> ty
 val mk_eq: loc:Position.t -> ty -> term -> term -> ty

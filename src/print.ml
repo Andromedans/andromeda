@@ -96,8 +96,7 @@ and lambda ctx x t u e ppf =
       (term ~max_level:4 ctx' e)
 
 and term ?max_level ctx (e,_) ppf =
-  let print' = print
-  and print ?at_level = print ?max_level ?at_level ppf in
+  let print ?at_level = print ?max_level ?at_level ppf in
     match e with
 
       | Syntax.Name x ->
@@ -114,18 +113,11 @@ and term ?max_level ctx (e,_) ppf =
       | Syntax.Lambda (x, t, u, e) ->
         print ~at_level:3 "%t" (lambda ctx x t u e)
 
-      | Syntax.App ((x, t, u), e1, e2) ->
-          print ~at_level:1 "@[<hov 2>%t%t@ %t@]"
-          (term ~max_level:1 ctx e1)
-          (annot ~prefix:" @"
-             (fun ppf -> 
-               let x, ctx' = Context.add_fresh x t ctx in
-               let u = Syntax.instantiate_ty (Syntax.mk_name ~loc:Position.Nowhere x) u in
-                 print' ~max_level:4 ppf "%s :@ %t .@ %t"
-                   x
-                   (ty ~max_level:4 ctx t)
-                   (ty ~max_level:4 ctx' u)))
-          (term ~max_level:0 ctx e2)
+      | Syntax.Spine (t, e, es) ->
+        print ~at_level:1 "@[<hov 2>%t%t@ %t@]"
+          (term ~max_level:1 ctx e)
+          (annot ~prefix:" @" (ty ~max_level:4 ctx t))
+          (sequence (term ~max_level:0 ctx) es)
 
       | Syntax.Type ->
         print ~at_level:0 "Type"

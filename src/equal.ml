@@ -14,27 +14,11 @@ and whnf ctx ((e',loc) as e) t =
 
     | Syntax.Lambda _ -> e
 
-    | Syntax.App ((x, u1, u2), e1, e2) ->
-      (* xxx should check that t2 e1 matches t? *)
-      begin
-          let e1 = whnf ctx e1 (Syntax.mk_prod ~loc x u1 u2) in
-            match fst e1 with
-              (* norm-app-beta *)
-              | Syntax.Lambda (_, t1, t2, e1') when
-                equal_ty ctx u1 t1 &&
-                (let x, ctx = Context.add_fresh x u1 ctx in
-                 let x' = Syntax.mk_name ~loc:Position.Nowhere x in
-                 let u2 = Syntax.instantiate_ty x' u2
-                 and t2 = Syntax.instantiate_ty x' t2 in
-                   equal_ty ctx u2 t2) ->
-                let e1' = Syntax.instantiate e2 e1'
-                and u2  = Syntax.instantiate_ty e2 u2
-                in whnf ctx e1' u2
+    | Syntax.Spine (t, e1, e2::es) ->
+      whnf_spine ~loc ctx t e1 e2 es
 
-              (* norm-app-other *)
-              | _ ->
-                Syntax.mk_app ~loc x u1 u2 e1 e2
-        end
+    | Syntax.Spine (_, _, []) ->
+      Error.impossible ~loc "empty spine in whnf"
       
     | Syntax.Type -> e
 
@@ -44,7 +28,53 @@ and whnf ctx ((e',loc) as e) t =
 
     | Syntax.Refl _ -> e
 
+and whnf_spine ~loc ctx ((t',loc) as t) e1 e2 es =
+  let rec spine_cod ((t',loc) as t) es =
+    begin match t', es with
+      | _, [] -> t
+      | Syntax.Prod (_, t1, t2), e::es ->
+        let t = Syntax.instantiate_ty e t2 in
+          spine_cod t es
+      | _, _ -> Error.impossible ~loc "malformed spine type in whnf_spine, spine_cod"
+    end
+  in
+  match t' with
+    | Syntax.Prod (x,t1,t2) ->
+      let (e1',_) as e1 = whnf ctx e1 t1 in
+        begin match e1' with
+            
+          | Syntax.Spine (t', e', es') when
+              (let u = spine_cod t' es in equal_ty ctx u t) ->
+            begin match es' @ (e2 :: es) with
+              | e2 :: es -> whnf_spine ~loc ctx t' e' e2 es
+              | [] -> assert false
+            end
+              
+          | Syntax.Lambda (_, u1, u2, e') when equal_as_prod ctx x t1 t2 u1 u2 ->
+            let e1 = Syntax.instantiate e2 e'
+            and t = Syntax.instantiate_ty e2 t2
+            in begin match es with
+              | [] -> whnf ctx e1 t
+              | e2::es -> whnf_spine ~loc ctx t e1 e2 es
+            end
+              
+          | (Syntax.Name _ | Syntax.Bound _ | Syntax.Ascribe _ | Syntax.Type |
+              Syntax.Prod _ | Syntax.Eq _ | Syntax.Refl _ | Syntax.Spine _ | Syntax.Lambda _ ) ->
+            Syntax.mk_spine ~loc t e1 (e2::es)
+        end
+    | _ -> Error.impossible ~loc "malformed spine type in whnf_spine"
+
 and equal_ty ctx t1 t2 = equal ctx t1 t2 Syntax.typ
+
+and equal_as_prod ctx x t1 t2 u1 u2 =
+  equal_ty ctx t1 u1 &&
+  begin
+    let y, ctx = Context.add_fresh x t1 ctx in
+    let y' = Syntax.mk_name ~loc:Position.Nowhere y in
+    let t2 = Syntax.instantiate_ty y' t2
+    and u2 = Syntax.instantiate_ty y' u2
+    in equal_ty ctx t2 u2
+  end
 
 and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
   Syntax.equal e1 e2 ||
@@ -55,7 +85,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Syntax.Type
         | Syntax.Name _
-        | Syntax.App _
+        | Syntax.Spine _
         | Syntax.Ascribe _ ->
           equal_whnf ctx e1 e2 t
 
@@ -106,25 +136,13 @@ and equal_whnf ctx e1 e2 ((_,loc) as t) =
             equal ctx e e' u2
         end
        
-      | Syntax.App ((x,u1,u2), d1, d2), Syntax.App ((_,u1',u2'), d1', d2') ->
-        equal_ty ctx u1 u1'
-        &&
-        begin
-          let y, ctx = Context.add_fresh x u1 ctx in
-          let y' = Syntax.mk_name ~loc:Position.Nowhere y in
-          let u2  = Syntax.instantiate_ty y' u2
-          and u2' = Syntax.instantiate_ty y' u2'
-          in
-            equal_ty ctx u2 u2'
-        end 
-        &&
-        begin
-          let u' = Syntax.mk_prod ~loc:loc x u1 u2
-          in equal ctx d1 d1' u'
-        end
-        &&
-        equal ctx d2 d2' u1
-        
+      | Syntax.Spine (t, e, es), Syntax.Spine (t', e', es') ->
+          equal_ty ctx t t'
+          &&
+          equal ctx e e' t
+          &&
+          equal_args ctx t es es'
+
       | Syntax.Type, Syntax.Type -> true
 
       | Syntax.Prod (x, u1, u2), Syntax.Prod (_, u1', u2') ->
@@ -147,13 +165,31 @@ and equal_whnf ctx e1 e2 ((_,loc) as t) =
         equal_ty ctx u u' &&
         equal ctx d d' u
 
-      | (Syntax.Name _ | Syntax.Ascribe _ | Syntax.Lambda _ | Syntax.App _ |
+      | (Syntax.Name _ | Syntax.Ascribe _ | Syntax.Lambda _ | Syntax.Spine _ |
           Syntax.Type | Syntax.Prod _ | Syntax.Eq _ | Syntax.Refl _), _ ->
         false
 
     end
 
-let as_prod ctx t =
+and equal_args ctx ((t',loc) as t) es es' =
+  begin match es, es' with
+    | [], [] -> true
+    | [e], [e'] -> equal ctx e e' t
+    | e::es, e'::es' ->
+      begin match t' with
+          (* we do not have to call as_prod here as a spine type must be a [Prod] *)
+        | Syntax.Prod (_,t1,t2) ->
+          equal ctx e e' t1 &&
+            begin
+              let t = Syntax.instantiate_ty e t2
+              in equal_args ctx t es es'
+            end
+        | _ -> Error.impossible ~loc "malformed spine type in equal_args"
+      end
+    | [],_::_ | _::_,[] -> false
+  end
+
+and as_prod ctx t =
   let (t',_) = whnf_ty ctx t in
     match t' with
       | Syntax.Prod (x, t1, t2) -> (x, t1, t2)
