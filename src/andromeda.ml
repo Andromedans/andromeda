@@ -104,8 +104,9 @@ let rec exec_cmd interactive ctx (d, loc) =
       let ctx =
         List.fold_left
           (fun ctx x -> 
-            let ctx = Context.add_free x t ctx in
-              if interactive then Format.printf "%s is assumed.@\n" x ;
+            if Context.is_bound x ctx then Error.runtime "%t already exists." (Print.name x) ;
+            let x, ctx = Context.add_free x t ctx in
+              if interactive then Format.printf "%t is assumed.@\n" (Print.name x) ;
               ctx)
           ctx
           xs
@@ -116,7 +117,7 @@ let rec exec_cmd interactive ctx (d, loc) =
     | Input.TopLet (x, c) ->
       let v = Eval.ceval ctx c in
       let ctx = Context.add_value x v ctx in
-        if interactive then Format.printf "%s is defined.@\n@." x ;
+        if interactive then Format.printf "%t is defined.@\n@." (Print.name x) ;
         ctx
 
     | Input.TopCheck c ->

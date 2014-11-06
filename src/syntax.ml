@@ -34,7 +34,8 @@ let mk_spine ~loc t e es =
   match es with
     | [] -> Error.impossible "cannot create a spine without arguments in mk_spine"
     | _ ->
-      if spine_depth t < List.length es then Error.impossible "invalid spine type in mk_spine" ;
+      if spine_depth t < List.length es
+      then Error.impossible ~loc "invalid spine type in mk_spine"  ;
       Spine (t, e, es), loc
 
 let mk_app ~loc x t1 t2 e1 e2 =

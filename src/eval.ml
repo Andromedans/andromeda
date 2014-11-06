@@ -3,12 +3,12 @@ let rec syn_term ctx (e,loc) =
 
     | Input.Var x ->
       begin match Context.lookup x ctx with
-        | None -> Error.runtime "unknown name %s" x
+        | None -> Error.runtime "unknown name %t" (Print.name x)
         | Some (Context.Entry_free t) -> 
           let e = Syntax.mk_name ~loc x
           in (e, t)
         | Some (Context.Entry_value (Syntax.Judge (e, t))) -> (e, t)
-        | Some (Context.Entry_value _) -> Error.runtime "%s should be a term" x
+        | Some (Context.Entry_value _) -> Error.runtime "%t should be a term" (Print.name x)
       end
 
     | Input.Type ->
@@ -22,7 +22,7 @@ let rec syn_term ctx (e,loc) =
 
     | Input.Lambda (x, t, e) ->
       let t1 = is_type ctx t in
-      let ctx = Context.add_free x t1 ctx in
+      let x, ctx = Context.add_free x t1 ctx in
       let (e, t2) = syn_term ctx e in
       let t2 = Syntax.abstract_ty x t2 in
       let e = Syntax.abstract x e in
@@ -40,7 +40,7 @@ let rec syn_term ctx (e,loc) =
 
     | Input.Prod (x, t1, t2) ->
       let t1 = is_type ctx t1 in
-      let ctx = Context.add_free x t1 ctx in
+      let x, ctx = Context.add_free x t1 ctx in
       let t2 = is_type ctx t2 in
       let t2 = Syntax.abstract_ty x t2 in
       let e' = Syntax.mk_prod ~loc x t1 t2
@@ -61,6 +61,7 @@ let rec syn_term ctx (e,loc) =
         (e', t')
 
   end
+
 
 and check_term ctx e t =
   let (e,t') = syn_term ctx e in

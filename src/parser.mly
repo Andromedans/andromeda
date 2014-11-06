@@ -54,9 +54,9 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topcomp: mark_position(plain_topcomp) { $1 }
 plain_topcomp:
-  | TOPLET x=NAME COLONEQ c=comp DOT                  { TopLet (x, c) }
+  | TOPLET x=name COLONEQ c=comp DOT                  { TopLet (x, c) }
   | TOPCHECK c=comp DOT                               { TopCheck c }
-  | PARAMETER xs=nonempty_list(NAME) COLON t=ty DOT   { Parameter (xs, t) }
+  | PARAMETER xs=nonempty_list(name) COLON t=ty DOT   { Parameter (xs, t) }
     
 (* Toplevel directive. *)
 topdirective: mark_position(plain_topdirective) { $1 }
@@ -69,7 +69,7 @@ plain_topdirective:
 
 comp: mark_position(plain_comp) { $1 }
 plain_comp:
-  | LET x=NAME COLONEQ c1=simple_comp IN c2=comp    { Let (x, c1, c2) }
+  | LET x=name COLONEQ c1=simple_comp IN c2=comp    { Let (x, c1, c2) }
   | c=plain_simple_comp                             { c }
 
 simple_comp: mark_position(plain_simple_comp) { $1 }
@@ -82,7 +82,7 @@ plain_term:
   | FORALL a=abstraction(term) COMMA e=term         { fst (make_prod e a) }
   | FUN a=abstraction(ty) DARROW e=term             { fst (make_lambda e a) }
   | e=equal_term ASCRIBE t=ty                       { Ascribe (e, t) }
-  | t1=equal_term ARROW t2=ty                       { Prod (anonymous, t1, t2) }
+  | t1=equal_term ARROW t2=ty                       { Prod (Common.anonymous, t1, t2) }
 
 equal_term: mark_position(plain_equal_term) { $1 }
 plain_equal_term:
@@ -95,14 +95,14 @@ plain_app_term:
   | e1=app_term e2=simple_term                   { App (e1, e2) }
   | REFL e=simple_term                           { Refl e }
 
-param:
-  | NAME { $1 }
-  | UNDERSCORE { anonymous }
+name:
+  | NAME { Common.to_name $1 }
+  | UNDERSCORE { Common.anonymous }
 
 simple_term: mark_position(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                         { Type }
-  | x=NAME                       { Var x }
+  | x=name                       { Var x }
   | LPAREN e=plain_term RPAREN   { e }
 
 ty:
@@ -118,7 +118,7 @@ abstraction(X):
 
 bind(X): mark_position(plain_bind(X)) { $1 }
 plain_bind(X):
-  | xs=nonempty_list(param) COLON t=X { (xs, t) }
+  | xs=nonempty_list(name) COLON t=X { (xs, t) }
 
 paren_bind(X):
   | LPAREN b=bind(X) RPAREN           { b }

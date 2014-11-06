@@ -29,4 +29,3 @@ and toplevel' =
   | Help
   | Context
 
-let anonymous = "_"

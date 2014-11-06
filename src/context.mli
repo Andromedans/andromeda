@@ -15,8 +15,8 @@ val is_free : Common.name -> t -> bool
 
 val is_value : Common.name -> t -> bool
 
-val add_free : Common.name -> Syntax.ty -> t -> t
+val is_bound : Common.name -> t -> bool
 
-val add_fresh : Common.name -> Syntax.ty -> t -> Common.name * t
+val add_free : Common.name -> Syntax.ty -> t -> Common.name * t 
 
 val add_value : Common.name -> Syntax.value -> t -> t

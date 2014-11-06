@@ -66,31 +66,31 @@ let sequence ?(sep="") f lst ppf =
   in
     seq lst
 
-let name x ppf = print ~at_level:0 ppf "%s" x
+let name x ppf = print ~at_level:0 ppf "%s" (Common.to_string x)
 
 (** [prod ctx x t1 t2 ppf] prints a dependent product using formatter [ppf]. *)
 let rec prod ?max_level ctx x t1 t2 ppf =
-  let x, ctx' = Context.add_fresh x t1 ctx in
+  let x, ctx' = Context.add_free x t1 ctx in
   let t2' = Syntax.instantiate_ty (Syntax.mk_name ~loc:Position.Nowhere x) t2 in
     if Syntax.occurs_ty t2
     then
-      print ?max_level ~at_level:3 ppf "forall (%s :@ %t), @ %t"
-        x
+      print ?max_level ~at_level:3 ppf "forall (%t :@ %t), @ %t"
+        (name x)
         (ty ~max_level:4 ctx t1)
         (ty ~max_level:3 ctx' t2')
     else
       print ?max_level ~at_level:3 ppf "%t ->@ %t"
-        (ty ~max_level:4 ctx t1)
+        (ty ~max_level:2 ctx t1)
         (ty ~max_level:3 ctx' t2')
 
 (** [lambda ctx x t u e ppf] prints a lambda abstraction using formatter [ppf]. *)
 and lambda ctx x t u e ppf =
-  let x, ctx' = Context.add_fresh x t ctx in
+  let x, ctx' = Context.add_free x t ctx in
   let x' = Syntax.mk_name ~loc:Position.Nowhere x in
   let u = Syntax.instantiate_ty x' u in
   let e = Syntax.instantiate x' e in
-    print ~max_level:4 ppf "fun (%s :@ %t) =>%t@ %t"
-      x
+    print ~max_level:4 ppf "fun (%t :@ %t) =>%t@ %t"
+      (name x)
       (ty ~max_level:4 ctx t)
       (annot (ty ~max_level:4 ctx' u))
       (term ~max_level:4 ctx' e)
@@ -100,7 +100,7 @@ and term ?max_level ctx (e,_) ppf =
     match e with
 
       | Syntax.Name x ->
-        print ~at_level:0 "%s" x
+        print ~at_level:0 "%t" (name x)
 
       | Syntax.Bound k ->
         print ~at_level:0 "DEBRUIJN[%d]" k
@@ -153,8 +153,8 @@ let context ctx ppf =
   List.iter (fun (x, entry) ->
     match entry with
       | Context.Entry_free t ->
-        print ppf "@[<hov 4>Parameter %s@;<1 -2>: %t@]@\n" x (ty ctx t)
+        print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (name x) (ty ctx t)
       | Context.Entry_value v ->
-        print ppf "@[<hov 4>Let %s@;<1 -2>:= %t@]@\n" x (value ctx v)
+        print ppf "@[<hov 4>Let %t@;<1 -2>:= %t@]@\n" (name x) (value ctx v)
   ) ctx ;
   print ppf "---END---@."
