@@ -32,15 +32,6 @@ To build Andromeda type `make` at the command line. This will create the executa
 `examples` subdirectory. The file `prelude.m31` contains basic definitions and is loaded
 when Andromeda is started (unless the option `--no-prelude` is given).
 
-#### Building tt
-
-The subdirectory `tt` contains a version of Andromeda enriched with effects and handlers.
-This is even more experimental than Andromeda itself. We hope to merge the two, or maybe
-have an independent checker and an assistant. It is too early to tell.
-
-To build tt run `make tt.byte`. It may not compile, because we are currently working
-mostly on Andromeda.
-
 #### Examples
 
 We have put some examples in the `examples` subdirectory. An outdated and incomplete
