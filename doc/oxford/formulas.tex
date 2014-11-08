@@ -1,0 +1,78 @@
+\documentclass{article}
+
+\usepackage{concrete}
+\usepackage{amsmath}
+\usepackage{mathpartir}
+
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\prd}[1]{{\textstyle\prod_{#1}}\,}
+\newcommand{\lam}[1]{\lambda #1 \,.\,}
+\newcommand{\is}{\ :\ }
+\newcommand{\Eq}[2]{\mathsf{Eq}_{#1}(#2)}
+\newcommand{\refl}[2]{\mathsf{refl}_{#1}(#2)}
+
+\newcommand{\nat}{\mathsf{N}}
+\newcommand{\indnat}{\mathsf{ind}_\nat}
+
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{equation*}
+  \infer{p : \Eq{A}{a,b}}{a \equiv_A b}
+\end{equation*}
+
+% Judgments
+
+\begin{align*}
+  & \Gamma \vdash A \is \Type \\
+  & \Gamma \vdash a \is A \\
+  & \Gamma \vdash a \equiv_A b \\
+  & \Gamma \vdash A \equiv_\Type B
+\end{align*}
+
+\begin{align*}
+  & \Gamma \vdash \Type \is \Type \\
+  & \Gamma \vdash a \is A \\
+  & \Gamma \vdash a \equiv_A b
+\end{align*}
+
+% Products
+
+\begin{mathpar}
+  \infer{\Gamma, x : A \vdash B \is \Type}{\Gamma \vdash \prd{x : A} B \is \Type}
+  \and
+  \infer{\Gamma, x : A \vdash e \is B}{\Gamma \vdash (\lam{x:A} e) \is \prd{x:A} B}
+  \and
+  \infer{\Gamma \vdash e_1 \is \prd{x:A} B\\
+         \Gamma \vdash e_2 \is A}
+       {\Gamma \vdash e_1\,e_2 \is B[e_2/x]}
+\end{mathpar}
+
+\begin{align*}
+  (\lam{x:A} e_1) \, e_2 &\equiv_B e_1[e_2/x] \\
+  (\lam{x:A} e\,x) &\equiv_{\Pi_{x:A} B} e
+\end{align*}
+
+% Equality types
+
+\begin{mathpar}
+  \infer{\Gamma \vdash A \is \Type \\
+         \Gamma \vdash a \is A \\
+         \Gamma \vdash b \is A}
+       {\Gamma \vdash \Eq{A}{a,b} \is \Type}
+  \\
+  \infer{\Gamma \vdash a \is A}
+        {\Gamma \vdash \refl{A}{a} \is \Eq{A}{a,a}}
+  \and
+  \infer{\Gamma \vdash p : \Eq{A}{a,b}}
+        {\Gamma \vdash a \equiv_A b}
+\end{mathpar}
+
+\begin{equation*}
+  p \equiv_{\Eq{A}{a,b}} q
+\end{equation*}
+
+
+
+\end{document}
