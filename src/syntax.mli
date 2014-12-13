@@ -1,3 +1,4 @@
+(** Abstract syntax of types and terms. *)
 
 (** Terms and types with exposed debruijn index 0 *)
 type bare_term

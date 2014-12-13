@@ -1,6 +1,8 @@
+(** The whnf of a type [t] in context [ctx]. *)
 let rec whnf_ty ctx t =
   whnf ctx t Syntax.typ
 
+(** The whnf of term [e] at type [t] in context [ctx]. *)
 and whnf ctx ((e',loc) as e) t =
   match e' with
 
@@ -26,6 +28,7 @@ and whnf ctx ((e',loc) as e) t =
 
     | Syntax.Refl _ -> e
 
+(** The whnf of a spine [e1 e2 ... es ...] at type [t] in context [ctx]. *)
 and whnf_spine ~loc ctx ((t',loc) as t) e1 e2 es =
   let rec spine_cod ((t',loc) as t) es =
     begin match t', es with
@@ -201,5 +204,3 @@ and as_prod ctx t =
       | _ ->
         Error.typing "product expected but found %t"
           (Print.ty ctx t)
-        
-                

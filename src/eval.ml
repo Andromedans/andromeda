@@ -1,3 +1,5 @@
+(** Given an input term [e] in context [ctx], synthesize a term and its
+    type. *)
 let rec syn_term ctx (e,loc) =
   begin match e with
 
@@ -62,7 +64,8 @@ let rec syn_term ctx (e,loc) =
 
   end
 
-
+(** Given an input term [e] and a type [t] in context [ctx],
+    convert the input term to a term of type [t]. *)
 and check_term ctx e t =
   let (e,t') = syn_term ctx e in
     if Equal.equal_ty ctx t' t then
@@ -72,9 +75,11 @@ and check_term ctx e t =
         (Print.ty ctx t)
         (Print.ty ctx t')
 
+(** Given an input term [e], convert it to a type. *)
 and is_type ctx e =
   check_term ctx e Syntax.typ
 
+(** Evaluate a computation. *)
 let rec ceval ctx (c,_) =
   begin match c with
 

@@ -2,9 +2,9 @@
 
 (** Possible locations of prelude file *)
 type prelude =
-  | PreludeNone
-  | PreludeDefault
-  | PreludeFile of string
+  | PreludeNone             (* do not use a prelude, turned on by the --no-prelude *)
+  | PreludeDefault          (* look in the default location, which is next to executable *)
+  | PreludeFile of string   (* look for prelude in a specific location *)
 
 (** Location of the prelude file *)
 let prelude_file = ref PreludeDefault
@@ -37,9 +37,6 @@ let files = ref []
 (** Add a file to the list of files to be loaded, and record whether it should
     be processed in interactive mode. *)
 let add_file interactive filename = (files := (filename, interactive) :: !files)
-
-(** A list of command-line wrappers to look for. *)
-let wrapper = ref (Some ["rlwrap"; "ledit"])
 
 (** Command-line options *)
 let options = Arg.align [
@@ -78,11 +75,6 @@ let options = Arg.align [
     Arg.String (fun str -> add_file false str),
     "<file> Load <file> into the initial environment");
 ]
-
-(** Treat anonymous arguments as files to be run. *)
-let anonymous str =
-  add_file true str;
-  interactive_shell := false
 
 (** Parser wrapper that reads extra lines on demand. *)
 let parse parse lex =
@@ -157,9 +149,12 @@ let toplevel ctx =
 
 (** Main program *)
 let main =
-  Sys.catch_break true;
+  Sys.catch_break true ;
   (* Parse the arguments. *)
-  Arg.parse options anonymous usage;
+  Arg.parse
+    options
+    (fun str -> add_file true str ; interactive_shell := false)
+    usage ;
   (* Attempt to wrap yourself with a line-editing wrapper. *)
   if !interactive_shell then
     begin match !wrapper with
@@ -167,18 +162,18 @@ let main =
       | Some lst ->
           let n = Array.length Sys.argv + 2 in
           let args = Array.make n "" in
-            Array.blit Sys.argv 0 args 1 (n - 2);
-            args.(n - 1) <- "--no-wrapper";
+            Array.blit Sys.argv 0 args 1 (n - 2) ;
+            args.(n - 1) <- "--no-wrapper" ;
             List.iter
               (fun wrapper ->
                  try
-                   args.(0) <- wrapper;
+                   args.(0) <- wrapper ;
                    Unix.execvp wrapper args
                  with Unix.Unix_error _ -> ())
               lst
     end ;
   (* Files were accumulated in the wrong order, so we reverse them *)
-  files := List.rev !files;
+  files := List.rev !files ;
   (* Should we load the prelude file? *)
   begin
     match !prelude_file with

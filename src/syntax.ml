@@ -1,40 +1,58 @@
 (** The abstract syntax of Andromedan type theory. *)
 
+(** The type of terms. We use locally nameless syntax: names for
+    free variables and de Bruijn indices for bound variables.
+    The type [term] is for terms in which a bound variable is
+    not allowed to appear "bare", i.e., without an associated
+    binder. *)
 type term = term' * Position.t
 and term' =
-  | Name of Common.name
-  | Bound of Common.bound
-  | Ascribe of term * ty
+  | Name of Common.name      (* free variable *)
+  | Bound of Common.bound    (* bound variable *)
+  | Ascribe of term * ty     (* type ascription (this should be a computation) *)
   | Lambda of Common.name * ty * bare_ty * bare_term
-  | Spine of ty * term * term list
+                             (* we record the name of a bound variable for
+                                the purposes of pretty printing *)
+  | Spine of ty * term * term list (* we use spines instead of applications *)
   | Type
   | Prod of Common.name * ty * bare_ty
   | Eq of ty * term * term
   | Refl of ty * term
 
+(** Since we have [Type : Type] we do not distinguish terms from types,
+    so the type of type [ty] is just a synonym for the type of terms. *)
 and ty = term
 
+(** A term which may refer to a "bare" bound variable. *)
 and bare_term = Bare of term
 
+(** A type which may refer to a "bare" bound variable. *)
 and bare_ty = bare_term
 
+(** We disallow direct creation of terms (using the [private] qualifier in the interface
+    file), so we provide these constructors instead. *)
 let mk_name ~loc x = Name x, loc
 let mk_bound ~loc k = Bound k, loc
 let mk_ascribe ~loc e t = Ascribe (e, t), loc
 let mk_lambda ~loc x t1 t2 e = Lambda (x, t1, t2, e), loc
 let mk_prod ~loc x t1 t2 = Prod (x, t1, t2), loc
 
-let rec spine_depth (t,loc) =
+(** The number of nested products in type [t]. *)
+let rec prod_depth (t,loc) =
   match t with
-    | Prod (_, _, Bare t) -> 1 + spine_depth t
+    | Prod (_, _, Bare t) -> 1 + prod_depth t
     | Name _ | Bound _ | Ascribe _ | Spine _ | Type | Eq _ -> 0
-    | Lambda _ | Refl _ -> Error.impossible ~loc "invalid argument to spine depth"
+    | Lambda _ | Refl _ -> Error.impossible ~loc "invalid argument to prod_depth"
 
 let mk_spine ~loc t e es = 
   match es with
-    | [] -> Error.impossible "cannot create a spine without arguments in mk_spine"
+    | [] -> Error.impossible "cannot create a head without a spine"
     | _ ->
-      if spine_depth t < List.length es
+      (* We could remove the following if statement if we trust
+         ourselves that no piece of code ever tries to generate an
+         invalid spine. But the test has proved useful for
+         catching bugs. *)
+      if prod_depth t < List.length es
       then Error.impossible ~loc "invalid spine type in mk_spine"  ;
       Spine (t, e, es), loc
 
@@ -48,13 +66,12 @@ let mk_refl ~loc t e = Refl (t, e), loc
 
 let typ = mk_type ~loc:Position.Nowhere
 
-(** Values *)
+(** A value is the result of a computation. *)
 type value =
-  | Judge of term * ty
-  | String of string (* this is here just so that we anticipate other locsibilities *)
+  | Judge of term * ty (* a certified term with a type *)
+  | String of string (* this is here just so that we anticipate other possibilities *)
 
 (** Alpha equality *)
-
 let rec equal (e1,_) (e2,_) =
   begin match e1, e2 with
 
@@ -73,7 +90,7 @@ let rec equal (e1,_) (e2,_) =
     | Spine (t, e, es), Spine (t', e', es') ->
       equal_ty t t' &&
       equal e e' &&
-      equals es es'
+      equal_list es es'
 
     | Type, Type -> true
 
@@ -95,17 +112,10 @@ let rec equal (e1,_) (e2,_) =
       false
   end
 
-and equals lst1 lst2 =
+and equal_list lst1 lst2 =
   match lst1, lst2 with
     | [], [] -> true
-    | e1::lst1, e2::lst2 -> equal e1 e2 && equals lst1 lst2
-    | [], _::_ | _::_, [] -> false
-
-and equal_bare_tys lst1 lst2 =
-  match lst1, lst2 with
-    | [], [] -> true
-    | (_,t1)::lst1, (_,t2)::lst2 ->
-      equal_bare_ty t1 t2 && equal_bare_tys lst1 lst2
+    | e1::lst1, e2::lst2 -> equal e1 e2 && equal_list lst1 lst2
     | [], _::_ | _::_, [] -> false
 
 and equal_ty t1 t2 = equal t1 t2
@@ -113,6 +123,13 @@ and equal_ty t1 t2 = equal t1 t2
 and equal_bare (Bare e1) (Bare e2) = equal e1 e2
 
 and equal_bare_ty (Bare t1) (Bare t2) = equal_ty t1 t2
+
+and equal_bare_tys lst1 lst2 =
+  match lst1, lst2 with
+    | [], [] -> true
+    | (_,t1)::lst1, (_,t2)::lst2 ->
+      equal_bare_ty t1 t2 && equal_bare_tys lst1 lst2
+    | [], _::_ | _::_, [] -> false
 
 (** Manipulation of variables *)
 
