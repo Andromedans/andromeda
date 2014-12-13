@@ -64,6 +64,7 @@ and whnf_spine ~loc ctx ((t',loc) as t) e1 e2 es =
             Syntax.mk_spine ~loc t e1 (e2::es)
 
         end
+
     | _ -> Error.impossible ~loc "malformed spine type in whnf_spine"
 
 and equal_ty ctx t1 t2 = equal ctx t1 t2 Syntax.typ

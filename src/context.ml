@@ -1,13 +1,12 @@
 type entry =
-  | Entry_free of Syntax.ty        (* a free name *)
+  | Entry_free of Syntax.ty        (* a free variable *)
   | Entry_value of Syntax.value    (* a variable bound by a [let] *)
 
 (** The type of contexts *)
 type t = (Common.name * entry) list
 
+(** The empty context *)
 let empty = []
-
-let names : t -> Common.name list = List.map fst
 
 let rec lookup x = function
   | [] -> None
