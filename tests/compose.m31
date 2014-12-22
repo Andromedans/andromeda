@@ -1,0 +1,11 @@
+Let id :=
+  fun (A : Type) => fun x : A => x.
+
+Let compose :=
+  fun (A B C : Type) (f : A -> B) (g : B -> C) => fun x : A => g (f x).
+
+Parameter A : Type.
+Parameter f : A -> A.
+Let f2 := compose A A A f f.
+
+#context

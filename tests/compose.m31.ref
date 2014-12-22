@@ -1,0 +1,29 @@
+id is defined.
+
+compose is defined.
+
+A is assumed.
+
+f is assumed.
+
+f2 is defined.
+
+---------
+Let f2
+  := ((fun (A0 : Type) =>
+       fun (B : Type) =>
+       fun (C : Type) =>
+       fun (f0 : A0 -> B) => fun (g : B -> C) => fun (x : A0) => g (f0 x)) 
+        A A A f f) : (A -> A)
+Parameter f : A -> A
+Parameter A : Type
+Let compose
+  := (fun (A0 : Type) =>
+      fun (B : Type) =>
+      fun (C : Type) =>
+      fun (f0 : A0 -> B) => fun (g : B -> C) => fun (x : A0) => g (f0 x)) : (
+     forall (A0 : Type), 
+     forall (B : Type),  forall (C : Type),  (A0 -> B) -> (B -> C) -> A0 -> C)
+Let id
+  := (fun (A0 : Type) => fun (x : A0) => x) : (forall (A0 : Type),  A0 -> A0)
+---END---
