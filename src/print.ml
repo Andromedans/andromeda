@@ -156,5 +156,5 @@ let context ctx ppf =
         print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (name x) (ty ctx t)
       | Context.Entry_value v ->
         print ppf "@[<hov 4>Let %t@;<1 -2>:= %t@]@\n" (name x) (value ctx v)
-  ) ctx ;
+  ) (List.rev ctx) ;
   print ppf "---END---@."
