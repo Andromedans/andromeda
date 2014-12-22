@@ -46,7 +46,7 @@ let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
 
-let typ = mk_type ~loc:Position.Nowhere
+let typ = mk_type ~loc:Position.nowhere
 
 (** Values *)
 type value =
