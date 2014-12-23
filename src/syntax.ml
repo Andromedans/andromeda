@@ -4,19 +4,21 @@ type term = term' * Position.t
 and term' =
   | Name of Common.name
   | Bound of Common.bound
-  | Ascribe of term * ty
-  | Lambda of Common.name * ty * bare_ty * bare_term
-  | Spine of ty * term * term list
+  (* fun (x_1 : A_1) (x_2 : A_2(x_1)) ... (x_n : A_n(x_1,...,x_n-1)) => e(x_1,...,x_n) : A(x_1,...,x_n) *)
+  | Lambda of (ty, term * ty) abstraction
+  (* e : (x_1 : A_1) (x_2 : A_2(x_1)) ... (x_n : A_n(x_1,...,x_n-1)), A(x_1,...,x_n)
+     (e_1 : A_1) (e_2 : A_2(e_1)) ... (e_n : A_n(e_1,...,e_n-1))
+     e [e_1, e_2, ..., e_n] : A(e_1,...,e_n) *)
+  | Spine of term * (term * ty, ty) abstraction
   | Type
-  | Prod of Common.name * ty * bare_ty
+  (* forall (x_1 : A_1) (x_2 : A_2(x_1)) ... (x_n : A_n(x_1,...,x_n-1)), A(x_1,...,x_n) *)
+  | Prod of (ty, ty) abstraction
   | Eq of ty * term * term
   | Refl of ty * term
 
-and ty = term
+and ty = Ty of term
 
-and bare_term = Bare of term
-
-and bare_ty = bare_term
+and ('a, 'b) abstraction = Abs of (Common.name * 'a) list * 'b
 
 let mk_name ~loc x = Name x, loc
 let mk_bound ~loc k = Bound k, loc
@@ -50,8 +52,8 @@ let typ = mk_type ~loc:Position.nowhere
 
 (** Values *)
 type value =
-  | Judge of term * ty
-  | String of string (* this is here just so that we anticipate other locsibilities *)
+  | IsTerm of term * ty
+  | IsType of ty
 
 (** Alpha equality *)
 
