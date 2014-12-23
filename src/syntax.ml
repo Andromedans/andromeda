@@ -22,27 +22,10 @@ and ('a, 'b) abstraction = Abs of (Common.name * 'a) list * 'b
 
 let mk_name ~loc x = Name x, loc
 let mk_bound ~loc k = Bound k, loc
-let mk_ascribe ~loc e t = Ascribe (e, t), loc
-let mk_lambda ~loc x t1 t2 e = Lambda (x, t1, t2, e), loc
-let mk_prod ~loc x t1 t2 = Prod (x, t1, t2), loc
-
-let rec spine_depth (t,loc) =
-  match t with
-    | Prod (_, _, Bare t) -> 1 + spine_depth t
-    | Name _ | Bound _ | Ascribe _ | Spine _ | Type | Eq _ -> 0
-    | Lambda _ | Refl _ -> Error.impossible ~loc "invalid argument to spine depth"
-
-let mk_spine ~loc t e es = 
-  match es with
-    | [] -> Error.impossible "cannot create a spine without arguments in mk_spine"
-    | _ ->
-      if spine_depth t < List.length es
-      then Error.impossible ~loc "invalid spine type in mk_spine"  ;
-      Spine (t, e, es), loc
-
-let mk_app ~loc x t1 t2 e1 e2 =
-  let t = mk_prod ~loc x t1 t2 in
-    Spine (t, e1, [e2]), loc
+let mk_lambda ~loc x t1 t2 e = Lambda (Abs ([x, t1], (t2, e))), loc
+let mk_prod ~loc x t1 t2 = Prod (Abs ([x, t1], t2)), loc
+let mk_spine ~loc e exts t = Spine (e, Abs (exts, t)), loc
+let mk_app ~loc x t1 t2 e1 e2 = mk_spine ~loc e1 [(x, (e2, t1))] t2
 
 let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
@@ -57,6 +40,18 @@ type value =
 
 (** Alpha equality *)
 
+let equal_abstraction equal_u equal_v (Abs (xus, v)) (Abs (xus', v')) =
+  let rec eq xus xus' =
+    match xus, xus' with
+    | [], [] -> true
+    | (_, u) :: xus, (_, u') :: xus' ->
+        equal_u u u' &&
+        eq xus xus'
+    | [], _::_ | _::_, [] -> false
+  in
+  eq xus xus' &&
+  equal_v v v'
+
 let rec equal (e1,_) (e2,_) =
   begin match e1, e2 with
 
@@ -64,24 +59,17 @@ let rec equal (e1,_) (e2,_) =
 
     | Bound i, Bound j -> i = j
 
-    | Ascribe (e1,_), Ascribe (e2,_) -> 
-        equal e1 e2 (* XXX Can we ignore the types? *)
+    | Lambda abs, Lambda abs' ->
+      equal_abstraction equal_ty equal_term_ty abs abs'
 
-    | Lambda (_, t1, t2, e), Lambda (_, t1', t2', e') ->
-      equal_ty t1 t1' && 
-      equal_bare_ty t2 t2' &&
-      equal_bare e e'
-
-    | Spine (t, e, es), Spine (t', e', es') ->
-      equal_ty t t' &&
+    | Spine (e, abs), Spine (e', abs') ->
       equal e e' &&
-      equals es es'
+      equal_abstraction equal_term_ty equal_ty abs abs'
 
     | Type, Type -> true
 
-    | Prod (_, t1, t2), Prod (_, t1', t2') ->
-      equal_ty t1 t1' && 
-      equal_bare_ty t2 t2'
+    | Prod abs, Prod abs' ->
+      equal_abstraction equal_ty equal_ty abs abs'
 
     | Eq (t, e1, e2), Eq (t', e1', e2') ->
       equal_ty t t' && 
@@ -92,87 +80,29 @@ let rec equal (e1,_) (e2,_) =
       equal_ty t t' && 
       equal e e'
 
-    | (Name _ | Bound _ | Ascribe _ | Lambda _ | Spine _ |
+    | (Name _ | Bound _ | Lambda _ | Spine _ |
         Type | Prod _ | Eq _ | Refl _), _ ->
       false
   end
 
-and equals lst1 lst2 =
-  match lst1, lst2 with
-    | [], [] -> true
-    | e1::lst1, e2::lst2 -> equal e1 e2 && equals lst1 lst2
-    | [], _::_ | _::_, [] -> false
+and equal_ty (Ty t1) (Ty t2) = equal t1 t2
 
-and equal_bare_tys lst1 lst2 =
-  match lst1, lst2 with
-    | [], [] -> true
-    | (_,t1)::lst1, (_,t2)::lst2 ->
-      equal_bare_ty t1 t2 && equal_bare_tys lst1 lst2
-    | [], _::_ | _::_, [] -> false
+and equal_term_ty (e, t) (e', t') = equal e e' && equal_ty t t'
 
-and equal_ty t1 t2 = equal t1 t2
-
-and equal_bare (Bare e1) (Bare e2) = equal e1 e2
-
-and equal_bare_ty (Bare t1) (Bare t2) = equal_ty t1 t2
 
 (** Manipulation of variables *)
 
-let abstract x e =
-  let rec abstract k x ((e',loc) as e) =
-    begin match e' with
-        
-      | Name y ->
-        if Common.eqname x y then (Bound k, loc) else e
-          
-      | Bound _ -> e
-        
-      | Ascribe (e, t) ->
-        let e = abstract k x e
-        and t = abstract_ty k x t
-        in Ascribe (e, t), loc
-
-      | Lambda (y, t1, t2, e) ->
-        let t1 = abstract_ty k x t1
-        and t2 = abstract_bare_ty k x t2
-        and e = abstract_bare k x e
-        in Lambda (y, t1, t2, e), loc
-
-      | Spine (t, e, es) ->
-        let t = abstract_ty k x t
-        and e = abstract k x e
-        and es = List.map (abstract k x) es
-        in Spine (t, e, es), loc
-
-      | Type -> e
-
-      | Prod (y, t1, t2) ->
-        let t1 = abstract_ty k x t1
-        and t2 = abstract_bare_ty k x t2
-        in Prod (y, t1, t2), loc
-
-      | Eq (t, e1, e2) ->
-        let t = abstract_ty k x t
-        and e1 = abstract k x e1
-        and e2 = abstract k x e2
-        in Eq (t, e1, e2), loc
-
-      | Refl (t, e) ->
-        let t = abstract_ty k x t
-        and e = abstract k x e
-        in Refl (t, e), loc
-    end
-      
-  and abstract_ty k x t = abstract k x t
-    
-  and abstract_bare k x (Bare e) = Bare (abstract (k+1) x e)
-    
-  and abstract_bare_ty k x (Bare t) = Bare (abstract_ty (k+1) x t)
-    
+let abstract_abstraction abstract_u abstract_v shift (Abs (xus, v)) =
+  let rec abs shift = function
+    | [] -> shift, []
+    | (x, u) :: xus ->
+        let u = abstract_u shift u
+        and shift, xus = abs (shift + 1) xus
+        in shift, (x, u) :: xus
   in
-    Bare (abstract 0 x e)
-
-let abstract_ty = abstract
+  let shift, xus = abs shift xus
+  and v = abstract_v shift v
+  in Abs (xus, v)
 
 
 let instantiate e0 (Bare e) =
