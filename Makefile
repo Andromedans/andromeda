@@ -12,16 +12,14 @@ andromeda.native:
 andromeda.byte: src/version.ml
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.byte
 
-m31-smoketest: andromeda.byte
-	./andromeda.byte examples/bool.m31
-	./andromeda.byte examples/nat.m31
-	./andromeda.byte examples/records.m31
-# ./andromeda.byte examples/sigma.m31
-	@echo
-	@echo "**********************************"
-	@echo "* Andromeda Smoke Test succeeded *"
-	@echo "**********************************"
-	@echo
+# "make test" to see if anything broke
+test: andromeda.byte
+	cd tests && sh ./test.sh
+
+# "make test-validate" to see if anything broke
+# and ask for validation of possibly broken things.
+test-validate: andromeda.byte
+	cd tests && sh ./test.sh -v
 
 src/version.ml:
 	/bin/echo -n 'let version="' > src/version.ml

@@ -12,3 +12,5 @@ val to_string : name -> string
 
 (** Comparison of free variables *)
 val eqname : name -> name -> bool
+
+val index_of : int -> name -> name list -> int option

@@ -1,0 +1,59 @@
+Nat is defined.
+
+zero is defined.
+
+succ is defined.
+
+succ' is defined.
+
+add is defined.
+
+mult is defined.
+
+---------
+Let Nat := (forall (A : Type),  (A -> A) -> A -> A) : Type
+Let zero
+  := (fun (A : Type) => fun (s : A -> A) => fun (z : A) => z) : (forall (
+                                                                 A : 
+                                                                 Type), 
+                                                                 (A -> A) ->
+                                                                 A -> A)
+Let succ
+  := (fun (n : forall (A : Type),  (A -> A) -> A -> A) =>
+      fun (A : Type) => fun (s : A -> A) => fun (z : A) => s (n A s z)) : (
+     (forall (A : Type),  (A -> A) -> A -> A) ->
+     forall (A : Type),  (A -> A) -> A -> A)
+Let succ'
+  := (fun (n : forall (A : Type),  (A -> A) -> A -> A) =>
+      fun (A : Type) => fun (s : A -> A) => fun (z : A) => n A s (s z)) : (
+     (forall (A : Type),  (A -> A) -> A -> A) ->
+     forall (A : Type),  (A -> A) -> A -> A)
+Let add
+  := (fun (m : forall (A : Type),  (A -> A) -> A -> A) =>
+      fun (n : forall (A : Type),  (A -> A) -> A -> A) =>
+      fun (A : Type) => fun (s : A -> A) => fun (z : A) => m A s (n A s z)) : (
+     (forall (A : Type),  (A -> A) -> A -> A) ->
+     (forall (A : Type),  (A -> A) -> A -> A) ->
+     forall (A : Type),  (A -> A) -> A -> A)
+Let mult
+  := (fun (m : forall (A : Type),  (A -> A) -> A -> A) =>
+      fun (n : forall (A : Type),  (A -> A) -> A -> A) =>
+      fun (A : Type) => fun (s : A -> A) => m A (n A s)) : ((forall (
+                                                             A : Type), 
+                                                             (A -> A) ->
+                                                             A -> A) ->
+                                                            (forall (
+                                                             A : Type), 
+                                                             (A -> A) ->
+                                                             A -> A) ->
+                                                            forall (A :
+                                                            Type), 
+                                                            (A -> A) ->
+                                                            A -> A)
+---END---
+one is defined.
+
+two is defined.
+
+four is defined.
+

@@ -7,27 +7,25 @@
     binder. *)
 type term = term' * Position.t
 and term' =
-  | Name of Common.name      (* free variable *)
-  | Bound of Common.bound    (* bound variable *)
-  | Ascribe of term * ty     (* type ascription (this should be a computation) *)
-  | Lambda of Common.name * ty * bare_ty * bare_term
-                             (* we record the name of a bound variable for
-                                the purposes of pretty printing *)
-  | Spine of ty * term * term list (* we use spines instead of applications *)
+  | Name of Common.name (* free variable *)
+  | Bound of Common.bound (* bound variable *)
+  (* fun (x_1 : A_1) (x_2 : A_2(x_1)) ... (x_n : A_n(x_1,...,x_n-1)) => e(x_1,...,x_n) : A(x_1,...,x_n) *)
+  | Lambda of (ty, term * ty) abstraction
+  (* e : (x_1 : A_1) (x_2 : A_2(x_1)) ... (x_n : A_n(x_1,...,x_n-1)), A(x_1,...,x_n)
+     (e_1 : A_1) (e_2 : A_2(e_1)) ... (e_n : A_n(e_1,...,e_n-1))
+     e [e_1, e_2, ..., e_n] : A(e_1,...,e_n) *)
+  | Spine of term * (term * ty, ty) abstraction
   | Type
-  | Prod of Common.name * ty * bare_ty
+  (* forall (x_1 : A_1) (x_2 : A_2(x_1)) ... (x_n : A_n(x_1,...,x_n-1)), A(x_1,...,x_n) *)
+  | Prod of (ty, ty) abstraction
   | Eq of ty * term * term
   | Refl of ty * term
 
 (** Since we have [Type : Type] we do not distinguish terms from types,
     so the type of type [ty] is just a synonym for the type of terms. *)
-and ty = term
+and ty = Ty of term
 
-(** A term which may refer to a "bare" bound variable. *)
-and bare_term = Bare of term
-
-(** A type which may refer to a "bare" bound variable. *)
-and bare_ty = bare_term
+and ('a, 'b) abstraction = Abs of (Common.name * 'a) list * 'b
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
@@ -64,12 +62,12 @@ let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
 
-let typ = mk_type ~loc:Position.Nowhere
+let typ = mk_type ~loc:Position.nowhere
 
 (** A value is the result of a computation. *)
 type value =
-  | Judge of term * ty (* a certified term with a type *)
-  | String of string (* this is here just so that we anticipate other possibilities *)
+  | IsTerm of term * ty
+  | IsType of ty
 
 (** Alpha equality *)
 let rec equal (e1,_) (e2,_) =

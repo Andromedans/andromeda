@@ -73,7 +73,7 @@ and equal_as_prod ctx x t1 t2 u1 u2 =
   equal_ty ctx t1 u1 &&
   begin
     let y, ctx = Context.add_free x t1 ctx in
-    let y' = Syntax.mk_name ~loc:Position.Nowhere y in
+    let y' = Syntax.mk_name ~loc:Position.nowhere y in
     let t2 = Syntax.instantiate_ty y' t2
     and u2 = Syntax.instantiate_ty y' u2
     in equal_ty ctx t2 u2
@@ -94,7 +94,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Syntax.Prod (x, t1, t2) ->
           let y, ctx = Context.add_free x t1 ctx in
-          let y = Syntax.mk_name ~loc:Position.Nowhere y in
+          let y = Syntax.mk_name ~loc:Position.nowhere y in
           let t2 = Syntax.instantiate_ty y t2
           and e1' = Syntax.mk_app ~loc:loc1 x t1 t2 e1 y
           and e2' = Syntax.mk_app ~loc:loc2 x t1 t2 e2 y
@@ -129,7 +129,7 @@ and equal_whnf ctx e1 e2 ((_,loc) as t) =
         &&
         begin
           let y, ctx = Context.add_free x u1 ctx in
-          let y' = Syntax.mk_name ~loc:Position.Nowhere y in
+          let y' = Syntax.mk_name ~loc:Position.nowhere y in
           let u2  = Syntax.instantiate_ty y' u2
           and u2' = Syntax.instantiate_ty y' u2'
           and e  = Syntax.instantiate y' e
@@ -154,7 +154,7 @@ and equal_whnf ctx e1 e2 ((_,loc) as t) =
         equal_ty ctx u1 u1' &&
         begin 
           let y, ctx = Context.add_free x u1 ctx in
-          let y' = Syntax.mk_name ~loc:Position.Nowhere y in
+          let y' = Syntax.mk_name ~loc:Position.nowhere y in
           let u2  = Syntax.instantiate_ty y' u2
           and u2' = Syntax.instantiate_ty y' u2'
           in
