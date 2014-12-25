@@ -1,30 +1,29 @@
 (** The abstract syntax of input. *)
 
-type comp = comp' * Position.t
-and comp' =
-  | Let of Common.name * comp * comp
-  | Term of term
-
-and expr = expr' * Position.t
-and expr' =
+type term = term' * Position.t
+and term' =
+  (* expressions *)
   | Var of Common.name
   | Type
-  | Ascribe of term * ty
-  | Lambda of Common.name * ty * term
-  | App of term * term
-  | Prod of Common.name * ty * ty
-  | Eq of term * term
-  | Refl of term
+  (* computations *)
+  | Let of Common.name * comp * comp
+  | Ascribe of comp * ty
+  | Lambda of (Common.name * ty) list * comp
+  | Spine of expr * expr list
+  | Prod of (Common.name * ty) list * comp
+  | Eq of expr * expr
+  | Refl of expr
 
-and ty = expr
+and ty = term
+and comp = term
+and expr = term
 
-and term = expr
-
+(** Toplevel commands *)
 type toplevel = toplevel' * Position.t
 and toplevel' =
-  | Parameter of Common.name list * ty
-  | TopLet of Common.name * comp
-  | TopCheck of comp
+  | Parameter of Common.name list * ty (** introduce parameters into the context *)
+  | TopLet of Common.name * comp (** global let binding *)
+  | TopCheck of comp (** infer the type of a computation *)
   | Quit
   | Help
   | Context

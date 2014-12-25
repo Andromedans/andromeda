@@ -14,7 +14,7 @@ and term' =
   | Ascribe of comp * ty
   | Lambda of (Common.name * ty) list * comp
   | Spine of expr * expr list
-  | Prod of (Common.name * ty) list * ty
+  | Prod of (Common.name * ty) list * comp
   | Eq of expr * expr
   | Refl of expr
 
