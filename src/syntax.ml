@@ -1,30 +1,43 @@
 (** The abstract syntax of Andromedan type theory. *)
 
-(** The type of terms. We use locally nameless syntax: names for
-    free variables and de Bruijn indices for bound variables.
-    The type [term] is for terms in which a bound variable is
-    not allowed to appear "bare", i.e., without an associated
-    binder. *)
+(** The type of terms. We use locally nameless syntax: names for free variables and de
+    Bruijn indices for bound variables. The type [term] is for terms in which a bound
+    variable is not allowed to appear "bare", i.e., without an associated binder.
+
+    We use spines everywhere. Thus instead of a nested application [e1 (e2 (... en))] we
+    have a spine [e1 [e2; ...; en]], and similarly for lambda abstractions and product
+    types. The reason for this is one of efficiency: because we need to tag every
+    application with a type, nested applications use quadratic space (in the number of the
+    application) whereas spines use linear space.
+*)
 type term = term' * Position.t
 and term' =
-  | Name of Common.name (* free variable *)
-  | Bound of Common.bound (* bound variable *)
-  (* fun (x_1 : A_1) (x_2 : A_2(x_1)) ... (x_n : A_n(x_1,...,x_n-1)) => e(x_1,...,x_n) : A(x_1,...,x_n) *)
-  | Lambda of (ty, term * ty) abstraction
-  (* e : (x_1 : A_1) (x_2 : A_2(x_1)) ... (x_n : A_n(x_1,...,x_n-1)), A(x_1,...,x_n)
-     (e_1 : A_1) (e_2 : A_2(e_1)) ... (e_n : A_n(e_1,...,e_n-1))
-     e [e_1, e_2, ..., e_n] : A(e_1,...,e_n) *)
-  | Spine of term * (term * ty, ty) abstraction
   | Type
-  (* forall (x_1 : A_1) (x_2 : A_2(x_1)) ... (x_n : A_n(x_1,...,x_n-1)), A(x_1,...,x_n) *)
+  | Name of Common.name (** a free variable *)
+  | Bound of Common.bound (** a bound variable *)
+  | Lambda of (ty, term * ty) abstraction
+    (** a lambda abstraction [fun (x1:A1) ... (xn:An) -> e : A] where
+        [Ak] depends on [x1, ..., x{k-1}], while [e] and [A] depends on
+        [x1, ..., xn] *)
+  | Spine of term * (term * ty, ty) abstraction
+    (** a spine [e [(x1,(e1,A1)); ..., (xn,(en,An))] : A] means that
+        [e] is applied to [e1, ..., en], and that the type of [e] has type
+        [forall (x1:A1) ... (xn:An), A]. Here again [Ak] depends on
+        [x1, ..., x{k-1}] and [A] depends on [x1, ..., xn]. *)
   | Prod of (ty, ty) abstraction
+    (** dependent product [forall (x1:A1) ... (xn:An), A], where [Ak] depends on
+        [x1, ..., x{k-1}] and [A] depends on [x1, ..., xn]. *)
   | Eq of ty * term * term
-  | Refl of ty * term
+    (** strict equality type [e1 == e2] where [e1] and [e2] have type [A]. *)
+  | Refl of ty * term (** reflexivity [refl e] where [e] has type [A]. *)
 
 (** Since we have [Type : Type] we do not distinguish terms from types,
-    so the type of type [ty] is just a synonym for the type of terms. *)
+    so the type of type [ty] is just a synonym for the type of terms. 
+    However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
 and ty = Ty of term
 
+(** An [(A,B) abstraction] is a [B] bound by [x1:a1, ..., xn:an] where
+    the [a1, ..., an] have type [A]. *)
 and ('a, 'b) abstraction = Abs of (Common.name * 'a) list * 'b
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
@@ -35,11 +48,11 @@ let mk_lambda ~loc x t1 t2 e = Lambda (Abs ([x, t1], (t2, e))), loc
 let mk_prod ~loc x t1 t2 = Prod (Abs ([x, t1], t2)), loc
 let mk_spine ~loc e exts t = Spine (e, Abs (exts, t)), loc
 let mk_app ~loc x t1 t2 e1 e2 = mk_spine ~loc e1 [(x, (e2, t1))] t2
-
 let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
 
+(** The [Type] constant, without a location. *)
 let typ = mk_type ~loc:Position.nowhere
 
 (** A value is the result of a computation. *)
