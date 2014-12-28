@@ -64,3 +64,5 @@ let find_name x ctx =
     let k = ref (match k with Some k -> k | None -> 0) in
       while List.mem_assoc (Common.to_name (y ^ string_of_int !k)) ctx do incr k done ;
       Common.to_name (y ^ string_of_int !k)
+
+let free_list {free} = free

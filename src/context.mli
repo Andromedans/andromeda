@@ -19,3 +19,5 @@ val add_free : Common.name -> Value.ty -> t -> t
 
 (** Add a meta variable with suggested name to the context. *)
 val add_meta : Common.name -> Value.value -> t -> t
+
+val free_list : t -> (Common.name * Value.ty) list
