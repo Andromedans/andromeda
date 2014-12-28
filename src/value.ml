@@ -175,40 +175,12 @@ let instantiate e0 (Bare e) =
 
 let instantiate_ty = instantiate
 
-let occurs (Bare e) =
-  let rec occurs k (e, loc) =
-    begin match e with
 
-      | Name _ -> false
-        
-      | Bound m -> k = m
-        
-      | Ascribe (e, t) -> occurs k e || occurs_ty k t
-        
-      | Lambda (_, t1, t2, e) ->
-        occurs_ty k t1 || occurs_bare_ty k t2 || occurs_bare k e
-          
-      | Spine (t, e, es) ->
-        occurs_ty k e || occurs k e || List.exists (occurs k) es
-          
-      | Type -> false
-        
-      | Prod (_, t1, t2) ->
-        occurs_ty k t1 || occurs_bare_ty k t2
 
-      | Eq (t, e1, e2) ->
-        occurs_ty k t || occurs k e1 || occurs k e2
 
-      | Refl (t, e) ->
-        occurs_ty k t || occurs k e
-    end
 
-  and occurs_ty k t = occurs k t
 
-  and occurs_bare k (Bare e) = occurs (k+1) e
 
-  and occurs_bare_ty k (Bare t) = occurs_ty (k+1) t
+let occurs _ = true
 
-  in occurs 0 e
-
-let occurs_ty = occurs
+let occurs_ty _ = true
