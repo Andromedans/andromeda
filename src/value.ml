@@ -43,13 +43,16 @@ and ('a, 'b) abstraction = (Common.name * 'a) list * 'b
 (** A value is the result of a computation. *)
 type value = term * ty
 
+type result =
+  | Return of value
+
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
 let mk_name ~loc x = Name x, loc
 let mk_bound ~loc k = Bound k, loc
-let mk_lambda ~loc x t1 t2 e = Lambda (Abs ([x, t1], (t2, e))), loc
-let mk_prod ~loc x t1 t2 = Prod (Abs ([x, t1], t2)), loc
-let mk_spine ~loc e exts t = Spine (e, Abs (exts, t)), loc
+let mk_lambda ~loc x t1 t2 e = Lambda ([x, t1], (t2, e)), loc
+let mk_prod ~loc x t1 t2 = Prod ([x, t1], t2), loc
+let mk_spine ~loc e exts t = Spine (e, (exts, t)), loc
 let mk_app ~loc x t1 t2 e1 e2 = mk_spine ~loc e1 [(x, (e2, t1))] t2
 let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
@@ -62,11 +65,11 @@ let mk_eq_ty ~loc t e1 e2 = Ty (Eq (t, e1, e2), loc)
 
 
 (** The [Type] constant, without a location. *)
-let typ = mk_type ~loc:Position.nowhere
+let typ = Ty (mk_type ~loc:Position.nowhere)
 
 (** Alpha equality *)
 
-let equal_abstraction equal_u equal_v (Abs (xus, v)) (Abs (xus', v')) =
+let equal_abstraction equal_u equal_v ((xus, v)) ((xus', v')) =
   let rec eq xus xus' =
     match xus, xus' with
     | [], [] -> true
