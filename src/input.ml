@@ -10,8 +10,8 @@ and term' =
   | Var of Common.name
   | Type
   (* computations *)
-  | Let of Common.name * comp * comp
-  | Ascribe of comp * ty
+  | Let of (Common.name * comp) list * comp
+  | Ascribe of expr * ty
   | Lambda of (Common.name * ty) list * comp
   | Spine of expr * expr list
   | Prod of (Common.name * ty) list * comp

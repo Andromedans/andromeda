@@ -1,95 +1,89 @@
-(** Given an input term [e] in context [ctx], synthesize a term and its
-    type. *)
-let rec syn_term ctx (e,loc) =
-  begin match e with
+(** Evaluation of expressions. *)
+let rec expr ctx (e',loc) =
+  begin
+    match e' with
+    | Syntax.Free x ->
+       begin
+         match Context.lookup_free x ctx with
+         | None -> Error.runtime ~loc "unknown free variable %s" (Common.to_string x)
+         | Some t -> 
+            let x = Value.mk_name ~loc x in
+              (x, t)
+       end
 
-    | Input.Var x ->
-      begin match Context.lookup x ctx with
-        | None -> Error.runtime "unknown name %t" (Print.name x)
-        | Some (Context.Entry_free t) -> 
-          let e = Syntax.mk_name ~loc x
-          in (e, t)
-        | Some (Context.Entry_value (Syntax.Judge (e, t))) -> (e, t)
-        | Some (Context.Entry_value _) -> Error.runtime "%t should be a term" (Print.name x)
-      end
+    | Syntax.Bound _ ->
+       Error.impossible ~loc "bound variable encountered"
 
-    | Input.Type ->
-      let e = Syntax.mk_type ~loc in
-        (e, e)
+    | Syntax.Meta x ->
+       begin
+         match Context.lookup_meta x ctx with
+           | None -> Error.impossible ~loc "unknown meta variable"
+           | Some v -> v
+       end
 
-    | Input.Ascribe (e, t) ->
-      let t = is_type ctx t in
-      let e = check_term ctx e t in
-        (e, t)
-
-    | Input.Lambda (x, t, e) ->
-      let t1 = is_type ctx t in
-      let x, ctx = Context.add_free x t1 ctx in
-      let (e, t2) = syn_term ctx e in
-      let t2 = Syntax.abstract_ty x t2 in
-      let e = Syntax.abstract x e in
-      let e' = Syntax.mk_lambda ~loc x t1 t2 e
-      and t' = Syntax.mk_prod ~loc x t1 t2 in
-        (e', t')
-
-    | Input.App (e1, e2) ->
-      let (e1, t1) = syn_term ctx e1 in
-      let (x, t11, t12) = Equal.as_prod ctx t1 in
-      let e2 = check_term ctx e2 t11 in
-      let e' = Syntax.mk_app ~loc x t11 t12 e1 e2
-      and t' = Syntax.instantiate_ty e2 t12 in
-        (e', t')
-
-    | Input.Prod (x, t1, t2) ->
-      let t1 = is_type ctx t1 in
-      let x, ctx = Context.add_free x t1 ctx in
-      let t2 = is_type ctx t2 in
-      let t2 = Syntax.abstract_ty x t2 in
-      let e' = Syntax.mk_prod ~loc x t1 t2
-      and t' = Syntax.mk_type ~loc in
-        (e', t')
-
-    | Input.Eq (e1, e2) ->
-      let (e1, t) = syn_term ctx e1 in
-      let e2 = check_term ctx e2 t in
-      let e' = Syntax.mk_eq ~loc t e1 e2
-      and t' = Syntax.mk_type ~loc in
-        (e', t')
-
-    | Input.Refl e ->
-      let (e, t) = syn_term ctx e in
-      let e' = Syntax.mk_refl ~loc t e
-      and t' = Syntax.mk_eq ~loc t e e in
-        (e', t')
-
+    | Syntax.Type ->
+       let t = Value.mk_type ~loc
+       in (t, Value.typ)
   end
 
-(** Given an input term [e] and a type [t] in context [ctx],
-    convert the input term to a term of type [t]. *)
-and check_term ctx e t =
-  let (e,t') = syn_term ctx e in
-    if Equal.equal_ty ctx t' t then
-      e
-    else
-      Error.typing ~loc:(snd e) "this expression should have type %t but has type %t"
+(** Evaluate a computation -- infer mode. *)
+let rec infer ctx (c',loc) =
+  match c' with
+
+  | Syntax.Return e ->
+     let v = expr ctx e
+     in Value.Return v
+
+  | Syntax.Let (cs, c') ->
+     let ctx = List.fold_left
+                 (fun ctx' (x,c) -> 
+                  (* NB: must use [ctx] here, not [ctx'] *)
+                  match infer ctx c with
+                  | Value.Return v -> Context.add_meta x v ctx')
+                 ctx cs
+     in infer ctx c'
+
+  | Syntax.Ascribe (c, t) ->
+     let t = ty_of_expr ctx t
+     in let e = check ctx c t
+        in Value.Return (e, t)
+
+  | Syntax.Lambda (abs, c) -> failwith "Lambda not implemented"
+
+  | Syntax.Spine (e, es) -> failwith "Spine not implemented"
+
+  | Syntax.Prod (abs, c) -> failwith "Prod not implemented"
+
+  | Syntax.Eq (e1, c2) ->
+    let (e1, t1) = expr ctx e1 in
+    let e2 = check ctx c2 t1 in
+    let t = Value.mk_eq ~loc t1 e1 e2
+    in
+      Value.Return (t, Value.typ)
+
+  | Syntax.Refl e ->
+    let (e, t) = expr ctx e
+    in let e' = Value.mk_refl ~loc t e
+       and t' = Value.mk_eq_ty ~loc t e e
+       in Value.Return (e', t')
+
+and check ctx c t =
+  match infer ctx c with
+  | Value.Return (e, t') ->
+     if Equal.equal_ty ctx t' t
+     then e
+     else 
+      Error.typing ~loc:(snd c) "this expression should have type %t but has type %t"
         (Print.ty ctx t)
         (Print.ty ctx t')
 
-(** Given an input term [e], convert it to a type. *)
-and is_type ctx e =
-  check_term ctx e Syntax.typ
+and ty_of_expr ctx ((_,loc) as e) =
+  let (e, t) = expr ctx e
+  in
+    if Equal.equal_ty ctx t Value.typ
+    then Value.ty e
+    else Error.runtime ~loc "this expression should be a type"
 
-(** Evaluate a computation. *)
-let rec ceval ctx (c,_) =
-  begin match c with
-
-    | Input.Let (x, c1, c2) ->
-      let v1 = ceval ctx c1 in
-      let ctx = Context.add_value x v1 ctx
-      in ceval ctx c2
-
-    | Input.Term e ->
-      let (e, t) = syn_term ctx e
-      in Syntax.Judge (e, t)
-
-  end
+let ty ctx c =
+  let e = check ctx c Value.typ
+  in Value.ty e

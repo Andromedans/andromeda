@@ -1,6 +1,6 @@
 (** [ceval ctx c] evaluates command [c] in context [ctx]. *)
-val ceval : Context.t -> Input.comp -> Syntax.value
+val infer : Context.t -> Syntax.comp -> Value.result
 
-(** [is_type ctx t] checks that [t] is a type in context [ctx]
-    and returns its [Syntax] form. *)
-val is_type : Context.t -> Input.ty -> Syntax.ty
+(** [ty ctx c] evaluates command [c] in context [ctx] and
+    checks that the result is a type. *)
+val ty : Context.t -> Syntax.comp -> Value.ty

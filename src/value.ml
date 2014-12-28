@@ -38,7 +38,10 @@ and ty = Ty of term
 
 (** An [(A,B) abstraction] is a [B] bound by [x1:a1, ..., xn:an] where
     the [a1, ..., an] have type [A]. *)
-and ('a, 'b) abstraction = Abs of (Common.name * 'a) list * 'b
+and ('a, 'b) abstraction = (Common.name * 'a) list * 'b
+
+(** A value is the result of a computation. *)
+type value = term * ty
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
@@ -52,13 +55,14 @@ let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
 
+(** Convert a term to a type. *)
+let ty e = Ty e
+
+let mk_eq_ty ~loc t e1 e2 = Ty (Eq (t, e1, e2), loc)
+
+
 (** The [Type] constant, without a location. *)
 let typ = mk_type ~loc:Position.nowhere
-
-(** A value is the result of a computation. *)
-type value =
-  | IsTerm of term * ty
-  | IsType of ty
 
 (** Alpha equality *)
 
@@ -111,21 +115,7 @@ and equal_ty (Ty t1) (Ty t2) = equal t1 t2
 
 and equal_term_ty (e, t) (e', t') = equal e e' && equal_ty t t'
 
-
 (** Manipulation of variables *)
-
-let abstract_abstraction abstract_u abstract_v shift (Abs (xus, v)) =
-  let rec abs shift = function
-    | [] -> shift, []
-    | (x, u) :: xus ->
-        let u = abstract_u shift u
-        and shift, xus = abs (shift + 1) xus
-        in shift, (x, u) :: xus
-  in
-  let shift, xus = abs shift xus
-  and v = abstract_v shift v
-  in Abs (xus, v)
-
 
 let instantiate e0 (Bare e) =
   let rec instantiate k e0 ((e',loc) as e) =

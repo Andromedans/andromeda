@@ -1,42 +1,56 @@
 (** Abstract syntax of types and terms. *)
 
-(** Terms and types with exposed debruijn index 0 *)
-type bare_term
-
-type bare_ty
-
-(** The type of Andromedan terms *)
 type term = term' * Position.t
 and term' = private
-  | Name of Common.name
-  | Bound of Common.bound
-  | Ascribe of term * ty
-  | Lambda of Common.name * ty * bare_ty * bare_term
-  | Spine of term * ty * term list
   | Type
-  | Prod of Common.name * ty * bare_ty
+  | Name of Common.name (** a free variable *)
+  | Bound of Common.bound (** a bound variable *)
+  | Lambda of (ty, term * ty) abstraction
+    (** a lambda abstraction [fun (x1:A1) ... (xn:An) -> e : A] where
+        [Ak] depends on [x1, ..., x{k-1}], while [e] and [A] depends on
+        [x1, ..., xn] *)
+  | Spine of term * (term * ty, ty) abstraction
+    (** a spine [e [(x1,(e1,A1)); ..., (xn,(en,An))] : A] means that
+        [e] is applied to [e1, ..., en], and that the type of [e] has type
+        [forall (x1:A1) ... (xn:An), A]. Here again [Ak] depends on
+        [x1, ..., x{k-1}] and [A] depends on [x1, ..., xn]. *)
+  | Prod of (ty, ty) abstraction
+    (** dependent product [forall (x1:A1) ... (xn:An), A], where [Ak] depends on
+        [x1, ..., x{k-1}] and [A] depends on [x1, ..., xn]. *)
   | Eq of ty * term * term
-  | Refl of ty * term
+    (** strict equality type [e1 == e2] where [e1] and [e2] have type [A]. *)
+  | Refl of ty * term (** reflexivity [refl e] where [e] has type [A]. *)
 
-(** We do not ditinguish between names of types and types,
-    but in the future we may have to. *)
-and ty = term
+(** Since we have [Type : Type] we do not distinguish terms from types,
+    so the type of type [ty] is just a synonym for the type of terms. 
+    However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
+and ty = private
+    | Ty of term
 
-type value =
-  | Judge of term * ty
-  | String of string
+(** An [(A,B) abstraction] is a [B] bound by [x1:a1, ..., xn:an] where
+    the [a1, ..., an] have type [A]. *)
+and ('a, 'b) abstraction = (Common.name * 'a) list * 'b
+
+(** A value is the result of a computation. *)
+type value = term * ty
+
+(** A result of computation *)
+type result =
+  | Return of value
 
 (** Term constructors *)
 val mk_name: loc:Position.t -> Common.name -> term
 val mk_bound: loc:Position.t -> Common.bound -> term
-val mk_ascribe: loc:Position.t -> term -> ty -> term
-val mk_lambda: loc:Position.t -> Common.name -> ty -> bare_ty -> bare_term -> term
-val mk_app: loc:Position.t -> Common.name -> ty -> bare_ty -> term -> term -> term
-val mk_spine: loc:Position.t -> ty -> term -> term list -> term
+val mk_lambda: loc:Position.t -> (ty, term * ty) abstraction
+val mk_spine: loc:Position.t -> term -> (term * ty, term) abstraction
 val mk_type: loc:Position.t -> term
-val mk_prod: loc:Position.t -> Common.name -> ty -> bare_ty -> ty
-val mk_eq: loc:Position.t -> ty -> term -> term -> ty
+val mk_prod: loc:Position.t -> Common.name -> (ty, ty) abstraction
+val mk_eq: loc:Position.t -> ty -> term -> term -> term
+val mk_eq_ty: loc:Position.t -> ty -> term -> term -> ty
 val mk_refl: loc:Position.t -> ty -> term -> term
+
+(** Construct a value to a type (does not check whether this is legal). *)
+val ty : term -> ty
 
 (** The type Type *)
 val typ : ty
@@ -47,19 +61,11 @@ val equal : term -> term -> bool
 (** Alpha equality of types *)
 val equal_ty : ty -> ty -> bool
 
-(** Abstract a name in a term to de Bruijn index 0. *)
-val abstract : Common.name -> term -> bare_term
-
-(** Abstract a name to de Bruijn index 0. *)
-val abstract_ty : Common.name -> ty -> bare_ty
-
-(** Instantiate de Bruijn index 0 to a term. *)
-val instantiate : term -> bare_term -> term
-
-val instantiate_ty : term -> bare_ty -> ty
+(** Partially instantiate a lambda abstraction *)
+val instantiate : term list -> ('a, term * ty) abstraction -> ('a, term * ty) abstraction
 
 (** Does de Bruijn index 0 get used in the given term? *)
-val occurs : bare_term -> bool
+val occurs : term -> bool
 
 (** Does de Bruijn index 0 get used in the given type? *)
-val occurs_ty : bare_ty -> bool
+val occurs_ty : ty -> bool

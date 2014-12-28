@@ -4,6 +4,7 @@
   open Parser
 
   let reserved = [
+    ("and", AND) ;
     ("Check", TOPCHECK) ;
     ("Let", TOPLET) ;
     ("let", LET) ;

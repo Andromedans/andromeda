@@ -4,13 +4,7 @@
 
 let verbosity = ref 4
 let annotate = ref false
-
-module StringSet = Set.Make(struct
-                                type t = string
-                                let compare = compare
-                            end)
-
-let displayable = ref (StringSet.singleton "all")
+let displayable = ref ["all"]
 
 let message msg_type v =
   if v <= !verbosity then
@@ -24,7 +18,7 @@ let message msg_type v =
 let error (loc, err_type, msg) = message (err_type) 1 "%s" msg
 let warning msg = message "Warning" 2 msg
 let debug ?(category="all") msg =
-  if StringSet.mem category (!displayable) then
+  if List.mem category (!displayable) then
     message "Debug" 3 msg
   else
     message "Dummy" (!verbosity + 1) msg
@@ -70,7 +64,7 @@ let name x ppf = print ~at_level:0 ppf "%s" (Common.to_string x)
 
 (** [prod ctx x t1 t2 ppf] prints a dependent product using formatter [ppf]. *)
 let rec prod ?max_level ctx x t1 t2 ppf =
-  let x, ctx' = Context.add_free x t1 ctx in
+  let ctx' = Context.add_free x t1 ctx in
   let t2' = Syntax.instantiate_ty (Syntax.mk_name ~loc:Position.nowhere x) t2 in
     if Syntax.occurs_ty t2
     then

@@ -10,6 +10,8 @@ val to_name : string -> name
 
 val to_string : name -> string
 
+val fresh : unit -> name
+
 (** Comparison of free variables *)
 val eqname : name -> name -> bool
 

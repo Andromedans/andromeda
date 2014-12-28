@@ -17,5 +17,16 @@ and comp' =
   | Lambda of (Common.name * ty) list * comp
   | Spine of expr * expr list
   | Prod of (Common.name * ty) list * comp
-  | Eq of expr * expr
+  | Eq of expr * comp
   | Refl of expr
+
+(** Toplevel commands *)
+type toplevel = toplevel' * Position.t
+and toplevel' =
+  | Parameter of Common.name list * comp (** introduce parameters into the context *)
+  | TopLet of Common.name * comp (** global let binding *)
+  | TopCheck of comp (** infer the type of a computation *)
+  | Quit
+  | Help
+  | Context
+

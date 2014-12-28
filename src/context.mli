@@ -1,31 +1,21 @@
-(** A context entry is either a free variable of a given type,
-    or a value binding. *)
-type entry = private
-  | Entry_free of Syntax.ty        (* a free variable *)
-  | Entry_value of Syntax.value    (* a variable bound by a [let] *)
-
 (** The type of contexts *)
-type t = (Common.name * entry) list
+type t
 
 (** The empty context *)
 val empty : t
 
-(** Lookup a context entry *)
-val lookup : Common.name -> t -> entry option
+(** Lookup a free variable. *)
+val lookup_free : Common.name -> t -> Value.ty option
+
+(** Lookup a meta variable. *)
+val lookup_meta : Common.bound -> t -> Value.value option
 
 (** Is the given name bound as a free variable? *)
-val is_free : Common.name -> t -> bool
-
-(** Is the given name bound to a value? *)
-val is_value : Common.name -> t -> bool
-
-(** Is the given name bound? *)
 val is_bound : Common.name -> t -> bool
 
-(** Add a free variable with suggested name and a given type to the context.
-    The result is the actual name bound (it may change to avoid shadowing)
-    and the modified context. *)
-val add_free : Common.name -> Syntax.ty -> t -> Common.name * t 
+(** Add a free variable of a given type to the context.
+    Fails if the free variable is already bound. *)
+val add_free : Common.name -> Value.ty -> t -> t 
 
-(** Bind a name to a value, raising an error if shadowing would occur. *)
-val add_value : Common.name -> Syntax.value -> t -> t
+(** Add a meta variable with suggested name to the context. *)
+val add_meta : Common.name -> Value.value -> t -> t

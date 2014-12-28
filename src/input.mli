@@ -6,7 +6,7 @@ and term' =
   | Var of Common.name
   | Type
   (* computations *)
-  | Let of Common.name * comp * comp
+  | Let of (Common.name * comp) list * comp
   | Ascribe of comp * ty
   | Lambda of (Common.name * ty) list * comp
   | Spine of expr * expr list

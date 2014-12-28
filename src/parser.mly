@@ -12,7 +12,7 @@
 %token EQEQ
 %token REFL
 %token TOPLET TOPCHECK
-%token LET COLONEQ IN
+%token LET COLONEQ AND IN
 %token PARAMETER
 %token CONTEXT HELP QUIT
 %token EOF
@@ -55,7 +55,7 @@ plain_topdirective:
 term: mark_position(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                 { e }
-  | LET x=name COLONEQ c1=term IN c2=term           { Let (x, c1, c2) }
+  | LET a=let_clauses IN c=term                     { Let (a, c) }
   | e=app_term ASCRIBE t=ty_term                    { Ascribe (e, t) }
 
 ty_term: mark_position(plain_ty_term) { $1 }
@@ -85,6 +85,12 @@ plain_simple_term:
 name:
   | NAME { Common.to_name $1 }
   | UNDERSCORE { Common.anonymous }
+
+let_clauses:
+  | ls=separated_nonempty_list(AND, let_clause)     { ls }
+
+let_clause:
+  | x=name COLONEQ c=term                           { (x,c) }
 
 (* returns a list of things individually annotated by positions.
   Since the list is not further annotated, consistency suggests

@@ -26,100 +26,101 @@ let lookup x ctx =
   in
     lookup 0 0 ctx
 
-let lambdify ~loc ys c =
+let lambdify ys ((c',loc) as c) =
   match ys with
-  | [] -> c, loc
-  | _::_ -> Syntax.Lambda (ys, (c, loc)), loc
-
-let prodify ~loc ys t =
+  | [] -> c'
+  | _::_ -> Syntax.Lambda (ys, c)
+                          
+let prodify ys ((t',loc) as t) =
   match ys with
-  | [] -> t, loc
-  | _::_ -> Syntax.Prod (ys, (t, loc)), loc
+  | [] -> t'
+  | _::_ -> Syntax.Prod (ys, t)
 
-let letify ~loc w c =
+let letify ~loc w c' =
   match w with
-  | [] -> c, loc
-  | _::_ -> Syntax.Let (w, (c, loc)), loc
+  | [] -> c', loc
+  | _::_ -> Syntax.Let (w, (c', loc)), loc
 
-
-let rec comp ctx (c',loc) =
-  let w, c with =
+let rec comp ctx ((c',loc) as c) =
+  let w, c =
     begin
       match c' with
 
-      | Input.Let (x, c1, c2) ->
-         let c1 = comp ctx c1
+      | Input.Let (ls, c2) ->
+         let ls = List.map (fun (x,c) -> (x, comp ctx c)) ls
          and c2 = comp ctx c2
-         in [], Syntax.Let (x, c1, c2)
-                                      
+         in [], Syntax.Let (ls, c2)
+                           
       | Input.Ascribe (c, t) ->
-         let w, t = expr ctx [] t
-         and c = comp ctx c
+         let c = comp ctx c
+         and w, t = expr ctx [] t
          in w, Syntax.Ascribe (c, t)
 
       | Input.Lambda (xs, c) ->
-         lambda ctx [] c xs
+         let c = comp ctx c in
+         let rec lambda ctx ys = function
+           | [] -> lambdify ys c
+           | (x,t) :: xs ->
+              begin
+                match expr ctx [] t with
+                | [], t ->
+                   let ctx = add_bound x ctx
+                   and ys = (x,t) :: ys
+                   in lambda ctx ys xs
+                | w, ((_,loc) as t) ->
+                   let c = lambda (add_bound x ctx) [] xs in
+                   let c = Syntax.Lambda ([(x,t)], (c, loc)) in
+                   let c = letify ~loc w c in
+                     lambdify ys c
+              end
+         in
+           [], lambda ctx [] xs
 
       | Input.Spine (e, es) ->
          let w, e = expr ctx [] e
-         in let w, es = List.fold_left (fun (w, e) -> expr ctx w e) (w, []) es
-            in w, Syntax.Spine (e, es)
+         in let w, es =
+              List.fold_left
+                (fun (w,es) e -> let w, e = expr ctx w e
+                                 in (w, e::es))
+                (w, []) es
+            in let es = List.rev es
+               in w, Syntax.Spine (e, es)
 
       | Input.Prod (xs, c) ->
-         prod ctx [] c xs
+         let c = comp ctx c in
+         let rec prod ctx ys = function
+           | [] -> prodify ys c
+           | (x,t) :: xs ->
+              begin
+                match expr ctx [] t with
+                | [], t ->
+                   let ctx = add_bound x ctx
+                   and ys = (x,t) :: ys
+                   in prod ctx ys xs
+                | w, ((_,loc) as t) ->
+                   let c = prod (add_bound x ctx) [] xs in
+                   let c = Syntax.Prod ([(x,t)], (c,loc)) in
+                   let c = letify ~loc:(snd t) w c in
+                     prodify ys c
+              end
+         in
+           [], prod ctx [] xs
 
-      | Input.Eq (e1, e2) ->
+      | Input.Eq (e1, c2) ->
          let w, e1 = expr ctx [] e1
-         in let w, e2 = expr ctx w e2
-            in w, Syntax.Eq (e1, e2)
+         in let c2 = comp ctx c2
+            in w, Syntax.Eq (e1, c2)
 
       | Input.Refl e ->
-         let w, e = expr ctx e
+         let w, e = expr ctx [] e
          in w, Syntax.Refl e
 
       | (Input.Var _ | Input.Type) ->
-         let w, e = expr ctx e
+         let w, e = expr ctx [] c
          in w, Syntax.Return e                 
     end
 
-  in letify ~loc w c
-
-
-and lambda ctx ys c' = function
-  | [] -> 
-     let c' = comp ctx c'
-     in lambdify ys c'
-  | (x,t) :: xs ->
-     begin
-       match expr ctx [] t with
-       | [], t ->
-          let ctx = add_bound x ctx
-          and ys = (x,t) :: ys
-          in lambda ctx ys c' xs
-       | w, t ->
-          let c = lambda (add_bound x ctx) [] c' xs
-          in let c = Syntax.Lambda ([(x,t)], c)
-             in let c = letify ~loc:(snd t) w c
-                in lambdify ys c
-     end
-
-and prod ctx ys c' = function
-  | [] -> 
-     let c' = comp ctx c'
-     in prodify ys c'
-  | (x,t) :: xs ->
-     begin
-       match expr ctx [] t with
-       | [], t ->
-          let ctx = add_bound x ctx
-          and ys = (x,t) :: ys
-          in prod ctx ys t' xs
-       | w, t ->
-          let c = prod (add_bound x ctx) [] c' xs
-          in let c = Syntax.Prod ([(x,t)], c)
-             in let c = letify ~loc:(snd t) w c
-                in prodify ys c
-     end
+    in letify ~loc w c
 
 and expr ctx w ((e',loc) as e) =
   match e' with
@@ -134,8 +135,36 @@ and expr ctx w ((e',loc) as e) =
     | Input.Type ->
        w, (Syntax.Type, loc)
 
-    | (Input.Let _ | Input.Ascribe _ | Input.Lambda | Input.Spine _ |
+    | (Input.Let _ | Input.Ascribe _ | Input.Lambda _ | Input.Spine _ |
        Input.Prod _ | Input.Eq _ | Input.Refl _) ->
-       let c = comp ctx e
-       and k = List.length w in
-       in w @ [c], (Syntax.Meta k, loc)
+       let x = Common.fresh () 
+       and c = comp ctx e
+       and k = List.length w
+       in w @ [(x,c)], (Syntax.Meta k, loc)
+
+let rec toplevel (d, loc) =
+  begin
+    match d with
+
+    | Input.Parameter (xs, t) ->
+       let c = comp empty t
+       in Syntax.Parameter (xs, c)
+
+    | Input.TopLet (x, c) ->
+       let c = comp empty c
+       in Syntax.TopLet (x, c)
+
+    | Input.TopCheck c ->
+       let c = comp empty c
+       in Syntax.TopCheck c
+
+    | Input.Quit -> Syntax.Quit
+
+    | Input.Help -> Syntax.Help
+
+    | Input.Context -> Syntax.Context
+  end,
+  loc
+
+let computation = comp []
+

@@ -1,34 +1,40 @@
-type entry =
-  | Entry_free of Syntax.ty        (* a free variable *)
-  | Entry_value of Syntax.value    (* a variable bound by a [let] *)
-
 (** The type of contexts *)
-type t = (Common.name * entry) list
+type t = {
+  free : (Common.name * Value.ty) list;
+  meta : (Common.name * Value.value) list
+}
 
 (** The empty context *)
-let empty = []
+let empty = { free = []; meta = [] }
 
-let rec lookup x = function
-  | [] -> None
-  | (y,v) :: lst ->
-    if Common.eqname x y then Some v else lookup x lst
+let lookup_free x {free=lst} =
+  let rec lookup = function
+    | [] -> None
+    | (y,v) :: lst ->
+       if Common.eqname x y then Some v else lookup lst
+  in
+    lookup lst
 
-let is_free x ctx =
-  match lookup x ctx with
-    | None -> false
-    | Some (Entry_free _) -> true
-    | Some (Entry_value _) -> false
-
-let is_value x ctx =
-  match lookup x ctx with
-    | None -> false
-    | Some (Entry_free _) -> false
-    | Some (Entry_value _) -> true
+let lookup_meta k {meta=lst} =
+  let rec lookup = function
+    | _, [] -> None
+    | 0, (_, v) :: _ -> Some v
+    | k, _ :: xvs -> lookup (k-1, xvs)
+  in
+    lookup (k, lst)
 
 let is_bound x ctx =
-  match lookup x ctx with
-    | None -> false
-    | Some _ -> true
+  match lookup_free x ctx with
+  | None -> false
+  | Some _ -> true
+
+let add_free x t ctx =
+  if is_bound x ctx
+  then Error.runtime "%s already exists" (Common.to_string x)
+  else { ctx with free = (x,t) :: ctx.free }
+
+let add_meta x v ctx =
+  { ctx with meta = (x,v) :: ctx.meta }
 
 (* Variables which have a value are never referenced from anything with
    a context (because the context only holds evaluated things). So it is
@@ -58,16 +64,3 @@ let find_name x ctx =
     let k = ref (match k with Some k -> k | None -> 0) in
       while List.mem_assoc (Common.to_name (y ^ string_of_int !k)) ctx do incr k done ;
       Common.to_name (y ^ string_of_int !k)
-
-let add_free x ((_,loc) as t) ctx =
-  let x = find_name x ctx in
-  let ctx = (x, Entry_free t) :: ctx in
-    x, ctx
-
-let add_value x v ctx =
-  if x = Common.anonymous
-  then ctx
-  else begin
-    if is_free x ctx then Error.fatal "%s is already assumed" (Common.to_string x) ;
-    (x, Entry_value v) :: ctx
-  end

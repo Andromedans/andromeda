@@ -88,16 +88,15 @@ let parse parse lex =
 
 (** [exec_cmd ctx d] executes toplevel directive [d] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
-let rec exec_cmd interactive ctx (d, loc) =
-  match d with
-
-    | Input.Parameter (xs, t) ->
-      let t = Eval.is_type ctx t in
+let rec exec_cmd interactive ctx d =
+  let (d', loc) = Desugar.toplevel d in
+    match d' with
+    | Syntax.Parameter (xs,c) ->
+      let t = Eval.ty ctx c in
       let ctx =
         List.fold_left
           (fun ctx x -> 
-            if Context.is_bound x ctx then Error.runtime "%t already exists." (Print.name x) ;
-            let x, ctx = Context.add_free x t ctx in
+            let ctx = Context.add_free x t ctx in
               if interactive then Format.printf "%t is assumed.@\n" (Print.name x) ;
               ctx)
           ctx
@@ -106,25 +105,31 @@ let rec exec_cmd interactive ctx (d, loc) =
         Format.printf "@." ;
         ctx
 
-    | Input.TopLet (x, c) ->
-      let v = Eval.ceval ctx c in
-      let ctx = Context.add_value x v ctx in
-        if interactive then Format.printf "%t is defined.@\n@." (Print.name x) ;
-        ctx
+    | Syntax.TopLet (x, c) ->
+       begin
+         match Eval.infer ctx c with
+         | Value.Return v ->
+            let ctx = Context.add_meta x v ctx in
+              if interactive then Format.printf "%t is defined.@\n@." (Print.name x) ;
+              ctx
+       end
 
-    | Input.TopCheck c ->
-      let v = Eval.ceval ctx c in
-        Format.printf "%t" (Print.value ctx v) ;
-        ctx
+    | Syntax.TopCheck c ->
+       begin
+         match Eval.infer ctx c with
+         | Value.Return v ->
+            Format.printf "%t" (Print.value ctx v) ;
+            ctx
+       end
 
-    | Input.Context ->
+    | Syntax.Context ->
         Format.printf "%t" (Print.context ctx) ;
         ctx
 
-    | Input.Help ->
+    | Syntax.Help ->
       Format.printf "%s" help_text ; ctx
 
-    | Input.Quit ->
+    | Syntax.Quit ->
       exit 0
 
 (** Load directives from the given file. *)
