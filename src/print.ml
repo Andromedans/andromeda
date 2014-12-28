@@ -23,7 +23,7 @@ let debug ?(category="all") msg =
   else
     message "Dummy" (!verbosity + 1) msg
 
-(** Print an term, possibly placing parentheses around it. We always
+(** Print a term, possibly placing parentheses around it. We always
     print things at a given [at_level]. If the level exceeds the
     maximum allowed level [max_level] then the term should be parenthesized.
 
@@ -62,93 +62,82 @@ let sequence ?(sep="") f lst ppf =
 
 let name x ppf = print ~at_level:0 ppf "%s" (Common.to_string x)
 
-(** [prod ctx x t1 t2 ppf] prints a dependent product using formatter [ppf]. *)
-let rec prod ?max_level ctx x t1 t2 ppf =
-  let ctx' = Context.add_free x t1 ctx in
-  let t2' = Syntax.instantiate_ty (Syntax.mk_name ~loc:Position.nowhere x) t2 in
-    if Syntax.occurs_ty t2
-    then
-      print ?max_level ~at_level:3 ppf "forall (%t :@ %t), @ %t"
+let rec binder ctx (x, t) ppf =
+  print ppf "(%t : %t)"
         (name x)
-        (ty ~max_level:4 ctx t1)
-        (ty ~max_level:3 ctx' t2')
-    else
-      print ?max_level ~at_level:3 ppf "%t ->@ %t"
-        (ty ~max_level:2 ctx t1)
-        (ty ~max_level:3 ctx' t2')
+        (ty ctx t)
 
-(** [lambda ctx x t u e ppf] prints a lambda abstraction using formatter [ppf]. *)
-and lambda ctx x t u e ppf =
-  let x, ctx' = Context.add_free x t ctx in
-  let x' = Syntax.mk_name ~loc:Position.nowhere x in
-  let u = Syntax.instantiate_ty x' u in
-  let e = Syntax.instantiate x' e in
-    print ~max_level:4 ppf "fun (%t :@ %t) =>%t@ %t"
-      (name x)
-      (ty ~max_level:4 ctx t)
-      (annot (ty ~max_level:4 ctx' u))
-      (term ~max_level:4 ctx' e)
+(** [prod ctx ts t ppf] prints a dependent product using formatter [ppf]. *)
+and prod ctx ts t ppf =
+  match ts with
+
+  | [] ->
+     print ppf "%t" (ty ctx t)
+
+  | (x,u) :: ts when not (Value.occurs_ty t) ->
+      print ~at_level:3 ppf "%t ->@ %t"
+        (ty ~max_level:2 ctx u)
+        (prod ctx ts t)
+
+  | ts ->
+     print ppf "forall %t,@ %t"
+           (sequence (binder ctx) ts)
+           (ty ~max_level:3 ctx t)
+
+(** [lambda ctx a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
+and lambda ctx a e t ppf =
+  print ppf "fun %t =>%t@ %t"
+        (sequence (binder ctx) a)
+        (annot (ty ~max_level:4 ctx t))
+        (term ~max_level:4 ctx e)
 
 and term ?max_level ctx (e,_) ppf =
   let print ?at_level = print ?max_level ?at_level ppf in
     match e with
-
-      | Syntax.Name x ->
-        print ~at_level:0 "%t" (name x)
-
-      | Syntax.Bound k ->
-        print ~at_level:0 "DEBRUIJN[%d]" k
-
-      | Syntax.Ascribe (e, t) ->
-        print ~at_level:4 "%t :: %t"
-          (term ~max_level:3 ctx e)
-          (ty ~max_level:4 ctx t)
-
-      | Syntax.Lambda (x, t, u, e) ->
-        print ~at_level:3 "%t" (lambda ctx x t u e)
-
-      | Syntax.Spine (t, e, es) ->
-        print ~at_level:1 "@[<hov 2>%t%t@ %t@]"
-          (term ~max_level:1 ctx e)
-          (annot ~prefix:" @" (ty ~max_level:4 ctx t))
-          (sequence (term ~max_level:0 ctx) es)
-
-      | Syntax.Type ->
+      | Value.Type ->
         print ~at_level:0 "Type"
 
-      | Syntax.Refl (t, e) ->
-        print ~at_level:0 "refl%t %t"
-          (annot (ty ~max_level:4 ctx t))
-          (term ~max_level:0 ctx e)
+      | Value.Name x ->
+        print ~at_level:0 "%t" (name x)
 
-      | Syntax.Prod (x, t1, t2) ->
-        print ~at_level:3 "%t" (prod ctx x t1 t2)
+      | Value.Bound k ->
+        print ~at_level:0 "DEBRUIJN[%d]" k
 
-      | Syntax.Eq (t, e1, e2) ->
+      | Value.Lambda (a, (e, t)) ->
+        print ~at_level:3 "%t" (lambda ctx a e t)
+
+      | Value.Spine (e, (es, _)) ->
+        (* XXX: no typing annotations yet *)
+        print ~at_level:1 "@[<hov 2>%t@ %t@]"
+          (term ~max_level:1 ctx e)
+          (sequence (term ~max_level:0 ctx) (List.map (fun (_,(e,_)) -> e) es))
+
+      | Value.Prod (ts, t) ->
+        print ~at_level:3 "%t" (prod ctx ts t)
+
+      | Value.Eq (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
           (term ~max_level:1 ctx e1)
           (annot (ty ~max_level:4 ctx t))
           (term ~max_level:1 ctx e2)
 
-and ty ?max_level ctx e ppf = term ?max_level ctx e ppf
+      | Value.Refl (t, e) ->
+        print ~at_level:0 "refl%t %t"
+          (annot (ty ~max_level:4 ctx t))
+          (term ~max_level:0 ctx e)
+
+and ty ?max_level ctx (Value.Ty t) ppf = term ?max_level ctx t ppf
 
 let value ?max_level ctx v ppf =
-  match v with
-    | Syntax.Judge (e, t) ->
-      print ~at_level:0 ppf "%t : %t"
-        (term ~max_level:0 ctx e)
-        (ty ~max_level:0 ctx t)
-
-    | Syntax.String s ->
-      print ~at_level:0 ppf "\"%s\"" (String.escaped s)
+  let (e,t) = v in
+    print ~at_level:0 ppf "%t : %t"
+          (term ~max_level:0 ctx e)
+          (ty ~max_level:0 ctx t)
 
 let context ctx ppf =
   print ppf "---------@." ;
-  List.iter (fun (x, entry) ->
-    match entry with
-      | Context.Entry_free t ->
-        print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (name x) (ty ctx t)
-      | Context.Entry_value v ->
-        print ppf "@[<hov 4>Let %t@;<1 -2>:= %t@]@\n" (name x) (value ctx v)
-  ) (List.rev ctx) ;
+  List.iter
+    (fun (x, t) ->
+     print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (name x) (ty ctx t))
+    (List.rev (Context.free_list ctx)) ;
   print ppf "---END---@."
