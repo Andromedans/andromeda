@@ -12,6 +12,7 @@ let to_name x = String x
 
 let to_string = function
   | Anonymous -> "_"
+  | Gensym n -> "_" ^ string_of_int n
   | String s -> s
 
 let fresh =

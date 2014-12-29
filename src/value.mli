@@ -41,10 +41,10 @@ type result =
 (** Term constructors *)
 val mk_name: loc:Position.t -> Common.name -> term
 val mk_bound: loc:Position.t -> Common.bound -> term
-val mk_lambda: loc:Position.t -> (ty, term * ty) abstraction
-val mk_spine: loc:Position.t -> term -> (term * ty, term) abstraction
+(* val mk_lambda: loc:Position.t -> (ty, term * ty) abstraction *)
+(* val mk_spine: loc:Position.t -> term -> (term * ty, term) abstraction *)
 val mk_type: loc:Position.t -> term
-val mk_prod: loc:Position.t -> Common.name -> (ty, ty) abstraction
+(* val mk_prod: loc:Position.t -> Common.name -> (ty, ty) abstraction *)
 val mk_eq: loc:Position.t -> ty -> term -> term -> term
 val mk_eq_ty: loc:Position.t -> ty -> term -> term -> ty
 val mk_refl: loc:Position.t -> ty -> term -> term
@@ -61,8 +61,13 @@ val equal : term -> term -> bool
 (** Alpha equality of types *)
 val equal_ty : ty -> ty -> bool
 
-(** Partially instantiate a lambda abstraction *)
-val instantiate : term list -> ('a, term * ty) abstraction -> ('a, term * ty) abstraction
+(** Partially instantiate a lambda abstraction. Since the number of supplied
+    terms may be greater than the number of arguments, we also return the
+    list of unused terms. *)
+val instantiate :
+  term list ->
+  (ty, term * ty) abstraction ->
+  (ty, term * ty) abstraction * term list
 
 (** Does de Bruijn index 0 get used in the given term? *)
 val occurs : term -> bool

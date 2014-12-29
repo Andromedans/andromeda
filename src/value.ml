@@ -43,6 +43,9 @@ and ('a, 'b) abstraction = (Common.name * 'a) list * 'b
 (** A value is the result of a computation. *)
 type value = term * ty
 
+type result =
+  | Return of value
+
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
 let mk_name ~loc x = Name x, loc
@@ -62,7 +65,7 @@ let mk_eq_ty ~loc t e1 e2 = Ty (Eq (t, e1, e2), loc)
 
 
 (** The [Type] constant, without a location. *)
-let typ = mk_type ~loc:Position.nowhere
+let typ = Ty (mk_type ~loc:Position.nowhere)
 
 (** Alpha equality *)
 
@@ -117,95 +120,98 @@ and equal_term_ty (e, t) (e', t') = equal e e' && equal_ty t t'
 
 (** Manipulation of variables *)
 
-let instantiate e0 (Bare e) =
-  let rec instantiate k e0 ((e',loc) as e) =
+let instantiate_abs instantiate_u instantiate_v shift es (xus, v) =
+  let rec instantiate shift = function
+    | [] -> shift, []
+    | (x, u) :: xus ->
+        let u = instantiate_u shift es u in
+        let shift, xus = instantiate (shift + 1) xus in
+        shift, (x, u) :: xus
+  in
+  let shift, xus = instantiate shift xus in
+  let v = instantiate_v shift es v in
+  (xus, v)
+
+let instantiate ets (xts, et) =
+  let num_terms = List.length ets
+  and num_args = List.length xts in
+
+  let rec instantiate shift ets ((e', loc) as e) =
     begin match e' with
 
       | Name _ -> e
 
-      | Bound m -> if k = m then e0 else e
+      | Bound index ->
+          if index < shift then
+            (* this is a variable bound in an abstraction inside the
+               instantiated term, so we leave it as it is *)
+            e
+          else if shift <= index && index < shift + num_terms then
+            (* this is a variable that corresponds to a substituted term,
+               so we replace it *)
+            List.nth ets (index - shift)
+          else (* if shift + num_terms <= index *)
+            (* this is a variable bound in an abstraction outside the
+               instantiated term, so it remains bound, but its index decreases
+               by the number of bound variables replaced by terms *)
+            Bound (index - num_terms), loc
 
-      | Ascribe (e, t) ->
-        let e = instantiate k e0 e 
-        and t = instantiate_ty k e0 t
-        in Ascribe (e, t), loc
+      | Lambda abs' ->
+        let abs' = instantiate_abs instantiate_ty instantiate_term_ty shift ets abs'
+        in Lambda abs', loc
 
-      | Lambda (y, t1, t2, e) ->
-        let t1 = instantiate_ty k e0 t1
-        and t2 = instantiate_bare_ty k e0 t2
-        and e = instantiate_bare k e0 e
-        in Lambda (y, t1, t2, e), loc
-
-      | Spine (t, e, es) ->
-        let t = instantiate_ty k e0 t
-        and e = instantiate k e0 e
-        and es = List.map (instantiate k e0) es
-        in Spine (t, e, es), loc
+      | Spine (e, abs') ->
+        let e = instantiate shift ets e
+        and abs' = instantiate_abs instantiate_term_ty instantiate_ty shift ets abs'
+        in Spine (e, abs'), loc
 
       | Type -> e
 
-      | Prod (y, t1, t2) ->
-        let t1 = instantiate_ty k e0 t1
-        and t2 = instantiate_bare_ty k e0 t2
-        in Prod (y, t1, t2), loc
+      | Prod abs' ->
+        let abs' = instantiate_abs instantiate_ty instantiate_ty shift ets abs'
+        in Prod abs', loc
 
       | Eq (t, e1, e2) ->
-        let t = instantiate_ty k e0 t
-        and e1 = instantiate k e0 e1
-        and e2 = instantiate k e0 e2
+        let t = instantiate_ty shift ets t
+        and e1 = instantiate shift ets e1
+        and e2 = instantiate shift ets e2
         in Eq (t, e1, e2), loc
 
       | Refl (t, e) ->
-        let t = instantiate_ty k e0 t
-        and e = instantiate k e0 e
+        let t = instantiate_ty shift ets t
+        and e = instantiate shift ets e
         in Refl (t, e), loc
-
     end
 
-  and instantiate_ty k e0 t = instantiate k e0 t
-  
-  and instantiate_bare k e0 (Bare e) = Bare (instantiate (k+1) e0 e)
+  and instantiate_ty shift ets (Ty t) = Ty (instantiate shift ets t)
 
-  and instantiate_bare_ty k e0 (Bare t) = Bare (instantiate_ty (k+1) e0 t)
+  and instantiate_term_ty shift ets (e, t) =
+    let e = instantiate shift ets e
+    and t = instantiate_ty shift ets t
+    in (e, t)
+  in
 
-  in instantiate 0 e0 e
+  if num_terms <= num_args then
+    let rec drop k = function
+    | xs when k = 0 -> xs
+    | x :: xs -> drop (k - 1) xs
+    | [] -> assert false (* why doesn't OCaml accept "assert (num_terms <= num_args)" *)
+    in
+    let remaining_xts = drop num_terms xts in
+    let abs = instantiate_abs instantiate_ty instantiate_term_ty 0 ets (remaining_xts, et)
+    in abs, []
 
-let instantiate_ty = instantiate
+  else (* if num_terms > num_args *)
+    let rec split ets1 k = function
+    | ets2 when k = 0 -> (List.rev ets1, ets2)
+    | et :: ets -> split (et :: ets1) (k - 1) ets
+    | [] -> assert false (* why doesn't OCaml accept "assert (num_terms >= num_args)" *)
+    in
+    let (ets1, ets2) = split [] num_args ets in
+    let e, t = instantiate_term_ty 0 ets1 et in
+    ([], (e, t)), ets2
 
-let occurs (Bare e) =
-  let rec occurs k (e, loc) =
-    begin match e with
 
-      | Name _ -> false
-        
-      | Bound m -> k = m
-        
-      | Ascribe (e, t) -> occurs k e || occurs_ty k t
-        
-      | Lambda (_, t1, t2, e) ->
-        occurs_ty k t1 || occurs_bare_ty k t2 || occurs_bare k e
-          
-      | Spine (t, e, es) ->
-        occurs_ty k e || occurs k e || List.exists (occurs k) es
-          
-      | Type -> false
-        
-      | Prod (_, t1, t2) ->
-        occurs_ty k t1 || occurs_bare_ty k t2
+let occurs _ = true
 
-      | Eq (t, e1, e2) ->
-        occurs_ty k t || occurs k e1 || occurs k e2
-
-      | Refl (t, e) ->
-        occurs_ty k t || occurs k e
-    end
-
-  and occurs_ty k t = occurs k t
-
-  and occurs_bare k (Bare e) = occurs (k+1) e
-
-  and occurs_bare_ty k (Bare t) = occurs_ty (k+1) t
-
-  in occurs 0 e
-
-let occurs_ty = occurs
+let occurs_ty _ = true
