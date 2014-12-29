@@ -133,21 +133,28 @@ let instantiate_abs instantiate_u instantiate_v shift es (xus, v) =
   (xus, v)
 
 let instantiate ets (xts, et) =
-  let m = List.length ets
-  and n = List.length xts in
+  let num_terms = List.length ets
+  and num_args = List.length xts in
 
   let rec instantiate shift ets ((e', loc) as e) =
     begin match e' with
 
       | Name _ -> e
 
-      | Bound k ->
-          if k < shift then
+      | Bound index ->
+          if index < shift then
+            (* this is a variable bound in an abstraction inside the
+               instantiated term, so we leave it as it is *)
             e
-          else if shift <= k && k < shift + m then
-            List.nth ets (k - shift)
-          else (* if shift + m <= k *)
-            Bound (k - m), loc
+          else if shift <= index && index < shift + num_terms then
+            (* this is a variable that corresponds to a substituted term,
+               so we replace it *)
+            List.nth ets (index - shift)
+          else (* if shift + num_terms <= index *)
+            (* this is a variable bound in an abstraction outside the
+               instantiated term, so it remains bound, but its index decreases
+               by the number of bound variables replaced by terms *)
+            Bound (index - num_terms), loc
 
       | Lambda abs' ->
         let abs' = instantiate_abs instantiate_ty instantiate_term_ty shift ets abs'
@@ -184,23 +191,23 @@ let instantiate ets (xts, et) =
     in (e, t)
   in
 
-  if m <= n then
+  if num_terms <= num_args then
     let rec drop k = function
     | xs when k = 0 -> xs
     | x :: xs -> drop (k - 1) xs
-    | [] -> assert false (* we assumed that m <= n *)
+    | [] -> assert false (* why doesn't OCaml accept "assert (num_terms <= num_args)" *)
     in
-    let remaining_xts = drop m xts in
+    let remaining_xts = drop num_terms xts in
     let abs = instantiate_abs instantiate_ty instantiate_term_ty 0 ets (remaining_xts, et)
     in abs, []
 
-  else (* if m > n *)
+  else (* if num_terms > num_args *)
     let rec split ets1 k = function
     | ets2 when k = 0 -> (List.rev ets1, ets2)
     | et :: ets -> split (et :: ets1) (k - 1) ets
-    | [] -> assert false (* we assumed that m > n *)
+    | [] -> assert false (* why doesn't OCaml accept "assert (num_terms >= num_args)" *)
     in
-    let (ets1, ets2) = split [] n ets in
+    let (ets1, ets2) = split [] num_args ets in
     let e, t = instantiate_term_ty 0 ets1 et in
     ([], (e, t)), ets2
 

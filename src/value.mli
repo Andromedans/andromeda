@@ -61,7 +61,9 @@ val equal : term -> term -> bool
 (** Alpha equality of types *)
 val equal_ty : ty -> ty -> bool
 
-(** Partially instantiate a lambda abstraction *)
+(** Partially instantiate a lambda abstraction. Since the number of supplied
+    terms may be greater than the number of arguments, we also return the
+    list of unused terms. *)
 val instantiate :
   term list ->
   (ty, term * ty) abstraction ->
