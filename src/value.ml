@@ -4,7 +4,7 @@
     Bruijn indices for bound variables. The type [term] is for terms in which a bound
     variable is not allowed to appear "bare", i.e., without an associated binder.
 
-    We use spines everywhere. Thus instead of a nested application [e1 (e2 (... en))] we
+    We use spines everywhere. Thus instead of a nested application [((e1 e2) ... en)] we
     have a spine [e1 [e2; ...; en]], and similarly for lambda abstractions and product
     types. The reason for this is one of efficiency: because we need to tag every
     application with a type, nested applications use quadratic space (in the number of the
@@ -82,6 +82,7 @@ let equal_abstraction equal_u equal_v ((xus, v)) ((xus', v')) =
   equal_v v v'
 
 let rec equal (e1,_) (e2,_) =
+  e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
     | Name x, Name y -> Common.eqname x y
