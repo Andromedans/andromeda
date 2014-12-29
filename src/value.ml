@@ -145,8 +145,7 @@ let instantiate ets (xts, et) =
           if k < shift then
             e
           else if shift <= k && k < shift + m then
-            let x_arg, ((arg, t_arg), loc_arg) = List.nth ets (k - shift) in
-            arg, loc
+            List.nth ets (k - shift)
           else (* if shift + m <= k *)
             Bound (k - m), loc
 

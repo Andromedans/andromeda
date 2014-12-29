@@ -63,9 +63,9 @@ val equal_ty : ty -> ty -> bool
 
 (** Partially instantiate a lambda abstraction *)
 val instantiate :
-  (Common.name * (term * ty)) list ->
+  term list ->
   (ty, term * ty) abstraction ->
-  (ty, term * ty) abstraction * (Common.name * (term * ty)) list
+  (ty, term * ty) abstraction * term list
 
 (** Does de Bruijn index 0 get used in the given term? *)
 val occurs : term -> bool
