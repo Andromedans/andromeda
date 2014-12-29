@@ -50,10 +50,9 @@ type result =
     file), so we provide these constructors instead. *)
 let mk_name ~loc x = Name x, loc
 let mk_bound ~loc k = Bound k, loc
-let mk_lambda ~loc x t1 t2 e = Lambda ([x, t1], (t2, e)), loc
-let mk_prod ~loc x t1 t2 = Prod ([x, t1], t2), loc
+let mk_lambda ~loc xts e t = Lambda (xts, (e, t)), loc
+let mk_prod ~loc xts t = Prod (xts, t), loc
 let mk_spine ~loc e xets t = Spine (e, (xets, t)), loc
-let mk_app ~loc x t1 t2 e1 e2 = mk_spine ~loc e1 [(x, (e2, t1))] t2
 let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
@@ -61,7 +60,8 @@ let mk_refl ~loc t e = Refl (t, e), loc
 (** Convert a term to a type. *)
 let ty e = Ty e
 
-let mk_eq_ty ~loc t e1 e2 = Ty (Eq (t, e1, e2), loc)
+let mk_eq_ty ~loc t e1 e2 = ty (mk_eq ~loc t e1 e2)
+let mk_prod_ty ~loc xts t = ty (mk_prod ~loc xts t)
 
 
 (** The [Type] constant, without a location. *)

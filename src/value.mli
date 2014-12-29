@@ -38,18 +38,19 @@ type value = term * ty
 type result =
   | Return of value
 
-(** Term constructors *)
+(** Term constructors, the do not check for legality of constructions. *)
 val mk_name: loc:Position.t -> Common.name -> term
 val mk_bound: loc:Position.t -> Common.bound -> term
-(* val mk_lambda: loc:Position.t -> (ty, term * ty) abstraction *)
-(* val mk_spine: loc:Position.t -> term -> (term * ty, term) abstraction *)
+val mk_lambda: loc:Position.t -> (Common.name * ty) list -> term -> ty -> term
+val mk_spine: loc:Position.t -> term -> (Common.name * (term * ty)) list -> ty -> term
 val mk_type: loc:Position.t -> term
-(* val mk_prod: loc:Position.t -> Common.name -> (ty, ty) abstraction *)
+val mk_prod: loc:Position.t -> (Common.name * ty) list -> ty -> term
+val mk_prod_ty: loc:Position.t -> (Common.name * ty) list -> ty -> ty
 val mk_eq: loc:Position.t -> ty -> term -> term -> term
 val mk_eq_ty: loc:Position.t -> ty -> term -> term -> ty
 val mk_refl: loc:Position.t -> ty -> term -> term
 
-(** Construct a value to a type (does not check whether this is legal). *)
+(** Coerce a value to a type (does not check whether this is legal). *)
 val ty : term -> ty
 
 (** The type Type *)
