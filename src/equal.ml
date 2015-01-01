@@ -6,21 +6,18 @@ let rec whnf_ty ctx (Value.Ty t) =
 and whnf ctx ((e',loc) as e) t =
   match e' with
 
-    | Value.Name _ -> e
+    (* The following terms are already in WHNF *)
+    | Value.Name _
+    | Value.Lambda _
+    | Value.Type
+    | Value.Prod _
+    | Value.Eq _
+    | Value.Refl _ -> e
 
-    | Value.Bound _ -> Error.impossible ~loc "deBruijn encountered in whnf"
-
-    | Value.Lambda _ -> e
+    | Value.Bound _ ->
+      Error.impossible ~loc "Bound variable encountered while computing WHNF"
 
     | Value.Spine _ -> Error.unimplemented ~loc "whnf for spines not implemented"
-
-    | Value.Type -> e
-
-    | Value.Prod _ -> e
-
-    | Value.Eq _ -> e
-
-    | Value.Refl _ -> e
 
 let equal_ty ctx (Value.Ty t1) (Value.Ty t2) =
   Error.unimplemented "Type equivalence not implemented"
