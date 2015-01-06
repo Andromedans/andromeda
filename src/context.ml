@@ -33,6 +33,10 @@ let add_free x t ctx =
   then Error.runtime "%s already exists" (Common.to_string x)
   else { ctx with free = (x,t) :: ctx.free }
 
+let add_fresh x t ctx =
+  let y = Common.fresh x
+  in y, { ctx with free = (y,t) :: ctx.free }
+
 let add_meta x v ctx =
   { ctx with meta = (x,v) :: ctx.meta }
 

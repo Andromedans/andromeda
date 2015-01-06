@@ -17,6 +17,11 @@ val is_bound : Common.name -> t -> bool
     Fails if the free variable is already bound. *)
 val add_free : Common.name -> Value.ty -> t -> t 
 
+(** [add_fresh x t ctx] adds a fresh free variable with suggested
+    name [x] of given type [t] to the context [ctx]. Return the
+    actual name and the new context. *)
+val add_fresh : Common.name -> Value.ty -> t -> Common.name * t
+
 (** Add a meta variable with suggested name to the context. *)
 val add_meta : Common.name -> Value.value -> t -> t
 
