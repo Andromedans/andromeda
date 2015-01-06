@@ -228,24 +228,7 @@ and equal_whnf ctx e1 e2 t =
           zip [] ctx (xus, xvs)
 
       | Value.Spine (e1, (xets1, t1)), Value.Spine (e2, (xets2, t2)) ->
-          List.length xets1 = List.length xets2 &&
-          begin
-            let rec zip es1 es2 = function
-            | (x, (e1, t1)) :: xets1, (_, (e2, t2)) :: xets2 ->
-                let t1 = Value.instantiate_ty es1 0 t1
-                and t2 = Value.instantiate_ty es2 0 t2 in
-                equal_ty ctx t1 t2 &&
-                equal ctx e1 e2 t1 &&
-                zip es1 es2 (xets1, xets2) 
-            | [], [] ->
-                let t1 = Value.instantiate_ty es1 0 t1
-                and t2 = Value.instantiate_ty es2 0 t2 in
-                equal_ty ctx t1 t2 &&
-                equal ctx e1 e2 t1
-            | _ :: _, [] | [], _ :: _ -> Error.impossible ~loc:loc1 "you will not get a beer if you do not report this error";
-            in
-            zip [] [] (xets1, xets2)
-          end
+          equal_spine ~loc:loc1 ctx e1 xets1 t1 e2 xets2 t2
 
       | Value.Type, Value.Type -> true
 
@@ -275,3 +258,23 @@ and equal_whnf ctx e1 e2 t =
         false
 
     end
+
+and equal_spine ~loc ctx e1 xets1 t1 e2 xets2 t2 =
+  List.length xets1 = List.length xets2 &&
+  begin
+    let rec zip es1 es2 = function
+    | (x, (e1, t1)) :: xets1, (_, (e2, t2)) :: xets2 ->
+        let t1 = Value.instantiate_ty es1 0 t1
+        and t2 = Value.instantiate_ty es2 0 t2 in
+        equal_ty ctx t1 t2 &&
+        equal ctx e1 e2 t1 &&
+        zip es1 es2 (xets1, xets2) 
+    | [], [] ->
+        let t1 = Value.instantiate_ty es1 0 t1
+        and t2 = Value.instantiate_ty es2 0 t2 in
+        equal_ty ctx t1 t2 &&
+        equal ctx e1 e2 t1
+    | _ :: _, [] | [], _ :: _ -> Error.impossible ~loc "you will not get a beer if you do not report this error";
+    in
+    zip [] [] (xets1, xets2)
+  end
