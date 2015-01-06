@@ -66,8 +66,17 @@ type result =
     file), so we provide these constructors instead. *)
 let mk_name ~loc x = Name x, loc
 let mk_bound ~loc k = Bound k, loc
-let mk_lambda ~loc xts e t = Lambda (xts, (e, t)), loc
-let mk_prod ~loc xts t = Prod (xts, t), loc
+
+let mk_lambda ~loc xts e t =
+  match xts with
+  | [] -> e
+  | _ :: _ -> Lambda (xts, (e, t)), loc
+
+let mk_prod ~loc xts ((Ty e) as t) =
+  match xts with
+  | [] -> e
+  | _ :: _ -> Prod (xts, t), loc
+
 let mk_spine ~loc e xets t = Spine (e, (xets, t)), loc
 let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc

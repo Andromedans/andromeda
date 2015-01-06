@@ -7,12 +7,14 @@ let rec whnf_ty ctx (Value.Ty t) =
 and whnf ctx ((e',loc) as e) =
   match e' with
 
-    | Value.Spine (e, (xets, t)) -> whnf_spine ~loc ctx e xets t
+    | Value.Spine (e, ([], _)) -> whnf ctx e
+    | Value.Lambda ([], (e, _)) -> whnf ctx e
+    | Value.Prod ([], Value.Ty e) -> whnf ctx e
 
-    | Value.Lambda a -> whnf_lambda ~loc ctx a
+    | Value.Spine (e, ((_ :: _) as xets, t)) -> whnf_spine ~loc ctx e xets t
 
-    | Value.Prod a -> whnf_prod ~loc ctx a
-
+    | Value.Lambda (_ :: _, _)
+    | Value.Prod (_ :: _, _)
     | Value.Name _
     | Value.Type
     | Value.Eq _
@@ -23,57 +25,26 @@ and whnf ctx ((e',loc) as e) =
 
 (** The whnf of a spine [Spine (e, (xets, t))] in context [ctx]. *)
 and whnf_spine ~loc ctx e xets t =
-  let (e',eloc) as e = whnf ctx e
-  in
-    match xets with
+  let (e',eloc) as e = whnf ctx e in
+  match e' with
 
-    | [] -> e
+  | Value.Lambda (xus, (e, u)) ->
+    begin
+      match beta ~loc:eloc ctx xus e u xets t with
+      | None -> Value.mk_spine ~loc e xets t
+      | Some e -> whnf ctx e
+    end
 
-    | _::_ ->
-      begin
-        match e' with
+  | Value.Spine _
+  | Value.Name _
+  | Value.Type
+  | Value.Prod _
+  | Value.Eq _
+  | Value.Refl _ ->
+    Value.mk_spine ~loc e xets t
 
-        | Value.Lambda (xus, (e, u)) ->
-          begin
-            match beta ~loc:eloc ctx xus e u xets t with
-            | None -> Value.mk_spine ~loc e xets t
-            | Some e -> whnf ctx e
-          end
-
-        | Value.Spine (e', (xets', t')) ->
-          Error.unimplemented ~loc "flattening of spines not implemented"
-
-        | Value.Name _
-        | Value.Type
-        | Value.Prod _
-        | Value.Eq _
-        | Value.Refl _ ->
-          Value.mk_spine ~loc e xets t
-
-        | Value.Bound _ ->
-          Error.impossible ~loc "de Bruijn encountered in whnf"
-
-      end
-
-and whnf_lambda ~loc ctx (xts, (e, t)) =
-  match xts with
-  | [] -> whnf ctx e
-  | _ :: _ ->
-      begin match fst e with
-      | Value.Lambda (xts', (e', t')) when equal_ty ctx t (Value.mk_prod_ty ~loc xts' t') ->
-          whnf_lambda ~loc ctx (xts @ xts', (e', t'))
-      | _ -> Value.mk_lambda ~loc xts e t (* XXX optimize because this term already exists *)
-      end
-
-and whnf_prod ~loc ctx (xts, (Value.Ty e)) =
-  match xts with
-  | [] -> whnf ctx e
-  | _ :: _ ->
-      begin match fst e with
-      | Value.Prod (xts', t') ->
-          whnf_prod ~loc ctx (xts @ xts', t')
-      | _ -> Value.mk_prod ~loc xts (Value.ty e) (* XXX optimize because this term already exists *)
-      end
+  | Value.Bound _ ->
+    Error.impossible ~loc "de Bruijn encountered in whnf"
 
 (** Beta reduction of [Lambda (xus, (e, u))] applies to arguments [yevs] at type [t].
     Returns ??? and the unused arguments. *)
