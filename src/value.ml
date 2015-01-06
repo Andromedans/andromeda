@@ -120,97 +120,75 @@ and equal_term_ty (e, t) (e', t') = equal e e' && equal_ty t t'
 
 (** Manipulation of variables *)
 
-let instantiate_abs instantiate_u instantiate_v shift es (xus, v) =
-  let rec instantiate shift = function
-    | [] -> shift, []
-    | (x, u) :: xus ->
-        let u = instantiate_u shift es u in
-        let shift, xus = instantiate (shift + 1) xus in
-        shift, (x, u) :: xus
+let instantiate_abstraction instantiate_u instantiate_v es depth (xus, v) =
+  let rec inst acc depth = function
+    | [] ->
+       let v = instantiate_v es depth v
+       in List.rev acc, v
+    | (x,u) :: xus ->
+       let u = instantiate_u es depth u in
+       inst ((x,u) :: acc) (depth+1) xus
   in
-  let shift, xus = instantiate shift xus in
-  let v = instantiate_v shift es v in
-  (xus, v)
+    inst [] depth xus
 
-let instantiate ets (xts, et) =
-  let num_terms = List.length ets
-  and num_args = List.length xts in
 
-  let rec instantiate shift ets ((e', loc) as e) =
-    begin match e' with
+let rec instantiate es depth ((e',loc) as e) =
+  (* XXX possible optimization: check whether [es] is empty *)
+  let n = List.length es in
+    match e' with
 
-      | Name _ -> e
+    | Type -> e
 
-      | Bound index ->
-          if index < shift then
-            (* this is a variable bound in an abstraction inside the
-               instantiated term, so we leave it as it is *)
-            e
-          else if shift <= index && index < shift + num_terms then
-            (* this is a variable that corresponds to a substituted term,
-               so we replace it *)
-            List.nth ets (index - shift)
-          else (* if shift + num_terms <= index *)
-            (* this is a variable bound in an abstraction outside the
-               instantiated term, so it remains bound, but its index decreases
-               by the number of bound variables replaced by terms *)
-            Bound (index - num_terms), loc
+    | Name _ -> e
 
-      | Lambda abs' ->
-        let abs' = instantiate_abs instantiate_ty instantiate_term_ty shift ets abs'
-        in Lambda abs', loc
+    | Bound k ->
+       if k < depth
+       then e
+       else 
+         if k < depth + n
+         then List.nth es (k - depth)
+         else Bound (k - n), loc
 
-      | Spine (e, abs') ->
-        let e = instantiate shift ets e
-        and abs' = instantiate_abs instantiate_term_ty instantiate_ty shift ets abs'
-        in Spine (e, abs'), loc
+    | Lambda a ->
+       let a = instantiate_abstraction instantiate_ty instantiate_term_ty es depth a
+       in Lambda a, loc
 
-      | Type -> e
+    | Spine (e, a) ->
+       let e = instantiate es depth e
+       and a = instantiate_abstraction instantiate_term_ty instantiate_ty es depth a
+       in Spine (e, a), loc
 
-      | Prod abs' ->
-        let abs' = instantiate_abs instantiate_ty instantiate_ty shift ets abs'
-        in Prod abs', loc
+    | Prod a ->
+       let a = instantiate_abstraction instantiate_ty instantiate_ty es depth a
+       in Prod a, loc
 
-      | Eq (t, e1, e2) ->
-        let t = instantiate_ty shift ets t
-        and e1 = instantiate shift ets e1
-        and e2 = instantiate shift ets e2
-        in Eq (t, e1, e2), loc
+    | Eq (t, e1, e2) ->
+       let t = instantiate_ty es depth t
+       and e1 = instantiate es depth e1
+       and e2 = instantiate es depth e2
+       in Eq (t, e1, e2), loc
 
-      | Refl (t, e) ->
-        let t = instantiate_ty shift ets t
-        and e = instantiate shift ets e
-        in Refl (t, e), loc
-    end
+    | Refl (t, e) ->
+       let t = instantiate_ty es depth t
+       and e = instantiate es depth e
+       in Refl (t, e), loc
 
-  and instantiate_ty shift ets (Ty t) = Ty (instantiate shift ets t)
+and instantiate_ty es depth (Ty t) = 
+  let t = instantiate es depth t
+  in Ty t
 
-  and instantiate_term_ty shift ets (e, t) =
-    let e = instantiate shift ets e
-    and t = instantiate_ty shift ets t
-    in (e, t)
-  in
+and instantiate_term_ty es depth (e, t) =
+  let e = instantiate es depth e
+  and t = instantiate_ty es depth t
+  in (e, t)
 
-  if num_terms <= num_args then
-    let rec drop k = function
-    | xs when k = 0 -> xs
-    | x :: xs -> drop (k - 1) xs
-    | [] -> assert false (* why doesn't OCaml accept "assert (num_terms <= num_args)" *)
-    in
-    let remaining_xts = drop num_terms xts in
-    let abs = instantiate_abs instantiate_ty instantiate_term_ty 0 ets (remaining_xts, et)
-    in abs, []
+let unabstract xs depth e =
+  let es = List.map (mk_name ~loc:Position.nowhere) xs
+  in instantiate es depth e  
 
-  else (* if num_terms > num_args *)
-    let rec split ets1 k = function
-    | ets2 when k = 0 -> (List.rev ets1, ets2)
-    | et :: ets -> split (et :: ets1) (k - 1) ets
-    | [] -> assert false (* why doesn't OCaml accept "assert (num_terms >= num_args)" *)
-    in
-    let (ets1, ets2) = split [] num_args ets in
-    let e, t = instantiate_term_ty 0 ets1 et in
-    ([], (e, t)), ets2
-
+let unabstract_ty xs depth (Ty t) =
+  let t = unabstract xs depth t
+  in Ty t 
 
 let occurs _ = true
 

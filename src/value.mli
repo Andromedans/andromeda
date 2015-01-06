@@ -62,15 +62,31 @@ val equal : term -> term -> bool
 (** Alpha equality of types *)
 val equal_ty : ty -> ty -> bool
 
-(** Partially instantiate a lambda abstraction. Since the number of supplied
-    terms may be greater than the number of arguments, we also return the
-    list of unused terms. *)
-val instantiate :
-  term list ->
-  (ty, term * ty) abstraction ->
-  (ty, term * ty) abstraction * term list
+(** [instantiate [e0,...,e{n-1}] k e] replaces bound variables indexed by [k, ..., k+n-1]
+    with terms [e0, ..., e{n-1}]. *)
+val instantiate: term list -> int -> term -> term
 
-(** Does de Bruijn index 0 get used in the given term? *)
+val instantiate_abstraction: 
+  (term list -> int -> 'u -> 'u) ->
+  (term list -> int -> 'v -> 'v) ->
+  term list ->
+  int ->
+  ('u, 'v) abstraction -> ('u, 'v) abstraction
+
+val instantiate_ty: term list -> int -> ty -> ty
+
+val instantiate_term_ty: term list -> int -> term * ty -> term * ty
+
+(** [unabstract [x0,...,x{n-1}] k e] replaces bound variables in [e] indexed by [k, ..., k+n-1]
+    with names [x0, ..., x{n-1}]. *)
+val unabstract: Common.name list -> int -> term -> term
+
+(** [unabstract_ty [x0,...,x{n-1}] k t] replaces bound variables in [t] indexed by [k, ..., k+n-1]
+    names [x0, ..., x{n-1}]. *)
+val unabstract_ty: Common.name list -> int -> ty -> ty
+
+
+(* Does de Bruijn index 0 get used in the given term? *)
 val occurs : term -> bool
 
 (** Does de Bruijn index 0 get used in the given type? *)
