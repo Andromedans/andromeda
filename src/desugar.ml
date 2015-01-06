@@ -137,7 +137,7 @@ and expr ctx w ((e',loc) as e) =
 
     | (Input.Let _ | Input.Ascribe _ | Input.Lambda _ | Input.Spine _ |
        Input.Prod _ | Input.Eq _ | Input.Refl _) ->
-       let x = Common.fresh () 
+       let x = Common.fresh Common.anonymous
        and c = comp ctx e
        and k = List.length w
        in w @ [(x,c)], (Syntax.Meta k, loc)
