@@ -1,31 +1,3 @@
-(** Let [xuus] be the list [(x1,u1,u1'); ...; (xn,un,un')] where
-    [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
-    [ui'] is well-formed in the context [x1:u1', ..., x{i-1}:u{i-1}'] and
-    [v]  is well-formed in the context [x1:u1, ..., xn:un] and
-    [v'] is well-formed in the context [x1:u1',..., xn:un'].
-    We verify that the [ui] are equal to [ui'] and that [v] is equal to [v]
-    where we use [equal_u] to compare [ui] and [ui'] and
-    [equal_v] to compare [v] and [v']. *)
-let equal_abstraction equal_u equal_v ctx xuus v v' =
-  (* As we descend into the contexts we carry around a list of variables
-     [ys] with which we unabstract the bound variables. *)
-  let rec eq ys ctx =
-    function
-     | [] -> 
-        let v = Value.unabstract_ty ys 0 v
-        and v' = Value.unabstract_ty ys 0 v'
-        in equal_v ctx v v'
-     | (x,u,u')::us ->
-        let u  = Value.unabstract_ty ys 0 u
-        and u' = Value.unabstract_ty ys 0 u'
-        in
-          equal_u ctx u u'
-          &&
-          (let y, ctx = Context.add_fresh x u ctx in
-             eq (ys @ [y]) ctx us) (* XXX optimize list append *)
-   in
-     eq [] ctx xuus
-
 (** The whnf of a type [t] in context [ctx]. *)
 let rec whnf_ty ctx (Value.Ty t) =
   let t = whnf ctx t
@@ -35,22 +7,19 @@ let rec whnf_ty ctx (Value.Ty t) =
 and whnf ctx ((e',loc) as e) =
   match e' with
 
-    | Value.Spine (e, (xets, t)) ->
-      whnf_spine ~loc ctx e xets t
+    | Value.Spine (e, (xets, t)) -> whnf_spine ~loc ctx e xets t
 
-    | Value.Lambda ([], (e, _)) ->
-      whnf ctx e
+    | Value.Lambda a -> whnf_lambda ~loc ctx a
 
-    | Value.Lambda (_::_, _)
+    | Value.Prod a -> whnf_prod ~loc ctx a
+
     | Value.Name _
     | Value.Type
-    | Value.Prod _
     | Value.Eq _
     | Value.Refl _ -> e
 
     | Value.Bound _ ->
        Error.impossible ~loc "de Bruijn encountered in whnf"
-
 
 (** The whnf of a spine [Spine (e, (xets, t))] in context [ctx]. *)
 and whnf_spine ~loc ctx e xets t =
@@ -72,7 +41,7 @@ and whnf_spine ~loc ctx e xets t =
           end
 
         | Value.Spine (e', (xets', t')) ->
-          failwith "flattening of spines not implemented"
+          Error.unimplemented ~loc "flattening of spines not implemented"
 
         | Value.Name _
         | Value.Type
@@ -85,7 +54,27 @@ and whnf_spine ~loc ctx e xets t =
           Error.impossible ~loc "de Bruijn encountered in whnf"
 
       end
-    
+
+and whnf_lambda ~loc ctx (xts, (e, t)) =
+  match xts with
+  | [] -> whnf ctx e
+  | _ :: _ ->
+      begin match fst e with
+      | Value.Lambda (xts', (e', t')) when equal_ty ctx t (Value.mk_prod_ty ~loc xts' t') ->
+          whnf_lambda ~loc ctx (xts @ xts', (e', t'))
+      | _ -> Value.mk_lambda ~loc xts e t (* XXX optimize because this term already exists *)
+      end
+
+and whnf_prod ~loc ctx (xts, (Value.Ty e)) =
+  match xts with
+  | [] -> whnf ctx e
+  | _ :: _ ->
+      begin match fst e with
+      | Value.Prod (xts', t') ->
+          whnf_prod ~loc ctx (xts @ xts', t')
+      | _ -> Value.mk_prod ~loc xts (Value.ty e) (* XXX optimize because this term already exists *)
+      end
+
 (** Beta reduction of [Lambda (xus, (e, u))] applies to arguments [yevs] at type [t].
     Returns ??? and the unused arguments. *)
 and beta ~loc ctx xus e u yevs t =
@@ -105,10 +94,7 @@ and beta ~loc ctx xus e u yevs t =
     let u' = Value.mk_prod_ty ~loc xus u
     and t' = Value.mk_prod_ty ~loc yvs t
     in
-      if equal_abstraction
-           equal_ty equal_ty ctx
-           xuvs
-           u' t'
+      if equal_abstracted_ty ctx xuvs u' t'
       then
         (* Types match -- we can reduce *)
         let xus, (e, u) =
@@ -126,8 +112,33 @@ and beta ~loc ctx xus e u yevs t =
       else
         (* The types did not match. *)
         None
-    
 
+(** Let [xuus] be the list [(x1,u1,u1'); ...; (xn,un,un')] where
+    [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
+    [ui'] is well-formed in the context [x1:u1', ..., x{i-1}:u{i-1}'] and
+    [v]  is well-formed in the context [x1:u1, ..., xn:un] and
+    [v'] is well-formed in the context [x1:u1',..., xn:un'].
+    We verify that the [ui] are equal to [ui'] and that [v] is equal to [v]. *)
+and equal_abstracted_ty ctx xuus v v' =
+  (* As we descend into the contexts we carry around a list of variables
+     [ys] with which we unabstract the bound variables. *)
+  let rec eq ys ctx =
+    function
+     | [] -> 
+        let v = Value.unabstract_ty ys 0 v
+        and v' = Value.unabstract_ty ys 0 v'
+        in equal_ty ctx v v'
+     | (x,u,u')::xuus ->
+        let u  = Value.unabstract_ty ys 0 u
+        and u' = Value.unabstract_ty ys 0 u'
+        in
+          equal_ty ctx u u'
+          &&
+          (let y, ctx = Context.add_fresh x u ctx in
+             eq (ys @ [y]) ctx xuus) (* XXX optimize list append *)
+   in
+     eq [] ctx xuus
+ 
 (*
 and whnf_spine ~loc ctx ((t',loc) as t) e1 e2 es =
   let rec spine_cod ((t',loc) as t) es =
@@ -175,22 +186,28 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
   Value.equal e1 e2 ||
     (* xxx should check equations here *)
     begin (* type-directed phase *)
-      let ((t',_) as t) = whnf_ty ctx t in
+      let Value.Ty ((t',_) as t) = whnf_ty ctx t in
       match t' with
 
         | Value.Type
         | Value.Name _
-        | Value.Spine _
-        | Value.Ascribe _ ->
+        | Value.Spine _ ->
           equal_whnf ctx e1 e2 t
 
-        | Value.Prod (x, t1, t2) ->
-          let y, ctx = Context.add_free x t1 ctx in
-          let y = Value.mk_name ~loc:Position.nowhere y in
-          let t2 = Value.instantiate_ty y t2
-          and e1' = Value.mk_app ~loc:loc1 x t1 t2 e1 y
-          and e2' = Value.mk_app ~loc:loc2 x t1 t2 e2 y
-          in equal ctx e1' e2' t2
+        | Value.Prod (xus, u) ->
+            let rec fold ctx ys xyus =
+              begin function
+              | (x, (Value.Ty (_, loc) as u)) :: xus ->
+                  let v = Value.unabstract_ty ys 0 u in
+                  let y, ctx = Context.add_fresh x v ctx in
+                  fold ctx (ys @ [y]) (xyus @ [(x, (Value.mk_name ~loc y, u))]) xus
+              | [] ->
+                  let v = Value.unabstract_ty ys 0 u
+                  and e1 = Value.mk_spine ~loc:loc1 e1 xyus u
+                  and e2 = Value.mk_spine ~loc:loc2 e2 xyus u
+                  in equal ctx e1 e2 v
+              end
+            in fold ctx [] [] xus
 
         | Value.Eq _ -> true (** Strict equality *)
 
@@ -213,42 +230,65 @@ and equal_whnf ctx e1 e2 t =
       | Value.Bound _, _ | _, Value.Bound _ ->
         Error.impossible ~loc:loc1 "deBruijn encountered in equal_whnf"
 
-      | Value.Lambda (x, u1, u2, e), Value.Lambda (_, u1', u2', e') ->
-        equal_ty ctx u1 u1'
-        &&
-        begin
-          let y, ctx = Context.add_free x u1 ctx in
-          let y' = Value.mk_name ~loc:Position.nowhere y in
-          let u2  = Value.instantiate_ty y' u2
-          and u2' = Value.instantiate_ty y' u2'
-          and e  = Value.instantiate y' e
-          and e' = Value.instantiate y' e'
+      | Value.Lambda (xus, (e1, t1)), Value.Lambda (xvs, (e2, t2)) ->
+          let rec zip ys ctx = function
+          | (x, u) :: xus, (_, u') :: xvs ->
+              let u  = Value.unabstract_ty ys 0 u
+              and u' = Value.unabstract_ty ys 0 u'
+              in
+              equal_ty ctx u u' &&
+              let y, ctx = Context.add_fresh x u ctx in
+              zip (ys @ [y]) ctx (xus, xvs) (* XXX optimize list append *)
+          | ([] as xus), xvs | xus, ([] as xvs) ->
+              let t1' = Value.mk_prod_ty ~loc:Position.nowhere xus t1
+              and t2' = Value.mk_prod_ty ~loc:Position.nowhere xvs t2 in
+              let t1' = Value.unabstract_ty ys 0 t1'
+              and t2' = Value.unabstract_ty ys 0 t2'
+              in
+              equal_ty ctx t1' t2' &&
+              let e1 = Value.mk_lambda ~loc:(snd e1) xus e1 t1
+              and e2 = Value.mk_lambda ~loc:(snd e2) xvs e2 t2
+              in
+              let e1 = Value.unabstract ys 0 e1
+              and e2 = Value.unabstract ys 0 e2
+              in
+              equal ctx e1 e2 t1'
           in
-            equal_ty ctx u2 u2' &&
-            equal ctx e e' u2
-        end
-       
-      | Value.Spine (t, e, es), Value.Spine (t', e', es') ->
-          List.length es = List.length es'
-          &&
-          equal_ty ctx t t'
-          &&
-          equal ctx e e' t
-          &&
-          equal_args ctx t es es'
+          zip [] ctx (xus, xvs)
+
+      | Value.Spine (e1, (xets1, t1)), Value.Spine (e2, (xets2, t2)) ->
+          List.length xets1 = List.length xets2 &&
+          begin
+            let rec zip es1 es2 = function
+            | (x, (e1, t1)) :: xets1, (_, (e2, t2)) :: xets2 ->
+                let t1 = Value.instantiate_ty es1 0 t1
+                and t2 = Value.instantiate_ty es2 0 t2 in
+                equal_ty ctx t1 t2 &&
+                equal ctx e1 e2 t1 &&
+                zip es1 es2 (xets1, xets2) 
+            | [], [] ->
+                let t1 = Value.instantiate_ty es1 0 t1
+                and t2 = Value.instantiate_ty es2 0 t2 in
+                equal_ty ctx t1 t2 &&
+                equal ctx e1 e2 t1
+            | _ :: _, [] | [], _ :: _ -> Error.impossible ~loc:loc1 "you will not get a beer if you do not report this error";
+            in
+            zip [] [] (xets1, xets2)
+          end
 
       | Value.Type, Value.Type -> true
 
-      | Value.Prod (x, u1, u2), Value.Prod (_, u1', u2') ->
-        equal_ty ctx u1 u1' &&
-        begin 
-          let y, ctx = Context.add_free x u1 ctx in
-          let y' = Value.mk_name ~loc:Position.nowhere y in
-          let u2  = Value.instantiate_ty y' u2
-          and u2' = Value.instantiate_ty y' u2'
+      | Value.Prod (xus, t1), Value.Prod (xvs, t2) ->
+          let rec zip xuvs = function
+          | (x, u) :: xus, (_, v) :: xvs ->
+            zip ((x, u, v) :: xuvs) (xus, xvs)
+          | ([] as xus), xvs | xus, ([] as xvs) ->
+              let xuvs = List.rev xuvs in
+              let t1 = Value.mk_prod_ty ~loc:loc1 xus t1
+              and t2 = Value.mk_prod_ty ~loc:loc2 xvs t2 in
+              equal_abstracted_ty ctx xuvs t1 t2
           in
-            equal_ty ctx u2 u2'
-        end
+          zip [] (xus, xvs)
 
       | Value.Eq (u, d1, d2), Value.Eq (u', d1', d2') ->
         equal_ty ctx u u' &&
@@ -259,38 +299,8 @@ and equal_whnf ctx e1 e2 t =
         equal_ty ctx u u' &&
         equal ctx d d' u
 
-      | (Value.Name _ | Value.Ascribe _ | Value.Lambda _ | Value.Spine _ |
+      | (Value.Name _ | Value.Lambda _ | Value.Spine _ |
           Value.Type | Value.Prod _ | Value.Eq _ | Value.Refl _), _ ->
         false
 
     end
-
-and equal_args ctx (t',loc) es es' =
-  begin match es, es' with
-    | [], [] -> Error.impossible ~loc "comparing empty lists of argumanets in equal_args"
-    | [e], [e'] -> 
-      begin match t' with
-        | Value.Prod (_,t1,t2) -> equal ctx e e' t1
-        | _ -> Error.impossible ~loc "malformed spine type in equal_args (1)"
-      end
-    | e::es, e'::es' ->
-      begin match t' with
-          (* we do not have to call as_prod here as a spine type must be a [Prod] *)
-        | Value.Prod (_,t1,t2) ->
-          equal ctx e e' t1 &&
-            begin
-              let t = Value.instantiate_ty e t2
-              in equal_args ctx t es es'
-            end
-        | _ -> Error.impossible ~loc "malformed spine type in equal_args (2)"
-      end
-    | [],_::_ | _::_,[] -> false
-  end
-
-and as_prod ctx t =
-  let (t',_) = whnf_ty ctx t in
-    match t' with
-      | Value.Prod (x, t1, t2) -> (x, t1, t2)
-      | _ ->
-        Error.typing "product expected but found %t"
-          (Print.ty ctx t)
