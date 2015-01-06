@@ -110,46 +110,6 @@ and equal_abstracted_ty ctx xuus v v' =
    in
      eq [] ctx xuus
  
-(*
-and whnf_spine ~loc ctx ((t',loc) as t) e1 e2 es =
-  let rec spine_cod ((t',loc) as t) es =
-    begin match t', es with
-      | _, [] -> t
-      | Value.Prod (_, t1, t2), e::es ->
-        let t = Value.instantiate_ty e t2 in
-          spine_cod t es
-      | _, _ -> Error.impossible ~loc "malformed spine type in whnf_spine, spine_cod"
-    end
-  in
-  match t' with
-    | Value.Prod (x,t1,t2) ->
-      let (e1',_) as e1 = whnf ctx e1 in
-        begin match e1' with
-            
-          | Value.Spine (t', e', es') when
-              (let u = spine_cod t' es in equal_ty ctx u t) ->
-            begin match es' @ (e2 :: es) with
-              | e2 :: es -> whnf_spine ~loc ctx t' e' e2 es
-              | [] -> assert false
-            end
-              
-          | Value.Lambda (_, u1, u2, e') when equal_as_prod ctx x t1 t2 u1 u2 ->
-            let e1 = Value.instantiate e2 e'
-            and t = Value.instantiate_ty e2 t2
-            in begin match es with
-              | [] -> whnf ctx e1
-              | e2::es -> whnf_spine ~loc ctx t e1 e2 es
-            end
-              
-          | (Value.Name _ | Value.Bound _ | Value.Ascribe _ | Value.Type |
-              Value.Prod _ | Value.Eq _ | Value.Refl _ | Value.Spine _ | Value.Lambda _ ) ->
-            Value.mk_spine ~loc t e1 (e2::es)
-
-        end
-
-    | _ -> Error.impossible ~loc "malformed spine type in whnf_spine"
- *)
-
 (** Compare two types *)
 and equal_ty ctx (Value.Ty t1) (Value.Ty t2) = equal ctx t1 t2 Value.typ
 
