@@ -48,11 +48,11 @@ let rec infer ctx (c',loc) =
      in let e = check ctx c t
         in Value.Return (e, t)
 
-  | Syntax.Lambda (abs, c) -> failwith "Lambda not implemented"
+  | Syntax.Lambda (abs, c) -> Error.unimplemented ~loc "Inference for lambdas not implemented"
 
-  | Syntax.Spine (e, es) -> failwith "Spine not implemented"
+  | Syntax.Spine (e, es) -> Error.unimplemented ~loc "Inference for spines not implemented"
 
-  | Syntax.Prod (abs, c) -> failwith "Prod not implemented"
+  | Syntax.Prod (abs, c) -> Error.unimplemented ~loc "Inference for products not implemented"
 
   | Syntax.Eq (e1, c2) ->
     let (e1, t1) = expr ctx e1 in
