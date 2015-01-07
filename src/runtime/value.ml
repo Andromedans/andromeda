@@ -243,7 +243,7 @@ let rec abstract xs depth ((e',loc) as e) =
   | Bound k -> assert (k < depth) ; e
   | Name x ->
     begin
-      match Common.index_of depth x xs with
+      match Common.rindex_of depth x xs with
       | None -> e
       | Some k -> Bound k, loc
     end

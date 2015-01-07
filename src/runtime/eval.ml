@@ -56,6 +56,7 @@ let rec infer ctx (c',loc) =
         begin
           match infer ctx c with
           | Value.Return (e, t) ->
+            let xts = List.rev xts in
             let xs = List.map fst xts in
             let e = Value.abstract xs 0 e
             and t = Value.abstract_ty xs 0 t in
@@ -77,6 +78,7 @@ let rec infer ctx (c',loc) =
     let rec fold ctx xts = function
       | [] ->
         begin
+          let xts = List.rev xts in
           let u = comp_ty ctx c in
           let xs = List.map fst xts in
           let u = Value.abstract_ty xs 0 u in

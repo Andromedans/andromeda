@@ -33,3 +33,5 @@ let eqname (s : name) (t : name) = (s = t)
 let rec index_of shift x = function
   | [] -> None
   | y :: ys -> if eqname x y then Some shift else index_of (shift + 1) x ys
+
+let rec rindex_of shift x xs = index_of shift x (List.rev xs)

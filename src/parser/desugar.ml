@@ -104,7 +104,7 @@ let rec comp ctx ((c',loc) as c) =
                 match expr ctx [] t with
                 | [], t ->
                    let ctx = add_bound x ctx
-                   and ys = (x,t) :: ys in
+                   and ys = ys @ [(x,t)] in
                    prod ctx ys xs
                 | w, ((_,loc) as t) ->
                    let c = prod (add_bound x ctx) [] xs in
