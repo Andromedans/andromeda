@@ -1,20 +1,20 @@
-(** Position in source code. For each type in the input syntax we define two versions
-    [t] and [t']. The former is the latter with a position tag. For example, [term = term'
-    * position] and [term'] is the type of terms without positions. *)
+(** Location in source code. For each type in the input syntax we define two versions
+    [t] and [t']. The former is the latter with a location tag. For example, [term = term'
+    * location] and [term'] is the type of terms without locations. *)
 type t =
-  | Position of Lexing.position * Lexing.position (** delimited position *)
-  | Nowhere (** unknown position *)
+  | Location of Lexing.position * Lexing.position (** delimited location *)
+  | Nowhere (** unknown location *)
 
 let nowhere = Nowhere
 
-let make start_post end_pos = Position (start_post, end_pos)
+let make start_pos end_pos = Location (start_pos, end_pos)
 
 let of_lex lex =
-  Position (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
+  Location (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
 
 let to_string ?(full=false) = function
   | Nowhere -> "?:?"
-  | Position (p1,p2) when full ->
+  | Location (p1,p2) when full ->
       let filename = p1.Lexing.pos_fname  in
       let line1 = p1.Lexing.pos_lnum in
       let line2 = p2.Lexing.pos_lnum in
@@ -24,7 +24,7 @@ let to_string ?(full=false) = function
         Printf.sprintf "%s:%d:%d-%d" filename line1 col1 col2
       else
         Printf.sprintf "%s:%d:%d-%d:%d" filename line1 col1 line2 col2
-  | Position (p1,p2) ->
+  | Location (p1,p2) ->
       let filename = p1.Lexing.pos_fname  in
       let line1 = p1.Lexing.pos_lnum in
       let col1  = p1.Lexing.pos_cnum - p1.Lexing.pos_bol + 1  in
@@ -32,4 +32,4 @@ let to_string ?(full=false) = function
 
 let get_range = function
   | Nowhere -> Lexing.dummy_pos, Lexing.dummy_pos
-  | Position(startp, endp) -> startp, endp
+  | Location(startp, endp) -> startp, endp

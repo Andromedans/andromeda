@@ -1,6 +1,6 @@
 (** Abstract syntax of computations and expressions. *)
 
-type expr = expr' * Position.t
+type expr = expr' * Location.t
  and expr' =
    | Name of Common.name
    | Bound of Common.bound
@@ -9,7 +9,7 @@ type expr = expr' * Position.t
 
 and ty = expr
 
-and comp = comp' * Position.t
+and comp = comp' * Location.t
 and comp' = 
   | Return of expr
   | Let of (Common.name * comp) list * comp
@@ -20,7 +20,7 @@ and comp' =
   | Eq of expr * comp
   | Refl of expr
 
-type toplevel = toplevel' * Position.t
+type toplevel = toplevel' * Location.t
 and toplevel' =
   | Parameter of Common.name list * comp (** introduce parameters into the context *)
   | TopLet of Common.name * comp (** global let binding *)

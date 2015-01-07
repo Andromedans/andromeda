@@ -82,9 +82,9 @@ let parse parse lex =
     parse Lexer.token lex
   with
   | Parser.Error ->
-      Error.syntax ~loc:(Position.of_lex lex) ""
+      Error.syntax ~loc:(Location.of_lex lex) ""
   | Failure "lexing: empty token" ->
-      Error.syntax ~loc:(Position.of_lex lex) "unrecognised symbol."
+      Error.syntax ~loc:(Location.of_lex lex) "unrecognised symbol."
 
 (** [exec_cmd ctx d] executes toplevel directive [d] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)

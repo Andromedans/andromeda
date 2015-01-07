@@ -1,6 +1,6 @@
 (** The abstract syntax of input. *)
 
-type term = term' * Position.t
+type term = term' * Location.t
 and term' =
   (* expressions *)
   | Var of Common.name
@@ -19,7 +19,7 @@ and comp = term
 and expr = term
 
 (** Toplevel commands *)
-type toplevel = toplevel' * Position.t
+type toplevel = toplevel' * Location.t
 and toplevel' =
   | Parameter of Common.name list * ty (** introduce parameters into the context *)
   | TopLet of Common.name * comp (** global let binding *)

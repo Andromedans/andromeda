@@ -1,9 +1,9 @@
 (** The abstract syntax of Andromedan type theory (TT). *)
 
-type term = term' * Position.t
+type term = term' * Location.t
 and term' =
 (** The type of TT terms.
-    (For details on the mutual definition with term', see module Position.)
+    (For details on the mutual definition with term', see module Location.)
 
     We use locally nameless syntax: names for free variables and deBruijn
     indices for bound variables. In terms of type [term], bound variables are
@@ -90,7 +90,7 @@ let mk_prod_ty ~loc xts t = ty (mk_prod ~loc xts t)
 let mk_type_ty ~loc = ty (mk_type ~loc)
 
 (** The [Type] constant, without a location. *)
-let typ = Ty (mk_type ~loc:Position.nowhere)
+let typ = Ty (mk_type ~loc:Location.nowhere)
 
 (** Alpha equality *)
 (* Currently, the only difference between alpha and structural equality is that
@@ -218,7 +218,7 @@ and instantiate_term_ty es depth (e, t) =
   in (e, t)
 
 let unabstract xs depth e =
-  let es = List.map (mk_name ~loc:Position.nowhere) xs
+  let es = List.map (mk_name ~loc:Location.nowhere) xs
   in instantiate es depth e  
 
 let unabstract_ty xs depth (Ty t) =

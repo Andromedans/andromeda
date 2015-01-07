@@ -1,6 +1,6 @@
 (** Abstract syntax of types and terms. *)
 
-type term = term' * Position.t
+type term = term' * Location.t
 and term' = private
   | Type
   | Name of Common.name (** a free variable *)
@@ -39,17 +39,17 @@ type result =
   | Return of value
 
 (** Term constructors, the do not check for legality of constructions. *)
-val mk_name: loc:Position.t -> Common.name -> term
-val mk_bound: loc:Position.t -> Common.bound -> term
-val mk_lambda: loc:Position.t -> (Common.name * ty) list -> term -> ty -> term
-val mk_spine: loc:Position.t -> term -> (Common.name * (term * ty)) list -> ty -> term
-val mk_type: loc:Position.t -> term
-val mk_type_ty: loc:Position.t -> ty
-val mk_prod: loc:Position.t -> (Common.name * ty) list -> ty -> term
-val mk_prod_ty: loc:Position.t -> (Common.name * ty) list -> ty -> ty
-val mk_eq: loc:Position.t -> ty -> term -> term -> term
-val mk_eq_ty: loc:Position.t -> ty -> term -> term -> ty
-val mk_refl: loc:Position.t -> ty -> term -> term
+val mk_name: loc:Location.t -> Common.name -> term
+val mk_bound: loc:Location.t -> Common.bound -> term
+val mk_lambda: loc:Location.t -> (Common.name * ty) list -> term -> ty -> term
+val mk_spine: loc:Location.t -> term -> (Common.name * (term * ty)) list -> ty -> term
+val mk_type: loc:Location.t -> term
+val mk_type_ty: loc:Location.t -> ty
+val mk_prod: loc:Location.t -> (Common.name * ty) list -> ty -> term
+val mk_prod_ty: loc:Location.t -> (Common.name * ty) list -> ty -> ty
+val mk_eq: loc:Location.t -> ty -> term -> term -> term
+val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
+val mk_refl: loc:Location.t -> ty -> term -> term
 
 (** Coerce a value to a type (does not check whether this is legal). *)
 val ty : term -> ty

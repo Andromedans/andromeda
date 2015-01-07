@@ -37,14 +37,14 @@ commandline:
   | topdirective EOF { $1 }
 
 (* Things that can be defined on toplevel. *)
-topcomp: mark_position(plain_topcomp) { $1 }
+topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
   | TOPLET x=name COLONEQ c=term DOT                     { TopLet (x, c) }
   | TOPCHECK c=term DOT                                  { TopCheck c }
   | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
     
 (* Toplevel directive. *)
-topdirective: mark_position(plain_topdirective) { $1 }
+topdirective: mark_location(plain_topdirective) { $1 }
 plain_topdirective:
   | CONTEXT    { Context }
   | HELP       { Help }
@@ -52,31 +52,31 @@ plain_topdirective:
 
 (* Main syntax tree *)
 
-term: mark_position(plain_term) { $1 }
+term: mark_location(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                 { e }
   | LET a=let_clauses IN c=term                     { Let (a, c) }
   | e=app_term ASCRIBE t=ty_term                    { Ascribe (e, t) }
 
-ty_term: mark_position(plain_ty_term) { $1 }
+ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                              { e }
   | FORALL a=abstraction(ty_term) COMMA e=term      { Prod (a, e) }
   | FUN a=abstraction(ty_term) DARROW e=term        { Lambda (a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Common.anonymous, t1)], t2) }
 
-equal_term: mark_position(plain_equal_term) { $1 }
+equal_term: mark_location(plain_equal_term) { $1 }
 plain_equal_term:
   | e=plain_app_term                                { e }
   | e1=app_term EQEQ e2=app_term                    { Eq (e1, e2) }
 
-app_term: mark_position(plain_app_term) { $1 }
+app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_simple_term                             { e }
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
   | REFL e=simple_term                              { Refl e }
 
-simple_term: mark_position(plain_simple_term) { $1 }
+simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                            { Type }
   | x=name                                          { Var x }
@@ -92,7 +92,7 @@ let_clauses:
 let_clause:
   | x=name COLONEQ c=term                           { (x,c) }
 
-(* returns a list of things individually annotated by positions.
+(* returns a list of things individually annotated by locations.
   Since the list is not further annotated, consistency suggests
   this should be called plain_abstraction, but as we know,
   consistency is the hemoglobin of mindless lights. *)
@@ -106,8 +106,8 @@ bind(X):
 paren_bind(X):
   | LPAREN b=bind(X) RPAREN            { b }
 
-mark_position(X):
+mark_location(X):
   x=X
-  { x, Position.make $startpos $endpos }
+  { x, Location.make $startpos $endpos }
 
 %%

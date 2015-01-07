@@ -56,7 +56,7 @@ rule token = parse
                         }
 
   | _ as c              { Error.syntax
-                          ~loc:(Position.make (Lexing.lexeme_start_p lexbuf) (Lexing.lexeme_end_p lexbuf))
+                          ~loc:(Location.make (Lexing.lexeme_start_p lexbuf) (Lexing.lexeme_end_p lexbuf))
                           "Unexpected character %s" (Char.escaped c)
                         }
 
@@ -88,7 +88,7 @@ and comments level = parse
       Error.Error err -> close_in fh; raise (Error.Error err)
   with
     (* Any errors when opening or closing a file are fatal. *)
-    Sys_error msg -> Error.fatal ~loc:Position.nowhere "%s" msg
+    Sys_error msg -> Error.fatal ~loc:Location.nowhere "%s" msg
 
 
   let read_toplevel parse () =
