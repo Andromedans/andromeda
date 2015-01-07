@@ -2,7 +2,7 @@
 
 type expr = expr' * Position.t
  and expr' =
-   | Free of Common.name
+   | Name of Common.name
    | Bound of Common.bound
    | Meta of Common.bound
    | Type

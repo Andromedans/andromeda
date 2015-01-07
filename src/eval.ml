@@ -2,7 +2,7 @@
 let rec expr ctx (e',loc) =
   begin
     match e' with
-    | Syntax.Free x ->
+    | Syntax.Name x ->
        begin
          match Context.lookup_free x ctx with
          | None -> Error.runtime ~loc "unknown free variable %s" (Common.to_string x)
