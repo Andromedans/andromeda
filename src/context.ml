@@ -7,6 +7,8 @@ type t = {
 (** The empty context *)
 let empty = { free = []; meta = [] }
 
+let metas {meta=lst} = List.map fst lst
+
 let lookup_free x {free=lst} =
   let rec lookup = function
     | [] -> None
@@ -14,6 +16,12 @@ let lookup_free x {free=lst} =
        if Common.eqname x y then Some v else lookup lst
   in
     lookup lst
+
+let lookup_bound k {free=lst} =
+  try
+    List.nth lst k
+  with
+  | Failure _ -> Error.runtime "invalid de Bruijn index %d" k
 
 let lookup_meta k {meta=lst} =
   let rec lookup = function

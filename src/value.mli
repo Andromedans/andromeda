@@ -44,6 +44,7 @@ val mk_bound: loc:Position.t -> Common.bound -> term
 val mk_lambda: loc:Position.t -> (Common.name * ty) list -> term -> ty -> term
 val mk_spine: loc:Position.t -> term -> (Common.name * (term * ty)) list -> ty -> term
 val mk_type: loc:Position.t -> term
+val mk_type_ty: loc:Position.t -> ty
 val mk_prod: loc:Position.t -> (Common.name * ty) list -> ty -> term
 val mk_prod_ty: loc:Position.t -> (Common.name * ty) list -> ty -> ty
 val mk_eq: loc:Position.t -> ty -> term -> term -> term
@@ -85,6 +86,9 @@ val unabstract: Common.name list -> int -> term -> term
     names [x0, ..., x{n-1}]. *)
 val unabstract_ty: Common.name list -> int -> ty -> ty
 
+val abstract : Common.name list -> int -> term -> term
+
+val abstract_ty : Common.name list -> int -> ty -> ty
 
 (* Does de Bruijn index 0 get used in the given term? *)
 val occurs : term -> bool

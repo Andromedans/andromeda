@@ -2,4 +2,4 @@
 
 val computation : Input.comp -> Syntax.comp
 
-val toplevel : Input.toplevel -> Syntax.toplevel
+val toplevel : Common.name list -> Input.toplevel -> Syntax.toplevel

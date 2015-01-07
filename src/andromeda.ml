@@ -89,7 +89,7 @@ let parse parse lex =
 (** [exec_cmd ctx d] executes toplevel directive [d] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
 let rec exec_cmd interactive ctx d =
-  let (d', loc) = Desugar.toplevel d in
+  let (d', loc) = Desugar.toplevel (Context.metas ctx) d in
     match d' with
     | Syntax.Parameter (xs,c) ->
       let t = Eval.ty ctx c in
@@ -118,16 +118,16 @@ let rec exec_cmd interactive ctx d =
        begin
          match Eval.infer ctx c with
          | Value.Return v ->
-            Format.printf "%t" (Print.value ctx v) ;
+            Format.printf "%t@." (Print.value ctx v) ;
             ctx
        end
 
     | Syntax.Context ->
-        Format.printf "%t" (Print.context ctx) ;
+        Format.printf "%t@." (Print.context ctx) ;
         ctx
 
     | Syntax.Help ->
-      Format.printf "%s" help_text ; ctx
+      Format.printf "%s@." help_text ; ctx
 
     | Syntax.Quit ->
       exit 0

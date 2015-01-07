@@ -4,8 +4,14 @@ type t
 (** The empty context *)
 val empty : t
 
+(** Known meta variables *)
+val metas : t -> Common.name list
+
 (** Lookup a free variable. *)
 val lookup_free : Common.name -> t -> Value.ty option
+
+(** Lookup a free variable by its de Bruijn index *)
+val lookup_bound : Common.bound -> t -> Common.name * Value.ty
 
 (** Lookup a meta variable. *)
 val lookup_meta : Common.bound -> t -> Value.value option

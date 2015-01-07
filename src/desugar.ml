@@ -5,6 +5,12 @@
 
 type 'a ident = Bound of 'a | Meta of 'a
 
+let rec string_of_ctx = function
+  | [] -> ""
+  | (Bound x) :: lst -> "Bound " ^ Common.to_string x ^ ", " ^ string_of_ctx lst
+  | (Meta x) :: lst -> "Meta " ^ Common.to_string x ^ ", " ^ string_of_ctx lst
+
+
 type ctx = (Common.name ident) list
 
 let empty = []
@@ -26,7 +32,7 @@ let lookup x ctx =
   in
     lookup 0 0 ctx
 
-let lambdify ys ((c',loc) as c) =
+let mk_lambda ys ((c',loc) as c) =
   match ys with
   | [] -> c'
   | _::_ -> Syntax.Lambda (ys, c)
@@ -58,21 +64,22 @@ let rec comp ctx ((c',loc) as c) =
          in w, Syntax.Ascribe (c, t)
 
       | Input.Lambda (xs, c) ->
-         let c = comp ctx c in
          let rec lambda ctx ys = function
-           | [] -> lambdify ys c
+           | [] -> 
+              let c = comp ctx c in
+                mk_lambda ys c
            | (x,t) :: xs ->
               begin
                 match expr ctx [] t with
                 | [], t ->
                    let ctx = add_bound x ctx
-                   and ys = (x,t) :: ys
+                   and ys =  ys @ [(x,t)]
                    in lambda ctx ys xs
                 | w, ((_,loc) as t) ->
                    let c = lambda (add_bound x ctx) [] xs in
                    let c = Syntax.Lambda ([(x,t)], (c, loc)) in
                    let c = letify ~loc w c in
-                     lambdify ys c
+                     mk_lambda ys c
               end
          in
            [], lambda ctx [] xs
@@ -88,16 +95,17 @@ let rec comp ctx ((c',loc) as c) =
                in w, Syntax.Spine (e, es)
 
       | Input.Prod (xs, c) ->
-         let c = comp ctx c in
          let rec prod ctx ys = function
-           | [] -> prodify ys c
+           | [] -> 
+              let c = comp ctx c in
+                prodify ys c
            | (x,t) :: xs ->
               begin
                 match expr ctx [] t with
                 | [], t ->
                    let ctx = add_bound x ctx
-                   and ys = (x,t) :: ys
-                   in prod ctx ys xs
+                   and ys = (x,t) :: ys in
+                   prod ctx ys xs
                 | w, ((_,loc) as t) ->
                    let c = prod (add_bound x ctx) [] xs in
                    let c = Syntax.Prod ([(x,t)], (c,loc)) in
@@ -143,20 +151,21 @@ and expr ctx w ((e',loc) as e) =
        and k = List.length w
        in w @ [(x,c)], (Syntax.Meta k, loc)
 
-let rec toplevel (d, loc) =
+let toplevel metas (d, loc) =
+  let ctx = List.map (fun x -> Meta x) metas in
   begin
     match d with
 
     | Input.Parameter (xs, t) ->
-       let c = comp empty t
+       let c = comp ctx t
        in Syntax.Parameter (xs, c)
 
     | Input.TopLet (x, c) ->
-       let c = comp empty c
+       let c = comp ctx c
        in Syntax.TopLet (x, c)
 
     | Input.TopCheck c ->
-       let c = comp empty c
+       let c = comp ctx c
        in Syntax.TopCheck c
 
     | Input.Quit -> Syntax.Quit

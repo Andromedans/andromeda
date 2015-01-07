@@ -87,7 +87,7 @@ let ty e = Ty e
 
 let mk_eq_ty ~loc t e1 e2 = ty (mk_eq ~loc t e1 e2)
 let mk_prod_ty ~loc xts t = ty (mk_prod ~loc xts t)
-
+let mk_type_ty ~loc = ty (mk_type ~loc)
 
 (** The [Type] constant, without a location. *)
 let typ = Ty (mk_type ~loc:Position.nowhere)
@@ -224,6 +224,65 @@ let unabstract xs depth e =
 let unabstract_ty xs depth (Ty t) =
   let t = unabstract xs depth t
   in Ty t 
+
+
+and abstract_abstraction abst_u abst_v ys depth (xus,v) =
+  let rec abst acc depth = function
+    | [] ->
+       let v = abst_v ys depth v
+       in List.rev acc, v
+    | (x,u) :: xus ->
+       let u = abst_u ys depth u in
+       abst ((x,u) :: acc) (depth+1) xus
+  in
+    abst [] depth xus
+
+let rec abstract xs depth ((e',loc) as e) =
+  match e' with
+  | Type -> e
+  | Bound k -> assert (k < depth) ; e
+  | Name x ->
+    begin
+      match Common.index_of depth x xs with
+      | None -> e
+      | Some k -> Bound k, loc
+    end
+  | Lambda a ->
+    let a = abstract_abstraction
+              abstract_ty abstract_term_ty
+              xs depth a
+    in Lambda a, loc
+  | Spine (e, a) ->
+    let e = abstract xs depth e
+    and a = abstract_abstraction
+              abstract_term_ty abstract_ty
+              xs depth a
+    in Spine (e, a), loc
+  | Prod a ->
+    let a = abstract_abstraction
+              abstract_ty abstract_ty
+              xs depth a
+    in Prod a, loc
+  | Eq (t, e1, e2) ->
+    let t = abstract_ty xs depth t
+    and e1 = abstract xs depth e1
+    and e2 = abstract xs depth e2
+    in Eq (t, e1, e2), loc 
+  | Refl (t, e) ->
+    let t = abstract_ty xs depth t
+    and e = abstract xs depth e
+    in Refl (t, e), loc
+
+and abstract_ty xs depth (Ty t) =
+  let t = abstract xs depth t
+  in Ty t
+
+and abstract_term_ty xs depth (e, t) =
+  let e = abstract xs depth e
+  and t = abstract_ty xs depth t
+  in (e, t)
+
+
 
 let occurs _ = true
 
