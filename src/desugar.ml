@@ -47,8 +47,9 @@ let rec comp ctx ((c',loc) as c) =
       match c' with
 
       | Input.Let (ls, c2) ->
-         let ls = List.map (fun (x,c) -> (x, comp ctx c)) ls
-         and c2 = comp ctx c2
+         let ls = List.map (fun (x,c) -> (x, comp ctx c)) ls in
+         let ctx = List.fold_left (fun ctx (x,_) -> add_meta x ctx) ctx ls in
+         let c2 = comp ctx c2
          in [], Syntax.Let (ls, c2)
                            
       | Input.Ascribe (c, t) ->
@@ -127,7 +128,7 @@ and expr ctx w ((e',loc) as e) =
     | Input.Var x ->
        begin
          match lookup x ctx with
-         | None -> w, (Syntax.Free x, loc)
+         | None -> w, (Syntax.Name x, loc)
          | Some (Bound k) -> w, (Syntax.Bound k, loc)
          | Some (Meta k) -> w, (Syntax.Meta k, loc)
        end
