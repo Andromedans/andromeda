@@ -187,8 +187,8 @@ and equal_whnf ctx e1 e2 t =
           in
           zip [] ctx (xus, xvs)
 
-      | Value.Spine (e1, (xets1, t1)), Value.Spine (e2, (xets2, t2)) ->
-          equal_spine ~loc:loc1 ctx e1 xets1 t1 e2 xets2 t2
+      | Value.Spine (e1, a1), Value.Spine (e2, a2) ->
+          equal_spine ~loc:loc1 ctx e1 a1 e2 a2
 
       | Value.Type, Value.Type -> true
 
@@ -219,22 +219,77 @@ and equal_whnf ctx e1 e2 t =
 
     end
 
-and equal_spine ~loc ctx e1 xets1 t1 e2 xets2 t2 =
-  List.length xets1 = List.length xets2 &&
+and equal_spine ~loc ctx e1 a1 e2 a2 =
+  (* We deal with nested spines. They are nested in an inconvenient way so
+     we first get them the way we need them. *)
+  let rec collect_spines ab abs n ((e',_) as e) =
+    match e' with
+    | Value.Spine (e, ((xets, _) as a)) -> collect_spines a (ab :: abs) (n + List.length xets) e
+    | _ -> e, ab, abs, n
+  in
+  let h1, a1, as1, n1 = collect_spines a1 [] (List.length (fst a1)) e1
+  and h2, a2, as2, n2 = collect_spines a2 [] (List.length (fst a2)) e2
+  in
+  n1 = n2 &&
   begin
-    let rec zip es1 es2 = function
-    | (x, (e1, t1)) :: xets1, (_, (e2, t2)) :: xets2 ->
+    let rec fold es1 es2 (xets1, u1) as1 (xets2, u2) as2 =
+
+      match xets1, xets2 with
+
+      | [], xets2 ->
+        begin
+          match as1 with
+          | [] ->
+            assert (as2 = []) ;
+            assert (xets2 = []) ;
+            let u1 = Value.instantiate_ty es1 0 u1
+            and u2 = Value.instantiate_ty es2 0 u2 in
+            equal_ty ctx u1 u2 &&
+            equal ctx h1 h2 u1
+
+          | (xets1, v1) :: as1 ->
+            let u1 = Value.instantiate_ty es1 0 u1
+            and xts1 = List.map (fun (x, (_, t)) -> (x,t)) xets1 in
+            let u1' = Value.mk_prod_ty ~loc xts1 v1 in
+              if equal_ty ctx u1 u1'
+              then
+                 (* we may flatten spines and proceed with equality check *)
+                 fold [] es2 (xets1, v1) as1 (xets2, u2) as2
+              else
+                 (* we may not flatten the spine *)
+                 false (* XXX think what to do here really *)
+        end
+
+      | (_::_) as xets1, [] ->
+        begin
+          match as2 with
+          | [] -> assert false
+
+          | (xets2, v2) :: as2 ->
+            let u2 = Value.instantiate_ty es2 0 u2
+            and xts2 = List.map (fun (x, (_, t)) -> (x,t)) xets2 in
+            let u2' = Value.mk_prod_ty ~loc xts2 v2 in
+              if equal_ty ctx u2 u2'
+              then
+                 (* we may flatten spines and proceed with equality check *)
+                 fold es1 [] (xets1, u1) as1 (xets2, v2) as2
+              else
+                 (* we may not flatten the spine *)
+                 false (* XXX think what to do here really *)
+        end
+
+      | (x1,(e1,t1)) :: xets1, (x2,(e2,t2))::xets2 ->
         let t1 = Value.instantiate_ty es1 0 t1
         and t2 = Value.instantiate_ty es2 0 t2 in
         equal_ty ctx t1 t2 &&
         equal ctx e1 e2 t1 &&
-        zip es1 es2 (xets1, xets2) 
-    | [], [] ->
-        let t1 = Value.instantiate_ty es1 0 t1
-        and t2 = Value.instantiate_ty es2 0 t2 in
-        equal_ty ctx t1 t2 &&
-        equal ctx e1 e2 t1
-    | _ :: _, [] | [], _ :: _ -> Error.impossible ~loc "you will not get a beer if you do not report this error";
+        begin
+          let es1 = e1 :: es1
+          and es2 = e2 :: es2
+          in
+            fold es1 es2 (xets1, u1) as1 (xets2, u2) as2
+        end
+
     in
-    zip [] [] (xets1, xets2)
+    fold [] [] a1 as1 a2 as2
   end
