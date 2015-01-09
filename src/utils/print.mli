@@ -13,4 +13,3 @@ val print :
   Format.formatter -> ('a, Format.formatter, unit, unit) format4 -> 'a
 
 val sequence : ?sep:string -> ('a -> Format.formatter -> unit) -> 'a list -> Format.formatter -> unit
-val annot : ?prefix:string -> (Format.formatter -> unit) -> Format.formatter -> unit

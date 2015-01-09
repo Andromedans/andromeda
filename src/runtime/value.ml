@@ -289,6 +289,12 @@ let occurs _ = true
 let occurs_ty _ = true
 
 
+(** Optionally print a typing annotation in brackets. *)
+let print_annot ?(prefix="") k ppf =
+  if !Print.annotate then
+    Format.fprintf ppf "%s[@[%t@]]" prefix k
+  else
+    Format.fprintf ppf ""
 
 let rec print_binder (x, t) ppf =
   Print.print ppf "(%t : %t)"
@@ -316,7 +322,7 @@ and print_prod ts t ppf =
 and print_lambda a e t ppf =
   Print.print ppf "fun %t =>%t@ %t"
         (Print.sequence print_binder a)
-        (Print.annot (print_ty ~max_level:4 t))
+        (print_annot (print_ty ~max_level:4 t))
         (print_term ~max_level:4 e)
 
 and print_term ?max_level (e,_) ppf =
@@ -346,12 +352,12 @@ and print_term ?max_level (e,_) ppf =
       | Eq (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
           (print_term ~max_level:1 e1)
-          (Print.annot (print_ty ~max_level:4 t))
+          (print_annot (print_ty ~max_level:4 t))
           (print_term ~max_level:1 e2)
 
       | Refl (t, e) ->
         print ~at_level:0 "refl%t %t"
-          (Print.annot (print_ty ~max_level:4 t))
+          (print_annot (print_ty ~max_level:4 t))
           (print_term ~max_level:0 e)
 
 and print_ty ?max_level (Ty t) ppf = print_term ?max_level t ppf

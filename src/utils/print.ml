@@ -43,13 +43,6 @@ let print ?(max_level=9999) ?(at_level=0) ppf =
       Format.kfprintf (fun ppf -> Format.fprintf ppf "@]") ppf
     end
 
-(** Optionally print a typing annotation in brackets. *)
-let annot ?(prefix="") k ppf =
-  if !annotate then
-    Format.fprintf ppf "%s[@[%t@]]" prefix k
-  else
-    Format.fprintf ppf ""
-
 (** Print a sequence of things with the given (optional) separator. *)
 let sequence ?(sep="") f lst ppf =
   let rec seq = function
