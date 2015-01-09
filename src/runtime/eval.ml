@@ -5,15 +5,15 @@ let rec expr ctx (e',loc) =
     | Syntax.Name x ->
        begin
          match Context.lookup_free x ctx with
-         | None -> Error.runtime ~loc "unknown free variable %s" (Common.to_string x)
+         | None -> Error.runtime ~loc "unknown free variable %t" (Name.print x)
          | Some t -> 
-            let x = Value.mk_name ~loc x in
+            let x = Tt.mk_name ~loc x in
               (x, t)
        end
 
     | Syntax.Bound k ->
        let (x, t) = Context.lookup_bound k ctx in
-       let x = Value.mk_name ~loc x in
+       let x = Tt.mk_name ~loc x in
          (x, t)
 
     | Syntax.Meta x ->
@@ -24,8 +24,8 @@ let rec expr ctx (e',loc) =
        end
 
     | Syntax.Type ->
-       let t = Value.mk_type ~loc
-       in (t, Value.typ)
+       let t = Tt.mk_type ~loc
+       in (t, Tt.typ)
   end
 
 (** Evaluate a computation -- infer mode. *)
@@ -58,10 +58,10 @@ let rec infer ctx (c',loc) =
           | Value.Return (e, t) ->
             let xts = List.rev xts in
             let xs = List.map fst xts in
-            let e = Value.abstract xs 0 e
-            and t = Value.abstract_ty xs 0 t in
-            let e = Value.mk_lambda ~loc xts e t
-            and t = Value.mk_prod_ty ~loc xts t
+            let e = Tt.abstract xs 0 e
+            and t = Tt.abstract_ty xs 0 t in
+            let e = Tt.mk_lambda ~loc xts e t
+            and t = Tt.mk_prod_ty ~loc xts t
           in
             Value.Return (e, t)
         end
@@ -85,9 +85,9 @@ let rec infer ctx (c',loc) =
           let xts = List.rev xts in
           let u = comp_ty ctx c in
           let xs = List.map fst xts in
-          let u = Value.abstract_ty xs 0 u in
-          let e = Value.mk_prod ~loc xts u
-          and t = Value.mk_type_ty ~loc
+          let u = Tt.abstract_ty xs 0 u in
+          let e = Tt.mk_prod ~loc xts u
+          and t = Tt.mk_type_ty ~loc
           in
             Value.Return (e, t)
         end
@@ -101,14 +101,14 @@ let rec infer ctx (c',loc) =
   | Syntax.Eq (e1, c2) ->
     let (e1, t1) = expr ctx e1 in
     let e2 = check ctx c2 t1 in
-    let t = Value.mk_eq ~loc t1 e1 e2
+    let t = Tt.mk_eq ~loc t1 e1 e2
     in
-      Value.Return (t, Value.typ)
+      Value.Return (t, Tt.typ)
 
   | Syntax.Refl e ->
     let (e, t) = expr ctx e
-    in let e' = Value.mk_refl ~loc t e
-       and t' = Value.mk_eq_ty ~loc t e e
+    in let e' = Tt.mk_refl ~loc t e
+       and t' = Tt.mk_eq_ty ~loc t e e
        in Value.Return (e', t')
 
 and check ctx c t =
@@ -118,8 +118,8 @@ and check ctx c t =
      then e
      else 
       Error.typing ~loc:(snd c) "this expression should have type %t but has type %t"
-        (Print.ty ctx t)
-        (Print.ty ctx t')
+        (Tt.print_ty t)
+        (Tt.print_ty t')
 
 and spine ctx t es = 
   let rec fold ctx xs es t = function
@@ -142,12 +142,12 @@ and spine ctx t es =
 and expr_ty ctx ((_,loc) as e) =
   let (e, t) = expr ctx e
   in
-    if Equal.equal_ty ctx t Value.typ
-    then Value.ty e
+    if Equal.equal_ty ctx t Tt.typ
+    then Tt.ty e
     else Error.runtime ~loc "this expression should be a type"
 
 and comp_ty ctx c =
-  let e = check ctx c Value.typ
-  in Value.ty e
+  let e = check ctx c Tt.typ
+  in Tt.ty e
 
 let ty = comp_ty

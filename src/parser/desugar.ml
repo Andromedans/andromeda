@@ -7,11 +7,11 @@ type 'a ident = Bound of 'a | Meta of 'a
 
 let rec string_of_ctx = function
   | [] -> ""
-  | (Bound x) :: lst -> "Bound " ^ Common.to_string x ^ ", " ^ string_of_ctx lst
-  | (Meta x) :: lst -> "Meta " ^ Common.to_string x ^ ", " ^ string_of_ctx lst
+  | (Bound x) :: lst -> "Bound " ^ Name.to_string x ^ ", " ^ string_of_ctx lst
+  | (Meta x) :: lst -> "Meta " ^ Name.to_string x ^ ", " ^ string_of_ctx lst
 
 
-type ctx = (Common.name ident) list
+type ctx = (Name.t ident) list
 
 let empty = []
 
@@ -22,11 +22,11 @@ let lookup x ctx =
   let rec lookup k_bound k_meta = function
     | [] -> None
     | Bound y :: lst ->
-       if Common.eqname x y
+       if Name.eq x y
        then Some (Bound k_bound)
        else lookup (k_bound+1) k_meta lst
     | Meta y :: lst ->
-       if Common.eqname x y
+       if Name.eq x y
        then Some (Meta k_bound)
        else lookup k_bound (k_meta+1) lst
   in
@@ -146,7 +146,7 @@ and expr ctx w ((e',loc) as e) =
 
     | (Input.Let _ | Input.Ascribe _ | Input.Lambda _ | Input.Spine _ |
        Input.Prod _ | Input.Eq _ | Input.Refl _) ->
-       let x = Common.fresh Common.anonymous
+       let x = Name.fresh Name.anonymous
        and c = comp ctx e
        and k = List.length w
        in w @ [(x,c)], (Syntax.Meta k, loc)

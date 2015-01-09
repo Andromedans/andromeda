@@ -1,7 +1,7 @@
 (** The type of contexts *)
 type t = {
-  free : (Common.name * Value.ty) list;
-  meta : (Common.name * Value.value) list
+  free : (Name.t * Tt.ty) list;
+  meta : (Name.t * Value.value) list
 }
 
 (** The empty context *)
@@ -13,7 +13,7 @@ let lookup_free x {free=lst} =
   let rec lookup = function
     | [] -> None
     | (y,v) :: lst ->
-       if Common.eqname x y then Some v else lookup lst
+       if Name.eq x y then Some v else lookup lst
   in
     lookup lst
 
@@ -38,11 +38,11 @@ let is_bound x ctx =
 
 let add_free x t ctx =
   if is_bound x ctx
-  then Error.runtime "%s already exists" (Common.to_string x)
+  then Error.runtime "%t already exists" (Name.print x)
   else { ctx with free = (x,t) :: ctx.free }
 
 let add_fresh x t ctx =
-  let y = Common.fresh x
+  let y = Name.fresh x
   in y, { ctx with free = (y,t) :: ctx.free }
 
 let add_meta x v ctx =
@@ -72,9 +72,17 @@ let find_name x ctx =
   if not (List.mem_assoc x ctx)
   then x
   else
-    let (y, k) = split (Common.to_string x) in
+    let (y, k) = split (Name.to_string x) in
     let k = ref (match k with Some k -> k | None -> 0) in
-      while List.mem_assoc (Common.to_name (y ^ string_of_int !k)) ctx do incr k done ;
-      Common.to_name (y ^ string_of_int !k)
+      while List.mem_assoc (Name.of_string (y ^ string_of_int !k)) ctx do incr k done ;
+      Name.of_string (y ^ string_of_int !k)
 
 let free_list {free} = free
+
+let print ctx ppf =
+  Print.print ppf "---------@." ;
+  List.iter
+    (fun (x, t) ->
+     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (Name.print x) (Tt.print_ty t))
+    (List.rev (free_list ctx)) ;
+  Print.print ppf "---END---@."

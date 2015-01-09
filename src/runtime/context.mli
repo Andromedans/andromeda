@@ -5,30 +5,27 @@ type t
 val empty : t
 
 (** Known meta variables *)
-val metas : t -> Common.name list
+val metas : t -> Name.t list
 
 (** Lookup a free variable. *)
-val lookup_free : Common.name -> t -> Value.ty option
+val lookup_free : Name.t -> t -> Tt.ty option
 
 (** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : Common.bound -> t -> Common.name * Value.ty
+val lookup_bound : Syntax.bound -> t -> Name.t * Tt.ty
 
 (** Lookup a meta variable. *)
-val lookup_meta : Common.bound -> t -> Value.value option
-
-(** Is the given name bound as a free variable? *)
-val is_bound : Common.name -> t -> bool
+val lookup_meta : Syntax.bound -> t -> Value.value option
 
 (** Add a free variable of a given type to the context.
     Fails if the free variable is already bound. *)
-val add_free : Common.name -> Value.ty -> t -> t 
+val add_free : Name.t -> Tt.ty -> t -> t 
 
 (** [add_fresh x t ctx] adds a fresh free variable with suggested
     name [x] of given type [t] to the context [ctx]. Return the
     actual name and the new context. *)
-val add_fresh : Common.name -> Value.ty -> t -> Common.name * t
+val add_fresh : Name.t -> Tt.ty -> t -> Name.t * t
 
 (** Add a meta variable with suggested name to the context. *)
-val add_meta : Common.name -> Value.value -> t -> t
+val add_meta : Name.t -> Value.value -> t -> t
 
-val free_list : t -> (Common.name * Value.ty) list
+val print : t -> Format.formatter -> unit

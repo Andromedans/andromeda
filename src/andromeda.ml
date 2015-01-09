@@ -97,7 +97,7 @@ let rec exec_cmd interactive ctx d =
         List.fold_left
           (fun ctx x -> 
             let ctx = Context.add_free x t ctx in
-              if interactive then Format.printf "%t is assumed.@\n" (Print.name x) ;
+              if interactive then Format.printf "%t is assumed.@\n" (Name.print x) ;
               ctx)
           ctx
           xs
@@ -110,7 +110,7 @@ let rec exec_cmd interactive ctx d =
          match Eval.infer ctx c with
          | Value.Return v ->
             let ctx = Context.add_meta x v ctx in
-              if interactive then Format.printf "%t is defined.@\n@." (Print.name x) ;
+              if interactive then Format.printf "%t is defined.@\n@." (Name.print x) ;
               ctx
        end
 
@@ -118,12 +118,12 @@ let rec exec_cmd interactive ctx d =
        begin
          match Eval.infer ctx c with
          | Value.Return v ->
-            Format.printf "%t@." (Print.value ctx v) ;
+            Format.printf "%t@." (Value.print v) ;
             ctx
        end
 
     | Syntax.Context ->
-        Format.printf "%t@." (Print.context ctx) ;
+        Format.printf "%t@." (Context.print ctx) ;
         ctx
 
     | Syntax.Help ->
@@ -147,7 +147,7 @@ let toplevel ctx =
         let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
         ctx := exec_cmd true !ctx cmd
       with
-        | Error.Error err -> Print.error err
+        | Error.Error err -> Error.print err
         | Sys.Break -> Format.printf "Interrupted.@."
     done
   with End_of_file -> ()
@@ -200,5 +200,5 @@ let main =
     if !interactive_shell then
       toplevel ctx
   with
-    Error.Error err -> Print.error err ; exit 1
+    Error.Error err -> Error.print err; exit 1
 
