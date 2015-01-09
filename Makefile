@@ -26,7 +26,11 @@ src/version.ml:
 	git describe --always --long | tr -d '\n' >> src/version.ml
 	/bin/echo '";;' >> src/version.ml
 
+doc: default
+	/bin/mkdir -p ./doc/html
+	ocamlbuild -docflag "-d" -docflag "doc/html" doc/andromeda.docdir/index.html
+
 clean:
 	ocamlbuild -clean
 
-.PHONY: src/version.ml m31-smoketest clean andromeda.byte andromeda.native
+.PHONY: doc src/version.ml clean andromeda.byte andromeda.native
