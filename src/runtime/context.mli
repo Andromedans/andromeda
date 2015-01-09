@@ -32,3 +32,5 @@ val add_fresh : Common.name -> Value.ty -> t -> Common.name * t
 val add_meta : Common.name -> Value.value -> t -> t
 
 val free_list : t -> (Common.name * Value.ty) list
+
+val print : t -> Format.formatter -> unit

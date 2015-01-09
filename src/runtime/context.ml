@@ -78,3 +78,11 @@ let find_name x ctx =
       Common.to_name (y ^ string_of_int !k)
 
 let free_list {free} = free
+
+let print ctx ppf =
+  Print.print ppf "---------@." ;
+  List.iter
+    (fun (x, t) ->
+     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (Common.print_name x) (Value.print_ty t))
+    (List.rev (free_list ctx)) ;
+  Print.print ppf "---END---@."

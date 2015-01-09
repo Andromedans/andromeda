@@ -95,3 +95,7 @@ val occurs : term -> bool
 
 (** Does de Bruijn index 0 get used in the given type? *)
 val occurs_ty : ty -> bool
+
+val print_ty : ?max_level:int -> ty -> Format.formatter -> unit
+
+val print_value : ?max_level:int -> value -> Format.formatter -> unit

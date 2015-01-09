@@ -35,3 +35,5 @@ let rec index_of shift x = function
   | y :: ys -> if eqname x y then Some shift else index_of (shift + 1) x ys
 
 let rec rindex_of shift x xs = index_of shift x (List.rev xs)
+
+let print_name x ppf = Print.print ~at_level:0 ppf "%s" (to_string x)

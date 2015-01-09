@@ -114,8 +114,8 @@ and check ctx c t =
      then e
      else 
       Error.typing ~loc:(snd c) "this expression should have type %t but has type %t"
-        (Print.ty ctx t)
-        (Print.ty ctx t')
+        (Value.print_ty t)
+        (Value.print_ty t')
 
 and expr_ty ctx ((_,loc) as e) =
   let (e, t) = expr ctx e

@@ -18,3 +18,5 @@ val eqname : name -> name -> bool
 val index_of : int -> name -> name list -> int option
 
 val rindex_of : int -> name -> name list -> int option
+
+val print_name : name -> Format.formatter -> unit

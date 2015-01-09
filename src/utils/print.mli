@@ -13,10 +13,5 @@ val print :
   ?max_level:int -> ?at_level:int ->
   Format.formatter -> ('a, Format.formatter, unit, unit) format4 -> 'a
 
-val name : Common.name -> Format.formatter -> unit
-
-val value : ?max_level:int -> Context.t -> Value.value -> Format.formatter -> unit
-
-val ty : ?max_level:int -> Context.t -> Value.ty -> Format.formatter -> unit
-
-val context : Context.t -> Format.formatter -> unit
+val sequence : ?sep:string -> ('a -> Format.formatter -> unit) -> 'a list -> Format.formatter -> unit
+val annot : ?prefix:string -> (Format.formatter -> unit) -> Format.formatter -> unit

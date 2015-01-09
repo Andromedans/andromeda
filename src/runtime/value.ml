@@ -287,3 +287,78 @@ and abstract_term_ty xs depth (e, t) =
 let occurs _ = true
 
 let occurs_ty _ = true
+
+
+
+let rec print_binder (x, t) ppf =
+  Print.print ppf "(%t : %t)"
+        (Common.print_name x)
+        (print_ty t)
+
+(** [print_prod ts t ppf] prints a dependent product using formatter [ppf]. *)
+and print_prod ts t ppf =
+  match ts with
+
+  | [] ->
+     Print.print ppf "%t" (print_ty t)
+
+  | (x,u) :: ts when not (occurs_ty t) ->
+      Print.print ~at_level:3 ppf "%t ->@ %t"
+        (print_ty ~max_level:2 u)
+        (print_prod ts t)
+
+  | ts ->
+     Print.print ppf "forall %t,@ %t"
+           (Print.sequence print_binder ts)
+           (print_ty ~max_level:3 t)
+
+(** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
+and print_lambda a e t ppf =
+  Print.print ppf "fun %t =>%t@ %t"
+        (Print.sequence print_binder a)
+        (Print.annot (print_ty ~max_level:4 t))
+        (print_term ~max_level:4 e)
+
+and print_term ?max_level (e,_) ppf =
+  let print ?at_level = Print.print ?max_level ?at_level ppf in
+    match e with
+      | Type ->
+        print ~at_level:0 "Type"
+
+      | Name x ->
+        print ~at_level:0 "%t" (Common.print_name x)
+
+      | Bound k ->
+        print ~at_level:0 "DEBRUIJN[%d]" k
+
+      | Lambda (a, (e, t)) ->
+        print ~at_level:3 "%t" (print_lambda a e t)
+
+      | Spine (e, (es, _)) ->
+        (* XXX: no typing annotations yet *)
+        print ~at_level:1 "@[<hov 2>%t@ %t@]"
+          (print_term ~max_level:1 e)
+          (Print.sequence (print_term ~max_level:0) (List.map (fun (_,(e,_)) -> e) es))
+
+      | Prod (ts, t) ->
+        print ~at_level:3 "%t" (print_prod ts t)
+
+      | Eq (t, e1, e2) ->
+        print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
+          (print_term ~max_level:1 e1)
+          (Print.annot (print_ty ~max_level:4 t))
+          (print_term ~max_level:1 e2)
+
+      | Refl (t, e) ->
+        print ~at_level:0 "refl%t %t"
+          (Print.annot (print_ty ~max_level:4 t))
+          (print_term ~max_level:0 e)
+
+and print_ty ?max_level (Ty t) ppf = print_term ?max_level t ppf
+
+let print_value ?max_level v ppf =
+  let (e,t) = v in
+    Print.print ~at_level:0 ppf "%t : %t"
+          (print_term ~max_level:0 e)
+          (print_ty ~max_level:0 t)
+
