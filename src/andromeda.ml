@@ -147,7 +147,7 @@ let toplevel ctx =
         let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
         ctx := exec_cmd true !ctx cmd
       with
-        | Error.Error err -> Print.error err
+        | Error.Error err -> Error.print err
         | Sys.Break -> Format.printf "Interrupted.@."
     done
   with End_of_file -> ()
@@ -200,5 +200,5 @@ let main =
     if !interactive_shell then
       toplevel ctx
   with
-    Error.Error err -> Print.error err ; exit 1
+    Error.Error err -> Error.print err; exit 1
 

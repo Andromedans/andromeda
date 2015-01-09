@@ -1,9 +1,9 @@
 (** Error reporting. *)
 
-
 (** Exception [Error (err, msg)] indicates an error of type [err] with
     error message [msg]. *)
-exception Error of (Location.t * string * string)
+type t = Location.t * string * string
+exception Error of t
 
 (** [error ~loc err_type msg] raises an error of type [err_type], and a message [msg]. The
     [kfprintf] magic allows one to write [msg] using a format string. *)
@@ -27,3 +27,5 @@ let verify  ?loc:(loc=Location.nowhere) msg = error ~loc "Verification error" ms
 let fatal          ?loc:(loc=Location.nowhere) msg = error ~loc "Fatal error" msg
 let impossible     ?loc:(loc=Location.nowhere) msg = error ~loc "Impossible" msg
 let unimplemented  ?loc:(loc=Location.nowhere) msg = error ~loc "Unimplemented" msg
+
+let print (loc, err_type, msg) = Print.message (err_type) 1 "%s" msg

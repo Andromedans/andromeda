@@ -5,7 +5,6 @@ val annotate : bool ref
 val displayable : string list ref
 
 val message : string -> int -> ('a, Format.formatter, unit, unit) format4 -> 'a
-val error : 'a * string * string -> unit
 val warning : ('a, Format.formatter, unit, unit) format4 -> 'a
 val debug : ?category:string -> ('a, Format.formatter, unit, unit) format4 -> 'a
 
