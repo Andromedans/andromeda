@@ -72,7 +72,11 @@ let rec infer ctx (c',loc) =
     in
       fold ctx [] abs
 
-  | Syntax.Spine (e, es) -> Error.unimplemented ~loc "Inference for spines not implemented"
+  | Syntax.Spine (e, es) ->
+    let e, t = expr ctx e in
+    let xeus, u, v = spine ctx t es in
+    let e = Value.mk_spine ~loc e xeus u in
+      Value.Return (e, v)
 
   | Syntax.Prod (abs, c) -> 
     let rec fold ctx xts = function
@@ -116,6 +120,24 @@ and check ctx c t =
       Error.typing ~loc:(snd c) "this expression should have type %t but has type %t"
         (Print.ty ctx t)
         (Print.ty ctx t')
+
+and spine ctx t es = 
+  let rec fold ctx xs es t = function
+  | [] ->
+    let u = Value.abstract xs t in
+    let v = Value.instantiate es t in
+      xeus, u, v
+  | e :: es -> 
+    let y, t1, t2 = as_prod ctx t in
+    let e = check ctx e t1 in
+    let u = Value.abstract xs t1 in
+    let v = Value.instantiate 
+    let x, ctx = Context.add_fresh y t1 ctx in
+
+
+    and t = Value.instantiate_ty [e] t in
+    let a, u = spine ctx t es in
+      (x, (e, t1)) :: a, u
 
 and expr_ty ctx ((_,loc) as e) =
   let (e, t) = expr ctx e
