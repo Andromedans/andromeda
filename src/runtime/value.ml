@@ -92,59 +92,6 @@ let mk_type_ty ~loc = ty (mk_type ~loc)
 (** The [Type] constant, without a location. *)
 let typ = Ty (mk_type ~loc:Location.nowhere)
 
-(** Alpha equality *)
-(* Currently, the only difference between alpha and structural equality is that
-   the names of variables in abstractions are ignored. *)
-
-let equal_abstraction equal_u equal_v (xus, v) (xus', v') =
-  let rec eq xus xus' =
-    match xus, xus' with
-    | [], [] -> true
-    | (_, u) :: xus, (_, u') :: xus' ->
-        equal_u u u' &&
-        eq xus xus'
-    | [], _::_ | _::_, [] -> false
-  in
-  eq xus xus' &&
-  equal_v v v'
-
-let rec equal (e1,_) (e2,_) =
-  e1 == e2 || (* a shortcut in case the terms are identical *)
-  begin match e1, e2 with
-
-    | Name x, Name y -> Name.eq x y
-
-    | Bound i, Bound j -> i = j
-
-    | Lambda abs, Lambda abs' ->
-      equal_abstraction equal_ty equal_term_ty abs abs'
-
-    | Spine (e, abs), Spine (e', abs') ->
-      equal e e' &&
-      equal_abstraction equal_term_ty equal_ty abs abs'
-
-    | Type, Type -> true
-
-    | Prod abs, Prod abs' ->
-      equal_abstraction equal_ty equal_ty abs abs'
-
-    | Eq (t, e1, e2), Eq (t', e1', e2') ->
-      equal_ty t t' && 
-      equal e1 e1' &&
-      equal e2 e2'
-
-    | Refl (t, e), Refl (t', e') ->
-      equal_ty t t' && 
-      equal e e'
-
-    | (Name _ | Bound _ | Lambda _ | Spine _ |
-        Type | Prod _ | Eq _ | Refl _), _ ->
-      false
-  end
-
-and equal_ty (Ty t1) (Ty t2) = equal t1 t2
-
-and equal_term_ty (e, t) (e', t') = equal e e' && equal_ty t t'
 
 (** Manipulation of variables *)
 

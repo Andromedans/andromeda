@@ -1,3 +1,58 @@
+(** Alpha equality *)
+(* Currently, the only difference between alpha and structural equality is that
+   the names of variables in abstractions are ignored. *)
+
+let alpha_equal_abstraction alpha_equal_u alpha_equal_v (xus, v) (xus', v') =
+  let rec eq xus xus' =
+    match xus, xus' with
+    | [], [] -> true
+    | (_, u) :: xus, (_, u') :: xus' ->
+        alpha_equal_u u u' &&
+        eq xus xus'
+    | [], _::_ | _::_, [] -> false
+  in
+  eq xus xus' &&
+  alpha_equal_v v v'
+
+let rec alpha_equal (e1,_) (e2,_) =
+  e1 == e2 || (* a shortcut in case the terms are identical *)
+  begin match e1, e2 with
+
+    | Value.Name x, Value.Name y -> Name.eq x y
+
+    | Value.Bound i, Value.Bound j -> i = j
+
+    | Value.Lambda abs, Value.Lambda abs' ->
+      alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
+
+    | Value.Spine (e, abs), Value.Spine (e', abs') ->
+      alpha_equal e e' &&
+      alpha_equal_abstraction alpha_equal_term_ty alpha_equal_ty abs abs'
+
+    | Value.Type, Value.Type -> true
+
+    | Value.Prod abs, Value.Prod abs' ->
+      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty abs abs'
+
+    | Value.Eq (t, e1, e2), Value.Eq (t', e1', e2') ->
+      alpha_equal_ty t t' && 
+      alpha_equal e1 e1' &&
+      alpha_equal e2 e2'
+
+    | Value.Refl (t, e), Value.Refl (t', e') ->
+      alpha_equal_ty t t' && 
+      alpha_equal e e'
+
+    | (Value.Name _ | Value.Bound _ | Value.Lambda _ | Value.Spine _ |
+        Value.Type | Value.Prod _ | Value.Eq _ | Value.Refl _), _ ->
+      false
+  end
+
+and alpha_equal_ty (Value.Ty t1) (Value.Ty t2) = alpha_equal t1 t2
+
+and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
+
+
 (** The whnf of a type [t] in context [ctx]. *)
 let rec whnf_ty ctx (Value.Ty t) =
   let t = whnf ctx t
@@ -114,7 +169,7 @@ and equal_abstracted_ty ctx xuus v v' =
 and equal_ty ctx (Value.Ty t1) (Value.Ty t2) = equal ctx t1 t2 Value.typ
 
 and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
-  Value.equal e1 e2 ||
+ alpha_equal e1 e2 ||
     (* xxx should check equations here *)
     begin (* type-directed phase *)
       let Value.Ty ((t',_) as t) = whnf_ty ctx t in
@@ -153,7 +208,7 @@ and equal_whnf ctx e1 e2 t =
   let (e1',loc1) as e1 = whnf ctx e1
   and (e2',loc2) as e2 = whnf ctx e2
   in
-    Value.equal e1 e2 ||
+    alpha_equal e1 e2 ||
     begin match e1', e2' with
 
       | Value.Name x, Value.Name y -> Name.eq x y

@@ -57,12 +57,6 @@ val ty : term -> ty
 (** The type Type *)
 val typ : ty
 
-(** Alpha equality of terms *)
-val equal : term -> term -> bool
-
-(** Alpha equality of types *)
-val equal_ty : ty -> ty -> bool
-
 (** [instantiate [e0,...,e{n-1}] k e] replaces bound variables indexed by [k, ..., k+n-1]
     with terms [e0, ..., e{n-1}]. *)
 val instantiate: term list -> int -> term -> term
