@@ -3,7 +3,7 @@
 type term = term' * Location.t
 and term' =
 (** The type of TT terms.
-    (For details on the mutual definition with term', see module Location.)
+    (For details on the mutual definition with [term'], see module Location.)
 
     We use locally nameless syntax: names for free variables and deBruijn
     indices for bound variables. In terms of type [term], bound variables are
