@@ -118,7 +118,7 @@ let rec exec_cmd interactive ctx d =
        begin
          match Eval.infer ctx c with
          | Value.Return v ->
-            Format.printf "%t@." (Value.print_value v) ;
+            Format.printf "%t@." (Value.print v) ;
             ctx
        end
 

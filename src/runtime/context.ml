@@ -1,6 +1,6 @@
 (** The type of contexts *)
 type t = {
-  free : (Name.t * Value.ty) list;
+  free : (Name.t * Tt.ty) list;
   meta : (Name.t * Value.value) list
 }
 
@@ -83,6 +83,6 @@ let print ctx ppf =
   Print.print ppf "---------@." ;
   List.iter
     (fun (x, t) ->
-     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (Name.print x) (Value.print_ty t))
+     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (Name.print x) (Tt.print_ty t))
     (List.rev (free_list ctx)) ;
   Print.print ppf "---END---@."
