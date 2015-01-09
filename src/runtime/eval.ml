@@ -5,7 +5,7 @@ let rec expr ctx (e',loc) =
     | Syntax.Name x ->
        begin
          match Context.lookup_free x ctx with
-         | None -> Error.runtime ~loc "unknown free variable %s" (Common.to_string x)
+         | None -> Error.runtime ~loc "unknown free variable %t" (Name.print x)
          | Some t -> 
             let x = Value.mk_name ~loc x in
               (x, t)

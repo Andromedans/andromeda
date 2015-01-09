@@ -97,7 +97,7 @@ let rec exec_cmd interactive ctx d =
         List.fold_left
           (fun ctx x -> 
             let ctx = Context.add_free x t ctx in
-              if interactive then Format.printf "%t is assumed.@\n" (Common.print_name x) ;
+              if interactive then Format.printf "%t is assumed.@\n" (Name.print x) ;
               ctx)
           ctx
           xs
@@ -110,7 +110,7 @@ let rec exec_cmd interactive ctx d =
          match Eval.infer ctx c with
          | Value.Return v ->
             let ctx = Context.add_meta x v ctx in
-              if interactive then Format.printf "%t is defined.@\n@." (Common.print_name x) ;
+              if interactive then Format.printf "%t is defined.@\n@." (Name.print x) ;
               ctx
        end
 

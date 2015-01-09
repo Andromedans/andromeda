@@ -63,7 +63,7 @@ plain_ty_term:
   | e=plain_equal_term                              { e }
   | FORALL a=abstraction(ty_term) COMMA e=term      { Prod (a, e) }
   | FUN a=abstraction(ty_term) DARROW e=term        { Lambda (a, e) }
-  | t1=equal_term ARROW t2=ty_term                  { Prod ([(Common.anonymous, t1)], t2) }
+  | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
 plain_equal_term:
@@ -83,8 +83,8 @@ plain_simple_term:
   | LPAREN e=plain_term RPAREN                      { e }
 
 name:
-  | NAME { Common.to_name $1 }
-  | UNDERSCORE { Common.anonymous }
+  | NAME { Name.of_string $1 }
+  | UNDERSCORE { Name.anonymous }
 
 let_clauses:
   | ls=separated_nonempty_list(AND, let_clause)     { ls }

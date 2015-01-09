@@ -1,14 +1,11 @@
-type name =
+type t =
   | Anonymous
   | Gensym of string * int
   | String of string
 
-(** Bound variables are represented by de Bruijn indices *)
-type bound = int
-
 let anonymous = Anonymous
 
-let to_name x = String x
+let of_string x = String x
 
 let to_string = function
   | Anonymous -> "_"
@@ -28,12 +25,12 @@ let fresh =
      in 
        Gensym (y, !k)
 
-let eqname (s : name) (t : name) = (s = t)
+let eq (x : t) (y : t) = (x = y)
 
 let rec index_of shift x = function
   | [] -> None
-  | y :: ys -> if eqname x y then Some shift else index_of (shift + 1) x ys
+  | y :: ys -> if eq x y then Some shift else index_of (shift + 1) x ys
 
 let rec rindex_of shift x xs = index_of shift x (List.rev xs)
 
-let print_name x ppf = Print.print ~at_level:0 ppf "%s" (to_string x)
+let print x ppf = Print.print ~at_level:0 ppf "%s" (to_string x)

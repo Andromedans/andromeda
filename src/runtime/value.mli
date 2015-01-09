@@ -3,8 +3,8 @@
 type term = term' * Location.t
 and term' = private
   | Type
-  | Name of Common.name (** a free variable *)
-  | Bound of Common.bound (** a bound variable *)
+  | Name of Name.t (** a free variable *)
+  | Bound of Syntax.bound (** a bound variable *)
   | Lambda of (ty, term * ty) abstraction
     (** a lambda abstraction [fun (x1:A1) ... (xn:An) -> e : A] where
         [Ak] depends on [x1, ..., x{k-1}], while [e] and [A] depends on
@@ -29,7 +29,7 @@ and ty = private
 
 (** An [(A,B) abstraction] is a [B] bound by [x1:a1, ..., xn:an] where
     the [a1, ..., an] have type [A]. *)
-and ('a, 'b) abstraction = (Common.name * 'a) list * 'b
+and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
 
 (** A value is the result of a computation. *)
 type value = term * ty
@@ -39,14 +39,14 @@ type result =
   | Return of value
 
 (** Term constructors, the do not check for legality of constructions. *)
-val mk_name: loc:Location.t -> Common.name -> term
-val mk_bound: loc:Location.t -> Common.bound -> term
-val mk_lambda: loc:Location.t -> (Common.name * ty) list -> term -> ty -> term
-val mk_spine: loc:Location.t -> term -> (Common.name * (term * ty)) list -> ty -> term
+val mk_name: loc:Location.t -> Name.t -> term
+val mk_bound: loc:Location.t -> Syntax.bound -> term
+val mk_lambda: loc:Location.t -> (Name.t * ty) list -> term -> ty -> term
+val mk_spine: loc:Location.t -> term -> (Name.t * (term * ty)) list -> ty -> term
 val mk_type: loc:Location.t -> term
 val mk_type_ty: loc:Location.t -> ty
-val mk_prod: loc:Location.t -> (Common.name * ty) list -> ty -> term
-val mk_prod_ty: loc:Location.t -> (Common.name * ty) list -> ty -> ty
+val mk_prod: loc:Location.t -> (Name.t * ty) list -> ty -> term
+val mk_prod_ty: loc:Location.t -> (Name.t * ty) list -> ty -> ty
 val mk_eq: loc:Location.t -> ty -> term -> term -> term
 val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
 val mk_refl: loc:Location.t -> ty -> term -> term
@@ -80,15 +80,15 @@ val instantiate_term_ty: term list -> int -> term * ty -> term * ty
 
 (** [unabstract [x0,...,x{n-1}] k e] replaces bound variables in [e] indexed by [k, ..., k+n-1]
     with names [x0, ..., x{n-1}]. *)
-val unabstract: Common.name list -> int -> term -> term
+val unabstract: Name.t list -> int -> term -> term
 
 (** [unabstract_ty [x0,...,x{n-1}] k t] replaces bound variables in [t] indexed by [k, ..., k+n-1]
     names [x0, ..., x{n-1}]. *)
-val unabstract_ty: Common.name list -> int -> ty -> ty
+val unabstract_ty: Name.t list -> int -> ty -> ty
 
-val abstract : Common.name list -> int -> term -> term
+val abstract : Name.t list -> int -> term -> term
 
-val abstract_ty : Common.name list -> int -> ty -> ty
+val abstract_ty : Name.t list -> int -> ty -> ty
 
 val print_ty : ?max_level:int -> ty -> Format.formatter -> unit
 

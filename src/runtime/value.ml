@@ -23,9 +23,9 @@ and term' =
 
   | Type
   (** term denoting the type of types *)
-  | Name of Common.name
+  | Name of Name.t
   (** a free variable *)
-  | Bound of Common.bound
+  | Bound of Syntax.bound
   (** a bound variable *)
   | Lambda of (ty, term * ty) abstraction
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
@@ -50,7 +50,7 @@ and ty = Ty of term
     so the type [ty] of types is just a synonym for the type [term] of terms. 
     However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
 
-and ('a, 'b) abstraction = (Common.name * 'a) list * 'b
+and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
 (** The auxiliary type of abstractions discussed above. *)
 
 type value =
@@ -112,7 +112,7 @@ let rec equal (e1,_) (e2,_) =
   e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
-    | Name x, Name y -> Common.eqname x y
+    | Name x, Name y -> Name.eq x y
 
     | Bound i, Bound j -> i = j
 
@@ -243,7 +243,7 @@ let rec abstract xs depth ((e',loc) as e) =
   | Bound k -> assert (k < depth) ; e
   | Name x ->
     begin
-      match Common.rindex_of depth x xs with
+      match Name.rindex_of depth x xs with
       | None -> e
       | Some k -> Bound k, loc
     end
@@ -292,7 +292,7 @@ let occurs_ty _ = true
 
 let rec print_binder (x, t) ppf =
   Print.print ppf "(%t : %t)"
-        (Common.print_name x)
+        (Name.print x)
         (print_ty t)
 
 (** [print_prod ts t ppf] prints a dependent product using formatter [ppf]. *)
@@ -326,7 +326,7 @@ and print_term ?max_level (e,_) ppf =
         print ~at_level:0 "Type"
 
       | Name x ->
-        print ~at_level:0 "%t" (Common.print_name x)
+        print ~at_level:0 "%t" (Name.print x)
 
       | Bound k ->
         print ~at_level:0 "DEBRUIJN[%d]" k

@@ -156,7 +156,7 @@ and equal_whnf ctx e1 e2 t =
     Value.equal e1 e2 ||
     begin match e1', e2' with
 
-      | Value.Name x, Value.Name y -> Common.eqname x y
+      | Value.Name x, Value.Name y -> Name.eq x y
 
       | Value.Bound _, _ | _, Value.Bound _ ->
         Error.impossible ~loc:loc1 "deBruijn encountered in equal_whnf"
