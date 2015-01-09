@@ -75,7 +75,7 @@ let rec infer ctx (c',loc) =
   | Syntax.Spine (e, es) ->
     let e, t = expr ctx e in
     let xeus, u, v = spine ctx t es in
-    let e = Value.mk_spine ~loc e xeus u in
+    let e = Tt.mk_spine ~loc e xeus u in
       Value.Return (e, v)
 
   | Syntax.Prod (abs, c) -> 
@@ -122,22 +122,24 @@ and check ctx c t =
         (Tt.print_ty t')
 
 and spine ctx t es = 
-  let rec fold ctx xs es t = function
+(*   let rec fold ctx xs es t = function
   | [] ->
-    let u = Value.abstract xs t in
-    let v = Value.instantiate es t in
+    let u = Tt.abstract xs t in
+    let v = Tt.instantiate es t in
       xeus, u, v
   | e :: es -> 
+    failwith "not implemented"
     let y, t1, t2 = as_prod ctx t in
-    let e = check ctx e t1 in
-    let u = Value.abstract xs t1 in
-    let v = Value.instantiate 
-    let x, ctx = Context.add_fresh y t1 ctx in
-
-
-    and t = Value.instantiate_ty [e] t in
+    let e = check ctx e t1
+    and u = Tt.abstract xs t1
+    and v = failwith "not implemented v" in
+    let x, ctx = Context.add_fresh y t1 ctx
+    and t = Tt.instantiate_ty [e] t in
     let a, u = spine ctx t es in
       (x, (e, t1)) :: a, u
+  in
+ *)
+      failwith "not implemented"
 
 and expr_ty ctx ((_,loc) as e) =
   let (e, t) = expr ctx e
@@ -147,7 +149,7 @@ and expr_ty ctx ((_,loc) as e) =
     else Error.runtime ~loc "this expression should be a type"
 
 and comp_ty ctx c =
-  let e = check ctx c Tt.typ
-  in Tt.ty e
+  let e = check ctx c Tt.typ in
+    Tt.ty e
 
 let ty = comp_ty
