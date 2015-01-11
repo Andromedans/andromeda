@@ -10,6 +10,8 @@ let empty = { free = []; meta = [] ; name = [] }
 
 let metas {name=lst} = lst
 
+let frees {free=lst} = List.map fst lst
+
 let lookup_free x {free=lst} =
   let rec lookup = function
     | [] -> None
@@ -78,12 +80,11 @@ let find_name x ctx =
       while List.mem_assoc (Name.of_string (y ^ string_of_int !k)) ctx do incr k done ;
       Name.of_string (y ^ string_of_int !k)
 
-let free_list {free} = free
-
 let print ctx ppf =
+  let xs = frees ctx in
   Print.print ppf "---------@." ;
   List.iter
     (fun (x, t) ->
-     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (Name.print x) (Tt.print_ty t))
-    (List.rev (free_list ctx)) ;
+     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (Name.print x) (Tt.print_ty xs t))
+    (List.rev ctx.free) ;
   Print.print ppf "---END---@."

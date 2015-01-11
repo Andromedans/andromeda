@@ -5,4 +5,4 @@ type value = Tt.term * Tt.ty
 type result =
   | Return of value
 
-val print : ?max_level:int -> value -> Format.formatter -> unit
+val print : ?max_level:int -> Name.t list -> value -> Format.formatter -> unit

@@ -13,6 +13,10 @@ val to_string : t -> string
 (** Given a name generate a fresh one guaranteed not to exist. *)
 val fresh : t -> t
 
+(** Given a list of names [xs] and a name [x], find a nicely printable
+    variant of [x] which does not occur in [xs]. *)
+val refresh : t list -> t -> t
+
 (** Compare names *)
 val eq : t -> t -> bool
 

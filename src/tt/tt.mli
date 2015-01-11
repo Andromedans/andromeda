@@ -77,5 +77,5 @@ val abstract : Name.t list -> int -> term -> term
 
 val abstract_ty : Name.t list -> int -> ty -> ty
 
-val print_ty : ?max_level:int -> ty -> Format.formatter -> unit
-val print_term : ?max_level:int -> term -> Format.formatter -> unit
+val print_ty : ?max_level:int -> Name.t list -> ty -> Format.formatter -> unit
+val print_term : ?max_level:int -> Name.t list -> term -> Format.formatter -> unit

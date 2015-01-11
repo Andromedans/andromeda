@@ -221,11 +221,34 @@ and abstract_term_ty xs depth (e, t) =
   in (e, t)
 
 
+let occurs_abstraction occurs_u occurs_v k (xus, v) =
+  let rec fold k = function
+    | [] -> occurs_v k v
+    | (_,u) :: xus -> occurs_u k u || fold (k+1) xus
+  in
+    fold k xus
 
-let occurs _ = true
+(* Does bound variable [k] occur in an expression? *)
+let rec occurs k (e',_) =
+  match e' with
+  | Type -> false
+  | Name _ -> false
+  | Bound m -> (k = m)
+  | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
+  | Spine (e, a) ->
+    occurs k e ||
+    occurs_abstraction occurs_term_ty occurs_ty k a
+  | Prod a ->
+    occurs_abstraction occurs_ty occurs_ty k a
+  | Eq (t, e1, e2) ->
+    occurs_ty k t || occurs k e1 || occurs k e2
+  | Refl (t, e) ->
+    occurs_ty k t || occurs k e
 
-let occurs_ty _ = true
+and occurs_ty k (Ty t) = occurs k t
 
+and occurs_term_ty k (e, t) =
+  occurs k e || occurs_ty k t
 
 (** Optionally print a typing annotation in brackets. *)
 let print_annot ?(prefix="") k ppf =
@@ -234,36 +257,52 @@ let print_annot ?(prefix="") k ppf =
   else
     Format.fprintf ppf ""
 
-let rec print_binder (x, t) ppf =
+let rec print_binder xs (x, t) ppf =
   Print.print ppf "(%t : %t)"
         (Name.print x)
-        (print_ty t)
+        (print_ty xs t)
 
-(** [print_prod ts t ppf] prints a dependent product using formatter [ppf]. *)
-and print_prod ts t ppf =
-  match ts with
-
-  | [] ->
-     Print.print ppf "%t" (print_ty t)
-
-  | (x,u) :: ts when not (occurs_ty t) ->
-      Print.print ~at_level:3 ppf "%t ->@ %t"
-        (print_ty ~max_level:2 u)
-        (print_prod ts t)
-
-  | ts ->
-     Print.print ppf "forall %t,@ %t"
-           (Print.sequence print_binder ts)
-           (print_ty ~max_level:3 t)
+(** [print_prod xs ts t ppf] prints a dependent product using formatter [ppf]. *)
+and print_prod xs ts t ppf =
+  let rec fold b xs ys = function
+    | [] ->
+      let t = unabstract_ty ys 0 t in
+        Print.print ppf "%s@ %t"
+          (if b then "," else "")
+          (print_ty xs t)
+    | (x,u) :: ts ->
+      if occurs_abstraction occurs_ty occurs_ty 0 (ts, t)
+      then begin
+        let u = unabstract_ty ys 0 u in
+        let y = Name.refresh xs x in
+          Print.print ppf "%s@ (%t : %t)"
+            (if b then "forall" else "")
+            (Name.print y)
+            (print_ty xs u) ;
+          fold false (y::xs) (y::ys) ts
+       end
+      else begin
+        let u = unabstract_ty ys 0 u in
+        let (ts, t) =
+          instantiate_abstraction
+            instantiate_ty instantiate_ty
+            (List.map (mk_name ~loc:Location.nowhere) ys) 0 (ts, t)
+        in
+        Print.print ~at_level:3 ppf "%t@ ->"
+          (print_ty ~max_level:2 xs u) ;
+        fold false xs ys ts
+      end
+    in
+    fold true xs [] ts
 
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
-and print_lambda a e t ppf =
+and print_lambda xs a e t ppf =
   Print.print ppf "fun %t =>%t@ %t"
-        (Print.sequence print_binder a)
-        (print_annot (print_ty ~max_level:4 t))
-        (print_term ~max_level:4 e)
+        (Print.sequence (print_binder xs) a)
+        (print_annot (print_ty ~max_level:4 xs t))
+        (print_term ~max_level:4 xs e)
 
-and print_term ?max_level (e,_) ppf =
+and print_term ?max_level xs (e,_) ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
       | Type ->
@@ -273,29 +312,30 @@ and print_term ?max_level (e,_) ppf =
         print ~at_level:0 "%t" (Name.print x)
 
       | Bound k ->
+        (** XXX this should never get printed *)
         print ~at_level:0 "DEBRUIJN[%d]" k
 
       | Lambda (a, (e, t)) ->
-        print ~at_level:3 "%t" (print_lambda a e t)
+        print ~at_level:3 "%t" (print_lambda xs a e t)
 
       | Spine (e, (es, _)) ->
         (* XXX: no typing annotations yet *)
         print ~at_level:1 "@[<hov 2>%t@ %t@]"
-          (print_term ~max_level:1 e)
-          (Print.sequence (print_term ~max_level:0) (List.map (fun (_,(e,_)) -> e) es))
+          (print_term ~max_level:1 xs e)
+          (Print.sequence (print_term ~max_level:0 xs) (List.map (fun (_,(e,_)) -> e) es))
 
       | Prod (ts, t) ->
-        print ~at_level:3 "%t" (print_prod ts t)
+        print ~at_level:3 "%t" (print_prod xs ts t)
 
       | Eq (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
-          (print_term ~max_level:1 e1)
-          (print_annot (print_ty ~max_level:4 t))
-          (print_term ~max_level:1 e2)
+          (print_term ~max_level:1 xs e1)
+          (print_annot (print_ty ~max_level:4 xs t))
+          (print_term ~max_level:1 xs e2)
 
       | Refl (t, e) ->
         print ~at_level:0 "refl%t %t"
-          (print_annot (print_ty ~max_level:4 t))
-          (print_term ~max_level:0 e)
+          (print_annot (print_ty ~max_level:4 xs t))
+          (print_term ~max_level:0 xs e)
 
-and print_ty ?max_level (Ty t) ppf = print_term ?max_level t ppf
+and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf

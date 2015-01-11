@@ -7,6 +7,9 @@ val empty : t
 (** Known meta variables *)
 val metas : t -> Name.t list
 
+(** Known free variables *)
+val frees : t -> Name.t list
+
 (** Lookup a free variable. *)
 val lookup_free : Name.t -> t -> Tt.ty option
 

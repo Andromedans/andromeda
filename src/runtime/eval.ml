@@ -1,3 +1,15 @@
+(** Main evaluation routines. *)
+
+(** Auxiliary printing functions. *)
+
+let print_term ctx e =
+    let xs = Context.frees ctx in
+      Tt.print_term xs e
+
+let print_ty ctx t =
+    let xs = Context.frees ctx in
+      Tt.print_ty xs t
+
 (** Evaluation of expressions. *)
 let rec expr ctx (e',loc) =
   begin
@@ -46,15 +58,13 @@ let rec infer ctx (c',loc) =
         in Value.Return (e, t)
 
   | Syntax.Lambda (abs, c) ->
-    let rec fold ctx xts = function
+    let rec fold ctx ys xts = function
       | [] ->
         begin
           match infer ctx c with
           | Value.Return (e, t) ->
-            let xts = List.rev xts in
-            let xs = List.map fst xts in
-            let e = Tt.abstract xs 0 e
-            and t = Tt.abstract_ty xs 0 t in
+            let e = Tt.abstract ys 0 e
+            and t = Tt.abstract_ty ys 0 t in
             let e = Tt.mk_lambda ~loc xts e t
             and t = Tt.mk_prod_ty ~loc xts t
           in
@@ -62,10 +72,10 @@ let rec infer ctx (c',loc) =
         end
       | (x,t) :: abs ->
         let t = expr_ty ctx t in
-        let x, ctx = Context.add_fresh x t ctx in
-          fold ctx ((x,t) :: xts) abs
+        let y, ctx = Context.add_fresh x t ctx in
+          fold ctx (y::ys) (xts @ [(x,t)]) abs
     in
-      fold ctx [] abs
+      fold ctx [] [] abs
 
   | Syntax.Spine (e, cs) ->
     let e, t = expr ctx e in
@@ -113,8 +123,8 @@ and check ctx c t =
      then e
      else 
       Error.typing ~loc:(snd c) "this expression should have type %t but has type %t"
-        (Tt.print_ty t)
-        (Tt.print_ty t')
+        (print_ty ctx t)
+        (print_ty ctx t')
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
     Then [spine ctx t cs] computes [xeus], [u] and [v] such that we can make
@@ -130,10 +140,10 @@ and spine ctx t cs =
   | c :: cs ->
     (* unpack [t] as a product *)
     let y, t1, t2 = Equal.as_prod ctx t in
-    (* check that [e] has the correct type *)
-    let e = check ctx c t1 in
     (* [t1] has [xs] appearing in it, abstract them away *)
     let u = Tt.abstract_ty xs 0 t1 in
+    (* check that [e] has the correct type *)
+    let e = check ctx c (Tt.instantiate_ty es 0 u) in
     let x, ctx = Context.add_fresh y t1 ctx in
     let t2 = Tt.unabstract_ty [x] 0 t2
     in
@@ -149,7 +159,7 @@ and expr_ty ctx ((_,loc) as e) =
     else
       Error.runtime ~loc
         "this expression should be a type but its type is %t"
-        (Tt.print_ty t)
+        (print_ty ctx t)
   
 
 and comp_ty ctx c =

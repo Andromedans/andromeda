@@ -8,9 +8,9 @@ type result =
   | Return of value
 
 
-let print ?max_level v ppf =
+let print ?max_level xs v ppf =
   let (e,t) = v in
     Print.print ~at_level:0 ppf "%t :@ %t"
-          (Tt.print_term ~max_level:0 e)
-          (Tt.print_ty ~max_level:0 t)
+          (Tt.print_term ~max_level:0 xs e)
+          (Tt.print_ty ~max_level:0 xs t)
 
