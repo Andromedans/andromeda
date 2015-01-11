@@ -18,7 +18,7 @@ and comp' =
   | Let of (Name.t * comp) list * comp
   | Ascribe of comp * ty
   | Lambda of (Name.t * ty) list * comp
-  | Spine of expr * expr list
+  | Spine of expr * comp list
   | Prod of (Name.t * ty) list * comp
   | Eq of expr * comp
   | Refl of expr

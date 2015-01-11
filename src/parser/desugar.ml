@@ -84,15 +84,10 @@ let rec comp ctx ((c',loc) as c) =
          in
            [], lambda ctx [] xs
 
-      | Input.Spine (e, es) ->
+      | Input.Spine (e, cs) ->
          let w, e = expr ctx [] e
-         in let w, es =
-              List.fold_left
-                (fun (w,es) e -> let w, e = expr ctx w e
-                                 in (w, e::es))
-                (w, []) es
-            in let es = List.rev es
-               in w, Syntax.Spine (e, es)
+         and cs = List.map (comp ctx) cs in
+           w, Syntax.Spine (e, cs)
 
       | Input.Prod (xs, c) ->
          let rec prod ctx ys = function

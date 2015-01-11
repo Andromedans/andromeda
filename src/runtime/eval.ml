@@ -72,9 +72,9 @@ let rec infer ctx (c',loc) =
     in
       fold ctx [] abs
 
-  | Syntax.Spine (e, es) ->
+  | Syntax.Spine (e, cs) ->
     let e, t = expr ctx e in
-    let xeus, u, v = spine ctx t es in
+    let xeus, u, v = spine ctx t cs in
     let e = Tt.mk_spine ~loc e xeus u in
       Value.Return (e, v)
 
@@ -121,25 +121,30 @@ and check ctx c t =
         (Tt.print_ty t)
         (Tt.print_ty t')
 
-and spine ctx t es = 
-(*   let rec fold ctx xs es t = function
+(** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
+    Then [spine ctx t cs] computes [xeus], [u] and [v] such that we can make
+    a spine from [e], [xeus] and [u], and the type of the resulting expression
+    is [v].
+  *)
+and spine ctx t cs = 
+  let rec fold ctx xs xeus es t = function
   | [] ->
-    let u = Tt.abstract xs t in
-    let v = Tt.instantiate es t in
+    let u = Tt.abstract_ty xs 0 t in
+    let v = Tt.instantiate_ty es 0 u in
       xeus, u, v
-  | e :: es -> 
-    failwith "not implemented"
-    let y, t1, t2 = as_prod ctx t in
-    let e = check ctx e t1
-    and u = Tt.abstract xs t1
-    and v = failwith "not implemented v" in
-    let x, ctx = Context.add_fresh y t1 ctx
-    and t = Tt.instantiate_ty [e] t in
-    let a, u = spine ctx t es in
-      (x, (e, t1)) :: a, u
+  | c :: cs ->
+    (* unpack [t] as a product *)
+    let y, t1, t2 = Equal.as_prod ctx t in
+    (* check that [e] has the correct type *)
+    let e = check ctx c t1 in
+    (* [t1] has [xs] appearing in it, abstract them away *)
+    let u = Tt.abstract_ty xs 0 t1 in
+    let x, ctx = Context.add_fresh y t1 ctx in
+    let t2 = Tt.unabstract_ty [x] 0 t2
+    in
+      fold ctx (xs @ [x]) (xeus @ [(y,(e,u))]) (es @ [e]) t2 cs
   in
- *)
-      failwith "not implemented"
+  fold ctx [] [] [] t cs
 
 and expr_ty ctx ((_,loc) as e) =
   let (e, t) = expr ctx e
@@ -147,6 +152,7 @@ and expr_ty ctx ((_,loc) as e) =
     if Equal.equal_ty ctx t Tt.typ
     then Tt.ty e
     else Error.runtime ~loc "this expression should be a type"
+  
 
 and comp_ty ctx c =
   let e = check ctx c Tt.typ in
