@@ -27,7 +27,7 @@ let lookup x ctx =
        else lookup (k_bound+1) k_meta lst
     | Meta y :: lst ->
        if Name.eq x y
-       then Some (Meta k_bound)
+       then Some (Meta k_meta)
        else lookup k_bound (k_meta+1) lst
   in
     lookup 0 0 ctx
@@ -48,6 +48,11 @@ let letify ~loc w c' =
   | _::_ -> Syntax.Let (w, (c', loc)), loc
 
 let rec comp ctx ((c',loc) as c) =
+  (* When a computation [c] is desugared we hoist out a list of
+     let-bindings [w]. NB: it is important that we first desugar
+     all subexpressions of [c] so that we get the correct context
+     with hoisted bindings, and only then we desugar the subcomputations
+     of [c]. *)
   let w, c =
     begin
       match c' with
@@ -59,9 +64,9 @@ let rec comp ctx ((c',loc) as c) =
          in [], Syntax.Let (ls, c2)
                            
       | Input.Ascribe (c, t) ->
-         let c = comp ctx c
-         and w, t = expr ctx [] t
-         in w, Syntax.Ascribe (c, t)
+         let ctx, w, t = expr ctx t in
+         let c = comp ctx c in
+           w, Syntax.Ascribe (c, t)
 
       | Input.Lambda (xs, c) ->
          let rec lambda ctx ys = function
@@ -70,12 +75,12 @@ let rec comp ctx ((c',loc) as c) =
                 mk_lambda ys c
            | (x,t) :: xs ->
               begin
-                match expr ctx [] t with
-                | [], t ->
+                match expr ctx t with
+                | _, [], t ->
                    let ctx = add_bound x ctx
-                   and ys =  ys @ [(x,t)]
-                   in lambda ctx ys xs
-                | w, ((_,loc) as t) ->
+                   and ys = ys @ [(x,t)] in
+                   lambda ctx ys xs
+                | ctx, w, ((_,loc) as t) ->
                    let c = lambda (add_bound x ctx) [] xs in
                    let c = Syntax.Lambda ([(x,t)], (c, loc)) in
                    let c = letify ~loc w c in
@@ -85,7 +90,7 @@ let rec comp ctx ((c',loc) as c) =
            [], lambda ctx [] xs
 
       | Input.Spine (e, cs) ->
-         let w, e = expr ctx [] e
+         let ctx, w, e = expr ctx e
          and cs = List.map (comp ctx) cs in
            w, Syntax.Spine (e, cs)
 
@@ -96,12 +101,12 @@ let rec comp ctx ((c',loc) as c) =
                 prodify ys c
            | (x,t) :: xs ->
               begin
-                match expr ctx [] t with
-                | [], t ->
+                match expr ctx t with
+                | _, [], t ->
                    let ctx = add_bound x ctx
                    and ys = ys @ [(x,t)] in
                    prod ctx ys xs
-                | w, ((_,loc) as t) ->
+                | ctx, w, ((_,loc) as t) ->
                    let c = prod (add_bound x ctx) [] xs in
                    let c = Syntax.Prod ([(x,t)], (c,loc)) in
                    let c = letify ~loc:(snd t) w c in
@@ -111,40 +116,40 @@ let rec comp ctx ((c',loc) as c) =
            [], prod ctx [] xs
 
       | Input.Eq (e1, c2) ->
-         let w, e1 = expr ctx [] e1
-         in let c2 = comp ctx c2
-            in w, Syntax.Eq (e1, c2)
+         let ctx, w, e1 = expr ctx e1 in
+         let c2 = comp ctx c2 in
+            w, Syntax.Eq (e1, c2)
 
       | Input.Refl e ->
-         let w, e = expr ctx [] e
-         in w, Syntax.Refl e
+         let _, w, e = expr ctx e in
+           w, Syntax.Refl e
 
       | (Input.Var _ | Input.Type) ->
-         let w, e = expr ctx [] c
-         in w, Syntax.Return e                 
+         let _, w, e = expr ctx c in
+           w, Syntax.Return e                 
     end
 
     in letify ~loc w c
 
-and expr ctx w ((e',loc) as e) =
+and expr ctx ((e',loc) as e) =
   match e' with
     | Input.Var x ->
        begin
          match lookup x ctx with
-         | None -> w, (Syntax.Name x, loc)
-         | Some (Bound k) -> w, (Syntax.Bound k, loc)
-         | Some (Meta k) -> w, (Syntax.Meta k, loc)
+         | None -> ctx, [], (Syntax.Name x, loc)
+         | Some (Bound k) -> ctx, [], (Syntax.Bound k, loc)
+         | Some (Meta k) -> ctx, [], (Syntax.Meta k, loc)
        end
 
     | Input.Type ->
-       w, (Syntax.Type, loc)
+       ctx, [], (Syntax.Type, loc)
 
     | (Input.Let _ | Input.Ascribe _ | Input.Lambda _ | Input.Spine _ |
        Input.Prod _ | Input.Eq _ | Input.Refl _) ->
        let x = Name.fresh Name.anonymous
-       and c = comp ctx e
-       and k = List.length w
-       in w @ [(x,c)], (Syntax.Meta k, loc)
+       and c = comp ctx e in
+       let ctx = add_meta x ctx in
+         ctx, [(x,c)], (Syntax.Meta 0, loc)
 
 let toplevel metas (d, loc) =
   let ctx = List.map (fun x -> Meta x) metas in

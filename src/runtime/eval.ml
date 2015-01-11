@@ -16,12 +16,7 @@ let rec expr ctx (e',loc) =
        let x = Tt.mk_name ~loc x in
          (x, t)
 
-    | Syntax.Meta x ->
-       begin
-         match Context.lookup_meta x ctx with
-           | None -> Error.impossible ~loc "unknown meta variable"
-           | Some v -> v
-       end
+    | Syntax.Meta k -> Context.lookup_meta k ctx
 
     | Syntax.Type ->
        let t = Tt.mk_type ~loc
@@ -151,7 +146,10 @@ and expr_ty ctx ((_,loc) as e) =
   in
     if Equal.equal_ty ctx t Tt.typ
     then Tt.ty e
-    else Error.runtime ~loc "this expression should be a type"
+    else
+      Error.runtime ~loc
+        "this expression should be a type but its type is %t"
+        (Tt.print_ty t)
   
 
 and comp_ty ctx c =

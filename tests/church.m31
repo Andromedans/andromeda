@@ -1,8 +1,7 @@
 Let Nat := forall A : Type, (A -> A) -> A -> A.
 
 Let zero :=
-    (fun (A : Type) (s : A -> A) (z : A) =>
-    z) :: Nat.
+    (fun (A : Type) (s : A -> A) (z : A) => z) :: Nat.
 
 Let succ :=
     (fun (n : Nat) =>

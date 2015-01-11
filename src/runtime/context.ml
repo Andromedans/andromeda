@@ -1,13 +1,14 @@
 (** The type of contexts *)
 type t = {
   free : (Name.t * Tt.ty) list;
-  meta : (Name.t * Value.value) list
+  meta : Value.value list;
+  name : Name.t list (* names of meta variables *)
 }
 
 (** The empty context *)
-let empty = { free = []; meta = [] }
+let empty = { free = []; meta = [] ; name = [] }
 
-let metas {meta=lst} = List.map fst lst
+let metas {name=lst} = lst
 
 let lookup_free x {free=lst} =
   let rec lookup = function
@@ -24,12 +25,10 @@ let lookup_bound k {free=lst} =
   | Failure _ -> Error.runtime "invalid de Bruijn index %d" k
 
 let lookup_meta k {meta=lst} =
-  let rec lookup = function
-    | _, [] -> None
-    | 0, (_, v) :: _ -> Some v
-    | k, _ :: xvs -> lookup (k-1, xvs)
-  in
-    lookup (k, lst)
+  try
+    List.nth lst k
+  with
+  | Failure _ -> Error.runtime "invalid meta variable %d" k
 
 let is_bound x ctx =
   match lookup_free x ctx with
@@ -46,7 +45,9 @@ let add_fresh x t ctx =
   in y, { ctx with free = (y,t) :: ctx.free }
 
 let add_meta x v ctx =
-  { ctx with meta = (x,v) :: ctx.meta }
+  { ctx with
+    meta = v :: ctx.meta ;
+    name = x :: ctx.name }
 
 (* Variables which have a value are never referenced from anything with
    a context (because the context only holds evaluated things). So it is

@@ -14,7 +14,7 @@ val lookup_free : Name.t -> t -> Tt.ty option
 val lookup_bound : Syntax.bound -> t -> Name.t * Tt.ty
 
 (** Lookup a meta variable. *)
-val lookup_meta : Syntax.bound -> t -> Value.value option
+val lookup_meta : Syntax.bound -> t -> Value.value
 
 (** Add a free variable of a given type to the context.
     Fails if the free variable is already bound. *)

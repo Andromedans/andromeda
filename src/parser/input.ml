@@ -13,7 +13,7 @@ and term' =
   | Let of (Name.t * comp) list * comp
   | Ascribe of expr * ty
   | Lambda of (Name.t * ty) list * comp
-  | Spine of expr * expr list
+  | Spine of expr * comp list
   | Prod of (Name.t * ty) list * comp
   | Eq of expr * expr
   | Refl of expr
