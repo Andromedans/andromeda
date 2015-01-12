@@ -221,11 +221,46 @@ and abstract_term_ty xs depth (e, t) =
   in (e, t)
 
 
+let occurs_abstraction occ_u occ_v depth (xus,v) =
+  let rec occ depth = function
+    | [] -> occ_v depth v
+    | (x,u) :: xus -> occ_u depth u || occ (depth + 1) xus
+  in
+    occ depth xus
 
-let occurs _ = true
+(* XXX implement this efficiently so it works simultaneously for a list of bound indices *)
+let rec occurs depth (e', _) =
+  match e' with
+  | Type -> false
+  | Bound k -> k == depth
+  | Name x -> false
+  | Lambda a ->
+      occurs_abstraction
+        occurs_ty occurs_term_ty
+        depth a
+  | Spine (e, a) ->
+      occurs depth e ||
+      occurs_abstraction
+        occurs_term_ty occurs_ty
+        depth a
+  | Prod a ->
+      occurs_abstraction
+        occurs_ty occurs_ty
+        depth a
+  | Eq (t, e1, e2) ->
+      occurs_ty depth t ||
+      occurs depth e1 ||
+      occurs depth e2
+  | Refl (t, e) ->
+      occurs_ty depth t ||
+      occurs depth e
 
-let occurs_ty _ = true
+and occurs_ty depth (Ty t) =
+  occurs depth t
 
+and occurs_term_ty depth (e, t) =
+  occurs depth e ||
+  occurs_ty depth t
 
 (** Optionally print a typing annotation in brackets. *)
 let print_annot ?(prefix="") k ppf =
@@ -246,7 +281,7 @@ and print_prod ts t ppf =
   | [] ->
      Print.print ppf "%t" (print_ty t)
 
-  | (x,u) :: ts when not (occurs_ty t) ->
+  | (x,u) :: ts when not (occurs_ty 0 t) ->
       Print.print ~at_level:3 ppf "%t ->@ %t"
         (print_ty ~max_level:2 u)
         (print_prod ts t)
