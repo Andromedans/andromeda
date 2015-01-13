@@ -220,7 +220,6 @@ and abstract_term_ty xs depth (e, t) =
   and t = abstract_ty xs depth t
   in (e, t)
 
-
 let occurs_abstraction occurs_u occurs_v k (xus, v) =
   let rec fold k = function
     | [] -> occurs_v k v
