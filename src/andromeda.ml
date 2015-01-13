@@ -89,7 +89,7 @@ let parse parse lex =
 (** [exec_cmd ctx d] executes toplevel directive [d] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
 let rec exec_cmd interactive ctx d =
-  let (d', loc) = Desugar.toplevel (Context.metas ctx) d in
+  let (d', loc) = Desugar.toplevel (Context.bound_names ctx) d in
     match d' with
     | Syntax.Parameter (xs,c) ->
       let t = Eval.ty ctx c in
@@ -109,7 +109,7 @@ let rec exec_cmd interactive ctx d =
        begin
          match Eval.infer ctx c with
          | Value.Return v ->
-            let ctx = Context.add_meta x v ctx in
+            let ctx = Context.add_bound x v ctx in
               if interactive then Format.printf "%t is defined.@\n@." (Name.print x) ;
               ctx
        end
@@ -118,7 +118,7 @@ let rec exec_cmd interactive ctx d =
        begin
          match Eval.infer ctx c with
          | Value.Return v ->
-            Format.printf "%t@." (Value.print (Context.frees ctx) v) ;
+            Format.printf "%t@." (Value.print (Context.free_names ctx) v) ;
             ctx
        end
 

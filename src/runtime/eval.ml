@@ -3,11 +3,11 @@
 (** Auxiliary printing functions. *)
 
 let print_term ctx e =
-    let xs = Context.frees ctx in
+    let xs = Context.free_names ctx in
       Tt.print_term xs e
 
 let print_ty ctx t =
-    let xs = Context.frees ctx in
+    let xs = Context.free_names ctx in
       Tt.print_ty xs t
 
 (** Evaluation of expressions. *)
@@ -23,12 +23,7 @@ let rec expr ctx (e',loc) =
               (x, t)
        end
 
-    | Syntax.Bound k ->
-       let (x, t) = Context.lookup_bound k ctx in
-       let x = Tt.mk_name ~loc x in
-         (x, t)
-
-    | Syntax.Meta k -> Context.lookup_meta k ctx
+    | Syntax.Bound k -> Context.lookup_bound k ctx
 
     | Syntax.Type ->
        let t = Tt.mk_type ~loc
@@ -48,7 +43,7 @@ let rec infer ctx (c',loc) =
                  (fun ctx' (x,c) -> 
                   (* NB: must use [ctx] here, not [ctx'] *)
                   match infer ctx c with
-                  | Value.Return v -> Context.add_meta x v ctx')
+                  | Value.Return v -> Context.add_bound x v ctx')
                  ctx cs
      in infer ctx c'
 
@@ -66,13 +61,14 @@ let rec infer ctx (c',loc) =
             let e = Tt.abstract ys 0 e
             and t = Tt.abstract_ty ys 0 t in
             let e = Tt.mk_lambda ~loc xts e t
-            and t = Tt.mk_prod_ty ~loc xts t
-          in
-            Value.Return (e, t)
+            and t = Tt.mk_prod_ty ~loc xts t in
+              Value.Return (e, t)
         end
       | (x,t) :: abs ->
         let t = expr_ty ctx t in
         let y, ctx = Context.add_fresh x t ctx in
+        let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
+        let t = Tt.abstract_ty ys 0 t in
           fold ctx (y::ys) (xts @ [(x,t)]) abs
     in
       fold ctx [] [] abs
@@ -84,24 +80,22 @@ let rec infer ctx (c',loc) =
       Value.Return (e, v)
 
   | Syntax.Prod (abs, c) -> 
-    let rec fold ctx xts = function
+    let rec fold ctx ys xts = function
       | [] ->
-        begin
-          let xts = List.rev xts in
-          let u = comp_ty ctx c in
-          let xs = List.map fst xts in
-          let u = Tt.abstract_ty xs 0 u in
-          let e = Tt.mk_prod ~loc xts u
-          and t = Tt.mk_type_ty ~loc
-          in
-            Value.Return (e, t)
-        end
+        let u = comp_ty ctx c in
+        let u = Tt.abstract_ty ys 0 u in
+        let e = Tt.mk_prod ~loc xts u
+        and t = Tt.mk_type_ty ~loc
+        in
+          Value.Return (e, t)
       | (x,t) :: abs ->
         let t = expr_ty ctx t in
-        let x, ctx = Context.add_fresh x t ctx in
-          fold ctx ((x,t) :: xts) abs
+        let y, ctx = Context.add_fresh x t ctx in
+        let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
+        let t = Tt.abstract_ty ys 0 t in
+          fold ctx (y::ys) (xts @ [(x,t)]) abs
     in
-      fold ctx [] abs
+      fold ctx [] [] abs
 
   | Syntax.Eq (e1, c2) ->
     let (e1, t1) = expr ctx e1 in
@@ -122,7 +116,8 @@ and check ctx c t =
      if Equal.equal_ty ctx t' t
      then e
      else 
-      Error.typing ~loc:(snd c) "this expression should have type %t but has type %t"
+      Error.typing ~loc:(snd c) "this expression (%t) should have type %t but has type %t"
+        (print_term ctx e)
         (print_ty ctx t)
         (print_ty ctx t')
 
@@ -132,22 +127,22 @@ and check ctx c t =
     is [v].
   *)
 and spine ctx t cs = 
-  let rec fold ctx xs xeus es t = function
+  let rec fold ctx ys xeus es t = function
   | [] ->
-    let u = Tt.abstract_ty xs 0 t in
+    let u = Tt.abstract_ty ys 0 t in
     let v = Tt.instantiate_ty es 0 u in
       xeus, u, v
   | c :: cs ->
     (* unpack [t] as a product *)
-    let y, t1, t2 = Equal.as_prod ctx t in
-    (* [t1] has [xs] appearing in it, abstract them away *)
-    let u = Tt.abstract_ty xs 0 t1 in
-    (* check that [e] has the correct type *)
+    let x, t1, t2 = Equal.as_prod ctx t in
+    (* [t1] has [ys] appearing in it, abstract them away *)
+    let u = Tt.abstract_ty ys 0 t1 in
+    (* check that [c] has the correct type *)
     let e = check ctx c (Tt.instantiate_ty es 0 u) in
-    let x, ctx = Context.add_fresh y t1 ctx in
-    let t2 = Tt.unabstract_ty [x] 0 t2
+    let y, ctx = Context.add_fresh x t1 ctx in
+    let t2 = Tt.unabstract_ty [y] 0 t2
     in
-      fold ctx (xs @ [x]) (xeus @ [(y,(e,u))]) (es @ [e]) t2 cs
+      fold ctx (y :: ys) (xeus @ [(x,(e,u))]) (e :: es) t2 cs
   in
   fold ctx [] [] [] t cs
 

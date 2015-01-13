@@ -4,20 +4,17 @@ type t
 (** The empty context *)
 val empty : t
 
-(** Known meta variables *)
-val metas : t -> Name.t list
+(** Known bound variables *)
+val bound_names : t -> Name.t list
 
 (** Known free variables *)
-val frees : t -> Name.t list
+val free_names : t -> Name.t list
 
 (** Lookup a free variable. *)
 val lookup_free : Name.t -> t -> Tt.ty option
 
 (** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : Syntax.bound -> t -> Name.t * Tt.ty
-
-(** Lookup a meta variable. *)
-val lookup_meta : Syntax.bound -> t -> Value.value
+val lookup_bound : Syntax.bound -> t -> Value.value
 
 (** Add a free variable of a given type to the context.
     Fails if the free variable is already bound. *)
@@ -28,7 +25,7 @@ val add_free : Name.t -> Tt.ty -> t -> t
     actual name and the new context. *)
 val add_fresh : Name.t -> Tt.ty -> t -> Name.t * t
 
-(** Add a meta variable with suggested name to the context. *)
-val add_meta : Name.t -> Value.value -> t -> t
+(** Add a bound variable with given name to the context. *)
+val add_bound : Name.t -> Value.value -> t -> t
 
 val print : t -> Format.formatter -> unit

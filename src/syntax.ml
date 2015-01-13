@@ -7,7 +7,6 @@ type expr = expr' * Location.t
  and expr' =
    | Name of Name.t
    | Bound of bound
-   | Meta of bound
    | Type
 
 and ty = expr

@@ -1,36 +1,13 @@
 (** Conversion from the input syntax to the abstract syntax. *)
 
-(** During the desugaring phase we need to keep track of free variables, bound variables,
-    and computational variables. *)
+(** A context is a list of names from which we compute deBruijn
+    indices for abstracted and let-bound variables. *)
+type ctx = Name.t list
 
-type 'a ident = Bound of 'a | Meta of 'a
-
-let rec string_of_ctx = function
-  | [] -> ""
-  | (Bound x) :: lst -> "Bound " ^ Name.to_string x ^ ", " ^ string_of_ctx lst
-  | (Meta x) :: lst -> "Meta " ^ Name.to_string x ^ ", " ^ string_of_ctx lst
-
-
-type ctx = (Name.t ident) list
-
+(** The empty context *)
 let empty = []
 
-let add_bound x ctx = Bound x :: ctx
-let add_meta x ctx = Meta x :: ctx
-
-let lookup x ctx =
-  let rec lookup k_bound k_meta = function
-    | [] -> None
-    | Bound y :: lst ->
-       if Name.eq x y
-       then Some (Bound k_bound)
-       else lookup (k_bound+1) k_meta lst
-    | Meta y :: lst ->
-       if Name.eq x y
-       then Some (Meta k_meta)
-       else lookup k_bound (k_meta+1) lst
-  in
-    lookup 0 0 ctx
+let add_bound x ctx = x :: ctx
 
 let mk_lambda ys ((c',loc) as c) =
   match ys with
@@ -57,11 +34,22 @@ let rec comp ctx ((c',loc) as c) =
     begin
       match c' with
 
-      | Input.Let (ls, c2) ->
-         let ls = List.map (fun (x,c) -> (x, comp ctx c)) ls in
-         let ctx = List.fold_left (fun ctx (x,_) -> add_meta x ctx) ctx ls in
-         let c2 = comp ctx c2
-         in [], Syntax.Let (ls, c2)
+      | Input.Let (xcs, c2) ->
+        let rec fold = function
+          | [] -> []
+          | (x,c) :: xcs ->
+            if List.mem_assoc x xcs
+            then
+              Error.syntax ~loc "%t is bound more than once" (Name.print x)
+            else
+              let c = comp ctx c in
+              let xcs = fold xcs in
+                (x, c) :: xcs
+        in
+        let xcs = fold xcs in
+        let ctx = List.fold_left (fun ctx (x,_) -> add_bound x ctx) ctx xcs in
+        let c2 = comp ctx c2 in
+         [], Syntax.Let (xcs, c2)
                            
       | Input.Ascribe (c, t) ->
          let ctx, w, t = expr ctx t in
@@ -69,7 +57,7 @@ let rec comp ctx ((c',loc) as c) =
            w, Syntax.Ascribe (c, t)
 
       | Input.Lambda (xs, c) ->
-         let rec lambda ctx ys = function
+         let rec fold ctx ys = function
            | [] -> 
               let c = comp ctx c in
                 mk_lambda ys c
@@ -79,15 +67,15 @@ let rec comp ctx ((c',loc) as c) =
                 | _, [], t ->
                    let ctx = add_bound x ctx
                    and ys = ys @ [(x,t)] in
-                   lambda ctx ys xs
+                   fold ctx ys xs
                 | ctx, w, ((_,loc) as t) ->
-                   let c = lambda (add_bound x ctx) [] xs in
-                   let c = Syntax.Lambda ([(x,t)], (c, loc)) in
+                   let c = fold (add_bound x ctx) [] xs in
+                   let c = Syntax.Prod ([(x,t)], (c, loc)) in
                    let c = letify ~loc w c in
                      mk_lambda ys c
               end
          in
-           [], lambda ctx [] xs
+           [], fold ctx [] xs
 
       | Input.Spine (e, cs) ->
          let ctx, w, e = expr ctx e
@@ -95,7 +83,7 @@ let rec comp ctx ((c',loc) as c) =
            w, Syntax.Spine (e, cs)
 
       | Input.Prod (xs, c) ->
-         let rec prod ctx ys = function
+         let rec fold ctx ys = function
            | [] -> 
               let c = comp ctx c in
                 prodify ys c
@@ -105,15 +93,15 @@ let rec comp ctx ((c',loc) as c) =
                 | _, [], t ->
                    let ctx = add_bound x ctx
                    and ys = ys @ [(x,t)] in
-                   prod ctx ys xs
+                   fold ctx ys xs
                 | ctx, w, ((_,loc) as t) ->
-                   let c = prod (add_bound x ctx) [] xs in
+                   let c = fold (add_bound x ctx) [] xs in
                    let c = Syntax.Prod ([(x,t)], (c,loc)) in
                    let c = letify ~loc:(snd t) w c in
                      prodify ys c
               end
          in
-           [], prod ctx [] xs
+           [], fold ctx [] xs
 
       | Input.Eq (e1, c2) ->
          let ctx, w, e1 = expr ctx e1 in
@@ -135,10 +123,9 @@ and expr ctx ((e',loc) as e) =
   match e' with
     | Input.Var x ->
        begin
-         match lookup x ctx with
+         match Name.index_of x ctx with
          | None -> ctx, [], (Syntax.Name x, loc)
-         | Some (Bound k) -> ctx, [], (Syntax.Bound k, loc)
-         | Some (Meta k) -> ctx, [], (Syntax.Meta k, loc)
+         | Some k -> ctx, [], (Syntax.Bound k, loc)
        end
 
     | Input.Type ->
@@ -148,11 +135,10 @@ and expr ctx ((e',loc) as e) =
        Input.Prod _ | Input.Eq _ | Input.Refl _) ->
        let x = Name.fresh Name.anonymous
        and c = comp ctx e in
-       let ctx = add_meta x ctx in
-         ctx, [(x,c)], (Syntax.Meta 0, loc)
+       let ctx = add_bound x ctx in
+         ctx, [(x,c)], (Syntax.Bound 0, loc)
 
-let toplevel metas (d, loc) =
-  let ctx = List.map (fun x -> Meta x) metas in
+let toplevel ctx (d, loc) =
   begin
     match d with
 
@@ -177,4 +163,3 @@ let toplevel metas (d, loc) =
   loc
 
 let computation = comp []
-

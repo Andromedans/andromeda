@@ -56,10 +56,11 @@ let refresh xs = function
 
 let eq (x : t) (y : t) = (x = y)
 
-let rec index_of shift x = function
-  | [] -> None
-  | y :: ys -> if eq x y then Some shift else index_of (shift + 1) x ys
-
-let rec rindex_of shift x xs = index_of shift x (List.rev xs)
+let index_of x ys =
+  let rec fold k = function
+    | [] -> None
+    | y :: ys -> if eq x y then Some k else fold (k + 1) ys
+  in
+    fold 0 ys
 
 let print x ppf = Print.print ~at_level:0 ppf "%s" (to_string x)

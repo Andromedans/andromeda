@@ -1,16 +1,18 @@
-(** The type of contexts *)
+(** Manipulation of context. *)
+
+(** A context holds free variables with their types and an
+    environment of runtime bindings. *)
 type t = {
   free : (Name.t * Tt.ty) list;
-  meta : Value.value list;
-  name : Name.t list (* names of meta variables *)
+  bound : (Name.t * Value.value) list
 }
 
 (** The empty context *)
-let empty = { free = []; meta = [] ; name = [] }
+let empty = { free = []; bound = [] }
 
-let metas {name=lst} = lst
+let bound_names {bound=lst} = List.map fst lst
 
-let frees {free=lst} = List.map fst lst
+let free_names {free=lst} = List.map fst lst
 
 let lookup_free x {free=lst} =
   let rec lookup = function
@@ -20,17 +22,11 @@ let lookup_free x {free=lst} =
   in
     lookup lst
 
-let lookup_bound k {free=lst} =
+let lookup_bound k {bound=lst} =
   try
-    List.nth lst k
+    snd (List.nth lst k)
   with
   | Failure _ -> Error.runtime "invalid de Bruijn index %d" k
-
-let lookup_meta k {meta=lst} =
-  try
-    List.nth lst k
-  with
-  | Failure _ -> Error.runtime "invalid meta variable %d" k
 
 let is_bound x ctx =
   match lookup_free x ctx with
@@ -46,15 +42,8 @@ let add_fresh x t ctx =
   let y = Name.fresh x
   in y, { ctx with free = (y,t) :: ctx.free }
 
-let add_meta x v ctx =
-  { ctx with
-    meta = v :: ctx.meta ;
-    name = x :: ctx.name }
-
-(* Variables which have a value are never referenced from anything with
-   a context (because the context only holds evaluated things). So it is
-   safe for such a variables to be shadowed. But we must never ever shadow
-   a free variable because other parts of the context may refer to it. *)
+let add_bound x v ctx =
+  { ctx with bound = (x, v) :: ctx.bound }
 
 (** Given a variable [x] and a context [ctx], find a variant of [x] which
     does not appear in [ctx]. *)
@@ -71,7 +60,6 @@ let find_name x ctx =
         let k = int_of_string (String.sub s (!i+1) (n - !i - 1)) in
           (String.sub s 0 (!i+1), Some k)
   in
-
   if not (List.mem_assoc x ctx)
   then x
   else
@@ -81,7 +69,7 @@ let find_name x ctx =
       Name.of_string (y ^ string_of_int !k)
 
 let print ctx ppf =
-  let xs = frees ctx in
+  let xs = free_names ctx in
   Print.print ppf "---------@." ;
   List.iter
     (fun (x, t) ->

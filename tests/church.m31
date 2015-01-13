@@ -1,12 +1,12 @@
-Let Nat := forall A : Type, (A -> A) -> A -> A.
+Let Nat := forall X : Type, (X -> X) -> X -> X.
 
 Let zero :=
     (fun (A : Type) (s : A -> A) (z : A) => z) :: Nat.
 
 Let succ :=
     (fun (n : Nat) =>
-    fun (A : Type) (s : A -> A) (z : A) =>
-    s (n A s z)) :: Nat -> Nat.
+    fun (B : Type) (s : B -> B) (z : B) =>
+    s (n B s z)) :: Nat -> Nat.
 
 Let succ' :=
     (fun (n : Nat) =>
