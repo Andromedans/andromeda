@@ -23,8 +23,6 @@ Let mult :=
     fun (A : Type) (s : A -> A) =>
     m A (n A s)) :: Nat -> Nat -> Nat.
 
-#context
-
 Let one := (succ zero :: Nat).
 Let two := (add one one :: Nat).
 Let four := (mult two two :: Nat).

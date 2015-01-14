@@ -272,7 +272,7 @@ match xus with
   | (x,u) :: xus ->
     let x = Name.refresh xs x in
     (* XXX remove trailing space when unnecessary *)
-    Print.print ppf "(%t : %t) %t"
+    Print.print ppf "(%t :@ %t)@ %t"
       (Name.print x)
       (print_u xs u)
       (print_binders print_u print_v (x::xs) xus)
