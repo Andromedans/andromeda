@@ -66,7 +66,12 @@ let mk_lambda ~loc xts e t =
 let mk_prod ~loc xts ((Ty e) as t) =
   match xts with
   | [] -> e
-  | _ :: _ -> Prod (xts, t), loc
+  | _ :: _ ->
+    begin match t with
+    (* XXX join locations loc and loc' *)
+    | Ty (Prod (yts, t), loc') -> Prod (xts @ yts, t), loc
+    | t -> Prod (xts, t), loc
+    end
 
 let mk_spine ~loc e xets t = Spine (e, (xets, t)), loc
 let mk_type ~loc = Type, loc
