@@ -14,7 +14,7 @@ and term' =
     because we need to tag every application with the argument and result type,
     nested applications use quadratic space (in the number of the applications)
     whereas spines use linear space. Consequently, lambda abstractions and
-    products also have more than a single argument.
+    products also accept lists of arguments.
 
     To represent nested bindings, we use an auxiliary type
     [(A, B) abstraction], which consists of a list [(x1 : a1), ..., (xn : an)],
