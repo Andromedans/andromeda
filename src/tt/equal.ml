@@ -357,3 +357,4 @@ let as_prod ctx t =
     let t2 = Tt.mk_prod_ty ~loc xts t2 in
       x, t1, t2
   | _ -> Error.typing ~loc "this type should be a prodct"
+  
