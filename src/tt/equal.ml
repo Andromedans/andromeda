@@ -353,7 +353,5 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
 let as_prod ctx t =
   let Tt.Ty (t', loc) = whnf_ty ctx t in
   match t' with
-  | Tt.Prod ((x,t1) :: xts, t2) ->
-    let t2 = Tt.mk_prod_ty ~loc xts t2 in
-      x, t1, t2
-  | _ -> Error.typing ~loc "this type should be a prodct"
+  | Tt.Prod ((_ :: _, _) as a) -> a
+  | _ -> Error.typing ~loc "this type should be a product"

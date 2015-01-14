@@ -75,9 +75,8 @@ let rec infer ctx (c',loc) =
 
   | Syntax.Spine (e, cs) ->
     let e, t = expr ctx e in
-    let xeus, u, v = spine ctx t cs in
-    let e = Tt.mk_spine ~loc e xeus u in
-      Value.Return (e, v)
+    let (e, v) = spine ~loc ctx e t cs in
+    Value.Return (e, v)
 
   | Syntax.Prod (abs, c) -> 
     let rec fold ctx ys xts = function
@@ -126,25 +125,25 @@ and check ctx c t =
     a spine from [e], [xeus] and [u], and the type of the resulting expression
     is [v].
   *)
-and spine ctx t cs = 
-  let rec fold ctx ys xeus es t = function
-  | [] ->
-    let u = Tt.abstract_ty ys 0 t in
-    let v = Tt.instantiate_ty es 0 u in
-      xeus, u, v
-  | c :: cs ->
-    (* unpack [t] as a product *)
-    let x, t1, t2 = Equal.as_prod ctx t in
-    (* [t1] has [ys] appearing in it, abstract them away *)
-    let u = Tt.abstract_ty ys 0 t1 in
-    (* check that [c] has the correct type *)
-    let e = check ctx c (Tt.instantiate_ty es 0 u) in
-    let y, ctx = Context.add_fresh x t1 ctx in
-    let t2 = Tt.unabstract_ty [y] 0 t2
-    in
-      fold ctx (y :: ys) (xeus @ [(x,(e,u))]) (e :: es) t2 cs
+and spine ~loc ctx e t cs = 
+  let (xts, t) = Equal.as_prod ctx t in
+  let rec fold es xeus xts cs =
+  match xts, cs with
+  | xts, [] ->
+      let u = Tt.mk_prod_ty ~loc xts t in
+      let e = Tt.mk_spine ~loc e xeus u
+      and v = Tt.instantiate_ty es 0 u in
+      (e, v)
+  | (x, t) :: xts, c :: cs ->
+      let e = check ctx c (Tt.instantiate_ty es 0 t) in
+      let u = t in
+      fold (e :: es) (xeus @ [(x, (e, u))]) xts cs
+  | [], ((_ :: _) as cs) ->
+      let e = Tt.mk_spine ~loc e xeus t in
+      let t = Tt.instantiate_ty es 0 t in
+      spine ~loc ctx e t cs
   in
-  fold ctx [] [] [] t cs
+  fold [] [] xts cs
 
 and expr_ty ctx ((_,loc) as e) =
   let (e, t) = expr ctx e
