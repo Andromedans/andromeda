@@ -97,8 +97,8 @@ let_clause:
   this should be called plain_abstraction, but as we know,
   consistency is the hemoglobin of mindless lights. *)
 abstraction(X):
-  | bind(X)                            { $1 }
-  | nonempty_list(paren_bind(X))       { List.concat $1 }
+  | xst=bind(X)                        { xst }
+  | xsts=nonempty_list(paren_bind(X))  { List.concat xsts }
 
 bind(X):
   | xs=nonempty_list(name) COLON t=X   { List.map (fun x -> (x, t)) xs }

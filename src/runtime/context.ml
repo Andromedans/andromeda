@@ -12,7 +12,7 @@ let empty = { free = []; bound = [] }
 
 let bound_names {bound=lst} = List.map fst lst
 
-let free_names {free=lst} = List.map fst lst
+let used_names ctx = List.map fst ctx.free @ List.map fst ctx.bound
 
 let lookup_free x {free=lst} =
   let rec lookup = function
@@ -69,10 +69,10 @@ let find_name x ctx =
       Name.of_string (y ^ string_of_int !k)
 
 let print ctx ppf =
-  let xs = free_names ctx in
+  let forbidden_names = used_names ctx in
   Print.print ppf "---------@." ;
   List.iter
     (fun (x, t) ->
-     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (Name.print x) (Tt.print_ty xs t))
+     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (Name.print x) (Tt.print_ty forbidden_names t))
     (List.rev ctx.free) ;
   Print.print ppf "---END---@."

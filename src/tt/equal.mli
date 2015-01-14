@@ -2,4 +2,4 @@
 val equal_ty : Context.t -> Tt.ty -> Tt.ty -> bool
 
 (** Convert a type to a product *)
-val as_prod : Context.t -> Tt.ty -> Name.t * Tt.ty * Tt.ty
+val as_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction

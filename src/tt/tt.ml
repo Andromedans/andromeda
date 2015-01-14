@@ -66,7 +66,12 @@ let mk_lambda ~loc xts e t =
 let mk_prod ~loc xts ((Ty e) as t) =
   match xts with
   | [] -> e
-  | _ :: _ -> Prod (xts, t), loc
+  | _ :: _ ->
+    begin match t with
+    (* XXX join locations loc and loc' *)
+    | Ty (Prod (yts, t), loc') -> Prod (xts @ yts, t), loc
+    | t -> Prod (xts, t), loc
+    end
 
 let mk_spine ~loc e xets t = Spine (e, (xets, t)), loc
 let mk_type ~loc = Type, loc
@@ -261,11 +266,44 @@ let rec print_binder xs (x, t) ppf =
         (Name.print x)
         (print_ty xs t)
 
+and print_binders print_u print_v xs xus ppf =
+match xus with
+  | [] -> Print.print ppf "%t" (print_v xs)
+  | (x,u) :: xus ->
+    let x = Name.refresh xs x in
+    (* XXX remove trailing space when unnecessary *)
+    Print.print ppf "(%t : %t) %t"
+      (Name.print x)
+      (print_u xs u)
+      (print_binders print_u print_v (x::xs) xus)
+
 (** [print_prod xs ts t ppf] prints a dependent product using formatter [ppf]. *)
-and print_prod xs ts t ppf =
-  let rec fold b xs ys = function
+and print_prod ~max_level xs yus v ppf =
+  let rec split_binders = function
+    | [] -> [], []
+    | (y,u) :: yus ->
+      if occurs_abstraction occurs_ty occurs_ty 0 (yus, v) then
+        let xus, yus = split_binders yus in
+            (y,u) :: xus, yus
+      else
+        [], (y,u) :: yus
+  in
+  match split_binders yus with
+  | [], [] -> Print.print ~max_level ppf "%t" (print_ty xs v)
+  | [], (y,u) :: yus ->
+      Print.print ~at_level:3 ppf "%t@ ->@ %t"
+          (print_ty ~max_level:2 xs u)
+          (print_prod ~max_level:3 (Name.anonymous::xs) yus v)
+  | (_::_ as xus), yus ->
+    Print.print ~max_level ppf "forall@ %t"
+      (print_binders
+        (print_ty ~max_level:0)
+        (fun xs ppf -> Print.print ~max_level:0 ppf ",@ %t" (print_prod ~max_level:0 xs yus v))
+        xs xus)
+
+
+  (* let rec fold b xs = function
     | [] ->
-      let t = unabstract_ty ys 0 t in
         Print.print ppf "%s@ %t"
           (if b then "," else "")
           (print_ty xs t)
@@ -292,14 +330,18 @@ and print_prod xs ts t ppf =
         fold false xs ys ts
       end
     in
-    fold true xs [] ts
-
+    fold true xs [] yus
+ *)
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
-and print_lambda xs a e t ppf =
-  Print.print ppf "fun %t =>%t@ %t"
-        (Print.sequence (print_binder xs) a)
-        (print_annot (print_ty ~max_level:4 xs t))
-        (print_term ~max_level:4 xs e)
+and print_lambda xs (yus, (e, t)) ppf =
+  Print.print ppf "fun %t"
+    (print_binders
+      (print_ty ~max_level:0)
+      (fun xs ppf -> Print.print ppf "@ %t=> %t"
+        (print_annot (print_ty ~max_level:0 xs t))
+        (print_term ~max_level:4 xs e))
+      xs
+      yus)
 
 and print_term ?max_level xs (e,_) ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
@@ -311,11 +353,17 @@ and print_term ?max_level xs (e,_) ppf =
         print ~at_level:0 "%t" (Name.print x)
 
       | Bound k ->
-        (** XXX this should never get printed *)
-        print ~at_level:0 "DEBRUIJN[%d]" k
+        begin
+          try
+            print ~at_level:0 "%t" (Name.print (List.nth xs k))
+          with
+          | Not_found -> 
+              (** XXX this should never get printed *)
+              print ~at_level:0 "DEBRUIJN[%d]" k
+        end
 
-      | Lambda (a, (e, t)) ->
-        print ~at_level:3 "%t" (print_lambda xs a e t)
+      | Lambda a ->
+        print ~at_level:3 "%t" (print_lambda xs a)
 
       | Spine (e, (es, _)) ->
         (* XXX: no typing annotations yet *)
@@ -324,7 +372,7 @@ and print_term ?max_level xs (e,_) ppf =
           (Print.sequence (print_term ~max_level:0 xs) (List.map (fun (_,(e,_)) -> e) es))
 
       | Prod (ts, t) ->
-        print ~at_level:3 "%t" (print_prod xs ts t)
+        print ~at_level:3 "%t" (print_prod ~max_level:3 xs ts t)
 
       | Eq (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
