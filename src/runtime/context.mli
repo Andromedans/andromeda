@@ -7,8 +7,8 @@ val empty : t
 (** Known bound variables *)
 val bound_names : t -> Name.t list
 
-(** Known free variables *)
-val free_names : t -> Name.t list
+(** Variable names already used in the context *)
+val used_names : t -> Name.t list
 
 (** Lookup a free variable. *)
 val lookup_free : Name.t -> t -> Tt.ty option

@@ -3,11 +3,11 @@
 (** Auxiliary printing functions. *)
 
 let print_term ctx e =
-    let xs = Context.free_names ctx in
+    let xs = Context.used_names ctx in
       Tt.print_term xs e
 
 let print_ty ctx t =
-    let xs = Context.free_names ctx in
+    let xs = Context.used_names ctx in
       Tt.print_ty xs t
 
 (** Evaluation of expressions. *)
