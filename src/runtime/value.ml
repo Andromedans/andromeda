@@ -11,6 +11,6 @@ type result =
 let print ?max_level xs v ppf =
   let (e,t) = v in
     Print.print ~at_level:0 ppf "@[<hov 2>%t@\n    : %t@]"
-          (Tt.print_term ~max_level:0 xs e)
-          (Tt.print_ty ~max_level:0 xs t)
+          (Tt.print_term ~max_level:999 xs e)
+          (Tt.print_ty ~max_level:999 xs t)
 

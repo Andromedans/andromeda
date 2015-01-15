@@ -269,10 +269,15 @@ let rec print_binder xs (x, t) ppf =
 and print_binders print_u print_v xs xus ppf =
 match xus with
   | [] -> Print.print ppf "%t" (print_v xs)
+  | [(x,u)] ->
+    let x = Name.refresh xs x in
+    Print.print ppf "(@[<hv>%t@ : %t@])%t"
+      (Name.print x)
+      (print_u xs u)
+      (print_v (x::xs))  
   | (x,u) :: xus ->
     let x = Name.refresh xs x in
-    (* XXX remove trailing space when unnecessary *)
-    Print.print ppf "(%t :@ %t)@ %t"
+    Print.print ppf "(@[<hv>%t@ : %t@])@ %t"
       (Name.print x)
       (print_u xs u)
       (print_binders print_u print_v (x::xs) xus)
@@ -291,54 +296,23 @@ and print_prod ~max_level xs yus v ppf =
   match split_binders yus with
   | [], [] -> Print.print ~max_level ppf "%t" (print_ty xs v)
   | [], (y,u) :: yus ->
-      Print.print ~at_level:3 ppf "%t@ ->@ %t"
+      Print.print ~at_level:3 ppf "@[<hov>%t@ ->@ %t@]"
           (print_ty ~max_level:2 xs u)
           (print_prod ~max_level:3 (Name.anonymous::xs) yus v)
   | (_::_ as xus), yus ->
-    Print.print ~max_level ppf "forall@ %t"
+    Print.print ~max_level ppf "@[<hov>forall %t@]"
       (print_binders
-        (print_ty ~max_level:0)
+        (print_ty ~max_level:999)
         (fun xs ppf -> Print.print ~max_level:0 ppf ",@ %t" (print_prod ~max_level:0 xs yus v))
         xs xus)
 
-
-  (* let rec fold b xs = function
-    | [] ->
-        Print.print ppf "%s@ %t"
-          (if b then "," else "")
-          (print_ty xs t)
-    | (x,u) :: ts ->
-      if occurs_abstraction occurs_ty occurs_ty 0 (ts, t)
-      then begin
-        let u = unabstract_ty ys 0 u in
-        let y = Name.refresh xs x in
-          Print.print ppf "%s@ (%t : %t)"
-            (if b then "forall" else "")
-            (Name.print y)
-            (print_ty xs u) ;
-          fold false (y::xs) (y::ys) ts
-       end
-      else begin
-        let u = unabstract_ty ys 0 u in
-        let (ts, t) =
-          instantiate_abstraction
-            instantiate_ty instantiate_ty
-            (List.map (mk_name ~loc:Location.nowhere) ys) 0 (ts, t)
-        in
-        Print.print ~at_level:3 ppf "%t@ ->"
-          (print_ty ~max_level:2 xs u) ;
-        fold false xs ys ts
-      end
-    in
-    fold true xs [] yus
- *)
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
 and print_lambda xs (yus, (e, t)) ppf =
-  Print.print ppf "fun %t"
+  Print.print ppf "fun @[<hov>%t@]"
     (print_binders
-      (print_ty ~max_level:0)
-      (fun xs ppf -> Print.print ppf "@ %t=> %t"
-        (print_annot (print_ty ~max_level:0 xs t))
+      (print_ty ~max_level:999)
+      (fun xs ppf -> Print.print ppf "@ %t=>@ %t"
+        (print_annot (print_ty ~max_level:999 xs t))
         (print_term ~max_level:4 xs e))
       xs
       yus)
@@ -372,7 +346,7 @@ and print_term ?max_level xs (e,_) ppf =
           (Print.sequence (print_term ~max_level:0 xs) (List.map (fun (_,(e,_)) -> e) es))
 
       | Prod (ts, t) ->
-        print ~at_level:3 "%t" (print_prod ~max_level:3 xs ts t)
+        print ~at_level:3 "%t" (print_prod ~max_level:4 xs ts t)
 
       | Eq (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
