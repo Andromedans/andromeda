@@ -39,8 +39,7 @@ let print ?(max_level=9999) ?(at_level=0) ppf =
     end
   else
     begin
-      Format.fprintf ppf "@[" ;
-      Format.kfprintf (fun ppf -> Format.fprintf ppf "@]") ppf
+      Format.fprintf ppf
     end
 
 (** Print a sequence of things with the given (optional) separator. *)
