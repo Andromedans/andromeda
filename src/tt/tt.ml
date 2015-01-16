@@ -272,6 +272,23 @@ let print_annot ?(prefix="") k ppf =
 
 *)
 
+let rec print_binders print_u print_v xs xus ppf =
+match xus with
+  | [] -> Print.print ppf "%t" (print_v xs)
+  | [(x,u)] ->
+    let x = Name.refresh xs x in
+    Print.print ppf "(@[<hv>%t :@ %t@])%t"
+      (Name.print x)
+      (print_u xs u)
+      (print_v (x::xs))  
+  | (x,u) :: xus ->
+    let x = Name.refresh xs x in
+    Print.print ppf "(@[<hv>%t :@ %t@])@ %t"
+      (Name.print x)
+      (print_u xs u)
+      (print_binders print_u print_v (x::xs) xus)
+
+
 let rec print_term ?max_level xs (e,_) ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
@@ -291,17 +308,11 @@ let rec print_term ?max_level xs (e,_) ppf =
               print ~at_level:0 "DEBRUIJN[%d]" k
         end
 
-      | Lambda a ->
-        print ~at_level:3 "%t" (print_lambda xs a)
+      | Lambda a -> print ~at_level:3 "%t" (print_lambda xs a)
 
-      | Spine (e, (es, _)) ->
-        (* XXX: no typing annotations yet *)
-        print ~at_level:1 "@[<hov 2>%t@ %t@]"
-          (print_term ~max_level:0 xs e)
-          (Print.sequence (print_term ~max_level:0 xs) (List.map (fun (_,(e,_)) -> e) es))
+      | Spine (e, a) -> print ~at_level:1 "%t" (print_spine xs e a)
 
-      | Prod (ts, t) ->
-        print ~at_level:3 "%t" (print_prod xs ts t)
+      | Prod (ts, t) -> print ~at_level:3 "%t" (print_prod xs ts t)
 
       | Eq (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
@@ -318,7 +329,7 @@ and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
 and print_lambda xs (yus, (e, t)) ppf =
-  Print.print ppf "@[<hov 4>fun %t@]"
+  Print.print ppf "@[<hov 2>fun %t@]"
     (print_binders
       print_ty
       (fun xs ppf -> Print.print ppf " %t=>@ %t"
@@ -341,34 +352,26 @@ and print_prod xs yus v ppf =
   match split_binders yus with
   | [], [] -> Print.print ppf "%t" (print_ty xs v)
   | [], (y,u) :: yus ->
-      Print.print ppf "@[<hov>%t ->@ %t@]"
+      Print.print ppf "@[<hov 2>%t ->@ %t@]"
           (print_ty ~max_level:2 xs u)
           (print_prod (Name.anonymous::xs) yus v)
   | (_::_ as xus), yus ->
-    Print.print ppf "@[<hov>forall %t@]"
+    Print.print ppf "@[<hov 2>forall %t@]"
       (print_binders
         print_ty
         (fun xs ppf -> Print.print ppf ",@ %t" (print_prod xs yus v))
         xs xus)
 
+and print_spine xs e (yets, u) ppf =
+  Print.print ppf "@[<hov 2>%t@ %t@]"
+    (print_term ~max_level:0 xs e)
+    (print_binders
+      (fun xs (e, t) ppf -> Print.print ppf "%t%t" (print_term xs e) (print_annot (print_ty xs t)))
+      (fun xs -> print_annot (print_ty xs u))
+      xs
+      yets)
+
 and print_binder xs (x, t) ppf =
   Print.print ppf "(%t : %t)"
         (Name.print x)
         (print_ty xs t)
-
-and print_binders print_u print_v xs xus ppf =
-match xus with
-  | [] -> Print.print ppf "%t" (print_v xs)
-  | [(x,u)] ->
-    let x = Name.refresh xs x in
-    Print.print ppf "(@[<hv>%t :@ %t@])%t"
-      (Name.print x)
-      (print_u xs u)
-      (print_v (x::xs))  
-  | (x,u) :: xus ->
-    let x = Name.refresh xs x in
-    Print.print ppf "(@[<hv>%t :@ %t@])@ %t"
-      (Name.print x)
-      (print_u xs u)
-      (print_binders print_u print_v (x::xs) xus)
-
