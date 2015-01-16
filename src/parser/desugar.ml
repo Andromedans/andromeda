@@ -12,12 +12,20 @@ let add_bound x ctx = x :: ctx
 let mk_lambda ys ((c',loc) as c) =
   match ys with
   | [] -> c'
-  | _::_ -> Syntax.Lambda (ys, c)
+  | _::_ ->
+      begin match c' with
+      | Syntax.Lambda (ys', c) -> mk_lambda (ys @ ys') c
+      | _ -> Syntax.Lambda (ys, c)
+      end
                           
 let prodify ys ((t',loc) as t) =
   match ys with
   | [] -> t'
-  | _::_ -> Syntax.Prod (ys, t)
+  | _::_ ->
+      begin match t' with
+      | Syntax.Prod (ys', t) -> mk_prod (ys @ ys') t
+      | _ -> Syntax.Prod (ys, t)
+      end
 
 let letify ~loc w c' =
   match w with

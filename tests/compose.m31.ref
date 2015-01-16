@@ -1,6 +1,6 @@
 id is defined.
 
-fun (A : Type) => fun (x : A) => x
+fun (A : Type) (x : A) => x
       : forall (A : Type), A -> A
 compose is defined.
 

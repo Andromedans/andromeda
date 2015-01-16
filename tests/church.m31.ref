@@ -20,29 +20,29 @@ fun (A : Type) => fun (s : A -> A) => fun (z : A) => s (s (s z))
       : forall (X : Type), (X -> X) -> X -> X
 succ is defined.
 
-fun (n : forall (X : Type), (X -> X) -> X -> X) =>
-  fun (B : Type) => fun (s : B -> B) => fun (z : B) => s (n B B B)
+fun (n : forall (X : Type), (X -> X) -> X -> X) (B : Type) =>
+  fun (s : B -> B) => fun (z : B) => s (n B B B)
       : (forall (X : Type), (X -> X) -> X -> X) ->
           forall (X : Type), (X -> X) -> X -> X
 succ' is defined.
 
-fun (n : forall (X : Type), (X -> X) -> X -> X) =>
-  fun (A : Type) => fun (s : A -> A) => fun (z : A) => n A A (n A)
+fun (n : forall (X : Type), (X -> X) -> X -> X) (A : Type) =>
+  fun (s : A -> A) => fun (z : A) => n A A (n A)
       : (forall (X : Type), (X -> X) -> X -> X) ->
           forall (X : Type), (X -> X) -> X -> X
 add is defined.
 
 fun (m : forall (X : Type), (X -> X) -> X -> X)
-  (n : forall (X : Type), (X -> X) -> X -> X) =>
-  fun (A : Type) => fun (s : A -> A) => fun (z : A) => m A A (add m m m)
+  (n : forall (X : Type), (X -> X) -> X -> X) (A : Type) =>
+  fun (s : A -> A) => fun (z : A) => m A A (add m m m)
       : (forall (X : Type), (X -> X) -> X -> X) ->
           (forall (X : Type), (X -> X) -> X -> X) ->
             forall (X : Type), (X -> X) -> X -> X
 mult is defined.
 
 fun (m : forall (X : Type), (X -> X) -> X -> X)
-  (n : forall (X : Type), (X -> X) -> X -> X) =>
-  fun (A : Type) => fun (s : A -> A) => m A (m n n)
+  (n : forall (X : Type), (X -> X) -> X -> X) (A : Type) =>
+  fun (s : A -> A) => m A (m n n)
       : (forall (X : Type), (X -> X) -> X -> X) ->
           (forall (X : Type), (X -> X) -> X -> X) ->
             forall (X : Type), (X -> X) -> X -> X
@@ -52,23 +52,22 @@ Z is assumed.
 
 S is assumed.
 
-refl ((fun (n : forall (X : Type), (X -> X) -> X -> X) =>
-         fun (B : Type) => fun (s : B -> B) => fun (z : B) => s (n B B B))
+refl ((fun (n : forall (X : Type), (X -> X) -> X -> X) (B : Type) =>
+         fun (s : B -> B) => fun (z : B) => s (n B B B))
         (fun (A : Type) => fun (s : A -> A) => fun (z : A) => s (s (s z))) N 
         S Z)
       : (fun (m : forall (X : Type), (X -> X) -> X -> X)
-           (n : forall (X : Type), (X -> X) -> X -> X) =>
-           fun (A : Type) =>
-             fun (s : A -> A) => fun (z : A) => m A A (S m m m))
+           (n : forall (X : Type), (X -> X) -> X -> X) (A : Type) =>
+           fun (s : A -> A) => fun (z : A) => m A A (S m m m))
           (fun (A : Type) => fun (s : A -> A) => fun (z : A) => s z) 
           (fun (A : Type) => fun (s : A -> A) => fun (z : A) => s (s (s z))) 
           N S Z
           == (fun (m : forall (X : Type), (X -> X) -> X -> X)
-                (n : forall (X : Type), (X -> X) -> X -> X) =>
-                fun (A : Type) => fun (s : A -> A) => m A (m n n))
-               ((fun (n : forall (X : Type), (X -> X) -> X -> X) =>
-                   fun (A : Type) =>
-                     fun (s : A -> A) => fun (z : A) => n A A (n A))
+                (n : forall (X : Type), (X -> X) -> X -> X) (A : Type) =>
+                fun (s : A -> A) => m A (m n n))
+               ((fun (n : forall (X : Type), (X -> X) -> X -> X)
+                   (A : Type) =>
+                   fun (s : A -> A) => fun (z : A) => n A A (n A))
                   (fun (A : Type) => fun (s : A -> A) => fun (z : A) => s z)) 
                (fun (A : Type) => fun (s : A -> A) => fun (z : A) => s (s z)) 
                N S Z
