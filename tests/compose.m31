@@ -1,12 +1,20 @@
 Let id :=
   fun (A : Type) => fun x : A => x.
+Check id.
 
 Let compose :=
   fun (A B C : Type) (g : B -> C) (f : A -> B) (x : A) => g (f x).
+Check compose.
 
-Parameter X Y Z : Type.
+
+Parameter X Y Z W : Type.
+Parameter x : X.
 Parameter f : X -> Y.
 Parameter g : Y -> Z.
-Let h := compose X Y Z.
+Parameter h : Z -> W.
 
-#context
+Check refl (g (f x)) :: g (f x) == compose X Y Z g f x.
+
+Check refl (h (g (f x))) ::
+        compose X Z W h (compose X Y Z g f) x ==
+        compose X Y W (compose Y Z W h g) f x.

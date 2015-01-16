@@ -1,29 +1,43 @@
 id is defined.
 
+fun (A : Type) => fun (x : A) => x
+      : forall (A : Type), A -> A
 compose is defined.
 
-A is assumed.
+fun (A : Type) (B : Type) (C : Type) =>
+  fun (g : B -> C) => fun (f : A -> B) => fun (x : A) => g (f x)
+      : forall (A : Type) (B : Type) (C : Type),
+          (B -> C) -> (A -> B) -> A -> C
+X is assumed.
+Y is assumed.
+Z is assumed.
+W is assumed.
+
+x is assumed.
 
 f is assumed.
 
-f2 is defined.
+g is assumed.
 
----------
-Let id
-  := (fun (A0 : Type) => fun (x : A0) => x) : (forall (A0 : Type),  A0 -> A0)
-Let compose
-  := (fun (A0 : Type) =>
-      fun (B : Type) =>
-      fun (C : Type) =>
-      fun (f0 : A0 -> B) => fun (g : B -> C) => fun (x : A0) => g (f0 x)) : (
-     forall (A0 : Type), 
-     forall (B : Type),  forall (C : Type),  (A0 -> B) -> (B -> C) -> A0 -> C)
-Parameter A : Type
-Parameter f : A -> A
-Let f2
-  := ((fun (A0 : Type) =>
-       fun (B : Type) =>
-       fun (C : Type) =>
-       fun (f0 : A0 -> B) => fun (g : B -> C) => fun (x : A0) => g (f0 x)) 
-        A A A f f) : (A -> A)
----END---
+h is assumed.
+
+refl (g (f x))
+      : g (f x)
+          == (fun (A : Type) (B : Type) (C : Type) =>
+                fun (g0 : B -> C) =>
+                  fun (f0 : A -> B) => fun (x0 : A) => g0 (f0 x0)) X Y Z g f 
+               x
+refl (h (g (f x)))
+      : (fun (A : Type) (B : Type) (C : Type) =>
+           fun (g0 : B -> C) =>
+             fun (f0 : A -> B) => fun (x0 : A) => g0 (f0 x0)) X Z W h 
+          ((fun (A : Type) (B : Type) (C : Type) =>
+              fun (g0 : B -> C) =>
+                fun (f0 : A -> B) => fun (x0 : A) => g0 (f0 x0)) X Y Z g f) x
+          == (fun (A : Type) (B : Type) (C : Type) =>
+                fun (g0 : B -> C) =>
+                  fun (f0 : A -> B) => fun (x0 : A) => g0 (f0 x0)) X Y W 
+               ((fun (A : Type) (B : Type) (C : Type) =>
+                   fun (g0 : B -> C) =>
+                     fun (f0 : A -> B) => fun (x0 : A) => g0 (f0 x0)) Y Z W 
+                  h g) f x
