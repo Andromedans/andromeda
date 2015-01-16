@@ -97,7 +97,7 @@ let rec exec_cmd interactive ctx c =
 
   | Syntax.TopLet (x, c) ->
     begin
-      match Eval.infer ctx c with
+      match Eval.comp ctx c with
       | Value.Return v ->
         let ctx = Context.add_bound x v ctx in
         if interactive then Format.printf "%t is defined.@\n@." (Name.print x) ;
@@ -106,7 +106,7 @@ let rec exec_cmd interactive ctx c =
 
   | Syntax.TopCheck c ->
     begin
-      match Eval.infer ctx c with
+      match Eval.comp ctx c with
       | Value.Return v ->
         Format.printf "%t@." (Value.print (Context.used_names ctx) v) ;
         ctx

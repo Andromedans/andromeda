@@ -31,7 +31,7 @@ let rec expr ctx (e',loc) =
   end
 
 (** Evaluate a computation -- infer mode. *)
-let rec infer ctx (c',loc) =
+let rec comp ctx (c',loc) =
   match c' with
 
   | Syntax.Return e ->
@@ -42,10 +42,10 @@ let rec infer ctx (c',loc) =
      let ctx = List.fold_left
                  (fun ctx' (x,c) -> 
                   (* NB: must use [ctx] here, not [ctx'] *)
-                  match infer ctx c with
+                  match comp ctx c with
                   | Value.Return v -> Context.add_bound x v ctx')
                  ctx cs
-     in infer ctx c'
+     in comp ctx c'
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t
@@ -56,7 +56,7 @@ let rec infer ctx (c',loc) =
     let rec fold ctx ys xts = function
       | [] ->
         begin
-          match infer ctx c with
+          match comp ctx c with
           | Value.Return (e, t) ->
             let e = Tt.abstract ys 0 e
             and t = Tt.abstract_ty ys 0 t in
@@ -110,7 +110,7 @@ let rec infer ctx (c',loc) =
        in Value.Return (e', t')
 
 and check ctx c t =
-  match infer ctx c with
+  match comp ctx c with
   | Value.Return (e, t') ->
      if Equal.equal_ty ctx t' t
      then e

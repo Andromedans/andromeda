@@ -1,4 +1,4 @@
-(** Error reporting. *)
+(** Error reporting *)
 
 (** Exception [Error (err, msg)] indicates an error of type [err] with
     error message [msg]. *)
