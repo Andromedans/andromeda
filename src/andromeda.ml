@@ -52,6 +52,10 @@ let options = Arg.align [
       exit 0),
     " Print version information and exit");
 
+  ("-V",
+    Arg.Set_int Config.verbosity,
+    "<n> Set printing verbosity to <n>");
+
   ("-n",
     Arg.Clear Config.interactive_shell,
     " Do not run the interactive toplevel");
