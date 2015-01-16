@@ -1,12 +1,6 @@
-val verbosity : int ref
-
-val annotate : bool ref
-
-val displayable : string list ref
-
 val message : string -> int -> ('a, Format.formatter, unit, unit) format4 -> 'a
 val warning : ('a, Format.formatter, unit, unit) format4 -> 'a
-val debug : ?category:string -> ('a, Format.formatter, unit, unit) format4 -> 'a
+val debug : ('a, Format.formatter, unit, unit) format4 -> 'a
 
 val print :
   ?max_level:int -> ?at_level:int ->

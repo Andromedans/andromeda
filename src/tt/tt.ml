@@ -256,7 +256,7 @@ and occurs_term_ty k (e, t) =
 
 (** Optionally print a typing annotation in brackets. *)
 let print_annot ?(prefix="") k ppf =
-  if !Print.annotate then
+  if !Config.annotate then
     Format.fprintf ppf "%s[@[%t@]]" prefix k
   else
     Format.fprintf ppf ""

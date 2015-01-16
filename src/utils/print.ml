@@ -2,12 +2,8 @@
 
 (** Printing of messages. *)
 
-let verbosity = ref 4
-let annotate = ref false
-let displayable = ref ["all"]
-
 let message msg_type v =
-  if v <= !verbosity then
+  if v <= !Config.verbosity then
     begin
       Format.eprintf "%s: @[" msg_type ;
       Format.kfprintf (fun ppf -> Format.fprintf ppf "@]@.") Format.err_formatter
@@ -16,11 +12,7 @@ let message msg_type v =
     Format.ifprintf Format.err_formatter
 
 let warning msg = message "Warning" 2 msg
-let debug ?(category="all") msg =
-  if List.mem category (!displayable) then
-    message "Debug" 3 msg
-  else
-    message "Dummy" (!verbosity + 1) msg
+let debug msg = message "Debug" 3 msg
 
 (** Print a term, possibly placing parentheses around it. We always
     print things at a given [at_level]. If the level exceeds the

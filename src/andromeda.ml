@@ -1,20 +1,5 @@
 (** Andromeda main program *)
 
-(** Possible locations of prelude file *)
-type prelude =
-  | PreludeNone             (* do not use a prelude, turned on by the --no-prelude *)
-  | PreludeDefault          (* look in the default location, which is next to executable *)
-  | PreludeFile of string   (* look for prelude in a specific location *)
-
-(** Location of the prelude file *)
-let prelude_file = ref PreludeDefault
-
-(** Should the interactive shell be run? *)
-let interactive_shell = ref true
-
-(** The command-line wrappers that we look for. *)
-let wrapper = ref (Some ["rlwrap"; "ledit"])
-
 (** The usage message. *)
 let usage = "Usage: andromeda [option] ... [file] ..."
 
@@ -42,23 +27,23 @@ let add_file interactive filename = (files := (filename, interactive) :: !files)
 let options = Arg.align [
 
   ("--annotate",
-   Arg.Set Print.annotate,
+   Arg.Set Config.annotate,
    "print type annotations");
 
   ("--wrapper",
-    Arg.String (fun str -> wrapper := Some [str]),
+    Arg.String (fun str -> Config.wrapper := Some [str]),
     "<program> Specify a command-line wrapper to be used (such as rlwrap or ledit)");
 
   ("--no-wrapper",
-    Arg.Unit (fun () -> wrapper := None),
+    Arg.Unit (fun () -> Config.wrapper := None),
     " Do not use a command-line wrapper");
 
   ("--no-prelude",
-    Arg.Unit (fun () -> prelude_file := PreludeNone),
+    Arg.Unit (fun () -> Config.prelude_file := Config.PreludeNone),
     " Do not load the prelude.m31 file");
 
   ("--prelude",
-    Arg.String (fun str -> prelude_file := PreludeFile str),
+    Arg.String (fun str -> Config.prelude_file := Config.PreludeFile str),
     "<file> Specify the prelude file to load initially");
 
   ("-v",
@@ -68,7 +53,7 @@ let options = Arg.align [
     " Print version information and exit");
 
   ("-n",
-    Arg.Clear interactive_shell,
+    Arg.Clear Config.interactive_shell,
     " Do not run the interactive toplevel");
 
   ("-l",
@@ -158,11 +143,11 @@ let main =
   (* Parse the arguments. *)
   Arg.parse
     options
-    (fun str -> add_file true str ; interactive_shell := false)
+    (fun str -> add_file true str ; Config.interactive_shell := false)
     usage ;
   (* Attempt to wrap yourself with a line-editing wrapper. *)
-  if !interactive_shell then
-    begin match !wrapper with
+  if !Config.interactive_shell then
+    begin match !Config.wrapper with
       | None -> ()
       | Some lst ->
           let n = Array.length Sys.argv + 2 in
@@ -181,10 +166,10 @@ let main =
   files := List.rev !files ;
   (* Should we load the prelude file? *)
   begin
-    match !prelude_file with
-      | PreludeNone -> ()
-      | PreludeFile f -> files := (f, false) :: !files
-      | PreludeDefault ->
+    match !Config.prelude_file with
+      | Config.PreludeNone -> ()
+      | Config.PreludeFile f -> files := (f, false) :: !files
+      | Config.PreludeDefault ->
         (* look for prelude next to the executable, don't whine if it is not there *)
         let f = Filename.concat (Filename.dirname Sys.argv.(0)) "prelude.m31" in
           if Sys.file_exists f
@@ -197,7 +182,7 @@ let main =
   try
     (* Run and load all the specified files. *)
     let ctx = List.fold_left use_file Context.empty !files in
-    if !interactive_shell then
+    if !Config.interactive_shell then
       toplevel ctx
   with
     Error.Error err -> Error.print err; exit 1
