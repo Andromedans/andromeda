@@ -27,44 +27,44 @@ let add_file interactive filename = (files := (filename, interactive) :: !files)
 (** Command-line options *)
 let options = Arg.align [
 
-  ("--annotate",
-   Arg.Set Config.annotate,
-   " Print type annotations");
+    ("--annotate",
+     Arg.Set Config.annotate,
+     " Print type annotations");
 
-  ("--wrapper",
-    Arg.String (fun str -> Config.wrapper := Some [str]),
-    "<program> Specify a command-line wrapper to be used (such as rlwrap or ledit)");
+    ("--wrapper",
+     Arg.String (fun str -> Config.wrapper := Some [str]),
+     "<program> Specify a command-line wrapper to be used (such as rlwrap or ledit)");
 
-  ("--no-wrapper",
-    Arg.Unit (fun () -> Config.wrapper := None),
-    " Do not use a command-line wrapper");
+    ("--no-wrapper",
+     Arg.Unit (fun () -> Config.wrapper := None),
+     " Do not use a command-line wrapper");
 
-  ("--no-prelude",
-    Arg.Unit (fun () -> Config.prelude_file := Config.PreludeNone),
-    " Do not load the prelude.m31 file");
+    ("--no-prelude",
+     Arg.Unit (fun () -> Config.prelude_file := Config.PreludeNone),
+     " Do not load the prelude.m31 file");
 
-  ("--prelude",
-    Arg.String (fun str -> Config.prelude_file := Config.PreludeFile str),
-    "<file> Specify the prelude file to load initially");
+    ("--prelude",
+     Arg.String (fun str -> Config.prelude_file := Config.PreludeFile str),
+     "<file> Specify the prelude file to load initially");
 
-  ("-v",
-    Arg.Unit (fun () ->
-      Format.printf "Andromeda %s (%s)@." Version.version Sys.os_type ;
-      exit 0),
-    " Print version information and exit");
+    ("-v",
+     Arg.Unit (fun () ->
+         Format.printf "Andromeda %s (%s)@." Version.version Sys.os_type ;
+         exit 0),
+     " Print version information and exit");
 
-  ("-V",
-    Arg.Set_int Config.verbosity,
-    "<n> Set printing verbosity to <n>");
+    ("-V",
+     Arg.Set_int Config.verbosity,
+     "<n> Set printing verbosity to <n>");
 
-  ("-n",
-    Arg.Clear Config.interactive_shell,
-    " Do not run the interactive toplevel");
+    ("-n",
+     Arg.Clear Config.interactive_shell,
+     " Do not run the interactive toplevel");
 
-  ("-l",
-    Arg.String (fun str -> add_file false str),
-    "<file> Load <file> into the initial environment");
-]
+    ("-l",
+     Arg.String (fun str -> add_file false str),
+     "<file> Load <file> into the initial environment");
+  ]
 
 (** Parser wrapper that reads extra lines on demand. *)
 let parse parse lex =
@@ -72,60 +72,60 @@ let parse parse lex =
     parse Lexer.token lex
   with
   | Parser.Error ->
-      Error.syntax ~loc:(Location.of_lex lex) ""
+    Error.syntax ~loc:(Location.of_lex lex) ""
   | Failure "lexing: empty token" ->
-      Error.syntax ~loc:(Location.of_lex lex) "unrecognised symbol."
+    Error.syntax ~loc:(Location.of_lex lex) "unrecognised symbol."
 
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
 let rec exec_cmd interactive ctx c =
   let (c', loc) = Desugar.toplevel (Context.bound_names ctx) c in
-    match c' with
-    | Syntax.Parameter (xs,c) ->
-      let t = Eval.ty ctx c in
-      let ctx =
-        List.fold_left
-          (fun ctx x -> 
-            let ctx = Context.add_free x t ctx in
-              if interactive then Format.printf "%t is assumed.@\n" (Name.print x) ;
-              ctx)
-          ctx
-          xs
-      in
-        Format.printf "@." ;
+  match c' with
+  | Syntax.Parameter (xs,c) ->
+    let t = Eval.ty ctx c in
+    let ctx =
+      List.fold_left
+        (fun ctx x -> 
+           let ctx = Context.add_free x t ctx in
+           if interactive then Format.printf "%t is assumed.@\n" (Name.print x) ;
+           ctx)
         ctx
+        xs
+    in
+    Format.printf "@." ;
+    ctx
 
-    | Syntax.TopLet (x, c) ->
-       begin
-         match Eval.infer ctx c with
-         | Value.Return v ->
-            let ctx = Context.add_bound x v ctx in
-              if interactive then Format.printf "%t is defined.@\n@." (Name.print x) ;
-              ctx
-       end
-
-    | Syntax.TopCheck c ->
-       begin
-         match Eval.infer ctx c with
-         | Value.Return v ->
-            Format.printf "%t@." (Value.print (Context.used_names ctx) v) ;
-            ctx
-       end
-
-    | Syntax.Context ->
-        Format.printf "%t@." (Context.print ctx) ;
+  | Syntax.TopLet (x, c) ->
+    begin
+      match Eval.infer ctx c with
+      | Value.Return v ->
+        let ctx = Context.add_bound x v ctx in
+        if interactive then Format.printf "%t is defined.@\n@." (Name.print x) ;
         ctx
+    end
 
-    | Syntax.Help ->
-        Format.printf "%s@." help_text ; ctx
+  | Syntax.TopCheck c ->
+    begin
+      match Eval.infer ctx c with
+      | Value.Return v ->
+        Format.printf "%t@." (Value.print (Context.used_names ctx) v) ;
+        ctx
+    end
 
-    | Syntax.Quit ->
-        exit 0
+  | Syntax.Context ->
+    Format.printf "%t@." (Context.print ctx) ;
+    ctx
+
+  | Syntax.Help ->
+    Format.printf "%s@." help_text ; ctx
+
+  | Syntax.Quit ->
+    exit 0
 
 (** Load directives from the given file. *)
 and use_file ctx (filename, interactive) =
   let cmds = Lexer.read_file (parse Parser.file) filename in
-    List.fold_left (exec_cmd interactive) ctx cmds
+  List.fold_left (exec_cmd interactive) ctx cmds
 
 (** Interactive toplevel *)
 let toplevel ctx =
@@ -137,8 +137,8 @@ let toplevel ctx =
         let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
         ctx := exec_cmd true !ctx cmd
       with
-        | Error.Error err -> Error.print err
-        | Sys.Break -> Format.printf "Interrupted.@."
+      | Error.Error err -> Error.print err
+      | Sys.Break -> Format.printf "Interrupted.@."
     done
   with End_of_file -> ()
 
@@ -155,30 +155,30 @@ let main =
     begin match !Config.wrapper with
       | None -> ()
       | Some lst ->
-          let n = Array.length Sys.argv + 2 in
-          let args = Array.make n "" in
-            Array.blit Sys.argv 0 args 1 (n - 2) ;
-            args.(n - 1) <- "--no-wrapper" ;
-            List.iter
-              (fun wrapper ->
-                 try
-                   args.(0) <- wrapper ;
-                   Unix.execvp wrapper args
-                 with Unix.Unix_error _ -> ())
-              lst
+        let n = Array.length Sys.argv + 2 in
+        let args = Array.make n "" in
+        Array.blit Sys.argv 0 args 1 (n - 2) ;
+        args.(n - 1) <- "--no-wrapper" ;
+        List.iter
+          (fun wrapper ->
+             try
+               args.(0) <- wrapper ;
+               Unix.execvp wrapper args
+             with Unix.Unix_error _ -> ())
+          lst
     end ;
   (* Files were accumulated in the wrong order, so we reverse them *)
   files := List.rev !files ;
   (* Should we load the prelude file? *)
   begin
     match !Config.prelude_file with
-      | Config.PreludeNone -> ()
-      | Config.PreludeFile f -> files := (f, false) :: !files
-      | Config.PreludeDefault ->
-        (* look for prelude next to the executable, don't whine if it is not there *)
-        let f = Filename.concat (Filename.dirname Sys.argv.(0)) "prelude.m31" in
-          if Sys.file_exists f
-          then files := (f, false) :: !files
+    | Config.PreludeNone -> ()
+    | Config.PreludeFile f -> files := (f, false) :: !files
+    | Config.PreludeDefault ->
+      (* look for prelude next to the executable, don't whine if it is not there *)
+      let f = Filename.concat (Filename.dirname Sys.argv.(0)) "prelude.m31" in
+      if Sys.file_exists f
+      then files := (f, false) :: !files
   end ;
 
   (* Set the maximum depth of pretty-printing, after which it prints ellipsis. *)
