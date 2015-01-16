@@ -1,5 +1,5 @@
-(** Conversion from the input syntax to the abstract syntax. *)
+(** Conversion from sugared to desugared input syntax *)
 
-val computation : Input.comp -> Syntax.comp
-
+(** [toplevel xs c] desugars a toplevel command [c] with a list [xs] of names
+    of bound variables (needed for conversion to de Bruijn indices) *)
 val toplevel : Name.t list -> Input.toplevel -> Syntax.toplevel
