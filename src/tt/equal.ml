@@ -107,8 +107,8 @@ and whnf_spine ~loc ctx e xets t =
 and beta ~loc ctx xus e u yevs t =
   let rec split xuvs es xus yevs =
     match xus, yevs with
-    | [], _ | _, [] -> List.rev xuvs, List.rev es, xus, yevs
-    | (x,u)::xus, (_,(e,v))::yevs -> split ((x,u,v)::xuvs) (e::es) xus yevs
+    | [], _ | _, [] -> xuvs, es, xus, yevs
+    | (x,u)::xus, (_,(e,v))::yevs -> split (xuvs @ [(x,u,v)]) (e::es) xus yevs
   in
   let xuvs, es, xus, yevs = split [] [] xus yevs
   in
