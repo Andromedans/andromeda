@@ -363,13 +363,18 @@ and print_prod xs yus v ppf =
         xs xus)
 
 and print_spine xs e (yets, u) ppf =
-  Print.print ppf "@[<hov 2>%t@ %t@]"
-    (print_term ~max_level:0 xs e)
-    (print_binders
-      (fun xs (e, t) ppf -> Print.print ppf "%t%t" (print_term xs e) (print_annot (print_ty xs t)))
-      (fun xs -> print_annot (print_ty xs u))
-      xs
-      yets)
+  if !Config.annotate then
+    Print.print ppf "@[<hov 2>%t@ %t@]"
+      (print_term ~max_level:0 xs e)
+      (print_binders
+        (fun xs (e, t) ppf -> Print.print ppf "%t%t" (print_term xs e) (print_annot (print_ty xs t)))
+        (fun xs -> print_annot (print_ty xs u))
+        xs
+        yets)
+  else
+    Print.print ppf "@[<hov 2>%t@ %t@]"
+      (print_term ~max_level:0 xs e)
+      (Print.sequence (fun (_, (e, _)) -> print_term ~max_level:0 xs e) yets)
 
 and print_binder xs (x, t) ppf =
   Print.print ppf "(%t : %t)"

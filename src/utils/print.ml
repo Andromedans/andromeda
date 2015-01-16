@@ -35,10 +35,10 @@ let print ?(max_level=9999) ?(at_level=0) ppf =
     end
 
 (** Print a sequence of things with the given (optional) separator. *)
-let sequence ?(sep="") f lst ppf =
+let sequence ?(sep=" ") f lst ppf =
   let rec seq = function
     | [] -> print ppf ""
     | [x] -> print ppf "%t" (f x)
-    | x :: xs -> print ppf "%t%s@ " (f x) sep ; seq xs
+    | x :: xs -> print ppf "%t%s@," (f x) sep ; seq xs
   in
     seq lst
