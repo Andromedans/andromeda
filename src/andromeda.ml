@@ -9,10 +9,11 @@ let help_text = "Toplevel directives:
 #help ....... print this help
 #quit ....... exit
 
-Parameter <ident> ... <ident> : <sort> .     assume variable <ident> has sort <sort>
+Parameter <ident> ... <ident> : <type> .     assume variable <ident> has type <type>
 Let <ident> := <expr> .                      define <ident> to be <expr>
+Check <expr> .                               check the type of <expr>
 
-The syntax is vaguely Coq-like. The strict equalit is written with a double ==.
+The syntax is vaguely Coq-like. The strict equality is written with a double ==.
 " ;;
 
 (** A list of files to be loaded and run, together with information on whether they should
@@ -28,7 +29,7 @@ let options = Arg.align [
 
   ("--annotate",
    Arg.Set Config.annotate,
-   "print type annotations");
+   " Print type annotations");
 
   ("--wrapper",
     Arg.String (fun str -> Config.wrapper := Some [str]),
@@ -75,11 +76,11 @@ let parse parse lex =
   | Failure "lexing: empty token" ->
       Error.syntax ~loc:(Location.of_lex lex) "unrecognised symbol."
 
-(** [exec_cmd ctx d] executes toplevel directive [d] in context [ctx]. It prints the
+(** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
-let rec exec_cmd interactive ctx d =
-  let (d', loc) = Desugar.toplevel (Context.bound_names ctx) d in
-    match d' with
+let rec exec_cmd interactive ctx c =
+  let (c', loc) = Desugar.toplevel (Context.bound_names ctx) c in
+    match c' with
     | Syntax.Parameter (xs,c) ->
       let t = Eval.ty ctx c in
       let ctx =
@@ -116,10 +117,10 @@ let rec exec_cmd interactive ctx d =
         ctx
 
     | Syntax.Help ->
-      Format.printf "%s@." help_text ; ctx
+        Format.printf "%s@." help_text ; ctx
 
     | Syntax.Quit ->
-      exit 0
+        exit 0
 
 (** Load directives from the given file. *)
 and use_file ctx (filename, interactive) =
