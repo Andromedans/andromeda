@@ -1,4 +1,4 @@
-(** Main evaluation routines. *)
+(** Evaluation of computations *)
 
 (** Auxiliary printing functions. *)
 

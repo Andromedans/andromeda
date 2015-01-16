@@ -1,4 +1,4 @@
-(** Manipulation of context. *)
+(** Typing context and runtime environment *)
 
 (** A context holds free variables with their types and an
     environment of runtime bindings. *)

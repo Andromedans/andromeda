@@ -1,4 +1,4 @@
-(** Abstract syntax of types and terms. *)
+(** Abstract syntax of types and terms *)
 
 type term = term' * Location.t
 and term' = private

@@ -1,4 +1,6 @@
-(** The type of contexts *)
+(** Typing context and runtime environment *)
+
+(** A typing context with a runtime environment, we refer to it as just context *)
 type t
 
 (** The empty context *)
@@ -28,4 +30,5 @@ val add_fresh : Name.t -> Tt.ty -> t -> Name.t * t
 (** Add a bound variable with given name to the context. *)
 val add_bound : Name.t -> Value.value -> t -> t
 
+(** Print free variables in the context *)
 val print : t -> Format.formatter -> unit

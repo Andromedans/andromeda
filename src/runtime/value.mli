@@ -1,3 +1,5 @@
+(** Runtime values and results *)
+
 (** A value is the result of a computation. *)
 type value = Tt.term * Tt.ty
 

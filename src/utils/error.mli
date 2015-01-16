@@ -1,3 +1,5 @@
+(** Error reporting *)
+
 type t
 exception Error of t
 

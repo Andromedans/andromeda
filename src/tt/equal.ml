@@ -1,8 +1,8 @@
+(** Equality checking and weak-head-normal-forms *)
 
 (** Alpha equality *)
 (* Currently, the only difference between alpha and structural equality is that
    the names of variables in abstractions are ignored. *)
-
 let alpha_equal_abstraction alpha_equal_u alpha_equal_v (xus, v) (xus', v') =
   let rec eq xus xus' =
     match xus, xus' with

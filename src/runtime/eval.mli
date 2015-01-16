@@ -1,3 +1,5 @@
+(** Evaluation of computations *)
+
 (** [comp ctx c] evaluates computation [c] in context [ctx]. *)
 val comp : Context.t -> Syntax.comp -> Value.result
 

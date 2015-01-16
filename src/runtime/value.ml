@@ -1,3 +1,5 @@
+(** Runtime values and results *)
+
 type value =
 (** A value is obtained by successfully evaluating a computation. *)
   Tt.term * Tt.ty
