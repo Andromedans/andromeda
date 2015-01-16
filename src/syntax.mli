@@ -1,4 +1,4 @@
-(** Desugared input *)
+(** Desugared input syntax *)
 
 (** Bound variables - represented by de Bruijn indices *)
 type bound = int

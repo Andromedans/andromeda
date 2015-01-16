@@ -1,5 +1,11 @@
-(** The abstract syntax of input. *)
+(** Sugared input syntax
 
+    The abstract syntax of input as typed by the user. At this stage
+    there is no distinction between computations, expressions, and types.
+    However, we define type aliases for these for better readability.
+    There are no de Bruijn indices either. *)
+
+(** Sugared terms *)
 type term = term' * Location.t
 and term' =
   (* expressions *)
@@ -14,16 +20,21 @@ and term' =
   | Eq of expr * expr
   | Refl of expr
 
+(** Sugared types  *)
 and ty = term
+
+(** Sugared computations  *)
 and comp = term
+
+(** Sugared expressions  *)
 and expr = term
 
-(** Toplevel commands *)
+(** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
   | Parameter of Name.t list * ty (** introduce parameters into the context *)
   | TopLet of Name.t * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
-  | Quit
-  | Help
-  | Context
+  | Quit (** quit the toplevel *)
+  | Help (** print help *)
+  | Context (** print the current context *)
