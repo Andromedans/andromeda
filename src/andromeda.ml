@@ -31,6 +31,10 @@ let options = Arg.align [
      Arg.Set Config.annotate,
      " Print type annotations");
 
+    ("--debruijn",
+      Arg.Set Config.debruijn,
+     " Print de Bruijn indices of bound variables");
+
     ("--wrapper",
      Arg.String (fun str -> Config.wrapper := Some [str]),
      "<program> Specify a command-line wrapper to be used (such as rlwrap or ledit)");
@@ -107,8 +111,8 @@ let rec exec_cmd interactive ctx c =
   | Syntax.TopCheck c ->
     begin
       match Eval.comp ctx c with
-      | Value.Return v ->
-        Format.printf "%t@." (Value.print (Context.used_names ctx) v) ;
+      | Value.Return (e,t) ->
+        Format.printf "%t@." (Value.print (Context.used_names ctx) (e,t)) ;
         ctx
     end
 
