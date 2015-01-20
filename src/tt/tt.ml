@@ -375,13 +375,13 @@ and print_spine xs e (yets, u) ppf =
       if !Config.annotate
       then
         Print.print ppf "@ (%t@ @[<hv>%t :@ %t@])%t"
-          (print_term ys e)
+          (print_term ~max_level:0 ys e)
           (Name.print y)
           (print_ty ys t)
           (print_args (y::ys) yets)
       else
         Print.print ppf "@ %t%t"
-          (print_term ys e)
+          (print_term ~max_level:0 ys e)
           (print_args (y::ys) yets)
   in
     Print.print ppf "@[<hov 2>%t%t@]"
