@@ -183,7 +183,7 @@ and abstract_abstraction abst_u abst_v ys depth (xus,v) =
 let rec abstract xs depth ((e',loc) as e) =
   match e' with
   | Type -> e
-  | Bound k -> assert (k < depth) ; e
+  | Bound k -> e
   | Name x ->
     begin
       match Name.index_of x xs with
@@ -228,31 +228,31 @@ and abstract_term_ty xs depth (e, t) =
 let occurs_abstraction occurs_u occurs_v k (xus, v) =
   let rec fold k = function
     | [] -> occurs_v k v
-    | (_,u) :: xus -> occurs_u k u || fold (k+1) xus
+    | (_,u) :: xus -> occurs_u k u + fold (k+1) xus
   in
     fold k xus
 
 (* Does bound variable [k] occur in an expression? *)
 let rec occurs k (e',_) =
   match e' with
-  | Type -> false
-  | Name _ -> false
-  | Bound m -> (k = m)
+  | Type -> 0
+  | Name _ -> 0
+  | Bound m -> if k = m then 1 else 0
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
   | Spine (e, a) ->
-    occurs k e ||
+    occurs k e +
     occurs_abstraction occurs_term_ty occurs_ty k a
   | Prod a ->
     occurs_abstraction occurs_ty occurs_ty k a
   | Eq (t, e1, e2) ->
-    occurs_ty k t || occurs k e1 || occurs k e2
+    occurs_ty k t + occurs k e1 + occurs k e2
   | Refl (t, e) ->
-    occurs_ty k t || occurs k e
+    occurs_ty k t + occurs k e
 
 and occurs_ty k (Ty t) = occurs k t
 
 and occurs_term_ty k (e, t) =
-  occurs k e || occurs_ty k t
+  occurs k e + occurs_ty k t
 
 (** Optionally print a typing annotation in brackets. *)
 let print_annot ?(prefix="") k ppf =
@@ -301,7 +301,9 @@ let rec print_term ?max_level xs (e,_) ppf =
       | Bound k ->
         begin
           try
-            print ~at_level:0 "%t" (Name.print (List.nth xs k))
+            if !Config.debruijn
+            then print ~at_level:0 "%t[%d]" (Name.print (List.nth xs k)) k
+            else print ~at_level:0 "%t" (Name.print (List.nth xs k))
           with
           | Not_found -> 
               (** XXX this should never get printed *)
@@ -343,7 +345,7 @@ and print_prod xs yus v ppf =
   let rec split_binders = function
     | [] -> [], []
     | (y,u) :: yus ->
-      if occurs_abstraction occurs_ty occurs_ty 0 (yus, v) then
+      if occurs_abstraction occurs_ty occurs_ty 0 (yus, v) > 0 then
         let xus, yus = split_binders yus in
             (y,u) :: xus, yus
       else
@@ -363,20 +365,30 @@ and print_prod xs yus v ppf =
         xs xus)
 
 and print_spine xs e (yets, u) ppf =
-  if !Config.annotate then
-    Print.print ppf "@[<hov 2>%t@ %t@]"
+  let rec print_args ys yets ppf =
+    match yets with
+    | [] -> if !Config.annotate
+            then Print.print ppf "%t" (print_annot (print_ty ys u))
+            else Print.print ppf ""
+    | (y,(e,t)) :: yets ->
+      let y = Name.refresh ys y in
+      if !Config.annotate
+      then
+        Print.print ppf "@ (%t@ @[<hv>%t :@ %t@])%t"
+          (print_term ~max_level:0 ys e)
+          (Name.print y)
+          (print_ty ys t)
+          (print_args (y::ys) yets)
+      else
+        Print.print ppf "@ %t%t"
+          (print_term ~max_level:0 ys e)
+          (print_args (y::ys) yets)
+  in
+    Print.print ppf "@[<hov 2>%t%t@]"
       (print_term ~max_level:0 xs e)
-      (print_binders
-        (fun xs (e, t) ppf -> Print.print ppf "%t%t" (print_term xs e) (print_annot (print_ty xs t)))
-        (fun xs -> print_annot (print_ty xs u))
-        xs
-        yets)
-  else
-    Print.print ppf "@[<hov 2>%t@ %t@]"
-      (print_term ~max_level:0 xs e)
-      (Print.sequence (fun (_, (e, _)) -> print_term ~max_level:0 xs e) yets)
+      (print_args xs yets)
 
 and print_binder xs (x, t) ppf =
-  Print.print ppf "(%t : %t)"
+  Print.print ppf "(%t :@ %t)"
         (Name.print x)
         (print_ty xs t)

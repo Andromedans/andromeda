@@ -77,5 +77,16 @@ val abstract : Name.t list -> int -> term -> term
 
 val abstract_ty : Name.t list -> int -> ty -> ty
 
+val occurs: Syntax.bound -> term -> int
+
+val occurs_ty: Syntax.bound -> ty -> int
+
+val occurs_term_ty: Syntax.bound -> term * ty -> int
+
+val occurs_abstraction: 
+  (Syntax.bound -> 'u -> int) ->
+  (Syntax.bound -> 'v -> int) ->
+  Syntax.bound -> ('u, 'v) abstraction -> int
+
 val print_ty : ?max_level:int -> Name.t list -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> Name.t list -> term -> Format.formatter -> unit

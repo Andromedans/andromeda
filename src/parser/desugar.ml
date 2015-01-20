@@ -79,8 +79,8 @@ let rec comp ctx ((c',loc) as c) =
       [], fold ctx [] xs
 
     | Input.Spine (e, cs) ->
-      let ctx, w, e = expr ctx e
-      and cs = List.map (comp ctx) cs in
+      let ctx, w, e = expr ctx e in
+      let cs = List.map (comp ctx) cs in
       w, Syntax.Spine (e, cs)
 
     | Input.Prod (xs, c) ->

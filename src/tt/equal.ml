@@ -103,7 +103,7 @@ and whnf_spine ~loc ctx e xets t =
     Error.impossible ~loc "de Bruijn encountered in whnf"
 
 (** Beta reduction of [Lambda (xus, (e, u))] applies to arguments [yevs] at type [t].
-    Returns ??? and the unused arguments. *)
+    Returns the resulting expression. *)
 and beta ~loc ctx xus e u yevs t =
   let rec split xuvs es xus yevs =
     match xus, yevs with
@@ -355,3 +355,4 @@ let as_prod ctx t =
   match t' with
   | Tt.Prod ((_ :: _, _) as a) -> a
   | _ -> Error.typing ~loc "this type should be a product"
+
