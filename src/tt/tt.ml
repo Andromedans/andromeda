@@ -183,7 +183,7 @@ and abstract_abstraction abst_u abst_v ys depth (xus,v) =
 let rec abstract xs depth ((e',loc) as e) =
   match e' with
   | Type -> e
-  | Bound k -> assert (k < depth) ; e
+  | Bound k -> e
   | Name x ->
     begin
       match Name.index_of x xs with
