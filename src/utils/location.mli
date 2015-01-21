@@ -13,7 +13,7 @@ val make : Lexing.position -> Lexing.position -> t
 val of_lex : Lexing.lexbuf -> t
 
 (** Convert a location to a readable string. *)
-val to_string : ?full:bool -> t -> string
+val print : ?full:bool -> t -> Format.formatter -> unit
 
 (* Give the starting and ending position of a location *)
 val get_range : t -> Lexing.position * Lexing.position

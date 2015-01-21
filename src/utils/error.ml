@@ -14,7 +14,7 @@ let error ~loc err_type =
       raise (Error (loc, err_type, msg))
   in
     Format.pp_open_hovbox Format.str_formatter 2;
-    Format.fprintf Format.str_formatter "%s: " (Location.to_string loc);
+    Format.fprintf Format.str_formatter "%t: " (Location.print loc);
     Format.kfprintf k Format.str_formatter
 
 let syntax  ?loc:(loc=Location.nowhere) msg = error ~loc "Syntax error" msg
