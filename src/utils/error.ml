@@ -1,31 +1,25 @@
 (** Error reporting *)
 
-(** Exception [Error (err, msg)] indicates an error of type [err] with
-    error message [msg]. *)
-type t = Location.t * string * string
-exception Error of t
+type details = Location.t * string * string
 
-(** [error ~loc err_type msg] raises an error of type [err_type], and a message [msg]. The
-    [kfprintf] magic allows one to write [msg] using a format string. *)
-let error ~loc err_type =
+let print (loc, err_kind, msg) =
+  Print.message ~verbosity:1 "@[<hov 2>%s (%t): %s@]"
+    err_kind (Location.print loc) msg
+
+exception Error of details
+
+(** [error ~loc err_kind fmt] raises an [Error] of kind [err_kind] with a
+    message [fmt] at a location [loc]. The [kfprintf] magic allows us to
+    construct the [fmt] using a format string before raising the exception. *)
+let error ~loc err_kind =
   let k _ =
-    let _ = Format.pp_close_box Format.str_formatter () in
     let msg = Format.flush_str_formatter () in
-      raise (Error (loc, err_type, msg))
+    raise (Error (loc, err_kind, msg))
   in
-    Format.pp_open_hovbox Format.str_formatter 2;
-    Format.fprintf Format.str_formatter "%t: " (Location.print loc);
-    Format.kfprintf k Format.str_formatter
+  Format.kfprintf k Format.str_formatter
 
-let syntax  ?loc:(loc=Location.nowhere) msg = error ~loc "Syntax error" msg
-let typing  ?loc:(loc=Location.nowhere) msg = error ~loc "Typing error" msg
-let runtime ?loc:(loc=Location.nowhere) msg = error ~loc "Runtime error" msg
-let exc     ?loc:(loc=Location.nowhere) msg = error ~loc "Exception" msg
-let verify  ?loc:(loc=Location.nowhere) msg = error ~loc "Verification error" msg
-
-(* Varieties of fatal errors *)
-let fatal          ?loc:(loc=Location.nowhere) msg = error ~loc "Fatal error" msg
-let impossible     ?loc:(loc=Location.nowhere) msg = error ~loc "Impossible" msg
-let unimplemented  ?loc:(loc=Location.nowhere) msg = error ~loc "Unimplemented" msg
-
-let print (loc, err_type, msg) = Print.message ~verbosity:1 "%s: @[%s@]" err_type msg
+let syntax ?loc:(loc=Location.nowhere) fmt = error ~loc "Syntax error" fmt
+let typing ?loc:(loc=Location.nowhere) fmt = error ~loc "Typing error" fmt
+let runtime ?loc:(loc=Location.nowhere) fmt = error ~loc "Runtime error" fmt
+let fatal ?loc:(loc=Location.nowhere) fmt = error ~loc "Fatal error" fmt
+let impossible ?loc:(loc=Location.nowhere) fmt = error ~loc "Impossible" fmt

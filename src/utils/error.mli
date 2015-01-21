@@ -1,16 +1,36 @@
-(** Error reporting *)
+(** Error reporting
 
-type t
-exception Error of t
+    All internal errors are represented uniformly with a single exception that
+    carries additional details such as error kind (syntax, typing, ...), message
+    or location.
 
+    Errors are raised through helper functions that take an optional location
+    and a message in form of a format string. For example, a typing error can be
+    raised by [Error.typing ~loc "Type %t is not a product." (print_ty t)]. *)
+
+type details
+
+(** Print the error details to the standard error channel. *)
+val print : details -> unit
+
+exception Error of details
+
+(** Raise a syntax error - used during lexing, parsing, or desugaring. *)
 val syntax : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
+
+(** Raise a typing error - used for both static type-checking of Andromeda and
+    runtime type-checking of TT. *)
 val typing : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
+
+(** Raise a runtime error - used for errors that should be prevented by
+    type-checking, for example wrong data types or inexhaustive patterns. *)
 val runtime : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
-val exc : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
-val verify : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
 
+(** Raise a fatal error - used for errors over which we have no control, for
+    example when a file cannot be opened. *)
 val fatal : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
-val impossible : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
-val unimplemented : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
 
-val print : t -> unit
+(** Raise an impossible error - used in situations where we are *almost* sure
+    in theory that a certain situation cannot exist and we want to alert the
+    user to alert developers about its existence. *)
+val impossible : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
