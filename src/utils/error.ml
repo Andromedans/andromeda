@@ -2,7 +2,7 @@
 
 type details = Location.t * string * string
 
-let print (loc, err_kind, msg) =
+let print (loc, err_kind, msg) ppf =
   Print.message ~verbosity:1 "@[<hov 2>%s (%t): %s@]"
     err_kind (Location.print loc) msg
 

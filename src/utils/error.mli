@@ -10,8 +10,8 @@
 
 type details
 
-(** Print the error details to the standard error channel. *)
-val print : details -> unit
+(** Print the error details. *)
+val print : details -> Format.formatter -> unit
 
 exception Error of details
 
