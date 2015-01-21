@@ -10,8 +10,8 @@ let warning fmt = message ~verbosity:2 ("Warning: " ^^ fmt)
 
 let debug fmt = message ~verbosity:3 ("Debug: " ^^ fmt)
 
-let print ?(max_level=max_int) ?(at_level=0) ppf =
-  if max_level < at_level then
-    fun fmt -> Format.fprintf ppf ("(@[" ^^ fmt ^^ "@])")
-  else
+let print ?(at_level=min_int) ?(max_level=max_int) ppf =
+  if at_level <= max_level then
     Format.fprintf ppf
+  else
+    fun fmt -> Format.fprintf ppf ("(@[" ^^ fmt ^^ "@])")

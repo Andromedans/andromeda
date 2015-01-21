@@ -8,11 +8,13 @@
     and a message in form of a format string. For example, a typing error can be
     raised by [Error.typing ~loc "Type %t is not a product." (print_ty t)]. *)
 
+(** Type of error details. *)
 type details
 
-(** Print the error details. *)
+(** Print error details. *)
 val print : details -> Format.formatter -> unit
 
+(** Exception representing all possible Andromeda errors. *)
 exception Error of details
 
 (** Raise a syntax error - used during lexing, parsing, or desugaring. *)
@@ -30,7 +32,7 @@ val runtime : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
     example when a file cannot be opened. *)
 val fatal : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
 
-(** Raise an impossible error - used in situations where we are *almost* sure
+(** Raise an impossible error - used in situations where we are {e almost} sure
     in theory that a certain situation cannot exist and we want to alert the
-    user to alert developers about its existence. *)
+    user to alert us about its existence. *)
 val impossible : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a

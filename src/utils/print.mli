@@ -11,20 +11,12 @@ val debug : ('a, Format.formatter, unit) format -> 'a
 
 (** Print a construct to a given formatter, possibly parenthesizing it. *)
 val print :
-  ?max_level:int -> ?at_level:int ->
+  ?at_level:int -> ?max_level:int ->
   Format.formatter -> ('a, Format.formatter, unit) format -> 'a
 (** Each construct has a level [at_level] at which it is printed. The lower the
-    level, the tighter the construct. Next, each part of the construct has
-    a maximum allowed level [max_level] at which the part can be printed. If
-    [at_level] exceeds [max_level], we print the construct in parentheses.
-
-    The default value of [at_level] is [0] to easily print atomic constructs or
-    constructs with their own delimiters (variables, constants, lists, ...).
-    Conversely, the default value of [max_level] is [max_int] to easily print
-    parts that are already delimited by the construct, for example the guard in
-    a conditional, which is delimited on both sides by [if] and [then], or a
-    body of the quantifier, which is on one side delimited by [.] and on the
-    other side unlimited.
+    level, the tighter the construct. Next, each construct is printed in some
+    context, which determines the maximum allowed level [max_level] at which the
+    construct can still be printed without putting it in parentheses.
 
     As an example, let us look at untyped lambda calculus, naively defined as
     {[
@@ -38,7 +30,7 @@ val print :
     - Application is left associative, so we print [App (App (e1, e2), e3)]
       as ["e1 e2 e3"], but [App (e1, App (e2, e3))] as ["e1 (e2 e3)"].
       We achieve this by printing [App (e1, e2)] at level 1 and limiting the
-      level of [e1] to 1 and of [e2] to 0.
+      maximum level of [e1] to 1 and of [e2] to 0.
     - Lambda abstraction has the lowest precedence, so we print it at level 2.
       The abstraction binds everything that follows it, so the level of its body
       is unlimited.
@@ -61,4 +53,12 @@ val print :
     using a format string where subterms are printed by placing ["%t"] and
     calling [print_term] with the appropriate [max_level]. For more details on
     format strings, take a look at the [Format] module in the standard OCaml
-    library. *)
+    library.
+
+    Note that the default value of [at_level] is [min_int] to easily print
+    atomic constructs or constructs with their own delimiters (variables,
+    constants, lists, ...). Conversely, the default value of [max_level] is
+    [max_int] to easily print parts that are already delimited by the construct,
+    for example the guard in a conditional, which is delimited on both sides by
+    [if] and [then], or a body of the quantifier, which is on one side delimited
+    by [.] and on the other side unlimited. *)
