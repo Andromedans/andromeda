@@ -3,7 +3,7 @@
 type details = Location.t * string * string
 
 let print (loc, err_kind, msg) ppf =
-  Print.message ~verbosity:1 "@[<hov 2>%s (%t): %s@]"
+  Print.message ~verbosity:1 "%s (%t):\n%s"
     err_kind (Location.print loc) msg
 
 exception Error of details
@@ -16,7 +16,7 @@ let error ~loc err_kind =
     let msg = Format.flush_str_formatter () in
     raise (Error (loc, err_kind, msg))
   in
-  Format.kfprintf k Format.str_formatter
+  fun fmt -> Format.kfprintf k Format.str_formatter ("  @[" ^^ fmt ^^ "@]")
 
 let syntax ?loc:(loc=Location.unknown) fmt = error ~loc "Syntax error" fmt
 let typing ?loc:(loc=Location.unknown) fmt = error ~loc "Typing error" fmt
