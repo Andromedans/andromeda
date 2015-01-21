@@ -227,8 +227,8 @@ and equal_whnf ctx e1 e2 t =
               let y, ctx = Context.add_fresh x u ctx in
               zip (ys @ [y]) ctx (xus, xvs) (* XXX optimize list append *)
           | ([] as xus), xvs | xus, ([] as xvs) ->
-              let t1' = Tt.mk_prod_ty ~loc:Location.nowhere xus t1
-              and t2' = Tt.mk_prod_ty ~loc:Location.nowhere xvs t2 in
+              let t1' = Tt.mk_prod_ty ~loc:Location.unknown xus t1
+              and t2' = Tt.mk_prod_ty ~loc:Location.unknown xvs t2 in
               let t1' = Tt.unabstract_ty ys 0 t1'
               and t2' = Tt.unabstract_ty ys 0 t2'
               in

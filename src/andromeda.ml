@@ -71,14 +71,14 @@ let options = Arg.align [
   ]
 
 (** Parser wrapper that reads extra lines on demand. *)
-let parse parse lex =
+let parse parse lexbuf =
   try
-    parse Lexer.token lex
+    parse Lexer.token lexbuf
   with
   | Parser.Error ->
-    Error.syntax ~loc:(Location.of_lex lex) ""
+    Error.syntax ~loc:(Location.of_lexeme lexbuf) ""
   | Failure "lexing: empty token" ->
-    Error.syntax ~loc:(Location.of_lex lex) "unrecognised symbol."
+    Error.syntax ~loc:(Location.of_lexeme lexbuf) "unrecognised symbol."
 
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
