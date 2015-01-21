@@ -28,4 +28,4 @@ let fatal          ?loc:(loc=Location.nowhere) msg = error ~loc "Fatal error" ms
 let impossible     ?loc:(loc=Location.nowhere) msg = error ~loc "Impossible" msg
 let unimplemented  ?loc:(loc=Location.nowhere) msg = error ~loc "Unimplemented" msg
 
-let print (loc, err_type, msg) = Print.message (err_type) 1 "%s" msg
+let print (loc, err_type, msg) = Print.message ~verbosity:1 "%s: @[%s@]" err_type msg
