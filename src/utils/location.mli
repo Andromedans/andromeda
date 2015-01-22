@@ -18,7 +18,7 @@
         | Abs of string * term
     ]} *)
 
-(** Type of locations.  *)
+(** Type of locations. *)
 type t
 
 (** Print a location. *)
@@ -28,7 +28,7 @@ val print : t -> Format.formatter -> unit
 val unknown : t
 
 (** Make a location from two lexing positions. *)
-val known : Lexing.position -> Lexing.position -> t
+val make : Lexing.position -> Lexing.position -> t
 
 (** Get the location of the current lexeme in a lexing buffer. *)
 val of_lexeme : Lexing.lexbuf -> t

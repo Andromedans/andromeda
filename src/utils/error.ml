@@ -23,11 +23,12 @@ let typing ?loc:(loc=Location.unknown) fmt = error ~loc "Typing error" fmt
 let runtime ?loc:(loc=Location.unknown) fmt = error ~loc "Runtime error" fmt
 let fatal ?loc:(loc=Location.unknown) fmt = error ~loc "Fatal error" fmt
 let impossible ?loc:(loc=Location.unknown) fmt =
-  let fmt =
-    "####################################################################@\n" ^^
-    "# SOMETHING THAT SHOULD NEVER HAPPEN JUST HAPPENED. TO GET A BEER, #@\n" ^^
-    "# PLEASE REPORT THE FOLLOWING ERROR MESSAGE TO THE DEVELOPERS AND  #@\n" ^^
-    "# EXPLAIN WHAT YOU WERE DOING BEFORE THE ERROR OCCURRED.           #@\n" ^^
-    "####################################################################@\n" ^^
-    fmt in
-  error ~loc "Impossible error" fmt
+  let message_header =
+    format_of_string
+      "####################################################################@\n\
+       # SOMETHING THAT SHOULD NEVER HAPPEN JUST HAPPENED. TO GET A BEER, #@\n\
+       # PLEASE REPORT THE FOLLOWING ERROR MESSAGE TO THE DEVELOPERS AND  #@\n\
+       # EXPLAIN WHAT YOU WERE DOING BEFORE THE ERROR OCCURRED.           #@\n\
+       ####################################################################@\n"
+  in
+  error ~loc "Impossible error" (message_header ^^ fmt)

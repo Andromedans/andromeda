@@ -30,11 +30,11 @@ let dismantle lexpos =
   and col = lexpos.Lexing.pos_cnum - lexpos.Lexing.pos_bol + 1 in
   filename, line, col
 
-let known start_lexpos end_lexpos =
+let make start_lexpos end_lexpos =
   let start_filename, start_line, start_col = dismantle start_lexpos
   and end_filename, end_line, end_col = dismantle end_lexpos in
   assert (start_filename = end_filename);
   Known {filename = start_filename; start_line; start_col; end_line; end_col}
 
 let of_lexeme lex =
-  known (Lexing.lexeme_start_p lex) (Lexing.lexeme_end_p lex)
+  make (Lexing.lexeme_start_p lex) (Lexing.lexeme_end_p lex)

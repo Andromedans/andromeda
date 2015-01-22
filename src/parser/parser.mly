@@ -108,6 +108,6 @@ paren_bind(X):
 
 mark_location(X):
   x=X
-  { x, Location.known $startpos $endpos }
+  { x, Location.make $startpos $endpos }
 
 %%
