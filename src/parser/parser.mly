@@ -83,7 +83,7 @@ plain_simple_term:
   | LPAREN e=plain_term RPAREN                      { e }
 
 name:
-  | NAME { Name.of_string $1 }
+  | NAME { Name.make $1 }
   | UNDERSCORE { Name.anonymous }
 
 let_clauses:
