@@ -1,0 +1,38 @@
+Type => Type : 0 . Type
+
+x => x : (\alpha : Type, x : \alpha) . \alpha
+
+c1 => e1 : \Gamma1 . A1
+c2 => e2 : \Gamma2 . A2
+\Gamma2 ~> \Gamma2', x : B, \Delta
+-----------------------------------
+\Pi_{x : c1} c2 =>
+    \Pi_{x : e1} e2 :
+    \Gamma1 >< \Gamma2' + _ : A1 = Type + _ : \Pi_{x : B} (A2 = Type) + _ : e1 = B + _ : \Pi_{x : B} \Delta .
+    Type
+
+c1 => e1 : \Gamma1 . A1
+c2 => e2 : \Gamma2 . A2
+------------------------
+c1 = c2 =>
+    e1 =_\alpha e2 :
+    \Gamma1 >< \Gamma2' + \alpha : Type + _ : \alpha = A1 + _ : \alpha = A2 .
+    Type
+
+c => e : \Gamma . A
+--------------------
+refl c => refl_A e : \Gamma . e =_A e
+
+c => e : \Gamma . A
+\Gamma ~> \Gamma', x : B, \Delta
+---------------------------------
+fun x . c => \fun x : B . e : \Gamma' + _ : \Pi_{x : B} \Delta . \Pi_{x : B} A
+
+c1 => e1 : \Gamma1 . A1
+c2 => e2 : \Gamma2 . A2
+------------------------
+c1 @ c2 =>
+    e1 @^{x : \alpha . \beta x} e2 :
+    \Gamma1 >< \Gamma2' + \alpha : Type + \beta : \alpha -> Type + _ : A2 = \alpha = A2  + _ : A1 = \Pi_{x : \alpha} \beta x .
+    \beta e2
+
