@@ -1,38 +1,124 @@
-Type => Type : 0 . Type
+\documentclass{article}
 
-x => x : (\alpha : Type, x : \alpha) . \alpha
+\usepackage{amsmath,amssymb}
+\usepackage{mathpartir}
 
-c1 => e1 : \Gamma1 . A1
-c2 => e2 : \Gamma2 . A2
-\Gamma2 ~> \Gamma2', x : B, \Delta
------------------------------------
-\Pi_{x : c1} c2 =>
-    \Pi_{x : e1} e2 :
-    \Gamma1 >< \Gamma2' + _ : A1 = Type + _ : \Pi_{x : B} (A2 = Type) + _ : e1 = B + _ : \Pi_{x : B} \Delta .
-    Type
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\ctx}{\Gamma}
+\newcommand{\emptyctx}{\cdot}
+\newcommand{\evalto}{\Longrightarrow}
 
-c1 => e1 : \Gamma1 . A1
-c2 => e2 : \Gamma2 . A2
-------------------------
-c1 = c2 =>
-    e1 =_\alpha e2 :
-    \Gamma1 >< \Gamma2' + \alpha : Type + _ : \alpha = A1 + _ : \alpha = A2 .
-    Type
+\newcommand{\jdg}[3]{#1 : (#2) \; . \, #3}
+\newcommand{\isfresh}[1]{\mathsf{fresh}\;#1}
 
-c => e : \Gamma . A
---------------------
-refl c => refl_A e : \Gamma . e =_A e
+\newcommand{\prd}[1]{\Pi #1 \,.\,}
+\newcommand{\Eq}[3][]{#2 \equiv_{#1} #3}
+\newcommand{\refl}[2][]{\mathsf{refl}_{#1}\,#2}
+\newcommand{\fun}[1]{\lambda #1 \,.\,}
+\newcommand{\abs}[1]{#1 \,.\,}
+\newcommand{\app}[3][]{#2 \mathrel{@}^{#1} #3}
 
-c => e : \Gamma . A
-\Gamma ~> \Gamma', x : B, \Delta
----------------------------------
-fun x . c => \fun x : B . e : \Gamma' + _ : \Pi_{x : B} \Delta . \Pi_{x : B} A
+\newcommand{\join}{\bowtie}
+\newcommand{\splitctx}{\rightsquigarrow}
 
-c1 => e1 : \Gamma1 . A1
-c2 => e2 : \Gamma2 . A2
-------------------------
-c1 @ c2 =>
-    e1 @^{x : \alpha . \beta x} e2 :
-    \Gamma1 >< \Gamma2' + \alpha : Type + \beta : \alpha -> Type + _ : A2 = \alpha = A2  + _ : A1 = \Pi_{x : \alpha} \beta x .
-    \beta e2
+\begin{document}
 
+\begin{mathpar}
+  \infer[eval-Type]
+  { }
+  {\Type \evalto \jdg{\Type}{\emptyctx}{\Type}}
+
+  \infer[eval-Var]
+  { \isfresh{\alpha}}
+  { x \evalto \jdg{x}{\alpha : \Type, x : \alpha}{\alpha}}
+
+  \infer[eval-Prod]
+  {
+  c_1 \evalto \jdg{e_1}{\ctx_1}{A_1} \\
+  c_2 \evalto \jdg{e_2}{\ctx_2}{A_2} \\
+  \ctx_2 \splitctx (\ctx'_2, x : B, \Delta)
+  }
+  {
+  \prd{x : c_1} c_2
+  \evalto
+  \jdg
+    {\prd{x : e_1} e2}
+    {(\ctx_1 \join \ctx'_2) +
+     (A_1 = \Type) +
+     (\prd{x : B} A_2 = \Type) +
+     (e_1 = B) +
+     (\prd{x : B} \Delta)
+    }{
+     \Type
+    }
+  }
+
+  \infer[eval-Eq]
+  {
+    c_1 \evalto \jdg{e_1}{\ctx_1}{A_1} \\
+    c_2 \evalto \jdg{e_2}{\ctx_2}{A_2} \\
+    \isfresh{\alpha}
+  }{
+    \Eq{c_1}{c_2}
+    \evalto
+    \jdg
+    {
+      \Eq[\alpha]{e_1}{e_2}
+    }{
+      (\ctx_1 \join \ctx_2) +
+      (\alpha : \Type) +
+      (\alpha = A_1) +
+      (\alpha = A_2)
+    }{
+      \Type
+    }
+  }
+
+  \infer[eval-Refl]
+  {c \evalto \jdg{e}{\ctx}{A}}
+  {\refl{c}
+   \evalto
+   \jdg
+   {\refl[A]{e}}
+   {\ctx}
+   {\Eq[A]{e}{e}}
+  }
+
+  \infer[eval-Fun]
+  {c \evalto \jdg{e}{\ctx}{A} \\
+   \ctx \splitctx (\ctx', x : B, \Delta)
+  }{
+    \fun{x} c
+    \evalto
+    \jdg
+    {\fun{x:B}{e}}
+    {\ctx' + (\prd{x:B} \Delta)}
+    {\prd{x : B} A}
+  }
+
+  \infer[eval-App]
+  {
+   c_1 \evalto \jdg{e_1}{\ctx_1}{A_1} \\
+   c_2 \evalto \jdg{e_2}{\ctx_2}{A_2} \\
+   \isfresh{\alpha}
+  }
+  {
+   \app{c_1}{c_2}
+   \evalto
+   \jdg
+   {
+    \app[\abs{x : \alpha} {\app[?]{\beta}{x}}]{e_1}{e_2}
+   }{
+    (\ctx_1 \join \ctx2) +
+    (\alpha : \Type) +
+    (\beta : \alpha \to \Type) +
+    (\alpha = A_2) +
+    (\prd{x : \alpha} \app[?]{\beta}{x} = A_1)
+   }{
+    \app[?]{\beta}{e_2}
+   }
+  }
+
+
+\end{mathpar}
+\end{document}
