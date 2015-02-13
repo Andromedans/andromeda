@@ -115,10 +115,10 @@
    }{
     \begin{aligned}
     & \ctx_1 \join \ctx_2, \\
-    & \alpha \of[\epsilon_1,\epsilon_2] \Type,
-      \beta \of[\epsilon_1,\epsilon_2] \alpha \to \Type, \\
-    & \epsilon_2 \of \Eq[\Type]{\alpha}{A_2}, \\
-    & \epsilon_1 \of \prd{x : \alpha} (\Eq[\Type]{\app[\abs{\anon : \alpha} \Type]{\beta}{x}}{A_1})
+    & \alpha \of[\epsilon_1,\epsilon_2] \Type, \\
+    & \beta \of[\epsilon_1] \alpha \to \Type, \\
+    & \epsilon_1 \of \prd{x : \alpha} (\Eq[\Type]{\app[\abs{\anon : \alpha} \Type]{\beta}{x}}{A_1}), \\
+    & \epsilon_2 \of \Eq[\Type]{\alpha}{A_2}
     \end{aligned}
    }{
     (\app[\abs{\anon : \alpha} \Type]{\beta}{e_2})
