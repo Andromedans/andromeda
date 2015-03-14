@@ -21,11 +21,13 @@
 \newcommand{\abs}[1]{#1 .}
 \newcommand{\app}[3][]{#2 \mathrel{@}^{#1} #3}
 
+\newcommand{\subst}[3]{\{#2/#1\}#3}
+
 \newcommand{\anon}{\_}
 
 \newcommand{\join}{\bowtie}
 \newcommand{\splitctx}{\rightsquigarrow}
-\newcommand{\ent}[1]{\vdash_{#1}}
+\newcommand{\ent}[1][]{\vdash_{#1}}
 
 \newcommand{\bnfis}{\mathbin{{:}{:}{=}}}
 \newcommand{\bnfor}{\mathbin{\mid}}
@@ -38,53 +40,39 @@
 
 \begin{align*}
   \text{Expression}\ e, A, B \
-    \bnfis \ & x                           & & \text{variable}\\
-    \bnfor \ & \Type                       & & \text{type of types}\\
-    \bnfor \ & \prd{x : A_1} A_2           & & \text{product} \\
-    \bnfor \ & \Eq[A]{e_1}{e_2}            & & \text{strict equality} \\
-    \bnfor \ & \refl[A]{e}                 & & \text{reflexivity} \\
-    \bnfor \ & \fun{x : A \,.\, B} e               & & \text{$\lambda$-abstraction} \\
-    \bnfor \ & \app[\abs{x : A} B]{e_1}{e_2}  & & \text{application}
-  \intertext{}
+    \bnfis \ & x                              & & \text{variable}\\
+    \bnfor \ & \Type                          & & \text{type of types}\\
+    \bnfor \ & \prd{x : A} B                  & & \text{product\footnotemark} \\
+    \bnfor \ & \Eq[A]{e_1}{e_2}               & & \text{strict equality} \\
+    \bnfor \ & \refl[A]{e}                    & & \text{reflexivity} \\
+    \bnfor \ & \fun{x : A \,.\, B} e          & & \text{$\lambda$-abstraction\footnotemark} \\
+    \bnfor \ & \app[\abs{x : A} B]{e_1}{e_2}  & & \text{application\footnotemark}
+  \\
   \text{Context}\ \ctx\
-     \bnfis \ & \emptyctx                  & & \text{empty context} \\
-     \bnfor \ & \ctx, x : A                & & \text{context extension}
+     \bnfis \ & \emptyctx                     & & \text{empty context} \\
+     \bnfor \ & \ctx, x : A                   & & \text{context extension}
 \end{align*}
+%
+\footnotetext{$x$ is bound in $B$}%
+\footnotetext{$x$ is bound in $B$ and $e$}%
+\footnotetext{$x$ is bound in $B$}%
+%
+Note that both application and $\lambda$-abstraction are tagged with full typing information.
+
 
 \subsection{Judgements}
 
 \begin{align*}
   & \isctx{\ctx}                & & \text{$\ctx$ is a context}  \\
-  & \ctx \ent{X} e \of A         & & \text{in $\ctx$ $e$ has type $A$ using variables $X$}  \\
-  & \ctx \ent{X} e_1 = e_2 \of A & & \text{in $\ctx$ $e_1$ and $e_2$ of type $A$ are equal using variables $X$}
+  & \ctx \ent e \of A         & & \text{$e$ has type $A$}  \\
+  & \ctx \ent e_1 = e_2 \of A & & \text{$e_1$ and $e_2$ of type $A$ are equal}
 \end{align*}
 
-\subsection{Rules}
-
-\begin{mathpar}
-
-  \infer[form-pi]
-  {\ctx \ent{X} A : \Type
-  \\
-  \ctx, x \of[X      ] A \ent{Y} B : \Type
-  }
-  {\ctx \ent{X \cup Y} (\prd{x : A} B) \of \Type}
-
-  \infer[hypo]
-  {(x : A) \in \Gamma \\
-    x \in X \subseteq |\Gamma|}
-  {\Gamma \ent{X} x : A}
-
-  \infer[intro-pi]
-  {\ctx \ent{X} A \of \Type \\
-   \ctx, x : A \ent{Y} B : \Type \\
-   \ctx, x : A \ent{Z} e : B
-  }
-  {\ctx \ent{X \cup (Y \setminus \{x\}) \cup Z} (\fun{x : A \,.\, B} e) : \prd{x : A} B}
-
-\end{mathpar}
+\subsection{Inference rules}
 
 \subsubsection{Contexts}
+
+The set of variables bound by $\Gamma$ is denoted by $|\Gamma|$.
 
 \begin{mathpar}
   \infer[ctx-empty]
@@ -94,10 +82,92 @@
   \infer[ctx-extend]
   {\isctx{\ctx}
    \\
-   \ctx \ent{X} A : \Type
+   \ctx \ent A : \Type
    \\
    x \not\in |\ctx|}
   {\isctx{(\ctx, x \of[X] A)}}
+\end{mathpar}
+
+\subsubsection{Types}
+
+\begin{mathpar}
+  \infer[type-type]
+  { }
+  {\ctx \ent \Type : \Type}
+
+  \infer[type-pi]
+  {\ctx \ent A : \Type
+  \\
+  \ctx, x : A \ent B : \Type
+  }
+  {\ctx \ent (\prd{x : A} B) \of \Type}
+
+  \infer[type-eq]
+  {\ctx \ent A : \Type \\
+   \ctx \ent e_1 : A \\
+   \ctx \ent e_2 : A}
+  {\ctx \ent \Eq[A]{e_1}{e_2} : \Type}
+
+\end{mathpar}
+
+\subsubsection{Terms}
+
+\begin{mathpar}
+  \infer[term-var]
+  {(x : A) \in \Gamma}
+  {\Gamma \ent x : A}
+
+  \infer[term-refl]
+  {\ctx \ent A : \Type \\
+   \ctx \ent e : A}
+  {\ctx \ent (\refl[A]{e}) : \Eq[A]{e}{e}}
+
+  \infer[term-fun]
+  {\ctx \ent A \of \Type \\
+   \ctx, x : A \ent B : \Type \\
+   \ctx, x : A \ent e : B
+  }
+  {\ctx \ent (\fun{x : A \,.\, B} e) : \prd{x : A} B}
+
+  \infer[term-app]
+  {\ctx \ent A : \Type \\
+   \ctx, x : A \ent B : \Type \\
+   \ctx \ent e_1 : \prd{x : A} B \\
+   \ctx \ent e_2 : A}
+   {\ctx \ent \app[\abs{x : A} B]{e_1}{e_2} : \subst{x}{e_2}{B}}
+\end{mathpar}
+
+
+\subsubsection{Equality}
+
+\begin{mathpar}
+  \infer[eq-reflection]
+  {\ctx \ent e : \Eq[A]{e_1}{e_2}}
+  {\ctx \ent e_1 = e_2 : A}
+
+  \infer[eq-type]
+  {\ctx \ent e : A \\
+   \ctx \ent A = B : \Type}
+  {\ctx \ent e : B}
+
+  % \infer[eq-subst]
+  % {\ctx \ent \subst{x}{e_1}{e} : \subst{x}{e_1}{B} \\
+  %  \ctx \ent e_1 = e_2 : A}
+  % {\ctx \ent \subst{x}{e_2}{e} : \subst{x}{e_2}{B}}
+
+  \infer[eq-reflexivity]
+  {\ctx \ent e : A}
+  {\ctx \ent e = e : A}
+
+  \infer[eq-symmetry]
+  {\ctx \ent e_1 = e_2 : A}
+  {\ctx \ent e_2 = e_1 : A}
+
+  \infer[eq-transitivity]
+  {\ctx \ent e_1 = e_2 : A \\
+   \ctx \ent e_2 = e_3 : A}
+  {\ctx \ent e_1 = e_3 : A}
+
 \end{mathpar}
 
 
