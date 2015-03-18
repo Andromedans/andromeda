@@ -21,7 +21,7 @@
 \newcommand{\abs}[1]{#1 .}
 \newcommand{\app}[3][]{#2 \mathrel{@}^{#1} #3}
 
-\newcommand{\subst}[3]{\{#2/#1\}#3}
+\newcommand{\subst}[2]{\{#1\}#2}
 
 \newcommand{\anon}{\_}
 
@@ -85,7 +85,7 @@ The set of variables bound by $\Gamma$ is denoted by $|\Gamma|$.
    \ctx \ent A : \Type
    \\
    x \not\in |\ctx|}
-  {\isctx{(\ctx, x \of[X] A)}}
+  {\isctx{(\ctx, x \of A)}}
 \end{mathpar}
 
 \subsubsection{Types}
@@ -134,7 +134,7 @@ The set of variables bound by $\Gamma$ is denoted by $|\Gamma|$.
    \ctx, x : A \ent B : \Type \\
    \ctx \ent e_1 : \prd{x : A} B \\
    \ctx \ent e_2 : A}
-   {\ctx \ent \app[\abs{x : A} B]{e_1}{e_2} : \subst{x}{e_2}{B}}
+   {\ctx \ent \app[\abs{x : A} B]{e_1}{e_2} : \subst{e_2/x}{B}}
 \end{mathpar}
 
 
@@ -150,24 +150,38 @@ The set of variables bound by $\Gamma$ is denoted by $|\Gamma|$.
    \ctx \ent A = B : \Type}
   {\ctx \ent e : B}
 
-  % \infer[eq-subst]
-  % {\ctx \ent \subst{x}{e_1}{e} : \subst{x}{e_1}{B} \\
-  %  \ctx \ent e_1 = e_2 : A}
-  % {\ctx \ent \subst{x}{e_2}{e} : \subst{x}{e_2}{B}}
-
-  \infer[eq-reflexivity]
-  {\ctx \ent e : A}
-  {\ctx \ent e = e : A}
-
-  \infer[eq-symmetry]
-  {\ctx \ent e_1 = e_2 : A}
-  {\ctx \ent e_2 = e_1 : A}
-
-  \infer[eq-transitivity]
+  \infer[eq-eq]
   {\ctx \ent e_1 = e_2 : A \\
-   \ctx \ent e_2 = e_3 : A}
-  {\ctx \ent e_1 = e_3 : A}
+   \ctx \ent A = B : \Type}
+  {\ctx \ent e_1 = e_2 : B}
 
+  \infer[eq-subst]
+  {\ctx, x : A, y : A \ent B : \Type \\
+   \ctx, z : A \ent e : \subst{z/x,z/y}{B} \\
+   \ctx \ent e_1 = e_2 : A
+  }
+  {\ctx \ent \subst{e_1/z}{e} : \subst{e_1/x,e_2/y}{B}}
+\end{mathpar}
+
+\subsubsection{Congruence rules}
+
+\begin{mathpar}
+  \infer[cong-pi]
+  {\ctx \ent A = A' : \Type \\
+   \ctx, x : A \ent B = B' : \Type}
+  {\ctx \ent (\prd{x : A} B) = (\prd{x : A'} B') : \Type}
+
+  \infer[cong-refl]
+  {\ctx \ent A = A' : \Type \\
+   \ctx \ent e = e' : A }
+  {\ctx \ent \refl[A]{e} = \refl[A']{e'} : \Eq[A]{e}{e}}
+
+  \infer[cong-eq]
+  {\ctx \ent A = A' : \Type \\
+   \ctx \ent e_1 = e_1' : A \\
+   \ctx \ent e_2 = e_2' : A
+   }
+  {\ctx \ent (\Eq[A]{e_1}{e_2}) = (\Eq[A']{e'_1}{e'_2}) : \Type}
 \end{mathpar}
 
 
