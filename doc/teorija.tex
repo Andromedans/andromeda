@@ -17,7 +17,7 @@
 \newcommand{\prd}[1]{\Pi #1 \,.\,}
 \newcommand{\Eq}[3][]{#2 \equiv_{#1} #3}
 \newcommand{\refl}[2][]{\mathsf{refl}_{#1}\,#2}
-\newcommand{\fun}[1]{\lambda #1 \,.\,}
+\newcommand{\lam}[1]{\lambda #1 \,.\,}
 \newcommand{\abs}[1]{#1 .}
 \newcommand{\app}[3][]{#2 \mathrel{@}^{#1} #3}
 
@@ -32,6 +32,15 @@
 \newcommand{\bnfis}{\mathbin{{:}{:}{=}}}
 \newcommand{\bnfor}{\mathbin{\mid}}
 
+\newcommand{\val}[1]{\mathtt{val}\;#1}
+\newcommand{\typ}{\mathtt{Type}}
+\newcommand{\letin}[1]{\mathtt{let}\;#1\;\mathtt{in}\;}
+\newcommand{\fra}[1]{\mathtt{forall}\;#1\,\mathtt{,}\,}
+\newcommand{\equ}[2]{#1 \;\text{\texttt{==}}\; #2}
+\newcommand{\rfl}[1]{\mathtt{refl}\; #1}
+\newcommand{\lmb}[1]{\mathtt{lambda}\; #1 \,.\,}
+\newcommand{\apl}[2]{#1 \;\texttt{@}\; #2}
+
 \begin{document}
 
 \section{Type theory}
@@ -45,7 +54,7 @@
     \bnfor \ & \prd{x : A} B                  & & \text{product\footnotemark} \\
     \bnfor \ & \Eq[A]{e_1}{e_2}               & & \text{strict equality} \\
     \bnfor \ & \refl[A]{e}                    & & \text{reflexivity} \\
-    \bnfor \ & \fun{x : A \,.\, B} e          & & \text{$\lambda$-abstraction\footnotemark} \\
+    \bnfor \ & \lam{x : A \,.\, B} e          & & \text{$\lambda$-abstraction\footnotemark} \\
     \bnfor \ & \app[\abs{x : A} B]{e_1}{e_2}  & & \text{application\footnotemark}
   \\
   \text{Context}\ \ctx\
@@ -127,7 +136,7 @@ The set of variables bound by $\Gamma$ is denoted by $|\Gamma|$.
    \ctx, x : A \ent B : \Type \\
    \ctx, x : A \ent e : B
   }
-  {\ctx \ent (\fun{x : A \,.\, B} e) : \prd{x : A} B}
+  {\ctx \ent (\lam{x : A \,.\, B} e) : \prd{x : A} B}
 
   \infer[term-app]
   {\ctx \ent A : \Type \\
@@ -183,6 +192,25 @@ The set of variables bound by $\Gamma$ is denoted by $|\Gamma|$.
    }
   {\ctx \ent (\Eq[A]{e_1}{e_2}) = (\Eq[A']{e'_1}{e'_2}) : \Type}
 \end{mathpar}
+
+
+\section{The meta language}
+
+\begin{align*}
+  \text{Value}\ v\
+    \bnfis \ & x                              & & \text{variable}\\
+    \bnfor \ & (\ctx \ent e : A)              & & \text{judgement}
+  \\
+  \text{Computation}\ c\
+    \bnfis \ & \val{v}                        & & \text{value}\\
+    \bnfor \ & \letin{x = c_1} c_2            & & \text{binding}\\
+    \bnfor \ & \typ                          & & \text{type of types}\\
+    \bnfor \ & \fra{x} v                      & & \text{product} \\
+    \bnfor \ & \equ{v_1}{v_2}                 & & \text{strict equality} \\
+    \bnfor \ & \rfl{v}                        & & \text{reflexivity} \\
+    \bnfor \ & \lmb{x} v                      & & \text{$\lambda$-abstraction} \\
+    \bnfor \ & \apl{v_1}{v_2}                 & & \text{application}
+\end{align*}
 
 
 \section{Operational semantics of the kernel}
@@ -253,10 +281,10 @@ The set of variables bound by $\Gamma$ is denoted by $|\Gamma|$.
   {c \evalto \jdg{e}{\ctx}{A} \\
    \ctx \splitctx (\ctx', x \of[\emptyset] B)
   }{
-    (\fun{x} c)
+    (\lam{x} c)
     \evalto
     \jdg
-    {(\fun{x:B}{e})}
+    {(\lam{x:B}{e})}
     {\ctx'}
     {(\prd{x : B} A)}
   }
