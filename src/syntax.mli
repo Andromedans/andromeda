@@ -15,13 +15,13 @@ and ty = expr
 
 (** Desugared computations *)
 and comp = comp' * Location.t
-and comp' = 
+and comp' =
   | Return of expr
   | Let of (Name.t * comp) list * comp
   | Ascribe of comp * ty
   | Lambda of (Name.t * ty) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
-                                 to evaluate them lazily *)
+                                 to evaluate in checking mode, once we know their types. *)
   | Prod of (Name.t * ty) list * comp
   | Eq of expr * comp
   | Refl of expr
