@@ -2,14 +2,8 @@
 
 let is_small (e',_) =
 match e' with
-  | Tt.Type
-  | Tt.Name _ -> true
-  | Tt.Lambda _
-  | Tt.Spine _
-  | Tt.Prod _
-  | Tt.Refl _
-  | Tt.Eq _ -> false
-  | Tt.Bound _ -> Error.impossible "de Bruijn encountered in is_small"
+  | Tt.Type | Tt.Bound _ | Tt.Name _ -> true
+  | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _ -> false
 
 let rec simplify ctx ((e',loc) as e) =
     match e' with
@@ -93,11 +87,11 @@ and simplify_spine ~loc ctx h xets t =
     and u = Tt.abstract_ty ys 0 u in
       simplify_xetst ctx (y::ys) (xeus @ [(x,(e,u))]) xets
   in
- 
+
   (* First we simplify the head and the arguments. *)
   let (h',eloc) as h = simplify ctx h
   and xets, t = simplify_xetst ctx [] [] xets in
- 
+
   (* Then we check whether we have a beta redex: *)
   match h' with
 
@@ -108,7 +102,7 @@ and simplify_spine ~loc ctx h xets t =
         Equal.alpha_equal_ty t1 t2)
     ->
     begin
-      let rec reduce xus eu xets = 
+      let rec reduce xus eu xets =
         match xus, xets with
         | (x,u)::xus, (_,(e',t))::xets when
             is_small e' ||
