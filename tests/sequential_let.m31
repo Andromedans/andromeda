@@ -1,0 +1,10 @@
+(* Test nested lets. *)
+
+Let cow :=
+  let a := Type -> Type
+  in
+    let a := Type
+    in let b := a
+       in a -> b.
+
+Check cow.
