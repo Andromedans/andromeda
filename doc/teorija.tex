@@ -15,7 +15,7 @@
 \newcommand{\of}[1][]{:_{#1}}
 
 \newcommand{\prd}[1]{\Pi #1 \,.\,}
-\newcommand{\Eq}[3][]{#2 \equiv_{#1} #3}
+\newcommand{\Eq}[3][]{\mathsf{Eq}_{#1}(#2, #3)}
 \newcommand{\refl}[2][]{\mathsf{refl}_{#1}\,#2}
 \newcommand{\lam}[1]{\lambda #1 \,.\,}
 \newcommand{\abs}[1]{#1 .}
@@ -304,9 +304,9 @@ The set of variables bound by $\Gamma$ is denoted by $|\Gamma|$.
    }{
     \begin{aligned}
     & \ctx_1 \join \ctx_2, \\
-    & \alpha \of[\epsilon_1,\epsilon_2] \Type, \\
+    & \alpha \of[\epsilon_1,\epsilon_2, \beta] \Type, \\
     & \beta \of[\epsilon_1] \alpha \to \Type, \\
-    & \epsilon_1 \of \prd{x : \alpha} (\Eq[\Type]{\app[\abs{\anon : \alpha} \Type]{\beta}{x}}{A_1}), \\
+    & \epsilon_1 \of \Eq[\Type]{A_1}{\prd{x : \alpha} \app[\abs{\anon : \alpha} \Type]{\beta}{x}}, \\
     & \epsilon_2 \of \Eq[\Type]{\alpha}{A_2}
     \end{aligned}
    }{
