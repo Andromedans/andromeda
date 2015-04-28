@@ -39,6 +39,19 @@ description of the Andromedan type theory can be found in `doc/andromeda.tex`. W
 still changing Andromeda in every respect so it probably does not make sense to write
 documentation at this point.
 
+### The structure of source code
+
+The source code can be found in `src`, in the following folders:
+
+* `parser` - input syntax, lexer, parser, and the desugaring phase which computes de Bruijn indices
+   and separates expressions and computations
+* `runtime` - context manipulation, runtime values and the main evaluation loop
+* `tt` - abstract syntax, weak-head normal forms, equality checks
+* `utils` - error messages, file locations, pretty printing, manipulation of variable names
+* `andromeda.ml` - main program
+* `config.ml` - configuration
+* `syntax.mli` - desugared input syntax
+
 ### History of the name Andromeda
 
 Andromeda used to be called Brazil, as a consequence of discussions at the Institute for
