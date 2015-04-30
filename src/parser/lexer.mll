@@ -10,7 +10,7 @@
     ("let", LET) ;
     ("Parameter", PARAMETER) ;
     ("forall", FORALL) ;
-    ("fun", FUN) ;
+    ("lambda", LAMBDA) ;
     ("in", IN) ;
     ("refl", REFL) ;
     ("Type", TYPE) ;

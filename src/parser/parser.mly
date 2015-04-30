@@ -2,7 +2,7 @@
   open Input
 %}
 
-%token FORALL FUN
+%token FORALL LAMBDA
 %token TYPE
 %token UNDERSCORE
 %token <string> NAME
@@ -42,7 +42,7 @@ plain_topcomp:
   | TOPLET x=name COLONEQ c=term DOT                     { TopLet (x, c) }
   | TOPCHECK c=term DOT                                  { TopCheck c }
   | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
-    
+
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective) { $1 }
 plain_topdirective:
@@ -62,7 +62,7 @@ ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                              { e }
   | FORALL a=abstraction(ty_term) COMMA e=term      { Prod (a, e) }
-  | FUN a=abstraction(ty_term) DARROW e=term        { Lambda (a, e) }
+  | LAMBDA a=abstraction(ty_term) DARROW e=term     { Lambda (a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
