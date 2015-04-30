@@ -47,7 +47,7 @@ and term' =
 and ty = Ty of term
 (** The type of TT types.
     Since we have [Type : Type] we do not distinguish terms from types,
-    so the type [ty] of types is just a synonym for the type [term] of terms. 
+    so the type [ty] of types is just a synonym for the type [term] of terms.
     However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
 
 and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
@@ -117,7 +117,7 @@ let rec instantiate es depth ((e',loc) as e) =
        then e
         (* this is a variable bound in an abstraction inside the
            instantiated term, so we leave it as it is *)
-       else 
+       else
          if k < depth + n
          then List.nth es (k - depth)
           (* this is a variable that corresponds to a substituted term,
@@ -151,7 +151,7 @@ let rec instantiate es depth ((e',loc) as e) =
        and e = instantiate es depth e
        in Refl (t, e), loc
 
-and instantiate_ty es depth (Ty t) = 
+and instantiate_ty es depth (Ty t) =
   let t = instantiate es depth t
   in Ty t
 
@@ -162,11 +162,11 @@ and instantiate_term_ty es depth (e, t) =
 
 let unabstract xs depth e =
   let es = List.map (mk_name ~loc:Location.nowhere) xs
-  in instantiate es depth e  
+  in instantiate es depth e
 
 let unabstract_ty xs depth (Ty t) =
   let t = unabstract xs depth t
-  in Ty t 
+  in Ty t
 
 
 and abstract_abstraction abst_u abst_v ys depth (xus,v) =
@@ -210,7 +210,7 @@ let rec abstract xs depth ((e',loc) as e) =
     let t = abstract_ty xs depth t
     and e1 = abstract xs depth e1
     and e2 = abstract xs depth e2
-    in Eq (t, e1, e2), loc 
+    in Eq (t, e1, e2), loc
   | Refl (t, e) ->
     let t = abstract_ty xs depth t
     and e = abstract xs depth e
@@ -267,7 +267,7 @@ let print_annot ?(prefix="") k ppf =
   Level 1: spine (0,0), refl (0)
   Level 2: eq (1,1)
   Level 3: lambda, prod, arrow
-  
+
   let, ascribe
 
 *)
@@ -280,7 +280,7 @@ match xus with
     Print.print ppf "(@[<hv>%t :@ %t@])%t"
       (Name.print x)
       (print_u xs u)
-      (print_v (x::xs))  
+      (print_v (x::xs))
   | (x,u) :: xus ->
     let x = Name.refresh xs x in
     Print.print ppf "(@[<hv>%t :@ %t@])@ %t"
@@ -305,7 +305,7 @@ let rec print_term ?max_level xs (e,_) ppf =
             then print ~at_level:0 "%t[%d]" (Name.print (List.nth xs k)) k
             else print ~at_level:0 "%t" (Name.print (List.nth xs k))
           with
-          | Not_found -> 
+          | Not_found ->
               (** XXX this should never get printed *)
               print ~at_level:0 "DEBRUIJN[%d]" k
         end
@@ -331,7 +331,7 @@ and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
 and print_lambda xs (yus, (e, t)) ppf =
-  Print.print ppf "@[<hov 2>fun %t@]"
+  Print.print ppf "@[<hov 2>lambda %t@]"
     (print_binders
       print_ty
       (fun xs ppf -> Print.print ppf " %t=>@ %t"
