@@ -12,10 +12,12 @@ and term' =
   | Var of Name.t
   | Type
   (* computations *)
+  | Fun of Name.t list * comp (* meta-level functions *)
   | Let of (Name.t * comp) list * comp
   | Ascribe of comp * ty
   | Lambda of (Name.t * ty) list * comp
   | Spine of expr * expr list
+  | Do of expr * expr list (* meta-level application *)
   | Prod of (Name.t * ty) list * comp
   | Eq of expr * expr
   | Refl of expr

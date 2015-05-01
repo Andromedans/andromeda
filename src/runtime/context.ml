@@ -1,7 +1,9 @@
 (** Typing context and runtime environment *)
 
 (** A context holds free variables with their types and an
-    environment of runtime bindings. *)
+    environment of runtime bindings. Free variables are
+    accessed by their names and bound variables by de Bruijn
+    indices. *)
 type t = {
   free : (Name.t * Tt.ty) list;
   bound : (Name.t * Value.value) list

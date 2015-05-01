@@ -13,6 +13,8 @@ let rec mk_lambda ys ((c', loc) as c) =
       | _ -> Syntax.Lambda (ys, c)
     end
 
+let mk_fun xs c = Syntax.Fun (xs, c)
+
 let rec mk_prod ys ((t', loc) as t) =
   match ys with
   | [] -> t'
@@ -59,7 +61,7 @@ let rec comp ctx ((c',loc) as c) =
 
     | Input.Lambda (xs, c) ->
       let rec fold ctx ys = function
-        | [] -> 
+        | [] ->
           let c = comp ctx c in
           mk_lambda ys c
         | (x,t) :: xs ->
@@ -78,14 +80,36 @@ let rec comp ctx ((c',loc) as c) =
       in
       [], fold ctx [] xs
 
+    | Input.Fun (xs, c) ->
+      let rec fold ctx = function
+        | [] ->
+          let c = comp ctx c in
+          mk_fun xs c
+        | x :: xs ->
+          let ctx = add_bound x ctx
+          in fold ctx xs
+      in
+        [], fold ctx xs
+
     | Input.Spine (e, cs) ->
       let ctx, w, e = expr ctx e in
       let cs = List.map (comp ctx) cs in
       w, Syntax.Spine (e, cs)
 
+    | Input.Do (e, es) ->
+      let ctx, w, e = expr ctx e in
+      let rec fold ctx w es = function
+        | [] ->
+          w, Syntax.Do (e, es)
+        | e' :: es' ->
+          let ctx, w', e' = expr ctx e' in
+            fold ctx (w @ w') (es @ [e']) es'
+      in
+        fold ctx [] [] es
+
     | Input.Prod (xs, c) ->
       let rec fold ctx ys = function
-        | [] -> 
+        | [] ->
           let c = comp ctx c in
           mk_prod ys c
         | (x,t) :: xs ->
@@ -115,7 +139,7 @@ let rec comp ctx ((c',loc) as c) =
 
     | (Input.Var _ | Input.Type) ->
       let _, w, e = expr ctx c in
-      w, Syntax.Return e                 
+      w, Syntax.Return e
 
   in
   mk_let ~loc w c
@@ -132,8 +156,8 @@ and expr ctx ((e', loc) as e) =
   | Input.Type ->
     ctx, [], (Syntax.Type, loc)
 
-  | (Input.Let _ | Input.Ascribe _ | Input.Lambda _ | Input.Spine _ |
-     Input.Prod _ | Input.Eq _ | Input.Refl _) ->
+  | (Input.Let _ | Input.Ascribe _ | Input.Lambda _ | Input.Fun _ |
+     Input.Spine _ | Input.Do _ | Input.Prod _ | Input.Eq _ | Input.Refl _) ->
     let x = Name.fresh Name.anonymous
     and c = comp ctx e in
     let ctx = add_bound x ctx in
