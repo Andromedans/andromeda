@@ -1,0 +1,19 @@
+{
+  "cmd": ["make", "andromeda.byte"],
+  "file_regex": "[ ]*File \"(...*?)\", line ([0-9]*), characters ([0-9]*)",
+  "working_dir": "/Users/andrej/Documents/andromeda",
+  "selector": "source.ml",
+
+  "variants" : [
+
+    {
+      "name" : "clean",
+      "cmd" : ["make", "clean"]
+    },
+
+    {
+      "name" : "native",
+      "cmd" : ["make", "andromeda.native"]
+    },
+  ]
+}

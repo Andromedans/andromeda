@@ -1,5 +1,11 @@
-S parser
-S runtime
-S tt
-S utils
-B _build
+S src
+S src/parser
+S src/runtime
+S src/tt
+S src/utils
+B _build/src
+B _build/src/parser
+B _build/src/runtime
+B _build/src/tt
+B _build/src/utils
+
