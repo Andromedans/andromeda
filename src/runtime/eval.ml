@@ -49,6 +49,9 @@ let rec comp ctx (c',loc) =
 
   | Syntax.Beta (e, c) ->
     let (_, t) = expr ctx e in
+    (** Maybe we first need to normalize [t] all the way
+        to a universally quantified Eq type and pass that
+        to mk_beta. Same for eta below. *)
     let h = Hint.mk_beta t in
     let ctx = Context.add_beta h ctx in
       comp ctx c
