@@ -1,11 +1,11 @@
 id is defined.
 
-lambda (A : Type) (x : A) => x
+fun (A : Type) (x : A) => x
       : forall (A : Type), A -> A
 compose is defined.
 
-lambda (A : Type) (B : Type) (C : Type) =>
-  lambda (g : B -> C) => lambda (f : A -> B) => lambda (x : A) => g (f x)
+fun (A : Type) (B : Type) (C : Type) =>
+  fun (g : B -> C) => fun (f : A -> B) => fun (x : A) => g (f x)
       : forall (A : Type) (B : Type) (C : Type),
           (B -> C) -> (A -> B) -> A -> C
 X is assumed.
@@ -23,15 +23,14 @@ h is assumed.
 
 refl (g (f x))
       : g (f x)
-          == (lambda (g0 : Y -> Z) =>
-                lambda (f0 : X -> Y) => lambda (x0 : X) => g0 (f0 x0)) g f x
+          == (fun (g0 : Y -> Z) =>
+                fun (f0 : X -> Y) => fun (x0 : X) => g0 (f0 x0)) g f x
 refl (h (g (f x)))
-      : (lambda (g0 : Z -> W) =>
-           lambda (f0 : X -> Z) => lambda (x0 : X) => g0 (f0 x0)) h
-          ((lambda (g1 : Y -> Z) =>
-              lambda (f0 : X -> Y) => lambda (x0 : X) => g1 (f0 x0)) g f) x
-          == (lambda (g0 : Y -> W) =>
-                lambda (f0 : X -> Y) => lambda (x0 : X) => g0 (f0 x0))
-               ((lambda (g0 : Z -> W) =>
-                   lambda (f0 : Y -> Z) => lambda (x0 : Y) => g0 (f0 x0)) h g)
-               f x
+      : (fun (g0 : Z -> W) => fun (f0 : X -> Z) => fun (x0 : X) => g0 (f0 x0))
+          h
+          ((fun (g1 : Y -> Z) =>
+              fun (f0 : X -> Y) => fun (x0 : X) => g1 (f0 x0)) g f) x
+          == (fun (g0 : Y -> W) =>
+                fun (f0 : X -> Y) => fun (x0 : X) => g0 (f0 x0))
+               ((fun (g0 : Z -> W) =>
+                   fun (f0 : Y -> Z) => fun (x0 : Y) => g0 (f0 x0)) h g) f x

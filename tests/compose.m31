@@ -1,9 +1,9 @@
 Let id :=
-  lambda (A : Type) => lambda x : A => x.
+  fun (A : Type) => fun x : A => x.
 Check id.
 
 Let compose :=
-  lambda (A B C : Type) (g : B -> C) (f : A -> B) (x : A) => g (f x).
+  fun (A B C : Type) (g : B -> C) (f : A -> B) (x : A) => g (f x).
 Check compose.
 
 

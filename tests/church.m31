@@ -2,42 +2,42 @@ Let Nat := forall X : Type, (X -> X) -> X -> X.
 Check Nat.
 
 Let zero :=
-    (lambda (A : Type) (s : A -> A) (z : A) => z) :: Nat.
+    (fun (A : Type) (s : A -> A) (z : A) => z) :: Nat.
 Check zero.
 
 Let one :=
-    (lambda (A : Type) (s : A -> A) (z : A) => s z) :: Nat.
+    (fun (A : Type) (s : A -> A) (z : A) => s z) :: Nat.
 Check one.
 
 Let two :=
-    (lambda (A : Type) (s : A -> A) (z : A) => s (s z)) :: Nat.
+    (fun (A : Type) (s : A -> A) (z : A) => s (s z)) :: Nat.
 Check two.
 
 Let three :=
-    (lambda (A : Type) (s : A -> A) (z : A) => s (s (s z))) :: Nat.
+    (fun (A : Type) (s : A -> A) (z : A) => s (s (s z))) :: Nat.
 Check three.
 
 Let succ :=
-    (lambda (n : Nat) =>
-    lambda (B : Type) (s : B -> B) (z : B) =>
+    (fun (n : Nat) =>
+    fun (B : Type) (s : B -> B) (z : B) =>
     s (n B s z)) :: Nat -> Nat.
 Check succ.
 
 Let succ' :=
-    (lambda (n : Nat) =>
-    lambda (A : Type) (s : A -> A) (z : A) =>
+    (fun (n : Nat) =>
+    fun (A : Type) (s : A -> A) (z : A) =>
     n A s (s z)) :: Nat -> Nat.
 Check succ'.
 
 Let add :=
-    (lambda (m n : Nat) =>
-    lambda (A : Type) (s : A -> A) (z : A) =>
+    (fun (m n : Nat) =>
+    fun (A : Type) (s : A -> A) (z : A) =>
     m A s (n A s z)) :: Nat -> Nat -> Nat.
 Check add.
 
 Let mult :=
-    (lambda (m n : Nat) =>
-    lambda (A : Type) (s : A -> A) =>
+    (fun (m n : Nat) =>
+    fun (A : Type) (s : A -> A) =>
     m A (n A s)) :: Nat -> Nat -> Nat.
 Check mult.
 
