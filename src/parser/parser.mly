@@ -13,6 +13,7 @@
 %token REFL
 %token TOPLET TOPCHECK
 %token LET COLONEQ AND IN
+%token BETA ETA
 %token PARAMETER
 %token CONTEXT HELP QUIT
 %token EOF
@@ -42,7 +43,7 @@ plain_topcomp:
   | TOPLET x=name COLONEQ c=term DOT                     { TopLet (x, c) }
   | TOPCHECK c=term DOT                                  { TopCheck c }
   | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
-    
+
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective) { $1 }
 plain_topdirective:
@@ -56,6 +57,8 @@ term: mark_location(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                 { e }
   | LET a=let_clauses IN c=term                     { Let (a, c) }
+  | BETA e=term IN c=term                           { Beta (e, c) }
+  | ETA e=term IN c=term                            { Eta (e, c) }
   | e=app_term ASCRIBE t=ty_term                    { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }

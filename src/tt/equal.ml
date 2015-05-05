@@ -36,12 +36,12 @@ let rec alpha_equal (e1,_) (e2,_) =
       alpha_equal_abstraction alpha_equal_ty alpha_equal_ty abs abs'
 
     | Tt.Eq (t, e1, e2), Tt.Eq (t', e1', e2') ->
-      alpha_equal_ty t t' && 
+      alpha_equal_ty t t' &&
       alpha_equal e1 e1' &&
       alpha_equal e2 e2'
 
     | Tt.Refl (t, e), Tt.Refl (t', e') ->
-      alpha_equal_ty t t' && 
+      alpha_equal_ty t t' &&
       alpha_equal e e'
 
     | (Tt.Name _ | Tt.Bound _ | Tt.Lambda _ | Tt.Spine _ |
@@ -81,6 +81,7 @@ and whnf ctx ((e',loc) as e) =
 
 (** The whnf of a spine [Spine (e, (xets, t))] in context [ctx]. *)
 and whnf_spine ~loc ctx e xets t =
+  (*** XXX here we would attempt to use beta rules. *)
   let (e',eloc) as e = whnf ctx e in
   match e' with
 
@@ -129,7 +130,7 @@ and beta ~loc ctx xus e u yevs t =
             Tt.instantiate_ty Tt.instantiate_term_ty
             es 0 (xus, (e, u))
         and yevs, t =
-          Tt.instantiate_abstraction 
+          Tt.instantiate_abstraction
             Tt.instantiate_term_ty Tt.instantiate_ty
             es 0 (yevs, t)
         in
@@ -151,7 +152,7 @@ and equal_abstracted_ty ctx xuus v v' =
      [ys] with which we unabstract the bound variables. *)
   let rec eq ys ctx =
     function
-     | [] -> 
+     | [] ->
         let v = Tt.unabstract_ty ys 0 v
         and v' = Tt.unabstract_ty ys 0 v'
         in equal_ty ctx v v'
@@ -165,7 +166,7 @@ and equal_abstracted_ty ctx xuus v v' =
              eq (ys @ [y]) ctx xuus) (* XXX optimize list append *)
    in
      eq [] ctx xuus
- 
+
 (** Compare two types *)
 and equal_ty ctx (Tt.Ty t1) (Tt.Ty t2) = equal ctx t1 t2 Tt.typ
 
@@ -176,9 +177,12 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
       let Tt.Ty ((t',_) as t) = whnf_ty ctx t in
       match t' with
 
-        | Tt.Type
+        | Tt.Type ->
+          equal_whnf ctx e1 e2 t
+
         | Tt.Name _
         | Tt.Spine _ ->
+          (** XXX first attempt to use eta hints *)
           equal_whnf ctx e1 e2 t
 
         | Tt.Prod (xus, u) ->
@@ -204,7 +208,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Tt.Refl _ -> Error.impossible ~loc:loc1 "refl is not a type"
     end
-    
+
 and equal_whnf ctx e1 e2 t =
   let (e1',loc1) as e1 = whnf ctx e1
   and (e2',loc2) as e2 = whnf ctx e2

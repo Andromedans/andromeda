@@ -18,7 +18,7 @@ let rec expr ctx (e',loc) =
        begin
          match Context.lookup_free x ctx with
          | None -> Error.runtime ~loc "unknown free variable %t" (Name.print x)
-         | Some t -> 
+         | Some t ->
             let x = Tt.mk_name ~loc x in
               (x, t)
        end
@@ -40,12 +40,27 @@ let rec comp ctx (c',loc) =
 
   | Syntax.Let (cs, c') ->
      let ctx = List.fold_left
-                 (fun ctx' (x,c) -> 
+                 (fun ctx' (x,c) ->
                   (* NB: must use [ctx] here, not [ctx'] *)
                   match comp ctx c with
                   | Value.Return v -> Context.add_bound x v ctx')
                  ctx cs
      in comp ctx c'
+
+  | Syntax.Beta (e, c) ->
+    let (_, t) = expr ctx e in
+    (** Maybe we first need to normalize [t] all the way
+        to a universally quantified Eq type and pass that
+        to mk_beta. Same for eta below. *)
+    let h = Hint.mk_beta t in
+    let ctx = Context.add_beta h ctx in
+      comp ctx c
+
+  | Syntax.Eta (e, c) ->
+    let (_, t) = expr ctx e in
+    let h = Hint.mk_eta t in
+    let ctx = Context.add_eta h ctx in
+      comp ctx c
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t
@@ -78,7 +93,7 @@ let rec comp ctx (c',loc) =
     let (e, v) = spine ~loc ctx e t cs in
     Value.Return (e, v)
 
-  | Syntax.Prod (abs, c) -> 
+  | Syntax.Prod (abs, c) ->
     let rec fold ctx ys xts = function
       | [] ->
         let u = comp_ty ctx c in
@@ -114,7 +129,7 @@ and check ctx c t =
   | Value.Return (e, t') ->
      if Equal.equal_ty ctx t' t
      then e
-     else 
+     else
       Error.typing ~loc:(snd c) "this expression (%t) should have type %t but has type %t"
         (print_term ctx e)
         (print_ty ctx t)
@@ -125,7 +140,7 @@ and check ctx c t =
     a spine from [e], [xeus] and [u], and the type of the resulting expression
     is [v].
   *)
-and spine ~loc ctx e t cs = 
+and spine ~loc ctx e t cs =
   let (xts, t) = Equal.as_prod ctx t in
   let rec fold es xeus xts cs =
   match xts, cs with
@@ -154,7 +169,7 @@ and expr_ty ctx ((_,loc) as e) =
       Error.runtime ~loc
         "this expression should be a type but its type is %t"
         (print_ty ctx t)
-  
+
 
 and comp_ty ctx c =
   let e = check ctx c Tt.typ in

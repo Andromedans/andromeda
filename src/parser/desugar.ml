@@ -52,6 +52,16 @@ let rec comp ctx ((c',loc) as c) =
       let c2 = comp ctx c2 in
       [], Syntax.Let (xcs, c2)
 
+    | Input.Beta (e, c) ->
+      let ctx, w, e = expr ctx e in
+      let c = comp ctx c in
+        w, Syntax.Beta (e, c)
+
+    | Input.Eta (e, c) ->
+      let ctx, w, e = expr ctx e in
+      let c = comp ctx c in
+        w, Syntax.Eta (e, c)
+
     | Input.Ascribe (c, t) ->
       let ctx, w, t = expr ctx t in
       let c = comp ctx c in
@@ -59,7 +69,7 @@ let rec comp ctx ((c',loc) as c) =
 
     | Input.Lambda (xs, c) ->
       let rec fold ctx ys = function
-        | [] -> 
+        | [] ->
           let c = comp ctx c in
           mk_lambda ys c
         | (x,t) :: xs ->
@@ -85,7 +95,7 @@ let rec comp ctx ((c',loc) as c) =
 
     | Input.Prod (xs, c) ->
       let rec fold ctx ys = function
-        | [] -> 
+        | [] ->
           let c = comp ctx c in
           mk_prod ys c
         | (x,t) :: xs ->
@@ -115,7 +125,7 @@ let rec comp ctx ((c',loc) as c) =
 
     | (Input.Var _ | Input.Type) ->
       let _, w, e = expr ctx c in
-      w, Syntax.Return e                 
+      w, Syntax.Return e
 
   in
   mk_let ~loc w c
@@ -132,8 +142,8 @@ and expr ctx ((e', loc) as e) =
   | Input.Type ->
     ctx, [], (Syntax.Type, loc)
 
-  | (Input.Let _ | Input.Ascribe _ | Input.Lambda _ | Input.Spine _ |
-     Input.Prod _ | Input.Eq _ | Input.Refl _) ->
+  | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Ascribe _ |
+     Input.Lambda _ | Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _) ->
     let x = Name.fresh Name.anonymous
     and c = comp ctx e in
     let ctx = add_bound x ctx in

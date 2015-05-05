@@ -20,7 +20,13 @@ val lookup_bound : Syntax.bound -> t -> Value.value
 
 (** Add a free variable of a given type to the context.
     Fails if the free variable is already bound. *)
-val add_free : Name.t -> Tt.ty -> t -> t 
+val add_free : Name.t -> Tt.ty -> t -> t
+
+(** Add a beta hint to the context. *)
+val add_beta : Hint.beta_hint -> t -> t
+
+(** Add a eta hint to the context. *)
+val add_eta : Hint.eta_hint -> t -> t
 
 (** [add_fresh x t ctx] adds a fresh free variable with suggested
     name [x] of given type [t] to the context [ctx]. Return the

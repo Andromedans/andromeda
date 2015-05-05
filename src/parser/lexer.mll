@@ -5,7 +5,9 @@
 
   let reserved = [
     ("and", AND) ;
+    ("beta", BETA) ;
     ("Check", TOPCHECK) ;
+    ("eta", ETA) ;
     ("Let", TOPLET) ;
     ("let", LET) ;
     ("Parameter", PARAMETER) ;
