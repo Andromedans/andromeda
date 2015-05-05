@@ -10,7 +10,7 @@
     ("let", LET) ;
     ("Parameter", PARAMETER) ;
     ("forall", FORALL) ;
-    ("fun", FUN) ;
+    ("lambda", LAMBDA) ;
     ("in", IN) ;
     ("refl", REFL) ;
     ("Type", TYPE) ;
@@ -37,8 +37,6 @@ rule token = parse
   | "#quit"             { QUIT }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
-  | '['                 { LBRACK }
-  | ']'                 { RBRACK }
   | ':'                 { COLON }
   | ":="                { COLONEQ }
   | "::"                { ASCRIBE }

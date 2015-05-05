@@ -1,12 +1,14 @@
 (** Runtime values and results *)
 
-(** A value is obtained by successfully evaluating a computation. *)
 type value =
-  Tt.term * Tt.ty (** A judgement [e : t] where [e] is guaranteed to have the type [t]. *)
+(** A value is obtained by successfully evaluating a computation. *)
+  Tt.term * Tt.ty
+  (** A judgement [e : t] where [e] is guaranteed to have the type [t]. *)
 
+type result =
 (** Possible results of evaluating a computation. *)
-and result =
   | Return of value
+
 
 let print ?max_level xs v ppf =
   let (e,t) = v in

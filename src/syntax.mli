@@ -20,10 +20,8 @@ and comp' =
   | Let of (Name.t * comp) list * comp
   | Ascribe of comp * ty
   | Lambda of (Name.t * ty) list * comp
-  | Fun of Name.t list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
                                  to evaluate in checking mode, once we know their types. *)
-  | Do of expr * expr list (* meta-level application *)
   | Prod of (Name.t * ty) list * comp
   | Eq of expr * comp
   | Refl of expr

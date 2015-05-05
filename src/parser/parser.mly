@@ -2,7 +2,7 @@
   open Input
 %}
 
-%token FORALL FUN
+%token FORALL LAMBDA
 %token TYPE
 %token UNDERSCORE
 %token <string> NAME
@@ -12,7 +12,6 @@
 %token EQEQ
 %token REFL
 %token TOPLET TOPCHECK
-%token LBRACK RBRACK
 %token LET COLONEQ AND IN
 %token PARAMETER
 %token CONTEXT HELP QUIT
@@ -63,8 +62,7 @@ ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                              { e }
   | FORALL a=abstraction(ty_term) COMMA e=term      { Prod (a, e) }
-  | FUN a=abstraction(ty_term) DARROW e=term        { Lambda (a, e) }
-  | FUN LBRACK xs=list(name) RBRACK DARROW e=term   { Fun (xs, e) }
+  | LAMBDA a=abstraction(ty_term) DARROW e=term     { Lambda (a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
@@ -80,10 +78,9 @@ plain_app_term:
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
-  | TYPE                                             { Type }
-  | x=name                                           { Var x }
-  | LBRACK e=simple_term es=list(simple_term) RBRACK { Do (e, es) }
-  | LPAREN e=plain_term RPAREN                       { e }
+  | TYPE                                            { Type }
+  | x=name                                          { Var x }
+  | LPAREN e=plain_term RPAREN                      { e }
 
 name:
   | NAME { Name.of_string $1 }
