@@ -4,11 +4,13 @@
     environment of runtime bindings. *)
 type t = {
   free : (Name.t * Tt.ty) list;
-  bound : (Name.t * Value.value) list
+  bound : (Name.t * Value.value) list;
+  beta : Hint.beta_hint list ;
+  eta : Hint.eta_hint list
 }
 
 (** The empty context *)
-let empty = { free = []; bound = [] }
+let empty = { free = []; bound = [] ; beta = [] ; eta = [] }
 
 let bound_names {bound=lst} = List.map fst lst
 
@@ -37,6 +39,10 @@ let add_free x t ctx =
   if is_bound x ctx
   then Error.runtime "%t already exists" (Name.print x)
   else { ctx with free = (x,t) :: ctx.free }
+
+let add_beta h ctx = { ctx with beta = h :: ctx.beta }
+
+let add_eta h ctx = { ctx with eta = h :: ctx.eta }
 
 let add_fresh x t ctx =
   let y = Name.fresh x
