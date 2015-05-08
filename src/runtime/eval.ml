@@ -136,11 +136,13 @@ and check ctx c t =
         (print_ty ctx t')
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
-    Then [spine ctx t cs] computes [xeus], [u] and [v] such that we can make
+    Then [spine ctx e t cs] computes [xeus], [u] and [v] such that we can make
     a spine from [e], [xeus] and [u], and the type of the resulting expression
     is [v].
   *)
 and spine ~loc ctx e t cs =
+  (*** XXX Investigate possible use of Equal.as_deep_prod here: it costs more
+       but generates possibly longer spines. *)
   let (xts, t) = Equal.as_prod ctx t in
   let rec fold es xeus xts cs =
   match xts, cs with

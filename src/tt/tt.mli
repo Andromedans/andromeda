@@ -22,7 +22,7 @@ and term' = private
   | Refl of ty * term (** reflexivity [refl e] where [e] has type [A]. *)
 
 (** Since we have [Type : Type] we do not distinguish terms from types,
-    so the type of type [ty] is just a synonym for the type of terms. 
+    so the type of type [ty] is just a synonym for the type of terms.
     However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
 and ty = private
     | Ty of term
@@ -54,7 +54,7 @@ val typ : ty
     with terms [e0, ..., e{n-1}]. *)
 val instantiate: term list -> int -> term -> term
 
-val instantiate_abstraction: 
+val instantiate_abstraction:
   (term list -> int -> 'u -> 'u) ->
   (term list -> int -> 'v -> 'v) ->
   term list ->
@@ -70,9 +70,11 @@ val instantiate_term_ty: term list -> int -> term * ty -> term * ty
 val unabstract: Name.t list -> int -> term -> term
 
 (** [unabstract_ty [x0,...,x{n-1}] k t] replaces bound variables in [t] indexed by [k, ..., k+n-1]
-    names [x0, ..., x{n-1}]. *)
+    with names [x0, ..., x{n-1}]. *)
 val unabstract_ty: Name.t list -> int -> ty -> ty
 
+(** [abstract xs k e] replaces names [xs] in term [e] with bound variables [k, ..., k+n-1] where
+    [xs] is the list [x0,...,x{n-1}]. *)
 val abstract : Name.t list -> int -> term -> term
 
 val abstract_ty : Name.t list -> int -> ty -> ty
@@ -83,7 +85,7 @@ val occurs_ty: Syntax.bound -> ty -> int
 
 val occurs_term_ty: Syntax.bound -> term * ty -> int
 
-val occurs_abstraction: 
+val occurs_abstraction:
   (Syntax.bound -> 'u -> int) ->
   (Syntax.bound -> 'v -> int) ->
   Syntax.bound -> ('u, 'v) abstraction -> int
