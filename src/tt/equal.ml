@@ -360,3 +360,35 @@ let as_prod ctx t =
   | Tt.Prod ((_ :: _, _) as a) -> a
   | _ -> Error.typing ~loc "this type should be a product"
 
+
+let rec as_deep_prod ctx t =
+  let rec fold ctx xus ys t =
+    let (Tt.Ty (t', loc)) as t = whnf_ty ctx t in
+    match t' with
+
+    | Tt.Prod ([], _) ->
+      Error.impossible ~loc "empty product encountered in as_deep_prod"
+
+    | Tt.Prod ((_ :: _) as zvs, w) ->
+      let rec unabstract_binding ctx zs' zvs w =
+      begin
+        match zvs with
+        | [] ->
+          let w = Tt.unabstract_ty zs' 0 w in
+            ctx, zs', w
+        | (z,v) :: zvs ->
+          let v = Tt.unabstract_ty zs' 0 v in
+          let z', ctx = Context.add_fresh z v ctx in
+            unabstract_binding ctx (z' :: zs') zvs w
+      end
+      in
+        let ctx, zs', w = unabstract_binding ctx [] zvs w in
+          fold ctx (xus @ zvs) (zs' @ ys) w
+
+    | _ ->
+      let t = Tt.abstract_ty ys 0 t in
+        (xus, t)
+  in
+  fold ctx [] [] t
+
+
