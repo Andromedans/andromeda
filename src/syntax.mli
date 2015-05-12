@@ -10,7 +10,7 @@ and expr' =
   | Bound of bound
   | Type
 
-(** Desugared types - indistinguishable from expressions  *)
+(** Desugared types - indistinguishable from expressions *)
 and ty = expr
 
 (** Desugared computations *)

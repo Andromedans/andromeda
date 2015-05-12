@@ -22,13 +22,13 @@ and term' =
   | Eq of expr * expr
   | Refl of expr
 
-(** Sugared types  *)
+(** Sugared types *)
 and ty = term
 
-(** Sugared computations  *)
+(** Sugared computations *)
 and comp = term
 
-(** Sugared expressions  *)
+(** Sugared expressions *)
 and expr = term
 
 (** Sugared toplevel commands *)

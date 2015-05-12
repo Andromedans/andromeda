@@ -86,7 +86,7 @@ let mk_prod_ty ~loc xts t = ty (mk_prod ~loc xts t)
 let mk_type_ty ~loc = ty (mk_type ~loc)
 
 (** The [Type] constant, without a location. *)
-let typ = Ty (mk_type ~loc:Location.nowhere)
+let typ = Ty (mk_type ~loc:Location.unknown)
 
 
 (** Manipulation of variables *)
@@ -161,7 +161,7 @@ and instantiate_term_ty es depth (e, t) =
   in (e, t)
 
 let unabstract xs depth e =
-  let es = List.map (mk_name ~loc:Location.nowhere) xs
+  let es = List.map (mk_name ~loc:Location.unknown) xs
   in instantiate es depth e
 
 let unabstract_ty xs depth (Ty t) =

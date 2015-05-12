@@ -71,14 +71,14 @@ let options = Arg.align [
   ]
 
 (** Parser wrapper that reads extra lines on demand. *)
-let parse parse lex =
+let parse parse lexbuf =
   try
-    parse Lexer.token lex
+    parse Lexer.token lexbuf
   with
   | Parser.Error ->
-    Error.syntax ~loc:(Location.of_lex lex) ""
+    Error.syntax ~loc:(Location.of_lexeme lexbuf) ""
   | Failure "lexing: empty token" ->
-    Error.syntax ~loc:(Location.of_lex lex) "unrecognised symbol."
+    Error.syntax ~loc:(Location.of_lexeme lexbuf) "unrecognised symbol."
 
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
@@ -143,8 +143,8 @@ let toplevel ctx =
         let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
         ctx := exec_cmd true !ctx cmd
       with
-      | Error.Error err -> Error.print err
-      | Sys.Break -> Format.printf "Interrupted.@."
+      | Error.Error err -> Error.print err Format.err_formatter
+      | Sys.Break -> Format.eprintf "Interrupted.@."
     done
   with End_of_file -> ()
 
@@ -196,5 +196,5 @@ let main =
     if !Config.interactive_shell then
       toplevel ctx
   with
-    Error.Error err -> Error.print err; exit 1
+    Error.Error err -> Error.print err Format.err_formatter; exit 1
 

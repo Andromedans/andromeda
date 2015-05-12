@@ -1,35 +1,40 @@
-(** Location in source code. For each type in the input syntax we define two versions
-    [t] and [t']. The former is the latter with a location tag. For example, [term = term'
-    * location] and [term'] is the type of terms without locations. *)
+(** Source code locations *)
+
 type t =
-  | Location of Lexing.position * Lexing.position (** delimited location *)
-  | Nowhere (** unknown location *)
+  | Unknown
+  | Known of known
 
-let nowhere = Nowhere
+and known = {
+  filename: string;
+  start_line: int;
+  start_col: int;
+  end_line: int;
+  end_col: int;
+}
 
-let make start_pos end_pos = Location (start_pos, end_pos)
+let print loc ppf =
+  match loc with
+  | Unknown -> Print.print ppf "?:?"
+  | Known {filename; start_line; start_col; end_line; end_col} ->
+    if start_line = end_line then
+      Print.print ppf "%s:%d:%d-%d" filename start_line start_col end_col
+    else
+      Print.print ppf "%s:%d:%d-%d:%d" filename start_line start_col end_line end_col
 
-let of_lex lex =
-  Location (Lexing.lexeme_start_p lex, Lexing.lexeme_end_p lex)
+let unknown = Unknown
 
-let to_string ?(full=false) = function
-  | Nowhere -> "?:?"
-  | Location (p1,p2) when full ->
-      let filename = p1.Lexing.pos_fname  in
-      let line1 = p1.Lexing.pos_lnum in
-      let line2 = p2.Lexing.pos_lnum in
-      let col1  = p1.Lexing.pos_cnum - p1.Lexing.pos_bol + 1  in
-      let col2  = p2.Lexing.pos_cnum - p2.Lexing.pos_bol + 1 in
-      if (line1 = line2) then
-        Printf.sprintf "%s:%d:%d-%d" filename line1 col1 col2
-      else
-        Printf.sprintf "%s:%d:%d-%d:%d" filename line1 col1 line2 col2
-  | Location (p1,p2) ->
-      let filename = p1.Lexing.pos_fname  in
-      let line1 = p1.Lexing.pos_lnum in
-      let col1  = p1.Lexing.pos_cnum - p1.Lexing.pos_bol + 1  in
-      Printf.sprintf "%s:%d:%d" filename line1 col1
+(** Dismantles a lexing position into its filename, line and column. *)
+let dismantle lexpos =
+  let filename = lexpos.Lexing.pos_fname
+  and line = lexpos.Lexing.pos_lnum
+  and col = lexpos.Lexing.pos_cnum - lexpos.Lexing.pos_bol + 1 in
+  filename, line, col
 
-let get_range = function
-  | Nowhere -> Lexing.dummy_pos, Lexing.dummy_pos
-  | Location(startp, endp) -> startp, endp
+let make start_lexpos end_lexpos =
+  let start_filename, start_line, start_col = dismantle start_lexpos
+  and end_filename, end_line, end_col = dismantle end_lexpos in
+  assert (start_filename = end_filename);
+  Known {filename = start_filename; start_line; start_col; end_line; end_col}
+
+let of_lexeme lex =
+  make (Lexing.lexeme_start_p lex) (Lexing.lexeme_end_p lex)

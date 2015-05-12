@@ -1,19 +1,34 @@
-(** A location of a piece of syntax in a file or interactive input. 
-    A location describes a range in the source, i.e., it has a starting
-    and ending position (see [get_range]). *)
+(** Source code locations
+
+    To show the user what piece of code is causing errors, we tag each construct
+    with a corresponding location in the source. This consists of the name of
+    the file and starting and ending position in the file (i.e. line and column
+    number).
+
+    To keep type definitions clean, we write each definition with two mutually
+    dependent types, say [ty] and [ty'], where [ty] consists of a [ty'] and a
+    location, while [ty'] declares the constructors, which refer back to [ty].
+
+    For example, annotated terms of untyped lambda calculus may be defined as
+    {[
+      type term = term' * Location.t
+      and term' =
+        | Var of string
+        | App of term * term
+        | Abs of string * term
+    ]} *)
+
+(** Type of locations. *)
 type t
 
-(** Unknown location. *)
-val nowhere : t
+(** Print a location. *)
+val print : t -> Format.formatter -> unit
 
-(** Make a location from a start and end position of the lexer *)
+(** Unknown location. *)
+val unknown : t
+
+(** Make a location from two lexing positions. *)
 val make : Lexing.position -> Lexing.position -> t
 
-(** Convert the current position in a lexing buffer to a location. *)
-val of_lex : Lexing.lexbuf -> t
-
-(** Convert a location to a readable string. *)
-val to_string : ?full:bool -> t -> string
-
-(* Give the starting and ending position of a location *)
-val get_range : t -> Lexing.position * Lexing.position
+(** Get the location of the current lexeme in a lexing buffer. *)
+val of_lexeme : Lexing.lexbuf -> t
