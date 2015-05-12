@@ -1,0 +1,10 @@
+(* Test parallel lets. *)
+
+Let cow :=
+  let a := Type -> Type
+  in
+    let a := Type
+    and b := a
+    in a -> b.
+
+Check cow.

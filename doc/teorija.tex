@@ -1,0 +1,319 @@
+\documentclass{article}
+
+\usepackage{amsmath,amssymb}
+\usepackage{mathpartir}
+
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\ctx}{\Gamma}
+\newcommand{\emptyctx}{\cdot}
+\newcommand{\isctx}[1]{#1\ \mathsf{ctx}}
+
+\newcommand{\evalto}{\Longrightarrow}
+
+\newcommand{\jdg}[3]{#1 : #3 \; \left[#2\right]}
+\newcommand{\isfresh}[1]{\mathsf{fresh}\;#1}
+\newcommand{\of}[1][]{:_{#1}}
+
+\newcommand{\prd}[1]{\Pi #1 \,.\,}
+\newcommand{\Eq}[3][]{\mathsf{Eq}_{#1}(#2, #3)}
+\newcommand{\refl}[2][]{\mathsf{refl}_{#1}\,#2}
+\newcommand{\lam}[1]{\lambda #1 \,.\,}
+\newcommand{\abs}[1]{#1 .}
+\newcommand{\app}[3][]{#2 \mathrel{@}^{#1} #3}
+
+\newcommand{\subst}[2]{\{#1\}#2}
+
+\newcommand{\anon}{\_}
+
+\newcommand{\join}{\bowtie}
+\newcommand{\splitctx}{\rightsquigarrow}
+\newcommand{\ent}[1][]{\vdash_{#1}}
+
+\newcommand{\bnfis}{\mathbin{{:}{:}{=}}}
+\newcommand{\bnfor}{\mathbin{\mid}}
+
+\newcommand{\val}[1]{\mathtt{val}\;#1}
+\newcommand{\typ}{\mathtt{Type}}
+\newcommand{\letin}[1]{\mathtt{let}\;#1\;\mathtt{in}\;}
+\newcommand{\fra}[1]{\mathtt{forall}\;#1\,\mathtt{,}\,}
+\newcommand{\equ}[2]{#1 \;\text{\texttt{==}}\; #2}
+\newcommand{\rfl}[1]{\mathtt{refl}\; #1}
+\newcommand{\lmb}[1]{\mathtt{lambda}\; #1 \,.\,}
+\newcommand{\apl}[2]{#1 \;\texttt{@}\; #2}
+
+\begin{document}
+
+\section{Type theory}
+
+\subsection{Syntax}
+
+\begin{align*}
+  \text{Expression}\ e, A, B \
+    \bnfis \ & x                              & & \text{variable}\\
+    \bnfor \ & \Type                          & & \text{type of types}\\
+    \bnfor \ & \prd{x : A} B                  & & \text{product\footnotemark} \\
+    \bnfor \ & \Eq[A]{e_1}{e_2}               & & \text{strict equality} \\
+    \bnfor \ & \refl[A]{e}                    & & \text{reflexivity} \\
+    \bnfor \ & \lam{x : A \,.\, B} e          & & \text{$\lambda$-abstraction\footnotemark} \\
+    \bnfor \ & \app[\abs{x : A} B]{e_1}{e_2}  & & \text{application\footnotemark}
+  \\
+  \text{Context}\ \ctx\
+     \bnfis \ & \emptyctx                     & & \text{empty context} \\
+     \bnfor \ & \ctx, x : A                   & & \text{context extension}
+\end{align*}
+%
+\footnotetext{$x$ is bound in $B$}%
+\footnotetext{$x$ is bound in $B$ and $e$}%
+\footnotetext{$x$ is bound in $B$}%
+%
+Note that both application and $\lambda$-abstraction are tagged with full typing information.
+
+
+\subsection{Judgements}
+
+\begin{align*}
+  & \isctx{\ctx}                & & \text{$\ctx$ is a context}  \\
+  & \ctx \ent e \of A         & & \text{$e$ has type $A$}  \\
+  & \ctx \ent e_1 = e_2 \of A & & \text{$e_1$ and $e_2$ of type $A$ are equal}
+\end{align*}
+
+\subsection{Inference rules}
+
+\subsubsection{Contexts}
+
+The set of variables bound by $\Gamma$ is denoted by $|\Gamma|$.
+
+\begin{mathpar}
+  \infer[ctx-empty]
+  { }
+  {\isctx{\emptyctx}}
+
+  \infer[ctx-extend]
+  {\isctx{\ctx}
+   \\
+   \ctx \ent A : \Type
+   \\
+   x \not\in |\ctx|}
+  {\isctx{(\ctx, x \of A)}}
+\end{mathpar}
+
+\subsubsection{Types}
+
+\begin{mathpar}
+  \infer[type-type]
+  { }
+  {\ctx \ent \Type : \Type}
+
+  \infer[type-pi]
+  {\ctx \ent A : \Type
+  \\
+  \ctx, x : A \ent B : \Type
+  }
+  {\ctx \ent (\prd{x : A} B) \of \Type}
+
+  \infer[type-eq]
+  {\ctx \ent A : \Type \\
+   \ctx \ent e_1 : A \\
+   \ctx \ent e_2 : A}
+  {\ctx \ent \Eq[A]{e_1}{e_2} : \Type}
+
+\end{mathpar}
+
+\subsubsection{Terms}
+
+\begin{mathpar}
+  \infer[term-var]
+  {(x : A) \in \Gamma}
+  {\Gamma \ent x : A}
+
+  \infer[term-refl]
+  {\ctx \ent A : \Type \\
+   \ctx \ent e : A}
+  {\ctx \ent (\refl[A]{e}) : \Eq[A]{e}{e}}
+
+  \infer[term-fun]
+  {\ctx \ent A \of \Type \\
+   \ctx, x : A \ent B : \Type \\
+   \ctx, x : A \ent e : B
+  }
+  {\ctx \ent (\lam{x : A \,.\, B} e) : \prd{x : A} B}
+
+  \infer[term-app]
+  {\ctx \ent A : \Type \\
+   \ctx, x : A \ent B : \Type \\
+   \ctx \ent e_1 : \prd{x : A} B \\
+   \ctx \ent e_2 : A}
+   {\ctx \ent \app[\abs{x : A} B]{e_1}{e_2} : \subst{e_2/x}{B}}
+\end{mathpar}
+
+
+\subsubsection{Equality}
+
+\begin{mathpar}
+  \infer[eq-reflection]
+  {\ctx \ent e : \Eq[A]{e_1}{e_2}}
+  {\ctx \ent e_1 = e_2 : A}
+
+  \infer[eq-type]
+  {\ctx \ent e : A \\
+   \ctx \ent A = B : \Type}
+  {\ctx \ent e : B}
+
+  \infer[eq-eq]
+  {\ctx \ent e_1 = e_2 : A \\
+   \ctx \ent A = B : \Type}
+  {\ctx \ent e_1 = e_2 : B}
+
+  \infer[eq-subst]
+  {\ctx, x : A, y : A \ent B : \Type \\
+   \ctx, z : A \ent e : \subst{z/x,z/y}{B} \\
+   \ctx \ent e_1 = e_2 : A
+  }
+  {\ctx \ent \subst{e_1/z}{e} : \subst{e_1/x,e_2/y}{B}}
+\end{mathpar}
+
+\subsubsection{Congruence rules}
+
+\begin{mathpar}
+  \infer[cong-pi]
+  {\ctx \ent A = A' : \Type \\
+   \ctx, x : A \ent B = B' : \Type}
+  {\ctx \ent (\prd{x : A} B) = (\prd{x : A'} B') : \Type}
+
+  \infer[cong-refl]
+  {\ctx \ent A = A' : \Type \\
+   \ctx \ent e = e' : A }
+  {\ctx \ent \refl[A]{e} = \refl[A']{e'} : \Eq[A]{e}{e}}
+
+  \infer[cong-eq]
+  {\ctx \ent A = A' : \Type \\
+   \ctx \ent e_1 = e_1' : A \\
+   \ctx \ent e_2 = e_2' : A
+   }
+  {\ctx \ent (\Eq[A]{e_1}{e_2}) = (\Eq[A']{e'_1}{e'_2}) : \Type}
+\end{mathpar}
+
+
+\section{The meta language}
+
+\begin{align*}
+  \text{Value}\ v\
+    \bnfis \ & x                              & & \text{variable}\\
+    \bnfor \ & (\ctx \ent e : A)              & & \text{judgement}
+  \\
+  \text{Computation}\ c\
+    \bnfis \ & \val{v}                        & & \text{value}\\
+    \bnfor \ & \letin{x = c_1} c_2            & & \text{binding}\\
+    \bnfor \ & \typ                          & & \text{type of types}\\
+    \bnfor \ & \fra{x} v                      & & \text{product} \\
+    \bnfor \ & \equ{v_1}{v_2}                 & & \text{strict equality} \\
+    \bnfor \ & \rfl{v}                        & & \text{reflexivity} \\
+    \bnfor \ & \lmb{x} v                      & & \text{$\lambda$-abstraction} \\
+    \bnfor \ & \apl{v_1}{v_2}                 & & \text{application}
+\end{align*}
+
+
+\section{Operational semantics of the kernel}
+
+\begin{mathpar}
+  \infer[eval-Type]
+  { }
+  {\Type \evalto \jdg{\Type}{\emptyctx}{\Type}}
+
+  \infer[eval-Var]
+  { \isfresh{\alpha}}
+  { x \evalto \jdg{x}{\alpha \of[x] \Type, x \of \alpha}{\alpha}}
+
+  \infer[eval-Prod]
+  {
+  c_1 \evalto \jdg{e_1}{\ctx_1}{A_1} \\
+  c_2 \evalto \jdg{e_2}{\ctx_2}{A_2} \\
+  \ctx_2 \splitctx (\ctx'_2, x \of[\emptyset] B)
+  }
+  {
+  \prd{x : c_1} c_2
+  \evalto
+  \jdg
+    {\prd{x : e_1} e_2}
+    {\begin{aligned}
+     & \ctx_1 \join \ctx'_2, \\
+    & \anon \of[\epsilon_1] \Eq[\Type]{A_1}{\Type}, \\
+    & \anon \of \prd{x : B} (\Eq[\Type]{A_2}{\Type}),\\
+    & \epsilon_1 \of \Eq[\Type]{e_1}{B}
+     \end{aligned}
+    }{
+     \Type
+    }
+  }
+
+  \infer[eval-Eq]
+  {
+    c_1 \evalto \jdg{e_1}{\ctx_1}{A_1} \\
+    c_2 \evalto \jdg{e_2}{\ctx_2}{A_2} \\
+    \isfresh{\alpha}
+  }{
+    \Eq{c_1}{c_2}
+    \evalto
+    \jdg
+    {
+      \Eq[\alpha]{e_1}{e_2}
+    }{
+      \ctx_1 \join \ctx_2,
+      \alpha \of[\epsilon_1,\epsilon_2] \Type,
+      \epsilon_1 \of \Eq[\Type]{\alpha}{A_1},
+      \epsilon_2 \of \Eq[\Type]{\alpha}{A_2}
+    }{
+      \Type
+    }
+  }
+
+  \infer[eval-Refl]
+  {c \evalto \jdg{e}{\ctx}{A}}
+  {\refl{c}
+   \evalto
+   \jdg
+   {\refl[A]{e}}
+   {\ctx}
+   {(\Eq[A]{e}{e})}
+  }
+
+  \infer[eval-Fun]
+  {c \evalto \jdg{e}{\ctx}{A} \\
+   \ctx \splitctx (\ctx', x \of[\emptyset] B)
+  }{
+    (\lam{x} c)
+    \evalto
+    \jdg
+    {(\lam{x:B}{e})}
+    {\ctx'}
+    {(\prd{x : B} A)}
+  }
+
+  \infer[eval-App]
+  {
+   c_1 \evalto \jdg{e_1}{\ctx_1}{A_1} \\
+   c_2 \evalto \jdg{e_2}{\ctx_2}{A_2} \\
+   \isfresh{\alpha}
+  }
+  {
+   \app{c_1}{c_2}
+   \evalto
+   \jdg
+   {
+    (\app[\abs{x : \alpha} {\app[\abs{\anon : \alpha} \Type]{\beta}{x}}]{e_1}{e_2})
+   }{
+    \begin{aligned}
+    & \ctx_1 \join \ctx_2, \\
+    & \alpha \of[\epsilon_1,\epsilon_2, \beta] \Type, \\
+    & \beta \of[\epsilon_1] \alpha \to \Type, \\
+    & \epsilon_1 \of \Eq[\Type]{A_1}{\prd{x : \alpha} \app[\abs{\anon : \alpha} \Type]{\beta}{x}}, \\
+    & \epsilon_2 \of \Eq[\Type]{\alpha}{A_2}
+    \end{aligned}
+   }{
+    (\app[\abs{\anon : \alpha} \Type]{\beta}{e_2})
+   }
+  }
+
+
+\end{mathpar}
+\end{document}

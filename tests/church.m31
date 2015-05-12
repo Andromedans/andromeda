@@ -1,0 +1,49 @@
+Let Nat := forall X : Type, (X -> X) -> X -> X.
+Check Nat.
+
+Let zero :=
+    (fun (A : Type) (s : A -> A) (z : A) => z) :: Nat.
+Check zero.
+
+Let one :=
+    (fun (A : Type) (s : A -> A) (z : A) => s z) :: Nat.
+Check one.
+
+Let two :=
+    (fun (A : Type) (s : A -> A) (z : A) => s (s z)) :: Nat.
+Check two.
+
+Let three :=
+    (fun (A : Type) (s : A -> A) (z : A) => s (s (s z))) :: Nat.
+Check three.
+
+Let succ :=
+    (fun (n : Nat) =>
+    fun (B : Type) (s : B -> B) (z : B) =>
+    s (n B s z)) :: Nat -> Nat.
+Check succ.
+
+Let succ' :=
+    (fun (n : Nat) =>
+    fun (A : Type) (s : A -> A) (z : A) =>
+    n A s (s z)) :: Nat -> Nat.
+Check succ'.
+
+Let add :=
+    (fun (m n : Nat) =>
+    fun (A : Type) (s : A -> A) (z : A) =>
+    m A s (n A s z)) :: Nat -> Nat -> Nat.
+Check add.
+
+Let mult :=
+    (fun (m n : Nat) =>
+    fun (A : Type) (s : A -> A) =>
+    m A (n A s)) :: Nat -> Nat -> Nat.
+Check mult.
+
+
+Parameter N : Type.
+Parameter Z : N.
+Parameter S : N -> N.
+
+Check (refl (succ three N S Z) :: add one three N S Z == mult (succ' one) two N S Z).

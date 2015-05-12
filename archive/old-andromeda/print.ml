@@ -219,18 +219,6 @@ and term ?max_level xs (e,_) ppf =
                 print ~at_level:0 "BAD_INDEX[%d/%d]" k (List.length xs)
           end
 
-      | Syntax.Equation (e1, t, e2) ->
-        print ~at_level:4 "equation %t%t@ in %t"
-          (term ~max_level:3 xs e1)
-          (annot (ty ~max_level:4 xs t))
-          (term ~max_level:4 xs e2)
-
-      | Syntax.Rewrite (e1, t, e2) ->
-        print ~at_level:4 "rewrite %t%t@ in %t"
-          (term ~max_level:3 xs e1)
-          (annot (ty ~max_level:4 xs t))
-          (term ~max_level:4 xs e2)
-
       | Syntax.Ascribe (e, t) ->
         print ~at_level:4 "%t :: %t"
           (term ~max_level:3 xs e)
@@ -262,51 +250,22 @@ and term ?max_level xs (e,_) ppf =
       | Syntax.Project (e, _, lbl) ->
         print ~at_level:0 "%t.%s" (term ~max_level:0 xs e) lbl
 
-      | Syntax.UnitTerm -> print ~at_level:0 "()"
-
-      | Syntax.Idpath (t, e) -> print ~at_level:0 "idpath%t %t"
-        (annot (ty ~max_level:4 xs t))
-        (term ~max_level:0 xs e)
-
-      | Syntax.J (t, (x, y, p, u), (z, e1), e2, e3, e4) ->
-        print ~at_level:1 "J (%t, [%s %s %s . %t], [%s . %t], %t, %t, %t)"
-          (ty ~max_level:4 xs t)
-          x y p (ty ~max_level:4 (p::y::x::xs) u)
-          z (term ~max_level:4 (z::xs) e1)
-          (term ~max_level:4 xs e2)
-          (term ~max_level:4 xs e3)
-          (term ~max_level:4 xs e4)
-
       | Syntax.Refl (t, e) ->
         print ~at_level:0 "refl%t %t"
           (annot (ty ~max_level:4 xs t))
           (term ~max_level:0 xs e)
 
-      | Syntax.Coerce (u1, u2, e) ->
-        print ~at_level:1 "coerce (%t,@ %t,@ %t)"
-          (universe u1)
-          (universe u2)
-          (term ~max_level:4 xs e)
-
       | Syntax.NameRecordTy lst ->
         print ~at_level:0 "{%t}" (name_record_ty_fields xs lst)
 
-      | Syntax.NameUnit -> print ~at_level:0 "unit"
-
-      | Syntax.NameProd (_, _, x, e1, e2) ->
+      | Syntax.NameProd (x, e1, e2) ->
         print ~at_level:3 "%t" (name_prod xs x e1 e2)
 
-      | Syntax.NameUniverse u ->
-        print ~at_level:1 "Universe %t"
+      | Syntax.NameType ->
+        print ~at_level:1 "Type"
           (universe u)
 
-      | Syntax.NamePaths (_, e1, e2, e3) ->
-        print ~at_level:2 "@[<hv 2>%t@ =%t@ %t@]"
-          (term ~max_level:1 xs e2)
-          (annot (term ~max_level:4 xs e1))
-          (term ~max_level:1 xs e3)
-
-      | Syntax.NameId (_, e1, e2, e3) ->
+      | Syntax.NameId (e1, e2, e3) ->
         print ~at_level:2 "@[<hv 2>%t@ ==%t@ %t@]"
           (term ~max_level:1 xs e2)
           (annot (term ~max_level:4 xs e1))

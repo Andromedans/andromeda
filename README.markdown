@@ -2,28 +2,28 @@
 
 ### About the project
 
-Andromeda is an experimental implementation of dependent type theory which supports
-*two* forms of identity types, as proposed by Vladimir Voevodsky in his [Homotopy Type System](http://ncatlab.org/homotopytypetheory/show/Homotopy+Type+System):
+Andromeda is an experimental implementation of dependent type theory with a reflection rule. For theoretical background see:
 
-* a *strict* equality type `a == b` with an equality reflection rule
-* an identity type `a = b` from Martin-Löf intensional type theory
+* Andrej Bauer: "How to implemenent type theory with a reflection rule"
+  ([slides](http://www.qmac.ox.ac.uk/events/Talk%20slides/Bauer-HoTT-Oxford.pdf) and
+   [video](https://www.youtube.com/watch?v=IlfQjWqrK6I))
 
-The reflection rule allows the user to define new equality computation rules (which we call
-*rewrite* rules), as well give the type checker general equality hints. This allows the
-user to define types (such as the natural numbers, booleans, propositional truncation from
-homotopy type theory, and others) *and* impose computation rules for them.
+The reflection rule allows us to do many things, such as add new computation
+rules for new type formers, and hopefully also provide support for Vladimir
+Voevodsky's [Homotopy Type System](http://ncatlab.org/homotopytypetheory/show/Homotopy+Type+System)
+which has *two* kinds of equality, one of which has a reflection rule.
 
 
 ### Compilation
 
 To build Andromeda, you need [Ocaml 4.0](http://ocaml.org) or later (and quite possibly it
-works with earlier versions too) and the
-[menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator. We recommend using
-the [Opam](http://opam.ocamlpro.com) package manager for OCaml for installation of OCaml
-and menhir.
+works with earlier versions too) and the [menhir](http://gallium.inria.fr/~fpottier/menhir/)
+parser generator. We recommend using the [Opam](http://opam.ocamlpro.com) package manager
+for OCaml for installation of OCaml and menhir.
 
-If you also install the [ledit](http://opam.ocaml.org/packages/ledit/ledit.2.03/) or [rlwrap](http://utopia.knoware.nl/~hlub/uck/rlwrap/#rlwrap) utility, the Andromeda toplevel will use them
-to give you line editing capabilities.
+If you also install the [ledit](http://opam.ocaml.org/packages/ledit/ledit.2.03/) or
+[rlwrap](http://utopia.knoware.nl/~hlub/uck/rlwrap/#rlwrap) utility, the Andromeda toplevel
+will use them to give you line editing capabilities.
 
 ### Building Andromeda
 
@@ -32,21 +32,25 @@ To build Andromeda type `make` at the command line. This will create the executa
 `examples` subdirectory. The file `prelude.m31` contains basic definitions and is loaded
 when Andromeda is started (unless the option `--no-prelude` is given).
 
-#### Building tt
-
-The subdirectory `tt` contains a version of Andromeda enriched with effects and handlers.
-This is even more experimental than Andromeda itself. We hope to merge the two, or maybe
-have an independent checker and an assistant. It is too early to tell.
-
-To build tt run `make tt.byte`. It may not compile, because we are currently working
-mostly on Andromeda.
-
 #### Examples
 
 We have put some examples in the `examples` subdirectory. An outdated and incomplete
 description of the Andromedan type theory can be found in `doc/andromeda.tex`. We are
 still changing Andromeda in every respect so it probably does not make sense to write
 documentation at this point.
+
+### The structure of source code
+
+The source code can be found in `src`, in the following folders:
+
+* `parser` - input syntax, lexer, parser, and the desugaring phase which computes de Bruijn indices
+   and separates expressions and computations
+* `runtime` - context manipulation, runtime values and the main evaluation loop
+* `tt` - abstract syntax, weak-head normal forms, equality checks
+* `utils` - error messages, file locations, pretty printing, manipulation of variable names
+* `andromeda.ml` - main program
+* `config.ml` - configuration
+* `syntax.mli` - desugared input syntax
 
 ### History of the name Andromeda
 
@@ -58,4 +62,8 @@ is a nearby place.
 
 ### Travis Continuous Integration
 
-The GitHub repository is linked to Travis CI. To find out the current build status is displayed here: [![Build Status](https://api.travis-ci.org/andrejbauer/andromeda.png?branch=master)](https://travis-ci.org/andrejbauer/andromeda)
+The GitHub repository is linked to Travis CI. To find out the current build status is
+displayed here:
+
+  [![Build Status](https://api.travis-ci.org/andrejbauer/andromeda.png?branch=master)](https://travis-ci.org/andrejbauer/andromeda)
+

@@ -9,51 +9,30 @@ let anonymous = Input.anonymous
 (** We use de Bruijn indices *)
 type variable = Common.debruijn
 
-type universe = Universe.t
-
 type ty = ty' * Position.t
 and ty' =
-  | Universe of universe
-  | El of universe * term
-  | Unit
+  | Type
+  | El of term
   | RecordTy of (label * (name * ty)) list
   | Prod of name * ty * ty
-  | Paths of ty * term * term
-  | Id of ty * term * term
 
 and term = term' * Position.t
 and term' =
   | Var of variable
-  | Equation of term * ty * term
-  | Rewrite of term * ty * term
   | Ascribe of term * ty
   | Lambda of name * ty * ty * term
   | App of (name * ty * ty) * term * term
   | Spine of variable * ty * term list
-  | UnitTerm
   | Record of (label * (name * ty * term)) list
   | Project of term * (label * (name * ty)) list * label
-  | Idpath of ty * term
-  | J of ty * (name * name * name * ty) * (name * term) * term * term * term
-  | Refl of ty * term
-  | Coerce of universe * universe * term
-  | NameRecordTy of (label * (name * universe * term)) list
-  | NameUnit
-  | NameProd of universe * universe * name * term * term
-  | NameUniverse of universe
-  | NamePaths of universe * term * term * term
-  | NameId of universe * term * term * term
-
 
 (* Helper functions for construction *)
 
-let mkUniverse ?(loc=Position.nowhere) u = Universe u, loc
-let mkEl ?(loc=Position.nowhere) u e = El(u,e), loc
+let mkType ?(loc=Position.nowhere) u = Type u, loc
+let mkEl ?(loc=Position.nowhere) u e = El (u,e), loc
 let mkRecordTy ?(loc=Position.nowhere) lst = RecordTy lst, loc
-let mkUnit ?(loc=Position.nowhere) () = Unit, loc
-let mkProd ?(loc=Position.nowhere) x t1 t2 = Prod(x,t1,t2), loc
-let mkPaths ?(loc=Position.nowhere) t e1 e2 = Paths(t,e1,e2), loc
-let mkId  ?(loc=Position.nowhere) t e1 e2 = Id(t,e1,e2), loc
+let mkProd ?(loc=Position.nowhere) x t1 t2 = Prod (x,t1,t2), loc
+let mkId  ?(loc=Position.nowhere) t e1 e2 = Id (t,e1,e2), loc
 
 let mkVar ?(loc=Position.nowhere) v = Var v, loc
 let mkEquation ?(loc=Position.nowhere) e1 t e2 = Equation(e1,t,e2), loc
@@ -63,18 +42,12 @@ let mkLambda ?(loc=Position.nowhere) x t1 t2 e = Lambda(x,t1,t2,e), loc
 let mkSpine ?(loc=Position.nowhere) f fty es = Spine (f, fty, es), loc
 let mkRecord ?(loc=Position.nowhere) lst = Record lst, loc
 let mkProject ?(loc=Position.nowhere) e t lbl = Project (e, t, lbl), loc
-let mkUnitTerm ?(loc=Position.nowhere) () = UnitTerm, loc
-let mkIdpath ?(loc=Position.nowhere) t e = Idpath(t,e), loc
-let mkJ ?(loc=Position.nowhere) a b c d e f = J(a,b,c,d,e,f), loc
 let mkRefl ?(loc=Position.nowhere) t e = Refl(t,e), loc
-let mkCoerce ?(loc=Position.nowhere) u1 u2 e = Coerce(u1,u2,e), loc
+let mkNameType ?(loc=Position.nowhere) () = NameType, loc
 let mkNameRecordTy ?(loc=Position.nowhere) lst = NameRecordTy lst, loc
-let mkNameUnit ?(loc=Position.nowhere) () = NameUnit, loc
 let mkNameProd ?(loc=Position.nowhere) u1 u2 x e1 e2 = NameProd(u1, u2, x, e1, e2), loc
-let mkNameUniverse ?(loc=Position.nowhere) u = NameUniverse u, loc
-let mkNamePaths ?(loc=Position.nowhere) u e1 e2 e3 = NamePaths(u,e1,e2,e3), loc
+let mkNameType ?(loc=Position.nowhere) u = NameType u, loc
 let mkNameId ?(loc=Position.nowhere) u e1 e2 e3 = NameId(u,e1,e2,e3), loc
-
 
 
 (* XXX. Technically, we ought to check that the application isn't at a "weird" type
@@ -93,12 +66,12 @@ let mkApp ?(loc=Position.nowhere) x t1 t2 e1 e2 =
 
 (** If [equal term1 term2] returns true, then the terms are identical modulo
     names of bound variables (and the presence/absence of hints). Moreover,
-    if one is well-typed, then so is the other and they are provably
-    equivalent.
+    if one is well-typed, then so is the other and they are equivalent.
 
-    We don't use ML's built-in = operator for alpha equality,
+    We don't use ML's built-in [=] operator for alpha equality,
     because we maintain variable names and source locations (for debugging and
-    error-reporting) in terms, and want to ignore names of bound variables. i
+    error-reporting) in terms, and want to ignore names of bound variables,
+    and we ignore the hints.
 
     We do ignore equation and rewrite hints, because they should be thought
     of as (theoretically optional) guidance for the algorithm, rather than
@@ -116,7 +89,7 @@ let mkApp ?(loc=Position.nowhere) x t1 t2 e1 e2 =
           but
               f @[T->V] t : V
 
-    Further, we want this equality to respect provable equality, and if
+    Further, we want this equality to respect equality, and if
               (x:nat) -> U(x)  ==  nat -> U(0)
               f : (x:nat) -> U(x)
     then
@@ -743,68 +716,6 @@ let weaken new_var_pos exp =
 
 let weaken_ty new_var_pos ty =
   shift_ty ~bound:new_var_pos 1 ty
-
-(* Try to find the (candidate) name and universe of a given type.
-   If the type is well-formed, then this will be the name
-   and the universe of that name *)
-
-let rec name_of (ty', loc) =
-
-  (* Compute the name term and the universe *)
-    match ty' with
-
-    | Universe alpha ->
-        Some(mkNameUniverse ~loc alpha, Universe.succ alpha)
-
-    | El (alpha, e') ->
-        Some(e', alpha)
-
-    | RecordTy lst ->
-      let rec fold = function
-        | [] -> Some ([], Universe.zero)
-        | (lbl,(x,t)) :: lst ->
-          begin match name_of t with
-          | None -> None
-          | Some (e,u) ->
-            begin match fold lst with
-            | None -> None
-            | Some (lst, u') -> Some ((lbl,(x,u,e)) :: lst, Universe.max u u')
-            end
-          end
-      in
-        begin match fold lst with
-          | None -> None
-          | Some (lst, u) -> Some (mkNameRecordTy ~loc lst, u)
-        end
-
-    | Unit ->
-        Some (mkNameUnit ~loc (), Universe.zero)
-
-    | Prod(x,t,u) ->
-        begin
-          match name_of t, name_of u with
-          | Some (name_t, alpha), Some (name_u, beta) ->
-              Some( mkNameProd ~loc alpha beta x name_t name_u,
-                    Universe.max alpha beta )
-          | _ -> None
-        end
-
-    | Paths(t,e2,e3) ->
-        begin
-          match name_of t with
-          | Some (name_t, alpha) ->
-              Some (mkNamePaths ~loc alpha name_t e2 e3, alpha)
-          | None -> None
-        end
-
-    | Id(t,e2,e3) ->
-        begin
-          match name_of t with
-          | Some (name_t, alpha) ->
-              Some (mkNameId ~loc alpha name_t e2 e3, alpha)
-          | None -> None
-        end
-
 
 (***************)
 (* Occurrences *)

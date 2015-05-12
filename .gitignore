@@ -19,3 +19,7 @@ src/version.ml
 
 # Silly Mac OS X files
 .DS_Store
+
+*.sublime-project
+
+*.sublime-workspace

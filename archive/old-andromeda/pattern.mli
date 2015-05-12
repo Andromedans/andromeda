@@ -4,7 +4,7 @@ type name = string
 
 type ty =
   | Ty of Syntax.ty
-  | El of Universe.t * term
+  | El of term
   | RecordTy of (label * (name * ty)) list
   | Prod of name * ty * ty
   | Paths of ty * term * term
@@ -21,7 +21,6 @@ and term =
   | Idpath of ty * term
   | J of ty * (name * name * name * ty) * (name * term) * term * term * term
   | Refl of ty * term
-  | Coerce of Universe.t * Universe.t * term
   | NameRecordTy of (label * (name * Universe.t * term)) list
   | NameProd of Universe.t * Universe.t * name * term * term
   | NamePaths of Universe.t * term * term * term

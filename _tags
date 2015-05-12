@@ -1,3 +1,4 @@
-<src>: include
+true: bin_annot
+<src/**>: include
 
 
