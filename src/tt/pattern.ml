@@ -1,123 +1,144 @@
-(** Pattern matching support for hints. *)
+type term =
+  | PVar of Name.bound
+  | Spine of term * (term * Tt.ty, Tt.ty) abstraction
+  | Eq (ty, term, term)
+  | Refl (ty, term)
+  | Term of Tt.term * Tt.ty
 
-let occurs_abstraction occurs_u occurs_v test lvl (xus, v) =
-  let rec fold lvl = function
-    | [] -> occurs_v test lvl v
-    | (_,u) :: xus -> occurs_u test lvl u || fold (lvl+1) xus
+and ty = Ty of term
+
+type t = (Tt.ty, term) abstraction
+
+(** Convert a term to a pattern. *)
+let rec of_term pvars ((e',loc) as e) t =
+  (** Attempt to remove x from a list. *)
+  let rec remove_bound x = function
+    | [] -> None
+    | y :: ys ->
+      if Name.eq x y
+      then Some ys
+      else (match remove_bound x ys with None -> None | Some ys -> Some (y :: ys))
   in
-    fold lvl xus
+  let original = pvars, Term (e,t) in
 
-(* Does a bound variable satisfying [test] occur in an expression? *)
-let rec occurs test lvl (e',_) =
   match e' with
-  | Tt.Type -> false
-  | Tt.Name _ -> false
-  | Tt.Bound m -> (m >= lvl) && test (m - lvl)
-  | Tt.Lambda a -> occurs_abstraction occurs_ty occurs_term_ty test lvl a
-  | Tt.Spine (e, a) ->
-    occurs test lvl e ||
-    occurs_abstraction occurs_term_ty occurs_ty test lvl a
-  | Tt.Prod a ->
-    occurs_abstraction occurs_ty occurs_ty test lvl a
+
+  | Tt.Type | Tt.Name _ | Tt.Lambda _ | Tt.Prod _ -> original
+
+  | Tt.Bound k ->
+    begin match remove_bound k pvars with
+      | None -> original
+      | Some pvars -> pvars, PVar k
+    end
+
+  | Tt.Spine (e, (xets, u)) ->
+    let rec fold pvars = function
+      | [] -> pvars, true, []
+      | (x,(e,t)) :: xets ->
+        let t = (let (Tt.Ty (t, loc) = t in Ty (Term t, loc)) in
+        let pvars, e = of_term pvars e t in
+        let pvars, all_terms, xets = fold pvars xets in
+        let all_terms = (match e with Term _ -> all_terms | _ -> false) in
+        let xets = (x, (e, t)) :: xets in
+           pvars, all_terms, xets
+    in
+    let pvars, e = of_term pvars e (Tt.mk_prod ~loc (List.map snd (fst xsts)) (snd xets)) in
+    let pvars, all_terms, xets = fold pvars xets in
+    begin match all_terms, e with
+      | true, Term _ -> original
+      | _, _ -> pvars, (Spine (e, (xets, u)))
+    end
+
   | Tt.Eq (t, e1, e2) ->
-    occurs_ty test lvl t || occurs test lvl e1 || occurs test lvl e2
+    let pvars, t = of_ty pvars t in
+    let pvars, e1 = of_term pvars e1 t in
+    let pvars, e2 = of_term pvars e2 t in
+    begin match t, e1, e2 with
+      | Ty (Term _), Term _, Term _ -> original
+      | _, _, _ -> pvars, (Eq (t, e1, e2), loc)
+    end
+
   | Tt.Refl (t, e) ->
-    occurs_ty test lvl t || occurs test lvl e
+    let pvars, t = of_ty pvars t in
+    let pvars, e = of_term pvars e t in
+    begin match t, e with
+      | Ty (Term _), Term _ -> original
+      | _, _ -> pvars, (Refl (t, e), loc)
+    end
 
-and occurs_ty test lvl (Tt.Ty t) = occurs test lvl t
-
-and occurs_term_ty test lvl (e, t) =
-  occurs test lvl e || occurs_ty test lvl t
+and of_ty pvars (Tt.Ty t) = of_term pvars t Tt.typ
 
 
-(** Indicate that a pattern match failed. *)
 exception NoMatch
 
-let comb_abstraction comb_u comb_v lvl solution us v =
-  let rec fold lvl solution = function
-    | [] -> comb_v lvl solution v
-    | (_,u)::us ->
-      let solution = comb_u lvl solution u in
-        fold (lvl+1) solution us
+(** Match pattern [p] and expression [e] of type [t]. *)
+let pmatch ctx (xts, p) e t =
+
+  let rec collect p e t =
+  match p with
+    | PVar k -> [(k, (e, t)], []
+    | Spine (pe, pxets) ->
+      let loc = snd e in
+      begin match Equal.as_spine ctx e with
+        | Some (e, xets) ->
+          let pvars_e, checks_e = collect pe e
+          and pvars_xets, checks_xets = collect_spine ~loc pxets xets
+          in pvars_e @ pvars_xets, checks_e @ checks_xets
+        | None -> raise NoMatch
+      end
+    | Eq (pt, pe1, pe2) ->
+      begin match Equal.as_eq ctx e with
+        | Some (t, e1, e2) ->
+          let pvars_t, checks_t = collect_ty pt t
+          and pvars_e1, checks_e1 = collect pe1 e1
+          and pvars_e2, checks_e2 = collect pe2 e2
+          in pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2
+        | None -> raise NoMatch
+      end
+    | Refl (pt, pe) ->
+      begin match Equal.as_refl ctx e with
+        | Some (t, e) ->
+          let pvars_t, checks_t = collect_ty pt t
+          and pvars_e, checks_e = collect pe e
+          in pvars_t @ pvars_e, checks_t @ checks_e
+        | None -> raise NoMatch
+      end
+    | Term (e',t') -> [], [(t, t', Ty.typ); (e',e,t)]
+
+  and collect_ty (Ty p) (Tt.Ty e) = collect p e
+
+  and collect_spine ~loc (pxets, u') (xets, u) =
+    let rec fold xts' xts pxets xets =
+      match pxets, xets with
+      | [], [] ->
+        let xts' = List.rev xts'
+        and xts  = List.rev xts in
+        let check_u = [(Tt.mk_prod ~loc xts' u', Tt.mk_prod ~loc xts u)]
+        in [], check_u
+      | (x',(pe,t'))::pxets, (x,(e,t))::xets ->
+        let pvars_e, checks_e = collect pe e
+        and pvars_xets, checks_xets = fold ((x',t)::xts') ((x,t)::xts) pxets xets
+        in pvars_e @ pvars_xets, checks_e @ checks_xets
+      | ([],_::_) | (_::_,[]) ->
+        (** XXX be inteligent about differently nested but equally long spines *)
+        raise NoMatch
+    in
+      fold [] [] pxets xets
+
   in
-  fold lvl solution us
 
-(** [comb lvl solution pe e] matches pattern [pe] against expression [e], using bound variables
-  as pattern variables to match against. Arguments:
-
-    - [lvl] is the shift level for de Bruijn indices, i.e., in how many binders we are at the moment.
-      Thus we're actually matching against indices larger than or equal to [lvl], and when matching
-      against [k], on the outside this is known as index [k - lvl].
-
-    - [solution] is the solution build to far; a mapping from de Bruijn indices to expressions
-
-    Note that we can have several matches for one bound variable, i.e., there is no assumption of
-    linearity. It is the responsibility of the caller to worry about completeness and consistency
-    of the solution found.
-
-   The function returns the match found, or raises [NoMatch] if there is a mismatch. *)
-let rec comb lvl solution pe e =
-  match pe, e with
-
-  | Tt.Type, Tt.Type -> solution
-
-  | Tt.Name x, Tt.Name y ->
-    if Name.eq x y then solution else raise NoMatch
-
-  | Tt.Bound k, e ->
-    if k >= lvl then
-    begin
-      (* Must check that [e] does not contain bound variables below [lvl]. *)
-      (* XXX should we actually shift [e] as it's leaving level [lvl]? *)
-      (* XXX what if [e] contains bound variables above [lvl]? *)
-      if occurs (fun i => i < lvl) 0 e
-      then raise NoMatch
-      else (k - lvl, e) :: solution
-    end
-    else begin
-      match e with
-      | Tt.Bound m -> if k = m then solution else raise NoMatch
-      | _ -> raise NoMatch
+  let bind_pvars ctx k pvars xts =
+    begin match pvars, xts with
+      | [], [] -> ctx
+      | (i,e)::pvars, (x,t)::xts ->
+        if i = k
+        then Context.add_bound x (e,t) ctx
+        else raise NoMatch
     end
 
-  | Tt.Lambda (xpts, pe), Tt.Lambda (xts, e) ->
-    comb_abstraction comb_ty comb lvl solution xpts pe xts e
-
-  | Tt.Spine (pe, pets), Tt.Spine (e, ets)  ->
-    let solution = comb lvl solution pe e in
-      comb_abstraction comb_ty comb_term_ty lvl solution pe pets e ets
-
-  | Tt.Prod (xpts, pt), Tt.Prod (xts, t) ->
-    comb_abstraction comb_ty comb_ty lvl solution xpts pt xts t
-
-  | Tt.Eq (pt, p1, p2), Tt.Eq (t, e1, e2) ->
-    let solution = comb_ty lvl solution pt t in
-    let solution = comb lvl solution p1 e2 in
-    let solution = comb lvl solution p2 e2 in
-      solution
-
-  | Tt.Refl (pt, pe), Tt.Refl (t, e) ->
-    let solution = comb_ty lvl solution pt t in
-    let solution = comb lvl solution pe e in
-      solution
-
-  | (Tt.Type | Tt.Refl _ | Tt.Bound _ | Tt.Lambda _ |
-     Tt.Spine _ | Tt.Prod _ | Tt.Eq _ | Tt.Refl _), _ ->
-    raise NoMatch
 
 
-and comb_ty lvl solution (Tt.Ty pt) (Tt.Ty t) =
-  comb lvl solution pt t
-
-and comb_term_ty lvl solution (pe, pt) (e, t) =
-  let solution = comb lvl solution pe e in
-  let solution = comb_ty lvl solution pt t in
-    solution
-
-(** The exported versions of functions. *)
-
-let combine p e = comb 0 [] p e
-
-let combine_ty pt t = comb_ty 0 [] pt t
-
+  let pvars, checks = collect p e in
+  let pvars = List.sort (fun (i,_) (j,_) -> Pervasives.compare i j) pvars in
+  let ctx = List.fold_left () (0, xts) ctx
 
