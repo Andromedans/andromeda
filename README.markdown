@@ -2,7 +2,8 @@
 
 ### About the project
 
-Andromeda is an experimental implementation of dependent type theory with a reflection rule. For theoretical background see:
+Andromeda is an experimental implementation of dependent type theory with a reflection rule.
+For theoretical background see:
 
 * Andrej Bauer: "How to implemenent type theory with a reflection rule"
   ([slides](http://www.qmac.ox.ac.uk/events/Talk%20slides/Bauer-HoTT-Oxford.pdf) and
@@ -28,9 +29,10 @@ will use them to give you line editing capabilities.
 ### Building Andromeda
 
 To build Andromeda type `make` at the command line. This will create the executable
-`andromeda.byte` and run some basic tests. You can then investigate the files in the
-`examples` subdirectory. The file `prelude.m31` contains basic definitions and is loaded
-when Andromeda is started (unless the option `--no-prelude` is given).
+`andromeda.byte`. You can run the tests in the `test` subfolder with `make test`.
+
+The file `prelude.m31` contains basic definitions and is loaded when Andromeda is
+started (unless the option `--no-prelude` is given).
 
 #### Examples
 
@@ -51,6 +53,22 @@ The source code can be found in `src`, in the following folders:
 * `andromeda.ml` - main program
 * `config.ml` - configuration
 * `syntax.mli` - desugared input syntax
+
+The basic steps in the evaluation of input are:
+
+1. An expression is parsed using the lexer `parser/lexer.mll` and the parser `parser/parser.mly`.
+   The result is a value of type `Input.term` or `Input.ty` or `Input.toplevel`. The user input
+   has no separation of computations (effectful) and expressions (pure).
+2. `Desugar` converts the parsed entity to the corresponding intermediate representation of
+   type `Syntax.expr`, `Syntax.comp` or `Syntax.toplevel`. Desugaring replaces named bound variables
+   with de Bruijn indices and separates computations from expressions.
+3. `Eval` evaluates the syntactic expression to a result of type `Value.result`. The result is a
+   pair [(e,t)] of a value [e] and its type [t]. Evaluation is done in a context [ctx] of type
+   [Context.t] which consists of: free variables with their types, bound variables mapped to their
+   values, and equality hints.
+
+The correctness guarantee for the evaluator is this: if a computation [c] evaluates to a value [(e,t)]
+in context [ctx] then the judgement [ctx |- e : t] is derivable.
 
 ### History of the name Andromeda
 
