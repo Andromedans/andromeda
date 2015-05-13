@@ -6,11 +6,16 @@ all: andromeda.byte
 
 default: andromeda.byte
 
+debug: andromeda.d.byte
+
 andromeda.native:
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.native
 
 andromeda.byte: src/version.ml
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.byte
+
+andromeda.d.byte: src/version.ml
+	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) andromeda.d.byte
 
 # "make test" to see if anything broke
 test: andromeda.byte

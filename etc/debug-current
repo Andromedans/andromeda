@@ -1,0 +1,4 @@
+set arguments tests/beta.m31
+break @ equal 111
+break @ equal 380
+break @ equal 410
