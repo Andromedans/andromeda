@@ -28,7 +28,6 @@ let rec remove_bound x = function
     given bound variables [pvars]. *)
 let rec of_term pvars ((e',loc) as e) t =
   let original = pvars, Term (e,t) in
-
   match e' with
 
   | Tt.Type | Tt.Name _ | Tt.Lambda _ | Tt.Prod _ -> original
@@ -88,7 +87,8 @@ let make_beta_hint ~loc (xts, (t, e1, e2)) =
   let pvars, p = make (xts, (e1, t)) in
     match pvars with
       | [] -> (xts, (p, e2))
-      | k :: _ ->
-        let x = fst (List.nth xts k) in
-        Error.runtime ~loc "this beta hint never matches bound variable %t (the %d-th one)" (Name.print x) k
+      | _ :: _ ->
+        let xs = List.map (fun k -> fst (List.nth xts k)) pvars in
+        Error.runtime ~loc "this beta hint never matches bound variables %t"
+          (Print.sequence Name.print " " xs)
 
