@@ -97,19 +97,38 @@ let pmatch ctx (xts, p) ?t e =
     match p with
     (* [PVar]s need to be tagged with a type because*)
     | PVar k ->
-    (* The type [t'] is the type given to the variable [k] in the binders [xts] and may be different from
-       the type, say [t''], as a subterm in [p]. However, since [PVar] cannot appear under any binders,
-       [t'] and [t''] are provably equal in the context of [xts]. Thus, we can compare the given type [t] to any one of them. *)
+      (* The type [t'] is the type given to the variable [k] in the binders
+         [xts] and may be different from the type, say [t''], as a subterm in
+         [p]. However, since [PVar] cannot appear under any binders, [t'] and
+         [t''] are provably equal in the context of [xts]. Thus, we can compare
+         the given type [t] to any one of them. *)
+      let (x, t') =
+        try (List.nth xts k) with Not_found ->
+          Error.impossible
+            "Encountered an unknown pattern variable in Pattern.collect" in
+
       begin match t with
-      | Some t -> [(k, (e, t'))], [CheckEqualTy (t', t)]
-      | None -> raise NoMatch
+      | Some t ->
+        [(k, (e, t'))], [CheckEqualTy (t', t)]
+      | None ->
+        (*** XXX: We only get here if the caller of [pmatch] does not provide
+             [t] _and_ we hit a variable as the first pattern. For beta hints,
+             this is an error because the pattern is of the wrong shape, for
+             eta hints we have a type which we can provide. Therefore, instead
+             of just raising NoMatch, signal an error. *)
+        let xs = Context.used_names ctx in
+        let ys = List.map fst xts in
+        Error.typing ~loc:(snd e)
+          "Trying to match term %t against pattern variable %t at unknown type\
+           in Pattern.collect"
+          (Tt.print_term xs e) (Tt.print_term (xs@ys) (Tt.mk_name ~loc:Location.unknown x))
       end
     | Spine (pe, (pxets, u')) ->
       let loc = snd e in
       begin match Equal.as_spine ctx e with
         | Some (e, (xets, u)) ->
           let xts = List.map (fun (x, (_, t)) -> x, t) xets in
-          let pvars_e, checks_e = collect pe e (Tt.ty (Tt.mk_prod ~loc xts u))
+          let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc xts u)) e
           and pvars_xets, checks_xets = collect_spine ~loc (pxets, u') (xets, u) in
           pvars_e @ pvars_xets, checks_e @ checks_xets
         | None -> raise NoMatch
@@ -118,8 +137,8 @@ let pmatch ctx (xts, p) ?t e =
       begin match Equal.as_eq ctx e with
         | Some (t, e1, e2) ->
           let pvars_t, checks_t = collect_ty pt t
-          and pvars_e1, checks_e1 = collect pe1 e1 t
-          and pvars_e2, checks_e2 = collect pe2 e2 t
+          and pvars_e1, checks_e1 = collect pe1 e1 ~t
+          and pvars_e2, checks_e2 = collect pe2 e2 ~t
           in pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2
         | None -> raise NoMatch
       end
@@ -127,13 +146,18 @@ let pmatch ctx (xts, p) ?t e =
       begin match Equal.as_refl ctx e with
         | Some (t, e) ->
           let pvars_t, checks_t = collect_ty pt t
-          and pvars_e, checks_e = collect pe e t
+          and pvars_e, checks_e = collect pe e ~t
           in pvars_t @ pvars_e, checks_t @ checks_e
         | None -> raise NoMatch
       end
-    | Term (e',t') -> [], [CheckEqualTy (t, t'); CheckEqual (e', e, t)]
-
-  and collect_ty (PTy p) (Tt.Ty e) = collect p e Tt.typ
+    | Term (e',t') ->
+      begin match t with
+        | Some t -> [], [CheckEqualTy (t, t'); CheckEqual (e', e, t)]
+        | None ->               (*** cf PVar case  *)
+          Error.typing ~loc:(snd e)
+            "Cannot match two terms without knowing their types."
+      end
+  and collect_ty (PTy p) (Tt.Ty e) = collect p ~t:Tt.typ e
 
   and collect_spine ~loc (pxets, u') (xets, u) =
     let rec fold xts' xts es pxets xets =
@@ -144,38 +168,49 @@ let pmatch ctx (xts, p) ?t e =
         let check_u = [CheckEqualTy (Tt.mk_prod_ty ~loc xts' u', Tt.mk_prod_ty ~loc xts u)]
         in [], check_u
       | (x',(pe,t'))::pxets, (x,(e,t))::xets ->
-        let pvars_e, checks_e = collect pe e (Tt.instantiate_ty es 0 t)
+        let pvars_e, checks_e = collect pe ~t:(Tt.instantiate_ty es 0 t) e
         and pvars_xets, checks_xets = fold ((x',t)::xts') ((x,t)::xts) (e::es) pxets xets
         in pvars_e @ pvars_xets, checks_e @ checks_xets
       | ([],_::_) | (_::_,[]) ->
-        (** XXX be inteligent about differently nested but equally long spines *)
+        (** XXX be intelligent about differently nested but equally long spines *)
         raise NoMatch
     in
     fold [] [] [] pxets xets
 
   in
 
-  let rec bind_pvars ctx k pvars xts =
+  let rec bind_pvars ctx k pvars xts es =
     begin match pvars, xts with
-      | [], [] -> ctx
+      | [], [] -> ctx, es
       | (i,(e,t))::pvars, (x,t')::xts ->
         if i <> k then raise NoMatch else
-        begin
-          let ctx = Context.add_bound x (e,t) ctx in
-          bind_pvars ctx (k+1) pvars xts
-        end
+          begin
+            let t = Tt.instantiate_ty es 0 t in
+            let ctx = Context.add_bound x (e,t) ctx in
+            bind_pvars ctx (k+1) pvars xts (e::es)
+          end
       | ([],_::_) | (_::_,[]) -> raise NoMatch
     end
   in
 
   try
-    let pvars, checks = collect p e t in
+    let pvars, checks = collect p ?t e in
     let pvars = List.sort (fun (i,_) (j,_) -> Pervasives.compare i j) pvars in
-    let ctx = bind_pvars ctx 0 pvars xts in
+    let ctx, es = bind_pvars ctx 0 pvars xts [] in
     List.iter
       (function
-        | CheckEqual (e1, e2, t) -> if not (Equal.equal ctx e1 e2 t) then raise NoMatch
-        | CheckEqualTy (t1, t2) -> if not (Equal.equal_ty ctx t1 t2) then raise NoMatch)
+        | CheckEqual (e1, e2, t) ->
+          let e1 = Tt.instantiate es 0 e1
+          and e2 = Tt.instantiate es 0 e2
+          and t = Tt.instantiate_ty es 0 t in
+          if not
+              (Equal.equal ctx e1 e2 t) then
+            raise NoMatch
+        | CheckEqualTy (t1, t2) ->
+          let t1 = Tt.instantiate_ty es 0 t1
+          and t2 = Tt.instantiate_ty es 0 t2 in
+          if not
+              (Equal.equal_ty ctx t1 t2) then raise NoMatch)
       checks ;
     Some ctx
   with NoMatch -> None

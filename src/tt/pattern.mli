@@ -9,4 +9,4 @@ type t
     it should only contain bound variables whose type is equality. *)
 val make : (Tt.ty, Tt.term * Tt.ty) Tt.abstraction -> Syntax.bound list * t
 
-val pmatch : Context.t -> t -> Tt.term -> Tt.ty -> Context.t option
+val pmatch : Context.t -> t -> ?t:Tt.ty -> Tt.term -> Context.t option
