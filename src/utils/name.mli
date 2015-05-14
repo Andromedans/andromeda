@@ -2,6 +2,10 @@
 
 (** Type of names. *)
 type t
+ =
+  | Anonymous
+  | Gensym of string * int
+  | String of string
 
 (** Print a name. *)
 val print : t -> Format.formatter -> unit
