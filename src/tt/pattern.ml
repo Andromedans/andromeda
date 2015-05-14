@@ -1,6 +1,6 @@
 (** The type of term patterns. *)
 type term =
-  | PVar of Syntax.bound * Tt.ty
+  | PVar of Syntax.bound
   | Spine of term * (term * Tt.ty, Tt.ty) Tt.abstraction
   | Eq of ty * term * term
   | Refl of ty * term
@@ -39,7 +39,7 @@ let rec of_term pvars ((e',loc) as e) t =
   | Tt.Bound k ->
     begin match remove_bound k pvars with
       | None -> original
-      | Some pvars -> pvars, PVar (k, t)
+      | Some pvars -> pvars, PVar k
     end
 
   | Tt.Spine (e, (xets, u)) ->
@@ -89,12 +89,21 @@ let make (xts, (e, t)) =
 
 exception NoMatch
 
-(** Match pattern [p] and expression [e] of type [t]. *)
-let pmatch ctx (xts, p) e t =
+(** Match pattern [p] and expression [e] which has a type.
+    The type may or may not be given. *)
+let pmatch ctx (xts, p) ?t e =
 
-  let rec collect p e t =
+  let rec collect p ?t e =
     match p with
-    | PVar (k, t') -> [(k, (e, t))], [CheckEqualTy (t', t)]
+    (* [PVar]s need to be tagged with a type because*)
+    | PVar k ->
+    (* The type [t'] is the type given to the variable [k] in the binders [xts] and may be different from
+       the type, say [t''], as a subterm in [p]. However, since [PVar] cannot appear under any binders,
+       [t'] and [t''] are provably equal in the context of [xts]. Thus, we can compare the given type [t] to any one of them. *)
+      begin match t with
+      | Some t -> [(k, (e, t'))], [CheckEqualTy (t', t)]
+      | None -> raise NoMatch
+      end
     | Spine (pe, (pxets, u')) ->
       let loc = snd e in
       begin match Equal.as_spine ctx e with
