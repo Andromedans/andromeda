@@ -100,7 +100,7 @@ let pmatch ctx (xts, p) ?t e =
       (* The type [t'] is the type given to the variable [k] in the binders
          [xts] and may be different from the type, say [t''], as a subterm in
          [p]. However, since [PVar] cannot appear under any binders, [t'] and
-         [t''] are provably equal in the context of [xts]. Thus, we can compare
+         [t''] are equal in the context of [xts]. Thus, we can compare
          the given type [t] to any one of them. *)
       let (x, t') =
         try (List.nth xts k) with Not_found ->
