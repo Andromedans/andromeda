@@ -111,17 +111,12 @@ let pmatch ctx (xts, p) ?t e =
       | Some t ->
         [(k, (e, t'))], [CheckEqualTy (t', t)]
       | None ->
-        (*** XXX: We only get here if the caller of [pmatch] does not provide
-             [t] _and_ we hit a variable as the first pattern. For beta hints,
-             this is an error because the pattern is of the wrong shape, for
-             eta hints we have a type which we can provide. Therefore, instead
-             of just raising NoMatch, signal an error. *)
-        let xs = Context.used_names ctx in
-        let ys = List.map fst xts in
-        Error.typing ~loc:(snd e)
-          "Trying to match term %t against pattern variable %t at unknown type\
-           in Pattern.collect"
-          (Tt.print_term xs e) (Tt.print_term (xs@ys) (Tt.mk_name ~loc:Location.unknown x))
+        (** We only get here if the caller of [pmatch] does not provide
+            [t] _and_ we hit a variable as the first pattern. This can happen
+            if someone installed a useless beta hint, for example. It is worthwhile
+            printing a warning to signal a useless hint, but we should not crash. *)
+        Print.warning ~loc:(snd e) "Pattern match failed on a bare variable at unknown type" ;
+        raise NoMatch
       end
     | Spine (pe, (pxets, u')) ->
       let loc = snd e in
