@@ -27,7 +27,6 @@ let rec remove_bound x = function
 (** Convert a term [e] of type [t] to a pattern with respect to the
     given bound variables [pvars]. *)
 let rec of_term pvars ((e',loc) as e) t =
-
   let original = pvars, Term (e,t) in
 
   match e' with
@@ -77,7 +76,8 @@ let rec of_term pvars ((e',loc) as e) t =
     end
 
 and of_ty pvars (Tt.Ty t) : Syntax.bound list * ty =
-  let s, t = of_term pvars t Tt.typ in s, (Ty t)
+  let pvars, t = of_term pvars t Tt.typ in
+  pvars, (Ty t)
 
 let make (xts, (e, t)) =
   let _, pvars = List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts in
@@ -90,5 +90,5 @@ let make_beta_hint ~loc (xts, (t, e1, e2)) =
       | [] -> (xts, (p, e2))
       | k :: _ ->
         let x = fst (List.nth xts k) in
-        Error.runtime ~loc "this beta hint never matches bound variable %t" (Name.print x)
+        Error.runtime ~loc "this beta hint never matches bound variable %t (the %d-th one)" (Name.print x) k
 
