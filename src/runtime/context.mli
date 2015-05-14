@@ -19,20 +19,20 @@ val lookup_free : Name.t -> t -> Tt.ty option
 val lookup_bound : Syntax.bound -> t -> Value.value
 
 (** Return all beta hints in the context *)
-val beta_hints : t -> Hint.beta list
+val beta_hints : t -> Pattern.beta_hint list
 
 (** Return all eta hints in the context *)
-val eta_hints : t -> Hint.eta list
+val eta_hints : t -> Pattern.eta_hint list
 
 (** Add a free variable of a given type to the context.
     Fails if the free variable is already bound. *)
 val add_free : Name.t -> Tt.ty -> t -> t
 
 (** Add a beta hint to the context. *)
-val add_beta : Hint.beta -> t -> t
+val add_beta : Pattern.beta_hint -> t -> t
 
 (** Add a eta hint to the context. *)
-val add_eta : Hint.eta -> t -> t
+val add_eta : Pattern.eta_hint -> t -> t
 
 (** [add_fresh x t ctx] adds a fresh free variable with suggested
     name [x] of given type [t] to the context [ctx]. Return the

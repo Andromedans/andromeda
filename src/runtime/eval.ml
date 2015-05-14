@@ -49,18 +49,13 @@ let rec comp ctx (c',loc) =
 
   | Syntax.Beta (e, c) ->
     let (_, t) = expr ctx e in
-    (** Maybe we first need to normalize [t] all the way
-        to a universally quantified Eq type and pass that
-        to mk_beta. Same for eta below. *)
-    let h = Hint.mk_beta t in
+    let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+    let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
     let ctx = Context.add_beta h ctx in
       comp ctx c
 
   | Syntax.Eta (e, c) ->
-    let (_, t) = expr ctx e in
-    let h = Hint.mk_eta t in
-    let ctx = Context.add_eta h ctx in
-      comp ctx c
+    Error.fatal "eta hints not implemented"
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t

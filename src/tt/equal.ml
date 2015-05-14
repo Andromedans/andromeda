@@ -519,7 +519,7 @@ and as_refl ctx e =
   | Tt.Refl (t, e) -> Some (t, e)
   | _ -> None
 
-let rec as_deep_prod ctx t =
+let rec as_universal_eq ctx t =
   let rec fold ctx xus ys t =
     let (Tt.Ty (t', loc)) as t = whnf_ty ctx t in
     match t' with
@@ -543,9 +543,13 @@ let rec as_deep_prod ctx t =
         let ctx, zs', w = unabstract_binding ctx [] zvs w in
           fold ctx (xus @ zvs) (zs' @ ys) w
 
-    | _ ->
-      let t = Tt.abstract_ty ys 0 t in
-        (xus, t)
+    | Tt.Eq (t, e1, e2) ->
+      let t = Tt.abstract_ty ys 0 t
+      and e1 = Tt.abstract ys 0 e1
+      and e2 = Tt.abstract ys 0 e2
+      in (xus, (t, e1, e2))
+
+    | _ -> Error.typing ~loc "the type of this expression should be a universally quantified equality"
   in
   fold ctx [] [] t
 

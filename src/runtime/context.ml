@@ -5,8 +5,8 @@
 type t = {
   free : (Name.t * Tt.ty) list;
   bound : (Name.t * Value.value) list;
-  beta : Hint.beta list ;
-  eta : Hint.eta list
+  beta : Pattern.beta_hint list ;
+  eta : Pattern.eta_hint list
 }
 
 (** The empty context *)

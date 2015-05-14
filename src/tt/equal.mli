@@ -16,4 +16,4 @@ val as_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction option
 (** Convert a type to a product aggresively by unfolding as many inner
     products as possible. If we get something that is not a product,
     the list of binders is empty (and the call succeeds). *)
-val as_deep_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction
+val as_universal_eq : Context.t -> Tt.ty -> (Tt.ty, Tt.ty * Tt.term * Tt.term) Tt.abstraction
