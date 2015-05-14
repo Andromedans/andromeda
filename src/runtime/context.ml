@@ -12,6 +12,10 @@ type t = {
 (** The empty context *)
 let empty = { free = []; bound = [] ; beta = [] ; eta = [] }
 
+let eta_hints {eta=lst} = lst
+
+let beta_hints {beta=lst} = lst
+
 let bound_names {bound=lst} = List.map fst lst
 
 let used_names ctx = List.map fst ctx.free @ List.map fst ctx.bound

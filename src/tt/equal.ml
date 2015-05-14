@@ -59,10 +59,10 @@ let rec whnf_ty ctx (Tt.Ty t) =
   let t = whnf ctx t
   in Tt.ty t
 
-(** The whnf of term [e] in context [ctx]. *)
+(** The whnf of term [e] in context [ctx], assuming [e] has a type. *)
 and whnf ctx ((e',loc) as e) =
-  match e' with
-
+  let e =
+    begin match e' with
     | Tt.Spine (e, ([], _)) -> whnf ctx e
     | Tt.Lambda ([], (e, _)) -> whnf ctx e
     | Tt.Prod ([], Tt.Ty e) -> whnf ctx e
@@ -71,17 +71,20 @@ and whnf ctx ((e',loc) as e) =
 
     | Tt.Lambda (_ :: _, _)
     | Tt.Prod (_ :: _, _)
-    | Tt.Name _  (* XXX should use beta hints on names here *)
+    | Tt.Name _
     | Tt.Type
     | Tt.Eq _
     | Tt.Refl _ -> e
-
     | Tt.Bound _ ->
        Error.impossible ~loc "de Bruijn encountered in whnf"
+    end
+  in
+    (** Now apply beta hints *)
+    e  (* XXX not yet *)
+
 
 (** The whnf of a spine [Spine (e, (xets, t))] in context [ctx]. *)
 and whnf_spine ~loc ctx e xets t =
-  (*** XXX here we would attempt to use beta rules. *)
   let (e',eloc) as e = whnf ctx e in
   match e' with
 
@@ -92,12 +95,7 @@ and whnf_spine ~loc ctx e xets t =
       | Some e -> whnf ctx e
     end
 
-  | Tt.Name x ->
-    begin match try_beta ctx x xets t  with
-    | None -> Tt.mk_spine ~loc e xets t
-    | Some e -> e
-    end
-
+  | Tt.Name _
   | Tt.Spine _
   | Tt.Type
   | Tt.Prod _
@@ -107,14 +105,6 @@ and whnf_spine ~loc ctx e xets t =
 
   | Tt.Bound _ ->
     Error.impossible ~loc "de Bruijn encountered in whnf"
-
-and try_beta ctx x xets t =
-  List.fold_left
-    (fun e h ->
-       match e with
-       | Some _ as e -> e
-       | None -> Pattern.pmatch h e t)
-    None (Context.beta_hints ctx)
 
 (** Beta reduction of [Lambda (xus, (e, u))] applies to arguments [yevs] at type [t].
     Returns the resulting expression. *)
@@ -370,8 +360,8 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
 let as_prod ctx t =
   let Tt.Ty (t', loc) = whnf_ty ctx t in
   match t' with
-  | Tt.Prod ((_ :: _, _) as a) -> a
-  | _ -> Error.typing ~loc "this type should be a product"
+  | Tt.Prod ((_ :: _, _) as a) -> Some a
+  | _ -> None
 
 
 let rec as_deep_prod ctx t =
@@ -404,6 +394,22 @@ let rec as_deep_prod ctx t =
   in
   fold ctx [] [] t
 
-let as_spine = failwith "todo"
+let as_spine ctx e =
+  let (e', _) = whnf ctx e in
+  match e' with
+  | Tt.Spine (e, xets) -> Some (e, xets)
+  | _ -> None
 
-let as_eq = failwith "todo"
+let as_eq ctx e =
+  let (e', _) = whnf ctx e in
+  match e' with
+  | Tt.Eq (t, e1, e2) -> Some (t, e1, e2)
+  | _ -> None
+
+let as_refl ctx e =
+  let (e', _) = whnf ctx e in
+  match e' with
+  | Tt.Refl (t, e) -> Some (t, e)
+  | _ -> None
+
+
