@@ -146,7 +146,7 @@ and spine ~loc ctx e t cs =
   let (xts, t) =
     begin match Equal.as_prod ctx t with
       | Some (xts, t) -> xts, t
-      | None -> Error.typing ~loc:(snd e) "this expression is applied but is not a function"
+      | None -> Error.typing ~loc "an expression is applied but it is not a function"
     end
   in
   let rec fold es xeus xts cs =

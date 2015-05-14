@@ -1,0 +1,9 @@
+(* Test whether application errors have sensible locations *)
+Let f := Type.
+Let x := Type.
+Let y := Type.
+
+
+
+
+Let z := f x y.

@@ -1,0 +1,8 @@
+f is defined.
+
+x is defined.
+
+y is defined.
+
+Typing error (./error_apply_non_function.m31:9:10-15):
+  an expression is applied but it is not a function
