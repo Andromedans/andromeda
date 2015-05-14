@@ -62,3 +62,5 @@ val print :
     for example the guard in a conditional, which is delimited on both sides by
     [if] and [then], or a body of the quantifier, which is on one side delimited
     by [.] and on the other side unlimited. *)
+
+val sequence: ('a -> Format.formatter -> unit) -> string -> 'a list -> (Format.formatter -> unit)

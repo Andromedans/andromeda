@@ -15,3 +15,12 @@ let print ?(at_level=min_int) ?(max_level=max_int) ppf =
     Format.fprintf ppf
   else
     fun fmt -> Format.fprintf ppf ("(@[" ^^ fmt ^^ "@])")
+
+let rec sequence print_u separator us ppf =
+match us with
+  | [] -> print ppf ""
+  | u :: us ->
+    print ppf "@[%t@]%s@ %t"
+      (print_u u)
+      separator
+      (sequence print_u separator us)
