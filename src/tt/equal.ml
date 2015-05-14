@@ -89,9 +89,20 @@ and whnf ctx ((e',loc) as e) =
        Error.impossible ~loc "de Bruijn encountered in whnf"
     end
   in
-    (** Now apply beta hints *)
-    e  (* XXX not yet *)
+    beta_hints ctx e (Context.beta_hints ctx)
 
+and beta_hints ctx e = function
+  | [] -> e
+  | ((xts, (p, _)) as h) :: hs ->
+    begin match pmatch ctx (xts,p) e with
+      | None -> beta_hints ctx e hs
+      | Some _ ->
+        let xs = Context.used_names ctx in
+        Print.debug "beta hint %t matches %t"
+          (Pattern.print_beta_hint xs h)
+          (Tt.print_term xs e) ;
+        e
+    end
 
 (** The whnf of a spine [Spine (e, (xets, t))] in context [ctx]. *)
 and whnf_spine ~loc ctx e xets t =

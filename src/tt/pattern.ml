@@ -83,12 +83,72 @@ let make (xts, (e, t)) =
   let pvars, p = of_term pvars e t in
     pvars, p
 
+let rec print_term ?max_level (xs : Name.t list) e ppf =
+  let print ?at_level = Print.print ?max_level ?at_level ppf in
+    match e with
+      | Term (e, t) -> Tt.print_term ?max_level xs e ppf
+
+      | PVar k ->
+        begin
+          try
+            print ~at_level:0 "?%t" (Name.print (List.nth xs k))
+          with
+          | Not_found | Failure "nth" ->
+              (** XXX this should never get printed *)
+              print ~at_level:0 "?DEBRUIJN[%d]" k
+        end
+
+      | Spine (e, a) -> print ~at_level:1 "%t" (print_spine xs e a)
+
+      | Eq (t, e1, e2) ->
+        print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
+          (print_term ~max_level:1 xs e1)
+          (print_ty xs t)
+          (print_term ~max_level:1 xs e2)
+
+      | Refl (t, e) ->
+        print ~at_level:1 "refl%t %t"
+          (print_ty xs t)
+          (print_term ~max_level:0 xs e)
+
+and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
+
+and print_spine xs e (yets, u) ppf =
+  let rec print_args ys yets ppf =
+    match yets with
+    | [] -> Print.print ppf ""
+    | (y,(e,_)) :: yets ->
+      let y = Name.refresh ys y in
+      Print.print ppf "@ %t%t"
+        (print_term ~max_level:0 ys e)
+        (print_args (y::ys) yets)
+  in
+    Print.print ppf "@[<hov 2>%t%t@]"
+      (print_term ~max_level:0 xs e)
+      (print_args xs yets)
+
+let print_beta_hint ?max_level xs (yts, (p, e)) ppf =
+  let rec print_binders xs yts ppf =
+    match yts with
+    | [] -> Print.print ppf "=>@ @[<hov 2>%t ~~>@ %t@]"
+              (print_term xs p)
+              (Tt.print_term xs e)
+    | (y,t) :: yts ->
+      let y = Name.refresh xs y in
+        Print.print ppf "(%t : %t)@ %t"
+          (Name.print y)
+          (Tt.print_ty xs t)
+          (print_binders (y::xs) yts)
+  in
+  Print.print ?max_level ppf "@[%t@]" (print_binders xs yts)
+
 let make_beta_hint ~loc (xts, (t, e1, e2)) =
   let pvars, p = make (xts, (e1, t)) in
     match pvars with
       | [] -> (xts, (p, e2))
       | _ :: _ ->
         let xs = List.map (fun k -> fst (List.nth xts k)) pvars in
-        Error.runtime ~loc "this beta hint never matches bound variables %t"
-          (Print.sequence Name.print " " xs)
+        Error.runtime ~loc "the beta hint@\n@[%t@]@\nnever matches bound variables %t"
+          (print_beta_hint [] (xts, (p, e2)))
+          (Print.sequence Name.print ", " xs)
 
