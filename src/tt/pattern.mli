@@ -1,7 +1,21 @@
 (** Pattern matching support for hints. *)
 
-(** Alas, "match" is a reserved word, so we use "combine". If you can think of
-    a better one, please fix. *)
-val combine : Tt.term -> Tt.term -> (Name.t * Tt.term) list option
+(** The type of term patterns. *)
+type term =
+  | PVar of Syntax.bound
+  | Spine of term * (term * Tt.ty, Tt.ty) Tt.abstraction
+  | Eq of ty * term * term
+  | Refl of ty * term
+  | Term of Tt.term * Tt.ty
 
-val combine_ty : Tt.ty -> Tt.ty -> (Name.t * Tt.term) list option
+(** The type of type patterns. *)
+and ty = Ty of term
+
+(** A pattern is given as an abstraction of a term pattern *)
+type t = (Tt.ty, term) Tt.abstraction
+
+(** Given a term [e] of type [t] in abstraction [xts] (that is, the first argument is [(xts, (e,t))]),
+    return a list [pvars] and a pattern [p]. The list contains those bound variables which will never
+    be matched by [p]. Thus, for the purposes of beta hints the list should be empty, and for eta hints
+    it should only contain bound variables whose type is equality. *)
+val make : (Tt.ty, Tt.term * Tt.ty) Tt.abstraction -> Syntax.bound list * t

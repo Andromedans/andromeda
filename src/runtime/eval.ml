@@ -143,7 +143,12 @@ and check ctx c t =
 and spine ~loc ctx e t cs =
   (*** XXX Investigate possible use of Equal.as_deep_prod here: it costs more
        but generates possibly longer spines. *)
-  let (xts, t) = Equal.as_prod ctx t in
+  let (xts, t) =
+    begin match Equal.as_prod ctx t with
+      | Some (xts, t) -> xts, t
+      | None -> Error.typing ~loc "an expression is applied but it is not a function"
+    end
+  in
   let rec fold es xeus xts cs =
   match xts, cs with
   | xts, [] ->

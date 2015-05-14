@@ -5,12 +5,16 @@
 type t = {
   free : (Name.t * Tt.ty) list;
   bound : (Name.t * Value.value) list;
-  beta : Hint.beta_hint list ;
-  eta : Hint.eta_hint list
+  beta : Hint.beta list ;
+  eta : Hint.eta list
 }
 
 (** The empty context *)
 let empty = { free = []; bound = [] ; beta = [] ; eta = [] }
+
+let eta_hints {eta=lst} = lst
+
+let beta_hints {beta=lst} = lst
 
 let bound_names {bound=lst} = List.map fst lst
 
