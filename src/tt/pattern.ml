@@ -16,7 +16,7 @@ type t = (Tt.ty, term) Tt.abstraction
 type check =
   | CheckEqual of Tt.term * Tt.term * Tt.ty
   | CheckEqualTy of Tt.ty * Tt.ty
-
+  | CheckAlphaEqual of Tt.term * Tt.term
 
 (** Attempt to remove x from a list. *)
 let rec remove_bound x = function
@@ -148,9 +148,12 @@ let pmatch ctx (xts, p) ?t e =
     | Term (e',t') ->
       begin match t with
         | Some t -> [], [CheckEqualTy (t, t'); CheckEqual (e', e, t)]
-        | None ->               (*** cf PVar case  *)
-          Error.typing ~loc:(snd e)
-            "Cannot match two terms without knowing their types."
+        | None ->
+          (** It is unsafe to compare [e'] and [e] for equality when
+              the type of [e] is not given. However, it is safe to
+              compare for alpha equality. And in fact we need this
+              to be able to rewrite constants (names). *)
+          [], [CheckAlphaEqual (e', e)]
       end
   and collect_ty (PTy p) (Tt.Ty e) = collect p ~t:Tt.typ e
 
