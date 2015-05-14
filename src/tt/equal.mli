@@ -14,3 +14,7 @@ val as_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction
     products as possible. If we get something that is not a product,
     the list of binders is empty (and the call succeeds). *)
 val as_deep_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction
+
+val as_spine : Context.t -> Tt.term -> Tt.term * (Tt.term * Tt.ty, Tt.ty) Tt.abstraction
+
+val as_eq : Context.t -> Tt.ty -> Tt.ty * Tt.term * Tt.term

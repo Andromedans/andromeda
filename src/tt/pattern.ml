@@ -1,24 +1,26 @@
 type term =
-  | PVar of Name.bound
-  | Spine of term * (term * Tt.ty, Tt.ty) abstraction
-  | Eq (ty, term, term)
-  | Refl (ty, term)
+  | PVar of Syntax.bound
+  | Spine of term * (term * Tt.ty, Tt.ty) Tt.abstraction
+  | Eq of ty * term * term
+  | Refl of ty * term
   | Term of Tt.term * Tt.ty
 
-and ty = Ty of term
+and ty = PTy of term
 
-type t = (Tt.ty, term) abstraction
+type t = (Tt.ty, term) Tt.abstraction
+
+
+(** Attempt to remove x from a list. *)
+let rec remove_bound x = function
+  | [] -> None
+  | y :: ys ->
+    if x = y
+    then Some ys
+    else (match remove_bound x ys with None -> None | Some ys -> Some (y :: ys))
 
 (** Convert a term to a pattern. *)
 let rec of_term pvars ((e',loc) as e) t =
-  (** Attempt to remove x from a list. *)
-  let rec remove_bound x = function
-    | [] -> None
-    | y :: ys ->
-      if Name.eq x y
-      then Some ys
-      else (match remove_bound x ys with None -> None | Some ys -> Some (y :: ys))
-  in
+
   let original = pvars, Term (e,t) in
 
   match e' with
@@ -34,15 +36,18 @@ let rec of_term pvars ((e',loc) as e) t =
   | Tt.Spine (e, (xets, u)) ->
     let rec fold pvars = function
       | [] -> pvars, true, []
-      | (x,(e,t)) :: xets ->
-        let t = (let (Tt.Ty (t, loc) = t in Ty (Term t, loc)) in
+      | (x, (e, t)) :: xets ->
+        (*** PGH: this t' is unused: types on spines are never patterns  *)
+        let t' = (let Tt.Ty t = t in PTy (Term (t, Tt.typ))) in
         let pvars, e = of_term pvars e t in
         let pvars, all_terms, xets = fold pvars xets in
         let all_terms = (match e with Term _ -> all_terms | _ -> false) in
         let xets = (x, (e, t)) :: xets in
-           pvars, all_terms, xets
+        pvars, all_terms, xets
     in
-    let pvars, e = of_term pvars e (Tt.mk_prod ~loc (List.map snd (fst xsts)) (snd xets)) in
+
+    let xts = List.map (fun (x, (_, t)) -> x, t) xets in
+    let pvars, e = of_term pvars e (Tt.ty (Tt.mk_prod ~loc xts u)) in
     let pvars, all_terms, xets = fold pvars xets in
     begin match all_terms, e with
       | true, Term _ -> original
@@ -54,19 +59,20 @@ let rec of_term pvars ((e',loc) as e) t =
     let pvars, e1 = of_term pvars e1 t in
     let pvars, e2 = of_term pvars e2 t in
     begin match t, e1, e2 with
-      | Ty (Term _), Term _, Term _ -> original
-      | _, _, _ -> pvars, (Eq (t, e1, e2), loc)
+      | PTy (Term _), Term _, Term _ -> original
+      | PTy _, _, _ -> pvars, (Eq (t, e1, e2))
     end
 
   | Tt.Refl (t, e) ->
-    let pvars, t = of_ty pvars t in
+    let pvars, t' = of_ty pvars t in
     let pvars, e = of_term pvars e t in
-    begin match t, e with
-      | Ty (Term _), Term _ -> original
-      | _, _ -> pvars, (Refl (t, e), loc)
+    begin match t', e with
+      | PTy (Term _), Term _ -> original
+      | _, _ -> pvars, (Refl (t', e))
     end
 
-and of_ty pvars (Tt.Ty t) = of_term pvars t Tt.typ
+and of_ty pvars (Tt.Ty t) : Syntax.bound list * ty =
+  let s, t = of_term pvars t Tt.typ in s, (PTy t)
 
 
 exception NoMatch
@@ -75,15 +81,17 @@ exception NoMatch
 let pmatch ctx (xts, p) e t =
 
   let rec collect p e t =
-  match p with
-    | PVar k -> [(k, (e, t)], []
+    match p with
+    | PVar k -> [(k, (e, t))], []
     | Spine (pe, pxets) ->
       let loc = snd e in
       begin match Equal.as_spine ctx e with
         | Some (e, xets) ->
-          let pvars_e, checks_e = collect pe e
-          and pvars_xets, checks_xets = collect_spine ~loc pxets xets
-          in pvars_e @ pvars_xets, checks_e @ checks_xets
+          let xts = List.map (fun (x, (_, t)) -> x, t) xets in
+          let u = snd xets in
+          let pvars_e, checks_e = collect pe e (Tt.ty (Tt.mk_prod ~loc xts u))
+          and pvars_xets, checks_xets = collect_spine ~loc pxets xets in
+          pvars_e @ pvars_xets, checks_e @ checks_xets
         | None -> raise NoMatch
       end
     | Eq (pt, pe1, pe2) ->
@@ -123,7 +131,7 @@ let pmatch ctx (xts, p) e t =
         (** XXX be inteligent about differently nested but equally long spines *)
         raise NoMatch
     in
-      fold [] [] pxets xets
+    fold [] [] pxets xets
 
   in
 
@@ -136,9 +144,10 @@ let pmatch ctx (xts, p) e t =
         else raise NoMatch
     end
 
-
+  in
 
   let pvars, checks = collect p e in
   let pvars = List.sort (fun (i,_) (j,_) -> Pervasives.compare i j) pvars in
-  let ctx = List.fold_left () (0, xts) ctx
+  let ctx = List.fold_left () (0, xts) ctx in
 
+  failwith "stuff"
