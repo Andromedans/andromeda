@@ -7,16 +7,10 @@ type term =
   | Term of Tt.term * Tt.ty
 
 (** The type of type patterns. *)
-and ty = PTy of term
+and ty = Ty of term
 
 (** A pattern is given as an abstraction of a term pattern *)
 type t = (Tt.ty, term) Tt.abstraction
-
-(** A check is a postponed equality check. *)
-type check =
-  | CheckEqual of Tt.term * Tt.term * Tt.ty
-  | CheckEqualTy of Tt.ty * Tt.ty
-  | CheckAlphaEqual of Tt.term * Tt.term
 
 (** Attempt to remove x from a list. *)
 let rec remove_bound x = function
@@ -66,150 +60,22 @@ let rec of_term pvars ((e',loc) as e) t =
     let pvars, e1 = of_term pvars e1 t in
     let pvars, e2 = of_term pvars e2 t in
     begin match t', e1, e2 with
-      | PTy (Term _), Term _, Term _ -> original
-      | PTy _, _, _ -> pvars, (Eq (t', e1, e2))
+      | Ty (Term _), Term _, Term _ -> original
+      | Ty _, _, _ -> pvars, (Eq (t', e1, e2))
     end
 
   | Tt.Refl (t, e) ->
     let pvars, t' = of_ty pvars t in
     let pvars, e = of_term pvars e t in
     begin match t', e with
-      | PTy (Term _), Term _ -> original
+      | Ty (Term _), Term _ -> original
       | _, _ -> pvars, (Refl (t', e))
     end
 
 and of_ty pvars (Tt.Ty t) : Syntax.bound list * ty =
-  let s, t = of_term pvars t Tt.typ in s, (PTy t)
+  let s, t = of_term pvars t Tt.typ in s, (Ty t)
 
 let make (xts, (e, t)) =
   let _, pvars = List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts in
   let pvars, p = of_term pvars e t in
     pvars, (xts, p)
-
-
-exception NoMatch
-
-(** Match pattern [p] and expression [e] which has a type.
-    The type may or may not be given. *)
-let pmatch ctx (xts, p) ?t e =
-
-  let rec collect p ?t e =
-    match p with
-    (* [PVar]s need to be tagged with a type because*)
-    | PVar k ->
-      (* The type [t'] is the type given to the variable [k] in the binders
-         [xts] and may be different from the type, say [t''], as a subterm in
-         [p]. However, since [PVar] cannot appear under any binders, [t'] and
-         [t''] are equal in the context of [xts]. Thus, we can compare
-         the given type [t] to any one of them. *)
-      let (x, t') =
-        try (List.nth xts k) with Not_found ->
-          Error.impossible
-            "Encountered an unknown pattern variable in Pattern.collect" in
-
-      begin match t with
-      | Some t ->
-        [(k, (e, t'))], [CheckEqualTy (t', t)]
-      | None ->
-        (** We only get here if the caller of [pmatch] does not provide
-            [t] _and_ we hit a variable as the first pattern. This can happen
-            if someone installed a useless beta hint, for example. *)
-        raise NoMatch
-      end
-    | Spine (pe, (pxets, u')) ->
-      let loc = snd e in
-      begin match Equal.as_spine ctx e with
-        | Some (e, (xets, u)) ->
-          let xts = List.map (fun (x, (_, t)) -> x, t) xets in
-          let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc xts u)) e
-          and pvars_xets, checks_xets = collect_spine ~loc (pxets, u') (xets, u) in
-          pvars_e @ pvars_xets, checks_e @ checks_xets
-        | None -> raise NoMatch
-      end
-    | Eq (pt, pe1, pe2) ->
-      begin match Equal.as_eq ctx e with
-        | Some (t, e1, e2) ->
-          let pvars_t, checks_t = collect_ty pt t
-          and pvars_e1, checks_e1 = collect pe1 e1 ~t
-          and pvars_e2, checks_e2 = collect pe2 e2 ~t
-          in pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2
-        | None -> raise NoMatch
-      end
-    | Refl (pt, pe) ->
-      begin match Equal.as_refl ctx e with
-        | Some (t, e) ->
-          let pvars_t, checks_t = collect_ty pt t
-          and pvars_e, checks_e = collect pe e ~t
-          in pvars_t @ pvars_e, checks_t @ checks_e
-        | None -> raise NoMatch
-      end
-    | Term (e',t') ->
-      begin match t with
-        | Some t -> [], [CheckEqualTy (t, t'); CheckEqual (e', e, t)]
-        | None ->
-          (** It is unsafe to compare [e'] and [e] for equality when
-              the type of [e] is not given. However, it is safe to
-              compare for alpha equality. And in fact we need this
-              to be able to rewrite constants (names). *)
-          [], [CheckAlphaEqual (e', e)]
-      end
-  and collect_ty (PTy p) (Tt.Ty e) = collect p ~t:Tt.typ e
-
-  and collect_spine ~loc (pxets, u') (xets, u) =
-    let rec fold xts' xts es pxets xets =
-      match pxets, xets with
-      | [], [] ->
-        let xts' = List.rev xts'
-        and xts  = List.rev xts in
-        let check_u = [CheckEqualTy (Tt.mk_prod_ty ~loc xts' u', Tt.mk_prod_ty ~loc xts u)]
-        in [], check_u
-      | (x',(pe,t'))::pxets, (x,(e,t))::xets ->
-        let pvars_e, checks_e = collect pe ~t:(Tt.instantiate_ty es 0 t) e
-        and pvars_xets, checks_xets = fold ((x',t)::xts') ((x,t)::xts) (e::es) pxets xets
-        in pvars_e @ pvars_xets, checks_e @ checks_xets
-      | ([],_::_) | (_::_,[]) ->
-        (** XXX be intelligent about differently nested but equally long spines *)
-        raise NoMatch
-    in
-    fold [] [] [] pxets xets
-
-  in
-
-  let rec bind_pvars ctx k pvars xts es =
-    begin match pvars, xts with
-      | [], [] -> ctx, es
-      | (i,(e,t))::pvars, (x,t')::xts ->
-        if i <> k then raise NoMatch else
-          begin
-            let t = Tt.instantiate_ty es 0 t in
-            let ctx = Context.add_bound x (e,t) ctx in
-            bind_pvars ctx (k+1) pvars xts (e::es)
-          end
-      | ([],_::_) | (_::_,[]) -> raise NoMatch
-    end
-  in
-
-  try
-    let pvars, checks = collect p ?t e in
-    let pvars = List.sort (fun (i,_) (j,_) -> Pervasives.compare i j) pvars in
-    let ctx, es = bind_pvars ctx 0 pvars xts [] in
-    List.iter
-      (function
-        | CheckEqual (e1, e2, t) ->
-          let e1 = Tt.instantiate es 0 e1
-          and e2 = Tt.instantiate es 0 e2
-          and t = Tt.instantiate_ty es 0 t in
-          if not
-              (Equal.equal ctx e1 e2 t) then
-            raise NoMatch
-        | CheckEqualTy (t1, t2) ->
-          let t1 = Tt.instantiate_ty es 0 t1
-          and t2 = Tt.instantiate_ty es 0 t2 in
-          if not (Equal.equal_ty ctx t1 t2) then raise NoMatch
-        | CheckAlphaEqual (e1, e2) ->
-          let e1 = Tt.instantiate es 0 e1
-          and e2 = Tt.instantiate es 0 e2 in
-          if not (Equal.alpha_equal e1 e2) then raise NoMatch)
-      checks ;
-    Some ctx
-  with NoMatch -> None

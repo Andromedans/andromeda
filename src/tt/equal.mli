@@ -1,8 +1,5 @@
 (** Equality checking and weak-head-normal-forms *)
 
-(** [alpha_equal e1 e2] return true if terms [e1] and [e2] are alpha equal. *)
-val alpha_equal: Tt.term -> Tt.term -> bool
-
 (** [alpha_equal_ty t1 t2] returns [true] if types [t1] and [t2] are
 	alpha equal. *)
 val alpha_equal_ty: Tt.ty -> Tt.ty -> bool
@@ -20,9 +17,3 @@ val as_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction option
     products as possible. If we get something that is not a product,
     the list of binders is empty (and the call succeeds). *)
 val as_deep_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction
-
-val as_spine : Context.t -> Tt.term -> (Tt.term * (Tt.term * Tt.ty, Tt.ty) Tt.abstraction) option
-
-val as_eq : Context.t -> Tt.term -> (Tt.ty * Tt.term * Tt.term) option
-
-val as_refl : Context.t -> Tt.term -> (Tt.ty * Tt.term) option
