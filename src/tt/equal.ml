@@ -71,7 +71,7 @@ and whnf ctx ((e',loc) as e) =
 
     | Tt.Lambda (_ :: _, _)
     | Tt.Prod (_ :: _, _)
-    | Tt.Name  (* XXX should use beta hints on names here *)
+    | Tt.Name _  (* XXX should use beta hints on names here *)
     | Tt.Type
     | Tt.Eq _
     | Tt.Refl _ -> e
@@ -92,8 +92,13 @@ and whnf_spine ~loc ctx e xets t =
       | Some e -> whnf ctx e
     end
 
+  | Tt.Name x ->
+    begin match try_beta ctx x xets t  with
+    | None -> Tt.mk_spine ~loc e xets t
+    | Some e -> e
+    end
+
   | Tt.Spine _
-  | Tt.Name _
   | Tt.Type
   | Tt.Prod _
   | Tt.Eq _
@@ -102,6 +107,14 @@ and whnf_spine ~loc ctx e xets t =
 
   | Tt.Bound _ ->
     Error.impossible ~loc "de Bruijn encountered in whnf"
+
+and try_beta ctx x xets t =
+  List.fold_left
+    (fun e h ->
+       match e with
+       | Some _ as e -> e
+       | None -> Pattern.pmatch h e t)
+    None (Context.beta_hints ctx)
 
 (** Beta reduction of [Lambda (xus, (e, u))] applies to arguments [yevs] at type [t].
     Returns the resulting expression. *)
@@ -391,4 +404,6 @@ let rec as_deep_prod ctx t =
   in
   fold ctx [] [] t
 
+let as_spine = failwith "todo"
 
+let as_eq = failwith "todo"
