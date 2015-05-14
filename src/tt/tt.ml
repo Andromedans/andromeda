@@ -305,7 +305,7 @@ let rec print_term ?max_level xs (e,_) ppf =
             then print ~at_level:0 "%t[%d]" (Name.print (List.nth xs k)) k
             else print ~at_level:0 "%t" (Name.print (List.nth xs k))
           with
-          | Not_found ->
+          | Not_found | Failure "nth" ->
               (** XXX this should never get printed *)
               print ~at_level:0 "DEBRUIJN[%d]" k
         end
