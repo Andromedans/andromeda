@@ -113,9 +113,7 @@ let pmatch ctx (xts, p) ?t e =
       | None ->
         (** We only get here if the caller of [pmatch] does not provide
             [t] _and_ we hit a variable as the first pattern. This can happen
-            if someone installed a useless beta hint, for example. It is worthwhile
-            printing a warning to signal a useless hint, but we should not crash. *)
-        Print.warning ~loc:(snd e) "Pattern match failed on a bare variable at unknown type" ;
+            if someone installed a useless beta hint, for example. *)
         raise NoMatch
       end
     | Spine (pe, (pxets, u')) ->
@@ -207,8 +205,11 @@ let pmatch ctx (xts, p) ?t e =
         | CheckEqualTy (t1, t2) ->
           let t1 = Tt.instantiate_ty es 0 t1
           and t2 = Tt.instantiate_ty es 0 t2 in
-          if not
-              (Equal.equal_ty ctx t1 t2) then raise NoMatch)
+          if not (Equal.equal_ty ctx t1 t2) then raise NoMatch
+        | CheckAlphaEqual (e1, e2) ->
+          let e1 = Tt.instantiate es 0 e1
+          and e2 = Tt.instantiate es 0 e2 in
+          if not (Equal.alpha_equal e1 e2) then raise NoMatch)
       checks ;
     Some ctx
   with NoMatch -> None

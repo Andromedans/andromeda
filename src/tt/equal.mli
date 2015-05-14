@@ -1,5 +1,8 @@
 (** Equality checking and weak-head-normal-forms *)
 
+(** [alpha_equal e1 e2] return true if terms [e1] and [e2] are alpha equal. *)
+val alpha_equal: Tt.term -> Tt.term -> bool
+
 (** [alpha_equal_ty t1 t2] returns [true] if types [t1] and [t2] are
 	alpha equal. *)
 val alpha_equal_ty: Tt.ty -> Tt.ty -> bool
