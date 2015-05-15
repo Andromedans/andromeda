@@ -317,10 +317,9 @@ and print_lambda xs (yus, (e, t)) ppf =
   Print.print ppf "@[<hov 2>fun %t@]"
     (Name.print_binders
       print_ty
-      (fun xs ppf -> Print.print ppf " %t=>@ %t"
+      (fun xs ppf -> Print.print ppf "@ %t=>@ %t"
         (print_annot (print_ty xs t))
         (print_term xs e))
-      ""
       xs
       yus)
 
@@ -345,8 +344,7 @@ and print_prod xs yus v ppf =
     Print.print ppf "@[<hov 2>forall %t@]"
       (Name.print_binders
         print_ty
-        (fun xs ppf -> Print.print ppf "@ %t" (print_prod xs yus v))
-        ","
+        (fun xs ppf -> Print.print ppf ",@ %t" (print_prod xs yus v))
         xs xus)
 
 and print_spine xs e (yets, u) ppf =

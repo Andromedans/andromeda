@@ -68,19 +68,18 @@ let index_of x ys =
   in
   fold 0 ys
 
-let rec print_binders print_u print_v separator xs xus ppf =
+let rec print_binders print_u print_v xs xus ppf =
   match xus with
   | [] -> Print.print ppf "%t" (print_v xs)
   | [(x,u)] ->
     let x = refresh xs x in
-    Print.print ppf "(@[<hv>%t :@ %t@])@ %s%t"
+    Print.print ppf "(@[<hv>%t :@ %t@])@,%t"
       (print x)
       (print_u xs u)
-      separator
       (print_v (x::xs))
   | (x,u) :: xus ->
     let x = refresh xs x in
     Print.print ppf "(@[<hv>%t :@ %t@])@ %t"
       (print x)
       (print_u xs u)
-      (print_binders print_u print_v separator (x::xs) xus)
+      (print_binders print_u print_v (x::xs) xus)

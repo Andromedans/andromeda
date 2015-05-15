@@ -1,3 +1,4 @@
+
 (** The type of term patterns. *)
 type term =
   | PVar of Syntax.bound
@@ -124,18 +125,17 @@ and print_spine xs e (yets, u) ppf =
 
 let print_beta_hint ?max_level xs (yts, (p, e)) ppf =
   let print_beta_body xs ppf =
-    Print.print ppf "=>@ @[<hov 2>%t ~~>@ %t@]"
+    Print.print ppf "@ =>@ @[<hov 2>%t ~~>@ %t@]"
       (print_term xs p)
       (Tt.print_term xs e)
   in
-  Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_beta_body "=>" xs yts)
+  Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_beta_body xs yts)
 
 let print_pattern ?max_level xs (xts, p) ppf =
   Print.print ?max_level ppf "@[%t@]"
     (Name.print_binders
        Tt.print_ty
-       (fun xs -> print_term xs p)
-       "=>"
+       (fun xs ppf -> Print.print ppf "@ =>@ @[<hov 2>%t@]" (print_term xs p))
        xs xts)
 
 let make (xts, (e, t)) =

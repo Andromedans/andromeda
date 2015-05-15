@@ -30,5 +30,5 @@ val index_of : t -> t list -> int option
 val print_binders :
   (t list -> 'a -> Format.formatter -> unit) ->
   (t list -> Format.formatter -> unit) ->
-  string -> t list -> (t * 'a) list ->
+  t list -> (t * 'a) list ->
   Format.formatter -> unit
