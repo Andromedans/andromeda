@@ -384,7 +384,6 @@ and pmatch ctx (xts, p) ?t e =
 
   let rec collect p ?t e =
     match p with
-    (* [PVar]s need to be tagged with a type because*)
     | Pattern.PVar k ->
       (* The type [t'] is the type given to the variable [k] in the binders
          [xts] and may be different from the type, say [t''], as a subterm in
@@ -392,7 +391,7 @@ and pmatch ctx (xts, p) ?t e =
          [t''] are equal in the context of [xts]. Thus, we can compare
          the given type [t] to any one of them. *)
       let (x, t') =
-        try (List.nth xts k) with Not_found ->
+        try (List.nth xts k) with Failure "nth" ->
           Error.impossible
             "Encountered an unknown pattern variable in Pattern.collect" in
 
