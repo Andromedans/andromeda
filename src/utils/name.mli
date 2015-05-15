@@ -1,8 +1,7 @@
 (** Variable names *)
 
-(** Type of names. *)
-type t
- =
+(** Type of names, exposed for debugging purposes. *)
+type t = private
   | Anonymous
   | Gensym of string * int
   | String of string
@@ -27,3 +26,9 @@ val eq : t -> t -> bool
 
 (** [index_of x xs] finds the index of [x] in list [xs]. *)
 val index_of : t -> t list -> int option
+
+val print_binders :
+  (t list -> 'a -> Format.formatter -> unit) ->
+  (t list -> Format.formatter -> unit) ->
+  string -> t list -> (t * 'a) list ->
+  Format.formatter -> unit

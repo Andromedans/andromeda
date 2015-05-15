@@ -26,4 +26,6 @@ val make : (Tt.ty, Tt.term * Tt.ty) Tt.abstraction -> Syntax.bound list * term
 
 val make_beta_hint : loc:Location.t -> (Tt.ty, Tt.ty * Tt.term * Tt.term) Tt.abstraction -> beta_hint
 
+val print_pattern : ?max_level:int -> Name.t list -> t -> (Format.formatter -> unit)
+
 val print_beta_hint : ?max_level:int -> Name.t list -> beta_hint -> Format.formatter -> unit

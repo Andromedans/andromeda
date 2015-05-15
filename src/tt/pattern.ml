@@ -78,11 +78,6 @@ and of_ty pvars (Tt.Ty t) : Syntax.bound list * ty =
   let pvars, t = of_term pvars t Tt.typ in
   pvars, (Ty t)
 
-let make (xts, (e, t)) =
-  let _, pvars = List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts in
-  let pvars, p = of_term pvars e t in
-    pvars, p
-
 let rec print_term ?max_level (xs : Name.t list) e ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
@@ -128,19 +123,29 @@ and print_spine xs e (yets, u) ppf =
       (print_args xs yets)
 
 let print_beta_hint ?max_level xs (yts, (p, e)) ppf =
-  let rec print_binders xs yts ppf =
-    match yts with
-    | [] -> Print.print ppf "=>@ @[<hov 2>%t ~~>@ %t@]"
-              (print_term xs p)
-              (Tt.print_term xs e)
-    | (y,t) :: yts ->
-      let y = Name.refresh xs y in
-        Print.print ppf "(%t : %t)@ %t"
-          (Name.print y)
-          (Tt.print_ty xs t)
-          (print_binders (y::xs) yts)
+  let print_beta_body xs ppf =
+    Print.print ppf "=>@ @[<hov 2>%t ~~>@ %t@]"
+      (print_term xs p)
+      (Tt.print_term xs e)
   in
-  Print.print ?max_level ppf "@[%t@]" (print_binders xs yts)
+  Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_beta_body "=>" xs yts)
+
+let print_pattern ?max_level xs (xts, p) ppf =
+  Print.print ?max_level ppf "@[%t@]"
+    (Name.print_binders
+       Tt.print_ty
+       (fun xs -> print_term xs p)
+       "=>"
+       xs xts)
+
+let make (xts, (e, t)) =
+  let _, pvars = List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts in
+  let pvars, p = of_term pvars e t in
+  let e = Tt.mk_lambda ~loc:Location.unknown xts e t in
+    Print.debug "Created pattern %t from abstraction %t"
+      (print_pattern [] (xts, p))
+      (Tt.print_term [] e) ;
+    pvars, p
 
 let make_beta_hint ~loc (xts, (t, e1, e2)) =
   let pvars, p = make (xts, (e1, t)) in
@@ -151,4 +156,3 @@ let make_beta_hint ~loc (xts, (t, e1, e2)) =
         Error.runtime ~loc "the beta hint@\n@[%t@]@\nnever matches bound variables %t"
           (print_beta_hint [] (xts, (p, e2)))
           (Print.sequence Name.print ", " xs)
-

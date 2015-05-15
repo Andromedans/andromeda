@@ -61,7 +61,7 @@ and alpha_equal_ty (Tt.Ty t1) (Tt.Ty t2) = alpha_equal t1 t2
 and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
 
 (** Indicate a mismatch during pattern matching -- only used locally and should
-    never escape [pmatch] below. *)
+    never escape [pattern_match] below. *)
 exception NoMatch
 
 (** The whnf of a type [t] in context [ctx]. *)
@@ -69,63 +69,69 @@ let rec whnf_ty ctx (Tt.Ty t) =
   let t = whnf ctx t
   in Tt.ty t
 
-(** The whnf of term [e] in context [ctx], assuming [e] has a type. *)
-and whnf ctx ((e',loc) as e) =
-  let e =
+(** The weak whnf of a term [e] is obtained by ignoring the beta hints.
+    Essentially, it computes a form of [e] that is suitable for pattern-matching
+  of the top-level constructor of [e]. *)
+and weak_whnf ctx ((e', loc) as e) =
+  let rec weak ((e', loc) as e) =
     begin match e' with
-    | Tt.Spine (e, ([], _)) -> whnf ctx e
-    | Tt.Lambda ([], (e, _)) -> whnf ctx e
-    | Tt.Prod ([], Tt.Ty e) -> whnf ctx e
-
-    | Tt.Spine (e, ((_ :: _) as xets, t)) -> whnf_spine ~loc ctx e xets t
-
-    | Tt.Lambda (_ :: _, _)
-    | Tt.Prod (_ :: _, _)
-    | Tt.Name _
-    | Tt.Type
-    | Tt.Eq _
-    | Tt.Refl _ -> e
-    | Tt.Bound _ ->
-       Error.impossible ~loc "de Bruijn encountered in whnf"
+      | Tt.Spine (e, ([], _)) -> weak e
+      | Tt.Lambda ([], (e, _)) -> weak e
+      | Tt.Prod ([], Tt.Ty e) -> weak e
+      | Tt.Spine (e, ((_ :: _) as xets, t)) ->
+        begin
+          let (e',eloc) as e = weak e in
+          match e' with
+          | Tt.Lambda (xus, (e, u)) ->
+            begin
+              match beta ~loc:eloc ctx xus e u xets t with
+              | None -> Tt.mk_spine ~loc e xets t
+              | Some e -> weak e
+            end
+          | Tt.Name _
+          | Tt.Spine _
+          | Tt.Type
+          | Tt.Prod _
+          | Tt.Eq _
+          | Tt.Refl _ ->
+            Tt.mk_spine ~loc e xets t
+          | Tt.Bound _ ->
+            Error.impossible ~loc "de Bruijn encountered in whnf"
+        end
+      | Tt.Lambda (_ :: _, _)
+      | Tt.Prod (_ :: _, _)
+      | Tt.Name _
+      | Tt.Type
+      | Tt.Eq _
+      | Tt.Refl _ -> e
+      | Tt.Bound _ ->
+         Error.impossible ~loc "de Bruijn encountered in weak_whnf"
     end
   in
-    beta_hints ctx e (Context.beta_hints ctx)
+  weak e
 
-and beta_hints ctx e = function
-  | [] -> e
-  | ((xts, (p, _)) as h) :: hs ->
-    begin match pmatch ctx (xts,p) e with
-      | None -> beta_hints ctx e hs
-      | Some _ ->
-        let xs = Context.used_names ctx in
-        Print.debug "beta hint %t matches %t"
-          (Pattern.print_beta_hint xs h)
-          (Tt.print_term xs e) ;
-        e
-    end
+(** The whnf of term [e] in context [ctx], assuming [e] has a type.
+    Here we use available beta hints. *)
+and whnf ctx e =
+  let e = weak_whnf ctx e in
+  let rec apply_beta = function
+    | [] -> e
+    | ((xts, (p, _)) as h) :: hs ->
+      let xs = Context.used_names ctx in
+      Print.debug "matching@ %t with@ %t" (Pattern.print_beta_hint xs h) (Tt.print_term xs e) ;
+      begin match pattern_match ctx (xts,p) e with
+        | None ->
+          Print.debug "no match" ;
+          apply_beta hs
+        | Some _ ->
+          Print.debug "beta hint %t matches %t"
+            (Pattern.print_beta_hint xs h)
+            (Tt.print_term xs e) ;
+          e
+      end
+  in
+  apply_beta (Context.beta_hints ctx)
 
-(** The whnf of a spine [Spine (e, (xets, t))] in context [ctx]. *)
-and whnf_spine ~loc ctx e xets t =
-  let (e',eloc) as e = whnf ctx e in
-  match e' with
-
-  | Tt.Lambda (xus, (e, u)) ->
-    begin
-      match beta ~loc:eloc ctx xus e u xets t with
-      | None -> Tt.mk_spine ~loc e xets t
-      | Some e -> whnf ctx e
-    end
-
-  | Tt.Name _
-  | Tt.Spine _
-  | Tt.Type
-  | Tt.Prod _
-  | Tt.Eq _
-  | Tt.Refl _ ->
-    Tt.mk_spine ~loc e xets t
-
-  | Tt.Bound _ ->
-    Error.impossible ~loc "de Bruijn encountered in whnf"
 
 (** Beta reduction of [Lambda (xus, (e, u))] applies to arguments [yevs] at type [t].
     Returns the resulting expression. *)
@@ -379,10 +385,15 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
   end
 
 (** Match pattern [p] and expression [e] which has a type.
-    The type may or may not be given. *)
-and pmatch ctx (xts, p) ?t e =
+    The type may or may not be given. It is assumed that [e]
+    is already in the weak whnf form. *)
+and pattern_match ctx (xts, p) ?t e =
 
   let rec collect p ?t e =
+    let e = weak_whnf ctx e in
+    collect_weak p ?t e
+
+  and collect_weak p ?t e =
     match p with
     | Pattern.PVar k ->
       (* The type [t'] is the type given to the variable [k] in the binders
@@ -391,15 +402,15 @@ and pmatch ctx (xts, p) ?t e =
          [t''] are equal in the context of [xts]. Thus, we can compare
          the given type [t] to any one of them. *)
       let (x, t') =
-        try (List.nth xts k) with Failure "nth" ->
-          Error.impossible
-            "Encountered an unknown pattern variable in Pattern.collect" in
-
+        begin try
+          (List.nth xts k)
+        with Failure "nth" ->
+          Error.impossible "Encountered an unknown pattern variable in Pattern.collect"
+        end in
       begin match t with
-      | Some t ->
-        [(k, (e, t'))], [CheckEqualTy (t', t)]
+      | Some t -> [(k, (e, t'))], [CheckEqualTy (t', t)]
       | None ->
-        (** We only get here if the caller of [pmatch] does not provide
+        (** We only get here if the caller of [pattern_match] does not provide
             [t] _and_ we hit a variable as the first pattern. This can happen
             if someone installed a useless beta hint, for example. *)
         raise NoMatch
@@ -407,33 +418,34 @@ and pmatch ctx (xts, p) ?t e =
 
     | Pattern.Spine (pe, (pxets, u')) ->
       let loc = snd e in
-      begin match as_spine ctx e with
-        | Some (e, (xets, u)) ->
-          let xts = List.map (fun (x, (_, t)) -> x, t) xets in
-          let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc xts u)) e
-          and pvars_xets, checks_xets = collect_spine ~loc (pxets, u') (xets, u) in
+      begin match fst e with
+        | Tt.Spine (e, (yeus, v)) ->
+          let yus = List.map (fun (y, (_, u)) -> y, u) yeus in
+          let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc yus v)) e
+          and pvars_xets, checks_xets = collect_spine ~loc pxets u' yeus v in
           pvars_e @ pvars_xets, checks_e @ checks_xets
-        | None -> raise NoMatch
+        | _ -> raise NoMatch
       end
 
     | Pattern.Eq (pt, pe1, pe2) ->
-      begin match as_eq ctx e with
-        | Some (t, e1, e2) ->
+      begin match fst e with
+        | Tt.Eq (t, e1, e2) ->
           let pvars_t, checks_t = collect_ty pt t
           and pvars_e1, checks_e1 = collect pe1 e1 ~t
           and pvars_e2, checks_e2 = collect pe2 e2 ~t
           in pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2
-        | None -> raise NoMatch
+        | _ -> raise NoMatch
       end
 
     | Pattern.Refl (pt, pe) ->
-      begin match as_refl ctx e with
-        | Some (t, e) ->
+      begin match fst e with
+        | Tt.Refl (t, e) ->
           let pvars_t, checks_t = collect_ty pt t
           and pvars_e, checks_e = collect pe e ~t
           in pvars_t @ pvars_e, checks_t @ checks_e
-        | None -> raise NoMatch
+        | _ -> raise NoMatch
       end
+
     | Pattern.Term (e',t') ->
       begin match t with
         | Some t -> [], [CheckEqualTy (t, t'); CheckEqual (e', e, t)]
@@ -446,7 +458,7 @@ and pmatch ctx (xts, p) ?t e =
       end
   and collect_ty (Pattern.Ty p) (Tt.Ty e) = collect p ~t:Tt.typ e
 
-  and collect_spine ~loc (pxets, u') (xets, u) =
+  and collect_spine ~loc pxets u' xets u =
     let rec fold xts' xts es pxets xets =
       match pxets, xets with
       | [], [] ->
@@ -481,9 +493,10 @@ and pmatch ctx (xts, p) ?t e =
   in
 
   try
-    let pvars, checks = collect p ?t e in
+    let pvars, checks = collect_weak p ?t e in
     let pvars = List.sort (fun (i,_) (j,_) -> Pervasives.compare i j) pvars in
     let ctx, es = bind_pvars ctx 0 pvars xts [] in
+    Print.debug "collecting from %t" (Tt.print_term [] e) ;
     List.iter
       (function
         | CheckEqual (e1, e2, t) ->
@@ -503,7 +516,9 @@ and pmatch ctx (xts, p) ?t e =
           if not (alpha_equal e1 e2) then raise NoMatch)
       checks ;
     Some ctx
-  with NoMatch -> None
+  with NoMatch ->
+    (Print.debug "pattern_match failed" ;
+    None)
 
 and as_prod ctx t =
   let Tt.Ty (t', loc) = whnf_ty ctx t in
@@ -511,23 +526,6 @@ and as_prod ctx t =
   | Tt.Prod ((_ :: _, _) as a) -> Some a
   | _ -> None
 
-and as_spine ctx e =
-  let (e', _) = whnf ctx e in
-  match e' with
-  | Tt.Spine (e, xets) -> Some (e, xets)
-  | _ -> None
-
-and as_eq ctx e =
-  let (e', _) = whnf ctx e in
-  match e' with
-  | Tt.Eq (t, e1, e2) -> Some (t, e1, e2)
-  | _ -> None
-
-and as_refl ctx e =
-  let (e', _) = whnf ctx e in
-  match e' with
-  | Tt.Refl (t, e) -> Some (t, e)
-  | _ -> None
 
 let rec as_universal_eq ctx t =
   let rec fold ctx xus ys t =

@@ -21,7 +21,7 @@ let fresh =
     incr counter;
     if !counter < 0 then
       Error.impossible "More than %d fresh names generated." max_int;
-    let s = 
+    let s =
       match x with
       | Anonymous -> "_"
       | String s -> s
@@ -67,3 +67,20 @@ let index_of x ys =
     | y :: ys -> if eq x y then Some k else fold (k + 1) ys
   in
   fold 0 ys
+
+let rec print_binders print_u print_v separator xs xus ppf =
+  match xus with
+  | [] -> Print.print ppf "%t" (print_v xs)
+  | [(x,u)] ->
+    let x = refresh xs x in
+    Print.print ppf "(@[<hv>%t :@ %t@])@ %s%t"
+      (print x)
+      (print_u xs u)
+      separator
+      (print_v (x::xs))
+  | (x,u) :: xus ->
+    let x = refresh xs x in
+    Print.print ppf "(@[<hv>%t :@ %t@])@ %t"
+      (print x)
+      (print_u xs u)
+      (print_binders print_u print_v separator (x::xs) xus)
