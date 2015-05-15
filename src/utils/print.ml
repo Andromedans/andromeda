@@ -19,6 +19,7 @@ let print ?(at_level=min_int) ?(max_level=max_int) ppf =
 let rec sequence print_u separator us ppf =
 match us with
   | [] -> print ppf ""
+  | [u] -> print ppf "@[%t@]" (print_u u)
   | u :: us ->
     print ppf "@[%t@]%s@ %t"
       (print_u u)
