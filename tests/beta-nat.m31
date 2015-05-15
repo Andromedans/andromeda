@@ -1,0 +1,11 @@
+Parameter N : Type.
+Parameter zero : N.
+Parameter succ : N -> N.
+Parameter plus : N -> N -> N.
+Parameter plus_zero : forall x : N, plus x zero == x.
+Parameter plus_succ : forall x y : N, plus x (succ y) == succ (plus x y).
+
+Check
+  beta plus_zero in
+  beta plus_succ in
+   (refl (succ (succ zero))) :: plus (succ zero) (succ zero) == succ (succ zero).
