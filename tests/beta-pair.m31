@@ -4,30 +4,12 @@ Parameter pair :
   forall (A : Type) (B : Type),
     A -> (B -> (Pair A B)).
 
-(* This will have to be reduced. What whould be an example where
-   the whnf isn't equal to Type -> Type so that the full normal
-   form would be required? *)
-(* Let foo := *)
-(*   pair *)
-(*     Type *)
-(*     ((fun (_ : Type) => (Type -> Type)) Type) *)
-(*     Type *)
-(*     (fun (_ : Type) => Type) *)
-(*     :: Pair Type (Type -> Type). *)
-
 Parameter fst :
   forall (X : Type) (Y : Type), Pair X Y -> X.
 
-Let beta_fst :=
+Parameter beta_fst :
   forall (U V : Type) (u : U) (v : V),
-    fst U V (pair U V u v) == u.
-
-(* Let boa := *)
-(*   beta beta_fst in *)
-(*     (fun (A B : Type) (a : A) (b : B) => *)
-(*        (refl (fst A B (pair A B a b))) *)
-(*          :: *)
-(*          (fst A B (pair A B a b)) == (fst A B (pair A B a b))). *)
+    (fst U V (pair U V u v)) == u.
 
 (* fails for now *)
 (* compute the ascription: first compute the refl which yields that the refl *)
@@ -44,6 +26,3 @@ Let boa :=
 ).
 
 Check boa.
-
-
-(* (buffer-local-set-key (kbd "C-M-x") 'm31-send-current-statement) *)
