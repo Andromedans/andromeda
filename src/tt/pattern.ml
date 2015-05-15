@@ -17,8 +17,9 @@ type beta_hint = (Tt.ty, term * Tt.term) Tt.abstraction
 
 type eta_hint = unit
 
-(** Attempt to remove x from a list. *)
-let rec remove_bound x = function
+(** Attempt to remove [x] from list [xs]. *)
+let rec remove_bound x xs =
+  match xs with
   | [] -> None
   | y :: ys ->
     if x = y
