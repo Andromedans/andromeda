@@ -1,0 +1,13 @@
+Pair is assumed.
+
+pair is assumed.
+
+fst is assumed.
+
+beta_fst is assumed.
+
+boa is defined.
+
+fun (C : Type) (D : Type) (c : C) (d : D) => refl (fst C D (pair C D (c ) d))
+      : forall (C : Type) (D : Type) (c : C) (d : D),
+          c == fst C D (pair C D c d)

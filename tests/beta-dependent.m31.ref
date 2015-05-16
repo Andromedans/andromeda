@@ -1,0 +1,18 @@
+A is assumed.
+
+B is assumed.
+
+C is assumed.
+
+f is assumed.
+
+f_beta is assumed.
+
+a is assumed.
+
+b is assumed.
+
+c is assumed.
+
+refl b
+      : b == f a b c

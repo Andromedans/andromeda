@@ -3,9 +3,9 @@
 (** A check is a postponed equality check.
     Pattern matching generates these. *)
 type check =
-  | CheckEqual of Tt.term * Tt.term * Tt.ty
-  | CheckEqualTy of Tt.ty * Tt.ty * int
-  | CheckAlphaEqual of Tt.term * Tt.term
+  | CheckEqual of Tt.term * Tt.term * Tt.ty (* compare terms at a type *)
+  | CheckEqualTy of Tt.ty * Tt.ty (* compare types *)
+  | CheckAlphaEqual of Tt.term * Tt.term (* compare terms for alpha equality *)
 
 (** Alpha equality *)
 (* Currently, the only difference between alpha and structural equality is that
@@ -124,18 +124,17 @@ and whnf ctx e =
   let e = weak_whnf ctx e in
   let rec apply_beta = function
     | [] -> e
-    | ((xts, (p, _)) as h) :: hs ->
+    | ((xts, (p, e')) as h) :: hs ->
       let xs = Context.used_names ctx in
-      Print.debug "matching@ %t with@ %t" (Pattern.print_beta_hint xs h) (Tt.print_term xs e) ;
       begin match pattern_match ctx (xts,p) e with
-        | None ->
-          Print.debug "no match" ;
-          apply_beta hs
-        | Some _ ->
-          Print.debug "beta hint %t matches %t"
+        | None -> apply_beta hs
+        | Some es ->
+          let e' = Tt.instantiate es 0 e' in
+          Print.debug "beta hint %t matches %t, we get %t"
             (Pattern.print_beta_hint xs h)
-            (Tt.print_term xs e) ;
-          e
+            (Tt.print_term xs e)
+            (Tt.print_term xs e') ;
+          whnf ctx e'
       end
   in
   apply_beta (Context.beta_hints ctx)
@@ -405,22 +404,8 @@ and pattern_match ctx (xts, p) ?t e =
   and collect_weak p ?t ((e', loc) as e) =
     match p with
     | Pattern.PVar k ->
-      (* The type [t'] is the type given to the variable [k] in the binders
-         [xts] and may be different from the type, say [t''], as a subterm in
-         [p]. However, since [PVar] cannot appear under any binders, [t'] and
-         [t''] are equal in the context of [xts]. Thus, we can compare
-         the given type [t] to any one of them. *)
-      (* Note that [t'] is at binding level [k] and has to be instantiated with
-         only the variables that have been bound before its introduction. Cut
-         k+1 elements off [es]. *)
-      let (x, t') =
-        begin try
-          (List.nth xts k)
-        with Failure "nth" ->
-          Error.impossible ~loc "Pattern.collect encountered an unknown pattern variable"
-        end in
       begin match t with
-      | Some t -> [(k, (e, t'))], [CheckEqualTy (t', t, k+1)]
+      | Some t -> [(k, (e, t))], []
       | None ->
         (** We only get here if the caller of [pattern_match] does not provide
             [t] _and_ we hit a variable as the first pattern. This can happen
@@ -432,9 +417,11 @@ and pattern_match ctx (xts, p) ?t e =
       begin match e' with
         | Tt.Spine (e, (yus, v), es) ->
           let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc yus v)) e
-          and pvars_es, checks_es = collect_spine ~loc xts pes es in
+          and pvars_es, checks_es = collect_spine ~loc xts pes es
+          and t1 = Tt.mk_prod_ty ~loc xts u
+          and t2 = Tt.mk_prod_ty ~loc yus v in
           pvars_e @ pvars_es,
-          (CheckEqualTy (Tt.mk_prod_ty ~loc xts u, Tt.mk_prod_ty ~loc yus v, 0)) :: checks_e @ checks_es
+          (CheckEqualTy (t1, t2)) :: checks_e @ checks_es
         | _ -> raise NoMatch
       end
 
@@ -459,7 +446,7 @@ and pattern_match ctx (xts, p) ?t e =
 
     | Pattern.Term (e',t') ->
       begin match t with
-        | Some t -> [], [CheckEqualTy (t, t', 0); CheckEqual (e', e, t)]
+        | Some t -> [], [CheckEqualTy (t, t'); CheckEqual (e', e, t)]
         | None ->
           (** It is unsafe to compare [e'] and [e] for equality when
               the type of [e] is not given. However, it is safe to
@@ -485,37 +472,25 @@ and pattern_match ctx (xts, p) ?t e =
 
   in
 
-  let rec drop n = function
-    | [] -> if n = 0 then Some [] else None
-    | _ :: t -> drop (n-1) t in
-
-  let rec bind_pvars ctx k pvars xts es =
-    begin match pvars, xts with
-      | [], [] -> ctx, es
-      | (i,(e,t))::pvars, (x,t')::xts ->
-        if i <> k then raise NoMatch else
-          begin
-            let lvl = k+1 in
-            let es =
-              begin match drop lvl es with
-               | Some es -> es
-               | None ->
-                   let Tt.Ty (_, loc) = t in
-                   Error.typing ~loc "de Bruijn encountered in Equal.bind_pvars at level %d" lvl
-              end in
-            let t = Tt.instantiate_ty es 0 t in
-            let ctx = Context.add_bound x (e,t) ctx in
-            bind_pvars ctx (k+1) pvars xts (e::es)
-          end
-      | ([],_::_) | (_::_,[]) -> raise NoMatch
-    end
+  let rec subst_of_pvars ctx pvars k xts es =
+    match xts with
+    | [] -> es
+    | (_,t) :: xts ->
+      begin
+        try
+          let (e, t') = List.assoc k pvars in
+          let t = Tt.instantiate_ty es 0 t in
+          Print.debug "matching: compare %t and %t" (Tt.print_ty [] t) (Tt.print_ty [] t') ;
+          if not (equal_ty ctx t t')
+          then raise NoMatch
+          else subst_of_pvars ctx pvars (k-1) xts (e :: es)
+        with Not_found -> raise NoMatch
+      end
   in
 
   try
     let pvars, checks = collect_weak p ?t e in
-    let pvars = List.sort (fun (i,_) (j,_) -> Pervasives.compare i j) pvars in
-    let ctx, es = bind_pvars ctx 0 pvars xts [] in
-    Print.debug "collecting from %t" (Tt.print_term [] e) ;
+    let es = subst_of_pvars ctx pvars (List.length xts - 1) xts [] in
     List.iter
       (function
         | CheckEqual (e1, e2, t) ->
@@ -525,14 +500,7 @@ and pattern_match ctx (xts, p) ?t e =
           if not
               (equal ctx e1 e2 t) then
             raise NoMatch
-        | CheckEqualTy (t1, t2, lvl) ->
-          let es =
-            begin match drop lvl es with
-              | Some es -> es
-              | None ->
-                let Tt.Ty (_, loc) = t1 in
-                Error.typing ~loc "de Bruijn encountered in Equal.pattern_match at level %d" lvl
-            end in
+        | CheckEqualTy (t1, t2) ->
           let t1 = Tt.instantiate_ty es 0 t1
           and t2 = Tt.instantiate_ty es 0 t2 in
           if not (equal_ty ctx t1 t2) then raise NoMatch
@@ -541,10 +509,8 @@ and pattern_match ctx (xts, p) ?t e =
           and e2 = Tt.instantiate es 0 e2 in
           if not (alpha_equal e1 e2) then raise NoMatch)
       checks ;
-    Some ctx
-  with NoMatch ->
-    (Print.debug "pattern_match failed" ;
-    None)
+    Some es
+  with NoMatch -> None
 
 and as_prod ctx t =
   let Tt.Ty (t', loc) = whnf_ty ctx t in

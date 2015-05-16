@@ -15,3 +15,10 @@ Check
   beta plus_Z in
   beta plus_S in
    (refl (S (S Z))) :: plus (S Z) (S Z) == S (S Z).
+
+(* Now we trying something a bit fancier. *)
+Check
+  beta plus_Z in
+  beta plus_S in
+     fun (x y : N) =>
+       refl (S (S (plus x y))) :: plus x (S (S y)) == S (S (plus x y)).

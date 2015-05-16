@@ -99,7 +99,7 @@ let rec print_term ?max_level xs e ppf =
       | Spine (e, xts, es) ->
         print ~at_level:1 "@[<hov 2>%t@ %t@]"
           (print_term ~max_level:0 xs e)
-          (Print.sequence (print_term xs) "" es)
+          (Print.sequence (print_term ~max_level:0 xs) "" es)
 
       | Eq (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"

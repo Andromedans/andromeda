@@ -119,9 +119,7 @@ let rec instantiate es depth ((e',loc) as e) =
            instantiated term, so we leave it as it is *)
        else
          if k < depth + n
-         then List.nth es (k - depth)
-          (* this is a variable that corresponds to a substituted term,
-             so we replace it *)
+         then List.nth es (k - depth) (* variable corresponds to a substituted term, replace it *)
          else Bound (k - n), loc
           (* this is a variable bound in an abstraction outside the
              instantiated term, so it remains bound, but its index decreases
