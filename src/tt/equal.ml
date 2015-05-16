@@ -4,7 +4,7 @@
     Pattern matching generates these. *)
 type check =
   | CheckEqual of Tt.term * Tt.term * Tt.ty
-  | CheckEqualTy of Tt.ty * Tt.ty
+  | CheckEqualTy of Tt.ty * Tt.ty * int
   | CheckAlphaEqual of Tt.term * Tt.term
 
 (** Alpha equality *)
@@ -410,6 +410,9 @@ and pattern_match ctx (xts, p) ?t e =
          [p]. However, since [PVar] cannot appear under any binders, [t'] and
          [t''] are equal in the context of [xts]. Thus, we can compare
          the given type [t] to any one of them. *)
+      (* Note that [t'] is at binding level [k] and has to be instantiated with
+         only the variables that have been bound before its introduction. Cut
+         k+1 elements off [es]. *)
       let (x, t') =
         begin try
           (List.nth xts k)
@@ -417,7 +420,7 @@ and pattern_match ctx (xts, p) ?t e =
           Error.impossible ~loc "Pattern.collect encountered an unknown pattern variable"
         end in
       begin match t with
-      | Some t -> [(k, (e, t'))], [CheckEqualTy (t', t)]
+      | Some t -> [(k, (e, t'))], [CheckEqualTy (t', t, k+1)]
       | None ->
         (** We only get here if the caller of [pattern_match] does not provide
             [t] _and_ we hit a variable as the first pattern. This can happen
@@ -431,7 +434,7 @@ and pattern_match ctx (xts, p) ?t e =
           let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc yus v)) e
           and pvars_es, checks_es = collect_spine ~loc xts pes es in
           pvars_e @ pvars_es,
-          (CheckEqualTy (Tt.mk_prod_ty ~loc xts u, Tt.mk_prod_ty ~loc yus v)) :: checks_e @ checks_es
+          (CheckEqualTy (Tt.mk_prod_ty ~loc xts u, Tt.mk_prod_ty ~loc yus v, 0)) :: checks_e @ checks_es
         | _ -> raise NoMatch
       end
 
@@ -456,7 +459,7 @@ and pattern_match ctx (xts, p) ?t e =
 
     | Pattern.Term (e',t') ->
       begin match t with
-        | Some t -> [], [CheckEqualTy (t, t'); CheckEqual (e', e, t)]
+        | Some t -> [], [CheckEqualTy (t, t', 0); CheckEqual (e', e, t)]
         | None ->
           (** It is unsafe to compare [e'] and [e] for equality when
               the type of [e] is not given. However, it is safe to
@@ -482,12 +485,24 @@ and pattern_match ctx (xts, p) ?t e =
 
   in
 
+  let rec drop n = function
+    | [] -> if n = 0 then Some [] else None
+    | _ :: t -> drop (n-1) t in
+
   let rec bind_pvars ctx k pvars xts es =
     begin match pvars, xts with
       | [], [] -> ctx, es
       | (i,(e,t))::pvars, (x,t')::xts ->
         if i <> k then raise NoMatch else
           begin
+            let lvl = k+1 in
+            let es =
+              begin match drop lvl es with
+               | Some es -> es
+               | None ->
+                   let Tt.Ty (_, loc) = t in
+                   Error.typing ~loc "de Bruijn encountered in Equal.bind_pvars at level %d" lvl
+              end in
             let t = Tt.instantiate_ty es 0 t in
             let ctx = Context.add_bound x (e,t) ctx in
             bind_pvars ctx (k+1) pvars xts (e::es)
@@ -510,7 +525,14 @@ and pattern_match ctx (xts, p) ?t e =
           if not
               (equal ctx e1 e2 t) then
             raise NoMatch
-        | CheckEqualTy (t1, t2) ->
+        | CheckEqualTy (t1, t2, lvl) ->
+          let es =
+            begin match drop lvl es with
+              | Some es -> es
+              | None ->
+                let Tt.Ty (_, loc) = t1 in
+                Error.typing ~loc "de Bruijn encountered in Equal.pattern_match at level %d" lvl
+            end in
           let t1 = Tt.instantiate_ty es 0 t1
           and t2 = Tt.instantiate_ty es 0 t2 in
           if not (equal_ty ctx t1 t2) then raise NoMatch

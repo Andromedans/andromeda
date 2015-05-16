@@ -131,7 +131,7 @@ let print_pattern ?max_level xs (xts, p) ppf =
 
 let make (xts, (e, t)) =
   let _, pvars = List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts in
-  let pvars, p = of_term pvars e t in
+  let pvars, p = of_term pvars e t in (* XXX [t] can be a PVar *)
   let e = Tt.mk_lambda ~loc:Location.unknown xts e t in
     Print.debug "Created pattern %t from abstraction %t"
       (print_pattern [] (xts, p))
