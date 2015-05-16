@@ -398,7 +398,7 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
 and pattern_match ctx (xts, p) ?t e =
 
   let rec collect p ?t e =
-    let e = weak_whnf ctx e in
+    let e = whnf ctx e in
     collect_weak p ?t e
 
   and collect_weak p ?t ((e', loc) as e) =
