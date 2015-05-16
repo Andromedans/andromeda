@@ -521,7 +521,7 @@ and as_prod ctx t =
 
 let rec as_universal_eq ctx t =
   let rec fold ctx xus ys t =
-    let (Tt.Ty (t', loc)) as t = whnf_ty ctx t in
+    let (Tt.Ty (t', loc)) = whnf_ty ctx t in
     match t' with
 
     | Tt.Prod ([], _) ->
