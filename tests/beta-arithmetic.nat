@@ -1,0 +1,34 @@
+Parameter N : Type.
+Parameter Z : N.
+Parameter S : N -> N.
+
+Parameter plus : N -> N -> N.
+Parameter plus_Z : forall x : N, plus x Z == x.
+Parameter plus_S : forall x y : N, plus x (S y) == S (plus x y).
+
+Parameter times : N -> N -> N.
+Parameter times_Z : forall x : N, times x Z == Z.
+Parameter times_S : forall x y : N, times x (S y) == plus x (times x y).
+
+Let one :=   S Z.
+Let two :=   S (S Z).
+Let three := S (S (S Z)).
+Let four :=  S (S (S (S Z))).
+Let five :=  S (S (S (S (S Z)))).
+Let ten :=   S (S (S (S (S (S (S (S (S (S Z))))))))).
+
+Check
+  beta plus_Z in
+  beta plus_S in
+    refl (plus five four) :: plus four five == plus (plus two three) four.
+
+Check
+  beta plus_Z in
+  beta plus_S in
+    refl three :: three == plus one (plus one one).
+
+Check
+  beta plus_Z in
+  beta plus_S in
+  beta times_Z in
+    refl four :: four == times two two.

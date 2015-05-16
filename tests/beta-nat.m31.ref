@@ -1,0 +1,20 @@
+N is assumed.
+
+Z is assumed.
+
+S is assumed.
+
+plus is assumed.
+
+plus_Z is assumed.
+
+plus_S is assumed.
+
+Type
+      : Type
+refl (S (S Z))
+      : plus (S (S Z)) Z == S (S Z)
+refl (S (S Z))
+      : plus (S Z) (S Z) == S (S Z)
+fun (x : N) (y : N) => refl (S (S (plus x y)))
+      : forall (x : N) (y : N), plus x (S (S y)) == S (S (plus x y))
