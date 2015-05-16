@@ -9,11 +9,11 @@ and term' = private
     (** a lambda abstraction [fun (x1:A1) ... (xn:An) -> e : A] where
         [Ak] depends on [x1, ..., x{k-1}], while [e] and [A] depends on
         [x1, ..., xn] *)
-  | Spine of term * (term * ty, ty) abstraction
-    (** a spine [e [(x1,(e1,A1)); ..., (xn,(en,An))] : A] means that
-        [e] is applied to [e1, ..., en], and that the type of [e] has type
-        [forall (x1:A1) ... (xn:An), A]. Here again [Ak] depends on
-        [x1, ..., x{k-1}] and [A] depends on [x1, ..., xn]. *)
+  | Spine of term * (ty, ty) abstraction * term list
+  (** a spine [e ((x1 : t1) ..., (xn : tn) : t) e1 ... en] means that
+      [e] is applied to [e1, ..., en], and that the type of [e] is
+      [forall (x1 : t1) ... (xn : tn), t]. Here [tk] depends on
+      [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
   | Prod of (ty, ty) abstraction
     (** dependent product [forall (x1:A1) ... (xn:An), A], where [Ak] depends on
         [x1, ..., x{k-1}] and [A] depends on [x1, ..., xn]. *)
@@ -35,7 +35,7 @@ and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
 val mk_name: loc:Location.t -> Name.t -> term
 val mk_bound: loc:Location.t -> Syntax.bound -> term
 val mk_lambda: loc:Location.t -> (Name.t * ty) list -> term -> ty -> term
-val mk_spine: loc:Location.t -> term -> (Name.t * (term * ty)) list -> ty -> term
+val mk_spine: loc:Location.t -> term -> (Name.t * ty) list -> ty -> term list -> term
 val mk_type: loc:Location.t -> term
 val mk_type_ty: loc:Location.t -> ty
 val mk_prod: loc:Location.t -> (Name.t * ty) list -> ty -> term

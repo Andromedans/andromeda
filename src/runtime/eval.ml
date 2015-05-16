@@ -144,20 +144,20 @@ and spine ~loc ctx e t cs =
       | None -> Error.typing ~loc "an expression is applied but it is not a function"
     end
   in
-  let rec fold es xeus xts cs =
+  let rec fold es xus xts cs =
   match xts, cs with
   | xts, [] ->
       let u = Tt.mk_prod_ty ~loc xts t in
-      let e = Tt.mk_spine ~loc e xeus u
+      let e = Tt.mk_spine ~loc e xus u (List.rev es)
       and v = Tt.instantiate_ty es 0 u in
       (e, v)
-  | (x, t) :: xts, c :: cs ->
-      let e = check ctx c (Tt.instantiate_ty es 0 t) in
-      let u = t in
-      fold (e :: es) (xeus @ [(x, (e, u))]) xts cs
+  | (x,t)::xts, c::cs ->
+      let e = check ctx c (Tt.instantiate_ty es 0 t)
+      and u = t in
+      fold (e :: es) (xus @ [(x, u)]) xts cs
   | [], ((_ :: _) as cs) ->
-      let e = Tt.mk_spine ~loc e xeus t in
-      let t = Tt.instantiate_ty es 0 t in
+      let e = Tt.mk_spine ~loc e xus t (List.rev es)
+      and t = Tt.instantiate_ty es 0 t in
       spine ~loc ctx e t cs
   in
   fold [] [] xts cs

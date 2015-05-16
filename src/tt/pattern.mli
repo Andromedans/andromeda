@@ -1,9 +1,9 @@
 (** Pattern matching support for hints. *)
 
 (** The type of term patterns. *)
-type term =
+type term = private
   | PVar of Syntax.bound
-  | Spine of term * (term * Tt.ty, Tt.ty) Tt.abstraction
+  | Spine of term * (Tt.ty, Tt.ty) Tt.abstraction * term list
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty

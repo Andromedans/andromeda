@@ -2,7 +2,7 @@
 (** The type of term patterns. *)
 type term =
   | PVar of Syntax.bound
-  | Spine of term * (term * Tt.ty, Tt.ty) Tt.abstraction
+  | Spine of term * (Tt.ty, Tt.ty) Tt.abstraction * term list
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty
@@ -40,23 +40,24 @@ let rec of_term pvars ((e',loc) as e) t =
       | Some pvars -> pvars, PVar k
     end
 
-  | Tt.Spine (e, (xets, u)) ->
-    let rec fold pvars = function
-      | [] -> pvars, true, []
-      | (x, (e, t)) :: xets ->
+  | Tt.Spine (e, (xts, u), es) ->
+    let rec fold pvars all_terms es' xts es =
+      match xts, es with
+      | [], [] -> pvars, all_terms, List.rev es'
+      | (x, t) :: xts, e :: es ->
+        let t = Tt.instantiate_ty es 0 t in
         let pvars, e = of_term pvars e t in
-        let pvars, all_terms, xets = fold pvars xets in
         let all_terms = (match e with Term _ -> all_terms | _ -> false) in
-        let xets = (x, (e, t)) :: xets in
-        pvars, all_terms, xets
+        fold pvars all_terms (e::es') xts es
+      | ([],_::_) | (_::_,[]) ->
+        Error.impossible ~loc "malformed spine in Pattern.of_term"
     in
 
-    let xts = List.map (fun (x, (_, t)) -> x, t) xets in
     let pvars, e = of_term pvars e (Tt.ty (Tt.mk_prod ~loc xts u)) in
-    let pvars, all_terms, xets = fold pvars xets in
+    let pvars, all_terms, es = fold pvars true [] xts es in
     begin match all_terms, e with
       | true, Term _ -> original
-      | _, _ -> pvars, (Spine (e, (xets, u)))
+      | _, _ -> pvars, Spine (e, (xts, u), es)
     end
 
   | Tt.Eq (t, e1, e2) ->
@@ -76,11 +77,11 @@ let rec of_term pvars ((e',loc) as e) t =
       | _, _ -> pvars, (Refl (t', e))
     end
 
-and of_ty pvars (Tt.Ty t) : Syntax.bound list * ty =
+and of_ty pvars (Tt.Ty t) =
   let pvars, t = of_term pvars t Tt.typ in
   pvars, (Ty t)
 
-let rec print_term ?max_level (xs : Name.t list) e ppf =
+let rec print_term ?max_level xs e ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
       | Term (e, t) -> Tt.print_term ?max_level xs e ppf
@@ -95,7 +96,10 @@ let rec print_term ?max_level (xs : Name.t list) e ppf =
               print ~at_level:0 "?DEBRUIJN[%d]" k
         end
 
-      | Spine (e, a) -> print ~at_level:1 "%t" (print_spine xs e a)
+      | Spine (e, xts, es) ->
+        print ~at_level:1 "@[<hov 2>%t@ %t@]"
+          (print_term ~max_level:0 xs e)
+          (Print.sequence (print_term xs) "" es)
 
       | Eq (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
@@ -109,20 +113,6 @@ let rec print_term ?max_level (xs : Name.t list) e ppf =
           (print_term ~max_level:0 xs e)
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
-
-and print_spine xs e (yets, u) ppf =
-  let rec print_args ys yets ppf =
-    match yets with
-    | [] -> Print.print ppf ""
-    | (y,(e,_)) :: yets ->
-      let y = Name.refresh ys y in
-      Print.print ppf "@ %t%t"
-        (print_term ~max_level:0 ys e)
-        (print_args (y::ys) yets)
-  in
-    Print.print ppf "@[<hov 2>%t%t@]"
-      (print_term ~max_level:0 xs e)
-      (print_args xs yets)
 
 let print_beta_hint ?max_level xs (yts, (p, e)) ppf =
   let print_beta_body xs ppf =

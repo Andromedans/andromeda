@@ -31,8 +31,8 @@ and term' =
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
       [tk] depends on [x1, ..., x{k-1}], while [e] and [t] depend on
       [x1, ..., xn] *)
-  | Spine of term * (term * ty, ty) abstraction
-  (** a spine [e [(x1 : (e1, t1)); ..., (xn : (en, tn))] : t] means that
+  | Spine of term * (ty, ty) abstraction * term list
+  (** a spine [e ((x1 : t1) ..., (xn : tn) : t) e1 ... en] means that
       [e] is applied to [e1, ..., en], and that the type of [e] is
       [forall (x1 : t1) ... (xn : tn), t]. Here [tk] depends on
       [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
@@ -73,7 +73,7 @@ let mk_prod ~loc xts ((Ty e) as t) =
     | t -> Prod (xts, t), loc
     end
 
-let mk_spine ~loc e xets t = Spine (e, (xets, t)), loc
+let mk_spine ~loc e xts t es = Spine (e, (xts, t), es), loc
 let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
@@ -131,10 +131,11 @@ let rec instantiate es depth ((e',loc) as e) =
        let a = instantiate_abstraction instantiate_ty instantiate_term_ty es depth a
        in Lambda a, loc
 
-    | Spine (e, a) ->
+    | Spine (e, xtst, ds) ->
        let e = instantiate es depth e
-       and a = instantiate_abstraction instantiate_term_ty instantiate_ty es depth a
-       in Spine (e, a), loc
+       and xtst = instantiate_abstraction instantiate_ty instantiate_ty es depth xtst
+       and ds = List.map (instantiate es depth) ds
+       in Spine (e, xtst, ds), loc
 
     | Prod a ->
        let a = instantiate_abstraction instantiate_ty instantiate_ty es depth a
@@ -195,12 +196,13 @@ let rec abstract xs depth ((e',loc) as e) =
               abstract_ty abstract_term_ty
               xs depth a
     in Lambda a, loc
-  | Spine (e, a) ->
+  | Spine (e, xtst, es) ->
     let e = abstract xs depth e
-    and a = abstract_abstraction
-              abstract_term_ty abstract_ty
-              xs depth a
-    in Spine (e, a), loc
+    and xtst = abstract_abstraction
+                 abstract_ty abstract_ty
+                 xs depth xtst
+    and es = List.map (abstract xs depth) es
+    in Spine (e, xtst, es), loc
   | Prod a ->
     let a = abstract_abstraction
               abstract_ty abstract_ty
@@ -239,9 +241,10 @@ let rec occurs k (e',_) =
   | Name _ -> 0
   | Bound m -> if k = m then 1 else 0
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
-  | Spine (e, a) ->
+  | Spine (e, xtst, es) ->
     occurs k e +
-    occurs_abstraction occurs_term_ty occurs_ty k a
+    occurs_abstraction occurs_ty occurs_ty k xtst +
+    List.fold_left (fun i e -> i + occurs k e) 0 es
   | Prod a ->
     occurs_abstraction occurs_ty occurs_ty k a
   | Eq (t, e1, e2) ->
@@ -295,7 +298,7 @@ let rec print_term ?max_level xs (e,_) ppf =
 
       | Lambda a -> print ~at_level:3 "%t" (print_lambda xs a)
 
-      | Spine (e, a) -> print ~at_level:1 "%t" (print_spine xs e a)
+      | Spine (e, xtst, es) -> print ~at_level:1 "%t" (print_spine xs e xtst es)
 
       | Prod (ts, t) -> print ~at_level:3 "%t" (print_prod xs ts t)
 
@@ -347,29 +350,19 @@ and print_prod xs yus v ppf =
         (fun xs ppf -> Print.print ppf ",@ %t" (print_prod xs yus v))
         xs xus)
 
-and print_spine xs e (yets, u) ppf =
-  let rec print_args ys yets ppf =
-    match yets with
-    | [] -> if !Config.annotate
-            then Print.print ppf "%t" (print_annot (print_ty ys u))
-            else Print.print ppf ""
-    | (y,(e,t)) :: yets ->
-      let y = Name.refresh ys y in
-      if !Config.annotate
-      then
-        Print.print ppf "@ (%t@ @[<hv>%t :@ %t@])%t"
-          (print_term ~max_level:0 ys e)
-          (Name.print y)
-          (print_ty ys t)
-          (print_args (y::ys) yets)
-      else
-        Print.print ppf "@ %t%t"
-          (print_term ~max_level:0 ys e)
-          (print_args (y::ys) yets)
-  in
-    Print.print ppf "@[<hov 2>%t%t@]"
+and print_spine xs e (yts, u) es ppf =
+  let spine_noannot ppf =
+    Print.print ppf "@[<hov 2>%t@ %t@]"
       (print_term ~max_level:0 xs e)
-      (print_args xs yets)
+      (Print.sequence (print_term ~max_level:0 xs) "" es)
+  in
+  if !Config.annotate
+  then
+    Print.print ppf "(%t)%t"
+      spine_noannot
+      (print_annot (Name.print_binders print_ty (fun xs -> print_ty xs u) xs yts))
+  else
+    spine_noannot ppf
 
 and print_binder xs (x, t) ppf =
   Print.print ppf "(%t :@ %t)"

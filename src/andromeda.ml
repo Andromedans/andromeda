@@ -89,7 +89,7 @@ let rec exec_cmd interactive ctx c =
     let t = Eval.ty ctx c in
     let ctx =
       List.fold_left
-        (fun ctx x -> 
+        (fun ctx x ->
            let ctx = Context.add_free x t ctx in
            if interactive then Format.printf "%t is assumed.@\n" (Name.print x) ;
            ctx)

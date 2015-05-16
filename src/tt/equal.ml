@@ -33,9 +33,10 @@ let rec alpha_equal (e1,_) (e2,_) =
     | Tt.Lambda abs, Tt.Lambda abs' ->
       alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
 
-    | Tt.Spine (e, abs), Tt.Spine (e', abs') ->
+    | Tt.Spine (e, xts, es), Tt.Spine (e', xts', es') ->
       alpha_equal e e' &&
-      alpha_equal_abstraction alpha_equal_term_ty alpha_equal_ty abs abs'
+      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty xts xts' &&
+      alpha_equal_list alpha_equal es es'
 
     | Tt.Type, Tt.Type -> true
 
@@ -60,6 +61,13 @@ and alpha_equal_ty (Tt.Ty t1) (Tt.Ty t2) = alpha_equal t1 t2
 
 and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
 
+and alpha_equal_list equal_e es es' =
+  match es, es' with
+  | [], [] -> true
+  | e :: es, e' :: es' ->
+    equal_e e e' && alpha_equal_list equal_e es es'
+  | ([],_::_) | ((_::_),[]) -> false
+
 (** Indicate a mismatch during pattern matching -- only used locally and should
     never escape [pattern_match] below. *)
 exception NoMatch
@@ -75,17 +83,17 @@ let rec whnf_ty ctx (Tt.Ty t) =
 and weak_whnf ctx ((e', loc) as e) =
   let rec weak ((e', loc) as e) =
     begin match e' with
-      | Tt.Spine (e, ([], _)) -> weak e
+      | Tt.Spine (e, _, []) -> weak e
       | Tt.Lambda ([], (e, _)) -> weak e
       | Tt.Prod ([], Tt.Ty e) -> weak e
-      | Tt.Spine (e, ((_ :: _) as xets, t)) ->
+      | Tt.Spine (e, (xts, t), (_::_ as es)) ->
         begin
           let (e',eloc) as e = weak e in
           match e' with
           | Tt.Lambda (xus, (e, u)) ->
             begin
-              match beta ~loc:eloc ctx xus e u xets t with
-              | None -> Tt.mk_spine ~loc e xets t
+              match beta ~loc:eloc ctx xus e u xts t es with
+              | None -> Tt.mk_spine ~loc e xts t es
               | Some e -> weak e
             end
           | Tt.Name _
@@ -94,7 +102,7 @@ and weak_whnf ctx ((e', loc) as e) =
           | Tt.Prod _
           | Tt.Eq _
           | Tt.Refl _ ->
-            Tt.mk_spine ~loc e xets t
+            Tt.mk_spine ~loc e xts t es
           | Tt.Bound _ ->
             Error.impossible ~loc "de Bruijn encountered in whnf"
         end
@@ -133,43 +141,41 @@ and whnf ctx e =
   apply_beta (Context.beta_hints ctx)
 
 
-(** Beta reduction of [Lambda (xus, (e, u))] applies to arguments [yevs] at type [t].
+(** Beta reduction of [Lambda (xus, (e, u))] applies to arguments [es],
+    where [(yvs, t)] is the typing annotation for the application.
     Returns the resulting expression. *)
-and beta ~loc ctx xus e u yevs t =
-  let rec split xuvs es xus yevs =
-    match xus, yevs with
-    | [], _ | _, [] -> xuvs, es, xus, yevs
-    | (x,u)::xus, (_,(e,v))::yevs -> split (xuvs @ [(x,u,v)]) (e::es) xus yevs
+and beta ~loc ctx xus e u yvs t es =
+  let rec split xuvs es' xus yvs es =
+    match xus, yvs, es with
+    | ([], _, _) | (_, [], []) -> xuvs, es', xus, yvs, es
+    | (x,u)::xus, (_,v)::yvs, e::es -> split (xuvs @ [(x,u,v)]) (e::es') xus yvs es
+    | (_, [], _::_) | (_, _::_, []) -> Error.impossible ~loc "Equal.beta encountered an invalid spine"
   in
-  let xuvs, es, xus, yevs = split [] [] xus yevs
+  let xuvs, es', xus, yvs, es = split [] [] xus yvs es
   in
     (* [xuvs] is a list of triples [(x,u,v)] ready to be plugged into [equal_abstraction] *)
-    (* [es] is the list of arguments that we are plugging in *)
+    (* [es'] is the list of arguments that we are plugging in (reverse order from [es]) *)
     (* [xus] is the list of leftover abstraction arguments *)
-    (* [yevs] is the list of leftover arguments *)
-    (* XXX: optimization -- use the fact that one or both of [xus] and [yevs] are empty. *)
-    let yvs = List.map (fun (y, (_, v)) -> (y,v)) yevs in
+    (* [yvs, es] is the list of leftover arguments *)
+    (* XXX: optimization -- use the fact that one or both of [xus] and [yevs, es] are empty. *)
     let u' = Tt.mk_prod_ty ~loc xus u
     and t' = Tt.mk_prod_ty ~loc yvs t
     in
-      if equal_abstracted_ty ctx xuvs u' t'
-      then
-        (* Types match -- we can reduce *)
+      if not (equal_abstracted_ty ctx xuvs u' t')
+      then None (* The types did not match. *)
+      else (* Types match -- we can reduce *)
         let xus, (e, u) =
           Tt.instantiate_abstraction
             Tt.instantiate_ty Tt.instantiate_term_ty
-            es 0 (xus, (e, u))
-        and yevs, t =
+            es' 0 (xus, (e, u))
+        and yvs, t =
           Tt.instantiate_abstraction
-            Tt.instantiate_term_ty Tt.instantiate_ty
-            es 0 (yevs, t)
+            Tt.instantiate_ty Tt.instantiate_ty
+            es' 0 (yvs, t)
         in
         let e = Tt.mk_lambda ~loc xus e u in
-        let e = Tt.mk_spine ~loc e yevs t in
+        let e = Tt.mk_spine ~loc e yvs t es in
           Some e
-      else
-        (* The types did not match. *)
-        None
 
 (** Let [xuus] be the list [(x1,u1,u1'); ...; (xn,un,un')] where
     [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
@@ -216,16 +222,18 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
           equal_whnf ctx e1 e2 t
 
         | Tt.Prod (xus, u) ->
-            let rec fold ctx ys xyus =
+            let rec fold ctx ys es =
               begin function
-              | (x, (Tt.Ty (_, loc) as u)) :: xus ->
-                  let v = Tt.unabstract_ty ys 0 u in
+              | (x, ((Tt.Ty (_, loc)) as v)) :: xvs ->
+                  let v = Tt.unabstract_ty ys 0 v in
                   let y, ctx = Context.add_fresh x v ctx in
-                  fold ctx (ys @ [y]) (xyus @ [(x, (Tt.mk_name ~loc y, u))]) xus
+                  let e = Tt.mk_name ~loc y in
+                  fold ctx (y :: ys) (e :: es) xvs
               | [] ->
+                  let es = List.rev es in
                   let v = Tt.unabstract_ty ys 0 u
-                  and e1 = Tt.mk_spine ~loc:loc1 e1 xyus u
-                  and e2 = Tt.mk_spine ~loc:loc2 e2 xyus u
+                  and e1 = Tt.mk_spine ~loc:loc1 e1 xus u es
+                  and e2 = Tt.mk_spine ~loc:loc2 e2 xus u es
                   in equal ctx e1 e2 v
               end
             in fold ctx [] [] xus
@@ -277,8 +285,8 @@ and equal_whnf ctx e1 e2 t =
           in
           zip [] ctx (xus, xvs)
 
-      | Tt.Spine (e1, a1), Tt.Spine (e2, a2) ->
-          equal_spine ~loc:loc1 ctx e1 a1 e2 a2
+      | Tt.Spine (e1, xts1, es1), Tt.Spine (e2, xts2, es2) ->
+          equal_spine ~loc:loc1 ctx e1 (xts1, es1) e2 (xts2, es2)
 
       | Tt.Type, Tt.Type -> true
 
@@ -314,61 +322,60 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
      we first get them the way we need them. *)
   let rec collect_spines ab abs n ((e',_) as e) =
     match e' with
-    | Tt.Spine (e, ((xets, _) as a)) -> collect_spines a (ab :: abs) (n + List.length xets) e
+    | Tt.Spine (e, xts, es) -> collect_spines (xts,es) (ab :: abs) (n + List.length es) e
     | _ -> e, ab, abs, n
   in
-  let h1, a1, as1, n1 = collect_spines a1 [] (List.length (fst a1)) e1
-  and h2, a2, as2, n2 = collect_spines a2 [] (List.length (fst a2)) e2
+  let h1, a1, as1, n1 = collect_spines a1 [] (List.length (snd a1)) e1
+  and h2, a2, as2, n2 = collect_spines a2 [] (List.length (snd a2)) e2
   in
   n1 = n2 &&
   begin
-    let rec fold es1 es2 (xets1, u1) as1 (xets2, u2) as2 =
+    let rec fold es1 es2 ((xts1, u1), ds1) as1 ((xts2, u2), ds2) as2 =
 
-      match xets1, xets2 with
+      match (xts1, ds1), (xts2, ds2) with
 
-      | [], xets2 ->
+      | ([], []), (xts2, ds2) ->
         begin
           match as1 with
           | [] ->
             assert (as2 = []) ;
-            assert (xets2 = []) ;
+            assert (xts2 = []) ;
+            assert (ds2 = []) ;
             let u1 = Tt.instantiate_ty es1 0 u1
             and u2 = Tt.instantiate_ty es2 0 u2 in
             equal_ty ctx u1 u2 &&
             equal ctx h1 h2 u1
 
-          | (xets1, v1) :: as1 ->
-            let u1 = Tt.instantiate_ty es1 0 u1
-            and xts1 = List.map (fun (x, (_, t)) -> (x,t)) xets1 in
+          | ((xts1, v1), ds1) :: as1 ->
+            let u1 = Tt.instantiate_ty es1 0 u1 in
             let u1' = Tt.mk_prod_ty ~loc xts1 v1 in
               if equal_ty ctx u1 u1'
               then
                  (* we may flatten spines and proceed with equality check *)
-                 fold [] es2 (xets1, v1) as1 (xets2, u2) as2
+                 fold [] es2 ((xts1, v1), ds1) as1 ((xts2, u2), ds2) as2
               else
                  (* we may not flatten the spine *)
                  false (* XXX think what to do here really *)
         end
 
-      | (_::_) as xets1, [] ->
+      | (((_::_) as xts1), ((_::_) as ds1)), ([], []) ->
         begin
           match as2 with
           | [] -> assert false
 
-          | (xets2, v2) :: as2 ->
-            let u2 = Tt.instantiate_ty es2 0 u2
-            and xts2 = List.map (fun (x, (_, t)) -> (x,t)) xets2 in
+          | ((xts2, v2), ds2) :: as2 ->
+            let u2 = Tt.instantiate_ty es2 0 u2 in
             let u2' = Tt.mk_prod_ty ~loc xts2 v2 in
               if equal_ty ctx u2 u2'
               then
                  (* we may flatten spines and proceed with equality check *)
-                 fold es1 [] (xets1, u1) as1 (xets2, v2) as2
+                 fold es1 [] ((xts1, u1), ds1) as1 ((xts2, v2), ds2) as2
               else
                  (* we may not flatten the spine *)
                  false (* XXX think what to do here really *)
         end
 
-      | (x1,(e1,t1)) :: xets1, (x2,(e2,t2))::xets2 ->
+      | ((x1,t1) :: xts1, e1::ds1), ((x2,t2)::xts2, e2::ds2) ->
         let t1 = Tt.instantiate_ty es1 0 t1
         and t2 = Tt.instantiate_ty es2 0 t2 in
         equal_ty ctx t1 t2 &&
@@ -377,9 +384,11 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
           let es1 = e1 :: es1
           and es2 = e2 :: es2
           in
-            fold es1 es2 (xets1, u1) as1 (xets2, u2) as2
+            fold es1 es2 ((xts1, u1), ds1) as1 ((xts2, u2), ds2) as2
         end
 
+      | ([], _::_), _ | (_::_, []), _ | _, ([], _::_) | _, (_::_, []) ->
+        Error.impossible "Equal.equal_spine encountered an invalid spine"
     in
     fold [] [] a1 as1 a2 as2
   end
@@ -393,7 +402,7 @@ and pattern_match ctx (xts, p) ?t e =
     let e = weak_whnf ctx e in
     collect_weak p ?t e
 
-  and collect_weak p ?t e =
+  and collect_weak p ?t ((e', loc) as e) =
     match p with
     | Pattern.PVar k ->
       (* The type [t'] is the type given to the variable [k] in the binders
@@ -405,7 +414,7 @@ and pattern_match ctx (xts, p) ?t e =
         begin try
           (List.nth xts k)
         with Failure "nth" ->
-          Error.impossible "Encountered an unknown pattern variable in Pattern.collect"
+          Error.impossible ~loc "Pattern.collect encountered an unknown pattern variable"
         end in
       begin match t with
       | Some t -> [(k, (e, t'))], [CheckEqualTy (t', t)]
@@ -416,19 +425,18 @@ and pattern_match ctx (xts, p) ?t e =
         raise NoMatch
       end
 
-    | Pattern.Spine (pe, (pxets, u')) ->
-      let loc = snd e in
-      begin match fst e with
-        | Tt.Spine (e, (yeus, v)) ->
-          let yus = List.map (fun (y, (_, u)) -> y, u) yeus in
+    | Pattern.Spine (pe, (xts, u), pes) ->
+      begin match e' with
+        | Tt.Spine (e, (yus, v), es) ->
           let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc yus v)) e
-          and pvars_xets, checks_xets = collect_spine ~loc pxets u' yeus v in
-          pvars_e @ pvars_xets, checks_e @ checks_xets
+          and pvars_es, checks_es = collect_spine ~loc xts pes es in
+          pvars_e @ pvars_es,
+          (CheckEqualTy (Tt.mk_prod_ty ~loc xts u, Tt.mk_prod_ty ~loc yus v)) :: checks_e @ checks_es
         | _ -> raise NoMatch
       end
 
     | Pattern.Eq (pt, pe1, pe2) ->
-      begin match fst e with
+      begin match e' with
         | Tt.Eq (t, e1, e2) ->
           let pvars_t, checks_t = collect_ty pt t
           and pvars_e1, checks_e1 = collect pe1 e1 ~t
@@ -438,7 +446,7 @@ and pattern_match ctx (xts, p) ?t e =
       end
 
     | Pattern.Refl (pt, pe) ->
-      begin match fst e with
+      begin match e' with
         | Tt.Refl (t, e) ->
           let pvars_t, checks_t = collect_ty pt t
           and pvars_e, checks_e = collect pe e ~t
@@ -458,23 +466,19 @@ and pattern_match ctx (xts, p) ?t e =
       end
   and collect_ty (Pattern.Ty p) (Tt.Ty e) = collect p ~t:Tt.typ e
 
-  and collect_spine ~loc pxets u' xets u =
-    let rec fold xts' xts es pxets xets =
-      match pxets, xets with
-      | [], [] ->
-        let xts' = List.rev xts'
-        and xts  = List.rev xts in
-        let check_u = [CheckEqualTy (Tt.mk_prod_ty ~loc xts' u', Tt.mk_prod_ty ~loc xts u)]
-        in [], check_u
-      | (x',(pe,t'))::pxets, (x,(e,t))::xets ->
-        let pvars_e, checks_e = collect pe ~t:(Tt.instantiate_ty es 0 t) e
-        and pvars_xets, checks_xets = fold ((x',t)::xts') ((x,t)::xts) (e::es) pxets xets
-        in pvars_e @ pvars_xets, checks_e @ checks_xets
-      | ([],_::_) | (_::_,[]) ->
+  and collect_spine ~loc xts pes es =
+    let rec fold es' xts pes es =
+      match (xts, pes), es with
+      | ([], []), [] -> [], []
+      | ((x,t)::xts, pe::pes), e::es ->
+        let pvars_e, checks_e = collect pe ~t:(Tt.instantiate_ty es' 0 t) e
+        and pvars_es, checks_es = fold (e::es') xts pes es
+        in pvars_e @ pvars_es, checks_e @ checks_es
+      | ([],_::_), _ | ([], _), _::_ | (_::_, []), _ | (_::_, _), [] ->
         (** XXX be intelligent about differently nested but equally long spines *)
         raise NoMatch
     in
-    fold [] [] [] pxets xets
+    fold [] xts pes es
 
   in
 

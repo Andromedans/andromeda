@@ -24,13 +24,15 @@ h is assumed.
 refl (g (f x))
       : g (f x)
           == (fun (g0 : Y -> Z) =>
-                fun (f0 : X -> Y) => fun (x0 : X) => g0 (f0 x0)) g f x
+                fun (f0 : X -> Y) => fun (x0 : X) => g0 (f0 x0)) g f 
+               x
 refl (h (g (f x)))
       : (fun (g0 : Z -> W) => fun (f0 : X -> Z) => fun (x0 : X) => g0 (f0 x0))
           h
-          ((fun (g1 : Y -> Z) =>
-              fun (f0 : X -> Y) => fun (x0 : X) => g1 (f0 x0)) g f) x
+          ((fun (g0 : Y -> Z) =>
+              fun (f0 : X -> Y) => fun (x0 : X) => g0 (f0 x0)) g f) x
           == (fun (g0 : Y -> W) =>
                 fun (f0 : X -> Y) => fun (x0 : X) => g0 (f0 x0))
                ((fun (g0 : Z -> W) =>
-                   fun (f0 : Y -> Z) => fun (x0 : Y) => g0 (f0 x0)) h g) f x
+                   fun (f0 : Y -> Z) => fun (x0 : Y) => g0 (f0 x0)) h 
+                  g) f x

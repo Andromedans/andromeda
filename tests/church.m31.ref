@@ -56,8 +56,8 @@ refl ((fun (s : N -> N) =>
          fun (z : N) =>
            s
              ((fun (A : Type) =>
-                 fun (s0 : A -> A) => fun (z0 : A) => s0 (s0 (s0 z0))) N s z))
-        S Z)
+                 fun (s0 : A -> A) => fun (z0 : A) => s0 (s0 (s0 z0))) N s 
+                z)) S Z)
       : (fun (s : N -> N) =>
            fun (z : N) =>
              (fun (A : Type) => fun (s0 : A -> A) => fun (z0 : A) => s0 z0) N
@@ -71,7 +71,7 @@ refl ((fun (s : N -> N) =>
                       fun (z : A) =>
                         (fun (A0 : Type) =>
                            fun (s1 : A0 -> A0) => fun (z0 : A0) => s1 z0) A
-                          s0 (s0 z))) N
+                          s0 (s0 z)) ) N
                   ((fun (A : Type) =>
-                      fun (s0 : A -> A) => fun (z : A) => s0 (s0 z)) N s)) S
-               Z
+                      fun (s0 : A -> A) => fun (z : A) => s0 (s0 z)) N 
+                     s)) S Z
