@@ -6,8 +6,19 @@ fst is assumed.
 
 beta_fst is assumed.
 
-boa is defined.
+C is assumed.
 
-fun (C : Type) (D : Type) (c : C) (d : D) => refl (fst C D (pair C D (c ) d))
-      : forall (C : Type) (D : Type) (c : C) (d : D),
-          c == fst C D (pair C D c d)
+D is assumed.
+
+c is assumed.
+
+d is assumed.
+
+refl (fst C D (pair C D c d))
+      : c == fst C D (pair C D c d)
+refl (fst D C (pair D C d c))
+      : d == fst D C (pair D C d c)
+refl (fst C D (pair C D (c ) d))
+      : c == fst C D (pair C D c d)
+refl (fst C D (pair C D c d))
+      : c == fst C D (pair C D (c ) d)

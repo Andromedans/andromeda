@@ -9,20 +9,33 @@ Parameter fst :
 
 Parameter beta_fst :
   forall (U V : Type) (u : U) (v : V),
-    (fst U V (pair U V u v)) == u.
+    (fst V U (pair V U v u)) == v.
 
-(* fails for now *)
-(* compute the ascription: first compute the refl which yields that the refl *)
-(* has type t' = fst … == fst … , then check if it matches the ascribed type, *)
-(* which triggers Eq A (fst …) (fst …) =?= Eq A (fst …) a which should at some *)
-(* point ask (fst …) =?= a, which in turn tries to whnf (fst …), entering *)
-(* [whnf_spine] and [try_beta] with debugging time around 27790 *)
-Let boa :=
-  beta beta_fst in
-    (fun (C D : Type) (c : C) (d : D) =>
-       (refl (fst C D (pair C D ((fun (t : Type) (x : t) => x) C c) d)))
+Parameter C : Type.
+Parameter D : Type.
+Parameter c : C.
+Parameter d : D.
+
+(* just a pair *)
+Check beta beta_fst in
+    (refl (fst C D (pair C D c d)))
          ::
-         c == (fst C D (pair C D c d))
-).
+         c == (fst C D (pair C D c d)).
 
-Check boa.
+(* change the order of the parameters *)
+Check beta beta_fst in
+       (refl (fst D C (pair D C d c)))
+         ::
+         d == (fst D C (pair D C d c)).
+
+(* add a lambda redex in the proof *)
+Check beta beta_fst in
+    (refl (fst C D (pair C D ((fun (t : Type) (x : t) => x) C c) d)))
+         ::
+         c == (fst C D (pair C D c d)).
+
+(* add a lambda redex in the type *)
+Check beta beta_fst in
+    (refl (fst C D (pair C D c d)))
+         ::
+         c == (fst C D (pair C D ((fun (t : Type) (x : t) => x) C c) d)).
