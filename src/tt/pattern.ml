@@ -1,8 +1,11 @@
+(** Spine patterns must start with a [name]. *)
+type name = Name.t
 
 (** The type of term patterns. *)
 type term =
   | PVar of Syntax.bound
-  | Spine of term * (Tt.ty, Tt.ty) Tt.abstraction * term list
+  | Name of name
+  | Spine of name * (Tt.ty, Tt.ty) Tt.abstraction * term list
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty
@@ -17,6 +20,8 @@ type beta_hint = (Tt.ty, term * Tt.term) Tt.abstraction
 
 type eta_hint = unit
 
+let name x = Name x
+
 (** Attempt to remove [x] from list [xs]. *)
 let rec remove_bound x xs =
   match xs with
@@ -25,6 +30,18 @@ let rec remove_bound x xs =
     if x = y
     then Some ys
     else (match remove_bound x ys with None -> None | Some ys -> Some (y :: ys))
+
+let name_of_term ((e', loc) as e) : name =
+  match e' with
+   | Tt.Name x -> x
+   | Tt.Type | Tt.Bound _ | Tt.Lambda _ | Tt.Spine (_,_,_) | Tt.Prod _
+   | Tt.Eq (_,_,_) | Tt.Refl (_,_) ->
+     Error.runtime
+       (* XXX probably the wrong location *)
+       ~loc
+       "Illegal pattern detected: Found a term %t that is not a name at the\
+        head of an application"
+       (Tt.print_term [] e)     (* XXX this is evil, the names are missing *)
 
 (** Convert a term [e] of type [t] to a pattern with respect to the
     given bound variables [pvars]. *)
@@ -53,11 +70,12 @@ let rec of_term pvars ((e',loc) as e) t =
         Error.impossible ~loc "malformed spine in Pattern.of_term"
     in
 
-    let pvars, e = of_term pvars e (Tt.ty (Tt.mk_prod ~loc xts u)) in
+    let e = name_of_term e in
     let pvars, all_terms, es = fold pvars true [] xts es in
-    begin match all_terms, e with
-      | true, Term _ -> original
-      | _, _ -> pvars, Spine (e, (xts, u), es)
+    (* if [name_of_term] came back then e is a name and thus a Tt.term *)
+    begin if all_terms
+      then original
+      else pvars, Spine (e, (xts, u), es)
     end
 
   | Tt.Eq (t, e1, e2) ->
@@ -81,6 +99,8 @@ and of_ty pvars (Tt.Ty t) =
   let pvars, t = of_term pvars t Tt.typ in
   pvars, (Ty t)
 
+let print_name = Name.print
+
 let rec print_term ?max_level xs e ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
@@ -96,9 +116,13 @@ let rec print_term ?max_level xs e ppf =
               print ~at_level:0 "?DEBRUIJN[%d]" k
         end
 
+      | Name x ->
+        (* XXX check this *)
+        print_name x ppf
+
       | Spine (e, xts, es) ->
         print ~at_level:1 "@[<hov 2>%t@ %t@]"
-          (print_term ~max_level:0 xs e)
+          (print_name e)
           (Print.sequence (print_term ~max_level:0 xs) "" es)
 
       | Eq (t, e1, e2) ->

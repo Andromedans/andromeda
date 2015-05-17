@@ -1,9 +1,13 @@
 (** Pattern matching support for hints. *)
 
+(** Spine patterns must start with a [name]. *)
+type name = Name.t
+
 (** The type of term patterns. *)
 type term = private
   | PVar of Syntax.bound
-  | Spine of term * (Tt.ty, Tt.ty) Tt.abstraction * term list
+  | Name of name
+  | Spine of name * (Tt.ty, Tt.ty) Tt.abstraction * term list
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty
@@ -17,6 +21,9 @@ type t = (Tt.ty, term) Tt.abstraction
 type beta_hint = (Tt.ty, term * Tt.term) Tt.abstraction
 
 type eta_hint = unit
+
+(** Wrap a name as a pattern *)
+val name : name -> term
 
 (** Given a term [e] of type [t] in abstraction [xts] (that is, the first argument is [(xts, (e,t))]),
     return a list [pvars] and a pattern [p]. The list contains those bound variables which will never

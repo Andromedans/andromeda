@@ -403,6 +403,11 @@ and pattern_match ctx (xts, p) ?t e =
 
   and collect_weak p ?t ((e', loc) as e) =
     match p with
+    | Pattern.Name x' ->
+      begin match e' with
+      | Tt.Name x -> if Name.eq x' x then [], [] else raise NoMatch
+      | _ -> raise NoMatch
+      end
     | Pattern.PVar k ->
       begin match t with
       | Some t -> [(k, (e, t))], []
@@ -416,7 +421,7 @@ and pattern_match ctx (xts, p) ?t e =
     | Pattern.Spine (pe, (xts, u), pes) ->
       begin match e' with
         | Tt.Spine (e, (yus, v), es) ->
-          let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc yus v)) e
+          let pvars_e, checks_e = collect (Pattern.name pe) ~t:(Tt.ty (Tt.mk_prod ~loc yus v)) e
           and pvars_es, checks_es = collect_spine ~loc xts pes es
           and t1 = Tt.mk_prod_ty ~loc xts u
           and t2 = Tt.mk_prod_ty ~loc yus v in
