@@ -1,3 +1,5 @@
+(require 'coq)
+
 (setq m31-comint-filters
       '((lambda (s)
           (replace-regexp-in-string "^ocd " "(ocd) " s))
@@ -22,7 +24,11 @@
 
 (defun m31-ocamldebug nil
   (interactive)
-  (ocamldebug (concat default-directory "andromeda.d.byte"))
+  (ocamldebug
+   (concat
+    (locate-dominating-file
+     buffer-file-name
+     ".dir-locals.el") "andromeda.d.byte"))
   (mapc
    (lambda (f)
      (add-hook 'comint-preoutput-filter-functions f nil t))
@@ -32,6 +38,8 @@
   (comint-send-string (get-buffer-process (current-buffer))
                       "source etc/debug-current\n"))
 
+(define-derived-mode andromeda-mode coq-mode "m31")
+(add-to-list 'auto-mode-alist '("\\.m31\\'" . andromeda-mode))
 
 (defun m31-send-current-statement nil
   (interactive)
@@ -59,3 +67,7 @@
       "
 "))))
 ;; (buffer-local-set-key (kbd "C-M-x") 'm31-send-current-statement)
+
+
+(provide 'andromeda)
+;;; andromeda.el ends here
