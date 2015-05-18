@@ -1,0 +1,21 @@
+(* The definition of nautral numbers. *)
+
+Parameter N : Type.
+Parameter Z : N.
+Parameter S : N -> N.
+
+Parameter rec_N :
+  forall P : N -> Type, P Z -> (forall n : N, P n -> P (S n)) -> forall m : N, P m.
+
+Parameter rec_N_Z :
+  forall (P : N -> Type) (x : P Z) (f : forall n : N, P n -> P (S n)),
+    rec_N P x f Z == x.
+
+Parameter rec_N_S :
+  forall (P : N -> Type) (x : P Z) (f : forall n : N, P n -> P (S n)) (m : N),
+    rec_N P x f (S m) == f m (rec_N P x f m).
+
+(* Can we prove the following from these axioms? *)
+Parameter rec_N_eta_2 :
+  forall (P : N -> Type) (f g : forall n : N, P n),
+    (f Z == g Z) -> (forall n : N, f n == g n -> f (S n) == g (S n)) -> f == g.

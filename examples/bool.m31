@@ -1,0 +1,16 @@
+(** The definition of booleans. *)
+
+Parameter bool : Type.
+Parameter true false : bool.
+
+Parameter ind_bool :
+  forall (P : bool -> Type) (x : P true) (y : P false) -> forall b : bool, P b.
+
+Parameter ind_bool_true :
+  forall (P : bool -> Type) (x : P true) (y : P false) -> ind_bool P x y true == x.
+
+Parameter ind_bool_false :
+  forall (P : bool -> Type) (x : P true) (y : P false) -> ind_bool P x y false == y.
+
+Parameter ind_bool_eta :
+  forall (P : bool -> Type)
