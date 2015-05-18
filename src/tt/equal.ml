@@ -122,10 +122,12 @@ and weak_whnf ctx ((e', loc) as e) =
     Here we use available beta hints. *)
 and whnf ctx e =
   let e = weak_whnf ctx e in
+  let xs = Context.used_names ctx in
+  Print.debug "trying beta hints for %t"
+    (Tt.print_term xs e);
   let rec apply_beta = function
     | [] -> e
     | ((xts, (p, e')) as h) :: hs ->
-      let xs = Context.used_names ctx in
       begin match pattern_match ctx (xts,p) e with
         | None -> apply_beta hs
         | Some es ->
