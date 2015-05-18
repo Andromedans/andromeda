@@ -1,0 +1,7 @@
+Parameter A : Type.
+Parameter B : Type.
+Parameter a : A.
+Parameter beta_A_B : A == B.
+Check
+    beta beta_A_B in
+    a :: B.
