@@ -52,6 +52,8 @@ let rec comp ctx (c',loc) =
     let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
     let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
     let ctx = Context.add_beta h ctx in
+    Print.debug "Installed beta hint %t"
+      (Pattern.print_beta_hint [] h);
       comp ctx c
 
   | Syntax.Eta (e, c) ->
