@@ -1,0 +1,90 @@
+Parameter A : Type.
+Parameter B : A -> Type.
+Parameter a : A.
+Parameter b : B a.
+
+
+Parameter sigT : forall (A : Type) (B : A -> Type), Type.
+Parameter existT : forall (A : Type) (B : A -> Type) (a : A),
+    (B a) -> sigT A B.
+
+Parameter projT1 : forall (A : Type) (B : A -> Type), sigT A B -> A.
+Parameter projT2 : forall (A : Type) (B : A -> Type) (p : sigT A B),
+    B (projT1 A B p).
+
+Parameter projT1_beta : forall (A : Type) (B : A -> Type) (a : A) (b : B a),
+    (projT1 A B (existT A B a b) == a).
+
+Check projT1_beta.
+
+Check
+  beta projT1_beta in
+    refl a :: projT1 A B (existT A B a b) == a.
+
+Parameter projT2_beta :
+  beta projT1_beta in
+    forall (A : Type) (B : A -> Type) (a : A) (b : B a),
+      projT2 A B (existT A B a b) == b.
+
+Check
+  beta projT1_beta in
+    beta projT2_beta in
+    refl b :: projT2 A B (existT A B a b) == b.
+
+Parameter sig_ind :
+  forall (A : Type) (B : A -> Type)
+         (P : sigT A B -> Type)
+         (f : forall (a : A) (b : B a), P (existT A B a b))
+         (s : sigT A B),
+    P s.
+
+Parameter sig_ind_beta :
+  forall (A : Type) (B : A -> Type)
+         (P : sigT A B -> Type)
+         (f : forall (a : A) (b : B a), P (existT A B a b))
+         (a : A) (b : B a),
+    sig_ind A B P f
+            (existT A B
+                    a
+                    b)
+    == f a b.
+
+Let projT1' :=
+  fun (A : Type) (B : A -> Type) (s : sigT A B) =>
+    sig_ind A B
+            (fun (_ : sigT A B) => A)
+            ((fun (X : Type) (Y : X -> Type)(x : X) (y : Y x) => x) A B)
+            s.
+
+Check projT1'.
+
+Check
+  beta sig_ind_beta in
+    refl a ::
+         a ==
+    (projT1' A B (existT A B a b)).
+
+
+Check
+  beta projT1_beta in
+    beta sig_ind_beta in
+    refl a ::
+         (projT1 A B (existT A B a b)) ==
+    (projT1' A B (existT A B a b)).
+
+Let projT2' :=
+  fun (A : Type) (B : A -> Type) (s : sigT A B) =>
+    beta sig_ind_beta in
+      sig_ind A B
+              (fun (s : sigT A B) =>
+                 B (projT1' A B s))
+              (fun (x : A) (y : B x) => y)
+              s.
+
+Check
+  beta projT1_beta in
+    beta projT2_beta in
+    beta sig_ind_beta in
+    refl b ::
+         (projT2 A B (existT A B a b)) ==
+    (projT2' A B (existT A B a b)).
