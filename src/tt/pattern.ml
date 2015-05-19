@@ -58,20 +58,20 @@ let rec of_term pvars ((e',loc) as e) t =
     end
 
   | Tt.Spine (e, (xts, u), es) ->
-    let rec fold pvars all_terms es' xts es =
-      match xts, es with
-      | [], [] -> pvars, all_terms, List.rev es'
-      | (x, t) :: xts, e :: es ->
-        let t = Tt.instantiate_ty es 0 t in
-        let pvars, e = of_term pvars e t in
-        let all_terms = (match e with Term _ -> all_terms | _ -> false) in
-        fold pvars all_terms (e::es') xts es
+    let rec fold pvars all_terms args_so_far ps xts args_left =
+      match xts, args_left with
+      | [], [] -> pvars, all_terms, List.rev ps
+      | (x, t) :: xts, e :: args_left ->
+        let t = Tt.instantiate_ty args_so_far 0 t in
+        let pvars, p = of_term pvars e t in
+        let all_terms = (match p with Term _ -> all_terms | _ -> false) in
+        fold pvars all_terms (e::args_so_far) (p::ps) xts args_left
       | ([],_::_) | (_::_,[]) ->
         Error.impossible ~loc "malformed spine in Pattern.of_term"
     in
 
     let e = name_of_term e in
-    let pvars, all_terms, es = fold pvars true [] xts es in
+    let pvars, all_terms, es = fold pvars true [] [] xts es in
     (* if [name_of_term] came back then e is a name and thus a Tt.term *)
     begin if all_terms
       then original
