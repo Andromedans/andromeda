@@ -57,7 +57,14 @@ let rec comp ctx (c',loc) =
       comp ctx c
 
   | Syntax.Eta (e, c) ->
-    Error.fatal "eta hints not implemented"
+    let (_, t) = expr ctx e in
+    let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+    let h = Pattern.make_eta_hint ~loc (xts, (t, e1, e2)) in
+    let ctx = Context.add_eta h ctx in
+    Print.debug "Installed eta hint %t"
+      (Pattern.print_eta_hint [] h);
+      comp ctx c
+
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t

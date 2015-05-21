@@ -69,7 +69,7 @@ and alpha_equal_list equal_e es es' =
   | ([],_::_) | ((_::_),[]) -> false
 
 (** Indicate a mismatch during pattern matching -- only used locally and should
-    never escape [pattern_match] below. *)
+    never escape [verify_match] or [collect_for_XXX] below. *)
 exception NoMatch
 
 (** The whnf of a type [t] in context [ctx]. *)
@@ -77,9 +77,13 @@ let rec whnf_ty ctx (Tt.Ty t) =
   let t = whnf ctx t
   in Tt.ty t
 
-(** The weak whnf of a term [e] is obtained by ignoring the beta hints.
-    Essentially, it computes a form of [e] that is suitable for pattern-matching
-  of the top-level constructor of [e]. *)
+(** The "weak weak" head-normal form of a term [e] is obtained by ignoring the
+    beta hints, sort of. They still get used in beta reductions for comparing
+    the typing annotations. So it is a bit unclear what termination properties
+    [weak_whnf] might have. There might be a tricky case in which we cycle
+    because [beta_reduce] triggers [whnf] which triggers [weak_whnf].
+    The important point is that it computes a form of [e] that is suitable
+    for pattern-matching of the top-level constructor of [e]. *)
 and weak_whnf ctx ((e', loc) as e) =
   let rec weak ((e', loc) as e) =
     begin match e' with
@@ -92,7 +96,7 @@ and weak_whnf ctx ((e', loc) as e) =
           match e' with
           | Tt.Lambda (xus, (e, u)) ->
             begin
-              match beta ~loc:eloc ctx xus e u xts t es with
+              match beta_reduce ~loc:eloc ctx xus e u xts t es with
               | None -> Tt.mk_spine ~loc e xts t es
               | Some e -> weak e
             end
@@ -128,29 +132,37 @@ and whnf ctx e =
   let rec apply_beta = function
     | [] -> e
     | ((xts, (p, e')) as h) :: hs ->
-      begin match pattern_match ctx (xts,p) e with
-        | None -> apply_beta hs
-        | Some es ->
-          let e' = Tt.instantiate es 0 e' in
-          Print.debug "beta hint %t matches %t, we get %t"
-            (Pattern.print_beta_hint xs h)
-            (Tt.print_term xs e)
-            (Tt.print_term xs e') ;
-          whnf ctx e'
+      (* Here we use beta hints. First we match [p] against [e]. *)
+      begin match collect_for_beta ctx p e with
+        | None -> apply_beta hs (* did not match, try other hints *)
+        | Some (pvars, checks) ->
+          (* we have a match, still need to verify validity of match *)
+          begin match verify_match ~spawn:false ctx xts pvars checks with
+            | None -> apply_beta hs (* not valid, try other hints *)
+            | Some es ->
+              (* success *)
+              let e' = Tt.instantiate es 0 e' in
+              Print.debug "beta hint %t matches %t, we get %t"
+                (Pattern.print_beta_hint xs h)
+                (Tt.print_term xs e)
+                (Tt.print_term xs e') ;
+              whnf ctx e'
+          end
       end
   in
   apply_beta (Context.beta_hints ctx)
 
 
-(** Beta reduction of [Lambda (xus, (e, u))] applies to arguments [es],
+(** Beta reduction of [Lambda (xus, (e, u))] applied to arguments [es],
     where [(yvs, t)] is the typing annotation for the application.
     Returns the resulting expression. *)
-and beta ~loc ctx xus e u yvs t es =
+and beta_reduce ~loc ctx xus e u yvs t es =
   let rec split xuvs es' xus yvs es =
     match xus, yvs, es with
     | ([], _, _) | (_, [], []) -> xuvs, es', xus, yvs, es
     | (x,u)::xus, (_,v)::yvs, e::es -> split (xuvs @ [(x,u,v)]) (e::es') xus yvs es
-    | (_, [], _::_) | (_, _::_, []) -> Error.impossible ~loc "Equal.beta encountered an invalid spine"
+    | (_, [], _::_) | (_, _::_, []) ->
+      Error.impossible ~loc "Equal.beta_reduce encountered an invalid spine"
   in
   let xuvs, es', xus, yvs, es = split [] [] xus yvs es
   in
@@ -211,7 +223,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
  alpha_equal e1 e2 ||
     (* xxx should check general equality hints here *)
     begin (* type-directed phase *)
-      let Tt.Ty ((t',_) as t) = whnf_ty ctx t in
+      let (Tt.Ty (t',_)) as t = whnf_ty ctx t in
       match t' with
 
         | Tt.Type ->
@@ -219,8 +231,27 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Tt.Name _
         | Tt.Spine _ ->
-          (** XXX first attempt to use eta hints *)
-          equal_whnf ctx e1 e2 t
+          (** Here we apply eta hints. *)
+          begin
+            let rec fold = function
+
+              | [] ->
+                (* no hints apply, proceed with normalization phase *)
+                equal_whnf ctx e1 e2 t
+
+              |  (xts, (pe1, pe2, pt)) :: hs ->
+                begin match collect_for_eta ctx (pe1, pe2, pt) (e1, e2, t) with
+                  | None -> fold hs (* no match, try other hints *)
+                  | Some (pvars, checks) ->
+                    (* check validity of the match *)
+                    begin match verify_match ~spawn:true ctx xts pvars checks with
+                      | Some _ -> true (* success - notice how we throw away the witness of success *)
+                      | None -> fold hs (* no match on this hint, try the rest *)
+                    end
+                end
+
+            in fold (Context.eta_hints ctx)
+          end
 
         | Tt.Prod (xus, u) ->
             let rec fold ctx ys es =
@@ -394,16 +425,24 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
     fold [] [] a1 as1 a2 as2
   end
 
-(** Match pattern [p] and expression [e] which has a type.
-    The type may or may not be given. It is assumed that [e]
-    is already in the weak whnf form. *)
-and pattern_match ctx (xts, p) ?t e =
+(** [pattern_collect ctx p ?t e] matches pattern [p] against term [e]
+    of possibly given type [t]. It is assumed that [e] is in weak-head
+    normal form.
 
+    It outputs two lists [pvars] and [checks].
+    The list [pvars] maps pattern variables to the terms they were
+    matched against. The list [checks] contains equalities which
+    must be verified before the match is considered valid.
+    It raises [NoMatch] if there is a mismatch. *)
+and pattern_collect ctx p ?at_ty e =
+  (* Collect from [e] but put it in whnf first. *)
   let rec collect p ?t e =
+    Print.debug "collecting %t" (Tt.print_term [] e) ;
     let e = whnf ctx e in
-    collect_weak p ?t e
+      collect_whnf p ?t e
 
-  and collect_weak p ?t ((e', loc) as e) =
+  (* Colect from [e] assuming it is in whnf. *)
+  and collect_whnf p ?t ((e', loc) as e) =
     match p with
     | Pattern.Name x' ->
       begin match e' with
@@ -415,8 +454,9 @@ and pattern_match ctx (xts, p) ?t e =
       | Some t -> [(k, (e, t))], []
       | None ->
         (** We only get here if the caller of [pattern_match] does not provide
-            [t] _and_ we hit a variable as the first pattern. This can happen
-            if someone installed a useless beta hint, for example. *)
+            [t] _and_ we hit a variable as top-most pattern. This can happen
+            if someone installed a useless beta hint, for example. So maybe
+            a warning is warnted at this point. *)
         raise NoMatch
       end
 
@@ -461,8 +501,11 @@ and pattern_match ctx (xts, p) ?t e =
               to be able to rewrite constants (names). *)
           [], [CheckAlphaEqual (e', e)]
       end
+
+  (* Collect from a type. *)
   and collect_ty (Pattern.Ty p) (Tt.Ty e) = collect p ~t:Tt.typ e
 
+  (* Collect pattern variables from a spine. *)
   and collect_spine ~loc xts pes es =
     let rec fold es' xts pes es =
       match (xts, pes), es with
@@ -478,26 +521,83 @@ and pattern_match ctx (xts, p) ?t e =
     fold [] xts pes es
 
   in
+  collect_whnf p ?t:at_ty e
 
+and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
+  pattern_collect ctx p ~at_ty:Tt.typ e
+
+and collect_for_beta ctx p e =
+  try
+    Some (pattern_collect ctx p e)
+  with NoMatch -> None
+
+and collect_for_eta ctx (pe1, pe2, pt) (e1, e2, (t : Tt.ty)) =
+  try
+    let pvars_t,  checks_t  = pattern_collect_ty ctx pt t
+    and pvars_e1, checks_e1 = pattern_collect ctx pe1 ~at_ty:t e1
+    and pvars_e2, checks_e2 = pattern_collect ctx pe2 ~at_ty:t e2 in
+      Some (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
+  with NoMatch -> None
+
+(** Match pattern [p] and whnf expression [e] which is known
+    to have a type. The type may or may not be given. If the
+    type is given then we are able to match a bare pattern
+    variable against [e], otherwise the pattern [p] must be
+    structured so that we can bootstrap types by looking at
+    the typing annotations.
+
+    The [spawn] flag tells whether we should spawn an equality
+    check when we encounter an unmatched pattern variables
+    whose type is an equality type. For an eta hint [spawn]
+    would be true, but for a beta hint it would be false.
+    It would be interesting to consider what happens if
+    [spawn] is set to true in beta hints. Do we cycle?
+*)
+and verify_match ~spawn ctx xts pvars checks =
+  (* Silly auxiliary function. *)
+  let rec lookup x = function
+    | [] -> None
+    | (y,z)::lst -> if x = y then Some z else lookup x lst
+  in
+
+  (* Create a substitution from an association list mapping
+     pattern variables to their values. As you go, check that
+     the types of pattern variables are equal to the ones found
+     by the pattern match. Raise [NoMatch] if an unbound pattern
+     variable is encoutered. *)
   let rec subst_of_pvars ctx pvars k xts es =
     match xts with
     | [] -> es
     | (_,t) :: xts ->
-      begin
-        try
-          let (e, t') = List.assoc k pvars in
+      begin match lookup k pvars with
+
+        | Some (e,t') ->
+          (* Pattern variable [k] is matched to [e] of type [t'].
+             We need to verify that [t] and [t'] are equal. *)
           let t = Tt.instantiate_ty es 0 t in
           Print.debug "matching: compare %t and %t" (Tt.print_ty [] t) (Tt.print_ty [] t') ;
           if not (equal_ty ctx t t')
           then raise NoMatch
           else subst_of_pvars ctx pvars (k-1) xts (e :: es)
-        with Not_found -> raise NoMatch
+
+        | None ->
+          (* Pattern variable [k] was not matched. *)
+          if not spawn
+          then raise NoMatch (* give up *)
+          else begin
+            (* Try to inhabit the type [t]. *)
+            let t = Tt.instantiate_ty es 0 t in
+            match inhabit ctx t with
+              | None -> raise NoMatch (* didn't work *)
+              | Some e -> subst_of_pvars ctx pvars (k-1) xts (e :: es)
+          end
       end
   in
 
   try
-    let pvars, checks = collect_weak p ?t e in
+    (* Make a substitution from the collected [pvars] *)
     let es = subst_of_pvars ctx pvars (List.length xts - 1) xts [] in
+    (* Perform the equality checks to validate the match *)
     List.iter
       (function
         | CheckEqual (e1, e2, t) ->
@@ -516,8 +616,9 @@ and pattern_match ctx (xts, p) ?t e =
           and e2 = Tt.instantiate es 0 e2 in
           if not (alpha_equal e1 e2) then raise NoMatch)
       checks ;
+    (* matching succeeded *)
     Some es
-  with NoMatch -> None
+  with NoMatch -> None (* matching failed *)
 
 and as_prod ctx t =
   let Tt.Ty (t', loc) = whnf_ty ctx t in
@@ -525,6 +626,42 @@ and as_prod ctx t =
   | Tt.Prod ((_ :: _, _) as a) -> Some a
   | _ -> None
 
+(** Try to inhabit the given type [t]. At the moment we only know how
+    to inhabit universally quantified types. In the future this could
+    be a computational effect that would lead to general proof search. *)
+and inhabit ctx t =
+  let Tt.Ty (t', loc) as t = whnf_ty ctx t in
+  match t' with
+    | Tt.Prod (xts', t') ->
+      let rec fold ctx ys = function
+        | [] ->
+          let t' = Tt.unabstract_ty ys 0 t in
+          begin match inhabit ctx t with
+            | None -> None
+            | Some e ->
+              let e = Tt.abstract ys 0 e in
+              let e = Tt.mk_lambda ~loc xts' e t' in
+              Some e
+          end
+        | (x,t)::xts ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let y, ctx = Context.add_fresh x t ctx in
+            fold ctx (y :: ys) xts
+      in
+        fold ctx [] xts'
+    | Tt.Eq (t, e1, e2) ->
+      if equal ctx e1 e2 t
+      then
+        let e = Tt.mk_refl ~loc t e1 in
+        Some e
+      else None
+
+    | Tt.Name _
+    | Tt.Spine _
+    | Tt.Bound _
+    | Tt.Lambda _
+    | Tt.Refl _
+    | Tt.Type -> None
 
 let rec as_universal_eq ctx t =
   let rec fold ctx xus ys t =

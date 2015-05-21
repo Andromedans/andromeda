@@ -18,7 +18,7 @@ type t = (Tt.ty, term) Tt.abstraction
 
 type beta_hint = (Tt.ty, term * Tt.term) Tt.abstraction
 
-type eta_hint = unit
+type eta_hint = (Tt.ty, term * term * ty) Tt.abstraction
 
 let name x = Name x
 
@@ -44,7 +44,9 @@ let name_of_term ((e', loc) as e) : name =
        (Tt.print_term [] e)     (* XXX this is evil, the names are missing *)
 
 (** Convert a term [e] of type [t] to a pattern with respect to the
-    given bound variables [pvars]. *)
+    given bound variables [pvars]. That is, the bound variables from [pvars]
+    are treated as pattern variables. Return the list of those [pvars] that
+    were not encoutered, and the pattern generated. *)
 let rec of_term pvars ((e',loc) as e) t =
   let original = pvars, Term (e,t) in
   match e' with
@@ -146,6 +148,15 @@ let print_beta_hint ?max_level xs (yts, (p, e)) ppf =
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_beta_body xs yts)
 
+let print_eta_hint ?max_level xs (yts, (pe1, pe2, pt)) ppf =
+  let print_eta_body xs ppf =
+    Print.print ppf "@ =>@ @[<hov 2>%t ==[%t] %t@]"
+      (print_term xs pe1)
+      (print_ty xs pt)
+      (print_term xs pe2)
+  in
+  Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_eta_body xs yts)
+
 let print_pattern ?max_level xs (xts, p) ppf =
   Print.print ?max_level ppf "@[%t@]"
     (Name.print_binders
@@ -153,17 +164,13 @@ let print_pattern ?max_level xs (xts, p) ppf =
        (fun xs ppf -> Print.print ppf "@ =>@ @[<hov 2>%t@]" (print_term xs p))
        xs xts)
 
-let make (xts, (e, t)) =
-  let _, pvars = List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts in
-  let pvars, p = of_term pvars e t in (* XXX [t] can be a PVar *)
-  let e = Tt.mk_lambda ~loc:Location.unknown xts e t in
-    Print.debug "Created pattern %t from abstraction %t"
-      (print_pattern [] (xts, p))
-      (Tt.print_term [] e) ;
-    pvars, p
+(** given an abstraction [xts] with [n] elements, return the list [[0,...,{n-1}]]. *)
+let pvars_of_binders xts =
+  snd (List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts)
 
 let make_beta_hint ~loc (xts, (t, e1, e2)) =
-  let pvars, p = make (xts, (e1, t)) in
+  let pvars = pvars_of_binders xts in
+  let pvars, p = of_term pvars e1 t in
     match pvars with
       | [] -> (xts, (p, e2))
       | _ :: _ ->
@@ -171,3 +178,15 @@ let make_beta_hint ~loc (xts, (t, e1, e2)) =
         Error.runtime ~loc "the beta hint@\n@[%t@]@\nnever matches bound variables %t"
           (print_beta_hint [] (xts, (p, e2)))
           (Print.sequence Name.print ", " xs)
+
+let make_eta_hint ~loc (xts, (t, e1, e2)) =
+  let pvars = pvars_of_binders xts in
+  let pvars, pt = of_ty pvars t in
+  let pvars, p1 = of_term pvars e1 t in
+  let pvars, p2 = of_term pvars e2 t in
+    (* XXX should/could check that [p1] and [p2] are distinct pvars. *)
+    (xts, (p1, p2, pt))
+
+
+
+

@@ -1,0 +1,8 @@
+(* Test an eta hint *)
+Parameter unit : Type.
+Parameter tt : unit.
+Parameter unit_eta : forall x y : unit, x == y.
+
+Check
+  eta unit_eta in
+    fun x : unit => (refl tt :: x == tt).
