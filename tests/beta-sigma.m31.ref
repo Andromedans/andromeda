@@ -1,0 +1,73 @@
+A is assumed.
+
+B is assumed.
+
+a is assumed.
+
+b is assumed.
+
+sigT is assumed.
+
+existT is assumed.
+
+projT1 is assumed.
+
+projT2 is assumed.
+
+projT1_beta is assumed.
+
+projT1_beta
+      : forall (A0 : Type) (B0 : A0 -> Type) (a0 : A0) (b0 : B0 a0),
+          projT1 A0 B0 (existT A0 B0 a0 b0) == a0
+refl a
+      : projT1 A B (existT A B a b) == a
+projT2_beta is assumed.
+
+refl b
+      : projT2 A B (existT A B a b) == b
+sig_ind is assumed.
+
+sig_ind_beta is assumed.
+
+projT1' is defined.
+
+fun (A0 : Type) =>
+  fun (B0 : A0 -> Type) =>
+    fun (s : sigT A0 B0) =>
+      sig_ind A0 B0 (fun (_ : sigT A0 B0) => A0)
+        ((fun (Y : A0 -> Type) => fun (x : A0) => fun (y : Y x) => x) B0) 
+        s
+      : forall (A0 : Type) (B0 : A0 -> Type), sigT A0 B0 -> A0 
+refl a
+      : a
+          == (fun (B0 : A -> Type) =>
+                fun (s : sigT A B0) =>
+                  sig_ind A B0 (fun (_ : sigT A B0) => A)
+                    ((fun (Y : A -> Type) =>
+                        fun (x : A) => fun (y : Y x) => x) B0) s) B
+               (existT A B a b)
+refl a
+      : projT1 A B (existT A B a b)
+          == (fun (B0 : A -> Type) =>
+                fun (s : sigT A B0) =>
+                  sig_ind A B0 (fun (_ : sigT A B0) => A)
+                    ((fun (Y : A -> Type) =>
+                        fun (x : A) => fun (y : Y x) => x) B0) s) B
+               (existT A B a b)
+projT2' is defined.
+
+refl b
+      : projT2 A B (existT A B a b)
+          == (fun (B0 : A -> Type) =>
+                fun (s : sigT A B0) =>
+                  sig_ind A B0
+                    (fun (s0 : sigT A B0) =>
+                       B0
+                         ((fun (B1 : A -> Type) =>
+                             fun (s1 : sigT A B1) =>
+                               sig_ind A B1 (fun (_ : sigT A B1) => A)
+                                 ((fun (Y : A -> Type) =>
+                                     fun (x : A) => fun (y : Y x) => x) 
+                                    B1) s1) B0 s0))
+                    (fun (x : A) => fun (y : B0 x) => y) s) B
+               (existT A B a b)
