@@ -221,7 +221,6 @@ and equal_ty ctx (Tt.Ty t1) (Tt.Ty t2) = equal ctx t1 t2 Tt.typ
 
 and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
  alpha_equal e1 e2 ||
-    (* xxx should check general equality hints here *)
     begin (* type-directed phase *)
       let (Tt.Ty (t',_)) as t = whnf_ty ctx t in
       match t' with
