@@ -526,11 +526,17 @@ and pattern_collect ctx p ?at_ty e =
 and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
   pattern_collect ctx p ~at_ty:Tt.typ e
 
+(** Collect values of pattern variables by matching pattern
+    [p] against expression [e]. Also return the residual
+    equations that remain to be checked. *)
 and collect_for_beta ctx p e =
   try
     Some (pattern_collect ctx p e)
   with NoMatch -> None
 
+(** Similar to [collect_for_beta] except targeted at extracting
+  values of pattern variable and residual equations in eta hints,
+  where we compare a type and two terms. *)
 and collect_for_eta ctx (pe1, pe2, pt) (e1, e2, (t : Tt.ty)) =
   try
     let pvars_t,  checks_t  = pattern_collect_ty ctx pt t
@@ -539,19 +545,15 @@ and collect_for_eta ctx (pe1, pe2, pt) (e1, e2, (t : Tt.ty)) =
       Some (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
   with NoMatch -> None
 
-(** Match pattern [p] and whnf expression [e] which is known
-    to have a type. The type may or may not be given. If the
-    type is given then we are able to match a bare pattern
-    variable against [e], otherwise the pattern [p] must be
-    structured so that we can bootstrap types by looking at
-    the typing annotations.
+(** Verify that the results of a [collect_XXX] constitute a valid
+    match, i.e., that the pattern variables have been matched with
+    values that have the correct types.
 
     The [spawn] flag tells whether we should spawn an equality
-    check when we encounter an unmatched pattern variables
-    whose type is an equality type. For an eta hint [spawn]
-    would be true, but for a beta hint it would be false.
-    It would be interesting to consider what happens if
-    [spawn] is set to true in beta hints. Do we cycle?
+    check when we encounter an unmatched pattern variable.
+    For an eta hint [spawn] would be true, but for a beta hint
+    it would be false. It would be interesting to consider what
+    happens if [spawn] is set to true in beta hints. Do we cycle?
 *)
 and verify_match ~spawn ctx xts pvars checks =
   (* Silly auxiliary function. *)
@@ -627,7 +629,7 @@ and as_prod ctx t =
   | _ -> None
 
 (** Try to inhabit the given type [t]. At the moment we only know how
-    to inhabit universally quantified types. In the future this could
+    to inhabit universally quantified equations. In the future this could
     be a computational effect that would lead to general proof search. *)
 and inhabit ctx t =
   let Tt.Ty (t', loc) as t = whnf_ty ctx t in
