@@ -4,18 +4,105 @@ Parameter N : Type.
 Parameter Z : N.
 Parameter S : N -> N.
 
-Parameter rec_N :
+Parameter ind_N :
   forall P : N -> Type, P Z -> (forall n : N, P n -> P (S n)) -> forall m : N, P m.
 
-Parameter rec_N_Z :
+Parameter ind_N_Z :
   forall (P : N -> Type) (x : P Z) (f : forall n : N, P n -> P (S n)),
-    rec_N P x f Z == x.
+    ind_N P x f Z == x.
 
-Parameter rec_N_S :
+Parameter ind_N_S :
   forall (P : N -> Type) (x : P Z) (f : forall n : N, P n -> P (S n)) (m : N),
-    rec_N P x f (S m) == f m (rec_N P x f m).
+    ind_N P x f (S m) == f m (ind_N P x f m).
 
-(* Can we prove the following from these axioms? *)
-Parameter rec_N_eta_2 :
-  forall (P : N -> Type) (f g : forall n : N, P n),
-    (f Z == g Z) -> (forall n : N, f n == g n -> f (S n) == g (S n)) -> f == g.
+(* It looks like the best way to define new things is not with a let-binding,
+   which always automatically unfolds the definition, but rather by introducing
+   a new constant and a new equation. *)
+
+(* We define plus in such a way that it will unfold only when it is applied
+   to two arguments. This seems to be an advantage. *)
+Parameter plus : N -> N -> N.
+Parameter plus_def :
+  forall x y : N, plus x y == ind_N (fun _ : N => N) x (fun _ : N => S) y.
+
+(* We now use the ind_N computation rules to establish properties of plus.
+   Later we use these properties to compute with plus -- we do not have to
+   always go back to ind_N. *)
+Let plus_Z :=
+  (fun x : N =>
+    beta plus_def in
+    beta ind_N_Z in
+      refl (plus x Z) ::
+        plus x Z == x)
+ ::
+ forall x : N, plus x Z == x.
+
+Let plus_S :=
+  (fun x y : N =>
+     beta plus_def in
+     beta ind_N_S in
+     refl (plus x (S y)) ::
+       plus x (S y) == S (plus x y))
+  ::
+  forall x y : N, plus x (S y) == S (plus x y).
+
+(* We can compute with these rules. *)
+
+Let one   := S Z.
+Let two   := S (S Z).
+Let three := S (S (S Z)).
+Let four  := S (S (S (S Z))).
+Let five  := S (S (S (S (S Z)))).
+
+Check
+  beta plus_Z in
+  beta plus_S in
+    refl five :: plus two three == plus one four.
+
+(* Let us establish commutativity of addition. *)
+
+Let plus_Z' :=
+  ind_N
+    (fun x : N => plus Z x == x)
+    (plus_Z Z)
+    (fun (x : N) (IH : plus Z x == x) =>
+       beta IH in
+       beta plus_S in
+         refl (S (plus Z x)) :: plus Z (S x) == S x)
+  :: forall x : N, plus Z x == x.
+
+Let plus_S' :=
+  (fun (x y : N) =>
+    beta plus_Z in
+    beta plus_S in
+    ind_N
+      (fun z : N => plus (S x) z == S (plus x z))
+      (refl (S x))
+      (fun (z : N) (IH : plus (S x) z == S (plus x z)) =>
+       beta IH in
+       beta plus_S in
+         refl (plus (S x) (S z)) :: plus (S x) (S z) == S (plus x (S z)))
+      y)
+  :: forall x y : N, plus (S x) y == S (plus x y).
+
+Let plus_commute :=
+  (fun (x y : N) =>
+    beta plus_Z in
+    beta plus_S in
+    beta plus_Z' in
+    beta plus_S' in
+    ind_N
+      (fun z : N => plus z y == plus y z)
+      (refl y)
+      (fun (z : N) (IH : plus z y == plus y z) =>
+          beta IH in
+           refl (S (plus z y)) :: plus (S z) y == plus y (S z) )
+      x)
+  :: forall x y : N, plus x y == plus y x.
+
+Check plus_commute.
+
+(* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x). *)
+Check eta plus_commute in
+   (fun (P : N -> Type) (x y : N) (a : P (plus x y)) => a :: P (plus y x)).
+
