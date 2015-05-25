@@ -156,7 +156,7 @@ $\istype{\G}{\T}$. Similarly, equality of terms at $\Type$ is equality of types.
    \isterm{\G}{\e_2}{\T}
   }
   {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
-  
+
   \infer[\rulename{term-refl}]
   {\isterm{\G}{\e}{\T}}
   {\isterm{\G}{\juRefl{\T} \e}{\JuEqual{\T}{\e}{\e}}}
@@ -273,6 +273,47 @@ $\istype{\G}{\T}$. Similarly, equality of terms at $\Type$ is equality of types.
  \eqtype{\G}{\T}{\U}}
 {\eqterm{\G}{\juRefl{\T} \e_1}{\juRefl{\U} \e_2}{\JuEqual{\T}{\e_1}{\e_1}}}
 \end{mathpar}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Algorithmic version}
+
+Andromeda should be thought of as a programming language for deriving judgments. At the moment the language is untyped. We can hope to have it \emph{simply typed} one day.
+
+\subsection{Syntax} % (fold)
+\label{sub:prog-syntax}
+
+Expressions:
+%
+\begin{equation*}
+  \expr
+  \begin{aligned}[t]
+    \bnf   {}& \cmdType & & \text{universe}\\
+    \bnfor {}& \x   &&\text{variable} \\
+  \end{aligned}
+\end{equation*}
+%
+Computations:
+%
+\begin{equation*}
+  \cmd
+  \begin{aligned}[t]
+    \bnf   {}& \cmdReturn \e                 &&\text{pure expressions} \\
+    \bnfor {}& \cmdLet{\x}{\cmd_1} \cmd_2    &&\text{let binding} \\
+    \bnfor {}& \cmdAscribe{\cmd}{\expr}      &&\text{ascription} \\
+    \bnfor {}& \cmdProd{x}{\expr} \cmd       &&\text{product}\\
+    \bnfor {}& \cmdEq{\expr}{\cmd}           &&\text{equality type} \\
+    \bnfor {}& \x                            &&\text{variable} \\
+    \bnfor {}& \cmdLam{\x}{\expr} \cmd       &&\text{$\lambda$-abstraction} \\
+    \bnfor {}& \cmdApp{\expr}{\cmd}          &&\text{application} \\
+    \bnfor {}& \cmdRefl \expr                &&\text{reflexivity}
+  \end{aligned}
+\end{equation*}
+
+
+% subsection prog-syntax (end)
+
+
 
 
 \end{document}

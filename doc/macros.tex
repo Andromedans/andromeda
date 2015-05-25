@@ -11,6 +11,8 @@
 \newcommand{\y}{y} % another term variable
 \newcommand{\z}{z} % a third term variable
 \newcommand{\e}{e} % a term
+\newcommand{\cmd}{C} % a command
+\newcommand{\expr}{E} % an expressions
 
 \newcommand{\rulename}[1]{\text{\textsc{#1}}}
 
@@ -35,7 +37,6 @@
 \newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
 
 \newcommand{\JuEqual}[3]{\mathsf{Eq}_{#1}(#2,#3)} % Equality type
-\newcommand{\prRefl}[1]{{\mathsf{idpath}_{#1}}\ }  % Propositional refl
 \newcommand{\juRefl}[1]{{\mathsf{refl}_{#1}}\ }    % Judgmental refl
 
 % orthodox judgments
@@ -45,6 +46,20 @@
 
 \newcommand{\eqtype}[3]{\eqterm{#1}{#2}{#3}{\Type}} % equal types
 \newcommand{\eqterm}[4]{#1 \vdash #2 \equiv #3 : #4} % equal terms
+
+% commands
+
+
+\newcommand{\cmdLam}[2]{\lambda #1 {:} #2\,.\,} % $\lambda$-abstraction untagged
+\newcommand{\cmdApp}[2]{#1\,#2} % application untagged
+\newcommand{\cmdType}{\mathsf{Type}} % The type of all types
+\newcommand{\cmdProd}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
+\newcommand{\cmdAscribe}[2]{#1 \,{:}{:}\, #2} % type ascription
+\newcommand{\cmdLet}[2]{\mathsf{let}\;#1 \mathbin{{:}{=}} #2\; \mathsf{in}\;} % let-binding
+\newcommand{\cmdEq}[2]{\mathsf{Eq}(#1,#2)} % Equality type
+\newcommand{\cmdRefl}{\mathsf{refl}\;}    % Judgmental refl
+\newcommand{\cmdReturn}{\mathsf{return}\;}    % Judgmental refl
+
 
 % algorithmic judgments
 
