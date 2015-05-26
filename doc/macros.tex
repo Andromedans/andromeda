@@ -49,7 +49,6 @@
 
 % commands
 
-
 \newcommand{\cmdLam}[2]{\lambda #1 {:} #2\,.\,} % $\lambda$-abstraction untagged
 \newcommand{\cmdApp}[2]{#1\,#2} % application untagged
 \newcommand{\cmdType}{\mathsf{Type}} % The type of all types
@@ -62,9 +61,11 @@
 
 
 % algorithmic judgments
+\newcommand{\env}{\eta}
+\newcommand{\ctxenv}{\G; \env} % A combined context and environment
 
-\newcommand{\chkterm}[3]{#1 \vdash #2 \Leftarrow #3} % checking
-\newcommand{\synterm}[3]{#1 \vdash #2 \Rightarrow #3} % synthesis
+\newcommand{\evalc}[4]{#1 \vdash #2 \Leftarrow #3 \mapsto #4} % checking
+\newcommand{\evali}[4]{#1 \vdash #2 \Rightarrow (#3, #4)} % inference
 
 \newcommand{\ishints}[2]{#1 \vdash #2 \; \mathsf{hints}} % well-formed context and hints
 

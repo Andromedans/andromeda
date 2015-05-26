@@ -1,6 +1,6 @@
 \documentclass{article}
 
-\usepackage{amsmath}
+\usepackage{amsmath,amssymb}
 \usepackage{mathpartir}
 \usepackage[utf8]{inputenc}
 \input{macros}
@@ -298,21 +298,76 @@ Computations:
 \begin{equation*}
   \cmd
   \begin{aligned}[t]
-    \bnf   {}& \cmdReturn \e                 &&\text{pure expressions} \\
+    \bnf   {}& \cmdReturn \expr              &&\text{pure expressions} \\
     \bnfor {}& \cmdLet{\x}{\cmd_1} \cmd_2    &&\text{let binding} \\
     \bnfor {}& \cmdAscribe{\cmd}{\expr}      &&\text{ascription} \\
     \bnfor {}& \cmdProd{x}{\expr} \cmd       &&\text{product}\\
     \bnfor {}& \cmdEq{\expr}{\cmd}           &&\text{equality type} \\
-    \bnfor {}& \x                            &&\text{variable} \\
     \bnfor {}& \cmdLam{\x}{\expr} \cmd       &&\text{$\lambda$-abstraction} \\
     \bnfor {}& \cmdApp{\expr}{\cmd}          &&\text{application} \\
-    \bnfor {}& \cmdRefl \expr                &&\text{reflexivity}
+    \bnfor {}& \cmdRefl \cmd                 &&\text{reflexivity}
   \end{aligned}
 \end{equation*}
 
+The result of a computation is a value, which is a pair $(e,T)$ where $e$ and $T$ are terms of type theory, as described in Section~\ref{sec:syntax}. The correctness guarantee which we want is that a computation only ever evaluates to derivable judgments.
 
 % subsection prog-syntax (end)
 
+\subsubsection{Operational semantics} % (fold)
+\label{ssub:operational_semantics}
+
+Operational semantics is given by \emph{two} versions of evaluation of computations, called \emph{inference} and \emph{checking}, of the forms:
+%
+\begin{align*}
+  \text{Inference:}&\quad \evali{\ctxenv}{\cmd}{\e}{\T} \\
+  \text{Checking:}&\quad  \evalc{\ctxenv}{\cmd}{\T}{\e}
+\end{align*}
+%
+These are read as ``in the given context $\G$ and environment $\env$ command $\cmd$ infers that $\e$ has type $\T$'' and ``in the given context $\G$ and environment $\env$ command $\cmd$ checks that $\e$ has the given type $\T$.''
+
+[EXPLAIN THAT AN ENVIRONMENT MAPS VARIABLES TO VALUES.]
+
+\begin{mathpar}
+
+  \infer[\rulename{check-infer}]
+  {\evali{\ctxenv}{\cmd}{\e}{\U} \\
+    \eqtypealg{\ctxenv}{\T}{\U}}
+  {\evalc{\ctxenv}{\cmd}{\T}{\e}}
+
+  \infer[\rulename{infer-var}]
+  {\env(\x) = (\e, \T)}
+  {\evali{\ctxenv}{\cmdReturn \x}{\e}{\T}}
+
+  \infer[\rulename{infer-type}]
+  {}
+  {\evali{\ctxenv}{\cmdReturn \Type}{\Type}{\Type}}
+
+  \infer[\rulename{infer-app}]
+  {\evali{\ctxenv}{\expr}{\e_1}{\T} \\
+   \tywhnfs{\ctxenv}{\T}{\Prod{\x}{\U_1} \U_2} \\
+   \evalc{\ctxenv}{\cmd}{\U_1}{\e_2}
+  }
+  {\evali
+    {\ctxenv}
+    {\cmdApp{\expr}{\cmd}}
+    {\app{\e_1}{\x}{\U_1}{\U_2}{\e_2}}
+    {\subst{\U_2}{\x}{\e_2}}
+  }
+
+  \infer[\rulename{infer-refl}]
+  {\evali{\ctxenv}{\cmd}{\e}{\T}}
+  {\evali{\ctxenv}{\cmdRefl \cmd}{\juRefl{\T}{\e}}{\JuEqual{\T}{\e}{\e}}}
+
+  \infer[\rulename{check-refl}]
+  {\tywhnfs{\ctxenv}{\T}{\JuEqual{\U}{\e_1}{\e_2}} \\
+   \evalc{\ctxenv}{\cmd}{\U}{\e} \\
+   \eqtermalg{\ctxenv}{\e}{\e_1}{\U} \\
+   \eqtermalg{\ctxenv}{\e}{\e_2}{\U}
+  }
+  {\evalc{\ctxenv}{\cmdRefl \cmd}{\T}{}}
+\end{mathpar}
+
+% subsubsection operational_semantics (end)
 
 
 
