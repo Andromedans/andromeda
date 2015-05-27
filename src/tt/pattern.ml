@@ -1,11 +1,8 @@
-(** Spine patterns must start with a [name]. *)
-type name = Name.t
-
 (** The type of term patterns. *)
 type term =
   | PVar of Syntax.bound
-  | Name of name
-  | Spine of name * (Tt.ty, Tt.ty) Tt.abstraction * term list
+  | Name of Name.t
+  | Spine of Name.t * (Tt.ty, Tt.ty) Tt.abstraction * term list
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty
@@ -31,7 +28,7 @@ let rec remove_bound x xs =
     then Some ys
     else (match remove_bound x ys with None -> None | Some ys -> Some (y :: ys))
 
-let name_of_term ((e', loc) as e) : name =
+let name_of_term ((e', loc) as e) =
   match e' with
    | Tt.Name x -> x
    | Tt.Type | Tt.Bound _ | Tt.Lambda _ | Tt.Spine (_,_,_) | Tt.Prod _

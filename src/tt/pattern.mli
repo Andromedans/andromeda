@@ -1,13 +1,10 @@
 (** Pattern matching support for hints. *)
 
-(** Spine patterns must start with a [name]. *)
-type name = Name.t
-
 (** The type of term patterns. *)
 type term = private
   | PVar of Syntax.bound
-  | Name of name
-  | Spine of name * (Tt.ty, Tt.ty) Tt.abstraction * term list
+  | Name of Name.t
+  | Spine of Name.t * (Tt.ty, Tt.ty) Tt.abstraction * term list
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty
@@ -27,7 +24,7 @@ type beta_hint = (Tt.ty, term * Tt.term) Tt.abstraction
 type eta_hint = (Tt.ty, term * term * ty) Tt.abstraction
 
 (** Wrap a name as a pattern *)
-val name : name -> term
+val name : Name.t -> term
 
 val make_beta_hint : loc:Location.t -> (Tt.ty, Tt.ty * Tt.term * Tt.term) Tt.abstraction -> beta_hint
 
