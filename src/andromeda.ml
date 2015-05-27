@@ -118,6 +118,39 @@ let rec exec_cmd interactive ctx c =
         ctx
     end
 
+  | Syntax.TopBeta c ->
+    begin
+      match Eval.comp ctx c with
+        | Value.Return (_,t) ->
+            let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+            let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
+            let ctx = Context.add_beta h ctx in
+            Format.printf "Beta hint installed.@." ;
+            ctx
+    end
+
+  | Syntax.TopEta c ->
+    begin
+      match Eval.comp ctx c with
+        | Value.Return (_,t) ->
+            let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+            let h = Pattern.make_eta_hint ~loc (xts, (t, e1, e2)) in
+            let ctx = Context.add_eta h ctx in
+            Format.printf "Eta hint installed.@." ;
+            ctx
+    end
+
+  | Syntax.TopHint c ->
+    begin
+      match Eval.comp ctx c with
+        | Value.Return (_,t) ->
+            let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+            let h = Pattern.make_hint ~loc (xts, (t, e1, e2)) in
+            let ctx = Context.add_hint h ctx in
+            Format.printf "Hint installed.@." ;
+            ctx
+    end
+
   | Syntax.Context ->
     Format.printf "%t@." (Context.print ctx) ;
     ctx

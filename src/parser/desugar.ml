@@ -169,6 +169,18 @@ let toplevel ctx (d', loc) =
       let c = comp ctx c in
       Syntax.TopCheck c
 
+    | Input.TopBeta c ->
+      let c = comp ctx c in
+      Syntax.TopBeta c
+
+    | Input.TopEta c ->
+      let c = comp ctx c in
+      Syntax.TopEta c
+
+    | Input.TopHint c ->
+      let c = comp ctx c in
+      Syntax.TopHint c
+
     | Input.Quit -> Syntax.Quit
 
     | Input.Help -> Syntax.Help

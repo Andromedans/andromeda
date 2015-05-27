@@ -11,7 +11,7 @@
 %token ARROW DARROW
 %token EQEQ
 %token REFL
-%token TOPLET TOPCHECK
+%token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT
 %token LET COLONEQ AND IN
 %token BETA ETA HINT
 %token PARAMETER
@@ -42,6 +42,9 @@ topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
   | TOPLET x=name COLONEQ c=term DOT                     { TopLet (x, c) }
   | TOPCHECK c=term DOT                                  { TopCheck c }
+  | TOPBETA c=term DOT                                   { TopBeta c }
+  | TOPETA c=term DOT                                    { TopEta c }
+  | TOPHINT c=term DOT                                   { TopHint c }
   | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
 
 (* Toplevel directive. *)

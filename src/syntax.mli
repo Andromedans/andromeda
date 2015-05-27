@@ -35,6 +35,9 @@ and toplevel' =
   | Parameter of Name.t list * comp (** introduce parameters into the context *)
   | TopLet of Name.t * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
+  | TopBeta of comp
+  | TopEta of comp
+  | TopHint of comp
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Context (** print the current context *)
