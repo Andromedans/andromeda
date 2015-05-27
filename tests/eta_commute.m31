@@ -14,5 +14,5 @@ Parameter lst : List (plus m n).
 
 (** Then we can convince Andromeda that lst has size n+m. *)
 Check
-  eta plus_commute in
+  hint plus_commute in
     (lst :: List (plus n m)).

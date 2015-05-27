@@ -65,6 +65,14 @@ let rec comp ctx (c',loc) =
       (Pattern.print_eta_hint [] h);
       comp ctx c
 
+  | Syntax.Hint (e, c) ->
+    let (_, t) = expr ctx e in
+    let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+    let h = Pattern.make_hint ~loc (xts, (t, e1, e2)) in
+    let ctx = Context.add_hint h ctx in
+    Print.debug "Installed hint %t"
+      (Pattern.print_hint [] h);
+      comp ctx c
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t

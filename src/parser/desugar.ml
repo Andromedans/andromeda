@@ -62,6 +62,11 @@ let rec comp ctx ((c',loc) as c) =
       let c = comp ctx c in
         w, Syntax.Eta (e, c)
 
+    | Input.Hint (e, c) ->
+      let ctx, w, e = expr ctx e in
+      let c = comp ctx c in
+        w, Syntax.Hint (e, c)
+
     | Input.Ascribe (c, t) ->
       let ctx, w, t = expr ctx t in
       let c = comp ctx c in
@@ -142,7 +147,7 @@ and expr ctx ((e', loc) as e) =
   | Input.Type ->
     ctx, [], (Syntax.Type, loc)
 
-  | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Ascribe _ |
+  | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Ascribe _ |
      Input.Lambda _ | Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _) ->
     let x = Name.fresh Name.anonymous
     and c = comp ctx e in

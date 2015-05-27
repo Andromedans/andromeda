@@ -24,6 +24,9 @@ val beta_hints : t -> Pattern.beta_hint list
 (** Return all eta hints in the context *)
 val eta_hints : t -> Pattern.eta_hint list
 
+(** Return all general hints in the context *)
+val hints : t -> Pattern.hint list
+
 (** Add a free variable of a given type to the context.
     Fails if the free variable is already bound. *)
 val add_free : Name.t -> Tt.ty -> t -> t
@@ -31,8 +34,11 @@ val add_free : Name.t -> Tt.ty -> t -> t
 (** Add a beta hint to the context. *)
 val add_beta : Pattern.beta_hint -> t -> t
 
-(** Add a eta hint to the context. *)
+(** Add an eta hint to the context. *)
 val add_eta : Pattern.eta_hint -> t -> t
+
+(** Add a hint to the context. *)
+val add_hint : Pattern.hint -> t -> t
 
 (** [add_fresh x t ctx] adds a fresh free variable with suggested
     name [x] of given type [t] to the context [ctx]. Return the

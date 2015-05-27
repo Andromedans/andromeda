@@ -17,6 +17,8 @@ type beta_hint = Name.t * (Tt.ty, term * Tt.term) Tt.abstraction
 
 type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
 
+type hint = Name.t * (Tt.ty, ty * term * term) Tt.abstraction
+
 (** Attempt to remove [x] from list [xs]. *)
 let rec remove_bound x xs =
   match xs with
@@ -137,14 +139,17 @@ let print_beta_hint ?max_level xs (_, (yts, (p, e))) ppf =
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_beta_body xs yts)
 
-let print_eta_hint ?max_level xs (_, (yts, (pt, k1, k2))) ppf =
-  let print_eta_body xs ppf =
+let print_hint ?max_level xs (_, (yts, (pt, pe1, pe2))) ppf =
+  let print_body xs ppf =
     Print.print ppf "@ =>@ @[<hov 2>%t ==[%t] %t@]"
-      (print_term xs (PVar k1))
+      (print_term xs pe1)
       (print_ty xs pt)
-      (print_term xs (PVar k2))
+      (print_term xs pe2)
   in
-  Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_eta_body xs yts)
+  Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_body xs yts)
+
+let print_eta_hint ?max_level xs (h, (yts, (pt, k1, k2))) ppf =
+  print_hint ?max_level xs (h, (yts, (pt, PVar k1, PVar k2))) ppf
 
 let print_pattern ?max_level xs (xts, p) ppf =
   Print.print ?max_level ppf "@[%t@]"
@@ -172,7 +177,7 @@ let make_beta_hint ~loc (xts, (t, e1, e2)) =
         Error.runtime ~loc "this beta hint leaves some variables unmatched (%t)"
           (Print.sequence Name.print ", " xs)
 
-let make_eta_hint ~loc (xts, (t, e1, e2)) : eta_hint =
+let make_eta_hint ~loc (xts, (t, e1, e2)) =
   let pvars = pvars_of_binders xts in
   (** We should *first* turn [e1] and [e2] into patterns and only then [t]
       in case [e1] or [e2] is [pvar] which also appears in [t]. This is so because
@@ -189,3 +194,14 @@ let make_eta_hint ~loc (xts, (t, e1, e2)) : eta_hint =
     | Some _, _, _ ->
         Error.runtime ~loc
           "the left- and right-hand side of an eta hint must be distinct variables"
+
+let make_hint ~loc (xts, (t, e1, e2)) =
+  let pvars = pvars_of_binders xts in
+  let pvars, ((Ty pt') as pt) = of_ty pvars t in
+  let pvars, pe1 = of_term pvars e1 t in
+  let pvars, pe2 = of_term pvars e2 t in
+  match head_name pt' with
+    | Some x -> x, (xts, (pt, pe1, pe2))
+    | None ->
+        Error.runtime ~loc
+          "the type of a hint must be a symbol@ or a symbol applied to arguments"

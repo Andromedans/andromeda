@@ -13,7 +13,7 @@
 %token REFL
 %token TOPLET TOPCHECK
 %token LET COLONEQ AND IN
-%token BETA ETA
+%token BETA ETA HINT
 %token PARAMETER
 %token CONTEXT HELP QUIT
 %token EOF
@@ -59,6 +59,7 @@ plain_term:
   | LET a=let_clauses IN c=term                     { Let (a, c) }
   | BETA e=term IN c=term                           { Beta (e, c) }
   | ETA e=term IN c=term                            { Eta (e, c) }
+  | HINT e=term IN c=term                           { Hint (e, c) }
   | e=app_term ASCRIBE t=ty_term                    { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }

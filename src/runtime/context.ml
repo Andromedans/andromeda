@@ -6,15 +6,18 @@ type t = {
   free : (Name.t * Tt.ty) list;
   bound : (Name.t * Value.value) list;
   beta : Pattern.beta_hint list ;
-  eta : Pattern.eta_hint list
+  eta : Pattern.eta_hint list;
+  hint : Pattern.hint list
 }
 
 (** The empty context *)
-let empty = { free = []; bound = [] ; beta = [] ; eta = [] }
+let empty = { free = []; bound = [] ; beta = [] ; eta = [] ; hint = [] }
 
 let eta_hints {eta=lst} = lst
 
 let beta_hints {beta=lst} = lst
+
+let hints {hint=lst} = lst
 
 let bound_names {bound=lst} = List.map fst lst
 
@@ -47,6 +50,8 @@ let add_free x t ctx =
 let add_beta h ctx = { ctx with beta = h :: ctx.beta }
 
 let add_eta h ctx = { ctx with eta = h :: ctx.eta }
+
+let add_hint h ctx = { ctx with hint = h :: ctx.hint }
 
 let add_fresh x t ctx =
   let y = Name.fresh x

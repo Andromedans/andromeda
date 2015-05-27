@@ -282,7 +282,26 @@ and equal_whnf ctx e1 e2 t =
   let (e1',loc1) as e1 = whnf ctx e1
   and (e2',loc2) as e2 = whnf ctx e2
   in
-    alpha_equal e1 e2 ||
+    (* short-circuit alpha equality *)
+    alpha_equal e1 e2
+    ||
+    (* try general hints *)
+    begin
+      List.exists
+        (fun (_, (xts, (pt, pe1, pe2))) ->
+          match collect_for_hint ctx (pt, pe1, pe2) (t, e1, e2) with
+            | None -> false
+            | Some (pvars, checks) ->
+              (* check validity of the match *)
+              (* XXX: can general hints spawn new equalities? *)
+              begin match verify_match ~spawn:false ctx xts pvars checks with
+                | Some _ -> true (* success - notice how we throw away the witness of success *)
+                | None -> false
+              end)
+        (Context.hints ctx)
+    end
+    ||
+    (* compare reduced expressions *)
     begin match e1', e2' with
 
       | Tt.Name x, Tt.Name y -> Name.eq x y
@@ -452,7 +471,7 @@ and pattern_collect ctx p ?at_ty e =
       begin match t with
       | Some t -> [(k, (e, t))], []
       | None ->
-        (** We only get here if the caller of [pattern_match] does not provide
+        (** We only get here if the caller of [pattern_collect] does not provide
             [t] _and_ we hit a variable as top-most pattern. This can happen
             if someone installed a useless beta hint, for example. So maybe
             a warning is warnted at this point. *)
@@ -540,6 +559,14 @@ and collect_for_eta ctx (pt, k1, k2) (t, e1, e2) =
   try
     let pvars_t,  checks_t  = pattern_collect_ty ctx pt t in
       Some ((k1,(e1,t)) :: (k2,(e2,t)) :: pvars_t, checks_t)
+  with NoMatch -> None
+
+and collect_for_hint ctx (pt, pe1, pe2) (t, e1, e2) =
+  try
+    let pvars_t, checks_t = pattern_collect_ty ctx pt t
+    and pvars_e1, checks_e1 = pattern_collect ctx pe1 ~at_ty:t e1
+    and pvars_e2, checks_e2 = pattern_collect ctx pe2 ~at_ty:t e2 in
+    Some (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
   with NoMatch -> None
 
 (** Verify that the results of a [collect_XXX] constitute a valid

@@ -20,6 +20,7 @@ and comp' =
   | Let of (Name.t * comp) list * comp
   | Beta of expr * comp
   | Eta of expr * comp
+  | Hint of expr * comp
   | Ascribe of comp * ty
   | Lambda of (Name.t * ty) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want

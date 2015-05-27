@@ -8,6 +8,7 @@
     ("beta", BETA) ;
     ("Check", TOPCHECK) ;
     ("eta", ETA) ;
+    ("hint", HINT) ;
     ("Let", TOPLET) ;
     ("let", LET) ;
     ("Parameter", PARAMETER) ;
