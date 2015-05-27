@@ -2,7 +2,7 @@
 type term =
   | PVar of Syntax.bound
   | Name of Name.t
-  | Spine of Name.t * (Tt.ty, Tt.ty) Tt.abstraction * term list
+  | Spine of term * (Tt.ty, Tt.ty) Tt.abstraction * term list
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty
@@ -13,11 +13,9 @@ and ty = Ty of term
 (** A pattern is given as an abstraction of a term pattern *)
 type t = (Tt.ty, term) Tt.abstraction
 
-type beta_hint = (Tt.ty, term * Tt.term) Tt.abstraction
+type beta_hint = Name.t * (Tt.ty, term * Tt.term) Tt.abstraction
 
-type eta_hint = (Tt.ty, term * term * ty) Tt.abstraction
-
-let name x = Name x
+type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
 
 (** Attempt to remove [x] from list [xs]. *)
 let rec remove_bound x xs =
@@ -28,17 +26,11 @@ let rec remove_bound x xs =
     then Some ys
     else (match remove_bound x ys with None -> None | Some ys -> Some (y :: ys))
 
-let name_of_term ((e', loc) as e) =
-  match e' with
-   | Tt.Name x -> x
-   | Tt.Type | Tt.Bound _ | Tt.Lambda _ | Tt.Spine (_,_,_) | Tt.Prod _
-   | Tt.Eq (_,_,_) | Tt.Refl (_,_) ->
-     Error.runtime
-       (* XXX probably the wrong location *)
-       ~loc
-       "Illegal pattern detected: Found a term %t that is not a name at the\
-        head of an application"
-       (Tt.print_term [] e)     (* XXX this is evil, the names are missing *)
+(** The name in the head position of a pattern *)
+let rec head_name = function
+  | Name x -> Some x
+  | Spine (e, _, _) -> head_name e
+  | PVar _ | Eq _ | Refl _ | Term _ -> None
 
 (** Convert a term [e] of type [t] to a pattern with respect to the
     given bound variables [pvars]. That is, the bound variables from [pvars]
@@ -48,7 +40,9 @@ let rec of_term pvars ((e',loc) as e) t =
   let original = pvars, Term (e,t) in
   match e' with
 
-  | Tt.Type | Tt.Name _ | Tt.Lambda _ | Tt.Prod _ -> original
+  | Tt.Type | Tt.Lambda _ | Tt.Prod _ -> original
+
+  | Tt.Name x -> pvars, Name x
 
   | Tt.Bound k ->
     begin match remove_bound k pvars with
@@ -69,7 +63,7 @@ let rec of_term pvars ((e',loc) as e) t =
         Error.impossible ~loc "malformed spine in Pattern.of_term"
     in
 
-    let e = name_of_term e in
+    let pvars, e = of_term pvars e (Tt.mk_prod_ty ~loc xts u) in
     let pvars, all_terms, es = fold pvars true [] [] xts es in
     (* if [name_of_term] came back then e is a name and thus a Tt.term *)
     begin if all_terms
@@ -98,8 +92,6 @@ and of_ty pvars (Tt.Ty t) =
   let pvars, t = of_term pvars t Tt.typ in
   pvars, (Ty t)
 
-let print_name = Name.print
-
 let rec print_term ?max_level xs e ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
@@ -117,11 +109,11 @@ let rec print_term ?max_level xs e ppf =
 
       | Name x ->
         (* XXX check this *)
-        print_name x ppf
+        Name.print x ppf
 
       | Spine (e, xts, es) ->
         print ~at_level:1 "@[<hov 2>%t@ %t@]"
-          (print_name e)
+          (print_term ~max_level:0 xs e)
           (Print.sequence (print_term ~max_level:0 xs) "" es)
 
       | Eq (t, e1, e2) ->
@@ -137,7 +129,7 @@ let rec print_term ?max_level xs e ppf =
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
-let print_beta_hint ?max_level xs (yts, (p, e)) ppf =
+let print_beta_hint ?max_level xs (_, (yts, (p, e))) ppf =
   let print_beta_body xs ppf =
     Print.print ppf "@ =>@ @[<hov 2>%t ~~>@ %t@]"
       (print_term xs p)
@@ -145,12 +137,12 @@ let print_beta_hint ?max_level xs (yts, (p, e)) ppf =
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_beta_body xs yts)
 
-let print_eta_hint ?max_level xs (yts, (pe1, pe2, pt)) ppf =
+let print_eta_hint ?max_level xs (_, (yts, (pt, k1, k2))) ppf =
   let print_eta_body xs ppf =
     Print.print ppf "@ =>@ @[<hov 2>%t ==[%t] %t@]"
-      (print_term xs pe1)
+      (print_term xs (PVar k1))
       (print_ty xs pt)
-      (print_term xs pe2)
+      (print_term xs (PVar k2))
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_eta_body xs yts)
 
@@ -169,21 +161,31 @@ let make_beta_hint ~loc (xts, (t, e1, e2)) =
   let pvars = pvars_of_binders xts in
   let pvars, p = of_term pvars e1 t in
     match pvars with
-      | [] -> (xts, (p, e2))
+      | [] ->
+        begin match head_name p with
+          | Some x -> x, (xts, (p, e2))
+          | None -> Error.runtime ~loc
+              "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments"
+        end
       | _ :: _ ->
         let xs = List.map (fun k -> fst (List.nth xts k)) pvars in
-        Error.runtime ~loc "the beta hint@\n@[%t@]@\nnever matches bound variables %t"
-          (print_beta_hint [] (xts, (p, e2)))
+        Error.runtime ~loc "this beta hint leaves some variables unmatched (%t)"
           (Print.sequence Name.print ", " xs)
 
-let make_eta_hint ~loc (xts, (t, e1, e2)) =
+let make_eta_hint ~loc (xts, (t, e1, e2)) : eta_hint =
   let pvars = pvars_of_binders xts in
-  let pvars, pt = of_ty pvars t in
+  (** We should *first* turn [e1] and [e2] into patterns and only then [t]
+      in case [e1] or [e2] is [pvar] which also appears in [t]. This is so because
+      we want [e1] and [e2] to be distinct pattern variables.
+   *)
   let pvars, p1 = of_term pvars e1 t in
   let pvars, p2 = of_term pvars e2 t in
-    (* XXX should/could check that [p1] and [p2] are distinct pvars. *)
-    (xts, (p1, p2, pt))
-
-
-
-
+  let pvars, ((Ty pt') as pt) = of_ty pvars t in
+  match head_name pt', p1, p2 with
+    | Some x, PVar k1, PVar k2 when k1 <> k2 -> x, (xts, (pt, k1, k2))
+    | None, _, _ ->
+        Error.runtime ~loc
+          "the type of an eta hint must be a symbol@ or a symbol applied to arguments"
+    | Some _, _, _ ->
+        Error.runtime ~loc
+          "the left- and right-hand side of an eta hint must be distinct variables"

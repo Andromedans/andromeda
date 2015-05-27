@@ -4,7 +4,7 @@
 type term = private
   | PVar of Syntax.bound
   | Name of Name.t
-  | Spine of Name.t * (Tt.ty, Tt.ty) Tt.abstraction * term list
+  | Spine of term * (Tt.ty, Tt.ty) Tt.abstraction * term list
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty
@@ -17,15 +17,13 @@ type t = (Tt.ty, term) Tt.abstraction
 
 (** A beta hint is an abstracted term pattern and a term. We match against
     the pattern and rewrite into the term. *)
-type beta_hint = (Tt.ty, term * Tt.term) Tt.abstraction
+type beta_hint = Name.t * (Tt.ty, term * Tt.term) Tt.abstraction
 
 (** An eta hint is an abstracted term pattern  with a list of universally quantified
     equations. We match against the pattern and check the resulting equations. *)
-type eta_hint = (Tt.ty, term * term * ty) Tt.abstraction
+type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
 
 (** Wrap a name as a pattern *)
-val name : Name.t -> term
-
 val make_beta_hint : loc:Location.t -> (Tt.ty, Tt.ty * Tt.term * Tt.term) Tt.abstraction -> beta_hint
 
 val make_eta_hint : loc:Location.t -> (Tt.ty, Tt.ty * Tt.term * Tt.term) Tt.abstraction -> eta_hint

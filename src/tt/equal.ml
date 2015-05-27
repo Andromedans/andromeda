@@ -131,7 +131,7 @@ and whnf ctx e =
     (Tt.print_term xs e);
   let rec apply_beta = function
     | [] -> e
-    | ((xts, (p, e')) as h) :: hs ->
+    | ((_, (xts, (p, e'))) as h) :: hs ->
       (* Here we use beta hints. First we match [p] against [e]. *)
       begin match collect_for_beta ctx p e with
         | None -> apply_beta hs (* did not match, try other hints *)
@@ -238,8 +238,8 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
                 (* no hints apply, proceed with normalization phase *)
                 equal_whnf ctx e1 e2 t
 
-              |  (xts, (pe1, pe2, pt)) :: hs ->
-                begin match collect_for_eta ctx (pe1, pe2, pt) (e1, e2, t) with
+              |  (_, (xts, (pt, k1, k2))) :: hs ->
+                begin match collect_for_eta ctx (pt, k1, k2) (t, e1, e2) with
                   | None -> fold hs (* no match, try other hints *)
                   | Some (pvars, checks) ->
                     (* check validity of the match *)
@@ -462,7 +462,7 @@ and pattern_collect ctx p ?at_ty e =
     | Pattern.Spine (pe, (xts, u), pes) ->
       begin match e' with
         | Tt.Spine (e, (yus, v), es) ->
-          let pvars_e, checks_e = collect (Pattern.name pe) ~t:(Tt.ty (Tt.mk_prod ~loc yus v)) e
+          let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc yus v)) e
           and pvars_es, checks_es = collect_spine ~loc xts pes es
           and t1 = Tt.mk_prod_ty ~loc xts u
           and t2 = Tt.mk_prod_ty ~loc yus v in
@@ -536,12 +536,10 @@ and collect_for_beta ctx p e =
 (** Similar to [collect_for_beta] except targeted at extracting
   values of pattern variable and residual equations in eta hints,
   where we compare a type and two terms. *)
-and collect_for_eta ctx (pe1, pe2, pt) (e1, e2, (t : Tt.ty)) =
+and collect_for_eta ctx (pt, k1, k2) (t, e1, e2) =
   try
-    let pvars_t,  checks_t  = pattern_collect_ty ctx pt t
-    and pvars_e1, checks_e1 = pattern_collect ctx pe1 ~at_ty:t e1
-    and pvars_e2, checks_e2 = pattern_collect ctx pe2 ~at_ty:t e2 in
-      Some (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
+    let pvars_t,  checks_t  = pattern_collect_ty ctx pt t in
+      Some ((k1,(e1,t)) :: (k2,(e2,t)) :: pvars_t, checks_t)
   with NoMatch -> None
 
 (** Verify that the results of a [collect_XXX] constitute a valid
