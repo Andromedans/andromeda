@@ -31,7 +31,7 @@ let rec expr ctx (e',loc) =
   end
 
 (** Evaluate a computation -- infer mode. *)
-let rec comp ctx (c',loc) =
+let rec infer ctx (c',loc) =
   match c' with
 
   | Syntax.Return e ->
@@ -42,10 +42,10 @@ let rec comp ctx (c',loc) =
      let ctx = List.fold_left
                  (fun ctx' (x,c) ->
                   (* NB: must use [ctx] here, not [ctx'] *)
-                  match comp ctx c with
+                  match infer ctx c with
                   | Value.Return v -> Context.add_bound x v ctx')
                  ctx cs
-     in comp ctx c'
+     in infer ctx c'
 
   | Syntax.Beta (e, c) ->
     let (_, t) = expr ctx e in
@@ -54,7 +54,7 @@ let rec comp ctx (c',loc) =
     let ctx = Context.add_beta h ctx in
     Print.debug "Installed beta hint %t"
       (Pattern.print_beta_hint [] h);
-      comp ctx c
+      infer ctx c
 
   | Syntax.Eta (e, c) ->
     let (_, t) = expr ctx e in
@@ -63,7 +63,7 @@ let rec comp ctx (c',loc) =
     let ctx = Context.add_eta h ctx in
     Print.debug "Installed eta hint %t"
       (Pattern.print_eta_hint [] h);
-      comp ctx c
+      infer ctx c
 
   | Syntax.Hint (e, c) ->
     let (_, t) = expr ctx e in
@@ -72,7 +72,7 @@ let rec comp ctx (c',loc) =
     let ctx = Context.add_hint h ctx in
     Print.debug "Installed hint %t"
       (Pattern.print_hint [] h);
-      comp ctx c
+      infer ctx c
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t
@@ -83,7 +83,7 @@ let rec comp ctx (c',loc) =
     let rec fold ctx ys xts = function
       | [] ->
         begin
-          match comp ctx c with
+          match infer ctx c with
           | Value.Return (e, t) ->
             let e = Tt.abstract ys 0 e
             and t = Tt.abstract_ty ys 0 t in
@@ -108,7 +108,7 @@ let rec comp ctx (c',loc) =
   | Syntax.Prod (abs, c) ->
     let rec fold ctx ys xts = function
       | [] ->
-        let u = comp_ty ctx c in
+        let u = infer_ty ctx c in
         let u = Tt.abstract_ty ys 0 u in
         let e = Tt.mk_prod ~loc xts u
         and t = Tt.mk_type_ty ~loc
@@ -137,7 +137,7 @@ let rec comp ctx (c',loc) =
        in Value.Return (e', t')
 
 and check ctx c t =
-  match comp ctx c with
+  match infer ctx c with
   | Value.Return (e, t') ->
      if Equal.equal_ty ctx t' t
      then e
@@ -190,8 +190,10 @@ and expr_ty ctx ((_,loc) as e) =
         (print_ty ctx t)
 
 
-and comp_ty ctx c =
+and infer_ty ctx c =
   let e = check ctx c Tt.typ in
     Tt.ty e
 
-let ty = comp_ty
+let comp = infer
+
+let ty = infer_ty
