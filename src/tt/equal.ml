@@ -94,9 +94,9 @@ and weak_whnf ctx ((e', loc) as e) =
         begin
           let (e',eloc) as e = weak e in
           match e' with
-          | Tt.Lambda (xus, (e, u)) ->
+          | Tt.Lambda (xus, (e', u)) ->
             begin
-              match beta_reduce ~loc:eloc ctx xus e u xts t es with
+              match beta_reduce ~loc:eloc ctx xus e' u xts t es with
               | None -> Tt.mk_spine ~loc e xts t es
               | Some e -> weak e
             end
