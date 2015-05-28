@@ -302,7 +302,7 @@ Computations:
     \bnfor {}& \cmdLet{\x}{\cmd_1} \cmd_2    &&\text{let binding} \\
     \bnfor {}& \cmdAscribe{\cmd}{\expr}      &&\text{ascription} \\
     \bnfor {}& \cmdProd{x}{\expr} \cmd       &&\text{product}\\
-    \bnfor {}& \cmdEq{\expr}{\cmd}           &&\text{equality type} \\
+    \bnfor {}& \cmdEq{\cmd}{\cmd}            &&\text{equality type} \\
     \bnfor {}& \cmdLam{\x}{\expr} \cmd       &&\text{$\lambda$-abstraction} \\
     \bnfor {}& \cmdApp{\expr}{\cmd}          &&\text{application} \\
     \bnfor {}& \cmdRefl \cmd                 &&\text{reflexivity}
@@ -343,11 +343,10 @@ These are read as ``in the given context $\G$ and environment $\env$ command $\c
     \evalc {\ctxextend \G \x {\T_1};\, \env} \cmd \Type {\U_2}}
   {\evali \ctxenv {\cmdProd \x \expr \cmd} {\Prod \x {\U_1} {\U_2}} \Type}
 
-  \infer[\rulename{infer-Eq}]
-  {\evali \ctxenv \expr {\e_1} {\T_1} \\
-    \evali \ctxenv \cmd {\e_2} {\T_2} \\
-    \eqtypealg \ctxenv {\T_1} {\T_2}}
-  {\evali \ctxenv {\cmdEq \expr \cmd} {\JuEqual {\T_1} {\e_1} {\e_2}} \Type}
+  \infer[\rulename{infer-eq}]
+  {\evali \ctxenv {\cmd_1} {\e_1} \T \\
+    \evalc \ctxenv {\cmd_2} \T {\e_2}}
+  {\evali \ctxenv {\cmdEq {\cmd_1} {\cmd_2}} {\JuEqual {\T} {\e_1} {\e_2}} \Type}
 
   \infer[\rulename{infer-ascription}]
   {\evalc \ctxenv \expr \Type \T \\
@@ -355,6 +354,8 @@ These are read as ``in the given context $\G$ and environment $\env$ command $\c
   {\evali \ctxenv {\cmdAscribe \cmd \expr} \e \T}
 
 \end{mathpar}
+
+Inference of $\cmdEq{\cmd_1} {\cmd_2}$ keeps the type of the first argument.
 
 Ascription only has an infer rule, and will always switch to a checking phase. It breaks the inward information flow and has to use the check-infer when encountered during checking.
 

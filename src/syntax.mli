@@ -26,8 +26,8 @@ and comp' =
   | Spine of expr * comp list (* spine arguments are computations because we want
                                  to evaluate in checking mode, once we know their types. *)
   | Prod of (Name.t * ty) list * comp
-  | Eq of expr * comp
-  | Refl of expr
+  | Eq of comp * comp
+  | Refl of comp
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
