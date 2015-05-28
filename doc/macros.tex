@@ -49,7 +49,8 @@
 
 % commands
 
-\newcommand{\cmdLam}[2]{\lambda #1 {:} #2\,.\,} % $\lambda$-abstraction untagged
+\newcommand{\cmdLam}[2]{\lambda #1 {:} #2\,.\,} % $\lambda$-abstraction untagged return type
+\newcommand{\cmdLamCurry}[1]{\lambda #1 \,.\,} % $\lambda$-abstraction completely untagged
 \newcommand{\cmdApp}[2]{#1\,#2} % application untagged
 \newcommand{\cmdType}{\mathsf{Type}} % The type of all types
 \newcommand{\cmdProd}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
@@ -62,7 +63,8 @@
 
 % algorithmic judgments
 \newcommand{\env}{\eta}
-\newcommand{\ctxenv}{\G; \env} % A combined context and environment
+\newcommand{\envextend}[4]{#1(#2) \mathbin{{:}{=}} (#3, #4)} % extended context
+\newcommand{\ctxenv}{\G;\, \env} % A combined context and environment
 
 \newcommand{\evalc}[4]{#1 \vdash #2 \Leftarrow #3 \mapsto #4} % checking
 \newcommand{\evali}[4]{#1 \vdash #2 \Rightarrow (#3, #4)} % inference
