@@ -103,6 +103,5 @@ Let plus_commute :=
 Check plus_commute.
 
 (* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x). *)
-Check eta plus_commute in
+Check hint plus_commute in
    (fun (P : N -> Type) (x y : N) (a : P (plus x y)) => a :: P (plus y x)).
-
