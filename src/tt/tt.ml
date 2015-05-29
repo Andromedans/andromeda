@@ -43,6 +43,10 @@ and term' =
   (** strict equality type [e1 == e2] where [e1] and [e2] have type [t]. *)
   | Refl of ty * term
   (** reflexivity [refl e] where [e] has type [t]. *)
+  | Inhab
+  (** the inhabitant of a bracket type *)
+  | Bracket of ty
+  (** bracket type *)
 
 and ty = Ty of term
 (** The type of TT types.
@@ -78,12 +82,16 @@ let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
 
+let mk_inhab ~loc = Inhab, loc
+let mk_bracket ~loc t = Bracket t, loc
+
 (** Convert a term to a type. *)
 let ty e = Ty e
 
 let mk_eq_ty ~loc t e1 e2 = ty (mk_eq ~loc t e1 e2)
 let mk_prod_ty ~loc xts t = ty (mk_prod ~loc xts t)
 let mk_type_ty ~loc = ty (mk_type ~loc)
+let mk_bracket_ty ~loc t = ty (mk_bracket ~loc t)
 
 (** The [Type] constant, without a location. *)
 let typ = Ty (mk_type ~loc:Location.unknown)
@@ -150,6 +158,12 @@ let rec instantiate es depth ((e',loc) as e) =
        and e = instantiate es depth e
        in Refl (t, e), loc
 
+    | Inhab -> Inhab, loc
+
+    | Bracket t ->
+      let t = instantiate_ty es depth t in
+      Bracket t, loc
+
 and instantiate_ty es depth (Ty t) =
   let t = instantiate es depth t
   in Ty t
@@ -181,19 +195,24 @@ and abstract_abstraction abst_u abst_v ys depth (xus,v) =
 
 let rec abstract xs depth ((e',loc) as e) =
   match e' with
+
   | Type -> e
+
   | Bound k -> e
+
   | Name x ->
     begin
       match Name.index_of x xs with
       | None -> e
       | Some k -> Bound (depth + k), loc
     end
+
   | Lambda a ->
     let a = abstract_abstraction
               abstract_ty abstract_term_ty
               xs depth a
     in Lambda a, loc
+
   | Spine (e, xtst, es) ->
     let e = abstract xs depth e
     and xtst = abstract_abstraction
@@ -201,20 +220,30 @@ let rec abstract xs depth ((e',loc) as e) =
                  xs depth xtst
     and es = List.map (abstract xs depth) es
     in Spine (e, xtst, es), loc
+
   | Prod a ->
     let a = abstract_abstraction
               abstract_ty abstract_ty
               xs depth a
     in Prod a, loc
+
   | Eq (t, e1, e2) ->
     let t = abstract_ty xs depth t
     and e1 = abstract xs depth e1
     and e2 = abstract xs depth e2
     in Eq (t, e1, e2), loc
+
   | Refl (t, e) ->
     let t = abstract_ty xs depth t
     and e = abstract xs depth e
     in Refl (t, e), loc
+
+  | Inhab -> Inhab, loc
+
+  | Bracket t ->
+    let t = abstract_ty xs depth t in
+    Bracket t, loc
+
 
 and abstract_ty xs depth (Ty t) =
   let t = abstract xs depth t
@@ -270,6 +299,12 @@ let rec shift k lvl ((e',loc) as e) =
       and e = shift k lvl e in
         Refl (t, e), loc
 
+    | Inhab -> Inhab, loc
+
+    | Bracket t ->
+      let t = shift_ty k lvl t in
+        Bracket t, loc
+
 and shift_ty k lvl (Ty t) =
   let t = shift k lvl t in
     Ty t
@@ -324,6 +359,9 @@ let rec occurs k (e',_) =
     occurs_ty k t + occurs k e1 + occurs k e2
   | Refl (t, e) ->
     occurs_ty k t + occurs k e
+  | Inhab -> 0
+  | Bracket t ->
+    occurs_ty k t
 
 and occurs_ty k (Ty t) = occurs k t
 
@@ -385,6 +423,12 @@ let rec print_term ?max_level xs (e,_) ppf =
         print ~at_level:1 "refl%t %t"
           (print_annot (print_ty xs t))
           (print_term ~max_level:0 xs e)
+
+      | Inhab -> print ~at_level:0 "[]"
+
+      | Bracket t ->
+        print ~at_level:0 "[%t]"
+          (print_ty xs t)
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 

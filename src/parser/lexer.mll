@@ -12,6 +12,8 @@
     ("Eta", TOPETA) ;
     ("hint", HINT) ;
     ("Hint", TOPHINT) ;
+    ("inhabit", INHABIT) ;
+    ("Inhabit", TOPINHABIT) ;
     ("Let", TOPLET) ;
     ("let", LET) ;
     ("Parameter", PARAMETER) ;
@@ -43,6 +45,8 @@ rule token = parse
   | "#quit"             { QUIT }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
+  | '['                 { LBRACK }
+  | ']'                 { RBRACK }
   | ':'                 { COLON }
   | ":="                { COLONEQ }
   | "::"                { ASCRIBE }

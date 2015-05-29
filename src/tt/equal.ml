@@ -52,8 +52,13 @@ let rec alpha_equal (e1,_) (e2,_) =
       alpha_equal_ty t t' &&
       alpha_equal e e'
 
+    | Tt.Bracket t1, Tt.Bracket t2 ->
+      alpha_equal_ty t1 t2
+
+    | Tt.Inhab, Tt.Inhab -> true
+
     | (Tt.Name _ | Tt.Bound _ | Tt.Lambda _ | Tt.Spine _ |
-        Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _), _ ->
+        Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Bracket _ | Tt.Inhab), _ ->
       false
   end
 
@@ -105,7 +110,9 @@ and weak_whnf ctx ((e', loc) as e) =
           | Tt.Type
           | Tt.Prod _
           | Tt.Eq _
-          | Tt.Refl _ ->
+          | Tt.Refl _
+          | Tt.Inhab
+          | Tt.Bracket _ ->
             Tt.mk_spine ~loc e xts t es
           | Tt.Bound _ ->
             Error.impossible ~loc "de Bruijn encountered in whnf"
@@ -115,7 +122,9 @@ and weak_whnf ctx ((e', loc) as e) =
       | Tt.Name _
       | Tt.Type
       | Tt.Eq _
-      | Tt.Refl _ -> e
+      | Tt.Refl _
+      | Tt.Inhab
+      | Tt.Bracket _ -> e
       | Tt.Bound _ ->
          Error.impossible ~loc "de Bruijn encountered in weak_whnf"
     end
@@ -271,11 +280,15 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Tt.Eq _ -> true (** Strict equality *)
 
+        | Tt.Bracket _ -> true (** Strict bracket types *)
+
         | Tt.Bound _ -> Error.impossible ~loc:loc1 "deBruijn encountered in equal"
 
         | Tt.Lambda _ -> Error.impossible ~loc:loc1 "fun is not a type"
 
         | Tt.Refl _ -> Error.impossible ~loc:loc1 "refl is not a type"
+
+        | Tt.Inhab -> Error.impossible ~loc:loc1 "[] is not a type"
     end
 
 and equal_whnf ctx e1 e2 t =
@@ -361,8 +374,13 @@ and equal_whnf ctx e1 e2 t =
         equal_ty ctx u u' &&
         equal ctx d d' u
 
+      | Tt.Inhab, Tt.Inhab -> true
+
+      | Tt.Bracket t1, Tt.Bracket t2 ->
+        equal_ty ctx t1 t2
+
       | (Tt.Name _ | Tt.Lambda _ | Tt.Spine _ |
-          Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _), _ ->
+          Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _), _ ->
         false
 
     end
@@ -462,11 +480,13 @@ and pattern_collect ctx p ?at_ty e =
   (* Colect from [e] assuming it is in whnf. *)
   and collect_whnf p ?t ((e', loc) as e) =
     match p with
+
     | Pattern.Name x' ->
       begin match e' with
       | Tt.Name x -> if Name.eq x' x then [], [] else raise NoMatch
       | _ -> raise NoMatch
       end
+
     | Pattern.PVar k ->
       begin match t with
       | Some t -> [(k, (e, t))], []
@@ -506,6 +526,12 @@ and pattern_collect ctx p ?at_ty e =
           let pvars_t, checks_t = collect_ty pt t
           and pvars_e, checks_e = collect pe e ~t
           in pvars_t @ pvars_e, checks_t @ checks_e
+        | _ -> raise NoMatch
+      end
+
+    | Pattern.Bracket pt ->
+      begin match e' with
+        | Tt.Bracket t -> collect_ty pt t
         | _ -> raise NoMatch
       end
 
@@ -567,6 +593,12 @@ and collect_for_hint ctx (pt, pe1, pe2) (t, e1, e2) =
     and pvars_e1, checks_e1 = pattern_collect ctx pe1 ~at_ty:t e1
     and pvars_e2, checks_e2 = pattern_collect ctx pe2 ~at_ty:t e2 in
     Some (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
+  with NoMatch -> None
+
+and collect_for_inhabit ctx pt t =
+  try
+    let pvars_t, checks_t = pattern_collect_ty ctx pt t in
+    Some (pvars_t, checks_t)
   with NoMatch -> None
 
 (** Verify that the results of a [collect_XXX] constitute a valid
@@ -652,11 +684,20 @@ and as_prod ctx t =
   | Tt.Prod ((_ :: _, _) as a) -> Some a
   | _ -> None
 
-(** Try to inhabit the given type [t]. At the moment we only know how
+and as_bracket ctx t =
+  let Tt.Ty (t', loc) = whnf_ty ctx t in
+  match t' with
+  | Tt.Bracket t -> Some t
+  | _ -> None
+
+(** Try to inhabit the given whnf type [t]. At the moment we only know how
     to inhabit universally quantified equations. In the future this could
     be a computational effect that would lead to general proof search. *)
 and inhabit ctx t =
   let Tt.Ty (t', loc) as t = whnf_ty ctx t in
+    inhabit_whnf ctx t
+
+and inhabit_whnf ctx ((Tt.Ty (t', loc)) as t) =
   match t' with
     | Tt.Prod (xts', t') ->
       let rec fold ctx ys = function
@@ -682,20 +723,44 @@ and inhabit ctx t =
         Some e
       else None
 
+    | Tt.Bracket t ->
+      inhabit_bracket ctx t
+
     | Tt.Name _
     | Tt.Spine _
     | Tt.Bound _
     | Tt.Lambda _
     | Tt.Refl _
+    | Tt.Inhab
     | Tt.Type -> None
+
+and inhabit_bracket ctx t =
+  (* apply inhabit hints *)
+  if
+    begin
+    List.exists
+      (fun (xts, pt) ->
+        match collect_for_inhabit ctx pt t with
+          | None -> false
+          | Some (pvars, checks) ->
+            (* check validity of the match *)
+            (* XXX: can general hints spawn new equalities? *)
+            begin match verify_match ~spawn:false ctx xts pvars checks with
+              | Some _ -> true
+              | None -> false
+            end)
+      (Context.inhabit ctx)
+    end
+  then Some (Tt.mk_inhab ~loc:Location.unknown)
+  else None
 
 let rec as_universal_eq ctx t =
   let rec fold ctx xus ys t =
-    let (Tt.Ty (t', loc)) = whnf_ty ctx t in
+    let (Tt.Ty (t', loc)) as t = whnf_ty ctx t in
     match t' with
 
     | Tt.Prod ([], _) ->
-      Error.impossible ~loc "empty product encountered in as_deep_prod"
+      Error.impossible ~loc "empty product encountered in as_universal_eq"
 
     | Tt.Prod ((_ :: _) as zvs, w) ->
       let rec unabstract_binding ctx zs' zvs w =
@@ -713,6 +778,7 @@ let rec as_universal_eq ctx t =
         let ctx, zs', w = unabstract_binding ctx [] zvs w in
           fold ctx (xus @ zvs) (zs' @ ys) w
 
+
     | Tt.Eq (t, e1, e2) ->
       let t = Tt.abstract_ty ys 0 t
       and e1 = Tt.abstract ys 0 e1
@@ -723,4 +789,35 @@ let rec as_universal_eq ctx t =
   in
   fold ctx [] [] t
 
+(* XXX this was just copied from as_universal_eq, should refactor common code. *)
+let rec as_universal_ty ctx t =
+  let rec fold ctx xus ys t =
+    let (Tt.Ty (t', loc)) = whnf_ty ctx t in
+    match t' with
+
+    | Tt.Prod ([], _) ->
+      Error.impossible ~loc "empty product encountered in as_universal_ty"
+
+    | Tt.Prod ((_ :: _) as zvs, w) ->
+      let rec unabstract_binding ctx zs' zvs w =
+      begin
+        match zvs with
+        | [] ->
+          let w = Tt.unabstract_ty zs' 0 w in
+            ctx, zs', w
+        | (z,v) :: zvs ->
+          let v = Tt.unabstract_ty zs' 0 v in
+          let z', ctx = Context.add_fresh z v ctx in
+            unabstract_binding ctx (z' :: zs') zvs w
+      end
+      in
+        let ctx, zs', w = unabstract_binding ctx [] zvs w in
+          fold ctx (xus @ zvs) (zs' @ ys) w
+
+    | Tt.Type | Tt.Name _ | Tt.Bound _ | Tt.Lambda _ |  Tt.Spine _ | Tt.Eq _ | Tt.Refl _ |
+      Tt.Inhab | Tt.Bracket _  ->
+      let t = Tt.abstract_ty ys 0 t in
+        (xus, t)
+  in
+  fold ctx [] [] t
 

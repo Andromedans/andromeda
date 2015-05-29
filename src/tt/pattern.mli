@@ -5,6 +5,7 @@ type term = private
   | PVar of Syntax.bound
   | Name of Name.t
   | Spine of term * (Tt.ty, Tt.ty) Tt.abstraction * term list
+  | Bracket of ty
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty
@@ -27,12 +28,17 @@ type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstractio
     sides of equation. *)
 type hint = Name.t * (Tt.ty, ty * term * term) Tt.abstraction
 
+(** An inhabit hint is a universally quantified type. *)
+type inhabit = (Tt.ty, ty) Tt.abstraction
+
 (** Wrap a name as a pattern *)
 val make_beta_hint : loc:Location.t -> (Tt.ty, Tt.ty * Tt.term * Tt.term) Tt.abstraction -> beta_hint
 
 val make_eta_hint : loc:Location.t -> (Tt.ty, Tt.ty * Tt.term * Tt.term) Tt.abstraction -> eta_hint
 
 val make_hint : loc:Location.t -> (Tt.ty, Tt.ty * Tt.term * Tt.term) Tt.abstraction -> hint
+
+val make_inhabit : loc:Location.t -> (Tt.ty, Tt.ty) Tt.abstraction -> inhabit
 
 val print_pattern : ?max_level:int -> Name.t list -> t -> (Format.formatter -> unit)
 

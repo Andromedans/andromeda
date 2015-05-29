@@ -3,6 +3,7 @@ type term =
   | PVar of Syntax.bound
   | Name of Name.t
   | Spine of term * (Tt.ty, Tt.ty) Tt.abstraction * term list
+  | Bracket of ty
   | Eq of ty * term * term
   | Refl of ty * term
   | Term of Tt.term * Tt.ty
@@ -19,6 +20,8 @@ type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstractio
 
 type hint = Name.t * (Tt.ty, ty * term * term) Tt.abstraction
 
+type inhabit = (Tt.ty, ty) Tt.abstraction
+
 (** Attempt to remove [x] from list [xs]. *)
 let rec remove_bound x xs =
   match xs with
@@ -32,7 +35,7 @@ let rec remove_bound x xs =
 let rec head_name = function
   | Name x -> Some x
   | Spine (e, _, _) -> head_name e
-  | PVar _ | Eq _ | Refl _ | Term _ -> None
+  | PVar _ | Eq _ | Refl _ | Bracket _ | Term _ -> None
 
 (** Convert a term [e] of type [t] to a pattern with respect to the
     given bound variables [pvars]. That is, the bound variables from [pvars]
@@ -42,7 +45,7 @@ let rec of_term pvars ((e',loc) as e) t =
   let original = pvars, Term (e,t) in
   match e' with
 
-  | Tt.Type | Tt.Lambda _ | Tt.Prod _ -> original
+  | Tt.Type | Tt.Inhab | Tt.Lambda _ | Tt.Prod _ -> original
 
   | Tt.Name x -> pvars, Name x
 
@@ -90,6 +93,13 @@ let rec of_term pvars ((e',loc) as e) t =
       | _, _ -> pvars, (Refl (t', e))
     end
 
+  | Tt.Bracket t ->
+    let pvars, t = of_ty pvars t in
+    begin match t with
+      | Ty (Term _) -> original
+      | _ -> pvars, (Bracket t)
+    end
+
 and of_ty pvars (Tt.Ty t) =
   let pvars, t = of_term pvars t Tt.typ in
   pvars, (Ty t)
@@ -128,6 +138,9 @@ let rec print_term ?max_level xs e ppf =
         print ~at_level:1 "refl%t %t"
           (print_ty xs t)
           (print_term ~max_level:0 xs e)
+
+      | Bracket t ->
+        print "[%t]" (print_ty xs t)
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
@@ -205,3 +218,8 @@ let make_hint ~loc (xts, (t, e1, e2)) =
     | None ->
         Error.runtime ~loc
           "the type of a hint must be a symbol@ or a symbol applied to arguments"
+
+let make_inhabit ~loc (xts, t) =
+  let pvars = pvars_of_binders xts in
+  let pvars, ((Ty pt') as pt) = of_ty pvars t in
+    (xts, pt)

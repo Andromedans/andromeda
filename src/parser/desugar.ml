@@ -67,6 +67,11 @@ let rec comp ctx ((c',loc) as c) =
       let c = comp ctx c in
         w, Syntax.Hint (e, c)
 
+    | Input.Inhabit (e, c) ->
+      let ctx, w, e = expr ctx e in
+      let c = comp ctx c in
+        w, Syntax.Inhabit (e, c)
+
     | Input.Ascribe (c, t) ->
       let ctx, w, t = expr ctx t in
       let c = comp ctx c in
@@ -128,6 +133,13 @@ let rec comp ctx ((c',loc) as c) =
       let c = comp ctx c in
       [], Syntax.Refl c
 
+    | Input.Bracket c ->
+      let c = comp ctx c in
+      [], Syntax.Bracket c
+
+    | Input.Inhab ->
+      [], Syntax.Inhab
+
     | (Input.Var _ | Input.Type) ->
       let _, w, e = expr ctx c in
       w, Syntax.Return e
@@ -147,8 +159,9 @@ and expr ctx ((e', loc) as e) =
   | Input.Type ->
     ctx, [], (Syntax.Type, loc)
 
-  | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Ascribe _ |
-     Input.Lambda _ | Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _) ->
+  | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
+     Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
+     Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _) ->
     let x = Name.fresh Name.anonymous
     and c = comp ctx e in
     let ctx = add_bound x ctx in
@@ -180,6 +193,10 @@ let toplevel ctx (d', loc) =
     | Input.TopHint c ->
       let c = comp ctx c in
       Syntax.TopHint c
+
+    | Input.TopInhabit c ->
+      let c = comp ctx c in
+      Syntax.TopInhabit c
 
     | Input.Quit -> Syntax.Quit
 
