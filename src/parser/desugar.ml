@@ -82,7 +82,7 @@ let rec comp ctx ((c',loc) as c) =
             match expr ctx t with
             | _, [], t ->
               let ctx = add_bound x ctx
-              and ys = ys @ [(x,t)] in
+              and ys = ys @ [(x, Some t)] in
               fold ctx ys xs
             | ctx, w, ((_,loc) as t) ->
               let c = fold (add_bound x ctx) [] xs in
