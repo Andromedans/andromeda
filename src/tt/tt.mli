@@ -79,6 +79,12 @@ val abstract : Name.t list -> int -> term -> term
 
 val abstract_ty : Name.t list -> int -> ty -> ty
 
+(** [shift k e] shifts all bound variables in [e] by [k]. This is used when a term descends into
+    an extended environment (so its deBruijn indices are out of sync). *)
+val shift : int -> term -> term
+
+val shift_ty : int -> ty -> ty
+
 val occurs: Syntax.bound -> term -> int
 
 val occurs_ty: Syntax.bound -> ty -> int

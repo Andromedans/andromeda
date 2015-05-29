@@ -31,48 +31,28 @@ let rec expr ctx (e',loc) =
   end
 
 (** Evaluate a computation -- infer mode. *)
-let rec comp ctx (c',loc) =
+let rec infer ctx (c',loc) =
   match c' with
 
   | Syntax.Return e ->
      let v = expr ctx e
      in Value.Return v
 
-  | Syntax.Let (cs, c') ->
-     let ctx = List.fold_left
-                 (fun ctx' (x,c) ->
-                  (* NB: must use [ctx] here, not [ctx'] *)
-                  match comp ctx c with
-                  | Value.Return v -> Context.add_bound x v ctx')
-                 ctx cs
-     in comp ctx c'
+  | Syntax.Let (xcs, c) ->
+     let ctx = let_bind ctx xcs in
+     infer ctx c
 
   | Syntax.Beta (e, c) ->
-    let (_, t) = expr ctx e in
-    let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-    let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
-    let ctx = Context.add_beta h ctx in
-    Print.debug "Installed beta hint %t"
-      (Pattern.print_beta_hint [] h);
-      comp ctx c
+    let ctx = beta_bind ctx e in
+    infer ctx c
 
   | Syntax.Eta (e, c) ->
-    let (_, t) = expr ctx e in
-    let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-    let h = Pattern.make_eta_hint ~loc (xts, (t, e1, e2)) in
-    let ctx = Context.add_eta h ctx in
-    Print.debug "Installed eta hint %t"
-      (Pattern.print_eta_hint [] h);
-      comp ctx c
+    let ctx = eta_bind ctx e in
+    infer ctx c
 
   | Syntax.Hint (e, c) ->
-    let (_, t) = expr ctx e in
-    let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-    let h = Pattern.make_hint ~loc (xts, (t, e1, e2)) in
-    let ctx = Context.add_hint h ctx in
-    Print.debug "Installed hint %t"
-      (Pattern.print_hint [] h);
-      comp ctx c
+    let ctx = hint_bind ctx e in
+    infer ctx c
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t
@@ -83,7 +63,7 @@ let rec comp ctx (c',loc) =
     let rec fold ctx ys xts = function
       | [] ->
         begin
-          match comp ctx c with
+          match infer ctx c with
           | Value.Return (e, t) ->
             let e = Tt.abstract ys 0 e
             and t = Tt.abstract_ty ys 0 t in
@@ -108,7 +88,7 @@ let rec comp ctx (c',loc) =
   | Syntax.Prod (abs, c) ->
     let rec fold ctx ys xts = function
       | [] ->
-        let u = comp_ty ctx c in
+        let u = infer_ty ctx c in
         let u = Tt.abstract_ty ys 0 u in
         let e = Tt.mk_prod ~loc xts u
         and t = Tt.mk_type_ty ~loc
@@ -123,29 +103,111 @@ let rec comp ctx (c',loc) =
     in
       fold ctx [] [] abs
 
-  | Syntax.Eq (e1, c2) ->
-    let (e1, t1) = expr ctx e1 in
-    let e2 = check ctx c2 t1 in
-    let t = Tt.mk_eq ~loc t1 e1 e2
-    in
-      Value.Return (t, Tt.typ)
+  | Syntax.Eq (c1, c2) ->
+    begin match infer ctx c1 with
+      | Value.Return (e1, t1) ->
+        let e2 = check ctx c2 t1 in
+        let t = Tt.mk_eq ~loc t1 e1 e2 in
+        Value.Return (t, Tt.typ)
+    end
 
-  | Syntax.Refl e ->
-    let (e, t) = expr ctx e
-    in let e' = Tt.mk_refl ~loc t e
-       and t' = Tt.mk_eq_ty ~loc t e e
-       in Value.Return (e', t')
+  | Syntax.Refl c ->
+    begin match infer ctx c with
+      | Value.Return (e,t) ->
+        let e' = Tt.mk_refl ~loc t e
+        and t' = Tt.mk_eq_ty ~loc t e e
+        in Value.Return (e', t')
+    end
 
-and check ctx c t =
-  match comp ctx c with
-  | Value.Return (e, t') ->
-     if Equal.equal_ty ctx t' t
-     then e
-     else
-      Error.typing ~loc:(snd c) "this expression (%t) should have type %t but has type %t"
-        (print_term ctx e)
+and check ctx ((c', loc) as c) t : Tt.term =
+  match c' with
+  | Syntax.Return _
+  | Syntax.Prod _
+  | Syntax.Eq _
+  | Syntax.Spine _ ->
+    let Value.Return (e', t') = infer ctx c in
+    if Equal.equal_ty ctx t t'
+    then e'
+    else
+      Error.typing ~loc "this expression should have type %t but has type %t"
         (print_ty ctx t)
         (print_ty ctx t')
+
+
+  | Syntax.Let (xcs, c) ->
+     let ctx = let_bind ctx xcs in
+     let t = Tt.shift_ty (List.length xcs) t in
+     check ctx c t
+
+  | Syntax.Beta (e, c) ->
+    let ctx = beta_bind ctx e in
+    check ctx c t
+
+  | Syntax.Eta (e, c) ->
+    let ctx = eta_bind ctx e in
+    check ctx c t
+
+  | Syntax.Hint (e, c) ->
+    let ctx = hint_bind ctx e in
+    check ctx c t
+
+  | Syntax.Ascribe (c, t') ->
+     let ((Tt.Ty (_, loc)) as t') = expr_ty ctx t' in
+     (* XXX checking the types for equality right away like this allows to fail
+        faster than going through inference. Probably not worth the extra
+        clause though. *)
+     if Equal.equal_ty ctx t' t
+     then check ctx c t'
+     else Error.typing ~loc "this type should be equal to %t" (print_ty ctx t)
+
+  | Syntax.Lambda (abs, c) ->
+    let (zus, u) =
+      begin match Equal.as_prod ctx t with
+      | Some (zus, u) -> zus, u
+      | None -> Error.typing ~loc
+                  "this has type %t which is not a product" (print_ty ctx t)
+      end
+    in
+
+    let rec fold ctx xts zus xts' =
+      match xts, zus with
+      | (x,t)::xts, (z,u)::zus ->
+        begin match t with
+        | None ->
+          fold ctx xts zus ((x,u)::xts')
+        | Some t ->
+          let t = expr_ty ctx t in
+          if not (Equal.equal_ty ctx t u)
+          then Error.typing ~loc
+              "in this function variable %t should have a type equal to %t"
+              (Name.print x) (print_ty ctx u)
+          else
+            fold ctx xts zus ((x,u)::xts')
+        end
+      | [], [] ->
+        let e = check ctx c t in
+        let e = Tt.abstract ys 0 e in
+        let e = Tt.mk_lambda ~loc xts' e t in
+        e
+      | _::_, [] | [], _::_ -> failwith "todo"
+    in
+    fold ctx abs zus []
+
+  | Syntax.Refl c ->
+    let abs, (t, e1, e2) = Equal.as_universal_eq ctx t in
+    let e = check ctx c t in
+    if Equal.equal ctx e e1 t && Equal.equal ctx e e2 t
+    then Tt.mk_refl ~loc t e
+    else Error.typing ~loc
+        "failed to check that this term is equal to %t and %t"
+              (print_term ctx e1) (print_term ctx e2)
+
+  (* spine arguments are computations because we want to evaluate in checking
+     mode, once we know their types. *)
+  (* | Spine of expr * comp list *)
+  (* | Prod of (Name.t * ty) list * comp *)
+  (* | Eq of expr * comp *)
+
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
     Then [spine ctx e t cs] computes [xeus], [u] and [v] such that we can make
@@ -179,6 +241,41 @@ and spine ~loc ctx e t cs =
   in
   fold [] [] xts cs
 
+and let_bind ctx xcs =
+  List.fold_left
+    (fun ctx' (x,c) ->
+        (* NB: must use [ctx] here, not [ctx'] *)
+        match infer ctx c with
+          | Value.Return v -> Context.add_bound x v ctx')
+    ctx xcs
+
+and beta_bind ctx (_, loc as e) =
+  let (_, t) = expr ctx e in
+  let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+  let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
+  let ctx = Context.add_beta h ctx in
+  Print.debug "Installed beta hint %t"
+    (Pattern.print_beta_hint [] h);
+  ctx
+
+and eta_bind ctx (_, loc as e) =
+  let (_, t) = expr ctx e in
+  let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+  let h = Pattern.make_eta_hint ~loc (xts, (t, e1, e2)) in
+  let ctx = Context.add_eta h ctx in
+  Print.debug "Installed eta hint %t"
+    (Pattern.print_eta_hint [] h);
+  ctx
+
+and hint_bind ctx (_, loc as e) =
+  let (_, t) = expr ctx e in
+  let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+  let h = Pattern.make_hint ~loc (xts, (t, e1, e2)) in
+  let ctx = Context.add_hint h ctx in
+  Print.debug "Installed hint %t"
+    (Pattern.print_hint [] h);
+  ctx
+
 and expr_ty ctx ((_,loc) as e) =
   let (e, t) = expr ctx e
   in
@@ -190,8 +287,10 @@ and expr_ty ctx ((_,loc) as e) =
         (print_ty ctx t)
 
 
-and comp_ty ctx c =
+and infer_ty ctx c =
   let e = check ctx c Tt.typ in
     Tt.ty e
 
-let ty = comp_ty
+let comp = infer
+
+let ty = infer_ty

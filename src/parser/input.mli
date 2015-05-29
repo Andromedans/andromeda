@@ -20,8 +20,8 @@ and term' =
   | Lambda of (Name.t * ty) list * comp
   | Spine of expr * expr list
   | Prod of (Name.t * ty) list * comp
-  | Eq of expr * expr
-  | Refl of expr
+  | Eq of comp * comp
+  | Refl of comp
 
 (** Sugared types *)
 and ty = term

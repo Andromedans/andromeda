@@ -86,7 +86,7 @@ let rec comp ctx ((c',loc) as c) =
               fold ctx ys xs
             | ctx, w, ((_,loc) as t) ->
               let c = fold (add_bound x ctx) [] xs in
-              let c = Syntax.Lambda ([(x,t)], (c, loc)) in
+              let c = Syntax.Lambda ([(x, Some t)], (c, loc)) in
               let c = mk_let ~loc w c in
               mk_lambda ys c
           end
