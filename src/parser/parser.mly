@@ -6,14 +6,14 @@
 %token TYPE
 %token UNDERSCORE
 %token <string> NAME
-%token LPAREN RPAREN
+%token LPAREN RPAREN LBRACK RBRACK
 %token COLON ASCRIBE COMMA DOT
 %token ARROW DARROW
 %token EQEQ
 %token REFL
-%token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT
+%token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
 %token LET COLONEQ AND IN
-%token BETA ETA HINT
+%token BETA ETA HINT INHABIT
 %token PARAMETER
 %token CONTEXT HELP QUIT
 %token EOF
@@ -45,6 +45,7 @@ plain_topcomp:
   | TOPBETA c=term DOT                                   { TopBeta c }
   | TOPETA c=term DOT                                    { TopEta c }
   | TOPHINT c=term DOT                                   { TopHint c }
+  | TOPINHABIT c=term DOT                                { TopInhabit c }
   | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
 
 (* Toplevel directive. *)
@@ -63,6 +64,7 @@ plain_term:
   | BETA e=term IN c=term                           { Beta (e, c) }
   | ETA e=term IN c=term                            { Eta (e, c) }
   | HINT e=term IN c=term                           { Hint (e, c) }
+  | INHABIT e=term IN c=term                        { Inhabit (e, c) }
   | e=app_term ASCRIBE t=ty_term                    { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
@@ -86,8 +88,10 @@ plain_app_term:
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                            { Type }
+  | LBRACK RBRACK                                   { Inhab }
   | x=name                                          { Var x }
   | LPAREN e=plain_term RPAREN                      { e }
+  | LBRACK e=term RBRACK                            { Bracket e }
 
 name:
   | NAME { Name.make $1 }

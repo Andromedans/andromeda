@@ -140,6 +140,17 @@ let rec exec_cmd interactive ctx c =
             ctx
     end
 
+  | Syntax.TopInhabit c ->
+    begin
+      match Eval.comp ctx c with
+        | Value.Return (_,t) ->
+          let (xts, u) = Equal.as_universal_ty ctx t in
+          let h = Pattern.make_inhabit ~loc (xts, u) in
+          let ctx = Context.add_inhabit h ctx in
+          Format.printf "Inhabit hint installed.@." ;
+          ctx
+    end
+
   | Syntax.TopHint c ->
     begin
       match Eval.comp ctx c with

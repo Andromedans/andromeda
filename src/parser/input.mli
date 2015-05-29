@@ -16,12 +16,15 @@ and term' =
   | Beta of expr * comp
   | Eta of expr * comp
   | Hint of expr * comp
+  | Inhabit of expr * comp
   | Ascribe of comp * ty
   | Lambda of (Name.t * ty) list * comp
-  | Spine of expr * expr list
+  | Spine of comp * comp list
   | Prod of (Name.t * ty) list * comp
   | Eq of comp * comp
   | Refl of comp
+  | Bracket of comp
+  | Inhab
 
 (** Sugared types *)
 and ty = term
@@ -41,6 +44,7 @@ and toplevel' =
   | TopBeta of comp (** global beta hint *)
   | TopEta of comp (** global eta hint *)
   | TopHint of comp (** global hint *)
+  | TopInhabit of comp (** global inhabit hint *)
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Context (** print the current context *)

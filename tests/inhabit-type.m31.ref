@@ -1,0 +1,16 @@
+A is assumed.
+
+a is assumed.
+
+Inhabit hint installed.
+[]
+      : [A]
+B is assumed.
+
+f is assumed.
+
+[]
+      : [B a]
+Inhabit hint installed.
+fun (x : A) => []
+      : forall (x : A), [B x]

@@ -26,8 +26,8 @@ let rec expr ctx (e',loc) =
     | Syntax.Bound k -> Context.lookup_bound k ctx
 
     | Syntax.Type ->
-       let t = Tt.mk_type ~loc
-       in (t, Tt.typ)
+      let t = Tt.mk_type ~loc
+      in (t, Tt.typ)
   end
 
 (** Evaluate a computation -- infer mode. *)
@@ -52,6 +52,10 @@ let rec infer ctx (c',loc) =
 
   | Syntax.Hint (e, c) ->
     let ctx = hint_bind ctx e in
+    infer ctx c
+
+  | Syntax.Inhabit (e, c) ->
+    let ctx = inhabit_bind ctx e in
     infer ctx c
 
   | Syntax.Ascribe (c, t) ->
@@ -124,13 +128,22 @@ let rec infer ctx (c',loc) =
         in Value.Return (e', t')
     end
 
+  | Syntax.Bracket c ->
+    let t = infer_ty ctx c in
+    let t = Tt.mk_bracket ~loc t in
+    Value.Return (t, Tt.typ)
+
+  | Syntax.Inhab ->
+    Error.typing ~loc "cannot infer the type of []"
 
 and check ctx ((c',loc) as c) t =
   match c' with
+
   | Syntax.Return _
   | Syntax.Prod _
   | Syntax.Eq _
-  | Syntax.Spine _ ->
+  | Syntax.Spine _
+  | Syntax.Bracket _  ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
@@ -165,6 +178,10 @@ and check ctx ((c',loc) as c) t =
     let ctx = hint_bind ctx e in
     check ctx c t
 
+  | Syntax.Inhabit (e, c) ->
+      let ctx = inhabit_bind ctx e in
+      check ctx c t
+
   | Syntax.Ascribe (c, t') ->
     let t'' = expr_ty ctx t' in
     (* XXX checking the types for equality right away like this allows to fail
@@ -185,6 +202,18 @@ and check ctx ((c',loc) as c) t =
     else Error.typing ~loc
         "failed to check that this term@ %t is equal to@ %t and@ %t"
         (print_term ctx e) (print_term ctx e1) (print_term ctx e2)
+
+  | Syntax.Inhab ->
+    begin match Equal.as_bracket ctx t with
+      | Some t ->
+        begin match Equal.inhabit_bracket ctx t with
+          | Some _ -> Tt.mk_inhab ~loc
+          | None -> Error.typing ~loc "do not know how to inhabit %t"
+                      (print_ty ctx t)
+        end
+      | None -> Error.typing ~loc "[] has a bracket type and not %t"
+                  (print_ty ctx t)
+    end
 
 and check_lambda ctx loc t abs c =
   let (zus, u) = match Equal.as_prod ctx t with
@@ -312,6 +341,13 @@ and hint_bind ctx ((_,loc) as e) =
   let ctx = Context.add_hint h ctx in
   Print.debug "Installed hint %t"
     (Pattern.print_hint [] h);
+  ctx
+
+and inhabit_bind ctx ((_,loc) as e) =
+  let (_, t) = expr ctx e in
+  let xts, t = Equal.as_universal_ty ctx t in
+  let h = Pattern.make_inhabit ~loc (xts, t) in
+  let ctx = Context.add_inhabit h ctx in
   ctx
 
 and expr_ty ctx ((_,loc) as e) =

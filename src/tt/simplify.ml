@@ -2,13 +2,15 @@
 
 let is_small (e',_) =
 match e' with
-  | Tt.Type | Tt.Bound _ | Tt.Name _ -> true
-  | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _ -> false
+  | Tt.Type | Tt.Inhab | Tt.Bound _ | Tt.Name _ -> true
+  | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _ | Tt.Bracket _ -> false
 
 let rec simplify ctx ((e',loc) as e) =
     match e' with
 
     | Tt.Type -> e
+
+    | Tt.Inhab -> e
 
     | Tt.Name _ -> e
 
@@ -60,6 +62,10 @@ let rec simplify ctx ((e',loc) as e) =
       let t = simplify_ty ctx t
       and e = simplify ctx e in
         Tt.mk_refl ~loc t e
+
+    | Tt.Bracket t ->
+      let t = simplify_ty ctx t in
+        Tt.mk_bracket ~loc t
 
     | Tt.Bound _ ->
       Error.impossible "de Bruijn encountered in simplify"
@@ -122,6 +128,8 @@ and simplify_spine ~loc ctx h xts t es =
   | Tt.Spine _
   | Tt.Name _
   | Tt.Type
+  | Tt.Inhab
+  | Tt.Bracket _
   | Tt.Prod _
   | Tt.Eq _
   | Tt.Refl _ ->
