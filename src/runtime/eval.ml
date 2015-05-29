@@ -119,24 +119,26 @@ let rec infer ctx (c',loc) =
         in Value.Return (e', t')
     end
 
-and check ctx ((c', loc) as c) t : Tt.term =
+
+and check ctx ((c',loc) as c) t : Tt.term =
   match c' with
+
+  | Syntax.Lambda _
   | Syntax.Return _
   | Syntax.Prod _
   | Syntax.Eq _
   | Syntax.Spine _ ->
-    let Value.Return (e', t') = infer ctx c in
+    begin match infer ctx c with
+    | Value.Return (e',t') ->
     if Equal.equal_ty ctx t t'
     then e'
-    else
-      Error.typing ~loc "this expression should have type %t but has type %t"
-        (print_ty ctx t)
-        (print_ty ctx t')
-
+    else Error.typing ~loc:(snd e')
+        "this expression should have type@ %t but has type@ %t"
+        (print_ty ctx t) (print_ty ctx t')
 
   | Syntax.Let (xcs, c) ->
      let ctx = let_bind ctx xcs in
-     let t = Tt.shift_ty (List.length xcs) t in
+     let t = Tt.shift_ty (List.length xcs) 0 t in
      check ctx c t
 
   | Syntax.Beta (e, c) ->
@@ -152,13 +154,17 @@ and check ctx ((c', loc) as c) t : Tt.term =
     check ctx c t
 
   | Syntax.Ascribe (c, t') ->
-     let ((Tt.Ty (_, loc)) as t') = expr_ty ctx t' in
+     let t'' = expr_ty ctx t' in
      (* XXX checking the types for equality right away like this allows to fail
         faster than going through inference. Probably not worth the extra
         clause though. *)
-     if Equal.equal_ty ctx t' t
-     then check ctx c t'
-     else Error.typing ~loc "this type should be equal to %t" (print_ty ctx t)
+     if Equal.equal_ty ctx t'' t
+     then check ctx c t''
+     else
+      Error.typing ~loc:(snd t') "this type should be equal to %t"
+        (print_ty ctx t)
+
+    end
 
   | Syntax.Lambda (abs, c) ->
     let (zus, u) =
@@ -249,7 +255,8 @@ and let_bind ctx xcs =
           | Value.Return v -> Context.add_bound x v ctx')
     ctx xcs
 
-and beta_bind ctx (_, loc as e) =
+
+and beta_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
   let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
@@ -258,7 +265,7 @@ and beta_bind ctx (_, loc as e) =
     (Pattern.print_beta_hint [] h);
   ctx
 
-and eta_bind ctx (_, loc as e) =
+and eta_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
   let h = Pattern.make_eta_hint ~loc (xts, (t, e1, e2)) in
@@ -267,7 +274,7 @@ and eta_bind ctx (_, loc as e) =
     (Pattern.print_eta_hint [] h);
   ctx
 
-and hint_bind ctx (_, loc as e) =
+and hint_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
   let h = Pattern.make_hint ~loc (xts, (t, e1, e2)) in
