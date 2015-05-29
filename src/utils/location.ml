@@ -27,7 +27,7 @@ let unknown = Unknown
 let dismantle lexpos =
   let filename = lexpos.Lexing.pos_fname
   and line = lexpos.Lexing.pos_lnum
-  and col = lexpos.Lexing.pos_cnum - lexpos.Lexing.pos_bol + 1 in
+  and col = lexpos.Lexing.pos_cnum - lexpos.Lexing.pos_bol in
   filename, line, col
 
 let make start_lexpos end_lexpos =
