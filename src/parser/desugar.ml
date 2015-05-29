@@ -119,14 +119,14 @@ let rec comp ctx ((c',loc) as c) =
       in
       [], fold ctx [] xs
 
-    | Input.Eq (e1, c2) ->
-      let ctx, w, e1 = expr ctx e1 in
-      let c2 = comp ctx c2 in
-      w, Syntax.Eq (e1, c2)
+    | Input.Eq (c1, c2) ->
+      let c1 = comp ctx c1
+      and c2 = comp ctx c2 in
+      [], Syntax.Eq (c1, c2)
 
-    | Input.Refl e ->
-      let _, w, e = expr ctx e in
-      w, Syntax.Refl e
+    | Input.Refl c ->
+      let c = comp ctx c in
+      [], Syntax.Refl c
 
     | (Input.Var _ | Input.Type) ->
       let _, w, e = expr ctx c in

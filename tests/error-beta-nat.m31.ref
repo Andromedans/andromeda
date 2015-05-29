@@ -13,7 +13,5 @@ plus_S is assumed.
 Type
       : Type
 Typing error (./error-beta-nat.m31:14:4-20):
-  this expression (refl (S (S Z))) should have type plus (S Z) (S (S Z))
-                                                      == S (S Z) but has type 
-  S (S Z)
-    == S (S Z)
+  this expression should have type
+  plus (S Z) (S (S Z)) == S (S Z) but has type S (S Z) == S (S Z)

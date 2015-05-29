@@ -225,6 +225,81 @@ and abstract_term_ty xs depth (e, t) =
   and t = abstract_ty xs depth t
   in (e, t)
 
+let shift_abstraction shift_u shift_v k lvl us v =
+  let rec fold lvl us' = function
+    | [] ->
+      let v = shift_v k lvl v in
+        List.rev us', v
+    | (x,u)::us ->
+      let u = shift_u k lvl u in
+        fold (lvl+1) ((x,u) :: us') us
+  in
+    fold lvl [] us
+
+let rec shift k lvl ((e',loc) as e) =
+  match e' with
+    | (Type | Name _) -> e
+
+    | Bound j ->
+      if lvl <= j
+      then (Bound (j + k), loc)
+      else e
+
+    | Lambda (xts, (e, t)) ->
+        let xts, (e, t) = shift_abstraction shift_ty shift_term_ty k lvl xts (e,t) in
+          Lambda (xts, (e, t)), loc
+
+    | Spine (e, (xts, u), es) ->
+        let e = shift k lvl e
+        and xts, u = shift_abstraction shift_ty shift_ty k lvl xts u
+        and es = List.map (shift k lvl) es in
+          Spine (e, (xts, u), es), loc
+
+    | Prod (xts, u) ->
+        let xts, u = shift_abstraction shift_ty shift_ty k lvl xts u in
+          Prod (xts, u), loc
+
+    | Eq (t, e1, e2) ->
+        let t = shift_ty k lvl t
+        and e1 = shift k lvl e1
+        and e2 = shift k lvl e2 in
+           Eq (t, e1, e2), loc
+
+    | Refl (t, e) ->
+      let t = shift_ty k lvl t
+      and e = shift k lvl e in
+        Refl (t, e), loc
+
+and shift_ty k lvl (Ty t) =
+  let t = shift k lvl t in
+    Ty t
+
+and shift_term_ty k lvl (e, t) =
+  let e = shift k lvl e
+  and t = shift_ty k lvl t in
+    (e, t)
+
+(* We shadow [shift] and [shift_ty] to prevent evil uses. It is slightly
+   evil to shadow values like this. A more honorable man would call the
+   original [shift] something like [shift']. *)
+
+let shift k lvl e =
+  if k >= 0
+  then shift k lvl e
+  else
+    (* NB: with reflection rule strengthening is not valid. Therefore we cannot
+       shift by a negative amount. Never ever, even if it looks harmless to you. *)
+    Error.impossible "shifting by a negative amount is not allowed, ever!"
+
+let shift_ty k lvl t =
+  if k >= 0
+  then shift_ty k lvl t
+  else
+    (* NB: with reflection rule strengthening is not valid. Therefore we cannot
+       shift by a negative amount. Never ever, even if it looks harmless to you. *)
+    Error.impossible "shifting by a negative amount is not allowed, ever!"
+
+
 let occurs_abstraction occurs_u occurs_v k (xus, v) =
   let rec fold k = function
     | [] -> occurs_v k v
