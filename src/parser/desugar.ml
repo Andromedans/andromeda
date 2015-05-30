@@ -82,7 +82,11 @@ let rec comp ctx ((c',loc) as c) =
         | [] ->
           let c = comp ctx c in
           mk_lambda ys c
-        | (x,t) :: xs ->
+        | (x, None) :: xs ->
+          let ctx = add_bound x ctx
+          and ys = ys @ [(x, None)] in
+          fold ctx ys xs
+        | (x, Some t) :: xs ->
           begin
             match expr ctx t with
             | _, [], t ->

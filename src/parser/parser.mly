@@ -71,7 +71,7 @@ ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                              { e }
   | FORALL a=abstraction(ty_term) COMMA e=term      { Prod (a, e) }
-  | FUN a=abstraction(ty_term) DARROW e=term        { Lambda (a, e) }
+  | FUN a=fun_abstraction e=term                    { Lambda (a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
@@ -115,7 +115,19 @@ bind(X):
   | xs=nonempty_list(name) COLON t=X   { List.map (fun x -> (x, t)) xs }
 
 paren_bind(X):
-  | LPAREN b=bind(X) RPAREN            { b }
+  | LPAREN xst=bind(X) RPAREN            { xst }
+
+(* function abstraction with possibly missing typing annotations *)
+fun_abstraction:
+  | xs=list(name) DARROW
+      { (List.map (fun x -> (x, None)) xs) }
+  | xs=nonempty_list(name) COLON t=ty_term DARROW
+      { (List.map (fun x -> (x, Some t)) xs) }
+  | xs=list(name) yst=paren_bind(ty_term) zsu=fun_abstraction
+      { (List.map (fun x -> (x, None)) xs) @
+        (List.map (fun (y,t) -> (y, Some t)) yst) @
+         zsu
+      }
 
 mark_location(X):
   x=X

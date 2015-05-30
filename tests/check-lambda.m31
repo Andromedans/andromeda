@@ -1,0 +1,22 @@
+(* Testing checking for lambdas in various ways. *)
+
+Parameter A : Type.
+Parameter B : A -> Type.
+Parameter C : forall x : A, B x -> Type.
+Parameter f : forall x : A, B x.
+Parameter g : forall (x : A) (y : B x), C x y.
+
+Parameter a : A.
+
+Check
+  (fun y : B a => g a y) :: forall y : B a, C a y.
+
+(* we allow empty function abstractions, not sure whether this is a good
+   idea. *)
+Check (fun => A).
+
+Check (fun x y => g x y) :: forall (x : A) (y : B x), C x y.
+
+Check (fun (x : A) y => g x y) :: forall (x : A) (y : B x), C x y.
+
+Check (fun x (y : B x) => g x y) :: forall (x : A) (y : B x), C x y.

@@ -219,7 +219,7 @@ and check_lambda ctx loc t abs c =
   let (zus, u) = match Equal.as_prod ctx t with
     | Some x -> x
     | None -> Error.typing ~loc
-                "this has type %t which is not a product" (print_ty ctx t)
+                "this type %t should be a product" (print_ty ctx t)
   in
 
   (** [ys] are what got added to the environment, [zus] come from the type
