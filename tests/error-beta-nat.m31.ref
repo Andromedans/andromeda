@@ -12,6 +12,6 @@ plus_S is assumed.
 
 Type
       : Type
-Typing error (./error-beta-nat.m31:14:4-20):
-  this expression should have type
-  plus (S Z) (S (S Z)) == S (S Z) but has type S (S Z) == S (S Z)
+./error-beta-nat.m31:14:3-19: Typing error
+  failed to check that this term S (S Z) is equal to plus (S Z) (S (S Z)) and
+  S (S Z)

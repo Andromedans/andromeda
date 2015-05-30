@@ -1,4 +1,4 @@
 NarrowN is assumed.
 
-Runtime error (./beta-bool-nat.m31:2:27-28):
+./beta-bool-nat.m31:2:26-27: Runtime error
   unknown free variable N
