@@ -16,15 +16,22 @@ let reserved = [
   ("let", LET) ;
   ("Parameter", PARAMETER) ;
   ("forall", FORALL) ;
+  ("∀", FORALL) ;
   ("fun", FUN) ;
+  ("λ", FUN) ;
   ("in", IN) ;
   ("refl", REFL) ;
   ("Type", TYPE) ;
 ]
 
-let name =
+let ascii_name =
   [%sedlex.regexp? ('a'..'z' | 'A'..'Z') ,
                  Star ('_' | 'a'..'z' | 'A'..'Z' | '0'..'9' | '\'')]
+let name =
+  [%sedlex.regexp? (alphabetic | math),
+                 Star ('_' | alphabetic | math
+                      | 8304 .. 8351 (* sub-/super-scripts *)
+                      | '0'..'9' | '\'')]
 
 let digit = [%sedlex.regexp? '0'..'9']
 let numeral = [%sedlex.regexp? Plus digit]
@@ -57,6 +64,7 @@ let rec token ({ stream } as lexbuf) =
   | '.'               -> f (); DOT
   | '_'               -> f (); UNDERSCORE
   | "->"              -> f (); ARROW
+  | 8594              -> f (); ARROW
   | "=>"              -> f (); DARROW
   | "=="              -> f (); EQEQ
   | eof               -> f (); EOF
