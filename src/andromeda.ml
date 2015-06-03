@@ -71,14 +71,13 @@ let options = Arg.align [
   ]
 
 (** Parser wrapper that reads extra lines on demand. *)
-let parse parse lexbuf =
+let parse lex parse resource =
   try
-    parse Lexer.token lexbuf
+    lex parse resource
   with
-  | Parser.Error ->
-    Error.syntax ~loc:(Location.of_lexeme lexbuf) ""
-  | Failure "lexing: empty token" ->
-    Error.syntax ~loc:(Location.of_lexeme lexbuf) "unrecognised symbol."
+  | Ulexbuf.Parse_Error lexbuf ->
+    let t = Ulexbuf.lexeme lexbuf in
+    Error.syntax ~loc:(Location.of_lexeme lexbuf) "Unexpected: %s" t
 
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
@@ -174,7 +173,7 @@ let rec exec_cmd interactive ctx c =
 
 (** Load directives from the given file. *)
 and use_file ctx (filename, interactive) =
-  let cmds = Lexer.read_file (parse Parser.file) filename in
+  let cmds = parse Lexer.read_file Parser.file filename in
   List.fold_left (exec_cmd interactive) ctx cmds
 
 (** Interactive toplevel *)
@@ -184,7 +183,7 @@ let toplevel ctx =
     let ctx = ref ctx in
     while true do
       try
-        let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
+        let cmd = Lexer.read_toplevel Parser.commandline () in
         ctx := exec_cmd true !ctx cmd
       with
       | Error.Error err -> Error.print err Format.err_formatter

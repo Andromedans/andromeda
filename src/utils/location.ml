@@ -37,4 +37,4 @@ let make start_lexpos end_lexpos =
   Known {filename = start_filename; start_line; start_col; end_line; end_col}
 
 let of_lexeme lex =
-  make (Lexing.lexeme_start_p lex) (Lexing.lexeme_end_p lex)
+  Ulexbuf.(make lex.pos_start lex.pos_end)

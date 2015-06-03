@@ -1,5 +1,6 @@
 S src
 S src/parser
+S _build/src/parser
 S src/runtime
 S src/tt
 S src/utils
@@ -8,4 +9,5 @@ B _build/src/parser
 B _build/src/runtime
 B _build/src/tt
 B _build/src/utils
-
+PKG menhirLib
+PKG sedlex

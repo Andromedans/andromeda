@@ -31,4 +31,4 @@ val unknown : t
 val make : Lexing.position -> Lexing.position -> t
 
 (** Get the location of the current lexeme in a lexing buffer. *)
-val of_lexeme : Lexing.lexbuf -> t
+val of_lexeme : Ulexbuf.t -> t
