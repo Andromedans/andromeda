@@ -89,12 +89,15 @@ simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                            { Type }
   | LBRACK RBRACK                                   { Inhab }
-  | x=name                                          { Var x }
+  | x=var_name                                      { Var x }
   | LPAREN e=plain_term RPAREN                      { e }
   | LBRACK e=term RBRACK                            { Bracket e }
 
-name:
+var_name:
   | NAME { Name.make $1 }
+
+name:
+  | x=var_name { x }
   | UNDERSCORE { Name.anonymous }
 
 let_clauses:
