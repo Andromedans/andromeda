@@ -1,7 +1,6 @@
-before_script:
-  - uname -a
-  - sudo apt-get update -q
-  - sudo apt-get install -q ocaml menhir
-  - ocamlbuild -version
-
-script: make all
+language: c
+sudo: required
+install: true
+script: bash -ex .travis-ocaml.sh
+env:
+  - M31_DEPS="menhir" BUILD_CMD="make all"
