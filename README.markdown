@@ -18,9 +18,10 @@ which has *two* kinds of equality, one of which has a reflection rule.
 ### Compilation
 
 To build Andromeda, you need [Ocaml 4.0](http://ocaml.org) or later (and quite possibly it
-works with earlier versions too) and the [menhir](http://gallium.inria.fr/~fpottier/menhir/)
-parser generator. We recommend using the [Opam](http://opam.ocamlpro.com) package manager
-for OCaml for installation of OCaml and menhir.
+works with earlier versions too), the [menhir](http://gallium.inria.fr/~fpottier/menhir/)
+parser generator and the [sedlex](https://www.lexifi.com/sedlex) unicode lexer. We recommend
+using the [Opam](http://opam.ocamlpro.com) package manager for OCaml for installation of
+OCaml, menhir and sedlex.
 
 If you also install the [ledit](http://opam.ocaml.org/packages/ledit/ledit.2.03/) or
 [rlwrap](http://utopia.knoware.nl/~hlub/uck/rlwrap/#rlwrap) utility, the Andromeda toplevel
