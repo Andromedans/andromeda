@@ -197,11 +197,15 @@ and check ctx ((c',loc) as c) t =
   | Syntax.Refl c ->
     let abs, (t, e1, e2) = Equal.as_universal_eq ctx t in
     let e = check ctx c t in
-    if Equal.equal ctx e e1 t && Equal.equal ctx e e2 t
-    then Tt.mk_refl ~loc t e
-    else Error.typing ~loc
-        "failed to check that this term@ %t is equal to@ %t and@ %t"
-        (print_term ctx e) (print_term ctx e1) (print_term ctx e2)
+    if not @@ Equal.equal ctx e e1 t
+    then Error.typing ~loc
+        "failed to check that this term@ %t is equal to@ %t"
+        (print_term ctx e) (print_term ctx e1)
+    else if not @@ Equal.equal ctx e e2 t
+    then Error.typing ~loc
+        "failed to check that this term@ %t is equal to@ %t"
+        (print_term ctx e) (print_term ctx e2)
+    else  Tt.mk_refl ~loc t e
 
   | Syntax.Inhab ->
     begin match Equal.as_bracket ctx t with
