@@ -1,0 +1,11 @@
+A is assumed.
+
+B is assumed.
+
+f is assumed.
+
+foo is defined.
+
+refl (fun (x : A) => fun (y : B x) => f x (f x y))
+      : (fun (x : A) => fun (y : B x) => f x (f x y))
+          == (fun (x : A) => fun (y : B x) => f x (f x y)) 

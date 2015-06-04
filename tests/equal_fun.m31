@@ -1,0 +1,11 @@
+Parameter A : Type.
+Parameter B : A -> Type.
+Parameter f : forall x : A, B x -> B x.
+
+Let foo :=
+  fun (g : forall x : A, B x -> B x) =>
+    (fun (x : A) (y : B x) => g x (g x y)).
+
+Check
+  refl (fun (x : A) (y : B x) => f x (f x y)) ::
+    (fun (x : A) (y : B x) => f x (f x y)) == foo f.

@@ -1,0 +1,9 @@
+Let G := (fun (T : Type) (g : T -> T) (x : T) => g x).
+Let G' := (fun T' g => let _ := Type in fun (x : T') => g x) : ∀ (T : Type) (g : T -> T), T -> T.
+
+Check refl G : G == G'.
+
+Let H := (fun (T : Type) (g : T -> T) (x : T) => g x).
+Let H' := (fun (T' : Type) (g : T' -> T') => fun (x : T') => g x).
+
+Check refl H : H == H'.
