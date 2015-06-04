@@ -1,9 +1,11 @@
-Let G := (fun (T : Type) (g : T -> T) (x : T) => g x).
-Let G' := (fun T' g => let _ := Type in fun (x : T') => g x) : ∀ (T : Type) (g : T -> T), T -> T.
+Let G := (fun (T : Type) (g : T -> T) (x : T) => x) : ∀ (T : Type) (g : T -> T) (x : T), T.
+Let G' := (fun U f => fun (y : U) => y) : ∀ (V : Type) (h : V -> V) (z : V), V.
 
-Check refl G : G == G'.
+Verbosity 4.
 
-Let H := (fun (T : Type) (g : T -> T) (x : T) => g x).
-Let H' := (fun (T' : Type) (g : T' -> T') => fun (x : T') => g x).
-
-Check refl H : H == H'.
+(* eta expansion of functions seems to lead to beta hints being not applied *)
+Parameter G'' : ∀ (T : Type) (g : T -> T), T -> T.
+Parameter h : G'' == G.
+Check
+  beta h in
+  (refl G'' : G'' == G).
