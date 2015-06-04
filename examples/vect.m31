@@ -66,6 +66,23 @@ Let vtail :=
       (fun (n : N) (a : A) (t : vect A n) (_ : P n t) => t)
       (S n) v.
 
+
+Let vget :=
+  beta ind_N_Z in
+  beta ind_N_S in
+  beta Finite_rect_fzero in
+  beta Finite_rect_fsucc in
+  (fun (A : Type) (n : nat) (i : Finite n) (v : vect A n) =>
+     Finite_rect
+       (fun (n0 : nat) (_ : Finite n0) => forall _ : vect A n0, A)
+       (fun (n0 : nat)
+            (v0 : vect A (S n0)) =>
+          vhead A n0 v0)
+       (fun (n0 : nat) (_ : Finite n0) (IHi : forall _ : vect A n0, A)
+            (v0 : vect A (S n0)) => IHi (vtail A n0 v0)) n i v)
+  : forall (A : Type) (n : nat) (_ : Finite n) (_ : vect A n), A.
+
+
 Let v2 := (vcons N Z two (vnil N)).
 Let v52 := (vcons N one five v2).
 
@@ -84,3 +101,30 @@ Check
   beta vect_ind_beta_vcons in
   refl v2 :
   vtail N one v52 == v2.
+
+
+Beta ind_N_Z.
+Beta ind_N_S.
+Beta Finite_rect_fzero.
+Beta Finite_rect_fsucc.
+Beta vect_ind_beta_vnil.
+Beta vect_ind_beta_vcons.
+
+(* Verbosity 1. *)
+(** XXX this should work  *)
+(* Check refl two : ((vget nat one (fzero Z) v2) == two). *)
+
+
+(* Check *)
+(*   beta ind_N_Z in *)
+(*   beta ind_N_S in *)
+(*   beta Finite_rect_fzero in *)
+(*   beta Finite_rect_fsucc in *)
+(*   beta vect_ind_beta_vnil in *)
+(*   beta vect_ind_beta_vcons in *)
+(*   refl five : *)
+(*     ((vget nat two *)
+(*            (fsucc one (fzero Z)) *)
+(*            (vcons nat one five *)
+(*                   (vcons nat Z three *)
+(*                          (vnil nat)))) == five). *)
