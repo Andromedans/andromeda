@@ -197,17 +197,17 @@ and check ctx ((c',loc) as c) t =
   | Syntax.Refl c ->
     (** XXX implemente Equal.as_eq and use it here *)
     let abs, (t, e1, e2) = Equal.as_universal_eq ctx t in
-    assert (abs = []) ;
+    assert (abs = []);
     let e = check ctx c t in
+    let err e' =
+      Error.typing ~loc
+        "failed to check that the term@ %t is equal to@ %t"
+        (print_term ctx e) (print_term ctx e') in
     if not @@ Equal.equal ctx e e1 t
-    then Error.typing ~loc
-        "failed to check that this term@ %t is equal to@ %t"
-        (print_term ctx e) (print_term ctx e1)
+    then err e1
     else if not @@ Equal.equal ctx e e2 t
-    then Error.typing ~loc
-        "failed to check that this term@ %t is equal to@ %t"
-        (print_term ctx e) (print_term ctx e2)
-    else  Tt.mk_refl ~loc t e
+    then err e2
+    else Tt.mk_refl ~loc t e
 
   | Syntax.Inhab ->
     begin match Equal.as_bracket ctx t with
@@ -235,7 +235,6 @@ and check_lambda ctx loc t abs c =
     match abs, zus with
     | (x,t)::abs, (z,u)::zus ->
 
-      (* Morally, we need to do this. Does Nicolaas save us here? *)
       (* let u = u[x_k-1/z_k-1] in *)
       let u = Tt.unabstract_ty ys 0 u in
       let t =
@@ -243,7 +242,7 @@ and check_lambda ctx loc t abs c =
         | None ->
            Print.debug "untagged arg %t in lambda, using %t for the type"
              (Name.print x)
-             (print_ty ctx u) ;
+             (print_ty ctx u);
            u
         | Some t ->
           let t = expr_ty ctx t in
@@ -256,8 +255,7 @@ and check_lambda ctx loc t abs c =
 
       let y, ctx = Context.add_fresh x t ctx in
       let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
-      (* doesn't seem to do anything. *)
-      let t = Tt.abstract_ty ys 0 t in (* ys? *)
+      let t = Tt.abstract_ty ys 0 t in
       fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus
 
     | [], [] ->

@@ -7,5 +7,5 @@ Let foo :=
     (fun (x : A) (y : B x) => g x (g x y)).
 
 Check
-  refl (fun (x : A) (y : B x) => f x (f x y)) ::
+  refl (fun (x : A) (y : B x) => f x (f x y)) :
     (fun (x : A) (y : B x) => f x (f x y)) == foo f.
