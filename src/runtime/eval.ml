@@ -262,8 +262,8 @@ and check_lambda ctx loc t abs c =
 
     | [], [] ->
       (* let u = u[x_k-1/z_k-1] in *)
-      let v = Tt.unabstract_ty ys 0 v in
-      let e = check ctx c v in
+      let v' = Tt.unabstract_ty ys 0 v in
+      let e = check ctx c v' in
       let e = Tt.abstract ys 0 e in
       let xts = List.rev xts in
       Tt.mk_lambda ~loc xts e v
