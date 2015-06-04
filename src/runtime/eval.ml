@@ -195,7 +195,9 @@ and check ctx ((c',loc) as c) t =
     check_lambda ctx loc t abs c
 
   | Syntax.Refl c ->
+    (** XXX implemente Equal.as_eq and use it here *)
     let abs, (t, e1, e2) = Equal.as_universal_eq ctx t in
+    assert (abs = []) ;
     let e = check ctx c t in
     if Equal.equal ctx e e1 t && Equal.equal ctx e e2 t
     then Tt.mk_refl ~loc t e
@@ -216,7 +218,7 @@ and check ctx ((c',loc) as c) t =
     end
 
 and check_lambda ctx loc t abs c =
-  let (zus, u) = match Equal.as_prod ctx t with
+  let (zus, v) = match Equal.as_prod ctx t with
     | Some x -> x
     | None -> Error.typing ~loc
                 "this type %t should be a product" (print_ty ctx t)
@@ -234,7 +236,11 @@ and check_lambda ctx loc t abs c =
       let u = Tt.unabstract_ty ys 0 u in
       let t =
         begin match t with
-        | None -> u
+        | None ->
+           Print.debug "untagged arg %t in lambda, using %t for the type"
+             (Name.print x)
+             (print_ty ctx u) ;
+           u
         | Some t ->
           let t = expr_ty ctx t in
           if Equal.equal_ty ctx t u then t
@@ -251,21 +257,20 @@ and check_lambda ctx loc t abs c =
       fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus
 
     | [], [] ->
-      let xts = List.rev xts in
       (* let u = u[x_k-1/z_k-1] in *)
-      let u = Tt.unabstract_ty ys 0 u in
-      let e = check ctx c u in
+      let v = Tt.unabstract_ty ys 0 v in
+      let e = check ctx c v in
       let e = Tt.abstract ys 0 e in
-      Tt.mk_lambda ~loc xts e u
+      let xts = List.rev xts in
+      Tt.mk_lambda ~loc xts e v
 
     | [], _::_ ->
-      let xts = List.rev xts in
-      let u = Tt.mk_prod_ty ~loc zus u in
-      let u = Tt.unabstract_ty ys 0 u in
-      let e = check ctx c u in
+      let v = Tt.mk_prod_ty ~loc zus v in
+      let v' = Tt.unabstract_ty ys 0 v in
+      let e = check ctx c v' in
       let e = Tt.abstract ys 0 e in
-      let u = Tt.abstract_ty ys 0 u in
-      Tt.mk_lambda ~loc xts e u
+      let xts = List.rev xts in
+      Tt.mk_lambda ~loc xts e v
 
     | _::_, [] ->
       Error.typing ~loc
