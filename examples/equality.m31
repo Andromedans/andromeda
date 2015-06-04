@@ -1,13 +1,13 @@
 (** Properties of equality. *)
 
 Let symmetric :=
-  (fun (A : Type) (a b : A) (p : a == b) => beta p in refl b :: b == a)
-  :: forall (A : Type) (a b : A), a == b -> b == a.
+  (fun (A : Type) (a b : A) (p : a == b) => beta p in refl b : b == a)
+  : forall (A : Type) (a b : A), a == b -> b == a.
 
 Let transitive :=
   (fun (A : Type) (a b c : A) (p : a == b) (q : b == c) =>
-     beta p in q :: a == c)
-  :: forall (A : Type) (a b c : A), a == b -> b == c -> a == c.
+     beta p in q : a == c)
+  : forall (A : Type) (a b c : A), a == b -> b == c -> a == c.
 
 Let J :=
   (fun
@@ -16,8 +16,8 @@ Let J :=
     (r : forall x : A, B x x (refl x))
     (a b : A)
     (p : a == b) =>
-    beta p in r b :: B a b p)
-  :: forall
+    beta p in r b : B a b p)
+  : forall
        (A : Type)
        (B : forall a b : A, a == b -> Type)
        (d : forall x : A, B x x (refl x))

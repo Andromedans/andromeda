@@ -74,7 +74,7 @@ Check
   beta ind_N_S in
   beta vect_ind_beta_vnil in
   beta vect_ind_beta_vcons in
-  refl five ::
+  refl five :
   vhead N one v52 == five.
 
 Check
@@ -82,5 +82,5 @@ Check
   beta ind_N_S in
   beta vect_ind_beta_vnil in
   beta vect_ind_beta_vcons in
-  refl v2 ::
+  refl v2 :
   vtail N one v52 == v2.

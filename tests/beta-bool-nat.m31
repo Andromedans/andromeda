@@ -6,8 +6,8 @@ Check
   let f := (fun (x : N) => x) in
   let f' :=
     beta h in
-      f :: NarrowN in
+      f : NarrowN in
   let f' :=
     beta danger in
-      f' :: bool -> N in
-  refl (f' true) :: (f' true) == (f :: N -> N) ((f' true) :: N).
+      f' : bool -> N in
+  refl (f' true) : (f' true) == (f : N -> N) ((f' true) : N).

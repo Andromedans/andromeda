@@ -32,18 +32,18 @@ Let plus_Z :=
   (fun x : N =>
     beta plus_def in
     beta ind_N_Z in
-      refl (plus x Z) ::
+      refl (plus x Z) :
         plus x Z == x)
- ::
+ :
  forall x : N, plus x Z == x.
 
 Let plus_S :=
   (fun x y : N =>
      beta plus_def in
      beta ind_N_S in
-     refl (plus x (S y)) ::
+     refl (plus x (S y)) :
        plus x (S y) == S (plus x y))
-  ::
+  :
   forall x y : N, plus x (S y) == S (plus x y).
 
 (* We can compute with these rules. *)
@@ -57,7 +57,7 @@ Let five  := S (S (S (S (S Z)))).
 Check
   beta plus_Z in
   beta plus_S in
-    refl five :: plus two three == plus one four.
+    refl five : plus two three == plus one four.
 
 (* Let us establish commutativity of addition. *)
 
@@ -68,8 +68,8 @@ Let plus_Z' :=
     (fun (x : N) (IH : plus Z x == x) =>
        beta IH in
        beta plus_S in
-         refl (S (plus Z x)) :: plus Z (S x) == S x)
-  :: forall x : N, plus Z x == x.
+         refl (S (plus Z x)) : plus Z (S x) == S x)
+  : forall x : N, plus Z x == x.
 
 Let plus_S' :=
   (fun (x y : N) =>
@@ -81,9 +81,9 @@ Let plus_S' :=
       (fun (z : N) (IH : plus (S x) z == S (plus x z)) =>
        beta IH in
        beta plus_S in
-         refl (plus (S x) (S z)) :: plus (S x) (S z) == S (plus x (S z)))
+         refl (plus (S x) (S z)) : plus (S x) (S z) == S (plus x (S z)))
       y)
-  :: forall x y : N, plus (S x) y == S (plus x y).
+  : forall x y : N, plus (S x) y == S (plus x y).
 
 Let plus_commute :=
   (fun (x y : N) =>
@@ -96,12 +96,12 @@ Let plus_commute :=
       (refl y)
       (fun (z : N) (IH : plus z y == plus y z) =>
           beta IH in
-           refl (S (plus z y)) :: plus (S z) y == plus y (S z) )
+           refl (S (plus z y)) : plus (S z) y == plus y (S z) )
       x)
-  :: forall x y : N, plus x y == plus y x.
+  : forall x y : N, plus x y == plus y x.
 
 Check plus_commute.
 
 (* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x). *)
 Check hint plus_commute in
-   (fun (P : N -> Type) (x y : N) (a : P (plus x y)) => a :: P (plus y x)).
+   (fun (P : N -> Type) (x y : N) (a : P (plus x y)) => a : P (plus y x)).
