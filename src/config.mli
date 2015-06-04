@@ -27,3 +27,6 @@ val debruijn : bool ref
 
 (** Display full type annotations *)
 val annotate : bool ref
+
+(** Ignore all installed rewrite hints *)
+val ignore_hints : bool ref

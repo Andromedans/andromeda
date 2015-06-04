@@ -16,3 +16,5 @@ let verbosity = ref 2
 let debruijn = ref false
 
 let annotate = ref false
+
+let ignore_hints = ref false

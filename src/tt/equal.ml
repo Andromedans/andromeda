@@ -136,8 +136,6 @@ and weak_whnf ctx ((e', loc) as e) =
 and whnf ctx e =
   let e = weak_whnf ctx e in
   let xs = Context.used_names ctx in
-  Print.debug "trying beta hints for %t"
-    (Tt.print_term xs e);
   let rec apply_beta = function
     | [] -> e
     | ((_, (xts, (p, e'))) as h) :: hs ->
@@ -151,7 +149,7 @@ and whnf ctx e =
             | Some es ->
               (* success *)
               let e' = Tt.instantiate es 0 e' in
-              Print.debug "beta hint %t matches %t, we get %t"
+              Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
                 (Pattern.print_beta_hint xs h)
                 (Tt.print_term xs e)
                 (Tt.print_term xs e') ;
@@ -159,8 +157,11 @@ and whnf ctx e =
           end
       end
   in
-  apply_beta (Context.beta_hints ctx)
-
+  if !Config.ignore_hints then e
+  else begin
+    Print.debug "trying beta hints for %t" (Tt.print_term xs e);
+    apply_beta (Context.beta_hints ctx)
+  end
 
 (** Beta reduction of [Lambda (xus, (e, u))] applied to arguments [es],
     where [(yvs, t)] is the typing annotation for the application.
@@ -258,7 +259,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
                     end
                 end
 
-            in fold (Context.eta_hints ctx)
+            in fold (if !Config.ignore_hints then [] else (Context.eta_hints ctx))
           end
 
         | Tt.Prod (xus, u) ->
@@ -311,7 +312,7 @@ and equal_whnf ctx e1 e2 t =
                 | Some _ -> true (* success - notice how we throw away the witness of success *)
                 | None -> false
               end)
-        (Context.hints ctx)
+        (if !Config.ignore_hints then [] else Context.hints ctx)
     end
     ||
     (* compare reduced expressions *)
