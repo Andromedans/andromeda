@@ -3,7 +3,7 @@ Parameter empty_rect : forall (P : empty -> Type) (x : empty), P x.
 
 Let from_empty :=
  (fun X => empty_rect (fun x => X))
- :: forall (X : Type), empty -> X.
+ : forall (X : Type), empty -> X.
 
 Parameter unit : Type.
 Parameter tt : unit.
@@ -15,11 +15,11 @@ Parameter unit_eta : forall (t u : unit), t == u.
 
 Let to_unit :=
   (fun X x => tt)
-  :: forall (X : Type), X -> unit.
+  : forall (X : Type), X -> unit.
 
 Let termfun :=
   (fun X x _ => x)
-  :: forall (X : Type) (x : X), unit -> X.
+  : forall (X : Type) (x : X), unit -> X.
 
 Let idfun := fun (X : Type) (x : X) => x.
 
@@ -45,20 +45,20 @@ Parameter nat_iota_S :
 
 Let iteration := 
   (fun T f n => nat_rect (fun _ => T -> T) (idfun T) (fun j IHn => funcomp T T T f IHn) n)
-  :: forall (T : Type), (T -> T) -> nat -> (T -> T).
+  : forall (T : Type), (T -> T) -> nat -> (T -> T).
 
 Let iteration' := 
   (fun (T:Type) (f:T->T) (n:nat) (x:T) => nat_rect (fun i => T) x (fun j IHn => f IHn) n)
-  :: forall (T : Type), (T -> T) -> nat -> (T -> T).
+  : forall (T : Type), (T -> T) -> nat -> (T -> T).
 
 Let iteration'' := 
   (fun T f n x => nat_rect (fun i => T) x (fun j IHn => f IHn) n)
-  :: forall (T : Type), (T -> T) -> nat -> (T -> T).
+  : forall (T : Type), (T -> T) -> nat -> (T -> T).
 
 Let iteration''' := 
   (fun (T:Type) (f:T->T) (n:nat) (x:T) => nat_rect (fun i => T) x (fun j IHn => f IHn) n).
 
-Check refl iteration' :: iteration'' == iteration'.
+Check refl iteration' : iteration'' == iteration'.
 
 
 (*
@@ -69,7 +69,7 @@ Check
 *)
 
 Check
-    refl (iteration' nat S O O) ::
+    refl (iteration' nat S O O) :
     iteration' nat S O O == (fun (T:Type) (f:T->T) (n:nat) (x:T) => nat_rect (fun i => T) x (fun j IHn => f IHn) n) nat S O O.
 (*
     nat_rect
@@ -78,10 +78,10 @@ Check
     (fun (m : nat) (IHn : (fun (_ : nat) => nat) m) => S IHn)
     O.
 *)
-Let k := iteration' nat S O O.
+Let k := iteration' nat S (S (S O)) (S O).
 Check k.
 
 Check
   beta nat_iota_O in
    beta nat_iota_S in
-      (refl k) :: k == O.
+      (refl k) : k == (S (S (S O))).
