@@ -16,6 +16,7 @@
 %token BETA ETA HINT INHABIT
 %token PARAMETER
 %token CONTEXT HELP QUIT
+%token <int> VERBOSITY
 %token EOF
 
 %start <Input.toplevel list> file
@@ -47,6 +48,7 @@ plain_topcomp:
   | TOPHINT c=term DOT                                   { TopHint c }
   | TOPINHABIT c=term DOT                                { TopInhabit c }
   | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
+  | VERBOSITY DOT                                        { Verbosity $1 }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective) { $1 }

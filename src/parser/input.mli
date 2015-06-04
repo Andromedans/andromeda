@@ -45,6 +45,7 @@ and toplevel' =
   | TopEta of comp (** global eta hint *)
   | TopHint of comp (** global hint *)
   | TopInhabit of comp (** global inhabit hint *)
+  | Verbosity of int
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Context (** print the current context *)

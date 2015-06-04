@@ -47,32 +47,31 @@ let hspace  = [%sedlex.regexp? (' ' | '\t' | '\r')]
 let rec token ({ stream } as lexbuf) =
   let f () = update_pos lexbuf in
   match%sedlex stream with
-  | newline           -> f (); new_line lexbuf; token lexbuf
-  | start_longcomment -> f (); comments 0 lexbuf
-  | Plus hspace       -> f (); token lexbuf
-  | "#context"        -> f (); CONTEXT
-  | "#help"           -> f (); HELP
-  | "#quit"           -> f (); QUIT
-  | '('               -> f (); LPAREN
-  | ')'               -> f (); RPAREN
-  | '['               -> f (); LBRACK
-  | ']'               -> f (); RBRACK
-  | ':'               -> f (); COLON
-  | ":="              -> f (); COLONEQ
-  | ','               -> f (); COMMA
-  | '.'               -> f (); DOT
-  | '_'               -> f (); UNDERSCORE
-  | "->"              -> f (); ARROW
-  | 8594              -> f (); ARROW
-  | "=>"              -> f (); DARROW
-  | "=="              -> f (); EQEQ
-  | eof               -> f (); EOF
-  | (name | numeral)  -> f ();
+  | newline                  -> f (); new_line lexbuf; token lexbuf
+  | start_longcomment        -> f (); comments 0 lexbuf
+  | Plus hspace              -> f (); token lexbuf
+  | "#context"               -> f (); CONTEXT
+  | "#help"                  -> f (); HELP
+  | "#quit"                  -> f (); QUIT
+  | "Verbosity", Plus hspace -> verbosity lexbuf
+  | '('                      -> f (); LPAREN
+  | ')'                      -> f (); RPAREN
+  | '['                      -> f (); LBRACK
+  | ']'                      -> f (); RBRACK
+  | ':'                      -> f (); COLON
+  | ":="                     -> f (); COLONEQ
+  | ','                      -> f (); COMMA
+  | '.'                      -> f (); DOT
+  | '_'                      -> f (); UNDERSCORE
+  | "->"                     -> f (); ARROW
+  | 8594                     -> f (); ARROW
+  | "=>"                     -> f (); DARROW
+  | "=="                     -> f (); EQEQ
+  | eof                      -> f (); EOF
+  | (name | numeral)         -> f ();
     let n = lexeme lexbuf in
-    begin try
-      List.assoc n reserved
-    with
-      Not_found -> NAME n
+    begin try List.assoc n reserved
+    with Not_found -> NAME n
     end
   | any -> f ();
     let c = lexeme lexbuf in
@@ -81,6 +80,15 @@ let rec token ({ stream } as lexbuf) =
   | _ -> f ();
     Error.syntax ~loc:(Location.of_lexeme lexbuf)
       "Unexpected character, failed to parse"
+
+and verbosity ({ stream } as lexbuf) =
+    begin match%sedlex stream with
+    | Opt '-', digit ->
+      update_pos lexbuf;
+      VERBOSITY (int_of_string (lexeme lexbuf))
+    | _ ->
+      Error.syntax ~loc:(Location.of_lexeme lexbuf) "Expected integer verbosity level"
+    end
 
 and comments level ({ stream } as lexbuf) =
   match%sedlex stream with

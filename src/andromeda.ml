@@ -165,6 +165,8 @@ let rec exec_cmd interactive ctx c =
             ctx
     end
 
+  | Syntax.Verbosity i -> Config.verbosity := i; ctx
+
   | Syntax.Context ->
     Format.printf "%t@." (Context.print ctx) ;
     ctx

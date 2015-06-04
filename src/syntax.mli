@@ -42,6 +42,7 @@ and toplevel' =
   | TopEta of comp
   | TopHint of comp
   | TopInhabit of comp
+  | Verbosity of int
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Context (** print the current context *)
