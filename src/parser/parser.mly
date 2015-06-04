@@ -7,7 +7,7 @@
 %token UNDERSCORE
 %token <string> NAME
 %token LPAREN RPAREN LBRACK RBRACK
-%token COLON ASCRIBE COMMA DOT
+%token COLON COMMA DOT
 %token ARROW DARROW
 %token EQEQ
 %token REFL
@@ -65,7 +65,7 @@ plain_term:
   | ETA e=term IN c=term                            { Eta (e, c) }
   | HINT e=term IN c=term                           { Hint (e, c) }
   | INHABIT e=term IN c=term                        { Inhabit (e, c) }
-  | e=app_term ASCRIBE t=ty_term                    { Ascribe (e, t) }
+  | e=app_term COLON t=ty_term                      { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:

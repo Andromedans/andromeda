@@ -3,12 +3,12 @@ Parameter a : A.
 
 Inhabit a.
 
-Check [] :: [A].
+Check [] : [A].
 
 Parameter B : A -> Type.
 Parameter f : forall (x : A), B x.
 
-Check (inhabit f in [] :: [B a]).
+Check (inhabit f in [] : [B a]).
 
 Inhabit f.
-Check (fun (x : A) => [] :: [B x]) :: forall x : A, [B x].
+Check (fun (x : A) => [] : [B x]) : forall x : A, [B x].

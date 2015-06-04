@@ -15,4 +15,4 @@ Parameter lst : List (plus m n).
 (** Then we can convince Andromeda that lst has size n+m. *)
 Check
   hint plus_commute in
-    (lst :: List (plus n m)).
+    (lst : List (plus n m)).

@@ -19,7 +19,7 @@ Check projT1_beta.
 
 Check
   beta projT1_beta in
-    refl a :: projT1 A B (existT A B a b) == a.
+    refl a : projT1 A B (existT A B a b) == a.
 
 Parameter projT2_beta :
   beta projT1_beta in
@@ -29,7 +29,7 @@ Parameter projT2_beta :
 Check
   beta projT1_beta in
     beta projT2_beta in
-    refl b :: projT2 A B (existT A B a b) == b.
+    refl b : projT2 A B (existT A B a b) == b.
 
 Parameter sig_ind :
   forall (A : Type) (B : A -> Type)
@@ -60,7 +60,7 @@ Check projT1'.
 
 Check
   beta sig_ind_beta in
-    refl a ::
+    refl a :
          a ==
     (projT1' A B (existT A B a b)).
 
@@ -68,7 +68,7 @@ Check
 Check
   beta projT1_beta in
     beta sig_ind_beta in
-    refl a ::
+    refl a :
          (projT1 A B (existT A B a b)) ==
     (projT1' A B (existT A B a b)).
 
@@ -85,6 +85,6 @@ Check
   beta projT1_beta in
     beta projT2_beta in
     beta sig_ind_beta in
-    refl b ::
+    refl b :
          (projT2 A B (existT A B a b)) ==
     (projT2' A B (existT A B a b)).

@@ -1,7 +1,8 @@
 (* Function extensionality *)
 
 Let funext :=
-  (fun A B f g H => (
-    eta H in ((refl f) :: (f == g))))
-  :: forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
+  (fun (A : Type) (B : A -> Type) (f g : forall x : A, B x)
+       (H : forall x : A, f x == g x) =>
+        eta H in refl f : f == g)
+  : forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
        (forall x : A, f x == g x) -> f == g.

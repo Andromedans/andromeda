@@ -13,8 +13,8 @@ Parameter f : X -> Y.
 Parameter g : Y -> Z.
 Parameter h : Z -> W.
 
-Check refl (g (f x)) :: g (f x) == compose X Y Z g f x.
+Check refl (g (f x)) : g (f x) == compose X Y Z g f x.
 
-Check refl (h (g (f x))) ::
+Check refl (h (g (f x))) :
         compose X Z W h (compose X Y Z g f) x ==
         compose X Y W (compose Y Z W h g) f x.

@@ -13,4 +13,4 @@ Parameter c : C a b.
 
 Check
   beta f_beta in
-      refl b :: b == f a b c.
+      refl b : b == f a b c.

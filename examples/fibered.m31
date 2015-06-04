@@ -30,6 +30,6 @@ Check idpath N [] Z.
   we need to instantiate it. *)
 Check
   inhabit
-    prod_fib N [] (fun _ : N => N) (fun n : N => [] :: [Fib N])
+    prod_fib N [] (fun _ : N => N) (fun n : N => [] : [Fib N])
   in
   idpath (N -> N) [] (fun (n : N) => S (S n)).

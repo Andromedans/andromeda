@@ -59,7 +59,6 @@ let rec token ({ stream } as lexbuf) =
   | ']'               -> f (); RBRACK
   | ':'               -> f (); COLON
   | ":="              -> f (); COLONEQ
-  | "::"              -> f (); ASCRIBE
   | ','               -> f (); COMMA
   | '.'               -> f (); DOT
   | '_'               -> f (); UNDERSCORE
