@@ -8,7 +8,7 @@ default: andromeda.byte
 debug: andromeda.d.byte
 profile: andromeda.p.native
 
-andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/version.ml
+andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.ml
 	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
 
 # "make test" to see if anything broke
@@ -23,9 +23,12 @@ test-validate: andromeda.byte
 PREFIX ?= /usr
 BIN_DIR ?= $(PREFIX)/bin
 DOC_DIR ?= $(PREFIX)/doc
-DOC_DIR := $(DOC_DIR)/andromeda
 LIB_DIR ?= $(PREFIX)/lib
+SHARE_DIR ?= $(PREFIX)/share
+DOC_DIR := $(DOC_DIR)/andromeda
 LIB_DIR := $(LIB_DIR)/andromeda
+SHARE_DIR := $(SHARE_DIR)/andromeda
+EXAMPLE_DIR := $(SHARE_DIR)/examples
 
 install: install-binary install-lib install-examples
 
@@ -33,27 +36,34 @@ install-binary: opt
 	install -D _build/src/andromeda.native $(BIN_DIR)/andromeda
 
 install-examples:
-	install -d $(DOC_DIR)/examples
-	install -m644 examples/* $(DOC_DIR)/examples/
+	install -d $(EXAMPLE_DIR)
+	install -m644 examples/* $(EXAMPLE_DIR)
 
 install-doc: doc
 	install -d $(DOC_DIR)
-	install -m a-x doc/theory.pdf $(DOC_DIR)/theory.pdf
+	install -m 644 doc/theory.pdf $(DOC_DIR)/theory.pdf
+	install -m 644 README.markdown $(DOC_DIR)/README.markdown
+	install -D -m 644 CHANGELOG.md $(DOC_DIR)/CHANGELOG.md
 
 install-lib:
-	install -d $(LIB_DIR)
-	install -m 644 prelude.m31 $(LIB_DIR)/prelude.m31
+	install -D -m 644 prelude.m31 $(LIB_DIR)/prelude.m31
 
 uninstall:
-	rm -f $(BIN_DIR)/andromeda $(DOC_DIR)/andromeda-theory.pdf $(LIB_DIR)/prelude.m31
-	rm -r $(DOC_DIR)/examples || true
-	rmdir $(DOC_DIR) || true
-	rmdir $(LIB_DIR) || true
+	rm -f $(BIN_DIR)/andromeda \
+$(DOC_DIR)/andromeda-theory.pdf $(DOC_DIR)/CHANGELOG.md \
+$(LIB_DIR)/prelude.m31
+	rm -f $(EXAMPLE_DIR)/* || true
+	rmdir $(LIB_DIR) $(SHARE_DIR) $(DOC_DIR) $(EXAMPLE_DIR) || true
 
-src/version.ml:
-	/bin/echo -n 'let version="' > src/version.ml
-	git describe --always --long | tr -d '\n' >> src/version.ml
-	/bin/echo '";;' >> src/version.ml
+version:
+	@git describe --always --long
+
+src/build.ml:
+	/bin/echo -n 'let version = "' > $@
+	$(MAKE) -s version | tr -d '\n' >> $@
+	/bin/echo '" ;;' >> $@
+	echo "let lib_dir = \""$(LIB_DIR)"\" ;;" >> $@
+
 
 doc: default
 	cd doc && latex -output-format pdf theory.tex
@@ -63,4 +73,5 @@ doc: default
 clean:
 	ocamlbuild -clean
 
-.PHONY: doc src/version.ml clean andromeda.byte andromeda.native
+.PHONY: doc src/build.ml clean andromeda.byte andromeda.native version \
+install install-binary install-doc install-examples install-lib uninstall

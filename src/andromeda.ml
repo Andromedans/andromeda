@@ -53,7 +53,7 @@ let options = Arg.align [
 
     ("-v",
      Arg.Unit (fun () ->
-         Format.printf "Andromeda %s (%s)@." Version.version Sys.os_type ;
+         Format.printf "Andromeda %s (%s)@." Build.version Sys.os_type ;
          exit 0),
      " Print version information and exit");
 
@@ -184,7 +184,7 @@ and use_file ctx (filename, interactive) =
 
 (** Interactive toplevel *)
 let toplevel ctx =
-  Format.printf "Andromeda %s@\n[Type #help for help.]@." Version.version ;
+  Format.printf "Andromeda %s@\n[Type #help for help.]@." Build.version ;
   try
     let ctx = ref ctx in
     while true do
@@ -230,10 +230,14 @@ let main =
     | Config.PreludeNone -> ()
     | Config.PreludeFile f -> files := (f, false) :: !files
     | Config.PreludeDefault ->
-      (* look for prelude next to the executable, don't whine if it is not there *)
-      let f = Filename.concat (Filename.dirname Sys.argv.(0)) "prelude.m31" in
-      if Sys.file_exists f
-      then files := (f, false) :: !files
+      (* look for prelude next to the executable and in the , don't whine if it is not there *)
+      try
+        let d = Build.lib_dir in
+        let d' = Filename.dirname Sys.argv.(0) in
+        let l = List.map (fun d -> Filename.concat d "prelude.m31") [d; d'] in
+        let f = List.find (fun f ->  Sys.file_exists f) l in
+        files := (f, false) :: !files
+      with Not_found -> ()
   end ;
 
   (* Set the maximum depth of pretty-printing, after which it prints ellipsis. *)

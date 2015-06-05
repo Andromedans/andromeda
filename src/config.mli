@@ -2,9 +2,10 @@
 
 (** Possible locations of prelude file *)
 type prelude =
-  | PreludeNone             (* do not use a prelude, turned on by the --no-prelude *)
-  | PreludeDefault          (* look in the default location, which is next to executable *)
-  | PreludeFile of string   (* look for prelude in a specific location *)
+  | PreludeNone              (* do not use a prelude, turned on by the --no-prelude *)
+  (* look in the default location, which is the $(LIB_DIR) or next to the executable *)
+  | PreludeDefault
+  | PreludeFile of string    (* look for prelude in a specific location *)
 
 (** Location of the prelude file *)
 val prelude_file : prelude ref
