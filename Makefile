@@ -28,7 +28,7 @@ SHARE_DIR ?= $(PREFIX)/share
 DOC_DIR := $(DOC_DIR)/andromeda
 LIB_DIR := $(LIB_DIR)/andromeda
 SHARE_DIR := $(SHARE_DIR)/andromeda
-EXAMPLE_DIR := $(SHARE_DIR)/examples
+EXAMPLE_DIR := $(LIB_DIR)/examples
 
 install: install-binary install-lib install-examples
 
@@ -53,7 +53,7 @@ uninstall:
 $(DOC_DIR)/andromeda-theory.pdf $(DOC_DIR)/CHANGELOG.md \
 $(LIB_DIR)/prelude.m31
 	rm -f $(EXAMPLE_DIR)/* || true
-	rmdir $(LIB_DIR) $(SHARE_DIR) $(DOC_DIR) $(EXAMPLE_DIR) || true
+	rmdir $(EXAMPLE_DIR) $(LIB_DIR) $(SHARE_DIR) $(DOC_DIR) || true
 
 version:
 	@git describe --always --long
