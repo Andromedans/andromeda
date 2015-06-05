@@ -30,7 +30,7 @@ LIB_DIR := $(LIB_DIR)/andromeda
 SHARE_DIR := $(SHARE_DIR)/andromeda
 EXAMPLE_DIR := $(LIB_DIR)/examples
 
-install: install-binary install-lib install-examples
+install: install-binary install-lib install-examples install-project-info
 
 install-binary: opt
 	install -D _build/src/andromeda.native $(BIN_DIR)/andromeda
@@ -42,16 +42,19 @@ install-examples:
 install-doc: doc
 	install -d $(DOC_DIR)
 	install -m 644 doc/theory.pdf $(DOC_DIR)/theory.pdf
+
+install-project-info:
+	install -d $(DOC_DIR)
 	install -m 644 README.markdown $(DOC_DIR)/README.markdown
-	install -D -m 644 CHANGELOG.md $(DOC_DIR)/CHANGELOG.md
+	install -m 644 CHANGELOG.md $(DOC_DIR)/CHANGELOG.md
 
 install-lib:
 	install -D -m 644 prelude.m31 $(LIB_DIR)/prelude.m31
 
 uninstall:
 	rm -f $(BIN_DIR)/andromeda \
-$(DOC_DIR)/andromeda-theory.pdf $(DOC_DIR)/CHANGELOG.md \
-$(LIB_DIR)/prelude.m31
+ $(DOC_DIR)/andromeda-theory.pdf $(DOC_DIR)/CHANGELOG.md $(DOC_DIR)/README.markdown \
+ $(LIB_DIR)/prelude.m31
 	rm -f $(EXAMPLE_DIR)/* || true
 	rmdir $(EXAMPLE_DIR) $(LIB_DIR) $(SHARE_DIR) $(DOC_DIR) || true
 
