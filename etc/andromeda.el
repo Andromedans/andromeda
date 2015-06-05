@@ -1,13 +1,13 @@
-(require 'coq)
+(require 'proof)
 
 (setq m31-comint-filters
       '((lambda (s)
           (replace-regexp-in-string "^ocd " "(ocd) " s))
         (lambda (s)
-          (replace-regexp-in-string "(\\([^[:space:]]*\\))" "\\1" s))
+          (replace-regexp-in-string "(\\([^)[:space:]]*\\))" "\\1" s))
         (lambda (s)
           ((lambda (s)
-             (replace-regexp-in-string "(\\([^[:space:]]*\\))" "\\1" s))
+             (replace-regexp-in-string "(\\([^)[:space:]]*\\))" "\\1" s))
            s))
         (lambda (s)
           (replace-regexp-in-string "Tt.Ty \(Tt.Type\)" "Type" s))

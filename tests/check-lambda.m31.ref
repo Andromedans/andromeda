@@ -10,13 +10,13 @@ g is assumed.
 
 a is assumed.
 
-fun (y : B a) => g a y
-      : forall (y : B a), C a y
+λ (y : B a) => g a y
+      : Π (y : B a), C a y
 A
       : Type
-fun (x : A) (y : B x) => g x y
-      : forall (x : A) (y : B x), C x y
-fun (x : A) (y : B x) => g x y
-      : forall (x : A) (y : B x), C x y
-fun (x : A) => fun (y : B x) => g x y
-      : forall (x : A) (y : B x), C x y
+λ (x : A) (y : B x) => g x y
+      : Π (x : A) (y : B x), C x y
+λ (x : A) (y : B x) => g x y
+      : Π (x : A) (y : B x), C x y
+λ (x : A) => λ (y : B x) => g x y
+      : Π (x : A) (y : B x), C x y

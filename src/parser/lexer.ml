@@ -17,6 +17,7 @@ let reserved = [
   ("Parameter", PARAMETER) ;
   ("forall", FORALL) ;
   ("∀", FORALL) ;
+  ("Π", FORALL) ;
   ("fun", FUN) ;
   ("λ", FUN) ;
   ("in", IN) ;

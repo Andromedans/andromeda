@@ -17,7 +17,7 @@ projT2 is assumed.
 projT1_beta is assumed.
 
 projT1_beta
-      : forall (A0 : Type) (B0 : A0 -> Type) (a0 : A0) (b0 : B0 a0),
+      : Π (A0 : Type) (B0 : A0 -> Type) (a0 : A0) (b0 : B0 a0),
           projT1 A0 B0 (existT A0 B0 a0 b0) == a0
 refl a
       : projT1 A B (existT A B a b) == a
@@ -31,43 +31,40 @@ sig_ind_beta is assumed.
 
 projT1' is defined.
 
-fun (A0 : Type) =>
-  fun (B0 : A0 -> Type) =>
-    fun (s : sigT A0 B0) =>
-      sig_ind A0 B0 (fun (_ : sigT A0 B0) => A0)
-        ((fun (Y : A0 -> Type) => fun (x : A0) => fun (y : Y x) => x) B0) 
+λ (A0 : Type) =>
+  λ (B0 : A0 -> Type) =>
+    λ (s : sigT A0 B0) =>
+      sig_ind A0 B0 (λ (_ : sigT A0 B0) => A0)
+        ((λ (Y : A0 -> Type) => λ (x : A0) => λ (y : Y x) => x) B0) 
         s
-      : forall (A0 : Type) (B0 : A0 -> Type), sigT A0 B0 -> A0 
+      : Π (A0 : Type) (B0 : A0 -> Type), sigT A0 B0 -> A0 
 refl a
       : a
-          == (fun (B0 : A -> Type) =>
-                fun (s : sigT A B0) =>
-                  sig_ind A B0 (fun (_ : sigT A B0) => A)
-                    ((fun (Y : A -> Type) =>
-                        fun (x : A) => fun (y : Y x) => x) B0) s) B
-               (existT A B a b)
+          == (λ (B0 : A -> Type) =>
+                λ (s : sigT A B0) =>
+                  sig_ind A B0 (λ (_ : sigT A B0) => A)
+                    ((λ (Y : A -> Type) => λ (x : A) => λ (y : Y x) => x)
+                       B0) s) B (existT A B a b)
 refl a
       : projT1 A B (existT A B a b)
-          == (fun (B0 : A -> Type) =>
-                fun (s : sigT A B0) =>
-                  sig_ind A B0 (fun (_ : sigT A B0) => A)
-                    ((fun (Y : A -> Type) =>
-                        fun (x : A) => fun (y : Y x) => x) B0) s) B
-               (existT A B a b)
+          == (λ (B0 : A -> Type) =>
+                λ (s : sigT A B0) =>
+                  sig_ind A B0 (λ (_ : sigT A B0) => A)
+                    ((λ (Y : A -> Type) => λ (x : A) => λ (y : Y x) => x)
+                       B0) s) B (existT A B a b)
 projT2' is defined.
 
 refl b
       : projT2 A B (existT A B a b)
-          == (fun (B0 : A -> Type) =>
-                fun (s : sigT A B0) =>
+          == (λ (B0 : A -> Type) =>
+                λ (s : sigT A B0) =>
                   sig_ind A B0
-                    (fun (s0 : sigT A B0) =>
+                    (λ (s0 : sigT A B0) =>
                        B0
-                         ((fun (B1 : A -> Type) =>
-                             fun (s1 : sigT A B1) =>
-                               sig_ind A B1 (fun (_ : sigT A B1) => A)
-                                 ((fun (Y : A -> Type) =>
-                                     fun (x : A) => fun (y : Y x) => x) 
+                         ((λ (B1 : A -> Type) =>
+                             λ (s1 : sigT A B1) =>
+                               sig_ind A B1 (λ (_ : sigT A B1) => A)
+                                 ((λ (Y : A -> Type) =>
+                                     λ (x : A) => λ (y : Y x) => x) 
                                     B1) s1) B0 s0))
-                    (fun (x : A) => fun (y : B0 x) => y) s) B
-               (existT A B a b)
+                    (λ (x : A) => λ (y : B0 x) => y) s) B (existT A B a b)

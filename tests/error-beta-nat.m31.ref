@@ -13,5 +13,4 @@ plus_S is assumed.
 Type
       : Type
 ./error-beta-nat.m31:14:3-19: Typing error
-  failed to check that this term S (S Z) is equal to plus (S Z) (S (S Z)) and
-  S (S Z)
+  failed to check that the term S (S Z) is equal to plus (S Z) (S (S Z))

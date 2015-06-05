@@ -12,5 +12,5 @@ f is assumed.
 []
       : [B a]
 Inhabit hint installed.
-fun (x : A) => []
-      : forall (x : A), [B x]
+λ (x : A) => []
+      : Π (x : A), [B x]
