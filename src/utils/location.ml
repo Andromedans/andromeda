@@ -17,9 +17,11 @@ let print loc ppf =
   | Unknown -> Print.print ppf "?:?"
   | Known {filename; start_line; start_col; end_line; end_col} ->
     if start_line = end_line then
-      Print.print ppf "%s:%d:%d-%d" filename start_line start_col end_col
+      Print.print ppf "File \"%s\", line %d, characters %d-%d"
+        filename start_line start_col end_col
     else
-      Print.print ppf "%s:%d:%d-%d:%d" filename start_line start_col end_line end_col
+      Print.print ppf "File \"%s\", lines %d-%d, characters %d-%d"
+        filename start_line end_line start_col end_col
 
 let unknown = Unknown
 
