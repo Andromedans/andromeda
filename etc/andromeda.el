@@ -98,7 +98,7 @@ C-c C-l          m31-send-buffer
   (interactive)
   (m31-send-file
    (concat
-    buffer-file-name ":"
+    buffer-file-name "#line_limit:"
     (int-to-string (line-number-at-pos)))))
 
 (define-key andromeda-mode-map (kbd "C-c C-.") 'm31-send-buffer-up-to-point)

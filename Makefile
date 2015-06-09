@@ -9,7 +9,7 @@ debug: andromeda.d.byte
 profile: andromeda.p.native
 
 andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.ml
-	ocamlbuild -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
+	ocamlbuild -lib unix -lib str $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
 
 # "make test" to see if anything broke
 test: andromeda.byte

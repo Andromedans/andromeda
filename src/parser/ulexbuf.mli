@@ -3,6 +3,8 @@ type t = private {
   stream : Sedlexing.lexbuf ;
   mutable pos_start : Lexing.position ;
   mutable pos_end : Lexing.position ;
+  mutable line_limit : int option ;
+  mutable end_of_input : bool ;
 }
 exception Parse_Error of t
 
@@ -16,3 +18,6 @@ val lexeme : t -> string
 val from_channel : ?fn:string -> in_channel -> t
 (** Create a lex-buffer from a string. Set filename to [fn] (default ["?"]) *)
 val from_string : ?fn:string -> string -> t
+
+val reached_end_of_input : t -> unit
+val set_line_limit : int option -> t -> unit

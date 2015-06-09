@@ -45,20 +45,32 @@ let end_longcomment= [%sedlex.regexp? "*)"]
 let newline = [%sedlex.regexp? ('\n' | '\r' | "\n\r" | "\r\n")]
 let hspace  = [%sedlex.regexp? (' ' | '\t' | '\r')]
 
-let rec token ({ stream } as lexbuf) =
 let filename = [%sedlex.regexp? '"', Plus (Compl '"'), '"']
 
+
+let update_eoi ({ pos_end; end_of_input; line_limit } as lexbuf) =
+  match line_limit with None -> () | Some line_limit ->
+    if pos_end.Lexing.pos_lnum >= line_limit
+    then reached_end_of_input lexbuf
+
+let rec token ({ end_of_input } as lexbuf) =
+  if end_of_input then EOF else token_aux lexbuf
+
+and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   let f () = update_pos lexbuf in
+  (* [g] updates the lexbuffer state to indicate whether a sensible end of
+     input has been found, typically after a dot or a directive *)
+  let g () = update_eoi lexbuf in
   match%sedlex stream with
-  | newline                  -> f (); new_line lexbuf; token lexbuf
+  | newline                  -> f (); new_line lexbuf; token_aux lexbuf
   | start_longcomment        -> f (); comments 0 lexbuf
-  | Plus hspace              -> f (); token lexbuf
-  | "#context"               -> f (); CONTEXT
-  | "#help"                  -> f (); HELP
-  | "#quit"                  -> f (); QUIT
-  | "Verbosity", Plus hspace -> verbosity lexbuf
+  | Plus hspace              -> f (); token_aux lexbuf
+  | "#context"               -> f (); g (); CONTEXT
+  | "#help"                  -> f (); g (); HELP
+  | "#quit"                  -> f (); g (); QUIT
+  | "#verbosity", Plus hspace -> g (); verbosity lexbuf
   | "#include"               -> f (); INCLUDE
-  | filename                 -> f (); FILENAME (lexeme lexbuf)
+  | filename                 -> f (); g (); FILENAME (lexeme lexbuf)
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
   | '['                      -> f (); LBRACK
@@ -66,10 +78,9 @@ let filename = [%sedlex.regexp? '"', Plus (Compl '"'), '"']
   | ':'                      -> f (); COLON
   | ":="                     -> f (); COLONEQ
   | ','                      -> f (); COMMA
-  | '.'                      -> f (); DOT
+  | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
-  | "->"                     -> f (); ARROW
-  | 8594                     -> f (); ARROW
+  | "->" | 8594              -> f (); ARROW
   | "=>"                     -> f (); DARROW
   | "=="                     -> f (); EQEQ
   | eof                      -> f (); EOF
@@ -87,13 +98,13 @@ let filename = [%sedlex.regexp? '"', Plus (Compl '"'), '"']
       "Unexpected character, failed to parse"
 
 and verbosity ({ stream } as lexbuf) =
-    begin match%sedlex stream with
-    | Opt '-', digit ->
-      update_pos lexbuf;
-      VERBOSITY (int_of_string (lexeme lexbuf))
-    | _ ->
-      Error.syntax ~loc:(Location.of_lexeme lexbuf) "Expected integer verbosity level"
-    end
+  begin match%sedlex stream with
+  | Opt '-', digit ->
+    update_pos lexbuf;
+    VERBOSITY (int_of_string (lexeme lexbuf))
+  | _ ->
+    Error.syntax ~loc:(Location.of_lexeme lexbuf) "Expected integer verbosity level"
+  end
 
 and comments level ({ stream } as lexbuf) =
   match%sedlex stream with
@@ -117,9 +128,11 @@ and comments level ({ stream } as lexbuf) =
 (* the type of run is also:  *)
 (* (t -> 'a) -> ('a, 'b) MenhirLib.Convert.traditional -> t -> 'b *)
 let run
+    ?(line_limit : int option)
     (lexer : t -> 'a)
     (parser : (Lexing.lexbuf -> 'a) -> Lexing.lexbuf -> 'b)
     (lexbuf : t) : 'b =
+  set_line_limit line_limit lexbuf;
   let lexer () =
     let token = lexer lexbuf in
     (token, lexbuf.pos_start, lexbuf.pos_end) in
@@ -133,12 +146,12 @@ let run
     raise (Parse_Error lexbuf)
 
 
-let read_file parse fn =
+let read_file ?line_limit parse fn =
   try
     let fh = open_in fn in
     let lex = from_channel ~fn fh in
     try
-      let terms = run token parse lex in
+      let terms = run ?line_limit token parse lex in
       close_in fh;
       terms
     with

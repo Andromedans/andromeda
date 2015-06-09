@@ -196,12 +196,17 @@ let rec exec_cmd base_dir interactive ctx c =
     exit 0
 
 (** Load directives from the given file. *)
-and use_file ctx (filename, interactive) =
-  let cmds = parse Lexer.read_file Parser.file filename in
-  List.fold_left (exec_cmd interactive) ctx cmds
+and use_file ?line_limit ctx (filename, interactive) =
+  let filename, line_limit =
+    if Str.string_match (Str.regexp "\\(.*\\)#line_limit:\\([0-9]+\\)") filename 0
+    then let fn, ll = Str.matched_group 1 filename,
+                      (int_of_string (Str.matched_group 2 filename)) in
+      fn, Some ll
+    else filename, None in
+
   if Context.included filename ctx then ctx else
     begin
-      let cmds = parse Lexer.read_file Parser.file filename in
+      let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
       let base_dir = Filename.dirname filename in
       let ctx = Context.add_file filename ctx in
       List.fold_left (exec_cmd base_dir interactive) ctx cmds
