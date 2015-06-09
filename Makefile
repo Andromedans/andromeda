@@ -27,10 +27,9 @@ LIB_DIR ?= $(PREFIX)/lib
 SHARE_DIR ?= $(PREFIX)/share
 DOC_DIR := $(DOC_DIR)/andromeda
 LIB_DIR := $(LIB_DIR)/andromeda
-SHARE_DIR := $(SHARE_DIR)/andromeda
 EXAMPLE_DIR := $(LIB_DIR)/examples
 
-install: install-binary install-lib install-examples install-project-info
+install: install-binary install-lib install-examples install-project-info install-emacs
 
 install-binary: opt
 	install -D _build/src/andromeda.native $(BIN_DIR)/andromeda
@@ -48,6 +47,14 @@ install-project-info:
 	install -m 644 README.markdown $(DOC_DIR)/README.markdown
 	install -m 644 CHANGELOG.md $(DOC_DIR)/CHANGELOG.md
 
+emacs-autoloads:
+	cd etc && emacs --batch --eval '(setq backup-inhibited t)' --eval '(update-file-autoloads "andromeda.el" t "'`pwd`'/andromeda-autoloads.el")'
+
+install-emacs:
+	install -m 644 etc/andromeda.el $(SHARE_DIR)
+	install -d $(SHARE_DIR)/emacs/site-lisp
+	install -m 644 etc/andromeda-autoloads.el $(SHARE_DIR)/emacs/site-lisp
+
 install-lib:
 	install -D -m 644 prelude.m31 $(LIB_DIR)/prelude.m31
 
@@ -56,7 +63,7 @@ uninstall:
  $(DOC_DIR)/andromeda-theory.pdf $(DOC_DIR)/CHANGELOG.md $(DOC_DIR)/README.markdown \
  $(LIB_DIR)/prelude.m31
 	rm -f $(EXAMPLE_DIR)/* || true
-	rmdir $(EXAMPLE_DIR) $(LIB_DIR) $(SHARE_DIR) $(DOC_DIR) || true
+	rmdir $(EXAMPLE_DIR) $(LIB_DIR) $(DOC_DIR) || true
 
 version:
 	@git describe --always --long

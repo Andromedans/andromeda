@@ -39,9 +39,19 @@
   (comint-send-string (get-buffer-process (current-buffer))
                       "source etc/debug-current\n"))
 
+
 ;; the major mode for writing galactical type theory
 ;;;###autoload
-(define-derived-mode andromeda-mode coq-mode "m31")
+(define-derived-mode andromeda-mode coq-mode "m31"
+  "Major mode for editing Andromeda files.
+
+Useful commands:
+C-c C-.          m31-send-buffer-up-to-point
+C-c .            m31-send-buffer-up-to-point
+C-c C-b          m31-send-buffer
+C-c C-l          m31-send-buffer
+")
+
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.m31\\'" . andromeda-mode))
 
