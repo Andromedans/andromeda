@@ -196,7 +196,7 @@ let rec exec_cmd base_dir interactive ctx c =
     exit 0
 
 (** Load directives from the given file. *)
-and use_file ?line_limit ctx (filename, interactive) =
+and use_file ctx (filename, interactive) =
   let filename, line_limit =
     if Str.string_match (Str.regexp "\\(.*\\)#line_limit:\\([0-9]+\\)") filename 0
     then let fn, ll = Str.matched_group 1 filename,
