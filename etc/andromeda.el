@@ -1,4 +1,5 @@
-(require 'proof)
+(let ((proof-splash-enable nil))
+  (require 'proof))
 
 ;; debugging facilities for the andromeda project
 (setq m31-comint-filters
@@ -59,12 +60,22 @@ C-c C-l          m31-send-buffer
   (get-buffer-create "*andromeda*"))
 
 ;;;###autoload
+(defcustom m31-executable
+  (let ((d (locate-dominating-file
+            (or buffer-file-name default-directory) "andromeda.byte")))
+    (if d
+        (concat d "andromeda.byte")
+      "andromeda"))
+  "The name of the Andromeda executable")
+
+;;;###autoload
+(defcustom m31-arguments ""
+  "The `m31-executable' will be called with these arguments")
+
+;;;###autoload
 (defun m31-send-file (fn)
   (interactive)
-  (let ((cmd
-         (concat (locate-dominating-file
-                  buffer-file-name
-                  ".dir-locals.el") "andromeda.byte " fn))
+  (let ((cmd (concat m31-executable " " m31-arguments " " fn))
         (compilation-buffer-name-function (lambda (mm) "*andromeda*"))
         (compilation-scroll-output 'first-error)
         (compilation-ask-about-save nil)

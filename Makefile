@@ -51,8 +51,8 @@ emacs-autoloads:
 	cd etc && emacs --batch --eval '(setq backup-inhibited t)' --eval '(update-file-autoloads "andromeda.el" t "'`pwd`'/andromeda-autoloads.el")'
 
 install-emacs:
-	install -m 644 etc/andromeda.el $(SHARE_DIR)
 	install -d $(SHARE_DIR)/emacs/site-lisp
+	install -m 644 etc/andromeda.el $(SHARE_DIR)/emacs/site-lisp
 	install -m 644 etc/andromeda-autoloads.el $(SHARE_DIR)/emacs/site-lisp
 
 install-lib:
