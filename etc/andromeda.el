@@ -1,5 +1,6 @@
 (let ((proof-splash-enable nil))
   (require 'proof))
+(require 'compile)
 
 ;; debugging facilities for the andromeda project
 (setq m31-comint-filters
