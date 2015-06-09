@@ -1,4 +1,5 @@
-(* requires: peano, unit *)
+#include "peano.m31" "unit.m31" "finite.m31"
+
 Parameter vect : forall (A : Type), N -> Type.
 Parameter vnil : forall (A : Type), vect A Z.
 Parameter vcons : forall (A : Type) (n : N), A -> vect A n -> vect A (S n).

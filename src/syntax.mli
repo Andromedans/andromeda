@@ -43,6 +43,7 @@ and toplevel' =
   | TopHint of comp
   | TopInhabit of comp
   | Verbosity of int
+  | Include of string list
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Context (** print the current context *)

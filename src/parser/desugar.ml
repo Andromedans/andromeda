@@ -208,6 +208,8 @@ let toplevel ctx (d', loc) =
 
     | Input.Verbosity n -> Syntax.Verbosity n
 
+    | Input.Include fs -> Syntax.Include fs
+
     | Input.Context -> Syntax.Context
 
   in

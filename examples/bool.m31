@@ -15,6 +15,8 @@ Parameter ind_bool_false :
 (* Parameter ind_bool_eta : *)
 (*   forall (P : bool -> Type) *)
 
+#include "false.m31" "unit.m31"
+
 (* Be very careful about when reductions may happen. *)
 Let bool_disjoint :=
   (fun (p : true == false) =>

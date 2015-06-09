@@ -9,6 +9,7 @@ type t = {
   eta : Pattern.eta_hint list;
   hint : Pattern.hint list;
   inhabit : Pattern.inhabit list;
+  files : string list;
 }
 
 (** The empty context *)
@@ -18,7 +19,8 @@ let empty = {
   beta = [] ;
   eta = [] ;
   hint = [] ;
-  inhabit = []
+  inhabit = [] ;
+  files = [] ;
 }
 
 let eta_hints {eta=lst} = lst
@@ -71,6 +73,11 @@ let add_fresh x t ctx =
 
 let add_bound x v ctx =
   { ctx with bound = (x, v) :: ctx.bound }
+
+let add_file f ctx =
+  { ctx with files = (Filename.basename f) :: ctx.files }
+
+let included f { files } = List.mem (Filename.basename f) files
 
 let print ctx ppf =
   let forbidden_names = used_names ctx in

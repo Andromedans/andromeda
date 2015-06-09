@@ -46,6 +46,8 @@ let newline = [%sedlex.regexp? ('\n' | '\r' | "\n\r" | "\r\n")]
 let hspace  = [%sedlex.regexp? (' ' | '\t' | '\r')]
 
 let rec token ({ stream } as lexbuf) =
+let filename = [%sedlex.regexp? '"', Plus (Compl '"'), '"']
+
   let f () = update_pos lexbuf in
   match%sedlex stream with
   | newline                  -> f (); new_line lexbuf; token lexbuf
@@ -55,6 +57,8 @@ let rec token ({ stream } as lexbuf) =
   | "#help"                  -> f (); HELP
   | "#quit"                  -> f (); QUIT
   | "Verbosity", Plus hspace -> verbosity lexbuf
+  | "#include"               -> f (); INCLUDE
+  | filename                 -> f (); FILENAME (lexeme lexbuf)
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
   | '['                      -> f (); LBRACK

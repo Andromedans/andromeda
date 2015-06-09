@@ -54,5 +54,12 @@ val add_fresh : Name.t -> Tt.ty -> t -> Name.t * t
 (** Add a bound variable with given name to the context. *)
 val add_bound : Name.t -> Value.value -> t -> t
 
+(** Add a file to the list of files included. *)
+val add_file : string -> t -> t
+
+(** Check whether a file has already been included. Files are compared by
+    their basenames *)
+val included : string -> t -> bool
+
 (** Print free variables in the context *)
 val print : t -> Format.formatter -> unit

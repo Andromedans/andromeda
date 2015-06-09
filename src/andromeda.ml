@@ -85,7 +85,7 @@ let parse lex parse resource =
 
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
-let rec exec_cmd interactive ctx c =
+let rec exec_cmd base_dir interactive ctx c =
   let (c', loc) = Desugar.toplevel (Context.bound_names ctx) c in
   match c' with
   | Syntax.Parameter (xs,c) ->
@@ -99,7 +99,7 @@ let rec exec_cmd interactive ctx c =
         ctx
         xs
     in
-    Format.printf "@." ;
+    if interactive then Format.printf "@." ;
     ctx
 
   | Syntax.TopLet (x, c) ->
@@ -165,6 +165,24 @@ let rec exec_cmd interactive ctx c =
             ctx
     end
 
+  | Syntax.Include fs ->
+    (* relative file names get interpreted relative to the file we're
+       currently loading *)
+    List.fold_left
+      (fun ctx f ->
+         (* don't print deeper includes *)
+         begin if interactive then Format.printf "#including %s@." f ;
+           let ctx =
+             let f =
+               if Filename.is_relative f then
+                 Filename.concat base_dir f
+               else f in
+             use_file ctx (f, false) in
+           if interactive then Format.printf "#processed %s@." f ;
+           ctx
+         end)
+      ctx fs
+
   | Syntax.Verbosity i -> Config.verbosity := i; ctx
 
   | Syntax.Context ->
@@ -181,6 +199,13 @@ let rec exec_cmd interactive ctx c =
 and use_file ctx (filename, interactive) =
   let cmds = parse Lexer.read_file Parser.file filename in
   List.fold_left (exec_cmd interactive) ctx cmds
+  if Context.included filename ctx then ctx else
+    begin
+      let cmds = parse Lexer.read_file Parser.file filename in
+      let base_dir = Filename.dirname filename in
+      let ctx = Context.add_file filename ctx in
+      List.fold_left (exec_cmd base_dir interactive) ctx cmds
+    end
 
 (** Interactive toplevel *)
 let toplevel ctx =
@@ -190,7 +215,7 @@ let toplevel ctx =
     while true do
       try
         let cmd = Lexer.read_toplevel Parser.commandline () in
-        ctx := exec_cmd true !ctx cmd
+        ctx := exec_cmd Filename.current_dir_name true !ctx cmd
       with
       | Error.Error err -> Error.print err Format.err_formatter
       | Sys.Break -> Format.eprintf "Interrupted.@."

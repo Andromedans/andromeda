@@ -17,6 +17,8 @@
 %token PARAMETER
 %token CONTEXT HELP QUIT
 %token <int> VERBOSITY
+%token <string> FILENAME
+%token INCLUDE
 %token EOF
 
 %start <Input.toplevel list> file
@@ -31,7 +33,7 @@ file:
 
 filecontents:
   |                                 { [] }
-  | d=topcomp ds=filecontents        { d :: ds }
+  | d=topcomp ds=filecontents       { d :: ds }
   | d=topdirective ds=filecontents  { d :: ds }
 
 commandline:
@@ -48,7 +50,6 @@ plain_topcomp:
   | TOPHINT c=term DOT                                   { TopHint c }
   | TOPINHABIT c=term DOT                                { TopInhabit c }
   | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
-  | VERBOSITY DOT                                        { Verbosity $1 }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective) { $1 }
@@ -56,6 +57,13 @@ plain_topdirective:
   | CONTEXT    { Context }
   | HELP       { Help }
   | QUIT       { Quit }
+  | VERBOSITY                                            { Verbosity $1 }
+  | INCLUDE fs=filename+                                 { Include fs }
+
+filename:
+  | FILENAME { let s = $1 in
+               let l = String.length s in
+               String.sub s 1 (l - 2) }
 
 (* Main syntax tree *)
 

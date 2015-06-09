@@ -46,6 +46,7 @@ and toplevel' =
   | TopHint of comp (** global hint *)
   | TopInhabit of comp (** global inhabit hint *)
   | Verbosity of int
+  | Include of string list
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Context (** print the current context *)
