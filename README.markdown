@@ -15,13 +15,29 @@ Voevodsky's [Homotopy Type System](http://ncatlab.org/homotopytypetheory/show/Ho
 which has *two* kinds of equality, one of which has a reflection rule.
 
 
+### Installation
+
+The easiest way to install Andromeda is through the
+[Opam](http://opam.ocamlpro.com) package manager for OCaml. You can install
+Opam on your system following [these
+instructions](http://opam.ocaml.org/doc/Install.html).
+In case your operating system does not provide OCaml version >= 4.02, you can
+install it with `opam switch 4.02.1`.
+Then simply add the Andromeda repo to opam, update and install Andromeda with
+these commands:
+```
+opam repo add andromeda git://github.com/haselwarter/andromeda-opam.git
+opam update
+opam install andromeda
+```
+
+
 ### Compilation
 
-To build Andromeda, you need [Ocaml 4.0](http://ocaml.org) or later (and quite possibly it
+To build Andromeda, you need [OCaml 4.02](http://ocaml.org) or later (and quite possibly it
 works with earlier versions too), the [menhir](http://gallium.inria.fr/~fpottier/menhir/)
 parser generator and the [sedlex](https://www.lexifi.com/sedlex) unicode lexer. We recommend
-using the [Opam](http://opam.ocamlpro.com) package manager for OCaml for installation of
-OCaml, menhir and sedlex.
+using [Opam](http://opam.ocamlpro.com) for installation of OCaml, menhir and sedlex.
 
 If you also install the [ledit](http://opam.ocaml.org/packages/ledit/ledit.2.03/) or
 [rlwrap](http://utopia.knoware.nl/~hlub/uck/rlwrap/#rlwrap) utility, the Andromeda toplevel
