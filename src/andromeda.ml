@@ -214,7 +214,7 @@ let toplevel ctx =
     let ctx = ref ctx in
     while true do
       try
-        let cmd = Lexer.read_toplevel Parser.commandline () in
+        let cmd = parse Lexer.read_toplevel Parser.commandline () in
         ctx := exec_cmd Filename.current_dir_name true !ctx cmd
       with
       | Error.Error err -> Error.print err Format.err_formatter
