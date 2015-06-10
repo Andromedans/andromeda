@@ -696,7 +696,7 @@ and strip_bracket ctx t =
   let Tt.Ty (t', loc) = whnf_ty ctx t in
   match t' with
   | Tt.Bracket t -> strip_bracket ctx t
-  | _ -> t
+  | _ ->  t (* XXX or should be return the whnf t? *)
 
 (** Try to inhabit the given whnf type [t]. At the moment we only know how
     to inhabit universally quantified equations. In the future this could
