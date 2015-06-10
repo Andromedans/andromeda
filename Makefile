@@ -52,7 +52,8 @@ install: install-binary install-lib install-examples install-project-info instal
 uninstall: uninstall-binary uninstall-lib uninstall-examples uninstall-project-info uninstall-emacs
 
 install-binary: opt
-	install -D _build/src/andromeda.native $(BIN_DIR)/andromeda
+	install -d $(BIN_DIR)
+	install _build/src/andromeda.native $(BIN_DIR)/andromeda
 uninstall-binary:
 	rm -f $(BIN_DIR)/andromeda
 
@@ -79,7 +80,8 @@ uninstall-emacs:
 	rm -f $(SHARE_DIR)/emacs/site-lisp/andromeda.el $(SHARE_DIR)/emacs/site-lisp/andromeda-autoloads.el
 
 install-lib:
-	install -D -m 644 prelude.m31 $(LIB_DIR)/prelude.m31
+	install -d $(LIB_DIR)
+	install -m 644 prelude.m31 $(LIB_DIR)/prelude.m31
 uninstall-lib:
 	rm -f $(LIB_DIR)/prelude.m31
 	rmdir $(LIB_DIR) || true
