@@ -4,8 +4,8 @@ id is defined.
       : Π (A : Type), A -> A
 compose is defined.
 
-λ (A : Type) (B : Type) (C : Type) =>
-  λ (g : B -> C) => λ (f : A -> B) => λ (x : A) => g (f x)
+λ (A : Type) (B : Type) (C : Type) (g : B -> C) (f : A -> B) (x : A) =>
+  g (f x)
       : Π (A : Type) (B : Type) (C : Type), (B -> C) -> (A -> B) -> A -> C
 X is assumed.
 Y is assumed.
@@ -21,15 +21,7 @@ g is assumed.
 h is assumed.
 
 refl (g (f x))
-      : g (f x)
-          == (λ (g0 : Y -> Z) =>
-                λ (f0 : X -> Y) => λ (x0 : X) => g0 (f0 x0)) g f x
+      : g (f x) == (g (f x)) 
 refl (h (g (f x)))
-      : (λ (g0 : Z -> W) => λ (f0 : X -> Z) => λ (x0 : X) => g0 (f0 x0)) h
-          ((λ (g0 : Y -> Z) => λ (f0 : X -> Y) => λ (x0 : X) => g0 (f0 x0))
-             g f) x
-          == (λ (g0 : Y -> W) =>
-                λ (f0 : X -> Y) => λ (x0 : X) => g0 (f0 x0))
-               ((λ (g0 : Z -> W) =>
-                   λ (f0 : Y -> Z) => λ (x0 : Y) => g0 (f0 x0)) h g) f 
-               x
+      : (h (((λ (x0 : X) => g (f x0)) ) x)) 
+          == (((λ (x0 : Y) => h (g x0)) ) (f x)) 

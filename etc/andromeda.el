@@ -52,7 +52,9 @@ C-c C-.          m31-send-buffer-up-to-point
 C-c .            m31-send-buffer-up-to-point
 C-c C-b          m31-send-buffer
 C-c C-l          m31-send-buffer
-")
+"
+  (set (make-local-variable 'require-final-newline)
+       mode-require-final-newline))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.m31\\'" . andromeda-mode))

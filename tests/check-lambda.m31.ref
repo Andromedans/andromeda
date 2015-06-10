@@ -18,5 +18,5 @@ A
       : Π (x : A) (y : B x), C x y
 λ (x : A) (y : B x) => g x y
       : Π (x : A) (y : B x), C x y
-λ (x : A) => λ (y : B x) => g x y
+λ (x : A) (y : B x) => g x y
       : Π (x : A) (y : B x), C x y
