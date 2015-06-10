@@ -357,7 +357,7 @@ and hint_bind ctx ((_,loc) as e) =
 
 and inhabit_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
-  let xts, t = Equal.as_universal_ty ctx t in
+  let xts, t = Equal.as_universal_bracket ctx t in
   let h = Pattern.make_inhabit ~loc (xts, t) in
   let ctx = Context.add_inhabit h ctx in
   ctx

@@ -691,6 +691,13 @@ and as_bracket ctx t =
   | Tt.Bracket t -> Some t
   | _ -> None
 
+(** Strip brackets from a given type. *)
+and strip_bracket ctx t =
+  let Tt.Ty (t', loc) = whnf_ty ctx t in
+  match t' with
+  | Tt.Bracket t -> strip_bracket ctx t
+  | _ -> t
+
 (** Try to inhabit the given whnf type [t]. At the moment we only know how
     to inhabit universally quantified equations. In the future this could
     be a computational effect that would lead to general proof search. *)
@@ -736,6 +743,7 @@ and inhabit_whnf ctx ((Tt.Ty (t', loc)) as t) =
     | Tt.Type -> None
 
 and inhabit_bracket ctx t =
+  let t = strip_bracket ctx t in
   (* apply inhabit hints *)
   if
     begin
@@ -746,7 +754,7 @@ and inhabit_bracket ctx t =
           | Some (pvars, checks) ->
             (* check validity of the match *)
             (* XXX: can general hints spawn new equalities? *)
-            begin match verify_match ~spawn:false ctx xts pvars checks with
+            begin match verify_match ~spawn:true ctx xts pvars checks with
               | Some _ -> true
               | None -> false
             end)
@@ -791,13 +799,13 @@ let rec as_universal_eq ctx t =
   fold ctx [] [] t
 
 (* XXX this was just copied from as_universal_eq, should refactor common code. *)
-let rec as_universal_ty ctx t =
+let rec as_universal_bracket ctx t =
   let rec fold ctx xus ys t =
-    let (Tt.Ty (t', loc)) = whnf_ty ctx t in
+    let (Tt.Ty (t', loc)) as t = whnf_ty ctx t in
     match t' with
 
     | Tt.Prod ([], _) ->
-      Error.impossible ~loc "empty product encountered in as_universal_ty"
+      Error.impossible ~loc "empty product encountered in as_universal_bracket"
 
     | Tt.Prod ((_ :: _) as zvs, w) ->
       let rec unabstract_binding ctx zs' zvs w =
@@ -817,6 +825,7 @@ let rec as_universal_ty ctx t =
 
     | Tt.Type | Tt.Name _ | Tt.Bound _ | Tt.Lambda _ |  Tt.Spine _ | Tt.Eq _ | Tt.Refl _ |
       Tt.Inhab | Tt.Bracket _  ->
+      let t = strip_bracket ctx t in
       let t = Tt.abstract_ty ys 0 t in
         (xus, t)
   in

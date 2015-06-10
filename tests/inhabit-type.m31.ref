@@ -2,7 +2,6 @@ A is assumed.
 
 a is assumed.
 
-Inhabit hint installed.
 []
       : [A]
 B is assumed.
@@ -11,6 +10,5 @@ f is assumed.
 
 []
       : [B a]
-Inhabit hint installed.
 λ (x : A) => []
       : Π (x : A), [B x]

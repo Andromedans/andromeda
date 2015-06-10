@@ -1,14 +1,16 @@
+(* Trivial example of using inahbit hints. *)
 Parameter A : Type.
 Parameter a : A.
+Check
+  (inhabit a in [] : [A]).
 
-Inhabit a.
-
-Check [] : [A].
-
+(* Universally quantified inhabit hints. *)
 Parameter B : A -> Type.
 Parameter f : forall (x : A), B x.
 
-Check (inhabit f in [] : [B a]).
+Check
+  (inhabit a in
+   inhabit f in
+    [] : [B a]).
 
-Inhabit f.
-Check (fun (x : A) => [] : [B x]) : forall x : A, [B x].
+Check inhabit f in (fun (x : A) => [] : [B x]) : forall x : A, [B x].

@@ -147,7 +147,7 @@ let rec exec_cmd base_dir interactive ctx c =
     begin
       match Eval.comp ctx c with
         | Value.Return (_,t) ->
-          let (xts, u) = Equal.as_universal_ty ctx t in
+          let (xts, u) = Equal.as_universal_bracket ctx t in
           let h = Pattern.make_inhabit ~loc (xts, u) in
           let ctx = Context.add_inhabit h ctx in
           Format.printf "Inhabit hint installed.@." ;
