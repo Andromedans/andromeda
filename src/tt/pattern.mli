@@ -46,5 +46,7 @@ val print_beta_hint : ?max_level:int -> Name.t list -> beta_hint -> Format.forma
 
 val print_eta_hint : ?max_level:int -> Name.t list -> eta_hint -> Format.formatter -> unit
 
+val print_inhabit_hint : ?max_level:int -> Name.t list -> inhabit -> Format.formatter -> unit
+
 val print_hint : ?max_level:int -> Name.t list -> hint -> Format.formatter -> unit
 

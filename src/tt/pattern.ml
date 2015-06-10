@@ -164,6 +164,14 @@ let print_hint ?max_level xs (_, (yts, (pt, pe1, pe2))) ppf =
 let print_eta_hint ?max_level xs (h, (yts, (pt, k1, k2))) ppf =
   print_hint ?max_level xs (h, (yts, (pt, PVar k1, PVar k2))) ppf
 
+let print_inhabit_hint ?max_level xs (yts, pt) ppf =
+  let print_body xs ppf =
+    Print.print ppf "@ =>@ %t"
+      (print_ty xs pt)
+  in
+  Print.print ?max_level ppf "@[%t@]"
+    (Name.print_binders Tt.print_ty print_body xs yts)
+
 let print_pattern ?max_level xs (xts, p) ppf =
   Print.print ?max_level ppf "@[%t@]"
     (Name.print_binders

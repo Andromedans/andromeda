@@ -749,11 +749,13 @@ and inhabit_bracket ctx t =
     begin
     List.exists
       (fun (xts, pt) ->
+        Print.debug "attempting to inhabit %t using %t"
+           (Tt.print_ty [] t)
+           (Pattern.print_inhabit_hint [] (xts, pt)) ;
         match collect_for_inhabit ctx pt t with
           | None -> false
           | Some (pvars, checks) ->
             (* check validity of the match *)
-            (* XXX: can general hints spawn new equalities? *)
             begin match verify_match ~spawn:true ctx xts pvars checks with
               | Some _ -> true
               | None -> false
