@@ -184,7 +184,7 @@ and check ctx ((c',loc) as c) t =
 
   | Syntax.Ascribe (c, t') ->
     let t'' = expr_ty ctx t' in
-    (* XXX checking the types for equality right away like this allows to fail
+    (* checking the types for equality right away like this allows to fail
        faster than going through check-infer. *)
     if Equal.equal_ty ctx t'' t
     then check ctx c t''
@@ -231,7 +231,7 @@ and check_lambda ctx loc t abs c =
   (** [ys] are what got added to the environment, [zus] come from the type
       [t] we're checking against, [abs] from the binder, [xts] are what
       should be used to check the body *)
-  let rec fold ctx ys zs xts abs zus =
+  let rec fold ctx ys zs xts abs zus v =
     match abs, zus with
     | (x,t)::abs, (z,u)::zus ->
 
@@ -240,7 +240,7 @@ and check_lambda ctx loc t abs c =
       let t =
         begin match t with
         | None ->
-           Print.debug "untagged arg %t in lambda, using %t for the type"
+           Print.debug "untagged arg %t in lambda, using %t as type"
              (Name.print x)
              (print_ty ctx u);
            u
@@ -256,7 +256,7 @@ and check_lambda ctx loc t abs c =
       let y, ctx = Context.add_fresh x t ctx in
       let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
       let t = Tt.abstract_ty ys 0 t in
-      fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus
+      fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus v
 
     | [], [] ->
       (* let u = u[x_k-1/z_k-1] in *)
@@ -275,11 +275,16 @@ and check_lambda ctx loc t abs c =
       Tt.mk_lambda ~loc xts e v
 
     | _::_, [] ->
-      Error.typing ~loc
-        "tried to check against a type with a too short abstraction@ %t"
-        (print_ty ctx t)
+      let v = Equal.as_prod ctx v in
+      begin match v with
+      | None ->
+        Error.typing ~loc
+          "tried to check against a type with a too short abstraction@ %t"
+          (print_ty ctx t)
+      | Some (zus, v) -> fold ctx ys zs xts abs zus v
+      end
   in
-  fold ctx [] [] [] abs zus
+  fold ctx [] [] [] abs zus v
 
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
