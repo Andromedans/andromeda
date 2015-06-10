@@ -18,7 +18,7 @@ and term' =
   | Hint of expr * comp
   | Inhabit of expr * comp
   | Ascribe of comp * ty
-  | Lambda of (Name.t * ty option) list * comp
+  | Lambda of (Name.t * comp option) list * comp
   | Spine of comp * comp list
   | Prod of (Name.t * ty) list * comp
   | Eq of comp * comp

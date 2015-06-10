@@ -80,7 +80,7 @@ let rec infer ctx (c',loc) =
         | None -> Error.typing
             ~loc "cannot infer the type of untagged variable %t" (Name.print x)
         | Some t ->
-          let t = expr_ty ctx t in
+          let t = check_ty ctx t in
           let y, ctx = Context.add_fresh x t ctx in
           let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
           let t = Tt.abstract_ty ys 0 t in
@@ -245,7 +245,7 @@ and check_lambda ctx loc t abs c =
              (print_ty ctx u);
            u
         | Some t ->
-          let t = expr_ty ctx t in
+          let t = check_ty ctx t in
           if Equal.equal_ty ctx t u then t
           else Error.typing ~loc
               "in this lambda, the variable %t should have a type equal to@ \
@@ -367,6 +367,8 @@ and expr_ty ctx ((_,loc) as e) =
         "this expression should be a type but its type is %t"
         (print_ty ctx t)
 
+and check_ty ctx ((_,loc) as e) =
+  Tt.ty @@ check ctx e Tt.typ
 
 and infer_ty ctx c =
   let e = check ctx c Tt.typ in

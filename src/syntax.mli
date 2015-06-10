@@ -23,7 +23,7 @@ and comp' =
   | Hint of expr * comp
   | Inhabit of expr * comp
   | Ascribe of comp * ty
-  | Lambda of (Name.t * ty option) list * comp
+  | Lambda of (Name.t * comp option) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
                                  to evaluate in checking mode, once we know their types. *)
   | Prod of (Name.t * ty) list * comp

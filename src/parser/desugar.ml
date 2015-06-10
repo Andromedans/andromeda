@@ -87,18 +87,10 @@ let rec comp ctx ((c',loc) as c) =
           and ys = ys @ [(x, None)] in
           fold ctx ys xs
         | (x, Some t) :: xs ->
-          begin
-            match expr ctx t with
-            | _, [], t ->
-              let ctx = add_bound x ctx
-              and ys = ys @ [(x, Some t)] in
-              fold ctx ys xs
-            | ctx, w, ((_,loc) as t) ->
-              let c = fold (add_bound x ctx) [] xs in
-              let c = Syntax.Lambda ([(x, Some t)], (c, loc)) in
-              let c = mk_let ~loc w c in
-              mk_lambda ys c
-          end
+          let t = comp ctx t in
+          let ctx = add_bound x ctx
+          and ys = ys @ [(x, Some t)] in
+          fold ctx ys xs
       in
       [], fold ctx [] xs
 
