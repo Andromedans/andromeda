@@ -212,7 +212,7 @@ and check ctx ((c',loc) as c) t =
   | Syntax.Inhab ->
     begin match Equal.as_bracket ctx t with
       | Some t ->
-        begin match Equal.inhabit_bracket ctx t with
+        begin match Equal.inhabit_bracket ~subgoals:true ~loc ctx t with
           | Some _ -> Tt.mk_inhab ~loc
           | None -> Error.typing ~loc "do not know how to inhabit %t"
                       (print_ty ctx t)

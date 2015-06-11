@@ -28,4 +28,4 @@ val as_universal_bracket : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction
 
 (** [inhabit_bracket ctx t] attempts to inhabit the bracket type [[t]] using
     inhabit hints. *)
-val inhabit_bracket : Context.t -> Tt.ty -> Tt.term option
+val inhabit_bracket : subgoals:bool -> loc:Location.t -> Context.t -> Tt.ty -> Tt.term option

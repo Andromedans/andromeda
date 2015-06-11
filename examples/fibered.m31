@@ -8,14 +8,14 @@ Parameter Z : N.
 Parameter S : N -> N.
 
 (* natural numbers are fibered *)
-Parameter N_fib : Fib N.
+Parameter N_fib : [Fib N].
 Inhabit N_fib.
 
 (* fibered types are preserved under products *)
 Parameter prod_fib :
   forall (A : Type), [Fib A] ->
     forall (B : A -> Type),
-      (forall x : A, [Fib (B x)]) -> Fib (forall x : A, B x).
+      (forall x : A, [Fib (B x)]) -> [Fib (forall x : A, B x)].
 
 (* Identity types can only be formed when the type is fibered. *)
 Parameter Id :
@@ -26,10 +26,10 @@ Parameter idpath :
 
 Check idpath N [] Z.
 
-(* Our pattern matchin is not good enough to use just "prod_fib",
-  we need to instantiate it. *)
+(* Our pattern matching is not good enough to use just "prod_fib",
+  we need to instantiate the types. *)
 Check
   inhabit
-    prod_fib N [] (fun _ : N => N) (fun n : N => [] : [Fib N])
+    prod_fib N [] (fun _ => N)
   in
   idpath (N -> N) [] (fun (n : N) => S (S n)).

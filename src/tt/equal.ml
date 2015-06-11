@@ -308,7 +308,7 @@ and equal_whnf ctx e1 e2 t =
             | Some (pvars, checks) ->
               (* check validity of the match *)
               (* XXX: can general hints spawn new equalities? *)
-              begin match verify_match ~spawn:false ctx xts pvars checks with
+              begin match verify_match ~spawn:true ctx xts pvars checks with
                 | Some _ -> true (* success - notice how we throw away the witness of success *)
                 | None -> false
               end)
@@ -480,6 +480,8 @@ and pattern_collect ctx p ?at_ty e =
 
   (* Colect from [e] assuming it is in whnf. *)
   and collect_whnf p ?t ((e', loc) as e) =
+    Print.debug "collecting pattern %t from whnf %t"
+      (Pattern.print_pattern [] ([],p)) (Tt.print_term [] e) ;
     match p with
 
     | Pattern.Name x' ->
@@ -556,6 +558,8 @@ and pattern_collect ctx p ?at_ty e =
       match (xts, pes), es with
       | ([], []), [] -> [], []
       | ((x,t)::xts, pe::pes), e::es ->
+      Print.debug "collecting spine with pattern@ %t and term@ %t"
+        (Pattern.print_pattern [] (xts, pe)) (Tt.print_term [] e);
         let pvars_e, checks_e = collect pe ~t:(Tt.instantiate_ty es' 0 t) e
         and pvars_es, checks_es = fold (e::es') xts pes es
         in pvars_e @ pvars_es, checks_e @ checks_es
@@ -622,11 +626,13 @@ and verify_match ~spawn ctx xts pvars checks =
   (* Create a substitution from an association list mapping
      pattern variables to their values. As you go, check that
      the types of pattern variables are equal to the ones found
-     by the pattern match. Raise [NoMatch] if an unbound pattern
-     variable is encoutered. *)
-  let rec subst_of_pvars ctx pvars k xts es =
+     by the pattern match. If an ubound variable is encountered
+     try to inhabit it when [spawn] is [true]. Return a list of
+     inhabitation problems that need to be checked later for this
+     match to be successful. *)
+  let rec subst_of_pvars ctx pvars k xts es inhs =
     match xts with
-    | [] -> es
+    | [] -> es, inhs
     | (_,t) :: xts ->
       begin match lookup k pvars with
 
@@ -637,25 +643,27 @@ and verify_match ~spawn ctx xts pvars checks =
           Print.debug "matching: compare %t and %t" (Tt.print_ty [] t) (Tt.print_ty [] t') ;
           if not (equal_ty ctx t t')
           then raise NoMatch
-          else subst_of_pvars ctx pvars (k-1) xts (e :: es)
+          else subst_of_pvars ctx pvars (k-1) xts (e :: es) inhs
 
         | None ->
-          (* Pattern variable [k] was not matched. *)
           if not spawn
-          then raise NoMatch (* give up *)
+          then raise NoMatch (* we are not supposed to instantiate missing variables *)
           else begin
-            (* Try to inhabit the type [t]. *)
+            (* Try to inhabit the type [t]. Actually, we first calculate the
+               only possible candidate, and redo the check later when we actually
+               know that the pattern match will succeed. *)
             let t = Tt.instantiate_ty es 0 t in
-            match inhabit ctx t with
+            Print.debug "matching: trying to inhabit@ %t" (Tt.print_ty [] t) ;
+            match inhabit ~subgoals:false ctx t with
               | None -> raise NoMatch (* didn't work *)
-              | Some e -> subst_of_pvars ctx pvars (k-1) xts (e :: es)
+              | Some e -> subst_of_pvars ctx pvars (k-1) xts (e :: es) ((ctx,t) :: inhs)
           end
       end
   in
 
   try
     (* Make a substitution from the collected [pvars] *)
-    let es = subst_of_pvars ctx pvars (List.length xts - 1) xts [] in
+    let es, inhs = subst_of_pvars ctx pvars (List.length xts - 1) xts [] [] in
     (* Perform the equality checks to validate the match *)
     List.iter
       (function
@@ -675,7 +683,12 @@ and verify_match ~spawn ctx xts pvars checks =
           and e2 = Tt.instantiate es 0 e2 in
           if not (alpha_equal e1 e2) then raise NoMatch)
       checks ;
-    (* matching succeeded *)
+    (* Perform delayed inhabitation goals *)
+    (* XXX why is it safe to delay these? *)
+    List.iter
+      (fun (ctx, t) -> ignore (inhabit ~subgoals:true ctx t))
+      inhs ;
+    (* match succeeded *)
     Some es
   with NoMatch -> None (* matching failed *)
 
@@ -698,20 +711,21 @@ and strip_bracket ctx t =
   | Tt.Bracket t -> strip_bracket ctx t
   | _ ->  t (* XXX or should be return the whnf t? *)
 
-(** Try to inhabit the given whnf type [t]. At the moment we only know how
-    to inhabit universally quantified equations. In the future this could
-    be a computational effect that would lead to general proof search. *)
-and inhabit ctx t =
+(** Try to inhabit the given type [t], which must be proof-irrelevant.
+    If [subgoals] is [true] then recursively resolve goals, otherwise
+    just return the only possible inhabitant of [t]. *)
+and inhabit ~subgoals ctx t =
   let Tt.Ty (t', loc) as t = whnf_ty ctx t in
-    inhabit_whnf ctx t
+    inhabit_whnf ~subgoals ctx t
 
-and inhabit_whnf ctx ((Tt.Ty (t', loc)) as t) =
+and inhabit_whnf ~subgoals ctx (Tt.Ty (t', loc)) =
   match t' with
+
     | Tt.Prod (xts', t') ->
       let rec fold ctx ys = function
         | [] ->
-          let t' = Tt.unabstract_ty ys 0 t in
-          begin match inhabit ctx t with
+          let t' = Tt.unabstract_ty ys 0 t' in
+          begin match inhabit ~subgoals ctx t' with
             | None -> None
             | Some e ->
               let e = Tt.abstract ys 0 e in
@@ -724,15 +738,16 @@ and inhabit_whnf ctx ((Tt.Ty (t', loc)) as t) =
             fold ctx (y :: ys) xts
       in
         fold ctx [] xts'
+
     | Tt.Eq (t, e1, e2) ->
-      if equal ctx e1 e2 t
+      if not subgoals || equal ctx e1 e2 t
       then
         let e = Tt.mk_refl ~loc t e1 in
         Some e
       else None
 
     | Tt.Bracket t ->
-      inhabit_bracket ctx t
+      inhabit_bracket ~subgoals ~loc ctx t
 
     | Tt.Name _
     | Tt.Spine _
@@ -742,14 +757,15 @@ and inhabit_whnf ctx ((Tt.Ty (t', loc)) as t) =
     | Tt.Inhab
     | Tt.Type -> None
 
-and inhabit_bracket ctx t =
+and inhabit_bracket ~subgoals ~loc ctx t =
   let t = strip_bracket ctx t in
   (* apply inhabit hints *)
   if
+    not subgoals ||
     begin
     List.exists
       (fun (xts, pt) ->
-        Print.debug "attempting to inhabit %t using %t"
+        Print.debug "attempting to inhabit@ %t using@ %t"
            (Tt.print_ty [] t)
            (Pattern.print_inhabit_hint [] (xts, pt)) ;
         match collect_for_inhabit ctx pt t with
@@ -762,7 +778,7 @@ and inhabit_bracket ctx t =
             end)
       (Context.inhabit ctx)
     end
-  then Some (Tt.mk_inhab ~loc:Location.unknown)
+  then Some (Tt.mk_inhab ~loc)
   else None
 
 let rec as_universal_eq ctx t =
