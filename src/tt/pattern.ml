@@ -1,11 +1,16 @@
+(* A type which may refer to pattern varibales. *)
+type pty = Tt.ty
+
+type pterm = Tt.term
+
 (** The type of term patterns. *)
 type term =
   | PVar of Syntax.bound
   | Name of Name.t
-  | Spine of term * (Tt.ty, Tt.ty) Tt.abstraction * term list
+  | Spine of term * (pty, pty) Tt.abstraction * term list
   | Eq of ty * term * term
   | Refl of ty * term
-  | Term of Tt.term * Tt.ty
+  | Term of pterm * pty
 
 (** The type of type patterns. *)
 and ty = Ty of term

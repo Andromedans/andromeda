@@ -3,9 +3,9 @@
 (** A check is a postponed equality check.
     Pattern matching generates these. *)
 type check =
-  | CheckEqual of Tt.term * Tt.term * Tt.ty (* compare terms at a type *)
-  | CheckEqualTy of Tt.ty * Tt.ty (* compare types *)
-  | CheckAlphaEqual of Tt.term * Tt.term (* compare terms for alpha equality *)
+  | CheckEqual of Pattern.pterm * Tt.term * Tt.ty (* compare terms at a type *)
+  | CheckEqualTy of (Pattern.pty * Tt.ty, Pattern.pty * Tt.ty) Tt.abstraction (* compare types in context *)
+  | CheckAlphaEqual of Pattern.pterm * Tt.term (* compare terms for alpha equality *)
 
 (** Alpha equality *)
 (* Currently, the only difference between alpha and structural equality is that
@@ -394,7 +394,9 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
             let u1 = Tt.instantiate_ty es1 0 u1
             and u2 = Tt.instantiate_ty es2 0 u2 in
             equal_ty ctx u1 u2 &&
-            equal ctx h1 h2 u1
+            equal ctx h1 h2 u1 (* XXX why do we compare with [equal] instead of [equal_whnf]?
+                                  Why don't we do it early?
+                                  Why are we comparing at type [u1]? *)
 
           | ((xts1, v1), ds1) :: as1 ->
             let u1 = Tt.instantiate_ty es1 0 u1 in
@@ -481,12 +483,11 @@ and pattern_collect ctx p ?at_ty e =
     | Pattern.Spine (pe, (xts, u), pes) ->
       begin match e' with
         | Tt.Spine (e, (yus, v), es) ->
-          let pvars_e, checks_e = collect pe ~t:(Tt.ty (Tt.mk_prod ~loc yus v)) e
-          and pvars_es, checks_es = collect_spine ~loc xts pes es
-          and t1 = Tt.mk_prod_ty ~loc xts u
-          and t2 = Tt.mk_prod_ty ~loc yus v in
-          pvars_e @ pvars_es,
-          (CheckEqualTy (t1, t2)) :: checks_e @ checks_es
+          let pvars, checks, extras = collect_spine_trailing ~loc (pe, (xts, u), pes) (e, (yus, v), es) in
+          begin match extras with
+            | _::_ -> raise NoMatch
+            | [] -> pvars, checks
+          end
         | _ -> raise NoMatch
       end
 
@@ -511,7 +512,7 @@ and pattern_collect ctx p ?at_ty e =
 
     | Pattern.Term (e',t') ->
       begin match t with
-        | Some t -> [], [CheckEqualTy (t, t'); CheckEqual (e', e, t)]
+        | Some t -> [], [CheckEqualTy ([], (t', t)); CheckEqual (e', e, t)]
         | None ->
           (** It is unsafe to compare [e'] and [e] for equality when
               the type of [e] is not given. However, it is safe to
@@ -540,6 +541,95 @@ and pattern_collect ctx p ?at_ty e =
 
   in
   collect_whnf p ?t:at_ty e
+
+(* Collect pattern variables from a spine, and return trialing arguments.
+   Also account for nested spines. *)
+and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
+
+  (* We deal with nested spines. They are nested in an inconvenient way so
+     we first get them the way we need them. *)
+  let rec collect_spines_terms ab abs n ((e',_) as e) =
+    match e' with
+    | Tt.Spine (e, xts, es) -> collect_spines_terms (xts,es) (ab :: abs) (n + List.length es) e
+    | _ -> e, ab, abs, n
+  in
+
+  let rec collect_spines_patterns ab abs n e =
+    match e with
+    | Pattern.Spine (e, xts, es) -> collect_spines_patterns (xts,es) (ab :: abs) (n + List.length es) e
+    | _ -> e, ab, abs, n
+  in
+
+  let ph, pargs, pargss, n1 = collect_spines_patterns xts [] (List.length pes) pe
+  and  h,  args,  argss, n2 = collect_spines_terms    yus [] (List.length es) e
+  in
+
+  (* If the pattern spine is longer than the arguments spine the match will fail. *)
+  if n1 > n2 then raise NoMatch ;
+
+  (* match the heads *)
+  let pvars_head, checks_head =
+    begin
+      let t = (let ((xts, u), _) = pargs in Tt.mk_prod_ty ~loc xts u) in
+      collect ph ~at_ty:t h
+    end
+  in
+  let rec fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss =
+    match xts, pes, yvs, es with
+
+    | (x,t)::xts, pe::pes, (y,v)::yvs, e::es ->
+      let pvars_e, checks_e = collect pe ~at_ty:(Tt.instantiate_ty es' 0 t) e in
+      let xtvs = (x,(t,v)) :: xtvs in
+      let es' = e :: es' in
+      let pvars, checks, extras = fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss in
+        pvars_e @ pvars, checks_e @ checks, extras
+
+    | ((_::_) as xts), ((_::_) as pes), [], [] ->
+      begin
+        match argss with
+        | [] -> Error.impossible ~loc "invalid spine pattern match (1)"
+        | ((yvs, w'), es) :: argss ->
+          let t1 = Tt.instantiate_ty es' 0 w
+          and t2 = Tt.mk_prod_ty ~loc yvs w' in
+          if not equal_ty ctx t1 t2
+          then raise NoMatch
+          else
+            folds xtvs es' ((xts,u), pes) pargss ((yvs, w'), es) argss
+      end
+
+    | [], [], (_::_), (_::_) ->
+      begin
+        let xtvs = List.rev xtvs in
+        let check_uw = CheckEqualTy (xtvs, u, Tt.make_prod_ty ~loc yvs w) in
+        match pargss with
+        | [] -> [], [check_uw], ((yvs, w), es) :: arggs
+        | pargs :: pargss ->
+          let (yvs, w) =
+            Tt.instantiate_abstraction
+              Tt.instantiate_ty
+              Tt.instantiate_ty
+              es' 0
+              (yvs, w)
+        in
+        let pvars, checks, extras = fold [] [] pargs parggs ((yvs, w), es) argss in
+        pvars, checks_uw :: checks, extras
+      end
+
+    | [], [], [], [] ->
+      begin
+        let xtvs = List.rev xtvs in
+        let check_uw = CheckEqualTy (xtvs, u, w) in
+          match pargss, argss with
+            | [], arggs -> [], [check_uw], arggs
+            | pargs::pargss, args::argss ->
+              let pvars, checks, extras = fold [] [] pargs pargss args argss in
+                pvars, check_uw :: checks, extras
+            | _::_, [] -> Error.impossible ~loc "invalid spine in pattern match (2)"
+      end
+  in
+  let pvars, checks, extras = fold [] [] pargs parggs args argss in
+    pvars_head @ pvars, check_head @ checks, extras
+
 
 and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
   pattern_collect ctx p ~at_ty:Tt.typ e
@@ -633,10 +723,16 @@ and verify_match ~spawn ctx xts pvars checks =
           if not
               (equal ctx e1 e2 t) then
             raise NoMatch
-        | CheckEqualTy (t1, t2) ->
-          let t1 = Tt.instantiate_ty es 0 t1
-          and t2 = Tt.instantiate_ty es 0 t2 in
-          if not (equal_ty ctx t1 t2) then raise NoMatch
+        | CheckEqualTy (xuvs, (t1, t2)) ->
+          let instantiate_ty_ty es depth (t1, t2) = (Tt.instantiate_ty es depth t1, Tt.instantiate_ty es depth t2) in
+          let xuvs, (t1, t2) =
+            Tt.instantiate_abstraction
+              instantiate_ty_ty
+              instantiate_ty_ty
+              es 0
+              (xuvs, (t1, t2))
+          in
+          if not (equal_abstracted_ty ctx xuvs t1 t2) then raise NoMatch
         | CheckAlphaEqual (e1, e2) ->
           let e1 = Tt.instantiate es 0 e1
           and e2 = Tt.instantiate es 0 e2 in
