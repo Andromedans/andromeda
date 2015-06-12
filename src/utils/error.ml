@@ -3,8 +3,8 @@
 type details = Location.t * string * string
 
 let print (loc, err_kind, msg) ppf =
-  Print.message ~verbosity:1 "%s (%t):\n%s"
-    err_kind (Location.print loc) msg
+  Print.message ~verbosity:1 "%t: %s\n%s"
+    (Location.print loc) err_kind msg
 
 exception Error of details
 

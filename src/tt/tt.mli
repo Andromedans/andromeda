@@ -20,6 +20,8 @@ and term' = private
   | Eq of ty * term * term
     (** strict equality type [e1 == e2] where [e1] and [e2] have type [A]. *)
   | Refl of ty * term (** reflexivity [refl e] where [e] has type [A]. *)
+  | Inhab (** the inhabitant of a bracket type *)
+  | Bracket of ty
 
 (** Since we have [Type : Type] we do not distinguish terms from types,
     so the type of type [ty] is just a synonym for the type of terms.
@@ -43,6 +45,9 @@ val mk_prod_ty: loc:Location.t -> (Name.t * ty) list -> ty -> ty
 val mk_eq: loc:Location.t -> ty -> term -> term -> term
 val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
 val mk_refl: loc:Location.t -> ty -> term -> term
+val mk_bracket: loc:Location.t -> ty -> term
+val mk_bracket_ty: loc:Location.t -> ty -> ty
+val mk_inhab: loc:Location.t -> term
 
 (** Coerce a value to a type (does not check whether this is legal). *)
 val ty : term -> ty

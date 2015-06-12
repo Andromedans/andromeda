@@ -1,0 +1,35 @@
+(** Fibered types. *)
+
+Parameter Fib : Type -> Type.
+
+(* pretend these are the naturals. *)
+Parameter N : Type.
+Parameter Z : N.
+Parameter S : N -> N.
+
+(* natural numbers are fibered *)
+Parameter N_fib : [Fib N].
+Inhabit N_fib.
+
+(* fibered types are preserved under products *)
+Parameter prod_fib :
+  forall (A : Type), [Fib A] ->
+    forall (B : A -> Type),
+      (forall x : A, [Fib (B x)]) -> [Fib (forall x : A, B x)].
+
+(* Identity types can only be formed when the type is fibered. *)
+Parameter Id :
+  forall (A : Type), [Fib A] -> A -> A -> Type.
+
+Parameter idpath :
+  forall (A : Type) (p : [Fib A]) (x : A), Id A p x x.
+
+Check idpath N [] Z.
+
+(* Our pattern matching is not good enough to use just "prod_fib",
+  we need to instantiate the types. *)
+Check
+  inhabit
+    prod_fib N [] (fun _ => N)
+  in
+  idpath (N -> N) [] (fun (n : N) => S (S n)).

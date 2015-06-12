@@ -7,17 +7,29 @@ type t = {
   bound : (Name.t * Value.value) list;
   beta : Pattern.beta_hint list ;
   eta : Pattern.eta_hint list;
-  hint : Pattern.hint list
+  hint : Pattern.hint list;
+  inhabit : Pattern.inhabit list;
+  files : string list;
 }
 
 (** The empty context *)
-let empty = { free = []; bound = [] ; beta = [] ; eta = [] ; hint = [] }
+let empty = {
+  free = [];
+  bound = [] ;
+  beta = [] ;
+  eta = [] ;
+  hint = [] ;
+  inhabit = [] ;
+  files = [] ;
+}
 
 let eta_hints {eta=lst} = lst
 
 let beta_hints {beta=lst} = lst
 
 let hints {hint=lst} = lst
+
+let inhabit {inhabit=lst} = lst
 
 let bound_names {bound=lst} = List.map fst lst
 
@@ -53,12 +65,19 @@ let add_eta h ctx = { ctx with eta = h :: ctx.eta }
 
 let add_hint h ctx = { ctx with hint = h :: ctx.hint }
 
+let add_inhabit h ctx = { ctx with inhabit = h :: ctx.inhabit }
+
 let add_fresh x t ctx =
   let y = Name.fresh x
   in y, { ctx with free = (y,t) :: ctx.free }
 
 let add_bound x v ctx =
   { ctx with bound = (x, v) :: ctx.bound }
+
+let add_file f ctx =
+  { ctx with files = (Filename.basename f) :: ctx.files }
+
+let included f { files } = List.mem (Filename.basename f) files
 
 let print ctx ppf =
   let forbidden_names = used_names ctx in

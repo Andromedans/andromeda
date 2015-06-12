@@ -368,20 +368,21 @@ Ascription only has an infer rule, and will always switch to a checking phase. I
   % supposedly the user annotated the lambda, so we should use the type \T_1
   % which we get out of \expr in the recursive call, instead of \U_1
   \infer[\rulename{check-$\lambda$-tagged}]
-  {\tywhnfs \ctxenv \T {\Prod \x {\U_1} {\U_2}} \\
+  {\tywhnfs \ctxenv \U {\Prod \x {\U_1} {\U_2}} \\
     \evalc \ctxenv \expr \Type {\T_1} \\
     \eqtypealg \ctxenv {\T_1} {\U_1} \\
-    \evalc {\ctxextend \ctxenv \x {\T_1}} \cmd {\U_2} \e}
-  {\evalc \ctxenv {\cmdLam \x \expr \cmd} \T {\lam \x {\U_1} {\U_2} \e}}
+    \evalc {\ctxextend \G \x {\T_1};\, \env} \cmd {\U_2} \e}
+  {\evalc \ctxenv {\cmdLam \x \expr \cmd} \U {\lam \x {\U_1} {\U_2} \e}}
+  % XXX should the result be (x:U1)->U2 or (x:T1->U2)?
 
   \infer[\rulename{check-$\lambda$-untagged}]
-  {\tywhnfs \ctxenv \T {\Prod \x {\U_1} {\U_2}} \\
-    \evalc {\ctxextend \ctxenv \x {\U_1}} \cmd {\U_2} \e}
-  {\evalc \ctxenv {\cmdLamCurry \x \cmd} \T {\lam \x {\U_1} {\U_2} \e}}
+  {\tywhnfs \ctxenv \U {\Prod \x {\U_1} {\U_2}} \\
+    \evalc {\ctxextend \G \x {\U_1};\, \env} \cmd {\U_2} \e}
+  {\evalc \ctxenv {\cmdLamCurry \x \cmd} \U {\lam \x {\U_1} {\U_2} \e}}
 
   \infer[\rulename{infer-$\lambda$}]
   {\evalc \ctxenv \expr \Type {\U_1} \\
-    \evali {\ctxextend \ctxenv \x {\U_1}} \cmd \e {\U_2}}
+    \evali {\ctxextend \G \x {\U_1};\, \env} \cmd \e {\U_2}}
   {\evali \ctxenv {\cmdLam \x \expr \cmd} {\lam \x {\U_1} {\U_2} \e} {\Prod \x {\U_1} {\U_2}}}
 
   \infer[\rulename{infer-app}]

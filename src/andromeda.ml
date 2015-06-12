@@ -53,13 +53,17 @@ let options = Arg.align [
 
     ("-v",
      Arg.Unit (fun () ->
-         Format.printf "Andromeda %s (%s)@." Version.version Sys.os_type ;
+         Format.printf "Andromeda %s (%s)@." Build.version Sys.os_type ;
          exit 0),
      " Print version information and exit");
 
     ("-V",
      Arg.Set_int Config.verbosity,
      "<n> Set printing verbosity to <n>");
+
+    ("--ignore-hints",
+     Arg.Set Config.ignore_hints,
+     " Ignore all installed rewrite hints");
 
     ("-n",
      Arg.Clear Config.interactive_shell,
@@ -71,18 +75,17 @@ let options = Arg.align [
   ]
 
 (** Parser wrapper that reads extra lines on demand. *)
-let parse parse lexbuf =
+let parse lex parse resource =
   try
-    parse Lexer.token lexbuf
+    lex parse resource
   with
-  | Parser.Error ->
-    Error.syntax ~loc:(Location.of_lexeme lexbuf) ""
-  | Failure "lexing: empty token" ->
-    Error.syntax ~loc:(Location.of_lexeme lexbuf) "unrecognised symbol."
+  | Ulexbuf.Parse_Error lexbuf ->
+    let t = Ulexbuf.lexeme lexbuf in
+    Error.syntax ~loc:(Location.of_lexeme lexbuf) "Unexpected: %s" t
 
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
-let rec exec_cmd interactive ctx c =
+let rec exec_cmd base_dir interactive ctx c =
   let (c', loc) = Desugar.toplevel (Context.bound_names ctx) c in
   match c' with
   | Syntax.Parameter (xs,c) ->
@@ -96,7 +99,7 @@ let rec exec_cmd interactive ctx c =
         ctx
         xs
     in
-    Format.printf "@." ;
+    if interactive then Format.printf "@." ;
     ctx
 
   | Syntax.TopLet (x, c) ->
@@ -140,6 +143,17 @@ let rec exec_cmd interactive ctx c =
             ctx
     end
 
+  | Syntax.TopInhabit c ->
+    begin
+      match Eval.comp ctx c with
+        | Value.Return (_,t) ->
+          let (xts, u) = Equal.as_universal_bracket ctx t in
+          let h = Pattern.make_inhabit ~loc (xts, u) in
+          let ctx = Context.add_inhabit h ctx in
+          Format.printf "Inhabit hint installed.@." ;
+          ctx
+    end
+
   | Syntax.TopHint c ->
     begin
       match Eval.comp ctx c with
@@ -150,6 +164,26 @@ let rec exec_cmd interactive ctx c =
             Format.printf "Hint installed.@." ;
             ctx
     end
+
+  | Syntax.Include fs ->
+    (* relative file names get interpreted relative to the file we're
+       currently loading *)
+    List.fold_left
+      (fun ctx f ->
+         (* don't print deeper includes *)
+         begin if interactive then Format.printf "#including %s@." f ;
+           let ctx =
+             let f =
+               if Filename.is_relative f then
+                 Filename.concat base_dir f
+               else f in
+             use_file ctx (f, false) in
+           if interactive then Format.printf "#processed %s@." f ;
+           ctx
+         end)
+      ctx fs
+
+  | Syntax.Verbosity i -> Config.verbosity := i; ctx
 
   | Syntax.Context ->
     Format.printf "%t@." (Context.print ctx) ;
@@ -163,18 +197,30 @@ let rec exec_cmd interactive ctx c =
 
 (** Load directives from the given file. *)
 and use_file ctx (filename, interactive) =
-  let cmds = Lexer.read_file (parse Parser.file) filename in
-  List.fold_left (exec_cmd interactive) ctx cmds
+  let filename, line_limit =
+    if Str.string_match (Str.regexp "\\(.*\\)#line_limit:\\([0-9]+\\)") filename 0
+    then let fn, ll = Str.matched_group 1 filename,
+                      (int_of_string (Str.matched_group 2 filename)) in
+      fn, Some ll
+    else filename, None in
+
+  if Context.included filename ctx then ctx else
+    begin
+      let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
+      let base_dir = Filename.dirname filename in
+      let ctx = Context.add_file filename ctx in
+      List.fold_left (exec_cmd base_dir interactive) ctx cmds
+    end
 
 (** Interactive toplevel *)
 let toplevel ctx =
-  Format.printf "Andromeda %s@\n[Type #help for help.]@." Version.version ;
+  Format.printf "Andromeda %s@\n[Type #help for help.]@." Build.version ;
   try
     let ctx = ref ctx in
     while true do
       try
-        let cmd = Lexer.read_toplevel (parse Parser.commandline) () in
-        ctx := exec_cmd true !ctx cmd
+        let cmd = parse Lexer.read_toplevel Parser.commandline () in
+        ctx := exec_cmd Filename.current_dir_name true !ctx cmd
       with
       | Error.Error err -> Error.print err Format.err_formatter
       | Sys.Break -> Format.eprintf "Interrupted.@."
@@ -214,10 +260,14 @@ let main =
     | Config.PreludeNone -> ()
     | Config.PreludeFile f -> files := (f, false) :: !files
     | Config.PreludeDefault ->
-      (* look for prelude next to the executable, don't whine if it is not there *)
-      let f = Filename.concat (Filename.dirname Sys.argv.(0)) "prelude.m31" in
-      if Sys.file_exists f
-      then files := (f, false) :: !files
+      (* look for prelude next to the executable and in the , don't whine if it is not there *)
+      try
+        let d = Build.lib_dir in
+        let d' = Filename.dirname Sys.argv.(0) in
+        let l = List.map (fun d -> Filename.concat d "prelude.m31") [d; d'] in
+        let f = List.find (fun f ->  Sys.file_exists f) l in
+        files := (f, false) :: !files
+      with Not_found -> ()
   end ;
 
   (* Set the maximum depth of pretty-printing, after which it prints ellipsis. *)

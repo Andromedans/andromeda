@@ -26,8 +26,8 @@ let rec expr ctx (e',loc) =
     | Syntax.Bound k -> Context.lookup_bound k ctx
 
     | Syntax.Type ->
-       let t = Tt.mk_type ~loc
-       in (t, Tt.typ)
+      let t = Tt.mk_type ~loc
+      in (t, Tt.typ)
   end
 
 (** Evaluate a computation -- infer mode. *)
@@ -54,6 +54,10 @@ let rec infer ctx (c',loc) =
     let ctx = hint_bind ctx e in
     infer ctx c
 
+  | Syntax.Inhabit (e, c) ->
+    let ctx = inhabit_bind ctx e in
+    infer ctx c
+
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t
      in let e = check ctx c t
@@ -72,11 +76,16 @@ let rec infer ctx (c',loc) =
               Value.Return (e, t)
         end
       | (x,t) :: abs ->
-        let t = expr_ty ctx t in
-        let y, ctx = Context.add_fresh x t ctx in
-        let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
-        let t = Tt.abstract_ty ys 0 t in
+        begin match t with
+        | None -> Error.typing
+            ~loc "cannot infer the type of untagged variable %t" (Name.print x)
+        | Some t ->
+          let t = check_ty ctx t in
+          let y, ctx = Context.add_fresh x t ctx in
+          let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
+          let t = Tt.abstract_ty ys 0 t in
           fold ctx (y::ys) (xts @ [(x,t)]) abs
+        end
     in
       fold ctx [] [] abs
 
@@ -119,21 +128,43 @@ let rec infer ctx (c',loc) =
         in Value.Return (e', t')
     end
 
+  | Syntax.Bracket c ->
+    let t = infer_ty ctx c in
+    let t = Tt.mk_bracket ~loc t in
+    Value.Return (t, Tt.typ)
+
+  | Syntax.Inhab ->
+    Error.typing ~loc "cannot infer the type of []"
+
 and check ctx ((c',loc) as c) t =
   match c' with
-  | Syntax.Return e ->
-    let (e', t') = expr ctx e in
-    if Equal.equal_ty ctx t' t
-     then e'
-     else
-      Error.typing ~loc:(snd c) "this expression should have type %t but has type %t"
-        (print_ty ctx t)
-        (print_ty ctx t')
+
+  | Syntax.Return _
+  | Syntax.Prod _
+  | Syntax.Eq _
+  | Syntax.Spine _
+  | Syntax.Bracket _  ->
+    (** this is the [check-infer] rule, which applies for all term formers "foo"
+        that don't have a "check-foo" rule *)
+
+    let Value.Return (e',t') = infer ctx c in
+    if Equal.equal_ty ctx t t'
+    then e'
+    else Error.typing ~loc:(snd e')
+        "this expression should have type@ %t but has type@ %t"
+        (print_ty ctx t) (print_ty ctx t')
 
   | Syntax.Let (xcs, c) ->
-     let ctx = let_bind ctx xcs in
-     let t = Tt.shift_ty (List.length xcs) 0 t in
-     check ctx c t
+    let ctx = let_bind ctx xcs in
+    let t' = Tt.shift_ty (List.length xcs) 0 t in
+
+    (* XXX looks like shift is dead code. good terms don't expose their indices *)
+    if not (Equal.equal_ty ctx t t') then
+      Print.message ~verbosity:3
+        "Let shifted@ %t into@ %t" (print_ty ctx t) (print_ty ctx t');
+    let t = t' in
+
+    check ctx c t
 
   | Syntax.Beta (e, c) ->
     let ctx = beta_bind ctx e in
@@ -144,26 +175,116 @@ and check ctx ((c',loc) as c) t =
     check ctx c t
 
   | Syntax.Hint (e, c) ->
-      let ctx = hint_bind ctx e in
+    let ctx = hint_bind ctx e in
+    check ctx c t
+
+  | Syntax.Inhabit (e, c) ->
+      let ctx = inhabit_bind ctx e in
       check ctx c t
 
   | Syntax.Ascribe (c, t') ->
-     let t'' = expr_ty ctx t' in
-     if Equal.equal_ty ctx t'' t
-     then check ctx c t''
-     else
-      Error.typing ~loc:(snd t') "this type should be equal to %t"
-        (print_ty ctx t)
+    let t'' = expr_ty ctx t' in
+    (* checking the types for equality right away like this allows to fail
+       faster than going through check-infer. *)
+    if Equal.equal_ty ctx t'' t
+    then check ctx c t''
+    else Error.typing ~loc:(snd t')
+        "this type should be equal to %t" (print_ty ctx t)
 
-  | Syntax.Lambda _ | Syntax.Spine _ | Syntax.Prod _ | Syntax.Eq _ | Syntax.Refl _ ->
-    begin match infer ctx c with
-      | Value.Return (e,t') ->
-        if Equal.equal_ty ctx t t'
-        then e
-        else Error.typing ~loc:(snd e) "this expression should have type@ %t but has type@ %t"
-        (print_ty ctx t)
-        (print_ty ctx t')
+  | Syntax.Lambda (abs, c) ->
+    check_lambda ctx loc t abs c
+
+  | Syntax.Refl c ->
+    (** XXX implemente Equal.as_eq and use it here *)
+    let abs, (t, e1, e2) = Equal.as_universal_eq ctx t in
+    assert (abs = []);
+    let e = check ctx c t in
+    let err e' =
+      Error.typing ~loc
+        "failed to check that the term@ %t is equal to@ %t"
+        (print_term ctx e) (print_term ctx e') in
+    if not @@ Equal.equal ctx e e1 t
+    then err e1
+    else if not @@ Equal.equal ctx e e2 t
+    then err e2
+    else Tt.mk_refl ~loc t e
+
+  | Syntax.Inhab ->
+    begin match Equal.as_bracket ctx t with
+      | Some t ->
+        begin match Equal.inhabit_bracket ~subgoals:true ~loc ctx t with
+          | Some _ -> Tt.mk_inhab ~loc
+          | None -> Error.typing ~loc "do not know how to inhabit %t"
+                      (print_ty ctx t)
+        end
+      | None -> Error.typing ~loc "[] has a bracket type and not %t"
+                  (print_ty ctx t)
     end
+
+and check_lambda ctx loc t abs c =
+  let (zus, v) = match Equal.as_prod ctx t with
+    | Some x -> x
+    | None -> Error.typing ~loc
+                "this type %t should be a product" (print_ty ctx t)
+  in
+
+  (** [ys] are what got added to the environment, [zus] come from the type
+      [t] we're checking against, [abs] from the binder, [xts] are what
+      should be used to check the body *)
+  let rec fold ctx ys zs xts abs zus v =
+    match abs, zus with
+    | (x,t)::abs, (z,u)::zus ->
+
+      (* let u = u[x_k-1/z_k-1] in *)
+      let u = Tt.unabstract_ty ys 0 u in
+      let t =
+        begin match t with
+        | None ->
+           Print.debug "untagged arg %t in lambda, using %t as type"
+             (Name.print x)
+             (print_ty ctx u);
+           u
+        | Some t ->
+          let t = check_ty ctx t in
+          if Equal.equal_ty ctx t u then t
+          else Error.typing ~loc
+              "in this lambda, the variable %t should have a type equal to@ \
+               %t\nFound type@ %t"
+              (Name.print x) (print_ty ctx u) (print_ty ctx t)
+        end in
+
+      let y, ctx = Context.add_fresh x t ctx in
+      let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
+      let t = Tt.abstract_ty ys 0 t in
+      fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus v
+
+    | [], [] ->
+      (* let u = u[x_k-1/z_k-1] in *)
+      let v' = Tt.unabstract_ty ys 0 v in
+      let e = check ctx c v' in
+      let e = Tt.abstract ys 0 e in
+      let xts = List.rev xts in
+      Tt.mk_lambda ~loc xts e v
+
+    | [], _::_ ->
+      let v = Tt.mk_prod_ty ~loc zus v in
+      let v' = Tt.unabstract_ty ys 0 v in
+      let e = check ctx c v' in
+      let e = Tt.abstract ys 0 e in
+      let xts = List.rev xts in
+      Tt.mk_lambda ~loc xts e v
+
+    | _::_, [] ->
+      let v = Equal.as_prod ctx v in
+      begin match v with
+      | None ->
+        Error.typing ~loc
+          "tried to check against a type with a too short abstraction@ %t"
+          (print_ty ctx t)
+      | Some (zus, v) -> fold ctx ys zs xts abs zus v
+      end
+  in
+  fold ctx [] [] [] abs zus v
 
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
@@ -206,6 +327,7 @@ and let_bind ctx xcs =
           | Value.Return v -> Context.add_bound x v ctx')
     ctx xcs
 
+
 and beta_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
@@ -233,6 +355,13 @@ and hint_bind ctx ((_,loc) as e) =
     (Pattern.print_hint [] h);
   ctx
 
+and inhabit_bind ctx ((_,loc) as e) =
+  let (_, t) = expr ctx e in
+  let xts, t = Equal.as_universal_bracket ctx t in
+  let h = Pattern.make_inhabit ~loc (xts, t) in
+  let ctx = Context.add_inhabit h ctx in
+  ctx
+
 and expr_ty ctx ((_,loc) as e) =
   let (e, t) = expr ctx e
   in
@@ -243,6 +372,8 @@ and expr_ty ctx ((_,loc) as e) =
         "this expression should be a type but its type is %t"
         (print_ty ctx t)
 
+and check_ty ctx ((_,loc) as e) =
+  Tt.ty @@ check ctx e Tt.typ
 
 and infer_ty ctx c =
   let e = check ctx c Tt.typ in

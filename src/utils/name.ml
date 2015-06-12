@@ -8,7 +8,11 @@ type t =
 let print x ppf =
   match x with
   | Anonymous -> Print.print ppf "_"
-  | Gensym (s, k) -> Print.print ppf "gensym_%s_%d" s k
+  | Gensym (s, k) ->
+    begin if !Config.verbosity <= 2
+      then Print.print ppf "%s" s
+      else Print.print ppf "gensym_%s_%d" s k
+    end
   | String s -> Print.print ppf "%s" s
 
 let anonymous = Anonymous

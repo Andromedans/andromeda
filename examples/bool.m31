@@ -15,6 +15,8 @@ Parameter ind_bool_false :
 (* Parameter ind_bool_eta : *)
 (*   forall (P : bool -> Type) *)
 
+#include "false.m31" "unit.m31"
+
 (* Be very careful about when reductions may happen. *)
 Let bool_disjoint :=
   (fun (p : true == false) =>
@@ -23,16 +25,16 @@ Let bool_disjoint :=
      in
      let p :=
        beta p in
-         (refl (P true) :: P true == P false) in
+         (refl (P true) : P true == P false) in
      let p :=
        beta ind_bool_false in
-         p :: P true == False in
+         p : P true == False in
      let p :=
        beta ind_bool_true in
-         p :: unit == False in
+         p : unit == False in
      beta p in
-       tt :: False)
-    ::
+       tt : False)
+    :
     true == false -> False.
 
 (* Let's be less careful. *)
@@ -44,27 +46,21 @@ Let bool_disjoint' :=
      let P := fun (b : bool) => ind_bool (fun (_ : bool) => Type) unit False b in
      let p :=
        beta p in
-         (refl (P true) :: P true == P false) in
-     let p := p :: unit == False in
+         (refl (P true) : P true == P false) in
+     let p := p : unit == False in
      beta p in
-       tt :: False)
-    ::
+       tt : False)
+    :
     true == false -> False.
 
-(* The information should propagate inwards. *)
-(* Let bool_disjoint'' := *)
-(*   (fun (p : true == false) => *)
-(*      let P := *)
-(*          fun (b : bool) => ind_bool (fun (_ : bool) => Type) unit False b *)
-(*      in *)
-(*      let p := beta p in (refl (P true) :: P true == P false) in *)
-(*      let p := beta ind_bool_false in p :: P true == False in *)
-(*      (* let p := beta ind_bool_false in p :: False == P true in *) *)
-(*      let p := beta ind_bool_true in p :: unit == False in *)
-(*      beta p in *)
-(*      (* by [p], tt :: False but we don't know that's what we want *) *)
-(*      tt) *)
-(*     :: *)
-(*     true == false -> False. *)
+(* The information propagates inwards. *)
+Let bool_disjoint'' :=
+  (fun (p : true == false) =>
+     let P := fun (b : bool) => ind_bool (fun (_ : bool) => Type) unit False b in
+     let p := beta p in (refl False : P true == False) in
+     let p := p : unit == False in
+     beta p in tt)
+    :
+    true == false -> False.
 
-Check bool_disjoint'.
+Check bool_disjoint''.

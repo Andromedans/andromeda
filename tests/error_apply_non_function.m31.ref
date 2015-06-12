@@ -4,5 +4,5 @@ x is defined.
 
 y is defined.
 
-Typing error (./error_apply_non_function.m31:9:10-15):
+File "./error_apply_non_function.m31", line 9, characters 9-14: Typing error
   an expression is applied but it is not a function

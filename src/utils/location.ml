@@ -17,9 +17,11 @@ let print loc ppf =
   | Unknown -> Print.print ppf "?:?"
   | Known {filename; start_line; start_col; end_line; end_col} ->
     if start_line = end_line then
-      Print.print ppf "%s:%d:%d-%d" filename start_line start_col end_col
+      Print.print ppf "File \"%s\", line %d, characters %d-%d"
+        filename start_line start_col end_col
     else
-      Print.print ppf "%s:%d:%d-%d:%d" filename start_line start_col end_line end_col
+      Print.print ppf "File \"%s\", lines %d-%d, characters %d-%d"
+        filename start_line end_line start_col end_col
 
 let unknown = Unknown
 
@@ -27,7 +29,7 @@ let unknown = Unknown
 let dismantle lexpos =
   let filename = lexpos.Lexing.pos_fname
   and line = lexpos.Lexing.pos_lnum
-  and col = lexpos.Lexing.pos_cnum - lexpos.Lexing.pos_bol + 1 in
+  and col = lexpos.Lexing.pos_cnum - lexpos.Lexing.pos_bol in
   filename, line, col
 
 let make start_lexpos end_lexpos =
@@ -37,4 +39,4 @@ let make start_lexpos end_lexpos =
   Known {filename = start_filename; start_line; start_col; end_line; end_col}
 
 let of_lexeme lex =
-  make (Lexing.lexeme_start_p lex) (Lexing.lexeme_end_p lex)
+  Ulexbuf.(make lex.pos_start lex.pos_end)

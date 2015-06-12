@@ -3,6 +3,4 @@ Parameter tt : unit.
 
 Parameter unit_eta : forall (t u : unit), t == u.
 
-Check (fun x : unit =>
-         eta unit_eta in
-           refl x :: x == tt).
+Let unit_eq_tt := (fun x => eta unit_eta in refl x : x == tt) : ∀ (x : unit), x == tt.

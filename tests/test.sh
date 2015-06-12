@@ -2,6 +2,7 @@
 
 BASEDIR=`dirname "$0"`
 DIFF=`which diff`
+PRINTF=`which printf`
 
 cd "$BASEDIR"
 
@@ -9,6 +10,12 @@ if [ ! -x "$DIFF" ]
 then
     echo "Cannot find the diff command. Exiting."
     exit 1
+fi
+
+if [ ! -x "$PRINTF" ]
+then
+  echo "Cuould not find the printf command. Falling back on echo -- expect ugly output."
+  PRINTF="echo"
 fi
 
 if [ -x "$BASEDIR/../andromeda" ]
@@ -30,7 +37,6 @@ if [ "$1" = "-v" ]
 then
     VALIDATE=1
 fi
-
 for FILE in $BASEDIR/*.m31
   do
   "$ANDROMEDA" "$FILE" >"$FILE.out" 2>&1
@@ -39,7 +45,7 @@ for FILE in $BASEDIR/*.m31
       RESULT=`"$DIFF" "$FILE.out" "$FILE.ref"`
       if [ "$?" = "0" ]
       then
-      echo "Passed:  $FILE"
+      $PRINTF "Test: $FILE                        \r"
       rm "$FILE.out"
       else
       echo "FAILED:  $FILE"
@@ -57,6 +63,7 @@ for FILE in $BASEDIR/*.m31
 
   else
       mv "$FILE.out" "$FILE.ref"
-      echo "Created: $FILE.ref"
+      echo "Created: $FILE.ref                        "
   fi
 done
+echo "Done.                                       "

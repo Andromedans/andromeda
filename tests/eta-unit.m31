@@ -5,4 +5,4 @@ Parameter unit_eta : forall x y : unit, x == y.
 
 Check
   eta unit_eta in
-    fun x : unit => (refl tt :: x == tt).
+    fun x : unit => (refl tt : x == tt).

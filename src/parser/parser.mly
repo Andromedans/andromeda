@@ -6,16 +6,19 @@
 %token TYPE
 %token UNDERSCORE
 %token <string> NAME
-%token LPAREN RPAREN
-%token COLON ASCRIBE COMMA DOT
+%token LPAREN RPAREN LBRACK RBRACK
+%token COLON COMMA DOT
 %token ARROW DARROW
 %token EQEQ
 %token REFL
-%token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT
+%token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
 %token LET COLONEQ AND IN
-%token BETA ETA HINT
+%token BETA ETA HINT INHABIT
 %token PARAMETER
 %token CONTEXT HELP QUIT
+%token <int> VERBOSITY
+%token <string> FILENAME
+%token INCLUDE
 %token EOF
 
 %start <Input.toplevel list> file
@@ -30,7 +33,7 @@ file:
 
 filecontents:
   |                                 { [] }
-  | d=topcomp ds=filecontents        { d :: ds }
+  | d=topcomp ds=filecontents       { d :: ds }
   | d=topdirective ds=filecontents  { d :: ds }
 
 commandline:
@@ -45,6 +48,7 @@ plain_topcomp:
   | TOPBETA c=term DOT                                   { TopBeta c }
   | TOPETA c=term DOT                                    { TopEta c }
   | TOPHINT c=term DOT                                   { TopHint c }
+  | TOPINHABIT c=term DOT                                { TopInhabit c }
   | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
 
 (* Toplevel directive. *)
@@ -53,6 +57,13 @@ plain_topdirective:
   | CONTEXT    { Context }
   | HELP       { Help }
   | QUIT       { Quit }
+  | VERBOSITY                                            { Verbosity $1 }
+  | INCLUDE fs=filename+                                 { Include fs }
+
+filename:
+  | FILENAME { let s = $1 in
+               let l = String.length s in
+               String.sub s 1 (l - 2) }
 
 (* Main syntax tree *)
 
@@ -63,13 +74,14 @@ plain_term:
   | BETA e=term IN c=term                           { Beta (e, c) }
   | ETA e=term IN c=term                            { Eta (e, c) }
   | HINT e=term IN c=term                           { Hint (e, c) }
-  | e=app_term ASCRIBE t=ty_term                    { Ascribe (e, t) }
+  | INHABIT e=term IN c=term                        { Inhabit (e, c) }
+  | e=app_term COLON t=ty_term                      { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                              { e }
   | FORALL a=abstraction(ty_term) COMMA e=term      { Prod (a, e) }
-  | FUN a=abstraction(ty_term) DARROW e=term        { Lambda (a, e) }
+  | FUN a=fun_abstraction e=term                    { Lambda (a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
@@ -86,11 +98,16 @@ plain_app_term:
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                            { Type }
-  | x=name                                          { Var x }
+  | LBRACK RBRACK                                   { Inhab }
+  | x=var_name                                      { Var x }
   | LPAREN e=plain_term RPAREN                      { e }
+  | LBRACK e=term RBRACK                            { Bracket e }
+
+var_name:
+  | NAME { Name.make $1 }
 
 name:
-  | NAME { Name.make $1 }
+  | x=var_name { x }
   | UNDERSCORE { Name.anonymous }
 
 let_clauses:
@@ -111,7 +128,19 @@ bind(X):
   | xs=nonempty_list(name) COLON t=X   { List.map (fun x -> (x, t)) xs }
 
 paren_bind(X):
-  | LPAREN b=bind(X) RPAREN            { b }
+  | LPAREN xst=bind(X) RPAREN            { xst }
+
+(* function abstraction with possibly missing typing annotations *)
+fun_abstraction:
+  | xs=list(name) DARROW
+      { (List.map (fun x -> (x, None)) xs) }
+  | xs=nonempty_list(name) COLON t=ty_term DARROW
+      { (List.map (fun x -> (x, Some t)) xs) }
+  | xs=list(name) yst=paren_bind(ty_term) zsu=fun_abstraction
+      { (List.map (fun x -> (x, None)) xs) @
+        (List.map (fun (y,t) -> (y, Some t)) yst) @
+         zsu
+      }
 
 mark_location(X):
   x=X

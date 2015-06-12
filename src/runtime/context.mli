@@ -27,6 +27,9 @@ val eta_hints : t -> Pattern.eta_hint list
 (** Return all general hints in the context *)
 val hints : t -> Pattern.hint list
 
+(** Return all general hints in the context *)
+val inhabit : t -> Pattern.inhabit list
+
 (** Add a free variable of a given type to the context.
     Fails if the free variable is already bound. *)
 val add_free : Name.t -> Tt.ty -> t -> t
@@ -40,6 +43,9 @@ val add_eta : Pattern.eta_hint -> t -> t
 (** Add a hint to the context. *)
 val add_hint : Pattern.hint -> t -> t
 
+(** Add an inhabit hint to the context. *)
+val add_inhabit : Pattern.inhabit -> t -> t
+
 (** [add_fresh x t ctx] adds a fresh free variable with suggested
     name [x] of given type [t] to the context [ctx]. Return the
     actual name and the new context. *)
@@ -47,6 +53,13 @@ val add_fresh : Name.t -> Tt.ty -> t -> Name.t * t
 
 (** Add a bound variable with given name to the context. *)
 val add_bound : Name.t -> Value.value -> t -> t
+
+(** Add a file to the list of files included. *)
+val add_file : string -> t -> t
+
+(** Check whether a file has already been included. Files are compared by
+    their basenames *)
+val included : string -> t -> bool
 
 (** Print free variables in the context *)
 val print : t -> Format.formatter -> unit
