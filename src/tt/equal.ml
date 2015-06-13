@@ -237,7 +237,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
       match t' with
 
         | Tt.Type ->
-          equal_whnf ctx e1 e2 t
+          equal_hints ctx e1 e2 t
 
         | Tt.Name _
         | Tt.Spine _ ->
@@ -246,8 +246,8 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
             let rec fold = function
 
               | [] ->
-                (* no hints apply, proceed with normalization phase *)
-                equal_whnf ctx e1 e2 t
+                (* no hints apply, proceed with applying general hints *)
+                equal_hints ctx e1 e2 t
 
               |  (_, (xts, (pt, k1, k2))) :: hs ->
                 begin match collect_for_eta ctx (pt, k1, k2) (t, e1, e2) with
@@ -293,7 +293,9 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
         | Tt.Inhab -> Error.impossible ~loc:loc1 "[] is not a type"
     end
 
-and equal_whnf ctx e1 e2 t =
+(* Compare expressions at a given type [t] using general hints. *)
+and equal_hints ctx e1 e2 t =
+  (* First we normalize the expressions *)
   let (e1',loc1) as e1 = whnf ctx e1
   and (e2',loc2) as e2 = whnf ctx e2
   in
@@ -308,7 +310,6 @@ and equal_whnf ctx e1 e2 t =
             | None -> false
             | Some (pvars, checks) ->
               (* check validity of the match *)
-              (* XXX: can general hints spawn new equalities? *)
               begin match verify_match ~spawn:true ctx xts pvars checks with
                 | Some _ -> true (* success - notice how we throw away the witness of success *)
                 | None -> false
@@ -316,6 +317,12 @@ and equal_whnf ctx e1 e2 t =
         (if !Config.ignore_hints then [] else Context.hints ctx)
     end
     ||
+    (* proceed with comparing the weak head normal forms *)
+    equal_whnf ctx e1 e2
+
+(* Compare normalized expressions. The assumption is that they both
+   have a common type. *)
+and equal_whnf ctx (e1',loc1) (e2',loc2) =
     (* compare reduced expressions *)
     begin match e1', e2' with
 
@@ -414,9 +421,11 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
             let u1 = Tt.instantiate_ty es1 0 u1
             and u2 = Tt.instantiate_ty es2 0 u2 in
             equal_ty ctx u1 u2 &&
-            equal ctx h1 h2 u1 (* XXX why do we compare with [equal] instead of [equal_whnf]?
-                                  Why don't we do it early?
-                                  Why are we comparing at type [u1]? *)
+            (* Compare the spine heads. We postpone doing so until
+               we have checked that they have the same type, which
+               we did because we compared [u1] and [u2] as well as
+               the types of all the binders we encountered *)
+            equal_whnf ctx h1 h2
 
           | ((xts1, v1), ds1) :: as1 ->
             let u1 = Tt.instantiate_ty es1 0 u1 in
