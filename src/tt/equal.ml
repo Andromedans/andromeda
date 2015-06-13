@@ -140,22 +140,22 @@ and whnf ctx e =
     | [] -> e
     | ((_, (xts, (p, e'))) as h) :: hs ->
       (* Here we use beta hints. First we match [p] against [e]. *)
-      begin match collect_for_beta ctx p e with
-        | None -> apply_beta hs (* did not match, try other hints *)
-        | Some (pvars, checks, extras) ->
-          (* we have a match, still need to verify validity of match *)
-          begin match verify_match ~spawn:false ctx xts pvars checks with
-            | None -> apply_beta hs (* not valid, try other hints *)
-            | Some es ->
-              (* success *)
-              let e' = Tt.instantiate es 0 e' in
-              Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
-                (Pattern.print_beta_hint xs h)
-                (Tt.print_term xs e)
-                (Tt.print_term xs e') ;
-              let e = List.fold_left (fun e ((xts,u),es) -> Tt.mk_spine ~loc:(snd e) e xts u es) e' extras in
-              whnf ctx e
-          end
+      begin try
+        let (pvars, checks, extras) = collect_for_beta ctx p e in
+        (* we have a match, still need to verify validity of match *)
+        begin match verify_match ~spawn:false ctx xts pvars checks with
+          | None -> apply_beta hs (* not valid, try other hints *)
+          | Some es ->
+            (* success *)
+            let e' = Tt.instantiate es 0 e' in
+            Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
+              (Pattern.print_beta_hint xs h)
+              (Tt.print_term xs e)
+              (Tt.print_term xs e') ;
+            let e = List.fold_left (fun e ((xts,u),es) -> Tt.mk_spine ~loc:(snd e) e xts u es) e' extras in
+            whnf ctx e
+        end
+      with NoMatch -> apply_beta hs (* did not match, try other hints *)
       end
   in
   if !Config.ignore_hints then e
@@ -667,7 +667,7 @@ and pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yus, es) =
     pvars_head @ pvars, checks_head @ checks, extras
 
 (** Collect values of pattern variables by matching a beta
-    pattern [bp] against expression [e]. Also return the residual
+    pattern [bp] against whnf expression [e]. Also return the residual
     equations that remain to be checked, and the unused
     arguments. *)
 and collect_for_beta ctx bp (e',loc) =
@@ -675,17 +675,27 @@ and collect_for_beta ctx bp (e',loc) =
 
   | Pattern.BetaName x, Tt.Name y ->
     if Name.eq x y
-    then Some ([], [], [])
-    else None
+    then [], [], []
+    else raise NoMatch
+
+  | Pattern.BetaName x, Tt.Spine (e, yts, es) ->
+    let rec fold args (e',_) yts es =
+      match e' with
+        | Tt.Name y ->
+          if Name.eq x y
+          then (yts, es) :: args
+          else raise NoMatch
+        | Tt.Spine (e', yts', es') ->
+          fold ((yts, es) :: args) e' yts' es'
+        | _ -> raise NoMatch
+    in
+    let extras = fold [] e yts es in
+    ([], [], extras)
 
   | Pattern.BetaSpine (pe, xts, pes), Tt.Spine (e, yts, es) ->
-    begin
-      try
-        Some (pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yts, es))
-      with NoMatch -> None
-    end
+    pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yts, es)
 
-  | _, _ -> None
+  | _, _ -> raise NoMatch
 
 (** Similar to [collect_for_beta] except targeted at extracting
   values of pattern variable and residual equations in eta hints,

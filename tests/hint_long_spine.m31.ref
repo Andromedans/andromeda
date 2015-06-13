@@ -9,5 +9,5 @@ f is assumed.
 
 f_def is assumed.
 
-File "./hint_long_spine.m31", line 11, characters 7-12: Runtime error
-  only an application can appear on the right-hand side of a beta hint
+refl b
+      : f a == b
