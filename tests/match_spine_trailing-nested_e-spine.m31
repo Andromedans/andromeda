@@ -1,0 +1,17 @@
+Parameter nat : Type.
+Parameter O : nat.
+Parameter h_rect : ∀ (P : nat -> Type), (P O) -> ∀ n : nat, P n.
+
+Parameter h_iota_O : ∀ (P : nat -> Type) (s : P O), h_rect P s O == s.
+
+Let it := (fun (T : Type) => h_rect (fun m => T -> T) (fun x : T => x)).
+
+Beta h_iota_O.
+
+Check refl O : O == it nat O O.
+
+Check refl O : O == (it nat) O O.
+
+Check refl O : O == (it nat O) O.
+
+Check refl O : O == ((it nat) O) O.

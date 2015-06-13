@@ -78,10 +78,10 @@ Check
     (fun (m : nat) (IHn : (fun (_ : nat) => nat) m) => S IHn)
     O.
 *)
-Let k := iteration' nat S (S (S O)) (S O).
+Let k := iteration nat S (S (S O)) (S O).
 Check k.
 
-Check
-  beta nat_iota_O in
-   beta nat_iota_S in
-      (refl k) : k == (S (S (S O))).
+Beta nat_iota_O.
+Beta nat_iota_S.
+
+Check (refl k) : k == (S (S (S O))).

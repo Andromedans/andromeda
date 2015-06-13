@@ -7,6 +7,9 @@ type check =
   | CheckEqualTy of (Pattern.pty * Tt.ty, Pattern.pty * Tt.ty) Tt.abstraction (* compare types in context *)
   | CheckAlphaEqual of Pattern.pterm * Tt.term (* compare terms for alpha equality *)
 
+(* counter for debugging depth  *)
+let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
+
 (** Alpha equality *)
 (* Currently, the only difference between alpha and structural equality is that
    the names of variables in abstractions are ignored. *)
@@ -134,21 +137,40 @@ and weak_whnf ctx ((e', loc) as e) =
 (** The whnf of term [e] in context [ctx], assuming [e] has a type.
     Here we use available beta hints. *)
 and whnf ctx e =
+  let i = cnt () in
+  let xs = Context.used_names ctx in
+  Print.debug "(%i computing whnf of@ %t@ " i (Tt.print_term xs e);
   let e = weak_whnf ctx e in
   let xs = Context.used_names ctx in
   let rec apply_beta = function
     | [] -> e
     | ((_, (xts, (p, e'))) as h) :: hs ->
+      Print.debug "collecting for beta@ %t@ from@ %t"
+        (Pattern.print_beta_hint [] h) (Tt.print_term [] e) ;
       (* Here we use beta hints. First we match [p] against [e]. *)
       begin match collect_for_beta ctx p e with
         | None -> apply_beta hs (* did not match, try other hints *)
-        | Some (pvars, checks) ->
+        | Some (pvars, checks, extras) ->
+          Print.debug
+            "Found a match of pattern@ %t@ against@ %t@, checking its \
+             validity…"
+            (Pattern.print_beta_hint xs h)
+            (Tt.print_term xs e) ;
           (* we have a match, still need to verify validity of match *)
           begin match verify_match ~spawn:false ctx xts pvars checks with
-            | None -> apply_beta hs (* not valid, try other hints *)
+            | None ->
+              Print.debug "validity check failed";
+              apply_beta hs (* not valid, try other hints *)
             | Some es ->
               (* success *)
               let e' = Tt.instantiate es 0 e' in
+              let e' = begin match extras with
+                | [] -> e'
+                | _::_ ->
+                  List.fold_left
+                    (fun e ((yvs,w),es) -> Tt.mk_spine ~loc:(snd e) e yvs w es)
+                    e' extras
+              end in
               Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
                 (Pattern.print_beta_hint xs h)
                 (Tt.print_term xs e)
@@ -159,8 +181,10 @@ and whnf ctx e =
   in
   if !Config.ignore_hints then e
   else begin
-    Print.debug "trying beta hints for %t" (Tt.print_term xs e);
-    apply_beta (Context.beta_hints ctx)
+    Print.debug "trying beta hints for@ %t" (Tt.print_term xs e);
+    let e = apply_beta (Context.beta_hints ctx) in
+    Print.debug "%i found whnf@ %t )" i (Tt.print_term xs e);
+    e
   end
 
 (** Beta reduction of [Lambda (xus, (e, u))] applied to arguments [es],
@@ -170,7 +194,7 @@ and beta_reduce ~loc ctx xus e u yvs t es =
   let rec split xuvs es' xus yvs es =
     match xus, yvs, es with
     | ([], _, _) | (_, [], []) -> xuvs, es', xus, yvs, es
-    | (x,u)::xus, (_,v)::yvs, e::es -> split (xuvs @ [(x,u,v)]) (e::es') xus yvs es
+    | (x,u)::xus, (_,v)::yvs, e::es -> split (xuvs @ [(x,(u,v))]) (e::es') xus yvs es
     | (_, [], _::_) | (_, _::_, []) ->
       Error.impossible ~loc "Equal.beta_reduce encountered an invalid spine"
   in
@@ -215,7 +239,7 @@ and equal_abstracted_ty ctx xuus v v' =
         let v = Tt.unabstract_ty ys 0 v
         and v' = Tt.unabstract_ty ys 0 v'
         in equal_ty ctx v v'
-     | (x,u,u')::xuus ->
+     | (x,(u,u'))::xuus ->
         let u  = Tt.unabstract_ty ys 0 u
         and u' = Tt.unabstract_ty ys 0 u'
         in
@@ -230,7 +254,14 @@ and equal_abstracted_ty ctx xuus v v' =
 and equal_ty ctx (Tt.Ty t1) (Tt.Ty t2) = equal ctx t1 t2 Tt.typ
 
 and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
- alpha_equal e1 e2 ||
+  let xs = Context.used_names ctx in
+  let i = cnt () in
+  Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
+    (Tt.print_term xs e1)
+    (Tt.print_term xs e2)
+    (Tt.print_ty xs t);
+  let b =
+  alpha_equal e1 e2 ||
     begin (* type-directed phase *)
       let (Tt.Ty (t',_)) as t = whnf_ty ctx t in
       match t' with
@@ -291,6 +322,9 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Tt.Inhab -> Error.impossible ~loc:loc1 "[] is not a type"
     end
+  in
+  Print.debug "%i equality check %s)" i (if b then "succeeded" else "failed");
+  b
 
 and equal_whnf ctx e1 e2 t =
   let (e1',loc1) as e1 = whnf ctx e1
@@ -357,7 +391,7 @@ and equal_whnf ctx e1 e2 t =
       | Tt.Prod (xus, t1), Tt.Prod (xvs, t2) ->
           let rec zip xuvs = function
           | (x, u) :: xus, (_, v) :: xvs ->
-            zip ((x, u, v) :: xuvs) (xus, xvs)
+            zip ((x, (u, v)) :: xuvs) (xus, xvs)
           | ([] as xus), xvs | xus, ([] as xvs) ->
               let xuvs = List.rev xuvs in
               let t1 = Tt.mk_prod_ty ~loc:loc1 xus t1
@@ -482,7 +516,7 @@ and pattern_collect ctx p ?at_ty e =
 
   (* Colect from [e] assuming it is in whnf. *)
   and collect_whnf p ?t ((e', loc) as e) =
-    Print.debug "collecting pattern %t from whnf %t"
+    Print.debug "collecting pattern@ %t@ from whnf@ %t"
       (Pattern.print_pattern [] ([],p)) (Tt.print_term [] e) ;
     match p with
 
@@ -506,10 +540,17 @@ and pattern_collect ctx p ?at_ty e =
     | Pattern.Spine (pe, (xts, u), pes) ->
       begin match e' with
         | Tt.Spine (e, (yus, v), es) ->
-          let pvars, checks, extras = collect_spine_trailing ~loc (pe, (xts, u), pes) (e, (yus, v), es) in
+          let pvars, checks, extras = collect_spine_trailing ctx ~loc (pe, (xts, u), pes) (e, (yus, v), es) in
+
           begin match extras with
-            | _::_ -> raise NoMatch
-            | [] -> pvars, checks
+            | _::_ ->
+              Print.debug "found unexpected trailing arguments at %t"
+                (Tt.print_term (Context.used_names ctx) (e', loc));
+              raise NoMatch
+            | [] ->
+              Print.debug "no trailing arguments for %t"
+                (Tt.print_term (Context.used_names ctx) (e', loc));
+              pvars, checks
           end
         | _ -> raise NoMatch
       end
@@ -551,48 +592,30 @@ and pattern_collect ctx p ?at_ty e =
       end
 
   (* Collect from a type. *)
-  and collect_ty (Pattern.Ty p) (Tt.Ty e) = collect p ~t:Tt.typ e
+  and collect_ty (Pattern.Ty p) (Tt.Ty e) = collect p ~t:Tt.typ e in
 
-  (* Collect pattern variables from a spine. *)
-  and collect_spine ~loc xts pes es =
-    let rec fold es' xts pes es =
-      match (xts, pes), es with
-      | ([], []), [] -> [], []
-      | ((x,t)::xts, pe::pes), e::es ->
-      Print.debug "collecting spine with pattern@ %t and term@ %t"
-        (Pattern.print_pattern [] (xts, pe)) (Tt.print_term [] e);
-        let pvars_e, checks_e = collect pe ~t:(Tt.instantiate_ty es' 0 t) e
-        and pvars_es, checks_es = fold (e::es') xts pes es
-        in pvars_e @ pvars_es, checks_e @ checks_es
-      | ([],_::_), _ | ([], _), _::_ | (_::_, []), _ | (_::_, _), [] ->
-        (** XXX be intelligent about differently nested but equally long spines *)
-        raise NoMatch
-    in
-    fold [] xts pes es
-
-  in
   collect_whnf p ?t:at_ty e
 
 (* Collect pattern variables from a spine, and return trialing arguments.
    Also account for nested spines. *)
-and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
+and collect_spine_trailing ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
 
   (* We deal with nested spines. They are nested in an inconvenient way so
      we first get them the way we need them. *)
   let rec collect_spines_terms ab abs n ((e',_) as e) =
     match e' with
-    | Tt.Spine (e, xts, es) -> collect_spines_terms (xts,es) (ab :: abs) (n + List.length es) e
+    | Tt.Spine (e, xtsu, es) -> collect_spines_terms (xtsu,es) (ab :: abs) (n + List.length es) e
     | _ -> e, ab, abs, n
   in
 
   let rec collect_spines_patterns ab abs n e =
     match e with
-    | Pattern.Spine (e, xts, es) -> collect_spines_patterns (xts,es) (ab :: abs) (n + List.length es) e
+    | Pattern.Spine (e, xtsu, es) -> collect_spines_patterns (xtsu,es) (ab :: abs) (n + List.length es) e
     | _ -> e, ab, abs, n
   in
 
-  let ph, pargs, pargss, n1 = collect_spines_patterns xts [] (List.length pes) pe
-  and  h,  args,  argss, n2 = collect_spines_terms    yus [] (List.length es) e
+  let ph, pargs, pargss, n1 = collect_spines_patterns (xtsu, pes) [] (List.length pes) pe
+  and  h,  args,  argss, n2 = collect_spines_terms    (yvsw, es)  [] (List.length es)  e
   in
 
   (* If the pattern spine is longer than the arguments spine the match will fail. *)
@@ -602,14 +625,15 @@ and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
   let pvars_head, checks_head =
     begin
       let t = (let ((xts, u), _) = pargs in Tt.mk_prod_ty ~loc xts u) in
-      collect ph ~at_ty:t h
-    end
-  in
+      pattern_collect ctx ph ~at_ty:t h
+    end in
+
   let rec fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss =
     match xts, pes, yvs, es with
 
     | (x,t)::xts, pe::pes, (y,v)::yvs, e::es ->
-      let pvars_e, checks_e = collect pe ~at_ty:(Tt.instantiate_ty es' 0 t) e in
+      let e = whnf ctx e in
+      let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:(Tt.instantiate_ty es' 0 t) e in
       let xtvs = (x,(t,v)) :: xtvs in
       let es' = e :: es' in
       let pvars, checks, extras = fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss in
@@ -618,22 +642,22 @@ and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
     | ((_::_) as xts), ((_::_) as pes), [], [] ->
       begin
         match argss with
-        | [] -> Error.impossible ~loc "invalid spine pattern match (1)"
+        | [] -> Error.impossible ~loc "invalid spine in pattern match (1)"
         | ((yvs, w'), es) :: argss ->
           let t1 = Tt.instantiate_ty es' 0 w
           and t2 = Tt.mk_prod_ty ~loc yvs w' in
-          if not equal_ty ctx t1 t2
+          if not (equal_ty ctx t1 t2)
           then raise NoMatch
           else
-            folds xtvs es' ((xts,u), pes) pargss ((yvs, w'), es) argss
+            fold xtvs es' ((xts,u), pes) pargss ((yvs, w'), es) argss
       end
 
     | [], [], (_::_), (_::_) ->
       begin
         let xtvs = List.rev xtvs in
-        let check_uw = CheckEqualTy (xtvs, u, Tt.make_prod_ty ~loc yvs w) in
+        let check_uw = CheckEqualTy (xtvs, (u, Tt.mk_prod_ty ~loc yvs w)) in
         match pargss with
-        | [] -> [], [check_uw], ((yvs, w), es) :: arggs
+        | [] -> [], [check_uw], ((yvs, w), es) :: argss
         | pargs :: pargss ->
           let (yvs, w) =
             Tt.instantiate_abstraction
@@ -641,25 +665,35 @@ and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
               Tt.instantiate_ty
               es' 0
               (yvs, w)
-        in
-        let pvars, checks, extras = fold [] [] pargs parggs ((yvs, w), es) argss in
-        pvars, checks_uw :: checks, extras
+          in
+          let pvars, checks, extras = fold [] [] pargs pargss ((yvs, w), es) argss in
+          pvars, check_uw :: checks, extras
       end
 
     | [], [], [], [] ->
       begin
         let xtvs = List.rev xtvs in
-        let check_uw = CheckEqualTy (xtvs, u, w) in
+        (* the return types may still contain variables bound to the arguments
+           of the spine; instantiate them. *)
+        let w = Tt.instantiate_ty es' 0 w in
+        let u = Tt.instantiate_ty es' 0 u in
+
+        let check_uw = CheckEqualTy (xtvs, (u, w)) in
           match pargss, argss with
-            | [], arggs -> [], [check_uw], arggs
+            | [], argss -> [], [check_uw], argss
             | pargs::pargss, args::argss ->
               let pvars, checks, extras = fold [] [] pargs pargss args argss in
                 pvars, check_uw :: checks, extras
             | _::_, [] -> Error.impossible ~loc "invalid spine in pattern match (2)"
       end
-  in
-  let pvars, checks, extras = fold [] [] pargs parggs args argss in
-    pvars_head @ pvars, check_head @ checks, extras
+    | _::_, [], _, _
+    | [], _::_, _, _ -> Error.impossible ~loc "invalid pattern spine";
+    | _, _, [], _::_
+    | _, _, _::_, [] ->
+      Error.impossible ~loc "invalid spine in pattern match (3)";
+
+  in let pvars, checks, extras = fold [] [] pargs pargss args argss in
+  pvars_head @ pvars, checks_head @ checks, extras
 
 
 and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
@@ -670,7 +704,14 @@ and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
     equations that remain to be checked. *)
 and collect_for_beta ctx p e =
   try
-    Some (pattern_collect ctx p e)
+    match p, e with
+    | Pattern.Spine (pe, xtsu, pes),
+      (Tt.Spine (e, yvsw, es), loc) ->
+      let pvars, checks, extras =
+        collect_spine_trailing ctx ~loc:(snd e) (pe, xtsu, pes) (e, yvsw, es) in
+      Some (pvars, checks, extras)
+    | _ -> let pvars, checks = pattern_collect ctx p e in
+      Some (pvars, checks, [])
   with NoMatch -> None
 
 (** Similar to [collect_for_beta] except targeted at extracting
@@ -754,29 +795,49 @@ and verify_match ~spawn ctx xts pvars checks =
   try
     (* Make a substitution from the collected [pvars] *)
     let es, inhs = subst_of_pvars ctx pvars (List.length xts - 1) xts [] [] in
+    Print.debug "built substitution";
     (* Perform the equality checks to validate the match *)
     List.iter
       (function
         | CheckEqual (e1, e2, t) ->
-          let e1 = Tt.instantiate es 0 e1
-          and e2 = Tt.instantiate es 0 e2
-          and t = Tt.instantiate_ty es 0 t in
-          if not
-              (equal ctx e1 e2 t) then
+          let e1 = Tt.instantiate es 0 e1 in
+          Print.debug "CheckEqual at@ %t@ %t@ %t"
+            (Tt.print_ty (Context.used_names ctx) t)
+            (Tt.print_term (Context.used_names ctx) e1)
+            (Tt.print_term (Context.used_names ctx) e2);
+          if not (equal ctx e1 e2 t) then
             raise NoMatch
+
         | CheckEqualTy (xuvs, (t1, t2)) ->
-          let instantiate_ty_ty es depth (t1, t2) = (Tt.instantiate_ty es depth t1, Tt.instantiate_ty es depth t2) in
-          let xuvs, (t1, t2) =
+
+          let instantiate_pty_ty es depth (t1, t2) =
+            (Tt.instantiate_ty es depth t1, t2) in
+          let xuvs, (t1', t2') =
             Tt.instantiate_abstraction
-              instantiate_ty_ty
-              instantiate_ty_ty
+              instantiate_pty_ty
+              instantiate_pty_ty
               es 0
               (xuvs, (t1, t2))
           in
-          if not (equal_abstracted_ty ctx xuvs t1 t2) then raise NoMatch
+
+          Print.debug "es: %t"
+            (Print.sequence (Tt.print_term ~max_level:0 []) "; " es);
+
+          Print.debug "instantiated pattern return type@ %t@ as@ %t"
+            (Tt.print_ty [] t1)
+            (Tt.print_ty [] t1') ;
+
+          Print.debug "instantiated rhs-term return type@ %t@ as@ %t"
+            (Tt.print_ty [] t2)
+            (Tt.print_ty [] t2') ;
+
+          Print.debug "CheckEqualTy@ %t@ %t"
+            (Tt.print_ty [] t1')
+            (Tt.print_ty [] t2');
+          if not (equal_abstracted_ty ctx xuvs t1' t2') then raise NoMatch
+
         | CheckAlphaEqual (e1, e2) ->
-          let e1 = Tt.instantiate es 0 e1
-          and e2 = Tt.instantiate es 0 e2 in
+          let e1 = Tt.instantiate es 0 e1 in
           if not (alpha_equal e1 e2) then raise NoMatch)
       checks ;
     (* Perform delayed inhabitation goals *)
