@@ -153,7 +153,8 @@ and whnf ctx e =
                 (Pattern.print_beta_hint xs h)
                 (Tt.print_term xs e)
                 (Tt.print_term xs e') ;
-              whnf ctx e'
+              let e = List.fold_left (fun e ((xts,u),es) -> Tt.mk_spine ~loc:(snd e) e xts u es) e' extras in
+              whnf ctx e
           end
       end
   in
@@ -665,20 +666,26 @@ and pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yus, es) =
   let pvars, checks, extras = fold [] [] pargs pargss args argss in
     pvars_head @ pvars, checks_head @ checks, extras
 
-(** Collect values of pattern variables by matching a spine
-    pattern against expression [e]. Also return the residual
+(** Collect values of pattern variables by matching a beta
+    pattern [bp] against expression [e]. Also return the residual
     equations that remain to be checked, and the unused
     arguments. *)
-and collect_for_beta ctx (pe, xts, pes) e =
-  let (e', loc) = whnf ctx e in
-  match e' with
-  | Tt.Spine (e, xts, es) ->
+and collect_for_beta ctx bp (e',loc) =
+  match bp, e' with
+
+  | Pattern.BetaName x, Tt.Name y ->
+    if Name.eq x y
+    then Some ([], [], [])
+    else None
+
+  | Pattern.BetaSpine (pe, xts, pes), Tt.Spine (e, yts, es) ->
     begin
       try
-        Some (pattern_collect_spine ~loc ctx (pe, xts, pes) (e, xts, es))
+        Some (pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yts, es))
       with NoMatch -> None
     end
-  | _ -> raise NoMatch
+
+  | _, _ -> None
 
 (** Similar to [collect_for_beta] except targeted at extracting
   values of pattern variable and residual equations in eta hints,

@@ -7,7 +7,7 @@ type pterm = Tt.term
 type term =
   | PVar of Syntax.bound
   | Name of Name.t
-  | Spine of spine_pattern
+  | Spine of term * (pty, pty) Tt.abstraction * term list
   | Bracket of ty
   | Eq of ty * term * term
   | Refl of ty * term
@@ -16,12 +16,14 @@ type term =
 (** The type of type patterns. *)
 and ty = Ty of term
 
-and spine_pattern = term * (pty, pty) Tt.abstraction * term list
-
 (** A pattern is given as an abstraction of a term pattern *)
 type t = (Tt.ty, term) Tt.abstraction
 
-type beta_hint = Name.t * (Tt.ty, spine_pattern * Tt.term) Tt.abstraction
+type beta_pattern =
+  | BetaSpine of term * (pty, pty) Tt.abstraction * term list
+  | BetaName of Name.t
+
+type beta_hint = Name.t * (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
 
 type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
 
@@ -151,10 +153,16 @@ let rec print_term ?max_level xs e ppf =
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
-let print_beta_hint ?max_level xs (_, (yts, ((pe, zvs, es), e))) ppf =
+let print_beta_hint ?max_level xs (_, (yts, (pb, e))) ppf =
   let print_beta_body xs ppf =
+    let p =
+      begin match pb with
+        | BetaSpine (pe, xts, pes) -> Spine (pe, xts, pes)
+        | BetaName x -> Name x
+      end
+    in
     Print.print ppf "@ =>@ @[<hov 2>%t ~~>@ %t@]"
-      (print_term xs (Spine (pe, zvs, es)))
+      (print_term xs p)
       (Tt.print_term xs e)
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_beta_body xs yts)
@@ -199,8 +207,9 @@ let make_beta_hint ~loc (xts, (t, e1, e2)) =
         begin match head_name p with
           | Some x ->
             begin match p with
-              | Spine (pe, yus, pes) -> x, (xts, ((pe, yus, pes), e2))
-              | _ -> Error.runtime ~loc "only an application can appear on the right-hand side of a beta hint"
+              | Spine (pe, yus, pes) -> x, (xts, (BetaSpine (pe, yus, pes), e2))
+              | Name x -> x, (xts, (BetaName x, e2))
+              | _ -> Error.runtime ~loc "only a variable or an application can appear on the right-hand side of a beta hint"
             end
           | None -> Error.runtime ~loc
               "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments"
