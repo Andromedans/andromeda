@@ -7,7 +7,7 @@ type pterm = Tt.term
 type term =
   | PVar of Syntax.bound
   | Name of Name.t
-  | Spine of term * (pty, pty) Tt.abstraction * term list
+  | Spine of spine_pattern
   | Bracket of ty
   | Eq of ty * term * term
   | Refl of ty * term
@@ -16,10 +16,12 @@ type term =
 (** The type of type patterns. *)
 and ty = Ty of term
 
+and spine_pattern = term * (pty, pty) Tt.abstraction * term list
+
 (** A pattern is given as an abstraction of a term pattern *)
 type t = (Tt.ty, term) Tt.abstraction
 
-type beta_hint = Name.t * (Tt.ty, term * Tt.term) Tt.abstraction
+type beta_hint = Name.t * (Tt.ty, spine_pattern * Tt.term) Tt.abstraction
 
 type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
 
@@ -149,10 +151,10 @@ let rec print_term ?max_level xs e ppf =
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
-let print_beta_hint ?max_level xs (_, (yts, (p, e))) ppf =
+let print_beta_hint ?max_level xs (_, (yts, ((pe, zvs, es), e))) ppf =
   let print_beta_body xs ppf =
     Print.print ppf "@ =>@ @[<hov 2>%t ~~>@ %t@]"
-      (print_term xs p)
+      (print_term xs (Spine (pe, zvs, es)))
       (Tt.print_term xs e)
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_beta_body xs yts)
@@ -189,12 +191,17 @@ let pvars_of_binders xts =
   snd (List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts)
 
 let make_beta_hint ~loc (xts, (t, e1, e2)) =
+  (* XXX here would be a good place to flatten beta patterns. *)
   let pvars = pvars_of_binders xts in
   let pvars, p = of_term pvars e1 t in
     match pvars with
       | [] ->
         begin match head_name p with
-          | Some x -> x, (xts, (p, e2))
+          | Some x ->
+            begin match p with
+              | Spine (pe, yus, pes) -> x, (xts, ((pe, yus, pes), e2))
+              | _ -> Error.runtime ~loc "only an application can appear on the right-hand side of a beta hint"
+            end
           | None -> Error.runtime ~loc
               "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments"
         end

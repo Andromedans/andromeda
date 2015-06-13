@@ -142,7 +142,7 @@ and whnf ctx e =
       (* Here we use beta hints. First we match [p] against [e]. *)
       begin match collect_for_beta ctx p e with
         | None -> apply_beta hs (* did not match, try other hints *)
-        | Some (pvars, checks) ->
+        | Some (pvars, checks, extras) ->
           (* we have a match, still need to verify validity of match *)
           begin match verify_match ~spawn:false ctx xts pvars checks with
             | None -> apply_beta hs (* not valid, try other hints *)
@@ -170,7 +170,7 @@ and beta_reduce ~loc ctx xus e u yvs t es =
   let rec split xuvs es' xus yvs es =
     match xus, yvs, es with
     | ([], _, _) | (_, [], []) -> xuvs, es', xus, yvs, es
-    | (x,u)::xus, (_,v)::yvs, e::es -> split (xuvs @ [(x,u,v)]) (e::es') xus yvs es
+    | (x,u)::xus, (_,v)::yvs, e::es -> split (xuvs @ [(x,(u,v))]) (e::es') xus yvs es
     | (_, [], _::_) | (_, _::_, []) ->
       Error.impossible ~loc "Equal.beta_reduce encountered an invalid spine"
   in
@@ -200,13 +200,13 @@ and beta_reduce ~loc ctx xus e u yvs t es =
         let e = Tt.mk_spine ~loc e yvs t es in
           Some e
 
-(** Let [xuus] be the list [(x1,u1,u1'); ...; (xn,un,un')] where
+(** Let [xuus] be the list [(x1,(u1,u1')); ...; (xn,(un,un'))] where
     [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
     [ui'] is well-formed in the context [x1:u1', ..., x{i-1}:u{i-1}'] and
     [v]  is well-formed in the context [x1:u1, ..., xn:un] and
     [v'] is well-formed in the context [x1:u1',..., xn:un'].
     We verify that the [ui] are equal to [ui'] and that [v] is equal to [v]. *)
-and equal_abstracted_ty ctx xuus v v' =
+and equal_abstracted_ty ctx (xuus : (Name.t * (Pattern.pty * Tt.ty)) list) v v' =
   (* As we descend into the contexts we carry around a list of variables
      [ys] with which we unabstract the bound variables. *)
   let rec eq ys ctx =
@@ -215,7 +215,7 @@ and equal_abstracted_ty ctx xuus v v' =
         let v = Tt.unabstract_ty ys 0 v
         and v' = Tt.unabstract_ty ys 0 v'
         in equal_ty ctx v v'
-     | (x,u,u')::xuus ->
+     | (x,(u,u'))::xuus ->
         let u  = Tt.unabstract_ty ys 0 u
         and u' = Tt.unabstract_ty ys 0 u'
         in
@@ -357,7 +357,7 @@ and equal_whnf ctx e1 e2 t =
       | Tt.Prod (xus, t1), Tt.Prod (xvs, t2) ->
           let rec zip xuvs = function
           | (x, u) :: xus, (_, v) :: xvs ->
-            zip ((x, u, v) :: xuvs) (xus, xvs)
+            zip ((x, (u, v)) :: xuvs) (xus, xvs)
           | ([] as xus), xvs | xus, ([] as xvs) ->
               let xuvs = List.rev xuvs in
               let t1 = Tt.mk_prod_ty ~loc:loc1 xus t1
@@ -465,94 +465,95 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
   end
 
 (** [pattern_collect ctx p ?t e] matches pattern [p] against term [e]
-    of possibly given type [t]. It is assumed that [e] is in weak-head
-    normal form.
+    of possibly given type [t].
 
     It outputs two lists [pvars] and [checks].
     The list [pvars] maps pattern variables to the terms they were
     matched against. The list [checks] contains equalities which
     must be verified before the match is considered valid.
     It raises [NoMatch] if there is a mismatch. *)
+
 and pattern_collect ctx p ?at_ty e =
-  (* Collect from [e] but put it in whnf first. *)
-  let rec collect p ?t e =
     Print.debug "collecting %t" (Tt.print_term [] e) ;
     let e = whnf ctx e in
-      collect_whnf p ?t e
+      pattern_collect_whnf ctx p ?at_ty e
 
-  (* Colect from [e] assuming it is in whnf. *)
-  and collect_whnf p ?t ((e', loc) as e) =
-    Print.debug "collecting pattern %t from whnf %t"
-      (Pattern.print_pattern [] ([],p)) (Tt.print_term [] e) ;
-    match p with
+(* Colect from [e] assuming it is in whnf. *)
+and pattern_collect_whnf ctx p ?at_ty ((e', loc) as e) =
+  Print.debug "collecting pattern %t from whnf %t"
+    (Pattern.print_pattern [] ([],p)) (Tt.print_term [] e) ;
+  match p with
 
-    | Pattern.Name x' ->
-      begin match e' with
-      | Tt.Name x -> if Name.eq x' x then [], [] else raise NoMatch
+  | Pattern.Name x' ->
+    begin match e' with
+    | Tt.Name x -> if Name.eq x' x then [], [] else raise NoMatch
+    | _ -> raise NoMatch
+    end
+
+  | Pattern.PVar k ->
+    begin match at_ty with
+    | Some t -> [(k, (e, t))], []
+    | None ->
+      (** We only get here if the caller of [pattern_collect] does not provide
+          [t] _and_ we hit a variable as top-most pattern. This can happen
+          if someone installed a useless beta hint, for example. So maybe
+          a warning is warnted at this point. *)
+      raise NoMatch
+    end
+
+  | Pattern.Spine (pe, (xts, u), pes) ->
+    begin match e' with
+      | Tt.Spine (e, (yus, v), es) ->
+        let pvars, checks, extras = pattern_collect_spine ~loc ctx (pe, (xts, u), pes) (e, (yus, v), es) in
+        begin match extras with
+          | _::_ -> raise NoMatch
+          | [] -> pvars, checks
+        end
       | _ -> raise NoMatch
-      end
+    end
 
-    | Pattern.PVar k ->
-      begin match t with
-      | Some t -> [(k, (e, t))], []
+  | Pattern.Eq (pt, pe1, pe2) ->
+    begin match e' with
+      | Tt.Eq (t, e1, e2) ->
+        let pvars_t, checks_t = pattern_collect_ty ctx pt t
+        and pvars_e1, checks_e1 = pattern_collect ctx pe1 ~at_ty:t e1
+        and pvars_e2, checks_e2 = pattern_collect ctx pe2 ~at_ty:t e2
+        in pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2
+      | _ -> raise NoMatch
+    end
+
+  | Pattern.Refl (pt, pe) ->
+    begin match e' with
+      | Tt.Refl (t, e) ->
+        let pvars_t, checks_t = pattern_collect_ty ctx pt t
+        and pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e
+        in pvars_t @ pvars_e, checks_t @ checks_e
+      | _ -> raise NoMatch
+    end
+
+  | Pattern.Bracket pt ->
+    begin match e' with
+      | Tt.Bracket t -> pattern_collect_ty ctx pt t
+      | _ -> raise NoMatch
+    end
+
+  | Pattern.Term (e',t') ->
+    begin match at_ty with
+      | Some t -> [], [CheckEqualTy ([], (t', t)); CheckEqual (e', e, t)]
       | None ->
-        (** We only get here if the caller of [pattern_collect] does not provide
-            [t] _and_ we hit a variable as top-most pattern. This can happen
-            if someone installed a useless beta hint, for example. So maybe
-            a warning is warnted at this point. *)
-        raise NoMatch
-      end
+        (** It is unsafe to compare [e'] and [e] for equality when
+            the type of [e] is not given. However, it is safe to
+            compare for alpha equality. And in fact we need this
+            to be able to rewrite constants (names). *)
+        [], [CheckAlphaEqual (e', e)]
+    end
 
-    | Pattern.Spine (pe, (xts, u), pes) ->
-      begin match e' with
-        | Tt.Spine (e, (yus, v), es) ->
-          let pvars, checks, extras = collect_spine_trailing ~loc (pe, (xts, u), pes) (e, (yus, v), es) in
-          begin match extras with
-            | _::_ -> raise NoMatch
-            | [] -> pvars, checks
-          end
-        | _ -> raise NoMatch
-      end
+(* Collect from a type. *)
+and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
+  pattern_collect ctx p ~at_ty:Tt.typ e
 
-    | Pattern.Eq (pt, pe1, pe2) ->
-      begin match e' with
-        | Tt.Eq (t, e1, e2) ->
-          let pvars_t, checks_t = collect_ty pt t
-          and pvars_e1, checks_e1 = collect pe1 e1 ~t
-          and pvars_e2, checks_e2 = collect pe2 e2 ~t
-          in pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2
-        | _ -> raise NoMatch
-      end
 
-    | Pattern.Refl (pt, pe) ->
-      begin match e' with
-        | Tt.Refl (t, e) ->
-          let pvars_t, checks_t = collect_ty pt t
-          and pvars_e, checks_e = collect pe e ~t
-          in pvars_t @ pvars_e, checks_t @ checks_e
-        | _ -> raise NoMatch
-      end
-
-    | Pattern.Bracket pt ->
-      begin match e' with
-        | Tt.Bracket t -> collect_ty pt t
-        | _ -> raise NoMatch
-      end
-
-    | Pattern.Term (e',t') ->
-      begin match t with
-        | Some t -> [], [CheckEqualTy ([], (t', t)); CheckEqual (e', e, t)]
-        | None ->
-          (** It is unsafe to compare [e'] and [e] for equality when
-              the type of [e] is not given. However, it is safe to
-              compare for alpha equality. And in fact we need this
-              to be able to rewrite constants (names). *)
-          [], [CheckAlphaEqual (e', e)]
-      end
-
-  (* Collect from a type. *)
-  and collect_ty (Pattern.Ty p) (Tt.Ty e) = collect p ~t:Tt.typ e
-
+(*
   (* Collect pattern variables from a spine. *)
   and collect_spine ~loc xts pes es =
     let rec fold es' xts pes es =
@@ -569,13 +570,11 @@ and pattern_collect ctx p ?at_ty e =
         raise NoMatch
     in
     fold [] xts pes es
-
-  in
-  collect_whnf p ?t:at_ty e
+*)
 
 (* Collect pattern variables from a spine, and return trialing arguments.
    Also account for nested spines. *)
-and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
+and pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yus, es) =
 
   (* We deal with nested spines. They are nested in an inconvenient way so
      we first get them the way we need them. *)
@@ -591,8 +590,8 @@ and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
     | _ -> e, ab, abs, n
   in
 
-  let ph, pargs, pargss, n1 = collect_spines_patterns xts [] (List.length pes) pe
-  and  h,  args,  argss, n2 = collect_spines_terms    yus [] (List.length es) e
+  let ph, pargs, pargss, n1 = collect_spines_patterns (xts, pes) [] (List.length pes) pe
+  and  h,  args,  argss, n2 = collect_spines_terms    (yus, es)  [] (List.length es) e
   in
 
   (* If the pattern spine is longer than the arguments spine the match will fail. *)
@@ -602,14 +601,14 @@ and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
   let pvars_head, checks_head =
     begin
       let t = (let ((xts, u), _) = pargs in Tt.mk_prod_ty ~loc xts u) in
-      collect ph ~at_ty:t h
+      pattern_collect ctx ph ~at_ty:t h
     end
   in
   let rec fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss =
     match xts, pes, yvs, es with
 
     | (x,t)::xts, pe::pes, (y,v)::yvs, e::es ->
-      let pvars_e, checks_e = collect pe ~at_ty:(Tt.instantiate_ty es' 0 t) e in
+      let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:(Tt.instantiate_ty es' 0 t) e in
       let xtvs = (x,(t,v)) :: xtvs in
       let es' = e :: es' in
       let pvars, checks, extras = fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss in
@@ -622,18 +621,18 @@ and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
         | ((yvs, w'), es) :: argss ->
           let t1 = Tt.instantiate_ty es' 0 w
           and t2 = Tt.mk_prod_ty ~loc yvs w' in
-          if not equal_ty ctx t1 t2
+          if not (equal_ty ctx t1 t2)
           then raise NoMatch
           else
-            folds xtvs es' ((xts,u), pes) pargss ((yvs, w'), es) argss
+            fold xtvs es' ((xts,u), pes) pargss ((yvs, w'), es) argss
       end
 
     | [], [], (_::_), (_::_) ->
       begin
         let xtvs = List.rev xtvs in
-        let check_uw = CheckEqualTy (xtvs, u, Tt.make_prod_ty ~loc yvs w) in
+        let check_uw = CheckEqualTy (xtvs, (u, Tt.mk_prod_ty ~loc yvs w)) in
         match pargss with
-        | [] -> [], [check_uw], ((yvs, w), es) :: arggs
+        | [] -> [], [check_uw], ((yvs, w), es) :: argss
         | pargs :: pargss ->
           let (yvs, w) =
             Tt.instantiate_abstraction
@@ -642,14 +641,14 @@ and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
               es' 0
               (yvs, w)
         in
-        let pvars, checks, extras = fold [] [] pargs parggs ((yvs, w), es) argss in
-        pvars, checks_uw :: checks, extras
+        let pvars, checks, extras = fold [] [] pargs pargss ((yvs, w), es) argss in
+        pvars, check_uw :: checks, extras
       end
 
     | [], [], [], [] ->
       begin
         let xtvs = List.rev xtvs in
-        let check_uw = CheckEqualTy (xtvs, u, w) in
+        let check_uw = CheckEqualTy (xtvs, (u, w)) in
           match pargss, argss with
             | [], arggs -> [], [check_uw], arggs
             | pargs::pargss, args::argss ->
@@ -657,21 +656,29 @@ and collect_spine_trailing ~loc (pe, xts, pes) (e, yus, es) =
                 pvars, check_uw :: checks, extras
             | _::_, [] -> Error.impossible ~loc "invalid spine in pattern match (2)"
       end
+
+    | [], _::_, _, _ | _::_, [], _, _ ->
+      Error.impossible ~loc "invalid spine pattern encountered in pattern collection"
+    | _, _, [], _::_ | _, _, _::_, [] ->
+      Error.impossible ~loc "invalid spine encountered in pattern collection"
   in
-  let pvars, checks, extras = fold [] [] pargs parggs args argss in
-    pvars_head @ pvars, check_head @ checks, extras
+  let pvars, checks, extras = fold [] [] pargs pargss args argss in
+    pvars_head @ pvars, checks_head @ checks, extras
 
-
-and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
-  pattern_collect ctx p ~at_ty:Tt.typ e
-
-(** Collect values of pattern variables by matching pattern
-    [p] against expression [e]. Also return the residual
-    equations that remain to be checked. *)
-and collect_for_beta ctx p e =
-  try
-    Some (pattern_collect ctx p e)
-  with NoMatch -> None
+(** Collect values of pattern variables by matching a spine
+    pattern against expression [e]. Also return the residual
+    equations that remain to be checked, and the unused
+    arguments. *)
+and collect_for_beta ctx (pe, xts, pes) e =
+  let (e', loc) = whnf ctx e in
+  match e' with
+  | Tt.Spine (e, xts, es) ->
+    begin
+      try
+        Some (pattern_collect_spine ~loc ctx (pe, xts, pes) (e, xts, es))
+      with NoMatch -> None
+    end
+  | _ -> raise NoMatch
 
 (** Similar to [collect_for_beta] except targeted at extracting
   values of pattern variable and residual equations in eta hints,

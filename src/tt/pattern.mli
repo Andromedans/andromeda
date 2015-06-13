@@ -11,7 +11,7 @@ type pterm = Tt.term
 type term = private
   | PVar of Syntax.bound
   | Name of Name.t
-  | Spine of term * (pty, pty) Tt.abstraction * term list
+  | Spine of spine_pattern
   | Bracket of ty
   | Eq of ty * term * term
   | Refl of ty * term
@@ -20,12 +20,14 @@ type term = private
 (** The type of type patterns. *)
 and ty = Ty of term
 
+and spine_pattern = term * (pty, pty) Tt.abstraction * term list
+
 (** A pattern is given as an abstraction of a term pattern *)
 type t = (Tt.ty, term) Tt.abstraction
 
 (** A beta hint is an abstracted term pattern and a term. We match against
     the pattern and rewrite into the term. *)
-type beta_hint = Name.t * (Tt.ty, term * Tt.term) Tt.abstraction
+type beta_hint = Name.t * (Tt.ty, spine_pattern * Tt.term) Tt.abstraction
 
 (** An eta hint is an abstracted type pattern together with variables that match
     the lhs and rhs of an equation. *)
