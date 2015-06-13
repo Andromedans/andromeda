@@ -652,8 +652,10 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
             fold xtvs es' ((xts,u), pes) pargss ((yvs, w'), es) argss
       end
 
-    | [], [], (_::_), (_::_) ->
+    | [], [], _::_, _::_ ->
       begin
+        (* XXX write a test that uses this branch, remove the print statement *)
+        print_endline "untested code: can't touch this";
         let xtvs = List.rev xtvs in
         let check_uw = CheckEqualTy (xtvs, (u, Tt.mk_prod_ty ~loc yvs w)) in
         match pargss with
