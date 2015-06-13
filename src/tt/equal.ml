@@ -148,35 +148,30 @@ and whnf ctx e =
       Print.debug "collecting for beta@ %t@ from@ %t"
         (Pattern.print_beta_hint [] h) (Tt.print_term [] e) ;
       (* Here we use beta hints. First we match [p] against [e]. *)
-      begin match collect_for_beta ctx p e with
-        | None -> apply_beta hs (* did not match, try other hints *)
-        | Some (pvars, checks, extras) ->
-          Print.debug
-            "Found a match of pattern@ %t@ against@ %t@, checking its \
-             validity…"
+      begin try
+        let (pvars, checks, extras) = collect_for_beta ctx p e in
+        (* we have a match, still need to verify validity of match *)
+        Print.debug
+          "Found a match of pattern@ %t@ against@ %t@, checking its \
+           validity…"
+          (Pattern.print_beta_hint xs h)
+          (Tt.print_term xs e) ;
+        begin match verify_match ~spawn:false ctx xts pvars checks with
+        | None ->
+          Print.debug "validity check failed";
+          apply_beta hs (* not valid, try other hints *)
+        | Some es ->
+          (* success *)
+          let e' = Tt.instantiate es 0 e' in
+          let e' = List.fold_left
+              (fun e ((yvs,w),es) -> Tt.mk_spine ~loc:(snd e) e yvs w es) e' extras in
+          Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
             (Pattern.print_beta_hint xs h)
-            (Tt.print_term xs e) ;
-          (* we have a match, still need to verify validity of match *)
-          begin match verify_match ~spawn:false ctx xts pvars checks with
-            | None ->
-              Print.debug "validity check failed";
-              apply_beta hs (* not valid, try other hints *)
-            | Some es ->
-              (* success *)
-              let e' = Tt.instantiate es 0 e' in
-              let e' = begin match extras with
-                | [] -> e'
-                | _::_ ->
-                  List.fold_left
-                    (fun e ((yvs,w),es) -> Tt.mk_spine ~loc:(snd e) e yvs w es)
-                    e' extras
-              end in
-              Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
-                (Pattern.print_beta_hint xs h)
-                (Tt.print_term xs e)
-                (Tt.print_term xs e') ;
-              whnf ctx e'
-          end
+            (Tt.print_term xs e)
+            (Tt.print_term xs e') ;
+          whnf ctx e'
+        end
+      with NoMatch -> apply_beta hs (* did not match, try other hints *)
       end
   in
   if !Config.ignore_hints then e
@@ -224,13 +219,13 @@ and beta_reduce ~loc ctx xus e u yvs t es =
         let e = Tt.mk_spine ~loc e yvs t es in
           Some e
 
-(** Let [xuus] be the list [(x1,u1,u1'); ...; (xn,un,un')] where
+(** Let [xuus] be the list [(x1,(u1,u1')); ...; (xn,(un,un'))] where
     [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
     [ui'] is well-formed in the context [x1:u1', ..., x{i-1}:u{i-1}'] and
     [v]  is well-formed in the context [x1:u1, ..., xn:un] and
     [v'] is well-formed in the context [x1:u1',..., xn:un'].
     We verify that the [ui] are equal to [ui'] and that [v] is equal to [v]. *)
-and equal_abstracted_ty ctx xuus v v' =
+and equal_abstracted_ty ctx (xuus : (Name.t * (Pattern.pty * Tt.ty)) list) v v' =
   (* As we descend into the contexts we carry around a list of variables
      [ys] with which we unabstract the bound variables. *)
   let rec eq ys ctx =
@@ -267,7 +262,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
       match t' with
 
         | Tt.Type ->
-          equal_whnf ctx e1 e2 t
+          equal_hints ctx e1 e2 t
 
         | Tt.Name _
         | Tt.Spine _ ->
@@ -276,8 +271,8 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
             let rec fold = function
 
               | [] ->
-                (* no hints apply, proceed with normalization phase *)
-                equal_whnf ctx e1 e2 t
+                (* no hints apply, proceed with applying general hints *)
+                equal_hints ctx e1 e2 t
 
               |  (_, (xts, (pt, k1, k2))) :: hs ->
                 begin match collect_for_eta ctx (pt, k1, k2) (t, e1, e2) with
@@ -326,7 +321,9 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
   Print.debug "%i equality check %s)" i (if b then "succeeded" else "failed");
   b
 
-and equal_whnf ctx e1 e2 t =
+(* Compare expressions at a given type [t] using general hints. *)
+and equal_hints ctx e1 e2 t =
+  (* First we normalize the expressions *)
   let (e1',loc1) as e1 = whnf ctx e1
   and (e2',loc2) as e2 = whnf ctx e2
   in
@@ -341,7 +338,6 @@ and equal_whnf ctx e1 e2 t =
             | None -> false
             | Some (pvars, checks) ->
               (* check validity of the match *)
-              (* XXX: can general hints spawn new equalities? *)
               begin match verify_match ~spawn:true ctx xts pvars checks with
                 | Some _ -> true (* success - notice how we throw away the witness of success *)
                 | None -> false
@@ -349,6 +345,12 @@ and equal_whnf ctx e1 e2 t =
         (if !Config.ignore_hints then [] else Context.hints ctx)
     end
     ||
+    (* proceed with comparing the weak head normal forms *)
+    equal_whnf ctx e1 e2
+
+(* Compare normalized expressions. The assumption is that they both
+   have a common type. *)
+and equal_whnf ctx (e1',loc1) (e2',loc2) =
     (* compare reduced expressions *)
     begin match e1', e2' with
 
@@ -447,9 +449,11 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
             let u1 = Tt.instantiate_ty es1 0 u1
             and u2 = Tt.instantiate_ty es2 0 u2 in
             equal_ty ctx u1 u2 &&
-            equal ctx h1 h2 u1 (* XXX why do we compare with [equal] instead of [equal_whnf]?
-                                  Why don't we do it early?
-                                  Why are we comparing at type [u1]? *)
+            (* Compare the spine heads. We postpone doing so until
+               we have checked that they have the same type, which
+               we did because we compared [u1] and [u2] as well as
+               the types of all the binders we encountered *)
+            equal_whnf ctx h1 h2
 
           | ((xts1, v1), ds1) :: as1 ->
             let u1 = Tt.instantiate_ty es1 0 u1 in
@@ -499,106 +503,102 @@ and equal_spine ~loc ctx e1 a1 e2 a2 =
   end
 
 (** [pattern_collect ctx p ?t e] matches pattern [p] against term [e]
-    of possibly given type [t]. It is assumed that [e] is in weak-head
-    normal form.
+    of possibly given type [t].
 
     It outputs two lists [pvars] and [checks].
     The list [pvars] maps pattern variables to the terms they were
     matched against. The list [checks] contains equalities which
     must be verified before the match is considered valid.
     It raises [NoMatch] if there is a mismatch. *)
+
 and pattern_collect ctx p ?at_ty e =
-  (* Collect from [e] but put it in whnf first. *)
-  let rec collect p ?t e =
     Print.debug "collecting %t" (Tt.print_term [] e) ;
     let e = whnf ctx e in
-      collect_whnf p ?t e
+      pattern_collect_whnf ctx p ?at_ty e
 
-  (* Colect from [e] assuming it is in whnf. *)
-  and collect_whnf p ?t ((e', loc) as e) =
-    Print.debug "collecting pattern@ %t@ from whnf@ %t"
-      (Pattern.print_pattern [] ([],p)) (Tt.print_term [] e) ;
-    match p with
+(* Collect from [e] assuming it is in whnf. *)
+and pattern_collect_whnf ctx p ?at_ty ((e', loc) as e) =
+  Print.debug "collecting pattern %t from whnf %t"
+    (Pattern.print_pattern [] ([],p)) (Tt.print_term [] e) ;
+  match p with
 
-    | Pattern.Name x' ->
-      begin match e' with
-      | Tt.Name x -> if Name.eq x' x then [], [] else raise NoMatch
+  | Pattern.Name x' ->
+    begin match e' with
+    | Tt.Name x -> if Name.eq x' x then [], [] else raise NoMatch
+    | _ -> raise NoMatch
+    end
+
+  | Pattern.PVar k ->
+    begin match at_ty with
+    | Some t -> [(k, (e, t))], []
+    | None ->
+      (** We only get here if the caller of [pattern_collect] does not provide
+          [t] _and_ we hit a variable as top-most pattern. This can happen
+          if someone installed a useless beta hint, for example. So maybe
+          a warning is warnted at this point. *)
+      raise NoMatch
+    end
+
+  | Pattern.Spine (pe, (xts, u), pes) ->
+    begin match e' with
+      | Tt.Spine (e, (yus, v), es) ->
+        let pvars, checks, extras = pattern_collect_spine ~loc ctx (pe, (xts, u), pes) (e, (yus, v), es) in
+        begin match extras with
+        | _::_ ->
+          Print.debug "found unexpected trailing arguments at %t"
+            (Tt.print_term (Context.used_names ctx) (e', loc));
+          raise NoMatch
+        | [] ->
+          Print.debug "no trailing arguments for %t"
+            (Tt.print_term (Context.used_names ctx) (e', loc));
+          pvars, checks
+        end
       | _ -> raise NoMatch
-      end
+    end
 
-    | Pattern.PVar k ->
-      begin match t with
-      | Some t -> [(k, (e, t))], []
+  | Pattern.Eq (pt, pe1, pe2) ->
+    begin match e' with
+      | Tt.Eq (t, e1, e2) ->
+        let pvars_t, checks_t = pattern_collect_ty ctx pt t
+        and pvars_e1, checks_e1 = pattern_collect ctx pe1 ~at_ty:t e1
+        and pvars_e2, checks_e2 = pattern_collect ctx pe2 ~at_ty:t e2
+        in pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2
+      | _ -> raise NoMatch
+    end
+
+  | Pattern.Refl (pt, pe) ->
+    begin match e' with
+      | Tt.Refl (t, e) ->
+        let pvars_t, checks_t = pattern_collect_ty ctx pt t
+        and pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e
+        in pvars_t @ pvars_e, checks_t @ checks_e
+      | _ -> raise NoMatch
+    end
+
+  | Pattern.Bracket pt ->
+    begin match e' with
+      | Tt.Bracket t -> pattern_collect_ty ctx pt t
+      | _ -> raise NoMatch
+    end
+
+  | Pattern.Term (e',t') ->
+    begin match at_ty with
+      | Some t -> [], [CheckEqualTy ([], (t', t)); CheckEqual (e', e, t)]
       | None ->
-        (** We only get here if the caller of [pattern_collect] does not provide
-            [t] _and_ we hit a variable as top-most pattern. This can happen
-            if someone installed a useless beta hint, for example. So maybe
-            a warning is warnted at this point. *)
-        raise NoMatch
-      end
+        (** It is unsafe to compare [e'] and [e] for equality when
+            the type of [e] is not given. However, it is safe to
+            compare for alpha equality. And in fact we need this
+            to be able to rewrite constants (names). *)
+        [], [CheckAlphaEqual (e', e)]
+    end
 
-    | Pattern.Spine (pe, (xts, u), pes) ->
-      begin match e' with
-        | Tt.Spine (e, (yus, v), es) ->
-          let pvars, checks, extras = collect_spine_trailing ctx ~loc (pe, (xts, u), pes) (e, (yus, v), es) in
-
-          begin match extras with
-            | _::_ ->
-              Print.debug "found unexpected trailing arguments at %t"
-                (Tt.print_term (Context.used_names ctx) (e', loc));
-              raise NoMatch
-            | [] ->
-              Print.debug "no trailing arguments for %t"
-                (Tt.print_term (Context.used_names ctx) (e', loc));
-              pvars, checks
-          end
-        | _ -> raise NoMatch
-      end
-
-    | Pattern.Eq (pt, pe1, pe2) ->
-      begin match e' with
-        | Tt.Eq (t, e1, e2) ->
-          let pvars_t, checks_t = collect_ty pt t
-          and pvars_e1, checks_e1 = collect pe1 e1 ~t
-          and pvars_e2, checks_e2 = collect pe2 e2 ~t
-          in pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2
-        | _ -> raise NoMatch
-      end
-
-    | Pattern.Refl (pt, pe) ->
-      begin match e' with
-        | Tt.Refl (t, e) ->
-          let pvars_t, checks_t = collect_ty pt t
-          and pvars_e, checks_e = collect pe e ~t
-          in pvars_t @ pvars_e, checks_t @ checks_e
-        | _ -> raise NoMatch
-      end
-
-    | Pattern.Bracket pt ->
-      begin match e' with
-        | Tt.Bracket t -> collect_ty pt t
-        | _ -> raise NoMatch
-      end
-
-    | Pattern.Term (e',t') ->
-      begin match t with
-        | Some t -> [], [CheckEqualTy ([], (t', t)); CheckEqual (e', e, t)]
-        | None ->
-          (** It is unsafe to compare [e'] and [e] for equality when
-              the type of [e] is not given. However, it is safe to
-              compare for alpha equality. And in fact we need this
-              to be able to rewrite constants (names). *)
-          [], [CheckAlphaEqual (e', e)]
-      end
-
-  (* Collect from a type. *)
-  and collect_ty (Pattern.Ty p) (Tt.Ty e) = collect p ~t:Tt.typ e in
-
-  collect_whnf p ?t:at_ty e
+(* Collect from a type. *)
+and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
+  pattern_collect ctx p ~at_ty:Tt.typ e
 
 (* Collect pattern variables from a spine, and return trialing arguments.
    Also account for nested spines. *)
-and collect_spine_trailing ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
+and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
 
   (* We deal with nested spines. They are nested in an inconvenient way so
      we first get them the way we need them. *)
@@ -626,13 +626,13 @@ and collect_spine_trailing ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
     begin
       let t = (let ((xts, u), _) = pargs in Tt.mk_prod_ty ~loc xts u) in
       pattern_collect ctx ph ~at_ty:t h
-    end in
+    end
+  in
 
   let rec fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss =
     match xts, pes, yvs, es with
 
     | (x,t)::xts, pe::pes, (y,v)::yvs, e::es ->
-      let e = whnf ctx e in
       let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:(Tt.instantiate_ty es' 0 t) e in
       let xtvs = (x,(t,v)) :: xtvs in
       let es' = e :: es' in
@@ -665,8 +665,7 @@ and collect_spine_trailing ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
               Tt.instantiate_ty
               es' 0
               (yvs, w)
-          in
-          let pvars, checks, extras = fold [] [] pargs pargss ((yvs, w), es) argss in
+          in let pvars, checks, extras = fold [] [] pargs pargss ((yvs, w), es) argss in
           pvars, check_uw :: checks, extras
       end
 
@@ -686,33 +685,45 @@ and collect_spine_trailing ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
                 pvars, check_uw :: checks, extras
             | _::_, [] -> Error.impossible ~loc "invalid spine in pattern match (2)"
       end
-    | _::_, [], _, _
-    | [], _::_, _, _ -> Error.impossible ~loc "invalid pattern spine";
-    | _, _, [], _::_
-    | _, _, _::_, [] ->
-      Error.impossible ~loc "invalid spine in pattern match (3)";
 
-  in let pvars, checks, extras = fold [] [] pargs pargss args argss in
-  pvars_head @ pvars, checks_head @ checks, extras
+    | [], _::_, _, _ | _::_, [], _, _ ->
+      Error.impossible ~loc "invalid spine pattern encountered in pattern collection"
+    | _, _, [], _::_ | _, _, _::_, [] ->
+      Error.impossible ~loc "invalid spine encountered in pattern collection"
+  in
+  let pvars, checks, extras = fold [] [] pargs pargss args argss in
+    pvars_head @ pvars, checks_head @ checks, extras
 
+(** Collect values of pattern variables by matching a beta
+    pattern [bp] against whnf expression [e]. Also return the residual
+    equations that remain to be checked, and the unused
+    arguments. *)
+and collect_for_beta ctx bp (e',loc) =
+  match bp, e' with
 
-and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
-  pattern_collect ctx p ~at_ty:Tt.typ e
+  | Pattern.BetaName x, Tt.Name y ->
+    if Name.eq x y
+    then [], [], []
+    else raise NoMatch
 
-(** Collect values of pattern variables by matching pattern
-    [p] against expression [e]. Also return the residual
-    equations that remain to be checked. *)
-and collect_for_beta ctx p e =
-  try
-    match p, e with
-    | Pattern.Spine (pe, xtsu, pes),
-      (Tt.Spine (e, yvsw, es), loc) ->
-      let pvars, checks, extras =
-        collect_spine_trailing ctx ~loc:(snd e) (pe, xtsu, pes) (e, yvsw, es) in
-      Some (pvars, checks, extras)
-    | _ -> let pvars, checks = pattern_collect ctx p e in
-      Some (pvars, checks, [])
-  with NoMatch -> None
+  | Pattern.BetaName x, Tt.Spine (e, yts, es) ->
+    let rec fold args (e',_) yts es =
+      match e' with
+        | Tt.Name y ->
+          if Name.eq x y
+          then (yts, es) :: args
+          else raise NoMatch
+        | Tt.Spine (e', yts', es') ->
+          fold ((yts, es) :: args) e' yts' es'
+        | _ -> raise NoMatch
+    in
+    let extras = fold [] e yts es in
+    ([], [], extras)
+
+  | Pattern.BetaSpine (pe, xts, pes), Tt.Spine (e, yts, es) ->
+    pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yts, es)
+
+  | _, _ -> raise NoMatch
 
 (** Similar to [collect_for_beta] except targeted at extracting
   values of pattern variable and residual equations in eta hints,

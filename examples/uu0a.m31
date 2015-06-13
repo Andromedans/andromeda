@@ -1,3 +1,5 @@
+(* Transcription of the uu0a.coq file from UniMath *)
+
 Parameter empty : Type.
 Parameter empty_rect : forall (P : empty -> Type) (x : empty), P x.
 
@@ -43,41 +45,16 @@ Parameter nat_iota_S :
   forall (P : nat -> Type) (s0 : P O) (s : forall n : nat, P n -> P (S n)) (m : nat),
   nat_rect P s0 s (S m) == s m (nat_rect P s0 s m).
 
-Let iteration := 
-  (fun T f n => nat_rect (fun _ => T -> T) (idfun T) (fun j IHn => funcomp T T T f IHn) n)
+Let iteration :=
+  (fun T f n => nat_rect (fun _ => T -> T) (idfun T) (fun _ IHn => funcomp T T T f IHn) n)
   : forall (T : Type), (T -> T) -> nat -> (T -> T).
 
-Let iteration' := 
-  (fun (T:Type) (f:T->T) (n:nat) (x:T) => nat_rect (fun i => T) x (fun j IHn => f IHn) n)
-  : forall (T : Type), (T -> T) -> nat -> (T -> T).
-
-Let iteration'' := 
-  (fun T f n x => nat_rect (fun i => T) x (fun j IHn => f IHn) n)
-  : forall (T : Type), (T -> T) -> nat -> (T -> T).
-
-Let iteration''' := 
-  (fun (T:Type) (f:T->T) (n:nat) (x:T) => nat_rect (fun i => T) x (fun j IHn => f IHn) n).
-
-Check refl iteration' : iteration'' == iteration'.
-
-
-(*
 Check
-  beta nat_iota_O in
   beta nat_iota_S in
-    nat_rect (fun _ => nat) (S O) (fun _ => idfun nat) (S (S O)) == S O.
-*)
+  beta nat_iota_O in
+    refl (S (S O)) :
+    iteration nat S O (S (S O)) == S (S O).
 
-Check
-    refl (iteration' nat S O O) :
-    iteration' nat S O O == (fun (T:Type) (f:T->T) (n:nat) (x:T) => nat_rect (fun i => T) x (fun j IHn => f IHn) n) nat S O O.
-(*
-    nat_rect
-    (fun (_ : nat) => nat)
-    O
-    (fun (m : nat) (IHn : (fun (_ : nat) => nat) m) => S IHn)
-    O.
-*)
 Let k := iteration nat S (S (S O)) (S O).
 Check k.
 

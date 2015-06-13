@@ -1,0 +1,13 @@
+A is assumed.
+B is assumed.
+
+a is assumed.
+
+b is assumed.
+
+f is assumed.
+
+f_def is assumed.
+
+refl b
+      : f a == b

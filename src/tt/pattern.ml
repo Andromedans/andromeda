@@ -19,7 +19,11 @@ and ty = Ty of term
 (** A pattern is given as an abstraction of a term pattern *)
 type t = (Tt.ty, term) Tt.abstraction
 
-type beta_hint = Name.t * (Tt.ty, term * Tt.term) Tt.abstraction
+type beta_pattern =
+  | BetaSpine of term * (pty, pty) Tt.abstraction * term list
+  | BetaName of Name.t
+
+type beta_hint = Name.t * (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
 
 type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
 
@@ -149,8 +153,14 @@ let rec print_term ?max_level xs e ppf =
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
-let print_beta_hint ?max_level xs (_, (yts, (p, e))) ppf =
+let print_beta_hint ?max_level xs (_, (yts, (pb, e))) ppf =
   let print_beta_body xs ppf =
+    let p =
+      begin match pb with
+        | BetaSpine (pe, xts, pes) -> Spine (pe, xts, pes)
+        | BetaName x -> Name x
+      end
+    in
     Print.print ppf "@ =>@ @[<hov 2>%t ~~>@ %t@]"
       (print_term xs p)
       (Tt.print_term xs e)
@@ -189,12 +199,18 @@ let pvars_of_binders xts =
   snd (List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts)
 
 let make_beta_hint ~loc (xts, (t, e1, e2)) =
+  (* XXX here would be a good place to flatten beta patterns. *)
   let pvars = pvars_of_binders xts in
   let pvars, p = of_term pvars e1 t in
     match pvars with
       | [] ->
         begin match head_name p with
-          | Some x -> x, (xts, (p, e2))
+          | Some x ->
+            begin match p with
+              | Spine (pe, yus, pes) -> x, (xts, (BetaSpine (pe, yus, pes), e2))
+              | Name x -> x, (xts, (BetaName x, e2))
+              | _ -> Error.runtime ~loc "only a variable or an application can appear on the right-hand side of a beta hint"
+            end
           | None -> Error.runtime ~loc
               "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments"
         end
