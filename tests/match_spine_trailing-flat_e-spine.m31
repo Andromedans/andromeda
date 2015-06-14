@@ -1,15 +1,15 @@
-Parameter nat : Type.
-Parameter O : nat.
-Parameter h_rect : ∀ (P : nat -> Type), (P O) -> ∀ n : nat, P n.
+Parameter unit : Type.
+Parameter tt : unit.
+Parameter unit_rect : ∀ (P : unit -> Type), (P tt) -> ∀ n : unit, P n.
 
-Parameter h_iota_O : ∀ (P : nat -> Type) (s : P O), h_rect P s O == s.
+Parameter unit_iota_tt : ∀ (P : unit -> Type) (s : P tt), unit_rect P s tt == s.
 
-Let it := (fun (T : Type) => h_rect (fun m => T -> T) (fun x : T => x)).
+Let it := (fun (T : Type) => unit_rect (fun _ => T -> T) (fun x : T => x)).
 
-Beta h_iota_O.
+Beta unit_iota_tt.
 
-Check refl O : O == (h_rect (fun m => nat -> nat)) (fun x : nat => x) O O.
-Check refl O : O == (h_rect (fun m => nat -> nat) (fun x : nat => x)) O O.
-Check refl O : O == ((h_rect (fun m => nat -> nat) (fun x : nat => x)) O) O.
-Check refl O : O == (((h_rect (fun m => nat -> nat)) (fun x : nat => x)) O) O.
-Check refl O : O == ((h_rect (fun m => nat -> nat)) (fun x : nat => x)) O O.
+Check refl tt : tt == (unit_rect   (fun _ => unit -> unit)) (fun x : unit => x) tt tt.
+Check refl tt : tt == (unit_rect   (fun _ => unit -> unit) (fun x : unit => x)) tt tt.
+Check refl tt : tt == ((unit_rect  (fun _ => unit -> unit) (fun x : unit => x)) tt) tt.
+Check refl tt : tt == (((unit_rect (fun _ => unit -> unit)) (fun x : unit => x)) tt) tt.
+Check refl tt : tt == ((unit_rect  (fun _ => unit -> unit)) (fun x : unit => x)) tt tt.
