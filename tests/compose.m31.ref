@@ -22,7 +22,7 @@ g is assumed.
 h is assumed.
 
 refl (g (f x))
-      : g (f x) == (g (f x)) 
+      : g (f x) ≡ (g (f x)) 
 refl (h (g (f x)))
       : (h (((λ (x0 : X) ⇒ g (f x0)) ) x)) 
-          == (((λ (x0 : Y) ⇒ h (g x0)) ) (f x)) 
+          ≡ (((λ (x0 : Y) ⇒ h (g x0)) ) (f x)) 

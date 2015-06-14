@@ -4,4 +4,4 @@ g is defined.
 
 refl (λ (T : Type) (U : Type) (x : T) (y : U) ⇒ x)
       : (λ (T : Type) (U : Type) (x : T) (y : U) ⇒ x)
-          == (λ (T : Type) (U : Type) ⇒ λ (x : T) (y : U) ⇒ x)
+          ≡ (λ (T : Type) (U : Type) ⇒ λ (x : T) (y : U) ⇒ x)

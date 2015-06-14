@@ -82,7 +82,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | '_'                      -> f (); UNDERSCORE
   | "->" | 8594              -> f (); ARROW
   | "=>" | 8658              -> f (); DARROW
-  | "=="                     -> f (); EQEQ
+  | "==" | 8801              -> f (); EQEQ
   | eof                      -> f (); EOF
   | (name | numeral)         -> f ();
     let n = lexeme lexbuf in

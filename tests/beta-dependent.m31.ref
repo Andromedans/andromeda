@@ -15,4 +15,4 @@ b is assumed.
 c is assumed.
 
 refl b
-      : b == f a b c
+      : b ≡ f a b c

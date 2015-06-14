@@ -63,6 +63,7 @@ let char_lambda () = if !Config.ascii then "fun" else "λ"
 let char_arrow ()  = if !Config.ascii then "->" else "→"
 let char_darrow () = if !Config.ascii then "=>" else "⇒"
 let char_prod ()   = if !Config.ascii then "forall" else "Π"
+let char_equal ()  = if !Config.ascii then "==" else "≡"
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
@@ -421,8 +422,9 @@ let rec print_term ?max_level xs (e,_) ppf =
       | Prod (ts, t) -> print ~at_level:3 "%t" (print_prod xs ts t)
 
       | Eq (t, e1, e2) ->
-        print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
+        print ~at_level:2 "@[<hv 2>%t@ %s%t %t@]"
           (print_term ~max_level:1 xs e1)
+          (char_equal ())
           (print_annot (print_ty xs t))
           (print_term ~max_level:1 xs e2)
 
