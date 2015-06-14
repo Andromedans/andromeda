@@ -1,23 +1,27 @@
-nat is assumed.
+unit is assumed.
 
-O is assumed.
+tt is assumed.
 
-h_rect is assumed.
+unit_rect is assumed.
 
-h_iota_O is assumed.
+unit_iota_tt is assumed.
 
 it is defined.
 
 Beta hint installed.
-refl O
-      : O == ((h_rect (λ (m : nat) => nat -> nat) (λ (x : nat) => x)) O) O
-refl O
-      : O
-          == (((h_rect (λ (m : nat) => nat -> nat) (λ (x : nat) => x)) ) O)
-               O
-refl O
-      : O == ((h_rect (λ (m : nat) => nat -> nat) (λ (x : nat) => x)) O) O
-refl O
-      : O
-          == (((h_rect (λ (m : nat) => nat -> nat) (λ (x : nat) => x)) ) O)
-               O
+refl tt
+      : tt
+          == ((unit_rect (λ (m : unit) => unit -> unit) (λ (x : unit) => x))
+                tt) tt
+refl tt
+      : tt
+          == (((unit_rect (λ (m : unit) => unit -> unit)
+                  (λ (x : unit) => x)) ) tt) tt
+refl tt
+      : tt
+          == ((unit_rect (λ (m : unit) => unit -> unit) (λ (x : unit) => x))
+                tt) tt
+refl tt
+      : tt
+          == (((unit_rect (λ (m : unit) => unit -> unit)
+                  (λ (x : unit) => x)) ) tt) tt
