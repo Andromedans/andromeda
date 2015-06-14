@@ -10,5 +10,5 @@ g is assumed.
 
 a is assumed.
 
-λ (y : B a) => g a y
+λ (y : B a) ⇒ g a y
       : Π (y : B a), C a y

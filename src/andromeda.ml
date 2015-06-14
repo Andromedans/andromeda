@@ -31,6 +31,10 @@ let options = Arg.align [
      Arg.Set Config.annotate,
      " Print type annotations");
 
+    ("--ascii",
+      Arg.Set Config.ascii,
+     " Print terms in ASCII format");
+
     ("--debruijn",
       Arg.Set Config.debruijn,
      " Print de Bruijn indices of bound variables");

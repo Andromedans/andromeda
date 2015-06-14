@@ -11,21 +11,21 @@ it is defined.
 Beta hint installed.
 refl tt
       : tt
-          == ((unit_rect (λ (_ : unit) => unit -> unit))
-                (λ (x : unit) => x) tt) tt
+          == ((unit_rect (λ (_ : unit) ⇒ unit → unit))
+                (λ (x : unit) ⇒ x) tt) tt
 refl tt
       : tt
-          == ((unit_rect (λ (_ : unit) => unit -> unit) (λ (x : unit) => x))
-                tt) tt
+          == ((unit_rect (λ (_ : unit) ⇒ unit → unit)
+                 (λ (x : unit) ⇒ x)) tt) tt
 refl tt
       : tt
-          == ((unit_rect (λ (_ : unit) => unit -> unit) (λ (x : unit) => x))
-                tt) tt
+          == ((unit_rect (λ (_ : unit) ⇒ unit → unit)
+                 (λ (x : unit) ⇒ x)) tt) tt
 refl tt
       : tt
-          == (((unit_rect (λ (_ : unit) => unit -> unit))
-                 (λ (x : unit) => x)) tt) tt
+          == (((unit_rect (λ (_ : unit) ⇒ unit → unit))
+                 (λ (x : unit) ⇒ x)) tt) tt
 refl tt
       : tt
-          == (((unit_rect (λ (_ : unit) => unit -> unit))
-                 (λ (x : unit) => x)) tt) tt
+          == (((unit_rect (λ (_ : unit) ⇒ unit → unit))
+                 (λ (x : unit) ⇒ x)) tt) tt

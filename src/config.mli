@@ -23,6 +23,9 @@ val wrapper : string list option ref
     - 3 errors, warnings, and debug messages *)
 val verbosity : int ref
 
+(* Print using ASCII format rather than UTF8 *)
+val ascii : bool ref
+
 (** Print de Bruijn indices of bound variables for debugging purposes *)
 val debruijn : bool ref
 

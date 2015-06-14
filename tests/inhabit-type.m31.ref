@@ -10,5 +10,5 @@ f is assumed.
 
 []
       : [B a]
-λ (x : A) => []
+λ (x : A) ⇒ []
       : Π (x : A), [B x]
