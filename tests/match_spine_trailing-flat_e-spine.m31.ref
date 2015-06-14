@@ -1,0 +1,25 @@
+nat is assumed.
+
+O is assumed.
+
+h_rect is assumed.
+
+h_iota_O is assumed.
+
+it is defined.
+
+Beta hint installed.
+refl O
+      : O == ((h_rect (λ (m : nat) => nat -> nat)) (λ (x : nat) => x) O) O
+refl O
+      : O == ((h_rect (λ (m : nat) => nat -> nat) (λ (x : nat) => x)) O) O
+refl O
+      : O == ((h_rect (λ (m : nat) => nat -> nat) (λ (x : nat) => x)) O) O
+refl O
+      : O
+          == (((h_rect (λ (m : nat) => nat -> nat)) (λ (x : nat) => x)) O)
+               O
+refl O
+      : O
+          == (((h_rect (λ (m : nat) => nat -> nat)) (λ (x : nat) => x)) O)
+               O

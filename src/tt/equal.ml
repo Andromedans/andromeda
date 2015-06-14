@@ -633,7 +633,9 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
     match xts, pes, yvs, es with
 
     | (x,t)::xts, pe::pes, (y,v)::yvs, e::es ->
-      let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:(Tt.instantiate_ty es' 0 t) e in
+      let t = Tt.instantiate_ty es' 0 t
+      and v = Tt.instantiate_ty es' 0 v in
+      let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e in
       let xtvs = (x,(t,v)) :: xtvs in
       let es' = e :: es' in
       let pvars, checks, extras = fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss in

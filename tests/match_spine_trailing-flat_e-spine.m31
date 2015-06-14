@@ -9,3 +9,7 @@ Let it := (fun (T : Type) => h_rect (fun m => T -> T) (fun x : T => x)).
 Beta h_iota_O.
 
 Check refl O : O == (h_rect (fun m => nat -> nat)) (fun x : nat => x) O O.
+Check refl O : O == (h_rect (fun m => nat -> nat) (fun x : nat => x)) O O.
+Check refl O : O == ((h_rect (fun m => nat -> nat) (fun x : nat => x)) O) O.
+Check refl O : O == (((h_rect (fun m => nat -> nat)) (fun x : nat => x)) O) O.
+Check refl O : O == ((h_rect (fun m => nat -> nat)) (fun x : nat => x)) O O.
