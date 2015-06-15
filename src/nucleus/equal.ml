@@ -353,7 +353,7 @@ and equal_hints ctx e1 e2 t =
                 | Some _ -> true (* success - notice how we throw away the witness of success *)
                 | None -> false
               end)
-        (if !Config.ignore_hints then [] else Context.hints ctx)
+        (if !Config.ignore_hints then [] else Context.general_hints ctx)
     end
     ||
     (* proceed with comparing the weak head normal forms *)
@@ -575,6 +575,27 @@ and pattern_collect_whnf ctx p ?at_ty ((e', loc) as e) =
           if someone installed a useless beta hint, for example. So maybe
           a warning is warnted at this point. *)
       raise NoMatch
+    end
+
+  | Pattern.PrimApp (x, pes) ->
+    begin match e' with
+      | Tt.PrimApp (y, es) when Name.eq x y ->
+        let yts, u =
+          begin match Context.lookup_primitive x ctx with
+          | Some ytsu -> ytsu
+          | None -> Error.typing "unknown operation %t" (Name.print x)
+      end in
+        let rec fold pvars checks es' yts pes es =
+          match yts, pes, es with
+          | [], [], [] ->  List.concat pvars, List.concat checks
+          | (y,t)::yts, pe::pes, e::es ->
+            let t = Tt.instantiate_ty es' 0 t in
+            let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e in
+            fold (pvars_e :: pvars) (checks_e :: checks) (e::es') yts pes es
+          | _, _, _ -> Error.impossible "collecting in primapp"
+        in
+          fold [] [] [] yts pes es
+      | _ -> raise NoMatch
     end
 
   | Pattern.Spine (pe, (xts, u), pes) ->
@@ -987,7 +1008,7 @@ and inhabit_bracket ~subgoals ~loc ctx t =
               | Some _ -> true
               | None -> false
             end)
-      (Context.inhabit ctx)
+      (Context.inhabit_hints ctx)
     end
   then Some (Tt.mk_inhab ~loc)
   else None

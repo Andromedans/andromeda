@@ -157,7 +157,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
         | Value.Return (_,t) ->
             let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
+            let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
             let ctx = Context.add_beta h ctx in
             Format.printf "Beta hint installed.@." ;
             ctx
@@ -168,7 +168,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
         | Value.Return (_,t) ->
             let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Pattern.make_eta_hint ~loc (xts, (t, e1, e2)) in
+            let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
             let ctx = Context.add_eta h ctx in
             Format.printf "Eta hint installed.@." ;
             ctx
@@ -179,7 +179,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
         | Value.Return (_,t) ->
           let (xts, u) = Equal.as_universal_bracket ctx t in
-          let h = Pattern.make_inhabit ~loc (xts, u) in
+          let h = Hint.mk_inhabit ~loc ctx (xts, u) in
           let ctx = Context.add_inhabit h ctx in
           Format.printf "Inhabit hint installed.@." ;
           ctx
@@ -190,7 +190,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
         | Value.Return (_,t) ->
             let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Pattern.make_hint ~loc (xts, (t, e1, e2)) in
+            let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
             let ctx = Context.add_hint h ctx in
             Format.printf "Hint installed.@." ;
             ctx

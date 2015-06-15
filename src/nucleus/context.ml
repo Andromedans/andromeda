@@ -8,8 +8,8 @@ type t = {
   bound : (Name.t * Value.value) list;
   beta : Pattern.beta_hint list ;
   eta : Pattern.eta_hint list;
-  hint : Pattern.hint list;
-  inhabit : Pattern.inhabit list;
+  hint : Pattern.general_hint list;
+  inhabit : Pattern.inhabit_hint list;
   files : string list;
 }
 
@@ -29,9 +29,9 @@ let eta_hints {eta=lst} = lst
 
 let beta_hints {beta=lst} = lst
 
-let hints {hint=lst} = lst
+let general_hints {hint=lst} = lst
 
-let inhabit {inhabit=lst} = lst
+let inhabit_hints {inhabit=lst} = lst
 
 let bound_names {bound=lst} = List.map fst lst
 

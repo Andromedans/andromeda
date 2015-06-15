@@ -360,7 +360,7 @@ and let_bind ctx xcs =
 and beta_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-  let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
+  let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
   let ctx = Context.add_beta h ctx in
   Print.debug "Installed beta hint %t"
     (Pattern.print_beta_hint [] h);
@@ -369,7 +369,7 @@ and beta_bind ctx ((_,loc) as e) =
 and eta_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-  let h = Pattern.make_eta_hint ~loc (xts, (t, e1, e2)) in
+  let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
   let ctx = Context.add_eta h ctx in
   Print.debug "Installed eta hint %t"
     (Pattern.print_eta_hint [] h);
@@ -378,7 +378,7 @@ and eta_bind ctx ((_,loc) as e) =
 and hint_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-  let h = Pattern.make_hint ~loc (xts, (t, e1, e2)) in
+  let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
   let ctx = Context.add_hint h ctx in
   Print.debug "Installed hint %t"
     (Pattern.print_hint [] h);
@@ -387,7 +387,7 @@ and hint_bind ctx ((_,loc) as e) =
 and inhabit_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let xts, t = Equal.as_universal_bracket ctx t in
-  let h = Pattern.make_inhabit ~loc (xts, t) in
+  let h = Hint.mk_inhabit ~loc ctx (xts, t) in
   let ctx = Context.add_inhabit h ctx in
   ctx
 
