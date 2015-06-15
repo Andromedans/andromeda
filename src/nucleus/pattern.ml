@@ -63,10 +63,13 @@ let rec print_term ?max_level xs e ppf =
         (* XXX check this *)
         Name.print x ppf
 
-      | PrimApp (x, es) ->
-        print ~at_level:1 "%t {%t}"
+      | PrimApp (x, []) ->
+        Name.print x ppf
+
+      | PrimApp (x, ((_::_) as es)) ->
+        print ~at_level:1 "@[<hov 2>%t@ %t@]"
           (Name.print x)
-          (Print.sequence (print_term ~max_level:2 xs) ";" es)
+          (Print.sequence (print_term ~max_level:0 xs) "" es)
 
       | Spine (e, xts, es) ->
         print ~at_level:1 "@[<hov 2>%t@ %t@]"

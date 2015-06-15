@@ -27,15 +27,14 @@ let rec of_term ctx pvars ((e',loc) as e) t =
   | Tt.Name x -> pvars, Pattern.Name x
 
   | Tt.PrimApp (x, es) ->
-
-    let rec fold pvars all_terms args_so_far pes xts args_left =
+    (* A primitive application is always a pattern, never a term *)
+    let rec fold pvars args_so_far pes xts args_left =
       match xts, args_left with
-      | [], [] -> pvars, all_terms, List.rev pes
+      | [], [] -> pvars, List.rev pes
       | (x, t) :: xts, e :: args_left ->
         let t = Tt.instantiate_ty args_so_far 0 t in
         let pvars, pe = of_term ctx pvars e t in
-        let all_terms = (match pe with Pattern.Term _ -> all_terms | _ -> false) in
-        fold pvars all_terms (e::args_so_far) (pe::pes) xts args_left
+        fold pvars (e::args_so_far) (pe::pes) xts args_left
       | ([],_::_) | (_::_,[]) ->
         Error.impossible ~loc "malformed primitive application in Pattern.of_term"
     in
@@ -44,10 +43,8 @@ let rec of_term ctx pvars ((e',loc) as e) t =
       | Some (xts, _) -> xts
       | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print x)
       end in
-    let pvars, all_terms, pes = fold pvars true [] [] xts es in
-    if all_terms
-    then original
-    else pvars, Pattern.PrimApp (x, pes)
+    let pvars, pes = fold pvars [] [] xts es in
+    pvars, Pattern.PrimApp (x, pes)
 
   | Tt.Bound k ->
     begin match remove_bound k pvars with
@@ -124,7 +121,8 @@ let mk_beta ~loc ctx (xts, (t, e1, e2)) =
                 Error.runtime ~loc "only a variable, primitive operation or an application can appear on the left-hand side of a beta hint"
             end
           | None -> Error.runtime ~loc
-              "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments"
+              "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments@ %t"
+              (Pattern.print_pattern [] (xts, p))
         end
       | _ :: _ ->
         let xs = List.map (fun k -> fst (List.nth xts k)) pvars in

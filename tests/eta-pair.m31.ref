@@ -1,22 +1,12 @@
 Pair is assumed.
-
 pair is assumed.
-
 fst is assumed.
-
 snd is assumed.
-
 pair_beta_fst is assumed.
-
 pair_beta_snd is assumed.
-
 pair_eta is assumed.
-
 C is assumed.
-
 D is assumed.
-
 p is assumed.
-
 refl p
       : p ≡ pair C D (fst C D p) (snd C D p)

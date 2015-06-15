@@ -1,33 +1,18 @@
 N is assumed.
-
 Z is assumed.
-
 S is assumed.
-
 plus is assumed.
-
 plus_Z is assumed.
-
 plus_S is assumed.
-
 times is assumed.
-
 times_Z is assumed.
-
 times_S is assumed.
-
 one is defined.
-
 two is defined.
-
 three is defined.
-
 four is defined.
-
 five is defined.
-
 ten is defined.
-
 refl (plus (S (S (S (S (S Z))))) (S (S (S (S Z)))))
       : plus (S (S (S (S Z)))) (S (S (S (S (S Z)))))
           ≡ plus (plus (S (S Z)) (S (S (S Z)))) (S (S (S (S Z))))

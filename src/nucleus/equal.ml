@@ -783,10 +783,36 @@ and collect_for_beta ctx bp (e',loc) =
     let extras = fold [] e yts es in
     ([], [], extras)
 
+  | Pattern.BetaPrimApp (x, pes), Tt.PrimApp (y, es) ->
+    if not (Name.eq x y)
+    then raise NoMatch
+    else begin
+      let yts, _ =
+        begin match Context.lookup_primitive x ctx with
+        | Some ytsu -> ytsu
+        | None -> Error.impossible ~loc "unknown operation %t in pattern_collect" (Name.print x)
+        end in
+      let rec fold es' yts pes es =
+        match yts, pes, es with
+        | [], [], [] -> [], []
+
+        | (y,t)::yts, pe::pes, e::es ->
+          let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e in
+          let pvars, checks = fold (e::es') yts pes es in
+            pvars_e @ pvars, checks_e @ checks
+
+        | _, _, _ ->
+          Error.impossible ~loc "malformed primitive applications in pattern_collect"
+      in
+      let pvars, checks = fold [] yts pes es in
+      pvars, checks, []
+    end
+
   | Pattern.BetaSpine (pe, xts, pes), Tt.Spine (e, yts, es) ->
     pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yts, es)
 
-  | _, _ -> raise NoMatch
+  | (Pattern.BetaName _ | Pattern.BetaSpine _ | Pattern.BetaPrimApp _), _ ->
+    raise NoMatch
 
 (** Similar to [collect_for_beta] except targeted at extracting
   values of pattern variable and residual equations in eta hints,

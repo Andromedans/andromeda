@@ -122,7 +122,7 @@ let rec exec_cmd base_dir interactive ctx c =
     in
     let ytsu = fold ctx [] [] yts in
     let ctx = Context.add_primitive x ytsu ctx in
-    if interactive then Format.printf "%t is assumed primitive.@\n@." (Name.print x) ;
+    if interactive then Format.printf "%t is assumed.@." (Name.print x) ;
     ctx
 
   | Syntax.TopLet (x, c) ->
@@ -130,7 +130,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
       | Value.Return v ->
         let ctx = Context.add_bound x v ctx in
-        if interactive then Format.printf "%t is defined.@\n@." (Name.print x) ;
+        if interactive then Format.printf "%t is defined.@." (Name.print x) ;
         ctx
     end
 

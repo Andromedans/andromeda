@@ -14,7 +14,7 @@ let reserved = [
   ("Inhabit", TOPINHABIT) ;
   ("Let", TOPLET) ;
   ("let", LET) ;
-  ("Parameter", PARAMETER) ;
+  ("Parameter", PRIMITIVE) ;
   ("Primitive", PRIMITIVE) ;
   ("forall", FORALL) ;
   ("∀", FORALL) ;

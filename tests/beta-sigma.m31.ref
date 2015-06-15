@@ -1,36 +1,23 @@
 A is assumed.
-
 B is assumed.
-
 a is assumed.
-
 b is assumed.
-
 sigT is assumed.
-
 existT is assumed.
-
 projT1 is assumed.
-
 projT2 is assumed.
-
 projT1_beta is assumed.
-
 projT1_beta
       : Π (A0 : Type) (B0 : A0 → Type) (a0 : A0) (b0 : B0 a0),
           projT1 A0 B0 (existT A0 B0 a0 b0) ≡ a0
 refl a
       : projT1 A B (existT A B a b) ≡ a
 projT2_beta is assumed.
-
 refl b
       : projT2 A B (existT A B a b) ≡ b
 sig_ind is assumed.
-
 sig_ind_beta is assumed.
-
 projT1' is defined.
-
 λ (A0 : Type) (B0 : A0 → Type) (s : sigT A0 B0) ⇒
   sig_ind A0 B0 (λ (_ : sigT A0 B0) ⇒ A0) (λ (x : A0) (y : B0 x) ⇒ x) s
       : Π (A0 : Type) (B0 : A0 → Type), sigT A0 B0 → A0
@@ -43,7 +30,6 @@ refl a
           ≡ sig_ind A B (λ (_ : sigT A B) ⇒ A)
                 (λ (x : A) (y : B x) ⇒ x) (existT A B a b)
 projT2' is defined.
-
 refl b
       : projT2 A B (existT A B a b)
           ≡ (λ (s : sigT A B) ⇒

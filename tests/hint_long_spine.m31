@@ -1,6 +1,7 @@
 (* Test long spines against short patterns. *)
 
-Parameter A B: Type.
+Parameter A : Type.
+Parameter B : Type.
 Parameter a : A.
 Parameter b : B.
 Parameter f : A -> B.

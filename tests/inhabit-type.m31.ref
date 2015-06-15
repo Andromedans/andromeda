@@ -1,13 +1,9 @@
 A is assumed.
-
 a is assumed.
-
 []
       : [A]
 B is assumed.
-
 f is assumed.
-
 []
       : [B a]
 λ (x : A) ⇒ []
