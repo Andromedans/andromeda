@@ -52,11 +52,11 @@ Z is assumed.
 
 S is assumed.
 
-refl ((S ((λ (A : Type) (s : A → A) (z : A) ⇒ s (s (s z))) N S Z)) )
-      : ((λ (A : Type) (s : A → A) (z : A) ⇒ s z) N S
-           ((λ (A : Type) (s : A → A) (z : A) ⇒ s (s (s z))) N S Z)) 
-          ≡ (((λ (A : Type) (s : A → A) (z : A) ⇒
-                   (λ (A0 : Type) (s0 : A0 → A0) (z0 : A0) ⇒ s0 z0) A s
-                     (s z)) ) N
+refl (S ((λ (A : Type) (s : A → A) (z : A) ⇒ s (s (s z))) N S Z))
+      : (λ (A : Type) (s : A → A) (z : A) ⇒ s z) N S
+          ((λ (A : Type) (s : A → A) (z : A) ⇒ s (s (s z))) N S Z)
+          ≡ ((λ (A : Type) (s : A → A) (z : A) ⇒
+                  (λ (A0 : Type) (s0 : A0 → A0) (z0 : A0) ⇒ s0 z0) A s
+                    (s z)) N
                  ((λ (A : Type) (s : A → A) (z : A) ⇒ s (s z)) N S)) 
                 Z

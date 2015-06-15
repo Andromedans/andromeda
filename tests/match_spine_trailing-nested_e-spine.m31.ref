@@ -15,13 +15,13 @@ refl tt
                   (λ (x : unit) ⇒ x)) tt) tt
 refl tt
       : tt
-          ≡ (((unit_rect (λ (m : unit) ⇒ unit → unit)
-                   (λ (x : unit) ⇒ x)) ) tt) tt
+          ≡ ((unit_rect (λ (m : unit) ⇒ unit → unit)
+                  (λ (x : unit) ⇒ x)) tt) tt
 refl tt
       : tt
           ≡ ((unit_rect (λ (m : unit) ⇒ unit → unit)
                   (λ (x : unit) ⇒ x)) tt) tt
 refl tt
       : tt
-          ≡ (((unit_rect (λ (m : unit) ⇒ unit → unit)
-                   (λ (x : unit) ⇒ x)) ) tt) tt
+          ≡ ((unit_rect (λ (m : unit) ⇒ unit → unit)
+                  (λ (x : unit) ⇒ x)) tt) tt

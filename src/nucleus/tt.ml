@@ -91,7 +91,10 @@ let mk_prod ~loc xts ((Ty e) as t) =
     | t -> Prod (xts, t), loc
     end
 
-let mk_spine ~loc e xts t es = Spine (e, (xts, t), es), loc
+let mk_spine ~loc e xts t es =
+  match xts with
+    | [] -> fst e, loc
+    | _::_ -> Spine (e, (xts, t), es), loc
 
 let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
