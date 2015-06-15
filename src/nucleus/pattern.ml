@@ -58,6 +58,8 @@ let rec of_term pvars ((e',loc) as e) t =
 
   | Tt.Name x -> pvars, Name x
 
+  | Tt.PrimApp _ -> Error.impossible ~loc "primitive applicaation patterns are unimplemented"
+
   | Tt.Bound k ->
     begin match remove_bound k pvars with
       | None -> original

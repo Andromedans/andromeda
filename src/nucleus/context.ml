@@ -4,6 +4,7 @@
     environment of runtime bindings. *)
 type t = {
   free : (Name.t * Tt.ty) list;
+  primitive : (Name.t * Tt.primsig) list;
   bound : (Name.t * Value.value) list;
   beta : Pattern.beta_hint list ;
   eta : Pattern.eta_hint list;
@@ -15,6 +16,7 @@ type t = {
 (** The empty context *)
 let empty = {
   free = [];
+  primitive = [];
   bound = [] ;
   beta = [] ;
   eta = [] ;
@@ -33,9 +35,18 @@ let inhabit {inhabit=lst} = lst
 
 let bound_names {bound=lst} = List.map fst lst
 
-let used_names ctx = List.map fst ctx.free @ List.map fst ctx.bound
+let used_names ctx =
+  List.map fst ctx.free @ List.map fst ctx.bound @ List.map fst ctx.primitive
 
 let lookup_free x {free=lst} =
+  let rec lookup = function
+    | [] -> None
+    | (y,v) :: lst ->
+       if Name.eq x y then Some v else lookup lst
+  in
+    lookup lst
+
+let lookup_primitive x {primitive=lst} =
   let rec lookup = function
     | [] -> None
     | (y,v) :: lst ->
@@ -51,13 +62,22 @@ let lookup_bound k {bound=lst} =
 
 let is_bound x ctx =
   match lookup_free x ctx with
-  | None -> false
+  | None ->
+    begin match lookup_primitive x ctx with
+      | None -> false
+      | Some _ -> true
+    end
   | Some _ -> true
 
 let add_free x t ctx =
   if is_bound x ctx
   then Error.runtime "%t already exists" (Name.print x)
   else { ctx with free = (x,t) :: ctx.free }
+
+let add_primitive x ytsu ctx =
+  if is_bound x ctx
+  then Error.runtime "%t already exists" (Name.print x)
+  else { ctx with primitive = (x, ytsu) :: ctx.primitive }
 
 let add_beta h ctx = { ctx with beta = h :: ctx.beta }
 

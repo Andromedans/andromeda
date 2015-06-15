@@ -63,6 +63,34 @@ let rec infer ctx (c',loc) =
      in let e = check ctx c t
         in Value.Return (e, t)
 
+  | Syntax.PrimApp (x, cs) ->
+    let yts, u =
+      begin match Context.lookup_primitive x ctx with
+      | Some ytsu -> ytsu
+      | None -> Error.typing "unknown operation %t" (Name.print x)
+      end in
+    let rec fold es yts cs =
+      match yts, cs with
+      | [], [] ->
+        let u = Tt.instantiate_ty es 0 u
+        and e = Tt.mk_primapp ~loc x (List.rev es) in
+        Value.Return (e, u)
+
+      | (y,t)::yts, c::cs ->
+        let t = Tt.instantiate_ty es 0 t in
+        let e = check ctx c t in
+        fold (e :: es) yts cs
+
+      | _::_, [] ->
+        Error.typing ~loc "too few arguments in a primitive operation (%d missing)"
+          (List.length yts)
+
+      | _, _::_ ->
+        Error.typing ~loc "too many arguments in a primitive operation (%d extra)"
+          (List.length cs)
+    in
+    fold [] yts cs
+
   | Syntax.Lambda (abs, c) ->
     let rec fold ctx ys xts = function
       | [] ->
@@ -140,6 +168,7 @@ and check ctx ((c',loc) as c) t =
   match c' with
 
   | Syntax.Return _
+  | Syntax.PrimApp _
   | Syntax.Prod _
   | Syntax.Eq _
   | Syntax.Spine _

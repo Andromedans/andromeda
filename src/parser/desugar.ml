@@ -77,6 +77,10 @@ let rec comp ctx ((c',loc) as c) =
       let c = comp ctx c in
       w, Syntax.Ascribe (c, t)
 
+    | Input.PrimApp (x, cs) ->
+      let cs = List.map (comp ctx) cs in
+      [], Syntax.PrimApp (x, cs)
+
     | Input.Lambda (xs, c) ->
       let rec fold ctx ys = function
         | [] ->
@@ -156,7 +160,7 @@ and expr ctx ((e', loc) as e) =
     ctx, [], (Syntax.Type, loc)
 
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
-     Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
+     Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.PrimApp _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _) ->
     let x = Name.fresh Name.anonymous
     and c = comp ctx e in
@@ -169,6 +173,21 @@ let toplevel ctx (d', loc) =
     | Input.Parameter (xs, t) ->
       let c = comp ctx t in
       Syntax.Parameter (xs, c)
+
+    | Input.Primitive (xs, (yts, u)) ->
+      let rec fold ctx yts' = function
+        | [] ->
+          let u = comp ctx u in
+          let yts' = List.rev yts' in
+          (yts', u)
+        | (y, t) :: yts ->
+          let t = comp ctx t in
+          let ctx = add_bound y ctx
+          and yts' = (y, t) :: yts' in
+          fold ctx yts' yts
+      in
+      let ytsu = fold ctx [] yts in
+      Syntax.Primitive (xs, ytsu)
 
     | Input.TopLet (x, c) ->
       let c = comp ctx c in

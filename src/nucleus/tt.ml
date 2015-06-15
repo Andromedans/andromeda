@@ -27,6 +27,8 @@ and term' =
   (** a free variable *)
   | Bound of Syntax.bound
   (** a bound variable *)
+  | PrimApp of Name.t * term list
+  (** primitive application *)
   | Lambda of (ty, term * ty) abstraction
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
       [tk] depends on [x1, ..., x{k-1}], while [e] and [t] depend on
@@ -57,6 +59,8 @@ and ty = Ty of term
 and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
 (** The auxiliary type of abstractions discussed above. *)
 
+type primsig = (ty, ty) abstraction
+
 (** Unicode and ascii version of symbols *)
 
 let char_lambda () = if !Config.ascii then "fun" else "λ"
@@ -69,6 +73,8 @@ let char_equal ()  = if !Config.ascii then "==" else "≡"
     file), so we provide these constructors instead. *)
 let mk_name ~loc x = Name x, loc
 let mk_bound ~loc k = Bound k, loc
+
+let mk_primapp ~loc x es = PrimApp (x, es), loc
 
 let mk_lambda ~loc xts e t =
   match xts with
@@ -86,6 +92,7 @@ let mk_prod ~loc xts ((Ty e) as t) =
     end
 
 let mk_spine ~loc e xts t es = Spine (e, (xts, t), es), loc
+
 let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
@@ -140,6 +147,10 @@ let rec instantiate es depth ((e',loc) as e) =
           (* this is a variable bound in an abstraction outside the
              instantiated term, so it remains bound, but its index decreases
              by the number of bound variables replaced by terms *)
+
+    | PrimApp (x, ds) ->
+      let ds = List.map (instantiate es depth) ds in
+      PrimApp (x, ds), loc
 
     | Lambda a ->
        let a = instantiate_abstraction instantiate_ty instantiate_term_ty es depth a
@@ -207,6 +218,10 @@ let rec abstract xs depth ((e',loc) as e) =
   | Type -> e
 
   | Bound k -> e
+
+  | PrimApp (y, es) ->
+     let es = List.map (abstract xs depth) es in
+      PrimApp (y, es), loc
 
   | Name x ->
     begin
@@ -282,6 +297,10 @@ let rec shift k lvl ((e',loc) as e) =
       then (Bound (j + k), loc)
       else e
 
+    | PrimApp (x, es) ->
+        let es = List.map (shift k lvl) es in
+        PrimApp (x, es), loc
+
     | Lambda (xts, (e, t)) ->
         let xts, (e, t) = shift_abstraction shift_ty shift_term_ty k lvl xts (e,t) in
           Lambda (xts, (e, t)), loc
@@ -350,12 +369,13 @@ let occurs_abstraction occurs_u occurs_v k (xus, v) =
   in
     fold k xus
 
-(* Does bound variable [k] occur in an expression? *)
+(* How many times does bound variable [k] occur in an expression? *)
 let rec occurs k (e',_) =
   match e' with
   | Type -> 0
   | Name _ -> 0
   | Bound m -> if k = m then 1 else 0
+  | PrimApp (x, es) -> List.fold_left (fun i e -> i + occurs k e) 0 es
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
   | Spine (e, xtst, es) ->
     occurs k e +
@@ -402,6 +422,9 @@ let rec print_term ?max_level xs (e,_) ppf =
 
       | Name x ->
         print ~at_level:0 "%t" (Name.print x)
+
+      | PrimApp (x, es) ->
+        print ~at_level:1 "%t {%t}" (Name.print x) (Print.sequence (print_term ~max_level:2 xs) ";" es)
 
       | Bound k ->
         begin

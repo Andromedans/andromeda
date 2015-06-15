@@ -106,6 +106,33 @@ let rec exec_cmd base_dir interactive ctx c =
     if interactive then Format.printf "@." ;
     ctx
 
+  | Syntax.Primitive (xs, (yts, u)) ->
+    let rec fold ctx zs yts' = function
+      | [] ->
+        let u = Eval.ty ctx u in
+        let u = Tt.abstract_ty zs 0 u in
+        let yts' = List.rev yts' in
+        (yts', u)
+      | (y,t)::yts ->
+        let t = Eval.ty ctx t in
+        let z, ctx = Context.add_fresh y t ctx in
+        let ctx = Context.add_bound y (Tt.mk_name ~loc z, t) ctx in
+        let t = Tt.abstract_ty zs 0 t in
+        fold ctx (z::zs) ((y,t) :: yts') yts
+    in
+    let ytsu = fold ctx [] [] yts in
+    let ctx =
+      List.fold_left
+        (fun ctx x ->
+           let ctx = Context.add_primitive x ytsu ctx in
+           if interactive then Format.printf "%t is assumed primitive.@\n" (Name.print x) ;
+           ctx)
+        ctx
+        xs
+    in
+    if interactive then Format.printf "@." ;
+    ctx
+
   | Syntax.TopLet (x, c) ->
     begin
       match Eval.comp ctx c with

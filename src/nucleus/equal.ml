@@ -33,6 +33,10 @@ let rec alpha_equal (e1,_) (e2,_) =
 
     | Tt.Bound i, Tt.Bound j -> i = j
 
+    | Tt.PrimApp (x, es), Tt.PrimApp (x', es') ->
+      Name.eq x x' &&
+      alpha_equal_list alpha_equal es es'
+
     | Tt.Lambda abs, Tt.Lambda abs' ->
       alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
 
@@ -60,7 +64,7 @@ let rec alpha_equal (e1,_) (e2,_) =
 
     | Tt.Inhab, Tt.Inhab -> true
 
-    | (Tt.Name _ | Tt.Bound _ | Tt.Lambda _ | Tt.Spine _ |
+    | (Tt.Name _ | Tt.Bound _ | Tt.PrimApp _ | Tt.Lambda _ | Tt.Spine _ |
         Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Bracket _ | Tt.Inhab), _ ->
       false
   end
@@ -109,6 +113,7 @@ and weak_whnf ctx ((e', loc) as e) =
               | Some e -> weak e
             end
           | Tt.Name _
+          | Tt.PrimApp _
           | Tt.Spine _
           | Tt.Type
           | Tt.Prod _
@@ -120,6 +125,12 @@ and weak_whnf ctx ((e', loc) as e) =
           | Tt.Bound _ ->
             Error.impossible ~loc "de Bruijn encountered in whnf"
         end
+
+      | Tt.PrimApp _ ->
+        (* XXX here we shall use info about primitive operations to normalize some
+           of their arguments. *)
+        e
+
       | Tt.Lambda (_ :: _, _)
       | Tt.Prod (_ :: _, _)
       | Tt.Name _
@@ -265,7 +276,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
           equal_hints ctx e1 e2 t
 
         | Tt.Name _
-        | Tt.Spine _ ->
+        | Tt.PrimApp _ | Tt.Spine _ ->
           (** Here we apply eta hints. *)
           begin
             let rec fold = function
@@ -359,6 +370,33 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
       | Tt.Bound _, _ | _, Tt.Bound _ ->
         Error.impossible ~loc:loc1 "deBruijn encountered in equal_whnf"
 
+      | Tt.PrimApp (x1, es1), Tt.PrimApp (x2, es2) ->
+        Name.eq x1 x2 &&
+        begin
+          let yts, u =
+            begin match Context.lookup_primitive x1 ctx with
+            | Some ytsu -> ytsu
+            | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print x1)
+            end in
+          let rec fold es' yts es1 es2 =
+            match yts, es1, es2 with
+            | [], [], [] -> true
+
+            | (y,t)::yts, e1::es1, e2::es2 ->
+              let t = Tt.instantiate_ty es' 0 t in
+              (* XXX one day we will look at info on primaps here and call equal_whnf on some of the arguments *)
+              equal ctx e1 e2 t &&
+              fold (e1 :: es') yts es1 es2
+
+            | _, _, _ ->
+              Error.impossible ~loc:loc1 "primitive application equality (%d, %d, %d)"
+                (List.length yts)
+                (List.length es1)
+                (List.length es2)
+          in
+          fold [] yts es1 es2
+        end
+
       | Tt.Lambda (xus, (e1, t1)), Tt.Lambda (xvs, (e2, t2)) ->
           let rec zip ys ctx = function
           | (x, u) :: xus, (_, u') :: xvs ->
@@ -416,7 +454,7 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
       | Tt.Bracket t1, Tt.Bracket t2 ->
         equal_ty ctx t1 t2
 
-      | (Tt.Name _ | Tt.Lambda _ | Tt.Spine _ |
+      | (Tt.Name _ | Tt.PrimApp _ | Tt.Lambda _ | Tt.Spine _ |
           Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _), _ ->
         false
 
@@ -922,6 +960,7 @@ and inhabit_whnf ~subgoals ctx (Tt.Ty (t', loc)) =
       inhabit_bracket ~subgoals ~loc ctx t
 
     | Tt.Name _
+    | Tt.PrimApp _
     | Tt.Spine _
     | Tt.Bound _
     | Tt.Lambda _
@@ -1013,8 +1052,8 @@ let rec as_universal_bracket ctx t =
         let ctx, zs', w = unabstract_binding ctx [] zvs w in
           fold ctx (xus @ zvs) (zs' @ ys) w
 
-    | Tt.Type | Tt.Name _ | Tt.Bound _ | Tt.Lambda _ |  Tt.Spine _ | Tt.Eq _ | Tt.Refl _ |
-      Tt.Inhab | Tt.Bracket _  ->
+    | Tt.Type | Tt.Name _ | Tt.PrimApp _ | Tt.Bound _ | Tt.Lambda _ |  Tt.Spine _ |
+      Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _  ->
       let t = strip_bracket ctx t in
       let t = Tt.abstract_ty ys 0 t in
         (xus, t)

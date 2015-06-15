@@ -15,6 +15,7 @@ let reserved = [
   ("Let", TOPLET) ;
   ("let", LET) ;
   ("Parameter", PARAMETER) ;
+  ("Primitive", PRIMITIVE) ;
   ("forall", FORALL) ;
   ("∀", FORALL) ;
   ("Π", FORALL) ;
@@ -75,7 +76,10 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | ')'                      -> f (); RPAREN
   | '['                      -> f (); LBRACK
   | ']'                      -> f (); RBRACK
+  | '{'                      -> f (); LBRACE
+  | '}'                      -> f (); RBRACE
   | ':'                      -> f (); COLON
+  | ';'                      -> f (); SEMICOLON
   | ":="                     -> f (); COLONEQ
   | ','                      -> f (); COMMA
   | '.'                      -> f (); g (); DOT

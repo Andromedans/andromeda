@@ -18,6 +18,7 @@ and term' =
   | Hint of expr * comp
   | Inhabit of expr * comp
   | Ascribe of comp * ty
+  | PrimApp of Name.t * comp list
   | Lambda of (Name.t * comp option) list * comp
   | Spine of comp * comp list
   | Prod of (Name.t * ty) list * comp
@@ -38,7 +39,8 @@ and expr = term
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Parameter of Name.t list * ty (** introduce parameters into the context *)
+  | Parameter of Name.t list * ty (** introduce parameters *)
+  | Primitive of Name.t list * ((Name.t * ty) list * ty) (** introduce primitive operations *)
   | TopLet of Name.t * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of comp (** global beta hint *)
