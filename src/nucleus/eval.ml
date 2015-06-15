@@ -117,6 +117,10 @@ let rec infer ctx (c',loc) =
     in
       fold ctx [] [] abs
 
+  | Syntax.Spine (e, []) ->
+    let e, t = expr ctx e in
+      Value.Return (e, t)
+
   | Syntax.Spine (e, cs) ->
     let e, t = expr ctx e in
     let (e, v) = spine ~loc ctx e t cs in
@@ -327,7 +331,7 @@ and spine ~loc ctx e t cs =
   let (xts, t) =
     begin match Equal.as_prod ctx t with
       | Some (xts, t) -> xts, t
-      | None -> Error.typing ~loc "an expression is applied but it is not a function"
+      | None -> Error.typing ~loc "this expression is applied but it is not a function"
     end
   in
   let rec fold es xus xts cs =

@@ -6,6 +6,9 @@ type t
 (** The empty context *)
 val empty : t
 
+(** List of primitive names with their arities. *)
+val primitives : t -> (Name.t * int) list
+
 (** Known bound variables *)
 val bound_names : t -> Name.t list
 

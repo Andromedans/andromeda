@@ -35,6 +35,9 @@ let inhabit_hints {inhabit=lst} = lst
 
 let bound_names {bound=lst} = List.map fst lst
 
+let primitives {primitive=lst} =
+  List.map (fun (x, (yts, _)) -> (x, List.length yts)) lst
+
 let used_names ctx =
   List.map fst ctx.free @ List.map fst ctx.bound @ List.map fst ctx.primitive
 
@@ -58,7 +61,7 @@ let lookup_bound k {bound=lst} =
   try
     snd (List.nth lst k)
   with
-  | Failure _ -> Error.runtime "invalid de Bruijn index %d" k
+  | Failure _ -> Error.impossible "invalid de Bruijn index %d" k
 
 let is_bound x ctx =
   match lookup_free x ctx with

@@ -15,7 +15,7 @@
 %token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token PARAMETER
-%token PRIMITIVE LBRACE RBRACE SEMICOLON
+%token PRIMITIVE
 %token CONTEXT HELP QUIT
 %token <int> VERBOSITY
 %token <string> FILENAME
@@ -51,7 +51,8 @@ plain_topcomp:
   | TOPHINT c=term DOT                                   { TopHint c }
   | TOPINHABIT c=term DOT                                { TopInhabit c }
   | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
-  | PRIMITIVE xs=nonempty_list(name) COLON s=primsig DOT { Primitive (xs, s)}
+  | PRIMITIVE x=name yst=list(paren_bind(ty_term)) COLON u=term DOT
+                                                         { Primitive (x, List.concat yst, u)}
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective) { $1 }
@@ -67,11 +68,6 @@ filename:
                let l = String.length s in
                String.sub s 1 (l - 2) }
 
-(* Signatures for primitive operations *)
-
-primsig:
-  | LBRACE xts=separated_list(SEMICOLON, bind1(term)) RBRACE ARROW u=ty_term
-                                                    { (xts, u) }
 (* Main syntax tree *)
 
 term: mark_location(plain_term) { $1 }
@@ -107,8 +103,6 @@ plain_simple_term:
   | TYPE                                            { Type }
   | LBRACK RBRACK                                   { Inhab }
   | x=var_name                                      { Var x }
-  | x=var_name LBRACE es=separated_list(SEMICOLON, term) RBRACE
-                                                    { PrimApp (x, es) }
   | LPAREN e=plain_term RPAREN                      { e }
   | LBRACK e=term RBRACK                            { Bracket e }
 

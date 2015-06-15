@@ -427,7 +427,7 @@ let rec print_term ?max_level xs (e,_) ppf =
         print ~at_level:0 "%t" (Name.print x)
 
       | PrimApp (x, es) ->
-        print ~at_level:1 "%t {%t}" (Name.print x) (Print.sequence (print_term ~max_level:2 xs) ";" es)
+        print ~at_level:1 "%t %t" (Name.print x) (Print.sequence (print_term ~max_level:0 xs) "" es)
 
       | Bound k ->
         begin

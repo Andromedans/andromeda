@@ -90,7 +90,7 @@ let parse lex parse resource =
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
 let rec exec_cmd base_dir interactive ctx c =
-  let (c', loc) = Desugar.toplevel (Context.bound_names ctx) c in
+  let (c', loc) = Desugar.toplevel (Context.primitives ctx) (Context.bound_names ctx) c in
   match c' with
   | Syntax.Parameter (xs,c) ->
     let t = Eval.ty ctx c in
@@ -106,7 +106,7 @@ let rec exec_cmd base_dir interactive ctx c =
     if interactive then Format.printf "@." ;
     ctx
 
-  | Syntax.Primitive (xs, (yts, u)) ->
+  | Syntax.Primitive (x, yts, u) ->
     let rec fold ctx zs yts' = function
       | [] ->
         let u = Eval.ty ctx u in
@@ -121,16 +121,8 @@ let rec exec_cmd base_dir interactive ctx c =
         fold ctx (z::zs) ((y,t) :: yts') yts
     in
     let ytsu = fold ctx [] [] yts in
-    let ctx =
-      List.fold_left
-        (fun ctx x ->
-           let ctx = Context.add_primitive x ytsu ctx in
-           if interactive then Format.printf "%t is assumed primitive.@\n" (Name.print x) ;
-           ctx)
-        ctx
-        xs
-    in
-    if interactive then Format.printf "@." ;
+    let ctx = Context.add_primitive x ytsu ctx in
+    if interactive then Format.printf "%t is assumed primitive.@\n@." (Name.print x) ;
     ctx
 
   | Syntax.TopLet (x, c) ->
