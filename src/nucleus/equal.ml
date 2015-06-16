@@ -664,13 +664,13 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
   let rec collect_spines_terms ab abs n ((e',_) as e) =
     match e' with
     | Tt.Spine (e, xtsu, es) -> collect_spines_terms (xtsu,es) (ab :: abs) (n + List.length es) e
-    | _ -> e, ab, abs, n
+    | _ -> e, ab, abs, n (* [e] should be either a [Tt.Name] or a [Tt.PrimApp]. *)
   in
 
   let rec collect_spines_patterns ab abs n e =
     match e with
     | Pattern.Spine (e, xtsu, es) -> collect_spines_patterns (xtsu,es) (ab :: abs) (n + List.length es) e
-    | _ -> e, ab, abs, n
+    | _ -> e, ab, abs, n (* [e] should be either a [Pattern.Name] or a [Pattern.PrimApp] *)
   in
 
   let ph, pargs, pargss, n1 = collect_spines_patterns (xtsu, pes) [] (List.length pes) pe
@@ -783,36 +783,53 @@ and collect_for_beta ctx bp (e',loc) =
     let extras = fold [] e yts es in
     ([], [], extras)
 
+  | Pattern.BetaPrimApp (x, pes), Tt.Spine (e, yts, es) ->
+    let rec fold extras (e',_) yts es =
+      match e' with
+        | Tt.PrimApp (y, es') -> 
+           let extras = (yts, es) :: extras in
+           let extras = List.rev extras in
+           y, es', extras
+        | Tt.Spine (e', yts', es') -> fold ((yts, es) :: extras) e' yts' es'
+        | _ -> raise NoMatch
+    in
+    let y, es, extras = fold [] e yts es in
+    let pvars, checks = collect_primapp ~loc ctx x pes y es in
+    (pvars, checks, extras)
+
   | Pattern.BetaPrimApp (x, pes), Tt.PrimApp (y, es) ->
-    if not (Name.eq x y)
-    then raise NoMatch
-    else begin
-      let yts, _ =
-        begin match Context.lookup_primitive x ctx with
-        | Some ytsu -> ytsu
-        | None -> Error.impossible ~loc "unknown operation %t in pattern_collect" (Name.print x)
-        end in
-      let rec fold es' yts pes es =
-        match yts, pes, es with
-        | [], [], [] -> [], []
-
-        | (y,t)::yts, pe::pes, e::es ->
-          let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e in
-          let pvars, checks = fold (e::es') yts pes es in
-            pvars_e @ pvars, checks_e @ checks
-
-        | _, _, _ ->
-          Error.impossible ~loc "malformed primitive applications in pattern_collect"
-      in
-      let pvars, checks = fold [] yts pes es in
-      pvars, checks, []
-    end
+     let pvars, checks = collect_primapp ~loc ctx x pes y es in
+     (pvars, checks, [])
 
   | Pattern.BetaSpine (pe, xts, pes), Tt.Spine (e, yts, es) ->
     pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yts, es)
 
   | (Pattern.BetaName _ | Pattern.BetaSpine _ | Pattern.BetaPrimApp _), _ ->
     raise NoMatch
+
+and collect_primapp ~loc ctx x pes y es =
+  if not (Name.eq x y)
+  then raise NoMatch
+  else begin
+    let yts, _ =
+      begin match Context.lookup_primitive x ctx with
+            | Some ytsu -> ytsu
+            | None -> Error.impossible ~loc "unknown operation %t in pattern_collect" (Name.print x)
+      end in
+    let rec fold es' yts pes es =
+      match yts, pes, es with
+      | [], [], [] -> [], []
+
+      | (y,t)::yts, pe::pes, e::es ->
+         let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e in
+         let pvars, checks = fold (e::es') yts pes es in
+         pvars_e @ pvars, checks_e @ checks
+
+      | _, _, _ ->
+         Error.impossible ~loc "malformed primitive applications in pattern_collect"
+    in
+    fold [] yts pes es
+  end
 
 (** Similar to [collect_for_beta] except targeted at extracting
   values of pattern variable and residual equations in eta hints,
