@@ -1,2 +1,0 @@
-Parameter False : Type.
-Parameter False_ind : forall (A : Type), False -> A.

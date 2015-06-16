@@ -1,6 +1,9 @@
 Parameter unit : Type.
 Parameter tt : unit.
 
+Parameter unit_rect: forall (P : unit -> Type) (x : P tt) (u : unit), P u.
+Parameter unit_iota: forall (P : unit -> Type) (x : P tt), unit_rect P x tt == x.
+
 Parameter unit_eta : forall (t u : unit), t == u.
 
 Let unit_eq_tt := (fun x => eta unit_eta in refl x : x == tt) : ∀ (x : unit), x == tt.

@@ -1,0 +1,16 @@
+(* Natural numbers. *)
+Parameter nat : Type.
+
+Parameter O : nat.
+
+Parameter S : nat -> nat.
+
+Parameter nat_rect : forall (P : nat -> Type) (s0 : P O) (s : forall n : nat, P n -> P (S n)) (m : nat), P m.
+
+Parameter nat_iota_O :
+  forall (P : nat -> Type) (s0 : P O) (s : forall n : nat, P n -> P (S n)),
+  nat_rect P s0 s O == s0.
+
+Parameter nat_iota_S :
+  forall (P : nat -> Type) (s0 : P O) (s : forall n : nat, P n -> P (S n)) (m : nat),
+  nat_rect P s0 s (S m) == s m (nat_rect P s0 s m).

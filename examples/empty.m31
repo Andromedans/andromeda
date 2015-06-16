@@ -1,0 +1,2 @@
+Parameter empty : Type.
+Parameter empty_rect : forall (P : empty -> Type) (x : empty), P x.
