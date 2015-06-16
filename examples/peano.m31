@@ -1,4 +1,4 @@
-(* The definition of nautral numbers. *)
+(* The definition of unary natural numbers. *)
 
 Parameter N : Type.
 Parameter Z : N.
@@ -105,3 +105,59 @@ Check plus_commute.
 (* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x). *)
 Check hint plus_commute in
    (fun (P : N -> Type) (x y : N) (a : P (plus x y)) => a : P (plus y x)).
+
+(** [times n m] computes m*n as n-fold sum of m. *)
+Parameter times : N -> N -> N.
+Parameter times_def : ∀ (n m : N), times n m == ind_N (fun _ : N => N) Z (fun _ : N => plus m) n.
+
+Check
+  beta times_def in
+    beta ind_N_Z in
+    refl Z : times Z two == Z.
+
+Check
+  beta times_def in
+    beta plus_def in
+    beta ind_N_Z in
+    beta ind_N_S in
+    refl Z : times two Z == Z.
+
+Check
+  beta times_def in
+    beta plus_def in
+    beta ind_N_Z in
+    beta ind_N_S in
+    refl (plus two four) : times three two == (plus two four).
+
+
+(** [exp b e] is the naive definition b^e as e-fold product of b. *)
+Parameter exp : N -> N -> N.
+Parameter exp_def : ∀ (b e : N), exp b e == ind_N (fun _ : N => N) one (fun _ : N => times b) e.
+
+Check
+  beta exp_def in
+  beta times_def in
+  beta plus_def in
+  beta ind_N_Z in
+  beta ind_N_S in
+    refl four : exp two two == four.
+
+Let nine := times three three.
+Let ten := plus five five.
+
+Check
+  beta exp_def in
+  beta times_def in
+  beta plus_def in
+  beta ind_N_Z in
+  beta ind_N_S in
+    refl nine : exp three two == nine.
+
+(* 2^7 is okay, 2^10 takes some time and memory *)
+Check
+  beta exp_def in
+  beta times_def in
+  beta plus_def in
+  beta ind_N_Z in
+  beta ind_N_S in
+    refl (exp two (plus three four)) : exp two (plus three four) == times two (exp two (plus four two)).
