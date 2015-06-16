@@ -10,6 +10,9 @@ val equal : Context.t -> Tt.term -> Tt.term -> Tt.ty -> bool
 (** [equal_ty ctx t1 t2] checks whether types [t1] and [t2] are equal. *)
 val equal_ty : Context.t -> Tt.ty -> Tt.ty -> bool
 
+(** [whnf ctx e] reduces expression [e], assuming that it has a type. *)
+val whnf : Context.t -> Tt.term -> Tt.term
+
 (** Convert a type to a product. *)
 val as_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction option
 

@@ -35,7 +35,7 @@ and ty = private
 and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
 
 (** The type of a signature of a primitive operation. *)
-type primsig = (ty, ty) abstraction
+type primsig = (bool * ty, ty) abstraction
 
 
 (** Term constructors, the do not check for legality of constructions. *)

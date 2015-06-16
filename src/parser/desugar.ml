@@ -223,10 +223,10 @@ let toplevel primitive bound (d', loc) =
           let u = comp primitive bound u in
           let yts' = List.rev yts' in
           (yts', u)
-        | (y, t) :: yts ->
+        | (y, reducing, t) :: yts ->
           let t = comp primitive bound t in
           let bound = add_bound y bound
-          and yts' = (y, t) :: yts' in
+          and yts' = (y, reducing, t) :: yts' in
           fold bound yts' yts
       in
       let yts, u = fold bound [] yts in

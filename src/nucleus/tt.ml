@@ -59,7 +59,7 @@ and ty = Ty of term
 and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
 (** The auxiliary type of abstractions discussed above. *)
 
-type primsig = (ty, ty) abstraction
+type primsig = (bool * ty, ty) abstraction
 
 (** Unicode and ascii version of symbols *)
 

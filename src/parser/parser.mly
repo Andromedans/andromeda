@@ -14,7 +14,7 @@
 %token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
 %token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
-%token PRIMITIVE
+%token PRIMITIVE REDUCE
 %token CONTEXT HELP QUIT
 %token <int> VERBOSITY
 %token <string> FILENAME
@@ -49,8 +49,7 @@ plain_topcomp:
   | TOPETA c=term DOT                                    { TopEta c }
   | TOPHINT c=term DOT                                   { TopHint c }
   | TOPINHABIT c=term DOT                                { TopInhabit c }
-  | PRIMITIVE x=name yst=list(paren_bind(ty_term)) COLON u=term DOT
-                                                         { Primitive (x, List.concat yst, u)}
+  | PRIMITIVE x=name yst=list(primarg) COLON u=term DOT { Primitive (x, List.concat yst, u)}
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective) { $1 }
@@ -133,6 +132,13 @@ bind1(X):
 
 paren_bind(X):
   | LPAREN xst=bind(X) RPAREN            { xst }
+
+primarg:
+  | LPAREN b=reduce xs=nonempty_list(name) COLON t=ty_term RPAREN  { List.map (fun x -> (x, b, t)) xs }
+
+reduce:
+  |          { false }
+  | REDUCE { true }
 
 (* function abstraction with possibly missing typing annotations *)
 fun_abstraction:

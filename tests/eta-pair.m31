@@ -1,14 +1,16 @@
-Parameter Pair : Type -> Type -> Type.
+Parameter prod (_ _ : Type) : Type.
 
-Parameter pair :
-  forall (A : Type) (B : Type),
-    A -> (B -> (Pair A B)).
+Parameter pair (A : Type) (B : Type) (_ : A) : B ->  prod A B.
+(*Parameter pair : forall (A : Type) (B : Type), A -> B -> prod A B.*)
 
-Parameter fst :
-  forall (X : Type) (Y : Type), Pair X Y -> X.
+(*
+Parameter fst (X Y : Type) (reduce _ : prod X Y): X.
+Parameter snd (X Y : Type) (reduce _ : prod X Y): Y.
+*)
 
-Parameter snd :
-  forall (X : Type) (Y : Type), Pair X Y -> Y.
+Parameter fst : forall (X Y : Type), prod X Y -> X.
+Parameter snd : forall (X Y : Type), prod X Y -> Y.
+
 
 Parameter pair_beta_fst :
   forall (U V : Type) (u : U) (v : V),
@@ -19,14 +21,14 @@ Parameter pair_beta_snd :
     (snd V U (pair V U v u)) == u.
 
 Parameter pair_eta :
-  forall (U V : Type) (x y : Pair U V),
+  forall (U V : Type) (x y : prod U V),
     fst U V x == fst U V y ->
     snd U V x == snd U V y ->
     x == y.
 
 Parameter C : Type.
 Parameter D : Type.
-Parameter p : Pair C D.
+Parameter p : prod C D.
 
 (* NB: Without beta hints, the eta hint will cycle. *)
 Check

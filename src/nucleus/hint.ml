@@ -31,7 +31,7 @@ let rec of_term ctx pvars ((e',loc) as e) t =
     let rec fold pvars args_so_far pes xts args_left =
       match xts, args_left with
       | [], [] -> pvars, List.rev pes
-      | (x, t) :: xts, e :: args_left ->
+      | (x, (_,t)) :: xts, e :: args_left ->
         let t = Tt.instantiate_ty args_so_far 0 t in
         let pvars, pe = of_term ctx pvars e t in
         fold pvars (e::args_so_far) (pe::pes) xts args_left

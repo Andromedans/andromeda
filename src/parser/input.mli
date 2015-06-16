@@ -38,7 +38,7 @@ and expr = term
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Primitive of Name.t * (Name.t * ty) list * ty (** introduce a primitive operation *)
+  | Primitive of Name.t * (Name.t * bool * ty) list * ty (** introduce a primitive operation, the boolean is [true] if reducing *)
   | TopLet of Name.t * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of comp (** global beta hint *)

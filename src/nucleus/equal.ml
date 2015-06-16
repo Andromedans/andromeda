@@ -123,7 +123,7 @@ and weak_whnf ctx ((e', loc) as e) =
           | Tt.Bracket _ ->
             Tt.mk_spine ~loc e xts t es
           | Tt.Bound _ ->
-            Error.impossible ~loc "de Bruijn encountered in whnf"
+            Error.impossible ~loc "de Bruijn encountered in a spine head in whnf"
         end
 
       | Tt.PrimApp _ ->
@@ -140,7 +140,7 @@ and weak_whnf ctx ((e', loc) as e) =
       | Tt.Inhab
       | Tt.Bracket _ -> e
       | Tt.Bound _ ->
-         Error.impossible ~loc "de Bruijn encountered in weak_whnf"
+          Error.impossible ~loc "de Bruijn encountered in weak_whnf"
     end
   in
   weak e
@@ -373,7 +373,7 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
       | Tt.PrimApp (x1, es1), Tt.PrimApp (x2, es2) ->
         Name.eq x1 x2 &&
         begin
-          let yts, u =
+          let yts, _ =
             begin match Context.lookup_primitive x1 ctx with
             | Some ytsu -> ytsu
             | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print x1)
@@ -382,10 +382,11 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
             match yts, es1, es2 with
             | [], [], [] -> true
 
-            | (y,t)::yts, e1::es1, e2::es2 ->
-              let t = Tt.instantiate_ty es' 0 t in
-              (* XXX one day we will look at info on primaps here and call equal_whnf on some of the arguments *)
-              equal ctx e1 e2 t &&
+            | (y,(reduce,t))::yts, e1::es1, e2::es2 ->
+              (if reduce
+               then equal_whnf ctx e1 e2
+               else equal ctx e1 e2 (Tt.instantiate_ty es' 0 t))
+              &&
               fold (e1 :: es') yts es1 es2
 
             | _, _, _ ->
@@ -579,22 +580,7 @@ and pattern_collect_whnf ctx p ?at_ty ((e', loc) as e) =
 
   | Pattern.PrimApp (x, pes) ->
     begin match e' with
-      | Tt.PrimApp (y, es) when Name.eq x y ->
-        let yts, u =
-          begin match Context.lookup_primitive x ctx with
-          | Some ytsu -> ytsu
-          | None -> Error.typing "unknown operation %t" (Name.print x)
-      end in
-        let rec fold pvars checks es' yts pes es =
-          match yts, pes, es with
-          | [], [], [] ->  List.concat pvars, List.concat checks
-          | (y,t)::yts, pe::pes, e::es ->
-            let t = Tt.instantiate_ty es' 0 t in
-            let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e in
-            fold (pvars_e :: pvars) (checks_e :: checks) (e::es') yts pes es
-          | _, _, _ -> Error.impossible "collecting in primapp"
-        in
-          fold [] [] [] yts pes es
+      | Tt.PrimApp (y, es) -> collect_primapp ~loc ctx x pes y es
       | _ -> raise NoMatch
     end
 
@@ -667,10 +653,10 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
     | _ -> e, ab, abs, n (* [e] should be either a [Tt.Name] or a [Tt.PrimApp]. *)
   in
 
-  let rec collect_spines_patterns ab abs n e =
-    match e with
-    | Pattern.Spine (e, xtsu, es) -> collect_spines_patterns (xtsu,es) (ab :: abs) (n + List.length es) e
-    | _ -> e, ab, abs, n (* [e] should be either a [Pattern.Name] or a [Pattern.PrimApp] *)
+  let rec collect_spines_patterns ab abs n pe =
+    match pe with
+    | Pattern.Spine (pe, xtsu, pes) -> collect_spines_patterns (xtsu, pes) (ab :: abs) (n + List.length pes) pe
+    | _ -> pe, ab, abs, n (* [e] should be either a [Pattern.Name] or a [Pattern.PrimApp] *)
   in
 
   let ph, pargs, pargss, n1 = collect_spines_patterns (xtsu, pes) [] (List.length pes) pe
@@ -684,7 +670,7 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
   let pvars_head, checks_head =
     begin
       let t = (let ((xts, u), _) = pargs in Tt.mk_prod_ty ~loc xts u) in
-      pattern_collect ctx ph ~at_ty:t h
+      pattern_collect_whnf ctx ph ~at_ty:t h
     end
   in
 
@@ -786,7 +772,7 @@ and collect_for_beta ctx bp (e',loc) =
   | Pattern.BetaPrimApp (x, pes), Tt.Spine (e, yts, es) ->
     let rec fold extras (e',_) yts es =
       match e' with
-        | Tt.PrimApp (y, es') -> 
+        | Tt.PrimApp (y, es') ->
            let extras = (yts, es) :: extras in
            let extras = List.rev extras in
            y, es', extras
@@ -820,8 +806,14 @@ and collect_primapp ~loc ctx x pes y es =
       match yts, pes, es with
       | [], [], [] -> [], []
 
-      | (y,t)::yts, pe::pes, e::es ->
-         let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e in
+      | (y,(reducing,t))::yts, pe::pes, e::es ->
+         let pvars_e, checks_e =
+            begin
+              let t = Tt.instantiate_ty es' 0 t in
+              if reducing
+              then pattern_collect_whnf ctx pe ~at_ty:t e
+              else pattern_collect      ctx pe ~at_ty:t e
+            end in
          let pvars, checks = fold (e::es') yts pes es in
          pvars_e @ pvars, checks_e @ checks
 
@@ -888,7 +880,7 @@ and verify_match ~spawn ctx xts pvars checks =
           (* Pattern variable [k] is matched to [e] of type [t'].
              We need to verify that [t] and [t'] are equal. *)
           let t = Tt.instantiate_ty es 0 t in
-          Print.debug "matching: compare %t and %t" (Tt.print_ty [] t) (Tt.print_ty [] t') ;
+          Print.debug "matching: compare %t and %t (es %d)" (Tt.print_ty [] t) (Tt.print_ty [] t') (List.length es);
           if not (equal_ty ctx t t')
           then raise NoMatch
           else subst_of_pvars ctx pvars (k-1) xts (e :: es) inhs

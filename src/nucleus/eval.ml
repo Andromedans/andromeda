@@ -76,9 +76,10 @@ let rec infer ctx (c',loc) =
         and e = Tt.mk_primapp ~loc x (List.rev es) in
         Value.Return (e, u)
 
-      | (y,t)::yts, c::cs ->
+      | (y,(reducing,t))::yts, c::cs ->
         let t = Tt.instantiate_ty es 0 t in
         let e = check ctx c t in
+        let e = if reducing then Equal.whnf ctx e else e in
         fold (e :: es) yts cs
 
       | _::_, [] ->
@@ -228,7 +229,6 @@ and check ctx ((c',loc) as c) t =
     check_lambda ctx loc t abs c
 
   | Syntax.Refl c ->
-    (** XXX implemente Equal.as_eq and use it here *)
     let abs, (t, e1, e2) = Equal.as_universal_eq ctx t in
     assert (abs = []);
     let e = check ctx c t in
