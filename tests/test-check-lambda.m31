@@ -9,4 +9,4 @@ Parameter g : forall (x : A) (y : B x), C x y.
 Parameter a : A.
 
 Check
-  (fun y : B a => g a y) :: forall y : B a, C a y.
+  (fun y : B a => g a y) : forall y : B a, C a y.

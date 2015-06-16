@@ -30,8 +30,8 @@ ten is defined.
 
 refl (plus (S (S (S (S (S Z))))) (S (S (S (S Z)))))
       : plus (S (S (S (S Z)))) (S (S (S (S (S Z)))))
-          == plus (plus (S (S Z)) (S (S (S Z)))) (S (S (S (S Z))))
+          ≡ plus (plus (S (S Z)) (S (S (S Z)))) (S (S (S (S Z))))
 refl (S (S (S Z)))
-      : S (S (S Z)) == plus (S Z) (plus (S Z) (S Z))
+      : S (S (S Z)) ≡ plus (S Z) (plus (S Z) (S Z))
 refl (S (S (S (S Z))))
-      : S (S (S (S Z))) == times (S (S Z)) (S (S Z))
+      : S (S (S (S Z))) ≡ times (S (S Z)) (S (S Z))

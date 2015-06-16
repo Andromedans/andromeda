@@ -19,4 +19,4 @@ D is assumed.
 p is assumed.
 
 refl p
-      : p == pair C D (fst C D p) (snd C D p)
+      : p ≡ pair C D (fst C D p) (snd C D p)

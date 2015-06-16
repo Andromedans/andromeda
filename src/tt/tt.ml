@@ -57,6 +57,14 @@ and ty = Ty of term
 and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
 (** The auxiliary type of abstractions discussed above. *)
 
+(** Unicode and ascii version of symbols *)
+
+let char_lambda () = if !Config.ascii then "fun" else "λ"
+let char_arrow ()  = if !Config.ascii then "->" else "→"
+let char_darrow () = if !Config.ascii then "=>" else "⇒"
+let char_prod ()   = if !Config.ascii then "forall" else "Π"
+let char_equal ()  = if !Config.ascii then "==" else "≡"
+
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
 let mk_name ~loc x = Name x, loc
@@ -415,8 +423,9 @@ let rec print_term ?max_level xs (e,_) ppf =
       | Prod (ts, t) -> print ~at_level:3 "%t" (print_prod xs ts t)
 
       | Eq (t, e1, e2) ->
-        print ~at_level:2 "@[<hv 2>%t@ ==%t %t@]"
+        print ~at_level:2 "@[<hv 2>%t@ %s%t %t@]"
           (print_term ~max_level:1 xs e1)
+          (char_equal ())
           (print_annot (print_ty xs t))
           (print_term ~max_level:1 xs e2)
 
@@ -435,11 +444,13 @@ and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
 and print_lambda xs (yus, (e, t)) ppf =
-  Print.print ppf "@[<hov 2>λ %t@]"
+  Print.print ppf "@[<hov 2>%s %t@]"
+    (char_lambda ())
     (Name.print_binders
       print_ty
-      (fun xs ppf -> Print.print ppf "@ %t=>@ %t"
+      (fun xs ppf -> Print.print ppf "@ %t%s@ %t"
         (print_annot (print_ty xs t))
+        (char_darrow ())
         (print_term xs e))
       xs
       yus)
@@ -458,11 +469,13 @@ and print_prod xs yus v ppf =
   match split_binders yus with
   | [], [] -> Print.print ppf "%t" (print_ty xs v)
   | [], (y,u) :: yus ->
-      Print.print ppf "@[<hov 2>%t ->@ %t@]"
+      Print.print ppf "@[<hov 2>%t %s@ %t@]"
           (print_ty ~max_level:2 xs u)
+          (char_arrow ())
           (print_prod (Name.anonymous::xs) yus v)
   | (_::_ as xus), yus ->
-    Print.print ppf "@[<hov 2>Π %t@]"
+    Print.print ppf "@[<hov 2>%s %t@]"
+      (char_prod ())
       (Name.print_binders
         print_ty
         (fun xs ppf -> Print.print ppf ",@ %t" (print_prod xs yus v))

@@ -13,6 +13,8 @@ let wrapper = ref (Some ["rlwrap"; "ledit"])
 
 let verbosity = ref 2
 
+let ascii = ref false
+
 let debruijn = ref false
 
 let annotate = ref false

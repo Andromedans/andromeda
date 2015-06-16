@@ -4,5 +4,5 @@ tt is assumed.
 
 unit_eta is assumed.
 
-λ (x : unit) => refl tt
-      : Π (x : unit), x == tt
+λ (x : unit) ⇒ refl tt
+      : Π (x : unit), x ≡ tt
