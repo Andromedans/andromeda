@@ -92,19 +92,6 @@ let parse lex parse resource =
 let rec exec_cmd base_dir interactive ctx c =
   let (c', loc) = Desugar.toplevel (Context.primitives ctx) (Context.bound_names ctx) c in
   match c' with
-  | Syntax.Parameter (xs,c) ->
-    let t = Eval.ty ctx c in
-    let ctx =
-      List.fold_left
-        (fun ctx x ->
-           let ctx = Context.add_free x t ctx in
-           if interactive then Format.printf "%t is assumed.@\n" (Name.print x) ;
-           ctx)
-        ctx
-        xs
-    in
-    if interactive then Format.printf "@." ;
-    ctx
 
   | Syntax.Primitive (x, yts, u) ->
     let rec fold ctx zs yts' = function

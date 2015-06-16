@@ -2,28 +2,29 @@
 
 Parameter cow : Type.
 Parameter horn : cow.
-Primitive tail : {_ : cow} -> cow.
-Parameter tail_horn : tail {horn} == horn.
+Parameter tail (_ : cow) : cow.
+Parameter tail_horn : tail horn == horn.
 
 Check
   beta tail_horn in
-    refl horn : horn == tail {horn}.
+    refl horn : horn == tail horn.
 
 
-Primitive prod : {A : Type; B : Type} -> Type.
+Parameter prod (A B : Type) : Type.
 
-Primitive pair : {A : Type; B : Type; _ : A; _ : B} -> prod {A; B}.
+Parameter pair (A : Type) (B : Type) (_ : A) (_ : B) : prod A B.
 
-Primitive fst : {A : Type; B : Type; _ : prod {A;B}} -> A.
+Parameter fst (A : Type) (B : Type) (_ : prod A B) : A.
 
 Parameter fst_beta :
-  forall (A B : Type) (a : A) (b : B), fst {A; B; pair {A; B; a; b}} == a.
+  forall (A B : Type) (a : A) (b : B), fst A B (pair A B a b) == a.
 
-Parameter X Y : Type.
+Parameter X : Type.
+Parameter Y : Type.
 Parameter a : X.
 Parameter f : X -> X.
 
 Check
   beta fst_beta in
     fun (y : Y) =>
-      refl (f a) : f a == fst {X; Y; pair {X; Y; f a; y}}.
+      refl (f a) : f a == fst X Y (pair X Y (f a) y).
