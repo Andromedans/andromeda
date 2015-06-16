@@ -215,7 +215,7 @@ let make_beta_hint ~loc (xts, (t, e1, e2)) =
               "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments"
         end
       | _ :: _ ->
-        let xs = List.map (fun k -> fst (List.nth xts k)) pvars in
+        let xs = List.map (fun k -> fst (List.nth (List.rev xts) k)) pvars in
         Error.runtime ~loc "this beta hint leaves some variables unmatched (%t)"
           (Print.sequence Name.print ", " xs)
 

@@ -113,7 +113,7 @@ let instantiate_abstraction instantiate_u instantiate_v es depth (xus, v) =
 
 let rec instantiate es depth ((e',loc) as e) =
   (* XXX possible optimization: check whether [es] is empty *)
-  let n = List.length es in
+  if es = [] then e else
     match e' with
 
     | Type -> e
@@ -126,6 +126,7 @@ let rec instantiate es depth ((e',loc) as e) =
         (* this is a variable bound in an abstraction inside the
            instantiated term, so we leave it as it is *)
        else
+         let n = List.length es in
          if k < depth + n
          then List.nth es (k - depth) (* variable corresponds to a substituted term, replace it *)
          else Bound (k - n), loc
