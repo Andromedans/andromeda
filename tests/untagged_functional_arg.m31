@@ -1,0 +1,4 @@
+Let G := (λ (T : Type) (g : T -> T) (x : T) => g x).
+Let G' := (λ T' g (x : T') => g x) : ∀ (T : Type) (g : T -> T), T -> T.
+
+Check refl G : G == G'.

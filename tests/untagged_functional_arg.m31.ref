@@ -1,0 +1,7 @@
+G is defined.
+
+G' is defined.
+
+refl (λ (T : Type) (g : T -> T) (x : T) => g x)
+      : (λ (T : Type) (g : T -> T) (x : T) => g x)
+          == (λ (T' : Type) (g : T' -> T') (x : T') => g x)
