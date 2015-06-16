@@ -14,7 +14,6 @@
 %token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
 %token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
-%token PARAMETER
 %token PRIMITIVE
 %token CONTEXT HELP QUIT
 %token <int> VERBOSITY
@@ -50,7 +49,6 @@ plain_topcomp:
   | TOPETA c=term DOT                                    { TopEta c }
   | TOPHINT c=term DOT                                   { TopHint c }
   | TOPINHABIT c=term DOT                                { TopInhabit c }
-  | PARAMETER xs=nonempty_list(name) COLON t=term DOT    { Parameter (xs, t) }
   | PRIMITIVE x=name yst=list(paren_bind(ty_term)) COLON u=term DOT
                                                          { Primitive (x, List.concat yst, u)}
 

@@ -2,6 +2,7 @@ open Parser
 open Ulexbuf
 
 let reserved = [
+  ("Axiom", PRIMITIVE) ;
   ("and", AND) ;
   ("beta", BETA) ;
   ("Beta", TOPBETA) ;
@@ -10,12 +11,12 @@ let reserved = [
   ("Eta", TOPETA) ;
   ("hint", HINT) ;
   ("Hint", TOPHINT) ;
+  ("Hypothesis", PRIMITIVE) ;
   ("inhabit", INHABIT) ;
   ("Inhabit", TOPINHABIT) ;
   ("Let", TOPLET) ;
   ("let", LET) ;
   ("Parameter", PRIMITIVE) ;
-  ("Primitive", PRIMITIVE) ;
   ("forall", FORALL) ;
   ("∀", FORALL) ;
   ("Π", FORALL) ;
