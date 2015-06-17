@@ -1,14 +1,14 @@
 #including ../examples/sum.m31
 sum_rect
-      : Π (A : Type) (B : Type) (P : sum A B -> Type),
-          (Π (a : A), P (inl A B a)) ->
-            (Π (b : B), P (inr A B b)) -> Π (t : sum A B), P t
+      : Π (A : Type) (B : Type) (P : sum A B ⟶ Type),
+          (Π (a : A), P (inl A B a)) ⟶
+            (Π (b : B), P (inr A B b)) ⟶ Π (t : sum A B), P t
 #processed ../examples/sum.m31
 Beta hint installed.
 Beta hint installed.
-λ (A : Type) (B : Type) (P : sum A B -> Type)
-  (l : Π (a : A), P (inl A B a)) (r : Π (b : B), P (inr A B b)) (b : B) =>
+λ (A : Type) (B : Type) (P : sum A B ⟶ Type)
+  (l : Π (a : A), P (inl A B a)) (r : Π (b : B), P (inr A B b)) (b : B) ⟹
   refl (r b)
-      : Π (A : Type) (B : Type) (P : sum A B -> Type)
+      : Π (A : Type) (B : Type) (P : sum A B ⟶ Type)
           (l : Π (a : A), P (inl A B a)) (r : Π (b : B), P (inr A B b))
-          (b : B), r b == sum_rect A B P l r (inr A B b)
+          (b : B), r b ≡ sum_rect A B P l r (inr A B b)
