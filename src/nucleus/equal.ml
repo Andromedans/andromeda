@@ -958,7 +958,10 @@ and verify_match ~spawn ctx xts pvars checks =
     (* Perform delayed inhabitation goals *)
     (* XXX why is it safe to delay these? *)
     List.iter
-      (fun (ctx, t) -> ignore (inhabit ~subgoals:true ctx t))
+      (fun (ctx, t) ->
+         match inhabit ~subgoals:true ctx t with
+         | None -> raise NoMatch
+         | Some _ -> ())
       inhs ;
     (* match succeeded *)
     Some es
@@ -990,7 +993,9 @@ and inhabit ~subgoals ctx t =
   let Tt.Ty (t', loc) as t = whnf_ty ctx t in
     inhabit_whnf ~subgoals ctx t
 
-and inhabit_whnf ~subgoals ctx (Tt.Ty (t', loc)) =
+and inhabit_whnf ~subgoals ctx ((Tt.Ty (t', loc)) as t) =
+  Print.debug "trying to inhabit (subgoals = %b) whnf@ %t"
+    subgoals (Tt.print_ty [] t);
   match t' with
 
     | Tt.Prod (xts', t') ->
