@@ -194,7 +194,7 @@ and expr primitive bound ((e', loc) as e) =
           try
             let k = List.assoc x primitive in
             if k = 0 then primapp ~loc primitive bound x []
-            else Error.syntax "this primitive operation needs %d more arguments" k
+            else Error.syntax ~loc "this primitive operation needs %d more arguments" k
           with Not_found ->
             (* it is a name *)
             (* XXX soon we will remove names *)
