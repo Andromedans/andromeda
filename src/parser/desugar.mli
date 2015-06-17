@@ -1,5 +1,6 @@
 (** Conversion from sugared to desugared input syntax *)
 
-(** [toplevel xs c] desugars a toplevel command [c] with a list [xs] of names
-    of bound variables (needed for conversion to de Bruijn indices) *)
-val toplevel : Name.t list -> Input.toplevel -> Syntax.toplevel
+(** [toplevel primitive bound c] desugars a toplevel command [c] with a
+    list of primitives and their arities, and a list of bound variables
+    that are converted to de Bruijn indiced. *)
+val toplevel : (Name.t * int) list -> Name.t list -> Input.toplevel -> Syntax.toplevel

@@ -6,6 +6,9 @@ type t
 (** The empty context *)
 val empty : t
 
+(** List of primitive names with their arities. *)
+val primitives : t -> (Name.t * int) list
+
 (** Known bound variables *)
 val bound_names : t -> Name.t list
 
@@ -14,6 +17,9 @@ val used_names : t -> Name.t list
 
 (** Lookup a free variable. *)
 val lookup_free : Name.t -> t -> Tt.ty option
+
+(** Lookup a primitive operation. *)
+val lookup_primitive : Name.t -> t -> Tt.primsig option
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : Syntax.bound -> t -> Value.value
@@ -25,14 +31,18 @@ val beta_hints : t -> Pattern.beta_hint list
 val eta_hints : t -> Pattern.eta_hint list
 
 (** Return all general hints in the context *)
-val hints : t -> Pattern.hint list
+val general_hints : t -> Pattern.general_hint list
 
 (** Return all general hints in the context *)
-val inhabit : t -> Pattern.inhabit list
+val inhabit_hints : t -> Pattern.inhabit_hint list
 
 (** Add a free variable of a given type to the context.
-    Fails if the free variable is already bound. *)
+    Fails if the variable is already bound. *)
 val add_free : Name.t -> Tt.ty -> t -> t
+
+(** Add a primitive operation of a given signature to the context.
+    Fails if the variable is already bound. *)
+val add_primitive : Name.t -> Tt.primsig -> t -> t
 
 (** Add a beta hint to the context. *)
 val add_beta : Pattern.beta_hint -> t -> t
@@ -41,10 +51,10 @@ val add_beta : Pattern.beta_hint -> t -> t
 val add_eta : Pattern.eta_hint -> t -> t
 
 (** Add a hint to the context. *)
-val add_hint : Pattern.hint -> t -> t
+val add_hint : Pattern.general_hint -> t -> t
 
 (** Add an inhabit hint to the context. *)
-val add_inhabit : Pattern.inhabit -> t -> t
+val add_inhabit : Pattern.inhabit_hint -> t -> t
 
 (** [add_fresh x t ctx] adds a fresh free variable with suggested
     name [x] of given type [t] to the context [ctx]. Return the

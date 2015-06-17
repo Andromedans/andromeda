@@ -9,7 +9,8 @@ Parameter plus_commute : forall (x y : N), plus x y == plus y x.
 Parameter List : N -> Type.
 
 (* And we have a list of size m+n. *)
-Parameter m n : N.
+Parameter m : N.
+Parameter n : N.
 Parameter lst : List (plus m n).
 
 (** Then we can convince Andromeda that lst has size n+m. *)

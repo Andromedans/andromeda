@@ -1,8 +1,5 @@
 unit is assumed.
-
 tt is assumed.
-
 unit_eta is assumed.
-
-λ (x : unit) ⇒ refl tt
+λ (x : unit) ⟹ refl tt
       : Π (x : unit), x ≡ tt

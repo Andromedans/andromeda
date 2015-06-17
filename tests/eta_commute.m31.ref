@@ -1,15 +1,9 @@
 N is assumed.
-
 plus is assumed.
-
 plus_commute is assumed.
-
 List is assumed.
-
 m is assumed.
 n is assumed.
-
 lst is assumed.
-
 lst
       : List (plus n m)

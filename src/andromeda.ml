@@ -90,20 +90,26 @@ let parse lex parse resource =
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
 let rec exec_cmd base_dir interactive ctx c =
-  let (c', loc) = Desugar.toplevel (Context.bound_names ctx) c in
+  let (c', loc) = Desugar.toplevel (Context.primitives ctx) (Context.bound_names ctx) c in
   match c' with
-  | Syntax.Parameter (xs,c) ->
-    let t = Eval.ty ctx c in
-    let ctx =
-      List.fold_left
-        (fun ctx x ->
-           let ctx = Context.add_free x t ctx in
-           if interactive then Format.printf "%t is assumed.@\n" (Name.print x) ;
-           ctx)
-        ctx
-        xs
+
+  | Syntax.Primitive (x, yts, u) ->
+    let rec fold ctx zs yts' = function
+      | [] ->
+        let u = Eval.ty ctx u in
+        let u = Tt.abstract_ty zs 0 u in
+        let yts' = List.rev yts' in
+        (yts', u)
+      | (y, reducing, t)::yts ->
+        let t = Eval.ty ctx t in
+        let z, ctx = Context.add_fresh y t ctx in
+        let ctx = Context.add_bound y (Tt.mk_name ~loc z, t) ctx in
+        let t = Tt.abstract_ty zs 0 t in
+        fold ctx (z::zs) ((y, (reducing, t)) :: yts') yts
     in
-    if interactive then Format.printf "@." ;
+    let ytsu = fold ctx [] [] yts in
+    let ctx = Context.add_primitive x ytsu ctx in
+    if interactive then Format.printf "%t is assumed.@." (Name.print x) ;
     ctx
 
   | Syntax.TopLet (x, c) ->
@@ -111,7 +117,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
       | Value.Return v ->
         let ctx = Context.add_bound x v ctx in
-        if interactive then Format.printf "%t is defined.@\n@." (Name.print x) ;
+        if interactive then Format.printf "%t is defined.@." (Name.print x) ;
         ctx
     end
 
@@ -130,7 +136,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
         | Value.Return (_,t) ->
             let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
+            let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
             let ctx = Context.add_beta h ctx in
             Format.printf "Beta hint installed.@." ;
             ctx
@@ -141,7 +147,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
         | Value.Return (_,t) ->
             let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Pattern.make_eta_hint ~loc (xts, (t, e1, e2)) in
+            let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
             let ctx = Context.add_eta h ctx in
             Format.printf "Eta hint installed.@." ;
             ctx
@@ -152,7 +158,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
         | Value.Return (_,t) ->
           let (xts, u) = Equal.as_universal_bracket ctx t in
-          let h = Pattern.make_inhabit ~loc (xts, u) in
+          let h = Hint.mk_inhabit ~loc ctx (xts, u) in
           let ctx = Context.add_inhabit h ctx in
           Format.printf "Inhabit hint installed.@." ;
           ctx
@@ -163,7 +169,7 @@ let rec exec_cmd base_dir interactive ctx c =
       match Eval.comp ctx c with
         | Value.Return (_,t) ->
             let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Pattern.make_hint ~loc (xts, (t, e1, e2)) in
+            let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
             let ctx = Context.add_hint h ctx in
             Format.printf "Hint installed.@." ;
             ctx

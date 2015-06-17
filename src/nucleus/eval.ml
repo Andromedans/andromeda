@@ -63,6 +63,35 @@ let rec infer ctx (c',loc) =
      in let e = check ctx c t
         in Value.Return (e, t)
 
+  | Syntax.PrimApp (x, cs) ->
+    let yts, u =
+      begin match Context.lookup_primitive x ctx with
+      | Some ytsu -> ytsu
+      | None -> Error.typing "unknown operation %t" (Name.print x)
+      end in
+    let rec fold es yts cs =
+      match yts, cs with
+      | [], [] ->
+        let u = Tt.instantiate_ty es 0 u
+        and e = Tt.mk_primapp ~loc x (List.rev es) in
+        Value.Return (e, u)
+
+      | (y,(reducing,t))::yts, c::cs ->
+        let t = Tt.instantiate_ty es 0 t in
+        let e = check ctx c t in
+        let e = if reducing then Equal.whnf ctx e else e in
+        fold (e :: es) yts cs
+
+      | _::_, [] ->
+        Error.typing ~loc "too few arguments in a primitive operation (%d missing)"
+          (List.length yts)
+
+      | _, _::_ ->
+        Error.typing ~loc "too many arguments in a primitive operation (%d extra)"
+          (List.length cs)
+    in
+    fold [] yts cs
+
   | Syntax.Lambda (abs, c) ->
     let rec fold ctx ys xts = function
       | [] ->
@@ -88,6 +117,10 @@ let rec infer ctx (c',loc) =
         end
     in
       fold ctx [] [] abs
+
+  | Syntax.Spine (e, []) ->
+    let e, t = expr ctx e in
+      Value.Return (e, t)
 
   | Syntax.Spine (e, cs) ->
     let e, t = expr ctx e in
@@ -140,6 +173,7 @@ and check ctx ((c',loc) as c) t =
   match c' with
 
   | Syntax.Return _
+  | Syntax.PrimApp _
   | Syntax.Prod _
   | Syntax.Eq _
   | Syntax.Spine _
@@ -195,7 +229,6 @@ and check ctx ((c',loc) as c) t =
     check_lambda ctx loc t abs c
 
   | Syntax.Refl c ->
-    (** XXX implemente Equal.as_eq and use it here *)
     let abs, (t, e1, e2) = Equal.as_universal_eq ctx t in
     assert (abs = []);
     let e = check ctx c t in
@@ -298,7 +331,7 @@ and spine ~loc ctx e t cs =
   let (xts, t) =
     begin match Equal.as_prod ctx t with
       | Some (xts, t) -> xts, t
-      | None -> Error.typing ~loc "an expression is applied but it is not a function"
+      | None -> Error.typing ~loc "this expression is applied but it is not a function"
     end
   in
   let rec fold es xus xts cs =
@@ -331,7 +364,7 @@ and let_bind ctx xcs =
 and beta_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-  let h = Pattern.make_beta_hint ~loc (xts, (t, e1, e2)) in
+  let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
   let ctx = Context.add_beta h ctx in
   Print.debug "Installed beta hint %t"
     (Pattern.print_beta_hint [] h);
@@ -340,7 +373,7 @@ and beta_bind ctx ((_,loc) as e) =
 and eta_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-  let h = Pattern.make_eta_hint ~loc (xts, (t, e1, e2)) in
+  let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
   let ctx = Context.add_eta h ctx in
   Print.debug "Installed eta hint %t"
     (Pattern.print_eta_hint [] h);
@@ -349,7 +382,7 @@ and eta_bind ctx ((_,loc) as e) =
 and hint_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-  let h = Pattern.make_hint ~loc (xts, (t, e1, e2)) in
+  let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
   let ctx = Context.add_hint h ctx in
   Print.debug "Installed hint %t"
     (Pattern.print_hint [] h);
@@ -358,7 +391,7 @@ and hint_bind ctx ((_,loc) as e) =
 and inhabit_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let xts, t = Equal.as_universal_bracket ctx t in
-  let h = Pattern.make_inhabit ~loc (xts, t) in
+  let h = Hint.mk_inhabit ~loc ctx (xts, t) in
   let ctx = Context.add_inhabit h ctx in
   ctx
 

@@ -1,0 +1,30 @@
+(* Test primitive operations with beta hints. *)
+
+Parameter cow : Type.
+Parameter horn : cow.
+Parameter tail (_ : cow) : cow.
+Parameter tail_horn : tail horn == horn.
+
+Check
+  beta tail_horn in
+    refl horn : horn == tail horn.
+
+
+Parameter prod (A B : Type) : Type.
+
+Parameter pair (A : Type) (B : Type) (_ : A) (_ : B) : prod A B.
+
+Parameter fst (A : Type) (B : Type) (_ : prod A B) : A.
+
+Parameter fst_beta :
+  forall (A B : Type) (a : A) (b : B), fst A B (pair A B a b) == a.
+
+Parameter X : Type.
+Parameter Y : Type.
+Parameter a : X.
+Parameter f : X -> X.
+
+Check
+  beta fst_beta in
+    fun (y : Y) =>
+      refl (f a) : f a == fst X Y (pair X Y (f a) y).

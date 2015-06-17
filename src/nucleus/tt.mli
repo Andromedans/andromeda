@@ -5,6 +5,7 @@ and term' = private
   | Type
   | Name of Name.t (** a free variable *)
   | Bound of Syntax.bound (** a bound variable *)
+  | PrimApp of Name.t * term list (** primitive application *)
   | Lambda of (ty, term * ty) abstraction
     (** a lambda abstraction [fun (x1:A1) ... (xn:An) -> e : A] where
         [Ak] depends on [x1, ..., x{k-1}], while [e] and [A] depends on
@@ -33,9 +34,14 @@ and ty = private
     the [a1, ..., an] have type [A]. *)
 and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
 
+(** The type of a signature of a primitive operation. *)
+type primsig = (bool * ty, ty) abstraction
+
+
 (** Term constructors, the do not check for legality of constructions. *)
 val mk_name: loc:Location.t -> Name.t -> term
 val mk_bound: loc:Location.t -> Syntax.bound -> term
+val mk_primapp: loc:Location.t -> Name.t -> term list -> term
 val mk_lambda: loc:Location.t -> (Name.t * ty) list -> term -> ty -> term
 val mk_spine: loc:Location.t -> term -> (Name.t * ty) list -> ty -> term list -> term
 val mk_type: loc:Location.t -> term

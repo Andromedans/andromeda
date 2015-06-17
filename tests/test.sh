@@ -48,7 +48,7 @@ for FILE in $BASEDIR/*.m31
       $PRINTF "Test: $FILE                        \r"
       rm "$FILE.out"
       else
-      echo "FAILED:  $FILE"
+      echo "FAILED:  $FILE                          "
       if [ $VALIDATE = "1" ]
           then
           "$DIFF" "$FILE.out" "$FILE.ref"
