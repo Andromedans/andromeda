@@ -1012,7 +1012,7 @@ and inhabit_whnf ~subgoals ctx (Tt.Ty (t', loc)) =
         fold ctx [] xts'
 
     | Tt.Eq (t, e1, e2) ->
-      if subgoals && equal ctx e1 e2 t
+      if not subgoals || equal ctx e1 e2 t
       then
         let e = Tt.mk_refl ~loc t e1 in
         Some e
@@ -1031,11 +1031,11 @@ and inhabit_whnf ~subgoals ctx (Tt.Ty (t', loc)) =
     | Tt.Type -> None
 
 and inhabit_bracket ~subgoals ~loc ctx t =
-  let t = strip_bracket ctx t in
-  (* apply inhabit hints *)
   if
-    subgoals &&
+    not subgoals ||
     begin
+      (* apply inhabit hints *)
+      let t = strip_bracket ctx t in
       List.exists
         (fun (xts, pt) ->
            Print.debug "attempting to inhabit@ %t using@ %t"
