@@ -83,8 +83,8 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | ','                      -> f (); COMMA
   | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
-  | "->" | 8594              -> f (); ARROW
-  | "=>" | 8658              -> f (); DARROW
+  | "->" | 10230             -> f (); ARROW
+  | "=>" | 10233             -> f (); DARROW
   | "==" | 8801              -> f (); EQEQ
   | eof                      -> f (); EOF
   | (name | numeral)         -> f ();

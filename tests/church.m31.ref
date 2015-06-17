@@ -1,50 +1,50 @@
 Nat is defined.
-Π (X : Type), (X → X) → X → X
+Π (X : Type), (X ⟶ X) ⟶ X ⟶ X
       : Type
 zero is defined.
-λ (A : Type) (s : A → A) (z : A) ⇒ z
-      : Π (X : Type), (X → X) → X → X
+λ (A : Type) (s : A ⟶ A) (z : A) ⟹ z
+      : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X
 one is defined.
-λ (A : Type) (s : A → A) (z : A) ⇒ s z
-      : Π (X : Type), (X → X) → X → X
+λ (A : Type) (s : A ⟶ A) (z : A) ⟹ s z
+      : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X
 two is defined.
-λ (A : Type) (s : A → A) (z : A) ⇒ s (s z)
-      : Π (X : Type), (X → X) → X → X
+λ (A : Type) (s : A ⟶ A) (z : A) ⟹ s (s z)
+      : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X
 three is defined.
-λ (A : Type) (s : A → A) (z : A) ⇒ s (s (s z))
-      : Π (X : Type), (X → X) → X → X
+λ (A : Type) (s : A ⟶ A) (z : A) ⟹ s (s (s z))
+      : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X
 succ is defined.
-λ (n : Π (X : Type), (X → X) → X → X) (B : Type) (s : B → B)
-  (z : B) ⇒ s (n B s z)
-      : (Π (X : Type), (X → X) → X → X) →
-          Π (X : Type), (X → X) → X → X
+λ (n : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) (B : Type) (s : B ⟶ B)
+  (z : B) ⟹ s (n B s z)
+      : (Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) ⟶
+          Π (X : Type), (X ⟶ X) ⟶ X ⟶ X
 succ' is defined.
-λ (n : Π (X : Type), (X → X) → X → X) (A : Type) (s : A → A)
-  (z : A) ⇒ n A s (s z)
-      : (Π (X : Type), (X → X) → X → X) →
-          Π (X : Type), (X → X) → X → X
+λ (n : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) (A : Type) (s : A ⟶ A)
+  (z : A) ⟹ n A s (s z)
+      : (Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) ⟶
+          Π (X : Type), (X ⟶ X) ⟶ X ⟶ X
 add is defined.
-λ (m : Π (X : Type), (X → X) → X → X)
-  (n : Π (X : Type), (X → X) → X → X) (A : Type) (s : A → A) (
-  z : A) ⇒ m A s (n A s z)
-      : (Π (X : Type), (X → X) → X → X) →
-          (Π (X : Type), (X → X) → X → X) →
-            Π (X : Type), (X → X) → X → X
+λ (m : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X)
+  (n : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) (A : Type) (s : A ⟶ A) (
+  z : A) ⟹ m A s (n A s z)
+      : (Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) ⟶
+          (Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) ⟶
+            Π (X : Type), (X ⟶ X) ⟶ X ⟶ X
 mult is defined.
-λ (m : Π (X : Type), (X → X) → X → X)
-  (n : Π (X : Type), (X → X) → X → X) (A : Type) (s : A → A) ⇒
+λ (m : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X)
+  (n : Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) (A : Type) (s : A ⟶ A) ⟹
   m A (n A s)
-      : (Π (X : Type), (X → X) → X → X) →
-          (Π (X : Type), (X → X) → X → X) →
-            Π (X : Type), (X → X) → X → X
+      : (Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) ⟶
+          (Π (X : Type), (X ⟶ X) ⟶ X ⟶ X) ⟶
+            Π (X : Type), (X ⟶ X) ⟶ X ⟶ X
 N is assumed.
 Z is assumed.
 S is assumed.
-refl (S ((λ (A : Type) (s : A → A) (z : A) ⇒ s (s (s z))) N S Z))
-      : (λ (A : Type) (s : A → A) (z : A) ⇒ s z) N S
-          ((λ (A : Type) (s : A → A) (z : A) ⇒ s (s (s z))) N S Z)
-          ≡ ((λ (A : Type) (s : A → A) (z : A) ⇒
-                  (λ (A0 : Type) (s0 : A0 → A0) (z0 : A0) ⇒ s0 z0) A s
+refl (S ((λ (A : Type) (s : A ⟶ A) (z : A) ⟹ s (s (s z))) N S Z))
+      : (λ (A : Type) (s : A ⟶ A) (z : A) ⟹ s z) N S
+          ((λ (A : Type) (s : A ⟶ A) (z : A) ⟹ s (s (s z))) N S Z)
+          ≡ ((λ (A : Type) (s : A ⟶ A) (z : A) ⟹
+                  (λ (A0 : Type) (s0 : A0 ⟶ A0) (z0 : A0) ⟹ s0 z0) A s
                     (s z)) N
-                 ((λ (A : Type) (s : A → A) (z : A) ⇒ s (s z)) N S)) 
+                 ((λ (A : Type) (s : A ⟶ A) (z : A) ⟹ s (s z)) N S)) 
                 Z

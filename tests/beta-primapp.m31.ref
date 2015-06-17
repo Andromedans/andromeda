@@ -12,5 +12,5 @@ X is assumed.
 Y is assumed.
 a is assumed.
 f is assumed.
-λ (y : Y) ⇒ refl (f a)
+λ (y : Y) ⟹ refl (f a)
       : Π (y : Y), f a ≡ fst X Y (pair X Y (f a) y)
