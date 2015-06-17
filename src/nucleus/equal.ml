@@ -285,7 +285,9 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
                 (* no hints apply, proceed with applying general hints *)
                 equal_hints ctx e1 e2 t
 
-              |  (_, (xts, (pt, k1, k2))) :: hs ->
+              |  ((_, (xts, (pt, k1, k2))) as h) :: hs ->
+                Print.debug "collecting for eta %t"
+                  (Pattern.print_eta_hint [] h);
                 begin match collect_for_eta ctx (pt, k1, k2) (t, e1, e2) with
                   | None -> fold hs (* no match, try other hints *)
                   | Some (pvars, checks) ->
@@ -667,9 +669,10 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
   if n1 > n2 then raise NoMatch ;
 
   (* match the heads *)
+  (* The type comes from the *term* not the pattern and thus doesn't contain pvars *)
   let pvars_head, checks_head =
     begin
-      let t = (let ((xts, u), _) = pargs in Tt.mk_prod_ty ~loc xts u) in
+      let t = (let ((yvs, w), _) = args in Tt.mk_prod_ty ~loc yvs w) in
       pattern_collect_whnf ctx ph ~at_ty:t h
     end
   in
@@ -678,9 +681,15 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
     match xts, pes, yvs, es with
 
     | (x,t)::xts, pe::pes, (y,v)::yvs, e::es ->
+      Print.debug "collect spine (1): collect arg@ %t at %t@ from@ %t at %t"
+        (Pattern.print_pattern [] ([], pe)) (Tt.print_ty [] t)
+        (Tt.print_term [] e) (Tt.print_ty [] v);
       let t = Tt.instantiate_ty es' 0 t
       and v = Tt.instantiate_ty es' 0 v in
-      let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:t e in
+      Print.debug "collect spine (2): collect arg@ %t at %t@ from@ %t at %t"
+        (Pattern.print_pattern [] ([], pe)) (Tt.print_ty [] t)
+        (Tt.print_term [] e) (Tt.print_ty [] v);
+      let pvars_e, checks_e = pattern_collect ctx pe ~at_ty:v e in
       let xtvs = (x,(t,v)) :: xtvs in
       let es' = e :: es' in
       let pvars, checks, extras = fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss in
@@ -919,15 +928,12 @@ and verify_match ~spawn ctx xts pvars checks =
 
         | CheckEqualTy (xuvs, (t1, t2)) ->
 
-          let instantiate_pty_ty es depth (t1, t2) =
-            (Tt.instantiate_ty es depth t1, t2) in
-          let xuvs, (t1', t2') =
-            Tt.instantiate_abstraction
-              instantiate_pty_ty
-              instantiate_pty_ty
-              es 0
-              (xuvs, (t1, t2))
-          in
+          (* All de Bruijn indices refer to pvars from the point of view of
+             the body, we therefore must not instantiate with
+             [Tt.instantiate_abstraction] which expects them to be relative to
+             the current abstraction *)
+          let xuvs = List.map (fun (x, (pt, t)) -> x, (Tt.instantiate_ty es 0 pt, t)) xuvs in
+          let t1', t2' =  Tt.instantiate_ty es 0 t1, t2 in
 
           Print.debug "es: %t"
             (Print.sequence (Tt.print_term ~max_level:0 []) "; " es);
@@ -1006,7 +1012,7 @@ and inhabit_whnf ~subgoals ctx (Tt.Ty (t', loc)) =
         fold ctx [] xts'
 
     | Tt.Eq (t, e1, e2) ->
-      if not subgoals || equal ctx e1 e2 t
+      if subgoals && equal ctx e1 e2 t
       then
         let e = Tt.mk_refl ~loc t e1 in
         Some e
@@ -1028,22 +1034,22 @@ and inhabit_bracket ~subgoals ~loc ctx t =
   let t = strip_bracket ctx t in
   (* apply inhabit hints *)
   if
-    not subgoals ||
+    subgoals &&
     begin
-    List.exists
-      (fun (xts, pt) ->
-        Print.debug "attempting to inhabit@ %t using@ %t"
-           (Tt.print_ty [] t)
-           (Pattern.print_inhabit_hint [] (xts, pt)) ;
-        match collect_for_inhabit ctx pt t with
-          | None -> false
-          | Some (pvars, checks) ->
-            (* check validity of the match *)
-            begin match verify_match ~spawn:true ctx xts pvars checks with
-              | Some _ -> true
-              | None -> false
-            end)
-      (Context.inhabit_hints ctx)
+      List.exists
+        (fun (xts, pt) ->
+           Print.debug "attempting to inhabit@ %t using@ %t"
+             (Tt.print_ty [] t)
+             (Pattern.print_inhabit_hint [] (xts, pt)) ;
+           match collect_for_inhabit ctx pt t with
+           | None -> false
+           | Some (pvars, checks) ->
+             (* check validity of the match *)
+             begin match verify_match ~spawn:true ctx xts pvars checks with
+             | Some _ -> true
+             | None -> false
+             end)
+        (Context.inhabit_hints ctx)
     end
   then Some (Tt.mk_inhab ~loc)
   else None

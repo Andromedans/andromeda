@@ -1,0 +1,13 @@
+prod is assumed.
+pair is assumed.
+fst is assumed.
+snd is assumed.
+pair_beta_fst is assumed.
+pair_beta_snd is assumed.
+pair_eta is assumed.
+C is assumed.
+D is assumed.
+p is assumed.
+q is assumed.
+File "./eta-horror.m31", line 37, characters 4-10: Typing error
+  failed to check that the term p is equal to q
