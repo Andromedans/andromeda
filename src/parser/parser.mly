@@ -50,7 +50,7 @@ plain_topcomp:
   | TOPETA c=term DOT                                    { TopEta c }
   | TOPHINT c=term DOT                                   { TopHint c }
   | TOPINHABIT c=term DOT                                { TopInhabit c }
-  | PRIMITIVE x=name yst=list(primarg) COLON u=term DOT { Primitive (x, List.concat yst, u)}
+  | PRIMITIVE xs=name+ yst=primarg* COLON u=term DOT     { Primitive (xs, List.concat yst, u)}
 
 return_type:
   | COLON t=ty_term { t }
