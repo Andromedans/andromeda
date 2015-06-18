@@ -1,15 +1,11 @@
+(* Simple products with an eta rule. *)
+
 Parameter prod (_ _ : Type) : Type.
 
-Parameter pair (A : Type) (B : Type) (_ : A) : B ->  prod A B.
-(*Parameter pair : forall (A : Type) (B : Type), A -> B -> prod A B.*)
+Parameter pair (A : Type) (B : Type) (_ : A) (_ : B) : prod A B.
 
-
-Parameter fst (X Y : Type) (_ : prod X Y): X.
-Parameter snd (X Y : Type) (_ : prod X Y): Y.
-
-(* Parameter fst : forall (X Y : Type), prod X Y -> X. *)
-(* Parameter snd : forall (X Y : Type), prod X Y -> Y. *)
-
+Parameter fst (X Y : Type) (reduce _ : prod X Y): X.
+Parameter snd (X Y : Type) (reduce _ : prod X Y): Y.
 
 Parameter pair_beta_fst :
   forall (U V : Type) (u : U) (v : V),
@@ -29,7 +25,7 @@ Parameter C : Type.
 Parameter D : Type.
 Parameter p : prod C D.
 
-(* NB: Without beta hints, the eta hint will cycle. *)
+(* Surjective pairing. *)
 Check
   beta pair_beta_fst in
   beta pair_beta_snd in
