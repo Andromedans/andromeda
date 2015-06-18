@@ -232,7 +232,13 @@ let toplevel primitive bound (d', loc) =
       let yts, u = fold bound [] yts in
       Syntax.Primitive (x, yts, u)
 
-    | Input.TopLet (x, c) ->
+    | Input.TopLet (x, yts, u, ((_, loc) as c)) ->
+      let c = match u with
+        | None -> c
+        | Some u ->
+          Input.Ascribe (c, u), loc in
+      let yts = List.map (fun (y, t) -> y, Some t) yts in
+      let c = Input.Lambda (yts, c), loc in
       let c = comp primitive bound c in
       Syntax.TopLet (x, c)
 
