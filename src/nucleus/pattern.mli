@@ -44,6 +44,29 @@ type general_hint = Name.t * (Tt.ty, ty * term * term) Tt.abstraction
 (** An inhabit hint is a universally quantified type. *)
 type inhabit_hint = (Tt.ty, ty) Tt.abstraction
 
+(** To each pattern and whnf term we associate a hint key in such a way that
+    a pattern and a term match only if their hint keys are equal. This way we
+    can look up possibly matching hints by hint keys.
+
+    There is no key for spines because the key for a spine is the key of its
+    head. *)
+type hint_key =
+  | Key_Type
+  | Key_Name of Name.t
+  | Key_PrimApp of Name.t
+  | Key_Lambda
+  | Key_Prod
+  | Key_Eq
+  | Key_Refl
+  | Key_Inhab
+  | Key_Bracket
+
+(* Compute the hint key of a term. *)
+val term_key: Tt.term -> hint_key
+
+(* Compute the hint key of a type. *)
+val ty_key : Tt.ty -> hint_key
+
 val print_pattern : ?max_level:int -> Name.t list -> t -> (Format.formatter -> unit)
 
 val print_beta_hint : ?max_level:int -> Name.t list -> beta_hint -> Format.formatter -> unit

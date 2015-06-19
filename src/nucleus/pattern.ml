@@ -44,6 +44,33 @@ type general_hint = Name.t * (Tt.ty, ty * term * term) Tt.abstraction
 (** An inhabit hint is a universally quantified type. *)
 type inhabit_hint = (Tt.ty, ty) Tt.abstraction
 
+type hint_key =
+  | Key_Type
+  | Key_Name of Name.t
+  | Key_PrimApp of Name.t
+  | Key_Lambda
+  | Key_Prod
+  | Key_Eq
+  | Key_Refl
+  | Key_Inhab
+  | Key_Bracket
+
+let rec term_key (e',loc) =
+  match e' with
+  | Tt.Type -> Key_Type
+  | Tt.Name x -> Key_Name x
+  | Tt.Bound _ -> Error.impossible ~loc "De Bruijn index encountered in term_key"
+  | Tt.PrimApp (x, _) -> Key_PrimApp x
+  | Tt.Lambda _ -> Key_Lambda
+  | Tt.Spine (e, _, _) -> term_key e
+  | Tt.Prod _ -> Key_Prod
+  | Tt.Eq _ -> Key_Eq
+  | Tt.Refl _ -> Key_Refl
+  | Tt.Inhab -> Key_Inhab
+  | Tt.Bracket _ -> Key_Bracket
+
+let ty_key (Tt.Ty t) = term_key t
+
 let rec print_term ?max_level xs e ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
