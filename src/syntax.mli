@@ -6,7 +6,6 @@ type bound = int
 (** Desugared expressions *)
 type expr = expr' * Location.t
 and expr' =
-  | Name of Name.t
   | Bound of bound
   | Type
 

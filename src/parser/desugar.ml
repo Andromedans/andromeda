@@ -196,9 +196,7 @@ and expr primitive bound ((e', loc) as e) =
             if k = 0 then primapp ~loc primitive bound x []
             else Error.syntax ~loc "this primitive operation needs %d more arguments" k
           with Not_found ->
-            (* it is a name *)
-            (* XXX soon we will remove names *)
-            bound, [], (Syntax.Name x, loc)
+            Error.syntax ~loc "unknown name %t" (Name.print x)
         end
       | Some k -> bound, [], (Syntax.Bound k, loc)
     end
