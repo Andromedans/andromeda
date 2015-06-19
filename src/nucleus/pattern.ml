@@ -132,7 +132,7 @@ let print_beta_hint ?max_level xs (_, (yts, (pb, e))) ppf =
       (print_term xs p)
       (Tt.print_term xs e)
   in
-  Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_beta_body xs yts)
+  Print.print ?max_level ppf "@[%t@]" (Name.print_binders (Name.print_binder1 Tt.print_ty) print_beta_body xs yts)
 
 let print_hint ?max_level xs (_, (yts, (pt, pe1, pe2))) ppf =
   let print_body xs ppf =
@@ -141,7 +141,7 @@ let print_hint ?max_level xs (_, (yts, (pt, pe1, pe2))) ppf =
       (print_ty xs pt)
       (print_term xs pe2)
   in
-  Print.print ?max_level ppf "@[%t@]" (Name.print_binders Tt.print_ty print_body xs yts)
+  Print.print ?max_level ppf "@[%t@]" (Name.print_binders (Name.print_binder1 Tt.print_ty) print_body xs yts)
 
 let print_eta_hint ?max_level xs (h, (yts, (pt, k1, k2))) ppf =
   print_hint ?max_level xs (h, (yts, (pt, PVar k1, PVar k2))) ppf
@@ -152,12 +152,12 @@ let print_inhabit_hint ?max_level xs (yts, pt) ppf =
       (print_ty xs pt)
   in
   Print.print ?max_level ppf "@[%t@]"
-    (Name.print_binders Tt.print_ty print_body xs yts)
+    (Name.print_binders (Name.print_binder1 Tt.print_ty) print_body xs yts)
 
 let print_pattern ?max_level xs (xts, p) ppf =
   Print.print ?max_level ppf "@[%t@]"
     (Name.print_binders
-       Tt.print_ty
+       (Name.print_binder1 Tt.print_ty)
        (fun xs ppf -> Print.print ppf "@ =>@ @[<hov 2>%t@]" (print_term xs p))
        xs xts)
 

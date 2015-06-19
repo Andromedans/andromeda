@@ -9,7 +9,7 @@ let print x ppf =
   match x with
   | Anonymous -> Print.print ppf "_"
   | Gensym (s, k) ->
-    begin if !Config.verbosity <= 2
+    begin if !Config.verbosity <= 3
       then Print.print ppf "%s" s
       else Print.print ppf "gensym_%s_%d" s k
     end
@@ -72,18 +72,20 @@ let index_of x ys =
   in
   fold 0 ys
 
-let rec print_binders print_u print_v xs xus ppf =
+let print_binder1 print_u xs x u ppf =
+  Print.print ppf "(@[<hv>%t :@ %t@])"
+    (print x) (print_u xs u)
+
+let rec print_binders print_xu print_v xs xus ppf =
   match xus with
   | [] -> Print.print ppf "%t" (print_v xs)
   | [(x,u)] ->
     let x = refresh xs x in
-    Print.print ppf "(@[<hv>%t :@ %t@])@,%t"
-      (print x)
-      (print_u xs u)
+    Print.print ppf "%t@,%t"
+      (print_xu xs x u)
       (print_v (x::xs))
   | (x,u) :: xus ->
     let x = refresh xs x in
-    Print.print ppf "(@[<hv>%t :@ %t@])@ %t"
-      (print x)
-      (print_u xs u)
-      (print_binders print_u print_v (x::xs) xus)
+    Print.print ppf "%t@ %t"
+      (print_xu xs x u)
+      (print_binders print_xu print_v (x::xs) xus)

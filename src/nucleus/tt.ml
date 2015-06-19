@@ -476,7 +476,7 @@ and print_lambda xs (yus, (e, t)) ppf =
   Print.print ppf "@[<hov 2>%s %t@]"
     (char_lambda ())
     (Name.print_binders
-      print_ty
+      (Name.print_binder1 print_ty)
       (fun xs ppf -> Print.print ppf "@ %t%s@ %t"
         (print_annot (print_ty xs t))
         (char_darrow ())
@@ -506,7 +506,7 @@ and print_prod xs yus v ppf =
     Print.print ppf "@[<hov 2>%s %t@]"
       (char_prod ())
       (Name.print_binders
-        print_ty
+        (Name.print_binder1 print_ty)
         (fun xs ppf -> Print.print ppf ",@ %t" (print_prod xs yus v))
         xs xus)
 
@@ -520,7 +520,7 @@ and print_spine xs e (yts, u) es ppf =
   then
     Print.print ppf "(%t)%t"
       spine_noannot
-      (print_annot (Name.print_binders print_ty (fun xs -> print_ty xs u) xs yts))
+      (print_annot (Name.print_binders (Name.print_binder1 print_ty) (fun xs -> print_ty xs u) xs yts))
   else
     spine_noannot ppf
 
@@ -528,3 +528,18 @@ and print_binder xs (x, t) ppf =
   Print.print ppf "(%t :@ %t)"
         (Name.print x)
         (print_ty xs t)
+
+let print_primsig ?max_level xs (x_red_u_s, t) ppf =
+  let print_xs =
+    (fun xs x (red, u) ppf ->
+       Print.print ppf "(@[<hv>%s%t :@ %t@])"
+         (if red then "reduce " else "")
+         (Name.print x)
+         (print_ty ~max_level:0 xs u)) in
+  let print_u =
+    (fun sp xs ppf ->
+       Print.print ppf "%s:@;<1 -2>%t"
+         sp (print_ty ?max_level xs t)) in
+  match x_red_u_s with
+  | [] -> print_u "" xs ppf
+  | _::_ -> Name.print_binders print_xs (print_u " ") xs x_red_u_s ppf

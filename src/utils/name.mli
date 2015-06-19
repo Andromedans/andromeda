@@ -26,9 +26,11 @@ val eq : t -> t -> bool
 
 (** [index_of x xs] finds the index of [x] in list [xs]. *)
 val index_of : t -> t list -> int option
-
+val print_binder1 :
+  (t list -> 'a -> Format.formatter -> unit) -> t list ->
+  t -> 'a -> Format.formatter -> unit
 val print_binders :
-  (t list -> 'a -> Format.formatter -> unit) ->
+  (t list -> t -> 'a -> Format.formatter -> unit) ->
   (t list -> Format.formatter -> unit) ->
   t list -> (t * 'a) list ->
   Format.formatter -> unit
