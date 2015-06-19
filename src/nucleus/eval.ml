@@ -14,14 +14,6 @@ let print_ty ctx t =
 let rec expr ctx (e',loc) =
   begin
     match e' with
-    | Syntax.Name x ->
-       begin
-         match Context.lookup_free x ctx with
-         | None -> Error.runtime ~loc "unknown free variable %t" (Name.print x)
-         | Some t ->
-            let x = Tt.mk_name ~loc x in
-              (x, t)
-       end
 
     | Syntax.Bound k -> Context.lookup_bound k ctx
 
