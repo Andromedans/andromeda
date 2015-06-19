@@ -3,7 +3,6 @@
 Parameter bool : Type.
 Parameter true : bool.
 Parameter false : bool.
-
 Parameter ind_bool :
   forall (P : bool -> Type) (x : P true) (y : P false), forall b : bool, P b.
 
@@ -30,8 +29,8 @@ Check
 (* Be very careful about when reductions may happen.
    Better hint management would help here. *)
 
-Let bool_disjoint :=
-  (fun p =>
+(* Be very careful about when reductions may happen. *)
+Let bool_disjoint (p : true == false) : empty :=
      let P :=
          fun (b : bool) => ind_bool (fun _ => Type) unit empty b
      in
@@ -45,34 +44,26 @@ Let bool_disjoint :=
        beta ind_bool_true in
          p : unit == empty in
      beta p in
-       tt : empty)
-    :
-    true == false -> empty.
+       tt : empty.
 
 (* Let's be less careful. *)
 Beta ind_bool_true.
 Beta ind_bool_false.
 
-Let bool_disjoint' :=
-  (fun (p : true == false) =>
+Let bool_disjoint' (p : true == false) : empty :=
      let P := fun (b : bool) => ind_bool (fun (_ : bool) => Type) unit empty b in
      let p :=
        beta p in
          (refl (P true) : P true == P false) in
      let p := p : unit == empty in
      beta p in
-       tt : empty)
-    :
-    true == false -> empty.
+       tt.
 
 (* The information propagates inwards. *)
-Let bool_disjoint'' :=
-  (fun (p : true == false) =>
+Let bool_disjoint'' (p : true == false) : empty :=
      let P := fun (b : bool) => ind_bool (fun (_ : bool) => Type) unit empty b in
      let p := beta p in (refl empty : P true == empty) in
      let p := p : unit == empty in
-     beta p in tt)
-    :
-    true == false -> empty.
+     beta p in tt.
 
 Check bool_disjoint''.

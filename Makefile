@@ -88,9 +88,9 @@ uninstall-lib:
 
 install-examples:
 	install -d $(EXAMPLE_DIR)
-	install -m644 examples/* $(EXAMPLE_DIR)
+	cp -r examples/* $(EXAMPLE_DIR)
 uninstall-examples:
-	rm -f $(EXAMPLE_DIR)/* || true
+	rm -rf $(EXAMPLE_DIR)/* || true
 	rmdir $(EXAMPLE_DIR) || true
 
 clean:

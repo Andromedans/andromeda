@@ -93,7 +93,7 @@ let rec exec_cmd base_dir interactive ctx c =
   let (c', loc) = Desugar.toplevel (Context.primitives ctx) (Context.bound_names ctx) c in
   match c' with
 
-  | Syntax.Primitive (x, yts, u) ->
+  | Syntax.Primitive (xs, yts, u) ->
     let rec fold ctx zs yts' = function
       | [] ->
         let u = Eval.ty ctx u in
@@ -108,8 +108,10 @@ let rec exec_cmd base_dir interactive ctx c =
         fold ctx (z::zs) ((y, (reducing, t)) :: yts') yts
     in
     let ytsu = fold ctx [] [] yts in
-    let ctx = Context.add_primitive x ytsu ctx in
-    if interactive then Format.printf "%t is assumed.@." (Name.print x) ;
+    let ctx =
+      List.fold_left (fun ctx x -> Context.add_primitive x ytsu ctx) ctx xs in
+    if interactive then
+      List.iter (fun x -> Format.printf "%t is assumed.@." (Name.print x)) xs ;
     ctx
 
   | Syntax.TopLet (x, c) ->

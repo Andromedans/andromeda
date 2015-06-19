@@ -43,13 +43,17 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | TOPLET x=name COLONEQ c=term DOT                     { TopLet (x, c) }
+  | TOPLET x=name yts=paren_bind(ty_term)* u=return_type? COLONEQ c=term DOT
+      { let yts = List.flatten yts in TopLet (x, yts, u, c) }
   | TOPCHECK c=term DOT                                  { TopCheck c }
   | TOPBETA c=term DOT                                   { TopBeta c }
   | TOPETA c=term DOT                                    { TopEta c }
   | TOPHINT c=term DOT                                   { TopHint c }
   | TOPINHABIT c=term DOT                                { TopInhabit c }
-  | PRIMITIVE x=name yst=list(primarg) COLON u=term DOT { Primitive (x, List.concat yst, u)}
+  | PRIMITIVE xs=name+ yst=primarg* COLON u=term DOT     { Primitive (xs, List.concat yst, u)}
+
+return_type:
+  | COLON t=ty_term { t }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective) { $1 }
