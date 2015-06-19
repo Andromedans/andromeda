@@ -31,15 +31,15 @@ type beta_pattern =
   | BetaPrimApp of Name.t * term list
   | BetaSpine of term * (pty, pty) Tt.abstraction * term list
 
-type beta_hint = Name.t * (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
+type beta_hint = (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
 
 (** An eta hint is an abstracted type pattern together with variables that match
     the lhs and rhs of an equation. *)
-type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
+type eta_hint = (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
 
 (** A general hint is an abstracted triple of patterns that match the type and both
     sides of equation. *)
-type general_hint = Name.t * (Tt.ty, ty * term * term) Tt.abstraction
+type general_hint = (Tt.ty, ty * term * term) Tt.abstraction
 
 (** An inhabit hint is a universally quantified type. *)
 type inhabit_hint = (Tt.ty, ty) Tt.abstraction
@@ -76,4 +76,3 @@ val print_eta_hint : ?max_level:int -> Name.t list -> eta_hint -> Format.formatt
 val print_inhabit_hint : ?max_level:int -> Name.t list -> inhabit_hint -> Format.formatter -> unit
 
 val print_hint : ?max_level:int -> Name.t list -> general_hint -> Format.formatter -> unit
-

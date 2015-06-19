@@ -113,10 +113,11 @@ let mk_beta ~loc ctx (xts, (t, e1, e2)) =
       | [] ->
         begin match head_name p with
           | Some x ->
+            let key = Pattern.term_key e1 in
             begin match p with
-              | Pattern.Name x -> x, (xts, (Pattern.BetaName x, e2))
-              | Pattern.PrimApp (x, pes) -> x, (xts, (Pattern.BetaPrimApp (x, pes), e2))
-              | Pattern.Spine (pe, yus, pes) -> x, (xts, (Pattern.BetaSpine (pe, yus, pes), e2))
+              | Pattern.Name x -> key, (xts, (Pattern.BetaName x, e2))
+              | Pattern.PrimApp (x, pes) -> key, (xts, (Pattern.BetaPrimApp (x, pes), e2))
+              | Pattern.Spine (pe, yus, pes) -> key, (xts, (Pattern.BetaSpine (pe, yus, pes), e2))
               | Pattern.PVar _ | Pattern.Bracket _ | Pattern.Eq _ | Pattern.Refl _ | Pattern.Term _ ->
                 Error.runtime ~loc "only a variable, primitive operation or an application can appear on the left-hand side of a beta hint"
             end
@@ -139,7 +140,9 @@ let mk_eta ~loc ctx (xts, (t, e1, e2)) =
   let pvars, p2 = of_term ctx pvars e2 t in
   let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
   match head_name pt', p1, p2 with
-    | Some x, Pattern.PVar k1, Pattern.PVar k2 when k1 <> k2 -> x, (xts, (pt, k1, k2))
+    | Some _, Pattern.PVar k1, Pattern.PVar k2 when k1 <> k2 ->
+      let key = Pattern.ty_key t in
+      key, (xts, (pt, k1, k2))
     | None, _, _ ->
         Error.runtime ~loc
           "the type of an eta hint must be a symbol@ or a symbol applied to arguments"
@@ -153,7 +156,9 @@ let mk_general ~loc ctx (xts, (t, e1, e2)) =
   let pvars, pe1 = of_term ctx pvars e1 t in
   let pvars, pe2 = of_term ctx pvars e2 t in
   match head_name pt' with
-    | Some x -> x, (xts, (pt, pe1, pe2))
+    | Some _ ->
+      let key = Pattern.(term_key e1, term_key e2, ty_key t) in
+      key, (xts, (pt, pe1, pe2))
     | None ->
         Error.runtime ~loc
           "the type of a hint must be a symbol@ or a symbol applied to arguments"

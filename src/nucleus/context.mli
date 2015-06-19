@@ -25,13 +25,14 @@ val lookup_primitive : Name.t -> t -> Tt.primsig option
 val lookup_bound : Syntax.bound -> t -> Value.value
 
 (** Return all beta hints in the context *)
-val beta_hints : t -> Pattern.beta_hint list
+val beta_hints : Pattern.hint_key -> t -> Pattern.beta_hint list
 
 (** Return all eta hints in the context *)
-val eta_hints : t -> Pattern.eta_hint list
+val eta_hints : Pattern.hint_key -> t -> Pattern.eta_hint list
 
 (** Return all general hints in the context *)
-val general_hints : t -> Pattern.general_hint list
+val general_hints : (Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) ->
+  t -> Pattern.general_hint list
 
 (** Return all general hints in the context *)
 val inhabit_hints : t -> Pattern.inhabit_hint list
@@ -45,13 +46,13 @@ val add_free : Name.t -> Tt.ty -> t -> t
 val add_primitive : Name.t -> Tt.primsig -> t -> t
 
 (** Add a beta hint to the context. *)
-val add_beta : Pattern.beta_hint -> t -> t
+val add_beta : (Pattern.hint_key * Pattern.beta_hint) -> t -> t
 
 (** Add an eta hint to the context. *)
-val add_eta : Pattern.eta_hint -> t -> t
+val add_eta : (Pattern.hint_key * Pattern.eta_hint) -> t -> t
 
-(** Add a hint to the context. *)
-val add_hint : Pattern.general_hint -> t -> t
+(** Add a general hint to the context. *)
+val add_general : ((Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) * Pattern.general_hint) -> t -> t
 
 (** Add an inhabit hint to the context. *)
 val add_inhabit : Pattern.inhabit_hint -> t -> t

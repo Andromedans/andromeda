@@ -359,7 +359,7 @@ and beta_bind ctx ((_,loc) as e) =
   let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
   let ctx = Context.add_beta h ctx in
   Print.debug "Installed beta hint %t"
-    (Pattern.print_beta_hint [] h);
+    (Pattern.print_beta_hint [] (snd h));
   ctx
 
 and eta_bind ctx ((_,loc) as e) =
@@ -368,16 +368,16 @@ and eta_bind ctx ((_,loc) as e) =
   let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
   let ctx = Context.add_eta h ctx in
   Print.debug "Installed eta hint %t"
-    (Pattern.print_eta_hint [] h);
+    (Pattern.print_eta_hint [] (snd h));
   ctx
 
 and hint_bind ctx ((_,loc) as e) =
   let (_, t) = expr ctx e in
   let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
   let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
-  let ctx = Context.add_hint h ctx in
+  let ctx = Context.add_general h ctx in
   Print.debug "Installed hint %t"
-    (Pattern.print_hint [] h);
+    (Pattern.print_hint [] (snd h));
   ctx
 
 and inhabit_bind ctx ((_,loc) as e) =

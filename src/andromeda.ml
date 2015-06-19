@@ -172,7 +172,7 @@ let rec exec_cmd base_dir interactive ctx c =
         | Value.Return (_,t) ->
             let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
             let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
-            let ctx = Context.add_hint h ctx in
+            let ctx = Context.add_general h ctx in
             Format.printf "Hint installed.@." ;
             ctx
     end

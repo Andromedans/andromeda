@@ -155,7 +155,7 @@ and whnf ctx e =
   let xs = Context.used_names ctx in
   let rec apply_beta = function
     | [] -> e
-    | ((_, (xts, (p, e'))) as h) :: hs ->
+    | ((xts, (p, e')) as h) :: hs ->
       Print.debug "collecting for beta@ %t@ from@ %t"
         (Pattern.print_beta_hint [] h) (Tt.print_term [] e) ;
       (* Here we use beta hints. First we match [p] against [e]. *)
@@ -187,8 +187,9 @@ and whnf ctx e =
   in
   if !Config.ignore_hints then e
   else begin
+    let key = Pattern.term_key e in
     Print.debug "trying beta hints for@ %t" (Tt.print_term xs e);
-    let e = apply_beta (Context.beta_hints ctx) in
+    let e = apply_beta (Context.beta_hints key ctx) in
     Print.debug "%i found whnf@ %t )" i (Tt.print_term xs e);
     e
   end
@@ -285,7 +286,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
                 (* no hints apply, proceed with applying general hints *)
                 equal_hints ctx e1 e2 t
 
-              |  ((_, (xts, (pt, k1, k2))) as h) :: hs ->
+              |  ((xts, (pt, k1, k2)) as h) :: hs ->
                 Print.debug "collecting for eta %t"
                   (Pattern.print_eta_hint [] h);
                 begin match collect_for_eta ctx (pt, k1, k2) (t, e1, e2) with
@@ -298,7 +299,9 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
                     end
                 end
 
-            in fold (if !Config.ignore_hints then [] else (Context.eta_hints ctx))
+            in let key = Pattern.ty_key t in
+            fold (if !Config.ignore_hints then []
+                  else (Context.eta_hints key ctx))
           end
 
         | Tt.Prod (xus, u) ->
@@ -345,8 +348,9 @@ and equal_hints ctx e1 e2 t =
     ||
     (* try general hints *)
     begin
+      let key = Pattern.(term_key e1, term_key e2, ty_key t) in
       List.exists
-        (fun (_, (xts, (pt, pe1, pe2))) ->
+        (fun (xts, (pt, pe1, pe2)) ->
           match collect_for_hint ctx (pt, pe1, pe2) (t, e1, e2) with
             | None -> false
             | Some (pvars, checks) ->
@@ -355,7 +359,7 @@ and equal_hints ctx e1 e2 t =
                 | Some _ -> true (* success - notice how we throw away the witness of success *)
                 | None -> false
               end)
-        (if !Config.ignore_hints then [] else Context.general_hints ctx)
+        (if !Config.ignore_hints then [] else Context.general_hints key ctx)
     end
     ||
     (* proceed with comparing the weak head normal forms *)

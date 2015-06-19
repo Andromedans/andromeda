@@ -1,14 +1,23 @@
 (** Typing context and runtime environment *)
 
+module HintMap = Map.Make(struct
+    type t = Pattern.hint_key
+    let compare = Pervasives.compare
+  end)
+module GeneralMap = Map.Make(struct
+    type t = Pattern.hint_key * Pattern.hint_key * Pattern.hint_key
+    let compare = Pervasives.compare
+  end)
+
 (** A context holds free variables with their types and an
     environment of runtime bindings. *)
 type t = {
   free : (Name.t * Tt.ty) list;
   primitive : (Name.t * Tt.primsig) list;
   bound : (Name.t * Value.value) list;
-  beta : Pattern.beta_hint list ;
-  eta : Pattern.eta_hint list;
-  hint : Pattern.general_hint list;
+  beta : Pattern.beta_hint list HintMap.t;
+  eta : Pattern.eta_hint list HintMap.t;
+  general : Pattern.general_hint list GeneralMap.t;
   inhabit : Pattern.inhabit_hint list;
   files : string list;
 }
@@ -18,18 +27,21 @@ let empty = {
   free = [];
   primitive = [];
   bound = [] ;
-  beta = [] ;
-  eta = [] ;
-  hint = [] ;
+  beta = HintMap.empty ;
+  eta = HintMap.empty ;
+  general = GeneralMap.empty ;
   inhabit = [] ;
   files = [] ;
 }
 
-let eta_hints {eta=lst} = lst
+let find k hs = try HintMap.find k hs with Not_found -> []
+let find3 k hs = try GeneralMap.find k hs with Not_found -> []
 
-let beta_hints {beta=lst} = lst
+let eta_hints key {eta=hints} = find key hints
 
-let general_hints {hint=lst} = lst
+let beta_hints key {beta=hints} = find key hints
+
+let general_hints key {general=hints} = find3 key hints
 
 let inhabit_hints {inhabit=lst} = lst
 
@@ -82,11 +94,26 @@ let add_primitive x ytsu ctx =
   then Error.runtime "%t already exists" (Name.print x)
   else { ctx with primitive = (x, ytsu) :: ctx.primitive }
 
-let add_beta h ctx = { ctx with beta = h :: ctx.beta }
+let add_beta (key, h) ctx =
+  { ctx with
+    beta =
+      let l = find key ctx.beta in
+      HintMap.add key (h :: l) ctx.beta
+  }
 
-let add_eta h ctx = { ctx with eta = h :: ctx.eta }
+let add_eta (key, h) ctx =
+  { ctx with
+    eta =
+      let l = find key ctx.eta in
+      HintMap.add key (h :: l) ctx.eta
+  }
 
-let add_hint h ctx = { ctx with hint = h :: ctx.hint }
+let add_general (key, h) ctx =
+  { ctx with
+    general =
+      let l = find3 key ctx.general in
+      GeneralMap.add key (h :: l) ctx.general
+  }
 
 let add_inhabit h ctx = { ctx with inhabit = h :: ctx.inhabit }
 

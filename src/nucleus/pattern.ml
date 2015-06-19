@@ -31,15 +31,15 @@ type beta_pattern =
   | BetaPrimApp of Name.t * term list
   | BetaSpine of term * (pty, pty) Tt.abstraction * term list
 
-type beta_hint = Name.t * (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
+type beta_hint = (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
 
 (** An eta hint is an abstracted type pattern together with variables that match
     the lhs and rhs of an equation. *)
-type eta_hint = Name.t * (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
+type eta_hint = (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
 
 (** A general hint is an abstracted triple of patterns that match the type and both
     sides of equation. *)
-type general_hint = Name.t * (Tt.ty, ty * term * term) Tt.abstraction
+type general_hint = (Tt.ty, ty * term * term) Tt.abstraction
 
 (** An inhabit hint is a universally quantified type. *)
 type inhabit_hint = (Tt.ty, ty) Tt.abstraction
@@ -119,7 +119,7 @@ let rec print_term ?max_level xs e ppf =
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
-let print_beta_hint ?max_level xs (_, (yts, (pb, e))) ppf =
+let print_beta_hint ?max_level xs (yts, (pb, e)) ppf =
   let print_beta_body xs ppf =
     let p =
       begin match pb with
@@ -134,7 +134,7 @@ let print_beta_hint ?max_level xs (_, (yts, (pb, e))) ppf =
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders (Name.print_binder1 Tt.print_ty) print_beta_body xs yts)
 
-let print_hint ?max_level xs (_, (yts, (pt, pe1, pe2))) ppf =
+let print_hint ?max_level xs (yts, (pt, pe1, pe2)) ppf =
   let print_body xs ppf =
     Print.print ppf "@ =>@ @[<hov 2>%t ==[%t] %t@]"
       (print_term xs pe1)
@@ -143,8 +143,8 @@ let print_hint ?max_level xs (_, (yts, (pt, pe1, pe2))) ppf =
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders (Name.print_binder1 Tt.print_ty) print_body xs yts)
 
-let print_eta_hint ?max_level xs (h, (yts, (pt, k1, k2))) ppf =
-  print_hint ?max_level xs (h, (yts, (pt, PVar k1, PVar k2))) ppf
+let print_eta_hint ?max_level xs (yts, (pt, k1, k2)) ppf =
+  print_hint ?max_level xs (yts, (pt, PVar k1, PVar k2)) ppf
 
 let print_inhabit_hint ?max_level xs (yts, pt) ppf =
   let print_body xs ppf =
