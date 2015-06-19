@@ -104,9 +104,10 @@ let included f { files } = List.mem (Filename.basename f) files
 
 let print ctx ppf =
   let forbidden_names = used_names ctx in
-  Print.print ppf "---------@." ;
+  Print.print ppf "---CONTEXT---@." ;
   List.iter
     (fun (x, t) ->
-     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>: %t@]@\n" (Name.print x) (Tt.print_ty forbidden_names t))
-    (List.rev ctx.free) ;
-  Print.print ppf "---END---@."
+     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>%t@]@\n" (Name.print x)
+       (Tt.print_primsig forbidden_names t))
+    (List.rev ctx.primitive) ;
+  Print.print ppf "-----END-----@."

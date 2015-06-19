@@ -110,3 +110,4 @@ val occurs_abstraction:
 
 val print_ty : ?max_level:int -> Name.t list -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> Name.t list -> term -> Format.formatter -> unit
+val print_primsig : ?max_level:int -> Name.t list -> primsig -> Format.formatter -> unit
