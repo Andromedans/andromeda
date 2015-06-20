@@ -70,6 +70,10 @@ let rec comp primitive bound ((c',loc) as c) =
       let c = comp primitive bound c in
         [], Syntax.Inhabit (xscs, c)
 
+    | Input.Unhint (xs, c) ->
+      let c = comp primitive bound c in
+      [], Syntax.Unhint (xs, c)
+
     | Input.Ascribe (c, t) ->
       let bound, w, t = expr primitive bound t in
       let c = comp primitive bound c in
@@ -204,7 +208,7 @@ and expr primitive bound ((e', loc) as e) =
     bound, [], (Syntax.Type, loc)
 
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
-     Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
+     Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _) ->
     let x = Name.fresh Name.anonymous
     and c = comp primitive bound e in
@@ -258,6 +262,8 @@ let toplevel primitive bound (d', loc) =
     | Input.TopInhabit xscs ->
       let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       Syntax.TopInhabit xscs
+
+    | Input.TopUnhint xs -> Syntax.TopUnhint xs
 
     | Input.Quit -> Syntax.Quit
 

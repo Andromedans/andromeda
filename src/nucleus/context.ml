@@ -134,6 +134,28 @@ let add_inhabits xshs ctx =
         ctx.inhabit xshs
   }
 
+let unhint untags ctx =
+  let rec fold xs' hs' tags hints =
+    match tags, hints with
+    | [], [] -> List.rev xs', List.rev hs'
+    | xs::tags, h::hints ->
+      let xs', hs' =
+        if List.exists (fun x -> List.mem x untags) xs
+        then xs', hs'
+        else xs::xs', h::hs' in
+      (fold xs' hs') tags hints
+    | [], _::_ | _::_, [] ->
+      Error.impossible "Number of hints different from number of tags"
+
+  in let f (tags, hints) = fold [] [] tags hints in
+  { ctx with
+    beta = HintMap.map f ctx.beta ;
+    eta = HintMap.map f ctx.eta ;
+    general = GeneralMap.map f ctx.general ;
+    inhabit = HintMap.map f ctx.inhabit ;
+  }
+
+
 let add_fresh x t ctx =
   let y = Name.fresh x
   in y, { ctx with free = (y,t) :: ctx.free }

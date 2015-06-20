@@ -21,6 +21,7 @@ and comp' =
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
   | Inhabit of (string list * comp) list * comp
+  | Unhint of string list * comp
   | Ascribe of comp * ty
   | PrimApp of Name.t * comp list
   | Lambda of (Name.t * comp option) list * comp
@@ -42,6 +43,7 @@ and toplevel' =
   | TopEta of (string list * comp) list
   | TopHint of (string list * comp) list
   | TopInhabit of (string list * comp) list
+  | TopUnhint of string list
   | Verbosity of int
   | Include of string list
   | Quit (** quit the toplevel *)

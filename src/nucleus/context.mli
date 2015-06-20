@@ -60,6 +60,9 @@ val add_generals :
 (** Add an inhabit hint to the context. *)
 val add_inhabits : (string list * (Pattern.hint_key * Pattern.inhabit_hint)) list -> t -> t
 
+(** Remove all hints with one of the given tags *)
+val unhint : string list -> t -> t
+
 (** [add_fresh x t ctx] adds a fresh free variable with suggested
     name [x] of given type [t] to the context [ctx]. Return the
     actual name and the new context. *)

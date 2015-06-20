@@ -11,6 +11,8 @@ let reserved = [
   ("Eta", TOPETA) ;
   ("hint", HINT) ;
   ("Hint", TOPHINT) ;
+  ("unhint", UNHINT) ;
+  ("Unhint", TOPUNHINT) ;
   ("Hypothesis", PRIMITIVE) ;
   ("inhabit", INHABIT) ;
   ("Inhabit", TOPINHABIT) ;

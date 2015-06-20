@@ -209,6 +209,8 @@ let rec exec_cmd base_dir interactive ctx c =
           fold ((xs,h) :: xshs) xscs
     in fold [] xscs
 
+  | Syntax.TopUnhint xs -> Context.unhint xs ctx
+
   | Syntax.Include fs ->
     (* relative file names get interpreted relative to the file we're
        currently loading *)

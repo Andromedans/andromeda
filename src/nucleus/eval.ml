@@ -50,6 +50,10 @@ let rec infer ctx (c',loc) =
     let ctx = inhabit_bind ctx xscs in
     infer ctx c
 
+  | Syntax.Unhint (xs, c) ->
+    let ctx = Context.unhint xs ctx in
+    infer ctx c
+
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t
      in let e = check ctx c t
@@ -206,6 +210,10 @@ and check ctx ((c',loc) as c) t =
 
   | Syntax.Inhabit (xscs, c) ->
     let ctx = inhabit_bind ctx xscs in
+    check ctx c t
+
+  | Syntax.Unhint (xs, c) ->
+    let ctx = Context.unhint xs ctx in
     check ctx c t
 
   | Syntax.Ascribe (c, t') ->

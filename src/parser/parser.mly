@@ -12,8 +12,10 @@
 %token EQEQ
 %token REFL
 %token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
+%token TOPUNHINT
 %token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
+%token UNHINT
 %token PRIMITIVE REDUCE
 %token CONTEXT HELP QUIT
 %token <int> VERBOSITY
@@ -50,6 +52,7 @@ plain_topcomp:
   | TOPETA ths=tags_hint+ DOT                            { TopEta ths }
   | TOPHINT ths=tags_hint+ DOT                           { TopHint ths }
   | TOPINHABIT ths=tags_hint+ DOT                        { TopInhabit ths }
+  | TOPUNHINT ts=tag_name+ DOT                           { TopUnhint ts }
   | PRIMITIVE xs=name+ yst=primarg* COLON u=term DOT     { Primitive (xs, List.concat yst, u)}
 
 return_type:
@@ -79,6 +82,7 @@ plain_term:
   | ETA ths=tags_hint+ IN c=term                    { Eta (ths, c) }
   | HINT ths=tags_hint+ IN c=term                   { Hint (ths, c) }
   | INHABIT ths=tags_hint+ IN c=term                { Inhabit (ths, c) }
+  | UNHINT ts=tag_name+ IN c=term                   { Unhint (ts, c) }
   | e=app_term COLON t=ty_term                      { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }

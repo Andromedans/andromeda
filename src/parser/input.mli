@@ -17,6 +17,7 @@ and term' =
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
   | Inhabit of (string list * comp) list * comp
+  | Unhint of string list * comp
   | Ascribe of comp * ty
   | Lambda of (Name.t * comp option) list * comp
   | Spine of comp * comp list
@@ -45,6 +46,7 @@ and toplevel' =
   | TopEta of (string list * comp) list (** global eta hint *)
   | TopHint of (string list * comp) list (** global hint *)
   | TopInhabit of (string list * comp) list (** global inhabit hint *)
+  | TopUnhint of string list
   | Verbosity of int
   | Include of string list
   | Quit (** quit the toplevel *)
