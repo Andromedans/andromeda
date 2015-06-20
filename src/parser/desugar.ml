@@ -50,25 +50,25 @@ let rec comp primitive bound ((c',loc) as c) =
       let c2 = comp primitive bound c2 in
       [], Syntax.Let (xcs, c2)
 
-    | Input.Beta (e, c) ->
-      let bound, w, e = expr primitive bound e in
+    | Input.Beta (xscs, c) ->
+      let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       let c = comp primitive bound c in
-        w, Syntax.Beta (e, c)
+        [], Syntax.Beta (xscs, c)
 
-    | Input.Eta (e, c) ->
-      let bound, w, e = expr primitive bound e in
+    | Input.Eta (xscs, c) ->
+      let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       let c = comp primitive bound c in
-        w, Syntax.Eta (e, c)
+        [], Syntax.Eta (xscs, c)
 
-    | Input.Hint (e, c) ->
-      let bound, w, e = expr primitive bound e in
+    | Input.Hint (xscs, c) ->
+      let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       let c = comp primitive bound c in
-        w, Syntax.Hint (e, c)
+        [], Syntax.Hint (xscs, c)
 
-    | Input.Inhabit (e, c) ->
-      let bound, w, e = expr primitive bound e in
+    | Input.Inhabit (xscs, c) ->
+      let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       let c = comp primitive bound c in
-        w, Syntax.Inhabit (e, c)
+        [], Syntax.Inhabit (xscs, c)
 
     | Input.Ascribe (c, t) ->
       let bound, w, t = expr primitive bound t in
@@ -188,8 +188,7 @@ and expr primitive bound ((e', loc) as e) =
       (* a bound variable always shadows a name *)
       match Name.index_of x bound with
       | None ->
-        (* it is either a primitive operation of arity 0 or a name *)
-        (* XXX soon the only option will be a primitive operation of arity 0 *)
+        (* it is a primitive operation of arity 0 *)
         begin
           try
             let k = List.assoc x primitive in
@@ -244,21 +243,21 @@ let toplevel primitive bound (d', loc) =
       let c = comp primitive bound c in
       Syntax.TopCheck c
 
-    | Input.TopBeta c ->
-      let c = comp primitive bound c in
-      Syntax.TopBeta c
+    | Input.TopBeta xscs ->
+      let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
+      Syntax.TopBeta xscs
 
-    | Input.TopEta c ->
-      let c = comp primitive bound c in
-      Syntax.TopEta c
+    | Input.TopEta xscs ->
+      let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
+      Syntax.TopEta xscs
 
-    | Input.TopHint c ->
-      let c = comp primitive bound c in
-      Syntax.TopHint c
+    | Input.TopHint xscs ->
+      let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
+      Syntax.TopHint xscs
 
-    | Input.TopInhabit c ->
-      let c = comp primitive bound c in
-      Syntax.TopInhabit c
+    | Input.TopInhabit xscs ->
+      let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
+      Syntax.TopInhabit xscs
 
     | Input.Quit -> Syntax.Quit
 

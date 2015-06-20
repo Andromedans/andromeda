@@ -133,49 +133,81 @@ let rec exec_cmd base_dir interactive ctx c =
         ctx
     end
 
-  | Syntax.TopBeta c ->
-    begin
-      match Eval.comp ctx c with
+  | Syntax.TopBeta xscs ->
+    let rec fold xshs = function
+      | [] ->
+        let xshs = List.rev xshs in
+        let ctx = Context.add_betas xshs ctx in
+        Print.debug "Installed beta hints@ %t"
+          (Print.sequence (fun (tags, (_, h)) ppf ->
+               Print.print ppf "@[tags: %s ;@ hint: %t@]"
+                 (String.concat " " tags)
+                 (Pattern.print_beta_hint [] h)) "," xshs);
+        ctx
+      | (xs,c) :: xscs ->
+        match Eval.comp ctx c with
         | Value.Return (_,t) ->
-            let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
-            let ctx = Context.add_beta h ctx in
-            Format.printf "Beta hint installed.@." ;
-            ctx
-    end
+          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+          let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
+          fold ((xs,h) :: xshs) xscs
+    in fold [] xscs
 
-  | Syntax.TopEta c ->
-    begin
-      match Eval.comp ctx c with
+  | Syntax.TopEta xscs ->
+    let rec fold xshs = function
+      | [] ->
+        let xshs = List.rev xshs in
+        let ctx = Context.add_etas xshs ctx in
+        Print.debug "Installed eta hints@ %t"
+          (Print.sequence (fun (tags, (_, h)) ppf ->
+               Print.print ppf "@[tags: %s ;@ hint: %t@]"
+                 (String.concat " " tags)
+                 (Pattern.print_eta_hint [] h)) "," xshs);
+        ctx
+      | (xs,c) :: xscs ->
+        match Eval.comp ctx c with
         | Value.Return (_,t) ->
-            let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
-            let ctx = Context.add_eta h ctx in
-            Format.printf "Eta hint installed.@." ;
-            ctx
-    end
+          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+          let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
+          fold ((xs,h) :: xshs) xscs
+    in fold [] xscs
 
-  | Syntax.TopInhabit c ->
-    begin
-      match Eval.comp ctx c with
+  | Syntax.TopHint xscs ->
+    let rec fold xshs = function
+      | [] ->
+        let xshs = List.rev xshs in
+        let ctx = Context.add_generals xshs ctx in
+        Print.debug "Installed general hints@ %t"
+          (Print.sequence (fun (tags, (_, h)) ppf ->
+               Print.print ppf "@[tags: %s ;@ hint: %t@]"
+                 (String.concat " " tags)
+                 (Pattern.print_hint [] h)) "," xshs);
+        ctx
+      | (xs,c) :: xscs ->
+        match Eval.comp ctx c with
+        | Value.Return (_,t) ->
+          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+          let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
+          fold ((xs,h) :: xshs) xscs
+    in fold [] xscs
+
+  | Syntax.TopInhabit xscs ->
+    let rec fold xshs = function
+      | [] ->
+        let xshs = List.rev xshs in
+        let ctx = Context.add_inhabits xshs ctx in
+        Print.debug "Installed inhabit hints@ %t"
+          (Print.sequence (fun (tags, (_, h)) ppf ->
+               Print.print ppf "@[tags: %s ;@ hint: %t@]"
+                 (String.concat " " tags)
+                 (Pattern.print_inhabit_hint [] h)) "," xshs);
+        ctx
+      | (xs,c) :: xscs ->
+        match Eval.comp ctx c with
         | Value.Return (_,t) ->
           let (xts, u) = Equal.as_universal_bracket ctx t in
           let h = Hint.mk_inhabit ~loc ctx (xts, u) in
-          let ctx = Context.add_inhabit h ctx in
-          Format.printf "Inhabit hint installed.@." ;
-          ctx
-    end
-
-  | Syntax.TopHint c ->
-    begin
-      match Eval.comp ctx c with
-        | Value.Return (_,t) ->
-            let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
-            let ctx = Context.add_general h ctx in
-            Format.printf "Hint installed.@." ;
-            ctx
-    end
+          fold ((xs,h) :: xshs) xscs
+    in fold [] xscs
 
   | Syntax.Include fs ->
     (* relative file names get interpreted relative to the file we're

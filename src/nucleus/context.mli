@@ -35,7 +35,7 @@ val general_hints : (Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) ->
   t -> Pattern.general_hint list
 
 (** Return all general hints in the context *)
-val inhabit_hints : t -> Pattern.inhabit_hint list
+val inhabit_hints : Pattern.hint_key -> t -> Pattern.inhabit_hint list
 
 (** Add a free variable of a given type to the context.
     Fails if the variable is already bound. *)
@@ -46,16 +46,19 @@ val add_free : Name.t -> Tt.ty -> t -> t
 val add_primitive : Name.t -> Tt.primsig -> t -> t
 
 (** Add a beta hint to the context. *)
-val add_beta : (Pattern.hint_key * Pattern.beta_hint) -> t -> t
+val add_betas : (string list * (Pattern.hint_key * Pattern.beta_hint)) list -> t -> t
 
 (** Add an eta hint to the context. *)
-val add_eta : (Pattern.hint_key * Pattern.eta_hint) -> t -> t
+val add_etas : (string list * (Pattern.hint_key * Pattern.eta_hint)) list -> t -> t
 
 (** Add a general hint to the context. *)
-val add_general : ((Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) * Pattern.general_hint) -> t -> t
+val add_generals :
+  (string list *
+   ((Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) * Pattern.general_hint)) list ->
+  t -> t
 
 (** Add an inhabit hint to the context. *)
-val add_inhabit : Pattern.inhabit_hint -> t -> t
+val add_inhabits : (string list * (Pattern.hint_key * Pattern.inhabit_hint)) list -> t -> t
 
 (** [add_fresh x t ctx] adds a fresh free variable with suggested
     name [x] of given type [t] to the context [ctx]. Return the

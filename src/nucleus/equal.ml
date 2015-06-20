@@ -879,7 +879,7 @@ and verify_match ~spawn ctx xts pvars checks =
   (* Create a substitution from an association list mapping
      pattern variables to their values. As you go, check that
      the types of pattern variables are equal to the ones found
-     by the pattern match. If an ubound variable is encountered
+     by the pattern match. If an unbound variable is encountered
      try to inhabit it when [spawn] is [true]. Return a list of
      inhabitation problems that need to be checked later for this
      match to be successful. *)
@@ -1045,6 +1045,7 @@ and inhabit_bracket ~subgoals ~loc ctx t =
     begin
       (* apply inhabit hints *)
       let t = strip_bracket ctx t in
+      let key = Pattern.ty_key t in
       List.exists
         (fun (xts, pt) ->
            Print.debug "attempting to inhabit@ %t using@ %t"
@@ -1058,7 +1059,7 @@ and inhabit_bracket ~subgoals ~loc ctx t =
              | Some _ -> true
              | None -> false
              end)
-        (Context.inhabit_hints ctx)
+        (Context.inhabit_hints key ctx)
     end
   then Some (Tt.mk_inhab ~loc)
   else None

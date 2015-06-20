@@ -46,10 +46,10 @@ plain_topcomp:
   | TOPLET x=name yts=paren_bind(ty_term)* u=return_type? COLONEQ c=term DOT
       { let yts = List.flatten yts in TopLet (x, yts, u, c) }
   | TOPCHECK c=term DOT                                  { TopCheck c }
-  | TOPBETA c=term DOT                                   { TopBeta c }
-  | TOPETA c=term DOT                                    { TopEta c }
-  | TOPHINT c=term DOT                                   { TopHint c }
-  | TOPINHABIT c=term DOT                                { TopInhabit c }
+  | TOPBETA ths=tags_hint+ DOT                           { TopBeta ths }
+  | TOPETA ths=tags_hint+ DOT                            { TopEta ths }
+  | TOPHINT ths=tags_hint+ DOT                           { TopHint ths }
+  | TOPINHABIT ths=tags_hint+ DOT                        { TopInhabit ths }
   | PRIMITIVE xs=name+ yst=primarg* COLON u=term DOT     { Primitive (xs, List.concat yst, u)}
 
 return_type:
@@ -75,10 +75,10 @@ term: mark_location(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                 { e }
   | LET a=let_clauses IN c=term                     { Let (a, c) }
-  | BETA e=term IN c=term                           { Beta (e, c) }
-  | ETA e=term IN c=term                            { Eta (e, c) }
-  | HINT e=term IN c=term                           { Hint (e, c) }
-  | INHABIT e=term IN c=term                        { Inhabit (e, c) }
+  | BETA ths=tags_hint+ IN c=term                   { Beta (ths, c) }
+  | ETA ths=tags_hint+ IN c=term                    { Eta (ths, c) }
+  | HINT ths=tags_hint+ IN c=term                   { Hint (ths, c) }
+  | INHABIT ths=tags_hint+ IN c=term                { Inhabit (ths, c) }
   | e=app_term COLON t=ty_term                      { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
@@ -131,11 +131,22 @@ abstraction(X):
 bind(X):
   | xs=nonempty_list(name) COLON t=X   { List.map (fun x -> (x, t)) xs }
 
-bind1(X):
-  | x=name COLON t=X   { (x, t) }
-
 paren_bind(X):
   | LPAREN xst=bind(X) RPAREN            { xst }
+
+tags_hint:
+  | tsh=paren_tag      { tsh }
+  | x=untagged_hint    { x }
+
+paren_tag:
+  | LPAREN xs=tag_name+ COLON t=term RPAREN
+      { let xs = match t with Var (Name.String x), _ -> x :: xs | _ -> xs in xs, t }
+
+untagged_hint:
+  | x=mark_location(tag_name) { let (x, loc) = x in [x], (Var (Name.make x), loc) }
+
+tag_name:
+  | NAME { $1 }
 
 primarg:
   | LPAREN b=reduce xs=nonempty_list(name) COLON t=ty_term RPAREN  { List.map (fun x -> (x, b, t)) xs }

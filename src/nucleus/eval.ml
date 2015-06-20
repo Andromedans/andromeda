@@ -34,20 +34,20 @@ let rec infer ctx (c',loc) =
      let ctx = let_bind ctx xcs in
      infer ctx c
 
-  | Syntax.Beta (e, c) ->
-    let ctx = beta_bind ctx e in
+  | Syntax.Beta (xscs, c) ->
+    let ctx = beta_bind ctx xscs in
     infer ctx c
 
-  | Syntax.Eta (e, c) ->
-    let ctx = eta_bind ctx e in
+  | Syntax.Eta (xscs, c) ->
+    let ctx = eta_bind ctx xscs in
     infer ctx c
 
-  | Syntax.Hint (e, c) ->
-    let ctx = hint_bind ctx e in
+  | Syntax.Hint (xscs, c) ->
+    let ctx = hint_bind ctx xscs in
     infer ctx c
 
-  | Syntax.Inhabit (e, c) ->
-    let ctx = inhabit_bind ctx e in
+  | Syntax.Inhabit (xscs, c) ->
+    let ctx = inhabit_bind ctx xscs in
     infer ctx c
 
   | Syntax.Ascribe (c, t) ->
@@ -192,21 +192,21 @@ and check ctx ((c',loc) as c) t =
 
     check ctx c t
 
-  | Syntax.Beta (e, c) ->
-    let ctx = beta_bind ctx e in
+  | Syntax.Beta (xscs, c) ->
+    let ctx = beta_bind ctx xscs in
     check ctx c t
 
-  | Syntax.Eta (e, c) ->
-    let ctx = eta_bind ctx e in
+  | Syntax.Eta (xscs, c) ->
+    let ctx = eta_bind ctx xscs in
     check ctx c t
 
-  | Syntax.Hint (e, c) ->
-    let ctx = hint_bind ctx e in
+  | Syntax.Hint (xscs, c) ->
+    let ctx = hint_bind ctx xscs in
     check ctx c t
 
-  | Syntax.Inhabit (e, c) ->
-      let ctx = inhabit_bind ctx e in
-      check ctx c t
+  | Syntax.Inhabit (xscs, c) ->
+    let ctx = inhabit_bind ctx xscs in
+    check ctx c t
 
   | Syntax.Ascribe (c, t') ->
     let t'' = expr_ty ctx t' in
@@ -353,39 +353,69 @@ and let_bind ctx xcs =
     ctx xcs
 
 
-and beta_bind ctx ((_,loc) as e) =
-  let (_, t) = expr ctx e in
-  let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-  let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
-  let ctx = Context.add_beta h ctx in
-  Print.debug "Installed beta hint %t"
-    (Pattern.print_beta_hint [] (snd h));
-  ctx
+and beta_bind ctx xscs =
+  let rec fold xshs = function
+    | (xs, ((_,loc) as c)) :: xscs ->
+      let Value.Return (_, t) = infer ctx c in
+      let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+      let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
+      fold ((xs, h) :: xshs) xscs
+    | [] -> let ctx = Context.add_betas xshs ctx in
+      Print.debug "Installed beta hints@ %t"
+          (Print.sequence (fun (tags, (_, h)) ppf ->
+            Print.print ppf "@[tags: %s ;@ hint: %t@]"
+              (String.concat " " tags)
+              (Pattern.print_beta_hint [] h)) "," xshs);
+      ctx
+  in fold [] xscs
 
-and eta_bind ctx ((_,loc) as e) =
-  let (_, t) = expr ctx e in
-  let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-  let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
-  let ctx = Context.add_eta h ctx in
-  Print.debug "Installed eta hint %t"
-    (Pattern.print_eta_hint [] (snd h));
-  ctx
+and eta_bind ctx xscs =
+  let rec fold xshs = function
+    | (xs, ((_,loc) as c)) :: xscs ->
+      let Value.Return (_, t) = infer ctx c in
+      let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+      let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
+      fold ((xs, h) :: xshs) xscs
+    | [] -> let ctx = Context.add_etas xshs ctx in
+      Print.debug "Installed eta hints@ %t"
+        (Print.sequence (fun (tags, (_, h)) ppf ->
+             Print.print ppf "@[tags: %s ;@ hint: %t@]"
+               (String.concat " " tags)
+               (Pattern.print_eta_hint [] h)) "," xshs);
+      ctx
+  in fold [] xscs
 
-and hint_bind ctx ((_,loc) as e) =
-  let (_, t) = expr ctx e in
-  let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-  let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
-  let ctx = Context.add_general h ctx in
-  Print.debug "Installed hint %t"
-    (Pattern.print_hint [] (snd h));
-  ctx
+and hint_bind ctx xscs =
+  let rec fold xshs = function
+    | (xs, ((_,loc) as c)) :: xscs ->
+      let Value.Return (_, t) = infer ctx c in
+      let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+      let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
+      fold ((xs, h) :: xshs) xscs
+    | [] -> let ctx = Context.add_generals xshs ctx in
+      Print.debug "Installed hints@ %t"
+        (Print.sequence (fun (tags, (_, h)) ppf ->
+             Print.print ppf "@[tags: %s ;@ hint: %t@]"
+               (String.concat " " tags)
+               (Pattern.print_hint [] h)) "," xshs);
+      ctx
+  in fold [] xscs
 
-and inhabit_bind ctx ((_,loc) as e) =
-  let (_, t) = expr ctx e in
-  let xts, t = Equal.as_universal_bracket ctx t in
-  let h = Hint.mk_inhabit ~loc ctx (xts, t) in
-  let ctx = Context.add_inhabit h ctx in
-  ctx
+and inhabit_bind ctx xscs =
+  let rec fold xshs = function
+    | (xs, ((_,loc) as c)) :: xscs ->
+      let Value.Return (_, t) = infer ctx c in
+      let xts, t = Equal.as_universal_bracket ctx t in
+      let h = Hint.mk_inhabit ~loc ctx (xts, t) in
+      fold ((xs, h) :: xshs) xscs
+    | [] -> let ctx = Context.add_inhabits xshs ctx in
+      Print.debug "Installed inhabit hints@ %t"
+        (Print.sequence (fun (tags, (_, h)) ppf ->
+             Print.print ppf "@[tags: %s ;@ hint: %t@]"
+               (String.concat " " tags)
+               (Pattern.print_inhabit_hint [] h)) "," xshs);
+      ctx
+  in fold [] xscs
 
 and expr_ty ctx ((_,loc) as e) =
   let (e, t) = expr ctx e

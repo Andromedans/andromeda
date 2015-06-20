@@ -166,4 +166,5 @@ let mk_general ~loc ctx (xts, (t, e1, e2)) =
 let mk_inhabit ~loc ctx (xts, t) =
   let pvars = pvars_of_binders xts in
   let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
-    (xts, pt)
+  let key = Pattern.ty_key t in
+  key, (xts, pt)

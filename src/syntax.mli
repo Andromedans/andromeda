@@ -17,10 +17,10 @@ and comp = comp' * Location.t
 and comp' =
   | Return of expr
   | Let of (Name.t * comp) list * comp
-  | Beta of expr * comp
-  | Eta of expr * comp
-  | Hint of expr * comp
-  | Inhabit of expr * comp
+  | Beta of (string list * comp) list * comp
+  | Eta of (string list * comp) list * comp
+  | Hint of (string list * comp) list * comp
+  | Inhabit of (string list * comp) list * comp
   | Ascribe of comp * ty
   | PrimApp of Name.t * comp list
   | Lambda of (Name.t * comp option) list * comp
@@ -38,10 +38,10 @@ and toplevel' =
   | Primitive of Name.t list * (Name.t * bool * comp) list * comp (** introduce a primitive operation *)
   | TopLet of Name.t * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
-  | TopBeta of comp
-  | TopEta of comp
-  | TopHint of comp
-  | TopInhabit of comp
+  | TopBeta of (string list * comp) list
+  | TopEta of (string list * comp) list
+  | TopHint of (string list * comp) list
+  | TopInhabit of (string list * comp) list
   | Verbosity of int
   | Include of string list
   | Quit (** quit the toplevel *)

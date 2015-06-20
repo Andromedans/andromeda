@@ -15,10 +15,10 @@ type t = {
   free : (Name.t * Tt.ty) list;
   primitive : (Name.t * Tt.primsig) list;
   bound : (Name.t * Value.value) list;
-  beta : Pattern.beta_hint list HintMap.t;
-  eta : Pattern.eta_hint list HintMap.t;
-  general : Pattern.general_hint list GeneralMap.t;
-  inhabit : Pattern.inhabit_hint list;
+  beta : (string list list * Pattern.beta_hint list) HintMap.t;
+  eta : (string list list * Pattern.eta_hint list) HintMap.t;
+  general : (string list list * Pattern.general_hint list) GeneralMap.t;
+  inhabit : (string list list * Pattern.inhabit_hint list) HintMap.t;
   files : string list;
 }
 
@@ -30,20 +30,20 @@ let empty = {
   beta = HintMap.empty ;
   eta = HintMap.empty ;
   general = GeneralMap.empty ;
-  inhabit = [] ;
+  inhabit = HintMap.empty ;
   files = [] ;
 }
 
-let find k hs = try HintMap.find k hs with Not_found -> []
-let find3 k hs = try GeneralMap.find k hs with Not_found -> []
+let find k hs = try HintMap.find k hs with Not_found -> [], []
+let find3 k hs = try GeneralMap.find k hs with Not_found -> [], []
 
-let eta_hints key {eta=hints} = find key hints
+let eta_hints key {eta=hints} = snd @@ find key hints
 
-let beta_hints key {beta=hints} = find key hints
+let beta_hints key {beta=hints} = snd @@ find key hints
 
-let general_hints key {general=hints} = find3 key hints
+let general_hints key {general=hints} = snd @@ find3 key hints
 
-let inhabit_hints {inhabit=lst} = lst
+let inhabit_hints key {inhabit=hints} = snd @@ find key hints
 
 let bound_names {bound=lst} = List.map fst lst
 
@@ -94,28 +94,45 @@ let add_primitive x ytsu ctx =
   then Error.runtime "%t already exists" (Name.print x)
   else { ctx with primitive = (x, ytsu) :: ctx.primitive }
 
-let add_beta (key, h) ctx =
+let add_betas xshs ctx =
   { ctx with
     beta =
-      let l = find key ctx.beta in
-      HintMap.add key (h :: l) ctx.beta
+      List.fold_left
+        (fun db (xs, (key, h)) ->
+           let tags, hints = find key db in
+           HintMap.add key (xs :: tags, h :: hints) db)
+        ctx.beta xshs
   }
 
-let add_eta (key, h) ctx =
+let add_etas xshs ctx =
   { ctx with
     eta =
-      let l = find key ctx.eta in
-      HintMap.add key (h :: l) ctx.eta
+      List.fold_left
+        (fun db (xs, (key, h)) ->
+           let tags, hints = find key db in
+           HintMap.add key (xs :: tags, h :: hints) db)
+        ctx.eta xshs
   }
 
-let add_general (key, h) ctx =
+let add_generals xshs ctx =
   { ctx with
     general =
-      let l = find3 key ctx.general in
-      GeneralMap.add key (h :: l) ctx.general
+      List.fold_left
+        (fun db (xs, (key, h)) ->
+           let tags, hints = find3 key db in
+           GeneralMap.add key (xs :: tags, h :: hints) db)
+        ctx.general xshs
   }
 
-let add_inhabit h ctx = { ctx with inhabit = h :: ctx.inhabit }
+let add_inhabits xshs ctx =
+  { ctx with
+    inhabit =
+      List.fold_left
+        (fun db (xs, (key, h)) ->
+           let tags, hints = find key db in
+           HintMap.add key (xs :: tags, h :: hints) db)
+        ctx.inhabit xshs
+  }
 
 let add_fresh x t ctx =
   let y = Name.fresh x

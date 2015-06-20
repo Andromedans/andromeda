@@ -4,8 +4,6 @@ sum_rect
           (Π (a : A), P (inl A B a)) ⟶
             (Π (b : B), P (inr A B b)) ⟶ Π (t : sum A B), P t
 #processed ../examples/sum.m31
-Beta hint installed.
-Beta hint installed.
 λ (A : Type) (B : Type) (P : sum A B ⟶ Type)
   (l : Π (a : A), P (inl A B a)) (r : Π (b : B), P (inr A B b)) (b : B) ⟹
   refl (r b)

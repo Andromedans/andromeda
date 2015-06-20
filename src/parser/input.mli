@@ -13,10 +13,10 @@ and term' =
   | Type
   (* computations *)
   | Let of (Name.t * comp) list * comp
-  | Beta of expr * comp
-  | Eta of expr * comp
-  | Hint of expr * comp
-  | Inhabit of expr * comp
+  | Beta of (string list * comp) list * comp
+  | Eta of (string list * comp) list * comp
+  | Hint of (string list * comp) list * comp
+  | Inhabit of (string list * comp) list * comp
   | Ascribe of comp * ty
   | Lambda of (Name.t * comp option) list * comp
   | Spine of comp * comp list
@@ -41,10 +41,10 @@ and toplevel' =
   | Primitive of Name.t list * (Name.t * bool * ty) list * ty (** introduce a primitive operation, the boolean is [true] if reducing *)
   | TopLet of Name.t * (Name.t * ty) list * ty option * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
-  | TopBeta of comp (** global beta hint *)
-  | TopEta of comp (** global eta hint *)
-  | TopHint of comp (** global hint *)
-  | TopInhabit of comp (** global inhabit hint *)
+  | TopBeta of (string list * comp) list (** global beta hint *)
+  | TopEta of (string list * comp) list (** global eta hint *)
+  | TopHint of (string list * comp) list (** global hint *)
+  | TopInhabit of (string list * comp) list (** global inhabit hint *)
   | Verbosity of int
   | Include of string list
   | Quit (** quit the toplevel *)
