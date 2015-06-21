@@ -17,7 +17,9 @@ type t = {
   bound : (Name.t * Value.value) list;
   beta : (string list list * Pattern.beta_hint list) HintMap.t;
   eta : (string list list * Pattern.eta_hint list) HintMap.t;
-  general : (string list list * Pattern.general_hint list) GeneralMap.t;
+  (* general hints might not have a key *)
+  general : (string list list * Pattern.general_hint list) GeneralMap.t *
+            (string list list * Pattern.general_hint list);
   inhabit : (string list list * Pattern.inhabit_hint list) HintMap.t;
   files : string list;
 }
@@ -29,7 +31,7 @@ let empty = {
   bound = [] ;
   beta = HintMap.empty ;
   eta = HintMap.empty ;
-  general = GeneralMap.empty ;
+  general = GeneralMap.empty, ([], []) ;
   inhabit = HintMap.empty ;
   files = [] ;
 }
@@ -41,7 +43,9 @@ let eta_hints key {eta=hints} = snd @@ find key hints
 
 let beta_hints key {beta=hints} = snd @@ find key hints
 
-let general_hints key {general=hints} = snd @@ find3 key hints
+let general_hints key {general=(keys,nokeys)} =
+  let keyed = match key with Some key -> snd @@ find3 key keys | None -> [] in
+  keyed @ snd nokeys
 
 let inhabit_hints key {inhabit=hints} = snd @@ find key hints
 
@@ -118,9 +122,12 @@ let add_generals xshs ctx =
   { ctx with
     general =
       List.fold_left
-        (fun db (xs, (key, h)) ->
-           let tags, hints = find3 key db in
-           GeneralMap.add key (xs :: tags, h :: hints) db)
+        (fun (db, ((nokey_tags, nokey_hints) as nokeys)) (xs, (key, h)) ->
+           match key with
+           | Some key ->
+             let tags, hints = find3 key db in
+             GeneralMap.add key (xs :: tags, h :: hints) db, nokeys
+           | None -> db, (xs :: nokey_tags, h :: nokey_hints))
         ctx.general xshs
   }
 
@@ -135,12 +142,13 @@ let add_inhabits xshs ctx =
   }
 
 let unhint untags ctx =
+  let pred = List.exists (fun x -> List.mem x untags) in
   let rec fold xs' hs' tags hints =
     match tags, hints with
     | [], [] -> List.rev xs', List.rev hs'
     | xs::tags, h::hints ->
       let xs', hs' =
-        if List.exists (fun x -> List.mem x untags) xs
+        if pred xs
         then xs', hs'
         else xs::xs', h::hs' in
       (fold xs' hs') tags hints
@@ -151,7 +159,12 @@ let unhint untags ctx =
   { ctx with
     beta = HintMap.map f ctx.beta ;
     eta = HintMap.map f ctx.eta ;
-    general = GeneralMap.map f ctx.general ;
+    general =
+      begin
+        let nokeys = List.combine (fst @@ snd ctx.general) (snd @@ snd ctx.general) in
+        let nokeys = List.split @@ List.filter (fun (xs, h) -> pred xs) nokeys in
+        GeneralMap.map f (fst ctx.general), nokeys
+      end ;
     inhabit = HintMap.map f ctx.inhabit ;
   }
 

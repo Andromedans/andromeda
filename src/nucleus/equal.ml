@@ -348,7 +348,7 @@ and equal_hints ctx e1 e2 t =
     ||
     (* try general hints *)
     begin
-      let key = Pattern.(term_key e1, term_key e2, ty_key t) in
+      let key = Pattern.general_key e1 e2 t in
       List.exists
         (fun (xts, (pt, pe1, pe2)) ->
           match collect_for_hint ctx (pt, pe1, pe2) (t, e1, e2) with

@@ -31,7 +31,7 @@ val beta_hints : Pattern.hint_key -> t -> Pattern.beta_hint list
 val eta_hints : Pattern.hint_key -> t -> Pattern.eta_hint list
 
 (** Return all general hints in the context *)
-val general_hints : (Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) ->
+val general_hints : (Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) option ->
   t -> Pattern.general_hint list
 
 (** Return all general hints in the context *)
@@ -54,7 +54,7 @@ val add_etas : (string list * (Pattern.hint_key * Pattern.eta_hint)) list -> t -
 (** Add a general hint to the context. *)
 val add_generals :
   (string list *
-   ((Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) * Pattern.general_hint)) list ->
+   ((Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) option * Pattern.general_hint)) list ->
   t -> t
 
 (** Add an inhabit hint to the context. *)

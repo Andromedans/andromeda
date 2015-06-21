@@ -156,12 +156,12 @@ let mk_general ~loc ctx (xts, (t, e1, e2)) =
   let pvars, pe1 = of_term ctx pvars e1 t in
   let pvars, pe2 = of_term ctx pvars e2 t in
   match head_name pt' with
-    | Some _ ->
-      let key = Pattern.(term_key e1, term_key e2, ty_key t) in
-      key, (xts, (pt, pe1, pe2))
-    | None ->
-        Error.runtime ~loc
-          "the type of a hint must be a symbol@ or a symbol applied to arguments"
+  | Some _ ->
+    let key = Pattern.general_key e1 e2 t in
+    key, (xts, (pt, pe1, pe2))
+  | None ->
+    Error.runtime ~loc
+      "the type of a hint must be a symbol@ or a symbol applied to arguments"
 
 let mk_inhabit ~loc ctx (xts, t) =
   let pvars = pvars_of_binders xts in

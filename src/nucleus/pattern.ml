@@ -55,21 +55,33 @@ type hint_key =
   | Key_Inhab
   | Key_Bracket
 
-let rec term_key (e',loc) =
+let rec term_key_opt (e',loc) =
   match e' with
-  | Tt.Type -> Key_Type
-  | Tt.Name x -> Key_Name x
-  | Tt.Bound _ -> Error.impossible ~loc "De Bruijn index encountered in term_key"
-  | Tt.PrimApp (x, _) -> Key_PrimApp x
-  | Tt.Lambda _ -> Key_Lambda
-  | Tt.Spine (e, _, _) -> term_key e
-  | Tt.Prod _ -> Key_Prod
-  | Tt.Eq _ -> Key_Eq
-  | Tt.Refl _ -> Key_Refl
-  | Tt.Inhab -> Key_Inhab
-  | Tt.Bracket _ -> Key_Bracket
+  | Tt.Type -> Some Key_Type
+  | Tt.Name x -> Some (Key_Name x)
+  | Tt.Bound _ -> None
+  | Tt.PrimApp (x, _) -> Some (Key_PrimApp x)
+  | Tt.Lambda _ -> Some Key_Lambda
+  | Tt.Spine (e, _, _) -> term_key_opt e
+  | Tt.Prod _ -> Some Key_Prod
+  | Tt.Eq _ -> Some Key_Eq
+  | Tt.Refl _ -> Some Key_Refl
+  | Tt.Inhab -> Some Key_Inhab
+  | Tt.Bracket _ -> Some Key_Bracket
+
+let term_key e =
+  match term_key_opt e with
+  | Some k -> k
+  | None -> Error.impossible ~loc:(snd e) "De Bruijn index encountered in term_key"
 
 let ty_key (Tt.Ty t) = term_key t
+let ty_key_opt (Tt.Ty t) = term_key_opt t
+
+let general_key e1 e2 t =
+  let key = term_key_opt e1, term_key_opt e2, ty_key_opt t in
+  match key with
+  | Some k1, Some k2, Some kt -> Some (k1, k2, kt)
+  | _, _, _ -> None
 
 let rec print_term ?max_level xs e ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in

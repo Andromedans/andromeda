@@ -61,11 +61,15 @@ type hint_key =
   | Key_Inhab
   | Key_Bracket
 
-(* Compute the hint key of a term. *)
+(* Compute the hint key of a term, fail on De Bruijn index. *)
 val term_key: Tt.term -> hint_key
 
-(* Compute the hint key of a type. *)
+(* Compute the hint key of a type, fail on De Bruijn index. *)
 val ty_key : Tt.ty -> hint_key
+
+(* Compute the hint key of a general hint. When we find a pvar in a key
+   position, return None. *)
+val general_key: Tt.term -> Tt.term -> Tt.ty -> (hint_key * hint_key * hint_key) option
 
 val print_pattern : ?max_level:int -> Name.t list -> t -> (Format.formatter -> unit)
 

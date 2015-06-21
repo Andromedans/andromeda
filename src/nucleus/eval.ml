@@ -181,7 +181,7 @@ and check ctx ((c',loc) as c) t =
     if Equal.equal_ty ctx t t'
     then e'
     else Error.typing ~loc:(snd e')
-        "this expression should have type@ %t but has type@ %t"
+        "this expression should have type@ %t@ but has type@ %t"
         (print_ty ctx t) (print_ty ctx t')
 
   | Syntax.Let (xcs, c) ->
