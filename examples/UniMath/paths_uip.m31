@@ -11,18 +11,14 @@ Let UIP_aux :=
 
 Let UIP :=
   (fun A a b p q =>
-     beta paths_eq_inv A a b p in
-       beta paths_eq_inv A a b q in
+     beta (paths_eq_inv A a b p), (paths_eq_inv A a b q) in
        UIP_aux A a b p q) :
     ∀ (A : Type) (a b : A) (p q : paths A a b),
       paths (paths A a b) p q.
 
 Let UIP_strict :=
   (fun A a b p q =>
-     beta paths_eq_inv A a b p in
-       beta paths_eq_inv A a b q in
+     beta (paths_eq_inv A a b p), (paths_eq_inv A a b q) in
        eq_of_paths (paths A a b) p q (UIP_aux A a b p q)) :
     ∀ (A : Type) (a b : A) (p q : paths A a b),
       p == q.
-
-

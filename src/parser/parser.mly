@@ -19,7 +19,7 @@
 %token PRIMITIVE REDUCE
 %token CONTEXT HELP QUIT
 %token <int> VERBOSITY
-%token <string> FILENAME
+%token <string> QUOTED_STRING
 %token INCLUDE
 %token EOF
 
@@ -48,11 +48,11 @@ plain_topcomp:
   | TOPLET x=name yts=paren_bind(ty_term)* u=return_type? COLONEQ c=term DOT
       { let yts = List.flatten yts in TopLet (x, yts, u, c) }
   | TOPCHECK c=term DOT                                  { TopCheck c }
-  | TOPBETA ths=tags_hint+ DOT                           { TopBeta ths }
-  | TOPETA ths=tags_hint+ DOT                            { TopEta ths }
-  | TOPHINT ths=tags_hint+ DOT                           { TopHint ths }
-  | TOPINHABIT ths=tags_hint+ DOT                        { TopInhabit ths }
-  | TOPUNHINT ts=tag_name+ DOT                           { TopUnhint ts }
+  | TOPBETA ths=tags_hints DOT                           { TopBeta ths }
+  | TOPETA ths=tags_hints DOT                            { TopEta ths }
+  | TOPHINT ths=tags_hints DOT                           { TopHint ths }
+  | TOPINHABIT ths=tags_hints DOT                        { TopInhabit ths }
+  | TOPUNHINT ts=tags_unhints DOT                        { TopUnhint ts }
   | PRIMITIVE xs=name+ yst=primarg* COLON u=term DOT     { Primitive (xs, List.concat yst, u)}
 
 return_type:
@@ -65,10 +65,10 @@ plain_topdirective:
   | HELP       { Help }
   | QUIT       { Quit }
   | VERBOSITY                                            { Verbosity $1 }
-  | INCLUDE fs=filename+                                 { Include fs }
+  | INCLUDE fs=quoted_string+                            { Include fs }
 
-filename:
-  | FILENAME { let s = $1 in
+quoted_string:
+  | QUOTED_STRING { let s = $1 in
                let l = String.length s in
                String.sub s 1 (l - 2) }
 
@@ -78,11 +78,11 @@ term: mark_location(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                 { e }
   | LET a=let_clauses IN c=term                     { Let (a, c) }
-  | BETA ths=tags_hint+ IN c=term                   { Beta (ths, c) }
-  | ETA ths=tags_hint+ IN c=term                    { Eta (ths, c) }
-  | HINT ths=tags_hint+ IN c=term                   { Hint (ths, c) }
-  | INHABIT ths=tags_hint+ IN c=term                { Inhabit (ths, c) }
-  | UNHINT ts=tag_name+ IN c=term                   { Unhint (ts, c) }
+  | BETA tshs=tags_opt_hints IN c=term              { Beta (tshs, c) }
+  | ETA tshs=tags_opt_hints IN c=term               { Eta (tshs, c) }
+  | HINT tshs=tags_opt_hints IN c=term              { Hint (tshs, c) }
+  | INHABIT tshs=tags_opt_hints IN c=term           { Inhabit (tshs, c) }
+  | UNHINT ts=tags_unhints IN c=term                { Unhint (ts, c) }
   | e=app_term COLON t=ty_term                      { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
@@ -138,20 +138,6 @@ bind(X):
 paren_bind(X):
   | LPAREN xst=bind(X) RPAREN            { xst }
 
-tags_hint:
-  | tsh=paren_tag      { tsh }
-  | x=untagged_hint    { x }
-
-paren_tag:
-  | LPAREN xs=tag_name+ COLON t=term RPAREN
-      { let xs = match t with Var (Name.String x), _ -> x :: xs | _ -> xs in xs, t }
-
-untagged_hint:
-  | x=mark_location(tag_name) { let (x, loc) = x in [x], (Var (Name.make x), loc) }
-
-tag_name:
-  | NAME { $1 }
-
 primarg:
   | LPAREN b=reduce xs=nonempty_list(name) COLON t=ty_term RPAREN  { List.map (fun x -> (x, b, t)) xs }
 
@@ -175,4 +161,32 @@ mark_location(X):
   x=X
   { x, Location.make $startpos $endpos }
 
+
+tags_hints:
+  | tshs=separated_nonempty_list(COMMA, tags_hint)     { tshs }
+
+(* local hints can be anonymous *)
+tags_opt_hints:
+  | tshs=separated_nonempty_list(COMMA, tags_opt_hint) { tshs }
+
+tags_opt_hint:
+  | t=tags_hint { t }
+  | LPAREN t=term RPAREN   { [], t }
+
+tags_hint:
+  | t=var_hint { t }
+  | xs=tag_var+ COLON t=term
+      { let xs = match t with Var (Name.String x), _ -> x :: xs | _ -> xs in xs, t }
+
+var_hint:
+  | x=mark_location(tag_var) { let (x, loc) = x in [x], (Var (Name.make x), loc) }
+
+tag_var:
+  | NAME { $1 }
+
+tags_unhints:
+  | ts=separated_nonempty_list(COMMA, tags_unhint) { ts }
+
+tags_unhint:
+  | ts=tag_var { ts }
 %%

@@ -18,8 +18,7 @@ Let five :=  S (S (S (S (S Z)))).
 Let ten :=   S (S (S (S (S (S (S (S (S (S Z))))))))).
 
 Check
-  beta plus_Z in
-  beta plus_S in
+  beta plus_Z, plus_S in
     refl (plus five four) : plus four five == plus (plus two three) four.
 
 Check

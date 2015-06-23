@@ -55,8 +55,8 @@ let rec infer ctx (c',loc) =
     infer ctx c
 
   | Syntax.Ascribe (c, t) ->
-     let t = expr_ty ctx t
-     in let e = check ctx c t
+     let t = expr_ty ctx t in
+     let e = check ctx c t
         in Value.Return (e, t)
 
   | Syntax.PrimApp (x, cs) ->
@@ -223,7 +223,7 @@ and check ctx ((c',loc) as c) t =
     if Equal.equal_ty ctx t'' t
     then check ctx c t''
     else Error.typing ~loc:(snd t')
-        "this type should be equal to %t" (print_ty ctx t)
+        "this type should be equal to@ %t" (print_ty ctx t)
 
   | Syntax.Lambda (abs, c) ->
     check_lambda ctx loc t abs c

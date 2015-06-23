@@ -50,8 +50,7 @@ let end_longcomment= [%sedlex.regexp? "*)"]
 let newline = [%sedlex.regexp? ('\n' | '\r' | "\n\r" | "\r\n")]
 let hspace  = [%sedlex.regexp? (' ' | '\t' | '\r')]
 
-let filename = [%sedlex.regexp? '"', Plus (Compl '"'), '"']
-
+let quoted_string = [%sedlex.regexp? '"', Plus (Compl '"'), '"']
 
 let update_eoi ({ pos_end; end_of_input; line_limit } as lexbuf) =
   match line_limit with None -> () | Some line_limit ->
@@ -75,7 +74,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | "#quit"                  -> f (); g (); QUIT
   | "#verbosity", Plus hspace -> g (); verbosity lexbuf
   | "#include"               -> f (); INCLUDE
-  | filename                 -> f (); g (); FILENAME (lexeme lexbuf)
+  | quoted_string            -> f (); QUOTED_STRING (lexeme lexbuf)
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
   | '['                      -> f (); LBRACK
