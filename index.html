@@ -32,36 +32,127 @@
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
         <h3>
-<a id="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages" aria-hidden="true"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+<a id="about-the-project" class="anchor" href="#about-the-project" aria-hidden="true"><span class="octicon octicon-link"></span></a>About the project</h3>
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+<p>Andromeda is an experimental implementation of dependent type theory with a reflection rule.
+For theoretical background see:</p>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
+<ul>
+<li>Andrej Bauer: "How to implemenent type theory with a reflection rule"
+(<a href="http://www.qmac.ox.ac.uk/events/Talk%20slides/Bauer-HoTT-Oxford.pdf">slides</a> and
+<a href="https://www.youtube.com/watch?v=IlfQjWqrK6I">video</a>)</li>
+</ul>
+
+<p>The reflection rule allows us to do many things, such as add new computation
+rules for new type formers, and hopefully also provide support for Vladimir
+Voevodsky's <a href="http://ncatlab.org/homotopytypetheory/show/Homotopy+Type+System">Homotopy Type System</a>
+which has <em>two</em> kinds of equality, one of which has a reflection rule.</p>
+
+<h3>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installation</h3>
+
+<p>The easiest way to install Andromeda is through the
+<a href="http://opam.ocamlpro.com">Opam</a> package manager for OCaml. You can install
+Opam on your system following <a href="http://opam.ocaml.org/doc/Install.html">these
+instructions</a>.
+In case your operating system does not provide OCaml version &gt;= 4.02, you can
+install it with <code>opam switch 4.02.1</code>.
+Then simply add the Andromeda repo to opam, update and install Andromeda with
+these commands:</p>
+
+<pre><code>opam repo add andromeda git://github.com/haselwarter/andromeda-opam.git
+opam update
+opam install andromeda
 </code></pre>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+<h3>
+<a id="compilation" class="anchor" href="#compilation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Compilation</h3>
+
+<p>To build Andromeda, you need <a href="http://ocaml.org">OCaml 4.02</a> or later (and quite possibly it
+works with earlier versions too), the <a href="http://gallium.inria.fr/%7Efpottier/menhir/">menhir</a>
+parser generator and the <a href="https://www.lexifi.com/sedlex">sedlex</a> unicode lexer. We recommend
+using <a href="http://opam.ocamlpro.com">Opam</a> for installation of OCaml, menhir and sedlex.</p>
+
+<p>If you also install the <a href="http://opam.ocaml.org/packages/ledit/ledit.2.03/">ledit</a> or
+<a href="http://utopia.knoware.nl/%7Ehlub/uck/rlwrap/#rlwrap">rlwrap</a> utility, the Andromeda toplevel
+will use them to give you line editing capabilities.</p>
 
 <h3>
-<a id="designer-templates" class="anchor" href="#designer-templates" aria-hidden="true"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
+<a id="building-andromeda" class="anchor" href="#building-andromeda" aria-hidden="true"><span class="octicon octicon-link"></span></a>Building Andromeda</h3>
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
+<p>To build Andromeda type <code>make</code> at the command line. This will create the executable
+<code>andromeda.byte</code>. You can run the tests in the <code>test</code> subfolder with <code>make test</code>.</p>
+
+<p>The file <code>prelude.m31</code> contains basic definitions and is loaded when Andromeda is
+started (unless the option <code>--no-prelude</code> is given).</p>
+
+<h4>
+<a id="examples" class="anchor" href="#examples" aria-hidden="true"><span class="octicon octicon-link"></span></a>Examples</h4>
+
+<p>We have put some examples in the <code>examples</code> subdirectory. An outdated and incomplete
+description of the Andromedan type theory can be found in <code>doc/andromeda.tex</code>. We are
+still changing Andromeda in every respect so it probably does not make sense to write
+documentation at this point.</p>
 
 <h3>
-<a id="rather-drive-stick" class="anchor" href="#rather-drive-stick" aria-hidden="true"><span class="octicon octicon-link"></span></a>Rather Drive Stick?</h3>
+<a id="the-structure-of-source-code" class="anchor" href="#the-structure-of-source-code" aria-hidden="true"><span class="octicon octicon-link"></span></a>The structure of source code</h3>
 
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+<p>The source code can be found in <code>src</code>, in the following folders:</p>
+
+<ul>
+<li>
+<code>parser</code> - input syntax, lexer, parser, and the desugaring phase which computes de Bruijn indices
+and separates expressions and computations</li>
+<li>
+<code>runtime</code> - context manipulation, runtime values and the main evaluation loop</li>
+<li>
+<code>tt</code> - abstract syntax, weak-head normal forms, equality checks</li>
+<li>
+<code>utils</code> - error messages, file locations, pretty printing, manipulation of variable names</li>
+<li>
+<code>andromeda.ml</code> - main program</li>
+<li>
+<code>config.ml</code> - configuration</li>
+<li>
+<code>syntax.mli</code> - desugared input syntax</li>
+</ul>
+
+<p>The basic steps in the evaluation of input are:</p>
+
+<ol>
+<li>An expression is parsed using the lexer <code>parser/lexer.mll</code> and the parser <code>parser/parser.mly</code>.
+The result is a value of type <code>Input.term</code> or <code>Input.ty</code> or <code>Input.toplevel</code>. The user input
+has no separation of computations (effectful) and expressions (pure).</li>
+<li>
+<code>Desugar</code> converts the parsed entity to the corresponding intermediate representation of
+type <code>Syntax.expr</code>, <code>Syntax.comp</code> or <code>Syntax.toplevel</code>. Desugaring replaces named bound variables
+with de Bruijn indices and separates computations from expressions.</li>
+<li>
+<code>Eval</code> evaluates the syntactic expression to a result of type <code>Value.result</code>. The result is a
+pair [(e,t)] of a value [e] and its type [t]. Evaluation is done in a context [ctx] of type
+[Context.t] which consists of: free variables with their types, bound variables mapped to their
+values, and equality hints.</li>
+</ol>
+
+<p>The correctness guarantee for the evaluator is this: if a computation [c] evaluates to a value [(e,t)]
+in context [ctx] then the judgement [ctx |- e : t] is derivable.</p>
 
 <h3>
-<a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+<a id="history-of-the-name-andromeda" class="anchor" href="#history-of-the-name-andromeda" aria-hidden="true"><span class="octicon octicon-link"></span></a>History of the name Andromeda</h3>
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+<p>Andromeda used to be called Brazil, as a consequence of discussions at the Institute for
+Advanced Study where we talked about "sending proofs to a far away place where they will
+check them independently". We thought of Brazil as a faraway place, but it later turned
+out it was not quite far enough. We hope that nobody will claim that the Andromeda galaxy
+is a nearby place.</p>
 
 <h3>
-<a id="support-or-contact" class="anchor" href="#support-or-contact" aria-hidden="true"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
+<a id="travis-continuous-integration" class="anchor" href="#travis-continuous-integration" aria-hidden="true"><span class="octicon octicon-link"></span></a>Travis Continuous Integration</h3>
 
-<p>Having trouble with Pages? Check out the documentation at <a href="https://help.github.com/pages">https://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
+<p>The GitHub repository is linked to Travis CI. To find out the current build status is
+displayed here:</p>
+
+<p><a href="https://travis-ci.org/andrejbauer/andromeda"><img src="https://api.travis-ci.org/andrejbauer/andromeda.png?branch=master" alt="Build Status"></a></p>
       </section>
     </div>
 
