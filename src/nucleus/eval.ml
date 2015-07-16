@@ -414,9 +414,10 @@ and hint_bind ctx xscs =
       fold ((xs, h) :: xshs) xscs
     | [] -> let ctx = Context.add_generals xshs ctx in
       Print.debug "Installed hints@ %t"
-        (Print.sequence (fun (tags, (_, h)) ppf ->
-             Print.print ppf "@[tags: %s ;@ hint: %t@]"
+        (Print.sequence (fun (tags, (k, h)) ppf ->
+             Print.print ppf "@[tags: %s ; keys: %t ;@ hint: %t@]"
                (String.concat " " tags)
+               (Pattern.print_general_key k)
                (Pattern.print_hint [] h)) "," xshs);
       ctx
   in fold [] xscs

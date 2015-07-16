@@ -349,8 +349,10 @@ and equal_hints ctx e1 e2 t =
     (* try general hints *)
     begin
       let key = Pattern.general_key e1 e2 t in
+      Print.debug "Looking for a general hint with keys: %t" (Pattern.print_general_key key);
       List.exists
-        (fun (xts, (pt, pe1, pe2)) ->
+        (fun (xts, (pt, pe1, pe2) as h) ->
+          Print.debug "trying general hint@ %t" (Pattern.print_hint [] h);
           match collect_for_hint ctx (pt, pe1, pe2) (t, e1, e2) with
             | None -> false
             | Some (pvars, checks) ->

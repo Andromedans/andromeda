@@ -173,3 +173,22 @@ let print_pattern ?max_level xs (xts, p) ppf =
        (fun xs ppf -> Print.print ppf "@ =>@ @[<hov 2>%t@]" (print_term xs p))
        xs xts)
 
+
+let print_key ?max_level k ppf =
+  match k with
+  | Key_Name x -> Print.print ?max_level ppf "Name %t" (Name.print x)
+  | Key_PrimApp x -> Print.print ?max_level ppf "PrimApp %t" (Name.print x)
+  | Key_Type -> Print.print ?max_level ppf "%s" "Type"
+  | Key_Lambda -> Print.print ?max_level ppf "%s" "Lambda"
+  | Key_Prod -> Print.print ?max_level ppf "%s" "Prod"
+  | Key_Eq -> Print.print ?max_level ppf "%s" "Eq"
+  | Key_Refl -> Print.print ?max_level ppf "%s" "Refl"
+  | Key_Inhab -> Print.print ?max_level ppf "%s" "Inhab"
+  | Key_Bracket -> Print.print ?max_level ppf "%s" "Bracket"
+
+let print_general_key ?max_level k ppf =
+  match k with
+  | None -> Print.print ?max_level ppf "None"
+  | Some (k1, k2, kt) ->
+    Print.print ?max_level ppf "(e1: %t, e2: %t, t: %t)"
+      (print_key k1) (print_key k2) (print_key kt)
