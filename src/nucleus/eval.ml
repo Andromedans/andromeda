@@ -54,6 +54,14 @@ let rec infer ctx (c',loc) =
     let ctx = Context.unhint xs ctx in
     infer ctx c
 
+  | Syntax.Whnf c ->
+    begin match infer ctx c with
+    | Value.Return (e, Tt.Ty t) ->
+      let e = Equal.whnf ctx e
+      and t = Equal.whnf ctx t in
+      Value.Return (e, Tt.ty t)
+    end
+
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t in
      let e = check ctx c t
@@ -215,6 +223,10 @@ and check ctx ((c',loc) as c) t =
   | Syntax.Unhint (xs, c) ->
     let ctx = Context.unhint xs ctx in
     check ctx c t
+
+  | Syntax.Whnf c ->
+    let e = check ctx c t in
+    Equal.whnf ctx e
 
   | Syntax.Ascribe (c, t') ->
     let t'' = expr_ty ctx t' in

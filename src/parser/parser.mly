@@ -16,6 +16,7 @@
 %token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token UNHINT
+%token WHNF
 %token PRIMITIVE REDUCE
 %token CONTEXT HELP QUIT
 %token <int> VERBOSITY
@@ -77,6 +78,7 @@ quoted_string:
 term: mark_location(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                 { e }
+  | WHNF t=term                                     { Whnf t }
   | LET a=let_clauses IN c=term                     { Let (a, c) }
   | BETA tshs=tags_opt_hints IN c=term              { Beta (tshs, c) }
   | ETA tshs=tags_opt_hints IN c=term               { Eta (tshs, c) }
