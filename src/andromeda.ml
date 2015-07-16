@@ -129,7 +129,7 @@ let rec exec_cmd base_dir interactive ctx c =
       | Value.Return (e,t) ->
         let e = Simplify.simplify ctx e
         and t = Simplify.simplify_ty ctx t in
-        Format.printf "%t@." (Value.print (Context.used_names ctx) (e,t)) ;
+        if interactive then Format.printf "%t@." (Value.print (Context.used_names ctx) (e,t)) ;
         ctx
     end
 
