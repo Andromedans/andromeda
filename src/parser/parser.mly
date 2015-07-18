@@ -7,7 +7,7 @@
 %token UNDERSCORE
 %token <string> NAME
 %token LPAREN RPAREN LBRACK RBRACK
-%token COLON COMMA DOT
+%token COLON SEMICOLON COMMA DOT
 %token ARROW DARROW
 %token EQEQ
 %token REFL
@@ -159,26 +159,23 @@ fun_abstraction:
          zsu
       }
 
-mark_location(X):
-  x=X
-  { x, Location.make $startpos $endpos }
-
-
 tags_hints:
-  | tshs=separated_nonempty_list(COMMA, tags_hint)     { tshs }
+  | tshs=separated_nonempty_list(SEMICOLON, tags_hint)     { List.flatten tshs }
 
 (* local hints can be anonymous *)
 tags_opt_hints:
-  | tshs=separated_nonempty_list(COMMA, tags_opt_hint) { tshs }
+  | tshs=separated_nonempty_list(SEMICOLON, tags_opt_hint) { List.flatten tshs }
 
 tags_opt_hint:
   | t=tags_hint { t }
-  | LPAREN t=term RPAREN   { [], t }
+  | LPAREN t=term RPAREN   { [[], t] }
 
 tags_hint:
-  | t=var_hint { t }
-  | xs=tag_var+ COLON t=term
-      { let xs = match t with Var (Name.String x), _ -> x :: xs | _ -> xs in xs, t }
+  | t=var_hint { [t] }
+  | xs=tag_var+ COLON ts=separated_nonempty_list(COMMA, term)
+      { List.map (fun t ->
+        let xs = match t with Var (Name.String x), _ -> x :: xs | _ -> xs
+        in xs, t) ts }
 
 var_hint:
   | x=mark_location(tag_var) { let (x, loc) = x in [x], (Var (Name.make x), loc) }
@@ -187,8 +184,12 @@ tag_var:
   | NAME { $1 }
 
 tags_unhints:
-  | ts=separated_nonempty_list(COMMA, tags_unhint) { ts }
+  | ts=separated_nonempty_list(SEMICOLON, tags_unhint) { ts }
 
 tags_unhint:
   | ts=tag_var { ts }
+
+mark_location(X):
+  x=X
+  { x, Location.make $startpos $endpos }
 %%

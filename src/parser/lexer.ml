@@ -37,7 +37,7 @@ let ascii_name =
 let name =
   [%sedlex.regexp? (alphabetic | math),
                  Star ('_' | alphabetic | math
-                      | 8304 .. 8351 (* sub-/super-scripts *)
+                      | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
                       | '0'..'9' | '\'')]
 
 let digit = [%sedlex.regexp? '0'..'9']
@@ -80,9 +80,10 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | ')'                      -> f (); RPAREN
   | '['                      -> f (); LBRACK
   | ']'                      -> f (); RBRACK
-  | ':'                      -> f (); COLON
   | ":="                     -> f (); COLONEQ
+  | ':'                      -> f (); COLON
   | ','                      -> f (); COMMA
+  | ';'                      -> f (); SEMICOLON
   | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
   | "->" | 10230             -> f (); ARROW
