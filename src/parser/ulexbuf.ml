@@ -5,7 +5,7 @@ type t = {
   mutable line_limit : int option ;
   mutable end_of_input : bool ;
 }
-exception Parse_Error of t
+exception Parse_Error of string * Lexing.position * Lexing.position
 
 let create_lexbuf ?(fn="?") stream =
   let pos_end =

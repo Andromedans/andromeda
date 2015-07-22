@@ -83,9 +83,9 @@ let parse lex parse resource =
   try
     lex parse resource
   with
-  | Ulexbuf.Parse_Error lexbuf ->
-    let t = Ulexbuf.lexeme lexbuf in
-    Error.syntax ~loc:(Location.of_lexeme lexbuf) "Unexpected: %s" t
+  | Ulexbuf.Parse_Error (w, p_start, p_end) ->
+     let loc = Location.make p_start p_end in
+     Error.syntax ~loc "Unexpected: %s" w
 
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)

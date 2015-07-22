@@ -149,7 +149,8 @@ let run
   | Parser.Error
   | Sedlexing.MalFormed
   | Sedlexing.InvalidCodepoint _ ->
-    raise (Parse_Error lexbuf)
+     let w = Ulexbuf.lexeme lexbuf in
+     raise (Parse_Error (w, lexbuf.pos_start, lexbuf.pos_end))
 
 
 let read_file ?line_limit parse fn =

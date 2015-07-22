@@ -6,7 +6,7 @@ type t = private {
   mutable line_limit : int option ;
   mutable end_of_input : bool ;
 }
-exception Parse_Error of t
+exception Parse_Error of string * Lexing.position * Lexing.position
 
 (** Update the start and end positions from the stream. *)
 val update_pos : t -> unit

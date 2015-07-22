@@ -26,6 +26,7 @@
 
 %start <Input.toplevel list> file
 %start <Input.toplevel> commandline
+%start <Input.toplevel> command
 
 %%
 
@@ -36,25 +37,29 @@ file:
 
 filecontents:
   |                                 { [] }
-  | d=topcomp ds=filecontents       { d :: ds }
-  | d=topdirective ds=filecontents  { d :: ds }
+  | d=topcomp DOT ds=filecontents       { d :: ds }
+  | d=topdirective DOT ds=filecontents  { d :: ds }
+
+command:
+  | d=topcomp DOT       { d }
+  | d=topdirective DOT  { d }
 
 commandline:
-  | topcomp EOF       { $1 }
-  | topdirective EOF { $1 }
+  | topcomp DOT EOF       { $1 }
+  | topdirective DOT EOF { $1 }
 
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | TOPLET x=name yts=paren_bind(ty_term)* u=return_type? COLONEQ c=term DOT
+  | TOPLET x=name yts=paren_bind(ty_term)* u=return_type? COLONEQ c=term
       { let yts = List.flatten yts in TopLet (x, yts, u, c) }
-  | TOPCHECK c=term DOT                                  { TopCheck c }
-  | TOPBETA ths=tags_hints DOT                           { TopBeta ths }
-  | TOPETA ths=tags_hints DOT                            { TopEta ths }
-  | TOPHINT ths=tags_hints DOT                           { TopHint ths }
-  | TOPINHABIT ths=tags_hints DOT                        { TopInhabit ths }
-  | TOPUNHINT ts=tags_unhints DOT                        { TopUnhint ts }
-  | PRIMITIVE xs=name+ yst=primarg* COLON u=term DOT     { Primitive (xs, List.concat yst, u)}
+  | TOPCHECK c=term                                  { TopCheck c }
+  | TOPBETA ths=tags_hints                           { TopBeta ths }
+  | TOPETA ths=tags_hints                            { TopEta ths }
+  | TOPHINT ths=tags_hints                           { TopHint ths }
+  | TOPINHABIT ths=tags_hints                        { TopInhabit ths }
+  | TOPUNHINT ts=tags_unhints                        { TopUnhint ts }
+  | PRIMITIVE xs=name+ yst=primarg* COLON u=term     { Primitive (xs, List.concat yst, u)}
 
 return_type:
   | COLON t=ty_term { t }
