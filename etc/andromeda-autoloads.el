@@ -3,22 +3,9 @@
 ;;; Code:
 
 
-;;;### (autoloads nil "andromeda" "andromeda.el" (21878 62142 236933
-;;;;;;  263000))
+;;;### (autoloads nil "andromeda" "andromeda.el" (21930 21842 502485
+;;;;;;  491000))
 ;;; Generated autoloads from andromeda.el
-
-(autoload 'andromeda-mode "andromeda" "\
-Major mode for editing Andromeda files.
-
-Useful commands:
-C-c C-.          m31-send-buffer-up-to-point
-C-c .            m31-send-buffer-up-to-point
-C-c C-b          m31-send-buffer
-C-c C-l          m31-send-buffer
-
-\(fn)" t nil)
-
-(add-to-list 'auto-mode-alist '("\\.m31\\'" . andromeda-mode))
 
 (defvar m31-executable (let ((d (locate-dominating-file (or buffer-file-name default-directory) "andromeda.byte"))) (if d (concat d "andromeda.byte") "andromeda")) "\
 The name of the Andromeda executable")
@@ -29,6 +16,19 @@ The name of the Andromeda executable")
 The `m31-executable' will be called with these arguments")
 
 (custom-autoload 'm31-arguments "andromeda" t)
+
+(autoload 'm31-mode "andromeda" "\
+Major mode for editing Andromeda files.
+
+Useful commands:
+C-c C-.          m31-send-buffer-up-to-point
+C-c .            m31-send-buffer-up-to-point
+C-c C-b          m31-send-buffer
+C-c C-l          m31-send-buffer
+
+\(fn)" t nil)
+
+(add-to-list 'auto-mode-alist '("\\.m31\\'" . m31-mode))
 
 (autoload 'm31-send-file "andromeda" "\
 
