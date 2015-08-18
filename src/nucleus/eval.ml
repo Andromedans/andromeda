@@ -27,8 +27,13 @@ let rec infer ctx (c',loc) =
   match c' with
 
   | Syntax.Return e ->
-     let v = expr ctx e
-     in Value.Return v
+     let v = expr ctx e in
+     Value.Return v
+
+  | Syntax.Operation (op, e) ->
+     let v = expr ctx e in
+     let k u = Value.Return u in
+     Value.Operation (op, v, k)
 
   | Syntax.Let (xcs, c) ->
      let ctx = let_bind ctx xcs in
@@ -183,6 +188,17 @@ and check ctx ((c',loc) as c) t =
     else Error.typing ~loc:(snd e')
         "this expression should have type@ %t@ but has type@ %t"
         (print_ty ctx t) (print_ty ctx t')
+
+  | Syntax.Operation (op, e) ->
+     let v = expr ctx e in
+     let k (e', t') = 
+       if Equal.equal_ty ctx t t'
+       then e'
+       else Error.typing ~loc:(snd e')
+                         "this expression should have type@ %t@ but has type@ %t"
+                         (print_ty ctx t) (print_ty ctx t')
+     in
+     Value.Operation (op, v, k)
 
   | Syntax.Let (xcs, c) ->
     let ctx = let_bind ctx xcs in
@@ -443,5 +459,9 @@ and infer_ty ctx c =
     Tt.ty e
 
 let comp = infer
+
+let comp_value ctx ((_,loc) as c) =
+  let r = comp ctx c in
+  Value.to_value ~loc r
 
 let ty = infer_ty

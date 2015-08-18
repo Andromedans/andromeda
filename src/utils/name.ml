@@ -15,6 +15,9 @@ let print x ppf =
     end
   | String s -> Print.print ppf "%s" s
 
+let print_op op ppf =
+  Print.printf ppf "#%s" op
+
 let anonymous = Anonymous
 
 let make s = String s

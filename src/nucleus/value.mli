@@ -8,11 +8,15 @@
     that the judgemnet [ctx |- e : t] is derivable. *)
 type value = Tt.term * Tt.ty
 
+(** A continuation *)
+type cont = value -> result
+
 (** A result of computation at the moment is necessarily just a pure value
     because we do not have any operations in the language. But when we do,
     they will be results as well (and then handlers will handle them). *)
-type result =
+and result =
   | Return of value
+  | Operation of Name.t * value * cont
 
 (** Pretty-print a value. *)
 val print : ?max_level:int -> Name.t list -> value -> Format.formatter -> unit

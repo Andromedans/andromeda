@@ -115,23 +115,17 @@ let rec exec_cmd base_dir interactive ctx c =
     ctx
 
   | Syntax.TopLet (x, c) ->
-    begin
-      match Eval.comp ctx c with
-      | Value.Return v ->
-        let ctx = Context.add_bound x v ctx in
-        if interactive then Format.printf "%t is defined.@." (Name.print x) ;
-        ctx
-    end
+     let v = Eval.comp_value ctx c in
+     let ctx = Context.add_bound x v ctx in
+     if interactive then Format.printf "%t is defined.@." (Name.print x) ;
+     ctx
 
   | Syntax.TopCheck c ->
-    begin
-      match Eval.comp ctx c with
-      | Value.Return (e,t) ->
-        let e = Simplify.simplify ctx e
-        and t = Simplify.simplify_ty ctx t in
-        Format.printf "%t@." (Value.print (Context.used_names ctx) (e,t)) ;
-        ctx
-    end
+     let (e,t) = Eval.comp_value ctx c in
+     let e = Simplify.simplify ctx e
+     and t = Simplify.simplify_ty ctx t in
+     Format.printf "%t@." (Value.print (Context.used_names ctx) (e,t)) ;
+     ctx
 
   | Syntax.TopBeta xscs ->
     let rec fold xshs = function
@@ -145,11 +139,10 @@ let rec exec_cmd base_dir interactive ctx c =
                  (Pattern.print_beta_hint [] h)) "," xshs);
         ctx
       | (xs,c) :: xscs ->
-        match Eval.comp ctx c with
-        | Value.Return (_,t) ->
-          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-          let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
-          fold ((xs,h) :: xshs) xscs
+         let (_,t) = Eval.comp_value ctx c in
+         let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+         let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
+         fold ((xs,h) :: xshs) xscs
     in fold [] xscs
 
   | Syntax.TopEta xscs ->
@@ -164,11 +157,10 @@ let rec exec_cmd base_dir interactive ctx c =
                  (Pattern.print_eta_hint [] h)) "," xshs);
         ctx
       | (xs,c) :: xscs ->
-        match Eval.comp ctx c with
-        | Value.Return (_,t) ->
-          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-          let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
-          fold ((xs,h) :: xshs) xscs
+         let (_,t) = Eval.comp_value ctx c in
+         let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+         let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
+         fold ((xs,h) :: xshs) xscs
     in fold [] xscs
 
   | Syntax.TopHint xscs ->
@@ -183,11 +175,10 @@ let rec exec_cmd base_dir interactive ctx c =
                  (Pattern.print_hint [] h)) "," xshs);
         ctx
       | (xs,c) :: xscs ->
-        match Eval.comp ctx c with
-        | Value.Return (_,t) ->
-          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-          let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
-          fold ((xs,h) :: xshs) xscs
+         let (_,t) = Eval.comp_value ctx c in
+         let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
+         let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
+         fold ((xs,h) :: xshs) xscs
     in fold [] xscs
 
   | Syntax.TopInhabit xscs ->
@@ -202,11 +193,10 @@ let rec exec_cmd base_dir interactive ctx c =
                  (Pattern.print_inhabit_hint [] h)) "," xshs);
         ctx
       | (xs,c) :: xscs ->
-        match Eval.comp ctx c with
-        | Value.Return (_,t) ->
-          let (xts, u) = Equal.as_universal_bracket ctx t in
-          let h = Hint.mk_inhabit ~loc ctx (xts, u) in
-          fold ((xs,h) :: xshs) xscs
+         let (_,t) = Eval.comp_value ctx c in
+         let (xts, u) = Equal.as_universal_bracket ctx t in
+         let h = Hint.mk_inhabit ~loc ctx (xts, u) in
+         fold ((xs,h) :: xshs) xscs
     in fold [] xscs
 
   | Syntax.TopUnhint xs -> Context.unhint xs ctx
