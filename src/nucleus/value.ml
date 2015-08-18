@@ -18,6 +18,13 @@ let fresh ~loc x t =
   let y = Name.fresh x in
     y, (Tt.mk_name ~loc y, t)
 
+(** The monadic bind [bind r f] feeds the result [r : result]
+    into function [f : value -> 'a]. *)
+let rec bind r f =
+  match r with
+  | Return v -> f v
+  | Operation (op, v, k) -> Operation (op, v, fun x -> (bind (f x) k))
+
 let print ?max_level xs v ppf =
   let (e,t) = v in
     Print.print ~at_level:0 ppf "@[<hov 2>%t@\n    : %t@]"

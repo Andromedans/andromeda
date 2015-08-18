@@ -22,5 +22,7 @@ and result =
     the judgment that [y] has type [t]. *)
 val fresh: loc:Location.t -> Name.t -> Tt.ty -> Name.t * value
 
+val bind: result -> (value -> 'a) -> 'a
+
 (** Pretty-print a value. *)
 val print : ?max_level:int -> Name.t list -> value -> Format.formatter -> unit
