@@ -18,5 +18,9 @@ and result =
   | Return of value
   | Operation of Name.t * value * cont
 
+(** [fresh x t] generates a fresh name [y] from name [x] and returns [y] and
+    the judgment that [y] has type [t]. *)
+val fresh: loc:Location.t -> Name.t -> Tt.ty -> Name.t * value
+
 (** Pretty-print a value. *)
 val print : ?max_level:int -> Name.t list -> value -> Format.formatter -> unit

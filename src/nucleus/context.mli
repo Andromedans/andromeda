@@ -15,9 +15,6 @@ val bound_names : t -> Name.t list
 (** Variable names already used in the context *)
 val used_names : t -> Name.t list
 
-(** Lookup a free variable. *)
-val lookup_free : Name.t -> t -> Tt.ty option
-
 (** Lookup a primitive operation. *)
 val lookup_primitive : Name.t -> t -> Tt.primsig option
 
@@ -36,10 +33,6 @@ val general_hints : (Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) opt
 
 (** Return all general hints in the context *)
 val inhabit_hints : Pattern.hint_key -> t -> Pattern.inhabit_hint list
-
-(** Add a free variable of a given type to the context.
-    Fails if the variable is already bound. *)
-val add_free : Name.t -> Tt.ty -> t -> t
 
 (** Add a primitive operation of a given signature to the context.
     Fails if the variable is already bound. *)
@@ -62,11 +55,6 @@ val add_inhabits : (string list * (Pattern.hint_key * Pattern.inhabit_hint)) lis
 
 (** Remove all hints with one of the given tags *)
 val unhint : string list -> t -> t
-
-(** [add_fresh x t ctx] adds a fresh free variable with suggested
-    name [x] of given type [t] to the context [ctx]. Return the
-    actual name and the new context. *)
-val add_fresh : Name.t -> Tt.ty -> t -> Name.t * t
 
 (** Add a bound variable with given name to the context. *)
 val add_bound : Name.t -> Value.value -> t -> t

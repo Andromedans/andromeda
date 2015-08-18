@@ -252,7 +252,8 @@ and equal_abstracted_ty ctx (xuus : (Name.t * (Pattern.pty * Tt.ty)) list) v v' 
         in
           equal_ty ctx u u'
           &&
-          (let y, ctx = Context.add_fresh x u ctx in
+          (let y, _ = Value.fresh ~loc:Location.unknown x u in
+             (** XXX XXX why are we not putting y in the context? *)
              eq (ys @ [y]) ctx xuus) (* XXX optimize list append *)
    in
      eq [] ctx xuus
@@ -309,7 +310,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
               begin function
               | (x, ((Tt.Ty (_, loc)) as v)) :: xvs ->
                   let v = Tt.unabstract_ty ys 0 v in
-                  let y, ctx = Context.add_fresh x v ctx in
+                  let y, _ = Value.fresh ~loc x v in
                   let e = Tt.mk_name ~loc y in
                   fold ctx (y :: ys) (e :: es) xvs
               | [] ->
@@ -411,7 +412,7 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
               and u' = Tt.unabstract_ty ys 0 u'
               in
               equal_ty ctx u u' &&
-              let y, ctx = Context.add_fresh x u ctx in
+              let y, _ = Value.fresh ~loc:Location.unknown x u in
               zip (ys @ [y]) ctx (xus, xvs) (* XXX optimize list append *)
           | ([] as xus), xvs | xus, ([] as xvs) ->
               let t1' = Tt.mk_prod_ty ~loc:Location.unknown xus t1
@@ -1015,7 +1016,7 @@ and inhabit_whnf ~subgoals ctx ((Tt.Ty (t', loc)) as t) =
           end
         | (x,t)::xts ->
           let t = Tt.unabstract_ty ys 0 t in
-          let y, ctx = Context.add_fresh x t ctx in
+          let y, _ = Value.fresh ~loc x t in
             fold ctx (y :: ys) xts
       in
         fold ctx [] xts'
@@ -1081,7 +1082,7 @@ let rec as_universal_eq ctx t =
             ctx, zs', w
         | (z,v) :: zvs ->
           let v = Tt.unabstract_ty zs' 0 v in
-          let z', ctx = Context.add_fresh z v ctx in
+          let z', _ = Value.fresh ~loc z v in
             unabstract_binding ctx (z' :: zs') zvs w
       end
       in
@@ -1117,7 +1118,7 @@ let rec as_universal_bracket ctx t =
             ctx, zs', w
         | (z,v) :: zvs ->
           let v = Tt.unabstract_ty zs' 0 v in
-          let z', ctx = Context.add_fresh z v ctx in
+          let z', _ = Value.fresh ~loc z v in
             unabstract_binding ctx (z' :: zs') zvs w
       end
       in

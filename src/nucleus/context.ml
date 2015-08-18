@@ -12,7 +12,6 @@ module GeneralMap = Map.Make(struct
 (** A context holds free variables with their types and an
     environment of runtime bindings. *)
 type t = {
-  free : (Name.t * Tt.ty) list;
   primitive : (Name.t * Tt.primsig) list;
   bound : (Name.t * Value.value) list;
   beta : (string list list * Pattern.beta_hint list) HintMap.t;
@@ -26,7 +25,6 @@ type t = {
 
 (** The empty context *)
 let empty = {
-  free = [];
   primitive = [];
   bound = [] ;
   beta = HintMap.empty ;
@@ -55,15 +53,7 @@ let primitives {primitive=lst} =
   List.map (fun (x, (yts, _)) -> (x, List.length yts)) lst
 
 let used_names ctx =
-  List.map fst ctx.free @ List.map fst ctx.bound @ List.map fst ctx.primitive
-
-let lookup_free x {free=lst} =
-  let rec lookup = function
-    | [] -> None
-    | (y,v) :: lst ->
-       if Name.eq x y then Some v else lookup lst
-  in
-    lookup lst
+  List.map fst ctx.bound @ List.map fst ctx.primitive
 
 let lookup_primitive x {primitive=lst} =
   let rec lookup = function
@@ -80,18 +70,9 @@ let lookup_bound k {bound=lst} =
   | Failure _ -> Error.impossible "invalid de Bruijn index %d" k
 
 let is_bound x ctx =
-  match lookup_free x ctx with
-  | None ->
-    begin match lookup_primitive x ctx with
-      | None -> false
-      | Some _ -> true
-    end
+  match lookup_primitive x ctx with
+  | None -> false
   | Some _ -> true
-
-let add_free x t ctx =
-  if is_bound x ctx
-  then Error.runtime "%t already exists" (Name.print x)
-  else { ctx with free = (x,t) :: ctx.free }
 
 let add_primitive x ytsu ctx =
   if is_bound x ctx
@@ -167,11 +148,6 @@ let unhint untags ctx =
       end ;
     inhabit = HintMap.map f ctx.inhabit ;
   }
-
-
-let add_fresh x t ctx =
-  let y = Name.fresh x
-  in y, { ctx with free = (y,t) :: ctx.free }
 
 let add_bound x v ctx =
   { ctx with bound = (x, v) :: ctx.bound }

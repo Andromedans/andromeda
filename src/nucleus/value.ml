@@ -11,7 +11,15 @@ type cont = value -> result
 (** Possible results of evaluating a computation. *)
 and result =
   | Return of value
+<<<<<<< HEAD
   | Operation of string * value * cont
+=======
+
+(** NB: This is an effectful computation. *)
+let fresh ~loc x t =
+  let y = Name.fresh x in
+    y, (Tt.mk_name ~loc y, t)
+>>>>>>> master
 
 let print ?max_level xs v ppf =
   let (e,t) = v in
