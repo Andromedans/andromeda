@@ -106,8 +106,8 @@ let rec infer ctx (c',loc) =
             ~loc "cannot infer the type of untagged variable %t" (Name.print x)
         | Some t ->
           let t = check_ty ctx t in
-          let y, ctx = Context.add_fresh x t ctx in
-          let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
+          let y, yt = Value.fresh ~loc x t in
+          let ctx = Context.add_bound x yt ctx in
           let t = Tt.abstract_ty ys 0 t in
           fold ctx (y::ys) (xts @ [(x,t)]) abs
         end
@@ -134,8 +134,8 @@ let rec infer ctx (c',loc) =
           Value.Return (e, t)
       | (x,t) :: abs ->
         let t = expr_ty ctx t in
-        let y, ctx = Context.add_fresh x t ctx in
-        let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
+        let y, yt = Value.fresh ~loc x t in
+        let ctx = Context.add_bound x yt ctx in
         let t = Tt.abstract_ty ys 0 t in
           fold ctx (y::ys) (xts @ [(x,t)]) abs
     in
@@ -286,8 +286,8 @@ and check_lambda ctx loc t abs c =
               (Name.print x) (print_ty ctx u) (print_ty ctx t)
         end in
 
-      let y, ctx = Context.add_fresh x t ctx in
-      let ctx = Context.add_bound x (Tt.mk_name ~loc y, t) ctx in
+      let y, yt = Value.fresh ~loc x t in
+      let ctx = Context.add_bound x yt ctx in
       let t = Tt.abstract_ty ys 0 t in
       fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus v
 

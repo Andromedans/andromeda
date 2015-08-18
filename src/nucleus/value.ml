@@ -9,6 +9,10 @@ type result =
 (** Possible results of evaluating a computation. *)
   | Return of value
 
+(** NB: This is an effectful computation. *)
+let fresh ~loc x t =
+  let y = Name.fresh x in
+    y, (Tt.mk_name ~loc y, t)
 
 let print ?max_level xs v ppf =
   let (e,t) = v in

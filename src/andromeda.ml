@@ -102,8 +102,8 @@ let rec exec_cmd base_dir interactive ctx c =
         (yts', u)
       | (y, reducing, t)::yts ->
         let t = Eval.ty ctx t in
-        let z, ctx = Context.add_fresh y t ctx in
-        let ctx = Context.add_bound y (Tt.mk_name ~loc z, t) ctx in
+        let z, v = Value.fresh ~loc y t in
+        let ctx = Context.add_bound y v ctx in
         let t = Tt.abstract_ty zs 0 t in
         fold ctx (z::zs) ((y, (reducing, t)) :: yts') yts
     in

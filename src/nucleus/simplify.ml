@@ -28,7 +28,7 @@ let rec simplify ctx ((e',loc) as e) =
         | (x,u) :: xus ->
           let u = Tt.unabstract_ty ys 0 u in
           let u = simplify_ty ctx u in
-          let y, ctx = Context.add_fresh x u ctx in
+          let y, _ = Value.fresh ~loc x u in
           let u = Tt.abstract_ty ys 0 u in
             fold ctx (y::ys) ((x,u) :: xts) xus
       in
@@ -51,7 +51,7 @@ let rec simplify ctx ((e',loc) as e) =
         | (x,u) :: xus ->
           let u = Tt.unabstract_ty ys 0 u in
           let u = simplify_ty ctx u in
-          let y, ctx = Context.add_fresh x u ctx
+          let y, _ = Value.fresh ~loc x u
           and u = Tt.abstract_ty ys 0 u in
             fold ctx (y::ys) ((x,u) :: xts) xus
       in
@@ -91,7 +91,7 @@ and simplify_spine ~loc ctx h xts t es =
   | (x, u) :: xts ->
     let u = Tt.unabstract_ty ys 0 u in
     let u = simplify_ty ctx u in
-    let y, ctx = Context.add_fresh x u ctx
+    let y, _ = Value.fresh ~loc x u
     and u = Tt.abstract_ty ys 0 u in
       simplify_xts ctx (y::ys) ((x,u) :: xus) xts
   in
