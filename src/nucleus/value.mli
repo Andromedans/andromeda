@@ -16,7 +16,7 @@ type cont = value -> result
     they will be results as well (and then handlers will handle them). *)
 and result =
   | Return of value
-  | Operation of Name.t * value * cont
+  | Operation of string * value * cont
 
 (** [fresh x t] generates a fresh name [y] from name [x] and returns [y] and
     the judgment that [y] has type [t]. *)
