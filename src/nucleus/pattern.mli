@@ -80,3 +80,7 @@ val print_eta_hint : ?max_level:int -> Name.t list -> eta_hint -> Format.formatt
 val print_inhabit_hint : ?max_level:int -> Name.t list -> inhabit_hint -> Format.formatter -> unit
 
 val print_hint : ?max_level:int -> Name.t list -> general_hint -> Format.formatter -> unit
+
+val print_key : ?max_level:int -> hint_key -> Format.formatter -> unit
+
+val print_general_key : ?max_level:int -> (hint_key * hint_key * hint_key) option -> Format.formatter -> unit

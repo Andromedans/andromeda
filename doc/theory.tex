@@ -83,7 +83,7 @@ cannot be equivalent.
 \end{align*}
 %
 The judgement ``$\T$ is a type in context $\G$'' is a special case of term formation, namely
-$\istype{\G}{\T}$. Similarly, equality of terms at $\Type$ is equality of types.
+$\istype{\G}{\T}$. Similarly, equality of types is just equality of terms at $\Type$.
 
 \subsection{Contexts}
 \label{sec:contexts}
@@ -99,6 +99,9 @@ $\istype{\G}{\T}$. Similarly, equality of terms at $\Type$ is equality of types.
   }
   {\isctx{\ctxextend{\G}{\x}{\T}}}
 \end{mathpar}
+
+% In rules that extend the context, we leave implicit the premise that the extended context be well formed.
+% XXX Is this covered by the term-var rule?
 
 \subsection{Terms and types}
 
@@ -339,9 +342,9 @@ These are read as ``in the given context $\G$ and environment $\env$ command $\c
   {\evali{\ctxenv}{\cmdReturn \Type}{\Type}{\Type}}
 
   \infer[\rulename{infer-product}]
-  {\evalc \ctxenv \expr \Type {\U_1} \\
-    \evalc {\ctxextend \G \x {\T_1};\, \env} \cmd \Type {\U_2}}
-  {\evali \ctxenv {\cmdProd \x \expr \cmd} {\Prod \x {\U_1} {\U_2}} \Type}
+  {\evalc \ctxenv {\cmd_1} \Type {\T_1} \\
+    \evalc {\ctxextend \G \x {\T_1};\, \env} {\cmd_2} \Type {\T_2}}
+  {\evali \ctxenv {\cmdProd \x {\cmd_1} {\cmd_2}} {\Prod \x {\T_1} {\T_2}} \Type}
 
   \infer[\rulename{infer-eq}]
   {\evali \ctxenv {\cmd_1} {\e_1} \T \\
@@ -373,7 +376,7 @@ Ascription only has an infer rule, and will always switch to a checking phase. I
     \eqtypealg \ctxenv {\T_1} {\U_1} \\
     \evalc {\ctxextend \G \x {\T_1};\, \env} \cmd {\U_2} \e}
   {\evalc \ctxenv {\cmdLam \x \expr \cmd} \U {\lam \x {\U_1} {\U_2} \e}}
-  % XXX should the result be (x:U1)->U2 or (x:T1->U2)?
+  % XXX should the result be (x:U1)->U2 or (x:T1)->U2?
 
   \infer[\rulename{check-$\lambda$-untagged}]
   {\tywhnfs \ctxenv \U {\Prod \x {\U_1} {\U_2}} \\
@@ -382,7 +385,7 @@ Ascription only has an infer rule, and will always switch to a checking phase. I
 
   \infer[\rulename{infer-$\lambda$}]
   {\evalc \ctxenv \expr \Type {\U_1} \\
-    \evali {\ctxextend \G \x {\U_1};\, \env} \cmd \e {\U_2}}
+    \evali {\ctxextend \G \x {\U_1};\, \envextend \env \x \x {\U_1}} \cmd \e {\U_2}}
   {\evali \ctxenv {\cmdLam \x \expr \cmd} {\lam \x {\U_1} {\U_2} \e} {\Prod \x {\U_1} {\U_2}}}
 
   \infer[\rulename{infer-app}]

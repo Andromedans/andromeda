@@ -83,9 +83,9 @@ let parse lex parse resource =
   try
     lex parse resource
   with
-  | Ulexbuf.Parse_Error lexbuf ->
-    let t = Ulexbuf.lexeme lexbuf in
-    Error.syntax ~loc:(Location.of_lexeme lexbuf) "Unexpected: %s" t
+  | Ulexbuf.Parse_Error (w, p_start, p_end) ->
+     let loc = Location.make p_start p_end in
+     Error.syntax ~loc "Unexpected: %s" w
 
 (** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
     result if in interactive mode, and returns the new context. *)
@@ -124,7 +124,7 @@ let rec exec_cmd base_dir interactive ctx c =
      let (e,t) = Eval.comp_value ctx c in
      let e = Simplify.simplify ctx e
      and t = Simplify.simplify_ty ctx t in
-     Format.printf "%t@." (Value.print (Context.used_names ctx) (e,t)) ;
+     if interactive then Format.printf "%t@." (Value.print (Context.used_names ctx) (e,t)) ;
      ctx
 
   | Syntax.TopBeta xscs ->
@@ -231,18 +231,23 @@ let rec exec_cmd base_dir interactive ctx c =
   | Syntax.Quit ->
     exit 0
 
+
 (** Load directives from the given file. *)
 and use_file ctx (filename, interactive) =
-  let filename, line_limit =
+  let filename, limit =
     if Str.string_match (Str.regexp "\\(.*\\)#line_limit:\\([0-9]+\\)") filename 0
-    then let fn, ll = Str.matched_group 1 filename,
+    then let fn, lim = Str.matched_group 1 filename,
                       (int_of_string (Str.matched_group 2 filename)) in
-      fn, Some ll
+         let limit = { Lexing.dummy_pos with Lexing.pos_cnum = lim } in
+      fn, Some (limit, true)
     else filename, None in
 
   if Context.included filename ctx then ctx else
     begin
-      let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
+      let tokens, errs = Tokens.tokens_of_file filename in
+
+      let cmds = parse (Tokens.cmds_of_tokens ?limit) tokens errs in
+
       let base_dir = Filename.dirname filename in
       let ctx = Context.add_file filename ctx in
       List.fold_left (exec_cmd base_dir interactive) ctx cmds

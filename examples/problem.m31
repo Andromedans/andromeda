@@ -1,11 +1,12 @@
 Let G := (fun (T : Type) (g : T -> T) (x : T) => x) : ∀ (T : Type) (g : T -> T) (x : T), T.
 Let G' := (fun U f => fun (y : U) => y) : ∀ (V : Type) (h : V -> V) (z : V), V.
 
-#verbosity 4
+#verbosity 4.
 
 (* eta expansion of functions seems to lead to beta hints being not applied *)
 Parameter G'' : ∀ (T : Type) (g : T -> T), T -> T.
 Parameter h : G'' == G.
+(* this should work with a general hint! *)
 Check
-  beta h in
+  hint h in
   (refl G'' : G'' == G).

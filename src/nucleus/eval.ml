@@ -57,6 +57,13 @@ let rec infer ctx (c',loc) =
     let ctx = Context.unhint xs ctx in
     infer ctx c
 
+  | Syntax.Whnf c ->
+    infer ctx c >>= 
+    (fun (e, Tt.Ty t) ->
+      let e = Equal.whnf ctx e
+      and t = Equal.whnf ctx t in
+      Value.Return (e, Tt.ty t))
+
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t in
        check ctx c t
@@ -92,30 +99,7 @@ let rec infer ctx (c',loc) =
     fold [] yts cs
 
   | Syntax.Lambda (abs, c) ->
-    let rec fold ctx ys xts = function
-      | [] ->
-         infer ctx c >>= 
-           (fun (e, t) ->
-            let e = Tt.abstract ys 0 e
-            and t = Tt.abstract_ty ys 0 t in
-            let e = Tt.mk_lambda ~loc xts e t
-            and t = Tt.mk_prod_ty ~loc xts t in
-            Value.Return (e, t))
-      | (x,c) :: abs ->
-        begin match c with
-        | None -> Error.typing
-            ~loc "cannot infer the type of untagged variable %t" (Name.print x)
-        | Some c ->
-           check_ty ctx c >>=
-             (fun (e, _) ->
-              let t = Tt.ty e in
-              let y, yt = Value.fresh ~loc x t in
-              let ctx = Context.add_bound x yt ctx in
-              let t = Tt.abstract_ty ys 0 t in
-              fold ctx (y::ys) (xts @ [(x,t)]) abs)
-        end
-    in
-      fold ctx [] [] abs
+    infer_lambda ctx loc abs c
 
   | Syntax.Spine (e, []) ->
     let e, t = expr ctx e in
@@ -226,6 +210,12 @@ and check ctx ((c',loc) as c) t : Value.result =
     let ctx = Context.unhint xs ctx in
     check ctx c t
 
+  | Syntax.Whnf c ->
+    check ctx c t >>=
+    (fun (e, _) ->
+       let e = Equal.whnf ctx e in
+       return e)
+
   | Syntax.Ascribe (c, t') ->
     let t'' = expr_ty ctx t' in
     (* checking the types for equality right away like this allows to fail
@@ -264,80 +254,133 @@ and check ctx ((c',loc) as c) t : Value.result =
                   (print_ty ctx t)
     end
 
-and check_lambda ctx loc t abs c =
-  let return e = Value.Return (e, t) in
-
-  let (zus, v) = match Equal.as_prod ctx t with
-    | Some x -> x
-    | None -> Error.typing ~loc
-                "this type %t should be a product" (print_ty ctx t)
-  in
-
-  (** [ys] are what got added to the environment, [zus] come from the type
-      [t] we're checking against, [abs] from the binder, [xts] are what
-      should be used to check the body *)
-  let rec fold ctx ys zs xts abs zus v =
-    match abs, zus with
-    | (x,t)::abs, (z,u)::zus ->
-
-      (* let u = u[x_k-1/z_k-1] in *)
-      let u = Tt.unabstract_ty ys 0 u in
-
-      let k t =
-        let y, yt = Value.fresh ~loc x t in
-        let ctx = Context.add_bound x yt ctx in
-        let t = Tt.abstract_ty ys 0 t in
-        fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus v
-      in
-
-      begin match t with
-        | None ->
-           Print.debug "untagged arg %t in lambda, using %t as type"
-             (Name.print x)
-             (print_ty ctx u);
-           k u
-        | Some t ->
-           check_ty ctx t >>=
+and infer_lambda ctx loc abs c =
+    let rec fold ctx ys xts = function
+      | [] ->
+         infer ctx c >>= 
+           (fun (e, t) ->
+            let e = Tt.abstract ys 0 e
+            and t = Tt.abstract_ty ys 0 t in
+            let e = Tt.mk_lambda ~loc xts e t
+            and t = Tt.mk_prod_ty ~loc xts t in
+            Value.Return (e, t))
+      | (x,c) :: abs ->
+        begin match c with
+        | None -> Error.typing
+            ~loc "cannot infer the type of untagged variable %t" (Name.print x)
+        | Some c ->
+           check_ty ctx c >>=
              (fun (e, _) ->
               let t = Tt.ty e in
-                if Equal.equal_ty ctx t u
-                then k t
-                else Error.typing ~loc
-                       "in this lambda, the variable %t should have a type equal to@ \
-                        %t\nFound type@ %t"
-                       (Name.print x) (print_ty ctx u) (print_ty ctx t))
-      end
+              let y, yt = Value.fresh ~loc x t in
+              let ctx = Context.add_bound x yt ctx in
+              let t = Tt.abstract_ty ys 0 t in
+              fold ctx (y::ys) (xts @ [(x,t)]) abs)
+        end
+    in
+      fold ctx [] [] abs
 
-    | [], [] ->
-      (* let u = u[x_k-1/z_k-1] in *)
-      let v' = Tt.unabstract_ty ys 0 v in
-      check ctx c v' >>=
-        (fun (e, _) ->
-         let e = Tt.abstract ys 0 e in
-         let xts = List.rev xts in
-         return (Tt.mk_lambda ~loc xts e v))
+and check_lambda ctx loc t abs c =
+  (* If the abstractions are fully annotated with types then we
+     infer the type of the lambda and compare it to [t],
+     otherwise we express [t] as a product and descend into
+     the abstraction. *)
 
-    | [], _::_ ->
-      let v = Tt.mk_prod_ty ~loc zus v in
-      let v' = Tt.unabstract_ty ys 0 v in
-      check ctx c v' >>=
-       (fun (e, _) ->
-        let e = Tt.abstract ys 0 e in
-        let xts = List.rev xts in
-        return (Tt.mk_lambda ~loc xts e v))
+  let all_tagged = List.for_all (function (_, None) -> false | (_, Some _) -> true) abs in
 
-    | _::_, [] ->
-      let v = Equal.as_prod ctx v in
-      begin match v with
-      | None ->
-        Error.typing ~loc
-          "tried to check against a type with a too short abstraction@ %t"
-          (print_ty ctx t)
-      | Some (zus, v) -> fold ctx ys zs xts abs zus v
-      end
-  in
-  fold ctx [] [] [] abs zus v
+  let return e = Value.Return (e, t) in
 
+  if all_tagged then
+    begin
+     (* try to infer and check equality. this might not be the end of the
+       story, [as_*] could be operations *)
+     (* for instance, an alternative would be to make a fresh pi-type and check
+       whether the type at hand [t] is equal to the fresh pi by a general hint,
+       and then continue with that one *)
+
+     (* XXX this generalisation should be done also in [fold] below and in
+        [spine], same for other [as_*] functions  *)
+
+      infer_lambda ctx loc abs c >>=
+      (fun (e', t') ->
+         if Equal.equal_ty ctx t t'
+         then return e'
+         else Error.typing ~loc
+               "this expression is an abstraction but should have type %t" (print_ty ctx t))
+    end
+  else (* not all_tagged *)
+    begin
+      let (zus, v) = match Equal.as_prod ctx t with
+        | Some x -> x
+        | None -> Error.typing ~loc
+                    "this type %t should be a product" (print_ty ctx t)
+      in
+
+      (** [ys] are what got added to the environment, [zus] come from the type
+          [t] we're checking against, [abs] from the binder, [xts] are what
+          should be used to check the body *)
+      let rec fold ctx ys zs xts abs zus v =
+        match abs, zus with
+        | (x,t)::abs, (z,u)::zus ->
+
+          (* let u = u[x_k-1/z_k-1] in *)
+          let u = Tt.unabstract_ty ys 0 u in
+
+          let k t =
+            let y, yt = Value.fresh ~loc x t in
+            let ctx = Context.add_bound x yt ctx in
+            let t = Tt.abstract_ty ys 0 t in
+            fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus v
+          in
+
+          begin match t with
+            | None ->
+              Print.debug "untagged arg %t in lambda, using %t as type"
+                (Name.print x)
+                (print_ty ctx u);
+              k u
+            | Some t ->
+              check_ty ctx t >>=
+              (fun (e, _) ->
+                 let t = Tt.ty e in
+                 if Equal.equal_ty ctx t u
+                 then k t
+                 else Error.typing ~loc
+                     "in this lambda, the variable %t should have a type equal to@ \
+                      %t\nFound type@ %t"
+                     (Name.print x) (print_ty ctx u) (print_ty ctx t))
+          end
+
+        | [], [] ->
+          (* let u = u[x_k-1/z_k-1] in *)
+          let v' = Tt.unabstract_ty ys 0 v in
+          check ctx c v' >>=
+          (fun (e, _) ->
+             let e = Tt.abstract ys 0 e in
+             let xts = List.rev xts in
+             return (Tt.mk_lambda ~loc xts e v))
+
+        | [], _::_ ->
+          let v = Tt.mk_prod_ty ~loc zus v in
+          let v' = Tt.unabstract_ty ys 0 v in
+          check ctx c v' >>=
+          (fun (e, _) ->
+             let e = Tt.abstract ys 0 e in
+             let xts = List.rev xts in
+             return (Tt.mk_lambda ~loc xts e v))
+
+        | _::_, [] ->
+          let v = Equal.as_prod ctx v in
+          begin match v with
+            | None ->
+              Error.typing ~loc
+                "tried to check against a type with a too short abstraction@ %t"
+                (print_ty ctx t)
+            | Some (zus, v) -> fold ctx ys zs xts abs zus v
+          end
+      in
+      fold ctx [] [] [] abs zus v
+    end (* not all_tagged *)
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
     Then [spine ctx e t cs] computes [xeus], [u] and [v] such that we can make
@@ -427,9 +470,10 @@ and hint_bind ctx xscs k =
               fold ((xs, h) :: xshs) xscs)
     | [] -> let ctx = Context.add_generals xshs ctx in
       Print.debug "Installed hints@ %t"
-        (Print.sequence (fun (tags, (_, h)) ppf ->
-             Print.print ppf "@[tags: %s ;@ hint: %t@]"
+        (Print.sequence (fun (tags, (k, h)) ppf ->
+             Print.print ppf "@[tags: %s ; keys: %t ;@ hint: %t@]"
                (String.concat " " tags)
+               (Pattern.print_general_key k)
                (Pattern.print_hint [] h)) "," xshs);
       k ctx
   in fold [] xscs

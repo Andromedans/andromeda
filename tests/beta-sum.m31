@@ -1,4 +1,4 @@
-#include "../examples/sum.m31"
+#include "../examples/sum.m31".
 
 Beta sum_iota_l.
 Beta sum_iota_r.
