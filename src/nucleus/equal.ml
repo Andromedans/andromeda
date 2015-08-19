@@ -340,6 +340,10 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 (* Compare expressions at a given type [t] using general hints. *)
 and equal_hints ctx e1 e2 t =
   (* First we normalize the expressions *)
+  (* XXX can break general hints on functions. First note that when we get
+     here, eta expansion has already been applied. Now h : f ≡ λx.x will fail
+     because the rhs [(λx.x) y] reduces to [y] but [f y] is stuck and h won't
+     apply anymore *)
   let (e1',loc1) as e1 = whnf ctx e1
   and (e2',loc2) as e2 = whnf ctx e2
   in

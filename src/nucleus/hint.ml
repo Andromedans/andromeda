@@ -152,6 +152,17 @@ let mk_eta ~loc ctx (xts, (t, e1, e2)) =
 
 let mk_general ~loc ctx (xts, (t, e1, e2)) =
   let pvars = pvars_of_binders xts in
+
+  (* XXX when we try to apply a hint to a term, we whnf the term, so we ought
+     to do the same with the hint *)
+  (* XXX first instantiate with the abstraction. what to do wrt to the pvars?
+     eventually, raise a `general_red' handler? *)
+  (* let Tt.Ty (t, loc) = t in *)
+  (* let t = Equal.whnf ctx (t, loc) *)
+  (* and e1 = Equal.whnf ctx e1 *)
+  (* and e2 = Equal.whnf ctx e2 in *)
+  (* let t = Tt.ty t in *)
+
   let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
   let pvars, pe1 = of_term ctx pvars e1 t in
   let pvars, pe2 = of_term ctx pvars e2 t in
@@ -160,8 +171,10 @@ let mk_general ~loc ctx (xts, (t, e1, e2)) =
     let key = Pattern.general_key e1 e2 t in
     key, (xts, (pt, pe1, pe2))
   | None ->
-    Error.runtime ~loc
-      "the type of a hint must be a symbol@ or a symbol applied to arguments"
+    (* Error.runtime ~loc *)
+    (*   "the type of a hint must be a symbol@ or a symbol applied to arguments" *)
+    None, (xts, (pt, pe1, pe2))
+
 
 let mk_inhabit ~loc ctx (xts, t) =
   let pvars = pvars_of_binders xts in
