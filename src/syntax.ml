@@ -129,9 +129,16 @@ let rec shift_comp k lvl (c', loc) =
        Spine (e, cs)
 
     | Prod (xes, c) ->
-       let xes = List.map (fun (x, e) -> (x, shift_expr k lvl e)) xes
-       and c = shift_comp k lvl c in
-       Prod (xes, c)
+       let rec fold lvl xes' = function
+         | [] ->
+            let xes' = List.rev xes'
+            and c = shift_comp k lvl c in
+            Prod (xes', c)
+         | (x,e) :: xes ->
+            let e = shift_expr k lvl e in
+            fold (lvl+1) ((x,e) :: xes') xes
+       in
+       fold lvl [] xes
 
     | Eq (c1, c2) ->
        let c1 = shift_comp k lvl c1
