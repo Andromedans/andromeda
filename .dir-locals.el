@@ -28,4 +28,8 @@
             (setq default-directory tt-root-directory)))
         (setq m31-executable (concat tt-root-directory "andromeda.byte"))))
       ))
-  ))
+  )
+ (tuareg-mode
+  (show-trailing-whitespace . t))
+ (m31-mode
+  (show-trailing-whitespace . t)))
