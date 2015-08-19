@@ -9,6 +9,9 @@ type t = private
 (** Print a name. *)
 val print : t -> Format.formatter -> unit
 
+(** Print an operation name. *)
+val print_op : string -> Format.formatter -> unit
+
 (** An anonymous name that cannot be referenced. *)
 val anonymous : t
 

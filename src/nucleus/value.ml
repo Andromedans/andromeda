@@ -5,14 +5,25 @@ type value =
   Tt.term * Tt.ty
   (** A judgement [e : t] where [e] is guaranteed to have the type [t]. *)
 
-type result =
+(** A continuation *)
+type cont = value -> result
+
 (** Possible results of evaluating a computation. *)
+and result =
   | Return of value
+  | Operation of string * value * cont
 
 (** NB: This is an effectful computation. *)
 let fresh ~loc x t =
   let y = Name.fresh x in
     y, (Tt.mk_name ~loc y, t)
+
+(** The monadic bind [bind r f] feeds the result [r : result]
+    into function [f : value -> 'a]. *)
+let rec bind r f =
+  match r with
+  | Return v -> f v
+  | Operation (op, v, k) -> Operation (op, v, fun x -> (bind (f x) k))
 
 let print ?max_level xs v ppf =
   let (e,t) = v in
@@ -20,3 +31,7 @@ let print ?max_level xs v ppf =
           (Tt.print_term ~max_level:999 xs e)
           (Tt.print_ty ~max_level:999 xs t)
 
+let to_value ~loc = function
+  | Return v -> v
+  | Operation (op, _, _) ->
+     Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
