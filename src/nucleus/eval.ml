@@ -267,11 +267,32 @@ and check ctx ((c',loc) as c) t =
     end
 
 and check_lambda ctx loc t abs c =
-  let (zus, v) = match Equal.as_prod ctx t with
-    | Some x -> x
-    | None -> Error.typing ~loc
-                "this type %t should be a product" (print_ty ctx t)
-  in
+  match Equal.as_prod ctx t with
+  | None ->
+     (* try to infer and check equality. this might not be the end of the
+       story, [as_*] could be operations *)
+     (* for instance, an alternative would be to make a fresh pi-type and check
+       whether the type at hand [t] is equal to the fresh pi by a general hint,
+       and then continue with that one *)
+
+     (* XXX this generalisation should be done also in [fold] below and in
+        [spine], same for other [as_*] functions  *)
+
+    Print.debug "%t is not a product, switching to infer" (Tt.print_ty [] t);
+    let Value.Return (e',t') = infer ctx ((Syntax.Lambda (abs, c)), loc) in
+    if Equal.equal_ty ctx t t'
+    then e'
+    else
+
+      (* Error.typing ~loc:(snd e') *)
+      (*   "this expression should have type@ %t@ but has type@ %t" *)
+      (*   (print_ty ctx t) (print_ty ctx t') *)
+
+      Error.typing ~loc
+        "this type %t should be a product" (print_ty ctx t)
+
+    | Some (zus, v) ->
+
 
   (** [ys] are what got added to the environment, [zus] come from the type
       [t] we're checking against, [abs] from the binder, [xts] are what
