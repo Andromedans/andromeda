@@ -7,6 +7,6 @@ val comp : Context.t -> Syntax.comp -> Value.result
     its value, or triggers a runtime error if the result is an operation. *)
 val comp_value : Context.t -> Syntax.comp -> Value.value
 
-(** [ty ctx c] evaluates computation [c] in context [ctx] and
-    checks that the result is a type. *)
+(** [ty ctx c] evaluates computation [c] in context [ctx],
+    checks that the result is a type and returns it. *)
 val ty : Context.t -> Syntax.comp -> Tt.ty
