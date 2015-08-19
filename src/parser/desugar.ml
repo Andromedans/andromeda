@@ -23,7 +23,7 @@ let rec mk_prod ys ((t', loc) as t) =
 let mk_let ~loc w c' =
   match w with
   | [] -> c', loc
-  | _ :: _ -> Syntax.Let (w, (c', loc)), loc
+  | (_::_) as w -> Syntax.Let (w, (c', loc)), loc
 
 let rec comp primitive bound ((c',loc) as c) =
   (* When a computation [c] is desugared we hoist out a list of
@@ -34,7 +34,7 @@ let rec comp primitive bound ((c',loc) as c) =
   let w, c = match c' with
 
     | Input.Operation (op, e) ->
-      let bound, w, e = expr primitive bound e in
+      let w, e = expr primitive bound e in
       w, Syntax.Operation (op, e)
 
     | Input.Let (xcs, c2) ->
@@ -55,37 +55,42 @@ let rec comp primitive bound ((c',loc) as c) =
       [], Syntax.Let (xcs, c2)
 
     | Input.Apply (e1, e2) ->
-       let bound, w1, e1 = expr primitive bound e1 in
-       let bound, w2, e2 = expr primitive bound e2 in
-         w1 @ w2, Syntax.Apply (e1, e2)
+       let w1, e1 = expr primitive bound e1
+       and w2, e2 = expr primitive bound e2 in
+       let k1 = List.length w1
+       and k2 = List.length w2 in
+       let e1 = Syntax.shift_expr k2 0 e1
+       and e2 = Syntax.shift_expr k1 k2 e2 in
+       w1 @ w2, Syntax.Apply (e1, e2)
 
     | Input.Beta (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       let c = comp primitive bound c in
-        [], Syntax.Beta (xscs, c)
+      [], Syntax.Beta (xscs, c)
 
     | Input.Eta (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       let c = comp primitive bound c in
-        [], Syntax.Eta (xscs, c)
+      [], Syntax.Eta (xscs, c)
 
     | Input.Hint (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       let c = comp primitive bound c in
-        [], Syntax.Hint (xscs, c)
+      [], Syntax.Hint (xscs, c)
 
     | Input.Inhabit (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       let c = comp primitive bound c in
-        [], Syntax.Inhabit (xscs, c)
+      [], Syntax.Inhabit (xscs, c)
 
     | Input.Unhint (xs, c) ->
       let c = comp primitive bound c in
       [], Syntax.Unhint (xs, c)
 
     | Input.Ascribe (c, t) ->
-      let bound, w, t = expr primitive bound t in
+      let w, t = expr primitive bound t in
       let c = comp primitive bound c in
+      let c = Syntax.shift_comp (List.length w) 0 c in
       w, Syntax.Ascribe (c, t)
 
     | Input.Whnf c ->
@@ -120,11 +125,11 @@ let rec comp primitive bound ((c',loc) as c) =
         | (x,t) :: xs ->
           begin
             match expr primitive bound t with
-            | _, [], t ->
+            | [], t ->
               let bound = add_bound x bound
               and ys = ys @ [(x,t)] in
               fold bound ys xs
-            | bound, w, ((_,loc) as t) ->
+            | w, ((_,loc) as t) ->
               let c = fold (add_bound x bound) [] xs in
               let c = Syntax.Prod ([(x,t)], (c,loc)) in
               let c = mk_let ~loc:(snd t) w c in
@@ -150,7 +155,7 @@ let rec comp primitive bound ((c',loc) as c) =
       [], Syntax.Inhab
 
     | (Input.Var _ | Input.Type | Input.Function _) ->
-      let _, w, e = expr primitive bound c in
+      let w, e = expr primitive bound c in
       w, Syntax.Return e
 
   in
@@ -170,7 +175,7 @@ and spine primitive bound ((e',loc) as e) cs =
         | x::lst -> let lst, lst' = split (k-1) lst in (x :: lst, lst')
   in
   (* First we calculate the head of the spine, and the remaining arguments. *)
-  let (bound, w, e), cs =
+  let (w, e), cs =
     begin
       match e' with
       | Input.Var x when not (List.mem x bound) ->
@@ -193,8 +198,7 @@ and primapp ~loc primitive bound x cs =
   let cs = List.map (comp primitive bound) cs in
   let c = Syntax.PrimApp (x, cs), loc
   and y = Name.fresh Name.anonymous in
-  let bound = add_bound y bound in
-  bound, [(y, c)], (Syntax.Bound 0, loc)
+  [(y, c)], (Syntax.Bound 0, loc)
 
 (* Desugar an expression. It hoists out subcomputations appearing in the
    expression. *)
@@ -214,11 +218,11 @@ and expr primitive bound ((e', loc) as e) =
           with Not_found ->
             Error.syntax ~loc "unknown name %t" (Name.print x)
         end
-      | Some k -> bound, [], (Syntax.Bound k, loc)
+      | Some k -> [], (Syntax.Bound k, loc)
     end
 
   | Input.Type ->
-    bound, [], (Syntax.Type, loc)
+    [], (Syntax.Type, loc)
 
   | Input.Function (xs, c) ->
      let rec fold bound = function
@@ -232,7 +236,7 @@ and expr primitive bound ((e', loc) as e) =
           let e = fold bound xs in
             Syntax.Function (x, (Syntax.Return e, loc)), loc
      in
-       bound, [], fold bound xs
+       [], fold bound xs
 
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
@@ -240,8 +244,7 @@ and expr primitive bound ((e', loc) as e) =
      Input.Whnf _ | Input.Apply _) ->
     let x = Name.fresh Name.anonymous
     and c = comp primitive bound e in
-    let bound = add_bound x bound in
-    bound, [(x,c)], (Syntax.Bound 0, loc)
+    [(x,c)], (Syntax.Bound 0, loc)
 
 let toplevel primitive bound (d', loc) =
   let d' = match d' with

@@ -53,3 +53,12 @@ and toplevel' =
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Context (** print the current context *)
+
+(** [shift_comp k lvl c] shifts the bound variables in computation [c] that
+    are larger than or equal [lv] by [k]. *)
+val shift_comp : int -> int -> comp -> comp
+
+(** [shift_exp k lvl e] shifts the bound variables in computation [e] that
+    are larger than or equal [lv] by [k]. *)
+val shift_expr : int -> int -> expr -> expr
+
