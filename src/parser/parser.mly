@@ -2,7 +2,7 @@
   open Input
 %}
 
-%token FORALL FUN
+%token FORALL LAMBDA
 %token TYPE
 %token UNDERSCORE
 %token <string> NAME
@@ -17,6 +17,7 @@
 %token BETA ETA HINT INHABIT
 %token UNHINT
 %token WHNF
+%token FUNCTION APPLY
 %token PRIMITIVE REDUCE
 %token <string> OPERATION
 %token CONTEXT HELP QUIT
@@ -97,7 +98,8 @@ ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                              { e }
   | FORALL a=abstraction(ty_term) COMMA e=term      { Prod (a, e) }
-  | FUN a=fun_abstraction e=term                    { Lambda (a, e) }
+  | LAMBDA a=lambda_abstraction e=term              { Lambda (a, e) }
+  | FUNCTION a=function_abstraction e=term          { Function (a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
@@ -109,6 +111,7 @@ app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_simple_term                             { e }
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
+  | e1=app_term APPLY e2=simple_term                { Apply (e1, e2) } 
   | REFL e=simple_term                              { Refl e }
   | op=OPERATION e=simple_term                      { Operation (op, e) }
 
@@ -154,13 +157,17 @@ reduce:
   |          { false }
   | REDUCE { true }
 
-(* function abstraction with possibly missing typing annotations *)
-fun_abstraction:
-  | xs=list(name) DARROW
+(* function arguments *)
+function_abstraction:
+  | xs = nonempty_list(name) DARROW     { xs }
+
+(* lambda abstraction with possibly missing typing annotations *)
+lambda_abstraction:
+  | xs=list(name) DOT
       { (List.map (fun x -> (x, None)) xs) }
-  | xs=nonempty_list(name) COLON t=ty_term DARROW
+  | xs=nonempty_list(name) COLON t=ty_term DOT
       { (List.map (fun x -> (x, Some t)) xs) }
-  | xs=list(name) yst=paren_bind(ty_term) zsu=fun_abstraction
+  | xs=list(name) yst=paren_bind(ty_term) zsu=lambda_abstraction
       { (List.map (fun x -> (x, None)) xs) @
         (List.map (fun (y,t) -> (y, Some t)) yst) @
          zsu

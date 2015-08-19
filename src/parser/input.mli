@@ -11,8 +11,10 @@ and term' =
   (* expressions *)
   | Var of Name.t
   | Type
+  | Function of Name.t list * comp
   (* computations *)
   | Operation of string * expr
+  | Apply of expr * expr
   | Let of (Name.t * comp) list * comp
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp

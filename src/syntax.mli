@@ -7,6 +7,7 @@ type bound = int
 type expr = expr' * Location.t
 and expr' =
   | Bound of bound
+  | Function of Name.t * comp
   | Type
 
 (** Desugared types - indistinguishable from expressions *)
@@ -18,6 +19,7 @@ and comp' =
   | Return of expr
   | Operation of string * expr
   | Let of (Name.t * comp) list * comp
+  | Apply of expr * expr
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp

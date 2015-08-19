@@ -1,3 +1,4 @@
+
 open Parser
 open Ulexbuf
 
@@ -24,8 +25,9 @@ let reserved = [
   ("forall", FORALL) ;
   ("∀", FORALL) ;
   ("Π", FORALL) ;
-  ("fun", FUN) ;
-  ("λ", FUN) ;
+  ("fun", FUNCTION) ;
+  ("lambda", LAMBDA) ;
+  ("λ", LAMBDA) ;
   ("in", IN) ;
   ("refl", REFL) ;
   ("Type", TYPE) ;
@@ -87,6 +89,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | ';'                      -> f (); SEMICOLON
   | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
+  | '@'                      -> f (); APPLY
   | "->" | 10230             -> f (); ARROW
   | "=>" | 10233             -> f (); DARROW
   | "==" | 8801              -> f (); EQEQ

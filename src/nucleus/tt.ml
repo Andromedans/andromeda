@@ -477,9 +477,8 @@ and print_lambda xs (yus, (e, t)) ppf =
     (char_lambda ())
     (Name.print_binders
       (Name.print_binder1 print_ty)
-      (fun xs ppf -> Print.print ppf "@ %t%s@ %t"
+      (fun xs ppf -> Print.print ppf "@ %t.@ %t"
         (print_annot (print_ty xs t))
-        (char_darrow ())
         (print_term xs e))
       xs
       yus)

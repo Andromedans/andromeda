@@ -54,6 +54,11 @@ let rec comp primitive bound ((c',loc) as c) =
       let c2 = comp primitive bound c2 in
       [], Syntax.Let (xcs, c2)
 
+    | Input.Apply (e1, e2) ->
+       let bound, w1, e1 = expr primitive bound e1 in
+       let bound, w2, e2 = expr primitive bound e2 in
+         w1 @ w2, Syntax.Apply (e1, e2)
+
     | Input.Beta (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp primitive bound c) xscs in
       let c = comp primitive bound c in
@@ -144,7 +149,7 @@ let rec comp primitive bound ((c',loc) as c) =
     | Input.Inhab ->
       [], Syntax.Inhab
 
-    | (Input.Var _ | Input.Type) ->
+    | (Input.Var _ | Input.Type | Input.Function _) ->
       let _, w, e = expr primitive bound c in
       w, Syntax.Return e
 
@@ -215,9 +220,24 @@ and expr primitive bound ((e', loc) as e) =
   | Input.Type ->
     bound, [], (Syntax.Type, loc)
 
+  | Input.Function (xs, c) ->
+     let rec fold bound = function
+       | [] -> Error.impossible "empty function abstraction in desugar"
+       | [x] ->
+          let bound = add_bound x bound in
+          let c = comp primitive bound c in
+            Syntax.Function (x, c), loc
+       | x :: ((_ :: _) as xs) ->
+          let bound = add_bound x bound in
+          let e = fold bound xs in
+            Syntax.Function (x, (Syntax.Return e, loc)), loc
+     in
+       bound, [], fold bound xs
+
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
-     Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ | Input.Whnf _) ->
+     Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ | 
+     Input.Whnf _ | Input.Apply _) ->
     let x = Name.fresh Name.anonymous
     and c = comp primitive bound e in
     let bound = add_bound x bound in

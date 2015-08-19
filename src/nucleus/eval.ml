@@ -13,6 +13,11 @@ let print_ty ctx t =
 (** Notation for the monadic bind *)
 let (>>=) = Value.bind
 
+(** A filter that verifies the result is a judgement. *)
+let as_judge ~loc k v =
+  let (e, t) = Value.as_judge ~loc v in
+    k e t
+
 (** Evaluation of expressions. *)
 let rec expr ctx (e',loc) =
   begin
@@ -21,12 +26,19 @@ let rec expr ctx (e',loc) =
     | Syntax.Bound k -> Context.lookup_bound k ctx
 
     | Syntax.Type ->
-      let t = Tt.mk_type ~loc
-      in (t, Tt.typ)
+      let t = Tt.mk_type ~loc in
+      Value.Judge (t, Tt.typ)
+
+    | Syntax.Function (x, c) ->
+       let f v =
+         let ctx = Context.add_bound x v ctx in
+         infer ctx c
+       in
+       Value.Closure f
   end
 
 (** Evaluate a computation -- infer mode. *)
-let rec infer ctx (c',loc) =
+and infer ctx (c',loc) =
   match c' with
 
   | Syntax.Return e ->
@@ -40,6 +52,11 @@ let rec infer ctx (c',loc) =
 
   | Syntax.Let (xcs, c) ->
      let_bind ctx xcs (fun ctx -> infer ctx c)
+
+  | Syntax.Apply (e1, e2) ->
+     let v1 = Value.as_closure ~loc (expr ctx e1)
+     and v2 = expr ctx e2 in
+       v1 v2
 
   | Syntax.Beta (xscs, c) ->
     beta_bind ctx xscs (fun ctx -> infer ctx c)
@@ -58,11 +75,11 @@ let rec infer ctx (c',loc) =
     infer ctx c
 
   | Syntax.Whnf c ->
-    infer ctx c >>= 
-    (fun (e, Tt.Ty t) ->
+    infer ctx c >>= as_judge ~loc
+    (fun e (Tt.Ty t) ->
       let e = Equal.whnf ctx e
       and t = Equal.whnf ctx t in
-      Value.Return (e, Tt.ty t))
+      Value.return_judge e (Tt.ty t))
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t in
@@ -79,12 +96,12 @@ let rec infer ctx (c',loc) =
       | [], [] ->
         let u = Tt.instantiate_ty es 0 u
         and e = Tt.mk_primapp ~loc x (List.rev es) in
-        Value.Return (e, u)
+        Value.return_judge e u
 
       | (y,(reducing,t))::yts, c::cs ->
         let t = Tt.instantiate_ty es 0 t in
-        check ctx c t >>=
-          (fun (e, _) ->
+        check ctx c t >>= as_judge ~loc
+          (fun e _ ->
            let e = if reducing then Equal.whnf ctx e else e in
              fold (e :: es) yts cs)
 
@@ -99,14 +116,13 @@ let rec infer ctx (c',loc) =
     fold [] yts cs
 
   | Syntax.Lambda (abs, c) ->
-    infer_lambda ctx loc abs c
+    infer_lambda ctx loc abs c Value.return_judge
 
   | Syntax.Spine (e, []) ->
-    let e, t = expr ctx e in
-      Value.Return (e, t)
+      Value.Return (expr ctx e)
 
   | Syntax.Spine (e, cs) ->
-    let e, t = expr ctx e in
+    let e, t = Value.as_judge ~loc (expr ctx e) in
     spine ~loc ctx e t cs
 
   | Syntax.Prod (abs, c) ->
@@ -117,7 +133,7 @@ let rec infer ctx (c',loc) =
             let u = Tt.abstract_ty ys 0 u in
             let e = Tt.mk_prod ~loc xts u
             and t = Tt.mk_type_ty ~loc in
-            Value.Return (e, t))
+            Value.return_judge e t)
       | (x,t) :: abs ->
         let t = expr_ty ctx t in
         let y, yt = Value.fresh ~loc x t in
@@ -128,35 +144,36 @@ let rec infer ctx (c',loc) =
       fold ctx [] [] abs
 
   | Syntax.Eq (c1, c2) ->
-     infer ctx c1 >>=
-       (fun (e1, t1) ->
-        check ctx c2 t1 >>=
-          (fun (e2, _) -> 
+     infer ctx c1 >>= as_judge ~loc:(snd c1)
+       (fun e1 t1 ->
+        check ctx c2 t1 >>= as_judge ~loc:(snd c2)
+          (fun e2 _ ->
            let t = Tt.mk_eq ~loc t1 e1 e2 in
-             Value.Return (t, Tt.typ)))
+             Value.return_judge t Tt.typ))
 
   | Syntax.Refl c ->
-     infer ctx c >>=
-       (fun (e, t) ->
+     infer ctx c >>= as_judge ~loc:(snd c)
+       (fun e t ->
         let e' = Tt.mk_refl ~loc t e
-        and t' = Tt.mk_eq_ty ~loc t e e
-        in Value.Return (e', t'))
+        and t' = Tt.mk_eq_ty ~loc t e e in
+        Value.return_judge e' t')
 
   | Syntax.Bracket c ->
     infer_ty ctx c
       (fun t ->
        let t = Tt.mk_bracket ~loc t in
-       Value.Return (t, Tt.typ))
+       Value.return_judge t Tt.typ)
 
   | Syntax.Inhab ->
     Error.typing ~loc "cannot infer the type of []"
 
 and check ctx ((c',loc) as c) t : Value.result =
-  let return e = Value.Return (e, t) in
+  let return e = Value.return_judge e t in
 
   match c' with
 
   | Syntax.Return _
+  | Syntax.Apply _
   | Syntax.PrimApp _
   | Syntax.Prod _
   | Syntax.Eq _
@@ -165,8 +182,8 @@ and check ctx ((c',loc) as c) t : Value.result =
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
-    infer ctx c >>=
-      (fun (e, t') ->
+    infer ctx c >>= as_judge ~loc
+      (fun e t' ->
        if Equal.equal_ty ctx t t'
        then return e
        else Error.typing ~loc:(snd e)
@@ -175,7 +192,8 @@ and check ctx ((c',loc) as c) t : Value.result =
 
   | Syntax.Operation (op, e) ->
      let v = expr ctx e
-     and k (e', t') = 
+     and k v =
+       let (e', t') = Value.as_judge ~loc v in
        if Equal.equal_ty ctx t t'
        then return e'
        else Error.typing ~loc:(snd e')
@@ -211,8 +229,8 @@ and check ctx ((c',loc) as c) t : Value.result =
     check ctx c t
 
   | Syntax.Whnf c ->
-    check ctx c t >>=
-    (fun (e, _) ->
+    check ctx c t >>= as_judge ~loc
+    (fun e _ ->
        let e = Equal.whnf ctx e in
        return e)
 
@@ -231,16 +249,17 @@ and check ctx ((c',loc) as c) t : Value.result =
   | Syntax.Refl c ->
     let abs, (t', e1, e2) = Equal.as_universal_eq ctx t in
     assert (abs = []) ;
-    check ctx c t' >>=
-      (fun (e, _) -> 
-       let err e' = Error.typing ~loc
-                      "failed to check that the term@ %t is equal to@ %t"
-                      (print_term ctx e) (print_term ctx e') in
-       if not @@ Equal.equal ctx e e1 t'
-       then err e1
-       else if not @@ Equal.equal ctx e e2 t'
-            then err e2
-            else return (Tt.mk_refl ~loc t' e))
+    check ctx c t' >>= as_judge ~loc
+      (fun e _ ->
+       if Equal.equal ctx e e1 t'
+       then if Equal.equal ctx e e2 t'
+            then return (Tt.mk_refl ~loc t' e)
+            else Error.typing ~loc
+                   "failed to check that the term@ %t is equal to@ %t"
+                   (print_term ctx e) (print_term ctx e2)
+       else Error.typing ~loc
+              "failed to check that the term@ %t is equal to@ %t"
+              (print_term ctx e) (print_term ctx e1))
 
   | Syntax.Inhab ->
     begin match Equal.as_bracket ctx t with
@@ -254,23 +273,23 @@ and check ctx ((c',loc) as c) t : Value.result =
                   (print_ty ctx t)
     end
 
-and infer_lambda ctx loc abs c =
+and infer_lambda ctx loc abs c k =
     let rec fold ctx ys xts = function
       | [] ->
-         infer ctx c >>= 
-           (fun (e, t) ->
+         infer ctx c >>= as_judge ~loc:(snd c)
+           (fun e t ->
             let e = Tt.abstract ys 0 e
             and t = Tt.abstract_ty ys 0 t in
             let e = Tt.mk_lambda ~loc xts e t
             and t = Tt.mk_prod_ty ~loc xts t in
-            Value.Return (e, t))
+            k e t)
       | (x,c) :: abs ->
         begin match c with
         | None -> Error.typing
             ~loc "cannot infer the type of untagged variable %t" (Name.print x)
         | Some c ->
-           check_ty ctx c >>=
-             (fun (e, _) ->
+           check_ty ctx c >>= as_judge ~loc:(snd c)
+             (fun e _ ->
               let t = Tt.ty e in
               let y, yt = Value.fresh ~loc x t in
               let ctx = Context.add_bound x yt ctx in
@@ -288,7 +307,7 @@ and check_lambda ctx loc t abs c =
 
   let all_tagged = List.for_all (function (_, None) -> false | (_, Some _) -> true) abs in
 
-  let return e = Value.Return (e, t) in
+  let return e = Value.return_judge e t in
 
   if all_tagged then
     begin
@@ -301,8 +320,8 @@ and check_lambda ctx loc t abs c =
      (* XXX this generalisation should be done also in [fold] below and in
         [spine], same for other [as_*] functions  *)
 
-      infer_lambda ctx loc abs c >>=
-      (fun (e', t') ->
+      infer_lambda ctx loc abs c
+        (fun e' t' ->
          if Equal.equal_ty ctx t t'
          then return e'
          else Error.typing ~loc
@@ -340,8 +359,8 @@ and check_lambda ctx loc t abs c =
                 (print_ty ctx u);
               k u
             | Some t ->
-              check_ty ctx t >>=
-              (fun (e, _) ->
+              check_ty ctx t >>= as_judge ~loc:(snd t)
+                (fun e _ ->
                  let t = Tt.ty e in
                  if Equal.equal_ty ctx t u
                  then k t
@@ -354,8 +373,8 @@ and check_lambda ctx loc t abs c =
         | [], [] ->
           (* let u = u[x_k-1/z_k-1] in *)
           let v' = Tt.unabstract_ty ys 0 v in
-          check ctx c v' >>=
-          (fun (e, _) ->
+          check ctx c v' >>= as_judge ~loc:(snd c)
+            (fun e _ ->
              let e = Tt.abstract ys 0 e in
              let xts = List.rev xts in
              return (Tt.mk_lambda ~loc xts e v))
@@ -363,8 +382,8 @@ and check_lambda ctx loc t abs c =
         | [], _::_ ->
           let v = Tt.mk_prod_ty ~loc zus v in
           let v' = Tt.unabstract_ty ys 0 v in
-          check ctx c v' >>=
-          (fun (e, _) ->
+          check ctx c v' >>= as_judge ~loc:(snd c)
+            (fun e _ ->
              let e = Tt.abstract ys 0 e in
              let xts = List.rev xts in
              return (Tt.mk_lambda ~loc xts e v))
@@ -402,10 +421,10 @@ and spine ~loc ctx e t cs =
       let u = Tt.mk_prod_ty ~loc xts t in
       let e = Tt.mk_spine ~loc e xus u (List.rev es)
       and v = Tt.instantiate_ty es 0 u in
-      Value.Return (e, v)
+      Value.return_judge e v
   | (x,t)::xts, c::cs ->
-      check ctx c (Tt.instantiate_ty es 0 t) >>=
-        (fun (e, _) ->
+      check ctx c (Tt.instantiate_ty es 0 t) >>= as_judge ~loc:(snd c)
+        (fun e _ ->
          let u = t in
          fold (e :: es) (xus @ [(x, u)]) xts cs)
   | [], ((_ :: _) as cs) ->
@@ -429,8 +448,8 @@ and let_bind ctx xcs k =
 and beta_bind ctx xscs k =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-       infer ctx c >>=
-         (fun (_, t) ->
+       infer ctx c >>= as_judge ~loc:(snd c)
+         (fun _ t ->
           let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
             let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
               fold ((xs, h) :: xshs) xscs)
@@ -446,8 +465,8 @@ and beta_bind ctx xscs k =
 and eta_bind ctx xscs k =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-       infer ctx c >>=
-         (fun (_, t) ->
+       infer ctx c >>= as_judge ~loc:(snd c)
+         (fun _ t ->
           let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
             let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
               fold ((xs, h) :: xshs) xscs)
@@ -463,8 +482,8 @@ and eta_bind ctx xscs k =
 and hint_bind ctx xscs k =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-       infer ctx c >>=
-         (fun (_, t) ->
+       infer ctx c >>= as_judge ~loc:(snd c)
+         (fun _ t ->
           let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
             let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
               fold ((xs, h) :: xshs) xscs)
@@ -481,8 +500,8 @@ and hint_bind ctx xscs k =
 and inhabit_bind ctx xscs k =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-       infer ctx c >>=
-         (fun (_, t) ->
+       infer ctx c >>= as_judge ~loc:(snd c)
+         (fun _ t ->
           let xts, t = Equal.as_universal_bracket ctx t in
             let h = Hint.mk_inhabit ~loc ctx (xts, t) in
               fold ((xs, h) :: xshs) xscs)
@@ -496,20 +515,20 @@ and inhabit_bind ctx xscs k =
   in fold [] xscs
 
 and expr_ty ctx ((_,loc) as e) =
-  let (e, t) = expr ctx e
-  in
-    if Equal.equal_ty ctx t Tt.typ
-    then Tt.ty e
-    else
-      Error.runtime ~loc
-        "this expression should be a type but its type is %t"
-        (print_ty ctx t)
+  let (e, t) = Value.as_judge ~loc (expr ctx e) in
+  if Equal.equal_ty ctx t Tt.typ
+  then Tt.ty e
+  else
+    Error.runtime ~loc
+      "this expression should be a type but its type is %t"
+      (print_ty ctx t)
 
 and check_ty ctx ((_,loc) as c) =
   check ctx c Tt.typ
 
 and infer_ty ctx c k =
-  check ctx c Tt.typ >>= (fun (e, _) -> k (Tt.ty e))
+  check ctx c Tt.typ >>= as_judge ~loc:(snd c)
+    (fun e _ -> k (Tt.ty e))
           
 let comp = infer
 
@@ -519,5 +538,5 @@ let comp_value ctx ((_,loc) as c) =
 
 let ty ctx ((_,loc) as c) =
   let r = check ctx c Tt.typ in
-  let (e, _) = Value.to_value ~loc r in
+  let (e, _) = Value.as_judge ~loc (Value.to_value ~loc r) in
     Tt.ty e

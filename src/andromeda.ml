@@ -121,11 +121,17 @@ let rec exec_cmd base_dir interactive ctx c =
      ctx
 
   | Syntax.TopCheck c ->
-     let (e,t) = Eval.comp_value ctx c in
-     let e = Simplify.simplify ctx e
-     and t = Simplify.simplify_ty ctx t in
-     if interactive then Format.printf "%t@." (Value.print (Context.used_names ctx) (e,t)) ;
-     ctx
+     let v = 
+       begin match Eval.comp_value ctx c with
+             | Value.Judge (e, t) ->
+                let e = Simplify.simplify ctx e
+                and t = Simplify.simplify_ty ctx t in
+                  Value.Judge (e, t)
+             | v -> v
+       end
+     in
+       if interactive then Format.printf "%t@." (Value.print (Context.used_names ctx) v) ;
+       ctx
 
   | Syntax.TopBeta xscs ->
     let rec fold xshs = function
@@ -139,7 +145,7 @@ let rec exec_cmd base_dir interactive ctx c =
                  (Pattern.print_beta_hint [] h)) "," xshs);
         ctx
       | (xs,c) :: xscs ->
-         let (_,t) = Eval.comp_value ctx c in
+         let (_,t) = Value.as_judge ~loc (Eval.comp_value ctx c) in
          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
          let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
@@ -157,7 +163,7 @@ let rec exec_cmd base_dir interactive ctx c =
                  (Pattern.print_eta_hint [] h)) "," xshs);
         ctx
       | (xs,c) :: xscs ->
-         let (_,t) = Eval.comp_value ctx c in
+         let (_,t) = Value.as_judge ~loc (Eval.comp_value ctx c) in
          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
          let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
@@ -175,7 +181,7 @@ let rec exec_cmd base_dir interactive ctx c =
                  (Pattern.print_hint [] h)) "," xshs);
         ctx
       | (xs,c) :: xscs ->
-         let (_,t) = Eval.comp_value ctx c in
+         let (_,t) = Value.as_judge ~loc (Eval.comp_value ctx c) in
          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
          let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
@@ -193,7 +199,7 @@ let rec exec_cmd base_dir interactive ctx c =
                  (Pattern.print_inhabit_hint [] h)) "," xshs);
         ctx
       | (xs,c) :: xscs ->
-         let (_,t) = Eval.comp_value ctx c in
+         let (_,t) = Value.as_judge ~loc (Eval.comp_value ctx c) in
          let (xts, u) = Equal.as_universal_bracket ctx t in
          let h = Hint.mk_inhabit ~loc ctx (xts, u) in
          fold ((xs,h) :: xshs) xscs
