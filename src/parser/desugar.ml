@@ -33,6 +33,10 @@ let rec comp primitive bound ((c',loc) as c) =
      of [c]. *)
   let w, c = match c' with
 
+    | Input.Operation (op, e) ->
+      let bound, w, e = expr primitive bound e in
+      w, Syntax.Operation (op, e)
+
     | Input.Let (xcs, c2) ->
       let rec fold = function
         | [] -> []
@@ -209,7 +213,7 @@ and expr primitive bound ((e', loc) as e) =
 
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
-     Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _) ->
+     Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _) ->
     let x = Name.fresh Name.anonymous
     and c = comp primitive bound e in
     let bound = add_bound x bound in

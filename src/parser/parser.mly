@@ -17,6 +17,7 @@
 %token BETA ETA HINT INHABIT
 %token UNHINT
 %token PRIMITIVE REDUCE
+%token <string> OPERATION
 %token CONTEXT HELP QUIT
 %token <int> VERBOSITY
 %token <string> QUOTED_STRING
@@ -102,6 +103,7 @@ plain_app_term:
   | e=plain_simple_term                             { e }
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
   | REFL e=simple_term                              { Refl e }
+  | op=OPERATION e=simple_term                      { Operation (op, e) }
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
