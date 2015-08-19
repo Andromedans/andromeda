@@ -20,10 +20,10 @@ let rec mk_prod ys ((t', loc) as t) =
       | _ -> Syntax.Prod (ys, t)
     end
 
-let mk_let ~loc w c' =
+let mk_let ~loc w c =
   match w with
-  | [] -> c', loc
-  | (_::_) as w -> Syntax.Let (w, (c', loc)), loc
+  | [] -> c
+  | (_::_) as w -> Syntax.Let (w, c), loc
 
 let rec comp primitive bound ((c',loc) as c) =
   (* When a computation [c] is desugared we hoist out a list of
@@ -31,7 +31,7 @@ let rec comp primitive bound ((c',loc) as c) =
      all subexpressions of [c] so that we get the correct context
      with hoisted bindings, and only then we desugar the subcomputations
      of [c]. *)
-  let w, c = match c' with
+  let w, c' = match c' with
 
     | Input.Operation (op, e) ->
       let w, e = expr primitive bound e in
@@ -100,16 +100,16 @@ let rec comp primitive bound ((c',loc) as c) =
     | Input.Lambda (xs, c) ->
       let rec fold bound ys = function
         | [] ->
-          let c = comp primitive bound c in
+           let ys = List.rev ys in
+           let c = comp primitive bound c in
           mk_lambda ys c
         | (x, None) :: xs ->
           let bound = add_bound x bound
-          and ys = ys @ [(x, None)] in
+          and ys = (x, None) :: ys in
           fold bound ys xs
         | (x, Some t) :: xs ->
-          let t = comp primitive bound t in
-          let bound = add_bound x bound
-          and ys = ys @ [(x, Some t)] in
+          let ys = (let t = comp primitive bound t in (x, Some t) :: ys)
+          and bound = add_bound x bound in
           fold bound ys xs
       in
       [], fold bound [] xs
@@ -120,19 +120,22 @@ let rec comp primitive bound ((c',loc) as c) =
     | Input.Prod (xs, c) ->
       let rec fold bound ys = function
         | [] ->
-          let c = comp primitive bound c in
-          mk_prod ys c
+           let ys = List.rev ys in
+           let c = comp primitive bound c in
+           mk_prod ys c
         | (x,t) :: xs ->
           begin
             match expr primitive bound t with
             | [], t ->
               let bound = add_bound x bound
-              and ys = ys @ [(x,t)] in
+              and ys = (x,t) :: ys in
               fold bound ys xs
             | w, ((_,loc) as t) ->
               let c = fold (add_bound x bound) [] xs in
-              let c = Syntax.Prod ([(x,t)], (c,loc)) in
+              let c = Syntax.shift_comp (List.length w) 1 (c,loc) in
+              let c = (Syntax.Prod ([(x,t)], c), loc) in
               let c = mk_let ~loc:(snd t) w c in
+              let ys = List.rev ys in
               mk_prod ys c
           end
       in
@@ -159,7 +162,7 @@ let rec comp primitive bound ((c',loc) as c) =
       w, Syntax.Return e
 
   in
-  mk_let ~loc w c
+  mk_let ~loc w (c', loc)
 
 (* Desguar a spine. This function is a bit messy because we need to untangle
    to primitive operations. But it's worth doing to make users happy. *)
