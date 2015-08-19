@@ -241,18 +241,23 @@ let rec exec_cmd base_dir interactive ctx c =
   | Syntax.Quit ->
     exit 0
 
+
 (** Load directives from the given file. *)
 and use_file ctx (filename, interactive) =
-  let filename, line_limit =
+  let filename, limit =
     if Str.string_match (Str.regexp "\\(.*\\)#line_limit:\\([0-9]+\\)") filename 0
-    then let fn, ll = Str.matched_group 1 filename,
+    then let fn, lim = Str.matched_group 1 filename,
                       (int_of_string (Str.matched_group 2 filename)) in
-      fn, Some ll
+         let limit = { Lexing.dummy_pos with Lexing.pos_cnum = lim } in
+      fn, Some (limit, true)
     else filename, None in
 
   if Context.included filename ctx then ctx else
     begin
-      let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
+      let tokens, errs = Tokens.tokens_of_file filename in
+
+      let cmds = parse (Tokens.cmds_of_tokens ?limit) tokens errs in
+
       let base_dir = Filename.dirname filename in
       let ctx = Context.add_file filename ctx in
       List.fold_left (exec_cmd base_dir interactive) ctx cmds
