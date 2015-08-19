@@ -264,11 +264,11 @@ and check ctx ((c',loc) as c) t : Value.result =
                   (print_ty ctx t)
     end
 
-and check_lambda ctx loc t abs c =
-  let (zus, v) = match Equal.as_prod ctx t with
+and check_lambda ctx loc t0 abs c =
+  let (zus, v) = match Equal.as_prod ctx t0 with
     | Some x -> x
     | None -> Error.typing ~loc
-                "this type %t should be a product" (print_ty ctx t)
+                "this type %t should be a product" (print_ty ctx t0)
   in
 
   (** [ys] are what got added to the environment, [zus] come from the type
@@ -288,12 +288,14 @@ and check_lambda ctx loc t abs c =
              (print_ty ctx u);
            u
         | Some t ->
-          let t = check_ty ctx t in
-          if Equal.equal_ty ctx t u then t
-          else Error.typing ~loc
-              "in this lambda, the variable %t should have a type equal to@ \
-               %t\nFound type@ %t"
-              (Name.print x) (print_ty ctx u) (print_ty ctx t)
+           check_ty ctx t >>=
+             (fun (e, _) ->
+              let t = Tt.ty e in
+                if Equal.equal_ty ctx t u then t
+                else Error.typing ~loc
+                       "in this lambda, the variable %t should have a type equal to@ \
+                        %t\nFound type@ %t"
+                       (Name.print x) (print_ty ctx u) (print_ty ctx t))
         end in
 
       let y, yt = Value.fresh ~loc x t in
@@ -304,18 +306,20 @@ and check_lambda ctx loc t abs c =
     | [], [] ->
       (* let u = u[x_k-1/z_k-1] in *)
       let v' = Tt.unabstract_ty ys 0 v in
-      let e = check ctx c v' in
-      let e = Tt.abstract ys 0 e in
-      let xts = List.rev xts in
-      Tt.mk_lambda ~loc xts e v
+      check ctx c v' >>=
+        (fun (e, _) ->
+         let e = Tt.abstract ys 0 e in
+         let xts = List.rev xts in
+         Value.Return (Tt.mk_lambda ~loc xts e v, t0))
 
     | [], _::_ ->
       let v = Tt.mk_prod_ty ~loc zus v in
       let v' = Tt.unabstract_ty ys 0 v in
-      let e = check ctx c v' in
-      let e = Tt.abstract ys 0 e in
-      let xts = List.rev xts in
-      Tt.mk_lambda ~loc xts e v
+      check ctx c v' >>=
+       (fun (e, _) ->
+        let e = Tt.abstract ys 0 e in
+        let xts = List.rev xts in
+        Value.Return (Tt.mk_lambda ~loc xts e v, t0))
 
     | _::_, [] ->
       let v = Equal.as_prod ctx v in
@@ -323,7 +327,7 @@ and check_lambda ctx loc t abs c =
       | None ->
         Error.typing ~loc
           "tried to check against a type with a too short abstraction@ %t"
-          (print_ty ctx t)
+          (print_ty ctx t0)
       | Some (zus, v) -> fold ctx ys zs xts abs zus v
       end
   in
@@ -352,9 +356,10 @@ and spine ~loc ctx e t cs =
       and v = Tt.instantiate_ty es 0 u in
       (e, v)
   | (x,t)::xts, c::cs ->
-      let e = check ctx c (Tt.instantiate_ty es 0 t)
-      and u = t in
-      fold (e :: es) (xus @ [(x, u)]) xts cs
+      check ctx c (Tt.instantiate_ty es 0 t) >>=
+        (fun (e, _) ->
+         let u = t in
+         fold (e :: es) (xus @ [(x, u)]) xts cs)
   | [], ((_ :: _) as cs) ->
       let e = Tt.mk_spine ~loc e xus t (List.rev es)
       and t = Tt.instantiate_ty es 0 t in
@@ -424,7 +429,7 @@ and hint_bind ctx xscs k =
       k ctx
   in fold [] xscs
 
-and inhabit_bind ctx xscs =
+and inhabit_bind ctx xscs k =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
        infer ctx c >>=
