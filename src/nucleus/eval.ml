@@ -101,12 +101,12 @@ let rec infer ctx (c',loc) =
             let e = Tt.mk_lambda ~loc xts e t
             and t = Tt.mk_prod_ty ~loc xts t in
             Value.Return (e, t))
-      | (x,t) :: abs ->
-        begin match t with
+      | (x,c) :: abs ->
+        begin match c with
         | None -> Error.typing
             ~loc "cannot infer the type of untagged variable %t" (Name.print x)
-        | Some t ->
-           check_ty ctx t >>=
+        | Some c ->
+           check_ty ctx c >>=
              (fun (e, _) ->
               let t = Tt.ty e in
               let y, yt = Value.fresh ~loc x t in
@@ -130,6 +130,7 @@ let rec infer ctx (c',loc) =
       | [] ->
          infer_ty ctx c
            (fun u ->
+            let u = Tt.abstract_ty ys 0 u in
             let e = Tt.mk_prod ~loc xts u
             and t = Tt.mk_type_ty ~loc in
             Value.Return (e, t))
