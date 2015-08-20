@@ -2,10 +2,10 @@
 
 Parameter A : Type.
 Parameter B : A ⟶ Type.
-Parameter C : Π (x : A) ⟶ B x ⟶ Type.
+Parameter C : Π [x : A] B x ⟶ Type.
 
-Parameter f : Π (x : A) (y : B x) ⟶ C x y ⟶ B x.
-Parameter f_beta : Π (x : A) (y : B x) (z : C x y) ⟶ f x y z == y.
+Parameter f : Π [x : A] [y : B x] C x y ⟶ B x.
+Parameter f_beta : Π [x : A] [y : B x] [z : C x y] f x y z == y.
 
 Parameter a : A.
 Parameter b : B a.

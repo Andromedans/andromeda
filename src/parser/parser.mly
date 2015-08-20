@@ -60,7 +60,7 @@ plain_topcomp:
   | TOPHINT ths=tags_hints                           { TopHint ths }
   | TOPINHABIT ths=tags_hints                        { TopInhabit ths }
   | TOPUNHINT ts=tags_unhints                        { TopUnhint ts }
-  | PRIMITIVE xs=name+ yst=primarg* COLON u=term     { Primitive (xs, List.concat yst, u)}
+  | PRIMITIVE x=name yst=primarg* COLON u=term       { Primitive (x, List.concat yst, u)}
 
 return_type:
   | COLON t=ty_term { t }
@@ -96,8 +96,8 @@ plain_term:
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                              { e }
-  | FORALL a=typed_binder+ ARROW e=term             { Prod (List.concat a, e) }
-  | LAMBDA a=binder+ ARROW e=term                   { Lambda (List.concat a, e) }
+  | FORALL a=typed_binder+ e=term                   { Prod (List.concat a, e) }
+  | LAMBDA a=binder+ e=term                         { Lambda (List.concat a, e) }
   | FUNCTION a=function_abstraction ARROW e=term    { Function (a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
@@ -117,10 +117,10 @@ plain_app_term:
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                            { Type }
-  | LBRACK RBRACK                                   { Inhab }
+  (* | LBRACK RBRACK                                   { Inhab } *)
   | x=var_name                                      { Var x }
   | LPAREN e=plain_term RPAREN                      { e }
-  | LBRACK e=term RBRACK                            { Bracket e }
+  (* | LBRACK e=term RBRACK                            { Bracket e } *)
 
 var_name:
   | NAME { Name.make $1 }
@@ -136,14 +136,25 @@ let_clause:
   | x=name COLONEQ c=term                           { (x,c) }
 
 typed_binder:
-  | LPAREN xs=nonempty_list(name) COLON t=ty_term RPAREN  { List.map (fun x -> (x, t)) xs }
+  | LBRACK lst=separated_nonempty_list(COMMA, typed_names) RBRACK
+       { List.concat lst }
+
+typed_names:
+  | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, t)) xs }
 
 binder:
-  | x=name           { [(x, None)] }
-  | LPAREN xs=nonempty_list(name) COLON t=ty_term RPAREN  { List.map (fun x -> (x, Some t)) xs }
+  | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_names) RBRACK
+      { List.concat lst }
+
+maybe_typed_names:
+  | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, Some t)) xs }
+  | xs=name+                  { List.map (fun x -> (x, None)) xs }
 
 primarg:
-  | LPAREN b=reduce xs=nonempty_list(name) COLON t=ty_term RPAREN  { List.map (fun x -> (x, b, t)) xs }
+  | LBRACK lst=separated_nonempty_list(COMMA, primarg_entry) RBRACK  { List.concat lst }
+
+primarg_entry:
+  | b=reduce xs=nonempty_list(name) COLON t=ty_term   { List.map (fun x -> (x, b, t)) xs }
 
 reduce:
   |        { false }

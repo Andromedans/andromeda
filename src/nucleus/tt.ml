@@ -64,7 +64,7 @@ type primsig = (bool * ty, ty) abstraction
 (** Unicode and ascii version of symbols *)
 
 let char_lambda () = if !Config.ascii then "fun" else "λ"
-let char_arrow ()  = if !Config.ascii then "->" else "⟶ "
+let char_arrow ()  = if !Config.ascii then "->" else "→"
 let char_darrow () = if !Config.ascii then "=>" else "⇒"
 let char_prod ()   = if !Config.ascii then "forall" else "Π"
 let char_equal ()  = if !Config.ascii then "==" else "≡"
@@ -477,7 +477,7 @@ and print_lambda xs (yus, (e, t)) ppf =
     (char_lambda ())
     (Name.print_binders
       (Name.print_binder1 print_ty)
-      (fun xs ppf -> Print.print ppf "@ %t.@ %t"
+      (fun xs ppf -> Print.print ppf "%t@ %t"
         (print_annot (print_ty xs t))
         (print_term xs e))
       xs
@@ -506,7 +506,7 @@ and print_prod xs yus v ppf =
       (char_prod ())
       (Name.print_binders
         (Name.print_binder1 print_ty)
-        (fun xs ppf -> Print.print ppf ",@ %t" (print_prod xs yus v))
+        (fun xs ppf -> Print.print ppf "@ %t" (print_prod xs yus v))
         xs xus)
 
 and print_spine xs e (yts, u) es ppf =

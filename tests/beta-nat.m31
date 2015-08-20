@@ -1,14 +1,9 @@
-assume N : Type
-assume Z : N
-assume S : N → N
-assume plus : N → N → N
-
 Parameter N : Type.
 Parameter Z : N.
 Parameter S : N ⟶ N.
 Parameter plus : N ⟶ N ⟶ N.
-Parameter plus_Z : Π (x : N), plus x Z == x.
-Parameter plus_S : Π (x y : N),  plus x (S y) == S (plus x y).
+Parameter plus_Z : Π [x : N] plus x Z == x.
+Parameter plus_S : Π [x y : N]  plus x (S y) == S (plus x y).
 
 Check beta plus_S in Type.
 
@@ -25,18 +20,5 @@ Check
 Check
   beta plus_Z in
   beta plus_S in
-     λ (x y : N),
+     λ [x : N, y : N]
        refl (S (S (plus x y))) :: plus x (S (S y)) == S (S (plus x y)).
-
-  
-     ∃ [x : A] [y : B] φ x y
-     ∀ [x : A, y : B] Φ x y
-     λ [x : A, y : B] Φ x y
-     Λ [x : A] [y : B] Φ x y
-     λ [x] 
-
-     Π [f : Π [x:A] Type] [x y : A] x ≡ y → f x → f y
-
-     (Π [x : A] Σ [y : B] φ x y) → Σ [f : A → B] Π [x : A] φ x (f x)
-
-     ((x : A) → (y : B) * φ x y) → (f : A → B) * ((x : A) → φ x (f x))

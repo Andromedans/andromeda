@@ -40,7 +40,7 @@ and comp' =
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Primitive of Name.t list * (Name.t * bool * comp) list * comp (** introduce a primitive operation *)
+  | Primitive of Name.t * (Name.t * bool * comp) list * comp (** introduce a primitive operation *)
   | TopLet of Name.t * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of (string list * comp) list

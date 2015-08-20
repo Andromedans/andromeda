@@ -253,7 +253,7 @@ and expr primitive bound ((e', loc) as e) =
 let toplevel primitive bound (d', loc) =
   let d' = match d' with
 
-    | Input.Primitive (xs, yts, u) ->
+    | Input.Primitive (x, yts, u) ->
       let rec fold bound yts' = function
         | [] ->
           let u = comp primitive bound u in
@@ -266,7 +266,7 @@ let toplevel primitive bound (d', loc) =
           fold bound yts' yts
       in
       let yts, u = fold bound [] yts in
-      Syntax.Primitive (xs, yts, u)
+      Syntax.Primitive (x, yts, u)
 
     | Input.TopLet (x, yts, u, ((_, loc) as c)) ->
       let c = match u with
