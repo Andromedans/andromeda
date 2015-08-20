@@ -22,7 +22,7 @@ let files = ref []
 
 (** Add a file to the list of files to be loaded, and record whether it should
     be processed in interactive mode. *)
-let add_file interactive filename = (files := (filename, interactive) :: !files)
+let add_file ?lim interactive filename = (files := (filename, lim, interactive) :: !files)
 
 (** Command-line options *)
 let options = Arg.align [
@@ -76,6 +76,17 @@ let options = Arg.align [
     ("-l",
      Arg.String (fun str -> add_file false str),
      "<file> Load <file> into the initial environment");
+
+    ("--lim-file",
+     Arg.Tuple
+       (let lim = ref 0 in
+        [Arg.Set_int lim;
+         Arg.String
+           (fun fn ->
+            Config.interactive_shell := false ;
+            add_file ~lim:!lim true fn)]),
+     "<lim> <file> Process <file> up to the end of the statement at character\
+      <lim>, do not enter interactive mode");
   ]
 
 (** Parser wrapper that reads extra lines on demand. *)
@@ -219,7 +230,7 @@ let rec exec_cmd base_dir interactive ctx c =
                if Filename.is_relative f then
                  Filename.concat base_dir f
                else f in
-             use_file ctx (f, false) in
+             use_file ctx (f, None, false) in
            if interactive then Format.printf "#processed %s@." f ;
            ctx
          end)
@@ -239,14 +250,10 @@ let rec exec_cmd base_dir interactive ctx c =
 
 
 (** Load directives from the given file. *)
-and use_file ctx (filename, interactive) =
-  let filename, limit =
-    if Str.string_match (Str.regexp "\\(.*\\)#line_limit:\\([0-9]+\\)") filename 0
-    then let fn, lim = Str.matched_group 1 filename,
-                      (int_of_string (Str.matched_group 2 filename)) in
-         let limit = { Lexing.dummy_pos with Lexing.pos_cnum = lim } in
-      fn, Some (limit, true)
-    else filename, None in
+and use_file ctx (filename, limit, interactive) =
+  let limit = match limit with
+    | None -> None
+    | Some limit -> Some ({ Lexing.dummy_pos with Lexing.pos_cnum = limit }, true) in
 
   if Context.included filename ctx then ctx else
     begin
@@ -305,7 +312,7 @@ let main =
   begin
     match !Config.prelude_file with
     | Config.PreludeNone -> ()
-    | Config.PreludeFile f -> files := (f, false) :: !files
+    | Config.PreludeFile f -> files := (f, None, false) :: !files
     | Config.PreludeDefault ->
       (* look for prelude next to the executable and in the , don't whine if it is not there *)
       try
@@ -313,7 +320,7 @@ let main =
         let d' = Filename.dirname Sys.argv.(0) in
         let l = List.map (fun d -> Filename.concat d "prelude.m31") [d; d'] in
         let f = List.find (fun f ->  Sys.file_exists f) l in
-        files := (f, false) :: !files
+        files := (f, None, false) :: !files
       with Not_found -> ()
   end ;
 
