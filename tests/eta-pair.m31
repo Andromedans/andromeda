@@ -1,25 +1,25 @@
 (* Simple products with an eta rule. *)
 
-Parameter prod (_ _ : Type) : Type.
+Parameter prod [_ _ : Type] : Type.
 
-Parameter pair (A : Type) (B : Type) (_ : A) (_ : B) : prod A B.
+Parameter pair [A B : Type] [_ : A] [_ : B] : prod A B.
 
-Parameter fst (X Y : Type) (reduce _ : prod X Y): X.
-Parameter snd (X Y : Type) (reduce _ : prod X Y): Y.
+Parameter fst [X Y : Type, reduce _ : prod X Y]: X.
+Parameter snd [X Y : Type] [reduce _ : prod X Y]: Y.
 
 Parameter pair_beta_fst :
-  forall (U V : Type) (u : U) (v : V),
-    (fst V U (pair V U v u)) == v.
+  ∀ [U V : Type, u : U, v : V]
+    (fst V U (pair V U v u)) ≡ v.
 
 Parameter pair_beta_snd :
-  forall (U V : Type) (u : U) (v : V),
-    (snd V U (pair V U v u)) == u.
+  ∀ [U V : Type] [u : U] [v : V]
+    (snd V U (pair V U v u)) ≡ u.
 
 Parameter pair_eta :
-  forall (U V : Type) (x y : prod U V),
-    fst U V x == fst U V y ->
-    snd U V x == snd U V y ->
-    x == y.
+  ∀ [U V : Type] [x y : prod U V]
+    fst U V x ≡ fst U V y ->
+    snd U V x ≡ snd U V y ->
+    x ≡ y.
 
 Parameter C : Type.
 Parameter D : Type.
@@ -30,4 +30,4 @@ Check
   beta pair_beta_fst in
   beta pair_beta_snd in
   eta pair_eta in
-     refl p : p == pair C D (fst C D p) (snd C D p).
+     refl p :: p ≡ pair C D (fst C D p) (snd C D p).

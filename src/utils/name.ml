@@ -76,7 +76,7 @@ let index_of x ys =
   fold 0 ys
 
 let print_binder1 print_u xs x u ppf =
-  Print.print ppf "(@[<hv>%t :@ %t@])"
+  Print.print ppf "[@[<hv>%t :@ %t@]]"
     (print x) (print_u xs u)
 
 let rec print_binders print_xu print_v xs xus ppf =

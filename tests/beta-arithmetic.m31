@@ -3,12 +3,12 @@ Parameter Z : N.
 Parameter S : N -> N.
 
 Parameter plus : N -> N -> N.
-Parameter plus_Z : Π (x : N) -> plus x Z == x.
-Parameter plus_S : Π (x y : N) -> plus x (S y) == S (plus x y).
+Parameter plus_Z : Π [x : N] plus x Z == x.
+Parameter plus_S : Π [x y : N] plus x (S y) == S (plus x y).
 
 Parameter times : N -> N -> N.
-Parameter times_Z : Π (x : N) → times x Z == Z.
-Parameter times_S : Π (x y : N) → times x (S y) == plus x (times x y).
+Parameter times_Z : Π [x : N] times x Z == Z.
+Parameter times_S : Π [x y : N] times x (S y) == plus x (times x y).
 
 Let one :=   S Z.
 Let two :=   S (S Z).
