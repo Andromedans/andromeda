@@ -4,4 +4,4 @@ Parameter a : A.
 Parameter eq_A_B : A == B.
 Check
     beta eq_A_B in
-    a : B.
+    a :: B.

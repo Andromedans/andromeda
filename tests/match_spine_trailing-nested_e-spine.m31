@@ -4,7 +4,7 @@ Parameter unit_rect : ∀ (P : unit -> Type), (P tt) -> ∀ n : unit, P n.
 
 Parameter unit_iota_tt : ∀ (P : unit -> Type) (s : P tt), unit_rect P s tt == s.
 
-Let it := (fun (T : Type) => unit_rect (fun m => T -> T) (fun x : T => x)).
+Let it := (λ (T : Type) => unit_rect (λ m => T -> T) (λ x : T => x)).
 
 Beta unit_iota_tt.
 

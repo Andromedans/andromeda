@@ -13,4 +13,4 @@ Check
    inhabit f in
     [] : [B a]).
 
-Check inhabit f in (fun (x : A) => [] : [B x]) : forall x : A, [B x].
+Check inhabit f in (λ (x : A) => [] : [B x]) : forall x : A, [B x].

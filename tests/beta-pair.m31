@@ -30,7 +30,7 @@ Check beta beta_fst in
 
 (* add a lambda redex in the proof *)
 Check beta beta_fst in
-    (refl (fst C D (pair C D ((fun (t : Type) (x : t) => x) C c) d)))
+    (refl (fst C D (pair C D ((λ (t : Type) (x : t) => x) C c) d)))
          :
          c == (fst C D (pair C D c d)).
 
@@ -38,4 +38,4 @@ Check beta beta_fst in
 Check beta beta_fst in
     (refl (fst C D (pair C D c d)))
          :
-         c == (fst C D (pair C D ((fun (t : Type) (x : t) => x) C c) d)).
+         c == (fst C D (pair C D ((λ (t : Type) (x : t) => x) C c) d)).

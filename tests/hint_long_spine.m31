@@ -5,7 +5,7 @@ Parameter a : A.
 Parameter b : B.
 Parameter f : A -> B.
 
-Parameter f_def : f == (fun (x : A) => b).
+Parameter f_def : f == (λ (x : A) => b).
 
 Check
   beta f_def in

@@ -25,6 +25,7 @@ let reserved = [
   ("forall", FORALL) ;
   ("∀", FORALL) ;
   ("Π", FORALL) ;
+  ("∏", FORALL) ;
   ("fun", FUNCTION) ;
   ("lambda", LAMBDA) ;
   ("λ", LAMBDA) ;
@@ -84,14 +85,15 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | '['                      -> f (); LBRACK
   | ']'                      -> f (); RBRACK
   | ":="                     -> f (); COLONEQ
+  | "::"                     -> f (); DCOLON
   | ':'                      -> f (); COLON
   | ','                      -> f (); COMMA
   | ';'                      -> f (); SEMICOLON
   | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
   | '@'                      -> f (); APPLY
-  | "->" | 10230             -> f (); ARROW
-  | "=>" | 10233             -> f (); DARROW
+  | "->" | 8594 | 10230      -> f (); ARROW
+  (* | "=>" | 10233             -> f (); DARROW *)
   | "==" | 8801              -> f (); EQEQ
   | eof                      -> f (); EOF
   | (name | numeral)         -> f ();

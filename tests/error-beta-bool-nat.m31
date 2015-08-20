@@ -3,7 +3,7 @@ Parameter h : NarrowN == (N -> N).
 Parameter danger : NarrowN == (bool -> N).
 Check danger.
 Check
-  let f := (fun (x : N) => x) in
+  let f := (λ (x : N) => x) in
   let f' :=
     beta h in
       f : NarrowN in

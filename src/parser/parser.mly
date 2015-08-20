@@ -7,8 +7,8 @@
 %token UNDERSCORE
 %token <string> NAME
 %token LPAREN RPAREN LBRACK RBRACK
-%token COLON SEMICOLON COMMA DOT
-%token ARROW DARROW
+%token DCOLON COLON SEMICOLON COMMA DOT
+%token ARROW
 %token EQEQ
 %token REFL
 %token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
@@ -53,8 +53,7 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | TOPLET x=name yts=paren_bind(ty_term)* u=return_type? COLONEQ c=term
-      { let yts = List.flatten yts in TopLet (x, yts, u, c) }
+  | TOPLET x=name yts=typed_binder* u=return_type? COLONEQ c=term { TopLet (x, List.concat yts, u, c) }
   | TOPCHECK c=term                                  { TopCheck c }
   | TOPBETA ths=tags_hints                           { TopBeta ths }
   | TOPETA ths=tags_hints                            { TopEta ths }
@@ -92,14 +91,14 @@ plain_term:
   | HINT tshs=tags_opt_hints IN c=term              { Hint (tshs, c) }
   | INHABIT tshs=tags_opt_hints IN c=term           { Inhabit (tshs, c) }
   | UNHINT ts=tags_unhints IN c=term                { Unhint (ts, c) }
-  | e=app_term COLON t=ty_term                      { Ascribe (e, t) }
+  | e=app_term DCOLON t=ty_term                     { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                              { e }
-  | FORALL a=abstraction(ty_term) COMMA e=term      { Prod (a, e) }
-  | LAMBDA a=lambda_abstraction e=term              { Lambda (a, e) }
-  | FUNCTION a=function_abstraction e=term          { Function (a, e) }
+  | FORALL a=typed_binder+ ARROW e=term             { Prod (List.concat a, e) }
+  | LAMBDA a=binder+ ARROW e=term                   { Lambda (List.concat a, e) }
+  | FUNCTION a=function_abstraction ARROW e=term    { Function (a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
@@ -136,42 +135,23 @@ let_clauses:
 let_clause:
   | x=name COLONEQ c=term                           { (x,c) }
 
-(* returns a list of things individually annotated by locations.
-  Since the list is not further annotated, consistency suggests
-  this should be called plain_abstraction, but as we know,
-  consistency is the hemoglobin of mindless lights. *)
-abstraction(X):
-  | xst=bind(X)                        { xst }
-  | xsts=nonempty_list(paren_bind(X))  { List.concat xsts }
+typed_binder:
+  | LPAREN xs=nonempty_list(name) COLON t=ty_term RPAREN  { List.map (fun x -> (x, t)) xs }
 
-bind(X):
-  | xs=nonempty_list(name) COLON t=X   { List.map (fun x -> (x, t)) xs }
-
-paren_bind(X):
-  | LPAREN xst=bind(X) RPAREN            { xst }
+binder:
+  | x=name           { [(x, None)] }
+  | LPAREN xs=nonempty_list(name) COLON t=ty_term RPAREN  { List.map (fun x -> (x, Some t)) xs }
 
 primarg:
   | LPAREN b=reduce xs=nonempty_list(name) COLON t=ty_term RPAREN  { List.map (fun x -> (x, b, t)) xs }
 
 reduce:
-  |          { false }
+  |        { false }
   | REDUCE { true }
 
 (* function arguments *)
 function_abstraction:
-  | xs = nonempty_list(name) DARROW     { xs }
-
-(* lambda abstraction with possibly missing typing annotations *)
-lambda_abstraction:
-  | xs=list(name) DOT
-      { (List.map (fun x -> (x, None)) xs) }
-  | xs=nonempty_list(name) COLON t=ty_term DOT
-      { (List.map (fun x -> (x, Some t)) xs) }
-  | xs=list(name) yst=paren_bind(ty_term) zsu=lambda_abstraction
-      { (List.map (fun x -> (x, None)) xs) @
-        (List.map (fun (y,t) -> (y, Some t)) yst) @
-         zsu
-      }
+  | xs = nonempty_list(name)     { xs }
 
 tags_hints:
   | tshs=separated_nonempty_list(SEMICOLON, tags_hint)     { List.flatten tshs }

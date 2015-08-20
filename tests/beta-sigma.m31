@@ -50,10 +50,10 @@ Parameter sig_ind_beta :
     == f a b.
 
 Let projT1' :=
-  fun (A : Type) (B : A -> Type) (s : sigT A B) =>
+  λ (A : Type) (B : A -> Type) (s : sigT A B) =>
     sig_ind A B
-            (fun (_ : sigT A B) => A)
-            ((fun (X : Type) (Y : X -> Type)(x : X) (y : Y x) => x) A B)
+            (λ (_ : sigT A B) => A)
+            ((λ (X : Type) (Y : X -> Type)(x : X) (y : Y x) => x) A B)
             s.
 
 Check projT1'.
@@ -73,12 +73,12 @@ Check
     (projT1' A B (existT A B a b)).
 
 Let projT2' :=
-  fun (A : Type) (B : A -> Type) (s : sigT A B) =>
+  λ (A : Type) (B : A -> Type) (s : sigT A B) =>
     beta sig_ind_beta in
       sig_ind A B
-              (fun (s : sigT A B) =>
+              (λ (s : sigT A B) =>
                  B (projT1' A B s))
-              (fun (x : A) (y : B x) => y)
+              (λ (x : A) (y : B x) => y)
               s.
 
 Check

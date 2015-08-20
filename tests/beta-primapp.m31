@@ -26,5 +26,5 @@ Parameter f : X -> X.
 
 Check
   beta fst_beta in
-    fun (y : Y) =>
+    λ (y : Y) =>
       refl (f a) : f a == fst X Y (pair X Y (f a) y).

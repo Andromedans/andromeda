@@ -4,12 +4,12 @@ Parameter unit_rect : ∀ (P : unit -> Type), (P tt) -> ∀ n : unit, P n.
 
 Parameter unit_iota_tt : ∀ (P : unit -> Type) (s : P tt), unit_rect P s tt == s.
 
-Let it := (fun (T : Type) => unit_rect (fun _ => T -> T) (fun x : T => x)).
+Let it := (λ (T : Type) => unit_rect (λ _ => T -> T) (λ x : T => x)).
 
 Beta unit_iota_tt.
 
-Check refl tt : tt == (unit_rect   (fun _ => unit -> unit)) (fun x : unit => x) tt tt.
-Check refl tt : tt == (unit_rect   (fun _ => unit -> unit) (fun x : unit => x)) tt tt.
-Check refl tt : tt == ((unit_rect  (fun _ => unit -> unit) (fun x : unit => x)) tt) tt.
-Check refl tt : tt == (((unit_rect (fun _ => unit -> unit)) (fun x : unit => x)) tt) tt.
-Check refl tt : tt == ((unit_rect  (fun _ => unit -> unit)) (fun x : unit => x)) tt tt.
+Check refl tt : tt == (unit_rect   (λ _ => unit -> unit)) (λ x : unit => x) tt tt.
+Check refl tt : tt == (unit_rect   (λ _ => unit -> unit) (λ x : unit => x)) tt tt.
+Check refl tt : tt == ((unit_rect  (λ _ => unit -> unit) (λ x : unit => x)) tt) tt.
+Check refl tt : tt == (((unit_rect (λ _ => unit -> unit)) (λ x : unit => x)) tt) tt.
+Check refl tt : tt == ((unit_rect  (λ _ => unit -> unit)) (λ x : unit => x)) tt tt.

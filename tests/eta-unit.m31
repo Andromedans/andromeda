@@ -1,8 +1,8 @@
 (* Test an eta hint *)
 Parameter unit : Type.
 Parameter tt : unit.
-Parameter unit_eta : forall x y : unit, x == y.
+Parameter unit_eta : Π (x y : unit) -> x == y.
 
 Check
   eta unit_eta in
-    λ x : unit . (refl tt : x == tt).
+    λ (x : unit) -> (refl tt :: x == tt).
