@@ -3,13 +3,18 @@
 (defgroup m31 nil "Customization options for Andromeda" :prefix 'm31-
   :group 'languages)
 
-;;;###autoload
-(defcustom m31-executable
+(defun m31--find-executable nil
   (let ((d (locate-dominating-file
             (or buffer-file-name default-directory) "andromeda.byte")))
     (if d
         (concat d "andromeda.byte")
-      "andromeda"))
+      "andromeda")))
+
+(defun m31--set-executable nil
+  (setq m31-executable (m31--find-executable)))
+
+;;;###autoload
+(defcustom m31-executable (m31--find-executable)
   "The name of the Andromeda executable"
   :group 'm31)
 
@@ -358,13 +363,24 @@
         (lambda (s)
           (replace-regexp-in-string ",[[:space:]]*<abstr>" "" s))))
 
+
+(defcustom m31-ocamldebug-executable nil
+  "Filename of the executable used in `m31-ocamldebug'. By default set through\
+  `m31--set-debug-executable' in `m31-mode-hook'."
+  :group 'm31)
+
+(defun m31--find-debug-executable nil
+    (concat
+     (locate-dominating-file
+      buffer-file-name
+      ".dir-locals.el") "andromeda.d.byte"))
+
+(defun m31--set-debug-executable nil
+    (setq m31-ocamldebug-executable (m31--find-debug-executable)))
+
 (defun m31-ocamldebug nil
   (interactive)
-  (ocamldebug
-   (concat
-    (locate-dominating-file
-     buffer-file-name
-     ".dir-locals.el") "mainloop.d.byte"))
+  (ocamldebug m31-ocamldebug-executable)
   (mapc
    (lambda (f)
      (add-hook 'comint-preoutput-filter-functions f nil t))
@@ -406,14 +422,17 @@ C-c C-l          m31-send-buffer
 (define-key m31-mode-map (kbd "C-c C-l") 'm31-send-buffer)
 (define-key m31-mode-map (kbd "C-c C-c") 'm31-interrupt-compile)
 
+(add-hook 'm31-mode-hook 'm31--set-executable)
+(add-hook 'm31-mode-hook 'm31--set-debug-executable)
 
 (defun m31-get-andromeda-buffer-create nil
   (get-buffer-create (m31-compilation-buffer-name)))
 
-;;;###autoload
-(defun m31-send-file (fn)
+(defun m31-send-file-up-to-lim (fn lim)
   (interactive)
-  (let ((cmd (concat m31-executable " " m31-arguments " " fn))
+  (let ((cmd (concat m31-executable " " m31-arguments " "
+                     (if lim (concat "--lim-file " (int-to-string lim) " ") "")
+                     fn))
         (compilation-scroll-output 'first-error)
         (compilation-ask-about-save nil)
         (hist compile-history)
@@ -436,6 +455,11 @@ C-c C-l          m31-send-buffer
                (select-window c t)))))))))
 
 ;;;###autoload
+(defun m31-send-file (fn)
+  (interactive)
+  (m31-send-file-up-to-lim fn nil))
+
+;;;###autoload
 (defun m31-send-buffer nil
   "Send the current buffer to Andromeda"
   (interactive)
@@ -447,10 +471,7 @@ C-c C-l          m31-send-buffer
 (defun m31-send-buffer-up-to-point nil
   (interactive)
   (if buffer-file-name
-      (m31-send-file
-       (concat
-        buffer-file-name "#line_limit:"
-        (int-to-string (point))))
+      (m31-send-file-up-to-lim buffer-file-name (point))
     (error "No file associated to current buffer")))
 
 (defun m31-interrupt-compile ()
