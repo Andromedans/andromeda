@@ -1,6 +1,0 @@
-Parameter A : Type.
-Parameter a b : A.
-Parameter f : A -> A.
-Let aa := a.
-Let bb := b.
-Check f aa.
