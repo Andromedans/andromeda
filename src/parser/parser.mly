@@ -111,7 +111,7 @@ app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_simple_term                             { e }
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
-  | e1=app_term APPLY e2=simple_term                { Apply (e1, e2) } 
+  | e1=simple_term APPLY e2=app_term                { Apply (e1, e2) }
   | REFL e=simple_term                              { Refl e }
   | op=OPERATION e=simple_term                      { Operation (op, e) }
 

@@ -193,7 +193,8 @@ and spine primitive bound ((e',loc) as e) cs =
       | _ -> expr primitive bound e, cs
     end in
   (* Process the remaining arguments. *)
-  let cs = List.map (comp primitive bound) cs in
+  let k = List.length w in
+  let cs = List.map (fun c -> Syntax.shift_comp k 0 (comp primitive bound c)) cs in
   w, Syntax.Spine (e, cs)
 
 (* Make a primitive application as if it were in an expression position *)

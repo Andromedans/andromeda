@@ -20,5 +20,5 @@ Check
 Check
   beta plus_Z in
   beta plus_S in
-     fun (x y : N) =>
+     lambda (x y : N) .
        refl (S (S (plus x y))) : plus x (S (S y)) == S (S (plus x y)).
