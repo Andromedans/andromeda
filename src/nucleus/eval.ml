@@ -177,6 +177,7 @@ and check ctx ((c',loc) as c) t : Value.result =
   match c' with
 
   | Syntax.Return _
+  | Syntax.Handle _
   | Syntax.Apply _
   | Syntax.PrimApp _
   | Syntax.Prod _
@@ -205,9 +206,6 @@ and check ctx ((c',loc) as c) t : Value.result =
                          (print_ty ctx t) (print_ty ctx t')
      in
        Value.Operation (op, ve, k)
-
-  | Syntax.Handle (c, hcs) ->
-     Error.fatal "handling in checking position coming soon."
 
   | Syntax.Let (xcs, c) ->
      let_bind ctx xcs
