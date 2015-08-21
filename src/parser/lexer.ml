@@ -82,6 +82,9 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | quoted_string            -> f (); QUOTED_STRING (lexeme lexbuf)
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
+  | "[["                     -> f (); LLBRACK
+  | "]]"                     -> f (); RRBRACK
+  | "[]"                     -> f (); LRBRACK
   | '['                      -> f (); LBRACK
   | ']'                      -> f (); RBRACK
   | ":="                     -> f (); COLONEQ

@@ -6,7 +6,7 @@
 %token TYPE
 %token UNDERSCORE
 %token <string> NAME
-%token LPAREN RPAREN LBRACK RBRACK
+%token LPAREN RPAREN LBRACK RBRACK LRBRACK LLBRACK RRBRACK
 %token DCOLON COLON SEMICOLON COMMA DOT
 %token ARROW
 %token EQEQ
@@ -117,10 +117,10 @@ plain_app_term:
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                            { Type }
-  (* | LBRACK RBRACK                                   { Inhab } *)
+  | LRBRACK                                         { Inhab }
   | x=var_name                                      { Var x }
   | LPAREN e=plain_term RPAREN                      { e }
-  (* | LBRACK e=term RBRACK                            { Bracket e } *)
+  | LLBRACK e=term RRBRACK                          { Bracket e }
 
 var_name:
   | NAME { Name.make $1 }
