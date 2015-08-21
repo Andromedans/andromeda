@@ -3,16 +3,17 @@
 (** Suppose we have a commutative operation. *)
 Parameter N : Type.
 Parameter plus : N -> N -> N.
-Parameter plus_commute : forall (x y : N), plus x y == plus y x.
+Parameter plus_commute : forall [x y : N] plus x y == plus y x.
 
 (* And we have a type which depends on N *)
 Parameter List : N -> Type.
 
 (* And we have a list of size m+n. *)
-Parameter m n : N.
+Parameter m : N.
+Parameter n : N.
 Parameter lst : List (plus m n).
 
 (** Then we can convince Andromeda that lst has size n+m. *)
 Check
   hint plus_commute in
-    (lst : List (plus n m)).
+    (lst :: List (plus n m)).

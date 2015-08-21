@@ -3,9 +3,9 @@
 Beta sum_iota_l.
 Beta sum_iota_r.
 
-Check λ (A B : Type)
-          (P : sum A B -> Type)
-          (l : ∀ a : A, P (inl A B a))
-          (r : ∀ b : B, P (inr A B b))
-          (b : B) =>
-        refl (r b) : r b == sum_rect A B P l r (inr A B b).
+Check λ [A B : Type]
+          [P : sum A B -> Type]
+          [l : ∀ [a : A] P (inl A B a)]
+          [r : ∀ [b : B] P (inr A B b)]
+          [b : B]
+        refl (r b) :: r b == sum_rect A B P l r (inr A B b).

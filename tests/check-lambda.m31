@@ -2,21 +2,17 @@
 
 Parameter A : Type.
 Parameter B : A -> Type.
-Parameter C : forall x : A, B x -> Type.
-Parameter f : forall x : A, B x.
-Parameter g : forall (x : A) (y : B x), C x y.
+Parameter C : Π [x : A] B x -> Type.
+Parameter f : Π [x : A] B x.
+Parameter g : Π [x : A] [y : B x] C x y.
 
 Parameter a : A.
 
 Check
-  (λ y : B a => g a y) : forall y : B a, C a y.
+  (λ [y : B a] g a y) :: Π [y : B a] C a y.
 
-(* we allow empty function abstractions, not sure whether this is a good
-   idea. *)
-Check (λ => A).
+Check (λ [x y] g x y) :: Π [x : A] [y : B x] C x y.
 
-Check (λ x y => g x y) : forall (x : A) (y : B x), C x y.
+Check (λ [x : A] [y] g x y) :: Π [x : A] [y : B x] C x y.
 
-Check (λ (x : A) y => g x y) : forall (x : A) (y : B x), C x y.
-
-Check (λ x (y : B x) => g x y) : forall (x : A) (y : B x), C x y.
+Check (λ [x] [y : B x] g x y) :: Π [x : A] [y : B x] C x y.

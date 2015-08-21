@@ -2,6 +2,6 @@ A is assumed.
 B is assumed.
 f is assumed.
 foo is defined.
-refl (λ (x : A) (y : B x) ⟹ f x (f x y))
-      : (λ (x : A) (y : B x) ⟹ f x (f x y))
-          ≡ (λ (x : A) (y : B x) ⟹ f x (f x y))
+refl (λ [x : A] [y : B x] f x (f x y))
+      : (λ [x : A] [y : B x] f x (f x y))
+          ≡ (λ [x : A] [y : B x] f x (f x y))

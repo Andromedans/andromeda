@@ -1,17 +1,17 @@
 Parameter unit : Type.
 Parameter tt : unit.
-Parameter unit_rect : ∀ (P : unit -> Type), (P tt) -> ∀ n : unit, P n.
+Parameter unit_rect : ∀ [P : unit -> Type] (P tt) -> ∀ [n : unit] P n.
 
-Parameter unit_iota_tt : ∀ (P : unit -> Type) (s : P tt), unit_rect P s tt == s.
+Parameter unit_iota_tt : ∀ [P : unit -> Type] [s : P tt] unit_rect P s tt == s.
 
-Let it := (λ (T : Type) => unit_rect (λ m => T -> T) (λ x : T => x)).
+Let it := (λ [T : Type] unit_rect (λ [m] T -> T) (λ [x : T] x)).
 
 Beta unit_iota_tt.
 
-Check refl tt : tt == it unit tt tt.
+Check refl tt :: tt == it unit tt tt.
 
-Check refl tt : tt == (it unit) tt tt.
+Check refl tt :: tt == (it unit) tt tt.
 
-Check refl tt : tt == (it unit tt) tt.
+Check refl tt :: tt == (it unit tt) tt.
 
-Check refl tt : tt == ((it unit) tt) tt.
+Check refl tt :: tt == ((it unit) tt) tt.

@@ -2,11 +2,11 @@
 
 Parameter A : Type.
 Parameter B : A -> Type.
-Parameter C : forall x : A, B x -> Type.
-Parameter f : forall x : A, B x.
-Parameter g : forall (x : A) (y : B x), C x y.
+Parameter C : Π [x : A] B x -> Type.
+Parameter f : Π [x : A] B x.
+Parameter g : Π [x : A] [y : B x] C x y.
 
 Parameter a : A.
 
 Check
-  (λ y : B a => g a y) : forall y : B a, C a y.
+  (λ [y : B a] g a y) :: Π [y : B a] C a y.
