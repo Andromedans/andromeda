@@ -21,6 +21,7 @@ and comp' =
   | Operation of string * expr
   | With of expr * comp
   | Let of (Name.t * comp) list * comp
+  | Subst of (expr * comp) list * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
@@ -83,7 +84,12 @@ let rec shift_comp k lvl (c', loc) =
        let xcs = List.map (fun (x,c) -> (x, shift_comp k lvl c)) xcs
        and c = shift_comp k (lvl + List.length xcs) c in
        Let (xcs, c)
-     
+    
+    | Subst (ecs, c2) ->
+       let ecs = List.map (fun (e, c) -> (shift_expr k lvl e, shift_comp k lvl c)) ecs
+       and c2 = shift_comp k lvl c2 in
+       Subst (ecs, c2)
+
     | Apply (e1, e2) -> 
        let e1 = shift_expr k lvl e1
        and e2 = shift_expr k lvl e2 in

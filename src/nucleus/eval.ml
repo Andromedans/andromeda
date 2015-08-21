@@ -82,6 +82,31 @@ and infer ctx (c',loc) =
   | Syntax.Let (xcs, c) ->
      let_bind ctx xcs (fun ctx -> infer ctx c)
 
+  | Syntax.Subst (ecs, c2) ->
+     let rec fold xs es = function
+       | [] ->
+          let xs = List.rev xs    (* XXX these List.rev's do not seem necessary. *)
+          and es = List.rev es in
+          infer ctx c2 >>= as_judge ~loc
+            (fun e t ->
+             let e = Tt.abstract xs 0 e in
+             let e = Tt.instantiate es 0 e in
+             let t = Tt.abstract_ty xs 0 t in
+             let t = Tt.instantiate_ty es 0 t in
+              Value.return_judge e t)
+       | (e,c) :: ecs ->
+          begin match Value.as_judge ~loc:(snd e) (expr ctx e) with
+                | ((Tt.Name x, xloc), t) ->
+                   if List.exists (Name.eq x) xs then
+                     Error.runtime ~loc "cannot substitute %t twice" (Name.print x)
+                   else
+                     check ctx c t >>= as_judge ~loc:(snd c)
+                       (fun e _ -> fold (x :: xs) (e :: es) ecs)
+                | _ -> Error.runtime ~loc "only names can be substituted"
+          end          
+     in
+     fold [] [] ecs
+
   | Syntax.Apply (e1, e2) ->
      let v1 = Value.as_closure ~loc (expr ctx e1)
      and v2 = expr ctx e2 in
@@ -202,6 +227,7 @@ and check ctx ((c',loc) as c) t : Value.result =
   match c' with
 
   | Syntax.Return _
+  | Syntax.Subst _ (* XXX we should be able to push the check inside the body of subst *)
   | Syntax.With _
   | Syntax.Apply _
   | Syntax.PrimApp _
