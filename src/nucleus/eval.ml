@@ -279,8 +279,11 @@ and check ctx ((c',loc) as c) t : Value.result =
     end
 
 and handle_result ctx hcs r =
-  let {Syntax.handle_case_val=hval; Syntax.handle_case_ops=hops} = hcs in
-  match r with
+  let {Syntax.handle_case_val=hval;
+       Syntax.handle_case_ops=hops;
+       Syntax.handle_case_finally=hfin} = hcs
+  in
+  begin match r with
   | Value.Return v ->
      begin match hval with
            | Some (x,c) ->
@@ -289,7 +292,8 @@ and handle_result ctx hcs r =
            | None -> r
      end
   | Value.Operation (op, ve, cont) ->
-     let wrap cont v = handle_result ctx hcs (cont v) in
+     let hcs' = { hcs with Syntax.handle_case_finally = None } in
+     let wrap cont v = handle_result ctx hcs' (cont v) in
      begin
        try
          let (x, k, c) = List.assoc op hops in
@@ -300,6 +304,13 @@ and handle_result ctx hcs r =
          Not_found -> 
          Value.Operation (op, ve, (wrap cont))
      end
+  end >>=
+    (fun v -> 
+     match hfin with
+           | Some (x,c) ->
+              let ctx = Context.add_bound x v ctx in
+              infer ctx c
+           | None -> Value.Return v)
 
 and infer_lambda ctx loc abs c k =
     let rec fold ctx ys xts = function

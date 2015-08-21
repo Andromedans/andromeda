@@ -16,7 +16,7 @@
 %token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token UNHINT
-%token HANDLE WITH BAR VAL END
+%token HANDLE WITH BAR VAL FINALLY END
 %token WHNF
 %token FUNCTION APPLY
 %token PRIMITIVE REDUCE
@@ -199,6 +199,7 @@ tags_unhint:
 handler_case:
   | BAR VAL x=name ARROW t=term                 { CaseVal (x, t) }
   | BAR op=OPERATION x=name k=name ARROW t=term { CaseOp (op, x, k, t) }
+  | BAR FINALLY x=name ARROW t=term             { CaseFinally (x, t) }
 
 mark_location(X):
   x=X

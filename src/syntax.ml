@@ -41,6 +41,7 @@ and comp' =
 and handle_cases = {
   handle_case_val: (Name.t * comp) option;
   handle_case_ops: (string * (Name.t * Name.t * comp)) list;
+  handle_case_finally : (Name.t * comp) option;
 }
 
 (** Desugared toplevel commands *)
@@ -168,7 +169,8 @@ let rec shift_comp k lvl (c', loc) =
   in
   c', loc
 
-and shift_handle_cases k lvl {handle_case_val=hval; handle_case_ops=hops} =
+and shift_handle_cases k lvl
+    {handle_case_val=hval; handle_case_ops=hops; handle_case_finally=hfin} =
   { handle_case_val =
       (match hval with
        | None -> None
@@ -176,7 +178,11 @@ and shift_handle_cases k lvl {handle_case_val=hval; handle_case_ops=hops} =
     handle_case_ops =
       List.map
         (fun (op, (x, y, c)) -> let c = shift_comp k (lvl+2) c in (op, (x, y, c)))
-        hops
+        hops ;
+    handle_case_finally =
+      (match hfin with
+       | None -> None
+       | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
   }
     
 and shift_expr k lvl ((e', loc) as e) =

@@ -45,6 +45,7 @@ and expr = term
 and handle_case =
   | CaseVal of Name.t * comp (* val x -> c *)
   | CaseOp of string * Name.t * Name.t * comp (* #op x k -> c *)
+  | CaseFinally of Name.t * comp (* finally x -> c *)
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t

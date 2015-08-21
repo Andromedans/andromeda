@@ -41,6 +41,7 @@ and comp' =
 and handle_cases = {
   handle_case_val: (Name.t * comp) option;
   handle_case_ops: (string * (Name.t * Name.t * comp)) list;
+  handle_case_finally : (Name.t * comp) option;
 }
 
 (** Desugared toplevel commands *)

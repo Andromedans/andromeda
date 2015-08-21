@@ -39,9 +39,10 @@ let rec comp primitive bound ((c',loc) as c) =
 
     | Input.Handle (c, hcs) ->
        let c = comp primitive bound c in
-       let val_case, op_cases = handler_cases primitive bound hcs in
+       let val_case, op_cases, finally_case = handler_cases primitive bound hcs in
        [], Syntax.Handle (c, { Syntax.handle_case_val = val_case ;
-                               Syntax.handle_case_ops = op_cases})
+                               Syntax.handle_case_ops = op_cases ;
+                               Syntax.handle_case_finally = finally_case })
 
     | Input.Let (xcs, c2) ->
       let rec fold = function
@@ -205,15 +206,15 @@ and spine primitive bound ((e',loc) as e) cs =
 
 (* Desugar handler cases. *)
 and handler_cases primitive bound hcs =
-  let rec fold val_case op_cases = function
-    | [] -> val_case, op_cases
+  let rec fold val_case op_cases finally_case = function
+    | [] -> val_case, op_cases, finally_case
 
     | Input.CaseVal (x, c) :: hcs ->
        begin match val_case with
        | Some _ -> Error.syntax ~loc:(snd c) "value is handled more than once"
        | None -> 
           let c = comp primitive (add_bound x bound) c in
-          fold (Some (x,c)) op_cases hcs
+          fold (Some (x,c)) op_cases finally_case hcs
        end
 
     | Input.CaseOp (op, x, k, c) :: hcs ->
@@ -224,10 +225,19 @@ and handler_cases primitive bound hcs =
          let bound = add_bound x bound in
          let bound = add_bound k bound in
          let c = comp primitive bound c in
-         fold val_case ((op, (x, k, c)) :: op_cases) hcs
+         fold val_case ((op, (x, k, c)) :: op_cases) finally_case hcs
+
+    | Input.CaseFinally (x, c) :: hcs ->
+       begin match finally_case with
+       | Some _ -> Error.syntax ~loc:(snd c) "more than one finally case"
+       | None -> 
+          let c = comp primitive (add_bound x bound) c in
+          fold val_case op_cases (Some (x,c)) hcs
+       end
+
   in
-  let val_case, op_cases = fold None [] hcs in
-  val_case, List.rev op_cases
+  let val_case, op_cases, finally_case = fold None [] None hcs in
+  val_case, List.rev op_cases, finally_case
 
 (* Make a primitive application as if it were in an expression position *)
 and primapp ~loc primitive bound x cs =
