@@ -6,9 +6,10 @@ type bound = int
 (** Desugared expressions *)
 type expr = expr' * Location.t
 and expr' =
+  | Type
   | Bound of bound
   | Function of Name.t * comp
-  | Type
+  | Handler of handler
 
 (** Desugared types - indistinguishable from expressions *)
 and ty = expr
@@ -18,7 +19,7 @@ and comp = comp' * Location.t
 and comp' =
   | Return of expr
   | Operation of string * expr
-  | Handle of comp * handle_cases
+  | With of expr * comp
   | Let of (Name.t * comp) list * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
@@ -38,10 +39,10 @@ and comp' =
   | Bracket of comp
   | Inhab
 
-and handle_cases = {
-  handle_case_val: (Name.t * comp) option;
-  handle_case_ops: (string * (Name.t * Name.t * comp)) list;
-  handle_case_finally : (Name.t * comp) option;
+and handler = {
+  handler_val: (Name.t * comp) option;
+  handler_ops: (string * (Name.t * Name.t * comp)) list;
+  handler_finally : (Name.t * comp) option;
 }
 
 (** Desugared toplevel commands *)
@@ -73,10 +74,10 @@ let rec shift_comp k lvl (c', loc) =
        let e = shift_expr k lvl e in
        Operation (op, e)
 
-    | Handle (c, hcs) ->
+    | With (e, c) ->
        let c = shift_comp k lvl c
-       and hcs = shift_handle_cases k lvl hcs in
-       Handle (c, hcs)
+       and e = shift_expr k lvl e in
+       With (e, c)
 
     | Let (xcs, c) ->
        let xcs = List.map (fun (x,c) -> (x, shift_comp k lvl c)) xcs
@@ -169,17 +170,17 @@ let rec shift_comp k lvl (c', loc) =
   in
   c', loc
 
-and shift_handle_cases k lvl
-    {handle_case_val=hval; handle_case_ops=hops; handle_case_finally=hfin} =
-  { handle_case_val =
+and shift_handler k lvl
+    {handler_val=hval; handler_ops=hops; handler_finally=hfin} =
+  { handler_val =
       (match hval with
        | None -> None
        | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
-    handle_case_ops =
+    handler_ops =
       List.map
         (fun (op, (x, y, c)) -> let c = shift_comp k (lvl+2) c in (op, (x, y, c)))
         hops ;
-    handle_case_finally =
+    handler_finally =
       (match hfin with
        | None -> None
        | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
@@ -189,4 +190,5 @@ and shift_expr k lvl ((e', loc) as e) =
   match e' with
   | Bound m -> if m >= lvl then (Bound (m + k), loc) else e
   | Function (x, c) -> Function (x, shift_comp k (lvl+1) c), loc
+  | Handler h -> Handler (shift_handler k lvl h), loc
   | Type -> e

@@ -38,12 +38,16 @@ let rec comp primitive bound ((c',loc) as c) =
       w, Syntax.Operation (op, e)
 
     | Input.Handle (c, hcs) ->
-       let c = comp primitive bound c in
-       let val_case, op_cases, finally_case = handler_cases primitive bound hcs in
-       [], Syntax.Handle (c, { Syntax.handle_case_val = val_case ;
-                               Syntax.handle_case_ops = op_cases ;
-                               Syntax.handle_case_finally = finally_case })
+       let c = comp primitive bound c
+       and h = handler ~loc primitive bound hcs in
+       [], Syntax.With (h, c)
 
+    | Input.With (e, c) ->
+       let w, e = expr primitive bound e in
+       let c = comp primitive bound c in
+       let c = Syntax.shift_comp (List.length w) 0 c in
+       w, Syntax.With (e, c)
+       
     | Input.Let (xcs, c2) ->
       let rec fold = function
         | [] -> []
@@ -164,7 +168,7 @@ let rec comp primitive bound ((c',loc) as c) =
     | Input.Inhab ->
       [], Syntax.Inhab
 
-    | (Input.Var _ | Input.Type | Input.Function _) ->
+    | (Input.Var _ | Input.Type | Input.Function _ | Input.Handler _) ->
       let w, e = expr primitive bound c in
       w, Syntax.Return e
 
@@ -205,7 +209,7 @@ and spine primitive bound ((e',loc) as e) cs =
   w, Syntax.Spine (e, cs)
 
 (* Desugar handler cases. *)
-and handler_cases primitive bound hcs =
+and handler ~loc primitive bound hcs =
   let rec fold val_case op_cases finally_case = function
     | [] -> val_case, op_cases, finally_case
 
@@ -236,8 +240,8 @@ and handler_cases primitive bound hcs =
        end
 
   in
-  let val_case, op_cases, finally_case = fold None [] None hcs in
-  val_case, List.rev op_cases, finally_case
+  let handler_val, handler_ops, handler_finally = fold None [] None hcs in
+  Syntax.Handler (Syntax.{handler_val; handler_ops; handler_finally}), loc
 
 (* Make a primitive application as if it were in an expression position *)
 and primapp ~loc primitive bound x cs =
@@ -284,10 +288,13 @@ and expr primitive bound ((e', loc) as e) =
      in
        [], fold bound xs
 
+  | Input.Handler hcs ->
+     [], handler ~loc primitive bound hcs
+
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ | 
-     Input.Whnf _ | Input.Apply _ | Input.Handle _) ->
+     Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _) ->
     let x = Name.fresh Name.anonymous
     and c = comp primitive bound e in
     [(x,c)], (Syntax.Bound 0, loc)

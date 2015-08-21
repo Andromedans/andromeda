@@ -20,6 +20,10 @@ let as_judge ~loc k v =
 
 (** Evaluation of expressions. *)
 let rec expr ctx (e',loc) =
+  let close x c v =
+    let ctx = Context.add_bound x v ctx in
+    infer ctx c
+  in
   begin
     match e' with
 
@@ -30,11 +34,31 @@ let rec expr ctx (e',loc) =
       Value.Judge (t, Tt.typ)
 
     | Syntax.Function (x, c) ->
-       let f v =
-         let ctx = Context.add_bound x v ctx in
-         infer ctx c
+       Value.Closure (close x c)
+
+    | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
+       let handler_val =
+         begin match handler_val with
+           | None -> None
+           | Some (x, c) -> Some (close x c)
+         end
+       and handler_ops =
+         begin
+           let close2 x1 x2 c v1 v2 =
+             let ctx = Context.add_bound x1 v1 ctx in
+             let ctx = Context.add_bound x2 v2 ctx in
+             infer ctx c
+           in
+           List.map (fun (op, (x, k, c)) -> (op, close2 x k c)) handler_ops
+         end
+       and handler_finally =
+         begin match handler_finally with
+           | None -> None
+           | Some (x, c) -> Some (close x c)
+         end
        in
-       Value.Closure f
+       Value.Handler (Value.{handler_val; handler_ops; handler_finally})
+
   end
 
 (** Evaluate a computation -- infer mode. *)
@@ -50,9 +74,10 @@ and infer ctx (c',loc) =
      let k u = Value.Return u in
      Value.Operation (op, v, k)
 
-  | Syntax.Handle (c, hcs) ->
+  | Syntax.With (e, c) ->
+     let h = Value.as_handler ~loc:(snd e) (expr ctx e) in
      let r = infer ctx c in
-     handle_result ctx hcs r
+     handle_result ctx h r
 
   | Syntax.Let (xcs, c) ->
      let_bind ctx xcs (fun ctx -> infer ctx c)
@@ -177,7 +202,7 @@ and check ctx ((c',loc) as c) t : Value.result =
   match c' with
 
   | Syntax.Return _
-  | Syntax.Handle _
+  | Syntax.With _
   | Syntax.Apply _
   | Syntax.PrimApp _
   | Syntax.Prod _
@@ -278,38 +303,28 @@ and check ctx ((c',loc) as c) t : Value.result =
                   (print_ty ctx t)
     end
 
-and handle_result ctx hcs r =
-  let {Syntax.handle_case_val=hval;
-       Syntax.handle_case_ops=hops;
-       Syntax.handle_case_finally=hfin} = hcs
-  in
+and handle_result ctx {Value.handler_val; handler_ops; handler_finally} r =
   begin match r with
   | Value.Return v ->
-     begin match hval with
-           | Some (x,c) ->
-              let ctx = Context.add_bound x v ctx in
-              infer ctx c
+     begin match handler_val with
+           | Some f -> f v
            | None -> r
      end
   | Value.Operation (op, ve, cont) ->
-     let hcs' = { hcs with Syntax.handle_case_finally = None } in
-     let wrap cont v = handle_result ctx hcs' (cont v) in
+     let h = Value.{handler_val; handler_ops; handler_finally=None} in
+     let wrap cont v = handle_result ctx h (cont v) in
      begin
        try
-         let (x, k, c) = List.assoc op hops in
-         let ctx = Context.add_bound x ve ctx in
-         let ctx = Context.add_bound k (Value.Closure (wrap cont)) ctx in
-         infer ctx c
+         let f = List.assoc op handler_ops in
+         f ve (Value.Closure (wrap cont))
        with
          Not_found -> 
          Value.Operation (op, ve, (wrap cont))
      end
   end >>=
     (fun v -> 
-     match hfin with
-           | Some (x,c) ->
-              let ctx = Context.add_bound x v ctx in
-              infer ctx c
+     match handler_finally with
+           | Some f -> f v
            | None -> Value.Return v)
 
 and infer_lambda ctx loc abs c k =

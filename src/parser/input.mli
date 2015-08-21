@@ -12,9 +12,11 @@ and term' =
   | Var of Name.t
   | Type
   | Function of Name.t list * comp
+  | Handler of handle_case list
   (* computations *)
   | Operation of string * expr
   | Handle of comp * handle_case list
+  | With of expr * comp
   | Apply of expr * expr
   | Let of (Name.t * comp) list * comp
   | Beta of (string list * comp) list * comp

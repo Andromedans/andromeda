@@ -14,6 +14,7 @@ let reserved = [
   ("Eta", TOPETA) ;
   ("finally", FINALLY) ;
   ("handle", HANDLE) ;
+  ("handler", HANDLER) ;
   ("hint", HINT) ;
   ("Hint", TOPHINT) ;
   ("unhint", UNHINT) ;

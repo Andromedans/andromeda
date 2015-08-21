@@ -6,9 +6,10 @@ type bound = int
 (** Desugared expressions *)
 type expr = expr' * Location.t
 and expr' =
+  | Type
   | Bound of bound
   | Function of Name.t * comp
-  | Type
+  | Handler of handler
 
 (** Desugared types - indistinguishable from expressions *)
 and ty = expr
@@ -18,7 +19,7 @@ and comp = comp' * Location.t
 and comp' =
   | Return of expr
   | Operation of string * expr
-  | Handle of comp * handle_cases
+  | With of expr * comp
   | Let of (Name.t * comp) list * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
@@ -38,10 +39,10 @@ and comp' =
   | Bracket of comp
   | Inhab
 
-and handle_cases = {
-  handle_case_val: (Name.t * comp) option;
-  handle_case_ops: (string * (Name.t * Name.t * comp)) list;
-  handle_case_finally : (Name.t * comp) option;
+and handler = {
+  handler_val: (Name.t * comp) option;
+  handler_ops: (string * (Name.t * Name.t * comp)) list;
+  handler_finally : (Name.t * comp) option;
 }
 
 (** Desugared toplevel commands *)

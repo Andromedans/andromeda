@@ -9,6 +9,7 @@
 type value =
   | Judge of Tt.term * Tt.ty
   | Closure of closure
+  | Handler of handler
 
 (** A closure *)
 and closure = value -> result
@@ -20,8 +21,15 @@ and result =
   | Return of value
   | Operation of string * value * closure
 
+and handler = {
+  handler_val: closure option;
+  handler_ops: (string * (value -> value -> result)) list;
+  handler_finally: closure option;
+}
+
 val as_judge : loc:Location.t -> value -> Tt.term * Tt.ty
 val as_closure : loc:Location.t -> value -> closure
+val as_handler : loc:Location.t -> value -> handler
 
 val return_judge : Tt.term -> Tt.ty -> result
 

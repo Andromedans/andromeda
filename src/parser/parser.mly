@@ -16,7 +16,7 @@
 %token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token UNHINT
-%token HANDLE WITH BAR VAL FINALLY END
+%token HANDLE HANDLER WITH BAR VAL FINALLY END
 %token WHNF
 %token FUNCTION APPLY
 %token PRIMITIVE REDUCE
@@ -91,7 +91,9 @@ plain_term:
   | HINT tshs=tags_opt_hints IN c=term              { Hint (tshs, c) }
   | INHABIT tshs=tags_opt_hints IN c=term           { Inhabit (tshs, c) }
   | UNHINT ts=tags_unhints IN c=term                { Unhint (ts, c) }
-  | HANDLE c=term WITH cs=handler_case+ END         { Handle (c, cs) }
+  | HANDLE c=term WITH hcs=handler_case* END        { Handle (c, hcs) }
+  | WITH h=term HANDLE c=term                       { With (h, c) }
+  | HANDLER hcs=handler_case* END                   { Handler (hcs) }
   | e=app_term DCOLON t=ty_term                     { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
