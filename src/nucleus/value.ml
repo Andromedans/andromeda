@@ -22,7 +22,7 @@ let fresh ~loc x t =
 let rec bind r f =
   match r with
   | Return v -> f v
-  | Operation (op, v, k) -> Operation (op, v, fun x -> (bind (f x) k))
+  | Operation (op, v, k) -> Operation (op, v, fun x -> (bind (k x) f))
 
 let print_judge ?max_level xs (e,t) ppf =
   Print.print ~at_level:0 ppf "@[<hov 2>%t@\n    : %t@]"
