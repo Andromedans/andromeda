@@ -1,0 +1,15 @@
+Parameter A : Type.
+Parameter B : Type.
+Parameter C : Type.
+Parameter a : A.
+Parameter f : A -> C.
+
+Parameter unit : Type.
+Parameter tt : unit.
+
+Check
+  handle
+    λ [b : B] f (#gimme tt)
+  with
+  | #gimme _ k -> k @ a
+  end.

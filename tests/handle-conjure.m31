@@ -1,0 +1,24 @@
+(* Create a variable of type A out of thin air. *)
+Let conjure := 
+  (fun U ->
+     handle
+       λ [magic : U] #conjure magic
+     with
+     | #conjure x _ -> x
+     end
+  ).
+
+(* "implicit" argument? *)
+
+Parameter A : Type.
+Parameter B : A -> Type.
+Parameter Q : Π [X : Type, P : X -> Type, x : X] P x → Type.
+
+Check
+  handle
+    λ [a : A] Q A B a (#implicit (B a))
+  with
+  | #implicit T k -> k @ (conjure @ T)
+  end.
+
+  

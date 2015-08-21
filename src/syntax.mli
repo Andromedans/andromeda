@@ -18,6 +18,7 @@ and comp = comp' * Location.t
 and comp' =
   | Return of expr
   | Operation of string * expr
+  | Handle of comp * handle_cases
   | Let of (Name.t * comp) list * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
@@ -36,6 +37,11 @@ and comp' =
   | Refl of comp
   | Bracket of comp
   | Inhab
+
+and handle_cases = {
+  handle_case_val: (Name.t * comp) option;
+  handle_case_ops: (string * (Name.t * Name.t * comp)) list;
+}
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t

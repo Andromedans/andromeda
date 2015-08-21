@@ -9,8 +9,10 @@ let reserved = [
   ("Beta", TOPBETA) ;
   ("Check", TOPCHECK) ;
   ("whnf", WHNF) ;
+  ("end", END) ;
   ("eta", ETA) ;
   ("Eta", TOPETA) ;
+  ("handle", HANDLE) ;
   ("hint", HINT) ;
   ("Hint", TOPHINT) ;
   ("unhint", UNHINT) ;
@@ -32,6 +34,8 @@ let reserved = [
   ("in", IN) ;
   ("refl", REFL) ;
   ("Type", TYPE) ;
+  ("val", VAL) ;
+  ("with", WITH)
 ]
 
 let ascii_name =
@@ -91,6 +95,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | ';'                      -> f (); SEMICOLON
   | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
+  | '|'                      -> f (); BAR
   | '@'                      -> f (); APPLY
   | "->" | 8594 | 10230      -> f (); ARROW
   (* | "=>" | 10233             -> f (); DARROW *)

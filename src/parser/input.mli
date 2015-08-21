@@ -14,6 +14,7 @@ and term' =
   | Function of Name.t list * comp
   (* computations *)
   | Operation of string * expr
+  | Handle of comp * handle_case list
   | Apply of expr * expr
   | Let of (Name.t * comp) list * comp
   | Beta of (string list * comp) list * comp
@@ -39,6 +40,11 @@ and comp = term
 
 (** Sugared expressions *)
 and expr = term
+
+(** Handle cases *)
+and handle_case =
+  | CaseVal of Name.t * comp (* val x -> c *)
+  | CaseOp of string * Name.t * Name.t * comp (* #op x k -> c *)
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t

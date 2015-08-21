@@ -16,6 +16,7 @@
 %token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token UNHINT
+%token HANDLE WITH BAR VAL END
 %token WHNF
 %token FUNCTION APPLY
 %token PRIMITIVE REDUCE
@@ -84,13 +85,13 @@ quoted_string:
 term: mark_location(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                 { e }
-  | WHNF t=term                                     { Whnf t }
   | LET a=let_clauses IN c=term                     { Let (a, c) }
   | BETA tshs=tags_opt_hints IN c=term              { Beta (tshs, c) }
   | ETA tshs=tags_opt_hints IN c=term               { Eta (tshs, c) }
   | HINT tshs=tags_opt_hints IN c=term              { Hint (tshs, c) }
   | INHABIT tshs=tags_opt_hints IN c=term           { Inhabit (tshs, c) }
   | UNHINT ts=tags_unhints IN c=term                { Unhint (ts, c) }
+  | HANDLE c=term WITH cs=handler_case+ END         { Handle (c, cs) }
   | e=app_term DCOLON t=ty_term                     { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
@@ -111,6 +112,7 @@ plain_app_term:
   | e=plain_simple_term                             { e }
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
   | e1=simple_term APPLY e2=app_term                { Apply (e1, e2) }
+  | WHNF t=simple_term                              { Whnf t }
   | REFL e=simple_term                              { Refl e }
   | op=OPERATION e=simple_term                      { Operation (op, e) }
 
@@ -193,6 +195,10 @@ tags_unhints:
 
 tags_unhint:
   | ts=tag_var { ts }
+
+handler_case:
+  | BAR VAL x=name ARROW t=term                 { CaseVal (x, t) }
+  | BAR op=OPERATION x=name k=name ARROW t=term { CaseOp (op, x, k, t) }
 
 mark_location(X):
   x=X

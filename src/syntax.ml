@@ -18,6 +18,7 @@ and comp = comp' * Location.t
 and comp' =
   | Return of expr
   | Operation of string * expr
+  | Handle of comp * handle_cases
   | Let of (Name.t * comp) list * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
@@ -36,6 +37,11 @@ and comp' =
   | Refl of comp
   | Bracket of comp
   | Inhab
+
+and handle_cases = {
+  handle_case_val: (Name.t * comp) option;
+  handle_case_ops: (string * (Name.t * Name.t * comp)) list;
+}
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
@@ -65,6 +71,11 @@ let rec shift_comp k lvl (c', loc) =
     | Operation (op, e) -> 
        let e = shift_expr k lvl e in
        Operation (op, e)
+
+    | Handle (c, hcs) ->
+       let c = shift_comp k lvl c
+       and hcs = shift_handle_cases k lvl hcs in
+       Handle (c, hcs)
 
     | Let (xcs, c) ->
        let xcs = List.map (fun (x,c) -> (x, shift_comp k lvl c)) xcs
@@ -157,6 +168,17 @@ let rec shift_comp k lvl (c', loc) =
   in
   c', loc
 
+and shift_handle_cases k lvl {handle_case_val=hval; handle_case_ops=hops} =
+  { handle_case_val =
+      (match hval with
+       | None -> None
+       | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
+    handle_case_ops =
+      List.map
+        (fun (op, (x, y, c)) -> let c = shift_comp k (lvl+2) c in (op, (x, y, c)))
+        hops
+  }
+    
 and shift_expr k lvl ((e', loc) as e) =
   match e' with
   | Bound m -> if m >= lvl then (Bound (m + k), loc) else e

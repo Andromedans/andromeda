@@ -50,6 +50,10 @@ and infer ctx (c',loc) =
      let k u = Value.Return u in
      Value.Operation (op, v, k)
 
+  | Syntax.Handle (c, hcs) ->
+     let r = infer ctx c in
+     handle_result ctx hcs r
+
   | Syntax.Let (xcs, c) ->
      let_bind ctx xcs (fun ctx -> infer ctx c)
 
@@ -191,7 +195,7 @@ and check ctx ((c',loc) as c) t : Value.result =
                          (print_ty ctx t) (print_ty ctx t'))
 
   | Syntax.Operation (op, e) ->
-     let v = expr ctx e
+     let ve = expr ctx e
      and k v =
        let (e', t') = Value.as_judge ~loc v in
        if Equal.equal_ty ctx t t'
@@ -200,7 +204,10 @@ and check ctx ((c',loc) as c) t : Value.result =
                          "this expression should have type@ %t@ but has type@ %t"
                          (print_ty ctx t) (print_ty ctx t')
      in
-       Value.Operation (op, v, k)
+       Value.Operation (op, ve, k)
+
+  | Syntax.Handle (c, hcs) ->
+     Error.fatal "handling in checking position coming soon."
 
   | Syntax.Let (xcs, c) ->
      let_bind ctx xcs
@@ -272,6 +279,29 @@ and check ctx ((c',loc) as c) t : Value.result =
       | None -> Error.typing ~loc "[] has a bracket type and not %t"
                   (print_ty ctx t)
     end
+
+and handle_result ctx hcs r =
+  let {Syntax.handle_case_val=hval; Syntax.handle_case_ops=hops} = hcs in
+  match r with
+  | Value.Return v ->
+     begin match hval with
+           | Some (x,c) ->
+              let ctx = Context.add_bound x v ctx in
+              infer ctx c
+           | None -> r
+     end
+  | Value.Operation (op, ve, cont) ->
+     let wrap cont v = handle_result ctx hcs (cont v) in
+     begin
+       try
+         let (x, k, c) = List.assoc op hops in
+         let ctx = Context.add_bound x ve ctx in
+         let ctx = Context.add_bound k (Value.Closure (wrap cont)) ctx in
+         infer ctx c
+       with
+         Not_found -> 
+         Value.Operation (op, ve, (wrap cont))
+     end
 
 and infer_lambda ctx loc abs c k =
     let rec fold ctx ys xts = function
