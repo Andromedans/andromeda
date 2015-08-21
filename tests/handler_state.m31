@@ -1,0 +1,23 @@
+Parameter unit : Type.
+Parameter tt : unit.
+
+Let state :=
+  fun s0 ->
+    handler
+    | val x -> (fun _ -> x)
+    | #lookup _ k -> (fun s -> (k @ s) @ s)
+    | #update s k -> (fun _ -> (k @ tt) @ s)
+    | finally f -> f @ s0
+    end.
+
+Parameter N : Type.
+Parameter z : N.
+Parameter s : N -> N.
+Parameter f : N -> N -> N -> N.
+
+Check
+  with state @ z handle
+    let a := #lookup tt in
+    let _ := #update (s a) in
+    let b := #lookup tt in
+      f a b (s (#lookup tt)).

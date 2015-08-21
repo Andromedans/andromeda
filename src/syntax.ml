@@ -6,9 +6,10 @@ type bound = int
 (** Desugared expressions *)
 type expr = expr' * Location.t
 and expr' =
+  | Type
   | Bound of bound
   | Function of Name.t * comp
-  | Type
+  | Handler of handler
 
 (** Desugared types - indistinguishable from expressions *)
 and ty = expr
@@ -18,7 +19,9 @@ and comp = comp' * Location.t
 and comp' =
   | Return of expr
   | Operation of string * expr
+  | With of expr * comp
   | Let of (Name.t * comp) list * comp
+  | Subst of (expr * comp) list * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
@@ -36,6 +39,12 @@ and comp' =
   | Refl of comp
   | Bracket of comp
   | Inhab
+
+and handler = {
+  handler_val: (Name.t * comp) option;
+  handler_ops: (string * (Name.t * Name.t * comp)) list;
+  handler_finally : (Name.t * comp) option;
+}
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
@@ -62,16 +71,26 @@ let rec shift_comp k lvl (c', loc) =
        let e = shift_expr k lvl e in
        Return e
 
-    | Operation (op, e) -> 
+    | Operation (op, e) ->
        let e = shift_expr k lvl e in
        Operation (op, e)
+
+    | With (e, c) ->
+       let c = shift_comp k lvl c
+       and e = shift_expr k lvl e in
+       With (e, c)
 
     | Let (xcs, c) ->
        let xcs = List.map (fun (x,c) -> (x, shift_comp k lvl c)) xcs
        and c = shift_comp k (lvl + List.length xcs) c in
        Let (xcs, c)
-     
-    | Apply (e1, e2) -> 
+
+    | Subst (ecs, c2) ->
+       let ecs = List.map (fun (e, c) -> (shift_expr k lvl e, shift_comp k lvl c)) ecs
+       and c2 = shift_comp k lvl c2 in
+       Subst (ecs, c2)
+
+    | Apply (e1, e2) ->
        let e1 = shift_expr k lvl e1
        and e2 = shift_expr k lvl e2 in
        Apply (e1, e2)
@@ -100,7 +119,7 @@ let rec shift_comp k lvl (c', loc) =
        let c = shift_comp k lvl c in
        Unhint (xs, c)
 
-    | Ascribe (c, e) -> 
+    | Ascribe (c, e) ->
        let c = shift_comp k lvl c
        and e = shift_expr k lvl e in
        Ascribe (c, e)
@@ -157,8 +176,24 @@ let rec shift_comp k lvl (c', loc) =
   in
   c', loc
 
+and shift_handler k lvl {handler_val; handler_ops; handler_finally} =
+  { handler_val =
+      (match handler_val with
+       | None -> None
+       | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
+    handler_ops =
+      List.map
+        (fun (op, (x, y, c)) -> let c = shift_comp k (lvl+2) c in (op, (x, y, c)))
+        handler_ops ;
+    handler_finally =
+      (match handler_finally with
+       | None -> None
+       | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
+  }
+
 and shift_expr k lvl ((e', loc) as e) =
   match e' with
   | Bound m -> if m >= lvl then (Bound (m + k), loc) else e
   | Function (x, c) -> Function (x, shift_comp k (lvl+1) c), loc
+  | Handler h -> Handler (shift_handler k lvl h), loc
   | Type -> e

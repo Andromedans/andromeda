@@ -1,0 +1,13 @@
+(* Eventually this example should not work. *)
+(* We convince Andromeda that a has type B. *)
+Parameter A : Type.
+Parameter B : Type.
+Parameter a : A.
+
+Check
+  (handle
+     (λ [e : B == A] let crime := (hint e in (a :: B)) in #mafia crime)
+   with
+   | #mafia x k -> x
+   end
+  ).

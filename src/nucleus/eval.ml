@@ -20,6 +20,10 @@ let as_judge ~loc k v =
 
 (** Evaluation of expressions. *)
 let rec expr ctx (e',loc) =
+  let close x c v =
+    let ctx = Context.add_bound x v ctx in
+    infer ctx c
+  in
   begin
     match e' with
 
@@ -30,11 +34,31 @@ let rec expr ctx (e',loc) =
       Value.Judge (t, Tt.typ)
 
     | Syntax.Function (x, c) ->
-       let f v =
-         let ctx = Context.add_bound x v ctx in
-         infer ctx c
+       Value.Closure (close x c)
+
+    | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
+       let handler_val =
+         begin match handler_val with
+         | None -> None
+         | Some (x, c) -> Some (close x c)
+         end
+       and handler_ops =
+         begin
+           let close2 x1 x2 c v1 v2 =
+             let ctx = Context.add_bound x1 v1 ctx in
+             let ctx = Context.add_bound x2 v2 ctx in
+             infer ctx c
+           in
+           List.map (fun (op, (x, k, c)) -> (op, close2 x k c)) handler_ops
+         end
+       and handler_finally =
+         begin match handler_finally with
+         | None -> None
+         | Some (x, c) -> Some (close x c)
+         end
        in
-       Value.Closure f
+       Value.Handler (Value.{handler_val; handler_ops; handler_finally})
+
   end
 
 (** Evaluate a computation -- infer mode. *)
@@ -50,8 +74,38 @@ and infer ctx (c',loc) =
      let k u = Value.Return u in
      Value.Operation (op, v, k)
 
+  | Syntax.With (e, c) ->
+     let h = Value.as_handler ~loc:(snd e) (expr ctx e) in
+     let r = infer ctx c in
+     handle_result ctx h r
+
   | Syntax.Let (xcs, c) ->
      let_bind ctx xcs (fun ctx -> infer ctx c)
+
+  | Syntax.Subst (ecs, c2) ->
+     let rec fold xs es = function
+       | [] ->
+          let xs = List.rev xs    (* XXX these List.rev's do not seem necessary. *)
+          and es = List.rev es in
+          infer ctx c2 >>= as_judge ~loc
+            (fun e t ->
+               let e = Tt.abstract xs 0 e in
+               let e = Tt.instantiate es 0 e in
+               let t = Tt.abstract_ty xs 0 t in
+               let t = Tt.instantiate_ty es 0 t in
+               Value.return_judge e t)
+       | (e,c) :: ecs ->
+          begin match Value.as_judge ~loc:(snd e) (expr ctx e) with
+          | ((Tt.Name x, xloc), t) ->
+             if List.exists (Name.eq x) xs then
+               Error.runtime ~loc "cannot substitute %t twice" (Name.print x)
+             else
+               check ctx c t >>= as_judge ~loc:(snd c)
+                 (fun e _ -> fold (x :: xs) (e :: es) ecs)
+          | _ -> Error.runtime ~loc "only names can be substituted"
+          end
+     in
+     fold [] [] ecs
 
   | Syntax.Apply (e1, e2) ->
      let v1 = Value.as_closure ~loc (expr ctx e1)
@@ -173,6 +227,8 @@ and check ctx ((c',loc) as c) t : Value.result =
   match c' with
 
   | Syntax.Return _
+  | Syntax.Subst _ (* XXX we should be able to push the check inside the body of subst *)
+  | Syntax.With _
   | Syntax.Apply _
   | Syntax.PrimApp _
   | Syntax.Prod _
@@ -191,7 +247,7 @@ and check ctx ((c',loc) as c) t : Value.result =
                          (print_ty ctx t) (print_ty ctx t'))
 
   | Syntax.Operation (op, e) ->
-     let v = expr ctx e
+     let ve = expr ctx e
      and k v =
        let (e', t') = Value.as_judge ~loc v in
        if Equal.equal_ty ctx t t'
@@ -200,7 +256,7 @@ and check ctx ((c',loc) as c) t : Value.result =
                          "this expression should have type@ %t@ but has type@ %t"
                          (print_ty ctx t) (print_ty ctx t')
      in
-       Value.Operation (op, v, k)
+       Value.Operation (op, ve, k)
 
   | Syntax.Let (xcs, c) ->
      let_bind ctx xcs
@@ -272,6 +328,30 @@ and check ctx ((c',loc) as c) t : Value.result =
       | None -> Error.typing ~loc "[] has a bracket type and not %t"
                   (print_ty ctx t)
     end
+
+and handle_result ctx {Value.handler_val; handler_ops; handler_finally} r =
+  begin match r with
+  | Value.Return v ->
+     begin match handler_val with
+     | Some f -> f v
+     | None -> r
+     end
+  | Value.Operation (op, ve, cont) ->
+     let h = Value.{handler_val; handler_ops; handler_finally=None} in
+     let wrap cont v = handle_result ctx h (cont v) in
+     begin
+       try
+         let f = List.assoc op handler_ops in
+         f ve (Value.Closure (wrap cont))
+       with
+         Not_found ->
+          Value.Operation (op, ve, (wrap cont))
+     end
+  end >>=
+  (fun v ->
+     match handler_finally with
+     | Some f -> f v
+     | None -> Value.Return v)
 
 and infer_lambda ctx loc abs c k =
     let rec fold ctx ys xts = function
@@ -529,7 +609,7 @@ and check_ty ctx ((_,loc) as c) =
 and infer_ty ctx c k =
   check ctx c Tt.typ >>= as_judge ~loc:(snd c)
     (fun e _ -> k (Tt.ty e))
-          
+
 let comp = infer
 
 let comp_value ctx ((_,loc) as c) =

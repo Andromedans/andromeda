@@ -1,0 +1,18 @@
+(* Eventually this should fail. Somehow. *)
+
+Let create :=
+  fun X ->
+    handle (λ [x : X] #throw x) with | #throw x _ -> x end.
+
+Parameter B : Type.
+Parameter P : B -> B -> Type.
+
+Let u := create @ B.
+Let v := create @ B.
+
+Parameter r : P u v.
+
+Let r' := subst u := v and v := u in r.
+
+Check r.
+Check r'. (* So r has two different types. *)

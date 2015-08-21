@@ -1,0 +1,17 @@
+Parameter N : Type.
+Parameter z : N.
+Parameter s : N -> N.
+
+Parameter unit : Type.
+Parameter tt : unit.
+
+Parameter f : N -> N -> N -> N.
+
+Check
+  handle
+    f (#get tt) (#get tt) (#get tt)
+  with
+  | val v -> (fun _ -> v)
+  | #get _ k -> (fun i -> (k @ i) @ (s i))
+  | finally f -> f @ z
+  end.
