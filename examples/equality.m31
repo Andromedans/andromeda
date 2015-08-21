@@ -1,26 +1,21 @@
 (** Properties of equality. *)
 
 Let symmetric :=
-  (fun (A : Type) (a b : A) (p : a == b) => beta p in refl b : b == a)
-  : forall (A : Type) (a b : A), a == b -> b == a.
+  (λ [A a b p] beta p in refl b)
+  :: Π [A : Type] [a b : A] a ≡ b -> b ≡ a.
 
 Let transitive :=
-  (fun (A : Type) (a b c : A) (p : a == b) (q : b == c) =>
-     beta p in q : a == c)
-  : forall (A : Type) (a b c : A), a == b -> b == c -> a == c.
+  (λ [A a b c p q]
+     beta p in q)
+  :: Π [A : Type] [a b c : A] a ≡ b -> b ≡ c -> a ≡ c.
 
 Let J :=
-  (fun
-    (A : Type)
-    (B : forall a b : A, a == b -> Type)
-    (r : forall x : A, B x x (refl x))
-    (a b : A)
-    (p : a == b) =>
-    beta p in r b : B a b p)
-  : forall
-       (A : Type)
-       (B : forall a b : A, a == b -> Type)
-       (d : forall x : A, B x x (refl x))
-       (a b : A)
-       (p : a == b),
+  (λ [A B r a b p]
+    beta p in r b)
+  :: Π
+       [A : Type]
+       [B : Π [a b : A] a ≡ b -> Type]
+       [d : Π [x : A] B x x (refl x)]
+       [a b : A]
+       [p : a ≡ b]
      B a b p.

@@ -1,24 +1,24 @@
-#include "paths.m31" "paths_facts.m31"
+#include "paths.m31" "paths_facts.m31".
 
 Let UIP_aux :=
-  fun (A : Type) (a b : A) (p q : paths A a b) =>
+  λ [A : Type] [a b : A] [p q : paths A a b]
   paths_refl (paths A a b) (paths_of_eq A a b (eq_of_paths A a b p))
-  :
+  ::
     paths
       (paths A a b)
       (paths_of_eq A a b (eq_of_paths A a b p))
       (paths_of_eq A a b (eq_of_paths A a b q)).
 
 Let UIP :=
-  (fun A a b p q =>
-     beta (paths_eq_inv A a b p), (paths_eq_inv A a b q) in
-       UIP_aux A a b p q) :
-    ∀ (A : Type) (a b : A) (p q : paths A a b),
+  (λ [A a b p q]
+     beta (paths_eq_inv A a b p); (paths_eq_inv A a b q) in
+       UIP_aux A a b p q) ::
+    ∀ [A : Type] [a b : A] [p q : paths A a b]
       paths (paths A a b) p q.
 
 Let UIP_strict :=
-  (fun A a b p q =>
-     beta (paths_eq_inv A a b p), (paths_eq_inv A a b q) in
-       eq_of_paths (paths A a b) p q (UIP_aux A a b p q)) :
-    ∀ (A : Type) (a b : A) (p q : paths A a b),
-      p == q.
+  (λ [A a b p q]
+     beta (paths_eq_inv A a b p); (paths_eq_inv A a b q) in
+       eq_of_paths (paths A a b) p q (UIP_aux A a b p q)) ::
+    ∀ [A : Type] [a b : A] [p q : paths A a b]
+      p ≡ q.

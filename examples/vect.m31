@@ -1,36 +1,36 @@
-#include "peano.m31" "unit.m31" "finite.m31"
+#include "peano.m31" "unit.m31" "finite.m31".
 
-Parameter vect : forall (A : Type), N -> Type.
-Parameter vnil : forall (A : Type), vect A Z.
-Parameter vcons : forall (A : Type) (n : N), A -> vect A n -> vect A (S n).
+Parameter vect : forall [A : Type] N -> Type.
+Parameter vnil : forall [A : Type] vect A Z.
+Parameter vcons : forall [A : Type] [n : N] A -> vect A n -> vect A (S n).
 
 Parameter vect_ind :
-  forall (A : Type)
-         (P : forall (n : N) (_ : vect A n), Type)
-         (_ : P Z (vnil A))
-         (_ : forall (n : N) (a : A) (v : vect A n) (_ : P n v),
-             P (S n) (vcons A n a v))
-         (n : N)
-         (v : vect A n),
+  forall [A : Type]
+         [P : forall [n : N] [_ : vect A n] Type]
+         [_ : P Z (vnil A)]
+         [_ : forall [n : N] [a : A] [v : vect A n] [_ : P n v]
+             P (S n) (vcons A n a v)]
+         [n : N]
+         [v : vect A n]
     P n v.
 
 Parameter vect_ind_beta_vnil :
-  forall (A : Type)
-         (P : forall (n : N) (_ : vect A n), Type)
-         (z : P Z (vnil A))
-         (f : forall (n : N) (a : A) (v : vect A n) (_ : P n v),
-             P (S n) (vcons A n a v)),
+  forall [A : Type]
+         [P : forall [n : N] [_ : vect A n] Type]
+         [z : P Z (vnil A)]
+         [f : forall [n : N] [a : A] [v : vect A n] [_ : P n v]
+             P (S n) (vcons A n a v)]
          vect_ind A P z f Z (vnil A) == z.
 
 Parameter vect_ind_beta_vcons :
-  forall (A : Type)
-         (P : forall (n : N) (_ : vect A n), Type)
-         (z : P Z (vnil A))
-         (f : forall (n : N) (a : A) (v : vect A n) (_ : P n v),
-             P (S n) (vcons A n a v))
-         (n : N)
-         (a : A)
-         (t : vect A n),
+  forall [A : Type]
+         [P : forall [n : N] [_ : vect A n] Type]
+         [z : P Z (vnil A)]
+         [f : forall [n : N] [a : A] [v : vect A n] [_ : P n v]
+             P (S n) (vcons A n a v)]
+         [n : N]
+         [a : A]
+         [t : vect A n]
     vect_ind A P z f (S n) (vcons A n a t) ==
     f n a t (vect_ind A P z f n t).
 
@@ -38,33 +38,33 @@ Parameter vect_ind_beta_vcons :
 Let vhead :=
   beta ind_N_Z in
   beta ind_N_S in
-  fun (A : Type) (n : N) (v : vect A (S n)) =>
+  λ [A : Type] [n : N] [v : vect A (S n)]
     let P :=
-        (fun (index : N) (v : vect A index) =>
+        (λ [index : N] [v : vect A index]
            ind_N
-             (fun (_ : N) => Type)
+             (λ [_ : N] Type)
              unit
-             (fun (n : N) (_ : Type) => A)
+             (λ [n : N] [_ : Type] A)
              index) in
     vect_ind
       A P tt
-      (fun (n : N) (a : A) (t : vect A n) (_ : P n t) => a)
+      (λ [n : N] [a : A] [t : vect A n] [_ : P n t] a)
       (S n) v.
 
 Let vtail :=
   beta ind_N_Z in
   beta ind_N_S in
-  fun (A : Type) (n : N) (v : vect A (S n)) =>
+  λ [A : Type] [n : N] [v : vect A (S n)]
     let P :=
-        (fun (index : N) (v : vect A index) =>
+        (λ [index : N] [v : vect A index]
            ind_N
-             (fun (_ : N) => Type)
+             (λ [_ : N] Type)
              unit
-             (fun (n : N) (_ : Type) => vect A n)
+             (λ [n : N] [_ : Type] vect A n)
              index) in
     vect_ind
       A P tt
-      (fun (n : N) (a : A) (t : vect A n) (_ : P n t) => t)
+      (λ [n : N] [a : A] [t : vect A n] [_ : P n t] t)
       (S n) v.
 
 
@@ -73,15 +73,15 @@ Let vget :=
   beta ind_N_S in
   beta Finite_rect_fzero in
   beta Finite_rect_fsucc in
-  (fun (A : Type) (n : nat) (i : Finite n) (v : vect A n) =>
+  (λ [A : Type] [n : nat] [i : Finite n] [v : vect A n] =>
      Finite_rect
-       (fun (n0 : nat) (_ : Finite n0) => forall _ : vect A n0, A)
-       (fun (n0 : nat)
-            (v0 : vect A (S n0)) =>
+       (λ [n0 : nat] [_ : Finite n0] forall [_ : vect A n0] A)
+       (λ [n0 : nat]
+            [v0 : vect A (S n0)]
           vhead A n0 v0)
-       (fun (n0 : nat) (_ : Finite n0) (IHi : forall _ : vect A n0, A)
-            (v0 : vect A (S n0)) => IHi (vtail A n0 v0)) n i v)
-  : forall (A : Type) (n : nat) (_ : Finite n) (_ : vect A n), A.
+       (λ [n0 : nat] [_ : Finite n0] [IHi : forall [_ : vect A n0] A]
+            [v0 : vect A (S n0)] IHi (vtail A n0 v0)) n i v)
+  :: forall [A : Type] [n : nat] [_ : Finite n] [_ : vect A n] A.
 
 
 Let v2 := (vcons N Z two (vnil N)).
@@ -92,7 +92,7 @@ Check
   beta ind_N_S in
   beta vect_ind_beta_vnil in
   beta vect_ind_beta_vcons in
-  refl five :
+  refl five ::
   vhead N one v52 == five.
 
 Check
@@ -100,7 +100,7 @@ Check
   beta ind_N_S in
   beta vect_ind_beta_vnil in
   beta vect_ind_beta_vcons in
-  refl v2 :
+  refl v2 ::
   vtail N one v52 == v2.
 
 

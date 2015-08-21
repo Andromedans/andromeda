@@ -1,22 +1,19 @@
-Parameter A B : Type.
+Parameter A : Type.
+Parameter B : Type.
 
-Check
-  (fun p => inhabit p in [])
-  : A -> [A].
+Check (λ [p] inhabit p in []) :: A -> [[A]].
 
-Check
-  (fun p => inhabit p in [])
-  : [[A]] -> [A].
+Check (λ [p] inhabit p in []) :: [[[[A]]]] -> [[A]].
 
 (* This seems to be the best we can manage because
    the system only ever tries to inhabit bracketed
    types. *)
 Check
-  (fun f x => inhabit f in inhabit x in [])
-  : ([A] -> B) -> ([A] -> [B]).
+  (λ [f x] inhabit f in inhabit x in [])
+  :: ([[A]] -> B) -> ([[A]] -> [[B]]).
 
 (* But we pick up parameters in bracketed dependent types. *)
 Parameter C : A -> Type.
 Check
- (fun f y => inhabit f in [])
- : (forall x : A, C x) -> forall y : A, [C y].
+ (λ [f y] inhabit f in [])
+ :: (Π [x : A] C x) -> Π [y : A] [[C y]].
