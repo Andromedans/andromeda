@@ -13,7 +13,7 @@
 %token REFL
 %token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
 %token TOPUNHINT
-%token SUBST LET COLONEQ AND IN
+%token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token UNHINT
 %token HANDLE HANDLER WITH BAR VAL FINALLY END
@@ -86,7 +86,6 @@ term: mark_location(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                 { e }
   | LET a=let_clauses IN c=term                     { Let (a, c) }
-  | SUBST a=subst_clauses IN c=term                 { Subst (a, c) }
   | BETA tshs=tags_opt_hints IN c=term              { Beta (tshs, c) }
   | ETA tshs=tags_opt_hints IN c=term               { Eta (tshs, c) }
   | HINT tshs=tags_opt_hints IN c=term              { Hint (tshs, c) }
@@ -139,12 +138,6 @@ let_clauses:
 
 let_clause:
   | x=name COLONEQ c=term                           { (x,c) }
-
-subst_clauses:
-  | ls=separated_nonempty_list(AND, subst_clause)   { ls }
-
-subst_clause:
-  | e=app_term COLONEQ c=term                       { (e,c) }
 
 typed_binder:
   | LBRACK lst=separated_nonempty_list(COMMA, typed_names) RBRACK

@@ -19,7 +19,6 @@ and term' =
   | With of expr * comp
   | Apply of expr * expr
   | Let of (Name.t * comp) list * comp
-  | Subst of (expr * comp) list * comp
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp

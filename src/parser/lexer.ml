@@ -35,7 +35,6 @@ let reserved = [
   ("λ", LAMBDA) ;
   ("in", IN) ;
   ("refl", REFL) ;
-  ("subst", SUBST) ;
   ("Type", TYPE) ;
   ("val", VAL) ;
   ("with", WITH)
