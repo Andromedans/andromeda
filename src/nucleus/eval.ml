@@ -110,6 +110,11 @@ and infer ctx (c',loc) =
       and t = Equal.whnf ctx t in
       Value.return_judge e (Tt.ty t))
 
+  | Syntax.Typeof c ->
+    infer ctx c >>= as_judge ~loc
+    (fun _ (Tt.Ty t) ->
+      Value.return_judge t (Tt.mk_type_ty ~loc))
+
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t in
        check ctx c t
@@ -203,6 +208,7 @@ and check ctx ((c',loc) as c) t : Value.result =
 
   | Syntax.Return _
   | Syntax.With _
+  | Syntax.Typeof _
   | Syntax.Apply _
   | Syntax.PrimApp _
   | Syntax.Prod _

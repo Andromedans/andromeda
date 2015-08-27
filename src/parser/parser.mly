@@ -17,7 +17,7 @@
 %token BETA ETA HINT INHABIT
 %token UNHINT
 %token HANDLE HANDLER WITH BAR VAL FINALLY END
-%token WHNF
+%token WHNF TYPEOF
 %token FUNCTION APPLY
 %token PRIMITIVE REDUCE
 %token <string> OPERATION
@@ -115,6 +115,7 @@ plain_app_term:
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
   | e1=simple_term APPLY e2=app_term                { Apply (e1, e2) }
   | WHNF t=simple_term                              { Whnf t }
+  | TYPEOF t=simple_term                            { Typeof t }
   | REFL e=simple_term                              { Refl e }
   | op=OPERATION e=simple_term                      { Operation (op, e) }
 

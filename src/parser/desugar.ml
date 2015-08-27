@@ -108,6 +108,10 @@ let rec comp primitive bound ((c',loc) as c) =
       let c = comp primitive bound c in
       [], Syntax.Whnf c
 
+    | Input.Typeof c ->
+      let c = comp primitive bound c in
+      [], Syntax.Typeof c
+
     | Input.Lambda (xs, c) ->
       let rec fold bound ys = function
         | [] ->
@@ -294,7 +298,7 @@ and expr primitive bound ((e', loc) as e) =
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
-     Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _) ->
+     Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _ | Input.Typeof _) ->
     let x = Name.fresh Name.anonymous
     and c = comp primitive bound e in
     [(x,c)], (Syntax.Bound 0, loc)

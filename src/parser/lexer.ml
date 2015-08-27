@@ -36,6 +36,7 @@ let reserved = [
   ("in", IN) ;
   ("refl", REFL) ;
   ("Type", TYPE) ;
+  ("typeof", TYPEOF) ;
   ("val", VAL) ;
   ("with", WITH)
 ]

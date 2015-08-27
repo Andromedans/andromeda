@@ -29,6 +29,7 @@ and comp' =
   | Unhint of string list * comp
   | Ascribe of comp * ty
   | Whnf of comp
+  | Typeof of comp
   | PrimApp of Name.t * comp list
   | Lambda of (Name.t * comp option) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
