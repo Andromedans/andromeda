@@ -39,8 +39,8 @@ let rec expr ctx (e',loc) =
     | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
        let handler_val =
          begin match handler_val with
-           | None -> None
-           | Some (x, c) -> Some (close x c)
+         | None -> None
+         | Some (x, c) -> Some (close x c)
          end
        and handler_ops =
          begin
@@ -53,8 +53,8 @@ let rec expr ctx (e',loc) =
          end
        and handler_finally =
          begin match handler_finally with
-           | None -> None
-           | Some (x, c) -> Some (close x c)
+         | None -> None
+         | Some (x, c) -> Some (close x c)
          end
        in
        Value.Handler (Value.{handler_val; handler_ops; handler_finally})
@@ -81,31 +81,6 @@ and infer ctx (c',loc) =
 
   | Syntax.Let (xcs, c) ->
      let_bind ctx xcs (fun ctx -> infer ctx c)
-
-  | Syntax.Subst (ecs, c2) ->
-     let rec fold xs es = function
-       | [] ->
-          let xs = List.rev xs    (* XXX these List.rev's do not seem necessary. *)
-          and es = List.rev es in
-          infer ctx c2 >>= as_judge ~loc
-            (fun e t ->
-             let e = Tt.abstract xs 0 e in
-             let e = Tt.instantiate es 0 e in
-             let t = Tt.abstract_ty xs 0 t in
-             let t = Tt.instantiate_ty es 0 t in
-              Value.return_judge e t)
-       | (e,c) :: ecs ->
-          begin match Value.as_judge ~loc:(snd e) (expr ctx e) with
-                | ((Tt.Name x, xloc), t) ->
-                   if List.exists (Name.eq x) xs then
-                     Error.runtime ~loc "cannot substitute %t twice" (Name.print x)
-                   else
-                     check ctx c t >>= as_judge ~loc:(snd c)
-                       (fun e _ -> fold (x :: xs) (e :: es) ecs)
-                | _ -> Error.runtime ~loc "only names can be substituted"
-          end          
-     in
-     fold [] [] ecs
 
   | Syntax.Apply (e1, e2) ->
      let v1 = Value.as_closure ~loc (expr ctx e1)
@@ -134,6 +109,11 @@ and infer ctx (c',loc) =
       let e = Equal.whnf ctx e
       and t = Equal.whnf ctx t in
       Value.return_judge e (Tt.ty t))
+
+  | Syntax.Typeof c ->
+    infer ctx c >>= as_judge ~loc
+    (fun _ (Tt.Ty t) ->
+      Value.return_judge t (Tt.mk_type_ty ~loc))
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty ctx t in
@@ -227,8 +207,8 @@ and check ctx ((c',loc) as c) t : Value.result =
   match c' with
 
   | Syntax.Return _
-  | Syntax.Subst _ (* XXX we should be able to push the check inside the body of subst *)
   | Syntax.With _
+  | Syntax.Typeof _
   | Syntax.Apply _
   | Syntax.PrimApp _
   | Syntax.Prod _
@@ -333,8 +313,8 @@ and handle_result ctx {Value.handler_val; handler_ops; handler_finally} r =
   begin match r with
   | Value.Return v ->
      begin match handler_val with
-           | Some f -> f v
-           | None -> r
+     | Some f -> f v
+     | None -> r
      end
   | Value.Operation (op, ve, cont) ->
      let h = Value.{handler_val; handler_ops; handler_finally=None} in
@@ -344,14 +324,14 @@ and handle_result ctx {Value.handler_val; handler_ops; handler_finally} r =
          let f = List.assoc op handler_ops in
          f ve (Value.Closure (wrap cont))
        with
-         Not_found -> 
-         Value.Operation (op, ve, (wrap cont))
+         Not_found ->
+          Value.Operation (op, ve, (wrap cont))
      end
   end >>=
-    (fun v -> 
+  (fun v ->
      match handler_finally with
-           | Some f -> f v
-           | None -> Value.Return v)
+     | Some f -> f v
+     | None -> Value.Return v)
 
 and infer_lambda ctx loc abs c k =
     let rec fold ctx ys xts = function
@@ -609,7 +589,7 @@ and check_ty ctx ((_,loc) as c) =
 and infer_ty ctx c k =
   check ctx c Tt.typ >>= as_judge ~loc:(snd c)
     (fun e _ -> k (Tt.ty e))
-          
+
 let comp = infer
 
 let comp_value ctx ((_,loc) as c) =

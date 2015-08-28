@@ -466,7 +466,7 @@ let rec print_term ?max_level xs (e,_) ppf =
       | Inhab -> print ~at_level:0 "[]"
 
       | Bracket t ->
-        print ~at_level:0 "[%t]"
+        print ~at_level:0 "[[%t]]"
           (print_ty xs t)
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf

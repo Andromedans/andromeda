@@ -2,15 +2,15 @@
 Parameter A : Type.
 Parameter a : A.
 Check
-  (inhabit a in [] : [A]).
+  (inhabit a in [] :: [[A]]).
 
 (* Universally quantified inhabit hints. *)
 Parameter B : A -> Type.
-Parameter f : forall (x : A), B x.
+Parameter f : Π [x : A] B x.
 
 Check
   (inhabit a in
    inhabit f in
-    [] : [B a]).
+    [] :: [[B a]]).
 
-Check inhabit f in (λ (x : A) => [] : [B x]) : forall x : A, [B x].
+Check inhabit f in (λ [x : A] [] :: [[B x]]) :: Π [x : A] [[B x]].

@@ -1,5 +1,5 @@
 (* Create a variable of type A out of thin air. *)
-Let conjure := 
+Let conjure :=
   (fun U ->
      handle
        λ [magic : U] #conjure magic
@@ -20,5 +20,3 @@ Check
   with
   | #implicit T k -> k @ (conjure @ T)
   end.
-
-  

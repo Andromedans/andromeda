@@ -18,10 +18,10 @@ let print loc ppf =
   | Known {filename; start_line; start_col; end_line; end_col} ->
     if start_line = end_line then
       Print.print ppf "File \"%s\", line %d, characters %d-%d"
-        filename start_line start_col end_col
+        filename start_line (1+ start_col) end_col
     else
       Print.print ppf "File \"%s\", lines %d-%d, characters %d-%d"
-        filename start_line end_line start_col end_col
+        filename start_line end_line (1+ start_col) end_col
 
 let unknown = Unknown
 

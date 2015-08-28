@@ -6,18 +6,18 @@
 %token TYPE
 %token UNDERSCORE
 %token <string> NAME
-%token LPAREN RPAREN LBRACK RBRACK
+%token LPAREN RPAREN LBRACK RBRACK LRBRACK LLBRACK RRBRACK
 %token DCOLON COLON SEMICOLON COMMA DOT
 %token ARROW
 %token EQEQ
 %token REFL
 %token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
 %token TOPUNHINT
-%token SUBST LET COLONEQ AND IN
+%token LET COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token UNHINT
 %token HANDLE HANDLER WITH BAR VAL FINALLY END
-%token WHNF
+%token WHNF TYPEOF
 %token FUNCTION APPLY
 %token PRIMITIVE REDUCE
 %token <string> OPERATION
@@ -86,7 +86,6 @@ term: mark_location(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                 { e }
   | LET a=let_clauses IN c=term                     { Let (a, c) }
-  | SUBST a=subst_clauses IN c=term                 { Subst (a, c) }
   | BETA tshs=tags_opt_hints IN c=term              { Beta (tshs, c) }
   | ETA tshs=tags_opt_hints IN c=term               { Eta (tshs, c) }
   | HINT tshs=tags_opt_hints IN c=term              { Hint (tshs, c) }
@@ -116,16 +115,17 @@ plain_app_term:
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
   | e1=simple_term APPLY e2=app_term                { Apply (e1, e2) }
   | WHNF t=simple_term                              { Whnf t }
+  | TYPEOF t=simple_term                            { Typeof t }
   | REFL e=simple_term                              { Refl e }
   | op=OPERATION e=simple_term                      { Operation (op, e) }
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                            { Type }
-  (* | LBRACK RBRACK                                   { Inhab } *)
+  | LRBRACK                                         { Inhab }
   | x=var_name                                      { Var x }
   | LPAREN e=plain_term RPAREN                      { e }
-  (* | LBRACK e=term RBRACK                            { Bracket e } *)
+  | LLBRACK e=term RRBRACK                          { Bracket e }
 
 var_name:
   | NAME { Name.make $1 }
@@ -139,12 +139,6 @@ let_clauses:
 
 let_clause:
   | x=name COLONEQ c=term                           { (x,c) }
-
-subst_clauses:
-  | ls=separated_nonempty_list(AND, subst_clause)   { ls }
-
-subst_clause:
-  | e=app_term COLONEQ c=term                       { (e,c) }
 
 typed_binder:
   | LBRACK lst=separated_nonempty_list(COMMA, typed_names) RBRACK

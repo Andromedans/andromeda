@@ -47,7 +47,7 @@ let rec comp primitive bound ((c',loc) as c) =
        let c = comp primitive bound c in
        let c = Syntax.shift_comp (List.length w) 0 c in
        w, Syntax.With (e, c)
-       
+
     | Input.Let (xcs, c2) ->
       let rec fold = function
         | [] -> []
@@ -64,29 +64,6 @@ let rec comp primitive bound ((c',loc) as c) =
       let bound = List.fold_left (fun bound (x,_) -> add_bound x bound) bound xcs in
       let c2 = comp primitive bound c2 in
       [], Syntax.Let (xcs, c2)
-
-    | Input.Subst (ecs, c2) ->
-       let k, wecs = List.fold_left
-                    (fun (k, wecs) (e, c) ->
-                     let w, e = expr primitive bound e
-                     and c = comp primitive bound c in
-                     let j = List.length w in
-                     let e = Syntax.shift_expr k j e
-                     and c = Syntax.shift_comp (k + j) 0 c in
-                     (k + j, (w, e, c) :: wecs))
-                    (0, []) ecs
-       in
-       let wecs = List.rev wecs in
-       let c2 = comp primitive bound c2 in
-       let c2 = Syntax.shift_comp k 0 c2 in
-       let _, ws, ecs = List.fold_right
-                          (fun (w, e, c) (k, ws, ecs) -> 
-                           let e = Syntax.shift_expr k 0 e
-                           and c = Syntax.shift_comp k 0 c in
-                           (k + List.length w, w @ ws, (e,c) :: ecs))
-                          wecs (k, [], [])
-       in
-       ws, Syntax.Subst (ecs, c2)
 
     | Input.Apply (e1, e2) ->
        let w1, e1 = expr primitive bound e1
@@ -130,6 +107,10 @@ let rec comp primitive bound ((c',loc) as c) =
     | Input.Whnf c ->
       let c = comp primitive bound c in
       [], Syntax.Whnf c
+
+    | Input.Typeof c ->
+      let c = comp primitive bound c in
+      [], Syntax.Typeof c
 
     | Input.Lambda (xs, c) ->
       let rec fold bound ys = function
@@ -239,7 +220,7 @@ and handler ~loc primitive bound hcs =
     | Input.CaseVal (x, c) :: hcs ->
        begin match val_case with
        | Some _ -> Error.syntax ~loc:(snd c) "value is handled more than once"
-       | None -> 
+       | None ->
           let c = comp primitive (add_bound x bound) c in
           fold (Some (x,c)) op_cases finally_case hcs
        end
@@ -257,7 +238,7 @@ and handler ~loc primitive bound hcs =
     | Input.CaseFinally (x, c) :: hcs ->
        begin match finally_case with
        | Some _ -> Error.syntax ~loc:(snd c) "more than one finally case"
-       | None -> 
+       | None ->
           let c = comp primitive (add_bound x bound) c in
           fold val_case op_cases (Some (x,c)) hcs
        end
@@ -316,8 +297,8 @@ and expr primitive bound ((e', loc) as e) =
 
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
-     Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ | 
-     Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _ | Input.Subst _) ->
+     Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
+     Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _ | Input.Typeof _) ->
     let x = Name.fresh Name.anonymous
     and c = comp primitive bound e in
     [(x,c)], (Syntax.Bound 0, loc)

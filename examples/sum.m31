@@ -1,25 +1,25 @@
-Parameter sum : ∀ (A B : Type), Type.
-Parameter inl : ∀ (A B : Type), A -> sum A B.
-Parameter inr : ∀ (A B : Type), B -> sum A B.
+Parameter sum : ∀ [A B : Type] Type.
+Parameter inl : ∀ [A B : Type] A -> sum A B.
+Parameter inr : ∀ [A B : Type] B -> sum A B.
 Parameter sum_rect :
-  ∀ (A B : Type) (P : sum A B -> Type)
-    (l : ∀ a : A, P (inl A B a))
-    (r : ∀ b : B, P (inr A B b)),
-  ∀ t : sum A B, P t.
+  ∀ [A B : Type] [P : sum A B -> Type]
+    [l : ∀ [a : A] P (inl A B a)]
+    [r : ∀ [b : B] P (inr A B b)]
+  ∀ [t : sum A B] P t.
 Check sum_rect.
 
 Parameter sum_iota_l :
-  ∀ (A B : Type),
-  ∀ (P : sum A B -> Type)
-    (l : ∀ a : A, P (inl A B a))
-    (r : ∀ b : B, P (inr A B b))
-    (a : A),
+  ∀ [A B : Type]
+  ∀ [P : sum A B -> Type]
+    [l : ∀ [a : A] P (inl A B a)]
+    [r : ∀ [b : B] P (inr A B b)]
+    [a : A]
     sum_rect A B P l r (inl A B a) == l a.
 
 Parameter sum_iota_r :
-  ∀ (A B : Type),
-  ∀ (P : sum A B -> Type)
-    (l : ∀ a : A, P (inl A B a))
-    (r : ∀ b : B, P (inr A B b))
-    (b : B),
+  ∀ [A B : Type]
+  ∀ [P : sum A B -> Type]
+    [l : ∀ [a : A] P (inl A B a)]
+    [r : ∀ [b : B] P (inr A B b)]
+    [b : B]
     sum_rect A B P l r (inr A B b) == r b.

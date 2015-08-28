@@ -19,7 +19,6 @@ and term' =
   | With of expr * comp
   | Apply of expr * expr
   | Let of (Name.t * comp) list * comp
-  | Subst of (expr * comp) list * comp
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
@@ -27,6 +26,7 @@ and term' =
   | Unhint of string list * comp
   | Ascribe of comp * ty
   | Whnf of comp
+  | Typeof of comp
   | Lambda of (Name.t * comp option) list * comp
   | Spine of comp * comp list
   | Prod of (Name.t * ty) list * comp

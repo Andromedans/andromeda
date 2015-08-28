@@ -1,12 +1,13 @@
 (* Test long spines against short patterns. *)
 
-Parameter A B : Type.
+Parameter A : Type.
+Parameter B : Type.
 Parameter a : A.
 Parameter b : B.
 Parameter f : A -> B.
 
-Parameter f_def : f == (λ (x : A) => b).
+Parameter f_def : f == (λ [x : A] b).
 
 Check
   beta f_def in
-    refl b : f a == b.
+    refl b :: f a == b.

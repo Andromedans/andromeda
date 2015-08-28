@@ -21,7 +21,6 @@ and comp' =
   | Operation of string * expr
   | With of expr * comp
   | Let of (Name.t * comp) list * comp
-  | Subst of (expr * comp) list * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
@@ -30,6 +29,7 @@ and comp' =
   | Unhint of string list * comp
   | Ascribe of comp * ty
   | Whnf of comp
+  | Typeof of comp
   | PrimApp of Name.t * comp list
   | Lambda of (Name.t * comp option) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
@@ -71,7 +71,7 @@ let rec shift_comp k lvl (c', loc) =
        let e = shift_expr k lvl e in
        Return e
 
-    | Operation (op, e) -> 
+    | Operation (op, e) ->
        let e = shift_expr k lvl e in
        Operation (op, e)
 
@@ -84,13 +84,8 @@ let rec shift_comp k lvl (c', loc) =
        let xcs = List.map (fun (x,c) -> (x, shift_comp k lvl c)) xcs
        and c = shift_comp k (lvl + List.length xcs) c in
        Let (xcs, c)
-    
-    | Subst (ecs, c2) ->
-       let ecs = List.map (fun (e, c) -> (shift_expr k lvl e, shift_comp k lvl c)) ecs
-       and c2 = shift_comp k lvl c2 in
-       Subst (ecs, c2)
 
-    | Apply (e1, e2) -> 
+    | Apply (e1, e2) ->
        let e1 = shift_expr k lvl e1
        and e2 = shift_expr k lvl e2 in
        Apply (e1, e2)
@@ -119,12 +114,14 @@ let rec shift_comp k lvl (c', loc) =
        let c = shift_comp k lvl c in
        Unhint (xs, c)
 
-    | Ascribe (c, e) -> 
+    | Ascribe (c, e) ->
        let c = shift_comp k lvl c
        and e = shift_expr k lvl e in
        Ascribe (c, e)
 
     | Whnf c -> Whnf (shift_comp k lvl c)
+
+    | Typeof c -> Typeof (shift_comp k lvl c)
 
     | PrimApp (x, cs) ->
        let cs = List.map (shift_comp k lvl) cs in
@@ -176,22 +173,21 @@ let rec shift_comp k lvl (c', loc) =
   in
   c', loc
 
-and shift_handler k lvl
-    {handler_val=hval; handler_ops=hops; handler_finally=hfin} =
+and shift_handler k lvl {handler_val; handler_ops; handler_finally} =
   { handler_val =
-      (match hval with
+      (match handler_val with
        | None -> None
        | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
     handler_ops =
       List.map
         (fun (op, (x, y, c)) -> let c = shift_comp k (lvl+2) c in (op, (x, y, c)))
-        hops ;
+        handler_ops ;
     handler_finally =
-      (match hfin with
+      (match handler_finally with
        | None -> None
        | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
   }
-    
+
 and shift_expr k lvl ((e', loc) as e) =
   match e' with
   | Bound m -> if m >= lvl then (Bound (m + k), loc) else e

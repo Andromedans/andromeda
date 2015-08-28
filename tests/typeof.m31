@@ -1,0 +1,11 @@
+Parameter A : Type.
+Parameter P : A -> Type.
+Parameter a : A.
+Parameter b : P a.
+
+Check typeof a.
+Check typeof A.
+Check typeof (typeof a).
+Check typeof b.
+Check b :: (typeof b).
+Check typeof Type.

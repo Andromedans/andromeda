@@ -432,7 +432,7 @@ C-c C-l          m31-send-buffer
   (interactive)
   (let ((cmd (concat m31-executable " " m31-arguments " "
                      (if lim (concat "--lim-file " (int-to-string lim) " ") "")
-                     fn))
+                     "\"" fn "\""))
         (compilation-scroll-output 'first-error)
         (compilation-ask-about-save nil)
         (hist compile-history)
@@ -464,14 +464,14 @@ C-c C-l          m31-send-buffer
   "Send the current buffer to Andromeda"
   (interactive)
   (if buffer-file-name
-      (m31-send-file buffer-file-name)
+      (m31-send-file (file-relative-name buffer-file-name))
     (error "No file associated to current buffer")))
 
 ;;;###autoload
 (defun m31-send-buffer-up-to-point nil
   (interactive)
   (if buffer-file-name
-      (m31-send-file-up-to-lim buffer-file-name (point))
+      (m31-send-file-up-to-lim (file-relative-name buffer-file-name) (point))
     (error "No file associated to current buffer")))
 
 (defun m31-interrupt-compile ()

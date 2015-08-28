@@ -21,7 +21,6 @@ and comp' =
   | Operation of string * expr
   | With of expr * comp
   | Let of (Name.t * comp) list * comp
-  | Subst of (expr * comp) list * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
@@ -30,6 +29,7 @@ and comp' =
   | Unhint of string list * comp
   | Ascribe of comp * ty
   | Whnf of comp
+  | Typeof of comp
   | PrimApp of Name.t * comp list
   | Lambda of (Name.t * comp option) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
