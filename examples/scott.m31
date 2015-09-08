@@ -1,0 +1,21 @@
+(* Untyped λ-calculus *)
+
+Parameter D : Type.
+Parameter R1 : D == (D → D).
+Parameter R2 : (D → D) == D.
+Hint R1.
+Hint R2.
+
+Let id := λ [x : D] x.
+
+Parameter ω : D.
+Let δ := (λ [x : D] id ((x :: D → D) x)) :: D.
+Let δ' := δ :: D → D.
+Parameter ω_def : ω == δ' δ.
+Let ω' := ω :: D → D.
+
+Check
+  refl (δ' δ) :: id (δ' δ) == δ' δ.
+
+(* Check
+  refl ω :: ω == id (δ' δ). *)

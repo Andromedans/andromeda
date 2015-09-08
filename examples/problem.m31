@@ -3,7 +3,7 @@ Let G' := (λ [U f] λ [y : U] y) :: ∀ [V : Type] [h : V -> V] [z : V] V.
 
 #verbosity 4.
 
-(* eta expansion of λctions seems to lead to beta hints being not applied *)
+(* eta expansion of functions seems to lead to beta hints being not applied *)
 Parameter G'' : ∀ [T : Type] [g : T -> T] T -> T.
 Parameter h : G'' == G.
 (* this should work with a general hint! *)
