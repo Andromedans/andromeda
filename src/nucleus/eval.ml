@@ -123,7 +123,7 @@ and infer ctx (c',loc) =
     let yts, u =
       begin match Context.lookup_primitive x ctx with
       | Some ytsu -> ytsu
-      | None -> Error.typing "unknown operation %t" (Name.print x)
+      | None -> Error.typing "unknown operation %t" (Name.print_ident x)
       end in
     let rec fold es yts cs =
       match yts, cs with
@@ -170,8 +170,7 @@ and infer ctx (c',loc) =
             Value.return_judge e t)
       | (x,t) :: abs ->
         let t = expr_ty ctx t in
-        let y, yt = Value.fresh ~loc x t in
-        let ctx = Context.add_bound x yt ctx in
+        let y, ctx = Context.add_fresh ~loc ctx x t in
         let t = Tt.abstract_ty ys 0 t in
           fold ctx (y::ys) (xts @ [(x,t)]) abs
     in
@@ -346,13 +345,12 @@ and infer_lambda ctx loc abs c k =
       | (x,c) :: abs ->
         begin match c with
         | None -> Error.typing
-            ~loc "cannot infer the type of untagged variable %t" (Name.print x)
+            ~loc "cannot infer the type of untagged variable %t" (Name.print_ident x)
         | Some c ->
            check_ty ctx c >>= as_judge ~loc:(snd c)
              (fun e _ ->
               let t = Tt.ty e in
-              let y, yt = Value.fresh ~loc x t in
-              let ctx = Context.add_bound x yt ctx in
+              let y, ctx = Context.add_fresh ~loc ctx x t in
               let t = Tt.abstract_ty ys 0 t in
               fold ctx (y::ys) (xts @ [(x,t)]) abs)
         end
@@ -406,8 +404,7 @@ and check_lambda ctx loc t abs c =
           let u = Tt.unabstract_ty ys 0 u in
 
           let k t =
-            let y, yt = Value.fresh ~loc x t in
-            let ctx = Context.add_bound x yt ctx in
+            let y, ctx = Context.add_fresh ~loc ctx x t in
             let t = Tt.abstract_ty ys 0 t in
             fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus v
           in
@@ -415,7 +412,7 @@ and check_lambda ctx loc t abs c =
           begin match t with
             | None ->
               Print.debug "untagged arg %t in lambda, using %t as type"
-                (Name.print x)
+                (Name.print_ident x)
                 (print_ty ctx u);
               k u
             | Some t ->
@@ -427,7 +424,7 @@ and check_lambda ctx loc t abs c =
                  else Error.typing ~loc
                      "in this lambda, the variable %t should have a type equal to@ \
                       %t\nFound type@ %t"
-                     (Name.print x) (print_ty ctx u) (print_ty ctx t))
+                     (Name.print_ident x) (print_ty ctx u) (print_ty ctx t))
           end
 
         | [], [] ->

@@ -8,7 +8,7 @@ type expr = expr' * Location.t
 and expr' =
   | Type
   | Bound of bound
-  | Function of Name.t * comp
+  | Function of Name.ident * comp
   | Handler of handler
 
 (** Desugared types - indistinguishable from expressions *)
@@ -20,7 +20,7 @@ and comp' =
   | Return of expr
   | Operation of string * expr
   | With of expr * comp
-  | Let of (Name.t * comp) list * comp
+  | Let of (Name.ident * comp) list * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
@@ -30,27 +30,27 @@ and comp' =
   | Ascribe of comp * ty
   | Whnf of comp
   | Typeof of comp
-  | PrimApp of Name.t * comp list
-  | Lambda of (Name.t * comp option) list * comp
+  | PrimApp of Name.ident * comp list
+  | Lambda of (Name.ident * comp option) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
                                  to evaluate in checking mode, once we know their types. *)
-  | Prod of (Name.t * ty) list * comp (* XXX turn the ty into comp *)
+  | Prod of (Name.ident * ty) list * comp (* XXX turn the ty into comp *)
   | Eq of comp * comp
   | Refl of comp
   | Bracket of comp
   | Inhab
 
 and handler = {
-  handler_val: (Name.t * comp) option;
-  handler_ops: (string * (Name.t * Name.t * comp)) list;
-  handler_finally : (Name.t * comp) option;
+  handler_val: (Name.ident * comp) option;
+  handler_ops: (string * (Name.ident * Name.ident * comp)) list;
+  handler_finally : (Name.ident * comp) option;
 }
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Primitive of Name.t * (Name.t * bool * comp) list * comp (** introduce a primitive operation *)
-  | TopLet of Name.t * comp (** global let binding *)
+  | Primitive of Name.ident * (Name.ident * bool * comp) list * comp (** introduce a primitive operation *)
+  | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of (string list * comp) list
   | TopEta of (string list * comp) list

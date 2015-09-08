@@ -2,53 +2,48 @@
 
 type term = term' * Location.t
 and term' =
-(** The type of TT terms.
-    (For details on the mutual definition with [term'], see module Location.)
 
-    We use locally nameless syntax: names for free variables and deBruijn
-    indices for bound variables. In terms of type [term], bound variables are
-    not allowed to appear "bare", i.e., without an associated binder.
-
-    Instead of nesting binary applications [((e1 e2) ... en)], we use
-    spines [e1 [e2; ...; en]]. The reason for this is one of efficiency:
-    because we need to tag every application with the argument and result type,
-    nested applications use quadratic space (in the number of the applications)
-    whereas spines use linear space. Consequently, lambda abstractions and
-    products also accept lists of arguments.
-
-    To represent nested bindings, we use an auxiliary type
-    [(A, B) abstraction], which consists of a list [(x1 : a1), ..., (xn : an)],
-    where each [ak] has type [A] and can depend on variables [x1, ..., x{k-1}],
-    and of a single [b] of type [B] that can depend on all [x1, ..., xn]. *)
-
-  | Type
   (** term denoting the type of types *)
-  | Name of Name.t
+  | Type
+
+  (** a constant *)
+  | Name of Name.ident
+
   (** a free variable *)
-  | Bound of Syntax.bound
+  | Atom of Name.atom
+
   (** a bound variable *)
-  | PrimApp of Name.t * term list
+  | Bound of Syntax.bound
+
   (** primitive application *)
-  | Lambda of (ty, term * ty) abstraction
+  | PrimApp of Name.ident * term list
+
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
       [tk] depends on [x1, ..., x{k-1}], while [e] and [t] depend on
       [x1, ..., xn] *)
-  | Spine of term * (ty, ty) abstraction * term list
+  | Lambda of (ty, term * ty) abstraction
+
   (** a spine [e ((x1 : t1) ..., (xn : tn) : t) e1 ... en] means that
       [e] is applied to [e1, ..., en], and that the type of [e] is
       [forall (x1 : t1) ... (xn : tn), t]. Here [tk] depends on
       [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Prod of (ty, ty) abstraction
+  | Spine of term * (ty, ty) abstraction * term list
+
   (** a dependent product [forall (x1 : t1) ... (xn : tn), t], where [tk]
       depends on [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Eq of ty * term * term
+  | Prod of (ty, ty) abstraction
+
   (** strict equality type [e1 == e2] where [e1] and [e2] have type [t]. *)
-  | Refl of ty * term
+  | Eq of ty * term * term
+
   (** reflexivity [refl e] where [e] has type [t]. *)
-  | Inhab
+  | Refl of ty * term
+
   (** the inhabitant of a bracket type *)
-  | Bracket of ty
+  | Inhab
+
   (** bracket type *)
+  | Bracket of ty
 
 and ty = Ty of term
 (** The type of TT types.
@@ -56,7 +51,7 @@ and ty = Ty of term
     so the type [ty] of types is just a synonym for the type [term] of terms.
     However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
 
-and ('a, 'b) abstraction = (Name.t * 'a) list * 'b
+and ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
 (** The auxiliary type of abstractions discussed above. *)
 
 type primsig = (bool * ty, ty) abstraction
@@ -72,6 +67,7 @@ let char_equal ()  = if !Config.ascii then "==" else "≡"
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
 let mk_name ~loc x = Name x, loc
+let mk_atom ~loc x = Atom x, loc
 let mk_bound ~loc k = Bound k, loc
 
 let mk_primapp ~loc x es = PrimApp (x, es), loc
@@ -138,6 +134,8 @@ let rec instantiate es depth ((e',loc) as e) =
 
     | Name _ -> e
 
+    | Atom _ -> e
+
     | Bound k ->
        if k < depth
        then e
@@ -197,7 +195,7 @@ and instantiate_term_ty es depth (e, t) =
   in (e, t)
 
 let unabstract xs depth e =
-  let es = List.map (mk_name ~loc:Location.unknown) xs
+  let es = List.map (mk_atom ~loc:Location.unknown) xs
   in instantiate es depth e
 
 let unabstract_ty xs depth (Ty t) =
@@ -227,9 +225,11 @@ let rec abstract xs depth ((e',loc) as e) =
      let es = List.map (abstract xs depth) es in
       PrimApp (y, es), loc
 
-  | Name x ->
+  | Name x -> e
+
+  | Atom x ->
     begin
-      match Name.index_of x xs with
+      match Name.index_of_atom x xs with
       | None -> e
       | Some k -> Bound (depth + k), loc
     end
@@ -294,7 +294,7 @@ let shift_abstraction shift_u shift_v k lvl us v =
 
 let rec shift k lvl ((e',loc) as e) =
   match e' with
-    | (Type | Name _) -> e
+    | (Type | Name _ | Atom _) -> e
 
     | Bound j ->
       if lvl <= j
@@ -378,6 +378,7 @@ let rec occurs k (e',_) =
   match e' with
   | Type -> 0
   | Name _ -> 0
+  | Atom _ -> 0
   | Bound m -> if k = m then 1 else 0
   | PrimApp (x, es) -> List.fold_left (fun i e -> i + occurs k e) 0 es
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
@@ -425,20 +426,23 @@ let rec print_term ?max_level xs (e,_) ppf =
         print ~at_level:0 "Type"
 
       | Name x ->
-        print ~at_level:0 "%t" (Name.print x)
+        print ~at_level:0 "%t" (Name.print_ident x)
+
+      | Atom x ->
+        print ~at_level:0 "%t" (Name.print_atom x)
 
       | PrimApp (x, []) ->
-        print ~at_level:0 "%t" (Name.print x)
+        print ~at_level:0 "%t" (Name.print_ident x)
 
       | PrimApp (x, ((_::_) as es)) ->
-        print ~at_level:1 "%t %t" (Name.print x) (Print.sequence (print_term ~max_level:0 xs) "" es)
+        print ~at_level:1 "%t %t" (Name.print_ident x) (Print.sequence (print_term ~max_level:0 xs) "" es)
 
       | Bound k ->
         begin
           try
             if !Config.debruijn
-            then print ~at_level:0 "%t[%d]" (Name.print (List.nth xs k)) k
-            else print ~at_level:0 "%t" (Name.print (List.nth xs k))
+            then print ~at_level:0 "%t[%d]" (Name.print_ident (List.nth xs k)) k
+            else print ~at_level:0 "%t" (Name.print_ident (List.nth xs k))
           with
           | Not_found | Failure "nth" ->
               (** XXX this should never get printed *)
@@ -525,7 +529,7 @@ and print_spine xs e (yts, u) es ppf =
 
 and print_binder xs (x, t) ppf =
   Print.print ppf "(%t :@ %t)"
-        (Name.print x)
+        (Name.print_ident x)
         (print_ty xs t)
 
 let print_primsig ?max_level xs (x_red_u_s, t) ppf =
@@ -533,7 +537,7 @@ let print_primsig ?max_level xs (x_red_u_s, t) ppf =
     (fun xs x (red, u) ppf ->
        Print.print ppf "(@[<hv>%s%t :@ %t@])"
          (if red then "reduce " else "")
-         (Name.print x)
+         (Name.print_ident x)
          (print_ty ~max_level:0 xs u)) in
   let print_u =
     (fun sp xs ppf ->

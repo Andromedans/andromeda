@@ -8,11 +8,12 @@ let rec remove_bound x xs =
     else (match remove_bound x ys with None -> None | Some ys -> Some (y :: ys))
 
 (** The name in the head position of a pattern *)
-let rec head_name = function
-  | Pattern.Name x -> Some x
-  | Pattern.PrimApp (x, _) -> Some x
-  | Pattern.Spine (e, _, _) -> head_name e
-  | Pattern.PVar _ | Pattern.Eq _ | Pattern.Refl _ | Pattern.Bracket _ | Pattern.Term _ -> None
+let rec has_head_name = function
+  | Pattern.Atom _
+  | Pattern.Name _
+  | Pattern.PrimApp (_, _) -> true
+  | Pattern.Spine (e, _, _) -> has_head_name e
+  | Pattern.PVar _ | Pattern.Eq _ | Pattern.Refl _ | Pattern.Bracket _ | Pattern.Term _ -> false
 
 (** Convert a term [e] of type [t] to a pattern with respect to the
     given bound variables [pvars]. That is, the bound variables from [pvars]
@@ -25,6 +26,7 @@ let rec of_term ctx pvars ((e',loc) as e) t =
   | Tt.Type | Tt.Inhab | Tt.Lambda _ | Tt.Prod _ -> original
 
   | Tt.Name x -> pvars, Pattern.Name x
+  | Tt.Atom x -> pvars, Pattern.Atom x
 
   | Tt.PrimApp (x, es) ->
     (* A primitive application is always a pattern, never a term *)
@@ -41,7 +43,7 @@ let rec of_term ctx pvars ((e',loc) as e) t =
     let xts =
       begin match Context.lookup_primitive x ctx with
       | Some (xts, _) -> xts
-      | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print x)
+      | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print_ident x)
       end in
     let pvars, pes = fold pvars [] [] xts es in
     pvars, Pattern.PrimApp (x, pes)
@@ -111,24 +113,29 @@ let mk_beta ~loc ctx (xts, (t, e1, e2)) =
   let pvars, p = of_term ctx pvars e1 t in
     match pvars with
       | [] ->
-        begin match head_name p with
-          | Some x ->
-            let key = Pattern.term_key e1 in
-            begin match p with
-              | Pattern.Name x -> key, (xts, (Pattern.BetaName x, e2))
-              | Pattern.PrimApp (x, pes) -> key, (xts, (Pattern.BetaPrimApp (x, pes), e2))
-              | Pattern.Spine (pe, yus, pes) -> key, (xts, (Pattern.BetaSpine (pe, yus, pes), e2))
-              | Pattern.PVar _ | Pattern.Bracket _ | Pattern.Eq _ | Pattern.Refl _ | Pattern.Term _ ->
-                Error.runtime ~loc "only a variable, primitive operation or an application can appear on the left-hand side of a beta hint"
-            end
-          | None -> Error.runtime ~loc
-              "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments@ %t"
-              (Pattern.print_pattern [] (xts, p))
+        begin if has_head_name p then
+
+          let key = Pattern.term_key e1 in
+
+          begin match p with
+                | Pattern.Name x -> key, (xts, (Pattern.BetaName x, e2))
+                | Pattern.Atom x -> key, (xts, (Pattern.BetaAtom x, e2))
+                | Pattern.PrimApp (x, pes) -> key, (xts, (Pattern.BetaPrimApp (x, pes), e2))
+                | Pattern.Spine (pe, yus, pes) -> key, (xts, (Pattern.BetaSpine (pe, yus, pes), e2))
+                | Pattern.PVar _ | Pattern.Bracket _ | Pattern.Eq _ | Pattern.Refl _ | Pattern.Term _ ->
+                                                                                        Error.runtime ~loc "only a variable, primitive operation or an application can appear on the left-hand side of a beta hint"
+          end
+
+              else
+                Error.runtime
+                  ~loc
+                  "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments@ %t"
+                  (Pattern.print_pattern [] (xts, p))
         end
       | _ :: _ ->
         let xs = List.map (fun k -> fst (List.nth (List.rev xts) k)) pvars in
         Error.runtime ~loc "this beta hint leaves some variables unmatched (%t)"
-          (Print.sequence Name.print ", " xs)
+          (Print.sequence Name.print_ident ", " xs)
 
 let mk_eta ~loc ctx (xts, (t, e1, e2)) =
   let pvars = pvars_of_binders xts in
@@ -139,14 +146,14 @@ let mk_eta ~loc ctx (xts, (t, e1, e2)) =
   let pvars, p1 = of_term ctx pvars e1 t in
   let pvars, p2 = of_term ctx pvars e2 t in
   let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
-  match head_name pt', p1, p2 with
-    | Some _, Pattern.PVar k1, Pattern.PVar k2 when k1 <> k2 ->
+  match has_head_name pt', p1, p2 with
+    | true, Pattern.PVar k1, Pattern.PVar k2 when k1 <> k2 ->
       let key = Pattern.ty_key t in
       key, (xts, (pt, k1, k2))
-    | None, _, _ ->
+    | false, _, _ ->
         Error.runtime ~loc
           "the type of an eta hint must be a symbol@ or a symbol applied to arguments"
-    | Some _, _, _ ->
+    | true, _, _ ->
         Error.runtime ~loc
           "the left- and right-hand side of an eta hint must be distinct variables"
 
@@ -166,11 +173,10 @@ let mk_general ~loc ctx (xts, (t, e1, e2)) =
   let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
   let pvars, pe1 = of_term ctx pvars e1 t in
   let pvars, pe2 = of_term ctx pvars e2 t in
-  match head_name pt' with
-  | Some _ ->
+  if has_head_name pt' then
     let key = Pattern.general_key e1 e2 t in
     key, (xts, (pt, pe1, pe2))
-  | None ->
+  else
     (* Error.runtime ~loc *)
     (*   "the type of a hint must be a symbol@ or a symbol applied to arguments" *)
     None, (xts, (pt, pe1, pe2))

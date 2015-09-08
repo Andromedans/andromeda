@@ -113,25 +113,24 @@ let rec exec_cmd base_dir interactive ctx c =
         (yts', u)
       | (y, reducing, t)::yts ->
         let t = Eval.ty ctx t in
-        let z, v = Value.fresh ~loc y t in
-        let ctx = Context.add_bound y v ctx in
+        let z, ctx = Context.add_fresh ~loc ctx y t in
         let t = Tt.abstract_ty zs 0 t in
         fold ctx (z::zs) ((y, (reducing, t)) :: yts') yts
     in
     let ytsu = fold ctx [] [] yts in
     let ctx = Context.add_primitive x ytsu ctx in
     if interactive then
-      Format.printf "%t is assumed.@." (Name.print x) ;
+      Format.printf "%t is assumed.@." (Name.print_ident x) ;
     ctx
 
   | Syntax.TopLet (x, c) ->
      let v = Eval.comp_value ctx c in
      let ctx = Context.add_bound x v ctx in
-     if interactive then Format.printf "%t is defined.@." (Name.print x) ;
+     if interactive then Format.printf "%t is defined.@." (Name.print_ident x) ;
      ctx
 
   | Syntax.TopCheck c ->
-     let v = 
+     let v =
        begin match Eval.comp_value ctx c with
              | Value.Judge (e, t) ->
                 let e = Simplify.simplify ctx e

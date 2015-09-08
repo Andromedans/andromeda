@@ -29,12 +29,14 @@ let rec alpha_equal (e1,_) (e2,_) =
   e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
-    | Tt.Name x, Tt.Name y -> Name.eq x y
+    | Tt.Name x, Tt.Name y -> Name.eq_ident x y
+
+    | Tt.Atom x, Tt.Atom y -> Name.eq_atom x y
 
     | Tt.Bound i, Tt.Bound j -> i = j
 
     | Tt.PrimApp (x, es), Tt.PrimApp (x', es') ->
-      Name.eq x x' &&
+      Name.eq_ident x x' &&
       alpha_equal_list alpha_equal es es'
 
     | Tt.Lambda abs, Tt.Lambda abs' ->
@@ -64,7 +66,7 @@ let rec alpha_equal (e1,_) (e2,_) =
 
     | Tt.Inhab, Tt.Inhab -> true
 
-    | (Tt.Name _ | Tt.Bound _ | Tt.PrimApp _ | Tt.Lambda _ | Tt.Spine _ |
+    | (Tt.Name _ | Tt.Atom _ | Tt.Bound _ | Tt.PrimApp _ | Tt.Lambda _ | Tt.Spine _ |
         Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Bracket _ | Tt.Inhab), _ ->
       false
   end
@@ -113,6 +115,7 @@ and weak_whnf ctx ((e', loc) as e) =
               | Some e -> weak e
             end
           | Tt.Name _
+          | Tt.Atom _
           | Tt.PrimApp _
           | Tt.Spine _
           | Tt.Type
@@ -134,6 +137,7 @@ and weak_whnf ctx ((e', loc) as e) =
       | Tt.Lambda (_ :: _, _)
       | Tt.Prod (_ :: _, _)
       | Tt.Name _
+      | Tt.Atom _
       | Tt.Type
       | Tt.Eq _
       | Tt.Refl _
@@ -237,7 +241,7 @@ and beta_reduce ~loc ctx xus e u yvs t es =
     [v]  is well-formed in the context [x1:u1, ..., xn:un] and
     [v'] is well-formed in the context [x1:u1',..., xn:un'].
     We verify that the [ui] are equal to [ui'] and that [v] is equal to [v]. *)
-and equal_abstracted_ty ctx (xuus : (Name.t * (Pattern.pty * Tt.ty)) list) v v' =
+and equal_abstracted_ty ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) list) v v' =
   (* As we descend into the contexts we carry around a list of variables
      [ys] with which we unabstract the bound variables. *)
   let rec eq ys ctx =
@@ -252,8 +256,7 @@ and equal_abstracted_ty ctx (xuus : (Name.t * (Pattern.pty * Tt.ty)) list) v v' 
         in
           equal_ty ctx u u'
           &&
-          (let y, _ = Value.fresh ~loc:Location.unknown x u in
-             (** XXX XXX why are we not putting y in the context? *)
+          (let y, ctx = Context.add_fresh ~loc:Location.unknown ctx x u in
              eq (ys @ [y]) ctx xuus) (* XXX optimize list append *)
    in
      eq [] ctx xuus
@@ -278,6 +281,7 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
           equal_hints ctx e1 e2 t
 
         | Tt.Name _
+        | Tt.Atom _
         | Tt.PrimApp _ | Tt.Spine _ ->
           (** Here we apply eta hints. *)
           begin
@@ -310,8 +314,8 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
               begin function
               | (x, ((Tt.Ty (_, loc)) as v)) :: xvs ->
                   let v = Tt.unabstract_ty ys 0 v in
-                  let y, _ = Value.fresh ~loc x v in
-                  let e = Tt.mk_name ~loc y in
+                  let y, ctx =  Context.add_fresh ~loc ctx x v in
+                  let e = Tt.mk_atom ~loc y in
                   fold ctx (y :: ys) (e :: es) xvs
               | [] ->
                   let es = List.rev es in
@@ -378,18 +382,20 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
     (* compare reduced expressions *)
     begin match e1', e2' with
 
-      | Tt.Name x, Tt.Name y -> Name.eq x y
+      | Tt.Name x, Tt.Name y -> Name.eq_ident x y
+
+      | Tt.Atom x, Tt.Atom y -> Name.eq_atom x y
 
       | Tt.Bound _, _ | _, Tt.Bound _ ->
         Error.impossible ~loc:loc1 "deBruijn encountered in equal_whnf"
 
       | Tt.PrimApp (x1, es1), Tt.PrimApp (x2, es2) ->
-        Name.eq x1 x2 &&
+        Name.eq_ident x1 x2 &&
         begin
           let yts, _ =
             begin match Context.lookup_primitive x1 ctx with
             | Some ytsu -> ytsu
-            | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print x1)
+            | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print_ident x1)
             end in
           let rec fold es' yts es1 es2 =
             match yts, es1, es2 with
@@ -418,7 +424,7 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
               and u' = Tt.unabstract_ty ys 0 u'
               in
               equal_ty ctx u u' &&
-              let y, _ = Value.fresh ~loc:Location.unknown x u in
+              let y, ctx = Context.add_fresh ~loc:Location.unknown ctx x u in
               zip (ys @ [y]) ctx (xus, xvs) (* XXX optimize list append *)
           | ([] as xus), xvs | xus, ([] as xvs) ->
               let t1' = Tt.mk_prod_ty ~loc:Location.unknown xus t1
@@ -468,7 +474,7 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
       | Tt.Bracket t1, Tt.Bracket t2 ->
         equal_ty ctx t1 t2
 
-      | (Tt.Name _ | Tt.PrimApp _ | Tt.Lambda _ | Tt.Spine _ |
+      | (Tt.Name _ | Tt.Atom _ | Tt.PrimApp _ | Tt.Lambda _ | Tt.Spine _ |
           Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _), _ ->
         false
 
@@ -576,7 +582,13 @@ and pattern_collect_whnf ctx p ?at_ty ((e', loc) as e) =
 
   | Pattern.Name x' ->
     begin match e' with
-    | Tt.Name x -> if Name.eq x' x then [], [] else raise NoMatch
+    | Tt.Name x -> if Name.eq_ident x' x then [], [] else raise NoMatch
+    | _ -> raise NoMatch
+    end
+
+  | Pattern.Atom x' ->
+    begin match e' with
+    | Tt.Atom x -> if Name.eq_atom x' x then [], [] else raise NoMatch
     | _ -> raise NoMatch
     end
 
@@ -771,7 +783,12 @@ and collect_for_beta ctx bp (e',loc) =
   match bp, e' with
 
   | Pattern.BetaName x, Tt.Name y ->
-    if Name.eq x y
+    if Name.eq_ident x y
+    then [], [], []
+    else raise NoMatch
+
+  | Pattern.BetaAtom x, Tt.Atom y ->
+    if Name.eq_atom x y
     then [], [], []
     else raise NoMatch
 
@@ -779,12 +796,26 @@ and collect_for_beta ctx bp (e',loc) =
     let rec fold args (e',_) yts es =
       match e' with
         | Tt.Name y ->
-          if Name.eq x y
+          if Name.eq_ident x y
           then (yts, es) :: args
           else raise NoMatch
         | Tt.Spine (e', yts', es') ->
           fold ((yts, es) :: args) e' yts' es'
-        | _ -> raise NoMatch
+        | _ -> raise NoMatch    (* XXX remove catch-all *)
+    in
+    let extras = fold [] e yts es in
+    ([], [], extras)
+
+  | Pattern.BetaAtom x, Tt.Spine (e, yts, es) ->
+    let rec fold args (e',_) yts es =
+      match e' with
+        | Tt.Atom y ->
+          if Name.eq_atom x y
+          then (yts, es) :: args
+          else raise NoMatch
+        | Tt.Spine (e', yts', es') ->
+          fold ((yts, es) :: args) e' yts' es'
+        | _ -> raise NoMatch    (* XXX remove catch-all *)
     in
     let extras = fold [] e yts es in
     ([], [], extras)
@@ -810,17 +841,17 @@ and collect_for_beta ctx bp (e',loc) =
   | Pattern.BetaSpine (pe, xts, pes), Tt.Spine (e, yts, es) ->
     pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yts, es)
 
-  | (Pattern.BetaName _ | Pattern.BetaSpine _ | Pattern.BetaPrimApp _), _ ->
+  | (Pattern.BetaName _ | Pattern.BetaAtom _ | Pattern.BetaSpine _ | Pattern.BetaPrimApp _), _ ->
     raise NoMatch
 
 and collect_primapp ~loc ctx x pes y es =
-  if not (Name.eq x y)
+  if not (Name.eq_ident x y)
   then raise NoMatch
   else begin
     let yts, _ =
       begin match Context.lookup_primitive x ctx with
             | Some ytsu -> ytsu
-            | None -> Error.impossible ~loc "unknown operation %t in pattern_collect" (Name.print x)
+            | None -> Error.impossible ~loc "unknown operation %t in pattern_collect" (Name.print_ident x)
       end in
     let rec fold es' yts pes es =
       match yts, pes, es with
@@ -1022,7 +1053,7 @@ and inhabit_whnf ~subgoals ctx ((Tt.Ty (t', loc)) as t) =
           end
         | (x,t)::xts ->
           let t = Tt.unabstract_ty ys 0 t in
-          let y, _ = Value.fresh ~loc x t in
+          let y, ctx = Context.add_fresh ~loc ctx x t in
             fold ctx (y :: ys) xts
       in
         fold ctx [] xts'
@@ -1038,6 +1069,7 @@ and inhabit_whnf ~subgoals ctx ((Tt.Ty (t', loc)) as t) =
       inhabit_bracket ~subgoals ~loc ctx t
 
     | Tt.Name _
+    | Tt.Atom _
     | Tt.PrimApp _
     | Tt.Spine _
     | Tt.Bound _
@@ -1088,7 +1120,7 @@ let rec as_universal_eq ctx t =
             ctx, zs', w
         | (z,v) :: zvs ->
           let v = Tt.unabstract_ty zs' 0 v in
-          let z', _ = Value.fresh ~loc z v in
+          let z', ctx = Context.add_fresh ~loc ctx z v in
             unabstract_binding ctx (z' :: zs') zvs w
       end
       in
@@ -1124,14 +1156,14 @@ let rec as_universal_bracket ctx t =
             ctx, zs', w
         | (z,v) :: zvs ->
           let v = Tt.unabstract_ty zs' 0 v in
-          let z', _ = Value.fresh ~loc z v in
+          let z', ctx = Context.add_fresh ~loc ctx z v in
             unabstract_binding ctx (z' :: zs') zvs w
       end
       in
         let ctx, zs', w = unabstract_binding ctx [] zvs w in
           fold ctx (xus @ zvs) (zs' @ ys) w
 
-    | Tt.Type | Tt.Name _ | Tt.PrimApp _ | Tt.Bound _ | Tt.Lambda _ |  Tt.Spine _ |
+    | Tt.Type | Tt.Name _ | Tt.Atom _ | Tt.PrimApp _ | Tt.Bound _ | Tt.Lambda _ |  Tt.Spine _ |
       Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _  ->
       let t = strip_bracket ctx t in
       let t = Tt.abstract_ty ys 0 t in

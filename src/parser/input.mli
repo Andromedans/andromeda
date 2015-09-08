@@ -9,16 +9,16 @@
 type term = term' * Location.t
 and term' =
   (* expressions *)
-  | Var of Name.t
+  | Var of Name.ident
   | Type
-  | Function of Name.t list * comp
+  | Function of Name.ident list * comp
   | Handler of handle_case list
   (* computations *)
   | Operation of string * expr
   | Handle of comp * handle_case list
   | With of expr * comp
   | Apply of expr * expr
-  | Let of (Name.t * comp) list * comp
+  | Let of (Name.ident * comp) list * comp
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
@@ -27,9 +27,9 @@ and term' =
   | Ascribe of comp * ty
   | Whnf of comp
   | Typeof of comp
-  | Lambda of (Name.t * comp option) list * comp
+  | Lambda of (Name.ident * comp option) list * comp
   | Spine of comp * comp list
-  | Prod of (Name.t * ty) list * comp
+  | Prod of (Name.ident * ty) list * comp
   | Eq of comp * comp
   | Refl of comp
   | Bracket of comp
@@ -46,15 +46,15 @@ and expr = term
 
 (** Handle cases *)
 and handle_case =
-  | CaseVal of Name.t * comp (* val x -> c *)
-  | CaseOp of string * Name.t * Name.t * comp (* #op x k -> c *)
-  | CaseFinally of Name.t * comp (* finally x -> c *)
+  | CaseVal of Name.ident * comp (* val x -> c *)
+  | CaseOp of string * Name.ident * Name.ident * comp (* #op x k -> c *)
+  | CaseFinally of Name.ident * comp (* finally x -> c *)
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Primitive of Name.t * (Name.t * bool * ty) list * ty (** introduce a primitive operation, the boolean is [true] if reducing *)
-  | TopLet of Name.t * (Name.t * ty) list * ty option * comp (** global let binding *)
+  | Primitive of Name.ident * (Name.ident * bool * ty) list * ty (** introduce a primitive operation, the boolean is [true] if reducing *)
+  | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of (string list * comp) list (** global beta hint *)
   | TopEta of (string list * comp) list (** global eta hint *)

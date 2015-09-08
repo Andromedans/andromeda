@@ -33,20 +33,16 @@ val as_handler : loc:Location.t -> value -> handler
 
 val return_judge : Tt.term -> Tt.ty -> result
 
-(** [fresh x t] generates a fresh name [y] from name [x] and returns [y] and
-    the judgment that [y] has type [t]. *)
-val fresh: loc:Location.t -> Name.t -> Tt.ty -> Name.t * value
-
 val bind: result -> closure -> result
 
 (** Pretty-print a value. *)
-val print : ?max_level:int -> Name.t list -> value -> Format.formatter -> unit
+val print : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
 
 (** Pretty-print a judgement. *)
-val print_judge : ?max_level:int -> Name.t list -> Tt.term * Tt.ty -> Format.formatter -> unit
+val print_judge : ?max_level:int -> Name.ident list -> Tt.term * Tt.ty -> Format.formatter -> unit
 
 (** Ugly-print a closure. *)
-val print_closure : ?max_level:int -> Name.t list -> closure -> Format.formatter -> unit
+val print_closure : ?max_level:int -> Name.ident list -> closure -> Format.formatter -> unit
 
 (** Check that a result is a value and return it, or complain. *)
 val to_value : loc:Location.t -> result -> value

@@ -7,16 +7,16 @@ type t
 val empty : t
 
 (** List of primitive names with their arities. *)
-val primitives : t -> (Name.t * int) list
+val primitives : t -> (Name.ident * int) list
 
 (** Known bound variables *)
-val bound_names : t -> Name.t list
+val bound_names : t -> Name.ident list
 
 (** Variable names already used in the context *)
-val used_names : t -> Name.t list
+val used_names : t -> Name.ident list
 
 (** Lookup a primitive operation. *)
-val lookup_primitive : Name.t -> t -> Tt.primsig option
+val lookup_primitive : Name.ident -> t -> Tt.primsig option
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : Syntax.bound -> t -> Value.value
@@ -34,9 +34,13 @@ val general_hints : (Pattern.hint_key * Pattern.hint_key * Pattern.hint_key) opt
 (** Return all general hints in the context *)
 val inhabit_hints : Pattern.hint_key -> t -> Pattern.inhabit_hint list
 
+(** [add_fresh ~loc ctx x t] generates a fresh atom [y] from identifier [x]. Return [y] and
+    the context updated with [x] bound to [y:t]. *)
+val add_fresh: loc:Location.t -> t -> Name.ident -> Tt.ty -> Name.atom * t
+
 (** Add a primitive operation of a given signature to the context.
     Fails if the variable is already bound. *)
-val add_primitive : Name.t -> Tt.primsig -> t -> t
+val add_primitive : Name.ident -> Tt.primsig -> t -> t
 
 (** Add a beta hint to the context. *)
 val add_betas : (string list * (Pattern.hint_key * Pattern.beta_hint)) list -> t -> t
@@ -57,7 +61,7 @@ val add_inhabits : (string list * (Pattern.hint_key * Pattern.inhabit_hint)) lis
 val unhint : string list -> t -> t
 
 (** Add a bound variable with given name to the context. *)
-val add_bound : Name.t -> Value.value -> t -> t
+val add_bound : Name.ident -> Value.value -> t -> t
 
 (** Add a file to the list of files included. *)
 val add_file : string -> t -> t

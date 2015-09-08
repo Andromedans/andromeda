@@ -12,8 +12,9 @@ module GeneralMap = Map.Make(struct
 (** A context holds free variables with their types and an
     environment of runtime bindings. *)
 type t = {
-  primitive : (Name.t * Tt.primsig) list;
-  bound : (Name.t * Value.value) list;
+  primitive : (Name.ident * Tt.primsig) list;
+  atoms : (Name.atom * Tt.ty) list;
+  bound : (Name.ident * Value.value) list;
   beta : (string list list * Pattern.beta_hint list) HintMap.t;
   eta : (string list list * Pattern.eta_hint list) HintMap.t;
   (* general hints might not have a key *)
@@ -26,6 +27,7 @@ type t = {
 (** The empty context *)
 let empty = {
   primitive = [];
+  atoms = [];
   bound = [] ;
   beta = HintMap.empty ;
   eta = HintMap.empty ;
@@ -59,7 +61,7 @@ let lookup_primitive x {primitive=lst} =
   let rec lookup = function
     | [] -> None
     | (y,v) :: lst ->
-       if Name.eq x y then Some v else lookup lst
+       if Name.eq_ident x y then Some v else lookup lst
   in
     lookup lst
 
@@ -76,7 +78,7 @@ let is_bound x ctx =
 
 let add_primitive x ytsu ctx =
   if is_bound x ctx
-  then Error.runtime "%t already exists" (Name.print x)
+  then Error.runtime "%t already exists" (Name.print_ident x)
   else { ctx with primitive = (x, ytsu) :: ctx.primitive }
 
 let add_betas xshs ctx =
@@ -152,6 +154,15 @@ let unhint untags ctx =
 let add_bound x v ctx =
   { ctx with bound = (x, v) :: ctx.bound }
 
+(** generate a fresh atom of type [t] and bind it to [x]
+    NB: This is an effectful computation. *)
+let add_fresh ~loc ctx x t =
+  let y = Name.fresh x in
+  let yt = Value.Judge (Tt.mk_atom ~loc y, t) in
+  let ctx = add_bound x yt ctx in
+  let ctx = {ctx with atoms = (y, t) :: ctx.atoms} in
+  y, ctx
+
 let add_file f ctx =
   { ctx with files = (Filename.basename f) :: ctx.files }
 
@@ -162,7 +173,7 @@ let print ctx ppf =
   Print.print ppf "---CONTEXT---@." ;
   List.iter
     (fun (x, t) ->
-     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>%t@]@\n" (Name.print x)
+     Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>%t@]@\n" (Name.print_ident x)
        (Tt.print_primsig forbidden_names t))
     (List.rev ctx.primitive) ;
   Print.print ppf "-----END-----@."

@@ -19,11 +19,6 @@ and handler = {
   handler_finally: closure option;
 }
 
-(** NB: This is an effectful computation. *)
-let fresh ~loc x t =
-  let y = Name.fresh x in
-    y, Judge (Tt.mk_name ~loc y, t)
-
 (** The monadic bind [bind r f] feeds the result [r : result]
     into function [f : value -> 'a]. *)
 let rec bind r f =

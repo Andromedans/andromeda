@@ -54,7 +54,7 @@ let rec comp primitive bound ((c',loc) as c) =
         | (x,c) :: xcs ->
           if List.mem_assoc x xcs
           then
-            Error.syntax ~loc "%t is bound more than once" (Name.print x)
+            Error.syntax ~loc "%t is bound more than once" (Name.print_ident x)
           else
             let c = comp primitive bound c in
             let xcs = fold xcs in
@@ -251,7 +251,7 @@ and handler ~loc primitive bound hcs =
 and primapp ~loc primitive bound x cs =
   let cs = List.map (comp primitive bound) cs in
   let c = Syntax.PrimApp (x, cs), loc
-  and y = Name.fresh Name.anonymous in
+  and y = Name.fresh_candy () in
   [(y, c)], (Syntax.Bound 0, loc)
 
 (* Desugar an expression. It hoists out subcomputations appearing in the
@@ -261,7 +261,7 @@ and expr primitive bound ((e', loc) as e) =
   | Input.Var x ->
     begin
       (* a bound variable always shadows a name *)
-      match Name.index_of x bound with
+      match Name.index_of_ident x bound with
       | None ->
         (* it is a primitive operation of arity 0 *)
         begin
@@ -270,7 +270,7 @@ and expr primitive bound ((e', loc) as e) =
             if k = 0 then primapp ~loc primitive bound x []
             else Error.syntax ~loc "this primitive operation needs %d more arguments" k
           with Not_found ->
-            Error.syntax ~loc "unknown name %t" (Name.print x)
+            Error.syntax ~loc "unknown name %t" (Name.print_ident x)
         end
       | Some k -> [], (Syntax.Bound k, loc)
     end
@@ -299,7 +299,7 @@ and expr primitive bound ((e', loc) as e) =
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
      Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _ | Input.Typeof _) ->
-    let x = Name.fresh Name.anonymous
+    let x = Name.fresh_candy ()
     and c = comp primitive bound e in
     [(x,c)], (Syntax.Bound 0, loc)
 

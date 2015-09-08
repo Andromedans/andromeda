@@ -10,8 +10,9 @@ type pterm = Tt.term
 (** The type of term patterns. *)
 type term =
   | PVar of Syntax.bound
-  | Name of Name.t
-  | PrimApp of Name.t * term list
+  | Name of Name.ident
+  | Atom of Name.atom
+  | PrimApp of Name.ident * term list
   | Spine of term * (pty, pty) Tt.abstraction * term list
   | Bracket of ty
   | Eq of ty * term * term
@@ -27,8 +28,9 @@ type t = (Tt.ty, term) Tt.abstraction
 (** A beta hint is an abstracted term pattern and a term. We match against
     the pattern and rewrite into the term. *)
 type beta_pattern =
-  | BetaName of Name.t
-  | BetaPrimApp of Name.t * term list
+  | BetaName of Name.ident
+  | BetaAtom of Name.atom
+  | BetaPrimApp of Name.ident * term list
   | BetaSpine of term * (pty, pty) Tt.abstraction * term list
 
 type beta_hint = (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
@@ -46,8 +48,9 @@ type inhabit_hint = (Tt.ty, ty) Tt.abstraction
 
 type hint_key =
   | Key_Type
-  | Key_Name of Name.t
-  | Key_PrimApp of Name.t
+  | Key_Name of Name.ident
+  | Key_PrimApp of Name.ident
+  | Key_Atom of Name.atom
   | Key_Lambda
   | Key_Prod
   | Key_Eq
@@ -59,6 +62,7 @@ let rec term_key_opt (e',loc) =
   match e' with
   | Tt.Type -> Some Key_Type
   | Tt.Name x -> Some (Key_Name x)
+  | Tt.Atom x -> Some (Key_Atom x)
   | Tt.Bound _ -> None
   | Tt.PrimApp (x, _) -> Some (Key_PrimApp x)
   | Tt.Lambda _ -> Some Key_Lambda
@@ -91,7 +95,7 @@ let rec print_term ?max_level xs e ppf =
       | PVar k ->
         begin
           try
-            print ~at_level:0 "?%t" (Name.print (List.nth xs k))
+            print ~at_level:0 "?%t" (Name.print_ident (List.nth xs k))
           with
           | Not_found | Failure "nth" ->
               (** XXX this should never get printed *)
@@ -100,14 +104,17 @@ let rec print_term ?max_level xs e ppf =
 
       | Name x ->
         (* XXX check this *)
-        Name.print x ppf
+        Name.print_ident x ppf
 
       | PrimApp (x, []) ->
-        Name.print x ppf
+        Name.print_ident x ppf
+
+      | Atom x ->
+        Name.print_atom x ppf
 
       | PrimApp (x, ((_::_) as es)) ->
         print ~at_level:1 "@[<hov 2>%t@ %t@]"
-          (Name.print x)
+          (Name.print_ident x)
           (Print.sequence (print_term ~max_level:0 xs) "" es)
 
       | Spine (e, xts, es) ->
@@ -138,6 +145,7 @@ let print_beta_hint ?max_level xs (yts, (pb, e)) ppf =
         | BetaSpine (pe, xts, pes) -> Spine (pe, xts, pes)
         | BetaPrimApp (x, pes) -> PrimApp (x, pes)
         | BetaName x -> Name x
+        | BetaAtom x -> Atom x
       end
     in
     Print.print ppf "@ =>@ @[<hov 2>%t ~~>@ %t@]"
@@ -176,8 +184,9 @@ let print_pattern ?max_level xs (xts, p) ppf =
 
 let print_key ?max_level k ppf =
   match k with
-  | Key_Name x -> Print.print ?max_level ppf "Name %t" (Name.print x)
-  | Key_PrimApp x -> Print.print ?max_level ppf "PrimApp %t" (Name.print x)
+  | Key_Name x -> Print.print ?max_level ppf "Name %t" (Name.print_ident x)
+  | Key_Atom x -> Print.print ?max_level ppf "Atom %t" (Name.print_atom x)
+  | Key_PrimApp x -> Print.print ?max_level ppf "PrimApp %t" (Name.print_ident x)
   | Key_Type -> Print.print ?max_level ppf "%s" "Type"
   | Key_Lambda -> Print.print ?max_level ppf "%s" "Lambda"
   | Key_Prod -> Print.print ?max_level ppf "%s" "Prod"

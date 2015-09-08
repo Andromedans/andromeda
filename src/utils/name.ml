@@ -1,15 +1,19 @@
 (** Variable names *)
 
-type t =
+type ident =
   | Anonymous
-  | Gensym of string * int
   | String of string
 
-let print x ppf =
+type atom =
+  | Gensym of string * int
+
+let print_ident x ppf =
   match x with
   | Anonymous -> Print.print ppf "_"
-  | Gensym (s, k) -> Print.print ppf "%s{%d}" s k
   | String s -> Print.print ppf "%s" s
+
+let print_atom x ppf =
+  match x with Gensym (s, k) -> Print.print ppf "%s{%d}" s k
 
 let print_op op ppf =
   Print.print ppf "#%s" op
@@ -28,9 +32,16 @@ let fresh =
       match x with
       | Anonymous -> "_"
       | String s -> s
-      | Gensym (s, _) -> s
     in
     Gensym (s, !counter)
+
+let fresh_candy =
+  let counter = ref (-1) in
+  fun () ->
+    incr counter;
+    if !counter < 0 then
+      Error.impossible "More than %d names of sugar generated." max_int;
+    String ("sugar var " ^ (string_of_int !counter))
 
 (** Split a string into base and an optional numerical suffix, e.g.,
     ["x42"] is split into [("x", Some 42)], while ["xy"] is split into
@@ -59,21 +70,29 @@ let find_name s xs =
 
 let refresh xs = function
   | Anonymous -> Anonymous
-  | String s
-  | Gensym (s, _) -> find_name s xs
+  | String s -> find_name s xs
 
-let eq x y = (x = y)
+let eq_ident x y = (x = y)
 
-let index_of x ys =
+let eq_atom (Gensym (_, x)) (Gensym (_, y)) = (x = y)
+
+let index_of_atom x ys =
   let rec fold k = function
     | [] -> None
-    | y :: ys -> if eq x y then Some k else fold (k + 1) ys
+    | y :: ys -> if eq_atom x y then Some k else fold (k + 1) ys
+  in
+  fold 0 ys
+
+let index_of_ident x ys =
+  let rec fold k = function
+    | [] -> None
+    | y :: ys -> if eq_ident x y then Some k else fold (k + 1) ys
   in
   fold 0 ys
 
 let print_binder1 print_u xs x u ppf =
   Print.print ppf "[@[<hv>%t :@ %t@]]"
-    (print x) (print_u xs u)
+    (print_ident x) (print_u xs u)
 
 let rec print_binders print_xu print_v xs xus ppf =
   match xus with

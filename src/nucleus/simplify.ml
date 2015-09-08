@@ -3,7 +3,7 @@
 let is_small (e',_) =
 match e' with
   | Tt.PrimApp (_, es) -> es = []
-  | Tt.Type | Tt.Inhab | Tt.Bound _ | Tt.Name _ -> true
+  | Tt.Type | Tt.Inhab | Tt.Bound _ | Tt.Name _ | Tt.Atom _ -> true
   | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _ | Tt.Bracket _ -> false
 
 let rec simplify ctx ((e',loc) as e) =
@@ -14,6 +14,8 @@ let rec simplify ctx ((e',loc) as e) =
     | Tt.Inhab -> e
 
     | Tt.Name _ -> e
+
+    | Tt.Atom _ -> e
 
     | Tt.Lambda (xts, (e,t)) ->
       let rec fold ctx ys xts = function
@@ -28,7 +30,7 @@ let rec simplify ctx ((e',loc) as e) =
         | (x,u) :: xus ->
           let u = Tt.unabstract_ty ys 0 u in
           let u = simplify_ty ctx u in
-          let y, _ = Value.fresh ~loc x u in
+          let y, ctx = Context.add_fresh ~loc ctx x u in
           let u = Tt.abstract_ty ys 0 u in
             fold ctx (y::ys) ((x,u) :: xts) xus
       in
@@ -51,7 +53,7 @@ let rec simplify ctx ((e',loc) as e) =
         | (x,u) :: xus ->
           let u = Tt.unabstract_ty ys 0 u in
           let u = simplify_ty ctx u in
-          let y, _ = Value.fresh ~loc x u
+          let y, ctx = Context.add_fresh ctx ~loc x u
           and u = Tt.abstract_ty ys 0 u in
             fold ctx (y::ys) ((x,u) :: xts) xus
       in
@@ -91,7 +93,7 @@ and simplify_spine ~loc ctx h xts t es =
   | (x, u) :: xts ->
     let u = Tt.unabstract_ty ys 0 u in
     let u = simplify_ty ctx u in
-    let y, _ = Value.fresh ~loc x u
+    let y, ctx = Context.add_fresh ~loc ctx x u
     and u = Tt.abstract_ty ys 0 u in
       simplify_xts ctx (y::ys) ((x,u) :: xus) xts
   in
@@ -133,6 +135,7 @@ and simplify_spine ~loc ctx h xts t es =
   | Tt.Lambda _
   | Tt.Spine _
   | Tt.Name _
+  | Tt.Atom _
   | Tt.Type
   | Tt.Inhab
   | Tt.Bracket _

@@ -1,39 +1,56 @@
 (** Variable names *)
 
 (** Type of names, exposed for debugging purposes. *)
-type t = private
+type ident = private
   | Anonymous
-  | Gensym of string * int
   | String of string
 
+(** Type of a name à la nominal calculus used to evaluate under binders *)
+type atom = private
+  | Gensym of string * int
+
 (** Print a name. *)
-val print : t -> Format.formatter -> unit
+val print_ident : ident -> Format.formatter -> unit
+
+(** Print an atom *)
+val print_atom : atom -> Format.formatter -> unit
 
 (** Print an operation name. *)
 val print_op : string -> Format.formatter -> unit
 
 (** An anonymous name that cannot be referenced. *)
-val anonymous : t
+val anonymous : ident
 
 (** Make a name from a string. *)
-val make : string -> t
+val make : string -> ident
 
 (** Generate a variant of a given name that is guaranteed to not yet exist. *)
-val fresh : t -> t
+val fresh : ident -> atom
+
+(** Generate a fresh name to be used in desugaring. *)
+val fresh_candy : unit -> ident
 
 (** [refresh xs x] finds a nice variant of [x] that does not occur in [xs]. *)
-val refresh : t list -> t -> t
+val refresh : ident list -> ident -> ident
 
-(** Compare names. *)
-val eq : t -> t -> bool
+(** Compare identifiers. *)
+val eq_ident : ident -> ident -> bool
 
-(** [index_of x xs] finds the index of [x] in list [xs]. *)
-val index_of : t -> t list -> int option
+(** Compare atoms. *)
+val eq_atom : atom -> atom -> bool
+
+(** [index_of_atom x xs] finds the index of [x] in list [xs] if it's there. *)
+val index_of_atom : atom -> atom list -> int option
+
+(** [index_of_ident x xs] finds the index of [x] in list [xs] if it's there. *)
+val index_of_ident : ident -> ident list -> int option
+
 val print_binder1 :
-  (t list -> 'a -> Format.formatter -> unit) -> t list ->
-  t -> 'a -> Format.formatter -> unit
+  (ident list -> 'a -> Format.formatter -> unit) -> ident list ->
+  ident -> 'a -> Format.formatter -> unit
+
 val print_binders :
-  (t list -> t -> 'a -> Format.formatter -> unit) ->
-  (t list -> Format.formatter -> unit) ->
-  t list -> (t * 'a) list ->
+  (ident list -> ident -> 'a -> Format.formatter -> unit) ->
+  (ident list -> Format.formatter -> unit) ->
+  ident list -> (ident * 'a) list ->
   Format.formatter -> unit

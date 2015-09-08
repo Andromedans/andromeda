@@ -10,8 +10,9 @@ type pterm = Tt.term
 (** The type of term patterns. *)
 type term =
   | PVar of Syntax.bound
-  | Name of Name.t
-  | PrimApp of Name.t * term list
+  | Name of Name.ident
+  | Atom of Name.atom
+  | PrimApp of Name.ident * term list
   | Spine of term * (pty, pty) Tt.abstraction * term list
   | Bracket of ty
   | Eq of ty * term * term
@@ -27,8 +28,9 @@ type t = (Tt.ty, term) Tt.abstraction
 (** A beta hint is an abstracted term pattern and a term. We match against
     the pattern and rewrite into the term. *)
 type beta_pattern =
-  | BetaName of Name.t
-  | BetaPrimApp of Name.t * term list
+  | BetaName of Name.ident
+  | BetaAtom of Name.atom
+  | BetaPrimApp of Name.ident * term list
   | BetaSpine of term * (pty, pty) Tt.abstraction * term list
 
 type beta_hint = (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
@@ -52,8 +54,9 @@ type inhabit_hint = (Tt.ty, ty) Tt.abstraction
     head. *)
 type hint_key =
   | Key_Type
-  | Key_Name of Name.t
-  | Key_PrimApp of Name.t
+  | Key_Name of Name.ident
+  | Key_PrimApp of Name.ident
+  | Key_Atom of Name.atom
   | Key_Lambda
   | Key_Prod
   | Key_Eq
@@ -71,15 +74,15 @@ val ty_key : Tt.ty -> hint_key
    position, return None. *)
 val general_key: Tt.term -> Tt.term -> Tt.ty -> (hint_key * hint_key * hint_key) option
 
-val print_pattern : ?max_level:int -> Name.t list -> t -> (Format.formatter -> unit)
+val print_pattern : ?max_level:int -> Name.ident list -> t -> (Format.formatter -> unit)
 
-val print_beta_hint : ?max_level:int -> Name.t list -> beta_hint -> Format.formatter -> unit
+val print_beta_hint : ?max_level:int -> Name.ident list -> beta_hint -> Format.formatter -> unit
 
-val print_eta_hint : ?max_level:int -> Name.t list -> eta_hint -> Format.formatter -> unit
+val print_eta_hint : ?max_level:int -> Name.ident list -> eta_hint -> Format.formatter -> unit
 
-val print_inhabit_hint : ?max_level:int -> Name.t list -> inhabit_hint -> Format.formatter -> unit
+val print_inhabit_hint : ?max_level:int -> Name.ident list -> inhabit_hint -> Format.formatter -> unit
 
-val print_hint : ?max_level:int -> Name.t list -> general_hint -> Format.formatter -> unit
+val print_hint : ?max_level:int -> Name.ident list -> general_hint -> Format.formatter -> unit
 
 val print_key : ?max_level:int -> hint_key -> Format.formatter -> unit
 
