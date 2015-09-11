@@ -29,13 +29,11 @@ let rec alpha_equal (e1,_) (e2,_) =
   e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
-    | Tt.Name x, Tt.Name y -> Name.eq_ident x y
-
     | Tt.Atom x, Tt.Atom y -> Name.eq_atom x y
 
     | Tt.Bound i, Tt.Bound j -> i = j
 
-    | Tt.PrimApp (x, es), Tt.PrimApp (x', es') ->
+    | Tt.Constant (x, es), Tt.Constant (x', es') ->
       Name.eq_ident x x' &&
       alpha_equal_list alpha_equal es es'
 
@@ -66,7 +64,7 @@ let rec alpha_equal (e1,_) (e2,_) =
 
     | Tt.Inhab, Tt.Inhab -> true
 
-    | (Tt.Name _ | Tt.Atom _ | Tt.Bound _ | Tt.PrimApp _ | Tt.Lambda _ | Tt.Spine _ |
+    | (Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
         Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Bracket _ | Tt.Inhab), _ ->
       false
   end
@@ -114,9 +112,8 @@ and weak_whnf ctx ((e', loc) as e) =
               | None -> Tt.mk_spine ~loc e xts t es
               | Some e -> weak e
             end
-          | Tt.Name _
           | Tt.Atom _
-          | Tt.PrimApp _
+          | Tt.Constant _
           | Tt.Spine _
           | Tt.Type
           | Tt.Prod _
@@ -129,14 +126,13 @@ and weak_whnf ctx ((e', loc) as e) =
             Error.impossible ~loc "de Bruijn encountered in a spine head in whnf"
         end
 
-      | Tt.PrimApp _ ->
+      | Tt.Constant _ ->
         (* XXX here we shall use info about primitive operations to normalize some
            of their arguments. *)
         e
 
       | Tt.Lambda (_ :: _, _)
       | Tt.Prod (_ :: _, _)
-      | Tt.Name _
       | Tt.Atom _
       | Tt.Type
       | Tt.Eq _
@@ -280,9 +276,8 @@ and equal ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
         | Tt.Type ->
           equal_hints ctx e1 e2 t
 
-        | Tt.Name _
         | Tt.Atom _
-        | Tt.PrimApp _ | Tt.Spine _ ->
+        | Tt.Constant _ | Tt.Spine _ ->
           (** Here we apply eta hints. *)
           begin
             let rec fold = function
@@ -382,18 +377,16 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
     (* compare reduced expressions *)
     begin match e1', e2' with
 
-      | Tt.Name x, Tt.Name y -> Name.eq_ident x y
-
       | Tt.Atom x, Tt.Atom y -> Name.eq_atom x y
 
       | Tt.Bound _, _ | _, Tt.Bound _ ->
         Error.impossible ~loc:loc1 "deBruijn encountered in equal_whnf"
 
-      | Tt.PrimApp (x1, es1), Tt.PrimApp (x2, es2) ->
+      | Tt.Constant (x1, es1), Tt.Constant (x2, es2) ->
         Name.eq_ident x1 x2 &&
         begin
           let yts, _ =
-            begin match Context.lookup_primitive x1 ctx with
+            begin match Context.lookup_constant x1 ctx with
             | Some ytsu -> ytsu
             | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print_ident x1)
             end in
@@ -474,7 +467,7 @@ and equal_whnf ctx (e1',loc1) (e2',loc2) =
       | Tt.Bracket t1, Tt.Bracket t2 ->
         equal_ty ctx t1 t2
 
-      | (Tt.Name _ | Tt.Atom _ | Tt.PrimApp _ | Tt.Lambda _ | Tt.Spine _ |
+      | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
           Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _), _ ->
         false
 
@@ -580,12 +573,6 @@ and pattern_collect_whnf ctx p ?at_ty ((e', loc) as e) =
     (Pattern.print_pattern [] ([],p)) (Tt.print_term [] e) ;
   match p with
 
-  | Pattern.Name x' ->
-    begin match e' with
-    | Tt.Name x -> if Name.eq_ident x' x then [], [] else raise NoMatch
-    | _ -> raise NoMatch
-    end
-
   | Pattern.Atom x' ->
     begin match e' with
     | Tt.Atom x -> if Name.eq_atom x' x then [], [] else raise NoMatch
@@ -603,9 +590,9 @@ and pattern_collect_whnf ctx p ?at_ty ((e', loc) as e) =
       raise NoMatch
     end
 
-  | Pattern.PrimApp (x, pes) ->
+  | Pattern.Constant (x, pes) ->
     begin match e' with
-      | Tt.PrimApp (y, es) -> collect_primapp ~loc ctx x pes y es
+      | Tt.Constant (y, es) -> collect_primapp ~loc ctx x pes y es
       | _ -> raise NoMatch
     end
 
@@ -675,13 +662,13 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
   let rec collect_spines_terms ab abs n ((e',_) as e) =
     match e' with
     | Tt.Spine (e, xtsu, es) -> collect_spines_terms (xtsu,es) (ab :: abs) (n + List.length es) e
-    | _ -> e, ab, abs, n (* [e] should be either a [Tt.Name] or a [Tt.PrimApp]. *)
+    | _ -> e, ab, abs, n (* [e] should be a [Tt.Constant]. *)
   in
 
   let rec collect_spines_patterns ab abs n pe =
     match pe with
     | Pattern.Spine (pe, xtsu, pes) -> collect_spines_patterns (xtsu, pes) (ab :: abs) (n + List.length pes) pe
-    | _ -> pe, ab, abs, n (* [e] should be either a [Pattern.Name] or a [Pattern.PrimApp] *)
+    | _ -> pe, ab, abs, n (* [e] should be a [Pattern.Constant] *)
   in
 
   let ph, pargs, pargss, n1 = collect_spines_patterns (xtsu, pes) [] (List.length pes) pe
@@ -782,29 +769,10 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
 and collect_for_beta ctx bp (e',loc) =
   match bp, e' with
 
-  | Pattern.BetaName x, Tt.Name y ->
-    if Name.eq_ident x y
-    then [], [], []
-    else raise NoMatch
-
   | Pattern.BetaAtom x, Tt.Atom y ->
     if Name.eq_atom x y
     then [], [], []
     else raise NoMatch
-
-  | Pattern.BetaName x, Tt.Spine (e, yts, es) ->
-    let rec fold args (e',_) yts es =
-      match e' with
-        | Tt.Name y ->
-          if Name.eq_ident x y
-          then (yts, es) :: args
-          else raise NoMatch
-        | Tt.Spine (e', yts', es') ->
-          fold ((yts, es) :: args) e' yts' es'
-        | _ -> raise NoMatch    (* XXX remove catch-all *)
-    in
-    let extras = fold [] e yts es in
-    ([], [], extras)
 
   | Pattern.BetaAtom x, Tt.Spine (e, yts, es) ->
     let rec fold args (e',_) yts es =
@@ -820,10 +788,10 @@ and collect_for_beta ctx bp (e',loc) =
     let extras = fold [] e yts es in
     ([], [], extras)
 
-  | Pattern.BetaPrimApp (x, pes), Tt.Spine (e, yts, es) ->
+  | Pattern.BetaConstant (x, pes), Tt.Spine (e, yts, es) ->
     let rec fold extras (e',_) yts es =
       match e' with
-        | Tt.PrimApp (y, es') ->
+        | Tt.Constant (y, es') ->
            let extras = (yts, es) :: extras in
            let extras = List.rev extras in
            y, es', extras
@@ -834,14 +802,14 @@ and collect_for_beta ctx bp (e',loc) =
     let pvars, checks = collect_primapp ~loc ctx x pes y es in
     (pvars, checks, extras)
 
-  | Pattern.BetaPrimApp (x, pes), Tt.PrimApp (y, es) ->
+  | Pattern.BetaConstant (x, pes), Tt.Constant (y, es) ->
      let pvars, checks = collect_primapp ~loc ctx x pes y es in
      (pvars, checks, [])
 
   | Pattern.BetaSpine (pe, xts, pes), Tt.Spine (e, yts, es) ->
     pattern_collect_spine ~loc ctx (pe, xts, pes) (e, yts, es)
 
-  | (Pattern.BetaName _ | Pattern.BetaAtom _ | Pattern.BetaSpine _ | Pattern.BetaPrimApp _), _ ->
+  | (Pattern.BetaAtom _ | Pattern.BetaSpine _ | Pattern.BetaConstant _), _ ->
     raise NoMatch
 
 and collect_primapp ~loc ctx x pes y es =
@@ -849,7 +817,7 @@ and collect_primapp ~loc ctx x pes y es =
   then raise NoMatch
   else begin
     let yts, _ =
-      begin match Context.lookup_primitive x ctx with
+      begin match Context.lookup_constant x ctx with
             | Some ytsu -> ytsu
             | None -> Error.impossible ~loc "unknown operation %t in pattern_collect" (Name.print_ident x)
       end in
@@ -1068,9 +1036,8 @@ and inhabit_whnf ~subgoals ctx ((Tt.Ty (t', loc)) as t) =
     | Tt.Bracket t ->
       inhabit_bracket ~subgoals ~loc ctx t
 
-    | Tt.Name _
     | Tt.Atom _
-    | Tt.PrimApp _
+    | Tt.Constant _
     | Tt.Spine _
     | Tt.Bound _
     | Tt.Lambda _
@@ -1163,7 +1130,7 @@ let rec as_universal_bracket ctx t =
         let ctx, zs', w = unabstract_binding ctx [] zvs w in
           fold ctx (xus @ zvs) (zs' @ ys) w
 
-    | Tt.Type | Tt.Name _ | Tt.Atom _ | Tt.PrimApp _ | Tt.Bound _ | Tt.Lambda _ |  Tt.Spine _ |
+    | Tt.Type | Tt.Atom _ | Tt.Constant _ | Tt.Bound _ | Tt.Lambda _ |  Tt.Spine _ |
       Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _  ->
       let t = strip_bracket ctx t in
       let t = Tt.abstract_ty ys 0 t in

@@ -3,7 +3,7 @@ open Parser
 open Ulexbuf
 
 let reserved = [
-  ("Axiom", PRIMITIVE) ;
+  ("Axiom", AXIOM) ;
   ("and", AND) ;
   ("beta", BETA) ;
   ("Beta", TOPBETA) ;
@@ -19,12 +19,12 @@ let reserved = [
   ("Hint", TOPHINT) ;
   ("unhint", UNHINT) ;
   ("Unhint", TOPUNHINT) ;
-  ("Hypothesis", PRIMITIVE) ;
+  ("Hypothesis", AXIOM) ;
   ("inhabit", INHABIT) ;
   ("Inhabit", TOPINHABIT) ;
   ("Let", TOPLET) ;
   ("let", LET) ;
-  ("Parameter", PRIMITIVE) ;
+  ("Parameter", AXIOM) ;
   ("reduce", REDUCE) ;
   ("forall", FORALL) ;
   ("∀", FORALL) ;

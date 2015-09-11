@@ -30,7 +30,7 @@ and comp' =
   | Ascribe of comp * ty
   | Whnf of comp
   | Typeof of comp
-  | PrimApp of Name.ident * comp list
+  | Constant of Name.ident * comp list
   | Lambda of (Name.ident * comp option) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
                                  to evaluate in checking mode, once we know their types. *)
@@ -49,7 +49,7 @@ and handler = {
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Primitive of Name.ident * (Name.ident * bool * comp) list * comp (** introduce a primitive operation *)
+  | Axiom of Name.ident * (Name.ident * bool * comp) list * comp (** introduce a constant *)
   | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of (string list * comp) list

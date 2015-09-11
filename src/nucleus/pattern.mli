@@ -10,9 +10,8 @@ type pterm = Tt.term
 (** The type of term patterns. *)
 type term =
   | PVar of Syntax.bound
-  | Name of Name.ident
   | Atom of Name.atom
-  | PrimApp of Name.ident * term list
+  | Constant of Name.ident * term list
   | Spine of term * (pty, pty) Tt.abstraction * term list
   | Bracket of ty
   | Eq of ty * term * term
@@ -28,9 +27,8 @@ type t = (Tt.ty, term) Tt.abstraction
 (** A beta hint is an abstracted term pattern and a term. We match against
     the pattern and rewrite into the term. *)
 type beta_pattern =
-  | BetaName of Name.ident
   | BetaAtom of Name.atom
-  | BetaPrimApp of Name.ident * term list
+  | BetaConstant of Name.ident * term list
   | BetaSpine of term * (pty, pty) Tt.abstraction * term list
 
 type beta_hint = (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
@@ -54,8 +52,7 @@ type inhabit_hint = (Tt.ty, ty) Tt.abstraction
     head. *)
 type hint_key =
   | Key_Type
-  | Key_Name of Name.ident
-  | Key_PrimApp of Name.ident
+  | Key_Constant of Name.ident
   | Key_Atom of Name.atom
   | Key_Lambda
   | Key_Prod

@@ -10,8 +10,7 @@ let rec remove_bound x xs =
 (** The name in the head position of a pattern *)
 let rec has_head_name = function
   | Pattern.Atom _
-  | Pattern.Name _
-  | Pattern.PrimApp (_, _) -> true
+  | Pattern.Constant (_, _) -> true
   | Pattern.Spine (e, _, _) -> has_head_name e
   | Pattern.PVar _ | Pattern.Eq _ | Pattern.Refl _ | Pattern.Bracket _ | Pattern.Term _ -> false
 
@@ -25,10 +24,9 @@ let rec of_term ctx pvars ((e',loc) as e) t =
 
   | Tt.Type | Tt.Inhab | Tt.Lambda _ | Tt.Prod _ -> original
 
-  | Tt.Name x -> pvars, Pattern.Name x
   | Tt.Atom x -> pvars, Pattern.Atom x
 
-  | Tt.PrimApp (x, es) ->
+  | Tt.Constant (x, es) ->
     (* A primitive application is always a pattern, never a term *)
     let rec fold pvars args_so_far pes xts args_left =
       match xts, args_left with
@@ -41,12 +39,12 @@ let rec of_term ctx pvars ((e',loc) as e) t =
         Error.impossible ~loc "malformed primitive application in Pattern.of_term"
     in
     let xts =
-      begin match Context.lookup_primitive x ctx with
+      begin match Context.lookup_constant x ctx with
       | Some (xts, _) -> xts
       | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print_ident x)
       end in
     let pvars, pes = fold pvars [] [] xts es in
-    pvars, Pattern.PrimApp (x, pes)
+    pvars, Pattern.Constant (x, pes)
 
   | Tt.Bound k ->
     begin match remove_bound k pvars with
@@ -118,9 +116,8 @@ let mk_beta ~loc ctx (xts, (t, e1, e2)) =
           let key = Pattern.term_key e1 in
 
           begin match p with
-                | Pattern.Name x -> key, (xts, (Pattern.BetaName x, e2))
                 | Pattern.Atom x -> key, (xts, (Pattern.BetaAtom x, e2))
-                | Pattern.PrimApp (x, pes) -> key, (xts, (Pattern.BetaPrimApp (x, pes), e2))
+                | Pattern.Constant (x, pes) -> key, (xts, (Pattern.BetaConstant (x, pes), e2))
                 | Pattern.Spine (pe, yus, pes) -> key, (xts, (Pattern.BetaSpine (pe, yus, pes), e2))
                 | Pattern.PVar _ | Pattern.Bracket _ | Pattern.Eq _ | Pattern.Refl _ | Pattern.Term _ ->
                                                                                         Error.runtime ~loc "only a variable, primitive operation or an application can appear on the left-hand side of a beta hint"

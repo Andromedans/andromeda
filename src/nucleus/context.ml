@@ -4,6 +4,7 @@ module HintMap = Map.Make(struct
     type t = Pattern.hint_key
     let compare = Pervasives.compare
   end)
+
 module GeneralMap = Map.Make(struct
     type t = Pattern.hint_key * Pattern.hint_key * Pattern.hint_key
     let compare = Pervasives.compare
@@ -12,7 +13,7 @@ module GeneralMap = Map.Make(struct
 (** A context holds free variables with their types and an
     environment of runtime bindings. *)
 type t = {
-  primitive : (Name.ident * Tt.primsig) list;
+  constants : (Name.ident * Tt.constsig) list;
   atoms : (Name.atom * Tt.ty) list;
   bound : (Name.ident * Value.value) list;
   beta : (string list list * Pattern.beta_hint list) HintMap.t;
@@ -26,7 +27,7 @@ type t = {
 
 (** The empty context *)
 let empty = {
-  primitive = [];
+  constants = [];
   atoms = [];
   bound = [] ;
   beta = HintMap.empty ;
@@ -51,13 +52,13 @@ let inhabit_hints key {inhabit=hints} = snd @@ find key hints
 
 let bound_names {bound=lst} = List.map fst lst
 
-let primitives {primitive=lst} =
+let constants {constants=lst} =
   List.map (fun (x, (yts, _)) -> (x, List.length yts)) lst
 
 let used_names ctx =
-  List.map fst ctx.bound @ List.map fst ctx.primitive
+  List.map fst ctx.bound @ List.map fst ctx.constants
 
-let lookup_primitive x {primitive=lst} =
+let lookup_constant x {constants=lst} =
   let rec lookup = function
     | [] -> None
     | (y,v) :: lst ->
@@ -72,14 +73,14 @@ let lookup_bound k {bound=lst} =
   | Failure _ -> Error.impossible "invalid de Bruijn index %d" k
 
 let is_bound x ctx =
-  match lookup_primitive x ctx with
+  match lookup_constant x ctx with
   | None -> false
   | Some _ -> true
 
-let add_primitive x ytsu ctx =
+let add_constant x ytsu ctx =
   if is_bound x ctx
   then Error.runtime "%t already exists" (Name.print_ident x)
-  else { ctx with primitive = (x, ytsu) :: ctx.primitive }
+  else { ctx with constants = (x, ytsu) :: ctx.constants }
 
 let add_betas xshs ctx =
   { ctx with
@@ -174,6 +175,6 @@ let print ctx ppf =
   List.iter
     (fun (x, t) ->
      Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>%t@]@\n" (Name.print_ident x)
-       (Tt.print_primsig forbidden_names t))
-    (List.rev ctx.primitive) ;
+       (Tt.print_constsig forbidden_names t))
+    (List.rev ctx.constants) ;
   Print.print ppf "-----END-----@."

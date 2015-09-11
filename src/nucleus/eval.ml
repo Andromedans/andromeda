@@ -119,17 +119,17 @@ and infer ctx (c',loc) =
      let t = expr_ty ctx t in
        check ctx c t
 
-  | Syntax.PrimApp (x, cs) ->
+  | Syntax.Constant (x, cs) ->
     let yts, u =
-      begin match Context.lookup_primitive x ctx with
+      begin match Context.lookup_constant x ctx with
       | Some ytsu -> ytsu
-      | None -> Error.typing "unknown operation %t" (Name.print_ident x)
+      | None -> Error.typing "unknown constant %t" (Name.print_ident x)
       end in
     let rec fold es yts cs =
       match yts, cs with
       | [], [] ->
         let u = Tt.instantiate_ty es 0 u
-        and e = Tt.mk_primapp ~loc x (List.rev es) in
+        and e = Tt.mk_constant ~loc x (List.rev es) in
         Value.return_judge e u
 
       | (y,(reducing,t))::yts, c::cs ->
@@ -209,7 +209,7 @@ and check ctx ((c',loc) as c) t : Value.result =
   | Syntax.With _
   | Syntax.Typeof _
   | Syntax.Apply _
-  | Syntax.PrimApp _
+  | Syntax.Constant _
   | Syntax.Prod _
   | Syntax.Eq _
   | Syntax.Spine _

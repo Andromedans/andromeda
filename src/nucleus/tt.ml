@@ -6,17 +6,14 @@ and term' =
   (** term denoting the type of types *)
   | Type
 
-  (** a constant *)
-  | Name of Name.ident
-
   (** a free variable *)
   | Atom of Name.atom
 
   (** a bound variable *)
   | Bound of Syntax.bound
 
-  (** primitive application *)
-  | PrimApp of Name.ident * term list
+  (** constant *)
+  | Constant of Name.ident * term list
 
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
       [tk] depends on [x1, ..., x{k-1}], while [e] and [t] depend on
@@ -45,16 +42,16 @@ and term' =
   (** bracket type *)
   | Bracket of ty
 
-and ty = Ty of term
 (** The type of TT types.
     Since we have [Type : Type] we do not distinguish terms from types,
     so the type [ty] of types is just a synonym for the type [term] of terms.
     However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
+and ty = Ty of term
 
-and ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
 (** The auxiliary type of abstractions discussed above. *)
+and ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
 
-type primsig = (bool * ty, ty) abstraction
+type constsig = (bool * ty, ty) abstraction
 
 (** Unicode and ascii version of symbols *)
 
@@ -66,11 +63,10 @@ let char_equal ()  = if !Config.ascii then "==" else "≡"
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
-let mk_name ~loc x = Name x, loc
 let mk_atom ~loc x = Atom x, loc
 let mk_bound ~loc k = Bound k, loc
 
-let mk_primapp ~loc x es = PrimApp (x, es), loc
+let mk_constant ~loc x es = Constant (x, es), loc
 
 let mk_lambda ~loc xts e t =
   match xts with
@@ -132,8 +128,6 @@ let rec instantiate es depth ((e',loc) as e) =
 
     | Type -> e
 
-    | Name _ -> e
-
     | Atom _ -> e
 
     | Bound k ->
@@ -150,9 +144,9 @@ let rec instantiate es depth ((e',loc) as e) =
              instantiated term, so it remains bound, but its index decreases
              by the number of bound variables replaced by terms *)
 
-    | PrimApp (x, ds) ->
+    | Constant (x, ds) ->
       let ds = List.map (instantiate es depth) ds in
-      PrimApp (x, ds), loc
+      Constant (x, ds), loc
 
     | Lambda a ->
        let a = instantiate_abstraction instantiate_ty instantiate_term_ty es depth a
@@ -221,11 +215,9 @@ let rec abstract xs depth ((e',loc) as e) =
 
   | Bound k -> e
 
-  | PrimApp (y, es) ->
+  | Constant (y, es) ->
      let es = List.map (abstract xs depth) es in
-      PrimApp (y, es), loc
-
-  | Name x -> e
+      Constant (y, es), loc
 
   | Atom x ->
     begin
@@ -294,16 +286,16 @@ let shift_abstraction shift_u shift_v k lvl us v =
 
 let rec shift k lvl ((e',loc) as e) =
   match e' with
-    | (Type | Name _ | Atom _) -> e
+    | (Type | Atom _) -> e
 
     | Bound j ->
       if lvl <= j
       then (Bound (j + k), loc)
       else e
 
-    | PrimApp (x, es) ->
+    | Constant (x, es) ->
         let es = List.map (shift k lvl) es in
-        PrimApp (x, es), loc
+        Constant (x, es), loc
 
     | Lambda (xts, (e, t)) ->
         let xts, (e, t) = shift_abstraction shift_ty shift_term_ty k lvl xts (e,t) in
@@ -377,10 +369,9 @@ let occurs_abstraction occurs_u occurs_v k (xus, v) =
 let rec occurs k (e',_) =
   match e' with
   | Type -> 0
-  | Name _ -> 0
   | Atom _ -> 0
   | Bound m -> if k = m then 1 else 0
-  | PrimApp (x, es) -> List.fold_left (fun i e -> i + occurs k e) 0 es
+  | Constant (x, es) -> List.fold_left (fun i e -> i + occurs k e) 0 es
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
   | Spine (e, xtst, es) ->
     occurs k e +
@@ -425,16 +416,13 @@ let rec print_term ?max_level xs (e,_) ppf =
       | Type ->
         print ~at_level:0 "Type"
 
-      | Name x ->
-        print ~at_level:0 "%t" (Name.print_ident x)
-
       | Atom x ->
         print ~at_level:0 "%t" (Name.print_atom x)
 
-      | PrimApp (x, []) ->
+      | Constant (x, []) ->
         print ~at_level:0 "%t" (Name.print_ident x)
 
-      | PrimApp (x, ((_::_) as es)) ->
+      | Constant (x, ((_::_) as es)) ->
         print ~at_level:1 "%t %t" (Name.print_ident x) (Print.sequence (print_term ~max_level:0 xs) "" es)
 
       | Bound k ->
@@ -532,7 +520,7 @@ and print_binder xs (x, t) ppf =
         (Name.print_ident x)
         (print_ty xs t)
 
-let print_primsig ?max_level xs (x_red_u_s, t) ppf =
+let print_constsig ?max_level xs (x_red_u_s, t) ppf =
   let print_xs =
     (fun xs x (red, u) ppf ->
        Print.print ppf "(@[<hv>%s%t :@ %t@])"
