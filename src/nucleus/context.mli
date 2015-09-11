@@ -6,8 +6,8 @@ type t
 (** The empty context *)
 val empty : t
 
-(** List of primitive names with their arities. *)
-val primitives : t -> (Name.ident * int) list
+(** List of constants with their arities. *)
+val constants : t -> (Name.ident * int) list
 
 (** Known bound variables *)
 val bound_names : t -> Name.ident list
@@ -15,8 +15,8 @@ val bound_names : t -> Name.ident list
 (** Variable names already used in the context *)
 val used_names : t -> Name.ident list
 
-(** Lookup a primitive operation. *)
-val lookup_primitive : Name.ident -> t -> Tt.primsig option
+(** Lookup a constant. *)
+val lookup_constant : Name.ident -> t -> Tt.constsig option
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : Syntax.bound -> t -> Value.value
@@ -38,9 +38,9 @@ val inhabit_hints : Pattern.hint_key -> t -> Pattern.inhabit_hint list
     the context updated with [x] bound to [y:t]. *)
 val add_fresh: loc:Location.t -> t -> Name.ident -> Tt.ty -> Name.atom * t
 
-(** Add a primitive operation of a given signature to the context.
-    Fails if the variable is already bound. *)
-val add_primitive : Name.ident -> Tt.primsig -> t -> t
+(** Add a constant of a given signature to the context.
+    Fails if the constant is already bound. *)
+val add_constant : Name.ident -> Tt.constsig -> t -> t
 
 (** Add a beta hint to the context. *)
 val add_betas : (string list * (Pattern.hint_key * Pattern.beta_hint)) list -> t -> t

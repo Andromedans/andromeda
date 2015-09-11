@@ -2,8 +2,8 @@
 
 let is_small (e',_) =
 match e' with
-  | Tt.PrimApp (_, es) -> es = []
-  | Tt.Type | Tt.Inhab | Tt.Bound _ | Tt.Name _ | Tt.Atom _ -> true
+  | Tt.Constant (_, es) -> es = []
+  | Tt.Type | Tt.Inhab | Tt.Bound _ | Tt.Atom _ -> true
   | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _ | Tt.Bracket _ -> false
 
 let rec simplify ctx ((e',loc) as e) =
@@ -12,8 +12,6 @@ let rec simplify ctx ((e',loc) as e) =
     | Tt.Type -> e
 
     | Tt.Inhab -> e
-
-    | Tt.Name _ -> e
 
     | Tt.Atom _ -> e
 
@@ -36,9 +34,9 @@ let rec simplify ctx ((e',loc) as e) =
       in
         fold ctx [] [] xts
 
-    | Tt.PrimApp(x, es) ->
+    | Tt.Constant(x, es) ->
       let es = List.map (simplify ctx) es in
-        Tt.mk_primapp ~loc x es
+        Tt.mk_constant ~loc x es
 
     | Tt.Spine (e, (xts, t), es) ->
       simplify_spine ~loc ctx e xts t es
@@ -131,10 +129,9 @@ and simplify_spine ~loc ctx h xts t es =
     end
 
   (* All the cases where a reduction is not possible. *)
-  | Tt.PrimApp _
+  | Tt.Constant _
   | Tt.Lambda _
   | Tt.Spine _
-  | Tt.Name _
   | Tt.Atom _
   | Tt.Type
   | Tt.Inhab

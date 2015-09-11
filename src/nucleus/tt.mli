@@ -25,17 +25,14 @@ and term' = private
   (** term denoting the type of types *)
   | Type
 
-  (** a constant *)
-  | Name of Name.ident
-
   (** a free variable *)
   | Atom of Name.atom
 
   (** a bound variable *)
   | Bound of Syntax.bound
 
-  (** primitive application *)
-  | PrimApp of Name.ident * term list
+  (** a constant *)
+  | Constant of Name.ident * term list
 
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
       [tk] depends on [x1, ..., x{k-1}], while [e] and [t] depend on
@@ -74,15 +71,15 @@ and ty = private
     the [a1, ..., an] have type [A]. *)
 and ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
 
-(** The type of a signature of a primitive operation. *)
-type primsig = (bool * ty, ty) abstraction
+(** The signature of a constant. The booleans indicate whether the arguments
+    should be eagerly reduced. *)
+type constsig = (bool * ty, ty) abstraction
 
 
 (** Term constructors, the do not check for legality of constructions. *)
-val mk_name: loc:Location.t -> Name.ident -> term
 val mk_atom: loc:Location.t -> Name.atom -> term
 val mk_bound: loc:Location.t -> Syntax.bound -> term
-val mk_primapp: loc:Location.t -> Name.ident -> term list -> term
+val mk_constant: loc:Location.t -> Name.ident -> term list -> term
 val mk_lambda: loc:Location.t -> (Name.ident * ty) list -> term -> ty -> term
 val mk_spine: loc:Location.t -> term -> (Name.ident * ty) list -> ty -> term list -> term
 val mk_type: loc:Location.t -> term
@@ -151,4 +148,4 @@ val occurs_abstraction:
 
 val print_ty : ?max_level:int -> Name.ident list -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
-val print_primsig : ?max_level:int -> Name.ident list -> primsig -> Format.formatter -> unit
+val print_constsig : ?max_level:int -> Name.ident list -> constsig -> Format.formatter -> unit

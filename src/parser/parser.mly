@@ -19,7 +19,7 @@
 %token HANDLE HANDLER WITH BAR VAL FINALLY END
 %token WHNF TYPEOF
 %token FUNCTION APPLY
-%token PRIMITIVE REDUCE
+%token AXIOM REDUCE
 %token <string> OPERATION
 %token CONTEXT HELP QUIT
 %token <int> VERBOSITY
@@ -61,7 +61,7 @@ plain_topcomp:
   | TOPHINT ths=tags_hints                           { TopHint ths }
   | TOPINHABIT ths=tags_hints                        { TopInhabit ths }
   | TOPUNHINT ts=tags_unhints                        { TopUnhint ts }
-  | PRIMITIVE x=name yst=primarg* COLON u=term       { Primitive (x, List.concat yst, u)}
+  | AXIOM x=name yst=primarg* COLON u=term           { Axiom (x, List.concat yst, u)}
 
 return_type:
   | COLON t=ty_term { t }

@@ -53,7 +53,7 @@ and handle_case =
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Primitive of Name.ident * (Name.ident * bool * ty) list * ty (** introduce a primitive operation, the boolean is [true] if reducing *)
+  | Axiom of Name.ident * (Name.ident * bool * ty) list * ty (** introduce a primitive constant, the boolean is [true] if the argument is eagerly reducing *)
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of (string list * comp) list (** global beta hint *)
