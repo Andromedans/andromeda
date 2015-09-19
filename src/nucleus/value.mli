@@ -4,8 +4,8 @@
     of data.
 
     At the moment the only kind of value is a pair [(e,t)] where [e] is a
-    term and [t] is a type. Such a value (in a given context [ctx]) indicates
-    that the judgemnet [ctx |- e : t] is derivable. *)
+    term and [t] is a type. Such a value (in a given environment [env]) indicates
+    that the judgemnet [env |- e : t] is derivable. *)
 type value =
   | Judge of Tt.term * Tt.ty
   | Closure of closure

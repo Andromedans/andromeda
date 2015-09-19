@@ -2,12 +2,12 @@
 
 (** Auxiliary printing functions. *)
 
-let print_term ctx e =
-    let xs = Context.used_names ctx in
+let print_term env e =
+    let xs = Env.used_names env in
       Tt.print_term xs e
 
-let print_ty ctx t =
-    let xs = Context.used_names ctx in
+let print_ty env t =
+    let xs = Env.used_names env in
       Tt.print_ty xs t
 
 (** Notation for the monadic bind *)
@@ -19,15 +19,15 @@ let as_judge ~loc k v =
     k e t
 
 (** Evaluation of expressions. *)
-let rec expr ctx (e',loc) =
+let rec expr env (e',loc) =
   let close x c v =
-    let ctx = Context.add_bound x v ctx in
-    infer ctx c
+    let env = Env.add_bound x v env in
+    infer env c
   in
   begin
     match e' with
 
-    | Syntax.Bound k -> Context.lookup_bound k ctx
+    | Syntax.Bound k -> Env.lookup_bound k env
 
     | Syntax.Type ->
       let t = Tt.mk_type ~loc in
@@ -45,9 +45,9 @@ let rec expr ctx (e',loc) =
        and handler_ops =
          begin
            let close2 x1 x2 c v1 v2 =
-             let ctx = Context.add_bound x1 v1 ctx in
-             let ctx = Context.add_bound x2 v2 ctx in
-             infer ctx c
+             let env = Env.add_bound x1 v1 env in
+             let env = Env.add_bound x2 v2 env in
+             infer env c
            in
            List.map (fun (op, (x, k, c)) -> (op, close2 x k c)) handler_ops
          end
@@ -62,66 +62,66 @@ let rec expr ctx (e',loc) =
   end
 
 (** Evaluate a computation -- infer mode. *)
-and infer ctx (c',loc) =
+and infer env (c',loc) =
   match c' with
 
   | Syntax.Return e ->
-     let v = expr ctx e in
+     let v = expr env e in
      Value.Return v
 
   | Syntax.Operation (op, e) ->
-     let v = expr ctx e in
+     let v = expr env e in
      let k u = Value.Return u in
      Value.Operation (op, v, k)
 
   | Syntax.With (e, c) ->
-     let h = Value.as_handler ~loc:(snd e) (expr ctx e) in
-     let r = infer ctx c in
-     handle_result ctx h r
+     let h = Value.as_handler ~loc:(snd e) (expr env e) in
+     let r = infer env c in
+     handle_result env h r
 
   | Syntax.Let (xcs, c) ->
-     let_bind ctx xcs (fun ctx -> infer ctx c)
+     let_bind env xcs (fun env -> infer env c)
 
   | Syntax.Apply (e1, e2) ->
-     let v1 = Value.as_closure ~loc (expr ctx e1)
-     and v2 = expr ctx e2 in
+     let v1 = Value.as_closure ~loc (expr env e1)
+     and v2 = expr env e2 in
        v1 v2
 
   | Syntax.Beta (xscs, c) ->
-    beta_bind ctx xscs (fun ctx -> infer ctx c)
+    beta_bind env xscs (fun env -> infer env c)
 
   | Syntax.Eta (xscs, c) ->
-    eta_bind ctx xscs (fun ctx -> infer ctx c)
+    eta_bind env xscs (fun env -> infer env c)
 
   | Syntax.Hint (xscs, c) ->
-    hint_bind ctx xscs (fun ctx -> infer ctx c)
+    hint_bind env xscs (fun env -> infer env c)
 
   | Syntax.Inhabit (xscs, c) ->
-    inhabit_bind ctx xscs (fun ctx -> infer ctx c)
+    inhabit_bind env xscs (fun env -> infer env c)
 
   | Syntax.Unhint (xs, c) ->
-    let ctx = Context.unhint xs ctx in
-    infer ctx c
+    let env = Env.unhint xs env in
+    infer env c
 
   | Syntax.Whnf c ->
-    infer ctx c >>= as_judge ~loc
+    infer env c >>= as_judge ~loc
     (fun e (Tt.Ty t) ->
-      let e = Equal.whnf ctx e
-      and t = Equal.whnf ctx t in
+      let e = Equal.whnf env e
+      and t = Equal.whnf env t in
       Value.return_judge e (Tt.ty t))
 
   | Syntax.Typeof c ->
-    infer ctx c >>= as_judge ~loc
+    infer env c >>= as_judge ~loc
     (fun _ (Tt.Ty t) ->
       Value.return_judge t (Tt.mk_type_ty ~loc))
 
   | Syntax.Ascribe (c, t) ->
-     let t = expr_ty ctx t in
-       check ctx c t
+     let t = expr_ty env t in
+       check env c t
 
   | Syntax.Constant (x, cs) ->
     let yts, u =
-      begin match Context.lookup_constant x ctx with
+      begin match Env.lookup_constant x env with
       | Some ytsu -> ytsu
       | None -> Error.typing "unknown constant %t" (Name.print_ident x)
       end in
@@ -134,9 +134,9 @@ and infer ctx (c',loc) =
 
       | (y,(reducing,t))::yts, c::cs ->
         let t = Tt.instantiate_ty es 0 t in
-        check ctx c t >>= as_judge ~loc
+        check env c t >>= as_judge ~loc
           (fun e _ ->
-           let e = if reducing then Equal.whnf ctx e else e in
+           let e = if reducing then Equal.whnf env e else e in
              fold (e :: es) yts cs)
 
       | _::_, [] ->
@@ -150,49 +150,49 @@ and infer ctx (c',loc) =
     fold [] yts cs
 
   | Syntax.Lambda (abs, c) ->
-    infer_lambda ctx loc abs c Value.return_judge
+    infer_lambda env loc abs c Value.return_judge
 
   | Syntax.Spine (e, []) ->
-      Value.Return (expr ctx e)
+      Value.Return (expr env e)
 
   | Syntax.Spine (e, cs) ->
-    let e, t = Value.as_judge ~loc (expr ctx e) in
-    spine ~loc ctx e t cs
+    let e, t = Value.as_judge ~loc (expr env e) in
+    spine ~loc env e t cs
 
   | Syntax.Prod (abs, c) ->
-    let rec fold ctx ys xts = function
+    let rec fold env ys xts = function
       | [] ->
-         infer_ty ctx c
+         infer_ty env c
            (fun u ->
             let u = Tt.abstract_ty ys 0 u in
             let e = Tt.mk_prod ~loc xts u
             and t = Tt.mk_type_ty ~loc in
             Value.return_judge e t)
       | (x,t) :: abs ->
-        let t = expr_ty ctx t in
-        let y, ctx = Context.add_fresh ~loc ctx x t in
+        let t = expr_ty env t in
+        let y, env = Env.add_fresh ~loc env x t in
         let t = Tt.abstract_ty ys 0 t in
-          fold ctx (y::ys) (xts @ [(x,t)]) abs
+          fold env (y::ys) (xts @ [(x,t)]) abs
     in
-      fold ctx [] [] abs
+      fold env [] [] abs
 
   | Syntax.Eq (c1, c2) ->
-     infer ctx c1 >>= as_judge ~loc:(snd c1)
+     infer env c1 >>= as_judge ~loc:(snd c1)
        (fun e1 t1 ->
-        check ctx c2 t1 >>= as_judge ~loc:(snd c2)
+        check env c2 t1 >>= as_judge ~loc:(snd c2)
           (fun e2 _ ->
            let t = Tt.mk_eq ~loc t1 e1 e2 in
              Value.return_judge t Tt.typ))
 
   | Syntax.Refl c ->
-     infer ctx c >>= as_judge ~loc:(snd c)
+     infer env c >>= as_judge ~loc:(snd c)
        (fun e t ->
         let e' = Tt.mk_refl ~loc t e
         and t' = Tt.mk_eq_ty ~loc t e e in
         Value.return_judge e' t')
 
   | Syntax.Bracket c ->
-    infer_ty ctx c
+    infer_ty env c
       (fun t ->
        let t = Tt.mk_bracket ~loc t in
        Value.return_judge t Tt.typ)
@@ -200,7 +200,7 @@ and infer ctx (c',loc) =
   | Syntax.Inhab ->
     Error.typing ~loc "cannot infer the type of []"
 
-and check ctx ((c',loc) as c) t : Value.result =
+and check env ((c',loc) as c) t : Value.result =
   let return e = Value.return_judge e t in
 
   match c' with
@@ -217,98 +217,98 @@ and check ctx ((c',loc) as c) t : Value.result =
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
-    infer ctx c >>= as_judge ~loc
+    infer env c >>= as_judge ~loc
       (fun e t' ->
-       if Equal.equal_ty ctx t t'
+       if Equal.equal_ty env t t'
        then return e
        else Error.typing ~loc:(snd e)
                          "this expression should have type@ %t@ but has type@ %t"
-                         (print_ty ctx t) (print_ty ctx t'))
+                         (print_ty env t) (print_ty env t'))
 
   | Syntax.Operation (op, e) ->
-     let ve = expr ctx e
+     let ve = expr env e
      and k v =
        let (e', t') = Value.as_judge ~loc v in
-       if Equal.equal_ty ctx t t'
+       if Equal.equal_ty env t t'
        then return e'
        else Error.typing ~loc:(snd e')
                          "this expression should have type@ %t@ but has type@ %t"
-                         (print_ty ctx t) (print_ty ctx t')
+                         (print_ty env t) (print_ty env t')
      in
        Value.Operation (op, ve, k)
 
   | Syntax.Let (xcs, c) ->
-     let_bind ctx xcs
-              (fun ctx ->
+     let_bind env xcs
+              (fun env ->
                (* We have here a sanity check, namely that [t] does not contain any
                   de Bruijn incides. If it did, we would have to shift it. *)
                   let (Tt.Ty (_, loc) as t') = Tt.shift_ty (List.length xcs) 0 t in
                     if not (Equal.alpha_equal_ty t t') then
-                      Error.fatal ~loc "Type %t contains de Bruijn indices in a let-binding" (print_ty ctx t) ;
-                 check ctx c t')
+                      Error.fatal ~loc "Type %t contains de Bruijn indices in a let-binding" (print_ty env t) ;
+                 check env c t')
 
   | Syntax.Beta (xscs, c) ->
-     beta_bind ctx xscs (fun ctx -> check ctx c t)
+     beta_bind env xscs (fun env -> check env c t)
 
   | Syntax.Eta (xscs, c) ->
-    eta_bind ctx xscs (fun ctx -> check ctx c t)
+    eta_bind env xscs (fun env -> check env c t)
 
   | Syntax.Hint (xscs, c) ->
-    hint_bind ctx xscs (fun ctx -> check ctx c t)
+    hint_bind env xscs (fun env -> check env c t)
 
   | Syntax.Inhabit (xscs, c) ->
-    inhabit_bind ctx xscs (fun ctx -> check ctx c t)
+    inhabit_bind env xscs (fun env -> check env c t)
 
   | Syntax.Unhint (xs, c) ->
-    let ctx = Context.unhint xs ctx in
-    check ctx c t
+    let env = Env.unhint xs env in
+    check env c t
 
   | Syntax.Whnf c ->
-    check ctx c t >>= as_judge ~loc
+    check env c t >>= as_judge ~loc
     (fun e _ ->
-       let e = Equal.whnf ctx e in
+       let e = Equal.whnf env e in
        return e)
 
   | Syntax.Ascribe (c, t') ->
-    let t'' = expr_ty ctx t' in
+    let t'' = expr_ty env t' in
     (* checking the types for equality right away like this allows to fail
        faster than going through check-infer. *)
-    if Equal.equal_ty ctx t'' t
-    then check ctx c t''
+    if Equal.equal_ty env t'' t
+    then check env c t''
     else Error.typing ~loc:(snd t')
-        "this type should be equal to@ %t" (print_ty ctx t)
+        "this type should be equal to@ %t" (print_ty env t)
 
   | Syntax.Lambda (abs, c) ->
-    check_lambda ctx loc t abs c
+    check_lambda env loc t abs c
 
   | Syntax.Refl c ->
-    let abs, (t', e1, e2) = Equal.as_universal_eq ctx t in
+    let abs, (t', e1, e2) = Equal.as_universal_eq env t in
     assert (abs = []) ;
-    check ctx c t' >>= as_judge ~loc
+    check env c t' >>= as_judge ~loc
       (fun e _ ->
-       if Equal.equal ctx e e1 t'
-       then if Equal.equal ctx e e2 t'
+       if Equal.equal env e e1 t'
+       then if Equal.equal env e e2 t'
             then return (Tt.mk_refl ~loc t' e)
             else Error.typing ~loc
                    "failed to check that the term@ %t is equal to@ %t"
-                   (print_term ctx e) (print_term ctx e2)
+                   (print_term env e) (print_term env e2)
        else Error.typing ~loc
               "failed to check that the term@ %t is equal to@ %t"
-              (print_term ctx e) (print_term ctx e1))
+              (print_term env e) (print_term env e1))
 
   | Syntax.Inhab ->
-    begin match Equal.as_bracket ctx t with
+    begin match Equal.as_bracket env t with
       | Some t' ->
-        begin match Equal.inhabit_bracket ~subgoals:true ~loc ctx t' with
+        begin match Equal.inhabit_bracket ~subgoals:true ~loc env t' with
           | Some _ -> return (Tt.mk_inhab ~loc)
           | None -> Error.typing ~loc "do not know how to inhabit %t"
-                      (print_ty ctx t')
+                      (print_ty env t')
         end
       | None -> Error.typing ~loc "[] has a bracket type and not %t"
-                  (print_ty ctx t)
+                  (print_ty env t)
     end
 
-and handle_result ctx {Value.handler_val; handler_ops; handler_finally} r =
+and handle_result env {Value.handler_val; handler_ops; handler_finally} r =
   begin match r with
   | Value.Return v ->
      begin match handler_val with
@@ -317,7 +317,7 @@ and handle_result ctx {Value.handler_val; handler_ops; handler_finally} r =
      end
   | Value.Operation (op, ve, cont) ->
      let h = Value.{handler_val; handler_ops; handler_finally=None} in
-     let wrap cont v = handle_result ctx h (cont v) in
+     let wrap cont v = handle_result env h (cont v) in
      begin
        try
          let f = List.assoc op handler_ops in
@@ -332,10 +332,10 @@ and handle_result ctx {Value.handler_val; handler_ops; handler_finally} r =
      | Some f -> f v
      | None -> Value.Return v)
 
-and infer_lambda ctx loc abs c k =
-    let rec fold ctx ys xts = function
+and infer_lambda env loc abs c k =
+    let rec fold env ys xts = function
       | [] ->
-         infer ctx c >>= as_judge ~loc:(snd c)
+         infer env c >>= as_judge ~loc:(snd c)
            (fun e t ->
             let e = Tt.abstract ys 0 e
             and t = Tt.abstract_ty ys 0 t in
@@ -347,17 +347,17 @@ and infer_lambda ctx loc abs c k =
         | None -> Error.typing
             ~loc "cannot infer the type of untagged variable %t" (Name.print_ident x)
         | Some c ->
-           check_ty ctx c >>= as_judge ~loc:(snd c)
+           check_ty env c >>= as_judge ~loc:(snd c)
              (fun e _ ->
               let t = Tt.ty e in
-              let y, ctx = Context.add_fresh ~loc ctx x t in
+              let y, env = Env.add_fresh ~loc env x t in
               let t = Tt.abstract_ty ys 0 t in
-              fold ctx (y::ys) (xts @ [(x,t)]) abs)
+              fold env (y::ys) (xts @ [(x,t)]) abs)
         end
     in
-      fold ctx [] [] abs
+      fold env [] [] abs
 
-and check_lambda ctx loc t abs c =
+and check_lambda env loc t abs c =
   (* If the abstractions are fully annotated with types then we
      infer the type of the lambda and compare it to [t],
      otherwise we express [t] as a product and descend into
@@ -378,25 +378,25 @@ and check_lambda ctx loc t abs c =
      (* XXX this generalisation should be done also in [fold] below and in
         [spine], same for other [as_*] functions  *)
 
-      infer_lambda ctx loc abs c
+      infer_lambda env loc abs c
         (fun e' t' ->
-         if Equal.equal_ty ctx t t'
+         if Equal.equal_ty env t t'
          then return e'
          else Error.typing ~loc
-               "this expression is an abstraction but should have type %t" (print_ty ctx t))
+               "this expression is an abstraction but should have type %t" (print_ty env t))
     end
   else (* not all_tagged *)
     begin
-      let (zus, v) = match Equal.as_prod ctx t with
+      let (zus, v) = match Equal.as_prod env t with
         | Some x -> x
         | None -> Error.typing ~loc
-                    "this type %t should be a product" (print_ty ctx t)
+                    "this type %t should be a product" (print_ty env t)
       in
 
       (** [ys] are what got added to the environment, [zus] come from the type
           [t] we're checking against, [abs] from the binder, [xts] are what
           should be used to check the body *)
-      let rec fold ctx ys zs xts abs zus v =
+      let rec fold env ys zs xts abs zus v =
         match abs, zus with
         | (x,t)::abs, (z,u)::zus ->
 
@@ -404,33 +404,33 @@ and check_lambda ctx loc t abs c =
           let u = Tt.unabstract_ty ys 0 u in
 
           let k t =
-            let y, ctx = Context.add_fresh ~loc ctx x t in
+            let y, env = Env.add_fresh ~loc env x t in
             let t = Tt.abstract_ty ys 0 t in
-            fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus v
+            fold env (y::ys) (z::zs) ((x,t)::xts) abs zus v
           in
 
           begin match t with
             | None ->
               Print.debug "untagged arg %t in lambda, using %t as type"
                 (Name.print_ident x)
-                (print_ty ctx u);
+                (print_ty env u);
               k u
             | Some t ->
-              check_ty ctx t >>= as_judge ~loc:(snd t)
+              check_ty env t >>= as_judge ~loc:(snd t)
                 (fun e _ ->
                  let t = Tt.ty e in
-                 if Equal.equal_ty ctx t u
+                 if Equal.equal_ty env t u
                  then k t
                  else Error.typing ~loc
                      "in this lambda, the variable %t should have a type equal to@ \
                       %t\nFound type@ %t"
-                     (Name.print_ident x) (print_ty ctx u) (print_ty ctx t))
+                     (Name.print_ident x) (print_ty env u) (print_ty env t))
           end
 
         | [], [] ->
           (* let u = u[x_k-1/z_k-1] in *)
           let v' = Tt.unabstract_ty ys 0 v in
-          check ctx c v' >>= as_judge ~loc:(snd c)
+          check env c v' >>= as_judge ~loc:(snd c)
             (fun e _ ->
              let e = Tt.abstract ys 0 e in
              let xts = List.rev xts in
@@ -439,35 +439,35 @@ and check_lambda ctx loc t abs c =
         | [], _::_ ->
           let v = Tt.mk_prod_ty ~loc zus v in
           let v' = Tt.unabstract_ty ys 0 v in
-          check ctx c v' >>= as_judge ~loc:(snd c)
+          check env c v' >>= as_judge ~loc:(snd c)
             (fun e _ ->
              let e = Tt.abstract ys 0 e in
              let xts = List.rev xts in
              return (Tt.mk_lambda ~loc xts e v))
 
         | _::_, [] ->
-          let v = Equal.as_prod ctx v in
+          let v = Equal.as_prod env v in
           begin match v with
             | None ->
               Error.typing ~loc
                 "tried to check against a type with a too short abstraction@ %t"
-                (print_ty ctx t)
-            | Some (zus, v) -> fold ctx ys zs xts abs zus v
+                (print_ty env t)
+            | Some (zus, v) -> fold env ys zs xts abs zus v
           end
       in
-      fold ctx [] [] [] abs zus v
+      fold env [] [] [] abs zus v
     end (* not all_tagged *)
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
-    Then [spine ctx e t cs] computes [xeus], [u] and [v] such that we can make
+    Then [spine env e t cs] computes [xeus], [u] and [v] such that we can make
     a spine from [e], [xeus] and [u], and the type of the resulting expression
     is [v].
   *)
-and spine ~loc ctx e t cs =
+and spine ~loc env e t cs =
   (*** XXX Investigate possible use of Equal.as_deep_prod here: it costs more
        but generates possibly longer spines. *)
   let (xts, t) =
-    begin match Equal.as_prod ctx t with
+    begin match Equal.as_prod env t with
       | Some (xts, t) -> xts, t
       | None -> Error.typing ~loc "this expression is applied but it is not a function"
     end
@@ -480,120 +480,120 @@ and spine ~loc ctx e t cs =
       and v = Tt.instantiate_ty es 0 u in
       Value.return_judge e v
   | (x,t)::xts, c::cs ->
-      check ctx c (Tt.instantiate_ty es 0 t) >>= as_judge ~loc:(snd c)
+      check env c (Tt.instantiate_ty es 0 t) >>= as_judge ~loc:(snd c)
         (fun e _ ->
          let u = t in
          fold (e :: es) (xus @ [(x, u)]) xts cs)
   | [], ((_ :: _) as cs) ->
       let e = Tt.mk_spine ~loc e xus t (List.rev es)
       and t = Tt.instantiate_ty es 0 t in
-      spine ~loc ctx e t cs
+      spine ~loc env e t cs
   in
   fold [] [] xts cs
 
-and let_bind ctx xcs k =
-  let rec fold ctx' = function
-    | [] -> k ctx'
+and let_bind env xcs k =
+  let rec fold env' = function
+    | [] -> k env'
     | (x,c) :: xcs ->
-       (* NB: must use [ctx] in [infer ctx c], not [ctx'] because this is parallel let *)
-       (infer ctx c) >>= (fun v ->
-                          let ctx' = Context.add_bound x v ctx' in
-                            fold ctx' xcs)
+       (* NB: must use [env] in [infer env c], not [env'] because this is parallel let *)
+       (infer env c) >>= (fun v ->
+                          let env' = Env.add_bound x v env' in
+                            fold env' xcs)
   in
-    fold ctx xcs
+    fold env xcs
 
-and beta_bind ctx xscs k =
+and beta_bind env xscs k =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-       infer ctx c >>= as_judge ~loc:(snd c)
+       infer env c >>= as_judge ~loc:(snd c)
          (fun _ t ->
-          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
+          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
+            let h = Hint.mk_beta ~loc env (xts, (t, e1, e2)) in
               fold ((xs, h) :: xshs) xscs)
-    | [] -> let ctx = Context.add_betas xshs ctx in
+    | [] -> let env = Env.add_betas xshs env in
       Print.debug "Installed beta hints@ %t"
           (Print.sequence (fun (tags, (_, h)) ppf ->
             Print.print ppf "@[tags: %s ;@ hint: %t@]"
               (String.concat " " tags)
               (Pattern.print_beta_hint [] h)) "," xshs);
-      k ctx
+      k env
   in fold [] xscs
 
-and eta_bind ctx xscs k =
+and eta_bind env xscs k =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-       infer ctx c >>= as_judge ~loc:(snd c)
+       infer env c >>= as_judge ~loc:(snd c)
          (fun _ t ->
-          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
+          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
+            let h = Hint.mk_eta ~loc env (xts, (t, e1, e2)) in
               fold ((xs, h) :: xshs) xscs)
-    | [] -> let ctx = Context.add_etas xshs ctx in
+    | [] -> let env = Env.add_etas xshs env in
       Print.debug "Installed eta hints@ %t"
         (Print.sequence (fun (tags, (_, h)) ppf ->
              Print.print ppf "@[tags: %s ;@ hint: %t@]"
                (String.concat " " tags)
                (Pattern.print_eta_hint [] h)) "," xshs);
-      k ctx
+      k env
   in fold [] xscs
 
-and hint_bind ctx xscs k =
+and hint_bind env xscs k =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-       infer ctx c >>= as_judge ~loc:(snd c)
+       infer env c >>= as_judge ~loc:(snd c)
          (fun _ t ->
-          let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-            let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
+          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
+            let h = Hint.mk_general ~loc env (xts, (t, e1, e2)) in
               fold ((xs, h) :: xshs) xscs)
-    | [] -> let ctx = Context.add_generals xshs ctx in
+    | [] -> let env = Env.add_generals xshs env in
       Print.debug "Installed hints@ %t"
         (Print.sequence (fun (tags, (k, h)) ppf ->
              Print.print ppf "@[tags: %s ; keys: %t ;@ hint: %t@]"
                (String.concat " " tags)
                (Pattern.print_general_key k)
                (Pattern.print_hint [] h)) "," xshs);
-      k ctx
+      k env
   in fold [] xscs
 
-and inhabit_bind ctx xscs k =
+and inhabit_bind env xscs k =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-       infer ctx c >>= as_judge ~loc:(snd c)
+       infer env c >>= as_judge ~loc:(snd c)
          (fun _ t ->
-          let xts, t = Equal.as_universal_bracket ctx t in
-            let h = Hint.mk_inhabit ~loc ctx (xts, t) in
+          let xts, t = Equal.as_universal_bracket env t in
+            let h = Hint.mk_inhabit ~loc env (xts, t) in
               fold ((xs, h) :: xshs) xscs)
-    | [] -> let ctx = Context.add_inhabits xshs ctx in
+    | [] -> let env = Env.add_inhabits xshs env in
       Print.debug "Installed inhabit hints@ %t"
         (Print.sequence (fun (tags, (_, h)) ppf ->
              Print.print ppf "@[tags: %s ;@ hint: %t@]"
                (String.concat " " tags)
                (Pattern.print_inhabit_hint [] h)) "," xshs);
-      k ctx
+      k env
   in fold [] xscs
 
-and expr_ty ctx ((_,loc) as e) =
-  let (e, t) = Value.as_judge ~loc (expr ctx e) in
-  if Equal.equal_ty ctx t Tt.typ
+and expr_ty env ((_,loc) as e) =
+  let (e, t) = Value.as_judge ~loc (expr env e) in
+  if Equal.equal_ty env t Tt.typ
   then Tt.ty e
   else
     Error.runtime ~loc
       "this expression should be a type but its type is %t"
-      (print_ty ctx t)
+      (print_ty env t)
 
-and check_ty ctx ((_,loc) as c) =
-  check ctx c Tt.typ
+and check_ty env ((_,loc) as c) =
+  check env c Tt.typ
 
-and infer_ty ctx c k =
-  check ctx c Tt.typ >>= as_judge ~loc:(snd c)
+and infer_ty env c k =
+  check env c Tt.typ >>= as_judge ~loc:(snd c)
     (fun e _ -> k (Tt.ty e))
 
 let comp = infer
 
-let comp_value ctx ((_,loc) as c) =
-  let r = comp ctx c in
+let comp_value env ((_,loc) as c) =
+  let r = comp env c in
   Value.to_value ~loc r
 
-let ty ctx ((_,loc) as c) =
-  let r = check ctx c Tt.typ in
+let ty env ((_,loc) as c) =
+  let r = check env c Tt.typ in
   let (e, _) = Value.as_judge ~loc (Value.to_value ~loc r) in
     Tt.ty e

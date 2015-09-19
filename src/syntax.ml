@@ -61,7 +61,7 @@ and toplevel' =
   | Include of string list
   | Quit (** quit the toplevel *)
   | Help (** print help *)
-  | Context (** print the current context *)
+  | Environment (** print the current environment *)
 
 let rec shift_comp k lvl (c', loc) =
   let c' =

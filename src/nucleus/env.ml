@@ -1,4 +1,4 @@
-(** Typing context and runtime environment *)
+(** Typing environment and runtime environment *)
 
 module HintMap = Map.Make(struct
     type t = Pattern.hint_key
@@ -10,7 +10,7 @@ module GeneralMap = Map.Make(struct
     let compare = Pervasives.compare
   end)
 
-(** A context holds free variables with their types and an
+(** A environment holds free variables with their types and an
     environment of runtime bindings. *)
 type t = {
   constants : (Name.ident * Tt.constsig) list;
@@ -24,7 +24,7 @@ type t = {
   files : string list;
 }
 
-(** The empty context *)
+(** The empty environment *)
 let empty = {
   constants = [];
   atoms = [];
@@ -67,8 +67,8 @@ let bound_names {bound=lst} = List.map fst lst
 let constants {constants=lst} =
   List.map (fun (x, (yts, _)) -> (x, List.length yts)) lst
 
-let used_names ctx =
-  List.map fst ctx.bound @ List.map fst ctx.constants
+let used_names env =
+  List.map fst env.bound @ List.map fst env.constants
 
 let lookup_constant x {constants=lst} =
   let rec lookup = function
@@ -84,57 +84,57 @@ let lookup_bound k {bound=lst} =
   with
   | Failure _ -> Error.impossible "invalid de Bruijn index %d" k
 
-let is_bound x ctx =
-  match lookup_constant x ctx with
+let is_bound x env =
+  match lookup_constant x env with
   | None -> false
   | Some _ -> true
 
-let add_constant x ytsu ctx =
-  if is_bound x ctx
+let add_constant x ytsu env =
+  if is_bound x env
   then Error.runtime "%t already exists" (Name.print_ident x)
-  else { ctx with constants = (x, ytsu) :: ctx.constants }
+  else { env with constants = (x, ytsu) :: env.constants }
 
-let add_betas xshs ctx =
-  { ctx with
+let add_betas xshs env =
+  { env with
     beta =
       List.fold_left
         (fun db (xs, (key, h)) ->
            let tags, hints = find key db in
            HintMap.add key (xs :: tags, h :: hints) db)
-        ctx.beta xshs
+        env.beta xshs
   }
 
-let add_etas xshs ctx =
-  { ctx with
+let add_etas xshs env =
+  { env with
     eta =
       List.fold_left
         (fun db (xs, (key, h)) ->
            let tags, hints = find key db in
            HintMap.add key (xs :: tags, h :: hints) db)
-        ctx.eta xshs
+        env.eta xshs
   }
 
-let add_generals xshs ctx =
-  { ctx with
+let add_generals xshs env =
+  { env with
     general =
       List.fold_left
         (fun db (xs, (key, h)) ->
              let tags, hints = find3 key db in
              GeneralMap.add key (xs :: tags, h :: hints) db)
-        ctx.general xshs
+        env.general xshs
   }
 
-let add_inhabits xshs ctx =
-  { ctx with
+let add_inhabits xshs env =
+  { env with
     inhabit =
       List.fold_left
         (fun db (xs, (key, h)) ->
            let tags, hints = find key db in
            HintMap.add key (xs :: tags, h :: hints) db)
-        ctx.inhabit xshs
+        env.inhabit xshs
   }
 
-let unhint untags ctx =
+let unhint untags env =
   let pred = List.exists (fun x -> List.mem x untags) in
   let rec fold xs' hs' tags hints =
     match tags, hints with
@@ -149,36 +149,36 @@ let unhint untags ctx =
       Error.impossible "Number of hints different from number of tags"
 
   in let f (tags, hints) = fold [] [] tags hints in
-  { ctx with
-    beta = HintMap.map f ctx.beta ;
-    eta = HintMap.map f ctx.eta ;
-    general = GeneralMap.map f ctx.general ;
-    inhabit = HintMap.map f ctx.inhabit ;
+  { env with
+    beta = HintMap.map f env.beta ;
+    eta = HintMap.map f env.eta ;
+    general = GeneralMap.map f env.general ;
+    inhabit = HintMap.map f env.inhabit ;
   }
 
-let add_bound x v ctx =
-  { ctx with bound = (x, v) :: ctx.bound }
+let add_bound x v env =
+  { env with bound = (x, v) :: env.bound }
 
 (** generate a fresh atom of type [t] and bind it to [x]
     NB: This is an effectful computation. *)
-let add_fresh ~loc ctx x t =
+let add_fresh ~loc env x t =
   let y = Name.fresh x in
   let yt = Value.Judge (Tt.mk_atom ~loc y, t) in
-  let ctx = add_bound x yt ctx in
-  let ctx = {ctx with atoms = (y, t) :: ctx.atoms} in
-  y, ctx
+  let env = add_bound x yt env in
+  let env = {env with atoms = (y, t) :: env.atoms} in
+  y, env
 
-let add_file f ctx =
-  { ctx with files = (Filename.basename f) :: ctx.files }
+let add_file f env =
+  { env with files = (Filename.basename f) :: env.files }
 
 let included f { files } = List.mem (Filename.basename f) files
 
-let print ctx ppf =
-  let forbidden_names = used_names ctx in
-  Print.print ppf "---CONTEXT---@." ;
+let print env ppf =
+  let forbidden_names = used_names env in
+  Print.print ppf "---ENVIRONMENT---@." ;
   List.iter
     (fun (x, t) ->
      Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>%t@]@\n" (Name.print_ident x)
        (Tt.print_constsig forbidden_names t))
-    (List.rev ctx.constants) ;
+    (List.rev env.constants) ;
   Print.print ppf "-----END-----@."

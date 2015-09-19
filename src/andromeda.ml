@@ -5,7 +5,7 @@ let usage = "Usage: andromeda [option] ... [file] ..."
 
 (** The help text printed when [#help] is used. *)
 let help_text = "Toplevel directives:
-#context .... print current context
+#environment .... print current environment
 #help ....... print this help
 #quit ....... exit
 
@@ -98,65 +98,65 @@ let parse lex parse resource =
      let loc = Location.make p_start p_end in
      Error.syntax ~loc "Unexpected: %s" w
 
-(** [exec_cmd ctx d] executes toplevel command [c] in context [ctx]. It prints the
-    result if in interactive mode, and returns the new context. *)
-let rec exec_cmd base_dir interactive ctx c =
-  let (c', loc) = Desugar.toplevel (Context.constants ctx) (Context.bound_names ctx) c in
+(** [exec_cmd env d] executes toplevel command [c] in environment [env]. It prints the
+    result if in interactive mode, and returns the new environment. *)
+let rec exec_cmd base_dir interactive env c =
+  let (c', loc) = Desugar.toplevel (Env.constants env) (Env.bound_names env) c in
   match c' with
 
   | Syntax.Axiom (x, yts, u) ->
-    let rec fold ctx zs yts' = function
+    let rec fold env zs yts' = function
       | [] ->
-        let u = Eval.ty ctx u in
+        let u = Eval.ty env u in
         let u = Tt.abstract_ty zs 0 u in
         let yts' = List.rev yts' in
         (yts', u)
       | (y, reducing, t)::yts ->
-        let t = Eval.ty ctx t in
-        let z, ctx = Context.add_fresh ~loc ctx y t in
+        let t = Eval.ty env t in
+        let z, env = Env.add_fresh ~loc env y t in
         let t = Tt.abstract_ty zs 0 t in
-        fold ctx (z::zs) ((y, (reducing, t)) :: yts') yts
+        fold env (z::zs) ((y, (reducing, t)) :: yts') yts
     in
-    let ytsu = fold ctx [] [] yts in
-    let ctx = Context.add_constant x ytsu ctx in
+    let ytsu = fold env [] [] yts in
+    let env = Env.add_constant x ytsu env in
     if interactive then
       Format.printf "%t is assumed.@." (Name.print_ident x) ;
-    ctx
+    env
 
   | Syntax.TopLet (x, c) ->
-     let v = Eval.comp_value ctx c in
-     let ctx = Context.add_bound x v ctx in
+     let v = Eval.comp_value env c in
+     let env = Env.add_bound x v env in
      if interactive then Format.printf "%t is defined.@." (Name.print_ident x) ;
-     ctx
+     env
 
   | Syntax.TopCheck c ->
      let v =
-       begin match Eval.comp_value ctx c with
+       begin match Eval.comp_value env c with
              | Value.Judge (e, t) ->
-                let e = Simplify.simplify ctx e
-                and t = Simplify.simplify_ty ctx t in
+                let e = Simplify.simplify env e
+                and t = Simplify.simplify_ty env t in
                   Value.Judge (e, t)
              | v -> v
        end
      in
-       if interactive then Format.printf "%t@." (Value.print (Context.used_names ctx) v) ;
-       ctx
+       if interactive then Format.printf "%t@." (Value.print (Env.used_names env) v) ;
+       env
 
   | Syntax.TopBeta xscs ->
     let rec fold xshs = function
       | [] ->
         let xshs = List.rev xshs in
-        let ctx = Context.add_betas xshs ctx in
+        let env = Env.add_betas xshs env in
         Print.debug "Installed beta hints@ %t"
           (Print.sequence (fun (tags, (_, h)) ppf ->
                Print.print ppf "@[tags: %s ;@ hint: %t@]"
                  (String.concat " " tags)
                  (Pattern.print_beta_hint [] h)) "," xshs);
-        ctx
+        env
       | (xs,c) :: xscs ->
-         let (_,t) = Value.as_judge ~loc (Eval.comp_value ctx c) in
-         let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-         let h = Hint.mk_beta ~loc ctx (xts, (t, e1, e2)) in
+         let (_,t) = Value.as_judge ~loc (Eval.comp_value env c) in
+         let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
+         let h = Hint.mk_beta ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
     in fold [] xscs
 
@@ -164,17 +164,17 @@ let rec exec_cmd base_dir interactive ctx c =
     let rec fold xshs = function
       | [] ->
         let xshs = List.rev xshs in
-        let ctx = Context.add_etas xshs ctx in
+        let env = Env.add_etas xshs env in
         Print.debug "Installed eta hints@ %t"
           (Print.sequence (fun (tags, (_, h)) ppf ->
                Print.print ppf "@[tags: %s ;@ hint: %t@]"
                  (String.concat " " tags)
                  (Pattern.print_eta_hint [] h)) "," xshs);
-        ctx
+        env
       | (xs,c) :: xscs ->
-         let (_,t) = Value.as_judge ~loc (Eval.comp_value ctx c) in
-         let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-         let h = Hint.mk_eta ~loc ctx (xts, (t, e1, e2)) in
+         let (_,t) = Value.as_judge ~loc (Eval.comp_value env c) in
+         let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
+         let h = Hint.mk_eta ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
     in fold [] xscs
 
@@ -182,17 +182,17 @@ let rec exec_cmd base_dir interactive ctx c =
     let rec fold xshs = function
       | [] ->
         let xshs = List.rev xshs in
-        let ctx = Context.add_generals xshs ctx in
+        let env = Env.add_generals xshs env in
         Print.debug "Installed general hints@ %t"
           (Print.sequence (fun (tags, (_, h)) ppf ->
                Print.print ppf "@[tags: %s ;@ hint: %t@]"
                  (String.concat " " tags)
                  (Pattern.print_hint [] h)) "," xshs);
-        ctx
+        env
       | (xs,c) :: xscs ->
-         let (_,t) = Value.as_judge ~loc (Eval.comp_value ctx c) in
-         let (xts, (t, e1, e2)) = Equal.as_universal_eq ctx t in
-         let h = Hint.mk_general ~loc ctx (xts, (t, e1, e2)) in
+         let (_,t) = Value.as_judge ~loc (Eval.comp_value env c) in
+         let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
+         let h = Hint.mk_general ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
     in fold [] xscs
 
@@ -200,79 +200,79 @@ let rec exec_cmd base_dir interactive ctx c =
     let rec fold xshs = function
       | [] ->
         let xshs = List.rev xshs in
-        let ctx = Context.add_inhabits xshs ctx in
+        let env = Env.add_inhabits xshs env in
         Print.debug "Installed inhabit hints@ %t"
           (Print.sequence (fun (tags, (_, h)) ppf ->
                Print.print ppf "@[tags: %s ;@ hint: %t@]"
                  (String.concat " " tags)
                  (Pattern.print_inhabit_hint [] h)) "," xshs);
-        ctx
+        env
       | (xs,c) :: xscs ->
-         let (_,t) = Value.as_judge ~loc (Eval.comp_value ctx c) in
-         let (xts, u) = Equal.as_universal_bracket ctx t in
-         let h = Hint.mk_inhabit ~loc ctx (xts, u) in
+         let (_,t) = Value.as_judge ~loc (Eval.comp_value env c) in
+         let (xts, u) = Equal.as_universal_bracket env t in
+         let h = Hint.mk_inhabit ~loc env (xts, u) in
          fold ((xs,h) :: xshs) xscs
     in fold [] xscs
 
-  | Syntax.TopUnhint xs -> Context.unhint xs ctx
+  | Syntax.TopUnhint xs -> Env.unhint xs env
 
   | Syntax.Include fs ->
     (* relative file names get interpreted relative to the file we're
        currently loading *)
     List.fold_left
-      (fun ctx f ->
+      (fun env f ->
          (* don't print deeper includes *)
          begin if interactive then Format.printf "#including %s@." f ;
-           let ctx =
+           let env =
              let f =
                if Filename.is_relative f then
                  Filename.concat base_dir f
                else f in
-             use_file ctx (f, None, false) in
+             use_file env (f, None, false) in
            if interactive then Format.printf "#processed %s@." f ;
-           ctx
+           env
          end)
-      ctx fs
+      env fs
 
-  | Syntax.Verbosity i -> Config.verbosity := i; ctx
+  | Syntax.Verbosity i -> Config.verbosity := i; env
 
-  | Syntax.Context ->
-    Format.printf "%t@." (Context.print ctx) ;
-    ctx
+  | Syntax.Environment ->
+    Format.printf "%t@." (Env.print env) ;
+    env
 
   | Syntax.Help ->
-    Format.printf "%s@." help_text ; ctx
+    Format.printf "%s@." help_text ; env
 
   | Syntax.Quit ->
     exit 0
 
 
 (** Load directives from the given file. *)
-and use_file ctx (filename, limit, interactive) =
+and use_file env (filename, limit, interactive) =
   let limit = match limit with
     | None -> None
     | Some limit -> Some ({ Lexing.dummy_pos with Lexing.pos_cnum = limit }, true) in
 
-  if Context.included filename ctx then ctx else
+  if Env.included filename env then env else
     begin
       let tokens, errs = Tokens.tokens_of_file filename in
 
       let cmds = parse (Tokens.cmds_of_tokens ?limit) tokens errs in
 
       let base_dir = Filename.dirname filename in
-      let ctx = Context.add_file filename ctx in
-      List.fold_left (exec_cmd base_dir interactive) ctx cmds
+      let env = Env.add_file filename env in
+      List.fold_left (exec_cmd base_dir interactive) env cmds
     end
 
 (** Interactive toplevel *)
-let toplevel ctx =
+let toplevel env =
   Format.printf "Andromeda %s@\n[Type #help for help.]@." Build.version ;
   try
-    let ctx = ref ctx in
+    let env = ref env in
     while true do
       try
         let cmd = parse Lexer.read_toplevel Parser.commandline () in
-        ctx := exec_cmd Filename.current_dir_name true !ctx cmd
+        env := exec_cmd Filename.current_dir_name true !env cmd
       with
       | Error.Error err -> Error.print err Format.err_formatter
       | Sys.Break -> Format.eprintf "Interrupted.@."
@@ -327,9 +327,9 @@ let main =
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
-    let ctx = List.fold_left use_file Context.empty !files in
+    let env = List.fold_left use_file Env.empty !files in
     if !Config.interactive_shell then
-      toplevel ctx
+      toplevel env
   with
     Error.Error err -> Error.print err Format.err_formatter; exit 1
 

@@ -61,7 +61,7 @@ and toplevel' =
   | Include of string list
   | Quit (** quit the toplevel *)
   | Help (** print help *)
-  | Context (** print the current context *)
+  | Environment (** print the current environment *)
 
 (** [shift_comp k lvl c] shifts the bound variables in computation [c] that
     are larger than or equal [lv] by [k]. *)
