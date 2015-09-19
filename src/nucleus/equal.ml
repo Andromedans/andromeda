@@ -361,7 +361,8 @@ and equal_hints ctx e1 e2 t =
             | None -> false
             | Some (pvars, checks) ->
               (* check validity of the match *)
-              begin match verify_match ~spawn:true ctx xts pvars checks with
+              Print.debug "verifying match";
+              begin match verify_match ~spawn:false ctx xts pvars checks with
                 | Some _ -> true (* success - notice how we throw away the witness of success *)
                 | None -> false
               end)

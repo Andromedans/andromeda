@@ -55,6 +55,8 @@ type hint_key =
   | Key_Inhab
   | Key_Bracket
 
+type general_key = hint_key option * hint_key option * hint_key option
+
 let rec term_key_opt (e',loc) =
   match e' with
   | Tt.Type -> Some Key_Type
@@ -77,11 +79,7 @@ let term_key e =
 let ty_key (Tt.Ty t) = term_key t
 let ty_key_opt (Tt.Ty t) = term_key_opt t
 
-let general_key e1 e2 t =
-  let key = term_key_opt e1, term_key_opt e2, ty_key_opt t in
-  match key with
-  | Some k1, Some k2, Some kt -> Some (k1, k2, kt)
-  | _, _, _ -> None
+let general_key e1 e2 t = term_key_opt e1, term_key_opt e2, ty_key_opt t
 
 let rec print_term ?max_level xs e ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
@@ -185,9 +183,12 @@ let print_key ?max_level k ppf =
   | Key_Inhab -> Print.print ?max_level ppf "%s" "Inhab"
   | Key_Bracket -> Print.print ?max_level ppf "%s" "Bracket"
 
-let print_general_key ?max_level k ppf =
+
+let print_key_opt ?max_level k ppf =
   match k with
   | None -> Print.print ?max_level ppf "None"
-  | Some (k1, k2, kt) ->
-    Print.print ?max_level ppf "(e1: %t, e2: %t, t: %t)"
-      (print_key k1) (print_key k2) (print_key kt)
+  | Some k -> print_key ?max_level k ppf
+
+let print_general_key ?max_level (k1, k2, kt) ppf =
+  Print.print ?max_level ppf "(e1: %t, e2: %t, t: %t)"
+              (print_key_opt k1) (print_key_opt k2) (print_key_opt kt)

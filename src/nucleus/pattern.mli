@@ -61,15 +61,21 @@ type hint_key =
   | Key_Inhab
   | Key_Bracket
 
+type general_key = hint_key option * hint_key option * hint_key option
+
 (* Compute the hint key of a term, fail on De Bruijn index. *)
-val term_key: Tt.term -> hint_key
+val term_key : Tt.term -> hint_key
+
+val term_key_opt : Tt.term -> hint_key option
 
 (* Compute the hint key of a type, fail on De Bruijn index. *)
 val ty_key : Tt.ty -> hint_key
 
+val ty_key_opt : Tt.ty -> hint_key option
+
 (* Compute the hint key of a general hint. When we find a pvar in a key
    position, return None. *)
-val general_key: Tt.term -> Tt.term -> Tt.ty -> (hint_key * hint_key * hint_key) option
+val general_key : Tt.term -> Tt.term -> Tt.ty -> general_key
 
 val print_pattern : ?max_level:int -> Name.ident list -> t -> (Format.formatter -> unit)
 
@@ -83,4 +89,4 @@ val print_hint : ?max_level:int -> Name.ident list -> general_hint -> Format.for
 
 val print_key : ?max_level:int -> hint_key -> Format.formatter -> unit
 
-val print_general_key : ?max_level:int -> (hint_key * hint_key * hint_key) option -> Format.formatter -> unit
+val print_general_key : ?max_level:int -> general_key -> Format.formatter -> unit

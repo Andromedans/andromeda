@@ -8,11 +8,20 @@ let rec remove_bound x xs =
     else (match remove_bound x ys with None -> None | Some ys -> Some (y :: ys))
 
 (** The name in the head position of a pattern *)
-let rec has_head_name = function
-  | Pattern.Atom _
-  | Pattern.Constant (_, _) -> true
-  | Pattern.Spine (e, _, _) -> has_head_name e
-  | Pattern.PVar _ | Pattern.Eq _ | Pattern.Refl _ | Pattern.Bracket _ | Pattern.Term _ -> false
+let has_head_name = function
+  | None -> false
+  | Some key ->
+     begin match key with
+           | Pattern.Key_Constant _
+           | Pattern.Key_Atom _ -> true
+           | Pattern.Key_Type
+           | Pattern.Key_Lambda
+           | Pattern.Key_Prod
+           | Pattern.Key_Eq
+           | Pattern.Key_Refl
+           | Pattern.Key_Inhab
+           | Pattern.Key_Bracket -> false
+     end
 
 (** Convert a term [e] of type [t] to a pattern with respect to the
     given bound variables [pvars]. That is, the bound variables from [pvars]
@@ -105,34 +114,35 @@ and of_ty ctx pvars (Tt.Ty t) =
 let pvars_of_binders xts =
   snd (List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts)
 
-let mk_beta ~loc ctx (xts, (t, e1, e2)) =
+let mk_beta ~loc ctx (xts, (t, (e1 : Tt.term), e2)) =
   (* XXX here would be a good place to flatten beta patterns. *)
   let pvars = pvars_of_binders xts in
   let pvars, p = of_term ctx pvars e1 t in
     match pvars with
       | [] ->
-        begin if has_head_name p then
+        let key = Pattern.term_key_opt e1 in
+        (* XXX should we allow to rewrite type-formers (other than Π)? *)
 
-          let key = Pattern.term_key e1 in
+        begin match has_head_name key, key with
+              | false, _
+              | _, None -> Error.runtime ~loc "invalid beta hint"
+              | true, Some key ->
 
-          begin match p with
-                | Pattern.Atom x -> key, (xts, (Pattern.BetaAtom x, e2))
-                | Pattern.Constant (x, pes) -> key, (xts, (Pattern.BetaConstant (x, pes), e2))
-                | Pattern.Spine (pe, yus, pes) -> key, (xts, (Pattern.BetaSpine (pe, yus, pes), e2))
-                | Pattern.PVar _ | Pattern.Bracket _ | Pattern.Eq _ | Pattern.Refl _ | Pattern.Term _ ->
-                                                                                        Error.runtime ~loc "only a variable, primitive operation or an application can appear on the left-hand side of a beta hint"
-          end
+                 begin match p with
+                       | Pattern.Atom x -> key, (xts, (Pattern.BetaAtom x, e2))
+                       | Pattern.Constant (x, pes) -> key, (xts, (Pattern.BetaConstant (x, pes), e2))
+                       | Pattern.Spine (pe, yus, pes) -> key, (xts, (Pattern.BetaSpine (pe, yus, pes), e2))
+                       | Pattern.PVar _ | Pattern.Bracket _ | Pattern.Eq _ | Pattern.Refl _
+                       | Pattern.Term _ ->
+                          Error.runtime ~loc "invalid beta hint"
+                 end
 
-              else
-                Error.runtime
-                  ~loc
-                  "the left-hand side of a beta hint must be a symbol@ or a symbol applied to arguments@ %t"
-                  (Pattern.print_pattern [] (xts, p))
         end
+
       | _ :: _ ->
         let xs = List.map (fun k -> fst (List.nth (List.rev xts) k)) pvars in
         Error.runtime ~loc "this beta hint leaves some variables unmatched (%t)"
-          (Print.sequence Name.print_ident ", " xs)
+          (Print.sequence Name.print_ident "," xs)
 
 let mk_eta ~loc ctx (xts, (t, e1, e2)) =
   let pvars = pvars_of_binders xts in
@@ -143,18 +153,18 @@ let mk_eta ~loc ctx (xts, (t, e1, e2)) =
   let pvars, p1 = of_term ctx pvars e1 t in
   let pvars, p2 = of_term ctx pvars e2 t in
   let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
-  match has_head_name pt', p1, p2 with
-    | true, Pattern.PVar k1, Pattern.PVar k2 when k1 <> k2 ->
-      let key = Pattern.ty_key t in
+  let key = Pattern.ty_key_opt t in
+  match has_head_name key, key, p1, p2 with
+    | true, Some key, Pattern.PVar k1, Pattern.PVar k2 when k1 <> k2 ->
       key, (xts, (pt, k1, k2))
-    | false, _, _ ->
+    | false, _, _, _ ->
         Error.runtime ~loc
           "the type of an eta hint must be a symbol@ or a symbol applied to arguments"
-    | true, _, _ ->
+    | true, _, _, _ ->
         Error.runtime ~loc
           "the left- and right-hand side of an eta hint must be distinct variables"
 
-let mk_general ~loc ctx (xts, (t, e1, e2)) =
+let mk_general ~loc ctx (xts, ((t : Tt.ty), e1, e2)) =
   let pvars = pvars_of_binders xts in
 
   (* XXX when we try to apply a hint to a term, we whnf the term, so we ought
@@ -170,17 +180,14 @@ let mk_general ~loc ctx (xts, (t, e1, e2)) =
   let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
   let pvars, pe1 = of_term ctx pvars e1 t in
   let pvars, pe2 = of_term ctx pvars e2 t in
-  if has_head_name pt' then
-    let key = Pattern.general_key e1 e2 t in
-    key, (xts, (pt, pe1, pe2))
-  else
-    (* Error.runtime ~loc *)
-    (*   "the type of a hint must be a symbol@ or a symbol applied to arguments" *)
-    None, (xts, (pt, pe1, pe2))
+  let key = Pattern.general_key e1 e2 t in
+  key, (xts, (pt, pe1, pe2))
 
 
 let mk_inhabit ~loc ctx (xts, t) =
   let pvars = pvars_of_binders xts in
   let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
-  let key = Pattern.ty_key t in
-  key, (xts, pt)
+  match Pattern.ty_key_opt t with
+  | Some key -> key, (xts, pt)
+  | None -> Error.runtime ~loc "invalid inhabit hint"
+                          (* XXX is it necessary to fail here? *)

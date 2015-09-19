@@ -6,7 +6,7 @@ module HintMap = Map.Make(struct
   end)
 
 module GeneralMap = Map.Make(struct
-    type t = Pattern.hint_key * Pattern.hint_key * Pattern.hint_key
+    type t = Pattern.general_key
     let compare = Pervasives.compare
   end)
 
@@ -19,8 +19,7 @@ type t = {
   beta : (string list list * Pattern.beta_hint list) HintMap.t;
   eta : (string list list * Pattern.eta_hint list) HintMap.t;
   (* general hints might not have a key *)
-  general : (string list list * Pattern.general_hint list) GeneralMap.t *
-            (string list list * Pattern.general_hint list);
+  general : (string list list * Pattern.general_hint list) GeneralMap.t;
   inhabit : (string list list * Pattern.inhabit_hint list) HintMap.t;
   files : string list;
 }
@@ -32,7 +31,7 @@ let empty = {
   bound = [] ;
   beta = HintMap.empty ;
   eta = HintMap.empty ;
-  general = GeneralMap.empty, ([], []) ;
+  general = GeneralMap.empty ;
   inhabit = HintMap.empty ;
   files = [] ;
 }
@@ -44,9 +43,22 @@ let eta_hints key {eta=hints} = snd @@ find key hints
 
 let beta_hints key {beta=hints} = snd @@ find key hints
 
-let general_hints key {general=(keys,nokeys)} =
-  let keyed = match key with Some key -> snd @@ find3 key keys | None -> [] in
-  keyed @ snd nokeys
+let general_hints (key1, key2, key3) {general=keys} =
+  let search3 k1 k2 =
+    match key3 with
+    | Some _ -> snd (find3 (k1, k2, key3) keys) @ snd (find3 (k1, k2, None) keys)
+    | None -> snd (find3 (k1, k2, None) keys)
+  in
+  let search2 k1 =
+    match key2 with
+    | Some _ -> search3 k1 key2 @ (search3 k1 None)
+    | None -> search3 k1 None
+  in
+  let search1 =
+    match key1 with
+    | Some _ -> search2 key1 @ (search2 None)
+    | None -> search2 None
+  in search1
 
 let inhabit_hints key {inhabit=hints} = snd @@ find key hints
 
@@ -106,12 +118,9 @@ let add_generals xshs ctx =
   { ctx with
     general =
       List.fold_left
-        (fun (db, ((nokey_tags, nokey_hints) as nokeys)) (xs, (key, h)) ->
-           match key with
-           | Some key ->
+        (fun db (xs, (key, h)) ->
              let tags, hints = find3 key db in
-             GeneralMap.add key (xs :: tags, h :: hints) db, nokeys
-           | None -> db, (xs :: nokey_tags, h :: nokey_hints))
+             GeneralMap.add key (xs :: tags, h :: hints) db)
         ctx.general xshs
   }
 
@@ -143,12 +152,7 @@ let unhint untags ctx =
   { ctx with
     beta = HintMap.map f ctx.beta ;
     eta = HintMap.map f ctx.eta ;
-    general =
-      begin
-        let nokeys = List.combine (fst @@ snd ctx.general) (snd @@ snd ctx.general) in
-        let nokeys = List.split @@ List.filter (fun (xs, h) -> pred xs) nokeys in
-        GeneralMap.map f (fst ctx.general), nokeys
-      end ;
+    general = GeneralMap.map f ctx.general ;
     inhabit = HintMap.map f ctx.inhabit ;
   }
 
