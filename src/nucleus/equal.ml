@@ -654,7 +654,7 @@ and pattern_collect_whnf ctx p ?at_ty ((e', loc) as e) =
 and pattern_collect_ty ctx (Pattern.Ty p) (Tt.Ty e) =
   pattern_collect ctx p ~at_ty:Tt.typ e
 
-(* Collect pattern variables from a spine, and return trialing arguments.
+(* Collect pattern variables from a spine, and return trailing arguments.
    Also account for nested spines. *)
 and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
 
@@ -721,20 +721,17 @@ and pattern_collect_spine ~loc ctx (pe, xtsu, pes) (e, yvsw, es) =
 
     | [], [], _::_, _::_ ->
       begin
-        (* XXX write a test that uses this branch, remove the print statement *)
-        print_endline "untested code: can't touch this";
         let xtvs = List.rev xtvs in
-        let check_uw = CheckEqualTy (xtvs, (u, Tt.mk_prod_ty ~loc yvs w)) in
+
+        let u = Tt.instantiate_ty es' 0 u
+        and yvs, w = Tt.instantiate_abstraction Tt.instantiate_ty Tt.instantiate_ty es' 0 (yvs, w) in
+        let w_prod = Tt.mk_prod_ty ~loc yvs w in
+
+        let check_uw = CheckEqualTy (xtvs, (u, w_prod)) in
         match pargss with
         | [] -> [], [check_uw], ((yvs, w), es) :: argss
         | pargs :: pargss ->
-          let (yvs, w) =
-            Tt.instantiate_abstraction
-              Tt.instantiate_ty
-              Tt.instantiate_ty
-              es' 0
-              (yvs, w)
-          in let pvars, checks, extras = fold [] [] pargs pargss ((yvs, w), es) argss in
+          let pvars, checks, extras = fold [] [] pargs pargss ((yvs, w), es) argss in
           pvars, check_uw :: checks, extras
       end
 
@@ -978,12 +975,6 @@ and verify_match ~spawn ctx xts pvars checks =
     Some es
   with NoMatch -> None (* matching failed *)
 
-and as_prod ctx t =
-  let Tt.Ty (t', loc) = whnf_ty ctx t in
-  match t' with
-  | Tt.Prod ((_ :: _, _) as a) -> Some a
-  | _ -> None
-
 and as_bracket ctx t =
   let Tt.Ty (t', loc) = whnf_ty ctx t in
   match t' with
@@ -1071,71 +1062,62 @@ and inhabit_bracket ~subgoals ~loc ctx t =
   then Some (Tt.mk_inhab ~loc)
   else None
 
-let rec as_universal_eq ctx t =
-  let rec fold ctx xus ys t =
-    let (Tt.Ty (t', loc)) = whnf_ty ctx t in
-    match t' with
+let rec deep_prod ctx t f =
+  let (Tt.Ty (t', loc)) = whnf_ty ctx t in
+  match t' with
 
-    | Tt.Prod ([], _) ->
-      Error.impossible ~loc "empty product encountered in as_universal_eq"
+  | Tt.Prod ([], _) -> Error.impossible ~loc "empty product encountered in deep_prod"
 
-    | Tt.Prod ((_ :: _) as zvs, w) ->
-      let rec unabstract_binding ctx zs' zvs w =
-      begin
-        match zvs with
-        | [] ->
-          let w = Tt.unabstract_ty zs' 0 w in
-            ctx, zs', w
-        | (z,v) :: zvs ->
-          let v = Tt.unabstract_ty zs' 0 v in
-          let z', ctx = Context.add_fresh ~loc ctx z v in
-            unabstract_binding ctx (z' :: zs') zvs w
-      end
-      in
-        let ctx, zs', w = unabstract_binding ctx [] zvs w in
-          fold ctx (xus @ zvs) (zs' @ ys) w
+  | Tt.Prod ((_ :: _) as xus, w) ->
 
+     let rec fold ctx ys zvs =
+       begin match zvs with
+       | [] ->
+          let w = Tt.unabstract_ty ys 0 w in
+          let (zvs, w) = deep_prod ctx w f in
+          let (zvs, w) =
+            Tt.abstract_abstraction Tt.abstract_ty Tt.abstract_ty ys 0 (zvs, w) in
+          (xus @ zvs, w)
 
-    | Tt.Eq (t, e1, e2) ->
-      let t = Tt.abstract_ty ys 0 t
-      and e1 = Tt.abstract ys 0 e1
-      and e2 = Tt.abstract ys 0 e2
-      in (xus, (t, e1, e2))
+       | (z,v) :: zvs ->
+          let v = Tt.unabstract_ty ys 0 v in
+          let y, ctx = Context.add_fresh ~loc ctx z v in
+          fold ctx (y :: ys) zvs
+       end in
 
-    | _ -> Error.typing ~loc "the type of this expression should be a universally quantified equality"
-  in
-  fold ctx [] [] t
+     fold ctx [] xus
 
-(* XXX this was just copied from as_universal_eq, should refactor common code. *)
-let rec as_universal_bracket ctx t =
-  let rec fold ctx xus ys t =
-    let (Tt.Ty (t', loc)) as t = whnf_ty ctx t in
-    match t' with
+  | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
+  | Tt.Spine _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab
+  | Tt.Bracket _ -> let t = f ctx t in
+                    ([], t)
 
-    | Tt.Prod ([], _) ->
-      Error.impossible ~loc "empty product encountered in as_universal_bracket"
+let as_prod ctx t = deep_prod ctx t (fun ctx x -> x)
 
-    | Tt.Prod ((_ :: _) as zvs, w) ->
-      let rec unabstract_binding ctx zs' zvs w =
-      begin
-        match zvs with
-        | [] ->
-          let w = Tt.unabstract_ty zs' 0 w in
-            ctx, zs', w
-        | (z,v) :: zvs ->
-          let v = Tt.unabstract_ty zs' 0 v in
-          let z', ctx = Context.add_fresh ~loc ctx z v in
-            unabstract_binding ctx (z' :: zs') zvs w
-      end
-      in
-        let ctx, zs', w = unabstract_binding ctx [] zvs w in
-          fold ctx (xus @ zvs) (zs' @ ys) w
+let as_universal_eq ctx ((Tt.Ty (_, loc)) as t) =
+  let (xus, (Tt.Ty (t', loc) as t)) = as_prod ctx t in
+  match t' with
 
-    | Tt.Type | Tt.Atom _ | Tt.Constant _ | Tt.Bound _ | Tt.Lambda _ |  Tt.Spine _ |
-      Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _  ->
-      let t = strip_bracket ctx t in
-      let t = Tt.abstract_ty ys 0 t in
-        (xus, t)
-  in
-  fold ctx [] [] t
+  | Tt.Eq (t, e1, e2) ->
+     (xus, (t, e1, e2))
 
+  | Tt.Prod _ -> Error.impossible ~loc "product encountered in as_universal_eq"
+
+  | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
+  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab
+  | Tt.Bracket _ ->
+     Error.typing ~loc "the type of this expression should be a universally quantified equality"
+
+let as_universal_bracket ctx ((Tt.Ty (_, loc)) as t) =
+  deep_prod
+    ctx t
+    (fun ctx ((Tt.Ty (t', loc)) as t) ->
+     match t' with
+
+     | Tt.Bracket t -> strip_bracket ctx t
+
+     | Tt.Prod _ -> Error.impossible ~loc "product encountered in as_universal_bracket"
+
+     | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
+     | Tt.Spine _ | Tt.Refl _ | Tt.Inhab
+     | Tt.Eq _ -> t)

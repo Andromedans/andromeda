@@ -387,16 +387,16 @@ and check_lambda ctx loc t abs c =
     end
   else (* not all_tagged *)
     begin
-      let (zus, v) = match Equal.as_prod ctx t with
-        | Some x -> x
-        | None -> Error.typing ~loc
-                    "this type %t should be a product" (print_ty ctx t)
+      let (zus, v) =
+        match Equal.as_prod ctx t with
+        | (_::_, _) as xtst -> xtst
+        | ([], _) -> Error.typing ~loc "this type %t should be a product" (print_ty ctx t)
       in
 
-      (** [ys] are what got added to the environment, [zus] come from the type
-          [t] we're checking against, [abs] from the binder, [xts] are what
-          should be used to check the body *)
-      let rec fold ctx ys zs xts abs zus v =
+      (** [ys] are what got added to the environment, [xts] are what should be
+          used to check the body, [abs] comes from the binder, [zus] come from
+          the type [t] we're checking against *)
+      let rec fold ctx ys xts abs zus =
         match abs, zus with
         | (x,t)::abs, (z,u)::zus ->
 
@@ -406,7 +406,7 @@ and check_lambda ctx loc t abs c =
           let k t =
             let y, ctx = Context.add_fresh ~loc ctx x t in
             let t = Tt.abstract_ty ys 0 t in
-            fold ctx (y::ys) (z::zs) ((x,t)::xts) abs zus v
+            fold ctx (y::ys) ((x,t)::xts) abs zus
           in
 
           begin match t with
@@ -446,16 +446,11 @@ and check_lambda ctx loc t abs c =
              return (Tt.mk_lambda ~loc xts e v))
 
         | _::_, [] ->
-          let v = Equal.as_prod ctx v in
-          begin match v with
-            | None ->
-              Error.typing ~loc
-                "tried to check against a type with a too short abstraction@ %t"
-                (print_ty ctx t)
-            | Some (zus, v) -> fold ctx ys zs xts abs zus v
-          end
+           Error.typing ~loc
+                        "tried to check against a type with a too short abstraction@ %t"
+                        (print_ty ctx t)
       in
-      fold ctx [] [] [] abs zus v
+      fold ctx [] [] abs zus
     end (* not all_tagged *)
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
@@ -468,8 +463,9 @@ and spine ~loc ctx e t cs =
        but generates possibly longer spines. *)
   let (xts, t) =
     begin match Equal.as_prod ctx t with
-      | Some (xts, t) -> xts, t
-      | None -> Error.typing ~loc "this expression is applied but it is not a function"
+      | (_::_, _) as xtst -> xtst
+      | ([], _) ->
+         Error.typing ~loc "this expression is applied but its type is not a product"
     end
   in
   let rec fold es xus xts cs =

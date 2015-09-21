@@ -14,7 +14,7 @@ val equal_ty : Context.t -> Tt.ty -> Tt.ty -> bool
 val whnf : Context.t -> Tt.term -> Tt.term
 
 (** Convert a type to a product. *)
-val as_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction option
+val as_prod : Context.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction
 
 (** Convert a type to a bracket type. *)
 val as_bracket : Context.t -> Tt.ty -> Tt.ty option

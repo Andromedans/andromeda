@@ -128,6 +128,11 @@ val abstract : Name.atom list -> int -> term -> term
 
 val abstract_ty : Name.atom list -> int -> ty -> ty
 
+val abstract_abstraction :
+  (Name.atom list -> int -> 'u -> 'u) ->
+  (Name.atom list -> int -> 'v -> 'v) ->
+  Name.atom list -> int -> ('u, 'v) abstraction -> ('u, 'v) abstraction
+
 (** [shift k lvl e] adds [k] all bound variables in [e] that are greater than or equal
     to [lvl]. This is used when a term descends into an extended environment (so its
     deBruijn indices are out of sync). It is illegal to use a negative [k]. *)

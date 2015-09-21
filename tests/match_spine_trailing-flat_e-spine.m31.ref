@@ -5,11 +5,11 @@ unit_iota_tt is assumed.
 it is defined.
 refl tt
       : tt
-          ≡ ((unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x) tt)
+          ≡ (unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x) tt
                 tt
 refl tt
       : tt
-          ≡ ((unit_rect (λ [_ : unit] unit → unit) (λ [x : unit] x)) tt)
+          ≡ (unit_rect (λ [_ : unit] unit → unit) (λ [x : unit] x)) tt
                 tt
 refl tt
       : tt
@@ -21,5 +21,5 @@ refl tt
                  tt) tt
 refl tt
       : tt
-          ≡ (((unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x))
-                 tt) tt
+          ≡ ((unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x))
+                tt tt
