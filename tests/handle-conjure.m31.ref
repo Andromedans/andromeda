@@ -1,0 +1,6 @@
+conjure is defined.
+A is assumed.
+B is assumed.
+Q is assumed.
+λ [a : A] Q A B a magic{17}
+      : A → Type

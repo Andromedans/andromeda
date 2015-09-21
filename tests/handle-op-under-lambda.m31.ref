@@ -1,0 +1,9 @@
+A is assumed.
+B is assumed.
+C is assumed.
+a is assumed.
+f is assumed.
+unit is assumed.
+tt is assumed.
+λ [b : B] f a
+      : B → C
