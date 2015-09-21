@@ -80,7 +80,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | newline                  -> f (); new_line lexbuf; token_aux lexbuf
   | start_longcomment        -> f (); comments 0 lexbuf
   | Plus hspace              -> f (); token_aux lexbuf
-  | "#environment"               -> f (); g (); ENVIRONMENT
+  | "#context"               -> f (); g (); CONTEXT
   | "#help"                  -> f (); g (); HELP
   | "#quit"                  -> f (); g (); QUIT
   | "#verbosity", Plus hspace -> g (); verbosity lexbuf

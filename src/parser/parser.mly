@@ -21,7 +21,7 @@
 %token FUNCTION APPLY
 %token AXIOM REDUCE
 %token <string> OPERATION
-%token ENVIRONMENT HELP QUIT
+%token CONTEXT HELP QUIT
 %token <int> VERBOSITY
 %token <string> QUOTED_STRING
 %token INCLUDE
@@ -69,7 +69,7 @@ return_type:
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective) { $1 }
 plain_topdirective:
-  | ENVIRONMENT    { Environment }
+  | CONTEXT    { Context }
   | HELP       { Help }
   | QUIT       { Quit }
   | VERBOSITY                                            { Verbosity $1 }

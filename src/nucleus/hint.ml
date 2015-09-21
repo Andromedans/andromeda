@@ -27,7 +27,7 @@ let has_head_name = function
     given bound variables [pvars]. That is, the bound variables from [pvars]
     are treated as pattern variables. Return the list of those [pvars] that
     were not encoutered, and the pattern generated. *)
-let rec of_term env pvars ((e',loc) as e) t =
+let rec of_term ctx pvars ((e',loc) as e) t =
   let original = pvars, Pattern.Term (e,t) in
   match e' with
 
@@ -42,13 +42,13 @@ let rec of_term env pvars ((e',loc) as e) t =
       | [], [] -> pvars, List.rev pes
       | (x, (_,t)) :: xts, e :: args_left ->
         let t = Tt.instantiate_ty args_so_far 0 t in
-        let pvars, pe = of_term env pvars e t in
+        let pvars, pe = of_term ctx pvars e t in
         fold pvars (e::args_so_far) (pe::pes) xts args_left
       | ([],_::_) | (_::_,[]) ->
         Error.impossible ~loc "malformed primitive application in Pattern.of_term"
     in
     let xts =
-      begin match Env.lookup_constant x env with
+      begin match Context.lookup_constant x ctx with
       | Some (xts, _) -> xts
       | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print_ident x)
       end in
@@ -67,14 +67,14 @@ let rec of_term env pvars ((e',loc) as e) t =
       | [], [] -> pvars, all_terms, List.rev ps
       | (x, t) :: xts, e :: args_left ->
         let t = Tt.instantiate_ty args_so_far 0 t in
-        let pvars, p = of_term env pvars e t in
+        let pvars, p = of_term ctx pvars e t in
         let all_terms = (match p with Pattern.Term _ -> all_terms | _ -> false) in
         fold pvars all_terms (e::args_so_far) (p::ps) xts args_left
       | ([],_::_) | (_::_,[]) ->
         Error.impossible ~loc "malformed Pattern.spine in Pattern.of_term"
     in
 
-    let pvars, e = of_term env pvars e (Tt.mk_prod_ty ~loc xts u) in
+    let pvars, e = of_term ctx pvars e (Tt.mk_prod_ty ~loc xts u) in
     let pvars, all_terms, es = fold pvars true [] [] xts es in
     (* if [name_of_term] came back then e is a name and thus a Tt.term *)
     begin if all_terms
@@ -83,41 +83,41 @@ let rec of_term env pvars ((e',loc) as e) t =
     end
 
   | Tt.Eq (t, e1, e2) ->
-    let pvars, t' = of_ty env pvars t in
-    let pvars, e1 = of_term env pvars e1 t in
-    let pvars, e2 = of_term env pvars e2 t in
+    let pvars, t' = of_ty ctx pvars t in
+    let pvars, e1 = of_term ctx pvars e1 t in
+    let pvars, e2 = of_term ctx pvars e2 t in
     begin match t', e1, e2 with
       | Pattern.Ty (Pattern.Term _), Pattern.Term _, Pattern.Term _ -> original
       | Pattern.Ty _, _, _ -> pvars, (Pattern.Eq (t', e1, e2))
     end
 
   | Tt.Refl (t, e) ->
-    let pvars, t' = of_ty env pvars t in
-    let pvars, e = of_term env pvars e t in
+    let pvars, t' = of_ty ctx pvars t in
+    let pvars, e = of_term ctx pvars e t in
     begin match t', e with
       | Pattern.Ty (Pattern.Term _), Pattern.Term _ -> original
       | _, _ -> pvars, (Pattern.Refl (t', e))
     end
 
   | Tt.Bracket t ->
-    let pvars, t = of_ty env pvars t in
+    let pvars, t = of_ty ctx pvars t in
     begin match t with
       | Pattern.Ty (Pattern.Term _) -> original
       | _ -> pvars, (Pattern.Bracket t)
     end
 
-and of_ty env pvars (Tt.Ty t) =
-  let pvars, t = of_term env pvars t Tt.typ in
+and of_ty ctx pvars (Tt.Ty t) =
+  let pvars, t = of_term ctx pvars t Tt.typ in
   pvars, (Pattern.Ty t)
 
 (** given an abstraction [xts] with [n] elements, return the list [[0,...,{n-1}]]. *)
 let pvars_of_binders xts =
   snd (List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts)
 
-let mk_beta ~loc env (xts, (t, (e1 : Tt.term), e2)) =
+let mk_beta ~loc ctx (xts, (t, (e1 : Tt.term), e2)) =
   (* XXX here would be a good place to flatten beta patterns. *)
   let pvars = pvars_of_binders xts in
-  let pvars, p = of_term env pvars e1 t in
+  let pvars, p = of_term ctx pvars e1 t in
     match pvars with
       | [] ->
         let key = Pattern.term_key_opt e1 in
@@ -144,15 +144,15 @@ let mk_beta ~loc env (xts, (t, (e1 : Tt.term), e2)) =
         Error.runtime ~loc "this beta hint leaves some variables unmatched (%t)"
           (Print.sequence Name.print_ident "," xs)
 
-let mk_eta ~loc env (xts, (t, e1, e2)) =
+let mk_eta ~loc ctx (xts, (t, e1, e2)) =
   let pvars = pvars_of_binders xts in
   (** We should *first* turn [e1] and [e2] into patterns and only then [t]
       in case [e1] or [e2] is [pvar] which also appears in [t]. This is so because
       we want [e1] and [e2] to be distinct pattern variables.
    *)
-  let pvars, p1 = of_term env pvars e1 t in
-  let pvars, p2 = of_term env pvars e2 t in
-  let pvars, ((Pattern.Ty pt') as pt) = of_ty env pvars t in
+  let pvars, p1 = of_term ctx pvars e1 t in
+  let pvars, p2 = of_term ctx pvars e2 t in
+  let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
   let key = Pattern.ty_key_opt t in
   match has_head_name key, key, p1, p2 with
     | true, Some key, Pattern.PVar k1, Pattern.PVar k2 when k1 <> k2 ->
@@ -164,7 +164,7 @@ let mk_eta ~loc env (xts, (t, e1, e2)) =
         Error.runtime ~loc
           "the left- and right-hand side of an eta hint must be distinct variables"
 
-let mk_general ~loc env (xts, ((t : Tt.ty), e1, e2)) =
+let mk_general ~loc ctx (xts, ((t : Tt.ty), e1, e2)) =
   let pvars = pvars_of_binders xts in
 
   (* XXX when we try to apply a hint to a term, we whnf the term, so we ought
@@ -172,21 +172,21 @@ let mk_general ~loc env (xts, ((t : Tt.ty), e1, e2)) =
   (* XXX first instantiate with the abstraction. what to do wrt to the pvars?
      eventually, raise a `general_red' handler? *)
   (* let Tt.Ty (t, loc) = t in *)
-  (* let t = Equal.whnf env (t, loc) *)
-  (* and e1 = Equal.whnf env e1 *)
-  (* and e2 = Equal.whnf env e2 in *)
+  (* let t = Equal.whnf ctx (t, loc) *)
+  (* and e1 = Equal.whnf ctx e1 *)
+  (* and e2 = Equal.whnf ctx e2 in *)
   (* let t = Tt.ty t in *)
 
-  let pvars, ((Pattern.Ty pt') as pt) = of_ty env pvars t in
-  let pvars, pe1 = of_term env pvars e1 t in
-  let pvars, pe2 = of_term env pvars e2 t in
+  let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
+  let pvars, pe1 = of_term ctx pvars e1 t in
+  let pvars, pe2 = of_term ctx pvars e2 t in
   let key = Pattern.general_key e1 e2 t in
   key, (xts, (pt, pe1, pe2))
 
 
-let mk_inhabit ~loc env (xts, t) =
+let mk_inhabit ~loc ctx (xts, t) =
   let pvars = pvars_of_binders xts in
-  let pvars, ((Pattern.Ty pt') as pt) = of_ty env pvars t in
+  let pvars, ((Pattern.Ty pt') as pt) = of_ty ctx pvars t in
   match Pattern.ty_key_opt t with
   | Some key -> key, (xts, pt)
   | None -> Error.runtime ~loc "invalid inhabit hint"

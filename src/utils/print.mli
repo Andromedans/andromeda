@@ -15,7 +15,7 @@ val print :
   Format.formatter -> ('a, Format.formatter, unit) format -> 'a
 (** Each construct has a level [at_level] at which it is printed. The lower the
     level, the tighter the construct. Next, each construct is printed in some
-    environment, which determines the maximum allowed level [max_level] at which the
+    context, which determines the maximum allowed level [max_level] at which the
     construct can still be printed without putting it in parentheses.
 
     As an example, let us look at untyped lambda calculus, naively defined as

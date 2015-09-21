@@ -28,7 +28,7 @@ let mk_let ~loc w c =
 let rec comp constants bound ((c',loc) as c) =
   (* When a computation [c] is desugared we hoist out a list of
      let-bindings [w]. NB: it is important that we first desugar
-     all subexpressions of [c] so that we get the correct environment
+     all subexpressions of [c] so that we get the correct context
      with hoisted bindings, and only then we desugar the subcomputations
      of [c]. *)
   let w, c' = match c' with
@@ -361,7 +361,7 @@ let toplevel constants bound (d', loc) =
 
     | Input.Include fs -> Syntax.Include fs
 
-    | Input.Environment -> Syntax.Environment
+    | Input.Context -> Syntax.Context
 
   in
   d', loc
