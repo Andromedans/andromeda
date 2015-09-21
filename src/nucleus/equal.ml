@@ -1089,7 +1089,7 @@ let rec deep_prod ctx t f =
 
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
   | Tt.Spine _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab
-  | Tt.Bracket _ -> let t = f ctx t in
+  | Tt.Bracket _ -> let t = f ctx (Tt.ty (t', loc)) in
                     ([], t)
 
 let as_prod ctx t = deep_prod ctx t (fun ctx x -> x)
@@ -1106,7 +1106,9 @@ let as_universal_eq ctx ((Tt.Ty (_, loc)) as t) =
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
   | Tt.Spine _ | Tt.Refl _ | Tt.Inhab
   | Tt.Bracket _ ->
-     Error.typing ~loc "the type of this expression should be a universally quantified equality"
+     Error.typing ~loc
+       "the type of this expression should be a universally quantified equality, found@ %t"
+       (Tt.print_ty [] t)
 
 let as_universal_bracket ctx ((Tt.Ty (_, loc)) as t) =
   deep_prod
