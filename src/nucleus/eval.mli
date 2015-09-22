@@ -7,6 +7,10 @@ val comp : Environment.t -> Syntax.comp -> Value.result
     its value, or triggers a runtime error if the result is an operation. *)
 val comp_value : Environment.t -> Syntax.comp -> Value.value
 
-(** [ty env c] evaluates computation [c] in environment [env],
+(** [comp_term env c] evaluates computation [c] in environment [env],
+    checks that the result is a term and returns it. *)
+val comp_term : Environment.t -> Syntax.comp -> Judgement.term
+
+(** [comp_ty env c] evaluates computation [c] in environment [env],
     checks that the result is a type and returns it. *)
-val ty : Environment.t -> Syntax.comp -> Tt.ty
+val comp_ty : Environment.t -> Syntax.comp -> Judgement.ty

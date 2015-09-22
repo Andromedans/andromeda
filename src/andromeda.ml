@@ -107,12 +107,12 @@ let rec exec_cmd base_dir interactive env c =
   | Syntax.Axiom (x, yts, u) ->
     let rec fold env zs yts' = function
       | [] ->
-        let u = Eval.ty env u in
+        let u = Eval.comp_ty env u in
         let u = Tt.abstract_ty zs 0 u in
         let yts' = List.rev yts' in
         (yts', u)
       | (y, reducing, t)::yts ->
-        let t = Eval.ty env t in
+        let t = Eval.comp_ty env t in
         let z, env = Environment.add_fresh ~loc env y t in
         let t = Tt.abstract_ty zs 0 t in
         fold env (z::zs) ((y, (reducing, t)) :: yts') yts
@@ -132,10 +132,10 @@ let rec exec_cmd base_dir interactive env c =
   | Syntax.TopCheck c ->
      let v =
        begin match Eval.comp_value env c with
-             | Value.Judge (e, t) ->
+             | Value.Term (e, t) ->
                 let e = Simplify.simplify env e
                 and t = Simplify.simplify_ty env t in
-                  Value.Judge (e, t)
+                  Value.Term (e, t)
              | v -> v
        end
      in
@@ -154,7 +154,7 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_beta_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (_,t) = Value.as_judge ~loc (Eval.comp_value env c) in
+         let (_,t) = Eval.comp_term env c in
          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          let h = Hint.mk_beta ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
@@ -172,7 +172,7 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_eta_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (_,t) = Value.as_judge ~loc (Eval.comp_value env c) in
+         let (_, t) = Eval.comp_term env c in
          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          let h = Hint.mk_eta ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
@@ -190,7 +190,7 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (_,t) = Value.as_judge ~loc (Eval.comp_value env c) in
+         let (_,t) = Eval.comp_term env c in
          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          let h = Hint.mk_general ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
@@ -208,7 +208,7 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_inhabit_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (_,t) = Value.as_judge ~loc (Eval.comp_value env c) in
+         let (_,t) = Eval.comp_term env c in
          let (xts, u) = Equal.as_universal_bracket env t in
          let h = Hint.mk_inhabit ~loc env (xts, u) in
          fold ((xs,h) :: xshs) xscs

@@ -13,6 +13,9 @@ val equal_ty : Environment.t -> Tt.ty -> Tt.ty -> bool
 (** [whnf env e] reduces expression [e], assuming that it has a type. *)
 val whnf : Environment.t -> Tt.term -> Tt.term
 
+(** [whnf_ty env t] reduces type [t], assuming that it is a type. *)
+val whnf_ty : Environment.t -> Tt.ty -> Tt.ty
+
 (** Convert a type to a product. *)
 val as_prod : Environment.t -> Tt.ty -> (Tt.ty, Tt.ty) Tt.abstraction
 

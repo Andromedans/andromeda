@@ -1,7 +1,8 @@
 (** Runtime values and results *)
 
 type value =
-  | Judge of Tt.term * Tt.ty (** A judgement [e : t] where [e] is guaranteed to have the type [t]. *)
+  | Term of Judgement.term
+  | Ty of Judgement.ty
   | Closure of closure
   | Handler of handler
 
@@ -26,39 +27,46 @@ let rec bind r f =
   | Return v -> f v
   | Operation (op, v, k) -> Operation (op, v, fun x -> (bind (k x) f))
 
-let print_judge ?max_level xs (e,t) ppf =
-  Print.print ~at_level:0 ppf "@[<hov 2>%t@\n    : %t@]"
-              (Tt.print_term ~max_level:999 xs e)
-              (Tt.print_ty ~max_level:999 xs t)
-
-let print_closure ?max_level xs _ ppf =
+let print_closure xs _ ppf =
   Print.print ~at_level:0 ppf "<function>"
 
-let print_handler ?max_level xs h ppf =
+let print_handler xs h ppf =
   Print.print ~at_level:0 ppf "<handler>" (* XXX improve in your spare time *)
 
 let print ?max_level xs v ppf =
   match v with
-  | Judge (e, t) -> print_judge ?max_level xs (e, t) ppf
-  | Closure f -> print_closure ?max_level xs f ppf
-  | Handler h -> print_handler ?max_level xs h ppf
+  | Term e -> Judgement.print_term xs e ppf
+  | Ty t -> Judgement.print_ty xs t ppf
+  | Closure f -> print_closure xs f ppf
+  | Handler h -> print_handler xs h ppf
 
-let as_judge ~loc = function
-  | Judge (e, t) -> (e, t)
+let as_term ~loc = function
+  | Term e -> e
+  | Ty (Tt.Ty t) -> Judgement.mk_term t Tt.typ
+  | Closure _ -> Error.runtime ~loc "expected a judgment but got a function"
+  | Handler _ -> Error.runtime ~loc "expected a judgment but got a handler"
+
+let as_ty ~loc = function
+  | Term _ -> Error.runtime ~loc "expected a type but got a term"
+  | Ty t -> t
   | Closure _ -> Error.runtime ~loc "expected a judgment but got a function"
   | Handler _ -> Error.runtime ~loc "expected a judgment but got a handler"
 
 let as_closure ~loc = function
-  | Judge (e,t) -> Error.runtime ~loc "expected a function but got a judgement %t" (print_judge [] (e,t))
+  | Term _ -> Error.runtime ~loc "expected a type but got a term"
+  | Ty _ -> Error.runtime ~loc "expected a term but got a type"
   | Closure f -> f
   | Handler _ -> Error.runtime ~loc "expected a function but got a handler"
 
 let as_handler ~loc = function
-  | Judge (e,t) -> Error.runtime ~loc "expected a handler but got a judgement %t" (print_judge [] (e,t))
+  | Term _ -> Error.runtime ~loc "expected a type but got a term"
+  | Ty _ -> Error.runtime ~loc "expected a term but got a type"
   | Closure _ -> Error.runtime ~loc "expected a handler but got a function"
   | Handler h -> h
 
-let return_judge e t = Return (Judge (e, t))
+let return_term e = Return (Term e)
+
+let return_ty t = Return (Ty t)
 
 let to_value ~loc = function
   | Return v -> v

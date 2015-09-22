@@ -157,7 +157,7 @@ let add_bound x v env =
     NB: This is an effectful computation. *)
 let add_fresh ~loc env x t =
   let y = Name.fresh x in
-  let yt = Value.Judge (Tt.mk_atom ~loc y, t) in
+  let yt = Value.Term (Tt.mk_atom ~loc y, t) in
   let env = add_bound x yt env in
   y, env
 

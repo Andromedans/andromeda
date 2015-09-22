@@ -7,7 +7,8 @@
     term and [t] is a type. Such a value (in a given context [ctx]) indicates
     that the judgement [ctx |- e : t] is derivable. *)
 type value =
-  | Judge of Tt.term * Tt.ty
+  | Term of Judgement.term
+  | Ty of Judgement.ty
   | Closure of closure
   | Handler of handler
 
@@ -27,22 +28,18 @@ and handler = {
   handler_finally: closure option;
 }
 
-val as_judge : loc:Location.t -> value -> Tt.term * Tt.ty
+val as_term : loc:Location.t -> value -> Judgement.term
+val as_ty : loc:Location.t -> value -> Judgement.ty
 val as_closure : loc:Location.t -> value -> closure
 val as_handler : loc:Location.t -> value -> handler
 
-val return_judge : Tt.term -> Tt.ty -> result
+val return_term : Judgement.term -> result
+val return_ty : Judgement.ty -> result
 
 val bind: result -> closure -> result
 
 (** Pretty-print a value. *)
 val print : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
-
-(** Pretty-print a judgement. *)
-val print_judge : ?max_level:int -> Name.ident list -> Tt.term * Tt.ty -> Format.formatter -> unit
-
-(** Ugly-print a closure. *)
-val print_closure : ?max_level:int -> Name.ident list -> closure -> Format.formatter -> unit
 
 (** Check that a result is a value and return it, or complain. *)
 val to_value : loc:Location.t -> result -> value
