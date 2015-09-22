@@ -34,7 +34,7 @@ and comp' =
   | Lambda of (Name.ident * comp option) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
                                  to evaluate in checking mode, once we know their types. *)
-  | Prod of (Name.ident * ty) list * comp (* XXX turn the ty into comp *)
+  | Prod of (Name.ident * comp) list * comp
   | Eq of comp * comp
   | Refl of comp
   | Bracket of comp

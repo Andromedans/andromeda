@@ -34,7 +34,7 @@ and comp' =
   | Lambda of (Name.ident * comp option) list * comp
   | Spine of expr * comp list (* spine arguments are computations because we want
                                  to evaluate in checking mode, once we know their types. *)
-  | Prod of (Name.ident * ty) list * comp (* XXX turn the ty into comp *)
+  | Prod of (Name.ident * comp) list * comp
   | Eq of comp * comp
   | Refl of comp
   | Bracket of comp
@@ -150,9 +150,9 @@ let rec shift_comp k lvl (c', loc) =
             let xes' = List.rev xes'
             and c = shift_comp k lvl c in
             Prod (xes', c)
-         | (x,e) :: xes ->
-            let e = shift_expr k lvl e in
-            fold (lvl+1) ((x,e) :: xes') xes
+         | (x,c) :: xes ->
+            let c = shift_comp k lvl c in
+            fold (lvl+1) ((x,c) :: xes') xes
        in
        fold lvl [] xes
 

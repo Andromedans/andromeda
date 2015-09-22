@@ -168,11 +168,13 @@ and infer env (c',loc) =
             let e = Tt.mk_prod ~loc xts u
             and t = Tt.mk_type_ty ~loc in
             Value.return_judge e t)
-      | (x,t) :: abs ->
-        let t = expr_ty env t in
-        let y, env = Environment.add_fresh ~loc env x t in
-        let t = Tt.abstract_ty ys 0 t in
-          fold env (y::ys) (xts @ [(x,t)]) abs
+      | (x,c) :: abs ->
+         check_ty env c >>= as_judge ~loc:(snd c)
+           (fun e _ ->
+              let t = Tt.ty e in
+              let y, env = Environment.add_fresh ~loc env x t in
+              let t = Tt.abstract_ty ys 0 t in
+              fold env (y::ys) (xts @ [(x,t)]) abs)
     in
       fold env [] [] abs
 

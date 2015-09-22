@@ -139,20 +139,9 @@ let rec comp constants bound ((c',loc) as c) =
            let c = comp constants bound c in
            mk_prod ys c
         | (x,t) :: xs ->
-          begin
-            match expr constants bound t with
-            | [], t ->
-              let bound = add_bound x bound
-              and ys = (x,t) :: ys in
-              fold bound ys xs
-            | w, ((_,loc) as t) ->
-              let c = fold (add_bound x bound) [] xs in
-              let c = Syntax.shift_comp (List.length w) 1 (c,loc) in
-              let c = (Syntax.Prod ([(x,t)], c), loc) in
-              let c = mk_let ~loc:(snd t) w c in
-              let ys = List.rev ys in
-              mk_prod ys c
-          end
+          let ys = (let t = comp constants bound t in (x, t) :: ys)
+          and bound = add_bound x bound in
+          fold bound ys xs
       in
       [], fold bound [] xs
 
