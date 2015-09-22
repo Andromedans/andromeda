@@ -266,6 +266,7 @@ and use_file ctx (filename, limit, interactive) =
 
 (** Interactive toplevel *)
 let toplevel ctx =
+  print_endline (Haiku.choose ()) ;
   Format.printf "Andromeda %s@\n[Type #help for help.]@." Build.version ;
   try
     let ctx = ref ctx in
