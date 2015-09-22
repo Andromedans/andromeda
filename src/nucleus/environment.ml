@@ -11,7 +11,6 @@ module GeneralMap = Map.Make(struct
 (** An environment holds constant signatures, hints and other. *)
 type t = {
   constants : (Name.ident * Tt.constsig) list;
-  atoms : (Name.atom * Tt.ty) list;
   bound : (Name.ident * Value.value) list;
   beta : (string list list * Pattern.beta_hint list) HintMap.t;
   eta : (string list list * Pattern.eta_hint list) HintMap.t;
@@ -23,7 +22,6 @@ type t = {
 (** The empty environment *)
 let empty = {
   constants = [];
-  atoms = [];
   bound = [] ;
   beta = HintMap.empty ;
   eta = HintMap.empty ;
@@ -161,7 +159,6 @@ let add_fresh ~loc env x t =
   let y = Name.fresh x in
   let yt = Value.Judge (Tt.mk_atom ~loc y, t) in
   let env = add_bound x yt env in
-  let env = {env with atoms = (y, t) :: env.atoms} in
   y, env
 
 let add_file f env =
