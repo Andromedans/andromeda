@@ -138,10 +138,12 @@ and infer env (c',loc) =
       Value.return_term et)
 
   | Syntax.Typeof c ->
+    (* In future versions this is going to be a far less trivial computation,
+       as it might actually fail when there is no way to name a type with a term. *)
     infer env c >>= as_term ~loc
-    (fun _ t ->
-     let t = Judgement.mk_ty t in
-     Value.return_ty t)
+    (fun _ (Tt.Ty t) ->
+     let j = Judgement.mk_term t Tt.typ in
+         Value.return_term j)
 
   | Syntax.Ascribe (c, t) ->
      let t = expr_ty env t in

@@ -3,14 +3,14 @@ P is assumed.
 a is assumed.
 b is assumed.
 A
-      type
+      : Type
 Type
-      type
+      : Type
 Type
-      type
+      : Type
 P a
-      type
+      : Type
 b
       : P a
 Type
-      type
+      : Type
