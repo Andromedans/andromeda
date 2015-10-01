@@ -20,14 +20,8 @@
               ;; below.
               (if (not m31-project-find-file)
                   (setq compile-command (concat "make -C " m31-root-directory))
-
-                ;; Set default directory to m31 root ONLY IF variable
-                ;; m31-project-find-file is non nil. This should remain a
-                ;; user preference and not be set by default. This setting
-                ;; is redundant with compile-command above as M-x compile
-                ;; always CD's to default directory. To enable it add this
-                ;; to your emacs config: (setq m31-project-find-file t)
-                (setq default-directory m31-root-directory)))
+              (add-to-list (quote compilation-search-path) andromeda-root-directory))
+              ))
             (setq m31-executable (concat m31-root-directory "andromeda.byte")))))))
  (tuareg-mode
   (show-trailing-whitespace . t))
