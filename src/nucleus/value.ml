@@ -43,24 +43,24 @@ let print ?max_level xs v ppf =
 let as_term ~loc = function
   | Term e -> e
   | Ty (Tt.Ty t) -> Judgement.mk_term t Tt.typ
-  | Closure _ -> Error.runtime ~loc "expected a judgment but got a function"
-  | Handler _ -> Error.runtime ~loc "expected a judgment but got a handler"
+  | Closure _ -> Error.runtime ~loc "expected a term but got a function"
+  | Handler _ -> Error.runtime ~loc "expected a term but got a handler"
 
 let as_ty ~loc = function
   | Term _ -> Error.runtime ~loc "expected a type but got a term"
   | Ty t -> t
-  | Closure _ -> Error.runtime ~loc "expected a judgment but got a function"
-  | Handler _ -> Error.runtime ~loc "expected a judgment but got a handler"
+  | Closure _ -> Error.runtime ~loc "expected a type but got a function"
+  | Handler _ -> Error.runtime ~loc "expected a type but got a handler"
 
 let as_closure ~loc = function
-  | Term _ -> Error.runtime ~loc "expected a type but got a term"
-  | Ty _ -> Error.runtime ~loc "expected a term but got a type"
+  | Term _ -> Error.runtime ~loc "expected a function but got a term"
+  | Ty _ -> Error.runtime ~loc "expected a function but got a type"
   | Closure f -> f
   | Handler _ -> Error.runtime ~loc "expected a function but got a handler"
 
 let as_handler ~loc = function
-  | Term _ -> Error.runtime ~loc "expected a type but got a term"
-  | Ty _ -> Error.runtime ~loc "expected a term but got a type"
+  | Term _ -> Error.runtime ~loc "expected a handler but got a term"
+  | Ty _ -> Error.runtime ~loc "expected a handler but got a type"
   | Closure _ -> Error.runtime ~loc "expected a handler but got a function"
   | Handler h -> h
 

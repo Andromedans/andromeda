@@ -78,14 +78,14 @@ and expr_ty env ((_,loc) as e) =
                      "this expression should be a type but its type is %t"
                      (print_ty env t)
   | Value.Handler _ -> Error.runtime ~loc "this expression should be a type but is a handler"
-  | Value.Closure _ -> Error.runtime ~loc "this expression should be a type but is a handler"
+  | Value.Closure _ -> Error.runtime ~loc "this expression should be a type but is a closure"
 
 and expr_term env ((_,loc) as e) =
   match expr env e with
   | Value.Ty (Tt.Ty t) -> Judgement.mk_term t Tt.typ
   | Value.Term et -> et
   | Value.Handler _ -> Error.runtime ~loc "this expression should be a term but is a handler"
-  | Value.Closure _ -> Error.runtime ~loc "this expression should be a term but is a handler"
+  | Value.Closure _ -> Error.runtime ~loc "this expression should be a term but is a closure"
 
 (** Evaluate a computation -- infer mode. *)
 and infer env (c',loc) =
