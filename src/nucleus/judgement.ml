@@ -1,6 +1,6 @@
-type term = Tt.term * Tt.ty
+type term = Context.t * Tt.term * Tt.ty
 
-type ty = Tt.ty
+type ty = Context.t * Tt.ty
 
 let mk_term ctx e t = (ctx, e, t)
 

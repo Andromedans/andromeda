@@ -104,24 +104,38 @@ let rec exec_cmd base_dir interactive env c =
   let (c', loc) = Desugar.toplevel (Environment.constants env) (Environment.bound_names env) c in
   match c' with
 
-  | Syntax.Axiom (x, yts, u) ->
-    let rec fold env zs yts' = function
-      | [] ->
-        let u = Eval.comp_ty env u in
-        let u = Tt.abstract_ty zs 0 u in
-        let yts' = List.rev yts' in
-        (yts', u)
-      | (y, reducing, t)::yts ->
-        let t = Eval.comp_ty env t in
-        let z, env = Environment.add_fresh ~loc env y t in
-        let t = Tt.abstract_ty zs 0 t in
-        fold env (z::zs) ((y, (reducing, t)) :: yts') yts
-    in
-    let ytsu = fold env [] [] yts in
-    let env = Environment.add_constant x ytsu env in
-    if interactive then
-      Format.printf "%t is assumed.@." (Name.print_ident x) ;
-    env
+  | Syntax.Axiom (x, yus, v) ->
+     let ctx, yusv = Eval.abstract
+       ~eval_u:(fun env (reducing, u) -> let u = Eval.comp_ty env u in (reducing, u))
+       ~eval_v:Eval.comp_ty
+       ~abstract_u:()
+       ~abstract_v:()
+       env
+       yus v
+     in
+     let env = Environment.add_constant x yusv env in
+     if interactive then
+       Format.printf "%t is assumed.@." (Name.print_ident x) ;
+     env
+
+
+    (* let rec fold env zs yts' = function *)
+    (*   | [] -> *)
+    (*     let u = Eval.comp_ty env u in *)
+    (*     let u = Tt.abstract_ty zs 0 u in *)
+    (*     let yts' = List.rev yts' in *)
+    (*     (yts', u) *)
+    (*   | (y, reducing, t)::yts -> *)
+    (*     let t = Eval.comp_ty env t in *)
+    (*     let z, env = Environment.add_fresh ~loc env y t in *)
+    (*     let t = Tt.abstract_ty zs 0 t in *)
+    (*     fold env (z::zs) ((y, (reducing, t)) :: yts') yts *)
+    (* in *)
+    (* let ytsu = fold env [] [] yts in *)
+    (* let env = Environment.add_constant x ytsu env in *)
+    (* if interactive then *)
+    (*   Format.printf "%t is assumed.@." (Name.print_ident x) ; *)
+    (* env *)
 
   | Syntax.TopLet (x, c) ->
      let v = Eval.comp_value env c in

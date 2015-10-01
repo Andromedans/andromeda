@@ -23,6 +23,22 @@ let as_ty ~loc k v =
   let t = Value.as_ty ~loc v in
     k t
 
+let abstract ~type_u ~eval_u ~eval_v ~abstract_u ~abstract_v env xus v =
+  let rec fold env zs xws = function
+      | [] ->
+         let v = eval_v env v in
+         let v = abstract_v zs v in
+         let xws = List.rev xws in
+         (xws, v)
+      | (x, u) :: xus ->
+         let w = eval_u env u in
+         (* XXX equip x with location and use for [~loc]. *)
+         let z, env = Environment.add_fresh ~loc:Location.unknown env x (type_u w) in
+         let w = abstract_u zs w in
+         fold env (z :: zs) ((x, w) :: xws) xus
+  in
+  fold env [] [] xus
+
 (** Evaluation of expressions. *)
 let rec expr env (e',loc) =
   let close x c v =

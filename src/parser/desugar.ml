@@ -304,7 +304,7 @@ let toplevel constants bound (d', loc) =
         | (y, reducing, t) :: yts ->
           let t = comp constants bound t in
           let bound = add_bound y bound
-          and yts' = (y, reducing, t) :: yts' in
+          and yts' = (y, (reducing, t)) :: yts' in
           fold bound yts' yts
       in
       let yts, u = fold bound [] yts in

@@ -49,7 +49,7 @@ and handler = {
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Axiom of Name.ident * (Name.ident * bool * comp) list * comp (** introduce a constant *)
+  | Axiom of Name.ident * (Name.ident * (bool * comp)) list * comp (** introduce a constant *)
   | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of (string list * comp) list

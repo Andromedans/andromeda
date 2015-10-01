@@ -37,17 +37,17 @@ and term' = private
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
       [tk] depends on [x1, ..., x{k-1}], while [e] and [t] depend on
       [x1, ..., xn] *)
-  | Lambda of (ty, term * ty) abstraction
+  | Lambda of (ty, unit, term * ty) abstraction
 
   (** a spine [e ((x1 : t1) ..., (xn : tn) : t) e1 ... en] means that
       [e] is applied to [e1, ..., en], and that the type of [e] is
       [forall (x1 : t1) ... (xn : tn), t]. Here [tk] depends on
       [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Spine of term * (ty, ty) abstraction * term list
+  | Spine of term * (ty, unit, ty) abstraction * term list
 
   (** a dependent product [forall (x1 : t1) ... (xn : tn), t], where [tk]
       depends on [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Prod of (ty, ty) abstraction
+  | Prod of (ty, unit, ty) abstraction
 
   (** strict equality type [e1 == e2] where [e1] and [e2] have type [t]. *)
   | Eq of ty * term * term
@@ -69,11 +69,11 @@ and ty = private
 
 (** An [(A,B) abstraction] is a [B] bound by [x1:a1, ..., xn:an] where
     the [a1, ..., an] have type [A]. *)
-and ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
+and ('ty, 'tag, 'body) abstraction = (Name.ident * ('ty * 'tag)) list * 'body
 
 (** The signature of a constant. The booleans indicate whether the arguments
     should be eagerly reduced. *)
-type constsig = (bool * ty, ty) abstraction
+type constsig = (ty, bool, ty) abstraction
 
 
 (** Term constructors, the do not check for legality of constructions. *)
@@ -108,7 +108,7 @@ val instantiate_abstraction:
   (term list -> int -> 'v -> 'v) ->
   term list ->
   int ->
-  ('u, 'v) abstraction -> ('u, 'v) abstraction
+  ('u, 't 'v) abstraction -> ('u, 't, 'v) abstraction
 
 val instantiate_ty: term list -> int -> ty -> ty
 
@@ -131,7 +131,7 @@ val abstract_ty : Name.atom list -> int -> ty -> ty
 val abstract_abstraction :
   (Name.atom list -> int -> 'u -> 'u) ->
   (Name.atom list -> int -> 'v -> 'v) ->
-  Name.atom list -> int -> ('u, 'v) abstraction -> ('u, 'v) abstraction
+  Name.atom list -> int -> ('u, 't, 'v) abstraction -> ('u, 't, 'v) abstraction
 
 (** [shift k lvl e] adds [k] all bound variables in [e] that are greater than or equal
     to [lvl]. This is used when a term descends into an extended environment (so its
