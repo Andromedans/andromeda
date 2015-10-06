@@ -1094,6 +1094,19 @@ let rec deep_prod env t f =
 
 let as_prod env t = deep_prod env t (fun env x -> x)
 
+let as_eq env ((Tt.Ty (_, loc)) as t) =
+  let Tt.Ty (t', _) =  whnf_ty env t in
+  match t' with
+
+  | Tt.Eq (t, e1, e2) -> (t, e1, e2)
+
+  | Tt.Prod _ | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
+  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _ ->
+     Error.typing ~loc
+       "this expression should be an equality type, found@ %t"
+       (Tt.print_ty [] t)
+
+
 let as_universal_eq env ((Tt.Ty (_, loc)) as t) =
   let (xus, (Tt.Ty (t', loc) as t)) = as_prod env t in
   match t' with

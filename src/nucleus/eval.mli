@@ -8,7 +8,7 @@ val abstract :
   (Name.ident * Syntax.comp) list -> 'b -> (Name.ident * Tt.ty) list * 'e
 
 (** [comp env c] evaluates computation [c] in environment [env]. *)
-val comp : Environment.t -> Syntax.comp -> Value.result
+val comp : Environment.t -> Syntax.comp -> Value.value Value.result
 
 (** [comp_value env] evaluates computation [c] in environment [env] and returns
     its value, or triggers a runtime error if the result is an operation. *)
