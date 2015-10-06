@@ -7,12 +7,14 @@ type pty = Tt.ty
 
 type pterm = Tt.term
 
+type 'a pabstraction = (Name.ident * pty) list * 'a
+
 (** The type of term patterns. *)
 type term =
   | PVar of Syntax.bound
   | Atom of Name.atom
   | Constant of Name.ident * term list
-  | Spine of term * (pty, pty) Tt.abstraction * term list
+  | Spine of term * pty pabstraction * term list
   | Bracket of ty
   | Eq of ty * term * term
   | Refl of ty * term
@@ -22,27 +24,27 @@ type term =
 and ty = Ty of term
 
 (** A pattern is given as an abstraction of a term pattern *)
-type t = (Tt.ty, term) Tt.abstraction
+type t = term pabstraction
 
 (** A beta hint is an abstracted term pattern and a term. We match against
     the pattern and rewrite into the term. *)
 type beta_pattern =
   | BetaAtom of Name.atom
   | BetaConstant of Name.ident * term list
-  | BetaSpine of term * (pty, pty) Tt.abstraction * term list
+  | BetaSpine of term * pty pabstraction * term list
 
-type beta_hint = (Tt.ty, beta_pattern * Tt.term) Tt.abstraction
+type beta_hint = (beta_pattern * Tt.term) pabstraction
 
 (** An eta hint is an abstracted type pattern together with variables that match
     the lhs and rhs of an equation. *)
-type eta_hint = (Tt.ty, ty * Syntax.bound * Syntax.bound) Tt.abstraction
+type eta_hint = (ty * Syntax.bound * Syntax.bound) pabstraction
 
 (** A general hint is an abstracted triple of patterns that match the type and both
     sides of equation. *)
-type general_hint = (Tt.ty, ty * term * term) Tt.abstraction
+type general_hint = (ty * term * term) pabstraction
 
 (** An inhabit hint is a universally quantified type. *)
-type inhabit_hint = (Tt.ty, ty) Tt.abstraction
+type inhabit_hint = ty pabstraction
 
 (** To each pattern and whnf term we associate a hint key in such a way that
     a pattern and a term match only if their hint keys are equal. This way we

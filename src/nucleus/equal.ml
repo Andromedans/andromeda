@@ -4,7 +4,7 @@
     Pattern matching generates these. *)
 type check =
   | CheckEqual of Pattern.pterm * Tt.term * Tt.ty (* compare terms at a type *)
-  | CheckEqualTy of (Pattern.pty * Tt.ty, Pattern.pty * Tt.ty) Tt.abstraction (* compare types in context *)
+  | CheckEqualTy of Pattern.pty Pattern.pabstraction * Tt.ty Tt.abstraction (* compare types in context *)
   | CheckAlphaEqual of Pattern.pterm * Tt.term (* compare terms for alpha equality *)
 
 (* counter for debugging depth  *)

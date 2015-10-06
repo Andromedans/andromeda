@@ -99,10 +99,9 @@ let rec comp constants bound ((c',loc) as c) =
       [], Syntax.Unhint (xs, c)
 
     | Input.Ascribe (c, t) ->
-      let w, t = expr constants bound t in
-      let c = comp constants bound c in
-      let c = Syntax.shift_comp (List.length w) 0 c in
-      w, Syntax.Ascribe (c, t)
+       let t = comp constants bound t
+       and c = comp constants bound c in
+       [], Syntax.Ascribe (c, t)
 
     | Input.Whnf c ->
       let c = comp constants bound c in

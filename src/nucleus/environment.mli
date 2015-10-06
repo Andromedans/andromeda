@@ -34,7 +34,7 @@ val inhabit_hints : Pattern.hint_key -> t -> Pattern.inhabit_hint list
 
 (** [add_fresh ~loc env x t] generates a fresh atom [y] from identifier [x]. Return [y] and
     the environment updated with [x] bound to [y:t]. *)
-val add_fresh: loc:Location.t -> t -> Name.ident -> Tt.ty -> Name.atom * t
+val add_fresh: loc:Location.t -> t -> Name.ident -> Judgement.ty -> Name.atom * t
 
 (** Add a constant of a given signature to the environment.
     Fails if the constant is already bound. *)

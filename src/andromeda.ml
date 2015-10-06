@@ -105,15 +105,16 @@ let rec exec_cmd base_dir interactive env c =
   match c' with
 
   | Syntax.Axiom (x, yus, v) ->
-     let ctx, yusv = Eval.abstract
-       ~eval_u:(fun env (reducing, u) -> let u = Eval.comp_ty env u in (reducing, u))
-       ~eval_v:Eval.comp_ty
-       ~abstract_u:()
-       ~abstract_v:()
-       env
-       yus v
+     let rs = List.map (fun (_, (b, _)) -> b) yus
+     and yus = List.map (fun (y, (_, u)) -> (y,u)) yus in
+     let ctx, yusv =
+       Eval.abstract
+         ~eval_v:Eval.comp_ty
+         ~abstract_v:(fun _ -> failwith "andromeda.ml Axiom")
+         env
+         yus v
      in
-     let env = Environment.add_constant x yusv env in
+     let env = Environment.add_constant x (rs, yusv) env in
      if interactive then
        Format.printf "%t is assumed.@." (Name.print_ident x) ;
      env
@@ -146,10 +147,17 @@ let rec exec_cmd base_dir interactive env c =
   | Syntax.TopCheck c ->
      let v =
        begin match Eval.comp_value env c with
-             | Value.Term (e, t) ->
-                let e = Simplify.simplify env e
-                and t = Simplify.simplify_ty env t in
-                  Value.Term (e, t)
+             | Value.Ty (ctx, t) ->
+                let ctx = Simplify.context env ctx in
+                let t = Simplify.ty env t in
+                let j = Judgement.mk_ty ctx t in
+                Value.Ty j
+             | Value.Term (ctx, e, t) ->
+                let ctx = Simplify.context env ctx in
+                let e = Simplify.term env e
+                and t = Simplify.ty env t in
+                let j = Judgement.mk_term ctx e t in
+                  Value.Term j
              | v -> v
        end
      in
@@ -168,7 +176,8 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_beta_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (_,t) = Eval.comp_term env c in
+         let (ctx,_,t) = Eval.comp_term env c in
+         ignore (failwith "Andromeda.TopBeta: should check that ctx is empty or something.");
          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          let h = Hint.mk_beta ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
@@ -186,7 +195,8 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_eta_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (_, t) = Eval.comp_term env c in
+         let (ctx, _, t) = Eval.comp_term env c in
+         ignore (failwith "Andromeda.TopEta: should check that ctx is empty or something.") ;
          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          let h = Hint.mk_eta ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
@@ -204,7 +214,8 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (_,t) = Eval.comp_term env c in
+         let (ctx, _,t) = Eval.comp_term env c in
+         ignore (failwith "Andromeda.TopHint: should check that ctx is empty or something.") ;
          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          let h = Hint.mk_general ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
@@ -222,7 +233,8 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_inhabit_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (_,t) = Eval.comp_term env c in
+         let (ctx,_,t) = Eval.comp_term env c in
+         ignore (failwith "Andromeda.TopInhabit: should check that ctx is empty or something.") ;
          let (xts, u) = Equal.as_universal_bracket env t in
          let h = Hint.mk_inhabit ~loc env (xts, u) in
          fold ((xs,h) :: xshs) xscs

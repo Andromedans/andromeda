@@ -40,7 +40,7 @@ let rec of_term env pvars ((e',loc) as e) t =
     let rec fold pvars args_so_far pes xts args_left =
       match xts, args_left with
       | [], [] -> pvars, List.rev pes
-      | (x, (_,t)) :: xts, e :: args_left ->
+      | (x, t) :: xts, e :: args_left ->
         let t = Tt.instantiate_ty args_so_far 0 t in
         let pvars, pe = of_term env pvars e t in
         fold pvars (e::args_so_far) (pe::pes) xts args_left
@@ -49,8 +49,8 @@ let rec of_term env pvars ((e',loc) as e) t =
     in
     let xts =
       begin match Environment.lookup_constant x env with
-      | Some (xts, _) -> xts
-      | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print_ident x)
+      | Some (_, (xts, _)) -> xts
+      | None -> Error.impossible "Hint.of_term, unknown primitive operation %t" (Name.print_ident x)
       end in
     let pvars, pes = fold pvars [] [] xts es in
     pvars, Pattern.Constant (x, pes)

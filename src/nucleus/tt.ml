@@ -48,10 +48,9 @@ and term' =
     However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
 and ty = Ty of term
 
-(** The auxiliary type of abstractions discussed above. *)
-and ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
+and 'a abstraction = (Name.ident * ty) list * 'a
 
-type constsig = (bool * ty, ty) abstraction
+type constsig = bool list * ty abstraction
 
 (** Unicode and ascii version of symbols *)
 

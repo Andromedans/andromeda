@@ -27,7 +27,7 @@ and comp' =
   | Hint of (string list * comp) list * comp
   | Inhabit of (string list * comp) list * comp
   | Unhint of string list * comp
-  | Ascribe of comp * ty
+  | Ascribe of comp * comp
   | Whnf of comp
   | Typeof of comp
   | Constant of Name.ident * comp list
