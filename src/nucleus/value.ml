@@ -3,19 +3,19 @@
 type value =
   | Term of Judgement.term
   | Ty of Judgement.ty
-  | Closure of value closure
+  | Closure of closure
   | Handler of handler
 
-and 'value closure = 'value -> 'value result
+and closure = value -> value result
 
-and 'value result =
-  | Return of 'value
-  | Operation of string * value * 'value closure
+and 'a result =
+  | Return of 'a
+  | Operation of string * value * (value -> 'a result)
 
 and handler = {
-  handler_val: (value closure) option;
+  handler_val: closure option;
   handler_ops: (string * (value -> value -> value result)) list;
-  handler_finally: (value closure) option;
+  handler_finally: closure option;
 }
 
 (** The monadic bind [bind r f] feeds the result [r : result]

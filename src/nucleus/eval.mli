@@ -1,19 +1,20 @@
 (** Evaluation of computations *)
 
-(** Abstract a judgment. *)
-val abstract :
-  eval_v:(Environment.t -> 'b -> 'c) ->
-  abstract_v:(Name.atom list -> 'c -> 'e) ->
-  Environment.t ->
-  (Name.ident * Syntax.comp) list -> 'b -> (Name.ident * Tt.ty) list * 'e
-
 (** [beta_bind env lst] evaluates the beta hints given in [lst] and returns
     the environment [env] extended with the hints. *)
 val beta_bind : Environment.t -> (string list * Syntax.comp) list -> Environment.t Value.result
 
-(** [eta_bind env lst] evaluates the beta hints given in [lst] and returns
+(** [eta_bind env lst] evaluates the eta hints given in [lst] and returns
     the environment [env] extended with the hints. *)
 val eta_bind : Environment.t -> (string list * Syntax.comp) list -> Environment.t Value.result
+
+(** [hint_bind env lst] evaluates the general hints given in [lst] and returns
+    the environment [env] extended with the hints. *)
+val hint_bind : Environment.t -> (string list * Syntax.comp) list -> Environment.t Value.result
+
+(** [inhabit_bind env lst] evaluates the inhabit hints given in [lst] and returns
+    the environment [env] extended with the hints. *)
+val inhabit_bind : Environment.t -> (string list * Syntax.comp) list -> Environment.t Value.result
 
 (** [comp env c] evaluates computation [c] in environment [env]. *)
 val comp : Environment.t -> Syntax.comp -> Value.value Value.result

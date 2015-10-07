@@ -27,7 +27,7 @@ and comp' =
   | Hint of (string list * comp) list * comp
   | Inhabit of (string list * comp) list * comp
   | Unhint of string list * comp
-  | Ascribe of comp * ty
+  | Ascribe of comp * comp
   | Whnf of comp
   | Typeof of comp
   | Constant of Name.ident * comp list
@@ -114,10 +114,10 @@ let rec shift_comp k lvl (c', loc) =
        let c = shift_comp k lvl c in
        Unhint (xs, c)
 
-    | Ascribe (c, e) ->
-       let c = shift_comp k lvl c
-       and e = shift_expr k lvl e in
-       Ascribe (c, e)
+    | Ascribe (c1, c2) ->
+       let c1 = shift_comp k lvl c1
+       and c2 = shift_comp k lvl c2 in
+       Ascribe (c1, c2)
 
     | Whnf c -> Whnf (shift_comp k lvl c)
 

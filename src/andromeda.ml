@@ -104,39 +104,29 @@ let rec exec_cmd base_dir interactive env c =
   let (c', loc) = Desugar.toplevel (Environment.constants env) (Environment.bound_names env) c in
   match c' with
 
-  | Syntax.Axiom (x, yus, v) ->
+  | Syntax.Axiom (x, yus, c) ->
      let rs = List.map (fun (_, (b, _)) -> b) yus
      and yus = List.map (fun (y, (_, u)) -> (y,u)) yus in
-     let ctx, yusv =
-       Eval.abstract
-         ~eval_v:Eval.comp_ty
-         ~abstract_v:(fun _ -> failwith "andromeda.ml Axiom")
-         env
-         yus v
+
+     let rec fold env ctx zs yws = function
+       | [] ->
+          let (ctxt, t') = Eval.comp_ty env c in
+          let t' = Tt.abstract_ty zs 0 t' in
+          let ctx, eqs = Context.join ctxt, ctx in
+          let yws = List.rev yws in
+          (ctx, (yws, t'))
+       | (y, c) :: yus ->
+          let ((ctxu, u') as ju) = Eval.comp_ty env c in
+          let z, env = Environment.add_fresh ~loc:Location.unknown env y ju in
+          let w' = Tt.abstract_ty zs 0 u' in
+          let ctx, eqs = Context.join ctx ctxu in
+          fold env ctx (z :: zs) ((y, w') :: yws) yus
      in
+
+     let ctx, yusv = fold env Context.empty [] [] yus in
      let env = Environment.add_constant x (rs, yusv) env in
-     if interactive then
-       Format.printf "%t is assumed.@." (Name.print_ident x) ;
+     if interactive then Format.printf "%t is assumed.@." (Name.print_ident x) ;
      env
-
-
-    (* let rec fold env zs yts' = function *)
-    (*   | [] -> *)
-    (*     let u = Eval.comp_ty env u in *)
-    (*     let u = Tt.abstract_ty zs 0 u in *)
-    (*     let yts' = List.rev yts' in *)
-    (*     (yts', u) *)
-    (*   | (y, reducing, t)::yts -> *)
-    (*     let t = Eval.comp_ty env t in *)
-    (*     let z, env = Environment.add_fresh ~loc env y t in *)
-    (*     let t = Tt.abstract_ty zs 0 t in *)
-    (*     fold env (z::zs) ((y, (reducing, t)) :: yts') yts *)
-    (* in *)
-    (* let ytsu = fold env [] [] yts in *)
-    (* let env = Environment.add_constant x ytsu env in *)
-    (* if interactive then *)
-    (*   Format.printf "%t is assumed.@." (Name.print_ident x) ; *)
-    (* env *)
 
   | Syntax.TopLet (x, c) ->
      let v = Eval.comp_value env c in
@@ -165,52 +155,16 @@ let rec exec_cmd base_dir interactive env c =
        env
 
   | Syntax.TopBeta xscs ->
-     Value.to_value ~loc (Eval.beta_bind env xscs)
+     Eval.beta_bind env xscs |> Value.to_value ~loc
 
   | Syntax.TopEta xscs ->
-     Value.to_value ~loc (Eval.eta_bind env xscs)
+     Eval.eta_bind env xscs |> Value.to_value ~loc
 
   | Syntax.TopHint xscs ->
-     Value.to_value ~loc (Eval.hint_bind env xscs)
-
-    let rec fold xshs = function
-      | [] ->
-        let xshs = List.rev xshs in
-        let env = Environment.add_generals xshs env in
-        Print.debug "Installed general hints@ %t"
-          (Print.sequence (fun (tags, (_, h)) ppf ->
-               Print.print ppf "@[tags: %s ;@ hint: %t@]"
-                 (String.concat " " tags)
-                 (Pattern.print_hint [] h)) "," xshs);
-        env
-      | (xs,c) :: xscs ->
-         let (tctx, t') as t = Eval.comp_ty env c in
-         ignore (failwith "Andromeda.TopHint: should check that tctx is empty or something.") ;
-         let ctx, (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
-         ignore (failwith "Andromeda.TopHint: should check that ctx is empty or something.") ;
-         let h = Hint.mk_general ~loc env (xts, (t, e1, e2)) in
-         fold ((xs,h) :: xshs) xscs
-    in fold [] xscs
+     Eval.hint_bind env xscs |> Value.to_value ~loc
 
   | Syntax.TopInhabit xscs ->
-    let rec fold xshs = function
-      | [] ->
-        let xshs = List.rev xshs in
-        let env = Environment.add_inhabits xshs env in
-        Print.debug "Installed inhabit hints@ %t"
-          (Print.sequence (fun (tags, (_, h)) ppf ->
-               Print.print ppf "@[tags: %s ;@ hint: %t@]"
-                 (String.concat " " tags)
-                 (Pattern.print_inhabit_hint [] h)) "," xshs);
-        env
-      | (xs,c) :: xscs ->
-         let (ctx,t') as t = Eval.comp_ty env c in
-         ignore (failwith "Andromeda.TopInhabit: should check that yctx is empty or something.") ;
-         let ctxu, (xts, u) = Equal.as_universal_bracket env t in
-         ignore (failwith "Andromeda.TopInhabit: should check that ctx is empty or something.") ;
-         let h = Hint.mk_inhabit ~loc env (xts, u) in
-         fold ((xs,h) :: xshs) xscs
-    in fold [] xscs
+     Eval.inhabit_bind env xscs |> Value.to_value ~loc
 
   | Syntax.TopUnhint xs -> Environment.unhint xs env
 

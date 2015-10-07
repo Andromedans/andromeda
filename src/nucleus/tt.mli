@@ -102,11 +102,8 @@ val typ : ty
     with terms [e0, ..., e{n-1}]. *)
 val instantiate: term list -> int -> term -> term
 
-val instantiate_abstraction:
- (term list -> int -> 'a -> 'a) ->
-  term list ->
-  int ->
-  'a abstraction -> 'a abstraction
+val instantiate_abstraction: (term list -> int -> 'a -> 'a) ->
+                             term list -> int -> 'a abstraction -> 'a abstraction
 
 val instantiate_ty: term list -> int -> ty -> ty
 

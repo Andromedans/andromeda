@@ -86,8 +86,8 @@ exception NoMatch
 
 (** The whnf of a type [t] in environment [env]. *)
 let rec whnf_ty env (Tt.Ty t) =
-  let t = whnf env t
-  in Tt.ty t
+  let ctxt, t = whnf env t
+  in ctxt, Tt.ty t
 
 (** The "weak weak" head-normal form of a term [e] is obtained by ignoring the
     beta hints, sort of. They still get used in beta reductions for comparing
@@ -155,11 +155,12 @@ and whnf env e =
   let xs = Environment.used_names env in
   let rec apply_beta = function
     | [] -> e
-    | ((xts, (p, e')) as h) :: hs ->
+    | ((ctx, (xts, (p, e'))) as h) :: hs ->
       Print.debug "collecting for beta@ %t@ from@ %t"
         (Pattern.print_beta_hint [] h) (Tt.print_term [] e) ;
       (* Here we use beta hints. First we match [p] against [e]. *)
       begin try
+          (* XXX collect_* will return contexts *)
         let (pvars, checks, extras) = collect_for_beta env p e in
         (* we have a match, still need to verify validity of match *)
         Print.debug
@@ -976,10 +977,10 @@ and verify_match ~spawn env xts pvars checks =
   with NoMatch -> None (* matching failed *)
 
 and as_bracket env t =
-  let Tt.Ty (t', loc) = whnf_ty env t in
+  let (ctxt, Tt.Ty (t', loc)) = whnf_ty env t in
   match t' with
-  | Tt.Bracket t -> Some t
-  | _ -> None
+  | Tt.Bracket t -> ctxt, t
+  | _ -> Error.typing ~loc "[] has a bracket type and not %t" (Tt.print_ty (Environment.used_names env) t)
 
 (** Strip brackets from a given type. *)
 and strip_bracket env t =

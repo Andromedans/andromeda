@@ -142,5 +142,5 @@ and spine ~loc h xts t es =
   | Tt.Bound _ ->
     Error.impossible ~loc "de Bruijn encountered in Simplify.spine"
 
-let context () = ()
+let context ctx = ctx
 

@@ -18,17 +18,17 @@ and term' =
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
       [tk] depends on [x1, ..., x{k-1}], while [e] and [t] depend on
       [x1, ..., xn] *)
-  | Lambda of (ty, term * ty) abstraction
+  | Lambda of (term * ty) abstraction
 
   (** a spine [e ((x1 : t1) ..., (xn : tn) : t) e1 ... en] means that
       [e] is applied to [e1, ..., en], and that the type of [e] is
       [forall (x1 : t1) ... (xn : tn), t]. Here [tk] depends on
       [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Spine of term * (ty, ty) abstraction * term list
+  | Spine of term * ty abstraction * term list
 
   (** a dependent product [forall (x1 : t1) ... (xn : tn), t], where [tk]
       depends on [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Prod of (ty, ty) abstraction
+  | Prod of ty abstraction
 
   (** strict equality type [e1 == e2] where [e1] and [e2] have type [t]. *)
   | Eq of ty * term * term
@@ -108,17 +108,16 @@ let typ = Ty (mk_type ~loc:Location.unknown)
 
 (** Manipulation of variables *)
 
-let instantiate_abstraction instantiate_u instantiate_v es depth (xus, v) =
+let instantiate_abstraction_aux instantiate_ty instantiate_v es depth (xus, v) =
   let rec inst acc depth = function
     | [] ->
        let v = instantiate_v es depth v
        in List.rev acc, v
     | (x,u) :: xus ->
-       let u = instantiate_u es depth u in
+       let u = instantiate_ty es depth u in
        inst ((x,u) :: acc) (depth+1) xus
   in
-    inst [] depth xus
-
+  inst [] depth xus
 
 let rec instantiate es depth ((e',loc) as e) =
   (* XXX possible optimization: check whether [es] is empty *)
@@ -148,17 +147,17 @@ let rec instantiate es depth ((e',loc) as e) =
       Constant (x, ds), loc
 
     | Lambda a ->
-       let a = instantiate_abstraction instantiate_ty instantiate_term_ty es depth a
+       let a = instantiate_abstraction_aux instantiate_ty instantiate_term_ty es depth a
        in Lambda a, loc
 
     | Spine (e, xtst, ds) ->
        let e = instantiate es depth e
-       and xtst = instantiate_abstraction instantiate_ty instantiate_ty es depth xtst
+       and xtst = instantiate_abstraction_aux instantiate_ty instantiate_ty es depth xtst
        and ds = List.map (instantiate es depth) ds
        in Spine (e, xtst, ds), loc
 
     | Prod a ->
-       let a = instantiate_abstraction instantiate_ty instantiate_ty es depth a
+       let a = instantiate_abstraction_aux instantiate_ty instantiate_ty es depth a
        in Prod a, loc
 
     | Eq (t, e1, e2) ->
@@ -187,16 +186,21 @@ and instantiate_term_ty es depth (e, t) =
   and t = instantiate_ty es depth t
   in (e, t)
 
+(* I blame the value restriction: It seems that we cannot define
+   instantiate_abstraction mutually with instantiate_ty. *)
+let instantiate_abstraction f es depth a =
+  instantiate_abstraction_aux instantiate_ty f es depth a
+
 let unabstract xs depth e =
   let es = List.map (mk_atom ~loc:Location.unknown) xs
   in instantiate es depth e
 
-let unabstract_ty xs depth (Ty t) =
+let rec unabstract_ty xs depth (Ty t) =
   let t = unabstract xs depth t
   in Ty t
 
 
-and abstract_abstraction abst_u abst_v ys depth (xus,v) =
+let abstract_abstraction_aux abst_u abst_v ys depth (xus,v) =
   let rec abst acc depth = function
     | [] ->
        let v = abst_v ys depth v
@@ -226,23 +230,17 @@ let rec abstract xs depth ((e',loc) as e) =
     end
 
   | Lambda a ->
-    let a = abstract_abstraction
-              abstract_ty abstract_term_ty
-              xs depth a
+    let a = abstract_abstraction_aux abstract_ty abstract_term_ty xs depth a
     in Lambda a, loc
 
   | Spine (e, xtst, es) ->
     let e = abstract xs depth e
-    and xtst = abstract_abstraction
-                 abstract_ty abstract_ty
-                 xs depth xtst
+    and xtst = abstract_abstraction_aux abstract_ty abstract_ty xs depth xtst
     and es = List.map (abstract xs depth) es
     in Spine (e, xtst, es), loc
 
   | Prod a ->
-    let a = abstract_abstraction
-              abstract_ty abstract_ty
-              xs depth a
+    let a = abstract_abstraction_aux abstract_ty abstract_ty xs depth a
     in Prod a, loc
 
   | Eq (t, e1, e2) ->
@@ -271,6 +269,8 @@ and abstract_term_ty xs depth (e, t) =
   let e = abstract xs depth e
   and t = abstract_ty xs depth t
   in (e, t)
+
+let abstract_abstraction f = abstract_abstraction_aux abstract_ty f
 
 let shift_abstraction shift_u shift_v k lvl us v =
   let rec fold lvl us' = function
@@ -357,7 +357,7 @@ let shift_ty k lvl t =
     Error.impossible "shifting by a negative amount is not allowed, ever!"
 
 
-let occurs_abstraction occurs_u occurs_v k (xus, v) =
+let occurs_abstraction_aux occurs_u occurs_v k (xus, v) =
   let rec fold k = function
     | [] -> occurs_v k v
     | (_,u) :: xus -> occurs_u k u + fold (k+1) xus
@@ -371,13 +371,13 @@ let rec occurs k (e',_) =
   | Atom _ -> 0
   | Bound m -> if k = m then 1 else 0
   | Constant (x, es) -> List.fold_left (fun i e -> i + occurs k e) 0 es
-  | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
+  | Lambda a -> occurs_abstraction_aux occurs_ty occurs_term_ty k a
   | Spine (e, xtst, es) ->
     occurs k e +
-    occurs_abstraction occurs_ty occurs_ty k xtst +
+    occurs_abstraction_aux occurs_ty occurs_ty k xtst +
     List.fold_left (fun i e -> i + occurs k e) 0 es
   | Prod a ->
-    occurs_abstraction occurs_ty occurs_ty k a
+    occurs_abstraction_aux occurs_ty occurs_ty k a
   | Eq (t, e1, e2) ->
     occurs_ty k t + occurs k e1 + occurs k e2
   | Refl (t, e) ->
@@ -390,6 +390,8 @@ and occurs_ty k (Ty t) = occurs k t
 
 and occurs_term_ty k (e, t) =
   occurs k e + occurs_ty k t
+
+let occurs_abstraction f = occurs_abstraction_aux occurs_ty f
 
 (** Optionally print a typing annotation in brackets. *)
 let print_annot ?(prefix="") k ppf =
@@ -479,7 +481,7 @@ and print_prod xs yus v ppf =
   let rec split_binders = function
     | [] -> [], []
     | (y,u) :: yus ->
-      if occurs_abstraction occurs_ty occurs_ty 0 (yus, v) > 0 then
+      if occurs_abstraction occurs_ty 0 (yus, v) > 0 then
         let xus, yus = split_binders yus in
             (y,u) :: xus, yus
       else
@@ -519,7 +521,7 @@ and print_binder xs (x, t) ppf =
         (Name.print_ident x)
         (print_ty xs t)
 
-let print_constsig ?max_level xs (x_red_u_s, t) ppf =
+let print_constsig ?max_level xs (reds, (xus, t)) ppf =
   let print_xs =
     (fun xs x (red, u) ppf ->
        Print.print ppf "(@[<hv>%s%t :@ %t@])"
@@ -530,6 +532,7 @@ let print_constsig ?max_level xs (x_red_u_s, t) ppf =
     (fun sp xs ppf ->
        Print.print ppf "%s:@;<1 -2>%t"
          sp (print_ty ?max_level xs t)) in
+  let x_red_u_s = List.map2 (fun red (x, u) -> x, (red, u)) reds xus in
   match x_red_u_s with
   | [] -> print_u "" xs ppf
   | _::_ -> Name.print_binders print_xs (print_u " ") xs x_red_u_s ppf
