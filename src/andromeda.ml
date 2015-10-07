@@ -148,14 +148,14 @@ let rec exec_cmd base_dir interactive env c =
      let v =
        begin match Eval.comp_value env c with
              | Value.Ty (ctx, t) ->
-                let ctx = Simplify.context env ctx in
-                let t = Simplify.ty env t in
+                let ctx = Simplify.context ctx in
+                let t = Simplify.ty t in
                 let j = Judgement.mk_ty ctx t in
                 Value.Ty j
              | Value.Term (ctx, e, t) ->
-                let ctx = Simplify.context env ctx in
-                let e = Simplify.term env e
-                and t = Simplify.ty env t in
+                let ctx = Simplify.context ctx in
+                let e = Simplify.term e
+                and t = Simplify.ty t in
                 let j = Judgement.mk_term ctx e t in
                   Value.Term j
              | v -> v
