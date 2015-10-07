@@ -13,10 +13,10 @@ val equal : Environment.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty -> bool
 val equal_ty : Environment.t -> Context.t -> Tt.ty -> Tt.ty -> bool
 
 (** [whnf env ctx e] reduces expression [e], assuming that it has a type in context [ctx]. *)
-val whnf : Environment.t -> Context.t -> Tt.term -> Tt.term
+val whnf : Environment.t -> Context.t -> Tt.term -> Context.t * Tt.term
 
 (** [whnf_ty env ctx t] reduces type [t], assuming that it is a type in context [ctx]. *)
-val whnf_ty : Environment.t -> Judgement.ty -> Judgement.ty
+val whnf_ty : Environment.t -> Context.t -> Tt.ty -> Context.t * Tt.ty
 
 (** Convert a type to an equality type. *)
 val as_eq :

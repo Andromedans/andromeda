@@ -4,6 +4,8 @@ type ty = Context.t * Tt.ty
 
 type equal_ty = Context.t * Tt.ty * Tt.ty
 
+let typeof (ctx, _, t) = (ctx, t)
+
 let mk_term ctx e t = (ctx, e, t)
 
 let mk_ty ctx t = (ctx, t)

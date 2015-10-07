@@ -120,8 +120,10 @@ and infer env (c',loc) =
   | Syntax.Whnf c ->
     infer env c >>= as_term ~loc >>=
     (fun (ctx, e, t) ->
-      let e = Equal.whnf env e
-      and t = Equal.whnf_ty env t in
+      let ctxt, t = Equal.whnf_ty env ctx t in
+      let ctx, eqs = Context.join ctx ctxt in
+      let ctxe, e = Equal.whnf env ctx e in
+      let ctx, eqs = Context.join ctx ctxe in
       let j = Judgement.mk_term ctx e t in
       Value.return_term j)
 
@@ -564,18 +566,19 @@ and beta_bind env xscs =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
        infer env c >>= as_term ~loc:(snd c) >>=
-         (fun (ctxt, _, t) ->
-          (* XXX do something with ctxt *)
-          let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
+         (fun ((ctxt, _, _) as je) ->
+          let t = Judgement.typeof je in
+          let ctxt', (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
             let h = Hint.mk_beta ~loc env (xts, (t, e1, e2)) in
               fold ((xs, h) :: xshs) xscs)
-    | [] -> let env = Environment.add_betas xshs env in
-      Print.debug "Installed beta hints@ %t"
+    | [] ->
+       let env = Environment.add_betas xshs env in
+       Print.debug "Installed beta hints@ %t"
           (Print.sequence (fun (tags, (_, h)) ppf ->
             Print.print ppf "@[tags: %s ;@ hint: %t@]"
               (String.concat " " tags)
               (Pattern.print_beta_hint [] h)) "," xshs);
-      Value.return env
+       Value.return env
   in fold [] xscs
 
 and eta_bind env xscs =

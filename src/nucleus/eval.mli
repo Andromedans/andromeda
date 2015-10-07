@@ -7,6 +7,14 @@ val abstract :
   Environment.t ->
   (Name.ident * Syntax.comp) list -> 'b -> (Name.ident * Tt.ty) list * 'e
 
+(** [beta_bind env lst] evaluates the beta hints given in [lst] and returns
+    the environment [env] extended with the hints. *)
+val beta_bind : Environment.t -> (string list * Syntax.comp) list -> Environment.t Value.result
+
+(** [eta_bind env lst] evaluates the beta hints given in [lst] and returns
+    the environment [env] extended with the hints. *)
+val eta_bind : Environment.t -> (string list * Syntax.comp) list -> Environment.t Value.result
+
 (** [comp env c] evaluates computation [c] in environment [env]. *)
 val comp : Environment.t -> Syntax.comp -> Value.value Value.result
 

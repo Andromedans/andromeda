@@ -28,13 +28,13 @@ type beta_pattern =
   | BetaConstant of Name.ident * term list
   | BetaSpine of term * pty pabstraction * term list
 
-type beta_hint = (beta_pattern * Tt.term) pabstraction
+type beta_hint = Context.t * (beta_pattern * Tt.term) pabstraction
 
-type eta_hint = (ty * Syntax.bound * Syntax.bound) pabstraction
+type eta_hint = Context.t * (ty * Syntax.bound * Syntax.bound) pabstraction
 
-type general_hint = (ty * term * term) pabstraction
+type general_hint = Context.t * (ty * term * term) pabstraction
 
-type inhabit_hint = ty pabstraction
+type inhabit_hint = Context.t * ty pabstraction
 
 type hint_key =
   | Key_Type

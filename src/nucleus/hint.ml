@@ -114,7 +114,7 @@ and of_ty env pvars (Tt.Ty t) =
 let pvars_of_binders xts =
   snd (List.fold_left (fun (k, pvars) _ -> (k+1), k :: pvars) (0, []) xts)
 
-let mk_beta ~loc env (xts, (t, (e1 : Tt.term), e2)) =
+let mk_beta ~loc env ctx (xts, (t, (e1 : Tt.term), e2)) =
   (* XXX here would be a good place to flatten beta patterns. *)
   let pvars = pvars_of_binders xts in
   let pvars, p = of_term env pvars e1 t in
@@ -127,16 +127,17 @@ let mk_beta ~loc env (xts, (t, (e1 : Tt.term), e2)) =
               | false, _
               | _, None -> Error.runtime ~loc "invalid beta hint"
               | true, Some key ->
-
-                 begin match p with
-                       | Pattern.Atom x -> key, (xts, (Pattern.BetaAtom x, e2))
-                       | Pattern.Constant (x, pes) -> key, (xts, (Pattern.BetaConstant (x, pes), e2))
-                       | Pattern.Spine (pe, yus, pes) -> key, (xts, (Pattern.BetaSpine (pe, yus, pes), e2))
-                       | Pattern.PVar _ | Pattern.Bracket _ | Pattern.Eq _ | Pattern.Refl _
-                       | Pattern.Term _ ->
-                          Error.runtime ~loc "invalid beta hint"
-                 end
-
+                 let pattern =
+                 begin
+                   match p with
+                   | Pattern.Atom x -> Pattern.BetaAtom x, e2
+                   | Pattern.Constant (x, pes) -> Pattern.BetaConstant (x, pes), e2
+                   | Pattern.Spine (pe, yus, pes) -> Pattern.BetaSpine (pe, yus, pes), e2
+                   | Pattern.PVar _ | Pattern.Bracket _ | Pattern.Eq _ | Pattern.Refl _
+                   | Pattern.Term _ ->
+                      Error.runtime ~loc "invalid beta hint"
+                 end in
+                 key, (ctx, (xts, pattern))
         end
 
       | _ :: _ ->
@@ -144,7 +145,7 @@ let mk_beta ~loc env (xts, (t, (e1 : Tt.term), e2)) =
         Error.runtime ~loc "this beta hint leaves some variables unmatched (%t)"
           (Print.sequence Name.print_ident "," xs)
 
-let mk_eta ~loc env (xts, (t, e1, e2)) =
+let mk_eta ~loc env ctx (xts, (t, e1, e2)) =
   let pvars = pvars_of_binders xts in
   (** We should *first* turn [e1] and [e2] into patterns and only then [t]
       in case [e1] or [e2] is [pvar] which also appears in [t]. This is so because
@@ -156,7 +157,7 @@ let mk_eta ~loc env (xts, (t, e1, e2)) =
   let key = Pattern.ty_key_opt t in
   match has_head_name key, key, p1, p2 with
     | true, Some key, Pattern.PVar k1, Pattern.PVar k2 when k1 <> k2 ->
-      key, (xts, (pt, k1, k2))
+      key, (ctx, (xts, (pt, k1, k2)))
     | false, _, _, _ ->
         Error.runtime ~loc
           "the type of an eta hint must be a symbol@ or a symbol applied to arguments"
@@ -164,7 +165,7 @@ let mk_eta ~loc env (xts, (t, e1, e2)) =
         Error.runtime ~loc
           "the left- and right-hand side of an eta hint must be distinct variables"
 
-let mk_general ~loc env (xts, ((t : Tt.ty), e1, e2)) =
+let mk_general ~loc env ctx (xts, ((t : Tt.ty), e1, e2)) =
   let pvars = pvars_of_binders xts in
 
   (* XXX when we try to apply a hint to a term, we whnf the term, so we ought
@@ -181,13 +182,13 @@ let mk_general ~loc env (xts, ((t : Tt.ty), e1, e2)) =
   let pvars, pe1 = of_term env pvars e1 t in
   let pvars, pe2 = of_term env pvars e2 t in
   let key = Pattern.general_key e1 e2 t in
-  key, (xts, (pt, pe1, pe2))
+  key, (ctx, (xts, (pt, pe1, pe2)))
 
 
-let mk_inhabit ~loc env (xts, t) =
+let mk_inhabit ~loc env ctx (xts, t) =
   let pvars = pvars_of_binders xts in
   let pvars, ((Pattern.Ty pt') as pt) = of_ty env pvars t in
   match Pattern.ty_key_opt t with
-  | Some key -> key, (xts, pt)
+  | Some key -> key, (ctx, (xts, pt))
   | None -> Error.runtime ~loc "invalid inhabit hint"
                           (* XXX is it necessary to fail here? *)

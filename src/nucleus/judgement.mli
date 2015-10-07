@@ -10,6 +10,9 @@ type equal_ty = Context.t * Tt.ty * Tt.ty
 (** The jdugement that [Type] is a type. *)
 val ty_ty : ty
 
+(** The type judgement of a term judgement. *)
+val typeof : term -> ty
+
 (** Create a term judgment. *)
 val mk_term : Context.t -> Tt.term -> Tt.ty -> term
 

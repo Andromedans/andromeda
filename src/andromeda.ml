@@ -165,46 +165,14 @@ let rec exec_cmd base_dir interactive env c =
        env
 
   | Syntax.TopBeta xscs ->
-    let rec fold xshs = function
-      | [] ->
-        let xshs = List.rev xshs in
-        let env = Environment.add_betas xshs env in
-        Print.debug "Installed beta hints@ %t"
-          (Print.sequence (fun (tags, (_, h)) ppf ->
-               Print.print ppf "@[tags: %s ;@ hint: %t@]"
-                 (String.concat " " tags)
-                 (Pattern.print_beta_hint [] h)) "," xshs);
-        env
-      | (xs,c) :: xscs ->
-         let ((ctxt, t') as t) = Eval.comp_ty env c in
-         ignore (failwith "Andromeda.TopBeta: should check that ctxt is empty or something.");
-         let (ctx, (xts, (t, e1, e2))) = Equal.as_universal_eq env t in
-         ignore (failwith "Andromeda.TopBeta: should check that ctx is empty or something.");
-         let h = Hint.mk_beta ~loc env (xts, (t, e1, e2)) in
-         fold ((xs,h) :: xshs) xscs
-    in fold [] xscs
+     Value.to_value ~loc (Eval.beta_bind env xscs)
 
   | Syntax.TopEta xscs ->
-    let rec fold xshs = function
-      | [] ->
-        let xshs = List.rev xshs in
-        let env = Environment.add_etas xshs env in
-        Print.debug "Installed eta hints@ %t"
-          (Print.sequence (fun (tags, (_, h)) ppf ->
-               Print.print ppf "@[tags: %s ;@ hint: %t@]"
-                 (String.concat " " tags)
-                 (Pattern.print_eta_hint [] h)) "," xshs);
-        env
-      | (xs,c) :: xscs ->
-         let (ctxt, t') as t = Eval.comp_ty env c in
-         ignore (failwith "Andromeda.TopEta: should check that ctxt is empty or something.") ;
-         let ctx, (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
-         ignore (failwith "Andromeda.TopEta: should check that ctx is empty or something.") ;
-         let h = Hint.mk_eta ~loc env (xts, (t, e1, e2)) in
-         fold ((xs,h) :: xshs) xscs
-    in fold [] xscs
+     Value.to_value ~loc (Eval.eta_bind env xscs)
 
   | Syntax.TopHint xscs ->
+     Value.to_value ~loc (Eval.hint_bind env xscs)
+
     let rec fold xshs = function
       | [] ->
         let xshs = List.rev xshs in
