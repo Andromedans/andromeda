@@ -220,11 +220,11 @@ and beta_reduce ~loc env xus e u yvs t es =
       else (* Types match -- we can reduce *)
         let xus, (e, u) =
           Tt.instantiate_abstraction
-            Tt.instantiate_ty Tt.instantiate_term_ty
+            Tt.instantiate_term_ty
             es' 0 (xus, (e, u))
         and yvs, t =
           Tt.instantiate_abstraction
-            Tt.instantiate_ty Tt.instantiate_ty
+            Tt.instantiate_ty
             es' 0 (yvs, t)
         in
         let e = Tt.mk_lambda ~loc xus e u in

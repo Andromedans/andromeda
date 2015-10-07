@@ -28,7 +28,7 @@ let rec term env ((e',loc) as e) =
         | (x,u) :: xus ->
           let u = Tt.unabstract_ty ys 0 u in
           let u = ty env u in
-          let y, env = Environment.add_fresh ~loc env x u in
+          let y, env = Environment.add_fresh ~loc env x (Judgement.mk_ty Context.empty u) in
           let u = Tt.abstract_ty ys 0 u in
             fold env (y::ys) ((x,u) :: xts) xus
       in
@@ -51,7 +51,7 @@ let rec term env ((e',loc) as e) =
         | (x,u) :: xus ->
           let u = Tt.unabstract_ty ys 0 u in
           let u = ty env u in
-          let y, env = Environment.add_fresh env ~loc x u
+          let y, env = Environment.add_fresh env ~loc x (Judgement.mk_ty Context.empty u)
           and u = Tt.abstract_ty ys 0 u in
             fold env (y::ys) ((x,u) :: xts) xus
       in
@@ -91,7 +91,7 @@ and spine ~loc env h xts t es =
   | (x, u) :: xts ->
     let u = Tt.unabstract_ty ys 0 u in
     let u = ty env u in
-    let y, env = Environment.add_fresh ~loc env x u
+    let y, env = Environment.add_fresh ~loc env x (Judgement.mk_ty Context.empty u)
     and u = Tt.abstract_ty ys 0 u in
       simplify_xts env (y::ys) ((x,u) :: xus) xts
   in
@@ -142,5 +142,5 @@ and spine ~loc env h xts t es =
   | Tt.Bound _ ->
     Error.impossible ~loc "de Bruijn encountered in Simplify.spine"
 
-let context env () = ()
+let context (env : Environment.t) () = ()
 

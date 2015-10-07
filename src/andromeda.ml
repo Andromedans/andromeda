@@ -176,9 +176,10 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_beta_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (ctx,_,t) = Eval.comp_term env c in
+         let ((ctxt, t') as t) = Eval.comp_ty env c in
+         ignore (failwith "Andromeda.TopBeta: should check that ctxt is empty or something.");
+         let (ctx, (xts, (t, e1, e2))) = Equal.as_universal_eq env t in
          ignore (failwith "Andromeda.TopBeta: should check that ctx is empty or something.");
-         let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          let h = Hint.mk_beta ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
     in fold [] xscs
@@ -195,9 +196,10 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_eta_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (ctx, _, t) = Eval.comp_term env c in
+         let (ctxt, t') as t = Eval.comp_ty env c in
+         ignore (failwith "Andromeda.TopEta: should check that ctxt is empty or something.") ;
+         let ctx, (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          ignore (failwith "Andromeda.TopEta: should check that ctx is empty or something.") ;
-         let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          let h = Hint.mk_eta ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
     in fold [] xscs
@@ -214,9 +216,10 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (ctx, _,t) = Eval.comp_term env c in
+         let (tctx, t') as t = Eval.comp_ty env c in
+         ignore (failwith "Andromeda.TopHint: should check that tctx is empty or something.") ;
+         let ctx, (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          ignore (failwith "Andromeda.TopHint: should check that ctx is empty or something.") ;
-         let (xts, (t, e1, e2)) = Equal.as_universal_eq env t in
          let h = Hint.mk_general ~loc env (xts, (t, e1, e2)) in
          fold ((xs,h) :: xshs) xscs
     in fold [] xscs
@@ -233,9 +236,10 @@ let rec exec_cmd base_dir interactive env c =
                  (Pattern.print_inhabit_hint [] h)) "," xshs);
         env
       | (xs,c) :: xscs ->
-         let (ctx,_,t) = Eval.comp_term env c in
+         let (ctx,t') as t = Eval.comp_ty env c in
+         ignore (failwith "Andromeda.TopInhabit: should check that yctx is empty or something.") ;
+         let ctxu, (xts, u) = Equal.as_universal_bracket env t in
          ignore (failwith "Andromeda.TopInhabit: should check that ctx is empty or something.") ;
-         let (xts, u) = Equal.as_universal_bracket env t in
          let h = Hint.mk_inhabit ~loc env (xts, u) in
          fold ((xs,h) :: xshs) xscs
     in fold [] xscs
