@@ -73,7 +73,7 @@ and 'a abstraction = (Name.ident * ty) list * 'a
 
 (** The signature of a constant. The booleans indicate whether the arguments
     should be eagerly reduced. *)
-type constsig = bool list * ty abstraction
+type constsig = (Name.ident * (bool * ty)) list * ty
 
 (** Term constructors, the do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term

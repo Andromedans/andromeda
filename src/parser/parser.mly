@@ -159,7 +159,7 @@ primarg:
   | LBRACK lst=separated_nonempty_list(COMMA, primarg_entry) RBRACK  { List.concat lst }
 
 primarg_entry:
-  | b=reduce xs=nonempty_list(name) COLON t=ty_term   { List.map (fun x -> (x, b, t)) xs }
+  | b=reduce xs=nonempty_list(name) COLON t=ty_term   { List.map (fun x -> (b, (x, t))) xs }
 
 reduce:
   |        { false }

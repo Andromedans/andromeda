@@ -50,7 +50,7 @@ and ty = Ty of term
 
 and 'a abstraction = (Name.ident * ty) list * 'a
 
-type constsig = bool list * ty abstraction
+type constsig = (Name.ident * (bool * ty)) list * ty
 
 (** Unicode and ascii version of symbols *)
 
@@ -521,7 +521,7 @@ and print_binder xs (x, t) ppf =
         (Name.print_ident x)
         (print_ty xs t)
 
-let print_constsig ?max_level xs (reds, (xus, t)) ppf =
+let print_constsig ?max_level xs (rxus, t) ppf =
   let print_xs =
     (fun xs x (red, u) ppf ->
        Print.print ppf "(@[<hv>%s%t :@ %t@])"
@@ -532,7 +532,6 @@ let print_constsig ?max_level xs (reds, (xus, t)) ppf =
     (fun sp xs ppf ->
        Print.print ppf "%s:@;<1 -2>%t"
          sp (print_ty ?max_level xs t)) in
-  let x_red_u_s = List.map2 (fun red (x, u) -> x, (red, u)) reds xus in
-  match x_red_u_s with
+  match rxus with
   | [] -> print_u "" xs ppf
-  | _::_ -> Name.print_binders print_xs (print_u " ") xs x_red_u_s ppf
+  | _::_ -> Name.print_binders print_xs (print_u " ") xs rxus ppf

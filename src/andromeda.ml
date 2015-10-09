@@ -104,27 +104,23 @@ let rec exec_cmd base_dir interactive env c =
   let (c', loc) = Desugar.toplevel (Environment.constants env) (Environment.bound_names env) c in
   match c' with
 
-  | Syntax.Axiom (x, yus, c) ->
-     let rs = List.map (fun (_, (b, _)) -> b) yus
-     and yus = List.map (fun (y, (_, u)) -> (y,u)) yus in
-
-     let rec fold env ctx zs yws = function
+  | Syntax.Axiom (x, ryus, c) ->
+     let rec fold env ctx zs yrws = function
        | [] ->
           let (ctxt, t') = Eval.comp_ty env c in
           let t' = Tt.abstract_ty zs 0 t' in
           let ctx, eqs = Context.join ctxt, ctx in
-          let yws = List.rev yws in
-          (ctx, (yws, t'))
-       | (y, c) :: yus ->
-          let ((ctxu, u') as ju) = Eval.comp_ty env c in
+          let yrws = List.rev yrws in
+          (ctx, (yrws, t'))
+       | (r, (y, c)) :: ryus ->
+          let ((ctxu, u) as ju) = Eval.comp_ty env c in
           let z, env = Environment.add_fresh ~loc:Location.unknown env y ju in
-          let w' = Tt.abstract_ty zs 0 u' in
+          let w = Tt.abstract_ty zs 0 u in
           let ctx, eqs = Context.join ctx ctxu in
-          fold env ctx (z :: zs) ((y, w') :: yws) yus
-     in
-
-     let ctx, yusv = fold env Context.empty [] [] yus in
-     let env = Environment.add_constant x (rs, yusv) env in
+          fold env ctx (z :: zs) ((y, (r, w)) :: yrws) ryus in
+     let ctx, yrusv = fold env Context.empty [] [] ryus in
+     (* XXX do sth with ctx *)
+     let env = Environment.add_constant x yrusv env in
      if interactive then Format.printf "%t is assumed.@." (Name.print_ident x) ;
      env
 

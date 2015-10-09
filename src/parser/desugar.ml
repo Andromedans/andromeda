@@ -294,20 +294,20 @@ and expr constants bound ((e', loc) as e) =
 let toplevel constants bound (d', loc) =
   let d' = match d' with
 
-    | Input.Axiom (x, yts, u) ->
-      let rec fold bound yts' = function
+    | Input.Axiom (x, ryts, u) ->
+      let rec fold bound ryts' = function
         | [] ->
           let u = comp constants bound u in
-          let yts' = List.rev yts' in
-          (yts', u)
-        | (y, reducing, t) :: yts ->
+          let ryts' = List.rev ryts' in
+          (ryts', u)
+        | (reducing, (y, t)) :: ryts ->
           let t = comp constants bound t in
           let bound = add_bound y bound
-          and yts' = (y, (reducing, t)) :: yts' in
-          fold bound yts' yts
+          and ryts' = (reducing, (y, t)) :: ryts' in
+          fold bound ryts' ryts
       in
-      let yts, u = fold bound [] yts in
-      Syntax.Axiom (x, yts, u)
+      let ryts, u = fold bound [] ryts in
+      Syntax.Axiom (x, ryts, u)
 
     | Input.TopLet (x, yts, u, ((_, loc) as c)) ->
       let c = match u with

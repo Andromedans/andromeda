@@ -37,22 +37,22 @@ let rec of_term env pvars ((e',loc) as e) t =
 
   | Tt.Constant (x, es) ->
     (* A primitive application is always a pattern, never a term *)
-    let rec fold pvars args_so_far pes xts args_left =
-      match xts, args_left with
+    let rec fold pvars args_so_far pes xrts args_left =
+      match xrts, args_left with
       | [], [] -> pvars, List.rev pes
-      | (x, t) :: xts, e :: args_left ->
+      | (x, (r, t)) :: xrts, e :: args_left ->
         let t = Tt.instantiate_ty args_so_far 0 t in
         let pvars, pe = of_term env pvars e t in
-        fold pvars (e::args_so_far) (pe::pes) xts args_left
+        fold pvars (e::args_so_far) (pe::pes) xrts args_left
       | ([],_::_) | (_::_,[]) ->
         Error.impossible ~loc "malformed primitive application in Pattern.of_term"
     in
-    let xts =
+    let xrts =
       begin match Environment.lookup_constant x env with
-      | Some (_, (xts, _)) -> xts
+      | Some (xrts, _) -> xrts
       | None -> Error.impossible "Hint.of_term, unknown primitive operation %t" (Name.print_ident x)
       end in
-    let pvars, pes = fold pvars [] [] xts es in
+    let pvars, pes = fold pvars [] [] xrts es in
     pvars, Pattern.Constant (x, pes)
 
   | Tt.Bound k ->
