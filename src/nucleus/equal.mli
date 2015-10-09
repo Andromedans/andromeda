@@ -4,13 +4,14 @@
 	alpha equal. *)
 val alpha_equal_ty: Tt.ty -> Tt.ty -> bool
 
-(** [equal env ctx e1 e2 t] checks whether terms [e1] and [e2] of type [t] are equal
-    in context [ctx]. *)
-val equal : Environment.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty -> bool
+(** [equal env ctx e1 e2 t] returns a context [G] that is an extension of [ctx]
+    such that the terms [e1] and [e2] of type [t] are equal under [G]. *)
+val equal : Environment.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->
+            Context.t Value.result
 
-(** [equal_ty env ctx t1 t2] checks whether types [t1] and [t2] are equal in
-    context [ctx]. *)
-val equal_ty : Environment.t -> Context.t -> Tt.ty -> Tt.ty -> bool
+(** [equal_ty env ctx t1 t2] returns a context [G] that is an extension of
+    [ctx] such that the types [t1] and [t2] are equal under [G]. *)
+val equal_ty : Environment.t -> Context.t -> Tt.ty -> Tt.ty -> Context.t Value.result
 
 (** [whnf env ctx e] reduces expression [e], assuming that it has a type in context [ctx]. *)
 val whnf : Environment.t -> Context.t -> Tt.term -> Context.t * Tt.term
@@ -19,8 +20,7 @@ val whnf : Environment.t -> Context.t -> Tt.term -> Context.t * Tt.term
 val whnf_ty : Environment.t -> Context.t -> Tt.ty -> Context.t * Tt.ty
 
 (** Convert a type to an equality type. *)
-val as_eq :
-  Environment.t -> Judgement.ty -> Context.t * Tt.ty * Tt.term * Tt.term
+val as_eq : Environment.t -> Judgement.ty -> Context.t * Tt.ty * Tt.term * Tt.term
 
 (** Convert a type to a product. *)
 val as_prod : Environment.t -> Judgement.ty -> Context.t * Tt.ty Tt.ty_abstraction
