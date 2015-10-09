@@ -115,10 +115,10 @@ and spine ~loc h xts t es =
         match yus, xts, es with
         | (y,u)::yus, (_,t)::xts, e::es when
             is_small e ||
-            Tt.occurs_abstraction Tt.occurs_term_ty 0 (yus, du) <= 1
+            Tt.occurs_ty_abstraction Tt.occurs_term_ty 0 (yus, du) <= 1
           ->
             let yus, du =
-              Tt.instantiate_abstraction Tt.instantiate_term_ty [e] 0 (yus, du)
+              Tt.instantiate_ty_abstraction Tt.instantiate_term_ty [e] 0 (yus, du)
             in
               reduce yus du xts es
         | _ -> Tt.mk_spine ~loc (Tt.mk_lambda ~loc yus (fst du) (snd du)) xts t es

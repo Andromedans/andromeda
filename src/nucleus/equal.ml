@@ -3,9 +3,12 @@
 (** A check is a postponed equality check.
     Pattern matching generates these. *)
 type check =
-  | CheckEqual of Pattern.pterm * Tt.term * Tt.ty (* compare terms at a type *)
-  | CheckEqualTy of Pattern.pty Pattern.pabstraction * Tt.ty Tt.abstraction (* compare types in context *)
-  | CheckAlphaEqual of Pattern.pterm * Tt.term (* compare terms for alpha equality *)
+  (* compare terms at a type *)
+  | CheckEqual of Pattern.pterm * Tt.term * Tt.ty
+  (* compare types in context *)
+  | CheckEqualTy of ((Pattern.pty * Tt.ty), (Pattern.pty * Tt.ty)) Tt.abstraction
+  (* compare terms for alpha equality *)
+  | CheckAlphaEqual of Pattern.pterm * Tt.term
 
 (* counter for debugging depth  *)
 let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)

@@ -1,5 +1,8 @@
 (** Abstract syntax of value types and terms *)
 
+(** An [('a, 'b) abstraction] is a ['b] bound by [(x1, 'a1), ..., (xn, 'an)]. *)
+type ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
+
 type term = term' * Location.t
 and term' = private
 (** The type of TT terms.
@@ -37,17 +40,17 @@ and term' = private
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
       [tk] depends on [x1, ..., x{k-1}], while [e] and [t] depend on
       [x1, ..., xn] *)
-  | Lambda of (term * ty) abstraction
+  | Lambda of (term * ty) ty_abstraction
 
   (** a spine [e ((x1 : t1) ..., (xn : tn) : t) e1 ... en] means that
       [e] is applied to [e1, ..., en], and that the type of [e] is
       [forall (x1 : t1) ... (xn : tn), t]. Here [tk] depends on
       [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Spine of term * ty abstraction * term list
+  | Spine of term * ty ty_abstraction * term list
 
   (** a dependent product [forall (x1 : t1) ... (xn : tn), t], where [tk]
       depends on [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Prod of ty abstraction
+  | Prod of ty ty_abstraction
 
   (** strict equality type [e1 == e2] where [e1] and [e2] have type [t]. *)
   | Eq of ty * term * term
@@ -67,13 +70,12 @@ and term' = private
 and ty = private
     | Ty of term
 
-(** An ['a abstraction] is a ['a] bound by [x1:a1, ..., xn:an] where
-    the [a1, ..., an] are types. *)
-and 'a abstraction = (Name.ident * ty) list * 'a
+(** A ['a ty_abstraction] is a n abstraction where the [a1, ..., an] are types *)
+and 'a ty_abstraction = (ty, 'a) abstraction
 
 (** The signature of a constant. The booleans indicate whether the arguments
     should be eagerly reduced. *)
-type constsig = (Name.ident * (bool * ty)) list * ty
+type constsig = ((bool * ty), ty) abstraction
 
 (** Term constructors, the do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
@@ -102,8 +104,14 @@ val typ : ty
     with terms [e0, ..., e{n-1}]. *)
 val instantiate: term list -> int -> term -> term
 
-val instantiate_abstraction: (term list -> int -> 'a -> 'a) ->
-                             term list -> int -> 'a abstraction -> 'a abstraction
+val instantiate_abstraction:
+  (term list -> int -> 'a -> 'a) ->
+  (term list -> int -> 'b -> 'b) ->
+  term list -> int -> ('a, 'b) abstraction -> ('a, 'b) abstraction
+
+val instantiate_ty_abstraction:
+  (term list -> int -> 'a -> 'a) ->
+  term list -> int -> 'a ty_abstraction -> 'a ty_abstraction
 
 val instantiate_ty: term list -> int -> ty -> ty
 
@@ -123,9 +131,9 @@ val abstract : Name.atom list -> int -> term -> term
 
 val abstract_ty : Name.atom list -> int -> ty -> ty
 
-val abstract_abstraction :
+val abstract_ty_abstraction :
   (Name.atom list -> int -> 'a -> 'a) ->
-  Name.atom list -> int -> 'a abstraction -> 'a abstraction
+  Name.atom list -> int -> 'a ty_abstraction -> 'a ty_abstraction
 
 (** [shift k lvl e] adds [k] all bound variables in [e] that are greater than or equal
     to [lvl]. This is used when a term descends into an extended environment (so its
@@ -140,9 +148,9 @@ val occurs_ty: Syntax.bound -> ty -> int
 
 val occurs_term_ty: Syntax.bound -> term * ty -> int
 
-val occurs_abstraction:
+val occurs_ty_abstraction:
   (Syntax.bound -> 'a -> int) ->
-  Syntax.bound -> 'a abstraction -> int
+  Syntax.bound -> 'a ty_abstraction -> int
 
 val print_ty : ?max_level:int -> Name.ident list -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
