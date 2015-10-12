@@ -7,11 +7,11 @@ val alpha_equal_ty: Tt.ty -> Tt.ty -> bool
 (** [equal env ctx e1 e2 t] returns a context [G] that is an extension of [ctx]
     such that the terms [e1] and [e2] of type [t] are equal under [G]. *)
 val equal : Environment.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->
-            Context.t Value.result
+            Context.t option
 
 (** [equal_ty env ctx t1 t2] returns a context [G] that is an extension of
     [ctx] such that the types [t1] and [t2] are equal under [G]. *)
-val equal_ty : Environment.t -> Context.t -> Tt.ty -> Tt.ty -> Context.t Value.result
+val equal_ty : Environment.t -> Context.t -> Tt.ty -> Tt.ty -> Context.t option
 
 (** [whnf env ctx e] reduces expression [e], assuming that it has a type in context [ctx]. *)
 val whnf : Environment.t -> Context.t -> Tt.term -> Context.t * Tt.term
