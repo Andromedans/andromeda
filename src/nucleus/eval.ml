@@ -541,12 +541,12 @@ and spine ~loc env ((ctx_head, e_head, t_head) as j_head) cs =
      and v = Tt.instantiate_ty es 0 u in
      let j = Judgement.mk_term ctx e v in
      Value.return_term j
-  | (x, t')::xts, c::cs ->
-     let t' = Tt.instantiate_ty es 0 t' in
+  | (x, t)::xts, c::cs ->
+     let t' = Tt.instantiate_ty es 0 t in
       check env c (Judgement.mk_ty ctx t') >>=
         (fun (ctxe, e) ->
          let ctx, eqs = Context.join ctx ctxe in
-         fold (e :: es) ((x,t') :: xus) ctx xts cs)
+         fold (e :: es) ((x,t) :: xus) ctx xts cs)
   | [], ((_ :: _) as cs) ->
      let xus = List.rev xus in
      let e = Tt.mk_spine ~loc e_head xus t_result (List.rev es)
