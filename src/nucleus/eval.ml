@@ -446,7 +446,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
     end
   else (* not all_tagged *)
     begin
-      let (ctx, (zus, t_body')) =
+      let (ctx, (zus, t_body)) =
         match Equal.as_prod env t_check with
         | (_, (_::_, _)) as ctx_xtst -> ctx_xtst
         | (_, ([], _)) -> Error.typing ~loc "this type %t should be a product" (print_ty env t_check')
@@ -490,18 +490,18 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
 
         | [], [] ->
           (* let u = u[x_k-1/z_k-1] in *)
-          let t_body' = Tt.unabstract_ty ys 0 t_body' in
-          let t_body = Judgement.mk_ty ctx t_body' in
-          check env body t_body >>=
+          let t_body' = Tt.unabstract_ty ys 0 t_body in
+          let j_t_body' = Judgement.mk_ty ctx t_body' in
+          check env body j_t_body' >>=
             (fun (ctxe, e) ->
              let e = Tt.abstract ys 0 e in
              let xts = List.rev xts in
              let ctx, eqs = Context.join ctx ctxe in
              (* XXX should call Context.abstract somewhere, see infer_lambda *)
-             Value.return (ctx, Tt.mk_lambda ~loc xts e t_body'))
+             Value.return (ctx, Tt.mk_lambda ~loc xts e t_body))
 
         | [], _::_ ->
-          let t_body' = Tt.mk_prod_ty ~loc zus t_body' in
+          let t_body' = Tt.mk_prod_ty ~loc zus t_body in
           let t_body' = Tt.unabstract_ty ys 0 t_body' in
           let t_body = Judgement.mk_ty ctx t_body' in
           check env body t_body >>=
