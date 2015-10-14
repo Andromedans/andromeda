@@ -1,9 +1,5 @@
 (** Equality checking and weak-head-normal-forms *)
 
-(** [alpha_equal_ty t1 t2] returns [true] if types [t1] and [t2] are
-	alpha equal. *)
-val alpha_equal_ty: Tt.ty -> Tt.ty -> bool
-
 (** [equal env ctx e1 e2 t] returns a context [G] that is an extension of [ctx]
     such that the terms [e1] and [e2] of type [t] are equal under [G]. *)
 val equal : Environment.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->

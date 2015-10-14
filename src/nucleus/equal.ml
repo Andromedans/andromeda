@@ -17,76 +17,6 @@ type check =
 (* counter for debugging depth  *)
 let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
 
-(** Alpha equality *)
-(* Currently, the only difference between alpha and structural equality is that
-   the names of variables in abstractions are ignored. *)
-let alpha_equal_abstraction alpha_equal_u alpha_equal_v (xus, v) (xus', v') =
-  let rec eq xus xus' =
-    match xus, xus' with
-    | [], [] -> true
-    | (_, u) :: xus, (_, u') :: xus' ->
-        alpha_equal_u u u' &&
-        eq xus xus'
-    | [], _::_ | _::_, [] -> false
-  in
-  eq xus xus' &&
-  alpha_equal_v v v'
-
-let rec alpha_equal (e1,_) (e2,_) =
-  e1 == e2 || (* a shortcut in case the terms are identical *)
-  begin match e1, e2 with
-
-    | Tt.Atom x, Tt.Atom y -> Name.eq_atom x y
-
-    | Tt.Bound i, Tt.Bound j -> i = j
-
-    | Tt.Constant (x, es), Tt.Constant (x', es') ->
-      Name.eq_ident x x' &&
-      alpha_equal_list alpha_equal es es'
-
-    | Tt.Lambda abs, Tt.Lambda abs' ->
-      alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
-
-    | Tt.Spine (e, xts, es), Tt.Spine (e', xts', es') ->
-      alpha_equal e e' &&
-      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty xts xts' &&
-      alpha_equal_list alpha_equal es es'
-
-    | Tt.Type, Tt.Type -> true
-
-    | Tt.Prod abs, Tt.Prod abs' ->
-      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty abs abs'
-
-    | Tt.Eq (t, e1, e2), Tt.Eq (t', e1', e2') ->
-      alpha_equal_ty t t' &&
-      alpha_equal e1 e1' &&
-      alpha_equal e2 e2'
-
-    | Tt.Refl (t, e), Tt.Refl (t', e') ->
-      alpha_equal_ty t t' &&
-      alpha_equal e e'
-
-    | Tt.Bracket t1, Tt.Bracket t2 ->
-      alpha_equal_ty t1 t2
-
-    | Tt.Inhab, Tt.Inhab -> true
-
-    | (Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
-        Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Bracket _ | Tt.Inhab), _ ->
-      false
-  end
-
-and alpha_equal_ty (Tt.Ty t1) (Tt.Ty t2) = alpha_equal t1 t2
-
-and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
-
-and alpha_equal_list equal_e es es' =
-  match es, es' with
-  | [], [] -> true
-  | e :: es, e' :: es' ->
-    equal_e e e' && alpha_equal_list equal_e es es'
-  | ([],_::_) | ((_::_),[]) -> false
-
 (** Indicate a mismatch during pattern matching -- only used locally and should
     never escape [verify_match] or [collect_for_XXX] below. *)
 exception NoMatch
@@ -267,7 +197,7 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
   let i = cnt () in
   Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
     (Tt.print_term xs e1) (Tt.print_term xs e2) (Tt.print_ty xs t);
-  if alpha_equal e1 e2 then return ctx else
+  if Tt.alpha_equal e1 e2 then return ctx else
     begin (* type-directed phase *)
       let (ctx, ((Tt.Ty (t',_)) as t)) = whnf_ty env ctx t in
       match t' with
@@ -355,7 +285,7 @@ and equal_hints env ctx e1 e2 t =
   let (ctx, ((e1',loc1) as e1)) = whnf env ctx e1 in
   let (ctx, ((e2',loc2) as e2)) = whnf env ctx e2 in
   (* short-circuit alpha equality *)
-  if alpha_equal e1 e2 then
+  if Tt.alpha_equal e1 e2 then
     return ctx
   else
     (* try general hints *)
@@ -987,7 +917,7 @@ and verify_match ~spawn env ctx xts pvars checks =
 
            | CheckAlphaEqual (e1, e2) ->
               let e1 = Tt.instantiate es 0 e1 in
-              if not (alpha_equal e1 e2) then raise NoMatch else ctx) ctx
+              if not (Tt.alpha_equal e1 e2) then raise NoMatch else ctx) ctx
         checks in
     (* Perform delayed inhabitation goals *)
     (* XXX why is it safe to delay these? *)

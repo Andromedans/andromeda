@@ -363,6 +363,77 @@ and occurs_term_ty k (e, t) =
 
 let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
 
+(****** Alpha equality ******)
+
+(* Currently, the only difference between alpha and structural equality is that
+   the names of variables in abstractions are ignored. *)
+let alpha_equal_abstraction alpha_equal_u alpha_equal_v (xus, v) (xus', v') =
+  let rec eq xus xus' =
+    match xus, xus' with
+    | [], [] -> true
+    | (_, u) :: xus, (_, u') :: xus' ->
+        alpha_equal_u u u' &&
+        eq xus xus'
+    | [], _::_ | _::_, [] -> false
+  in
+  eq xus xus' &&
+  alpha_equal_v v v'
+
+let rec alpha_equal (e1,_) (e2,_) =
+  e1 == e2 || (* a shortcut in case the terms are identical *)
+  begin match e1, e2 with
+
+    | Atom x, Atom y -> Name.eq_atom x y
+
+    | Bound i, Bound j -> i = j
+
+    | Constant (x, es), Constant (x', es') ->
+      Name.eq_ident x x' &&
+      alpha_equal_list alpha_equal es es'
+
+    | Lambda abs, Lambda abs' ->
+      alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
+
+    | Spine (e, xts, es), Spine (e', xts', es') ->
+      alpha_equal e e' &&
+      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty xts xts' &&
+      alpha_equal_list alpha_equal es es'
+
+    | Type, Type -> true
+
+    | Prod abs, Prod abs' ->
+      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty abs abs'
+
+    | Eq (t, e1, e2), Eq (t', e1', e2') ->
+      alpha_equal_ty t t' &&
+      alpha_equal e1 e1' &&
+      alpha_equal e2 e2'
+
+    | Refl (t, e), Refl (t', e') ->
+      alpha_equal_ty t t' &&
+      alpha_equal e e'
+
+    | Bracket t1, Bracket t2 ->
+      alpha_equal_ty t1 t2
+
+    | Inhab, Inhab -> true
+
+    | (Atom _ | Bound _ | Constant _ | Lambda _ | Spine _ |
+        Type | Prod _ | Eq _ | Refl _ | Bracket _ | Inhab), _ ->
+      false
+  end
+
+and alpha_equal_ty (Ty t1) (Ty t2) = alpha_equal t1 t2
+
+and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
+
+and alpha_equal_list equal_e es es' =
+  match es, es' with
+  | [], [] -> true
+  | e :: es, e' :: es' ->
+    equal_e e e' && alpha_equal_list equal_e es es'
+  | ([],_::_) | ((_::_),[]) -> false
+
 (** Optionally print a typing annotation in brackets. *)
 let print_annot ?(prefix="") k ppf =
   if !Config.annotate then

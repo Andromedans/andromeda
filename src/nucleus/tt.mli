@@ -152,6 +152,12 @@ val occurs_ty_abstraction:
   (Syntax.bound -> 'a -> int) ->
   Syntax.bound -> 'a ty_abstraction -> int
 
+(** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
+val alpha_equal: term -> term -> bool
+
+(** [alpha_equal_ty t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
+val alpha_equal_ty: ty -> ty -> bool
+
 val print_ty : ?max_level:int -> Name.ident list -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
 val print_constsig : ?max_level:int -> Name.ident list -> constsig -> Format.formatter -> unit

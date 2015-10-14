@@ -108,7 +108,7 @@ and spine ~loc h xts t es =
       (* Do the types match? *)
       (let t1 = Tt.mk_prod_ty ~loc yus u
        and t2 = Tt.mk_prod_ty ~loc xts t in
-        Equal.alpha_equal_ty t1 t2)
+        Tt.alpha_equal_ty t1 t2)
     ->
     begin
       let rec reduce yus du xts es =
