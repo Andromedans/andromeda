@@ -12,8 +12,24 @@ let print_ident x ppf =
   | Anonymous -> Print.print ppf "_"
   | String s -> Print.print ppf "%s" s
 
+(** Subscripts *)
+
+let subdigit = [|"₀"; "₁"; "₂"; "₃"; "₄"; "₅"; "₆"; "₇"; "₈"; "₉"|]
+
+let subscript k =
+  if !Config.ascii then "_" ^ string_of_int k
+  else if k = 0 then subdigit.(0)
+  else
+    let rec fold s = function
+      | 0 -> s
+      | k ->
+         let s = subdigit.(k mod 10) ^ s in
+         fold s (k / 10)
+    in
+    fold "" k
+
 let print_atom x ppf =
-  match x with Gensym (s, k) -> Print.print ppf "%s{%d}" s k
+  match x with Gensym (s, k) -> Print.print ppf "%s%s" s (subscript k)
 
 let print_op op ppf =
   Print.print ppf "#%s" op
