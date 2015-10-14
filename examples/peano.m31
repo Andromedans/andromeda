@@ -2,60 +2,60 @@
 
 Parameter N : Type.
 Parameter Z : N.
-Parameter S : N -> N.
+Parameter S : N → N.
 
 Parameter ind_N :
-  forall P : N -> Type, P Z -> (forall n : N, P n -> P (S n)) -> forall m : N, P m.
+  ∀ [P : N → Type] P Z → (∀ [n : N] P n → P (S n)) → ∀ [m : N] P m.
 
 Parameter ind_N_Z :
-  forall (P : N -> Type) (x : P Z) (f : forall n : N, P n -> P (S n)),
-    ind_N P x f Z == x.
+  ∀ [P : N → Type] [x : P Z] [f : ∏ [n : N] P n → P (S n)]
+    ind_N P x f Z ≡ x.
 
 Parameter ind_N_S :
-  forall (P : N -> Type) (x : P Z) (f : forall n : N, P n -> P (S n)) (m : N),
-    ind_N P x f (S m) == f m (ind_N P x f m).
+  ∀ [P : N → Type] [x : P Z] [f : ∏ [n : N] P n → P (S n)] [m : N]
+    ind_N P x f (S m) ≡ f m (ind_N P x f m).
 
 (* It looks like the best way to define new things is not with a let-binding,
    which always automatically unfolds the definition, but rather by introducing
    a new constant and a new equation. *)
 
-Parameter pred : N -> N.
-Parameter pred_Z : pred Z == Z.
-Parameter pred_S : forall x : N, pred (S x) == x.
+Parameter pred : N → N.
+Parameter pred_Z : pred Z ≡ Z.
+Parameter pred_S : ∏ [x : N] pred (S x) ≡ x.
 
-Parameter pred' : N -> N.
+Parameter pred' : N → N.
 Parameter pred'_def :
-  forall x : N, pred' x == ind_N (fun _ : N => N) Z (fun x' _ : N => x') x.
+  ∀ [x : N] pred' x ≡ ind_N (λ [_ : N] N) Z (λ [x' _ : N] x') x.
 
 Check beta ind_N_Z in beta ind_N_S in beta pred'_def in
-    refl (S Z) : pred' (S (S Z)) == (S Z).
+  refl (S Z) :: pred' (S (S Z)) ≡ (S Z).
 
 (* We define plus in such a way that it will unfold only when it is applied
    to two arguments. This seems to be an advantage. *)
-Parameter plus : N -> N -> N.
+Parameter plus : N → N → N.
 Parameter plus_def :
-  forall x y : N, plus x y == ind_N (fun _ : N => N) x (fun _ : N => S) y.
+  ∀ [x y : N] plus x y ≡ ind_N (λ [_ : N] N) x (λ [_ : N] S) y.
 
 (* We now use the ind_N computation rules to establish properties of plus.
    Later we use these properties to compute with plus -- we do not have to
    always go back to ind_N. *)
 Let plus_Z :=
-  (fun x : N =>
+  (λ [x : N]
     beta plus_def in
     beta ind_N_Z in
-      refl (plus x Z) :
-        plus x Z == x)
- :
- forall x : N, plus x Z == x.
+      refl (plus x Z) ::
+        plus x Z ≡ x)
+ ::
+ ∀ [x : N] plus x Z ≡ x.
 
 Let plus_S :=
-  (fun x y : N =>
+  (λ [x y : N]
      beta plus_def in
      beta ind_N_S in
-     refl (plus x (S y)) :
-       plus x (S y) == S (plus x y))
-  :
-  forall x y : N, plus x (S y) == S (plus x y).
+     refl (plus x (S y)) ::
+       plus x (S y) ≡ S (plus x y))
+  ::
+  ∀ [x y : N] plus x (S y) ≡ S (plus x y).
 
 (* We can compute with these rules. *)
 
@@ -67,92 +67,92 @@ Let five  := S (S (S (S (S Z)))).
 
 Check
   beta pred_Z in beta pred_S in
-    refl four : pred five == four.
+    refl four :: pred five ≡ four.
 
 Check
   beta pred_Z in beta pred_S in
-    refl Z : pred Z == Z.
+    refl Z :: pred Z ≡ Z.
 
 Check
   beta plus_Z in
   beta plus_S in
-    refl five : plus two three == plus one four.
+    refl five :: plus two three ≡ plus one four.
 
 (* Let us establish commutativity of addition. *)
 
 Let plus_Z' :=
   ind_N
-    (fun x : N => plus Z x == x)
+    (λ [x : N] plus Z x ≡ x)
     (plus_Z Z)
-    (fun (x : N) (IH : plus Z x == x) =>
+    (λ [x : N] [IH : plus Z x ≡ x]
        beta IH in
        beta plus_S in
-         refl (S (plus Z x)) : plus Z (S x) == S x)
-  : forall x : N, plus Z x == x.
+         refl (S (plus Z x)) :: plus Z (S x) ≡ S x)
+  :: ∀ [x : N] plus Z x ≡ x.
 
 Let plus_S' :=
-  (fun (x y : N) =>
+  (λ [x y : N]
     beta plus_Z in
     beta plus_S in
     ind_N
-      (fun z : N => plus (S x) z == S (plus x z))
+      (λ [z : N] plus (S x) z ≡ S (plus x z))
       (refl (S x))
-      (fun (z : N) (IH : plus (S x) z == S (plus x z)) =>
+      (λ [z : N] [IH : plus (S x) z ≡ S (plus x z)]
        beta IH in
        beta plus_S in
-         refl (plus (S x) (S z)) : plus (S x) (S z) == S (plus x (S z)))
+         refl (plus (S x) (S z)) :: plus (S x) (S z) ≡ S (plus x (S z)))
       y)
-  : forall x y : N, plus (S x) y == S (plus x y).
+  :: ∀ [x y : N] plus (S x) y ≡ S (plus x y).
 
 Let plus_commute :=
-  (fun (x y : N) =>
+  (λ [x y : N]
     beta plus_Z in
     beta plus_S in
     beta plus_Z' in
     beta plus_S' in
     ind_N
-      (fun z : N => plus z y == plus y z)
+      (λ [z : N] plus z y ≡ plus y z)
       (refl y)
-      (fun (z : N) (IH : plus z y == plus y z) =>
+      (λ [z : N] [IH : plus z y ≡ plus y z]
           beta IH in
-           refl (S (plus z y)) : plus (S z) y == plus y (S z) )
+           refl (S (plus z y)) :: plus (S z) y ≡ plus y (S z) )
       x)
-  : forall x y : N, plus x y == plus y x.
+  :: ∀ [x y : N] plus x y ≡ plus y x.
 
 Check plus_commute.
 
 (* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x). *)
 Check hint plus_commute in
-   (fun (P : N -> Type) (x y : N) (a : P (plus x y)) => a : P (plus y x)).
+   (λ [P : N → Type] [x y : N] [a : P (plus x y)] a :: P (plus y x)).
 
 (** [times n m] computes m*n as n-fold sum of m. *)
-Parameter times : N -> N -> N.
-Parameter times_def : ∀ (n m : N), times n m == ind_N (fun _ : N => N) Z (fun _ : N => plus m) n.
+Parameter times : N → N → N.
+Parameter times_def : ∀ [n m : N] times n m ≡ ind_N (λ [_ : N] N) Z (λ [_ : N] plus m) n.
 
 Check
   beta times_def in
     beta ind_N_Z in
-    refl Z : times Z two == Z.
-
-Check
-  beta times_def in
-    beta plus_def in
-    beta ind_N_Z in
-    beta ind_N_S in
-    refl Z : times two Z == Z.
+    refl Z :: times Z two ≡ Z.
 
 Check
   beta times_def in
     beta plus_def in
     beta ind_N_Z in
     beta ind_N_S in
-    refl (plus two four) : times three two == (plus two four).
+    refl Z :: times two Z ≡ Z.
+
+Check
+  beta times_def in
+    beta plus_def in
+    beta ind_N_Z in
+    beta ind_N_S in
+    refl (plus two four) :: times three two ≡ (plus two four).
 
 
 (** [exp b p] is the naive definition b^e as p-fold product of b. *)
-Parameter exp : N -> N -> N.
+Parameter exp : N → N → N.
 Parameter exp_def :
-  ∀ (base power : N), exp base power == ind_N (fun _ : N => N) one (fun _ : N => times base) power.
+  ∀ [base power : N] exp base power ≡ ind_N (λ [_ : N] N) one (λ [_ : N] times base) power.
 
 Check
   beta exp_def in
@@ -160,7 +160,7 @@ Check
   beta plus_def in
   beta ind_N_Z in
   beta ind_N_S in
-    refl four : exp two two == four.
+    refl four :: exp two two ≡ four.
 
 Let nine := times three three.
 Let ten := plus five five.
@@ -171,7 +171,7 @@ Check
   beta plus_def in
   beta ind_N_Z in
   beta ind_N_S in
-    refl nine : exp three two == nine.
+    refl nine :: exp three two ≡ nine.
 
 (* 2^7 is okay, 2^10 takes some time and memory *)
 Check
@@ -180,4 +180,4 @@ Check
   beta plus_def in
   beta ind_N_Z in
   beta ind_N_S in
-    refl (exp two (plus three four)) : exp two (plus three four) == times two (exp two (plus four two)).
+    refl (exp two (plus three four)) :: exp two (plus three four) ≡ times two (exp two (plus four two)).
