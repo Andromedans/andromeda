@@ -197,6 +197,7 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
   let i = cnt () in
   Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
     (Tt.print_term xs e1) (Tt.print_term xs e2) (Tt.print_ty xs t);
+  let r =
   if Tt.alpha_equal e1 e2 then return ctx else
     begin (* type-directed phase *)
       let (ctx, ((Tt.Ty (t',_)) as t)) = whnf_ty env ctx t in
@@ -272,8 +273,10 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
         | Tt.Refl _ -> Error.impossible ~loc:loc1 "refl is not a type"
 
         | Tt.Inhab -> Error.impossible ~loc:loc1 "[] is not a type"
-    end
-  (* Print.debug "%i equality check %s)" i (if b then "succeeded" else "failed"); *)
+    end in
+  Print.debug "%i equality check %s)" i
+    (match r with | None -> "failed" | Some _ -> "succeeded") ;
+  r
 
 (* Compare expressions at a given type [t] using general hints. *)
 and equal_hints env ctx e1 e2 t =
