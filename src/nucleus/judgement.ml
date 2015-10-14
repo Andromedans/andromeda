@@ -17,12 +17,14 @@ let assume ~loc x (ctx, t) =
   mk_term ctx (Tt.mk_atom ~loc y) t
 
 let print_term xs (ctx, e,t) ppf =
-  Print.print ~at_level:0 ppf "%t@[<hov 2>%t@\n    : %t@]"
+  Format.fprintf ppf "%t@[<hov 2>%s %t@\n    : %t@]"
               (Context.print ctx)
+              (Print.char_vdash ())
               (Tt.print_term ~max_level:999 xs e)
               (Tt.print_ty ~max_level:999 xs t)
 
 let print_ty xs (ctx, t) ppf =
-  Print.print ~at_level:0 ppf "%t@[<hov 2>%t@\n    type@]"
+  Print.print ~at_level:0 ppf "%t@[<hov 2>%s %t@\n    type@]"
               (Context.print ctx)
+              (Print.char_vdash ())
               (Tt.print_ty ~max_level:999 xs t)

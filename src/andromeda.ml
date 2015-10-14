@@ -36,8 +36,12 @@ let options = Arg.align [
      " Print terms in ASCII format");
 
     ("--debruijn",
-      Arg.Set Config.debruijn,
+     Arg.Set Config.debruijn,
      " Print de Bruijn indices of bound variables");
+    
+    ("--dependencies",
+     Arg.Set Config.print_dependencies,
+     " Print depdenencies between assumptions");
 
     ("--wrapper",
      Arg.String (fun str -> Config.wrapper := Some [str]),

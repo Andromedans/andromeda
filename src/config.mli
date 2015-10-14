@@ -34,3 +34,6 @@ val annotate : bool ref
 
 (** Ignore all installed rewrite hints *)
 val ignore_hints : bool ref
+
+(** Should context dependencies between variables be printed? *)
+val print_dependencies : bool ref

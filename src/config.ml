@@ -20,3 +20,5 @@ let debruijn = ref false
 let annotate = ref false
 
 let ignore_hints = ref false
+
+let print_dependencies = ref false

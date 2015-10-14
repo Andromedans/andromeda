@@ -66,20 +66,20 @@ let abstract1 ~loc ctx x =
 
 let abstract ~loc ctx xs = List.fold_left (abstract1 ~loc) ctx xs
 
-let print ctx (ppf : Format.formatter) =
-  if AtomMap.is_empty ctx then
-    Print.print ppf ""
-  else
-    begin
-      let equal_char = " " ^ Print.char_equal () in
-      AtomMap.iter
-        (fun x (ts, deps) ->
-         Print.print ppf "%t : [%t] @[%t@]\n"
-                       (Name.print_atom x)
-                       (Print.sequence Name.print_atom "" (AtomSet.elements deps))
-                       (Print.sequence (Tt.print_ty []) equal_char ts)
-        )
-        ctx ;
-      Print.print ppf "----------------------\n"
-    end
-      
+let print_dependencies deps ppf =
+  if not !Config.print_dependencies || AtomSet.is_empty deps
+  then Format.fprintf ppf ""
+  else Format.fprintf ppf "@ [%t]"
+                      (Print.sequence Name.print_atom "," (AtomSet.elements deps))
+
+let print_entry ppf x (ts, deps) =
+  let equal_char = " " ^ Print.char_equal () in
+  Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@]@]@ "
+    (Name.print_atom x)
+    (Print.sequence (Tt.print_ty []) equal_char ts)
+    (print_dependencies deps)
+
+let print ctx ppf =
+  Format.pp_open_vbox ppf 0 ;
+  AtomMap.iter (print_entry ppf) ctx ;
+  Format.pp_close_box ppf ()
