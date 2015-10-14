@@ -25,6 +25,19 @@ Parameter C : Type.
 Parameter D : Type.
 Parameter p : prod C D.
 
+
+(* Beta rules. *)
+Check
+  (λ [c : C] [d : D]
+    beta pair_beta_fst in
+      refl c :: fst C D (pair C D c d) ≡ c).
+
+Check
+  (λ [c : C] [d : D]
+    beta pair_beta_fst in
+    beta pair_beta_snd in
+      refl d :: snd C D (pair C D c d) ≡ d).
+
 (* Surjective pairing. *)
 Check
   beta pair_beta_fst in

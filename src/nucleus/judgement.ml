@@ -13,7 +13,7 @@ let mk_ty ctx t = (ctx, t)
 let ty_ty = (Context.empty, Tt.typ)
 
 let print_term xs (ctx, e,t) ppf =
-  Print.print ~at_level:0 ppf "SHOULD PRINT CONTEXT@[<hov 2>%t@\n    : %t@]"
+  Print.print ~at_level:0 ppf "@[<hov 2>%t@\n    : %t@]"
               (Tt.print_term ~max_level:999 xs e)
               (Tt.print_ty ~max_level:999 xs t)
 

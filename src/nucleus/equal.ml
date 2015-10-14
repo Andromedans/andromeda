@@ -287,17 +287,24 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
                 equal_hints env ctx e1 e2 t
 
               |  ((ctxh, (xts, (pt, k1, k2))) as h) :: hs ->
-                Print.debug "collecting for eta %t" (Pattern.print_eta_hint [] h);
+                let debug_i = cnt () in
+                Print.debug "(%d collecting for eta %t" debug_i (Pattern.print_eta_hint [] h);
                 (* XXX Here a failed join need not be fatal, we could catch and continue
                    with the remaining hints *)
                 let ctx, eqs = Context.join ctxh ctx in
                 begin match collect_for_eta env ctx (pt, k1, k2) (t, e1, e2) with
-                  | None -> fold hs (* no match, try other hints *)
+                  | None -> 
+                     Print.debug "collecting for eta failed early %d)" debug_i;
+                     fold hs (* no match, try other hints *)
                   | Some (pvars, checks) ->
                     (* check validity of the match *)
                     begin match verify_match ~spawn:true env ctx xts pvars checks with
-                      | Some (ctx, _) -> return ctx (* success - notice how we throw away the witness of success *)
-                      | None -> fold hs (* no match on this hint, try the rest *)
+                      | Some (ctx, _) ->
+                         Print.debug "collecting for eta worked %d)" debug_i;
+                         return ctx (* success - notice how we throw away the witness of success *)
+                      | None ->
+                         Print.debug "collecting for eta failed late %d)" debug_i;
+                         fold hs (* no match on this hint, try the rest *)
                     end
                 end
 
@@ -388,6 +395,7 @@ and equal_hints env ctx e1 e2 t =
    have a common type. *)
 and equal_whnf env ctx (e1',loc1) (e2',loc2) =
   (* compare reduced expressions *)
+  Print.debug "equal_whnf of %t and %t" (Tt.print_term [] (e1',loc1)) (Tt.print_term [] (e2',loc2)) ;
   match e1', e2' with
 
   | Tt.Atom x, Tt.Atom y ->
@@ -793,6 +801,7 @@ and collect_for_beta env ctx bp (e',loc) =
     ([], [], extras)
 
   | Pattern.BetaConstant (x, pes), Tt.Spine (e, yts, es) ->
+Print.debug "collect_beta for %t" (Name.print_ident x) ;
     let rec fold extras (e',_) yts es =
       match e' with
         | Tt.Constant (y, es') ->
@@ -804,6 +813,7 @@ and collect_for_beta env ctx bp (e',loc) =
     in
     let y, es, extras = fold [] e yts es in
     let pvars, checks = collect_primapp ~loc env ctx x pes y es in
+Print.debug "collect_beta for %t WORKED" (Name.print_ident x) ;
     (pvars, checks, extras)
 
   | Pattern.BetaConstant (x, pes), Tt.Constant (y, es) ->
@@ -880,6 +890,9 @@ and collect_for_inhabit env ctx pt t =
     happens if [spawn] is set to true in beta hints. Do we cycle?
 *)
 and verify_match ~spawn env ctx xts pvars checks =
+  let debug_i = cnt () in
+  Print.debug "(%d verify_match" debug_i ;
+
   (* Silly auxiliary function. *)
   let rec lookup x = function
     | [] -> None
@@ -928,7 +941,7 @@ and verify_match ~spawn env ctx xts pvars checks =
   try
     (* Make a substitution from the collected [pvars] *)
     let es, inhs = subst_of_pvars env ctx pvars (List.length xts - 1) xts [] [] in
-    Print.debug "built substitution";
+    Print.debug "built substitution %d" debug_i;
     (* Perform the equality checks to validate the match *)
     let ctx =
       List.fold_left
@@ -953,18 +966,18 @@ and verify_match ~spawn env ctx xts pvars checks =
               let xuvs = List.map (fun (x, (pt, t)) -> x, (Tt.instantiate_ty es 0 pt, t)) xuvs in
               let t1', t2' =  Tt.instantiate_ty es 0 t1, t2 in
 
-              Print.debug "es: %t"
+              Print.debug "%d es: %t" debug_i
                 (Print.sequence (Tt.print_term ~max_level:0 []) "; " es);
 
-              Print.debug "instantiated pattern return type@ %t@ as@ %t"
+              Print.debug "%d instantiated pattern return type@ %t@ as@ %t" debug_i
                 (Tt.print_ty [] t1)
                 (Tt.print_ty [] t1') ;
 
-              Print.debug "instantiated rhs-term return type@ %t@ as@ %t"
+              Print.debug "%d instantiated rhs-term return type@ %t@ as@ %t" debug_i
                 (Tt.print_ty [] t2)
                 (Tt.print_ty [] t2') ;
 
-              Print.debug "CheckEqualTy@ %t@ %t"
+              Print.debug "%d CheckEqualTy@ %t@ %t" debug_i
                 (Tt.print_ty [] t1')
                 (Tt.print_ty [] t2');
               begin match equal_abstracted_ty env ctx xuvs t1' t2' with
@@ -985,8 +998,11 @@ and verify_match ~spawn env ctx xts pvars checks =
            | Some (ctx, _) -> ctx) ctx
       inhs in
     (* match succeeded *)
+    Print.debug "succeeded %d" debug_i ;
     Some (ctx, es)
-  with NoMatch -> None (* matching failed *)
+  with NoMatch -> 
+    Print.debug "failed %d)" debug_i ;
+    None (* matching failed *)
 
 and as_bracket env (ctx, t) =
   let (ctxt, Tt.Ty (t', loc)) = whnf_ty env ctx t in
@@ -1034,10 +1050,16 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty (t', loc)) as t) =
         fold env [] xts'
 
     | Tt.Eq (t, e1, e2) ->
-       if subgoals then None
-       else equal env ctx e1 e2 t >>= fun ctx ->
+       if not subgoals
+       then
+         (* Do not create new subgoals, just return the only
+            possible candidate for inhabitation. *)
          let e = Tt.mk_refl ~loc t e1 in
          return (ctx, e)
+       else
+         equal env ctx e1 e2 t >>= fun ctx ->
+           let e = Tt.mk_refl ~loc t e1 in
+           return (ctx, e)
 
     | Tt.Bracket t ->
        let jt = Judgement.mk_ty ctx t in
