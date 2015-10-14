@@ -156,7 +156,7 @@ let add_bound x v env =
 (** generate a fresh atom of type [t] and bind it to [x]
     NB: This is an effectful computation. *)
 let add_fresh ~loc env x (ctx, t) =
-  let y = Name.fresh x in
+  let y, ctx = Context.cone ctx x t in
   let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
   let env = add_bound x yt env in
   y, env

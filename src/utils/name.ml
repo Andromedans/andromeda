@@ -76,6 +76,9 @@ let eq_ident x y = (x = y)
 
 let eq_atom (Gensym (_, x)) (Gensym (_, y)) = (x = y)
 
+let compare_atom (Gensym (_, x)) (Gensym (_, y)) =
+  if x < y then -1 else if x > y then 1 else 0
+
 let index_of_atom x ys =
   let rec fold k = function
     | [] -> None

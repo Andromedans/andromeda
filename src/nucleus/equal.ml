@@ -968,7 +968,7 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty (t', loc)) as t) =
             | Some (ctx, e) ->
               let e = Tt.abstract ys 0 e in
               let e = Tt.mk_lambda ~loc xts' e t' in
-              let ctx = Context.abstract ctx ys in
+              let ctx = Context.abstract ~loc ctx ys in
               Some (ctx, e)
           end
         | (x,t)::xts ->
@@ -1044,7 +1044,7 @@ let rec deep_prod env ctx t f =
           let w = Tt.unabstract_ty ys 0 w in
           let ctx, (zvs, w) = deep_prod env ctx w f in
           let (zvs, w) = Tt.abstract_ty_abstraction Tt.abstract_ty ys 0 (zvs, w) in
-          let ctx = Context.abstract ctx ys in
+          let ctx = Context.abstract ~loc ctx ys in
           (ctx, (xus @ zvs, w))
 
        | (z,v) :: zvs ->

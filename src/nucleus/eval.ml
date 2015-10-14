@@ -370,7 +370,7 @@ and infer_lambda env ~loc xus c =
             let t' = Tt.abstract_ty zs 0 t' in
             let ctx, eqs = Context.join ctx ctxe in
             (** XXX verify equations eqs *)
-            let ctx = Context.abstract ctx zs in
+            let ctx = Context.abstract ~loc ctx zs in
             let xws = List.rev xws in
             let lam = Tt.mk_lambda ~loc xws e t' in
             let prod = Tt.mk_prod_ty ~loc xws t' in
@@ -397,7 +397,7 @@ and infer_prod env ~loc xus c =
             let t' = Tt.abstract_ty zs 0 t' in
             let ctx, eqs = Context.join ctx ctxt in
             (** XXX verify equations eqs *)
-            let ctx = Context.abstract ctx zs in
+            let ctx = Context.abstract ~loc ctx zs in
             let xws = List.rev xws in
             let prod = Tt.mk_prod ~loc xws t' in
             let typ = Tt.mk_type_ty ~loc in
@@ -495,9 +495,10 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
           check env body j_t_body' >>=
             (fun (ctxe, e) ->
              let e = Tt.abstract ys 0 e in
-             let xts = List.rev xts in
              let ctx, eqs = Context.join ctx ctxe in
-             (* XXX should call Context.abstract somewhere, see infer_lambda *)
+             (** XXX verify equations eqs *)
+             let ctx = Context.abstract ~loc ctx ys in
+             let xts = List.rev xts in
              Value.return (ctx, Tt.mk_lambda ~loc xts e t_body))
 
         | [], _::_ ->

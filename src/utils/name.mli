@@ -36,8 +36,11 @@ val refresh : ident list -> ident -> ident
 (** Compare identifiers. *)
 val eq_ident : ident -> ident -> bool
 
-(** Compare atoms. *)
+(** Compare atoms for equality. *)
 val eq_atom : atom -> atom -> bool
+
+(** Compare atoms. *)
+val compare_atom : atom -> atom -> int
 
 (** [index_of_atom x xs] finds the index of [x] in list [xs] if it's there. *)
 val index_of_atom : atom -> atom list -> int option
