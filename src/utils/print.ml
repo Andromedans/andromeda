@@ -25,3 +25,11 @@ let rec sequence print_u separator us ppf =
       (print_u u)
       separator
       (sequence print_u separator us)
+
+(** Unicode and ascii version of symbols *)
+
+let char_lambda () = if !Config.ascii then "fun" else "λ"
+let char_arrow ()  = if !Config.ascii then "->" else "→"
+let char_darrow () = if !Config.ascii then "=>" else "⇒"
+let char_prod ()   = if !Config.ascii then "forall" else "Π"
+let char_equal ()  = if !Config.ascii then "==" else "≡"
