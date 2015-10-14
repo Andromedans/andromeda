@@ -19,7 +19,7 @@ and term' =
   | With of expr * comp
   | Apply of expr * expr
   | Let of (Name.ident * comp) list * comp
-  | Assume of (Name.ident * comp) * comp
+  | Assume of Name.ident option * comp
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp

@@ -65,11 +65,9 @@ let rec comp constants bound ((c',loc) as c) =
       let c2 = comp constants bound c2 in
       [], Syntax.Let (xcs, c2)
 
-    | Input.Assume ((x, t), c) ->
-       let t = comp constants bound t in
-       let bound = add_bound x bound in
+    | Input.Assume (xopt, c) ->
        let c = comp constants bound c in
-       [], Syntax.Assume ((x, t), c)
+       [], Syntax.Assume (xopt, c)
 
     | Input.Apply (e1, e2) ->
        let w1, e1 = expr constants bound e1
