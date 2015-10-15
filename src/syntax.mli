@@ -22,6 +22,7 @@ and comp' =
   | With of expr * comp
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
+  | Where of comp * expr * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
