@@ -21,7 +21,7 @@ and comp' =
   | Operation of string * expr
   | With of expr * comp
   | Let of (Name.ident * comp) list * comp
-  | Assume of Name.ident option * comp
+  | Assume of (Name.ident * comp) * comp
   | Apply of expr * expr
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
@@ -86,9 +86,10 @@ let rec shift_comp k lvl (c', loc) =
        and c = shift_comp k (lvl + List.length xcs) c in
        Let (xcs, c)
 
-    | Assume (xopt, c) ->
-       let c = shift_comp k lvl c in
-       Assume (xopt, c)
+    | Assume ((x, t), c) ->
+       let t = shift_comp k lvl t
+       and c = shift_comp k lvl c in
+       Assume ((x, t), c)
 
     | Apply (e1, e2) ->
        let e1 = shift_expr k lvl e1

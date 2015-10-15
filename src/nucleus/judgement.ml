@@ -12,10 +12,6 @@ let mk_ty ctx t = (ctx, t)
 
 let ty_ty = (Context.empty, Tt.typ)
 
-let assume ~loc x (ctx, t) =
-  let y, ctx = Context.cone ctx x t in
-  mk_term ctx (Tt.mk_atom ~loc y) t
-
 let print_term xs (ctx, e,t) ppf =
   Format.fprintf ppf "%t@[<hov 2>%s %t@\n    : %t@]"
               (Context.print ctx)

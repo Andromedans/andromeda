@@ -96,10 +96,11 @@ and infer env (c',loc) =
   | Syntax.Let (xcs, c) ->
      let_bind env xcs >>= (fun env -> infer env c)
 
-  | Syntax.Assume (xopt, c) ->
-     check_ty env c >>= fun t ->
-     let x = (match xopt with Some x -> x | None -> Name.make "hyp") in
-     Value.return_term (Judgement.assume ~loc x t)
+  | Syntax.Assume ((x, t), c) ->
+     check_ty env t >>= fun t ->
+     (* XXX what should happen with y? *)
+     let y, env = Environment.add_fresh ~loc env x t in
+     infer env c
 
   | Syntax.Apply (e1, e2) ->
      let v1 = Value.as_closure ~loc (expr env e1)
@@ -234,7 +235,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
 
   | Syntax.Return _
   | Syntax.With _
-  | Syntax.Assume _
   | Syntax.Typeof _
   | Syntax.Apply _
   | Syntax.Constant _
@@ -269,6 +269,12 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
 
   | Syntax.Let (xcs, c) ->
      let_bind env xcs >>= (fun env -> check env c t_check)
+
+  | Syntax.Assume ((x, t), c) ->
+     check_ty env t >>= fun t ->
+     (* XXX what should happen with y? *)
+     let y, env = Environment.add_fresh ~loc env x t in
+     check env c t_check
 
   | Syntax.Beta (xscs, c) ->
      beta_bind env xscs >>= (fun env -> check env c t_check)
