@@ -20,4 +20,10 @@ val cone : t -> Name.ident -> Tt.ty -> Name.atom * t
     given by the list. Fails if this is not doable. *)
 val abstract : loc:Location.t -> t -> Name.atom list -> t
 
+type renaming
+
+val rename : t -> renaming -> t
+
+val disjoin : t -> t -> renaming * t
+
 val print : t -> Format.formatter -> unit

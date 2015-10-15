@@ -39,6 +39,7 @@ let reserved = [
   ("Type", TYPE) ;
   ("typeof", TYPEOF) ;
   ("val", VAL) ;
+  ("where", WHERE) ;
   ("with", WITH)
 ]
 

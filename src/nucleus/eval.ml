@@ -102,6 +102,14 @@ and infer env (c',loc) =
      let y, env = Environment.add_fresh ~loc env x t in
      infer env c
 
+  | Syntax.Where (c1, e, c2) ->
+     infer env c1 >>= as_term ~loc >>= fun (ctx1, v1, t1) ->
+     begin match expr env e |> Value.as_term ~loc with
+     | ctxa, (Tt.Atom a, loc_a), ta ->
+        assert false
+     | _ -> Error.typing ~loc "Only atoms can be substituted"
+     end
+
   | Syntax.Apply (e1, e2) ->
      let v1 = Value.as_closure ~loc (expr env e1)
      and v2 = expr env e2 in

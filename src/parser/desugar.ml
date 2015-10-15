@@ -71,6 +71,14 @@ let rec comp constants bound ((c',loc) as c) =
        let c = comp constants bound c in
        [], Syntax.Assume ((x, t), c)
 
+    | Input.Where (c1, e, c2) ->
+       let w, e = expr constants bound e
+       and c1 = comp constants bound c1
+       and c2 = comp constants bound c2 in
+       let c1 = Syntax.shift_comp (List.length w) 0 c1
+       and c2 = Syntax.shift_comp (List.length w) 0 c2 in
+       w, Syntax.Where (c1, e, c2)
+
     | Input.Apply (e1, e2) ->
        let w1, e1 = expr constants bound e1
        and w2, e2 = expr constants bound e2 in
@@ -293,7 +301,7 @@ and expr constants bound ((e', loc) as e) =
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
      Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _ |
-     Input.Typeof _ | Input.Assume _) ->
+     Input.Typeof _ | Input.Assume _ | Input.Where _ ) ->
     let x = Name.fresh_candy ()
     and c = comp constants bound e in
     [(x,c)], (Syntax.Bound 0, loc)

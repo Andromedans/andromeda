@@ -21,6 +21,7 @@
 %token FUNCTION APPLY
 %token AXIOM REDUCE
 %token ASSUME
+%token WHERE
 %token <string> OPERATION
 %token ENVIRONMENT HELP QUIT
 %token <int> VERBOSITY
@@ -88,6 +89,7 @@ plain_term:
   | e=plain_ty_term                                 { e }
   | LET a=let_clauses IN c=term                     { Let (a, c) }
   | ASSUME x=var_name COLON t=ty_term IN c=term     { Assume ((x, t), c) }
+  | c1=ty_term WHERE e=app_term DCOLON c2=term      { Where (c1, e, c2) }
   | BETA tshs=tags_opt_hints IN c=term              { Beta (tshs, c) }
   | ETA tshs=tags_opt_hints IN c=term               { Eta (tshs, c) }
   | HINT tshs=tags_opt_hints IN c=term              { Hint (tshs, c) }

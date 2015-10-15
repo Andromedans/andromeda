@@ -1,3 +1,5 @@
+type renaming = (Name.ident * Name.ident) list
+
 module AtomMap = Map.Make (struct
                       type t = Name.atom
                       let compare = Name.compare_atom
@@ -87,3 +89,17 @@ let abstract1 ~loc ctx x =
 
 let abstract ~loc ctx xs = List.fold_left (abstract1 ~loc) ctx xs
 
+let rename ctx s =
+  let a_s, b_s = List.split s in
+  AtomMap.fold
+    (fun a (ts, deps) ctx ->
+       let b = try List.assoc a s with Not_found -> a
+       and ts = List.map (fun t -> Tt.abstract_ty a_s 0 t |> Tt.unabstract_ty b_s 0) ts
+       and deps =
+         AtomSet.fold
+           (fun x deps -> AtomSet.add (try List.assoc x s with Not_found -> x) deps)
+           deps AtomSet.empty
+       in
+       let r = AtomMap.add b (ts, deps) ctx in r)
+    ctx
+    empty
