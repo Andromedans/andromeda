@@ -103,13 +103,28 @@ and infer env (c',loc) =
      infer env c
 
   | Syntax.Where (c1, e, c2) ->
-     infer env c1 >>= as_term ~loc >>= fun (ctx1, v1, t1) ->
-     begin match expr env e |> Value.as_term ~loc with
-     | ctxa, (Tt.Atom a, loc_a), ta ->
-        assert false
-     | _ -> Error.typing ~loc "Only atoms can be substituted"
-     end
+     failwith "Syntax.Where not implemented"
+(*
+     let (ctxe, ((e', _) as e), te) = expr_term env e in
+     (* XXX maybe we need to whnf e to see that it is an atom? *)
+     begin match e' with
+           | Tt.Atom a ->
+              infer env c1 >>= as_term ~loc >>=
+                (fun ((ctx1, e1, t1) as j1) ->
+                 check env c2 te >>=
+                   (fun (ctx2, e2) ->
+                    match Context.lookup ctx1 a with
+                      | None -> Value.return_term j1
+                      | Some te1 ->
+                         let ctx_eq, eqs = Context.join ctxe ctx1 in
 
+(te == te1)
+                   )
+                )
+
+           | _ -> Error.runtime ~loc "Only atoms can be substituted"
+     end
+*)
   | Syntax.Apply (e1, e2) ->
      let v1 = Value.as_closure ~loc (expr env e1)
      and v2 = expr env e2 in
@@ -283,6 +298,9 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
      (* XXX what should happen with y? *)
      let y, env = Environment.add_fresh ~loc env x t in
      check env c t_check
+
+  | Syntax.Where (c1, e, c2) ->
+     failwith "Syntax.Where not implemented"
 
   | Syntax.Beta (xscs, c) ->
      beta_bind env xscs >>= (fun env -> check env c t_check)

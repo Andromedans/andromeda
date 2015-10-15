@@ -1,4 +1,4 @@
-type renaming = (Name.ident * Name.ident) list
+type renaming = (Name.atom * Name.atom) list
 
 module AtomMap = Map.Make (struct
                       type t = Name.atom
@@ -103,3 +103,5 @@ let rename ctx s =
        let r = AtomMap.add b (ts, deps) ctx in r)
     ctx
     empty
+
+let disjoin ctx1 ctx2 = failwith "Context.disjoin not implemented"

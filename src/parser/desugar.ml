@@ -301,7 +301,7 @@ and expr constants bound ((e', loc) as e) =
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
      Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _ |
-     Input.Typeof _ | Input.Assume _ | Input.Where _ ) ->
+     Input.Typeof _ | Input.Assume _ | Input.Where _) ->
     let x = Name.fresh_candy ()
     and c = comp constants bound e in
     [(x,c)], (Syntax.Bound 0, loc)

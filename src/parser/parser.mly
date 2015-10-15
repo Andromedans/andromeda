@@ -86,19 +86,19 @@ quoted_string:
 
 term: mark_location(plain_term) { $1 }
 plain_term:
-  | e=plain_ty_term                                 { e }
-  | LET a=let_clauses IN c=term                     { Let (a, c) }
-  | ASSUME x=var_name COLON t=ty_term IN c=term     { Assume ((x, t), c) }
-  | c1=ty_term WHERE e=app_term DCOLON c2=term      { Where (c1, e, c2) }
-  | BETA tshs=tags_opt_hints IN c=term              { Beta (tshs, c) }
-  | ETA tshs=tags_opt_hints IN c=term               { Eta (tshs, c) }
-  | HINT tshs=tags_opt_hints IN c=term              { Hint (tshs, c) }
-  | INHABIT tshs=tags_opt_hints IN c=term           { Inhabit (tshs, c) }
-  | UNHINT ts=tags_unhints IN c=term                { Unhint (ts, c) }
-  | HANDLE c=term WITH hcs=handler_case* END        { Handle (c, hcs) }
-  | WITH h=term HANDLE c=term                       { With (h, c) }
-  | HANDLER hcs=handler_case* END                   { Handler (hcs) }
-  | e=app_term DCOLON t=ty_term                     { Ascribe (e, t) }
+  | e=plain_ty_term                                   { e }
+  | LET a=let_clauses IN c=term                       { Let (a, c) }
+  | ASSUME x=var_name COLON t=ty_term IN c=term       { Assume ((x, t), c) }
+  | c1=equal_term WHERE e=simple_term DCOLON c2=term  { Where (c1, e, c2) }
+  | BETA tshs=tags_opt_hints IN c=term                { Beta (tshs, c) }
+  | ETA tshs=tags_opt_hints IN c=term                 { Eta (tshs, c) }
+  | HINT tshs=tags_opt_hints IN c=term                { Hint (tshs, c) }
+  | INHABIT tshs=tags_opt_hints IN c=term             { Inhabit (tshs, c) }
+  | UNHINT ts=tags_unhints IN c=term                  { Unhint (ts, c) }
+  | HANDLE c=term WITH hcs=handler_case* END          { Handle (c, hcs) }
+  | WITH h=term HANDLE c=term                         { With (h, c) }
+  | HANDLER hcs=handler_case* END                     { Handler (hcs) }
+  | e=app_term DCOLON t=ty_term                       { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
