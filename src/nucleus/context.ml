@@ -104,4 +104,7 @@ let rename ctx s =
     ctx
     empty
 
-let disjoin ctx1 ctx2 = failwith "Context.disjoin not implemented"
+let refresh ctx =
+  let a_s = AtomMap.bindings ctx |> List.map fst in
+  let b_s = List.map Name.refresh a_s in
+  rename ctx (List.combine a_s b_s)

@@ -24,6 +24,6 @@ type renaming
 
 val rename : t -> renaming -> t
 
-val disjoin : t -> t -> renaming * t
+val refresh : t -> renaming * t
 
 val print : t -> Format.formatter -> unit
