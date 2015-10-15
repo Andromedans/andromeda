@@ -8,6 +8,24 @@ module AtomSet = Set.Make (struct
                     let compare = Name.compare_atom
                   end)
 
+let print_dependencies deps ppf =
+  if not !Config.print_dependencies || AtomSet.is_empty deps
+  then Format.fprintf ppf ""
+  else Format.fprintf ppf "@ [%t]"
+                      (Print.sequence Name.print_atom "," (AtomSet.elements deps))
+
+let print_entry ppf x (ts, deps) =
+  let equal_char = " " ^ Print.char_equal () in
+  Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@]@]@ "
+    (Name.print_atom x)
+    (Print.sequence (Tt.print_ty []) equal_char ts)
+    (print_dependencies deps)
+
+let print ctx ppf =
+  Format.pp_open_vbox ppf 0 ;
+  AtomMap.iter (print_entry ppf) ctx ;
+  Format.pp_close_box ppf ()
+
 let lookup x ctx =
   try
     Some (AtomMap.find x ctx)
@@ -61,27 +79,11 @@ let abstract1 ~loc ctx x =
        ctx
      else
        let deps = AtomSet.elements deps in
-       Error.runtime ~loc "cannot abstract %t because %t depend%s on it"
+       Error.runtime ~loc "cannot abstract %t because %t depend%s on it.\nContext:%t"
                      (Name.print_atom x)
                      (Print.sequence (Name.print_atom) "," deps)
                      (match deps with [_] -> "s" | _ -> "")
+                     (print ctx)
 
 let abstract ~loc ctx xs = List.fold_left (abstract1 ~loc) ctx xs
 
-let print_dependencies deps ppf =
-  if not !Config.print_dependencies || AtomSet.is_empty deps
-  then Format.fprintf ppf ""
-  else Format.fprintf ppf "@ [%t]"
-                      (Print.sequence Name.print_atom "," (AtomSet.elements deps))
-
-let print_entry ppf x (ts, deps) =
-  let equal_char = " " ^ Print.char_equal () in
-  Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@]@]@ "
-    (Name.print_atom x)
-    (Print.sequence (Tt.print_ty []) equal_char ts)
-    (print_dependencies deps)
-
-let print ctx ppf =
-  Format.pp_open_vbox ppf 0 ;
-  AtomMap.iter (print_entry ppf) ctx ;
-  Format.pp_close_box ppf ()
