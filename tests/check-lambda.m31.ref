@@ -4,11 +4,11 @@ C is assumed.
 f is assumed.
 g is assumed.
 a is assumed.
-λ [y : B a] g a y
+⊢ λ [y : B a] g a y
       : Π [y : B a] C a y
-λ [x : A] [y : B x] g x y
+⊢ λ [x : A] [y : B x] g x y
       : Π [x : A] [y : B x] C x y
-λ [x : A] [y : B x] g x y
+⊢ λ [x : A] [y : B x] g x y
       : Π [x : A] [y : B x] C x y
-λ [x : A] [y : B x] g x y
+⊢ λ [x : A] [y : B x] g x y
       : Π [x : A] [y : B x] C x y

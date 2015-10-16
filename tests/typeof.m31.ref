@@ -2,15 +2,15 @@ A is assumed.
 P is assumed.
 a is assumed.
 b is assumed.
-A
+⊢ A
       : Type
-Type
+⊢ Type
       : Type
-Type
+⊢ Type
       : Type
-P a
+⊢ P a
       : Type
-b
+⊢ b
       : P a
-Type
+⊢ Type
       : Type

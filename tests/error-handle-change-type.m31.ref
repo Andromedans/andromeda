@@ -1,5 +1,6 @@
 A is assumed.
 B is assumed.
 a is assumed.
-a
+e₄ : B ≡ A 
+⊢ a
       : B

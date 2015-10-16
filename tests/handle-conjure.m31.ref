@@ -2,5 +2,9 @@ conjure is defined.
 A is assumed.
 B is assumed.
 Q is assumed.
-λ [a : A] Q A B a magic{17}
-      : A → Type
+File "./handle-conjure.m31", line 19, characters 5-39: Runtime error
+  cannot abstract a₁₁ because magic₁₇ depends on it.
+Context:
+  a₁₁ : A 
+  magic₁₇ : B a₁₁ 
+  

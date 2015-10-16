@@ -1,9 +1,9 @@
 id is defined.
-λ [A : Type] [x : A] x
+⊢ λ [A : Type] [x : A] x
       : Π [A : Type] A → A
 compose is defined.
-λ [A : Type] [B : Type] [C : Type] [g : B → C] [f : A → B] [x : A]
-  g (f x)
+⊢ λ [A : Type] [B : Type] [C : Type] [g : B → C] [f : A → B] [
+      x : A] g (f x)
       : Π [A : Type] [B : Type] [C : Type]
           (B → C) → (A → B) → A → C
 X is assumed.
@@ -14,7 +14,7 @@ x is assumed.
 f is assumed.
 g is assumed.
 h is assumed.
-refl (g (f x))
+⊢ refl (g (f x))
       : g (f x) ≡ g (f x)
-refl (h (g (f x)))
+⊢ refl (h (g (f x)))
       : h ((λ [x0 : X] g (f x0)) x) ≡ (λ [x0 : Y] h (g x0)) (f x)
