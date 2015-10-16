@@ -51,6 +51,8 @@ let fresh =
     in
     Gensym (s, !counter)
 
+let refresh_atom (Gensym (a, _)) = fresh (String a)
+
 let fresh_candy =
   let counter = ref (-1) in
   fun () ->

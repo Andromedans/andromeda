@@ -841,7 +841,7 @@ and verify_match ~spawn env ctx xts pvars checks =
      match to be successful. *)
   let rec subst_of_pvars env ctx pvars k xts es inhs =
     match xts with
-    | [] -> es, inhs
+    | [] -> ctx, es, inhs
     | (_,t) :: xts ->
       begin match lookup k pvars with
 
@@ -873,7 +873,7 @@ and verify_match ~spawn env ctx xts pvars checks =
 
   try
     (* Make a substitution from the collected [pvars] *)
-    let es, inhs = subst_of_pvars env ctx pvars (List.length xts - 1) xts [] [] in
+    let ctx, es, inhs = subst_of_pvars env ctx pvars (List.length xts - 1) xts [] [] in
     Print.debug "built substitution %d" debug_i;
     (* Perform the equality checks to validate the match *)
     let ctx =
@@ -933,7 +933,7 @@ and verify_match ~spawn env ctx xts pvars checks =
     (* match succeeded *)
     Print.debug "succeeded %d" debug_i ;
     Some (ctx, es)
-  with NoMatch -> 
+  with NoMatch ->
     Print.debug "failed %d)" debug_i ;
     None (* matching failed *)
 

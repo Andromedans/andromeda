@@ -33,6 +33,15 @@ let lookup x ctx =
     Some (AtomMap.find x ctx)
   with Not_found -> None
 
+let lookup1 ~loc a ctx = match lookup a ctx with
+  | None -> None
+  | Some ([], _) ->
+     Error.impossible
+       ~loc "In context %t@ the atom %t does not have a type"
+       (print ctx) (Name.print_atom a)
+  | Some (t::_, _) -> Some t
+
+
 (* A context is a map which assigns to an atom its type and the set of atoms that depend
    on it. We can think of it as a directed graph whose vertices are the atoms, labelled by
    the type, and the set of atoms are the *incoming* edges. *)
@@ -81,7 +90,8 @@ let abstract1 ~loc ctx x =
        ctx
      else
        let deps = AtomSet.elements deps in
-       Error.runtime ~loc "cannot abstract %t because %t depend%s on it.\nContext:%t"
+       Error.runtime
+         ~loc "cannot abstract %t because %t depend%s on it.\nContext:@ %t"
                      (Name.print_atom x)
                      (Print.sequence (Name.print_atom) "," deps)
                      (match deps with [_] -> "s" | _ -> "")
@@ -106,5 +116,9 @@ let rename ctx s =
 
 let refresh ctx =
   let a_s = AtomMap.bindings ctx |> List.map fst in
-  let b_s = List.map Name.refresh a_s in
-  rename ctx (List.combine a_s b_s)
+  let b_s = List.map Name.refresh_atom a_s in
+  (rename ctx (List.combine a_s b_s),
+   (List.combine b_s a_s))
+
+
+let substitute ctx a e = failwith "todo"

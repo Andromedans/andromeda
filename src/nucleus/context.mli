@@ -20,10 +20,14 @@ val cone : t -> Name.ident -> Tt.ty -> Name.atom * t
     given by the list. Fails if this is not doable. *)
 val abstract : loc:Location.t -> t -> Name.atom list -> t
 
+val lookup1 : loc:Location.t -> Name.atom -> t -> Tt.ty option
+
 type renaming
 
 val rename : t -> renaming -> t
 
-val refresh : t -> renaming * t
+val refresh : t -> t * renaming
 
 val print : t -> Format.formatter -> unit
+
+val substitute : t -> Name.atom -> Tt.term -> t

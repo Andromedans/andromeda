@@ -71,7 +71,7 @@ let options = Arg.align [
 
     ("--ignore-hints",
      Arg.Set Config.ignore_hints,
-     " Ignore all installed rewrite hints");
+     " Ignore all installed hints");
 
     ("-n",
      Arg.Clear Config.interactive_shell,

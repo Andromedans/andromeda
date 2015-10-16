@@ -27,6 +27,9 @@ val make : string -> ident
 (** Generate a variant of a given name that is guaranteed to not yet exist. *)
 val fresh : ident -> atom
 
+(** Generate a variant of a given atom that is guaranteed to not yet exist. *)
+val refresh_atom : atom -> atom
+
 (** Generate a fresh name to be used in desugaring. *)
 val fresh_candy : unit -> ident
 
