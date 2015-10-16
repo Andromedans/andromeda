@@ -5,5 +5,5 @@ List is assumed.
 m is assumed.
 n is assumed.
 lst is assumed.
-lst
+⊢ lst
       : List (plus n m)

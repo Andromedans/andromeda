@@ -4,5 +4,5 @@ a is assumed.
 b is assumed.
 f is assumed.
 f_def is assumed.
-refl b
+⊢ refl b
       : f a ≡ b

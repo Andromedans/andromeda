@@ -8,9 +8,9 @@ pair_eta is assumed.
 C is assumed.
 D is assumed.
 p is assumed.
-λ [c : C] [d : D] refl c
+⊢ λ [c : C] [d : D] refl c
       : Π [c : C] [d : D] fst C D (pair C D c d) ≡ c
-λ [c : C] [d : D] refl d
+⊢ λ [c : C] [d : D] refl d
       : Π [c : C] [d : D] snd C D (pair C D c d) ≡ d
-refl p
+⊢ refl p
       : p ≡ pair C D (fst C D p) (snd C D p)

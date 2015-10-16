@@ -4,7 +4,7 @@ S is assumed.
 plus is assumed.
 plus_Z is assumed.
 plus_S is assumed.
-Type
+⊢ Type
       : Type
 File "./error-beta-nat.m31", line 14, characters 4-19: Typing error
   failed to check that the term S (S Z) is equal to plus (S Z) (S (S Z))

@@ -3,23 +3,23 @@ tt is assumed.
 unit_rect is assumed.
 unit_iota_tt is assumed.
 it is defined.
-refl tt
+⊢ refl tt
       : tt
           ≡ (unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x) tt
                 tt
-refl tt
+⊢ refl tt
       : tt
           ≡ (unit_rect (λ [_ : unit] unit → unit) (λ [x : unit] x)) tt
                 tt
-refl tt
+⊢ refl tt
       : tt
           ≡ ((unit_rect (λ [_ : unit] unit → unit) (λ [x : unit] x)) tt)
                 tt
-refl tt
+⊢ refl tt
       : tt
           ≡ (((unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x))
                  tt) tt
-refl tt
+⊢ refl tt
       : tt
           ≡ ((unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x))
                 tt tt
