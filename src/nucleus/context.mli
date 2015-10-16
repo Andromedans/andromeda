@@ -7,7 +7,7 @@ val empty : t
 (** Join two contexts into a single one. Return the new context
     and a list of equations that need to be satisfied in order
     for the contexts to be joinable. *)
-val join : t -> t -> t * (t * Tt.ty list) list
+val join : t -> t -> t * (Name.atom * Tt.ty * Tt.ty) list
 
 (** [cone ctx x t] returns a context with a fresh atom [y]
     of type [t], which depends on everything in [ctx]. The assumption
@@ -20,7 +20,7 @@ val cone : t -> Name.ident -> Tt.ty -> Name.atom * t
     given by the list. Fails if this is not doable. *)
 val abstract : loc:Location.t -> t -> Name.atom list -> t
 
-val lookup1 : loc:Location.t -> Name.atom -> t -> Tt.ty option
+val lookup_ty : Name.atom -> t -> Tt.ty option
 
 type renaming
 

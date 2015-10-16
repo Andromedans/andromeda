@@ -112,7 +112,7 @@ and infer env (c',loc) =
         check env c2 (ctxe, te) >>= fun (ctx2, e2) ->
         (* because [c2] is checked against [te], [e2] must already depend on an
            extension of [ctxe], i.e. [ctxe] ⊂ [ctx2] and [e] is valid in [ctx2] *)
-        begin match Context.lookup1 ~loc a ctx1 with
+        begin match Context.lookup_ty a ctx1 with
         | None -> Value.return_term j1
         | Some te1 ->
            let ctx_eq, eqs = Context.join ctxe ctx1 in
@@ -135,7 +135,7 @@ and infer env (c',loc) =
 
               let ctx_eq, renaming = Context.refresh ctx_eq in
               let ctx, eqs = Context.join ctx_eq ctx2 in
-              let ctx = Context.substitute ctx a (e2, ctx_ in
+              let ctx = Context.substitute ctx a e2 in
               let ctx = Context.rename ctx renaming in
               let e1 = Tt.abstract [a] 0 e1 in
               let e1 = Tt.instantiate [e2] 0 e1 in
