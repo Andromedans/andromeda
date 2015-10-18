@@ -486,23 +486,21 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
 
   if all_tagged then
     begin
-     (* try to infer and check equality. this might not be the end of the
-       story, [as_*] could be operations *)
-     (* for instance, an alternative would be to make a fresh pi-type and check
-       whether the type at hand [t] is equal to the fresh pi by a general hint,
-       and then continue with that one *)
+      (* try to infer and check equality. this might not be the end of the
+         story, [as_*] could be operations *)
+      (* for instance, an alternative would be to make a fresh pi-type and check
+         whether the type at hand [t] is equal to the fresh pi by a general hint,
+         and then continue with that one *)
 
-     (* XXX this generalisation should be done also in [fold] below and in
-        [spine], same for other [as_*] functions  *)
+      (* XXX this generalisation should be done also in [fold] below and in
+         [spine], same for other [as_*] functions  *)
 
-      infer_lambda env ~loc abs body >>=
-      (fun (ctxe, e, t') ->
-         let ctx, eqs = Context.join ctx_check ctxe in
-         match Equal.equal_ty env ctx t_check' t' with
-         | Some ctx -> Value.return (ctx, e)
-         | None -> Error.typing ~loc
-                     "this expression is an abstraction but should have type %t" (print_ty env t_check')
-      )
+      infer_lambda env ~loc abs body >>= fun (ctxe, e, t') ->
+      let ctx, eqs = Context.join ctx_check ctxe in
+      match Equal.equal_ty env ctx t_check' t' with
+      | Some ctx -> Value.return (ctx, e)
+      | None -> Error.typing ~loc
+                  "this expression is an abstraction but should have type %t" (print_ty env t_check')
     end
   else (* not all_tagged *)
     begin
@@ -516,61 +514,48 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
           used to check the body, [abs] comes from the binder, [zus] come from
           the type [t] we're checking against *)
       let rec fold env ctx ys xts abs zus =
+
+        let finally t_body =
+          let j_t_body' =
+            (let t_body' = Tt.unabstract_ty ys 0 t_body in
+             Judgement.mk_ty ctx t_body') in
+          check env body j_t_body' >>= fun (ctxe, e) ->
+          let e = Tt.abstract ys 0 e in
+          let ctx, eqs = Context.join ctx ctxe in
+          (** XXX verify equations eqs *)
+          let ctx = Context.abstract ~loc ctx ys in
+          let xts = List.rev xts in
+          Value.return (ctx, Tt.mk_lambda ~loc xts e t_body)
+        in
+
         match abs, zus with
         | (x,t)::abs, (z,u)::zus ->
 
-          (* let u = u[x_k-1/z_k-1] in *)
           let u = Tt.unabstract_ty ys 0 u in
 
           let k ctx t' =
             let t = Judgement.mk_ty ctx t' in
             let y, env = Environment.add_fresh ~loc env x t in
             let t' = Tt.abstract_ty ys 0 t' in
-            fold env ctx (y::ys) ((x,t')::xts) abs zus
-          in
+            fold env ctx (y::ys) ((x,t')::xts) abs zus in
 
           begin match t with
-            | None ->
-              Print.debug "untagged arg %t in lambda, using %t as type"
-                (Name.print_ident x)
-                (print_ty env u);
-              k ctx u
+            | None -> Print.debug "untagged variable %t in lambda, using %t as type"
+                        (Name.print_ident x) (print_ty env u);
+               k ctx u
+
             | Some c ->
-              check_ty env c >>=
-                (fun (ctxt, t') ->
-                 let ctx, eqs = Context.join ctx ctxt in
-                 match Equal.equal_ty env ctx t' u with
-                 | Some ctx -> k ctx t'
-                 | None -> Error.typing ~loc
-                     "in this lambda, the variable %t should have a type equal to@ \
-                      %t\nFound type@ %t"
-                     (Name.print_ident x) (print_ty env u) (print_ty env t')
-                )
+               check_ty env c >>= fun (ctxt, t') ->
+               let ctx, eqs = Context.join ctx ctxt in
+               match Equal.equal_ty env ctx t' u with
+               | Some ctx -> k ctx t'
+               | None -> Error.typing ~loc "in this lambda, the variable %t should have a type@ %t\nFound type@ %t"
+                           (Name.print_ident x) (print_ty env u) (print_ty env t')
           end
 
-        | [], [] ->
-          (* let u = u[x_k-1/z_k-1] in *)
-          let t_body' = Tt.unabstract_ty ys 0 t_body in
-          let j_t_body' = Judgement.mk_ty ctx t_body' in
-          check env body j_t_body' >>=
-            (fun (ctxe, e) ->
-             let e = Tt.abstract ys 0 e in
-             let ctx, eqs = Context.join ctx ctxe in
-             (** XXX verify equations eqs *)
-             let ctx = Context.abstract ~loc ctx ys in
-             let xts = List.rev xts in
-             Value.return (ctx, Tt.mk_lambda ~loc xts e t_body))
+        | [], [] -> finally t_body
 
-        | [], _::_ ->
-          let t_body' = Tt.mk_prod_ty ~loc zus t_body in
-          let t_body' = Tt.unabstract_ty ys 0 t_body' in
-          let t_body = Judgement.mk_ty ctx t_body' in
-          check env body t_body >>=
-            (fun (ctxe, e) ->
-             let e = Tt.abstract ys 0 e in
-             let xts = List.rev xts in
-             let ctx, eqs = Context.join ctx ctxe in
-             Value.return (ctx, Tt.mk_lambda ~loc xts e t_body'))
+        | [], _::_ -> finally (Tt.mk_prod_ty ~loc zus t_body)
 
         | _::_, [] ->
            Error.typing ~loc
