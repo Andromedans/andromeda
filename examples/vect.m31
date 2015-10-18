@@ -73,7 +73,7 @@ Let vget :=
   beta ind_N_S in
   beta Finite_rect_fzero in
   beta Finite_rect_fsucc in
-  (λ [A : Type] [n : nat] [i : Finite n] [v : vect A n] =>
+  (λ [A : Type] [n : nat] [i : Finite n] [v : vect A n]
      Finite_rect
        (λ [n0 : nat] [_ : Finite n0] forall [_ : vect A n0] A)
        (λ [n0 : nat]
