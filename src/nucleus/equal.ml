@@ -671,7 +671,7 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
         let xtvs = List.rev xtvs in
 
         let u = Tt.instantiate_ty es' 0 u
-        and yvs, w = Tt.instantiate_abstraction Tt.instantiate_ty Tt.instantiate_ty es' 0 (yvs, w) in
+        and yvs, w = Tt.instantiate_ty_abstraction Tt.instantiate_ty es' 0 (yvs, w) in
         let w_prod = Tt.mk_prod_ty ~loc yvs w in
 
         let check_uw = CheckEqualTy (xtvs, (u, w_prod)) in
