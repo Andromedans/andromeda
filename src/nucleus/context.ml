@@ -100,7 +100,7 @@ let join ctx1 ctx2 =
     | [] -> ctx, eqs, handled
     | x :: xs ->
        if AtomSet.mem x handled then
-         ctx, eqs, handled
+         fold ctx eqs handled xs
        else
          let t, deps, eqs =
            begin match lookup x ctx1, lookup x ctx2 with
