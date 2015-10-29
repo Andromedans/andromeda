@@ -94,6 +94,19 @@ let refresh ctx =
 
 let substitute ctx a e = failwith "todo"
 
+(** Sort the entries of [ctx] into a list so that all dependencies
+    point forward in the list. *)
+let topological_sort ctx =
+  let rec process x ((handled, _) as handled_ys) =
+    if AtomSet.mem x handled
+    then handled_ys
+    else
+      let (_, deps) = AtomMap.find x ctx in
+      let (handled, ys) = AtomSet.fold process deps handled_ys  in
+      (AtomSet.add x handled, x :: ys)
+  in      
+  let _, ys = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
+  ys
 
 let join ctx1 ctx2 =
   let rec fold (ctx : t) eqs handled = function
@@ -103,13 +116,15 @@ let join ctx1 ctx2 =
          fold ctx eqs handled xs
        else
          let t, deps, eqs =
-           begin match lookup x ctx1, lookup x ctx2 with
-           | None, None -> assert false
-           | Some (t, deps), None
-           | None, Some (t, deps) -> t, deps, eqs
-           | Some (t1, deps1), Some (t2, deps2) ->
-              let eqs = if Tt.alpha_equal_ty t1 t2 then eqs else (x, t1, t2) :: eqs in
-              t1, AtomSet.union deps1 deps2, eqs end in
+           begin
+             match lookup x ctx1, lookup x ctx2 with
+             | None, None -> assert false
+             | Some (t, deps), None
+             | None, Some (t, deps) -> t, deps, eqs
+             | Some (t1, deps1), Some (t2, deps2) ->
+                let eqs = if Tt.alpha_equal_ty t1 t2 then eqs else (x, t1, t2) :: eqs in
+                t1, AtomSet.union deps1 deps2, eqs
+           end in
 
          let handled = AtomSet.add x handled in
          let ctx, eqs, handled = fold ctx eqs handled (AtomSet.elements deps) in
