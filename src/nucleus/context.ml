@@ -103,14 +103,15 @@ let join ctx1 ctx2 =
          ctx, eqs, handled
        else
          let t, deps, eqs =
-           match lookup x ctx1, lookup x ctx2 with
+           begin match lookup x ctx1, lookup x ctx2 with
            | None, None -> assert false
            | Some (t, deps), None
            | None, Some (t, deps) -> t, deps, eqs
            | Some (t1, deps1), Some (t2, deps2) ->
-              t1, AtomSet.union deps1 deps2, (x, t1, t2) :: eqs in
-         let handled = AtomSet.add x handled in
+              let eqs = if Tt.alpha_equal_ty t1 t2 then eqs else (x, t1, t2) :: eqs in
+              t1, AtomSet.union deps1 deps2, eqs end in
 
+         let handled = AtomSet.add x handled in
          let ctx, eqs, handled = fold ctx eqs handled (AtomSet.elements deps) in
 
          let deps = AtomSet.fold
@@ -119,11 +120,19 @@ let join ctx1 ctx2 =
                | Some (_, deps_of_y) -> AtomSet.union deps_of_y deps_of_x)
              deps
              deps in
+
          if AtomSet.mem x deps then
            Error.runtime "Atom %t depends on itself\nContext: @%t" (Name.print_atom x) (print ctx) ;
          let ctx = AtomMap.add x (t, deps) ctx in
          fold ctx eqs handled xs
   in
   let xs = (AtomMap.fold (fun x _ xs -> x :: xs) ctx2 []) in
-  let ctx, eqs, handled = fold ctx1 [] AtomSet.empty xs in
+  let ctx, eqs, _handled = fold ctx1 [] AtomSet.empty xs in
+  if not (eqs = []) then
+    (let f (x, t1, t2) ppf =
+       Print.print ppf "(%t : %t =?= %t)"
+         (Name.print_atom x) (Tt.print_ty [] t1) (Tt.print_ty [] t2)
+     in
+     Print.warning "unhandled equations: @%t"
+       (Print.sequence f ";" eqs));
   ctx, eqs
