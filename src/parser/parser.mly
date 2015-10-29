@@ -69,13 +69,13 @@ return_type:
   | COLON t=ty_term { t }
 
 (* Toplevel directive. *)
-topdirective: mark_location(plain_topdirective) { $1 }
+topdirective: mark_location(plain_topdirective)      { $1 }
 plain_topdirective:
-  | ENVIRONMENT    { Environment }
-  | HELP       { Help }
-  | QUIT       { Quit }
-  | VERBOSITY                                            { Verbosity $1 }
-  | INCLUDE fs=quoted_string+                            { Include fs }
+  | ENVIRONMENT                                      { Environment }
+  | HELP                                             { Help }
+  | QUIT                                             { Quit }
+  | VERBOSITY                                        { Verbosity $1 }
+  | INCLUDE fs=quoted_string+                        { Include fs }
 
 quoted_string:
   | QUOTED_STRING { let s = $1 in
@@ -89,7 +89,7 @@ plain_term:
   | e=plain_ty_term                                   { e }
   | LET a=let_clauses IN c=term                       { Let (a, c) }
   | ASSUME x=var_name COLON t=ty_term IN c=term       { Assume ((x, t), c) }
-  | c1=equal_term WHERE e=simple_term DCOLON c2=term  { Where (c1, e, c2) }
+  | c1=equal_term WHERE e=simple_term COLONEQ c2=term { Where (c1, e, c2) }
   | BETA tshs=tags_opt_hints IN c=term                { Beta (tshs, c) }
   | ETA tshs=tags_opt_hints IN c=term                 { Eta (tshs, c) }
   | HINT tshs=tags_opt_hints IN c=term                { Hint (tshs, c) }
