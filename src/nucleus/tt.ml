@@ -70,18 +70,21 @@ let typ = Ty (mk_type ~loc:Location.unknown)
 
 (** Manipulation of variables *)
 
-let instantiate_abstraction instantiate_u instantiate_v es depth (xus, v) =
-  let rec inst acc depth = function
-    | [] ->
-       let v = instantiate_v es depth v
-       in List.rev acc, v
-    | (x,u) :: xus ->
-       let u = instantiate_u es depth u in
-       inst ((x,u) :: acc) (depth+1) xus
-  in
-  inst [] depth xus
+let rec instantiate_ty_abstraction :
+  'a. (term list -> int -> 'a -> 'a) ->
+  term list -> int -> 'a ty_abstraction -> 'a ty_abstraction
+  = fun instantiate_v es depth (xus, v) ->
+    let rec inst acc depth = function
+      | [] ->
+         let v = instantiate_v es depth v
+         in List.rev acc, v
+      | (x,u) :: xus ->
+         let u = instantiate_ty es depth u in
+         inst ((x,u) :: acc) (depth+1) xus
+    in
+    inst [] depth xus
 
-let rec instantiate es depth ((e',loc) as e) =
+and instantiate es depth ((e',loc) as e) =
   (* XXX possible optimization: check whether [es] is empty *)
   if es = [] then e else
     match e' with
@@ -109,17 +112,17 @@ let rec instantiate es depth ((e',loc) as e) =
       Constant (x, ds), loc
 
     | Lambda a ->
-       let a = instantiate_abstraction instantiate_ty instantiate_term_ty es depth a
+       let a = instantiate_ty_abstraction instantiate_term_ty es depth a
        in Lambda a, loc
 
     | Spine (e, xtst, ds) ->
        let e = instantiate es depth e
-       and xtst = instantiate_abstraction instantiate_ty instantiate_ty es depth xtst
+       and xtst = instantiate_ty_abstraction instantiate_ty es depth xtst
        and ds = List.map (instantiate es depth) ds
        in Spine (e, xtst, ds), loc
 
     | Prod a ->
-       let a = instantiate_abstraction instantiate_ty instantiate_ty es depth a
+       let a = instantiate_ty_abstraction instantiate_ty es depth a
        in Prod a, loc
 
     | Eq (t, e1, e2) ->
@@ -148,11 +151,6 @@ and instantiate_term_ty es depth (e, t) =
   and t = instantiate_ty es depth t
   in (e, t)
 
-(* I blame the value restriction: It seems that we cannot define
-   instantiate_ty_abstraction mutually with instantiate_ty. *)
-let instantiate_ty_abstraction f =
-  instantiate_abstraction instantiate_ty f
-
 let unabstract xs depth e =
   let es = List.map (mk_atom ~loc:Location.unknown) xs
   in instantiate es depth e
@@ -162,18 +160,21 @@ let rec unabstract_ty xs depth (Ty t) =
   in Ty t
 
 
-let abstract_abstraction abst_u abst_v ys depth (xus,v) =
-  let rec abst acc depth = function
-    | [] ->
-       let v = abst_v ys depth v
-       in List.rev acc, v
-    | (x,u) :: xus ->
-       let u = abst_u ys depth u in
-       abst ((x,u) :: acc) (depth+1) xus
-  in
+let rec abstract_ty_abstraction :
+  'a. (Name.atom list -> int -> 'a -> 'a) ->
+  Name.atom list -> int -> 'a ty_abstraction -> 'a ty_abstraction
+  = fun abst_v ys depth (xus,v) ->
+    let rec abst acc depth = function
+      | [] ->
+         let v = abst_v ys depth v
+         in List.rev acc, v
+      | (x,u) :: xus ->
+         let u = abstract_ty ys depth u in
+         abst ((x,u) :: acc) (depth+1) xus
+    in
     abst [] depth xus
 
-let rec abstract xs depth ((e',loc) as e) =
+and abstract xs depth ((e',loc) as e) =
   match e' with
 
   | Type -> e
@@ -192,17 +193,17 @@ let rec abstract xs depth ((e',loc) as e) =
     end
 
   | Lambda a ->
-    let a = abstract_abstraction abstract_ty abstract_term_ty xs depth a
+    let a = abstract_ty_abstraction abstract_term_ty xs depth a
     in Lambda a, loc
 
   | Spine (e, xtst, es) ->
     let e = abstract xs depth e
-    and xtst = abstract_abstraction abstract_ty abstract_ty xs depth xtst
+    and xtst = abstract_ty_abstraction abstract_ty xs depth xtst
     and es = List.map (abstract xs depth) es
     in Spine (e, xtst, es), loc
 
   | Prod a ->
-    let a = abstract_abstraction abstract_ty abstract_ty xs depth a
+    let a = abstract_ty_abstraction abstract_ty xs depth a
     in Prod a, loc
 
   | Eq (t, e1, e2) ->
@@ -231,8 +232,6 @@ and abstract_term_ty xs depth (e, t) =
   let e = abstract xs depth e
   and t = abstract_ty xs depth t
   in (e, t)
-
-let abstract_ty_abstraction f = abstract_abstraction abstract_ty f
 
 let shift_abstraction shift_u shift_v k lvl us v =
   let rec fold lvl us' = function
