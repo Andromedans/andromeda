@@ -119,6 +119,8 @@ let join ctx1 ctx2 =
                | Some (_, deps_of_y) -> AtomSet.union deps_of_y deps_of_x)
              deps
              deps in
+         if AtomSet.mem x deps then
+           Error.runtime "Atom %t depends on itself\nContext: @%t" (Name.print_atom x) (print ctx) ;
          let ctx = AtomMap.add x (t, deps) ctx in
          fold ctx eqs handled xs
   in
