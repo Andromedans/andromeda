@@ -108,6 +108,28 @@ let topological_sort ctx =
   let _, ys = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
   ys
 
+(** A version of join writen by Andrej and Gaetan, it ignores transitivity and equations. *)
+(*
+let join ctx1 ctx2 =
+  let process x (t2, deps2) (ctx, handled) =
+    let ctx = 
+      match lookup x ctx1 with
+      | None -> AtomMap.add x (t2, deps2) ctx
+      | Some (t1, deps1) ->
+         if Tt.alpha_equal_ty t1 t2
+         then AtomMap.add x (t1, AtomSet.union deps1 deps2) ctx
+         else Error.runtime ~loc:Location.unknown "Atom %t has two types: %t and %t (PLEASE IMPROVE THIS ERROR MESSAGE)"
+                            (Name.print_atom x)
+                            (Tt.print_ty [] t1)
+                            (Tt.print_ty [] t2)
+    in
+    let handled = AtomSet.add x handled in
+    (ctx, handled)
+  in
+  let ctx, _ = AtomMap.fold process ctx2 (ctx1, AtomSet.empty) in
+  ctx, []
+*)
+
 let join ctx1 ctx2 =
   let rec fold (ctx : t) eqs handled = function
     | [] -> ctx, eqs, handled
@@ -115,19 +137,21 @@ let join ctx1 ctx2 =
        if AtomSet.mem x handled then
          fold ctx eqs handled xs
        else
+         let t2, deps2 = AtomMap.find x ctx2 in
          let t, deps, eqs =
            begin
-             match lookup x ctx1, lookup x ctx2 with
-             | None, None -> assert false
-             | Some (t, deps), None
-             | None, Some (t, deps) -> t, deps, eqs
-             | Some (t1, deps1), Some (t2, deps2) ->
+             match lookup x ctx1 with
+             | None ->
+                (* [x] does not appear in [ctx1]. *)
+                t2, deps2, eqs
+             | Some (t1, deps1) ->
+                (* [x] appears in both [ctx1] and [ctx2] *)
                 let eqs = if Tt.alpha_equal_ty t1 t2 then eqs else (x, t1, t2) :: eqs in
                 t1, AtomSet.union deps1 deps2, eqs
            end in
 
          let handled = AtomSet.add x handled in
-         let ctx, eqs, handled = fold ctx eqs handled (AtomSet.elements deps) in
+         let ctx, eqs, handled = fold ctx eqs handled (AtomSet.elements deps2) in
 
          let deps = AtomSet.fold
              (fun y deps_of_x -> match lookup y ctx with
