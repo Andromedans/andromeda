@@ -1033,6 +1033,14 @@ and inhabit_bracket ~subgoals ~loc env (ctx, t) =
          end
     in fold (Environment.inhabit_hints key env)
 
+let as_atom env (ctx, e', t)  =
+  let ctx, ((e', loc) as e) = whnf env ctx e' in
+  match e' with
+  | Tt.Atom x -> (ctx, e, t)
+  | Tt.Prod _ | Tt.Type | Tt.Eq _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
+  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _ ->
+    Error.runtime ~loc "this expression should be an atom"
+
 let rec deep_prod env ctx t f =
   let ctx, (Tt.Ty (t', loc)) = whnf_ty env ctx t in
   match t' with
