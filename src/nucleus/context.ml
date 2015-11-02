@@ -11,10 +11,10 @@ module AtomSet = Set.Make (struct
                   end)
 
 
-(* A context is a map which assigns to an atom its type and the set of atoms that depend
-   on it. We can think of it as a directed graph whose vertices are the atoms, labelled by
-   the type, and the set of atoms are the *incoming* edges. *)
-type t = (Tt.ty * AtomSet.t) AtomMap.t
+(* A context is a map which assigns to an atom its type and the dependencies and dependants respectively.
+   We can think of it as a directed graph whose vertices are the atoms, labelled by
+   the type, and the sets of atoms are the two directions of edges. *)
+type t = (Tt.ty * AtomSet.t * AtomSet.t) AtomMap.t
 
 let empty = AtomMap.empty
 
@@ -24,28 +24,31 @@ let print_dependencies deps ppf =
   else Format.fprintf ppf "@ [%t]"
                       (Print.sequence Name.print_atom "," (AtomSet.elements deps))
 
-let print_entry ppf x (t, deps) =
-  Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@]@]@ "
+let print_entry ppf x (t, deps, revdeps) =
+  Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@] @[<h>%t@]@]@ "
     (Name.print_atom x)
     (Tt.print_ty [] t)
     (print_dependencies deps)
+    (print_dependencies revdeps)
 
 let print ctx ppf =
   Format.pp_open_vbox ppf 0 ;
   AtomMap.iter (print_entry ppf) ctx ;
   Format.pp_close_box ppf ()
 
+let as_set (ctx : t) = AtomMap.fold (fun x _ s -> AtomSet.add x s) ctx AtomSet.empty
+
 let lookup x (ctx : t) =
   try Some (AtomMap.find x ctx)
   with Not_found -> None
 
 let lookup_ty x ctx =
-  match lookup x ctx with None -> None | Some (t, _) -> Some t
+  match lookup x ctx with None -> None | Some (t, _, _) -> Some t
 
 let cone ctx x (t : Tt.ty) =
   let y = Name.fresh x in
-  let ctx = AtomMap.map (fun (u, deps) -> (u, AtomSet.add y deps)) ctx in
-  let ctx = AtomMap.add y (t, AtomSet.empty) ctx in
+  let ctx = AtomMap.map (fun (u, deps, revdeps) -> (u, deps, AtomSet.add y revdeps)) ctx in
+  let ctx = AtomMap.add y (t, as_set ctx, AtomSet.empty) ctx in
   y, ctx
 
 
@@ -53,19 +56,19 @@ let abstract1 ~loc (ctx : t) x =
   match lookup x ctx with
   | None ->
      ctx
-  | Some (t, deps) ->
-     if AtomSet.is_empty deps
+  | Some (t, deps, revdeps) ->
+     if AtomSet.is_empty revdeps
      then
        let ctx = AtomMap.remove x ctx in
-       let ctx = AtomMap.map (fun (t, deps) -> (t, AtomSet.remove x deps)) ctx in
+       let ctx = AtomMap.map (fun (t, deps, revdeps) -> (t, deps, AtomSet.remove x revdeps)) ctx in
        ctx
      else
-       let deps = AtomSet.elements deps in
+       let revdeps = AtomSet.elements revdeps in
        Error.runtime
          ~loc "cannot abstract %t because %t depend%s on it.\nContext:@ %t"
                      (Name.print_atom x)
-                     (Print.sequence (Name.print_atom) "," deps)
-                     (match deps with [_] -> "s" | _ -> "")
+                     (Print.sequence (Name.print_atom) "," revdeps)
+                     (match revdeps with [_] -> "s" | _ -> "")
                      (print ctx)
 
 let abstract ~loc ctx xs = List.fold_left (abstract1 ~loc) ctx xs
@@ -73,15 +76,19 @@ let abstract ~loc ctx xs = List.fold_left (abstract1 ~loc) ctx xs
 let rename (ctx : t) s =
   let a_s, b_s = List.split s in
   AtomMap.fold
-    (fun a (t, deps) ctx ->
+    (fun a (t, deps, revdeps) ctx ->
        let b = try List.assoc a s with Not_found -> a
        and t = Tt.abstract_ty a_s 0 t |> Tt.unabstract_ty b_s 0
        and deps =
          AtomSet.fold
            (fun x deps -> AtomSet.add (try List.assoc x s with Not_found -> x) deps)
            deps AtomSet.empty
+       and revdeps =
+         AtomSet.fold
+           (fun x revdeps -> AtomSet.add (try List.assoc x s with Not_found -> x) revdeps)
+           revdeps AtomSet.empty
        in
-       let r = AtomMap.add b (t, deps) ctx in r)
+       let r = AtomMap.add b (t, deps, revdeps) ctx in r)
     ctx
     empty
 
@@ -92,8 +99,6 @@ let refresh ctx =
    (List.combine b_s a_s))
 
 
-let substitute ctx a e = failwith "todo"
-
 (** Sort the entries of [ctx] into a list so that all dependencies
     point forward in the list. *)
 let topological_sort ctx =
@@ -101,14 +106,14 @@ let topological_sort ctx =
     if AtomSet.mem x handled
     then handled_ys
     else
-      let (_, deps) = AtomMap.find x ctx in
-      let (handled, ys) = AtomSet.fold process deps handled_ys  in
+      let (_, _, revdeps) = AtomMap.find x ctx in
+      let (handled, ys) = AtomSet.fold process revdeps handled_ys  in
       (AtomSet.add x handled, x :: ys)
   in      
   let _, ys = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
   ys
 
-(** A version of join writen by Andrej and Gaetan, it ignores transitivity and equations. *)
+(** A version of join written by Andrej and Gaetan, it ignores transitivity and equations. *)
 (*
 let join ctx1 ctx2 =
   let process x (t2, deps2) (ctx, handled) =
@@ -130,48 +135,7 @@ let join ctx1 ctx2 =
   ctx, []
 *)
 
-let join ctx1 ctx2 =
-  let rec fold (ctx : t) eqs handled = function
-    | [] -> ctx, eqs, handled
-    | x :: xs ->
-       if AtomSet.mem x handled then
-         fold ctx eqs handled xs
-       else
-         let t2, deps2 = AtomMap.find x ctx2 in
-         let t, deps, eqs =
-           begin
-             match lookup x ctx1 with
-             | None ->
-                (* [x] does not appear in [ctx1]. *)
-                t2, deps2, eqs
-             | Some (t1, deps1) ->
-                (* [x] appears in both [ctx1] and [ctx2] *)
-                let eqs = if Tt.alpha_equal_ty t1 t2 then eqs else (x, t1, t2) :: eqs in
-                t1, AtomSet.union deps1 deps2, eqs
-           end in
+let join ctx1 ctx2 = assert false (* TODO *)
 
-         let handled = AtomSet.add x handled in
-         let ctx, eqs, handled = fold ctx eqs handled (AtomSet.elements deps2) in
+let substitute ctx a e = assert false (* TODO *)
 
-         let deps = AtomSet.fold
-             (fun y deps_of_x -> match lookup y ctx with
-               | None -> assert false
-               | Some (_, deps_of_y) -> AtomSet.union deps_of_y deps_of_x)
-             deps
-             deps in
-
-         if AtomSet.mem x deps then
-           Error.runtime "Atom %t depends on itself\nContext: @%t" (Name.print_atom x) (print ctx) ;
-         let ctx = AtomMap.add x (t, deps) ctx in
-         fold ctx eqs handled xs
-  in
-  let xs = (AtomMap.fold (fun x _ xs -> x :: xs) ctx2 []) in
-  let ctx, eqs, _handled = fold ctx1 [] AtomSet.empty xs in
-  if not (eqs = []) then
-    (let f (x, t1, t2) ppf =
-       Print.print ppf "(%t : %t =?= %t)"
-         (Name.print_atom x) (Tt.print_ty [] t1) (Tt.print_ty [] t2)
-     in
-     Print.warning "unhandled equations: @%t"
-       (Print.sequence f ";" eqs));
-  ctx, eqs
