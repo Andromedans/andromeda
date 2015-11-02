@@ -15,6 +15,7 @@ src/build.ml
 *.log
 *.pdf
 *.synctex.gz
+*.out
 
 # Backup files
 *~
