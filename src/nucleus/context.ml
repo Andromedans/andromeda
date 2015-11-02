@@ -18,18 +18,18 @@ type t = (Tt.ty * AtomSet.t * AtomSet.t) AtomMap.t
 
 let empty = AtomMap.empty
 
-let print_dependencies deps ppf =
+let print_dependencies s deps ppf =
   if not !Config.print_dependencies || AtomSet.is_empty deps
   then Format.fprintf ppf ""
-  else Format.fprintf ppf "@ [%t]"
+  else Format.fprintf ppf "@ %s[%t]" s
                       (Print.sequence Name.print_atom "," (AtomSet.elements deps))
 
 let print_entry ppf x (t, deps, revdeps) =
-  Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@] @[<h>%t@]@]@ "
+  Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@]@[<h>%t@]@]@ "
     (Name.print_atom x)
     (Tt.print_ty [] t)
-    (print_dependencies deps)
-    (print_dependencies revdeps)
+    (print_dependencies "deps" deps)
+    (print_dependencies "revdeps" revdeps)
 
 let print ctx ppf =
   Format.pp_open_vbox ppf 0 ;
@@ -113,29 +113,39 @@ let topological_sort ctx =
   let _, ys = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
   ys
 
-(** A version of join written by Andrej and Gaetan, it ignores transitivity and equations. *)
-(*
-let join ctx1 ctx2 =
-  let process x (t2, deps2) (ctx, handled) =
-    let ctx = 
-      match lookup x ctx1 with
-      | None -> AtomMap.add x (t2, deps2) ctx
-      | Some (t1, deps1) ->
-         if Tt.alpha_equal_ty t1 t2
-         then AtomMap.add x (t1, AtomSet.union deps1 deps2) ctx
-         else Error.runtime ~loc:Location.unknown "Atom %t has two types: %t and %t (PLEASE IMPROVE THIS ERROR MESSAGE)"
-                            (Name.print_atom x)
-                            (Tt.print_ty [] t1)
-                            (Tt.print_ty [] t2)
-    in
-    let handled = AtomSet.add x handled in
-    (ctx, handled)
-  in
-  let ctx, _ = AtomMap.fold process ctx2 (ctx1, AtomSet.empty) in
-  ctx, []
-*)
 
-let join ctx1 ctx2 = assert false (* TODO *)
+let mk_eq (Tt.Ty ty) (Tt.Ty ty') = Tt.mk_eq_ty ~loc:Location.unknown Tt.typ ty ty'
+
+(** Extend the context [ctx] such that ctx |- x : ty while keeping track of specific dependency information. *)
+let extend ctx deps x ty =
+  match lookup x ctx with
+  | None ->
+    let ctx = AtomMap.mapi (fun y ((ty,dy,ry) as elt) -> if AtomSet.mem y deps then (ty,dy,AtomSet.add x ry) else elt) ctx in
+    let ctx = AtomMap.add x (ty, deps, AtomSet.empty) ctx in
+    ctx, AtomSet.add x deps
+  | Some (ty', deps', revdeps') ->
+    if Tt.alpha_equal_ty ty ty'
+    then ctx, AtomSet.add x deps'
+    else (* let e = Name.fresh (Name.make "__eq") in
+      let deps = AtomSet.union deps deps' in
+      let ctx = AtomMap.mapi (fun y ((ty,dy,ry) as elt) -> if AtomSet.mem y deps then (ty,dy,AtomSet.add e ry) else elt) ctx in
+      let ctx = AtomMap.add e (mk_eq ty ty', deps, AtomSet.empty) ctx in
+      let deps = AtomSet.add e deps in
+        ctx, AtomSet.add x deps *) assert false (* TODO this code path has never been tested so comment it out so we know once we have a test *)
+
+
+(** Make a context stronger than ctx1 and ctx2 while keeping track of dependencies. *)
+let join' ctx1 ctx2 =
+  let rec joinA ctx f = function
+    | [] -> ctx, f
+    | x::l -> let ty,deps,_ = AtomMap.find x ctx2 in (* ctx2_deps |- ty : Type *)
+      let deps = AtomSet.fold (fun y deps -> AtomSet.union deps (AtomMap.find y f)) deps AtomSet.empty in (* ctx_deps |- ty : Type *)
+      let ctx, deps = extend ctx deps x ty in (* ctx_deps |- x : ty *)
+      let f = AtomMap.add x deps f in
+        joinA ctx f l
+    in joinA ctx1 empty (topological_sort ctx2)
+
+let join ctx1 ctx2 = let ctx,_ = join' ctx1 ctx2 in ctx,[]
 
 let substitute ctx a e = assert false (* TODO *)
 
