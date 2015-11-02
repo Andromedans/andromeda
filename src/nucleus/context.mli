@@ -30,4 +30,4 @@ val refresh : t -> t * renaming
 
 val print : t -> Format.formatter -> unit
 
-val substitute : t -> Name.atom -> Tt.term -> t
+val substitute : t -> Name.atom -> t * Tt.term * Tt.ty -> t

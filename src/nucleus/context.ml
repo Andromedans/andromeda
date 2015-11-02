@@ -147,5 +147,48 @@ let join' ctx1 ctx2 =
 
 let join ctx1 ctx2 = let ctx,_ = join' ctx1 ctx2 in ctx,[]
 
-let substitute ctx a e = assert false (* TODO *)
+
+(** Substitute a variable by a judgment in a context. *)
+(* TODO needs heavy debugging *)
+
+let split_around ctx x xrevs =
+  let sorted = topological_sort ctx in
+  let rec split deps revs = function
+    | [] -> deps, List.rev revs
+    | y::l -> if Name.eq_atom x y
+      then split deps revs l
+      else if AtomSet.mem y xrevs
+        then split deps (y::revs) l
+        else split (AtomMap.add y (AtomMap.find y ctx) ctx) revs l
+    in split empty [] sorted
+
+let subst_ty ty x e =
+  let ty = Tt.abstract_ty [x] 0 ty in
+  let ty = Tt.instantiate_ty [e] 0 ty in
+    ty
+
+let substitute ctx1 x (ctx2,e,ty_e) = match lookup x ctx1 with
+  | None -> ctx1 (* note that the spec doesn't require us to add ctx2 when x notin ctx1 *)
+  | Some (ty,deps,revdeps) ->
+    let ctxl1, ctxr1 = split_around ctx1 x revdeps in
+    let ctx', f = join' ctx2 ctxl1 in
+    let ctx', deps_e = if Tt.alpha_equal_ty ty ty_e
+      then ctx', as_set ctx2
+      else let e = Name.fresh (Name.make "__eq") in
+        let deps_e = as_set ctx2 in
+        let deps_e = AtomSet.fold (fun y deps_e -> AtomSet.union deps_e (AtomMap.find y f)) deps deps_e in
+        let ctx' = AtomMap.mapi (fun y ((ty,dy,ry) as elt) -> if AtomSet.mem y deps_e then (ty,dy,AtomSet.add x ry) else elt) ctx' in
+        let ctx' = AtomMap.add e (mk_eq ty ty_e, deps_e, AtomSet.empty) ctx' in
+          ctx', AtomSet.add e deps_e in
+
+    (* Now ctx'_{deps_e} |- ty == ty_e and |- e : ty_e thus |- e : ty *)
+    let rec substA ctx' f = function (* for each processed y from ctx1, ctx'_{f(y)} |- y : subst (ctx1(y)) x e *)
+      | [] -> ctx'
+      | y::l -> let (ty_y,deps_y,_) = AtomMap.find y ctx1 in
+        let deps_y = AtomSet.fold (fun z deps_y -> if Name.eq_atom x z then deps_y else AtomSet.union deps_y (AtomMap.find z f)) deps_y deps_e in
+        (* deps_y such that preconditions for the next line *)
+        let ctx', deps_y = extend ctx' deps_y y (subst_ty ty_y x e) in
+        let f = AtomMap.add y deps_y f in
+          substA ctx' f l
+      in substA ctx' f ctxr1
 
