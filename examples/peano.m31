@@ -90,6 +90,42 @@ Let plus_Z' :=
          refl (S (plus Z x)) :: plus Z (S x) ≡ S x)
   :: ∀ [x : N] plus Z x ≡ x.
 
+(* With a Coq style development: we assume goals then fill them in, possibly assuming smaller goals in the process. *)
+
+Let goal := ∀ [x : N] plus Z x ≡ x.
+
+(* The following let, as well as similar ones below are necessary since we can't talk about H otherwise (after we shadow plus_Z_l). *)
+Let H := assume H : goal in H.
+Let plus_Z_l := H
+  :: goal.
+
+Let H0 := assume H0 : plus Z Z == Z in H0.
+
+(* Coq does the following more like
+    let H1 := assume x:N in assume IHx : ... in plus Z (S x) == S x
+  used as
+    ind_N ... (fun x' IHx' => H1 where IHx := IHx' and x := x')
+  but if we tried that Andromeda would remove the IHx dependency on H1.
+*)
+Let H1 := assume H1 : forall [x:N] [IHx : plus Z x == x] plus Z (S x) == S x in H1.
+Let plus_Z_l := plus_Z_l where H := ind_N (λ [x : N] plus Z x == x) H0 H1
+  :: goal.
+
+Let plus_Z_l := (plus_Z_l where H0 := plus_Z Z)
+  :: goal.
+
+Let plus_Z_l := (plus_Z_l where
+  H1 := λ [x : N] [IH : plus Z x ≡ x]
+    beta IH in
+    beta plus_S in
+    refl (S (plus Z x)) :: plus Z (S x) == S x)
+  :: goal.
+
+Check refl plus_Z' :: plus_Z' == plus_Z_l.
+
+
+(* Back to writing everything at once. *)
+
 Let plus_S' :=
   (λ [x y : N]
     beta plus_Z in
