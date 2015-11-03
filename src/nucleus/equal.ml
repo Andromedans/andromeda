@@ -1036,7 +1036,7 @@ and inhabit_bracket ~subgoals ~loc env (ctx, t) =
 let as_atom env (ctx, e', t)  =
   let ctx, ((e', loc) as e) = whnf env ctx e' in
   match e' with
-  | Tt.Atom x -> (ctx, e, t)
+  | Tt.Atom x -> (ctx, x, t)
   | Tt.Prod _ | Tt.Type | Tt.Eq _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
   | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _ ->
     Error.runtime ~loc "this expression should be an atom"

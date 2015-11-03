@@ -1,0 +1,9 @@
+Parameter A : Type.
+
+Let x := assume x : A in x.
+
+Let P := assume P : A -> Type in P.
+
+Let y := assume y : P x in y.
+
+Check y where P := (lambda [z : A] A).

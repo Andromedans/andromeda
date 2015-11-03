@@ -1,0 +1,8 @@
+A is assumed.
+x is defined.
+P is defined.
+y is defined.
+x₄ : A 
+y₈ : (λ [z : A] A) x₄ 
+⊢ y₈
+      : A
