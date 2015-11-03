@@ -164,9 +164,12 @@ let split_around ctx x xrevs =
     | [] -> deps, List.rev revs
     | y::l -> if Name.eq_atom x y
       then split deps revs l
-      else if AtomSet.mem y xrevs
+      else begin if AtomSet.mem y xrevs
         then split deps (y::revs) l
-        else split (AtomMap.add y (AtomMap.find y ctx) ctx) revs l
+        else let (ty,dy,ry) = AtomMap.find y ctx in
+          let ry = AtomSet.fold (fun r ry' -> AtomSet.remove r ry') xrevs (AtomSet.remove x ry) in
+          split (AtomMap.add y (ty,dy,ry) deps) revs l
+        end
     in split empty [] sorted
 
 let subst_ty ty x e =
