@@ -102,7 +102,7 @@ Let plus_Z_l := H
 Let H0 := assume H0 : plus Z Z == Z in H0.
 
 (* Coq does the following more like
-    let H1 := assume x:N in assume IHx : ... in plus Z (S x) == S x
+    let H1 := assume x:N in assume IHx : ... in assume H1 : plus Z (S x) == S x in H1
   used as
     ind_N ... (fun x' IHx' => H1 where IHx := IHx' and x := x')
   but if we tried that Andromeda would remove the IHx dependency on H1.
