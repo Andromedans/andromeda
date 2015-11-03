@@ -108,42 +108,14 @@ and infer env (c',loc) =
      (* XXX maybe we need to whnf e to see that it is an atom? *)
      begin match e' with
      | Tt.Atom a ->
-        infer env c1 >>= as_term ~loc >>= fun ((ctx1, e1, t1) as j1) ->
-        check env c2 (ctxe, te) >>= fun (ctx2, e2) ->
-        (* because [c2] is checked against [te], [e2] must already depend on an
-           extension of [ctxe], i.e. [ctxe] ⊂ [ctx2] and [e] is valid in [ctx2] *)
-        begin match Context.lookup_ty a ctx1 with
-        | None -> Value.return_term j1
-        | Some te1 ->
-           let ctx_eq, eqs = Context.join ctxe ctx1 in
-           match Equal.equal_ty env ctx_eq te te1 with
-
-           | None ->
-              Error.typing ~loc
-                "Cannot substitute %t of type %t with %t of type %t"
-                (Name.print_atom a) (print_ty env te)
-                (print_term env e1) (print_ty env te1)
-
-           | Some ctx_eq ->
-              (* [ctx_eq] is the context under which the equality of the types
-                 of [a] in [ctx1] and of [e] was established. We require this
-                 equality to hold without depending on [a]. *)
-              (* let a := assume A:Type in assume a:A in *)
-              (* hint (⊥_elim (a where A := ⊥) :: ⊥ ≡ ⊤) in *)
-              (*   (a where A := ⊤) where a := tt *)
-              (*     ~~> a:⊤ ⊢ a:⊤ *)
-
-              let ctx_eq, renaming = Context.refresh ctx_eq in
-              let ctx, eqs = Context.join ctx_eq ctx2 in
-              let ctx = Context.substitute ctx a e2 in
-              let ctx = Context.rename ctx renaming in
-              let e1 = Tt.abstract [a] 0 e1 in
-              let e1 = Tt.instantiate [e2] 0 e1 in
-              let t1 = Tt.abstract_ty [a] 0 t1 in
-              let t1 = Tt.instantiate_ty [e2] 0 t1 in
-              let j = Judgement.mk_term ctx e1 t1 in
-              Value.return_term j
-        end
+        infer env c1 >>= as_term ~loc >>= fun (ctx1, e1, t1) ->
+        let ctx1,eqs = Context.join ctxe ctx1 in
+        check env c2 (Context.context_at ctx1 a, te) >>= fun (ctx2, e2) ->
+        let ctx_s = Context.substitute ctx1 a (ctx2,e2,te) in
+        let te_s = Tt.instantiate [e2] 0 (Tt.abstract [a] 0 e1) in
+        let ty_s = Tt.instantiate_ty [e2] 0 (Tt.abstract_ty [a] 0 t1) in
+        let j_s = Judgement.mk_term  ctx_s te_s ty_s in
+        Value.return_term j_s
 
      | _ -> Error.runtime ~loc "Only atoms can be substituted"
      end

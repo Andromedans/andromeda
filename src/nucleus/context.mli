@@ -16,6 +16,9 @@ val join : t -> t -> t * (Name.atom * Tt.ty * Tt.ty) list
     sense of word. *)
 val cone : t -> Name.ident -> Tt.ty -> Name.atom * t
 
+(** [context_at ctx x] returns a context where the type of [x] is valid (but in which [x] does not exist). [x] must belong to [ctx]. *)
+val context_at : t -> Name.atom -> t
+
 (** Remove the given atoms from the context, in the order
     given by the list. Fails if this is not doable. *)
 val abstract : loc:Location.t -> t -> Name.atom list -> t

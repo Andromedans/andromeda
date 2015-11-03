@@ -52,6 +52,13 @@ let cone ctx x (t : Tt.ty) =
   y, ctx
 
 
+let context_at ctx x =
+  let (_,deps,_) = AtomMap.find x ctx in
+  let ctx' = AtomSet.fold (fun y ctx' ->
+    let (ty,dy,ry) = AtomMap.find y ctx in
+      AtomMap.add y (ty,dy,AtomSet.inter ry deps) ctx') deps empty in
+  ctx'
+
 let abstract1 ~loc (ctx : t) x =
   match lookup x ctx with
   | None ->
@@ -126,12 +133,12 @@ let extend ctx deps x ty =
   | Some (ty', deps', revdeps') ->
     if Tt.alpha_equal_ty ty ty'
     then ctx, AtomSet.add x deps'
-    else (* let e = Name.fresh (Name.make "__eq") in
+    else let e = Name.fresh (Name.make "__eq") in
       let deps = AtomSet.union deps deps' in
       let ctx = AtomMap.mapi (fun y ((ty,dy,ry) as elt) -> if AtomSet.mem y deps then (ty,dy,AtomSet.add e ry) else elt) ctx in
       let ctx = AtomMap.add e (mk_eq ty ty', deps, AtomSet.empty) ctx in
       let deps = AtomSet.add e deps in
-        ctx, AtomSet.add x deps *) assert false (* TODO this code path has never been tested so comment it out so we know once we have a test *)
+        ctx, AtomSet.add x deps
 
 
 (** Make a context stronger than ctx1 and ctx2 while keeping track of dependencies. *)
@@ -167,19 +174,19 @@ let subst_ty ty x e =
   let ty = Tt.instantiate_ty [e] 0 ty in
     ty
 
+
+
+(**
+ctx1 |- x : A
+ctx2 |- e : A
+*)
+
 let substitute ctx1 x (ctx2,e,ty_e) = match lookup x ctx1 with
   | None -> ctx1 (* note that the spec doesn't require us to add ctx2 when x notin ctx1 *)
   | Some (ty,deps,revdeps) ->
     let ctxl1, ctxr1 = split_around ctx1 x revdeps in
     let ctx', f = join' ctx2 ctxl1 in
-    let ctx', deps_e = if Tt.alpha_equal_ty ty ty_e
-      then ctx', as_set ctx2
-      else let e = Name.fresh (Name.make "__eq") in
-        let deps_e = as_set ctx2 in
-        let deps_e = AtomSet.fold (fun y deps_e -> AtomSet.union deps_e (AtomMap.find y f)) deps deps_e in
-        let ctx' = AtomMap.mapi (fun y ((ty,dy,ry) as elt) -> if AtomSet.mem y deps_e then (ty,dy,AtomSet.add x ry) else elt) ctx' in
-        let ctx' = AtomMap.add e (mk_eq ty ty_e, deps_e, AtomSet.empty) ctx' in
-          ctx', AtomSet.add e deps_e in
+    let deps_e = as_set ctx2 in
 
     (* Now ctx'_{deps_e} |- ty == ty_e and |- e : ty_e thus |- e : ty *)
     let rec substA ctx' f = function (* for each processed y from ctx1, ctx'_{f(y)} |- y : subst (ctx1(y)) x e *)
