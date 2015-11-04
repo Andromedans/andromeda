@@ -16,8 +16,8 @@ module AtomSet = Set.Make (struct
    the type, and the sets of atoms are the two directions of edges. *)
 
 type node =
-  { ty      : Tt.ty       (* type of x *)
-  ; needs    : AtomSet.t   (* atoms which x depends on *)
+  { ty      : Tt.ty         (* type of x *)
+  ; needs    : AtomSet.t    (* atoms which x depends on *)
   ; needed_by : AtomSet.t } (* atoms which depend on x *)
 
 type t = node AtomMap.t
@@ -61,8 +61,9 @@ let cone ctx x (ty : Tt.ty) =
 let context_at ctx x =
   let {needs} = AtomMap.find x ctx in
   let ctx' = AtomSet.fold (fun y ctx' ->
-    let node = AtomMap.find y ctx in
-      AtomMap.add y {node with needed_by = AtomSet.inter node.needed_by needs} ctx') needs empty in
+      let node = AtomMap.find y ctx in
+        AtomMap.add y {node with needed_by = AtomSet.inter node.needed_by needs} ctx')
+    needs empty in
   ctx'
 
 let abstract1 ~loc (ctx : t) x =
@@ -133,7 +134,11 @@ let mk_eq (Tt.Ty ty) (Tt.Ty ty') = Tt.mk_eq_ty ~loc:Location.unknown Tt.typ ty t
 let extend ctx xneeds x ty =
   match lookup x ctx with
   | None ->
-    let ctx = AtomMap.mapi (fun y node -> if AtomSet.mem y xneeds then {node with needed_by = AtomSet.add x node.needed_by} else node) ctx in
+    let ctx = AtomMap.mapi (fun y node ->
+        if AtomSet.mem y xneeds
+        then {node with needed_by = AtomSet.add x node.needed_by}
+        else node)
+      ctx in
     let ctx = AtomMap.add x {ty; needs=xneeds; needed_by=AtomSet.empty;} ctx in
     ctx, AtomSet.add x xneeds
   | Some xnode ->
@@ -141,8 +146,14 @@ let extend ctx xneeds x ty =
     then ctx, AtomSet.add x xnode.needs
     else let e = Name.fresh (Name.make "__eq") in
       let xneeds = AtomSet.union xneeds xnode.needs in
-      let ctx = AtomMap.mapi (fun y node -> if AtomSet.mem y xneeds then {node with needed_by = AtomSet.add e node.needed_by} else node) ctx in
-      let ctx = AtomMap.add e {ty=mk_eq ty xnode.ty; needs=xneeds; needed_by=AtomSet.empty;} ctx in
+      let ctx = AtomMap.mapi (fun y node ->
+          if AtomSet.mem y xneeds
+          then {node with needed_by = AtomSet.add e node.needed_by}
+          else node)
+        ctx in
+      let ctx = AtomMap.add e
+        {ty=mk_eq ty xnode.ty; needs=xneeds; needed_by=AtomSet.empty;}
+        ctx in
       let xneeds = AtomSet.add e xneeds in
         ctx, AtomSet.add x xneeds
 
@@ -152,7 +163,10 @@ let join' ctx1 ctx2 =
   let rec joinA ctx f = function
     | [] -> ctx, f
     | x::l -> let {ty; needs} = AtomMap.find x ctx2 in (* ctx2_needs |- ty : Type *)
-      let needs = AtomSet.fold (fun y needs -> AtomSet.union needs (AtomMap.find y f)) needs AtomSet.empty in (* ctx_needs |- ty : Type *)
+      let needs = AtomSet.fold (* ctx_needs |- ty : Type *)
+        (fun y needs -> AtomSet.union needs (AtomMap.find y f))
+        needs
+        AtomSet.empty in
       let ctx, needs = extend ctx needs x ty in (* ctx_needs |- x : ty *)
       let f = AtomMap.add x needs f in
         joinA ctx f l
@@ -172,9 +186,12 @@ let split_around ctx x xrevs =
       else begin if AtomSet.mem y xrevs
         then split needs (y::revs) l
         else let ynode = AtomMap.find y ctx in
-          let yrevs = AtomSet.fold (fun r yrevs -> AtomSet.remove r yrevs) xrevs (AtomSet.remove x ynode.needed_by) in
+          let yrevs = AtomSet.fold
+            (fun r yrevs -> AtomSet.remove r yrevs)
+            xrevs
+            (AtomSet.remove x ynode.needed_by) in
           split (AtomMap.add y {ynode with needed_by = yrevs} needs) revs l
-        end
+      end
     in split empty [] sorted
 
 let subst_ty ty x e =
@@ -194,14 +211,19 @@ let substitute ctx1 x (ctx2,e,ty_e) = match lookup x ctx1 with
   | Some xnode ->
     let ctxl1, ctxr1 = split_around ctx1 x xnode.needed_by in
     let ctx', f = join' ctx2 ctxl1 in
-    let needs_e = as_set ctx2 in
+    let eneeds = as_set ctx2 in
 
-    (* Now ctx'_{needs_e} |- ty == ty_e and |- e : ty_e thus |- e : ty *)
+    (* Now ctx'_{eneeds} |- ty == ty_e and |- e : ty_e thus |- e : ty *)
     let rec substA ctx' f = function (* for each processed y from ctx1, ctx'_{f(y)} |- y : subst (ctx1(y)) x e *)
       | [] -> ctx'
       | y::l -> let ynode = AtomMap.find y ctx1 in
-        let yneeds = AtomSet.fold (fun z yneeds -> if Name.eq_atom x z then yneeds else AtomSet.union yneeds (AtomMap.find z f)) ynode.needs needs_e in
-        (* needs_y such that preconditions for the next line *)
+        let yneeds = AtomSet.fold
+          (fun z yneeds -> if Name.eq_atom x z
+            then yneeds
+            else AtomSet.union yneeds (AtomMap.find z f))
+          ynode.needs
+          eneeds in
+        (* yneeds such that preconditions for the next line *)
         let ctx', yneeds = extend ctx' yneeds y (subst_ty ynode.ty x e) in
         let f = AtomMap.add y yneeds f in
           substA ctx' f l
