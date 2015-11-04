@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+
+ Syntax highlighting for Andromeda in gedit
+
+ To install, simply place this file in the following directory:
+ ~/.local/share/gtksourceview-3.0/language-specs
+
+ This is based on gtksourceview's ocaml.lang and may contain inappropriate remains of it.
+
+-->
+
+<language id="andromeda" _name="Andromeda" version="2.0" _section="Source">
+  <metadata>
+    <property name="mimetypes">text/x-andromeda</property>
+    <property name="globs">*.m31</property>
+    <property name="block-comment-start">(*</property>
+    <property name="block-comment-end">*)</property>
+  </metadata>
+
+  <styles>
+    <style id="comment" _name="Comment" map-to="def:comment"/>
+    <style id="ocamldoc" _name="Ocamldoc Comments" map-to="def:note"/>
+    <style id="base-n-integer" _name="Base-N Integer" map-to="def:base-n-integer"/>
+    <style id="floating-point" _name="Floating Point number" map-to="def:floating-point"/>
+    <style id="decimal" _name="Decimal number" map-to="def:decimal"/>
+    <style id="string" _name="String" map-to="def:string"/>
+    <style id="keyword" _name="Keyword" map-to="def:keyword"/>
+    <style id="meta-keyword" _name="Type, module or object keyword" map-to="def:keyword"/>
+    <style id="fun-keyword" _name="Builtin-function keyword" map-to="def:keyword"/>
+    <style id="type" _name="Data Type" map-to="def:type"/>
+    <style id="escape" _name="Escaped Character" map-to="def:special-char"/>
+    <style id="boolean" _name="Boolean value" map-to="def:boolean"/>
+    <style id="error" _name="Error" map-to="def:error"/>
+    <style id="std-modules" _name="Standard Modules" map-to="def:type"/>
+  </styles>
+
+  <definitions>
+    <define-regex id="char-esc">\\((\\|"|'|n|t|b|r)|[0-9]{3}|x[0-9a-fA-F]{2})</define-regex>
+
+    <context id="escape-seq" style-ref="escape">
+      <match>\%{char-esc}</match>
+    </context>
+
+    <!-- here's the main context -->
+    <context id="andromeda" class="no-spell-check">
+      <include>
+	<context id="ocamldoc" style-ref="ocamldoc">
+	  <start>\(\*\*(?!\))</start>
+	  <end>\*\)</end>
+	  <include>
+	    <context id="comment-in-comment" style-ref="comment" class="comment" class-disabled="no-spell-check">
+	      <start>\(\*</start>
+	      <end>\*\)</end>
+	      <include>
+		<context ref="string"/>
+		<context ref="comment-in-comment"/>
+		<context ref="def:in-comment:*"/>
+	      </include>
+	    </context>
+	    <context ref="string"/>
+	    <context ref="def:in-comment:*"/>
+	  </include>
+	</context>
+	<context id="comment" style-ref="comment" class="comment" class-disabled="no-spell-check">
+	  <start>\(\*</start>
+	  <end>\*\)</end>
+	  <include>
+	    <context ref="string"/>
+	    <context ref="comment-in-comment"/>
+	    <context ref="def:in-comment:*"/>
+	  </include>
+	</context>
+	<context id="hex-number" style-ref="base-n-integer">
+	  <match>[-]?0[xX][0-9A-Fa-f][0-9A-Fa-f_]*[lL]?</match>
+	</context>
+	<context id="octal-number" style-ref="base-n-integer">
+	  <match>[-]?0[oO][0-7][0-7_]*[lL]?</match>
+	</context>
+	<context id="binary-number" style-ref="base-n-integer">
+	  <match>[-]?0[bB][01][01_]*[lL]?</match>
+	</context>
+	<context id="decimal" style-ref="decimal">
+	  <match>[-]?[0-9][0-9_]*[lLn]?</match>
+	</context>
+	<context id="floating-point-number" style-ref="floating-point">
+	  <match>[-]?[0-9][0-9_]*(\.[0-9_]*)?([Ee][+-]?[0-9][0-9_]*)?</match>
+	</context>
+	<context id="string" style-ref="string">
+	  <start>"</start>
+	  <end>"</end>
+	  <include>
+	    <context ref="escape-seq"/>
+	  </include>
+	</context>
+	<context id="character-constant" style-ref="string">
+	  <match>('\%{char-esc}')|('[^\\']')</match>
+	</context>
+	<context id="boolean-constant" style-ref="boolean">
+	  <keyword>true</keyword>
+	  <keyword>false</keyword>
+	</context>
+	<context id="keywords" style-ref="keyword">
+	  <keyword>assume</keyword>
+	  <keyword>beta</keyword>
+	  <keyword>Beta</keyword>
+	  <keyword>Check</keyword>
+	  <keyword>eta</keyword>
+	  <keyword>Eta</keyword>
+	  <keyword>hint</keyword>
+	  <keyword>Hint</keyword>
+	  <keyword>in</keyword>
+	  <keyword>let</keyword>
+	  <keyword>Let</keyword>
+	  <keyword>Parameter</keyword>
+	  <keyword>where</keyword>
+	</context>
+	<context id="types" style-ref="type">
+	  <keyword>Type</keyword>
+	</context>
+      </include>
+    </context>
+  </definitions>
+</language>
