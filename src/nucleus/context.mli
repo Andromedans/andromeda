@@ -4,10 +4,9 @@ type t
 (** The empty context. *)
 val empty : t
 
-(** Join two contexts into a single one. Return the new context
-    and a list of equations that need to be satisfied in order
-    for the contexts to be joinable. *)
-val join : t -> t -> t * (Name.atom * Tt.ty * Tt.ty) list
+val print : t -> Format.formatter -> unit
+
+val lookup_ty : Name.atom -> t -> Tt.ty option
 
 (** [cone ctx x t] returns a context with a fresh atom [y]
     of type [t], which depends on everything in [ctx]. The assumption
@@ -16,21 +15,27 @@ val join : t -> t -> t * (Name.atom * Tt.ty * Tt.ty) list
     sense of word. *)
 val cone : t -> Name.ident -> Tt.ty -> Name.atom * t
 
-(** [context_at ctx x] returns a context where the type of [x] is valid (but in which [x] does not exist). [x] must belong to [ctx]. *)
+(** [context_at ctx x] returns the smallest subcontext of [ctx] where the type of [x] is valid.
+    Not_found is raised if [x] does not belong to [ctx]. *)
 val context_at : t -> Name.atom -> t
 
 (** Remove the given atoms from the context, in the order
     given by the list. Fails if this is not doable. *)
 val abstract : loc:Location.t -> t -> Name.atom list -> t
 
-val lookup_ty : Name.atom -> t -> Tt.ty option
+(** Join two contexts into a single one. Return the new context
+    and a list of equations that need to be satisfied in order
+    for the contexts to be joinable. *)
+val join : t -> t -> t * (Name.atom * Tt.ty * Tt.ty) list
 
+(** [substitute ctx x (ctxe,e,ty_e)] replaces [x] in [ctx] by [e].
+    It assumes that the type of [x] in [ctx] is equal to the type of [e] under [ctxe]. *)
+val substitute : t -> Name.atom -> t * Tt.term * Tt.ty -> t
+
+(** The following does not seem to be used? *)
 type renaming
 
 val rename : t -> renaming -> t
 
 val refresh : t -> t * renaming
 
-val print : t -> Format.formatter -> unit
-
-val substitute : t -> Name.atom -> t * Tt.term * Tt.ty -> t
