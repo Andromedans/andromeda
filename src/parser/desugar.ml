@@ -174,6 +174,38 @@ let rec comp constants bound ((c',loc) as c) =
     | Input.Inhab ->
       [], Syntax.Inhab
 
+    | Input.Signature lst ->
+      let rec fold xts = function
+        | [] -> List.rev xts
+        | (x,c)::rem ->
+          if List.mem_assoc x xts
+          then
+            Error.syntax ~loc "Field %t appears more than once" (Name.print_ident x)
+          else
+            let c = comp constants bound c in
+            fold ((x,c)::xts) rem
+        in
+      let xts = fold [] lst in
+      [], Syntax.Signature xts
+
+    | Input.Module lst ->
+      let rec fold xts = function
+        | [] -> List.rev xts
+        | (x,c)::rem ->
+          if List.mem_assoc x xts
+          then
+            Error.syntax ~loc "Field %t appears more than once" (Name.print_ident x)
+          else
+            let c = comp constants bound c in
+            fold ((x,c)::xts) rem
+        in
+      let xts = fold [] lst in
+      [], Syntax.Module xts
+
+    | Input.Projection (c,x) ->
+      let c = comp constants bound c in
+      [], Syntax.Projection (c,x)
+
     | (Input.Var _ | Input.Type | Input.Function _ | Input.Handler _) ->
       let w, e = expr constants bound c in
       w, Syntax.Return e
@@ -301,7 +333,7 @@ and expr constants bound ((e', loc) as e) =
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
      Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _ |
-     Input.Typeof _ | Input.Assume _ | Input.Where _) ->
+     Input.Typeof _ | Input.Assume _ | Input.Where _ | Input.Signature _ | Input.Module _ | Input.Projection _) ->
     let x = Name.fresh_candy ()
     and c = comp constants bound e in
     [(x,c)], (Syntax.Bound 0, loc)

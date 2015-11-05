@@ -41,6 +41,9 @@ and comp' =
   | Refl of comp
   | Bracket of comp
   | Inhab
+  | Signature of (Name.ident * comp) list
+  | Module of (Name.ident * comp) list
+  | Projection of comp * Name.ident
 
 and handler = {
   handler_val: (Name.ident * comp) option;
@@ -183,6 +186,18 @@ let rec shift_comp k lvl (c', loc) =
         Bracket c
 
     | Inhab -> Inhab
+
+    | Signature lst ->
+        let lst = List.map (fun (x,c) -> x,shift_comp k lvl c) lst in
+        Signature lst
+
+    | Module lst ->
+        let lst = List.map (fun (x,c) -> x,shift_comp k lvl c) lst in
+        Module lst
+
+    | Projection (c,x) ->
+        let c = shift_comp k lvl c in
+        Projection (c,x)
   in
   c', loc
 

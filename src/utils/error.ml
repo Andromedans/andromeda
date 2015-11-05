@@ -32,3 +32,4 @@ let impossible ?loc:(loc=Location.unknown) fmt =
        ####################################################################@\n"
   in
   error ~loc "Impossible error" (message_header ^^ fmt)
+

@@ -62,6 +62,9 @@ type hint_key =
   | Key_Refl
   | Key_Inhab
   | Key_Bracket
+  | Key_Signature
+  | Key_Module
+  | Key_Projection
 
 type general_key = hint_key option * hint_key option * hint_key option
 

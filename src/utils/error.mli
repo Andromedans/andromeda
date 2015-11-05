@@ -36,3 +36,4 @@ val fatal : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
     in theory that a certain situation cannot exist and we want to alert the
     user to alert us about its existence. *)
 val impossible : ?loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
+

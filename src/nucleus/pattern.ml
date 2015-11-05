@@ -46,6 +46,9 @@ type hint_key =
   | Key_Refl
   | Key_Inhab
   | Key_Bracket
+  | Key_Signature
+  | Key_Module
+  | Key_Projection
 
 type general_key = hint_key option * hint_key option * hint_key option
 
@@ -62,6 +65,9 @@ let rec term_key_opt (e',loc) =
   | Tt.Refl _ -> Some Key_Refl
   | Tt.Inhab -> Some Key_Inhab
   | Tt.Bracket _ -> Some Key_Bracket
+  | Tt.Signature _ -> Some Key_Signature
+  | Tt.Module _ -> Some Key_Module
+  | Tt.Projection _ -> Some Key_Projection
 
 let term_key e =
   match term_key_opt e with
@@ -174,6 +180,9 @@ let print_key ?max_level k ppf =
   | Key_Refl -> Print.print ?max_level ppf "%s" "Refl"
   | Key_Inhab -> Print.print ?max_level ppf "%s" "Inhab"
   | Key_Bracket -> Print.print ?max_level ppf "%s" "Bracket"
+  | Key_Signature -> Print.print ?max_level ppf "%s" "Signature"
+  | Key_Module -> Print.print ?max_level ppf "%s" "Module"
+  | Key_Projection -> Print.print ?max_level ppf "%s" "Projection"
 
 
 let print_key_opt ?max_level k ppf =

@@ -64,6 +64,16 @@ and term' = private
   (** bracket type *)
   | Bracket of ty
 
+  (** signature, also known as record type *)
+  | Signature of (Name.ident * ty) list
+
+  (** module, also known as record term *)
+  | Module of (Name.ident * ty * term) list
+
+  (** a projection [e {x1:t1, ..., xn:tn} .xi] means that we project field [xi] of [e] and [e] has type [{x1:t1, ..., xn:tn}].
+      Currently field types do not depend on other fields so the result has type [ti]. *)
+  | Projection of term * (Name.ident * ty) list * Name.ident
+
 (** Since we have [Type : Type] we do not distinguish terms from types,
     so the type of type [ty] is just a synonym for the type of terms.
     However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
@@ -93,6 +103,11 @@ val mk_refl: loc:Location.t -> ty -> term -> term
 val mk_bracket: loc:Location.t -> ty -> term
 val mk_bracket_ty: loc:Location.t -> ty -> ty
 val mk_inhab: loc:Location.t -> term
+val mk_signature : loc:Location.t -> (Name.ident * ty) list -> term
+val mk_signature_ty : loc:Location.t -> (Name.ident * ty) list -> ty
+val mk_module : loc:Location.t -> (Name.ident * ty * term) list -> term
+val mk_projection : loc:Location.t -> term -> (Name.ident * ty) list -> Name.ident -> term
+
 
 (** Coerce a value to a type (does not check whether this is legal). *)
 val ty : term -> ty

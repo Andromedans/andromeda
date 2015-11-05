@@ -36,6 +36,9 @@ and term' =
   | Refl of comp
   | Bracket of comp
   | Inhab
+  | Signature of (Name.ident * ty) list
+  | Module of (Name.ident * comp) list
+  | Projection of comp * Name.ident
 
 (** Sugared types *)
 and ty = term

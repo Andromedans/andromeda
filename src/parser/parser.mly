@@ -6,7 +6,7 @@
 %token TYPE
 %token UNDERSCORE
 %token <string> NAME
-%token LPAREN RPAREN LBRACK RBRACK LRBRACK LLBRACK RRBRACK
+%token LPAREN RPAREN LBRACK RBRACK LRBRACK LLBRACK RRBRACK LBRACE RBRACE
 %token DCOLON COLON SEMICOLON COMMA DOT
 %token ARROW
 %token EQEQ
@@ -23,6 +23,7 @@
 %token ASSUME
 %token WHERE
 %token <string> OPERATION
+%token <string> PROJECTION
 %token ENVIRONMENT HELP QUIT
 %token <int> VERBOSITY
 %token <string> QUOTED_STRING
@@ -118,6 +119,7 @@ plain_app_term:
   | e=plain_simple_term                             { e }
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
   | e1=simple_term APPLY e2=app_term                { Apply (e1, e2) }
+  | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
   | WHNF t=simple_term                              { Whnf t }
   | TYPEOF t=simple_term                            { Typeof t }
   | REFL e=simple_term                              { Refl e }
@@ -130,6 +132,10 @@ plain_simple_term:
   | x=var_name                                      { Var x }
   | LPAREN e=plain_term RPAREN                      { e }
   | LLBRACK e=term RRBRACK                          { Bracket e }
+  | LBRACE lst=separated_nonempty_list(COMMA, typed_names) RBRACE
+        { Signature (List.concat lst) }
+  | LBRACE lst=separated_nonempty_list(COMMA, let_clause) RBRACE
+        { Module lst }
 
 var_name:
   | NAME { Name.make $1 }

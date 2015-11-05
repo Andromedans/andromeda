@@ -4,7 +4,8 @@ let is_small (e',_) =
 match e' with
   | Tt.Constant (_, es) -> es = []
   | Tt.Type | Tt.Inhab | Tt.Bound _ | Tt.Atom _ -> true
-  | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _ | Tt.Bracket _ -> false
+  | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _
+  | Tt.Bracket _ | Tt.Signature _ | Tt.Module _ | Tt.Projection _ -> false
 
 let rec term ((e',loc) as e) =
     match e' with
@@ -72,6 +73,19 @@ let rec term ((e',loc) as e) =
       let t = ty t in
         Tt.mk_bracket ~loc t
 
+    | Tt.Signature xts ->
+      let xts = List.map (fun (x,t) -> x,ty t) xts in
+      Tt.mk_signature ~loc xts
+
+    | Tt.Module xts ->
+      let xts = List.map (fun (x,t,te) -> x,ty t,term te) xts in
+      Tt.mk_module ~loc xts
+
+    | Tt.Projection (te,xts,p) ->
+      let te = term te in
+      let xts = List.map (fun (x,t) -> x,ty t) xts in
+      project ~loc te xts p
+
     | Tt.Bound _ ->
       Error.impossible "de Bruijn encountered in term"
 
@@ -136,11 +150,47 @@ and spine ~loc h xts t es =
   | Tt.Bracket _
   | Tt.Prod _
   | Tt.Eq _
-  | Tt.Refl _ ->
+  | Tt.Refl _
+  | Tt.Signature _
+  | Tt.Module _ 
+  | Tt.Projection _ ->
     Tt.mk_spine ~loc h xts t es
 
   | Tt.Bound _ ->
     Error.impossible ~loc "de Bruijn encountered in Simplify.spine"
+
+and project ~loc te xts p =
+  let te',_ = te in match te' with
+    | Tt.Module xtes ->
+      let rec fold xts xtes = match xts, xtes with
+        | [], [] -> true
+        | (x,t)::xts, (x',t',_)::xtes ->
+          Name.eq_ident x x' &&
+          Tt.alpha_equal_ty t t' &&
+          fold xts xtes
+        | _::_, [] | [], _::_ -> false
+        in
+      if fold xts xtes
+      then
+        let _,_,te = try List.find (fun (x,_,_) -> Name.eq_ident p x) xtes
+                     with | Not_found -> Error.impossible ~loc "Simplify.project encountered an invalid projection"
+        in te
+      else Tt.mk_projection ~loc te xts p
+    | Tt.Constant _
+    | Tt.Lambda _
+    | Tt.Spine _
+    | Tt.Atom _
+    | Tt.Type
+    | Tt.Inhab
+    | Tt.Bracket _
+    | Tt.Prod _
+    | Tt.Eq _
+    | Tt.Refl _
+    | Tt.Signature _
+    | Tt.Projection _ -> Tt.mk_projection ~loc te xts p
+    
+    | Tt.Bound _ ->
+      Error.impossible ~loc "de Bruijn encountered in Simplify.project"
 
 let context ctx = ctx
 
