@@ -58,7 +58,10 @@ and weak_whnf env ctx ((e', loc) as e) =
           | Tt.Eq _
           | Tt.Refl _
           | Tt.Inhab
-          | Tt.Bracket _ ->
+          | Tt.Bracket _
+          | Tt.Signature _
+          | Tt.Module _
+          | Tt.Projection _ ->
              (ctx, Tt.mk_spine ~loc e xts t es)
           | Tt.Bound _ ->
             Error.impossible ~loc "de Bruijn encountered in a spine head in whnf"
@@ -69,6 +72,34 @@ and weak_whnf env ctx ((e', loc) as e) =
            of their arguments. *)
          (ctx, e)
 
+      | Tt.Projection (e,xts,p) ->
+        begin
+          let (ctx', ((e',eloc) as e)) = weak ctx e in
+          let ctx,_ = Context.join ctx' ctx in
+          match e' with
+            | Tt.Module xtes ->
+              begin
+                match projection_reduce ~loc:eloc env ctx xts p xtes with
+                  | None -> (ctx, Tt.mk_projection ~loc e xts p)
+                  | Some (ctx,e) -> weak ctx e
+              end
+            | Tt.Atom _
+            | Tt.Constant _
+            | Tt.Lambda _
+            | Tt.Spine _
+            | Tt.Type
+            | Tt.Prod _
+            | Tt.Eq _
+            | Tt.Refl _
+            | Tt.Inhab
+            | Tt.Bracket _
+            | Tt.Signature _
+            | Tt.Projection _ ->
+               (ctx, Tt.mk_projection ~loc e xts p)
+            | Tt.Bound _ ->
+              Error.impossible ~loc "de Bruijn encountered in a projection head in whnf"            
+        end
+
       | Tt.Lambda (_ :: _, _)
       | Tt.Prod (_ :: _, _)
       | Tt.Atom _
@@ -76,7 +107,9 @@ and weak_whnf env ctx ((e', loc) as e) =
       | Tt.Eq _
       | Tt.Refl _
       | Tt.Inhab
-      | Tt.Bracket _ -> (ctx, e)
+      | Tt.Bracket _
+      | Tt.Signature _
+      | Tt.Module _ -> (ctx, e)
       | Tt.Bound _ ->
           Error.impossible ~loc "de Bruijn encountered in weak_whnf"
     end
@@ -164,6 +197,12 @@ and beta_reduce ~loc env ctx xus e u yvs t es =
      let e = Tt.mk_spine ~loc e yvs t es in
      Some (ctx, e)
 
+(** Reduction of [{xtes}.p] at type [{xts}] *)
+and projection_reduce ~loc env ctx xts p xtes =
+  equal_signature ~loc env ctx xts (List.map (fun (l,x,t,_) -> l,x,t) xtes) >>= fun ctx ->
+  let te = Tt.field_value ~loc xtes p in
+  Some (ctx,te)
+
 (** Let [xuus] be the list [(x1,(u1,u1')); ...; (xn,(un,un'))] where
     [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
     [ui'] is well-formed in the context [x1:u1', ..., x{i-1}:u{i-1}'] and
@@ -208,6 +247,7 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Tt.Atom _
         | Tt.Constant _
+        | Tt.Projection _
         | Tt.Spine _ ->
            (** Here we apply eta hints. *)
            begin
@@ -266,9 +306,24 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Tt.Bracket _ -> return ctx (** Strict bracket types *)
 
+        | Tt.Signature xts ->
+          (* vs contains all the previous projections of e1 *)
+          let rec fold ctx vs = function
+            | [] -> return ctx
+            | (l,x,t)::rem ->
+              let t = Tt.instantiate_ty vs 0 t in
+              let e1 = Tt.mk_projection ~loc:loc1 e1 xts l in
+              let e2 = Tt.mk_projection ~loc:loc2 e2 xts l in
+              equal env ctx e1 e2 t >>= fun ctx ->
+              fold ctx (e1::vs) rem
+            in
+          fold ctx [] xts
+
+        | Tt.Module _ -> Error.impossible ~loc:loc1 "module is not a type"
+
         | Tt.Bound _ -> Error.impossible ~loc:loc1 "deBruijn encountered in equal"
 
-        | Tt.Lambda _ -> Error.impossible ~loc:loc1 "fun is not a type"
+        | Tt.Lambda _ -> Error.impossible ~loc:loc1 "lambda is not a type"
 
         | Tt.Refl _ -> Error.impossible ~loc:loc1 "refl is not a type"
 
@@ -421,8 +476,25 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
   | Tt.Bracket t1, Tt.Bracket t2 ->
      equal_ty env ctx t1 t2
 
+  | Tt.Signature xts1, Tt.Signature xts2 -> equal_signature ~loc:loc1 env ctx xts1 xts2
+
+  | Tt.Module xtes1, Tt.Module xtes2 ->
+    let xts1 = List.map (fun (l,x,t,_) -> l,x,t) xtes1 in
+    let xts2 = List.map (fun (l,x,t,_) -> l,x,t) xtes2 in
+    equal_signature ~loc:loc1 env ctx xts1 xts2 >>= fun ctx ->
+    equal_module ~loc:loc1 env ctx xtes1 xtes2
+
+  | Tt.Projection (te1,xts1,p1), Tt.Projection (te2,xts2,p2) ->
+    if Name.eq_ident p1 p2
+    then
+      equal_signature ~loc:loc1 env ctx xts1 xts2 >>= fun ctx ->
+      let t = Tt.mk_signature_ty ~loc:loc1 xts1 in
+      equal env ctx te1 te2 t
+    else None
+
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
-     Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _), _ ->
+     Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _ |
+     Tt.Signature _ | Tt.Module _ | Tt.Projection _), _ ->
      None
 
 and equal_spine ~loc env ctx e1 a1 e2 a2 =
@@ -501,6 +573,41 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
     in
     fold [] [] a1 as1 a2 as2
   end
+
+and equal_signature ~loc env ctx xts1 xts2 =
+  let rec fold env ctx ys xts1 xts2 = match xts1, xts2 with
+    | [], [] -> Some (Context.abstract ~loc ctx ys) (* do we need to abstract here? *)
+    | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
+      if Name.eq_ident l1 l2
+      then
+        let t1 = Tt.unabstract_ty ys 0 t1 in
+        let t2 = Tt.unabstract_ty ys 0 t2 in
+        equal_ty env ctx t1 t2 >>= fun ctx ->
+        let jx = Judgement.mk_ty ctx t1 in
+        let y, env = Environment.add_fresh ~loc env x jx in
+        fold env ctx (y::ys) xts1 xts2
+      else None
+    | _::_,[] | [],_::_ -> None
+    in
+  fold env ctx [] xts1 xts2
+
+(** this function assumes that the derived signatures have already been checked equal label to label *)
+and equal_module ~loc env ctx xtes1 xtes2 =
+  let rec fold ctx vs xtes1 xtes2 = match xtes1, xtes2 with
+    | [], [] ->
+      Some ctx
+    | (l1,x,t1,te1)::xts1, (l2,_,t2,te2)::xts2 ->
+      if Name.eq_ident l1 l2
+      then
+        let ty = Tt.instantiate_ty vs 0 t1 in (* here we need to know that ctx |- instantiate t1 == instantiate t2. Is this true? *)
+        let te1 = Tt.instantiate vs 0 te1 in
+        let te2 = Tt.instantiate vs 0 te2 in
+        equal env ctx te1 te2 ty >>= fun ctx ->
+        fold ctx (te1::vs) xts1 xts2
+      else None
+    | _::_,[] | [],_::_ -> None
+    in
+  fold ctx [] xtes1 xtes2
 
 (** [pattern_collect env p ?t e] matches pattern [p] against term [e]
     of possibly given type [t].
@@ -1005,6 +1112,9 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty (t', loc)) as t) =
     | Tt.Lambda _
     | Tt.Refl _
     | Tt.Inhab
+    | Tt.Signature _
+    | Tt.Module _
+    | Tt.Projection _
     | Tt.Type -> None
 
 and inhabit_bracket ~subgoals ~loc env (ctx, t) =
@@ -1038,7 +1148,8 @@ let as_atom env (ctx, e', t)  =
   match e' with
   | Tt.Atom x -> (ctx, x, t)
   | Tt.Prod _ | Tt.Type | Tt.Eq _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _ ->
+  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _
+  | Tt.Signature _ | Tt.Module _ | Tt.Projection _ ->
     Error.runtime ~loc "this expression should be an atom"
 
 let rec deep_prod env ctx t f =
@@ -1068,8 +1179,8 @@ let rec deep_prod env ctx t f =
      fold env [] xus
 
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab
-  | Tt.Bracket _ ->
+  | Tt.Spine _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _
+  | Tt.Signature _ | Tt.Module _ | Tt.Projection _ ->
      let ctx, t = f env ctx (Tt.ty (t', loc)) in
      (ctx, ([], t))
 
@@ -1082,7 +1193,8 @@ let as_eq env (ctx, ((Tt.Ty (_, loc)) as t)) =
   | Tt.Eq (t, e1, e2) -> (ctx, t, e1, e2)
 
   | Tt.Prod _ | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _ ->
+  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _
+  | Tt.Signature _ | Tt.Module _ | Tt.Projection _ ->
      Error.typing ~loc
        "this expression should be an equality type, found@ %t"
        (Tt.print_ty [] t)
@@ -1098,8 +1210,8 @@ let as_universal_eq env (ctx, ((Tt.Ty (_, loc)) as t)) =
   | Tt.Prod _ -> Error.impossible ~loc "product encountered in as_universal_eq"
 
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab
-  | Tt.Bracket _ ->
+  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _
+  | Tt.Signature _ | Tt.Module _ | Tt.Projection _ ->
      Error.typing ~loc
        "the type of this expression should be a universally quantified equality, found@ %t"
        (Tt.print_ty [] t)
@@ -1116,4 +1228,15 @@ let as_universal_bracket env (ctx, ((Tt.Ty (_, loc)) as t)) =
 
      | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
      | Tt.Spine _ | Tt.Refl _ | Tt.Inhab
+     | Tt.Signature _ | Tt.Module _ | Tt.Projection _
      | Tt.Eq _ -> ctx, t)
+
+
+let as_signature env (ctx, t) =
+  let (ctxt, Tt.Ty (t', loc)) = whnf_ty env ctx t in
+  match t' with
+    | Tt.Signature xts -> ctxt, xts
+    | _ -> Error.typing ~loc
+      "this expressing should be a signature, found@ %t"
+      (Tt.print_ty [] t)
+

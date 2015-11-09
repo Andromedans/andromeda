@@ -41,6 +41,9 @@ and comp' =
   | Refl of comp
   | Bracket of comp
   | Inhab
+  | Signature of (Name.ident * Name.ident * comp) list
+  | Module of (Name.ident * Name.ident * comp option * comp) list
+  | Projection of comp * Name.ident
 
 and handler = {
   handler_val: (Name.ident * comp) option;

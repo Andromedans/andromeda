@@ -24,9 +24,6 @@ val as_eq : Environment.t -> Judgement.ty -> Context.t * Tt.ty * Tt.term * Tt.te
 (** Convert a type to a product. *)
 val as_prod : Environment.t -> Judgement.ty -> Context.t * Tt.ty Tt.ty_abstraction
 
-(** Convert a type to a bracket type. *)
-val as_bracket : Environment.t -> Judgement.ty -> Context.t * Tt.ty
-
 (** Convert a type to a universally quantified equality type by aggresively
     unfolding as many inner products as possible. If we get a bare equality type
     the list of binders is empty (and the call succeeds). *)
@@ -44,3 +41,10 @@ val as_universal_bracket :
 val inhabit_bracket :
   subgoals:bool -> loc:Location.t ->
   Environment.t -> Judgement.ty -> (Context.t * Tt.term) option
+
+(** Convert a type to a bracket type. *)
+val as_bracket : Environment.t -> Judgement.ty -> Context.t * Tt.ty
+
+(** Convert a type to a signature. *)
+val as_signature : Environment.t -> Judgement.ty -> Context.t * Tt.field_types
+

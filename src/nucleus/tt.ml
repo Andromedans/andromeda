@@ -15,10 +15,17 @@ and term' =
   | Refl of ty * term
   | Inhab
   | Bracket of ty
+  | Signature of field_types
+  | Module of field_defs
+  | Projection of term * field_types * Name.ident
 
 and ty = Ty of term
 
 and 'a ty_abstraction = (ty, 'a) abstraction
+
+and field_types = (Name.ident * Name.ident * ty) list
+
+and field_defs = (Name.ident * Name.ident * ty * term) list
 
 type constsig = ((bool * ty), ty) abstraction
 
@@ -56,6 +63,10 @@ let mk_refl ~loc t e = Refl (t, e), loc
 let mk_inhab ~loc = Inhab, loc
 let mk_bracket ~loc t = Bracket t, loc
 
+let mk_signature ~loc lst = Signature lst, loc
+let mk_module ~loc lst = Module lst, loc
+let mk_projection ~loc te xts x = Projection (te,xts,x), loc
+
 (** Convert a term to a type. *)
 let ty e = Ty e
 
@@ -63,6 +74,7 @@ let mk_eq_ty ~loc t e1 e2 = ty (mk_eq ~loc t e1 e2)
 let mk_prod_ty ~loc xts t = ty (mk_prod ~loc xts t)
 let mk_type_ty ~loc = ty (mk_type ~loc)
 let mk_bracket_ty ~loc t = ty (mk_bracket ~loc t)
+let mk_signature_ty ~loc lst = ty (mk_signature ~loc lst)
 
 (** The [Type] constant, without a location. *)
 let typ = Ty (mk_type ~loc:Location.unknown)
@@ -141,6 +153,38 @@ and instantiate es depth ((e',loc) as e) =
     | Bracket t ->
       let t = instantiate_ty es depth t in
       Bracket t, loc
+
+    | Signature xts ->
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = instantiate_ty es depth t in
+          fold (depth+1) ((x,y,t)::res) rem
+        in
+      let xts = fold depth [] xts in
+      Signature xts, loc
+
+    | Module xts ->
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t,te)::rem ->
+          let t = instantiate_ty es depth t in
+          let te = instantiate es depth te in
+          fold (depth+1) ((x,y,t,te)::res) rem
+        in
+      let xts = fold depth [] xts in
+      Module xts, loc
+
+    | Projection (te,xts,p) ->
+      let te = instantiate es depth te in
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = instantiate_ty es depth t in
+          fold (depth+1) ((x,y,t)::res) rem
+        in
+      let xts = fold depth [] xts in
+      Projection (te,xts,p), loc
 
 and instantiate_ty es depth (Ty t) =
   let t = instantiate es depth t
@@ -223,6 +267,37 @@ and abstract xs depth ((e',loc) as e) =
     let t = abstract_ty xs depth t in
     Bracket t, loc
 
+  | Signature xts ->
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = abstract_ty xs depth t in
+          fold (depth+1) ((x,y,t)::res) rem
+        in
+      let xts = fold depth [] xts in
+    Signature xts, loc
+
+  | Module xts ->
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t,te)::rem ->
+          let t = abstract_ty xs depth t in
+          let te = abstract xs depth te in
+          fold (depth+1) ((x,y,t,te)::res) rem
+        in
+      let xts = fold depth [] xts in
+    Module xts, loc
+
+  | Projection (te,xts,p) ->
+    let te = abstract xs depth te in
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = abstract_ty xs depth t in
+          fold (depth+1) ((x,y,t)::res) rem
+        in
+      let xts = fold depth [] xts in
+    Projection (te,xts,p), loc
 
 and abstract_ty xs depth (Ty t) =
   let t = abstract xs depth t
@@ -288,6 +363,38 @@ let rec shift k lvl ((e',loc) as e) =
       let t = shift_ty k lvl t in
         Bracket t, loc
 
+    | Signature xts ->
+      let rec fold lvl res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = shift_ty k lvl t in
+          fold (lvl+1) ((x,y,t)::res) rem
+        in
+      let xts = fold lvl [] xts in
+      Signature xts, loc
+
+    | Module xts ->
+      let rec fold lvl res = function
+        | [] -> List.rev res
+        | (x,y,t,te)::rem ->
+          let t = shift_ty k lvl t in
+          let te = shift k lvl te in
+          fold (lvl+1) ((x,y,t,te)::res) rem
+        in
+      let xts = fold lvl [] xts in
+      Module xts, loc
+
+    | Projection (te,xts,p) ->
+      let te = shift k lvl te in
+      let rec fold lvl res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = shift_ty k lvl t in
+          fold (lvl+1) ((x,y,t)::res) rem
+        in
+      let xts = fold lvl [] xts in
+      Projection (te,xts,p), loc
+
 and shift_ty k lvl (Ty t) =
   let t = shift k lvl t in
     Ty t
@@ -346,6 +453,31 @@ let rec occurs k (e',_) =
   | Inhab -> 0
   | Bracket t ->
     occurs_ty k t
+  | Signature xts ->
+    let rec fold k res = function
+      | [] -> res
+      | (x,y,t)::rem ->
+        let i = occurs_ty k t in
+        fold (k+1) (res+i) rem
+      in
+    fold k 0 xts
+  | Module xts ->
+    let rec fold k res = function
+      | [] -> res
+      | (x,y,t,te)::rem ->
+        let i = occurs_ty k t in
+        let j = occurs k te in
+        fold (k+1) (res+i+j) rem
+      in
+    fold k 0 xts
+  | Projection (te,xts,p) ->
+    let rec fold k res = function
+      | [] -> res
+      | (x,y,t)::rem ->
+        let i = occurs_ty k t in
+        fold (k+1) (res+i) rem
+      in
+    fold k (occurs k te) xts
 
 and occurs_ty k (Ty t) = occurs k t
 
@@ -353,6 +485,7 @@ and occurs_term_ty k (e, t) =
   occurs k e + occurs_ty k t
 
 let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
+
 
 (****** Alpha equality ******)
 
@@ -369,6 +502,13 @@ let alpha_equal_abstraction alpha_equal_u alpha_equal_v (xus, v) (xus', v') =
   in
   eq xus xus' &&
   alpha_equal_v v v'
+
+let rec alpha_equal_list equal_e es es' =
+  match es, es' with
+  | [], [] -> true
+  | e :: es, e' :: es' ->
+    equal_e e e' && alpha_equal_list equal_e es es'
+  | ([],_::_) | ((_::_),[]) -> false
 
 let rec alpha_equal (e1,_) (e2,_) =
   e1 == e2 || (* a shortcut in case the terms are identical *)
@@ -409,21 +549,51 @@ let rec alpha_equal (e1,_) (e2,_) =
 
     | Inhab, Inhab -> true
 
+    | Signature xts1, Signature xts2 ->
+      let rec fold xts1 xts2 = match xts1, xts2 with
+        | [], [] -> true
+        | (x1,_,t1)::xts1, (x2,_,t2)::xts2 ->
+          Name.eq_ident x1 x2 &&
+          alpha_equal_ty t1 t2 &&
+          fold xts1 xts2
+        | _::_,[] | [],_::_ -> false
+        in
+      fold xts1 xts2
+
+    | Module xts1, Module xts2 ->
+      let rec fold xts1 xts2 = match xts1, xts2 with
+        | [], [] -> true
+        | (x1,_,t1,te1)::xts1, (x2,_,t2,te2)::xts2 ->
+          Name.eq_ident x1 x2 &&
+          alpha_equal_ty t1 t2 &&
+          alpha_equal te1 te2 &&
+          fold xts1 xts2
+        | _::_,[] | [],_::_ -> false
+        in
+      fold xts1 xts2
+
+    | Projection (te1,xts1,p1), Projection (te2,xts2,p2) ->
+      Name.eq_ident p1 p2 &&
+      alpha_equal te1 te2 &&
+      let rec fold xts1 xts2 = match xts1, xts2 with
+        | [], [] -> true
+        | (x1,_,t1)::xts1, (x2,_,t2)::xts2 ->
+          Name.eq_ident x1 x2 &&
+          alpha_equal_ty t1 t2 &&
+          fold xts1 xts2
+        | _::_,[] | [],_::_ -> false
+        in
+      fold xts1 xts2
+
     | (Atom _ | Bound _ | Constant _ | Lambda _ | Spine _ |
-        Type | Prod _ | Eq _ | Refl _ | Bracket _ | Inhab), _ ->
+        Type | Prod _ | Eq _ | Refl _ | Bracket _ | Inhab |
+        Signature _ | Module _ | Projection _), _ ->
       false
   end
 
 and alpha_equal_ty (Ty t1) (Ty t2) = alpha_equal t1 t2
 
 and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
-
-and alpha_equal_list equal_e es es' =
-  match es, es' with
-  | [], [] -> true
-  | e :: es, e' :: es' ->
-    equal_e e e' && alpha_equal_list equal_e es es'
-  | ([],_::_) | ((_::_),[]) -> false
 
 
 (****** Printing routines *****)
@@ -497,6 +667,16 @@ let rec print_term ?max_level xs (e,_) ppf =
         print ~at_level:0 "[[%t]]"
           (print_ty xs t)
 
+      | Signature xts -> (* XXX someone who knows prettyprinting do this properly *)
+        print ~at_level:0 "P{%t}"
+          (print_signature xs xts)
+
+      | Module xts ->
+        print ~at_level:0 "P{%t}"
+          (print_module xs xts)
+
+      | Projection (te,xts,p) -> print ~at_level:1 "%t" (print_projection xs te xts p)
+
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
@@ -551,6 +731,48 @@ and print_spine xs e (yts, u) es ppf =
   else
     spine_noannot ppf
 
+and print_signature xs xts ppf = match xts with
+  | [] -> ()
+  | [x,y,t] ->
+    Print.print ppf "%t as %t : %t"
+      (Name.print_ident x)
+      (Name.print_ident y)
+      (print_ty ~max_level:0 xs t)
+  | (x,y,t)::rem ->
+    Print.print ppf "%t as %t : %t;@ %t"
+      (Name.print_ident x)
+      (Name.print_ident y)
+      (print_ty ~max_level:0 xs t)
+      (print_signature (y::xs) rem)
+
+and print_module xs xts ppf = match xts with
+  | [] -> ()
+  | [x,y,t,te] ->
+    Print.print ppf "%t as %t : %t := %t"
+      (Name.print_ident x)
+      (Name.print_ident y)
+      (print_ty ~max_level:0 xs t)
+      (print_term ~max_level:0 xs te)
+  | (x,y,t,te)::rem ->
+    Print.print ppf "%t as %t : %t := %t;@ %t"
+      (Name.print_ident x)
+      (Name.print_ident y)
+      (print_ty ~max_level:0 xs t)
+      (print_term ~max_level:0 xs te)
+      (print_module (y::xs) rem)
+
+and print_projection xs te xts p ppf =
+  if !Config.annotate
+  then
+    Print.print ppf "@[<hov 2>%t@ @@{%t}.%t@]"
+      (print_term ~max_level:0 xs te)
+      (print_signature xs xts)
+      (Name.print_ident p)
+  else
+    Print.print ppf "@[<hov 2>%t@ .%t@]"
+      (print_term ~max_level:0 xs te)
+      (Name.print_ident p)
+
 and print_binder xs (x, t) ppf =
   Print.print ppf "(%t :@ %t)"
         (Name.print_ident x)
@@ -570,3 +792,30 @@ let print_constsig ?max_level xs (rxus, t) ppf =
   match rxus with
   | [] -> print_u "" xs ppf
   | _::_ -> Name.print_binders print_xs (print_u " ") xs rxus ppf
+
+
+(****** Module stuff ********)
+
+let field_value ~loc xtes p =
+  let rec fold vs = function
+    | [] -> Error.runtime "Tt.field_value: field %t not found" (Name.print_ident p)
+    | (l,x,t,te)::rem ->
+      let te = instantiate vs 0 te in
+      if Name.eq_ident p l
+      then te
+      else fold (te::vs) rem
+    in
+  fold [] xtes
+
+let field_type ~loc xts e p =
+  let rec fold vs = function
+    | [] -> Error.typing "%t has no field %t" (print_term [] e) (Name.print_ident p)
+    | (l,x,t)::rem ->
+      if Name.eq_ident p l
+      then instantiate_ty vs 0 t
+      else
+        let el = mk_projection ~loc e xts l in
+        fold (el::vs) rem
+    in
+  fold [] xts
+

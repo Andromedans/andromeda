@@ -1,6 +1,6 @@
 (** Simplification of expressions and types. *)
 
-(** [termimplify] performs beta reductions when they result in a term
+(** [term] performs beta reductions when they result in a term
     that does not increase in size, for instance if the bound variable
     appears at most once in the body of the function, or if the argument
     is an atomic expression (a variable or a constant). *)

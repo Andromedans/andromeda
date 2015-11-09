@@ -4,6 +4,7 @@ open Ulexbuf
 
 let reserved = [
   ("Axiom", AXIOM) ;
+  ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;
   ("beta", BETA) ;
@@ -96,11 +97,14 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | "[]"                     -> f (); LRBRACK
   | '['                      -> f (); LBRACK
   | ']'                      -> f (); RBRACK
+  | '{'                      -> f (); LBRACE
+  | '}'                      -> f (); RBRACE
   | ":="                     -> f (); COLONEQ
   | "::"                     -> f (); DCOLON
   | ':'                      -> f (); COLON
   | ','                      -> f (); COMMA
   | ';'                      -> f (); SEMICOLON
+  | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
   | '|'                      -> f (); BAR

@@ -6,14 +6,14 @@
 %token TYPE
 %token UNDERSCORE
 %token <string> NAME
-%token LPAREN RPAREN LBRACK RBRACK LRBRACK LLBRACK RRBRACK
+%token LPAREN RPAREN LBRACK RBRACK LRBRACK LLBRACK RRBRACK LBRACE RBRACE
 %token DCOLON COLON SEMICOLON COMMA DOT
 %token ARROW
 %token EQEQ
 %token REFL
 %token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
 %token TOPUNHINT
-%token LET COLONEQ AND IN
+%token LET AS COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token UNHINT
 %token HANDLE HANDLER WITH BAR VAL FINALLY END
@@ -23,6 +23,7 @@
 %token ASSUME
 %token WHERE
 %token <string> OPERATION
+%token <string> PROJECTION
 %token ENVIRONMENT HELP QUIT
 %token <int> VERBOSITY
 %token <string> QUOTED_STRING
@@ -118,6 +119,7 @@ plain_app_term:
   | e=plain_simple_term                             { e }
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
   | e1=simple_term APPLY e2=app_term                { Apply (e1, e2) }
+  | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
   | WHNF t=simple_term                              { Whnf t }
   | TYPEOF t=simple_term                            { Typeof t }
   | REFL e=simple_term                              { Refl e }
@@ -130,6 +132,10 @@ plain_simple_term:
   | x=var_name                                      { Var x }
   | LPAREN e=plain_term RPAREN                      { e }
   | LLBRACK e=term RRBRACK                          { Bracket e }
+  | LBRACE lst=separated_nonempty_list(COMMA, signature_clause) RBRACE
+        { Signature lst }
+  | LBRACE lst=separated_nonempty_list(COMMA, module_clause) RBRACE
+        { Module lst }
 
 var_name:
   | NAME { Name.make $1 }
@@ -150,6 +156,16 @@ typed_binder:
 
 typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, t)) xs }
+
+signature_clause:
+  | x=name COLON t=ty_term           { (x,None  ,t) }
+  | x=name AS y=name COLON t=ty_term { (x,Some y,t) }
+
+module_clause :
+  | x=name COLONEQ c=term                           { (x,None  ,None  ,c) }
+  | x=name AS y=name COLONEQ c=term                 { (x,Some y,None  ,c) }
+  | x=name COLON t=ty_term COLONEQ c=term           { (x,None  ,Some t,c) }
+  | x=name AS y=name COLON t=ty_term COLONEQ c=term { (x,Some y,Some t,c) }
 
 binder:
   | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_names) RBRACK

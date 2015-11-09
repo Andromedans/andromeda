@@ -2,6 +2,10 @@
 
 let add_bound x bound = x :: bound
 
+let opt_map f = function
+  | None -> None
+  | Some x -> Some (f x)
+
 let rec mk_lambda ys ((c', loc) as c) =
   match ys with
   | [] -> c'
@@ -174,6 +178,43 @@ let rec comp constants bound ((c',loc) as c) =
     | Input.Inhab ->
       [], Syntax.Inhab
 
+    | Input.Signature lst ->
+      let rec fold bound labels res = function
+        | [] -> List.rev res
+        | (x,y,c)::rem ->
+          let y = match y with | Some y -> y | None -> x in
+          if List.mem x labels
+          then Error.syntax ~loc "field %t appears more than once" (Name.print_ident x)
+          else if Name.eq_ident x Name.anonymous
+          then Error.syntax ~loc "anonymous field"
+          else
+            let c = comp constants bound c in
+            fold (add_bound y bound) (x::labels) ((x,y,c)::res) rem
+        in
+      let lst = fold bound [] [] lst in
+      [], Syntax.Signature lst
+
+    | Input.Module lst ->
+      let rec fold bound labels res = function
+        | [] -> List.rev res
+        | (x,y,ty,c)::rem ->
+          let y = match y with | Some y -> y | None -> x in
+          if List.mem x labels
+          then Error.syntax ~loc "field %t appears more than once" (Name.print_ident x)
+          else if Name.eq_ident x Name.anonymous
+          then Error.syntax ~loc "anonymous field"
+          else
+            let ty = opt_map (comp constants bound) ty in
+            let c = comp constants bound c in
+            fold (add_bound y bound) (x::labels) ((x,y,ty,c)::res) rem
+        in
+      let lst = fold bound [] [] lst in
+      [], Syntax.Module lst
+
+    | Input.Projection (c,x) ->
+      let c = comp constants bound c in
+      [], Syntax.Projection (c,x)
+
     | (Input.Var _ | Input.Type | Input.Function _ | Input.Handler _) ->
       let w, e = expr constants bound c in
       w, Syntax.Return e
@@ -301,7 +342,7 @@ and expr constants bound ((e', loc) as e) =
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
      Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _ |
-     Input.Typeof _ | Input.Assume _ | Input.Where _) ->
+     Input.Typeof _ | Input.Assume _ | Input.Where _ | Input.Signature _ | Input.Module _ | Input.Projection _) ->
     let x = Name.fresh_candy ()
     and c = comp constants bound e in
     [(x,c)], (Syntax.Bound 0, loc)
