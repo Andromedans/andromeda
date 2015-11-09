@@ -16,9 +16,9 @@ module AtomSet = Set.Make (struct
    the type, and the sets of atoms are the two directions of edges. *)
 
 type node =
-  { ty      : Tt.ty         (* type of x *)
-  ; needs    : AtomSet.t    (* atoms which x depends on *)
-  ; needed_by : AtomSet.t } (* atoms which depend on x *)
+  { ty : Tt.ty; (* type of x *)
+    needs : AtomSet.t; (* atoms which x depends on *)
+    needed_by : AtomSet.t } (* atoms which depend on x *)
 
 type t = node AtomMap.t
 
@@ -123,7 +123,7 @@ let topological_sort ctx =
       let {needed_by} = AtomMap.find x ctx in
       let (handled, ys) = AtomSet.fold process needed_by handled_ys  in
       (AtomSet.add x handled, x :: ys)
-  in      
+  in
   let _, ys = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
   ys
 
