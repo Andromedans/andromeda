@@ -73,7 +73,7 @@ and expr_term env ((_,loc) as e) =
   | Value.Ty _ -> Error.runtime ~loc "this expression should be a term but is a type"
   | Value.Term et -> et
   | Value.Handler _ -> Error.runtime ~loc "this expression should be a term but is a handler"
-  | Value.Closure _ -> Error.runtime ~loc "this expression should be a term but is a handler"
+  | Value.Closure _ -> Error.runtime ~loc "this expression should be a term but is a closure"
 
 (** Evaluate a computation -- infer mode. *)
 and infer env (c',loc) =
