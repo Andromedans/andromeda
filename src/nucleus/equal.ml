@@ -199,7 +199,9 @@ and beta_reduce ~loc env ctx xus e u yvs t es =
 
 (** Reduction of [{xtes}.p] at type [{xts}] *)
 and projection_reduce ~loc env ctx xts p xtes =
-  assert false (* TODO *)
+  equal_signature ~loc env ctx xts (List.map (fun (l,x,t,_) -> l,x,t) xtes) >>= fun ctx ->
+  let te = Tt.field_value ~loc xtes p in
+  Some (ctx,te)
 
 (** Let [xuus] be the list [(x1,(u1,u1')); ...; (xn,(un,un'))] where
     [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
@@ -304,18 +306,18 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Tt.Bracket _ -> return ctx (** Strict bracket types *)
 
-        | Tt.Signature xts -> assert false (* TODO *)
-        (*
-          let rec fold ctx = begin function
+        | Tt.Signature xts ->
+          (* vs contains all the previous projections of e1 *)
+          let rec fold ctx vs = function
             | [] -> return ctx
-            | (p,t)::rem -> (* careful with the type here when we get interdependent fields *)
-              let e1 = Tt.mk_projection ~loc:loc1 e1 xts p in
-              let e2 = Tt.mk_projection ~loc:loc2 e2 xts p in
+            | (l,x,t)::rem ->
+              let t = Tt.instantiate_ty vs 0 t in
+              let e1 = Tt.mk_projection ~loc:loc1 e1 xts l in
+              let e2 = Tt.mk_projection ~loc:loc2 e2 xts l in
               equal env ctx e1 e2 t >>= fun ctx ->
-              fold ctx rem
-            end
-          in fold ctx xts
-        *)
+              fold ctx (e1::vs) rem
+            in
+          fold ctx [] xts
 
         | Tt.Module _ -> Error.impossible ~loc:loc1 "module is not a type"
 
@@ -474,55 +476,21 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
   | Tt.Bracket t1, Tt.Bracket t2 ->
      equal_ty env ctx t1 t2
 
-  | Tt.Signature xts1, Tt.Signature xts2 -> assert false (* TODO *)
-  (*
-    let rec fold ctx xts1 xts2 = match xts1, xts2 with
-      | [], [] -> return ctx
-      | (_::_),[] | [],(_::_) -> None
-      | (x1,t1)::xts1, (x2,t2)::xts2 ->
-        if Name.eq_ident x1 x2
-        then
-          equal_ty env ctx t1 t2 >>= fun ctx ->
-          fold ctx xts1 xts2
-        else None
-      in
-    fold ctx xts1 xts2
-    *)
+  | Tt.Signature xts1, Tt.Signature xts2 -> equal_signature ~loc:loc1 env ctx xts1 xts2
 
-  | Tt.Module xts1, Tt.Module xts2 -> assert false (* TODO *)
-  (*
-    let rec fold ctx xts1 xts2 = match xts1, xts2 with
-      | [], [] -> return ctx
-      | (_::_),[] | [],(_::_) -> None
-      | (x1,t1,te1)::xts1, (x2,t2,te2)::xts2 ->
-        if Name.eq_ident x1 x2
-        then
-          equal_ty env ctx t1 t2 >>= fun ctx ->
-          equal env ctx te1 te2 t1 >>= fun ctx ->
-          fold ctx xts1 xts2
-        else None
-      in
-    fold ctx xts1 xts2
-    *)
+  | Tt.Module xtes1, Tt.Module xtes2 ->
+    let xts1 = List.map (fun (l,x,t,_) -> l,x,t) xtes1 in
+    let xts2 = List.map (fun (l,x,t,_) -> l,x,t) xtes2 in
+    equal_signature ~loc:loc1 env ctx xts1 xts2 >>= fun ctx ->
+    equal_module ~loc:loc1 env ctx xtes1 xtes2
 
-  | Tt.Projection (te1,xts1,p1), Tt.Projection (te2,xts2,p2) -> assert false (* TODO *)
-  (*
+  | Tt.Projection (te1,xts1,p1), Tt.Projection (te2,xts2,p2) ->
     if Name.eq_ident p1 p2
     then
-      let rec fold ctx xts1 xts2 = match xts1, xts2 with
-        | [], [] -> return ctx
-        | (_::_),[] | [],(_::_) -> None
-        | (x1,t1)::xts1, (x2,t2)::xts2 ->
-          if Name.eq_ident x1 x2
-          then
-            equal_ty env ctx t1 t2 >>= fun ctx ->
-            fold ctx xts1 xts2
-          else None
-        in
-      fold ctx xts1 xts2 >>= fun ctx ->
-      equal_whnf env ctx te1 te2
+      equal_signature ~loc:loc1 env ctx xts1 xts2 >>= fun ctx ->
+      let t = Tt.mk_signature_ty ~loc:loc1 xts1 in
+      equal env ctx te1 te2 t
     else None
-    *)
 
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
      Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _ |
@@ -605,6 +573,41 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
     in
     fold [] [] a1 as1 a2 as2
   end
+
+and equal_signature ~loc env ctx xts1 xts2 =
+  let rec fold env ctx ys xts1 xts2 = match xts1, xts2 with
+    | [], [] -> Some (Context.abstract ~loc ctx ys) (* do we need to abstract here? *)
+    | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
+      if Name.eq_ident l1 l2
+      then
+        let t1 = Tt.unabstract_ty ys 0 t1 in
+        let t2 = Tt.unabstract_ty ys 0 t2 in
+        equal_ty env ctx t1 t2 >>= fun ctx ->
+        let jx = Judgement.mk_ty ctx t1 in
+        let y, env = Environment.add_fresh ~loc env x jx in
+        fold env ctx (y::ys) xts1 xts2
+      else None
+    | _::_,[] | [],_::_ -> None
+    in
+  fold env ctx [] xts1 xts2
+
+(** this function assumes that the derived signatures have already been checked equal label to label *)
+and equal_module ~loc env ctx xtes1 xtes2 =
+  let rec fold ctx vs xtes1 xtes2 = match xtes1, xtes2 with
+    | [], [] ->
+      Some ctx
+    | (l1,x,t1,te1)::xts1, (l2,_,t2,te2)::xts2 ->
+      if Name.eq_ident l1 l2
+      then
+        let ty = Tt.instantiate_ty vs 0 t1 in (* here we need to know that ctx |- instantiate t1 == instantiate t2. Is this true? *)
+        let te1 = Tt.instantiate vs 0 te1 in
+        let te2 = Tt.instantiate vs 0 te2 in
+        equal env ctx te1 te2 ty >>= fun ctx ->
+        fold ctx (te1::vs) xts1 xts2
+      else None
+    | _::_,[] | [],_::_ -> None
+    in
+  fold ctx [] xtes1 xtes2
 
 (** [pattern_collect env p ?t e] matches pattern [p] against term [e]
     of possibly given type [t].
