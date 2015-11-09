@@ -248,7 +248,23 @@ and infer env (c',loc) =
   | Syntax.Inhab ->
     Error.typing ~loc "cannot infer the type of []"
   
-  | Syntax.Signature xts -> assert false (* TODO *)
+  | Syntax.Signature xcs ->
+    let rec fold env ctx ys xts = function
+      | [] ->
+        let ctx = Context.abstract ~loc ctx ys in
+        let xts = List.rev xts in
+        let te = Tt.mk_signature ~loc xts in
+        let typ = Tt.mk_type_ty ~loc in
+        let j = Judgement.mk_term ctx te typ in
+        Value.return_term j
+      | (l,x,c)::rem ->
+        check_ty env c >>= fun ((ctxt,t) as jt) ->
+        let y,env = Environment.add_fresh ~loc env x jt in
+        let t = Tt.abstract_ty ys 0 t in
+        let ctx,_ = Context.join ctx ctxt in
+        fold env ctx (y::ys) ((l,x,t)::xts) rem
+      in
+    fold env Context.empty [] [] xcs
 
   | Syntax.Module xts -> assert false (* TODO *)
 
