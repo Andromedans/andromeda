@@ -74,16 +74,46 @@ let rec term ((e',loc) as e) =
         Tt.mk_bracket ~loc t
 
     | Tt.Signature xts ->
-      let xts = List.map (fun (x,t) -> x,ty t) xts in
+      let rec fold ys res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let t = ty t in
+          let t = Tt.abstract_ty ys 0 t in
+          let y' = Name.fresh y in
+          fold (y'::ys) ((x,y,t)::res) rem
+        in
+      let xts = fold [] [] xts in
       Tt.mk_signature ~loc xts
 
     | Tt.Module xts ->
-      let xts = List.map (fun (x,t,te) -> x,ty t,term te) xts in
+      let rec fold ys res = function
+        | [] -> List.rev res
+        | (x,y,t,te)::rem ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let t = ty t in
+          let t = Tt.abstract_ty ys 0 t in
+          let te = Tt.unabstract ys 0 te in
+          let te = term te in
+          let te = Tt.abstract ys 0 te in
+          let y' = Name.fresh y in
+          fold (y'::ys) ((x,y,t,te)::res) rem
+        in
+      let xts = fold [] [] xts in
       Tt.mk_module ~loc xts
 
     | Tt.Projection (te,xts,p) ->
       let te = term te in
-      let xts = List.map (fun (x,t) -> x,ty t) xts in
+      let rec fold ys res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let t = ty t in
+          let t = Tt.abstract_ty ys 0 t in
+          let y' = Name.fresh y in
+          fold (y'::ys) ((x,y,t)::res) rem
+        in
+      let xts = fold [] [] xts in
       project ~loc te xts p
 
     | Tt.Bound _ ->
@@ -162,19 +192,11 @@ and spine ~loc h xts t es =
 and project ~loc te xts p =
   let te',_ = te in match te' with
     | Tt.Module xtes ->
-      let rec fold xts xtes = match xts, xtes with
-        | [], [] -> true
-        | (x,t)::xts, (x',t',_)::xtes ->
-          Name.eq_ident x x' &&
-          Tt.alpha_equal_ty t t' &&
-          fold xts xtes
-        | _::_, [] | [], _::_ -> false
-        in
-      if fold xts xtes
+      let sig1 = Tt.mk_signature ~loc (List.map (fun (x,y,t,_) -> x,y,t) xtes) in
+      let sig2 = Tt.mk_signature ~loc xts in
+      if Tt.alpha_equal sig1 sig2
       then
-        let _,_,te = try List.find (fun (x,_,_) -> Name.eq_ident p x) xtes
-                     with | Not_found -> Error.impossible ~loc "Simplify.project encountered an invalid projection"
-        in te
+        assert false (* TODO *)
       else Tt.mk_projection ~loc te xts p
     | Tt.Constant _
     | Tt.Lambda _

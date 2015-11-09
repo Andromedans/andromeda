@@ -252,7 +252,8 @@ and infer env (c',loc) =
 
   | Syntax.Module xts -> assert false (* TODO *)
 
-  | Syntax.Projection (c,x) ->
+  | Syntax.Projection (c,x) -> assert false (* TODO *)
+  (*
     infer env c >>= as_term ~loc >>= fun (ctx,te,ty) ->
     let jty = Judgement.mk_ty ctx ty in
     let ctxt, xts = Equal.as_signature env jty in
@@ -262,6 +263,7 @@ and infer env (c',loc) =
       let j = Judgement.mk_term ctx te ty in
       Value.return_term j
     with | Not_found -> Error.typing ~loc "cannot project non present field %t" (Name.print_ident x)
+  *)
 
 and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : (Context.t * Tt.term) Value.result =
   match c' with

@@ -15,9 +15,9 @@ and term' =
   | Refl of ty * term
   | Inhab
   | Bracket of ty
-  | Signature of (Name.ident * ty) list
-  | Module of (Name.ident * ty * term) list
-  | Projection of term * (Name.ident * ty) list * Name.ident
+  | Signature of (Name.ident * Name.ident * ty) list
+  | Module of (Name.ident * Name.ident * ty * term) list
+  | Projection of term * (Name.ident * Name.ident * ty) list * Name.ident
 
 and ty = Ty of term
 
@@ -151,16 +151,35 @@ and instantiate es depth ((e',loc) as e) =
       Bracket t, loc
 
     | Signature xts ->
-      let xts = List.map (fun (x,t) -> x,instantiate_ty es depth t) xts in
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = instantiate_ty es depth t in
+          fold (depth+1) ((x,y,t)::res) rem
+        in
+      let xts = fold depth [] xts in
       Signature xts, loc
 
     | Module xts ->
-      let xts = List.map (fun (x,t,te) -> x,instantiate_ty es depth t,instantiate es depth te) xts in
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t,te)::rem ->
+          let t = instantiate_ty es depth t in
+          let te = instantiate es depth te in
+          fold (depth+1) ((x,y,t,te)::res) rem
+        in
+      let xts = fold depth [] xts in
       Module xts, loc
 
     | Projection (te,xts,p) ->
       let te = instantiate es depth te in
-      let xts = List.map (fun (x,t) -> x,instantiate_ty es depth t) xts in
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = instantiate_ty es depth t in
+          fold (depth+1) ((x,y,t)::res) rem
+        in
+      let xts = fold depth [] xts in
       Projection (te,xts,p), loc
 
 and instantiate_ty es depth (Ty t) =
@@ -245,16 +264,35 @@ and abstract xs depth ((e',loc) as e) =
     Bracket t, loc
 
   | Signature xts ->
-    let xts = List.map (fun (x,t) -> x,abstract_ty xs depth t) xts in
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = abstract_ty xs depth t in
+          fold (depth+1) ((x,y,t)::res) rem
+        in
+      let xts = fold depth [] xts in
     Signature xts, loc
 
   | Module xts ->
-    let xts = List.map (fun (x,t,te) -> x,abstract_ty xs depth t,abstract xs depth te) xts in
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t,te)::rem ->
+          let t = abstract_ty xs depth t in
+          let te = abstract xs depth te in
+          fold (depth+1) ((x,y,t,te)::res) rem
+        in
+      let xts = fold depth [] xts in
     Module xts, loc
 
   | Projection (te,xts,p) ->
     let te = abstract xs depth te in
-    let xts = List.map (fun (x,t) -> x,abstract_ty xs depth t) xts in
+      let rec fold depth res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = abstract_ty xs depth t in
+          fold (depth+1) ((x,y,t)::res) rem
+        in
+      let xts = fold depth [] xts in
     Projection (te,xts,p), loc
 
 and abstract_ty xs depth (Ty t) =
@@ -322,16 +360,35 @@ let rec shift k lvl ((e',loc) as e) =
         Bracket t, loc
 
     | Signature xts ->
-      let xts = List.map (fun (x,t) -> x,shift_ty k lvl t) xts in
+      let rec fold lvl res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = shift_ty k lvl t in
+          fold (lvl+1) ((x,y,t)::res) rem
+        in
+      let xts = fold lvl [] xts in
       Signature xts, loc
 
     | Module xts ->
-      let xts = List.map (fun (x,t,te) -> x,shift_ty k lvl t,shift k lvl te) xts in
+      let rec fold lvl res = function
+        | [] -> List.rev res
+        | (x,y,t,te)::rem ->
+          let t = shift_ty k lvl t in
+          let te = shift k lvl te in
+          fold (lvl+1) ((x,y,t,te)::res) rem
+        in
+      let xts = fold lvl [] xts in
       Module xts, loc
 
     | Projection (te,xts,p) ->
       let te = shift k lvl te in
-      let xts = List.map (fun (x,t) -> x,shift_ty k lvl t) xts in
+      let rec fold lvl res = function
+        | [] -> List.rev res
+        | (x,y,t)::rem ->
+          let t = shift_ty k lvl t in
+          fold (lvl+1) ((x,y,t)::res) rem
+        in
+      let xts = fold lvl [] xts in
       Projection (te,xts,p), loc
 
 and shift_ty k lvl (Ty t) =
@@ -393,11 +450,30 @@ let rec occurs k (e',_) =
   | Bracket t ->
     occurs_ty k t
   | Signature xts ->
-    List.fold_left (fun i (_,e) -> i + occurs_ty k e) 0 xts
+    let rec fold k res = function
+      | [] -> res
+      | (x,y,t)::rem ->
+        let i = occurs_ty k t in
+        fold (k+1) (res+i) rem
+      in
+    fold k 0 xts
   | Module xts ->
-    List.fold_left (fun i (_,e,e') -> i + occurs_ty k e + occurs k e') 0 xts
+    let rec fold k res = function
+      | [] -> res
+      | (x,y,t,te)::rem ->
+        let i = occurs_ty k t in
+        let j = occurs k te in
+        fold (k+1) (res+i+j) rem
+      in
+    fold k 0 xts
   | Projection (te,xts,p) ->
-    List.fold_left (fun i (_,e) -> i + occurs_ty k e) (occurs k te) xts
+    let rec fold k res = function
+      | [] -> res
+      | (x,y,t)::rem ->
+        let i = occurs_ty k t in
+        fold (k+1) (res+i) rem
+      in
+    fold k (occurs k te) xts
 
 and occurs_ty k (Ty t) = occurs k t
 
@@ -469,25 +545,40 @@ let rec alpha_equal (e1,_) (e2,_) =
     | Inhab, Inhab -> true
 
     | Signature xts1, Signature xts2 ->
-      alpha_equal_list (fun (x1,t1) (x2,t2) ->
-          Name.eq_ident x1 x2 &&
-          alpha_equal_ty t1 t2)
-        xts1 xts2
-
-    | Module xts1, Module xts2 ->
-      alpha_equal_list (fun (x1,t1,te1) (x2,t2,te2) ->
+      let rec fold xts1 xts2 = match xts1, xts2 with
+        | [], [] -> true
+        | (x1,_,t1)::xts1, (x2,_,t2)::xts2 ->
           Name.eq_ident x1 x2 &&
           alpha_equal_ty t1 t2 &&
-          alpha_equal te1 te2)
-        xts1 xts2
+          fold xts1 xts2
+        | _::_,[] | [],_::_ -> false
+        in
+      fold xts1 xts2
+
+    | Module xts1, Module xts2 ->
+      let rec fold xts1 xts2 = match xts1, xts2 with
+        | [], [] -> true
+        | (x1,_,t1,te1)::xts1, (x2,_,t2,te2)::xts2 ->
+          Name.eq_ident x1 x2 &&
+          alpha_equal_ty t1 t2 &&
+          alpha_equal te1 te2 &&
+          fold xts1 xts2
+        | _::_,[] | [],_::_ -> false
+        in
+      fold xts1 xts2
 
     | Projection (te1,xts1,p1), Projection (te2,xts2,p2) ->
       Name.eq_ident p1 p2 &&
       alpha_equal te1 te2 &&
-      alpha_equal_list (fun (x1,t1) (x2,t2) ->
+      let rec fold xts1 xts2 = match xts1, xts2 with
+        | [], [] -> true
+        | (x1,_,t1)::xts1, (x2,_,t2)::xts2 ->
           Name.eq_ident x1 x2 &&
-          alpha_equal_ty t1 t2)
-        xts1 xts2
+          alpha_equal_ty t1 t2 &&
+          fold xts1 xts2
+        | _::_,[] | [],_::_ -> false
+        in
+      fold xts1 xts2
 
     | (Atom _ | Bound _ | Constant _ | Lambda _ | Spine _ |
         Type | Prod _ | Eq _ | Refl _ | Bracket _ | Inhab |
@@ -572,18 +663,21 @@ let rec print_term ?max_level xs (e,_) ppf =
           (print_ty xs t)
 
       | Signature xts -> (* XXX someone who knows prettyprinting do this properly *)
+      (* TODO fix deps *)
         print ~at_level:0 "P{%t}"
-          (Print.sequence (fun (x,t) fmt -> Print.print fmt "%t : %t"
+          (Print.sequence (fun (x,y,t) fmt -> Print.print fmt "%t as %t : %t"
               (Name.print_ident x)
+              (Name.print_ident y)
               (print_ty ~max_level:1 xs t))
             "," xts)
 
       | Module xts ->
         print ~at_level:0 "P{%t}"
-          (Print.sequence (fun (x,t,te) fmt -> Print.print fmt "%t := %t :: %t"
+          (Print.sequence (fun (x,y,t,te) fmt -> Print.print fmt "%t as %t : %t := %t"
               (Name.print_ident x)
-              (print_term ~max_level:1 xs te)
-              (print_ty ~max_level:1 xs t))
+              (Name.print_ident y)
+              (print_ty ~max_level:1 xs t)
+              (print_term ~max_level:1 xs te))
             "," xts)
 
       | Projection (te,xts,p) -> print ~at_level:1 "%t" (print_projection xs te xts p)
@@ -646,8 +740,9 @@ and print_projection xs te xts p ppf = if !Config.annotate
   then
     Print.print ppf "@[<hov 2>%t@ @@{%t}.%t@]"
       (print_term ~max_level:0 xs te)
-      (Print.sequence (fun (x,t) ppf -> Print.print ppf "%t : %t"
+      (Print.sequence (fun (x,y,t) ppf -> Print.print ppf "%t as %t : %t"
           (Name.print_ident x)
+          (Name.print_ident y)
           (print_ty ~max_level:1 xs t))
         "," xts)
       (Name.print_ident p)

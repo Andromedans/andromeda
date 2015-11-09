@@ -199,19 +199,7 @@ and beta_reduce ~loc env ctx xus e u yvs t es =
 
 (** Reduction of [{xtes}.p] at type [{xts}] *)
 and projection_reduce ~loc env ctx xts p xtes =
-  let rec fold ctx xts xtes = match xts, xtes with
-    | [], [] -> Some ctx
-    | (x,ty)::xts, (x',ty',_)::xtes ->
-      if Name.eq_ident x x'
-      then equal_ty env ctx ty ty' >>= fun ctx ->
-        fold ctx xts xtes
-      else None
-    | _::_, [] | [], _::_ -> None
-    in
-  fold ctx xts xtes >>= fun ctx ->
-  let _,_,te = try List.find (fun (x,_,_) -> Name.eq_ident p x) xtes
-    with | Not_found -> Error.impossible ~loc "Equal.projection_reduce encountered an invalid projection" in
-  Some (ctx, te)
+  assert false (* TODO *)
 
 (** Let [xuus] be the list [(x1,(u1,u1')); ...; (xn,(un,un'))] where
     [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
@@ -316,7 +304,8 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
 
         | Tt.Bracket _ -> return ctx (** Strict bracket types *)
 
-        | Tt.Signature xts ->
+        | Tt.Signature xts -> assert false (* TODO *)
+        (*
           let rec fold ctx = begin function
             | [] -> return ctx
             | (p,t)::rem -> (* careful with the type here when we get interdependent fields *)
@@ -326,6 +315,7 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
               fold ctx rem
             end
           in fold ctx xts
+        *)
 
         | Tt.Module _ -> Error.impossible ~loc:loc1 "module is not a type"
 
@@ -484,7 +474,8 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
   | Tt.Bracket t1, Tt.Bracket t2 ->
      equal_ty env ctx t1 t2
 
-  | Tt.Signature xts1, Tt.Signature xts2 ->
+  | Tt.Signature xts1, Tt.Signature xts2 -> assert false (* TODO *)
+  (*
     let rec fold ctx xts1 xts2 = match xts1, xts2 with
       | [], [] -> return ctx
       | (_::_),[] | [],(_::_) -> None
@@ -496,8 +487,10 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
         else None
       in
     fold ctx xts1 xts2
+    *)
 
-  | Tt.Module xts1, Tt.Module xts2 ->
+  | Tt.Module xts1, Tt.Module xts2 -> assert false (* TODO *)
+  (*
     let rec fold ctx xts1 xts2 = match xts1, xts2 with
       | [], [] -> return ctx
       | (_::_),[] | [],(_::_) -> None
@@ -510,8 +503,10 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
         else None
       in
     fold ctx xts1 xts2
+    *)
 
-  | Tt.Projection (te1,xts1,p1), Tt.Projection (te2,xts2,p2) ->
+  | Tt.Projection (te1,xts1,p1), Tt.Projection (te2,xts2,p2) -> assert false (* TODO *)
+  (*
     if Name.eq_ident p1 p2
     then
       let rec fold ctx xts1 xts2 = match xts1, xts2 with
@@ -527,6 +522,7 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
       fold ctx xts1 xts2 >>= fun ctx ->
       equal_whnf env ctx te1 te2
     else None
+    *)
 
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
      Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _ |
