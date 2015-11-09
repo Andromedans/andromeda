@@ -663,22 +663,12 @@ let rec print_term ?max_level xs (e,_) ppf =
           (print_ty xs t)
 
       | Signature xts -> (* XXX someone who knows prettyprinting do this properly *)
-      (* TODO fix deps *)
         print ~at_level:0 "P{%t}"
-          (Print.sequence (fun (x,y,t) fmt -> Print.print fmt "%t as %t : %t"
-              (Name.print_ident x)
-              (Name.print_ident y)
-              (print_ty ~max_level:1 xs t))
-            "," xts)
+          (print_signature xs xts)
 
       | Module xts ->
         print ~at_level:0 "P{%t}"
-          (Print.sequence (fun (x,y,t,te) fmt -> Print.print fmt "%t as %t : %t := %t"
-              (Name.print_ident x)
-              (Name.print_ident y)
-              (print_ty ~max_level:1 xs t)
-              (print_term ~max_level:1 xs te))
-            "," xts)
+          (print_module xs xts)
 
       | Projection (te,xts,p) -> print ~at_level:1 "%t" (print_projection xs te xts p)
 
@@ -736,15 +726,42 @@ and print_spine xs e (yts, u) es ppf =
   else
     spine_noannot ppf
 
-and print_projection xs te xts p ppf = if !Config.annotate
+and print_signature xs xts ppf = match xts with
+  | [] -> ()
+  | [x,y,t] ->
+    Print.print ppf "%t as %t : %t"
+      (Name.print_ident x)
+      (Name.print_ident y)
+      (print_ty ~max_level:0 xs t)
+  | (x,y,t)::rem ->
+    Print.print ppf "%t as %t : %t;@ %t"
+      (Name.print_ident x)
+      (Name.print_ident y)
+      (print_ty ~max_level:0 xs t)
+      (print_signature (y::xs) rem)
+
+and print_module xs xts ppf = match xts with
+  | [] -> ()
+  | [x,y,t,te] ->
+    Print.print ppf "%t as %t : %t := %t"
+      (Name.print_ident x)
+      (Name.print_ident y)
+      (print_ty ~max_level:0 xs t)
+      (print_term ~max_level:0 xs te)
+  | (x,y,t,te)::rem ->
+    Print.print ppf "%t as %t : %t := %t;@ %t"
+      (Name.print_ident x)
+      (Name.print_ident y)
+      (print_ty ~max_level:0 xs t)
+      (print_term ~max_level:0 xs te)
+      (print_module (y::xs) rem)
+
+and print_projection xs te xts p ppf =
+  if !Config.annotate
   then
     Print.print ppf "@[<hov 2>%t@ @@{%t}.%t@]"
       (print_term ~max_level:0 xs te)
-      (Print.sequence (fun (x,y,t) ppf -> Print.print ppf "%t as %t : %t"
-          (Name.print_ident x)
-          (Name.print_ident y)
-          (print_ty ~max_level:1 xs t))
-        "," xts)
+      (print_signature xs xts)
       (Name.print_ident p)
   else
     Print.print ppf "@[<hov 2>%t@ .%t@]"
