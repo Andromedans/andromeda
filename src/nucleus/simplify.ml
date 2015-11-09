@@ -196,7 +196,8 @@ and project ~loc te xts p =
       let sig2 = Tt.mk_signature ~loc xts in
       if Tt.alpha_equal sig1 sig2
       then
-        assert false (* TODO *)
+        let te = Tt.field_value ~loc xtes p in
+        term te
       else Tt.mk_projection ~loc te xts p
     | Tt.Constant _
     | Tt.Lambda _

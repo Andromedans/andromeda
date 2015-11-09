@@ -65,14 +65,14 @@ and term' = private
   | Bracket of ty
 
   (** signature, also known as record type *)
-  | Signature of (Name.ident * Name.ident * ty) list
+  | Signature of field_types
 
   (** module, also known as record term *)
-  | Module of (Name.ident * Name.ident * ty * term) list
+  | Module of field_defs
 
   (** a projection [e {x1:t1, ..., xn:tn} .xi] means that we project field [xi] of [e] and [e] has type [{x1:t1, ..., xn:tn}].
       Currently field types do not depend on other fields so the result has type [ti]. *)
-  | Projection of term * (Name.ident * Name.ident * ty) list * Name.ident
+  | Projection of term * field_types * Name.ident
 
 (** Since we have [Type : Type] we do not distinguish terms from types,
     so the type of type [ty] is just a synonym for the type of terms.
@@ -82,6 +82,10 @@ and ty = private
 
 (** A ['a ty_abstraction] is a n abstraction where the [a1, ..., an] are types *)
 and 'a ty_abstraction = (ty, 'a) abstraction
+
+and field_types = (Name.ident * Name.ident * ty) list
+
+and field_defs = (Name.ident * Name.ident * ty * term) list
 
 (** The signature of a constant. The booleans indicate whether the arguments
     should be eagerly reduced. *)
@@ -103,10 +107,10 @@ val mk_refl: loc:Location.t -> ty -> term -> term
 val mk_bracket: loc:Location.t -> ty -> term
 val mk_bracket_ty: loc:Location.t -> ty -> ty
 val mk_inhab: loc:Location.t -> term
-val mk_signature : loc:Location.t -> (Name.ident * Name.ident * ty) list -> term
-val mk_signature_ty : loc:Location.t -> (Name.ident * Name.ident * ty) list -> ty
-val mk_module : loc:Location.t -> (Name.ident * Name.ident * ty * term) list -> term
-val mk_projection : loc:Location.t -> term -> (Name.ident * Name.ident * ty) list -> Name.ident -> term
+val mk_signature : loc:Location.t -> field_types -> term
+val mk_signature_ty : loc:Location.t -> field_types -> ty
+val mk_module : loc:Location.t -> field_defs -> term
+val mk_projection : loc:Location.t -> term -> field_types -> Name.ident -> term
 
 
 (** Coerce a value to a type (does not check whether this is legal). *)
@@ -161,6 +165,13 @@ val occurs_term_ty: Syntax.bound -> term * ty -> int
 val occurs_ty_abstraction:
   (Syntax.bound -> 'a -> int) ->
   Syntax.bound -> 'a ty_abstraction -> int
+
+
+(** Module stuff *)
+
+(** [field_value defs p] is [defs.p] with all bound variables instantiated appropriately. *)
+val field_value : loc:Location.t -> field_defs -> Name.ident -> term
+
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool

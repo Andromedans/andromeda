@@ -15,13 +15,17 @@ and term' =
   | Refl of ty * term
   | Inhab
   | Bracket of ty
-  | Signature of (Name.ident * Name.ident * ty) list
-  | Module of (Name.ident * Name.ident * ty * term) list
-  | Projection of term * (Name.ident * Name.ident * ty) list * Name.ident
+  | Signature of field_types
+  | Module of field_defs
+  | Projection of term * field_types * Name.ident
 
 and ty = Ty of term
 
 and 'a ty_abstraction = (ty, 'a) abstraction
+
+and field_types = (Name.ident * Name.ident * ty) list
+
+and field_defs = (Name.ident * Name.ident * ty * term) list
 
 type constsig = ((bool * ty), ty) abstraction
 
@@ -481,6 +485,21 @@ and occurs_term_ty k (e, t) =
   occurs k e + occurs_ty k t
 
 let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
+
+
+(****** Module stuff ********)
+
+let field_value ~loc xtes p =
+  let rec fold vs = function
+    | [] -> Error.runtime "Tt.field_value: field %t not found" (Name.print_ident p)
+    | (l,x,t,te)::rem ->
+      let te = instantiate vs 0 te in
+      if Name.eq_ident p l
+      then te
+      else fold (te::vs) rem
+    in
+  fold [] xtes
+
 
 (****** Alpha equality ******)
 
