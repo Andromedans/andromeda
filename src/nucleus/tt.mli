@@ -172,6 +172,8 @@ val occurs_ty_abstraction:
 (** [field_value defs p] is [defs.p] with all bound variables instantiated appropriately. *)
 val field_value : loc:Location.t -> field_defs -> Name.ident -> term
 
+(** [field_type tys e p] when [e : {tys}] is the type of [e.p] *)
+val field_type : loc:Location.t -> field_types -> term -> Name.ident -> ty
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool

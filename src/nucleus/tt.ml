@@ -487,20 +487,6 @@ and occurs_term_ty k (e, t) =
 let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
 
 
-(****** Module stuff ********)
-
-let field_value ~loc xtes p =
-  let rec fold vs = function
-    | [] -> Error.runtime "Tt.field_value: field %t not found" (Name.print_ident p)
-    | (l,x,t,te)::rem ->
-      let te = instantiate vs 0 te in
-      if Name.eq_ident p l
-      then te
-      else fold (te::vs) rem
-    in
-  fold [] xtes
-
-
 (****** Alpha equality ******)
 
 (* Currently, the only difference between alpha and structural equality is that
@@ -806,4 +792,30 @@ let print_constsig ?max_level xs (rxus, t) ppf =
   match rxus with
   | [] -> print_u "" xs ppf
   | _::_ -> Name.print_binders print_xs (print_u " ") xs rxus ppf
+
+
+(****** Module stuff ********)
+
+let field_value ~loc xtes p =
+  let rec fold vs = function
+    | [] -> Error.runtime "Tt.field_value: field %t not found" (Name.print_ident p)
+    | (l,x,t,te)::rem ->
+      let te = instantiate vs 0 te in
+      if Name.eq_ident p l
+      then te
+      else fold (te::vs) rem
+    in
+  fold [] xtes
+
+let field_type ~loc xts e p =
+  let rec fold vs = function
+    | [] -> Error.typing "%t has no field %t" (print_term [] e) (Name.print_ident p)
+    | (l,x,t)::rem ->
+      if Name.eq_ident p l
+      then instantiate_ty vs 0 t
+      else
+        let el = mk_projection ~loc e xts l in
+        fold (el::vs) rem
+    in
+  fold [] xts
 
