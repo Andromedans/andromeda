@@ -322,6 +322,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Spine _
   | Syntax.Bracket _
   | Syntax.Signature _
+  | Syntax.Module _
   | Syntax.Projection _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
@@ -429,8 +430,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
            | None -> Error.typing ~loc "do not know how to inhabit %t"
                                   (print_ty env t')
      end
-
-  | Syntax.Module xcs -> assert false (* TODO *)
 
 and handle_result env {Value.handler_val; handler_ops; handler_finally} r =
   begin match r with
