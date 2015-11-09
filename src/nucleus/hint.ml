@@ -21,9 +21,9 @@ let has_head_name = function
            | Pattern.Key_Refl
            | Pattern.Key_Inhab
            | Pattern.Key_Bracket
-           | Pattern.Key_Signature
-           | Pattern.Key_Module
-           | Pattern.Key_Projection -> false
+           | Pattern.Key_Projection _
+           | Pattern.Key_Signature _
+           | Pattern.Key_Structure _ -> false
      end
 
 (** Convert a term [e] of type [t] to a pattern with respect to the
@@ -111,7 +111,7 @@ let rec of_term env pvars ((e',loc) as e) t =
 
   | Tt.Signature _ -> original
 
-  | Tt.Module _ -> original
+  | Tt.Structure _ -> original
 
   | Tt.Projection _ -> original
 

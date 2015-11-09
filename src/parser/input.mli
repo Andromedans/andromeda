@@ -37,7 +37,7 @@ and term' =
   | Bracket of comp
   | Inhab
   | Signature of (Name.ident * Name.ident option * ty) list
-  | Module of (Name.ident * Name.ident option * ty option * comp) list
+  | Structure of (Name.ident * Name.ident option * comp) list
   | Projection of comp * Name.ident
 
 (** Sugared types *)

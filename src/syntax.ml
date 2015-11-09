@@ -42,7 +42,7 @@ and comp' =
   | Bracket of comp
   | Inhab
   | Signature of (Name.ident * Name.ident * comp) list
-  | Module of (Name.ident * Name.ident * comp option * comp) list
+  | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
 
 and handler = {
@@ -193,12 +193,12 @@ let rec shift_comp k lvl (c', loc) =
     | Inhab -> Inhab
 
     | Signature lst ->
-        let lst = List.map (fun (x,x',c) -> x,x',shift_comp k lvl c) lst in
+        let lst = List.map (fun (x,x',c) -> x, x', shift_comp k lvl c) lst in
         Signature lst
 
-    | Module lst ->
-        let lst = List.map (fun (x,x',ty,c) -> x,x',opt_map (shift_comp k lvl) ty,shift_comp k lvl c) lst in
-        Module lst
+    | Structure lst ->
+        let lst = List.map (fun (x, x',c) -> (x, x', shift_comp k lvl c)) lst in
+        Structure lst
 
     | Projection (c,x) ->
         let c = shift_comp k lvl c in

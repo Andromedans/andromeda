@@ -266,7 +266,7 @@ and infer env (c',loc) =
       in
     fold env Context.empty [] [] xcs
 
-  | Syntax.Module xcs ->
+  | Syntax.Structure xcs ->
     let rec fold tenv venv ctx ys vs xtes = function
       | [] ->
         let xtes = List.rev xtes in
@@ -275,17 +275,7 @@ and infer env (c',loc) =
         let ctx = Context.abstract ~loc ctx ys in
         let j = Judgement.mk_term ctx te ty in
         Value.return_term j
-      | (l,x,Some c,c')::rem ->
-        check_ty tenv c >>= fun ((ctxt,t) as jt) ->
-        let y,tenv = Environment.add_fresh ~loc tenv x jt in
-        let t = Tt.abstract_ty ys 0 t in
-        let ctx,_ = Context.join ctx ctxt in
-        let t' = Tt.instantiate_ty vs 0 t in
-        check venv c' (ctx,t') >>= fun (ctx,te) ->
-        let jte = Judgement.mk_term ctx te t' in
-        let venv = Environment.add_bound x (Value.Term jte) venv in
-        fold tenv venv ctx (y::ys) (te::vs) ((l,x,t,te)::xtes) rem
-      | (l,x,None,c)::rem ->
+      | (l,x,c) :: rem ->
         infer venv c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
         let ctx,_ = Context.join ctx ctxt in
         let jty = Judgement.mk_ty ctx ty in
@@ -322,7 +312,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Spine _
   | Syntax.Bracket _
   | Syntax.Signature _
-  | Syntax.Module _
+  | Syntax.Structure _
   | Syntax.Projection _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)

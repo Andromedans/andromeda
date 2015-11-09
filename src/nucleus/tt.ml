@@ -15,17 +15,17 @@ and term' =
   | Refl of ty * term
   | Inhab
   | Bracket of ty
-  | Signature of field_types
-  | Module of field_defs
-  | Projection of term * field_types * Name.ident
+  | Signature of signature
+  | Structure of structure
+  | Projection of term * signature * Name.ident
 
 and ty = Ty of term
 
 and 'a ty_abstraction = (ty, 'a) abstraction
 
-and field_types = (Name.ident * Name.ident * ty) list
+and signature = (Name.ident * Name.ident * ty) list
 
-and field_defs = (Name.ident * Name.ident * ty * term) list
+and structure = (Name.ident * Name.ident * ty * term) list
 
 type constsig = ((bool * ty), ty) abstraction
 
@@ -64,7 +64,7 @@ let mk_inhab ~loc = Inhab, loc
 let mk_bracket ~loc t = Bracket t, loc
 
 let mk_signature ~loc lst = Signature lst, loc
-let mk_module ~loc lst = Module lst, loc
+let mk_module ~loc lst = Structure lst, loc
 let mk_projection ~loc te xts x = Projection (te,xts,x), loc
 
 (** Convert a term to a type. *)
@@ -164,7 +164,7 @@ and instantiate es depth ((e',loc) as e) =
       let xts = fold depth [] xts in
       Signature xts, loc
 
-    | Module xts ->
+    | Structure xts ->
       let rec fold depth res = function
         | [] -> List.rev res
         | (x,y,t,te)::rem ->
@@ -173,7 +173,7 @@ and instantiate es depth ((e',loc) as e) =
           fold (depth+1) ((x,y,t,te)::res) rem
         in
       let xts = fold depth [] xts in
-      Module xts, loc
+      Structure xts, loc
 
     | Projection (te,xts,p) ->
       let te = instantiate es depth te in
@@ -277,7 +277,7 @@ and abstract xs depth ((e',loc) as e) =
       let xts = fold depth [] xts in
     Signature xts, loc
 
-  | Module xts ->
+  | Structure xts ->
       let rec fold depth res = function
         | [] -> List.rev res
         | (x,y,t,te)::rem ->
@@ -286,7 +286,7 @@ and abstract xs depth ((e',loc) as e) =
           fold (depth+1) ((x,y,t,te)::res) rem
         in
       let xts = fold depth [] xts in
-    Module xts, loc
+    Structure xts, loc
 
   | Projection (te,xts,p) ->
     let te = abstract xs depth te in
@@ -373,7 +373,7 @@ let rec shift k lvl ((e',loc) as e) =
       let xts = fold lvl [] xts in
       Signature xts, loc
 
-    | Module xts ->
+    | Structure xts ->
       let rec fold lvl res = function
         | [] -> List.rev res
         | (x,y,t,te)::rem ->
@@ -382,7 +382,7 @@ let rec shift k lvl ((e',loc) as e) =
           fold (lvl+1) ((x,y,t,te)::res) rem
         in
       let xts = fold lvl [] xts in
-      Module xts, loc
+      Structure xts, loc
 
     | Projection (te,xts,p) ->
       let te = shift k lvl te in
@@ -461,7 +461,7 @@ let rec occurs k (e',_) =
         fold (k+1) (res+i) rem
       in
     fold k 0 xts
-  | Module xts ->
+  | Structure xts ->
     let rec fold k res = function
       | [] -> res
       | (x,y,t,te)::rem ->
@@ -470,6 +470,7 @@ let rec occurs k (e',_) =
         fold (k+1) (res+i+j) rem
       in
     fold k 0 xts
+
   | Projection (te,xts,p) ->
     let rec fold k res = function
       | [] -> res
@@ -560,7 +561,7 @@ let rec alpha_equal (e1,_) (e2,_) =
         in
       fold xts1 xts2
 
-    | Module xts1, Module xts2 ->
+    | Structure xts1, Structure xts2 ->
       let rec fold xts1 xts2 = match xts1, xts2 with
         | [], [] -> true
         | (x1,_,t1,te1)::xts1, (x2,_,t2,te2)::xts2 ->
@@ -587,7 +588,7 @@ let rec alpha_equal (e1,_) (e2,_) =
 
     | (Atom _ | Bound _ | Constant _ | Lambda _ | Spine _ |
         Type | Prod _ | Eq _ | Refl _ | Bracket _ | Inhab |
-        Signature _ | Module _ | Projection _), _ ->
+        Signature _ | Structure _ | Projection _), _ ->
       false
   end
 
@@ -671,7 +672,7 @@ let rec print_term ?max_level xs (e,_) ppf =
         print ~at_level:0 "P{%t}"
           (print_signature xs xts)
 
-      | Module xts ->
+      | Structure xts ->
         print ~at_level:0 "P{%t}"
           (print_module xs xts)
 

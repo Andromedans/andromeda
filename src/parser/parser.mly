@@ -2,32 +2,71 @@
   open Input
 %}
 
-%token FORALL LAMBDA
+(* Type *)
 %token TYPE
-%token UNDERSCORE
-%token <string> NAME
-%token LPAREN RPAREN LBRACK RBRACK LRBRACK LLBRACK RRBRACK LBRACE RBRACE
-%token DCOLON COLON SEMICOLON COMMA DOT
-%token ARROW
+
+(* Products *)
+%token FORALL LAMBDA
+
+(* Records *)
+%token <string> PROJECTION
+%token AS
+
+(* Equality types *)
 %token EQEQ
 %token REFL
-%token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
+
+(* Patterns and names *)
+%token UNDERSCORE
+%token <string> NAME
+
+(* Parentheses & punctuations *)
+%token LPAREN RPAREN
+%token LBRACK RBRACK
+%token LRBRACK LLBRACK RRBRACK
+%token LBRACE RBRACE
+%token DCOLON COLON SEMICOLON COMMA DOT
+%token ARROW
+
+(* Toplevel computations *)
+%token TOPCHECK
+
+(* Let binding *)
+%token TOPLET
+%token LET COLONEQ AND IN
+
+(* Hints *)
+%token TOPBETA TOPETA TOPHINT TOPINHABIT
 %token TOPUNHINT
-%token LET AS COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token UNHINT
-%token HANDLE HANDLER WITH BAR VAL FINALLY END
-%token WHNF TYPEOF
-%token FUNCTION APPLY
-%token AXIOM REDUCE
-%token ASSUME
-%token WHERE
+
+(* Operations and handlers *)
 %token <string> OPERATION
-%token <string> PROJECTION
+%token HANDLE WITH HANDLER BAR VAL FINALLY END
+
+(* Other computations *)
+%token WHNF
+%token TYPEOF
+
+(* Functions *)
+%token FUNCTION APPLY
+
+(* Axioms *)
+%token AXIOM REDUCE
+
+(* Assumptions *)
+%token ASSUME
+
+(* Substitution *)
+%token WHERE
+
+(* Toplevel directives *)
 %token ENVIRONMENT HELP QUIT
 %token <int> VERBOSITY
 %token <string> QUOTED_STRING
 %token INCLUDE
+
 %token EOF
 
 %start <Input.toplevel list> file
@@ -135,7 +174,7 @@ plain_simple_term:
   | LBRACE lst=separated_nonempty_list(COMMA, signature_clause) RBRACE
         { Signature lst }
   | LBRACE lst=separated_nonempty_list(COMMA, module_clause) RBRACE
-        { Module lst }
+        { Structure lst }
 
 var_name:
   | NAME { Name.make $1 }
@@ -158,14 +197,12 @@ typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, t)) xs }
 
 signature_clause:
-  | x=name COLON t=ty_term           { (x,None  ,t) }
-  | x=name AS y=name COLON t=ty_term { (x,Some y,t) }
+  | x=name COLON t=ty_term           { (x, None, t) }
+  | x=name AS y=name COLON t=ty_term { (x, Some y, t) }
 
 module_clause :
-  | x=name COLONEQ c=term                           { (x,None  ,None  ,c) }
-  | x=name AS y=name COLONEQ c=term                 { (x,Some y,None  ,c) }
-  | x=name COLON t=ty_term COLONEQ c=term           { (x,None  ,Some t,c) }
-  | x=name AS y=name COLON t=ty_term COLONEQ c=term { (x,Some y,Some t,c) }
+  | x=name COLONEQ c=term                           { (x, None, c) }
+  | x=name AS y=name COLONEQ c=term                 { (x, Some y, c) }
 
 binder:
   | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_names) RBRACK

@@ -46,5 +46,5 @@ val inhabit_bracket :
 val as_bracket : Environment.t -> Judgement.ty -> Context.t * Tt.ty
 
 (** Convert a type to a signature. *)
-val as_signature : Environment.t -> Judgement.ty -> Context.t * Tt.field_types
+val as_signature : Environment.t -> Judgement.ty -> Context.t * Tt.signature
 

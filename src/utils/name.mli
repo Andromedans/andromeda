@@ -9,11 +9,17 @@ type ident = private
 type atom = private
   | Gensym of string * int
 
+(** The type of a structure or signature field. *)
+type label = ident
+
 (** Print a name. *)
 val print_ident : ident -> Format.formatter -> unit
 
 (** Print an atom *)
 val print_atom : atom -> Format.formatter -> unit
+
+(** Print a field label *)
+val print_label : label -> Format.formatter -> unit
 
 (** Print an operation name. *)
 val print_op : string -> Format.formatter -> unit

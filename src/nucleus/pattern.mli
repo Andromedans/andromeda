@@ -62,9 +62,9 @@ type hint_key =
   | Key_Refl
   | Key_Inhab
   | Key_Bracket
-  | Key_Signature
-  | Key_Module
-  | Key_Projection
+  | Key_Signature of int
+  | Key_Structure of int
+  | Key_Projection of Name.label
 
 type general_key = hint_key option * hint_key option * hint_key option
 

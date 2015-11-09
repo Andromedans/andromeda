@@ -7,10 +7,14 @@ type ident =
 type atom =
   | Gensym of string * int
 
+type label = ident
+
 let print_ident x ppf =
   match x with
   | Anonymous -> Print.print ppf "_"
   | String s -> Print.print ppf "%s" s
+
+let print_label = print_ident
 
 (** Subscripts *)
 

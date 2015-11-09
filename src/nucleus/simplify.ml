@@ -5,7 +5,7 @@ match e' with
   | Tt.Constant (_, es) -> es = []
   | Tt.Type | Tt.Inhab | Tt.Bound _ | Tt.Atom _ -> true
   | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _
-  | Tt.Bracket _ | Tt.Signature _ | Tt.Module _ | Tt.Projection _ -> false
+  | Tt.Bracket _ | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ -> false
 
 let rec term ((e',loc) as e) =
     match e' with
@@ -86,7 +86,7 @@ let rec term ((e',loc) as e) =
       let xts = fold [] [] xts in
       Tt.mk_signature ~loc xts
 
-    | Tt.Module xts ->
+    | Tt.Structure xts ->
       let rec fold ys res = function
         | [] -> List.rev res
         | (x,y,t,te)::rem ->
@@ -102,7 +102,7 @@ let rec term ((e',loc) as e) =
       let xts = fold [] [] xts in
       Tt.mk_module ~loc xts
 
-    | Tt.Projection (te,xts,p) ->
+    | Tt.Projection (te, xts, p) ->
       let te = term te in
       let rec fold ys res = function
         | [] -> List.rev res
@@ -182,7 +182,7 @@ and spine ~loc h xts t es =
   | Tt.Eq _
   | Tt.Refl _
   | Tt.Signature _
-  | Tt.Module _ 
+  | Tt.Structure _ 
   | Tt.Projection _ ->
     Tt.mk_spine ~loc h xts t es
 
@@ -191,7 +191,7 @@ and spine ~loc h xts t es =
 
 and project ~loc te xts p =
   let te',_ = te in match te' with
-    | Tt.Module xtes ->
+    | Tt.Structure xtes ->
       let sig1 = Tt.mk_signature ~loc (List.map (fun (x,y,t,_) -> x,y,t) xtes) in
       let sig2 = Tt.mk_signature ~loc xts in
       if Tt.alpha_equal sig1 sig2
