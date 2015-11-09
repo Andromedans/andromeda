@@ -158,7 +158,8 @@ typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, t)) xs }
 
 signature_clause:
-  | x=name COLON t=ty_term { (x,None,t) }
+  | x=name COLON t=ty_term           { (x,None  ,t) }
+  | x=name AS y=name COLON t=ty_term { (x,Some y,t) }
 
 module_clause :
   | x=name COLONEQ c=term                           { (x,None  ,None  ,c) }
