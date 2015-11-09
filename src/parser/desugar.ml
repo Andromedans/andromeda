@@ -2,6 +2,10 @@
 
 let add_bound x bound = x :: bound
 
+let opt_map f = function
+  | None -> None
+  | Some x -> Some (f x)
+
 let rec mk_lambda ys ((c', loc) as c) =
   match ys with
   | [] -> c'
@@ -175,32 +179,37 @@ let rec comp constants bound ((c',loc) as c) =
       [], Syntax.Inhab
 
     | Input.Signature lst ->
-      let rec fold xts = function
-        | [] -> List.rev xts
-        | (x,c)::rem ->
-          if List.mem_assoc x xts
-          then
-            Error.syntax ~loc "Field %t appears more than once" (Name.print_ident x)
+      let rec fold bound labels res = function
+        | [] -> List.rev res
+        | (x,y,c)::rem ->
+          let y = match y with | Some y -> y | None -> x in
+          if List.mem x labels
+          then Error.syntax ~loc "field %t appears more than once" (Name.print_ident x)
+          else if Name.eq_ident x Name.anonymous
+          then Error.syntax ~loc "anonymous field"
           else
             let c = comp constants bound c in
-            fold ((x,c)::xts) rem
+            fold (add_bound y bound) (x::labels) ((x,y,c)::res) rem
         in
-      let xts = fold [] lst in
-      [], Syntax.Signature xts
+      let lst = fold bound [] [] lst in
+      [], Syntax.Signature lst
 
     | Input.Module lst ->
-      let rec fold xts = function
-        | [] -> List.rev xts
-        | (x,c)::rem ->
-          if List.mem_assoc x xts
-          then
-            Error.syntax ~loc "Field %t appears more than once" (Name.print_ident x)
+      let rec fold bound labels res = function
+        | [] -> List.rev res
+        | (x,y,ty,c)::rem ->
+          let y = match y with | Some y -> y | None -> x in
+          if List.mem x labels
+          then Error.syntax ~loc "field %t appears more than once" (Name.print_ident x)
+          else if Name.eq_ident x Name.anonymous
+          then Error.syntax ~loc "anonymous field"
           else
+            let ty = opt_map (comp constants bound) ty in
             let c = comp constants bound c in
-            fold ((x,c)::xts) rem
+            fold (add_bound y bound) (x::labels) ((x,y,ty,c)::res) rem
         in
-      let xts = fold [] lst in
-      [], Syntax.Module xts
+      let lst = fold bound [] [] lst in
+      [], Syntax.Module lst
 
     | Input.Projection (c,x) ->
       let c = comp constants bound c in

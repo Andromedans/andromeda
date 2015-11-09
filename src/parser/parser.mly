@@ -13,7 +13,7 @@
 %token REFL
 %token TOPLET TOPCHECK TOPBETA TOPETA TOPHINT TOPINHABIT
 %token TOPUNHINT
-%token LET COLONEQ AND IN
+%token LET AS COLONEQ AND IN
 %token BETA ETA HINT INHABIT
 %token UNHINT
 %token HANDLE HANDLER WITH BAR VAL FINALLY END
@@ -132,9 +132,9 @@ plain_simple_term:
   | x=var_name                                      { Var x }
   | LPAREN e=plain_term RPAREN                      { e }
   | LLBRACK e=term RRBRACK                          { Bracket e }
-  | LBRACE lst=separated_nonempty_list(COMMA, typed_names) RBRACE
-        { Signature (List.concat lst) }
-  | LBRACE lst=separated_nonempty_list(COMMA, let_clause) RBRACE
+  | LBRACE lst=separated_nonempty_list(COMMA, signature_clause) RBRACE
+        { Signature lst }
+  | LBRACE lst=separated_nonempty_list(COMMA, module_clause) RBRACE
         { Module lst }
 
 var_name:
@@ -156,6 +156,15 @@ typed_binder:
 
 typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, t)) xs }
+
+signature_clause:
+  | x=name COLON t=ty_term { (x,None,t) }
+
+module_clause :
+  | x=name COLONEQ c=term                           { (x,None  ,None  ,c) }
+  | x=name AS y=name COLONEQ c=term                 { (x,Some y,None  ,c) }
+  | x=name COLON t=ty_term COLONEQ c=term           { (x,None  ,Some t,c) }
+  | x=name AS y=name COLON t=ty_term COLONEQ c=term { (x,Some y,Some t,c) }
 
 binder:
   | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_names) RBRACK

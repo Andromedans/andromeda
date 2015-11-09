@@ -248,40 +248,16 @@ and infer env (c',loc) =
   | Syntax.Inhab ->
     Error.typing ~loc "cannot infer the type of []"
   
-  | Syntax.Signature xts ->
-    let rec fold ctx xts = function
-      | [] -> Value.return (ctx,List.rev xts)
-      | (x,c)::rem ->
-        check_ty env c >>= fun (ctxt,t) ->
-        let ctx,_ = Context.join ctx ctxt in
-        fold ctx ((x,t)::xts) rem
-      in
-    fold Context.empty [] xts >>= fun (ctx,xts) ->
-    let t = Tt.mk_signature ~loc xts in
-    let typ = Tt.mk_type_ty ~loc in
-    let j = Judgement.mk_term ctx t typ in
-    Value.return_term j
+  | Syntax.Signature xts -> assert false (* TODO *)
 
-  | Syntax.Module xts ->
-    let rec fold ctx xts = function
-      | [] -> Value.return (ctx,List.rev xts)
-      | (x,c)::rem ->
-        infer env c >>= as_term ~loc >>= fun (ctxt,te,t) ->
-        let ctx,_ = Context.join ctx ctxt in
-        fold ctx ((x,t,te)::xts) rem
-      in
-    fold Context.empty [] xts >>= fun (ctx,xts) ->
-    let t = Tt.mk_signature_ty ~loc (List.map (fun (x,t,_) -> x,t) xts) in
-    let te = Tt.mk_module ~loc xts in
-    let j = Judgement.mk_term ctx te t in
-    Value.return_term j
+  | Syntax.Module xts -> assert false (* TODO *)
 
   | Syntax.Projection (c,x) ->
     infer env c >>= as_term ~loc >>= fun (ctx,te,ty) ->
     let jty = Judgement.mk_ty ctx ty in
     let ctxt, xts = Equal.as_signature env jty in
     let ctx, _ = Context.join ctxt ctx in (* ctxt should be based on ctx but everyone is doing this? *)
-    try let _,ty = List.find (fun (y,ty) -> Name.eq_ident x y) xts in
+    try let _,ty = List.find (fun (y,ty) -> Name.eq_ident x y) xts in (* TODO check deps *)
       let te = Tt.mk_projection ~loc te xts x in
       let j = Judgement.mk_term ctx te ty in
       Value.return_term j
@@ -410,19 +386,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
                                   (print_ty env t')
      end
 
-  | Syntax.Module xcs ->
-      let ctxt, xts = Equal.as_signature env t_check in
-      let ctx,_ = Context.join ctx_check ctxt in
-      let rec fold ctx res xts xcs = match xts, xcs with
-        | [], [] -> Value.return (ctx, Tt.mk_module ~loc (List.rev res))
-        | (x,t)::xts, (x',c)::xcs ->
-          if Name.eq_ident x x'
-          then check env c (Judgement.mk_ty ctx t) >>= fun (ctx,te) ->
-            fold ctx ((x,t,te)::res) xts xcs
-          else Error.typing ~loc "signature and module field names do not match: %t and %t" (Name.print_ident x) (Name.print_ident x')
-        | _::_, [] | [], _::_ -> Error.typing ~loc "signature and module must have the same number of fields"
-        in
-      fold ctx [] xts xcs
+  | Syntax.Module xcs -> assert false (* TODO *)
 
 and handle_result env {Value.handler_val; handler_ops; handler_finally} r =
   begin match r with

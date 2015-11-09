@@ -41,8 +41,8 @@ and comp' =
   | Refl of comp
   | Bracket of comp
   | Inhab
-  | Signature of (Name.ident * comp) list
-  | Module of (Name.ident * comp) list
+  | Signature of (Name.ident * Name.ident * comp) list
+  | Module of (Name.ident * Name.ident * comp option * comp) list
   | Projection of comp * Name.ident
 
 and handler = {
@@ -67,6 +67,11 @@ and toplevel' =
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)
+
+
+let opt_map f = function
+  | None -> None
+  | Some x -> Some (f x)
 
 let rec shift_comp k lvl (c', loc) =
   let c' =
@@ -188,11 +193,11 @@ let rec shift_comp k lvl (c', loc) =
     | Inhab -> Inhab
 
     | Signature lst ->
-        let lst = List.map (fun (x,c) -> x,shift_comp k lvl c) lst in
+        let lst = List.map (fun (x,x',c) -> x,x',shift_comp k lvl c) lst in
         Signature lst
 
     | Module lst ->
-        let lst = List.map (fun (x,c) -> x,shift_comp k lvl c) lst in
+        let lst = List.map (fun (x,x',ty,c) -> x,x',opt_map (shift_comp k lvl) ty,shift_comp k lvl c) lst in
         Module lst
 
     | Projection (c,x) ->

@@ -4,6 +4,7 @@ open Ulexbuf
 
 let reserved = [
   ("Axiom", AXIOM) ;
+  ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;
   ("beta", BETA) ;
