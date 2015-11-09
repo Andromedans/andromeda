@@ -247,7 +247,7 @@ and infer env (c',loc) =
 
   | Syntax.Inhab ->
     Error.typing ~loc "cannot infer the type of []"
-  
+
   | Syntax.Signature xcs ->
     let rec fold env ctx ys xts = function
       | [] ->
@@ -257,12 +257,12 @@ and infer env (c',loc) =
         let typ = Tt.mk_type_ty ~loc in
         let j = Judgement.mk_term ctx te typ in
         Value.return_term j
-      | (l,x,c)::rem ->
+      | (lbl,x,c) :: rem ->
         check_ty env c >>= fun ((ctxt,t) as jt) ->
-        let y,env = Environment.add_fresh ~loc env x jt in
+        let y, env = Environment.add_fresh ~loc env x jt in
         let t = Tt.abstract_ty ys 0 t in
-        let ctx,_ = Context.join ctx ctxt in
-        fold env ctx (y::ys) ((l,x,t)::xts) rem
+        let ctx, _ = Context.join ctx ctxt in
+        fold env ctx (y :: ys) ((lbl, x, t) :: xts) rem
       in
     fold env Context.empty [] [] xcs
 
@@ -270,17 +270,17 @@ and infer env (c',loc) =
     let rec fold tenv venv ctx ys vs xtes = function
       | [] ->
         let xtes = List.rev xtes in
-        let te = Tt.mk_module ~loc xtes in
+        let te = Tt.mk_structure ~loc xtes in
         let ty = Tt.mk_signature_ty ~loc (List.map (fun (l,x,t,_) -> l,x,t) xtes) in
         let ctx = Context.abstract ~loc ctx ys in
         let j = Judgement.mk_term ctx te ty in
         Value.return_term j
       | (l,x,c) :: rem ->
         infer venv c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
-        let ctx,_ = Context.join ctx ctxt in
+        let ctx, _ = Context.join ctx ctxt in
         let jty = Judgement.mk_ty ctx ty in
         let t = Tt.abstract_ty ys 0 ty in
-        let y,tenv = Environment.add_fresh ~loc tenv x jty in
+        let y, tenv = Environment.add_fresh ~loc tenv x jty in
         let jte = Judgement.mk_term ctx te ty in
         let venv = Environment.add_bound x (Value.Term jte) venv in
         fold tenv venv ctx (y::ys) (te::vs) ((l,x,t,te)::xtes) rem

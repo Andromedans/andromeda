@@ -100,7 +100,7 @@ let rec term ((e',loc) as e) =
           fold (y'::ys) ((x,y,t,te)::res) rem
         in
       let xts = fold [] [] xts in
-      Tt.mk_module ~loc xts
+      Tt.mk_structure ~loc xts
 
     | Tt.Projection (te, xts, p) ->
       let te = term te in

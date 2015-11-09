@@ -64,7 +64,7 @@ let mk_inhab ~loc = Inhab, loc
 let mk_bracket ~loc t = Bracket t, loc
 
 let mk_signature ~loc lst = Signature lst, loc
-let mk_module ~loc lst = Structure lst, loc
+let mk_structure ~loc lst = Structure lst, loc
 let mk_projection ~loc te xts x = Projection (te,xts,x), loc
 
 (** Convert a term to a type. *)
@@ -669,12 +669,12 @@ let rec print_term ?max_level xs (e,_) ppf =
           (print_ty xs t)
 
       | Signature xts -> (* XXX someone who knows prettyprinting do this properly *)
-        print ~at_level:0 "P{%t}"
+        print ~at_level:0 "{%t}"
           (print_signature xs xts)
 
       | Structure xts ->
-        print ~at_level:0 "P{%t}"
-          (print_module xs xts)
+        print ~at_level:0 "{%t}"
+          (print_structure xs xts)
 
       | Projection (te,xts,p) -> print ~at_level:1 "%t" (print_projection xs te xts p)
 
@@ -740,27 +740,27 @@ and print_signature xs xts ppf = match xts with
       (Name.print_ident y)
       (print_ty ~max_level:0 xs t)
   | (x,y,t)::rem ->
-    Print.print ppf "%t as %t : %t;@ %t"
+    Print.print ppf "%t as %t : %t,@ %t"
       (Name.print_ident x)
       (Name.print_ident y)
       (print_ty ~max_level:0 xs t)
       (print_signature (y::xs) rem)
 
-and print_module xs xts ppf = match xts with
+and print_structure xs xts ppf = match xts with
   | [] -> ()
   | [x,y,t,te] ->
-    Print.print ppf "%t as %t : %t := %t"
+    Print.print ppf "%t as %t%t := %t"
       (Name.print_ident x)
       (Name.print_ident y)
-      (print_ty ~max_level:0 xs t)
+      (print_annot (print_ty ~max_level:0 xs t))
       (print_term ~max_level:0 xs te)
   | (x,y,t,te)::rem ->
-    Print.print ppf "%t as %t : %t := %t;@ %t"
+    Print.print ppf "%t as %t%t := %t,@ %t"
       (Name.print_ident x)
       (Name.print_ident y)
-      (print_ty ~max_level:0 xs t)
+      (print_annot (print_ty ~max_level:0 xs t))
       (print_term ~max_level:0 xs te)
-      (print_module (y::xs) rem)
+      (print_structure (y::xs) rem)
 
 and print_projection xs te xts p ppf =
   if !Config.annotate
@@ -795,7 +795,7 @@ let print_constsig ?max_level xs (rxus, t) ppf =
   | _::_ -> Name.print_binders print_xs (print_u " ") xs rxus ppf
 
 
-(****** Module stuff ********)
+(****** Structure stuff ********)
 
 let field_value ~loc xtes p =
   let rec fold vs = function

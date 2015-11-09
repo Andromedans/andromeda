@@ -67,7 +67,7 @@ and term' = private
   (** signature, also known as structure type *)
   | Signature of signature
 
-  (** structure, also known as module or structure *)
+  (** structure, also known as record or module *)
   | Structure of structure
 
   (** a projection [e {x1:t1, ..., xn:tn} .xi] means that we project field [xi] of [e] and [e] has type [{x1:t1, ..., xn:tn}].
@@ -109,7 +109,7 @@ val mk_bracket_ty: loc:Location.t -> ty -> ty
 val mk_inhab: loc:Location.t -> term
 val mk_signature : loc:Location.t -> signature -> term
 val mk_signature_ty : loc:Location.t -> signature -> ty
-val mk_module : loc:Location.t -> structure -> term
+val mk_structure : loc:Location.t -> structure -> term
 val mk_projection : loc:Location.t -> term -> signature -> Name.ident -> term
 
 (** Coerce a value to a type (does not check whether this is legal). *)
