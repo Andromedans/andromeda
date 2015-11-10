@@ -96,6 +96,8 @@ let refresh xs = function
 
 let eq_ident x y = (x = y)
 
+let eq_label = eq_ident
+
 let eq_atom (Gensym (_, x)) (Gensym (_, y)) = (x = y)
 
 let compare_atom (Gensym (_, x)) (Gensym (_, y)) =

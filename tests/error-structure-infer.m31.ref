@@ -1,0 +1,8 @@
+A is assumed.
+a is assumed.
+P is assumed.
+b is assumed.
+Q is assumed.
+f is assumed.
+File "./error-structure-infer.m31", line 8, characters 7-36: Typing error
+  this expression should have type P x₁₄ but has type P a

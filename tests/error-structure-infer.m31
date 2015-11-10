@@ -1,0 +1,8 @@
+Axiom A : Type.
+Axiom a : A.
+Axiom P : A → Type.
+Axiom b : P a.
+Axiom Q : ∏ [x : A] P x → Type.
+Axiom f : ∏ [x : A] [y : P x] Q x y.
+
+Check { x := a, y := b, z := f x y }.

@@ -1,0 +1,5 @@
+Axiom A : Type.
+Axiom a : A.
+
+Check { x := a, y := refl a }
+      :: { x : A, y : x ≡ a }.

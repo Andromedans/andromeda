@@ -48,6 +48,9 @@ val eq_ident : ident -> ident -> bool
 (** Compare atoms for equality. *)
 val eq_atom : atom -> atom -> bool
 
+(** Compare labels for equality. *)
+val eq_label : label -> label -> bool
+
 (** Compare atoms. *)
 val compare_atom : atom -> atom -> int
 

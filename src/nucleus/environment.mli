@@ -40,13 +40,16 @@ val add_fresh: loc:Location.t -> t -> Name.ident -> Judgement.ty -> Name.atom * 
     Fails if the constant is already bound. *)
 val add_constant : Name.ident -> Tt.constsig -> t -> t
 
-(** Add a beta hint to the environment. *)
+(** Add an untagged beta hint to the environment. *)
+val add_beta : Pattern.hint_key * Pattern.beta_hint -> t -> t
+
+(** Add beta hints to the environment. *)
 val add_betas : (string list * (Pattern.hint_key * Pattern.beta_hint)) list -> t -> t
 
-(** Add an eta hint to the environment. *)
+(** Add eta hints to the environment. *)
 val add_etas : (string list * (Pattern.hint_key * Pattern.eta_hint)) list -> t -> t
 
-(** Add a general hint to the environment. *)
+(** Add general hints to the environment. *)
 val add_generals :
   (string list *
    (Pattern.general_key * Pattern.general_hint)) list ->

@@ -1,0 +1,4 @@
+A is assumed.
+a is assumed.
+⊢ {x as x := a, y as y := (refl a)}
+      : {x as x : A, y as y : (x ≡ a)}

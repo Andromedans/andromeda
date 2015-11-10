@@ -88,6 +88,13 @@ let add_constant x ytsu env =
   then Error.runtime "%t already exists" (Name.print_ident x)
   else { env with constants = (x, ytsu) :: env.constants }
 
+let add_beta (key, hint) env =
+  { env with
+    beta =
+      let tags, hints = find key env.beta in
+      HintMap.add key ([] :: tags, hint :: hints) env.beta
+  }
+
 let add_betas xshs env =
   { env with
     beta =

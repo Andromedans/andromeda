@@ -23,6 +23,11 @@ let as_ty ~loc v =
   let t = Value.as_ty ~loc v in
     Value.return t
 
+(** A helper function to install a beta hint for an atom. *)
+let add_beta ~loc z ctx e t env  =
+  let hint_key = Hint.mk_beta ~loc env ctx ([], (t, Tt.mk_atom ~loc z, e))  in
+  Environment.add_beta hint_key env
+
 (** Evaluation of expressions. *)
 let rec expr env (e',loc) =
   let close x c v =
@@ -267,7 +272,7 @@ and infer env (c',loc) =
     fold env Context.empty [] [] xcs
 
   | Syntax.Structure xcs ->
-    let rec fold tenv venv ctx ys vs xtes = function
+    let rec fold env ctx ys xtes = function
       | [] ->
         let xtes = List.rev xtes in
         let te = Tt.mk_structure ~loc xtes in
@@ -276,16 +281,14 @@ and infer env (c',loc) =
         let j = Judgement.mk_term ctx te ty in
         Value.return_term j
       | (l,x,c) :: rem ->
-        infer venv c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
+        infer env c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
         let ctx, _ = Context.join ctx ctxt in
         let jty = Judgement.mk_ty ctx ty in
         let t = Tt.abstract_ty ys 0 ty in
-        let y, tenv = Environment.add_fresh ~loc tenv x jty in
-        let jte = Judgement.mk_term ctx te ty in
-        let venv = Environment.add_bound x (Value.Term jte) venv in
-        fold tenv venv ctx (y::ys) (te::vs) ((l,x,t,te)::xtes) rem
+        let y, env = Environment.add_fresh ~loc env x jty in
+        fold env ctx (y::ys) ((l,x,t,te)::xtes) rem
       in
-    fold env env Context.empty [] [] [] xcs
+    fold env Context.empty [] [] xcs
 
   | Syntax.Projection (c,p) ->
     infer env c >>= as_term ~loc >>= fun (ctx,te,ty) ->
@@ -312,7 +315,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Spine _
   | Syntax.Bracket _
   | Syntax.Signature _
-  | Syntax.Structure _
   | Syntax.Projection _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
@@ -420,6 +422,35 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
            | None -> Error.typing ~loc "do not know how to inhabit %t"
                                   (print_ty env t')
      end
+
+  | Syntax.Structure xcs ->
+     let rec fold env ctx zs xtes = function
+       | [], [] ->
+          let xtes = List.rev xtes in
+          let ctx = Context.abstract ~loc ctx zs in
+          let str = Tt.mk_structure ~loc xtes in
+          Value.return (ctx, str)
+
+       | (lbl1, x, c) :: xcs, (lbl2, y, ty) :: yts ->
+          if not (Name.eq_label lbl1 lbl2)
+          then Error.typing ~loc "expected field %t but got field %t"
+                            (Name.print_label lbl2)
+                            (Name.print_label lbl1)
+          else
+            let ty_inst = Tt.unabstract_ty zs 0 ty in
+            let jty = Judgement.mk_ty ctx ty_inst in
+            check env c jty >>= fun (ctx, e) ->
+            let z, env = Environment.add_fresh ~loc env y jty in
+            let env = add_beta ~loc z ctx e ty_inst env in
+            let e = Tt.abstract zs 0 e in
+            fold env ctx (z::zs) ((lbl1,y,ty,e) :: xtes) (xcs, yts)
+              
+       | _::_, [] -> Error.typing ~loc "this structure has too many fields"
+       | [], _::_ -> Error.typing ~loc "this structure has too few fields"
+     in
+     let ctx, yts = Equal.as_signature env t_check in
+     fold env ctx [] [] (xcs, yts)
+
 
 and handle_result env {Value.handler_val; handler_ops; handler_finally} r =
   begin match r with
