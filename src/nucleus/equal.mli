@@ -36,8 +36,9 @@ val as_universal_eq :
 val as_universal_bracket :
   Environment.t -> Judgement.ty -> Context.t * Tt.ty Tt.ty_abstraction
 
-(** [inhabit_bracket env t] attempts to inhabit the bracket type [[t]] using
-    inhabit hints. *)
+(** [inhabit_bracket env t] attempts to inhabit the bracket type [[t]] using inhabit
+    hints. It returns [None] on failure or [Some (ctx, Tt.Inhab)] if it succeeded
+    inhabiting the bracket type in context [ctx]. *)
 val inhabit_bracket :
   subgoals:bool -> loc:Location.t ->
   Environment.t -> Judgement.ty -> (Context.t * Tt.term) option
