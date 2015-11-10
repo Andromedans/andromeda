@@ -172,7 +172,7 @@ let join' ctx1 ctx2 =
         joinA ctx f l
     in joinA ctx1 empty (topological_sort ctx2)
 
-let join ctx1 ctx2 = let ctx,_ = join' ctx1 ctx2 in ctx,[]
+let join ctx1 ctx2 = let ctx,_ = join' ctx1 ctx2 in ctx
 
 
 (** Substitute a variable by a judgment in a context. *)
