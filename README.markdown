@@ -100,5 +100,5 @@ is a nearby place.
 The GitHub repository is linked to Travis CI. To find out the current build status is
 displayed here:
 
-  [![Build Status](https://api.travis-ci.org/andrejbauer/andromeda.png?branch=master)](https://travis-ci.org/andrejbauer/andromeda)
+  [![Build Status](https://api.travis-ci.org/Andromedans/andromeda.png?branch=master)](https://travis-ci.org/Andromedans/andromeda)
 
