@@ -41,8 +41,7 @@ and weak_whnf env ctx ((e', loc) as e) =
       | Tt.Prod ([], Tt.Ty e) -> weak ctx e
       | Tt.Spine (e, (xts, t), (_::_ as es)) ->
         begin
-          let (ctx', ((e',eloc) as e)) = weak ctx e in
-          let ctx, eqs = Context.join ctx' ctx in
+          let (ctx, ((e',eloc) as e)) = weak ctx e in
           match e' with
           | Tt.Lambda (xus, (e', u)) ->
             begin
@@ -74,8 +73,7 @@ and weak_whnf env ctx ((e', loc) as e) =
 
       | Tt.Projection (e,xts,p) ->
         begin
-          let (ctx', ((e',eloc) as e)) = weak ctx e in
-          let ctx,_ = Context.join ctx' ctx in
+          let (ctx, ((e',eloc) as e)) = weak ctx e in
           match e' with
             | Tt.Structure xtes ->
               begin
@@ -130,7 +128,7 @@ and whnf env ctx e =
         (Pattern.print_beta_hint [] h) (Tt.print_term [] e) ;
       (* XXX Here a failed join need not be fatal, we could catch and continue
          with the remaining hints *)
-      let ctx, eqs = Context.join ctxh ctx in
+      let ctx = Context.join ctxh ctx in
       (* Here we use beta hints. First we match [p] against [e]. *)
       begin try
           (* XXX collect_* will return contexts *)
@@ -268,7 +266,7 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
                 Print.debug "(%d collecting for eta %t" debug_i (Pattern.print_eta_hint [] h);
                 (* XXX Here a failed join need not be fatal, we could catch and continue
                    with the remaining hints *)
-                let ctx, eqs = Context.join ctxh ctx in
+                let ctx = Context.join ctxh ctx in
                 begin match collect_for_eta env ctx (pt, k1, k2) (t, e1, e2) with
                   | None -> 
                      Print.debug "collecting for eta failed early %d)" debug_i;
@@ -355,7 +353,7 @@ and equal_hints env ctx e1 e2 t =
           | ((ctxh, (xts, (pt, pe1, pe2))) as h) :: hs ->
              (* XXX Here a failed join need not be fatal, we could catch and continue
                 with the remaining hints *)
-             let ctx, eqs = Context.join ctx ctxh in
+             let ctx = Context.join ctx ctxh in
              Print.debug "trying general hint@ %t" (Pattern.print_hint [] h);
              begin match collect_for_hint env ctx (pt, pe1, pe2) (t, e1, e2) with
              | None -> fold hs
@@ -1130,7 +1128,7 @@ and inhabit_bracket ~subgoals ~loc env (ctx, t) =
                      (Tt.print_ty [] t) (Pattern.print_inhabit_hint [] h) ;
          (* XXX Here a failed join need not be fatal, we could catch and continue
             with the remaining hints *)
-         let ctx, eqs = Context.join ctx ctxh in
+         let ctx = Context.join ctx ctxh in
          begin match collect_for_inhabit env ctx pt t with
          | None -> fold hs
          | Some (pvars, checks) ->

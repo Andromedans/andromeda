@@ -120,7 +120,7 @@ let rec exec_cmd base_dir interactive env c =
           let ((ctxu, u) as ju) = Eval.comp_ty env c in
           let z, env = Environment.add_fresh ~loc:Location.unknown env y ju in
           let w = Tt.abstract_ty zs 0 u in
-          let ctx, eqs = Context.join ctx ctxu in
+          let ctx = Context.join ctx ctxu in
           fold env ctx (z :: zs) ((y, (r, w)) :: yrws) ryus in
      let ctx, yrusv = fold env Context.empty [] [] ryus in
      (* XXX do sth with ctx *)
