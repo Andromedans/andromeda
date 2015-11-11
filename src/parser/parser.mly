@@ -61,6 +61,9 @@
 (* Substitution *)
 %token WHERE
 
+(* Meta-level programming *)
+%token <string> TAG
+
 (* Toplevel directives *)
 %token ENVIRONMENT HELP QUIT
 %token <int> VERBOSITY
@@ -156,6 +159,7 @@ plain_equal_term:
 app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_simple_term                             { e }
+  | t=TAG lst=list(simple_term)                     { Tag (Name.make t, lst) }
   | e=simple_term es=nonempty_list(simple_term)     { Spine (e, es) }
   | e1=simple_term APPLY e2=app_term                { Apply (e1, e2) }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }

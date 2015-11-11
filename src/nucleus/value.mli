@@ -11,6 +11,7 @@ type value =
   | Ty of Judgement.ty
   | Closure of closure
   | Handler of handler
+  | Tag of Name.ident * value list
 
  and closure = value -> value result
 

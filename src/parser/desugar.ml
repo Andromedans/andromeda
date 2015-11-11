@@ -210,7 +210,7 @@ let rec comp constants bound ((c',loc) as c) =
       let c = comp constants bound c in
       [], Syntax.Projection (c,x)
 
-    | (Input.Var _ | Input.Type | Input.Function _ | Input.Handler _) ->
+    | (Input.Var _ | Input.Type | Input.Function _ | Input.Handler _ | Input.Tag _) ->
       let w, e = expr constants bound c in
       w, Syntax.Return e
 
@@ -332,6 +332,19 @@ and expr constants bound ((e', loc) as e) =
 
   | Input.Handler hcs ->
      [], handler ~loc constants bound hcs
+
+  | Input.Tag (t, lst) ->
+     let rec fold w es bound = function
+       | [] ->
+          let es = List.rev es in
+          w, es
+       | c :: cs ->
+          let we, e = expr constants bound c in
+          let bound = List.fold_left (fun bound (x, _) -> add_bound x bound) bound we in
+          fold (w @ we) (e :: es) bound cs
+     in
+     let w, es = fold [] [] bound lst in
+     w, (Syntax.Tag (t, es), loc)
 
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |

@@ -109,6 +109,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | '_'                      -> f (); UNDERSCORE
   | '|'                      -> f (); BAR
   | '@'                      -> f (); APPLY
+  | '\'', name               -> f (); TAG (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | "->" | 8594 | 10230      -> f (); ARROW
   (* | "=>" | 10233             -> f (); DARROW *)
   | "==" | 8801              -> f (); EQEQ

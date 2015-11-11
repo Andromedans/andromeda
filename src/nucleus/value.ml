@@ -5,6 +5,7 @@ type value =
   | Ty of Judgement.ty
   | Closure of closure
   | Handler of handler
+  | Tag of Name.ident * value list
 
 and closure = value -> value result
 
@@ -31,36 +32,44 @@ let print_closure xs _ ppf =
 let print_handler xs h ppf =
   Print.print ~at_level:0 ppf "<handler>" (* XXX improve in your spare time *)
 
+let print_tag xs t lst ppf =
+  Print.print ~at_level:0 ppf "<must go home>"
+
 let print ?max_level xs v ppf =
   match v with
   | Term e -> Judgement.print_term xs e ppf
   | Ty t -> Judgement.print_ty xs t ppf
   | Closure f -> print_closure xs f ppf
   | Handler h -> print_handler xs h ppf
+  | Tag (t, lst) -> print_tag xs t lst ppf
 
 let as_term ~loc = function
   | Term e -> e
   | Ty _ -> Error.runtime ~loc "expected a term but got a type"
   | Closure _ -> Error.runtime ~loc "expected a term but got a function"
   | Handler _ -> Error.runtime ~loc "expected a term but got a handler"
+  | Tag _  -> assert false
 
 let as_ty ~loc = function
   | Term _ -> Error.runtime ~loc "expected a type but got a term"
   | Ty t -> t
   | Closure _ -> Error.runtime ~loc "expected a type but got a function"
   | Handler _ -> Error.runtime ~loc "expected a type but got a handler"
+  | Tag _  -> assert false
 
 let as_closure ~loc = function
   | Term _ -> Error.runtime ~loc "expected a function but got a term"
   | Ty _ -> Error.runtime ~loc "expected a function but got a type"
   | Closure f -> f
   | Handler _ -> Error.runtime ~loc "expected a function but got a handler"
+  | Tag _  -> assert false
 
 let as_handler ~loc = function
   | Term _ -> Error.runtime ~loc "expected a handler but got a term"
   | Ty _ -> Error.runtime ~loc "expected a handler but got a type"
   | Closure _ -> Error.runtime ~loc "expected a handler but got a function"
   | Handler h -> h
+  | Tag _  -> assert false
 
 let return x = Return x
 

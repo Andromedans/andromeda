@@ -48,6 +48,10 @@ let rec expr env (e',loc) =
     | Syntax.Function (x, c) ->
        Value.Closure (close x c)
 
+    | Syntax.Tag (t, lst) ->
+       let lst = List.map (expr env) lst in
+       Value.Tag (t, lst)
+
     | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
        let handler_val =
          begin match handler_val with
@@ -79,6 +83,7 @@ and expr_term env ((_,loc) as e) =
   | Value.Term et -> et
   | Value.Handler _ -> Error.runtime ~loc "this expression should be a term but is a handler"
   | Value.Closure _ -> Error.runtime ~loc "this expression should be a term but is a closure"
+  | Value.Tag _ -> Error.runtime ~loc "this expression should be a term but is a tag"
 
 (** Evaluate a computation -- infer mode. *)
 and infer env (c',loc) =

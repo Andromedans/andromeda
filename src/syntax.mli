@@ -10,6 +10,7 @@ and expr' =
   | Bound of bound
   | Function of Name.ident * comp
   | Handler of handler
+  | Tag of Name.ident * expr list
 
 (** Desugared types - indistinguishable from expressions *)
 and ty = expr

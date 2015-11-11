@@ -18,6 +18,7 @@ and term' =
   | Handle of comp * handle_case list
   | With of expr * comp
   | Apply of expr * expr
+  | Tag of Name.ident * comp list
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp

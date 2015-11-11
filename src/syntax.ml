@@ -10,6 +10,7 @@ and expr' =
   | Bound of bound
   | Function of Name.ident * comp
   | Handler of handler
+  | Tag of Name.ident * expr list
 
 (** Desugared types - indistinguishable from expressions *)
 and ty = expr
@@ -226,4 +227,5 @@ and shift_expr k lvl ((e', loc) as e) =
   | Bound m -> if m >= lvl then (Bound (m + k), loc) else e
   | Function (x, c) -> Function (x, shift_comp k (lvl+1) c), loc
   | Handler h -> Handler (shift_handler k lvl h), loc
+  | Tag (t, lst) -> Tag (t, List.map (shift_expr k lvl) lst), loc
   | Type -> e
