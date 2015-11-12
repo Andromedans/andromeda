@@ -32,44 +32,48 @@ let print_closure xs _ ppf =
 let print_handler xs h ppf =
   Print.print ~at_level:0 ppf "<handler>" (* XXX improve in your spare time *)
 
-let print_tag xs t lst ppf =
-  Print.print ~at_level:0 ppf "<must go home>"
+let rec print_tag ?max_level xs t lst ppf =
+  match lst with
+  | [] -> Print.print ?max_level ~at_level:0 ppf "'%t" (Name.print_ident t)
+  | (_::_) -> Print.print ?max_level ~at_level:1 ppf "'%t %t"
+                          (Name.print_ident t)
+                          (Print.sequence (print_value ~max_level:0 xs) "" lst)
 
-let print ?max_level xs v ppf =
+and print_value ?max_level xs v ppf =
   match v with
-  | Term e -> Judgement.print_term xs e ppf
-  | Ty t -> Judgement.print_ty xs t ppf
+  | Term e -> Judgement.print_term ?max_level xs e ppf
+  | Ty t -> Judgement.print_ty ?max_level xs t ppf
   | Closure f -> print_closure xs f ppf
   | Handler h -> print_handler xs h ppf
-  | Tag (t, lst) -> print_tag xs t lst ppf
+  | Tag (t, lst) -> print_tag ?max_level xs t lst ppf
 
 let as_term ~loc = function
   | Term e -> e
   | Ty _ -> Error.runtime ~loc "expected a term but got a type"
   | Closure _ -> Error.runtime ~loc "expected a term but got a function"
   | Handler _ -> Error.runtime ~loc "expected a term but got a handler"
-  | Tag _  -> assert false
+  | Tag _  -> Error.runtime ~loc "expected a term but got a tag"
 
 let as_ty ~loc = function
   | Term _ -> Error.runtime ~loc "expected a type but got a term"
   | Ty t -> t
   | Closure _ -> Error.runtime ~loc "expected a type but got a function"
   | Handler _ -> Error.runtime ~loc "expected a type but got a handler"
-  | Tag _  -> assert false
+  | Tag _  -> Error.runtime ~loc "expected a type but got a tag"
 
 let as_closure ~loc = function
   | Term _ -> Error.runtime ~loc "expected a function but got a term"
   | Ty _ -> Error.runtime ~loc "expected a function but got a type"
   | Closure f -> f
   | Handler _ -> Error.runtime ~loc "expected a function but got a handler"
-  | Tag _  -> assert false
+  | Tag _  -> Error.runtime ~loc "expected a function but got a tag"
 
 let as_handler ~loc = function
   | Term _ -> Error.runtime ~loc "expected a handler but got a term"
   | Ty _ -> Error.runtime ~loc "expected a handler but got a type"
   | Closure _ -> Error.runtime ~loc "expected a handler but got a function"
   | Handler h -> h
-  | Tag _  -> assert false
+  | Tag _  -> Error.runtime ~loc "expected a handler but got a tag"
 
 let return x = Return x
 

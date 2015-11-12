@@ -20,9 +20,9 @@ val mk_term : Context.t -> Tt.term -> Tt.ty -> term
 val mk_ty : Context.t -> Tt.ty -> ty
 
 (** Print the judgement that something is a term. *)
-val print_term : Name.ident list -> term -> Format.formatter -> unit
+val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
 
 (** Print the judgement that something is a type. *)
-val print_ty : Name.ident list -> ty -> Format.formatter -> unit
+val print_ty : ?max_level:int -> Name.ident list -> ty -> Format.formatter -> unit
 
 

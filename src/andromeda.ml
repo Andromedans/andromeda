@@ -151,7 +151,7 @@ let rec exec_cmd base_dir interactive env c =
              | v -> v
        end
      in
-       if interactive then Format.printf "%t@." (Value.print (Environment.used_names env) v) ;
+       if interactive then Format.printf "%t@." (Value.print_value (Environment.used_names env) v) ;
        env
 
   | Syntax.TopBeta xscs ->

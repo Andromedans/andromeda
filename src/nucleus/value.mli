@@ -40,7 +40,7 @@ val return_ty : Judgement.ty -> value result
 val bind: 'a result -> ('a -> 'b result)  -> 'b result
 
 (** Pretty-print a value. *)
-val print : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
+val print_value : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
 
 (** Check that a result is a value and return it, or complain. *)
 val to_value : loc:Location.t -> 'a result -> 'a
