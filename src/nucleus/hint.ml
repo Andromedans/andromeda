@@ -34,7 +34,7 @@ let rec of_term env pvars ((e',loc) as e) t =
   let original = pvars, Pattern.Term (e,t) in
   match e' with
 
-  | Tt.Type | Tt.Inhab | Tt.Lambda _ | Tt.Prod _ -> original
+  | Tt.Type | Tt.Inhab _ | Tt.Lambda _ | Tt.Prod _ -> original
 
   | Tt.Atom x -> pvars, Pattern.Atom x
 
