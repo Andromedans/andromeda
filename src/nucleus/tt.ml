@@ -13,7 +13,7 @@ and term' =
   | Prod of ty ty_abstraction
   | Eq of ty * term * term
   | Refl of ty * term
-  | Inhab
+  | Inhab of ty
   | Bracket of ty
   | Signature of signature
   | Structure of structure
@@ -60,7 +60,7 @@ let mk_type ~loc = Type, loc
 let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
 let mk_refl ~loc t e = Refl (t, e), loc
 
-let mk_inhab ~loc = Inhab, loc
+let mk_inhab ~loc t = Inhab t, loc
 let mk_bracket ~loc t = Bracket t, loc
 
 let mk_signature ~loc lst = Signature lst, loc
@@ -148,7 +148,9 @@ and instantiate es depth ((e',loc) as e) =
        and e = instantiate es depth e
        in Refl (t, e), loc
 
-    | Inhab -> Inhab, loc
+    | Inhab t ->
+       let t = instantiate_ty es depth t in
+       Inhab t, loc
 
     | Bracket t ->
       let t = instantiate_ty es depth t in
@@ -261,7 +263,9 @@ and abstract xs depth ((e',loc) as e) =
     and e = abstract xs depth e
     in Refl (t, e), loc
 
-  | Inhab -> Inhab, loc
+  | Inhab t ->
+    let t = abstract_ty xs depth t in
+    Inhab t, loc
 
   | Bracket t ->
     let t = abstract_ty xs depth t in
@@ -357,7 +361,9 @@ let rec shift k lvl ((e',loc) as e) =
       and e = shift k lvl e in
         Refl (t, e), loc
 
-    | Inhab -> Inhab, loc
+    | Inhab t ->
+       let t = shift_ty k lvl t in
+       Inhab t, loc
 
     | Bracket t ->
       let t = shift_ty k lvl t in
@@ -450,7 +456,7 @@ let rec occurs k (e',_) =
     occurs_ty k t + occurs k e1 + occurs k e2
   | Refl (t, e) ->
     occurs_ty k t + occurs k e
-  | Inhab -> 0
+  | Inhab t -> occurs_ty k t
   | Bracket t ->
     occurs_ty k t
   | Signature xts ->
@@ -548,7 +554,8 @@ let rec alpha_equal (e1,_) (e2,_) =
     | Bracket t1, Bracket t2 ->
       alpha_equal_ty t1 t2
 
-    | Inhab, Inhab -> true
+    | Inhab t1, Inhab t2 ->
+       alpha_equal_ty t1 t2
 
     | Signature xts1, Signature xts2 ->
       let rec fold xts1 xts2 = match xts1, xts2 with
@@ -587,7 +594,7 @@ let rec alpha_equal (e1,_) (e2,_) =
       fold xts1 xts2
 
     | (Atom _ | Bound _ | Constant _ | Lambda _ | Spine _ |
-        Type | Prod _ | Eq _ | Refl _ | Bracket _ | Inhab |
+        Type | Prod _ | Eq _ | Refl _ | Bracket _ | Inhab _ |
         Signature _ | Structure _ | Projection _), _ ->
       false
   end
@@ -662,7 +669,8 @@ let rec print_term ?max_level xs (e,_) ppf =
           (print_annot (print_ty xs t))
           (print_term ~max_level:0 xs e)
 
-      | Inhab -> print ~at_level:0 "[]"
+      | Inhab t -> print ~at_level:0 "[]%t"
+                         (print_annot (print_ty xs t))
 
       | Bracket t ->
         print ~at_level:0 "[[%t]]"

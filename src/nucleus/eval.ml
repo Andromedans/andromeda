@@ -397,7 +397,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
      let t = Judgement.mk_ty ctx t' in
      begin match Equal.inhabit_bracket ~subgoals:true ~loc env t with
            | Some (ctx,_) ->
-              Value.return (ctx, Tt.mk_inhab ~loc)
+              Value.return (ctx, Tt.mk_inhab ~loc t')
            | None -> Error.typing ~loc "do not know how to inhabit %t"
                                   (print_ty env t')
      end

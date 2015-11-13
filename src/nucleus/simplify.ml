@@ -3,7 +3,7 @@
 let is_small (e',_) =
 match e' with
   | Tt.Constant (_, es) -> es = []
-  | Tt.Type | Tt.Inhab | Tt.Bound _ | Tt.Atom _ -> true
+  | Tt.Type | Tt.Inhab _ | Tt.Bound _ | Tt.Atom _ -> true
   | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _
   | Tt.Bracket _ | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ -> false
 
@@ -12,7 +12,9 @@ let rec term ((e',loc) as e) =
 
     | Tt.Type -> e
 
-    | Tt.Inhab -> e
+    | Tt.Inhab t ->
+       let t = ty t in
+       Tt.mk_inhab ~loc t
 
     | Tt.Atom _ -> e
 
@@ -176,7 +178,7 @@ and spine ~loc h xts t es =
   | Tt.Spine _
   | Tt.Atom _
   | Tt.Type
-  | Tt.Inhab
+  | Tt.Inhab _
   | Tt.Bracket _
   | Tt.Prod _
   | Tt.Eq _
@@ -204,7 +206,7 @@ and project ~loc te xts p =
     | Tt.Spine _
     | Tt.Atom _
     | Tt.Type
-    | Tt.Inhab
+    | Tt.Inhab _
     | Tt.Bracket _
     | Tt.Prod _
     | Tt.Eq _

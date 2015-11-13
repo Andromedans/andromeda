@@ -63,7 +63,7 @@ let rec term_key_opt (e',loc) =
   | Tt.Prod _ -> Some Key_Prod
   | Tt.Eq _ -> Some Key_Eq
   | Tt.Refl _ -> Some Key_Refl
-  | Tt.Inhab -> Some Key_Inhab
+  | Tt.Inhab _ -> Some Key_Inhab
   | Tt.Bracket _ -> Some Key_Bracket
   | Tt.Signature lst -> Some (Key_Signature (List.length lst))
   | Tt.Structure lst -> Some (Key_Structure (List.length lst))
