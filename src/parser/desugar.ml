@@ -292,23 +292,17 @@ and handler ~loc constants bound hcs =
   Syntax.Handler (Syntax.{handler_val; handler_ops; handler_finally}), loc
 
 (* Desugar a match case *)
-and case constants bound (xcs, p, c) =
-  let rec fold bound ys = function
+and case constants bound (xs, p, c) =
+  let rec fold bound = function
     | [] ->
-       let ys = List.rev ys
-       and p = pattern constants bound p
+       let p = pattern constants bound p
        and c = comp constants bound c in
-       (ys, p, c)
-    | (x, None) :: xcs ->
-       let bound = add_bound x bound
-       and ys = (x, None) :: ys in
-       fold bound ys xcs
-    | (x, Some t) :: xcs ->
-       let ys = (let t = comp constants bound t in (x, Some t) :: ys)
-       and bound = add_bound x bound in
-       fold bound ys xcs
+       (xs, p, c)
+    | x :: xs ->
+       let bound = add_bound x bound in
+       fold bound xs
   in
-  fold bound [] xcs
+  fold bound xs
 
 and pattern constants bound (p, loc) =
   match p with

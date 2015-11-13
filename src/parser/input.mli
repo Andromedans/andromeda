@@ -57,7 +57,7 @@ and handle_case =
   | CaseOp of string * Name.ident * Name.ident * comp (* #op x k -> c *)
   | CaseFinally of Name.ident * comp (* finally x -> c *)
 
-and match_case = (Name.ident * comp option) list * match_pattern * comp
+and match_case = Name.ident list * match_pattern * comp
 
 and match_pattern = match_pattern' * Location.t
 and match_pattern' =

@@ -217,6 +217,9 @@ binder:
   | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_names) RBRACK
       { List.concat lst }
 
+untyped_binder:
+  | LBRACK lst=name* RBRACK       { lst }
+
 maybe_typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, Some t)) xs }
   | xs=name+                  { List.map (fun x -> (x, None)) xs }
@@ -271,7 +274,7 @@ handler_case:
   | BAR FINALLY x=name ARROW t=term             { CaseFinally (x, t) }
 
 match_case:
-  | BAR a=binder* p=pattern DARROW c=term  { (List.concat a, p, c) }
+  | BAR a=untyped_binder p=pattern DARROW c=term  { (a, p, c) }
 
 pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:

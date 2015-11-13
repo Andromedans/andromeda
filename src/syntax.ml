@@ -53,7 +53,7 @@ and handler = {
   handler_finally : (Name.ident * comp) option;
 }
 
-and match_case = (Name.ident * comp option) list * match_pattern * comp
+and match_case = Name.ident list * match_pattern * comp
 
 and match_pattern = match_pattern' * Location.t
 and match_pattern' =
@@ -245,17 +245,15 @@ and shift_expr k lvl ((e', loc) as e) =
   | Type -> e
 
 and shift_case k lvl (xcs, p, c) =
-  let rec fold lvl xcs' = function
+  let rec fold lvl = function
     | [] ->
-      let xcs' = List.rev xcs'
-      and p = shift_pattern k lvl p
+      let p = shift_pattern k lvl p
       and c = shift_comp k lvl c in
-      xcs', p, c
-    | (x,copt) :: xcs ->
-      let copt = (match copt with None -> None | Some c -> Some (shift_comp k lvl c)) in
-      fold (lvl+1) ((x,copt) :: xcs') xcs
+      xcs, p, c
+    | x :: xcs ->
+      fold (lvl+1) xcs
     in
-  fold lvl [] xcs
+  fold lvl xcs
 
 and shift_pattern k lvl ((p', loc) as p) =
   match p' with

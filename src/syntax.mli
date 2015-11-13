@@ -53,7 +53,7 @@ and handler = {
   handler_finally : (Name.ident * comp) option;
 }
 
-and match_case = (Name.ident * comp option) list * match_pattern * comp
+and match_case = Name.ident list * match_pattern * comp
 
 and match_pattern = match_pattern' * Location.t
 and match_pattern' =
