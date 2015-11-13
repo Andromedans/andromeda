@@ -41,7 +41,6 @@ let reserved = [
   ("Type", TYPE) ;
   ("typeof", TYPEOF) ;
   ("val", VAL) ;
-  ("|-", VDASH) ;
   ("⊢", VDASH) ;
   ("where", WHERE) ;
   ("with", WITH)
@@ -110,6 +109,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
+  | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
   | '@'                      -> f (); APPLY
   | '\'', name               -> f (); TAG (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))

@@ -275,6 +275,8 @@ handler_case:
 
 match_case:
   | BAR a=untyped_binder p=pattern DARROW c=term  { (a, p, c) }
+  | BAR LRBRACK p=pattern DARROW c=term  { ([], p, c) }
+  | BAR p=pattern DARROW c=term  { ([], p, c) }
 
 
 (** Pattern matching *)
@@ -312,6 +314,7 @@ plain_equal_tt_pattern:
 
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
+  | p=plain_simple_tt_pattern                 { p }
   | p1=app_tt_pattern p2=simple_tt_pattern    { Tt_App (p1, p2) }
   | REFL p=simple_tt_pattern                  { Tt_Refl p }
 
