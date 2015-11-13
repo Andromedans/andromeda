@@ -88,8 +88,11 @@ let rec comp constants bound ((c',loc) as c) =
        and e2 = Syntax.shift_expr k1 k2 e2 in
        w1 @ w2, Syntax.Apply (e1, e2)
 
-    | Input.Match (v,cases) ->
-       assert false (* TODO *)
+    | Input.Match (e, cases) ->
+       let w, e = expr constants bound e in
+       let bound = List.fold_left (fun bound (x,_) -> add_bound x bound) bound w in
+       let cases = List.map (case constants bound) cases in
+       w, Syntax.Match (e, cases)
 
     | Input.Beta (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
@@ -287,6 +290,42 @@ and handler ~loc constants bound hcs =
   in
   let handler_val, handler_ops, handler_finally = fold None [] None hcs in
   Syntax.Handler (Syntax.{handler_val; handler_ops; handler_finally}), loc
+
+(* Desugar a match case *)
+and case constants bound (xcs, p, c) =
+  let rec fold bound ys = function
+    | [] ->
+       let ys = List.rev ys
+       and p = pattern constants bound p
+       and c = comp constants bound c in
+       (ys, p, c)
+    | (x, None) :: xcs ->
+       let bound = add_bound x bound
+       and ys = (x, None) :: ys in
+       fold bound ys xcs
+    | (x, Some t) :: xcs ->
+       let ys = (let t = comp constants bound t in (x, Some t) :: ys)
+       and bound = add_bound x bound in
+       fold bound ys xcs
+  in
+  fold bound [] xcs
+
+and pattern constants bound (p, loc) =
+  match p with
+    | Input.MatchVar x -> 
+       begin
+         match Name.index_of_ident x bound with
+         | Some m -> Syntax.MatchVar m, loc
+         | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
+       end
+    | Input.MatchTag (t, ps) ->
+       let ps = List.map (pattern constants bound) ps in
+       Syntax.MatchTag (t, ps), loc
+    | Input.MatchJdg (c1, c2) ->
+       let c1 = comp constants bound c1
+       and c2 = comp constants bound c1 in
+       Syntax.MatchJdg (c1, c2), loc
+
 
 (* Make constant as if it were in an expression position *)
 and constant ~loc constants bound x cs =

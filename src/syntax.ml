@@ -53,11 +53,13 @@ and handler = {
   handler_finally : (Name.ident * comp) option;
 }
 
-and match_case = (Name.ident * comp option) list * match_pattern
+and match_case = (Name.ident * comp option) list * match_pattern * comp
 
-and match_pattern =
-  | MatchData of Name.ident * match_pattern list
-  | MatchJdg of comp * comp option
+and match_pattern = match_pattern' * Location.t
+and match_pattern' =
+  | MatchVar of bound
+  | MatchTag of Name.ident * match_pattern list
+  | MatchJdg of comp * comp
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
@@ -242,24 +244,27 @@ and shift_expr k lvl ((e', loc) as e) =
   | Tag (t, lst) -> Tag (t, List.map (shift_expr k lvl) lst), loc
   | Type -> e
 
-and shift_case k lvl (xcs,c) =
+and shift_case k lvl (xcs, p, c) =
   let rec fold lvl xcs' = function
     | [] ->
       let xcs' = List.rev xcs'
-      and c = shift_pattern k lvl c in
-      xcs',c
+      and p = shift_pattern k lvl p
+      and c = shift_comp k lvl c in
+      xcs', p, c
     | (x,copt) :: xcs ->
       let copt = (match copt with None -> None | Some c -> Some (shift_comp k lvl c)) in
       fold (lvl+1) ((x,copt) :: xcs') xcs
     in
   fold lvl [] xcs
 
-and shift_pattern k lvl = function
-  | MatchData (t,lst) ->
+and shift_pattern k lvl ((p', loc) as p) =
+  match p' with
+  | MatchVar m -> if m >= lvl then (MatchVar (m + k), loc) else p
+  | MatchTag (t, lst) ->
     let lst = List.map (shift_pattern k lvl) lst in
-    MatchData (t, lst)
-  | MatchJdg (c,copt) ->
-    let c = shift_comp k lvl c in
-    let copt = (match copt with | None -> None | Some c -> Some (shift_comp k lvl c)) in
-    MatchJdg (c,copt)
+    MatchTag (t, lst), loc
+  | MatchJdg (c1, c2) ->
+     let c1 = shift_comp k lvl c1
+     and c2 = shift_comp k lvl c2 in
+     MatchJdg (c1, c2), loc
 

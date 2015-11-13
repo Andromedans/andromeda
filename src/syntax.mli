@@ -53,11 +53,13 @@ and handler = {
   handler_finally : (Name.ident * comp) option;
 }
 
-and match_case = (Name.ident * comp option) list * match_pattern
+and match_case = (Name.ident * comp option) list * match_pattern * comp
 
-and match_pattern =
-  | MatchData of Name.ident * match_pattern list
-  | MatchJdg of comp * comp option
+and match_pattern = match_pattern' * Location.t
+and match_pattern' =
+  | MatchVar of bound
+  | MatchTag of Name.ident * match_pattern list
+  | MatchJdg of comp * comp
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t

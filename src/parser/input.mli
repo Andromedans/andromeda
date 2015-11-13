@@ -57,11 +57,13 @@ and handle_case =
   | CaseOp of string * Name.ident * Name.ident * comp (* #op x k -> c *)
   | CaseFinally of Name.ident * comp (* finally x -> c *)
 
-and match_case = (Name.ident * comp option) list * match_pattern
+and match_case = (Name.ident * comp option) list * match_pattern * comp
 
-and match_pattern =
-  | MatchData of Name.ident * match_pattern list
-  | MatchJdg of comp * comp option
+and match_pattern = match_pattern' * Location.t
+and match_pattern' =
+  | MatchVar of Name.ident
+  | MatchTag of Name.ident * match_pattern list
+  | MatchJdg of comp * comp
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t

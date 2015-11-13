@@ -26,7 +26,7 @@
 %token LRBRACK LLBRACK RRBRACK
 %token LBRACE RBRACE
 %token DCOLON COLON SEMICOLON COMMA DOT
-%token ARROW
+%token ARROW DARROW
 
 (* Toplevel computations *)
 %token TOPCHECK
@@ -63,6 +63,8 @@
 
 (* Meta-level programming *)
 %token <string> TAG
+%token MATCH
+%token VDASH
 
 (* Toplevel directives *)
 %token ENVIRONMENT HELP QUIT
@@ -138,6 +140,7 @@ plain_term:
   | HINT tshs=tags_opt_hints IN c=term                { Hint (tshs, c) }
   | INHABIT tshs=tags_opt_hints IN c=term             { Inhabit (tshs, c) }
   | UNHINT ts=tags_unhints IN c=term                  { Unhint (ts, c) }
+  | MATCH e=term WITH lst=match_case* END             { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_case* END          { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                         { With (h, c) }
   | HANDLER hcs=handler_case* END                     { Handler (hcs) }
@@ -266,6 +269,21 @@ handler_case:
   | BAR VAL x=name ARROW t=term                 { CaseVal (x, t) }
   | BAR op=OPERATION x=name k=name ARROW t=term { CaseOp (op, x, k, t) }
   | BAR FINALLY x=name ARROW t=term             { CaseFinally (x, t) }
+
+match_case:
+  | BAR a=binder* p=pattern DARROW c=term  { (List.concat a, p, c) }
+
+pattern: mark_location(plain_pattern) { $1 }
+plain_pattern:
+  | p=plain_simple_pattern               { p }
+  | t=TAG ps=simple_pattern+             { MatchTag (Name.make t, ps) }
+  | VDASH e1=app_term COLON e2=ty_term   { MatchJdg (e1, e2) }
+
+simple_pattern: mark_location(plain_simple_pattern) { $1 }
+plain_simple_pattern:
+  | x=name                         { MatchVar x } 
+  | t=TAG                          { MatchTag (Name.make t, []) }
+  | LPAREN p=plain_pattern RPAREN  { p }
 
 mark_location(X):
   x=X
