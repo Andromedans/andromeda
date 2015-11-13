@@ -25,6 +25,7 @@ and comp' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
   | Apply of expr * expr
+  | Match of expr * match_case list
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
@@ -51,6 +52,12 @@ and handler = {
   handler_ops: (string * (Name.ident * Name.ident * comp)) list;
   handler_finally : (Name.ident * comp) option;
 }
+
+and match_case = (Name.ident * comp option) list * match_pattern
+
+and match_pattern =
+  | MatchData of Name.ident * match_pattern list
+  | MatchJdg of comp * comp option
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t

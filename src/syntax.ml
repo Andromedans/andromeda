@@ -25,6 +25,7 @@ and comp' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
   | Apply of expr * expr
+  | Match of expr * match_case list
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
@@ -51,6 +52,12 @@ and handler = {
   handler_ops: (string * (Name.ident * Name.ident * comp)) list;
   handler_finally : (Name.ident * comp) option;
 }
+
+and match_case = (Name.ident * comp option) list * match_pattern
+
+and match_pattern =
+  | MatchData of Name.ident * match_pattern list
+  | MatchJdg of comp * comp option
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
@@ -111,6 +118,11 @@ let rec shift_comp k lvl (c', loc) =
        let e1 = shift_expr k lvl e1
        and e2 = shift_expr k lvl e2 in
        Apply (e1, e2)
+
+    | Match (e, lst) ->
+      let e = shift_expr k lvl e in
+      let lst = List.map (shift_case k lvl) lst in
+      Match (e, lst)
 
     | Beta (xscs, c) ->
        let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
@@ -229,3 +241,25 @@ and shift_expr k lvl ((e', loc) as e) =
   | Handler h -> Handler (shift_handler k lvl h), loc
   | Tag (t, lst) -> Tag (t, List.map (shift_expr k lvl) lst), loc
   | Type -> e
+
+and shift_case k lvl (xcs,c) =
+  let rec fold lvl xcs' = function
+    | [] ->
+      let xcs' = List.rev xcs'
+      and c = shift_pattern k lvl c in
+      xcs',c
+    | (x,copt) :: xcs ->
+      let copt = (match copt with None -> None | Some c -> Some (shift_comp k lvl c)) in
+      fold (lvl+1) ((x,copt) :: xcs') xcs
+    in
+  fold lvl [] xcs
+
+and shift_pattern k lvl = function
+  | MatchData (t,lst) ->
+    let lst = List.map (shift_pattern k lvl) lst in
+    MatchData (t, lst)
+  | MatchJdg (c,copt) ->
+    let c = shift_comp k lvl c in
+    let copt = (match copt with | None -> None | Some c -> Some (shift_comp k lvl c)) in
+    MatchJdg (c,copt)
+

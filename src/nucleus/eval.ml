@@ -135,6 +135,8 @@ and infer env (c',loc) =
      and v2 = expr env e2 in
        v1 v2
 
+  | Syntax.Match _ -> assert false (* TODO *)
+
   | Syntax.Beta (xscs, c) ->
     beta_bind env xscs >>= (fun env -> infer env c)
 
@@ -303,6 +305,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.With _
   | Syntax.Typeof _
   | Syntax.Apply _
+  | Syntax.Match _
   | Syntax.Constant _
   | Syntax.Prod _
   | Syntax.Eq _

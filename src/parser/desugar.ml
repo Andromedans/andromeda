@@ -88,6 +88,9 @@ let rec comp constants bound ((c',loc) as c) =
        and e2 = Syntax.shift_expr k1 k2 e2 in
        w1 @ w2, Syntax.Apply (e1, e2)
 
+    | Input.Match (v,cases) ->
+       assert false (* TODO *)
+
     | Input.Beta (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
       let c = comp constants bound c in
@@ -349,7 +352,7 @@ and expr constants bound ((e', loc) as e) =
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
-     Input.Whnf _ | Input.Apply _ | Input.Handle _ | Input.With _ |
+     Input.Whnf _ | Input.Apply _ | Input.Match _ | Input.Handle _ | Input.With _ |
      Input.Typeof _ | Input.Assume _ | Input.Where _ | Input.Signature _ |
      Input.Structure _ | Input.Projection _) ->
     let x = Name.fresh_candy ()

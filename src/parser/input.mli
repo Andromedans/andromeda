@@ -19,6 +19,7 @@ and term' =
   | With of expr * comp
   | Apply of expr * expr
   | Tag of Name.ident * comp list
+  | Match of comp * match_case list
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
@@ -55,6 +56,12 @@ and handle_case =
   | CaseVal of Name.ident * comp (* val x -> c *)
   | CaseOp of string * Name.ident * Name.ident * comp (* #op x k -> c *)
   | CaseFinally of Name.ident * comp (* finally x -> c *)
+
+and match_case = (Name.ident * comp option) list * match_pattern
+
+and match_pattern =
+  | MatchData of Name.ident * match_pattern list
+  | MatchJdg of comp * comp option
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
