@@ -29,10 +29,10 @@ let reserved = [
   ("match", MATCH) ;
   ("Parameter", AXIOM) ;
   ("reduce", REDUCE) ;
-  ("forall", FORALL) ;
-  ("∀", FORALL) ;
-  ("Π", FORALL) ;
-  ("∏", FORALL) ;
+  ("forall", PROD) ;
+  ("∀", PROD) ;
+  ("Π", PROD) ;
+  ("∏", PROD) ;
   ("fun", FUNCTION) ;
   ("lambda", LAMBDA) ;
   ("λ", LAMBDA) ;

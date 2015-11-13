@@ -305,21 +305,7 @@ and case constants bound (xs, p, c) =
   fold bound xs
 
 and pattern constants bound (p, loc) =
-  match p with
-    | Input.MatchVar x -> 
-       begin
-         match Name.index_of_ident x bound with
-         | Some m -> Syntax.MatchVar m, loc
-         | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
-       end
-    | Input.MatchTag (t, ps) ->
-       let ps = List.map (pattern constants bound) ps in
-       Syntax.MatchTag (t, ps), loc
-    | Input.MatchJdg (c1, c2) ->
-       let c1 = comp constants bound c1
-       and c2 = comp constants bound c1 in
-       Syntax.MatchJdg (c1, c2), loc
-
+  assert false (* TODO *)
 
 (* Make constant as if it were in an expression position *)
 and constant ~loc constants bound x cs =
