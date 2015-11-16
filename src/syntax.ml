@@ -8,7 +8,7 @@ type bound = int
 type tt_pattern = tt_pattern' * Location.t
 and tt_pattern' =
   | Tt_Anonymous
-  | Tt_Var of bound (* a pattern variable *)
+  | Tt_As of tt_pattern * bound
   | Tt_Bound of bound
   | Tt_Type
   | Tt_Constant of Name.ident
@@ -26,7 +26,7 @@ and tt_pattern' =
 type pattern = pattern' * Location.t
 and pattern' =
   | Patt_Anonymous
-  | Patt_Var of bound
+  | Patt_As of pattern * bound
   | Patt_Bound of bound
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Tag of Name.ident * pattern list
@@ -108,8 +108,10 @@ let opt_map f = function
 
 let rec shift_pattern k lvl ((p', loc) as p) =
   match p' with
-    | Patt_Anonymous
-    | Patt_Var _ -> p
+    | Patt_Anonymous -> p
+    | Patt_As (p,k) ->
+      let p = shift_pattern k lvl p in
+      Patt_As (p,k), loc
     | Patt_Bound m ->
        if m >= lvl then (Patt_Bound (m + k), loc) else p
     | Patt_Jdg (p1,p2) ->
@@ -122,7 +124,10 @@ let rec shift_pattern k lvl ((p', loc) as p) =
 
 and shift_tt_pattern k lvl ((p',loc) as p) =
   match p' with
-    | Tt_Anonymous | Tt_Var _ | Tt_Type | Tt_Constant _ | Tt_Inhab -> p
+    | Tt_Anonymous | Tt_Type | Tt_Constant _ | Tt_Inhab -> p
+    | Tt_As (p,k) ->
+      let p = shift_tt_pattern k lvl p in
+      Tt_As (p,k), loc
     | Tt_Bound m -> if m >= lvl then (Tt_Bound (m + k), loc) else p
     | Tt_Lambda (x,copt,c) ->
       let copt = opt_map (shift_tt_pattern k lvl) copt

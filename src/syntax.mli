@@ -8,7 +8,7 @@ type bound = int
 type tt_pattern = tt_pattern' * Location.t
 and tt_pattern' =
   | Tt_Anonymous
-  | Tt_Var of bound (* a pattern variable *)
+  | Tt_As of tt_pattern * bound
   | Tt_Bound of bound
   | Tt_Type
   | Tt_Constant of Name.ident
@@ -26,7 +26,7 @@ and tt_pattern' =
 type pattern = pattern' * Location.t
 and pattern' =
   | Patt_Anonymous
-  | Patt_Var of bound
+  | Patt_As of pattern * bound
   | Patt_Bound of bound
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Tag of Name.ident * pattern list

@@ -206,16 +206,17 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
   match p', e' with
     | Syntax.Tt_Anonymous, _ -> xvs
 
-    | Syntax.Tt_Var k, _ ->
+    | Syntax.Tt_As (p,k), _ ->
       let v = Value.Term (ctx,e,t) in
-      begin try
+      let xvs = try
           let v' = List.assoc k xvs in
           if Value.equal_value v v'
           then xvs
           else raise Match_fail
         with | Not_found ->
           (k,v) :: xvs
-      end
+        in
+      collect_tt_pattern env xvs p ctx e t
 
     | Syntax.Tt_Bound k, _ ->
       let v' = lookup_bound k env in
@@ -348,14 +349,15 @@ let match_pattern env xs p v =
     match p, v with 
     | Syntax.Patt_Anonymous, _ -> xvs
 
-    | Syntax.Patt_Var k, v ->
-       begin try
+    | Syntax.Patt_As (p,k), v ->
+       let xvs = try
            let v' = List.assoc k xvs in
            if Value.equal_value v v'
            then xvs
            else raise Match_fail
          with Not_found -> (k,v) :: xvs
-       end
+         in
+       collect xvs p v
 
     | Syntax.Patt_Bound k, v ->
        let v' = lookup_bound k env in

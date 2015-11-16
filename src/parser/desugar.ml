@@ -331,7 +331,7 @@ and pattern constants bound varn present (p,loc) =
           if k < varn
           then
             let present = IntSet.add k present in
-            (Syntax.Patt_Var k, loc), present
+            (Syntax.Patt_As ((Syntax.Patt_Anonymous, loc), k), loc), present
           else
             (Syntax.Patt_Bound (k-varn), loc), present
       end
@@ -373,7 +373,7 @@ and tt_pattern constants bound varn lvl present (p,loc) =
           else if k-lvl < varn
           then
             let present = IntSet.add (k-lvl) present in
-            (Syntax.Tt_Var (k-lvl), loc), present
+            (Syntax.Tt_As ((Syntax.Tt_Anonymous, loc), k-lvl), loc), present
           else
             (Syntax.Tt_Bound (k-varn), loc), present
       end
