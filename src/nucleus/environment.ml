@@ -185,8 +185,142 @@ let print env ppf =
 
 exception Match_fail
 
-let match_tt_pattern env xvs p ctx e t =
-  assert false
+let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
+  match p', e' with
+    | Syntax.Tt_Anonymous, _ -> xvs
+
+    | Syntax.Tt_Var k, _ ->
+      let v = Value.Term (ctx,e,t) in
+      begin try
+          let v' = List.assoc k xvs in
+          if Value.equal_value v v'
+          then xvs
+          else raise Match_fail
+        with | Not_found ->
+          (k,v) :: xvs
+      end
+
+    | Syntax.Tt_Bound k, _ ->
+      let v' = lookup_bound k env in
+      if Value.equal_value (Value.Term (ctx,e,t)) v'
+      then xvs
+      else raise Match_fail
+
+    | Syntax.Tt_Type, Tt.Type ->
+      xvs
+
+    | Syntax.Tt_Constant x, Tt.Constant (y,lst) ->
+      if lst = [] && Name.eq_ident x y
+      then xvs
+      else raise Match_fail
+
+    | Syntax.Tt_Lambda (x,popt,p), Tt.Lambda ((x',ty)::abs,(te,out)) ->
+      let Tt.Ty t = ty in let _,loc = t in
+      let xvs = match popt with
+        | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
+        | None -> xvs
+        in
+      let y, ctx = Context.cone ctx x ty in
+      let yt = Value.Term (ctx, Tt.mk_atom ~loc y, ty) in
+      let env = add_bound x yt env in
+      let te = Tt.mk_lambda ~loc:(snd e) abs te out in
+      let te = Tt.unabstract [y] 0 te in
+      let t = Tt.mk_prod_ty ~loc:(snd e) abs out in
+      let t = Tt.unabstract_ty [y] 0 t in
+      let xvs = collect_tt_pattern env xvs p ctx te t in
+      xvs
+
+    | Syntax.Tt_App (p1,p2), Tt.Spine (te,abs,lst) ->
+      assert false (* TODO *)
+
+    | Syntax.Tt_Prod (x,popt,p), Tt.Prod ((x',ty)::abs,out) ->
+      let Tt.Ty t = ty in let _,loc = t in
+      let xvs = match popt with
+        | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
+        | None -> xvs
+        in
+      let y, ctx = Context.cone ctx x ty in
+      let yt = Value.Term (ctx, Tt.mk_atom ~loc y, ty) in
+      let env = add_bound x yt env in
+      let t = Tt.mk_prod ~loc:(snd e) abs out in
+      let t = Tt.unabstract [y] 0 t in
+      let xvs = collect_tt_pattern env xvs p ctx t (Tt.mk_type_ty ~loc:(snd e)) in
+      xvs
+
+    | Syntax.Tt_Eq (p1,p2), Tt.Eq (ty,te1,te2) ->
+      let xvs = collect_tt_pattern env xvs p1 ctx te1 ty in
+      let xvs = collect_tt_pattern env xvs p2 ctx te2 ty in
+      xvs
+
+    | Syntax.Tt_Refl p, Tt.Refl (ty,te) ->
+      let xvs = collect_tt_pattern env xvs p ctx te ty in
+      xvs
+
+    | Syntax.Tt_Inhab, Tt.Inhab _ ->
+      xvs
+
+    | Syntax.Tt_Bracket p, Tt.Bracket (Tt.Ty ty) ->
+      let _,loc = ty in
+      let xvs = collect_tt_pattern env xvs p ctx ty (Tt.mk_type_ty ~loc) in
+      xvs
+
+    | Syntax.Tt_Signature xps, Tt.Signature xts ->
+      let rec fold env xvs ys ctx xps xts =
+        match xps, xts with
+          | [], [] ->
+            xvs
+          | (l,x,p)::xps, (l',x',t)::xts ->
+            if Name.eq_ident l l'
+            then
+              let t = Tt.unabstract_ty ys 0 t in
+              let Tt.Ty t' = t in let (_, loc) = t' in
+              let xvs = collect_tt_pattern env xvs p ctx t' (Tt.mk_type_ty ~loc) in
+              let y, ctx = Context.cone ctx x t in
+              let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
+              let env = add_bound x yt env in
+              fold env xvs (y::ys) ctx xps xts
+            else raise Match_fail
+          | _::_, [] | [], _::_ ->
+            raise Match_fail
+        in
+      fold env xvs [] ctx xps xts
+
+    | Syntax.Tt_Structure xps, Tt.Structure xts ->
+      let rec fold env xvs ys ctx xps xts =
+        match xps, xts with
+          | [], [] ->
+            xvs
+          | (l,x,p)::xps, (l',x',t,te)::xts ->
+            if Name.eq_ident l l'
+            then
+              let t = Tt.unabstract_ty ys 0 t in
+              let te = Tt.unabstract ys 0 te in
+              let xvs = collect_tt_pattern env xvs p ctx te t in
+              let y, ctx = Context.cone ctx x t in
+              let Tt.Ty (_,loc) = t in
+              let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
+              let env = add_bound x yt env in
+              fold env xvs (y::ys) ctx xps xts
+            else raise Match_fail
+          | _::_, [] | [], _::_ ->
+            raise Match_fail
+        in
+      fold env xvs [] ctx xps xts
+
+    | Syntax.Tt_Projection (p,l), Tt.Projection (te,xts,l') ->
+      if Name.eq_ident l l'
+      then
+        let _,loc = e in
+        let xvs = collect_tt_pattern env xvs p ctx te (Tt.mk_signature_ty ~loc xts) in
+        xvs
+      else raise Match_fail
+
+    | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Lambda _ | Syntax.Tt_App _
+        | Syntax.Tt_Prod _ | Syntax.Tt_Eq _ | Syntax.Tt_Refl _ | Syntax.Tt_Inhab
+        | Syntax.Tt_Bracket _ | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
+        | Syntax.Tt_Projection _) , _ ->
+      raise Match_fail
+
 
 let match_pattern env xs p v =
   (* collect values of pattern variables *)
@@ -209,9 +343,11 @@ let match_pattern env xs p v =
        then xvs
        else raise Match_fail
 
-    | Syntax.Patt_Jdg (pe, pt), Value.Term (ctx, e, ((Tt.Ty (t', loc)) as t)) ->
-       let xvs = match_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
-       match_tt_pattern env xvs pe ctx e t
+    | Syntax.Patt_Jdg (pe, pt), Value.Term (ctx, e, t) ->
+       let Tt.Ty t' = t in
+       let _,loc = t' in
+       let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
+       collect_tt_pattern env xvs pe ctx e t
 
     | Syntax.Patt_Tag (tag, ps), Value.Tag (tag', vs) when Name.eq_ident tag tag' ->
        let rec fold xvs = function
