@@ -3,6 +3,34 @@
 (** Bound variables - represented by de Bruijn indices *)
 type bound = int
 
+(** Patterns *)
+
+type tt_pattern = tt_pattern' * Location.t
+and tt_pattern' =
+  | Tt_Anonymous
+  | Tt_As of tt_pattern * bound
+  | Tt_Bound of bound
+  | Tt_Type
+  | Tt_Constant of Name.ident
+  | Tt_Lambda of Name.ident * bound option * tt_pattern option * tt_pattern
+  | Tt_App of tt_pattern * tt_pattern
+  | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
+  | Tt_Eq of tt_pattern * tt_pattern
+  | Tt_Refl of tt_pattern
+  | Tt_Inhab
+  | Tt_Bracket of tt_pattern
+  | Tt_Signature of (Name.ident * Name.ident * bound option * tt_pattern) list
+  | Tt_Structure of (Name.ident * Name.ident * bound option * tt_pattern) list
+  | Tt_Projection of tt_pattern * Name.ident
+
+type pattern = pattern' * Location.t
+and pattern' =
+  | Patt_Anonymous
+  | Patt_As of pattern * bound
+  | Patt_Bound of bound
+  | Patt_Jdg of tt_pattern * tt_pattern
+  | Patt_Tag of Name.ident * pattern list
+
 (** Desugared expressions *)
 type expr = expr' * Location.t
 and expr' =
@@ -10,6 +38,7 @@ and expr' =
   | Bound of bound
   | Function of Name.ident * comp
   | Handler of handler
+  | Tag of Name.ident * expr list
 
 (** Desugared types - indistinguishable from expressions *)
 and ty = expr
@@ -24,6 +53,7 @@ and comp' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
   | Apply of expr * expr
+  | Match of expr * match_case list
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
@@ -50,6 +80,8 @@ and handler = {
   handler_ops: (string * (Name.ident * Name.ident * comp)) list;
   handler_finally : (Name.ident * comp) option;
 }
+
+and match_case = Name.ident list * pattern * comp
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t

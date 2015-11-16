@@ -56,7 +56,7 @@ and weak_whnf env ctx ((e', loc) as e) =
           | Tt.Prod _
           | Tt.Eq _
           | Tt.Refl _
-          | Tt.Inhab
+          | Tt.Inhab _
           | Tt.Bracket _
           | Tt.Signature _
           | Tt.Structure _
@@ -89,7 +89,7 @@ and weak_whnf env ctx ((e', loc) as e) =
             | Tt.Prod _
             | Tt.Eq _
             | Tt.Refl _
-            | Tt.Inhab
+            | Tt.Inhab _
             | Tt.Bracket _
             | Tt.Signature _
             | Tt.Projection _ ->
@@ -104,7 +104,7 @@ and weak_whnf env ctx ((e', loc) as e) =
       | Tt.Type
       | Tt.Eq _
       | Tt.Refl _
-      | Tt.Inhab
+      | Tt.Inhab _
       | Tt.Bracket _
       | Tt.Signature _
       | Tt.Structure _ -> (ctx, e)
@@ -243,7 +243,7 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
         | Tt.Structure _
         | Tt.Lambda _
         | Tt.Refl _
-        | Tt.Inhab
+        | Tt.Inhab _
         | Tt.Type ->
            (* It may seem odd that a lambda abstraction or a refl is a type,
               but not impossible in the presence of crazy hints. *)
@@ -468,7 +468,8 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
      equal_ty env ctx u u' >>= fun ctx ->
      equal env ctx d d' u
 
-  | Tt.Inhab, Tt.Inhab -> return ctx
+  | Tt.Inhab t, Tt.Inhab t' ->
+     equal_ty env ctx t t'
 
   | Tt.Bracket t1, Tt.Bracket t2 ->
      equal_ty env ctx t1 t2
@@ -490,7 +491,7 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
     else None
 
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
-     Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _ |
+     Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _ |
      Tt.Signature _ | Tt.Structure _ | Tt.Projection _), _ ->
      None
 
@@ -1108,18 +1109,18 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty (t', loc)) as t) =
     | Tt.Bound _
     | Tt.Lambda _
     | Tt.Refl _
-    | Tt.Inhab
+    | Tt.Inhab _
     | Tt.Signature _
     | Tt.Structure _
     | Tt.Projection _
     | Tt.Type -> None
 
-and inhabit_bracket ~subgoals ~loc env (ctx, t) =
+and inhabit_bracket ~subgoals ~loc env (ctx, t_inhabit) =
   if not subgoals then
-    Some (ctx, Tt.mk_inhab ~loc)
+    Some (ctx, Tt.mk_inhab ~loc t_inhabit)
   else
     (* apply inhabit hints *)
-    let ctx, t = strip_bracket env ctx t in
+    let ctx, t = strip_bracket env ctx t_inhabit in
     let key = Pattern.ty_key t in
     let rec fold = function
       | [] -> None
@@ -1134,7 +1135,7 @@ and inhabit_bracket ~subgoals ~loc env (ctx, t) =
          | Some (pvars, checks) ->
             (* check validity of the match *)
             begin match verify_match ~spawn:true env ctx xts pvars checks with
-                  | Some (ctx, _) -> Some (ctx, Tt.mk_inhab ~loc)
+                  | Some (ctx, _) -> Some (ctx, Tt.mk_inhab ~loc t_inhabit)
                   | None -> fold hs
             end
          end
@@ -1145,7 +1146,7 @@ let as_atom env (ctx, e', t)  =
   match e' with
   | Tt.Atom x -> (ctx, x, t)
   | Tt.Prod _ | Tt.Type | Tt.Eq _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _
+  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
     Error.runtime ~loc "this expression should be an atom"
 
@@ -1176,7 +1177,7 @@ let rec deep_prod env ctx t f =
      fold env [] xus
 
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _
+  | Tt.Spine _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
      let ctx, t = f env ctx (Tt.ty (t', loc)) in
      (ctx, ([], t))
@@ -1190,7 +1191,7 @@ let as_eq env (ctx, ((Tt.Ty (_, loc)) as t)) =
   | Tt.Eq (t, e1, e2) -> (ctx, t, e1, e2)
 
   | Tt.Prod _ | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _
+  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
      Error.typing ~loc
        "this expression should be an equality type, found@ %t"
@@ -1207,7 +1208,7 @@ let as_universal_eq env (ctx, ((Tt.Ty (_, loc)) as t)) =
   | Tt.Prod _ -> Error.impossible ~loc "product encountered in as_universal_eq"
 
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab | Tt.Bracket _
+  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
      Error.typing ~loc
        "the type of this expression should be a universally quantified equality, found@ %t"
@@ -1224,7 +1225,7 @@ let as_universal_bracket env (ctx, ((Tt.Ty (_, loc)) as t)) =
      | Tt.Prod _ -> Error.impossible ~loc "product encountered in as_universal_bracket"
 
      | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-     | Tt.Spine _ | Tt.Refl _ | Tt.Inhab
+     | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _
      | Tt.Signature _ | Tt.Structure _ | Tt.Projection _
      | Tt.Eq _ -> ctx, t)
 

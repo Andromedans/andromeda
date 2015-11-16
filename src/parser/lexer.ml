@@ -26,12 +26,13 @@ let reserved = [
   ("Inhabit", TOPINHABIT) ;
   ("Let", TOPLET) ;
   ("let", LET) ;
+  ("match", MATCH) ;
   ("Parameter", AXIOM) ;
   ("reduce", REDUCE) ;
-  ("forall", FORALL) ;
-  ("∀", FORALL) ;
-  ("Π", FORALL) ;
-  ("∏", FORALL) ;
+  ("forall", PROD) ;
+  ("∀", PROD) ;
+  ("Π", PROD) ;
+  ("∏", PROD) ;
   ("fun", FUNCTION) ;
   ("lambda", LAMBDA) ;
   ("λ", LAMBDA) ;
@@ -40,6 +41,7 @@ let reserved = [
   ("Type", TYPE) ;
   ("typeof", TYPEOF) ;
   ("val", VAL) ;
+  ("⊢", VDASH) ;
   ("where", WHERE) ;
   ("with", WITH)
 ]
@@ -107,10 +109,12 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
+  | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
   | '@'                      -> f (); APPLY
+  | '\'', name               -> f (); TAG (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | "->" | 8594 | 10230      -> f (); ARROW
-  (* | "=>" | 10233             -> f (); DARROW *)
+  | "=>" | 10233             -> f (); DARROW
   | "==" | 8801              -> f (); EQEQ
   | eof                      -> f (); EOF
   | (name | numeral)         -> f ();

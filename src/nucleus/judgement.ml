@@ -12,15 +12,17 @@ let mk_ty ctx t = (ctx, t)
 
 let ty_ty = (Context.empty, Tt.typ)
 
-let print_term xs (ctx, e,t) ppf =
-  Format.fprintf ppf "%t@[<hov 2>%s %t@\n    : %t@]"
+let print_term ?max_level xs (ctx, e,t) ppf =
+  Print.print ?max_level ~at_level:100 ppf
+              "%t@[<hov 2>%s %t@ : %t@]"
               (Context.print ctx)
               (Print.char_vdash ())
               (Tt.print_term ~max_level:999 xs e)
               (Tt.print_ty ~max_level:999 xs t)
 
-let print_ty xs (ctx, t) ppf =
-  Print.print ~at_level:0 ppf "%t@[<hov 2>%s %t@\n    type@]"
+let print_ty ?max_level xs (ctx, t) ppf =
+  Print.print ?max_level ~at_level:0 ppf
+              "%t@[<hov 2>%s %t@ type@]"
               (Context.print ctx)
               (Print.char_vdash ())
               (Tt.print_ty ~max_level:999 xs t)

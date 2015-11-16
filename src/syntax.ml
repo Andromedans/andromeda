@@ -3,6 +3,34 @@
 (** Bound variables - represented by de Bruijn indices *)
 type bound = int
 
+(** Patterns *)
+
+type tt_pattern = tt_pattern' * Location.t
+and tt_pattern' =
+  | Tt_Anonymous
+  | Tt_As of tt_pattern * bound
+  | Tt_Bound of bound
+  | Tt_Type
+  | Tt_Constant of Name.ident
+  | Tt_Lambda of Name.ident * bound option * tt_pattern option * tt_pattern
+  | Tt_App of tt_pattern * tt_pattern
+  | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
+  | Tt_Eq of tt_pattern * tt_pattern
+  | Tt_Refl of tt_pattern
+  | Tt_Inhab
+  | Tt_Bracket of tt_pattern
+  | Tt_Signature of (Name.ident * Name.ident * bound option * tt_pattern) list
+  | Tt_Structure of (Name.ident * Name.ident * bound option * tt_pattern) list
+  | Tt_Projection of tt_pattern * Name.ident
+
+type pattern = pattern' * Location.t
+and pattern' =
+  | Patt_Anonymous
+  | Patt_As of pattern * bound
+  | Patt_Bound of bound
+  | Patt_Jdg of tt_pattern * tt_pattern
+  | Patt_Tag of Name.ident * pattern list
+
 (** Desugared expressions *)
 type expr = expr' * Location.t
 and expr' =
@@ -10,6 +38,7 @@ and expr' =
   | Bound of bound
   | Function of Name.ident * comp
   | Handler of handler
+  | Tag of Name.ident * expr list
 
 (** Desugared types - indistinguishable from expressions *)
 and ty = expr
@@ -24,6 +53,7 @@ and comp' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
   | Apply of expr * expr
+  | Match of expr * match_case list
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
@@ -51,6 +81,9 @@ and handler = {
   handler_finally : (Name.ident * comp) option;
 }
 
+and match_case = Name.ident list * pattern * comp
+
+
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
@@ -72,6 +105,75 @@ and toplevel' =
 let opt_map f = function
   | None -> None
   | Some x -> Some (f x)
+
+let rec shift_pattern k lvl ((p', loc) as p) =
+  match p' with
+    | Patt_Anonymous -> p
+    | Patt_As (p,k) ->
+      let p = shift_pattern k lvl p in
+      Patt_As (p,k), loc
+    | Patt_Bound m ->
+       if m >= lvl then (Patt_Bound (m + k), loc) else p
+    | Patt_Jdg (p1,p2) ->
+      let p1 = shift_tt_pattern k lvl p1
+      and p2 = shift_tt_pattern k lvl p2 in
+      Patt_Jdg (p1,p2), loc
+    | Patt_Tag (t,ps) ->
+      let ps = List.map (shift_pattern k lvl) ps in
+      Patt_Tag (t,ps), loc
+
+and shift_tt_pattern k lvl ((p',loc) as p) =
+  match p' with
+    | Tt_Anonymous | Tt_Type | Tt_Constant _ | Tt_Inhab -> p
+    | Tt_As (p,k) ->
+      let p = shift_tt_pattern k lvl p in
+      Tt_As (p,k), loc
+    | Tt_Bound m -> if m >= lvl then (Tt_Bound (m + k), loc) else p
+    | Tt_Lambda (x,bopt,copt,c) ->
+      let copt = opt_map (shift_tt_pattern k lvl) copt
+      and c = shift_tt_pattern k (lvl+1) c in
+      Tt_Lambda (x,bopt,copt,c), loc
+    | Tt_App (c1,c2) ->
+      let c1 = shift_tt_pattern k lvl c1
+      and c2 = shift_tt_pattern k lvl c2 in
+      Tt_App (c1,c2), loc
+    | Tt_Prod (x,bopt,copt,c) ->
+      let copt = opt_map (shift_tt_pattern k lvl) copt
+      and c = shift_tt_pattern k (lvl+1) c in
+      Tt_Prod (x,bopt,copt,c), loc
+    | Tt_Eq (c1,c2) ->
+      let c1 = shift_tt_pattern k lvl c1
+      and c2 = shift_tt_pattern k lvl c2 in
+      Tt_Eq (c1,c2), loc
+    | Tt_Refl c ->
+      let c = shift_tt_pattern k lvl c in
+      Tt_Refl c, loc
+    | Tt_Bracket c ->
+      let c = shift_tt_pattern k lvl c in
+      Tt_Bracket c, loc
+    | Tt_Signature xcs ->
+      let rec fold lvl xcs = function
+        | [] ->
+          let xcs = List.rev xcs in
+          Tt_Signature xcs, loc
+        | (l,x,bopt,c)::rem ->
+          let c = shift_tt_pattern k lvl c in
+          fold (lvl+1) ((l,x,bopt,c)::xcs) rem
+        in
+      fold lvl [] xcs
+    | Tt_Structure xcs ->
+      let rec fold lvl xcs = function
+        | [] ->
+          let xcs = List.rev xcs in
+          Tt_Structure xcs, loc
+        | (l,x,bopt,c)::rem ->
+          let c = shift_tt_pattern k lvl c in
+          fold (lvl+1) ((l,x,bopt,c)::xcs) rem
+        in
+      fold lvl [] xcs
+    | Tt_Projection (c,l) ->
+      let c = shift_tt_pattern k lvl c in
+      Tt_Projection (c,l), loc
 
 let rec shift_comp k lvl (c', loc) =
   let c' =
@@ -110,6 +212,11 @@ let rec shift_comp k lvl (c', loc) =
        let e1 = shift_expr k lvl e1
        and e2 = shift_expr k lvl e2 in
        Apply (e1, e2)
+
+    | Match (e, lst) ->
+      let e = shift_expr k lvl e in
+      let lst = List.map (shift_case k lvl) lst in
+      Match (e, lst)
 
     | Beta (xscs, c) ->
        let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
@@ -226,4 +333,11 @@ and shift_expr k lvl ((e', loc) as e) =
   | Bound m -> if m >= lvl then (Bound (m + k), loc) else e
   | Function (x, c) -> Function (x, shift_comp k (lvl+1) c), loc
   | Handler h -> Handler (shift_handler k lvl h), loc
+  | Tag (t, lst) -> Tag (t, List.map (shift_expr k lvl) lst), loc
   | Type -> e
+
+and shift_case k lvl (xs, p, c) =
+  let p = shift_pattern k lvl p
+  and c = shift_comp k (lvl + List.length xs) c in
+  xs, p, c
+

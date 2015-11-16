@@ -11,6 +11,7 @@ type value =
   | Ty of Judgement.ty
   | Closure of closure
   | Handler of handler
+  | Tag of Name.ident * value list
 
  and closure = value -> value result
 
@@ -39,7 +40,10 @@ val return_ty : Judgement.ty -> value result
 val bind: 'a result -> ('a -> 'b result)  -> 'b result
 
 (** Pretty-print a value. *)
-val print : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
+val print_value : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
 
 (** Check that a result is a value and return it, or complain. *)
 val to_value : loc:Location.t -> 'a result -> 'a
+
+(** Check whether two values are equal. *)
+val equal_value: value -> value -> bool

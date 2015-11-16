@@ -5,6 +5,32 @@
     However, we define type aliases for these for better readability.
     There are no de Bruijn indices either. *)
 
+(** Sugared term patterns *)
+type tt_pattern = tt_pattern' * Location.t
+and tt_pattern' =
+  | Tt_Anonymous
+  | Tt_As of tt_pattern * Name.ident
+  | Tt_Type
+  | Tt_Name of Name.ident
+  | Tt_Lambda of Name.ident * tt_pattern option * tt_pattern
+  | Tt_App of tt_pattern * tt_pattern
+  | Tt_Prod of Name.ident * tt_pattern option * tt_pattern
+  | Tt_Eq of tt_pattern * tt_pattern
+  | Tt_Refl of tt_pattern
+  | Tt_Inhab
+  | Tt_Bracket of tt_pattern
+  | Tt_Signature of (Name.ident * Name.ident option * tt_pattern) list
+  | Tt_Structure of (Name.ident * Name.ident option * tt_pattern) list
+  | Tt_Projection of tt_pattern * Name.ident
+
+type pattern = pattern' * Location.t
+and pattern' =
+  | Patt_Anonymous
+  | Patt_As of pattern * Name.ident
+  | Patt_Name of Name.ident
+  | Patt_Jdg of tt_pattern * tt_pattern
+  | Patt_Tag of Name.ident * pattern list
+
 (** Sugared terms *)
 type term = term' * Location.t
 and term' =
@@ -18,6 +44,8 @@ and term' =
   | Handle of comp * handle_case list
   | With of expr * comp
   | Apply of expr * expr
+  | Tag of Name.ident * comp list
+  | Match of comp * match_case list
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
@@ -54,6 +82,8 @@ and handle_case =
   | CaseVal of Name.ident * comp (* val x -> c *)
   | CaseOp of string * Name.ident * Name.ident * comp (* #op x k -> c *)
   | CaseFinally of Name.ident * comp (* finally x -> c *)
+                                  
+and match_case = Name.ident list * pattern * comp
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t

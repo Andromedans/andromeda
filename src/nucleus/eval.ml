@@ -10,6 +10,10 @@ let print_ty env t =
     let xs = Environment.used_names env in
       Tt.print_ty xs t
 
+let print_value env v =
+    let xs = Environment.used_names env in
+      Value.print_value xs v
+
 (** Notation for the monadic bind *)
 let (>>=) = Value.bind
 
@@ -48,6 +52,10 @@ let rec expr env (e',loc) =
     | Syntax.Function (x, c) ->
        Value.Closure (close x c)
 
+    | Syntax.Tag (t, lst) ->
+       let lst = List.map (expr env) lst in
+       Value.Tag (t, lst)
+
     | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
        let handler_val =
          begin match handler_val with
@@ -79,6 +87,7 @@ and expr_term env ((_,loc) as e) =
   | Value.Term et -> et
   | Value.Handler _ -> Error.runtime ~loc "this expression should be a term but is a handler"
   | Value.Closure _ -> Error.runtime ~loc "this expression should be a term but is a closure"
+  | Value.Tag _ -> Error.runtime ~loc "this expression should be a term but is a tag"
 
 (** Evaluate a computation -- infer mode. *)
 and infer env (c',loc) =
@@ -129,6 +138,19 @@ and infer env (c',loc) =
      let v1 = Value.as_closure ~loc (expr env e1)
      and v2 = expr env e2 in
        v1 v2
+
+  | Syntax.Match (e,cases) ->
+    let v = expr env e in
+    let rec fold = function
+      | [] ->
+        Error.typing ~loc "No match found for %t" (print_value env v)
+      | (xs, p, c) :: cases ->
+        begin match Environment.match_pattern env xs p v with
+          | Some env -> infer env c
+          | None -> fold cases
+        end
+      in
+    fold cases
 
   | Syntax.Beta (xscs, c) ->
     beta_bind env xscs >>= (fun env -> infer env c)
@@ -298,6 +320,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.With _
   | Syntax.Typeof _
   | Syntax.Apply _
+  | Syntax.Match _
   | Syntax.Constant _
   | Syntax.Prod _
   | Syntax.Eq _
@@ -397,7 +420,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
      let t = Judgement.mk_ty ctx t' in
      begin match Equal.inhabit_bracket ~subgoals:true ~loc env t with
            | Some (ctx,_) ->
-              Value.return (ctx, Tt.mk_inhab ~loc)
+              Value.return (ctx, Tt.mk_inhab ~loc t')
            | None -> Error.typing ~loc "do not know how to inhabit %t"
                                   (print_ty env t')
      end
