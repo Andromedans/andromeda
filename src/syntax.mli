@@ -3,6 +3,34 @@
 (** Bound variables - represented by de Bruijn indices *)
 type bound = int
 
+(** Patterns *)
+
+type tt_pattern = tt_pattern' * Location.t
+and tt_pattern' =
+  | Tt_Anonymous
+  | Tt_Type
+  (** Pattern variables are a subset of the bound variables. *)
+  | Tt_Bound of bound
+  | Tt_Atom of Name.atom
+  | Tt_Constant of Name.ident
+  | Tt_Lambda of Name.ident * tt_pattern option * tt_pattern
+  | Tt_App of tt_pattern * tt_pattern
+  | Tt_Prod of Name.ident * tt_pattern option * tt_pattern
+  | Tt_Eq of tt_pattern * tt_pattern
+  | Tt_Refl of tt_pattern
+  | Tt_Inhab
+  | Tt_Bracket of tt_pattern
+  | Tt_Signature of (Name.ident * Name.ident option * tt_pattern) list
+  | Tt_Structure of (Name.ident * Name.ident option * tt_pattern) list
+  | Tt_Projection of tt_pattern * Name.ident
+
+type pattern = pattern' * Location.t
+and pattern' =
+  | Patt_Anonymous
+  | Patt_Var of bound
+  | Patt_Jdg of tt_pattern * tt_pattern
+  | Patt_Tag of Name.ident * pattern list
+
 (** Desugared expressions *)
 type expr = expr' * Location.t
 and expr' =
@@ -53,13 +81,7 @@ and handler = {
   handler_finally : (Name.ident * comp) option;
 }
 
-and match_case = Name.ident list * match_pattern * comp
-
-and match_pattern = match_pattern' * Location.t
-and match_pattern' =
-  | MatchVar of bound
-  | MatchTag of Name.ident * match_pattern list
-  | MatchJdg of comp * comp
+and match_case = Name.ident list * pattern * comp
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t

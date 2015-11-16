@@ -3,6 +3,33 @@
 (** Bound variables - represented by de Bruijn indices *)
 type bound = int
 
+(** Patterns *)
+
+type tt_pattern = tt_pattern' * Location.t
+and tt_pattern' =
+  | Tt_Anonymous
+  | Tt_Type
+  | Tt_Bound of bound
+  | Tt_Atom of Name.atom
+  | Tt_Constant of Name.ident
+  | Tt_Lambda of Name.ident * tt_pattern option * tt_pattern
+  | Tt_App of tt_pattern * tt_pattern
+  | Tt_Prod of Name.ident * tt_pattern option * tt_pattern
+  | Tt_Eq of tt_pattern * tt_pattern
+  | Tt_Refl of tt_pattern
+  | Tt_Inhab
+  | Tt_Bracket of tt_pattern
+  | Tt_Signature of (Name.ident * Name.ident option * tt_pattern) list
+  | Tt_Structure of (Name.ident * Name.ident option * tt_pattern) list
+  | Tt_Projection of tt_pattern * Name.ident
+
+type pattern = pattern' * Location.t
+and pattern' =
+  | Patt_Anonymous
+  | Patt_Var of bound
+  | Patt_Jdg of tt_pattern * tt_pattern
+  | Patt_Tag of Name.ident * pattern list
+
 (** Desugared expressions *)
 type expr = expr' * Location.t
 and expr' =
@@ -53,13 +80,8 @@ and handler = {
   handler_finally : (Name.ident * comp) option;
 }
 
-and match_case = Name.ident list * match_pattern * comp
+and match_case = Name.ident list * pattern * comp
 
-and match_pattern = match_pattern' * Location.t
-and match_pattern' =
-  | MatchVar of bound
-  | MatchTag of Name.ident * match_pattern list
-  | MatchJdg of comp * comp
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
@@ -82,6 +104,70 @@ and toplevel' =
 let opt_map f = function
   | None -> None
   | Some x -> Some (f x)
+
+
+let rec shift_pattern k lvl ((p', loc) as p) =
+  match p' with
+    | Patt_Anonymous
+    | Patt_Var m ->
+      if m >= lvl then (Patt_Var (m + k), loc) else p
+    | Patt_Jdg (p1,p2) ->
+      let p1 = shift_tt_pattern k lvl p1
+      and p2 = shift_tt_pattern k lvl p2 in
+      Patt_Jdg (p1,p2), loc
+    | Patt_Tag (t,ps) ->
+      let ps = List.map (shift_pattern k lvl) ps in
+      Patt_Tag (t,ps), loc
+
+and shift_tt_pattern k lvl ((p',loc) as p) =
+  match p' with
+    | Tt_Anonymous | Tt_Type | Tt_Atom _ | Tt_Constant _ | Tt_Inhab -> p
+    | Tt_Bound m -> if m >= lvl then (Tt_Bound (m + k), loc) else p
+    | Tt_Lambda (x,copt,c) ->
+      let copt = opt_map (shift_tt_pattern k lvl) copt
+      and c = shift_tt_pattern k (lvl+1) c in
+      Tt_Lambda (x,copt,c), loc
+    | Tt_App (c1,c2) ->
+      let c1 = shift_tt_pattern k lvl c1
+      and c2 = shift_tt_pattern k lvl c2 in
+      Tt_App (c1,c2), loc
+    | Tt_Prod (x,copt,c) ->
+      let copt = opt_map (shift_tt_pattern k lvl) copt
+      and c = shift_tt_pattern k (lvl+1) c in
+      Tt_Prod (x,copt,c), loc
+    | Tt_Eq (c1,c2) ->
+      let c1 = shift_tt_pattern k lvl c1
+      and c2 = shift_tt_pattern k lvl c2 in
+      Tt_Eq (c1,c2), loc
+    | Tt_Refl c ->
+      let c = shift_tt_pattern k lvl c in
+      Tt_Refl c, loc
+    | Tt_Bracket c ->
+      let c = shift_tt_pattern k lvl c in
+      Tt_Bracket c, loc
+    | Tt_Signature xcs ->
+      let rec fold lvl xcs = function
+        | [] ->
+          let xcs = List.rev xcs in
+          Tt_Signature xcs, loc
+        | (l,x,c)::rem ->
+          let c = shift_tt_pattern k lvl c in
+          fold (lvl+1) ((l,x,c)::xcs) rem
+        in
+      fold lvl [] xcs
+    | Tt_Structure xcs ->
+      let rec fold lvl xcs = function
+        | [] ->
+          let xcs = List.rev xcs in
+          Tt_Structure xcs, loc
+        | (l,x,c)::rem ->
+          let c = shift_tt_pattern k lvl c in
+          fold (lvl+1) ((l,x,c)::xcs) rem
+        in
+      fold lvl [] xcs
+    | Tt_Projection (c,l) ->
+      let c = shift_tt_pattern k lvl c in
+      Tt_Projection (c,l), loc
 
 let rec shift_comp k lvl (c', loc) =
   let c' =
@@ -254,15 +340,4 @@ and shift_case k lvl (xcs, p, c) =
       fold (lvl+1) xcs
     in
   fold lvl xcs
-
-and shift_pattern k lvl ((p', loc) as p) =
-  match p' with
-  | MatchVar m -> if m >= lvl then (MatchVar (m + k), loc) else p
-  | MatchTag (t, lst) ->
-    let lst = List.map (shift_pattern k lvl) lst in
-    MatchTag (t, lst), loc
-  | MatchJdg (c1, c2) ->
-     let c1 = shift_comp k lvl c1
-     and c2 = shift_comp k lvl c2 in
-     MatchJdg (c1, c2), loc
 
