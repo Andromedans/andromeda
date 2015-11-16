@@ -284,6 +284,7 @@ match_case:
 pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
   | p=plain_simple_pattern                  { p }
+  | p=simple_pattern AS x=var_name          { Patt_As (p,x) }
   | t=TAG ps=simple_pattern+                { Patt_Tag (Name.make t, ps) }
   | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, e2) }
 
@@ -315,6 +316,7 @@ plain_equal_tt_pattern:
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
   | p=plain_simple_tt_pattern                 { p }
+  | p=app_tt_pattern AS x=var_name            { Tt_As (p,x) }
   | p1=app_tt_pattern p2=simple_tt_pattern    { Tt_App (p1, p2) }
   | REFL p=simple_tt_pattern                  { Tt_Refl p }
 
