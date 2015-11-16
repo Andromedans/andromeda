@@ -1,0 +1,19 @@
+A is assumed.
+a is assumed.
+b is assumed.
+c is assumed.
+'a
+'lambda (x₆ : A 
+         ⊢ x₆ : A) (⊢ A : Type) (x₆ : A 
+                                       ⊢ a : A)
+('prod (x'₅ : A 
+        ⊢ x'₅ : A) (⊢ A : Type) (x'₅ : A 
+                                       ⊢ A : Type))
+list is assumed.
+nil is assumed.
+cons is defined.
+'pair (cons₉ : A → list → list 
+       ⊢ b : A)
+(cons₉ : A → list → list 
+ ⊢ cons₉ b (cons₉ c nil) : list)
+'ok
