@@ -301,8 +301,7 @@ and case constants bound (xs, p, c) =
   let rec fold bound = function
     | [] ->
       let varn = List.length xs in
-      let p, present = pattern constants bound varn IntSet.empty p
-      and c = comp constants bound c in
+      let p, present = pattern constants bound varn IntSet.empty p in
       let rec check i = function
         | [] -> ()
         | x::xs ->
@@ -312,6 +311,7 @@ and case constants bound (xs, p, c) =
             Error.syntax ~loc:(snd p) "Match variable %t not present in pattern" (Name.print_ident x)
         in
       check (varn - 1) xs;
+      let c = comp constants bound c in
       (xs, p, c)
     | x :: xs ->
       let bound = add_bound x bound in
@@ -319,20 +319,21 @@ and case constants bound (xs, p, c) =
   in
   fold bound xs
 
+(* here be careful as pattern variables are put together with bound variables *)
 and pattern constants bound varn present (p,loc) =
   match p with
     | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), present
     | Input.Patt_Name x ->
       begin match Name.index_of_ident x bound with
         | None ->
-          Error.syntax ~loc "unknown name %t" (Name.print_ident x)
+          Error.syntax ~loc "unknown value name %t" (Name.print_ident x)
         | Some k ->
           if k < varn
           then
             let present = IntSet.add k present in
             (Syntax.Patt_Var k, loc), present
           else
-            Error.syntax ~loc "cannot match with bound value %t" (Name.print_ident x)
+            (Syntax.Patt_Bound (k-varn), loc), present
       end
     | Input.Patt_Jdg (p1,p2) ->
       let p1, present = tt_pattern constants bound varn 0 present p1 in
@@ -349,6 +350,7 @@ and pattern constants bound varn present (p,loc) =
         in
       fold present [] ps
 
+(* the variables in [bound] are: lvl bound variables, varn pattern variables, then bound variables again *)
 and tt_pattern constants bound varn lvl present (p,loc) =
   match p with
     | Input.Tt_Anonymous ->
@@ -366,8 +368,14 @@ and tt_pattern constants bound varn lvl present (p,loc) =
           else
             Error.syntax ~loc "unknown name %t" (Name.print_ident x)
         | Some k ->
-          let present = if (k-lvl) < varn then IntSet.add (k-lvl) present else present in
-          (Syntax.Tt_Bound k, loc), present
+          if k < lvl
+          then (Syntax.Tt_Bound k, loc), present
+          else if k-lvl < varn
+          then
+            let present = IntSet.add (k-lvl) present in
+            (Syntax.Tt_Var (k-lvl), loc), present
+          else
+            (Syntax.Tt_Bound (k-varn), loc), present
       end
 
     | Input.Tt_Lambda (x,popt,p) ->
