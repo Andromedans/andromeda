@@ -232,7 +232,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
       then xvs
       else raise Match_fail
 
-    | Syntax.Tt_Lambda (x,popt,p), Tt.Lambda ((x',ty)::abs,(te,out)) ->
+    | Syntax.Tt_Lambda (x,bopt,popt,p), Tt.Lambda ((x',ty)::abs,(te,out)) ->
       let Tt.Ty t = ty in let _,loc = t in
       let xvs = match popt with
         | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
@@ -245,6 +245,18 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
       let te = Tt.unabstract [y] 0 te in
       let t = Tt.mk_prod_ty ~loc:(snd e) abs out in
       let t = Tt.unabstract_ty [y] 0 t in
+      let xvs = match bopt with
+        | None -> xvs
+        | Some k ->
+          begin try
+            let v' = List.assoc k xvs in
+            if Value.equal_value yt v'
+            then xvs
+            else raise Match_fail
+          with
+            | Not_found -> (k,yt)::xvs
+          end
+        in
       let xvs = collect_tt_pattern env xvs p ctx te t in
       xvs
 
@@ -254,7 +266,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
       let xvs = collect_tt_pattern env xvs p2 ctx te2 ty2 in
       xvs
 
-    | Syntax.Tt_Prod (x,popt,p), Tt.Prod ((x',ty)::abs,out) ->
+    | Syntax.Tt_Prod (x,bopt,popt,p), Tt.Prod ((x',ty)::abs,out) ->
       let Tt.Ty t = ty in let _,loc = t in
       let xvs = match popt with
         | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
@@ -265,6 +277,18 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
       let env = add_bound x yt env in
       let t = Tt.mk_prod ~loc:(snd e) abs out in
       let t = Tt.unabstract [y] 0 t in
+      let xvs = match bopt with
+        | None -> xvs
+        | Some k ->
+          begin try
+            let v' = List.assoc k xvs in
+            if Value.equal_value yt v'
+            then xvs
+            else raise Match_fail
+          with
+            | Not_found -> (k,yt)::xvs
+          end
+        in
       let xvs = collect_tt_pattern env xvs p ctx t (Tt.mk_type_ty ~loc:(snd e)) in
       xvs
 

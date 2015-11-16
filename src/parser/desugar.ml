@@ -413,8 +413,15 @@ and tt_pattern constants bound varn lvl present (p,loc) =
           let p,present = tt_pattern constants bound varn lvl present p in
           Some p, present
         in
+      let bopt, present = match Name.index_of_ident x bound with
+        | None -> None, present
+        | Some k ->
+          if k >= lvl && k-lvl < varn
+          then Some (k-lvl), IntSet.add (k-lvl) present
+          else None, present
+        in
       let p, present = tt_pattern constants (add_bound x bound) varn (lvl+1) present p in
-      (Syntax.Tt_Lambda (x,popt,p), loc), present
+      (Syntax.Tt_Lambda (x,bopt,popt,p), loc), present
 
     | Input.Tt_App (p1,p2) ->
       let p1, present = tt_pattern constants bound varn lvl present p1 in
@@ -429,8 +436,15 @@ and tt_pattern constants bound varn lvl present (p,loc) =
           let p,present = tt_pattern constants bound varn lvl present p in
           Some p, present
         in
+      let bopt, present = match Name.index_of_ident x bound with
+        | None -> None, present
+        | Some k ->
+          if k >= lvl && k-lvl < varn
+          then Some (k-lvl), IntSet.add (k-lvl) present
+          else None, present
+        in
       let p, present = tt_pattern constants (add_bound x bound) varn (lvl+1) present p in
-      (Syntax.Tt_Prod (x,popt,p), loc), present
+      (Syntax.Tt_Prod (x,bopt,popt,p), loc), present
 
     | Input.Tt_Eq (p1,p2) ->
       let p1, present = tt_pattern constants bound varn lvl present p1 in

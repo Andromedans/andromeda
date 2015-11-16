@@ -12,9 +12,9 @@ and tt_pattern' =
   | Tt_Bound of bound
   | Tt_Type
   | Tt_Constant of Name.ident
-  | Tt_Lambda of Name.ident * tt_pattern option * tt_pattern
+  | Tt_Lambda of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_App of tt_pattern * tt_pattern
-  | Tt_Prod of Name.ident * tt_pattern option * tt_pattern
+  | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
   | Tt_Inhab
@@ -129,18 +129,18 @@ and shift_tt_pattern k lvl ((p',loc) as p) =
       let p = shift_tt_pattern k lvl p in
       Tt_As (p,k), loc
     | Tt_Bound m -> if m >= lvl then (Tt_Bound (m + k), loc) else p
-    | Tt_Lambda (x,copt,c) ->
+    | Tt_Lambda (x,bopt,copt,c) ->
       let copt = opt_map (shift_tt_pattern k lvl) copt
       and c = shift_tt_pattern k (lvl+1) c in
-      Tt_Lambda (x,copt,c), loc
+      Tt_Lambda (x,bopt,copt,c), loc
     | Tt_App (c1,c2) ->
       let c1 = shift_tt_pattern k lvl c1
       and c2 = shift_tt_pattern k lvl c2 in
       Tt_App (c1,c2), loc
-    | Tt_Prod (x,copt,c) ->
+    | Tt_Prod (x,bopt,copt,c) ->
       let copt = opt_map (shift_tt_pattern k lvl) copt
       and c = shift_tt_pattern k (lvl+1) c in
-      Tt_Prod (x,copt,c), loc
+      Tt_Prod (x,bopt,copt,c), loc
     | Tt_Eq (c1,c2) ->
       let c1 = shift_tt_pattern k lvl c1
       and c2 = shift_tt_pattern k lvl c2 in

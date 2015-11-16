@@ -12,9 +12,9 @@ and tt_pattern' =
   | Tt_Bound of bound
   | Tt_Type
   | Tt_Constant of Name.ident
-  | Tt_Lambda of Name.ident * tt_pattern option * tt_pattern
+  | Tt_Lambda of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_App of tt_pattern * tt_pattern
-  | Tt_Prod of Name.ident * tt_pattern option * tt_pattern
+  | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
   | Tt_Inhab
