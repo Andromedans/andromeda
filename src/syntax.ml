@@ -8,9 +8,9 @@ type bound = int
 type tt_pattern = tt_pattern' * Location.t
 and tt_pattern' =
   | Tt_Anonymous
-  | Tt_Type
+  | Tt_Var of bound (* a pattern variable *)
   | Tt_Bound of bound
-  | Tt_Atom of Name.atom
+  | Tt_Type
   | Tt_Constant of Name.ident
   | Tt_Lambda of Name.ident * tt_pattern option * tt_pattern
   | Tt_App of tt_pattern * tt_pattern
@@ -27,6 +27,7 @@ type pattern = pattern' * Location.t
 and pattern' =
   | Patt_Anonymous
   | Patt_Var of bound
+  | Patt_Bound of bound
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Tag of Name.ident * pattern list
 
@@ -105,13 +106,12 @@ let opt_map f = function
   | None -> None
   | Some x -> Some (f x)
 
-
 let rec shift_pattern k lvl ((p', loc) as p) =
   match p' with
-    | Patt_Anonymous ->
-      Patt_Anonymous, loc
-    | Patt_Var m ->
-      if m >= lvl then (Patt_Var (m + k), loc) else p
+    | Patt_Anonymous
+    | Patt_Var _ -> p
+    | Patt_Bound m ->
+       if m >= lvl then (Patt_Bound (m + k), loc) else p
     | Patt_Jdg (p1,p2) ->
       let p1 = shift_tt_pattern k lvl p1
       and p2 = shift_tt_pattern k lvl p2 in
@@ -122,7 +122,7 @@ let rec shift_pattern k lvl ((p', loc) as p) =
 
 and shift_tt_pattern k lvl ((p',loc) as p) =
   match p' with
-    | Tt_Anonymous | Tt_Type | Tt_Atom _ | Tt_Constant _ | Tt_Inhab -> p
+    | Tt_Anonymous | Tt_Var _ | Tt_Type | Tt_Constant _ | Tt_Inhab -> p
     | Tt_Bound m -> if m >= lvl then (Tt_Bound (m + k), loc) else p
     | Tt_Lambda (x,copt,c) ->
       let copt = opt_map (shift_tt_pattern k lvl) copt
@@ -331,14 +331,8 @@ and shift_expr k lvl ((e', loc) as e) =
   | Tag (t, lst) -> Tag (t, List.map (shift_expr k lvl) lst), loc
   | Type -> e
 
-and shift_case k lvl (xcs, p, c) =
-  let rec fold lvl = function
-    | [] ->
-      let p = shift_pattern k lvl p
-      and c = shift_comp k lvl c in
-      xcs, p, c
-    | x :: xcs ->
-      fold (lvl+1) xcs
-    in
-  fold lvl xcs
+and shift_case k lvl (xs, p, c) =
+  let p = shift_pattern k lvl p
+  and c = shift_comp k (lvl + List.length xs) c in
+  xs, p, c
 

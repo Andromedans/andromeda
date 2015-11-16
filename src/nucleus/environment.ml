@@ -182,3 +182,63 @@ let print env ppf =
        (Tt.print_constsig forbidden_names t))
     (List.rev env.constants) ;
   Print.print ppf "-----END-----@."
+
+exception Match_fail
+
+let match_tt_pattern env xvs p ctx e t =
+  assert false
+
+let match_pattern env xs p v =
+  (* collect values of pattern variables *)
+  let rec collect xvs (p,_) v =
+    match p, v with 
+    | Syntax.Patt_Anonymous, _ -> xvs
+
+    | Syntax.Patt_Var k, v ->
+       begin try
+           let v' = List.assoc k xvs in
+           if Value.equal_value v v'
+           then xvs
+           else raise Match_fail
+         with Not_found -> (k,v) :: xvs
+       end
+
+    | Syntax.Patt_Bound k, v ->
+       let v' = lookup_bound k env in
+       if Value.equal_value v v'
+       then xvs
+       else raise Match_fail
+
+    | Syntax.Patt_Jdg (pe, pt), Value.Term (ctx, e, ((Tt.Ty (t', loc)) as t)) ->
+       let xvs = match_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
+       match_tt_pattern env xvs pe ctx e t
+
+    | Syntax.Patt_Tag (tag, ps), Value.Tag (tag', vs) when Name.eq_ident tag tag' ->
+       let rec fold xvs = function
+         | [], [] -> xvs
+         | p::ps, v::vs ->
+            let xvs = collect xvs p v in
+            fold xvs (ps, vs)
+         | ([], _::_ | _::_, []) ->
+            raise Match_fail
+       in
+       fold xvs (ps, vs)
+
+    | Syntax.Patt_Jdg _, (Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _)
+    | Syntax.Patt_Tag _, (Value.Term _ | Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _) ->
+       raise Match_fail
+  in
+  try
+    let xvs = collect [] p v in
+    let (_, env) =
+      List.fold_left
+        (fun (k, env) x ->
+         let v = List.assoc k xvs in
+         (k - 1, add_bound x v env))
+        (List.length xs - 1, env)
+        xs
+    in
+    Some env
+  with Match_fail -> None
+  
+

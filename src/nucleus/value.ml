@@ -85,3 +85,6 @@ let to_value ~loc = function
   | Return v -> v
   | Operation (op, _, _) ->
      Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
+
+let equal_value v1 v2 =
+  assert false

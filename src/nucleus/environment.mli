@@ -73,3 +73,7 @@ val included : string -> t -> bool
 
 (** Print free variables in the environment *)
 val print : t -> Format.formatter -> unit
+
+(** Match a value against a pattern and extend the environment with the
+    matched pattern variables. *)
+val match_pattern : t -> Name.ident list -> Syntax.pattern -> Value.value -> t option

@@ -141,24 +141,16 @@ and infer env (c',loc) =
 
   | Syntax.Match (e,cases) ->
     let v = expr env e in
-    let rec prematch cases = function
-      | [] ->
-        Value.return (List.rev cases)
-      | (b,p,c)::rem ->
-        case env b p >>= fun p ->
-        prematch ((p,c)::cases) rem
-      in
-    prematch [] cases >>= fun cases ->
-    let rec findcase = function
+    let rec fold = function
       | [] ->
         Error.typing ~loc "No match found for %t" (print_value env v)
-      | (p,c)::rem ->
-        begin match assert false (* TODO *) with
+      | (xs, p, c) :: cases ->
+        begin match Environment.match_pattern env xs p v with
           | Some env -> infer env c
-          | None -> findcase rem
+          | None -> fold cases
         end
       in
-    findcase cases
+    fold cases
 
   | Syntax.Beta (xscs, c) ->
     beta_bind env xscs >>= (fun env -> infer env c)
@@ -729,20 +721,6 @@ and inhabit_bind env xscs =
                (Pattern.print_inhabit_hint [] h)) "," xshs);
       Value.return env
   in fold [] xscs
-
-(** [case env b p] constructs a Pattern.meta from binders [b] and pattern [p] *)
-and case env b p =
-  let rec fold env xts = function
-    | [] ->
-      let xts = List.rev xts in
-      pattern env p >>= fun p ->
-      Value.return (xts, p)
-    | x::rem ->
-      assert false (* TODO *)
-    in
-  fold env [] b
-
-and pattern env (p,loc) = assert false (* TODO *)
 
 and check_ty env c : Judgement.ty Value.result =
   check env c Judgement.ty_ty >>=

@@ -44,3 +44,6 @@ val print_value : ?max_level:int -> Name.ident list -> value -> Format.formatter
 
 (** Check that a result is a value and return it, or complain. *)
 val to_value : loc:Location.t -> 'a result -> 'a
+
+(** Check whether two values are equal. *)
+val equal_value: value -> value -> bool
