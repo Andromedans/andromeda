@@ -1,5 +1,10 @@
 (** Conversion from sugared to desugared input syntax *)
 
+module IntSet = Set.Make (struct
+                    type t = int
+                    let compare = compare
+                  end)
+
 let add_bound x bound = x :: bound
 
 let rec mk_lambda ys ((c', loc) as c) =
@@ -295,17 +300,146 @@ and handler ~loc constants bound hcs =
 and case constants bound (xs, p, c) =
   let rec fold bound = function
     | [] ->
-       let p = pattern constants bound p
-       and c = comp constants bound c in
-       (xs, p, c)
+      let varn = List.length xs in
+      let p, present = pattern constants bound varn IntSet.empty p
+      and c = comp constants bound c in
+      let rec check i = function
+        | [] -> ()
+        | x::xs ->
+          if IntSet.mem i present
+          then check (i - 1) xs
+          else
+            Error.syntax ~loc:(snd p) "Match variable %t not present in pattern" (Name.print_ident x)
+        in
+      check (varn - 1) xs;
+      (xs, p, c)
     | x :: xs ->
-       let bound = add_bound x bound in
-       fold bound xs
+      let bound = add_bound x bound in
+      fold bound xs
   in
   fold bound xs
 
-and pattern constants bound (p, loc) =
-  assert false (* TODO *)
+and pattern constants bound varn present (p,loc) =
+  match p with
+    | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), present
+    | Input.Patt_Name x ->
+      begin match Name.index_of_ident x bound with
+        | None ->
+          Error.syntax ~loc "unknown name %t" (Name.print_ident x)
+        | Some k ->
+          if k < varn
+          then
+            let present = IntSet.add k present in
+            (Syntax.Patt_Var k, loc), present
+          else
+            Error.syntax ~loc "cannot match with bound value %t" (Name.print_ident x)
+      end
+    | Input.Patt_Jdg (p1,p2) ->
+      let p1, present = tt_pattern constants bound varn 0 present p1 in
+      let p2, present = tt_pattern constants bound varn 0 present p2 in
+      (Syntax.Patt_Jdg (p1,p2), loc), present
+    | Input.Patt_Tag (t,ps) ->
+      let rec fold present ps = function
+        | [] ->
+          let ps = List.rev ps in
+          (Syntax.Patt_Tag (t,ps), loc), present
+        | p::rem ->
+          let p, present = pattern constants bound varn present p in
+          fold present (p::ps) rem
+        in
+      fold present [] ps
+
+and tt_pattern constants bound varn lvl present (p,loc) =
+  match p with
+    | Input.Tt_Anonymous ->
+      (Syntax.Tt_Anonymous, loc), present
+
+    | Input.Tt_Type ->
+      (Syntax.Tt_Type, loc), present
+
+    | Input.Tt_Name x ->
+      begin match Name.index_of_ident x bound with
+        | None ->
+          if List.mem_assoc x constants
+          then
+            (Syntax.Tt_Constant x, loc), present
+          else
+            Error.syntax ~loc "unknown name %t" (Name.print_ident x)
+        | Some k ->
+          let present = if (k-lvl) < varn then IntSet.add (k-lvl) present else present in
+          (Syntax.Tt_Bound k, loc), present
+      end
+
+    | Input.Tt_Lambda (x,popt,p) ->
+      let popt, present = match popt with
+        | None ->
+          None, present
+        | Some p ->
+          let p,present = tt_pattern constants bound varn lvl present p in
+          Some p, present
+        in
+      let p, present = tt_pattern constants (add_bound x bound) varn (lvl+1) present p in
+      (Syntax.Tt_Lambda (x,popt,p), loc), present
+
+    | Input.Tt_App (p1,p2) ->
+      let p1, present = tt_pattern constants bound varn lvl present p1 in
+      let p2, present = tt_pattern constants bound varn lvl present p2 in
+      (Syntax.Tt_App (p1,p2), loc), present
+
+    | Input.Tt_Prod (x,popt,p) ->
+      let popt, present = match popt with
+        | None ->
+          None, present
+        | Some p ->
+          let p,present = tt_pattern constants bound varn lvl present p in
+          Some p, present
+        in
+      let p, present = tt_pattern constants (add_bound x bound) varn (lvl+1) present p in
+      (Syntax.Tt_Prod (x,popt,p), loc), present
+
+    | Input.Tt_Eq (p1,p2) ->
+      let p1, present = tt_pattern constants bound varn lvl present p1 in
+      let p2, present = tt_pattern constants bound varn lvl present p2 in
+      (Syntax.Tt_Eq (p1,p2), loc), present
+
+    | Input.Tt_Refl p ->
+      let p, present = tt_pattern constants bound varn lvl present p in
+      (Syntax.Tt_Refl p, loc), present
+
+    | Input.Tt_Inhab ->
+      (Syntax.Tt_Inhab, loc), present
+
+    | Input.Tt_Bracket p ->
+      let p, present = tt_pattern constants bound varn lvl present p in
+      (Syntax.Tt_Bracket p, loc), present
+
+    | Input.Tt_Signature xps ->
+      let rec fold bound lvl present xps = function
+        | [] ->
+          let xps = List.rev xps in
+          (Syntax.Tt_Signature xps, loc), present
+        | (l,xopt,p)::rem ->
+          let x = match xopt with | Some x -> x | None -> l in
+          let p, present = tt_pattern constants bound varn lvl present p in
+          fold (add_bound x bound) (lvl+1) present ((l,x,p)::xps) rem
+        in
+      fold bound lvl present [] xps
+
+    | Input.Tt_Structure xps ->
+      let rec fold bound lvl present xps = function
+        | [] ->
+          let xps = List.rev xps in
+          (Syntax.Tt_Structure xps, loc), present
+        | (l,xopt,p)::rem ->
+          let x = match xopt with | Some x -> x | None -> l in
+          let p, present = tt_pattern constants bound varn lvl present p in
+          fold (add_bound x bound) (lvl+1) present ((l,x,p)::xps) rem
+        in
+      fold bound lvl present [] xps
+
+    | Input.Tt_Projection (p,l) ->
+      let p, present = tt_pattern constants bound varn lvl present p in
+      (Syntax.Tt_Projection (p,l), loc), present
 
 (* Make constant as if it were in an expression position *)
 and constant ~loc constants bound x cs =

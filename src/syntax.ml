@@ -19,8 +19,8 @@ and tt_pattern' =
   | Tt_Refl of tt_pattern
   | Tt_Inhab
   | Tt_Bracket of tt_pattern
-  | Tt_Signature of (Name.ident * Name.ident option * tt_pattern) list
-  | Tt_Structure of (Name.ident * Name.ident option * tt_pattern) list
+  | Tt_Signature of (Name.ident * Name.ident * tt_pattern) list
+  | Tt_Structure of (Name.ident * Name.ident * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
 
 type pattern = pattern' * Location.t
@@ -108,7 +108,8 @@ let opt_map f = function
 
 let rec shift_pattern k lvl ((p', loc) as p) =
   match p' with
-    | Patt_Anonymous
+    | Patt_Anonymous ->
+      Patt_Anonymous, loc
     | Patt_Var m ->
       if m >= lvl then (Patt_Var (m + k), loc) else p
     | Patt_Jdg (p1,p2) ->
