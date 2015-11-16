@@ -323,6 +323,18 @@ and case constants bound (xs, p, c) =
 and pattern constants bound varn present (p,loc) =
   match p with
     | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), present
+    | Input.Patt_As (p,x) ->
+      begin match Name.index_of_ident x bound with
+        | None ->
+          Error.syntax ~loc "%t is not a pattern variable" (Name.print_ident x)
+        | Some k ->
+          if k < varn
+          then
+            let present = IntSet.add k present in
+            let p, present = pattern constants bound varn present p in
+            (Syntax.Patt_As (p,k), loc), present
+          else Error.syntax ~loc "%t is not a pattern variable" (Name.print_ident x)
+      end
     | Input.Patt_Name x ->
       begin match Name.index_of_ident x bound with
         | None ->
@@ -355,6 +367,21 @@ and tt_pattern constants bound varn lvl present (p,loc) =
   match p with
     | Input.Tt_Anonymous ->
       (Syntax.Tt_Anonymous, loc), present
+
+    | Input.Tt_As (p,x) ->
+      begin match Name.index_of_ident x bound with
+        | None ->
+          Error.syntax ~loc "%t is not a pattern variable" (Name.print_ident x)
+        | Some k ->
+          if k < lvl
+          then Error.syntax ~loc "%t is not a pattern variable" (Name.print_ident x)
+          else if k-lvl < varn
+          then
+            let present = IntSet.add (k-lvl) present in
+            let p, present = tt_pattern constants bound varn lvl present p in
+            (Syntax.Tt_As (p,k), loc), present
+          else Error.syntax ~loc "%t is not a pattern variable" (Name.print_ident x)
+      end
 
     | Input.Tt_Type ->
       (Syntax.Tt_Type, loc), present

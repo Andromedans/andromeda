@@ -9,6 +9,7 @@
 type tt_pattern = tt_pattern' * Location.t
 and tt_pattern' =
   | Tt_Anonymous
+  | Tt_As of tt_pattern * Name.ident
   | Tt_Type
   | Tt_Name of Name.ident
   | Tt_Lambda of Name.ident * tt_pattern option * tt_pattern
@@ -25,6 +26,7 @@ and tt_pattern' =
 type pattern = pattern' * Location.t
 and pattern' =
   | Patt_Anonymous
+  | Patt_As of pattern * Name.ident
   | Patt_Name of Name.ident
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Tag of Name.ident * pattern list
