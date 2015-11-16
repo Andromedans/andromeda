@@ -86,5 +86,34 @@ let to_value ~loc = function
   | Operation (op, _, _) ->
      Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
 
-let equal_value v1 v2 =
-  assert false
+let rec equal_value v1 v2 =
+  match v1, v2 with
+    | Term (_,te1,_), Term (_,te2,_) ->
+      Tt.alpha_equal te1 te2
+
+    | Ty (_,t1), Ty (_,t2) ->
+      Tt.alpha_equal_ty t1 t2
+
+    | Tag (t1,vs1), Tag (t2,vs2) ->
+      Name.eq_ident t1 t2 &&
+      let rec fold vs1 vs2 =
+        match vs1, vs2 with
+          | [], [] -> true
+          | v1::vs1, v2::vs2 ->
+            equal_value v1 v2 &&
+            fold vs1 vs2
+          | _::_, [] | [], _::_ -> false
+        in
+      fold vs1 vs2
+
+    | Term _, (Ty _ | Closure _ | Handler _ | Tag _)
+    | Ty _, (Term _ | Closure _ | Handler _ | Tag _)
+    | Closure _, (Term _ | Ty _ | Handler _ | Tag _)
+    | Handler _, (Term _ | Ty _ | Closure _ | Tag _)
+    | Tag _, (Term _ | Ty _ | Closure _ | Handler _) ->
+      false
+
+    | Closure _, Closure _
+    | Handler _, Handler _ ->
+      false
+
