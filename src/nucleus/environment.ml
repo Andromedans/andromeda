@@ -185,6 +185,23 @@ let print env ppf =
 
 exception Match_fail
 
+let application_pop (e,loc) = match e with
+  | Tt.Spine (lhs,(absl,out),rhs) ->
+    let rec fold es xts = function
+      | [x,tx], [e2] ->
+        let xts = List.rev xts in
+        let u = Tt.mk_prod_ty ~loc [x,tx] out in
+        let e1 = Tt.mk_spine ~loc lhs xts u (List.rev es) in
+        let t1 = Tt.instantiate_ty es 0 u in
+        let t2 = Tt.instantiate_ty es 0 tx in
+        e1,t1,e2,t2
+      | (x,tx)::absl, e::rhs ->
+        fold (e::es) ((x,tx)::xts) (absl, rhs)
+      | [],[] | [],_::_ | _::_,[] -> Error.impossible ~loc "impossible spine encountered in application_pop"
+      in
+    fold [] [] (absl,rhs)
+  | _ -> raise Match_fail
+
 let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
   match p', e' with
     | Syntax.Tt_Anonymous, _ -> xvs
@@ -230,8 +247,11 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
       let xvs = collect_tt_pattern env xvs p ctx te t in
       xvs
 
-    | Syntax.Tt_App (p1,p2), Tt.Spine (te,abs,lst) ->
-      assert false (* TODO *)
+    | Syntax.Tt_App (p1,p2), _ ->
+      let te1, ty1, te2, ty2 = application_pop e in
+      let xvs = collect_tt_pattern env xvs p1 ctx te1 ty1 in
+      let xvs = collect_tt_pattern env xvs p2 ctx te2 ty2 in
+      xvs
 
     | Syntax.Tt_Prod (x,popt,p), Tt.Prod ((x',ty)::abs,out) ->
       let Tt.Ty t = ty in let _,loc = t in
@@ -315,7 +335,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
         xvs
       else raise Match_fail
 
-    | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Lambda _ | Syntax.Tt_App _
+    | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Lambda _
         | Syntax.Tt_Prod _ | Syntax.Tt_Eq _ | Syntax.Tt_Refl _ | Syntax.Tt_Inhab
         | Syntax.Tt_Bracket _ | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
         | Syntax.Tt_Projection _) , _ ->
