@@ -287,6 +287,8 @@ plain_pattern:
   | p=simple_pattern AS x=var_name          { Patt_As (p,x) }
   | t=TAG ps=simple_pattern+                { Patt_Tag (Name.make t, ps) }
   | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, e2) }
+  | VDASH e1=tt_pattern                     { Patt_Jdg (e1, (Tt_Anonymous, snd e1)) }
+
 
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
 plain_simple_pattern:
