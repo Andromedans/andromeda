@@ -19,8 +19,8 @@ and tt_pattern' =
   | Tt_Refl of tt_pattern
   | Tt_Inhab
   | Tt_Bracket of tt_pattern
-  | Tt_Signature of (Name.ident * Name.ident * tt_pattern) list
-  | Tt_Structure of (Name.ident * Name.ident * tt_pattern) list
+  | Tt_Signature of (Name.ident * Name.ident * bound option * tt_pattern) list
+  | Tt_Structure of (Name.ident * Name.ident * bound option * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
 
 type pattern = pattern' * Location.t
@@ -156,9 +156,9 @@ and shift_tt_pattern k lvl ((p',loc) as p) =
         | [] ->
           let xcs = List.rev xcs in
           Tt_Signature xcs, loc
-        | (l,x,c)::rem ->
+        | (l,x,bopt,c)::rem ->
           let c = shift_tt_pattern k lvl c in
-          fold (lvl+1) ((l,x,c)::xcs) rem
+          fold (lvl+1) ((l,x,bopt,c)::xcs) rem
         in
       fold lvl [] xcs
     | Tt_Structure xcs ->
@@ -166,9 +166,9 @@ and shift_tt_pattern k lvl ((p',loc) as p) =
         | [] ->
           let xcs = List.rev xcs in
           Tt_Structure xcs, loc
-        | (l,x,c)::rem ->
+        | (l,x,bopt,c)::rem ->
           let c = shift_tt_pattern k lvl c in
-          fold (lvl+1) ((l,x,c)::xcs) rem
+          fold (lvl+1) ((l,x,bopt,c)::xcs) rem
         in
       fold lvl [] xcs
     | Tt_Projection (c,l) ->

@@ -469,8 +469,15 @@ and tt_pattern constants bound varn lvl present (p,loc) =
           (Syntax.Tt_Signature xps, loc), present
         | (l,xopt,p)::rem ->
           let x = match xopt with | Some x -> x | None -> l in
+          let bopt, present = match Name.index_of_ident x bound with
+            | None -> None, present
+            | Some k ->
+              if k >= lvl && k-lvl < varn
+              then Some (k-lvl), IntSet.add (k-lvl) present
+              else None, present
+            in
           let p, present = tt_pattern constants bound varn lvl present p in
-          fold (add_bound x bound) (lvl+1) present ((l,x,p)::xps) rem
+          fold (add_bound x bound) (lvl+1) present ((l,x,bopt,p)::xps) rem
         in
       fold bound lvl present [] xps
 
@@ -481,8 +488,15 @@ and tt_pattern constants bound varn lvl present (p,loc) =
           (Syntax.Tt_Structure xps, loc), present
         | (l,xopt,p)::rem ->
           let x = match xopt with | Some x -> x | None -> l in
+          let bopt, present = match Name.index_of_ident x bound with
+            | None -> None, present
+            | Some k ->
+              if k >= lvl && k-lvl < varn
+              then Some (k-lvl), IntSet.add (k-lvl) present
+              else None, present
+            in
           let p, present = tt_pattern constants bound varn lvl present p in
-          fold (add_bound x bound) (lvl+1) present ((l,x,p)::xps) rem
+          fold (add_bound x bound) (lvl+1) present ((l,x,bopt,p)::xps) rem
         in
       fold bound lvl present [] xps
 

@@ -314,7 +314,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
         match xps, xts with
           | [], [] ->
             xvs
-          | (l,x,p)::xps, (l',x',t)::xts ->
+          | (l,x,bopt,p)::xps, (l',x',t)::xts ->
             if Name.eq_ident l l'
             then
               let t = Tt.unabstract_ty ys 0 t in
@@ -323,6 +323,18 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
               let y, ctx = Context.cone ctx x t in
               let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
               let env = add_bound x yt env in
+              let xvs = match bopt with
+                | None -> xvs
+                | Some k ->
+                  begin try
+                    let v' = List.assoc k xvs in
+                    if Value.equal_value yt v'
+                    then xvs
+                    else raise Match_fail
+                  with
+                    | Not_found -> (k,yt)::xvs
+                  end
+                in
               fold env xvs (y::ys) ctx xps xts
             else raise Match_fail
           | _::_, [] | [], _::_ ->
@@ -335,7 +347,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
         match xps, xts with
           | [], [] ->
             xvs
-          | (l,x,p)::xps, (l',x',t,te)::xts ->
+          | (l,x,bopt,p)::xps, (l',x',t,te)::xts ->
             if Name.eq_ident l l'
             then
               let t = Tt.unabstract_ty ys 0 t in
@@ -345,6 +357,18 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
               let Tt.Ty (_,loc) = t in
               let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
               let env = add_bound x yt env in
+              let xvs = match bopt with
+                | None -> xvs
+                | Some k ->
+                  begin try
+                    let v' = List.assoc k xvs in
+                    if Value.equal_value yt v'
+                    then xvs
+                    else raise Match_fail
+                  with
+                    | Not_found -> (k,yt)::xvs
+                  end
+                in
               fold env xvs (y::ys) ctx xps xts
             else raise Match_fail
           | _::_, [] | [], _::_ ->

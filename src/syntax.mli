@@ -19,8 +19,8 @@ and tt_pattern' =
   | Tt_Refl of tt_pattern
   | Tt_Inhab
   | Tt_Bracket of tt_pattern
-  | Tt_Signature of (Name.ident * Name.ident * tt_pattern) list
-  | Tt_Structure of (Name.ident * Name.ident * tt_pattern) list
+  | Tt_Signature of (Name.ident * Name.ident * bound option * tt_pattern) list
+  | Tt_Structure of (Name.ident * Name.ident * bound option * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
 
 type pattern = pattern' * Location.t
