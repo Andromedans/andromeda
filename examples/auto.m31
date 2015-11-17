@@ -27,8 +27,8 @@ Let fold := rec fold f acc lst ->
   match lst with
     | 'nil => acc
     | [x lst] 'cons x lst =>
-      let acc := (f @ acc) @ x in
-      ((fold @ f) @ acc) @ lst
+      let acc := f acc x in
+      fold f acc lst
     end.
 
 (* [applicable A T] = Some n with n>=0 if T is of the form Π [x1 ... xn] A *)
@@ -36,7 +36,7 @@ Let applicable := fun A -> rec applicable T ->
   match T with
     | |- A => 'some 'z
     | [B] |- Π [x : _] B =>
-      match applicable @ B with
+      match applicable B with
         | 'none => 'none
         | [n] 'some n => 'some ('s n)
       end
@@ -44,14 +44,14 @@ Let applicable := fun A -> rec applicable T ->
   end.
 
 Let find := fun A lst ->
-  ((fold @ (fun acc v ->
+  fold (fun acc v ->
     match v with
       | [T] |- _ : T =>
-        match (applicable @ A) @ T with
+        match applicable A T with
           | 'none => acc
           | [n] 'some n => 'cons ('pair n v) acc
         end
-    end)) @ 'nil) @ lst.
+    end) 'nil lst.
 
 Let auto := rec auto lst A ->
   let auto_apply := rec auto_apply argn a ->
@@ -60,8 +60,8 @@ Let auto := rec auto lst A ->
       | [argn] 's argn =>
         match a with
           | [T] |- _ : Π [x : T] _ =>
-            match (auto @ lst) @ T with
-              | [t] 'some t => (auto_apply @ argn) @ (a t)
+            match auto lst T with
+              | [t] 'some t => auto_apply argn (a t)
               | 'none => 'none
             end
        end
@@ -69,8 +69,8 @@ Let auto := rec auto lst A ->
   in
   match A with
     | [A B] |- prod A B : Type =>
-      match (auto @ lst) @ A with
-        | [a] 'some a => match (auto @ lst) @ B with
+      match auto lst A with
+        | [a] 'some a => match auto lst B with
           | [b] 'some b => 'some (pair A B a b)
           | 'none => 'none
           end
@@ -78,14 +78,14 @@ Let auto := rec auto lst A ->
       end
 
     | |- _ : Type =>
-      ((fold @ (fun found v ->
+      fold (fun found v ->
       match found with
         | 'some _ => found
         | 'none =>
           match v with
-            | [n v] 'pair n v => (auto_apply @ n) @ v
+            | [n v] 'pair n v => auto_apply n v
           end
-      end)) @ 'none) @ ((find @ A) @ lst)
+      end) 'none (find A lst)
   end.
 
 (*
@@ -120,9 +120,9 @@ Check
     #inhabit (prod U (prod V W))
   with
     | #inhabit goal k ->
-      match (auto @ lst) @ goal with
-        | [t] 'some t => k @ t
-        | 'none => k @ (#inhabit goal)
+      match auto lst goal with
+        | [t] 'some t => k t
+        | 'none => k (#inhabit goal)
       end
   end.
 
