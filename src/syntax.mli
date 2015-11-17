@@ -37,6 +37,7 @@ and expr' =
   | Type
   | Bound of bound
   | Function of Name.ident * comp
+  | Rec of Name.ident * Name.ident * comp
   | Handler of handler
   | Tag of Name.ident * expr list
 

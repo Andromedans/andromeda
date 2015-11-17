@@ -221,7 +221,7 @@ let rec comp constants bound ((c',loc) as c) =
       let c = comp constants bound c in
       [], Syntax.Projection (c,x)
 
-    | (Input.Var _ | Input.Type | Input.Function _ | Input.Handler _ | Input.Tag _) ->
+    | (Input.Var _ | Input.Type | Input.Function _ | Input.Rec _ | Input.Handler _ | Input.Tag _) ->
       let w, e = expr constants bound c in
       w, Syntax.Return e
 
@@ -537,7 +537,7 @@ and expr constants bound ((e', loc) as e) =
 
   | Input.Function (xs, c) ->
      let rec fold bound = function
-       | [] -> Error.impossible "empty function abstraction in desugar"
+       | [] -> Error.impossible ~loc "empty function abstraction in desugar"
        | [x] ->
           let bound = add_bound x bound in
           let c = comp constants bound c in
@@ -548,6 +548,23 @@ and expr constants bound ((e', loc) as e) =
             Syntax.Function (x, (Syntax.Return e, loc)), loc
      in
        [], fold bound xs
+
+  | Input.Rec (f, xs, c) ->
+     let rec fold bound = function
+       | [] -> comp constants bound c
+       | y :: ys ->
+          let bound = add_bound y bound in
+          let c = fold bound ys in
+            Syntax.Return (Syntax.Function (y, c), loc), loc
+     in
+     begin match xs with
+     | [] -> Error.impossible ~loc "empty recursion abstraction in desguar"
+     | x :: xs ->
+        let bound = add_bound f bound in
+        let bound = add_bound x bound in
+        let c = fold bound xs in
+        [], (Syntax.Rec (f, x, c), loc)
+     end
 
   | Input.Handler hcs ->
      [], handler ~loc constants bound hcs

@@ -41,16 +41,19 @@
 %token BETA ETA HINT INHABIT
 %token UNHINT
 
-(* Operations and handlers *)
+(* Meta-level programming *)
+%token <string> TAG
+%token MATCH
+%token VDASH
+
 %token <string> OPERATION
 %token HANDLE WITH HANDLER BAR VAL FINALLY END
 
-(* Other computations *)
 %token WHNF
 %token TYPEOF
 
 (* Functions *)
-%token FUNCTION APPLY
+%token REC FUNCTION APPLY
 
 (* Axioms *)
 %token AXIOM REDUCE
@@ -61,10 +64,6 @@
 (* Substitution *)
 %token WHERE
 
-(* Meta-level programming *)
-%token <string> TAG
-%token MATCH
-%token VDASH
 
 (* Toplevel directives *)
 %token ENVIRONMENT HELP QUIT
@@ -149,9 +148,10 @@ plain_term:
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                              { e }
-  | PROD a=typed_binder+ e=term                   { Prod (List.concat a, e) }
+  | PROD a=typed_binder+ e=term                     { Prod (List.concat a, e) }
   | LAMBDA a=binder+ e=term                         { Lambda (List.concat a, e) }
   | FUNCTION a=function_abstraction ARROW e=term    { Function (a, e) }
+  | REC x=name a=function_abstraction ARROW e=term  { Rec (x, a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }

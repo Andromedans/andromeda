@@ -38,6 +38,7 @@ and term' =
   | Var of Name.ident
   | Type
   | Function of Name.ident list * comp
+  | Rec of Name.ident * Name.ident list * comp
   | Handler of handle_case list
   (* computations *)
   | Operation of string * expr
