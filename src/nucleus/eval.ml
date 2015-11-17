@@ -236,8 +236,22 @@ and infer env (c',loc) =
       Value.return_term (expr_term env e)
 
   | Syntax.Spine (e, cs) ->
-    let j = expr_term env e in
-    spine ~loc env j cs
+    let rec fold v cs =
+      match v with
+        | Value.Term j ->
+          spine ~loc env j cs
+        | Value.Closure f ->
+          begin match cs with
+            | [] -> Error.impossible ~loc "empty spine in Eval.infer"
+            | c::cs ->
+              infer env c >>=
+              f >>= fun v ->
+              fold v cs
+          end
+        | Value.Ty _ | Value.Handler _ | Value.Tag _ ->
+          Error.runtime ~loc "%t expressions cannot be applied" (Value.print_value_key v)
+    in
+    fold (expr env e) cs
 
   | Syntax.Prod (xts, c) ->
     infer_prod env ~loc xts c
