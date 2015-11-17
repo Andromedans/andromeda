@@ -53,7 +53,6 @@ and comp' =
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
-  | Apply of expr * expr
   | Match of expr * match_case list
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
@@ -208,11 +207,6 @@ let rec shift_comp k lvl (c', loc) =
        and e = shift_expr k lvl e
        and c2 = shift_comp k lvl c2 in
        Where (c1, e, c2)
-
-    | Apply (e1, e2) ->
-       let e1 = shift_expr k lvl e1
-       and e2 = shift_expr k lvl e2 in
-       Apply (e1, e2)
 
     | Match (e, lst) ->
       let e = shift_expr k lvl e in

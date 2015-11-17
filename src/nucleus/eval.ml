@@ -142,11 +142,6 @@ and infer env (c',loc) =
      | _ -> Error.runtime ~loc "Only atoms can be substituted"
      end
 
-  | Syntax.Apply (e1, e2) ->
-     let v1 = Value.as_closure ~loc (expr env e1)
-     and v2 = expr env e2 in
-       v1 v2
-
   | Syntax.Match (e,cases) ->
     let v = expr env e in
     let rec fold = function
@@ -328,7 +323,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Return _
   | Syntax.With _
   | Syntax.Typeof _
-  | Syntax.Apply _
   | Syntax.Match _
   | Syntax.Constant _
   | Syntax.Prod _

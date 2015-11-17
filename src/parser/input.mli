@@ -44,7 +44,6 @@ and term' =
   | Operation of string * expr
   | Handle of comp * handle_case list
   | With of expr * comp
-  | Apply of expr * expr
   | Tag of Name.ident * comp list
   | Match of comp * match_case list
   | Let of (Name.ident * comp) list * comp

@@ -53,7 +53,6 @@ and comp' =
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
-  | Apply of expr * expr
   | Match of expr * match_case list
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp

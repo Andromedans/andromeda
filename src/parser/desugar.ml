@@ -84,15 +84,6 @@ let rec comp constants bound ((c',loc) as c) =
        and c2 = Syntax.shift_comp (List.length w) 0 c2 in
        w, Syntax.Where (c1, e, c2)
 
-    | Input.Apply (e1, e2) ->
-       let w1, e1 = expr constants bound e1
-       and w2, e2 = expr constants bound e2 in
-       let k1 = List.length w1
-       and k2 = List.length w2 in
-       let e1 = Syntax.shift_expr k2 0 e1
-       and e2 = Syntax.shift_expr k1 k2 e2 in
-       w1 @ w2, Syntax.Apply (e1, e2)
-
     | Input.Match (e, cases) ->
        let w, e = expr constants bound e in
        let bound = List.fold_left (fun bound (x,_) -> add_bound x bound) bound w in
@@ -585,7 +576,7 @@ and expr constants bound ((e', loc) as e) =
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
-     Input.Whnf _ | Input.Apply _ | Input.Match _ | Input.Handle _ | Input.With _ |
+     Input.Whnf _ | Input.Match _ | Input.Handle _ | Input.With _ |
      Input.Typeof _ | Input.Assume _ | Input.Where _ | Input.Signature _ |
      Input.Structure _ | Input.Projection _) ->
     let x = Name.fresh_candy ()

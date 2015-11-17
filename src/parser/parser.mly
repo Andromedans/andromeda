@@ -53,7 +53,7 @@
 %token TYPEOF
 
 (* Functions *)
-%token REC FUNCTION APPLY
+%token REC FUNCTION
 
 (* Axioms *)
 %token AXIOM REDUCE
@@ -165,7 +165,6 @@ plain_app_term:
   | e=simple_term es=nonempty_list(simple_term)     { match fst e with
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
-  | e1=simple_term APPLY e2=app_term                { Apply (e1, e2) }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
   | WHNF t=simple_term                              { Whnf t }
   | TYPEOF t=simple_term                            { Typeof t }
