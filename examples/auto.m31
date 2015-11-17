@@ -5,24 +5,6 @@ Axiom pair : Π [A B : Type] A -> (B -> (prod A B)).
 Axiom fst : Π [X Y : Type] prod X Y -> X.
 Axiom snd : Π [X Y : Type] prod X Y -> Y.
 
-(*
-to inhabit A, for each assumption of the form X -> Y -> A try to inhabit X and Y
-
-let rec inhabit ass A =
-  let rec inhab_apply a =
-    match a with
-      | a : X -> Y => let x := inhabit ass X in inhab_apply (a x)
-      | _ => a
-  in
-  fold (fun a found -> if found = 'none
-    then
-      match a with
-        | a : X -> [... A] =>
-          inhab_apply a
-        | _ => 'none
-    else found) ass 'none
-*)
-
 Let fold := rec fold f acc lst ->
   match lst with
     | 'nil => acc
@@ -88,24 +70,6 @@ Let auto := rec auto lst A ->
       end) 'none (find A lst)
   end.
 
-(*
-Let auto := rec auto lst ->
-  handler
-  | #inhabit goal k ->
-    match goal with
-    | [A B] ⊢ prod A B : Type =>
-      let a := (with (auto @ lst) handle #inhabit A) in
-      let b := (with (auto @ lst) handle #inhabit B) in
-      k @ (pair A B a b)
-    | [A] ⊢ A : Type =>
-      match ((find @ A) @ lst) with
-      | 'none => k @ (#inhabit goal)
-      | [f args rem] 'some f args rem => 
-      end
-    end
-  end.
-  *)
-
 Axiom U : Type.
 Axiom V : Type.
 Axiom W : Type.
@@ -125,8 +89,5 @@ Check
         | 'none => k (#inhabit goal)
       end
   end.
-
-
-
 
 
