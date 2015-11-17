@@ -1,0 +1,42 @@
+(* The auto tactic, kind of *)
+
+Axiom prod : Type -> Type -> Type.
+Axiom pair : Π [A B : Type] A -> (B -> (prod A B)).
+Axiom fst : Π [X Y : Type] prod X Y -> X.
+Axiom snd : Π [X Y : Type] prod X Y -> Y.
+
+Let find := rec find A lst ->
+  match lst with
+  | 'nil => 'none
+  | [a lst] 'cons (⊢ a : A) lst => 'some a
+  | [lst]   'cons _ lst => (find @ A) @ lst
+  end.
+
+Let auto := rec auto lst ->
+  handler
+  | #inhabit goal k ->
+    match goal with
+    | [A B] ⊢ prod A B : Type =>
+      let a := (with (auto @ lst) handle #inhabit A) in
+      let b := (with (auto @ lst) handle #inhabit B) in
+      k @ (pair A B a b)
+    | [A] ⊢ A : Type =>
+      match ((find @ A) @ lst) with
+      | 'none => k @ (#inhabit goal)
+      | [a] 'some a => k @ a
+      end
+    end
+  end.
+
+Axiom U : Type.
+Axiom V : Type.
+Axiom W : Type.
+Axiom u : U.
+
+Check
+  assume v : V in
+  assume w : W in
+  let lst := 'cons u ('cons v ('cons w 'nil)) in
+  with (auto @ lst) handle
+    #inhabit (prod U (prod V (prod W W))).
+

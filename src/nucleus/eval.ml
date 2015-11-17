@@ -52,6 +52,14 @@ let rec expr env (e',loc) =
     | Syntax.Function (x, c) ->
        Value.Closure (close x c)
 
+    | Syntax.Rec (f, x, c) ->
+       let rec g v =
+         let env = Environment.add_bound f (Value.Closure g) env in
+         let env = Environment.add_bound x v env in
+         infer env c
+       in
+       Value.Closure g
+
     | Syntax.Tag (t, lst) ->
        let lst = List.map (expr env) lst in
        Value.Tag (t, lst)
