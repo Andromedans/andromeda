@@ -5,13 +5,90 @@ Axiom pair : Π [A B : Type] A -> (B -> (prod A B)).
 Axiom fst : Π [X Y : Type] prod X Y -> X.
 Axiom snd : Π [X Y : Type] prod X Y -> Y.
 
-Let find := rec find A lst ->
+(*
+to inhabit A, for each assumption of the form X -> Y -> A try to inhabit X and Y
+
+let rec inhabit ass A =
+  let rec inhab_apply a =
+    match a with
+      | a : X -> Y => let x := inhabit ass X in inhab_apply (a x)
+      | _ => a
+  in
+  fold (fun a found -> if found = 'none
+    then
+      match a with
+        | a : X -> [... A] =>
+          inhab_apply a
+        | _ => 'none
+    else found) ass 'none
+*)
+
+Let fold := rec fold f acc lst ->
   match lst with
-  | 'nil => 'none
-  | [a lst] 'cons (⊢ a : A) lst => 'some a
-  | [lst]   'cons _ lst => (find @ A) @ lst
+    | 'nil => acc
+    | [x lst] 'cons x lst =>
+      let acc := (f @ acc) @ x in
+      ((fold @ f) @ acc) @ lst
+    end.
+
+(* [applicable A T] = Some n with n>=0 if T is of the form Π [x1 ... xn] A *)
+Let applicable := fun A -> rec applicable T ->
+  match T with
+    | |- A => 'some 'z
+    | [B] |- Π [x : _] B =>
+      match applicable @ B with
+        | 'none => 'none
+        | [n] 'some n => 'some ('s n)
+      end
+    | _ => 'none
   end.
 
+Let find := fun A lst ->
+  ((fold @ (fun acc v ->
+    match v with
+      | [T] |- _ : T =>
+        match (applicable @ A) @ T with
+          | 'none => acc
+          | [n] 'some n => 'cons ('pair n v) acc
+        end
+    end)) @ 'nil) @ lst.
+
+Let auto := rec auto lst A ->
+  let auto_apply := rec auto_apply argn a ->
+    match argn with
+      | 'z => 'some a
+      | [argn] 's argn =>
+        match a with
+          | [T] |- _ : Π [x : T] _ =>
+            match (auto @ lst) @ T with
+              | [t] 'some t => (auto_apply @ argn) @ (a t)
+              | 'none => 'none
+            end
+       end
+    end
+  in
+  match A with
+    | [A B] |- prod A B : Type =>
+      match (auto @ lst) @ A with
+        | [a] 'some a => match (auto @ lst) @ B with
+          | [b] 'some b => 'some (pair A B a b)
+          | 'none => 'none
+          end
+        | 'none => 'none
+      end
+
+    | |- _ : Type =>
+      ((fold @ (fun found v ->
+      match found with
+        | 'some _ => found
+        | 'none =>
+          match v with
+            | [n v] 'pair n v => (auto_apply @ n) @ v
+          end
+      end)) @ 'none) @ ((find @ A) @ lst)
+  end.
+
+(*
 Let auto := rec auto lst ->
   handler
   | #inhabit goal k ->
@@ -23,10 +100,11 @@ Let auto := rec auto lst ->
     | [A] ⊢ A : Type =>
       match ((find @ A) @ lst) with
       | 'none => k @ (#inhabit goal)
-      | [a] 'some a => k @ a
+      | [f args rem] 'some f args rem => 
       end
     end
   end.
+  *)
 
 Axiom U : Type.
 Axiom V : Type.
@@ -36,7 +114,19 @@ Axiom u : U.
 Check
   assume v : V in
   assume w : W in
-  let lst := 'cons u ('cons v ('cons w 'nil)) in
-  with (auto @ lst) handle
-    #inhabit (prod U (prod V (prod W W))).
+  assume f : V -> W in
+  let lst := 'cons u ('cons v ('cons w ('cons f 'nil))) in
+  handle
+    #inhabit (prod U (prod V W))
+  with
+    | #inhabit goal k ->
+      match (auto @ lst) @ goal with
+        | [t] 'some t => k @ t
+        | 'none => k @ (#inhabit goal)
+      end
+  end.
+
+
+
+
 
