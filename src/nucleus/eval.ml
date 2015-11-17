@@ -292,13 +292,14 @@ and infer env (c',loc) =
         let ctx = Context.abstract ~loc ctx ys in
         let j = Judgement.mk_term ctx te ty in
         Value.return_term j
-      | (l,x,c) :: rem ->
+      | (lbl,x,c) :: rem ->
         infer env c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
         let ctx = Context.join ctx ctxt in
         let jty = Judgement.mk_ty ctx ty in
         let t = Tt.abstract_ty ys 0 ty in
+        let te = Tt.abstract ys 0 te in
         let y, env = Environment.add_fresh ~loc env x jty in
-        fold env ctx (y::ys) ((l,x,t,te)::xtes) rem
+        fold env ctx (y::ys) ((lbl,x,t,te)::xtes) rem
       in
     fold env Context.empty [] [] xcs
 
