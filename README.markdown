@@ -95,6 +95,14 @@ check them independently". We thought of Brazil as a faraway place, but it later
 out it was not quite far enough. We hope that nobody will claim that the Andromeda galaxy
 is a nearby place.
 
+### Support
+
+This material is based upon work supported by the Air Force Office of Scientific Research,
+Air Force Materiel Command, USAF under Award No. FA9550-14-1-0096. Any opinions, findings,
+and conclusions or recommendations expressed in this publication are those of the
+author(s) and do not necessarily reflect the views of the Air Force Office of Scientific
+Research, Air Force Materiel Command, USAF.
+
 ### Travis Continuous Integration
 
 The GitHub repository is linked to Travis CI. To find out the current build status is
