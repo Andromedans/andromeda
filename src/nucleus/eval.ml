@@ -243,7 +243,10 @@ and infer env (c',loc) =
         | Value.Closure f ->
           begin match cs with
             | [] -> Error.impossible ~loc "empty spine in Eval.infer"
-            | c::cs ->
+            | [c] ->
+              infer env c >>=
+              f
+            | c::(_::_ as cs) ->
               infer env c >>=
               f >>= fun v ->
               fold v cs
