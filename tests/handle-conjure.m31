@@ -18,5 +18,5 @@ Check
   handle
     λ [a : A] Q A B a (#implicit (B a))
   with
-  | #implicit T k -> k @ (conjure @ T)
+  | #implicit T k -> k (conjure T)
   end.

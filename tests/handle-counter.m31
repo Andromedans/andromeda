@@ -12,6 +12,6 @@ Check
     f (#get tt) (#get tt) (#get tt)
   with
   | val v -> (fun _ -> v)
-  | #get _ k -> (fun i -> (k @ i) @ (s i))
-  | finally f -> f @ z
+  | #get _ k -> (fun i -> (k i) (s i))
+  | finally f -> f z
   end.

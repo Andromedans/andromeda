@@ -9,5 +9,5 @@ Check
      let b := #fresh (B a) in
        λ [y : A] pair a b
    with
-     | #fresh t k -> λ [x : t] k @ x
+     | #fresh t k -> λ [x : t] k x
    end.
