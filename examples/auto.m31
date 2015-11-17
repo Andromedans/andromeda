@@ -70,6 +70,25 @@ Let auto := rec auto lst A ->
       end) 'none (find A lst)
   end.
 
+Axiom unit : Type.
+Axiom tt : unit.
+
+Let auto_handler := handler
+  | val x -> x
+  | #inhabit goal k ->
+    fun hints ->
+    match auto hints goal with
+      | [t] 'some t => k t
+      | 'none => k (#inhabit goal) hints
+    end
+  | #new_hint h k ->
+    match h with
+      | |- _ => fun hints ->
+        k tt ('cons h hints)
+    end
+  | finally f -> f 'nil
+  end.
+
 Axiom U : Type.
 Axiom V : Type.
 Axiom W : Type.
@@ -79,15 +98,11 @@ Check
   assume v : V in
   assume w : W in
   assume f : V -> W in
-  let lst := 'cons u ('cons v ('cons w ('cons f 'nil))) in
-  handle
-    #inhabit (prod U (prod V W))
-  with
-    | #inhabit goal k ->
-      match auto lst goal with
-        | [t] 'some t => k t
-        | 'none => k (#inhabit goal)
-      end
-  end.
+  with auto_handler handle
+    let _ := #new_hint f in
+    let _ := #new_hint w in
+    let _ := #new_hint v in
+    let _ := #new_hint u in
+    #inhabit (prod U (prod V W)).
 
 
