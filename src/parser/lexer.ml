@@ -11,6 +11,7 @@ let reserved = [
   ("Beta", TOPBETA) ;
   ("Check", TOPCHECK) ;
   ("whnf", WHNF) ;
+  ("snf", SNF) ;
   ("end", END) ;
   ("eta", ETA) ;
   ("Eta", TOPETA) ;

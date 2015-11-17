@@ -1238,3 +1238,167 @@ let as_signature env (ctx, t) =
       "this expressing should be a signature, found@ %t"
       (Tt.print_ty [] t)
 
+let rec snf env ctx t =
+  let ctx, ((t',loc) as t) = whnf env ctx t in
+  match t' with
+    | Tt.Type | Tt.Atom _ -> ctx, t
+
+    | Tt.Bound _ -> Error.impossible ~loc "de Bruijn encountered in snf"
+
+    | Tt.Constant (c,es) ->
+      let rec fold ctx es = function
+        | [] ->
+          let es = List.rev es in
+          ctx, Tt.mk_constant ~loc c es
+        | e::rem ->
+          let ctx, e = snf env ctx e in
+          fold ctx (e::es) rem
+      in
+      fold ctx [] es
+
+    | Tt.Lambda (abs,(te,ty)) ->
+      let rec fold env ctx ys abs = function
+        | [] ->
+          let abs = List.rev abs in
+          let ty = Tt.unabstract_ty ys 0 ty in
+          let te = Tt.unabstract ys 0 te in
+          let ctx, ty = snf_ty env ctx ty in
+          let ctx, te = snf env ctx te in
+          let ty = Tt.abstract_ty ys 0 ty in
+          let te = Tt.abstract ys 0 te in
+          let ctx = Context.abstract ~loc ctx ys in
+          ctx, Tt.mk_lambda ~loc abs te ty
+        | (x,t)::rem ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let ctx, t = snf_ty env ctx t in
+          let jx = Judgement.mk_ty ctx t in
+          let y, env = Environment.add_fresh ~loc env x jx in
+          let t = Tt.unabstract_ty ys 0 t in
+          fold env ctx (y::ys) ((x,t)::abs) rem
+      in
+      fold env ctx [] [] abs
+
+    | Tt.Spine (lhs,(abs,out),rhs) ->
+      let ctx, lhs = snf env ctx lhs in
+      let rec fold_rhs ctx rhs = function
+        | [] ->
+          let rhs = List.rev rhs in
+          ctx, rhs
+        | e::rem ->
+          let ctx, e = snf env ctx e in
+          fold_rhs ctx (e::rhs) rem
+      in
+      let ctx, rhs = fold_rhs ctx [] rhs in
+      let rec fold env ctx ys abs = function
+        | [] ->
+          let abs = List.rev abs in
+          let out = Tt.unabstract_ty ys 0 out in
+          let ctx, out = snf_ty env ctx out in
+          let out = Tt.abstract_ty ys 0 out in
+          let ctx = Context.abstract ~loc ctx ys in
+          ctx, Tt.mk_spine ~loc lhs abs out rhs
+        | (x,t)::rem ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let ctx, t = snf_ty env ctx t in
+          let jx = Judgement.mk_ty ctx t in
+          let y, env = Environment.add_fresh ~loc env x jx in
+          let t = Tt.unabstract_ty ys 0 t in
+          fold env ctx (y::ys) ((x,t)::abs) rem
+      in
+      fold env ctx [] [] abs
+
+    | Tt.Prod (abs,out) ->
+      let rec fold env ctx ys abs = function
+        | [] ->
+          let abs = List.rev abs in
+          let out = Tt.unabstract_ty ys 0 out in
+          let ctx, out = snf_ty env ctx out in
+          let out = Tt.abstract_ty ys 0 out in
+          let ctx = Context.abstract ~loc ctx ys in
+          ctx, Tt.mk_prod ~loc abs out
+        | (x,t)::rem ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let ctx, t = snf_ty env ctx t in
+          let jx = Judgement.mk_ty ctx t in
+          let y, env = Environment.add_fresh ~loc env x jx in
+          let t = Tt.unabstract_ty ys 0 t in
+          fold env ctx (y::ys) ((x,t)::abs) rem
+      in
+      fold env ctx [] [] abs
+
+    | Tt.Eq (t,e1,e2) ->
+      let ctx, t = snf_ty env ctx t in
+      let ctx, e1 = snf env ctx e1 in
+      let ctx, e2 = snf env ctx e2 in
+      ctx, Tt.mk_eq ~loc t e1 e2
+
+    | Tt.Refl (t,e) ->
+      let ctx, t = snf_ty env ctx t in
+      let ctx, e = snf env ctx e in
+      ctx, Tt.mk_refl ~loc t e
+
+    | Tt.Inhab t ->
+      let ctx, t = snf_ty env ctx t in
+      ctx, Tt.mk_inhab ~loc t
+
+    | Tt.Bracket t ->
+      let ctx, t = snf_ty env ctx t in
+      ctx, Tt.mk_bracket ~loc t
+
+    | Tt.Signature xts ->
+      let rec fold env ctx ys xts = function
+        | [] ->
+          let xts = List.rev xts in
+          let ctx = Context.abstract ~loc ctx ys in
+          ctx, Tt.mk_signature ~loc xts
+        | (l,x,t)::rem ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let ctx, t = snf_ty env ctx t in
+          let jx = Judgement.mk_ty ctx t in
+          let y, env = Environment.add_fresh ~loc env x jx in
+          let t = Tt.abstract_ty ys 0 t in
+          fold env ctx (y::ys) ((l,x,t)::xts) rem
+      in
+      fold env ctx [] [] xts
+
+    | Tt.Structure xes ->
+      let rec fold env ctx ys xes = function
+        | [] ->
+          let xes = List.rev xes in
+          let ctx = Context.abstract ~loc ctx ys in
+          ctx, Tt.mk_structure ~loc xes
+        | (l,x,t,e)::rem ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let e = Tt.unabstract ys 0 e in
+          let ctx, t = snf_ty env ctx t in
+          let ctx, e = snf env ctx e in
+          let jx = Judgement.mk_ty ctx t in
+          let y, env = Environment.add_fresh ~loc env x jx in
+          let t = Tt.abstract_ty ys 0 t in
+          let e = Tt.abstract ys 0 e in
+          (* XXX should we add a beta hint x --> e here? *)
+          fold env ctx (y::ys) ((l,x,t,e)::xes) rem
+      in
+      fold env ctx [] [] xes
+
+    | Tt.Projection (e,xts,l) ->
+      let ctx, e = snf env ctx e in
+      let rec fold env ctx ys xts = function
+        | [] ->
+          let xts = List.rev xts in
+          let ctx = Context.abstract ~loc ctx ys in
+          ctx, Tt.mk_projection ~loc e xts l
+        | (l,x,t)::rem ->
+          let t = Tt.unabstract_ty ys 0 t in
+          let ctx, t = snf_ty env ctx t in
+          let jx = Judgement.mk_ty ctx t in
+          let y, env = Environment.add_fresh ~loc env x jx in
+          let t = Tt.abstract_ty ys 0 t in
+          fold env ctx (y::ys) ((l,x,t)::xts) rem
+      in
+      fold env ctx [] [] xts
+
+and snf_ty env ctx (Tt.Ty t) =
+  let ctx, t = snf env ctx t in
+  ctx, Tt.ty t
+
