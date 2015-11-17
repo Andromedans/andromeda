@@ -5,5 +5,4 @@ N is assumed.
 z is assumed.
 s is assumed.
 f is assumed.
-⊢ f z (s z) (s (s z))
-      : N
+⊢ f z (s z) (s (s z)) : N

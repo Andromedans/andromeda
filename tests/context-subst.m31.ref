@@ -4,14 +4,12 @@ P is defined.
 y is defined.
 x₄ : A 
 y₈ : (λ [z : A] A) x₄ 
-⊢ y₈
-      : A
+⊢ y₈ : A
 f is assumed.
 x₄ : A 
 P₆ : A → Type 
 y₈ : P₆ (f x₄) 
-⊢ y₈
-      : P₆ (f x₄)
+⊢ y₈ : P₆ (f x₄)
 a is assumed.
 b is assumed.
 ign is assumed.
@@ -20,5 +18,4 @@ igny is defined.
 P₆ : A → Type 
 y₈ : P₆ a 
 __eq₂₅ : P₆ b ≡ P₆ a 
-⊢ g (ign (P₆ a) y₈) (ign (P₆ b) y₈)
-      : A
+⊢ g (ign (P₆ a) y₈) (ign (P₆ b) y₈) : A
