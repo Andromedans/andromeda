@@ -9,5 +9,5 @@ C is assumed.
 D is assumed.
 p is assumed.
 q is assumed.
-File "./eta-horror.m31", line 34, characters 5-10: Typing error
-  failed to check that the term p is equal to q
+File "./eta-horror.m31", lines 31-34, characters 3-20: Runtime error
+  unhandled operation #equal ('pair (⊢ p : prod C D) (⊢ q : prod C D))

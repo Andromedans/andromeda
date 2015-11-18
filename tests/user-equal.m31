@@ -1,0 +1,12 @@
+Axiom A : Type.
+Axiom B : Type.
+
+Check handle (assume a : A in a) :: B with
+  | #equal v k =>
+    match v with
+      | 'pair (|- B : Type) (|- A : Type) =>
+        let eq := assume eq : B == A in eq in
+        k eq
+    end
+  end.
+

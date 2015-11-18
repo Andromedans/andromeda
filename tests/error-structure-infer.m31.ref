@@ -4,5 +4,10 @@ P is assumed.
 b is assumed.
 Q is assumed.
 f is assumed.
-File "./error-structure-infer.m31", line 8, characters 7-36: Typing error
-  this expression should have type P x₁₄ but has type P a
+File "./error-structure-infer.m31", line 8, characters 7-36: Runtime error
+  unhandled operation #equal ('pair (x₁₄ : A 
+                                     y₁₅ : P a 
+                                     ⊢ P x₁₄ : Type)
+                              (x₁₄ : A 
+                               y₁₅ : P a 
+                               ⊢ P a : Type))
