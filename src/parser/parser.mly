@@ -150,8 +150,8 @@ plain_ty_term:
   | e=plain_equal_term                              { e }
   | PROD a=typed_binder+ e=term                     { Prod (List.concat a, e) }
   | LAMBDA a=binder+ e=term                         { Lambda (List.concat a, e) }
-  | FUNCTION a=function_abstraction ARROW e=term    { Function (a, e) }
-  | REC x=name a=function_abstraction ARROW e=term  { Rec (x, a, e) }
+  | FUNCTION a=function_abstraction DARROW e=term    { Function (a, e) }
+  | REC x=name a=function_abstraction DARROW e=term  { Rec (x, a, e) }
   | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
@@ -269,9 +269,9 @@ tags_unhint:
   | ts=tag_var { ts }
 
 handler_case:
-  | BAR VAL x=name ARROW t=term                 { CaseVal (x, t) }
-  | BAR op=OPERATION x=name k=name ARROW t=term { CaseOp (op, x, k, t) }
-  | BAR FINALLY x=name ARROW t=term             { CaseFinally (x, t) }
+  | BAR VAL x=name DARROW t=term                 { CaseVal (x, t) }
+  | BAR op=OPERATION x=name k=name DARROW t=term { CaseOp (op, x, k, t) }
+  | BAR FINALLY x=name DARROW t=term             { CaseFinally (x, t) }
 
 match_case:
   | BAR a=untyped_binder p=pattern DARROW c=term  { (a, p, c) }
