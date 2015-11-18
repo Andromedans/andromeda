@@ -15,6 +15,12 @@ val whnf : Environment.t -> Context.t -> Tt.term -> Context.t * Tt.term
 (** [whnf_ty env ctx t] reduces type [t], assuming that it is a type in context [ctx]. *)
 val whnf_ty : Environment.t -> Context.t -> Tt.ty -> Context.t * Tt.ty
 
+(** [snf env ctx e] reduces expression [e] to strong normal form, assuming that it has a type in context [ctx]. *)
+val snf : Environment.t -> Context.t -> Tt.term -> Context.t * Tt.term
+
+(** [whnf_ty env ctx t] reduces type [t] to strong normal form, assuming that it is a type in context [ctx]. *)
+val snf_ty : Environment.t -> Context.t -> Tt.ty -> Context.t * Tt.ty
+
 (** Convert a term to an atom. *)
 val as_atom : Environment.t -> Judgement.term -> Context.t * Name.atom * Tt.ty
 

@@ -181,6 +181,15 @@ and infer env (c',loc) =
       let j = Judgement.mk_term ctx e t in
       Value.return_term j)
 
+  | Syntax.Snf c ->
+    infer env c >>= as_term ~loc >>= fun (ctx, e, t) ->
+    let ctxt, t = Equal.snf_ty env ctx t in
+    let ctx = Context.join ctx ctxt in
+    let ctxe, e = Equal.snf env ctx e in
+    let ctx = Context.join ctx ctxe in
+    let j = Judgement.mk_term ctx e t in
+    Value.return_term j
+
   | Syntax.Typeof c ->
     (* In future versions this is going to be a far less trivial computation,
        as it might actually fail when there is no way to name a type with a term. *)
@@ -401,6 +410,11 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Whnf c ->
     check env c t_check >>= fun (ctx, e) ->
     let ctx, e = Equal.whnf env ctx e in
+    Value.return (ctx, e)
+
+  | Syntax.Snf c ->
+    check env c t_check >>= fun (ctx, e) ->
+    let ctx, e = Equal.snf env ctx e in
     Value.return (ctx, e)
 
   | Syntax.Ascribe (c1, c2) ->

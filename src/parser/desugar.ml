@@ -123,6 +123,10 @@ let rec comp constants bound ((c',loc) as c) =
       let c = comp constants bound c in
       [], Syntax.Whnf c
 
+    | Input.Snf c ->
+      let c = comp constants bound c in
+      [], Syntax.Snf c
+
     | Input.Typeof c ->
       let c = comp constants bound c in
       [], Syntax.Typeof c
@@ -576,7 +580,7 @@ and expr constants bound ((e', loc) as e) =
   | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
      Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
      Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
-     Input.Whnf _ | Input.Match _ | Input.Handle _ | Input.With _ |
+     Input.Whnf _ | Input.Snf _ | Input.Match _ | Input.Handle _ | Input.With _ |
      Input.Typeof _ | Input.Assume _ | Input.Where _ | Input.Signature _ |
      Input.Structure _ | Input.Projection _) ->
     let x = Name.fresh_candy ()

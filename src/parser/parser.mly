@@ -49,7 +49,7 @@
 %token <string> OPERATION
 %token HANDLE WITH HANDLER BAR VAL FINALLY END
 
-%token WHNF
+%token WHNF SNF
 %token TYPEOF
 
 (* Functions *)
@@ -167,6 +167,7 @@ plain_app_term:
                                                       | _ -> Spine (e, es) }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
   | WHNF t=simple_term                              { Whnf t }
+  | SNF t=simple_term                               { Snf t }
   | TYPEOF t=simple_term                            { Typeof t }
   | REFL e=simple_term                              { Refl e }
   | op=OPERATION e=simple_term                      { Operation (op, e) }
