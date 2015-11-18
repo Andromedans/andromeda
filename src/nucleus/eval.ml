@@ -342,7 +342,7 @@ and infer env (c',loc) =
     Value.return_term j
 
 (** if ctx |- lte : ty and ctx |- rte : ty, tries to extend ctx such that ctx |- lte == rte and gives the result to f *)
-and require_equal ~loc env ctx lte rte ty (f : Context.t -> 'a Value.result) : 'a Value.result =
+and require_equal ~loc env ctx lte rte ty (f : Context.t -> 'a Value.result) error : 'a Value.result =
   match Equal.equal env ctx lte rte ty with
     | Some ctx -> f ctx
     | None ->
@@ -350,20 +350,27 @@ and require_equal ~loc env ctx lte rte ty (f : Context.t -> 'a Value.result) : '
       let rval = Value.Term (Judgement.mk_term ctx rte ty) in
       let opval = Value.Tag (Name.make "pair", [lval;rval]) in
       let k v =
-        let (ctxeq,eq,teq) = Value.as_term ~loc v in
-        let tgoal = Tt.mk_eq_ty ~loc ty lte rte in
-        if Tt.alpha_equal_ty teq tgoal
-        then
-          let ctx = Context.join ctxeq ctx in (* user may have done something surprising somehow *)
-          f ctx
-        else
-          Error.typing ~loc:(snd eq) "this expression should have type@ %t@ but has type@ %t"
-                       (print_ty env tgoal) (print_ty env teq)
+        let tsome = Name.make "some" in
+        let tnone = Name.make "none" in
+        match v with
+          | Value.Tag (t, [v]) when (Name.eq_ident t tsome) ->
+            let (ctxeq,eq,teq) = Value.as_term ~loc v in
+            let tgoal = Tt.mk_eq_ty ~loc ty lte rte in
+            if Tt.alpha_equal_ty teq tgoal
+            then
+              let ctx = Context.join ctxeq ctx in (* user may have done something surprising somehow *)
+              f ctx
+            else
+              Error.typing ~loc:(snd eq) "this expression should have type@ %t@ but has type@ %t"
+                           (print_ty env tgoal) (print_ty env teq)
+          | Value.Tag (t, []) when (Name.eq_ident t tnone) ->
+            error ()
+          | _ -> Error.typing ~loc "#equal returned unexpected value %t" (print_value env v)
       in
       Value.Operation ("equal", opval, k)
 
-and require_equal_ty ~loc env ctx (Tt.Ty lte) (Tt.Ty rte) (f : Context.t -> 'a Value.result) : 'a Value.result =
-  require_equal ~loc env ctx lte rte (Tt.mk_type_ty ~loc) f
+and require_equal_ty ~loc env ctx (Tt.Ty lte) (Tt.Ty rte) (f : Context.t -> 'a Value.result) error : 'a Value.result =
+  require_equal ~loc env ctx lte rte (Tt.mk_type_ty ~loc) f error
 
 and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : (Context.t * Tt.term) Value.result =
   match c' with
@@ -388,6 +395,9 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
     let k ctx = Value.return (ctx, e) in
     let ctx = Context.join ctx_check ctxe in
     require_equal_ty ~loc env ctx t_check' t' k
+      (fun () -> Error.typing ~loc:(snd e)
+                              "this expression should have type@ %t@ but has type@ %t"
+                              (print_ty env t_check') (print_ty env t'))
 
   | Syntax.Operation (op, e) ->
      let ve = expr env e
@@ -396,6 +406,9 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
        let k ctx = Value.return (ctx, e') in
        let ctx = Context.join ctx_check ctxe in
        require_equal_ty ~loc env ctx t_check' t' k
+         (fun () -> Error.typing ~loc:(snd e')
+                                 "this expression should have type@ %t@ but has type@ %t"
+                                 (print_ty env t_check') (print_ty env t'))
      in
      Value.Operation (op, ve, k)
 
@@ -442,6 +455,9 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
      in
      let ctx = Context.join ctx_check ctx' in
      require_equal_ty ~loc env ctx t_check' t' k
+       (fun () -> Error.typing ~loc:(snd c2)
+                               "this type should be equal to@ %t"
+                               (print_ty env t_check'))
 
   | Syntax.Lambda (abs, c) ->
     check_lambda env ~loc t_check abs c
@@ -455,8 +471,14 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
         Value.return (ctx, Tt.mk_refl ~loc t' e)
       in
       require_equal ~loc env ctx e e2 t' k2
-    in
-    require_equal ~loc env ctx e e1 t' k1
+        (fun () -> Error.typing ~loc
+                                "failed to check that the term@ %t is equal to@ %t"
+                                (print_term env e) (print_term env e2))
+   in
+   require_equal ~loc env ctx e e1 t' k1
+     (fun () -> Error.typing ~loc
+                             "failed to check that the term@ %t is equal to@ %t"
+                             (print_term env e) (print_term env e1))
 
   | Syntax.Inhab ->
      let ctx, t' = Equal.as_bracket env t_check in
@@ -591,6 +613,9 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
       let ctx = Context.join ctx_check ctxe in
       let k ctx = Value.return (ctx, e) in
       require_equal_ty ~loc env ctx t_check' t' k
+        (fun () -> Error.typing ~loc
+                                "this expression is an abstraction but should have type %t"
+                                (print_ty env t_check'))
     end
   else (* not all_tagged *)
     begin
@@ -635,6 +660,11 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
                check_ty env c >>= fun (ctxt, t') ->
                let ctx = Context.join ctx ctxt in
                require_equal_ty ~loc env ctx t' u (fun ctx -> k ctx t')
+                 (fun () -> Error.typing ~loc
+                                         "in this lambda, the variable %t should have a type@ %t\nFound type@ %t"
+                                         (Name.print_ident x)
+                                         (print_ty env u)
+                                         (print_ty env t'))
           end
 
         | [], [] -> finally t_body

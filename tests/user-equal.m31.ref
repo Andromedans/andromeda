@@ -3,3 +3,5 @@ B is assumed.
 a₄ : A 
 eq₅ : B ≡ A 
 ⊢ a₄ : B
+File "./user-equal.m31", line 13, characters 14-32: Typing error
+  this expression should have type B but has type A
