@@ -5,7 +5,7 @@ Axiom pair : Π [A B : Type] A -> (B -> (prod A B)).
 Axiom fst : Π [X Y : Type] prod X Y -> X.
 Axiom snd : Π [X Y : Type] prod X Y -> Y.
 
-Let fold := rec fold f acc lst =>
+Let rec fold f acc lst :=
   match lst with
     | 'nil => acc
     | [x lst] 'cons x lst =>
@@ -14,11 +14,11 @@ Let fold := rec fold f acc lst =>
     end.
 
 (* [applicable A T] = Some n with n>=0 if T is of the form Π [x1 ... xn] A *)
-Let applicable := fun A => rec applicable T =>
+Let rec applicable A T :=
   match T with
     | |- A => 'some 'z
     | [B] |- Π [x : _] B =>
-      match applicable B with
+      match applicable A B with
         | 'none => 'none
         | [n] 'some n => 'some ('s n)
       end
@@ -35,8 +35,8 @@ Let find := fun A lst =>
         end
     end) 'nil lst.
 
-Let auto := rec auto lst A =>
-  let auto_apply := rec auto_apply argn a =>
+Let rec auto lst A :=
+  let rec auto_apply argn a :=
     match argn with
       | 'z => 'some a
       | [argn] 's argn =>
