@@ -2,12 +2,12 @@ Parameter unit : Type.
 Parameter tt : unit.
 
 Let state :=
-  fun s0 ->
+  fun s0 =>
     handler
-    | val x -> (fun _ -> x)
-    | #lookup _ k -> (fun s -> k s s)
-    | #update s k -> (fun _ -> k tt s)
-    | finally f -> f s0
+    | val x => (fun _ => x)
+    | #lookup _ k => (fun s => k s s)
+    | #update s k => (fun _ => k tt s)
+    | finally f => f s0
     end.
 
 Parameter N : Type.

@@ -5,7 +5,7 @@ Axiom pair : Π [A B : Type] A -> (B -> (prod A B)).
 Axiom fst : Π [X Y : Type] prod X Y -> X.
 Axiom snd : Π [X Y : Type] prod X Y -> Y.
 
-Let fold := rec fold f acc lst ->
+Let fold := rec fold f acc lst =>
   match lst with
     | 'nil => acc
     | [x lst] 'cons x lst =>
@@ -14,7 +14,7 @@ Let fold := rec fold f acc lst ->
     end.
 
 (* [applicable A T] = Some n with n>=0 if T is of the form Π [x1 ... xn] A *)
-Let applicable := fun A -> rec applicable T ->
+Let applicable := fun A => rec applicable T =>
   match T with
     | |- A => 'some 'z
     | [B] |- Π [x : _] B =>
@@ -25,8 +25,8 @@ Let applicable := fun A -> rec applicable T ->
     | _ => 'none
   end.
 
-Let find := fun A lst ->
-  fold (fun acc v ->
+Let find := fun A lst =>
+  fold (fun acc v =>
     match v with
       | [T] |- _ : T =>
         match applicable A T with
@@ -35,8 +35,8 @@ Let find := fun A lst ->
         end
     end) 'nil lst.
 
-Let auto := rec auto lst A ->
-  let auto_apply := rec auto_apply argn a ->
+Let auto := rec auto lst A =>
+  let auto_apply := rec auto_apply argn a =>
     match argn with
       | 'z => 'some a
       | [argn] 's argn =>
@@ -60,7 +60,7 @@ Let auto := rec auto lst A ->
       end
 
     | |- _ : Type =>
-      fold (fun found v ->
+      fold (fun found v =>
       match found with
         | 'some _ => found
         | 'none =>
@@ -74,19 +74,19 @@ Axiom unit : Type.
 Axiom tt : unit.
 
 Let auto_handler := handler
-  | val x -> x
-  | #inhabit goal k ->
-    fun hints ->
+  | val x => x
+  | #inhabit goal k =>
+    fun hints =>
     match auto hints goal with
       | [t] 'some t => k t
       | 'none => k (#inhabit goal) hints
     end
-  | #new_hint h k ->
+  | #new_hint h k =>
     match h with
-      | |- _ => fun hints ->
+      | |- _ => fun hints =>
         k tt ('cons h hints)
     end
-  | finally f -> f 'nil
+  | finally f => f 'nil
   end.
 
 Axiom U : Type.

@@ -1,4 +1,4 @@
-Let length := rec length lst ->
+Let length := rec length lst =>
   match lst with
   | 'nil => 'z
   | [lst] 'cons _ lst => 's (length lst)
