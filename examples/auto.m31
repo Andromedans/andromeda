@@ -119,11 +119,11 @@ Axiom unit : Type.
 Axiom tt : unit.
 
 Let auto_handler := handler
-  | val x => x
+  | val x => fun _ => x
   | #inhabit goal k =>
     fun hints =>
     match auto hints goal with
-      | [t] 'some t => k (t :: goal)
+      | [t] 'some t => k (t :: goal) hints
       | 'none => k (#inhabit goal) hints
     end
   | #new_hint h k =>
