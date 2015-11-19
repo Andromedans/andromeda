@@ -11,5 +11,5 @@ Check
   handle
     λ [b : B] f (#gimme tt)
   with
-  | #gimme _ k -> k a
+  | #gimme _ k => k a
   end.
