@@ -89,8 +89,11 @@ let return_term e = Return (Term e)
 
 let return_ty t = Return (Ty t)
 
-let to_value ~loc = function
+let rec to_value ~loc = function
   | Return v -> v
+  (* XXX hack to provide some default handlers *)
+  (* #equal k => k 'none *)
+  | Operation ("equal", _, k) -> to_value ~loc (k (Tag (Name.make "none", [])))
   | Operation (op, v, _) ->
      Error.runtime ~loc "unhandled operation %t %t" (Name.print_op op) (print_value ~max_level:0 [] v)
 

@@ -365,7 +365,7 @@ and require_equal ~loc env ctx lte rte ty (f : Context.t -> 'a Value.result) err
                            (print_ty env tgoal) (print_ty env teq)
           | Value.Tag (t, []) when (Name.eq_ident t tnone) ->
             error ()
-          | _ -> Error.typing ~loc "#equal returned unexpected value %t" (print_value env v)
+          | _ -> Error.typing ~loc "#equal returned unexpected value %t@ , expected eq option" (print_value env v)
       in
       Value.Operation ("equal", opval, k)
 
