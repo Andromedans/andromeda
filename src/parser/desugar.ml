@@ -553,7 +553,7 @@ and expr constants bound ((e', loc) as e) =
             Syntax.Return (Syntax.Function (y, c), loc), loc
      in
      begin match xs with
-     | [] -> Error.impossible ~loc "empty recursion abstraction in desguar"
+     | [] -> Error.impossible ~loc "empty recursion abstraction in desugar"
      | x :: xs ->
         let bound = add_bound f bound in
         let bound = add_bound x bound in
