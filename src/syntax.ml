@@ -39,7 +39,6 @@ and expr' =
   | Function of Name.ident * comp
   | Rec of Name.ident * Name.ident * comp
   | Handler of handler
-  | Tag of Name.ident * expr list
 
 (** Desugared types - indistinguishable from expressions *)
 and ty = expr
@@ -75,6 +74,7 @@ and comp' =
   | Signature of (Name.ident * Name.ident * comp) list
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
+  | Tag of Name.ident * comp list
 
 and handler = {
   handler_val: (Name.ident * comp) option;
@@ -308,6 +308,10 @@ let rec shift_comp k lvl (c', loc) =
     | Projection (c,x) ->
         let c = shift_comp k lvl c in
         Projection (c,x)
+
+    | Tag (t,cs) ->
+      let cs = List.map (shift_comp k lvl) cs in
+      Tag (t,cs)
   in
   c', loc
 
@@ -332,7 +336,6 @@ and shift_expr k lvl ((e', loc) as e) =
   | Function (x, c) -> Function (x, shift_comp k (lvl+1) c), loc
   | Rec (f, x, c) -> Rec (f, x, shift_comp k (lvl+2) c), loc
   | Handler h -> Handler (shift_handler k lvl h), loc
-  | Tag (t, lst) -> Tag (t, List.map (shift_expr k lvl) lst), loc
   | Type -> e
 
 and shift_case k lvl (xs, p, c) =

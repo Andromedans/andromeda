@@ -39,7 +39,6 @@ and expr' =
   | Function of Name.ident * comp
   | Rec of Name.ident * Name.ident * comp
   | Handler of handler
-  | Tag of Name.ident * expr list
 
 (** Desugared types - indistinguishable from expressions *)
 and ty = expr
@@ -75,6 +74,7 @@ and comp' =
   | Signature of (Name.ident * Name.ident * comp) list
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
+  | Tag of Name.ident * comp list
 
 and handler = {
   handler_val: (Name.ident * comp) option;

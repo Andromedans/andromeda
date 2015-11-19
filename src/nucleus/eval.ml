@@ -60,10 +60,6 @@ let rec expr env (e',loc) =
        in
        Value.Closure g
 
-    | Syntax.Tag (t, lst) ->
-       let lst = List.map (expr env) lst in
-       Value.Tag (t, lst)
-
     | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
        let handler_val =
          begin match handler_val with
@@ -341,6 +337,17 @@ and infer env (c',loc) =
     let j = Judgement.mk_term ctx te ty in
     Value.return_term j
 
+  | Syntax.Tag (t,cs) ->
+    let rec fold vs = function
+      | [] ->
+        let vs = List.rev vs in
+        Value.return (Value.Tag (t,vs))
+      | c::cs ->
+        infer env c >>= fun v ->
+        fold (v::vs) cs
+      in
+    fold [] cs
+
 (** if ctx |- lte : ty and ctx |- rte : ty, tries to extend ctx such that ctx |- lte == rte and gives the result to f *)
 and require_equal ~loc env ctx lte rte ty (f : Context.t -> 'a Value.result) error : 'a Value.result =
   match Equal.equal env ctx lte rte ty with
@@ -387,7 +394,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Spine _
   | Syntax.Bracket _
   | Syntax.Signature _
-  | Syntax.Projection _ ->
+  | Syntax.Projection _
+  | Syntax.Tag _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
