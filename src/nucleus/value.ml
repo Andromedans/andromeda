@@ -94,6 +94,8 @@ let rec to_value ~loc = function
   (* XXX hack to provide some default handlers *)
   (* #equal k => k 'none *)
   | Operation ("equal", _, k) -> to_value ~loc (k (Tag (Name.make "none", [])))
+  | Operation ("print", v, k) -> Print.message ~verbosity:0 "%t" (print_value [] v);
+    to_value ~loc (k (Tag (Name.make "tt", [])))
   | Operation (op, v, _) ->
      Error.runtime ~loc "unhandled operation %t %t" (Name.print_op op) (print_value ~max_level:0 [] v)
 
