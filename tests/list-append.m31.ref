@@ -1,0 +1,4 @@
+append is defined.
+append' is defined.
+'pair ('cons 'a ('cons 'b ('cons 'c ('cons 'd ('cons 'e ('cons 'f 'nil))))))
+('cons 'a ('cons 'b ('cons 'c ('cons 'd ('cons 'e ('cons 'f 'nil))))))
