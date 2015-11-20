@@ -31,29 +31,21 @@ and pattern' =
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Tag of Name.ident * pattern list
 
-(** Desugared expressions *)
-type expr = expr' * Location.t
-and expr' =
+(** Desugared computations *)
+type comp = comp' * Location.t
+and comp' =
   | Type
   | Bound of bound
   | Function of Name.ident * comp
+  | Rec of Name.ident * Name.ident * comp
   | Handler of handler
-  | Tag of Name.ident * expr list
-
-(** Desugared types - indistinguishable from expressions *)
-and ty = expr
-
-(** Desugared computations *)
-and comp = comp' * Location.t
-and comp' =
-  | Return of expr
-  | Operation of string * expr
-  | With of expr * comp
+  | Tag of Name.ident * comp list
+  | Operation of string * comp
+  | With of comp * comp
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
-  | Where of comp * expr * comp
-  | Apply of expr * expr
-  | Match of expr * match_case list
+  | Where of comp * comp * comp
+  | Match of comp * match_case list
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
@@ -61,11 +53,12 @@ and comp' =
   | Unhint of string list * comp
   | Ascribe of comp * comp
   | Whnf of comp
+  | Snf of comp
+  | External of string
   | Typeof of comp
   | Constant of Name.ident * comp list
   | Lambda of (Name.ident * comp option) list * comp
-  | Spine of expr * comp list (* spine arguments are computations because we want
-                                 to evaluate in checking mode, once we know their types. *)
+  | Spine of comp * comp list
   | Prod of (Name.ident * comp) list * comp
   | Eq of comp * comp
   | Refl of comp
@@ -87,6 +80,7 @@ and match_case = Name.ident list * pattern * comp
 type toplevel = toplevel' * Location.t
 and toplevel' =
   | Axiom of Name.ident * (bool * (Name.ident * comp)) list * comp (** introduce a constant *)
+  | TopHandle of (string * (Name.ident * comp)) list
   | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of (string list * comp) list
@@ -103,8 +97,4 @@ and toplevel' =
 (** [shift_comp k lvl c] shifts the bound variables in computation [c] that
     are larger than or equal [lv] by [k]. *)
 val shift_comp : int -> int -> comp -> comp
-
-(** [shift_exp k lvl e] shifts the bound variables in computation [e] that
-    are larger than or equal [lv] by [k]. *)
-val shift_expr : int -> int -> expr -> expr
 

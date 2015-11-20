@@ -1,0 +1,108 @@
+(* The auto tactic, kind of *)
+
+Axiom prod : Type -> Type -> Type.
+Axiom pair : Π [A B : Type] A -> (B -> (prod A B)).
+Axiom fst : Π [X Y : Type] prod X Y -> X.
+Axiom snd : Π [X Y : Type] prod X Y -> Y.
+
+Let rec fold f acc lst :=
+  match lst with
+    | 'nil => acc
+    | [x lst] 'cons x lst =>
+      let acc := f acc x in
+      fold f acc lst
+    end.
+
+(* [applicable A T] = Some n with n>=0 if T is of the form Π [x1 ... xn] A *)
+Let rec applicable A T :=
+  match T with
+    | |- A => 'some 'z
+    | [B] |- Π [x : _] B =>
+      match applicable A B with
+        | 'none => 'none
+        | [n] 'some n => 'some ('s n)
+      end
+    | _ => 'none
+  end.
+
+Let find := fun A lst =>
+  fold (fun acc v =>
+    match v with
+      | [T] |- _ : T =>
+        match applicable A T with
+          | 'none => acc
+          | [n] 'some n => 'cons ('pair n v) acc
+        end
+    end) 'nil lst.
+
+Let rec auto lst A :=
+  let rec auto_apply argn a :=
+    match argn with
+      | 'z => 'some a
+      | [argn] 's argn =>
+        match a with
+          | [T] |- _ : Π [x : T] _ =>
+            match auto lst T with
+              | [t] 'some t => auto_apply argn (a t)
+              | 'none => 'none
+            end
+       end
+    end
+  in
+  match A with
+    | [A B] |- prod A B : Type =>
+      match auto lst A with
+        | [a] 'some a => match auto lst B with
+          | [b] 'some b => 'some (pair A B a b)
+          | 'none => 'none
+          end
+        | 'none => 'none
+      end
+
+    | |- _ : Type =>
+      fold (fun found v =>
+      match found with
+        | 'some _ => found
+        | 'none =>
+          match v with
+            | [n v] 'pair n v => auto_apply n v
+          end
+      end) 'none (find A lst)
+  end.
+
+Axiom unit : Type.
+Axiom tt : unit.
+
+Let auto_handler := handler
+  | val x => x
+  | #inhabit goal k =>
+    fun hints =>
+    match auto hints goal with
+      | [t] 'some t => k t
+      | 'none => k (#inhabit goal) hints
+    end
+  | #new_hint h k =>
+    match h with
+      | |- _ => fun hints =>
+        k tt ('cons h hints)
+    end
+  | finally f => f 'nil
+  end.
+
+Axiom U : Type.
+Axiom V : Type.
+Axiom W : Type.
+Axiom u : U.
+
+Check
+  assume v : V in
+  assume w : W in
+  assume f : V -> W in
+  with auto_handler handle
+    let _ := #new_hint f in
+    let _ := #new_hint w in
+    let _ := #new_hint v in
+    let _ := #new_hint u in
+    #inhabit (prod U (prod V W)).
+
+

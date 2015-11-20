@@ -12,9 +12,11 @@ let reserved = [
   ("Check", TOPCHECK) ;
   ("⇒", DARROW) ;
   ("whnf", WHNF) ;
+  ("snf", SNF) ;
   ("end", END) ;
   ("eta", ETA) ;
   ("Eta", TOPETA) ;
+  ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
@@ -22,6 +24,7 @@ let reserved = [
   ("Hint", TOPHINT) ;
   ("unhint", UNHINT) ;
   ("Unhint", TOPUNHINT) ;
+  ("Handle", TOPHANDLE) ;
   ("Hypothesis", AXIOM) ;
   ("inhabit", INHABIT) ;
   ("Inhabit", TOPINHABIT) ;
@@ -38,6 +41,7 @@ let reserved = [
   ("lambda", LAMBDA) ;
   ("λ", LAMBDA) ;
   ("in", IN) ;
+  ("rec", REC) ;
   ("refl", REFL) ;
   ("Type", TYPE) ;
   ("typeof", TYPEOF) ;
@@ -92,7 +96,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | "#verbosity", Plus hspace -> g (); verbosity lexbuf
   | "#include"               -> f (); INCLUDE
   | '#', name                -> f (); OPERATION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
-  | quoted_string            -> f (); QUOTED_STRING (lexeme lexbuf)
+  | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
   | "[["                     -> f (); LLBRACK
@@ -112,7 +116,6 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | '_'                      -> f (); UNDERSCORE
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
-  | '@'                      -> f (); APPLY
   | '\'', name               -> f (); TAG (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | "->" | 8594 | 10230      -> f (); ARROW
   | "=>" | 10233             -> f (); DARROW

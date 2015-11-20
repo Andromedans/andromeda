@@ -2,5 +2,4 @@ A is assumed.
 B is assumed.
 a is assumed.
 e₄ : B ≡ A 
-⊢ a
-      : B
+⊢ a : B

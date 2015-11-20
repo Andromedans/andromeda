@@ -7,22 +7,22 @@ module IntSet = Set.Make (struct
 
 let add_bound x bound = x :: bound
 
-let rec mk_lambda ys ((c', loc) as c) =
+let rec mk_lambda ~loc ys ((c', _) as c) =
   match ys with
-  | [] -> c'
+  | [] -> c
   | _ :: _ ->
     begin match c' with
-      | Syntax.Lambda (ys', c) -> mk_lambda (ys @ ys') c
-      | _ -> Syntax.Lambda (ys, c)
+      | Syntax.Lambda (ys', c) -> mk_lambda ~loc (ys @ ys') c
+      | _ -> Syntax.Lambda (ys, c), loc
     end
 
-let rec mk_prod ys ((t', loc) as t) =
+let rec mk_prod ~loc ys ((t', _) as t) =
   match ys with
-  | [] -> t'
+  | [] -> t
   | _ :: _ ->
     begin match t' with
-      | Syntax.Prod (ys', t) -> mk_prod (ys @ ys') t
-      | _ -> Syntax.Prod (ys, t)
+      | Syntax.Prod (ys', t) -> mk_prod ~loc (ys @ ys') t
+      | _ -> Syntax.Prod (ys, t), loc
     end
 
 let mk_let ~loc w c =
@@ -30,28 +30,21 @@ let mk_let ~loc w c =
   | [] -> c
   | (_::_) as w -> Syntax.Let (w, c), loc
 
-let rec comp constants bound ((c',loc) as c) =
-  (* When a computation [c] is desugared we hoist out a list of
-     let-bindings [w]. NB: it is important that we first desugar
-     all subexpressions of [c] so that we get the correct environment
-     with hoisted bindings, and only then we desugar the subcomputations
-     of [c]. *)
-  let w, c' = match c' with
-
-    | Input.Operation (op, e) ->
-      let w, e = expr constants bound e in
-      w, Syntax.Operation (op, e)
+let rec comp constants bound (c',loc) =
+  match c' with
+    | Input.Operation (op, c) ->
+      let c = comp constants bound c in
+      Syntax.Operation (op, c), loc
 
     | Input.Handle (c, hcs) ->
        let c = comp constants bound c
        and h = handler ~loc constants bound hcs in
-       [], Syntax.With (h, c)
+       Syntax.With (h, c), loc
 
-    | Input.With (e, c) ->
-       let w, e = expr constants bound e in
-       let c = comp constants bound c in
-       let c = Syntax.shift_comp (List.length w) 0 c in
-       w, Syntax.With (e, c)
+    | Input.With (c1, c2) ->
+       let c1 = comp constants bound c1
+       and c2 = comp constants bound c2 in
+       Syntax.With (c1, c2), loc
 
     | Input.Let (xcs, c2) ->
       let rec fold = function
@@ -68,80 +61,75 @@ let rec comp constants bound ((c',loc) as c) =
       let xcs = fold xcs in
       let bound = List.fold_left (fun bound (x,_) -> add_bound x bound) bound xcs in
       let c2 = comp constants bound c2 in
-      [], Syntax.Let (xcs, c2)
+      Syntax.Let (xcs, c2), loc
 
     | Input.Assume ((x, t), c) ->
        let t = comp constants bound t in
        let bound = add_bound x bound in
        let c = comp constants bound c in
-       [], Syntax.Assume ((x, t), c)
+       Syntax.Assume ((x, t), c), loc
 
-    | Input.Where (c1, e, c2) ->
-       let w, e = expr constants bound e
-       and c1 = comp constants bound c1
-       and c2 = comp constants bound c2 in
-       let c1 = Syntax.shift_comp (List.length w) 0 c1
-       and c2 = Syntax.shift_comp (List.length w) 0 c2 in
-       w, Syntax.Where (c1, e, c2)
+    | Input.Where (c1, c2, c3) ->
+       let c1 = comp constants bound c1
+       and c2 = comp constants bound c2
+       and c3 = comp constants bound c3 in
+       Syntax.Where (c1, c2, c3), loc
 
-    | Input.Apply (e1, e2) ->
-       let w1, e1 = expr constants bound e1
-       and w2, e2 = expr constants bound e2 in
-       let k1 = List.length w1
-       and k2 = List.length w2 in
-       let e1 = Syntax.shift_expr k2 0 e1
-       and e2 = Syntax.shift_expr k1 k2 e2 in
-       w1 @ w2, Syntax.Apply (e1, e2)
-
-    | Input.Match (e, cases) ->
-       let w, e = expr constants bound e in
-       let bound = List.fold_left (fun bound (x,_) -> add_bound x bound) bound w in
-       let cases = List.map (case constants bound) cases in
-       w, Syntax.Match (e, cases)
+    | Input.Match (c, cases) ->
+       let c = comp constants bound c
+       and cases = List.map (case constants bound) cases in
+       Syntax.Match (c, cases), loc
 
     | Input.Beta (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
       let c = comp constants bound c in
-      [], Syntax.Beta (xscs, c)
+      Syntax.Beta (xscs, c), loc
 
     | Input.Eta (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
       let c = comp constants bound c in
-      [], Syntax.Eta (xscs, c)
+      Syntax.Eta (xscs, c), loc
 
     | Input.Hint (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
       let c = comp constants bound c in
-      [], Syntax.Hint (xscs, c)
+      Syntax.Hint (xscs, c), loc
 
     | Input.Inhabit (xscs, c) ->
       let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
       let c = comp constants bound c in
-      [], Syntax.Inhabit (xscs, c)
+      Syntax.Inhabit (xscs, c), loc
 
     | Input.Unhint (xs, c) ->
       let c = comp constants bound c in
-      [], Syntax.Unhint (xs, c)
+      Syntax.Unhint (xs, c), loc
 
     | Input.Ascribe (c, t) ->
        let t = comp constants bound t
        and c = comp constants bound c in
-       [], Syntax.Ascribe (c, t)
+       Syntax.Ascribe (c, t), loc
 
     | Input.Whnf c ->
       let c = comp constants bound c in
-      [], Syntax.Whnf c
+      Syntax.Whnf c, loc
+
+    | Input.Snf c ->
+      let c = comp constants bound c in
+      Syntax.Snf c, loc
+
+    | Input.External s ->
+       Syntax.External s, loc
 
     | Input.Typeof c ->
       let c = comp constants bound c in
-      [], Syntax.Typeof c
+      Syntax.Typeof c, loc
 
     | Input.Lambda (xs, c) ->
       let rec fold bound ys = function
         | [] ->
            let ys = List.rev ys in
            let c = comp constants bound c in
-          mk_lambda ys c
+           mk_lambda ~loc ys c
         | (x, None) :: xs ->
           let bound = add_bound x bound
           and ys = (x, None) :: ys in
@@ -151,7 +139,7 @@ let rec comp constants bound ((c',loc) as c) =
           and bound = add_bound x bound in
           fold bound ys xs
       in
-      [], fold bound [] xs
+      fold bound [] xs
 
     | Input.Spine (e, cs) ->
       spine constants bound e cs
@@ -161,29 +149,29 @@ let rec comp constants bound ((c',loc) as c) =
         | [] ->
            let ys = List.rev ys in
            let c = comp constants bound c in
-           mk_prod ys c
+           mk_prod ~loc ys c
         | (x,t) :: xs ->
           let ys = (let t = comp constants bound t in (x, t) :: ys)
           and bound = add_bound x bound in
           fold bound ys xs
       in
-      [], fold bound [] xs
+      fold bound [] xs
 
     | Input.Eq (c1, c2) ->
       let c1 = comp constants bound c1
       and c2 = comp constants bound c2 in
-      [], Syntax.Eq (c1, c2)
+      Syntax.Eq (c1, c2), loc
 
     | Input.Refl c ->
       let c = comp constants bound c in
-      [], Syntax.Refl c
+      Syntax.Refl c, loc
 
     | Input.Bracket c ->
       let c = comp constants bound c in
-      [], Syntax.Bracket c
+      Syntax.Bracket c, loc
 
     | Input.Inhab ->
-      [], Syntax.Inhab
+      Syntax.Inhab, loc
 
     | Input.Signature lst ->
       let rec fold bound labels res = function
@@ -199,7 +187,7 @@ let rec comp constants bound ((c',loc) as c) =
             fold (add_bound y bound) (x::labels) ((x,y,c)::res) rem
         in
       let lst = fold bound [] [] lst in
-      [], Syntax.Signature lst
+      Syntax.Signature lst, loc
 
     | Input.Structure lst ->
       let rec fold bound labels res = function
@@ -215,22 +203,69 @@ let rec comp constants bound ((c',loc) as c) =
             fold (add_bound y bound) (x :: labels) ((x,y,c) :: res) rem
         in
       let lst = fold bound [] [] lst in
-      [], Syntax.Structure lst
+      Syntax.Structure lst, loc
 
     | Input.Projection (c,x) ->
       let c = comp constants bound c in
-      [], Syntax.Projection (c,x)
+      Syntax.Projection (c,x), loc
 
-    | (Input.Var _ | Input.Type | Input.Function _ | Input.Handler _ | Input.Tag _) ->
-      let w, e = expr constants bound c in
-      w, Syntax.Return e
+    | Input.Var x ->
+       begin
+         (* a bound variable always shadows a name *)
+         match Name.index_of_ident x bound with
+         | None ->
+            (* it is a constants operation of arity 0 *)
+            begin
+              try
+                let k = List.assoc x constants in
+                if k = 0 then constant ~loc constants bound x []
+                else Error.syntax ~loc "this constant needs %d more arguments" k
+              with Not_found ->
+                Error.syntax ~loc "unknown name %t" (Name.print_ident x)
+            end
+         | Some k -> Syntax.Bound k, loc
+       end
 
-  in
-  mk_let ~loc w (c', loc)
+  | Input.Type ->
+    Syntax.Type, loc
+
+  | Input.Function (xs, c) ->
+     let rec fold bound = function
+       | [] -> comp constants bound c
+       | x :: xs ->
+          let bound = add_bound x bound in
+          let c = fold bound xs in
+          Syntax.Function (x, c), loc
+     in
+       fold bound xs
+
+  | Input.Rec (f, xs, c) ->
+     let rec fold bound = function
+       | [] -> comp constants bound c
+       | y :: ys ->
+          let bound = add_bound y bound in
+          let c = fold bound ys in
+            Syntax.Function (y, c), loc
+     in
+     begin match xs with
+     | [] -> Error.impossible ~loc "empty recursion abstraction in desguar"
+     | x :: xs ->
+        let bound = add_bound f bound in
+        let bound = add_bound x bound in
+        let c = fold bound xs in
+        Syntax.Rec (f, x, c), loc
+     end
+
+  | Input.Handler hcs ->
+     handler ~loc constants bound hcs
+
+  | Input.Tag (t, cs) ->
+     let cs = List.map (comp constants bound) cs in
+     Syntax.Tag (t, cs), loc
 
 (* Desguar a spine. This function is a bit messy because we need to untangle
    to constants. But it's worth doing to make users happy. *)
-and spine constants bound ((e',loc) as e) cs =
+and spine constants bound ((c',loc) as c) cs =
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
   let rec split k lst =
@@ -242,9 +277,9 @@ and spine constants bound ((e',loc) as e) cs =
         | x::lst -> let lst, lst' = split (k-1) lst in (x :: lst, lst')
   in
   (* First we calculate the head of the spine, and the remaining arguments. *)
-  let (w, e), cs =
+  let c, cs =
     begin
-      match e' with
+      match c' with
       | Input.Var x when not (List.mem x bound) ->
         begin
           try
@@ -252,14 +287,13 @@ and spine constants bound ((e',loc) as e) cs =
             let cs', cs = split k cs in
               (* We make a constant from [x] and [cs'] *)
               constant ~loc constants bound x cs', cs
-          with Not_found -> expr constants bound e, cs
+          with Not_found -> comp constants bound c, cs
         end
-      | _ -> expr constants bound e, cs
+      | _ -> comp constants bound c, cs
     end in
   (* Process the remaining arguments. *)
-  let k = List.length w in
-  let cs = List.map (fun c -> Syntax.shift_comp k 0 (comp constants bound c)) cs in
-  w, Syntax.Spine (e, cs)
+  let cs = List.map (comp constants bound) cs in
+  Syntax.Spine (c, cs), loc
 
 (* Desugar handler cases. *)
 and handler ~loc constants bound hcs =
@@ -504,76 +538,9 @@ and tt_pattern constants bound varn lvl present (p,loc) =
       let p, present = tt_pattern constants bound varn lvl present p in
       (Syntax.Tt_Projection (p,l), loc), present
 
-(* Make constant as if it were in an expression position *)
 and constant ~loc constants bound x cs =
   let cs = List.map (comp constants bound) cs in
-  let c = Syntax.Constant (x, cs), loc
-  and y = Name.fresh_candy () in
-  [(y, c)], (Syntax.Bound 0, loc)
-
-(* Desugar an expression. It hoists out subcomputations appearing in the
-   expression. *)
-and expr constants bound ((e', loc) as e) =
-  match e' with
-  | Input.Var x ->
-    begin
-      (* a bound variable always shadows a name *)
-      match Name.index_of_ident x bound with
-      | None ->
-        (* it is a constants operation of arity 0 *)
-        begin
-          try
-            let k = List.assoc x constants in
-            if k = 0 then constant ~loc constants bound x []
-            else Error.syntax ~loc "this constant needs %d more arguments" k
-          with Not_found ->
-            Error.syntax ~loc "unknown name %t" (Name.print_ident x)
-        end
-      | Some k -> [], (Syntax.Bound k, loc)
-    end
-
-  | Input.Type ->
-    [], (Syntax.Type, loc)
-
-  | Input.Function (xs, c) ->
-     let rec fold bound = function
-       | [] -> Error.impossible "empty function abstraction in desugar"
-       | [x] ->
-          let bound = add_bound x bound in
-          let c = comp constants bound c in
-            Syntax.Function (x, c), loc
-       | x :: ((_ :: _) as xs) ->
-          let bound = add_bound x bound in
-          let e = fold bound xs in
-            Syntax.Function (x, (Syntax.Return e, loc)), loc
-     in
-       [], fold bound xs
-
-  | Input.Handler hcs ->
-     [], handler ~loc constants bound hcs
-
-  | Input.Tag (t, lst) ->
-     let rec fold w es bound = function
-       | [] ->
-          let es = List.rev es in
-          w, es
-       | c :: cs ->
-          let we, e = expr constants bound c in
-          let bound = List.fold_left (fun bound (x, _) -> add_bound x bound) bound we in
-          fold (w @ we) (e :: es) bound cs
-     in
-     let w, es = fold [] [] bound lst in
-     w, (Syntax.Tag (t, es), loc)
-
-  | (Input.Let _ | Input.Beta _ | Input.Eta _ | Input.Hint _ | Input.Inhabit _ |
-     Input.Unhint _ | Input.Bracket _ | Input.Inhab | Input.Ascribe _ | Input.Lambda _ |
-     Input.Spine _ | Input.Prod _ | Input.Eq _ | Input.Refl _ | Input.Operation _ |
-     Input.Whnf _ | Input.Apply _ | Input.Match _ | Input.Handle _ | Input.With _ |
-     Input.Typeof _ | Input.Assume _ | Input.Where _ | Input.Signature _ |
-     Input.Structure _ | Input.Projection _) ->
-    let x = Name.fresh_candy ()
-    and c = comp constants bound e in
-    [(x,c)], (Syntax.Bound 0, loc)
+  Syntax.Constant (x, cs), loc
 
 let toplevel constants bound (d', loc) =
   let d' = match d' with
@@ -592,6 +559,10 @@ let toplevel constants bound (d', loc) =
       in
       let ryts, u = fold bound [] ryts in
       Syntax.Axiom (x, ryts, u)
+
+    | Input.TopHandle lst ->
+       let lst = List.map (fun (op, x, c) -> op, (x, comp constants (add_bound x bound) c)) lst in
+       Syntax.TopHandle lst
 
     | Input.TopLet (x, yts, u, ((_, loc) as c)) ->
       let c = match u with

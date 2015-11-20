@@ -2,8 +2,7 @@ cow is assumed.
 horn is assumed.
 tail is assumed.
 tail_horn is assumed.
-⊢ refl horn
-      : horn ≡ tail horn
+⊢ refl horn : horn ≡ tail horn
 prod is assumed.
 pair is assumed.
 fst is assumed.
@@ -12,5 +11,4 @@ X is assumed.
 Y is assumed.
 a is assumed.
 f is assumed.
-⊢ λ [y : Y] refl (f a)
-      : Π [y : Y] f a ≡ fst X Y (pair X Y (f a) y)
+⊢ λ [y : Y] refl (f a) : Π [y : Y] f a ≡ fst X Y (pair X Y (f a) y)

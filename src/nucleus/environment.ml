@@ -16,6 +16,7 @@ type t = {
   eta : (string list list * Pattern.eta_hint list) HintMap.t;
   general : (string list list * Pattern.general_hint list) GeneralMap.t;
   inhabit : (string list list * Pattern.inhabit_hint list) HintMap.t;
+  handle : (string * (Name.ident * Syntax.comp)) list;
   files : string list;
 }
 
@@ -27,6 +28,7 @@ let empty = {
   eta = HintMap.empty ;
   general = GeneralMap.empty ;
   inhabit = HintMap.empty ;
+  handle = [] ;
   files = [] ;
 }
 
@@ -167,6 +169,14 @@ let add_fresh ~loc env x (ctx, t) =
   let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
   let env = add_bound x yt env in
   y, env
+
+let add_handle op xc env =
+  { env with handle = (op, xc) :: env.handle }
+
+let lookup_handle op {handle=lst} =
+  try
+    Some (List.assoc op lst)
+  with Not_found -> None
 
 let add_file f env =
   { env with files = (Filename.basename f) :: env.files }

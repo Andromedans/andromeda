@@ -30,27 +30,33 @@
 
 (* Toplevel computations *)
 %token TOPCHECK
+%token TOPHANDLE
+%token TOPLET
+%token TOPBETA TOPETA TOPHINT TOPINHABIT
+%token TOPUNHINT
 
 (* Let binding *)
-%token TOPLET
 %token LET COLONEQ AND IN
 
 (* Hints *)
-%token TOPBETA TOPETA TOPHINT TOPINHABIT
-%token TOPUNHINT
 %token BETA ETA HINT INHABIT
 %token UNHINT
 
-(* Operations and handlers *)
+(* Meta-level programming *)
+%token <string> TAG
+%token MATCH
+%token VDASH
+
 %token <string> OPERATION
 %token HANDLE WITH HANDLER BAR VAL FINALLY END
 
-(* Other computations *)
-%token WHNF
+%token WHNF SNF
 %token TYPEOF
 
+%token EXTERNAL
+
 (* Functions *)
-%token FUNCTION APPLY
+%token REC FUNCTION
 
 (* Axioms *)
 %token AXIOM REDUCE
@@ -61,10 +67,6 @@
 (* Substitution *)
 %token WHERE
 
-(* Meta-level programming *)
-%token <string> TAG
-%token MATCH
-%token VDASH
 
 (* Toplevel directives *)
 %token ENVIRONMENT HELP QUIT
@@ -101,7 +103,11 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | TOPLET x=name yts=typed_binder* u=return_type? COLONEQ c=term { TopLet (x, List.concat yts, u, c) }
+  | TOPLET x=name yts=typed_binder* u=return_type? COLONEQ c=term 
+       { TopLet (x, List.concat yts, u, c) }
+  | TOPLET REC x=name a=function_abstraction COLONEQ e=term
+       { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
+  | TOPHANDLE lst=list(top_handler_case) END         { TopHandle lst }
   | TOPCHECK c=term                                  { TopCheck c }
   | TOPBETA ths=tags_hints                           { TopBeta ths }
   | TOPETA ths=tags_hints                            { TopEta ths }
@@ -120,39 +126,36 @@ plain_topdirective:
   | HELP                                             { Help }
   | QUIT                                             { Quit }
   | VERBOSITY                                        { Verbosity $1 }
-  | INCLUDE fs=quoted_string+                        { Include fs }
-
-quoted_string:
-  | QUOTED_STRING { let s = $1 in
-               let l = String.length s in
-               String.sub s 1 (l - 2) }
+  | INCLUDE fs=QUOTED_STRING+                        { Include fs }
 
 (* Main syntax tree *)
 
 term: mark_location(plain_term) { $1 }
 plain_term:
-  | e=plain_ty_term                                   { e }
-  | LET a=let_clauses IN c=term                       { Let (a, c) }
-  | ASSUME x=var_name COLON t=ty_term IN c=term       { Assume ((x, t), c) }
-  | c1=equal_term WHERE e=simple_term COLONEQ c2=term { Where (c1, e, c2) }
-  | BETA tshs=tags_opt_hints IN c=term                { Beta (tshs, c) }
-  | ETA tshs=tags_opt_hints IN c=term                 { Eta (tshs, c) }
-  | HINT tshs=tags_opt_hints IN c=term                { Hint (tshs, c) }
-  | INHABIT tshs=tags_opt_hints IN c=term             { Inhabit (tshs, c) }
-  | UNHINT ts=tags_unhints IN c=term                  { Unhint (ts, c) }
-  | MATCH e=term WITH lst=match_case* END             { Match (e, lst) }
-  | HANDLE c=term WITH hcs=handler_case* END          { Handle (c, hcs) }
-  | WITH h=term HANDLE c=term                         { With (h, c) }
-  | HANDLER hcs=handler_case* END                     { Handler (hcs) }
-  | e=app_term DCOLON t=ty_term                       { Ascribe (e, t) }
+  | e=plain_ty_term                                                 { e }
+  | LET a=let_clauses IN c=term                                     { Let (a, c) }
+  | LET REC x=name a=function_abstraction COLONEQ e=term IN c=term  { Let ([x,(Rec (x, a, e),snd e)], c) }
+  | ASSUME x=var_name COLON t=ty_term IN c=term                     { Assume ((x, t), c) }
+  | c1=equal_term WHERE e=simple_term COLONEQ c2=term               { Where (c1, e, c2) }
+  | BETA tshs=tags_opt_hints IN c=term                              { Beta (tshs, c) }
+  | ETA tshs=tags_opt_hints IN c=term                               { Eta (tshs, c) }
+  | HINT tshs=tags_opt_hints IN c=term                              { Hint (tshs, c) }
+  | INHABIT tshs=tags_opt_hints IN c=term                           { Inhabit (tshs, c) }
+  | UNHINT ts=tags_unhints IN c=term                                { Unhint (ts, c) }
+  | MATCH e=term WITH lst=match_case* END                           { Match (e, lst) }
+  | HANDLE c=term WITH hcs=handler_case* END                        { Handle (c, hcs) }
+  | WITH h=term HANDLE c=term                                       { With (h, c) }
+  | HANDLER hcs=handler_case* END                                   { Handler (hcs) }
+  | e=app_term DCOLON t=ty_term                                     { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
-  | e=plain_equal_term                              { e }
-  | PROD a=typed_binder+ e=term                   { Prod (List.concat a, e) }
-  | LAMBDA a=binder+ e=term                         { Lambda (List.concat a, e) }
-  | FUNCTION a=function_abstraction ARROW e=term    { Function (a, e) }
-  | t1=equal_term ARROW t2=ty_term                  { Prod ([(Name.anonymous, t1)], t2) }
+  | e=plain_equal_term                               { e }
+  | PROD a=typed_binder+ e=term                      { Prod (List.concat a, e) }
+  | LAMBDA a=binder+ e=term                          { Lambda (List.concat a, e) }
+  | FUNCTION a=function_abstraction DARROW e=term    { Function (a, e) }
+  | REC x=name a=function_abstraction DARROW e=term  { Rec (x, a, e) }
+  | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous, t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
 plain_equal_term:
@@ -165,9 +168,10 @@ plain_app_term:
   | e=simple_term es=nonempty_list(simple_term)     { match fst e with
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
-  | e1=simple_term APPLY e2=app_term                { Apply (e1, e2) }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
+  | EXTERNAL s=QUOTED_STRING                        { External s }
   | WHNF t=simple_term                              { Whnf t }
+  | SNF t=simple_term                               { Snf t }
   | TYPEOF t=simple_term                            { Typeof t }
   | REFL e=simple_term                              { Refl e }
   | op=OPERATION e=simple_term                      { Operation (op, e) }
@@ -269,9 +273,12 @@ tags_unhint:
   | ts=tag_var { ts }
 
 handler_case:
-  | BAR VAL x=name ARROW t=term                 { CaseVal (x, t) }
-  | BAR op=OPERATION x=name k=name ARROW t=term { CaseOp (op, x, k, t) }
-  | BAR FINALLY x=name ARROW t=term             { CaseFinally (x, t) }
+  | BAR VAL x=name DARROW t=term                 { CaseVal (x, t) }
+  | BAR op=OPERATION x=name k=name DARROW t=term { CaseOp (op, x, k, t) }
+  | BAR FINALLY x=name DARROW t=term             { CaseFinally (x, t) }
+
+top_handler_case:
+  | BAR op=OPERATION x=name DARROW t=term        { (op, x, t) }
 
 match_case:
   | BAR a=untyped_binder p=pattern DARROW c=term  { (a, p, c) }

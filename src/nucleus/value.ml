@@ -47,6 +47,14 @@ and print_value ?max_level xs v ppf =
   | Handler h -> print_handler xs h ppf
   | Tag (t, lst) -> print_tag ?max_level xs t lst ppf
 
+let print_value_key v ppf =
+  match v with
+    | Term _ -> Print.print ~at_level:0 ppf "<term>"
+    | Ty _ -> Print.print ~at_level:0 ppf "<type>"
+    | Closure _ -> Print.print ~at_level:0 ppf "<function>"
+    | Handler _ -> Print.print ~at_level:0 ppf "<handler>"
+    | Tag _ -> Print.print ~at_level:0 ppf "<tag>"
+
 let as_term ~loc = function
   | Term e -> e
   | Ty _ -> Error.runtime ~loc "expected a term but got a type"

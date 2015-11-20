@@ -2,5 +2,4 @@ A is assumed.
 B is assumed.
 a₆ : A 
 b₇ : A 
-⊢ B [] b₇
-      : Type
+⊢ B [] b₇ : Type

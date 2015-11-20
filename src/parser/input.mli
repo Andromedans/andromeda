@@ -38,12 +38,12 @@ and term' =
   | Var of Name.ident
   | Type
   | Function of Name.ident list * comp
+  | Rec of Name.ident * Name.ident list * comp
   | Handler of handle_case list
   (* computations *)
   | Operation of string * expr
   | Handle of comp * handle_case list
   | With of expr * comp
-  | Apply of expr * expr
   | Tag of Name.ident * comp list
   | Match of comp * match_case list
   | Let of (Name.ident * comp) list * comp
@@ -56,6 +56,8 @@ and term' =
   | Unhint of string list * comp
   | Ascribe of comp * ty
   | Whnf of comp
+  | Snf of comp
+  | External of string
   | Typeof of comp
   | Lambda of (Name.ident * comp option) list * comp
   | Spine of comp * comp list
@@ -88,7 +90,9 @@ and match_case = Name.ident list * pattern * comp
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Axiom of Name.ident * (bool * (Name.ident * ty)) list * ty (** introduce a primitive constant, the boolean is [true] if the argument is eagerly reducing *)
+  | Axiom of Name.ident * (bool * (Name.ident * ty)) list * ty
+    (** introduce a primitive constant, the boolean is [true] if the argument is eagerly reducing *)
+  | TopHandle of (string * Name.ident * comp) list 
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | TopBeta of (string list * comp) list (** global beta hint *)

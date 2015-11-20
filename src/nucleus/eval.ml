@@ -27,40 +27,66 @@ let as_ty ~loc v =
   let t = Value.as_ty ~loc v in
     Value.return t
 
+let as_handler ~loc v =
+  let e = Value.as_handler ~loc v in
+  Value.return e
+
 (** A helper function to install a beta hint for an atom. *)
 let add_beta ~loc z ctx e t env  =
   let hint_key = Hint.mk_beta ~loc env ctx ([], (t, Tt.mk_atom ~loc z, e))  in
   Environment.add_beta hint_key env
 
-(** Evaluation of expressions. *)
-let rec expr env (e',loc) =
-  let close x c v =
-    let env = Environment.add_bound x v env in
-    infer env c
-  in
-  begin
-    match e' with
-
-    | Syntax.Bound i -> Environment.lookup_bound i env
+(** Evaluate a computation -- infer mode. *)
+let rec infer env (c',loc) =
+  match c' with
+    | Syntax.Bound i ->
+       let v = Environment.lookup_bound i env in
+       Value.return v
 
     | Syntax.Type ->
        let e = Tt.mk_type ~loc in
        let t = Tt.mk_type_ty ~loc in
        let et = Judgement.mk_term Context.empty e t in
-       Value.Term et
+       Value.return_term et
 
     | Syntax.Function (x, c) ->
-       Value.Closure (close x c)
+       let f v =
+         let env = Environment.add_bound x v env in
+         infer env c
+       in
+       let v = Value.Closure f in
+       Value.return v
 
-    | Syntax.Tag (t, lst) ->
-       let lst = List.map (expr env) lst in
-       Value.Tag (t, lst)
+    | Syntax.Rec (f, x, c) ->
+       let rec g v =
+         let env = Environment.add_bound f (Value.Closure g) env in
+         let env = Environment.add_bound x v env in
+         infer env c
+       in
+       let v = Value.Closure g in
+       Value.return v
+
+    | Syntax.Tag (t, cs) ->
+       let rec fold vs = function
+         | [] ->
+            let vs = List.rev vs in
+            let v = Value.Tag (t, vs) in
+            Value.return v
+         | c :: cs ->
+            infer env c >>= (fun v -> fold (v :: vs) cs)
+       in
+       fold [] cs
 
     | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
        let handler_val =
          begin match handler_val with
          | None -> None
-         | Some (x, c) -> Some (close x c)
+         | Some (x, c) ->
+            let f v =
+              let env = Environment.add_bound x v env in
+              infer env c
+            in
+            Some f
          end
        and handler_ops =
          begin
@@ -74,38 +100,28 @@ let rec expr env (e',loc) =
        and handler_finally =
          begin match handler_finally with
          | None -> None
-         | Some (x, c) -> Some (close x c)
+         | Some (x, c) -> 
+            let f v =
+              let env = Environment.add_bound x v env in
+              infer env c
+            in
+            Some f
          end
        in
-       Value.Handler (Value.{handler_val; handler_ops; handler_finally})
-  end
+       let v = Value.Handler (Value.{handler_val; handler_ops; handler_finally}) in
+       Value.return v
 
-and expr_term env ((_,loc) as e) =
-  match expr env e with
-  (* | Value.Ty (Tt.Ty t) -> Judgement.mk_term t Tt.typ *)
-  | Value.Ty _ -> Error.runtime ~loc "this expression should be a term but is a type"
-  | Value.Term et -> et
-  | Value.Handler _ -> Error.runtime ~loc "this expression should be a term but is a handler"
-  | Value.Closure _ -> Error.runtime ~loc "this expression should be a term but is a closure"
-  | Value.Tag _ -> Error.runtime ~loc "this expression should be a term but is a tag"
+  | Syntax.Operation (op, c) ->
+     infer env c >>= 
+       (fun v ->
+        let k u = Value.Return u in
+        Value.Operation (op, v, k))
 
-(** Evaluate a computation -- infer mode. *)
-and infer env (c',loc) =
-  match c' with
-
-  | Syntax.Return e ->
-     let v = expr env e in
-     Value.Return v
-
-  | Syntax.Operation (op, e) ->
-     let v = expr env e in
-     let k u = Value.Return u in
-     Value.Operation (op, v, k)
-
-  | Syntax.With (e, c) ->
-     let h = Value.as_handler ~loc:(snd e) (expr env e) in
-     let r = infer env c in
-     handle_result env h r
+  | Syntax.With (c1, c2) ->
+     infer env c1 >>= as_handler ~loc >>=
+       (fun h ->
+        let r = infer env c2 in
+        handle_result env h r)
 
   | Syntax.Let (xcs, c) ->
      let_bind env xcs >>= (fun env -> infer env c)
@@ -116,41 +132,32 @@ and infer env (c',loc) =
      let y, env = Environment.add_fresh ~loc env x t in
      infer env c
 
-  | Syntax.Where (c1, e, c2) ->
-
-     let (ctxe, ((e', _) as e), te) = expr_term env e in
-     (* XXX maybe we need to whnf e to see that it is an atom? *)
-     begin match e' with
-     | Tt.Atom a ->
-        infer env c1 >>= as_term ~loc >>= fun (ctx1, e1, t1) ->
-        let ctx1 = Context.join ctxe ctx1 in
-        check env c2 (Context.context_at ctx1 a, te) >>= fun (ctx2, e2) ->
-        let ctx_s = Context.substitute ctx1 a (ctx2,e2,te) in
+  | Syntax.Where (c1, c2, c3) ->
+     infer env c2 >>= as_term ~loc >>=
+       (fun j ->
+       let (ctxa, a, ta) = Equal.as_atom env j in
+       infer env c1 >>= as_term ~loc >>= fun (ctx1, e1, t1) ->
+        let ctx1 = Context.join ctxa ctx1 in
+        check env c3 (Context.context_at ctx1 a, ta) >>= fun (ctx2, e2) ->
+        let ctx_s = Context.substitute ctx1 a (ctx2,e2,ta) in
         let te_s = Tt.instantiate [e2] 0 (Tt.abstract [a] 0 e1) in
         let ty_s = Tt.instantiate_ty [e2] 0 (Tt.abstract_ty [a] 0 t1) in
         let j_s = Judgement.mk_term  ctx_s te_s ty_s in
-        Value.return_term j_s
+        Value.return_term j_s)
 
-     | _ -> Error.runtime ~loc "Only atoms can be substituted"
-     end
-
-  | Syntax.Apply (e1, e2) ->
-     let v1 = Value.as_closure ~loc (expr env e1)
-     and v2 = expr env e2 in
-       v1 v2
-
-  | Syntax.Match (e,cases) ->
-    let v = expr env e in
-    let rec fold = function
-      | [] ->
-        Error.typing ~loc "No match found for %t" (print_value env v)
-      | (xs, p, c) :: cases ->
-        begin match Environment.match_pattern env xs p v with
-          | Some env -> infer env c
-          | None -> fold cases
-        end
-      in
-    fold cases
+  | Syntax.Match (c, cases) ->
+     infer env c >>=
+       fun v ->
+       let rec fold = function
+         | [] ->
+            Error.typing ~loc "No match found for %t" (print_value env v)
+         | (xs, p, c) :: cases ->
+            begin match Environment.match_pattern env xs p v with
+                  | Some env -> infer env c
+                  | None -> fold cases
+            end
+       in
+       fold cases
 
   | Syntax.Beta (xscs, c) ->
     beta_bind env xscs >>= (fun env -> infer env c)
@@ -177,6 +184,22 @@ and infer env (c',loc) =
       let ctx = Context.join ctx ctxe in
       let j = Judgement.mk_term ctx e t in
       Value.return_term j)
+
+  | Syntax.Snf c ->
+    infer env c >>= as_term ~loc >>= fun (ctx, e, t) ->
+    let ctxt, t = Equal.snf_ty env ctx t in
+    let ctx = Context.join ctx ctxt in
+    let ctxe, e = Equal.snf env ctx e in
+    let ctx = Context.join ctx ctxe in
+    let j = Judgement.mk_term ctx e t in
+    Value.return_term j
+
+  | Syntax.External s ->
+     begin
+       match External.lookup s with
+       | None -> Error.runtime ~loc "unknown external %s" s
+       | Some v -> Value.return v
+     end
 
   | Syntax.Typeof c ->
     (* In future versions this is going to be a far less trivial computation,
@@ -229,12 +252,29 @@ and infer env (c',loc) =
      infer_lambda env ~loc xus c >>=
        (fun (ctx, lam, prod) -> Value.return_term (Judgement.mk_term ctx lam prod))
 
-  | Syntax.Spine (e, []) ->
-      Value.return_term (expr_term env e)
+  | Syntax.Spine (c, []) ->
+     infer env c >>= as_term ~loc >>= Value.return_term
 
-  | Syntax.Spine (e, cs) ->
-    let j = expr_term env e in
-    spine ~loc env j cs
+  | Syntax.Spine (c, cs) ->
+    let rec fold v cs =
+      match v with
+        | Value.Term j ->
+          spine ~loc env j cs
+        | Value.Closure f ->
+          begin match cs with
+            | [] -> Error.impossible ~loc "empty spine in Eval.infer"
+            | [c] ->
+              infer env c >>=
+              f
+            | c::(_::_ as cs) ->
+              infer env c >>=
+              f >>= fun v ->
+              fold v cs
+          end
+        | Value.Ty _ | Value.Handler _ | Value.Tag _ ->
+          Error.runtime ~loc "%t expressions cannot be applied" (Value.print_value_key v)
+    in
+    infer env c >>= fun v -> fold v cs
 
   | Syntax.Prod (xts, c) ->
     infer_prod env ~loc xts c
@@ -292,13 +332,14 @@ and infer env (c',loc) =
         let ctx = Context.abstract ~loc ctx ys in
         let j = Judgement.mk_term ctx te ty in
         Value.return_term j
-      | (l,x,c) :: rem ->
+      | (lbl,x,c) :: rem ->
         infer env c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
         let ctx = Context.join ctx ctxt in
         let jty = Judgement.mk_ty ctx ty in
         let t = Tt.abstract_ty ys 0 ty in
+        let te = Tt.abstract ys 0 te in
         let y, env = Environment.add_fresh ~loc env x jty in
-        fold env ctx (y::ys) ((l,x,t,te)::xtes) rem
+        fold env ctx (y::ys) ((lbl,x,t,te)::xtes) rem
       in
     fold env Context.empty [] [] xcs
 
@@ -314,12 +355,16 @@ and infer env (c',loc) =
 and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : (Context.t * Tt.term) Value.result =
   match c' with
 
+  | Syntax.Type
+  | Syntax.Bound _
+  | Syntax.Function _
+  | Syntax.Rec _
+  | Syntax.Handler _
+  | Syntax.External _
+  | Syntax.Tag _
   | Syntax.Where _
-
-  | Syntax.Return _
   | Syntax.With _
   | Syntax.Typeof _
-  | Syntax.Apply _
   | Syntax.Match _
   | Syntax.Constant _
   | Syntax.Prod _
@@ -340,9 +385,9 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
                              (print_ty env t_check') (print_ty env t')
     end
 
-  | Syntax.Operation (op, e) ->
-     let ve = expr env e
-     and k v =
+  | Syntax.Operation (op, c) ->
+     infer env c >>= fun ve ->
+     let k v =
        let (ctxe, e', t') = Value.as_term ~loc v in
        let ctx = Context.join ctx_check ctxe in
        match Equal.equal_ty env ctx t_check' t' with
@@ -381,6 +426,11 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Whnf c ->
     check env c t_check >>= fun (ctx, e) ->
     let ctx, e = Equal.whnf env ctx e in
+    Value.return (ctx, e)
+
+  | Syntax.Snf c ->
+    check env c t_check >>= fun (ctx, e) ->
+    let ctx, e = Equal.snf env ctx e in
     Value.return (ctx, e)
 
   | Syntax.Ascribe (c1, c2) ->
@@ -729,18 +779,24 @@ and check_ty env c : Judgement.ty Value.result =
    let j = Judgement.mk_ty ctx t in
    Value.return j)
 
+(** Top-level handler. It returns a value, or reports a run-time error if an unhandled
+    operation is encountered. Note that this is a recursive handler which keeps handling
+    until a value is returned. *)
+let rec top_handle ~loc env = function
+  | Value.Return v -> v
+  | Value.Operation (op, v, k) ->
+     begin match Environment.lookup_handle op env with
+      | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
+      | Some (x, c) ->
+         let r = infer (Environment.add_bound x v env) c >>= k in
+         top_handle ~loc env r
+     end
 
-let comp = infer
-
-let comp_value env ((_,loc) as c) =
-  let r = comp env c in
-  Value.to_value ~loc r
+let comp_value env ((_, loc) as c) =
+  let r = infer env c in
+  top_handle ~loc env r
 
 let comp_ty env ((_,loc) as c) =
   let r = check_ty env c in
-  Value.to_value ~loc r
-
-let comp_term env ((_,loc) as c) =
-  let r = infer env c in
-  Value.as_term ~loc (Value.to_value ~loc r)
+  top_handle ~loc env r
 

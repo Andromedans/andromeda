@@ -128,6 +128,9 @@ let rec exec_cmd base_dir interactive env c =
      if interactive then Format.printf "%t is assumed.@." (Name.print_ident x) ;
      env
 
+  | Syntax.TopHandle lst ->
+     List.fold_left (fun env (op, xc) -> Environment.add_handle op xc env) env lst
+
   | Syntax.TopLet (x, c) ->
      let v = Eval.comp_value env c in
      let env = Environment.add_bound x v env in

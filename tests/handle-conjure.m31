@@ -1,10 +1,10 @@
 (* Create a variable of type A out of thin air. *)
 Let conjure :=
-  (fun U ->
+  (fun U =>
      handle
        λ [magic : U] #conjure magic
      with
-     | #conjure x _ -> x
+     | #conjure x _ => x
      end
   ).
 
@@ -18,5 +18,5 @@ Check
   handle
     λ [a : A] Q A B a (#implicit (B a))
   with
-  | #implicit T k -> k @ (conjure @ T)
+  | #implicit T k => k (conjure T)
   end.

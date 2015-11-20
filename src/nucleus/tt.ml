@@ -676,12 +676,12 @@ let rec print_term ?max_level xs (e,_) ppf =
         print ~at_level:0 "[[%t]]"
           (print_ty xs t)
 
-      | Signature xts -> (* XXX someone who knows prettyprinting do this properly *)
-        print ~at_level:0 "{%t}"
+      | Signature xts ->
+        print ~at_level:0 "{@[<hov>%t@]}"
           (print_signature xs xts)
 
       | Structure xts ->
-        print ~at_level:0 "{%t}"
+        print ~at_level:0 "{@[<hov>%t@]}"
           (print_structure xs xts)
 
       | Projection (te,xts,p) -> print ~at_level:1 "%t" (print_projection xs te xts p)
@@ -740,35 +740,53 @@ and print_spine xs e (yts, u) es ppf =
   else
     spine_noannot ppf
 
-and print_signature xs xts ppf = match xts with
-  | [] -> ()
-  | [x,y,t] ->
-    Print.print ppf "%t as %t : %t"
+and print_signature_clause xs x y t ppf =
+  if Name.eq_ident x y then
+    Print.print ppf "@[<h>%t :@ %t@]"
+      (Name.print_ident x)
+      (print_ty xs t)
+  else
+    Print.print ppf "@[<h>%t as %t :@ %t@]"
       (Name.print_ident x)
       (Name.print_ident y)
-      (print_ty ~max_level:0 xs t)
-  | (x,y,t)::rem ->
-    Print.print ppf "%t as %t : %t,@ %t"
-      (Name.print_ident x)
-      (Name.print_ident y)
-      (print_ty ~max_level:0 xs t)
-      (print_signature (y::xs) rem)
+      (print_ty xs t)
 
-and print_structure xs xts ppf = match xts with
+and print_signature xs xts ppf =
+  match xts with
   | [] -> ()
-  | [x,y,t,te] ->
-    Print.print ppf "%t as %t%t := %t"
+  | [x,y,t] -> 
+     let y = Name.refresh xs y in
+     print_signature_clause xs x y t ppf
+  | (x,y,t) :: lst ->
+     let y = Name.refresh xs y in
+     Print.print ppf "%t,@ %t"
+        (print_signature_clause xs x y t)
+        (print_signature (y::xs) lst)
+
+and print_structure_clause xs x y t te ppf =
+  if Name.eq_ident x y then
+    Print.print ppf "@[<h>%t%t@ :=@ %t@]"
+      (Name.print_ident x)
+      (print_annot ~prefix:" " (print_ty xs t))
+      (print_term xs te)
+  else
+    Print.print ppf "@[<h>%t as %t%t@ := %t@]"
       (Name.print_ident x)
       (Name.print_ident y)
-      (print_annot (print_ty ~max_level:0 xs t))
-      (print_term ~max_level:0 xs te)
-  | (x,y,t,te)::rem ->
-    Print.print ppf "%t as %t%t := %t,@ %t"
-      (Name.print_ident x)
-      (Name.print_ident y)
-      (print_annot (print_ty ~max_level:0 xs t))
-      (print_term ~max_level:0 xs te)
-      (print_structure (y::xs) rem)
+      (print_annot ~prefix:" " (print_ty xs t))
+      (print_term xs te)
+
+and print_structure xs xts ppf =
+  match xts with
+  | [] -> ()
+  | [x,y,t,te] -> 
+     let y = Name.refresh xs y in
+     print_structure_clause xs x y t te ppf
+  | (x,y,t,te) :: lst ->
+     let y = Name.refresh xs y in
+     Print.print ppf "%t,@ %t"
+        (print_structure_clause xs x y t te)
+        (print_structure (y::xs) lst)
 
 and print_projection xs te xts p ppf =
   if !Config.annotate

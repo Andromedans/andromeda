@@ -6,5 +6,4 @@ f_beta is assumed.
 a is assumed.
 b is assumed.
 c is assumed.
-⊢ refl b
-      : b ≡ f a b c
+⊢ refl b : b ≡ f a b c
