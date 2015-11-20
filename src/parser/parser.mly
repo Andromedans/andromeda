@@ -30,14 +30,15 @@
 
 (* Toplevel computations *)
 %token TOPCHECK
+%token TOPHANDLE
+%token TOPLET
+%token TOPBETA TOPETA TOPHINT TOPINHABIT
+%token TOPUNHINT
 
 (* Let binding *)
-%token TOPLET
 %token LET COLONEQ AND IN
 
 (* Hints *)
-%token TOPBETA TOPETA TOPHINT TOPINHABIT
-%token TOPUNHINT
 %token BETA ETA HINT INHABIT
 %token UNHINT
 
@@ -51,6 +52,8 @@
 
 %token WHNF SNF
 %token TYPEOF
+
+%token EXTERNAL
 
 (* Functions *)
 %token REC FUNCTION
@@ -100,8 +103,11 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | TOPLET x=name yts=typed_binder* u=return_type? COLONEQ c=term    { TopLet (x, List.concat yts, u, c) }
-  | TOPLET REC x=name a=function_abstraction COLONEQ e=term          { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
+  | TOPLET x=name yts=typed_binder* u=return_type? COLONEQ c=term 
+       { TopLet (x, List.concat yts, u, c) }
+  | TOPLET REC x=name a=function_abstraction COLONEQ e=term
+       { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
+  | TOPHANDLE lst=list(top_handler_case) END         { TopHandle lst }
   | TOPCHECK c=term                                  { TopCheck c }
   | TOPBETA ths=tags_hints                           { TopBeta ths }
   | TOPETA ths=tags_hints                            { TopEta ths }
@@ -120,12 +126,7 @@ plain_topdirective:
   | HELP                                             { Help }
   | QUIT                                             { Quit }
   | VERBOSITY                                        { Verbosity $1 }
-  | INCLUDE fs=quoted_string+                        { Include fs }
-
-quoted_string:
-  | QUOTED_STRING { let s = $1 in
-               let l = String.length s in
-               String.sub s 1 (l - 2) }
+  | INCLUDE fs=QUOTED_STRING+                        { Include fs }
 
 (* Main syntax tree *)
 
@@ -168,6 +169,7 @@ plain_app_term:
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
+  | EXTERNAL s=QUOTED_STRING                        { External s }
   | WHNF t=simple_term                              { Whnf t }
   | SNF t=simple_term                               { Snf t }
   | TYPEOF t=simple_term                            { Typeof t }
@@ -274,6 +276,9 @@ handler_case:
   | BAR VAL x=name DARROW t=term                 { CaseVal (x, t) }
   | BAR op=OPERATION x=name k=name DARROW t=term { CaseOp (op, x, k, t) }
   | BAR FINALLY x=name DARROW t=term             { CaseFinally (x, t) }
+
+top_handler_case:
+  | BAR op=OPERATION x=name DARROW t=term        { (op, x, t) }
 
 match_case:
   | BAR a=untyped_binder p=pattern DARROW c=term  { (a, p, c) }

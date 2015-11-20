@@ -39,7 +39,7 @@ let add_beta ~loc z ctx e t env  =
 (** Evaluate a computation -- infer mode. *)
 let rec infer env (c',loc) =
   match c' with
-    | Syntax.Bound i -> 
+    | Syntax.Bound i ->
        let v = Environment.lookup_bound i env in
        Value.return v
 
@@ -146,7 +146,7 @@ let rec infer env (c',loc) =
         Value.return_term j_s)
 
   | Syntax.Match (c, cases) ->
-     infer env c >>= 
+     infer env c >>=
        fun v ->
        let rec fold = function
          | [] ->
@@ -193,6 +193,13 @@ let rec infer env (c',loc) =
     let ctx = Context.join ctx ctxe in
     let j = Judgement.mk_term ctx e t in
     Value.return_term j
+
+  | Syntax.External s ->
+     begin
+       match External.lookup s with
+       | None -> Error.runtime ~loc "unknown external %s" s
+       | Some v -> Value.return v
+     end
 
   | Syntax.Typeof c ->
     (* In future versions this is going to be a far less trivial computation,
@@ -393,6 +400,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Function _
   | Syntax.Rec _
   | Syntax.Handler _
+  | Syntax.External _
   | Syntax.Tag _
   | Syntax.Where _
   | Syntax.With _
@@ -809,18 +817,24 @@ and check_ty env c : Judgement.ty Value.result =
    let j = Judgement.mk_ty ctx t in
    Value.return j)
 
+(** Top-level handler. It returns a value, or reports a run-time error if an unhandled
+    operation is encountered. Note that this is a recursive handler which keeps handling
+    until a value is returned. *)
+let rec top_handle ~loc env = function
+  | Value.Return v -> v
+  | Value.Operation (op, v, k) ->
+     begin match Environment.lookup_handle op env with
+      | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
+      | Some (x, c) ->
+         let r = infer (Environment.add_bound x v env) c >>= k in
+         top_handle ~loc env r
+     end
 
-let comp = infer
-
-let comp_value env ((_,loc) as c) =
-  let r = comp env c in
-  Value.to_value ~loc r
+let comp_value env ((_, loc) as c) =
+  let r = infer env c in
+  top_handle ~loc env r
 
 let comp_ty env ((_,loc) as c) =
   let r = check_ty env c in
-  Value.to_value ~loc r
-
-let comp_term env ((_,loc) as c) =
-  let r = infer env c in
-  Value.as_term ~loc (Value.to_value ~loc r)
+  top_handle ~loc env r
 

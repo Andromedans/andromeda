@@ -303,6 +303,9 @@ let rec comp constants bound (c',loc) =
       let c = comp constants bound c in
       Syntax.Snf c, loc
 
+    | Input.External s ->
+       Syntax.External s, loc
+
     | Input.Typeof c ->
       let c = comp constants bound c in
       Syntax.Typeof c, loc
@@ -557,6 +560,10 @@ let toplevel constants bound (d', loc) =
       in
       let ryts, u = fold bound [] ryts in
       Syntax.Axiom (x, ryts, u)
+
+    | Input.TopHandle lst ->
+       let lst = List.map (fun (op, x, c) -> op, (x, comp constants (add_bound x bound) c)) lst in
+       Syntax.TopHandle lst
 
     | Input.TopLet (x, yts, u, ((_, loc) as c)) ->
       let c = match u with
