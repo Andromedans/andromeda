@@ -39,7 +39,7 @@ let add_beta ~loc z ctx e t env  =
 (** Evaluate a computation -- infer mode. *)
 let rec infer env (c',loc) =
   match c' with
-    | Syntax.Bound i -> 
+    | Syntax.Bound i ->
        let v = Environment.lookup_bound i env in
        Value.return v
 
@@ -146,7 +146,7 @@ let rec infer env (c',loc) =
         Value.return_term j_s)
 
   | Syntax.Match (c, cases) ->
-     infer env c >>= 
+     infer env c >>=
        fun v ->
        let rec fold = function
          | [] ->
