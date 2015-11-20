@@ -22,6 +22,7 @@ let reserved = [
   ("Hint", TOPHINT) ;
   ("unhint", UNHINT) ;
   ("Unhint", TOPUNHINT) ;
+  ("Handle", TOPHANDLE) ;
   ("Hypothesis", AXIOM) ;
   ("inhabit", INHABIT) ;
   ("Inhabit", TOPINHABIT) ;
