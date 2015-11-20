@@ -310,6 +310,7 @@ let rec shift_comp k lvl (c', loc) =
     | Projection (c,x) ->
         let c = shift_comp k lvl c in
         Projection (c,x)
+
   in
   c', loc
 
