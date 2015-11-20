@@ -3,8 +3,7 @@
 (** Bound variables - represented by de Bruijn indices *)
 type bound = int
 
-(** Patterns *)
-
+(** Type-theory patterns *)
 type tt_pattern = tt_pattern' * Location.t
 and tt_pattern' =
   | Tt_Anonymous
@@ -23,6 +22,7 @@ and tt_pattern' =
   | Tt_Structure of (Name.ident * Name.ident * bound option * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
 
+(** Programming-language patterns *)
 type pattern = pattern' * Location.t
 and pattern' =
   | Patt_Anonymous
@@ -31,29 +31,21 @@ and pattern' =
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Tag of Name.ident * pattern list
 
-(** Desugared expressions *)
-type expr = expr' * Location.t
-and expr' =
+(** Desugared computations *)
+and comp = comp' * Location.t
+and comp' =
   | Type
   | Bound of bound
   | Function of Name.ident * comp
   | Rec of Name.ident * Name.ident * comp
   | Handler of handler
-  | Tag of Name.ident * expr list
-
-(** Desugared types - indistinguishable from expressions *)
-and ty = expr
-
-(** Desugared computations *)
-and comp = comp' * Location.t
-and comp' =
-  | Return of expr
-  | Operation of string * expr
-  | With of expr * comp
+  | Tag of Name.ident * comp list
+  | Operation of string * comp
+  | With of comp * comp
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
-  | Where of comp * expr * comp
-  | Match of expr * match_case list
+  | Where of comp * comp * comp
+  | Match of comp * match_case list
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
@@ -65,8 +57,7 @@ and comp' =
   | Typeof of comp
   | Constant of Name.ident * comp list
   | Lambda of (Name.ident * comp option) list * comp
-  | Spine of expr * comp list (* spine arguments are computations because we want
-                                 to evaluate in checking mode, once we know their types. *)
+  | Spine of comp * comp list
   | Prod of (Name.ident * comp) list * comp
   | Eq of comp * comp
   | Refl of comp
@@ -83,7 +74,6 @@ and handler = {
 }
 
 and match_case = Name.ident list * pattern * comp
-
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
@@ -180,18 +170,26 @@ let rec shift_comp k lvl (c', loc) =
   let c' =
     match c' with
 
-    | Return e ->
-       let e = shift_expr k lvl e in
-       Return e
+    | Bound m -> if m >= lvl then Bound (m + k) else c'
 
-    | Operation (op, e) ->
-       let e = shift_expr k lvl e in
-       Operation (op, e)
+    | Function (x, c) -> Function (x, shift_comp k (lvl+1) c)
 
-    | With (e, c) ->
-       let c = shift_comp k lvl c
-       and e = shift_expr k lvl e in
-       With (e, c)
+    | Rec (f, x, c) -> Rec (f, x, shift_comp k (lvl+2) c)
+
+    | Handler h -> Handler (shift_handler k lvl h)
+
+    | Tag (t, lst) -> Tag (t, List.map (shift_comp k lvl) lst)
+
+    | Type -> c'
+
+    | Operation (op, c) ->
+       let c = shift_comp k lvl c in
+       Operation (op, c)
+
+    | With (c1, c2) ->
+       let c1 = shift_comp k lvl c1
+       and c2 = shift_comp k lvl c2 in
+       With (c1, c2)
 
     | Let (xcs, c) ->
        let xcs = List.map (fun (x,c) -> (x, shift_comp k lvl c)) xcs
@@ -203,16 +201,16 @@ let rec shift_comp k lvl (c', loc) =
        and c = shift_comp k lvl c in
        Assume ((x, t), c)
 
-    | Where (c1, e, c2) ->
+    | Where (c1, c2, c3) ->
        let c1 = shift_comp k lvl c1
-       and e = shift_expr k lvl e
-       and c2 = shift_comp k lvl c2 in
-       Where (c1, e, c2)
+       and c2 = shift_comp k lvl c2
+       and c3 = shift_comp k lvl c3 in
+       Where (c1, c2, c3)
 
-    | Match (e, lst) ->
-      let e = shift_expr k lvl e in
-      let lst = List.map (shift_case k lvl) lst in
-      Match (e, lst)
+    | Match (c, lst) ->
+      let c = shift_comp k lvl c
+      and lst = List.map (shift_case k lvl) lst in
+      Match (c, lst)
 
     | Beta (xscs, c) ->
        let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
@@ -265,10 +263,10 @@ let rec shift_comp k lvl (c', loc) =
        in
        fold lvl [] xcs
 
-    | Spine (e, cs) ->
-       let e = shift_expr k lvl e
+    | Spine (c, cs) ->
+       let c = shift_comp k lvl c
        and cs = List.map (shift_comp k lvl) cs in
-       Spine (e, cs)
+       Spine (c, cs)
 
     | Prod (xes, c) ->
        let rec fold lvl xes' = function
@@ -326,17 +324,7 @@ and shift_handler k lvl {handler_val; handler_ops; handler_finally} =
        | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
   }
 
-and shift_expr k lvl ((e', loc) as e) =
-  match e' with
-  | Bound m -> if m >= lvl then (Bound (m + k), loc) else e
-  | Function (x, c) -> Function (x, shift_comp k (lvl+1) c), loc
-  | Rec (f, x, c) -> Rec (f, x, shift_comp k (lvl+2) c), loc
-  | Handler h -> Handler (shift_handler k lvl h), loc
-  | Tag (t, lst) -> Tag (t, List.map (shift_expr k lvl) lst), loc
-  | Type -> e
-
 and shift_case k lvl (xs, p, c) =
   let p = shift_pattern k lvl p
   and c = shift_comp k (lvl + List.length xs) c in
   xs, p, c
-
