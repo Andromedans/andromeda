@@ -557,6 +557,10 @@ let toplevel constants bound (d', loc) =
       let ryts, u = fold bound [] ryts in
       Syntax.Axiom (x, ryts, u)
 
+    | Input.TopHandle lst ->
+       let lst = List.map (fun (op, x, c) -> op, (x, comp constants (add_bound x bound) c)) lst in
+       Syntax.TopHandle lst
+
     | Input.TopLet (x, yts, u, ((_, loc) as c)) ->
       let c = match u with
         | None -> c

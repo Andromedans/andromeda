@@ -64,6 +64,12 @@ val unhint : string list -> t -> t
 (** Add a bound variable with given name to the environment. *)
 val add_bound : Name.ident -> Value.value -> t -> t
 
+(** Add a top-level handler case to the environment. *)
+val add_handle : string -> (Name.ident * Syntax.comp) -> t -> t
+
+(** Lookup the top-level handler for the given operation, if any. *)
+val lookup_handle : string -> t -> (Name.ident * Syntax.comp) option
+
 (** Add a file to the list of files included. *)
 val add_file : string -> t -> t
 

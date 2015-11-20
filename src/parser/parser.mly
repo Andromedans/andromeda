@@ -30,14 +30,15 @@
 
 (* Toplevel computations *)
 %token TOPCHECK
+%token TOPHANDLE
+%token TOPLET
+%token TOPBETA TOPETA TOPHINT TOPINHABIT
+%token TOPUNHINT
 
 (* Let binding *)
-%token TOPLET
 %token LET COLONEQ AND IN
 
 (* Hints *)
-%token TOPBETA TOPETA TOPHINT TOPINHABIT
-%token TOPUNHINT
 %token BETA ETA HINT INHABIT
 %token UNHINT
 
@@ -100,8 +101,11 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | TOPLET x=name yts=typed_binder* u=return_type? COLONEQ c=term    { TopLet (x, List.concat yts, u, c) }
-  | TOPLET REC x=name a=function_abstraction COLONEQ e=term          { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
+  | TOPLET x=name yts=typed_binder* u=return_type? COLONEQ c=term 
+       { TopLet (x, List.concat yts, u, c) }
+  | TOPLET REC x=name a=function_abstraction COLONEQ e=term
+       { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
+  | TOPHANDLE lst=list(top_handler_case) END         { TopHandle lst }
   | TOPCHECK c=term                                  { TopCheck c }
   | TOPBETA ths=tags_hints                           { TopBeta ths }
   | TOPETA ths=tags_hints                            { TopEta ths }
@@ -274,6 +278,9 @@ handler_case:
   | BAR VAL x=name DARROW t=term                 { CaseVal (x, t) }
   | BAR op=OPERATION x=name k=name DARROW t=term { CaseOp (op, x, k, t) }
   | BAR FINALLY x=name DARROW t=term             { CaseFinally (x, t) }
+
+top_handler_case:
+  | BAR op=OPERATION x=name DARROW t=term        { (op, x, t) }
 
 match_case:
   | BAR a=untyped_binder p=pattern DARROW c=term  { (a, p, c) }
