@@ -202,8 +202,8 @@ let application_pop (e,loc) = match e with
         let xts = List.rev xts in
         let u = Tt.mk_prod_ty ~loc [x,tx] out in
         let e1 = Tt.mk_spine ~loc lhs xts u (List.rev es) in
-        let t1 = Tt.instantiate_ty es 0 u in
-        let t2 = Tt.instantiate_ty es 0 tx in
+        let t1 = Tt.instantiate_ty es u in
+        let t2 = Tt.instantiate_ty es tx in
         e1,t1,e2,t2
       | (x,tx)::absl, e::rhs ->
         fold (e::es) ((x,tx)::xts) (absl, rhs)
@@ -252,9 +252,9 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
       let yt = Value.Term (ctx, Tt.mk_atom ~loc y, ty) in
       let env = add_bound x yt env in
       let te = Tt.mk_lambda ~loc:(snd e) abs te out in
-      let te = Tt.unabstract [y] 0 te in
+      let te = Tt.unabstract [y] te in
       let t = Tt.mk_prod_ty ~loc:(snd e) abs out in
-      let t = Tt.unabstract_ty [y] 0 t in
+      let t = Tt.unabstract_ty [y] t in
       let xvs = match bopt with
         | None -> xvs
         | Some k ->
@@ -286,7 +286,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
       let yt = Value.Term (ctx, Tt.mk_atom ~loc y, ty) in
       let env = add_bound x yt env in
       let t = Tt.mk_prod ~loc:(snd e) abs out in
-      let t = Tt.unabstract [y] 0 t in
+      let t = Tt.unabstract [y] t in
       let xvs = match bopt with
         | None -> xvs
         | Some k ->
@@ -327,7 +327,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
           | (l,x,bopt,p)::xps, (l',x',t)::xts ->
             if Name.eq_ident l l'
             then
-              let t = Tt.unabstract_ty ys 0 t in
+              let t = Tt.unabstract_ty ys t in
               let Tt.Ty t' = t in let (_, loc) = t' in
               let xvs = collect_tt_pattern env xvs p ctx t' (Tt.mk_type_ty ~loc) in
               let y, ctx = Context.cone ctx x t in
@@ -360,8 +360,8 @@ let rec collect_tt_pattern env xvs (p',_) ctx ((e',_) as e) t =
           | (l,x,bopt,p)::xps, (l',x',t,te)::xts ->
             if Name.eq_ident l l'
             then
-              let t = Tt.unabstract_ty ys 0 t in
-              let te = Tt.unabstract ys 0 te in
+              let t = Tt.unabstract_ty ys t in
+              let te = Tt.unabstract ys te in
               let xvs = collect_tt_pattern env xvs p ctx te t in
               let y, ctx = Context.cone ctx x t in
               let Tt.Ty (_,loc) = t in

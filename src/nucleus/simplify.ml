@@ -21,17 +21,17 @@ let rec term ((e',loc) as e) =
     | Tt.Lambda (xts, (e,t)) ->
       let rec fold ys xts = function
         | [] ->
-          let e = Tt.unabstract ys 0 e in
+          let e = Tt.unabstract ys e in
           let e = term e in
-          let e = Tt.abstract ys 0 e in
-          let t = Tt.unabstract_ty ys 0 t in
+          let e = Tt.abstract ys e in
+          let t = Tt.unabstract_ty ys t in
           let t = ty t in
-          let t = Tt.abstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys t in
             Tt.mk_lambda ~loc (List.rev xts) e t
         | (x,u) :: xus ->
-          let u = Tt.unabstract_ty ys 0 u in
+          let u = Tt.unabstract_ty ys u in
           let u = ty u in
-          let u = Tt.abstract_ty ys 0 u in
+          let u = Tt.abstract_ty ys u in
           let y = Name.fresh x in
             fold (y::ys) ((x,u) :: xts) xus
       in
@@ -47,14 +47,14 @@ let rec term ((e',loc) as e) =
     | Tt.Prod (xts, t) ->
       let rec fold ys xts = function
         | [] ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let t = ty t in
-          let t = Tt.abstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys t in
             Tt.mk_prod ~loc (List.rev xts) t
         | (x,u) :: xus ->
-          let u = Tt.unabstract_ty ys 0 u in
+          let u = Tt.unabstract_ty ys u in
           let u = ty u in
-          let u = Tt.abstract_ty ys 0 u in
+          let u = Tt.abstract_ty ys u in
           let y = Name.fresh x in
             fold (y::ys) ((x,u) :: xts) xus
       in
@@ -79,9 +79,9 @@ let rec term ((e',loc) as e) =
       let rec fold ys res = function
         | [] -> List.rev res
         | (x,y,t)::rem ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let t = ty t in
-          let t = Tt.abstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys t in
           let y' = Name.fresh y in
           fold (y'::ys) ((x,y,t)::res) rem
         in
@@ -92,12 +92,12 @@ let rec term ((e',loc) as e) =
       let rec fold ys res = function
         | [] -> List.rev res
         | (x,y,t,te)::rem ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let t = ty t in
-          let t = Tt.abstract_ty ys 0 t in
-          let te = Tt.unabstract ys 0 te in
+          let t = Tt.abstract_ty ys t in
+          let te = Tt.unabstract ys te in
           let te = term te in
-          let te = Tt.abstract ys 0 te in
+          let te = Tt.abstract ys te in
           let y' = Name.fresh y in
           fold (y'::ys) ((x,y,t,te)::res) rem
         in
@@ -109,9 +109,9 @@ let rec term ((e',loc) as e) =
       let rec fold ys res = function
         | [] -> List.rev res
         | (x,y,t)::rem ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let t = ty t in
-          let t = Tt.abstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys t in
           let y' = Name.fresh y in
           fold (y'::ys) ((x,y,t)::res) rem
         in
@@ -130,14 +130,14 @@ and spine ~loc h xts t es =
   (* Auxiliary function for simplifying the spine arguments *)
   let rec simplify_xts ys xus = function
   | [] ->
-    let t = Tt.unabstract_ty ys 0 t in
+    let t = Tt.unabstract_ty ys t in
     let t = ty t in
-    let t = Tt.abstract_ty ys 0 t in
+    let t = Tt.abstract_ty ys t in
       List.rev xus, t
   | (x, u) :: xts ->
-    let u = Tt.unabstract_ty ys 0 u in
+    let u = Tt.unabstract_ty ys u in
     let u = ty u in
-    let u = Tt.abstract_ty ys 0 u
+    let u = Tt.abstract_ty ys u
     and y = Name.fresh x in
       simplify_xts (y::ys) ((x,u) :: xus) xts
   in
@@ -164,7 +164,7 @@ and spine ~loc h xts t es =
             Tt.occurs_ty_abstraction Tt.occurs_term_ty 0 (yus, du) <= 1
           ->
             let yus, du =
-              Tt.instantiate_ty_abstraction Tt.instantiate_term_ty [e] 0 (yus, du)
+              Tt.instantiate_ty_abstraction Tt.instantiate_term_ty [e] (yus, du)
             in
               reduce yus du xts es
         | _ -> Tt.mk_spine ~loc (Tt.mk_lambda ~loc yus (fst du) (snd du)) xts t es
