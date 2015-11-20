@@ -10,7 +10,6 @@ let reserved = [
   ("beta", BETA) ;
   ("Beta", TOPBETA) ;
   ("Check", TOPCHECK) ;
-  ("⇒", DARROW) ;
   ("whnf", WHNF) ;
   ("snf", SNF) ;
   ("end", END) ;
@@ -118,7 +117,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | '|'                      -> f (); BAR
   | '\'', name               -> f (); TAG (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | "->" | 8594 | 10230      -> f (); ARROW
-  | "=>" | 10233             -> f (); DARROW
+  | "=>" | 8658 | 10233      -> f (); DARROW
   | "==" | 8801              -> f (); EQEQ
   | eof                      -> f (); EOF
   | (name | numeral)         -> f ();
