@@ -194,6 +194,13 @@ let rec infer env (c',loc) =
     let j = Judgement.mk_term ctx e t in
     Value.return_term j
 
+  | Syntax.External s ->
+     begin
+       match External.lookup s with
+       | None -> Error.runtime ~loc "unknown external %s" s
+       | Some v -> Value.return v
+     end
+
   | Syntax.Typeof c ->
     (* In future versions this is going to be a far less trivial computation,
        as it might actually fail when there is no way to name a type with a term. *)
@@ -353,6 +360,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Function _
   | Syntax.Rec _
   | Syntax.Handler _
+  | Syntax.External _
   | Syntax.Tag _
   | Syntax.Where _
   | Syntax.With _
