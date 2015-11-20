@@ -120,40 +120,33 @@ val typ : ty
 
 (** [instantiate [e0,...,e{n-1}] k e] replaces bound variables indexed by [k, ..., k+n-1]
     with terms [e0, ..., e{n-1}]. *)
-val instantiate: term list -> int -> term -> term
+val instantiate: term list -> ?lvl:int -> term -> term
 
 val instantiate_ty_abstraction:
-  (term list -> int -> 'a -> 'a) ->
-  term list -> int -> 'a ty_abstraction -> 'a ty_abstraction
+  (term list -> ?lvl:int -> 'a -> 'a) ->
+  term list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
 
-val instantiate_ty: term list -> int -> ty -> ty
+val instantiate_ty: term list -> ?lvl:int -> ty -> ty
 
-val instantiate_term_ty: term list -> int -> term * ty -> term * ty
+val instantiate_term_ty: term list -> ?lvl:int -> term * ty -> term * ty
 
 (** [unabstract [x0,...,x{n-1}] k e] replaces bound variables in [e] indexed by [k, ..., k+n-1]
     with names [x0, ..., x{n-1}]. *)
-val unabstract: Name.atom list -> int -> term -> term
+val unabstract: Name.atom list -> ?lvl:int -> term -> term
 
 (** [unabstract_ty [x0,...,x{n-1}] k t] replaces bound variables in [t] indexed by [k, ..., k+n-1]
     with names [x0, ..., x{n-1}]. *)
-val unabstract_ty: Name.atom list -> int -> ty -> ty
+val unabstract_ty: Name.atom list -> ?lvl:int -> ty -> ty
 
 (** [abstract xs k e] replaces names [xs] in term [e] with bound variables [k, ..., k+n-1] where
     [xs] is the list [x0,...,x{n-1}]. *)
-val abstract : Name.atom list -> int -> term -> term
+val abstract : Name.atom list -> ?lvl:int -> term -> term
 
-val abstract_ty : Name.atom list -> int -> ty -> ty
+val abstract_ty : Name.atom list -> ?lvl:int -> ty -> ty
 
 val abstract_ty_abstraction :
-  (Name.atom list -> int -> 'a -> 'a) ->
-  Name.atom list -> int -> 'a ty_abstraction -> 'a ty_abstraction
-
-(** [shift k lvl e] adds [k] all bound variables in [e] that are greater than or equal
-    to [lvl]. This is used when a term descends into an extended environment (so its
-    deBruijn indices are out of sync). It is illegal to use a negative [k]. *)
-val shift : int -> int -> term -> term
-
-val shift_ty : int -> int -> ty -> ty
+  (Name.atom list -> ?lvl:int -> 'a -> 'a) ->
+  Name.atom list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
 
 val occurs: Syntax.bound -> term -> int
 

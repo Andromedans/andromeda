@@ -92,7 +92,7 @@ let rename (ctx : t) s =
   AtomMap.fold
     (fun a node ctx ->
       let b = try List.assoc a s with Not_found -> a
-      and ty = Tt.abstract_ty a_s 0 node.ty |> Tt.unabstract_ty b_s 0
+      and ty = Tt.abstract_ty a_s node.ty |> Tt.unabstract_ty b_s
       and needs =
         AtomSet.fold
           (fun x needs -> AtomSet.add (try List.assoc x s with Not_found -> x) needs)
@@ -195,8 +195,8 @@ let split_around ctx x xrevs =
     in split empty [] sorted
 
 let subst_ty ty x e =
-  let ty = Tt.abstract_ty [x] 0 ty in
-  let ty = Tt.instantiate_ty [e] 0 ty in
+  let ty = Tt.abstract_ty [x] ty in
+  let ty = Tt.instantiate_ty [e] ty in
     ty
 
 

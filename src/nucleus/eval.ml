@@ -140,8 +140,8 @@ let rec infer env (c',loc) =
         let ctx_at = Context.context_at ctx1 a in
         check env c3 (ctx_at, ta) >>= fun (ctx2, e2) ->
         let ctx_s = Context.substitute ctx1 a (ctx2,e2,ta) in
-        let te_s = Tt.instantiate [e2] 0 (Tt.abstract [a] 0 e1) in
-        let ty_s = Tt.instantiate_ty [e2] 0 (Tt.abstract_ty [a] 0 t1) in
+        let te_s = Tt.instantiate [e2] (Tt.abstract [a] e1) in
+        let ty_s = Tt.instantiate_ty [e2] (Tt.abstract_ty [a] t1) in
         let j_s = Judgement.mk_term  ctx_s te_s ty_s in
         Value.return_term j_s)
 
@@ -225,13 +225,13 @@ let rec infer env (c',loc) =
     let rec fold ctx es yts cs =
       match yts, cs with
       | [], [] ->
-        let u = Tt.instantiate_ty es 0 u
+        let u = Tt.instantiate_ty es u
         and e = Tt.mk_constant ~loc x (List.rev es) in
         let eu = Judgement.mk_term ctx e u in
         Value.return_term eu
 
       | (y,(reducing,t))::yts, c::cs ->
-        let t = Tt.instantiate_ty es 0 t in
+        let t = Tt.instantiate_ty es t in
         let jt = Judgement.mk_ty ctx t in
         check env c jt >>=
         (fun (ctx, e) ->
@@ -317,7 +317,7 @@ let rec infer env (c',loc) =
       | (lbl,x,c) :: rem ->
         check_ty env c >>= fun ((ctxt,t) as jt) ->
         let y, env = Environment.add_fresh ~loc env x jt in
-        let t = Tt.abstract_ty ys 0 t in
+        let t = Tt.abstract_ty ys t in
         let ctx = Context.join ctx ctxt in
         fold env ctx (y :: ys) ((lbl, x, t) :: xts) rem
       in
@@ -336,8 +336,8 @@ let rec infer env (c',loc) =
         infer env c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
         let ctx = Context.join ctx ctxt in
         let jty = Judgement.mk_ty ctx ty in
-        let t = Tt.abstract_ty ys 0 ty in
-        let te = Tt.abstract ys 0 te in
+        let t = Tt.abstract_ty ys ty in
+        let te = Tt.abstract ys te in
         let y, env = Environment.add_fresh ~loc env x jty in
         fold env ctx (y::ys) ((lbl,x,t,te)::xtes) rem
       in
@@ -526,12 +526,12 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
                             (Name.print_label lbl2)
                             (Name.print_label lbl1)
           else
-            let ty_inst = Tt.unabstract_ty zs 0 ty in
+            let ty_inst = Tt.unabstract_ty zs ty in
             let jty = Judgement.mk_ty ctx ty_inst in
             check env c jty >>= fun (ctx, e) ->
             let z, env = Environment.add_fresh ~loc env y jty in
             let env = add_beta ~loc z ctx e ty_inst env in
-            let e = Tt.abstract zs 0 e in
+            let e = Tt.abstract zs e in
             fold env ctx (z::zs) ((lbl1,y,ty,e) :: xtes) (xcs, yts)
               
        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
@@ -569,8 +569,8 @@ and infer_lambda env ~loc xus c =
   let rec fold env ctx zs xws  = function
       | [] ->
          infer env c >>= as_term ~loc:(snd c) >>= fun (ctxe, e, t') ->
-         let e = Tt.abstract zs 0 e in
-         let t' = Tt.abstract_ty zs 0 t' in
+         let e = Tt.abstract zs e in
+         let t' = Tt.abstract_ty zs t' in
          let ctx = Context.join ctx ctxe in
          let ctx = Context.abstract ~loc ctx zs in
          let xws = List.rev xws in
@@ -583,7 +583,7 @@ and infer_lambda env ~loc xus c =
          check_ty env c >>= fun ((ctxu, u') as u) ->
          (* XXX equip x with location and use for [~loc]. *)
          let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
-         let w' = Tt.abstract_ty zs 0 u' in
+         let w' = Tt.abstract_ty zs u' in
          let ctx = Context.join ctx ctxu in
          fold env ctx (z :: zs) ((x, w') :: xws) xus
   in
@@ -593,7 +593,7 @@ and infer_prod env ~loc xus c =
   let rec fold env ctx zs xws  = function
       | [] ->
         check_ty env c >>= fun (ctxt, t') ->
-        let t' = Tt.abstract_ty zs 0 t' in
+        let t' = Tt.abstract_ty zs t' in
         let ctx = Context.join ctx ctxt in
         let ctx = Context.abstract ~loc ctx zs in
         let xws = List.rev xws in
@@ -605,7 +605,7 @@ and infer_prod env ~loc xus c =
         check_ty env c >>= fun ((ctxu, u') as u) ->
         (* XXX equip x with location and use for [~loc]. *)
         let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
-        let w' = Tt.abstract_ty zs 0 u' in
+        let w' = Tt.abstract_ty zs u' in
         let ctx = Context.join ctx ctxu in
         fold env ctx (z :: zs) ((x, w') :: xws) xus
   in
@@ -652,10 +652,10 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
       let rec fold env ctx ys xts abs zus =
 
         let finally t_body =
-          let t_body' = Tt.unabstract_ty ys 0 t_body in
+          let t_body' = Tt.unabstract_ty ys t_body in
           let j_t_body' = Judgement.mk_ty ctx t_body' in
           check env body j_t_body' >>= fun (ctx, e) ->
-          let e = Tt.abstract ys 0 e in
+          let e = Tt.abstract ys e in
           let ctx = Context.abstract ~loc ctx ys in
           let xts = List.rev xts in
           Value.return (ctx, Tt.mk_lambda ~loc xts e t_body)
@@ -664,12 +664,12 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
         match abs, zus with
         | (x,t)::abs, (z,u)::zus ->
 
-          let u = Tt.unabstract_ty ys 0 u in
+          let u = Tt.unabstract_ty ys u in
 
           let k ctx t' =
             let t = Judgement.mk_ty ctx t' in
             let y, env = Environment.add_fresh ~loc env x t in
-            let t' = Tt.abstract_ty ys 0 t' in
+            let t' = Tt.abstract_ty ys t' in
             fold env ctx (y::ys) ((x,t')::xts) abs zus in
 
           begin match t with
@@ -717,17 +717,17 @@ and spine ~loc env ((ctx_head, e_head, t_head) as j_head) cs =
      let xus = List.rev xus in
      let u = Tt.mk_prod_ty ~loc xts t_result in
      let e = Tt.mk_spine ~loc e_head xus u (List.rev es)
-     and v = Tt.instantiate_ty es 0 u in
+     and v = Tt.instantiate_ty es u in
      let j = Judgement.mk_term ctx e v in
      Value.return_term j
   | (x, t)::xts, c::cs ->
-     let t' = Tt.instantiate_ty es 0 t in
+     let t' = Tt.instantiate_ty es t in
      check env c (Judgement.mk_ty ctx t') >>= fun (ctx, e) ->
      fold (e :: es) ((x,t) :: xus) ctx xts cs
   | [], ((_ :: _) as cs) ->
      let xus = List.rev xus in
      let e = Tt.mk_spine ~loc e_head xus t_result (List.rev es)
-     and t = Tt.instantiate_ty es 0 t_result in
+     and t = Tt.instantiate_ty es t_result in
      let j = Judgement.mk_term ctx e t in
      spine ~loc env j cs
   in

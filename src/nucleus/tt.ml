@@ -83,20 +83,20 @@ let typ = Ty (mk_type ~loc:Location.unknown)
 (** Manipulation of variables *)
 
 let rec instantiate_ty_abstraction :
-  'a. (term list -> int -> 'a -> 'a) ->
-  term list -> int -> 'a ty_abstraction -> 'a ty_abstraction
-  = fun instantiate_v es depth (xus, v) ->
-    let rec inst acc depth = function
+  'a. (term list -> ?lvl:int -> 'a -> 'a) ->
+  term list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
+  = fun instantiate_v es ?(lvl=0) (xus, v) ->
+    let rec inst acc lvl = function
       | [] ->
-         let v = instantiate_v es depth v
+         let v = instantiate_v es ~lvl v
          in List.rev acc, v
       | (x,u) :: xus ->
-         let u = instantiate_ty es depth u in
-         inst ((x,u) :: acc) (depth+1) xus
+         let u = instantiate_ty es ~lvl u in
+         inst ((x,u) :: acc) (lvl+1) xus
     in
-    inst [] depth xus
+    inst [] lvl xus
 
-and instantiate es depth ((e',loc) as e) =
+and instantiate es ?(lvl=0) ((e',loc) as e) =
   (* XXX possible optimization: check whether [es] is empty *)
   if es = [] then e else
     match e' with
@@ -106,121 +106,121 @@ and instantiate es depth ((e',loc) as e) =
     | Atom _ -> e
 
     | Bound k ->
-       if k < depth
+       if k < lvl
        then e
         (* this is a variable bound in an abstraction inside the
            instantiated term, so we leave it as it is *)
        else
          let n = List.length es in
-         if k < depth + n
-         then List.nth es (k - depth) (* variable corresponds to a substituted term, replace it *)
+         if k < lvl + n
+         then List.nth es (k - lvl) (* variable corresponds to a substituted term, replace it *)
          else Bound (k - n), loc
           (* this is a variable bound in an abstraction outside the
              instantiated term, so it remains bound, but its index decreases
              by the number of bound variables replaced by terms *)
 
     | Constant (x, ds) ->
-      let ds = List.map (instantiate es depth) ds in
+      let ds = List.map (instantiate es ~lvl) ds in
       Constant (x, ds), loc
 
     | Lambda a ->
-       let a = instantiate_ty_abstraction instantiate_term_ty es depth a
+       let a = instantiate_ty_abstraction instantiate_term_ty es ~lvl a
        in Lambda a, loc
 
     | Spine (e, xtst, ds) ->
-       let e = instantiate es depth e
-       and xtst = instantiate_ty_abstraction instantiate_ty es depth xtst
-       and ds = List.map (instantiate es depth) ds
+       let e = instantiate es ~lvl e
+       and xtst = instantiate_ty_abstraction instantiate_ty es ~lvl xtst
+       and ds = List.map (instantiate es ~lvl) ds
        in Spine (e, xtst, ds), loc
 
     | Prod a ->
-       let a = instantiate_ty_abstraction instantiate_ty es depth a
+       let a = instantiate_ty_abstraction instantiate_ty es ~lvl a
        in Prod a, loc
 
     | Eq (t, e1, e2) ->
-       let t = instantiate_ty es depth t
-       and e1 = instantiate es depth e1
-       and e2 = instantiate es depth e2
+       let t = instantiate_ty es ~lvl t
+       and e1 = instantiate es ~lvl e1
+       and e2 = instantiate es ~lvl e2
        in Eq (t, e1, e2), loc
 
     | Refl (t, e) ->
-       let t = instantiate_ty es depth t
-       and e = instantiate es depth e
+       let t = instantiate_ty es ~lvl t
+       and e = instantiate es ~lvl e
        in Refl (t, e), loc
 
     | Inhab t ->
-       let t = instantiate_ty es depth t in
+       let t = instantiate_ty es ~lvl t in
        Inhab t, loc
 
     | Bracket t ->
-      let t = instantiate_ty es depth t in
+      let t = instantiate_ty es ~lvl t in
       Bracket t, loc
 
     | Signature xts ->
-      let rec fold depth res = function
+      let rec fold lvl res = function
         | [] -> List.rev res
         | (x,y,t)::rem ->
-          let t = instantiate_ty es depth t in
-          fold (depth+1) ((x,y,t)::res) rem
+          let t = instantiate_ty es ~lvl t in
+          fold (lvl+1) ((x,y,t)::res) rem
         in
-      let xts = fold depth [] xts in
+      let xts = fold lvl [] xts in
       Signature xts, loc
 
     | Structure xts ->
-      let rec fold depth res = function
+      let rec fold lvl res = function
         | [] -> List.rev res
         | (x,y,t,te)::rem ->
-          let t = instantiate_ty es depth t in
-          let te = instantiate es depth te in
-          fold (depth+1) ((x,y,t,te)::res) rem
+          let t = instantiate_ty es ~lvl t in
+          let te = instantiate es ~lvl te in
+          fold (lvl+1) ((x,y,t,te)::res) rem
         in
-      let xts = fold depth [] xts in
+      let xts = fold lvl [] xts in
       Structure xts, loc
 
     | Projection (te,xts,p) ->
-      let te = instantiate es depth te in
-      let rec fold depth res = function
+      let te = instantiate es ~lvl te in
+      let rec fold lvl res = function
         | [] -> List.rev res
         | (x,y,t)::rem ->
-          let t = instantiate_ty es depth t in
-          fold (depth+1) ((x,y,t)::res) rem
+          let t = instantiate_ty es ~lvl t in
+          fold (lvl+1) ((x,y,t)::res) rem
         in
-      let xts = fold depth [] xts in
+      let xts = fold lvl [] xts in
       Projection (te,xts,p), loc
 
-and instantiate_ty es depth (Ty t) =
-  let t = instantiate es depth t
+and instantiate_ty es ?(lvl=0) (Ty t) =
+  let t = instantiate es ~lvl t
   in Ty t
 
-and instantiate_term_ty es depth (e, t) =
-  let e = instantiate es depth e
-  and t = instantiate_ty es depth t
+and instantiate_term_ty es ?(lvl=0) (e, t) =
+  let e = instantiate es ~lvl e
+  and t = instantiate_ty es ~lvl t
   in (e, t)
 
-let unabstract xs depth e =
+let unabstract xs ?(lvl=0) e =
   let es = List.map (mk_atom ~loc:Location.unknown) xs
-  in instantiate es depth e
+  in instantiate es ~lvl e
 
-let rec unabstract_ty xs depth (Ty t) =
-  let t = unabstract xs depth t
+let rec unabstract_ty xs ?(lvl=0) (Ty t) =
+  let t = unabstract xs ~lvl t
   in Ty t
 
 
 let rec abstract_ty_abstraction :
-  'a. (Name.atom list -> int -> 'a -> 'a) ->
-  Name.atom list -> int -> 'a ty_abstraction -> 'a ty_abstraction
-  = fun abst_v ys depth (xus,v) ->
-    let rec abst acc depth = function
+  'a. (Name.atom list -> ?lvl:int -> 'a -> 'a) ->
+  Name.atom list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
+  = fun abst_v ys ?(lvl=0) (xus,v) ->
+    let rec abst acc lvl = function
       | [] ->
-         let v = abst_v ys depth v
+         let v = abst_v ys ~lvl v
          in List.rev acc, v
       | (x,u) :: xus ->
-         let u = abstract_ty ys depth u in
-         abst ((x,u) :: acc) (depth+1) xus
+         let u = abstract_ty ys ~lvl u in
+         abst ((x,u) :: acc) (lvl+1) xus
     in
-    abst [] depth xus
+    abst [] lvl xus
 
-and abstract xs depth ((e',loc) as e) =
+and abstract xs ?(lvl=0) ((e',loc) as e) =
   match e' with
 
   | Type -> e
@@ -228,88 +228,88 @@ and abstract xs depth ((e',loc) as e) =
   | Bound k -> e
 
   | Constant (y, es) ->
-     let es = List.map (abstract xs depth) es in
+     let es = List.map (abstract xs ~lvl) es in
       Constant (y, es), loc
 
   | Atom x ->
     begin
       match Name.index_of_atom x xs with
       | None -> e
-      | Some k -> Bound (depth + k), loc
+      | Some k -> Bound (lvl + k), loc
     end
 
   | Lambda a ->
-    let a = abstract_ty_abstraction abstract_term_ty xs depth a
+    let a = abstract_ty_abstraction abstract_term_ty xs ~lvl a
     in Lambda a, loc
 
   | Spine (e, xtst, es) ->
-    let e = abstract xs depth e
-    and xtst = abstract_ty_abstraction abstract_ty xs depth xtst
-    and es = List.map (abstract xs depth) es
+    let e = abstract xs ~lvl e
+    and xtst = abstract_ty_abstraction abstract_ty xs ~lvl xtst
+    and es = List.map (abstract xs ~lvl) es
     in Spine (e, xtst, es), loc
 
   | Prod a ->
-    let a = abstract_ty_abstraction abstract_ty xs depth a
+    let a = abstract_ty_abstraction abstract_ty xs ~lvl a
     in Prod a, loc
 
   | Eq (t, e1, e2) ->
-    let t = abstract_ty xs depth t
-    and e1 = abstract xs depth e1
-    and e2 = abstract xs depth e2
+    let t = abstract_ty xs ~lvl t
+    and e1 = abstract xs ~lvl e1
+    and e2 = abstract xs ~lvl e2
     in Eq (t, e1, e2), loc
 
   | Refl (t, e) ->
-    let t = abstract_ty xs depth t
-    and e = abstract xs depth e
+    let t = abstract_ty xs ~lvl t
+    and e = abstract xs ~lvl e
     in Refl (t, e), loc
 
   | Inhab t ->
-    let t = abstract_ty xs depth t in
+    let t = abstract_ty xs ~lvl t in
     Inhab t, loc
 
   | Bracket t ->
-    let t = abstract_ty xs depth t in
+    let t = abstract_ty xs ~lvl t in
     Bracket t, loc
 
   | Signature xts ->
-      let rec fold depth res = function
+      let rec fold lvl res = function
         | [] -> List.rev res
         | (x,y,t)::rem ->
-          let t = abstract_ty xs depth t in
-          fold (depth+1) ((x,y,t)::res) rem
+          let t = abstract_ty xs ~lvl t in
+          fold (lvl+1) ((x,y,t)::res) rem
         in
-      let xts = fold depth [] xts in
+      let xts = fold lvl [] xts in
     Signature xts, loc
 
   | Structure xts ->
-      let rec fold depth res = function
+      let rec fold lvl res = function
         | [] -> List.rev res
         | (x,y,t,te)::rem ->
-          let t = abstract_ty xs depth t in
-          let te = abstract xs depth te in
-          fold (depth+1) ((x,y,t,te)::res) rem
+          let t = abstract_ty xs ~lvl t in
+          let te = abstract xs ~lvl te in
+          fold (lvl+1) ((x,y,t,te)::res) rem
         in
-      let xts = fold depth [] xts in
+      let xts = fold lvl [] xts in
     Structure xts, loc
 
   | Projection (te,xts,p) ->
-    let te = abstract xs depth te in
-      let rec fold depth res = function
+    let te = abstract xs ~lvl te in
+      let rec fold lvl res = function
         | [] -> List.rev res
         | (x,y,t)::rem ->
-          let t = abstract_ty xs depth t in
-          fold (depth+1) ((x,y,t)::res) rem
+          let t = abstract_ty xs ~lvl t in
+          fold (lvl+1) ((x,y,t)::res) rem
         in
-      let xts = fold depth [] xts in
+      let xts = fold lvl [] xts in
     Projection (te,xts,p), loc
 
-and abstract_ty xs depth (Ty t) =
-  let t = abstract xs depth t
+and abstract_ty xs ?(lvl=0) (Ty t) =
+  let t = abstract xs ~lvl t
   in Ty t
 
-and abstract_term_ty xs depth (e, t) =
-  let e = abstract xs depth e
-  and t = abstract_ty xs depth t
+and abstract_term_ty xs ?(lvl=0) (e, t) =
+  let e = abstract xs ~lvl e
+  and t = abstract_ty xs ~lvl t
   in (e, t)
 
 let shift_abstraction shift_u shift_v k lvl us v =
@@ -827,7 +827,7 @@ let field_value ~loc xtes p =
   let rec fold vs = function
     | [] -> Error.runtime "Tt.field_value: field %t not found" (Name.print_ident p)
     | (l,x,t,te)::rem ->
-      let te = instantiate vs 0 te in
+      let te = instantiate vs te in
       if Name.eq_ident p l
       then te
       else fold (te::vs) rem
@@ -839,7 +839,7 @@ let field_type ~loc xts e p =
     | [] -> Error.typing "%t has no field %t" (print_term [] e) (Name.print_ident p)
     | (l,x,t)::rem ->
       if Name.eq_ident p l
-      then instantiate_ty vs 0 t
+      then instantiate_ty vs t
       else
         let el = mk_projection ~loc e xts l in
         fold (el::vs) rem

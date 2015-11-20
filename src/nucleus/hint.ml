@@ -44,7 +44,7 @@ let rec of_term env pvars ((e',loc) as e) t =
       match xrts, args_left with
       | [], [] -> pvars, List.rev pes
       | (x, (r, t)) :: xrts, e :: args_left ->
-        let t = Tt.instantiate_ty args_so_far 0 t in
+        let t = Tt.instantiate_ty args_so_far t in
         let pvars, pe = of_term env pvars e t in
         fold pvars (e::args_so_far) (pe::pes) xrts args_left
       | ([],_::_) | (_::_,[]) ->
@@ -69,7 +69,7 @@ let rec of_term env pvars ((e',loc) as e) t =
       match xts, args_left with
       | [], [] -> pvars, all_terms, List.rev ps
       | (x, t) :: xts, e :: args_left ->
-        let t = Tt.instantiate_ty args_so_far 0 t in
+        let t = Tt.instantiate_ty args_so_far t in
         let pvars, p = of_term env pvars e t in
         let all_terms = (match p with Pattern.Term _ -> all_terms | _ -> false) in
         fold pvars all_terms (e::args_so_far) (p::ps) xts args_left

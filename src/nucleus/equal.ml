@@ -145,7 +145,7 @@ and whnf env ctx e =
           apply_beta hs (* not valid, try other hints *)
         | Some (ctx, es) ->
           (* success *)
-          let e' = Tt.instantiate es 0 e' in
+          let e' = Tt.instantiate es e' in
           let e' = List.fold_left
               (fun e ((yvs,w),es) -> Tt.mk_spine ~loc:(snd e) e yvs w es) e' extras in
           Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
@@ -189,8 +189,8 @@ and beta_reduce ~loc env ctx xus e u yvs t es =
   match equal_abstracted_ty env ctx xuvs u' t' with
   | None -> None (* The types did not match. *)
   | Some ctx -> (* Types match -- we can reduce *)
-     let xus, (e, u) = Tt.instantiate_ty_abstraction Tt.instantiate_term_ty es' 0 (xus, (e, u))
-     and yvs, t = Tt.instantiate_ty_abstraction Tt.instantiate_ty es' 0 (yvs, t) in
+     let xus, (e, u) = Tt.instantiate_ty_abstraction Tt.instantiate_term_ty es' (xus, (e, u))
+     and yvs, t = Tt.instantiate_ty_abstraction Tt.instantiate_ty es' (yvs, t) in
      let e = Tt.mk_lambda ~loc xus e u in
      let e = Tt.mk_spine ~loc e yvs t es in
      Some (ctx, e)
@@ -213,12 +213,12 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) lis
   let rec eq env ctx ys =
     function
      | [] ->
-        let v = Tt.unabstract_ty ys 0 v
-        and v' = Tt.unabstract_ty ys 0 v' in
+        let v = Tt.unabstract_ty ys v
+        and v' = Tt.unabstract_ty ys v' in
         equal_ty env ctx v v'
      | (x,(u,u'))::xuus ->
-        let u  = Tt.unabstract_ty ys 0 u
-        and u' = Tt.unabstract_ty ys 0 u' in
+        let u  = Tt.unabstract_ty ys u
+        and u' = Tt.unabstract_ty ys u' in
         equal_ty env ctx u u' >>= fun ctx ->
         let ju = Judgement.mk_ty ctx u in
         let y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
@@ -292,14 +292,14 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
             let rec fold env ys es =
               begin function
               | (x, ((Tt.Ty (_, loc)) as v)) :: xvs ->
-                  let v = Tt.unabstract_ty ys 0 v in
+                  let v = Tt.unabstract_ty ys v in
                   let jv = Judgement.mk_ty ctx v in
                   let y, env =  Environment.add_fresh ~loc env x jv in
                   let e = Tt.mk_atom ~loc y in
                   fold env (y :: ys) (e :: es) xvs
               | [] ->
                   let es = List.rev es in
-                  let v = Tt.unabstract_ty ys 0 u
+                  let v = Tt.unabstract_ty ys u
                   and e1 = Tt.mk_spine ~loc:loc1 e1 xus u es
                   and e2 = Tt.mk_spine ~loc:loc2 e2 xus u es
                   in equal env ctx e1 e2 v
@@ -315,7 +315,7 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
           let rec fold ctx vs = function
             | [] -> return ctx
             | (l,x,t)::rem ->
-              let t = Tt.instantiate_ty vs 0 t in
+              let t = Tt.instantiate_ty vs t in
               let e1 = Tt.mk_projection ~loc:loc1 e1 xts l in
               let e2 = Tt.mk_projection ~loc:loc2 e2 xts l in
               equal env ctx e1 e2 t >>= fun ctx ->
@@ -406,7 +406,7 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
          | (y,(reduce,t))::yts, e1::es1, e2::es2 ->
             if reduce
             then equal_whnf env ctx e1 e2
-            else equal env ctx e1 e2 (Tt.instantiate_ty es' 0 t)
+            else equal env ctx e1 e2 (Tt.instantiate_ty es' t)
               >>= fun ctx ->
               fold ctx (e1 :: es') yts es1 es2
 
@@ -421,8 +421,8 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
   | Tt.Lambda (xus, (e1, t1)), Tt.Lambda (xvs, (e2, t2)) ->
      let rec zip ys env = function
        | (x, u) :: xus, (_, u') :: xvs ->
-          let u  = Tt.unabstract_ty ys 0 u
-          and u' = Tt.unabstract_ty ys 0 u' in
+          let u  = Tt.unabstract_ty ys u
+          and u' = Tt.unabstract_ty ys u' in
           equal_ty env ctx u u' >>= fun ctx ->
           let ju = Judgement.mk_ty ctx u in
           let y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
@@ -431,13 +431,13 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
        | ([] as xus), xvs | xus, ([] as xvs) ->
           let t1' = Tt.mk_prod_ty ~loc:Location.unknown xus t1
           and t2' = Tt.mk_prod_ty ~loc:Location.unknown xvs t2 in
-          let t1' = Tt.unabstract_ty ys 0 t1'
-          and t2' = Tt.unabstract_ty ys 0 t2' in
+          let t1' = Tt.unabstract_ty ys t1'
+          and t2' = Tt.unabstract_ty ys t2' in
           equal_ty env ctx t1' t2' >>= fun ctx ->
           let e1 = Tt.mk_lambda ~loc:(snd e1) xus e1 t1
           and e2 = Tt.mk_lambda ~loc:(snd e2) xvs e2 t2 in
-          let e1 = Tt.unabstract ys 0 e1
-          and e2 = Tt.unabstract ys 0 e2 in
+          let e1 = Tt.unabstract ys e1
+          and e2 = Tt.unabstract ys e2 in
           equal env ctx e1 e2 t1'
      in
      zip [] env (xus, xvs)
@@ -520,8 +520,8 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
               assert (as2 = []) ;
               assert (xts2 = []) ;
               assert (ds2 = []) ;
-              let u1 = Tt.instantiate_ty es1 0 u1
-              and u2 = Tt.instantiate_ty es2 0 u2 in
+              let u1 = Tt.instantiate_ty es1 u1
+              and u2 = Tt.instantiate_ty es2 u2 in
               equal_ty env ctx u1 u2 >>=
               (* Compare the spine heads. We postpone doing so until
                  we have checked that they have the same type, which
@@ -530,7 +530,7 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
               fun ctx -> equal_whnf env ctx h1 h2
 
            | ((xts1, v1), ds1) :: as1 ->
-              let u1 = Tt.instantiate_ty es1 0 u1 in
+              let u1 = Tt.instantiate_ty es1 u1 in
               let u1' = Tt.mk_prod_ty ~loc xts1 v1 in
               equal_ty env ctx u1 u1' >>=
               (* we may flatten spines and proceed with equality check *)
@@ -545,7 +545,7 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
           | [] -> assert false
 
           | ((xts2, v2), ds2) :: as2 ->
-            let u2 = Tt.instantiate_ty es2 0 u2 in
+            let u2 = Tt.instantiate_ty es2 u2 in
             let u2' = Tt.mk_prod_ty ~loc xts2 v2 in
               equal_ty env ctx u2 u2' >>=
               (* we may flatten spines and proceed with equality check *)
@@ -555,8 +555,8 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
         end
 
       | ((x1,t1) :: xts1, e1::ds1), ((x2,t2)::xts2, e2::ds2) ->
-        let t1 = Tt.instantiate_ty es1 0 t1
-        and t2 = Tt.instantiate_ty es2 0 t2 in
+        let t1 = Tt.instantiate_ty es1 t1
+        and t2 = Tt.instantiate_ty es2 t2 in
         equal_ty env ctx t1 t2 >>=
         fun ctx -> equal env ctx e1 e2 t1 >>=
         begin
@@ -578,8 +578,8 @@ and equal_signature ~loc env ctx xts1 xts2 =
     | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
       if Name.eq_ident l1 l2
       then
-        let t1 = Tt.unabstract_ty ys 0 t1 in
-        let t2 = Tt.unabstract_ty ys 0 t2 in
+        let t1 = Tt.unabstract_ty ys t1 in
+        let t2 = Tt.unabstract_ty ys t2 in
         equal_ty env ctx t1 t2 >>= fun ctx ->
         let jx = Judgement.mk_ty ctx t1 in
         let y, env = Environment.add_fresh ~loc env x jx in
@@ -597,9 +597,9 @@ and equal_module ~loc env ctx xtes1 xtes2 =
     | (l1,x,t1,te1)::xts1, (l2,_,t2,te2)::xts2 ->
       if Name.eq_ident l1 l2
       then
-        let ty = Tt.instantiate_ty vs 0 t1 in (* here we need to know that ctx |- instantiate t1 == instantiate t2. Is this true? *)
-        let te1 = Tt.instantiate vs 0 te1 in
-        let te2 = Tt.instantiate vs 0 te2 in
+        let ty = Tt.instantiate_ty vs t1 in (* here we need to know that ctx |- instantiate t1 == instantiate t2. Is this true? *)
+        let te1 = Tt.instantiate vs te1 in
+        let te2 = Tt.instantiate vs te2 in
         equal env ctx te1 te2 ty >>= fun ctx ->
         fold ctx (te1::vs) xts1 xts2
       else None
@@ -748,8 +748,8 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
       Print.debug "collect spine (1): collect arg@ %t at %t@ from@ %t at %t"
         (Pattern.print_pattern [] ([], pe)) (Tt.print_ty [] t)
         (Tt.print_term [] e) (Tt.print_ty [] v);
-      let t = Tt.instantiate_ty es' 0 t
-      and v = Tt.instantiate_ty es' 0 v in
+      let t = Tt.instantiate_ty es' t
+      and v = Tt.instantiate_ty es' v in
       Print.debug "collect spine (2): collect arg@ %t at %t@ from@ %t at %t"
         (Pattern.print_pattern [] ([], pe)) (Tt.print_ty [] t)
         (Tt.print_term [] e) (Tt.print_ty [] v);
@@ -764,7 +764,7 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
         match argss with
         | [] -> Error.impossible ~loc "invalid spine in pattern match (1)"
         | ((yvs, w'), es) :: argss ->
-          let t1 = Tt.instantiate_ty es' 0 w
+          let t1 = Tt.instantiate_ty es' w
           and t2 = Tt.mk_prod_ty ~loc yvs w' in
           match equal_ty env ctx t1 t2 with
           | None -> raise NoMatch
@@ -775,8 +775,8 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
       begin
         let xtvs = List.rev xtvs in
 
-        let u = Tt.instantiate_ty es' 0 u
-        and yvs, w = Tt.instantiate_ty_abstraction Tt.instantiate_ty es' 0 (yvs, w) in
+        let u = Tt.instantiate_ty es' u
+        and yvs, w = Tt.instantiate_ty_abstraction Tt.instantiate_ty es' (yvs, w) in
         let w_prod = Tt.mk_prod_ty ~loc yvs w in
 
         let check_uw = CheckEqualTy (xtvs, (u, w_prod)) in
@@ -792,8 +792,8 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
         let xtvs = List.rev xtvs in
         (* the return types may still contain variables bound to the arguments
            of the spine; instantiate them. *)
-        let w = Tt.instantiate_ty es' 0 w in
-        let u = Tt.instantiate_ty es' 0 u in
+        let w = Tt.instantiate_ty es' w in
+        let u = Tt.instantiate_ty es' u in
 
         let check_uw = CheckEqualTy (xtvs, (u, w)) in
           match pargss, argss with
@@ -880,7 +880,7 @@ and collect_primapp ~loc env ctx x pes y es =
       | (y,(reducing,t))::yts, pe::pes, e::es ->
          let pvars_e, checks_e =
             begin
-              let t = Tt.instantiate_ty es' 0 t in
+              let t = Tt.instantiate_ty es' t in
               if reducing
               then pattern_collect_whnf env ctx pe ~at_ty:t e
               else pattern_collect      env ctx pe ~at_ty:t e
@@ -953,7 +953,7 @@ and verify_match ~spawn env ctx xts pvars checks =
         | Some (e,t') ->
           (* Pattern variable [k] is matched to [e] of type [t'].
              We need to verify that [t] and [t'] are equal. *)
-          let t = Tt.instantiate_ty es 0 t in
+          let t = Tt.instantiate_ty es t in
           Print.debug "matching: compare %t and %t (es %d)" (Tt.print_ty [] t) (Tt.print_ty [] t') (List.length es);
           begin match equal_ty env ctx t t' with
           | None -> raise NoMatch
@@ -967,7 +967,7 @@ and verify_match ~spawn env ctx xts pvars checks =
             (* Try to inhabit the type [t]. Actually, we first calculate the
                only possible candidate, and redo the check later when we actually
                know that the pattern match will succeed. *)
-            let t = Tt.instantiate_ty es 0 t in
+            let t = Tt.instantiate_ty es t in
             Print.debug "matching: trying to inhabit@ %t" (Tt.print_ty [] t) ;
             match inhabit ~subgoals:false env ctx t with
               | None -> raise NoMatch (* didn't work *)
@@ -985,7 +985,7 @@ and verify_match ~spawn env ctx xts pvars checks =
       List.fold_left
         (fun ctx -> function
            | CheckEqual (e1, e2, t) ->
-              let e1 = Tt.instantiate es 0 e1 in
+              let e1 = Tt.instantiate es e1 in
               Print.debug "CheckEqual at@ %t@ %t@ %t"
                 (Tt.print_ty (Environment.used_names env) t)
                 (Tt.print_term (Environment.used_names env) e1)
@@ -1001,8 +1001,8 @@ and verify_match ~spawn env ctx xts pvars checks =
                  the body, we therefore must not instantiate with
                  [Tt.instantiate_abstraction] which expects them to be relative to
                  the current abstraction *)
-              let xuvs = List.map (fun (x, (pt, t)) -> x, (Tt.instantiate_ty es 0 pt, t)) xuvs in
-              let t1', t2' =  Tt.instantiate_ty es 0 t1, t2 in
+              let xuvs = List.map (fun (x, (pt, t)) -> x, (Tt.instantiate_ty es pt, t)) xuvs in
+              let t1', t2' =  Tt.instantiate_ty es t1, t2 in
 
               Print.debug "%d es: %t" debug_i
                 (Print.sequence (Tt.print_term ~max_level:0 []) "; " es);
@@ -1024,7 +1024,7 @@ and verify_match ~spawn env ctx xts pvars checks =
               end
 
            | CheckAlphaEqual (e1, e2) ->
-              let e1 = Tt.instantiate es 0 e1 in
+              let e1 = Tt.instantiate es e1 in
               if not (Tt.alpha_equal e1 e2) then raise NoMatch else ctx) ctx
         checks in
     (* Perform delayed inhabitation goals *)
@@ -1070,17 +1070,17 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty (t', loc)) as t) =
     | Tt.Prod (xts', t') ->
       let rec fold env ys = function
         | [] ->
-          let t' = Tt.unabstract_ty ys 0 t' in
+          let t' = Tt.unabstract_ty ys t' in
           begin match inhabit ~subgoals env ctx t' with
             | None -> None
             | Some (ctx, e) ->
-              let e = Tt.abstract ys 0 e in
+              let e = Tt.abstract ys e in
               let e = Tt.mk_lambda ~loc xts' e t' in
               let ctx = Context.abstract ~loc ctx ys in
               Some (ctx, e)
           end
         | (x,t)::xts ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let jt = Judgement.mk_ty ctx t in
           let y, env = Environment.add_fresh ~loc env x jt in
           fold env (y :: ys) xts
@@ -1161,14 +1161,14 @@ let rec deep_prod env ctx t f =
      let rec fold env ys zvs =
        begin match zvs with
        | [] ->
-          let w = Tt.unabstract_ty ys 0 w in
+          let w = Tt.unabstract_ty ys w in
           let ctx, (zvs, w) = deep_prod env ctx w f in
-          let (zvs, w) = Tt.abstract_ty_abstraction Tt.abstract_ty ys 0 (zvs, w) in
+          let (zvs, w) = Tt.abstract_ty_abstraction Tt.abstract_ty ys (zvs, w) in
           let ctx = Context.abstract ~loc ctx ys in
           (ctx, (xus @ zvs, w))
 
        | (z,v) :: zvs ->
-          let v = Tt.unabstract_ty ys 0 v in
+          let v = Tt.unabstract_ty ys v in
           let jv = Judgement.mk_ty ctx v in
           let y, env = Environment.add_fresh ~loc env z jv in
           fold env (y :: ys) zvs
@@ -1260,20 +1260,20 @@ let rec snf env ctx t =
       let rec fold env ctx ys abs = function
         | [] ->
           let abs = List.rev abs in
-          let ty = Tt.unabstract_ty ys 0 ty in
-          let te = Tt.unabstract ys 0 te in
+          let ty = Tt.unabstract_ty ys ty in
+          let te = Tt.unabstract ys te in
           let ctx, ty = snf_ty env ctx ty in
           let ctx, te = snf env ctx te in
-          let ty = Tt.abstract_ty ys 0 ty in
-          let te = Tt.abstract ys 0 te in
+          let ty = Tt.abstract_ty ys ty in
+          let te = Tt.abstract ys te in
           let ctx = Context.abstract ~loc ctx ys in
           ctx, Tt.mk_lambda ~loc abs te ty
         | (x,t)::rem ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let ctx, t = snf_ty env ctx t in
           let jx = Judgement.mk_ty ctx t in
           let y, env = Environment.add_fresh ~loc env x jx in
-          let t = Tt.abstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys t in
           fold env ctx (y::ys) ((x,t)::abs) rem
       in
       fold env ctx [] [] abs
@@ -1292,17 +1292,17 @@ let rec snf env ctx t =
       let rec fold env ctx ys abs = function
         | [] ->
           let abs = List.rev abs in
-          let out = Tt.unabstract_ty ys 0 out in
+          let out = Tt.unabstract_ty ys out in
           let ctx, out = snf_ty env ctx out in
-          let out = Tt.abstract_ty ys 0 out in
+          let out = Tt.abstract_ty ys out in
           let ctx = Context.abstract ~loc ctx ys in
           ctx, Tt.mk_spine ~loc lhs abs out rhs
         | (x,t)::rem ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let ctx, t = snf_ty env ctx t in
           let jx = Judgement.mk_ty ctx t in
           let y, env = Environment.add_fresh ~loc env x jx in
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           fold env ctx (y::ys) ((x,t)::abs) rem
       in
       fold env ctx [] [] abs
@@ -1311,17 +1311,17 @@ let rec snf env ctx t =
       let rec fold env ctx ys abs = function
         | [] ->
           let abs = List.rev abs in
-          let out = Tt.unabstract_ty ys 0 out in
+          let out = Tt.unabstract_ty ys out in
           let ctx, out = snf_ty env ctx out in
-          let out = Tt.abstract_ty ys 0 out in
+          let out = Tt.abstract_ty ys out in
           let ctx = Context.abstract ~loc ctx ys in
           ctx, Tt.mk_prod ~loc abs out
         | (x,t)::rem ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let ctx, t = snf_ty env ctx t in
           let jx = Judgement.mk_ty ctx t in
           let y, env = Environment.add_fresh ~loc env x jx in
-          let t = Tt.abstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys t in
           fold env ctx (y::ys) ((x,t)::abs) rem
       in
       fold env ctx [] [] abs
@@ -1352,11 +1352,11 @@ let rec snf env ctx t =
           let ctx = Context.abstract ~loc ctx ys in
           ctx, Tt.mk_signature ~loc xts
         | (l,x,t)::rem ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let ctx, t = snf_ty env ctx t in
           let jx = Judgement.mk_ty ctx t in
           let y, env = Environment.add_fresh ~loc env x jx in
-          let t = Tt.abstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys t in
           fold env ctx (y::ys) ((l,x,t)::xts) rem
       in
       fold env ctx [] [] xts
@@ -1368,14 +1368,14 @@ let rec snf env ctx t =
           let ctx = Context.abstract ~loc ctx ys in
           ctx, Tt.mk_structure ~loc xes
         | (l,x,t,e)::rem ->
-          let t = Tt.unabstract_ty ys 0 t in
-          let e = Tt.unabstract ys 0 e in
+          let t = Tt.unabstract_ty ys t in
+          let e = Tt.unabstract ys e in
           let ctx, t = snf_ty env ctx t in
           let ctx, e = snf env ctx e in
           let jx = Judgement.mk_ty ctx t in
           let y, env = Environment.add_fresh ~loc env x jx in
-          let t = Tt.abstract_ty ys 0 t in
-          let e = Tt.abstract ys 0 e in
+          let t = Tt.abstract_ty ys t in
+          let e = Tt.abstract ys e in
           (* XXX should we add a beta hint x --> e here? *)
           fold env ctx (y::ys) ((l,x,t,e)::xes) rem
       in
@@ -1389,11 +1389,11 @@ let rec snf env ctx t =
           let ctx = Context.abstract ~loc ctx ys in
           ctx, Tt.mk_projection ~loc e xts l
         | (l,x,t)::rem ->
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.unabstract_ty ys t in
           let ctx, t = snf_ty env ctx t in
           let jx = Judgement.mk_ty ctx t in
           let y, env = Environment.add_fresh ~loc env x jx in
-          let t = Tt.abstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys t in
           fold env ctx (y::ys) ((l,x,t)::xts) rem
       in
       fold env ctx [] [] xts
