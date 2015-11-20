@@ -91,8 +91,8 @@ let return_ty t = Return (Ty t)
 
 let to_value ~loc = function
   | Return v -> v
-  | Operation (op, _, _) ->
-     Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
+  | Operation (op, v, _) ->
+     Error.runtime ~loc "unhandled operation %t %t" (Name.print_op op) (print_value ~max_level:0 [] v)
 
 let rec equal_value v1 v2 =
   match v1, v2 with
