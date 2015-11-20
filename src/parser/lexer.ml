@@ -10,6 +10,7 @@ let reserved = [
   ("beta", BETA) ;
   ("Beta", TOPBETA) ;
   ("Check", TOPCHECK) ;
+  ("⇒", DARROW) ;
   ("whnf", WHNF) ;
   ("snf", SNF) ;
   ("end", END) ;
@@ -200,17 +201,26 @@ let read_file ?line_limit parse fn =
 
 
 let read_toplevel parse () =
-  let ends_with_backslash str =
+  let all_white str =
+    let n = String.length str in
+    let rec fold k =
+      k >= n ||
+      (str.[k] = ' ' || str.[k] = '\n' || str.[k] = '\t') && fold (k+1)
+    in
+    fold 0
+  in
+
+  let ends_with_backslash_or_empty str =
     let i = String.length str - 1 in
     if i >= 0 && str.[i] = '\\'
     then (true, String.sub str 0 i)
-    else (false, str)
+    else (all_white str, str)
   in
 
   let rec read_more prompt acc =
     print_string prompt ;
     let str = read_line () in
-    let more, str = ends_with_backslash str in
+    let more, str = ends_with_backslash_or_empty str in
     let acc = acc ^ "\n" ^ str in
     if more
     then read_more "  " acc
