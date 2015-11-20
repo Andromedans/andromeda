@@ -53,6 +53,8 @@
 %token WHNF SNF
 %token TYPEOF
 
+%token EXTERNAL
+
 (* Functions *)
 %token REC FUNCTION
 
@@ -124,12 +126,7 @@ plain_topdirective:
   | HELP                                             { Help }
   | QUIT                                             { Quit }
   | VERBOSITY                                        { Verbosity $1 }
-  | INCLUDE fs=quoted_string+                        { Include fs }
-
-quoted_string:
-  | QUOTED_STRING { let s = $1 in
-               let l = String.length s in
-               String.sub s 1 (l - 2) }
+  | INCLUDE fs=QUOTED_STRING+                        { Include fs }
 
 (* Main syntax tree *)
 
@@ -172,6 +169,7 @@ plain_app_term:
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
+  | EXTERNAL s=QUOTED_STRING                        { External s }
   | WHNF t=simple_term                              { Whnf t }
   | SNF t=simple_term                               { Snf t }
   | TYPEOF t=simple_term                            { Typeof t }

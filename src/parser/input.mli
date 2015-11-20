@@ -57,6 +57,7 @@ and term' =
   | Ascribe of comp * ty
   | Whnf of comp
   | Snf of comp
+  | External of string
   | Typeof of comp
   | Lambda of (Name.ident * comp option) list * comp
   | Spine of comp * comp list

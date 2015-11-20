@@ -117,6 +117,9 @@ let rec comp constants bound (c',loc) =
       let c = comp constants bound c in
       Syntax.Snf c, loc
 
+    | Input.External s ->
+       Syntax.External s, loc
+
     | Input.Typeof c ->
       let c = comp constants bound c in
       Syntax.Typeof c, loc

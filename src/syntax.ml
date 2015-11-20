@@ -54,6 +54,7 @@ and comp' =
   | Ascribe of comp * comp
   | Whnf of comp
   | Snf of comp
+  | External of string
   | Typeof of comp
   | Constant of Name.ident * comp list
   | Lambda of (Name.ident * comp option) list * comp
@@ -245,6 +246,8 @@ let rec shift_comp k lvl (c', loc) =
     | Whnf c -> Whnf (shift_comp k lvl c)
 
     | Snf c -> Snf (shift_comp k lvl c)
+
+    | External _ -> c'
 
     | Typeof c -> Typeof (shift_comp k lvl c)
 

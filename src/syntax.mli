@@ -54,6 +54,7 @@ and comp' =
   | Ascribe of comp * comp
   | Whnf of comp
   | Snf of comp
+  | External of string
   | Typeof of comp
   | Constant of Name.ident * comp list
   | Lambda of (Name.ident * comp option) list * comp
