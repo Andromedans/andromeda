@@ -1036,7 +1036,7 @@ and verify_match ~spawn env ctx xts pvars checks =
            | Some (ctx, _) -> ctx) ctx
       inhs in
     (* match succeeded *)
-    Print.debug "succeeded %d" debug_i ;
+    Print.debug "succeeded %d)" debug_i ;
     Some (ctx, es)
   with NoMatch ->
     Print.debug "failed %d)" debug_i ;
@@ -1273,7 +1273,7 @@ let rec snf env ctx t =
           let ctx, t = snf_ty env ctx t in
           let jx = Judgement.mk_ty ctx t in
           let y, env = Environment.add_fresh ~loc env x jx in
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys 0 t in
           fold env ctx (y::ys) ((x,t)::abs) rem
       in
       fold env ctx [] [] abs
@@ -1321,7 +1321,7 @@ let rec snf env ctx t =
           let ctx, t = snf_ty env ctx t in
           let jx = Judgement.mk_ty ctx t in
           let y, env = Environment.add_fresh ~loc env x jx in
-          let t = Tt.unabstract_ty ys 0 t in
+          let t = Tt.abstract_ty ys 0 t in
           fold env ctx (y::ys) ((x,t)::abs) rem
       in
       fold env ctx [] [] abs
