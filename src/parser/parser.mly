@@ -338,7 +338,10 @@ plain_simple_tt_pattern:
   | LRBRACK                                                              { Tt_Inhab }
   | LLBRACK p=tt_pattern RRBRACK                                         { Tt_Bracket p }
   | LPAREN p=plain_tt_pattern RPAREN                                     { p }
-  | LBRACE ps=separated_nonempty_list(COMMA, tt_signature_clause) RBRACE { Tt_Signature ps }
+  | LRBRACE                                                              { Tt_Signature [] }
+  | LBRACE ps=separated_list(COMMA, tt_signature_clause) RBRACE          { Tt_Signature ps }
+  | LRPAREN                                                              { Tt_Structure [] }
+  | LPAREN RPAREN                                                        { Tt_Structure [] }
   | LBRACE ps=separated_nonempty_list(COMMA, tt_structure_clause) RBRACE { Tt_Structure ps }
   | p=simple_tt_pattern lbl=PROJECTION                                   { Tt_Projection (p, Name.make lbl) }
 
