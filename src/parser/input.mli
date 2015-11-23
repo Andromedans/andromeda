@@ -13,15 +13,16 @@ and tt_pattern' =
   | Tt_Var of Name.ident
   | Tt_Type
   | Tt_Name of Name.ident
-  | Tt_Lambda of Name.ident * tt_pattern option * tt_pattern
+  (** For each binder the boolean indicates whether the bound variable should be a pattern variable *)
+  | Tt_Lambda of bool * Name.ident * tt_pattern option * tt_pattern
   | Tt_App of tt_pattern * tt_pattern
-  | Tt_Prod of Name.ident * tt_pattern option * tt_pattern
+  | Tt_Prod of bool * Name.ident * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
   | Tt_Inhab
   | Tt_Bracket of tt_pattern
-  | Tt_Signature of (Name.ident * Name.ident option * tt_pattern) list
-  | Tt_Structure of (Name.ident * Name.ident option * tt_pattern) list
+  | Tt_Signature of (Name.ident * bool * Name.ident option * tt_pattern) list
+  | Tt_Structure of (Name.ident * bool * Name.ident option * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
 
 type pattern = pattern' * Location.t

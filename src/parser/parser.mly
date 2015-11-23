@@ -305,14 +305,14 @@ tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
   | p=plain_equal_tt_pattern                  { p }
   | LAMBDA bs=tt_binder+ p=tt_pattern         { fst (List.fold_right
-                                                       (fun ((x, pt), loc) p -> Tt_Lambda (x, pt, p), loc)
+                                                       (fun ((x, b, pt), loc) p -> Tt_Lambda (b, x, pt, p), loc)
                                                        (List.concat bs) p)
                                                }
   | PROD bs=tt_binder+ p=tt_pattern           { fst (List.fold_right
-                                                       (fun ((x, pt), loc) p -> Tt_Prod (x, pt, p), loc)
+                                                       (fun ((x, b, pt), loc) p -> Tt_Prod (b, x, pt, p), loc)
                                                        (List.concat bs) p)
                                               } 
-  | p1=equal_tt_pattern ARROW p2=tt_pattern   { Tt_Prod (Name.anonymous, Some p1, p2) }
+  | p1=equal_tt_pattern ARROW p2=tt_pattern   { Tt_Prod (false, Name.anonymous, Some p1, p2) }
 
 equal_tt_pattern: mark_location(plain_equal_tt_pattern) { $1 }
 plain_equal_tt_pattern:
@@ -340,12 +340,12 @@ plain_simple_tt_pattern:
   | p=simple_tt_pattern lbl=PROJECTION                                   { Tt_Projection (p, Name.make lbl) }
 
 tt_signature_clause:
-  | x=name COLON p=tt_pattern           { (x, None, p) }
-  | x=name AS y=name COLON p=tt_pattern { (x, Some y, p) }
+  | x=tt_name COLON p=tt_pattern           { let (x,b) = x in (x, b, None, p) }
+  | x=name AS y=tt_name COLON p=tt_pattern { let (y,b) = y in (x, b, Some y, p) }
 
 tt_structure_clause:
-  | x=name COLONEQ c=tt_pattern           { (x, None, c) }
-  | x=name AS y=name COLONEQ c=tt_pattern { (x, Some y, c) }
+  | x=tt_name COLONEQ c=tt_pattern           { let (x,b) = x in (x, b, None, c) }
+  | x=name AS y=tt_name COLONEQ c=tt_pattern { let (y,b) = y in (x, b, Some y, c) }
 
 tt_binder:
   | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_tt_names) RBRACK
@@ -353,8 +353,12 @@ tt_binder:
 
 maybe_typed_tt_names: mark_location(plain_maybe_typed_tt_names) { $1 }
 plain_maybe_typed_tt_names:
-  | xs=name+ COLON p=tt_pattern  { List.map (fun x -> (x, Some p)) xs }
-  | xs=name+                     { List.map (fun x -> (x, None)) xs }
+  | xs=tt_name+ COLON p=tt_pattern  { List.map (fun (x,b) -> (x, b, Some p)) xs }
+  | xs=tt_name+                     { List.map (fun (x,b) -> (x, b, None)) xs }
+
+tt_name:
+  | x=name                       { x, false }
+  | x=patt_var                   { x, true  }
 
 patt_var:
   | x=PATTVAR                    { Name.make x }

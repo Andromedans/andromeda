@@ -117,7 +117,7 @@ and tt_pattern constants bound vars n (p,loc) =
           (Syntax.Tt_Bound k, loc), vars, n
       end
 
-    | Input.Tt_Lambda (x,popt,p) ->
+    | Input.Tt_Lambda (b,x,popt,p) ->
       let popt, vars, n = match popt with
         | None ->
           None, vars, n
@@ -125,7 +125,17 @@ and tt_pattern constants bound vars n (p,loc) =
           let p, vars, n = tt_pattern constants bound vars n p in
           Some p, vars, n
         in
-      let bopt, vars, n = None, vars, n in (* TODO match binder to variable *)
+      let bopt, vars, n =
+        if b
+        then
+          try
+            (* XXX it might be a good idea to warn if x is already a pattern variable, since that should never match. *)
+            let i = List.assoc x vars in
+            Some i, vars, n
+          with | Not_found ->
+            Some n, ((x,n)::vars), (n+1)
+        else None, vars, n
+      in
       let p, vars, n = tt_pattern constants (add_bound x bound) vars n p in
       (Syntax.Tt_Lambda (x,bopt,popt,p), loc), vars, n
 
@@ -134,7 +144,7 @@ and tt_pattern constants bound vars n (p,loc) =
       let p2, vars, n = tt_pattern constants bound vars n p2 in
       (Syntax.Tt_App (p1,p2), loc), vars, n
 
-    | Input.Tt_Prod (x,popt,p) ->
+    | Input.Tt_Prod (b,x,popt,p) ->
       let popt, vars, n = match popt with
         | None ->
           None, vars, n
@@ -142,7 +152,16 @@ and tt_pattern constants bound vars n (p,loc) =
           let p, vars, n = tt_pattern constants bound vars n p in
           Some p, vars, n
         in
-      let bopt, vars, n = None, vars, n in (* TODO match binder to variable *)
+      let bopt, vars, n =
+        if b
+        then
+          try
+            let i = List.assoc x vars in
+            Some i, vars, n
+          with | Not_found ->
+            Some n, ((x,n)::vars), (n+1)
+        else None, vars, n
+      in
       let p, vars, n = tt_pattern constants (add_bound x bound) vars n p in
       (Syntax.Tt_Prod (x,bopt,popt,p), loc), vars, n
 
@@ -167,9 +186,18 @@ and tt_pattern constants bound vars n (p,loc) =
         | [] ->
           let xps = List.rev xps in
           (Syntax.Tt_Signature xps, loc), vars, n
-        | (l,xopt,p)::rem ->
+        | (l,b,xopt,p)::rem ->
           let x = match xopt with | Some x -> x | None -> l in
-          let bopt, vars, n = None, vars, n in (* TODO match binder to variable *)
+          let bopt, vars, n =
+            if b
+            then
+              try
+                let i = List.assoc x vars in
+                Some i, vars, n
+              with | Not_found ->
+                Some n, ((x,n)::vars), (n+1)
+            else None, vars, n
+          in
           let p, vars, n = tt_pattern constants bound vars n p in
           fold (add_bound x bound) vars n ((l,x,bopt,p)::xps) rem
         in
@@ -180,9 +208,18 @@ and tt_pattern constants bound vars n (p,loc) =
         | [] ->
           let xps = List.rev xps in
           (Syntax.Tt_Structure xps, loc), vars, n
-        | (l,xopt,p)::rem ->
+        | (l,b,xopt,p)::rem ->
           let x = match xopt with | Some x -> x | None -> l in
-          let bopt, vars, n = None, vars, n in (* TODO match binder to variable *)
+          let bopt, vars, n =
+            if b
+            then
+              try
+                let i = List.assoc x vars in
+                Some i, vars, n
+              with | Not_found ->
+                Some n, ((x,n)::vars), (n+1)
+            else None, vars, n
+          in
           let p, vars, n = tt_pattern constants bound vars n p in
           fold (add_bound x bound) vars n ((l,x,bopt,p)::xps) rem
         in
