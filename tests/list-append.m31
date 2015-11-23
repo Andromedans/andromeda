@@ -3,7 +3,7 @@ Let rec append l1 l2 :=
   match l1 with
     | 'nil =>
       l2
-    | [x tl] 'cons x tl =>
+    | 'cons ?x ?tl =>
       'cons x (append tl l2)
   end.
 
@@ -11,7 +11,7 @@ Let rec append' l1 l2 :=
   match l1 with
     | 'nil =>
       l2
-    | [x tl] 'cons x tl =>
+    | 'cons ?x ?tl =>
       let lapp := append' tl l2 in
       'cons x lapp
   end.
