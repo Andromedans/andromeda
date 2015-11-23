@@ -680,6 +680,8 @@ let rec print_term ?max_level xs (e,_) ppf =
         print ~at_level:0 "{@[<hov>%t@]}"
           (print_signature xs xts)
 
+      | Structure [] -> print ~at_level:0 "()"
+
       | Structure xts ->
         print ~at_level:0 "{@[<hov>%t@]}"
           (print_structure xs xts)
