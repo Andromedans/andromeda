@@ -21,10 +21,10 @@
 %token <string> NAME
 
 (* Parentheses & punctuations *)
-%token LPAREN RPAREN
+%token LPAREN RPAREN LRPAREN
 %token LBRACK RBRACK
 %token LRBRACK LLBRACK RRBRACK
-%token LBRACE RBRACE
+%token LBRACE RBRACE LRBRACE
 %token DCOLON COLON SEMICOLON COMMA DOT
 %token ARROW DARROW
 
@@ -185,8 +185,10 @@ plain_simple_term:
   | t=TAG                                           { Tag (Name.make t, []) }
   | LPAREN e=plain_term RPAREN                      { e }
   | LLBRACK e=term RRBRACK                          { Bracket e }
-  | LBRACE lst=separated_nonempty_list(COMMA, signature_clause) RBRACE
+  | LRBRACE                                         { Signature [] }
+  | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
         { Signature lst }
+  | LRPAREN                                         { Structure [] }
   | LBRACE lst=separated_nonempty_list(COMMA, structure_clause) RBRACE
         { Structure lst }
 
