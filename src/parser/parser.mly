@@ -44,6 +44,7 @@
 
 (* Meta-level programming *)
 %token <string> TAG
+%token <string> PATTVAR
 %token MATCH
 %token VDASH
 
@@ -221,9 +222,6 @@ binder:
   | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_names) RBRACK
       { List.concat lst }
 
-untyped_binder:
-  | LBRACK lst=name* RBRACK       { lst }
-
 maybe_typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, Some t)) xs }
   | xs=name+                  { List.map (fun x -> (x, None)) xs }
@@ -281,9 +279,7 @@ top_handler_case:
   | BAR op=OPERATION x=name DARROW t=term        { (op, x, t) }
 
 match_case:
-  | BAR a=untyped_binder p=pattern DARROW c=term  { (a, p, c) }
-  | BAR LRBRACK p=pattern DARROW c=term  { ([], p, c) }
-  | BAR p=pattern DARROW c=term  { ([], p, c) }
+  | BAR p=pattern DARROW c=term  { (p, c) }
 
 
 (** Pattern matching *)
@@ -291,7 +287,7 @@ match_case:
 pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
   | p=plain_simple_pattern                  { p }
-  | p=simple_pattern AS x=var_name          { Patt_As (p,x) }
+  | p=simple_pattern AS x=patt_var          { Patt_As (p,x) }
   | t=TAG ps=simple_pattern+                { Patt_Tag (Name.make t, ps) }
   | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, e2) }
   | VDASH e1=tt_pattern                     { Patt_Jdg (e1, (Tt_Anonymous, snd e1)) }
@@ -300,6 +296,7 @@ plain_pattern:
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
+  | x=patt_var                     { Patt_Var x }
   | x=var_name                     { Patt_Name x } 
   | t=TAG                          { Patt_Tag (Name.make t, []) }
   | LPAREN p=plain_pattern RPAREN  { p }
@@ -325,7 +322,7 @@ plain_equal_tt_pattern:
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
   | p=plain_simple_tt_pattern                 { p }
-  | p=app_tt_pattern AS x=var_name            { Tt_As (p,x) }
+  | p=app_tt_pattern AS x=patt_var            { Tt_As (p,x) }
   | p1=app_tt_pattern p2=simple_tt_pattern    { Tt_App (p1, p2) }
   | REFL p=simple_tt_pattern                  { Tt_Refl p }
 
@@ -333,6 +330,7 @@ simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:
   | UNDERSCORE                                                           { Tt_Anonymous }
   | TYPE                                                                 { Tt_Type }
+  | x=patt_var                                                           { Tt_Var x }
   | x=var_name                                                           { Tt_Name x }
   | LRBRACK                                                              { Tt_Inhab }
   | LLBRACK p=tt_pattern RRBRACK                                         { Tt_Bracket p }
@@ -357,6 +355,9 @@ maybe_typed_tt_names: mark_location(plain_maybe_typed_tt_names) { $1 }
 plain_maybe_typed_tt_names:
   | xs=name+ COLON p=tt_pattern  { List.map (fun x -> (x, Some p)) xs }
   | xs=name+                     { List.map (fun x -> (x, None)) xs }
+
+patt_var:
+  | x=PATTVAR                    { Name.make x }
 
 mark_location(X):
   x=X
