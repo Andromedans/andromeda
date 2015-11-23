@@ -7,11 +7,11 @@ Axiom c : A.
 
 Check match a with
   | |- b => 'b
-  | [] |- a => 'a
+  | |- a => 'a
   end.
 
 Check match λ [x : A] a with
-  | [x y z t x' y'] |- λ [x : y] z : Π [x' : y'] t => 'lambda x y z ('prod x' y' t)
+  | |- λ [?x : ?y] ?z : Π [?x' : ?y'] ?t => 'lambda x y z ('prod x' y' t)
   end.
 
 Axiom list : Type.
@@ -20,9 +20,9 @@ Let cons := assume cons : A -> list -> list in cons. (* Matching constants of no
 
 Check match 'foo (cons a (cons b (cons c nil))) 'bar with
   | 'foo => 'no
-  | [x y z t x' y'] |- λ [x : y] z : Π [x' : y'] t => 'lambda x y z ('prod x' y' t)
-  | [x y] 'foo
-    (|- cons _ ((cons x _) as y))
+  | |- λ [?x : ?y] ?z : Π [?x' : ?y'] ?t => 'lambda x y z ('prod x' y' t)
+  | 'foo
+    (|- cons _ ((cons ?x _) as ?y))
     'bar => 'pair x y
   end.
 

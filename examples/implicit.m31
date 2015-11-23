@@ -2,7 +2,7 @@
 Let rec fold f acc lst :=
   match lst with
     | 'nil => acc
-    | [x lst] 'cons x lst =>
+    | 'cons ?x ?lst =>
       let acc := f acc x in
       fold f acc lst
     end.
@@ -14,7 +14,7 @@ Let rec append l1 l2 :=
   match l1 with
     | 'nil =>
       l2
-    | [x tl] 'cons x tl =>
+    | 'cons ?x ?tl =>
       let lapp := append tl l2 in
       'cons x lapp
   end.
@@ -55,7 +55,7 @@ Let rec append l1 l2 :=
 *)
 
 Let add_fresh := fun s => match s with
-  | [inst vars] 'pair inst vars =>
+  | 'pair ?inst ?vars =>
     assume T_ : Type in
     assume x_ : T_ in
     'pair x_ ('pair inst ('cons x_ ('cons T_ vars)))
@@ -65,14 +65,14 @@ Let add_fresh := fun s => match s with
    IMPORTANT: insts must be in order of application *)
 Let apply_insts := fun v insts =>
   fold (fun v inst => match inst with
-    | [x vx] 'pair x vx =>
+    | 'pair ?x ?vx =>
       v where x := vx
     end) v (rev insts).
 
 Let rec mem x l :=
   match l with
-    | [y] 'cons (x as y) _ => 'some y
-    | [l] 'cons _ l => mem x l
+    | 'cons (x as ?y) _ => 'some y
+    | 'cons _ ?l => mem x l
     | 'nil => 'none
   end.
 
@@ -80,33 +80,33 @@ Let rec mem x l :=
 Let rec solve_eq s A B :=
   let instantiate := fun s x v =>
     match 'pair x v with
-      | [tx tv] 'pair (|- _ : tx) (|- _ : tv) =>
+      | 'pair (|- _ : ?tx) (|- _ : ?tv) =>
         match solve_eq s tx tv with
-          | [insts vars] 'some ('pair insts vars) =>
+          | 'some ('pair ?insts ?vars) =>
             let insts := 'cons ('pair (apply_insts x insts) (apply_insts v insts)) insts in
             'some ('pair insts vars)
           | 'none => 'none
         end
     end
   in
-  match s with | [insts vars] 'pair insts vars =>
+  match s with | 'pair ?insts ?vars =>
     let _ := (external "print") ('input A B insts) in
     let A := apply_insts A insts in
     let B := apply_insts B insts in
     let _ := (external "print") ('output A B) in
     match 'pair A B with
       | 'pair A A => 'some s (* trivial case *)
-      | [A1 A2 B1 B2] 'pair (|- A1 A2) (|- B1 B2) =>
+      | 'pair (|- ?A1 ?A2) (|- ?B1 ?B2) =>
         match solve_eq s A1 B1 with
-          | [s] 'some s =>
+          | 'some ?s =>
             solve_eq s A2 B2
           | 'none => 'none
         end
       | _ => match mem A vars with
-        | [A] 'some A =>
+        | 'some ?A =>
           instantiate s A B
         | 'none => match mem B vars with
-          | [B] 'some B =>
+          | 'some ?B =>
             instantiate s B A
           | 'none => 'none
           end
@@ -116,7 +116,7 @@ Let rec solve_eq s A B :=
 
 Let finalize := fun s =>
   match s with
-    | [insts v] 'pair ('pair insts _) v =>
+    | 'pair ('pair ?insts _) ?v =>
       apply_insts v insts
   end.
 
@@ -125,14 +125,14 @@ Let h := handler
   | val x => fun s => 'pair s x
   | #implicit _ k =>
     fun s => match add_fresh s with
-      | [x s] 'pair x s => k x s
+      | 'pair ?x ?s => k x s
       end
   | #equal eq k =>
     fun s =>
     match eq with
-      | [A B] 'pair A B => let _ := (external "print") ('equal eq s) in
+      | 'pair ?A ?B => let _ := (external "print") ('equal eq s) in
         match solve_eq s A B with
-          | [insts vars] 'some ('pair insts vars) =>
+          | 'some ('pair ?insts ?vars) =>
             assume eq : A == B in
             let eqinst := 'pair (apply_insts eq insts) (refl (apply_insts A insts)) in
             let vars := 'cons eq vars in

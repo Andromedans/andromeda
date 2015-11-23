@@ -44,6 +44,7 @@
 
 (* Meta-level programming *)
 %token <string> TAG
+%token <string> PATTVAR
 %token MATCH
 %token VDASH
 
@@ -221,9 +222,6 @@ binder:
   | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_names) RBRACK
       { List.concat lst }
 
-untyped_binder:
-  | LBRACK lst=name* RBRACK       { lst }
-
 maybe_typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, Some t)) xs }
   | xs=name+                  { List.map (fun x -> (x, None)) xs }
@@ -281,9 +279,7 @@ top_handler_case:
   | BAR op=OPERATION x=name DARROW t=term        { (op, x, t) }
 
 match_case:
-  | BAR a=untyped_binder p=pattern DARROW c=term  { (a, p, c) }
-  | BAR LRBRACK p=pattern DARROW c=term  { ([], p, c) }
-  | BAR p=pattern DARROW c=term  { ([], p, c) }
+  | BAR p=pattern DARROW c=term  { (p, c) }
 
 
 (** Pattern matching *)
@@ -291,7 +287,7 @@ match_case:
 pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
   | p=plain_simple_pattern                  { p }
-  | p=simple_pattern AS x=var_name          { Patt_As (p,x) }
+  | p=simple_pattern AS x=patt_var          { Patt_As (p,x) }
   | t=TAG ps=simple_pattern+                { Patt_Tag (Name.make t, ps) }
   | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, e2) }
   | VDASH e1=tt_pattern                     { Patt_Jdg (e1, (Tt_Anonymous, snd e1)) }
@@ -300,6 +296,7 @@ plain_pattern:
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
+  | x=patt_var                     { Patt_Var x }
   | x=var_name                     { Patt_Name x } 
   | t=TAG                          { Patt_Tag (Name.make t, []) }
   | LPAREN p=plain_pattern RPAREN  { p }
@@ -308,14 +305,14 @@ tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
   | p=plain_equal_tt_pattern                  { p }
   | LAMBDA bs=tt_binder+ p=tt_pattern         { fst (List.fold_right
-                                                       (fun ((x, pt), loc) p -> Tt_Lambda (x, pt, p), loc)
+                                                       (fun ((x, b, pt), loc) p -> Tt_Lambda (b, x, pt, p), loc)
                                                        (List.concat bs) p)
                                                }
   | PROD bs=tt_binder+ p=tt_pattern           { fst (List.fold_right
-                                                       (fun ((x, pt), loc) p -> Tt_Prod (x, pt, p), loc)
+                                                       (fun ((x, b, pt), loc) p -> Tt_Prod (b, x, pt, p), loc)
                                                        (List.concat bs) p)
                                               } 
-  | p1=equal_tt_pattern ARROW p2=tt_pattern   { Tt_Prod (Name.anonymous, Some p1, p2) }
+  | p1=equal_tt_pattern ARROW p2=tt_pattern   { Tt_Prod (false, Name.anonymous, Some p1, p2) }
 
 equal_tt_pattern: mark_location(plain_equal_tt_pattern) { $1 }
 plain_equal_tt_pattern:
@@ -325,7 +322,7 @@ plain_equal_tt_pattern:
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
   | p=plain_simple_tt_pattern                 { p }
-  | p=app_tt_pattern AS x=var_name            { Tt_As (p,x) }
+  | p=app_tt_pattern AS x=patt_var            { Tt_As (p,x) }
   | p1=app_tt_pattern p2=simple_tt_pattern    { Tt_App (p1, p2) }
   | REFL p=simple_tt_pattern                  { Tt_Refl p }
 
@@ -333,6 +330,7 @@ simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:
   | UNDERSCORE                                                           { Tt_Anonymous }
   | TYPE                                                                 { Tt_Type }
+  | x=patt_var                                                           { Tt_Var x }
   | x=var_name                                                           { Tt_Name x }
   | LRBRACK                                                              { Tt_Inhab }
   | LLBRACK p=tt_pattern RRBRACK                                         { Tt_Bracket p }
@@ -342,12 +340,12 @@ plain_simple_tt_pattern:
   | p=simple_tt_pattern lbl=PROJECTION                                   { Tt_Projection (p, Name.make lbl) }
 
 tt_signature_clause:
-  | x=name COLON p=tt_pattern           { (x, None, p) }
-  | x=name AS y=name COLON p=tt_pattern { (x, Some y, p) }
+  | x=tt_name COLON p=tt_pattern           { let (x,b) = x in (x, b, None, p) }
+  | x=name AS y=tt_name COLON p=tt_pattern { let (y,b) = y in (x, b, Some y, p) }
 
 tt_structure_clause:
-  | x=name COLONEQ c=tt_pattern           { (x, None, c) }
-  | x=name AS y=name COLONEQ c=tt_pattern { (x, Some y, c) }
+  | x=tt_name COLONEQ c=tt_pattern           { let (x,b) = x in (x, b, None, c) }
+  | x=name AS y=tt_name COLONEQ c=tt_pattern { let (y,b) = y in (x, b, Some y, c) }
 
 tt_binder:
   | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_tt_names) RBRACK
@@ -355,8 +353,15 @@ tt_binder:
 
 maybe_typed_tt_names: mark_location(plain_maybe_typed_tt_names) { $1 }
 plain_maybe_typed_tt_names:
-  | xs=name+ COLON p=tt_pattern  { List.map (fun x -> (x, Some p)) xs }
-  | xs=name+                     { List.map (fun x -> (x, None)) xs }
+  | xs=tt_name+ COLON p=tt_pattern  { List.map (fun (x,b) -> (x, b, Some p)) xs }
+  | xs=tt_name+                     { List.map (fun (x,b) -> (x, b, None)) xs }
+
+tt_name:
+  | x=name                       { x, false }
+  | x=patt_var                   { x, true  }
+
+patt_var:
+  | x=PATTVAR                    { Name.make x }
 
 mark_location(X):
   x=X

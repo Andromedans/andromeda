@@ -8,7 +8,7 @@ Let snd := assume snd : Π [X Y : Type] prod X Y -> Y in snd.
 Let rec fold f acc lst :=
   match lst with
     | 'nil => acc
-    | [x lst] 'cons x lst =>
+    | 'cons ?x ?lst =>
       let acc := f acc x in
       fold f acc lst
     end.
@@ -20,7 +20,7 @@ Let rec is_x xs t :=
   match xs with
     | 'cons ('pair t _) _ =>
       'true
-    | [xs] 'cons _ xs =>
+    | 'cons _ ?xs =>
       is_x xs t
     | 'nil => 'false
   end.
@@ -28,12 +28,12 @@ Let rec is_x xs t :=
 Let rec set_x x v xs :=
   match xs with
     | 'cons ('pair x ('some v)) _ => 'some xs
-    | [tail] 'cons ('pair x 'none) tail =>
+    | 'cons ('pair x 'none) ?tail =>
       'some ('cons ('pair x ('some v)) tail)
     | 'cons ('pair x _) _ => 'none (* x already set to something other than v *)
-    | [y tail] 'cons y tail =>
+    | 'cons ?y ?tail =>
       match set_x x v tail with
-        | [tail] 'some tail => 'some ('cons y tail)
+        | 'some ?tail => 'some ('cons y tail)
         | 'none => 'none
       end
   end.
@@ -45,9 +45,9 @@ Let rec apply_match xs target t :=
     | 'false =>
       match 'pair target t with
         | 'pair t t => 'some xs (* they were actually equal *)
-        | [a b c d] 'pair (|- a b) (|- c d) =>
+        | 'pair (|- ?a ?b) (|- ?c ?d) =>
           match apply_match xs a c with
-            | [xs] 'some xs =>
+            | 'some ?xs =>
               apply_match xs b d
             | 'none => 'none
           end
@@ -59,10 +59,10 @@ Let rec apply_match xs target t :=
    such that we autofill if the term option is None and use the term otherwise. *)
 Let rec applicable A xs T :=
   match apply_match xs A T with
-    | [xs] 'some xs => 'some xs
+    | 'some ?xs => 'some xs
     | 'none =>
       match T with
-        | [x B] |- Π [x : _] B =>
+        | |- Π [?x : _] ?B =>
           applicable A ('cons ('pair x 'none) xs) B
         | _ => 'none
       end
@@ -71,10 +71,10 @@ Let rec applicable A xs T :=
 Let find := fun A lst =>
   fold (fun acc v =>
     match v with
-      | [T] |- _ : T =>
+      | |- _ : ?T =>
         match applicable A 'nil T with
           | 'none => acc
-          | [n] 'some n => 'cons ('pair (rev n) v) acc
+          | 'some ?n => 'cons ('pair (rev n) v) acc
         end
     end) 'nil lst.
 
@@ -82,15 +82,15 @@ Let rec auto lst A :=
   let rec auto_apply args a :=
     match args with
       | 'nil => 'some a
-      | [args] 'cons ('pair _ 'none) args =>
+      | 'cons ('pair _ 'none) ?args =>
         match a with
-          | [T] |- _ : Π [x : T] _ =>
+          | |- _ : Π [x : ?T] _ =>
             match auto lst T with
-              | [t] 'some t => auto_apply args (a t)
+              | 'some ?t => auto_apply args (a t)
               | 'none => 'none
             end
         end
-      | [v args] 'cons ('pair _ ('some v)) args =>
+      | 'cons ('pair _ ('some ?v)) ?args =>
         auto_apply args (a v)
     end
   in
@@ -110,7 +110,7 @@ Let rec auto lst A :=
         | 'some _ => found
         | 'none =>
           match v with
-            | [n v] 'pair n v => auto_apply n v
+            | 'pair ?n ?v => auto_apply n v
           end
       end) 'none (find A lst)
   end.
@@ -123,7 +123,7 @@ Let auto_handler := handler
   | #inhabit goal k =>
     fun hints =>
     match auto hints goal with
-      | [t] 'some t => k (t :: goal) hints
+      | 'some ?t => k (t :: goal) hints
       | 'none => k (#inhabit goal) hints
     end
   | #new_hint h k =>

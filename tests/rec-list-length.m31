@@ -1,7 +1,7 @@
 Let length := rec length lst =>
   match lst with
   | 'nil => 'z
-  | [lst] 'cons _ lst => 's (length lst)
+  | 'cons _ ?lst => 's (length lst)
   end.
 
 Let mylist := 'cons 'a ('cons Type ('cons 'nil 'nil)).
