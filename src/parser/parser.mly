@@ -189,6 +189,7 @@ plain_simple_term:
   | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
         { Signature lst }
   | LRPAREN                                         { Structure [] }
+  | LPAREN RPAREN                                   { Structure [] }
   | LBRACE lst=separated_nonempty_list(COMMA, structure_clause) RBRACE
         { Structure lst }
 
