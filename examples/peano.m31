@@ -64,6 +64,10 @@ Let two   := S (S Z).
 Let three := S (S (S Z)).
 Let four  := S (S (S (S Z))).
 Let five  := S (S (S (S (S Z)))).
+Let six   := S (S (S (S (S (S Z))))).
+Let seven := S (S (S (S (S (S (S Z)))))).
+Let eight := S (S (S (S (S (S (S (S Z))))))).
+Let nine  := S (S (S (S (S (S (S (S (S Z)))))))).
 
 Check
   beta pred_Z in beta pred_S in
