@@ -1,2 +1,6 @@
-
 Check λ [x y : {}] refl () :: x == y.
+
+Check λ [x y : { }] refl ( ) :: x == y.
+
+Check match ( ) with | |- ( ) : { } => 'tt end.
+Check match ( ) with | |- () : {} => 'tt end.

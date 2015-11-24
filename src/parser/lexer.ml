@@ -98,7 +98,6 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
-  | "()"                     -> f (); LRPAREN
   | "[["                     -> f (); LLBRACK
   | "]]"                     -> f (); RRBRACK
   | "[]"                     -> f (); LRBRACK
@@ -106,7 +105,6 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
   | ']'                      -> f (); RBRACK
   | '{'                      -> f (); LBRACE
   | '}'                      -> f (); RBRACE
-  | "{}"                     -> f (); LRBRACE
   | ":="                     -> f (); COLONEQ
   | "::"                     -> f (); DCOLON
   | ':'                      -> f (); COLON
