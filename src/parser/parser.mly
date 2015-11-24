@@ -169,7 +169,6 @@ plain_app_term:
   | e=simple_term es=nonempty_list(simple_term)     { match fst e with
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
-  | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
   | WHNF t=simple_term                              { Whnf t }
   | SNF t=simple_term                               { Snf t }
   | TYPEOF t=simple_term                            { Typeof t }
@@ -178,11 +177,11 @@ plain_app_term:
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
-  | EXTERNAL s=QUOTED_STRING                        { External s }
   | TYPE                                            { Type }
   | LRBRACK                                         { Inhab }
   | x=var_name                                      { Var x }
   | t=TAG                                           { Tag (Name.make t, []) }
+  | EXTERNAL s=QUOTED_STRING                        { External s }
   | LPAREN e=plain_term RPAREN                      { e }
   | LLBRACK e=term RRBRACK                          { Bracket e }
   | LRBRACE                                         { Signature [] }
@@ -192,6 +191,7 @@ plain_simple_term:
   | LPAREN RPAREN                                   { Structure [] }
   | LBRACE lst=separated_nonempty_list(COMMA, structure_clause) RBRACE
         { Structure lst }
+  | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
 
 var_name:
   | NAME { Name.make $1 }
