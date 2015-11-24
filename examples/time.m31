@@ -9,7 +9,7 @@ Beta ind_N_S.
 Let rec snf' t :=
   let t := whnf t in
   match t with
-  | [e1 e2] |- e1 e2 => (snf' e1) (snf' e2)
+  | |- ?e1 ?e2 => (snf' e1) (snf' e2)
   | _ => t
   end.
 

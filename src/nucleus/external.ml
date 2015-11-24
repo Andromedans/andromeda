@@ -8,8 +8,8 @@ let externals =
          Value.return (Value.Tag (Name.make "tt", []))
        )) ;
     ("time",
-     let time = ref 0. in
      Value.Closure (fun _ ->
+         let time = ref 0. in
          time := Sys.time ();
          Value.return
            (Value.Closure
