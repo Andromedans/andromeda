@@ -170,7 +170,6 @@ plain_app_term:
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
-  | EXTERNAL s=QUOTED_STRING                        { External s }
   | WHNF t=simple_term                              { Whnf t }
   | SNF t=simple_term                               { Snf t }
   | TYPEOF t=simple_term                            { Typeof t }
@@ -179,6 +178,7 @@ plain_app_term:
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
+  | EXTERNAL s=QUOTED_STRING                        { External s }
   | TYPE                                            { Type }
   | LRBRACK                                         { Inhab }
   | x=var_name                                      { Var x }
