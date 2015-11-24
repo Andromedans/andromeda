@@ -1,0 +1,34 @@
+#include "peano.m31".
+
+Beta exp_def.
+Beta times_def.
+Beta plus_def.
+Beta ind_N_Z.
+Beta ind_N_S.
+
+Let rec snf' t :=
+  let t := whnf t in
+  match t with
+  | |- ?e1 ?e2 => (snf' e1) (snf' e2)
+  | _ => t
+  end.
+
+Let time := external "time".
+Let print := external "print".
+
+Let t_2_7 :=
+  let _ := print 'kernel_snf in
+  time 'tt (snf (exp two seven)).
+
+Let t_2_7' :=
+  let _ := print 'm31_snf in
+  time 'tt (snf' (exp two seven)).
+
+Check
+  let _ := print 'already_evaluated in
+  time 'tt t_2_7.
+
+(* The partially applied t_0 measures the cumulative time since receiving 'tt. *)
+Let t_0 := time 'tt.
+Let t_0_to_1 := t_0 (snf (exp two seven)).
+Let t_0_to_2 := t_0 (snf (exp two seven)).
