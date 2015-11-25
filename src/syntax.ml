@@ -71,7 +71,7 @@ and comp' =
 
 and handler = {
   handler_val: (Name.ident * comp) option;
-  handler_ops: (string * (Name.ident * Name.ident * comp)) list;
+  handler_ops: (string * (Name.ident * comp)) list;
   handler_finally : (Name.ident * comp) option;
 }
 
@@ -324,7 +324,7 @@ and shift_handler k lvl {handler_val; handler_ops; handler_finally} =
        | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
     handler_ops =
       List.map
-        (fun (op, (x, y, c)) -> let c = shift_comp k (lvl+2) c in (op, (x, y, c)))
+        (fun (op, (x, c)) -> let c = shift_comp k (lvl+1) c in (op, (x, c)))
         handler_ops ;
     handler_finally =
       (match handler_finally with

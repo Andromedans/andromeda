@@ -89,13 +89,12 @@ let rec infer env (c',loc) =
          end
        and handler_ops =
          begin
-           let close2 x1 x2 c v1 v2 =
+           let close2 x1 c v1 v2 =
              let env = Environment.add_bound x1 v1 env in
-             let env = Environment.add_bound x2 v2 env in
              let env = Environment.set_continuation v2 env in
              infer env c
            in
-           List.map (fun (op, (x, k, c)) -> (op, close2 x k c)) handler_ops
+           List.map (fun (op, (x, c)) -> (op, close2 x c)) handler_ops
          end
        and handler_finally =
          begin match handler_finally with

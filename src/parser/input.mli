@@ -86,7 +86,7 @@ and expr = term
 (** Handle cases *)
 and handle_case =
   | CaseVal of Name.ident * comp (* val x -> c *)
-  | CaseOp of string * Name.ident * Name.ident * comp (* #op x k -> c *)
+  | CaseOp of string * Name.ident * comp (* #op x -> c *)
   | CaseFinally of Name.ident * comp (* finally x -> c *)
                                   
 and match_case = pattern * comp

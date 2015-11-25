@@ -513,15 +513,14 @@ and handler ~loc constants bound hcs =
           fold (Some (x,c)) op_cases finally_case hcs
        end
 
-    | Input.CaseOp (op, x, k, c) :: hcs ->
+    | Input.CaseOp (op, x, c) :: hcs ->
        if List.mem_assoc op op_cases
        then
          Error.syntax ~loc:(snd c) "operation %s is handled more than once" op
        else
          let bound = add_bound x bound in
-         let bound = add_bound k bound in
          let c = comp ~yield:true constants bound c in
-         fold val_case ((op, (x, k, c)) :: op_cases) finally_case hcs
+         fold val_case ((op, (x, c)) :: op_cases) finally_case hcs
 
     | Input.CaseFinally (x, c) :: hcs ->
        begin match finally_case with
