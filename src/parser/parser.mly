@@ -49,7 +49,7 @@
 %token VDASH
 
 %token <string> OPERATION
-%token HANDLE WITH HANDLER BAR VAL FINALLY END
+%token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 
 %token WHNF SNF
 %token TYPEOF
@@ -190,6 +190,7 @@ plain_simple_term:
   | LBRACE lst=separated_nonempty_list(COMMA, structure_clause) RBRACE
         { Structure lst }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
+  | YIELD                                           { Yield }
 
 var_name:
   | NAME { Name.make $1 }

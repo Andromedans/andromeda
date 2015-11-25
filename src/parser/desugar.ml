@@ -230,20 +230,20 @@ and tt_pattern constants bound vars n (p,loc) =
       (Syntax.Tt_Projection (p,l), loc), vars, n
 
 
-let rec comp constants bound (c',loc) =
+let rec comp ~yield constants bound (c',loc) =
   match c' with
     | Input.Operation (op, c) ->
-      let c = comp constants bound c in
+      let c = comp ~yield constants bound c in
       Syntax.Operation (op, c), loc
 
     | Input.Handle (c, hcs) ->
-       let c = comp constants bound c
+       let c = comp ~yield constants bound c
        and h = handler ~loc constants bound hcs in
        Syntax.With (h, c), loc
 
     | Input.With (c1, c2) ->
-       let c1 = comp constants bound c1
-       and c2 = comp constants bound c2 in
+       let c1 = comp ~yield constants bound c1
+       and c2 = comp ~yield constants bound c2 in
        Syntax.With (c1, c2), loc
 
     | Input.Let (xcs, c2) ->
@@ -254,120 +254,120 @@ let rec comp constants bound (c',loc) =
           then
             Error.syntax ~loc "%t is bound more than once" (Name.print_ident x)
           else
-            let c = comp constants bound c in
+            let c = comp ~yield constants bound c in
             let xcs = fold xcs in
             (x, c) :: xcs
       in
       let xcs = fold xcs in
       let bound = List.fold_left (fun bound (x,_) -> add_bound x bound) bound xcs in
-      let c2 = comp constants bound c2 in
+      let c2 = comp ~yield constants bound c2 in
       Syntax.Let (xcs, c2), loc
 
     | Input.Assume ((x, t), c) ->
-       let t = comp constants bound t in
+       let t = comp ~yield constants bound t in
        let bound = add_bound x bound in
-       let c = comp constants bound c in
+       let c = comp ~yield constants bound c in
        Syntax.Assume ((x, t), c), loc
 
     | Input.Where (c1, c2, c3) ->
-       let c1 = comp constants bound c1
-       and c2 = comp constants bound c2
-       and c3 = comp constants bound c3 in
+       let c1 = comp ~yield constants bound c1
+       and c2 = comp ~yield constants bound c2
+       and c3 = comp ~yield constants bound c3 in
        Syntax.Where (c1, c2, c3), loc
 
     | Input.Match (c, cases) ->
-       let c = comp constants bound c
-       and cases = List.map (case constants bound) cases in
+       let c = comp ~yield constants bound c
+       and cases = List.map (case ~yield constants bound) cases in
        Syntax.Match (c, cases), loc
 
     | Input.Beta (xscs, c) ->
-      let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
-      let c = comp constants bound c in
+      let xscs = List.map (fun (xs, c) -> xs, comp ~yield constants bound c) xscs in
+      let c = comp ~yield constants bound c in
       Syntax.Beta (xscs, c), loc
 
     | Input.Eta (xscs, c) ->
-      let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
-      let c = comp constants bound c in
+      let xscs = List.map (fun (xs, c) -> xs, comp ~yield constants bound c) xscs in
+      let c = comp ~yield constants bound c in
       Syntax.Eta (xscs, c), loc
 
     | Input.Hint (xscs, c) ->
-      let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
-      let c = comp constants bound c in
+      let xscs = List.map (fun (xs, c) -> xs, comp ~yield constants bound c) xscs in
+      let c = comp ~yield constants bound c in
       Syntax.Hint (xscs, c), loc
 
     | Input.Inhabit (xscs, c) ->
-      let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
-      let c = comp constants bound c in
+      let xscs = List.map (fun (xs, c) -> xs, comp ~yield constants bound c) xscs in
+      let c = comp ~yield constants bound c in
       Syntax.Inhabit (xscs, c), loc
 
     | Input.Unhint (xs, c) ->
-      let c = comp constants bound c in
+      let c = comp ~yield constants bound c in
       Syntax.Unhint (xs, c), loc
 
     | Input.Ascribe (c, t) ->
-       let t = comp constants bound t
-       and c = comp constants bound c in
+       let t = comp ~yield constants bound t
+       and c = comp ~yield constants bound c in
        Syntax.Ascribe (c, t), loc
 
     | Input.Whnf c ->
-      let c = comp constants bound c in
+      let c = comp ~yield constants bound c in
       Syntax.Whnf c, loc
 
     | Input.Snf c ->
-      let c = comp constants bound c in
+      let c = comp ~yield constants bound c in
       Syntax.Snf c, loc
 
     | Input.External s ->
        Syntax.External s, loc
 
     | Input.Typeof c ->
-      let c = comp constants bound c in
+      let c = comp ~yield constants bound c in
       Syntax.Typeof c, loc
 
     | Input.Lambda (xs, c) ->
       let rec fold bound ys = function
         | [] ->
            let ys = List.rev ys in
-           let c = comp constants bound c in
+           let c = comp ~yield constants bound c in
            mk_lambda ~loc ys c
         | (x, None) :: xs ->
           let bound = add_bound x bound
           and ys = (x, None) :: ys in
           fold bound ys xs
         | (x, Some t) :: xs ->
-          let ys = (let t = comp constants bound t in (x, Some t) :: ys)
+          let ys = (let t = comp ~yield constants bound t in (x, Some t) :: ys)
           and bound = add_bound x bound in
           fold bound ys xs
       in
       fold bound [] xs
 
     | Input.Spine (e, cs) ->
-      spine constants bound e cs
+      spine ~yield constants bound e cs
 
     | Input.Prod (xs, c) ->
       let rec fold bound ys = function
         | [] ->
            let ys = List.rev ys in
-           let c = comp constants bound c in
+           let c = comp ~yield constants bound c in
            mk_prod ~loc ys c
         | (x,t) :: xs ->
-          let ys = (let t = comp constants bound t in (x, t) :: ys)
+          let ys = (let t = comp ~yield constants bound t in (x, t) :: ys)
           and bound = add_bound x bound in
           fold bound ys xs
       in
       fold bound [] xs
 
     | Input.Eq (c1, c2) ->
-      let c1 = comp constants bound c1
-      and c2 = comp constants bound c2 in
+      let c1 = comp ~yield constants bound c1
+      and c2 = comp ~yield constants bound c2 in
       Syntax.Eq (c1, c2), loc
 
     | Input.Refl c ->
-      let c = comp constants bound c in
+      let c = comp ~yield constants bound c in
       Syntax.Refl c, loc
 
     | Input.Bracket c ->
-      let c = comp constants bound c in
+      let c = comp ~yield constants bound c in
       Syntax.Bracket c, loc
 
     | Input.Inhab ->
@@ -383,7 +383,7 @@ let rec comp constants bound (c',loc) =
           else if Name.eq_ident x Name.anonymous
           then Error.syntax ~loc "anonymous field"
           else
-            let c = comp constants bound c in
+            let c = comp ~yield constants bound c in
             fold (add_bound y bound) (x::labels) ((x,y,c)::res) rem
         in
       let lst = fold bound [] [] lst in
@@ -399,14 +399,14 @@ let rec comp constants bound (c',loc) =
           else if Name.eq_ident x Name.anonymous
           then Error.syntax ~loc "anonymous field"
           else
-            let c = comp constants bound c in
+            let c = comp ~yield constants bound c in
             fold (add_bound y bound) (x :: labels) ((x,y,c) :: res) rem
         in
       let lst = fold bound [] [] lst in
       Syntax.Structure lst, loc
 
     | Input.Projection (c,x) ->
-      let c = comp constants bound c in
+      let c = comp ~yield constants bound c in
       Syntax.Projection (c,x), loc
 
     | Input.Var x ->
@@ -418,7 +418,7 @@ let rec comp constants bound (c',loc) =
             begin
               try
                 let k = List.assoc x constants in
-                if k = 0 then constant ~loc constants bound x []
+                if k = 0 then constant ~loc ~yield constants bound x []
                 else Error.syntax ~loc "this constant needs %d more arguments" k
               with Not_found ->
                 Error.syntax ~loc "unknown name %t" (Name.print_ident x)
@@ -429,9 +429,14 @@ let rec comp constants bound (c',loc) =
   | Input.Type ->
     Syntax.Type, loc
 
+  | Input.Yield ->
+    if yield
+    then Syntax.Yield, loc
+    else Error.syntax ~loc "yield outside handler case"
+
   | Input.Function (xs, c) ->
      let rec fold bound = function
-       | [] -> comp constants bound c
+       | [] -> comp ~yield constants bound c
        | x :: xs ->
           let bound = add_bound x bound in
           let c = fold bound xs in
@@ -441,7 +446,7 @@ let rec comp constants bound (c',loc) =
 
   | Input.Rec (f, xs, c) ->
      let rec fold bound = function
-       | [] -> comp constants bound c
+       | [] -> comp ~yield constants bound c
        | y :: ys ->
           let bound = add_bound y bound in
           let c = fold bound ys in
@@ -460,12 +465,12 @@ let rec comp constants bound (c',loc) =
      handler ~loc constants bound hcs
 
   | Input.Tag (t, cs) ->
-     let cs = List.map (comp constants bound) cs in
+     let cs = List.map (comp ~yield constants bound) cs in
      Syntax.Tag (t, cs), loc
 
 (* Desguar a spine. This function is a bit messy because we need to untangle
    to constants. But it's worth doing to make users happy. *)
-and spine constants bound ((c',loc) as c) cs =
+and spine ~yield constants bound ((c',loc) as c) cs =
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
   let rec split k lst =
@@ -486,13 +491,13 @@ and spine constants bound ((c',loc) as c) cs =
             let k = List.assoc x constants in
             let cs', cs = split k cs in
               (* We make a constant from [x] and [cs'] *)
-              constant ~loc constants bound x cs', cs
-          with Not_found -> comp constants bound c, cs
+              constant ~loc ~yield constants bound x cs', cs
+          with Not_found -> comp ~yield constants bound c, cs
         end
-      | _ -> comp constants bound c, cs
+      | _ -> comp ~yield constants bound c, cs
     end in
   (* Process the remaining arguments. *)
-  let cs = List.map (comp constants bound) cs in
+  let cs = List.map (comp ~yield constants bound) cs in
   Syntax.Spine (c, cs), loc
 
 (* Desugar handler cases. *)
@@ -504,7 +509,7 @@ and handler ~loc constants bound hcs =
        begin match val_case with
        | Some _ -> Error.syntax ~loc:(snd c) "value is handled more than once"
        | None ->
-          let c = comp constants (add_bound x bound) c in
+          let c = comp ~yield:false constants (add_bound x bound) c in
           fold (Some (x,c)) op_cases finally_case hcs
        end
 
@@ -515,14 +520,14 @@ and handler ~loc constants bound hcs =
        else
          let bound = add_bound x bound in
          let bound = add_bound k bound in
-         let c = comp constants bound c in
+         let c = comp ~yield:true constants bound c in
          fold val_case ((op, (x, k, c)) :: op_cases) finally_case hcs
 
     | Input.CaseFinally (x, c) :: hcs ->
        begin match finally_case with
        | Some _ -> Error.syntax ~loc:(snd c) "more than one finally case"
        | None ->
-          let c = comp constants (add_bound x bound) c in
+          let c = comp ~yield:false constants (add_bound x bound) c in
           fold val_case op_cases (Some (x,c)) hcs
        end
 
@@ -531,18 +536,18 @@ and handler ~loc constants bound hcs =
   Syntax.Handler (Syntax.{handler_val; handler_ops; handler_finally}), loc
 
 (* Desugar a match case *)
-and case constants bound (p, c) =
+and case ~yield constants bound (p, c) =
   let p, vars, _ = pattern constants bound [] 0 p in
   let rec fold xs bound = function
     | [] -> xs, bound
     | (x,_)::rem -> fold (x::xs) (add_bound x bound) rem
     in
   let xs, bound = fold [] bound vars in
-  let c = comp constants bound c in
+  let c = comp ~yield constants bound c in
   (xs, p, c)
 
-and constant ~loc constants bound x cs =
-  let cs = List.map (comp constants bound) cs in
+and constant ~loc ~yield constants bound x cs =
+  let cs = List.map (comp ~yield constants bound) cs in
   Syntax.Constant (x, cs), loc
 
 let toplevel constants bound (d', loc) =
@@ -551,11 +556,11 @@ let toplevel constants bound (d', loc) =
     | Input.Axiom (x, ryts, u) ->
       let rec fold bound ryts' = function
         | [] ->
-          let u = comp constants bound u in
+          let u = comp ~yield:false constants bound u in
           let ryts' = List.rev ryts' in
           (ryts', u)
         | (reducing, (y, t)) :: ryts ->
-          let t = comp constants bound t in
+          let t = comp ~yield:false constants bound t in
           let bound = add_bound y bound
           and ryts' = (reducing, (y, t)) :: ryts' in
           fold bound ryts' ryts
@@ -564,7 +569,7 @@ let toplevel constants bound (d', loc) =
       Syntax.Axiom (x, ryts, u)
 
     | Input.TopHandle lst ->
-       let lst = List.map (fun (op, x, c) -> op, (x, comp constants (add_bound x bound) c)) lst in
+       let lst = List.map (fun (op, x, c) -> op, (x, comp ~yield:false constants (add_bound x bound) c)) lst in
        Syntax.TopHandle lst
 
     | Input.TopLet (x, yts, u, ((_, loc) as c)) ->
@@ -574,27 +579,27 @@ let toplevel constants bound (d', loc) =
           Input.Ascribe (c, u), loc in
       let yts = List.map (fun (y, t) -> y, Some t) yts in
       let c = Input.Lambda (yts, c), loc in
-      let c = comp constants bound c in
+      let c = comp ~yield:false constants bound c in
       Syntax.TopLet (x, c)
 
     | Input.TopCheck c ->
-      let c = comp constants bound c in
+      let c = comp ~yield:false constants bound c in
       Syntax.TopCheck c
 
     | Input.TopBeta xscs ->
-      let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
+      let xscs = List.map (fun (xs, c) -> xs, comp ~yield:false constants bound c) xscs in
       Syntax.TopBeta xscs
 
     | Input.TopEta xscs ->
-      let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
+      let xscs = List.map (fun (xs, c) -> xs, comp ~yield:false constants bound c) xscs in
       Syntax.TopEta xscs
 
     | Input.TopHint xscs ->
-      let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
+      let xscs = List.map (fun (xs, c) -> xs, comp ~yield:false constants bound c) xscs in
       Syntax.TopHint xscs
 
     | Input.TopInhabit xscs ->
-      let xscs = List.map (fun (xs, c) -> xs, comp constants bound c) xscs in
+      let xscs = List.map (fun (xs, c) -> xs, comp ~yield:false constants bound c) xscs in
       Syntax.TopInhabit xscs
 
     | Input.TopUnhint xs -> Syntax.TopUnhint xs

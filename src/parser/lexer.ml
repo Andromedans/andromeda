@@ -33,6 +33,7 @@ let reserved = [
   ("Parameter", AXIOM) ;
   ("reduce", REDUCE) ;
   ("forall", PROD) ;
+  ("yield", YIELD) ;
   ("∀", PROD) ;
   ("Π", PROD) ;
   ("∏", PROD) ;

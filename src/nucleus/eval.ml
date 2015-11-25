@@ -92,6 +92,7 @@ let rec infer env (c',loc) =
            let close2 x1 x2 c v1 v2 =
              let env = Environment.add_bound x1 v1 env in
              let env = Environment.add_bound x2 v2 env in
+             let env = Environment.set_continuation v2 env in
              infer env c
            in
            List.map (fun (op, (x, k, c)) -> (op, close2 x k c)) handler_ops
@@ -352,6 +353,12 @@ let rec infer env (c',loc) =
     let j = Judgement.mk_term ctx te ty in
     Value.return_term j
 
+  | Syntax.Yield ->
+    begin match Environment.lookup_continuation env with
+      | Some y -> Value.return y
+      | None -> Error.impossible ~loc "yield without continuation set"
+    end
+
 and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
                   (f : Context.t -> 'a Value.result) error : 'a Value.result =
   let maybe =
@@ -412,7 +419,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Spine _
   | Syntax.Bracket _
   | Syntax.Signature _
-  | Syntax.Projection _ ->
+  | Syntax.Projection _
+  | Syntax.Yield ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 

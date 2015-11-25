@@ -67,6 +67,7 @@ and comp' =
   | Signature of (Name.ident * Name.ident * comp) list
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
+  | Yield
 
 and handler = {
   handler_val: (Name.ident * comp) option;

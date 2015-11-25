@@ -17,6 +17,7 @@ type t = {
   general : (string list list * Pattern.general_hint list) GeneralMap.t;
   inhabit : (string list list * Pattern.inhabit_hint list) HintMap.t;
   handle : (string * (Name.ident * Syntax.comp)) list;
+  continuation : Value.value option;
   files : string list;
 }
 
@@ -29,6 +30,7 @@ let empty = {
   general = GeneralMap.empty ;
   inhabit = HintMap.empty ;
   handle = [] ;
+  continuation = None ;
   files = [] ;
 }
 
@@ -178,6 +180,12 @@ let lookup_handle op {handle=lst} =
     Some (List.assoc op lst)
   with Not_found -> None
 
+let set_continuation c env =
+  { env with continuation = Some c }
+
+let lookup_continuation {continuation} =
+  continuation
+
 let add_file f env =
   { env with files = (Filename.basename f) :: env.files }
 
@@ -192,6 +200,9 @@ let print env ppf =
        (Tt.print_constsig forbidden_names t))
     (List.rev env.constants) ;
   Print.print ppf "-----END-----@."
+
+
+(** Matching *)
 
 exception Match_fail
 
