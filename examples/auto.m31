@@ -119,19 +119,19 @@ Axiom unit : Type.
 Axiom tt : unit.
 
 Let auto_handler := handler
-  | val x => fun _ => x
-  | #inhabit goal k =>
+  | val ?x => fun _ => x
+  | #inhabit ?goal =>
     fun hints =>
     match auto hints goal with
-      | 'some ?t => k (t :: goal) hints
-      | 'none => k (#inhabit goal) hints
+      | 'some ?t => yield (t :: goal) hints
+      | 'none => yield (#inhabit goal) hints
     end
-  | #new_hint h k =>
+  | #new_hint ?h =>
     match h with
       | |- _ => fun hints =>
-        k tt ('cons h hints)
+        yield tt ('cons h hints)
     end
-  | finally f => f 'nil
+  | finally ?f => f 'nil
   end.
 
 Axiom U : Type.
@@ -153,7 +153,7 @@ Check
     let _ := #new_hint f in
     (#inhabit (P u v)) :: P u v)
   with
-    | #inhabit v k => print v
+    | #inhabit ?v => print v
   end.
 
 
@@ -169,6 +169,6 @@ Check
     let _ := #new_hint pair in
     #inhabit (prod U (prod V W)))
   with
-    | #inhabit v k => print v
+    | #inhabit ?v => print v
   end.
 

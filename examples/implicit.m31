@@ -122,12 +122,12 @@ Let finalize := fun s =>
 
 
 Let h := handler
-  | val x => fun s => 'pair s x
-  | #implicit _ k =>
+  | val ?x => fun s => 'pair s x
+  | #implicit _ =>
     fun s => match add_fresh s with
-      | 'pair ?x ?s => k x s
+      | 'pair ?x ?s => yield x s
       end
-  | #equal eq k =>
+  | #equal ?eq =>
     fun s =>
     match eq with
       | 'pair ?A ?B => let _ := external "print" ('equal eq s) in
@@ -137,11 +137,11 @@ Let h := handler
             let eqinst := 'pair (apply_insts eq insts) (refl (apply_insts A insts)) in
             let vars := 'cons eq vars in
             let insts := 'cons eqinst insts in
-            k ('some eq) ('pair insts vars)
-          | 'none => k 'none s
+            yield ('some eq) ('pair insts vars)
+          | 'none => yield 'none s
         end
     end
-  | finally f => finalize (f ('pair 'nil 'nil))
+  | finally ?f => finalize (f ('pair 'nil 'nil))
   end.
 
 Check with h handle
