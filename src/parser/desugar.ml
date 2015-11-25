@@ -5,6 +5,11 @@ module IntSet = Set.Make (struct
                     let compare = compare
                   end)
 
+module StringMap = Map.Make (struct
+                    type t = string
+                    let compare = compare
+                  end)
+
 let add_bound x bound = x :: bound
 
 let rec mk_lambda ~loc ys ((c', _) as c) =
@@ -502,36 +507,61 @@ and spine ~yield constants bound ((c',loc) as c) cs =
 
 (* Desugar handler cases. *)
 and handler ~loc constants bound hcs =
-  let rec fold val_case op_cases finally_case = function
-    | [] -> val_case, op_cases, finally_case
+  (* for every case | #op p => c we do #op binder => match binder with | p => c end *)
+  let binder = Name.refresh bound (Name.make "_") in
+  let bound = add_bound binder bound in
+  let rec fold val_cases op_cases finally_cases = function
+    | [] -> val_cases, op_cases, finally_cases
 
-    | Input.CaseVal (x, c) :: hcs ->
-       begin match val_case with
-       | Some _ -> Error.syntax ~loc:(snd c) "value is handled more than once"
-       | None ->
-          let c = comp ~yield:false constants (add_bound x bound) c in
-          fold (Some (x,c)) op_cases finally_case hcs
-       end
+    | Input.CaseVal (p, c) :: hcs ->
+      let p, vars, _ = pattern constants bound [] 0 p in
+      let rec add_bounds xs bound = function
+        | [] -> xs, bound
+        | (x,_)::rem -> add_bounds (x::xs) (add_bound x bound) rem
+        in
+      let xs, bound = add_bounds [] bound vars in
+      let c = comp ~yield:false constants bound c in
+      fold ((xs,p,c)::val_cases) op_cases finally_cases hcs
 
-    | Input.CaseOp (op, x, c) :: hcs ->
-       if List.mem_assoc op op_cases
-       then
-         Error.syntax ~loc:(snd c) "operation %s is handled more than once" op
-       else
-         let bound = add_bound x bound in
-         let c = comp ~yield:true constants bound c in
-         fold val_case ((op, (x, c)) :: op_cases) finally_case hcs
+    | Input.CaseOp (op, p, c) :: hcs ->
+      let p, vars, _ = pattern constants bound [] 0 p in
+      let rec add_bounds xs bound = function
+        | [] -> xs, bound
+        | (x,_)::rem -> add_bounds (x::xs) (add_bound x bound) rem
+        in
+      let xs, bound = add_bounds [] bound vars in
+      let c = comp ~yield:true constants bound c in
+      let my_cases = try StringMap.find op op_cases with | Not_found -> [] in
+      let my_cases = (xs,p,c)::my_cases in
+      fold val_cases (StringMap.add op my_cases op_cases) finally_cases hcs
 
-    | Input.CaseFinally (x, c) :: hcs ->
-       begin match finally_case with
-       | Some _ -> Error.syntax ~loc:(snd c) "more than one finally case"
-       | None ->
-          let c = comp ~yield:false constants (add_bound x bound) c in
-          fold val_case op_cases (Some (x,c)) hcs
-       end
+    | Input.CaseFinally (p, c) :: hcs ->
+      let p, vars, _ = pattern constants bound [] 0 p in
+      let rec add_bounds xs bound = function
+        | [] -> xs, bound
+        | (x,_)::rem -> add_bounds (x::xs) (add_bound x bound) rem
+        in
+      let xs, bound = add_bounds [] bound vars in
+      let c = comp ~yield:false constants bound c in
+      fold val_cases op_cases ((xs,p,c)::finally_cases) hcs
 
   in
-  let handler_val, handler_ops, handler_finally = fold None [] None hcs in
+  let val_cases, op_cases, finally_cases = fold [] StringMap.empty [] hcs in
+  let regroup cases =
+    Syntax.Match ((Syntax.Bound 0, loc), List.rev cases), loc
+  in
+  let handler_val = match val_cases with
+    | [] -> None
+    | _::_ -> Some (binder, regroup val_cases)
+  in
+  let handler_finally = match finally_cases with
+    | [] -> None
+    | _::_ -> Some (binder, regroup finally_cases)
+  in
+  let handler_ops = StringMap.fold (fun op cases acc ->
+      (op,(binder, regroup cases))::acc)
+      op_cases []
+  in
   Syntax.Handler (Syntax.{handler_val; handler_ops; handler_finally}), loc
 
 (* Desugar a match case *)
