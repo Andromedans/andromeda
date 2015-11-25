@@ -558,8 +558,11 @@ and handler ~loc constants bound hcs =
     | [] -> None
     | _::_ -> Some (binder, regroup finally_cases)
   in
+  let anon = (Syntax.Patt_Anonymous,loc) in
   let handler_ops = StringMap.fold (fun op cases acc ->
-      (op,(binder, regroup cases))::acc)
+      (* default case: #op v => match v with | _ => #op v end *)
+      let default = ([],anon,(Syntax.Operation (op,(Syntax.Bound 0,loc)),loc)) in
+      (op,(binder, regroup (default::cases)))::acc)
       op_cases []
   in
   Syntax.Handler (Syntax.{handler_val; handler_ops; handler_finally}), loc
