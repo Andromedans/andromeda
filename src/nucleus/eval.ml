@@ -310,6 +310,7 @@ let rec infer env (c',loc) =
       | (lbl,x,c) :: rem ->
         check_ty env c >>= fun ((ctxt,t) as jt) ->
         let y, env = Environment.add_fresh ~loc env x jt in
+        let (ctxt,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
         let t = Tt.abstract_ty ys t in
         let ctx = Context.join ctx ctxt in
         fold env ctx (y :: ys) ((lbl, x, t) :: xts) rem
@@ -327,11 +328,12 @@ let rec infer env (c',loc) =
         Value.return_term j
       | (lbl,x,c) :: rem ->
         infer env c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
-        let ctx = Context.join ctx ctxt in
         let jty = Judgement.mk_ty ctx ty in
         let t = Tt.abstract_ty ys ty in
         let te = Tt.abstract ys te in
         let y, env = Environment.add_fresh ~loc env x jty in
+        let (ctxt,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
+        let ctx = Context.join ctx ctxt in
         fold env ctx (y::ys) ((lbl,x,t,te)::xtes) rem
       in
     fold env Context.empty [] [] xcs
@@ -528,6 +530,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             let jty = Judgement.mk_ty ctx ty_inst in
             check env c jty >>= fun (ctx, e) ->
             let z, env = Environment.add_fresh ~loc env y jty in
+            let (ctxz,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
+            let ctx = Context.join ctx ctxz in
             let env = add_beta ~loc z ctx e ty_inst env in
             let e = Tt.abstract zs e in
             fold env ctx (z::zs) ((lbl1,y,ty,e) :: xtes) (xcs, yts)
@@ -581,6 +585,7 @@ and infer_lambda env ~loc xus c =
          check_ty env c >>= fun ((ctxu, u') as u) ->
          (* XXX equip x with location and use for [~loc]. *)
          let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
+         let (ctxu,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
          let w' = Tt.abstract_ty zs u' in
          let ctx = Context.join ctx ctxu in
          fold env ctx (z :: zs) ((x, w') :: xws) xus
@@ -603,6 +608,7 @@ and infer_prod env ~loc xus c =
         check_ty env c >>= fun ((ctxu, u') as u) ->
         (* XXX equip x with location and use for [~loc]. *)
         let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
+        let (ctxu,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
         let w' = Tt.abstract_ty zs u' in
         let ctx = Context.join ctx ctxu in
         fold env ctx (z :: zs) ((x, w') :: xws) xus
@@ -666,6 +672,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
           let k ctx t' =
             let t = Judgement.mk_ty ctx t' in
             let y, env = Environment.add_fresh ~loc env x t in
+            let (ctx,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
             let t' = Tt.abstract_ty ys t' in
             fold env ctx (y::ys) ((x,t')::xts) abs zus in
 

@@ -1,0 +1,9 @@
+empty is assumed.
+unit is assumed.
+tt is assumed.
+File "./lambda-where-broken.m31", line 7, characters 10-50: Runtime error
+  cannot abstract x₄ because __eq₆ depends on it.
+Context:
+  x₄ : Type 
+  __eq₆ : empty ≡ x₄ 
+  
