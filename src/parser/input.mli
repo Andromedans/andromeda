@@ -72,6 +72,7 @@ and term' =
   | Signature of (Name.ident * Name.ident option * ty) list
   | Structure of (Name.ident * Name.ident option * comp) list
   | Projection of comp * Name.ident
+  | Yield
 
 (** Sugared types *)
 and ty = term
@@ -85,7 +86,7 @@ and expr = term
 (** Handle cases *)
 and handle_case =
   | CaseVal of Name.ident * comp (* val x -> c *)
-  | CaseOp of string * Name.ident * Name.ident * comp (* #op x k -> c *)
+  | CaseOp of string * Name.ident * comp (* #op x -> c *)
   | CaseFinally of Name.ident * comp (* finally x -> c *)
                                   
 and match_case = pattern * comp

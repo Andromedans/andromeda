@@ -70,6 +70,12 @@ val add_handle : string -> (Name.ident * Syntax.comp) -> t -> t
 (** Lookup the top-level handler for the given operation, if any. *)
 val lookup_handle : string -> t -> (Name.ident * Syntax.comp) option
 
+(** Set the continuation for a handler computation. *)
+val set_continuation : Value.value -> t -> t
+
+(** Lookup the current continuation. *)
+val lookup_continuation : t -> Value.value option
+
 (** Add a file to the list of files included. *)
 val add_file : string -> t -> t
 

@@ -5,8 +5,8 @@ Let state :=
   fun s0 =>
     handler
     | val x => (fun _ => x)
-    | #lookup _ k => (fun s => k s s)
-    | #update s k => (fun _ => k tt s)
+    | #lookup _ => (fun s => yield s s)
+    | #update s => (fun _ => yield tt s)
     | finally f => f s0
     end.
 
