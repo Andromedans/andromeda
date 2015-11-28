@@ -486,8 +486,7 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
     if Name.eq_ident p1 p2
     then
       equal_signature ~loc:loc1 env ctx xts1 xts2 >>= fun ctx ->
-      let t = Tt.mk_signature_ty ~loc:loc1 xts1 in
-      equal env ctx te1 te2 t
+      equal_whnf env ctx te1 te2
     else None
 
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
