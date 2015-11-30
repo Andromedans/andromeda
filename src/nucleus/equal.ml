@@ -19,15 +19,9 @@ type check =
   | CheckEqual of Pattern.pterm * Tt.term * Tt.ty
   (* compare types in context *)
   | CheckEqualTy of ((Pattern.pty * Tt.ty), (Pattern.pty * Tt.ty)) Tt.abstraction
-  (* compare terms for alpha equality *)
-  | CheckAlphaEqual of Pattern.pterm * Tt.term
 
 (* counter for debugging depth  *)
 let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
-
-(** Indicate a mismatch during pattern matching -- only used locally and should
-    never escape [verify_match] or [collect_for_XXX] below. *)
-exception NoMatch
 
 (** The whnf of a type [t] in environment [env]. *)
 let rec whnf_ty env ctx (Tt.Ty t) : (Context.t * Tt.ty) Value.result =
@@ -138,32 +132,32 @@ and whnf env ctx e =
          with the remaining hints *)
       let ctx = Context.join ctxh ctx in
       (* Here we use beta hints. First we match [p] against [e]. *)
-      begin try
           (* XXX collect_* will opt_return contexts *)
-        collect_for_beta env ctx p e >>= fun (pvars, checks, extras) ->
-        (* we have a match, still need to verify validity of match *)
-        Print.debug
-          "Found a match of pattern@ %t@ against@ %t@, checking its \
-           validity…"
-          (Pattern.print_beta_hint xs h)
-          (Tt.print_term xs e) ;
-        begin verify_match ~spawn:false env ctx xts pvars checks >>= function
-        | None ->
-          Print.debug "validity check failed";
-          apply_beta hs (* not valid, try other hints *)
-        | Some (ctx, es) ->
-          (* success *)
-          let e' = Tt.instantiate es e' in
-          let e' = List.fold_left
-              (fun e ((yvs,w),es) -> Tt.mk_spine ~loc:(snd e) e yvs w es) e' extras in
-          Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
-            (Pattern.print_beta_hint xs h)
-            (Tt.print_term xs e)
-            (Tt.print_term xs e') ;
-          whnf env ctx e'
+        collect_for_beta env ctx p e >>= begin function
+          | Some (pvars, checks, extras) ->
+            (* we have a match, still need to verify validity of match *)
+            Print.debug
+              "Found a match of pattern@ %t@ against@ %t@, checking its \
+               validity…"
+              (Pattern.print_beta_hint xs h)
+              (Tt.print_term xs e) ;
+            begin verify_match ~spawn:false env ctx xts pvars checks >>= function
+            | None ->
+              Print.debug "validity check failed";
+              apply_beta hs (* not valid, try other hints *)
+            | Some (ctx, es) ->
+              (* success *)
+              let e' = Tt.instantiate es e' in
+              let e' = List.fold_left
+                  (fun e ((yvs,w),es) -> Tt.mk_spine ~loc:(snd e) e yvs w es) e' extras in
+              Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
+                (Pattern.print_beta_hint xs h)
+                (Tt.print_term xs e)
+                (Tt.print_term xs e') ;
+              whnf env ctx e'
+            end
+          | None -> apply_beta hs (* did not match, try other hints *)
         end
-      with NoMatch -> apply_beta hs (* did not match, try other hints *)
-      end
   in
   if !Config.ignore_hints then Value.return (ctx, e)
   else begin
@@ -490,9 +484,9 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
   | Tt.Projection (te1,xts1,p1), Tt.Projection (te2,xts2,p2) ->
     if Name.eq_ident p1 p2
     then
-      equal_signature ~loc:loc1 env ctx xts1 xts2 >>= fun ctx ->
+      equal_signature ~loc:loc1 env ctx xts1 xts2 >?= fun ctx ->
       equal_whnf env ctx te1 te2
-    else None
+    else Value.return None
 
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
      Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _ |
@@ -620,92 +614,76 @@ and equal_module ~loc env ctx xtes1 xtes2 =
     must be verified before the match is considered valid.
     It raises [NoMatch] if there is a mismatch. *)
 
-and pattern_collect env ctx p ?at_ty e =
+and pattern_collect env ctx p ~at_ty e =
     Print.debug "collecting %t" (Tt.print_term [] e) ;
     whnf env ctx e >>= fun (ctx, e) ->
-    pattern_collect_whnf env ctx p ?at_ty e
+    pattern_collect_whnf env ctx p ~at_ty e
 
 (* Collect from [e] assuming it is in whnf. *)
-and pattern_collect_whnf env ctx p ?at_ty ((e', loc) as e) =
+and pattern_collect_whnf env ctx p ~at_ty ((e', loc) as e) =
   Print.debug "collecting pattern %t from whnf %t"
     (Pattern.print_pattern [] ([],p)) (Tt.print_term [] e) ;
   match p with
 
   | Pattern.Atom x' ->
     begin match e' with
-    | Tt.Atom x -> if Name.eq_atom x' x then Value.return ([], []) else raise NoMatch
-    | _ -> raise NoMatch
+    | Tt.Atom x -> if Name.eq_atom x' x then opt_return ([], []) else Value.return None
+    | _ -> Value.return None
     end
 
   | Pattern.PVar k ->
-    begin match at_ty with
-    | Some t -> Value.return ([(k, (e, t))], [])
-    | None ->
-      (** We only get here if the caller of [pattern_collect] does not provide
-          [t] _and_ we hit a variable as top-most pattern. This can happen
-          if someone installed a useless beta hint, for example. So maybe
-          a warning is warnted at this point. *)
-      raise NoMatch
-    end
+    opt_return ([(k, (e, at_ty))], [])
 
   | Pattern.Constant (x, pes) ->
     begin match e' with
       | Tt.Constant (y, es) -> collect_primapp ~loc env ctx x pes y es
-      | _ -> raise NoMatch
+      | _ -> Value.return None
     end
 
   | Pattern.Spine (pe, (xts, u), pes) ->
     begin match e' with
       | Tt.Spine (e, (yus, v), es) ->
-        pattern_collect_spine ~loc env ctx (pe, (xts, u), pes) (e, (yus, v), es) >>= fun (pvars, checks, extras) ->
+        pattern_collect_spine ~loc env ctx (pe, (xts, u), pes) (e, (yus, v), es) >?= fun (pvars, checks, extras) ->
         begin match extras with
         | _::_ ->
           Print.debug "found unexpected trailing arguments at %t"
             (Tt.print_term (Environment.used_names env) (e', loc));
-          raise NoMatch
+          Value.return None
         | [] ->
           Print.debug "no trailing arguments for %t"
             (Tt.print_term (Environment.used_names env) (e', loc));
-          Value.return (pvars, checks)
+          opt_return (pvars, checks)
         end
-      | _ -> raise NoMatch
+      | _ -> Value.return None
     end
 
   | Pattern.Eq (pt, pe1, pe2) ->
     begin match e' with
       | Tt.Eq (t, e1, e2) ->
-        pattern_collect_ty env ctx pt t >>= fun (pvars_t, checks_t) ->
-        pattern_collect env ctx pe1 ~at_ty:t e1 >>= fun (pvars_e1, checks_e1) ->
-        pattern_collect env ctx pe2 ~at_ty:t e2 >>= fun (pvars_e2, checks_e2) ->
-        Value.return (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
-      | _ -> raise NoMatch
+        pattern_collect_ty env ctx pt t >?= fun (pvars_t, checks_t) ->
+        pattern_collect env ctx pe1 ~at_ty:t e1 >?= fun (pvars_e1, checks_e1) ->
+        pattern_collect env ctx pe2 ~at_ty:t e2 >?= fun (pvars_e2, checks_e2) ->
+        opt_return (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
+      | _ -> Value.return None
     end
 
   | Pattern.Refl (pt, pe) ->
     begin match e' with
       | Tt.Refl (t, e) ->
-        pattern_collect_ty env ctx pt t >>= fun (pvars_t, checks_t) ->
-        pattern_collect env ctx pe ~at_ty:t e >>= fun (pvars_e, checks_e) ->
-        Value.return (pvars_t @ pvars_e, checks_t @ checks_e)
-      | _ -> raise NoMatch
+        pattern_collect_ty env ctx pt t >?= fun (pvars_t, checks_t) ->
+        pattern_collect env ctx pe ~at_ty:t e >?= fun (pvars_e, checks_e) ->
+        opt_return (pvars_t @ pvars_e, checks_t @ checks_e)
+      | _ -> Value.return None
     end
 
   | Pattern.Bracket pt ->
     begin match e' with
       | Tt.Bracket t -> pattern_collect_ty env ctx pt t
-      | _ -> raise NoMatch
+      | _ -> Value.return None
     end
 
   | Pattern.Term (e',t') ->
-    begin match at_ty with
-      | Some t -> Value.return ([], [CheckEqualTy ([], (t', t)); CheckEqual (e', e, t)])
-      | None ->
-        (** It is unsafe to compare [e'] and [e] for equality when
-            the type of [e] is not given. However, it is safe to
-            compare for alpha equality. And in fact we need this
-            to be able to rewrite constants (names). *)
-        Value.return ([], [CheckAlphaEqual (e', e)])
-    end
+    opt_return ([], [CheckEqualTy ([], (t', at_ty)); CheckEqual (e', e, at_ty)])
 
 (* Collect from a type. *)
 and pattern_collect_ty env ctx (Pattern.Ty p) (Tt.Ty e) =
@@ -734,14 +712,15 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
   in
 
   (* If the pattern spine is longer than the arguments spine the match will fail. *)
-  if n1 > n2 then raise NoMatch ;
+  begin if n1 > n2 then Value.return None else opt_return ()
+  end >?= fun () ->
 
   (* match the heads *)
   (* The type comes from the *term* not the pattern and thus doesn't contain pvars *)
   begin
     let t = (let ((yvs, w), _) = args in Tt.mk_prod_ty ~loc yvs w) in
     pattern_collect_whnf env ctx ph ~at_ty:t h
-  end >>= fun (pvars_head, checks_head) ->
+  end >?= fun (pvars_head, checks_head) ->
 
   let rec fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss =
     match xts, pes, yvs, es with
@@ -755,11 +734,11 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
       Print.debug "collect spine (2): collect arg@ %t at %t@ from@ %t at %t"
         (Pattern.print_pattern [] ([], pe)) (Tt.print_ty [] t)
         (Tt.print_term [] e) (Tt.print_ty [] v);
-      pattern_collect env ctx pe ~at_ty:v e >>= fun (pvars_e, checks_e) ->
+      pattern_collect env ctx pe ~at_ty:v e >?= fun (pvars_e, checks_e) ->
       let xtvs = (x,(t,v)) :: xtvs in
       let es' = e :: es' in
-      fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss >>= fun (pvars, checks, extras) ->
-        Value.return (pvars_e @ pvars, checks_e @ checks, extras)
+      fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss >?= fun (pvars, checks, extras) ->
+        opt_return (pvars_e @ pvars, checks_e @ checks, extras)
 
     | ((_::_) as xts), ((_::_) as pes), [], [] ->
       begin
@@ -768,9 +747,8 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
         | ((yvs, w'), es) :: argss ->
           let t1 = Tt.instantiate_ty es' w
           and t2 = Tt.mk_prod_ty ~loc yvs w' in
-          equal_ty env ctx t1 t2 >>= function
-          | None -> raise NoMatch
-          | Some ctx -> fold xtvs es' ((xts,u), pes) pargss ((yvs, w'), es) argss
+          equal_ty env ctx t1 t2 >?= fun ctx ->
+          fold xtvs es' ((xts,u), pes) pargss ((yvs, w'), es) argss
       end
 
     | [], [], _::_, _::_ ->
@@ -783,10 +761,10 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
 
         let check_uw = CheckEqualTy (xtvs, (u, w_prod)) in
         match pargss with
-        | [] -> Value.return ([], [check_uw], ((yvs, w), es) :: argss)
+        | [] -> opt_return ([], [check_uw], ((yvs, w), es) :: argss)
         | pargs :: pargss ->
-          fold [] [] pargs pargss ((yvs, w), es) argss >>= fun (pvars, checks, extras) ->
-          Value.return (pvars, check_uw :: checks, extras)
+          fold [] [] pargs pargss ((yvs, w), es) argss >?= fun (pvars, checks, extras) ->
+          opt_return (pvars, check_uw :: checks, extras)
       end
 
     | [], [], [], [] ->
@@ -799,10 +777,10 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
 
         let check_uw = CheckEqualTy (xtvs, (u, w)) in
           match pargss, argss with
-            | [], argss -> Value.return ([], [check_uw], argss)
+            | [], argss -> opt_return ([], [check_uw], argss)
             | pargs::pargss, args::argss ->
-              fold [] [] pargs pargss args argss >>= fun (pvars, checks, extras) ->
-                Value.return (pvars, check_uw :: checks, extras)
+              fold [] [] pargs pargss args argss >?= fun (pvars, checks, extras) ->
+                opt_return (pvars, check_uw :: checks, extras)
             | _::_, [] -> Error.impossible ~loc "invalid spine in pattern match (2)"
       end
 
@@ -811,8 +789,8 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
     | _, _, [], _::_ | _, _, _::_, [] ->
       Error.impossible ~loc "invalid spine encountered in pattern collection"
   in
-  fold [] [] pargs pargss args argss >>= fun (pvars, checks, extras) ->
-    Value.return (pvars_head @ pvars, checks_head @ checks, extras)
+  fold [] [] pargs pargss args argss >?= fun (pvars, checks, extras) ->
+    opt_return (pvars_head @ pvars, checks_head @ checks, extras)
 
 (** Collect values of pattern variables by matching a beta
     pattern [bp] against whnf expression [e]. Also opt_return the residual
@@ -823,22 +801,22 @@ and collect_for_beta env ctx bp (e',loc) =
 
   | Pattern.BetaAtom x, Tt.Atom y ->
     if Name.eq_atom x y
-    then Value.return ([], [], [])
-    else raise NoMatch
+    then opt_return ([], [], [])
+    else Value.return None
 
   | Pattern.BetaAtom x, Tt.Spine (e, yts, es) ->
     let rec fold args (e',_) yts es =
       match e' with
         | Tt.Atom y ->
           if Name.eq_atom x y
-          then (yts, es) :: args
-          else raise NoMatch
+          then opt_return ((yts, es) :: args)
+          else Value.return None
         | Tt.Spine (e', yts', es') ->
           fold ((yts, es) :: args) e' yts' es'
-        | _ -> raise NoMatch    (* XXX remove catch-all *)
+        | _ -> Value.return None    (* XXX remove catch-all *)
     in
-    let extras = fold [] e yts es in
-    Value.return ([], [], extras)
+    fold [] e yts es >?= fun extras ->
+    opt_return ([], [], extras)
 
   | Pattern.BetaConstant (x, pes), Tt.Spine (e, yts, es) ->
     Print.debug "collect_beta for %t" (Name.print_ident x) ;
@@ -847,28 +825,28 @@ and collect_for_beta env ctx bp (e',loc) =
         | Tt.Constant (y, es') ->
            let extras = (yts, es) :: extras in
            let extras = List.rev extras in
-           y, es', extras
+           opt_return (y, es', extras)
         | Tt.Spine (e', yts', es') -> fold ((yts, es) :: extras) e' yts' es'
-        | _ -> raise NoMatch
+        | _ -> Value.return None
     in
-    let y, es, extras = fold [] e yts es in
-    collect_primapp ~loc env ctx x pes y es >>= fun (pvars, checks) ->
+    fold [] e yts es >?= fun (y, es, extras) ->
+    collect_primapp ~loc env ctx x pes y es >?= fun (pvars, checks) ->
     Print.debug "collect_beta for %t WORKED" (Name.print_ident x) ;
-    Value.return (pvars, checks, extras)
+    opt_return (pvars, checks, extras)
 
   | Pattern.BetaConstant (x, pes), Tt.Constant (y, es) ->
-     collect_primapp ~loc env ctx x pes y es >>= fun (pvars, checks) ->
-     Value.return (pvars, checks, [])
+     collect_primapp ~loc env ctx x pes y es >?= fun (pvars, checks) ->
+     opt_return (pvars, checks, [])
 
   | Pattern.BetaSpine (pe, xts, pes), Tt.Spine (e, yts, es) ->
     pattern_collect_spine ~loc env ctx (pe, xts, pes) (e, yts, es)
 
   | (Pattern.BetaAtom _ | Pattern.BetaSpine _ | Pattern.BetaConstant _), _ ->
-    raise NoMatch
+    Value.return None
 
 and collect_primapp ~loc env ctx x pes y es =
   if not (Name.eq_ident x y)
-  then raise NoMatch
+  then Value.return None
   else begin
     let yts, _ =
       begin match Environment.lookup_constant x env with
@@ -877,7 +855,7 @@ and collect_primapp ~loc env ctx x pes y es =
       end in
     let rec fold es' yts pes es =
       match yts, pes, es with
-      | [], [], [] -> Value.return ([], [])
+      | [], [], [] -> opt_return ([], [])
 
       | (y,(reducing,t))::yts, pe::pes, e::es ->
           begin
@@ -885,9 +863,9 @@ and collect_primapp ~loc env ctx x pes y es =
             if reducing
             then pattern_collect_whnf env ctx pe ~at_ty:t e
             else pattern_collect      env ctx pe ~at_ty:t e
-          end >>= fun (pvars_e, checks_e) ->
-         fold (e::es') yts pes es >>= fun (pvars,checks) ->
-         Value.return (pvars_e @ pvars, checks_e @ checks)
+          end >?= fun (pvars_e, checks_e) ->
+         fold (e::es') yts pes es >?= fun (pvars,checks) ->
+         opt_return (pvars_e @ pvars, checks_e @ checks)
 
       | _, _, _ ->
          Error.impossible ~loc "malformed primitive applications in pattern_collect"
@@ -899,24 +877,17 @@ and collect_primapp ~loc env ctx x pes y es =
   values of pattern variable and residual equations in eta hints,
   where we compare a type and two terms. *)
 and collect_for_eta env ctx (pt, k1, k2) (t, e1, e2) =
-  try
-    pattern_collect_ty env ctx pt t >>= fun (pvars_t,  checks_t) ->
-      opt_return ((k1,(e1,t)) :: (k2,(e2,t)) :: pvars_t, checks_t)
-  with NoMatch -> Value.return None
+  pattern_collect_ty env ctx pt t >?= fun (pvars_t,  checks_t) ->
+    opt_return ((k1,(e1,t)) :: (k2,(e2,t)) :: pvars_t, checks_t)
 
 and collect_for_hint env ctx (pt, pe1, pe2) (t, e1, e2) =
-  try
-    pattern_collect_ty env ctx pt t >>= fun (pvars_t, checks_t) ->
-    pattern_collect env ctx pe1 ~at_ty:t e1 >>= fun (pvars_e1, checks_e1) ->
-    pattern_collect env ctx pe2 ~at_ty:t e2  >>= fun (pvars_e2, checks_e2) ->
-    opt_return (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
-  with NoMatch -> Value.return None
+  pattern_collect_ty env ctx pt t >?= fun (pvars_t, checks_t) ->
+  pattern_collect env ctx pe1 ~at_ty:t e1 >?= fun (pvars_e1, checks_e1) ->
+  pattern_collect env ctx pe2 ~at_ty:t e2  >?= fun (pvars_e2, checks_e2) ->
+  opt_return (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
 
 and collect_for_inhabit env ctx pt t =
-  try
-    pattern_collect_ty env ctx pt t >>= fun (pvars_t, checks_t) ->
-    opt_return (pvars_t, checks_t)
-  with NoMatch -> Value.return None
+  pattern_collect_ty env ctx pt t
 
 (** Verify that the results of a [collect_XXX] constitute a valid
     match, i.e., that the pattern variables have been matched with
@@ -947,7 +918,7 @@ and verify_match ~spawn env ctx xts pvars checks =
      match to be successful. *)
   let rec subst_of_pvars env ctx pvars k xts es inhs =
     match xts with
-    | [] -> Value.return (ctx, es, inhs)
+    | [] -> opt_return (ctx, es, inhs)
     | (_,t) :: xts ->
       begin match lookup k pvars with
 
@@ -956,93 +927,75 @@ and verify_match ~spawn env ctx xts pvars checks =
              We need to verify that [t] and [t'] are equal. *)
           let t = Tt.instantiate_ty es t in
           Print.debug "matching: compare %t and %t (es %d)" (Tt.print_ty [] t) (Tt.print_ty [] t') (List.length es);
-          begin equal_ty env ctx t t' >>= function
-          | None -> raise NoMatch
-          | Some ctx -> subst_of_pvars env ctx pvars (k-1) xts (e :: es) inhs
-          end
+          equal_ty env ctx t t' >?= fun ctx ->
+          subst_of_pvars env ctx pvars (k-1) xts (e :: es) inhs
 
         | None ->
           if not spawn
-          then raise NoMatch (* we are not supposed to instantiate missing variables *)
+          then Value.return None (* we are not supposed to instantiate missing variables *)
           else begin
             (* Try to inhabit the type [t]. Actually, we first calculate the
                only possible candidate, and redo the check later when we actually
                know that the pattern match will succeed. *)
             let t = Tt.instantiate_ty es t in
             Print.debug "matching: trying to inhabit@ %t" (Tt.print_ty [] t) ;
-            inhabit ~subgoals:false env ctx t >>= function
-              | None -> raise NoMatch (* didn't work *)
-              | Some (ctx, e) -> subst_of_pvars env ctx pvars (k-1) xts (e :: es) ((env,t) :: inhs)
+            inhabit ~subgoals:false env ctx t >?= fun (ctx,e) ->
+            subst_of_pvars env ctx pvars (k-1) xts (e :: es) ((env,t) :: inhs)
           end
       end
   in
 
-  try
-    (* Make a substitution from the collected [pvars] *)
-    subst_of_pvars env ctx pvars (List.length xts - 1) xts [] [] >>= fun (ctx, es, inhs) ->
-    Print.debug "built substitution %d" debug_i;
-    (* Perform the equality checks to validate the match *)
-    List.fold_left
-      (fun mctx check -> mctx >>= fun ctx -> match check with
-         | CheckEqual (e1, e2, t) ->
-            let e1 = Tt.instantiate es e1 in
-            Print.debug "CheckEqual at@ %t@ %t@ %t"
-              (Tt.print_ty (Environment.used_names env) t)
-              (Tt.print_term (Environment.used_names env) e1)
-              (Tt.print_term (Environment.used_names env) e2);
-            begin equal env ctx e1 e2 t >>= function
-            | Some ctx -> Value.return ctx
-            | None -> raise NoMatch
-            end
+  (* Make a substitution from the collected [pvars] *)
+  subst_of_pvars env ctx pvars (List.length xts - 1) xts [] [] >?= fun (ctx, es, inhs) ->
+  Print.debug "built substitution %d" debug_i;
+  (* Perform the equality checks to validate the match *)
+  List.fold_left
+    (fun mctx check -> mctx >?= fun ctx -> match check with
+       | CheckEqual (e1, e2, t) ->
+          let e1 = Tt.instantiate es e1 in
+          Print.debug "CheckEqual at@ %t@ %t@ %t"
+            (Tt.print_ty (Environment.used_names env) t)
+            (Tt.print_term (Environment.used_names env) e1)
+            (Tt.print_term (Environment.used_names env) e2);
+          equal env ctx e1 e2 t
 
-         | CheckEqualTy (xuvs, (t1, t2)) ->
+       | CheckEqualTy (xuvs, (t1, t2)) ->
 
-            (* All de Bruijn indices refer to pvars from the point of view of
-               the body, we therefore must not instantiate with
-               [Tt.instantiate_abstraction] which expects them to be relative to
-               the current abstraction *)
-            let xuvs = List.map (fun (x, (pt, t)) -> x, (Tt.instantiate_ty es pt, t)) xuvs in
-            let t1', t2' =  Tt.instantiate_ty es t1, t2 in
+          (* All de Bruijn indices refer to pvars from the point of view of
+             the body, we therefore must not instantiate with
+             [Tt.instantiate_abstraction] which expects them to be relative to
+             the current abstraction *)
+          let xuvs = List.map (fun (x, (pt, t)) -> x, (Tt.instantiate_ty es pt, t)) xuvs in
+          let t1', t2' =  Tt.instantiate_ty es t1, t2 in
 
-            Print.debug "%d es: %t" debug_i
-              (Print.sequence (Tt.print_term ~max_level:0 []) "; " es);
+          Print.debug "%d es: %t" debug_i
+            (Print.sequence (Tt.print_term ~max_level:0 []) "; " es);
 
-            Print.debug "%d instantiated pattern opt_return type@ %t@ as@ %t" debug_i
-              (Tt.print_ty [] t1)
-              (Tt.print_ty [] t1') ;
+          Print.debug "%d instantiated pattern opt_return type@ %t@ as@ %t" debug_i
+            (Tt.print_ty [] t1)
+            (Tt.print_ty [] t1') ;
 
-            Print.debug "%d instantiated rhs-term opt_return type@ %t@ as@ %t" debug_i
-              (Tt.print_ty [] t2)
-              (Tt.print_ty [] t2') ;
+          Print.debug "%d instantiated rhs-term opt_return type@ %t@ as@ %t" debug_i
+            (Tt.print_ty [] t2)
+            (Tt.print_ty [] t2') ;
 
-            Print.debug "%d CheckEqualTy@ %t@ %t" debug_i
-              (Tt.print_ty [] t1')
-              (Tt.print_ty [] t2');
-            begin equal_abstracted_ty env ctx xuvs t1' t2' >>= function
-            | Some ctx -> Value.return ctx
-            | None -> raise NoMatch
-            end
-
-         | CheckAlphaEqual (e1, e2) ->
-            let e1 = Tt.instantiate es e1 in
-            if not (Tt.alpha_equal e1 e2) then raise NoMatch else Value.return ctx)
-      (Value.return ctx)
-      checks >>= fun ctx ->
-    (* Perform delayed inhabitation goals *)
-    (* XXX why is it safe to delay these? *)
-    List.fold_left
-      (fun mctx (env, t) -> mctx >>= fun ctx ->
-         inhabit ~subgoals:true env ctx t >>= function
-         | None -> raise NoMatch
-         | Some (ctx, _) -> Value.return ctx)
-       (Value.return ctx)
-       inhs >>= fun ctx ->
-    (* match succeeded *)
-    Print.debug "succeeded %d)" debug_i ;
-    opt_return (ctx, es)
-  with NoMatch ->
-    Print.debug "failed %d)" debug_i ;
-    Value.Return None (* matching failed *)
+          Print.debug "%d CheckEqualTy@ %t@ %t" debug_i
+            (Tt.print_ty [] t1')
+            (Tt.print_ty [] t2');
+          equal_abstracted_ty env ctx xuvs t1' t2')
+    (opt_return ctx)
+    checks >?= fun ctx ->
+  (* Perform delayed inhabitation goals *)
+  (* XXX why is it safe to delay these? *)
+  List.fold_left
+    (fun mctx (env, t) -> mctx >?= fun ctx ->
+       inhabit ~subgoals:true env ctx t >?= fun (ctx,_) ->
+       opt_return ctx)
+     (opt_return ctx)
+     inhs >?= fun ctx ->
+  (* match succeeded *)
+  Print.debug "succeeded %d)" debug_i ;
+  opt_return (ctx, es)
 
 and as_bracket env (ctx, t) =
   whnf_ty env ctx t >>= fun (ctxt, Tt.Ty (t', loc)) ->
