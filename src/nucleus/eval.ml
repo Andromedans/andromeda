@@ -374,7 +374,7 @@ and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
             let ctx = Context.join ctxeq (Context.join lctx rctx) in (* user may have done something surprising somehow *)
             f ctx
           else
-            Error.typing ~loc:(snd eq) "this expression should have type@ %t@ but has type@ %t"
+            Error.typing ~loc:(eq.Tt.loc) "this expression should have type@ %t@ but has type@ %t"
                          (print_ty env tgoal) (print_ty env teq)
         | Value.Tag (t, []) when (Name.eq_ident t tnone) ->
           error ()
@@ -384,8 +384,8 @@ and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
 
 and require_equal_ty ~loc env (lctx,Tt.Ty lte) (rctx,Tt.Ty rte)
                      (f : Context.t -> 'a Value.result) error : 'a Value.result =
-  require_equal ~loc env (lctx,lte,Tt.mk_type_ty ~loc:(snd lte))
-                         (rctx,rte,Tt.mk_type_ty ~loc:(snd rte))
+  require_equal ~loc env (lctx,lte,Tt.mk_type_ty ~loc:(lte.Tt.loc))
+                         (rctx,rte,Tt.mk_type_ty ~loc:(rte.Tt.loc))
                          f error
 
 and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : (Context.t * Tt.term) Value.result =
@@ -416,7 +416,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
     infer env c >>= as_term ~loc >>= fun (ctxe, e, t') ->
     let k ctx = Value.return (ctx, e) in
     require_equal_ty ~loc env t_check (ctxe,t') k
-      (fun () -> Error.typing ~loc:(snd e)
+      (fun () -> Error.typing ~loc:(e.Tt.loc)
                               "this expression should have type@ %t@ but has type@ %t"
                               (print_ty env t_check') (print_ty env t'))
 
@@ -426,7 +426,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
        let (ctxe, e', t') = Value.as_term ~loc v in
        let k ctx = Value.return (ctx, e') in
        require_equal_ty ~loc env t_check (ctxe,t') k
-         (fun () -> Error.typing ~loc:(snd e')
+         (fun () -> Error.typing ~loc:(e'.Tt.loc)
                                  "this expression should have type@ %t@ but has type@ %t"
                                  (print_ty env t_check') (print_ty env t'))
      in

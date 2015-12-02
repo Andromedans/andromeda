@@ -35,15 +35,15 @@ let rec whnf_ty env ctx (Tt.Ty t) : (Context.t * Tt.ty) Value.result =
     because [beta_reduce] triggers [whnf] which triggers [weak_whnf].
     The important point is that it computes a form of [e] that is suitable
     for pattern-matching of the top-level constructor of [e]. *)
-and weak_whnf env ctx ((e', loc) as e) =
-  let rec weak ctx ((e', loc) as e) =
+and weak_whnf env ctx ({Tt.term=e'; loc} as e) =
+  let rec weak ctx ({Tt.term=e'; loc} as e) =
     begin match e' with
       | Tt.Spine (e, _, []) -> weak ctx e
       | Tt.Lambda ([], (e, _)) -> weak ctx e
       | Tt.Prod ([], Tt.Ty e) -> weak ctx e
       | Tt.Spine (e, (xts, t), (_::_ as es)) ->
         begin
-          weak ctx e >>= fun (ctx, ((e',eloc) as e)) ->
+          weak ctx e >>= fun (ctx, ({Tt.term=e';loc=eloc} as e)) ->
           match e' with
           | Tt.Lambda (xus, (e', u)) ->
             begin
@@ -75,7 +75,7 @@ and weak_whnf env ctx ((e', loc) as e) =
 
       | Tt.Projection (e,xts,p) ->
         begin
-          weak ctx e >>= fun (ctx, ((e',eloc) as e)) ->
+          weak ctx e >>= fun (ctx, ({Tt.term=e';loc=eloc} as e)) ->
           match e' with
             | Tt.Structure xtes ->
               begin
@@ -149,7 +149,7 @@ and whnf env ctx e =
               (* success *)
               let e' = Tt.instantiate es e' in
               let e' = List.fold_left
-                  (fun e ((yvs,w),es) -> Tt.mk_spine ~loc:(snd e) e yvs w es) e' extras in
+                  (fun e ((yvs,w),es) -> Tt.mk_spine ~loc:(e.Tt.loc) e yvs w es) e' extras in
               Print.debug "beta hint@ %t@ matches@ %t,@ we get@ %t"
                 (Pattern.print_beta_hint xs h)
                 (Tt.print_term xs e)
@@ -229,7 +229,7 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) lis
 (** Compare two types *)
 and equal_ty env ctx (Tt.Ty t1) (Tt.Ty t2) = equal env ctx t1 t2 Tt.typ
 
-and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
+and equal env ctx ({Tt.loc=loc1} as e1) ({Tt.loc=loc2} as e2) t =
   let xs = Environment.used_names env in
   let i = cnt () in
   Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
@@ -237,7 +237,7 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
   let r =
   if Tt.alpha_equal e1 e2 then opt_return ctx else
     begin (* type-directed phase *)
-      whnf_ty env ctx t >>= fun (ctx, ((Tt.Ty (t',_)) as t)) ->
+      whnf_ty env ctx t >>= fun (ctx, ((Tt.Ty {Tt.term=t'}) as t)) ->
       match t' with
 
         | Tt.Structure _
@@ -291,7 +291,7 @@ and equal env ctx ((_,loc1) as e1) ((_,loc2) as e2) t =
         | Tt.Prod (xus, u) ->
             let rec fold env ys es =
               begin function
-              | (x, ((Tt.Ty (_, loc)) as v)) :: xvs ->
+              | (x, ((Tt.Ty {Tt.loc=loc}) as v)) :: xvs ->
                   let v = Tt.unabstract_ty ys v in
                   let jv = Judgement.mk_ty ctx v in
                   let y, env =  Environment.add_fresh ~loc env x jv in
@@ -338,8 +338,8 @@ and equal_hints env ctx e1 e2 t =
      here, eta expansion has already been applied. Now h : f ≡ λx.x will fail
      because the rhs [(λx.x) y] reduces to [y] but [f y] is stuck and h won't
      apply anymore *)
-  whnf env ctx e1 >>= fun (ctx, ((e1',loc1) as e1)) ->
-  whnf env ctx e2 >>= fun (ctx, ((e2',loc2) as e2)) ->
+  whnf env ctx e1 >>= fun (ctx, ({Tt.term=e1';loc=loc1} as e1)) ->
+  whnf env ctx e2 >>= fun (ctx, ({Tt.term=e2';loc=loc2} as e2)) ->
   (* short-circuit alpha equality *)
   if Tt.alpha_equal e1 e2 then
     opt_return ctx
@@ -377,9 +377,11 @@ and equal_hints env ctx e1 e2 t =
 
 (* Compare normalized expressions. The assumption is that they both
    have a common type. *)
-and equal_whnf env ctx (e1',loc1) (e2',loc2) =
+and equal_whnf env ctx {Tt.term=e1';loc=loc1} {Tt.term=e2';loc=loc2} =
   (* compare reduced expressions *)
-  Print.debug "equal_whnf of %t and %t" (Tt.print_term [] (e1',loc1)) (Tt.print_term [] (e2',loc2)) ;
+  Print.debug "equal_whnf of %t and %t"
+              (Tt.print_term [] {Tt.term=e1';loc=loc1})
+              (Tt.print_term [] {Tt.term=e2';loc=loc2}) ;
   match e1', e2' with
 
   | Tt.Atom x, Tt.Atom y ->
@@ -433,8 +435,8 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
           let t1' = Tt.unabstract_ty ys t1'
           and t2' = Tt.unabstract_ty ys t2' in
           equal_ty env ctx t1' t2' >?= fun ctx ->
-          let e1 = Tt.mk_lambda ~loc:(snd e1) xus e1 t1
-          and e2 = Tt.mk_lambda ~loc:(snd e2) xvs e2 t2 in
+          let e1 = Tt.mk_lambda ~loc:(e1.Tt.loc) xus e1 t1
+          and e2 = Tt.mk_lambda ~loc:(e2.Tt.loc) xvs e2 t2 in
           let e1 = Tt.unabstract ys e1
           and e2 = Tt.unabstract ys e2 in
           equal env ctx e1 e2 t1'
@@ -496,7 +498,7 @@ and equal_whnf env ctx (e1',loc1) (e2',loc2) =
 and equal_spine ~loc env ctx e1 a1 e2 a2 =
   (* We deal with nested spines. They are nested in an inconvenient way so
      we first get them the way we need them. *)
-  let rec collect_spines ab abs n ((e',_) as e) =
+  let rec collect_spines ab abs n ({Tt.term=e'} as e) =
     match e' with
     | Tt.Spine (e, xts, es) -> collect_spines (xts,es) (ab :: abs) (n + List.length es) e
     | _ -> e, ab, abs, n
@@ -620,7 +622,7 @@ and pattern_collect env ctx p ~at_ty e =
     pattern_collect_whnf env ctx p ~at_ty e
 
 (* Collect from [e] assuming it is in whnf. *)
-and pattern_collect_whnf env ctx p ~at_ty ((e', loc) as e) =
+and pattern_collect_whnf env ctx p ~at_ty ({Tt.term=e';loc} as e) =
   Print.debug "collecting pattern %t from whnf %t"
     (Pattern.print_pattern [] ([],p)) (Tt.print_term [] e) ;
   match p with
@@ -647,11 +649,11 @@ and pattern_collect_whnf env ctx p ~at_ty ((e', loc) as e) =
         begin match extras with
         | _::_ ->
           Print.debug "found unexpected trailing arguments at %t"
-            (Tt.print_term (Environment.used_names env) (e', loc));
+            (Tt.print_term (Environment.used_names env) {Tt.term=e';loc});
           Value.return None
         | [] ->
           Print.debug "no trailing arguments for %t"
-            (Tt.print_term (Environment.used_names env) (e', loc));
+            (Tt.print_term (Environment.used_names env) {Tt.term=e';loc});
           opt_return (pvars, checks)
         end
       | _ -> Value.return None
@@ -695,7 +697,7 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
 
   (* We deal with nested spines. They are nested in an inconvenient way so
      we first get them the way we need them. *)
-  let rec collect_spines_terms ab abs n ((e',_) as e) =
+  let rec collect_spines_terms ab abs n ({Tt.term=e'} as e) =
     match e' with
     | Tt.Spine (e, xtsu, es) -> collect_spines_terms (xtsu,es) (ab :: abs) (n + List.length es) e
     | _ -> e, ab, abs, n (* [e] should be a [Tt.Constant]. *)
@@ -796,7 +798,7 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
     pattern [bp] against whnf expression [e]. Also opt_return the residual
     equations that remain to be checked, and the unused
     arguments. *)
-and collect_for_beta env ctx bp (e',loc) =
+and collect_for_beta env ctx bp {Tt.term=e';loc} =
   match bp, e' with
 
   | Pattern.BetaAtom x, Tt.Atom y ->
@@ -805,7 +807,7 @@ and collect_for_beta env ctx bp (e',loc) =
     else Value.return None
 
   | Pattern.BetaAtom x, Tt.Spine (e, yts, es) ->
-    let rec fold args (e',_) yts es =
+    let rec fold args {Tt.term=e'} yts es =
       match e' with
         | Tt.Atom y ->
           if Name.eq_atom x y
@@ -820,7 +822,7 @@ and collect_for_beta env ctx bp (e',loc) =
 
   | Pattern.BetaConstant (x, pes), Tt.Spine (e, yts, es) ->
     Print.debug "collect_beta for %t" (Name.print_ident x) ;
-    let rec fold extras (e',_) yts es =
+    let rec fold extras {Tt.term=e'} yts es =
       match e' with
         | Tt.Constant (y, es') ->
            let extras = (yts, es) :: extras in
@@ -998,14 +1000,14 @@ and verify_match ~spawn env ctx xts pvars checks =
   opt_return (ctx, es)
 
 and as_bracket env (ctx, t) =
-  whnf_ty env ctx t >>= fun (ctxt, Tt.Ty (t', loc)) ->
+  whnf_ty env ctx t >>= fun (ctxt, Tt.Ty {Tt.term=t';loc}) ->
   match t' with
   | Tt.Bracket t -> Value.return (ctxt, t)
   | _ -> Error.typing ~loc "[] has a bracket type and not %t" (Tt.print_ty (Environment.used_names env) t)
 
 (** Strip brackets from a given type. *)
 and strip_bracket env ctx t =
-  whnf_ty env ctx t >>= fun (ctx, Tt.Ty (t', loc)) ->
+  whnf_ty env ctx t >>= fun (ctx, Tt.Ty {Tt.term=t';loc}) ->
   match t' with
   | Tt.Bracket t -> strip_bracket env ctx t
   | _ ->  Value.return (ctx, t) (* XXX or should be opt_return the whnf t? *)
@@ -1014,10 +1016,10 @@ and strip_bracket env ctx t =
     If [subgoals] is [true] then recursively resolve goals, otherwise
     just opt_return the only possible inhabitant of [t]. *)
 and inhabit ~subgoals env ctx t =
-  whnf_ty env ctx t >>= fun (ctx, (Tt.Ty (t', loc) as t)) ->
+  whnf_ty env ctx t >>= fun (ctx, (Tt.Ty {Tt.term=t';loc} as t)) ->
   inhabit_whnf ~subgoals env ctx t
 
-and inhabit_whnf ~subgoals env ctx ((Tt.Ty (t', loc)) as t) =
+and inhabit_whnf ~subgoals env ctx ((Tt.Ty {Tt.term=t';loc}) as t) =
   Print.debug "trying to inhabit (subgoals = %b) whnf@ %t"
     subgoals (Tt.print_ty [] t);
   match t' with
@@ -1094,7 +1096,7 @@ and inhabit_bracket ~subgoals ~loc env (ctx, t_inhabit) =
     in fold (Environment.inhabit_hints key env)
 
 let as_atom env (ctx, e', t)  =
-  whnf env ctx e' >>= fun (ctx, (e', loc)) ->
+  whnf env ctx e' >>= fun (ctx, {Tt.term=e';loc}) ->
   match e' with
   | Tt.Atom x -> Value.return (ctx, x, t)
   | Tt.Prod _ | Tt.Type | Tt.Eq _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
@@ -1103,7 +1105,7 @@ let as_atom env (ctx, e', t)  =
     Error.runtime ~loc "this expression should be an atom"
 
 let rec deep_prod env ctx t f =
-  whnf_ty env ctx t >>= fun (ctx, (Tt.Ty (t', loc))) ->
+  whnf_ty env ctx t >>= fun (ctx, (Tt.Ty {Tt.term=t';loc})) ->
   match t' with
 
   | Tt.Prod ([], _) -> Error.impossible ~loc "empty product encountered in deep_prod"
@@ -1131,13 +1133,13 @@ let rec deep_prod env ctx t f =
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
   | Tt.Spine _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
-     f env ctx (Tt.ty (t', loc)) >>= fun (ctx,t) ->
+     f env ctx (Tt.ty {Tt.term=t';loc}) >>= fun (ctx,t) ->
      Value.return (ctx, ([], t))
 
 let as_prod env (ctx, t) = deep_prod env ctx t (fun env ctx x -> Value.return (ctx, x))
 
-let as_eq env (ctx, ((Tt.Ty (_, loc)) as t)) =
-  whnf_ty env ctx t >>= fun (ctx, Tt.Ty (t', _)) ->
+let as_eq env (ctx, ((Tt.Ty {Tt.loc=loc}) as t)) =
+  whnf_ty env ctx t >>= fun (ctx, Tt.Ty {Tt.term=t'}) ->
   match t' with
 
   | Tt.Eq (t, e1, e2) -> Value.return (ctx, t, e1, e2)
@@ -1150,8 +1152,8 @@ let as_eq env (ctx, ((Tt.Ty (_, loc)) as t)) =
        (Tt.print_ty [] t)
 
 
-let as_universal_eq env (ctx, ((Tt.Ty (_, loc)) as t)) =
-  as_prod env (ctx, t) >>= fun (ctx, (xus, (Tt.Ty (t', loc) as t))) ->
+let as_universal_eq env (ctx, ((Tt.Ty {Tt.loc=loc}) as t)) =
+  as_prod env (ctx, t) >>= fun (ctx, (xus, (Tt.Ty {Tt.term=t';loc} as t))) ->
   match t' with
 
   | Tt.Eq (t, e1, e2) ->
@@ -1166,10 +1168,10 @@ let as_universal_eq env (ctx, ((Tt.Ty (_, loc)) as t)) =
        "the type of this expression should be a universally quantified equality, found@ %t"
        (Tt.print_ty [] t)
 
-let as_universal_bracket env (ctx, ((Tt.Ty (_, loc)) as t)) =
+let as_universal_bracket env (ctx, ((Tt.Ty {Tt.loc=loc}) as t)) =
   deep_prod
     env ctx t
-    (fun env ctx ((Tt.Ty (t', loc)) as t) ->
+    (fun env ctx ((Tt.Ty {Tt.term=t';loc}) as t) ->
      match t' with
 
      | Tt.Bracket t -> strip_bracket env ctx t
@@ -1183,7 +1185,7 @@ let as_universal_bracket env (ctx, ((Tt.Ty (_, loc)) as t)) =
 
 
 let as_signature env (ctx, t) =
-  whnf_ty env ctx t >>= fun (ctxt, Tt.Ty (t', loc)) ->
+  whnf_ty env ctx t >>= fun (ctxt, Tt.Ty {Tt.term=t';loc}) ->
   match t' with
     | Tt.Signature xts -> Value.return (ctxt, xts)
     | _ -> Error.typing ~loc
@@ -1191,7 +1193,7 @@ let as_signature env (ctx, t) =
       (Tt.print_ty [] t)
 
 let rec snf env ctx t =
-  whnf env ctx t >>= fun (ctx, ((t',loc) as t)) ->
+  whnf env ctx t >>= fun (ctx, ({Tt.term=t';loc} as t)) ->
   match t' with
     | Tt.Type | Tt.Atom _ -> Value.return (ctx, t)
 
