@@ -2,7 +2,7 @@
 
 type ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
 
-type term = term' * Location.t
+type term = { term : term' ; loc : Location.t}
 and term' =
   | Type
   | Atom of Name.atom
@@ -31,15 +31,15 @@ type constsig = ((bool * ty), ty) abstraction
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
-let mk_atom ~loc x = Atom x, loc
-let mk_bound ~loc k = Bound k, loc
+let mk_atom ~loc x = {term = Atom x; loc}
+let mk_bound ~loc k ={term = Bound k; loc}
 
-let mk_constant ~loc x es = Constant (x, es), loc
+let mk_constant ~loc x es = {term = Constant (x, es); loc}
 
 let mk_lambda ~loc xts e t =
   match xts with
   | [] -> e
-  | _ :: _ -> Lambda (xts, (e, t)), loc
+  | _ :: _ -> {term = Lambda (xts, (e, t)); loc}
 
 let mk_prod ~loc xts ((Ty e) as t) =
   match xts with
@@ -47,25 +47,25 @@ let mk_prod ~loc xts ((Ty e) as t) =
   | _ :: _ ->
     begin match t with
     (* XXX join locations loc and loc' *)
-    | Ty (Prod (yts, t), loc') -> Prod (xts @ yts, t), loc
-    | t -> Prod (xts, t), loc
+    | Ty {term=Prod (yts, t); loc=loc'} -> {term = Prod (xts @ yts, t); loc}
+    | t -> {term = Prod (xts, t); loc}
     end
 
 let mk_spine ~loc e xts t es =
   match xts with
-    | [] -> fst e, loc
-    | _::_ -> Spine (e, (xts, t), es), loc
+    | [] -> {term = e.term; loc}
+    | _::_ -> {term = Spine (e, (xts, t), es); loc}
 
-let mk_type ~loc = Type, loc
-let mk_eq ~loc t e1 e2 = Eq (t, e1, e2), loc
-let mk_refl ~loc t e = Refl (t, e), loc
+let mk_type ~loc = {term = Type; loc}
+let mk_eq ~loc t e1 e2 = {term = Eq (t, e1, e2); loc}
+let mk_refl ~loc t e = {term = Refl (t, e); loc}
 
-let mk_inhab ~loc t = Inhab t, loc
-let mk_bracket ~loc t = Bracket t, loc
+let mk_inhab ~loc t = {term = Inhab t; loc}
+let mk_bracket ~loc t = {term = Bracket t; loc}
 
-let mk_signature ~loc lst = Signature lst, loc
-let mk_structure ~loc lst = Structure lst, loc
-let mk_projection ~loc te xts x = Projection (te,xts,x), loc
+let mk_signature ~loc lst = {term = Signature lst; loc}
+let mk_structure ~loc lst = {term = Structure lst; loc}
+let mk_projection ~loc te xts x = {term = Projection (te,xts,x); loc}
 
 (** Convert a term to a type. *)
 let ty e = Ty e
@@ -96,7 +96,7 @@ let rec instantiate_ty_abstraction :
     in
     inst [] lvl xus
 
-and instantiate es ?(lvl=0) ((e',loc) as e) =
+and instantiate es ?(lvl=0) ({term=e';loc;} as e) =
   (* XXX possible optimization: check whether [es] is empty *)
   if es = [] then e else
     match e' with
@@ -114,47 +114,47 @@ and instantiate es ?(lvl=0) ((e',loc) as e) =
          let n = List.length es in
          if k < lvl + n
          then List.nth es (k - lvl) (* variable corresponds to a substituted term, replace it *)
-         else Bound (k - n), loc
+         else {term = Bound (k - n); loc}
           (* this is a variable bound in an abstraction outside the
              instantiated term, so it remains bound, but its index decreases
              by the number of bound variables replaced by terms *)
 
     | Constant (x, ds) ->
       let ds = List.map (instantiate es ~lvl) ds in
-      Constant (x, ds), loc
+      {term = Constant (x, ds); loc}
 
     | Lambda a ->
-       let a = instantiate_ty_abstraction instantiate_term_ty es ~lvl a
-       in Lambda a, loc
+       let a = instantiate_ty_abstraction instantiate_term_ty es ~lvl a in
+       {term = Lambda a; loc}
 
     | Spine (e, xtst, ds) ->
        let e = instantiate es ~lvl e
        and xtst = instantiate_ty_abstraction instantiate_ty es ~lvl xtst
-       and ds = List.map (instantiate es ~lvl) ds
-       in Spine (e, xtst, ds), loc
+       and ds = List.map (instantiate es ~lvl) ds in
+       {term = Spine (e, xtst, ds); loc}
 
     | Prod a ->
-       let a = instantiate_ty_abstraction instantiate_ty es ~lvl a
-       in Prod a, loc
+       let a = instantiate_ty_abstraction instantiate_ty es ~lvl a in
+       {term = Prod a; loc}
 
     | Eq (t, e1, e2) ->
        let t = instantiate_ty es ~lvl t
        and e1 = instantiate es ~lvl e1
-       and e2 = instantiate es ~lvl e2
-       in Eq (t, e1, e2), loc
+       and e2 = instantiate es ~lvl e2 in
+       {term = Eq (t, e1, e2); loc}
 
     | Refl (t, e) ->
        let t = instantiate_ty es ~lvl t
-       and e = instantiate es ~lvl e
-       in Refl (t, e), loc
+       and e = instantiate es ~lvl e in
+       {term = Refl (t, e); loc}
 
     | Inhab t ->
        let t = instantiate_ty es ~lvl t in
-       Inhab t, loc
+       {term = Inhab t; loc}
 
     | Bracket t ->
       let t = instantiate_ty es ~lvl t in
-      Bracket t, loc
+      {term = Bracket t; loc}
 
     | Signature xts ->
       let rec fold lvl res = function
@@ -164,7 +164,7 @@ and instantiate es ?(lvl=0) ((e',loc) as e) =
           fold (lvl+1) ((x,y,t)::res) rem
         in
       let xts = fold lvl [] xts in
-      Signature xts, loc
+      {term = Signature xts; loc}
 
     | Structure xts ->
       let rec fold lvl res = function
@@ -175,7 +175,7 @@ and instantiate es ?(lvl=0) ((e',loc) as e) =
           fold (lvl+1) ((x,y,t,te)::res) rem
         in
       let xts = fold lvl [] xts in
-      Structure xts, loc
+      {term = Structure xts; loc}
 
     | Projection (te,xts,p) ->
       let te = instantiate es ~lvl te in
@@ -186,7 +186,7 @@ and instantiate es ?(lvl=0) ((e',loc) as e) =
           fold (lvl+1) ((x,y,t)::res) rem
         in
       let xts = fold lvl [] xts in
-      Projection (te,xts,p), loc
+      {term = Projection (te,xts,p); loc}
 
 and instantiate_ty es ?(lvl=0) (Ty t) =
   let t = instantiate es ~lvl t
@@ -220,7 +220,7 @@ let rec abstract_ty_abstraction :
     in
     abst [] lvl xus
 
-and abstract xs ?(lvl=0) ((e',loc) as e) =
+and abstract xs ?(lvl=0) ({term=e';loc;} as e) =
   match e' with
 
   | Type -> e
@@ -229,79 +229,79 @@ and abstract xs ?(lvl=0) ((e',loc) as e) =
 
   | Constant (y, es) ->
      let es = List.map (abstract xs ~lvl) es in
-      Constant (y, es), loc
+      {term = Constant (y, es); loc}
 
   | Atom x ->
     begin
       match Name.index_of_atom x xs with
       | None -> e
-      | Some k -> Bound (lvl + k), loc
+      | Some k -> {term = Bound (lvl + k); loc}
     end
 
   | Lambda a ->
-    let a = abstract_ty_abstraction abstract_term_ty xs ~lvl a
-    in Lambda a, loc
+    let a = abstract_ty_abstraction abstract_term_ty xs ~lvl a in
+    {term = Lambda a; loc}
 
   | Spine (e, xtst, es) ->
     let e = abstract xs ~lvl e
     and xtst = abstract_ty_abstraction abstract_ty xs ~lvl xtst
-    and es = List.map (abstract xs ~lvl) es
-    in Spine (e, xtst, es), loc
+    and es = List.map (abstract xs ~lvl) es in
+    {term = Spine (e, xtst, es); loc}
 
   | Prod a ->
-    let a = abstract_ty_abstraction abstract_ty xs ~lvl a
-    in Prod a, loc
+    let a = abstract_ty_abstraction abstract_ty xs ~lvl a in
+    {term = Prod a; loc}
 
   | Eq (t, e1, e2) ->
     let t = abstract_ty xs ~lvl t
     and e1 = abstract xs ~lvl e1
-    and e2 = abstract xs ~lvl e2
-    in Eq (t, e1, e2), loc
+    and e2 = abstract xs ~lvl e2 in
+    {term = Eq (t, e1, e2); loc}
 
   | Refl (t, e) ->
     let t = abstract_ty xs ~lvl t
-    and e = abstract xs ~lvl e
-    in Refl (t, e), loc
+    and e = abstract xs ~lvl e in
+    {term = Refl (t, e); loc}
 
   | Inhab t ->
     let t = abstract_ty xs ~lvl t in
-    Inhab t, loc
+    {term = Inhab t; loc}
 
   | Bracket t ->
     let t = abstract_ty xs ~lvl t in
-    Bracket t, loc
+    {term = Bracket t; loc}
 
   | Signature xts ->
-      let rec fold lvl res = function
-        | [] -> List.rev res
-        | (x,y,t)::rem ->
+     let rec fold lvl res = function
+       | [] -> List.rev res
+       | (x,y,t)::rem ->
           let t = abstract_ty xs ~lvl t in
           fold (lvl+1) ((x,y,t)::res) rem
-        in
-      let xts = fold lvl [] xts in
-    Signature xts, loc
+     in
+     let xts = fold lvl [] xts in
+     {term = Signature xts; loc}
 
   | Structure xts ->
-      let rec fold lvl res = function
-        | [] -> List.rev res
-        | (x,y,t,te)::rem ->
+     let rec fold lvl res = function
+       | [] -> List.rev res
+       | (x,y,t,te)::rem ->
           let t = abstract_ty xs ~lvl t in
           let te = abstract xs ~lvl te in
           fold (lvl+1) ((x,y,t,te)::res) rem
-        in
-      let xts = fold lvl [] xts in
-    Structure xts, loc
+     in
+     let xts = fold lvl [] xts in
+     {term = Structure xts; loc}
 
   | Projection (te,xts,p) ->
-    let te = abstract xs ~lvl te in
-      let rec fold lvl res = function
-        | [] -> List.rev res
-        | (x,y,t)::rem ->
+     let te = abstract xs ~lvl te in
+     let rec fold lvl res = function
+       | [] -> List.rev res
+       | (x,y,t)::rem ->
           let t = abstract_ty xs ~lvl t in
           fold (lvl+1) ((x,y,t)::res) rem
-        in
-      let xts = fold lvl [] xts in
-    Projection (te,xts,p), loc
+     in
+     let xts = fold lvl [] xts in
+     {term = Projection (te,xts,p); loc}
 
 and abstract_ty xs ?(lvl=0) (Ty t) =
   let t = abstract xs ~lvl t
@@ -323,51 +323,51 @@ let shift_abstraction shift_u shift_v k lvl us v =
   in
     fold lvl [] us
 
-let rec shift k lvl ((e',loc) as e) =
+let rec shift k lvl ({term=e';loc;} as e) =
   match e' with
     | (Type | Atom _) -> e
 
     | Bound j ->
       if lvl <= j
-      then (Bound (j + k), loc)
+      then {term = Bound (j + k); loc}
       else e
 
     | Constant (x, es) ->
         let es = List.map (shift k lvl) es in
-        Constant (x, es), loc
+        {term = Constant (x, es); loc}
 
     | Lambda (xts, (e, t)) ->
         let xts, (e, t) = shift_abstraction shift_ty shift_term_ty k lvl xts (e,t) in
-          Lambda (xts, (e, t)), loc
+        {term = Lambda (xts, (e, t)); loc}
 
     | Spine (e, (xts, u), es) ->
         let e = shift k lvl e
         and xts, u = shift_abstraction shift_ty shift_ty k lvl xts u
         and es = List.map (shift k lvl) es in
-          Spine (e, (xts, u), es), loc
+        {term = Spine (e, (xts, u), es); loc}
 
     | Prod (xts, u) ->
         let xts, u = shift_abstraction shift_ty shift_ty k lvl xts u in
-          Prod (xts, u), loc
+        {term = Prod (xts, u); loc}
 
     | Eq (t, e1, e2) ->
         let t = shift_ty k lvl t
         and e1 = shift k lvl e1
         and e2 = shift k lvl e2 in
-           Eq (t, e1, e2), loc
+        {term = Eq (t, e1, e2); loc}
 
     | Refl (t, e) ->
       let t = shift_ty k lvl t
       and e = shift k lvl e in
-        Refl (t, e), loc
+      {term = Refl (t, e); loc}
 
     | Inhab t ->
        let t = shift_ty k lvl t in
-       Inhab t, loc
+       {term = Inhab t; loc}
 
     | Bracket t ->
       let t = shift_ty k lvl t in
-        Bracket t, loc
+      {term = Bracket t; loc}
 
     | Signature xts ->
       let rec fold lvl res = function
@@ -377,7 +377,7 @@ let rec shift k lvl ((e',loc) as e) =
           fold (lvl+1) ((x,y,t)::res) rem
         in
       let xts = fold lvl [] xts in
-      Signature xts, loc
+      {term = Signature xts; loc}
 
     | Structure xts ->
       let rec fold lvl res = function
@@ -388,7 +388,7 @@ let rec shift k lvl ((e',loc) as e) =
           fold (lvl+1) ((x,y,t,te)::res) rem
         in
       let xts = fold lvl [] xts in
-      Structure xts, loc
+      {term = Structure xts; loc}
 
     | Projection (te,xts,p) ->
       let te = shift k lvl te in
@@ -399,7 +399,7 @@ let rec shift k lvl ((e',loc) as e) =
           fold (lvl+1) ((x,y,t)::res) rem
         in
       let xts = fold lvl [] xts in
-      Projection (te,xts,p), loc
+      {term = Projection (te,xts,p); loc}
 
 and shift_ty k lvl (Ty t) =
   let t = shift k lvl t in
@@ -439,7 +439,7 @@ let occurs_abstraction occurs_u occurs_v k (xus, v) =
     fold k xus
 
 (* How many times does bound variable [k] occur in an expression? *)
-let rec occurs k (e',_) =
+let rec occurs k {term=e'} =
   match e' with
   | Type -> 0
   | Atom _ -> 0
@@ -517,7 +517,7 @@ let rec alpha_equal_list equal_e es es' =
     equal_e e e' && alpha_equal_list equal_e es es'
   | ([],_::_) | ((_::_),[]) -> false
 
-let rec alpha_equal (e1,_) (e2,_) =
+let rec alpha_equal {term=e1} {term=e2} =
   e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
@@ -624,7 +624,7 @@ let print_annot ?(prefix="") k ppf =
 
 *)
 
-let rec print_term ?max_level xs (e,_) ppf =
+let rec print_term ?max_level xs {term=e} ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
       | Type ->

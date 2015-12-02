@@ -3,7 +3,7 @@
 (** An [('a, 'b) abstraction] is a ['b] bound by [(x1, 'a1), ..., (xn, 'an)]. *)
 type ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
 
-type term = term' * Location.t
+type term = { term : term' ; loc : Location.t}
 and term' = private
 (** The type of TT terms.
     (For details on the mutual definition with [term'], see module Location.)
