@@ -2,7 +2,7 @@
 
 type ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
 
-type term = { term : term' ; loc : Location.t}
+type term = { term : term' ; assumptions : Assumption.t; loc : Location.t}
 and term' =
   | Type
   | Atom of Name.atom
@@ -31,15 +31,14 @@ type constsig = ((bool * ty), ty) abstraction
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
-let mk_atom ~loc x = {term = Atom x; loc}
-let mk_bound ~loc k ={term = Bound k; loc}
+let mk_atom ~loc x = {term = Atom x; assumptions=Assumption.singleton x; loc}
 
-let mk_constant ~loc x es = {term = Constant (x, es); loc}
+let mk_constant ~loc x es = {term = Constant (x, es); assumptions=Assumption.empty; loc}
 
 let mk_lambda ~loc xts e t =
   match xts with
   | [] -> e
-  | _ :: _ -> {term = Lambda (xts, (e, t)); loc}
+  | _ :: _ -> {term = Lambda (xts, (e, t)); assumptions=Assumption.empty; loc}
 
 let mk_prod ~loc xts ((Ty e) as t) =
   match xts with
@@ -47,25 +46,25 @@ let mk_prod ~loc xts ((Ty e) as t) =
   | _ :: _ ->
     begin match t with
     (* XXX join locations loc and loc' *)
-    | Ty {term=Prod (yts, t); loc=loc'} -> {term = Prod (xts @ yts, t); loc}
-    | t -> {term = Prod (xts, t); loc}
+    | Ty {term=Prod (yts, t); assumptions=_; loc=loc';} -> {term = Prod (xts @ yts, t); assumptions=Assumption.empty; loc}
+    | t -> {term = Prod (xts, t); assumptions=Assumption.empty; loc}
     end
 
 let mk_spine ~loc e xts t es =
   match xts with
-    | [] -> {term = e.term; loc}
-    | _::_ -> {term = Spine (e, (xts, t), es); loc}
+    | [] -> {term = e.term; assumptions=Assumption.empty; loc}
+    | _::_ -> {term = Spine (e, (xts, t), es); assumptions=Assumption.empty; loc}
 
-let mk_type ~loc = {term = Type; loc}
-let mk_eq ~loc t e1 e2 = {term = Eq (t, e1, e2); loc}
-let mk_refl ~loc t e = {term = Refl (t, e); loc}
+let mk_type ~loc = {term = Type; assumptions=Assumption.empty; loc}
+let mk_eq ~loc t e1 e2 = {term = Eq (t, e1, e2); assumptions=Assumption.empty; loc}
+let mk_refl ~loc t e = {term = Refl (t, e); assumptions=Assumption.empty; loc}
 
-let mk_inhab ~loc t = {term = Inhab t; loc}
-let mk_bracket ~loc t = {term = Bracket t; loc}
+let mk_inhab ~loc t = {term = Inhab t; assumptions=Assumption.empty; loc}
+let mk_bracket ~loc t = {term = Bracket t; assumptions=Assumption.empty; loc}
 
-let mk_signature ~loc lst = {term = Signature lst; loc}
-let mk_structure ~loc lst = {term = Structure lst; loc}
-let mk_projection ~loc te xts x = {term = Projection (te,xts,x); loc}
+let mk_signature ~loc lst = {term = Signature lst; assumptions=Assumption.empty; loc}
+let mk_structure ~loc lst = {term = Structure lst; assumptions=Assumption.empty; loc}
+let mk_projection ~loc te xts x = {term = Projection (te,xts,x); assumptions=Assumption.empty; loc}
 
 (** Convert a term to a type. *)
 let ty e = Ty e
@@ -97,64 +96,66 @@ let rec instantiate_ty_abstraction :
     inst [] lvl xus
 
 and instantiate es ?(lvl=0) ({term=e';loc;} as e) =
-  (* XXX possible optimization: check whether [es] is empty *)
   if es = [] then e else
-    match e' with
+  let assumptions = Assumption.instantiate (List.map (fun e -> e.assumptions) es) lvl e.assumptions in
+  match e' with
 
-    | Type -> e
+    | Type -> {e with assumptions}
 
-    | Atom _ -> e
+    | Atom _ -> {e with assumptions}
 
     | Bound k ->
        if k < lvl
-       then e
+       then {e with assumptions}
         (* this is a variable bound in an abstraction inside the
            instantiated term, so we leave it as it is *)
        else
          let n = List.length es in
          if k < lvl + n
-         then List.nth es (k - lvl) (* variable corresponds to a substituted term, replace it *)
-         else {term = Bound (k - n); loc}
+         then (* variable corresponds to a substituted term, replace it *)
+           let e = List.nth es (k - lvl) in 
+           {e with assumptions = Assumption.union assumptions e.assumptions}
+         else {term = Bound (k - n); assumptions; loc}
           (* this is a variable bound in an abstraction outside the
              instantiated term, so it remains bound, but its index decreases
              by the number of bound variables replaced by terms *)
 
     | Constant (x, ds) ->
       let ds = List.map (instantiate es ~lvl) ds in
-      {term = Constant (x, ds); loc}
+      {term = Constant (x, ds); assumptions; loc}
 
     | Lambda a ->
        let a = instantiate_ty_abstraction instantiate_term_ty es ~lvl a in
-       {term = Lambda a; loc}
+       {term = Lambda a; assumptions; loc}
 
     | Spine (e, xtst, ds) ->
        let e = instantiate es ~lvl e
        and xtst = instantiate_ty_abstraction instantiate_ty es ~lvl xtst
        and ds = List.map (instantiate es ~lvl) ds in
-       {term = Spine (e, xtst, ds); loc}
+       {term = Spine (e, xtst, ds); assumptions; loc}
 
     | Prod a ->
        let a = instantiate_ty_abstraction instantiate_ty es ~lvl a in
-       {term = Prod a; loc}
+       {term = Prod a; assumptions; loc}
 
     | Eq (t, e1, e2) ->
        let t = instantiate_ty es ~lvl t
        and e1 = instantiate es ~lvl e1
        and e2 = instantiate es ~lvl e2 in
-       {term = Eq (t, e1, e2); loc}
+       {term = Eq (t, e1, e2); assumptions; loc}
 
     | Refl (t, e) ->
        let t = instantiate_ty es ~lvl t
        and e = instantiate es ~lvl e in
-       {term = Refl (t, e); loc}
+       {term = Refl (t, e); assumptions; loc}
 
     | Inhab t ->
        let t = instantiate_ty es ~lvl t in
-       {term = Inhab t; loc}
+       {term = Inhab t; assumptions; loc}
 
     | Bracket t ->
       let t = instantiate_ty es ~lvl t in
-      {term = Bracket t; loc}
+      {term = Bracket t; assumptions; loc}
 
     | Signature xts ->
       let rec fold lvl res = function
@@ -164,7 +165,7 @@ and instantiate es ?(lvl=0) ({term=e';loc;} as e) =
           fold (lvl+1) ((x,y,t)::res) rem
         in
       let xts = fold lvl [] xts in
-      {term = Signature xts; loc}
+      {term = Signature xts; assumptions; loc}
 
     | Structure xts ->
       let rec fold lvl res = function
@@ -175,7 +176,7 @@ and instantiate es ?(lvl=0) ({term=e';loc;} as e) =
           fold (lvl+1) ((x,y,t,te)::res) rem
         in
       let xts = fold lvl [] xts in
-      {term = Structure xts; loc}
+      {term = Structure xts; assumptions; loc}
 
     | Projection (te,xts,p) ->
       let te = instantiate es ~lvl te in
@@ -186,7 +187,8 @@ and instantiate es ?(lvl=0) ({term=e';loc;} as e) =
           fold (lvl+1) ((x,y,t)::res) rem
         in
       let xts = fold lvl [] xts in
-      {term = Projection (te,xts,p); loc}
+      {term = Projection (te,xts,p); assumptions; loc}
+
 
 and instantiate_ty es ?(lvl=0) (Ty t) =
   let t = instantiate es ~lvl t
@@ -220,56 +222,57 @@ let rec abstract_ty_abstraction :
     in
     abst [] lvl xus
 
-and abstract xs ?(lvl=0) ({term=e';loc;} as e) =
+and abstract xs ?(lvl=0) ({term=e';assumptions;loc;} as e) =
+  let assumptions = Assumption.abstract xs lvl assumptions in
   match e' with
 
-  | Type -> e
+  | Type -> {e with assumptions}
 
-  | Bound k -> e
+  | Bound k -> {e with assumptions}
 
   | Constant (y, es) ->
      let es = List.map (abstract xs ~lvl) es in
-      {term = Constant (y, es); loc}
+      {term = Constant (y, es); assumptions; loc}
 
   | Atom x ->
     begin
       match Name.index_of_atom x xs with
-      | None -> e
-      | Some k -> {term = Bound (lvl + k); loc}
+      | None -> {e with assumptions}
+      | Some k -> {term = Bound (lvl + k); assumptions; loc}
     end
 
   | Lambda a ->
     let a = abstract_ty_abstraction abstract_term_ty xs ~lvl a in
-    {term = Lambda a; loc}
+    {term = Lambda a; assumptions; loc}
 
   | Spine (e, xtst, es) ->
     let e = abstract xs ~lvl e
     and xtst = abstract_ty_abstraction abstract_ty xs ~lvl xtst
     and es = List.map (abstract xs ~lvl) es in
-    {term = Spine (e, xtst, es); loc}
+    {term = Spine (e, xtst, es); assumptions; loc}
 
   | Prod a ->
     let a = abstract_ty_abstraction abstract_ty xs ~lvl a in
-    {term = Prod a; loc}
+    {term = Prod a; assumptions; loc}
 
   | Eq (t, e1, e2) ->
     let t = abstract_ty xs ~lvl t
     and e1 = abstract xs ~lvl e1
     and e2 = abstract xs ~lvl e2 in
-    {term = Eq (t, e1, e2); loc}
+    {term = Eq (t, e1, e2); assumptions; loc}
 
   | Refl (t, e) ->
     let t = abstract_ty xs ~lvl t
     and e = abstract xs ~lvl e in
-    {term = Refl (t, e); loc}
+    {term = Refl (t, e); assumptions; loc}
 
   | Inhab t ->
     let t = abstract_ty xs ~lvl t in
-    {term = Inhab t; loc}
+    {term = Inhab t; assumptions; loc}
 
   | Bracket t ->
     let t = abstract_ty xs ~lvl t in
-    {term = Bracket t; loc}
+    {term = Bracket t; assumptions; loc}
 
   | Signature xts ->
      let rec fold lvl res = function
@@ -279,7 +282,7 @@ and abstract xs ?(lvl=0) ({term=e';loc;} as e) =
           fold (lvl+1) ((x,y,t)::res) rem
      in
      let xts = fold lvl [] xts in
-     {term = Signature xts; loc}
+     {term = Signature xts; assumptions; loc}
 
   | Structure xts ->
      let rec fold lvl res = function
@@ -290,7 +293,7 @@ and abstract xs ?(lvl=0) ({term=e';loc;} as e) =
           fold (lvl+1) ((x,y,t,te)::res) rem
      in
      let xts = fold lvl [] xts in
-     {term = Structure xts; loc}
+     {term = Structure xts; assumptions; loc}
 
   | Projection (te,xts,p) ->
      let te = abstract xs ~lvl te in
@@ -301,7 +304,7 @@ and abstract xs ?(lvl=0) ({term=e';loc;} as e) =
           fold (lvl+1) ((x,y,t)::res) rem
      in
      let xts = fold lvl [] xts in
-     {term = Projection (te,xts,p); loc}
+     {term = Projection (te,xts,p); assumptions; loc}
 
 and abstract_ty xs ?(lvl=0) (Ty t) =
   let t = abstract xs ~lvl t

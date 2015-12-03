@@ -4,8 +4,12 @@ type t
 
 val empty : t
 
+val singleton : Name.atom -> t
+
 (** [add_free x a] adds [x] to the assumptions [a] *)
 val add_free : Name.atom -> t -> t
+
+val union : t -> t -> t
 
 (** [instantiate l lvl a] where [l] is [a0 ... an]
     replaces bound variable [lvl+k] by the assumptions [ak] for k<=n,

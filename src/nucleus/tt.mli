@@ -3,7 +3,7 @@
 (** An [('a, 'b) abstraction] is a ['b] bound by [(x1, 'a1), ..., (xn, 'an)]. *)
 type ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
 
-type term = { term : term' ; loc : Location.t}
+type term = { term : term' ; assumptions : Assumption.t; loc : Location.t}
 and term' = private
 (** The type of TT terms.
     (For details on the mutual definition with [term'], see module Location.)
@@ -93,7 +93,6 @@ type constsig = ((bool * ty), ty) abstraction
 
 (** Term constructors, the do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
-val mk_bound: loc:Location.t -> Syntax.bound -> term
 val mk_constant: loc:Location.t -> Name.ident -> term list -> term
 val mk_lambda: loc:Location.t -> (Name.ident * ty) list -> term -> ty -> term
 val mk_spine: loc:Location.t -> term -> (Name.ident * ty) list -> ty -> term list -> term

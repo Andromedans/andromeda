@@ -10,8 +10,15 @@ type t = { free : AtomSet.t; bound : BoundSet.t }
 
 let empty = {free = AtomSet.empty; bound = BoundSet.empty; }
 
+let singleton x =
+  let free = AtomSet.add x AtomSet.empty in
+  {free;bound=BoundSet.empty;}
+
 let add_free x {free;bound;} =
   {free=AtomSet.add x free;bound;}
+
+let union a1 a2 =
+  {free=AtomSet.union a1.free a2.free; bound=BoundSet.union a1.bound a2.bound}
 
 let instantiate l lvl {free;bound;} =
   let acc, n = List.fold_left (fun (acc,n) an ->
