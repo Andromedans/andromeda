@@ -30,7 +30,7 @@ let has_head_name = function
     given bound variables [pvars]. That is, the bound variables from [pvars]
     are treated as pattern variables. Return the list of those [pvars] that
     were not encoutered, and the pattern generated. *)
-let rec of_term env pvars ({Tt.term=e';loc;} as e) t =
+let rec of_term env pvars ({Tt.term=e';loc;_} as e) t =
   let original = pvars, Pattern.Term (e,t) in
   match e' with
 

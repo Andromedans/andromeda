@@ -52,7 +52,7 @@ type hint_key =
 
 type general_key = hint_key option * hint_key option * hint_key option
 
-let rec term_key_opt {Tt.term=e';loc} =
+let rec term_key_opt {Tt.term=e';_} =
   match e' with
   | Tt.Type -> Some Key_Type
   | Tt.Atom x -> Some (Key_Atom x)

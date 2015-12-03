@@ -79,6 +79,9 @@ let mk_signature_ty ~loc lst = ty (mk_signature ~loc lst)
 let typ = Ty (mk_type ~loc:Location.unknown)
 
 
+let mention a e = {e with assumptions = Assumption.union e.assumptions a}
+
+
 (** Manipulation of variables *)
 
 let rec instantiate_ty_abstraction :
