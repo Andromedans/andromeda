@@ -273,9 +273,9 @@ tags_unhint:
   | ts=tag_var { ts }
 
 handler_case:
-  | BAR VAL x=name DARROW t=term                 { CaseVal (x, t) }
-  | BAR op=OPERATION x=name DARROW t=term { CaseOp (op, x, t) }
-  | BAR FINALLY x=name DARROW t=term             { CaseFinally (x, t) }
+  | BAR VAL p=pattern DARROW t=term                 { CaseVal (p, t) }
+  | BAR op=OPERATION p=pattern DARROW t=term     { CaseOp (op, p, t) }
+  | BAR FINALLY p=pattern DARROW t=term             { CaseFinally (p, t) }
 
 top_handler_case:
   | BAR op=OPERATION x=name DARROW t=term        { (op, x, t) }

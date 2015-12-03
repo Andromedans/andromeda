@@ -8,6 +8,6 @@ Check
   (handle
      (λ [e : B == A] let crime := (hint e in (a :: B)) in #mafia crime)
    with
-   | #mafia x => x
+   | #mafia ?x => x
    end
   ).
