@@ -54,6 +54,8 @@ val eq_label : label -> label -> bool
 (** Compare atoms. *)
 val compare_atom : atom -> atom -> int
 
+module AtomSet : Set.S with type elt = atom
+
 (** [index_of_atom x xs] finds the index of [x] in list [xs] if it's there. *)
 val index_of_atom : atom -> atom list -> int option
 

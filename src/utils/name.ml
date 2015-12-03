@@ -103,6 +103,11 @@ let eq_atom (Gensym (_, x)) (Gensym (_, y)) = (x = y)
 let compare_atom (Gensym (_, x)) (Gensym (_, y)) =
   if x < y then -1 else if x > y then 1 else 0
 
+module AtomSet = Set.Make (struct
+                    type t = atom
+                    let compare = compare_atom
+                  end)
+
 let index_of_atom x ys =
   let rec fold k = function
     | [] -> None
