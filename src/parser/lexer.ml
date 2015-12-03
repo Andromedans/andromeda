@@ -73,15 +73,15 @@ let hspace  = [%sedlex.regexp? (' ' | '\t' | '\r')]
 
 let quoted_string = [%sedlex.regexp? '"', Plus (Compl '"'), '"']
 
-let update_eoi ({ pos_end; end_of_input; line_limit } as lexbuf) =
+let update_eoi ({ pos_end; line_limit;_ } as lexbuf) =
   match line_limit with None -> () | Some line_limit ->
     if pos_end.Lexing.pos_lnum >= line_limit
     then reached_end_of_input lexbuf
 
-let rec token ({ end_of_input } as lexbuf) =
+let rec token ({ end_of_input;_ } as lexbuf) =
   if end_of_input then EOF else token_aux lexbuf
 
-and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
+and token_aux ({ stream;_ } as lexbuf) =
   let f () = update_pos lexbuf in
   (* [g] updates the lexbuffer state to indicate whether a sensible end of
      input has been found, typically after a dot or a directive *)
@@ -135,7 +135,7 @@ and token_aux ({ stream; pos_end; end_of_input; line_limit } as lexbuf) =
     Error.syntax ~loc:(Location.of_lexeme lexbuf)
       "Unexpected character, failed to parse"
 
-and verbosity ({ stream } as lexbuf) =
+and verbosity ({ stream;_ } as lexbuf) =
   begin match%sedlex stream with
   | Opt '-', digit ->
     update_pos lexbuf;
@@ -144,7 +144,7 @@ and verbosity ({ stream } as lexbuf) =
     Error.syntax ~loc:(Location.of_lexeme lexbuf) "Expected integer verbosity level"
   end
 
-and comments level ({ stream } as lexbuf) =
+and comments level ({ stream;_ } as lexbuf) =
   match%sedlex stream with
   | end_longcomment ->
     if level = 0 then

@@ -22,11 +22,6 @@ let as_term ~loc v =
   let e = Value.as_term ~loc v in
     Value.return e
 
-(** A filter that verifies the result is a type. *)
-let as_ty ~loc v =
-  let t = Value.as_ty ~loc v in
-    Value.return t
-
 let as_handler ~loc v =
   let e = Value.as_handler ~loc v in
   Value.return e

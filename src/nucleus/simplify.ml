@@ -1,13 +1,13 @@
 (** Simplification of expressions and types. *)
 
-let is_small {Tt.term=e'} =
+let is_small {Tt.term=e';_} =
 match e' with
   | Tt.Constant (_, es) -> es = []
   | Tt.Type | Tt.Inhab _ | Tt.Bound _ | Tt.Atom _ -> true
   | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _
   | Tt.Bracket _ | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ -> false
 
-let rec term ({Tt.term=e';loc} as e) =
+let rec term ({Tt.term=e';loc;_} as e) =
     match e' with
 
     | Tt.Type -> e
@@ -143,7 +143,7 @@ and spine ~loc h xts t es =
   in
 
   (* First we simplify the head and the arguments. *)
-  let {Tt.term=h'} as h = term h
+  let {Tt.term=h';_} as h = term h
   and xts, t = simplify_xts [] [] xts
   and es = List.map term es in
 

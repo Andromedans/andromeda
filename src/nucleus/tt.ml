@@ -201,7 +201,7 @@ let unabstract xs ?(lvl=0) e =
   let es = List.map (mk_atom ~loc:Location.unknown) xs
   in instantiate es ~lvl e
 
-let rec unabstract_ty xs ?(lvl=0) (Ty t) =
+let unabstract_ty xs ?(lvl=0) (Ty t) =
   let t = unabstract xs ~lvl t
   in Ty t
 
@@ -312,124 +312,6 @@ and abstract_term_ty xs ?(lvl=0) (e, t) =
   and t = abstract_ty xs ~lvl t
   in (e, t)
 
-let shift_abstraction shift_u shift_v k lvl us v =
-  let rec fold lvl us' = function
-    | [] ->
-      let v = shift_v k lvl v in
-        List.rev us', v
-    | (x,u)::us ->
-      let u = shift_u k lvl u in
-        fold (lvl+1) ((x,u) :: us') us
-  in
-    fold lvl [] us
-
-let rec shift k lvl ({term=e';loc;} as e) =
-  match e' with
-    | (Type | Atom _) -> e
-
-    | Bound j ->
-      if lvl <= j
-      then {term = Bound (j + k); loc}
-      else e
-
-    | Constant (x, es) ->
-        let es = List.map (shift k lvl) es in
-        {term = Constant (x, es); loc}
-
-    | Lambda (xts, (e, t)) ->
-        let xts, (e, t) = shift_abstraction shift_ty shift_term_ty k lvl xts (e,t) in
-        {term = Lambda (xts, (e, t)); loc}
-
-    | Spine (e, (xts, u), es) ->
-        let e = shift k lvl e
-        and xts, u = shift_abstraction shift_ty shift_ty k lvl xts u
-        and es = List.map (shift k lvl) es in
-        {term = Spine (e, (xts, u), es); loc}
-
-    | Prod (xts, u) ->
-        let xts, u = shift_abstraction shift_ty shift_ty k lvl xts u in
-        {term = Prod (xts, u); loc}
-
-    | Eq (t, e1, e2) ->
-        let t = shift_ty k lvl t
-        and e1 = shift k lvl e1
-        and e2 = shift k lvl e2 in
-        {term = Eq (t, e1, e2); loc}
-
-    | Refl (t, e) ->
-      let t = shift_ty k lvl t
-      and e = shift k lvl e in
-      {term = Refl (t, e); loc}
-
-    | Inhab t ->
-       let t = shift_ty k lvl t in
-       {term = Inhab t; loc}
-
-    | Bracket t ->
-      let t = shift_ty k lvl t in
-      {term = Bracket t; loc}
-
-    | Signature xts ->
-      let rec fold lvl res = function
-        | [] -> List.rev res
-        | (x,y,t)::rem ->
-          let t = shift_ty k lvl t in
-          fold (lvl+1) ((x,y,t)::res) rem
-        in
-      let xts = fold lvl [] xts in
-      {term = Signature xts; loc}
-
-    | Structure xts ->
-      let rec fold lvl res = function
-        | [] -> List.rev res
-        | (x,y,t,te)::rem ->
-          let t = shift_ty k lvl t in
-          let te = shift k lvl te in
-          fold (lvl+1) ((x,y,t,te)::res) rem
-        in
-      let xts = fold lvl [] xts in
-      {term = Structure xts; loc}
-
-    | Projection (te,xts,p) ->
-      let te = shift k lvl te in
-      let rec fold lvl res = function
-        | [] -> List.rev res
-        | (x,y,t)::rem ->
-          let t = shift_ty k lvl t in
-          fold (lvl+1) ((x,y,t)::res) rem
-        in
-      let xts = fold lvl [] xts in
-      {term = Projection (te,xts,p); loc}
-
-and shift_ty k lvl (Ty t) =
-  let t = shift k lvl t in
-    Ty t
-
-and shift_term_ty k lvl (e, t) =
-  let e = shift k lvl e
-  and t = shift_ty k lvl t in
-    (e, t)
-
-(* We shadow [shift] and [shift_ty] to prevent evil uses. It is slightly
-   evil to shadow values like this. A more honorable man would call the
-   original [shift] something like [shift']. *)
-
-let shift k lvl e =
-  if k >= 0
-  then shift k lvl e
-  else
-    (* NB: with reflection rule strengthening is not valid. Therefore we cannot
-       shift by a negative amount. Never ever, even if it looks harmless to you. *)
-    Error.impossible "shifting by a negative amount is not allowed, ever!"
-
-let shift_ty k lvl t =
-  if k >= 0
-  then shift_ty k lvl t
-  else
-    (* NB: with reflection rule strengthening is not valid. Therefore we cannot
-       shift by a negative amount. Never ever, even if it looks harmless to you. *)
-    Error.impossible "shifting by a negative amount is not allowed, ever!"
-
 
 let occurs_abstraction occurs_u occurs_v k (xus, v) =
   let rec fold k = function
@@ -438,8 +320,8 @@ let occurs_abstraction occurs_u occurs_v k (xus, v) =
   in
     fold k xus
 
-(* How many times does bound variable [k] occur in an expression? *)
-let rec occurs k {term=e'} =
+(* How many times does bound variable [k] occur in an expression? Used only for printing. *)
+let rec occurs k {term=e';_} =
   match e' with
   | Type -> 0
   | Atom _ -> 0
@@ -517,7 +399,7 @@ let rec alpha_equal_list equal_e es es' =
     equal_e e e' && alpha_equal_list equal_e es es'
   | ([],_::_) | ((_::_),[]) -> false
 
-let rec alpha_equal {term=e1} {term=e2} =
+let rec alpha_equal {term=e1;_} {term=e2;_} =
   e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
@@ -624,7 +506,7 @@ let print_annot ?(prefix="") k ppf =
 
 *)
 
-let rec print_term ?max_level xs {term=e} ppf =
+let rec print_term ?max_level xs {term=e;_} ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
       | Type ->
@@ -801,11 +683,6 @@ and print_projection xs te xts p ppf =
     Print.print ppf "@[<hov 2>%t@ .%t@]"
       (print_term ~max_level:0 xs te)
       (Name.print_ident p)
-
-and print_binder xs (x, t) ppf =
-  Print.print ppf "(%t :@ %t)"
-        (Name.print_ident x)
-        (print_ty xs t)
 
 let print_constsig ?max_level xs (rxus, t) ppf =
   let print_xs =

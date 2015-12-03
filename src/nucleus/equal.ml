@@ -229,7 +229,7 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) lis
 (** Compare two types *)
 and equal_ty env ctx (Tt.Ty t1) (Tt.Ty t2) = equal env ctx t1 t2 Tt.typ
 
-and equal env ctx ({Tt.loc=loc1} as e1) ({Tt.loc=loc2} as e2) t =
+and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   let xs = Environment.used_names env in
   let i = cnt () in
   Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
@@ -237,7 +237,7 @@ and equal env ctx ({Tt.loc=loc1} as e1) ({Tt.loc=loc2} as e2) t =
   let r =
   if Tt.alpha_equal e1 e2 then opt_return ctx else
     begin (* type-directed phase *)
-      whnf_ty env ctx t >>= fun (ctx, ((Tt.Ty {Tt.term=t'}) as t)) ->
+      whnf_ty env ctx t >>= fun (ctx, ((Tt.Ty {Tt.term=t';_}) as t)) ->
       match t' with
 
         | Tt.Structure _
@@ -291,7 +291,7 @@ and equal env ctx ({Tt.loc=loc1} as e1) ({Tt.loc=loc2} as e2) t =
         | Tt.Prod (xus, u) ->
             let rec fold env ys es =
               begin function
-              | (x, ((Tt.Ty {Tt.loc=loc}) as v)) :: xvs ->
+              | (x, ((Tt.Ty {Tt.loc=loc;_}) as v)) :: xvs ->
                   let v = Tt.unabstract_ty ys v in
                   let jv = Judgement.mk_ty ctx v in
                   let y, env =  Environment.add_fresh ~loc env x jv in
@@ -498,7 +498,7 @@ and equal_whnf env ctx {Tt.term=e1';loc=loc1} {Tt.term=e2';loc=loc2} =
 and equal_spine ~loc env ctx e1 a1 e2 a2 =
   (* We deal with nested spines. They are nested in an inconvenient way so
      we first get them the way we need them. *)
-  let rec collect_spines ab abs n ({Tt.term=e'} as e) =
+  let rec collect_spines ab abs n ({Tt.term=e';_} as e) =
     match e' with
     | Tt.Spine (e, xts, es) -> collect_spines (xts,es) (ab :: abs) (n + List.length es) e
     | _ -> e, ab, abs, n
@@ -697,7 +697,7 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
 
   (* We deal with nested spines. They are nested in an inconvenient way so
      we first get them the way we need them. *)
-  let rec collect_spines_terms ab abs n ({Tt.term=e'} as e) =
+  let rec collect_spines_terms ab abs n ({Tt.term=e';_} as e) =
     match e' with
     | Tt.Spine (e, xtsu, es) -> collect_spines_terms (xtsu,es) (ab :: abs) (n + List.length es) e
     | _ -> e, ab, abs, n (* [e] should be a [Tt.Constant]. *)
@@ -807,7 +807,7 @@ and collect_for_beta env ctx bp {Tt.term=e';loc} =
     else Value.return None
 
   | Pattern.BetaAtom x, Tt.Spine (e, yts, es) ->
-    let rec fold args {Tt.term=e'} yts es =
+    let rec fold args {Tt.term=e';_} yts es =
       match e' with
         | Tt.Atom y ->
           if Name.eq_atom x y
@@ -822,7 +822,7 @@ and collect_for_beta env ctx bp {Tt.term=e';loc} =
 
   | Pattern.BetaConstant (x, pes), Tt.Spine (e, yts, es) ->
     Print.debug "collect_beta for %t" (Name.print_ident x) ;
-    let rec fold extras {Tt.term=e'} yts es =
+    let rec fold extras {Tt.term=e';_} yts es =
       match e' with
         | Tt.Constant (y, es') ->
            let extras = (yts, es) :: extras in
@@ -1138,8 +1138,8 @@ let rec deep_prod env ctx t f =
 
 let as_prod env (ctx, t) = deep_prod env ctx t (fun env ctx x -> Value.return (ctx, x))
 
-let as_eq env (ctx, ((Tt.Ty {Tt.loc=loc}) as t)) =
-  whnf_ty env ctx t >>= fun (ctx, Tt.Ty {Tt.term=t'}) ->
+let as_eq env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
+  whnf_ty env ctx t >>= fun (ctx, Tt.Ty {Tt.term=t';_}) ->
   match t' with
 
   | Tt.Eq (t, e1, e2) -> Value.return (ctx, t, e1, e2)
@@ -1152,7 +1152,7 @@ let as_eq env (ctx, ((Tt.Ty {Tt.loc=loc}) as t)) =
        (Tt.print_ty [] t)
 
 
-let as_universal_eq env (ctx, ((Tt.Ty {Tt.loc=loc}) as t)) =
+let as_universal_eq env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
   as_prod env (ctx, t) >>= fun (ctx, (xus, (Tt.Ty {Tt.term=t';loc} as t))) ->
   match t' with
 
@@ -1168,7 +1168,7 @@ let as_universal_eq env (ctx, ((Tt.Ty {Tt.loc=loc}) as t)) =
        "the type of this expression should be a universally quantified equality, found@ %t"
        (Tt.print_ty [] t)
 
-let as_universal_bracket env (ctx, ((Tt.Ty {Tt.loc=loc}) as t)) =
+let as_universal_bracket env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
   deep_prod
     env ctx t
     (fun env ctx ((Tt.Ty {Tt.term=t';loc}) as t) ->
