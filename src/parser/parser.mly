@@ -51,7 +51,7 @@
 %token <string> OPERATION
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 
-%token WHNF SNF
+%token WHNF
 %token TYPEOF
 
 %token EXTERNAL
@@ -170,7 +170,6 @@ plain_app_term:
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
   | WHNF t=simple_term                              { Whnf t }
-  | SNF t=simple_term                               { Snf t }
   | TYPEOF t=simple_term                            { Typeof t }
   | REFL e=simple_term                              { Refl e }
   | op=OPERATION e=simple_term                      { Operation (op, e) }

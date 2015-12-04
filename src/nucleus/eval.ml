@@ -175,13 +175,6 @@ let rec infer env (c',loc) =
     let j = Judgement.mk_term ctx e t in
     Value.return_term j
 
-  | Syntax.Snf c ->
-    infer env c >>= as_term ~loc >>= fun (ctx, e, t) ->
-    Equal.snf_ty env ctx t >>= fun (ctx,t) ->
-    Equal.snf env ctx e >>= fun (ctx,e) ->
-    let j = Judgement.mk_term ctx e t in
-    Value.return_term j
-
   | Syntax.External s ->
      begin
        match External.lookup s with
@@ -452,11 +445,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Whnf c ->
     check env c t_check >>= fun (ctx, e) ->
     Equal.whnf env ctx e >>= fun (ctx,e) ->
-    Value.return (ctx, e)
-
-  | Syntax.Snf c ->
-    check env c t_check >>= fun (ctx, e) ->
-    Equal.snf env ctx e >>= fun (ctx,e) ->
     Value.return (ctx, e)
 
   | Syntax.Ascribe (c1, c2) ->
