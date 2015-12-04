@@ -98,9 +98,9 @@ let rec instantiate_ty_abstraction :
     in
     inst [] lvl xus
 
-and instantiate es ?(lvl=0) ({term=e';loc;} as e) =
+and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
   if es = [] then e else
-  let assumptions = Assumption.instantiate (List.map (fun e -> e.assumptions) es) lvl e.assumptions in
+  let assumptions = Assumption.instantiate (List.map (fun e -> e.assumptions) es) lvl assumptions in
   match e' with
 
     | Type -> {e with assumptions}
@@ -116,7 +116,7 @@ and instantiate es ?(lvl=0) ({term=e';loc;} as e) =
          let n = List.length es in
          if k < lvl + n
          then (* variable corresponds to a substituted term, replace it *)
-           let e = List.nth es (k - lvl) in 
+           let e = List.nth es (k - lvl) in
            {e with assumptions = Assumption.union assumptions e.assumptions}
          else {term = Bound (k - n); assumptions; loc}
           (* this is a variable bound in an abstraction outside the
@@ -380,6 +380,101 @@ and occurs_term_ty k (e, t) =
   occurs k e + occurs_ty k t
 
 let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
+
+
+let rec gather_assumptions {term=e;assumptions;_} =
+  match e with
+    | Type | Atom _ | Bound _ -> assumptions
+
+    | Constant (_,es) ->
+      List.fold_left (fun assumptions e ->
+          Assumption.union assumptions (gather_assumptions e))
+        assumptions es
+
+    | Lambda (xs,(body,out)) ->
+      let body = gather_assumptions body
+      and out = gather_assumptions_ty out in
+      let assumptions' = List.fold_left (fun assumptions (x,tx) ->
+          let assumptions = Assumption.bind 1 assumptions in
+          let tx = gather_assumptions_ty tx in
+          Assumption.union assumptions tx)
+        (Assumption.union body out) (List.rev xs)
+      in
+      Assumption.union assumptions assumptions'
+
+    | Spine (e,(xs,out),es) ->
+      let out = gather_assumptions_ty out in
+      let assumptions' = List.fold_left (fun assumptions (x,tx) ->
+          let assumptions = Assumption.bind 1 assumptions in
+          let tx = gather_assumptions_ty tx in
+          Assumption.union assumptions tx)
+        out (List.rev xs)
+      in
+      let e = gather_assumptions e in
+      let assumptions = Assumption.union assumptions (Assumption.union assumptions' e) in
+      List.fold_left (fun assumptions e ->
+          Assumption.union assumptions (gather_assumptions e))
+        assumptions es
+
+    | Prod (xs,out) ->
+      let out = gather_assumptions_ty out in
+      let assumptions' = List.fold_left (fun assumptions (x,tx) ->
+          let assumptions = Assumption.bind 1 assumptions in
+          let tx = gather_assumptions_ty tx in
+          Assumption.union assumptions tx)
+        out (List.rev xs)
+      in
+      Assumption.union assumptions assumptions'
+
+    | Eq (t,e1,e2) ->
+      let t = gather_assumptions_ty t
+      and e1 = gather_assumptions e1
+      and e2 = gather_assumptions e2 in
+      Assumption.union assumptions (Assumption.union t (Assumption.union e1 e2))
+
+    | Refl (t,e) ->
+      let t = gather_assumptions_ty t
+      and e = gather_assumptions e in
+      Assumption.union assumptions (Assumption.union t e)
+
+    | Inhab t ->
+      let t = gather_assumptions_ty t in
+      Assumption.union assumptions t
+
+    | Bracket t ->
+      let t = gather_assumptions_ty t in
+      Assumption.union assumptions t
+
+    | Signature xts ->
+      let assumptions' = List.fold_left (fun assumptions (l,x,t) ->
+          let assumptions = Assumption.bind 1 assumptions in
+          let t = gather_assumptions_ty t in
+          Assumption.union assumptions t)
+        Assumption.empty (List.rev xts)
+      in
+      Assumption.union assumptions assumptions'
+
+    | Structure xtes ->
+      let assumptions' = List.fold_left (fun assumptions (l,x,t,e) ->
+          let assumptions = Assumption.bind 1 assumptions in
+          let t = gather_assumptions_ty t
+          and e = gather_assumptions e in
+          Assumption.union assumptions (Assumption.union e t))
+        Assumption.empty (List.rev xtes)
+      in
+      Assumption.union assumptions assumptions'
+
+    | Projection (e,xts,l) ->
+      let assumptions' = List.fold_left (fun assumptions (l,x,t) ->
+          let assumptions = Assumption.bind 1 assumptions in
+          let t = gather_assumptions_ty t in
+          Assumption.union assumptions t)
+        Assumption.empty (List.rev xts)
+      in
+      let e = gather_assumptions e in
+      Assumption.union assumptions (Assumption.union e assumptions')
+
+and gather_assumptions_ty (Ty t) = gather_assumptions t
 
 
 (****** Alpha equality ******)

@@ -160,6 +160,10 @@ val occurs_ty_abstraction:
   Syntax.bound -> 'a ty_abstraction -> int
 
 
+val gather_assumptions : term -> Assumption.t
+
+val gather_assumptions_ty : ty -> Assumption.t
+
 (** Module stuff *)
 
 (** [field_value defs p] is [defs.p] with all bound variables instantiated appropriately. *)

@@ -54,6 +54,15 @@ let abstract l lvl a =
   in
   acc
 
+let bind k {free;bound} =
+  let bound = BoundSet.fold (fun n bound ->
+      if n < k
+      then bound
+      else BoundSet.add (n-k) bound)
+    bound BoundSet.empty
+  in
+  {free;bound}
+
 let as_atom_set ~loc {free;bound;} =
   if BoundSet.is_empty bound
   then free

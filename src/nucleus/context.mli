@@ -32,10 +32,3 @@ val join : t -> t -> t
     It assumes that the type of [x] in [ctx] is equal to the type of [e] under [ctxe]. *)
 val substitute : t -> Name.atom -> t * Tt.term * Tt.ty -> t
 
-(** The following does not seem to be used? *)
-type renaming
-
-val rename : t -> renaming -> t
-
-val refresh : t -> t * renaming
-

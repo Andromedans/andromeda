@@ -20,6 +20,8 @@ val instantiate : t list -> int -> t -> t
     replaces the free variables [x0 ... xn] by the bound variables [lvl ... lvl+n] respectively. *)
 val abstract : Name.atom list -> int -> t -> t
 
+val bind : int -> t -> t
+
 (** If [a] has no bound assumptions, [as_atom_set a] returns the set of free assumptions.
     Otherwise it raises an Error.impossible. *)
 val as_atom_set : loc:Location.t -> t -> Name.AtomSet.t

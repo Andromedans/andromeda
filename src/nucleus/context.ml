@@ -1,4 +1,3 @@
-type renaming = (Name.atom * Name.atom) list
 
 module AtomMap = Map.Make (struct
                       type t = Name.atom
@@ -83,31 +82,6 @@ let abstract1 ~loc (ctx : t) x =
                      (print ctx)
 
 let abstract ~loc ctx xs = List.fold_left (abstract1 ~loc) ctx xs
-
-let rename (ctx : t) s =
-  let a_s, b_s = List.split s in
-  AtomMap.fold
-    (fun a node ctx ->
-      let b = try List.assoc a s with Not_found -> a
-      and ty = Tt.abstract_ty a_s node.ty |> Tt.unabstract_ty b_s
-      and needs =
-        AtomSet.fold
-          (fun x needs -> AtomSet.add (try List.assoc x s with Not_found -> x) needs)
-          node.needs AtomSet.empty
-      and needed_by =
-        AtomSet.fold
-          (fun x needed_by -> AtomSet.add (try List.assoc x s with Not_found -> x) needed_by)
-          node.needed_by AtomSet.empty
-      in
-        AtomMap.add b {ty; needs; needed_by} ctx)
-    ctx
-    empty
-
-let refresh ctx =
-  let a_s = AtomMap.bindings ctx |> List.map fst in
-  let b_s = List.map Name.refresh_atom a_s in
-  (rename ctx (List.combine a_s b_s),
-   (List.combine b_s a_s))
 
 
 (** Sort the entries of [ctx] into a list so that all dependencies
