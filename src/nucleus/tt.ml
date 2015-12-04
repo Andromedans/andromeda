@@ -476,6 +476,12 @@ let rec gather_assumptions {term=e;assumptions;_} =
 
 and gather_assumptions_ty (Ty t) = gather_assumptions t
 
+let assumptions_term ({loc;_} as e) =
+  let a = gather_assumptions e in
+  Assumption.as_atom_set ~loc a
+
+let assumptions_ty (Ty t) = assumptions_term t
+
 
 (****** Alpha equality ******)
 

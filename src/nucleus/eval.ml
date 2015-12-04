@@ -129,14 +129,13 @@ let rec infer env (c',loc) =
   | Syntax.Where (c1, c2, c3) ->
     infer env c2 >>= as_term ~loc >>=
     Equal.as_atom env >>= fun (ctxa, a, ta) ->
-    infer env c1 >>= as_term ~loc >>= fun (ctx1, e1, t1) ->
-    let ctx1 = Context.join ctxa ctx1 in
-    let ctx_at = Context.context_at ctx1 a in
-    check env c3 (ctx_at, ta) >>= fun (ctx2, e2) ->
-    let ctx_s = Context.substitute ctx1 a (ctx2,e2,ta) in
+    infer env c1 >>= as_term ~loc >>= fun (ctx, e1, t1) ->
+    let ctx = Context.join ctxa ctx in
+    check env c3 (ctx, ta) >>= fun (ctx, e2) ->
+    let ctx_s = Context.substitute ~loc a (ctx,e2,ta) in
     let te_s = Tt.instantiate [e2] (Tt.abstract [a] e1) in
     let ty_s = Tt.instantiate_ty [e2] (Tt.abstract_ty [a] t1) in
-    let j_s = Judgement.mk_term  ctx_s te_s ty_s in
+    let j_s = Judgement.mk_term ctx_s te_s ty_s in
     Value.return_term j_s
 
   | Syntax.Match (c, cases) ->
@@ -294,9 +293,9 @@ let rec infer env (c',loc) =
     Error.typing ~loc "cannot infer the type of []"
 
   | Syntax.Signature xcs ->
-    let rec fold env ctx ys xts = function
+    let rec fold env ctx ys ts xts = function
       | [] ->
-        let ctx = Context.abstract ~loc ctx ys in
+        let ctx = Context.abstract ~loc ctx ys ts in
         let xts = List.rev xts in
         let te = Tt.mk_signature ~loc xts in
         let typ = Tt.mk_type_ty ~loc in
@@ -305,33 +304,29 @@ let rec infer env (c',loc) =
       | (lbl,x,c) :: rem ->
         check_ty env c >>= fun ((ctxt,t) as jt) ->
         let y, env = Environment.add_fresh ~loc env x jt in
-        let (ctxt,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
-        let t = Tt.abstract_ty ys t in
-        let ctx = Context.join ctx ctxt in
-        fold env ctx (y :: ys) ((lbl, x, t) :: xts) rem
+        let tabs = Tt.abstract_ty ys t in
+        fold env ctx (y :: ys) (t::ts) ((lbl, x, tabs) :: xts) rem
       in
-    fold env Context.empty [] [] xcs
+    fold env Context.empty [] [] [] xcs
 
   | Syntax.Structure xcs ->
-    let rec fold env ctx ys xtes = function
+    let rec fold env ctx ys ts xtes = function
       | [] ->
         let xtes = List.rev xtes in
         let te = Tt.mk_structure ~loc xtes in
         let ty = Tt.mk_signature_ty ~loc (List.map (fun (l,x,t,_) -> l,x,t) xtes) in
-        let ctx = Context.abstract ~loc ctx ys in
+        let ctx = Context.abstract ~loc ctx ys ts in
         let j = Judgement.mk_term ctx te ty in
         Value.return_term j
       | (lbl,x,c) :: rem ->
         infer env c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
         let jty = Judgement.mk_ty ctx ty in
-        let t = Tt.abstract_ty ys ty in
+        let tabs = Tt.abstract_ty ys ty in
         let te = Tt.abstract ys te in
         let y, env = Environment.add_fresh ~loc env x jty in
-        let (ctxt,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
-        let ctx = Context.join ctx ctxt in
-        fold env ctx (y::ys) ((lbl,x,t,te)::xtes) rem
+        fold env ctx (y::ys) (ty::ts) ((lbl,x,tabs,te)::xtes) rem
       in
-    fold env Context.empty [] [] xcs
+    fold env Context.empty [] [] [] xcs
 
   | Syntax.Projection (c,p) ->
     infer env c >>= as_term ~loc >>= fun (ctx,te,ty) ->
@@ -508,10 +503,10 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
        end
 
   | Syntax.Structure xcs ->
-     let rec fold env ctx zs xtes = function
+     let rec fold env ctx zs ts xtes = function
        | [], [] ->
           let xtes = List.rev xtes in
-          let ctx = Context.abstract ~loc ctx zs in
+          let ctx = Context.abstract ~loc ctx zs ts in
           let str = Tt.mk_structure ~loc xtes in
           Value.return (ctx, str)
 
@@ -525,17 +520,15 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             let jty = Judgement.mk_ty ctx ty_inst in
             check env c jty >>= fun (ctx, e) ->
             let z, env = Environment.add_fresh ~loc env y jty in
-            let (ctxz,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
-            let ctx = Context.join ctx ctxz in
             let env = add_beta ~loc z ctx e ty_inst env in
             let e = Tt.abstract zs e in
-            fold env ctx (z::zs) ((lbl1,y,ty,e) :: xtes) (xcs, yts)
+            fold env ctx (z::zs) (ty_inst::ts) ((lbl1,y,ty,e) :: xtes) (xcs, yts)
               
        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
        | [], _::_ -> Error.typing ~loc "this structure has too few fields"
      in
      Equal.as_signature env t_check >>= fun (ctx, yts) ->
-     fold env ctx [] [] (xcs, yts)
+     fold env ctx [] [] [] (xcs, yts)
 
 
 and handle_result env {Value.handler_val; handler_ops; handler_finally} r =
@@ -563,13 +556,13 @@ and handle_result env {Value.handler_val; handler_ops; handler_finally} r =
      | None -> Value.Return v)
 
 and infer_lambda env ~loc xus c =
-  let rec fold env ctx zs xws  = function
+  let rec fold env ctx zs ts xws  = function
       | [] ->
          infer env c >>= as_term ~loc:(snd c) >>= fun (ctxe, e, t') ->
          let e = Tt.abstract zs e in
          let t' = Tt.abstract_ty zs t' in
          let ctx = Context.join ctx ctxe in
-         let ctx = Context.abstract ~loc ctx zs in
+         let ctx = Context.abstract ~loc ctx zs ts in
          let xws = List.rev xws in
          let lam = Tt.mk_lambda ~loc xws e t' in
          let prod = Tt.mk_prod_ty ~loc xws t' in
@@ -580,20 +573,18 @@ and infer_lambda env ~loc xus c =
          check_ty env c >>= fun ((ctxu, u') as u) ->
          (* XXX equip x with location and use for [~loc]. *)
          let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
-         let (ctxu,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
          let w' = Tt.abstract_ty zs u' in
-         let ctx = Context.join ctx ctxu in
-         fold env ctx (z :: zs) ((x, w') :: xws) xus
+         fold env ctx (z :: zs) (u'::ts) ((x, w') :: xws) xus
   in
-  fold env Context.empty [] [] xus
+  fold env Context.empty [] [] [] xus
 
 and infer_prod env ~loc xus c =
-  let rec fold env ctx zs xws  = function
+  let rec fold env ctx zs ts xws  = function
       | [] ->
         check_ty env c >>= fun (ctxt, t') ->
         let t' = Tt.abstract_ty zs t' in
         let ctx = Context.join ctx ctxt in
-        let ctx = Context.abstract ~loc ctx zs in
+        let ctx = Context.abstract ~loc ctx zs ts in
         let xws = List.rev xws in
         let prod = Tt.mk_prod ~loc xws t' in
         let typ = Tt.mk_type_ty ~loc in
@@ -603,12 +594,10 @@ and infer_prod env ~loc xus c =
         check_ty env c >>= fun ((ctxu, u') as u) ->
         (* XXX equip x with location and use for [~loc]. *)
         let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
-        let (ctxu,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
         let w' = Tt.abstract_ty zs u' in
-        let ctx = Context.join ctx ctxu in
-        fold env ctx (z :: zs) ((x, w') :: xws) xus
+        fold env ctx (z :: zs) (u'::ts) ((x, w') :: xws) xus
   in
-  fold env Context.empty [] [] xus
+  fold env Context.empty [] [] [] xus
 
 
 and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context.t * Tt.term) Value.result =
@@ -647,14 +636,14 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
       (** [ys] are what got added to the environment, [xts] are what should be
           used to check the body, [abs] comes from the binder, [zus] come from
           the type [t] we're checking against *)
-      let rec fold env ctx ys xts abs zus =
+      let rec fold env ctx ys ts xts abs zus =
 
         let finally t_body =
           let t_body' = Tt.unabstract_ty ys t_body in
           let j_t_body' = Judgement.mk_ty ctx t_body' in
           check env body j_t_body' >>= fun (ctx, e) ->
           let e = Tt.abstract ys e in
-          let ctx = Context.abstract ~loc ctx ys in
+          let ctx = Context.abstract ~loc ctx ys ts in
           let xts = List.rev xts in
           Value.return (ctx, Tt.mk_lambda ~loc xts e t_body)
         in
@@ -667,9 +656,8 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
           let k ctx t' =
             let t = Judgement.mk_ty ctx t' in
             let y, env = Environment.add_fresh ~loc env x t in
-            let (ctx,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
-            let t' = Tt.abstract_ty ys t' in
-            fold env ctx (y::ys) ((x,t')::xts) abs zus in
+            let tabs = Tt.abstract_ty ys t' in
+            fold env ctx (y::ys) (t'::ts) ((x,tabs)::xts) abs zus in
 
           begin match t with
             | None -> Print.debug "untagged variable %t in lambda, using %t as type"
@@ -695,7 +683,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
                         "tried to check against a type with a too short abstraction@ %t"
                         (print_ty env t_check')
       in
-      fold env ctx_check [] [] abs zus
+      fold env ctx_check [] [] [] abs zus
     end (* not all_tagged *)
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].

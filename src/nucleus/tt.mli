@@ -160,9 +160,9 @@ val occurs_ty_abstraction:
   Syntax.bound -> 'a ty_abstraction -> int
 
 
-val gather_assumptions : term -> Assumption.t
+val assumptions_term : term -> Name.AtomSet.t
 
-val gather_assumptions_ty : ty -> Assumption.t
+val assumptions_ty : ty -> Name.AtomSet.t
 
 (** Module stuff *)
 

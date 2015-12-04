@@ -167,7 +167,7 @@ let add_bound x v env =
 (** generate a fresh atom of type [t] and bind it to [x]
     NB: This is an effectful computation. *)
 let add_fresh ~loc env x (ctx, t) =
-  let y, ctx = Context.cone ctx x t in
+  let y, ctx = Context.add_fresh ctx x t in
   let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
   let env = add_bound x yt env in
   y, env
@@ -262,7 +262,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';_} as e) t =
         | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
         | None -> xvs
         in
-      let y, ctx = Context.cone ctx x ty in
+      let y, ctx = Context.add_fresh ctx x ty in
       let yt = Value.Term (ctx, Tt.mk_atom ~loc y, ty) in
       let env = add_bound x yt env in
       let te = Tt.mk_lambda ~loc:(e.Tt.loc) abs te out in
@@ -296,7 +296,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';_} as e) t =
         | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
         | None -> xvs
         in
-      let y, ctx = Context.cone ctx x ty in
+      let y, ctx = Context.add_fresh ctx x ty in
       let yt = Value.Term (ctx, Tt.mk_atom ~loc y, ty) in
       let env = add_bound x yt env in
       let t = Tt.mk_prod ~loc:(e.Tt.loc) abs out in
@@ -344,7 +344,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';_} as e) t =
               let t = Tt.unabstract_ty ys t in
               let Tt.Ty t' = t in let {Tt.loc=loc;_} = t' in
               let xvs = collect_tt_pattern env xvs p ctx t' (Tt.mk_type_ty ~loc) in
-              let y, ctx = Context.cone ctx x t in
+              let y, ctx = Context.add_fresh ctx x t in
               let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
               let env = add_bound x yt env in
               let xvs = match bopt with
@@ -377,7 +377,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';_} as e) t =
               let t = Tt.unabstract_ty ys t in
               let te = Tt.unabstract ys te in
               let xvs = collect_tt_pattern env xvs p ctx te t in
-              let y, ctx = Context.cone ctx x t in
+              let y, ctx = Context.add_fresh ctx x t in
               let Tt.Ty {Tt.loc=loc;_} = t in
               let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
               let env = add_bound x yt env in
