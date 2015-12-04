@@ -37,11 +37,11 @@ let empty = {
 let find k hs = try HintMap.find k hs with Not_found -> [], []
 let find3 k hs = try GeneralMap.find k hs with Not_found -> [], []
 
-let eta_hints key {eta=hints} = snd @@ find key hints
+let eta_hints key {eta=hints;_} = snd @@ find key hints
 
-let beta_hints key {beta=hints} = snd @@ find key hints
+let beta_hints key {beta=hints;_} = snd @@ find key hints
 
-let general_hints (key1, key2, key3) {general=keys} =
+let general_hints (key1, key2, key3) {general=keys;_} =
   let search3 k1 k2 =
     match key3 with
     | Some _ -> snd (find3 (k1, k2, key3) keys) @ snd (find3 (k1, k2, None) keys)
@@ -58,17 +58,17 @@ let general_hints (key1, key2, key3) {general=keys} =
     | None -> search2 None
   in search1
 
-let inhabit_hints key {inhabit=hints} = snd @@ find key hints
+let inhabit_hints key {inhabit=hints;_} = snd @@ find key hints
 
-let bound_names {bound=lst} = List.map fst lst
+let bound_names {bound=lst;_} = List.map fst lst
 
-let constants {constants=lst} =
+let constants {constants=lst;_} =
   List.map (fun (x, (yts, _)) -> (x, List.length yts)) lst
 
 let used_names env =
   List.map fst env.bound @ List.map fst env.constants
 
-let lookup_constant x {constants=lst} =
+let lookup_constant x {constants=lst;_} =
   let rec lookup = function
     | [] -> None
     | (y,v) :: lst ->
@@ -76,7 +76,7 @@ let lookup_constant x {constants=lst} =
   in
     lookup lst
 
-let lookup_bound k {bound=lst} =
+let lookup_bound k {bound=lst;_} =
   try
     snd (List.nth lst k)
   with
@@ -175,7 +175,7 @@ let add_fresh ~loc env x (ctx, t) =
 let add_handle op xc env =
   { env with handle = (op, xc) :: env.handle }
 
-let lookup_handle op {handle=lst} =
+let lookup_handle op {handle=lst;_} =
   try
     Some (List.assoc op lst)
   with Not_found -> None
@@ -183,13 +183,13 @@ let lookup_handle op {handle=lst} =
 let set_continuation c env =
   { env with continuation = Some c }
 
-let lookup_continuation {continuation} =
+let lookup_continuation {continuation;_} =
   continuation
 
 let add_file f env =
   { env with files = (Filename.basename f) :: env.files }
 
-let included f { files } = List.mem (Filename.basename f) files
+let included f { files ;_} = List.mem (Filename.basename f) files
 
 let print env ppf =
   let forbidden_names = used_names env in
@@ -206,7 +206,7 @@ let print env ppf =
 
 exception Match_fail
 
-let application_pop {Tt.term=e;loc;} =
+let application_pop {Tt.term=e;loc;_} =
   match e with
   | Tt.Spine (lhs,(absl,out),rhs) ->
      let rec fold es xts = function
@@ -225,7 +225,8 @@ let application_pop {Tt.term=e;loc;} =
      fold [] [] (absl,rhs)
   | _ -> raise Match_fail
 
-let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e'} as e) t =
+(* TODO check assumptions *)
+let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';_} as e) t =
   match p', e' with
     | Syntax.Tt_Anonymous, _ -> xvs
 
@@ -256,7 +257,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e'} as e) t =
       else raise Match_fail
 
     | Syntax.Tt_Lambda (x,bopt,popt,p), Tt.Lambda ((x',ty)::abs,(te,out)) ->
-      let Tt.Ty t = ty in let {Tt.loc=loc} = t in
+      let Tt.Ty t = ty in let {Tt.loc=loc;_} = t in
       let xvs = match popt with
         | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
         | None -> xvs
@@ -290,7 +291,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e'} as e) t =
       xvs
 
     | Syntax.Tt_Prod (x,bopt,popt,p), Tt.Prod ((x',ty)::abs,out) ->
-      let Tt.Ty t = ty in let {Tt.loc=loc} = t in
+      let Tt.Ty t = ty in let {Tt.loc=loc;_} = t in
       let xvs = match popt with
         | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
         | None -> xvs
@@ -328,7 +329,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e'} as e) t =
       xvs
 
     | Syntax.Tt_Bracket p, Tt.Bracket (Tt.Ty ty) ->
-      let {Tt.loc=loc} = ty in
+      let {Tt.loc=loc;_} = ty in
       let xvs = collect_tt_pattern env xvs p ctx ty (Tt.mk_type_ty ~loc) in
       xvs
 
@@ -341,7 +342,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e'} as e) t =
             if Name.eq_ident l l'
             then
               let t = Tt.unabstract_ty ys t in
-              let Tt.Ty t' = t in let {Tt.loc=loc} = t' in
+              let Tt.Ty t' = t in let {Tt.loc=loc;_} = t' in
               let xvs = collect_tt_pattern env xvs p ctx t' (Tt.mk_type_ty ~loc) in
               let y, ctx = Context.cone ctx x t in
               let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
@@ -377,7 +378,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e'} as e) t =
               let te = Tt.unabstract ys te in
               let xvs = collect_tt_pattern env xvs p ctx te t in
               let y, ctx = Context.cone ctx x t in
-              let Tt.Ty {Tt.loc=loc} = t in
+              let Tt.Ty {Tt.loc=loc;_} = t in
               let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
               let env = add_bound x yt env in
               let xvs = match bopt with
@@ -402,7 +403,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e'} as e) t =
     | Syntax.Tt_Projection (p,l), Tt.Projection (te,xts,l') ->
       if Name.eq_ident l l'
       then
-        let {Tt.loc=loc} = e in
+        let {Tt.loc=loc;_} = e in
         let xvs = collect_tt_pattern env xvs p ctx te (Tt.mk_signature_ty ~loc xts) in
         xvs
       else raise Match_fail
@@ -438,7 +439,7 @@ let match_pattern env xs p v =
 
     | Syntax.Patt_Jdg (pe, pt), Value.Term (ctx, e, t) ->
        let Tt.Ty t' = t in
-       let {Tt.loc=loc} = t' in
+       let {Tt.loc=loc;_} = t' in
        let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
        collect_tt_pattern env xvs pe ctx e t
 

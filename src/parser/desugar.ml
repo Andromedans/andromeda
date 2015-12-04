@@ -30,11 +30,6 @@ let rec mk_prod ~loc ys ((t', _) as t) =
       | _ -> Syntax.Prod (ys, t), loc
     end
 
-let mk_let ~loc w c =
-  match w with
-  | [] -> c
-  | (_::_) as w -> Syntax.Let (w, c), loc
-
 (* n is the length of vars *)
 let rec pattern constants bound vars n (p,loc) =
   match p with
