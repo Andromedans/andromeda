@@ -31,6 +31,7 @@ let add_beta ~loc z ctx hyps e t env  =
   let hint_key = Hint.mk_beta ~loc env ctx hyps ([], (t, Tt.mk_atom ~loc z, e))  in
   Environment.add_beta hint_key env
 
+
 (** Evaluate a computation -- infer mode. *)
 let rec infer env (c',loc) =
   match c' with
@@ -291,7 +292,7 @@ let rec infer env (c',loc) =
   | Syntax.Signature xcs ->
     let rec fold env ctx ys ts xts = function
       | [] ->
-        let ctx = Context.abstract ~loc ctx ys ts in
+        Environment.context_abstract ~loc ctx ys ts >>= fun ctx ->
         let xts = List.rev xts in
         let te = Tt.mk_signature ~loc xts in
         let typ = Tt.mk_type_ty ~loc in
@@ -312,7 +313,7 @@ let rec infer env (c',loc) =
         let xtes = List.rev xtes in
         let te = Tt.mk_structure ~loc xtes in
         let ty = Tt.mk_signature_ty ~loc (List.map (fun (l,x,t,_) -> l,x,t) xtes) in
-        let ctx = Context.abstract ~loc ctx ys ts in
+        Environment.context_abstract ~loc ctx ys ts >>= fun ctx ->
         let j = Judgement.mk_term ctx te ty in
         Value.return_term j
       | (lbl,x,c) :: rem ->
@@ -511,7 +512,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
      let rec fold env ctx zs ts xtes = function
        | [], [] ->
           let xtes = List.rev xtes in
-          let ctx = Context.abstract ~loc ctx zs ts in
+          Environment.context_abstract ~loc ctx zs ts >>= fun ctx ->
           let str = Tt.mk_structure ~loc xtes in
           Value.return (ctx, Tt.mention_atoms hyps str)
 
@@ -568,7 +569,7 @@ and infer_lambda env ~loc xus c =
          let e = Tt.abstract zs e in
          let t' = Tt.abstract_ty zs t' in
          let ctx = Context.join ctx ctxe in
-         let ctx = Context.abstract ~loc ctx zs ts in
+         Environment.context_abstract ~loc ctx zs ts >>= fun ctx ->
          let xws = List.rev xws in
          let lam = Tt.mk_lambda ~loc xws e t' in
          let prod = Tt.mk_prod_ty ~loc xws t' in
@@ -591,7 +592,7 @@ and infer_prod env ~loc xus c =
         check_ty env c >>= fun (ctxt, t') ->
         let t' = Tt.abstract_ty zs t' in
         let ctx = Context.join ctx ctxt in
-        let ctx = Context.abstract ~loc ctx zs ts in
+        Environment.context_abstract ~loc ctx zs ts >>= fun ctx ->
         let xws = List.rev xws in
         let prod = Tt.mk_prod ~loc xws t' in
         let typ = Tt.mk_type_ty ~loc in
@@ -652,7 +653,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
           let j_t_body' = Judgement.mk_ty ctx t_body' in
           check env body j_t_body' >>= fun (ctx, e) ->
           let e = Tt.abstract ys e in
-          let ctx = Context.abstract ~loc ctx ys ts in
+          Environment.context_abstract ~loc ctx ys ts >>= fun ctx ->
           let hyps = List.fold_left (fun hyps y -> Name.AtomSet.remove y hyps) hyps ys in
           let xts = List.rev xts in
           Value.return (ctx, Tt.mention_atoms hyps (Tt.mk_lambda ~loc xts e t_body))

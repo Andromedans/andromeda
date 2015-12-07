@@ -98,10 +98,15 @@ let restrict ctx aset =
   in
   res
 
-let abstract1 ~loc (ctx : t) x ty =
+
+type ('a,'b) err =
+  | OK of 'a
+  | Err of 'b
+
+let abstract ~loc (ctx : t) x ty =
   match lookup x ctx with
   | None ->
-     ctx
+     OK ctx
   | Some node ->
     if Tt.alpha_equal_ty node.ty ty
     then
@@ -109,24 +114,15 @@ let abstract1 ~loc (ctx : t) x ty =
       then
         let ctx = AtomMap.remove x ctx in
         let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
-        ctx
+        OK ctx
       else
-        let needed_by_l = AtomSet.elements node.needed_by in
-        Error.runtime
-          ~loc "cannot abstract %t because %t depend%s on it.\nContext:@ %t"
-          (Name.print_atom x)
-          (Print.sequence (Name.print_atom) "," needed_by_l)
-          (match needed_by_l with [_] -> "s" | _ -> "")
-          (print ctx)
+        Err node.needed_by
     else
       Error.runtime ~loc "cannot abstract %t with type %t because it must have type %t."
         (Name.print_atom x)
         (Tt.print_ty [] ty)
         (Tt.print_ty [] node.ty)
        
-
-let abstract ~loc ctx xs = List.fold_left2 (abstract1 ~loc) ctx xs
-
 
 let join ctx1 ctx2 =
   AtomMap.fold (fun x node res ->

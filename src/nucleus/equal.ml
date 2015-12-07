@@ -13,6 +13,9 @@ module Monad = struct
   let (>>=) (m:'a t) (f:'a -> 'b t) : 'b t =
     { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
 
+  let lift m =
+    fun s -> Value.bind m (fun x -> Value.return (x,s))
+
   let modify f =
     { k = fun c s -> c () (f s) }
 
@@ -265,7 +268,8 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) lis
         let v = Tt.unabstract_ty ys v
         and v' = Tt.unabstract_ty ys v' in
         equal_ty env ctx v v' >?= fun ctx ->
-        Opt.return (Context.abstract ~loc:Location.unknown ctx (List.rev ys) (List.rev ts))
+        Monad.lift (Environment.context_abstract ~loc:Location.unknown ctx (List.rev ys) (List.rev ts)) >!= fun ctx ->
+        Opt.return ctx
      | (x,(u,u'))::xuus ->
         let u  = Tt.unabstract_ty ys u
         and u' = Tt.unabstract_ty ys u' in
@@ -354,7 +358,8 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
                   and e1 = Tt.mk_spine ~loc:loc1 e1 xus u es
                   and e2 = Tt.mk_spine ~loc:loc2 e2 xus u es in
                   equal env ctx e1 e2 v >?= fun ctx ->
-                  Opt.return (Context.abstract ~loc:Location.unknown ctx ys ts)
+                  Monad.lift (Environment.context_abstract ~loc:Location.unknown ctx ys ts) >!= fun ctx ->
+                  Opt.return ctx
               end
             in fold env ctx [] [] [] xus
 
@@ -492,7 +497,8 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
           let e1 = Tt.unabstract ys e1
           and e2 = Tt.unabstract ys e2 in
           equal env ctx e1 e2 t1' >?= fun ctx ->
-          Opt.return (Context.abstract ~loc:Location.unknown ctx ys ts)
+          Monad.lift (Environment.context_abstract ~loc:Location.unknown ctx ys ts) >!= fun ctx ->
+          Opt.return ctx
      in
      zip [] [] env ctx (xus, xvs)
 
@@ -628,7 +634,8 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
 and equal_signature ~loc env ctx xts1 xts2 =
   let rec fold env ctx ys ts xts1 xts2 = match xts1, xts2 with
     | [], [] ->
-      Opt.return (Context.abstract ~loc ctx ys ts)
+      Monad.lift (Environment.context_abstract ~loc ctx ys ts) >!= fun ctx ->
+      Opt.return ctx
     | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
       if Name.eq_ident l1 l2
       then
@@ -1085,7 +1092,7 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty {Tt.term=t';loc;_}) as t) =
           inhabit ~subgoals env ctx t' >?= fun (ctx,e) ->
           let e = Tt.abstract ys e in
           let e = Tt.mk_lambda ~loc xts' e t' in
-          let ctx = Context.abstract ~loc ctx ys ts in
+          Monad.lift (Environment.context_abstract ~loc ctx ys ts) >!= fun ctx ->
           Opt.return (ctx, e)
         | (x,t)::xts ->
           let t = Tt.unabstract_ty ys t in
@@ -1174,7 +1181,7 @@ let rec deep_prod env ctx t f =
           let w = Tt.unabstract_ty ys w in
           deep_prod env ctx w f >>= fun (ctx, (zvs, w)) ->
           let (zvs, w) = Tt.abstract_ty_abstraction Tt.abstract_ty ys (zvs, w) in
-          let ctx = Context.abstract ~loc ctx ys ts in
+          Monad.lift (Environment.context_abstract ~loc ctx ys ts) >>= fun ctx ->
           Monad.return (ctx, (xus @ zvs, w))
 
        | (z,v) :: zvs ->

@@ -14,10 +14,14 @@ val add_fresh : t -> Name.ident -> Tt.ty -> Name.atom * t
 
 val restrict : t -> Name.AtomSet.t -> t
 
-(** Remove the given atoms from the context, in the order
-    given by the list. Fails if this is not doable.
+(** Remove the given atom from the context.
+    Fails if this is not doable.
     Also checks that the types are alpha equal. *)
-val abstract : loc:Location.t -> t -> Name.atom list -> Tt.ty list -> t
+type ('a,'b) err =
+  | OK of 'a
+  | Err of 'b
+
+val abstract : loc:Location.t -> t -> Name.atom -> Tt.ty -> (t,Name.AtomSet.t) err
 
 (** Join two contexts into a single one.
     Types of common atoms need to be alpha equal.

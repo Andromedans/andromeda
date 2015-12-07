@@ -201,6 +201,23 @@ let print env ppf =
     (List.rev env.constants) ;
   Print.print ppf "-----END-----@."
 
+(** Helper functions to abstract contexts. *)
+let context_abstract1 ~loc ctx x ty =
+  match Context.abstract ~loc ctx x ty with
+    | Context.OK ctx -> Value.return ctx
+    | Context.Err needed_by ->
+      let needed_by_l = Name.AtomSet.elements needed_by in
+        Error.runtime
+          ~loc "cannot abstract %t because %t depend%s on it.\nContext:@ %t"
+          (Name.print_atom x)
+          (Print.sequence (Name.print_atom) "," needed_by_l)
+          (match needed_by_l with [_] -> "s" | _ -> "")
+          (Context.print ctx)
+
+let context_abstract ~loc ctx =
+  List.fold_left2 (fun mctx x ty -> Value.bind mctx
+      (fun ctx -> context_abstract1 ~loc ctx x ty))
+    (Value.return ctx)
 
 (** Matching *)
 
