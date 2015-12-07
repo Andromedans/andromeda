@@ -299,8 +299,9 @@ let rec infer env (c',loc) =
         Value.return_term j
       | (lbl,x,c) :: rem ->
         check_ty env c >>= fun ((ctxt,t) as jt) ->
-        let _, y, env = Environment.add_fresh ~loc env x jt in
+        let ctxt, y, env = Environment.add_fresh ~loc env x jt in
         let tabs = Tt.abstract_ty ys t in
+        let ctx = Context.join ctx ctxt in
         fold env ctx (y :: ys) (t::ts) ((lbl, x, tabs) :: xts) rem
       in
     fold env Context.empty [] [] [] xcs
@@ -316,10 +317,11 @@ let rec infer env (c',loc) =
         Value.return_term j
       | (lbl,x,c) :: rem ->
         infer env c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
-        let jty = Judgement.mk_ty ctx ty in
+        let jty = Judgement.mk_ty ctxt ty in
         let tabs = Tt.abstract_ty ys ty in
         let te = Tt.abstract ys te in
-        let _, y, env = Environment.add_fresh ~loc env x jty in
+        let ctxt, y, env = Environment.add_fresh ~loc env x jty in
+        let ctx = Context.join ctx ctxt in
         fold env ctx (y::ys) (ty::ts) ((lbl,x,tabs,te)::xtes) rem
       in
     fold env Context.empty [] [] [] xcs
@@ -526,6 +528,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             let hyps = Name.AtomSet.add z (Tt.assumptions_term e) in
             let env = add_beta ~loc z ctxz hyps e ty_inst env in
             let e = Tt.abstract zs e in
+            let ctx = Context.join ctx ctxz in
             fold env ctx (z::zs) (ty_inst::ts) ((lbl1,y,ty,e) :: xtes) (xcs, yts)
               
        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
@@ -575,8 +578,9 @@ and infer_lambda env ~loc xus c =
       | (x, Some c) :: xus ->
          check_ty env c >>= fun ((ctxu, u') as u) ->
          (* XXX equip x with location and use for [~loc]. *)
-         let _, z, env = Environment.add_fresh ~loc:Location.unknown env x u in
+         let ctxu, z, env = Environment.add_fresh ~loc:Location.unknown env x u in
          let w' = Tt.abstract_ty zs u' in
+         let ctx = Context.join ctx ctxu in
          fold env ctx (z :: zs) (u'::ts) ((x, w') :: xws) xus
   in
   fold env Context.empty [] [] [] xus
@@ -596,8 +600,9 @@ and infer_prod env ~loc xus c =
       | (x, c) :: xus ->
         check_ty env c >>= fun ((ctxu, u') as u) ->
         (* XXX equip x with location and use for [~loc]. *)
-        let _, z, env = Environment.add_fresh ~loc:Location.unknown env x u in
+        let ctxu, z, env = Environment.add_fresh ~loc:Location.unknown env x u in
         let w' = Tt.abstract_ty zs u' in
+        let ctx = Context.join ctx ctxu in
         fold env ctx (z :: zs) (u'::ts) ((x, w') :: xws) xus
   in
   fold env Context.empty [] [] [] xus
@@ -660,7 +665,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
 
           let k ctx hyps' t' =
             let t = Judgement.mk_ty ctx t' in
-            let _, y, env = Environment.add_fresh ~loc env x t in
+            let ctx, y, env = Environment.add_fresh ~loc env x t in
             let tabs = Tt.abstract_ty ys t' in
             fold env ctx (Name.AtomSet.union hyps hyps') (y::ys) (t'::ts) ((x,tabs)::xts) abs zus in
 
