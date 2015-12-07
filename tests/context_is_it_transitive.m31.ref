@@ -1,0 +1,5 @@
+A is assumed.
+B is assumed.
+f is assumed.
+?:?: Typing error
+  this expression should have type B but has type A

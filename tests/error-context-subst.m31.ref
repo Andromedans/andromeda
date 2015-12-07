@@ -1,0 +1,11 @@
+A is assumed.
+x is defined.
+P is defined.
+y is defined.
+a is assumed.
+b is assumed.
+ign is assumed.
+g is assumed.
+igny is defined.
+?:?: Runtime error
+  cannot join contexts: types P₆ a and P₆ b of y₈ are incompatible.

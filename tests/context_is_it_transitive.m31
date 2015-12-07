@@ -1,0 +1,19 @@
+Parameter A : Type.
+Parameter B : Type.
+Parameter f : B → Type.
+Parameter P : ∏ [x : A] f x → Type.
+Check
+  assume e : A ≡ B in
+  beta e in
+  assume x : A in
+  assume Y : Type in
+  assume h : Y ≡ P (f x) in
+
+  assume X : Type in
+  assume h : X ≡ f x in
+  hint h in
+  assume g : X → Type in
+  assume z : g y in
+    z.
+
+  

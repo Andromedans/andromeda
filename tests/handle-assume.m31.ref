@@ -1,0 +1,11 @@
+A is assumed.
+B is assumed.
+Q is assumed.
+hyp₁₇ : A → Type 
+⊢ λ [a : A] Q A hyp₁₇ a : Π [a : A] hyp₁₇ a → Type
+File "./handle-assume.m31", line 16, characters 5-38: Runtime error
+  cannot abstract a₃₀ because hyp₃₆ depends on it.
+Context:
+  a₃₀ : A 
+  hyp₃₆ : B a₃₀ 
+  
