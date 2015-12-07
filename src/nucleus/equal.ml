@@ -263,21 +263,22 @@ and projection_reduce ~loc env ctx xts p xtes =
 and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) list) v v' =
   (* As we descend into the contexts we carry around a list of variables
      [ys] with which we unabstract the bound variables. *)
-  let rec eq env ctx ys =
+  let rec eq env ctx ys ts =
     function
      | [] ->
         let v = Tt.unabstract_ty ys v
         and v' = Tt.unabstract_ty ys v' in
-        equal_ty env ctx v v'
+        equal_ty env ctx v v' >?= fun ctx ->
+        Opt.return (Context.abstract ~loc:Location.unknown ctx (List.rev ys) (List.rev ts))
      | (x,(u,u'))::xuus ->
         let u  = Tt.unabstract_ty ys u
         and u' = Tt.unabstract_ty ys u' in
         equal_ty env ctx u u' >?= fun ctx ->
         let ju = Judgement.mk_ty ctx u in
         let ctx, y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
-        eq env ctx (ys @ [y]) xuus (* XXX optimize list append *)
+        eq env ctx (ys @ [y]) (ts @ [u]) xuus (* XXX optimize list append *)
   in
-  eq env ctx [] xuus
+  eq env ctx [] [] xuus
 
 (** Compare two types *)
 and equal_ty env ctx (Tt.Ty t1) (Tt.Ty t2) = equal env ctx t1 t2 Tt.typ
@@ -343,22 +344,23 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
           end
 
         | Tt.Prod (xus, u) ->
-            let rec fold env ctx ys es =
+            let rec fold env ctx ys ts es =
               begin function
               | (x, ((Tt.Ty {Tt.loc=loc;_}) as v)) :: xvs ->
                   let v = Tt.unabstract_ty ys v in
                   let jv = Judgement.mk_ty ctx v in
                   let ctx, y, env =  Environment.add_fresh ~loc env x jv in
                   let e = Tt.mk_atom ~loc y in
-                  fold env ctx (y :: ys) (e :: es) xvs
+                  fold env ctx (y :: ys) (v::ts) (e :: es) xvs
               | [] ->
                   let es = List.rev es in
                   let v = Tt.unabstract_ty ys u
                   and e1 = Tt.mk_spine ~loc:loc1 e1 xus u es
-                  and e2 = Tt.mk_spine ~loc:loc2 e2 xus u es
-                  in equal env ctx e1 e2 v
+                  and e2 = Tt.mk_spine ~loc:loc2 e2 xus u es in
+                  equal env ctx e1 e2 v >?= fun ctx ->
+                  Opt.return (Context.abstract ~loc:Location.unknown ctx ys ts)
               end
-            in fold env ctx [] [] xus
+            in fold env ctx [] [] [] xus
 
         | Tt.Eq _ -> Opt.return ctx (** Strict equality *)
 
@@ -474,14 +476,14 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
        fold ctx [] yts es1 es2
 
   | Tt.Lambda (xus, (e1, t1)), Tt.Lambda (xvs, (e2, t2)) ->
-     let rec zip ys env ctx = function
+     let rec zip ys ts env ctx = function
        | (x, u) :: xus, (_, u') :: xvs ->
           let u  = Tt.unabstract_ty ys u
           and u' = Tt.unabstract_ty ys u' in
           equal_ty env ctx u u' >?= fun ctx ->
           let ju = Judgement.mk_ty ctx u in
           let ctx, y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
-          zip (ys @ [y]) env ctx (xus, xvs) (* XXX optimize list append *)
+          zip (ys @ [y]) (ts @ [u]) env ctx (xus, xvs) (* XXX optimize list append *)
 
        | ([] as xus), xvs | xus, ([] as xvs) ->
           let t1' = Tt.mk_prod_ty ~loc:Location.unknown xus t1
@@ -493,9 +495,10 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
           and e2 = Tt.mk_lambda ~loc:(e2.Tt.loc) xvs e2 t2 in
           let e1 = Tt.unabstract ys e1
           and e2 = Tt.unabstract ys e2 in
-          equal env ctx e1 e2 t1'
+          equal env ctx e1 e2 t1' >?= fun ctx ->
+          Opt.return (Context.abstract ~loc:Location.unknown ctx ys ts)
      in
-     zip [] env ctx (xus, xvs)
+     zip [] [] env ctx (xus, xvs)
 
   | Tt.Spine (e1, xts1, es1), Tt.Spine (e2, xts2, es2) ->
      equal_spine ~loc:loc1 env ctx e1 (xts1, es1) e2 (xts2, es2)
@@ -628,7 +631,8 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
 
 and equal_signature ~loc env ctx xts1 xts2 =
   let rec fold env ctx ys ts xts1 xts2 = match xts1, xts2 with
-    | [], [] -> Opt.return (Context.abstract ~loc ctx ys ts) (* do we need to abstract here? *)
+    | [], [] ->
+      Opt.return (Context.abstract ~loc ctx ys ts)
     | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
       if Name.eq_ident l1 l2
       then
