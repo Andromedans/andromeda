@@ -137,8 +137,8 @@ let join ctx1 ctx2 =
             (* for every node which needs x and is only in ctx2, we need to add it as a dependent. *)
             let extra = AtomSet.fold (fun y extra ->
                 if AtomMap.mem y ctx1
-                then AtomSet.add y extra
-                else extra)
+                then extra
+                else AtomSet.add y extra)
               node.needed_by AtomSet.empty
             in
             if AtomSet.is_empty extra
