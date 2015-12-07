@@ -1,0 +1,15 @@
+Bool is assumed.
+Nat is assumed.
+true is assumed.
+false is assumed.
+zero is assumed.
+succ is assumed.
+plus is assumed.
+iszero is assumed.
+eq1 is assumed.
+eq2 is assumed.
+f is defined.
+⊢ λ [n : Nat] iszero (succ n) : Nat → Bool
+⊢ λ [n : Nat] iszero (succ n) : Nat → Nat
+File "./tricky_spine.m31", line 19, characters 10-38: Typing error
+  this expression should have type Nat → Nat but has type Nat → Bool
