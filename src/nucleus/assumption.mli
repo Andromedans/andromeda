@@ -6,8 +6,7 @@ val empty : t
 
 val singleton : Name.atom -> t
 
-(** [add_free x a] adds [x] to the assumptions [a] *)
-val add_free : Name.atom -> t -> t
+val add_atoms : Name.AtomSet.t -> t -> t
 
 val union : t -> t -> t
 

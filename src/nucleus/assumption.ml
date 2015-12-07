@@ -14,8 +14,8 @@ let singleton x =
   let free = AtomSet.add x AtomSet.empty in
   {free;bound=BoundSet.empty;}
 
-let add_free x {free;bound;} =
-  {free=AtomSet.add x free;bound;}
+let add_atoms a {free;bound;} =
+  {free=AtomSet.union free a;bound;}
 
 let union a1 a2 =
   {free=AtomSet.union a1.free a2.free; bound=BoundSet.union a1.bound a2.bound}

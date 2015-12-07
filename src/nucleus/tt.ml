@@ -78,6 +78,7 @@ let mk_signature_ty ~loc lst = ty (mk_signature ~loc lst)
 (** The [Type] constant, without a location. *)
 let typ = Ty (mk_type ~loc:Location.unknown)
 
+let mention_atoms a e = {e with assumptions = Assumption.add_atoms a e.assumptions}
 
 let mention a e = {e with assumptions = Assumption.union e.assumptions a}
 

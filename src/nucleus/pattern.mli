@@ -33,18 +33,18 @@ type beta_pattern =
   | BetaConstant of Name.ident * term list
   | BetaSpine of term * pty pabstraction * term list
 
-type beta_hint = Context.t * (beta_pattern * Tt.term) pabstraction
+type beta_hint = Context.t * Name.AtomSet.t * (beta_pattern * Tt.term) pabstraction
 
 (** An eta hint is an abstracted type pattern together with variables that match
     the lhs and rhs of an equation. *)
-type eta_hint = Context.t * (ty * Syntax.bound * Syntax.bound) pabstraction
+type eta_hint = Context.t * Name.AtomSet.t * (ty * Syntax.bound * Syntax.bound) pabstraction
 
 (** A general hint is an abstracted triple of patterns that match the type and both
     sides of equation. *)
-type general_hint = Context.t * (ty * term * term) pabstraction
+type general_hint = Context.t * Name.AtomSet.t * (ty * term * term) pabstraction
 
 (** An inhabit hint is a universally quantified type. *)
-type inhabit_hint = Context.t * ty pabstraction
+type inhabit_hint = Context.t * Name.AtomSet.t * ty pabstraction
 
 (** To each pattern and whnf term we associate a hint key in such a way that
     a pattern and a term match only if their hint keys are equal. This way we

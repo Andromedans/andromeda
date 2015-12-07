@@ -2,15 +2,67 @@
 
 (** Notation for the monads bind *)
 
-(** Normal Value.result monad *)
-let (>>=) = Value.bind
+module Monad = struct
+  type state = Name.AtomSet.t
+  type 'a t = state -> ('a*state) Value.result
 
-(** Value.result transformed by option *)
-let (>?=) m f = m >>= function
-  | Some x -> f x
-  | None -> Value.return None
+  let return x =
+    fun s -> Value.return (x,s)
 
-let opt_return x = Value.return (Some x)
+  let (>>=) (m:'a t) (f:'a -> 'b t) : 'b t =
+    fun s -> Value.bind (m s) (fun (x,s) -> f x s)
+
+  let modify f =
+    fun s -> Value.return ((),f s)
+
+  let add_hyps hyps = modify (Name.AtomSet.union hyps)
+
+  let run m =
+    m (Name.AtomSet.empty)
+end
+
+module Opt = struct
+  type state = Monad.state
+
+  type 'a opt = state -> ('a*state) option Value.result
+
+  let return x =
+    fun s -> Value.return (Some (x,s))
+
+  let (>?=) m f =
+    fun s -> Value.bind (m s) (function
+      | Some (x,s) -> f x s
+      | None -> Value.return None)
+
+  let unfailing (m : 'a Monad.t) : 'a opt =
+    fun s -> Value.bind (m s) (fun v -> Value.return (Some v))
+
+  let fail =
+    fun _ -> Value.return None
+
+  let unfold (m : 'a opt) : 'a option opt =
+    fun s -> Value.bind (m s) (function
+      | Some (x,s) -> Value.return (Some (Some x,s))
+      | None -> Value.return (Some (None,s)))
+
+  let recover (m : 'a opt) : 'a option Monad.t =
+    fun s -> Value.bind (m s) (function
+      | Some (x,s) -> Value.return (Some x,s)
+      | None -> Value.return (None,s))
+
+  let run m =
+    m (Name.AtomSet.empty)
+end
+
+let (>>=) = Monad.(>>=)
+
+let (>?=) = Opt.(>?=)
+
+let (>!=) m f = (Opt.unfailing m) >?= f
+
+let (>??=) m f = (Opt.unfold m) >?= f
+
+let (>?>=) m f = (Opt.recover m) >>= f
 
 (** A check is a postponed equality check.
     Pattern matching generates these. *)
@@ -24,9 +76,9 @@ type check =
 let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
 
 (** The whnf of a type [t] in environment [env]. *)
-let rec whnf_ty env ctx (Tt.Ty t) : (Context.t * Tt.ty) Value.result =
+let rec whnf_ty env ctx (Tt.Ty t) : (Context.t * Tt.ty) Monad.t =
   whnf env ctx t >>= fun (ctx,t) ->
-  Value.return (ctx, Tt.ty t)
+  Monad.return (ctx, Tt.ty t)
 
 (** The "weak weak" head-normal form of a term [e] is obtained by ignoring the
     beta hints, sort of. They still get used in beta reductions for comparing
@@ -47,8 +99,8 @@ and weak_whnf env ctx e =
           match e' with
           | Tt.Lambda (xus, (e', u)) ->
             begin
-              beta_reduce ~loc:eloc env ctx xus e' u xts t es >>= function
-                | None -> Value.return (ctx, Tt.mention assumptions (Tt.mk_spine ~loc e xts t es))
+              beta_reduce ~loc:eloc env ctx xus e' u xts t es >?>= function
+                | None -> Monad.return (ctx, Tt.mention assumptions (Tt.mk_spine ~loc e xts t es))
                 | Some (ctx, e) -> weak ctx (Tt.mention assumptions e)
             end
           | Tt.Atom _
@@ -63,7 +115,7 @@ and weak_whnf env ctx e =
           | Tt.Signature _
           | Tt.Structure _
           | Tt.Projection _ ->
-             Value.return (ctx, Tt.mention assumptions (Tt.mk_spine ~loc e xts t es))
+             Monad.return (ctx, Tt.mention assumptions (Tt.mk_spine ~loc e xts t es))
           | Tt.Bound _ ->
             Error.impossible ~loc "de Bruijn encountered in a spine head in whnf"
         end
@@ -71,7 +123,7 @@ and weak_whnf env ctx e =
       | Tt.Constant _ ->
          (* XXX here we shall use info about primitive operations to normalize some
            of their arguments. *)
-         Value.return (ctx, e)
+         Monad.return (ctx, Tt.mention assumptions e)
 
       | Tt.Projection (e,xts,p) ->
         begin
@@ -79,8 +131,8 @@ and weak_whnf env ctx e =
           match e' with
             | Tt.Structure xtes ->
               begin
-                projection_reduce ~loc:eloc env ctx xts p xtes >>= function
-                  | None -> Value.return (ctx, Tt.mention assumptions (Tt.mk_projection ~loc e xts p))
+                projection_reduce ~loc:eloc env ctx xts p xtes >?>= function
+                  | None -> Monad.return (ctx, Tt.mention assumptions (Tt.mk_projection ~loc e xts p))
                   | Some (ctx,e) -> weak ctx (Tt.mention assumptions e)
               end
             | Tt.Atom _
@@ -95,7 +147,7 @@ and weak_whnf env ctx e =
             | Tt.Bracket _
             | Tt.Signature _
             | Tt.Projection _ ->
-               Value.return (ctx, Tt.mention assumptions (Tt.mk_projection ~loc e xts p))
+               Monad.return (ctx, Tt.mention assumptions (Tt.mk_projection ~loc e xts p))
             | Tt.Bound _ ->
               Error.impossible ~loc "de Bruijn encountered in a projection head in whnf"
         end
@@ -109,7 +161,7 @@ and weak_whnf env ctx e =
       | Tt.Inhab _
       | Tt.Bracket _
       | Tt.Signature _
-      | Tt.Structure _ -> Value.return (ctx, e)
+      | Tt.Structure _ -> Monad.return (ctx, Tt.mention assumptions e)
       | Tt.Bound _ ->
           Error.impossible ~loc "de Bruijn encountered in weak_whnf"
     end
@@ -124,16 +176,16 @@ and whnf env ctx e =
   Print.debug "(%i computing whnf of@ %t@ " i (Tt.print_term xs e);
   weak_whnf env ctx e >>= fun (ctx,e) ->
   let rec apply_beta = function
-    | [] -> Value.return (ctx, e)
-    | ((ctxh, (xts, (p, e'))) as h) :: hs ->
+    | [] -> Monad.return (ctx, e)
+    | ((ctxh, hyps, (xts, (p, e'))) as h) :: hs ->
       Print.debug "collecting for beta@ %t@ from@ %t"
         (Pattern.print_beta_hint [] h) (Tt.print_term [] e) ;
       (* XXX Here a failed join need not be fatal, we could catch and continue
          with the remaining hints *)
       let ctx = Context.join ctxh ctx in
       (* Here we use beta hints. First we match [p] against [e]. *)
-          (* XXX collect_* will opt_return contexts *)
-        collect_for_beta env ctx p e >>= begin function
+          (* XXX collect_* will Opt.return contexts *)
+        collect_for_beta env ctx p e >?>= begin function
           | Some (pvars, checks, extras) ->
             (* we have a match, still need to verify validity of match *)
             Print.debug
@@ -141,7 +193,7 @@ and whnf env ctx e =
                validity…"
               (Pattern.print_beta_hint xs h)
               (Tt.print_term xs e) ;
-            begin verify_match ~spawn:false env ctx xts pvars checks >>= function
+            begin verify_match ~spawn:false env ctx xts pvars checks >?>= function
             | None ->
               Print.debug "validity check failed";
               apply_beta hs (* not valid, try other hints *)
@@ -154,23 +206,24 @@ and whnf env ctx e =
                 (Pattern.print_beta_hint xs h)
                 (Tt.print_term xs e)
                 (Tt.print_term xs e') ;
+              Monad.add_hyps hyps >>= fun () ->
               whnf env ctx e'
             end
           | None -> apply_beta hs (* did not match, try other hints *)
         end
   in
-  if !Config.ignore_hints then Value.return (ctx, e)
+  if !Config.ignore_hints then Monad.return (ctx, e)
   else begin
     let key = Pattern.term_key e in
     Print.debug "trying beta hints for@ %t" (Tt.print_term xs e);
     apply_beta (Environment.beta_hints key env) >>= fun (ctx,e) ->
     Print.debug "%i found whnf@ %t )" i (Tt.print_term xs e);
-    Value.return (ctx, e)
+    Monad.return (ctx, e)
   end
 
 (** Beta reduction of [Lambda (xus, (e, u))] applied to arguments [es],
     where [(yvs, t)] is the typing annotation for the application.
-    opt_returns the resulting expression. *)
+    Opt.returns the resulting expression. *)
 and beta_reduce ~loc env ctx xus e u yvs t es =
   let rec split xuvs es' xus yvs es =
     match xus, yvs, es with
@@ -193,13 +246,13 @@ and beta_reduce ~loc env ctx xus e u yvs t es =
    and yvs, t = Tt.instantiate_ty_abstraction Tt.instantiate_ty es' (yvs, t) in
    let e = Tt.mk_lambda ~loc xus e u in
    let e = Tt.mk_spine ~loc e yvs t es in
-   opt_return (ctx, e)
+   Opt.return (ctx, e)
 
 (** Reduction of [{xtes}.p] at type [{xts}] *)
 and projection_reduce ~loc env ctx xts p xtes =
   equal_signature ~loc env ctx xts (List.map (fun (l,x,t,_) -> l,x,t) xtes) >?= fun ctx ->
   let te = Tt.field_value ~loc xtes p in
-  opt_return (ctx,te)
+  Opt.return (ctx,te)
 
 (** Let [xuus] be the list [(x1,(u1,u1')); ...; (xn,(un,un'))] where
     [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
@@ -221,7 +274,7 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) lis
         and u' = Tt.unabstract_ty ys u' in
         equal_ty env ctx u u' >?= fun ctx ->
         let ju = Judgement.mk_ty ctx u in
-        let y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
+        let ctx, y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
         eq env ctx (ys @ [y]) xuus (* XXX optimize list append *)
   in
   eq env ctx [] xuus
@@ -235,9 +288,9 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
     (Tt.print_term xs e1) (Tt.print_term xs e2) (Tt.print_ty xs t);
   let r =
-  if Tt.alpha_equal e1 e2 then opt_return ctx else
+  if Tt.alpha_equal e1 e2 then Opt.return ctx else
     begin (* type-directed phase *)
-      whnf_ty env ctx t >>= fun (ctx, ((Tt.Ty {Tt.term=t';_}) as t)) ->
+      whnf_ty env ctx t >!= fun (ctx, ((Tt.Ty {Tt.term=t';_}) as t)) ->
       match t' with
 
         | Tt.Structure _
@@ -261,22 +314,23 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
                 (* no hints apply, proceed with applying general hints *)
                 equal_hints env ctx e1 e2 t
 
-              |  ((ctxh, (xts, (pt, k1, k2))) as h) :: hs ->
+              |  ((ctxh, hyps, (xts, (pt, k1, k2))) as h) :: hs ->
                 let debug_i = cnt () in
                 Print.debug "(%d collecting for eta %t" debug_i (Pattern.print_eta_hint [] h);
                 (* XXX Here a failed join need not be fatal, we could catch and continue
                    with the remaining hints *)
                 let ctx = Context.join ctxh ctx in
-                begin collect_for_eta env ctx (pt, k1, k2) (t, e1, e2) >>= function
+                collect_for_eta env ctx (pt, k1, k2) (t, e1, e2) >??= begin function
                   | None -> 
                      Print.debug "collecting for eta failed early %d)" debug_i;
                      fold hs (* no match, try other hints *)
                   | Some (pvars, checks) ->
                     (* check validity of the match *)
-                    begin verify_match ~spawn:true env ctx xts pvars checks >>= function
+                    verify_match ~spawn:true env ctx xts pvars checks >??= begin function
                       | Some (ctx, _) ->
                          Print.debug "collecting for eta worked %d)" debug_i;
-                         opt_return ctx (* success - notice how we throw away the witness of success *)
+                         Monad.add_hyps hyps >!= fun () ->
+                         Opt.return ctx (* success - notice how we throw away the witness of success *)
                       | None ->
                          Print.debug "collecting for eta failed late %d)" debug_i;
                          fold hs (* no match on this hint, try the rest *)
@@ -289,14 +343,14 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
           end
 
         | Tt.Prod (xus, u) ->
-            let rec fold env ys es =
+            let rec fold env ctx ys es =
               begin function
               | (x, ((Tt.Ty {Tt.loc=loc;_}) as v)) :: xvs ->
                   let v = Tt.unabstract_ty ys v in
                   let jv = Judgement.mk_ty ctx v in
-                  let y, env =  Environment.add_fresh ~loc env x jv in
+                  let ctx, y, env =  Environment.add_fresh ~loc env x jv in
                   let e = Tt.mk_atom ~loc y in
-                  fold env (y :: ys) (e :: es) xvs
+                  fold env ctx (y :: ys) (e :: es) xvs
               | [] ->
                   let es = List.rev es in
                   let v = Tt.unabstract_ty ys u
@@ -304,16 +358,16 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
                   and e2 = Tt.mk_spine ~loc:loc2 e2 xus u es
                   in equal env ctx e1 e2 v
               end
-            in fold env [] [] xus
+            in fold env ctx [] [] xus
 
-        | Tt.Eq _ -> opt_return ctx (** Strict equality *)
+        | Tt.Eq _ -> Opt.return ctx (** Strict equality *)
 
-        | Tt.Bracket _ -> opt_return ctx (** Strict bracket types *)
+        | Tt.Bracket _ -> Opt.return ctx (** Strict bracket types *)
 
         | Tt.Signature xts ->
           (* vs contains all the previous projections of e1 *)
           let rec fold ctx vs = function
-            | [] -> opt_return ctx
+            | [] -> Opt.return ctx
             | (l,x,t)::rem ->
               let t = Tt.instantiate_ty vs t in
               let e1 = Tt.mk_projection ~loc:loc1 e1 xts l in
@@ -326,7 +380,7 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
         | Tt.Bound _ -> Error.impossible ~loc:loc1 "deBruijn encountered in equal"
 
     end in
-  r >>= fun b ->
+  r >??= fun b ->
   Print.debug "%i equality check %s)" i
     (match b with | None -> "failed" | Some _ -> "succeeded") ;
   r
@@ -338,11 +392,11 @@ and equal_hints env ctx e1 e2 t =
      here, eta expansion has already been applied. Now h : f ≡ λx.x will fail
      because the rhs [(λx.x) y] reduces to [y] but [f y] is stuck and h won't
      apply anymore *)
-  whnf env ctx e1 >>= fun (ctx, ({Tt.term=e1';loc=loc1;_} as e1)) ->
-  whnf env ctx e2 >>= fun (ctx, ({Tt.term=e2';loc=loc2;_} as e2)) ->
+  whnf env ctx e1 >!= fun (ctx, ({Tt.term=e1';loc=loc1;_} as e1)) ->
+  whnf env ctx e2 >!= fun (ctx, ({Tt.term=e2';loc=loc2;_} as e2)) ->
   (* short-circuit alpha equality *)
   if Tt.alpha_equal e1 e2 then
-    opt_return ctx
+    Opt.return ctx
   else
     (* try general hints *)
     begin
@@ -350,29 +404,29 @@ and equal_hints env ctx e1 e2 t =
       Print.debug "Looking for a general hint with keys: %t" (Pattern.print_general_key key);
 
       let rec fold = function
-        | ((ctxh, (xts, (pt, pe1, pe2))) as h) :: hs ->
+        | ((ctxh, hyps, (xts, (pt, pe1, pe2))) as h) :: hs ->
            (* XXX Here a failed join need not be fatal, we could catch and continue
               with the remaining hints *)
            let ctx = Context.join ctx ctxh in
            Print.debug "trying general hint@ %t" (Pattern.print_hint [] h);
-           begin collect_for_hint env ctx (pt, pe1, pe2) (t, e1, e2) >>= function
+           collect_for_hint env ctx (pt, pe1, pe2) (t, e1, e2) >??= begin function
            | None -> fold hs
            | Some (pvars, checks) ->
               (* check validity of the match *)
               Print.debug "verifying match";
-              begin verify_match ~spawn:false env ctx xts pvars checks >>= function
-              | Some (ctx, _) -> opt_return ctx (* success - notice how we throw away the witness of success *)
+              verify_match ~spawn:false env ctx xts pvars checks >??= begin function
+              | Some (ctx, _) -> Opt.return ctx (* success - notice how we throw away the witness of success *)
               | None -> fold hs
               end
            end
-        | [] -> Value.return None
+        | [] -> Opt.fail
       in
       fold (if !Config.ignore_hints then [] else Environment.general_hints key env)
-    end >>= begin function
+    end >??= begin function
     | None ->
        (* proceed with comparing the weak head normal forms *)
        equal_whnf env ctx e1 e2
-    | Some ctx -> opt_return ctx
+    | Some ctx -> Opt.return ctx
     end
 
 (* Compare normalized expressions. The assumption is that they both
@@ -385,15 +439,15 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
   match e1', e2' with
 
   | Tt.Atom x, Tt.Atom y ->
-     if Name.eq_atom x y then opt_return ctx
-     else Value.return None
+     if Name.eq_atom x y then Opt.return ctx
+     else Opt.fail
 
   | Tt.Bound _, _ | _, Tt.Bound _ ->
      Error.impossible ~loc:loc1 "deBruijn encountered in equal_whnf"
 
   | Tt.Constant (x1, es1), Tt.Constant (x2, es2) ->
      if not @@ Name.eq_ident x1 x2
-     then Value.return None
+     then Opt.fail
      else
        let yts, _ =
          begin match Environment.lookup_constant x1 env with
@@ -402,7 +456,7 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
          end in
        let rec fold ctx es' yts es1 es2 =
          match yts, es1, es2 with
-         | [], [], [] -> opt_return ctx
+         | [], [], [] -> Opt.return ctx
 
          | (y,(reduce,t))::yts, e1::es1, e2::es2 ->
             if reduce
@@ -420,14 +474,14 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
        fold ctx [] yts es1 es2
 
   | Tt.Lambda (xus, (e1, t1)), Tt.Lambda (xvs, (e2, t2)) ->
-     let rec zip ys env = function
+     let rec zip ys env ctx = function
        | (x, u) :: xus, (_, u') :: xvs ->
           let u  = Tt.unabstract_ty ys u
           and u' = Tt.unabstract_ty ys u' in
           equal_ty env ctx u u' >?= fun ctx ->
           let ju = Judgement.mk_ty ctx u in
-          let y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
-          zip (ys @ [y]) env (xus, xvs) (* XXX optimize list append *)
+          let ctx, y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
+          zip (ys @ [y]) env ctx (xus, xvs) (* XXX optimize list append *)
 
        | ([] as xus), xvs | xus, ([] as xvs) ->
           let t1' = Tt.mk_prod_ty ~loc:Location.unknown xus t1
@@ -441,12 +495,12 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
           and e2 = Tt.unabstract ys e2 in
           equal env ctx e1 e2 t1'
      in
-     zip [] env (xus, xvs)
+     zip [] env ctx (xus, xvs)
 
   | Tt.Spine (e1, xts1, es1), Tt.Spine (e2, xts2, es2) ->
      equal_spine ~loc:loc1 env ctx e1 (xts1, es1) e2 (xts2, es2)
 
-  | Tt.Type, Tt.Type -> opt_return ctx
+  | Tt.Type, Tt.Type -> Opt.return ctx
 
   | Tt.Prod (xus, t1), Tt.Prod (xvs, t2) ->
      let rec zip xuvs = function
@@ -488,12 +542,12 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
     then
       equal_signature ~loc:loc1 env ctx xts1 xts2 >?= fun ctx ->
       equal_whnf env ctx te1 te2
-    else Value.return None
+    else Opt.fail
 
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
      Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _ |
      Tt.Signature _ | Tt.Structure _ | Tt.Projection _), _ ->
-     Value.return None
+     Opt.fail
 
 and equal_spine ~loc env ctx e1 a1 e2 a2 =
   (* We deal with nested spines. They are nested in an inconvenient way so
@@ -506,7 +560,7 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
   let h1, a1, as1, n1 = collect_spines a1 [] (List.length (snd a1)) e1
   and h2, a2, as2, n2 = collect_spines a2 [] (List.length (snd a2)) e2 in
   if not (n1 = n2)
-  then Value.return None
+  then Opt.fail
   else
   begin
     let rec fold es1 es2 ((xts1, u1), ds1) as1 ((xts2, u2), ds2) as2 ctx =
@@ -574,7 +628,7 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
 
 and equal_signature ~loc env ctx xts1 xts2 =
   let rec fold env ctx ys ts xts1 xts2 = match xts1, xts2 with
-    | [], [] -> opt_return (Context.abstract ~loc ctx ys ts) (* do we need to abstract here? *)
+    | [], [] -> Opt.return (Context.abstract ~loc ctx ys ts) (* do we need to abstract here? *)
     | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
       if Name.eq_ident l1 l2
       then
@@ -582,10 +636,10 @@ and equal_signature ~loc env ctx xts1 xts2 =
         let t2 = Tt.unabstract_ty ys t2 in
         equal_ty env ctx t1 t2 >?= fun ctx ->
         let jx = Judgement.mk_ty ctx t1 in
-        let y, env = Environment.add_fresh ~loc env x jx in
+        let ctx, y, env = Environment.add_fresh ~loc env x jx in
         fold env ctx (y::ys) (t1::ts) xts1 xts2
-      else Value.return None
-    | _::_,[] | [],_::_ -> Value.return None
+      else Opt.fail
+    | _::_,[] | [],_::_ -> Opt.fail
     in
   fold env ctx [] [] xts1 xts2
 
@@ -593,7 +647,7 @@ and equal_signature ~loc env ctx xts1 xts2 =
 and equal_module ~loc env ctx xtes1 xtes2 =
   let rec fold ctx vs xtes1 xtes2 = match xtes1, xtes2 with
     | [], [] ->
-      opt_return ctx
+      Opt.return ctx
     | (l1,x,t1,te1)::xts1, (l2,_,t2,te2)::xts2 ->
       if Name.eq_ident l1 l2
       then
@@ -602,8 +656,8 @@ and equal_module ~loc env ctx xtes1 xtes2 =
         let te2 = Tt.instantiate vs te2 in
         equal env ctx te1 te2 ty >?= fun ctx ->
         fold ctx (te1::vs) xts1 xts2
-      else Value.return None
-    | _::_,[] | [],_::_ -> Value.return None
+      else Opt.fail
+    | _::_,[] | [],_::_ -> Opt.fail
     in
   fold ctx [] xtes1 xtes2
 
@@ -618,7 +672,7 @@ and equal_module ~loc env ctx xtes1 xtes2 =
 
 and pattern_collect env ctx p ~at_ty e =
     Print.debug "collecting %t" (Tt.print_term [] e) ;
-    whnf env ctx e >>= fun (ctx, e) ->
+    whnf env ctx e >!= fun (ctx, e) ->
     pattern_collect_whnf env ctx p ~at_ty e
 
 (* Collect from [e] assuming it is in whnf. *)
@@ -629,17 +683,17 @@ and pattern_collect_whnf env ctx p ~at_ty ({Tt.term=e';loc;_} as e_orig) =
 
   | Pattern.Atom x' ->
     begin match e' with
-    | Tt.Atom x -> if Name.eq_atom x' x then opt_return ([], []) else Value.return None
-    | _ -> Value.return None
+    | Tt.Atom x -> if Name.eq_atom x' x then Opt.return ([], []) else Opt.fail
+    | _ -> Opt.fail
     end
 
   | Pattern.PVar k ->
-    opt_return ([(k, (e_orig, at_ty))], [])
+    Opt.return ([(k, (e_orig, at_ty))], [])
 
   | Pattern.Constant (x, pes) ->
     begin match e' with
       | Tt.Constant (y, es) -> collect_primapp ~loc env ctx x pes y es
-      | _ -> Value.return None
+      | _ -> Opt.fail
     end
 
   | Pattern.Spine (pe, (xts, u), pes) ->
@@ -650,13 +704,13 @@ and pattern_collect_whnf env ctx p ~at_ty ({Tt.term=e';loc;_} as e_orig) =
         | _::_ ->
           Print.debug "found unexpected trailing arguments at %t"
             (Tt.print_term (Environment.used_names env) e_orig);
-          Value.return None
+          Opt.fail
         | [] ->
           Print.debug "no trailing arguments for %t"
             (Tt.print_term (Environment.used_names env) e_orig);
-          opt_return (pvars, checks)
+          Opt.return (pvars, checks)
         end
-      | _ -> Value.return None
+      | _ -> Opt.fail
     end
 
   | Pattern.Eq (pt, pe1, pe2) ->
@@ -665,8 +719,8 @@ and pattern_collect_whnf env ctx p ~at_ty ({Tt.term=e';loc;_} as e_orig) =
         pattern_collect_ty env ctx pt t >?= fun (pvars_t, checks_t) ->
         pattern_collect env ctx pe1 ~at_ty:t e1 >?= fun (pvars_e1, checks_e1) ->
         pattern_collect env ctx pe2 ~at_ty:t e2 >?= fun (pvars_e2, checks_e2) ->
-        opt_return (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
-      | _ -> Value.return None
+        Opt.return (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
+      | _ -> Opt.fail
     end
 
   | Pattern.Refl (pt, pe) ->
@@ -674,24 +728,24 @@ and pattern_collect_whnf env ctx p ~at_ty ({Tt.term=e';loc;_} as e_orig) =
       | Tt.Refl (t, e) ->
         pattern_collect_ty env ctx pt t >?= fun (pvars_t, checks_t) ->
         pattern_collect env ctx pe ~at_ty:t e >?= fun (pvars_e, checks_e) ->
-        opt_return (pvars_t @ pvars_e, checks_t @ checks_e)
-      | _ -> Value.return None
+        Opt.return (pvars_t @ pvars_e, checks_t @ checks_e)
+      | _ -> Opt.fail
     end
 
   | Pattern.Bracket pt ->
     begin match e' with
       | Tt.Bracket t -> pattern_collect_ty env ctx pt t
-      | _ -> Value.return None
+      | _ -> Opt.fail
     end
 
   | Pattern.Term (e',t') ->
-    opt_return ([], [CheckEqualTy ([], (t', at_ty)); CheckEqual (e', e_orig, at_ty)])
+    Opt.return ([], [CheckEqualTy ([], (t', at_ty)); CheckEqual (e', e_orig, at_ty)])
 
 (* Collect from a type. *)
 and pattern_collect_ty env ctx (Pattern.Ty p) (Tt.Ty e) =
   pattern_collect env ctx p ~at_ty:Tt.typ e
 
-(* Collect pattern variables from a spine, and opt_return trailing arguments.
+(* Collect pattern variables from a spine, and Opt.return trailing arguments.
    Also account for nested spines. *)
 and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
 
@@ -714,7 +768,7 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
   in
 
   (* If the pattern spine is longer than the arguments spine the match will fail. *)
-  begin if n1 > n2 then Value.return None else opt_return ()
+  begin if n1 > n2 then Opt.fail else Opt.return ()
   end >?= fun () ->
 
   (* match the heads *)
@@ -740,7 +794,7 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
       let xtvs = (x,(t,v)) :: xtvs in
       let es' = e :: es' in
       fold xtvs es' ((xts, u), pes) pargss ((yvs, w), es) argss >?= fun (pvars, checks, extras) ->
-        opt_return (pvars_e @ pvars, checks_e @ checks, extras)
+        Opt.return (pvars_e @ pvars, checks_e @ checks, extras)
 
     | ((_::_) as xts), ((_::_) as pes), [], [] ->
       begin
@@ -763,26 +817,26 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
 
         let check_uw = CheckEqualTy (xtvs, (u, w_prod)) in
         match pargss with
-        | [] -> opt_return ([], [check_uw], ((yvs, w), es) :: argss)
+        | [] -> Opt.return ([], [check_uw], ((yvs, w), es) :: argss)
         | pargs :: pargss ->
           fold [] [] pargs pargss ((yvs, w), es) argss >?= fun (pvars, checks, extras) ->
-          opt_return (pvars, check_uw :: checks, extras)
+          Opt.return (pvars, check_uw :: checks, extras)
       end
 
     | [], [], [], [] ->
       begin
         let xtvs = List.rev xtvs in
-        (* the opt_return types may still contain variables bound to the arguments
+        (* the Opt.return types may still contain variables bound to the arguments
            of the spine; instantiate them. *)
         let w = Tt.instantiate_ty es' w in
         let u = Tt.instantiate_ty es' u in
 
         let check_uw = CheckEqualTy (xtvs, (u, w)) in
           match pargss, argss with
-            | [], argss -> opt_return ([], [check_uw], argss)
+            | [], argss -> Opt.return ([], [check_uw], argss)
             | pargs::pargss, args::argss ->
               fold [] [] pargs pargss args argss >?= fun (pvars, checks, extras) ->
-                opt_return (pvars, check_uw :: checks, extras)
+                Opt.return (pvars, check_uw :: checks, extras)
             | _::_, [] -> Error.impossible ~loc "invalid spine in pattern match (2)"
       end
 
@@ -792,10 +846,10 @@ and pattern_collect_spine ~loc env ctx (pe, xtsu, pes) (e, yvsw, es) =
       Error.impossible ~loc "invalid spine encountered in pattern collection"
   in
   fold [] [] pargs pargss args argss >?= fun (pvars, checks, extras) ->
-    opt_return (pvars_head @ pvars, checks_head @ checks, extras)
+    Opt.return (pvars_head @ pvars, checks_head @ checks, extras)
 
 (** Collect values of pattern variables by matching a beta
-    pattern [bp] against whnf expression [e]. Also opt_return the residual
+    pattern [bp] against whnf expression [e]. Also Opt.return the residual
     equations that remain to be checked, and the unused
     arguments. *)
 and collect_for_beta env ctx bp {Tt.term=e';loc;_} =
@@ -803,22 +857,22 @@ and collect_for_beta env ctx bp {Tt.term=e';loc;_} =
 
   | Pattern.BetaAtom x, Tt.Atom y ->
     if Name.eq_atom x y
-    then opt_return ([], [], [])
-    else Value.return None
+    then Opt.return ([], [], [])
+    else Opt.fail
 
   | Pattern.BetaAtom x, Tt.Spine (e, yts, es) ->
     let rec fold args {Tt.term=e';_} yts es =
       match e' with
         | Tt.Atom y ->
           if Name.eq_atom x y
-          then opt_return ((yts, es) :: args)
-          else Value.return None
+          then Opt.return ((yts, es) :: args)
+          else Opt.fail
         | Tt.Spine (e', yts', es') ->
           fold ((yts, es) :: args) e' yts' es'
-        | _ -> Value.return None    (* XXX remove catch-all *)
+        | _ -> Opt.fail    (* XXX remove catch-all *)
     in
     fold [] e yts es >?= fun extras ->
-    opt_return ([], [], extras)
+    Opt.return ([], [], extras)
 
   | Pattern.BetaConstant (x, pes), Tt.Spine (e, yts, es) ->
     Print.debug "collect_beta for %t" (Name.print_ident x) ;
@@ -827,28 +881,28 @@ and collect_for_beta env ctx bp {Tt.term=e';loc;_} =
         | Tt.Constant (y, es') ->
            let extras = (yts, es) :: extras in
            let extras = List.rev extras in
-           opt_return (y, es', extras)
+           Opt.return (y, es', extras)
         | Tt.Spine (e', yts', es') -> fold ((yts, es) :: extras) e' yts' es'
-        | _ -> Value.return None
+        | _ -> Opt.fail
     in
     fold [] e yts es >?= fun (y, es, extras) ->
     collect_primapp ~loc env ctx x pes y es >?= fun (pvars, checks) ->
     Print.debug "collect_beta for %t WORKED" (Name.print_ident x) ;
-    opt_return (pvars, checks, extras)
+    Opt.return (pvars, checks, extras)
 
   | Pattern.BetaConstant (x, pes), Tt.Constant (y, es) ->
      collect_primapp ~loc env ctx x pes y es >?= fun (pvars, checks) ->
-     opt_return (pvars, checks, [])
+     Opt.return (pvars, checks, [])
 
   | Pattern.BetaSpine (pe, xts, pes), Tt.Spine (e, yts, es) ->
     pattern_collect_spine ~loc env ctx (pe, xts, pes) (e, yts, es)
 
   | (Pattern.BetaAtom _ | Pattern.BetaSpine _ | Pattern.BetaConstant _), _ ->
-    Value.return None
+    Opt.fail
 
 and collect_primapp ~loc env ctx x pes y es =
   if not (Name.eq_ident x y)
-  then Value.return None
+  then Opt.fail
   else begin
     let yts, _ =
       begin match Environment.lookup_constant x env with
@@ -857,7 +911,7 @@ and collect_primapp ~loc env ctx x pes y es =
       end in
     let rec fold es' yts pes es =
       match yts, pes, es with
-      | [], [], [] -> opt_return ([], [])
+      | [], [], [] -> Opt.return ([], [])
 
       | (y,(reducing,t))::yts, pe::pes, e::es ->
           begin
@@ -867,7 +921,7 @@ and collect_primapp ~loc env ctx x pes y es =
             else pattern_collect      env ctx pe ~at_ty:t e
           end >?= fun (pvars_e, checks_e) ->
          fold (e::es') yts pes es >?= fun (pvars,checks) ->
-         opt_return (pvars_e @ pvars, checks_e @ checks)
+         Opt.return (pvars_e @ pvars, checks_e @ checks)
 
       | _, _, _ ->
          Error.impossible ~loc "malformed primitive applications in pattern_collect"
@@ -880,13 +934,13 @@ and collect_primapp ~loc env ctx x pes y es =
   where we compare a type and two terms. *)
 and collect_for_eta env ctx (pt, k1, k2) (t, e1, e2) =
   pattern_collect_ty env ctx pt t >?= fun (pvars_t,  checks_t) ->
-    opt_return ((k1,(e1,t)) :: (k2,(e2,t)) :: pvars_t, checks_t)
+    Opt.return ((k1,(e1,t)) :: (k2,(e2,t)) :: pvars_t, checks_t)
 
 and collect_for_hint env ctx (pt, pe1, pe2) (t, e1, e2) =
   pattern_collect_ty env ctx pt t >?= fun (pvars_t, checks_t) ->
   pattern_collect env ctx pe1 ~at_ty:t e1 >?= fun (pvars_e1, checks_e1) ->
   pattern_collect env ctx pe2 ~at_ty:t e2  >?= fun (pvars_e2, checks_e2) ->
-  opt_return (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
+  Opt.return (pvars_t @ pvars_e1 @ pvars_e2, checks_t @ checks_e1 @ checks_e2)
 
 and collect_for_inhabit env ctx pt t =
   pattern_collect_ty env ctx pt t
@@ -915,12 +969,12 @@ and verify_match ~spawn env ctx xts pvars checks =
      pattern variables to their values. As you go, check that
      the types of pattern variables are equal to the ones found
      by the pattern match. If an unbound variable is encountered
-     try to inhabit it when [spawn] is [true]. opt_return a list of
+     try to inhabit it when [spawn] is [true]. Opt.return a list of
      inhabitation problems that need to be checked later for this
      match to be successful. *)
   let rec subst_of_pvars env ctx pvars k xts es inhs =
     match xts with
-    | [] -> opt_return (ctx, es, inhs)
+    | [] -> Opt.return (ctx, es, inhs)
     | (_,t) :: xts ->
       begin match lookup k pvars with
 
@@ -934,7 +988,7 @@ and verify_match ~spawn env ctx xts pvars checks =
 
         | None ->
           if not spawn
-          then Value.return None (* we are not supposed to instantiate missing variables *)
+          then Opt.fail (* we are not supposed to instantiate missing variables *)
           else begin
             (* Try to inhabit the type [t]. Actually, we first calculate the
                only possible candidate, and redo the check later when we actually
@@ -973,11 +1027,11 @@ and verify_match ~spawn env ctx xts pvars checks =
           Print.debug "%d es: %t" debug_i
             (Print.sequence (Tt.print_term ~max_level:0 []) "; " es);
 
-          Print.debug "%d instantiated pattern opt_return type@ %t@ as@ %t" debug_i
+          Print.debug "%d instantiated pattern Opt.return type@ %t@ as@ %t" debug_i
             (Tt.print_ty [] t1)
             (Tt.print_ty [] t1') ;
 
-          Print.debug "%d instantiated rhs-term opt_return type@ %t@ as@ %t" debug_i
+          Print.debug "%d instantiated rhs-term Opt.return type@ %t@ as@ %t" debug_i
             (Tt.print_ty [] t2)
             (Tt.print_ty [] t2') ;
 
@@ -985,24 +1039,24 @@ and verify_match ~spawn env ctx xts pvars checks =
             (Tt.print_ty [] t1')
             (Tt.print_ty [] t2');
           equal_abstracted_ty env ctx xuvs t1' t2')
-    (opt_return ctx)
+    (Opt.return ctx)
     checks >?= fun ctx ->
   (* Perform delayed inhabitation goals *)
   (* XXX why is it safe to delay these? *)
   List.fold_left
     (fun mctx (env, t) -> mctx >?= fun ctx ->
        inhabit ~subgoals:true env ctx t >?= fun (ctx,_) ->
-       opt_return ctx)
-     (opt_return ctx)
+       Opt.return ctx)
+     (Opt.return ctx)
      inhs >?= fun ctx ->
   (* match succeeded *)
   Print.debug "succeeded %d)" debug_i ;
-  opt_return (ctx, es)
+  Opt.return (ctx, es)
 
 and as_bracket env (ctx, t) =
   whnf_ty env ctx t >>= fun (ctxt, Tt.Ty {Tt.term=t';loc;_}) ->
   match t' with
-  | Tt.Bracket t -> Value.return (ctxt, t)
+  | Tt.Bracket t -> Monad.return (ctxt, t)
   | _ -> Error.typing ~loc "[] has a bracket type and not %t" (Tt.print_ty (Environment.used_names env) t)
 
 (** Strip brackets from a given type. *)
@@ -1010,13 +1064,13 @@ and strip_bracket env ctx t =
   whnf_ty env ctx t >>= fun (ctx, Tt.Ty {Tt.term=t';loc;_}) ->
   match t' with
   | Tt.Bracket t -> strip_bracket env ctx t
-  | _ ->  Value.return (ctx, t) (* XXX or should be opt_return the whnf t? *)
+  | _ ->  Monad.return (ctx, t) (* XXX or should be Opt.return the whnf t? *)
 
 (** Try to inhabit the given type [t], which must be proof-irrelevant.
     If [subgoals] is [true] then recursively resolve goals, otherwise
-    just opt_return the only possible inhabitant of [t]. *)
+    just Opt.return the only possible inhabitant of [t]. *)
 and inhabit ~subgoals env ctx t =
-  whnf_ty env ctx t >>= fun (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) ->
+  whnf_ty env ctx t >!= fun (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) ->
   inhabit_whnf ~subgoals env ctx t
 
 and inhabit_whnf ~subgoals env ctx ((Tt.Ty {Tt.term=t';loc;_}) as t) =
@@ -1025,33 +1079,33 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty {Tt.term=t';loc;_}) as t) =
   match t' with
 
     | Tt.Prod (xts', t') ->
-      let rec fold env ys ts = function
+      let rec fold env ctx ys ts = function
         | [] ->
           let t' = Tt.unabstract_ty ys t' in
           inhabit ~subgoals env ctx t' >?= fun (ctx,e) ->
           let e = Tt.abstract ys e in
           let e = Tt.mk_lambda ~loc xts' e t' in
           let ctx = Context.abstract ~loc ctx ys ts in
-          opt_return (ctx, e)
+          Opt.return (ctx, e)
         | (x,t)::xts ->
           let t = Tt.unabstract_ty ys t in
           let jt = Judgement.mk_ty ctx t in
-          let y, env = Environment.add_fresh ~loc env x jt in
-          fold env (y :: ys) (t::ts) xts
+          let ctx, y, env = Environment.add_fresh ~loc env x jt in
+          fold env ctx (y :: ys) (t::ts) xts
       in
-        fold env [] [] xts'
+        fold env ctx [] [] xts'
 
     | Tt.Eq (t, e1, e2) ->
        if not subgoals
        then
-         (* Do not create new subgoals, just opt_return the only
+         (* Do not create new subgoals, just Opt.return the only
             possible candidate for inhabitation. *)
          let e = Tt.mk_refl ~loc t e1 in
-         opt_return (ctx, e)
+         Opt.return (ctx, e)
        else
          equal env ctx e1 e2 t >?= fun ctx ->
            let e = Tt.mk_refl ~loc t e1 in
-           opt_return (ctx, e)
+           Opt.return (ctx, e)
 
     | Tt.Bracket t ->
        let jt = Judgement.mk_ty ctx t in
@@ -1067,29 +1121,31 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty {Tt.term=t';loc;_}) as t) =
     | Tt.Signature _
     | Tt.Structure _
     | Tt.Projection _
-    | Tt.Type -> Value.return None
+    | Tt.Type -> Opt.fail
 
 and inhabit_bracket ~subgoals ~loc env (ctx, t_inhabit) =
   if not subgoals then
-    opt_return (ctx, Tt.mk_inhab ~loc t_inhabit)
+    Opt.return (ctx, Tt.mk_inhab ~loc t_inhabit)
   else
     (* apply inhabit hints *)
-    strip_bracket env ctx t_inhabit >>= fun (ctx, t) ->
+    strip_bracket env ctx t_inhabit >!= fun (ctx, t) ->
     let key = Pattern.ty_key t in
     let rec fold = function
-      | [] -> Value.return None
-      | ((ctxh, (xts, pt)) as h) :: hs ->
+      | [] -> Opt.fail
+      | ((ctxh, hyps, (xts, pt)) as h) :: hs ->
          Print.debug "attempting to inhabit@ %t using@ %t"
                      (Tt.print_ty [] t) (Pattern.print_inhabit_hint [] h) ;
          (* XXX Here a failed join need not be fatal, we could catch and continue
             with the remaining hints *)
          let ctx = Context.join ctx ctxh in
-         begin collect_for_inhabit env ctx pt t >>= function
+         collect_for_inhabit env ctx pt t >??= begin function
          | None -> fold hs
          | Some (pvars, checks) ->
             (* check validity of the match *)
-            begin verify_match ~spawn:true env ctx xts pvars checks >>= function
-                  | Some (ctx, _) -> opt_return (ctx, Tt.mk_inhab ~loc t_inhabit)
+            verify_match ~spawn:true env ctx xts pvars checks >??= begin function
+                  | Some (ctx, _) ->
+                    Monad.add_hyps hyps >!= fun () ->
+                    Opt.return (ctx, Tt.mk_inhab ~loc t_inhabit)
                   | None -> fold hs
             end
          end
@@ -1098,7 +1154,7 @@ and inhabit_bracket ~subgoals ~loc env (ctx, t_inhabit) =
 let as_atom env (ctx, e', t)  =
   whnf env ctx e' >>= fun (ctx, {Tt.term=e';loc;_}) ->
   match e' with
-  | Tt.Atom x -> Value.return (ctx, x, t)
+  | Tt.Atom x -> Monad.return (ctx, x, t)
   | Tt.Prod _ | Tt.Type | Tt.Eq _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
   | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
@@ -1112,37 +1168,37 @@ let rec deep_prod env ctx t f =
 
   | Tt.Prod ((_ :: _) as xus, w) ->
 
-     let rec fold env ys ts zvs =
+     let rec fold env ctx ys ts zvs =
        begin match zvs with
        | [] ->
           let w = Tt.unabstract_ty ys w in
           deep_prod env ctx w f >>= fun (ctx, (zvs, w)) ->
           let (zvs, w) = Tt.abstract_ty_abstraction Tt.abstract_ty ys (zvs, w) in
           let ctx = Context.abstract ~loc ctx ys ts in
-          Value.return (ctx, (xus @ zvs, w))
+          Monad.return (ctx, (xus @ zvs, w))
 
        | (z,v) :: zvs ->
           let v = Tt.unabstract_ty ys v in
           let jv = Judgement.mk_ty ctx v in
-          let y, env = Environment.add_fresh ~loc env z jv in
-          fold env (y :: ys) (v::ts) zvs
+          let ctx, y, env = Environment.add_fresh ~loc env z jv in
+          fold env ctx (y :: ys) (v::ts) zvs
        end in
 
-     fold env [] [] xus
+     fold env ctx [] [] xus
 
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
   | Tt.Spine _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
      f env ctx (Tt.ty t) >>= fun (ctx,t) ->
-     Value.return (ctx, ([], t))
+     Monad.return (ctx, ([], t))
 
-let as_prod env (ctx, t) = deep_prod env ctx t (fun env ctx x -> Value.return (ctx, x))
+let as_prod env (ctx, t) = deep_prod env ctx t (fun env ctx x -> Monad.return (ctx, x))
 
 let as_eq env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
   whnf_ty env ctx t >>= fun (ctx, Tt.Ty {Tt.term=t';_}) ->
   match t' with
 
-  | Tt.Eq (t, e1, e2) -> Value.return (ctx, t, e1, e2)
+  | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
 
   | Tt.Prod _ | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
   | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
@@ -1157,7 +1213,7 @@ let as_universal_eq env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
   match t' with
 
   | Tt.Eq (t, e1, e2) ->
-     Value.return (ctx, (xus, (t, e1, e2)))
+     Monad.return (ctx, (xus, (t, e1, e2)))
 
   | Tt.Prod _ -> Error.impossible ~loc "product encountered in as_universal_eq"
 
@@ -1181,13 +1237,13 @@ let as_universal_bracket env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
      | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
      | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _
      | Tt.Signature _ | Tt.Structure _ | Tt.Projection _
-     | Tt.Eq _ -> Value.return (ctx, t))
+     | Tt.Eq _ -> Monad.return (ctx, t))
 
 
 let as_signature env (ctx, t) =
   whnf_ty env ctx t >>= fun (ctxt, Tt.Ty {Tt.term=t';loc;_}) ->
   match t' with
-    | Tt.Signature xts -> Value.return (ctxt, xts)
+    | Tt.Signature xts -> Monad.return (ctxt, xts)
     | _ -> Error.typing ~loc
       "this expressing should be a signature, found@ %t"
       (Tt.print_ty [] t)

@@ -117,6 +117,8 @@ val ty : term -> ty
 (** The type Type *)
 val typ : ty
 
+val mention_atoms : Name.AtomSet.t -> term -> term
+
 val mention : Assumption.t -> term -> term
 
 (** [instantiate [e0,...,e{n-1}] k e] replaces bound variables indexed by [k, ..., k+n-1]

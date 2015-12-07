@@ -27,8 +27,8 @@ let as_handler ~loc v =
   Value.return e
 
 (** A helper function to install a beta hint for an atom. *)
-let add_beta ~loc z ctx e t env  =
-  let hint_key = Hint.mk_beta ~loc env ctx ([], (t, Tt.mk_atom ~loc z, e))  in
+let add_beta ~loc z ctx hyps e t env  =
+  let hint_key = Hint.mk_beta ~loc env ctx hyps ([], (t, Tt.mk_atom ~loc z, e))  in
   Environment.add_beta hint_key env
 
 (** Evaluate a computation -- infer mode. *)
@@ -122,13 +122,13 @@ let rec infer env (c',loc) =
 
   | Syntax.Assume ((x, t), c) ->
      check_ty env t >>= fun t ->
-     (* XXX what should happen with y? *)
-     let y, env = Environment.add_fresh ~loc env x t in
+     let _, _ , env = Environment.add_fresh ~loc env x t in
      infer env c
 
   | Syntax.Where (c1, c2, c3) ->
-    infer env c2 >>= as_term ~loc >>=
-    Equal.as_atom env >>= fun (ctxa, a, ta) ->
+    infer env c2 >>= as_term ~loc >>= fun j ->
+    (* NB: we do not care why c2 normalises to an atom, only that it does *)
+    Equal.Monad.run (Equal.as_atom env j) >>= fun ((ctxa, a, ta),_) ->
     infer env c1 >>= as_term ~loc >>= fun (ctx, e1, t1) ->
     let ctx = Context.join ctxa ctx in
     check env c3 (ctx, ta) >>= fun (ctx, e2) ->
@@ -170,9 +170,9 @@ let rec infer env (c',loc) =
 
   | Syntax.Whnf c ->
     infer env c >>= as_term ~loc >>= fun (ctx, e, t) ->
-    Equal.whnf_ty env ctx t >>= fun (ctx,t) ->
-    Equal.whnf env ctx e >>= fun (ctx,e) ->
-    let j = Judgement.mk_term ctx e t in
+    Equal.Monad.run (Equal.whnf_ty env ctx t) >>= fun ((ctx,t),hyps) ->
+    Equal.Monad.run (Equal.whnf env ctx e) >>= fun ((ctx,e),_) ->
+    let j = Judgement.mk_term ctx (Tt.mention_atoms hyps e) t in
     Value.return_term j
 
   | Syntax.External s ->
@@ -215,7 +215,10 @@ let rec infer env (c',loc) =
         let t = Tt.instantiate_ty es t in
         let jt = Judgement.mk_ty ctx t in
         check env c jt >>= fun (ctx, e) ->
-        (if reducing then Equal.whnf env ctx e else Value.return (ctx, e)) >>= fun (ctx,e) ->
+        (* TODO why are we doing this here? *)
+        (if reducing
+          then Equal.Monad.run (Equal.whnf env ctx e)
+          else Value.return ((ctx, e), Name.AtomSet.empty)) >>= fun ((ctx,e),_) ->
         fold ctx (e :: es) yts cs
 
       | _::_, [] ->
@@ -296,7 +299,7 @@ let rec infer env (c',loc) =
         Value.return_term j
       | (lbl,x,c) :: rem ->
         check_ty env c >>= fun ((ctxt,t) as jt) ->
-        let y, env = Environment.add_fresh ~loc env x jt in
+        let _, y, env = Environment.add_fresh ~loc env x jt in
         let tabs = Tt.abstract_ty ys t in
         fold env ctx (y :: ys) (t::ts) ((lbl, x, tabs) :: xts) rem
       in
@@ -316,7 +319,7 @@ let rec infer env (c',loc) =
         let jty = Judgement.mk_ty ctx ty in
         let tabs = Tt.abstract_ty ys ty in
         let te = Tt.abstract ys te in
-        let y, env = Environment.add_fresh ~loc env x jty in
+        let _, y, env = Environment.add_fresh ~loc env x jty in
         fold env ctx (y::ys) (ty::ts) ((lbl,x,tabs,te)::xtes) rem
       in
     fold env Context.empty [] [] [] xcs
@@ -324,7 +327,8 @@ let rec infer env (c',loc) =
   | Syntax.Projection (c,p) ->
     infer env c >>= as_term ~loc >>= fun (ctx,te,ty) ->
     let jty = Judgement.mk_ty ctx ty in
-    Equal.as_signature env jty >>= fun (ctx,xts) ->
+    Equal.Monad.run (Equal.as_signature env jty) >>= fun ((ctx,xts),hyps) ->
+    let te = Tt.mention_atoms hyps te in
     let ty = Tt.field_type ~loc xts te p in
     let te = Tt.mk_projection ~loc te xts p in
     let j = Judgement.mk_term ctx te ty in
@@ -337,12 +341,15 @@ let rec infer env (c',loc) =
     end
 
 and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
-                  (f : Context.t -> 'a Value.result) error : 'a Value.result =
+                  (f : Context.t -> Name.AtomSet.t -> 'a Value.result) error : 'a Value.result =
   (let ctx = Context.join lctx rctx in
-    Equal.equal_ty env ctx lty rty >>= function
-      | Some ctx -> Equal.equal env ctx lte rte lty
+    Equal.Opt.run (Equal.equal_ty env ctx lty rty) >>= function
+      | Some (ctx,hyps) -> Equal.Opt.run (Equal.equal env ctx lte rte lty) >>= begin function
+        | Some (ctx,hyps') -> Value.return (Some (ctx,Name.AtomSet.union hyps hyps'))
+        | None -> Value.return None
+        end
       | None -> Value.return None) >>= function
-  | Some ctx -> f ctx
+  | Some (ctx,hyps) -> f ctx hyps
   | None ->
     let lval = Value.Term ljdg in
     let rval = Value.Term rjdg in
@@ -357,7 +364,8 @@ and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
           if Tt.alpha_equal_ty teq tgoal
           then
             let ctx = Context.join ctxeq (Context.join lctx rctx) in (* user may have done something surprising somehow *)
-            f ctx
+            let hyps = Tt.assumptions_term eq in
+            f ctx hyps
           else
             Error.typing ~loc:(eq.Tt.loc) "this expression should have type@ %t@ but has type@ %t"
                          (print_ty env tgoal) (print_ty env teq)
@@ -367,8 +375,7 @@ and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
     in
     Value.Operation ("equal", opval, k)
 
-and require_equal_ty ~loc env (lctx,Tt.Ty lte) (rctx,Tt.Ty rte)
-                     (f : Context.t -> 'a Value.result) error : 'a Value.result =
+and require_equal_ty ~loc env (lctx,Tt.Ty lte) (rctx,Tt.Ty rte) f error : 'a Value.result =
   require_equal ~loc env (lctx,lte,Tt.mk_type_ty ~loc:(lte.Tt.loc))
                          (rctx,rte,Tt.mk_type_ty ~loc:(rte.Tt.loc))
                          f error
@@ -399,7 +406,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
         that don't have a "check-foo" rule *)
 
     infer env c >>= as_term ~loc >>= fun (ctxe, e, t') ->
-    let k ctx = Value.return (ctx, e) in
+    let k ctx hyps = Value.return (ctx, Tt.mention_atoms hyps e) in
     require_equal_ty ~loc env t_check (ctxe,t') k
       (fun () -> Error.typing ~loc:(e.Tt.loc)
                               "this expression should have type@ %t@ but has type@ %t"
@@ -409,7 +416,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
      infer env c >>= fun ve ->
      let k v =
        let (ctxe, e', t') = Value.as_term ~loc v in
-       let k ctx = Value.return (ctx, e') in
+       let k ctx hyps = Value.return (ctx, Tt.mention_atoms hyps e') in
        require_equal_ty ~loc env t_check (ctxe,t') k
          (fun () -> Error.typing ~loc:(e'.Tt.loc)
                                  "this expression should have type@ %t@ but has type@ %t"
@@ -422,8 +429,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
 
   | Syntax.Assume ((x, t), c) ->
      check_ty env t >>= fun t ->
-     (* XXX what should happen with y? *)
-     let y, env = Environment.add_fresh ~loc env x t in
+     let _,_,env = Environment.add_fresh ~loc env x t in
      check env c t_check
 
   | Syntax.Beta (xscs, c) ->
@@ -444,14 +450,15 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
 
   | Syntax.Whnf c ->
     check env c t_check >>= fun (ctx, e) ->
-    Equal.whnf env ctx e >>= fun (ctx,e) ->
+    Equal.Monad.run (Equal.whnf env ctx e) >>= fun ((ctx,e),_) ->
     Value.return (ctx, e)
 
   | Syntax.Ascribe (c1, c2) ->
      check_ty env c2 >>= fun (ctx',t') ->
-     let k ctx =
+     let k ctx hyps =
        let jt = Judgement.mk_ty ctx t' in
-       check env c1 jt
+       check env c1 jt >>= fun (ctx,e) ->
+       Value.return (ctx,Tt.mention_atoms hyps e)
      in
      require_equal_ty ~loc env t_check (ctx',t') k
        (fun () -> Error.typing ~loc:(snd c2)
@@ -462,12 +469,16 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
     check_lambda env ~loc t_check abs c
 
   | Syntax.Refl c ->
-    Equal.as_eq env t_check >>= fun (ctx, t', e1, e2) ->
+    Equal.Monad.run (Equal.as_eq env t_check) >>= fun ((ctx, t', e1, e2),hyps) ->
     let t = Judgement.mk_ty ctx t' in
     check env c t >>= fun (ctx, e) ->
-    let k1 ctx =
-      let k2 ctx =
-        Value.return (ctx, Tt.mk_refl ~loc t' e)
+    let k1 ctx hyps1 =
+      let k2 ctx hyps2 =
+        let e = Tt.mk_refl ~loc t' e in
+        let e = Tt.mention_atoms hyps e in
+        let e = Tt.mention_atoms hyps1 e in
+        let e = Tt.mention_atoms hyps2 e in
+        Value.return (ctx, e)
       in
       require_equal ~loc env (ctx,e,t') (ctx,e2,t') k2
         (fun () -> Error.typing ~loc
@@ -480,23 +491,27 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
                              (print_term env e) (print_term env e1))
 
   | Syntax.Inhab ->
-     Equal.as_bracket env t_check >>= fun (ctx,t') ->
+     Equal.Monad.run (Equal.as_bracket env t_check) >>= fun ((ctx,t'),hyps) ->
      let t = Judgement.mk_ty ctx t' in
-     Equal.inhabit_bracket ~subgoals:true ~loc env t >>=
+     Equal.Opt.run (Equal.inhabit_bracket ~subgoals:true ~loc env t) >>=
        begin function
-         | Some (ctx,_) ->
-            Value.return (ctx, Tt.mk_inhab ~loc t')
+         | Some ((ctx,_),hyps') ->
+            let e = Tt.mk_inhab ~loc t' in
+            let e = Tt.mention_atoms hyps e in
+            let e = Tt.mention_atoms hyps' e in
+            Value.return (ctx, e)
          | None -> Error.typing ~loc "do not know how to inhabit %t"
                                 (print_ty env t')
        end
 
   | Syntax.Structure xcs ->
+     Equal.Monad.run (Equal.as_signature env t_check) >>= fun ((ctx, yts),hyps) ->
      let rec fold env ctx zs ts xtes = function
        | [], [] ->
           let xtes = List.rev xtes in
           let ctx = Context.abstract ~loc ctx zs ts in
           let str = Tt.mk_structure ~loc xtes in
-          Value.return (ctx, str)
+          Value.return (ctx, Tt.mention_atoms hyps str)
 
        | (lbl1, x, c) :: xcs, (lbl2, y, ty) :: yts ->
           if not (Name.eq_label lbl1 lbl2)
@@ -507,15 +522,15 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             let ty_inst = Tt.unabstract_ty zs ty in
             let jty = Judgement.mk_ty ctx ty_inst in
             check env c jty >>= fun (ctx, e) ->
-            let z, env = Environment.add_fresh ~loc env y jty in
-            let env = add_beta ~loc z ctx e ty_inst env in
+            let ctxz, z, env = Environment.add_fresh ~loc env y jty in
+            let hyps = Name.AtomSet.add z (Tt.assumptions_term e) in
+            let env = add_beta ~loc z ctxz hyps e ty_inst env in
             let e = Tt.abstract zs e in
             fold env ctx (z::zs) (ty_inst::ts) ((lbl1,y,ty,e) :: xtes) (xcs, yts)
               
        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
        | [], _::_ -> Error.typing ~loc "this structure has too few fields"
      in
-     Equal.as_signature env t_check >>= fun (ctx, yts) ->
      fold env ctx [] [] [] (xcs, yts)
 
 
@@ -560,7 +575,7 @@ and infer_lambda env ~loc xus c =
       | (x, Some c) :: xus ->
          check_ty env c >>= fun ((ctxu, u') as u) ->
          (* XXX equip x with location and use for [~loc]. *)
-         let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
+         let _, z, env = Environment.add_fresh ~loc:Location.unknown env x u in
          let w' = Tt.abstract_ty zs u' in
          fold env ctx (z :: zs) (u'::ts) ((x, w') :: xws) xus
   in
@@ -581,7 +596,7 @@ and infer_prod env ~loc xus c =
       | (x, c) :: xus ->
         check_ty env c >>= fun ((ctxu, u') as u) ->
         (* XXX equip x with location and use for [~loc]. *)
-        let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
+        let _, z, env = Environment.add_fresh ~loc:Location.unknown env x u in
         let w' = Tt.abstract_ty zs u' in
         fold env ctx (z :: zs) (u'::ts) ((x, w') :: xws) xus
   in
@@ -608,7 +623,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
          [spine], same for other [as_*] functions  *)
 
       infer_lambda env ~loc abs body >>= fun (ctxe, e, t') ->
-      let k ctx = Value.return (ctx, e) in
+      let k ctx hyps = Value.return (ctx, Tt.mention_atoms hyps e) in
       require_equal_ty ~loc env t_check (ctxe,t') k
         (fun () -> Error.typing ~loc
                                 "this expression is an abstraction but should have type %t"
@@ -616,15 +631,16 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
     end
   else (* not all_tagged *)
     begin
-      (Equal.as_prod env t_check >>= function
-        | (_, (_::_, _)) as ctx_xtst -> Value.return ctx_xtst
-        | (_, ([], _)) -> Error.typing ~loc "this type %t should be a product" (print_ty env t_check')
-      ) >>= fun (ctx, (zus, t_body)) ->
+      (Equal.Monad.run (Equal.as_prod env t_check) >>= function
+        | ((_, (_::_, _)),_) as ctx_xtst -> Value.return ctx_xtst
+        | ((_, ([], _)),_) -> Error.typing ~loc "this type %t should be a product" (print_ty env t_check')
+      ) >>= fun ((ctx, (zus, t_body)),hyps) ->
 
       (** [ys] are what got added to the environment, [xts] are what should be
           used to check the body, [abs] comes from the binder, [zus] come from
-          the type [t] we're checking against *)
-      let rec fold env ctx ys ts xts abs zus =
+          the type [t] we're checking against, [hyps] ensure that previous
+          [abs] and [zus] are equal *)
+      let rec fold env ctx hyps ys ts xts abs zus =
 
         let finally t_body =
           let t_body' = Tt.unabstract_ty ys t_body in
@@ -632,8 +648,9 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
           check env body j_t_body' >>= fun (ctx, e) ->
           let e = Tt.abstract ys e in
           let ctx = Context.abstract ~loc ctx ys ts in
+          let hyps = List.fold_left (fun hyps y -> Name.AtomSet.remove y hyps) hyps ys in
           let xts = List.rev xts in
-          Value.return (ctx, Tt.mk_lambda ~loc xts e t_body)
+          Value.return (ctx, Tt.mention_atoms hyps (Tt.mk_lambda ~loc xts e t_body))
         in
 
         match abs, zus with
@@ -641,20 +658,20 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
 
           let u = Tt.unabstract_ty ys u in
 
-          let k ctx t' =
+          let k ctx hyps' t' =
             let t = Judgement.mk_ty ctx t' in
-            let y, env = Environment.add_fresh ~loc env x t in
+            let _, y, env = Environment.add_fresh ~loc env x t in
             let tabs = Tt.abstract_ty ys t' in
-            fold env ctx (y::ys) (t'::ts) ((x,tabs)::xts) abs zus in
+            fold env ctx (Name.AtomSet.union hyps hyps') (y::ys) (t'::ts) ((x,tabs)::xts) abs zus in
 
           begin match t with
             | None -> Print.debug "untagged variable %t in lambda, using %t as type"
                         (Name.print_ident x) (print_ty env u);
-               k ctx u
+               k ctx Name.AtomSet.empty u
 
             | Some c ->
                check_ty env c >>= fun (ctxt, t') ->
-               require_equal_ty ~loc env (ctxt,t') (ctx,u) (fun ctx -> k ctx t')
+               require_equal_ty ~loc env (ctxt,t') (ctx,u) (fun ctx hyps -> k ctx hyps t')
                  (fun () -> Error.typing ~loc
                                          "in this lambda, the variable %t should have a type@ %t\nFound type@ %t"
                                          (Name.print_ident x)
@@ -671,7 +688,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
                         "tried to check against a type with a too short abstraction@ %t"
                         (print_ty env t_check')
       in
-      fold env ctx_check [] [] [] abs zus
+      fold env ctx_check hyps [] [] [] abs zus
     end (* not all_tagged *)
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
@@ -679,12 +696,13 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
     a spine from [e], [xeus] and [u], and the type of the resulting expression
     is [v].
   *)
-and spine ~loc env ((ctx_head, e_head, t_head) as j_head) cs =
-  begin Equal.as_prod env (Judgement.typeof j_head) >>= function
-    | (_, (_::_, _)) as ctx_xtst -> Value.return ctx_xtst
-    | (_, ([], _)) ->
+and spine ~loc env ((_, e_head, t_head) as j_head) cs =
+  Equal.Monad.run (Equal.as_prod env (Judgement.typeof j_head)) >>= begin function
+    | ((_, (_::_, _)),_) as ctx_xtst -> Value.return ctx_xtst
+    | ((_, ([], _)),_) ->
        Error.typing ~loc "this expression is applied but its type is not a product"
-  end >>= fun (ctx, (xts, t_result)) ->
+  end >>= fun ((ctx, (xts, t_result)),hyps) ->
+  let e_head = Tt.mention_atoms hyps e_head in
   let rec fold es xus ctx xts cs =
   match xts, cs with
   | xts, [] ->
@@ -721,10 +739,11 @@ and let_bind env xcs =
 and beta_bind env xscs =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-      infer env c >>= as_term ~loc:(snd c) >>= fun je ->
+      infer env c >>= as_term ~loc:(snd c) >>= fun ((_,e,_) as je) ->
       let t = Judgement.typeof je in
-      Equal.as_universal_eq env t >>= fun (ctx, (xts, (t, e1, e2))) ->
-      let h = Hint.mk_beta ~loc env ctx (xts, (t, e1, e2)) in
+      Equal.Monad.run (Equal.as_universal_eq env t) >>= fun ((ctx, (xts, (t, e1, e2))),hyps) ->
+      let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
+      let h = Hint.mk_beta ~loc env ctx hyps (xts, (t, e1, e2)) in
       fold ((xs, h) :: xshs) xscs
     | [] ->
        let env = Environment.add_betas xshs env in
@@ -737,10 +756,11 @@ and beta_bind env xscs =
 and eta_bind env xscs =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-      infer env c >>= as_term ~loc:(snd c) >>= fun j ->
+      infer env c >>= as_term ~loc:(snd c) >>= fun ((_,e,_) as j) ->
       let jt = Judgement.typeof j in
-      Equal.as_universal_eq env jt >>= fun (ctx, (xts, (t, e1, e2))) ->
-      let h = Hint.mk_eta ~loc env ctx (xts, (t, e1, e2)) in
+      Equal.Monad.run (Equal.as_universal_eq env jt) >>= fun ((ctx, (xts, (t, e1, e2))),hyps) ->
+      let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
+      let h = Hint.mk_eta ~loc env ctx hyps (xts, (t, e1, e2)) in
       fold ((xs, h) :: xshs) xscs
     | [] -> let env = Environment.add_etas xshs env in
       Print.debug "Installed eta hints@ %t" (Print.sequence (fun (tags, (_, h)) ppf ->
@@ -752,10 +772,11 @@ and eta_bind env xscs =
 and hint_bind env xscs =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-      infer env c >>= as_term ~loc:(snd c) >>= fun j ->
+      infer env c >>= as_term ~loc:(snd c) >>= fun ((_,e,_) as j) ->
       let jt = Judgement.typeof j in
-      Equal.as_universal_eq env jt >>= fun (ctx, (xts, (t, e1, e2))) ->
-      let h = Hint.mk_general ~loc env ctx (xts, (t, e1, e2)) in
+      Equal.Monad.run (Equal.as_universal_eq env jt) >>= fun ((ctx, (xts, (t, e1, e2))),hyps) ->
+      let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
+      let h = Hint.mk_general ~loc env ctx hyps (xts, (t, e1, e2)) in
       fold ((xs, h) :: xshs) xscs
     | [] -> let env = Environment.add_generals xshs env in
       Print.debug "Installed hints@ %t"
@@ -770,10 +791,11 @@ and hint_bind env xscs =
 and inhabit_bind env xscs =
   let rec fold xshs = function
     | (xs, ((_,loc) as c)) :: xscs ->
-      infer env c >>= as_term ~loc:(snd c) >>= fun j ->
+      infer env c >>= as_term ~loc:(snd c) >>= fun ((_,e,_) as j) ->
       let jt = Judgement.typeof j in
-      Equal.as_universal_bracket env jt >>= fun (ctx, (xts, t)) ->
-      let h = Hint.mk_inhabit ~loc env ctx (xts, t) in
+      Equal.Monad.run (Equal.as_universal_bracket env jt) >>= fun ((ctx, (xts, t)),hyps) ->
+      let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
+      let h = Hint.mk_inhabit ~loc env ctx hyps (xts, t) in
       fold ((xs, h) :: xshs) xscs
     | [] -> let env = Environment.add_inhabits xshs env in
       Print.debug "Installed inhabit hints@ %t"

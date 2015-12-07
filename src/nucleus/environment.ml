@@ -167,10 +167,11 @@ let add_bound x v env =
 (** generate a fresh atom of type [t] and bind it to [x]
     NB: This is an effectful computation. *)
 let add_fresh ~loc env x (ctx, t) =
+  Print.debug "ADD_FRESH %t |- %t : %t" (Context.print ctx) (Name.print_ident x) (Tt.print_ty [] t);
   let y, ctx = Context.add_fresh ctx x t in
   let yt = Value.Term (ctx, Tt.mk_atom ~loc y, t) in
   let env = add_bound x yt env in
-  y, env
+  ctx, y, env
 
 let add_handle op xc env =
   { env with handle = (op, xc) :: env.handle }
