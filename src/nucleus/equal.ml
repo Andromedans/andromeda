@@ -1017,7 +1017,7 @@ and verify_match ~spawn env ctx xts pvars checks =
             (Tt.print_ty (Environment.used_names env) t)
             (Tt.print_term (Environment.used_names env) e1)
             (Tt.print_term (Environment.used_names env) e2);
-          equal env ctx e1 e2 t
+          equal_whnf env ctx e1 e2
 
        | CheckEqualTy (xuvs, (t1, t2)) ->
 
