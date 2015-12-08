@@ -25,7 +25,7 @@ let from_channel ?(fn="?") fh =
 let from_string ?(fn="?") s =
   create_lexbuf ~fn (Sedlexing.Utf8.from_string s)
 
-let lexeme { stream } = Sedlexing.Utf8.lexeme stream
+let lexeme { stream;_ } = Sedlexing.Utf8.lexeme stream
 
 let new_line ?(n=1) lexbuf =
   assert (n >= 0);
@@ -38,7 +38,7 @@ let new_line ?(n=1) lexbuf =
      pos_bol = lcp.pos_cnum;
     }
 
-let update_pos ({pos_end; pos_start; stream} as buf) =
+let update_pos ({pos_end; pos_start; stream;_} as buf) =
   let p_start, p_end = Sedlexing.loc stream in
   buf.pos_start <- {pos_end with Lexing.pos_cnum = p_start};
   buf.pos_end <- {pos_end with Lexing.pos_cnum = p_end }

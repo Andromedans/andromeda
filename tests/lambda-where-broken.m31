@@ -1,0 +1,9 @@
+
+Axiom empty : Type.
+Axiom unit : Type.
+Axiom tt : unit.
+
+
+Let f := λ [x : Type] [y : x] (y where x := empty).
+
+Check whnf (f unit tt).

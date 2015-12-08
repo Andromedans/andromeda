@@ -11,7 +11,7 @@ Check
   handle
     f (#get tt) (#get tt) (#get tt)
   with
-  | val v => (fun _ => v)
+  | val ?v => (fun _ => v)
   | #get _ => (fun i => (yield i) (s i))
-  | finally f => f z
+  | finally ?f => f z
   end.

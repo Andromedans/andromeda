@@ -52,7 +52,7 @@ type hint_key =
 
 type general_key = hint_key option * hint_key option * hint_key option
 
-let rec term_key_opt (e',loc) =
+let rec term_key_opt {Tt.term=e';loc} =
   match e' with
   | Tt.Type -> Some Key_Type
   | Tt.Atom x -> Some (Key_Atom x)
@@ -72,7 +72,7 @@ let rec term_key_opt (e',loc) =
 let term_key e =
   match term_key_opt e with
   | Some k -> k
-  | None -> Error.impossible ~loc:(snd e) "De Bruijn index encountered in term_key"
+  | None -> Error.impossible ~loc:(e.Tt.loc) "De Bruijn index encountered in term_key"
 
 let ty_key (Tt.Ty t) = term_key t
 let ty_key_opt (Tt.Ty t) = term_key_opt t

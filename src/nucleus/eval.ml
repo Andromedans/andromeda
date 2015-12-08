@@ -22,11 +22,6 @@ let as_term ~loc v =
   let e = Value.as_term ~loc v in
     Value.return e
 
-(** A filter that verifies the result is a type. *)
-let as_ty ~loc v =
-  let t = Value.as_ty ~loc v in
-    Value.return t
-
 let as_handler ~loc v =
   let e = Value.as_handler ~loc v in
   Value.return e
@@ -310,6 +305,7 @@ let rec infer env (c',loc) =
       | (lbl,x,c) :: rem ->
         check_ty env c >>= fun ((ctxt,t) as jt) ->
         let y, env = Environment.add_fresh ~loc env x jt in
+        let (ctxt,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
         let t = Tt.abstract_ty ys t in
         let ctx = Context.join ctx ctxt in
         fold env ctx (y :: ys) ((lbl, x, t) :: xts) rem
@@ -327,11 +323,12 @@ let rec infer env (c',loc) =
         Value.return_term j
       | (lbl,x,c) :: rem ->
         infer env c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
-        let ctx = Context.join ctx ctxt in
         let jty = Judgement.mk_ty ctx ty in
         let t = Tt.abstract_ty ys ty in
         let te = Tt.abstract ys te in
         let y, env = Environment.add_fresh ~loc env x jty in
+        let (ctxt,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
+        let ctx = Context.join ctx ctxt in
         fold env ctx (y::ys) ((lbl,x,t,te)::xtes) rem
       in
     fold env Context.empty [] [] xcs
@@ -374,7 +371,7 @@ and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
             let ctx = Context.join ctxeq (Context.join lctx rctx) in (* user may have done something surprising somehow *)
             f ctx
           else
-            Error.typing ~loc:(snd eq) "this expression should have type@ %t@ but has type@ %t"
+            Error.typing ~loc:(eq.Tt.loc) "this expression should have type@ %t@ but has type@ %t"
                          (print_ty env tgoal) (print_ty env teq)
         | Value.Tag (t, []) when (Name.eq_ident t tnone) ->
           error ()
@@ -384,8 +381,8 @@ and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
 
 and require_equal_ty ~loc env (lctx,Tt.Ty lte) (rctx,Tt.Ty rte)
                      (f : Context.t -> 'a Value.result) error : 'a Value.result =
-  require_equal ~loc env (lctx,lte,Tt.mk_type_ty ~loc:(snd lte))
-                         (rctx,rte,Tt.mk_type_ty ~loc:(snd rte))
+  require_equal ~loc env (lctx,lte,Tt.mk_type_ty ~loc:(lte.Tt.loc))
+                         (rctx,rte,Tt.mk_type_ty ~loc:(rte.Tt.loc))
                          f error
 
 and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : (Context.t * Tt.term) Value.result =
@@ -416,7 +413,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
     infer env c >>= as_term ~loc >>= fun (ctxe, e, t') ->
     let k ctx = Value.return (ctx, e) in
     require_equal_ty ~loc env t_check (ctxe,t') k
-      (fun () -> Error.typing ~loc:(snd e)
+      (fun () -> Error.typing ~loc:(e.Tt.loc)
                               "this expression should have type@ %t@ but has type@ %t"
                               (print_ty env t_check') (print_ty env t'))
 
@@ -426,7 +423,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
        let (ctxe, e', t') = Value.as_term ~loc v in
        let k ctx = Value.return (ctx, e') in
        require_equal_ty ~loc env t_check (ctxe,t') k
-         (fun () -> Error.typing ~loc:(snd e')
+         (fun () -> Error.typing ~loc:(e'.Tt.loc)
                                  "this expression should have type@ %t@ but has type@ %t"
                                  (print_ty env t_check') (print_ty env t'))
      in
@@ -528,6 +525,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             let jty = Judgement.mk_ty ctx ty_inst in
             check env c jty >>= fun (ctx, e) ->
             let z, env = Environment.add_fresh ~loc env y jty in
+            let (ctxz,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
+            let ctx = Context.join ctx ctxz in
             let env = add_beta ~loc z ctx e ty_inst env in
             let e = Tt.abstract zs e in
             fold env ctx (z::zs) ((lbl1,y,ty,e) :: xtes) (xcs, yts)
@@ -581,6 +580,7 @@ and infer_lambda env ~loc xus c =
          check_ty env c >>= fun ((ctxu, u') as u) ->
          (* XXX equip x with location and use for [~loc]. *)
          let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
+         let (ctxu,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
          let w' = Tt.abstract_ty zs u' in
          let ctx = Context.join ctx ctxu in
          fold env ctx (z :: zs) ((x, w') :: xws) xus
@@ -603,6 +603,7 @@ and infer_prod env ~loc xus c =
         check_ty env c >>= fun ((ctxu, u') as u) ->
         (* XXX equip x with location and use for [~loc]. *)
         let z, env = Environment.add_fresh ~loc:Location.unknown env x u in
+        let (ctxu,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
         let w' = Tt.abstract_ty zs u' in
         let ctx = Context.join ctx ctxu in
         fold env ctx (z :: zs) ((x, w') :: xws) xus
@@ -666,6 +667,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
           let k ctx t' =
             let t = Judgement.mk_ty ctx t' in
             let y, env = Environment.add_fresh ~loc env x t in
+            let (ctx,_,_) = Value.as_term ~loc (Environment.lookup_bound 0 env) in
             let t' = Tt.abstract_ty ys t' in
             fold env ctx (y::ys) ((x,t')::xts) abs zus in
 

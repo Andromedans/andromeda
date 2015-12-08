@@ -2,16 +2,13 @@ Axiom A : Type.
 Axiom B : Type.
 
 Check handle (assume a : A in a) :: B with
-  | #equal v =>
-    match v with
-      | 'pair (|- B : Type) (|- A : Type) =>
-        let eq := assume eq : B == A in eq in
-        yield ('some eq)
-    end
+  | #equal ('pair (|- B : Type) (|- A : Type)) =>
+    let eq := assume eq : B == A in eq in
+    yield ('some eq)
   end.
 
 Check handle (assume a : A in a) :: B with
-  | #equal v =>
+  | #equal ?v =>
     yield 'none
   end.
 

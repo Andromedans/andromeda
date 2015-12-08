@@ -49,7 +49,7 @@ let lookup x (ctx : t) =
   with Not_found -> None
 
 let lookup_ty x ctx =
-  match lookup x ctx with None -> None | Some {ty} -> Some ty
+  match lookup x ctx with None -> None | Some {ty;_} -> Some ty
 
 let cone ctx x (ty : Tt.ty) =
   let y = Name.fresh x in
@@ -59,7 +59,7 @@ let cone ctx x (ty : Tt.ty) =
 
 
 let context_at ctx x =
-  let {needs} = AtomMap.find x ctx in
+  let {needs;_} = AtomMap.find x ctx in
   let ctx' = AtomSet.fold (fun y ctx' ->
       let node = AtomMap.find y ctx in
         AtomMap.add y {node with needed_by = AtomSet.inter node.needed_by needs} ctx')
@@ -120,7 +120,7 @@ let topological_sort ctx =
     if AtomSet.mem x handled
     then handled_ys
     else
-      let {needed_by} = AtomMap.find x ctx in
+      let {needed_by;_} = AtomMap.find x ctx in
       let (handled, ys) = AtomSet.fold process needed_by handled_ys  in
       (AtomSet.add x handled, x :: ys)
   in
@@ -162,7 +162,7 @@ let extend ctx xneeds x ty =
 let join' ctx1 ctx2 =
   let rec joinA ctx f = function
     | [] -> ctx, f
-    | x::l -> let {ty; needs} = AtomMap.find x ctx2 in (* ctx2_needs |- ty : Type *)
+    | x::l -> let {ty; needs;_} = AtomMap.find x ctx2 in (* ctx2_needs |- ty : Type *)
       let needs = AtomSet.fold (* ctx_needs |- ty : Type *)
         (fun y needs -> AtomSet.union needs (AtomMap.find y f))
         needs
