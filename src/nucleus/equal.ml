@@ -4,54 +4,50 @@
 
 module Monad = struct
   type state = Name.AtomSet.t
-  type 'a t = state -> ('a*state) Value.result
+  type 'a t =
+    { k : 'r. ('a -> state -> 'r Value.result) -> state -> 'r Value.result }
 
   let return x =
-    fun s -> Value.return (x,s)
+    { k = fun c s -> c x s }
 
   let (>>=) (m:'a t) (f:'a -> 'b t) : 'b t =
-    fun s -> Value.bind (m s) (fun (x,s) -> f x s)
+    { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
 
   let modify f =
-    fun s -> Value.return ((),f s)
+    { k = fun c s -> c () (f s) }
 
   let add_hyps hyps = modify (Name.AtomSet.union hyps)
 
   let run m =
-    m (Name.AtomSet.empty)
+    m.k (fun x s -> Value.return (x,s)) (Name.AtomSet.empty)
 end
 
 module Opt = struct
   type state = Monad.state
 
-  type 'a opt = state -> ('a*state) option Value.result
+  type 'a opt =
+    { k : 'r. ('a -> state -> 'r Value.result) -> (state -> 'r Value.result) -> state -> 'r Value.result }
 
   let return x =
-    fun s -> Value.return (Some (x,s))
+    { k = fun sk _ s -> sk x s }
 
   let (>?=) m f =
-    fun s -> Value.bind (m s) (function
-      | Some (x,s) -> f x s
-      | None -> Value.return None)
+    { k = fun sk fk s -> m.k (fun x s -> (f x).k sk fk s) fk s }
 
   let unfailing (m : 'a Monad.t) : 'a opt =
-    fun s -> Value.bind (m s) (fun v -> Value.return (Some v))
+    { k = fun sk _ s -> m.Monad.k sk s }
 
   let fail =
-    fun _ -> Value.return None
+    { k = fun _ fk s -> fk s }
 
   let unfold (m : 'a opt) : 'a option opt =
-    fun s -> Value.bind (m s) (function
-      | Some (x,s) -> Value.return (Some (Some x,s))
-      | None -> Value.return (Some (None,s)))
+    { k = fun sk _ s -> m.k (fun x s -> sk (Some x) s) (fun s -> sk None s) s }
 
   let recover (m : 'a opt) : 'a option Monad.t =
-    fun s -> Value.bind (m s) (function
-      | Some (x,s) -> Value.return (Some x,s)
-      | None -> Value.return (None,s))
+    { Monad.k = fun c s -> m.k (fun x s -> c (Some x) s) (fun s -> c None s) s }
 
   let run m =
-    m (Name.AtomSet.empty)
+    m.k (fun x s -> Value.return (Some (x,s))) (fun _ -> Value.return None) Name.AtomSet.empty
 end
 
 let (>>=) = Monad.(>>=)
