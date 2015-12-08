@@ -14,7 +14,7 @@ module Monad = struct
     { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
 
   let lift m =
-    fun s -> Value.bind m (fun x -> Value.return (x,s))
+    { k = fun c s -> Value.bind m (fun x -> c x s) }
 
   let modify f =
     { k = fun c s -> c () (f s) }
