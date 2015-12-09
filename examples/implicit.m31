@@ -90,10 +90,8 @@ Let rec solve_eq s A B :=
     end
   in
   match s with | 'pair ?insts ?vars =>
-    let _ := external "print" ('input A B insts) in
     let A := apply_insts A insts in
     let B := apply_insts B insts in
-    let _ := external "print" ('output A B) in
     match 'pair A B with
       | 'pair A A => 'some s (* trivial case *)
       | 'pair (|- ?A1 ?A2) (|- ?B1 ?B2) =>
@@ -130,7 +128,7 @@ Let h := handler
   | #equal ?eq =>
     fun s =>
     match eq with
-      | 'pair ?A ?B => let _ := external "print" ('equal eq s) in
+      | 'pair ?A ?B =>
         match solve_eq s A B with
           | 'some ('pair ?insts ?vars) =>
             assume eq : A == B in
