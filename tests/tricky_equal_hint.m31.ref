@@ -1,0 +1,8 @@
+A is defined.
+B is defined.
+a is defined.
+A₄ : Type 
+B₅ : Type 
+a₇ : {foo : A₄} 
+eq1₁₀ : {foo : B₅} ≡ {foo : A₄} 
+⊢ a₇ : {foo : B₅}

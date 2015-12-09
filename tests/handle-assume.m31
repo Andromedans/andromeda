@@ -1,0 +1,19 @@
+Parameter A : Type.
+Parameter B : A -> Type.
+Parameter Q : Π [X : Type, P : X -> Type, x : X] P x → Type.
+
+(* Works *)
+Check
+  handle
+    λ [a : A] Q A (#inhabit (A -> Type)) a
+  with
+  | #inhabit ?T => assume hyp : T in yield hyp
+  end.
+
+(* Fails *)
+Check
+  handle
+    λ [a : A] Q A B a (#inhabit (B a))
+  with
+  | #inhabit ?T => assume hyp : T in yield hyp
+  end.

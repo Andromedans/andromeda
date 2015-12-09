@@ -1,0 +1,9 @@
+A is assumed.
+B is assumed.
+P is assumed.
+Q is assumed.
+b₈ : B 
+e₉ : B ≡ A 
+x₁₁ : P b₈ 
+f₁₅ : Q b₈ x₁₁ → A 
+⊢ f₁₅ : Q b₈ x₁₁ → A
