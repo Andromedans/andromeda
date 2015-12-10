@@ -52,7 +52,7 @@ let mk_prod ~loc xts ((Ty e) as t) =
 
 let mk_spine ~loc e xts t es =
   match xts with
-    | [] -> {term = e.term; assumptions=Assumption.empty; loc}
+    | [] -> {e with loc}
     | _::_ -> {term = Spine (e, (xts, t), es); assumptions=Assumption.empty; loc}
 
 let mk_type ~loc = {term = Type; assumptions=Assumption.empty; loc}
@@ -614,7 +614,16 @@ let print_annot ?(prefix="") k ppf =
 
 *)
 
-let rec print_term ?max_level xs {term=e;_} ppf =
+let rec print_term ?max_level xs {term=e;assumptions;_} ppf =
+  if !Config.print_dependencies && not (Assumption.is_empty assumptions)
+  then
+    Print.print ppf ?max_level ~at_level:3 "(%t)^{{%t}}"
+                (print_term' ~max_level:3 xs e)
+                (Assumption.print xs assumptions)
+  else
+    print_term' ?max_level xs e ppf
+
+and print_term' ?max_level xs e ppf =
   let print ?at_level = Print.print ?max_level ?at_level ppf in
     match e with
       | Type ->

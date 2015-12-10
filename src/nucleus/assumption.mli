@@ -4,6 +4,10 @@ type t
 
 val empty : t
 
+val is_empty : t -> bool
+
+val print : Name.ident list -> t -> Format.formatter -> unit
+
 val singleton : Name.atom -> t
 
 val add_atoms : Name.AtomSet.t -> t -> t
