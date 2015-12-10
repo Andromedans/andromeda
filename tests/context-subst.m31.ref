@@ -10,12 +10,3 @@ x₄ : A
 P₆ : A → Type 
 y₈ : P₆ (f x₄) 
 ⊢ y₈ : P₆ (f x₄)
-a is assumed.
-b is assumed.
-ign is assumed.
-g is assumed.
-igny is defined.
-P₆ : A → Type 
-y₈ : P₆ a 
-__eq₂₅ : P₆ b ≡ P₆ a 
-⊢ g (ign (P₆ a) y₈) (ign (P₆ b) y₈) : A

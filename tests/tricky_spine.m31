@@ -1,0 +1,26 @@
+(* Here is an example where we assume an equality that
+   allows us to create weird beta redeces, and therefore
+   also weird spines. *)
+
+Axiom Bool : Type.
+Axiom Nat : Type.
+
+Axiom true : Bool.
+Axiom false : Bool.
+
+Axiom zero : Nat.
+Axiom succ : Nat → Nat.
+Axiom plus : Nat → Nat → Nat.
+Axiom iszero : Nat → Bool.
+
+Axiom eq1 : (Nat → Nat) ≡ (Nat → Bool).
+Axiom eq2 : (Nat → Bool) ≡ (Nat → Nat).
+
+Let f := (λ [n : Nat] iszero (succ n)).
+Check f.
+
+(* Succeed *)
+Check hint eq1 in (f :: Nat → Nat).
+
+(* Fail *)
+Check hint eq2 in (f :: Nat → Nat).

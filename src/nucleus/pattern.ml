@@ -28,13 +28,13 @@ type beta_pattern =
   | BetaConstant of Name.ident * term list
   | BetaSpine of term * pty pabstraction * term list
 
-type beta_hint = Context.t * (beta_pattern * Tt.term) pabstraction
+type beta_hint = Context.t * Name.AtomSet.t * (beta_pattern * Tt.term) pabstraction
 
-type eta_hint = Context.t * (ty * Syntax.bound * Syntax.bound) pabstraction
+type eta_hint = Context.t * Name.AtomSet.t * (ty * Syntax.bound * Syntax.bound) pabstraction
 
-type general_hint = Context.t * (ty * term * term) pabstraction
+type general_hint = Context.t * Name.AtomSet.t * (ty * term * term) pabstraction
 
-type inhabit_hint = Context.t * ty pabstraction
+type inhabit_hint = Context.t * Name.AtomSet.t * ty pabstraction
 
 type hint_key =
   | Key_Type
@@ -52,7 +52,7 @@ type hint_key =
 
 type general_key = hint_key option * hint_key option * hint_key option
 
-let rec term_key_opt {Tt.term=e';loc} =
+let rec term_key_opt {Tt.term=e';_} =
   match e' with
   | Tt.Type -> Some Key_Type
   | Tt.Atom x -> Some (Key_Atom x)
@@ -126,7 +126,7 @@ let rec print_term ?max_level xs e ppf =
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
-let print_beta_hint ?max_level xs (ctx, (yts, (pb, e))) ppf =
+let print_beta_hint ?max_level xs (ctx, _, (yts, (pb, e))) ppf =
   let print_beta_body xs ppf =
     let p =
       begin match pb with
@@ -141,7 +141,7 @@ let print_beta_hint ?max_level xs (ctx, (yts, (pb, e))) ppf =
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders (Name.print_binder1 Tt.print_ty) print_beta_body xs yts)
 
-let print_hint ?max_level xs (ctx, (yts, (pt, pe1, pe2))) ppf =
+let print_hint ?max_level xs (ctx, _, (yts, (pt, pe1, pe2))) ppf =
   let print_body xs ppf =
     Print.print ppf "@ =>@ @[<hov 2>%t ==[%t] %t@]"
       (print_term xs pe1)
@@ -150,10 +150,10 @@ let print_hint ?max_level xs (ctx, (yts, (pt, pe1, pe2))) ppf =
   in
   Print.print ?max_level ppf "@[%t@]" (Name.print_binders (Name.print_binder1 Tt.print_ty) print_body xs yts)
 
-let print_eta_hint ?max_level xs (ctx, (yts, (pt, k1, k2))) ppf =
-  print_hint ?max_level xs (ctx, (yts, (pt, PVar k1, PVar k2))) ppf
+let print_eta_hint ?max_level xs (ctx, hyps, (yts, (pt, k1, k2))) ppf =
+  print_hint ?max_level xs (ctx, hyps, (yts, (pt, PVar k1, PVar k2))) ppf
 
-let print_inhabit_hint ?max_level xs (ctx, (yts, pt)) ppf =
+let print_inhabit_hint ?max_level xs (ctx, _, (yts, pt)) ppf =
   let print_body xs ppf =
     Print.print ppf "@ =>@ %t"
       (print_ty xs pt)

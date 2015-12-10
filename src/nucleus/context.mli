@@ -1,4 +1,4 @@
-(** The type of contexts, currently dummy. *)
+(** The type of contexts. *)
 type t
 
 (** The empty context. *)
@@ -8,34 +8,23 @@ val print : t -> Format.formatter -> unit
 
 val lookup_ty : Name.atom -> t -> Tt.ty option
 
-(** [cone ctx x t] returns a context with a fresh atom [y]
-    of type [t], which depends on everything in [ctx]. The assumption
-    here is that [t] is a type in [ctx]. The function is called
-    [cone] because it produces a cone in the graph-theoretic and topological
-    sense of word. *)
-val cone : t -> Name.ident -> Tt.ty -> Name.atom * t
+val add : t -> Name.atom -> Tt.ty -> t option
 
-(** [context_at ctx x] returns the smallest subcontext of [ctx] where the type of [x] is valid.
-    Not_found is raised if [x] does not belong to [ctx]. *)
-val context_at : t -> Name.atom -> t
+val add_fresh : t -> Name.ident -> Tt.ty -> Name.atom * t
+
+val restrict : t -> Name.AtomSet.t -> t
 
 (** Remove the given atoms from the context, in the order
-    given by the list. Fails if this is not doable. *)
-val abstract : loc:Location.t -> t -> Name.atom list -> t
+    given by the list. Fails if this is not doable.
+    Also checks that the types are alpha equal. *)
+val abstract : loc:Location.t -> t -> Name.atom list -> Tt.ty list -> t
 
-(** Join two contexts into a single one. Return the new context
-    and a list of equations that need to be satisfied in order
-    for the contexts to be joinable. *)
+(** Join two contexts into a single one.
+    Types of common atoms need to be alpha equal.
+    The dependencies from the first context are used when both atoms are present. *)
 val join : t -> t -> t
 
-(** [substitute ctx x (ctxe,e,ty_e)] replaces [x] in [ctx] by [e].
-    It assumes that the type of [x] in [ctx] is equal to the type of [e] under [ctxe]. *)
-val substitute : t -> Name.atom -> t * Tt.term * Tt.ty -> t
-
-(** The following does not seem to be used? *)
-type renaming
-
-val rename : t -> renaming -> t
-
-val refresh : t -> t * renaming
+(** [substitute x (ctx,e,ty)] replaces [x] in [ctx] by [e].
+    It assumes that the type of [x] in [ctx] is equal to [ty]. *)
+val substitute : loc:Location.t -> Name.atom -> t * Tt.term * Tt.ty -> t
 
