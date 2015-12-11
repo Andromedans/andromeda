@@ -33,6 +33,9 @@ val as_ty : loc:Location.t -> value -> Judgement.ty
 val as_closure : loc:Location.t -> value -> closure
 val as_handler : loc:Location.t -> value -> handler
 
+(** Convert tags to ocaml types *)
+val as_option : loc:Location.t -> value -> value option
+
 val return : 'a -> 'a result
 val return_term : Judgement.term -> value result
 val return_ty : Judgement.ty -> value result

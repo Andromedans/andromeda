@@ -83,6 +83,18 @@ let as_handler ~loc = function
   | Handler h -> h
   | Tag _  -> Error.runtime ~loc "expected a handler but got a tag"
 
+let tsome = Name.make "some"
+let tnone = Name.make "none"
+
+let as_option ~loc = function
+  | Term _ -> Error.runtime ~loc "expected an option but got a term"
+  | Ty _ -> Error.runtime ~loc "expected an option but got a type"
+  | Closure _ -> Error.runtime ~loc "expected an option but got a function"
+  | Handler h -> Error.runtime ~loc "expected an option but got a handler"
+  | Tag (t,[]) when (Name.eq_ident t tnone)  -> None
+  | Tag (t,[x]) when (Name.eq_ident t tsome) -> Some x
+  | Tag _ -> Error.runtime ~loc "expected an option but got a tag"
+
 let return x = Return x
 
 let return_term e = Return (Term e)
