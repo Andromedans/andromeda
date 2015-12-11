@@ -124,7 +124,7 @@ let abstract ~loc (ctx : t) x ty =
         (Tt.print_ty [] node.ty)
        
 
-let join ctx1 ctx2 =
+let join ~loc ctx1 ctx2 =
   AtomMap.fold (fun x node res ->
       match lookup x res with
         | Some node' ->
@@ -140,9 +140,9 @@ let join ctx1 ctx2 =
             if AtomSet.is_empty extra
             then res
             else AtomMap.add x {node' with needed_by = AtomSet.union node'.needed_by extra} res
-          else Error.runtime ~loc:Location.unknown "cannot join contexts: types %t and %t of %t are incompatible."
-              (Tt.print_ty [] node'.ty)
-              (Tt.print_ty [] node.ty)
+          else Error.runtime ~loc "cannot join contexts@ %t and@ %t at %t"
+              (print ctx1)
+              (print ctx2)
               (Name.print_atom x)
         | None ->
           (* dependencies are handled above *)
@@ -154,36 +154,42 @@ let subst_ty ty x e =
   let ty = Tt.instantiate_ty [e] ty in
     ty
 
-(* substitute x by e in ctx, assuming both have type t *)
+(* substitute x by e in ctx *)
 let substitute ~loc x (ctx,e,t) =
   match lookup x ctx with
     | Some xnode ->
-      (* NB: rec_assumptions(t) <= rec_assumptions(e) *)
-      let deps = recursive_assumptions ctx (Tt.assumptions_term e) in
-      let ctx = AtomSet.fold (fun y ctx ->
-          let ynode = AtomMap.find y ctx in
-          if AtomSet.mem y deps
-          then Error.runtime ~loc "cannot substitute %t with %t: dependency cycle at %t."
-              (Name.print_atom x)
-              (Tt.print_term [] e)
-              (Name.print_atom y)
-          else
-            let ty = subst_ty ynode.ty x e in
-            AtomMap.add y {ynode with ty} ctx)
-        xnode.needed_by ctx
-      in
-      let ctx = AtomSet.fold (fun z ctx ->
-          let znode = AtomMap.find z ctx in
-          let needed_by = AtomSet.union znode.needed_by xnode.needed_by in
-          AtomMap.add z {znode with needed_by} ctx)
-        deps ctx
-      in
-      if AtomSet.mem x deps
-      then ctx
+      if Tt.alpha_equal_ty xnode.ty t
+      then
+        (* NB: rec_assumptions(t) <= rec_assumptions(e) *)
+        let deps = recursive_assumptions ctx (Tt.assumptions_term e) in
+        let ctx = AtomSet.fold (fun y ctx ->
+            let ynode = AtomMap.find y ctx in
+            if AtomSet.mem y deps
+            then Error.runtime ~loc "cannot substitute %t with %t: dependency cycle at %t."
+                (Name.print_atom x)
+                (Tt.print_term [] e)
+                (Name.print_atom y)
+            else
+              let ty = subst_ty ynode.ty x e in
+              AtomMap.add y {ynode with ty} ctx)
+          xnode.needed_by ctx
+        in
+        let ctx = AtomSet.fold (fun z ctx ->
+            let znode = AtomMap.find z ctx in
+            let needed_by = AtomSet.union znode.needed_by xnode.needed_by in
+            AtomMap.add z {znode with needed_by} ctx)
+          deps ctx
+        in
+        if AtomSet.mem x deps
+        then ctx
+        else
+          (* we can remove x *)
+          let ctx = AtomMap.remove x ctx in
+          let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
+          ctx
       else
-        (* we can remove x *)
-        let ctx = AtomMap.remove x ctx in
-        let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
-        ctx
+        Error.runtime ~loc "substituting %t : %t by %t : %t"
+          (Name.print_atom x) (Tt.print_ty [] xnode.ty)
+          (Tt.print_term [] e) (Tt.print_ty [] t)
     | None -> ctx
 

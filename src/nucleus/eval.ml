@@ -131,7 +131,7 @@ let rec infer env (c',loc) =
     (* NB: we do not care why c2 normalises to an atom, only that it does *)
     Equal.Monad.run (Equal.as_atom env j) >>= fun ((ctxa, a, ta),_) ->
     infer env c1 >>= as_term ~loc >>= fun (ctx, e1, t1) ->
-    let ctx = Context.join ctxa ctx in
+    let ctx = Context.join ~loc ctxa ctx in
     check env c3 (ctx, ta) >>= fun (ctx, e2) ->
     let ctx_s = Context.substitute ~loc a (ctx,e2,ta) in
     let te_s = Tt.instantiate [e2] (Tt.abstract [a] e1) in
@@ -302,7 +302,7 @@ let rec infer env (c',loc) =
         check_ty env c >>= fun ((ctxt,t) as jt) ->
         let ctxt, y, env = Environment.add_fresh ~loc env x jt in
         let tabs = Tt.abstract_ty ys t in
-        let ctx = Context.join ctx ctxt in
+        let ctx = Context.join ~loc ctx ctxt in
         fold env ctx (y :: ys) (t::ts) ((lbl, x, tabs) :: xts) rem
       in
     fold env Context.empty [] [] [] xcs
@@ -322,7 +322,7 @@ let rec infer env (c',loc) =
         let tabs = Tt.abstract_ty ys ty in
         let te = Tt.abstract ys te in
         let ctxt, y, env = Environment.add_fresh ~loc env x jty in
-        let ctx = Context.join ctx ctxt in
+        let ctx = Context.join ~loc ctx ctxt in
         fold env ctx (y::ys) (ty::ts) ((lbl,x,tabs,te)::xtes) rem
       in
     fold env Context.empty [] [] [] xcs
@@ -345,7 +345,7 @@ let rec infer env (c',loc) =
 
 and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
                   (f : Context.t -> Name.AtomSet.t -> 'a Value.result) error : 'a Value.result =
-  (let ctx = Context.join lctx rctx in
+  (let ctx = Context.join ~loc lctx rctx in
     Equal.Opt.run (Equal.equal_ty env ctx lty rty) >>= function
       | Some (ctx,hyps) -> Equal.Opt.run (Equal.equal env ctx lte rte lty) >>= begin function
         | Some (ctx,hyps') -> Value.return (Some (ctx,Name.AtomSet.union hyps hyps'))
@@ -366,7 +366,7 @@ and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
           let tgoal = Tt.mk_eq_ty ~loc lty lte rte in
           if Tt.alpha_equal_ty teq tgoal
           then
-            let ctx = Context.join ctxeq (Context.join lctx rctx) in (* user may have done something surprising somehow *)
+            let ctx = Context.join ~loc ctxeq (Context.join ~loc lctx rctx) in (* user may have done something surprising somehow *)
             let hyps = Tt.assumptions_term eq in
             f ctx hyps
           else
@@ -529,7 +529,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             let hyps = Name.AtomSet.add z (Tt.assumptions_term e) in
             let env = add_beta ~loc z ctxz hyps e ty_inst env in
             let e = Tt.abstract zs e in
-            let ctx = Context.join ctx ctxz in
+            let ctx = Context.join ~loc ctx ctxz in
             fold env ctx (z::zs) (ty_inst::ts) ((lbl1,y,ty,e) :: xtes) (xcs, yts)
               
        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
@@ -568,7 +568,7 @@ and infer_lambda env ~loc xus c =
          infer env c >>= as_term ~loc:(snd c) >>= fun (ctxe, e, t') ->
          let e = Tt.abstract zs e in
          let t' = Tt.abstract_ty zs t' in
-         let ctx = Context.join ctx ctxe in
+         let ctx = Context.join ~loc ctx ctxe in
          Environment.context_abstract ~loc ctx zs ts >>= fun ctx ->
          let xws = List.rev xws in
          let lam = Tt.mk_lambda ~loc xws e t' in
@@ -581,7 +581,7 @@ and infer_lambda env ~loc xus c =
          (* XXX equip x with location and use for [~loc]. *)
          let ctxu, z, env = Environment.add_fresh ~loc:Location.unknown env x u in
          let w' = Tt.abstract_ty zs u' in
-         let ctx = Context.join ctx ctxu in
+         let ctx = Context.join ~loc ctx ctxu in
          fold env ctx (z :: zs) (u'::ts) ((x, w') :: xws) xus
   in
   fold env Context.empty [] [] [] xus
@@ -591,7 +591,7 @@ and infer_prod env ~loc xus c =
       | [] ->
         check_ty env c >>= fun (ctxt, t') ->
         let t' = Tt.abstract_ty zs t' in
-        let ctx = Context.join ctx ctxt in
+        let ctx = Context.join ~loc ctx ctxt in
         Environment.context_abstract ~loc ctx zs ts >>= fun ctx ->
         let xws = List.rev xws in
         let prod = Tt.mk_prod ~loc xws t' in
@@ -603,7 +603,7 @@ and infer_prod env ~loc xus c =
         (* XXX equip x with location and use for [~loc]. *)
         let ctxu, z, env = Environment.add_fresh ~loc:Location.unknown env x u in
         let w' = Tt.abstract_ty zs u' in
-        let ctx = Context.join ctx ctxu in
+        let ctx = Context.join ~loc ctx ctxu in
         fold env ctx (z :: zs) (u'::ts) ((x, w') :: xws) xus
   in
   fold env Context.empty [] [] [] xus

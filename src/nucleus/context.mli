@@ -26,7 +26,7 @@ val abstract : loc:Location.t -> t -> Name.atom -> Tt.ty -> (t,Name.AtomSet.t) e
 (** Join two contexts into a single one.
     Types of common atoms need to be alpha equal.
     The dependencies from the first context are used when both atoms are present. *)
-val join : t -> t -> t
+val join : loc:Location.t -> t -> t -> t
 
 (** [substitute x (ctx,e,ty)] replaces [x] in [ctx] by [e].
     It assumes that the type of [x] in [ctx] is equal to [ty]. *)

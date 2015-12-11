@@ -1,3 +1,6 @@
 empty is assumed.
-?:?: Runtime error
-  cannot join contexts: types x₄ and empty of y₅ are incompatible.
+File "./lambda-where-broken.m31", line 4, characters 7-47: Runtime error
+  cannot join contexts x₄ : Type 
+                       y₅ : x₄ 
+                        and y₅ : empty 
+                             at y₅
