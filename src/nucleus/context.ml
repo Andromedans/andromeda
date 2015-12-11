@@ -43,6 +43,12 @@ let lookup x (ctx : t) =
 let lookup_ty x ctx =
   match lookup x ctx with None -> None | Some {ty;_} -> Some ty
 
+let needed_by ~loc x ctx =
+  match lookup x ctx with
+    | Some node -> node.needed_by
+    | None ->
+      Error.impossible ~loc "cannot find needed_by of unknown atom %t"
+        (Name.print_atom x)
 
 let recursive_assumptions ctx aset =
   let rec fold visited = function

@@ -8,19 +8,24 @@ val print : t -> Format.formatter -> unit
 
 val lookup_ty : Name.atom -> t -> Tt.ty option
 
+val needed_by : loc:Location.t -> Name.atom -> t -> Name.AtomSet.t
+
 val add : t -> Name.atom -> Tt.ty -> t option
 
 val add_fresh : t -> Name.ident -> Tt.ty -> Name.atom * t
 
+val recursive_assumptions : t -> Name.AtomSet.t -> Name.AtomSet.t
+
 val restrict : t -> Name.AtomSet.t -> t
 
-(** Remove the given atom from the context.
-    Fails if this is not doable.
-    Also checks that the types are alpha equal. *)
 type ('a,'b) err =
   | OK of 'a
   | Err of 'b
 
+(** Remove the given atom from the context.
+    Checks first that the type in the context and the type in the list are alpha equal,
+    then that no atom depends on the one being removed.
+    If the later case fails, the set of dependents is returned. *)
 val abstract : loc:Location.t -> t -> Name.atom -> Tt.ty -> (t,Name.AtomSet.t) err
 
 (** Join two contexts into a single one.
