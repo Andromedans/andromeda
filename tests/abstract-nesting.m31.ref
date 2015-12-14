@@ -1,0 +1,12 @@
+y_₇ : Π [x_ : Type] x_ 
+⊢ λ [T : Type] y_₇ T : Π [T : Type] T
+A is assumed.
+a is assumed.
+P is assumed.
+f is assumed.
+y_₂₃ : Π [x_ : A] P x_ 
+y_₂₆ : Π [x_ : A] f x_ (y_₂₃ x_) ≡ a 
+⊢ λ [x : A] y_₂₆ x : Π [x : A] f x (y_₂₃ x) ≡ a
+y_₅₄ : Π [x_ : A] P x_ 
+y_₅₇ : Π [x_ : A] f x_ (y_₅₄ x_) ≡ a 
+⊢ λ [x : A] y_₅₇ x : Π [x : A] f x (y_₅₄ x) ≡ a

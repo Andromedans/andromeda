@@ -33,3 +33,7 @@ val join : loc:Location.t -> t -> t -> t
     It assumes that the type of [x] in [ctx] is equal to [ty]. *)
 val substitute : loc:Location.t -> Name.atom -> t * Tt.term * Tt.ty -> t
 
+(** [sort ctx] sorts the entries of [ctx] into a list so that all dependencies
+    point forward in the list, ie the first atom does not depend on any atom, etc. *)
+val sort : t -> Name.atom list
+

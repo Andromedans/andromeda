@@ -155,7 +155,6 @@ let mk_abstractable ~loc ctx xs =
           let abstracted = AtomSet.add x abstracted in
           fold ctx abstracted zs es xs
         | Some xty ->
-          let needed_by = Context.needed_by ~loc x ctx in
           let rec xfold ctx zs' es' = function
             | [] ->
               let es = List.map (Tt.substitute zs' es') es in
@@ -199,7 +198,9 @@ let mk_abstractable ~loc ctx xs =
                       (Tt.print_term [] e) (Tt.print_ty [] te)
               end
           in
-          xfold ctx [] [] (AtomSet.elements needed_by)
+          let needed_by = Context.needed_by ~loc x ctx in
+          let sorted = Context.sort ctx in
+          xfold ctx [] [] (List.filter (fun x -> AtomSet.mem x needed_by) sorted)
       end
   in
   fold ctx AtomSet.empty [] [] xs
