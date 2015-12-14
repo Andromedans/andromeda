@@ -118,7 +118,7 @@ let abstract1 ~loc (ctx : t) x ty =
         let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
         ctx
       else
-        let needed_by_l = Name.AtomSet.elements node.needed_by in
+        let needed_by_l = AtomSet.elements node.needed_by in
         Error.runtime
           ~loc "Cannot abstract %t because %t depend%s on it.\nContext:@ %t"
           (Name.print_atom x)
