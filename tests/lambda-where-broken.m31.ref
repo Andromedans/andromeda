@@ -1,6 +1,3 @@
 empty is assumed.
 File "./lambda-where-broken.m31", line 4, characters 7-47: Runtime error
-  cannot join contexts x₄ : Type 
-                       y₅ : x₄ 
-                        and y₅ : empty 
-                             at y₅
+  cannot abstract y₅ with type x₄ because it must have type empty.

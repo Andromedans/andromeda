@@ -2,6 +2,7 @@
 
 Handle
   | #equal _ => 'none
+  | #abstract v => 'none
   end.
 
 Let symmetry := λ [A : Type, x y : A, h : x ≡ y] hint h in refl x :: y ≡ x.

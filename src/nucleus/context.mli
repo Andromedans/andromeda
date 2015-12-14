@@ -18,15 +18,11 @@ val recursive_assumptions : t -> Name.AtomSet.t -> Name.AtomSet.t
 
 val restrict : t -> Name.AtomSet.t -> t
 
-type ('a,'b) err =
-  | OK of 'a
-  | Err of 'b
-
 (** Remove the given atom from the context.
     Checks first that the type in the context and the type in the list are alpha equal,
     then that no atom depends on the one being removed.
     If the later case fails, the set of dependents is returned. *)
-val abstract : loc:Location.t -> t -> Name.atom -> Tt.ty -> (t,Name.AtomSet.t) err
+val abstract : loc:Location.t -> t -> Name.atom list -> Tt.ty list -> t
 
 (** Join two contexts into a single one.
     Types of common atoms need to be alpha equal.

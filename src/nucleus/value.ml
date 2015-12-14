@@ -26,6 +26,7 @@ let rec bind r f =
   | Return v -> f v
   | Operation (op, v, k) -> Operation (op, v, fun x -> (bind (k x) f))
 
+
 let print_closure xs _ ppf =
   Print.print ~at_level:0 ppf "<function>"
 
@@ -101,6 +102,8 @@ let return_term e = Return (Term e)
 
 let return_ty t = Return (Ty t)
 
+let operate op v = Operation (op,v,return)
+
 let to_value ~loc = function
   | Return v -> v
   | Operation (op, v, _) ->
@@ -136,4 +139,74 @@ let rec equal_value v1 v2 =
     | Closure _, Closure _
     | Handler _, Handler _ ->
       false
+
+
+let (>>=) = bind
+
+module AtomSet = Name.AtomSet
+
+let mk_abstractable ~loc ctx xs =
+  let rec fold ctx abstracted zs es = function
+    | [] ->
+      return (ctx,zs,es)
+    | x::xs ->
+      begin match Context.lookup_ty x ctx with
+        | None ->
+          let abstracted = AtomSet.add x abstracted in
+          fold ctx abstracted zs es xs
+        | Some xty ->
+          let needed_by = Context.needed_by ~loc x ctx in
+          let rec xfold ctx zs' es' = function
+            | [] ->
+              let es = List.map (Tt.substitute zs' es') es in
+              let zs = zs' @ zs and es = es' @ es in
+              let abstracted = AtomSet.add x abstracted in
+              fold ctx abstracted zs es xs
+            | y::ys when (AtomSet.mem y abstracted) ->
+              xfold ctx zs' es' ys
+            | y::ys ->
+              let yty = (match Context.lookup_ty y ctx with
+                | Some ty -> ty
+                | None -> Error.impossible
+                  ~loc "cannot abstract %t as %t depends on it, but it does not appear in the context?"
+                  (Name.print_atom x) (Name.print_atom y)) in
+              let vx = Term (Judgement.mk_term ctx (Tt.mk_atom ~loc x) xty)
+              and vy = Term (Judgement.mk_term ctx (Tt.mk_atom ~loc y) yty) in
+              let vpair = Tag (Name.make "pair", [vx;vy]) in
+              operate "abstract" vpair >>= fun v ->
+              begin match as_option ~loc v with
+                | None ->
+                  Error.runtime ~loc "Cannot abstract %t because %t depends on it in context@ %t."
+                  (Name.print_atom x) (Name.print_atom y) (Context.print ctx)
+                | Some v ->
+                  let (ctxe,e,te) = as_term ~loc v in
+                  if Tt.alpha_equal_ty yty te
+                  then
+                    let ctx = Context.join ~loc ctx ctxe in
+                    let ehyps = Tt.assumptions_term e in
+                    if AtomSet.is_empty (AtomSet.inter ehyps (Context.needed_by ~loc x ctx))
+                    then
+                      let ctx = Context.substitute ~loc y (ctx,e,te) in
+                      xfold ctx (y::zs') (e::es') ys
+                    else
+                      Error.runtime "When abstracting %t in context %t, cannot replace %t with %t: it depends on %t"
+                        (Name.print_atom x) (Context.print ctx) (Name.print_atom y) (Tt.print_term [] e)
+                        (Print.sequence Name.print_atom " " (Name.AtomSet.elements ehyps))
+                  else
+                    Error.runtime ~loc "When abstracting %t, cannot replace %t : %t with %t : %t (types are not equal)"
+                      (Name.print_atom x)
+                      (Name.print_atom y) (Tt.print_ty [] yty)
+                      (Tt.print_term [] e) (Tt.print_ty [] te)
+              end
+          in
+          xfold ctx [] [] (AtomSet.elements needed_by)
+      end
+  in
+  fold ctx AtomSet.empty [] [] xs
+
+
+let context_abstract ~loc ctx xs ts =
+  mk_abstractable ~loc ctx xs >>= fun (ctx,ys,es) ->
+  let ctx = Context.abstract ~loc ctx xs ts in
+  return (ctx,ys,es)
 

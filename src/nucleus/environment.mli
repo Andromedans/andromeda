@@ -86,9 +86,6 @@ val included : string -> t -> bool
 (** Print free variables in the environment *)
 val print : t -> Format.formatter -> unit
 
-(** Abstract contexts, raising an operation if something goes wrong. *)
-val context_abstract : loc:Location.t -> Context.t -> Name.atom list -> Tt.ty list -> Context.t Value.result
-
 (** Match a value against a pattern and extend the environment with the
     matched pattern variables. *)
 val match_pattern : t -> Name.ident list -> Syntax.pattern -> Value.value -> t option
