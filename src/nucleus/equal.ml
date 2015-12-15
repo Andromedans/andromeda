@@ -13,10 +13,30 @@ module Monad = struct
   let (>>=) (m:'a t) (f:'a -> 'b t) : 'b t =
     { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
 
+  let lift m =
+    { k = fun c s -> Value.bind m (fun x -> c x s) }
+
   let modify f =
     { k = fun c s -> c () (f s) }
 
   let add_hyps hyps = modify (Name.AtomSet.union hyps)
+
+  (** Hypotheses [ys] are replaced by terms [es],
+      so mentions of [ys] are replaced by mentions of the assumptions in [es] *)
+  let abstract_hyps ys es =
+    if ys = [] && es = []
+    then return ()
+    else
+      modify (fun hyps ->
+        List.fold_left2 (fun hyps y e ->
+            if Name.AtomSet.mem y hyps
+            then
+              let hyps = Name.AtomSet.remove y hyps in
+              let hyps_e = Tt.assumptions_term e in
+              let hyps = Name.AtomSet.union hyps hyps_e in
+              hyps
+            else hyps)
+          hyps ys es)
 
   let run m =
     m.k (fun x s -> Value.return (x,s)) (Name.AtomSet.empty)
@@ -178,7 +198,7 @@ and whnf env ctx e =
         (Pattern.print_beta_hint [] h) (Tt.print_term [] e) ;
       (* XXX Here a failed join need not be fatal, we could catch and continue
          with the remaining hints *)
-      let ctx = Context.join ctxh ctx in
+      let ctx = Context.join ~loc:(e.Tt.loc) ctxh ctx in
       (* Here we use beta hints. First we match [p] against [e]. *)
           (* XXX collect_* will Opt.return contexts *)
         collect_for_beta env ctx p e >?>= begin function
@@ -265,7 +285,9 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) lis
         let v = Tt.unabstract_ty ys v
         and v' = Tt.unabstract_ty ys v' in
         equal_ty env ctx v v' >?= fun ctx ->
-        Opt.return (Context.abstract ~loc:Location.unknown ctx (List.rev ys) (List.rev ts))
+        Monad.lift (Value.context_abstract ~loc:Location.unknown ctx (List.rev ys) (List.rev ts)) >!= fun (ctx,ys,es) ->
+        Monad.abstract_hyps ys es >!= fun () ->
+        Opt.return ctx
      | (x,(u,u'))::xuus ->
         let u  = Tt.unabstract_ty ys u
         and u' = Tt.unabstract_ty ys u' in
@@ -287,7 +309,7 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   let r =
   if Tt.alpha_equal e1 e2 then Opt.return ctx else
     begin (* type-directed phase *)
-      whnf_ty env ctx t >!= fun (ctx, ((Tt.Ty {Tt.term=t';_}) as t)) ->
+      whnf_ty env ctx t >!= fun (ctx, ((Tt.Ty {Tt.term=t';loc;_}) as t)) ->
       match t' with
 
         | Tt.Structure _
@@ -316,7 +338,7 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
                 Print.debug "(%d collecting for eta %t" debug_i (Pattern.print_eta_hint [] h);
                 (* XXX Here a failed join need not be fatal, we could catch and continue
                    with the remaining hints *)
-                let ctx = Context.join ctxh ctx in
+                let ctx = Context.join ~loc ctxh ctx in
                 collect_for_eta env ctx (pt, k1, k2) (t, e1, e2) >??= begin function
                   | None -> 
                      Print.debug "collecting for eta failed early %d)" debug_i;
@@ -354,7 +376,9 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
                   and e1 = Tt.mk_spine ~loc:loc1 e1 xus u es
                   and e2 = Tt.mk_spine ~loc:loc2 e2 xus u es in
                   equal env ctx e1 e2 v >?= fun ctx ->
-                  Opt.return (Context.abstract ~loc:Location.unknown ctx ys ts)
+                  Monad.lift (Value.context_abstract ~loc:Location.unknown ctx ys ts) >!= fun (ctx,ys,es) ->
+                  Monad.abstract_hyps ys es >!= fun () ->
+                  Opt.return ctx
               end
             in fold env ctx [] [] [] xus
 
@@ -405,7 +429,7 @@ and equal_hints env ctx e1 e2 t =
         | ((ctxh, hyps, (xts, (pt, pe1, pe2))) as h) :: hs ->
            (* XXX Here a failed join need not be fatal, we could catch and continue
               with the remaining hints *)
-           let ctx = Context.join ctx ctxh in
+           let ctx = Context.join ~loc:loc2 ctx ctxh in
            Print.debug "trying general hint@ %t" (Pattern.print_hint [] h);
            collect_for_hint env ctx (pt, pe1, pe2) (t, e1, e2) >??= begin function
            | None -> fold hs
@@ -492,7 +516,9 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
           let e1 = Tt.unabstract ys e1
           and e2 = Tt.unabstract ys e2 in
           equal env ctx e1 e2 t1' >?= fun ctx ->
-          Opt.return (Context.abstract ~loc:Location.unknown ctx ys ts)
+          Monad.lift (Value.context_abstract ~loc:Location.unknown ctx ys ts) >!= fun (ctx,ys,es) ->
+          Monad.abstract_hyps ys es >!= fun () ->
+          Opt.return ctx
      in
      zip [] [] env ctx (xus, xvs)
 
@@ -628,7 +654,9 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
 and equal_signature ~loc env ctx xts1 xts2 =
   let rec fold env ctx ys ts xts1 xts2 = match xts1, xts2 with
     | [], [] ->
-      Opt.return (Context.abstract ~loc ctx ys ts)
+      Monad.lift (Value.context_abstract ~loc ctx ys ts) >!= fun (ctx,ys,es) ->
+      Monad.abstract_hyps ys es >!= fun () ->
+      Opt.return ctx
     | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
       if Name.eq_ident l1 l2
       then
@@ -1083,9 +1111,10 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty {Tt.term=t';loc;_}) as t) =
         | [] ->
           let t' = Tt.unabstract_ty ys t' in
           inhabit ~subgoals env ctx t' >?= fun (ctx,e) ->
-          let e = Tt.abstract ys e in
+          Monad.lift (Value.context_abstract ~loc ctx ys ts) >!= fun (ctx,zs,es) ->
+          Monad.abstract_hyps zs es >!= fun () ->
+          let e = Tt.abstract ys (Tt.substitute zs es e) in
           let e = Tt.mk_lambda ~loc xts' e t' in
-          let ctx = Context.abstract ~loc ctx ys ts in
           Opt.return (ctx, e)
         | (x,t)::xts ->
           let t = Tt.unabstract_ty ys t in
@@ -1137,7 +1166,7 @@ and inhabit_bracket ~subgoals ~loc env (ctx, t_inhabit) =
                      (Tt.print_ty [] t) (Pattern.print_inhabit_hint [] h) ;
          (* XXX Here a failed join need not be fatal, we could catch and continue
             with the remaining hints *)
-         let ctx = Context.join ctx ctxh in
+         let ctx = Context.join ~loc ctx ctxh in
          collect_for_inhabit env ctx pt t >??= begin function
          | None -> fold hs
          | Some (pvars, checks) ->
@@ -1173,8 +1202,10 @@ let rec deep_prod env ctx t f =
        | [] ->
           let w = Tt.unabstract_ty ys w in
           deep_prod env ctx w f >>= fun (ctx, (zvs, w)) ->
-          let (zvs, w) = Tt.abstract_ty_abstraction Tt.abstract_ty ys (zvs, w) in
-          let ctx = Context.abstract ~loc ctx ys ts in
+          Monad.lift (Value.context_abstract ~loc ctx ys ts) >>= fun (ctx,zs,es) ->
+          Monad.abstract_hyps zs es >>= fun () ->
+          let zvs_w = Tt.substitute_ty_abstraction Tt.substitute_ty zs es (zvs,w) in
+          let (zvs, w) = Tt.abstract_ty_abstraction Tt.abstract_ty ys zvs_w in
           Monad.return (ctx, (xus @ zvs, w))
 
        | (z,v) :: zvs ->
