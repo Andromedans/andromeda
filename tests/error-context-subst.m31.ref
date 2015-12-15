@@ -7,5 +7,10 @@ b is assumed.
 ign is assumed.
 g is assumed.
 igny is defined.
-?:?: Runtime error
-  cannot join contexts: types P₆ a and P₆ b of y₈ are incompatible.
+File "./error-context-subst.m31", line 17, characters 29-47: Runtime error
+  cannot join contexts P₆ : A → Type 
+                       y₈ : P₆ a 
+                        and
+  P₆ : A → Type 
+  y₈ : P₆ b 
+   at y₈

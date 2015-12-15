@@ -320,6 +320,31 @@ and abstract_term_ty xs ?(lvl=0) (e, t) =
   in (e, t)
 
 
+let substitute xs es t =
+  if xs = [] && es = []
+  then t
+  else
+    let t = abstract xs ~lvl:0 t in
+    instantiate es ~lvl:0 t
+
+let substitute_ty xs es (Ty ty) =
+  Ty (substitute xs es ty)
+
+let substitute_ty_abstraction :
+  'a. (Name.atom list -> term list -> 'a -> 'a) ->
+  Name.atom list -> term list -> 'a ty_abstraction -> 'a ty_abstraction
+  = fun subst_v ys es (xus,v) ->
+    let rec subst acc = function
+      | [] ->
+         let v = subst_v ys es v
+         in List.rev acc, v
+      | (x,u) :: xus ->
+         let u = substitute_ty ys es u in
+         subst ((x,u) :: acc) xus
+    in
+    subst [] xus
+
+
 let occurs_abstraction occurs_u occurs_v k (xus, v) =
   let rec fold k = function
     | [] -> occurs_v k v

@@ -151,6 +151,16 @@ val abstract_ty_abstraction :
   (Name.atom list -> ?lvl:int -> 'a -> 'a) ->
   Name.atom list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
 
+(** abstract followed by instantiate *)
+val substitute : Name.atom list -> term list -> term -> term
+
+val substitute_ty : Name.atom list -> term list -> ty -> ty
+
+val substitute_ty_abstraction :
+  (Name.atom list -> term list -> 'a -> 'a) ->
+  Name.atom list -> term list -> 'a ty_abstraction -> 'a ty_abstraction
+
+
 val occurs: Syntax.bound -> term -> int
 
 val occurs_ty: Syntax.bound -> ty -> int
