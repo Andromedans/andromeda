@@ -18,7 +18,7 @@ val used_names : t -> Name.ident list
 val lookup_constant : Name.ident -> t -> Tt.constsig option
 
 (** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : Syntax.bound -> t -> Value.value
+val lookup_bound : loc:Location.t -> Syntax.bound -> t -> Value.value
 
 (** Return all beta hints in the environment *)
 val beta_hints : Pattern.hint_key -> t -> Pattern.beta_hint list
@@ -38,7 +38,7 @@ val add_fresh: loc:Location.t -> t -> Name.ident -> Judgement.ty -> Context.t * 
 
 (** Add a constant of a given signature to the environment.
     Fails if the constant is already bound. *)
-val add_constant : Name.ident -> Tt.constsig -> t -> t
+val add_constant : loc:Location.t -> Name.ident -> Tt.constsig -> t -> t
 
 (** Add an untagged beta hint to the environment. *)
 val add_beta : Pattern.hint_key * Pattern.beta_hint -> t -> t
@@ -59,7 +59,7 @@ val add_generals :
 val add_inhabits : (string list * (Pattern.hint_key * Pattern.inhabit_hint)) list -> t -> t
 
 (** Remove all hints with one of the given tags *)
-val unhint : string list -> t -> t
+val unhint : loc:Location.t -> string list -> t -> t
 
 (** Add a bound variable with given name to the environment. *)
 val add_bound : Name.ident -> Value.value -> t -> t

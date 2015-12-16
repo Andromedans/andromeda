@@ -188,7 +188,7 @@ let mk_abstractable ~loc ctx xs =
                       let ctx = Context.substitute ~loc y (ctx,e,te) in
                       xfold ctx (y::zs') (e::es') ys
                     else
-                      Error.runtime "When abstracting %t in context %t, cannot replace %t with %t: it depends on %t"
+                      Error.runtime ~loc "When abstracting %t in context %t, cannot replace %t with %t: it depends on %t"
                         (Name.print_atom x) (Context.print ctx) (Name.print_atom y) (Tt.print_term [] e)
                         (Print.sequence Name.print_atom " " (Name.AtomSet.elements ehyps))
                   else

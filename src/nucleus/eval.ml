@@ -36,7 +36,7 @@ let add_beta ~loc z ctx hyps e t env  =
 let rec infer env (c',loc) =
   match c' with
     | Syntax.Bound i ->
-       let v = Environment.lookup_bound i env in
+       let v = Environment.lookup_bound ~loc i env in
        Value.return v
 
     | Syntax.Type ->
@@ -167,7 +167,7 @@ let rec infer env (c',loc) =
     inhabit_bind env xscs >>= (fun env -> infer env c)
 
   | Syntax.Unhint (xs, c) ->
-    let env = Environment.unhint xs env in
+    let env = Environment.unhint ~loc xs env in
     infer env c
 
   | Syntax.Whnf c ->
@@ -203,7 +203,7 @@ let rec infer env (c',loc) =
     let yts, u =
       begin match Environment.lookup_constant x env with
       | Some ytsu -> ytsu
-      | None -> Error.typing "unknown constant %t" (Name.print_ident x)
+      | None -> Error.typing ~loc "unknown constant %t" (Name.print_ident x)
       end in
     let rec fold ctx es yts cs =
       match yts, cs with
@@ -455,7 +455,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
     inhabit_bind env xscs >>= (fun env -> check env c t_check)
 
   | Syntax.Unhint (xs, c) ->
-    let env = Environment.unhint xs env in
+    let env = Environment.unhint ~loc xs env in
     check env c t_check
 
   | Syntax.Whnf c ->

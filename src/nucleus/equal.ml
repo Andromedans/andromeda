@@ -474,7 +474,7 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
        let yts, _ =
          begin match Environment.lookup_constant x1 env with
          | Some ytsu -> ytsu
-         | None -> Error.impossible "primitive application equality, unknown primitive operation %t" (Name.print_ident x1)
+         | None -> Error.impossible ~loc:loc1 "primitive application equality, unknown primitive operation %t" (Name.print_ident x1)
          end in
        let rec fold ctx es' yts es1 es2 =
          match yts, es1, es2 with
@@ -646,7 +646,7 @@ and equal_spine ~loc env ctx e1 a1 e2 a2 =
         end
 
       | ([], _::_), _ | (_::_, []), _ | _, ([], _::_) | _, (_::_, []) ->
-        Error.impossible "Equal.equal_spine encountered an invalid spine"
+        Error.impossible ~loc "Equal.equal_spine encountered an invalid spine"
     in
     fold [] [] a1 as1 a2 as2 ctx
   end

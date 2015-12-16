@@ -846,7 +846,7 @@ let print_constsig ?max_level xs (rxus, t) ppf =
 
 let field_value ~loc xtes p =
   let rec fold vs = function
-    | [] -> Error.runtime "Tt.field_value: field %t not found" (Name.print_ident p)
+    | [] -> Error.impossible ~loc "Tt.field_value: field %t not found" (Name.print_ident p)
     | (l,x,t,te)::rem ->
       let te = instantiate vs te in
       if Name.eq_ident p l
@@ -857,7 +857,7 @@ let field_value ~loc xtes p =
 
 let field_type ~loc xts e p =
   let rec fold vs = function
-    | [] -> Error.typing "%t has no field %t" (print_term [] e) (Name.print_ident p)
+    | [] -> Error.typing ~loc "%t has no field %t" (print_term [] e) (Name.print_ident p)
     | (l,x,t)::rem ->
       if Name.eq_ident p l
       then instantiate_ty vs t

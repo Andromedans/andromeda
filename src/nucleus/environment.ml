@@ -76,20 +76,20 @@ let lookup_constant x {constants=lst;_} =
   in
     lookup lst
 
-let lookup_bound k {bound=lst;_} =
+let lookup_bound ~loc k {bound=lst;_} =
   try
     snd (List.nth lst k)
   with
-  | Failure _ -> Error.impossible "invalid de Bruijn index %d" k
+  | Failure _ -> Error.impossible ~loc "invalid de Bruijn index %d" k
 
 let is_bound x env =
   match lookup_constant x env with
   | None -> false
   | Some _ -> true
 
-let add_constant x ytsu env =
+let add_constant ~loc x ytsu env =
   if is_bound x env
-  then Error.runtime "%t already exists" (Name.print_ident x)
+  then Error.runtime ~loc "%t already exists" (Name.print_ident x)
   else { env with constants = (x, ytsu) :: env.constants }
 
 let add_beta (key, hint) env =
@@ -139,7 +139,7 @@ let add_inhabits xshs env =
         env.inhabit xshs
   }
 
-let unhint untags env =
+let unhint ~loc untags env =
   let pred = List.exists (fun x -> List.mem x untags) in
   let rec fold xs' hs' tags hints =
     match tags, hints with
@@ -151,7 +151,7 @@ let unhint untags env =
         else xs::xs', h::hs' in
       (fold xs' hs') tags hints
     | [], _::_ | _::_, [] ->
-      Error.impossible "Number of hints different from number of tags"
+      Error.impossible ~loc "Number of hints different from number of tags"
 
   in let f (tags, hints) = fold [] [] tags hints in
   { env with
@@ -226,7 +226,7 @@ let application_pop {Tt.term=e;loc;_} =
   | _ -> raise Match_fail
 
 (* TODO check assumptions *)
-let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';_} as e) t =
+let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
   match p', e' with
     | Syntax.Tt_Anonymous, _ -> xvs
 
@@ -243,7 +243,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';_} as e) t =
       collect_tt_pattern env xvs p ctx e t
 
     | Syntax.Tt_Bound k, _ ->
-      let v' = lookup_bound k env in
+      let v' = lookup_bound ~loc k env in
       if Value.equal_value (Value.Term (ctx,e,t)) v'
       then xvs
       else raise Match_fail
@@ -417,7 +417,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';_} as e) t =
 
 let match_pattern env xs p v =
   (* collect values of pattern variables *)
-  let rec collect xvs (p,_) v =
+  let rec collect xvs (p,loc) v =
     match p, v with 
     | Syntax.Patt_Anonymous, _ -> xvs
 
@@ -432,7 +432,7 @@ let match_pattern env xs p v =
        collect xvs p v
 
     | Syntax.Patt_Bound k, v ->
-       let v' = lookup_bound k env in
+       let v' = lookup_bound ~loc k env in
        if Value.equal_value v v'
        then xvs
        else raise Match_fail

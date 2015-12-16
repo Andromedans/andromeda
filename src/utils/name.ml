@@ -47,7 +47,7 @@ let fresh =
   fun x ->
     incr counter;
     if !counter < 0 then
-      Error.impossible "More than %d fresh names generated." max_int;
+      Error.impossible ~loc:Location.unknown "More than %d fresh names generated." max_int;
     let s =
       match x with
       | Anonymous -> "_"
@@ -62,7 +62,7 @@ let fresh_candy =
   fun () ->
     incr counter;
     if !counter < 0 then
-      Error.impossible "More than %d names of sugar generated." max_int;
+      Error.impossible ~loc:Location.unknown "More than %d names of sugar generated." max_int;
     String ("sugar var " ^ (string_of_int !counter))
 
 (** Split a string into base and an optional numerical suffix, e.g.,
