@@ -213,14 +213,10 @@ let rec infer env (c',loc) =
         let eu = Judgement.mk_term ctx e u in
         Value.return_term eu
 
-      | (y,(reducing,t))::yts, c::cs ->
+      | (y,(_,t))::yts, c::cs ->
         let t = Tt.instantiate_ty es t in
         let jt = Judgement.mk_ty ctx t in
         check env c jt >>= fun (ctx, e) ->
-        (* TODO why are we doing this here? *)
-        (if reducing
-          then Equal.Monad.run (Equal.whnf env ctx e)
-          else Value.return ((ctx, e), Name.AtomSet.empty)) >>= fun ((ctx,e),_) ->
         fold ctx (e :: es) yts cs
 
       | _::_, [] ->

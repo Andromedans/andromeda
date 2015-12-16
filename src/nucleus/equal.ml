@@ -136,10 +136,29 @@ and weak_whnf env ctx e =
             Error.impossible ~loc "de Bruijn encountered in a spine head in whnf"
         end
 
-      | Tt.Constant _ ->
-         (* XXX here we shall use info about primitive operations to normalize some
-           of their arguments. *)
-         Monad.return (ctx, Tt.mention assumptions e)
+      | Tt.Constant (x,es) ->
+        let yts, _ =
+          match Environment.lookup_constant x env with
+            | Some ytsu -> ytsu
+            | None -> Error.typing ~loc "unknown constant %t" (Name.print_ident x)
+        in
+        let rec fold ctx res yts es =
+          begin match yts,es with
+            | [], [] ->
+              Monad.return (ctx, Tt.mention assumptions (Tt.mk_constant ~loc x (List.rev res)))
+            | (y,(reducing,t))::yts, e::es ->
+              begin if reducing
+                then
+                  whnf env ctx e
+                else
+                  Monad.return (ctx,e)
+              end >>= fun (ctx,e) ->
+              fold ctx (e::res) yts es
+            | _::_,[] | [],_::_ ->
+              Error.impossible ~loc "Invalid constant %t in weak_whnf" (Tt.print_term [] e)
+          end
+        in
+        fold ctx [] yts es
 
       | Tt.Projection (e,xts,p) ->
         begin
@@ -177,7 +196,7 @@ and weak_whnf env ctx e =
       | Tt.Inhab _
       | Tt.Bracket _
       | Tt.Signature _
-      | Tt.Structure _ -> Monad.return (ctx, Tt.mention assumptions e)
+      | Tt.Structure _ -> Monad.return (ctx, e)
       | Tt.Bound _ ->
           Error.impossible ~loc "de Bruijn encountered in weak_whnf"
     end

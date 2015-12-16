@@ -1,0 +1,11 @@
+Axiom N : Type.
+Axiom O : N.
+
+Axiom plus [reduce n : N] [reduce m : N] : N.
+
+Axiom plus_O_l : forall [n : N] plus O n == n.
+
+Beta plus_O_l.
+
+Check plus (plus O O) O.
+
