@@ -1,5 +1,6 @@
 Axiom N : Type.
 Axiom O : N.
+Axiom S [n : N] : N.
 
 Axiom plus [reduce n : N] [reduce m : N] : N.
 
@@ -9,3 +10,4 @@ Beta plus_O_l.
 
 Check plus (plus O O) O.
 
+Check whnf (plus (plus O (S O)) (plus O O)).

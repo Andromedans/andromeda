@@ -1,5 +1,7 @@
 N is assumed.
 O is assumed.
+S is assumed.
 plus is assumed.
 plus_O_l is assumed.
 ⊢ plus (plus O O) O : N
+⊢ plus (S O) O : N
