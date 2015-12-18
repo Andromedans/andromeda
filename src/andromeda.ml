@@ -124,7 +124,7 @@ let rec exec_cmd base_dir interactive env c =
           fold env ctx (z :: zs) ((y, (r, w)) :: yrws) ryus in
      let ctx, yrusv = fold env Context.empty [] [] ryus in
      (* XXX do sth with ctx *)
-     let env = Environment.add_constant x yrusv env in
+     let env = Environment.add_constant ~loc x yrusv env in
      if interactive then Format.printf "%t is assumed.@." (Name.print_ident x) ;
      env
 
@@ -169,7 +169,7 @@ let rec exec_cmd base_dir interactive env c =
   | Syntax.TopInhabit xscs ->
      Eval.inhabit_bind env xscs |> Value.to_value ~loc
 
-  | Syntax.TopUnhint xs -> Environment.unhint xs env
+  | Syntax.TopUnhint xs -> Environment.unhint ~loc xs env
 
   | Syntax.Include fs ->
     (* relative file names get interpreted relative to the file we're
