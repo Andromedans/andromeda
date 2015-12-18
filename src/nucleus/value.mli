@@ -1,5 +1,10 @@
 (** Runtime values and results *)
 
+(** Runtime environment *)
+type env
+
+type dynamic
+
 (** The values are "finished" or "computed" results. They are inert pieces
     of data.
 
@@ -9,28 +14,32 @@
 type value =
   | Term of Judgement.term
   | Ty of Judgement.ty
-  | Closure of closure
+  | Closure of value closure
   | Handler of handler
   | Tag of Name.ident * value list
 
- and closure = value -> value result
+and 'a closure
 
 (** A result of computation at the moment is necessarily just a pure value
     because we do not have any operations in the language. But when we do,
     they will be results as well (and then handlers will handle them). *)
 and 'a result =
   | Return of 'a
-  | Operation of string * value * (value -> 'a result)
+  | Operation of string * value * dynamic * 'a closure
 
 and handler = {
-  handler_val: closure option;
-  handler_ops: (string * (value -> value -> value result)) list;
-  handler_finally: closure option;
+  handler_val: value closure option;
+  handler_ops: (string * (dynamic -> value -> value closure -> value result)) list;
+  handler_finally: value closure option;
 }
+
+val mk_closure' : env -> (env -> value -> value result) -> value closure
+val mk_closure : env -> (env -> value -> value result) -> value
+val apply_closure : env -> 'a closure -> value -> 'a result
 
 val as_term : loc:Location.t -> value -> Judgement.term
 val as_ty : loc:Location.t -> value -> Judgement.ty
-val as_closure : loc:Location.t -> value -> closure
+val as_closure : loc:Location.t -> value -> value closure
 val as_handler : loc:Location.t -> value -> handler
 
 (** Convert tags to ocaml types *)
@@ -39,10 +48,17 @@ val as_option : loc:Location.t -> value -> value option
 val return : 'a -> 'a result
 val return_term : Judgement.term -> value result
 val return_ty : Judgement.ty -> value result
+val return_closure : env -> (env -> value -> value result) -> value result
+
+val return_handler : env ->
+   (env -> value -> value result) option ->
+   (string * (env -> value -> (value closure -> value result))) list ->
+   (env -> value -> value result) option ->
+   value result
 
 val bind: 'a result -> ('a -> 'b result)  -> 'b result
 
-val operate : string -> value -> value result
+val operate : string -> env -> value -> value result
 
 (** Pretty-print a value. *)
 val print_value : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
@@ -58,106 +74,106 @@ val equal_value: value -> value -> bool
 (** [mk_abstractable ctx xs] prepares context [ctx] for abstracting atoms [xs].
     It returns a context [ctx'], atoms [ys] and terms [es],
     with [ctx'] the context where the atoms [ys] blocking abstraction in [ctx] have been instantiated  by [es]. *)
-val mk_abstractable : loc:Location.t -> Context.t -> Name.atom list ->
+val mk_abstractable : loc:Location.t -> env -> Context.t -> Name.atom list ->
   (Context.t * Name.atom list * Tt.term list) result
 
 (** [context_abstract ctx xs ts] computes [mk_abstractable ctx xs],
     and abstracts the result by [xs] and [ts]. *)
-val context_abstract : loc:Location.t -> Context.t -> Name.atom list -> Tt.ty list ->
+val context_abstract : loc:Location.t -> env -> Context.t -> Name.atom list -> Tt.ty list ->
   (Context.t * Name.atom list * Tt.term list) result
 
 module Env : sig
+  type t = env
 
-(** Runtime environment *)
+  (** The empty environment *)
+  val empty : env
 
-type t
+  (** List of constants with their arities. *)
+  val constants : env -> (Name.ident * int) list
 
-(** The empty environment *)
-val empty : t
+  (** Known bound variables *)
+  val bound_names : env -> Name.ident list
 
-(** List of constants with their arities. *)
-val constants : t -> (Name.ident * int) list
+  (** Variable names already used in the environment *)
+  val used_names : env -> Name.ident list
 
-(** Known bound variables *)
-val bound_names : t -> Name.ident list
+  (** Lookup a constant. *)
+  val lookup_constant : Name.ident -> env -> Tt.constsig option
 
-(** Variable names already used in the environment *)
-val used_names : t -> Name.ident list
+  (** Lookup a free variable by its de Bruijn index *)
+  val lookup_bound : loc:Location.t -> Syntax.bound -> env -> value
 
-(** Lookup a constant. *)
-val lookup_constant : Name.ident -> t -> Tt.constsig option
+  (** Return all beta hints in the environment *)
+  val beta_hints : Pattern.hint_key -> env -> Pattern.beta_hint list
 
-(** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : loc:Location.t -> Syntax.bound -> t -> value
+  (** Return all eta hints in the environment *)
+  val eta_hints : Pattern.hint_key -> env -> Pattern.eta_hint list
 
-(** Return all beta hints in the environment *)
-val beta_hints : Pattern.hint_key -> t -> Pattern.beta_hint list
+  (** Return all general hints in the environment *)
+  val general_hints : Pattern.general_key -> env -> Pattern.general_hint list
 
-(** Return all eta hints in the environment *)
-val eta_hints : Pattern.hint_key -> t -> Pattern.eta_hint list
+  (** Return all general hints in the environment *)
+  val inhabit_hints : Pattern.hint_key -> env -> Pattern.inhabit_hint list
 
-(** Return all general hints in the environment *)
-val general_hints : Pattern.general_key -> t -> Pattern.general_hint list
-
-(** Return all general hints in the environment *)
-val inhabit_hints : Pattern.hint_key -> t -> Pattern.inhabit_hint list
-
-(** [add_fresh ~loc env x t] generates a fresh atom [y] from identifier [x]. Return [y] and
+  (** [add_fresh ~loc env x t] generates a fresh atom [y] from identifier [x]. Return [y] and
     the environment updated with [x] bound to [y:t]. *)
-val add_fresh: loc:Location.t -> t -> Name.ident -> Judgement.ty -> Context.t * Name.atom * t
+  val add_fresh: loc:Location.t -> env -> Name.ident -> Judgement.ty -> Context.t * Name.atom * env
 
-(** Add a constant of a given signature to the environment.
+  (** Add a constant of a given signature to the environment.
     Fails if the constant is already bound. *)
-val add_constant : loc:Location.t -> Name.ident -> Tt.constsig -> t -> t
+  val add_constant : loc:Location.t -> Name.ident -> Tt.constsig -> env -> env
 
-(** Add an untagged beta hint to the environment. *)
-val add_beta : Pattern.hint_key * Pattern.beta_hint -> t -> t
+  (** Add an untagged beta hint to the environment. *)
+  val add_beta : Pattern.hint_key * Pattern.beta_hint -> env -> env
 
-(** Add beta hints to the environment. *)
-val add_betas : (string list * (Pattern.hint_key * Pattern.beta_hint)) list -> t -> t
+  (** Add beta hints to the environment. *)
+  val add_betas : (string list * (Pattern.hint_key * Pattern.beta_hint)) list -> env -> env
 
-(** Add eta hints to the environment. *)
-val add_etas : (string list * (Pattern.hint_key * Pattern.eta_hint)) list -> t -> t
+  (** Add eta hints to the environment. *)
+  val add_etas : (string list * (Pattern.hint_key * Pattern.eta_hint)) list -> env -> env
 
-(** Add general hints to the environment. *)
-val add_generals :
-  (string list *
-   (Pattern.general_key * Pattern.general_hint)) list ->
-  t -> t
+  (** Add general hints to the environment. *)
+  val add_generals :
+    (string list *
+       (Pattern.general_key * Pattern.general_hint)) list ->
+    env -> env
 
-(** Add an inhabit hint to the environment. *)
-val add_inhabits : (string list * (Pattern.hint_key * Pattern.inhabit_hint)) list -> t -> t
+  (** Add an inhabit hint to the environment. *)
+  val add_inhabits : (string list * (Pattern.hint_key * Pattern.inhabit_hint)) list -> env -> env
 
-(** Remove all hints with one of the given tags *)
-val unhint : loc:Location.t -> string list -> t -> t
+  (** Remove all hints with one of the given tags *)
+  val unhint : loc:Location.t -> string list -> env -> env
 
-(** Add a bound variable with given name to the environment. *)
-val add_bound : Name.ident -> value -> t -> t
+  (** Add a bound variable with given name to the environment. *)
+  val add_bound : Name.ident -> value -> env -> env
 
-(** Add a top-level handler case to the environment. *)
-val add_handle : string -> (Name.ident * Syntax.comp) -> t -> t
+  (** Add a top-level handler case to the environment. *)
+  val add_handle : string -> (Name.ident * Syntax.comp) -> env -> env
 
-(** Lookup the top-level handler for the given operation, if any. *)
-val lookup_handle : string -> t -> (Name.ident * Syntax.comp) option
+  (** Lookup the top-level handler for the given operation, if any. *)
+  val lookup_handle : string -> env -> (Name.ident * Syntax.comp) option
 
-(** Set the continuation for a handler computation. *)
-val set_continuation : value -> t -> t
+  (** Set the continuation for a handler computation. *)
+  val set_continuation : value closure -> env -> env
 
-(** Lookup the current continuation. *)
-val lookup_continuation : t -> value option
+  (** Set the dynamic part of an environment. *)
+  val set_dynamic : t -> dynamic -> t
 
-(** Add a file to the list of files included. *)
-val add_file : string -> t -> t
+  (** Lookup the current continuation. *)
+  val lookup_continuation : env -> (value closure) option
 
-(** Check whether a file has already been included. Files are compared by
+  (** Add a file to the list of files included. *)
+  val add_file : string -> env -> env
+
+  (** Check whether a file has already been included. Files are compared by
     their basenames *)
-val included : string -> t -> bool
+  val included : string -> env -> bool
 
-(** Print free variables in the environment *)
-val print : t -> Format.formatter -> unit
+  (** Print free variables in the environment *)
+  val print : env -> Format.formatter -> unit
 
-(** Match a value against a pattern and extend the environment with the
+  (** Match a value against a pattern and extend the environment with the
     matched pattern variables. *)
-val match_pattern : t -> Name.ident list -> Syntax.pattern -> value -> t option
+  val match_pattern : env -> Name.ident list -> Syntax.pattern -> value -> env option
 
 end (* [sig Env] *)
