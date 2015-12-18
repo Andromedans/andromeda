@@ -138,7 +138,7 @@ and weak_whnf env ctx e =
 
       | Tt.Constant (x,es) ->
         let yts, _ =
-          match Environment.lookup_constant x env with
+          match Value.Env.lookup_constant x env with
             | Some ytsu -> ytsu
             | None -> Error.typing ~loc "unknown constant %t" (Name.print_ident x)
         in
@@ -207,7 +207,7 @@ and weak_whnf env ctx e =
     Here we use available beta hints. *)
 and whnf env ctx e =
   let i = cnt () in
-  let xs = Environment.used_names env in
+  let xs = Value.Env.used_names env in
   Print.debug "(%i computing whnf of@ %t@ " i (Tt.print_term xs e);
   weak_whnf env ctx e >>= fun (ctx,e) ->
   let rec apply_beta = function
@@ -251,7 +251,7 @@ and whnf env ctx e =
   else begin
     let key = Pattern.term_key e in
     Print.debug "trying beta hints for@ %t" (Tt.print_term xs e);
-    apply_beta (Environment.beta_hints key env) >>= fun (ctx,e) ->
+    apply_beta (Value.Env.beta_hints key env) >>= fun (ctx,e) ->
     Print.debug "%i found whnf@ %t )" i (Tt.print_term xs e);
     Monad.return (ctx, e)
   end
@@ -312,7 +312,7 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) lis
         and u' = Tt.unabstract_ty ys u' in
         equal_ty env ctx u u' >?= fun ctx ->
         let ju = Judgement.mk_ty ctx u in
-        let ctx, y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
+        let ctx, y, env = Value.Env.add_fresh ~loc:Location.unknown env x ju in
         eq env ctx (ys @ [y]) (ts @ [u]) xuus (* XXX optimize list append *)
   in
   eq env ctx [] [] xuus
@@ -321,7 +321,7 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) lis
 and equal_ty env ctx (Tt.Ty t1) (Tt.Ty t2) = equal env ctx t1 t2 Tt.typ
 
 and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
-  let xs = Environment.used_names env in
+  let xs = Value.Env.used_names env in
   let i = cnt () in
   Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
     (Tt.print_term xs e1) (Tt.print_term xs e2) (Tt.print_ty xs t);
@@ -377,7 +377,7 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
 
             in let key = Pattern.ty_key t in
             fold (if !Config.ignore_hints then []
-                  else (Environment.eta_hints key env))
+                  else (Value.Env.eta_hints key env))
           end
 
         | Tt.Prod (xus, u) ->
@@ -386,7 +386,7 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
               | (x, ((Tt.Ty {Tt.loc=loc;_}) as v)) :: xvs ->
                   let v = Tt.unabstract_ty ys v in
                   let jv = Judgement.mk_ty ctx v in
-                  let ctx, y, env =  Environment.add_fresh ~loc env x jv in
+                  let ctx, y, env =  Value.Env.add_fresh ~loc env x jv in
                   let e = Tt.mk_atom ~loc y in
                   fold env ctx (y :: ys) (v::ts) (e :: es) xvs
               | [] ->
@@ -462,7 +462,7 @@ and equal_hints env ctx e1 e2 t =
            end
         | [] -> Opt.fail
       in
-      fold (if !Config.ignore_hints then [] else Environment.general_hints key env)
+      fold (if !Config.ignore_hints then [] else Value.Env.general_hints key env)
     end >??= begin function
     | None ->
        (* proceed with comparing the weak head normal forms *)
@@ -491,7 +491,7 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
      then Opt.fail
      else
        let yts, _ =
-         begin match Environment.lookup_constant x1 env with
+         begin match Value.Env.lookup_constant x1 env with
          | Some ytsu -> ytsu
          | None -> Error.impossible ~loc:loc1 "primitive application equality, unknown primitive operation %t" (Name.print_ident x1)
          end in
@@ -521,7 +521,7 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
           and u' = Tt.unabstract_ty ys u' in
           equal_ty env ctx u u' >?= fun ctx ->
           let ju = Judgement.mk_ty ctx u in
-          let ctx, y, env = Environment.add_fresh ~loc:Location.unknown env x ju in
+          let ctx, y, env = Value.Env.add_fresh ~loc:Location.unknown env x ju in
           zip (ys @ [y]) (ts @ [u]) env ctx (xus, xvs) (* XXX optimize list append *)
 
        | ([] as xus), xvs | xus, ([] as xvs) ->
@@ -683,7 +683,7 @@ and equal_signature ~loc env ctx xts1 xts2 =
         let t2 = Tt.unabstract_ty ys t2 in
         equal_ty env ctx t1 t2 >?= fun ctx ->
         let jx = Judgement.mk_ty ctx t1 in
-        let ctx, y, env = Environment.add_fresh ~loc env x jx in
+        let ctx, y, env = Value.Env.add_fresh ~loc env x jx in
         fold env ctx (y::ys) (t1::ts) xts1 xts2
       else Opt.fail
     | _::_,[] | [],_::_ -> Opt.fail
@@ -750,11 +750,11 @@ and pattern_collect_whnf env ctx p ~at_ty ({Tt.term=e';loc;_} as e_orig) =
         begin match extras with
         | _::_ ->
           Print.debug "found unexpected trailing arguments at %t"
-            (Tt.print_term (Environment.used_names env) e_orig);
+            (Tt.print_term (Value.Env.used_names env) e_orig);
           Opt.fail
         | [] ->
           Print.debug "no trailing arguments for %t"
-            (Tt.print_term (Environment.used_names env) e_orig);
+            (Tt.print_term (Value.Env.used_names env) e_orig);
           Opt.return (pvars, checks)
         end
       | _ -> Opt.fail
@@ -952,7 +952,7 @@ and collect_primapp ~loc env ctx x pes y es =
   then Opt.fail
   else begin
     let yts, _ =
-      begin match Environment.lookup_constant x env with
+      begin match Value.Env.lookup_constant x env with
             | Some ytsu -> ytsu
             | None -> Error.impossible ~loc "unknown operation %t in pattern_collect" (Name.print_ident x)
       end in
@@ -1057,9 +1057,9 @@ and verify_match ~spawn env ctx xts pvars checks =
        | CheckEqual (e1, e2, t) ->
           let e1 = Tt.instantiate es e1 in
           Print.debug "CheckEqual at@ %t@ %t@ %t"
-            (Tt.print_ty (Environment.used_names env) t)
-            (Tt.print_term (Environment.used_names env) e1)
-            (Tt.print_term (Environment.used_names env) e2);
+            (Tt.print_ty (Value.Env.used_names env) t)
+            (Tt.print_term (Value.Env.used_names env) e1)
+            (Tt.print_term (Value.Env.used_names env) e2);
           equal_whnf env ctx e1 e2
 
        | CheckEqualTy (xuvs, (t1, t2)) ->
@@ -1104,7 +1104,7 @@ and as_bracket env (ctx, t) =
   whnf_ty env ctx t >>= fun (ctxt, Tt.Ty {Tt.term=t';loc;_}) ->
   match t' with
   | Tt.Bracket t -> Monad.return (ctxt, t)
-  | _ -> Error.typing ~loc "[] has a bracket type and not %t" (Tt.print_ty (Environment.used_names env) t)
+  | _ -> Error.typing ~loc "[] has a bracket type and not %t" (Tt.print_ty (Value.Env.used_names env) t)
 
 (** Strip brackets from a given type. *)
 and strip_bracket env ctx t =
@@ -1138,7 +1138,7 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty {Tt.term=t';loc;_}) as t) =
         | (x,t)::xts ->
           let t = Tt.unabstract_ty ys t in
           let jt = Judgement.mk_ty ctx t in
-          let ctx, y, env = Environment.add_fresh ~loc env x jt in
+          let ctx, y, env = Value.Env.add_fresh ~loc env x jt in
           fold env ctx (y :: ys) (t::ts) xts
       in
         fold env ctx [] [] xts'
@@ -1197,7 +1197,7 @@ and inhabit_bracket ~subgoals ~loc env (ctx, t_inhabit) =
                   | None -> fold hs
             end
          end
-    in fold (Environment.inhabit_hints key env)
+    in fold (Value.Env.inhabit_hints key env)
 
 let as_atom env (ctx, e', t)  =
   whnf env ctx e' >>= fun (ctx, {Tt.term=e';loc;_}) ->
@@ -1230,7 +1230,7 @@ let rec deep_prod env ctx t f =
        | (z,v) :: zvs ->
           let v = Tt.unabstract_ty ys v in
           let jv = Judgement.mk_ty ctx v in
-          let ctx, y, env = Environment.add_fresh ~loc env z jv in
+          let ctx, y, env = Value.Env.add_fresh ~loc env z jv in
           fold env ctx (y :: ys) (v::ts) zvs
        end in
 
