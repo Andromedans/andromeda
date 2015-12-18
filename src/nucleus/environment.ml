@@ -225,7 +225,6 @@ let application_pop {Tt.term=e;loc;_} =
      fold [] [] (absl,rhs)
   | _ -> raise Match_fail
 
-(* TODO check assumptions *)
 let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';_} as e) t =
   match p', e' with
     | Syntax.Tt_Anonymous, _ -> xvs

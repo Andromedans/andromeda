@@ -72,20 +72,8 @@
 	    <context ref="def:in-comment:*"/>
 	  </include>
 	</context>
-	<context id="hex-number" style-ref="base-n-integer">
-	  <match>[-]?0[xX][0-9A-Fa-f][0-9A-Fa-f_]*[lL]?</match>
-	</context>
-	<context id="octal-number" style-ref="base-n-integer">
-	  <match>[-]?0[oO][0-7][0-7_]*[lL]?</match>
-	</context>
-	<context id="binary-number" style-ref="base-n-integer">
-	  <match>[-]?0[bB][01][01_]*[lL]?</match>
-	</context>
 	<context id="decimal" style-ref="decimal">
-	  <match>[-]?[0-9][0-9_]*[lLn]?</match>
-	</context>
-	<context id="floating-point-number" style-ref="floating-point">
-	  <match>[-]?[0-9][0-9_]*(\.[0-9_]*)?([Ee][+-]?[0-9][0-9_]*)?</match>
+	  <match>[-]?[0-9][0-9]*</match>
 	</context>
 	<context id="string" style-ref="string">
 	  <start>"</start>

@@ -360,26 +360,22 @@ and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
     let lval = Value.Term ljdg in
     let rval = Value.Term rjdg in
     let opval = Value.Tag (Name.make "pair", [lval;rval]) in
-    let k v =
-      let tsome = Name.make "some" in
-      let tnone = Name.make "none" in
-      match v with
-        | Value.Tag (t, [v]) when (Name.eq_ident t tsome) ->
-          let (ctxeq,eq,teq) = Value.as_term ~loc v in
-          let tgoal = Tt.mk_eq_ty ~loc lty lte rte in
-          if Tt.alpha_equal_ty teq tgoal
-          then
-            let ctx = Context.join ~loc ctxeq (Context.join ~loc lctx rctx) in (* user may have done something surprising somehow *)
-            let hyps = Tt.assumptions_term eq in
-            f ctx hyps
-          else
-            Error.typing ~loc:(eq.Tt.loc) "this expression should have type@ %t@ but has type@ %t"
-                         (print_ty env tgoal) (print_ty env teq)
-        | Value.Tag (t, []) when (Name.eq_ident t tnone) ->
-          error ()
-        | _ -> Error.typing ~loc "#equal returned unexpected value %t@ , expected eq option" (print_value env v)
-    in
-    Value.Operation ("equal", opval, k)
+    Value.operate "equal" opval >>= fun v ->
+    begin match Value.as_option ~loc v with
+      | Some v ->
+        let (ctxeq,eq,teq) = Value.as_term ~loc v in
+        let tgoal = Tt.mk_eq_ty ~loc lty lte rte in
+        if Tt.alpha_equal_ty teq tgoal
+        then
+          let ctx = Context.join ~loc ctxeq (Context.join ~loc lctx rctx) in (* user may have done something surprising somehow *)
+          let hyps = Tt.assumptions_term eq in
+          f ctx hyps
+        else
+          Error.typing ~loc:(eq.Tt.loc) "this expression should have type@ %t@ but has type@ %t"
+                       (print_ty env tgoal) (print_ty env teq)
+      | None ->
+        error ()
+    end
 
 and require_equal_ty ~loc env (lctx,Tt.Ty lte) (rctx,Tt.Ty rte) f error : 'a Value.result =
   require_equal ~loc env (lctx,lte,Tt.mk_type_ty ~loc:(lte.Tt.loc))
