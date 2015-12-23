@@ -15,11 +15,12 @@ type dynamic = {
   (* Currently declared constants. Since these can only be declared at the
      top level, the list only ever increases. *)
 
-  abstracting : (Name.atom * Judgement.ty) list;
-  (* The list of atoms which are going to be abstracted. We should avoid
-     creating atoms which depends on these, as this will prevent abstraction
-     from working. The list is in the reverse order from abstraction, i.e.,
-     the inner-most abstracted variable appears first in the list. *)
+  abstracting : Judgement.term list;
+  (* The list of judgments about atoms which are going to be abstracted. We
+     should avoid creating atoms which depends on these, as this will prevent
+     abstraction from working. The list is in the reverse order from
+     abstraction, i.e., the inner-most abstracted variable appears first in the
+     list. *)
   
   (* XXX hopefully one day the hints won't be in the kernel *)
   beta : (string list list * Pattern.beta_hint list) HintMap.t;
@@ -138,6 +139,10 @@ let as_option ~loc = function
   | Tag (t,[]) when (Name.eq_ident t tnone)  -> None
   | Tag (t,[x]) when (Name.eq_ident t tsome) -> Some x
   | Tag _ -> Error.runtime ~loc "expected an option but got a tag"
+
+let mk_tag t lst =
+  let t = Name.make t in
+  Tag (t, lst)
 
 let return x = Return x
 
@@ -331,6 +336,8 @@ module Env = struct
     in
     lookup env.dynamic.constants
 
+  let lookup_abstracting env = env.dynamic.abstracting
+
   let lookup_bound ~loc k env =
     try
       snd (List.nth env.bound k)
@@ -433,12 +440,11 @@ module Env = struct
   let add_abstracting ~loc env x (ctx, t) =
     let y, ctx = Context.add_fresh ctx x t in
     let ya = Tt.mk_atom ~loc y in
-    let yt = Term (ctx, ya, t) in
-    let jt = Judgement.mk_ty ctx t in
-    let env = add_bound x yt env in
+    let jyt = Judgement.mk_term ctx ya t in
+    let env = add_bound x (Term jyt) env in
     let env = { env with
                 dynamic = { env.dynamic with
-                            abstracting = (y, jt) :: env.dynamic.abstracting } }
+                            abstracting = jyt :: env.dynamic.abstracting } }
     in
     ctx, y, env
 

@@ -341,6 +341,16 @@ let rec infer env (c',loc) =
       | None -> Error.impossible ~loc "yield without continuation set"
     end
 
+  | Syntax.Context ->
+     let rec to_value = function
+         |  [] -> Value.mk_tag "nil" []
+         | jxt :: lst ->
+            let lst = to_value lst in
+            Value.mk_tag "cons" [Value.Term jxt; lst]
+     in
+     let v = to_value (Value.Env.lookup_abstracting env) in
+     Value.return v
+
 and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
                   (f : Context.t -> Name.AtomSet.t -> 'a Value.result) error : 'a Value.result =
   (let ctx = Context.join ~loc lctx rctx in
@@ -398,7 +408,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Bracket _
   | Syntax.Signature _
   | Syntax.Projection _
-  | Syntax.Yield ->
+  | Syntax.Yield 
+  | Syntax.Context ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 

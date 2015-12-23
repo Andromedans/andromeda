@@ -45,6 +45,8 @@ val as_handler : loc:Location.t -> value -> handler
 (** Convert tags to ocaml types *)
 val as_option : loc:Location.t -> value -> value option
 
+val mk_tag : string -> value list -> value
+
 val return : 'a -> 'a result
 val return_term : Judgement.term -> value result
 val return_ty : Judgement.ty -> value result
@@ -99,6 +101,9 @@ module Env : sig
 
   (** Lookup a constant. *)
   val lookup_constant : Name.ident -> env -> Tt.constsig option
+
+  (** Lookup abstracting variables. *)
+  val lookup_abstracting : env -> Judgement.term list
 
   (** Lookup a free variable by its de Bruijn index *)
   val lookup_bound : loc:Location.t -> Syntax.bound -> env -> value

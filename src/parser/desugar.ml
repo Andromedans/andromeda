@@ -430,6 +430,9 @@ let rec comp ~yield constants bound (c',loc) =
     then Syntax.Yield, loc
     else Error.syntax ~loc "yield outside handler case"
 
+  | Input.Context ->
+     Syntax.Context, loc
+
   | Input.Function (xs, c) ->
      let rec fold bound = function
        | [] -> comp ~yield constants bound c
