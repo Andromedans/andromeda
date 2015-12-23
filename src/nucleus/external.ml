@@ -1,5 +1,8 @@
 (** Predefined external values. *)
 
+(* An associative list mapping external names to their values.
+   A typical external is a closure, which is made using [Value.mk_closure].
+   A closure needs an environment, which for externals is the empty environment. *)
 let externals =
   [
     ("print",
