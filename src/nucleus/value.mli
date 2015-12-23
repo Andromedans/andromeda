@@ -115,9 +115,15 @@ module Env : sig
   (** Return all general hints in the environment *)
   val inhabit_hints : Pattern.hint_key -> env -> Pattern.inhabit_hint list
 
-  (** [add_fresh ~loc env x t] generates a fresh atom [y] from identifier [x]. Return [y] and
+  (** [add_free ~loc env x t] generates a fresh atom [y] from identifier [x]. Return [y] and
     the environment updated with [x] bound to [y:t]. *)
-  val add_fresh: loc:Location.t -> env -> Name.ident -> Judgement.ty -> Context.t * Name.atom * env
+  val add_free: loc:Location.t -> env -> Name.ident -> Judgement.ty -> Context.t * Name.atom * env
+
+  (** [add_abstracting ~loc env x t] generates a fresh atom [y] from identifier [x] and marks
+      it as abstracting (which means we intend to abstract it later). Return [y] and
+      the environment updated with [x] bound to [y:t]. *)
+  val add_abstracting: loc:Location.t -> env ->
+                       Name.ident -> Judgement.ty -> Context.t * Name.atom * env
 
   (** Add a constant of a given signature to the environment.
     Fails if the constant is already bound. *)

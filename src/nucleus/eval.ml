@@ -118,7 +118,7 @@ let rec infer env (c',loc) =
 
   | Syntax.Assume ((x, t), c) ->
      check_ty env t >>= fun t ->
-     let _, _ , env = Value.Env.add_fresh ~loc env x t in
+     let _, _ , env = Value.Env.add_free ~loc env x t in
      infer env c
 
   | Syntax.Where (c1, c2, c3) ->
@@ -294,7 +294,7 @@ let rec infer env (c',loc) =
         Value.mk_abstractable ~loc env ctxt ys >>= fun (ctxt,zs,es) ->
         let t = Tt.substitute_ty zs es t in
         let jt = Judgement.mk_ty ctxt t in
-        let _, y, env = Value.Env.add_fresh ~loc env x jt in
+        let _, y, env = Value.Env.add_abstracting ~loc env x jt in
         let ctxt = Context.abstract ~loc ctxt ys ts in
         let tabs = Tt.abstract_ty ys t in
         let ctx = Context.join ~loc ctx ctxt in
@@ -316,7 +316,7 @@ let rec infer env (c',loc) =
         let te = Tt.substitute zs es te
         and ty = Tt.substitute_ty zs es ty in
         let jty = Judgement.mk_ty ctxt ty in
-        let _, y, env = Value.Env.add_fresh ~loc env x jty in
+        let _, y, env = Value.Env.add_abstracting ~loc env x jty in
         let ctxt = Context.abstract ~loc ctxt ys ts in
         let te_abs = Tt.abstract ys te
         and ty_abs = Tt.abstract_ty ys ty in
@@ -424,7 +424,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
 
   | Syntax.Assume ((x, t), c) ->
      check_ty env t >>= fun t ->
-     let _,_,env = Value.Env.add_fresh ~loc env x t in
+     let _,_,env = Value.Env.add_abstracting ~loc env x t in
      check env c t_check
 
   | Syntax.Beta (xscs, c) ->
@@ -519,7 +519,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             check env c jty >>= fun (ctx, e) ->
             Value.mk_abstractable ~loc env ctx ys >>= fun (ctx,zs,es) ->
             let e = Tt.substitute zs es e in
-            let ctx, y, env = Value.Env.add_fresh ~loc env x jty in
+            let ctx, y, env = Value.Env.add_abstracting ~loc env x jty in
             let hyps = Name.AtomSet.add y (Tt.assumptions_term e) in
             let env = add_beta ~loc y ctx hyps e ty_inst env in
             let e_abs = Tt.abstract ys e in
@@ -575,7 +575,7 @@ and infer_lambda env ~loc xus c =
          Value.mk_abstractable ~loc env ctxu ys >>= fun (ctxu,zs,es) ->
          let u = Tt.substitute_ty zs es u in
          let ju = Judgement.mk_ty ctxu u in
-         let _, y, env = Value.Env.add_fresh ~loc:uloc env x ju in
+         let _, y, env = Value.Env.add_abstracting ~loc:uloc env x ju in
          let ctxu = Context.abstract ~loc ctxu ys ts in
          let u_abs = Tt.abstract_ty ys u in
          let ctx = Context.join ~loc ctx ctxu in
@@ -600,7 +600,7 @@ and infer_prod env ~loc xus c =
         Value.mk_abstractable ~loc env ctxu ys >>= fun (ctxu,zs,es) ->
         let u = Tt.substitute_ty zs es u in
         let ju = Judgement.mk_ty ctxu u in
-        let _, y, env = Value.Env.add_fresh ~loc:uloc env x ju in
+        let _, y, env = Value.Env.add_abstracting ~loc:uloc env x ju in
         let ctxu = Context.abstract ~loc ctxu ys ts in
         let u_abs = Tt.abstract_ty ys u in
         let ctx = Context.join ~loc ctx ctxu in
@@ -666,7 +666,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
 
           let k ctx hyps' t =
             let jt = Judgement.mk_ty ctx t in
-            let ctx, y, env = Value.Env.add_fresh ~loc env x jt in
+            let ctx, y, env = Value.Env.add_abstracting ~loc env x jt in
             let t_abs = Tt.abstract_ty ys t in
             fold env ctx (Name.AtomSet.union hyps hyps') (y::ys) (t::ts) ((x,t_abs)::xts) abs zus in
 

@@ -301,19 +301,21 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Pattern.pty * Tt.ty)) lis
   let rec eq env ctx ys ts =
     function
      | [] ->
+        (* XXX think whether the order of [ys] is correct everywhere *)
         let v = Tt.unabstract_ty ys v
         and v' = Tt.unabstract_ty ys v' in
         equal_ty env ctx v v' >?= fun ctx ->
-        Monad.lift (Value.context_abstract ~loc:Location.unknown env ctx (List.rev ys) (List.rev ts)) >!= fun (ctx,ys,es) ->
-        Monad.abstract_hyps ys es >!= fun () ->
-        Opt.return ctx
+        Monad.lift (Value.context_abstract ~loc:Location.unknown env ctx ys ts) >!=
+          fun (ctx,ys,es) ->
+          Monad.abstract_hyps ys es >!= fun () ->
+                                        Opt.return ctx
      | (x,(u,u'))::xuus ->
         let u  = Tt.unabstract_ty ys u
         and u' = Tt.unabstract_ty ys u' in
         equal_ty env ctx u u' >?= fun ctx ->
         let ju = Judgement.mk_ty ctx u in
-        let ctx, y, env = Value.Env.add_fresh ~loc:Location.unknown env x ju in
-        eq env ctx (ys @ [y]) (ts @ [u]) xuus (* XXX optimize list append *)
+        let ctx, y, env = Value.Env.add_free ~loc:Location.unknown env x ju in
+        eq env ctx (y :: ys) (u :: ts) xuus
   in
   eq env ctx [] [] xuus
 
@@ -386,7 +388,7 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
               | (x, ((Tt.Ty {Tt.loc=loc;_}) as v)) :: xvs ->
                   let v = Tt.unabstract_ty ys v in
                   let jv = Judgement.mk_ty ctx v in
-                  let ctx, y, env =  Value.Env.add_fresh ~loc env x jv in
+                  let ctx, y, env =  Value.Env.add_free ~loc env x jv in
                   let e = Tt.mk_atom ~loc y in
                   fold env ctx (y :: ys) (v::ts) (e :: es) xvs
               | [] ->
@@ -395,9 +397,10 @@ and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
                   and e1 = Tt.mk_spine ~loc:loc1 e1 xus u es
                   and e2 = Tt.mk_spine ~loc:loc2 e2 xus u es in
                   equal env ctx e1 e2 v >?= fun ctx ->
-                  Monad.lift (Value.context_abstract ~loc:Location.unknown env ctx ys ts) >!= fun (ctx,ys,es) ->
-                  Monad.abstract_hyps ys es >!= fun () ->
-                  Opt.return ctx
+                  Monad.lift (Value.context_abstract ~loc:Location.unknown env ctx ys ts) >!=
+                    fun (ctx,ys,es) ->
+                    Monad.abstract_hyps ys es >!= fun () ->
+                                                  Opt.return ctx
               end
             in fold env ctx [] [] [] xus
 
@@ -521,7 +524,7 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
           and u' = Tt.unabstract_ty ys u' in
           equal_ty env ctx u u' >?= fun ctx ->
           let ju = Judgement.mk_ty ctx u in
-          let ctx, y, env = Value.Env.add_fresh ~loc:Location.unknown env x ju in
+          let ctx, y, env = Value.Env.add_free ~loc:Location.unknown env x ju in
           zip (ys @ [y]) (ts @ [u]) env ctx (xus, xvs) (* XXX optimize list append *)
 
        | ([] as xus), xvs | xus, ([] as xvs) ->
@@ -535,9 +538,10 @@ and equal_whnf env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
           let e1 = Tt.unabstract ys e1
           and e2 = Tt.unabstract ys e2 in
           equal env ctx e1 e2 t1' >?= fun ctx ->
-          Monad.lift (Value.context_abstract ~loc:Location.unknown env ctx ys ts) >!= fun (ctx,ys,es) ->
-          Monad.abstract_hyps ys es >!= fun () ->
-          Opt.return ctx
+          Monad.lift (Value.context_abstract ~loc:Location.unknown env ctx ys ts) >!=
+            fun (ctx,ys,es) ->
+            Monad.abstract_hyps ys es >!= fun () ->
+                                          Opt.return ctx
      in
      zip [] [] env ctx (xus, xvs)
 
@@ -683,7 +687,7 @@ and equal_signature ~loc env ctx xts1 xts2 =
         let t2 = Tt.unabstract_ty ys t2 in
         equal_ty env ctx t1 t2 >?= fun ctx ->
         let jx = Judgement.mk_ty ctx t1 in
-        let ctx, y, env = Value.Env.add_fresh ~loc env x jx in
+        let ctx, y, env = Value.Env.add_free ~loc env x jx in
         fold env ctx (y::ys) (t1::ts) xts1 xts2
       else Opt.fail
     | _::_,[] | [],_::_ -> Opt.fail
@@ -1138,7 +1142,7 @@ and inhabit_whnf ~subgoals env ctx ((Tt.Ty {Tt.term=t';loc;_}) as t) =
         | (x,t)::xts ->
           let t = Tt.unabstract_ty ys t in
           let jt = Judgement.mk_ty ctx t in
-          let ctx, y, env = Value.Env.add_fresh ~loc env x jt in
+          let ctx, y, env = Value.Env.add_abstracting ~loc env x jt in
           fold env ctx (y :: ys) (t::ts) xts
       in
         fold env ctx [] [] xts'
@@ -1230,7 +1234,7 @@ let rec deep_prod env ctx t f =
        | (z,v) :: zvs ->
           let v = Tt.unabstract_ty ys v in
           let jv = Judgement.mk_ty ctx v in
-          let ctx, y, env = Value.Env.add_fresh ~loc env z jv in
+          let ctx, y, env = Value.Env.add_abstracting ~loc env z jv in
           fold env ctx (y :: ys) (v::ts) zvs
        end in
 

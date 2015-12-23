@@ -109,6 +109,7 @@ let rec exec_cmd base_dir interactive env c =
   match c' with
 
   | Syntax.Axiom (x, ryus, c) ->
+     (* XXX this is seriously messed up with respect to contexts. *)
      let rec fold env ctx zs yrws = function
        | [] ->
           let (ctxt, t') = Eval.comp_ty env c in
@@ -118,7 +119,7 @@ let rec exec_cmd base_dir interactive env c =
           (ctx, (yrws, t'))
        | (r, (y, c)) :: ryus ->
           let ((ctxu, u) as ju) = Eval.comp_ty env c in
-          let _, z, env = Value.Env.add_fresh ~loc:Location.unknown env y ju in
+          let _, z, env = Value.Env.add_abstracting ~loc:Location.unknown env y ju in
           let w = Tt.abstract_ty zs u in
           let ctx = Context.join ~loc ctx ctxu in
           fold env ctx (z :: zs) ((y, (r, w)) :: yrws) ryus in

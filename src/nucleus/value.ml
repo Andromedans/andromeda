@@ -12,6 +12,16 @@ module GeneralMap = Map.Make(struct
 
 type dynamic = {
   constants : (Name.ident * Tt.constsig) list;
+  (* Currently declared constants. Since these can only be declared at the
+     top level, the list only ever increases. *)
+
+  abstracting : (Name.atom * Judgement.ty) list;
+  (* The list of atoms which are going to be abstracted. We should avoid
+     creating atoms which depends on these, as this will prevent abstraction
+     from working. The list is in the reverse order from abstraction, i.e.,
+     the inner-most abstracted variable appears first in the list. *)
+  
+  (* XXX hopefully one day the hints won't be in the kernel *)
   beta : (string list list * Pattern.beta_hint list) HintMap.t;
   eta : (string list list * Pattern.eta_hint list) HintMap.t;
   general : (string list list * Pattern.general_hint list) GeneralMap.t;
@@ -267,7 +277,8 @@ module Env = struct
     continuation = None ;
     files = [] ;
     dynamic = {
-      constants = [];
+      constants = [] ;
+      abstracting = [] ;
       beta = HintMap.empty ;
       eta = HintMap.empty ;
       general = GeneralMap.empty ;
@@ -409,11 +420,26 @@ module Env = struct
     { env with bound = (x, v) :: env.bound }
 
   (** generate a fresh atom of type [t] and bind it to [x]
-    NB: This is an effectful computation. *)
-  let add_fresh ~loc env x (ctx, t) =
+     NB: This is an effectful computation. *)
+  let add_free ~loc env x (ctx, t) =
     let y, ctx = Context.add_fresh ctx x t in
     let yt = Term (ctx, Tt.mk_atom ~loc y, t) in
     let env = add_bound x yt env in
+    ctx, y, env
+
+  (** generate a fresh atom of type [t] and bind it to [x],
+      and record that the atom will be abstracted.
+      NB: This is an effectful computation. *)
+  let add_abstracting ~loc env x (ctx, t) =
+    let y, ctx = Context.add_fresh ctx x t in
+    let ya = Tt.mk_atom ~loc y in
+    let yt = Term (ctx, ya, t) in
+    let jt = Judgement.mk_ty ctx t in
+    let env = add_bound x yt env in
+    let env = { env with
+                dynamic = { env.dynamic with
+                            abstracting = (y, jt) :: env.dynamic.abstracting } }
+    in
     ctx, y, env
 
   let add_handle op xc env =
@@ -500,32 +526,34 @@ module Env = struct
        else raise Match_fail
 
     | Syntax.Tt_Lambda (x,bopt,popt,p), Tt.Lambda ((x',ty)::abs,(te,out)) ->
-       let Tt.Ty t = ty in let {Tt.loc=loc;_} = t in
-                           let xvs = match popt with
-                             | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
-                             | None -> xvs
-                           in
-                           let y, ctx = Context.add_fresh ctx x ty in
-                           let yt = Term (ctx, Tt.mk_atom ~loc y, ty) in
-                           let env = add_bound x yt env in
-                           let te = Tt.mk_lambda ~loc:(e.Tt.loc) abs te out in
-                           let te = Tt.unabstract [y] te in
-                           let t = Tt.mk_prod_ty ~loc:(e.Tt.loc) abs out in
-                           let t = Tt.unabstract_ty [y] t in
-                           let xvs = match bopt with
-                             | None -> xvs
-                             | Some k ->
-                                begin try
-                                    let v' = List.assoc k xvs in
-                                    if equal_value yt v'
-                                    then xvs
-                                    else raise Match_fail
-                                  with
-                                  | Not_found -> (k,yt)::xvs
-                                end
-                           in
-                           let xvs = collect_tt_pattern env xvs p ctx te t in
-                           xvs
+       let Tt.Ty t = ty in
+       let {Tt.loc=loc;_} = t in
+       let xvs = match popt with
+         | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
+         | None -> xvs
+       in
+       (* XXX should we use [add_abstracting] instead of [add_free]? *)
+       let y, ctx = Context.add_fresh ctx x ty in
+       let yt = Term (ctx, Tt.mk_atom ~loc y, ty) in
+       let env = add_bound x yt env in
+       let te = Tt.mk_lambda ~loc:(e.Tt.loc) abs te out in
+       let te = Tt.unabstract [y] te in
+       let t = Tt.mk_prod_ty ~loc:(e.Tt.loc) abs out in
+       let t = Tt.unabstract_ty [y] t in
+       let xvs = match bopt with
+         | None -> xvs
+         | Some k ->
+            begin try
+                let v' = List.assoc k xvs in
+                if equal_value yt v'
+                then xvs
+                else raise Match_fail
+              with
+              | Not_found -> (k,yt)::xvs
+            end
+       in
+       let xvs = collect_tt_pattern env xvs p ctx te t in
+       xvs
 
     | Syntax.Tt_App (p1,p2), _ ->
        let te1, ty1, te2, ty2 = application_pop e in
@@ -534,30 +562,32 @@ module Env = struct
        xvs
 
     | Syntax.Tt_Prod (x,bopt,popt,p), Tt.Prod ((x',ty)::abs,out) ->
-       let Tt.Ty t = ty in let {Tt.loc=loc;_} = t in
-                           let xvs = match popt with
-                             | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
-                             | None -> xvs
-                           in
-                           let y, ctx = Context.add_fresh ctx x ty in
-                           let yt = Term (ctx, Tt.mk_atom ~loc y, ty) in
-                           let env = add_bound x yt env in
-                           let t = Tt.mk_prod ~loc:(e.Tt.loc) abs out in
-                           let t = Tt.unabstract [y] t in
-                           let xvs = match bopt with
-                             | None -> xvs
-                             | Some k ->
-                                begin try
-                                    let v' = List.assoc k xvs in
-                                    if equal_value yt v'
-                                    then xvs
-                                    else raise Match_fail
-                                  with
-                                  | Not_found -> (k,yt)::xvs
-                                end
-                           in
-                           let xvs = collect_tt_pattern env xvs p ctx t (Tt.mk_type_ty ~loc:(e.Tt.loc)) in
-                           xvs
+       let Tt.Ty t = ty in
+       let {Tt.loc=loc;_} = t in
+       let xvs = match popt with
+         | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
+         | None -> xvs
+       in
+       (* Should we use [add_abstracting] instead of [add_fresh]? *)
+       let y, ctx = Context.add_fresh ctx x ty in
+       let yt = Term (ctx, Tt.mk_atom ~loc y, ty) in
+       let env = add_bound x yt env in
+       let t = Tt.mk_prod ~loc:(e.Tt.loc) abs out in
+       let t = Tt.unabstract [y] t in
+       let xvs = match bopt with
+         | None -> xvs
+         | Some k ->
+            begin try
+                let v' = List.assoc k xvs in
+                if equal_value yt v'
+                then xvs
+                else raise Match_fail
+              with
+              | Not_found -> (k,yt)::xvs
+            end
+       in
+       let xvs = collect_tt_pattern env xvs p ctx t (Tt.mk_type_ty ~loc:(e.Tt.loc)) in
+       xvs
 
     | Syntax.Tt_Eq (p1,p2), Tt.Eq (ty,te1,te2) ->
        let xvs = collect_tt_pattern env xvs p1 ctx te1 ty in
@@ -585,24 +615,26 @@ module Env = struct
             if Name.eq_ident l l'
             then
               let t = Tt.unabstract_ty ys t in
-              let Tt.Ty t' = t in let {Tt.loc=loc;_} = t' in
-                                  let xvs = collect_tt_pattern env xvs p ctx t' (Tt.mk_type_ty ~loc) in
-                                  let y, ctx = Context.add_fresh ctx x t in
-                                  let yt = Term (ctx, Tt.mk_atom ~loc y, t) in
-                                  let env = add_bound x yt env in
-                                  let xvs = match bopt with
-                                    | None -> xvs
-                                    | Some k ->
-                                       begin try
-                                           let v' = List.assoc k xvs in
-                                           if equal_value yt v'
-                                           then xvs
-                                           else raise Match_fail
-                                         with
-                                         | Not_found -> (k,yt)::xvs
-                                       end
-                                  in
-                                  fold env xvs (y::ys) ctx xps xts
+              let Tt.Ty t' = t in
+              let {Tt.loc=loc;_} = t' in
+              let xvs = collect_tt_pattern env xvs p ctx t' (Tt.mk_type_ty ~loc) in
+              (* XXX should we use [add_abstracting] instead of [add_fresh]? *)
+              let y, ctx = Context.add_fresh ctx x t in
+              let yt = Term (ctx, Tt.mk_atom ~loc y, t) in
+              let env = add_bound x yt env in
+              let xvs = match bopt with
+                | None -> xvs
+                | Some k ->
+                   begin try
+                       let v' = List.assoc k xvs in
+                       if equal_value yt v'
+                       then xvs
+                       else raise Match_fail
+                     with
+                     | Not_found -> (k,yt)::xvs
+                   end
+              in
+              fold env xvs (y::ys) ctx xps xts
             else raise Match_fail
          | _::_, [] | [], _::_ ->
                        raise Match_fail
@@ -620,6 +652,7 @@ module Env = struct
               let t = Tt.unabstract_ty ys t in
               let te = Tt.unabstract ys te in
               let xvs = collect_tt_pattern env xvs p ctx te t in
+              (* Should we use [add_abstracting] instead of [add_fresh]? *)
               let y, ctx = Context.add_fresh ctx x t in
               let Tt.Ty {Tt.loc=loc;_} = t in
               let yt = Term (ctx, Tt.mk_atom ~loc y, t) in

@@ -19,6 +19,8 @@ type t = node AtomMap.t
 
 let empty = AtomMap.empty
 
+let is_empty = AtomMap.is_empty
+
 let print_dependencies s v ppf =
   if not !Config.print_dependencies || AtomSet.is_empty v
   then Format.fprintf ppf ""
@@ -65,33 +67,17 @@ let recursive_assumptions ctx aset =
   in
   fold AtomSet.empty (AtomSet.elements aset)
 
-let add ctx x ty =
-  match lookup_ty x ctx with
-    | Some ty' ->
-      if Tt.alpha_equal_ty ty ty'
-      then
-        Some ctx
-      else
-        None
-    | None ->
-      let aset = Tt.assumptions_ty ty in
-      let needs = recursive_assumptions ctx aset in
-      let ctx = AtomMap.mapi (fun y node ->
-          if AtomSet.mem y needs
-          then {node with needed_by = AtomSet.add x node.needed_by}
-          else node)
-        ctx
-      in
-      let ctx = AtomMap.add x {ty;needed_by = AtomSet.empty;} ctx in
-      Some ctx
-
 let add_fresh ctx x ty =
   let y = Name.fresh x in
-  match add ctx y ty with
-    | Some ctx -> y,ctx
-    | None ->
-      let Tt.Ty {Tt.loc=loc;_} = ty in
-      Error.impossible ~loc "Encountered freshly generated atom %t" (Name.print_atom y)
+  let aset = Tt.assumptions_ty ty in
+  let needs = recursive_assumptions ctx aset in
+  let ctx = AtomMap.mapi (fun z node ->
+                          if AtomSet.mem z needs
+                          then {node with needed_by = AtomSet.add y node.needed_by}
+                          else node)
+                         ctx
+  in
+  y, AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx
 
 let restrict ctx aset =
   let domain = recursive_assumptions ctx aset in

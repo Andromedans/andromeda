@@ -159,7 +159,9 @@ let rec instantiate_ty_abstraction :
 
 and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
   if es = [] then e else
-  let assumptions = Assumption.instantiate (List.map (fun e -> e.assumptions) es) lvl assumptions in
+  let assumptions =
+    Assumption.instantiate (List.map (fun e -> e.assumptions) es) lvl assumptions
+  in
   match e' with
 
     | Type -> {e with assumptions}
