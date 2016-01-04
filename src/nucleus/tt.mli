@@ -34,7 +34,7 @@ and term' = private
   (** a bound variable *)
   | Bound of Syntax.bound
 
-  (** a constant *)
+  (** a constant applied to arguments *)
   | Constant of Name.ident * term list
 
   (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
@@ -91,7 +91,7 @@ and structure = (Name.ident * Name.ident * ty * term) list
     should be eagerly reduced. *)
 type constsig = ((bool * ty), ty) abstraction
 
-(** Term constructors, the do not check for legality of constructions. *)
+(** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
 val mk_constant: loc:Location.t -> Name.ident -> term list -> term
 val mk_lambda: loc:Location.t -> (Name.ident * ty) list -> term -> ty -> term
@@ -117,8 +117,10 @@ val ty : term -> ty
 (** The type Type *)
 val typ : ty
 
+(** Add the given set of atoms as assumption to a term. *)
 val mention_atoms : Name.AtomSet.t -> term -> term
 
+(** Add an assumption to a term. *)
 val mention : Assumption.t -> term -> term
 
 (** [instantiate [e0,...,e{n-1}] k e] replaces bound variables indexed by [k, ..., k+n-1]
@@ -171,9 +173,10 @@ val occurs_ty_abstraction:
   (Syntax.bound -> 'a -> int) ->
   Syntax.bound -> 'a ty_abstraction -> int
 
-
+(** The asssumptions used by a term. *)
 val assumptions_term : term -> Name.AtomSet.t
 
+(** The assumptions used by a type. *)
 val assumptions_ty : ty -> Name.AtomSet.t
 
 (** Module stuff *)

@@ -52,6 +52,7 @@
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 
 %token WHNF
+%token CONTEXT
 %token TYPEOF
 
 %token EXTERNAL
@@ -189,6 +190,7 @@ plain_simple_term:
   | LBRACE lst=separated_nonempty_list(COMMA, structure_clause) RBRACE
         { Structure lst }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
+  | CONTEXT                                         { Context }
   | YIELD                                           { Yield }
 
 var_name:

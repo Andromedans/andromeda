@@ -1,0 +1,27 @@
+(* Test whether beta hints are dynamic. *)
+
+Axiom A : Type.
+Axiom a : A.
+Axiom b : A.
+
+Let f := fun x => whnf x.
+
+Check f a.
+
+Check
+   assume eq : a == b in
+   beta eq in
+     f a.
+
+(* This example should produce b but it does not
+   because we do not thread the dynamic part through
+   bind. *)
+Check
+   handle
+     let _ := #gimme_beta 'tt in
+     whnf a
+   with
+   | #gimme_beta _ =>
+     assume eq : a == b in
+     beta eq in yield 'tt
+   end.

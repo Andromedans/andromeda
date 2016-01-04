@@ -2,7 +2,17 @@
 
 type ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
 
-type term = { term : term' ; assumptions : Assumption.t; loc : Location.t}
+type term = {
+  term : term';
+  (* raw term *)
+
+  assumptions : Assumption.t;
+  (* set of atoms on which the term dependsassumptions on the subterms *)
+  
+  loc : Location.t
+  (* the location in input where the term appeared, as much as that makes sense *)
+}
+
 and term' =
   | Type
   | Atom of Name.atom
@@ -31,14 +41,25 @@ type constsig = ((bool * ty), ty) abstraction
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
-let mk_atom ~loc x = {term = Atom x; assumptions=Assumption.singleton x; loc}
 
-let mk_constant ~loc x es = {term = Constant (x, es); assumptions=Assumption.empty; loc}
+let mk_atom ~loc x = {
+  term = Atom x;
+  assumptions = Assumption.singleton x;
+  loc = loc
+}
+
+let mk_constant ~loc x es = {
+  term = Constant (x, es);
+  assumptions=Assumption.empty;
+  loc = loc
+}
 
 let mk_lambda ~loc xts e t =
   match xts with
   | [] -> e
-  | _ :: _ -> {term = Lambda (xts, (e, t)); assumptions=Assumption.empty; loc}
+  | _ :: _ -> { term = Lambda (xts, (e, t)) ;
+                assumptions=Assumption.empty ;
+                loc = loc}
 
 let mk_prod ~loc xts ((Ty e) as t) =
   match xts with
@@ -46,25 +67,61 @@ let mk_prod ~loc xts ((Ty e) as t) =
   | _ :: _ ->
     begin match t with
     (* XXX join locations loc and loc' *)
-    | Ty {term=Prod (yts, t); assumptions=_; loc=loc';} -> {term = Prod (xts @ yts, t); assumptions=Assumption.empty; loc}
-    | t -> {term = Prod (xts, t); assumptions=Assumption.empty; loc}
+    | Ty {term=Prod (yts, t); assumptions=_; loc=loc'} ->
+       { term = Prod (xts @ yts, t) ;
+         assumptions = Assumption.empty;
+         loc = loc }
+    | t -> { term = Prod (xts, t);
+             assumptions=Assumption.empty;
+             loc = loc }
     end
 
 let mk_spine ~loc e xts t es =
   match xts with
-    | [] -> {e with loc}
-    | _::_ -> {term = Spine (e, (xts, t), es); assumptions=Assumption.empty; loc}
+    | [] -> { e with loc }
+    | _::_ -> { term = Spine (e, (xts, t), es);
+                assumptions = Assumption.empty;
+                loc = loc }
 
-let mk_type ~loc = {term = Type; assumptions=Assumption.empty; loc}
-let mk_eq ~loc t e1 e2 = {term = Eq (t, e1, e2); assumptions=Assumption.empty; loc}
-let mk_refl ~loc t e = {term = Refl (t, e); assumptions=Assumption.empty; loc}
+let mk_type ~loc =
+  { term = Type;
+    assumptions = Assumption.empty;
+    loc = loc }
 
-let mk_inhab ~loc t = {term = Inhab t; assumptions=Assumption.empty; loc}
-let mk_bracket ~loc t = {term = Bracket t; assumptions=Assumption.empty; loc}
+let mk_eq ~loc t e1 e2 =
+  { term = Eq (t, e1, e2);
+    assumptions = Assumption.empty;
+    loc = loc }
 
-let mk_signature ~loc lst = {term = Signature lst; assumptions=Assumption.empty; loc}
-let mk_structure ~loc lst = {term = Structure lst; assumptions=Assumption.empty; loc}
-let mk_projection ~loc te xts x = {term = Projection (te,xts,x); assumptions=Assumption.empty; loc}
+let mk_refl ~loc t e =
+  { term = Refl (t, e);
+    assumptions = Assumption.empty;
+    loc = loc }
+
+let mk_inhab ~loc t =
+  { term = Inhab t;
+    assumptions = Assumption.empty;
+    loc = loc }
+
+let mk_bracket ~loc t =
+  { term = Bracket t;
+    assumptions = Assumption.empty;
+    loc = loc }
+
+let mk_signature ~loc lst =
+  { term = Signature lst;
+    assumptions = Assumption.empty;
+    loc = loc }
+
+let mk_structure ~loc lst =
+  { term = Structure lst;
+    assumptions = Assumption.empty;
+    loc = loc }
+
+let mk_projection ~loc te xts x =
+  { term = Projection (te,xts,x);
+    assumptions = Assumption.empty;
+    loc = loc }
 
 (** Convert a term to a type. *)
 let ty e = Ty e
@@ -78,10 +135,11 @@ let mk_signature_ty ~loc lst = ty (mk_signature ~loc lst)
 (** The [Type] constant, without a location. *)
 let typ = Ty (mk_type ~loc:Location.unknown)
 
-let mention_atoms a e = {e with assumptions = Assumption.add_atoms a e.assumptions}
+let mention_atoms a e =
+  { e with assumptions = Assumption.add_atoms a e.assumptions }
 
-let mention a e = {e with assumptions = Assumption.union e.assumptions a}
-
+let mention a e =
+  { e with assumptions = Assumption.union e.assumptions a }
 
 (** Manipulation of variables *)
 
@@ -101,7 +159,9 @@ let rec instantiate_ty_abstraction :
 
 and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
   if es = [] then e else
-  let assumptions = Assumption.instantiate (List.map (fun e -> e.assumptions) es) lvl assumptions in
+  let assumptions =
+    Assumption.instantiate (List.map (fun e -> e.assumptions) es) lvl assumptions
+  in
   match e' with
 
     | Type -> {e with assumptions}

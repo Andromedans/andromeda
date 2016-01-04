@@ -72,6 +72,7 @@ and term' =
   | Structure of (Name.ident * Name.ident option * comp) list
   | Projection of comp * Name.ident
   | Yield
+  | Context
 
 (** Sugared types *)
 and ty = term

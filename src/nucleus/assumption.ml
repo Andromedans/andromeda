@@ -1,4 +1,3 @@
-
 module BoundSet = Set.Make (struct
                     type t = Syntax.bound
                     let compare = compare
