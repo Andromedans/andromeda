@@ -313,6 +313,10 @@ let rec comp ~yield constants bound (c',loc) =
       let c = comp ~yield constants bound c in
       Syntax.Whnf c, loc
 
+    | Input.Reduce c ->
+      let c = comp ~yield constants bound c in
+      Syntax.Reduce c, loc
+
     | Input.External s ->
        Syntax.External s, loc
 

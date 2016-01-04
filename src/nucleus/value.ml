@@ -140,6 +140,10 @@ let as_option ~loc = function
   | Tag (t,[x]) when (Name.eq_ident t tsome) -> Some x
   | Tag _ -> Error.runtime ~loc "expected an option but got a tag"
 
+let from_option = function
+  | None -> Tag (tnone, [])
+  | Some v -> Tag (tsome, [v])
+   
 let mk_tag t lst =
   let t = Name.make t in
   Tag (t, lst)

@@ -45,6 +45,8 @@ val as_handler : loc:Location.t -> value -> handler
 (** Convert tags to ocaml types *)
 val as_option : loc:Location.t -> value -> value option
 
+val from_option : value option -> value
+
 val mk_tag : string -> value list -> value
 
 val return : 'a -> 'a result

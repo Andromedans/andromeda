@@ -53,6 +53,7 @@ and comp' =
   | Unhint of string list * comp
   | Ascribe of comp * comp
   | Whnf of comp
+  | Reduce of comp
   | External of string
   | Typeof of comp
   | Constant of Name.ident * comp list
@@ -245,6 +246,8 @@ let rec shift_comp k lvl (c', loc) =
        Ascribe (c1, c2)
 
     | Whnf c -> Whnf (shift_comp k lvl c)
+
+    | Reduce c -> Reduce (shift_comp k lvl c)
 
     | External _ -> c'
 

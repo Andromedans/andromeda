@@ -289,6 +289,71 @@ and projection_reduce ~loc env ctx xts p xtes =
   let te = Tt.field_value ~loc xtes p in
   Opt.return (ctx,te)
 
+and reduce_step env ctx {Tt.term=e'; assumptions; loc} =
+  match e' with
+  | Tt.Spine (e, ([], _), _) -> reduce_step env ctx (Tt.mention assumptions e)
+  | Tt.Lambda ([], (e, _)) -> reduce_step env ctx (Tt.mention assumptions e)
+  | Tt.Prod ([], Tt.Ty e) -> reduce_step env ctx (Tt.mention assumptions e)
+  | Tt.Spine (e1, (((_::_) as xts), t), ([_] as es)) ->
+     begin match e1.Tt.term with
+           | Tt.Lambda (xus, (e', u)) ->
+              beta_reduce ~loc env ctx xus e' u xts t es >?= fun (ctx, e) ->
+              Opt.return (ctx, Tt.mention assumptions e)
+           | Tt.Atom _
+           | Tt.Constant _
+           | Tt.Spine _
+           | Tt.Type
+           | Tt.Prod _
+           | Tt.Eq _
+           | Tt.Refl _
+           | Tt.Inhab _
+           | Tt.Bracket _
+           | Tt.Signature _
+           | Tt.Structure _
+           | Tt.Projection _ -> Opt.fail
+           | Tt.Bound _ ->
+              Error.impossible ~loc "de Bruijn encountered in a spine head in whnf"
+     end
+
+  | Tt.Projection (e,xts,p) ->
+     begin
+       match e.Tt.term with
+       | Tt.Structure xtes ->
+          projection_reduce ~loc env ctx xts p xtes >?= fun (ctx, e) ->
+          Opt.return (ctx, Tt.mention assumptions e)
+       | Tt.Atom _
+       | Tt.Constant _
+       | Tt.Lambda _
+       | Tt.Spine _
+       | Tt.Type
+       | Tt.Prod _
+       | Tt.Eq _
+       | Tt.Refl _
+       | Tt.Inhab _
+       | Tt.Bracket _
+       | Tt.Signature _
+       | Tt.Projection _ -> Opt.fail
+       | Tt.Bound _ ->
+          Error.impossible ~loc "de Bruijn encountered in a projection head in whnf"
+     end
+
+  | Tt.Spine (_, ((_::_), _), ([]|(_::_::_)))
+  | Tt.Constant _
+  | Tt.Lambda (_ :: _, _)
+  | Tt.Prod (_ :: _, _)
+  | Tt.Atom _
+  | Tt.Type
+  | Tt.Eq _
+  | Tt.Refl _
+  | Tt.Inhab _
+  | Tt.Bracket _
+  | Tt.Signature _
+  | Tt.Structure _ -> Opt.fail
+  | Tt.Bound _ ->
+     Error.impossible ~loc "de Bruijn encountered in weak_whnf"
+
+
+
 (** Let [xuus] be the list [(x1,(u1,u1')); ...; (xn,(un,un'))] where
     [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
     [ui'] is well-formed in the context [x1:u1', ..., x{i-1}:u{i-1}'] and

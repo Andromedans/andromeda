@@ -21,6 +21,8 @@ val equal : Value.Env.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->
     [ctx] such that the types [t1] and [t2] are equal under [G]. *)
 val equal_ty : Value.Env.t -> Context.t -> Tt.ty -> Tt.ty -> Context.t Opt.opt
 
+val reduce_step : Value.Env.t -> Context.t -> Tt.term -> (Context.t * Tt.term) Opt.opt
+
 (** [whnf env ctx e] reduces expression [e], assuming that it has a type in context [ctx]. *)
 val whnf : Value.Env.t -> Context.t -> Tt.term -> (Context.t * Tt.term) Monad.t
 

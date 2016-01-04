@@ -171,6 +171,7 @@ plain_app_term:
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
   | WHNF t=simple_term                              { Whnf t }
+  | REDUCE t=simple_term                            { Reduce t }
   | TYPEOF t=simple_term                            { Typeof t }
   | REFL e=simple_term                              { Refl e }
   | op=OPERATION e=simple_term                      { Operation (op, e) }

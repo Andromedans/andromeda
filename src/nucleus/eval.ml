@@ -172,6 +172,19 @@ let rec infer env (c',loc) =
     let j = Judgement.mk_term ctx (Tt.mention_atoms hyps e) t in
     Value.return_term j
 
+  | Syntax.Reduce c ->
+     infer env c >>= as_term ~loc >>= fun (ctx, e, t) ->
+     Equal.Opt.run (Equal.reduce_step env ctx e) >>=
+       begin function
+         | Some ((ctx, e'), hyps) ->
+            let eq = Tt.mk_refl ~loc t e in
+            let eq = Tt.mention_atoms hyps eq in
+            let teq = Tt.mk_eq_ty ~loc t e e' in
+            let eqj = Judgement.mk_term ctx eq teq in
+            Value.return (Value.from_option (Some (Value.Term eqj)))
+         | None -> Value.return (Value.from_option None)
+       end
+
   | Syntax.External s ->
      begin
        match External.lookup s with
@@ -380,7 +393,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Signature _
   | Syntax.Projection _
   | Syntax.Yield 
-  | Syntax.Context ->
+  | Syntax.Context 
+  | Syntax.Reduce _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 

@@ -53,6 +53,7 @@ and comp' =
   | Unhint of string list * comp
   | Ascribe of comp * comp
   | Whnf of comp
+  | Reduce of comp
   | External of string
   | Typeof of comp
   | Constant of Name.ident * comp list
