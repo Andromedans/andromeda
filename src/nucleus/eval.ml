@@ -364,6 +364,20 @@ let rec infer env (c',loc) =
      let v = to_value (Value.Env.lookup_abstracting env) in
      Value.return v
 
+  | Syntax.Congruence (c1,c2) ->
+    infer env c1 >>= as_term ~loc >>= fun (ctx,e1,t) ->
+    check env c2 (ctx,t) >>= fun (ctx,e2) ->
+    Equal.Opt.run (Equal.congruence env ctx e1 e2 t) >>= begin function
+      | Some (ctx,hyps) ->
+        let eq = Tt.mk_refl ~loc t e1 in
+        let eq = Tt.mention_atoms hyps eq in
+        let teq = Tt.mk_eq_ty ~loc t e1 e2 in
+        Value.return_term (ctx,eq,teq)
+      | None ->
+        Error.typing ~loc "Structural equality failed on %t and %t."
+                          (print_term env e1) (print_term env e2)
+      end
+
 and require_equal env ctx e1 e2 t =
   Equal.Opt.run (Equal.equal env ctx e1 e2 t)
 
@@ -394,7 +408,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Projection _
   | Syntax.Yield 
   | Syntax.Context 
-  | Syntax.Reduce _ ->
+  | Syntax.Reduce _
+  | Syntax.Congruence _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 

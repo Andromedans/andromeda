@@ -69,6 +69,7 @@ and comp' =
   | Projection of comp * Name.ident
   | Yield
   | Context
+  | Congruence of comp * comp
 
 and handler = {
   handler_val: (Name.ident * comp) option;
@@ -316,6 +317,11 @@ let rec shift_comp k lvl (c', loc) =
     | Yield -> Yield
 
     | Context -> Context
+
+    | Congruence (c1,c2) ->
+      let c1 = shift_comp k lvl c1 in
+      let c2 = shift_comp k lvl c2 in
+      Congruence (c1,c2)
 
   in
   c', loc

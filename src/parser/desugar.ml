@@ -471,6 +471,11 @@ let rec comp ~yield constants bound (c',loc) =
      let cs = List.map (comp ~yield constants bound) cs in
      Syntax.Tag (t, cs), loc
 
+  | Input.Congruence (e1,e2) ->
+    let e1 = comp ~yield constants bound e1 in
+    let e2 = comp ~yield constants bound e2 in
+    Syntax.Congruence (e1,e2), loc
+
 (* Desguar a spine. This function is a bit messy because we need to untangle
    to constants. But it's worth doing to make users happy. *)
 and spine ~yield constants bound ((c',loc) as c) cs =

@@ -74,6 +74,7 @@ and term' =
   | Projection of comp * Name.ident
   | Yield
   | Context
+  | Congruence of comp * comp
 
 (** Sugared types *)
 and ty = term

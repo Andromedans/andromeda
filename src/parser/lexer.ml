@@ -11,6 +11,7 @@ let reserved = [
   ("Beta", TOPBETA) ;
   ("Check", TOPCHECK) ;
   ("context", CONTEXT) ;
+  ("congruence", CONGRUENCE) ;
   ("whnf", WHNF) ;
   ("end", END) ;
   ("eta", ETA) ;

@@ -1,8 +1,13 @@
 (* The prelude is empty for now. *)
 
+Let print := external "print".
+
 Handle
   | #equal _ => 'none
   | #abstract v => 'none
   end.
 
-Let symmetry := λ [A : Type, x y : A, h : x ≡ y] hint h in refl x :: y ≡ x.
+Let symmetry := λ [A : Type, x y : A, h : x ≡ y] handle refl x :: y ≡ x with
+  | #equal _ =>
+    yield ('some h)
+  end.

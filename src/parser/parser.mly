@@ -52,6 +52,7 @@
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 
 %token WHNF
+%token CONGRUENCE
 %token CONTEXT
 %token TYPEOF
 
@@ -170,6 +171,7 @@ plain_app_term:
   | e=simple_term es=nonempty_list(simple_term)     { match fst e with
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
+  | CONGRUENCE t1=simple_term t2=simple_term        { Congruence (t1,t2) }
   | WHNF t=simple_term                              { Whnf t }
   | REDUCE t=simple_term                            { Reduce t }
   | TYPEOF t=simple_term                            { Typeof t }

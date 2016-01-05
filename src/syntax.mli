@@ -69,6 +69,7 @@ and comp' =
   | Projection of comp * Name.ident
   | Yield
   | Context
+  | Congruence of comp * comp
 
 and handler = {
   handler_val: (Name.ident * comp) option;
