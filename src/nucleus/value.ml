@@ -1,15 +1,5 @@
 (** Runtime values and results *)
 
-module HintMap = Map.Make(struct
-    type t = Pattern.hint_key
-    let compare = Pervasives.compare
-  end)
-
-module GeneralMap = Map.Make(struct
-    type t = Pattern.general_key
-    let compare = Pervasives.compare
-  end)
-
 type dynamic = {
   constants : (Name.ident * Tt.constsig) list;
   (* Currently declared constants. Since these can only be declared at the
@@ -21,12 +11,6 @@ type dynamic = {
      abstraction from working. The list is in the reverse order from
      abstraction, i.e., the inner-most abstracted variable appears first in the
      list. *)
-  
-  (* XXX hopefully one day the hints won't be in the kernel *)
-  beta : (string list list * Pattern.beta_hint list) HintMap.t;
-  eta : (string list list * Pattern.eta_hint list) HintMap.t;
-  general : (string list list * Pattern.general_hint list) GeneralMap.t;
-  inhabit : (string list list * Pattern.inhabit_hint list) HintMap.t;
 }
 
 type value =
@@ -288,41 +272,10 @@ module Env = struct
     dynamic = {
       constants = [] ;
       abstracting = [] ;
-      beta = HintMap.empty ;
-      eta = HintMap.empty ;
-      general = GeneralMap.empty ;
-      inhabit = HintMap.empty
     }
   }
 
-  let find k hs = try HintMap.find k hs with Not_found -> [], []
-  let find3 k hs = try GeneralMap.find k hs with Not_found -> [], []
-
   let set_dynamic env dyn = {env with dynamic = dyn}
-
-  let eta_hints key env = snd @@ find key env.dynamic.eta
-
-  let beta_hints key env = snd @@ find key env.dynamic.beta
-
-  let general_hints (key1, key2, key3) env = 
-    let keys = env.dynamic.general in
-    let search3 k1 k2 =
-      match key3 with
-      | Some _ -> snd (find3 (k1, k2, key3) keys) @ snd (find3 (k1, k2, None) keys)
-      | None -> snd (find3 (k1, k2, None) keys)
-    in
-    let search2 k1 =
-      match key2 with
-      | Some _ -> search3 k1 key2 @ (search3 k1 None)
-      | None -> search3 k1 None
-    in
-    let search1 =
-      match key1 with
-      | Some _ -> search2 key1 @ (search2 None)
-      | None -> search2 None
-    in search1
-
-  let inhabit_hints key env = snd @@ find key env.dynamic.inhabit
 
   let bound_names env = List.map fst env.bound
 
@@ -357,75 +310,6 @@ module Env = struct
     if is_bound x env
     then Error.runtime ~loc "%t already exists" (Name.print_ident x)
     else { env with dynamic = {env.dynamic with constants = (x, ytsu) :: env.dynamic.constants }}
-
-  let add_beta (key, hint) env =
-    { env with dynamic = { env.dynamic with
-      beta =
-        let tags, hints = find key env.dynamic.beta in
-        HintMap.add key ([] :: tags, hint :: hints) env.dynamic.beta
-    }}
-
-  let add_betas xshs env =
-    { env with dynamic = { env.dynamic with
-      beta =
-        List.fold_left
-          (fun db (xs, (key, h)) ->
-           let tags, hints = find key db in
-           HintMap.add key (xs :: tags, h :: hints) db)
-          env.dynamic.beta xshs
-    }}
-
-  let add_etas xshs env =
-    { env with dynamic = { env.dynamic with
-      eta =
-        List.fold_left
-          (fun db (xs, (key, h)) ->
-           let tags, hints = find key db in
-           HintMap.add key (xs :: tags, h :: hints) db)
-          env.dynamic.eta xshs
-    }}
-
-  let add_generals xshs env =
-    { env with dynamic = { env.dynamic with
-      general =
-        List.fold_left
-          (fun db (xs, (key, h)) ->
-           let tags, hints = find3 key db in
-           GeneralMap.add key (xs :: tags, h :: hints) db)
-          env.dynamic.general xshs
-    }}
-
-  let add_inhabits xshs env =
-    { env with dynamic = { env.dynamic with
-      inhabit =
-        List.fold_left
-          (fun db (xs, (key, h)) ->
-           let tags, hints = find key db in
-           HintMap.add key (xs :: tags, h :: hints) db)
-          env.dynamic.inhabit xshs
-    }}
-
-  let unhint ~loc untags env =
-    let pred = List.exists (fun x -> List.mem x untags) in
-    let rec fold xs' hs' tags hints =
-      match tags, hints with
-      | [], [] -> List.rev xs', List.rev hs'
-      | xs::tags, h::hints ->
-         let xs', hs' =
-           if pred xs
-           then xs', hs'
-           else xs::xs', h::hs' in
-         (fold xs' hs') tags hints
-      | [], _::_ | _::_, [] ->
-                    Error.impossible ~loc "Number of hints different from number of tags"
-
-    in let f (tags, hints) = fold [] [] tags hints in
-       { env with dynamic = { env.dynamic with
-         beta = HintMap.map f env.dynamic.beta ;
-         eta = HintMap.map f env.dynamic.eta ;
-         general = GeneralMap.map f env.dynamic.general ;
-         inhabit = HintMap.map f env.dynamic.inhabit ;
-       }}
 
   let add_bound x v env =
     { env with bound = (x, v) :: env.bound }

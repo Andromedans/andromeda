@@ -44,10 +44,6 @@ and comp' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * comp * comp
   | Match of comp * match_case list
-  | Beta of (string list * comp) list * comp
-  | Eta of (string list * comp) list * comp
-  | Hint of (string list * comp) list * comp
-  | Unhint of string list * comp
   | Ascribe of comp * comp
   | Whnf of comp
   | Reduce of comp
@@ -81,10 +77,6 @@ and toplevel' =
   | TopHandle of (string * (Name.ident * comp)) list
   | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
-  | TopBeta of (string list * comp) list
-  | TopEta of (string list * comp) list
-  | TopHint of (string list * comp) list
-  | TopUnhint of string list
   | Verbosity of int
   | Include of string list
   | Quit (** quit the toplevel *)
@@ -207,25 +199,6 @@ let rec shift_comp k lvl (c', loc) =
       let c = shift_comp k lvl c
       and lst = List.map (shift_case k lvl) lst in
       Match (c, lst)
-
-    | Beta (xscs, c) ->
-       let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
-       and c = shift_comp k lvl c in
-       Beta (xscs, c)
-
-    | Eta (xscs, c) ->
-       let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
-       and c = shift_comp k lvl c in
-       Eta (xscs, c)
-
-    | Hint (xscs, c) ->
-       let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
-       and c = shift_comp k lvl c in
-       Hint (xscs, c)
-
-    | Unhint (xs, c) ->
-       let c = shift_comp k lvl c in
-       Unhint (xs, c)
 
     | Ascribe (c1, c2) ->
        let c1 = shift_comp k lvl c1

@@ -43,10 +43,6 @@ module Monad = struct
             else hyps)
           hyps ys es)
 
-  (** Extract the assumptions introduced in the computation m *)
-  let locally (m : 'a t) : ('a * state) t =
-    { k = fun c s -> m.k (fun x s' -> c (x,s') (AtomSet.union s s')) empty }
-
   let run m =
     m.k (fun x s -> Value.return (x,s)) empty
 end
@@ -69,9 +65,6 @@ module Opt = struct
   let fail =
     { k = fun _ fk s -> fk s }
 
-  let unfold (m : 'a opt) : 'a option opt =
-    { k = fun sk _ s -> m.k (fun x s -> sk (Some x) s) (fun s -> sk None s) s }
-
   let recover (m : 'a opt) : 'a option Monad.t =
     { Monad.k = fun c s -> m.k (fun x s -> c (Some x) s) (fun s -> c None s) s }
 
@@ -87,8 +80,6 @@ let (>>=) = Monad.(>>=)
 let (>?=) = Opt.(>?=)
 
 let (>!=) m f = (Opt.unfailing m) >?= f
-
-let (>??=) m f = (Opt.unfold m) >?= f
 
 let (>?>=) m f = (Opt.recover m) >>= f
 

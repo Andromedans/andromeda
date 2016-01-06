@@ -273,25 +273,6 @@ let rec comp ~yield constants bound (c',loc) =
        and cases = List.map (case ~yield constants bound) cases in
        Syntax.Match (c, cases), loc
 
-    | Input.Beta (xscs, c) ->
-      let xscs = List.map (fun (xs, c) -> xs, comp ~yield constants bound c) xscs in
-      let c = comp ~yield constants bound c in
-      Syntax.Beta (xscs, c), loc
-
-    | Input.Eta (xscs, c) ->
-      let xscs = List.map (fun (xs, c) -> xs, comp ~yield constants bound c) xscs in
-      let c = comp ~yield constants bound c in
-      Syntax.Eta (xscs, c), loc
-
-    | Input.Hint (xscs, c) ->
-      let xscs = List.map (fun (xs, c) -> xs, comp ~yield constants bound c) xscs in
-      let c = comp ~yield constants bound c in
-      Syntax.Hint (xscs, c), loc
-
-    | Input.Unhint (xs, c) ->
-      let c = comp ~yield constants bound c in
-      Syntax.Unhint (xs, c), loc
-
     | Input.Ascribe (c, t) ->
        let t = comp ~yield constants bound t
        and c = comp ~yield constants bound c in
@@ -601,20 +582,6 @@ let toplevel constants bound (d', loc) =
     | Input.TopCheck c ->
       let c = comp ~yield:false constants bound c in
       Syntax.TopCheck c
-
-    | Input.TopBeta xscs ->
-      let xscs = List.map (fun (xs, c) -> xs, comp ~yield:false constants bound c) xscs in
-      Syntax.TopBeta xscs
-
-    | Input.TopEta xscs ->
-      let xscs = List.map (fun (xs, c) -> xs, comp ~yield:false constants bound c) xscs in
-      Syntax.TopEta xscs
-
-    | Input.TopHint xscs ->
-      let xscs = List.map (fun (xs, c) -> xs, comp ~yield:false constants bound c) xscs in
-      Syntax.TopHint xscs
-
-    | Input.TopUnhint xs -> Syntax.TopUnhint xs
 
     | Input.Quit -> Syntax.Quit
 

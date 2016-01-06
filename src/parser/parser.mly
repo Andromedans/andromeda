@@ -24,22 +24,16 @@
 %token LPAREN RPAREN
 %token LBRACK RBRACK
 %token LBRACE RBRACE
-%token DCOLON COLON SEMICOLON COMMA DOT
+%token DCOLON COLON COMMA DOT
 %token ARROW DARROW
 
 (* Toplevel computations *)
 %token TOPCHECK
 %token TOPHANDLE
 %token TOPLET
-%token TOPBETA TOPETA TOPHINT
-%token TOPUNHINT
 
 (* Let binding *)
 %token LET COLONEQ AND IN
-
-(* Hints *)
-%token BETA ETA HINT
-%token UNHINT
 
 (* Meta-level programming *)
 %token <string> TAG
@@ -111,10 +105,6 @@ plain_topcomp:
        { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
   | TOPHANDLE lst=list(top_handler_case) END         { TopHandle lst }
   | TOPCHECK c=term                                  { TopCheck c }
-  | TOPBETA ths=tags_hints                           { TopBeta ths }
-  | TOPETA ths=tags_hints                            { TopEta ths }
-  | TOPHINT ths=tags_hints                           { TopHint ths }
-  | TOPUNHINT ts=tags_unhints                        { TopUnhint ts }
   | AXIOM x=name yst=primarg* COLON u=term           { Axiom (x, List.concat yst, u)}
 
 return_type:
@@ -138,10 +128,6 @@ plain_term:
   | LET REC x=name a=function_abstraction COLONEQ e=term IN c=term  { Let ([x,(Rec (x, a, e),snd e)], c) }
   | ASSUME x=var_name COLON t=ty_term IN c=term                     { Assume ((x, t), c) }
   | c1=equal_term WHERE e=simple_term COLONEQ c2=term               { Where (c1, e, c2) }
-  | BETA tshs=tags_opt_hints IN c=term                              { Beta (tshs, c) }
-  | ETA tshs=tags_opt_hints IN c=term                               { Eta (tshs, c) }
-  | HINT tshs=tags_opt_hints IN c=term                              { Hint (tshs, c) }
-  | UNHINT ts=tags_unhints IN c=term                                { Unhint (ts, c) }
   | MATCH e=term WITH lst=match_case* END                           { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_case* END                        { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                       { With (h, c) }
@@ -240,36 +226,6 @@ reduce:
 (* function arguments *)
 function_abstraction:
   | xs = nonempty_list(name)     { xs }
-
-tags_hints:
-  | tshs=separated_nonempty_list(SEMICOLON, tags_hint)     { List.flatten tshs }
-
-(* local hints can be anonymous *)
-tags_opt_hints:
-  | tshs=separated_nonempty_list(SEMICOLON, tags_opt_hint) { List.flatten tshs }
-
-tags_opt_hint:
-  | t=tags_hint { t }
-  | LPAREN t=term RPAREN   { [[], t] }
-
-tags_hint:
-  | t=var_hint { [t] }
-  | xs=tag_var+ COLON ts=separated_nonempty_list(COMMA, term)
-      { List.map (fun t ->
-        let xs = match t with Var (Name.String x), _ -> x :: xs | _ -> xs
-        in xs, t) ts }
-
-var_hint:
-  | x=mark_location(tag_var) { let (x, loc) = x in [x], (Var (Name.make x), loc) }
-
-tag_var:
-  | NAME { $1 }
-
-tags_unhints:
-  | ts=separated_nonempty_list(SEMICOLON, tags_unhint) { ts }
-
-tags_unhint:
-  | ts=tag_var { ts }
 
 handler_case:
   | BAR VAL p=pattern DARROW t=term                 { CaseVal (p, t) }

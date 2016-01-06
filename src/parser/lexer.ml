@@ -7,23 +7,14 @@ let reserved = [
   ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;
-  ("beta", BETA) ;
-  ("Beta", TOPBETA) ;
   ("Check", TOPCHECK) ;
   ("context", CONTEXT) ;
   ("congruence", CONGRUENCE) ;
-  ("whnf", WHNF) ;
   ("end", END) ;
-  ("eta", ETA) ;
-  ("Eta", TOPETA) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
-  ("hint", HINT) ;
-  ("Hint", TOPHINT) ;
-  ("unhint", UNHINT) ;
-  ("Unhint", TOPUNHINT) ;
   ("Handle", TOPHANDLE) ;
   ("Hypothesis", AXIOM) ;
   ("Let", TOPLET) ;
@@ -106,7 +97,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "::"                     -> f (); DCOLON
   | ':'                      -> f (); COLON
   | ','                      -> f (); COMMA
-  | ';'                      -> f (); SEMICOLON
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.'                      -> f (); g (); DOT

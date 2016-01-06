@@ -158,17 +158,6 @@ let rec exec_cmd base_dir interactive env c =
        if interactive then Format.printf "%t@." (Value.print_value (Value.Env.used_names env) v) ;
        env
 
-  | Syntax.TopBeta xscs ->
-     Eval.beta_bind env xscs |> Value.to_value ~loc
-
-  | Syntax.TopEta xscs ->
-     Eval.eta_bind env xscs |> Value.to_value ~loc
-
-  | Syntax.TopHint xscs ->
-     Eval.hint_bind env xscs |> Value.to_value ~loc
-
-  | Syntax.TopUnhint xs -> Value.Env.unhint ~loc xs env
-
   | Syntax.Include fs ->
     (* relative file names get interpreted relative to the file we're
        currently loading *)

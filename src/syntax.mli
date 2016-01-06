@@ -44,10 +44,6 @@ and comp' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * comp * comp
   | Match of comp * match_case list
-  | Beta of (string list * comp) list * comp
-  | Eta of (string list * comp) list * comp
-  | Hint of (string list * comp) list * comp
-  | Unhint of string list * comp
   | Ascribe of comp * comp
   | Whnf of comp
   | Reduce of comp
@@ -81,10 +77,6 @@ and toplevel' =
   | TopHandle of (string * (Name.ident * comp)) list
   | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
-  | TopBeta of (string list * comp) list
-  | TopEta of (string list * comp) list
-  | TopHint of (string list * comp) list
-  | TopUnhint of string list
   | Verbosity of int
   | Include of string list
   | Quit (** quit the toplevel *)

@@ -26,12 +26,6 @@ let as_handler ~loc v =
   let e = Value.as_handler ~loc v in
   Value.return e
 
-(** A helper function to install a beta hint for an atom. *)
-let add_beta ~loc z ctx hyps e t env  =
-  let hint_key = Hint.mk_beta ~loc env ctx hyps ([], (t, Tt.mk_atom ~loc z, e))  in
-  Value.Env.add_beta hint_key env
-
-
 (** Evaluate a computation -- infer mode. *)
 let rec infer env (c',loc) =
   match c' with
@@ -148,19 +142,6 @@ let rec infer env (c',loc) =
             end
        in
        fold cases
-
-  | Syntax.Beta (xscs, c) ->
-    beta_bind env xscs >>= (fun env -> infer env c)
-
-  | Syntax.Eta (xscs, c) ->
-    eta_bind env xscs >>= (fun env -> infer env c)
-
-  | Syntax.Hint (xscs, c) ->
-    hint_bind env xscs >>= (fun env -> infer env c)
-
-  | Syntax.Unhint (xs, c) ->
-    let env = Value.Env.unhint ~loc xs env in
-    infer env c
 
   | Syntax.Whnf c ->
     infer env c >>= as_term ~loc >>= fun (ctx, e, t) ->
@@ -429,19 +410,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
      let _,_,env = Value.Env.add_abstracting ~loc env x t in
      check env c t_check
 
-  | Syntax.Beta (xscs, c) ->
-     beta_bind env xscs >>= (fun env -> check env c t_check)
-
-  | Syntax.Eta (xscs, c) ->
-    eta_bind env xscs >>= (fun env -> check env c t_check)
-
-  | Syntax.Hint (xscs, c) ->
-    hint_bind env xscs >>= (fun env -> check env c t_check)
-
-  | Syntax.Unhint (xs, c) ->
-    let env = Value.Env.unhint ~loc xs env in
-    check env c t_check
-
   | Syntax.Whnf c ->
     check env c t_check >>= fun (ctx, e) ->
     Equal.Monad.run (Equal.whnf env ctx e) >>= fun ((ctx,e),_) ->
@@ -511,8 +479,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             Value.mk_abstractable ~loc env ctx ys >>= fun (ctx,zs,es) ->
             let e = Tt.substitute zs es e in
             let ctx, y, env = Value.Env.add_abstracting ~loc env x jty in
-            let hyps = Name.AtomSet.add y (Tt.assumptions_term e) in
-            let env = add_beta ~loc y ctx hyps e ty_inst env in
             let e_abs = Tt.abstract ys e in
             fold env ctx (y::ys) (ty_inst::ts) ((lbl2,x,ty,e_abs) :: xtes) (xcs, yts)
 
@@ -740,58 +706,6 @@ and let_bind env xcs =
       fold env' xcs
     in
   fold env xcs
-
-and beta_bind env xscs =
-  let rec fold xshs = function
-    | (xs, ((_,loc) as c)) :: xscs ->
-      infer env c >>= as_term ~loc:(snd c) >>= fun ((_,e,_) as je) ->
-      let t = Judgement.typeof je in
-      Equal.Monad.run (Equal.as_universal_eq env t) >>= fun ((ctx, (xts, (t, e1, e2))),hyps) ->
-      let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
-      let h = Hint.mk_beta ~loc env ctx hyps (xts, (t, e1, e2)) in
-      fold ((xs, h) :: xshs) xscs
-    | [] ->
-       let env = Value.Env.add_betas xshs env in
-       Print.debug "Installed beta hints@ %t" (Print.sequence (fun (tags, (_, h)) ppf ->
-         Print.print ppf "@[tags: %s ;@ hint: %t@]"
-           (String.concat " " tags) (Pattern.print_beta_hint [] h)) "," xshs);
-       Value.return env
-  in fold [] xscs
-
-and eta_bind env xscs =
-  let rec fold xshs = function
-    | (xs, ((_,loc) as c)) :: xscs ->
-      infer env c >>= as_term ~loc:(snd c) >>= fun ((_,e,_) as j) ->
-      let jt = Judgement.typeof j in
-      Equal.Monad.run (Equal.as_universal_eq env jt) >>= fun ((ctx, (xts, (t, e1, e2))),hyps) ->
-      let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
-      let h = Hint.mk_eta ~loc env ctx hyps (xts, (t, e1, e2)) in
-      fold ((xs, h) :: xshs) xscs
-    | [] -> let env = Value.Env.add_etas xshs env in
-      Print.debug "Installed eta hints@ %t" (Print.sequence (fun (tags, (_, h)) ppf ->
-        Print.print ppf "@[tags: %s ;@ hint: %t@]"
-          (String.concat " " tags) (Pattern.print_eta_hint [] h)) "," xshs);
-      Value.return env
-  in fold [] xscs
-
-and hint_bind env xscs =
-  let rec fold xshs = function
-    | (xs, ((_,loc) as c)) :: xscs ->
-      infer env c >>= as_term ~loc:(snd c) >>= fun ((_,e,_) as j) ->
-      let jt = Judgement.typeof j in
-      Equal.Monad.run (Equal.as_universal_eq env jt) >>= fun ((ctx, (xts, (t, e1, e2))),hyps) ->
-      let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
-      let h = Hint.mk_general ~loc env ctx hyps (xts, (t, e1, e2)) in
-      fold ((xs, h) :: xshs) xscs
-    | [] -> let env = Value.Env.add_generals xshs env in
-      Print.debug "Installed hints@ %t"
-        (Print.sequence (fun (tags, (k, h)) ppf ->
-             Print.print ppf "@[tags: %s ; keys: %t ;@ hint: %t@]"
-               (String.concat " " tags)
-               (Pattern.print_general_key k)
-               (Pattern.print_hint [] h)) "," xshs);
-      Value.return env
-  in fold [] xscs
 
 and check_ty env c : Judgement.ty Value.result =
   check env c Judgement.ty_ty >>=

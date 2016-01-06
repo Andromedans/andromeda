@@ -50,10 +50,6 @@ and term' =
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
-  | Beta of (string list * comp) list * comp
-  | Eta of (string list * comp) list * comp
-  | Hint of (string list * comp) list * comp
-  | Unhint of string list * comp
   | Ascribe of comp * ty
   | Whnf of comp
   | Reduce of comp
@@ -96,10 +92,6 @@ and toplevel' =
   | TopHandle of (string * Name.ident * comp) list 
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
-  | TopBeta of (string list * comp) list (** global beta hint *)
-  | TopEta of (string list * comp) list (** global eta hint *)
-  | TopHint of (string list * comp) list (** global hint *)
-  | TopUnhint of string list
   | Verbosity of int
   | Include of string list
   | Quit (** quit the toplevel *)

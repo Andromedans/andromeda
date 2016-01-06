@@ -110,18 +110,6 @@ module Env : sig
   (** Lookup a free variable by its de Bruijn index *)
   val lookup_bound : loc:Location.t -> Syntax.bound -> env -> value
 
-  (** Return all beta hints in the environment *)
-  val beta_hints : Pattern.hint_key -> env -> Pattern.beta_hint list
-
-  (** Return all eta hints in the environment *)
-  val eta_hints : Pattern.hint_key -> env -> Pattern.eta_hint list
-
-  (** Return all general hints in the environment *)
-  val general_hints : Pattern.general_key -> env -> Pattern.general_hint list
-
-  (** Return all general hints in the environment *)
-  val inhabit_hints : Pattern.hint_key -> env -> Pattern.inhabit_hint list
-
   (** [add_free ~loc env x t] generates a fresh atom [y] from identifier [x]. Return [y] and
     the environment updated with [x] bound to [y:t]. *)
   val add_free: loc:Location.t -> env -> Name.ident -> Judgement.ty -> Context.t * Name.atom * env
@@ -135,27 +123,6 @@ module Env : sig
   (** Add a constant of a given signature to the environment.
     Fails if the constant is already bound. *)
   val add_constant : loc:Location.t -> Name.ident -> Tt.constsig -> env -> env
-
-  (** Add an untagged beta hint to the environment. *)
-  val add_beta : Pattern.hint_key * Pattern.beta_hint -> env -> env
-
-  (** Add beta hints to the environment. *)
-  val add_betas : (string list * (Pattern.hint_key * Pattern.beta_hint)) list -> env -> env
-
-  (** Add eta hints to the environment. *)
-  val add_etas : (string list * (Pattern.hint_key * Pattern.eta_hint)) list -> env -> env
-
-  (** Add general hints to the environment. *)
-  val add_generals :
-    (string list *
-       (Pattern.general_key * Pattern.general_hint)) list ->
-    env -> env
-
-  (** Add an inhabit hint to the environment. *)
-  val add_inhabits : (string list * (Pattern.hint_key * Pattern.inhabit_hint)) list -> env -> env
-
-  (** Remove all hints with one of the given tags *)
-  val unhint : loc:Location.t -> string list -> env -> env
 
   (** Add a bound variable with given name to the environment. *)
   val add_bound : Name.ident -> value -> env -> env
