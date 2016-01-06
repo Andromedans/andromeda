@@ -4,6 +4,7 @@
 
 module AtomSet = Name.AtomSet
 
+(* XXX we seem to use Monad only to lift to Opt and trivially in the as_* functions, so merge with Opt? *)
 module Monad = struct
   type state = AtomSet.t
 
@@ -14,9 +15,6 @@ module Monad = struct
 
   let return x =
     { k = fun c s -> c x s }
-
-  let (>>=) (m:'a t) (f:'a -> 'b t) : 'b t =
-    { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
 
   let lift m =
     { k = fun c s -> Value.bind m (fun x -> c x s) }
@@ -65,9 +63,6 @@ module Opt = struct
   let fail =
     { k = fun _ fk s -> fk s }
 
-  let recover (m : 'a opt) : 'a option Monad.t =
-    { Monad.k = fun c s -> m.k (fun x s -> c (Some x) s) (fun s -> c None s) s }
-
   let locally (m : 'a opt) : ('a*state) opt =
     { k = fun sk fk s -> m.k (fun x s' -> sk (x,s') (AtomSet.union s s')) fk Monad.empty }
 
@@ -75,208 +70,36 @@ module Opt = struct
     m.k (fun x s -> Value.return (Some (x,s))) (fun _ -> Value.return None) AtomSet.empty
 end
 
-let (>>=) = Monad.(>>=)
-
 let (>?=) = Opt.(>?=)
 
 let (>!=) m f = (Opt.unfailing m) >?= f
-
-let (>?>=) m f = (Opt.recover m) >>= f
 
 
 (* counter for debugging depth  *)
 let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
 
-(** The whnf of a type [t] in environment [env]. *)
-let rec whnf_ty env ctx (Tt.Ty t) : (Context.t * Tt.ty) Monad.t =
-  whnf env ctx t >>= fun (ctx,t) ->
-  Monad.return (ctx, Tt.ty t)
 
-(** Whnf only for beta and projection reduction. *)
-and whnf env ctx ({Tt.term=e';assumptions; loc} as e) =
-  match e' with
-    | Tt.Spine (e, _, []) -> whnf env ctx (Tt.mention assumptions e)
-    | Tt.Lambda ([], (e, _)) -> whnf env ctx (Tt.mention assumptions e)
-    | Tt.Prod ([], Tt.Ty e) -> whnf env ctx (Tt.mention assumptions e)
-    | Tt.Spine (e, (xts, t), (_::_ as es)) ->
-      begin
-        whnf env ctx e >>= fun (ctx, ({Tt.term=e';assumptions=_;loc=eloc} as e)) ->
-        match e' with
-        | Tt.Lambda (xus, (e', u)) ->
-          begin
-            beta_reduce ~loc:eloc env ctx xus e' u xts t es >?>= function
-              | None -> Monad.return (ctx, Tt.mention assumptions (Tt.mk_spine ~loc e xts t es))
-              | Some (ctx, e) -> whnf env ctx (Tt.mention assumptions e)
-          end
-        | Tt.Atom _
-        | Tt.Constant _
-        | Tt.Spine _
-        | Tt.Type
-        | Tt.Prod _
-        | Tt.Eq _
-        | Tt.Refl _
-        | Tt.Signature _
-        | Tt.Structure _
-        | Tt.Projection _ ->
-           Monad.return (ctx, Tt.mention assumptions (Tt.mk_spine ~loc e xts t es))
-        | Tt.Bound _ ->
-          Error.impossible ~loc "de Bruijn encountered in a spine head in whnf"
-      end
+(** Compare two types *)
+let rec equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
+  let xs = Value.Env.used_names env in
+  let i = cnt () in
+  Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
+    (Tt.print_term xs e1) (Tt.print_term xs e2) (Tt.print_ty xs t);
+  if Tt.alpha_equal e1 e2
+  then Opt.return ctx
+  else
+    Monad.lift (Value.operate "equal" env (Value.Tag (Name.make "pair", [Value.Term (ctx,e1,t);Value.Term (ctx,e2,t)]))) >!= fun v ->
+    let loc = loc1 in
+    match Value.as_option ~loc v with
+      | Some v ->
+        let (ctxeq,eq,teq) = Value.as_term ~loc v in
+        let ctx = Context.join ~loc ctx ctxeq in
+        Monad.add_hyps (Tt.assumptions_term eq) >!= fun () ->
+        let tgoal = Tt.mk_eq_ty ~loc t e1 e2 in
+        equal_ty env ctx teq tgoal
+      | None -> Opt.fail
 
-    | Tt.Constant (x,es) ->
-      let yts, _ =
-        match Value.Env.lookup_constant x env with
-          | Some ytsu -> ytsu
-          | None -> Error.typing ~loc "unknown constant %t" (Name.print_ident x)
-      in
-      let rec fold ctx res yts es =
-        begin match yts,es with
-          | [], [] ->
-            Monad.return (ctx, Tt.mention assumptions (Tt.mk_constant ~loc x (List.rev res)))
-          | (y,(reducing,t))::yts, e::es ->
-            begin if reducing
-              then
-                whnf env ctx e
-              else
-                Monad.return (ctx,e)
-            end >>= fun (ctx,e) ->
-            fold ctx (e::res) yts es
-          | _::_,[] | [],_::_ ->
-            Error.impossible ~loc "Invalid constant %t in whnf env_whnf" (Tt.print_term [] e)
-        end
-      in
-      fold ctx [] yts es
-
-    | Tt.Projection (e,xts,p) ->
-      begin
-        whnf env ctx e >>= fun (ctx, ({Tt.term=e';assumptions=_;loc=eloc} as e)) ->
-        match e' with
-          | Tt.Structure xtes ->
-            begin
-              projection_reduce ~loc:eloc env ctx xts p xtes >?>= function
-                | None -> Monad.return (ctx, Tt.mention assumptions (Tt.mk_projection ~loc e xts p))
-                | Some (ctx,e) -> whnf env ctx (Tt.mention assumptions e)
-            end
-          | Tt.Atom _
-          | Tt.Constant _
-          | Tt.Lambda _
-          | Tt.Spine _
-          | Tt.Type
-          | Tt.Prod _
-          | Tt.Eq _
-          | Tt.Refl _
-          | Tt.Signature _
-          | Tt.Projection _ ->
-             Monad.return (ctx, Tt.mention assumptions (Tt.mk_projection ~loc e xts p))
-          | Tt.Bound _ ->
-            Error.impossible ~loc "de Bruijn encountered in a projection head in whnf"
-      end
-
-    | Tt.Lambda (_ :: _, _)
-    | Tt.Prod (_ :: _, _)
-    | Tt.Atom _
-    | Tt.Type
-    | Tt.Eq _
-    | Tt.Refl _
-    | Tt.Signature _
-    | Tt.Structure _ -> Monad.return (ctx, e)
-    | Tt.Bound _ ->
-        Error.impossible ~loc "de Bruijn encountered in whnf env_whnf"
-
-(** Beta reduction of [Lambda (xus, (e, u))] applied to arguments [es],
-    where [(yvs, t)] is the typing annotation for the application.
-    Returns the resulting expression. *)
-and beta_reduce ~loc env ctx xus e u yvs t es =
-  let rec split xuvs es' xus yvs es =
-    match xus, yvs, es with
-    | ([], _, _) | (_, [], []) -> xuvs, es', xus, yvs, es
-    | (x,u)::xus, (_,v)::yvs, e::es -> split (xuvs @ [(x,(u,v))]) (e::es') xus yvs es
-    | (_, [], _::_) | (_, _::_, []) ->
-      Error.impossible ~loc "Equal.beta_reduce encountered an invalid spine"
-  in
-  let xuvs, es', xus, yvs, es = split [] [] xus yvs es in
-
-  (* [xuvs] is a list of triples [(x,u,v)] ready to be plugged into [equal_abstraction] *)
-  (* [es'] is the list of arguments that we are plugging in (reverse order from [es]) *)
-  (* [xus] is the list of leftover abstraction arguments *)
-  (* [yvs, es] is the list of leftover arguments *)
-  (* XXX: optimization -- use the fact that one or both of [xus] and [yevs, es] are empty. *)
-  let u' = Tt.mk_prod_ty ~loc xus u
-  and t' = Tt.mk_prod_ty ~loc yvs t in
-  Opt.locally (equal_abstracted_ty env ctx xuvs u' t') >?= fun (ctx, hyps) ->
-   (* XXX TODO we put hyps everywhere, we could instead be more precise *)
-   let es' = List.map (Tt.mention_atoms hyps) es' in
-   let xus, (e, u) = Tt.instantiate_ty_abstraction Tt.instantiate_term_ty es' (xus, (e, u))
-   and yvs, t = Tt.instantiate_ty_abstraction Tt.instantiate_ty es' (yvs, t) in
-   let e = Tt.mk_lambda ~loc xus e u in
-   let e = Tt.mk_spine ~loc e yvs t es in
-   let e = Tt.mention_atoms hyps e in
-   Opt.return (ctx, e)
-
-(** Reduction of [{xtes}.p] at type [{xts}] *)
-and projection_reduce ~loc env ctx xts p xtes =
-  equal_signature ~loc env ctx xts (List.map (fun (l,x,t,_) -> l,x,t) xtes) >?= fun ctx ->
-  let te = Tt.field_value ~loc xtes p in
-  Opt.return (ctx,te)
-
-and reduce_step env ctx {Tt.term=e'; assumptions; loc} =
-  match e' with
-  | Tt.Spine (e, ([], _), _) -> reduce_step env ctx (Tt.mention assumptions e)
-  | Tt.Lambda ([], (e, _)) -> reduce_step env ctx (Tt.mention assumptions e)
-  | Tt.Prod ([], Tt.Ty e) -> reduce_step env ctx (Tt.mention assumptions e)
-  | Tt.Spine (e1, (((_::_) as xts), t), ([_] as es)) ->
-     begin match e1.Tt.term with
-           | Tt.Lambda (xus, (e', u)) ->
-              beta_reduce ~loc env ctx xus e' u xts t es >?= fun (ctx, e) ->
-              Opt.return (ctx, Tt.mention assumptions e)
-           | Tt.Atom _
-           | Tt.Constant _
-           | Tt.Spine _
-           | Tt.Type
-           | Tt.Prod _
-           | Tt.Eq _
-           | Tt.Refl _
-           | Tt.Signature _
-           | Tt.Structure _
-           | Tt.Projection _ -> Opt.fail
-           | Tt.Bound _ ->
-              Error.impossible ~loc "de Bruijn encountered in a spine head in reduce"
-     end
-
-  | Tt.Projection (e,xts,p) ->
-     begin
-       match e.Tt.term with
-       | Tt.Structure xtes ->
-          projection_reduce ~loc env ctx xts p xtes >?= fun (ctx, e) ->
-          Opt.return (ctx, Tt.mention assumptions e)
-       | Tt.Atom _
-       | Tt.Constant _
-       | Tt.Lambda _
-       | Tt.Spine _
-       | Tt.Type
-       | Tt.Prod _
-       | Tt.Eq _
-       | Tt.Refl _
-       | Tt.Signature _
-       | Tt.Projection _ -> Opt.fail
-       | Tt.Bound _ ->
-          Error.impossible ~loc "de Bruijn encountered in a projection head in reduce"
-     end
-
-  | Tt.Spine (_, ((_::_), _), ([]|(_::_::_)))
-  | Tt.Constant _
-  | Tt.Lambda (_ :: _, _)
-  | Tt.Prod (_ :: _, _)
-  | Tt.Atom _
-  | Tt.Type
-  | Tt.Eq _
-  | Tt.Refl _
-  | Tt.Signature _
-  | Tt.Structure _ -> Opt.fail
-  | Tt.Bound _ ->
-     Error.impossible ~loc "de Bruijn encountered in reduce"
-
-
+and equal_ty env ctx (Tt.Ty t1) (Tt.Ty t2) = equal env ctx t1 t2 Tt.typ
 
 (** Let [xuus] be the list [(x1,(u1,u1')); ...; (xn,(un,un'))] where
     [ui]  is well-formed in the context [x1:u1 , ..., x{i-1}:u{i-1} ] and
@@ -284,7 +107,7 @@ and reduce_step env ctx {Tt.term=e'; assumptions; loc} =
     [v]  is well-formed in the context [x1:u1, ..., xn:un] and
     [v'] is well-formed in the context [x1:u1',..., xn:un'].
     We verify that the [ui] are equal to [ui'] and that [v] is equal to [v]. *)
-and equal_abstracted_ty env ctx (xuus : (Name.ident * (Tt.ty * Tt.ty)) list) v v' =
+let equal_abstracted_ty env ctx (xuus : (Name.ident * (Tt.ty * Tt.ty)) list) v v' =
   (* As we descend into the contexts we carry around a list of variables
      [ys] with which we unabstract the bound variables. *)
   let rec eq env ctx ys ys' ts =
@@ -309,30 +132,49 @@ and equal_abstracted_ty env ctx (xuus : (Name.ident * (Tt.ty * Tt.ty)) list) v v
   in
   eq env ctx [] [] [] xuus
 
-(** Compare two types *)
-and equal_ty env ctx (Tt.Ty t1) (Tt.Ty t2) = equal env ctx t1 t2 Tt.typ
 
-and equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
-  let xs = Value.Env.used_names env in
-  let i = cnt () in
-  Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
-    (Tt.print_term xs e1) (Tt.print_term xs e2) (Tt.print_ty xs t);
-  if Tt.alpha_equal e1 e2
-  then Opt.return ctx
-  else
-    Monad.lift (Value.operate "equal" env (Value.Tag (Name.make "pair", [Value.Term (ctx,e1,t);Value.Term (ctx,e2,t)]))) >!= fun v ->
-    let loc = loc1 in
-    match Value.as_option ~loc v with
-      | Some v ->
-        let (ctxeq,eq,teq) = Value.as_term ~loc v in
-        let ctx = Context.join ~loc ctx ctxeq in
-        Monad.add_hyps (Tt.assumptions_term eq) >!= fun () ->
-        let tgoal = Tt.mk_eq_ty ~loc t e1 e2 in
-        equal_ty env ctx teq tgoal
-      | None -> Opt.fail
+let equal_signature ~loc env ctx xts1 xts2 =
+  let rec fold env ctx ys ys' ts xts1 xts2 = match xts1, xts2 with
+    | [], [] ->
+      Monad.lift (Value.context_abstract ~loc env ctx ys ts) >!= fun (ctx,ys,es) ->
+      Monad.abstract_hyps ys es >!= fun () ->
+      Opt.return ctx
+    | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
+      if Name.eq_ident l1 l2
+      then
+        let t1 = Tt.unabstract_ty ys t1 in
+        let t2 = Tt.instantiate_ty ys' t2 in
+        Opt.locally (equal_ty env ctx t1 t2) >?= fun (ctx,hypst) ->
+        let jx = Judgement.mk_ty ctx t1 in
+        let ctx, y, env = Value.Env.add_free ~loc env x jx in
+        let y' = Tt.mention_atoms hypst (Tt.mk_atom ~loc y) in
+        fold env ctx (y::ys) (y'::ys') (t1::ts) xts1 xts2
+      else Opt.fail
+    | _::_,[] | [],_::_ -> Opt.fail
+    in
+  fold env ctx [] [] [] xts1 xts2
+
+(** this function assumes that the derived signatures have already been checked equal label to label *)
+and equal_module ~loc env ctx xtes1 xtes2 =
+  let rec fold ctx vs xtes1 xtes2 = match xtes1, xtes2 with
+    | [], [] ->
+      Opt.return ctx
+    | (l1,x,t1,te1)::xts1, (l2,_,t2,te2)::xts2 ->
+      (* TODO we do not use t2 so the call to equal_module should send the common signature *)
+      if Name.eq_ident l1 l2
+      then
+        let ty = Tt.instantiate_ty vs t1 in (* here we need to know that ctx |- instantiate t1 == instantiate t2. Is this true? *)
+        let te1 = Tt.instantiate vs te1 in
+        let te2 = Tt.instantiate vs te2 in
+        equal env ctx te1 te2 ty >?= fun ctx ->
+        fold ctx (te1::vs) xts1 xts2
+      else Opt.fail
+    | _::_,[] | [],_::_ -> Opt.fail
+    in
+  fold ctx [] xtes1 xtes2
 
 (** Apply the appropriate congruence rule *)
-and congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_} as e2) t =
+let congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_} as e2) t =
   Print.debug "congruence of %t and %t"
               (Tt.print_term [] e1)
               (Tt.print_term [] e2) ;
@@ -343,7 +185,7 @@ and congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
      else Opt.fail
 
   | Tt.Bound _, _ | _, Tt.Bound _ ->
-     Error.impossible ~loc:loc1 "deBruijn encountered in equal_whnf"
+     Error.impossible ~loc:loc1 "deBruijn encountered in congruence"
 
   | Tt.Constant (x1, es1), Tt.Constant (x2, es2) ->
      if not @@ Name.eq_ident x1 x2
@@ -497,127 +339,116 @@ and congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
      Tt.Signature _ | Tt.Structure _ | Tt.Projection _), _ ->
      Opt.fail
 
+(** Beta reduction of [Lambda (xus, (e, u))] applied to arguments [es],
+    where [(yvs, t)] is the typing annotation for the application.
+    Returns the resulting expression. *)
+let beta_reduce ~loc env ctx xus e u yvs t es =
+  let rec split xuvs es' xus yvs es =
+    match xus, yvs, es with
+    | ([], _, _) | (_, [], []) -> xuvs, es', xus, yvs, es
+    | (x,u)::xus, (_,v)::yvs, e::es -> split (xuvs @ [(x,(u,v))]) (e::es') xus yvs es
+    | (_, [], _::_) | (_, _::_, []) ->
+      Error.impossible ~loc "Equal.beta_reduce encountered an invalid spine"
+  in
+  let xuvs, es', xus, yvs, es = split [] [] xus yvs es in
 
-and equal_signature ~loc env ctx xts1 xts2 =
-  let rec fold env ctx ys ys' ts xts1 xts2 = match xts1, xts2 with
-    | [], [] ->
-      Monad.lift (Value.context_abstract ~loc env ctx ys ts) >!= fun (ctx,ys,es) ->
-      Monad.abstract_hyps ys es >!= fun () ->
-      Opt.return ctx
-    | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
-      if Name.eq_ident l1 l2
-      then
-        let t1 = Tt.unabstract_ty ys t1 in
-        let t2 = Tt.instantiate_ty ys' t2 in
-        Opt.locally (equal_ty env ctx t1 t2) >?= fun (ctx,hypst) ->
-        let jx = Judgement.mk_ty ctx t1 in
-        let ctx, y, env = Value.Env.add_free ~loc env x jx in
-        let y' = Tt.mention_atoms hypst (Tt.mk_atom ~loc y) in
-        fold env ctx (y::ys) (y'::ys') (t1::ts) xts1 xts2
-      else Opt.fail
-    | _::_,[] | [],_::_ -> Opt.fail
-    in
-  fold env ctx [] [] [] xts1 xts2
+  (* [xuvs] is a list of triples [(x,u,v)] ready to be plugged into [equal_abstraction] *)
+  (* [es'] is the list of arguments that we are plugging in (reverse order from [es]) *)
+  (* [xus] is the list of leftover abstraction arguments *)
+  (* [yvs, es] is the list of leftover arguments *)
+  (* XXX: optimization -- use the fact that one or both of [xus] and [yevs, es] are empty. *)
+  let u' = Tt.mk_prod_ty ~loc xus u
+  and t' = Tt.mk_prod_ty ~loc yvs t in
+  Opt.locally (equal_abstracted_ty env ctx xuvs u' t') >?= fun (ctx, hyps) ->
+   (* XXX TODO we put hyps everywhere, we could instead be more precise *)
+   let es' = List.map (Tt.mention_atoms hyps) es' in
+   let xus, (e, u) = Tt.instantiate_ty_abstraction Tt.instantiate_term_ty es' (xus, (e, u))
+   and yvs, t = Tt.instantiate_ty_abstraction Tt.instantiate_ty es' (yvs, t) in
+   let e = Tt.mk_lambda ~loc xus e u in
+   let e = Tt.mk_spine ~loc e yvs t es in
+   let e = Tt.mention_atoms hyps e in
+   Opt.return (ctx, e)
 
-(** this function assumes that the derived signatures have already been checked equal label to label *)
-and equal_module ~loc env ctx xtes1 xtes2 =
-  let rec fold ctx vs xtes1 xtes2 = match xtes1, xtes2 with
-    | [], [] ->
-      Opt.return ctx
-    | (l1,x,t1,te1)::xts1, (l2,_,t2,te2)::xts2 ->
-      (* TODO we do not use t2 so the call to equal_module should send the common signature *)
-      if Name.eq_ident l1 l2
-      then
-        let ty = Tt.instantiate_ty vs t1 in (* here we need to know that ctx |- instantiate t1 == instantiate t2. Is this true? *)
-        let te1 = Tt.instantiate vs te1 in
-        let te2 = Tt.instantiate vs te2 in
-        equal env ctx te1 te2 ty >?= fun ctx ->
-        fold ctx (te1::vs) xts1 xts2
-      else Opt.fail
-    | _::_,[] | [],_::_ -> Opt.fail
-    in
-  fold ctx [] xtes1 xtes2
+(** Reduction of [{xtes}.p] at type [{xts}] *)
+let projection_reduce ~loc env ctx xts p xtes =
+  equal_signature ~loc env ctx xts (List.map (fun (l,x,t,_) -> l,x,t) xtes) >?= fun ctx ->
+  let te = Tt.field_value ~loc xtes p in
+  Opt.return (ctx,te)
 
-let as_atom env (ctx, e', t)  =
-  whnf env ctx e' >>= fun (ctx, {Tt.term=e';loc;_}) ->
+let reduce_step env ctx {Tt.term=e'; assumptions; loc} =
   match e' with
-  | Tt.Atom x -> Monad.return (ctx, x, t)
-  | Tt.Prod _ | Tt.Type | Tt.Eq _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _
-  | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
-    Error.runtime ~loc "this expression should be an atom"
+  | Tt.Spine (e, ([], _), _) -> Error.impossible ~loc "empty spine in reduce_step"
+  | Tt.Lambda ([], (e, _)) -> Error.impossible ~loc "empty lambda in reduce_step"
+  | Tt.Prod ([], Tt.Ty e) -> Error.impossible ~loc "empty product in reduce_step"
+  | Tt.Spine (e1, (((_::_) as xts), t), ([_] as es)) ->
+     begin match e1.Tt.term with
+           | Tt.Lambda (xus, (e', u)) ->
+              beta_reduce ~loc env ctx xus e' u xts t es >?= fun (ctx, e) ->
+              Opt.return (ctx, Tt.mention assumptions e)
+           | Tt.Atom _
+           | Tt.Constant _
+           | Tt.Spine _
+           | Tt.Type
+           | Tt.Prod _
+           | Tt.Eq _
+           | Tt.Refl _
+           | Tt.Signature _
+           | Tt.Structure _
+           | Tt.Projection _ -> Opt.fail
+           | Tt.Bound _ ->
+              Error.impossible ~loc "de Bruijn encountered in a spine head in reduce"
+     end
 
-let rec deep_prod env ctx t f =
-  whnf_ty env ctx t >>= fun (ctx, (Tt.Ty ({Tt.term=t';loc;_} as t))) ->
+  | Tt.Projection (e,xts,p) ->
+     begin
+       match e.Tt.term with
+       | Tt.Structure xtes ->
+          projection_reduce ~loc env ctx xts p xtes >?= fun (ctx, e) ->
+          Opt.return (ctx, Tt.mention assumptions e)
+       | Tt.Atom _
+       | Tt.Constant _
+       | Tt.Lambda _
+       | Tt.Spine _
+       | Tt.Type
+       | Tt.Prod _
+       | Tt.Eq _
+       | Tt.Refl _
+       | Tt.Signature _
+       | Tt.Projection _ -> Opt.fail
+       | Tt.Bound _ ->
+          Error.impossible ~loc "de Bruijn encountered in a projection head in reduce"
+     end
+
+  | Tt.Spine (_, ((_::_), _), ([]|(_::_::_)))
+  | Tt.Constant _
+  | Tt.Lambda (_ :: _, _)
+  | Tt.Prod (_ :: _, _)
+  | Tt.Atom _
+  | Tt.Type
+  | Tt.Eq _
+  | Tt.Refl _
+  | Tt.Signature _
+  | Tt.Structure _ -> Opt.fail
+  | Tt.Bound _ ->
+     Error.impossible ~loc "de Bruijn encountered in reduce"
+
+
+let as_prod env (ctx, ((Tt.Ty {Tt.term=t';loc;_}) as t)) =
   match t' with
+    | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
+    | _ -> Monad.return (ctx, ([],t))
 
-  | Tt.Prod ([], _) -> Error.impossible ~loc "empty product encountered in deep_prod"
-
-  | Tt.Prod ((_ :: _) as xus, w) ->
-
-     let rec fold env ctx ys ts zvs =
-       begin match zvs with
-       | [] ->
-          let w = Tt.unabstract_ty ys w in
-          deep_prod env ctx w f >>= fun (ctx, (zvs, w)) ->
-          Monad.lift (Value.context_abstract ~loc env ctx ys ts) >>= fun (ctx,zs,es) ->
-          Monad.abstract_hyps zs es >>= fun () ->
-          let zvs_w = Tt.substitute_ty_abstraction Tt.substitute_ty zs es (zvs,w) in
-          let (zvs, w) = Tt.abstract_ty_abstraction Tt.abstract_ty ys zvs_w in
-          Monad.return (ctx, (xus @ zvs, w))
-
-       | (z,v) :: zvs ->
-          let v = Tt.unabstract_ty ys v in
-          let jv = Judgement.mk_ty ctx v in
-          let ctx, y, env = Value.Env.add_abstracting ~loc env z jv in
-          fold env ctx (y :: ys) (v::ts) zvs
-       end in
-
-     fold env ctx [] [] xus
-
-  | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Eq _ | Tt.Refl _
-  | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
-     f env ctx (Tt.ty t) >>= fun (ctx,t) ->
-     Monad.return (ctx, ([], t))
-
-let as_prod env (ctx, t) = deep_prod env ctx t (fun env ctx x -> Monad.return (ctx, x))
-
-let as_eq env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
-  whnf_ty env ctx t >>= fun (ctx, Tt.Ty {Tt.term=t';_}) ->
+let as_eq env (ctx, ((Tt.Ty {Tt.term=t';loc;_}) as t)) =
   match t' with
-
-  | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
-
-  | Tt.Prod _ | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _
-  | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
-     Error.typing ~loc
-       "this expression should be an equality type, found@ %t"
-       (Tt.print_ty [] t)
-
-
-let as_universal_eq env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
-  as_prod env (ctx, t) >>= fun (ctx, (xus, (Tt.Ty {Tt.term=t';loc;_} as t))) ->
-  match t' with
-
-  | Tt.Eq (t, e1, e2) ->
-     Monad.return (ctx, (xus, (t, e1, e2)))
-
-  | Tt.Prod _ -> Error.impossible ~loc "product encountered in as_universal_eq"
-
-  | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _
-  | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
-     Error.typing ~loc
-       "the type of this expression should be a universally quantified equality, found@ %t"
-       (Tt.print_ty [] t)
-
-let as_signature env (ctx, t) =
-  whnf_ty env ctx t >>= fun (ctxt, Tt.Ty {Tt.term=t';loc;_}) ->
-  match t' with
-    | Tt.Signature xts -> Monad.return (ctxt, xts)
+    | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
     | _ -> Error.typing ~loc
-      "this expressing should be a signature, found@ %t"
-      (Tt.print_ty [] t)
+                        "this expression should be an equality type, found@ %t"
+                        (Tt.print_ty [] t)
+
+let as_signature env (ctx, ((Tt.Ty {Tt.term=t';loc;_}) as t)) =
+  match t' with
+    | Tt.Signature xts -> Monad.return (ctx, xts)
+    | _ -> Error.typing ~loc
+                        "this expressing should be a signature, found@ %t"
+                        (Tt.print_ty [] t)
 

@@ -45,7 +45,6 @@ and comp' =
   | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | Whnf of comp
   | Reduce of comp
   | External of string
   | Typeof of comp

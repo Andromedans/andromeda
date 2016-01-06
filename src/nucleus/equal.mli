@@ -31,26 +31,11 @@ val reduce_step : Value.Env.t -> Context.t -> Tt.term -> (Context.t * Tt.term) O
 val congruence : Value.Env.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->
                  Context.t Opt.opt
 
-(** [whnf env ctx e] reduces expression [e], assuming that it has a type in context [ctx]. *)
-val whnf : Value.Env.t -> Context.t -> Tt.term -> (Context.t * Tt.term) Monad.t
-
-(** [whnf_ty env ctx t] reduces type [t], assuming that it is a type in context [ctx]. *)
-val whnf_ty : Value.Env.t -> Context.t -> Tt.ty -> (Context.t * Tt.ty) Monad.t
-
-(** Convert a term to an atom. *)
-val as_atom : Value.Env.t -> Judgement.term -> (Context.t * Name.atom * Tt.ty) Monad.t
-
 (** Convert a type to an equality type. *)
 val as_eq : Value.Env.t -> Judgement.ty -> (Context.t * Tt.ty * Tt.term * Tt.term) Monad.t
 
 (** Convert a type to a product. *)
 val as_prod : Value.Env.t -> Judgement.ty -> (Context.t * Tt.ty Tt.ty_abstraction) Monad.t
-
-(** Convert a type to a universally quantified equality type by aggresively
-    unfolding as many inner products as possible. If we get a bare equality type
-    the list of binders is empty (and the call succeeds). *)
-val as_universal_eq :
-  Value.Env.t -> Judgement.ty -> (Context.t * (Tt.ty * Tt.term * Tt.term) Tt.ty_abstraction) Monad.t
 
 (** Convert a type to a signature. *)
 val as_signature : Value.Env.t -> Judgement.ty -> (Context.t * Tt.signature) Monad.t

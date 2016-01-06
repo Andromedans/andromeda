@@ -51,7 +51,6 @@ and term' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
   | Ascribe of comp * ty
-  | Whnf of comp
   | Reduce of comp
   | External of string
   | Typeof of comp

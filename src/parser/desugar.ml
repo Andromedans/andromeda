@@ -278,10 +278,6 @@ let rec comp ~yield constants bound (c',loc) =
        and c = comp ~yield constants bound c in
        Syntax.Ascribe (c, t), loc
 
-    | Input.Whnf c ->
-      let c = comp ~yield constants bound c in
-      Syntax.Whnf c, loc
-
     | Input.Reduce c ->
       let c = comp ~yield constants bound c in
       Syntax.Reduce c, loc

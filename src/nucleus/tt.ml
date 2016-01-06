@@ -63,13 +63,13 @@ let mk_prod ~loc xts ((Ty e) as t) =
   match xts with
   | [] -> e
   | _ :: _ ->
-    begin match t with
+    begin match e with
     (* XXX join locations loc and loc' *)
-    | Ty {term=Prod (yts, t); assumptions=_; loc=loc'} ->
+    | {term=Prod (yts, t); assumptions=_; loc=loc'} ->
        { term = Prod (xts @ yts, t) ;
          assumptions = Assumption.empty;
          loc = loc }
-    | t -> { term = Prod (xts, t);
+    | _ -> { term = Prod (xts, t);
              assumptions=Assumption.empty;
              loc = loc }
     end

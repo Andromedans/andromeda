@@ -45,7 +45,6 @@ and comp' =
   | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | Whnf of comp
   | Reduce of comp
   | External of string
   | Typeof of comp
@@ -204,8 +203,6 @@ let rec shift_comp k lvl (c', loc) =
        let c1 = shift_comp k lvl c1
        and c2 = shift_comp k lvl c2 in
        Ascribe (c1, c2)
-
-    | Whnf c -> Whnf (shift_comp k lvl c)
 
     | Reduce c -> Reduce (shift_comp k lvl c)
 

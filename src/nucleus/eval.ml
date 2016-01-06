@@ -22,6 +22,12 @@ let as_term ~loc v =
   let e = Value.as_term ~loc v in
     Value.return e
 
+let as_atom ~loc env v =
+  as_term ~loc v >>= fun (ctx,e,t) ->
+  match e.Tt.term with
+    | Tt.Atom x -> Value.return (ctx,x,t)
+    | _ -> Error.runtime ~loc "expected an atom but got %t" (print_term env e)
+
 let as_handler ~loc v =
   let e = Value.as_handler ~loc v in
   Value.return e
@@ -116,9 +122,7 @@ let rec infer env (c',loc) =
      infer env c
 
   | Syntax.Where (c1, c2, c3) ->
-    infer env c2 >>= as_term ~loc >>= fun j ->
-    (* NB: we do not care why c2 normalises to an atom, only that it does *)
-    Equal.Monad.run (Equal.as_atom env j) >>= fun ((ctxa, a, ta),_) ->
+    infer env c2 >>= as_atom env ~loc >>= fun (ctxa, a, ta) ->
     infer env c1 >>= as_term ~loc >>= fun (ctx, e1, t1) ->
     let ctx = Context.join ~loc ctxa ctx in
     check env c3 (ctx, ta) >>= fun (ctx, e2) ->
@@ -142,13 +146,6 @@ let rec infer env (c',loc) =
             end
        in
        fold cases
-
-  | Syntax.Whnf c ->
-    infer env c >>= as_term ~loc >>= fun (ctx, e, t) ->
-    Equal.Monad.run (Equal.whnf_ty env ctx t) >>= fun ((ctx,t),hyps) ->
-    Equal.Monad.run (Equal.whnf env ctx e) >>= fun ((ctx,e),_) ->
-    let j = Judgement.mk_term ctx (Tt.mention_atoms hyps e) t in
-    Value.return_term j
 
   | Syntax.Reduce c ->
      infer env c >>= as_term ~loc >>= fun (ctx, e, t) ->
@@ -409,11 +406,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
      check_ty env t >>= fun t ->
      let _,_,env = Value.Env.add_abstracting ~loc env x t in
      check env c t_check
-
-  | Syntax.Whnf c ->
-    check env c t_check >>= fun (ctx, e) ->
-    Equal.Monad.run (Equal.whnf env ctx e) >>= fun ((ctx,e),_) ->
-    Value.return (ctx, e)
 
   | Syntax.Ascribe (c1, c2) ->
      check_ty env c2 >>= fun (ctx',t') ->
