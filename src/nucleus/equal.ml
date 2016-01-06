@@ -200,7 +200,7 @@ and whnf env ctx ({Tt.term=e';assumptions; loc} as e) =
 
 (** Beta reduction of [Lambda (xus, (e, u))] applied to arguments [es],
     where [(yvs, t)] is the typing annotation for the application.
-    Opt.returns the resulting expression. *)
+    Returns the resulting expression. *)
 and beta_reduce ~loc env ctx xus e u yvs t es =
   let rec split xuvs es' xus yvs es =
     match xus, yvs, es with
@@ -218,11 +218,14 @@ and beta_reduce ~loc env ctx xus e u yvs t es =
   (* XXX: optimization -- use the fact that one or both of [xus] and [yevs, es] are empty. *)
   let u' = Tt.mk_prod_ty ~loc xus u
   and t' = Tt.mk_prod_ty ~loc yvs t in
-  equal_abstracted_ty env ctx xuvs u' t' >?= fun ctx -> (* TODO fix hyps *)
+  Opt.locally (equal_abstracted_ty env ctx xuvs u' t') >?= fun (ctx, hyps) ->
+   (* XXX TODO we put hyps everywhere, we could instead be more precise *)
+   let es' = List.map (Tt.mention_atoms hyps) es' in
    let xus, (e, u) = Tt.instantiate_ty_abstraction Tt.instantiate_term_ty es' (xus, (e, u))
    and yvs, t = Tt.instantiate_ty_abstraction Tt.instantiate_ty es' (yvs, t) in
    let e = Tt.mk_lambda ~loc xus e u in
    let e = Tt.mk_spine ~loc e yvs t es in
+   let e = Tt.mention_atoms hyps e in
    Opt.return (ctx, e)
 
 (** Reduction of [{xtes}.p] at type [{xts}] *)
@@ -370,7 +373,8 @@ and congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
        let yts, _ =
          begin match Value.Env.lookup_constant x1 env with
          | Some ytsu -> ytsu
-         | None -> Error.impossible ~loc:loc1 "primitive application equality, unknown primitive operation %t" (Name.print_ident x1)
+         | None -> Error.impossible ~loc:loc1 "unknown constant %t in congruence"
+                                              (Name.print_ident x1)
          end in
        let rec fold ctx es' hyps yts es1 es2 =
          match yts, es1, es2 with
@@ -498,10 +502,12 @@ and congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
 
   | Tt.Signature xts1, Tt.Signature xts2 -> equal_signature ~loc:loc1 env ctx xts1 xts2
 
-  | Tt.Structure xtes1, Tt.Structure xtes2 -> (* TODO fix this *)
+  | Tt.Structure xtes1, Tt.Structure xtes2 ->
     let xts1 = List.map (fun (l,x,t,_) -> l,x,t) xtes1 in
     let xts2 = List.map (fun (l,x,t,_) -> l,x,t) xtes2 in
-    equal_signature ~loc:loc1 env ctx xts1 xts2 >?= fun ctx ->
+    Opt.locally (equal_signature ~loc:loc1 env ctx xts1 xts2) >?= fun (ctx, hyps) ->
+    (* XXX TODO be more precise about which part of hyps is needed where *)
+    let xtes2 = List.map (fun (l, x, t, e) -> (l, x, t, Tt.mention_atoms hyps e)) xtes2 in
     equal_module ~loc:loc1 env ctx xtes1 xtes2
 
   | Tt.Projection (te1,xts1,p1), Tt.Projection (te2,xts2,p2) ->
@@ -546,6 +552,7 @@ and equal_module ~loc env ctx xtes1 xtes2 =
     | [], [] ->
       Opt.return ctx
     | (l1,x,t1,te1)::xts1, (l2,_,t2,te2)::xts2 ->
+      (* TODO we do not use t2 so the call to equal_module should send the common signature *)
       if Name.eq_ident l1 l2
       then
         let ty = Tt.instantiate_ty vs t1 in (* here we need to know that ctx |- instantiate t1 == instantiate t2. Is this true? *)
