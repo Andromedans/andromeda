@@ -105,10 +105,11 @@ let parse lex parse resource =
 (** [exec_cmd env d] executes toplevel command [c] in environment [env]. It prints the
     result if in interactive mode, and returns the new environment. *)
 let rec exec_cmd base_dir interactive env c =
-  let (c', loc) = Desugar.toplevel (Environment.constants env) (Environment.bound_names env) c in
+  let (c', loc) = Desugar.toplevel (Value.Env.constants env) (Value.Env.bound_names env) c in
   match c' with
 
   | Syntax.Axiom (x, ryus, c) ->
+     (* XXX this is seriously messed up with respect to contexts. *)
      let rec fold env ctx zs yrws = function
        | [] ->
           let (ctxt, t') = Eval.comp_ty env c in
@@ -118,22 +119,22 @@ let rec exec_cmd base_dir interactive env c =
           (ctx, (yrws, t'))
        | (r, (y, c)) :: ryus ->
           let ((ctxu, u) as ju) = Eval.comp_ty env c in
-          let _, z, env = Environment.add_fresh ~loc:Location.unknown env y ju in
+          let _, z, env = Value.Env.add_abstracting ~loc:Location.unknown env y ju in
           let w = Tt.abstract_ty zs u in
           let ctx = Context.join ~loc ctx ctxu in
           fold env ctx (z :: zs) ((y, (r, w)) :: yrws) ryus in
      let ctx, yrusv = fold env Context.empty [] [] ryus in
      (* XXX do sth with ctx *)
-     let env = Environment.add_constant x yrusv env in
+     let env = Value.Env.add_constant ~loc x yrusv env in
      if interactive then Format.printf "%t is assumed.@." (Name.print_ident x) ;
      env
 
   | Syntax.TopHandle lst ->
-     List.fold_left (fun env (op, xc) -> Environment.add_handle op xc env) env lst
+     List.fold_left (fun env (op, xc) -> Value.Env.add_handle op xc env) env lst
 
   | Syntax.TopLet (x, c) ->
      let v = Eval.comp_value env c in
-     let env = Environment.add_bound x v env in
+     let env = Value.Env.add_bound x v env in
      if interactive then Format.printf "%t is defined.@." (Name.print_ident x) ;
      env
 
@@ -154,7 +155,7 @@ let rec exec_cmd base_dir interactive env c =
              | v -> v
        end
      in
-       if interactive then Format.printf "%t@." (Value.print_value (Environment.used_names env) v) ;
+       if interactive then Format.printf "%t@." (Value.print_value (Value.Env.used_names env) v) ;
        env
 
   | Syntax.TopBeta xscs ->
@@ -169,7 +170,7 @@ let rec exec_cmd base_dir interactive env c =
   | Syntax.TopInhabit xscs ->
      Eval.inhabit_bind env xscs |> Value.to_value ~loc
 
-  | Syntax.TopUnhint xs -> Environment.unhint xs env
+  | Syntax.TopUnhint xs -> Value.Env.unhint ~loc xs env
 
   | Syntax.Include fs ->
     (* relative file names get interpreted relative to the file we're
@@ -192,7 +193,7 @@ let rec exec_cmd base_dir interactive env c =
   | Syntax.Verbosity i -> Config.verbosity := i; env
 
   | Syntax.Environment ->
-    Format.printf "%t@." (Environment.print env) ;
+    Format.printf "%t@." (Value.Env.print env) ;
     env
 
   | Syntax.Help ->
@@ -208,14 +209,14 @@ and use_file env (filename, limit, interactive) =
     | None -> None
     | Some limit -> Some ({ Lexing.dummy_pos with Lexing.pos_cnum = limit }, true) in
 
-  if Environment.included filename env then env else
+  if Value.Env.included filename env then env else
     begin
       let tokens, errs = Tokens.tokens_of_file filename in
 
       let cmds = parse (Tokens.cmds_of_tokens ?limit) tokens errs in
 
       let base_dir = Filename.dirname filename in
-      let env = Environment.add_file filename env in
+      let env = Value.Env.add_file filename env in
       List.fold_left (exec_cmd base_dir interactive) env cmds
     end
 
@@ -282,7 +283,7 @@ let main =
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
-    let env = List.fold_left use_file Environment.empty !files in
+    let env = List.fold_left use_file Value.Env.empty !files in
     if !Config.interactive_shell then
       toplevel env
   with

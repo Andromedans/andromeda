@@ -67,6 +67,7 @@ and comp' =
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
   | Yield
+  | Context
 
 and handler = {
   handler_val: (Name.ident * comp) option;
@@ -99,23 +100,7 @@ let opt_map f = function
   | None -> None
   | Some x -> Some (f x)
 
-let rec shift_pattern k lvl ((p', loc) as p) =
-  match p' with
-    | Patt_Anonymous -> p
-    | Patt_As (p,k) ->
-      let p = shift_pattern k lvl p in
-      Patt_As (p,k), loc
-    | Patt_Bound m ->
-       if m >= lvl then (Patt_Bound (m + k), loc) else p
-    | Patt_Jdg (p1,p2) ->
-      let p1 = shift_tt_pattern k lvl p1
-      and p2 = shift_tt_pattern k lvl p2 in
-      Patt_Jdg (p1,p2), loc
-    | Patt_Tag (t,ps) ->
-      let ps = List.map (shift_pattern k lvl) ps in
-      Patt_Tag (t,ps), loc
-
-and shift_tt_pattern k lvl ((p',loc) as p) =
+let rec shift_tt_pattern k lvl ((p',loc) as p) =
   match p' with
     | Tt_Anonymous | Tt_Type | Tt_Constant _ | Tt_Inhab -> p
     | Tt_As (p,k) ->
@@ -167,6 +152,22 @@ and shift_tt_pattern k lvl ((p',loc) as p) =
     | Tt_Projection (c,l) ->
       let c = shift_tt_pattern k lvl c in
       Tt_Projection (c,l), loc
+
+let rec shift_pattern k lvl ((p', loc) as p) =
+  match p' with
+    | Patt_Anonymous -> p
+    | Patt_As (p,k) ->
+      let p = shift_pattern k lvl p in
+      Patt_As (p,k), loc
+    | Patt_Bound m ->
+       if m >= lvl then (Patt_Bound (m + k), loc) else p
+    | Patt_Jdg (p1,p2) ->
+      let p1 = shift_tt_pattern k lvl p1
+      and p2 = shift_tt_pattern k lvl p2 in
+      Patt_Jdg (p1,p2), loc
+    | Patt_Tag (t,ps) ->
+      let ps = List.map (shift_pattern k lvl) ps in
+      Patt_Tag (t,ps), loc
 
 let rec shift_comp k lvl (c', loc) =
   let c' =
@@ -310,6 +311,8 @@ let rec shift_comp k lvl (c', loc) =
         Projection (c,x)
 
     | Yield -> Yield
+
+    | Context -> Context
 
   in
   c', loc

@@ -3,15 +3,15 @@
 (** Auxiliary printing functions. *)
 
 let print_term env e =
-    let xs = Environment.used_names env in
+    let xs = Value.Env.used_names env in
       Tt.print_term xs e
 
 let print_ty env t =
-    let xs = Environment.used_names env in
+    let xs = Value.Env.used_names env in
       Tt.print_ty xs t
 
 let print_value env v =
-    let xs = Environment.used_names env in
+    let xs = Value.Env.used_names env in
       Value.print_value xs v
 
 (** Notation for the monadic bind *)
@@ -29,14 +29,14 @@ let as_handler ~loc v =
 (** A helper function to install a beta hint for an atom. *)
 let add_beta ~loc z ctx hyps e t env  =
   let hint_key = Hint.mk_beta ~loc env ctx hyps ([], (t, Tt.mk_atom ~loc z, e))  in
-  Environment.add_beta hint_key env
+  Value.Env.add_beta hint_key env
 
 
 (** Evaluate a computation -- infer mode. *)
 let rec infer env (c',loc) =
   match c' with
     | Syntax.Bound i ->
-       let v = Environment.lookup_bound i env in
+       let v = Value.Env.lookup_bound ~loc i env in
        Value.return v
 
     | Syntax.Type ->
@@ -46,20 +46,19 @@ let rec infer env (c',loc) =
        Value.return_term et
 
     | Syntax.Function (x, c) ->
-       let f v =
-         let env = Environment.add_bound x v env in
+       let f env v =
+         let env = Value.Env.add_bound x v env in
          infer env c
        in
-       let v = Value.Closure f in
-       Value.return v
+       Value.return_closure env f
 
     | Syntax.Rec (f, x, c) ->
-       let rec g v =
-         let env = Environment.add_bound f (Value.Closure g) env in
-         let env = Environment.add_bound x v env in
+       let rec g env v =
+         let env = Value.Env.add_bound f (Value.mk_closure env g) env in
+         let env = Value.Env.add_bound x v env in
          infer env c
        in
-       Value.return (Value.Closure g)
+       Value.return_closure env g
 
     | Syntax.Tag (t, cs) ->
        let rec fold vs = function
@@ -77,17 +76,17 @@ let rec infer env (c',loc) =
          begin match handler_val with
          | None -> None
          | Some (x, c) ->
-            let f v =
-              let env = Environment.add_bound x v env in
+            let f env v =
+              let env = Value.Env.add_bound x v env in
               infer env c
             in
             Some f
          end
        and handler_ops =
          begin
-           let close2 x1 c v1 v2 =
-             let env = Environment.add_bound x1 v1 env in
-             let env = Environment.set_continuation v2 env in
+           let close2 x1 c env v1 v2 =
+             let env = Value.Env.add_bound x1 v1 env in
+             let env = Value.Env.set_continuation v2 env in
              infer env c
            in
            List.map (fun (op, (x, c)) -> (op, close2 x c)) handler_ops
@@ -96,21 +95,17 @@ let rec infer env (c',loc) =
          begin match handler_finally with
          | None -> None
          | Some (x, c) -> 
-            let f v =
-              let env = Environment.add_bound x v env in
+            let f env v =
+              let env = Value.Env.add_bound x v env in
               infer env c
             in
             Some f
          end
        in
-       let v = Value.Handler (Value.{handler_val; handler_ops; handler_finally}) in
-       Value.return v
+       Value.return_handler env handler_val handler_ops handler_finally
 
   | Syntax.Operation (op, c) ->
-     infer env c >>= 
-       (fun v ->
-        let k u = Value.Return u in
-        Value.Operation (op, v, k))
+     infer env c >>= Value.operate op env
 
   | Syntax.With (c1, c2) ->
      infer env c1 >>= as_handler ~loc >>=
@@ -123,7 +118,7 @@ let rec infer env (c',loc) =
 
   | Syntax.Assume ((x, t), c) ->
      check_ty env t >>= fun t ->
-     let _, _ , env = Environment.add_fresh ~loc env x t in
+     let _, _ , env = Value.Env.add_free ~loc env x t in
      infer env c
 
   | Syntax.Where (c1, c2, c3) ->
@@ -147,7 +142,7 @@ let rec infer env (c',loc) =
          | [] ->
             Error.typing ~loc "No match found for %t" (print_value env v)
          | (xs, p, c) :: cases ->
-            begin match Environment.match_pattern env xs p v with
+            begin match Value.Env.match_pattern env xs p v with
                   | Some env -> infer env c
                   | None -> fold cases
             end
@@ -167,7 +162,7 @@ let rec infer env (c',loc) =
     inhabit_bind env xscs >>= (fun env -> infer env c)
 
   | Syntax.Unhint (xs, c) ->
-    let env = Environment.unhint xs env in
+    let env = Value.Env.unhint ~loc xs env in
     infer env c
 
   | Syntax.Whnf c ->
@@ -201,9 +196,9 @@ let rec infer env (c',loc) =
   | Syntax.Constant (x, cs) ->
 
     let yts, u =
-      begin match Environment.lookup_constant x env with
+      begin match Value.Env.lookup_constant x env with
       | Some ytsu -> ytsu
-      | None -> Error.typing "unknown constant %t" (Name.print_ident x)
+      | None -> Error.typing ~loc "unknown constant %t" (Name.print_ident x)
       end in
     let rec fold ctx es yts cs =
       match yts, cs with
@@ -213,14 +208,10 @@ let rec infer env (c',loc) =
         let eu = Judgement.mk_term ctx e u in
         Value.return_term eu
 
-      | (y,(reducing,t))::yts, c::cs ->
+      | (y,(_,t))::yts, c::cs ->
         let t = Tt.instantiate_ty es t in
         let jt = Judgement.mk_ty ctx t in
         check env c jt >>= fun (ctx, e) ->
-        (* TODO why are we doing this here? *)
-        (if reducing
-          then Equal.Monad.run (Equal.whnf env ctx e)
-          else Value.return ((ctx, e), Name.AtomSet.empty)) >>= fun ((ctx,e),_) ->
         fold ctx (e :: es) yts cs
 
       | _::_, [] ->
@@ -250,10 +241,10 @@ let rec infer env (c',loc) =
             | [] -> Error.impossible ~loc "empty spine in Eval.infer"
             | [c] ->
               infer env c >>=
-              f
+              Value.apply_closure env f
             | c::(_::_ as cs) ->
               infer env c >>=
-              f >>= fun v ->
+              Value.apply_closure env f >>= fun v ->
               fold v cs
           end
         | Value.Ty _ | Value.Handler _ | Value.Tag _ ->
@@ -300,10 +291,10 @@ let rec infer env (c',loc) =
         Value.return_term j
       | (lbl,x,c) :: rem ->
         check_ty env c >>= fun (ctxt,t) ->
-        Value.mk_abstractable ~loc ctxt ys >>= fun (ctxt,zs,es) ->
+        Value.mk_abstractable ~loc env ctxt ys >>= fun (ctxt,zs,es) ->
         let t = Tt.substitute_ty zs es t in
         let jt = Judgement.mk_ty ctxt t in
-        let _, y, env = Environment.add_fresh ~loc env x jt in
+        let _, y, env = Value.Env.add_abstracting ~loc env x jt in
         let ctxt = Context.abstract ~loc ctxt ys ts in
         let tabs = Tt.abstract_ty ys t in
         let ctx = Context.join ~loc ctx ctxt in
@@ -321,11 +312,11 @@ let rec infer env (c',loc) =
         Value.return_term j
       | (lbl,x,c) :: rem ->
         infer env c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
-        Value.mk_abstractable ~loc ctxt ys >>= fun (ctxt,zs,es) ->
+        Value.mk_abstractable ~loc env ctxt ys >>= fun (ctxt,zs,es) ->
         let te = Tt.substitute zs es te
         and ty = Tt.substitute_ty zs es ty in
         let jty = Judgement.mk_ty ctxt ty in
-        let _, y, env = Environment.add_fresh ~loc env x jty in
+        let _, y, env = Value.Env.add_abstracting ~loc env x jty in
         let ctxt = Context.abstract ~loc ctxt ys ts in
         let te_abs = Tt.abstract ys te
         and ty_abs = Tt.abstract_ty ys ty in
@@ -345,10 +336,20 @@ let rec infer env (c',loc) =
     Value.return_term j
 
   | Syntax.Yield ->
-    begin match Environment.lookup_continuation env with
-      | Some y -> Value.return y
+    begin match Value.Env.lookup_continuation env with
+      | Some y -> Value.return (Value.Closure y)
       | None -> Error.impossible ~loc "yield without continuation set"
     end
+
+  | Syntax.Context ->
+     let rec to_value = function
+         |  [] -> Value.mk_tag "nil" []
+         | jxt :: lst ->
+            let lst = to_value lst in
+            Value.mk_tag "cons" [Value.Term jxt; lst]
+     in
+     let v = to_value (Value.Env.lookup_abstracting env) in
+     Value.return v
 
 and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
                   (f : Context.t -> Name.AtomSet.t -> 'a Value.result) error : 'a Value.result =
@@ -364,26 +365,22 @@ and require_equal ~loc env ((lctx,lte,lty) as ljdg) ((rctx,rte,rty) as rjdg)
     let lval = Value.Term ljdg in
     let rval = Value.Term rjdg in
     let opval = Value.Tag (Name.make "pair", [lval;rval]) in
-    let k v =
-      let tsome = Name.make "some" in
-      let tnone = Name.make "none" in
-      match v with
-        | Value.Tag (t, [v]) when (Name.eq_ident t tsome) ->
-          let (ctxeq,eq,teq) = Value.as_term ~loc v in
-          let tgoal = Tt.mk_eq_ty ~loc lty lte rte in
-          if Tt.alpha_equal_ty teq tgoal
-          then
-            let ctx = Context.join ~loc ctxeq (Context.join ~loc lctx rctx) in (* user may have done something surprising somehow *)
-            let hyps = Tt.assumptions_term eq in
-            f ctx hyps
-          else
-            Error.typing ~loc:(eq.Tt.loc) "this expression should have type@ %t@ but has type@ %t"
-                         (print_ty env tgoal) (print_ty env teq)
-        | Value.Tag (t, []) when (Name.eq_ident t tnone) ->
-          error ()
-        | _ -> Error.typing ~loc "#equal returned unexpected value %t@ , expected eq option" (print_value env v)
-    in
-    Value.Operation ("equal", opval, k)
+    Value.operate "equal" env opval >>= fun v ->
+    begin match Value.as_option ~loc v with
+      | Some v ->
+        let (ctxeq,eq,teq) = Value.as_term ~loc v in
+        let tgoal = Tt.mk_eq_ty ~loc lty lte rte in
+        if Tt.alpha_equal_ty teq tgoal
+        then
+          let ctx = Context.join ~loc ctxeq (Context.join ~loc lctx rctx) in (* user may have done something surprising somehow *)
+          let hyps = Tt.assumptions_term eq in
+          f ctx hyps
+        else
+          Error.typing ~loc:(eq.Tt.loc) "this expression should have type@ %t@ but has type@ %t"
+                       (print_ty env tgoal) (print_ty env teq)
+      | None ->
+        error ()
+    end
 
 and require_equal_ty ~loc env (lctx,Tt.Ty lte) (rctx,Tt.Ty rte) f error : 'a Value.result =
   require_equal ~loc env (lctx,lte,Tt.mk_type_ty ~loc:(lte.Tt.loc))
@@ -411,7 +408,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Bracket _
   | Syntax.Signature _
   | Syntax.Projection _
-  | Syntax.Yield ->
+  | Syntax.Yield 
+  | Syntax.Context ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
@@ -424,22 +422,20 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
 
   | Syntax.Operation (op, c) ->
      infer env c >>= fun ve ->
-     let k v =
-       let (ctxe, e', t') = Value.as_term ~loc v in
-       let k ctx hyps = Value.return (ctx, Tt.mention_atoms hyps e') in
-       require_equal_ty ~loc env t_check (ctxe,t') k
-         (fun () -> Error.typing ~loc:(e'.Tt.loc)
+     Value.operate op env ve >>= fun v ->
+     let (ctxe, e', t') = Value.as_term ~loc v in
+     let k ctx hyps = Value.return (ctx, Tt.mention_atoms hyps e') in
+     require_equal_ty ~loc env t_check (ctxe,t') k
+                      (fun () -> Error.typing ~loc:(e'.Tt.loc)
                                  "this expression should have type@ %t@ but has type@ %t"
                                  (print_ty env t_check') (print_ty env t'))
-     in
-     Value.Operation (op, ve, k)
 
   | Syntax.Let (xcs, c) ->
      let_bind env xcs >>= (fun env -> check env c t_check)
 
   | Syntax.Assume ((x, t), c) ->
      check_ty env t >>= fun t ->
-     let _,_,env = Environment.add_fresh ~loc env x t in
+     let _,_,env = Value.Env.add_abstracting ~loc env x t in
      check env c t_check
 
   | Syntax.Beta (xscs, c) ->
@@ -455,7 +451,7 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
     inhabit_bind env xscs >>= (fun env -> check env c t_check)
 
   | Syntax.Unhint (xs, c) ->
-    let env = Environment.unhint xs env in
+    let env = Value.Env.unhint ~loc xs env in
     check env c t_check
 
   | Syntax.Whnf c ->
@@ -532,9 +528,9 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             let ty_inst = Tt.unabstract_ty ys ty in
             let jty = Judgement.mk_ty ctx ty_inst in
             check env c jty >>= fun (ctx, e) ->
-            Value.mk_abstractable ~loc ctx ys >>= fun (ctx,zs,es) ->
+            Value.mk_abstractable ~loc env ctx ys >>= fun (ctx,zs,es) ->
             let e = Tt.substitute zs es e in
-            let ctx, y, env = Environment.add_fresh ~loc env x jty in
+            let ctx, y, env = Value.Env.add_abstracting ~loc env x jty in
             let hyps = Name.AtomSet.add y (Tt.assumptions_term e) in
             let env = add_beta ~loc y ctx hyps e ty_inst env in
             let e_abs = Tt.abstract ys e in
@@ -550,31 +546,32 @@ and handle_result env {Value.handler_val; handler_ops; handler_finally} r =
   begin match r with
   | Value.Return v ->
      begin match handler_val with
-     | Some f -> f v
+     | Some f -> Value.apply_closure env f v
      | None -> r
      end
-  | Value.Operation (op, ve, cont) ->
+  | Value.Operation (op, ve, dyn, cont) ->
+     let env = Value.Env.set_dynamic env dyn in
      let h = Value.{handler_val; handler_ops; handler_finally=None} in
-     let wrap cont v = handle_result env h (cont v) in
+     let cont = Value.mk_closure' env (fun env v -> handle_result env h (Value.apply_closure env cont v)) in
      begin
        try
          let f = List.assoc op handler_ops in
-         f ve (Value.Closure (wrap cont))
+         f dyn ve cont
        with
          Not_found ->
-          Value.Operation (op, ve, (wrap cont))
+          Value.Operation (op, ve, dyn, cont)
      end
   end >>=
   (fun v ->
      match handler_finally with
-     | Some f -> f v
+     | Some f -> Value.apply_closure env f v
      | None -> Value.Return v)
 
 and infer_lambda env ~loc xus c =
   let rec fold env ctx ys ts xws  = function
       | [] ->
          infer env c >>= as_term ~loc:(snd c) >>= fun (ctxe, e, t) ->
-         Value.context_abstract ~loc ctxe ys ts >>= fun (ctxe,zs,es) ->
+         Value.context_abstract ~loc env ctxe ys ts >>= fun (ctxe,zs,es) ->
          let ctx = Context.join ~loc ctx ctxe in
          let e = Tt.abstract ys (Tt.substitute zs es e) in
          let t = Tt.abstract_ty ys (Tt.substitute_ty zs es t) in
@@ -586,10 +583,10 @@ and infer_lambda env ~loc xus c =
          Error.runtime ~loc "cannot infer the type of %t" (Name.print_ident x)
       | (x, Some c) :: xus ->
          check_ty env c >>= fun (ctxu, ((Tt.Ty {Tt.loc=uloc;_}) as u)) ->
-         Value.mk_abstractable ~loc ctxu ys >>= fun (ctxu,zs,es) ->
+         Value.mk_abstractable ~loc env ctxu ys >>= fun (ctxu,zs,es) ->
          let u = Tt.substitute_ty zs es u in
          let ju = Judgement.mk_ty ctxu u in
-         let _, y, env = Environment.add_fresh ~loc:uloc env x ju in
+         let _, y, env = Value.Env.add_abstracting ~loc:uloc env x ju in
          let ctxu = Context.abstract ~loc ctxu ys ts in
          let u_abs = Tt.abstract_ty ys u in
          let ctx = Context.join ~loc ctx ctxu in
@@ -601,7 +598,7 @@ and infer_prod env ~loc xus c =
   let rec fold env ctx ys ts xws  = function
       | [] ->
         check_ty env c >>= fun (ctxt, t) ->
-        Value.context_abstract ~loc ctxt ys ts >>= fun (ctxt,zs,es) ->
+        Value.context_abstract ~loc env ctxt ys ts >>= fun (ctxt,zs,es) ->
         let ctx = Context.join ~loc ctx ctxt in
         let t = Tt.abstract_ty ys (Tt.substitute_ty zs es t) in
         let xws = List.rev xws in
@@ -611,10 +608,10 @@ and infer_prod env ~loc xus c =
         Value.return_term j
       | (x, c) :: xus ->
         check_ty env c >>= fun (ctxu, ((Tt.Ty {Tt.loc=uloc;_}) as u)) ->
-        Value.mk_abstractable ~loc ctxu ys >>= fun (ctxu,zs,es) ->
+        Value.mk_abstractable ~loc env ctxu ys >>= fun (ctxu,zs,es) ->
         let u = Tt.substitute_ty zs es u in
         let ju = Judgement.mk_ty ctxu u in
-        let _, y, env = Environment.add_fresh ~loc:uloc env x ju in
+        let _, y, env = Value.Env.add_abstracting ~loc:uloc env x ju in
         let ctxu = Context.abstract ~loc ctxu ys ts in
         let u_abs = Tt.abstract_ty ys u in
         let ctx = Context.join ~loc ctx ctxu in
@@ -666,7 +663,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
           let t_body' = Tt.unabstract_ty ys t_body in
           let j_t_body' = Judgement.mk_ty ctx t_body' in
           check env body j_t_body' >>= fun (ctx, e) ->
-          Value.context_abstract ~loc ctx ys ts >>= fun (ctx,zs,es) ->
+          Value.context_abstract ~loc env ctx ys ts >>= fun (ctx,zs,es) ->
           let e = Tt.abstract ys (Tt.substitute zs es e) in
           let hyps = List.fold_left (fun hyps y -> Name.AtomSet.remove y hyps) hyps ys in
           let xts = List.rev xts in
@@ -680,7 +677,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
 
           let k ctx hyps' t =
             let jt = Judgement.mk_ty ctx t in
-            let ctx, y, env = Environment.add_fresh ~loc env x jt in
+            let ctx, y, env = Value.Env.add_abstracting ~loc env x jt in
             let t_abs = Tt.abstract_ty ys t in
             fold env ctx (Name.AtomSet.union hyps hyps') (y::ys) (t::ts) ((x,t_abs)::xts) abs zus in
 
@@ -691,7 +688,7 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
 
             | Some c ->
                check_ty env c >>= fun (ctxt, t) ->
-               Value.mk_abstractable ~loc ctxt ys >>= fun (ctxt,zs,es) ->
+               Value.mk_abstractable ~loc env ctxt ys >>= fun (ctxt,zs,es) ->
                let t = Tt.substitute_ty zs es t in
                require_equal_ty ~loc env (ctxt,t) (ctx,u) (fun ctx hyps -> k ctx hyps t)
                  (fun () -> Error.typing ~loc
@@ -753,7 +750,7 @@ and let_bind env xcs =
     | (x,c) :: xcs ->
       (* NB: must use [env] in [infer env c], not [env'] because this is parallel let *)
       infer env c >>= fun v ->
-      let env' = Environment.add_bound x v env' in
+      let env' = Value.Env.add_bound x v env' in
       fold env' xcs
     in
   fold env xcs
@@ -768,7 +765,7 @@ and beta_bind env xscs =
       let h = Hint.mk_beta ~loc env ctx hyps (xts, (t, e1, e2)) in
       fold ((xs, h) :: xshs) xscs
     | [] ->
-       let env = Environment.add_betas xshs env in
+       let env = Value.Env.add_betas xshs env in
        Print.debug "Installed beta hints@ %t" (Print.sequence (fun (tags, (_, h)) ppf ->
          Print.print ppf "@[tags: %s ;@ hint: %t@]"
            (String.concat " " tags) (Pattern.print_beta_hint [] h)) "," xshs);
@@ -784,7 +781,7 @@ and eta_bind env xscs =
       let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
       let h = Hint.mk_eta ~loc env ctx hyps (xts, (t, e1, e2)) in
       fold ((xs, h) :: xshs) xscs
-    | [] -> let env = Environment.add_etas xshs env in
+    | [] -> let env = Value.Env.add_etas xshs env in
       Print.debug "Installed eta hints@ %t" (Print.sequence (fun (tags, (_, h)) ppf ->
         Print.print ppf "@[tags: %s ;@ hint: %t@]"
           (String.concat " " tags) (Pattern.print_eta_hint [] h)) "," xshs);
@@ -800,7 +797,7 @@ and hint_bind env xscs =
       let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
       let h = Hint.mk_general ~loc env ctx hyps (xts, (t, e1, e2)) in
       fold ((xs, h) :: xshs) xscs
-    | [] -> let env = Environment.add_generals xshs env in
+    | [] -> let env = Value.Env.add_generals xshs env in
       Print.debug "Installed hints@ %t"
         (Print.sequence (fun (tags, (k, h)) ppf ->
              Print.print ppf "@[tags: %s ; keys: %t ;@ hint: %t@]"
@@ -819,7 +816,7 @@ and inhabit_bind env xscs =
       let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
       let h = Hint.mk_inhabit ~loc env ctx hyps (xts, t) in
       fold ((xs, h) :: xshs) xscs
-    | [] -> let env = Environment.add_inhabits xshs env in
+    | [] -> let env = Value.Env.add_inhabits xshs env in
       Print.debug "Installed inhabit hints@ %t"
         (Print.sequence (fun (tags, (_, h)) ppf ->
              Print.print ppf "@[tags: %s ;@ hint: %t@]"
@@ -840,11 +837,14 @@ and check_ty env c : Judgement.ty Value.result =
     until a value is returned. *)
 let rec top_handle ~loc env = function
   | Value.Return v -> v
-  | Value.Operation (op, v, k) ->
-     begin match Environment.lookup_handle op env with
+  | Value.Operation (op, v, dyn, k) ->
+     let env = Value.Env.set_dynamic env dyn in
+     begin match Value.Env.lookup_handle op env with
       | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
       | Some (x, c) ->
-         let r = infer (Environment.add_bound x v env) c >>= k in
+         let r = infer (Value.Env.add_bound x v env) c >>=
+                 Value.apply_closure env k
+         in
          top_handle ~loc env r
      end
 

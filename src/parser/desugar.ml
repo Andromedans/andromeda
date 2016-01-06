@@ -31,54 +31,7 @@ let rec mk_prod ~loc ys ((t', _) as t) =
     end
 
 (* n is the length of vars *)
-let rec pattern constants bound vars n (p,loc) =
-  match p with
-    | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), vars, n
-
-    | Input.Patt_As (p,x) ->
-      begin try
-        let i = List.assoc x vars in
-        let p, vars, n = pattern constants bound vars n p in
-        (Syntax.Patt_As (p,i), loc), vars, n
-      with | Not_found ->
-        let i = n in
-        let p, vars, n = pattern constants bound ((x,n)::vars) (n+1) p in
-        (Syntax.Patt_As (p,i), loc), vars, n
-      end
-
-    | Input.Patt_Var x ->
-      begin try
-        let i = List.assoc x vars in
-        (Syntax.Patt_As ((Syntax.Patt_Anonymous, loc), i), loc), vars, n
-      with | Not_found ->
-        (Syntax.Patt_As ((Syntax.Patt_Anonymous, loc), n), loc), ((x,n)::vars), (n+1)
-      end
-
-    | Input.Patt_Name x ->
-      begin match Name.index_of_ident x bound with
-        | None ->
-          Error.syntax ~loc "unknown value name %t" (Name.print_ident x)
-        | Some k ->
-            (Syntax.Patt_Bound k, loc), vars, n
-      end
-
-    | Input.Patt_Jdg (p1,p2) ->
-      let p1, vars, n = tt_pattern constants bound vars n p1 in
-      let p2, vars, n = tt_pattern constants bound vars n p2 in
-      (Syntax.Patt_Jdg (p1,p2), loc), vars, n
-
-    | Input.Patt_Tag (t,ps) ->
-      let rec fold vars n ps = function
-        | [] ->
-          let ps = List.rev ps in
-          (Syntax.Patt_Tag (t,ps), loc), vars, n
-        | p::rem ->
-          let p, vars, n = pattern constants bound vars n p in
-          fold vars n (p::ps) rem
-        in
-      fold vars n [] ps
-
-and tt_pattern constants bound vars n (p,loc) =
+let rec tt_pattern constants bound vars n (p,loc) =
   match p with
     | Input.Tt_Anonymous ->
       (Syntax.Tt_Anonymous, loc), vars, n
@@ -228,6 +181,53 @@ and tt_pattern constants bound vars n (p,loc) =
     | Input.Tt_Projection (p,l) ->
       let p, vars, n = tt_pattern constants bound vars n p in
       (Syntax.Tt_Projection (p,l), loc), vars, n
+
+let rec pattern constants bound vars n (p,loc) =
+  match p with
+    | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), vars, n
+
+    | Input.Patt_As (p,x) ->
+      begin try
+        let i = List.assoc x vars in
+        let p, vars, n = pattern constants bound vars n p in
+        (Syntax.Patt_As (p,i), loc), vars, n
+      with | Not_found ->
+        let i = n in
+        let p, vars, n = pattern constants bound ((x,n)::vars) (n+1) p in
+        (Syntax.Patt_As (p,i), loc), vars, n
+      end
+
+    | Input.Patt_Var x ->
+      begin try
+        let i = List.assoc x vars in
+        (Syntax.Patt_As ((Syntax.Patt_Anonymous, loc), i), loc), vars, n
+      with | Not_found ->
+        (Syntax.Patt_As ((Syntax.Patt_Anonymous, loc), n), loc), ((x,n)::vars), (n+1)
+      end
+
+    | Input.Patt_Name x ->
+      begin match Name.index_of_ident x bound with
+        | None ->
+          Error.syntax ~loc "unknown value name %t" (Name.print_ident x)
+        | Some k ->
+            (Syntax.Patt_Bound k, loc), vars, n
+      end
+
+    | Input.Patt_Jdg (p1,p2) ->
+      let p1, vars, n = tt_pattern constants bound vars n p1 in
+      let p2, vars, n = tt_pattern constants bound vars n p2 in
+      (Syntax.Patt_Jdg (p1,p2), loc), vars, n
+
+    | Input.Patt_Tag (t,ps) ->
+      let rec fold vars n ps = function
+        | [] ->
+          let ps = List.rev ps in
+          (Syntax.Patt_Tag (t,ps), loc), vars, n
+        | p::rem ->
+          let p, vars, n = pattern constants bound vars n p in
+          fold vars n (p::ps) rem
+        in
+      fold vars n [] ps
 
 
 let rec comp ~yield constants bound (c',loc) =
@@ -429,6 +429,9 @@ let rec comp ~yield constants bound (c',loc) =
     if yield
     then Syntax.Yield, loc
     else Error.syntax ~loc "yield outside handler case"
+
+  | Input.Context ->
+     Syntax.Context, loc
 
   | Input.Function (xs, c) ->
      let rec fold bound = function

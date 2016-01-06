@@ -4,13 +4,14 @@ type t
 (** The empty context. *)
 val empty : t
 
+(** Is the context empty? *)
+val is_empty : t -> bool
+
 val print : t -> Format.formatter -> unit
 
 val lookup_ty : Name.atom -> t -> Tt.ty option
 
 val needed_by : loc:Location.t -> Name.atom -> t -> Name.AtomSet.t
-
-val add : t -> Name.atom -> Tt.ty -> t option
 
 val add_fresh : t -> Name.ident -> Tt.ty -> Name.atom * t
 

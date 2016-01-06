@@ -10,6 +10,7 @@ let reserved = [
   ("beta", BETA) ;
   ("Beta", TOPBETA) ;
   ("Check", TOPCHECK) ;
+  ("context", CONTEXT) ;
   ("whnf", WHNF) ;
   ("end", END) ;
   ("eta", ETA) ;

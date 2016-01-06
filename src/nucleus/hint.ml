@@ -51,9 +51,9 @@ let rec of_term env pvars ({Tt.term=e';loc;_} as e) t =
         Error.impossible ~loc "malformed primitive application in Pattern.of_term"
     in
     let xrts =
-      begin match Environment.lookup_constant x env with
+      begin match Value.Env.lookup_constant x env with
       | Some (xrts, _) -> xrts
-      | None -> Error.impossible "Hint.of_term, unknown primitive operation %t" (Name.print_ident x)
+      | None -> Error.impossible ~loc "Hint.of_term, unknown primitive operation %t" (Name.print_ident x)
       end in
     let pvars, pes = fold pvars [] [] xrts es in
     pvars, Pattern.Constant (x, pes)

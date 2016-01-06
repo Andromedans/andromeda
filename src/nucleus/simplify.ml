@@ -119,7 +119,7 @@ let rec term ({Tt.term=e';loc;_} as e) =
       project ~loc te xts p
 
     | Tt.Bound _ ->
-      Error.impossible "de Bruijn encountered in term"
+      Error.impossible ~loc "de Bruijn encountered in term"
 
 and ty (Tt.Ty e) =
   let e = term e in

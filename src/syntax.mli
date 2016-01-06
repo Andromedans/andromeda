@@ -67,6 +67,7 @@ and comp' =
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
   | Yield
+  | Context
 
 and handler = {
   handler_val: (Name.ident * comp) option;
