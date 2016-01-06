@@ -52,22 +52,6 @@ val as_prod : Value.Env.t -> Judgement.ty -> (Context.t * Tt.ty Tt.ty_abstractio
 val as_universal_eq :
   Value.Env.t -> Judgement.ty -> (Context.t * (Tt.ty * Tt.term * Tt.term) Tt.ty_abstraction) Monad.t
 
-(** Convert a type to a universally quantified bracket type, aggresively
-    by unfolding as many inner products as possible. If we get something
-    that is not a bracket that is ok, we just imagine there was one. *)
-val as_universal_bracket :
-  Value.Env.t -> Judgement.ty -> (Context.t * Tt.ty Tt.ty_abstraction) Monad.t
-
-(** [inhabit_bracket env t] attempts to inhabit the bracket type [[t]] using inhabit
-    hints. It returns [None] on failure or [Some (ctx, Tt.Inhab)] if it succeeded
-    inhabiting the bracket type in context [ctx]. *)
-val inhabit_bracket :
-  subgoals:bool -> loc:Location.t ->
-  Value.Env.t -> Judgement.ty -> (Context.t * Tt.term) Opt.opt
-
-(** Convert a type to a bracket type. *)
-val as_bracket : Value.Env.t -> Judgement.ty -> (Context.t * Tt.ty) Monad.t
-
 (** Convert a type to a signature. *)
 val as_signature : Value.Env.t -> Judgement.ty -> (Context.t * Tt.signature) Monad.t
 

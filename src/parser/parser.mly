@@ -23,7 +23,6 @@
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
 %token LBRACK RBRACK
-%token LRBRACK LLBRACK RRBRACK
 %token LBRACE RBRACE
 %token DCOLON COLON SEMICOLON COMMA DOT
 %token ARROW DARROW
@@ -32,14 +31,14 @@
 %token TOPCHECK
 %token TOPHANDLE
 %token TOPLET
-%token TOPBETA TOPETA TOPHINT TOPINHABIT
+%token TOPBETA TOPETA TOPHINT
 %token TOPUNHINT
 
 (* Let binding *)
 %token LET COLONEQ AND IN
 
 (* Hints *)
-%token BETA ETA HINT INHABIT
+%token BETA ETA HINT
 %token UNHINT
 
 (* Meta-level programming *)
@@ -115,7 +114,6 @@ plain_topcomp:
   | TOPBETA ths=tags_hints                           { TopBeta ths }
   | TOPETA ths=tags_hints                            { TopEta ths }
   | TOPHINT ths=tags_hints                           { TopHint ths }
-  | TOPINHABIT ths=tags_hints                        { TopInhabit ths }
   | TOPUNHINT ts=tags_unhints                        { TopUnhint ts }
   | AXIOM x=name yst=primarg* COLON u=term           { Axiom (x, List.concat yst, u)}
 
@@ -143,7 +141,6 @@ plain_term:
   | BETA tshs=tags_opt_hints IN c=term                              { Beta (tshs, c) }
   | ETA tshs=tags_opt_hints IN c=term                               { Eta (tshs, c) }
   | HINT tshs=tags_opt_hints IN c=term                              { Hint (tshs, c) }
-  | INHABIT tshs=tags_opt_hints IN c=term                           { Inhabit (tshs, c) }
   | UNHINT ts=tags_unhints IN c=term                                { Unhint (ts, c) }
   | MATCH e=term WITH lst=match_case* END                           { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_case* END                        { Handle (c, hcs) }
@@ -181,12 +178,10 @@ plain_app_term:
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                            { Type }
-  | LRBRACK                                         { Inhab }
   | x=var_name                                      { Var x }
   | t=TAG                                           { Tag (Name.make t, []) }
   | EXTERNAL s=QUOTED_STRING                        { External s }
   | LPAREN e=plain_term RPAREN                      { e }
-  | LLBRACK e=term RRBRACK                          { Bracket e }
   | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
         { Signature lst }
   | LPAREN RPAREN                                   { Structure [] }
@@ -338,8 +333,6 @@ plain_simple_tt_pattern:
   | TYPE                                                                 { Tt_Type }
   | x=patt_var                                                           { Tt_Var x }
   | x=var_name                                                           { Tt_Name x }
-  | LRBRACK                                                              { Tt_Inhab }
-  | LLBRACK p=tt_pattern RRBRACK                                         { Tt_Bracket p }
   | LPAREN p=plain_tt_pattern RPAREN                                     { p }
   | LBRACE ps=separated_list(COMMA, tt_signature_clause) RBRACE          { Tt_Signature ps }
   | LPAREN RPAREN                                                        { Tt_Structure [] }

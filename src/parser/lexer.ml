@@ -26,8 +26,6 @@ let reserved = [
   ("Unhint", TOPUNHINT) ;
   ("Handle", TOPHANDLE) ;
   ("Hypothesis", AXIOM) ;
-  ("inhabit", INHABIT) ;
-  ("Inhabit", TOPINHABIT) ;
   ("Let", TOPLET) ;
   ("let", LET) ;
   ("match", MATCH) ;
@@ -100,9 +98,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
-  | "[["                     -> f (); LLBRACK
-  | "]]"                     -> f (); RRBRACK
-  | "[]"                     -> f (); LRBRACK
   | '['                      -> f (); LBRACK
   | ']'                      -> f (); RBRACK
   | '{'                      -> f (); LBRACE

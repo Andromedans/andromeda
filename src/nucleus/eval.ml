@@ -158,9 +158,6 @@ let rec infer env (c',loc) =
   | Syntax.Hint (xscs, c) ->
     hint_bind env xscs >>= (fun env -> infer env c)
 
-  | Syntax.Inhabit (xscs, c) ->
-    inhabit_bind env xscs >>= (fun env -> infer env c)
-
   | Syntax.Unhint (xs, c) ->
     let env = Value.Env.unhint ~loc xs env in
     infer env c
@@ -284,16 +281,6 @@ let rec infer env (c',loc) =
      let et' = Judgement.mk_term ctxe e' t' in
      Value.return_term et'
 
-  | Syntax.Bracket c ->
-    check_ty env c >>= fun (ctxt, t') ->
-    let t' = Tt.mk_bracket ~loc t' in
-    let typ = Tt.mk_type_ty ~loc in
-    let j = Judgement.mk_term ctxt t' typ in
-    Value.return_term j
-
-  | Syntax.Inhab ->
-    Error.typing ~loc "cannot infer the type of []"
-
   | Syntax.Signature xcs ->
     let rec fold env ctx ys ts xts = function
       | [] ->
@@ -403,7 +390,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Prod _
   | Syntax.Eq _
   | Syntax.Spine _
-  | Syntax.Bracket _
   | Syntax.Signature _
   | Syntax.Projection _
   | Syntax.Yield 
@@ -451,9 +437,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
 
   | Syntax.Hint (xscs, c) ->
     hint_bind env xscs >>= (fun env -> check env c t_check)
-
-  | Syntax.Inhabit (xscs, c) ->
-    inhabit_bind env xscs >>= (fun env -> check env c t_check)
 
   | Syntax.Unhint (xs, c) ->
     let env = Value.Env.unhint ~loc xs env in
@@ -506,20 +489,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
                          "failed to check that the term@ %t is equal to@ %t"
                          (print_term env e) (print_term env e1)                
      end
-
-  | Syntax.Inhab ->
-     Equal.Monad.run (Equal.as_bracket env t_check) >>= fun ((ctx,t'),hyps) ->
-     let t = Judgement.mk_ty ctx t' in
-     Equal.Opt.run (Equal.inhabit_bracket ~subgoals:true ~loc env t) >>=
-       begin function
-         | Some ((ctx,_),hyps') ->
-            let e = Tt.mk_inhab ~loc t' in
-            let e = Tt.mention_atoms hyps e in
-            let e = Tt.mention_atoms hyps' e in
-            Value.return (ctx, e)
-         | None -> Error.typing ~loc "do not know how to inhabit %t"
-                                (print_ty env t')
-       end
 
   | Syntax.Structure xcs ->
      Equal.Monad.run (Equal.as_signature env t_check) >>= fun ((ctx, yts),hyps) ->
@@ -821,24 +790,6 @@ and hint_bind env xscs =
                (String.concat " " tags)
                (Pattern.print_general_key k)
                (Pattern.print_hint [] h)) "," xshs);
-      Value.return env
-  in fold [] xscs
-
-and inhabit_bind env xscs =
-  let rec fold xshs = function
-    | (xs, ((_,loc) as c)) :: xscs ->
-      infer env c >>= as_term ~loc:(snd c) >>= fun ((_,e,_) as j) ->
-      let jt = Judgement.typeof j in
-      Equal.Monad.run (Equal.as_universal_bracket env jt) >>= fun ((ctx, (xts, t)),hyps) ->
-      let hyps = Name.AtomSet.union hyps (Tt.assumptions_term e) in
-      let h = Hint.mk_inhabit ~loc env ctx hyps (xts, t) in
-      fold ((xs, h) :: xshs) xscs
-    | [] -> let env = Value.Env.add_inhabits xshs env in
-      Print.debug "Installed inhabit hints@ %t"
-        (Print.sequence (fun (tags, (_, h)) ppf ->
-             Print.print ppf "@[tags: %s ;@ hint: %t@]"
-               (String.concat " " tags)
-               (Pattern.print_inhabit_hint [] h)) "," xshs);
       Value.return env
   in fold [] xscs
 

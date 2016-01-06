@@ -19,8 +19,6 @@ and tt_pattern' =
   | Tt_Prod of bool * Name.ident * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
-  | Tt_Inhab
-  | Tt_Bracket of tt_pattern
   | Tt_Signature of (Name.ident * bool * Name.ident option * tt_pattern) list
   | Tt_Structure of (Name.ident * bool * Name.ident option * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
@@ -55,7 +53,6 @@ and term' =
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
-  | Inhabit of (string list * comp) list * comp
   | Unhint of string list * comp
   | Ascribe of comp * ty
   | Whnf of comp
@@ -67,8 +64,6 @@ and term' =
   | Prod of (Name.ident * ty) list * comp
   | Eq of comp * comp
   | Refl of comp
-  | Bracket of comp
-  | Inhab
   | Signature of (Name.ident * Name.ident option * ty) list
   | Structure of (Name.ident * Name.ident option * comp) list
   | Projection of comp * Name.ident
@@ -104,7 +99,6 @@ and toplevel' =
   | TopBeta of (string list * comp) list (** global beta hint *)
   | TopEta of (string list * comp) list (** global eta hint *)
   | TopHint of (string list * comp) list (** global hint *)
-  | TopInhabit of (string list * comp) list (** global inhabit hint *)
   | TopUnhint of string list
   | Verbosity of int
   | Include of string list

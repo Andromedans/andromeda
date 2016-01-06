@@ -16,8 +16,6 @@ and tt_pattern' =
   | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
-  | Tt_Inhab
-  | Tt_Bracket of tt_pattern
   | Tt_Signature of (Name.ident * Name.ident * bound option * tt_pattern) list
   | Tt_Structure of (Name.ident * Name.ident * bound option * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
@@ -49,7 +47,6 @@ and comp' =
   | Beta of (string list * comp) list * comp
   | Eta of (string list * comp) list * comp
   | Hint of (string list * comp) list * comp
-  | Inhabit of (string list * comp) list * comp
   | Unhint of string list * comp
   | Ascribe of comp * comp
   | Whnf of comp
@@ -62,8 +59,6 @@ and comp' =
   | Prod of (Name.ident * comp) list * comp
   | Eq of comp * comp
   | Refl of comp
-  | Bracket of comp
-  | Inhab
   | Signature of (Name.ident * Name.ident * comp) list
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
@@ -89,7 +84,6 @@ and toplevel' =
   | TopBeta of (string list * comp) list
   | TopEta of (string list * comp) list
   | TopHint of (string list * comp) list
-  | TopInhabit of (string list * comp) list
   | TopUnhint of string list
   | Verbosity of int
   | Include of string list
@@ -104,7 +98,7 @@ let opt_map f = function
 
 let rec shift_tt_pattern k lvl ((p',loc) as p) =
   match p' with
-    | Tt_Anonymous | Tt_Type | Tt_Constant _ | Tt_Inhab -> p
+    | Tt_Anonymous | Tt_Type | Tt_Constant _ -> p
     | Tt_As (p,k) ->
       let p = shift_tt_pattern k lvl p in
       Tt_As (p,k), loc
@@ -128,9 +122,6 @@ let rec shift_tt_pattern k lvl ((p',loc) as p) =
     | Tt_Refl c ->
       let c = shift_tt_pattern k lvl c in
       Tt_Refl c, loc
-    | Tt_Bracket c ->
-      let c = shift_tt_pattern k lvl c in
-      Tt_Bracket c, loc
     | Tt_Signature xcs ->
       let rec fold lvl xcs = function
         | [] ->
@@ -232,11 +223,6 @@ let rec shift_comp k lvl (c', loc) =
        and c = shift_comp k lvl c in
        Hint (xscs, c)
 
-    | Inhabit (xscs, c) ->
-       let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
-       and c = shift_comp k lvl c in
-       Inhabit (xscs, c)
-
     | Unhint (xs, c) ->
        let c = shift_comp k lvl c in
        Unhint (xs, c)
@@ -295,12 +281,6 @@ let rec shift_comp k lvl (c', loc) =
     | Refl c ->
         let c = shift_comp k lvl c in
         Refl c
-
-    | Bracket c ->
-        let c = shift_comp k lvl c in
-        Bracket c
-
-    | Inhab -> Inhab
 
     | Signature lst ->
         let lst = List.map (fun (x,x',c) -> x, x', shift_comp k lvl c) lst in

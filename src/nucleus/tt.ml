@@ -23,8 +23,6 @@ and term' =
   | Prod of ty ty_abstraction
   | Eq of ty * term * term
   | Refl of ty * term
-  | Inhab of ty
-  | Bracket of ty
   | Signature of signature
   | Structure of structure
   | Projection of term * signature * Name.ident
@@ -98,16 +96,6 @@ let mk_refl ~loc t e =
     assumptions = Assumption.empty;
     loc = loc }
 
-let mk_inhab ~loc t =
-  { term = Inhab t;
-    assumptions = Assumption.empty;
-    loc = loc }
-
-let mk_bracket ~loc t =
-  { term = Bracket t;
-    assumptions = Assumption.empty;
-    loc = loc }
-
 let mk_signature ~loc lst =
   { term = Signature lst;
     assumptions = Assumption.empty;
@@ -129,7 +117,6 @@ let ty e = Ty e
 let mk_eq_ty ~loc t e1 e2 = ty (mk_eq ~loc t e1 e2)
 let mk_prod_ty ~loc xts t = ty (mk_prod ~loc xts t)
 let mk_type_ty ~loc = ty (mk_type ~loc)
-let mk_bracket_ty ~loc t = ty (mk_bracket ~loc t)
 let mk_signature_ty ~loc lst = ty (mk_signature ~loc lst)
 
 (** The [Type] constant, without a location. *)
@@ -212,14 +199,6 @@ and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
        let t = instantiate_ty es ~lvl t
        and e = instantiate es ~lvl e in
        {term = Refl (t, e); assumptions; loc}
-
-    | Inhab t ->
-       let t = instantiate_ty es ~lvl t in
-       {term = Inhab t; assumptions; loc}
-
-    | Bracket t ->
-      let t = instantiate_ty es ~lvl t in
-      {term = Bracket t; assumptions; loc}
 
     | Signature xts ->
       let rec fold lvl res = function
@@ -330,14 +309,6 @@ and abstract xs ?(lvl=0) ({term=e';assumptions;loc;} as e) =
     and e = abstract xs ~lvl e in
     {term = Refl (t, e); assumptions; loc}
 
-  | Inhab t ->
-    let t = abstract_ty xs ~lvl t in
-    {term = Inhab t; assumptions; loc}
-
-  | Bracket t ->
-    let t = abstract_ty xs ~lvl t in
-    {term = Bracket t; assumptions; loc}
-
   | Signature xts ->
      let rec fold lvl res = function
        | [] -> List.rev res
@@ -430,9 +401,6 @@ let rec occurs k {term=e';_} =
     occurs_ty k t + occurs k e1 + occurs k e2
   | Refl (t, e) ->
     occurs_ty k t + occurs k e
-  | Inhab t -> occurs_ty k t
-  | Bracket t ->
-    occurs_ty k t
   | Signature xts ->
     let rec fold k res = function
       | [] -> res
@@ -522,14 +490,6 @@ let rec gather_assumptions {term=e;assumptions;_} =
       let t = gather_assumptions_ty t
       and e = gather_assumptions e in
       Assumption.union assumptions (Assumption.union t e)
-
-    | Inhab t ->
-      let t = gather_assumptions_ty t in
-      Assumption.union assumptions t
-
-    | Bracket t ->
-      let t = gather_assumptions_ty t in
-      Assumption.union assumptions t
 
     | Signature xts ->
       let assumptions' = List.fold_left (fun assumptions (l,x,t) ->
@@ -631,12 +591,6 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
       alpha_equal_ty t t' &&
       alpha_equal e e'
 
-    | Bracket t1, Bracket t2 ->
-      alpha_equal_ty t1 t2
-
-    | Inhab t1, Inhab t2 ->
-       alpha_equal_ty t1 t2
-
     | Signature xts1, Signature xts2 ->
       let rec fold xts1 xts2 = match xts1, xts2 with
         | [], [] -> true
@@ -674,7 +628,7 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
       fold xts1 xts2
 
     | (Atom _ | Bound _ | Constant _ | Lambda _ | Spine _ |
-        Type | Prod _ | Eq _ | Refl _ | Bracket _ | Inhab _ |
+        Type | Prod _ | Eq _ | Refl _ |
         Signature _ | Structure _ | Projection _), _ ->
       false
   end
@@ -757,13 +711,6 @@ and print_term' ?max_level xs e ppf =
         print ~at_level:1 "refl%t %t"
           (print_annot (print_ty xs t))
           (print_term ~max_level:0 xs e)
-
-      | Inhab t -> print ~at_level:0 "[]%t"
-                         (print_annot (print_ty xs t))
-
-      | Bracket t ->
-        print ~at_level:0 "[[%t]]"
-          (print_ty xs t)
 
       | Signature xts ->
         print ~at_level:0 "{@[<hov>%t@]}"

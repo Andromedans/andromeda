@@ -34,7 +34,7 @@ let rec of_term env pvars ({Tt.term=e';loc;_} as e) t =
   let original = pvars, Pattern.Term (e,t) in
   match e' with
 
-  | Tt.Type | Tt.Inhab _ | Tt.Lambda _ | Tt.Prod _ -> original
+  | Tt.Type | Tt.Lambda _ | Tt.Prod _ -> original
 
   | Tt.Atom x -> pvars, Pattern.Atom x
 
@@ -100,13 +100,6 @@ let rec of_term env pvars ({Tt.term=e';loc;_} as e) t =
     begin match t', e with
       | Pattern.Ty (Pattern.Term _), Pattern.Term _ -> original
       | _, _ -> pvars, (Pattern.Refl (t', e))
-    end
-
-  | Tt.Bracket t ->
-    let pvars, t = of_ty env pvars t in
-    begin match t with
-      | Pattern.Ty (Pattern.Term _) -> original
-      | _ -> pvars, (Pattern.Bracket t)
     end
 
   | Tt.Signature _ -> original

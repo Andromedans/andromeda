@@ -124,8 +124,6 @@ and whnf env ctx ({Tt.term=e';assumptions; loc} as e) =
         | Tt.Prod _
         | Tt.Eq _
         | Tt.Refl _
-        | Tt.Inhab _
-        | Tt.Bracket _
         | Tt.Signature _
         | Tt.Structure _
         | Tt.Projection _ ->
@@ -176,8 +174,6 @@ and whnf env ctx ({Tt.term=e';assumptions; loc} as e) =
           | Tt.Prod _
           | Tt.Eq _
           | Tt.Refl _
-          | Tt.Inhab _
-          | Tt.Bracket _
           | Tt.Signature _
           | Tt.Projection _ ->
              Monad.return (ctx, Tt.mention assumptions (Tt.mk_projection ~loc e xts p))
@@ -191,8 +187,6 @@ and whnf env ctx ({Tt.term=e';assumptions; loc} as e) =
     | Tt.Type
     | Tt.Eq _
     | Tt.Refl _
-    | Tt.Inhab _
-    | Tt.Bracket _
     | Tt.Signature _
     | Tt.Structure _ -> Monad.return (ctx, e)
     | Tt.Bound _ ->
@@ -251,8 +245,6 @@ and reduce_step env ctx {Tt.term=e'; assumptions; loc} =
            | Tt.Prod _
            | Tt.Eq _
            | Tt.Refl _
-           | Tt.Inhab _
-           | Tt.Bracket _
            | Tt.Signature _
            | Tt.Structure _
            | Tt.Projection _ -> Opt.fail
@@ -274,8 +266,6 @@ and reduce_step env ctx {Tt.term=e'; assumptions; loc} =
        | Tt.Prod _
        | Tt.Eq _
        | Tt.Refl _
-       | Tt.Inhab _
-       | Tt.Bracket _
        | Tt.Signature _
        | Tt.Projection _ -> Opt.fail
        | Tt.Bound _ ->
@@ -290,8 +280,6 @@ and reduce_step env ctx {Tt.term=e'; assumptions; loc} =
   | Tt.Type
   | Tt.Eq _
   | Tt.Refl _
-  | Tt.Inhab _
-  | Tt.Bracket _
   | Tt.Signature _
   | Tt.Structure _ -> Opt.fail
   | Tt.Bound _ ->
@@ -494,12 +482,6 @@ and congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
      Opt.locally (equal_ty env ctx u u') >?= fun (ctx,hyps) ->
      equal env ctx d (Tt.mention_atoms hyps d') u
 
-  | Tt.Inhab t, Tt.Inhab t' ->
-     equal_ty env ctx t t'
-
-  | Tt.Bracket t1, Tt.Bracket t2 ->
-     equal_ty env ctx t1 t2
-
   | Tt.Signature xts1, Tt.Signature xts2 -> equal_signature ~loc:loc1 env ctx xts1 xts2
 
   | Tt.Structure xtes1, Tt.Structure xtes2 ->
@@ -520,7 +502,7 @@ and congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
     else Opt.fail
 
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
-     Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _ |
+     Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ |
      Tt.Signature _ | Tt.Structure _ | Tt.Projection _), _ ->
      Opt.fail
 
@@ -565,86 +547,12 @@ and equal_module ~loc env ctx xtes1 xtes2 =
     in
   fold ctx [] xtes1 xtes2
 
-and as_bracket env (ctx, t) =
-  whnf_ty env ctx t >>= fun (ctxt, Tt.Ty {Tt.term=t';loc;_}) ->
-  match t' with
-  | Tt.Bracket t -> Monad.return (ctxt, t)
-  | _ -> Error.typing ~loc "[] has a bracket type and not %t" (Tt.print_ty (Value.Env.used_names env) t)
-
-(** Strip brackets from a given type. *)
-and strip_bracket env ctx t =
-  whnf_ty env ctx t >>= fun (ctx, Tt.Ty {Tt.term=t';loc;_}) ->
-  match t' with
-  | Tt.Bracket t -> strip_bracket env ctx t
-  | _ ->  Monad.return (ctx, t) (* XXX or should be Opt.return the whnf t? *)
-
-(** Try to inhabit the given type [t], which must be proof-irrelevant.
-    If [subgoals] is [true] then recursively resolve goals, otherwise
-    just Opt.return the only possible inhabitant of [t]. *)
-and inhabit ~subgoals env ctx t =
-  whnf_ty env ctx t >!= fun (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) ->
-  inhabit_whnf ~subgoals env ctx t
-
-and inhabit_whnf ~subgoals env ctx ((Tt.Ty {Tt.term=t';loc;_}) as t) =
-  Print.debug "trying to inhabit (subgoals = %b) whnf@ %t"
-    subgoals (Tt.print_ty [] t);
-  match t' with
-
-    | Tt.Prod (xts', t') ->
-      let rec fold env ctx ys ts = function
-        | [] ->
-          let t' = Tt.unabstract_ty ys t' in
-          inhabit ~subgoals env ctx t' >?= fun (ctx,e) ->
-          Monad.lift (Value.context_abstract ~loc env ctx ys ts) >!= fun (ctx,zs,es) ->
-          Monad.abstract_hyps zs es >!= fun () ->
-          let e = Tt.abstract ys (Tt.substitute zs es e) in
-          let e = Tt.mk_lambda ~loc xts' e t' in
-          Opt.return (ctx, e)
-        | (x,t)::xts ->
-          let t = Tt.unabstract_ty ys t in
-          let jt = Judgement.mk_ty ctx t in
-          let ctx, y, env = Value.Env.add_abstracting ~loc env x jt in
-          fold env ctx (y :: ys) (t::ts) xts
-      in
-        fold env ctx [] [] xts'
-
-    | Tt.Eq (t, e1, e2) ->
-       if not subgoals
-       then
-         (* Do not create new subgoals, just Opt.return the only
-            possible candidate for inhabitation. *)
-         let e = Tt.mk_refl ~loc t e1 in
-         Opt.return (ctx, e)
-       else
-         equal env ctx e1 e2 t >?= fun ctx ->
-           let e = Tt.mk_refl ~loc t e1 in
-           Opt.return (ctx, e)
-
-    | Tt.Bracket t ->
-       let jt = Judgement.mk_ty ctx t in
-       inhabit_bracket ~subgoals ~loc env jt
-
-    | Tt.Atom _
-    | Tt.Constant _
-    | Tt.Spine _
-    | Tt.Bound _
-    | Tt.Lambda _
-    | Tt.Refl _
-    | Tt.Inhab _
-    | Tt.Signature _
-    | Tt.Structure _
-    | Tt.Projection _
-    | Tt.Type -> Opt.fail
-
-and inhabit_bracket ~subgoals ~loc env (ctx, t_inhabit) =
-  assert false (* TODO remove brackets *)
-
 let as_atom env (ctx, e', t)  =
   whnf env ctx e' >>= fun (ctx, {Tt.term=e';loc;_}) ->
   match e' with
   | Tt.Atom x -> Monad.return (ctx, x, t)
   | Tt.Prod _ | Tt.Type | Tt.Eq _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
+  | Tt.Spine _ | Tt.Refl _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
     Error.runtime ~loc "this expression should be an atom"
 
@@ -677,7 +585,7 @@ let rec deep_prod env ctx t f =
      fold env ctx [] [] xus
 
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Eq _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
+  | Tt.Spine _ | Tt.Eq _ | Tt.Refl _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
      f env ctx (Tt.ty t) >>= fun (ctx,t) ->
      Monad.return (ctx, ([], t))
@@ -691,7 +599,7 @@ let as_eq env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
   | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
 
   | Tt.Prod _ | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
+  | Tt.Spine _ | Tt.Refl _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
      Error.typing ~loc
        "this expression should be an equality type, found@ %t"
@@ -708,27 +616,11 @@ let as_universal_eq env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
   | Tt.Prod _ -> Error.impossible ~loc "product encountered in as_universal_eq"
 
   | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-  | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _ | Tt.Bracket _
+  | Tt.Spine _ | Tt.Refl _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ ->
      Error.typing ~loc
        "the type of this expression should be a universally quantified equality, found@ %t"
        (Tt.print_ty [] t)
-
-let as_universal_bracket env (ctx, ((Tt.Ty {Tt.loc=loc;_}) as t)) =
-  deep_prod
-    env ctx t
-    (fun env ctx ((Tt.Ty {Tt.term=t';loc;_}) as t) ->
-     match t' with
-
-     | Tt.Bracket t -> strip_bracket env ctx t
-
-     | Tt.Prod _ -> Error.impossible ~loc "product encountered in as_universal_bracket"
-
-     | Tt.Type | Tt.Atom _ | Tt.Bound _ | Tt.Constant _ | Tt.Lambda _
-     | Tt.Spine _ | Tt.Refl _ | Tt.Inhab _
-     | Tt.Signature _ | Tt.Structure _ | Tt.Projection _
-     | Tt.Eq _ -> Monad.return (ctx, t))
-
 
 let as_signature env (ctx, t) =
   whnf_ty env ctx t >>= fun (ctxt, Tt.Ty {Tt.term=t';loc;_}) ->

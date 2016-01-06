@@ -167,9 +167,6 @@ let rec exec_cmd base_dir interactive env c =
   | Syntax.TopHint xscs ->
      Eval.hint_bind env xscs |> Value.to_value ~loc
 
-  | Syntax.TopInhabit xscs ->
-     Eval.inhabit_bind env xscs |> Value.to_value ~loc
-
   | Syntax.TopUnhint xs -> Value.Env.unhint ~loc xs env
 
   | Syntax.Include fs ->

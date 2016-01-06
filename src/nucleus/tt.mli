@@ -58,12 +58,6 @@ and term' = private
   (** reflexivity [refl e] where [e] has type [t]. *)
   | Refl of ty * term
 
-  (** the inhabitant of a bracket type *)
-  | Inhab of ty
-
-  (** bracket type *)
-  | Bracket of ty
-
   (** signature, also known as structure type *)
   | Signature of signature
 
@@ -103,9 +97,6 @@ val mk_prod_ty: loc:Location.t -> (Name.ident * ty) list -> ty -> ty
 val mk_eq: loc:Location.t -> ty -> term -> term -> term
 val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
 val mk_refl: loc:Location.t -> ty -> term -> term
-val mk_bracket: loc:Location.t -> ty -> term
-val mk_bracket_ty: loc:Location.t -> ty -> ty
-val mk_inhab: loc:Location.t -> ty -> term
 val mk_signature : loc:Location.t -> signature -> term
 val mk_signature_ty : loc:Location.t -> signature -> ty
 val mk_structure : loc:Location.t -> structure -> term

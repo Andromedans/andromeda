@@ -127,13 +127,6 @@ let rec tt_pattern constants bound vars n (p,loc) =
       let p, vars, n = tt_pattern constants bound vars n p in
       (Syntax.Tt_Refl p, loc), vars, n
 
-    | Input.Tt_Inhab ->
-      (Syntax.Tt_Inhab, loc), vars, n
-
-    | Input.Tt_Bracket p ->
-      let p, vars, n = tt_pattern constants bound vars n p in
-      (Syntax.Tt_Bracket p, loc), vars, n
-
     | Input.Tt_Signature xps ->
       let rec fold bound vars n xps = function
         | [] ->
@@ -295,11 +288,6 @@ let rec comp ~yield constants bound (c',loc) =
       let c = comp ~yield constants bound c in
       Syntax.Hint (xscs, c), loc
 
-    | Input.Inhabit (xscs, c) ->
-      let xscs = List.map (fun (xs, c) -> xs, comp ~yield constants bound c) xscs in
-      let c = comp ~yield constants bound c in
-      Syntax.Inhabit (xscs, c), loc
-
     | Input.Unhint (xs, c) ->
       let c = comp ~yield constants bound c in
       Syntax.Unhint (xs, c), loc
@@ -365,13 +353,6 @@ let rec comp ~yield constants bound (c',loc) =
     | Input.Refl c ->
       let c = comp ~yield constants bound c in
       Syntax.Refl c, loc
-
-    | Input.Bracket c ->
-      let c = comp ~yield constants bound c in
-      Syntax.Bracket c, loc
-
-    | Input.Inhab ->
-      Syntax.Inhab, loc
 
     | Input.Signature lst ->
       let rec fold bound labels res = function
@@ -632,10 +613,6 @@ let toplevel constants bound (d', loc) =
     | Input.TopHint xscs ->
       let xscs = List.map (fun (xs, c) -> xs, comp ~yield:false constants bound c) xscs in
       Syntax.TopHint xscs
-
-    | Input.TopInhabit xscs ->
-      let xscs = List.map (fun (xs, c) -> xs, comp ~yield:false constants bound c) xscs in
-      Syntax.TopInhabit xscs
 
     | Input.TopUnhint xs -> Syntax.TopUnhint xs
 

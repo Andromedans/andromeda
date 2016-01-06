@@ -608,14 +608,6 @@ module Env = struct
        let xvs = collect_tt_pattern env xvs p ctx te ty in
        xvs
 
-    | Syntax.Tt_Inhab, Tt.Inhab _ ->
-       xvs
-
-    | Syntax.Tt_Bracket p, Tt.Bracket (Tt.Ty ty) ->
-       let {Tt.loc=loc;_} = ty in
-       let xvs = collect_tt_pattern env xvs p ctx ty (Tt.mk_type_ty ~loc) in
-       xvs
-
     | Syntax.Tt_Signature xps, Tt.Signature xts ->
        let rec fold env xvs ys ctx xps xts =
          match xps, xts with
@@ -695,8 +687,8 @@ module Env = struct
        else raise Match_fail
 
     | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Lambda _
-       | Syntax.Tt_Prod _ | Syntax.Tt_Eq _ | Syntax.Tt_Refl _ | Syntax.Tt_Inhab
-       | Syntax.Tt_Bracket _ | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
+       | Syntax.Tt_Prod _ | Syntax.Tt_Eq _ | Syntax.Tt_Refl _
+       | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
        | Syntax.Tt_Projection _) , _ ->
        raise Match_fail
 
