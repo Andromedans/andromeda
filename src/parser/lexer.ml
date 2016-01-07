@@ -51,6 +51,15 @@ let numeral = [%sedlex.regexp? Plus digit]
 
 let project = [%sedlex.regexp? '.', (name | numeral)]
 
+let symbolchar = [%sedlex.regexp?  ('!' | '$' | '%' | '&' | '*' | '+' | '-' | '.' | '/' | ':' | '<' | '=' | '>' | '?' | '@' | '^' | '|' | '~')]
+
+let prefixop = [%sedlex.regexp? ('~' | '?' | '!'), Star symbolchar ]
+let infixop0 = [%sedlex.regexp? ('=' | '<' | '>' | '|' | '&' | '$'), Star symbolchar]
+let infixop1 = [%sedlex.regexp? ('@' | '^'), Star symbolchar ]
+let infixop2 = [%sedlex.regexp? ('+' | '-'), Star symbolchar ]
+let infixop3 = [%sedlex.regexp? ('*' | '/' | '%'), Star symbolchar ]
+let infixop4 = [%sedlex.regexp? "**", Star symbolchar ]
+
 let start_longcomment = [%sedlex.regexp? "(*"]
 let end_longcomment= [%sedlex.regexp? "*)"]
 
@@ -100,6 +109,14 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "->" | 8594 | 10230      -> f (); ARROW
   | "=>" | 8658 | 10233      -> f (); DARROW
   | "==" | 8801              -> f (); EQEQ
+  | prefixop                 -> f (); PREFIXOP (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop0                 -> f (); INFIXOP0 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop1                 -> f (); INFIXOP1 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop2                 -> f (); INFIXOP2 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  (* Comes before infixop3 because ** matches the infixop3 pattern too *)
+  | infixop4                 -> f (); INFIXOP4 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop3                 -> f (); INFIXOP3 (lexeme lexbuf, Location.of_lexeme lexbuf)
+
   | eof                      -> f (); EOF
   | (name | numeral)         -> f ();
     let n = lexeme lexbuf in

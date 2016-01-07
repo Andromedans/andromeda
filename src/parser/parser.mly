@@ -12,6 +12,9 @@
 %token <string> PROJECTION
 %token AS
 
+(* Infix operations *)
+%token <string * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXOP2 INFIXOP3 INFIXOP4
+
 (* Equality types *)
 %token EQEQ
 %token REFL
@@ -64,6 +67,13 @@
 %token INCLUDE
 
 %token EOF
+
+(* Precedence and fixity of infix operators *)
+%left     INFIXOP0
+%right    INFIXOP1
+%left     INFIXOP2
+%left     INFIXOP3
+%right    INFIXOP4
 
 %start <Input.toplevel list> file
 %start <Input.toplevel> commandline
@@ -135,20 +145,39 @@ plain_ty_term:
 
 equal_term: mark_location(plain_equal_term) { $1 }
 plain_equal_term:
+  | e=plain_binop_term                               { e }
+  | e1=binop_term EQEQ e2=binop_term                 { Eq (e1, e2) }
+
+binop_term: mark_location(plain_binop_term) { $1 }
+plain_binop_term:
   | e=plain_app_term                                { e }
-  | e1=app_term EQEQ e2=app_term                    { Eq (e1, e2) }
+  | e2=binop_term op=INFIXOP0 e3=binop_term
+    { let e1 = Var (Name.make ~fixity:Name.Infix0 (fst op)), snd op in Spine (e1, [e2; e3]) }
+  | e2=binop_term op=INFIXOP1 e3=binop_term
+    { let e1 = Var (Name.make ~fixity:Name.Infix1 (fst op)), snd op in Spine (e1, [e2; e3]) }
+  | e2=binop_term op=INFIXOP2 e3=binop_term
+    { let e1 = Var (Name.make ~fixity:Name.Infix2 (fst op)), snd op in Spine (e1, [e2; e3]) }
+  | e2=binop_term op=INFIXOP3 e3=binop_term
+    { let e1 = Var (Name.make ~fixity:Name.Infix3 (fst op)), snd op in Spine (e1, [e2; e3]) }
+  | e2=binop_term op=INFIXOP4 e3=binop_term
+    { let e1 = Var (Name.make ~fixity:Name.Infix4 (fst op)), snd op in Spine (e1, [e2; e3]) }
 
 app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
-  | e=plain_simple_term                             { e }
-  | e=simple_term es=nonempty_list(simple_term)     { match fst e with
+  | e=plain_prefix_term                             { e }
+  | e=prefix_term es=nonempty_list(prefix_term)     { match fst e with
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
-  | CONGRUENCE t1=simple_term t2=simple_term        { Congruence (t1,t2) }
-  | REDUCE t=simple_term                            { Reduce t }
-  | TYPEOF t=simple_term                            { Typeof t }
-  | REFL e=simple_term                              { Refl e }
-  | op=OPERATION e=simple_term                      { Operation (op, e) }
+  | CONGRUENCE t1=prefix_term t2=prefix_term        { Congruence (t1,t2) }
+  | REDUCE t=prefix_term                            { Reduce t }
+  | TYPEOF t=prefix_term                            { Typeof t }
+  | REFL e=prefix_term                              { Refl e }
+  | op=OPERATION e=prefix_term                      { Operation (op, e) }
+
+prefix_term: mark_location(plain_prefix_term) { $1 }
+plain_prefix_term:
+  | e=plain_simple_term                        { e }
+  | op=PREFIXOP e2=prefix_term  { let e1 = Var (Name.make ~fixity:Name.Prefix (fst op)), snd op in Spine (e1, [e2]) }
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
@@ -168,6 +197,12 @@ plain_simple_term:
 
 var_name:
   | NAME { Name.make $1 }
+  | LPAREN op=PREFIXOP RPAREN  { Name.make ~fixity:Name.Prefix (fst op) }
+  | LPAREN op=INFIXOP0 RPAREN  { Name.make ~fixity:Name.Infix0 (fst op) }
+  | LPAREN op=INFIXOP1 RPAREN  { Name.make ~fixity:Name.Infix1 (fst op) }
+  | LPAREN op=INFIXOP2 RPAREN  { Name.make ~fixity:Name.Infix2 (fst op) }
+  | LPAREN op=INFIXOP3 RPAREN  { Name.make ~fixity:Name.Infix3 (fst op) }
+  | LPAREN op=INFIXOP4 RPAREN  { Name.make ~fixity:Name.Infix4 (fst op) }
 
 name:
   | x=var_name { x }

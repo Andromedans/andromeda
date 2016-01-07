@@ -1,18 +1,26 @@
 (** Variable names *)
 
-type ident =
+type fixity =
+  | Word
   | Anonymous
-  | String of string
+  | Prefix
+  | Infix0
+  | Infix1
+  | Infix2
+  | Infix3
+  | Infix4
 
-type atom =
-  | Gensym of string * int
+type ident = Ident of string * fixity
+
+type atom = Atom of string * fixity * int
 
 type label = ident
 
 let print_ident x ppf =
   match x with
-  | Anonymous -> Print.print ppf "_"
-  | String s -> Print.print ppf "%s" s
+  | Ident (s, Word) -> Print.print ppf "%s" s
+  | Ident (_, Anonymous) -> Print.print ppf "_"
+  | Ident (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4)) -> Print.print ppf "( %s )" s
 
 let print_label = print_ident
 
@@ -33,37 +41,26 @@ let subscript k =
     fold "" k
 
 let print_atom x ppf =
-  match x with Gensym (s, k) -> Print.print ppf "%s%s" s (subscript k)
+  match x with
+  | Atom (s, Word, k) -> Print.print ppf "%s%s" s (subscript k)
+  | Atom (_, Anonymous, k) -> Print.print ppf "_%s" (subscript k)
+  | Atom (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4), k) -> Print.print ppf "( %s%s )" s (subscript k)
 
 let print_op op ppf =
   Print.print ppf "#%s" op
 
-let anonymous = Anonymous
+let anonymous = Ident ("_", Anonymous)
 
-let make s = String s
+let make ?(fixity=Word) s = Ident (s, fixity)
 
 let fresh =
   let counter = ref (-1) in
-  fun x ->
+  function Ident (s, fixity) ->
     incr counter;
     if !counter < 0 then
-      Error.impossible ~loc:Location.unknown "More than %d fresh names generated." max_int;
-    let s =
-      match x with
-      | Anonymous -> "_"
-      | String s -> s
-    in
-    Gensym (s, !counter)
-
-let refresh_atom (Gensym (a, _)) = fresh (String a)
-
-let fresh_candy =
-  let counter = ref (-1) in
-  fun () ->
-    incr counter;
-    if !counter < 0 then
-      Error.impossible ~loc:Location.unknown "More than %d names of sugar generated." max_int;
-    String ("sugar var " ^ (string_of_int !counter))
+      Error.impossible ~loc:Location.unknown "More than %d fresh names generated." max_int
+    else
+      Atom (s, fixity, !counter)
 
 (** Split a string into base and an optional numerical suffix, e.g.,
     ["x42"] is split into [("x", Some 42)], while ["xy"] is split into
@@ -79,28 +76,26 @@ let extract_suffix s =
     and suffix = String.sub s (!i + 1) (n - !i - 1) in
     (base, Some (int_of_string suffix))
 
-(** [find_name s xs] finds a name derived from a string [s] that does not yet
-    appear in [xs]. *)
-let find_name s xs =
-  if not (List.mem (String s) xs) then
-    String s
+let refresh xs ((Ident (s, fixity)) as x) =
+  let rec used s = function
+      | [] -> false
+      | Ident (t, _) :: lst -> s = t || used s lst
+  in
+  if not (used s xs) then
+     x
   else
     let (s, k) = extract_suffix s in
     let k = ref (match k with Some k -> k | None -> 0) in
-    while List.mem (String (s ^ string_of_int !k)) xs do incr k done;
-    String (s ^ string_of_int !k)
-
-let refresh xs = function
-  | Anonymous -> Anonymous
-  | String s -> find_name s xs
+    while used (s ^ string_of_int !k) xs do incr k done;
+    Ident (s ^ string_of_int !k, fixity)
 
 let eq_ident x y = (x = y)
 
 let eq_label = eq_ident
 
-let eq_atom (Gensym (_, x)) (Gensym (_, y)) = (x = y)
+let eq_atom (Atom (_, _, k)) (Atom (_, _, m)) = (k = m)
 
-let compare_atom (Gensym (_, x)) (Gensym (_, y)) =
+let compare_atom (Atom (_, _, x)) (Atom (_, _, y)) =
   if x < y then -1 else if x > y then 1 else 0
 
 module AtomSet = Set.Make (struct
