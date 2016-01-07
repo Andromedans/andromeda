@@ -67,8 +67,8 @@ let print_handler xs h ppf =
 
 let rec print_tag ?max_level xs t lst ppf =
   match lst with
-  | [] -> Print.print ?max_level ~at_level:0 ppf "'%t" (Name.print_ident t)
-  | (_::_) -> Print.print ?max_level ~at_level:1 ppf "'%t %t"
+  | [] -> Print.print ?max_level ~at_level:0 ppf "%t" (Name.print_ident t)
+  | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t %t"
                           (Name.print_ident t)
                           (Print.sequence (print_value ~max_level:0 xs) "" lst)
 
