@@ -31,7 +31,7 @@
 %token CONSTANT REDUCE
 
 (* Let binding *)
-%token LET COLONEQ AND IN
+%token LET EQ AND IN
 
 (* Meta-level programming *)
 %token <string> TAG
@@ -87,9 +87,9 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | LET x=name yts=typed_binder* u=return_type? COLONEQ c=term 
+  | LET x=name yts=typed_binder* u=return_type? EQ c=term 
        { TopLet (x, List.concat yts, u, c) }
-  | LET REC x=name a=function_abstraction COLONEQ e=term
+  | LET REC x=name a=function_abstraction EQ e=term
        { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | CHECK c=term                                      { TopCheck c }
@@ -113,9 +113,9 @@ term: mark_location(plain_term) { $1 }
 plain_term:
   | e=plain_ty_term                                                 { e }
   | LET a=let_clauses IN c=term                                     { Let (a, c) }
-  | LET REC x=name a=function_abstraction COLONEQ e=term IN c=term  { Let ([x,(Rec (x, a, e),snd e)], c) }
+  | LET REC x=name a=function_abstraction EQ e=term IN c=term  { Let ([x,(Rec (x, a, e),snd e)], c) }
   | ASSUME x=var_name COLON t=ty_term IN c=term                     { Assume ((x, t), c) }
-  | c1=equal_term WHERE e=simple_term COLONEQ c2=term               { Where (c1, e, c2) }
+  | c1=equal_term WHERE e=simple_term EQ c2=term               { Where (c1, e, c2) }
   | MATCH e=term WITH lst=match_cases END                           { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_cases END                        { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                       { With (h, c) }
@@ -177,7 +177,7 @@ let_clauses:
   | ls=separated_nonempty_list(AND, let_clause)     { ls }
 
 let_clause:
-  | x=name COLONEQ c=term                           { (x,c) }
+  | x=name EQ c=term                           { (x,c) }
 
 typed_binder:
   | LPAREN lst=separated_nonempty_list(COMMA, typed_names) RPAREN
@@ -191,8 +191,8 @@ signature_clause:
   | x=name AS y=name COLON t=ty_term { (x, Some y, t) }
 
 structure_clause :
-  | x=name COLONEQ c=term                           { (x, None, c) }
-  | x=name AS y=name COLONEQ c=term                 { (x, Some y, c) }
+  | x=name EQ c=term                           { (x, None, c) }
+  | x=name AS y=name EQ c=term                 { (x, Some y, c) }
 
 binder:
   | LPAREN lst=separated_nonempty_list(COMMA, maybe_typed_names) RPAREN
@@ -302,8 +302,8 @@ tt_signature_clause:
   | x=name AS y=tt_name COLON p=tt_pattern { let (y,b) = y in (x, b, Some y, p) }
 
 tt_structure_clause:
-  | x=tt_name COLONEQ c=tt_pattern           { let (x,b) = x in (x, b, None, c) }
-  | x=name AS y=tt_name COLONEQ c=tt_pattern { let (y,b) = y in (x, b, Some y, c) }
+  | x=tt_name EQ c=tt_pattern           { let (x,b) = x in (x, b, None, c) }
+  | x=name AS y=tt_name EQ c=tt_pattern { let (y,b) = y in (x, b, Some y, c) }
 
 tt_binder:
   | LPAREN lst=separated_nonempty_list(COMMA, maybe_typed_tt_names) RPAREN

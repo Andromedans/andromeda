@@ -87,7 +87,7 @@ and token_aux ({ stream;_ } as lexbuf) =
   | ')'                      -> f (); RPAREN
   | '{'                      -> f (); LBRACE
   | '}'                      -> f (); RBRACE
-  | ":="                     -> f (); COLONEQ
+  | "="                      -> f (); EQ
   | "::"                     -> f (); DCOLON
   | ':'                      -> f (); COLON
   | ','                      -> f (); COMMA

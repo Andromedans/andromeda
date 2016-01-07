@@ -1,13 +1,13 @@
 (* The prelude is empty for now. *)
 
-let print := external "print"
+let print = external "print"
 
 handle
   | #equal _ => 'none
   | #abstract v => 'none
   end
 
-let symmetry := λ (A : Type, x y : A, h : x ≡ y), handle refl x :: y ≡ x with
+let symmetry = λ (A : Type, x y : A, h : x ≡ y), handle refl x :: y ≡ x with
   | #equal _ =>
     yield ('some h)
   end
