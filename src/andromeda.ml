@@ -269,15 +269,9 @@ let main =
     let env = Value.Env.empty in
     (* Declare predefined data constructors *)
     let env = List.fold_left
-                (fun env (x, k) -> Value.Env.add_data ~loc:Location.unknown (Name.make x) k env)
+                (fun env (x, k) -> Value.Env.add_data ~loc:Location.unknown x k env)
                 env
-                [
-                  ("pair", 2);
-                  ("some", 1); 
-                  ("none", 0);
-                  ("cons", 2);
-                  ("nil", 0)
-                ]
+                Value.predefined_tags
     in
     (* Run and load all the specified files. *)
     let env = List.fold_left use_file env !files in

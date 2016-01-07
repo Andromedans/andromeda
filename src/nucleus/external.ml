@@ -8,7 +8,7 @@ let externals =
     ("print",
      Value.mk_closure Value.Env.empty (fun _ v ->
          Format.printf "%t@\n" (Value.print_value [] v) ;
-         Value.return (Value.Tag (Name.make "tt", []))
+         Value.return (Value.from_unit ())
        )) ;
     ("time",
      Value.mk_closure Value.Env.empty (fun _ _ ->

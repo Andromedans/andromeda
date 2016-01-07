@@ -64,7 +64,7 @@ let rec infer env (c',loc) =
        let rec fold vs = function
          | [] ->
             let vs = List.rev vs in
-            let v = Value.Tag (t, vs) in
+            let v = Value.mk_tag t vs in
             Value.return v
          | c :: cs ->
             infer env c >>= (fun v -> fold (v :: vs) cs)
@@ -320,13 +320,7 @@ let rec infer env (c',loc) =
     end
 
   | Syntax.Context ->
-     let rec to_value = function
-         |  [] -> Value.mk_tag "nil" []
-         | jxt :: lst ->
-            let lst = to_value lst in
-            Value.mk_tag "cons" [Value.Term jxt; lst]
-     in
-     let v = to_value (Value.Env.lookup_abstracting env) in
+     let v = Value.from_list (List.map (fun jxt -> Value.Term jxt) (Value.Env.lookup_abstracting env)) in
      Value.return v
 
   | Syntax.Congruence (c1,c2) ->

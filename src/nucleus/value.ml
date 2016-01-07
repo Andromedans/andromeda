@@ -116,25 +116,44 @@ let as_handler ~loc = function
   | Handler h -> h
   | Tag _  -> Error.runtime ~loc "expected a handler but got a tag"
 
-let tsome = Name.make "some"
-let tnone = Name.make "none"
+let name_some = Name.make "Some"
+let name_none = Name.make "None"
+let name_pair = Name.make "pair"
+let name_cons = Name.make "cons"
+let name_nil = Name.make "nil"
+let name_unit = Name.make "tt"
+
+let predefined_tags = [
+  (name_some, 1);
+  (name_none, 0);
+  (name_pair, 2);
+  (name_cons, 2);
+  (name_nil, 0);
+  (name_unit, 0);
+]
 
 let as_option ~loc = function
   | Term _ -> Error.runtime ~loc "expected an option but got a term"
   | Ty _ -> Error.runtime ~loc "expected an option but got a type"
   | Closure _ -> Error.runtime ~loc "expected an option but got a function"
   | Handler h -> Error.runtime ~loc "expected an option but got a handler"
-  | Tag (t,[]) when (Name.eq_ident t tnone)  -> None
-  | Tag (t,[x]) when (Name.eq_ident t tsome) -> Some x
+  | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
+  | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
   | Tag _ -> Error.runtime ~loc "expected an option but got a tag"
 
 let from_option = function
-  | None -> Tag (tnone, [])
-  | Some v -> Tag (tsome, [v])
-   
-let mk_tag t lst =
-  let t = Name.make t in
-  Tag (t, lst)
+  | None -> Tag (name_none, [])
+  | Some v -> Tag (name_some, [v])
+
+let from_pair (v1, v2) = Tag (name_pair, [v1; v2])
+
+let from_unit () = Tag (name_unit, [])
+
+let rec from_list = function
+  | [] -> Tag (name_nil, [])
+  | v :: vs -> Tag (name_cons, [v; from_list vs])
+
+let mk_tag t lst = Tag (t, lst)
 
 let return x = Return x
 

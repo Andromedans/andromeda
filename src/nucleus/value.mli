@@ -47,12 +47,20 @@ val as_ty : loc:Location.t -> value -> Judgement.ty
 val as_closure : loc:Location.t -> value -> value closure
 val as_handler : loc:Location.t -> value -> handler
 
+
+(** Names and arities of predefined data constructors *)
+val predefined_tags : (Name.ident * int) list
+
+(** Wrappers for making tags *)
+val from_option : value option -> value
+val from_pair : value * value -> value
+val from_unit : unit -> value
+val from_list : value list -> value
+
 (** Convert tags to ocaml types *)
 val as_option : loc:Location.t -> value -> value option
 
-val from_option : value option -> value
-
-val mk_tag : string -> value list -> value
+val mk_tag : Name.ident -> value list -> value
 
 val return : 'a -> 'a result
 val return_term : Judgement.term -> value result
