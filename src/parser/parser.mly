@@ -26,7 +26,7 @@
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
 %token LBRACE RBRACE
-%token DCOLON COLON COMMA
+%token COLON COMMA
 %token ARROW DARROW
 
 (* Things specific to toplevel *)
@@ -130,7 +130,7 @@ plain_term:
   | HANDLE c=term WITH hcs=handler_cases END                        { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                       { With (h, c) }
   | HANDLER hcs=handler_cases END                                   { Handler (hcs) }
-  | e=app_term DCOLON t=ty_term                                     { Ascribe (e, t) }
+  | e=app_term COLON t=ty_term                                      { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:

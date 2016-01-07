@@ -97,7 +97,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | '{'                      -> f (); LBRACE
   | '}'                      -> f (); RBRACE
   | "="                      -> f (); EQ
-  | "::"                     -> f (); DCOLON
   | ':'                      -> f (); COLON
   | ','                      -> f (); COMMA
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
