@@ -92,7 +92,7 @@ plain_topcomp:
        { TopLet (x, List.concat yts, u, c) }
   | LET REC x=name a=function_abstraction COLONEQ e=term
        { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
-  | HANDLE lst=list(top_handler_case) END             { TopHandle lst }
+  | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | CHECK c=term                                      { TopCheck c }
   | CONSTANT x=name yst=primarg* COLON u=term         { Axiom (x, List.concat yst, u)}
 
@@ -117,10 +117,10 @@ plain_term:
   | LET REC x=name a=function_abstraction COLONEQ e=term IN c=term  { Let ([x,(Rec (x, a, e),snd e)], c) }
   | ASSUME x=var_name COLON t=ty_term IN c=term                     { Assume ((x, t), c) }
   | c1=equal_term WHERE e=simple_term COLONEQ c2=term               { Where (c1, e, c2) }
-  | MATCH e=term WITH lst=match_case* END                           { Match (e, lst) }
-  | HANDLE c=term WITH hcs=handler_case* END                        { Handle (c, hcs) }
+  | MATCH e=term WITH lst=match_cases END                           { Match (e, lst) }
+  | HANDLE c=term WITH hcs=handler_cases END                        { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                       { With (h, c) }
-  | HANDLER hcs=handler_case* END                                   { Handler (hcs) }
+  | HANDLER hcs=handler_cases END                                   { Handler (hcs) }
   | e=app_term DCOLON t=ty_term                                     { Ascribe (e, t) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
@@ -215,16 +215,29 @@ reduce:
 function_abstraction:
   | xs = nonempty_list(name)     { xs }
 
-handler_case:
-  | BAR VAL p=pattern DARROW t=term                 { CaseVal (p, t) }
-  | BAR op=OPERATION p=pattern DARROW t=term     { CaseOp (op, p, t) }
-  | BAR FINALLY p=pattern DARROW t=term             { CaseFinally (p, t) }
+handler_cases:
+  | BAR lst=separated_nonempty_list(BAR, handler_case)  { lst }
+  | lst=separated_list(BAR, handler_case)               { lst }
 
+handler_case:
+  | VAL p=pattern DARROW t=term                 { CaseVal (p, t) }
+  | op=OPERATION p=pattern DARROW t=term        { CaseOp (op, p, t) }
+  | FINALLY p=pattern DARROW t=term             { CaseFinally (p, t) }
+
+top_handler_cases:
+  | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }
+  | lst=separated_list(BAR, top_handler_case)               { lst }
+
+(* XXX allow patterns here *)
 top_handler_case:
-  | BAR op=OPERATION x=name DARROW t=term        { (op, x, t) }
+  | op=OPERATION x=name DARROW t=term        { (op, x, t) }
+
+match_cases:
+  | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
+  | lst=separated_list(BAR, match_case)               { lst }
 
 match_case:
-  | BAR p=pattern DARROW c=term  { (p, c) }
+  | p=pattern DARROW c=term  { (p, c) }
 
 
 (** Pattern matching *)
