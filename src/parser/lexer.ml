@@ -3,11 +3,11 @@ open Parser
 open Ulexbuf
 
 let reserved = [
-  ("Axiom", AXIOM) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;
-  ("Check", TOPCHECK) ;
+  ("check", CHECK) ;
+  ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("congruence", CONGRUENCE) ;
   ("end", END) ;
@@ -15,12 +15,8 @@ let reserved = [
   ("finally", FINALLY) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
-  ("Handle", TOPHANDLE) ;
-  ("Hypothesis", AXIOM) ;
-  ("Let", TOPLET) ;
   ("let", LET) ;
   ("match", MATCH) ;
-  ("Parameter", AXIOM) ;
   ("reduce", REDUCE) ;
   ("forall", PROD) ;
   ("yield", YIELD) ;
@@ -99,7 +95,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | ','                      -> f (); COMMA
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
-  | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR

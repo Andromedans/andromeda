@@ -24,13 +24,12 @@
 %token LPAREN RPAREN
 %token LBRACK RBRACK
 %token LBRACE RBRACE
-%token DCOLON COLON COMMA DOT
+%token DCOLON COLON COMMA
 %token ARROW DARROW
 
-(* Toplevel computations *)
-%token TOPCHECK
-%token TOPHANDLE
-%token TOPLET
+(* Things specific to toplevel *)
+%token CHECK
+%token CONSTANT REDUCE
 
 (* Let binding *)
 %token LET COLONEQ AND IN
@@ -53,15 +52,11 @@
 (* Functions *)
 %token REC FUNCTION
 
-(* Axioms *)
-%token AXIOM REDUCE
-
 (* Assumptions *)
 %token ASSUME
 
 (* Substitution *)
 %token WHERE
-
 
 (* Toplevel directives *)
 %token ENVIRONMENT HELP QUIT
@@ -73,7 +68,6 @@
 
 %start <Input.toplevel list> file
 %start <Input.toplevel> commandline
-%start <Input.toplevel> command
 
 %%
 
@@ -84,27 +78,23 @@ file:
 
 filecontents:
   |                                 { [] }
-  | d=topcomp DOT ds=filecontents       { d :: ds }
-  | d=topdirective DOT ds=filecontents  { d :: ds }
-
-command:
-  | d=topcomp DOT       { d }
-  | d=topdirective DOT  { d }
+  | d=topcomp ds=filecontents       { d :: ds }
+  | d=topdirective ds=filecontents  { d :: ds }
 
 commandline:
-  | topcomp DOT EOF       { $1 }
-  | topdirective DOT EOF { $1 }
+  | topcomp EOF       { $1 }
+  | topdirective EOF { $1 }
 
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | TOPLET x=name yts=typed_binder* u=return_type? COLONEQ c=term 
+  | LET x=name yts=typed_binder* u=return_type? COLONEQ c=term 
        { TopLet (x, List.concat yts, u, c) }
-  | TOPLET REC x=name a=function_abstraction COLONEQ e=term
+  | LET REC x=name a=function_abstraction COLONEQ e=term
        { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
-  | TOPHANDLE lst=list(top_handler_case) END         { TopHandle lst }
-  | TOPCHECK c=term                                  { TopCheck c }
-  | AXIOM x=name yst=primarg* COLON u=term           { Axiom (x, List.concat yst, u)}
+  | HANDLE lst=list(top_handler_case) END             { TopHandle lst }
+  | CHECK c=term                                      { TopCheck c }
+  | CONSTANT x=name yst=primarg* COLON u=term         { Axiom (x, List.concat yst, u)}
 
 return_type:
   | COLON t=ty_term { t }

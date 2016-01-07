@@ -190,17 +190,10 @@ let rec exec_cmd base_dir interactive env c =
 
 
 (** Load directives from the given file. *)
-and use_file env (filename, limit, interactive) =
-  let limit = match limit with
-    | None -> None
-    | Some limit -> Some ({ Lexing.dummy_pos with Lexing.pos_cnum = limit }, true) in
-
+and use_file env (filename, line_limit, interactive) =
   if Value.Env.included filename env then env else
     begin
-      let tokens, errs = Tokens.tokens_of_file filename in
-
-      let cmds = parse (Tokens.cmds_of_tokens ?limit) tokens errs in
-
+      let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
       let base_dir = Filename.dirname filename in
       let env = Value.Env.add_file filename env in
       List.fold_left (exec_cmd base_dir interactive) env cmds
