@@ -10,6 +10,7 @@ let reserved = [
   ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("congruence", CONGRUENCE) ;
+  ("data", DATA) ;
   ("end", END) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
@@ -104,7 +105,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | '_'                      -> f (); UNDERSCORE
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
-  | '\'', name               -> f (); TAG (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | "->" | 8594 | 10230      -> f (); ARROW
   | "=>" | 8658 | 10233      -> f (); DARROW
   | "==" | 8801              -> f (); EQEQ
@@ -117,11 +117,12 @@ and token_aux ({ stream;_ } as lexbuf) =
   | infixop3                 -> f (); INFIXOP3 (lexeme lexbuf, Location.of_lexeme lexbuf)
 
   | eof                      -> f (); EOF
-  | (name | numeral)         -> f ();
+  | name                     -> f ();
     let n = lexeme lexbuf in
     begin try List.assoc n reserved
     with Not_found -> NAME n
     end
+  | numeral                  -> f (); let k = int_of_string (lexeme lexbuf) in NUMERAL k
   | any -> f ();
     let c = lexeme lexbuf in
     Error.syntax ~loc:(Location.of_lexeme lexbuf)

@@ -72,6 +72,7 @@ and match_case = Name.ident list * pattern * comp
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
+  | Data of Name.ident * int
   | Axiom of Name.ident * (bool * (Name.ident * comp)) list * comp (** introduce a constant *)
   | TopHandle of (string * (Name.ident * comp)) list
   | TopLet of Name.ident * comp (** global let binding *)

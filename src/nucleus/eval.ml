@@ -217,7 +217,7 @@ let rec infer env (c',loc) =
        (fun (ctx, lam, prod) -> Value.return_term (Judgement.mk_term ctx lam prod))
 
   | Syntax.Spine (c, []) ->
-     infer env c >>= as_term ~loc >>= Value.return_term
+     infer env c
 
   | Syntax.Spine (c, cs) ->
     let rec fold v cs =

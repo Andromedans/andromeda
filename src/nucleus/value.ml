@@ -1,9 +1,13 @@
 (** Runtime values and results *)
 
+(* Information about a toplevel declaration *)
+type decl =
+  | Constant of Tt.constsig
+  | Data of int
+
 type dynamic = {
-  constants : (Name.ident * Tt.constsig) list;
-  (* Currently declared constants. Since these can only be declared at the
-     top level, the list only ever increases. *)
+  decls : (Name.ident * decl) list ;
+  (* Toplevel declaration *)
 
   abstracting : Judgement.term list;
   (* The list of judgments about atoms which are going to be abstracted. We
@@ -270,7 +274,7 @@ module Env = struct
     continuation = None ;
     files = [] ;
     dynamic = {
-      constants = [] ;
+      decls = [] ;
       abstracting = [] ;
     }
   }
@@ -279,19 +283,22 @@ module Env = struct
 
   let bound_names env = List.map fst env.bound
 
-  let constants env =
-    List.map (fun (x, (yts, _)) -> (x, List.length yts)) env.dynamic.constants
-
   let used_names env =
-    List.map fst env.bound @ List.map fst env.dynamic.constants
+    List.map fst env.bound @ List.map fst env.dynamic.decls
 
-  let lookup_constant x env =
+  let lookup_decl x env = 
     let rec lookup = function
       | [] -> None
       | (y,v) :: lst ->
          if Name.eq_ident x y then Some v else lookup lst
     in
-    lookup env.dynamic.constants
+    lookup env.dynamic.decls
+
+  let lookup_constant x env =
+    match lookup_decl x env with
+    | None -> None
+    | Some (Constant c) -> Some c
+    | Some (Data _) -> None
 
   let lookup_abstracting env = env.dynamic.abstracting
 
@@ -301,15 +308,20 @@ module Env = struct
     with
     | Failure _ -> Error.impossible ~loc "invalid de Bruijn index %d" k
 
-  let is_bound x env =
-    match lookup_constant x env with
+  let is_declared x env =
+    match lookup_decl x env with
     | None -> false
     | Some _ -> true
 
+  let add_data ~loc x k env =
+    if is_declared x env
+    then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+    else { env with dynamic = {env.dynamic with decls = (x, Data k) :: env.dynamic.decls }}
+
   let add_constant ~loc x ytsu env =
-    if is_bound x env
-    then Error.runtime ~loc "%t already exists" (Name.print_ident x)
-    else { env with dynamic = {env.dynamic with constants = (x, ytsu) :: env.dynamic.constants }}
+    if is_declared x env
+    then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+    else { env with dynamic = {env.dynamic with decls = (x, Constant ytsu) :: env.dynamic.decls }}
 
   let add_bound x v env =
     { env with bound = (x, v) :: env.bound }
@@ -359,10 +371,14 @@ module Env = struct
     let forbidden_names = used_names env in
     Print.print ppf "---ENVIRONMENT---@." ;
     List.iter
-      (fun (x, t) ->
-       Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>%t@]@\n" (Name.print_ident x)
-                   (Tt.print_constsig forbidden_names t))
-      (List.rev env.dynamic.constants) ;
+      (function
+        | (x, Constant t) ->
+           Print.print ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n" (Name.print_ident x)
+                       (Tt.print_constsig forbidden_names t)
+        | (x, Data k) ->
+           Print.print ppf "@[<hov 4>data %t %d@]@\n" (Name.print_ident x) k
+      )
+      (List.rev env.dynamic.decls) ;
     Print.print ppf "-----END-----@."
 
 

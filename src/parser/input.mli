@@ -30,7 +30,7 @@ and pattern' =
   | Patt_Var of Name.ident
   | Patt_Name of Name.ident
   | Patt_Jdg of tt_pattern * tt_pattern
-  | Patt_Tag of Name.ident * pattern list
+  | Patt_Data of Name.ident * pattern list
 
 (** Sugared terms *)
 type term = term' * Location.t
@@ -86,6 +86,7 @@ and match_case = pattern * comp
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
+  | Data of Name.ident * int
   | Axiom of Name.ident * (bool * (Name.ident * ty)) list * ty
     (** introduce a primitive constant, the boolean is [true] if the argument is eagerly reducing *)
   | TopHandle of (string * Name.ident * comp) list 

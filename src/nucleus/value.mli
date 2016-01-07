@@ -1,5 +1,10 @@
 (** Runtime values and results *)
 
+(* Information about a toplevel declaration *)
+type decl =
+  | Constant of Tt.constsig
+  | Data of int
+
 (** Runtime environment *)
 type env
 
@@ -92,14 +97,14 @@ module Env : sig
   (** The empty environment *)
   val empty : env
 
-  (** List of constants with their arities. *)
-  val constants : env -> (Name.ident * int) list
-
   (** Known bound variables *)
   val bound_names : env -> Name.ident list
 
   (** Variable names already used in the environment *)
   val used_names : env -> Name.ident list
+
+  (** Lookup a data constructor. *)
+  val lookup_decl : Name.ident -> env -> decl option
 
   (** Lookup a constant. *)
   val lookup_constant : Name.ident -> env -> Tt.constsig option
@@ -119,6 +124,10 @@ module Env : sig
       the environment updated with [x] bound to [y:t]. *)
   val add_abstracting: loc:Location.t -> env ->
                        Name.ident -> Judgement.ty -> Context.t * Name.atom * env
+
+  (** Add a data constructor with the given arity.
+      It fails if the constructor is already bound. *)
+  val add_data : loc:Location.t -> Name.ident -> int -> env -> env
 
   (** Add a constant of a given signature to the environment.
     Fails if the constant is already bound. *)

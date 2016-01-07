@@ -19,9 +19,10 @@
 %token EQEQ
 %token REFL
 
-(* Patterns and names *)
+(* Names and numerals *)
 %token UNDERSCORE
 %token <string> NAME
+%token <int> NUMERAL
 
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
@@ -37,7 +38,7 @@
 %token LET EQ AND IN
 
 (* Meta-level programming *)
-%token <string> TAG
+%token DATA
 %token <string> PATTVAR
 %token MATCH
 %token VDASH
@@ -104,6 +105,7 @@ plain_topcomp:
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | CHECK c=term                                      { TopCheck c }
   | CONSTANT x=name yst=primarg* COLON u=term         { Axiom (x, List.concat yst, u)}
+  | DATA x=name k=NUMERAL                             { Data (x, k) }
 
 return_type:
   | COLON t=ty_term { t }
@@ -183,7 +185,6 @@ simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                            { Type }
   | x=var_name                                      { Var x }
-  | t=TAG                                           { Tag (Name.make t, []) }
   | EXTERNAL s=QUOTED_STRING                        { External s }
   | LPAREN e=plain_term RPAREN                      { e }
   | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
@@ -282,7 +283,7 @@ pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
   | p=plain_simple_pattern                  { p }
   | p=simple_pattern AS x=patt_var          { Patt_As (p,x) }
-  | t=TAG ps=simple_pattern+                { Patt_Tag (Name.make t, ps) }
+  | t=var_name ps=simple_pattern+           { Patt_Data (t, ps) } (* TODO parse infix data constructors *)
   | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, e2) }
   | VDASH e1=tt_pattern                     { Patt_Jdg (e1, (Tt_Anonymous, snd e1)) }
 
@@ -292,7 +293,6 @@ plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
   | x=patt_var                     { Patt_Var x }
   | x=var_name                     { Patt_Name x } 
-  | t=TAG                          { Patt_Tag (Name.make t, []) }
   | LPAREN p=plain_pattern RPAREN  { p }
 
 tt_pattern: mark_location(plain_tt_pattern) { $1 }
