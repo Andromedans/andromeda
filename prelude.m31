@@ -7,7 +7,7 @@ handle
   | #abstract v => 'none
   end
 
-let symmetry := λ [A : Type, x y : A, h : x ≡ y] handle refl x :: y ≡ x with
+let symmetry := λ (A : Type, x y : A, h : x ≡ y), handle refl x :: y ≡ x with
   | #equal _ =>
     yield ('some h)
   end

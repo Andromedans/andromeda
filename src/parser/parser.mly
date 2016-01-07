@@ -22,7 +22,6 @@
 
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
-%token LBRACK RBRACK
 %token LBRACE RBRACE
 %token DCOLON COLON COMMA
 %token ARROW DARROW
@@ -126,8 +125,10 @@ plain_term:
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                               { e }
-  | PROD a=typed_binder+ e=term                      { Prod (List.concat a, e) }
-  | LAMBDA a=binder+ e=term                          { Lambda (List.concat a, e) }
+  | PROD a=typed_binder+ COMMA e=term                { Prod (List.concat a, e) }
+  | PROD a=typed_names COMMA e=term                  { Prod (a, e) }
+  | LAMBDA a=binder+ COMMA e=term                    { Lambda (List.concat a, e) }
+  | LAMBDA a=maybe_typed_names COMMA e=term          { Lambda (a, e) }
   | FUNCTION a=function_abstraction DARROW e=term    { Function (a, e) }
   | REC x=name a=function_abstraction DARROW e=term  { Rec (x, a, e) }
   | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous, t1)], t2) }
@@ -179,7 +180,7 @@ let_clause:
   | x=name COLONEQ c=term                           { (x,c) }
 
 typed_binder:
-  | LBRACK lst=separated_nonempty_list(COMMA, typed_names) RBRACK
+  | LPAREN lst=separated_nonempty_list(COMMA, typed_names) RPAREN
        { List.concat lst }
 
 typed_names:
@@ -194,7 +195,7 @@ structure_clause :
   | x=name AS y=name COLONEQ c=term                 { (x, Some y, c) }
 
 binder:
-  | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_names) RBRACK
+  | LPAREN lst=separated_nonempty_list(COMMA, maybe_typed_names) RPAREN
       { List.concat lst }
 
 maybe_typed_names:
@@ -202,7 +203,7 @@ maybe_typed_names:
   | xs=name+                  { List.map (fun x -> (x, None)) xs }
 
 primarg:
-  | LBRACK lst=separated_nonempty_list(COMMA, primarg_entry) RBRACK  { List.concat lst }
+  | LPAREN lst=separated_nonempty_list(COMMA, primarg_entry) RPAREN  { List.concat lst }
 
 primarg_entry:
   | b=reduce xs=nonempty_list(name) COLON t=ty_term   { List.map (fun x -> (b, (x, t))) xs }
@@ -262,11 +263,11 @@ plain_simple_pattern:
 tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
   | p=plain_equal_tt_pattern                  { p }
-  | LAMBDA bs=tt_binder+ p=tt_pattern         { fst (List.fold_right
+  | LAMBDA bs=tt_binder+ COMMA p=tt_pattern   { fst (List.fold_right
                                                        (fun ((x, b, pt), loc) p -> Tt_Lambda (b, x, pt, p), loc)
                                                        (List.concat bs) p)
                                                }
-  | PROD bs=tt_binder+ p=tt_pattern           { fst (List.fold_right
+  | PROD bs=tt_binder+ COMMA p=tt_pattern     { fst (List.fold_right
                                                        (fun ((x, b, pt), loc) p -> Tt_Prod (b, x, pt, p), loc)
                                                        (List.concat bs) p)
                                               } 
@@ -305,7 +306,7 @@ tt_structure_clause:
   | x=name AS y=tt_name COLONEQ c=tt_pattern { let (y,b) = y in (x, b, Some y, c) }
 
 tt_binder:
-  | LBRACK lst=separated_nonempty_list(COMMA, maybe_typed_tt_names) RBRACK
+  | LPAREN lst=separated_nonempty_list(COMMA, maybe_typed_tt_names) RPAREN
       { List.concat (List.map (fun (xs, loc) -> List.map (fun x -> x, loc) xs) lst) }
 
 maybe_typed_tt_names: mark_location(plain_maybe_typed_tt_names) { $1 }

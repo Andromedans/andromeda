@@ -85,8 +85,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
-  | '['                      -> f (); LBRACK
-  | ']'                      -> f (); RBRACK
   | '{'                      -> f (); LBRACE
   | '}'                      -> f (); RBRACE
   | ":="                     -> f (); COLONEQ
