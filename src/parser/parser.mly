@@ -257,17 +257,17 @@ handler_cases:
   | lst=separated_list(BAR, handler_case)               { lst }
 
 handler_case:
-  | VAL p=pattern DARROW t=term                 { CaseVal (p, t) }
-  | op=name ps=simple_pattern* DARROW t=term    { CaseOp (op, (ps, t)) }
-  | FINALLY p=pattern DARROW t=term             { CaseFinally (p, t) }
+  | VAL p=pattern DARROW t=term                     { CaseVal (p, t) }
+  | op=var_name ps=simple_pattern* DARROW t=term    { CaseOp (op, (ps, t)) } (* TODO infix operations *)
+  | FINALLY p=pattern DARROW t=term                 { CaseFinally (p, t) }
 
 top_handler_cases:
   | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }
   | lst=separated_list(BAR, top_handler_case)               { lst }
 
-(* XXX allow patterns here *)
+(* XXX allow patterns and infixes here *)
 top_handler_case:
-  | op=name xs=name* DARROW t=term                    { (op, xs, t) }
+  | op=var_name xs=name* DARROW t=term                    { (op, xs, t) }
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
@@ -317,7 +317,7 @@ plain_simple_pattern:
   | x=var_name                     { Patt_Name x } 
   | LPAREN p=plain_pattern RPAREN  { p }
 
-tt_pattern: mark_location(plain_tt_pattern) { $1 }
+tt_pattern: mark_location(plain_tt_pattern) { $1 } (* TODO infix tt_pattern *)
 plain_tt_pattern:
   | p=plain_equal_tt_pattern                  { p }
   | LAMBDA bs=tt_binder+ COMMA p=tt_pattern   { fst (List.fold_right
