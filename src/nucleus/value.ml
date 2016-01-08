@@ -4,6 +4,7 @@
 type decl =
   | Constant of Tt.constsig
   | Data of int
+  | Operation of int
 
 type dynamic = {
   decls : (Name.ident * decl) list ;
@@ -28,15 +29,15 @@ and 'a closure = dynamic -> value -> 'a result
 
 and 'a result =
   | Return of 'a
-  | Operation of string * value * dynamic * 'a closure
+  | Perform of Name.ident * value list * dynamic * 'a closure
 
 and handler = {
   handler_val: value closure option;
-  handler_ops: (string * (dynamic -> value -> value closure -> value result)) list;
+  handler_ops: (Name.ident * (dynamic -> value -> value closure -> value result)) list;
   handler_finally: value closure option;
 }
 
-(** An environment holds constant signatures, hints and other. *)
+(** Run-time environment. *)
 type env = {
   bound : (Name.ident * value) list;
   continuation : value closure option;
@@ -55,9 +56,9 @@ let apply_closure env f v = f env.dynamic v
 let rec bind r f =
   match r with
   | Return v -> f v
-  | Operation (op, v, d, k) -> 
+  | Perform (op, vs, d, k) -> 
      let k d x = bind (k d x) f in
-     Operation (op, v, d, k)
+     Perform (op, vs, d, k)
 
 let print_closure xs _ ppf =
   Print.print ~at_level:0 ppf "<function>"
@@ -172,14 +173,16 @@ let return_handler env handler_val handler_ops handler_finally =
   } in
   Return (Handler h)
 
-let operate op env v =
+let perform op env vs =
   let k _ = return in
-  Operation (op, v, env.dynamic, k)
+  Perform (op, vs, env.dynamic, k)
 
 let to_value ~loc = function
   | Return v -> v
-  | Operation (op, v, _, _) ->
-     Error.runtime ~loc "unhandled operation %t %t" (Name.print_op op) (print_value ~max_level:0 [] v)
+  | Perform (op, vs, _, _) ->
+     Error.runtime ~loc "unhandled operation %t %t"
+                   (Name.print_ident op)
+                   (Print.sequence (print_value ~max_level:0 []) " " vs)
 
 let rec equal_value v1 v2 =
   match v1, v2 with
@@ -243,8 +246,7 @@ let mk_abstractable ~loc env ctx xs =
                   (Name.print_atom x) (Name.print_atom y)) in
               let vx = Term (Judgement.mk_term ctx (Tt.mk_atom ~loc x) xty)
               and vy = Term (Judgement.mk_term ctx (Tt.mk_atom ~loc y) yty) in
-              let vpair = Tag (Name.make "pair", [vx;vy]) in
-              operate "abstract" env vpair >>= fun v ->
+              perform (Name.make "abstract") env [vx; vy] >>= fun v ->
               begin match as_option ~loc v with
                 | None ->
                   Error.runtime ~loc "Cannot abstract %t because %t depends on it in context@ %t."
@@ -367,8 +369,8 @@ module Env = struct
     in
     ctx, y, env
 
-  let add_handle op xc env =
-    { env with handle = (op, xc) :: env.handle }
+  let add_handle op xsc env =
+    { env with handle = (op, xsc) :: env.handle }
 
   let lookup_handle op {handle=lst;_} =
     try

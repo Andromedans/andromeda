@@ -5,9 +5,9 @@ module IntSet = Set.Make (struct
                     let compare = compare
                   end)
 
-module StringMap = Map.Make (struct
-                    type t = string
-                    let compare = compare
+module IdentMap = Map.Make (struct
+                    type t = Name.ident
+                    let compare = Name.compare_ident
                   end)
 
 let add_bound x bound = x :: bound
@@ -228,10 +228,6 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
 
 let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
   match c' with
-    | Input.Operation (op, c) ->
-      let c = comp ~yield env bound c in
-      Syntax.Operation (op, c), loc
-
     | Input.Handle (c, hcs) ->
        let c = comp ~yield env bound c
        and h = handler ~loc env bound hcs in
@@ -382,10 +378,15 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
                  let k = List.length lst in
                  if k = 0 then constant ~loc ~yield env bound x []
                  else Error.syntax ~loc "this constant needs %d more arguments" k
+
               | Some (Value.Data k) ->
                  if k = 0 then Syntax.Tag (x, []), loc
                  else Error.syntax ~loc "this constant needs %d more arguments" k
-                 
+
+              | Some (Value.Operation k) ->
+                 if k = 0 then Syntax.Perform (x, []), loc
+                 else Error.syntax ~loc "this operation needs %d more arguments" k
+
               | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
             end
        end
@@ -396,7 +397,7 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
   | Input.Yield ->
     if yield
     then Syntax.Yield, loc
-    else Error.syntax ~loc "yield outside handler case"
+    else Error.syntax ~loc "yield may only be used in a handler"
 
   | Input.Context ->
      Syntax.Context, loc
@@ -443,6 +444,7 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
 (* Desguar a spine. This function is a bit messy because we need to untangle
    to env. But it's worth doing to make users happy. *)
 and spine ~yield env bound ((c',loc) as c) cs =
+
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
   let rec split thing k lst =
@@ -453,6 +455,7 @@ and spine ~yield env bound ((c',loc) as c) cs =
         | [] -> Error.syntax ~loc "this %s needs %d more arguments" thing k
         | x::lst -> let lst, lst' = split thing (k-1) lst in (x :: lst, lst')
   in
+
   (* First we calculate the head of the spine, and the remaining arguments. *)
   let c, cs =
     begin
@@ -460,22 +463,30 @@ and spine ~yield env bound ((c',loc) as c) cs =
       | Input.Var x when not (List.mem x bound) ->
          begin
            match Value.Env.lookup_decl x env with
-             | Some (Value.Constant (lst, _)) ->
-                let k = List.length lst in
-                let cs', cs = split "constant" k cs in
-                (* We make a constant from [x] and [cs'] *)
-                constant ~loc ~yield env bound x cs', cs
-             | Some (Value.Data k) ->
-                let cs', cs = split "data constructor" k cs in
-                (* We make a tag from [x] and [cs'] *)
-                tag ~loc ~yield env bound x cs', cs
-             | None ->
-                (* [c] is an unknown identifier, but we let it fail somewhere else *)
-                comp ~yield env bound c, cs
+
+           | Some (Value.Constant (lst, _)) ->
+              let k = List.length lst in
+              let cs', cs = split "constant" k cs in
+              (* We make a constant from [x] and [cs'] *)
+              constant ~loc ~yield env bound x cs', cs
+
+           | Some (Value.Data k) ->
+              let cs', cs = split "data constructor" k cs in
+              (* We make a tag from [x] and [cs'] *)
+              tag ~loc ~yield env bound x cs', cs
+
+           | Some (Value.Operation k) ->
+              let cs', cs = split "operation" k cs in
+              perform ~loc ~yield env bound x cs', cs
+
+           | None ->
+              Error.syntax ~loc "unknown identifier %t" (Name.print_ident x)
          end
-      | _ -> comp ~yield env bound c, cs
+
+      | _ -> c, cs
     end in
-  (* Process the remaining arguments. *)
+
+  let c = comp ~yield env bound c in
   let cs = List.map (comp ~yield env bound) cs in
   Syntax.Spine (c, cs), loc
 
@@ -505,9 +516,9 @@ and handler ~loc env bound hcs =
         in
       let xs, bound = add_bounds [] bound vars in
       let c = comp ~yield:true env bound c in
-      let my_cases = try StringMap.find op op_cases with | Not_found -> [] in
+      let my_cases = try IdentMap.find op op_cases with | Not_found -> [] in
       let my_cases = (xs,p,c)::my_cases in
-      fold val_cases (StringMap.add op my_cases op_cases) finally_cases hcs
+      fold val_cases (IdentMap.add op my_cases op_cases) finally_cases hcs
 
     | Input.CaseFinally (p, c) :: hcs ->
       let p, vars, _ = pattern env bound [] 0 p in
@@ -520,7 +531,7 @@ and handler ~loc env bound hcs =
       fold val_cases op_cases ((xs,p,c)::finally_cases) hcs
 
   in
-  let val_cases, op_cases, finally_cases = fold [] StringMap.empty [] hcs in
+  let val_cases, op_cases, finally_cases = fold [] IdentMap.empty [] hcs in
   let regroup cases =
     Syntax.Match ((Syntax.Bound 0, loc), List.rev cases), loc
   in
@@ -533,9 +544,9 @@ and handler ~loc env bound hcs =
     | _::_ -> Some (binder, regroup finally_cases)
   in
   let anon = (Syntax.Patt_Anonymous,loc) in
-  let handler_ops = StringMap.fold (fun op cases acc ->
+  let handler_ops = IdentMap.fold (fun op cases acc ->
       (* default case: #op v => match v with | _ => #op v end *)
-      let default = ([],anon,(Syntax.Operation (op,(Syntax.Bound 0,loc)),loc)) in
+      let default = ([],anon,(Syntax.Perform (op,(Syntax.Bound 0,loc)),loc)) in
       (op,(binder, regroup (default::cases)))::acc)
       op_cases []
   in
@@ -560,8 +571,14 @@ and tag ~loc ~yield env bound x cs =
   let cs = List.map (comp ~yield env bound) cs in
   Syntax.Tag (x, cs), loc
 
+and perform ~loc ~yield env bound x cs =
+  let cs = List.map (comp ~yield env bound) cs in
+  Syntax.Perform (x, cs), loc
+
 let toplevel (env : Value.Env.t) bound (d', loc) =
   let d' = match d' with
+    | Input.Operation (x, k) -> Syntax.Operation (x, k)
+
     | Input.Data (x, k) -> Syntax.Data (x, k)
 
     | Input.Axiom (x, ryts, u) ->
@@ -580,7 +597,13 @@ let toplevel (env : Value.Env.t) bound (d', loc) =
       Syntax.Axiom (x, ryts, u)
 
     | Input.TopHandle lst ->
-       let lst = List.map (fun (op, x, c) -> op, (x, comp ~yield:false env (add_bound x bound) c)) lst in
+       let lst =
+         List.map
+           (fun (op, xs, c) ->
+             let bound = List.fold_left (fun bound x -> add_bound x bound) bound xs in
+             op, (xs, comp ~yield:false env bound c))
+           lst
+       in
        Syntax.TopHandle lst
 
     | Input.TopLet (x, yts, u, ((_, loc) as c)) ->

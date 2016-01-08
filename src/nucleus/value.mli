@@ -4,6 +4,7 @@
 type decl =
   | Constant of Tt.constsig
   | Data of int
+  | Operation of int
 
 (** Runtime environment *)
 type env
@@ -30,11 +31,11 @@ and 'a closure
     they will be results as well (and then handlers will handle them). *)
 and 'a result =
   | Return of 'a
-  | Operation of string * value * dynamic * 'a closure
+  | Operation of Name.ident * value * dynamic * 'a closure
 
 and handler = {
   handler_val: value closure option;
-  handler_ops: (string * (dynamic -> value -> value closure -> value result)) list;
+  handler_ops: (Name.ident * (dynamic -> value -> value closure -> value result)) list;
   handler_finally: value closure option;
 }
 
@@ -69,13 +70,13 @@ val return_closure : env -> (env -> value -> value result) -> value result
 
 val return_handler : env ->
    (env -> value -> value result) option ->
-   (string * (env -> value -> (value closure -> value result))) list ->
+   (Name.ident * (env -> value -> (value closure -> value result))) list ->
    (env -> value -> value result) option ->
    value result
 
 val bind: 'a result -> ('a -> 'b result)  -> 'b result
 
-val operate : string -> env -> value -> value result
+val perform : Name.ident -> env -> value list -> value result
 
 (** Pretty-print a value. *)
 val print_value : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
@@ -133,22 +134,26 @@ module Env : sig
   val add_abstracting: loc:Location.t -> env ->
                        Name.ident -> Judgement.ty -> Context.t * Name.atom * env
 
+  (** Add an operation with the given arity.
+      It fails if the operation is already declared. *)
+  val add_operation : loc:Location.t -> Name.ident -> int -> env -> env
+
   (** Add a data constructor with the given arity.
-      It fails if the constructor is already bound. *)
+      It fails if the constructor is already declared. *)
   val add_data : loc:Location.t -> Name.ident -> int -> env -> env
 
   (** Add a constant of a given signature to the environment.
-    Fails if the constant is already bound. *)
+    Fails if the constant is already declared. *)
   val add_constant : loc:Location.t -> Name.ident -> Tt.constsig -> env -> env
 
   (** Add a bound variable with given name to the environment. *)
   val add_bound : Name.ident -> value -> env -> env
 
   (** Add a top-level handler case to the environment. *)
-  val add_handle : string -> (Name.ident * Syntax.comp) -> env -> env
+  val add_handle : Name.ident -> (Name.ident * Syntax.comp) -> env -> env
 
   (** Lookup the top-level handler for the given operation, if any. *)
-  val lookup_handle : string -> env -> (Name.ident * Syntax.comp) option
+  val lookup_handle : Name.ident -> env -> (Name.ident * Syntax.comp) option
 
   (** Set the continuation for a handler computation. *)
   val set_continuation : value closure -> env -> env

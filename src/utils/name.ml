@@ -46,8 +46,7 @@ let print_atom x ppf =
   | Atom (_, Anonymous, k) -> Print.print ppf "_%s" (subscript k)
   | Atom (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4), k) -> Print.print ppf "( %s%s )" s (subscript k)
 
-let print_op op ppf =
-  Print.print ppf "#%s" op
+let print_op = print_ident
 
 let anonymous = Ident ("_", Anonymous)
 
@@ -89,7 +88,9 @@ let refresh xs ((Ident (s, fixity)) as x) =
     while used (s ^ string_of_int !k) xs do incr k done;
     Ident (s ^ string_of_int !k, fixity)
 
-let eq_ident x y = (x = y)
+let eq_ident (Ident (x, _)) (Ident (y, _)) = (x = y)
+
+let compare_ident (Ident (x, _)) (Ident (y, _)) = compare x y
 
 let eq_label = eq_ident
 

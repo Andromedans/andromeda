@@ -38,7 +38,7 @@ and comp' =
   | Rec of Name.ident * Name.ident * comp
   | Handler of handler
   | Tag of Name.ident * comp list
-  | Operation of string * comp
+  | Perform of Name.ident * comp
   | With of comp * comp
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
@@ -63,7 +63,7 @@ and comp' =
 
 and handler = {
   handler_val: (Name.ident * comp) option;
-  handler_ops: (string * (Name.ident * comp)) list;
+  handler_ops: (Name.ident * (Name.ident * comp)) list;
   handler_finally : (Name.ident * comp) option;
 }
 
@@ -72,6 +72,7 @@ and match_case = Name.ident list * pattern * comp
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
+  | Operation of Name.ident * int
   | Data of Name.ident * int
   | Axiom of Name.ident * (bool * (Name.ident * comp)) list * comp
   | TopHandle of (string * (Name.ident * comp)) list
@@ -170,9 +171,9 @@ let rec shift_comp k lvl (c', loc) =
 
     | Type -> c'
 
-    | Operation (op, c) ->
+    | Perform (op, c) ->
        let c = shift_comp k lvl c in
-       Operation (op, c)
+       Perform (op, c)
 
     | With (c1, c2) ->
        let c1 = shift_comp k lvl c1

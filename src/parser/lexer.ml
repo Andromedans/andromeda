@@ -28,6 +28,7 @@ let reserved = [
   ("lambda", LAMBDA) ;
   ("λ", LAMBDA) ;
   ("in", IN) ;
+  ("operation", OPERATION) ;
   ("rec", REC) ;
   ("refl", REFL) ;
   ("Type", TYPE) ;
@@ -91,7 +92,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "#quit"                  -> f (); g (); QUIT
   | "#verbosity", Plus hspace -> g (); verbosity lexbuf
   | "#include"               -> f (); INCLUDE
-  | '#', name                -> f (); OPERATION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN

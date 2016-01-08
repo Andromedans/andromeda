@@ -104,8 +104,16 @@ let rec infer env (c',loc) =
        in
        Value.return_handler env handler_val handler_ops handler_finally
 
-  | Syntax.Operation (op, c) ->
-     infer env c >>= Value.operate op env
+  | Syntax.Perform (op, cs) ->
+     let rec fold vs = function
+       | [] ->
+          let vs = List.rev vs in
+          Value.perform op env vs
+       | c :: cs ->
+          infer env c >>= fun v ->
+          fold (v :: vs) cs
+     in
+     fold [] cs
 
   | Syntax.With (c1, c2) ->
      infer env c1 >>= as_handler ~loc >>=
@@ -381,17 +389,23 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
                         (print_ty env t_check') (print_ty env t')
       end
 
-  | Syntax.Operation (op, c) ->
-     infer env c >>= fun ve ->
-     Value.operate op env ve >>= fun v ->
-     let (ctxe, e', t') = Value.as_term ~loc v in
-     require_equal_ty ~loc env t_check (ctxe,t') >>=
-       begin function
-         | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e')
-         | None -> Error.typing ~loc:(e'.Tt.loc)
-                                "this expression should have type@ %t@ but has type@ %t"
-                                (print_ty env t_check') (print_ty env t')
-       end
+  | Syntax.Perform (op, cs) ->
+     let rec fold vs = function
+       | [] ->
+          Value.perform op env vs >>= fun v ->
+          let (ctxe, e', t') = Value.as_term ~loc v in
+          require_equal_ty ~loc env t_check (ctxe,t') >>=
+            begin function
+              | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e')
+              | None -> Error.typing ~loc:(e'.Tt.loc)
+                                     "this expression should have type@ %t@ but has type@ %t"
+                                     (print_ty env t_check') (print_ty env t')
+            end
+       | c :: cs ->
+          infer env c >>= fun v ->
+          fold (v :: vs) cs
+     in
+     fold [] cs
 
   | Syntax.Let (xcs, c) ->
      let_bind env xcs >>= (fun env -> check env c t_check)

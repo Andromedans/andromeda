@@ -38,12 +38,12 @@
 %token LET EQ AND IN
 
 (* Meta-level programming *)
+%token OPERATION
 %token DATA
 %token <string> PATTVAR
 %token MATCH
 %token VDASH
 
-%token <string> OPERATION
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 
 %token CONGRUENCE
@@ -98,7 +98,7 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | LET x=name yts=typed_binder* u=return_type? EQ c=term 
+  | LET x=name yts=typed_binder* u=return_type? EQ c=term
        { TopLet (x, List.concat yts, u, c) }
   | LET REC x=name a=function_abstraction EQ e=term
        { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
@@ -106,6 +106,7 @@ plain_topcomp:
   | CHECK c=term                                      { TopCheck c }
   | CONSTANT x=name yst=primarg* COLON u=term         { Axiom (x, List.concat yst, u)}
   | DATA x=name k=NUMERAL                             { Data (x, k) }
+  | OPERATION op=name k=NUMERAL                       { Operation (op, k) }
 
 return_type:
   | COLON t=ty_term { t }
@@ -174,7 +175,6 @@ plain_app_term:
   | REDUCE t=prefix_term                            { Reduce t }
   | TYPEOF t=prefix_term                            { Typeof t }
   | REFL e=prefix_term                              { Refl e }
-  | op=OPERATION e=prefix_term                      { Operation (op, e) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:
@@ -258,7 +258,7 @@ handler_cases:
 
 handler_case:
   | VAL p=pattern DARROW t=term                 { CaseVal (p, t) }
-  | op=OPERATION p=pattern DARROW t=term        { CaseOp (op, p, t) }
+  | op=name ps=simple_pattern* DARROW t=term    { CaseOp (op, ps, t) }
   | FINALLY p=pattern DARROW t=term             { CaseFinally (p, t) }
 
 top_handler_cases:
@@ -267,7 +267,7 @@ top_handler_cases:
 
 (* XXX allow patterns here *)
 top_handler_case:
-  | op=OPERATION x=name DARROW t=term        { (op, x, t) }
+  | op=name xs=name* DARROW t=term                    { (op, xs, t) }
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }

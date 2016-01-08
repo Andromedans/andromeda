@@ -108,6 +108,11 @@ let rec exec_cmd base_dir interactive env c =
   let (c', loc) = Desugar.toplevel env (Value.Env.bound_names env) c in
   match c' with
 
+  | Syntax.Operation (x, k) ->
+     let env = Value.Env.add_operation ~loc x k env in
+     if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
+     env
+
   | Syntax.Data (x, k) ->
      let env = Value.Env.add_data ~loc x k env in
      if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;

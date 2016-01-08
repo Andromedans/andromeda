@@ -27,7 +27,7 @@ val print_atom : atom -> Format.formatter -> unit
 val print_label : label -> Format.formatter -> unit
 
 (** Print an operation name. *)
-val print_op : string -> Format.formatter -> unit
+val print_op : ident -> Format.formatter -> unit
 
 (** An anonymous name that cannot be referenced. *)
 val anonymous : ident
@@ -41,8 +41,11 @@ val fresh : ident -> atom
 (** [refresh xs x] finds a nice variant of [x] that does not occur in [xs]. *)
 val refresh : ident list -> ident -> ident
 
-(** Compare identifiers. *)
+(** Compare identifiers for equality. *)
 val eq_ident : ident -> ident -> bool
+
+(** Compare identifiers. *)
+val compare_ident : ident -> ident -> int
 
 (** Compare atoms for equality. *)
 val eq_atom : atom -> atom -> bool

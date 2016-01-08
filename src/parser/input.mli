@@ -42,7 +42,6 @@ and term' =
   | Rec of Name.ident * Name.ident list * comp
   | Handler of handle_case list
   (* computations *)
-  | Operation of string * expr
   | Handle of comp * handle_case list
   | With of expr * comp
   | Tag of Name.ident * comp list
@@ -78,18 +77,19 @@ and expr = term
 (** Handle cases *)
 and handle_case =
   | CaseVal of pattern * comp (* val p -> c *)
-  | CaseOp of string * pattern * comp (* #op p -> c *)
+  | CaseOp of Name.ident * pattern list * comp (* op p1 ... pn -> c *)
   | CaseFinally of pattern * comp (* finally p -> c *)
-                                  
+
 and match_case = pattern * comp
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
+  | Operation of Name.ident * int
   | Data of Name.ident * int
   | Axiom of Name.ident * (bool * (Name.ident * ty)) list * ty
     (** introduce a primitive constant, the boolean is [true] if the argument is eagerly reducing *)
-  | TopHandle of (string * Name.ident * comp) list 
+  | TopHandle of (Name.ident * Name.ident list * comp) list
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | Verbosity of int
