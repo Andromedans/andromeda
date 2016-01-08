@@ -1,10 +1,12 @@
+\section{The classic declarative formulation}
+\label{sec:classic-declarative-formulation}
 
-\section{The declarative formulation}
-\label{sec:declarative-formulation}
+In this section we give the formulation of type theory in a classic declarative way which
+minimizes the number of judgments, is better suited for a semantic account, but is not
+susceptible to an algorithmic treatment. We shall arrive at the final version in several
+steps.
 
-In this section we give the formulation of type theory in a declarative way
-which minimizes the number of judgments, is better suited for a semantic account, but is
-not susceptible to an algorithmic treatment.
+In this sections all rule names are prefixed with \textsc{c-}, which stands for ``classic''.
 
 \subsection{Syntax}
 \label{sec:syntax}
@@ -24,53 +26,51 @@ Terms ($\e$) and types $(\T, \U)$:
 \begin{equation*}
   \e, \T, \U
   \begin{aligned}[t]
-    \bnf   {}& \Type & & \text{universe}\\
-    \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
-    \bnfor {}& \JuEqual{\T}{\e_1}{\e_2} & & \text{equality type} \\
-    \bnfor {}&  \x   &&\text{variable} \\
-    \bnfor {}&  \lam{\x}{\T_1}{\T_2} \e  &&\text{$\lambda$-abstraction} \\
-    \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
-    \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
+    \bnf   {}&  \x   &&\text{variable} \\
+    \bnfor {}& \Type & & \text{universe}\\
+    \bnfor {}& \cProd{x}{\T} \U & & \text{product}\\
+    \bnfor {}& \Equal{\T}{\e_1}{\e_2} & & \text{equality type} \\
+    \bnfor {}&  \clam{\x}{\T_1}{\T_2} \e  &&\text{$\lambda$-abstraction} \\
+    \bnfor {}&  \capp{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
+    \bnfor {}&  \refl{\T} \e  &&\text{reflexivity} \\
   \end{aligned}
 \end{equation*}
 %
 Note that $\lambda$-abstraction and application are tagged with extra types not usually
-seen in type theory. An abstraction $\lam{\x}{\T_1}{\T_2} \e$ speficies not only the type
+seen in type theory. An abstraction $\clam{\x}{\T_1}{\T_2} \e$ specifies not only the type
 $\T_1$ of $\x$ but also the type $\T_2$ of $e$, where $\x$ is bound in $\T_2$ and $\e$.
-Similarly, an application $\app{\e_1}{\x}{\T_1}{\T_2}{\e_2}$ specifies that $\e_1$ and
-$\e_2$ have types $\Prod{\x}{\T_1} \T_2$ and $\T_2$, respectively. This is necessary
+Similarly, an application $\capp{\e_1}{\x}{\T_1}{\T_2}{\e_2}$ specifies that $\e_1$ and
+$\e_2$ have types $\cProd{\x}{\T_1} \T_2$ and $\T_2$, respectively. This is necessary
 because in the presence of exotic equalities (think ``$\mathsf{nat} \to \mathsf{bool}
 \equiv \mathsf{nat} \to \mathsf{nat}$'') we must be \emph{very} careful about
 $\beta$-reductions.
 
 The annotations on an application matter also for determining when two
 terms are equal. For example, if $X,Y : \Type$, $f : \mathsf{nat}\to X$ and $$e
-: \JuEqual{\Type}{\mathsf{nat}{\to}X}{\mathsf{nat}{\to}Y},$$ then
-$(\app{f}{\_}{\mathsf{nat}}{X} 0) : X$ and $(\app{f}{\_}{\mathsf{nat}}{Y} 0) : Y$,
-so the two identical-but-for-annotations terms have different types and thus
-cannot be equivalent.
+: \Equal{\Type}{\mathsf{nat}{\to}X}{\mathsf{nat}{\to}Y},$$ then
+$(\capp{f}{\_}{\mathsf{nat}}{X} 0) : X$ and $(\capp{f}{\_}{\mathsf{nat}}{Y} 0) : Y$,
+so without annotations the two terms would be equal and would have different types.
 
 \subsection{Judgments}
 \label{sec:judgments}
 
 \begin{align*}
 & \isctx{\G} & & \text{$\G$ is a well formed context} \\
+& \istype{\G}{\T} & & \text{$T$ is a well formed type in context $\G$} \\
 & \isterm{\G}{\e}{\T} & & \text{$\e$ is a well formed term of type $\T$ in context $\G$} \\
+& \eqtype{\G}{T_1}{T_2} & & \text{$T_1$ and $T_2$ are equal types in context $\G$} \\
 & \eqterm{\G}{\e_1}{\e_2}{\T} & & \text{$e_1$ and $e_2$ are equal terms of type $\T$ in context $\G$}
 \end{align*}
-%
-The judgement ``$\T$ is a type in context $\G$'' is a special case of term formation, namely
-$\istype{\G}{\T}$. Similarly, equality of types is just equality of terms at $\Type$.
 
 \subsection{Contexts}
 \label{sec:contexts}
 
 \begin{mathpar}
-  \infer[\rulename{ctx-empty}]
+  \infer[\rulename{c-ctx-empty}]
   { }
   {\isctx{\ctxempty}}
 
-  \infer[\rulename{ctx-extend}]
+  \infer[\rulename{c-ctx-extend}]
   {\isctx{\G} \\
    \istype{\G}{\T}
   }
@@ -84,13 +84,13 @@ $\istype{\G}{\T}$. Similarly, equality of types is just equality of terms at $\T
 
 \paragraph{General rules}
 \begin{mathpar}
-  \infer[\rulename{term-conv}]
+  \infer[\rulename{c-term-conv}]
   {\isterm{\G}{\e}{\T} \\
    \eqtype{\G}{\T}{\U}
   }
   {\isterm{\G}{\e}{\U}}
 
-  \infer[\rulename{term-var}]
+  \infer[\rulename{c-term-var}]
   {\isctx{\G} \\
    (\x{:}\T) \in \G
   }
@@ -100,7 +100,7 @@ $\istype{\G}{\T}$. Similarly, equality of types is just equality of terms at $\T
 \paragraph{Universe}
 
 \begin{mathpar}
-  \infer[\rulename{ty-type}]
+  \infer[\rulename{c-ty-type}]
   {\isctx{\G}
   }
   {\istype{\G}{\Type}}
@@ -109,37 +109,37 @@ $\istype{\G}{\T}$. Similarly, equality of types is just equality of terms at $\T
 \paragraph{Products}
 
 \begin{mathpar}
-  \infer[\rulename{ty-prod}]
+  \infer[\rulename{c-ty-prod}]
   {\istype{\G}{\T} \\
    \istype{\ctxextend{\G}{\x}{\T}}{\U}
   }
-  {\istype{\G}{\Prod{\x}{\T}{\U}}}
+  {\istype{\G}{\cProd{\x}{\T}{\U}}}
 
-  \infer[\rulename{term-abs}]
+  \infer[\rulename{c-term-abs}]
   {\isterm{\ctxextend{\G}{\x}{\T}}{\e}{\U}}
-  {\isterm{\G}{(\lam{\x}{\T}{\U}{\e})}{\Prod{\x}{\T}{\U}}}
+  {\isterm{\G}{(\clam{\x}{\T}{\U}{\e})}{\cProd{\x}{\T}{\U}}}
 
-  \infer[\rulename{term-app}]
-  {\isterm{\G}{\e_1}{\Prod{x}{\T} \U} \\
+  \infer[\rulename{c-term-app}]
+  {\isterm{\G}{\e_1}{\cProd{x}{\T} \U} \\
    \isterm{\G}{\e_2}{\T}
   }
-  {\isterm{\G}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\subst{\U}{\x}{\e_2}}}
+  {\isterm{\G}{\capp{\e_1}{\x}{\T}{\U}{\e_2}}{\subst{\U}{\x}{\e_2}}}
 \end{mathpar}
 
 \paragraph{Equality types}
 \label{sec:equality}
 
 \begin{mathpar}
-  \infer[\rulename{ty-eq}]
+  \infer[\rulename{c-ty-eq}]
   {\istype{\G}{\T}\\
    \isterm{\G}{\e_1}{\T}\\
    \isterm{\G}{\e_2}{\T}
   }
-  {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
+  {\istype{\G}{\Equal{\T}{\e_1}{\e_2}}}
 
-  \infer[\rulename{term-refl}]
+  \infer[\rulename{c-term-refl}]
   {\isterm{\G}{\e}{\T}}
-  {\isterm{\G}{\juRefl{\T} \e}{\JuEqual{\T}{\e}{\e}}}
+  {\isterm{\G}{\refl{\T} \e}{\Equal{\T}{\e}{\e}}}
   \end{mathpar}
 
 \subsection{Equality}
@@ -147,20 +147,20 @@ $\istype{\G}{\T}$. Similarly, equality of types is just equality of terms at $\T
 \paragraph{General rules}
 
 \begin{mathpar}
-  \infer[\rulename{eq-refl}]
+  \infer[\rulename{c-eq-refl}]
   {\isterm{\G}{\e}{\T}}
   {\eqterm{\G}{\e}{\e}{\T}}
 
-  \infer[\rulename{eq-sym}]
+  \infer[\rulename{c-eq-sym}]
   {\eqterm{\G}{\e_2}{\e_1}{\T}}
   {\eqterm{\G}{\e_1}{\e_2}{\T}}
 
-  \infer[\rulename{eq-trans}]
+  \infer[\rulename{c-eq-trans}]
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
    \eqterm{\G}{\e_2}{\e_3}{\T}}
   {\eqterm{\G}{\e_1}{\e_3}{\T}}
 
-  \infer[\rulename{eq-conv}]
+  \infer[\rulename{c-eq-conv}]
   {\eqterm{\G}{\e_1}{\e_2}{\T}\\
     \eqtype{\G}{\T}{\U}}
   {\eqterm{\G}{\e_1}{\e_2}{\U}}
@@ -169,20 +169,20 @@ $\istype{\G}{\T}$. Similarly, equality of types is just equality of terms at $\T
 \paragraph{Equality reflection}
 %
 \begin{mathpar}
-  \infer[\rulename{eq-reflection}]
-  {\isterm{\G}{\e}{\JuEqual{\T}{\e_1}{\e_2}}}
+  \infer[\rulename{c-eq-reflection}]
+  {\isterm{\G}{\e}{\Equal{\T}{\e_1}{\e_2}}}
   {\eqterm{\G}{\e_1}{\e_2}{\T}}
 \end{mathpar}
 
 \paragraph{Computations}
 
 \begin{mathpar}
-\infer[\rulename{prod-beta}]
+\infer[\rulename{c-prod-beta}]
   {\eqtype{\G}{\T_1}{\U_1}\\
     \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\\\
     \isterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\T_2}\\
     \isterm{\G}{\e_2}{\U_1}}
-  {\eqterm{\G}{\bigl(\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}\bigr)}
+  {\eqterm{\G}{\bigl(\capp{(\clam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\U_1}{\U_2}{\e_2}\bigr)}
               {\subst{\e_1}{\x}{\e_2}}
               {\subst{\T_2}{\x}{\e_2}}}
 \end{mathpar}
@@ -191,19 +191,19 @@ $\istype{\G}{\T}$. Similarly, equality of types is just equality of terms at $\T
 
 %
 \begin{mathpar}
-  \infer[\rulename{eq-eta}]
-  {\isterm{\G}{\e'_1}{\JuEqual{\T}{\e_1}{\e_2}} \\
-    \isterm{\G}{\e'_2}{\JuEqual{\T}{\e_1}{\e_2}}
+  \infer[\rulename{c-eq-eta}]
+  {\isterm{\G}{\e'_1}{\Equal{\T}{\e_1}{\e_2}} \\
+    \isterm{\G}{\e'_2}{\Equal{\T}{\e_1}{\e_2}}
   }
-  {\eqterm{\G}{\e'_1}{e'_2}{\JuEqual{\T}{\e_1}{\e_2}}}
+  {\eqterm{\G}{\e'_1}{e'_2}{\Equal{\T}{\e_1}{\e_2}}}
 
-  \infer[\rulename{prod-eta}]
-  {\isterm{\G}{\e_1}{\Prod{\x}{\T}{\U}}\\
-   \isterm{\G}{\e_2}{\Prod{\x}{\T}{\U}}\\\\
-   \eqterm{\ctxextend{\G}{\x}{\T}}{(\app{\e_1}{\x}{\T}{\U}{\x})}
-          {(\app{\e_2}{\x}{\T}{\U}{\x})}{\U}
+  \infer[\rulename{c-prod-eta}]
+  {\isterm{\G}{\e_1}{\cProd{\x}{\T}{\U}}\\
+   \isterm{\G}{\e_2}{\cProd{\x}{\T}{\U}}\\\\
+   \eqterm{\ctxextend{\G}{\x}{\T}}{(\capp{\e_1}{\x}{\T}{\U}{\x})}
+          {(\capp{\e_2}{\x}{\T}{\U}{\x})}{\U}
   }
-  {\eqterm{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}}
+  {\eqterm{\G}{\e_1}{\e_2}{\cProd{\x}{\T}{\U}}}
 \end{mathpar}
 
 \subsubsection{Congruences}
@@ -211,47 +211,52 @@ $\istype{\G}{\T}$. Similarly, equality of types is just equality of terms at $\T
 \paragraph{Type formers}
 
 \begin{mathpar}
-  \infer[\rulename{cong-prod}]
+  \infer[\rulename{c-cong-prod}]
   {\eqtype{\G}{\T_1}{\U_1}\\
    \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}}
-  {\eqtype{\G}{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}}
+  {\eqtype{\G}{\cProd{\x}{\T_1}{\T_2}}{\cProd{\x}{\U_1}{\U_2}}}
 
-  \infer[\rulename{cong-eq}]
+  \infer[\rulename{c-cong-eq}]
   {\eqtype{\G}{\T}{\U}\\
    \eqterm{\G}{\e_1}{\e'_1}{\T}\\
    \eqterm{\G}{\e_2}{\e'_2}{\T}
   }
-  {\eqtype{\G}{\JuEqual{\T}{\e_1}{\e_2}}
-              {\JuEqual{\U}{\e'_1}{\e'_2}}}
+  {\eqtype{\G}{\Equal{\T}{\e_1}{\e_2}}
+              {\Equal{\U}{\e'_1}{\e'_2}}}
 \end{mathpar}
 
 \paragraph{Products}
 
 \begin{mathpar}
-  \infer[\rulename{cong-abs}]
+  \infer[\rulename{c-cong-abs}]
   {\eqtype{\G}{\T_1}{\U_1}\\
     \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\
     \eqterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\e_2}{\T_2}}
-  {\eqterm{\G}{(\lam{\x}{\T_1}{\T_2}{\e_1})}
-              {(\lam{\x}{\U_1}{\U_2}{\e_2})}
-              {\Prod{\x}{\T_1}{\T_2}}}
+  {\eqterm{\G}{(\clam{\x}{\T_1}{\T_2}{\e_1})}
+              {(\clam{\x}{\U_1}{\U_2}{\e_2})}
+              {\cProd{\x}{\T_1}{\T_2}}}
 
-  \infer[\rulename{cong-app}]
+  \infer[\rulename{c-cong-app}]
   {\eqtype{\G}{\T_1}{\U_1}\\
    \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\\\
-   \eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\T_1}{\T_2}}\\
+   \eqterm{\G}{\e_1}{\e'_1}{\cProd{\x}{\T_1}{\T_2}}\\
    \eqterm{\G}{\e_2}{\e'_2}{\T_1}}
-  {\eqterm{\G}{(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})}{(\app{\e'_1}{\x}{\U_1}{\U_2}{\e'_2})}{\subst{\T_2}{\x}{\e_2}}}
+  {\eqterm{\G}{(\capp{\e_1}{\x}{\T_1}{\T_2}{\e_2})}{(\capp{\e'_1}{\x}{\U_1}{\U_2}{\e'_2})}{\subst{\T_2}{\x}{\e_2}}}
 \end{mathpar}
 
 \paragraph{Equality types}
 
 %
 \begin{mathpar}
-\infer[\rulename{cong-refl}]
+\infer[\rulename{c-cong-refl}]
 {\eqterm{\G}{\e_1}{\e_2}{\T}\\
  \eqtype{\G}{\T}{\U}}
-{\eqterm{\G}{\juRefl{\T} \e_1}{\juRefl{\U} \e_2}{\JuEqual{\T}{\e_1}{\e_1}}}
+{\eqterm{\G}{\refl{\T} \e_1}{\refl{\U} \e_2}{\Equal{\T}{\e_1}{\e_1}}}
 \end{mathpar}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "theory"
+%%% End:
