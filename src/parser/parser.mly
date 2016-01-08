@@ -281,12 +281,34 @@ match_case:
 
 pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
-  | p=plain_simple_pattern                  { p }
+  | p=plain_binop_pattern                   { p }
   | p=simple_pattern AS x=patt_var          { Patt_As (p,x) }
-  | t=var_name ps=simple_pattern+           { Patt_Data (t, ps) } (* TODO parse infix data constructors *)
   | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, e2) }
   | VDASH e1=tt_pattern                     { Patt_Jdg (e1, (Tt_Anonymous, snd e1)) }
 
+binop_pattern: mark_location(plain_binop_pattern) { $1 }
+plain_binop_pattern:
+  | e=plain_app_pattern                                { e }
+  | e1=binop_pattern op=INFIXOP0 e2=binop_pattern
+    { let op = Name.make ~fixity:Name.Infix0 (fst op) in Patt_Data (op, [e1; e2]) }
+  | e1=binop_pattern op=INFIXOP1 e2=binop_pattern
+    { let op = Name.make ~fixity:Name.Infix1 (fst op) in Patt_Data (op, [e1; e2]) }
+  | e1=binop_pattern op=INFIXOP2 e2=binop_pattern
+    { let op = Name.make ~fixity:Name.Infix2 (fst op) in Patt_Data (op, [e1; e2]) }
+  | e1=binop_pattern op=INFIXOP3 e2=binop_pattern
+    { let op = Name.make ~fixity:Name.Infix3 (fst op) in Patt_Data (op, [e1; e2]) }
+  | e1=binop_pattern op=INFIXOP4 e2=binop_pattern
+    { let op = Name.make ~fixity:Name.Infix4 (fst op) in Patt_Data (op, [e1; e2]) }
+
+(* app_pattern: mark_location(plain_app_pattern) { $1 } *)
+plain_app_pattern:
+  | e=plain_prefix_pattern                    { e }
+  | t=var_name ps=prefix_pattern+             { Patt_Data (t, ps) }
+
+prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
+plain_prefix_pattern:
+  | e=plain_simple_pattern           { e }
+  | op=PREFIXOP e=prefix_pattern     { let op = Name.make ~fixity:Name.Prefix (fst op) in Patt_Data (op, [e]) }
 
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
 plain_simple_pattern:
