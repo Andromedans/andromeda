@@ -72,37 +72,33 @@ let rec infer env (c',loc) =
        fold [] cs
 
     | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
-       let handler_val =
-         begin match handler_val with
-         | None -> None
-         | Some (x, c) ->
+        let handler_val =
+          begin match handler_val with
+          | [] -> None
+          | _ :: _ ->
             let f env v =
-              let env = Value.Env.add_bound x v env in
-              infer env c
+              match_cases ~loc env handler_val v
             in
             Some f
-         end
-       and handler_ops =
-         begin
-           let close2 x1 c env v1 v2 =
-             let env = Value.Env.add_bound x1 v1 env in
-             let env = Value.Env.set_continuation v2 env in
-             infer env c
-           in
-           List.map (fun (op, (x, c)) -> (op, close2 x c)) handler_ops
-         end
-       and handler_finally =
-         begin match handler_finally with
-         | None -> None
-         | Some (x, c) -> 
+          end
+        and handler_ops = Name.IdentMap.map (fun cases ->
+            let f env (vs,cont) =
+              let env = Value.Env.set_continuation cont env in
+              multimatch_cases ~loc env cases vs
+            in
+            f)
+          handler_ops
+        and handler_finally =
+          begin match handler_finally with
+          | [] -> None
+          | _ :: _ ->
             let f env v =
-              let env = Value.Env.add_bound x v env in
-              infer env c
+              match_cases ~loc env handler_val v
             in
             Some f
-         end
-       in
-       Value.return_handler env handler_val handler_ops handler_finally
+          end
+        in
+        Value.return_handler env handler_val handler_ops handler_finally
 
   | Syntax.Perform (op, cs) ->
      let rec fold vs = function
@@ -116,10 +112,9 @@ let rec infer env (c',loc) =
      fold [] cs
 
   | Syntax.With (c1, c2) ->
-     infer env c1 >>= as_handler ~loc >>=
-       (fun h ->
-        let r = infer env c2 in
-        handle_result env h r)
+     infer env c1 >>= as_handler ~loc >>= fun h ->
+     let r = infer env c2 in
+     Value.handle_result env h r
 
   | Syntax.Let (xcs, c) ->
      let_bind env xcs >>= (fun env -> infer env c)
@@ -143,17 +138,7 @@ let rec infer env (c',loc) =
 
   | Syntax.Match (c, cases) ->
      infer env c >>=
-       fun v ->
-       let rec fold = function
-         | [] ->
-            Error.typing ~loc "No match found for %t" (print_value env v)
-         | (xs, p, c) :: cases ->
-            begin match Value.Env.match_pattern env xs p v with
-                  | Some env -> infer env c
-                  | None -> fold cases
-            end
-       in
-       fold cases
+     match_cases ~loc env cases
 
   | Syntax.Reduce c ->
      infer env c >>= as_term ~loc >>= fun (ctx, e, t) ->
@@ -488,31 +473,6 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
      fold env ctx [] [] [] (xcs, yts)
 
 
-and handle_result env {Value.handler_val; handler_ops; handler_finally} r =
-  begin match r with
-  | Value.Return v ->
-     begin match handler_val with
-     | Some f -> Value.apply_closure env f v
-     | None -> r
-     end
-  | Value.Operation (op, ve, dyn, cont) ->
-     let env = Value.Env.set_dynamic env dyn in
-     let h = Value.{handler_val; handler_ops; handler_finally=None} in
-     let cont = Value.mk_closure' env (fun env v -> handle_result env h (Value.apply_closure env cont v)) in
-     begin
-       try
-         let f = List.assoc op handler_ops in
-         f dyn ve cont
-       with
-         Not_found ->
-          Value.Operation (op, ve, dyn, cont)
-     end
-  end >>=
-  (fun v ->
-     match handler_finally with
-     | Some f -> Value.apply_closure env f v
-     | None -> Value.Return v)
-
 and infer_lambda env ~loc xus c =
   let rec fold env ctx ys ts xws  = function
       | [] ->
@@ -707,6 +667,34 @@ and let_bind env xcs =
     in
   fold env xcs
 
+and match_cases ~loc env cases v =
+  let rec fold = function
+    | [] ->
+      Error.runtime ~loc "no match found for %t" (print_value env v)
+    | (xs, p, c) :: cases ->
+      begin match Value.Env.match_pattern env p v with
+        | Some vs ->
+          let env = List.fold_left2 (fun env x v -> Value.Env.add_bound x v env) env (List.rev xs) vs in
+          infer env c
+        | None -> fold cases
+      end
+  in
+  fold cases
+
+and multimatch_cases ~loc env cases vs =
+  let rec fold = function
+    | [] ->
+      Error.runtime ~loc "no match found for %t" (Print.sequence (print_value env) " " vs)
+    | (xs, ps, c) :: cases ->
+      begin match Value.Env.multimatch_pattern env ps vs with
+        | Some vs ->
+          let env = List.fold_left2 (fun env x v -> Value.Env.add_bound x v env) env (List.rev xs) vs in
+          infer env c
+        | None -> fold cases
+      end
+  in
+  fold cases
+
 and check_ty env c : Judgement.ty Value.result =
   check env c Judgement.ty_ty >>=
   (fun (ctx, e) ->
@@ -714,27 +702,16 @@ and check_ty env c : Judgement.ty Value.result =
    let j = Judgement.mk_ty ctx t in
    Value.return j)
 
-(** Top-level handler. It returns a value, or reports a run-time error if an unhandled
-    operation is encountered. Note that this is a recursive handler which keeps handling
-    until a value is returned. *)
-let rec top_handle ~loc env = function
-  | Value.Return v -> v
-  | Value.Operation (op, v, dyn, k) ->
-     let env = Value.Env.set_dynamic env dyn in
-     begin match Value.Env.lookup_handle op env with
-      | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
-      | Some (x, c) ->
-         let r = infer (Value.Env.add_bound x v env) c >>=
-                 Value.apply_closure env k
-         in
-         top_handle ~loc env r
-     end
-
 let comp_value env ((_, loc) as c) =
   let r = infer env c in
-  top_handle ~loc env r
+  Value.top_handle ~loc env r
 
 let comp_ty env ((_,loc) as c) =
   let r = check_ty env c in
-  top_handle ~loc env r
+  Value.top_handle ~loc env r
+
+let comp_handle env (xs,c) =
+  Value.mk_closure' env (fun env vs ->
+      let env = List.fold_left2 (fun env x v -> Value.Env.add_bound x v env) env xs vs in
+      infer env c)
 

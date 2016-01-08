@@ -62,12 +62,15 @@ and comp' =
   | Congruence of comp * comp
 
 and handler = {
-  handler_val: (Name.ident * comp) option;
-  handler_ops: (Name.ident * (Name.ident * comp)) list;
-  handler_finally : (Name.ident * comp) option;
+  handler_val: match_case list;
+  handler_ops: multimatch_case list Name.IdentMap.t;
+  handler_finally : match_case list;
 }
 
 and match_case = Name.ident list * pattern * comp
+
+(** Match multiple patterns at once, with shared pattern variables *)
+and multimatch_case = Name.ident list * pattern list * comp
 
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t

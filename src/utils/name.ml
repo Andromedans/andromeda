@@ -92,6 +92,11 @@ let eq_ident (Ident (x, _)) (Ident (y, _)) = (x = y)
 
 let compare_ident (Ident (x, _)) (Ident (y, _)) = compare x y
 
+module IdentMap = Map.Make (struct
+                    type t = ident
+                    let compare = compare_ident
+                  end)
+
 let eq_label = eq_ident
 
 let eq_atom (Atom (_, _, k)) (Atom (_, _, m)) = (k = m)

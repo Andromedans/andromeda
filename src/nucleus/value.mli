@@ -9,8 +9,6 @@ type decl =
 (** Runtime environment *)
 type env
 
-type dynamic
-
 (** The values are "finished" or "computed" results. They are inert pieces
     of data.
 
@@ -20,32 +18,30 @@ type dynamic
 type value =
   | Term of Judgement.term
   | Ty of Judgement.ty
-  | Closure of value closure
+  | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
 
-and 'a closure
+and ('a,'b) closure
 
 (** A result of computation at the moment is necessarily just a pure value
     because we do not have any operations in the language. But when we do,
     they will be results as well (and then handlers will handle them). *)
-and 'a result =
-  | Return of 'a
-  | Operation of Name.ident * value * dynamic * 'a closure
+and 'a result
 
 and handler = {
-  handler_val: value closure option;
-  handler_ops: (Name.ident * (dynamic -> value -> value closure -> value result)) list;
-  handler_finally: value closure option;
+  handler_val: (value,value) closure option;
+  handler_ops: (value list * (value,value) closure, value) closure Name.IdentMap.t;
+  handler_finally: (value,value) closure option;
 }
 
-val mk_closure' : env -> (env -> value -> value result) -> value closure
+val mk_closure' : env -> (env -> 'a -> 'b result) -> ('a,'b) closure
 val mk_closure : env -> (env -> value -> value result) -> value
-val apply_closure : env -> 'a closure -> value -> 'a result
+val apply_closure : env -> ('a,'b) closure -> 'a -> 'b result
 
 val as_term : loc:Location.t -> value -> Judgement.term
 val as_ty : loc:Location.t -> value -> Judgement.ty
-val as_closure : loc:Location.t -> value -> value closure
+val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 
 
@@ -70,13 +66,21 @@ val return_closure : env -> (env -> value -> value result) -> value result
 
 val return_handler : env ->
    (env -> value -> value result) option ->
-   (Name.ident * (env -> value -> (value closure -> value result))) list ->
+   (env -> value list * (value,value) closure -> value result) Name.IdentMap.t ->
    (env -> value -> value result) option ->
    value result
 
 val bind: 'a result -> ('a -> 'b result)  -> 'b result
 
 val perform : Name.ident -> env -> value list -> value result
+
+val predefined_ops : (Name.ident * int) list
+
+val perform_equal : env -> value -> value -> value result
+
+val handle_result : env -> handler -> value result -> value result
+
+val top_handle : loc:Location.t -> env -> 'a result -> 'a
 
 (** Pretty-print a value. *)
 val print_value : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
@@ -115,6 +119,9 @@ module Env : sig
   (** Lookup a data constructor. *)
   val lookup_decl : Name.ident -> env -> decl option
 
+  (** Lookup an operation *)
+  val lookup_operation : Name.ident -> env -> int option
+
   (** Lookup a constant. *)
   val lookup_constant : Name.ident -> env -> Tt.constsig option
 
@@ -150,19 +157,13 @@ module Env : sig
   val add_bound : Name.ident -> value -> env -> env
 
   (** Add a top-level handler case to the environment. *)
-  val add_handle : Name.ident -> (Name.ident * Syntax.comp) -> env -> env
-
-  (** Lookup the top-level handler for the given operation, if any. *)
-  val lookup_handle : Name.ident -> env -> (Name.ident * Syntax.comp) option
+  val add_handle : Name.ident -> (value list,value) closure -> env -> env
 
   (** Set the continuation for a handler computation. *)
-  val set_continuation : value closure -> env -> env
-
-  (** Set the dynamic part of an environment. *)
-  val set_dynamic : t -> dynamic -> t
+  val set_continuation : (value,value) closure -> env -> env
 
   (** Lookup the current continuation. *)
-  val lookup_continuation : env -> (value closure) option
+  val lookup_continuation : env -> ((value,value) closure) option
 
   (** Add a file to the list of files included. *)
   val add_file : string -> env -> env
@@ -174,8 +175,10 @@ module Env : sig
   (** Print free variables in the environment *)
   val print : env -> Format.formatter -> unit
 
-  (** Match a value against a pattern and extend the environment with the
-    matched pattern variables. *)
-  val match_pattern : env -> Name.ident list -> Syntax.pattern -> value -> env option
+  (** Match a value against a pattern. Matches are returned in order of decreasing de bruijn index. *)
+  val match_pattern : env -> Syntax.pattern -> value -> value list option
+
+  val multimatch_pattern : env -> Syntax.pattern list -> value list -> value list option
 
 end (* [sig Env] *)
+

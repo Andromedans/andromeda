@@ -5,10 +5,7 @@ module IntSet = Set.Make (struct
                     let compare = compare
                   end)
 
-module IdentMap = Map.Make (struct
-                    type t = Name.ident
-                    let compare = Name.compare_ident
-                  end)
+module IdentMap = Name.IdentMap
 
 let add_bound x bound = x :: bound
 
@@ -269,7 +266,7 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
 
     | Input.Match (c, cases) ->
        let c = comp ~yield env bound c
-       and cases = List.map (case ~yield env bound) cases in
+       and cases = List.map (match_case ~yield env bound) cases in
        Syntax.Match (c, cases), loc
 
     | Input.Ascribe (c, t) ->
@@ -483,77 +480,51 @@ and spine ~yield env bound ((c',loc) as c) cs =
               Error.syntax ~loc "unknown identifier %t" (Name.print_ident x)
          end
 
-      | _ -> c, cs
+      | _ -> comp ~yield env bound c, cs
     end in
 
-  let c = comp ~yield env bound c in
   let cs = List.map (comp ~yield env bound) cs in
   Syntax.Spine (c, cs), loc
 
 (* Desugar handler cases. *)
 and handler ~loc env bound hcs =
   (* for every case | #op p => c we do #op binder => match binder with | p => c end *)
-  let binder = Name.refresh bound (Name.make "_") in
-  let bound = add_bound binder bound in
   let rec fold val_cases op_cases finally_cases = function
-    | [] -> val_cases, op_cases, finally_cases
+    | [] ->
+      List.rev val_cases, IdentMap.map List.rev op_cases, List.rev finally_cases
 
-    | Input.CaseVal (p, c) :: hcs ->
-      let p, vars, _ = pattern env bound [] 0 p in
-      let rec add_bounds xs bound = function
-        | [] -> xs, bound
-        | (x,_)::rem -> add_bounds (x::xs) (add_bound x bound) rem
-        in
-      let xs, bound = add_bounds [] bound vars in
-      let c = comp ~yield:false env bound c in
-      fold ((xs,p,c)::val_cases) op_cases finally_cases hcs
+    | Input.CaseVal c :: hcs ->
+      (* XXX if this handler is in a outer handler's operation case, should we use its yield?
+         eg handle ... with | op => handler | val x => yield x end end *)
+      let case = match_case ~yield:false env bound c in
+      fold (case::val_cases) op_cases finally_cases hcs
 
-    | Input.CaseOp (op, p, c) :: hcs ->
-      let p, vars, _ = pattern env bound [] 0 p in
-      let rec add_bounds xs bound = function
-        | [] -> xs, bound
-        | (x,_)::rem -> add_bounds (x::xs) (add_bound x bound) rem
-        in
-      let xs, bound = add_bounds [] bound vars in
-      let c = comp ~yield:true env bound c in
-      let my_cases = try IdentMap.find op op_cases with | Not_found -> [] in
-      let my_cases = (xs,p,c)::my_cases in
-      fold val_cases (IdentMap.add op my_cases op_cases) finally_cases hcs
+    | Input.CaseOp (op, ((ps,_) as c)) :: hcs ->
+      begin match Value.Env.lookup_operation op env with
+        | Some k ->
+          let n = List.length ps in
+          if n = k
+          then
+            let case = multimatch_case ~yield:true env bound c in
+            let my_cases = try IdentMap.find op op_cases with | Not_found -> [] in
+            let my_cases = case::my_cases in
+            fold val_cases (IdentMap.add op my_cases op_cases) finally_cases hcs
+          else
+            Error.syntax ~loc "operation %t expects %d arguments but was matched with %d" (Name.print_ident op) k n
+        | None ->
+          Error.syntax ~loc "unknown operation %t" (Name.print_ident op)
+      end
 
-    | Input.CaseFinally (p, c) :: hcs ->
-      let p, vars, _ = pattern env bound [] 0 p in
-      let rec add_bounds xs bound = function
-        | [] -> xs, bound
-        | (x,_)::rem -> add_bounds (x::xs) (add_bound x bound) rem
-        in
-      let xs, bound = add_bounds [] bound vars in
-      let c = comp ~yield:false env bound c in
-      fold val_cases op_cases ((xs,p,c)::finally_cases) hcs
+    | Input.CaseFinally c :: hcs ->
+      let case = match_case ~yield:false env bound c in
+      fold val_cases op_cases (case::finally_cases) hcs
 
   in
-  let val_cases, op_cases, finally_cases = fold [] IdentMap.empty [] hcs in
-  let regroup cases =
-    Syntax.Match ((Syntax.Bound 0, loc), List.rev cases), loc
-  in
-  let handler_val = match val_cases with
-    | [] -> None
-    | _::_ -> Some (binder, regroup val_cases)
-  in
-  let handler_finally = match finally_cases with
-    | [] -> None
-    | _::_ -> Some (binder, regroup finally_cases)
-  in
-  let anon = (Syntax.Patt_Anonymous,loc) in
-  let handler_ops = IdentMap.fold (fun op cases acc ->
-      (* default case: #op v => match v with | _ => #op v end *)
-      let default = ([],anon,(Syntax.Perform (op,(Syntax.Bound 0,loc)),loc)) in
-      (op,(binder, regroup (default::cases)))::acc)
-      op_cases []
-  in
+  let handler_val, handler_ops, handler_finally = fold [] IdentMap.empty [] hcs in
   Syntax.Handler (Syntax.{handler_val; handler_ops; handler_finally}), loc
 
 (* Desugar a match case *)
-and case ~yield env bound (p, c) =
+and match_case ~yield env bound (p, c) =
   let p, vars, _ = pattern env bound [] 0 p in
   let rec fold xs bound = function
     | [] -> xs, bound
@@ -562,6 +533,22 @@ and case ~yield env bound (p, c) =
   let xs, bound = fold [] bound vars in
   let c = comp ~yield env bound c in
   (xs, p, c)
+
+and multimatch_case ~yield env bound (ps, c) =
+  let rec fold_patterns ps vars n = function
+    | [] -> List.rev ps, vars, n
+    | p::rem ->
+      let p, vars, n = pattern env bound vars n p in
+      fold_patterns (p::ps) vars n rem
+  in
+  let ps, vars, _ = fold_patterns [] [] 0 ps in
+  let rec fold xs bound = function
+    | [] -> xs, bound
+    | (x,_)::rem -> fold (x::xs) (add_bound x bound) rem
+    in
+  let xs, bound = fold [] bound vars in
+  let c = comp ~yield env bound c in
+  (xs, ps, c)
 
 and constant ~loc ~yield env bound x cs =
   let cs = List.map (comp ~yield env bound) cs in
@@ -597,14 +584,23 @@ let toplevel (env : Value.Env.t) bound (d', loc) =
       Syntax.Axiom (x, ryts, u)
 
     | Input.TopHandle lst ->
-       let lst =
-         List.map
-           (fun (op, xs, c) ->
-             let bound = List.fold_left (fun bound x -> add_bound x bound) bound xs in
-             op, (xs, comp ~yield:false env bound c))
-           lst
-       in
-       Syntax.TopHandle lst
+        let lst =
+          List.map
+            (fun (op, xs, c) ->
+              match Value.Env.lookup_operation op env with
+                | Some k ->
+                  let n = List.length xs in
+                  if n = k
+                  then
+                    let bound = List.fold_left (fun bound x -> add_bound x bound) bound xs in
+                    op, (xs, comp ~yield:false env bound c)
+                  else
+                    Error.syntax ~loc "operation %t expects %d arguments but was matched with %d" (Name.print_ident op) k n
+                | None -> Error.syntax ~loc "unknown operation %t" (Name.print_ident op)
+            )
+            lst
+        in
+        Syntax.TopHandle lst
 
     | Input.TopLet (x, yts, u, ((_, loc) as c)) ->
       let c = match u with

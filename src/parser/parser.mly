@@ -258,7 +258,7 @@ handler_cases:
 
 handler_case:
   | VAL p=pattern DARROW t=term                 { CaseVal (p, t) }
-  | op=name ps=simple_pattern* DARROW t=term    { CaseOp (op, ps, t) }
+  | op=name ps=simple_pattern* DARROW t=term    { CaseOp (op, (ps, t)) }
   | FINALLY p=pattern DARROW t=term             { CaseFinally (p, t) }
 
 top_handler_cases:

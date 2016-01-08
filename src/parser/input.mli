@@ -76,11 +76,13 @@ and expr = term
 
 (** Handle cases *)
 and handle_case =
-  | CaseVal of pattern * comp (* val p -> c *)
-  | CaseOp of Name.ident * pattern list * comp (* op p1 ... pn -> c *)
-  | CaseFinally of pattern * comp (* finally p -> c *)
+  | CaseVal of match_case (* val p -> c *)
+  | CaseOp of Name.ident * multimatch_case (* op p1 ... pn -> c *)
+  | CaseFinally of match_case (* finally p -> c *)
 
 and match_case = pattern * comp
+
+and multimatch_case = pattern list * comp
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t

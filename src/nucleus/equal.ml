@@ -88,7 +88,7 @@ let rec equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   if Tt.alpha_equal e1 e2
   then Opt.return ctx
   else
-    Monad.lift (Value.operate "equal" env (Value.from_pair (Value.Term (ctx,e1,t), Value.Term (ctx,e2,t)))) >!= fun v ->
+    Monad.lift (Value.perform_equal env (Value.Term (ctx,e1,t)) (Value.Term (ctx,e2,t))) >!= fun v ->
     let loc = loc1 in
     match Value.as_option ~loc v with
       | Some v ->

@@ -140,7 +140,10 @@ let rec exec_cmd base_dir interactive env c =
      env
 
   | Syntax.TopHandle lst ->
-     List.fold_left (fun env (op, xc) -> Value.Env.add_handle op xc env) env lst
+     List.fold_left (fun env (op, xc) ->
+        let f = Eval.comp_handle env xc in
+        Value.Env.add_handle op f env)
+      env lst
 
   | Syntax.TopLet (x, c) ->
      let v = Eval.comp_value env c in
@@ -278,6 +281,12 @@ let main =
                 env
                 Value.predefined_tags
     in
+    (* Declare predefined operations *)
+    let env = List.fold_left
+                (fun env (x, k) -> Value.Env.add_operation ~loc:Location.unknown x k env)
+                env
+                Value.predefined_ops
+    in    
     (* Run and load all the specified files. *)
     let env = List.fold_left use_file env !files in
     if !Config.interactive_shell then

@@ -47,6 +47,8 @@ val eq_ident : ident -> ident -> bool
 (** Compare identifiers. *)
 val compare_ident : ident -> ident -> int
 
+module IdentMap : Map.S with type key = ident
+
 (** Compare atoms for equality. *)
 val eq_atom : atom -> atom -> bool
 

@@ -21,27 +21,27 @@ type dynamic = {
 type value =
   | Term of Judgement.term
   | Ty of Judgement.ty
-  | Closure of value closure
+  | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
 
-and 'a closure = dynamic -> value -> 'a result
+and ('a,'b) closure = dynamic -> 'a -> 'b result
 
 and 'a result =
   | Return of 'a
-  | Perform of Name.ident * value list * dynamic * 'a closure
+  | Perform of Name.ident * value list * dynamic * (value,'a) closure
 
 and handler = {
-  handler_val: value closure option;
-  handler_ops: (Name.ident * (dynamic -> value -> value closure -> value result)) list;
-  handler_finally: value closure option;
+  handler_val: (value,value) closure option;
+  handler_ops: (value list * (value,value) closure, value) closure Name.IdentMap.t;
+  handler_finally: (value,value) closure option;
 }
 
 (** Run-time environment. *)
 type env = {
   bound : (Name.ident * value) list;
-  continuation : value closure option;
-  handle : (string * (Name.ident * Syntax.comp)) list;
+  continuation : (value,value) closure option;
+  handle : (Name.ident * (value list,value) closure) list;
   files : string list;
   dynamic : dynamic;
 }
@@ -168,7 +168,7 @@ let return_handler env handler_val handler_ops handler_finally =
   let option_map g = function None -> None | Some x -> Some (g x) in
   let h = {
     handler_val = option_map (mk_closure' env) handler_val ;
-    handler_ops = List.map (fun (op, f) -> (op, mk_closure' env f)) handler_ops ;
+    handler_ops = Name.IdentMap.map (fun f -> mk_closure' env f) handler_ops ;
     handler_finally = option_map (mk_closure' env) handler_finally ;
   } in
   Return (Handler h)
@@ -176,6 +176,15 @@ let return_handler env handler_val handler_ops handler_finally =
 let perform op env vs =
   let k _ = return in
   Perform (op, vs, env.dynamic, k)
+
+let name_equal = Name.make "equal"
+
+let predefined_ops = [
+  (name_equal, 2)
+]
+
+let perform_equal env v1 v2 =
+  perform name_equal env [v1;v2]
 
 let to_value ~loc = function
   | Return v -> v
@@ -315,11 +324,17 @@ module Env = struct
     in
     lookup env.dynamic.decls
 
+  let lookup_operation x env =
+    match lookup_decl x env with
+    | None -> None
+    | Some (Operation k) -> Some k
+    | Some (Data _ | Constant _) -> None
+
   let lookup_constant x env =
     match lookup_decl x env with
     | None -> None
     | Some (Constant c) -> Some c
-    | Some (Data _) -> None
+    | Some (Data _ | Operation _) -> None
 
   let lookup_abstracting env = env.dynamic.abstracting
 
@@ -333,6 +348,11 @@ module Env = struct
     match lookup_decl x env with
     | None -> false
     | Some _ -> true
+
+  let add_operation ~loc x k env =
+    if is_declared x env
+    then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+    else { env with dynamic = {env.dynamic with decls = (x, Operation k) :: env.dynamic.decls }}
 
   let add_data ~loc x k env =
     if is_declared x env
@@ -398,6 +418,8 @@ module Env = struct
                        (Tt.print_constsig forbidden_names t)
         | (x, Data k) ->
            Print.print ppf "@[<hov 4>data %t %d@]@\n" (Name.print_ident x) k
+        | (x, Operation k) ->
+           Print.print ppf "@[<hov 4>operation %t %d@]@\n" (Name.print_ident x) k
       )
       (List.rev env.dynamic.decls) ;
     Print.print ppf "-----END-----@."
@@ -613,61 +635,106 @@ module Env = struct
        | Syntax.Tt_Projection _) , _ ->
        raise Match_fail
 
+  let rec collect_pattern env xvs (p,loc) v =
+    match p, v with 
+    | Syntax.Patt_Anonymous, _ -> xvs
 
-  let match_pattern env xs p v =
-    (* collect values of pattern variables *)
-    let rec collect xvs (p,loc) v =
-      match p, v with 
-      | Syntax.Patt_Anonymous, _ -> xvs
+    | Syntax.Patt_As (p,k), v ->
+       let xvs = try
+           let v' = List.assoc k xvs in
+           if equal_value v v'
+           then xvs
+           else raise Match_fail
+         with Not_found -> (k,v) :: xvs
+       in
+       collect_pattern env xvs p v
 
-      | Syntax.Patt_As (p,k), v ->
-         let xvs = try
-             let v' = List.assoc k xvs in
-             if equal_value v v'
-             then xvs
-             else raise Match_fail
-           with Not_found -> (k,v) :: xvs
-         in
-         collect xvs p v
+    | Syntax.Patt_Bound k, v ->
+       let v' = lookup_bound ~loc k env in
+       if equal_value v v'
+       then xvs
+       else raise Match_fail
 
-      | Syntax.Patt_Bound k, v ->
-         let v' = lookup_bound ~loc k env in
-         if equal_value v v'
-         then xvs
-         else raise Match_fail
+    | Syntax.Patt_Jdg (pe, pt), Term (ctx, e, t) ->
+       let Tt.Ty t' = t in
+       let {Tt.loc=loc;_} = t' in
+       let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
+       collect_tt_pattern env xvs pe ctx e t
 
-      | Syntax.Patt_Jdg (pe, pt), Term (ctx, e, t) ->
-         let Tt.Ty t' = t in
-         let {Tt.loc=loc;_} = t' in
-         let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
-         collect_tt_pattern env xvs pe ctx e t
+    | Syntax.Patt_Tag (tag, ps), Tag (tag', vs) when Name.eq_ident tag tag' ->
+      multicollect_pattern env xvs ps vs
 
-      | Syntax.Patt_Tag (tag, ps), Tag (tag', vs) when Name.eq_ident tag tag' ->
-         let rec fold xvs = function
-           | [], [] -> xvs
-           | p::ps, v::vs ->
-              let xvs = collect xvs p v in
-              fold xvs (ps, vs)
-           | ([], _::_ | _::_, []) ->
-              raise Match_fail
-         in
-         fold xvs (ps, vs)
+    | Syntax.Patt_Jdg _, (Ty _ | Closure _ | Handler _ | Tag _)
+    | Syntax.Patt_Tag _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _) ->
+       raise Match_fail
 
-      | Syntax.Patt_Jdg _, (Ty _ | Closure _ | Handler _ | Tag _)
-      | Syntax.Patt_Tag _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _) ->
-         raise Match_fail
+  and multicollect_pattern env xvs ps vs =
+    let rec fold xvs = function
+      | [], [] -> xvs
+      | p::ps, v::vs ->
+        let xvs = collect_pattern env xvs p v in
+        fold xvs (ps, vs)
+      | ([], _::_ | _::_, []) ->
+        raise Match_fail
     in
+    fold xvs (ps, vs)
+
+  let match_pattern env p v =
+    (* collect values of pattern variables *)
     try
-      let xvs = collect [] p v in
-      let (_, env) =
-        List.fold_left
-          (fun (k, env) x ->
-           let v = List.assoc k xvs in
-           (k - 1, add_bound x v env))
-          (List.length xs - 1, env)
-          xs
-      in
-      Some env
+      let xvs = collect_pattern env [] p v in
+      (* return in decreasing de bruijn order: ready to fold with add_bound *)
+      let xvs = List.sort (fun (k,_) (k',_) -> compare k k') xvs in
+      let xvs = List.rev_map snd xvs in
+      Some xvs
     with Match_fail -> None
-                         
+
+  let multimatch_pattern env ps vs =
+    try
+      let xvs = multicollect_pattern env [] ps vs in
+      (* return in decreasing de bruijn order: ready to fold with add_bound *)
+      let xvs = List.sort (fun (k,_) (k',_) -> compare k k') xvs in
+      let xvs = List.rev_map snd xvs in
+      Some xvs
+    with Match_fail -> None
+
 end (* [module Env] *)
+
+let rec handle_result env {handler_val; handler_ops; handler_finally} r =
+  begin match r with
+  | Return v ->
+     begin match handler_val with
+     | Some f -> apply_closure env f v
+     | None -> r
+     end
+  | Perform (op, vs, dyn, cont) ->
+     let env = Env.set_dynamic env dyn in
+     let h = {handler_val; handler_ops; handler_finally=None} in
+     let cont = mk_closure' env (fun env v -> handle_result env h (apply_closure env cont v)) in
+     begin
+       try
+         let f = Name.IdentMap.find op handler_ops in
+         f dyn (vs, cont)
+       with
+         Not_found ->
+           Perform (op, vs, dyn, cont)
+     end
+  end >>=
+  (fun v ->
+     match handler_finally with
+     | Some f -> apply_closure env f v
+     | None -> Return v)
+
+let rec top_handle ~loc env = function
+  | Return v -> v
+  | Perform (op, vs, dyn, k) ->
+     let env = Env.set_dynamic env dyn in
+     begin match Env.lookup_handle op env with
+      | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
+      | Some f ->
+        let r = apply_closure env f vs >>=
+          apply_closure env k
+        in
+        top_handle ~loc env r
+     end
+
