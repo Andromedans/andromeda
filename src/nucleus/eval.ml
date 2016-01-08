@@ -560,7 +560,8 @@ and check_lambda env ~loc ((ctx_check, t_check') as t_check) abs body : (Context
     begin
       (Equal.Monad.run (Equal.as_prod env t_check) >>= function
         | ((_, (_::_, _)),_) as ctx_xtst -> Value.return ctx_xtst
-        | ((_, ([], _)),_) -> Error.typing ~loc "this type %t should be a product" (print_ty env t_check')
+        | ((_, ([], _)),_) -> Error.impossible ~loc
+                "this type %t should be a product, and as_prod returned an empty product" (print_ty env t_check')
       ) >>= fun ((ctx, (zus, t_body)),hyps) ->
 
       (** [ys] are what got added to the environment, [xts] are what should be
@@ -633,7 +634,7 @@ and spine ~loc env ((_, e_head, t_head) as j_head) cs =
   Equal.Monad.run (Equal.as_prod env (Judgement.typeof j_head)) >>= begin function
     | ((_, (_::_, _)),_) as ctx_xtst -> Value.return ctx_xtst
     | ((_, ([], _)),_) ->
-       Error.typing ~loc "this expression is applied but its type is not a product"
+       Error.impossible ~loc "this expression is applied but its type is not a product, and as_prod returned an empty product"
   end >>= fun ((ctx, (xts, t_result)),hyps) ->
   let e_head = Tt.mention_atoms hyps e_head in
   let rec fold es xus ctx xts cs =

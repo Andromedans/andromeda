@@ -80,6 +80,10 @@ val perform_equal : env -> value -> value -> value result
 
 val perform_abstract : env -> value -> value -> value result
 
+val perform_as_prod : env -> value -> value result
+val perform_as_eq : env -> value -> value result
+val perform_as_signature : env -> value -> value result
+
 val handle_result : env -> handler -> value result -> value result
 
 val top_handle : loc:Location.t -> env -> 'a result -> 'a

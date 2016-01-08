@@ -16,6 +16,9 @@ module Monad = struct
   let return x =
     { k = fun c s -> c x s }
 
+  let (>>=) m f =
+    { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
+
   let lift m =
     { k = fun c s -> Value.bind m (fun x -> c x s) }
 
@@ -66,14 +69,20 @@ module Opt = struct
   let locally (m : 'a opt) : ('a*state) opt =
     { k = fun sk fk s -> m.k (fun x s' -> sk (x,s') (AtomSet.union s s')) fk Monad.empty }
 
+  let unfold (m : 'a opt) : 'a option Monad.t =
+    { Monad.k = fun c s -> m.k (fun x s' -> c (Some x) s') (fun s' -> c None s') s }
+
   let run m =
     m.k (fun x s -> Value.return (Some (x,s))) (fun _ -> Value.return None) AtomSet.empty
 end
+
+let (>>=) = Monad.(>>=)
 
 let (>?=) = Opt.(>?=)
 
 let (>!=) m f = (Opt.unfailing m) >?= f
 
+let (>?>=) m f = (Opt.unfold m) >>= f
 
 (* counter for debugging depth  *)
 let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
@@ -433,22 +442,48 @@ let reduce_step env ctx {Tt.term=e'; assumptions; loc} =
      Error.impossible ~loc "de Bruijn encountered in reduce"
 
 
-let as_prod env (ctx, ((Tt.Ty {Tt.term=t';loc;_}) as t)) =
-  match t' with
-    | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
-    | _ -> Monad.return (ctx, ([],t))
+let rec as_form : type a. (_ -> _ -> a Monad.t) -> _ -> _ -> _ -> _ -> a Monad.t =
+  fun triviality thing env (ctx, Tt.Ty ({Tt.term=t';loc;_} as t)) v ->
+  begin match Value.as_option ~loc v with
+    | None ->  Error.typing ~loc "this expression should be %s, found@ %t" thing
+                    (Tt.print_term [] t)
+    | Some v ->
+      let (ctxv,ev,tv) = Value.as_term ~loc v in
+      as_eq env (ctxv, tv) >>= fun (ctxv,tv,e1,e2) ->
+      (Opt.locally (equal_ty env ctxv tv Tt.typ) >?= fun (ctx,hypst) ->
+        let t1 = Tt.mention_atoms hypst e1
+        and t2 = Tt.mention_atoms hypst e2 in
+        let ctx = Context.join ~loc ctx ctxv in
+        equal env ctx t t1 Tt.typ >?= fun ctx ->
+        Monad.add_hyps (Tt.assumptions_term ev) >!= fun () ->
+        Opt.return (ctx,t2)
+      ) >?>= begin function
+        | None -> Error.typing ~loc:(ev.Tt.loc)
+                  "this expression %t should be a witness of equality between %t and %s"
+                  (Value.print_value [] v) (Tt.print_term [] t) thing
+        | Some (ctx,t) ->
+          triviality env (ctx, Tt.ty t)
+      end
+  end
 
-let as_eq env (ctx, ((Tt.Ty {Tt.term=t';loc;_}) as t)) =
+and as_eq env ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
-    | _ -> Error.typing ~loc
-                        "this expression should be an equality type, found@ %t"
-                        (Tt.print_ty [] t)
+    | _ ->
+      Monad.lift (Value.perform_as_eq env (Value.Term (Judgement.term_of_ty jt))) >>=
+      as_form as_eq "an equality type" env jt
 
-let as_signature env (ctx, ((Tt.Ty {Tt.term=t';loc;_}) as t)) =
+let rec as_prod env ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
+  match t' with
+    | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
+    | _ ->
+      Monad.lift (Value.perform_as_prod env (Value.Term (Judgement.term_of_ty jt))) >>=
+      as_form as_prod "a product type" env jt
+
+let rec as_signature env ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Signature xts -> Monad.return (ctx, xts)
-    | _ -> Error.typing ~loc
-                        "this expressing should be a signature, found@ %t"
-                        (Tt.print_ty [] t)
+    | _ ->
+      Monad.lift (Value.perform_as_signature env (Value.Term (Judgement.term_of_ty jt))) >>=
+      as_form as_signature "a signature type" env jt
 

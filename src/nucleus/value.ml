@@ -177,12 +177,18 @@ let perform op env vs =
   let k _ = return in
   Perform (op, vs, env.dynamic, k)
 
-let name_equal = Name.make "equal"
-let name_abstract = Name.make "abstract"
+let name_equal        = Name.make "equal"
+let name_abstract     = Name.make "abstract"
+let name_as_prod      = Name.make "as_prod"
+let name_as_eq        = Name.make "as_eq"
+let name_as_signature = Name.make "as_signature"
 
 let predefined_ops = [
-  (name_equal, 2) ;
-  (name_abstract, 2)
+  (name_equal       , 2) ;
+  (name_abstract    , 2) ;
+  (name_as_prod     , 1) ;
+  (name_as_eq       , 1) ;
+  (name_as_signature, 1) ;
 ]
 
 let perform_equal env v1 v2 =
@@ -190,6 +196,13 @@ let perform_equal env v1 v2 =
 
 let perform_abstract env v1 v2 =
   perform name_abstract env [v1;v2]
+
+let perform_as_prod env v =
+  perform name_as_prod env [v]
+let perform_as_eq env v =
+  perform name_as_eq env [v]
+let perform_as_signature env v =
+  perform name_as_signature env [v]
 
 let to_value ~loc = function
   | Return v -> v

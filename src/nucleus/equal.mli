@@ -34,7 +34,7 @@ val congruence : Value.Env.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->
 (** Convert a type to an equality type. *)
 val as_eq : Value.Env.t -> Judgement.ty -> (Context.t * Tt.ty * Tt.term * Tt.term) Monad.t
 
-(** Convert a type to a product. *)
+(** Convert a type to a product. Guarantees that it is not an empty product. *)
 val as_prod : Value.Env.t -> Judgement.ty -> (Context.t * Tt.ty Tt.ty_abstraction) Monad.t
 
 (** Convert a type to a signature. *)
