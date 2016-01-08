@@ -81,10 +81,12 @@ let rec infer env (c',loc) =
             in
             Some f
           end
-        and handler_ops = Name.IdentMap.map (fun cases ->
+        and handler_ops = Name.IdentMap.mapi (fun op cases ->
             let f env (vs,cont) =
               let env = Value.Env.set_continuation cont env in
-              multimatch_cases ~loc env cases vs
+              match multimatch_cases ~loc env cases vs with
+                | Some (env,c) -> infer env c
+                | None -> Value.perform op env vs
             in
             f)
           handler_ops
@@ -684,12 +686,12 @@ and match_cases ~loc env cases v =
 and multimatch_cases ~loc env cases vs =
   let rec fold = function
     | [] ->
-      Error.runtime ~loc "no match found for %t" (Print.sequence (print_value env) " " vs)
+      None
     | (xs, ps, c) :: cases ->
       begin match Value.Env.multimatch_pattern env ps vs with
         | Some vs ->
           let env = List.fold_left2 (fun env x v -> Value.Env.add_bound x v env) env (List.rev xs) vs in
-          infer env c
+          Some (env,c)
         | None -> fold cases
       end
   in
