@@ -178,13 +178,18 @@ let perform op env vs =
   Perform (op, vs, env.dynamic, k)
 
 let name_equal = Name.make "equal"
+let name_abstract = Name.make "abstract"
 
 let predefined_ops = [
-  (name_equal, 2)
+  (name_equal, 2) ;
+  (name_abstract, 2)
 ]
 
 let perform_equal env v1 v2 =
   perform name_equal env [v1;v2]
+
+let perform_abstract env v1 v2 =
+  perform name_abstract env [v1;v2]
 
 let to_value ~loc = function
   | Return v -> v
@@ -255,7 +260,7 @@ let mk_abstractable ~loc env ctx xs =
                   (Name.print_atom x) (Name.print_atom y)) in
               let vx = Term (Judgement.mk_term ctx (Tt.mk_atom ~loc x) xty)
               and vy = Term (Judgement.mk_term ctx (Tt.mk_atom ~loc y) yty) in
-              perform (Name.make "abstract") env [vx; vy] >>= fun v ->
+              perform_abstract env vx vy >>= fun v ->
               begin match as_option ~loc v with
                 | None ->
                   Error.runtime ~loc "Cannot abstract %t because %t depends on it in context@ %t."

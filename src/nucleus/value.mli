@@ -78,6 +78,8 @@ val predefined_ops : (Name.ident * int) list
 
 val perform_equal : env -> value -> value -> value result
 
+val perform_abstract : env -> value -> value -> value result
+
 val handle_result : env -> handler -> value result -> value result
 
 val top_handle : loc:Location.t -> env -> 'a result -> 'a
