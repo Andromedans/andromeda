@@ -95,7 +95,7 @@ let rec infer env (c',loc) =
           | [] -> None
           | _ :: _ ->
             let f env v =
-              match_cases ~loc env handler_val v
+              match_cases ~loc env handler_finally v
             in
             Some f
           end
