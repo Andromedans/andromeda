@@ -163,7 +163,8 @@
   \infer{\Gamma \vdash p \is \Eq{A}{a,b}}
         {\Gamma \vdash a \equiv_A b}
   \qquad\qquad
-  p \equiv_{\Eq{A}{a,b}} \refl{A}{a}
+  \infer{\Gamma \vdash p, q \is \Eq{A}{a,b}}
+        {\Gamma \vdash p \equiv_{\Eq{A}{a,b}} q}
 \end{equation*}
 
 % Congruences
@@ -223,12 +224,51 @@
   p &\is \Eq{\Type}{A,B}
 \end{align*}
 
-% Messing things up with a strange context
+% Type family
 
 \begin{align*}
-  & p \of \Eq{\Type}{\nat \to \nat, \nat \to \bool} \\
+  x \of A &\vdash B \isType \\
+  x \of A &\vdash B \is \Type \\
+          &\vdash (\lam{x : A} B) \is A \to \Type
+\end{align*}
+
+% Messing things up with a strange context
+
+\newpage
+\noindent
+Suppose $p \of \Eq{\Type}{\nat \to \nat, \nat \to \bool}$, so by
+reflection $\nat \to \nat \equiv_\Type \nat \to \bool$.
+The map $f \defeq (\lam{n \of \nat} n)$ has type $\nat \to \bool$,
+and we claim it is injective. Suppose $x, y \of \nat$ and $f\, x \equiv_\bool f \, y$.
+Either $f \, x \equiv_\bool \false$ or $f \, x \equiv_\bool \true$, consider
+$f \, x \equiv_\bool \true$, the other case is symmetric.
+Define $g \of \bool \to \nat$ by
+%
+$$g \defeq \lam{b \of \bool}
+  \mathtt{if}\; b \; \mathtt{then} \; x \; \mathtt{else} \; y$$
+%
+and compute
+%
+\begin{multline*}
+  x \equiv_\nat
+  g \, (f \, x) \equiv_\nat
+  g \, (f \, y) \equiv_\nat \\
+  g \, ((\lam{n \of \nat} n)\, x) \equiv_\nat
+  g \, ((\lam{n \of \nat} n)\, y) \equiv_\nat
+  g \, 
+\end{multline*}
+
+
+
+
+Therefore $0 = 1$ or $1 = 2$ or $0 = 2$.\\
+
+
+\begin{align*}
+  & p \of \Eq{\Type}{\nat \to \nat, \nat \to \bool},\\
+  & m \of \nat \\
   &{\vdash} \\
-  & (\lam{x \of \nat} x) \, 0 \is \bool
+  & m \equiv_\bool (\lam{x \of \nat} x) m \is \bool
 \end{align*}
 
 % Natural numbers
