@@ -201,7 +201,14 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
     | Input.Patt_Name x ->
       begin match Name.index_of_ident x bound with
         | None ->
-          Error.syntax ~loc "unknown value name %t" (Name.print_ident x)
+          begin match Value.Env.lookup_data x env with
+            | Some k ->
+              if k = 0
+              then (Syntax.Patt_Tag (x,[]), loc), vars, n
+              else Error.syntax ~loc "the data constructor %t expects %d arguments but is matched with 0"
+                  (Name.print_ident x) k
+            | None -> Error.syntax ~loc "unknown value name %t" (Name.print_ident x)
+          end
         | Some k ->
             (Syntax.Patt_Bound k, loc), vars, n
       end

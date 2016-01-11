@@ -348,6 +348,12 @@ module Env = struct
     | Some (Operation k) -> Some k
     | Some (Data _ | Constant _) -> None
 
+  let lookup_data x env =
+    match lookup_decl x env with
+    | None -> None
+    | Some (Data k) -> Some k
+    | Some (Operation _ | Constant _) -> None
+
   let lookup_constant x env =
     match lookup_decl x env with
     | None -> None

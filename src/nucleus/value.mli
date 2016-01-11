@@ -128,6 +128,9 @@ module Env : sig
   (** Lookup an operation *)
   val lookup_operation : Name.ident -> env -> int option
 
+  (** Lookup a data constructor *)
+  val lookup_data : Name.ident -> env -> int option
+
   (** Lookup a constant. *)
   val lookup_constant : Name.ident -> env -> Tt.constsig option
 
