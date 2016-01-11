@@ -1,5 +1,10 @@
 %{
   open Input
+
+  let tt_spine h lst =
+    let loc = snd h in
+    List.fold_left (fun h e -> Tt_App (h, e), loc) h lst
+
 %}
 
 (* Type *)
@@ -172,14 +177,14 @@ plain_app_term:
                                                       | Tag (t, []) -> Tag (t, es)
                                                       | _ -> Spine (e, es) }
   | CONGRUENCE t1=prefix_term t2=prefix_term        { Congruence (t1,t2) }
-  | REDUCE t=prefix_term                            { Reduce t }
-  | TYPEOF t=prefix_term                            { Typeof t }
-  | REFL e=prefix_term                              { Refl e }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:
   | e=plain_simple_term                        { e }
-  | op=PREFIXOP e2=prefix_term  { let e1 = Var (Name.make ~fixity:Name.Prefix (fst op)), snd op in Spine (e1, [e2]) }
+  | op=PREFIXOP e2=prefix_term                 { let e1 = Var (Name.make ~fixity:Name.Prefix (fst op)), snd op in Spine (e1, [e2]) }
+  | REDUCE t=prefix_term                       { Reduce t }
+  | TYPEOF t=prefix_term                       { Typeof t }
+  | REFL e=prefix_term                         { Refl e }
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
@@ -257,17 +262,41 @@ handler_cases:
   | lst=separated_list(BAR, handler_case)               { lst }
 
 handler_case:
-  | VAL p=pattern DARROW t=term                     { CaseVal (p, t) }
-  | op=var_name ps=simple_pattern* DARROW t=term    { CaseOp (op, (ps, t)) } (* TODO infix operations *)
-  | FINALLY p=pattern DARROW t=term                 { CaseFinally (p, t) }
+  | VAL p=pattern DARROW t=term                                 { CaseVal (p, t) }
+  | op=var_name ps=prefix_pattern* DARROW t=term                { CaseOp (op, (ps, t)) }
+  | op=PREFIXOP p=prefix_pattern DARROW t=term
+    { let op = Name.make ~fixity:Name.Prefix (fst op) in CaseOp (op, ([p], t)) }
+  | p1=binop_pattern op=INFIXOP0 p2=binop_pattern DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix0 (fst op) in CaseOp (op, ([p1; p2], t)) }
+  | p1=binop_pattern op=INFIXOP1 p2=binop_pattern DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix1 (fst op) in CaseOp (op, ([p1; p2], t)) }
+  | p1=binop_pattern op=INFIXOP2 p2=binop_pattern DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix2 (fst op) in CaseOp (op, ([p1; p2], t)) }
+  | p1=binop_pattern op=INFIXOP3 p2=binop_pattern DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix3 (fst op) in CaseOp (op, ([p1; p2], t)) }
+  | p1=binop_pattern op=INFIXOP4 p2=binop_pattern DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix4 (fst op) in CaseOp (op, ([p1; p2], t)) }
+  | FINALLY p=pattern DARROW t=term                             { CaseFinally (p, t) }
 
 top_handler_cases:
   | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }
   | lst=separated_list(BAR, top_handler_case)               { lst }
 
-(* XXX allow patterns and infixes here *)
+(* XXX allow patterns here *)
 top_handler_case:
   | op=var_name xs=name* DARROW t=term                    { (op, xs, t) }
+  | op=PREFIXOP x=name DARROW t=term
+    { let op = Name.make ~fixity:Name.Prefix (fst op) in (op, [x], t) }
+  | x1=name op=INFIXOP0 x2=name DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix0 (fst op) in (op, [x1;x2], t) }
+  | x1=name op=INFIXOP1 x2=name DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix1 (fst op) in (op, [x1;x2], t) }
+  | x1=name op=INFIXOP2 x2=name DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix2 (fst op) in (op, [x1;x2], t) }
+  | x1=name op=INFIXOP3 x2=name DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix3 (fst op) in (op, [x1;x2], t) }
+  | x1=name op=INFIXOP4 x2=name DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix4 (fst op) in (op, [x1;x2], t) }
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
@@ -317,7 +346,7 @@ plain_simple_pattern:
   | x=var_name                     { Patt_Name x } 
   | LPAREN p=plain_pattern RPAREN  { p }
 
-tt_pattern: mark_location(plain_tt_pattern) { $1 } (* TODO infix tt_pattern *)
+tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
   | p=plain_equal_tt_pattern                  { p }
   | LAMBDA bs=tt_binder+ COMMA p=tt_pattern   { fst (List.fold_right
@@ -332,15 +361,35 @@ plain_tt_pattern:
 
 equal_tt_pattern: mark_location(plain_equal_tt_pattern) { $1 }
 plain_equal_tt_pattern:
-  | p=plain_app_tt_pattern                    { p }
-  | p1=app_tt_pattern EQEQ p2=app_tt_pattern  { Tt_Eq (p1, p2) }
+  | p=plain_binop_tt_pattern                      { p }
+  | p1=binop_tt_pattern EQEQ p2=binop_tt_pattern  { Tt_Eq (p1, p2) }
+
+binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
+plain_binop_tt_pattern:
+  | p=plain_app_tt_pattern                        { p }
+  | e1=binop_tt_pattern op=INFIXOP0 e2=binop_tt_pattern
+    { let op = Tt_Name (Name.make ~fixity:Name.Infix0 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
+  | e1=binop_tt_pattern op=INFIXOP1 e2=binop_tt_pattern
+    { let op = Tt_Name (Name.make ~fixity:Name.Infix1 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
+  | e1=binop_tt_pattern op=INFIXOP2 e2=binop_tt_pattern
+    { let op = Tt_Name (Name.make ~fixity:Name.Infix2 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
+  | e1=binop_tt_pattern op=INFIXOP3 e2=binop_tt_pattern
+    { let op = Tt_Name (Name.make ~fixity:Name.Infix3 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
+  | e1=binop_tt_pattern op=INFIXOP4 e2=binop_tt_pattern
+    { let op = Tt_Name (Name.make ~fixity:Name.Infix4 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
 
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
-  | p=plain_simple_tt_pattern                 { p }
+  | p=plain_prefix_tt_pattern                 { p }
   | p=app_tt_pattern AS x=patt_var            { Tt_As (p,x) }
-  | p1=app_tt_pattern p2=simple_tt_pattern    { Tt_App (p1, p2) }
-  | REFL p=simple_tt_pattern                  { Tt_Refl p }
+  | p1=app_tt_pattern p2=prefix_tt_pattern    { Tt_App (p1, p2) }
+
+prefix_tt_pattern: mark_location(plain_prefix_tt_pattern) { $1 }
+plain_prefix_tt_pattern:
+  | p=plain_simple_tt_pattern                 { p }
+  | REFL p=prefix_tt_pattern                  { Tt_Refl p }
+  | op=PREFIXOP e=prefix_tt_pattern
+    { let op = Tt_Name (Name.make ~fixity:Name.Infix4 (fst op)), snd op in Tt_App (op, e) }
 
 simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:

@@ -1,5 +1,3 @@
-data nil 0
-data cons 2
 data cow 0
 data bull 0
 
