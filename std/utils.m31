@@ -1,0 +1,25 @@
+
+(** list stuff *)
+let rev =
+  let rec rev acc = fun lst => match lst with
+    | nil => acc
+    | cons ?x ?tl => rev (cons x acc) tl
+    end
+  in rev nil
+
+let rec fold f acc lst = match lst with
+  | nil => acc
+  | cons ?x ?tl => fold (f acc x) tl
+  end
+
+
+(** pair stuff *)
+let fst = fun v => match v with
+  | pair ?v _ => v
+  end
+
+let snd = fun v => match v with
+  | pair _ ?v => v
+  end
+
+
