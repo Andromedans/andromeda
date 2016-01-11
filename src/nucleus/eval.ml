@@ -326,10 +326,10 @@ let rec infer env (c',loc) =
         let eq = Tt.mk_refl ~loc t e1 in
         let eq = Tt.mention_atoms hyps eq in
         let teq = Tt.mk_eq_ty ~loc t e1 e2 in
-        Value.return_term (ctx,eq,teq)
-      | None ->
-        Error.typing ~loc "Structural equality failed on %t and %t."
-                          (print_term env e1) (print_term env e2)
+        let j = Judgement.mk_term ctx eq teq in
+        let v = Value.Term j in
+        Value.return (Value.from_option (Some v))
+      | None -> Value.return (Value.from_option None)
       end
 
 and require_equal env ctx e1 e2 t =
