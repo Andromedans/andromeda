@@ -6,6 +6,8 @@ type equal_ty = Context.t * Tt.ty * Tt.ty
 
 let typeof (ctx, _, t) = (ctx, t)
 
+let term_of_ty (ctx,Tt.Ty ({Tt.loc=loc;_} as t)) = (ctx,t,Tt.mk_type_ty ~loc)
+
 let mk_term ctx e t = (ctx, e, t)
 
 let mk_ty ctx t = (ctx, t)

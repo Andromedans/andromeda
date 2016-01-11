@@ -19,8 +19,6 @@ and tt_pattern' =
   | Tt_Prod of bool * Name.ident * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
-  | Tt_Inhab
-  | Tt_Bracket of tt_pattern
   | Tt_Signature of (Name.ident * bool * Name.ident option * tt_pattern) list
   | Tt_Structure of (Name.ident * bool * Name.ident option * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
@@ -32,7 +30,7 @@ and pattern' =
   | Patt_Var of Name.ident
   | Patt_Name of Name.ident
   | Patt_Jdg of tt_pattern * tt_pattern
-  | Patt_Tag of Name.ident * pattern list
+  | Patt_Data of Name.ident * pattern list
 
 (** Sugared terms *)
 type term = term' * Location.t
@@ -44,7 +42,6 @@ and term' =
   | Rec of Name.ident * Name.ident list * comp
   | Handler of handle_case list
   (* computations *)
-  | Operation of string * expr
   | Handle of comp * handle_case list
   | With of expr * comp
   | Tag of Name.ident * comp list
@@ -52,13 +49,8 @@ and term' =
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
-  | Beta of (string list * comp) list * comp
-  | Eta of (string list * comp) list * comp
-  | Hint of (string list * comp) list * comp
-  | Inhabit of (string list * comp) list * comp
-  | Unhint of string list * comp
   | Ascribe of comp * ty
-  | Whnf of comp
+  | Reduce of comp
   | External of string
   | Typeof of comp
   | Lambda of (Name.ident * comp option) list * comp
@@ -66,13 +58,12 @@ and term' =
   | Prod of (Name.ident * ty) list * comp
   | Eq of comp * comp
   | Refl of comp
-  | Bracket of comp
-  | Inhab
   | Signature of (Name.ident * Name.ident option * ty) list
   | Structure of (Name.ident * Name.ident option * comp) list
   | Projection of comp * Name.ident
   | Yield
   | Context
+  | Congruence of comp * comp
 
 (** Sugared types *)
 and ty = term
@@ -85,25 +76,24 @@ and expr = term
 
 (** Handle cases *)
 and handle_case =
-  | CaseVal of pattern * comp (* val p -> c *)
-  | CaseOp of string * pattern * comp (* #op p -> c *)
-  | CaseFinally of pattern * comp (* finally p -> c *)
-                                  
+  | CaseVal of match_case (* val p -> c *)
+  | CaseOp of Name.ident * multimatch_case (* op p1 ... pn -> c *)
+  | CaseFinally of match_case (* finally p -> c *)
+
 and match_case = pattern * comp
+
+and multimatch_case = pattern list * comp
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
+  | Operation of Name.ident * int
+  | Data of Name.ident * int
   | Axiom of Name.ident * (bool * (Name.ident * ty)) list * ty
     (** introduce a primitive constant, the boolean is [true] if the argument is eagerly reducing *)
-  | TopHandle of (string * Name.ident * comp) list 
+  | TopHandle of (Name.ident * Name.ident list * comp) list
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
-  | TopBeta of (string list * comp) list (** global beta hint *)
-  | TopEta of (string list * comp) list (** global eta hint *)
-  | TopHint of (string list * comp) list (** global hint *)
-  | TopInhabit of (string list * comp) list (** global inhabit hint *)
-  | TopUnhint of string list
   | Verbosity of int
   | Include of string list
   | Quit (** quit the toplevel *)

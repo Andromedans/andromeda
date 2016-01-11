@@ -1,19 +1,14 @@
 (** Runtime values and results *)
 
-module HintMap = Map.Make(struct
-    type t = Pattern.hint_key
-    let compare = Pervasives.compare
-  end)
-
-module GeneralMap = Map.Make(struct
-    type t = Pattern.general_key
-    let compare = Pervasives.compare
-  end)
+(* Information about a toplevel declaration *)
+type decl =
+  | Constant of Tt.constsig
+  | Data of int
+  | Operation of int
 
 type dynamic = {
-  constants : (Name.ident * Tt.constsig) list;
-  (* Currently declared constants. Since these can only be declared at the
-     top level, the list only ever increases. *)
+  decls : (Name.ident * decl) list ;
+  (* Toplevel declaration *)
 
   abstracting : Judgement.term list;
   (* The list of judgments about atoms which are going to be abstracted. We
@@ -21,38 +16,32 @@ type dynamic = {
      abstraction from working. The list is in the reverse order from
      abstraction, i.e., the inner-most abstracted variable appears first in the
      list. *)
-  
-  (* XXX hopefully one day the hints won't be in the kernel *)
-  beta : (string list list * Pattern.beta_hint list) HintMap.t;
-  eta : (string list list * Pattern.eta_hint list) HintMap.t;
-  general : (string list list * Pattern.general_hint list) GeneralMap.t;
-  inhabit : (string list list * Pattern.inhabit_hint list) HintMap.t;
 }
 
 type value =
   | Term of Judgement.term
   | Ty of Judgement.ty
-  | Closure of value closure
+  | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
 
-and 'a closure = dynamic -> value -> 'a result
+and ('a,'b) closure = dynamic -> 'a -> 'b result
 
 and 'a result =
   | Return of 'a
-  | Operation of string * value * dynamic * 'a closure
+  | Perform of Name.ident * value list * dynamic * (value,'a) closure
 
 and handler = {
-  handler_val: value closure option;
-  handler_ops: (string * (dynamic -> value -> value closure -> value result)) list;
-  handler_finally: value closure option;
+  handler_val: (value,value) closure option;
+  handler_ops: (value list * (value,value) closure, value) closure Name.IdentMap.t;
+  handler_finally: (value,value) closure option;
 }
 
-(** An environment holds constant signatures, hints and other. *)
+(** Run-time environment. *)
 type env = {
   bound : (Name.ident * value) list;
-  continuation : value closure option;
-  handle : (string * (Name.ident * Syntax.comp)) list;
+  continuation : (value,value) closure option;
+  handle : (Name.ident * (value list,value) closure) list;
   files : string list;
   dynamic : dynamic;
 }
@@ -67,9 +56,9 @@ let apply_closure env f v = f env.dynamic v
 let rec bind r f =
   match r with
   | Return v -> f v
-  | Operation (op, v, d, k) -> 
+  | Perform (op, vs, d, k) -> 
      let k d x = bind (k d x) f in
-     Operation (op, v, d, k)
+     Perform (op, vs, d, k)
 
 let print_closure xs _ ppf =
   Print.print ~at_level:0 ppf "<function>"
@@ -79,8 +68,8 @@ let print_handler xs h ppf =
 
 let rec print_tag ?max_level xs t lst ppf =
   match lst with
-  | [] -> Print.print ?max_level ~at_level:0 ppf "'%t" (Name.print_ident t)
-  | (_::_) -> Print.print ?max_level ~at_level:1 ppf "'%t %t"
+  | [] -> Print.print ?max_level ~at_level:0 ppf "%t" (Name.print_ident t)
+  | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t %t"
                           (Name.print_ident t)
                           (Print.sequence (print_value ~max_level:0 xs) "" lst)
 
@@ -128,21 +117,44 @@ let as_handler ~loc = function
   | Handler h -> h
   | Tag _  -> Error.runtime ~loc "expected a handler but got a tag"
 
-let tsome = Name.make "some"
-let tnone = Name.make "none"
+let name_some = Name.make "Some"
+let name_none = Name.make "None"
+let name_pair = Name.make "pair"
+let name_cons = Name.make "cons"
+let name_nil = Name.make "nil"
+let name_unit = Name.make "tt"
+
+let predefined_tags = [
+  (name_some, 1);
+  (name_none, 0);
+  (name_pair, 2);
+  (name_cons, 2);
+  (name_nil, 0);
+  (name_unit, 0);
+]
 
 let as_option ~loc = function
   | Term _ -> Error.runtime ~loc "expected an option but got a term"
   | Ty _ -> Error.runtime ~loc "expected an option but got a type"
   | Closure _ -> Error.runtime ~loc "expected an option but got a function"
   | Handler h -> Error.runtime ~loc "expected an option but got a handler"
-  | Tag (t,[]) when (Name.eq_ident t tnone)  -> None
-  | Tag (t,[x]) when (Name.eq_ident t tsome) -> Some x
+  | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
+  | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
   | Tag _ -> Error.runtime ~loc "expected an option but got a tag"
 
-let mk_tag t lst =
-  let t = Name.make t in
-  Tag (t, lst)
+let from_option = function
+  | None -> Tag (name_none, [])
+  | Some v -> Tag (name_some, [v])
+
+let from_pair (v1, v2) = Tag (name_pair, [v1; v2])
+
+let from_unit () = Tag (name_unit, [])
+
+let rec from_list = function
+  | [] -> Tag (name_nil, [])
+  | v :: vs -> Tag (name_cons, [v; from_list vs])
+
+let mk_tag t lst = Tag (t, lst)
 
 let return x = Return x
 
@@ -156,19 +168,48 @@ let return_handler env handler_val handler_ops handler_finally =
   let option_map g = function None -> None | Some x -> Some (g x) in
   let h = {
     handler_val = option_map (mk_closure' env) handler_val ;
-    handler_ops = List.map (fun (op, f) -> (op, mk_closure' env f)) handler_ops ;
+    handler_ops = Name.IdentMap.map (fun f -> mk_closure' env f) handler_ops ;
     handler_finally = option_map (mk_closure' env) handler_finally ;
   } in
   Return (Handler h)
 
-let operate op env v =
+let perform op env vs =
   let k _ = return in
-  Operation (op, v, env.dynamic, k)
+  Perform (op, vs, env.dynamic, k)
+
+let name_equal        = Name.make "equal"
+let name_abstract     = Name.make "abstract"
+let name_as_prod      = Name.make "as_prod"
+let name_as_eq        = Name.make "as_eq"
+let name_as_signature = Name.make "as_signature"
+
+let predefined_ops = [
+  (name_equal       , 2) ;
+  (name_abstract    , 2) ;
+  (name_as_prod     , 1) ;
+  (name_as_eq       , 1) ;
+  (name_as_signature, 1) ;
+]
+
+let perform_equal env v1 v2 =
+  perform name_equal env [v1;v2]
+
+let perform_abstract env v1 v2 =
+  perform name_abstract env [v1;v2]
+
+let perform_as_prod env v =
+  perform name_as_prod env [v]
+let perform_as_eq env v =
+  perform name_as_eq env [v]
+let perform_as_signature env v =
+  perform name_as_signature env [v]
 
 let to_value ~loc = function
   | Return v -> v
-  | Operation (op, v, _, _) ->
-     Error.runtime ~loc "unhandled operation %t %t" (Name.print_op op) (print_value ~max_level:0 [] v)
+  | Perform (op, vs, _, _) ->
+     Error.runtime ~loc "unhandled operation %t %t"
+                   (Name.print_ident op)
+                   (Print.sequence (print_value ~max_level:0 []) " " vs)
 
 let rec equal_value v1 v2 =
   match v1, v2 with
@@ -232,8 +273,7 @@ let mk_abstractable ~loc env ctx xs =
                   (Name.print_atom x) (Name.print_atom y)) in
               let vx = Term (Judgement.mk_term ctx (Tt.mk_atom ~loc x) xty)
               and vy = Term (Judgement.mk_term ctx (Tt.mk_atom ~loc y) yty) in
-              let vpair = Tag (Name.make "pair", [vx;vy]) in
-              operate "abstract" env vpair >>= fun v ->
+              perform_abstract env vx vy >>= fun v ->
               begin match as_option ~loc v with
                 | None ->
                   Error.runtime ~loc "Cannot abstract %t because %t depends on it in context@ %t."
@@ -282,59 +322,43 @@ module Env = struct
     continuation = None ;
     files = [] ;
     dynamic = {
-      constants = [] ;
+      decls = [] ;
       abstracting = [] ;
-      beta = HintMap.empty ;
-      eta = HintMap.empty ;
-      general = GeneralMap.empty ;
-      inhabit = HintMap.empty
     }
   }
 
-  let find k hs = try HintMap.find k hs with Not_found -> [], []
-  let find3 k hs = try GeneralMap.find k hs with Not_found -> [], []
-
   let set_dynamic env dyn = {env with dynamic = dyn}
-
-  let eta_hints key env = snd @@ find key env.dynamic.eta
-
-  let beta_hints key env = snd @@ find key env.dynamic.beta
-
-  let general_hints (key1, key2, key3) env = 
-    let keys = env.dynamic.general in
-    let search3 k1 k2 =
-      match key3 with
-      | Some _ -> snd (find3 (k1, k2, key3) keys) @ snd (find3 (k1, k2, None) keys)
-      | None -> snd (find3 (k1, k2, None) keys)
-    in
-    let search2 k1 =
-      match key2 with
-      | Some _ -> search3 k1 key2 @ (search3 k1 None)
-      | None -> search3 k1 None
-    in
-    let search1 =
-      match key1 with
-      | Some _ -> search2 key1 @ (search2 None)
-      | None -> search2 None
-    in search1
-
-  let inhabit_hints key env = snd @@ find key env.dynamic.inhabit
 
   let bound_names env = List.map fst env.bound
 
-  let constants env =
-    List.map (fun (x, (yts, _)) -> (x, List.length yts)) env.dynamic.constants
-
   let used_names env =
-    List.map fst env.bound @ List.map fst env.dynamic.constants
+    List.map fst env.bound @ List.map fst env.dynamic.decls
 
-  let lookup_constant x env =
+  let lookup_decl x env = 
     let rec lookup = function
       | [] -> None
       | (y,v) :: lst ->
          if Name.eq_ident x y then Some v else lookup lst
     in
-    lookup env.dynamic.constants
+    lookup env.dynamic.decls
+
+  let lookup_operation x env =
+    match lookup_decl x env with
+    | None -> None
+    | Some (Operation k) -> Some k
+    | Some (Data _ | Constant _) -> None
+
+  let lookup_data x env =
+    match lookup_decl x env with
+    | None -> None
+    | Some (Data k) -> Some k
+    | Some (Operation _ | Constant _) -> None
+
+  let lookup_constant x env =
+    match lookup_decl x env with
+    | None -> None
+    | Some (Constant c) -> Some c
+    | Some (Data _ | Operation _) -> None
 
   let lookup_abstracting env = env.dynamic.abstracting
 
@@ -344,84 +368,25 @@ module Env = struct
     with
     | Failure _ -> Error.impossible ~loc "invalid de Bruijn index %d" k
 
-  let is_bound x env =
-    match lookup_constant x env with
+  let is_declared x env =
+    match lookup_decl x env with
     | None -> false
     | Some _ -> true
 
+  let add_operation ~loc x k env =
+    if is_declared x env
+    then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+    else { env with dynamic = {env.dynamic with decls = (x, Operation k) :: env.dynamic.decls }}
+
+  let add_data ~loc x k env =
+    if is_declared x env
+    then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+    else { env with dynamic = {env.dynamic with decls = (x, Data k) :: env.dynamic.decls }}
+
   let add_constant ~loc x ytsu env =
-    if is_bound x env
-    then Error.runtime ~loc "%t already exists" (Name.print_ident x)
-    else { env with dynamic = {env.dynamic with constants = (x, ytsu) :: env.dynamic.constants }}
-
-  let add_beta (key, hint) env =
-    { env with dynamic = { env.dynamic with
-      beta =
-        let tags, hints = find key env.dynamic.beta in
-        HintMap.add key ([] :: tags, hint :: hints) env.dynamic.beta
-    }}
-
-  let add_betas xshs env =
-    { env with dynamic = { env.dynamic with
-      beta =
-        List.fold_left
-          (fun db (xs, (key, h)) ->
-           let tags, hints = find key db in
-           HintMap.add key (xs :: tags, h :: hints) db)
-          env.dynamic.beta xshs
-    }}
-
-  let add_etas xshs env =
-    { env with dynamic = { env.dynamic with
-      eta =
-        List.fold_left
-          (fun db (xs, (key, h)) ->
-           let tags, hints = find key db in
-           HintMap.add key (xs :: tags, h :: hints) db)
-          env.dynamic.eta xshs
-    }}
-
-  let add_generals xshs env =
-    { env with dynamic = { env.dynamic with
-      general =
-        List.fold_left
-          (fun db (xs, (key, h)) ->
-           let tags, hints = find3 key db in
-           GeneralMap.add key (xs :: tags, h :: hints) db)
-          env.dynamic.general xshs
-    }}
-
-  let add_inhabits xshs env =
-    { env with dynamic = { env.dynamic with
-      inhabit =
-        List.fold_left
-          (fun db (xs, (key, h)) ->
-           let tags, hints = find key db in
-           HintMap.add key (xs :: tags, h :: hints) db)
-          env.dynamic.inhabit xshs
-    }}
-
-  let unhint ~loc untags env =
-    let pred = List.exists (fun x -> List.mem x untags) in
-    let rec fold xs' hs' tags hints =
-      match tags, hints with
-      | [], [] -> List.rev xs', List.rev hs'
-      | xs::tags, h::hints ->
-         let xs', hs' =
-           if pred xs
-           then xs', hs'
-           else xs::xs', h::hs' in
-         (fold xs' hs') tags hints
-      | [], _::_ | _::_, [] ->
-                    Error.impossible ~loc "Number of hints different from number of tags"
-
-    in let f (tags, hints) = fold [] [] tags hints in
-       { env with dynamic = { env.dynamic with
-         beta = HintMap.map f env.dynamic.beta ;
-         eta = HintMap.map f env.dynamic.eta ;
-         general = GeneralMap.map f env.dynamic.general ;
-         inhabit = HintMap.map f env.dynamic.inhabit ;
-       }}
+    if is_declared x env
+    then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+    else { env with dynamic = {env.dynamic with decls = (x, Constant ytsu) :: env.dynamic.decls }}
 
   let add_bound x v env =
     { env with bound = (x, v) :: env.bound }
@@ -448,8 +413,8 @@ module Env = struct
     in
     ctx, y, env
 
-  let add_handle op xc env =
-    { env with handle = (op, xc) :: env.handle }
+  let add_handle op xsc env =
+    { env with handle = (op, xsc) :: env.handle }
 
   let lookup_handle op {handle=lst;_} =
     try
@@ -471,10 +436,16 @@ module Env = struct
     let forbidden_names = used_names env in
     Print.print ppf "---ENVIRONMENT---@." ;
     List.iter
-      (fun (x, t) ->
-       Print.print ppf "@[<hov 4>Parameter %t@;<1 -2>%t@]@\n" (Name.print_ident x)
-                   (Tt.print_constsig forbidden_names t))
-      (List.rev env.dynamic.constants) ;
+      (function
+        | (x, Constant t) ->
+           Print.print ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n" (Name.print_ident x)
+                       (Tt.print_constsig forbidden_names t)
+        | (x, Data k) ->
+           Print.print ppf "@[<hov 4>data %t %d@]@\n" (Name.print_ident x) k
+        | (x, Operation k) ->
+           Print.print ppf "@[<hov 4>operation %t %d@]@\n" (Name.print_ident x) k
+      )
+      (List.rev env.dynamic.decls) ;
     Print.print ppf "-----END-----@."
 
 
@@ -604,14 +575,6 @@ module Env = struct
        let xvs = collect_tt_pattern env xvs p ctx te ty in
        xvs
 
-    | Syntax.Tt_Inhab, Tt.Inhab _ ->
-       xvs
-
-    | Syntax.Tt_Bracket p, Tt.Bracket (Tt.Ty ty) ->
-       let {Tt.loc=loc;_} = ty in
-       let xvs = collect_tt_pattern env xvs p ctx ty (Tt.mk_type_ty ~loc) in
-       xvs
-
     | Syntax.Tt_Signature xps, Tt.Signature xts ->
        let rec fold env xvs ys ctx xps xts =
          match xps, xts with
@@ -691,66 +654,111 @@ module Env = struct
        else raise Match_fail
 
     | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Lambda _
-       | Syntax.Tt_Prod _ | Syntax.Tt_Eq _ | Syntax.Tt_Refl _ | Syntax.Tt_Inhab
-       | Syntax.Tt_Bracket _ | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
+       | Syntax.Tt_Prod _ | Syntax.Tt_Eq _ | Syntax.Tt_Refl _
+       | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
        | Syntax.Tt_Projection _) , _ ->
        raise Match_fail
 
+  let rec collect_pattern env xvs (p,loc) v =
+    match p, v with 
+    | Syntax.Patt_Anonymous, _ -> xvs
 
-  let match_pattern env xs p v =
-    (* collect values of pattern variables *)
-    let rec collect xvs (p,loc) v =
-      match p, v with 
-      | Syntax.Patt_Anonymous, _ -> xvs
+    | Syntax.Patt_As (p,k), v ->
+       let xvs = try
+           let v' = List.assoc k xvs in
+           if equal_value v v'
+           then xvs
+           else raise Match_fail
+         with Not_found -> (k,v) :: xvs
+       in
+       collect_pattern env xvs p v
 
-      | Syntax.Patt_As (p,k), v ->
-         let xvs = try
-             let v' = List.assoc k xvs in
-             if equal_value v v'
-             then xvs
-             else raise Match_fail
-           with Not_found -> (k,v) :: xvs
-         in
-         collect xvs p v
+    | Syntax.Patt_Bound k, v ->
+       let v' = lookup_bound ~loc k env in
+       if equal_value v v'
+       then xvs
+       else raise Match_fail
 
-      | Syntax.Patt_Bound k, v ->
-         let v' = lookup_bound ~loc k env in
-         if equal_value v v'
-         then xvs
-         else raise Match_fail
+    | Syntax.Patt_Jdg (pe, pt), Term (ctx, e, t) ->
+       let Tt.Ty t' = t in
+       let {Tt.loc=loc;_} = t' in
+       let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
+       collect_tt_pattern env xvs pe ctx e t
 
-      | Syntax.Patt_Jdg (pe, pt), Term (ctx, e, t) ->
-         let Tt.Ty t' = t in
-         let {Tt.loc=loc;_} = t' in
-         let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
-         collect_tt_pattern env xvs pe ctx e t
+    | Syntax.Patt_Tag (tag, ps), Tag (tag', vs) when Name.eq_ident tag tag' ->
+      multicollect_pattern env xvs ps vs
 
-      | Syntax.Patt_Tag (tag, ps), Tag (tag', vs) when Name.eq_ident tag tag' ->
-         let rec fold xvs = function
-           | [], [] -> xvs
-           | p::ps, v::vs ->
-              let xvs = collect xvs p v in
-              fold xvs (ps, vs)
-           | ([], _::_ | _::_, []) ->
-              raise Match_fail
-         in
-         fold xvs (ps, vs)
+    | Syntax.Patt_Jdg _, (Ty _ | Closure _ | Handler _ | Tag _)
+    | Syntax.Patt_Tag _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _) ->
+       raise Match_fail
 
-      | Syntax.Patt_Jdg _, (Ty _ | Closure _ | Handler _ | Tag _)
-      | Syntax.Patt_Tag _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _) ->
-         raise Match_fail
+  and multicollect_pattern env xvs ps vs =
+    let rec fold xvs = function
+      | [], [] -> xvs
+      | p::ps, v::vs ->
+        let xvs = collect_pattern env xvs p v in
+        fold xvs (ps, vs)
+      | ([], _::_ | _::_, []) ->
+        raise Match_fail
     in
+    fold xvs (ps, vs)
+
+  let match_pattern env p v =
+    (* collect values of pattern variables *)
     try
-      let xvs = collect [] p v in
-      let (_, env) =
-        List.fold_left
-          (fun (k, env) x ->
-           let v = List.assoc k xvs in
-           (k - 1, add_bound x v env))
-          (List.length xs - 1, env)
-          xs
-      in
-      Some env
+      let xvs = collect_pattern env [] p v in
+      (* return in decreasing de bruijn order: ready to fold with add_bound *)
+      let xvs = List.sort (fun (k,_) (k',_) -> compare k k') xvs in
+      let xvs = List.rev_map snd xvs in
+      Some xvs
     with Match_fail -> None
-                         
+
+  let multimatch_pattern env ps vs =
+    try
+      let xvs = multicollect_pattern env [] ps vs in
+      (* return in decreasing de bruijn order: ready to fold with add_bound *)
+      let xvs = List.sort (fun (k,_) (k',_) -> compare k k') xvs in
+      let xvs = List.rev_map snd xvs in
+      Some xvs
+    with Match_fail -> None
+
 end (* [module Env] *)
+
+let rec handle_result env {handler_val; handler_ops; handler_finally} r =
+  begin match r with
+  | Return v ->
+     begin match handler_val with
+     | Some f -> apply_closure env f v
+     | None -> r
+     end
+  | Perform (op, vs, dyn, cont) ->
+     let env = Env.set_dynamic env dyn in
+     let h = {handler_val; handler_ops; handler_finally=None} in
+     let cont = mk_closure' env (fun env v -> handle_result env h (apply_closure env cont v)) in
+     begin
+       try
+         let f = Name.IdentMap.find op handler_ops in
+         f dyn (vs, cont)
+       with
+         Not_found ->
+           Perform (op, vs, dyn, cont)
+     end
+  end >>=
+  (fun v ->
+     match handler_finally with
+     | Some f -> apply_closure env f v
+     | None -> Return v)
+
+let rec top_handle ~loc env = function
+  | Return v -> v
+  | Perform (op, vs, dyn, k) ->
+     let env = Env.set_dynamic env dyn in
+     begin match Env.lookup_handle op env with
+      | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
+      | Some f ->
+        let r = apply_closure env f vs >>=
+          apply_closure env k
+        in
+        top_handle ~loc env r
+     end
+

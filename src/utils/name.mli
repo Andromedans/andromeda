@@ -1,13 +1,18 @@
 (** Variable names *)
 
-(** Type of names, exposed for debugging purposes. *)
-type ident = private
+type fixity =
+  | Word
   | Anonymous
-  | String of string
+  | Prefix
+  | Infix0
+  | Infix1
+  | Infix2
+  | Infix3
+  | Infix4
 
-(** Type of a name à la nominal calculus used to evaluate under binders *)
-type atom = private
-  | Gensym of string * int
+type ident = private Ident of string * fixity
+
+type atom = private Atom of string * fixity * int
 
 (** The type of a structure or signature field. *)
 type label = ident
@@ -22,28 +27,27 @@ val print_atom : atom -> Format.formatter -> unit
 val print_label : label -> Format.formatter -> unit
 
 (** Print an operation name. *)
-val print_op : string -> Format.formatter -> unit
+val print_op : ident -> Format.formatter -> unit
 
 (** An anonymous name that cannot be referenced. *)
 val anonymous : ident
 
 (** Make a name from a string. *)
-val make : string -> ident
+val make : ?fixity:fixity -> string -> ident
 
 (** Generate a variant of a given name that is guaranteed to not yet exist. *)
 val fresh : ident -> atom
 
-(** Generate a variant of a given atom that is guaranteed to not yet exist. *)
-val refresh_atom : atom -> atom
-
-(** Generate a fresh name to be used in desugaring. *)
-val fresh_candy : unit -> ident
-
 (** [refresh xs x] finds a nice variant of [x] that does not occur in [xs]. *)
 val refresh : ident list -> ident -> ident
 
-(** Compare identifiers. *)
+(** Compare identifiers for equality. *)
 val eq_ident : ident -> ident -> bool
+
+(** Compare identifiers. *)
+val compare_ident : ident -> ident -> int
+
+module IdentMap : Map.S with type key = ident
 
 (** Compare atoms for equality. *)
 val eq_atom : atom -> atom -> bool

@@ -3,18 +3,14 @@
 let is_small {Tt.term=e';_} =
 match e' with
   | Tt.Constant (_, es) -> es = []
-  | Tt.Type | Tt.Inhab _ | Tt.Bound _ | Tt.Atom _ -> true
+  | Tt.Type | Tt.Bound _ | Tt.Atom _ -> true
   | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _
-  | Tt.Bracket _ | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ -> false
+  | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ -> false
 
 let rec term ({Tt.term=e';loc;_} as e) =
     match e' with
 
     | Tt.Type -> e
-
-    | Tt.Inhab t ->
-       let t = ty t in
-       Tt.mk_inhab ~loc t
 
     | Tt.Atom _ -> e
 
@@ -70,10 +66,6 @@ let rec term ({Tt.term=e';loc;_} as e) =
       let t = ty t
       and e = term e in
         Tt.mk_refl ~loc t e
-
-    | Tt.Bracket t ->
-      let t = ty t in
-        Tt.mk_bracket ~loc t
 
     | Tt.Signature xts ->
       let rec fold ys res = function
@@ -178,8 +170,6 @@ and spine ~loc h xts t es =
   | Tt.Spine _
   | Tt.Atom _
   | Tt.Type
-  | Tt.Inhab _
-  | Tt.Bracket _
   | Tt.Prod _
   | Tt.Eq _
   | Tt.Refl _
@@ -206,8 +196,6 @@ and project ~loc te xts p =
   | Tt.Spine _
   | Tt.Atom _
   | Tt.Type
-  | Tt.Inhab _
-  | Tt.Bracket _
   | Tt.Prod _
   | Tt.Eq _
   | Tt.Refl _

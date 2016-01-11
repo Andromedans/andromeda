@@ -90,39 +90,31 @@
 	  <keyword>false</keyword>
 	</context>
 	<context id="keywords" style-ref="keyword">
-    <keyword>Axiom</keyword>
     <keyword>as</keyword>
     <keyword>assume</keyword>
     <keyword>and</keyword>
-    <keyword>beta</keyword>
-    <keyword>Beta</keyword>
-    <keyword>Check</keyword>
-    <keyword>whnf</keyword>
-    <keyword>snf</keyword>
+    <keyword>check</keyword>
+    <keyword>constant</keyword>
+    <keyword>context</keyword>
+    <keyword>congruence</keyword>
+    <keyword>data</keyword>
     <keyword>end</keyword>
-    <keyword>eta</keyword>
-    <keyword>Eta</keyword>
+    <keyword>external</keyword>
     <keyword>finally</keyword>
     <keyword>handle</keyword>
     <keyword>handler</keyword>
-    <keyword>hint</keyword>
-    <keyword>Hint</keyword>
-    <keyword>unhint</keyword>
-    <keyword>Unhint</keyword>
-    <keyword>Hypothesis</keyword>
-    <keyword>inhabit</keyword>
-    <keyword>Inhabit</keyword>
-    <keyword>Let</keyword>
     <keyword>let</keyword>
     <keyword>match</keyword>
-    <keyword>Parameter</keyword>
     <keyword>reduce</keyword>
     <keyword>forall</keyword>
+    <keyword>yield</keyword>
     <keyword>fun</keyword>
     <keyword>lambda</keyword>
     <keyword>in</keyword>
+    <keyword>operation</keyword>
     <keyword>rec</keyword>
     <keyword>refl</keyword>
+    <keyword>Type</keyword>
     <keyword>typeof</keyword>
     <keyword>val</keyword>
     <keyword>where</keyword>
