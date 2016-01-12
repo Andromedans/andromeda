@@ -204,6 +204,32 @@
   {\Gamma \vdash \mathsf{J}(\dots) \is C (a, b, p)}
 \end{mathpar}
 
+% Paranoia
+
+Paranoia
+
+\begin{mathpar}
+  \infer{
+    \Gamma \isContext\\\\
+    \Gamma \vdash A \is \Type\\\\
+    \Gamma \vdash a \is A}
+  {\Gamma \vdash \refl{A}{a} \is \Eq{A}{a,a}}
+\end{mathpar}
+
+\begin{equation*}
+  \infer{
+    \Gamma \isContext \\
+    \Gamma \vdash A \is \Type \\
+    \Gamma, x \of A \vdash B \is \Type \\\\
+    \Gamma \vdash e_2 \is A \\
+    \Gamma, x \of A \vdash e_1 \is B \\\\
+    \Gamma \vdash B[e_2/x] \is \Type \\
+    \Gamma \vdash e_1[e_2/x] \is B[e_2/x]
+  }
+  {\Gamma \vdash (\lam{x\of A} e_1) \, e_2 \equiv_{B[e_2/x]} e_1[e_2/x]}
+\end{equation*}
+
+
 % Exchange is invalid
 
 \begin{align*}
@@ -297,6 +323,7 @@ Therefore $0 = 1$ or $1 = 2$ or $0 = 2$.\\
       &\qquad\Eq{P \mathsf{Z}}{\indnat\,P\,x\,f\,(\mathsf{S}\,n), f\,n\,(\indnat\,P\,x\,f\,n)}
      \end{aligned}
 \end{align*}
+
 
 % Derivation using reflection
 
