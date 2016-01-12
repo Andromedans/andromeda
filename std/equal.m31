@@ -1,6 +1,9 @@
 
 #include "utils.m31"
 
+(* debug message *)
+data (!) 1 let (!) = fun x => print ! x
+
 operation fail 0
 operation beta 1
 operation hint 1
@@ -8,7 +11,7 @@ operation whnf 1
 
 (*
 Matching works the following way:
-we have a list (|- xs : As) of typed atoms, such that each may appear in the following ones
+we have a list (|- xs : As = maybe vs) of typed atoms with potential values, such that each atom may appear in the following types
 we have a typed term (|- target : t) in which any of the atoms may appear
 we have some value f
 we have a typed term (|- e : te) which is being matched
@@ -26,16 +29,60 @@ For instance a beta hint b : forall y : B, e1 ==[T] e2 gives us
 - f = b
 matching with e : T gives us a witness of e == e2[??/y]
 *)
+
+(* assoc_update which fails to match if the value to update isn't already present *)
+let assoc_update = fun x v lst =>
+  let rec aux acc lst = match lst with
+    | cons (pair x _) ?lst => rev_append acc (cons (pair x v) lst)
+    | cons ?y ?lst => aux (cons y acc) lst
+    end
+  in aux nil lst
+
+(* updates quants with values such that lhs matches rhs *)
+let rec collector quants lhs rhs =
+  (* is lhs an atom?
+     NB it would be nice to have a matching primitive to know if some term is an atom. *)
+  match assoc_find lhs quants with
+    | Some None => (* not yet set atom *)
+      Some (assoc_update lhs (Some rhs) quants)
+    | Some (Some ?lhs) => (* already set atom *)
+      collector quants lhs rhs
+    | None => (* not an atom *)
+      match pair lhs rhs with
+        | pair ?a ?a => (* alpha equal *)
+          Some quants
+        | pair (|- ?l1 ?l2) (|- ?r1 ?r2) =>
+          match collector quants l1 r1 with
+            (* there could be something smarter to do in either failure case *)
+            | Some ?quants => collector quants l2 r2
+            | None => None
+          end
+        | _ => None
+      end
+  end
+
+let rec apply_quants f quants = match quants with
+  | nil => Some f
+  | cons (pair _ None) _ => None
+  | cons (pair _ (Some ?v)) ?quants =>
+    apply_quants (f v) quants
+  end
+
 let generic_matcher = fun pat e =>
   match pat with
-    | pair ?f (pair ?quants ?lhs) => fail
+    | pair ?f (pair ?quants ?lhs) =>
+      match collector quants lhs e with
+        | Some ?quants =>
+          apply_quants f quants
+        | None => None
+      end
   end
 
 
 let process_beta =
   let rec deep quants e b = match b with
     | |- forall (?x : _), ?b =>
-      deep (cons x quants) e b
+      deep (cons (pair x None) quants) e b
     | |- ?lhs == _ => pair e (pair quants lhs)
     end
   in
@@ -46,7 +93,7 @@ let process_beta =
 let process_hint =
   let rec deep quants e h = match h with
     | |- forall (?x : _), ?h =>
-      deep (cons x quants) e h
+      deep (cons (pair x None) quants) e h
     | |- _ == _ => pair e (pair quants h)
     end
   in
