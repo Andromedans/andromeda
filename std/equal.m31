@@ -1,4 +1,5 @@
 
+#include_once "base.m31"
 #include "utils.m31"
 
 (* debug message *)
@@ -8,6 +9,11 @@ operation fail 0
 operation beta 1
 operation hint 1
 operation whnf 1
+
+(* actions tell equal_handle what to do *)
+data top_beta 1
+data top_hint 1
+data reset 0
 
 (*
 Matching works the following way:
@@ -100,6 +106,11 @@ let process_hint =
   fun h => match h with
     | |- ?e : ?h => deep nil e h
     end
+
+let symmetry = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
+  | equal _ _ =>
+    yield (Some h)
+  end
 
 let transitivity = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
   handle eq2 : a == c with
@@ -260,23 +271,40 @@ let rec equality betas hints = handler
   | finally ?f => f betas hints
   end
 
+(* doesn't return the state *)
+let equality_in = fun betas hints => handler
+  | equal (|- ?a : ?t) ?b (* : ?t *) => fun betas hints =>
+    match (with equality betas hints handle congruence a b) with
+      | pair (Some ?eq) (pair ?betas ?hints) => yield (Some eq) betas hints
+      | pair None _ => (* loops *)
+        match (with equality betas hints handle pair (whnf_eq betas a) (whnf_eq betas b)) with
+          | pair (pair (|- ?eqa : _ == ?a') (|- ?eqb : _ == ?b')) (pair ?betas ?hints) =>
+            match (with equality betas hints handle equal a' b') with
+              | pair (Some ?eq) (pair ?betas ?hints) =>
+                let eq = transitivity eqa eq in
+                let eq = transitivity eq (symmetry eqb) in
+                yield (Some eq) betas hints
+              | pair None _ => yield None betas hints
+            end
+        end
+    end
 
-constant A : Type
-constant a : A
-constant b : A
-constant f : A -> A -> A
+  | whnf ?e => fun betas hints =>
+    match (with equality betas hints handle whnf_eq betas e) with
+      | pair ?eq (pair ?betas ?hints) =>
+        yield eq betas hints
+    end
 
+  | beta ?b => fun betas hints =>
+    let b = process_beta b in
+    yield () (cons b betas) hints
 
-let test = with equality nil nil handle whnf ((lambda x y : A, f y x) a b)
-let _ = print (fst test)
+  | hint ?h => fun betas hints =>
+    let h = process_hint h in
+    yield () betas (cons h hints)
 
-constant eq : forall x : A, f a x == b
+  | val ?v => fun betas hints => v
 
-let cmp = with equality nil nil handle
-    let _ = beta eq in
-    ()
-    
-let betas = fst (snd cmp)
-
-check fst (with equality betas nil handle whnf (f a a))
+  | finally ?f => f betas hints
+  end
 
