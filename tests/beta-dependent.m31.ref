@@ -1,9 +1,9 @@
-A is assumed.
-B is assumed.
-C is assumed.
-f is assumed.
-f_beta is assumed.
-a is assumed.
-b is assumed.
-c is assumed.
+Constant A is declared.
+Constant B is declared.
+Constant C is declared.
+Constant f is declared.
+Constant f_beta is declared.
+Constant a is declared.
+Constant b is declared.
+Constant c is declared.
 ⊢ refl b : b ≡ f a b c

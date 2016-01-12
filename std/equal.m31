@@ -50,7 +50,8 @@ let rec collector quants lhs rhs =
      NB it would be nice to have a matching primitive to know if some term is an atom. *)
   match assoc_find lhs quants with
     | Some None => (* not yet set atom *)
-      Some (assoc_update lhs (Some rhs) quants)
+      let quants = assoc_update lhs (Some rhs) quants in
+      Some quants
     | Some (Some ?lhs) => (* already set atom *)
       collector quants lhs rhs
     | None => (* not an atom *)
@@ -89,7 +90,7 @@ let process_beta =
   let rec deep quants e b = match b with
     | |- forall (?x : _), ?b =>
       deep (cons (pair x None) quants) e b
-    | |- ?lhs == _ => pair e (pair quants lhs)
+    | |- ?lhs == _ => pair e (pair (rev quants) lhs)
     end
   in
   fun b => match b with
@@ -100,7 +101,7 @@ let process_hint =
   let rec deep quants e h = match h with
     | |- forall (?x : _), ?h =>
       deep (cons (pair x None) quants) e h
-    | |- _ == _ => pair e (pair quants h)
+    | |- _ == _ => pair e (pair (rev quants) h)
     end
   in
   fun h => match h with
@@ -178,8 +179,17 @@ let rec do_whnf betas e =
             
             then t' would be foo[e2/x] for both (e1 e2) and (e1' e2), problem solved (because e1, e1' : forall x : A, foo)
           *)
-          let e' = (e1' e2) : t in
-          let eq = (handle unopt (congruence e e') with equal e1 e1' => yield (Some eq) end) : e == e' in
+          let e' = e1' e2 in
+          let e' = e' : t in
+          let meq = handle congruence e e' with
+            | equal e1 e1' => yield (Some eq)
+            | equal ?a ?b => let _ = ! (pair a b) in fail
+            end
+          in
+          let eq = match meq with
+              | Some ?eq => eq : e == e'
+            end
+          in
           match do_whnf betas e' with
             | Some (|- ?eq' : _ == ?e'') =>
               Some (transitivity eq eq')
@@ -197,7 +207,7 @@ let rec do_whnf betas e =
               (* e1 is in whnf and e is not a beta redex, so we only need to see if a beta hint applies to e *)
               match step_at betas e with
                 | Some (|- ?eq : _ == ?e') =>
-                  match do_whnf betas e' with
+                      match do_whnf betas e' with
                     | Some (|- ?eq' : _ == ?e'') =>
                       Some (transitivity eq eq')
                     | None => Some eq
@@ -237,19 +247,16 @@ then in comp2 the hint b is available
 *)
 let rec equality betas hints = handler
   | equal (|- ?a : ?t) ?b (* : ?t *) => fun betas hints =>
-    match (with equality betas hints handle congruence a b) with
-      | pair (Some ?eq) (pair ?betas ?hints) => yield (Some eq) betas hints
-      | pair None _ => (* loops *)
-        match (with equality betas hints handle pair (whnf_eq betas a) (whnf_eq betas b)) with
-          | pair (pair (|- ?eqa : _ == ?a') (|- ?eqb : _ == ?b')) (pair ?betas ?hints) =>
-            match (with equality betas hints handle equal a' b') with
-              | pair (Some ?eq) (pair ?betas ?hints) =>
-                let eq = transitivity eqa eq in
-                let eq = transitivity eq (symmetry eqb) in
-                yield (Some eq) betas hints
-              | pair None _ => yield None betas hints
-            end
-        end
+    match (with equality betas hints handle pair (whnf_eq betas a) (whnf_eq betas b)) with
+    pair (pair (|- ?eqa : _ == ?a') (|- ?eqb : _ == ?b')) (pair ?betas ?hints) =>
+     match (with equality betas hints handle congruence a' b') with
+        | pair (Some ?eq) (pair ?betas ?hints) =>
+          let eq = transitivity eqa eq in
+          let eq = transitivity eq (symmetry eqb) in
+          yield (Some eq) betas hints
+        | pair None _ =>
+          yield None betas hints
+      end
     end
 
   | whnf ?e => fun betas hints =>

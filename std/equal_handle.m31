@@ -41,7 +41,7 @@ handle
     with equality_in betas hints handle whnf e
 
   (* top level handler has no state. If you want to have local hints do [fst (with equality betas hints handle ...)] *)
-  | beta b => let _ = ! b in fail
-  | hint h => let _ = ! h in fail
+  | beta b => let _ = ! (top_beta b) in fail
+  | hint h => let _ = ! (top_hint h) in fail
 end
 

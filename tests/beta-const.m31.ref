@@ -1,5 +1,5 @@
-A is assumed.
-B is assumed.
-a is assumed.
-eq_A_B is assumed.
+Constant A is declared.
+Constant B is declared.
+Constant a is declared.
+Constant eq_A_B is declared.
 ⊢ a : B

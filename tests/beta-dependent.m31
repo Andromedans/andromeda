@@ -1,16 +1,18 @@
 (* Test dependent types in beta hints. *)
 
-Parameter A : Type.
-Parameter B : A ⟶ Type.
-Parameter C : Π [x : A] B x ⟶ Type.
+constant A : Type
+constant B : A ⟶ Type
+constant C : Π (x : A), B x ⟶ Type
 
-Parameter f : Π [x : A] [y : B x] C x y ⟶ B x.
-Parameter f_beta : Π [x : A] [y : B x] [z : C x y] f x y z == y.
+constant f : Π (x : A) (y : B x), C x y ⟶ B x
+constant f_beta : Π (x : A) (y : B x) (z : C x y), f x y z == y
 
-Parameter a : A.
-Parameter b : B a.
-Parameter c : C a b.
+constant a : A
+constant b : B a
+constant c : C a b
 
-Check
-  beta f_beta in
-      refl b :: b == f a b c.
+check
+  with equality_in betas hints handle
+  let _ = beta f_beta in
+      refl b : b == f a b c
+

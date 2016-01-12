@@ -273,7 +273,7 @@ let congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
     and (x1,t1),xts1 = pop_end xts1
     and (x2,t2),xts2 = pop_end xts2 in
     (* type of the last argument *)
-    let t1 = Tt.instantiate_ty es1 t1
+    let t1 = Tt.instantiate_ty es1 t1 (* TODO fix *)
     and t2 = Tt.instantiate_ty es2 t2 in
     Opt.locally (equal_ty env ctx t1 t2) >?= fun (ctx,hypst) ->
     (* output type abstracted for last argument *)
