@@ -92,6 +92,7 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "#quit"                  -> f (); g (); QUIT
   | "#verbosity", Plus hspace -> g (); verbosity lexbuf
   | "#include"               -> f (); INCLUDE
+  | "#include_once"          -> f (); INCLUDEONCE
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN

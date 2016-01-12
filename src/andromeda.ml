@@ -22,7 +22,7 @@ let files = ref []
 
 (** Add a file to the list of files to be loaded, and record whether it should
     be processed in interactive mode. *)
-let add_file ?lim interactive filename = (files := (filename, lim, interactive) :: !files)
+let add_file ?lim ~once interactive filename = (files := (filename, lim, interactive, once) :: !files)
 
 (** Command-line options *)
 let options = Arg.align [
@@ -78,7 +78,7 @@ let options = Arg.align [
      " Do not run the interactive toplevel");
 
     ("-l",
-     Arg.String (fun str -> add_file false str),
+     Arg.String (fun str -> add_file ~once:false false str),
      "<file> Load <file> into the initial environment");
 
     ("--lim-file",
@@ -88,7 +88,7 @@ let options = Arg.align [
          Arg.String
            (fun fn ->
             Config.interactive_shell := false ;
-            add_file ~lim:!lim true fn)]),
+            add_file ~lim:!lim ~once:false true fn)]),
      "<lim> <file> Process <file> up to the end of the statement at character\
       <lim>, do not enter interactive mode");
   ]
@@ -171,7 +171,7 @@ let rec exec_cmd base_dir interactive env c =
        if interactive then Format.printf "%t@." (Value.print_value (Value.Env.used_names env) v) ;
        env
 
-  | Syntax.Include fs ->
+  | Syntax.Include (fs,once) ->
     (* relative file names get interpreted relative to the file we're
        currently loading *)
     List.fold_left
@@ -183,7 +183,7 @@ let rec exec_cmd base_dir interactive env c =
                if Filename.is_relative f then
                  Filename.concat base_dir f
                else f in
-             use_file env (f, None, false) in
+             use_file env (f, None, false, once) in
            if interactive then Format.printf "#processed %s@." f ;
            env
          end)
@@ -203,8 +203,8 @@ let rec exec_cmd base_dir interactive env c =
 
 
 (** Load directives from the given file. *)
-and use_file env (filename, line_limit, interactive) =
-  if Value.Env.included filename env then env else
+and use_file env (filename, line_limit, interactive, once) =
+  if once && Value.Env.included filename env then env else
     begin
       let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
       let base_dir = Filename.dirname filename in
@@ -233,7 +233,7 @@ let main =
   (* Parse the arguments. *)
   Arg.parse
     options
-    (fun str -> add_file true str ; Config.interactive_shell := false)
+    (fun str -> add_file ~once:false true str ; Config.interactive_shell := false)
     usage ;
   (* Attempt to wrap yourself with a line-editing wrapper. *)
   if !Config.interactive_shell then
@@ -258,7 +258,7 @@ let main =
   begin
     match !Config.prelude_file with
     | Config.PreludeNone -> ()
-    | Config.PreludeFile f -> files := (f, None, false) :: !files
+    | Config.PreludeFile f -> add_file ~once:false false f
     | Config.PreludeDefault ->
       (* look for prelude next to the executable and in the , don't whine if it is not there *)
       try
@@ -266,7 +266,7 @@ let main =
         let d' = Filename.dirname Sys.argv.(0) in
         let l = List.map (fun d -> Filename.concat d "prelude.m31") [d; d'] in
         let f = List.find (fun f ->  Sys.file_exists f) l in
-        files := (f, None, false) :: !files
+        add_file ~once:false false f
       with Not_found -> ()
   end ;
 

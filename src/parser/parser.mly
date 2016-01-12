@@ -70,7 +70,7 @@
 %token ENVIRONMENT HELP QUIT
 %token <int> VERBOSITY
 %token <string> QUOTED_STRING
-%token INCLUDE
+%token INCLUDE INCLUDEONCE
 
 %token EOF
 
@@ -123,7 +123,8 @@ plain_topdirective:
   | HELP                                             { Help }
   | QUIT                                             { Quit }
   | VERBOSITY                                        { Verbosity $1 }
-  | INCLUDE fs=QUOTED_STRING+                        { Include fs }
+  | INCLUDE fs=QUOTED_STRING+                        { Include (fs, false) }
+  | INCLUDEONCE fs=QUOTED_STRING+                    { Include (fs, true) }
 
 (* Main syntax tree *)
 

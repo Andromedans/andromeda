@@ -1,13 +1,9 @@
-(* The prelude is empty for now. *)
 
-let print = external "print"
+#include_once "std/base.m31"
+#include_once "std/equal.m31"
 
-handle
-  | equal _ _ => None
-  | abstract _ _ => None
-  end
+let betas = nil
+let hints = nil
+let action = reset
 
-let symmetry = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
-  | equal _ _ =>
-    yield (Some h)
-  end
+#include "std/equal_handle.m31"

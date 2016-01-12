@@ -1,0 +1,47 @@
+(* equal.m31 should already be included, since we need to set [action] *)
+
+let betas = match action with
+  | reset => betas
+  | top_beta ?b =>
+    match (with equality betas hints handle beta b) with
+      pair _ (pair ?betas _) => betas
+    end
+  | top_hint _ => betas
+end
+
+let hints = match action with
+  | reset => hints
+  | top_beta _ => hints
+  | top_hint ?h =>
+    match (with equality betas hints handle hint h) with
+      pair _ (pair _ ?hints) => hints
+    end
+end
+
+handle
+  | equal a b =>
+    with equality_in betas hints handle equal a b
+
+  | whnf e =>
+    with equality_in betas hints handle whnf e
+
+  | as_prod e =>
+    match (with equality_in betas hints handle whnf e) with
+      | |- ?eq : _ == (forall (_ : _), _) => Some eq
+      | _ => None
+    end
+
+  | as_eq e =>
+    match (with equality_in betas hints handle whnf e) with
+      | |- ?eq : _ == (_ == _) => Some eq
+      | _ => None
+    end
+
+  | as_signature e => (* TODO no good way to match generic signature *)
+    with equality_in betas hints handle whnf e
+
+  (* top level handler has no state. If you want to have local hints do [fst (with equality betas hints handle ...)] *)
+  | beta b => let _ = ! b in fail
+  | hint h => let _ = ! h in fail
+end
+

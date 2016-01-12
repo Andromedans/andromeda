@@ -1,14 +1,19 @@
-Axiom A : Type.
-Axiom B : Type.
 
-Check handle (assume a : A in a) :: B with
-  | #equal ('pair (|- B : Type) (|- A : Type)) =>
-    let eq := assume eq : B == A in eq in
-    yield ('some eq)
-  end.
 
-Check handle (assume a : A in a) :: B with
-  | #equal ?v =>
-    yield 'none
-  end.
+constant A : Type
+constant a : A
+constant b : A
+constant f : A -> A -> A
+
+
+let test = with equality_in nil nil handle whnf ((lambda x y : A, f y x) a b)
+let _ = print test
+
+constant eq : forall x : A, f a x == b
+
+let action = top_beta eq
+
+#include "../std/equal_handle.m31"
+
+check whnf (f a a)
 
