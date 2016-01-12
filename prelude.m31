@@ -5,6 +5,9 @@ let print = external "print"
 handle
   | equal _ _ => None
   | abstract _ _ => None
+  | as_prod _ => None
+  | as_eq _ => None
+  | as_signature _ => None
   end
 
 let symmetry = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
