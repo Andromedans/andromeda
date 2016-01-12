@@ -82,7 +82,7 @@ and toplevel' =
   | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
   | Verbosity of int
-  | Include of string list
+  | Include of string list * bool (** the boolean is [true] if the files should be included only once *)
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)

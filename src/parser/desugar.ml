@@ -629,7 +629,7 @@ let toplevel (env : Value.Env.t) bound (d', loc) =
 
     | Input.Verbosity n -> Syntax.Verbosity n
 
-    | Input.Include fs -> Syntax.Include fs
+    | Input.Include (fs, b) -> Syntax.Include (fs, b)
 
     | Input.Environment -> Syntax.Environment
 
