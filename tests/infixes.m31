@@ -1,0 +1,44 @@
+
+(** TT infixes *)
+constant A : Type
+
+constant a : A
+constant b : A
+
+constant (+) : A -> A -> A
+
+let s = (+) a b
+
+check refl s : a + b == a + b
+
+check match s with
+  | |- ?x + ?y => (pair x y)
+  end
+
+(** Data infixes *)
+
+data (@) 2
+
+let x = (fun x => x) @ a
+
+check match x with
+  | ?f @ ?y => f y
+  end
+
+(** Operation infixes *)
+
+operation (?) 1
+
+check
+handle
+  let sa = ? a in
+  let sb = ? b in
+  sa + sb
+with
+  | ? ?x => yield (x + x)
+end
+
+handle | ? x => x + a end
+
+check ? b
+

@@ -3,34 +3,21 @@ open Parser
 open Ulexbuf
 
 let reserved = [
-  ("Axiom", AXIOM) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;
-  ("beta", BETA) ;
-  ("Beta", TOPBETA) ;
-  ("Check", TOPCHECK) ;
+  ("check", CHECK) ;
+  ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
-  ("whnf", WHNF) ;
+  ("congruence", CONGRUENCE) ;
+  ("data", DATA) ;
   ("end", END) ;
-  ("eta", ETA) ;
-  ("Eta", TOPETA) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
-  ("hint", HINT) ;
-  ("Hint", TOPHINT) ;
-  ("unhint", UNHINT) ;
-  ("Unhint", TOPUNHINT) ;
-  ("Handle", TOPHANDLE) ;
-  ("Hypothesis", AXIOM) ;
-  ("inhabit", INHABIT) ;
-  ("Inhabit", TOPINHABIT) ;
-  ("Let", TOPLET) ;
   ("let", LET) ;
   ("match", MATCH) ;
-  ("Parameter", AXIOM) ;
   ("reduce", REDUCE) ;
   ("forall", PROD) ;
   ("yield", YIELD) ;
@@ -41,6 +28,7 @@ let reserved = [
   ("lambda", LAMBDA) ;
   ("λ", LAMBDA) ;
   ("in", IN) ;
+  ("operation", OPERATION) ;
   ("rec", REC) ;
   ("refl", REFL) ;
   ("Type", TYPE) ;
@@ -64,6 +52,15 @@ let digit = [%sedlex.regexp? '0'..'9']
 let numeral = [%sedlex.regexp? Plus digit]
 
 let project = [%sedlex.regexp? '.', (name | numeral)]
+
+let symbolchar = [%sedlex.regexp?  ('!' | '$' | '%' | '&' | '*' | '+' | '-' | '.' | '/' | ':' | '<' | '=' | '>' | '?' | '@' | '^' | '|' | '~')]
+
+let prefixop = [%sedlex.regexp? ('~' | '?' | '!'), Star symbolchar ]
+let infixop0 = [%sedlex.regexp? ('=' | '<' | '>' | '|' | '&' | '$'), Star symbolchar]
+let infixop1 = [%sedlex.regexp? ('@' | '^'), Star symbolchar ]
+let infixop2 = [%sedlex.regexp? ('+' | '-'), Star symbolchar ]
+let infixop3 = [%sedlex.regexp? ('*' | '/' | '%'), Star symbolchar ]
+let infixop4 = [%sedlex.regexp? "**", Star symbolchar ]
 
 let start_longcomment = [%sedlex.regexp? "(*"]
 let end_longcomment= [%sedlex.regexp? "*)"]
@@ -95,38 +92,38 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "#quit"                  -> f (); g (); QUIT
   | "#verbosity", Plus hspace -> g (); verbosity lexbuf
   | "#include"               -> f (); INCLUDE
-  | '#', name                -> f (); OPERATION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
+  | "#include_once"          -> f (); INCLUDEONCE
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
-  | "[["                     -> f (); LLBRACK
-  | "]]"                     -> f (); RRBRACK
-  | "[]"                     -> f (); LRBRACK
-  | '['                      -> f (); LBRACK
-  | ']'                      -> f (); RBRACK
   | '{'                      -> f (); LBRACE
   | '}'                      -> f (); RBRACE
-  | ":="                     -> f (); COLONEQ
-  | "::"                     -> f (); DCOLON
+  | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
   | ','                      -> f (); COMMA
-  | ';'                      -> f (); SEMICOLON
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
-  | '.'                      -> f (); g (); DOT
   | '_'                      -> f (); UNDERSCORE
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
-  | '\'', name               -> f (); TAG (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | "->" | 8594 | 10230      -> f (); ARROW
   | "=>" | 8658 | 10233      -> f (); DARROW
   | "==" | 8801              -> f (); EQEQ
+  | prefixop                 -> f (); PREFIXOP (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop0                 -> f (); INFIXOP0 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop1                 -> f (); INFIXOP1 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop2                 -> f (); INFIXOP2 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  (* Comes before infixop3 because ** matches the infixop3 pattern too *)
+  | infixop4                 -> f (); INFIXOP4 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop3                 -> f (); INFIXOP3 (lexeme lexbuf, Location.of_lexeme lexbuf)
+
   | eof                      -> f (); EOF
-  | (name | numeral)         -> f ();
+  | name                     -> f ();
     let n = lexeme lexbuf in
     begin try List.assoc n reserved
     with Not_found -> NAME n
     end
+  | numeral                  -> f (); let k = int_of_string (lexeme lexbuf) in NUMERAL k
   | any -> f ();
     let c = lexeme lexbuf in
     Error.syntax ~loc:(Location.of_lexeme lexbuf)

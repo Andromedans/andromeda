@@ -1,7 +1,12 @@
-A is assumed.
-B is assumed.
-a₄ : A 
-eq₅ : B ≡ A 
-⊢ a₄ : B
-File "./user-equal.m31", line 10, characters 14-32: Typing error
-  this expression should have type B but has type A
+Constant A is declared.
+Constant a is declared.
+Constant b is declared.
+Constant f is declared.
+test is defined.
+⊢ refl (f b a) : (λ (x : A) (y : A), f y x) a b ≡ f b a
+_ is defined.
+Constant eq is declared.
+action is defined.
+#including ../std/equal_handle.m31
+#processed ../std/equal_handle.m31
+⊢ eq a : f a a ≡ b

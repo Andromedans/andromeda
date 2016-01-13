@@ -85,3 +85,5 @@ let as_atom_set ~loc {free;bound;} =
   then free
   else Error.impossible ~loc "reducing assumptions to free assumptions not allowed when there are bound assumptions"
 
+let bound x = x.bound
+

@@ -1,0 +1,17 @@
+
+constant A : Type
+
+constant B : Type
+
+constant B_eq : B == (A == A)
+
+check handle refl A : B with as_eq _ => yield (Some B_eq) end
+
+constant B_prod : B == (A -> A)
+
+check handle (lambda x, x) : B with as_prod _ => yield (Some B_prod) end
+
+constant B_sig : B == {}
+
+check handle () : B with as_signature _ => yield (Some B_sig) end
+

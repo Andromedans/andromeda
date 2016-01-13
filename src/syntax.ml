@@ -16,8 +16,6 @@ and tt_pattern' =
   | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
-  | Tt_Inhab
-  | Tt_Bracket of tt_pattern
   | Tt_Signature of (Name.ident * Name.ident * bound option * tt_pattern) list
   | Tt_Structure of (Name.ident * Name.ident * bound option * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
@@ -40,19 +38,14 @@ and comp' =
   | Rec of Name.ident * Name.ident * comp
   | Handler of handler
   | Tag of Name.ident * comp list
-  | Operation of string * comp
+  | Perform of Name.ident * comp list
   | With of comp * comp
   | Let of (Name.ident * comp) list * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * comp * comp
   | Match of comp * match_case list
-  | Beta of (string list * comp) list * comp
-  | Eta of (string list * comp) list * comp
-  | Hint of (string list * comp) list * comp
-  | Inhabit of (string list * comp) list * comp
-  | Unhint of string list * comp
   | Ascribe of comp * comp
-  | Whnf of comp
+  | Reduce of comp
   | External of string
   | Typeof of comp
   | Constant of Name.ident * comp list
@@ -61,36 +54,35 @@ and comp' =
   | Prod of (Name.ident * comp) list * comp
   | Eq of comp * comp
   | Refl of comp
-  | Bracket of comp
-  | Inhab
   | Signature of (Name.ident * Name.ident * comp) list
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
   | Yield
   | Context
+  | Congruence of comp * comp
 
 and handler = {
-  handler_val: (Name.ident * comp) option;
-  handler_ops: (string * (Name.ident * comp)) list;
-  handler_finally : (Name.ident * comp) option;
+  handler_val: match_case list;
+  handler_ops: multimatch_case list Name.IdentMap.t;
+  handler_finally : match_case list;
 }
 
 and match_case = Name.ident list * pattern * comp
 
+(** Match multiple patterns at once, with shared pattern variables *)
+and multimatch_case = Name.ident list * pattern list * comp
+
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
+  | Operation of Name.ident * int
+  | Data of Name.ident * int
   | Axiom of Name.ident * (bool * (Name.ident * comp)) list * comp
-  | TopHandle of (string * (Name.ident * comp)) list
+  | TopHandle of (Name.ident * (Name.ident list * comp)) list
   | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
-  | TopBeta of (string list * comp) list
-  | TopEta of (string list * comp) list
-  | TopHint of (string list * comp) list
-  | TopInhabit of (string list * comp) list
-  | TopUnhint of string list
   | Verbosity of int
-  | Include of string list
+  | Include of string list * bool (** the boolean is [true] if the files should be included only once *)
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)
@@ -102,7 +94,7 @@ let opt_map f = function
 
 let rec shift_tt_pattern k lvl ((p',loc) as p) =
   match p' with
-    | Tt_Anonymous | Tt_Type | Tt_Constant _ | Tt_Inhab -> p
+    | Tt_Anonymous | Tt_Type | Tt_Constant _ -> p
     | Tt_As (p,k) ->
       let p = shift_tt_pattern k lvl p in
       Tt_As (p,k), loc
@@ -126,9 +118,6 @@ let rec shift_tt_pattern k lvl ((p',loc) as p) =
     | Tt_Refl c ->
       let c = shift_tt_pattern k lvl c in
       Tt_Refl c, loc
-    | Tt_Bracket c ->
-      let c = shift_tt_pattern k lvl c in
-      Tt_Bracket c, loc
     | Tt_Signature xcs ->
       let rec fold lvl xcs = function
         | [] ->
@@ -185,9 +174,9 @@ let rec shift_comp k lvl (c', loc) =
 
     | Type -> c'
 
-    | Operation (op, c) ->
-       let c = shift_comp k lvl c in
-       Operation (op, c)
+    | Perform (op, cs) ->
+       let cs = List.map (shift_comp k lvl) cs in
+       Perform (op, cs)
 
     | With (c1, c2) ->
        let c1 = shift_comp k lvl c1
@@ -215,36 +204,12 @@ let rec shift_comp k lvl (c', loc) =
       and lst = List.map (shift_case k lvl) lst in
       Match (c, lst)
 
-    | Beta (xscs, c) ->
-       let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
-       and c = shift_comp k lvl c in
-       Beta (xscs, c)
-
-    | Eta (xscs, c) ->
-       let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
-       and c = shift_comp k lvl c in
-       Eta (xscs, c)
-
-    | Hint (xscs, c) ->
-       let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
-       and c = shift_comp k lvl c in
-       Hint (xscs, c)
-
-    | Inhabit (xscs, c) ->
-       let xscs = List.map (fun (xs, c) -> (xs, shift_comp k lvl c)) xscs
-       and c = shift_comp k lvl c in
-       Inhabit (xscs, c)
-
-    | Unhint (xs, c) ->
-       let c = shift_comp k lvl c in
-       Unhint (xs, c)
-
     | Ascribe (c1, c2) ->
        let c1 = shift_comp k lvl c1
        and c2 = shift_comp k lvl c2 in
        Ascribe (c1, c2)
 
-    | Whnf c -> Whnf (shift_comp k lvl c)
+    | Reduce c -> Reduce (shift_comp k lvl c)
 
     | External _ -> c'
 
@@ -292,12 +257,6 @@ let rec shift_comp k lvl (c', loc) =
         let c = shift_comp k lvl c in
         Refl c
 
-    | Bracket c ->
-        let c = shift_comp k lvl c in
-        Bracket c
-
-    | Inhab -> Inhab
-
     | Signature lst ->
         let lst = List.map (fun (x,x',c) -> x, x', shift_comp k lvl c) lst in
         Signature lst
@@ -314,25 +273,27 @@ let rec shift_comp k lvl (c', loc) =
 
     | Context -> Context
 
+    | Congruence (c1,c2) ->
+      let c1 = shift_comp k lvl c1 in
+      let c2 = shift_comp k lvl c2 in
+      Congruence (c1,c2)
+
   in
   c', loc
 
 and shift_handler k lvl {handler_val; handler_ops; handler_finally} =
-  { handler_val =
-      (match handler_val with
-       | None -> None
-       | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
-    handler_ops =
-      List.map
-        (fun (op, (x, c)) -> let c = shift_comp k (lvl+1) c in (op, (x, c)))
-        handler_ops ;
-    handler_finally =
-      (match handler_finally with
-       | None -> None
-       | Some (x, c) -> let c = shift_comp k (lvl+1) c in Some (x, c)) ;
+  { handler_val = List.map (shift_case k lvl) handler_val ;
+    handler_ops = Name.IdentMap.map (List.map (shift_multicase k lvl)) handler_ops ;
+    handler_finally = List.map (shift_case k lvl) handler_finally ;
   }
 
 and shift_case k lvl (xs, p, c) =
   let p = shift_pattern k lvl p
   and c = shift_comp k (lvl + List.length xs) c in
   xs, p, c
+
+and shift_multicase k lvl (xs, ps, c) =
+  let ps = List.map (shift_pattern k lvl) ps
+  and c = shift_comp k (lvl + List.length xs) c in
+  xs, ps, c
+

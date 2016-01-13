@@ -1,0 +1,4 @@
+Data constructor cow is declared.
+Data constructor bull is declared.
+cons cow
+(cons bull nil)

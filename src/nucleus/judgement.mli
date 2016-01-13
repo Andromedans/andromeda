@@ -13,6 +13,9 @@ val ty_ty : ty
 (** The type judgement of a term judgement. *)
 val typeof : term -> ty
 
+(** The judgement ctx |- t : Type associated with ctx |- t type *)
+val term_of_ty : ty -> term
+
 (** Create a term judgment. *)
 val mk_term : Context.t -> Tt.term -> Tt.ty -> term
 

@@ -1,8 +1,9 @@
-(* The prelude is empty for now. *)
 
-Handle
-  | #equal _ => 'none
-  | #abstract v => 'none
-  end.
+#include_once "std/base.m31"
+#include_once "std/equal.m31"
 
-Let symmetry := λ [A : Type, x y : A, h : x ≡ y] hint h in refl x :: y ≡ x.
+let betas = nil
+let hints = nil
+let action = reset
+
+#include "std/equal_handle.m31"

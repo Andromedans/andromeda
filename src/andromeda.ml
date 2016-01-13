@@ -22,7 +22,7 @@ let files = ref []
 
 (** Add a file to the list of files to be loaded, and record whether it should
     be processed in interactive mode. *)
-let add_file ?lim interactive filename = (files := (filename, lim, interactive) :: !files)
+let add_file ?lim ~once interactive filename = (files := (filename, lim, interactive, once) :: !files)
 
 (** Command-line options *)
 let options = Arg.align [
@@ -78,7 +78,7 @@ let options = Arg.align [
      " Do not run the interactive toplevel");
 
     ("-l",
-     Arg.String (fun str -> add_file false str),
+     Arg.String (fun str -> add_file ~once:false false str),
      "<file> Load <file> into the initial environment");
 
     ("--lim-file",
@@ -88,7 +88,7 @@ let options = Arg.align [
          Arg.String
            (fun fn ->
             Config.interactive_shell := false ;
-            add_file ~lim:!lim true fn)]),
+            add_file ~lim:!lim ~once:false true fn)]),
      "<lim> <file> Process <file> up to the end of the statement at character\
       <lim>, do not enter interactive mode");
   ]
@@ -105,8 +105,18 @@ let parse lex parse resource =
 (** [exec_cmd env d] executes toplevel command [c] in environment [env]. It prints the
     result if in interactive mode, and returns the new environment. *)
 let rec exec_cmd base_dir interactive env c =
-  let (c', loc) = Desugar.toplevel (Value.Env.constants env) (Value.Env.bound_names env) c in
+  let (c', loc) = Desugar.toplevel env (Value.Env.bound_names env) c in
   match c' with
+
+  | Syntax.Operation (x, k) ->
+     let env = Value.Env.add_operation ~loc x k env in
+     if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
+     env
+
+  | Syntax.Data (x, k) ->
+     let env = Value.Env.add_data ~loc x k env in
+     if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
+     env
 
   | Syntax.Axiom (x, ryus, c) ->
      (* XXX this is seriously messed up with respect to contexts. *)
@@ -126,11 +136,14 @@ let rec exec_cmd base_dir interactive env c =
      let ctx, yrusv = fold env Context.empty [] [] ryus in
      (* XXX do sth with ctx *)
      let env = Value.Env.add_constant ~loc x yrusv env in
-     if interactive then Format.printf "%t is assumed.@." (Name.print_ident x) ;
+     if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
      env
 
   | Syntax.TopHandle lst ->
-     List.fold_left (fun env (op, xc) -> Value.Env.add_handle op xc env) env lst
+     List.fold_left (fun env (op, xc) ->
+        let f = Eval.comp_handle env xc in
+        Value.Env.add_handle op f env)
+      env lst
 
   | Syntax.TopLet (x, c) ->
      let v = Eval.comp_value env c in
@@ -158,21 +171,7 @@ let rec exec_cmd base_dir interactive env c =
        if interactive then Format.printf "%t@." (Value.print_value (Value.Env.used_names env) v) ;
        env
 
-  | Syntax.TopBeta xscs ->
-     Eval.beta_bind env xscs |> Value.to_value ~loc
-
-  | Syntax.TopEta xscs ->
-     Eval.eta_bind env xscs |> Value.to_value ~loc
-
-  | Syntax.TopHint xscs ->
-     Eval.hint_bind env xscs |> Value.to_value ~loc
-
-  | Syntax.TopInhabit xscs ->
-     Eval.inhabit_bind env xscs |> Value.to_value ~loc
-
-  | Syntax.TopUnhint xs -> Value.Env.unhint ~loc xs env
-
-  | Syntax.Include fs ->
+  | Syntax.Include (fs,once) ->
     (* relative file names get interpreted relative to the file we're
        currently loading *)
     List.fold_left
@@ -184,7 +183,7 @@ let rec exec_cmd base_dir interactive env c =
                if Filename.is_relative f then
                  Filename.concat base_dir f
                else f in
-             use_file env (f, None, false) in
+             use_file env (f, None, false, once) in
            if interactive then Format.printf "#processed %s@." f ;
            env
          end)
@@ -204,17 +203,10 @@ let rec exec_cmd base_dir interactive env c =
 
 
 (** Load directives from the given file. *)
-and use_file env (filename, limit, interactive) =
-  let limit = match limit with
-    | None -> None
-    | Some limit -> Some ({ Lexing.dummy_pos with Lexing.pos_cnum = limit }, true) in
-
-  if Value.Env.included filename env then env else
+and use_file env (filename, line_limit, interactive, once) =
+  if once && Value.Env.included filename env then env else
     begin
-      let tokens, errs = Tokens.tokens_of_file filename in
-
-      let cmds = parse (Tokens.cmds_of_tokens ?limit) tokens errs in
-
+      let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
       let base_dir = Filename.dirname filename in
       let env = Value.Env.add_file filename env in
       List.fold_left (exec_cmd base_dir interactive) env cmds
@@ -241,7 +233,7 @@ let main =
   (* Parse the arguments. *)
   Arg.parse
     options
-    (fun str -> add_file true str ; Config.interactive_shell := false)
+    (fun str -> add_file ~once:false true str ; Config.interactive_shell := false)
     usage ;
   (* Attempt to wrap yourself with a line-editing wrapper. *)
   if !Config.interactive_shell then
@@ -266,7 +258,7 @@ let main =
   begin
     match !Config.prelude_file with
     | Config.PreludeNone -> ()
-    | Config.PreludeFile f -> files := (f, None, false) :: !files
+    | Config.PreludeFile f -> add_file ~once:false false f
     | Config.PreludeDefault ->
       (* look for prelude next to the executable and in the , don't whine if it is not there *)
       try
@@ -274,7 +266,7 @@ let main =
         let d' = Filename.dirname Sys.argv.(0) in
         let l = List.map (fun d -> Filename.concat d "prelude.m31") [d; d'] in
         let f = List.find (fun f ->  Sys.file_exists f) l in
-        files := (f, None, false) :: !files
+        add_file ~once:false false f
       with Not_found -> ()
   end ;
 
@@ -282,8 +274,21 @@ let main =
   Format.set_max_boxes 42 ;
   Format.set_ellipsis_text "..." ;
   try
+    let env = Value.Env.empty in
+    (* Declare predefined data constructors *)
+    let env = List.fold_left
+                (fun env (x, k) -> Value.Env.add_data ~loc:Location.unknown x k env)
+                env
+                Value.predefined_tags
+    in
+    (* Declare predefined operations *)
+    let env = List.fold_left
+                (fun env (x, k) -> Value.Env.add_operation ~loc:Location.unknown x k env)
+                env
+                Value.predefined_ops
+    in    
     (* Run and load all the specified files. *)
-    let env = List.fold_left use_file Value.Env.empty !files in
+    let env = List.fold_left use_file env !files in
     if !Config.interactive_shell then
       toplevel env
   with

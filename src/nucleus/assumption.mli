@@ -1,4 +1,5 @@
 (** Sets of assumptions *)
+module BoundSet : Set.S with type elt = Syntax.bound
 
 type t
 
@@ -29,3 +30,4 @@ val bind : int -> t -> t
     Otherwise it raises an Error.impossible. *)
 val as_atom_set : loc:Location.t -> t -> Name.AtomSet.t
 
+val bound : t -> BoundSet.t

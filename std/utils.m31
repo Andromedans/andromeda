@@ -1,0 +1,32 @@
+
+(** list stuff *)
+let rev =
+  let rec rev acc = fun lst => match lst with
+    | nil => acc
+    | cons ?x ?tl => rev (cons x acc) tl
+    end
+  in rev nil
+
+let rec fold f acc lst = match lst with
+  | nil => acc
+  | cons ?x ?tl => fold (f acc x) tl
+  end
+
+let rec assoc_find x lst = match lst with
+  | nil => None
+  | cons (pair x ?v) _ => Some v
+  | cons _ ?lst => assoc_find x lst
+  end
+
+let rev_append = fun l1 l2 => fold (fun acc x => cons x acc) l2 l1
+
+(** pair stuff *)
+let fst = fun v => match v with
+  | pair ?v _ => v
+  end
+
+let snd = fun v => match v with
+  | pair _ ?v => v
+  end
+
+
