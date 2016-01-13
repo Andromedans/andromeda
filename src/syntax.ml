@@ -41,6 +41,10 @@ and comp' =
   | Perform of Name.ident * comp list
   | With of comp * comp
   | Let of (Name.ident * comp) list * comp
+  | Lookup of comp
+  | Update of comp * comp
+  | Ref of comp
+  | Sequence of comp * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * comp * comp
   | Match of comp * match_case list
@@ -187,6 +191,24 @@ let rec shift_comp k lvl (c', loc) =
        let xcs = List.map (fun (x,c) -> (x, shift_comp k lvl c)) xcs
        and c = shift_comp k (lvl + List.length xcs) c in
        Let (xcs, c)
+
+    | Lookup c ->
+       let c = shift_comp k lvl c in
+       Lookup c
+
+    | Update (c1, c2) ->
+       let c1 = shift_comp k lvl c1
+       and c2 = shift_comp k lvl c2 in
+       Update (c1, c2)
+
+    | Ref c ->
+       let c = shift_comp k lvl c in
+       Ref c
+
+    | Sequence (c1, c2) ->
+       let c1 = shift_comp k lvl c1
+       and c2 = shift_comp k lvl c2 in
+       Sequence (c1, c2)
 
     | Assume ((x, t), c) ->
        let t = shift_comp k lvl t

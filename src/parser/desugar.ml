@@ -259,6 +259,24 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
       let c2 = comp ~yield env bound c2 in
       Syntax.Let (xcs, c2), loc
 
+    | Input.Lookup c ->
+       let c = comp ~yield env bound c in
+       Syntax.Lookup c, loc
+
+    | Input.Ref c ->
+       let c = comp ~yield env bound c in
+       Syntax.Ref c, loc
+
+    | Input.Update (c1, c2) ->
+       let c1 = comp ~yield env bound c1
+       and c2 = comp ~yield env bound c2 in
+       Syntax.Update (c1, c2), loc
+
+    | Input.Sequence (c1, c2) ->
+       let c1 = comp ~yield env bound c1
+       and c2 = comp ~yield env bound c2 in
+       Syntax.Sequence (c1, c2), loc
+
     | Input.Assume ((x, t), c) ->
        let t = comp ~yield env bound t in
        let bound = add_bound x bound in

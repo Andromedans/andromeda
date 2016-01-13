@@ -50,12 +50,16 @@
 %token VDASH
 
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
+%token SEMICOLON
 
 %token CONGRUENCE
 %token CONTEXT
 %token TYPEOF
 
 %token EXTERNAL
+
+(* REFERENCES *)
+%token BANG COLONEQ REF
 
 (* Functions *)
 %token REC FUNCTION
@@ -75,6 +79,7 @@
 %token EOF
 
 (* Precedence and fixity of infix operators *)
+%nonassoc COLONEQ
 %left     INFIXOP0
 %right    INFIXOP1
 %left     INFIXOP2
@@ -130,16 +135,17 @@ plain_topdirective:
 
 term: mark_location(plain_term) { $1 }
 plain_term:
-  | e=plain_ty_term                                                 { e }
-  | LET a=let_clauses IN c=term                                     { Let (a, c) }
+  | e=plain_ty_term                                            { e }
+  | LET a=let_clauses IN c=term                                { Let (a, c) }
   | LET REC x=name a=function_abstraction EQ e=term IN c=term  { Let ([x,(Rec (x, a, e),snd e)], c) }
-  | ASSUME x=var_name COLON t=ty_term IN c=term                     { Assume ((x, t), c) }
+  | ASSUME x=var_name COLON t=ty_term IN c=term                { Assume ((x, t), c) }
   | c1=equal_term WHERE e=simple_term EQ c2=term               { Where (c1, e, c2) }
-  | MATCH e=term WITH lst=match_cases END                           { Match (e, lst) }
-  | HANDLE c=term WITH hcs=handler_cases END                        { Handle (c, hcs) }
-  | WITH h=term HANDLE c=term                                       { With (h, c) }
-  | HANDLER hcs=handler_cases END                                   { Handler (hcs) }
-  | e=app_term COLON t=ty_term                                      { Ascribe (e, t) }
+  | MATCH e=term WITH lst=match_cases END                      { Match (e, lst) }
+  | HANDLE c=term WITH hcs=handler_cases END                   { Handle (c, hcs) }
+  | WITH h=term HANDLE c=term                                  { With (h, c) }
+  | HANDLER hcs=handler_cases END                              { Handler (hcs) }
+  | e=app_term COLON t=ty_term                                 { Ascribe (e, t) }
+  | e1=equal_term SEMICOLON e2=term                            { Sequence (e1, e2) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
@@ -160,6 +166,7 @@ plain_equal_term:
 binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
   | e=plain_app_term                                { e }
+  | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
   | e2=binop_term op=INFIXOP0 e3=binop_term
     { let e1 = Var (Name.make ~fixity:Name.Infix0 (fst op)), snd op in Spine (e1, [e2; e3]) }
   | e2=binop_term op=INFIXOP1 e3=binop_term
@@ -182,7 +189,10 @@ plain_app_term:
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:
   | e=plain_simple_term                        { e }
-  | op=PREFIXOP e2=prefix_term                 { let e1 = Var (Name.make ~fixity:Name.Prefix (fst op)), snd op in Spine (e1, [e2]) }
+  | REF e=prefix_term                          { Ref e }
+  | BANG e=prefix_term                         { Lookup e }
+  | op=PREFIXOP e2=prefix_term                 { let e1 = Var (Name.make ~fixity:Name.Prefix (fst op)), snd op in
+                                                 Spine (e1, [e2]) }
   | REDUCE t=prefix_term                       { Reduce t }
   | YIELD e=prefix_term                        { Yield e }
   | TYPEOF t=prefix_term                       { Typeof t }

@@ -32,6 +32,10 @@ let as_handler ~loc v =
   let e = Value.as_handler ~loc v in
   Value.return e
 
+let as_ref ~loc v =
+  let e = Value.as_ref ~loc v in
+  Value.return e
+
 (** Evaluate a computation -- infer mode. *)
 let rec infer env (c',loc) =
   match c' with
@@ -120,6 +124,26 @@ let rec infer env (c',loc) =
 
   | Syntax.Let (xcs, c) ->
      let_bind env xcs >>= (fun env -> infer env c)
+
+  | Syntax.Ref c ->
+     infer env c >>= fun v ->
+     Value.return (Value.mk_ref v)
+
+  | Syntax.Lookup c ->
+     infer env c >>= as_ref ~loc >>= fun (r : Value.value ref) ->
+     Value.return (!r)
+
+  | Syntax.Update (c1, c2) ->
+     infer env c1 >>= as_ref ~loc >>= fun r ->
+     infer env c2 >>= fun v ->
+     r := v ;
+     Value.return_unit
+
+  | Syntax.Sequence (c1, c2) ->
+     infer env c1 >>= fun _ ->
+     (* XXX is it a good idea to ignore the value? Maybe a warning would be nice
+        when the value is not unit. *)
+     infer env c2
 
   | Syntax.Assume ((x, t), c) ->
      check_ty env t >>= fun t ->
@@ -230,8 +254,8 @@ let rec infer env (c',loc) =
               Value.apply_closure env f >>= fun v ->
               fold v cs
           end
-        | Value.Ty _ | Value.Handler _ | Value.Tag _ ->
-          Error.runtime ~loc "%t expressions cannot be applied" (Value.print_value_key v)
+        | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.Ref _ ->
+          Error.runtime ~loc "cannot apply %s" (Value.name_of v)
     in
     infer env c >>= fun v -> fold v cs
 
@@ -363,7 +387,11 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Yield _
   | Syntax.Context
   | Syntax.Reduce _
-  | Syntax.Congruence _ ->
+  | Syntax.Congruence _
+  | Syntax.Ref _
+  | Syntax.Lookup _
+  | Syntax.Update _
+  | Syntax.Sequence _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 

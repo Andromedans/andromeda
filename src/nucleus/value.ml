@@ -24,6 +24,7 @@ type value =
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
+  | Ref of value ref
 
 and ('a,'b) closure = dynamic -> 'a -> 'b result
 
@@ -49,6 +50,7 @@ type env = {
 let mk_term j = Term j
 let mk_ty j = Ty j
 let mk_handler h = Handler h
+let mk_ref v = Ref (ref v)
 
 let mk_closure' env f = (fun dyn v -> f {env with dynamic = dyn} v)
 let mk_closure env f = Closure (mk_closure' env f)
@@ -84,42 +86,41 @@ and print_value ?max_level xs v ppf =
   | Closure f -> print_closure xs f ppf
   | Handler h -> print_handler xs h ppf
   | Tag (t, lst) -> print_tag ?max_level xs t lst ppf
+  | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t" (print_value ~max_level:0 xs (!v))
 
-let print_value_key v ppf =
+let name_of v =
   match v with
-    | Term _ -> Print.print ~at_level:0 ppf "<term>"
-    | Ty _ -> Print.print ~at_level:0 ppf "<type>"
-    | Closure _ -> Print.print ~at_level:0 ppf "<function>"
-    | Handler _ -> Print.print ~at_level:0 ppf "<handler>"
-    | Tag _ -> Print.print ~at_level:0 ppf "<tag>"
+    | Term _ -> "a term"
+    | Ty _ -> "a type"
+    | Closure _ -> "a function"
+    | Handler _ -> "a handler"
+    | Tag _ -> "a data tag"
+    | Ref _ -> "a reference"
 
 let as_term ~loc = function
   | Term e -> e
-  | Ty _ -> Error.runtime ~loc "expected a term but got a type"
-  | Closure _ -> Error.runtime ~loc "expected a term but got a function"
-  | Handler _ -> Error.runtime ~loc "expected a term but got a handler"
-  | Tag _  -> Error.runtime ~loc "expected a term but got a tag"
+  | (Ty _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_ty ~loc = function
-  | Term _ -> Error.runtime ~loc "expected a type but got a term"
   | Ty t -> t
-  | Closure _ -> Error.runtime ~loc "expected a type but got a function"
-  | Handler _ -> Error.runtime ~loc "expected a type but got a handler"
-  | Tag _  -> Error.runtime ~loc "expected a type but got a tag"
+  | (Term _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_closure ~loc = function
-  | Term _ -> Error.runtime ~loc "expected a function but got a term"
-  | Ty _ -> Error.runtime ~loc "expected a function but got a type"
   | Closure f -> f
-  | Handler _ -> Error.runtime ~loc "expected a function but got a handler"
-  | Tag _  -> Error.runtime ~loc "expected a function but got a tag"
+  | (Ty _ | Term _ | Handler _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_handler ~loc = function
-  | Term _ -> Error.runtime ~loc "expected a handler but got a term"
-  | Ty _ -> Error.runtime ~loc "expected a handler but got a type"
-  | Closure _ -> Error.runtime ~loc "expected a handler but got a function"
   | Handler h -> h
-  | Tag _  -> Error.runtime ~loc "expected a handler but got a tag"
+  | (Ty _ | Term _ | Closure _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
+
+let as_ref ~loc = function
+  | Ref v -> v
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let name_some = Name.make "Some"
 let name_none = Name.make "None"
@@ -138,21 +139,16 @@ let predefined_tags = [
 ]
 
 let as_option ~loc = function
-  | Term _ -> Error.runtime ~loc "expected an option but got a term"
-  | Ty _ -> Error.runtime ~loc "expected an option but got a type"
-  | Closure _ -> Error.runtime ~loc "expected an option but got a function"
-  | Handler h -> Error.runtime ~loc "expected an option but got a handler"
   | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
-  | Tag _ -> Error.runtime ~loc "expected an option but got a tag"
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let from_option = function
   | None -> Tag (name_none, [])
   | Some v -> Tag (name_some, [v])
 
 let from_pair (v1, v2) = Tag (name_pair, [v1; v2])
-
-let from_unit () = Tag (name_unit, [])
 
 let rec from_list = function
   | [] -> Tag (name_nil, [])
@@ -163,6 +159,8 @@ let mk_tag t lst = Tag (t, lst)
 let return x = Return x
 
 let return_term e = Return (Term e)
+
+let return_unit = Return (Tag (name_unit, []))
 
 let return_ty t = Return (Ty t)
 
@@ -235,17 +233,22 @@ let rec equal_value v1 v2 =
         in
       fold vs1 vs2
 
-    | Term _, (Ty _ | Closure _ | Handler _ | Tag _)
-    | Ty _, (Term _ | Closure _ | Handler _ | Tag _)
-    | Closure _, (Term _ | Ty _ | Handler _ | Tag _)
-    | Handler _, (Term _ | Ty _ | Closure _ | Tag _)
-    | Tag _, (Term _ | Ty _ | Closure _ | Handler _) ->
-      false
+    | Ref v1, Ref v2 ->
+       (* XXX should we compare references by value instead? *)
+       v1 == v2
 
     | Closure _, Closure _
     | Handler _, Handler _ ->
-      false
+       (* XXX should we use physical comparison == instead? *)
+       false
 
+    | Term _, (Ty _ | Closure _ | Handler _ | Tag _ | Ref _)
+    | Ty _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _)
+    | Closure _, (Term _ | Ty _ | Handler _ | Tag _ | Ref _)
+    | Handler _, (Term _ | Ty _ | Closure _ | Tag _ | Ref _)
+    | Tag _, (Term _ | Ty _ | Closure _ | Handler _ | Ref _)
+    | Ref _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _) ->
+      false
 
 let (>>=) = bind
 
@@ -674,7 +677,7 @@ module Env = struct
        raise Match_fail
 
   let rec collect_pattern env xvs (p,loc) v =
-    match p, v with 
+    match p, v with
     | Syntax.Patt_Anonymous, _ -> xvs
 
     | Syntax.Patt_As (p,k), v ->
@@ -702,8 +705,8 @@ module Env = struct
     | Syntax.Patt_Tag (tag, ps), Tag (tag', vs) when Name.eq_ident tag tag' ->
       multicollect_pattern env xvs ps vs
 
-    | Syntax.Patt_Jdg _, (Ty _ | Closure _ | Handler _ | Tag _)
-    | Syntax.Patt_Tag _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _) ->
+    | Syntax.Patt_Jdg _, (Ty _ | Closure _ | Handler _ | Tag _ | Ref _)
+    | Syntax.Patt_Tag _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | Ref _) ->
        raise Match_fail
 
   and multicollect_pattern env xvs ps vs =
