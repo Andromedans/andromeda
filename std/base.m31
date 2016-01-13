@@ -1,11 +1,12 @@
-
+(* A short-hand for the print function. *)
 let print = external "print"
 
+(* Top-level handlers default to failure. *)
 handle
   | equal _ _ => None
   | abstract _ _ => None
   | as_prod _ => None
   | as_eq _ => None
   | as_signature _ => None
-  end
+end
 
