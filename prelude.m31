@@ -2,6 +2,6 @@
 #include_once "std/base.m31"
 #include_once "std/equal.m31"
 
-let betas = nil
-let hints = nil
+let top_betas = nil
+let top_hints = nil
 

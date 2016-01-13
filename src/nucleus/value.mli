@@ -165,6 +165,10 @@ module Env : sig
   (** Add a bound variable with given name to the environment. *)
   val add_bound : Name.ident -> value -> env -> env
 
+  (** Add a bound variable with the given name to the environment.
+      Complain if then name is already used. *)
+  val add_topbound : loc:Location.t -> Name.ident -> value -> env -> env
+
   (** Add a top-level handler case to the environment. *)
   val add_handle : Name.ident -> (value list,value) closure -> env -> env
 

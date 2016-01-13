@@ -2,8 +2,8 @@
 #include_once "base.m31"
 #include "utils.m31"
 
-(* debug message *)
-data (!) 1 let (!) = fun x => print ! x
+data (!!) 1 
+let debug = fun x => print !! x
 
 operation fail 0
 operation beta 1
@@ -123,12 +123,12 @@ let process_hint =
     | |- ?e : ?h => deep nil e h
     end
 
-let symmetry = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
+let sym = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
   | equal _ _ =>
     yield (Some h)
   end
 
-let transitivity = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
+let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
   handle eq2 : a == c with
     | equal ((|- a == c : _) as ?x) ((|- b == c : _) as ?y) => handle yield (congruence x y) with
       | equal a b => yield (Some eq1)
@@ -138,7 +138,7 @@ let transitivity = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
 (* pick the rhs because it's more reduced in practice *)
 let hide_witness = fun eq => match eq with
   |- _ : ?a == ?b => match a with |- _ : ?t =>
-    handle refl b : a == b with equal b a => yield (Some (symmetry t a b eq)) end
+    handle refl b : a == b with equal b a => yield (Some (sym t a b eq)) end
   end end
 
 (* implicit arguments and hide witness *)
@@ -146,7 +146,7 @@ let symmetry = fun eq =>
   match eq with
     |- _ : ?a == ?b =>
       match a with |- _ : ?t =>
-        hide_witness (symmetry t a b eq)
+        hide_witness (sym t a b eq)
       end
   end
 
@@ -154,7 +154,7 @@ let transitivity = fun eq1 eq2 =>
   match pair eq1 eq2 with
     | pair (|- _ : ?a == ?b) (|- _ : _ == ?c) =>
       match a with |- _ : ?t =>
-        hide_witness (transitivity t a b c eq1 eq2)
+        hide_witness (tran a b c eq1 eq2)
       end
   end
 
