@@ -57,7 +57,7 @@ and comp' =
   | Signature of (Name.ident * Name.ident * comp) list
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
-  | Yield
+  | Yield of comp
   | Context
   | Congruence of comp * comp
 
@@ -269,7 +269,9 @@ let rec shift_comp k lvl (c', loc) =
         let c = shift_comp k lvl c in
         Projection (c,x)
 
-    | Yield -> Yield
+    | Yield c ->
+       let c = shift_comp k lvl c in
+       Yield c
 
     | Context -> Context
 

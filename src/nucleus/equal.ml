@@ -97,7 +97,7 @@ let rec equal env ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   if Tt.alpha_equal e1 e2
   then Opt.return ctx
   else
-    Monad.lift (Value.perform_equal env (Value.Term (ctx,e1,t)) (Value.Term (ctx,e2,t))) >!= fun v ->
+    Monad.lift (Value.perform_equal env (Value.mk_term (ctx,e1,t)) (Value.mk_term (ctx,e2,t))) >!= fun v ->
     let loc = loc1 in
     match Value.as_option ~loc v with
       | Some v ->
@@ -466,20 +466,20 @@ and as_eq env ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
     | _ ->
-      Monad.lift (Value.perform_as_eq env (Value.Term (Judgement.term_of_ty jt))) >>=
+      Monad.lift (Value.perform_as_eq env (Value.mk_term (Judgement.term_of_ty jt))) >>=
       as_form as_eq "an equality type" env jt
 
 let rec as_prod env ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
     | _ ->
-      Monad.lift (Value.perform_as_prod env (Value.Term (Judgement.term_of_ty jt))) >>=
+      Monad.lift (Value.perform_as_prod env (Value.mk_term (Judgement.term_of_ty jt))) >>=
       as_form as_prod "a product type" env jt
 
 let rec as_signature env ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Signature xts -> Monad.return (ctx, xts)
     | _ ->
-      Monad.lift (Value.perform_as_signature env (Value.Term (Judgement.term_of_ty jt))) >>=
+      Monad.lift (Value.perform_as_signature env (Value.mk_term (Judgement.term_of_ty jt))) >>=
       as_form as_signature "a signature type" env jt
 

@@ -158,13 +158,13 @@ let rec exec_cmd base_dir interactive env c =
                 let ctx = Simplify.context ctx in
                 let t = Simplify.ty t in
                 let j = Judgement.mk_ty ctx t in
-                Value.Ty j
+                Value.mk_ty j
              | Value.Term (ctx, e, t) ->
                 let ctx = Simplify.context ctx in
                 let e = Simplify.term e
                 and t = Simplify.ty t in
                 let j = Judgement.mk_term ctx e t in
-                  Value.Term j
+                  Value.mk_term j
              | v -> v
        end
      in

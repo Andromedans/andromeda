@@ -398,10 +398,13 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
   | Input.Type ->
     Syntax.Type, loc
 
-  | Input.Yield ->
+  | Input.Yield c ->
     if yield
-    then Syntax.Yield, loc
-    else Error.syntax ~loc "yield may only be used in a handler"
+    then
+      let c = comp ~yield env bound c in
+      Syntax.Yield c, loc
+    else
+      Error.syntax ~loc "yield may only be used in a handler"
 
   | Input.Context ->
      Syntax.Context, loc
