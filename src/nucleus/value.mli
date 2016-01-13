@@ -15,12 +15,13 @@ type env
     At the moment the only kind of value is a pair [(e,t)] where [e] is a
     term and [t] is a type. Such a value (in a given context [ctx]) indicates
     that the judgement [ctx |- e : t] is derivable. *)
-type value =
+type value = private
   | Term of Judgement.term
   | Ty of Judgement.ty
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
+  | Ref of value ref
 
 and ('a,'b) closure
 
@@ -35,6 +36,11 @@ and handler = {
   handler_finally: (value,value) closure option;
 }
 
+val mk_term : Judgement.term -> value
+val mk_ty : Judgement.ty -> value
+val mk_handler : handler -> value
+val mk_ref : value -> value
+
 val mk_closure' : env -> (env -> 'a -> 'b result) -> ('a,'b) closure
 val mk_closure : env -> (env -> value -> value result) -> value
 val apply_closure : env -> ('a,'b) closure -> 'a -> 'b result
@@ -43,7 +49,7 @@ val as_term : loc:Location.t -> value -> Judgement.term
 val as_ty : loc:Location.t -> value -> Judgement.ty
 val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
-
+val as_ref : loc:Location.t -> value -> value ref
 
 (** Names and arities of predefined data constructors *)
 val predefined_tags : (Name.ident * int) list
@@ -51,7 +57,6 @@ val predefined_tags : (Name.ident * int) list
 (** Wrappers for making tags *)
 val from_option : value option -> value
 val from_pair : value * value -> value
-val from_unit : unit -> value
 val from_list : value list -> value
 
 (** Convert tags to ocaml types *)
@@ -62,6 +67,7 @@ val mk_tag : Name.ident -> value list -> value
 val return : 'a -> 'a result
 val return_term : Judgement.term -> value result
 val return_ty : Judgement.ty -> value result
+val return_unit : value result
 val return_closure : env -> (env -> value -> value result) -> value result
 
 val return_handler : env ->
@@ -91,7 +97,8 @@ val top_handle : loc:Location.t -> env -> 'a result -> 'a
 (** Pretty-print a value. *)
 val print_value : ?max_level:int -> Name.ident list -> value -> Format.formatter -> unit
 
-val print_value_key : value -> Format.formatter -> unit
+(** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
+val name_of : value -> string
 
 (** Check that a result is a value and return it, or complain. *)
 val to_value : loc:Location.t -> 'a result -> 'a
@@ -164,6 +171,10 @@ module Env : sig
 
   (** Add a bound variable with given name to the environment. *)
   val add_bound : Name.ident -> value -> env -> env
+
+  (** Add a bound variable with the given name to the environment.
+      Complain if then name is already used. *)
+  val add_topbound : loc:Location.t -> Name.ident -> value -> env -> env
 
   (** Add a top-level handler case to the environment. *)
   val add_handle : Name.ident -> (value list,value) closure -> env -> env

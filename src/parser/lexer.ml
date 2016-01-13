@@ -30,6 +30,7 @@ let reserved = [
   ("in", IN) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
+  ("ref", REF) ;
   ("refl", REFL) ;
   ("Type", TYPE) ;
   ("typeof", TYPEOF) ;
@@ -109,6 +110,9 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "->" | 8594 | 10230      -> f (); ARROW
   | "=>" | 8658 | 10233      -> f (); DARROW
   | "==" | 8801              -> f (); EQEQ
+  | '!'                      -> f (); BANG
+  | ":="                     -> f (); COLONEQ
+  | ';'                      -> f (); SEMICOLON
   | prefixop                 -> f (); PREFIXOP (lexeme lexbuf, Location.of_lexeme lexbuf)
   | infixop0                 -> f (); INFIXOP0 (lexeme lexbuf, Location.of_lexeme lexbuf)
   | infixop1                 -> f (); INFIXOP1 (lexeme lexbuf, Location.of_lexeme lexbuf)
