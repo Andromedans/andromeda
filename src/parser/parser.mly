@@ -184,6 +184,7 @@ plain_prefix_term:
   | e=plain_simple_term                        { e }
   | op=PREFIXOP e2=prefix_term                 { let e1 = Var (Name.make ~fixity:Name.Prefix (fst op)), snd op in Spine (e1, [e2]) }
   | REDUCE t=prefix_term                       { Reduce t }
+  | YIELD e=prefix_term                        { Yield e }
   | TYPEOF t=prefix_term                       { Typeof t }
   | REFL e=prefix_term                         { Refl e }
 
@@ -200,7 +201,6 @@ plain_simple_term:
         { Structure lst }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
   | CONTEXT                                         { Context }
-  | YIELD                                           { Yield }
 
 var_name:
   | NAME { Name.make $1 }

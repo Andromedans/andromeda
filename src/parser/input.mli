@@ -61,7 +61,7 @@ and term' =
   | Signature of (Name.ident * Name.ident option * ty) list
   | Structure of (Name.ident * Name.ident option * comp) list
   | Projection of comp * Name.ident
-  | Yield
+  | Yield of comp
   | Context
   | Congruence of comp * comp
 

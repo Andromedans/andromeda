@@ -46,6 +46,10 @@ type env = {
   dynamic : dynamic;
 }
 
+let mk_term j = Term j
+let mk_ty j = Ty j
+let mk_handler h = Handler h
+
 let mk_closure' env f = (fun dyn v -> f {env with dynamic = dyn} v)
 let mk_closure env f = Closure (mk_closure' env f)
 

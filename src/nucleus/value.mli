@@ -15,7 +15,7 @@ type env
     At the moment the only kind of value is a pair [(e,t)] where [e] is a
     term and [t] is a type. Such a value (in a given context [ctx]) indicates
     that the judgement [ctx |- e : t] is derivable. *)
-type value =
+type value = private
   | Term of Judgement.term
   | Ty of Judgement.ty
   | Closure of (value,value) closure
@@ -34,6 +34,10 @@ and handler = {
   handler_ops: (value list * (value,value) closure, value) closure Name.IdentMap.t;
   handler_finally: (value,value) closure option;
 }
+
+val mk_term : Judgement.term -> value
+val mk_ty : Judgement.ty -> value
+val mk_handler : handler -> value
 
 val mk_closure' : env -> (env -> 'a -> 'b result) -> ('a,'b) closure
 val mk_closure : env -> (env -> value -> value result) -> value

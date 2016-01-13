@@ -151,7 +151,7 @@ let rec infer env (c',loc) =
             let eq = Tt.mention_atoms hyps eq in
             let teq = Tt.mk_eq_ty ~loc t e e' in
             let eqj = Judgement.mk_term ctx eq teq in
-            Value.return (Value.from_option (Some (Value.Term eqj)))
+            Value.return (Value.from_option (Some (Value.mk_term eqj)))
          | None -> Value.return (Value.from_option None)
        end
 
@@ -308,14 +308,15 @@ let rec infer env (c',loc) =
     let j = Judgement.mk_term ctx te ty in
     Value.return_term j
 
-  | Syntax.Yield ->
+  | Syntax.Yield c ->
     begin match Value.Env.lookup_continuation env with
-      | Some y -> Value.return (Value.Closure y)
+      | Some y -> infer env c >>= Value.apply_closure env y
       | None -> Error.impossible ~loc "yield without continuation set"
     end
 
   | Syntax.Context ->
-     let v = Value.from_list (List.map (fun jxt -> Value.Term jxt) (Value.Env.lookup_abstracting env)) in
+     let v = Value.from_list
+               (List.map (fun jxt -> Value.mk_term jxt) (Value.Env.lookup_abstracting env)) in
      Value.return v
 
   | Syntax.Congruence (c1,c2) ->
@@ -327,7 +328,7 @@ let rec infer env (c',loc) =
         let eq = Tt.mention_atoms hyps eq in
         let teq = Tt.mk_eq_ty ~loc t e1 e2 in
         let j = Judgement.mk_term ctx eq teq in
-        let v = Value.Term j in
+        let v = Value.mk_term j in
         Value.return (Value.from_option (Some v))
       | None -> Value.return (Value.from_option None)
       end
@@ -359,8 +360,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Spine _
   | Syntax.Signature _
   | Syntax.Projection _
-  | Syntax.Yield 
-  | Syntax.Context 
+  | Syntax.Yield _
+  | Syntax.Context
   | Syntax.Reduce _
   | Syntax.Congruence _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
