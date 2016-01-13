@@ -28,23 +28,35 @@
 \newcommand{\substs}[2]{#1[#2]} % substitution of many variables
 
 \newcommand{\Type}{\mathsf{Type}} % The type of all types
-\newcommand{\Prod}[2]{\mathop{\textstyle\prod_{(#1 {:} #2)}}} % dependent product
 
-\newcommand{\lam}[3]{\lambda #1 {:} #2.{#3}\,.\,} % $\lambda$-abstraction
-\newcommand{\app}[5]{#1\mathbin{@^{#2{:}#3.#4}} #5} % application
+% "raw" versions of \Prod, \lam and \app
+\newcommand{\xProd}[1]{\mathop{\textstyle\prod_{#1}}}
+\newcommand{\xlam}[2]{\lambda #1.#2\,.\,}
+\newcommand{\xapp}[3]{#1\mathbin{@^{#2}} #3}
+
+% classic versions of \Prod, \lam and \app
+\newcommand{\cProd}[2]{\xProd{(#1 {:} #2)}}
+\newcommand{\clam}[3]{\xlam{#1 {:} #2}{#3}}
+\newcommand{\capp}[5]{\xapp{#1}{#2{:}#3.#4}{#5}}
+
+% spine versions of \Prod, \lam and \app
+\newcommand{\many}[1]{\overrightharpoon{#1}}
+\newcommand{\sProd}[2]{\xProd{(\many{#1{:}#2})}}
+\newcommand{\slam}[3]{\xlam{(\many{#1{:}#2})}{#3}}
+\newcommand{\sapp}[5]{\xapp{#1}{(\many{#2{:}#3}).#4}{\many{#5}}}
 
 \newcommand{\abst}[2]{[#1 \,.\, #2]} % abstraction
 \newcommand{\ascribe}[2]{#1 \,{:}{:}\, #2} % type ascription
 
-\newcommand{\JuEqual}[3]{\mathsf{Eq}_{#1}(#2,#3)} % Equality type
-\newcommand{\juRefl}[1]{{\mathsf{refl}_{#1}}\ }    % Judgmental refl
+\newcommand{\Equal}[3]{\mathsf{Eq}_{#1}(#2,#3)} % Equality type
+\newcommand{\refl}[1]{{\mathsf{refl}_{#1}}\ }   % reflexivity
 
 % orthodox judgments
 \newcommand{\isctx}[1]{#1\ \mathsf{ctx}} % well formed context
-\newcommand{\istype}[2]{\isterm{#1}{#2}{\Type}} % well formed type
+\newcommand{\istype}[2]{#1 \vdash\, #2 \ \mathsf{type}} % well formed type
 \newcommand{\isterm}[3]{#1 \vdash\,#2\,:\,#3} % well formed term
 
-\newcommand{\eqtype}[3]{\eqterm{#1}{#2}{#3}{\Type}} % equal types
+\newcommand{\eqtype}[3]{#1 \vdash #2 \equiv #3 \ \mathsf{type}} % equal types
 \newcommand{\eqterm}[4]{#1 \vdash #2 \equiv #3 : #4} % equal terms
 
 % commands
@@ -111,3 +123,8 @@
 
 \newcommand{\tynorm}[2]{#1 \hookrightarrow #2} % (strong) normalization of terms
 \newcommand{\norm}[2]{#1 \hookrightarrow #2} % (strong) normalization of terms
+
+%%% Local Variables:
+%%% mode: plain-tex
+%%% TeX-master: "theory"
+%%% End:
