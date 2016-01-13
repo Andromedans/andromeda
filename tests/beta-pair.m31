@@ -1,41 +1,46 @@
-Parameter Pair : Type -> Type -> Type.
+constant Product : Type -> Type -> Type
 
-Parameter pair :
-  Π [A B : Type]
-    A -> (B -> (Pair A B)).
+constant Pair :
+  Π (A B : Type),
+    A -> (B -> (Product A B))
 
-Parameter fst :
-  Π [X Y : Type] Pair X Y -> X.
+constant Fst :
+  Π (X Y : Type), Product X Y -> X
 
-Parameter beta_fst :
-  Π [U V : Type, u : U, v : V]
-    (fst V U (pair V U v u)) == v.
+constant beta_Fst :
+  Π (U V : Type, u : U, v : V),
+    (Fst V U (Pair V U v u)) == v
 
-Parameter C : Type.
-Parameter D : Type.
-Parameter c : C.
-Parameter d : D.
+constant C : Type
+constant D : Type
+constant c : C
+constant d : D
 
-(* just a pair *)
-Check beta beta_fst in
-    (refl (fst C D (pair C D c d)))
-         ::
-         c == (fst C D (pair C D c d)).
+(* just a Pair *)
+check with equality_in betas hints handle
+  let _ = beta beta_Fst in
+    (refl (Fst C D (Pair C D c d)))
+         :
+         c == (Fst C D (Pair C D c d))
 
 (* change the order of the parameters *)
-Check beta beta_fst in
-       (refl (fst D C (pair D C d c)))
-         ::
-         d == (fst D C (pair D C d c)).
+check with equality_in betas hints handle
+  let _ = beta beta_Fst in
+       (refl (Fst D C (Pair D C d c)))
+         :
+         d == (Fst D C (Pair D C d c))
 
 (* add a lambda redex in the proof *)
-Check beta beta_fst in
-    (refl (fst C D (pair C D ((λ [t : Type, x : t] x) C c) d)))
-         ::
-         c == (fst C D (pair C D c d)).
+check with equality_in betas hints handle
+  let _ = beta beta_Fst in
+    (refl (Fst C D (Pair C D ((λ (t : Type, x : t), x) C c) d)))
+         :
+         c == (Fst C D (Pair C D c d))
 
 (* add a lambda redex in the type *)
-Check beta beta_fst in
-    (refl (fst C D (pair C D c d)))
-         ::
-         c == (fst C D (pair C D ((λ [t : Type, x : t] x) C c) d)).
+check with equality_in betas hints handle
+  let _ = beta beta_Fst in
+    (refl (Fst C D (Pair C D c d)))
+         :
+         c == (Fst C D (Pair C D ((λ (t : Type, x : t), x) C c) d))
+

@@ -1,19 +1,19 @@
-A is assumed.
-a is assumed.
-b is assumed.
-c is assumed.
-'a
-'lambda (x₆ : A 
-         ⊢ x₆ : A) (⊢ A : Type) (x₆ : A 
-                                       ⊢ a : A)
-('prod (x'₅ : A 
-        ⊢ x'₅ : A) (⊢ A : Type) (x'₅ : A 
-                                       ⊢ A : Type))
-list is assumed.
-nil is assumed.
-cons is defined.
-'pair (cons₉ : A → list → list 
-       ⊢ b : A)
-(cons₉ : A → list → list 
- ⊢ cons₉ b (cons₉ c nil) : list)
-'ok
+Constant A is declared.
+Constant a is declared.
+Constant b is declared.
+Constant c is declared.
+⊢ a : A
+Data constructor lam is declared.
+lam (x₁₂ : A 
+     ⊢ x₁₂ : A) (⊢ A : Type) (x₁₂ : A 
+                                      ⊢ a : A)
+(pair (pair (x'₁₁ : A 
+             ⊢ x'₁₁ : A) (⊢ A : Type))
+ (x'₁₁ : A 
+  ⊢ A : Type))
+Constant list is declared.
+Constant Nil is declared.
+Constant Cons is declared.
+pair (⊢ b : A)
+(⊢ Cons b (Cons c Nil) : list)
+⊢ () : {}

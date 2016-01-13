@@ -1,13 +1,15 @@
-Axiom N : Type.
-Axiom O : N.
-Axiom S [n : N] : N.
+constant N : Type
+constant O : N
+constant S (n : N) : N
 
-Axiom plus [reduce n : N] [reduce m : N] : N.
+constant plus (reduce n : N) (reduce m : N) : N
 
-Axiom plus_O_l : forall [n : N] plus O n == n.
+constant plus_O_l : forall (n : N), plus O n == n
 
-Beta plus_O_l.
+let action = top_beta plus_O_l
+#include "../std/equal_handle.m31"
 
-Check plus (plus O O) O.
+check plus (plus O O) O
 
-Check whnf (plus (plus O (S O)) (plus O O)).
+check whnf (plus (plus O (S O)) (plus O O))
+

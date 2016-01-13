@@ -1,4 +1,10 @@
 append is defined.
 append' is defined.
-'pair ('cons 'a ('cons 'b ('cons 'c ('cons 'd ('cons 'e ('cons 'f 'nil))))))
-('cons 'a ('cons 'b ('cons 'c ('cons 'd ('cons 'e ('cons 'f 'nil))))))
+Data constructor a is declared.
+Data constructor b is declared.
+Data constructor c is declared.
+Data constructor d is declared.
+Data constructor e is declared.
+Data constructor f is declared.
+pair (cons a (cons b (cons c (cons d (cons e (cons f nil))))))
+(cons a (cons b (cons c (cons d (cons e (cons f nil))))))

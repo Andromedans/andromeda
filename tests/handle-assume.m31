@@ -1,19 +1,22 @@
-Parameter A : Type.
-Parameter B : A -> Type.
-Parameter Q : Π [X : Type, P : X -> Type, x : X] P x → Type.
+constant A : Type
+constant B : A -> Type
+constant Q : Π (X : Type, P : X -> Type, x : X), P x → Type
+
+operation inhabit 1
 
 (* Works *)
-Check
+check
   handle
-    λ [a : A] Q A (#inhabit (A -> Type)) a
+    λ (a : A), Q A (inhabit (A -> Type)) a
   with
-  | #inhabit ?T => assume hyp : T in yield hyp
-  end.
+  | inhabit ?T => assume hyp : T in yield hyp
+  end
 
 (* Fails *)
-Check
+check
   handle
-    λ [a : A] Q A B a (#inhabit (B a))
+    λ (a : A), Q A B a (inhabit (B a))
   with
-  | #inhabit ?T => assume hyp : T in yield hyp
-  end.
+  | inhabit ?T => assume hyp : T in yield hyp
+  end
+

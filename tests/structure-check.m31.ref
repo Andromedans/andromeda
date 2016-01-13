@@ -1,3 +1,4 @@
-A is assumed.
-a is assumed.
-⊢ {x := a, y := refl a} : {x : A, y : x ≡ a}
+Constant A is declared.
+Constant a is declared.
+File "structure-check.m31", line 5, characters 20-25: Typing error
+  failed to check that the term a is equal to x₁₂

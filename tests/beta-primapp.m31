@@ -1,30 +1,32 @@
 (* Test primitive operations with beta hints. *)
 
-Parameter cow : Type.
-Parameter horn : cow.
-Parameter tail [_ : cow] : cow.
-Parameter tail_horn : tail horn == horn.
+constant cow : Type
+constant horn : cow
+constant tail (_ : cow) : cow
+constant tail_horn : tail horn == horn
 
-Check
-  beta tail_horn in
-    refl horn :: horn == tail horn.
+check with equality_in betas hints handle
+  let _ = beta tail_horn in
+    refl horn : horn == tail horn
 
 
-Parameter prod [A B : Type] : Type.
+constant prod (A B : Type) : Type
 
-Parameter pair [A : Type] [B : Type] [_ : A] [_ : B] : prod A B.
+constant Pair (A : Type) (B : Type) (_ : A) (_ : B) : prod A B
 
-Parameter fst [A : Type] [B : Type] [_ : prod A B] : A.
+constant Fst (A : Type) (B : Type) (_ : prod A B) : A
 
-Parameter fst_beta :
-  Π [A B : Type] [a : A] [b : B] fst A B (pair A B a b) == a.
+constant Fst_beta :
+  Π (A B : Type) (a : A) (b : B), Fst A B (Pair A B a b) == a
 
-Parameter X : Type.
-Parameter Y : Type.
-Parameter a : X.
-Parameter f : X -> X.
+constant X : Type
+constant Y : Type
+constant a : X
+constant f : X -> X
 
-Check
-  beta fst_beta in
-    λ [y : Y]
-      refl (f a) :: f a == fst X Y (pair X Y (f a) y).
+(* TODO needs matching constants *)
+check with equality_in betas hints handle
+  let _ = beta Fst_beta in
+    λ (y : Y),
+      refl (f a) : f a == Fst X Y (Pair X Y (f a) y)
+

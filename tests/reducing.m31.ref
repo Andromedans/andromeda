@@ -1,7 +1,11 @@
-N is assumed.
-O is assumed.
-S is assumed.
-plus is assumed.
-plus_O_l is assumed.
+Constant N is declared.
+Constant O is declared.
+Constant S is declared.
+Constant plus is declared.
+Constant plus_O_l is declared.
+action is defined.
+#including ../std/equal_handle.m31
+#processed ../std/equal_handle.m31
 ⊢ plus (plus O O) O : N
-⊢ plus (S O) O : N
+⊢ refl (plus (plus O (S O)) (plus O O))
+  : plus (plus O (S O)) (plus O O) ≡ plus (plus O (S O)) (plus O O)

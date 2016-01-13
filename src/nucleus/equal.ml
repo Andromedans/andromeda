@@ -273,23 +273,23 @@ let congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
     and (x1,t1),xts1 = pop_end xts1
     and (x2,t2),xts2 = pop_end xts2 in
     (* type of the last argument *)
-    let t1 = Tt.instantiate_ty es1 t1 (* TODO fix *)
-    and t2 = Tt.instantiate_ty es2 t2 in
-    Opt.locally (equal_ty env ctx t1 t2) >?= fun (ctx,hypst) ->
+    let tinst1 = Tt.instantiate_ty (List.rev es1) t1
+    and tinst2 = Tt.instantiate_ty (List.rev es2) t2 in
+    Opt.locally (equal_ty env ctx tinst1 tinst2) >?= fun (ctx,hypst) ->
     (* output type abstracted for last argument *)
     Opt.locally (
-      let ctx,y,envy = Value.Env.add_abstracting ~loc:loc1 env x1 (ctx,t1) in
+      let ctx,y,envy = Value.Env.add_abstracting ~loc:loc1 env x1 (ctx,tinst1) in
       let tey1 = Tt.mk_atom ~loc:loc1 y in
       let tey2 = Tt.mention_atoms hypst tey1 in
-      let out_inst1 = Tt.instantiate_ty (tey1::es1) out1
-      and out_inst2 = Tt.instantiate_ty (tey2::es2) out2 in
+      let out_inst1 = Tt.instantiate_ty (tey1::(List.rev es1)) out1
+      and out_inst2 = Tt.instantiate_ty (tey2::(List.rev es2)) out2 in
       equal_ty envy ctx out_inst1 out_inst2 >?= fun ctx ->
-      Monad.lift (Value.context_abstract ~loc:Location.unknown envy ctx [y] [t1]) >!= fun (ctx,ys,es) ->
+      Monad.lift (Value.context_abstract ~loc:Location.unknown envy ctx [y] [tinst1]) >!= fun (ctx,ys,es) ->
       Monad.abstract_hyps ys es >!= fun () ->
       Opt.return ctx
       ) >?= fun (ctx,hypso) ->
     (* last argument *)
-    equal env ctx e1 (Tt.mention_atoms hypst e2) t1 >?= fun ctx ->
+    equal env ctx e1 (Tt.mention_atoms hypst e2) tinst1 >?= fun ctx ->
     (* abstracted output type of the head *)
     let th1 = Tt.mk_prod_ty ~loc:loc1 [(x1,t1)] out1
     and th2 = Tt.mk_prod_ty ~loc:loc2 [(x2,t2)] out2 in
@@ -297,7 +297,7 @@ let congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
     let h1 = Tt.mk_spine ~loc:loc1 h1 xts1 th1 es1
     and h2 = Tt.mk_spine ~loc:loc2 h2 xts2 th2 es2 in
     (* type of the head *)
-    let th = Tt.instantiate_ty es1 th1 in (*NB: equal to the same for rhs by hypst and hypso *)
+    let th = Tt.instantiate_ty (List.rev es1) th1 in (*NB: equal to the same for rhs by hypst and hypso *)
     let h2 = Tt.mention_atoms (AtomSet.union hypst hypso) h2 in
     equal env ctx h1 h2 th
 

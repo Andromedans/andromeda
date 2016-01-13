@@ -1,47 +1,47 @@
-let Nat := forall [X : Type] (X -> X) -> X -> X
+let Nat = forall (X : Type), (X -> X) -> X -> X
 
 check Nat
 
-let zero :=
-    (λ [A s z] z) :: Nat
+let zero =
+    (λ (A s z), z) : Nat
 
 check zero
 
-let one :=
-    (λ [A s z] s z) :: Nat
+let one =
+    (λ (A s z), s z) : Nat
 
 check one
 
-let two :=
-    (λ [A s z] s (s z)) :: Nat
+let two =
+    (λ (A s z), s (s z)) : Nat
 
 check two
 
-let three :=
-    (λ [A s z] s (s (s z))) :: Nat
+let three =
+    (λ (A s z), s (s (s z))) : Nat
 
 check three
 
-let succ :=
-    (λ [n : Nat]
-    λ [B : Type, s : B -> B, z : B]
-    s (n B s z)) :: Nat -> Nat
+let succ =
+    (λ (n : Nat),
+    λ (B : Type, s : B -> B, z : B),
+    s (n B s z)) : Nat -> Nat
 
 check succ
 
-let succ' :=
-    (λ [n : Nat] [A s z] n A s (s z)) :: Nat -> Nat
+let succ' =
+    (λ (n : Nat) (A s z), n A s (s z)) : Nat -> Nat
 
 check succ'
 
-let add :=
-    (λ [m n, A, s z] m A s (n A s z)) :: Nat -> Nat -> Nat
+let add =
+    (λ (m n, A, s z), m A s (n A s z)) : Nat -> Nat -> Nat
 
 check add
 
-let mult :=
-    (λ [m n : Nat, A : Type, s : A -> A] m A (n A s))
-    :: Nat -> Nat -> Nat
+let mult =
+    (λ (m n : Nat, A : Type, s : A -> A), m A (n A s))
+    : Nat -> Nat -> Nat
 
 check mult
 
@@ -49,4 +49,5 @@ constant N : Type
 constant Z : N
 constant S : N -> N
 
-check (refl (succ three N S Z) :: add one three N S Z == mult (succ' one) two N S Z)
+check (refl (succ three N S Z) : add one three N S Z == mult (succ' one) two N S Z)
+

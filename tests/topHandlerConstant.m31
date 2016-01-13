@@ -1,14 +1,17 @@
-Axiom A : Type.
-Axiom B : Type.
-Axiom b : B.
-Axiom a : A.
+constant A : Type
+constant B : Type
+constant b : B
+constant a : A
 
-Let h := handler
-  | #op ?v => whnf (v ((lambda [x : B] x) b))
-end.
+operation op 1
 
-Axiom f [reduce b : B] : A.
+let h = handler
+  | op ?v => whnf (v ((lambda (x : B), x) b))
+end
+
+constant f (reduce b : B) : A
 
 (* At this point h should know about f, does it? *)
-Let _ := with h handle 
-           #op (lambda [x : B] f x).
+let _ = with h handle 
+           op (lambda (x : B), f x)
+

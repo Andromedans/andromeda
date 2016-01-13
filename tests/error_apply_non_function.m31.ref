@@ -1,5 +1,5 @@
 f is defined.
 x is defined.
 y is defined.
-File "./error_apply_non_function.m31", line 9, characters 10-10: Typing error
-  this expression is applied but its type is not a product
+File "error_apply_non_function.m31", line 2, characters 9-12: Typing error
+  this expression should be a product type, found Type

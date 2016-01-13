@@ -1,17 +1,18 @@
 (* Substitute with different values in separate subterms, then join. *)
 
-Parameter A : Type.
+constant A : Type
 
-Let x := assume x : A in x.
-Let P := assume P : A -> Type in P.
-Let y := assume y : P x in y.
+let x = assume x : A in x
+let P = assume P : A -> Type in P
+let y = assume y : P x in y
 
-Parameter a : A.
-Parameter b : A.
+constant a : A
+constant b : A
 
-Parameter ign : forall [T : Type] T -> A.
-Parameter g : A -> A -> A.
+constant ign : forall (T : Type), T -> A
+constant g : A -> A -> A
 
-Let igny := ign (P x) y.
+let igny = ign (P x) y
 
-Check g (igny where x := a) (igny where x := b).
+check g (igny where x = a) (igny where x = b)
+

@@ -1,8 +1,8 @@
-N is assumed.
-plus is assumed.
-plus_commute is assumed.
-List is assumed.
-m is assumed.
-n is assumed.
-lst is assumed.
+Constant N is declared.
+Constant plus is declared.
+Constant plus_commute is declared.
+Constant List is declared.
+Constant m is declared.
+Constant n is declared.
+Constant lst is declared.
 ⊢ lst : List (plus n m)

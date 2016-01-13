@@ -1,17 +1,22 @@
-Parameter unit : Type.
-Parameter tt : unit.
-Parameter unit_rect : ∀ [P : unit -> Type] (P tt) -> ∀ [n : unit] P n.
+let unit = {}
+constant top : unit
+constant unit_rect : ∀ (P : unit -> Type), (P top) -> ∀ (n : unit), P n
 
-Parameter unit_iota_tt : ∀ [P : unit -> Type] [s : P tt] unit_rect P s tt == s.
+constant unit_iota_top : ∀ (P : unit -> Type) (s : P top), unit_rect P s top == s
 
-Let it := (λ [T : Type] unit_rect (λ [m] T -> T) (λ [x : T] x)).
+let it = (λ (T : Type), unit_rect (λ (m), T -> T) (λ (x : T), x))
 
-Beta unit_iota_tt.
+let action = top_beta unit_iota_top
+#include "../std/equal_handle.m31"
 
-Check refl tt :: tt == it unit tt tt.
+(* TODO loops *)
+check whnf (it unit top top)
 
-Check refl tt :: tt == (it unit) tt tt.
+check refl top : top == it unit top top
 
-Check refl tt :: tt == (it unit tt) tt.
+check refl top : top == (it unit) top top
 
-Check refl tt :: tt == ((it unit) tt) tt.
+check refl top : top == (it unit top) top
+
+check refl top : top == ((it unit) top) top
+

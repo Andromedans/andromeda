@@ -1,8 +1,8 @@
 (* A somewhat surprising example when an arrow gets printed
    instead of a product. But it really is ok. *)
 
-Axiom A : Type.
-Axiom a : A.
+constant A : Type
+constant a : A
 
-Check
-   ∏ [eq : A ≡ Type] beta eq in a.
+check with equality_in betas hints handle
+   ∏ (eq : A ≡ Type), let _ = beta eq in a

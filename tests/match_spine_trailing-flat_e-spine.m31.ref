@@ -1,19 +1,8 @@
-unit is assumed.
-tt is assumed.
-unit_rect is assumed.
-unit_iota_tt is assumed.
+Constant Unit is declared.
+Constant top is declared.
+Constant Unit_rect is declared.
+Constant Unit_iota_top is declared.
 it is defined.
-⊢ refl tt
-  : tt ≡ (unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x) tt tt
-⊢ refl tt
-  : tt ≡ (unit_rect (λ [_ : unit] unit → unit) (λ [x : unit] x)) tt tt
-⊢ refl tt
-  : tt
-      ≡ ((unit_rect (λ [_ : unit] unit → unit) (λ [x : unit] x)) tt) tt
-⊢ refl tt
-  : tt
-      ≡ (((unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x)) tt)
-            tt
-⊢ refl tt
-  : tt
-      ≡ ((unit_rect (λ [_ : unit] unit → unit)) (λ [x : unit] x)) tt tt
+action is defined.
+#including ../std/equal_handle.m31
+#processed ../std/equal_handle.m31

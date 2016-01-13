@@ -1,9 +1,6 @@
+Operation Conjure is declared.
 conjure is defined.
-A is assumed.
-B is assumed.
-Q is assumed.
-File "./handle-conjure.m31", line 19, characters 5-39: Runtime error
-  Cannot abstract a₁₁ because magic₁₇ depends on it in context
-  a₁₁ : A 
-  magic₁₇ : B a₁₁ 
-  .
+Constant A is declared.
+Constant B is declared.
+Constant Q is declared.
+Operation implicit is declared.

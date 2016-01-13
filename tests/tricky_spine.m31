@@ -2,25 +2,28 @@
    allows us to create weird beta redeces, and therefore
    also weird spines. *)
 
-Axiom Bool : Type.
-Axiom Nat : Type.
+constant Bool : Type
+constant Nat : Type
 
-Axiom true : Bool.
-Axiom false : Bool.
+constant true : Bool
+constant false : Bool
 
-Axiom zero : Nat.
-Axiom succ : Nat → Nat.
-Axiom plus : Nat → Nat → Nat.
-Axiom iszero : Nat → Bool.
+constant zero : Nat
+constant succ : Nat → Nat
+constant plus : Nat → Nat → Nat
+constant iszero : Nat → Bool
 
-Axiom eq1 : (Nat → Nat) ≡ (Nat → Bool).
-Axiom eq2 : (Nat → Bool) ≡ (Nat → Nat).
+constant eq1 : (Nat → Nat) ≡ (Nat → Bool)
+constant eq2 : (Nat → Bool) ≡ (Nat → Nat)
 
-Let f := (λ [n : Nat] iszero (succ n)).
-Check f.
+let f = (λ (n : Nat), iszero (succ n))
+check f
 
 (* Succeed *)
-Check hint eq1 in (f :: Nat → Nat).
+check with equality_in betas hints handle
+  let _ = hint eq1 in (f : Nat → Nat)
 
 (* Fail *)
-Check hint eq2 in (f :: Nat → Nat).
+check with equality_in betas hints handle
+  let _ = hint eq2 in (f : Nat → Nat)
+
