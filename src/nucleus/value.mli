@@ -19,6 +19,7 @@ type value = private
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
+  | Ref of value ref
 
 and handler = {
   handler_val: (value,value) closure option;
@@ -32,11 +33,15 @@ type 'a result
 (** state environment, no operations *)
 type 'a toplevel
 
+(** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
+val name_of : value -> string
+
 (** Make values *)
 val mk_term : Judgement.term -> value
 val mk_ty : Judgement.ty -> value
 val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
+val mk_ref : value -> value
 
 val mk_closure' : ('a -> 'b result) -> ('a,'b) closure toplevel
 
@@ -53,6 +58,7 @@ val return : 'a -> 'a result
 val return_term : Judgement.term -> value result
 val return_ty : Judgement.ty -> value result
 val return_closure : (value -> value result) -> value result
+val return_unit : value result
 
 val return_handler :
    (value -> value result) option ->
@@ -68,20 +74,18 @@ val print_ty : (?max_level:int -> Tt.ty -> Format.formatter -> unit) result
 
 val top_print_value : (?max_level:int -> value -> Format.formatter -> unit) toplevel
 
-val print_value_key : value -> Format.formatter -> unit
-
 (** Coerce values *)
 val as_term : loc:Location.t -> value -> Judgement.term
 val as_ty : loc:Location.t -> value -> Judgement.ty
 val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
+val as_ref : loc:Location.t -> value -> value ref
 
 val as_option : loc:Location.t -> value -> value option
 
 (** Wrappers for making tags *)
 val from_option : value option -> value
 val from_pair : value * value -> value
-val from_unit : unit -> value
 val from_list : value list -> value
 
 (** Operations *)

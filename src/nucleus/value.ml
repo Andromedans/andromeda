@@ -24,6 +24,7 @@ type value =
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
+  | Ref of value ref
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a,'b) closure = Clos of ('a -> 'b result)
@@ -87,6 +88,7 @@ let mk_term j = Term j
 let mk_ty j = Ty j
 let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
+let mk_ref v = Ref (ref v)
 
 let mk_closure0 (f : 'a -> 'b result) env = Clos (fun v {dynamic;_} -> f v {env with dynamic})
 let mk_closure' f env = mk_closure0 f env, env
@@ -149,14 +151,16 @@ and print_value ?max_level xs v ppf =
   | Closure f -> print_closure xs f ppf
   | Handler h -> print_handler xs h ppf
   | Tag (t, lst) -> print_tag ?max_level xs t lst ppf
+  | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t" (print_value ~max_level:0 xs (!v))
 
-let print_value_key v ppf =
+let name_of v =
   match v with
-    | Term _ -> Print.print ~at_level:0 ppf "<term>"
-    | Ty _ -> Print.print ~at_level:0 ppf "<type>"
-    | Closure _ -> Print.print ~at_level:0 ppf "<function>"
-    | Handler _ -> Print.print ~at_level:0 ppf "<handler>"
-    | Tag _ -> Print.print ~at_level:0 ppf "<tag>"
+    | Term _ -> "a term"
+    | Ty _ -> "a type"
+    | Closure _ -> "a function"
+    | Handler _ -> "a handler"
+    | Tag _ -> "a data tag"
+    | Ref _ -> "a reference"
 
 (** Prefill the [xs] argument of print_* *)
 let used_names env =
@@ -177,40 +181,34 @@ let print_ty env =
 (** Coerce values *)
 let as_term ~loc = function
   | Term e -> e
-  | Ty _ -> Error.runtime ~loc "expected a term but got a type"
-  | Closure _ -> Error.runtime ~loc "expected a term but got a function"
-  | Handler _ -> Error.runtime ~loc "expected a term but got a handler"
-  | Tag _  -> Error.runtime ~loc "expected a term but got a tag"
+  | (Ty _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_ty ~loc = function
-  | Term _ -> Error.runtime ~loc "expected a type but got a term"
   | Ty t -> t
-  | Closure _ -> Error.runtime ~loc "expected a type but got a function"
-  | Handler _ -> Error.runtime ~loc "expected a type but got a handler"
-  | Tag _  -> Error.runtime ~loc "expected a type but got a tag"
+  | (Term _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_closure ~loc = function
-  | Term _ -> Error.runtime ~loc "expected a function but got a term"
-  | Ty _ -> Error.runtime ~loc "expected a function but got a type"
   | Closure f -> f
-  | Handler _ -> Error.runtime ~loc "expected a function but got a handler"
-  | Tag _  -> Error.runtime ~loc "expected a function but got a tag"
+  | (Ty _ | Term _ | Handler _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_handler ~loc = function
-  | Term _ -> Error.runtime ~loc "expected a handler but got a term"
-  | Ty _ -> Error.runtime ~loc "expected a handler but got a type"
-  | Closure _ -> Error.runtime ~loc "expected a handler but got a function"
   | Handler h -> h
-  | Tag _  -> Error.runtime ~loc "expected a handler but got a tag"
+  | (Ty _ | Term _ | Closure _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
+
+let as_ref ~loc = function
+  | Ref v -> v
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_option ~loc = function
-  | Term _ -> Error.runtime ~loc "expected an option but got a term"
-  | Ty _ -> Error.runtime ~loc "expected an option but got a type"
-  | Closure _ -> Error.runtime ~loc "expected an option but got a function"
-  | Handler h -> Error.runtime ~loc "expected an option but got a handler"
   | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
-  | Tag _ -> Error.runtime ~loc "expected an option but got a tag"
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 (** Wrappers for making tags *)
 let from_option = function
@@ -219,11 +217,11 @@ let from_option = function
 
 let from_pair (v1, v2) = Tag (name_pair, [v1; v2])
 
-let from_unit () = Tag (name_unit, [])
-
 let rec from_list = function
   | [] -> Tag (name_nil, [])
   | v :: vs -> Tag (name_cons, [v; from_list vs])
+
+let return_unit _ = Return (Tag (name_unit, []))
 
 (** Operations *)
 let perform op vs env =
@@ -237,8 +235,10 @@ let perform_abstract v1 v2 =
 
 let perform_as_prod v =
   perform name_as_prod [v]
+
 let perform_as_eq v =
   perform name_as_eq [v]
+
 let perform_as_signature v =
   perform name_as_signature [v]
 
@@ -472,7 +472,7 @@ let rec top_handle ~loc r env =
           top_handle ~loc r env
        end
 
-(*********)
+(** Equality *)
 let rec equal_value v1 v2 =
   match v1, v2 with
     | Term (_,te1,_), Term (_,te2,_) ->
@@ -493,14 +493,20 @@ let rec equal_value v1 v2 =
         in
       fold vs1 vs2
 
-    | Term _, (Ty _ | Closure _ | Handler _ | Tag _)
-    | Ty _, (Term _ | Closure _ | Handler _ | Tag _)
-    | Closure _, (Term _ | Ty _ | Handler _ | Tag _)
-    | Handler _, (Term _ | Ty _ | Closure _ | Tag _)
-    | Tag _, (Term _ | Ty _ | Closure _ | Handler _) ->
-      false
+    | Ref v1, Ref v2 ->
+       (* XXX should we compare references by value instead? *)
+       v1 == v2
 
     | Closure _, Closure _
     | Handler _, Handler _ ->
+       (* XXX should we use physical comparison == instead? *)
+       false
+
+    | Term _, (Ty _ | Closure _ | Handler _ | Tag _ | Ref _)
+    | Ty _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _)
+    | Closure _, (Term _ | Ty _ | Handler _ | Tag _ | Ref _)
+    | Handler _, (Term _ | Ty _ | Closure _ | Tag _ | Ref _)
+    | Tag _, (Term _ | Ty _ | Closure _ | Handler _ | Ref _)
+    | Ref _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _) ->
       false
 

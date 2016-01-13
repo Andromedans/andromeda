@@ -305,8 +305,8 @@ let rec collect_pattern env xvs (p,loc) v =
   | Syntax.Patt_Tag (tag, ps), Value.Tag (tag', vs) when Name.eq_ident tag tag' ->
     multicollect_pattern env xvs ps vs
 
-  | Syntax.Patt_Jdg _, (Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _)
-  | Syntax.Patt_Tag _, (Value.Term _ | Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _) ->
+  | Syntax.Patt_Jdg _, (Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _)
+  | Syntax.Patt_Tag _, (Value.Term _ | Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _) ->
      raise Match_fail
 
 and multicollect_pattern env xvs ps vs =

@@ -11,7 +11,7 @@ let externals =
       Value.return_closure (fun v ->
           Value.print_value >>= fun pval ->
           Format.printf "%t@." (pval v) ;
-          Value.return (Value.from_unit ())
+          Value.return_unit
         )) ;
 
     ("time",

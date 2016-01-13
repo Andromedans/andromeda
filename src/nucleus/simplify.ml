@@ -211,5 +211,8 @@ let rec value = function
   | Value.Term (ctx,e,t) -> Value.mk_term (Judgement.mk_term (context ctx) (term e) (ty t))
   | Value.Ty (ctx,t) -> Value.mk_ty (Judgement.mk_ty (context ctx) (ty t))
   | Value.Tag (x,vs) -> Value.mk_tag x (List.map value vs)
+  | Value.Ref v ->
+    let v = value !v in
+    Value.mk_ref v
   | Value.Closure _ | Value.Handler _ as v -> v
 
