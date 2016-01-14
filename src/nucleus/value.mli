@@ -9,12 +9,10 @@ type decl =
 (** Runtime environment *)
 type env
 
-(** The values are "finished" or "computed" results. They are inert pieces
-    of data.
+type ('a,'b) closure
 
-    At the moment the only kind of value is a pair [(e,t)] where [e] is a
-    term and [t] is a type. Such a value (in a given context [ctx]) indicates
-    that the judgement [ctx |- e : t] is derivable. *)
+(** The values are "finished" or "computed" results. They are inert pieces
+    of data. *)
 type value = private
   | Term of Judgement.term
   | Ty of Judgement.ty
@@ -22,18 +20,14 @@ type value = private
   | Handler of handler
   | Tag of Name.ident * value list
 
-and ('a,'b) closure
-
-(** A result of computation at the moment is necessarily just a pure value
-    because we do not have any operations in the language. But when we do,
-    they will be results as well (and then handlers will handle them). *)
-and 'a result
-
 and handler = {
   handler_val: (value,value) closure option;
   handler_ops: (value list * (value,value) closure, value) closure Name.IdentMap.t;
   handler_finally: (value,value) closure option;
 }
+
+type 'a result
+
 
 val mk_term : Judgement.term -> value
 val mk_ty : Judgement.ty -> value

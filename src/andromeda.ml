@@ -152,24 +152,10 @@ let rec exec_cmd base_dir interactive env c =
      env
 
   | Syntax.TopCheck c ->
-     let v =
-       begin match Eval.comp_value env c with
-             | Value.Ty (ctx, t) ->
-                let ctx = Simplify.context ctx in
-                let t = Simplify.ty t in
-                let j = Judgement.mk_ty ctx t in
-                Value.mk_ty j
-             | Value.Term (ctx, e, t) ->
-                let ctx = Simplify.context ctx in
-                let e = Simplify.term e
-                and t = Simplify.ty t in
-                let j = Judgement.mk_term ctx e t in
-                  Value.mk_term j
-             | v -> v
-       end
-     in
-       if interactive then Format.printf "%t@." (Value.print_value (Value.Env.used_names env) v) ;
-       env
+     let v = Eval.comp_value env c in
+     let v = Simplify.value v in
+     if interactive then Format.printf "%t@." (Value.print_value (Value.Env.used_names env) v) ;
+     env
 
   | Syntax.Include (fs,once) ->
     (* relative file names get interpreted relative to the file we're
