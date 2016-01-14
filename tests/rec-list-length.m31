@@ -3,11 +3,11 @@ data s 1
 
 let length = rec length lst =>
   match lst with
-  | nil => z
-  | cons _ ?lst => s (length lst)
+  | [] => z
+  | _ :: ?lst => s (length lst)
   end
 
-let mylist = cons () (cons Type (cons nil nil))
+let mylist = () :: (Type :: ([] :: []))
 
 check length mylist
 

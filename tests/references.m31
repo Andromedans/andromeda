@@ -1,11 +1,11 @@
 data banana 0
 data apple 0
 
-let x = ref nil
+let x = ref []
 
 check 
-  x := cons banana (!x)
+  x := banana :: (!x)
 
 check
-  x := cons apple !x ; !x
+  x := apple :: !x ; !x
 

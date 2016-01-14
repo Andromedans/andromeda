@@ -3,7 +3,7 @@ Constant O is declared.
 Constant S is declared.
 Constant plus is declared.
 Constant plus_O_l is declared.
-betas is defined.
+_ is defined.
 ⊢ plus (plus O O) O : N
 ⊢ refl (plus (plus O (S O)) (plus O O))
   : plus (plus O (S O)) (plus O O) ≡ plus (plus O (S O)) (plus O O)
