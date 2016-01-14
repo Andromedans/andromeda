@@ -24,6 +24,7 @@ type value =
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
+  | List of value list
   | Ref of value ref
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
@@ -56,16 +57,12 @@ type 'a toplevel = env -> 'a*env
 let name_some = Name.make "Some"
 let name_none = Name.make "None"
 let name_pair = Name.make "pair"
-let name_cons = Name.make "cons"
-let name_nil = Name.make "nil"
 let name_unit = Name.make "tt"
 
 let predefined_tags = [
   (name_some, 1);
   (name_none, 0);
   (name_pair, 2);
-  (name_cons, 2);
-  (name_nil, 0);
   (name_unit, 0);
 ]
 
@@ -151,6 +148,8 @@ and print_value ?max_level xs v ppf =
   | Closure f -> print_closure xs f ppf
   | Handler h -> print_handler xs h ppf
   | Tag (t, lst) -> print_tag ?max_level xs t lst ppf
+  | List lst -> Print.print ~at_level:0 ppf "[%t]"
+                            (Print.sequence (print_value ~max_level:2 xs) "," lst)
   | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t" (print_value ~max_level:0 xs (!v))
 
 let name_of v =
@@ -160,6 +159,7 @@ let name_of v =
     | Closure _ -> "a function"
     | Handler _ -> "a handler"
     | Tag _ -> "a data tag"
+    | List _ -> "a list"
     | Ref _ -> "a reference"
 
 (** Prefill the [xs] argument of print_* *)
@@ -181,45 +181,52 @@ let print_ty env =
 (** Coerce values *)
 let as_term ~loc = function
   | Term e -> e
-  | (Ty _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+  | (Ty _ | Closure _ | Handler _ | Tag _ | List _ | Ref _) as v ->
     Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_ty ~loc = function
   | Ty t -> t
-  | (Term _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _) as v ->
     Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_closure ~loc = function
   | Closure f -> f
-  | (Ty _ | Term _ | Handler _ | Tag _ | Ref _) as v ->
+  | (Ty _ | Term _ | Handler _ | Tag _ | List _ | Ref _) as v ->
     Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_handler ~loc = function
   | Handler h -> h
-  | (Ty _ | Term _ | Closure _ | Tag _ | Ref _) as v ->
+  | (Ty _ | Term _ | Closure _ | Tag _ | List _ | Ref _) as v ->
     Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_ref ~loc = function
   | Ref v -> v
-  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _) as v ->
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | List _) as v ->
     Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_option ~loc = function
   | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
-  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _) as v ->
     Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 (** Wrappers for making tags *)
+let as_list ~loc = function
+  | List lst -> lst
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+    Error.runtime ~loc "expected a list but got %s" (name_of v)
+
 let from_option = function
   | None -> Tag (name_none, [])
   | Some v -> Tag (name_some, [v])
 
 let from_pair (v1, v2) = Tag (name_pair, [v1; v2])
 
-let rec from_list = function
-  | [] -> Tag (name_nil, [])
-  | v :: vs -> Tag (name_cons, [v; from_list vs])
+let from_list lst = List lst
+
+let list_nil = List []
+
+let list_cons v lst = List (v :: lst)
 
 let return_unit _ = Return (Tag (name_unit, []))
 
@@ -315,14 +322,16 @@ let add_abstracting ~loc x (ctx, t) m env =
   m ctx y env
 
 let is_known x env =
-  let rec is_bound = function
-    | [] -> false
-    | (y,_) :: lst -> Name.eq_ident x y || is_bound lst
-  in
-  is_bound env.bound ||
-  (match lookup_decl x env with
-   | None -> false
-   | Some _ -> true)
+  if Name.eq_ident Name.anonymous x then false
+  else
+    let rec is_bound = function
+      | [] -> false
+      | (y,_) :: lst -> Name.eq_ident x y || is_bound lst
+    in
+    is_bound env.bound ||
+    (match lookup_decl x env with
+     | None -> false
+     | Some _ -> true)
 
 let add_operation0 ~loc x k env =
   if is_known x env
@@ -493,6 +502,14 @@ let rec equal_value v1 v2 =
         in
       fold vs1 vs2
 
+    | List lst1, List lst2 ->
+       let rec fold = function
+         | [], [] -> true
+         | v1 :: lst1, v2 :: lst2 -> equal_value v1 v2 && fold (lst1, lst2)
+         | [], _::_ | _::_, [] -> false
+       in
+       fold (lst1, lst2)
+
     | Ref v1, Ref v2 ->
        (* XXX should we compare references by value instead? *)
        v1 == v2
@@ -502,11 +519,12 @@ let rec equal_value v1 v2 =
        (* XXX should we use physical comparison == instead? *)
        false
 
-    | Term _, (Ty _ | Closure _ | Handler _ | Tag _ | Ref _)
-    | Ty _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _)
-    | Closure _, (Term _ | Ty _ | Handler _ | Tag _ | Ref _)
-    | Handler _, (Term _ | Ty _ | Closure _ | Tag _ | Ref _)
-    | Tag _, (Term _ | Ty _ | Closure _ | Handler _ | Ref _)
-    | Ref _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _) ->
+    | Term _, (Ty _ | Closure _ | Handler _ | Tag _ | List _ | Ref _)
+    | Ty _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _)
+    | Closure _, (Term _ | Ty _ | Handler _ | Tag _ | List _ | Ref _)
+    | Handler _, (Term _ | Ty _ | Closure _ | Tag _ | List _ | Ref _)
+    | Tag _, (Term _ | Ty _ | Closure _ | Handler _ | List _ | Ref _)
+    | List _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | Ref _)
+    | Ref _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | List _) ->
       false
 

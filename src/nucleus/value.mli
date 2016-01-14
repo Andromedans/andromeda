@@ -19,6 +19,7 @@ type value = private
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
+  | List of value list
   | Ref of value ref
 
 and handler = {
@@ -82,11 +83,15 @@ val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> value ref
 
 val as_option : loc:Location.t -> value -> value option
+val as_list : loc:Location.t -> value -> value list
 
 (** Wrappers for making tags *)
 val from_option : value option -> value
 val from_pair : value * value -> value
 val from_list : value list -> value
+
+val list_nil : value
+val list_cons : value -> value list -> value
 
 (** Operations *)
 val perform : Name.ident -> value list -> value result

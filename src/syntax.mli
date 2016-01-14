@@ -28,6 +28,8 @@ and pattern' =
   | Patt_Bound of bound
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Tag of Name.ident * pattern list
+  | Patt_Nil
+  | Patt_Cons of pattern * pattern
 
 (** Desugared computations *)
 type comp = comp' * Location.t
@@ -38,6 +40,8 @@ and comp' =
   | Rec of Name.ident * Name.ident * comp
   | Handler of handler
   | Tag of Name.ident * comp list
+  | Nil
+  | Cons of comp * comp
   | Perform of Name.ident * comp list
   | With of comp * comp
   | Let of (Name.ident * comp) list * comp

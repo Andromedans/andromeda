@@ -214,5 +214,8 @@ let rec value = function
   | Value.Ref v ->
     let v = value !v in
     Value.mk_ref v
+  | Value.List lst ->
+    let lst = List.map value lst in
+    Value.from_list lst
   | Value.Closure _ | Value.Handler _ as v -> v
 

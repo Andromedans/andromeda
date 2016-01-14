@@ -305,8 +305,22 @@ let rec collect_pattern env xvs (p,loc) v =
   | Syntax.Patt_Tag (tag, ps), Value.Tag (tag', vs) when Name.eq_ident tag tag' ->
     multicollect_pattern env xvs ps vs
 
-  | Syntax.Patt_Jdg _, (Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _)
-  | Syntax.Patt_Tag _, (Value.Term _ | Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _) ->
+  | Syntax.Patt_Nil, Value.List [] ->
+    xvs
+
+  | Syntax.Patt_Cons (p1,p2), Value.List (v1::v2) ->
+    let xvs = collect_pattern env xvs p1 v1 in
+    let xvs = collect_pattern env xvs p2 (Value.from_list v2) in
+    xvs
+
+  | Syntax.Patt_Jdg _, (Value.Ty _ | Value.Closure _ | Value.Handler _ |
+                        Value.Tag _ | Value.Ref _ | Value.List _)
+  | Syntax.Patt_Tag _, (Value.Term _ | Value.Ty _ | Value.Closure _ |
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _)
+  | Syntax.Patt_Nil, (Value.Term _ | Value.Ty _ | Value.Closure _ |
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_))
+  | Syntax.Patt_Cons _, (Value.Term _ | Value.Ty _ | Value.Closure _ |
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List []) ->
      raise Match_fail
 
 and multicollect_pattern env xvs ps vs =

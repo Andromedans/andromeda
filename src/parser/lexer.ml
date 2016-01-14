@@ -97,10 +97,13 @@ and token_aux ({ stream;_ } as lexbuf) =
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
+  | '['                      -> f (); LBRACK
+  | ']'                      -> f (); RBRACK
   | '{'                      -> f (); LBRACE
   | '}'                      -> f (); RBRACE
   | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
+  | "::"                     -> f (); COLONCOLON
   | ','                      -> f (); COMMA
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))

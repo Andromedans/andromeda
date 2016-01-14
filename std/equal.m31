@@ -40,10 +40,10 @@ matching with e : T gives us a witness of e == e2[??/y]
 (* assoc_update which fails to match if the value to update isn't already present *)
 let assoc_update = fun x v lst =>
   let rec aux acc lst = match lst with
-    | cons (pair x _) ?lst => rev_append acc (cons (pair x v) lst)
-    | cons ?y ?lst => aux (cons y acc) lst
+    | pair x _ :: ?lst => rev_append acc (pair x v :: lst)
+    | ?y :: ?lst => aux (y :: acc) lst
     end
-  in aux nil lst
+  in aux [] lst
 
 (* updates quants with values such that lhs matches rhs *)
 let rec collector quants lhs rhs =
@@ -84,9 +84,9 @@ let rec collector quants lhs rhs =
   end
 
 let rec apply_quants f quants = match quants with
-  | nil => Some f
-  | cons (pair _ None) _ => None
-  | cons (pair _ (Some ?v)) ?quants =>
+  | [] => Some f
+  | pair _ None :: _ => None
+  | pair _ (Some ?v) :: ?quants =>
     apply_quants (f v) quants
   end
 
@@ -104,23 +104,23 @@ let generic_matcher = fun pat e =>
 let process_beta =
   let rec deep quants e b = match b with
     | |- forall (?x : _), ?b =>
-      deep (cons (pair x None) quants) e b
+      deep (pair x None :: quants) e b
     | |- ?lhs == _ => pair e (pair (rev quants) lhs)
     end
   in
   fun b => match b with
-    | |- ?e : ?b => deep nil e b
+    | |- ?e : ?b => deep [] e b
     end
 
 let process_hint =
   let rec deep quants e h = match h with
     | |- forall (?x : _), ?h =>
-      deep (cons (pair x None) quants) e h
+      deep (pair x None :: quants) e h
     | |- _ == _ => pair e (pair (rev quants) h)
     end
   in
   fun h => match h with
-    | |- ?e : ?h => deep nil e h
+    | |- ?e : ?h => deep [] e h
     end
 
 let sym = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
@@ -165,8 +165,8 @@ let unopt = fun v => match v with
 (* attempt to apply one of betas to e (not to a subterm of e) *)
 let rec step_at betas e =
   match betas with
-    | nil => None
-    | cons ?b ?rem =>
+    | [] => None
+    | ?b :: ?rem =>
       match generic_matcher b e with
         | (Some _) as ?m => m
         | None => step_at rem e
@@ -175,7 +175,7 @@ let rec step_at betas e =
 
 let rec hint_at hints e =
   match hints with
-    | nil => None
+    | [] => None
     | cons ?h ?rem =>
       match generic_matcher h e with
         | (Some _) as ?m => m
@@ -303,11 +303,11 @@ let rec equality betas hints = handler
 
   | beta ?b => fun betas hints =>
     let b = process_beta b in
-    yield () (cons b betas) hints
+    yield () (b :: betas) hints
 
   | hint ?h => fun betas hints =>
     let h = process_hint h in
-    yield () betas (cons h hints)
+    yield () betas (h :: hints)
 
   | getbetas => fun betas hints =>
     yield betas betas hints
@@ -376,25 +376,25 @@ let local = fun action =>
 (* top level handler with no hints *)
 handle
   | equal a b =>
-    with equality_in nil nil handle equal a b
+    with equality_in [] [] handle equal a b
 
   | whnf e =>
-    with equality_in nil nil handle whnf e
+    with equality_in [] [] handle whnf e
 
   | as_prod e =>
-    match (with equality_in nil nil handle whnf e) with
+    match (with equality_in [] [] handle whnf e) with
       | |- ?eq : _ == (forall (_ : _), _) => Some eq
       | _ => None
     end
 
   | as_eq e =>
-    match (with equality_in nil nil handle whnf e) with
+    match (with equality_in [] [] handle whnf e) with
       | |- ?eq : _ == (_ == _) => Some eq
       | _ => None
     end
 
   | as_signature e => (* TODO no good way to match generic signature *)
-    with equality_in nil nil handle whnf e
+    with equality_in [] [] handle whnf e
 
   (* top level handler has no state. If you want to have local hints do [fst (with equality betas hints handle ...)] *)
   (*
@@ -402,10 +402,10 @@ handle
   | hint h => ???
   *)
   | getbetas =>
-    nil
+    []
 
   | gethints =>
-    nil
+    []
 end
 
 (* helper functions *)
