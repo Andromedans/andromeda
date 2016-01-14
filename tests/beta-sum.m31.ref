@@ -1,5 +1,5 @@
 #including ../examples/sum.m31
-#processed ../examples/sum.m31
+#processed ./../examples/sum.m31
 betas0 is defined.
 betas is defined.
 ⊢ λ (A : Type) (B : Type) (P : sum A B → Type)

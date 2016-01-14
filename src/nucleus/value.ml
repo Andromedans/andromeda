@@ -25,7 +25,8 @@ type value =
   | Handler of handler
   | Tag of Name.ident * value list
 
-and ('a,'b) closure = dynamic -> 'a -> 'b result
+(* It's important not to confuse the closure and the underlying ocaml function *)
+and ('a,'b) closure = Clos of ('a -> 'b result)
 
 and 'a performance =
   | Return of 'a
@@ -87,18 +88,18 @@ let mk_ty j = Ty j
 let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
 
-let mk_closure0 f env = (fun dynamic v env -> f v {env with dynamic})
+let mk_closure0 (f : 'a -> 'b result) env = Clos (fun v {dynamic;_} -> f v {env with dynamic})
 let mk_closure' f env = mk_closure0 f env, env
 
-let apply_closure f v env = f env.dynamic v env
+let apply_closure (Clos f) v env = f v env
 
 (** The monadic bind [bind r f] feeds the result [r : result]
     into function [f : value -> 'a]. *)
-let rec bind r f env =
+let rec bind (r:'a result) (f:'a -> 'b result) : 'b result = fun env ->
   match r env with
   | Return v -> f v env
   | Perform (op, vs, d, k) -> 
-     let k d x = bind (k d x) f in
+     let k = mk_closure0 (fun x -> bind (apply_closure k x) f) env in
      Perform (op, vs, d, k)
 
 let (>>=) = bind
@@ -226,8 +227,7 @@ let rec from_list = function
 
 (** Operations *)
 let perform op vs env =
-  let k _ = return in
-  Perform (op, vs, env.dynamic, k)
+  Perform (op, vs, env.dynamic, mk_closure0 return env)
 
 let perform_equal v1 v2 =
   perform name_equal [v1;v2]
@@ -447,7 +447,7 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
      begin
        try
          let f = Name.IdentMap.find op handler_ops in
-         f dynamic (vs, cont) env
+         apply_closure f (vs, cont) env
        with
          Not_found ->
            Perform (op, vs, dynamic, cont)
