@@ -1,4 +1,4 @@
 Constant A is declared.
 Constant a is declared.
-File "structure-check.m31", line 5, characters 20-25: Typing error
+File "./structure-check.m31", line 5, characters 20-25: Typing error
   failed to check that the term a is equal to x₁₂

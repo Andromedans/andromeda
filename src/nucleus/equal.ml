@@ -27,22 +27,22 @@ module Monad = struct
 
   let add_hyps hyps = modify (AtomSet.union hyps)
 
-  (** Hypotheses [ys] are replaced by terms [es],
-      so mentions of [ys] are replaced by mentions of the assumptions in [es] *)
-  let abstract_hyps ys es =
-    if ys = [] && es = []
-    then return ()
-    else
-      modify (fun hyps ->
-        List.fold_left2 (fun hyps y e ->
-            if AtomSet.mem y hyps
-            then
-              let hyps = AtomSet.remove y hyps in
-              let hyps_e = Tt.assumptions_term e in
-              let hyps = AtomSet.union hyps hyps_e in
-              hyps
-            else hyps)
-          hyps ys es)
+  (** The implicit equality witness [ctx, ys, zs |- e] is replaced by [ctx |- lambda ys, e[es/zs]] *)
+  let context_abstract ~loc env ctx ys ts =
+    lift (Value.context_abstract ~loc env ctx ys ts) >>= fun (ctx,zs,es) ->
+    modify (fun hyps ->
+      let hyps = List.fold_left2 (fun hyps z e ->
+          if AtomSet.mem z hyps
+          then
+            let hyps = AtomSet.remove z hyps in
+            let hyps_e = Tt.assumptions_term e in
+            let hyps = AtomSet.union hyps hyps_e in
+            hyps
+          else hyps)
+        hyps zs es
+      in
+      List.fold_left (fun hyps y -> AtomSet.remove y hyps) hyps ys) >>= fun () ->
+    return ctx
 
   let run m =
     m.k (fun x s -> Value.return (x,s)) empty
@@ -126,8 +126,7 @@ let equal_abstracted_ty env ctx (xuus : (Name.ident * (Tt.ty * Tt.ty)) list) v v
         let v = Tt.unabstract_ty ys v
         and v' = Tt.instantiate_ty ys' v' in
         equal_ty env ctx v v' >?= fun ctx ->
-        Monad.lift (Value.context_abstract ~loc:Location.unknown env ctx ys ts) >!= fun (ctx,ys,es) ->
-        Monad.abstract_hyps ys es >!= fun () ->
+        Monad.context_abstract ~loc:Location.unknown env ctx ys ts >!= fun ctx ->
         Opt.return ctx
      | (x,(u,u'))::xuus ->
         let u  = Tt.unabstract_ty ys u
@@ -145,8 +144,7 @@ let equal_abstracted_ty env ctx (xuus : (Name.ident * (Tt.ty * Tt.ty)) list) v v
 let equal_signature ~loc env ctx xts1 xts2 =
   let rec fold env ctx ys ys' ts xts1 xts2 = match xts1, xts2 with
     | [], [] ->
-      Monad.lift (Value.context_abstract ~loc env ctx ys ts) >!= fun (ctx,ys,es) ->
-      Monad.abstract_hyps ys es >!= fun () ->
+      Monad.context_abstract ~loc env ctx ys ts >!= fun ctx ->
       Opt.return ctx
     | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
       if Name.eq_ident l1 l2
@@ -252,8 +250,7 @@ let congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
           and e2 = Tt.instantiate ys' e2 in
           let e2 = Tt.mention_atoms hypst e2 in
           equal env ctx e1 e2 t1' >?= fun ctx ->
-          Monad.lift (Value.context_abstract ~loc:Location.unknown env ctx ys ts) >!= fun (ctx,ys,es) ->
-          Monad.abstract_hyps ys es >!= fun () ->
+          Monad.context_abstract ~loc:Location.unknown env ctx ys ts >!= fun ctx ->
           Opt.return ctx
      in
      zip [] [] [] env ctx (xus, xvs)
@@ -284,8 +281,7 @@ let congruence env ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_
       let out_inst1 = Tt.instantiate_ty (tey1::(List.rev es1)) out1
       and out_inst2 = Tt.instantiate_ty (tey2::(List.rev es2)) out2 in
       equal_ty envy ctx out_inst1 out_inst2 >?= fun ctx ->
-      Monad.lift (Value.context_abstract ~loc:Location.unknown envy ctx [y] [tinst1]) >!= fun (ctx,ys,es) ->
-      Monad.abstract_hyps ys es >!= fun () ->
+      Monad.context_abstract ~loc:Location.unknown envy ctx [y] [tinst1] >!= fun ctx ->
       Opt.return ctx
       ) >?= fun (ctx,hypso) ->
     (* last argument *)

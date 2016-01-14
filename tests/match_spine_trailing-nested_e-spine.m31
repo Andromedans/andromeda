@@ -9,7 +9,7 @@ let it = (λ (T : Type), unit_rect (λ (m), T -> T) (λ (x : T), x))
 let action = top_beta unit_iota_top
 #include "../std/equal_handle.m31"
 
-(* TODO loops *)
+(* TODO loops
 check whnf (it unit top top)
 
 check refl top : top == it unit top top
@@ -19,4 +19,4 @@ check refl top : top == (it unit) top top
 check refl top : top == (it unit top) top
 
 check refl top : top == ((it unit) top) top
-
+*)

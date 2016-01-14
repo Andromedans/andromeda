@@ -59,7 +59,6 @@ let projT1' =
 
 check projT1'
 
-(* TODO fatal error: exception Not_found *)
 check with equality_in betas hints handle
   let _ = beta sig_ind_beta in
     refl a :
