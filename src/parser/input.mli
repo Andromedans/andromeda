@@ -30,7 +30,9 @@ and pattern' =
   | Patt_Var of Name.ident
   | Patt_Name of Name.ident
   | Patt_Jdg of tt_pattern * tt_pattern
-  | Patt_Data of Name.ident * pattern list
+  | Patt_Tag of Name.ident * pattern list
+  | Patt_Cons of pattern * pattern
+  | Patt_List of pattern list
 
 (** Sugared terms *)
 type term = term' * Location.t
@@ -45,8 +47,14 @@ and term' =
   | Handle of comp * handle_case list
   | With of expr * comp
   | Tag of Name.ident * comp list
+  | Cons of comp * comp
+  | List of comp list
   | Match of comp * match_case list
   | Let of (Name.ident * comp) list * comp
+  | Lookup of comp
+  | Update of comp * comp
+  | Ref of comp
+  | Sequence of comp * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
   | Ascribe of comp * ty
@@ -61,7 +69,7 @@ and term' =
   | Signature of (Name.ident * Name.ident option * ty) list
   | Structure of (Name.ident * Name.ident option * comp) list
   | Projection of comp * Name.ident
-  | Yield
+  | Yield of comp
   | Context
   | Congruence of comp * comp
 

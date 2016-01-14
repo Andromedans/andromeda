@@ -32,7 +32,8 @@
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
 %token LBRACE RBRACE
-%token COLON COMMA
+%token LBRACK RBRACK
+%token COLON COLONCOLON COMMA
 %token ARROW DARROW
 
 (* Things specific to toplevel *)
@@ -50,12 +51,16 @@
 %token VDASH
 
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
+%token SEMICOLON
 
 %token CONGRUENCE
 %token CONTEXT
 %token TYPEOF
 
 %token EXTERNAL
+
+(* REFERENCES *)
+%token BANG COLONEQ REF
 
 (* Functions *)
 %token REC FUNCTION
@@ -75,8 +80,10 @@
 %token EOF
 
 (* Precedence and fixity of infix operators *)
+%nonassoc COLONEQ
 %left     INFIXOP0
 %right    INFIXOP1
+%right    COLONCOLON
 %left     INFIXOP2
 %left     INFIXOP3
 %right    INFIXOP4
@@ -130,16 +137,17 @@ plain_topdirective:
 
 term: mark_location(plain_term) { $1 }
 plain_term:
-  | e=plain_ty_term                                                 { e }
-  | LET a=let_clauses IN c=term                                     { Let (a, c) }
+  | e=plain_ty_term                                            { e }
+  | LET a=let_clauses IN c=term                                { Let (a, c) }
   | LET REC x=name a=function_abstraction EQ e=term IN c=term  { Let ([x,(Rec (x, a, e),snd e)], c) }
-  | ASSUME x=var_name COLON t=ty_term IN c=term                     { Assume ((x, t), c) }
+  | ASSUME x=var_name COLON t=ty_term IN c=term                { Assume ((x, t), c) }
   | c1=equal_term WHERE e=simple_term EQ c2=term               { Where (c1, e, c2) }
-  | MATCH e=term WITH lst=match_cases END                           { Match (e, lst) }
-  | HANDLE c=term WITH hcs=handler_cases END                        { Handle (c, hcs) }
-  | WITH h=term HANDLE c=term                                       { With (h, c) }
-  | HANDLER hcs=handler_cases END                                   { Handler (hcs) }
-  | e=app_term COLON t=ty_term                                      { Ascribe (e, t) }
+  | MATCH e=term WITH lst=match_cases END                      { Match (e, lst) }
+  | HANDLE c=term WITH hcs=handler_cases END                   { Handle (c, hcs) }
+  | WITH h=term HANDLE c=term                                  { With (h, c) }
+  | HANDLER hcs=handler_cases END                              { Handler (hcs) }
+  | e=app_term COLON t=ty_term                                 { Ascribe (e, t) }
+  | e1=equal_term SEMICOLON e2=term                            { Sequence (e1, e2) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
@@ -160,6 +168,8 @@ plain_equal_term:
 binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
   | e=plain_app_term                                { e }
+  | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
+  | e1=binop_term COLONCOLON e2=binop_term          { Cons (e1, e2) }
   | e2=binop_term op=INFIXOP0 e3=binop_term
     { let e1 = Var (Name.make ~fixity:Name.Infix0 (fst op)), snd op in Spine (e1, [e2; e3]) }
   | e2=binop_term op=INFIXOP1 e3=binop_term
@@ -182,8 +192,12 @@ plain_app_term:
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:
   | e=plain_simple_term                        { e }
-  | op=PREFIXOP e2=prefix_term                 { let e1 = Var (Name.make ~fixity:Name.Prefix (fst op)), snd op in Spine (e1, [e2]) }
+  | REF e=prefix_term                          { Ref e }
+  | BANG e=prefix_term                         { Lookup e }
+  | op=PREFIXOP e2=prefix_term                 { let e1 = Var (Name.make ~fixity:Name.Prefix (fst op)), snd op in
+                                                 Spine (e1, [e2]) }
   | REDUCE t=prefix_term                       { Reduce t }
+  | YIELD e=prefix_term                        { Yield e }
   | TYPEOF t=prefix_term                       { Typeof t }
   | REFL e=prefix_term                         { Refl e }
 
@@ -192,6 +206,7 @@ plain_simple_term:
   | TYPE                                            { Type }
   | x=var_name                                      { Var x }
   | EXTERNAL s=QUOTED_STRING                        { External s }
+  | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
   | LPAREN e=plain_term RPAREN                      { e }
   | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
         { Signature lst }
@@ -200,7 +215,6 @@ plain_simple_term:
         { Structure lst }
   | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
   | CONTEXT                                         { Context }
-  | YIELD                                           { Yield }
 
 var_name:
   | NAME { Name.make $1 }
@@ -320,32 +334,35 @@ binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
   | e=plain_app_pattern                                { e }
   | e1=binop_pattern op=INFIXOP0 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix0 (fst op) in Patt_Data (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix0 (fst op) in Patt_Tag (op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP1 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix1 (fst op) in Patt_Data (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix1 (fst op) in Patt_Tag (op, [e1; e2]) }
+  | e1=binop_pattern COLONCOLON  e2=binop_pattern
+    { Patt_Cons (e1, e2) }
   | e1=binop_pattern op=INFIXOP2 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix2 (fst op) in Patt_Data (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix2 (fst op) in Patt_Tag (op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP3 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix3 (fst op) in Patt_Data (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix3 (fst op) in Patt_Tag (op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP4 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix4 (fst op) in Patt_Data (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix4 (fst op) in Patt_Tag (op, [e1; e2]) }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
 plain_app_pattern:
   | e=plain_prefix_pattern                    { e }
-  | t=var_name ps=prefix_pattern+             { Patt_Data (t, ps) }
+  | t=var_name ps=prefix_pattern+             { Patt_Tag (t, ps) }
 
 prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
 plain_prefix_pattern:
   | e=plain_simple_pattern           { e }
-  | op=PREFIXOP e=prefix_pattern     { let op = Name.make ~fixity:Name.Prefix (fst op) in Patt_Data (op, [e]) }
+  | op=PREFIXOP e=prefix_pattern     { let op = Name.make ~fixity:Name.Prefix (fst op) in Patt_Tag (op, [e]) }
 
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
   | x=patt_var                     { Patt_Var x }
-  | x=var_name                     { Patt_Name x } 
+  | x=var_name                     { Patt_Name x }
   | LPAREN p=plain_pattern RPAREN  { p }
+  | LBRACK ps=separated_list(COMMA, pattern) RBRACK { Patt_List ps }
 
 tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:

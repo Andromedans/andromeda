@@ -218,7 +218,7 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
       let p2, vars, n = tt_pattern env bound vars n p2 in
       (Syntax.Patt_Jdg (p1,p2), loc), vars, n
 
-    | Input.Patt_Data (t,ps) ->
+    | Input.Patt_Tag (t,ps) ->
       let rec fold vars n ps = function
         | [] ->
           let ps = List.rev ps in
@@ -229,6 +229,20 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
         in
       fold vars n [] ps
 
+    | Input.Patt_Cons (p1, p2) ->
+      let p1, vars, n = pattern env bound vars n p1 in
+      let p2, vars, n = pattern env bound vars n p2 in
+      (Syntax.Patt_Cons (p1,p2), loc), vars, n
+
+    | Input.Patt_List ps ->
+       let rec fold ~loc vars n = function
+         | [] -> (Syntax.Patt_Nil, loc), vars, n
+         | p :: ps ->
+            let p, vars, n = pattern env bound vars n p in
+            let ps, vars, n = fold ~loc:(snd p) vars n ps in
+            (Syntax.Patt_Cons (p, ps), loc), vars, n
+       in
+       fold ~loc vars n ps
 
 let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
   match c' with
@@ -258,6 +272,24 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
       let bound = List.fold_left (fun bound (x,_) -> add_bound x bound) bound xcs in
       let c2 = comp ~yield env bound c2 in
       Syntax.Let (xcs, c2), loc
+
+    | Input.Lookup c ->
+       let c = comp ~yield env bound c in
+       Syntax.Lookup c, loc
+
+    | Input.Ref c ->
+       let c = comp ~yield env bound c in
+       Syntax.Ref c, loc
+
+    | Input.Update (c1, c2) ->
+       let c1 = comp ~yield env bound c1
+       and c2 = comp ~yield env bound c2 in
+       Syntax.Update (c1, c2), loc
+
+    | Input.Sequence (c1, c2) ->
+       let c1 = comp ~yield env bound c1
+       and c2 = comp ~yield env bound c2 in
+       Syntax.Sequence (c1, c2), loc
 
     | Input.Assume ((x, t), c) ->
        let t = comp ~yield env bound t in
@@ -398,10 +430,13 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
   | Input.Type ->
     Syntax.Type, loc
 
-  | Input.Yield ->
+  | Input.Yield c ->
     if yield
-    then Syntax.Yield, loc
-    else Error.syntax ~loc "yield may only be used in a handler"
+    then
+      let c = comp ~yield env bound c in
+      Syntax.Yield c, loc
+    else
+      Error.syntax ~loc "yield may only be used in a handler"
 
   | Input.Context ->
      Syntax.Context, loc
@@ -439,6 +474,21 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
   | Input.Tag (t, cs) ->
      let cs = List.map (comp ~yield env bound) cs in
      Syntax.Tag (t, cs), loc
+
+  | Input.List cs ->
+     let rec fold ~loc = function
+       | [] -> Syntax.Nil, loc
+       | c :: cs ->
+          let c = comp ~yield env bound c in
+          let cs = fold ~loc:(snd c) cs in
+          Syntax.Cons (c, cs), loc
+     in
+     fold ~loc cs
+
+  | Input.Cons (e1, e2) ->
+    let e1 = comp ~yield env bound e1 in
+    let e2 = comp ~yield env bound e2 in
+    Syntax.Cons (e1,e2), loc
 
   | Input.Congruence (e1,e2) ->
     let e1 = comp ~yield env bound e1 in

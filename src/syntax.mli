@@ -28,6 +28,8 @@ and pattern' =
   | Patt_Bound of bound
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Tag of Name.ident * pattern list
+  | Patt_Nil
+  | Patt_Cons of pattern * pattern
 
 (** Desugared computations *)
 type comp = comp' * Location.t
@@ -38,9 +40,15 @@ and comp' =
   | Rec of Name.ident * Name.ident * comp
   | Handler of handler
   | Tag of Name.ident * comp list
+  | Nil
+  | Cons of comp * comp
   | Perform of Name.ident * comp list
   | With of comp * comp
   | Let of (Name.ident * comp) list * comp
+  | Lookup of comp
+  | Update of comp * comp
+  | Ref of comp
+  | Sequence of comp * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * comp * comp
   | Match of comp * match_case list
@@ -57,7 +65,7 @@ and comp' =
   | Signature of (Name.ident * Name.ident * comp) list
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
-  | Yield
+  | Yield of comp
   | Context
   | Congruence of comp * comp
 

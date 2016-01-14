@@ -28,6 +28,8 @@ and pattern' =
   | Patt_Bound of bound
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Tag of Name.ident * pattern list
+  | Patt_Nil
+  | Patt_Cons of pattern * pattern
 
 (** Desugared computations *)
 and comp = comp' * Location.t
@@ -38,9 +40,15 @@ and comp' =
   | Rec of Name.ident * Name.ident * comp
   | Handler of handler
   | Tag of Name.ident * comp list
+  | Nil
+  | Cons of comp * comp
   | Perform of Name.ident * comp list
   | With of comp * comp
   | Let of (Name.ident * comp) list * comp
+  | Lookup of comp
+  | Update of comp * comp
+  | Ref of comp
+  | Sequence of comp * comp
   | Assume of (Name.ident * comp) * comp
   | Where of comp * comp * comp
   | Match of comp * match_case list
@@ -57,7 +65,7 @@ and comp' =
   | Signature of (Name.ident * Name.ident * comp) list
   | Structure of (Name.ident * Name.ident * comp) list
   | Projection of comp * Name.ident
-  | Yield
+  | Yield of comp
   | Context
   | Congruence of comp * comp
 
@@ -144,19 +152,32 @@ let rec shift_tt_pattern k lvl ((p',loc) as p) =
 
 let rec shift_pattern k lvl ((p', loc) as p) =
   match p' with
+
     | Patt_Anonymous -> p
-    | Patt_As (p,k) ->
+
+    | Patt_As (p, k) ->
       let p = shift_pattern k lvl p in
-      Patt_As (p,k), loc
+      Patt_As (p, k), loc
+
     | Patt_Bound m ->
        if m >= lvl then (Patt_Bound (m + k), loc) else p
-    | Patt_Jdg (p1,p2) ->
+
+    | Patt_Jdg (p1, p2) ->
       let p1 = shift_tt_pattern k lvl p1
       and p2 = shift_tt_pattern k lvl p2 in
-      Patt_Jdg (p1,p2), loc
-    | Patt_Tag (t,ps) ->
+      Patt_Jdg (p1, p2), loc
+
+    | Patt_Tag (t, ps) ->
       let ps = List.map (shift_pattern k lvl) ps in
-      Patt_Tag (t,ps), loc
+      Patt_Tag (t, ps), loc
+
+    | Patt_Nil -> Patt_Nil, loc
+
+    | Patt_Cons (p1, p2) ->
+      let p1 = shift_pattern k lvl p1
+      and p2 = shift_pattern k lvl p2 in
+      Patt_Cons (p1, p2), loc
+
 
 let rec shift_comp k lvl (c', loc) =
   let c' =
@@ -171,6 +192,13 @@ let rec shift_comp k lvl (c', loc) =
     | Handler h -> Handler (shift_handler k lvl h)
 
     | Tag (t, lst) -> Tag (t, List.map (shift_comp k lvl) lst)
+
+    | Nil -> Nil
+
+    | Cons (c1, c2) ->
+       let c1 = shift_comp k lvl c1
+       and c2 = shift_comp k lvl c2 in
+       Cons (c1, c2)
 
     | Type -> c'
 
@@ -187,6 +215,24 @@ let rec shift_comp k lvl (c', loc) =
        let xcs = List.map (fun (x,c) -> (x, shift_comp k lvl c)) xcs
        and c = shift_comp k (lvl + List.length xcs) c in
        Let (xcs, c)
+
+    | Lookup c ->
+       let c = shift_comp k lvl c in
+       Lookup c
+
+    | Update (c1, c2) ->
+       let c1 = shift_comp k lvl c1
+       and c2 = shift_comp k lvl c2 in
+       Update (c1, c2)
+
+    | Ref c ->
+       let c = shift_comp k lvl c in
+       Ref c
+
+    | Sequence (c1, c2) ->
+       let c1 = shift_comp k lvl c1
+       and c2 = shift_comp k lvl c2 in
+       Sequence (c1, c2)
 
     | Assume ((x, t), c) ->
        let t = shift_comp k lvl t
@@ -269,7 +315,9 @@ let rec shift_comp k lvl (c', loc) =
         let c = shift_comp k lvl c in
         Projection (c,x)
 
-    | Yield -> Yield
+    | Yield c ->
+       let c = shift_comp k lvl c in
+       Yield c
 
     | Context -> Context
 

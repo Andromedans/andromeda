@@ -1,19 +1,19 @@
 (* equal.m31 should already be included, since we need to set [action] *)
 
-let betas = match action with
-  | reset => betas
+let betas = fun action => match action with
+  | reset => !top_betas
   | top_beta ?b =>
-    match (with equality betas hints handle beta b) with
+    match (with equality !top_betas !top_hints handle beta b) with
       pair _ (pair ?betas _) => betas
     end
-  | top_hint _ => betas
+  | top_hint _ => !top_betas
 end
 
-let hints = match action with
-  | reset => hints
-  | top_beta _ => hints
+let hints = match !top_action with
+  | reset => !top_hints
+  | top_beta _ => !top_hints
   | top_hint ?h =>
-    match (with equality betas hints handle hint h) with
+    match (with equality !top_betas !top_hints handle hint h) with
       pair _ (pair _ ?hints) => hints
     end
 end
@@ -41,7 +41,7 @@ handle
     with equality_in betas hints handle whnf e
 
   (* top level handler has no state. If you want to have local hints do [fst (with equality betas hints handle ...)] *)
-  | beta b => let _ = ! b in fail
-  | hint h => let _ = ! h in fail
+  | beta b => let _ = debug b in fail
+  | hint h => let _ = debug h in fail
 end
 

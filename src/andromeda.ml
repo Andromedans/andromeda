@@ -38,7 +38,7 @@ let options = Arg.align [
     ("--debruijn",
      Arg.Set Config.debruijn,
      " Print de Bruijn indices of bound variables");
-    
+
     ("--dependencies",
      Arg.Set Config.print_dependencies,
      " Print depdenencies between assumptions");
@@ -147,7 +147,7 @@ let rec exec_cmd base_dir interactive env c =
 
   | Syntax.TopLet (x, c) ->
      let v = Eval.comp_value env c in
-     let env = Value.Env.add_bound x v env in
+     let env = Value.Env.add_topbound ~loc x v env in
      if interactive then Format.printf "%t is defined.@." (Name.print_ident x) ;
      env
 
@@ -158,13 +158,13 @@ let rec exec_cmd base_dir interactive env c =
                 let ctx = Simplify.context ctx in
                 let t = Simplify.ty t in
                 let j = Judgement.mk_ty ctx t in
-                Value.Ty j
+                Value.mk_ty j
              | Value.Term (ctx, e, t) ->
                 let ctx = Simplify.context ctx in
                 let e = Simplify.term e
                 and t = Simplify.ty t in
                 let j = Judgement.mk_term ctx e t in
-                  Value.Term j
+                  Value.mk_term j
              | v -> v
        end
      in

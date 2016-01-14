@@ -1,17 +1,15 @@
-
-
 constant A : Type
 constant a : A
 constant b : A
 constant f : A -> A -> A
 
 
-let test = with equality_in nil nil handle whnf ((lambda x y : A, f y x) a b)
+let test = with equality_in [] [] handle whnf ((lambda x y : A, f y x) a b)
 let _ = print test
 
 constant eq : forall x : A, f a x == b
 
-let action = top_beta eq
+check top_action := !top_beta eq
 
 #include "../std/equal_handle.m31"
 
