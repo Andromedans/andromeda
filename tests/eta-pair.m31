@@ -27,15 +27,15 @@ constant p : prod C D
 
 
 (* Beta rules. *)
-check with equality_in betas hints handle
+check
   (λ (c : C) (d : D),
-    let _ = beta Pair_beta_Fst in
+    with local (lbeta Pair_beta_Fst) handle
       refl c : Fst C D (Pair C D c d) ≡ c)
 
 check with equality_in betas hints handle
   (λ (c : C) (d : D),
-    let _ = beta Pair_beta_Fst in
-    let _ = beta Pair_beta_Snd in
+    with local (lbeta Pair_beta_Fst) handle
+    with local (lbeta Pair_beta_Snd) handle
       refl d : Snd C D (Pair C D c d) ≡ d)
 
 (* Surjective Pairing. *)

@@ -12,7 +12,6 @@ constant b : B a
 constant c : C a b
 
 check
-  with equality_in betas hints handle
-  let _ = beta f_beta in
+  with local (lbeta f_beta) handle
       refl b : b == f a b c
 

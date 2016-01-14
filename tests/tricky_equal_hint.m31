@@ -2,10 +2,10 @@ let A = assume A : Type in A
 let B = assume B : Type in B
 let a = assume a : {foo:A} in a
 
-check with equality_in betas hints handle
+check
   assume eq1 : {foo:B} ≡ {foo:A} in
   assume eq2 : {foo:A} ≡ {foo:B} in
-  let _ = hint eq1 in
-  let _ = hint eq2 in
+  with local (lhint eq1) handle
+  with local (lhint eq2) handle
     (a : {foo:B})
 

@@ -17,19 +17,18 @@ constant projT1_beta : Π (A : Type, B : A -> Type, a : A, b : B a),
 
 check projT1_beta
 
-check with equality_in betas hints handle
-  let _ = beta projT1_beta in
+check
+  with local (lbeta projT1_beta) handle
     refl a : projT1 A B (existT A B a b) == a
 
 constant projT2_beta :
-  with equality_in betas hints handle
-  let _ = beta projT1_beta in
+  with local (lbeta projT1_beta) handle
     Π (A : Type, B : A -> Type, a : A, b : B a),
       projT2 A B (existT A B a b) == b
 
-check with equality_in betas hints handle
-  let _ = beta projT1_beta in
-  let _ = beta projT2_beta in
+check
+  with local (lbeta projT1_beta) handle
+  with local (lbeta projT2_beta) handle
     refl b : projT2 A B (existT A B a b) == b
 
 constant sig_ind :
@@ -59,34 +58,33 @@ let projT1' =
 
 check projT1'
 
-check with equality_in betas hints handle
-  let _ = beta sig_ind_beta in
+check
+  with local (lbeta sig_ind_beta) handle
     refl a :
          a ==
     (projT1' A B (existT A B a b))
 
 
-check with equality_in betas hints handle
-  let _ = beta projT1_beta in
-  let _ = beta sig_ind_beta in
+check
+  with local (lbeta projT1_beta) handle
+  with local (lbeta sig_ind_beta) handle
     refl a :
          (projT1 A B (existT A B a b)) ==
     (projT1' A B (existT A B a b))
 
 let projT2' =
   λ (A : Type) (B : A -> Type) (s : sigT A B),
-    with equality_in betas hints handle
-    let _ = beta sig_ind_beta in
+    with local (lbeta sig_ind_beta) handle
       sig_ind A B
               (λ (s : sigT A B),
                  B (projT1' A B s))
               (λ (x : A) (y : B x), y)
               s
 
-check with equality_in betas hints handle
-  let _ = beta projT1_beta in
-  let _ = beta projT2_beta in
-  let _ = beta sig_ind_beta in
+check
+  with local (lbeta projT1_beta) handle
+  with local (lbeta projT2_beta) handle
+  with local (lbeta sig_ind_beta) handle
     refl b :
          (projT2 A B (existT A B a b)) ==
     (projT2' A B (existT A B a b))

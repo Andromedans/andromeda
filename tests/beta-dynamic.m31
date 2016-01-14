@@ -9,9 +9,8 @@ let f = fun x => whnf x
 check f a
 
 check
-  with equality_in betas hints handle
   assume eq : a == b in
-  let _ = beta eq in
+  with local (lbeta eq) handle
     f a
 
 

@@ -6,7 +6,5 @@ test is defined.
 ⊢ refl (f b a) : (λ (x : A) (y : A), f y x) a b ≡ f b a
 _ is defined.
 Constant eq is declared.
-action is defined.
-#including ../std/equal_handle.m31
-#processed ../std/equal_handle.m31
+betas is defined.
 ⊢ eq a : f a a ≡ b

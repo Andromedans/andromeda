@@ -5,12 +5,13 @@ constant plus : N -> N -> N
 constant plus_Z : Π (x : N), plus x Z == x
 constant plus_S : Π (x y : N), plus x (S y) == S (plus x y)
 
-check with equality_in betas hints handle
-  let _ = beta plus_S in Type
+check
+  with local (lbeta plus_S) handle
+    Type
 
 (* This is supposed to fail. *)
-check with equality_in betas hints handle
-  let _ = beta plus_Z in
-  let _ = beta plus_S in
+check
+  with local (lbeta plus_Z) handle
+  with local (lbeta plus_S) handle
    (refl (S (S Z))) : plus (S Z) (S (S Z)) == S (S Z)
 

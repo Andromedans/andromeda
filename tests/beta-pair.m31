@@ -17,29 +17,29 @@ constant c : C
 constant d : D
 
 (* just a Pair *)
-check with equality_in betas hints handle
-  let _ = beta beta_Fst in
+check
+  with local (lbeta beta_Fst) handle
     (refl (Fst C D (Pair C D c d)))
          :
          c == (Fst C D (Pair C D c d))
 
 (* change the order of the parameters *)
-check with equality_in betas hints handle
-  let _ = beta beta_Fst in
+check
+  with local (lbeta beta_Fst) handle
        (refl (Fst D C (Pair D C d c)))
          :
          d == (Fst D C (Pair D C d c))
 
 (* add a lambda redex in the proof *)
-check with equality_in betas hints handle
-  let _ = beta beta_Fst in
+check
+  with local (lbeta beta_Fst) handle
     (refl (Fst C D (Pair C D ((λ (t : Type, x : t), x) C c) d)))
          :
          c == (Fst C D (Pair C D c d))
 
 (* add a lambda redex in the type *)
-check with equality_in betas hints handle
-  let _ = beta beta_Fst in
+check
+  with local (lbeta beta_Fst) handle
     (refl (Fst C D (Pair C D c d)))
          :
          c == (Fst C D (Pair C D ((λ (t : Type, x : t), x) C c) d))

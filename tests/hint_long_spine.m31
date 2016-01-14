@@ -8,6 +8,6 @@ constant f : A -> B
 
 constant f_def : f == (λ (x : A), b)
 
-check with equality_in betas hints handle
-  let _ = beta f_def in
+check
+  with local (lbeta f_def) handle
     refl b : f a == b

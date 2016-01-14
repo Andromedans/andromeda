@@ -3,10 +3,10 @@ constant B : Type
 constant P : A -> Type
 constant Q : ∏ (a : A), P a → Type
 
-check with equality_in betas hints handle
+check
    assume b : B in
    assume e : B ≡ A in
-   let _ = beta e in
+   with local (lbeta e) handle
    assume x : P b in
    assume f : Q b x → A in
      f

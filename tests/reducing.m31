@@ -6,10 +6,11 @@ constant plus (reduce n : N) (reduce m : N) : N
 
 constant plus_O_l : forall (n : N), plus O n == n
 
-let action = top_beta plus_O_l
-#include "../std/equal_handle.m31"
+let betas = add_beta betas hints plus_O_l
 
-check plus (plus O O) O
+check with equality_in betas hints handle
+  plus (plus O O) O
 
-check whnf (plus (plus O (S O)) (plus O O))
+check with equality_in betas hints handle
+  whnf (plus (plus O (S O)) (plus O O))
 

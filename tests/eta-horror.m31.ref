@@ -9,5 +9,5 @@ Constant C is declared.
 Constant D is declared.
 Constant p is declared.
 Constant q is declared.
-File "./eta-horror.m31", line 33, characters 11-13: Syntax error
-  unknown identifier eta
+File "./eta-horror.m31", line 33, characters 15-18: Syntax error
+  unknown identifier leta

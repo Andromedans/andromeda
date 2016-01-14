@@ -27,9 +27,9 @@ constant p : prod C D
 constant q : prod C D
 
 (* The following should fail (and not cycle forever). *)
-check with equality_in betas hints handle
-  let _ = beta Pair_beta_Fst in
-  let _ = beta Pair_beta_Snd in
-  let _ = eta Pair_eta in
+check
+  with local (lbeta Pair_beta_Fst) handle
+  with local (lbeta Pair_beta_Snd) handle
+  with local (leta Pair_eta) handle
     refl p : p == q
 

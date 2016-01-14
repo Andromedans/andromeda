@@ -1,11 +1,10 @@
 #include "../examples/sum.m31"
 
-let action = top_beta sum_iota_l
-#include "../std/equal_handle.m31"
-let action = top_beta sum_iota_r
-#include "../std/equal_handle.m31"
+let betas = add_beta betas hints sum_iota_l
+let betas = add_beta betas hints sum_iota_r
 
-check λ (A B : Type)
+check with equality_in betas hints handle
+  λ (A B : Type)
           (P : sum A B -> Type)
           (l : ∀ (a : A), P (inl A B a))
           (r : ∀ (b : B), P (inr A B b))
