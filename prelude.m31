@@ -2,8 +2,8 @@
 #include_once "std/base.m31"
 #include_once "std/equal.m31"
 
-let top_betas = nil
-let top_hints = nil
-let top_action = reset
+let top_betas = ref []
+let top_hints = ref []
+let top_action = ref reset
 
 #include "std/equal_handle.m31"

@@ -1,19 +1,19 @@
 (* equal.m31 should already be included, since we need to set [action] *)
 
 let betas = fun action => match action with
-  | reset => top_betas
+  | reset => !top_betas
   | top_beta ?b =>
-    match (with equality top_betas top_hints handle beta b) with
+    match (with equality !top_betas !top_hints handle beta b) with
       pair _ (pair ?betas _) => betas
     end
-  | top_hint _ => top_betas
+  | top_hint _ => !top_betas
 end
 
-let hints = match top_action with
-  | reset => top_hints
-  | top_beta _ => top_hints
+let hints = match !top_action with
+  | reset => !top_hints
+  | top_beta _ => !top_hints
   | top_hint ?h =>
-    match (with equality top_betas top_hints handle hint h) with
+    match (with equality !top_betas !top_hints handle hint h) with
       pair _ (pair _ ?hints) => hints
     end
 end

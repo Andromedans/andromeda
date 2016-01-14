@@ -36,6 +36,10 @@ let as_ref ~loc v =
   let e = Value.as_ref ~loc v in
   Value.return e
 
+let as_list ~loc v =
+  let lst = Value.as_list ~loc v in
+  Value.return lst
+
 (** Evaluate a computation -- infer mode. *)
 let rec infer env (c',loc) =
   match c' with
@@ -74,6 +78,14 @@ let rec infer env (c',loc) =
             infer env c >>= (fun v -> fold (v :: vs) cs)
        in
        fold [] cs
+
+    | Syntax.Nil ->
+       Value.return Value.list_nil
+
+    | Syntax.Cons (c1, c2) ->
+       infer env c1 >>= fun v1 ->
+       infer env c2 >>= as_list ~loc >>= fun lst ->
+       Value.return (Value.list_cons v1 lst)
 
     | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
         let handler_val =
@@ -254,7 +266,7 @@ let rec infer env (c',loc) =
               Value.apply_closure env f >>= fun v ->
               fold v cs
           end
-        | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.Ref _ ->
+        | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Ref _ ->
           Error.runtime ~loc "cannot apply %s" (Value.name_of v)
     in
     infer env c >>= fun v -> fold v cs
@@ -374,6 +386,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
   | Syntax.Handler _
   | Syntax.External _
   | Syntax.Tag _
+  | Syntax.Nil
+  | Syntax.Cons _
   | Syntax.Where _
   | Syntax.With _
   | Syntax.Typeof _

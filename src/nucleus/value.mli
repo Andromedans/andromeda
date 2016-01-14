@@ -21,6 +21,7 @@ type value = private
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
+  | List of value list
   | Ref of value ref
 
 and ('a,'b) closure
@@ -61,8 +62,11 @@ val from_list : value list -> value
 
 (** Convert tags to ocaml types *)
 val as_option : loc:Location.t -> value -> value option
+val as_list : loc:Location.t -> value -> value list
 
 val mk_tag : Name.ident -> value list -> value
+val list_nil : value
+val list_cons : value -> value list -> value
 
 val return : 'a -> 'a result
 val return_term : Judgement.term -> value result

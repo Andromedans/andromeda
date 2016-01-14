@@ -218,7 +218,7 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
       let p2, vars, n = tt_pattern env bound vars n p2 in
       (Syntax.Patt_Jdg (p1,p2), loc), vars, n
 
-    | Input.Patt_Data (t,ps) ->
+    | Input.Patt_Tag (t,ps) ->
       let rec fold vars n ps = function
         | [] ->
           let ps = List.rev ps in
@@ -229,6 +229,20 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
         in
       fold vars n [] ps
 
+    | Input.Patt_Cons (p1, p2) ->
+      let p1, vars, n = pattern env bound vars n p1 in
+      let p2, vars, n = pattern env bound vars n p2 in
+      (Syntax.Patt_Cons (p1,p2), loc), vars, n
+
+    | Input.Patt_List ps ->
+       let rec fold ~loc vars n = function
+         | [] -> (Syntax.Patt_Nil, loc), vars, n
+         | p :: ps ->
+            let p, vars, n = pattern env bound vars n p in
+            let ps, vars, n = fold ~loc:(snd p) vars n ps in
+            (Syntax.Patt_Cons (p, ps), loc), vars, n
+       in
+       fold ~loc vars n ps
 
 let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
   match c' with
@@ -460,6 +474,21 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
   | Input.Tag (t, cs) ->
      let cs = List.map (comp ~yield env bound) cs in
      Syntax.Tag (t, cs), loc
+
+  | Input.List cs ->
+     let rec fold ~loc = function
+       | [] -> Syntax.Nil, loc
+       | c :: cs ->
+          let c = comp ~yield env bound c in
+          let cs = fold ~loc:(snd c) cs in
+          Syntax.Cons (c, cs), loc
+     in
+     fold ~loc cs
+
+  | Input.Cons (e1, e2) ->
+    let e1 = comp ~yield env bound e1 in
+    let e2 = comp ~yield env bound e2 in
+    Syntax.Cons (e1,e2), loc
 
   | Input.Congruence (e1,e2) ->
     let e1 = comp ~yield env bound e1 in
