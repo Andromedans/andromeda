@@ -28,7 +28,7 @@ let rec mk_prod ~loc ys ((t', _) as t) =
     end
 
 (* n is the length of vars *)
-let rec tt_pattern (env : Value.Env.t) bound vars n (p,loc) =
+let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
   match p with
     | Input.Tt_Anonymous ->
       (Syntax.Tt_Anonymous, loc), vars, n
@@ -60,7 +60,7 @@ let rec tt_pattern (env : Value.Env.t) bound vars n (p,loc) =
         | Some k -> (Syntax.Tt_Bound k, loc), vars, n
         | None ->
            begin
-             match Value.Env.lookup_constant x env with
+             match Value.get_constant x env with
                | Some (lst, _) ->
                   if List.length lst = 0 then
                     (Syntax.Tt_Constant x, loc), vars, n
@@ -175,7 +175,7 @@ let rec tt_pattern (env : Value.Env.t) bound vars n (p,loc) =
       let p, vars, n = tt_pattern env bound vars n p in
       (Syntax.Tt_Projection (p,l), loc), vars, n
 
-let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
+let rec pattern (env : Value.env) bound vars n (p,loc) =
   match p with
     | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), vars, n
 
@@ -201,7 +201,7 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
     | Input.Patt_Name x ->
       begin match Name.index_of_ident x bound with
         | None ->
-          begin match Value.Env.lookup_data x env with
+          begin match Value.lookup_data x env with
             | Some k ->
               if k = 0
               then (Syntax.Patt_Tag (x,[]), loc), vars, n
@@ -230,7 +230,7 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
       fold vars n [] ps
 
 
-let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
+let rec comp ~yield (env : Value.env) bound (c',loc) =
   match c' with
     | Input.Handle (c, hcs) ->
        let c = comp ~yield env bound c
@@ -377,7 +377,7 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
          | Some k -> Syntax.Bound k, loc
          | None ->
             begin
-              match Value.Env.lookup_decl x env with
+              match Value.lookup_decl x env with
               | Some (Value.Constant (lst, _)) ->
                  let k = List.length lst in
                  if k = 0 then constant ~loc ~yield env bound x []
@@ -469,7 +469,7 @@ and spine ~yield env bound ((c',loc) as c) cs =
       match c' with
       | Input.Var x when not (List.mem x bound) ->
          begin
-           match Value.Env.lookup_decl x env with
+           match Value.lookup_decl x env with
 
            | Some (Value.Constant (lst, _)) ->
               let k = List.length lst in
@@ -510,7 +510,7 @@ and handler ~loc env bound hcs =
       fold (case::val_cases) op_cases finally_cases hcs
 
     | Input.CaseOp (op, ((ps,_) as c)) :: hcs ->
-      begin match Value.Env.lookup_operation op env with
+      begin match Value.lookup_operation op env with
         | Some k ->
           let n = List.length ps in
           if n = k
@@ -572,7 +572,7 @@ and perform ~loc ~yield env bound x cs =
   let cs = List.map (comp ~yield env bound) cs in
   Syntax.Perform (x, cs), loc
 
-let toplevel (env : Value.Env.t) bound (d', loc) =
+let toplevel (env : Value.env) bound (d', loc) =
   let d' = match d' with
     | Input.Operation (x, k) -> Syntax.Operation (x, k)
 
@@ -597,7 +597,7 @@ let toplevel (env : Value.Env.t) bound (d', loc) =
         let lst =
           List.map
             (fun (op, xs, c) ->
-              match Value.Env.lookup_operation op env with
+              match Value.lookup_operation op env with
                 | Some k ->
                   let n = List.length xs in
                   if n = k
