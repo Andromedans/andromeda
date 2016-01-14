@@ -1,8 +1,10 @@
-unit is assumed.
-tt is assumed.
+Constant unit is declared.
+Constant top is declared.
+Operation lookup is declared.
+Operation update is declared.
 state is defined.
-N is assumed.
-z is assumed.
-s is assumed.
-f is assumed.
+Constant N is declared.
+Constant z is declared.
+Constant s is declared.
+Constant f is declared.
 ⊢ f z (s z) (s (s z)) : N

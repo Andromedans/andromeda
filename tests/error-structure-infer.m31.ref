@@ -1,8 +1,8 @@
-A is assumed.
-a is assumed.
-P is assumed.
-b is assumed.
-Q is assumed.
-f is assumed.
-File "./error-structure-infer.m31", line 8, characters 7-36: Typing error
-  this expression should have type P x₁₄ but has type P a
+Constant A is declared.
+Constant a is declared.
+Constant P is declared.
+Constant b is declared.
+Constant Q is declared.
+Constant f is declared.
+File "./error-structure-infer.m31", line 8, characters 7-33: Typing error
+  this expression should have type P x₁₅ but has type P a

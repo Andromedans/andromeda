@@ -1,24 +1,27 @@
-Parameter N : Type.
-Parameter Z : N.
-Parameter S : N ⟶ N.
-Parameter plus : N ⟶ N ⟶ N.
-Parameter plus_Z : Π [x : N] plus x Z == x.
-Parameter plus_S : Π [x y : N]  plus x (S y) == S (plus x y).
+constant N : Type
+constant Z : N
+constant S : N ⟶ N
+constant plus : N ⟶ N ⟶ N
+constant plus_Z : Π (x : N), plus x Z == x
+constant plus_S : Π (x y : N),  plus x (S y) == S (plus x y)
 
-Check beta plus_S in Type.
+check
+  with local (lbeta plus_S) handle
+    Type
 
-Check
-  beta plus_Z in
-    (refl (S (S Z))) :: plus (S (S Z)) Z == S (S Z).
+check
+  with local (lbeta plus_Z) handle
+    (refl (S (S Z))) : plus (S (S Z)) Z == S (S Z)
 
-Check
-  beta plus_Z in
-  beta plus_S in
-   (refl (S (S Z))) :: plus (S Z) (S Z) == S (S Z).
+check
+  with local (lbeta plus_Z) handle
+  with local (lbeta plus_S) handle
+   (refl (S (S Z))) : plus (S Z) (S Z) == S (S Z)
 
 (* Now we trying something a bit fancier. *)
-Check
-  beta plus_Z in
-  beta plus_S in
-     λ [x : N, y : N]
-       refl (S (S (plus x y))) :: plus x (S (S y)) == S (S (plus x y)).
+check with equality_in betas hints handle
+  with local (lbeta plus_Z) handle
+  with local (lbeta plus_S) handle
+     λ (x : N, y : N),
+       refl (S (S (plus x y))) : plus x (S (S y)) == S (S (plus x y))
+

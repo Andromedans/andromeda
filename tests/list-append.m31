@@ -1,24 +1,32 @@
 
-Let rec append l1 l2 :=
+let rec append l1 l2 =
   match l1 with
-    | 'nil =>
+    | nil =>
       l2
-    | 'cons ?x ?tl =>
-      'cons x (append tl l2)
-  end.
+    | cons ?x ?tl =>
+      cons x (append tl l2)
+  end
 
-Let rec append' l1 l2 :=
+let rec append' l1 l2 =
   match l1 with
-    | 'nil =>
+    | nil =>
       l2
-    | 'cons ?x ?tl =>
-      let lapp := append' tl l2 in
-      'cons x lapp
-  end.
+    | cons ?x ?tl =>
+      let lapp = append' tl l2 in
+      cons x lapp
+  end
 
-Check 
-  let l1 := 'cons 'a ('cons 'b ('cons 'c 'nil)) in
-  let l2 := 'cons 'd ('cons 'e ('cons 'f 'nil)) in
-  let lapp := append l1 l2 in
-  let lapp' := append' l1 l2 in
-  'pair lapp lapp'.
+data a 0
+data b 0
+data c 0
+data d 0
+data e 0
+data f 0
+
+check 
+  let l1 = cons a (cons b (cons c nil)) in
+  let l2 = cons d (cons e (cons f nil)) in
+  let lapp = append l1 l2 in
+  let lapp' = append' l1 l2 in
+  pair lapp lapp'
+

@@ -9,7 +9,7 @@ let rev =
 
 let rec fold f acc lst = match lst with
   | nil => acc
-  | cons ?x ?tl => fold (f acc x) tl
+  | cons ?x ?tl => fold f (f acc x) tl
   end
 
 let rec assoc_find x lst = match lst with

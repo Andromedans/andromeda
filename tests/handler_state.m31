@@ -1,23 +1,27 @@
-Parameter unit : Type.
-Parameter tt : unit.
+constant unit : Type
+constant top : unit
 
-Let state :=
+operation lookup 0
+operation update 1
+
+let state =
   fun s0 =>
     handler
     | val ?x => (fun _ => x)
-    | #lookup _ => (fun s => yield s s)
-    | #update ?s => (fun _ => yield tt s)
+    | lookup => (fun s => yield s s)
+    | update ?s => (fun _ => yield top s)
     | finally ?f => f s0
-    end.
+    end
 
-Parameter N : Type.
-Parameter z : N.
-Parameter s : N -> N.
-Parameter f : N -> N -> N -> N.
+constant N : Type
+constant z : N
+constant s : N -> N
+constant f : N -> N -> N -> N
 
-Check
+check
   with state z handle
-    let a := #lookup tt in
-    let _ := #update (s a) in
-    let b := #lookup tt in
-      f a b (s (#lookup tt)).
+    let a = lookup in
+    let _ = update (s a) in
+    let b = lookup in
+      f a b (s lookup)
+

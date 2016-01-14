@@ -11,9 +11,7 @@ let _ = print test
 
 constant eq : forall x : A, f a x == b
 
-let action = top_beta eq
+let betas = add_beta betas hints eq
 
-#include "../std/equal_handle.m31"
-
-check whnf (f a a)
+check with equality_in betas hints handle whnf (f a a)
 

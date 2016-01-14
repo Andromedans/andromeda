@@ -1,12 +1,12 @@
-A is assumed.
+Constant A is declared.
 x is defined.
 P is defined.
 y is defined.
-x₄ : A 
-y₈ : (λ [z : A] A) x₄ 
-⊢ y₈ : A
-f is assumed.
-x₄ : A 
-P₆ : A → Type 
-y₈ : P₆ (f x₄) 
-⊢ y₈ : P₆ (f x₄)
+x₁₀ : A 
+y₁₃ : (λ (z : A), A) x₁₀ 
+⊢ y₁₃ : A
+Constant f is declared.
+x₁₀ : A 
+P₁₂ : A → Type 
+y₁₃ : P₁₂ (f x₁₀) 
+⊢ y₁₃ : P₁₂ (f x₁₀)

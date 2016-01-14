@@ -1,19 +1,21 @@
 
-Handle | #abstract v => match v with
-  | 'pair (|- ?x : ?tx) (|- ?y : ?ty) =>
-    assume y_ : forall [x_ : tx] ty where x := x_ in
-    'some ((y_ x) :: ty)
-  end
-end.
+handle
+  | abstract v1 v2 =>
+    match pair v1 v2 with
+      | pair (|- ?x : ?tx) (|- ?y : ?ty) =>
+        assume y_ : forall x_ : tx, ty where x = x_ in
+        Some ((y_ x) : ty)
+    end
+end
 
 (* Simple example. *)
-Check lambda [T : Type] assume x : T in x.
+check lambda T : Type, assume x : T in x
 
-Axiom A : Type.
-Axiom a : A.
-Axiom P : A -> Type.
-Axiom f : forall [x : A] P x -> A.
+constant A : Type
+constant a : A
+constant P : A -> Type
+constant f : forall x : A, P x -> A
 
-Check lambda [x : A] assume p : P x in assume q : f x p == a in q.
+check lambda x : A, assume p : P x in assume q : f x p == a in q
 
-Check lambda [x : A] assume T: Type in assume q : T in assume p : P x in (q where T := (f x p == a)).
+check lambda x : A, assume T : Type in assume q : T in assume p : P x in (q where T = (f x p == a))

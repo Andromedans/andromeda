@@ -1,14 +1,16 @@
-cow is assumed.
-horn is assumed.
-tail is assumed.
-tail_horn is assumed.
+Constant cow is declared.
+Constant horn is declared.
+Constant tail is declared.
+Constant tail_horn is declared.
 ⊢ refl horn : horn ≡ tail horn
-prod is assumed.
-pair is assumed.
-fst is assumed.
-fst_beta is assumed.
-X is assumed.
-Y is assumed.
-a is assumed.
-f is assumed.
-⊢ λ [y : Y] refl (f a) : Π [y : Y] f a ≡ fst X Y (pair X Y (f a) y)
+Constant prod is declared.
+Constant Pair is declared.
+Constant Fst is declared.
+Constant Fst_beta is declared.
+Constant X is declared.
+Constant Y is declared.
+Constant a is declared.
+Constant f is declared.
+File "./beta-primapp.m31", line 31, characters 7-16: Typing error
+  failed to check that the term f a is equal to Fst X Y
+  (Pair X Y (f a) y₂₉)

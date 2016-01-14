@@ -1,3 +1,5 @@
+Data constructor z is declared.
+Data constructor s is declared.
 length is defined.
 mylist is defined.
-'s ('s ('s 'z))
+s (s (s z))

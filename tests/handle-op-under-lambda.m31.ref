@@ -1,8 +1,7 @@
-A is assumed.
-B is assumed.
-C is assumed.
-a is assumed.
-f is assumed.
-unit is assumed.
-tt is assumed.
-⊢ λ [b : B] f a : B → C
+Constant A is declared.
+Constant B is declared.
+Constant C is declared.
+Constant a is declared.
+Constant f is declared.
+Operation gimme is declared.
+⊢ λ (b : B), f a : B → C

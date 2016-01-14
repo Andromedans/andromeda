@@ -1,13 +1,16 @@
-Axiom N : Type.
-Axiom O : N.
-Axiom S [n : N] : N.
+constant N : Type
+constant O : N
+constant S (n : N) : N
 
-Axiom plus [reduce n : N] [reduce m : N] : N.
+constant plus (reduce n : N) (reduce m : N) : N
 
-Axiom plus_O_l : forall [n : N] plus O n == n.
+constant plus_O_l : forall (n : N), plus O n == n
 
-Beta plus_O_l.
+let betas = add_beta betas hints plus_O_l
 
-Check plus (plus O O) O.
+check with equality_in betas hints handle
+  plus (plus O O) O
 
-Check whnf (plus (plus O (S O)) (plus O O)).
+check with equality_in betas hints handle
+  whnf (plus (plus O (S O)) (plus O O))
+

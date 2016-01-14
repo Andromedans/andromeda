@@ -4,6 +4,4 @@
 
 let betas = nil
 let hints = nil
-let action = reset
 
-#include "std/equal_handle.m31"

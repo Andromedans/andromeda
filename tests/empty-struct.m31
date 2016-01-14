@@ -1,6 +1,9 @@
-Check λ [x y : {}] refl () :: x == y.
+(* TODO eta on structures
+check λ (x y : {}), refl () : x == y
 
-Check λ [x y : { }] refl ( ) :: x == y.
+check λ (x y : { }), refl ( ) : x == y
+*)
 
-Check match ( ) with | |- ( ) : { } => 'tt end.
-Check match ( ) with | |- () : {} => 'tt end.
+check match ( ) with | |- ( ) : { } => () end
+check match ( ) with | |- () : {} => () end
+

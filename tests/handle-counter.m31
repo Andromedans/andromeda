@@ -1,17 +1,17 @@
-Parameter N : Type.
-Parameter z : N.
-Parameter s : N -> N.
+constant N : Type
+constant z : N
+constant s : N -> N
 
-Parameter unit : Type.
-Parameter tt : unit.
+constant f : N -> N -> N -> N
 
-Parameter f : N -> N -> N -> N.
+operation get 0
 
-Check
+check
   handle
-    f (#get tt) (#get tt) (#get tt)
+    f get get get
   with
   | val ?v => (fun _ => v)
-  | #get _ => (fun i => (yield i) (s i))
+  | get => (fun i => (yield i) (s i))
   | finally ?f => f z
-  end.
+  end
+

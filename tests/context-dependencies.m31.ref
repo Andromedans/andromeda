@@ -1,9 +1,9 @@
-A is assumed.
-B is assumed.
-P is assumed.
-Q is assumed.
-b₈ : B 
-e₉ : B ≡ A 
-x₁₁ : P b₈ 
-f₁₅ : Q b₈ x₁₁ → A 
-⊢ f₁₅ : Q b₈ x₁₁ → A
+Constant A is declared.
+Constant B is declared.
+Constant P is declared.
+Constant Q is declared.
+b₁₃ : B 
+e₁₄ : B ≡ A 
+x₁₅ : P b₁₃ 
+f₁₇ : Q b₁₃ x₁₅ → A 
+⊢ f₁₇ : Q b₁₃ x₁₅ → A
