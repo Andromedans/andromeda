@@ -1,23 +1,24 @@
-Let id :=
-  λ [A : Type] λ [x : A] x.
-Check id.
+let id =
+  λ (A : Type), λ (x : A), x
+check id
 
-Let compose :=
-  λ [A B C : Type] [g : B -> C] [f : A -> B] [x : A] g (f x).
-Check compose.
+let compose =
+  λ (A B C : Type) (g : B -> C) (f : A -> B) (x : A), g (f x)
+check compose
 
 
-Parameter X : Type.
-Parameter Y : Type.
-Parameter Z : Type.
-Parameter W : Type.
-Parameter x : X.
-Parameter f : X -> Y.
-Parameter g : Y -> Z.
-Parameter h : Z -> W.
+constant X : Type
+constant Y : Type
+constant Z : Type
+constant W : Type
+constant x : X
+constant f : X -> Y
+constant g : Y -> Z
+constant h : Z -> W
 
-Check refl (g (f x)) :: g (f x) == compose X Y Z g f x.
+check refl (g (f x)) : g (f x) == compose X Y Z g f x
 
-Check refl (h (g (f x))) ::
+check refl (h (g (f x))) :
         compose X Z W h (compose X Y Z g f) x ==
-        compose X Y W (compose Y Z W h g) f x.
+        compose X Y W (compose Y Z W h g) f x
+

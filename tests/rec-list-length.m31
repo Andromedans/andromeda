@@ -1,9 +1,13 @@
-Let length := rec length lst =>
+data z 0
+data s 1
+
+let length = rec length lst =>
   match lst with
-  | 'nil => 'z
-  | 'cons _ ?lst => 's (length lst)
-  end.
+  | nil => z
+  | cons _ ?lst => s (length lst)
+  end
 
-Let mylist := 'cons 'a ('cons Type ('cons 'nil 'nil)).
+let mylist = cons () (cons Type (cons nil nil))
 
-Check length mylist.
+check length mylist
+

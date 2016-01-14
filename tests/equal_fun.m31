@@ -1,11 +1,12 @@
-Parameter A : Type.
-Parameter B : A -> Type.
-Parameter f : Π [x : A] B x -> B x.
+constant A : Type
+constant B : A -> Type
+constant f : Π (x : A), B x -> B x
 
-Let foo :=
-  λ [g : Π [x : A] B x -> B x]
-    (λ [x : A] [y : B x] g x (g x y)).
+let foo =
+  λ (g : Π (x : A), B x -> B x),
+    (λ (x : A) (y : B x), g x (g x y))
 
-Check
-  refl (λ [x : A] [y : B x] f x (f x y)) ::
-    (λ [x : A] [y : B x] f x (f x y)) == foo f.
+check
+  refl (λ (x : A) (y : B x), f x (f x y)) :
+    (λ (x : A) (y : B x), f x (f x y)) == foo f
+

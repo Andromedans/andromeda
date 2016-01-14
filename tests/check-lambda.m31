@@ -1,18 +1,19 @@
 (* Testing checking for lambdas in various ways. *)
 
-Parameter A : Type.
-Parameter B : A -> Type.
-Parameter C : Π [x : A] B x -> Type.
-Parameter f : Π [x : A] B x.
-Parameter g : Π [x : A] [y : B x] C x y.
+constant A : Type
+constant B : A -> Type
+constant C : Π (x : A), B x -> Type
+constant f : Π (x : A), B x
+constant g : Π (x : A) (y : B x), C x y
 
-Parameter a : A.
+constant a : A
 
-Check
-  (λ [y : B a] g a y) :: Π [y : B a] C a y.
+check
+  (λ (y : B a), g a y) : Π (y : B a), C a y
 
-Check (λ [x y] g x y) :: Π [x : A] [y : B x] C x y.
+check (λ (x y), g x y) : Π (x : A) (y : B x), C x y
 
-Check (λ [x : A] [y] g x y) :: Π [x : A] [y : B x] C x y.
+check (λ (x : A) (y), g x y) : Π (x : A) (y : B x), C x y
 
-Check (λ [x] [y : B x] g x y) :: Π [x : A] [y : B x] C x y.
+check (λ (x) (y : B x), g x y) : Π (x : A) (y : B x), C x y
+

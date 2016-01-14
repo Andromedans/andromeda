@@ -1,19 +1,20 @@
 (** Can we use eta hints to deal with commutativity? *)
 
 (** Suppose we have a commutative operation. *)
-Parameter N : Type.
-Parameter plus : N -> N -> N.
-Parameter plus_commute : forall [x y : N] plus x y == plus y x.
+constant N : Type
+constant plus : N -> N -> N
+constant plus_commute : forall (x y : N), plus x y == plus y x
 
 (* And we have a type which depends on N *)
-Parameter List : N -> Type.
+constant List : N -> Type
 
 (* And we have a list of size m+n. *)
-Parameter m : N.
-Parameter n : N.
-Parameter lst : List (plus m n).
+constant m : N
+constant n : N
+constant lst : List (plus m n)
 
 (** Then we can convince Andromeda that lst has size n+m. *)
-Check
-  hint plus_commute in
-    (lst :: List (plus n m)).
+check
+  with local (lhint plus_commute) handle
+    (lst : List (plus n m))
+

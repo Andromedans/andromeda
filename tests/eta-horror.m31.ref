@@ -1,13 +1,13 @@
-prod is assumed.
-pair is assumed.
-fst is assumed.
-snd is assumed.
-pair_beta_fst is assumed.
-pair_beta_snd is assumed.
-pair_eta is assumed.
-C is assumed.
-D is assumed.
-p is assumed.
-q is assumed.
-File "./eta-horror.m31", line 34, characters 5-10: Typing error
-  failed to check that the term p is equal to q
+Constant prod is declared.
+Constant Pair is declared.
+Constant Fst is declared.
+Constant Snd is declared.
+Constant Pair_beta_Fst is declared.
+Constant Pair_beta_Snd is declared.
+Constant Pair_eta is declared.
+Constant C is declared.
+Constant D is declared.
+Constant p is declared.
+Constant q is declared.
+File "./eta-horror.m31", line 33, characters 15-18: Syntax error
+  unknown identifier leta

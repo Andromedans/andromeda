@@ -2,18 +2,19 @@
 #include_once "base.m31"
 #include "utils.m31"
 
-(* debug message *)
-data (!) 1 let (!) = fun x => print ! x
+data (!!) 1 
+let debug = fun x => print !! x
 
 operation fail 0
 operation beta 1
 operation hint 1
 operation whnf 1
 
-(* actions tell equal_handle what to do *)
-data top_beta 1
-data top_hint 1
-data reset 0
+(* local hints *)
+data lbeta 1
+data lhint 1
+operation getbetas 0
+operation gethints 0
 
 (*
 Matching works the following way:
@@ -50,20 +51,35 @@ let rec collector quants lhs rhs =
      NB it would be nice to have a matching primitive to know if some term is an atom. *)
   match assoc_find lhs quants with
     | Some None => (* not yet set atom *)
-      Some (assoc_update lhs (Some rhs) quants)
+      let quants = assoc_update lhs (Some rhs) quants in
+      Some quants
     | Some (Some ?lhs) => (* already set atom *)
       collector quants lhs rhs
     | None => (* not an atom *)
-      match pair lhs rhs with
-        | pair ?a ?a => (* alpha equal *)
+      match assoc_find rhs quants with
+        | Some None =>
+          let quants = assoc_update rhs (Some lhs) quants in
           Some quants
-        | pair (|- ?l1 ?l2) (|- ?r1 ?r2) =>
-          match collector quants l1 r1 with
-            (* there could be something smarter to do in either failure case *)
-            | Some ?quants => collector quants l2 r2
-            | None => None
+        | Some (Some ?rhs) =>
+          collector quants lhs rhs
+        | None =>
+          match pair lhs rhs with
+            | pair ?a ?a => (* alpha equal *)
+              Some quants
+            | pair (|- ?l1 ?l2) (|- ?r1 ?r2) =>
+              match collector quants l1 r1 with
+                (* could there be something smarter to do in either failure case? *)
+                | Some ?quants => collector quants l2 r2
+                | None => None
+              end
+            | pair (|- ?l1 == ?l2) (|- ?r1 == ?r2) =>
+              match collector quants l1 r1 with
+                | Some ?quants => collector quants l2 r2
+                | None => None
+              end
+            (* TODO add cases *)
+            | _ => None
           end
-        | _ => None
       end
   end
 
@@ -89,7 +105,7 @@ let process_beta =
   let rec deep quants e b = match b with
     | |- forall (?x : _), ?b =>
       deep (cons (pair x None) quants) e b
-    | |- ?lhs == _ => pair e (pair quants lhs)
+    | |- ?lhs == _ => pair e (pair (rev quants) lhs)
     end
   in
   fun b => match b with
@@ -100,19 +116,19 @@ let process_hint =
   let rec deep quants e h = match h with
     | |- forall (?x : _), ?h =>
       deep (cons (pair x None) quants) e h
-    | |- _ == _ => pair e (pair quants h)
+    | |- _ == _ => pair e (pair (rev quants) h)
     end
   in
   fun h => match h with
     | |- ?e : ?h => deep nil e h
     end
 
-let symmetry = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
+let sym = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
   | equal _ _ =>
     yield (Some h)
   end
 
-let transitivity = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
+let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
   handle eq2 : a == c with
     | equal ((|- a == c : _) as ?x) ((|- b == c : _) as ?y) => handle yield (congruence x y) with
       | equal a b => yield (Some eq1)
@@ -122,7 +138,7 @@ let transitivity = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
 (* pick the rhs because it's more reduced in practice *)
 let hide_witness = fun eq => match eq with
   |- _ : ?a == ?b => match a with |- _ : ?t =>
-    handle refl b : a == b with equal b a => yield (Some (symmetry t a b eq)) end
+    handle refl b : a == b with equal b a => yield (Some (sym t a b eq)) end
   end end
 
 (* implicit arguments and hide witness *)
@@ -130,7 +146,7 @@ let symmetry = fun eq =>
   match eq with
     |- _ : ?a == ?b =>
       match a with |- _ : ?t =>
-        hide_witness (symmetry t a b eq)
+        hide_witness (sym t a b eq)
       end
   end
 
@@ -138,7 +154,7 @@ let transitivity = fun eq1 eq2 =>
   match pair eq1 eq2 with
     | pair (|- _ : ?a == ?b) (|- _ : _ == ?c) =>
       match a with |- _ : ?t =>
-        hide_witness (transitivity t a b c eq1 eq2)
+        hide_witness (tran t a b c eq1 eq2)
       end
   end
 
@@ -157,6 +173,15 @@ let rec step_at betas e =
       end
   end
 
+let rec hint_at hints e =
+  match hints with
+    | nil => None
+    | cons ?h ?rem =>
+      match generic_matcher h e with
+        | (Some _) as ?m => m
+        | None => hint_at rem e
+      end
+  end
 
 let rec do_whnf betas e =
   match e with
@@ -178,8 +203,16 @@ let rec do_whnf betas e =
             
             then t' would be foo[e2/x] for both (e1 e2) and (e1' e2), problem solved (because e1, e1' : forall x : A, foo)
           *)
-          let e' = (e1' e2) : t in
-          let eq = (handle unopt (congruence e e') with equal e1 e1' => yield (Some eq) end) : e == e' in
+          let e' = e1' e2 in
+          let e' = e' : t in
+          let meq = handle congruence e e' with
+            | equal e1 e1' => yield (Some eq)
+            end
+          in
+          let eq = match meq with
+              | Some ?eq => eq : e == e'
+            end
+          in
           match do_whnf betas e' with
             | Some (|- ?eq' : _ == ?e'') =>
               Some (transitivity eq eq')
@@ -197,10 +230,12 @@ let rec do_whnf betas e =
               (* e1 is in whnf and e is not a beta redex, so we only need to see if a beta hint applies to e *)
               match step_at betas e with
                 | Some (|- ?eq : _ == ?e') =>
-                  match do_whnf betas e' with
+                      match do_whnf betas e' with
                     | Some (|- ?eq' : _ == ?e'') =>
-                      Some (transitivity eq eq')
-                    | None => Some eq
+                      let eq = transitivity eq eq' in
+                      Some eq
+                    | None =>
+                      Some eq
                   end
                 | None => None
               end
@@ -214,12 +249,14 @@ let rec do_whnf betas e =
               Some (transitivity eq eq')
             | None => Some eq
           end
-        | None => None
+        | None =>
+          None
           (* TODO are there any non application cases where we need to reduce a subterm? *)
       end
   end
 
-let whnf_eq = fun betas e => match do_whnf betas e with
+let whnf_eq = fun betas e =>
+match do_whnf betas e with
   | Some ?eq => eq
   | None => refl e
   end
@@ -237,19 +274,25 @@ then in comp2 the hint b is available
 *)
 let rec equality betas hints = handler
   | equal (|- ?a : ?t) ?b (* : ?t *) => fun betas hints =>
-    match (with equality betas hints handle congruence a b) with
-      | pair (Some ?eq) (pair ?betas ?hints) => yield (Some eq) betas hints
-      | pair None _ => (* loops *)
-        match (with equality betas hints handle pair (whnf_eq betas a) (whnf_eq betas b)) with
-          | pair (pair (|- ?eqa : _ == ?a') (|- ?eqb : _ == ?b')) (pair ?betas ?hints) =>
-            match (with equality betas hints handle equal a' b') with
-              | pair (Some ?eq) (pair ?betas ?hints) =>
-                let eq = transitivity eqa eq in
-                let eq = transitivity eq (symmetry eqb) in
-                yield (Some eq) betas hints
-              | pair None _ => yield None betas hints
-            end
-        end
+    match (with equality betas hints handle pair (whnf_eq betas a) (whnf_eq betas b)) with
+    | pair (pair (|- ?eqa : _ == ?x) (|- ?eqb : _ == ?x)) (pair ?betas ?hints) =>
+      (* whnfs are alpha equal *)
+      let eq = transitivity eqa (symmetry eqb) in
+      yield (Some eq) betas hints
+    | pair (pair (|- ?eqa : _ == ?a') (|- ?eqb : _ == ?b')) (pair ?betas ?hints) =>
+     match (with equality betas hints handle congruence a' b') with
+        | pair (Some ?eq) (pair ?betas ?hints) =>
+          let eq = transitivity eqa eq in
+          let eq = transitivity eq (symmetry eqb) in
+          yield (Some eq) betas hints
+        | pair None _ =>
+          match (with equality betas hints handle hint_at hints (a == b)) with
+            | pair (Some ?eq) (pair ?betas ?hints) =>
+              yield (Some eq) betas hints
+            | pair None _ =>
+              yield None betas hints
+          end
+      end
     end
 
   | whnf ?e => fun betas hints =>
@@ -265,46 +308,114 @@ let rec equality betas hints = handler
   | hint ?h => fun betas hints =>
     let h = process_hint h in
     yield () betas (cons h hints)
+
+  | getbetas => fun betas hints =>
+    yield betas betas hints
+
+  | gethints => fun betas hints =>
+    yield hints betas hints
+
+(* TODO | as_* *)
 
   | val ?v => fun betas hints => pair v (pair betas hints)
 
   | finally ?f => f betas hints
   end
 
+
+
 (* doesn't return the state *)
 let equality_in = fun betas hints => handler
   | equal (|- ?a : ?t) ?b (* : ?t *) => fun betas hints =>
-    match (with equality betas hints handle congruence a b) with
-      | pair (Some ?eq) (pair ?betas ?hints) => yield (Some eq) betas hints
-      | pair None _ => (* loops *)
-        match (with equality betas hints handle pair (whnf_eq betas a) (whnf_eq betas b)) with
-          | pair (pair (|- ?eqa : _ == ?a') (|- ?eqb : _ == ?b')) (pair ?betas ?hints) =>
-            match (with equality betas hints handle equal a' b') with
-              | pair (Some ?eq) (pair ?betas ?hints) =>
-                let eq = transitivity eqa eq in
-                let eq = transitivity eq (symmetry eqb) in
-                yield (Some eq) betas hints
-              | pair None _ => yield None betas hints
-            end
-        end
+    match (with equality betas hints handle equal a b) with
+      | pair ?v (pair ?betas ?hints) => yield v betas hints
     end
 
   | whnf ?e => fun betas hints =>
     match (with equality betas hints handle whnf_eq betas e) with
-      | pair ?eq (pair ?betas ?hints) =>
-        yield eq betas hints
+      | pair ?v (pair ?betas ?hints) => yield v betas hints
     end
 
   | beta ?b => fun betas hints =>
-    let b = process_beta b in
-    yield () (cons b betas) hints
+    match (with equality betas hints handle beta b) with
+      | pair ?v (pair ?betas ?hints) => yield v betas hints
+    end
 
   | hint ?h => fun betas hints =>
-    let h = process_hint h in
-    yield () betas (cons h hints)
+    match (with equality betas hints handle hint h) with
+      | pair ?v (pair ?betas ?hints) => yield v betas hints
+    end
+
+  | getbetas => fun betas hints =>
+    match (with equality betas hints handle getbetas) with
+      | pair ?v (pair ?betas ?hints) => yield v betas hints
+    end
+
+  | gethints => fun betas hints =>
+    match (with equality betas hints handle gethints) with
+      | pair ?v (pair ?betas ?hints) => yield v betas hints
+    end
 
   | val ?v => fun betas hints => v
 
   | finally ?f => f betas hints
+  end
+
+(* TODO split into lbeta|lhint|... functions *)
+let local = fun action =>
+  let betas = getbetas and hints = gethints in
+  match (with equality betas hints handle
+    match action with
+      | lbeta ?b => beta b
+      | lhint ?h => hint h
+    end) with
+    | pair _ (pair ?betas ?hints) =>
+      equality_in betas hints
+  end
+
+(* top level handler with no hints *)
+handle
+  | equal a b =>
+    with equality_in nil nil handle equal a b
+
+  | whnf e =>
+    with equality_in nil nil handle whnf e
+
+  | as_prod e =>
+    match (with equality_in nil nil handle whnf e) with
+      | |- ?eq : _ == (forall (_ : _), _) => Some eq
+      | _ => None
+    end
+
+  | as_eq e =>
+    match (with equality_in nil nil handle whnf e) with
+      | |- ?eq : _ == (_ == _) => Some eq
+      | _ => None
+    end
+
+  | as_signature e => (* TODO no good way to match generic signature *)
+    with equality_in nil nil handle whnf e
+
+  (* top level handler has no state. If you want to have local hints do [fst (with equality betas hints handle ...)] *)
+  (*
+  | beta b => ???
+  | hint h => ???
+  *)
+  | getbetas =>
+    nil
+
+  | gethints =>
+    nil
+end
+
+(* helper functions *)
+let add_beta = fun betas hints b =>
+  match with equality betas hints handle beta b with
+    | pair _ (pair ?betas _) => betas
+  end
+
+let add_hint = fun betas hints h =>
+  match with equality betas hints handle hint h with
+    | pair _ (pair ?hints) => hints
   end
 

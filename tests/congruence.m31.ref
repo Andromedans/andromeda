@@ -1,3 +1,5 @@
-print is defined.
-File "./congruence.m31", line 4, characters 49-70: Typing error
-  Structural equality failed on f₁₉ u₂₁ and g₂₀ v₂₂.
+congr is defined.
+⊢ λ (A : Type) (f : A → A) (g : A → A) (u : A) (v : A) (eqf : f ≡ g)
+      (equ : u ≡ v), refl (f u)
+  : Π (A : Type) (f : A → A) (g : A → A) (u : A) (v : A),
+      f ≡ g → u ≡ v → f u ≡ g v

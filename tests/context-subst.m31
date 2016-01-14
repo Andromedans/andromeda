@@ -1,17 +1,18 @@
 (* First a nice simple substitution. *)
 
-Parameter A : Type.
+constant A : Type
 
-Let x := assume x : A in x.
+let x = assume x : A in x
 
-Let P := assume P : A -> Type in P.
+let P = assume P : A -> Type in P
 
-Let y := assume y : P x in y.
+let y = assume y : P x in y
 
-Check y where P := (lambda [z : A] A).
+check y where P = (lambda (z : A), A)
 
 (* Substitute an atom with something that depends on it? Seems to work. *)
 
-Parameter f : A -> A.
+constant f : A -> A
 
-Check (y where x := f x).
+check (y where x = f x)
+

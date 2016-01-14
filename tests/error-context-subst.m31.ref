@@ -1,16 +1,16 @@
-A is assumed.
+Constant A is declared.
 x is defined.
 P is defined.
 y is defined.
-a is assumed.
-b is assumed.
-ign is assumed.
-g is assumed.
+Constant a is declared.
+Constant b is declared.
+Constant ign is declared.
+Constant g is declared.
 igny is defined.
-File "./error-context-subst.m31", line 17, characters 29-47: Runtime error
-  cannot join contexts P₆ : A → Type 
-                       y₈ : P₆ a 
+File "./error-context-subst.m31", line 17, characters 28-45: Runtime error
+  cannot join contexts P₁₂ : A → Type 
+                       y₁₃ : P₁₂ a 
                         and
-  P₆ : A → Type 
-  y₈ : P₆ b 
-   at y₈
+  P₁₂ : A → Type 
+  y₁₃ : P₁₂ b 
+   at y₁₃

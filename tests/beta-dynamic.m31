@@ -1,27 +1,28 @@
 (* Test whether beta hints are dynamic. *)
 
-Axiom A : Type.
-Axiom a : A.
-Axiom b : A.
+constant A : Type
+constant a : A
+constant b : A
 
-Let f := fun x => whnf x.
+let f = fun x => whnf x
 
-Check f a.
+check f a
 
-Check
-   assume eq : a == b in
-   beta eq in
-     f a.
+check
+  assume eq : a == b in
+  with local (lbeta eq) handle
+    f a
 
-(* This example should produce b but it does not
-   because we do not thread the dynamic part through
-   bind. *)
-Check
+
+operation gimme_beta 0
+
+check with equality_in top_betas top_hints handle
    handle
-     let _ := #gimme_beta 'tt in
+     let _ = gimme_beta in
      whnf a
    with
-   | #gimme_beta _ =>
-     assume eq : a == b in
-     beta eq in yield 'tt
-   end.
+     | gimme_beta =>
+       assume eq : a == b in
+       let _ = beta eq in yield ()
+   end
+

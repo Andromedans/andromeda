@@ -1,8 +1,10 @@
 #including ../examples/sum.m31
 #processed ../examples/sum.m31
-⊢ λ [A : Type] [B : Type] [P : sum A B → Type]
-      [l : Π [a : A] P (inl A B a)] [r : Π [b : B] P (inr A B b)] [
-      b : B] refl (r b)
-  : Π [A : Type] [B : Type] [P : sum A B → Type]
-      [l : Π [a : A] P (inl A B a)] [r : Π [b : B] P (inr A B b)] [
-      b : B] r b ≡ sum_rect A B P l r (inr A B b)
+betas0 is defined.
+betas is defined.
+⊢ λ (A : Type) (B : Type) (P : sum A B → Type)
+      (l : Π (a : A), P (inl A B a)) (r : Π (b : B), P (inr A B b))
+      (b : B), refl (r b)
+  : Π (A : Type) (B : Type) (P : sum A B → Type)
+      (l : Π (a : A), P (inl A B a)) (r : Π (b : B), P (inr A B b))
+      (b : B), r b ≡ sum_rect A B P l r (inr A B b)

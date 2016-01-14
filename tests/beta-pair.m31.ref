@@ -1,12 +1,12 @@
-Pair is assumed.
-pair is assumed.
-fst is assumed.
-beta_fst is assumed.
-C is assumed.
-D is assumed.
-c is assumed.
-d is assumed.
-⊢ refl (fst C D (pair C D c d)) : c ≡ fst C D (pair C D c d)
-⊢ refl (fst D C (pair D C d c)) : d ≡ fst D C (pair D C d c)
-⊢ refl (fst C D (pair C D c d)) : c ≡ fst C D (pair C D c d)
-⊢ refl (fst C D (pair C D c d)) : c ≡ fst C D (pair C D c d)
+Constant Product is declared.
+Constant Pair is declared.
+Constant Fst is declared.
+Constant beta_Fst is declared.
+Constant C is declared.
+Constant D is declared.
+Constant c is declared.
+Constant d is declared.
+⊢ refl (Fst C D (Pair C D c d)) : c ≡ Fst C D (Pair C D c d)
+⊢ refl (Fst D C (Pair D C d c)) : d ≡ Fst D C (Pair D C d c)
+⊢ refl (Fst C D (Pair C D c d)) : c ≡ Fst C D (Pair C D c d)
+⊢ refl (Fst C D (Pair C D c d)) : c ≡ Fst C D (Pair C D c d)

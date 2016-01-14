@@ -334,7 +334,7 @@ module Env = struct
   let used_names env =
     List.map fst env.bound @ List.map fst env.dynamic.decls
 
-  let lookup_decl x env = 
+  let lookup_decl x env =
     let rec lookup = function
       | [] -> None
       | (y,v) :: lst ->
@@ -368,28 +368,38 @@ module Env = struct
     with
     | Failure _ -> Error.impossible ~loc "invalid de Bruijn index %d" k
 
-  let is_declared x env =
-    match lookup_decl x env with
-    | None -> false
-    | Some _ -> true
+  let is_known x env =
+    let rec is_bound = function
+      | [] -> false
+      | (y,_) :: lst -> Name.eq_ident x y || is_bound lst
+    in
+    is_bound env.bound ||
+    (match lookup_decl x env with
+     | None -> false
+     | Some _ -> true)
+
+  let add_constant ~loc x ytsu env =
+    if is_known x env
+    then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+    else { env with dynamic = {env.dynamic with decls = (x, Constant ytsu) :: env.dynamic.decls }}
 
   let add_operation ~loc x k env =
-    if is_declared x env
+    if is_known x env
     then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
     else { env with dynamic = {env.dynamic with decls = (x, Operation k) :: env.dynamic.decls }}
 
   let add_data ~loc x k env =
-    if is_declared x env
+    if is_known x env
     then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
     else { env with dynamic = {env.dynamic with decls = (x, Data k) :: env.dynamic.decls }}
 
-  let add_constant ~loc x ytsu env =
-    if is_declared x env
-    then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-    else { env with dynamic = {env.dynamic with decls = (x, Constant ytsu) :: env.dynamic.decls }}
-
   let add_bound x v env =
     { env with bound = (x, v) :: env.bound }
+
+  let add_topbound ~loc x v env =
+    if is_known x env
+    then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+    else add_bound x v env
 
   (** generate a fresh atom of type [t] and bind it to [x]
      NB: This is an effectful computation. *)

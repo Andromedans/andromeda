@@ -1,8 +1,9 @@
 (* Test an eta hint *)
-Parameter unit : Type.
-Parameter tt : unit.
-Parameter unit_eta : Π [x y : unit] x == y.
+constant unit : Type
+constant top : unit
+constant unit_eta : Π (x y : unit), x == y
 
-Check
-  eta unit_eta in
-    λ [x : unit] (refl tt :: x == tt).
+check
+  with local (lhint unit_eta) handle
+    λ (x : unit), (refl top : x == top)
+

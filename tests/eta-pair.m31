@@ -1,46 +1,49 @@
 (* Simple products with an eta rule. *)
 
-Parameter prod [_ _ : Type] : Type.
+constant prod : forall (_ _ : Type), Type
 
-Parameter pair [A B : Type] [_ : A] [_ : B] : prod A B.
+constant Pair : forall (A B : Type) (_ : A) (_ : B), prod A B
 
-Parameter fst [X Y : Type, reduce _ : prod X Y]: X.
-Parameter snd [X Y : Type] [reduce _ : prod X Y]: Y.
+constant Fst : forall (X Y : Type, _ : prod X Y), X
+constant Snd : forall (X Y : Type) (_ : prod X Y), Y
 
-Parameter pair_beta_fst :
-  ∀ [U V : Type, u : U, v : V]
-    (fst V U (pair V U v u)) ≡ v.
+constant Pair_beta_Fst :
+  ∀ (U V : Type, u : U, v : V),
+    (Fst V U (Pair V U v u)) ≡ v
 
-Parameter pair_beta_snd :
-  ∀ [U V : Type] [u : U] [v : V]
-    (snd V U (pair V U v u)) ≡ u.
+constant Pair_beta_Snd :
+  ∀ (U V : Type) (u : U) (v : V),
+    (Snd V U (Pair V U v u)) ≡ u
 
-Parameter pair_eta :
-  ∀ [U V : Type] [x y : prod U V]
-    fst U V x ≡ fst U V y ->
-    snd U V x ≡ snd U V y ->
-    x ≡ y.
+constant Pair_eta :
+  ∀ (U V : Type) (x y : prod U V),
+    Fst U V x ≡ Fst U V y ->
+    Snd U V x ≡ Snd U V y ->
+    x ≡ y
 
-Parameter C : Type.
-Parameter D : Type.
-Parameter p : prod C D.
+constant C : Type
+constant D : Type
+constant p : prod C D
 
 
 (* Beta rules. *)
-Check
-  (λ [c : C] [d : D]
-    beta pair_beta_fst in
-      refl c :: fst C D (pair C D c d) ≡ c).
+check
+  (λ (c : C) (d : D),
+    with local (lbeta Pair_beta_Fst) handle
+      refl c : Fst C D (Pair C D c d) ≡ c)
 
-Check
-  (λ [c : C] [d : D]
-    beta pair_beta_fst in
-    beta pair_beta_snd in
-      refl d :: snd C D (pair C D c d) ≡ d).
+check
+  (λ (c : C) (d : D),
+    with local (lbeta Pair_beta_Fst) handle
+    with local (lbeta Pair_beta_Snd) handle
+      refl d : Snd C D (Pair C D c d) ≡ d)
 
-(* Surjective pairing. *)
-Check
-  beta pair_beta_fst in
-  beta pair_beta_snd in
-  eta pair_eta in
-     refl p :: p ≡ pair C D (fst C D p) (snd C D p).
+(* Surjective Pairing. *)
+(* TODO eta hints
+check with equality_in betas hints handle
+  let _ = beta Pair_beta_Fst in
+  let _ = beta Pair_beta_Snd in
+  let _ = eta Pair_eta in
+     refl p : p ≡ Pair C D (Fst C D p) (Snd C D p)
+*)
+

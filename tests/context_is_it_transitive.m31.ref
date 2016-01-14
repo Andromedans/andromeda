@@ -1,5 +1,5 @@
-A is assumed.
-B is assumed.
-f is assumed.
-File "./context_is_it_transitive.m31", line 4, characters 22-22: Typing error
-  this expression should have type B but has type A
+Constant A is declared.
+Constant B is declared.
+Constant f is declared.
+File "./context_is_it_transitive.m31", line 4, characters 21-21: Typing error
+  the expression x₁₁ should have type B but has type A

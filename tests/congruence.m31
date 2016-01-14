@@ -1,12 +1,11 @@
 
-Let print := external "print".
+let congr = (lambda (A f g u v eqf equ), handle
+  match congruence (f u) (g v) with
+    | Some ?eq => eq
+  end with
+    | equal f g => yield (Some eqf)
+    | equal u v => yield (Some equ)
+  end) : forall (A : Type) (f g : A -> A) (u v : A), f == g -> u == v -> f u == g v
 
-Let congr := (lambda [A f g u v eqf equ] handle congruence (f u) (g v) with
-  | #equal ('pair f g) => yield ('some eqf)
-  | #equal ('pair u v) => yield ('some equ)
-  | #equal ('pair ?a ?b) =>
-    let _ := print ('congr a b) in
-    let eq := congruence a b in
-    yield ('some eq)
-  end) :: forall [A : Type] [f g : A -> A] [u v : A] f == g -> u == v -> f u == g v.
+check congr
 

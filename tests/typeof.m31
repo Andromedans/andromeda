@@ -1,11 +1,12 @@
-Parameter A : Type.
-Parameter P : A -> Type.
-Parameter a : A.
-Parameter b : P a.
+constant A : Type
+constant P : A -> Type
+constant a : A
+constant b : P a
 
-Check typeof a.
-Check typeof A.
-Check typeof (typeof a).
-Check typeof b.
-Check b :: (typeof b).
-Check typeof Type.
+check typeof a
+check typeof A
+check typeof (typeof a)
+check typeof b
+check b : (typeof b)
+check typeof Type
+

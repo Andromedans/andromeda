@@ -1,5 +1,6 @@
-Axiom empty : Type.
+constant empty : Type
 
 (* Should fail. *)
-Check λ [x : Type] [y : x] (y where x := empty).
+check λ (x : Type) (y : x), (y where x = empty)
+
 

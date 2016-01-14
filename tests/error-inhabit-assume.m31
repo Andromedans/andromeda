@@ -1,8 +1,0 @@
-Parameter A : Type.
-Parameter B : [[A]] -> A -> Type.
-
-Check
-  assume a : A in
-  assume b : A in
-  inhabit a in
-    B [] b.

@@ -372,8 +372,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
         | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e)
         | None ->
            Error.typing ~loc:(e.Tt.loc)
-                        "this expression should have type@ %t@ but has type@ %t"
-                        (print_ty env t_check') (print_ty env t')
+                        "the expression %t should have type@ %t@ but has type@ %t"
+                        (print_term env e) (print_ty env t_check') (print_ty env t')
       end
 
   | Syntax.Perform (op, cs) ->
@@ -385,8 +385,8 @@ and check env ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty
             begin function
               | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e')
               | None -> Error.typing ~loc:(e'.Tt.loc)
-                                     "this expression should have type@ %t@ but has type@ %t"
-                                     (print_ty env t_check') (print_ty env t')
+                                     "the expression %t should have type@ %t@ but has type@ %t"
+                                     (print_term env e') (print_ty env t_check') (print_ty env t')
             end
        | c :: cs ->
           infer env c >>= fun v ->

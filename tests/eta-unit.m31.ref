@@ -1,4 +1,4 @@
-unit is assumed.
-tt is assumed.
-unit_eta is assumed.
-⊢ λ [x : unit] refl tt : Π [x : unit] x ≡ tt
+Constant unit is declared.
+Constant top is declared.
+Constant unit_eta is declared.
+⊢ λ (x : unit), refl top : Π (x : unit), x ≡ top

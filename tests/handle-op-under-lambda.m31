@@ -1,15 +1,15 @@
-Parameter A : Type.
-Parameter B : Type.
-Parameter C : Type.
-Parameter a : A.
-Parameter f : A -> C.
+constant A : Type
+constant B : Type
+constant C : Type
+constant a : A
+constant f : A -> C
 
-Parameter unit : Type.
-Parameter tt : unit.
+operation gimme 0
 
-Check
+check
   handle
-    λ [b : B] f (#gimme tt)
+    λ (b : B), f gimme
   with
-  | #gimme _ => yield a
-  end.
+  | gimme => yield a
+  end
+

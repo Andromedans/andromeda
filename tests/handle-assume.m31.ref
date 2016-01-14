@@ -1,10 +1,11 @@
-A is assumed.
-B is assumed.
-Q is assumed.
-hyp₁₇ : A → Type 
-⊢ λ [a : A] Q A hyp₁₇ a : Π [a : A] hyp₁₇ a → Type
-File "./handle-assume.m31", line 16, characters 5-38: Runtime error
-  Cannot abstract a₃₀ because hyp₃₆ depends on it in context
-  a₃₀ : A 
-  hyp₃₆ : B a₃₀ 
+Constant A is declared.
+Constant B is declared.
+Constant Q is declared.
+Operation inhabit is declared.
+hyp₁₈ : A → Type 
+⊢ λ (a : A), Q A hyp₁₈ a : Π (a : A), hyp₁₈ a → Type
+File "./handle-assume.m31", line 18, characters 5-38: Runtime error
+  Cannot abstract a₃₁ because hyp₃₂ depends on it in context
+  a₃₁ : A 
+  hyp₃₂ : B a₃₁ 
   .

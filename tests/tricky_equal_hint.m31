@@ -1,9 +1,11 @@
-Let A := assume A : Type in A.
-Let B := assume B : Type in B.
-Let a := assume a : {foo:A} in a.
-Check
+let A = assume A : Type in A
+let B = assume B : Type in B
+let a = assume a : {foo:A} in a
+
+check
   assume eq1 : {foo:B} ≡ {foo:A} in
   assume eq2 : {foo:A} ≡ {foo:B} in
-  hint eq1 in
-  hint eq2 in
-    (a :: {foo:B}).
+  with local (lhint eq1) handle
+  with local (lhint eq2) handle
+    (a : {foo:B})
+

@@ -1,7 +1,8 @@
-Parameter A : Type.
-Parameter B : Type.
-Parameter a : A.
-Parameter eq_A_B : A == B.
-Check
-    beta eq_A_B in
-    a :: B.
+constant A : Type
+constant B : Type
+constant a : A
+constant eq_A_B : A == B
+check
+  with local (lbeta eq_A_B) handle
+    let _ = beta eq_A_B in
+    a : B

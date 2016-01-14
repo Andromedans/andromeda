@@ -1,7 +1,7 @@
-A is assumed.
-P is assumed.
-a is assumed.
-b is assumed.
+Constant A is declared.
+Constant P is declared.
+Constant a is declared.
+Constant b is declared.
 ⊢ A : Type
 ⊢ Type : Type
 ⊢ Type : Type

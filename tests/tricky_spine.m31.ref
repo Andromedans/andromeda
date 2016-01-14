@@ -1,15 +1,16 @@
-Bool is assumed.
-Nat is assumed.
-true is assumed.
-false is assumed.
-zero is assumed.
-succ is assumed.
-plus is assumed.
-iszero is assumed.
-eq1 is assumed.
-eq2 is assumed.
+Constant Bool is declared.
+Constant Nat is declared.
+Constant true is declared.
+Constant false is declared.
+Constant zero is declared.
+Constant succ is declared.
+Constant plus is declared.
+Constant iszero is declared.
+Constant eq1 is declared.
+Constant eq2 is declared.
 f is defined.
-⊢ λ [n : Nat] iszero (succ n) : Nat → Bool
-⊢ λ [n : Nat] iszero (succ n) : Nat → Nat
-File "./tricky_spine.m31", line 19, characters 10-38: Typing error
-  this expression should have type Nat → Nat but has type Nat → Bool
+⊢ λ (n : Nat), iszero (succ n) : Nat → Bool
+⊢ λ (n : Nat), iszero (succ n) : Nat → Nat
+File "./tricky_spine.m31", line 19, characters 9-38: Typing error
+  the expression λ (n : Nat), iszero (succ n) should have type Nat → Nat
+  but has type Nat → Bool
