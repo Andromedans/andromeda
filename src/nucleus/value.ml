@@ -18,7 +18,17 @@ type dynamic = {
      list. *)
 }
 
-type value =
+(* for now the state is unit *)
+type state = unit
+
+type lexical = {
+  bound : (Name.ident * value) list;
+  continuation : (value,value) closure option;
+  handle : (Name.ident * (value list,value) closure) list;
+  files : string list;
+}
+
+and value =
   | Term of Judgement.term
   | Ty of Judgement.ty
   | Closure of (value,value) closure
@@ -34,7 +44,7 @@ and 'a performance =
   | Return of 'a
   | Perform of Name.ident * value list * dynamic * (value,'a) closure
 
-and 'a result = env -> 'a performance
+and 'a result = env -> 'a performance * state
 
 and handler = {
   handler_val: (value,value) closure option;
@@ -44,11 +54,9 @@ and handler = {
 
 (** Run-time environment. *)
 and env = {
-  bound : (Name.ident * value) list;
-  continuation : (value,value) closure option;
-  handle : (Name.ident * (value list,value) closure) list;
-  files : string list;
   dynamic : dynamic;
+  lexical : lexical;
+  state   : state  ;
 }
 
 type 'a toplevel = env -> 'a*env
@@ -87,7 +95,7 @@ let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
 let mk_ref v = Ref (ref v)
 
-let mk_closure0 (f : 'a -> 'b result) env = Clos (fun v {dynamic;_} -> f v {env with dynamic})
+let mk_closure0 (f : 'a -> 'b result) {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure' f env = mk_closure0 f env, env
 
 let apply_closure (Clos f) v env = f v env
@@ -96,10 +104,11 @@ let apply_closure (Clos f) v env = f v env
     into function [f : value -> 'a]. *)
 let rec bind (r:'a result) (f:'a -> 'b result) : 'b result = fun env ->
   match r env with
-  | Return v -> f v env
-  | Perform (op, vs, d, k) -> 
+  | Return v, state -> f v {env with state}
+  | Perform (op, vs, d, k), state -> 
+     let env = {env with state} in
      let k = mk_closure0 (fun x -> bind (apply_closure k x) f) env in
-     Perform (op, vs, d, k)
+     Perform (op, vs, d, k), env.state
 
 let (>>=) = bind
 
@@ -110,13 +119,13 @@ let top_bind m f env =
 (** Returns *)
 let top_return x env = x,env
 
-let return x _ = Return x
+let return x env = Return x, env.state
 
 let return_term e = return (Term e)
 
 let return_ty t = return (Ty t)
 
-let return_closure f env = Return (Closure (mk_closure0 f env))
+let return_closure f env = Return (Closure (mk_closure0 f env)), env.state
 
 let return_handler handler_val handler_ops handler_finally env =
   let option_map g = function None -> None | Some x -> Some (g x) in
@@ -125,7 +134,7 @@ let return_handler handler_val handler_ops handler_finally env =
     handler_ops = Name.IdentMap.map (fun f -> mk_closure0 f env) handler_ops ;
     handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
-  Return (Handler h)
+  Return (Handler h), env.state
 
 (** Printers *)
 let print_closure xs _ ppf =
@@ -164,19 +173,19 @@ let name_of v =
 
 (** Prefill the [xs] argument of print_* *)
 let used_names env =
-  List.map fst env.bound @ List.map fst env.dynamic.decls
+  List.map fst env.lexical.bound @ List.map fst env.dynamic.decls
 
 let top_print_value env =
   (fun ?max_level -> print_value ?max_level (used_names env)),env
 
 let print_value env =
-  Return (fun ?max_level -> print_value ?max_level (used_names env))
+  Return (fun ?max_level -> print_value ?max_level (used_names env)), env.state
 
 let print_term env =
-  Return (fun ?max_level -> Tt.print_term ?max_level (used_names env))
+  Return (fun ?max_level -> Tt.print_term ?max_level (used_names env)), env.state
 
 let print_ty env =
-  Return (fun ?max_level -> Tt.print_ty ?max_level (used_names env))
+  Return (fun ?max_level -> Tt.print_ty ?max_level (used_names env)), env.state
 
 (** Coerce values *)
 let as_term ~loc = function
@@ -228,11 +237,11 @@ let list_nil = List []
 
 let list_cons v lst = List (v :: lst)
 
-let return_unit _ = Return (Tag (name_unit, []))
+let return_unit = return (Tag (name_unit, []))
 
 (** Operations *)
 let perform op vs env =
-  Perform (op, vs, env.dynamic, mk_closure0 return env)
+  Perform (op, vs, env.dynamic, mk_closure0 return env), env.state
 
 let perform_equal v1 v2 =
   perform name_equal [v1;v2]
@@ -252,11 +261,11 @@ let perform_as_signature v =
 
 (** Interact with the environment *)
 
-let top_bound_names env = List.map fst env.bound, env
+let top_bound_names env = List.map fst env.lexical.bound, env
 
 let top_get_env env = env,env
 
-let get_env env = Return env
+let get_env env = Return env, env.state
 
 let lookup_decl x env =
   let rec lookup = function
@@ -284,20 +293,20 @@ let get_constant x env =
   | Some (Constant c) -> Some c
   | Some (Data _ | Operation _) -> None
 
-let lookup_constant x env = Return (get_constant x env)
+let lookup_constant x env = Return (get_constant x env), env.state
 
-let lookup_abstracting env = Return env.dynamic.abstracting
+let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 
 let get_bound ~loc k env =
   try
-    snd (List.nth env.bound k)
+    snd (List.nth env.lexical.bound k)
   with
   | Failure _ -> Error.impossible ~loc "invalid de Bruijn index %d" k
 
 let lookup_bound ~loc k env =
-  Return (get_bound ~loc k env)
+  Return (get_bound ~loc k env), env.state
 
-let add_bound0 x v env = {env with bound = (x,v)::env.bound }
+let add_bound0 x v env = {env with lexical = { env.lexical with bound = (x,v)::env.lexical.bound } }
 
 (** generate a fresh atom of type [t] and bind it to [x]
     NB: This is an effectful computation. TODO what? *)
@@ -328,7 +337,7 @@ let is_known x env =
       | [] -> false
       | (y,_) :: lst -> Name.eq_ident x y || is_bound lst
     in
-    is_bound env.bound ||
+    is_bound env.lexical.bound ||
     (match lookup_decl x env with
      | None -> false
      | Some _ -> true)
@@ -367,25 +376,25 @@ let add_topbound ~loc x v env =
 
 
 let add_handle op xsc env =
-  (),{ env with handle = (op, xsc) :: env.handle }
+  (),{ env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
 
 (* This function for internal use *)
-let lookup_handle op {handle=lst;_} =
+let lookup_handle op {lexical={handle=lst;_};_} =
   try
     Some (List.assoc op lst)
   with Not_found -> None
 
 let set_continuation c m env =
-  m { env with continuation = Some c }
+  m { env with lexical = { env.lexical with continuation = Some c } }
 
-let lookup_continuation {continuation;_} =
-  Return continuation
+let lookup_continuation ({lexical={continuation;_};_} as env) =
+  Return continuation, env.state
 
 let push_file f env =
-  (),{ env with files = (Filename.basename f) :: env.files }
+  (),{ env with lexical = { env.lexical with files = (Filename.basename f) :: env.lexical.files } }
 
 let included f env =
-  List.mem (Filename.basename f) env.files, env
+  List.mem (Filename.basename f) env.lexical.files, env
 
 let print env ppf =
   let forbidden_names = used_names env in
@@ -407,14 +416,17 @@ let print_env env = print env,env
 
 (* The empty environment *)
 let empty = {
-  bound = [] ;
-  handle = [] ;
-  continuation = None ;
-  files = [] ;
+  lexical = {
+    bound = [] ;
+    handle = [] ;
+    continuation = None ;
+    files = [] ;
+  } ;
   dynamic = {
     decls = [] ;
     abstracting = [] ;
-  }
+  } ;
+  state = ();
 }
 
 let initialised =
@@ -444,13 +456,14 @@ let finish (x,_) = x
 (** Handling *)
 let rec handle_result {handler_val; handler_ops; handler_finally} (r : value result) : value result =
   begin fun env -> match r env with
-  | Return v as r ->
+  | Return v , state ->
+     let env = {env with state} in
      begin match handler_val with
      | Some f -> apply_closure f v env
-     | None -> r
+     | None -> Return v, env.state
      end
-  | Perform (op, vs, dynamic, cont) ->
-     let env = {env with dynamic} in
+  | Perform (op, vs, dynamic, cont), state ->
+     let env = {env with dynamic; state} in
      let h = {handler_val; handler_ops; handler_finally=None} in
      let cont = mk_closure0 (fun v env -> handle_result h (apply_closure cont v) env) env in
      begin
@@ -459,19 +472,18 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
          apply_closure f (vs, cont) env
        with
          Not_found ->
-           Perform (op, vs, dynamic, cont)
+           Perform (op, vs, dynamic, cont), env.state
      end
-  end >>=
-  (fun v env ->
-     match handler_finally with
-     | Some f -> apply_closure f v env
-     | None -> Return v)
+  end >>= fun v ->
+  match handler_finally with
+    | Some f -> apply_closure f v
+    | None -> return v
 
 let rec top_handle ~loc r env =
   match r env with
-    | Return v -> v,env
-    | Perform (op, vs, dynamic, k) ->
-       let env = {env with dynamic} in
+    | Return v, state -> v,{env with state}
+    | Perform (op, vs, dynamic, k), state ->
+       let env = {env with dynamic;state} in
        begin match lookup_handle op env with
         | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
         | Some f ->
