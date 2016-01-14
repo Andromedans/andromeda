@@ -11,7 +11,7 @@ let _ = print test
 
 constant eq : forall x : A, f a x == b
 
-let betas = add_beta betas hints eq
+let betas = add_beta top_betas top_hints eq
 
-check with equality_in betas hints handle whnf (f a a)
+check with equality_in betas top_hints handle whnf (f a a)
 

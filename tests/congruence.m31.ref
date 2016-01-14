@@ -1,4 +1,3 @@
-Data constructor congr is declared.
 congr is defined.
 ⊢ λ (A : Type) (f : A → A) (g : A → A) (u : A) (v : A) (eqf : f ≡ g)
       (equ : u ≡ v), refl (f u)

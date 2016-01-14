@@ -19,7 +19,7 @@ check
    (refl (S (S Z))) : plus (S Z) (S Z) == S (S Z)
 
 (* Now we trying something a bit fancier. *)
-check with equality_in betas hints handle
+check
   with local (lbeta plus_Z) handle
   with local (lbeta plus_S) handle
      λ (x : N, y : N),

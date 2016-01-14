@@ -24,6 +24,6 @@ check
   with local (lhint eq1) handle (f : Nat → Nat)
 
 (* Fail *)
-check with equality_in betas hints handle
+check
   with local (lhint eq2) handle (f : Nat → Nat)
 

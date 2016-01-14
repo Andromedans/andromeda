@@ -154,7 +154,7 @@ let transitivity = fun eq1 eq2 =>
   match pair eq1 eq2 with
     | pair (|- _ : ?a == ?b) (|- _ : _ == ?c) =>
       match a with |- _ : ?t =>
-        hide_witness (tran a b c eq1 eq2)
+        hide_witness (tran t a b c eq1 eq2)
       end
   end
 

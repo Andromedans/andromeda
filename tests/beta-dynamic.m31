@@ -16,7 +16,7 @@ check
 
 operation gimme_beta 0
 
-check with equality_in betas hints handle
+check with equality_in top_betas top_hints handle
    handle
      let _ = gimme_beta in
      whnf a
