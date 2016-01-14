@@ -18,15 +18,14 @@ type dynamic = {
      list. *)
 }
 
-(* for now the state is unit *)
-type state = unit
-
 type lexical = {
   bound : (Name.ident * value) list;
   continuation : (value,value) closure option;
   handle : (Name.ident * (value list,value) closure) list;
   files : string list;
 }
+
+and state = value Store.t
 
 and value =
   | Term of Judgement.term
@@ -35,7 +34,7 @@ and value =
   | Handler of handler
   | Tag of Name.ident * value list
   | List of value list
-  | Ref of value ref
+  | Ref of Store.key
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a,'b) closure = Clos of ('a -> 'b result)
@@ -93,12 +92,24 @@ let mk_term j = Term j
 let mk_ty j = Ty j
 let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
-let mk_ref v = Ref (ref v)
 
 let mk_closure0 (f : 'a -> 'b result) {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure' f env = mk_closure0 f env, env
 
 let apply_closure (Clos f) v env = f v env
+
+(** References *)
+let mk_ref v env =
+  let x,state = Store.fresh v env.state in
+  Return (Ref x),state
+
+let lookup_ref x env =
+  let v = Store.lookup x env.state in
+  Return v, env.state
+
+let update_ref x v env =
+  let state = Store.update x v env.state in
+  Return (), state
 
 (** The monadic bind [bind r f] feeds the result [r : result]
     into function [f : value -> 'a]. *)
@@ -159,7 +170,7 @@ and print_value ?max_level xs v ppf =
   | Tag (t, lst) -> print_tag ?max_level xs t lst ppf
   | List lst -> Print.print ~at_level:0 ppf "[%t]"
                             (Print.sequence (print_value ~max_level:2 xs) "," lst)
-  | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t" (print_value ~max_level:0 xs (!v))
+  | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t" (Store.print_key v)
 
 let name_of v =
   match v with
@@ -196,28 +207,28 @@ let as_term ~loc = function
 let as_ty ~loc = function
   | Ty t -> t
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _) as v ->
-    Error.runtime ~loc "expected a term but got %s" (name_of v)
+    Error.runtime ~loc "expected a type but got %s" (name_of v)
 
 let as_closure ~loc = function
   | Closure f -> f
   | (Ty _ | Term _ | Handler _ | Tag _ | List _ | Ref _) as v ->
-    Error.runtime ~loc "expected a term but got %s" (name_of v)
+    Error.runtime ~loc "expected a closure but got %s" (name_of v)
 
 let as_handler ~loc = function
   | Handler h -> h
   | (Ty _ | Term _ | Closure _ | Tag _ | List _ | Ref _) as v ->
-    Error.runtime ~loc "expected a term but got %s" (name_of v)
+    Error.runtime ~loc "expected a handler but got %s" (name_of v)
 
 let as_ref ~loc = function
   | Ref v -> v
   | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | List _) as v ->
-    Error.runtime ~loc "expected a term but got %s" (name_of v)
+    Error.runtime ~loc "expected a ref but got %s" (name_of v)
 
 let as_option ~loc = function
   | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
   | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _) as v ->
-    Error.runtime ~loc "expected a term but got %s" (name_of v)
+    Error.runtime ~loc "expected an option but got %s" (name_of v)
 
 (** Wrappers for making tags *)
 let as_list ~loc = function
@@ -426,7 +437,7 @@ let empty = {
     decls = [] ;
     abstracting = [] ;
   } ;
-  state = ();
+  state = Store.empty;
 }
 
 let initialised =
@@ -524,7 +535,7 @@ let rec equal_value v1 v2 =
 
     | Ref v1, Ref v2 ->
        (* XXX should we compare references by value instead? *)
-       v1 == v2
+       Store.key_eq v1 v2
 
     | Closure _, Closure _
     | Handler _, Handler _ ->

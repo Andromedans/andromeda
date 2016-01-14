@@ -124,16 +124,16 @@ let rec infer (c',loc) =
 
   | Syntax.Ref c ->
      infer c >>= fun v ->
-     Value.return (Value.mk_ref v)
+     Value.mk_ref v
 
   | Syntax.Lookup c ->
-     infer c >>= as_ref ~loc >>= fun (r : Value.value ref) ->
-     Value.return (!r)
+     infer c >>= as_ref ~loc >>= fun x ->
+     Value.lookup_ref x
 
   | Syntax.Update (c1, c2) ->
-     infer c1 >>= as_ref ~loc >>= fun r ->
+     infer c1 >>= as_ref ~loc >>= fun x ->
      infer c2 >>= fun v ->
-     r := v ;
+     Value.update_ref x v >>= fun () ->
      Value.return_unit
 
   | Syntax.Sequence (c1, c2) ->

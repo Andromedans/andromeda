@@ -20,7 +20,7 @@ type value = private
   | Handler of handler
   | Tag of Name.ident * value list
   | List of value list
-  | Ref of value ref
+  | Ref of Store.key
 
 and handler = {
   handler_val: (value,value) closure option;
@@ -42,11 +42,17 @@ val mk_term : Judgement.term -> value
 val mk_ty : Judgement.ty -> value
 val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
-val mk_ref : value -> value
 
 val mk_closure' : ('a -> 'b result) -> ('a,'b) closure toplevel
 
 val apply_closure : ('a,'b) closure -> 'a -> 'b result
+
+(** References *)
+val mk_ref : value -> value result
+
+val lookup_ref : Store.key -> value result
+
+val update_ref : Store.key -> value -> unit result
 
 (** Monadic primitives *)
 val bind: 'a result -> ('a -> 'b result)  -> 'b result
@@ -80,7 +86,7 @@ val as_term : loc:Location.t -> value -> Judgement.term
 val as_ty : loc:Location.t -> value -> Judgement.ty
 val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
-val as_ref : loc:Location.t -> value -> value ref
+val as_ref : loc:Location.t -> value -> Store.key
 
 val as_option : loc:Location.t -> value -> value option
 val as_list : loc:Location.t -> value -> value list
