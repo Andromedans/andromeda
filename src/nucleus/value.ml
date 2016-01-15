@@ -129,6 +129,14 @@ let top_bind m f env =
   let x,env = m env in
   f x env
 
+let catch m env =
+  try
+    let x,env = m env in
+    Error.OK x, env
+  with
+    | Error.Error err ->
+      Error.Err err, env
+
 (** Returns *)
 let top_return x env = x,env
 

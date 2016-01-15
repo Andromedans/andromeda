@@ -20,13 +20,13 @@ constant Nil : list
 constant Cons : A -> list -> list
 
 check match Cons a (Cons b (Cons c Nil)) with
-  | None => fail
+  | None => Type Type
   | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => lam x y z (pair (pair x' y') t)
   | (|- Cons _ ((Cons ?x _) as ?y)) => pair x y
   end
 
 check match {a : A, isconstr : forall (x : A), a == x} with
-  | |- { a as b : _, isconstr : forall (_), a == _} => fail
+  | |- { a as b : _, isconstr : forall (_), a == _} => Type Type
   | |- { a : _, isconstr : forall (_), a == _} => ()
   end
 

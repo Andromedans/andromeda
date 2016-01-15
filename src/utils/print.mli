@@ -3,6 +3,9 @@
 (** Print a message with a given verbosity to the standard error channel. *)
 val message : verbosity:int -> ('a, Format.formatter, unit) format -> 'a
 
+(** Print an error to the standard error channel. *)
+val error : ('a, Format.formatter, unit) format -> 'a
+
 (** Print a warning to the standard error channel. *)
 val warning : ('a, Format.formatter, unit) format -> 'a
 

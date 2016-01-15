@@ -103,6 +103,7 @@ and toplevel' =
   | TopHandle of (Name.ident * Name.ident list * comp) list
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
+  | TopFail of comp
   | Verbosity of int
   | Include of string list * bool (** the boolean is [true] if the files should be included only once *)
   | Quit (** quit the toplevel *)

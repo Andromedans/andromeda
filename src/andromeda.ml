@@ -150,6 +150,16 @@ let rec exec_cmd base_dir interactive c =
      (if interactive then Format.printf "%t@." (print_value v) ;
      return ())
 
+  | Syntax.TopFail c ->
+    Value.catch (Eval.comp_value c) >>= begin function
+      | Error.Err err ->
+        (if interactive then Format.printf "The command failed with error:\n%t@." (Error.print err));
+        return ()
+      | Error.OK v ->
+        Value.top_print_value >>= fun pval ->
+        Error.runtime ~loc "The command has not failed: got %t." (pval v)
+      end
+
   | Syntax.Include (fs,once) ->
     fold (fun () f ->
          (* don't print deeper includes *)
@@ -198,7 +208,7 @@ let toplevel cmp =
         let cmd = parse Lexer.read_toplevel Parser.commandline () in
         pc := Value.progress !pc (fun () -> exec_cmd Filename.current_dir_name true cmd)
       with
-      | Error.Error err -> Error.print err Format.err_formatter
+      | Error.Error err -> Print.error "%t" (Error.print err)
       | Sys.Break -> Format.eprintf "Interrupted.@."
     done
   with End_of_file -> ()
@@ -256,5 +266,5 @@ let main =
       then toplevel comp
       else Value.run comp
   with
-    Error.Error err -> Error.print err Format.err_formatter; exit 1
+    Error.Error err -> Print.error "%t" (Error.print err); exit 1
 
