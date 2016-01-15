@@ -72,6 +72,7 @@ and term' =
   | Yield of comp
   | Context
   | Congruence of comp * comp
+  | String of string
 
 (** Sugared types *)
 and ty = term

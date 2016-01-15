@@ -24,6 +24,41 @@ let externals =
               Format.printf "Time used: %fs\n" (t -. t0) ;
               Value.return v)
         ));
+
+    ("config",
+      Value.return_closure (fun v ->
+        let s = Value.as_string ~loc:Location.unknown v in
+        match s with
+          | "ascii" ->
+            Config.ascii := true;
+            Value.return_unit
+          | "no-ascii" ->
+            Config.ascii := false;
+            Value.return_unit
+
+          | "debruijn" ->
+            Config.debruijn := true;
+            Value.return_unit
+          | "no-debruijn" ->
+            Config.debruijn := false;
+            Value.return_unit
+
+          | "annotate" ->
+            Config.annotate := true;
+            Value.return_unit
+          | "no-annotate" ->
+            Config.annotate := false;
+            Value.return_unit
+
+          | "dependencies" ->
+            Config.print_dependencies := true;
+            Value.return_unit
+          | "no-dependencies" ->
+            Config.print_dependencies := false;
+            Value.return_unit
+
+          | _ -> Error.runtime ~loc:Location.unknown "unknown config %s" s
+        ));
   ]
 
 

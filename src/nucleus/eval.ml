@@ -250,7 +250,7 @@ let rec infer (c',loc) =
               Value.apply_closure f >>= fun v ->
               fold v cs
           end
-        | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Ref _ ->
+        | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Ref _ | Value.String _ ->
           Error.runtime ~loc "cannot apply %s" (Value.name_of v)
     in
     infer c >>= fun v -> fold v cs
@@ -354,6 +354,9 @@ let rec infer (c',loc) =
       | None -> Value.return (Value.from_option None)
       end
 
+  | Syntax.String s ->
+    Value.return (Value.mk_string s)
+
 and require_equal ctx e1 e2 t =
   Equal.Opt.run (Equal.equal ctx e1 e2 t)
 
@@ -390,7 +393,8 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
   | Syntax.Ref _
   | Syntax.Lookup _
   | Syntax.Update _
-  | Syntax.Sequence _ ->
+  | Syntax.Sequence _ 
+  | Syntax.String _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 

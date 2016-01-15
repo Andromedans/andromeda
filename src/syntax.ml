@@ -68,6 +68,7 @@ and comp' =
   | Yield of comp
   | Context
   | Congruence of comp * comp
+  | String of string
 
 and handler = {
   handler_val: match_case list;
@@ -325,6 +326,9 @@ let rec shift_comp k lvl (c', loc) =
       let c1 = shift_comp k lvl c1 in
       let c2 = shift_comp k lvl c2 in
       Congruence (c1,c2)
+
+    | String s ->
+      c'
 
   in
   c', loc

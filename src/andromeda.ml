@@ -69,10 +69,6 @@ let options = Arg.align [
      Arg.Set_int Config.verbosity,
      "<n> Set printing verbosity to <n>");
 
-    ("--ignore-hints",
-     Arg.Set Config.ignore_hints,
-     " Ignore all installed hints");
-
     ("-n",
      Arg.Clear Config.interactive_shell,
      " Do not run the interactive toplevel");

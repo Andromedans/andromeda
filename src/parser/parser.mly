@@ -206,6 +206,7 @@ plain_simple_term:
   | TYPE                                            { Type }
   | x=var_name                                      { Var x }
   | EXTERNAL s=QUOTED_STRING                        { External s }
+  | s=QUOTED_STRING                                 { String s }
   | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
   | LPAREN e=plain_term RPAREN                      { e }
   | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE

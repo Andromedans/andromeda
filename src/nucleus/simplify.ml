@@ -214,5 +214,5 @@ let rec value = function
   | Value.List lst ->
     let lst = List.map value lst in
     Value.from_list lst
-  | Value.Ref _ | Value.Closure _ | Value.Handler _ as v -> v
+  | Value.Ref _ | Value.Closure _ | Value.Handler _ | Value.String _ as v -> v
 

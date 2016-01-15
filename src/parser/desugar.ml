@@ -495,6 +495,9 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     let e2 = comp ~yield env bound e2 in
     Syntax.Congruence (e1,e2), loc
 
+  | Input.String s ->
+    Syntax.String s, loc
+
 (* Desguar a spine. This function is a bit messy because we need to untangle
    to env. But it's worth doing to make users happy. *)
 and spine ~yield env bound ((c',loc) as c) cs =

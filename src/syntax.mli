@@ -68,6 +68,7 @@ and comp' =
   | Yield of comp
   | Context
   | Congruence of comp * comp
+  | String of string
 
 and handler = {
   handler_val: match_case list;
