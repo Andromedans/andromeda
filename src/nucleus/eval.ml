@@ -177,10 +177,9 @@ let rec infer (c',loc) =
        end
 
   | Syntax.External s ->
-     begin
-       match External.lookup s with
+     begin match External.lookup s with
        | None -> Error.runtime ~loc "unknown external %s" s
-       | Some v -> v
+       | Some v -> v loc
      end
 
   | Syntax.Typeof c ->

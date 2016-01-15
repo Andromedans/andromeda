@@ -7,14 +7,14 @@ let (>>=) = Value.bind
    A closure needs an environment, which for externals is the empty environment. *)
 let externals =
   [
-    ("print",
+    ("print", fun loc ->
       Value.return_closure (fun v ->
           Value.print_value >>= fun pval ->
           Format.printf "%t@." (pval v) ;
           Value.return_unit
         )) ;
 
-    ("time",
+    ("time", fun loc ->
       Value.return_closure (fun _ ->
         let time = ref 0. in
         time := Sys.time ();
@@ -25,9 +25,9 @@ let externals =
               Value.return v)
         ));
 
-    ("config",
+    ("config", fun loc ->
       Value.return_closure (fun v ->
-        let s = Value.as_string ~loc:Location.unknown v in
+        let s = Value.as_string ~loc v in
         match s with
           | "ascii" ->
             Config.ascii := true;
@@ -57,7 +57,7 @@ let externals =
             Config.print_dependencies := false;
             Value.return_unit
 
-          | _ -> Error.runtime ~loc:Location.unknown "unknown config %s" s
+          | _ -> Error.runtime ~loc "unknown config %s" s
         ));
   ]
 
@@ -67,3 +67,4 @@ let lookup s =
     Some (List.assoc s externals)
   with
     Not_found -> None
+
