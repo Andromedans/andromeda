@@ -7,5 +7,5 @@ check
   x := banana :: (!x)
 
 check
-  x := apple :: !x ; !x
+  x := apple :: !x ; x
 

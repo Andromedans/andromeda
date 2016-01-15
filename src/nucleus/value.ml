@@ -148,29 +148,30 @@ let return_handler handler_val handler_ops handler_finally env =
   Return (Handler h), env.state
 
 (** Printers *)
-let print_closure xs _ ppf =
+let print_closure refs xs _ ppf =
   Print.print ~at_level:0 ppf "<function>"
 
-let print_handler xs h ppf =
+let print_handler refs xs h ppf =
   Print.print ~at_level:0 ppf "<handler>" (* XXX improve in your spare time *)
 
-let rec print_tag ?max_level xs t lst ppf =
+let rec print_tag ?max_level refs xs t lst ppf =
   match lst with
   | [] -> Print.print ?max_level ~at_level:0 ppf "%t" (Name.print_ident t)
   | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t %t"
                           (Name.print_ident t)
-                          (Print.sequence (print_value ~max_level:0 xs) "" lst)
+                          (Print.sequence (print_value ~max_level:0 refs xs) "" lst)
 
-and print_value ?max_level xs v ppf =
+and print_value ?max_level refs xs v ppf =
   match v with
   | Term e -> Judgement.print_term ?max_level xs e ppf
   | Ty t -> Judgement.print_ty ?max_level xs t ppf
-  | Closure f -> print_closure xs f ppf
-  | Handler h -> print_handler xs h ppf
-  | Tag (t, lst) -> print_tag ?max_level xs t lst ppf
+  | Closure f -> print_closure refs xs f ppf
+  | Handler h -> print_handler refs xs h ppf
+  | Tag (t, lst) -> print_tag ?max_level refs xs t lst ppf
   | List lst -> Print.print ~at_level:0 ppf "[%t]"
-                            (Print.sequence (print_value ~max_level:2 xs) "," lst)
-  | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t" (Store.print_key v)
+                            (Print.sequence (print_value ~max_level:2 refs xs) "," lst)
+  | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t := %t"
+                         (Store.print_key v) (print_value ~max_level:0 refs xs (Store.lookup v refs))
 
 let name_of v =
   match v with
@@ -187,10 +188,10 @@ let used_names env =
   List.map fst env.lexical.bound @ List.map fst env.dynamic.decls
 
 let top_print_value env =
-  (fun ?max_level -> print_value ?max_level (used_names env)),env
+  (fun ?max_level -> print_value ?max_level env.state (used_names env)),env
 
 let print_value env =
-  Return (fun ?max_level -> print_value ?max_level (used_names env)), env.state
+  Return (fun ?max_level -> print_value ?max_level env.state (used_names env)), env.state
 
 let print_term env =
   Return (fun ?max_level -> Tt.print_term ?max_level (used_names env)), env.state
