@@ -1,0 +1,12 @@
+Part I: Type theory & Equality reflection
+
+We shall review the basics of dependent type theory and explain its computational content, especially in relation to computable mathematics. We shall then focus on the equality reflection rule, which gives type theory great expressive power at the price of ruining its good syntactic properties, such as strong normalization. Nevertheless equality reflection has a perfectly good validation in the context of computable mathematics and is therefore compatible with a computational understanding of type theory.
+
+Part II: Type theory & Programming
+
+We shall discuss how one might implement a mechanized proof checker, or even a proof assistant, for type theory with equality reflection. In the presence of equality reflection type checking is undecidable, which implies that a proof checker must necessarily receive advice in addition to the judgment it is supposed to check. We shall take the view that such advice amounts to a program and that the proof checker is simply an evaluator. We then face the design question: what sort of a programming language is suitable for describing type-theoretic derivations?
+
+
+Part III: Type theory & Formalization
+
+In the last part we will study how to use the expressive power of type theory with equality reflection and the associated programming language. Thanks to equality reflection we can describe not only the formation, introduction and elimination rules for almost any imaginable type constructor, but also its conversion rules. The associated programming language makes possible the implementation of commonly used formalization techniques (implicit arguments, type classes, canonical structures, etc) at the user level. This greatly reduces the complexity of the trusted kernel, and simultaneously gives the user flexibility that is not readily available in a proof assistant which relies on specific proof-checking techniques.
