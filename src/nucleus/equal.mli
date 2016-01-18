@@ -14,29 +14,29 @@ end
 
 (** [equal env ctx e1 e2 t] returns a context [G] that is an extension of [ctx]
     such that the terms [e1] and [e2] of type [t] are equal under [G]. *)
-val equal : Value.Env.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->
+val equal : Context.t -> Tt.term -> Tt.term -> Tt.ty ->
             Context.t Opt.opt
 
 (** [equal_ty env ctx t1 t2] returns a context [G] that is an extension of
     [ctx] such that the types [t1] and [t2] are equal under [G]. *)
-val equal_ty : Value.Env.t -> Context.t -> Tt.ty -> Tt.ty -> Context.t Opt.opt
+val equal_ty : Context.t -> Tt.ty -> Tt.ty -> Context.t Opt.opt
 
 (** [reduce_step env ctx e] returns a context [ctx'] and a term [e']
     if [e] is a beta redex or a projection of an explicit structure
     such that [e'] is the reduced form
     and [ctx'] contains assumptions necessary for typing annotations to match. *)
-val reduce_step : Value.Env.t -> Context.t -> Tt.term -> (Context.t * Tt.term) Opt.opt
+val reduce_step : Context.t -> Tt.term -> (Context.t * Tt.term) Opt.opt
 
 (** [congruence env ctx e1 e2 t] calls [equal] on immediate subterms of [e1] and [e2] when their toplevel structures match. *)
-val congruence : Value.Env.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->
+val congruence : Context.t -> Tt.term -> Tt.term -> Tt.ty ->
                  Context.t Opt.opt
 
 (** Convert a type to an equality type. *)
-val as_eq : Value.Env.t -> Judgement.ty -> (Context.t * Tt.ty * Tt.term * Tt.term) Monad.t
+val as_eq : Judgement.ty -> (Context.t * Tt.ty * Tt.term * Tt.term) Monad.t
 
 (** Convert a type to a product. Guarantees that it is not an empty product. *)
-val as_prod : Value.Env.t -> Judgement.ty -> (Context.t * Tt.ty Tt.ty_abstraction) Monad.t
+val as_prod : Judgement.ty -> (Context.t * Tt.ty Tt.ty_abstraction) Monad.t
 
 (** Convert a type to a signature. *)
-val as_signature : Value.Env.t -> Judgement.ty -> (Context.t * Tt.signature) Monad.t
+val as_signature : Judgement.ty -> (Context.t * Tt.signature) Monad.t
 

@@ -102,125 +102,105 @@ let parse lex parse resource =
      let loc = Location.make p_start p_end in
      Error.syntax ~loc "Unexpected: %s" w
 
-(** [exec_cmd env d] executes toplevel command [c] in environment [env]. It prints the
-    result if in interactive mode, and returns the new environment. *)
-let rec exec_cmd base_dir interactive env c =
-  let (c', loc) = Desugar.toplevel env (Value.Env.bound_names env) c in
+let (>>=) = Value.top_bind
+let (>>) m1 m2 = m1 >>= fun () -> m2
+let return = Value.top_return
+
+let rec fold f acc = function
+  | [] -> return acc
+  | x::rem -> f acc x >>= fun acc ->
+    fold f acc rem
+
+(** [exec_cmd d] executes toplevel command [c].
+    It prints the result if in interactive mode.
+    The environment is passed through a state monad. *)
+let rec exec_cmd base_dir interactive c =
+  Value.top_get_env >>= fun env ->
+  Value.top_bound_names >>= fun xs ->
+  let (c', loc) = Desugar.toplevel env xs c in
   match c' with
 
   | Syntax.Operation (x, k) ->
-     let env = Value.Env.add_operation ~loc x k env in
-     if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
-     env
+     Value.add_operation ~loc x k >>
+     (if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
+     return ())
 
   | Syntax.Data (x, k) ->
-     let env = Value.Env.add_data ~loc x k env in
-     if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
-     env
+     Value.add_data ~loc x k >>
+     (if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
+     return ())
 
   | Syntax.Axiom (x, ryus, c) ->
-     (* XXX this is seriously messed up with respect to contexts. *)
-     let rec fold env ctx zs yrws = function
-       | [] ->
-          let (ctxt, t') = Eval.comp_ty env c in
-          let t' = Tt.abstract_ty zs t' in
-          let ctx = Context.join ~loc ctxt ctx in
-          let yrws = List.rev yrws in
-          (ctx, (yrws, t'))
-       | (r, (y, c)) :: ryus ->
-          let ((ctxu, u) as ju) = Eval.comp_ty env c in
-          let _, z, env = Value.Env.add_abstracting ~loc:Location.unknown env y ju in
-          let w = Tt.abstract_ty zs u in
-          let ctx = Context.join ~loc ctx ctxu in
-          fold env ctx (z :: zs) ((y, (r, w)) :: yrws) ryus in
-     let ctx, yrusv = fold env Context.empty [] [] ryus in
-     (* XXX do sth with ctx *)
-     let env = Value.Env.add_constant ~loc x yrusv env in
-     if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
-     env
+     Eval.comp_constant ryus c >>= fun yrusv ->
+     Value.add_constant ~loc x yrusv >>
+     (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
+     return ())
 
   | Syntax.TopHandle lst ->
-     List.fold_left (fun env (op, xc) ->
-        let f = Eval.comp_handle env xc in
-        Value.Env.add_handle op f env)
-      env lst
+    fold (fun () (op, xc) ->
+        Eval.comp_handle xc >>= fun f ->
+        Value.add_handle op f) () lst
 
   | Syntax.TopLet (x, c) ->
-     let v = Eval.comp_value env c in
-     let env = Value.Env.add_topbound ~loc x v env in
-     if interactive then Format.printf "%t is defined.@." (Name.print_ident x) ;
-     env
+     Eval.comp_value c >>= fun v ->
+     Value.add_topbound ~loc x v >>
+     (if interactive then Format.printf "%t is defined.@." (Name.print_ident x) ;
+     return ())
 
   | Syntax.TopCheck c ->
-     let v =
-       begin match Eval.comp_value env c with
-             | Value.Ty (ctx, t) ->
-                let ctx = Simplify.context ctx in
-                let t = Simplify.ty t in
-                let j = Judgement.mk_ty ctx t in
-                Value.Ty j
-             | Value.Term (ctx, e, t) ->
-                let ctx = Simplify.context ctx in
-                let e = Simplify.term e
-                and t = Simplify.ty t in
-                let j = Judgement.mk_term ctx e t in
-                  Value.Term j
-             | v -> v
-       end
-     in
-       if interactive then Format.printf "%t@." (Value.print_value (Value.Env.used_names env) v) ;
-       env
+     Eval.comp_value c >>= fun v ->
+     let v = Simplify.value v in
+     Value.top_print_value >>= fun print_value ->
+     (if interactive then Format.printf "%t@." (print_value v) ;
+     return ())
 
   | Syntax.Include (fs,once) ->
-    (* relative file names get interpreted relative to the file we're
-       currently loading *)
-    List.fold_left
-      (fun env f ->
+    fold (fun () f ->
          (* don't print deeper includes *)
-         begin if interactive then Format.printf "#including %s@." f ;
-           let env =
-             let f =
-               if Filename.is_relative f then
-                 Filename.concat base_dir f
-               else f in
-             use_file env (f, None, false, once) in
-           if interactive then Format.printf "#processed %s@." f ;
-           env
-         end)
-      env fs
+         if interactive then Format.printf "#including %s@." f ;
+           let f =
+             if Filename.is_relative f
+             then Filename.concat base_dir f
+             else f
+           in
+           use_file (f, None, false, once) >>
+           (if interactive then Format.printf "#processed %s@." f ;
+           return ())) () fs
 
-  | Syntax.Verbosity i -> Config.verbosity := i; env
+  | Syntax.Verbosity i -> Config.verbosity := i; return ()
 
   | Syntax.Environment ->
-    Format.printf "%t@." (Value.Env.print env) ;
-    env
+    Value.print_env >>= fun p ->
+    Format.printf "%t@." p;
+    return ()
 
   | Syntax.Help ->
-    Format.printf "%s@." help_text ; env
+    Format.printf "%s@." help_text ; return ()
 
   | Syntax.Quit ->
     exit 0
 
 
 (** Load directives from the given file. *)
-and use_file env (filename, line_limit, interactive, once) =
-  if once && Value.Env.included filename env then env else
+and use_file (filename, line_limit, interactive, once) =
+  (if once then Value.included filename else return false) >>= fun skip ->
+  if skip then return () else
     begin
       let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
       let base_dir = Filename.dirname filename in
-      let env = Value.Env.add_file filename env in
-      List.fold_left (exec_cmd base_dir interactive) env cmds
+      Value.push_file filename >>
+      fold (fun () c -> exec_cmd base_dir interactive c) () cmds
     end
 
 (** Interactive toplevel *)
-let toplevel env =
+let toplevel cmp =
   Format.printf "Andromeda %s@\n[Type #help for help.]@." Build.version ;
   try
-    let env = ref env in
+    let pc = ref (Value.initial cmp) in
     while true do
       try
         let cmd = parse Lexer.read_toplevel Parser.commandline () in
-        env := exec_cmd Filename.current_dir_name true !env cmd
+        pc := Value.progress !pc (fun () -> exec_cmd Filename.current_dir_name true cmd)
       with
       | Error.Error err -> Error.print err Format.err_formatter
       | Sys.Break -> Format.eprintf "Interrupted.@."
@@ -274,23 +254,11 @@ let main =
   Format.set_max_boxes 42 ;
   Format.set_ellipsis_text "..." ;
   try
-    let env = Value.Env.empty in
-    (* Declare predefined data constructors *)
-    let env = List.fold_left
-                (fun env (x, k) -> Value.Env.add_data ~loc:Location.unknown x k env)
-                env
-                Value.predefined_tags
-    in
-    (* Declare predefined operations *)
-    let env = List.fold_left
-                (fun env (x, k) -> Value.Env.add_operation ~loc:Location.unknown x k env)
-                env
-                Value.predefined_ops
-    in    
     (* Run and load all the specified files. *)
-    let env = List.fold_left use_file env !files in
-    if !Config.interactive_shell then
-      toplevel env
+    let comp = fold (fun () f -> use_file f) () !files in
+    if !Config.interactive_shell
+      then toplevel comp
+      else Value.run comp
   with
     Error.Error err -> Error.print err Format.err_formatter; exit 1
 

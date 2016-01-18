@@ -28,7 +28,7 @@ let rec mk_prod ~loc ys ((t', _) as t) =
     end
 
 (* n is the length of vars *)
-let rec tt_pattern (env : Value.Env.t) bound vars n (p,loc) =
+let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
   match p with
     | Input.Tt_Anonymous ->
       (Syntax.Tt_Anonymous, loc), vars, n
@@ -60,7 +60,7 @@ let rec tt_pattern (env : Value.Env.t) bound vars n (p,loc) =
         | Some k -> (Syntax.Tt_Bound k, loc), vars, n
         | None ->
            begin
-             match Value.Env.lookup_constant x env with
+             match Value.get_constant x env with
                | Some (lst, _) ->
                   if List.length lst = 0 then
                     (Syntax.Tt_Constant x, loc), vars, n
@@ -175,7 +175,7 @@ let rec tt_pattern (env : Value.Env.t) bound vars n (p,loc) =
       let p, vars, n = tt_pattern env bound vars n p in
       (Syntax.Tt_Projection (p,l), loc), vars, n
 
-let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
+let rec pattern (env : Value.env) bound vars n (p,loc) =
   match p with
     | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), vars, n
 
@@ -201,7 +201,7 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
     | Input.Patt_Name x ->
       begin match Name.index_of_ident x bound with
         | None ->
-          begin match Value.Env.lookup_data x env with
+          begin match Value.lookup_data x env with
             | Some k ->
               if k = 0
               then (Syntax.Patt_Tag (x,[]), loc), vars, n
@@ -218,7 +218,7 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
       let p2, vars, n = tt_pattern env bound vars n p2 in
       (Syntax.Patt_Jdg (p1,p2), loc), vars, n
 
-    | Input.Patt_Data (t,ps) ->
+    | Input.Patt_Tag (t,ps) ->
       let rec fold vars n ps = function
         | [] ->
           let ps = List.rev ps in
@@ -229,8 +229,22 @@ let rec pattern (env : Value.Env.t) bound vars n (p,loc) =
         in
       fold vars n [] ps
 
+    | Input.Patt_Cons (p1, p2) ->
+      let p1, vars, n = pattern env bound vars n p1 in
+      let p2, vars, n = pattern env bound vars n p2 in
+      (Syntax.Patt_Cons (p1,p2), loc), vars, n
 
-let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
+    | Input.Patt_List ps ->
+       let rec fold ~loc vars n = function
+         | [] -> (Syntax.Patt_Nil, loc), vars, n
+         | p :: ps ->
+            let p, vars, n = pattern env bound vars n p in
+            let ps, vars, n = fold ~loc:(snd p) vars n ps in
+            (Syntax.Patt_Cons (p, ps), loc), vars, n
+       in
+       fold ~loc vars n ps
+
+let rec comp ~yield (env : Value.env) bound (c',loc) =
   match c' with
     | Input.Handle (c, hcs) ->
        let c = comp ~yield env bound c
@@ -258,6 +272,24 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
       let bound = List.fold_left (fun bound (x,_) -> add_bound x bound) bound xcs in
       let c2 = comp ~yield env bound c2 in
       Syntax.Let (xcs, c2), loc
+
+    | Input.Lookup c ->
+       let c = comp ~yield env bound c in
+       Syntax.Lookup c, loc
+
+    | Input.Ref c ->
+       let c = comp ~yield env bound c in
+       Syntax.Ref c, loc
+
+    | Input.Update (c1, c2) ->
+       let c1 = comp ~yield env bound c1
+       and c2 = comp ~yield env bound c2 in
+       Syntax.Update (c1, c2), loc
+
+    | Input.Sequence (c1, c2) ->
+       let c1 = comp ~yield env bound c1
+       and c2 = comp ~yield env bound c2 in
+       Syntax.Sequence (c1, c2), loc
 
     | Input.Assume ((x, t), c) ->
        let t = comp ~yield env bound t in
@@ -377,7 +409,7 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
          | Some k -> Syntax.Bound k, loc
          | None ->
             begin
-              match Value.Env.lookup_decl x env with
+              match Value.lookup_decl x env with
               | Some (Value.Constant (lst, _)) ->
                  let k = List.length lst in
                  if k = 0 then constant ~loc ~yield env bound x []
@@ -398,10 +430,13 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
   | Input.Type ->
     Syntax.Type, loc
 
-  | Input.Yield ->
+  | Input.Yield c ->
     if yield
-    then Syntax.Yield, loc
-    else Error.syntax ~loc "yield may only be used in a handler"
+    then
+      let c = comp ~yield env bound c in
+      Syntax.Yield c, loc
+    else
+      Error.syntax ~loc "yield may only be used in a handler"
 
   | Input.Context ->
      Syntax.Context, loc
@@ -440,6 +475,21 @@ let rec comp ~yield (env : Value.Env.t) bound (c',loc) =
      let cs = List.map (comp ~yield env bound) cs in
      Syntax.Tag (t, cs), loc
 
+  | Input.List cs ->
+     let rec fold ~loc = function
+       | [] -> Syntax.Nil, loc
+       | c :: cs ->
+          let c = comp ~yield env bound c in
+          let cs = fold ~loc:(snd c) cs in
+          Syntax.Cons (c, cs), loc
+     in
+     fold ~loc cs
+
+  | Input.Cons (e1, e2) ->
+    let e1 = comp ~yield env bound e1 in
+    let e2 = comp ~yield env bound e2 in
+    Syntax.Cons (e1,e2), loc
+
   | Input.Congruence (e1,e2) ->
     let e1 = comp ~yield env bound e1 in
     let e2 = comp ~yield env bound e2 in
@@ -466,7 +516,7 @@ and spine ~yield env bound ((c',loc) as c) cs =
       match c' with
       | Input.Var x when not (List.mem x bound) ->
          begin
-           match Value.Env.lookup_decl x env with
+           match Value.lookup_decl x env with
 
            | Some (Value.Constant (lst, _)) ->
               let k = List.length lst in
@@ -507,7 +557,7 @@ and handler ~loc env bound hcs =
       fold (case::val_cases) op_cases finally_cases hcs
 
     | Input.CaseOp (op, ((ps,_) as c)) :: hcs ->
-      begin match Value.Env.lookup_operation op env with
+      begin match Value.lookup_operation op env with
         | Some k ->
           let n = List.length ps in
           if n = k
@@ -569,7 +619,7 @@ and perform ~loc ~yield env bound x cs =
   let cs = List.map (comp ~yield env bound) cs in
   Syntax.Perform (x, cs), loc
 
-let toplevel (env : Value.Env.t) bound (d', loc) =
+let toplevel (env : Value.env) bound (d', loc) =
   let d' = match d' with
     | Input.Operation (x, k) -> Syntax.Operation (x, k)
 
@@ -594,7 +644,7 @@ let toplevel (env : Value.Env.t) bound (d', loc) =
         let lst =
           List.map
             (fun (op, xs, c) ->
-              match Value.Env.lookup_operation op env with
+              match Value.lookup_operation op env with
                 | Some k ->
                   let n = List.length xs in
                   if n = k

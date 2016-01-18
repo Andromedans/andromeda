@@ -1,17 +1,15 @@
-
-
 constant A : Type
 constant a : A
 constant b : A
 constant f : A -> A -> A
 
 
-let test = with equality_in nil nil handle whnf ((lambda x y : A, f y x) a b)
+let test = with equality_in [] [] handle whnf ((lambda x y : A, f y x) a b)
 let _ = print test
 
 constant eq : forall x : A, f a x == b
 
-let betas = add_beta top_betas top_hints eq
+let _ = add_beta eq
 
-check with equality_in betas top_hints handle whnf (f a a)
+check whnf (f a a)
 

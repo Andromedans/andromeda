@@ -1,7 +1,7 @@
 #including ../examples/sum.m31
-#processed ../examples/sum.m31
-betas0 is defined.
-betas is defined.
+#processed ./../examples/sum.m31
+_ is defined.
+_ is defined.
 ⊢ λ (A : Type) (B : Type) (P : sum A B → Type)
       (l : Π (a : A), P (inl A B a)) (r : Π (b : B), P (inr A B b))
       (b : B), refl (r b)

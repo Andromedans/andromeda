@@ -1,19 +1,19 @@
 
 let rec append l1 l2 =
   match l1 with
-    | nil =>
+    | [] =>
       l2
-    | cons ?x ?tl =>
-      cons x (append tl l2)
+    | ?x :: ?tl =>
+      x :: (append tl l2)
   end
 
 let rec append' l1 l2 =
   match l1 with
-    | nil =>
+    | [] =>
       l2
-    | cons ?x ?tl =>
+    | ?x :: ?tl =>
       let lapp = append' tl l2 in
-      cons x lapp
+      x :: lapp
   end
 
 data a 0
@@ -24,8 +24,8 @@ data e 0
 data f 0
 
 check 
-  let l1 = cons a (cons b (cons c nil)) in
-  let l2 = cons d (cons e (cons f nil)) in
+  let l1 = a :: (b :: (c :: [])) in
+  let l2 = d :: (e :: (f :: [])) in
   let lapp = append l1 l2 in
   let lapp' = append' l1 l2 in
   pair lapp lapp'

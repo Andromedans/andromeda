@@ -6,11 +6,11 @@ constant plus (reduce n : N) (reduce m : N) : N
 
 constant plus_O_l : forall (n : N), plus O n == n
 
-let betas = add_beta top_betas top_hints plus_O_l
+let _ = add_beta plus_O_l
 
-check with equality_in betas top_hints handle
+check
   plus (plus O O) O
 
-check with equality_in betas top_hints handle
+check
   whnf (plus (plus O (S O)) (plus O O))
 

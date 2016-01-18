@@ -1,0 +1,6 @@
+Data constructor banana is declared.
+Data constructor apple is declared.
+x is defined.
+tt
+ref 2 := [apple,
+banana]

@@ -30,6 +30,7 @@ let reserved = [
   ("in", IN) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
+  ("ref", REF) ;
   ("refl", REFL) ;
   ("Type", TYPE) ;
   ("typeof", TYPEOF) ;
@@ -96,10 +97,13 @@ and token_aux ({ stream;_ } as lexbuf) =
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
+  | '['                      -> f (); LBRACK
+  | ']'                      -> f (); RBRACK
   | '{'                      -> f (); LBRACE
   | '}'                      -> f (); RBRACE
   | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
+  | "::"                     -> f (); COLONCOLON
   | ','                      -> f (); COMMA
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
@@ -109,6 +113,9 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "->" | 8594 | 10230      -> f (); ARROW
   | "=>" | 8658 | 10233      -> f (); DARROW
   | "==" | 8801              -> f (); EQEQ
+  | '!'                      -> f (); BANG
+  | ":="                     -> f (); COLONEQ
+  | ';'                      -> f (); SEMICOLON
   | prefixop                 -> f (); PREFIXOP (lexeme lexbuf, Location.of_lexeme lexbuf)
   | infixop0                 -> f (); INFIXOP0 (lexeme lexbuf, Location.of_lexeme lexbuf)
   | infixop1                 -> f (); INFIXOP1 (lexeme lexbuf, Location.of_lexeme lexbuf)

@@ -1,9 +1,9 @@
 #include "../examples/sum.m31"
 
-let betas0 = add_beta top_betas top_hints sum_iota_l
-let betas = add_beta betas0 top_hints sum_iota_r
+let _ = add_beta sum_iota_l
+let _ = add_beta sum_iota_r
 
-check with equality_in betas top_hints handle
+check
   λ (A B : Type)
           (P : sum A B -> Type)
           (l : ∀ (a : A), P (inl A B a))
