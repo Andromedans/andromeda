@@ -731,7 +731,6 @@ let rec exec_cmd base_dir interactive c =
 
   | Syntax.TopCheck c ->
      comp_value c >>= fun v ->
-     let v = Simplify.value v in
      Value.top_print_value >>= fun print_value ->
      (if interactive then Format.printf "%t@." (print_value v) ;
      return ())

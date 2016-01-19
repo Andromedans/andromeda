@@ -59,6 +59,12 @@ let externals =
 
           | _ -> Error.runtime ~loc "unknown config %s" s
         ));
+
+    ("simplify", fun loc ->
+      Value.return_closure (fun v ->
+          let v = Simplify.value v in
+          Value.return v
+        ));
   ]
 
 
