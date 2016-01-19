@@ -28,13 +28,13 @@ val equal_ty : Context.t -> Tt.ty -> Tt.ty -> Context.t Opt.opt
 val reduce_step : Context.t -> Tt.term -> (Context.t * Tt.term) Opt.opt
 
 (** [congruence env ctx e1 e2 t] calls [equal] on immediate subterms of [e1] and [e2] when their toplevel structures match. *)
-val congruence : Context.t -> Tt.term -> Tt.term -> Tt.ty ->
+val congruence : loc:Location.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->
                  Context.t Opt.opt
 
 (** Convert a type to an equality type. *)
 val as_eq : Judgement.ty -> (Context.t * Tt.ty * Tt.term * Tt.term) Monad.t
 
-(** Convert a type to a product. Guarantees that it is not an empty product. *)
+(** Convert a type to a product. *)
 val as_prod : Judgement.ty -> (Context.t * Tt.ty Tt.ty_abstraction) Monad.t
 
 (** Convert a type to a signature. *)

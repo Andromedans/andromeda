@@ -12,4 +12,4 @@ val comp_ty : Syntax.comp -> Judgement.ty Value.toplevel
 val comp_handle : (Name.ident list * Syntax.comp) -> (Value.value list,Value.value) Value.closure Value.toplevel
 
 (** [comp_constant ryus c] evaluates the types for a constant declaration. *)
-val comp_constant : (bool * (Name.ident * Syntax.comp)) list -> Syntax.comp -> Tt.constsig Value.toplevel
+val comp_constant : (Name.ident * Syntax.comp) list -> Syntax.comp -> Tt.constsig Value.toplevel

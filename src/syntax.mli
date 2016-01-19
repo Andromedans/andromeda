@@ -57,9 +57,9 @@ and comp' =
   | External of string
   | Typeof of comp
   | Constant of Name.ident * comp list
-  | Lambda of (Name.ident * comp option) list * comp
-  | Spine of comp * comp list
-  | Prod of (Name.ident * comp) list * comp
+  | Lambda of Name.ident * comp option * comp
+  | App of comp * comp
+  | Prod of Name.ident * comp * comp
   | Eq of comp * comp
   | Refl of comp
   | Signature of (Name.ident * Name.ident * comp) list
@@ -86,7 +86,7 @@ type toplevel = toplevel' * Location.t
 and toplevel' =
   | Operation of Name.ident * int
   | Data of Name.ident * int
-  | Axiom of Name.ident * (bool * (Name.ident * comp)) list * comp (** introduce a constant *)
+  | Axiom of Name.ident * (Name.ident * comp) list * comp (** introduce a constant *)
   | TopHandle of (Name.ident * (Name.ident list * comp)) list
   | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
@@ -96,8 +96,4 @@ and toplevel' =
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)
-
-(** [shift_comp k lvl c] shifts the bound variables in computation [c] that
-    are larger than or equal [lv] by [k]. *)
-val shift_comp : int -> int -> comp -> comp
 

@@ -126,9 +126,9 @@ let rec exec_cmd base_dir interactive c =
      (if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
      return ())
 
-  | Syntax.Axiom (x, ryus, c) ->
-     Eval.comp_constant ryus c >>= fun yrusv ->
-     Value.add_constant ~loc x yrusv >>
+  | Syntax.Axiom (x, yus, c) ->
+     Eval.comp_constant yus c >>= fun yusv ->
+     Value.add_constant ~loc x yusv >>
      (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
      return ())
 

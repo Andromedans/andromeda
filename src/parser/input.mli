@@ -98,7 +98,7 @@ type toplevel = toplevel' * Location.t
 and toplevel' =
   | Operation of Name.ident * int
   | Data of Name.ident * int
-  | Axiom of Name.ident * (bool * (Name.ident * ty)) list * ty
+  | Axiom of Name.ident * (Name.ident * ty) list * ty
     (** introduce a primitive constant, the boolean is [true] if the argument is eagerly reducing *)
   | TopHandle of (Name.ident * Name.ident list * comp) list
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)

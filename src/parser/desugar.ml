@@ -9,23 +9,11 @@ module IdentMap = Name.IdentMap
 
 let add_bound x bound = x :: bound
 
-let rec mk_lambda ~loc ys ((c', _) as c) =
-  match ys with
-  | [] -> c
-  | _ :: _ ->
-    begin match c' with
-      | Syntax.Lambda (ys', c) -> mk_lambda ~loc (ys @ ys') c
-      | _ -> Syntax.Lambda (ys, c), loc
-    end
+let mk_lambda ~loc ys c =
+  List.fold_left (fun c (y,u) -> Syntax.Lambda (y,u,c), loc) c ys
 
-let rec mk_prod ~loc ys ((t', _) as t) =
-  match ys with
-  | [] -> t
-  | _ :: _ ->
-    begin match t' with
-      | Syntax.Prod (ys', t) -> mk_prod ~loc (ys @ ys') t
-      | _ -> Syntax.Prod (ys, t), loc
-    end
+let mk_prod ~loc ys t =
+  List.fold_left (fun c (y,u) -> Syntax.Prod (y,u,c), loc) t ys
 
 (* n is the length of vars *)
 let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
@@ -327,7 +315,6 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     | Input.Lambda (xs, c) ->
       let rec fold bound ys = function
         | [] ->
-           let ys = List.rev ys in
            let c = comp ~yield env bound c in
            mk_lambda ~loc ys c
         | (x, None) :: xs ->
@@ -347,7 +334,6 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     | Input.Prod (xs, c) ->
       let rec fold bound ys = function
         | [] ->
-           let ys = List.rev ys in
            let c = comp ~yield env bound c in
            mk_prod ~loc ys c
         | (x,t) :: xs ->
@@ -543,8 +529,9 @@ and spine ~yield env bound ((c',loc) as c) cs =
       | _ -> comp ~yield env bound c, cs
     end in
 
-  let cs = List.map (comp ~yield env bound) cs in
-  Syntax.Spine (c, cs), loc
+  List.fold_left (fun h c ->
+    let c = comp ~yield env bound c in
+    Syntax.App (h,c), loc) c cs
 
 (* Desugar handler cases. *)
 and handler ~loc env bound hcs =
@@ -628,20 +615,20 @@ let toplevel (env : Value.env) bound (d', loc) =
 
     | Input.Data (x, k) -> Syntax.Data (x, k)
 
-    | Input.Axiom (x, ryts, u) ->
-      let rec fold bound ryts' = function
+    | Input.Axiom (x, yts, u) ->
+      let rec fold bound yts' = function
         | [] ->
           let u = comp ~yield:false env bound u in
-          let ryts' = List.rev ryts' in
-          (ryts', u)
-        | (reducing, (y, t)) :: ryts ->
+          let yts' = List.rev yts' in
+          (yts', u)
+        | (y, t) :: yts ->
           let t = comp ~yield:false env bound t in
           let bound = add_bound y bound
-          and ryts' = (reducing, (y, t)) :: ryts' in
-          fold bound ryts' ryts
+          and yts' = (y, t) :: yts' in
+          fold bound yts' yts
       in
-      let ryts, u = fold bound [] ryts in
-      Syntax.Axiom (x, ryts, u)
+      let yts, u = fold bound [] yts in
+      Syntax.Axiom (x, yts, u)
 
     | Input.TopHandle lst ->
         let lst =
