@@ -78,6 +78,7 @@ val return_handler :
    (value -> value result) option ->
    value result
 
+val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
 (** Pretty-print a value. *)
 val print_value : (?max_level:int -> value -> Format.formatter -> unit) result

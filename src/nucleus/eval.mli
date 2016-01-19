@@ -1,15 +1,12 @@
 (** Evaluation of computations *)
 
-(** [comp_value c] evaluates computation [c] in environment [env] and returns
-    its value, or triggers a runtime error if the result is an operation. *)
-val comp_value : Syntax.comp -> Value.value Value.toplevel
+(** Parser wrapper that reads extra lines on demand. *)
+val parse : ('a -> 'b -> 'c) -> 'a -> 'b -> 'c
 
-(** [comp_ty c] evaluates computation [c] in environment [env],
-    checks that the result is a type and returns it. *)
-val comp_ty : Syntax.comp -> Judgement.ty Value.toplevel
+(** Load directives from the given file. *)
+val use_file : string * int option * bool * bool -> unit Value.toplevel
 
-(** [comp_handle (xs,c)] makes the closure [fun xs => c]. *)
-val comp_handle : (Name.ident list * Syntax.comp) -> (Value.value list,Value.value) Value.closure Value.toplevel
-
-(** [comp_constant ryus c] evaluates the types for a constant declaration. *)
-val comp_constant : (Name.ident * Syntax.comp) list -> Syntax.comp -> Tt.constsig Value.toplevel
+(** [exec_cmd d] executes toplevel command [c].
+    It prints the result if in interactive mode.
+    The environment is passed through a state monad. *)
+val exec_cmd : string -> bool -> Input.toplevel -> unit Value.toplevel
