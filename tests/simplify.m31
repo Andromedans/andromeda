@@ -1,0 +1,7 @@
+
+let x = (lambda x : Type, x) Type
+
+check x
+
+let _ = external "print_simplify" x
+

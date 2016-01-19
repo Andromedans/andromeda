@@ -4,7 +4,7 @@ P is defined.
 y is defined.
 x₁₀ : A 
 y₁₃ : (λ (z : A), A) x₁₀ 
-⊢ y₁₃ : A
+⊢ y₁₃ : (λ (z : A), A) x₁₀
 Constant f is declared.
 x₁₀ : A 
 P₁₂ : A → Type 
