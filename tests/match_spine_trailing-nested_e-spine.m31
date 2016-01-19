@@ -9,13 +9,13 @@ let it = (λ (T : Type), unit_rect (λ (m), T -> T) (λ (x : T), x))
 let _ = add_beta unit_iota_top
 
 (* TODO loops
-check whnf (it unit top top)
+do whnf (it unit top top)
 
-check refl top : top == it unit top top
+do refl top : top == it unit top top
 
-check refl top : top == (it unit) top top
+do refl top : top == (it unit) top top
 
-check refl top : top == (it unit top) top
+do refl top : top == (it unit top) top
 
-check refl top : top == ((it unit) top) top
+do refl top : top == ((it unit) top) top
 *)

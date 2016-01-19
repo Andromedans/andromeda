@@ -4,5 +4,5 @@ Constant P is declared.
 Constant b is declared.
 Constant Q is declared.
 Constant f is declared.
-File "./error-structure-infer.m31", line 8, characters 7-33: Typing error
+File "./error-structure-infer.m31", line 8, characters 4-30: Typing error
   the expression y₁₆ should have type P x₁₅ but has type P a

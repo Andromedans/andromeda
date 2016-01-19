@@ -102,7 +102,7 @@ and toplevel' =
     (** introduce a primitive constant, the boolean is [true] if the argument is eagerly reducing *)
   | TopHandle of (Name.ident * Name.ident list * comp) list
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
-  | TopCheck of comp (** infer the type of a computation *)
+  | TopDo of comp (** evaluate a computation at top level *)
   | TopFail of comp
   | Verbosity of int
   | Include of string list * bool (** the boolean is [true] if the files should be included only once *)

@@ -5,13 +5,13 @@ constant a : A
 constant b : A
 constant c : A
 
-check match a with
+do match a with
   | |- b => b
   | |- a => a
   end
 
 data lam 4
-check match λ (x : A), a with
+do match λ (x : A), a with
   | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => lam x y z (pair (pair x' y') t)
   end
 
@@ -19,13 +19,13 @@ constant list : Type
 constant Nil : list
 constant Cons : A -> list -> list
 
-check match Cons a (Cons b (Cons c Nil)) with
+do match Cons a (Cons b (Cons c Nil)) with
   | None => Type Type
   | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => lam x y z (pair (pair x' y') t)
   | (|- Cons _ ((Cons ?x _) as ?y)) => pair x y
   end
 
-check match {a : A, isconstr : forall (x : A), a == x} with
+do match {a : A, isconstr : forall (x : A), a == x} with
   | |- { a as b : _, isconstr : forall (_), a == _} => Type Type
   | |- { a : _, isconstr : forall (_), a == _} => ()
   end

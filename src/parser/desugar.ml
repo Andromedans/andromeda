@@ -659,9 +659,9 @@ let toplevel (env : Value.env) bound (d', loc) =
       let c = comp ~yield:false env bound c in
       Syntax.TopLet (x, c)
 
-    | Input.TopCheck c ->
+    | Input.TopDo c ->
       let c = comp ~yield:false env bound c in
-      Syntax.TopCheck c
+      Syntax.TopDo c
 
     | Input.TopFail c ->
       let c = comp ~yield:false env bound c in

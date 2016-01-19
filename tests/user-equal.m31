@@ -11,5 +11,5 @@ constant eq : forall x : A, f a x == b
 
 let _ = add_beta eq
 
-check whnf (f a a)
+do whnf (f a a)
 

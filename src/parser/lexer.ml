@@ -6,11 +6,11 @@ let reserved = [
   ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;
-  ("check", CHECK) ;
   ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("congruence", CONGRUENCE) ;
   ("data", DATA) ;
+  ("do", DO) ;
   ("end", END) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;

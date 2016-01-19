@@ -6,7 +6,7 @@ let foo =
   λ (g : Π (x : A), B x -> B x),
     (λ (x : A) (y : B x), g x (g x y))
 
-check
+do
   refl (λ (x : A) (y : B x), f x (f x y)) :
     (λ (x : A) (y : B x), f x (f x y)) == foo f
 

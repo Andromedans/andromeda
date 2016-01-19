@@ -3,7 +3,7 @@ constant unit : Type
 constant top : unit
 constant unit_eta : Π (x y : unit), x == y
 
-check
+do
   with local (lhint unit_eta) handle
     λ (x : unit), (refl top : x == top)
 

@@ -9,5 +9,5 @@ let length = rec length lst =>
 
 let mylist = () :: (Type :: ([] :: []))
 
-check length mylist
+do length mylist
 

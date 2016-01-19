@@ -7,5 +7,5 @@ let cow =
     in let b = a
        in a -> b
 
-check cow
+do cow
 

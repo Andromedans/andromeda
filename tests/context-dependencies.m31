@@ -3,7 +3,7 @@ constant B : Type
 constant P : A -> Type
 constant Q : ∏ (a : A), P a → Type
 
-check
+do
    assume b : B in
    assume e : B ≡ A in
    with local (lbeta e) handle

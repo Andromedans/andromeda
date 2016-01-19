@@ -729,7 +729,7 @@ let rec exec_cmd base_dir interactive c =
      (if interactive then Format.printf "%t is defined.@." (Name.print_ident x) ;
      return ())
 
-  | Syntax.TopCheck c ->
+  | Syntax.TopDo c ->
      comp_value c >>= fun v ->
      Value.top_print_value >>= fun print_value ->
      (if interactive then Format.printf "%t@." (print_value v) ;

@@ -11,7 +11,7 @@ constant a : A
 constant b : B a
 constant c : C a b
 
-check
+do
   with local (lbeta f_beta) handle
       refl b : b == f a b c
 

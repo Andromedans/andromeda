@@ -14,5 +14,5 @@ constant g : A -> A -> A
 
 let igny = ign (P x) y
 
-check g (igny where x = a) (igny where x = b)
+do g (igny where x = a) (igny where x = b)
 

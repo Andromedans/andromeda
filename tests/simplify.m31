@@ -1,7 +1,7 @@
 
 let x = (lambda x : Type, x) Type
 
-check x
+do x
 
-check (external "simplify" x)
+do (external "simplify" x)
 

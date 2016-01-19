@@ -5,7 +5,7 @@ constant horn : cow
 constant tail (_ : cow) : cow
 constant tail_horn : tail horn == horn
 
-check
+do
   with local (lbeta tail_horn) handle
     refl horn : horn == tail horn
 
@@ -25,7 +25,7 @@ constant a : X
 constant f : X -> X
 
 (* TODO needs matching constants *)
-check
+do
   with local (lbeta Fst_beta) handle
     λ (y : Y),
       refl (f a) : f a == Fst X Y (Pair X Y (f a) y)

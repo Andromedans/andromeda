@@ -9,13 +9,13 @@ handle
 end
 
 (* Simple example. *)
-check lambda T : Type, assume x : T in x
+do lambda T : Type, assume x : T in x
 
 constant A : Type
 constant a : A
 constant P : A -> Type
 constant f : forall x : A, P x -> A
 
-check lambda x : A, assume p : P x in assume q : f x p == a in q
+do lambda x : A, assume p : P x in assume q : f x p == a in q
 
-check lambda x : A, assume T : Type in assume q : T in assume p : P x in (q where T = (f x p == a))
+do lambda x : A, assume T : Type in assume q : T in assume p : P x in (q where T = (f x p == a))
