@@ -203,7 +203,8 @@ let rec infer (c',loc) =
          let e = Tt.mk_constant ~loc x in
          let eu = Judgement.mk_term Context.empty e t in
          Value.return_term eu
-      | None -> Error.typing ~loc "unknown constant %t" (Name.print_ident x)
+      | None -> Error.impossible ~loc "unknown constant %t during evaluation"
+                                 (Name.print_ident x)
     end
 
   | Syntax.Lambda (x,u,c) ->

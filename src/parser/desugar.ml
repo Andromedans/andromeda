@@ -393,7 +393,7 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
          | None ->
             begin
               match Value.lookup_decl x env with
-              | Some (Value.Constant __) ->
+              | Some (Value.Constant _) ->
                  Syntax.Constant x, loc
 
               | Some (Value.Data k) ->
