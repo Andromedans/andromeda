@@ -8,5 +8,7 @@ Constant c is declared.
 Constant d is declared.
 ⊢ refl (Fst C D (Pair C D c d)) : c ≡ Fst C D (Pair C D c d)
 ⊢ refl (Fst D C (Pair D C d c)) : d ≡ Fst D C (Pair D C d c)
-⊢ refl (Fst C D (Pair C D c d)) : c ≡ Fst C D (Pair C D c d)
-⊢ refl (Fst C D (Pair C D c d)) : c ≡ Fst C D (Pair C D c d)
+⊢ refl (Fst C D (Pair C D ((λ (t : Type), λ (x : t), x) C c) d))
+  : c ≡ Fst C D (Pair C D c d)
+⊢ refl (Fst C D (Pair C D c d))
+  : c ≡ Fst C D (Pair C D ((λ (t : Type), λ (x : t), x) C c) d)

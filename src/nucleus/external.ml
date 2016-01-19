@@ -59,6 +59,14 @@ let externals =
 
           | _ -> Error.runtime ~loc "unknown config %s" s
         ));
+
+    ("print_simplify", fun loc ->
+      Value.return_closure (fun v ->
+          let v = Simplify.value v in
+          Value.print_value >>= fun pval ->
+          Format.printf "%t@." (pval v) ;
+          Value.return_unit
+        ));
   ]
 
 
