@@ -1,9 +1,9 @@
 (* TODO eta on structures
-check λ (x y : {}), refl () : x == y
+do λ (x y : {}), refl () : x == y
 
-check λ (x y : { }), refl ( ) : x == y
+do λ (x y : { }), refl ( ) : x == y
 *)
 
-check match ( ) with | |- ( ) : { } => () end
-check match ( ) with | |- () : {} => () end
+do match ( ) with | |- ( ) : { } => () end
+do match ( ) with | |- () : {} => () end
 

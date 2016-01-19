@@ -9,9 +9,9 @@ constant (+) : A -> A -> A
 
 let s = (+) a b
 
-check refl s : a + b == a + b
+do refl s : a + b == a + b
 
-check match s with
+do match s with
   | |- ?x + ?y => (pair x y)
   end
 
@@ -21,7 +21,7 @@ data (@) 2
 
 let x = (fun x => x) @ a
 
-check match x with
+do match x with
   | ?f @ ?y => f y
   end
 
@@ -29,7 +29,7 @@ check match x with
 
 operation (?) 1
 
-check
+do
 handle
   let sa = ? a in
   let sb = ? b in
@@ -40,5 +40,5 @@ end
 
 handle | ? x => x + a end
 
-check ? b
+do ? b
 

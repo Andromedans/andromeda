@@ -8,12 +8,12 @@ constant g : Π (x : A) (y : B x), C x y
 
 constant a : A
 
-check
+do
   (λ (y : B a), g a y) : Π (y : B a), C a y
 
-check (λ (x y), g x y) : Π (x : A) (y : B x), C x y
+do (λ (x y), g x y) : Π (x : A) (y : B x), C x y
 
-check (λ (x : A) (y), g x y) : Π (x : A) (y : B x), C x y (* TODO *)
+do (λ (x : A) (y), g x y) : Π (x : A) (y : B x), C x y (* TODO *)
 
-check (λ (x) (y : B x), g x y) : Π (x : A) (y : B x), C x y
+do (λ (x) (y : B x), g x y) : Π (x : A) (y : B x), C x y
 

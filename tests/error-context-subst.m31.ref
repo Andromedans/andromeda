@@ -7,7 +7,7 @@ Constant b is declared.
 Constant ign is declared.
 Constant g is declared.
 igny is defined.
-File "./error-context-subst.m31", line 17, characters 28-45: Runtime error
+File "./error-context-subst.m31", line 17, characters 25-42: Runtime error
   cannot join contexts P₁₂ : A → Type 
                        y₁₃ : P₁₂ a 
                         and

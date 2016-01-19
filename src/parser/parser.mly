@@ -37,7 +37,7 @@
 %token ARROW DARROW
 
 (* Things specific to toplevel *)
-%token CHECK FAIL
+%token DO FAIL
 %token CONSTANT REDUCE
 
 (* Let binding *)
@@ -115,7 +115,7 @@ plain_topcomp:
   | LET REC x=name a=function_abstraction EQ e=term
        { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
-  | CHECK c=term                                      { TopCheck c }
+  | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
   | CONSTANT x=name yst=constarg* COLON u=term        { Axiom (x, List.concat yst, u)}
   | DATA x=name k=NUMERAL                             { Data (x, k) }

@@ -17,13 +17,13 @@ constant eq1 : (Nat → Nat) ≡ (Nat → Bool)
 constant eq2 : (Nat → Bool) ≡ (Nat → Nat)
 
 let f = (λ (n : Nat), iszero (succ n))
-check f
+do f
 
 (* Succeed *)
-check
+do
   with local (lhint eq1) handle (f : Nat → Nat)
 
 (* Fail *)
-check
+do
   with local (lhint eq2) handle (f : Nat → Nat)
 

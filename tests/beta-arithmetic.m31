@@ -17,7 +17,7 @@ let four =  S (S (S (S Z)))
 let five =  S (S (S (S (S Z))))
 let ten =   S (S (S (S (S (S (S (S (S (S Z)))))))))
 
-check
+do
   with local (lbeta plus_Z) handle
   with local (lbeta plus_S) handle
     refl (plus five four) : plus four five == plus (plus two three) four

@@ -3,10 +3,10 @@ constant P : A -> Type
 constant a : A
 constant b : P a
 
-check typeof a
-check typeof A
-check typeof (typeof a)
-check typeof b
-check b : (typeof b)
-check typeof Type
+do typeof a
+do typeof A
+do typeof (typeof a)
+do typeof b
+do b : (typeof b)
+do typeof Type
 

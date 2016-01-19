@@ -15,9 +15,9 @@ constant projT2 : Π (A : Type, B : A -> Type, p : sigT A B),
 constant projT1_beta : Π (A : Type, B : A -> Type, a : A, b : B a),
     (projT1 A B (existT A B a b) == a)
 
-check projT1_beta
+do projT1_beta
 
-check
+do
   with local (lbeta projT1_beta) handle
     refl a : projT1 A B (existT A B a b) == a
 
@@ -26,7 +26,7 @@ constant projT2_beta :
     Π (A : Type, B : A -> Type, a : A, b : B a),
       projT2 A B (existT A B a b) == b
 
-check
+do
   with local (lbeta projT1_beta) handle
   with local (lbeta projT2_beta) handle
     refl b : projT2 A B (existT A B a b) == b
@@ -56,16 +56,16 @@ let projT1' =
             ((λ (X : Type, Y : X -> Type, x : X, y : Y x), x) A B)
             s
 
-check projT1'
+do projT1'
 
-check
+do
   with local (lbeta sig_ind_beta) handle
     refl a :
          a ==
     (projT1' A B (existT A B a b))
 
 
-check
+do
   with local (lbeta projT1_beta) handle
   with local (lbeta sig_ind_beta) handle
     refl a :
@@ -81,7 +81,7 @@ let projT2' =
               (λ (x : A) (y : B x), y)
               s
 
-check
+do
   with local (lbeta projT1_beta) handle
   with local (lbeta projT2_beta) handle
   with local (lbeta sig_ind_beta) handle

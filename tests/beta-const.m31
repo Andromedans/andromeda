@@ -2,7 +2,7 @@ constant A : Type
 constant B : Type
 constant a : A
 constant eq_A_B : A == B
-check
+do
   with local (lbeta eq_A_B) handle
     let _ = beta eq_A_B in
     a : B

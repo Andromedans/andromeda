@@ -1,10 +1,10 @@
 let id =
   λ (A : Type), λ (x : A), x
-check id
+do id
 
 let compose =
   λ (A B C : Type) (g : B -> C) (f : A -> B) (x : A), g (f x)
-check compose
+do compose
 
 
 constant X : Type
@@ -16,9 +16,9 @@ constant f : X -> Y
 constant g : Y -> Z
 constant h : Z -> W
 
-check refl (g (f x)) : g (f x) == compose X Y Z g f x
+do refl (g (f x)) : g (f x) == compose X Y Z g f x
 
-check refl (h (g (f x))) :
+do refl (h (g (f x))) :
         compose X Z W h (compose X Y Z g f) x ==
         compose X Y W (compose Y Z W h g) f x
 

@@ -5,5 +5,5 @@ constant b : P a
 constant Q : ∏ (x : A), P x → Type
 constant f : ∏ (x : A) (y : P x), Q x y
 
-check { x = a, y = b, z = f x y }
+do { x = a, y = b, z = f x y }
 

@@ -8,11 +8,11 @@ let P = assume P : A -> Type in P
 
 let y = assume y : P x in y
 
-check y where P = (lambda (z : A), A)
+do y where P = (lambda (z : A), A)
 
 (* Substitute an atom with something that depends on it? Seems to work. *)
 
 constant f : A -> A
 
-check (y where x = f x)
+do (y where x = f x)
 

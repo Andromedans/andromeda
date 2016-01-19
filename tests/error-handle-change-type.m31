@@ -6,7 +6,7 @@ constant a : A
 
 operation mafia 1
 
-check
+do
   (handle
      (λ (e : B == A), let crime = (with local (lhint e) handle (a : B)) in mafia crime)
    with

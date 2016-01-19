@@ -5,7 +5,7 @@ constant Q : Π (X : Type, P : X -> Type, x : X), P x → Type
 operation inhabit 1
 
 (* Works *)
-check
+do
   handle
     λ (a : A), Q A (inhabit (A -> Type)) a
   with
@@ -13,7 +13,7 @@ check
   end
 
 (* Fails *)
-check
+do
   handle
     λ (a : A), Q A B a (inhabit (B a))
   with

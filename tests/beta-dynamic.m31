@@ -6,9 +6,9 @@ constant b : A
 
 let f = fun x => whnf x
 
-check f a
+do f a
 
-check
+do
   assume eq : a == b in
   with local (lbeta eq) handle
     f a
@@ -16,7 +16,7 @@ check
 
 operation gimme_beta 0
 
-check with equality_in !top_betas !top_hints handle
+do with equality_in !top_betas !top_hints handle
    handle
      let _ = gimme_beta in
      whnf a

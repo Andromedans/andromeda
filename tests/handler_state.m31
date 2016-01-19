@@ -18,7 +18,7 @@ constant z : N
 constant s : N -> N
 constant f : N -> N -> N -> N
 
-check
+do
   with state z handle
     let a = lookup in
     let _ = update (s a) in
