@@ -214,7 +214,8 @@ let rec do_whnf betas e =
           in
           match do_whnf betas e' with
             | Some (|- ?eq' : _ == ?e'') =>
-              Some (transitivity eq eq')
+              let eq = transitivity eq eq' in
+              Some eq
             | None => Some eq
           end
         | None =>
@@ -222,7 +223,8 @@ let rec do_whnf betas e =
             | Some (|- ?eq : _ == ?e') =>
               match do_whnf betas e' with
                 | Some (|- ?eq' : _ == ?e'') =>
-                  Some (transitivity eq eq')
+                  let eq = transitivity eq eq' in
+                  Some eq
                 | None => Some eq
               end
             | None =>
@@ -245,7 +247,8 @@ let rec do_whnf betas e =
         | Some (|- ?eq : _ == ?e') =>
           match do_whnf betas e' with
             | Some (|- ?eq' : _ == ?e'') =>
-              Some (transitivity eq eq')
+              let eq = transitivity eq eq' in
+              Some eq
             | None => Some eq
           end
         | None =>
