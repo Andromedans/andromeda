@@ -27,6 +27,7 @@ let as_list ~loc v =
   let lst = Value.as_list ~loc v in
   Value.return lst
 
+
 (** Evaluate a computation -- infer mode. *)
 let rec infer (c',loc) =
   match c' with
@@ -177,10 +178,9 @@ let rec infer (c',loc) =
        end
 
   | Syntax.External s ->
-     begin
-       match External.lookup s with
+     begin match External.lookup s with
        | None -> Error.runtime ~loc "unknown external %s" s
-       | Some v -> v
+       | Some v -> v loc
      end
 
   | Syntax.Typeof c ->
@@ -211,7 +211,7 @@ let rec infer (c',loc) =
         let eu = Judgement.mk_term ctx e u in
         Value.return_term eu
 
-      | (y,(_,t))::yts, c::cs ->
+      | (y,t)::yts, c::cs ->
         let t = Tt.instantiate_ty es t in
         let jt = Judgement.mk_ty ctx t in
         check c jt >>= fun (ctx, e) ->
@@ -227,36 +227,22 @@ let rec infer (c',loc) =
     in
     fold Context.empty [] yts cs
 
-  | Syntax.Lambda (xus, c) ->
-     infer_lambda ~loc xus c >>= fun (ctx, lam, prod) ->
-     Value.return_term (Judgement.mk_term ctx lam prod)
+  | Syntax.Lambda (x,u,c) ->
+     infer_lambda ~loc x u c
 
-  | Syntax.Spine (c, []) ->
-     infer c
+  | Syntax.App (c1, c2) ->
+    infer c1 >>= begin function
+      | Value.Term j ->
+        app ~loc j c2
+      | Value.Closure f ->
+        infer c2 >>= fun v ->
+        Value.apply_closure f v
+      | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Ref _ | Value.String _ as h ->
+        Error.runtime ~loc "cannot apply %s" (Value.name_of h)
+    end
 
-  | Syntax.Spine (c, cs) ->
-    let rec fold v cs =
-      match v with
-        | Value.Term j ->
-          spine ~loc j cs
-        | Value.Closure f ->
-          begin match cs with
-            | [] -> Error.impossible ~loc "empty spine in Eval.infer"
-            | [c] ->
-              infer c >>=
-              Value.apply_closure f
-            | c::(_::_ as cs) ->
-              infer c >>=
-              Value.apply_closure f >>= fun v ->
-              fold v cs
-          end
-        | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Ref _ ->
-          Error.runtime ~loc "cannot apply %s" (Value.name_of v)
-    in
-    infer c >>= fun v -> fold v cs
-
-  | Syntax.Prod (xts, c) ->
-    infer_prod ~loc xts c
+  | Syntax.Prod (x,u,c) ->
+    infer_prod ~loc x u c
 
   | Syntax.Eq (c1, c2) ->
      infer c1 >>= as_term ~loc:(snd c1) >>= fun (ctx, e1, t1') ->
@@ -343,7 +329,7 @@ let rec infer (c',loc) =
   | Syntax.Congruence (c1,c2) ->
     infer c1 >>= as_term ~loc >>= fun (ctx,e1,t) ->
     check c2 (ctx,t) >>= fun (ctx,e2) ->
-    Equal.Opt.run (Equal.congruence ctx e1 e2 t) >>= begin function
+    Equal.Opt.run (Equal.congruence ~loc ctx e1 e2 t) >>= begin function
       | Some (ctx,hyps) ->
         let eq = Tt.mk_refl ~loc t e1 in
         let eq = Tt.mention_atoms hyps eq in
@@ -353,6 +339,9 @@ let rec infer (c',loc) =
         Value.return (Value.from_option (Some v))
       | None -> Value.return (Value.from_option None)
       end
+
+  | Syntax.String s ->
+    Value.return (Value.mk_string s)
 
 and require_equal ctx e1 e2 t =
   Equal.Opt.run (Equal.equal ctx e1 e2 t)
@@ -380,7 +369,8 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
   | Syntax.Constant _
   | Syntax.Prod _
   | Syntax.Eq _
-  | Syntax.Spine _
+  | Syntax.Lambda (_,Some _, _)
+  | Syntax.App _
   | Syntax.Signature _
   | Syntax.Projection _
   | Syntax.Yield _
@@ -390,7 +380,8 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
   | Syntax.Ref _
   | Syntax.Lookup _
   | Syntax.Update _
-  | Syntax.Sequence _ ->
+  | Syntax.Sequence _ 
+  | Syntax.String _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
@@ -450,8 +441,8 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
                          (pty t_check')
        end
 
-  | Syntax.Lambda (abs, c) ->
-    check_lambda ~loc t_check abs c
+  | Syntax.Lambda (x,None,c) ->
+    check_lambda ~loc t_check x c
 
   | Syntax.Refl c ->
     Equal.Monad.run (Equal.as_eq t_check) >>= fun ((ctx, t', e1, e2),hyps) ->
@@ -511,195 +502,60 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
      fold ctx [] [] [] (xcs, yts)
 
 
-and infer_lambda ~loc xus c =
-  let rec fold ctx ys ts xws  = function
-      | [] ->
-         infer c >>= as_term ~loc:(snd c) >>= fun (ctxe, e, t) ->
-         Matching.context_abstract ~loc ctxe ys ts >>= fun (ctxe,zs,es) ->
-         let ctx = Context.join ~loc ctx ctxe in
-         let e = Tt.abstract ys (Tt.substitute zs es e) in
-         let t = Tt.abstract_ty ys (Tt.substitute_ty zs es t) in
-         let xws = List.rev xws in
-         let lam = Tt.mk_lambda ~loc xws e t in
-         let prod = Tt.mk_prod_ty ~loc xws t in
-         Value.return (ctx, lam, prod)
-      | (x, None) :: _ ->
-         Error.runtime ~loc "cannot infer the type of %t" (Name.print_ident x)
-      | (x, Some c) :: xus ->
-         check_ty c >>= fun (ctxu, ((Tt.Ty {Tt.loc=uloc;_}) as u)) ->
-         Matching.mk_abstractable ~loc ctxu ys >>= fun (ctxu,zs,es) ->
-         let u = Tt.substitute_ty zs es u in
-         let ju = Judgement.mk_ty ctxu u in
-         Value.add_abstracting ~loc:uloc x ju (fun _ y ->
-         let ctxu = Context.abstract ~loc ctxu ys ts in
-         let u_abs = Tt.abstract_ty ys u in
-         let ctx = Context.join ~loc ctx ctxu in
-         fold ctx (y :: ys) (u::ts) ((x, u_abs) :: xws) xus)
-  in
-  fold Context.empty [] [] [] xus
+and infer_lambda ~loc x u c =
+  match u with
+    | Some u ->
+      check_ty u >>= fun ((ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
+      Value.add_abstracting ~loc:uloc x ju (fun _ y ->
+      infer c >>= as_term ~loc:(snd c) >>= fun (ctxe,e,t) ->
+      Matching.context_abstract ~loc ctxe [y] [u] >>= fun (ctxe,zs,es) ->
+      let ctx = Context.join ~loc ctxu ctxe in
+      let e = Tt.abstract [y] (Tt.substitute zs es e) in
+      let t = Tt.abstract_ty [y] (Tt.substitute_ty zs es t) in
+      let lam = Tt.mk_lambda ~loc x u e t
+      and prod = Tt.mk_prod_ty ~loc x u t in
+      Value.return_term (Judgement.mk_term ctx lam prod))
+    | None ->
+      Error.runtime ~loc "cannot infer the type of %t" (Name.print_ident x)
 
-and infer_prod ~loc xus c =
-  let rec fold ctx ys ts xws  = function
-      | [] ->
-        check_ty c >>= fun (ctxt, t) ->
-        Matching.context_abstract ~loc ctxt ys ts >>= fun (ctxt,zs,es) ->
-        let ctx = Context.join ~loc ctx ctxt in
-        let t = Tt.abstract_ty ys (Tt.substitute_ty zs es t) in
-        let xws = List.rev xws in
-        let prod = Tt.mk_prod ~loc xws t in
-        let typ = Tt.mk_type_ty ~loc in
-        let j = Judgement.mk_term ctx prod typ in
-        Value.return_term j
-      | (x, c) :: xus ->
-        check_ty c >>= fun (ctxu, ((Tt.Ty {Tt.loc=uloc;_}) as u)) ->
-        Matching.mk_abstractable ~loc ctxu ys >>= fun (ctxu,zs,es) ->
-        let u = Tt.substitute_ty zs es u in
-        let ju = Judgement.mk_ty ctxu u in
-        Value.add_abstracting ~loc:uloc x ju (fun _ y ->
-        let ctxu = Context.abstract ~loc ctxu ys ts in
-        let u_abs = Tt.abstract_ty ys u in
-        let ctx = Context.join ~loc ctx ctxu in
-        fold ctx (y :: ys) (u::ts) ((x, u_abs) :: xws) xus)
-  in
-  fold Context.empty [] [] [] xus
+and infer_prod ~loc x u c =
+  check_ty u >>= fun ju ->
+  let (ctxu,u) = ju in
+  let Tt.Ty {Tt.loc=uloc;_} = u in
+  Value.add_abstracting ~loc:uloc x ju (fun _ y ->
+  check_ty c >>= fun (ctx,t) ->
+  Matching.context_abstract ~loc ctx [y] [u] >>= fun (ctx,zs,es) ->
+  let ctx = Context.join ~loc ctx ctxu in
+  let t = Tt.abstract_ty [y] (Tt.substitute_ty zs es t) in
+  let prod = Tt.mk_prod ~loc x u t in
+  let typ = Tt.mk_type_ty ~loc in
+  let j = Judgement.mk_term ctx prod typ in
+  Value.return_term j)
 
-
-and check_lambda ~loc ((ctx_check, t_check') as t_check) abs body : (Context.t * Tt.term) Value.result =
-  (* If the abstractions are fully annotated with types then we
-     infer the type of the lambda and compare it to [t],
-     otherwise we express [t] as a product and descend into
-     the abstraction. *)
-
-  let all_tagged = List.for_all (function (_, None) -> false | (_, Some _) -> true) abs in
-
-  if all_tagged then
-    begin
-      (* try to infer and check equality. this might not be the end of the
-         story, [as_*] could be operations *)
-      (* for instance, an alternative would be to make a fresh pi-type and check
-         whether the type at hand [t] is equal to the fresh pi by a general hint,
-         and then continue with that one *)
-
-      (* XXX this generalisation should be done also in [fold] below and in
-         [spine], same for other [as_*] functions  *)
-
-      infer_lambda ~loc abs body >>= fun (ctxe, e, t') ->
-      require_equal_ty ~loc t_check (ctxe,t') >>=
-        begin function
-            | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e) 
-            | None ->
-              Value.print_ty >>= fun pty ->
-              Error.typing ~loc "this expression is an abstraction but should have type %t"
-                           (pty t_check')
-        end
-    end
-  else (* not all_tagged *)
-    begin
-      (Equal.Monad.run (Equal.as_prod t_check) >>= function
-        | ((_, (_::_, _)),_) as ctx_xtst -> Value.return ctx_xtst
-        | ((_, ([], _)),_) ->
-          Value.print_ty >>= fun pty ->
-          Error.impossible ~loc
-                          "this type %t should be a product, and as_prod returned an empty product"
-                          (pty t_check')
-      ) >>= fun ((ctx, (zus, t_body)),hyps) ->
-
-      (** [ys] are what got added to the environment, [xts] are what should be
-          used to check the body, [abs] comes from the binder, [zus] come from
-          the type [t] we're checking against, [hyps] ensure that previous
-          [abs] and [zus] are equal *)
-      let rec fold ctx hyps ys ts xts abs zus =
-
-        let finally t_body =
-          let t_body' = Tt.unabstract_ty ys t_body in
-          let j_t_body' = Judgement.mk_ty ctx t_body' in
-          check body j_t_body' >>= fun (ctx, e) ->
-          Matching.context_abstract ~loc ctx ys ts >>= fun (ctx,zs,es) ->
-          let e = Tt.abstract ys (Tt.substitute zs es e) in
-          let hyps = List.fold_left (fun hyps y -> Name.AtomSet.remove y hyps) hyps ys in
-          let xts = List.rev xts in
-          Value.return (ctx, Tt.mention_atoms hyps (Tt.mk_lambda ~loc xts e t_body))
-        in
-
-        match abs, zus with
-        | (x,t)::abs, (z,u)::zus ->
-
-          let u = Tt.unabstract_ty ys u in
-
-          let k ctx hyps' t =
-            let jt = Judgement.mk_ty ctx t in
-            Value.add_abstracting ~loc x jt (fun ctx y ->
-            let t_abs = Tt.abstract_ty ys t in
-            fold ctx (Name.AtomSet.union hyps hyps') (y::ys) (t::ts) ((x,t_abs)::xts) abs zus) in
-
-          begin match t with
-            | None ->
-               Value.print_ty >>= fun pty ->
-               Print.debug "untagged variable %t in lambda, using %t as type"
-                        (Name.print_ident x) (pty u);
-               k ctx Name.AtomSet.empty u
-
-            | Some c ->
-               check_ty c >>= fun (ctxt, t) ->
-               Matching.mk_abstractable ~loc ctxt ys >>= fun (ctxt,zs,es) ->
-               let t = Tt.substitute_ty zs es t in
-               require_equal_ty ~loc (ctxt,t) (ctx,u) >>=
-                 begin function
-                   | Some (ctx, hyps) -> k ctx hyps t
-                   | None ->
-                      Value.print_ty >>= fun pty ->
-                      Error.typing ~loc
-                                   "in this lambda, the variable %t should have a type@ %t\nFound type@ %t"
-                                   (Name.print_ident x) (pty u) (pty t)
-                 end
-          end
-
-        | [], [] -> finally t_body
-
-        | [], _::_ -> finally (Tt.mk_prod_ty ~loc zus t_body)
-
-        | _::_, [] ->
-           Value.print_ty >>= fun pty ->
-           Error.typing ~loc
-                        "tried to check against a type with a too short abstraction@ %t"
-                        (pty t_check')
-      in
-      fold ctx_check hyps [] [] [] abs zus
-    end (* not all_tagged *)
+and check_lambda ~loc t_check x c : (Context.t * Tt.term) Value.result =
+  Equal.Monad.run (Equal.as_prod t_check) >>= fun ((ctx,((_,a),b)),hyps) ->
+  Value.add_abstracting ~loc x (ctx,a) (fun ctx y ->
+  let b_inst = Tt.unabstract_ty [y] b in
+  check c (ctx,b_inst) >>= fun (ctx,e) ->
+  Matching.context_abstract ~loc ctx [y] [a] >>= fun (ctx,zs,es) ->
+  let e = Tt.abstract [y] (Tt.substitute zs es e) in
+  let lam = Tt.mk_lambda ~loc x a e b in
+  let lam = Tt.mention_atoms hyps lam in
+  Value.return (ctx,lam))
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
     Then [spine env e t cs] computes [xeus], [u] and [v] such that we can make
     a spine from [e], [xeus] and [u], and the type of the resulting expression
     is [v].
   *)
-and spine ~loc ((_, e_head, t_head) as j_head) cs =
-  Equal.Monad.run (Equal.as_prod (Judgement.typeof j_head)) >>= begin function
-    | ((_, (_::_, _)),_) as ctx_xtst -> Value.return ctx_xtst
-    | ((_, ([], _)),_) ->
-       Error.impossible ~loc "this expression is applied but its type is not a product, and as_prod returned an empty product"
-  end >>= fun ((ctx, (xts, t_result)),hyps) ->
-  let e_head = Tt.mention_atoms hyps e_head in
-  let rec fold es xus ctx xts cs =
-  match xts, cs with
-  | xts, [] ->
-     let xus = List.rev xus in
-     let u = Tt.mk_prod_ty ~loc xts t_result in
-     let e = Tt.mk_spine ~loc e_head xus u (List.rev es)
-     and v = Tt.instantiate_ty es u in
-     let j = Judgement.mk_term ctx e v in
-     Value.return_term j
-  | (x, t)::xts, c::cs ->
-     let t' = Tt.instantiate_ty es t in
-     check c (Judgement.mk_ty ctx t') >>= fun (ctx, e) ->
-     fold (e :: es) ((x,t) :: xus) ctx xts cs
-  | [], ((_ :: _) as cs) ->
-     let xus = List.rev xus in
-     let e = Tt.mk_spine ~loc e_head xus t_result (List.rev es)
-     and t = Tt.instantiate_ty es t_result in
-     let j = Judgement.mk_term ctx e t in
-     spine ~loc j cs
-  in
-  fold [] [] ctx xts cs
+and app ~loc ((_, h, _) as jh) c =
+  Equal.Monad.run (Equal.as_prod (Judgement.typeof jh)) >>= fun ((ctx,((x,a),b)),hyps) ->
+  let h = Tt.mention_atoms hyps h in
+  check c (ctx,a) >>= fun (ctx,e) ->
+  let res = Tt.mk_spine ~loc h x a b e in
+  let out = Tt.instantiate_ty [e] b in
+  let j = Judgement.mk_term ctx res out in
+  Value.return_term j
 
 and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmp ->
   let rec fold vs = function
@@ -779,19 +635,19 @@ let comp_handle (xs,c) =
       in
       fold2 xs vs)
 
-let comp_constant rxus c =
-  let rec fold ys ts rxws  = function
+let comp_constant xus c =
+  let rec fold ys ts xws  = function
       | [] ->
         check_ty c >>= fun (ctxt, t) ->
         Matching.context_abstract ~loc:(snd c) ctxt ys ts >>= fun (ctxt,zs,es) ->
         if Context.is_empty ctxt
         then
           let t = Tt.abstract_ty ys (Tt.substitute_ty zs es t) in
-          let rxws = List.rev rxws in
-          Value.return (rxws,t)
+          let xws = List.rev xws in
+          Value.return (xws,t)
         else
           Error.typing "Constants may not depend on free variables" ~loc:(snd c)
-      | (r,(x, c)) :: rxus ->
+      | (x, c) :: xus ->
         check_ty c >>= fun (ctxu, ((Tt.Ty {Tt.loc=uloc;_}) as u)) ->
         Matching.mk_abstractable ~loc:(snd c) ctxu ys >>= fun (ctxu,zs,es) ->
         let ctxabs = Context.abstract ~loc:(snd c) ctxu ys ts in
@@ -801,10 +657,10 @@ let comp_constant rxus c =
           let ju = Judgement.mk_ty ctxu u in
           Value.add_abstracting ~loc:uloc x ju (fun _ y ->
           let u_abs = Tt.abstract_ty ys u in
-          fold (y :: ys) (u::ts) ((x, (r,u_abs)) :: rxws) rxus)
+          fold (y :: ys) (u::ts) ((x, u_abs) :: xws) xus)
         else
           Error.typing "Constants may not depend on free variables" ~loc:(snd c)
   in
-  let r = fold [] [] [] rxus in
+  let r = fold [] [] [] xus in
   Value.top_handle ~loc:(snd c) r
 

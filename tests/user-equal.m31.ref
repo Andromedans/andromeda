@@ -3,8 +3,8 @@ Constant a is declared.
 Constant b is declared.
 Constant f is declared.
 test is defined.
-⊢ refl (f b a) : (λ (x : A) (y : A), f y x) a b ≡ f b a
+⊢ refl ((f b) a) : ((λ (x : A), λ (y : A), (f y) x) a) b ≡ (f b) a
 _ is defined.
 Constant eq is declared.
 _ is defined.
-⊢ eq a : f a a ≡ b
+⊢ eq a : (f a) a ≡ b

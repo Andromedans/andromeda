@@ -1,6 +1,6 @@
 (** The abstract syntax of Andromedan type theory (TT). *)
 
-type ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
+type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
 type term = {
   term : term';
@@ -19,7 +19,7 @@ and term' =
   | Bound of Syntax.bound
   | Constant of Name.ident * term list
   | Lambda of (term * ty) ty_abstraction
-  | Spine of term * ty ty_abstraction * term list
+  | Spine of term * ty ty_abstraction * term
   | Prod of ty ty_abstraction
   | Eq of ty * term * term
   | Refl of ty * term
@@ -35,7 +35,7 @@ and signature = (Name.ident * Name.ident * ty) list
 
 and structure = (Name.ident * Name.ident * ty * term) list
 
-type constsig = ((bool * ty), ty) abstraction
+type constsig = (Name.ident * ty) list * ty
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
@@ -52,34 +52,23 @@ let mk_constant ~loc x es = {
   loc = loc
 }
 
-let mk_lambda ~loc xts e t =
-  match xts with
-  | [] -> e
-  | _ :: _ -> { term = Lambda (xts, (e, t)) ;
-                assumptions=Assumption.empty ;
-                loc = loc}
+let mk_lambda ~loc x a e b = {
+  term = Lambda ((x, a), (e, b)) ;
+  assumptions=Assumption.empty ;
+  loc = loc
+}
 
-let mk_prod ~loc xts ((Ty e) as t) =
-  match xts with
-  | [] -> e
-  | _ :: _ ->
-    begin match e with
-    (* XXX join locations loc and loc' *)
-    | {term=Prod (yts, t); assumptions=_; loc=loc'} ->
-       { term = Prod (xts @ yts, t) ;
-         assumptions = Assumption.empty;
-         loc = loc }
-    | _ -> { term = Prod (xts, t);
-             assumptions=Assumption.empty;
-             loc = loc }
-    end
+let mk_prod ~loc x a b = {
+  term = Prod ((x, a), b) ;
+  assumptions=Assumption.empty ;
+  loc = loc
+}
 
-let mk_spine ~loc e xts t es =
-  match xts with
-    | [] -> { e with loc }
-    | _::_ -> { term = Spine (e, (xts, t), es);
-                assumptions = Assumption.empty;
-                loc = loc }
+let mk_spine ~loc e1 x a b e2 = {
+  term = Spine (e1, ((x, a),b), e2);
+  assumptions = Assumption.empty;
+  loc = loc
+}
 
 let mk_type ~loc =
   { term = Type;
@@ -115,7 +104,7 @@ let mk_projection ~loc te xts x =
 let ty e = Ty e
 
 let mk_eq_ty ~loc t e1 e2 = ty (mk_eq ~loc t e1 e2)
-let mk_prod_ty ~loc xts t = ty (mk_prod ~loc xts t)
+let mk_prod_ty ~loc x a b = ty (mk_prod ~loc x a b)
 let mk_type_ty ~loc = ty (mk_type ~loc)
 let mk_signature_ty ~loc lst = ty (mk_signature ~loc lst)
 
@@ -133,16 +122,11 @@ let mention a e =
 let rec instantiate_ty_abstraction :
   'a. (term list -> ?lvl:int -> 'a -> 'a) ->
   term list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
-  = fun instantiate_v es ?(lvl=0) (xus, v) ->
-    let rec inst acc lvl = function
-      | [] ->
-         let v = instantiate_v es ~lvl v
-         in List.rev acc, v
-      | (x,u) :: xus ->
-         let u = instantiate_ty es ~lvl u in
-         inst ((x,u) :: acc) (lvl+1) xus
-    in
-    inst [] lvl xus
+  = fun instantiate_v es ?(lvl=0) ((x,u), v) ->
+  let u = instantiate_ty es ~lvl u in
+  let lvl = lvl+1 in
+  let v = instantiate_v es ~lvl v in
+  ((x,u),v)
 
 and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
   if es = [] then e else
@@ -179,11 +163,11 @@ and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
        let a = instantiate_ty_abstraction instantiate_term_ty es ~lvl a in
        {term = Lambda a; assumptions; loc}
 
-    | Spine (e, xtst, ds) ->
+    | Spine (e, xtst, d) ->
        let e = instantiate es ~lvl e
        and xtst = instantiate_ty_abstraction instantiate_ty es ~lvl xtst
-       and ds = List.map (instantiate es ~lvl) ds in
-       {term = Spine (e, xtst, ds); assumptions; loc}
+       and d = instantiate es ~lvl d in
+       {term = Spine (e, xtst, d); assumptions; loc}
 
     | Prod a ->
        let a = instantiate_ty_abstraction instantiate_ty es ~lvl a in
@@ -254,16 +238,11 @@ let unabstract_ty xs ?(lvl=0) (Ty t) =
 let rec abstract_ty_abstraction :
   'a. (Name.atom list -> ?lvl:int -> 'a -> 'a) ->
   Name.atom list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
-  = fun abst_v ys ?(lvl=0) (xus,v) ->
-    let rec abst acc lvl = function
-      | [] ->
-         let v = abst_v ys ~lvl v
-         in List.rev acc, v
-      | (x,u) :: xus ->
-         let u = abstract_ty ys ~lvl u in
-         abst ((x,u) :: acc) (lvl+1) xus
-    in
-    abst [] lvl xus
+  = fun abst_v ys ?(lvl=0) ((x,u),v) ->
+  let u = abstract_ty ys ~lvl u in
+  let lvl = lvl+1 in
+  let v = abst_v ys ~lvl v in
+  ((x,u),v)
 
 and abstract xs ?(lvl=0) ({term=e';assumptions;loc;} as e) =
   let assumptions = Assumption.abstract xs lvl assumptions in
@@ -288,11 +267,11 @@ and abstract xs ?(lvl=0) ({term=e';assumptions;loc;} as e) =
     let a = abstract_ty_abstraction abstract_term_ty xs ~lvl a in
     {term = Lambda a; assumptions; loc}
 
-  | Spine (e, xtst, es) ->
-    let e = abstract xs ~lvl e
+  | Spine (e1, xtst, e2) ->
+    let e1 = abstract xs ~lvl e1
     and xtst = abstract_ty_abstraction abstract_ty xs ~lvl xtst
-    and es = List.map (abstract xs ~lvl) es in
-    {term = Spine (e, xtst, es); assumptions; loc}
+    and e2 = abstract xs ~lvl e2 in
+    {term = Spine (e1, xtst, e2); assumptions; loc}
 
   | Prod a ->
     let a = abstract_ty_abstraction abstract_ty xs ~lvl a in
@@ -364,24 +343,13 @@ let substitute_ty xs es (Ty ty) =
 let substitute_ty_abstraction :
   'a. (Name.atom list -> term list -> 'a -> 'a) ->
   Name.atom list -> term list -> 'a ty_abstraction -> 'a ty_abstraction
-  = fun subst_v ys es (xus,v) ->
-    let rec subst acc = function
-      | [] ->
-         let v = subst_v ys es v
-         in List.rev acc, v
-      | (x,u) :: xus ->
-         let u = substitute_ty ys es u in
-         subst ((x,u) :: acc) xus
-    in
-    subst [] xus
+  = fun subst_v ys es ((x,u),v) ->
+  let u = substitute_ty ys es u in
+  let v = subst_v ys es v in
+  ((x,u),v)
 
-
-let occurs_abstraction occurs_u occurs_v k (xus, v) =
-  let rec fold k = function
-    | [] -> occurs_v k v
-    | (_,u) :: xus -> occurs_u k u + fold (k+1) xus
-  in
-    fold k xus
+let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
+  occurs_u k u + occurs_v (k+1) v
 
 (* How many times does bound variable [k] occur in an expression? Used only for printing. *)
 let rec occurs k {term=e';_} =
@@ -391,10 +359,10 @@ let rec occurs k {term=e';_} =
   | Bound m -> if k = m then 1 else 0
   | Constant (x, es) -> List.fold_left (fun i e -> i + occurs k e) 0 es
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
-  | Spine (e, xtst, es) ->
-    occurs k e +
+  | Spine (e1, xtst, e2) ->
+    occurs k e1 +
     occurs_abstraction occurs_ty occurs_ty k xtst +
-    List.fold_left (fun i e -> i + occurs k e) 0 es
+    occurs k e2
   | Prod a ->
     occurs_abstraction occurs_ty occurs_ty k a
   | Eq (t, e1, e2) ->
@@ -436,7 +404,12 @@ and occurs_term_ty k (e, t) =
 let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
 
 
-let rec gather_assumptions {term=e;assumptions;_} =
+let rec gather_assumptions_ty_abs : 'a. ('a -> Assumption.t) -> 'a ty_abstraction -> Assumption.t = fun gather_v ((x,u),v) ->
+  let a1 = gather_assumptions_ty u in
+  let a2 = gather_v v in
+  Assumption.union a1 (Assumption.bind 1 a2)
+
+and gather_assumptions {term=e;assumptions;_} =
   match e with
     | Type | Atom _ | Bound _ -> assumptions
 
@@ -445,40 +418,15 @@ let rec gather_assumptions {term=e;assumptions;_} =
           Assumption.union assumptions (gather_assumptions e))
         assumptions es
 
-    | Lambda (xs,(body,out)) ->
-      let body = gather_assumptions body
-      and out = gather_assumptions_ty out in
-      let assumptions' = List.fold_left (fun assumptions (x,tx) ->
-          let assumptions = Assumption.bind 1 assumptions in
-          let tx = gather_assumptions_ty tx in
-          Assumption.union assumptions tx)
-        (Assumption.union body out) (List.rev xs)
-      in
-      Assumption.union assumptions assumptions'
+    | Lambda a -> gather_assumptions_ty_abs gather_term_ty a
 
-    | Spine (e,(xs,out),es) ->
-      let out = gather_assumptions_ty out in
-      let assumptions' = List.fold_left (fun assumptions (x,tx) ->
-          let assumptions = Assumption.bind 1 assumptions in
-          let tx = gather_assumptions_ty tx in
-          Assumption.union assumptions tx)
-        out (List.rev xs)
-      in
-      let e = gather_assumptions e in
-      let assumptions = Assumption.union assumptions (Assumption.union assumptions' e) in
-      List.fold_left (fun assumptions e ->
-          Assumption.union assumptions (gather_assumptions e))
-        assumptions es
+    | Spine (e1,xts,e2) ->
+      let a1 = gather_assumptions e1
+      and a2 = gather_assumptions_ty_abs gather_assumptions_ty xts
+      and a3 = gather_assumptions e2 in
+      Assumption.union a1 (Assumption.union a2 a3)
 
-    | Prod (xs,out) ->
-      let out = gather_assumptions_ty out in
-      let assumptions' = List.fold_left (fun assumptions (x,tx) ->
-          let assumptions = Assumption.bind 1 assumptions in
-          let tx = gather_assumptions_ty tx in
-          Assumption.union assumptions tx)
-        out (List.rev xs)
-      in
-      Assumption.union assumptions assumptions'
+    | Prod a -> gather_assumptions_ty_abs gather_assumptions_ty a
 
     | Eq (t,e1,e2) ->
       let t = gather_assumptions_ty t
@@ -522,6 +470,11 @@ let rec gather_assumptions {term=e;assumptions;_} =
 
 and gather_assumptions_ty (Ty t) = gather_assumptions t
 
+and gather_term_ty (e,t) =
+  let a = gather_assumptions e
+  and a' = gather_assumptions_ty t in
+  Assumption.union a a'
+
 let assumptions_term ({loc;_} as e) =
   let a = gather_assumptions e in
   Assumption.as_atom_set ~loc a
@@ -538,16 +491,8 @@ let bound_ty (Ty t) = bound_term t
 
 (* Currently, the only difference between alpha and structural equality is that
    the names of variables in abstractions are ignored. *)
-let alpha_equal_abstraction alpha_equal_u alpha_equal_v (xus, v) (xus', v') =
-  let rec eq xus xus' =
-    match xus, xus' with
-    | [], [] -> true
-    | (_, u) :: xus, (_, u') :: xus' ->
-        alpha_equal_u u u' &&
-        eq xus xus'
-    | [], _::_ | _::_, [] -> false
-  in
-  eq xus xus' &&
+let alpha_equal_abstraction alpha_equal_u alpha_equal_v ((x,u), v) ((x,u'), v') =
+  alpha_equal_u u u' &&
   alpha_equal_v v v'
 
 let rec alpha_equal_list equal_e es es' =
@@ -572,10 +517,10 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
     | Lambda abs, Lambda abs' ->
       alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
 
-    | Spine (e, xts, es), Spine (e', xts', es') ->
-      alpha_equal e e' &&
+    | Spine (e1, xts, e2), Spine (e1', xts', e2') ->
+      alpha_equal e1 e1' &&
       alpha_equal_abstraction alpha_equal_ty alpha_equal_ty xts xts' &&
-      alpha_equal_list alpha_equal es es'
+      alpha_equal e2 e2'
 
     | Type, Type -> true
 
@@ -698,7 +643,7 @@ and print_term' ?max_level xs e ppf =
 
       | Spine (e, xtst, es) -> print ~at_level:1 "%t" (print_spine xs e xtst es)
 
-      | Prod (ts, t) -> print ~at_level:3 "%t" (print_prod xs ts t)
+      | Prod xts -> print ~at_level:3 "%t" (print_prod xs xts)
 
       | Eq (t, e1, e2) ->
         print ~at_level:2 "@[<hv 2>%t@ %s%t %t@]"
@@ -739,36 +684,26 @@ and print_lambda xs (yus, (e, t)) ppf =
       yus)
 
 (** [print_prod xs ts t ppf] prints a dependent product using formatter [ppf]. *)
-and print_prod xs yus v ppf =
-  let rec split_binders = function
-    | [] -> [], []
-    | (y,u) :: yus ->
-      if occurs_ty_abstraction occurs_ty 0 (yus, v) > 0 then
-        let xus, yus = split_binders yus in
-            (y,u) :: xus, yus
-      else
-        [], (y,u) :: yus
-  in
-  match split_binders yus with
-  | [], [] -> Print.print ppf "%t" (print_ty xs v)
-  | [], (y,u) :: yus ->
-      Print.print ppf "@[<hov 2>%t@ %s@ %t@]"
-          (print_ty ~max_level:2 xs u)
-          (Print.char_arrow ())
-          (print_prod (Name.anonymous::xs) yus v)
-  | (_::_ as xus), yus ->
+and print_prod xs ((y,u),t) ppf =
+  if occurs_ty 0 t > 0
+  then
     Print.print ppf "@[<hov 2>%s %t@]"
       (Print.char_prod ())
       (Name.print_binders
         (Name.print_binder1 print_ty)
-        (fun xs ppf -> Print.print ppf "@ %t" (print_prod xs yus v))
-        xs xus)
+        (fun xs -> print_ty xs t)
+        xs (y,u))
+  else
+    Print.print ppf "@[<hov 2>%t@ %s@ %t@]"
+          (print_ty ~max_level:2 xs u)
+          (Print.char_arrow ())
+          (print_ty (Name.anonymous::xs) t)
 
-and print_spine xs e (yts, u) es ppf =
+and print_spine xs e1 (yts, u) e2 ppf =
   let spine_noannot ppf =
     Print.print ppf "@[<hov 2>%t@ %t@]"
-      (print_term ~max_level:0 xs e)
-      (Print.sequence (print_term ~max_level:0 xs) "" es)
+      (print_term ~max_level:0 xs e1)
+      (print_term ~max_level:0 xs e2)
   in
   if !Config.annotate
   then
@@ -838,21 +773,7 @@ and print_projection xs te xts p ppf =
       (print_term ~max_level:0 xs te)
       (Name.print_ident p)
 
-let print_constsig ?max_level xs (rxus, t) ppf =
-  let print_xs =
-    (fun xs x (red, u) ppf ->
-       Print.print ppf "(@[<hv>%s%t :@ %t@])"
-         (if red then "reduce " else "")
-         (Name.print_ident x)
-         (print_ty ~max_level:0 xs u)) in
-  let print_u =
-    (fun sp xs ppf ->
-       Print.print ppf "%s:@;<1 -2>%t"
-         sp (print_ty ?max_level xs t)) in
-  match rxus with
-  | [] -> print_u "" xs ppf
-  | _::_ -> Name.print_binders print_xs (print_u " ") xs rxus ppf
-
+let print_constsig ?max_level xs (xus, t) ppf = assert false (* TODO *)
 
 (****** Structure stuff ********)
 

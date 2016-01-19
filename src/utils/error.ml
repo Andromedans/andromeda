@@ -1,9 +1,13 @@
 (** Error reporting *)
 
+type ('a,'b) res =
+  | OK of 'a
+  | Err of 'b
+
 type details = Location.t * string * string
 
 let print (loc, err_kind, msg) ppf =
-  Print.message ~verbosity:1 "%t: %s\n%s"
+  Format.fprintf ppf "%t: %s\n%s"
     (Location.print loc) err_kind msg
 
 exception Error of details

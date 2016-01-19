@@ -37,7 +37,7 @@
 %token ARROW DARROW
 
 (* Things specific to toplevel *)
-%token CHECK
+%token CHECK FAIL
 %token CONSTANT REDUCE
 
 (* Let binding *)
@@ -116,7 +116,8 @@ plain_topcomp:
        { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | CHECK c=term                                      { TopCheck c }
-  | CONSTANT x=name yst=primarg* COLON u=term         { Axiom (x, List.concat yst, u)}
+  | FAIL c=term                                       { TopFail c }
+  | CONSTANT x=name yst=constarg* COLON u=term        { Axiom (x, List.concat yst, u)}
   | DATA x=name k=NUMERAL                             { Data (x, k) }
   | OPERATION op=name k=NUMERAL                       { Operation (op, k) }
 
@@ -206,6 +207,7 @@ plain_simple_term:
   | TYPE                                            { Type }
   | x=var_name                                      { Var x }
   | EXTERNAL s=QUOTED_STRING                        { External s }
+  | s=QUOTED_STRING                                 { String s }
   | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
   | LPAREN e=plain_term RPAREN                      { e }
   | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
@@ -258,15 +260,11 @@ maybe_typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, Some t)) xs }
   | xs=name+                  { List.map (fun x -> (x, None)) xs }
 
-primarg:
-  | LPAREN lst=separated_nonempty_list(COMMA, primarg_entry) RPAREN  { List.concat lst }
+constarg:
+  | LPAREN lst=separated_nonempty_list(COMMA, constarg_entry) RPAREN  { List.concat lst }
 
-primarg_entry:
-  | b=reduce xs=nonempty_list(name) COLON t=ty_term   { List.map (fun x -> (b, (x, t))) xs }
-
-reduce:
-  |        { false }
-  | REDUCE { true }
+constarg_entry:
+  | xs=nonempty_list(name) COLON t=ty_term   { List.map (fun x -> (x, t)) xs }
 
 (* function arguments *)
 function_abstraction:

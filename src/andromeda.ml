@@ -69,10 +69,6 @@ let options = Arg.align [
      Arg.Set_int Config.verbosity,
      "<n> Set printing verbosity to <n>");
 
-    ("--ignore-hints",
-     Arg.Set Config.ignore_hints,
-     " Ignore all installed hints");
-
     ("-n",
      Arg.Clear Config.interactive_shell,
      " Do not run the interactive toplevel");
@@ -130,9 +126,9 @@ let rec exec_cmd base_dir interactive c =
      (if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
      return ())
 
-  | Syntax.Axiom (x, ryus, c) ->
-     Eval.comp_constant ryus c >>= fun yrusv ->
-     Value.add_constant ~loc x yrusv >>
+  | Syntax.Axiom (x, yus, c) ->
+     Eval.comp_constant yus c >>= fun yusv ->
+     Value.add_constant ~loc x yusv >>
      (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
      return ())
 
@@ -153,6 +149,16 @@ let rec exec_cmd base_dir interactive c =
      Value.top_print_value >>= fun print_value ->
      (if interactive then Format.printf "%t@." (print_value v) ;
      return ())
+
+  | Syntax.TopFail c ->
+    Value.catch (Eval.comp_value c) >>= begin function
+      | Error.Err err ->
+        (if interactive then Format.printf "The command failed with error:\n%t@." (Error.print err));
+        return ()
+      | Error.OK v ->
+        Value.top_print_value >>= fun pval ->
+        Error.runtime ~loc "The command has not failed: got %t." (pval v)
+      end
 
   | Syntax.Include (fs,once) ->
     fold (fun () f ->
@@ -202,7 +208,7 @@ let toplevel cmp =
         let cmd = parse Lexer.read_toplevel Parser.commandline () in
         pc := Value.progress !pc (fun () -> exec_cmd Filename.current_dir_name true cmd)
       with
-      | Error.Error err -> Error.print err Format.err_formatter
+      | Error.Error err -> Print.error "%t" (Error.print err)
       | Sys.Break -> Format.eprintf "Interrupted.@."
     done
   with End_of_file -> ()
@@ -260,5 +266,5 @@ let main =
       then toplevel comp
       else Value.run comp
   with
-    Error.Error err -> Error.print err Format.err_formatter; exit 1
+    Error.Error err -> Print.error "%t" (Error.print err); exit 1
 

@@ -6,6 +6,8 @@ let message ~verbosity =
   else
     Format.ifprintf Format.err_formatter
 
+let error fmt = message ~verbosity:1 fmt
+
 let warning fmt = message ~verbosity:2 ("Warning: " ^^ fmt)
 
 let debug fmt = message ~verbosity:3 ("Debug: " ^^ fmt)

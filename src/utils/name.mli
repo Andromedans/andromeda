@@ -73,5 +73,5 @@ val print_binder1 :
 val print_binders :
   (ident list -> ident -> 'a -> Format.formatter -> unit) ->
   (ident list -> Format.formatter -> unit) ->
-  ident list -> (ident * 'a) list ->
+  ident list -> (ident * 'a) ->
   Format.formatter -> unit

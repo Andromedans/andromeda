@@ -72,6 +72,7 @@ and term' =
   | Yield of comp
   | Context
   | Congruence of comp * comp
+  | String of string
 
 (** Sugared types *)
 and ty = term
@@ -97,11 +98,12 @@ type toplevel = toplevel' * Location.t
 and toplevel' =
   | Operation of Name.ident * int
   | Data of Name.ident * int
-  | Axiom of Name.ident * (bool * (Name.ident * ty)) list * ty
+  | Axiom of Name.ident * (Name.ident * ty) list * ty
     (** introduce a primitive constant, the boolean is [true] if the argument is eagerly reducing *)
   | TopHandle of (Name.ident * Name.ident list * comp) list
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
+  | TopFail of comp
   | Verbosity of int
   | Include of string list * bool (** the boolean is [true] if the files should be included only once *)
   | Quit (** quit the toplevel *)
