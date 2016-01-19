@@ -216,7 +216,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
     Monad.context_abstract ~loc ctx [y] [a1] >!= fun ctx ->
     Opt.return ctx)
 
-  | Tt.Spine (h1, ((x,a1),b1), e1), Tt.Spine (h2, ((_,a2),b2), e2) ->
+  | Tt.Apply (h1, ((x,a1),b1), e1), Tt.Apply (h2, ((_,a2),b2), e2) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
     Opt.locally (Opt.add_abstracting ~loc x (Judgement.mk_ty ctx a1) (fun ctx y ->
       let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
@@ -271,7 +271,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
       equal ctx te1 te2 t
     else Opt.fail
 
-  | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Spine _ |
+  | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _ |
      Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ |
      Tt.Signature _ | Tt.Structure _ | Tt.Projection _), _ ->
      Opt.fail
@@ -301,14 +301,14 @@ let projection_reduce ~loc ctx xts p xtes =
 
 let reduce_step ctx {Tt.term=e'; assumptions; loc} =
   match e' with
-  | Tt.Spine (e1, (xts, t), e2) ->
+  | Tt.Apply (e1, (xts, t), e2) ->
      begin match e1.Tt.term with
            | Tt.Lambda (xus, (e', u)) ->
               beta_reduce ~loc ctx xus e' u xts t e2 >?= fun (ctx, e) ->
               Opt.return (ctx, Tt.mention assumptions e)
            | Tt.Atom _
            | Tt.Constant _
-           | Tt.Spine _
+           | Tt.Apply _
            | Tt.Type
            | Tt.Prod _
            | Tt.Eq _
@@ -317,7 +317,7 @@ let reduce_step ctx {Tt.term=e'; assumptions; loc} =
            | Tt.Structure _
            | Tt.Projection _ -> Opt.fail
            | Tt.Bound _ ->
-              Error.impossible ~loc "de Bruijn encountered in a spine head in reduce"
+              Error.impossible ~loc "de Bruijn encountered in an apply head in reduce"
      end
 
   | Tt.Projection (e,xts,p) ->
@@ -329,7 +329,7 @@ let reduce_step ctx {Tt.term=e'; assumptions; loc} =
        | Tt.Atom _
        | Tt.Constant _
        | Tt.Lambda _
-       | Tt.Spine _
+       | Tt.Apply _
        | Tt.Type
        | Tt.Prod _
        | Tt.Eq _

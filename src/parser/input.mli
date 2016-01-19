@@ -15,7 +15,7 @@ and tt_pattern' =
   | Tt_Name of Name.ident
   (** For each binder the boolean indicates whether the bound variable should be a pattern variable *)
   | Tt_Lambda of bool * Name.ident * tt_pattern option * tt_pattern
-  | Tt_App of tt_pattern * tt_pattern
+  | Tt_Apply of tt_pattern * tt_pattern
   | Tt_Prod of bool * Name.ident * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern

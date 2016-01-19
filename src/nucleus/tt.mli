@@ -46,7 +46,7 @@ and term' = private
       [e] is applied to [e1, ..., en], and that the type of [e] is
       [forall (x1 : t1) ... (xn : tn), t]. Here [tk] depends on
       [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Spine of term * ty ty_abstraction * term
+  | Apply of term * ty ty_abstraction * term
 
   (** a dependent product [forall (x1 : t1) ... (xn : tn), t], where [tk]
       depends on [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
@@ -89,7 +89,7 @@ type constsig = (Name.ident * ty) list * ty
 val mk_atom: loc:Location.t -> Name.atom -> term
 val mk_constant: loc:Location.t -> Name.ident -> term list -> term
 val mk_lambda: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
-val mk_spine: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
+val mk_apply: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
 val mk_type: loc:Location.t -> term
 val mk_type_ty: loc:Location.t -> ty
 val mk_prod: loc:Location.t -> Name.ident -> ty -> ty -> term

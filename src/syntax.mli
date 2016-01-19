@@ -13,7 +13,7 @@ and tt_pattern' =
   | Tt_Type
   | Tt_Constant of Name.ident
   | Tt_Lambda of Name.ident * bound option * tt_pattern option * tt_pattern
-  | Tt_App of tt_pattern * tt_pattern
+  | Tt_Apply of tt_pattern * tt_pattern
   | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
@@ -58,7 +58,7 @@ and comp' =
   | Typeof of comp
   | Constant of Name.ident * comp list
   | Lambda of Name.ident * comp option * comp
-  | App of comp * comp
+  | Apply of comp * comp
   | Prod of Name.ident * comp * comp
   | Eq of comp * comp
   | Refl of comp

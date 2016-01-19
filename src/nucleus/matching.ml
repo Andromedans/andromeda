@@ -129,7 +129,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
      in
      collect_tt_pattern env xvs p ctx te out
 
-  | Syntax.Tt_App (p1,p2), Tt.Spine (e1,((x,a),b),e2) ->
+  | Syntax.Tt_Apply (p1,p2), Tt.Apply (e1,((x,a),b),e2) ->
     let prod = Tt.mk_prod_ty ~loc x a b in
     let xvs = collect_tt_pattern env xvs p1 ctx e1 prod in
     let xvs = collect_tt_pattern env xvs p2 ctx e2 a in
@@ -246,7 +246,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
        xvs
      else raise Match_fail
 
-  | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_App _
+  | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Apply _
      | Syntax.Tt_Lambda _ | Syntax.Tt_Prod _
      | Syntax.Tt_Eq _ | Syntax.Tt_Refl _
      | Syntax.Tt_Signature _ | Syntax.Tt_Structure _

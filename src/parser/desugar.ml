@@ -80,10 +80,10 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       let p, vars, n = tt_pattern env (add_bound x bound) vars n p in
       (Syntax.Tt_Lambda (x,bopt,popt,p), loc), vars, n
 
-    | Input.Tt_App (p1,p2) ->
+    | Input.Tt_Apply (p1,p2) ->
       let p1, vars, n = tt_pattern env bound vars n p1 in
       let p2, vars, n = tt_pattern env bound vars n p2 in
-      (Syntax.Tt_App (p1,p2), loc), vars, n
+      (Syntax.Tt_Apply (p1,p2), loc), vars, n
 
     | Input.Tt_Prod (b,x,popt,p) ->
       let popt, vars, n = match popt with
@@ -531,7 +531,7 @@ and spine ~yield env bound ((c',loc) as c) cs =
 
   List.fold_left (fun h c ->
     let c = comp ~yield env bound c in
-    Syntax.App (h,c), loc) c cs
+    Syntax.Apply (h,c), loc) c cs
 
 (* Desugar handler cases. *)
 and handler ~loc env bound hcs =
