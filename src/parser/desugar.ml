@@ -48,13 +48,10 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
         | Some k -> (Syntax.Tt_Bound k, loc), vars, n
         | None ->
            begin
-             match Value.get_constant x env with
-               | Some (lst, _) ->
-                  if List.length lst = 0 then
-                    (Syntax.Tt_Constant x, loc), vars, n
-                  else
-                    Error.syntax ~loc "matching against constant %t is not implemented" (Name.print_ident x)
-               | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
+             if Value.is_constant x env then
+               (Syntax.Tt_Constant x, loc), vars, n
+             else
+               Error.syntax ~loc "unknown name %t" (Name.print_ident x)
            end
       end
 
@@ -396,14 +393,12 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
          | None ->
             begin
               match Value.lookup_decl x env with
-              | Some (Value.Constant (lst, _)) ->
-                 let k = List.length lst in
-                 if k = 0 then constant ~loc ~yield env bound x []
-                 else Error.syntax ~loc "this constant needs %d more arguments" k
+              | Some (Value.Constant __) ->
+                 Syntax.Constant x, loc
 
               | Some (Value.Data k) ->
                  if k = 0 then Syntax.Tag (x, []), loc
-                 else Error.syntax ~loc "this constant needs %d more arguments" k
+                 else Error.syntax ~loc "this data tag needs %d more arguments" k
 
               | Some (Value.Operation k) ->
                  if k = 0 then Syntax.Perform (x, []), loc
@@ -507,11 +502,8 @@ and spine ~yield env bound ((c',loc) as c) cs =
          begin
            match Value.lookup_decl x env with
 
-           | Some (Value.Constant (lst, _)) ->
-              let k = List.length lst in
-              let cs', cs = split "constant" k cs in
-              (* We make a constant from [x] and [cs'] *)
-              constant ~loc ~yield env bound x cs', cs
+           | Some (Value.Constant _) ->
+              (Syntax.Constant x, loc), cs
 
            | Some (Value.Data k) ->
               let cs', cs = split "data constructor" k cs in
@@ -597,10 +589,6 @@ and multimatch_case ~yield env bound (ps, c) =
   let c = comp ~yield env bound c in
   (xs, ps, c)
 
-and constant ~loc ~yield env bound x cs =
-  let cs = List.map (comp ~yield env bound) cs in
-  Syntax.Constant (x, cs), loc
-
 and tag ~loc ~yield env bound x cs =
   let cs = List.map (comp ~yield env bound) cs in
   Syntax.Tag (x, cs), loc
@@ -615,20 +603,9 @@ let toplevel (env : Value.env) bound (d', loc) =
 
     | Input.Data (x, k) -> Syntax.Data (x, k)
 
-    | Input.Axiom (x, yts, u) ->
-      let rec fold bound yts' = function
-        | [] ->
-          let u = comp ~yield:false env bound u in
-          let yts' = List.rev yts' in
-          (yts', u)
-        | (y, t) :: yts ->
-          let t = comp ~yield:false env bound t in
-          let bound = add_bound y bound
-          and yts' = (y, t) :: yts' in
-          fold bound yts' yts
-      in
-      let yts, u = fold bound [] yts in
-      Syntax.Axiom (x, yts, u)
+    | Input.Axiom (x, u) ->
+       let u = comp ~yield:false env bound u in
+       Syntax.Axiom (x, u)
 
     | Input.TopHandle lst ->
         let lst =

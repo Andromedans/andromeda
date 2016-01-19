@@ -2,7 +2,7 @@
 
 (* Information about a toplevel declaration *)
 type decl =
-  | Constant of Tt.constsig
+  | Constant of Tt.ty
   | Data of int
   | Operation of int
 
@@ -138,10 +138,10 @@ val lookup_operation : Name.ident -> env -> int option
 val lookup_data : Name.ident -> env -> int option
 
 (** Lookup a constant. *)
-val lookup_constant : Name.ident -> Tt.constsig option result
+val lookup_constant : Name.ident -> Tt.ty option result
 
-(** Lookup a constant in desugar mode *)
-val get_constant :  Name.ident -> env -> Tt.constsig option
+(** Is the given identifier a constant? *)
+val is_constant :  Name.ident -> env -> bool
 
 (** Lookup abstracting variables. *)
 val lookup_abstracting : Judgement.term list result
@@ -178,7 +178,7 @@ val add_data : loc:Location.t -> Name.ident -> int -> unit toplevel
 
 (** Add a constant of a given signature to the environment.
   Fails if the constant is already declared. *)
-val add_constant : loc:Location.t -> Name.ident -> Tt.constsig -> unit toplevel
+val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
 
 (** Add a bound variable with the given name to the environment.
     Complain if then name is already used. *)

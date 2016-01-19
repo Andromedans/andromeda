@@ -197,35 +197,14 @@ let rec infer (c',loc) =
      let j = Judgement.mk_term ctx e t' in
      Value.return_term j
 
-  | Syntax.Constant (x, cs) ->
-
+  | Syntax.Constant x ->
     begin Value.lookup_constant x >>= function
-      | Some ytsu -> Value.return ytsu
+      | Some t ->
+         let e = Tt.mk_constant ~loc x in
+         let eu = Judgement.mk_term Context.empty e t in
+         Value.return_term eu
       | None -> Error.typing ~loc "unknown constant %t" (Name.print_ident x)
-    end >>= fun (yts,u) ->
-    let rec fold ctx es yts cs =
-      match yts, cs with
-      | [], [] ->
-        let u = Tt.instantiate_ty es u
-        and e = Tt.mk_constant ~loc x (List.rev es) in
-        let eu = Judgement.mk_term ctx e u in
-        Value.return_term eu
-
-      | (y,t)::yts, c::cs ->
-        let t = Tt.instantiate_ty es t in
-        let jt = Judgement.mk_ty ctx t in
-        check c jt >>= fun (ctx, e) ->
-        fold ctx (e :: es) yts cs
-
-      | _::_, [] ->
-        Error.typing ~loc "too few arguments in a primitive operation (%d missing)"
-          (List.length yts)
-
-      | _, _::_ ->
-        Error.impossible ~loc "too many arguments in a primitive operation (%d extra)"
-          (List.length cs)
-    in
-    fold Context.empty [] yts cs
+    end
 
   | Syntax.Lambda (x,u,c) ->
      infer_lambda ~loc x u c
@@ -631,37 +610,6 @@ let comp_handle (xs,c) =
       in
       fold2 xs vs)
 
-let comp_constant xus c =
-  let rec fold ys ts xws  = function
-      | [] ->
-        check_ty c >>= fun (ctxt, t) ->
-        Matching.context_abstract ~loc:(snd c) ctxt ys ts >>= fun (ctxt,zs,es) ->
-        if Context.is_empty ctxt
-        then
-          let t = Tt.abstract_ty ys (Tt.substitute_ty zs es t) in
-          let xws = List.rev xws in
-          Value.return (xws,t)
-        else
-          Error.typing "Constants may not depend on free variables" ~loc:(snd c)
-      | (x, c) :: xus ->
-        check_ty c >>= fun (ctxu, ((Tt.Ty {Tt.loc=uloc;_}) as u)) ->
-        Matching.mk_abstractable ~loc:(snd c) ctxu ys >>= fun (ctxu,zs,es) ->
-        let ctxabs = Context.abstract ~loc:(snd c) ctxu ys ts in
-        if Context.is_empty ctxabs
-        then
-          let u = Tt.substitute_ty zs es u in
-          let ju = Judgement.mk_ty ctxu u in
-          Value.add_abstracting ~loc:uloc x ju (fun _ y ->
-          let u_abs = Tt.abstract_ty ys u in
-          fold (y :: ys) (u::ts) ((x, u_abs) :: xws) xus)
-        else
-          Error.typing "Constants may not depend on free variables" ~loc:(snd c)
-  in
-  let r = fold [] [] [] xus in
-  Value.top_handle ~loc:(snd c) r
-
-
-
 (** Evaluation of toplevel computations *)
 
 let parse lex parse resource =
@@ -712,11 +660,15 @@ let rec exec_cmd base_dir interactive c =
      (if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
      return ())
 
-  | Syntax.Axiom (x, ryus, c) ->
-     comp_constant ryus c >>= fun yrusv ->
-     Value.add_constant ~loc x yrusv >>
-     (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
-     return ())
+  | Syntax.Axiom (x, c) ->
+     Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (ctxt, t) ->
+      if Context.is_empty ctxt
+      then
+        Value.add_constant ~loc x t >>
+        (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
+         return ())
+      else
+        Error.typing "Constants may not depend on free variables" ~loc:(snd c)
 
   | Syntax.TopHandle lst ->
     fold (fun () (op, xc) ->

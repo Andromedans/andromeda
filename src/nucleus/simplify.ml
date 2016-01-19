@@ -2,8 +2,7 @@
 
 let is_small {Tt.term=e';_} =
 match e' with
-  | Tt.Constant (_, es) -> es = []
-  | Tt.Type | Tt.Bound _ | Tt.Atom _ -> true
+  | Tt.Type | Tt.Bound _ | Tt.Constant _ | Tt.Atom _ -> true
   | Tt.Lambda _ | Tt.Apply _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ -> false
 
@@ -13,6 +12,8 @@ let rec term ({Tt.term=e';loc;_} as e) =
     | Tt.Type -> e
 
     | Tt.Atom _ -> e
+
+    | Tt.Constant _ -> e
 
     | Tt.Lambda ((x,u), (e,t)) ->
       let u = ty u in
@@ -24,10 +25,6 @@ let rec term ({Tt.term=e';loc;_} as e) =
       let e = Tt.abstract [y] e
       and t = Tt.abstract_ty [y] t in
       Tt.mk_lambda ~loc x u e t
-
-    | Tt.Constant(x, es) ->
-      let es = List.map (term) es in
-        Tt.mk_constant ~loc x es
 
     | Tt.Apply (e1, ((x, a),b), e2) ->
       apply ~loc e1 x a b e2
