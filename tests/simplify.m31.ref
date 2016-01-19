@@ -1,4 +1,3 @@
 x is defined.
 ⊢ (λ (x0 : Type), x0) Type : Type
 ⊢ Type : Type
-_ is defined.
