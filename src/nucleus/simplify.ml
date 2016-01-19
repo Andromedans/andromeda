@@ -4,7 +4,7 @@ let is_small {Tt.term=e';_} =
 match e' with
   | Tt.Constant (_, es) -> es = []
   | Tt.Type | Tt.Bound _ | Tt.Atom _ -> true
-  | Tt.Lambda _ | Tt.Spine _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _
+  | Tt.Lambda _ | Tt.Apply _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _
   | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ -> false
 
 let rec term ({Tt.term=e';loc;_} as e) =
@@ -29,8 +29,8 @@ let rec term ({Tt.term=e';loc;_} as e) =
       let es = List.map (term) es in
         Tt.mk_constant ~loc x es
 
-    | Tt.Spine (e1, ((x, a),b), e2) ->
-      spine ~loc e1 x a b e2
+    | Tt.Apply (e1, ((x, a),b), e2) ->
+      apply ~loc e1 x a b e2
 
     | Tt.Prod ((x,u), t) ->
       let u = ty u in
@@ -101,7 +101,7 @@ and ty (Tt.Ty e) =
   let e = term e in
     Tt.ty e
 
-and spine ~loc h x a b e =
+and apply ~loc h x a b e =
 
   (* First we simplify the head and the arguments. *)
   let {Tt.term=h';_} as h = term h
@@ -128,13 +128,13 @@ and spine ~loc h x a b e =
         term d
       else
         let h = Tt.mk_lambda ~loc:(h.Tt.loc) y u d v in
-        Tt.mk_spine ~loc h x a b e
+        Tt.mk_apply ~loc h x a b e
     end
 
   (* All the cases where a reduction is not possible. *)
   | Tt.Constant _
   | Tt.Lambda _
-  | Tt.Spine _
+  | Tt.Apply _
   | Tt.Atom _
   | Tt.Type
   | Tt.Prod _
@@ -143,10 +143,10 @@ and spine ~loc h x a b e =
   | Tt.Signature _
   | Tt.Structure _ 
   | Tt.Projection _ ->
-    Tt.mk_spine ~loc h x a b e
+    Tt.mk_apply ~loc h x a b e
 
   | Tt.Bound _ ->
-    Error.impossible ~loc "de Bruijn encountered in Simplify.spine"
+    Error.impossible ~loc "de Bruijn encountered in Simplify.apply"
 
 and project ~loc te xts p =
   match te.Tt.term with
@@ -160,7 +160,7 @@ and project ~loc te xts p =
      else Tt.mk_projection ~loc te xts p
   | Tt.Constant _
   | Tt.Lambda _
-  | Tt.Spine _
+  | Tt.Apply _
   | Tt.Atom _
   | Tt.Type
   | Tt.Prod _

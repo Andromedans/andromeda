@@ -3,7 +3,7 @@
 
   let tt_spine h lst =
     let loc = snd h in
-    List.fold_left (fun h e -> Tt_App (h, e), loc) h lst
+    List.fold_left (fun h e -> Tt_Apply (h, e), loc) h lst
 
 %}
 
@@ -398,14 +398,14 @@ app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
   | p=plain_prefix_tt_pattern                 { p }
   | p=app_tt_pattern AS x=patt_var            { Tt_As (p,x) }
-  | p1=app_tt_pattern p2=prefix_tt_pattern    { Tt_App (p1, p2) }
+  | p1=app_tt_pattern p2=prefix_tt_pattern    { Tt_Apply (p1, p2) }
 
 prefix_tt_pattern: mark_location(plain_prefix_tt_pattern) { $1 }
 plain_prefix_tt_pattern:
   | p=plain_simple_tt_pattern                 { p }
   | REFL p=prefix_tt_pattern                  { Tt_Refl p }
   | op=PREFIXOP e=prefix_tt_pattern
-    { let op = Tt_Name (Name.make ~fixity:Name.Infix4 (fst op)), snd op in Tt_App (op, e) }
+    { let op = Tt_Name (Name.make ~fixity:Name.Infix4 (fst op)), snd op in Tt_Apply (op, e) }
 
 simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:

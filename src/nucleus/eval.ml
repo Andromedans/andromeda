@@ -230,10 +230,10 @@ let rec infer (c',loc) =
   | Syntax.Lambda (x,u,c) ->
      infer_lambda ~loc x u c
 
-  | Syntax.App (c1, c2) ->
+  | Syntax.Apply (c1, c2) ->
     infer c1 >>= begin function
       | Value.Term j ->
-        app ~loc j c2
+        apply ~loc j c2
       | Value.Closure f ->
         infer c2 >>= fun v ->
         Value.apply_closure f v
@@ -370,7 +370,7 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
   | Syntax.Prod _
   | Syntax.Eq _
   | Syntax.Lambda (_,Some _, _)
-  | Syntax.App _
+  | Syntax.Apply _
   | Syntax.Signature _
   | Syntax.Projection _
   | Syntax.Yield _
@@ -544,15 +544,15 @@ and check_lambda ~loc t_check x c : (Context.t * Tt.term) Value.result =
   Value.return (ctx,lam))
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
-    Then [spine env e t cs] computes [xeus], [u] and [v] such that we can make
-    a spine from [e], [xeus] and [u], and the type of the resulting expression
+    Then [apply env e t cs] computes [xeus], [u] and [v] such that we can make
+    a apply from [e], [xeus] and [u], and the type of the resulting expression
     is [v].
   *)
-and app ~loc ((_, h, _) as jh) c =
+and apply ~loc ((_, h, _) as jh) c =
   Equal.Monad.run (Equal.as_prod (Judgement.typeof jh)) >>= fun ((ctx,((x,a),b)),hyps) ->
   let h = Tt.mention_atoms hyps h in
   check c (ctx,a) >>= fun (ctx,e) ->
-  let res = Tt.mk_spine ~loc h x a b e in
+  let res = Tt.mk_apply ~loc h x a b e in
   let out = Tt.instantiate_ty [e] b in
   let j = Judgement.mk_term ctx res out in
   Value.return_term j

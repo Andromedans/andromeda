@@ -19,7 +19,7 @@ and term' =
   | Bound of Syntax.bound
   | Constant of Name.ident * term list
   | Lambda of (term * ty) ty_abstraction
-  | Spine of term * ty ty_abstraction * term
+  | Apply of term * ty ty_abstraction * term
   | Prod of ty ty_abstraction
   | Eq of ty * term * term
   | Refl of ty * term
@@ -64,8 +64,8 @@ let mk_prod ~loc x a b = {
   loc = loc
 }
 
-let mk_spine ~loc e1 x a b e2 = {
-  term = Spine (e1, ((x, a),b), e2);
+let mk_apply ~loc e1 x a b e2 = {
+  term = Apply (e1, ((x, a),b), e2);
   assumptions = Assumption.empty;
   loc = loc
 }
@@ -163,11 +163,11 @@ and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
        let a = instantiate_ty_abstraction instantiate_term_ty es ~lvl a in
        {term = Lambda a; assumptions; loc}
 
-    | Spine (e, xtst, d) ->
+    | Apply (e, xtst, d) ->
        let e = instantiate es ~lvl e
        and xtst = instantiate_ty_abstraction instantiate_ty es ~lvl xtst
        and d = instantiate es ~lvl d in
-       {term = Spine (e, xtst, d); assumptions; loc}
+       {term = Apply (e, xtst, d); assumptions; loc}
 
     | Prod a ->
        let a = instantiate_ty_abstraction instantiate_ty es ~lvl a in
@@ -267,11 +267,11 @@ and abstract xs ?(lvl=0) ({term=e';assumptions;loc;} as e) =
     let a = abstract_ty_abstraction abstract_term_ty xs ~lvl a in
     {term = Lambda a; assumptions; loc}
 
-  | Spine (e1, xtst, e2) ->
+  | Apply (e1, xtst, e2) ->
     let e1 = abstract xs ~lvl e1
     and xtst = abstract_ty_abstraction abstract_ty xs ~lvl xtst
     and e2 = abstract xs ~lvl e2 in
-    {term = Spine (e1, xtst, e2); assumptions; loc}
+    {term = Apply (e1, xtst, e2); assumptions; loc}
 
   | Prod a ->
     let a = abstract_ty_abstraction abstract_ty xs ~lvl a in
@@ -359,7 +359,7 @@ let rec occurs k {term=e';_} =
   | Bound m -> if k = m then 1 else 0
   | Constant (x, es) -> List.fold_left (fun i e -> i + occurs k e) 0 es
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
-  | Spine (e1, xtst, e2) ->
+  | Apply (e1, xtst, e2) ->
     occurs k e1 +
     occurs_abstraction occurs_ty occurs_ty k xtst +
     occurs k e2
@@ -420,7 +420,7 @@ and gather_assumptions {term=e;assumptions;_} =
 
     | Lambda a -> gather_assumptions_ty_abs gather_term_ty a
 
-    | Spine (e1,xts,e2) ->
+    | Apply (e1,xts,e2) ->
       let a1 = gather_assumptions e1
       and a2 = gather_assumptions_ty_abs gather_assumptions_ty xts
       and a3 = gather_assumptions e2 in
@@ -517,7 +517,7 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
     | Lambda abs, Lambda abs' ->
       alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
 
-    | Spine (e1, xts, e2), Spine (e1', xts', e2') ->
+    | Apply (e1, xts, e2), Apply (e1', xts', e2') ->
       alpha_equal e1 e1' &&
       alpha_equal_abstraction alpha_equal_ty alpha_equal_ty xts xts' &&
       alpha_equal e2 e2'
@@ -572,7 +572,7 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
         in
       fold xts1 xts2
 
-    | (Atom _ | Bound _ | Constant _ | Lambda _ | Spine _ |
+    | (Atom _ | Bound _ | Constant _ | Lambda _ | Apply _ |
         Type | Prod _ | Eq _ | Refl _ |
         Signature _ | Structure _ | Projection _), _ ->
       false
@@ -595,7 +595,7 @@ let print_annot ?(prefix="") k ppf =
 (*
 
   Level 0: Type, name, bound
-  Level 1: spine (0,0), refl (0)
+  Level 1: apply (0,0), refl (0)
   Level 2: eq (1,1)
   Level 3: lambda, prod, arrow
 
@@ -641,7 +641,7 @@ and print_term' ?max_level xs e ppf =
 
       | Lambda a -> print ~at_level:3 "%t" (print_lambda xs a)
 
-      | Spine (e, xtst, es) -> print ~at_level:1 "%t" (print_spine xs e xtst es)
+      | Apply (e, xtst, es) -> print ~at_level:1 "%t" (print_apply xs e xtst es)
 
       | Prod xts -> print ~at_level:3 "%t" (print_prod xs xts)
 
@@ -699,10 +699,10 @@ and print_prod xs ((y,u),t) ppf =
           (Print.char_arrow ())
           (print_ty (Name.anonymous::xs) t)
 
-and print_spine xs e1 (yts, u) e2 ppf =
+and print_apply xs e1 (yts, u) e2 ppf =
   let rec collect_args es e =
     match e.term with
-    | Spine (e, _, e') -> collect_args (e' :: es) e
+    | Apply (e, _, e') -> collect_args (e' :: es) e
     | (Type | Atom _ | Bound _ | Constant _ | Lambda _
     | Prod _ | Eq _ | Refl _ | Signature _ | Structure _ | Projection _) ->
        e, es
