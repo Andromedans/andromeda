@@ -1,5 +1,10 @@
 congr is defined.
-⊢ λ (A : Type) (f : A → A) (g : A → A) (u : A) (v : A) (eqf : f ≡ g)
-      (equ : u ≡ v), refl (f u)
-  : Π (A : Type) (f : A → A) (g : A → A) (u : A) (v : A),
-      f ≡ g → u ≡ v → f u ≡ g v
+⊢ λ (A : Type),
+      λ (f : A → A),
+        λ (g : A → A),
+          λ (u : A),
+            λ (v : A), λ (eqf : f ≡ g), λ (equ : u ≡ v), refl (f u)
+  : Π (A : Type),
+      Π (f : A → A),
+        Π (g : A → A),
+          Π (u : A),Π (v : A),f ≡ g → u ≡ v → f u ≡ g v

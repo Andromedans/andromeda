@@ -4,7 +4,7 @@ Constant C is declared.
 Constant f is declared.
 Constant g is declared.
 Constant a is declared.
-⊢ λ (y : B a), g a y : Π (y : B a), C a y
-⊢ λ (x : A) (y : B x), g x y : Π (x : A) (y : B x), C x y
-⊢ λ (x : A) (y : B x), g x y : Π (x : A) (y : B x), C x y
-⊢ λ (x : A) (y : B x), g x y : Π (x : A) (y : B x), C x y
+⊢ λ (y : B a), (g a) y : Π (y : B a),(C a) y
+⊢ λ (x : A), λ (y : B x), (g x) y : Π (x : A),Π (y : B x),(C x) y
+File "./check-lambda.m31", line 16, characters 7-28: Runtime error
+  cannot infer the type of y

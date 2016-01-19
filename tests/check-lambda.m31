@@ -13,7 +13,7 @@ check
 
 check (λ (x y), g x y) : Π (x : A) (y : B x), C x y
 
-check (λ (x : A) (y), g x y) : Π (x : A) (y : B x), C x y
+check (λ (x : A) (y), g x y) : Π (x : A) (y : B x), C x y (* TODO *)
 
 check (λ (x) (y : B x), g x y) : Π (x : A) (y : B x), C x y
 
