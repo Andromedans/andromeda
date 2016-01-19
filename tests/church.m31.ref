@@ -14,7 +14,7 @@ three is defined.
   : Π (X : Type),(X → X) → X → X
 succ is defined.
 ⊢ λ (n : Π (X : Type),(X → X) → X → X),
-      λ (B : Type), λ (s : B → B), λ (z : B), s (((n B) s) z)
+      λ (B : Type), λ (s : B → B), λ (z : B), s (n B s z)
   : (Π (X : Type),(X → X) → X → X) →
       Π (X : Type),(X → X) → X → X
 File "./church.m31", line 33, characters 5-38: Runtime error

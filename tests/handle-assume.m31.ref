@@ -3,7 +3,7 @@ Constant B is declared.
 Constant Q is declared.
 Operation inhabit is declared.
 hyp₁₈ : A → Type 
-⊢ λ (a : A), ((Q A) hyp₁₈) a : Π (a : A),hyp₁₈ a → Type
+⊢ λ (a : A), Q A hyp₁₈ a : Π (a : A),hyp₁₈ a → Type
 File "./handle-assume.m31", line 18, characters 5-38: Runtime error
   Cannot abstract a₃₉ because hyp₄₀ depends on it in context
   a₃₉ : A 

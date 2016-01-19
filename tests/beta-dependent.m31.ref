@@ -6,4 +6,4 @@ Constant f_beta is declared.
 Constant a is declared.
 Constant b is declared.
 Constant c is declared.
-⊢ refl b : b ≡ ((f a) b) c
+⊢ refl b : b ≡ f a b c

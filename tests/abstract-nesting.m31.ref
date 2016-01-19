@@ -5,8 +5,8 @@ Constant a is declared.
 Constant P is declared.
 Constant f is declared.
 y_₂₄ : Π (x_ : A),P x_ 
-y_₂₆ : Π (x_ : A),(f x_) (y_₂₄ x_) ≡ a 
-⊢ λ (x : A), y_₂₆ x : Π (x : A),(f x) (y_₂₄ x) ≡ a
+y_₂₆ : Π (x_ : A),f x_ (y_₂₄ x_) ≡ a 
+⊢ λ (x : A), y_₂₆ x : Π (x : A),f x (y_₂₄ x) ≡ a
 y_₅₆ : Π (x_ : A),P x_ 
-y_₅₈ : Π (x_ : A),(f x_) (y_₅₆ x_) ≡ a 
-⊢ λ (x : A), y_₅₈ x : Π (x : A),(f x) (y_₅₆ x) ≡ a
+y_₅₈ : Π (x_ : A),f x_ (y_₅₆ x_) ≡ a 
+⊢ λ (x : A), y_₅₈ x : Π (x : A),f x (y_₅₆ x) ≡ a

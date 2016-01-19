@@ -5,5 +5,5 @@ Constant Q is declared.
 b₁₃ : B 
 e₁₄ : B ≡ A 
 x₁₅ : P b₁₃ 
-f₁₇ : (Q b₁₃) x₁₅ → A 
-⊢ f₁₇ : (Q b₁₃) x₁₅ → A
+f₁₇ : Q b₁₃ x₁₅ → A 
+⊢ f₁₇ : Q b₁₃ x₁₅ → A

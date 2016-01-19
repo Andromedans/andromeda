@@ -8,7 +8,7 @@ type term = {
 
   assumptions : Assumption.t;
   (* set of atoms on which the term dependsassumptions on the subterms *)
-  
+
   loc : Location.t
   (* the location in input where the term appeared, as much as that makes sense *)
 }
@@ -700,18 +700,17 @@ and print_prod xs ((y,u),t) ppf =
           (print_ty (Name.anonymous::xs) t)
 
 and print_spine xs e1 (yts, u) e2 ppf =
-  let spine_noannot ppf =
-    Print.print ppf "@[<hov 2>%t@ %t@]"
-      (print_term ~max_level:0 xs e1)
-      (print_term ~max_level:0 xs e2)
+  let rec collect_args es e =
+    match e.term with
+    | Spine (e, _, e') -> collect_args (e' :: es) e
+    | (Type | Atom _ | Bound _ | Constant _ | Lambda _
+    | Prod _ | Eq _ | Refl _ | Signature _ | Structure _ | Projection _) ->
+       e, es
   in
-  if !Config.annotate
-  then
-    Print.print ppf "(%t)%t"
-      spine_noannot
-      (print_annot (Name.print_binders (Name.print_binder1 print_ty) (fun xs -> print_ty xs u) xs yts))
-  else
-    spine_noannot ppf
+  let e, es = collect_args [e2] e1 in
+  Print.print ppf "@[<hov 2>%t@ %t@]"
+              (print_term ~max_level:0 xs e)
+              (Print.sequence (print_term ~max_level:0 xs) "" es)
 
 and print_signature_clause xs x y t ppf =
   if Name.eq_ident x y then

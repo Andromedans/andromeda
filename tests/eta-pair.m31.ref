@@ -9,6 +9,6 @@ Constant C is declared.
 Constant D is declared.
 Constant p is declared.
 ⊢ λ (c : C), λ (d : D), refl c
-  : Π (c : C),Π (d : D),((Fst C) D) ((((Pair C) D) c) d) ≡ c
+  : Π (c : C),Π (d : D),Fst C D (Pair C D c d) ≡ c
 ⊢ λ (c : C), λ (d : D), refl d
-  : Π (c : C),Π (d : D),((Snd C) D) ((((Pair C) D) c) d) ≡ d
+  : Π (c : C),Π (d : D),Snd C D (Pair C D c d) ≡ d
