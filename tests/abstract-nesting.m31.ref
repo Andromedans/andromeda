@@ -1,12 +1,12 @@
-y_₁₃ : Π (x_ : Type), x_ 
-⊢ λ (T : Type), y_₁₃ T : Π (T : Type), T
+y_₁₃ : Π (x_ : Type),x_ 
+⊢ λ (T : Type), y_₁₃ T : Π (T : Type),T
 Constant A is declared.
 Constant a is declared.
 Constant P is declared.
 Constant f is declared.
-y_₂₄ : Π (x_ : A), P x_ 
-y_₂₆ : Π (x_ : A), f x_ (y_₂₄ x_) ≡ a 
-⊢ λ (x : A), y_₂₆ x : Π (x : A), f x (y_₂₄ x) ≡ a
-y_₅₀ : Π (x_ : A), P x_ 
-y_₅₂ : Π (x_ : A), f x_ (y_₅₀ x_) ≡ a 
-⊢ λ (x : A), y_₅₂ x : Π (x : A), f x (y_₅₀ x) ≡ a
+y_₂₄ : Π (x_ : A),P x_ 
+y_₂₆ : Π (x_ : A),f x_ (y_₂₄ x_) ≡ a 
+⊢ λ (x : A), y_₂₆ x : Π (x : A),f x (y_₂₄ x) ≡ a
+y_₅₆ : Π (x_ : A),P x_ 
+y_₅₈ : Π (x_ : A),f x_ (y_₅₆ x_) ≡ a 
+⊢ λ (x : A), y_₅₈ x : Π (x : A),f x (y_₅₆ x) ≡ a

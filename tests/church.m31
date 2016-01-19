@@ -30,7 +30,7 @@ let succ =
 check succ
 
 let succ' =
-    (λ (n : Nat) (A s z), n A s (s z)) : Nat -> Nat
+    (λ (n : Nat) (A s z), n A s (s z)) : Nat -> Nat (* TODO *)
 
 check succ'
 

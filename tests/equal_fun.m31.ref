@@ -2,6 +2,6 @@ Constant A is declared.
 Constant B is declared.
 Constant f is declared.
 foo is defined.
-⊢ refl (λ (x : A) (y : B x), f x (f x y))
-  : (λ (x : A) (y : B x), f x (f x y))
-      ≡ (λ (x : A) (y : B x), f x (f x y))
+⊢ refl (λ (x : A), λ (y : B x), f x (f x y))
+  : (λ (x : A), λ (y : B x), f x (f x y))
+      ≡ (λ (x : A), λ (y : B x), f x (f x y))

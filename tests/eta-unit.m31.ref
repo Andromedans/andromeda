@@ -1,4 +1,4 @@
 Constant unit is declared.
 Constant top is declared.
 Constant unit_eta is declared.
-⊢ λ (x : unit), refl top : Π (x : unit), x ≡ top
+⊢ λ (x : unit), refl top : Π (x : unit),x ≡ top

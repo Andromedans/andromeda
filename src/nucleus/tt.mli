@@ -1,7 +1,7 @@
 (** Abstract syntax of value types and terms *)
 
-(** An [('a, 'b) abstraction] is a ['b] bound by [(x1, 'a1), ..., (xn, 'an)]. *)
-type ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
+(** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
+type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
 type term = { term : term' ; assumptions : Assumption.t; loc : Location.t}
 and term' = private
@@ -46,7 +46,7 @@ and term' = private
       [e] is applied to [e1, ..., en], and that the type of [e] is
       [forall (x1 : t1) ... (xn : tn), t]. Here [tk] depends on
       [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Spine of term * ty ty_abstraction * term list
+  | Spine of term * ty ty_abstraction * term
 
   (** a dependent product [forall (x1 : t1) ... (xn : tn), t], where [tk]
       depends on [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
@@ -83,17 +83,17 @@ and structure = (Name.ident * Name.ident * ty * term) list
 
 (** The signature of a constant. The booleans indicate whether the arguments
     should be eagerly reduced. *)
-type constsig = ((bool * ty), ty) abstraction
+type constsig = (Name.ident * ty) list * ty
 
 (** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
 val mk_constant: loc:Location.t -> Name.ident -> term list -> term
-val mk_lambda: loc:Location.t -> (Name.ident * ty) list -> term -> ty -> term
-val mk_spine: loc:Location.t -> term -> (Name.ident * ty) list -> ty -> term list -> term
+val mk_lambda: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
+val mk_spine: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
 val mk_type: loc:Location.t -> term
 val mk_type_ty: loc:Location.t -> ty
-val mk_prod: loc:Location.t -> (Name.ident * ty) list -> ty -> term
-val mk_prod_ty: loc:Location.t -> (Name.ident * ty) list -> ty -> ty
+val mk_prod: loc:Location.t -> Name.ident -> ty -> ty -> term
+val mk_prod_ty: loc:Location.t -> Name.ident -> ty -> ty -> ty
 val mk_eq: loc:Location.t -> ty -> term -> term -> term
 val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
 val mk_refl: loc:Location.t -> ty -> term -> term
@@ -191,3 +191,4 @@ val alpha_equal_ty: ty -> ty -> bool
 val print_ty : ?max_level:int -> Name.ident list -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
 val print_constsig : ?max_level:int -> Name.ident list -> constsig -> Format.formatter -> unit
+

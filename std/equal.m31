@@ -5,7 +5,6 @@
 data (!!) 1 
 let debug = fun x => print !! x
 
-operation fail 0
 operation beta 1
 operation hint 1
 operation whnf 1

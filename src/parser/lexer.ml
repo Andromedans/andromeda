@@ -14,6 +14,7 @@ let reserved = [
   ("end", END) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
+  ("fail", FAIL) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("let", LET) ;

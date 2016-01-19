@@ -57,9 +57,9 @@ and comp' =
   | External of string
   | Typeof of comp
   | Constant of Name.ident * comp list
-  | Lambda of (Name.ident * comp option) list * comp
-  | Spine of comp * comp list
-  | Prod of (Name.ident * comp) list * comp
+  | Lambda of Name.ident * comp option * comp
+  | App of comp * comp
+  | Prod of Name.ident * comp * comp
   | Eq of comp * comp
   | Refl of comp
   | Signature of (Name.ident * Name.ident * comp) list
@@ -68,6 +68,7 @@ and comp' =
   | Yield of comp
   | Context
   | Congruence of comp * comp
+  | String of string
 
 and handler = {
   handler_val: match_case list;
@@ -85,17 +86,14 @@ type toplevel = toplevel' * Location.t
 and toplevel' =
   | Operation of Name.ident * int
   | Data of Name.ident * int
-  | Axiom of Name.ident * (bool * (Name.ident * comp)) list * comp (** introduce a constant *)
+  | Axiom of Name.ident * (Name.ident * comp) list * comp (** introduce a constant *)
   | TopHandle of (Name.ident * (Name.ident list * comp)) list
   | TopLet of Name.ident * comp (** global let binding *)
   | TopCheck of comp (** infer the type of a computation *)
+  | TopFail of comp
   | Verbosity of int
   | Include of string list * bool (** the boolean is [true] if the files should be included only once *)
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)
-
-(** [shift_comp k lvl c] shifts the bound variables in computation [c] that
-    are larger than or equal [lv] by [k]. *)
-val shift_comp : int -> int -> comp -> comp
 

@@ -8,24 +8,28 @@ Constant projT1 is declared.
 Constant projT2 is declared.
 Constant projT1_beta is declared.
 ⊢ projT1_beta
-  : Π (A0 : Type) (B0 : A0 → Type) (a0 : A0) (b0 : B0 a0),
-      projT1 A0 B0 (existT A0 B0 a0 b0) ≡ a0
+  : Π (A0 : Type),
+      Π (B0 : A0 → Type),
+        Π (a0 : A0),Π (b0 : B0 a0),projT1 A0 B0 (existT A0 B0 a0 b0) ≡ a0
 ⊢ refl a : projT1 A B (existT A B a b) ≡ a
 Constant projT2_beta is declared.
 ⊢ refl b : projT2 A B (existT A B a b) ≡ b
 Constant sig_ind is declared.
 Constant sig_ind_beta is declared.
 projT1' is defined.
-⊢ λ (A0 : Type) (B0 : A0 → Type) (s : sigT A0 B0),
-      sig_ind A0 B0 (λ (_ : sigT A0 B0), A0) (λ (x : A0) (y : B0 x), x) s
-  : Π (A0 : Type) (B0 : A0 → Type), sigT A0 B0 → A0
+⊢ λ (A0 : Type),
+      λ (B0 : A0 → Type),
+        λ (s : sigT A0 B0),
+          sig_ind A0 B0 (λ (_ : sigT A0 B0), A0)
+            (λ (x : A0), λ (y : B0 x), x) s
+  : Π (A0 : Type),Π (B0 : A0 → Type),sigT A0 B0 → A0
 ⊢ refl a
   : a
-      ≡ sig_ind A B (λ (_ : sigT A B), A) (λ (x : A) (y : B x), x)
+      ≡ sig_ind A B (λ (_ : sigT A B), A) (λ (x : A), λ (y : B x), x)
             (existT A B a b)
 ⊢ refl a
   : projT1 A B (existT A B a b)
-      ≡ sig_ind A B (λ (_ : sigT A B), A) (λ (x : A) (y : B x), x)
+      ≡ sig_ind A B (λ (_ : sigT A B), A) (λ (x : A), λ (y : B x), x)
             (existT A B a b)
 projT2' is defined.
 ⊢ refl b
@@ -35,5 +39,5 @@ projT2' is defined.
                (λ (s0 : sigT A B),
                   B
                     (sig_ind A B (λ (_ : sigT A B), A)
-                       (λ (x : A) (y : B x), x) s0))
-               (λ (x : A) (y : B x), y) s) (existT A B a b)
+                       (λ (x : A), λ (y : B x), x) s0))
+               (λ (x : A), λ (y : B x), y) s) (existT A B a b)

@@ -14,47 +14,31 @@ let rec term ({Tt.term=e';loc;_} as e) =
 
     | Tt.Atom _ -> e
 
-    | Tt.Lambda (xts, (e,t)) ->
-      let rec fold ys xts = function
-        | [] ->
-          let e = Tt.unabstract ys e in
-          let e = term e in
-          let e = Tt.abstract ys e in
-          let t = Tt.unabstract_ty ys t in
-          let t = ty t in
-          let t = Tt.abstract_ty ys t in
-            Tt.mk_lambda ~loc (List.rev xts) e t
-        | (x,u) :: xus ->
-          let u = Tt.unabstract_ty ys u in
-          let u = ty u in
-          let u = Tt.abstract_ty ys u in
-          let y = Name.fresh x in
-            fold (y::ys) ((x,u) :: xts) xus
-      in
-        fold [] [] xts
+    | Tt.Lambda ((x,u), (e,t)) ->
+      let u = ty u in
+      let y = Name.fresh x in
+      let e = Tt.unabstract [y] e
+      and t = Tt.unabstract_ty [y] t in
+      let e = term e
+      and t = ty t in
+      let e = Tt.abstract [y] e
+      and t = Tt.abstract_ty [y] t in
+      Tt.mk_lambda ~loc x u e t
 
     | Tt.Constant(x, es) ->
       let es = List.map (term) es in
         Tt.mk_constant ~loc x es
 
-    | Tt.Spine (e, (xts, t), es) ->
-      spine ~loc e xts t es
+    | Tt.Spine (e1, ((x, a),b), e2) ->
+      spine ~loc e1 x a b e2
 
-    | Tt.Prod (xts, t) ->
-      let rec fold ys xts = function
-        | [] ->
-          let t = Tt.unabstract_ty ys t in
-          let t = ty t in
-          let t = Tt.abstract_ty ys t in
-            Tt.mk_prod ~loc (List.rev xts) t
-        | (x,u) :: xus ->
-          let u = Tt.unabstract_ty ys u in
-          let u = ty u in
-          let u = Tt.abstract_ty ys u in
-          let y = Name.fresh x in
-            fold (y::ys) ((x,u) :: xts) xus
-      in
-        fold [] [] xts
+    | Tt.Prod ((x,u), t) ->
+      let u = ty u in
+      let y = Name.fresh x in
+      let t = Tt.unabstract_ty [y] t in
+      let t = ty t in
+      let t = Tt.abstract_ty [y] t in
+      Tt.mk_prod ~loc x u t
 
     | Tt.Eq (t, e1, e2) ->
       let t = ty t
@@ -117,51 +101,34 @@ and ty (Tt.Ty e) =
   let e = term e in
     Tt.ty e
 
-and spine ~loc h xts t es =
-
-  (* Auxiliary function for simplifying the spine arguments *)
-  let rec simplify_xts ys xus = function
-  | [] ->
-    let t = Tt.unabstract_ty ys t in
-    let t = ty t in
-    let t = Tt.abstract_ty ys t in
-      List.rev xus, t
-  | (x, u) :: xts ->
-    let u = Tt.unabstract_ty ys u in
-    let u = ty u in
-    let u = Tt.abstract_ty ys u
-    and y = Name.fresh x in
-      simplify_xts (y::ys) ((x,u) :: xus) xts
-  in
+and spine ~loc h x a b e =
 
   (* First we simplify the head and the arguments. *)
   let {Tt.term=h';_} as h = term h
-  and xts, t = simplify_xts [] [] xts
-  and es = List.map term es in
-
+  and e = term e
+  and a = ty a
+  and y = Name.fresh x in
+  let b = Tt.unabstract_ty [y] b in
+  let b = ty b in
+  let b = Tt.abstract_ty [y] b in
+  
   (* Then we check whether we have a beta redex: *)
   match h' with
 
-  | Tt.Lambda (yus, (d, u)) when
+  | Tt.Lambda ((y,u), (d, v)) when
       (* Do the types match? *)
-      (let t1 = Tt.mk_prod_ty ~loc yus u
-       and t2 = Tt.mk_prod_ty ~loc xts t in
+      (let t1 = Tt.mk_prod_ty ~loc y u v
+       and t2 = Tt.mk_prod_ty ~loc x a b in
         Tt.alpha_equal_ty t1 t2)
     ->
     begin
-      let rec reduce yus du xts es =
-        match yus, xts, es with
-        | (y,u)::yus, (_,t)::xts, e::es when
-            is_small e ||
-            Tt.occurs_ty_abstraction Tt.occurs_term_ty 0 (yus, du) <= 1
-          ->
-            let yus, du =
-              Tt.instantiate_ty_abstraction Tt.instantiate_term_ty [e] (yus, du)
-            in
-              reduce yus du xts es
-        | _ -> Tt.mk_spine ~loc (Tt.mk_lambda ~loc yus (fst du) (snd du)) xts t es
-      in
-      reduce yus (d,u) xts es
+      if is_small e || (Tt.occurs_term_ty 0 (d,v) <= 1)
+      then
+        let d = Tt.instantiate [e] d in
+        term d
+      else
+        let h = Tt.mk_lambda ~loc:(h.Tt.loc) y u d v in
+        Tt.mk_spine ~loc h x a b e
     end
 
   (* All the cases where a reduction is not possible. *)
@@ -176,7 +143,7 @@ and spine ~loc h xts t es =
   | Tt.Signature _
   | Tt.Structure _ 
   | Tt.Projection _ ->
-    Tt.mk_spine ~loc h xts t es
+    Tt.mk_spine ~loc h x a b e
 
   | Tt.Bound _ ->
     Error.impossible ~loc "de Bruijn encountered in Simplify.spine"
@@ -214,5 +181,5 @@ let rec value = function
   | Value.List lst ->
     let lst = List.map value lst in
     Value.from_list lst
-  | Value.Ref _ | Value.Closure _ | Value.Handler _ as v -> v
+  | Value.Ref _ | Value.Closure _ | Value.Handler _ | Value.String _ as v -> v
 
