@@ -157,6 +157,11 @@ let return_handler handler_val handler_ops handler_finally env =
   } in
   Return (Handler h), env.state
 
+let rec top_fold f acc = function
+  | [] -> top_return acc
+  | x::rem -> top_bind (f acc x) (fun acc ->
+    top_fold f acc rem)
+
 (** Printers *)
 let print_closure refs xs _ ppf =
   Print.print ~at_level:0 ppf "<function>"
@@ -572,4 +577,3 @@ let rec equal_value v1 v2 =
     | String _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | List _ | Ref _)
     | Ref _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | List _ | String _) ->
       false
-
