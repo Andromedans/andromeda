@@ -39,11 +39,9 @@ do
       refl d : Snd C D (Pair C D c d) ≡ d)
 
 (* Surjective Pairing. *)
-(* TODO eta hints
-do with equality_in betas hints handle
-  let _ = beta Pair_beta_Fst in
-  let _ = beta Pair_beta_Snd in
-  let _ = eta Pair_eta in
+do
+  with local (lbeta Pair_beta_Fst) handle
+  with local (lbeta Pair_beta_Snd) handle
+  with local (leta Pair_eta) handle
      refl p : p ≡ Pair C D (Fst C D p) (Snd C D p)
-*)
 
