@@ -5,4 +5,6 @@ Constant List is declared.
 Constant m is declared.
 Constant n is declared.
 Constant lst is declared.
-⊢ lst : List (plus n m)
+File "./eta_commute.m31", line 19, characters 6-8: Typing error
+  the expression lst should have type List (plus n m) but has type
+  List (plus m n)
