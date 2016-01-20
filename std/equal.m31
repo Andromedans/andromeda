@@ -136,6 +136,9 @@ let process_hint =
   - match T with T' to instantiate xs to vs
   - compute (e vs lhs rhs) to get a term of type forall [eqs], lhs == rhs
   - solve the eqs
+  
+  TODO allow eqs : forall [ys] ?? == ??
+  This is necessary eg for funext (which has eq : forall x, f x == g x)
   *)
 let process_eta =
   (* we have matched t with the general shape of an eta hint *)
@@ -553,12 +556,12 @@ let add_beta = fun b =>
   end
 
 let add_hint = fun h =>
-  match with equality !top_betas !top_hints handle hint h with
+  match with equality !top_betas !top_hints !top_etas handle hint h with
     | pair _ (_ :: ?hints :: _ :: []) => top_hints := hints
   end
 
 let add_eta = fun h =>
-  match with equality !top_betas !top_hints handle eta h with
+  match with equality !top_betas !top_hints !top_etas handle eta h with
     | pair _ (_ :: _ :: ?etas :: []) => top_etas := etas
   end
 
