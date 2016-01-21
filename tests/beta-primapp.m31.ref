@@ -12,5 +12,5 @@ Constant Y is declared.
 Constant a is declared.
 Constant f is declared.
 File "./beta-primapp.m31", line 31, characters 7-16: Typing error
-  failed to check that the term f a is equal to Fst X Y
-  (Pair X Y (f a) y₂₉)
+  failed to check that the term f a is equal to
+  Fst X Y (Pair X Y (f a) y₂₉)
