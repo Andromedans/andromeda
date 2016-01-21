@@ -15,7 +15,6 @@ type ('a,'b) closure
     of data. *)
 type value = private
   | Term of Judgement.term
-  | Ty of Judgement.ty
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -41,7 +40,6 @@ val name_of : value -> string
 
 (** Make values *)
 val mk_term : Judgement.term -> value
-val mk_ty : Judgement.ty -> value
 val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
 val mk_tuple : value list -> value
@@ -70,7 +68,6 @@ val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a result
 
 val return_term : Judgement.term -> value result
-val return_ty : Judgement.ty -> value result
 val return_closure : (value -> value result) -> value result
 val return_unit : value result
 
@@ -91,7 +88,6 @@ val top_print_value : (?max_level:int -> value -> Format.formatter -> unit) topl
 
 (** Coerce values *)
 val as_term : loc:Location.t -> value -> Judgement.term
-val as_ty : loc:Location.t -> value -> Judgement.ty
 val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> Store.key

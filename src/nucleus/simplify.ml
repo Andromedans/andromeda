@@ -173,7 +173,6 @@ let context ctx = ctx
 
 let rec value = function
   | Value.Term (ctx,e,t) -> Value.mk_term (Judgement.mk_term (context ctx) (term e) (ty t))
-  | Value.Ty (ctx,t) -> Value.mk_ty (Judgement.mk_ty (context ctx) (ty t))
   | Value.Tag (x,vs) -> Value.mk_tag x (List.map value vs)
   | Value.List lst -> Value.from_list (List.map value lst)
   | Value.Tuple lst -> Value.mk_tuple (List.map value lst)
