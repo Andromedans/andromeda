@@ -21,14 +21,13 @@ Constant h is declared.
              λ (B : Type),
                λ (C : Type),
                  λ (g0 : B → C),
-                   λ (f0 : A → B), λ (x0 : A), g0 (f0 x0)) X Y Z g f 
-            x
+                   λ (f0 : A → B), λ (x0 : A), g0 (f0 x0)) X Y Z g f x
 ⊢ refl (h (g (f x)))
   : (λ (A : Type),
        λ (B : Type),
          λ (C : Type),
-           λ (g0 : B → C), λ (f0 : A → B), λ (x0 : A), g0 (f0 x0)) X Z
-      W h
+           λ (g0 : B → C), λ (f0 : A → B), λ (x0 : A), g0 (f0 x0))
+      X Z W h
       ((λ (A : Type),
           λ (B : Type),
             λ (C : Type),
@@ -38,10 +37,11 @@ Constant h is declared.
              λ (B : Type),
                λ (C : Type),
                  λ (g0 : B → C),
-                   λ (f0 : A → B), λ (x0 : A), g0 (f0 x0)) X Y W
+                   λ (f0 : A → B), λ (x0 : A), g0 (f0 x0))
+            X Y W
             ((λ (A : Type),
                 λ (B : Type),
                   λ (C : Type),
                     λ (g0 : B → C),
-                      λ (f0 : A → B), λ (x0 : A), g0 (f0 x0)) Y Z W h 
-               g) f x
+                      λ (f0 : A → B), λ (x0 : A), g0 (f0 x0)) Y Z W h g)
+            f x
