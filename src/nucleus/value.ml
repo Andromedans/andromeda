@@ -2,7 +2,7 @@
 
 (* Information about a toplevel declaration *)
 type decl =
-  | Constant of Tt.constsig
+  | Constant of Tt.ty
   | Data of int
   | Operation of int
 
@@ -322,6 +322,11 @@ let lookup_data x env =
   | Some (Data k) -> Some k
   | Some (Operation _ | Constant _) -> None
 
+let is_constant x env =
+  match lookup_decl x env with
+  | Some (Constant c) -> true
+  | None | Some (Data _ | Operation _) -> false
+
 let get_constant x env =
   match lookup_decl x env with
   | None -> None
@@ -438,7 +443,7 @@ let print env ppf =
     (function
       | (x, Constant t) ->
          Print.print ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n" (Name.print_ident x)
-                     (Tt.print_constsig forbidden_names t)
+                     (Tt.print_ty forbidden_names t)
       | (x, Data k) ->
          Print.print ppf "@[<hov 4>data %t %d@]@\n" (Name.print_ident x) k
       | (x, Operation k) ->

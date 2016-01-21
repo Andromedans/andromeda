@@ -174,32 +174,9 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
   | Tt.Bound _, _ | _, Tt.Bound _ ->
      Error.impossible ~loc "deBruijn encountered in congruence"
 
-  | Tt.Constant (x1, es1), Tt.Constant (x2, es2) ->
-     if not @@ Name.eq_ident x1 x2
-     then Opt.fail
-     else
-       begin Monad.lift (Value.lookup_constant x1) >!= function
-       | Some ytsu -> Opt.return ytsu
-       | None -> Error.impossible ~loc "unknown constant %t in congruence"
-                                            (Name.print_ident x1)
-       end >?= fun (yts,_) ->
-       let rec fold ctx es' hyps yts es1 es2 =
-         match yts, es1, es2 with
-         | [], [], [] -> Opt.return ctx
-
-         | (y,t)::yts, e1::es1, e2::es2 ->
-            let e2 = Tt.mention_atoms hyps e2 in
-            let t = Tt.instantiate_ty es' t in
-            Opt.locally (equal ctx e1 e2 t) >?= fun (ctx,hyps') ->
-            fold ctx (e1 :: es') (AtomSet.union hyps hyps') yts es1 es2
-
-         | _, _, _ ->
-            Error.impossible ~loc:loc1 "primitive application equality (%d, %d, %d)"
-              (List.length yts)
-              (List.length es1)
-              (List.length es2)
-       in
-       fold ctx [] AtomSet.empty yts es1 es2
+  | Tt.Constant x, Tt.Constant y ->
+     if Name.eq_ident x y then Opt.return ctx
+     else Opt.fail
 
   | Tt.Lambda ((x,a1), (e1, t1)), Tt.Lambda ((_,a2), (e2, t2)) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->

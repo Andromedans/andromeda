@@ -117,7 +117,7 @@ plain_topcomp:
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
-  | CONSTANT x=name yst=constarg* COLON u=term        { Axiom (x, List.concat yst, u)}
+  | CONSTANT x=name COLON u=term                      { Axiom (x, u)}
   | DATA x=name k=NUMERAL                             { Data (x, k) }
   | OPERATION op=name k=NUMERAL                       { Operation (op, k) }
 
@@ -259,12 +259,6 @@ binder:
 maybe_typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, Some t)) xs }
   | xs=name+                  { List.map (fun x -> (x, None)) xs }
-
-constarg:
-  | LPAREN lst=separated_nonempty_list(COMMA, constarg_entry) RPAREN  { List.concat lst }
-
-constarg_entry:
-  | xs=nonempty_list(name) COLON t=ty_term   { List.map (fun x -> (x, t)) xs }
 
 (* function arguments *)
 function_abstraction:

@@ -1,8 +1,8 @@
-(* Test primitive operations with beta hints. *)
+(* Test constants with beta hints. *)
 
 constant cow : Type
 constant horn : cow
-constant tail (_ : cow) : cow
+constant tail : cow -> cow
 constant tail_horn : tail horn == horn
 
 do
@@ -10,7 +10,7 @@ do
     refl horn : horn == tail horn
 
 
-constant prod (A B : Type) : Type
+constant prod : Type -> Type -> Type
 
 constant Pair (A : Type) (B : Type) (_ : A) (_ : B) : prod A B
 

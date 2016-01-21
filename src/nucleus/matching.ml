@@ -98,8 +98,8 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
   | Syntax.Tt_Type, Tt.Type ->
      xvs
 
-  | Syntax.Tt_Constant x, Tt.Constant (y,lst) ->
-     if lst = [] && Name.eq_ident x y
+  | Syntax.Tt_Constant x, Tt.Constant y ->
+     if Name.eq_ident x y
      then xvs
      else raise Match_fail
 
