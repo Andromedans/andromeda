@@ -76,6 +76,13 @@ let rec infer (c',loc) =
        infer c2 >>= as_list ~loc >>= fun lst ->
        Value.return (Value.list_cons v1 lst)
 
+    | Syntax.Tuple cs ->
+      let rec fold vs = function
+        | [] -> Value.return (Value.mk_tuple (List.rev vs))
+        | c :: cs -> (infer c >>= fun v -> fold (v :: vs) cs)
+      in
+      fold [] cs
+
     | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
         let handler_val =
           begin match handler_val with
@@ -237,7 +244,8 @@ let rec infer (c',loc) =
       | Value.Closure f ->
         infer c2 >>= fun v ->
         Value.apply_closure f v
-      | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Ref _ | Value.String _ as h ->
+      | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Tuple _ |
+        Value.Ref _ | Value.String _ as h ->
         Error.runtime ~loc "cannot apply %s" (Value.name_of h)
     end
 
@@ -362,6 +370,7 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
   | Syntax.Tag _
   | Syntax.Nil
   | Syntax.Cons _
+  | Syntax.Tuple _
   | Syntax.Where _
   | Syntax.With _
   | Syntax.Typeof _

@@ -30,6 +30,7 @@ and pattern' =
   | Patt_Tag of Name.ident * pattern list
   | Patt_Nil
   | Patt_Cons of pattern * pattern
+  | Patt_Tuple of pattern list
 
 (** Desugared computations *)
 type comp = comp' * Location.t
@@ -42,6 +43,7 @@ and comp' =
   | Tag of Name.ident * comp list
   | Nil
   | Cons of comp * comp
+  | Tuple of comp list
   | Perform of Name.ident * comp list
   | With of comp * comp
   | Let of (Name.ident * comp) list * comp

@@ -12,7 +12,7 @@ do match a with
 
 data lam 4
 do match λ (x : A), a with
-  | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => lam x y z (pair (pair x' y') t)
+  | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => lam x y z ((x', y'), t)
   end
 
 constant list : Type
@@ -21,8 +21,8 @@ constant Cons : A -> list -> list
 
 do match Cons a (Cons b (Cons c Nil)) with
   | None => Type Type
-  | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => lam x y z (pair (pair x' y') t)
-  | (|- Cons _ ((Cons ?x _) as ?y)) => pair x y
+  | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => lam x y z ((x', y'), t)
+  | (|- Cons _ ((Cons ?x _) as ?y)) => (x, y)
   end
 
 do match {a : A, isconstr : forall (x : A), a == x} with

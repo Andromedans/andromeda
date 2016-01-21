@@ -4,8 +4,7 @@ Constant b is declared.
 Constant ( + ) is declared.
 s is defined.
 ⊢ refl (( + ) a b) : ( + ) a b ≡ ( + ) a b
-pair (⊢ a : A)
-(⊢ b : A)
+((⊢ a : A), (⊢ b : A))
 Data constructor ( @ ) is declared.
 x is defined.
 ⊢ a : A

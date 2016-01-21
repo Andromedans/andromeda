@@ -209,7 +209,7 @@ plain_simple_term:
   | EXTERNAL s=QUOTED_STRING                        { External s }
   | s=QUOTED_STRING                                 { String s }
   | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
-  | LPAREN e=plain_term RPAREN                      { e }
+  | LPAREN lst=separated_nonempty_list(COMMA, term) RPAREN { match lst with [e] -> fst e | _ -> Tuple lst }
   | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
         { Signature lst }
   | LPAREN RPAREN                                   { Structure [] }
@@ -359,7 +359,7 @@ plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
   | x=patt_var                     { Patt_Var x }
   | x=var_name                     { Patt_Name x }
-  | LPAREN p=plain_pattern RPAREN  { p }
+  | LPAREN ps=separated_nonempty_list(COMMA, pattern) RPAREN  { match ps with [p] -> fst p | _ -> Patt_Tuple ps }
   | LBRACK ps=separated_list(COMMA, pattern) RBRACK { Patt_List ps }
 
 tt_pattern: mark_location(plain_tt_pattern) { $1 }

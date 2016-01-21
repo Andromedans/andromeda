@@ -1,8 +1,8 @@
 
 handle
   | abstract v1 v2 =>
-    match pair v1 v2 with
-      | pair (|- ?x : ?tx) (|- ?y : ?ty) =>
+    match (v1, v2) with
+      | ((|- ?x : ?tx), (|- ?y : ?ty)) =>
         assume y_ : forall x_ : tx, ty where x = x_ in
         Some ((y_ x) : ty)
     end

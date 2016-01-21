@@ -290,14 +290,19 @@ let rec collect_pattern env xvs (p,loc) v =
     let xvs = collect_pattern env xvs p2 (Value.from_list v2) in
     xvs
 
+  | Syntax.Patt_Tuple ps, Value.Tuple vs ->
+    multicollect_pattern env xvs ps vs
+
   | Syntax.Patt_Jdg _, (Value.Ty _ | Value.Closure _ | Value.Handler _ |
-                        Value.Tag _ | Value.Ref _ | Value.List _ | Value.String _)
+                        Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
   | Syntax.Patt_Tag _, (Value.Term _ | Value.Ty _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _ | Value.String _)
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
   | Syntax.Patt_Nil, (Value.Term _ | Value.Ty _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_) | Value.String _)
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_) | Value.Tuple _ | Value.String _)
   | Syntax.Patt_Cons _, (Value.Term _ | Value.Ty _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List [] | Value.String _) ->
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List [] | Value.Tuple _ | Value.String _)
+  | Syntax.Patt_Tuple _, (Value.Term _ | Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _ |
+                          Value.List _ | Value.String _) ->
      raise Match_fail
 
 and multicollect_pattern env xvs ps vs =
