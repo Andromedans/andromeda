@@ -28,5 +28,5 @@ do
   let l2 = d :: (e :: (f :: [])) in
   let lapp = append l1 l2 in
   let lapp' = append' l1 l2 in
-  pair lapp lapp'
+  (lapp, lapp')
 

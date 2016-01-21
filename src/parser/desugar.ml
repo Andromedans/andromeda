@@ -230,7 +230,18 @@ let rec pattern (env : Value.env) bound vars n (p,loc) =
             let ps, vars, n = fold ~loc:(snd p) vars n ps in
             (Syntax.Patt_Cons (p, ps), loc), vars, n
        in
-       fold ~loc vars n ps
+         fold ~loc vars n ps
+
+    | Input.Patt_Tuple ps ->
+      let rec fold vars n ps = function
+        | [] ->
+          let ps = List.rev ps in
+          (Syntax.Patt_Tuple ps, loc), vars, n
+        | p::rem ->
+          let p, vars, n = pattern env bound vars n p in
+          fold vars n (p::ps) rem
+        in
+      fold vars n [] ps
 
 let rec comp ~yield (env : Value.env) bound (c',loc) =
   match c' with
@@ -475,6 +486,10 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     let e1 = comp ~yield env bound e1 in
     let e2 = comp ~yield env bound e2 in
     Syntax.Cons (e1,e2), loc
+
+  | Input.Tuple cs ->
+    let lst = List.map (comp ~yield env bound) cs in
+    Syntax.Tuple lst, loc
 
   | Input.Congruence (e1,e2) ->
     let e1 = comp ~yield env bound e1 in

@@ -12,7 +12,7 @@ let s = (+) a b
 do refl s : a + b == a + b
 
 do match s with
-  | |- ?x + ?y => (pair x y)
+  | |- ?x + ?y => (x, y)
   end
 
 (** Data infixes *)

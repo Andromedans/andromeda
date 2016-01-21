@@ -20,6 +20,7 @@ type value = private
   | Handler of handler
   | Tag of Name.ident * value list
   | List of value list
+  | Tuple of value list
   | Ref of Store.key
   | String of string (** NB: strings are opaque to the user, ie not lists *)
 
@@ -43,6 +44,7 @@ val mk_term : Judgement.term -> value
 val mk_ty : Judgement.ty -> value
 val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
+val mk_tuple : value list -> value
 val mk_string : string -> value
 
 val mk_closure' : ('a -> 'b result) -> ('a,'b) closure toplevel
@@ -100,7 +102,6 @@ val as_list : loc:Location.t -> value -> value list
 
 (** Wrappers for making tags *)
 val from_option : value option -> value
-val from_pair : value * value -> value
 val from_list : value list -> value
 
 val list_nil : value

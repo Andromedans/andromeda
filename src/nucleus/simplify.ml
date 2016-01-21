@@ -168,7 +168,7 @@ and project ~loc te xts p =
   | Tt.Refl _
   | Tt.Signature _
   | Tt.Projection _ -> Tt.mk_projection ~loc te xts p
-                                        
+
   | Tt.Bound _ ->
      Error.impossible ~loc "de Bruijn encountered in Simplify.project"
 
@@ -178,8 +178,7 @@ let rec value = function
   | Value.Term (ctx,e,t) -> Value.mk_term (Judgement.mk_term (context ctx) (term e) (ty t))
   | Value.Ty (ctx,t) -> Value.mk_ty (Judgement.mk_ty (context ctx) (ty t))
   | Value.Tag (x,vs) -> Value.mk_tag x (List.map value vs)
-  | Value.List lst ->
-    let lst = List.map value lst in
-    Value.from_list lst
+  | Value.List lst -> Value.from_list (List.map value lst)
+  | Value.Tuple lst -> Value.mk_tuple (List.map value lst)
   | Value.Ref _ | Value.Closure _ | Value.Handler _ | Value.String _ as v -> v
 

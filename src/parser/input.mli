@@ -33,6 +33,7 @@ and pattern' =
   | Patt_Tag of Name.ident * pattern list
   | Patt_Cons of pattern * pattern
   | Patt_List of pattern list
+  | Patt_Tuple of pattern list
 
 (** Sugared terms *)
 type term = term' * Location.t
@@ -49,6 +50,7 @@ and term' =
   | Tag of Name.ident * comp list
   | Cons of comp * comp
   | List of comp list
+  | Tuple of comp list
   | Match of comp * match_case list
   | Let of (Name.ident * comp) list * comp
   | Lookup of comp
