@@ -224,7 +224,7 @@ let rec infer (c',loc) =
       | Value.Closure f ->
         infer c2 >>= fun v ->
         Value.apply_closure f v
-      | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Tuple _ |
+      | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Tuple _ |
         Value.Ref _ | Value.String _ as h ->
         Error.runtime ~loc "cannot apply %s" (Value.name_of h)
     end
