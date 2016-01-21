@@ -244,11 +244,11 @@ and abstract xs ?(lvl=0) ({term=e';assumptions;loc;} as e) =
   let assumptions = Assumption.abstract xs lvl assumptions in
   match e' with
 
-  | Type -> {e with assumptions} (* XXX why do we need assumptions here? *)
+  | Type -> {e with assumptions}
 
   | Bound _ -> {e with assumptions}
 
-  | Constant _ -> {e with assumptions} (* XXX why do we need assumptions here? *)
+  | Constant _ -> {e with assumptions}
 
   | Atom x ->
     begin
