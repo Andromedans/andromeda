@@ -133,11 +133,11 @@ and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
   in
   match e' with
 
-    | Type -> {e with assumptions} (* XXX why do we need assumptions here? Type is well formed by itself *)
+    | Type -> {e with assumptions}
 
     | Atom _ -> {e with assumptions}
 
-    | Constant _ -> {e with assumptions} (* XXX why do we need assumptions here? *)
+    | Constant _ -> {e with assumptions}
 
     | Bound k ->
        if k < lvl
