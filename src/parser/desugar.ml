@@ -204,15 +204,24 @@ let rec pattern (env : Value.env) bound vars n (p,loc) =
       (Syntax.Patt_Jdg (p1,p2), loc), vars, n
 
     | Input.Patt_Tag (t,ps) ->
-      let rec fold vars n ps = function
-        | [] ->
-          let ps = List.rev ps in
-          (Syntax.Patt_Tag (t,ps), loc), vars, n
-        | p::rem ->
-          let p, vars, n = pattern env bound vars n p in
-          fold vars n (p::ps) rem
-        in
-      fold vars n [] ps
+      begin match Value.lookup_data t env with
+        | Some k ->
+          let l = List.length ps in
+          if k = l
+          then
+            let rec fold vars n ps = function
+              | [] ->
+                let ps = List.rev ps in
+                (Syntax.Patt_Tag (t,ps), loc), vars, n
+              | p::rem ->
+                let p, vars, n = pattern env bound vars n p in
+                fold vars n (p::ps) rem
+              in
+            fold vars n [] ps
+          else
+            Error.syntax ~loc "the data constructor %t expects %d arguments but is matched with %d" (Name.print_ident t) k l
+        | None -> Error.syntax ~loc "unknown data constructor %t" (Name.print_ident t)
+      end
 
     | Input.Patt_Cons (p1, p2) ->
       let p1, vars, n = pattern env bound vars n p1 in
