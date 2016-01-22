@@ -24,7 +24,6 @@ constant Y : Type
 constant a : X
 constant f : X -> X
 
-(* TODO needs matching constants *)
 do
   with local (lbeta Fst_beta) handle
     λ (y : Y),
