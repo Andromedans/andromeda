@@ -13,7 +13,7 @@ do
 
 do (λ (x y), g x y) : Π (x : A) (y : B x), C x y
 
-do (λ (x : A) (y), g x y) : Π (x : A) (y : B x), C x y (* TODO *)
+do (λ (x : A) (y), g x y) : Π (x : A) (y : B x), C x y
 
 do (λ (x) (y : B x), g x y) : Π (x : A) (y : B x), C x y
 

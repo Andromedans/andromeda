@@ -358,7 +358,6 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
   | Syntax.Constant _
   | Syntax.Prod _
   | Syntax.Eq _
-  | Syntax.Lambda (_,Some _, _)
   | Syntax.Apply _
   | Syntax.Signature _
   | Syntax.Projection _
@@ -430,8 +429,8 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
                          (pty t_check')
        end
 
-  | Syntax.Lambda (x,None,c) ->
-    check_lambda ~loc t_check x c
+  | Syntax.Lambda (x,u,c) ->
+    check_lambda ~loc t_check x u c
 
   | Syntax.Refl c ->
     Equal.Monad.run (Equal.as_eq t_check) >>= fun ((ctx, t', e1, e2),hyps) ->
@@ -521,15 +520,35 @@ and infer_prod ~loc x u c =
   let j = Judgement.mk_term ctx prod typ in
   Value.return_term j)
 
-and check_lambda ~loc t_check x c : (Context.t * Tt.term) Value.result =
-  Equal.Monad.run (Equal.as_prod t_check) >>= fun ((ctx,((_,a),b)),hyps) ->
-  Value.add_abstracting ~loc x (ctx,a) (fun ctx y ->
-  let b_inst = Tt.unabstract_ty [y] b in
-  check c (ctx,b_inst) >>= fun (ctx,e) ->
-  Matching.context_abstract ~loc ctx [y] [a] >>= fun (ctx,zs,es) ->
+and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
+  Equal.Monad.run (Equal.as_prod t_check) >>= fun ((ctx,((_,a),b)),hypst) ->
+  begin match u with
+    | Some u ->
+      check_ty u >>= fun ((_,u) as ju) ->
+      require_equal_ty ~loc (ctx,a) ju >>= begin function
+        | Some (ctx,hypsu) ->
+          Value.return (ctx,u,hypsu)
+        | None ->
+          Value.print_ty >>= fun pty ->
+          Error.typing ~loc "this annotation has type %t but should have type %t"
+            (pty u) (pty a)
+      end
+    | None ->
+      Value.return (ctx,a,Name.AtomSet.empty)
+  end >>= fun (ctx,u,hypsu) -> (* u a type equal to a under hypsu *)
+  Value.add_abstracting ~loc x (ctx,u) (fun ctx y ->
+  let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
+  let b = Tt.instantiate_ty [y'] b in
+  check c (ctx,b) >>= fun (ctx,e) ->
+  Matching.context_abstract ~loc ctx [y] [u] >>= fun (ctx,zs,es) ->
   let e = Tt.abstract [y] (Tt.substitute zs es e) in
-  let lam = Tt.mk_lambda ~loc x a e b in
-  let lam = Tt.mention_atoms hyps lam in
+  (* XXX can the substitution mess us up here? *)
+  let b = Tt.abstract_ty [y] b in
+  let lam = Tt.mk_lambda ~loc x u e b in
+  (* lam : forall x : u, b
+     == forall x : a, b by hypsu
+     == check_ty by hypst *)
+  let lam = Tt.mention_atoms (Name.AtomSet.union hypst hypsu) lam in
   Value.return (ctx,lam))
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
