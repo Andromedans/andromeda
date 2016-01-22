@@ -43,7 +43,7 @@ Definition:
 An environment η maps variables to judgements.
 An environment η is *valid* if it maps to derivable judgements.
 
-Programming language:
+Computation a, b, c:
   * x
   * Type
   * ∏ (x : a), b
@@ -54,41 +54,52 @@ Programming language:
   * #equal c₁ c₂
   * TODO: put in the rest
 
+Value v:
+  * Γ ⊢ e : A
+
+Result(α):
+  * val α
+  * #equal v₁ v₂ κ
+    where κ : Value → Result(α)
+
 Evaluation relation:
-* inferring η | c ↦ (Γ ⊢ e : A)
-* checking  η | c : (Γ ⊢ A type) ↦ (Δ ⊢ e : _)
+* inferring η | c ↦ r of type Result (Value)
+* checking  η | c : (Γ ⊢ A type) ↦ r of type Result (Context × Term)
 
 Evaluation rules (TODO: get all of them):
 
 [eval-var]
 x ∈ dom(η)
 —————————–
-η | x ↦ η(x)
+η | x ↦ val η(x)
 
 [eval-type]
 —————————————————————–
-η | Type ↦ (⊢ Type : Type)
+η | Type ↦ val (⊢ Type : Type)
 
 [eval-pi]
-η | a : (⊢ Type type) ↦ (Γ ⊢ A : _)
+η | a : (⊢ Type type) ↦ val (Γ ⊢ A : _)
 y is fresh for Γ
-η[x:=(Γ,y:A ⊢ y:A)] | b : (⊢ Type type) ↦ (Δ ⊢ B : _)
+η[x:=(Γ,y:A ⊢ y:A)] | b : (⊢ Type type) ↦ val (Δ ⊢ B : _)
 Ξ := Γ ⋈ (Δ \ y:A)
 —————————————————————–
-η | ∏ (x : a), b ↦ (Ξ  ⊢ ∏ (y : A), B : Type)
+η | ∏ (x : a), b ↦ val (Ξ  ⊢ ∏ (y : A), B : Type)
 
 [eval-refl]
-η | c ↦ (Γ ⊢ e : A)
+η | c ↦ val (Γ ⊢ e : A)
 ————————————————————-
-η | refl c ↦ (Γ ⊢ refl_A e : Eq_A(e, e))
+η | refl c ↦ val (Γ ⊢ refl_A e : Eq_A(e, e))
 
-[eval-check-infer]
-η | c ↦ (Δ ⊢ e : B)
-η | #equal (Δ ⊢ B : Type) (Γ ⊢ A : Type) ↦ (Ξ ⊢ ξ : C)   (* TODO: what is this? *)
-C ≡≡ Eq_Type(B,A)
-Ψ := Δ ⋈ Γ ⋈ Ξ
-————————————————————-
-η | c : (Γ ⊢ A type) ↦ (Ψ ⊢ e : _)
+[eval-check-infer] (TODO: make this more precise)
+η | c ↦ val (Δ ⊢ e : B)
+κ := (fun (Ξ ⊢ ξ : C) ⇒
+      verify C ≡≡ Eq_Type(B,A) ;
+      let Ψ := Δ ⋈ Γ ⋈ Ξ in
+      val (Ψ ⊢ e : _))
+——————————————————————————————————
+η | c : (Γ ⊢ A type) ↦ #equal (Δ ⊢ B : Type) (Γ ⊢ A : Type) κ
+
+(* TODO for evaluation: treat operations and handlers *)
 
 Proposition eval-sound:
   * if η is valid and  η | c ↦ (Γ ⊢ e : A) then Γ ⊢ e : A is derivable
@@ -115,6 +126,6 @@ Case eval-check-infer: by conv because
 2. Ψ ⊢ B ≡_Type A by reflection:
    * Ψ ⊢ ξ : Eq_Type(B, A) by weakening and i.h.
 
-
+TODO: all other cases
 
 
