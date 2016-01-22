@@ -12,9 +12,9 @@ do
 
 constant prod : Type -> Type -> Type
 
-constant Pair (A : Type) (B : Type) (_ : A) (_ : B) : prod A B
+constant Pair : forall (A : Type) (B : Type) (_ : A) (_ : B), prod A B
 
-constant Fst (A : Type) (B : Type) (_ : prod A B) : A
+constant Fst : forall (A : Type) (B : Type) (_ : prod A B), A
 
 constant Fst_beta :
   Π (A B : Type) (a : A) (b : B), Fst A B (Pair A B a b) == a
