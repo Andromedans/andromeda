@@ -147,10 +147,6 @@ val assumptions_term : term -> Name.AtomSet.t
 (** The assumptions used by a type. *)
 val assumptions_ty : ty -> Name.AtomSet.t
 
-val bound_term : term -> Assumption.BoundSet.t
-
-val bound_ty : ty -> Assumption.BoundSet.t
-
 (** Module stuff *)
 
 (** [field_value defs p] is [defs.p] with all bound variables instantiated appropriately. *)

@@ -470,12 +470,6 @@ let assumptions_term ({loc;_} as e) =
 
 let assumptions_ty (Ty t) = assumptions_term t
 
-let bound_term e =
-  let a = gather_assumptions e in
-  Assumption.bound a
-
-let bound_ty (Ty t) = bound_term t
-
 (****** Alpha equality ******)
 
 (* Currently, the only difference between alpha and structural equality is that
