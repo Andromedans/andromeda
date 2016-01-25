@@ -24,11 +24,17 @@ form x : A and the edges are "dependencies". A context Γ is well-formed when ..
 
 Definition: dom(Γ) is the set of variables mentioned by Γ.
 
-Definition: Γ ≤ Δ means that Δ is an extension of Γ (TODO: make this precise)
+Definition: Γ ≤ Δ means that Δ is an extension of Γ, which means:
+  * for node (x:A) in Γ, (x:A) is also a node in Δ.
 
 Definition: Γ \ y:A is Γ without y:A but is only defined if:
   * either y does not appear in Γ
   * or y:A is a leaf in Γ
+
+Definition: Γ, y:A is context Γ extended with y:A as a new leaf in the graph.
+It is connected to .... (TODO). The extension is defined when:
+  * y is fresh for Γ, and
+  * Γ ⊢ A type is derivable
 
 Proposition weak-admissible: Weakening is admissible:
   if Γ ⊢ e : A is derivable and Γ ≤ Δ then Δ ⊢ e : A is derivable.
@@ -116,8 +122,7 @@ Case eval-pi: by pi-form because
 1. Ξ is a context by definition of ⋈ and \ 
 2. Ξ ⊢ A type because by i.h. Γ ⊢ A type and Γ ≤ Ξ, use weakening
 3. Ξ, y:A is a context because y fresh and 2.
-4. Ξ, y:A ⊢ B type because by i.h. Δ ⊢ B type and Δ ≤ Ξ, y:A, use weakening:
-   Δ ≤ ((Δ \ y:A), y:A) ≤ (Γ ⋈ ((Δ \ y:A), y:A)) = ((Γ ⋈ (Δ \ y:A)), y:A) = (Ξ, y:A)
+4. Ξ, y:A ⊢ B type because by i.h. Δ ⊢ B type and Δ ≤ (Ξ, y:A), use weakening.
 
 Case eval-refl: by refl-intro because and i.h.
 
