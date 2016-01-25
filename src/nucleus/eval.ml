@@ -204,35 +204,15 @@ let rec infer (c',loc) =
      let j = Judgement.mk_term ctx e t' in
      Value.return_term j
 
-  | Syntax.Constant (x, cs) ->
-
+  | Syntax.Constant x ->
     begin Value.lookup_constant x >>= function
-      | Some ytsu -> Value.return ytsu
-      | None -> Error.typing ~loc "unknown constant %t" (Name.print_ident x)
-    end >>= fun (yts,u) ->
-    let rec fold ctx es yts cs =
-      match yts, cs with
-      | [], [] ->
-        let u = Tt.instantiate_ty es u
-        and e = Tt.mk_constant ~loc x (List.rev es) in
-        let eu = Judgement.mk_term ctx e u in
-        Value.return_term eu
-
-      | (y,t)::yts, c::cs ->
-        let t = Tt.instantiate_ty es t in
-        let jt = Judgement.mk_ty ctx t in
-        check c jt >>= fun (ctx, e) ->
-        fold ctx (e :: es) yts cs
-
-      | _::_, [] ->
-        Error.typing ~loc "too few arguments in a primitive operation (%d missing)"
-          (List.length yts)
-
-      | _, _::_ ->
-        Error.impossible ~loc "too many arguments in a primitive operation (%d extra)"
-          (List.length cs)
-    in
-    fold Context.empty [] yts cs
+      | Some t ->
+         let e = Tt.mk_constant ~loc x in
+         let eu = Judgement.mk_term Context.empty e t in
+         Value.return_term eu
+      | None -> Error.impossible ~loc "unknown constant %t during evaluation"
+                                 (Name.print_ident x)
+    end
 
   | Syntax.Lambda (x,u,c) ->
      infer_lambda ~loc x u c
@@ -244,7 +224,7 @@ let rec infer (c',loc) =
       | Value.Closure f ->
         infer c2 >>= fun v ->
         Value.apply_closure f v
-      | Value.Ty _ | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Tuple _ |
+      | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Tuple _ |
         Value.Ref _ | Value.String _ as h ->
         Error.runtime ~loc "cannot apply %s" (Value.name_of h)
     end
@@ -378,7 +358,6 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
   | Syntax.Constant _
   | Syntax.Prod _
   | Syntax.Eq _
-  | Syntax.Lambda (_,Some _, _)
   | Syntax.Apply _
   | Syntax.Signature _
   | Syntax.Projection _
@@ -450,8 +429,8 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
                          (pty t_check')
        end
 
-  | Syntax.Lambda (x,None,c) ->
-    check_lambda ~loc t_check x c
+  | Syntax.Lambda (x,u,c) ->
+    check_lambda ~loc t_check x u c
 
   | Syntax.Refl c ->
     Equal.Monad.run (Equal.as_eq t_check) >>= fun ((ctx, t', e1, e2),hyps) ->
@@ -541,15 +520,35 @@ and infer_prod ~loc x u c =
   let j = Judgement.mk_term ctx prod typ in
   Value.return_term j)
 
-and check_lambda ~loc t_check x c : (Context.t * Tt.term) Value.result =
-  Equal.Monad.run (Equal.as_prod t_check) >>= fun ((ctx,((_,a),b)),hyps) ->
-  Value.add_abstracting ~loc x (ctx,a) (fun ctx y ->
-  let b_inst = Tt.unabstract_ty [y] b in
-  check c (ctx,b_inst) >>= fun (ctx,e) ->
-  Matching.context_abstract ~loc ctx [y] [a] >>= fun (ctx,zs,es) ->
+and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
+  Equal.Monad.run (Equal.as_prod t_check) >>= fun ((ctx,((_,a),b)),hypst) ->
+  begin match u with
+    | Some u ->
+      check_ty u >>= fun ((_,u) as ju) ->
+      require_equal_ty ~loc (ctx,a) ju >>= begin function
+        | Some (ctx,hypsu) ->
+          Value.return (ctx,u,hypsu)
+        | None ->
+          Value.print_ty >>= fun pty ->
+          Error.typing ~loc "this annotation has type %t but should have type %t"
+            (pty u) (pty a)
+      end
+    | None ->
+      Value.return (ctx,a,Name.AtomSet.empty)
+  end >>= fun (ctx,u,hypsu) -> (* u a type equal to a under hypsu *)
+  Value.add_abstracting ~loc x (ctx,u) (fun ctx y ->
+  let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
+  let b = Tt.instantiate_ty [y'] b in
+  check c (ctx,b) >>= fun (ctx,e) ->
+  Matching.context_abstract ~loc ctx [y] [u] >>= fun (ctx,zs,es) ->
   let e = Tt.abstract [y] (Tt.substitute zs es e) in
-  let lam = Tt.mk_lambda ~loc x a e b in
-  let lam = Tt.mention_atoms hyps lam in
+  (* XXX can the substitution mess us up here? *)
+  let b = Tt.abstract_ty [y] b in
+  let lam = Tt.mk_lambda ~loc x u e b in
+  (* lam : forall x : u, b
+     == forall x : a, b by hypsu
+     == check_ty by hypst *)
+  let lam = Tt.mention_atoms (Name.AtomSet.union hypst hypsu) lam in
   Value.return (ctx,lam))
 
 (** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
@@ -640,37 +639,6 @@ let comp_handle (xs,c) =
       in
       fold2 xs vs)
 
-let comp_constant xus c =
-  let rec fold ys ts xws  = function
-      | [] ->
-        check_ty c >>= fun (ctxt, t) ->
-        Matching.context_abstract ~loc:(snd c) ctxt ys ts >>= fun (ctxt,zs,es) ->
-        if Context.is_empty ctxt
-        then
-          let t = Tt.abstract_ty ys (Tt.substitute_ty zs es t) in
-          let xws = List.rev xws in
-          Value.return (xws,t)
-        else
-          Error.typing "Constants may not depend on free variables" ~loc:(snd c)
-      | (x, c) :: xus ->
-        check_ty c >>= fun (ctxu, ((Tt.Ty {Tt.loc=uloc;_}) as u)) ->
-        Matching.mk_abstractable ~loc:(snd c) ctxu ys >>= fun (ctxu,zs,es) ->
-        let ctxabs = Context.abstract ~loc:(snd c) ctxu ys ts in
-        if Context.is_empty ctxabs
-        then
-          let u = Tt.substitute_ty zs es u in
-          let ju = Judgement.mk_ty ctxu u in
-          Value.add_abstracting ~loc:uloc x ju (fun _ y ->
-          let u_abs = Tt.abstract_ty ys u in
-          fold (y :: ys) (u::ts) ((x, u_abs) :: xws) xus)
-        else
-          Error.typing "Constants may not depend on free variables" ~loc:(snd c)
-  in
-  let r = fold [] [] [] xus in
-  Value.top_handle ~loc:(snd c) r
-
-
-
 (** Evaluation of toplevel computations *)
 
 let parse lex parse resource =
@@ -721,11 +689,15 @@ let rec exec_cmd base_dir interactive c =
      (if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
      return ())
 
-  | Syntax.Axiom (x, ryus, c) ->
-     comp_constant ryus c >>= fun yrusv ->
-     Value.add_constant ~loc x yrusv >>
-     (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
-     return ())
+  | Syntax.Axiom (x, c) ->
+     Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (ctxt, t) ->
+      if Context.is_empty ctxt
+      then
+        Value.add_constant ~loc x t >>
+        (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
+         return ())
+      else
+        Error.typing "Constants may not depend on free variables" ~loc:(snd c)
 
   | Syntax.TopHandle lst ->
     fold (fun () (op, xc) ->

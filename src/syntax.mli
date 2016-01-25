@@ -58,7 +58,7 @@ and comp' =
   | Reduce of comp
   | External of string
   | Typeof of comp
-  | Constant of Name.ident * comp list
+  | Constant of Name.ident
   | Lambda of Name.ident * comp option * comp
   | Apply of comp * comp
   | Prod of Name.ident * comp * comp
@@ -88,7 +88,7 @@ type toplevel = toplevel' * Location.t
 and toplevel' =
   | Operation of Name.ident * int
   | Data of Name.ident * int
-  | Axiom of Name.ident * (Name.ident * comp) list * comp (** introduce a constant *)
+  | Axiom of Name.ident * comp (** introduce a constant *)
   | TopHandle of (Name.ident * (Name.ident list * comp)) list
   | TopLet of Name.ident * comp (** global let binding *)
   | TopDo of comp (** evaluate a computation *)

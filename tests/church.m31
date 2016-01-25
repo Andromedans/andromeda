@@ -30,7 +30,7 @@ let succ =
 do succ
 
 let succ' =
-    (λ (n : Nat) (A s z), n A s (s z)) : Nat -> Nat (* TODO *)
+    (λ (n : Nat) (A s z), n A s (s z)) : Nat -> Nat
 
 do succ'
 

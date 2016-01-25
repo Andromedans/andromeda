@@ -21,8 +21,8 @@ and term' = private
   (** a bound variable *)
   | Bound of Syntax.bound
 
-  (** a constant applied to arguments *)
-  | Constant of Name.ident * term list
+  (** a constant *)
+  | Constant of Name.ident
 
   (** a lambda abstraction [fun (x1 : t1) -> e : t] *)
   | Lambda of (term * ty) ty_abstraction
@@ -62,13 +62,9 @@ and signature = (Name.ident * Name.ident * ty) list
 
 and structure = (Name.ident * Name.ident * ty * term) list
 
-(** The signature of a constant. The booleans indicate whether the arguments
-    should be eagerly reduced. *)
-type constsig = (Name.ident * ty) list * ty
-
 (** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
-val mk_constant: loc:Location.t -> Name.ident -> term list -> term
+val mk_constant: loc:Location.t -> Name.ident -> term
 val mk_lambda: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
 val mk_apply: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
 val mk_type: loc:Location.t -> term
@@ -151,10 +147,6 @@ val assumptions_term : term -> Name.AtomSet.t
 (** The assumptions used by a type. *)
 val assumptions_ty : ty -> Name.AtomSet.t
 
-val bound_term : term -> Assumption.BoundSet.t
-
-val bound_ty : ty -> Assumption.BoundSet.t
-
 (** Module stuff *)
 
 (** [field_value defs p] is [defs.p] with all bound variables instantiated appropriately. *)
@@ -171,5 +163,4 @@ val alpha_equal_ty: ty -> ty -> bool
 
 val print_ty : ?max_level:int -> Name.ident list -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
-val print_constsig : ?max_level:int -> Name.ident list -> constsig -> Format.formatter -> unit
 

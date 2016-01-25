@@ -2,7 +2,7 @@
 
 (* Information about a toplevel declaration *)
 type decl =
-  | Constant of Tt.constsig
+  | Constant of Tt.ty
   | Data of int
   | Operation of int
 
@@ -15,7 +15,6 @@ type ('a,'b) closure
     of data. *)
 type value = private
   | Term of Judgement.term
-  | Ty of Judgement.ty
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -41,7 +40,6 @@ val name_of : value -> string
 
 (** Make values *)
 val mk_term : Judgement.term -> value
-val mk_ty : Judgement.ty -> value
 val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
 val mk_tuple : value list -> value
@@ -70,7 +68,6 @@ val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a result
 
 val return_term : Judgement.term -> value result
-val return_ty : Judgement.ty -> value result
 val return_closure : (value -> value result) -> value result
 val return_unit : value result
 
@@ -91,7 +88,6 @@ val top_print_value : (?max_level:int -> value -> Format.formatter -> unit) topl
 
 (** Coerce values *)
 val as_term : loc:Location.t -> value -> Judgement.term
-val as_ty : loc:Location.t -> value -> Judgement.ty
 val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> Store.key
@@ -139,10 +135,10 @@ val lookup_operation : Name.ident -> env -> int option
 val lookup_data : Name.ident -> env -> int option
 
 (** Lookup a constant. *)
-val lookup_constant : Name.ident -> Tt.constsig option result
+val lookup_constant : Name.ident -> Tt.ty option result
 
-(** Lookup a constant in desugar mode *)
-val get_constant :  Name.ident -> env -> Tt.constsig option
+(** Is the given identifier a constant? *)
+val is_constant :  Name.ident -> env -> bool
 
 (** Lookup abstracting variables. *)
 val lookup_abstracting : Judgement.term list result
@@ -179,7 +175,7 @@ val add_data : loc:Location.t -> Name.ident -> int -> unit toplevel
 
 (** Add a constant of a given signature to the environment.
   Fails if the constant is already declared. *)
-val add_constant : loc:Location.t -> Name.ident -> Tt.constsig -> unit toplevel
+val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
 
 (** Add a bound variable with the given name to the environment.
     Complain if then name is already used. *)
