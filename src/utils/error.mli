@@ -8,6 +8,10 @@
     and a message in form of a format string. For example, a typing error can be
     raised by [Error.typing ~loc "Type %t is not a product." (print_ty t)]. *)
 
+type ('a,'b) res =
+  | OK of 'a
+  | Err of 'b
+
 (** Type of error details. *)
 type details
 

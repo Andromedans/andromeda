@@ -6,7 +6,7 @@ constant f : N -> N -> N -> N
 
 operation get 0
 
-check
+do
   handle
     f get get get
   with

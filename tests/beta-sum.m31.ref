@@ -1,10 +1,25 @@
-#including ../examples/sum.m31
-#processed ./../examples/sum.m31
+Constant sum is declared.
+Constant inl is declared.
+Constant inr is declared.
+Constant sum_rect is declared.
+⊢ sum_rect
+  : Π (A : Type),
+      Π (B : Type),
+        Π (P : sum A B → Type),
+          (Π (a : A),P (inl A B a)) →
+            (Π (b : B),P (inr A B b)) → Π (t : sum A B),P t
+Constant sum_iota_l is declared.
+Constant sum_iota_r is declared.
 _ is defined.
 _ is defined.
-⊢ λ (A : Type) (B : Type) (P : sum A B → Type)
-      (l : Π (a : A), P (inl A B a)) (r : Π (b : B), P (inr A B b))
-      (b : B), refl (r b)
-  : Π (A : Type) (B : Type) (P : sum A B → Type)
-      (l : Π (a : A), P (inl A B a)) (r : Π (b : B), P (inr A B b))
-      (b : B), r b ≡ sum_rect A B P l r (inr A B b)
+⊢ λ (A : Type),
+      λ (B : Type),
+        λ (P : sum A B → Type),
+          λ (l : Π (a : A),P (inl A B a)),
+            λ (r : Π (b : B),P (inr A B b)), λ (b : B), refl (r b)
+  : Π (A : Type),
+      Π (B : Type),
+        Π (P : sum A B → Type),
+          Π (l : Π (a : A),P (inl A B a)),
+            Π (r : Π (b : B),P (inr A B b)),
+              Π (b : B),r b ≡ sum_rect A B P l r (inr A B b)

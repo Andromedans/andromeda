@@ -8,6 +8,6 @@ constant g : Π (x : A) (y : B x), C x y
 
 constant a : A
 
-check
+do
   (λ (y : B a), g a y) : Π (y : B a), C a y
 

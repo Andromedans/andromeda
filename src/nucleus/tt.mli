@@ -1,30 +1,17 @@
 (** Abstract syntax of value types and terms *)
 
-(** An [('a, 'b) abstraction] is a ['b] bound by [(x1, 'a1), ..., (xn, 'an)]. *)
-type ('a, 'b) abstraction = (Name.ident * 'a) list * 'b
+(** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
+type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
-type term = { term : term' ; assumptions : Assumption.t; loc : Location.t}
-and term' = private
 (** The type of TT terms.
     (For details on the mutual definition with [term'], see module Location.)
 
     We use locally nameless syntax: names for free variables and deBruijn
     indices for bound variables. In terms of type [term], bound variables are
     not allowed to appear "bare", i.e., without an associated binder.
-
-    Instead of nesting binary applications [((e1 e2) ... en)], we use
-    spines [e1 [e2; ...; en]]. The reason for this is one of efficiency:
-    because we need to tag every application with the argument and result type,
-    nested applications use quadratic space (in the number of the applications)
-    whereas spines use linear space. Consequently, lambda abstractions and
-    products also accept lists of arguments.
-
-    To represent nested bindings, we use an auxiliary type
-    [(A, B) abstraction], which consists of a list [(x1 : a1), ..., (xn : an)],
-    where each [ak] has type [A] and can depend on variables [x1, ..., x{k-1}],
-    and of a single [b] of type [B] that can depend on all [x1, ..., xn]. *)
-
-
+*)
+type term = { term : term' ; assumptions : Assumption.t; loc : Location.t}
+and term' = private
   (** term denoting the type of types *)
   | Type
 
@@ -37,19 +24,13 @@ and term' = private
   (** a constant applied to arguments *)
   | Constant of Name.ident * term list
 
-  (** a lambda abstraction [fun (x1 : t1) ... (xn : tn) -> e : t] where
-      [tk] depends on [x1, ..., x{k-1}], while [e] and [t] depend on
-      [x1, ..., xn] *)
+  (** a lambda abstraction [fun (x1 : t1) -> e : t] *)
   | Lambda of (term * ty) ty_abstraction
 
-  (** a spine [e ((x1 : t1) ..., (xn : tn) : t) e1 ... en] means that
-      [e] is applied to [e1, ..., en], and that the type of [e] is
-      [forall (x1 : t1) ... (xn : tn), t]. Here [tk] depends on
-      [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
-  | Spine of term * ty ty_abstraction * term list
+  (** an application tagged with the type at wich it happens *)
+  | Apply of term * ty ty_abstraction * term
 
-  (** a dependent product [forall (x1 : t1) ... (xn : tn), t], where [tk]
-      depends on [x1, ..., x{k-1}] and [t] depends on [x1, ..., xn]. *)
+  (** a dependent product [forall (x1 : t1), t] *)
   | Prod of ty ty_abstraction
 
   (** strict equality type [e1 == e2] where [e1] and [e2] have type [t]. *)
@@ -83,17 +64,17 @@ and structure = (Name.ident * Name.ident * ty * term) list
 
 (** The signature of a constant. The booleans indicate whether the arguments
     should be eagerly reduced. *)
-type constsig = ((bool * ty), ty) abstraction
+type constsig = (Name.ident * ty) list * ty
 
 (** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
 val mk_constant: loc:Location.t -> Name.ident -> term list -> term
-val mk_lambda: loc:Location.t -> (Name.ident * ty) list -> term -> ty -> term
-val mk_spine: loc:Location.t -> term -> (Name.ident * ty) list -> ty -> term list -> term
+val mk_lambda: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
+val mk_apply: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
 val mk_type: loc:Location.t -> term
 val mk_type_ty: loc:Location.t -> ty
-val mk_prod: loc:Location.t -> (Name.ident * ty) list -> ty -> term
-val mk_prod_ty: loc:Location.t -> (Name.ident * ty) list -> ty -> ty
+val mk_prod: loc:Location.t -> Name.ident -> ty -> ty -> term
+val mk_prod_ty: loc:Location.t -> Name.ident -> ty -> ty -> ty
 val mk_eq: loc:Location.t -> ty -> term -> term -> term
 val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
 val mk_refl: loc:Location.t -> ty -> term -> term
@@ -191,3 +172,4 @@ val alpha_equal_ty: ty -> ty -> bool
 val print_ty : ?max_level:int -> Name.ident list -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
 val print_constsig : ?max_level:int -> Name.ident list -> constsig -> Format.formatter -> unit
+

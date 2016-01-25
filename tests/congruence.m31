@@ -7,5 +7,5 @@ let congr = (lambda (A f g u v eqf equ), handle
     | equal u v => yield (Some equ)
   end) : forall (A : Type) (f g : A -> A) (u v : A), f == g -> u == v -> f u == g v
 
-check congr
+do congr
 

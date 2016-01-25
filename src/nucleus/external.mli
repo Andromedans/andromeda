@@ -1,2 +1,2 @@
 (** Lookup an external value, if any. *)
-val lookup : string -> Value.value Value.result option
+val lookup : string -> (Location.t -> Value.value Value.result) option

@@ -23,10 +23,10 @@ data d 0
 data e 0
 data f 0
 
-check 
+do 
   let l1 = a :: (b :: (c :: [])) in
   let l2 = d :: (e :: (f :: [])) in
   let lapp = append l1 l2 in
   let lapp' = append' l1 l2 in
-  pair lapp lapp'
+  (lapp, lapp')
 

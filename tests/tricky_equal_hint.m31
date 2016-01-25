@@ -2,7 +2,7 @@ let A = assume A : Type in A
 let B = assume B : Type in B
 let a = assume a : {foo:A} in a
 
-check
+do
   assume eq1 : {foo:B} ≡ {foo:A} in
   assume eq2 : {foo:A} ≡ {foo:B} in
   with local (lhint eq1) handle

@@ -3,7 +3,7 @@
 
   let tt_spine h lst =
     let loc = snd h in
-    List.fold_left (fun h e -> Tt_App (h, e), loc) h lst
+    List.fold_left (fun h e -> Tt_Apply (h, e), loc) h lst
 
 %}
 
@@ -37,7 +37,7 @@
 %token ARROW DARROW
 
 (* Things specific to toplevel *)
-%token CHECK
+%token DO FAIL
 %token CONSTANT REDUCE
 
 (* Let binding *)
@@ -115,8 +115,9 @@ plain_topcomp:
   | LET REC x=name a=function_abstraction EQ e=term
        { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
-  | CHECK c=term                                      { TopCheck c }
-  | CONSTANT x=name yst=primarg* COLON u=term         { Axiom (x, List.concat yst, u)}
+  | DO c=term                                         { TopDo c }
+  | FAIL c=term                                       { TopFail c }
+  | CONSTANT x=name yst=constarg* COLON u=term        { Axiom (x, List.concat yst, u)}
   | DATA x=name k=NUMERAL                             { Data (x, k) }
   | OPERATION op=name k=NUMERAL                       { Operation (op, k) }
 
@@ -206,8 +207,9 @@ plain_simple_term:
   | TYPE                                            { Type }
   | x=var_name                                      { Var x }
   | EXTERNAL s=QUOTED_STRING                        { External s }
+  | s=QUOTED_STRING                                 { String s }
   | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
-  | LPAREN e=plain_term RPAREN                      { e }
+  | LPAREN lst=separated_nonempty_list(COMMA, term) RPAREN { match lst with [e] -> fst e | _ -> Tuple lst }
   | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
         { Signature lst }
   | LPAREN RPAREN                                   { Structure [] }
@@ -258,15 +260,11 @@ maybe_typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, Some t)) xs }
   | xs=name+                  { List.map (fun x -> (x, None)) xs }
 
-primarg:
-  | LPAREN lst=separated_nonempty_list(COMMA, primarg_entry) RPAREN  { List.concat lst }
+constarg:
+  | LPAREN lst=separated_nonempty_list(COMMA, constarg_entry) RPAREN  { List.concat lst }
 
-primarg_entry:
-  | b=reduce xs=nonempty_list(name) COLON t=ty_term   { List.map (fun x -> (b, (x, t))) xs }
-
-reduce:
-  |        { false }
-  | REDUCE { true }
+constarg_entry:
+  | xs=nonempty_list(name) COLON t=ty_term   { List.map (fun x -> (x, t)) xs }
 
 (* function arguments *)
 function_abstraction:
@@ -361,7 +359,7 @@ plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
   | x=patt_var                     { Patt_Var x }
   | x=var_name                     { Patt_Name x }
-  | LPAREN p=plain_pattern RPAREN  { p }
+  | LPAREN ps=separated_nonempty_list(COMMA, pattern) RPAREN  { match ps with [p] -> fst p | _ -> Patt_Tuple ps }
   | LBRACK ps=separated_list(COMMA, pattern) RBRACK { Patt_List ps }
 
 tt_pattern: mark_location(plain_tt_pattern) { $1 }
@@ -400,14 +398,14 @@ app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
   | p=plain_prefix_tt_pattern                 { p }
   | p=app_tt_pattern AS x=patt_var            { Tt_As (p,x) }
-  | p1=app_tt_pattern p2=prefix_tt_pattern    { Tt_App (p1, p2) }
+  | p1=app_tt_pattern p2=prefix_tt_pattern    { Tt_Apply (p1, p2) }
 
 prefix_tt_pattern: mark_location(plain_prefix_tt_pattern) { $1 }
 plain_prefix_tt_pattern:
   | p=plain_simple_tt_pattern                 { p }
   | REFL p=prefix_tt_pattern                  { Tt_Refl p }
   | op=PREFIXOP e=prefix_tt_pattern
-    { let op = Tt_Name (Name.make ~fixity:Name.Infix4 (fst op)), snd op in Tt_App (op, e) }
+    { let op = Tt_Name (Name.make ~fixity:Name.Infix4 (fst op)), snd op in Tt_Apply (op, e) }
 
 simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:

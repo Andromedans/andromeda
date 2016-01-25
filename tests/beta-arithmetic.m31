@@ -17,24 +17,21 @@ let four =  S (S (S (S Z)))
 let five =  S (S (S (S (S Z))))
 let ten =   S (S (S (S (S (S (S (S (S (S Z)))))))))
 
-(* TODO fix: loops
-check
+do
   with local (lbeta plus_Z) handle
   with local (lbeta plus_S) handle
     refl (plus five four) : plus four five == plus (plus two three) four
 
-check
-  with equality_in betas hints handle
+
+fail
   with local (lbeta plus_Z) handle
   with local (lbeta plus_S) handle
     refl three : three == plus one (plus one one)
 
-check
-  with equality_in betas hints handle
+fail
   with local (lbeta plus_Z) handle
   with local (lbeta plus_S) handle
   with local (lbeta times_Z) handle
   with local (lbeta times_S) handle
     refl four : four == times two two
-*)
 

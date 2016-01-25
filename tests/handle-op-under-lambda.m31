@@ -6,7 +6,7 @@ constant f : A -> C
 
 operation gimme 0
 
-check
+do
   handle
     λ (b : B), f gimme
   with

@@ -7,4 +7,4 @@ let cow =
     and b = a
     in a -> b
 
-check cow
+do cow

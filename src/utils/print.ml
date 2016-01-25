@@ -6,6 +6,8 @@ let message ~verbosity =
   else
     Format.ifprintf Format.err_formatter
 
+let error fmt = message ~verbosity:1 fmt
+
 let warning fmt = message ~verbosity:2 ("Warning: " ^^ fmt)
 
 let debug fmt = message ~verbosity:3 ("Debug: " ^^ fmt)
@@ -16,15 +18,16 @@ let print ?(at_level=min_int) ?(max_level=max_int) ppf =
   else
     fun fmt -> Format.fprintf ppf ("(@[" ^^ fmt ^^ "@])")
 
-let rec sequence print_u separator us ppf =
-  match us with
-  | [] -> print ppf ""
-  | [u] -> print ppf "@[%t@]" (print_u u)
-  | u :: us ->
-    print ppf "%t%s@ %t"
-      (print_u u)
-      separator
-      (sequence print_u separator us)
+let sequence print_u separator us ppf =
+  Format.fprintf ppf "@[<hov>" ;
+  begin match us with
+    | [] -> ()
+    | [u] -> print_u u ppf
+    | u :: ((_ :: _) as us) ->
+      print_u u ppf ;
+      List.iter (fun u -> print ppf "%s@ " separator ; print_u u ppf) us
+  end ;
+  Format.fprintf ppf "@]"
 
 (** Unicode and ascii version of symbols *)
 

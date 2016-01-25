@@ -34,7 +34,9 @@ and value =
   | Handler of handler
   | Tag of Name.ident * value list
   | List of value list
+  | Tuple of value list
   | Ref of Store.key
+  | String of string
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a,'b) closure = Clos of ('a -> 'b result)
@@ -63,13 +65,11 @@ type 'a toplevel = env -> 'a*env
 (** Predeclared *)
 let name_some = Name.make "Some"
 let name_none = Name.make "None"
-let name_pair = Name.make "pair"
 let name_unit = Name.make "tt"
 
 let predefined_tags = [
   (name_some, 1);
   (name_none, 0);
-  (name_pair, 2);
   (name_unit, 0);
 ]
 
@@ -92,6 +92,8 @@ let mk_term j = Term j
 let mk_ty j = Ty j
 let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
+let mk_tuple lst = Tuple lst
+let mk_string s = String s
 
 let mk_closure0 (f : 'a -> 'b result) {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure' f env = mk_closure0 f env, env
@@ -127,6 +129,14 @@ let top_bind m f env =
   let x,env = m env in
   f x env
 
+let catch m env =
+  try
+    let x,env = m env in
+    Error.OK x, env
+  with
+    | Error.Error err ->
+      Error.Err err, env
+
 (** Returns *)
 let top_return x env = x,env
 
@@ -146,6 +156,11 @@ let return_handler handler_val handler_ops handler_finally env =
     handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
   Return (Handler h), env.state
+
+let rec top_fold f acc = function
+  | [] -> top_return acc
+  | x::rem -> top_bind (f acc x) (fun acc ->
+    top_fold f acc rem)
 
 (** Printers *)
 let print_closure refs xs _ ppf =
@@ -170,8 +185,11 @@ and print_value ?max_level refs xs v ppf =
   | Tag (t, lst) -> print_tag ?max_level refs xs t lst ppf
   | List lst -> Print.print ~at_level:0 ppf "[%t]"
                             (Print.sequence (print_value ~max_level:2 refs xs) "," lst)
+  | Tuple lst -> Print.print ~at_level:0 ppf "(%t)"
+                            (Print.sequence (print_value ~max_level:2 refs xs) "," lst)
   | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t := %t"
                          (Store.print_key v) (print_value ~max_level:0 refs xs (Store.lookup v refs))
+  | String s -> Print.print ?max_level ~at_level:0 ppf "\"%s\"" s
 
 let name_of v =
   match v with
@@ -181,7 +199,9 @@ let name_of v =
     | Handler _ -> "a handler"
     | Tag _ -> "a data tag"
     | List _ -> "a list"
+    | Tuple _ -> "a tuple"
     | Ref _ -> "a reference"
+    | String _ -> "a string"
 
 (** Prefill the [xs] argument of print_* *)
 let used_names env =
@@ -202,46 +222,49 @@ let print_ty env =
 (** Coerce values *)
 let as_term ~loc = function
   | Term e -> e
-  | (Ty _ | Closure _ | Handler _ | Tag _ | List _ | Ref _) as v ->
+  | (Ty _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_ty ~loc = function
   | Ty t -> t
-  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected a type but got %s" (name_of v)
 
 let as_closure ~loc = function
   | Closure f -> f
-  | (Ty _ | Term _ | Handler _ | Tag _ | List _ | Ref _) as v ->
+  | (Ty _ | Term _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected a closure but got %s" (name_of v)
 
 let as_handler ~loc = function
   | Handler h -> h
-  | (Ty _ | Term _ | Closure _ | Tag _ | List _ | Ref _) as v ->
+  | (Ty _ | Term _ | Closure _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected a handler but got %s" (name_of v)
 
 let as_ref ~loc = function
   | Ref v -> v
-  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | List _) as v ->
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | String _) as v ->
     Error.runtime ~loc "expected a ref but got %s" (name_of v)
+
+let as_string ~loc = function
+  | String v -> v
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _) as v ->
+    Error.runtime ~loc "expected a string but got %s" (name_of v)
 
 let as_option ~loc = function
   | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
-  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _) as v ->
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
 (** Wrappers for making tags *)
 let as_list ~loc = function
   | List lst -> lst
-  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | Ref _) as v ->
+  | (Ty _ | Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected a list but got %s" (name_of v)
 
 let from_option = function
   | None -> Tag (name_none, [])
   | Some v -> Tag (name_some, [v])
-
-let from_pair (v1, v2) = Tag (name_pair, [v1; v2])
 
 let from_list lst = List lst
 
@@ -534,21 +557,34 @@ let rec equal_value v1 v2 =
        in
        fold (lst1, lst2)
 
+    | Tuple lst1, Tuple lst2 ->
+       let rec fold = function
+         | [], [] -> true
+         | v1 :: lst1, v2 :: lst2 -> equal_value v1 v2 && fold (lst1, lst2)
+         | [], _::_ | _::_, [] -> false
+       in
+       fold (lst1, lst2)
+
     | Ref v1, Ref v2 ->
        (* XXX should we compare references by value instead? *)
        Store.key_eq v1 v2
+
+    | String s1, String s2 ->
+      s1 = s2
 
     | Closure _, Closure _
     | Handler _, Handler _ ->
        (* XXX should we use physical comparison == instead? *)
        false
 
-    | Term _, (Ty _ | Closure _ | Handler _ | Tag _ | List _ | Ref _)
-    | Ty _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _)
-    | Closure _, (Term _ | Ty _ | Handler _ | Tag _ | List _ | Ref _)
-    | Handler _, (Term _ | Ty _ | Closure _ | Tag _ | List _ | Ref _)
-    | Tag _, (Term _ | Ty _ | Closure _ | Handler _ | List _ | Ref _)
-    | List _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | Ref _)
-    | Ref _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | List _) ->
+    (* At some level the following is a bit ridiculous *)
+    | Term _, (Ty _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _)
+    | Ty _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _)
+    | Closure _, (Term _ | Ty _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _)
+    | Handler _, (Term _ | Ty _ | Closure _ | Tag _ | List _ | Tuple _ | Ref _ | String _)
+    | Tag _, (Term _ | Ty _ | Closure _ | Handler _ | List _ | Tuple _ | Ref _ | String _)
+    | List _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Tuple _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | List _ | Ref _ | String _)
+    | String _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _)
+    | Ref _, (Term _ | Ty _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | String _) ->
       false
-

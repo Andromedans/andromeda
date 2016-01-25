@@ -2,15 +2,15 @@ constant N : Type
 constant O : N
 constant S (n : N) : N
 
-constant plus (reduce n : N) (reduce m : N) : N
+constant plus (reduce n : N) (reduce m : N) : N (* TODO *)
 
 constant plus_O_l : forall (n : N), plus O n == n
 
 let _ = add_beta plus_O_l
 
-check
+do
   plus (plus O O) O
 
-check
+do
   whnf (plus (plus O (S O)) (plus O O))
 

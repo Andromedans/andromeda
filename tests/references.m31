@@ -3,9 +3,9 @@ data apple 0
 
 let x = ref []
 
-check 
+do 
   x := banana :: (!x)
 
-check
+do
   x := apple :: !x ; x
 

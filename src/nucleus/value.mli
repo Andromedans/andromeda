@@ -20,7 +20,9 @@ type value = private
   | Handler of handler
   | Tag of Name.ident * value list
   | List of value list
+  | Tuple of value list
   | Ref of Store.key
+  | String of string (** NB: strings are opaque to the user, ie not lists *)
 
 and handler = {
   handler_val: (value,value) closure option;
@@ -42,6 +44,8 @@ val mk_term : Judgement.term -> value
 val mk_ty : Judgement.ty -> value
 val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
+val mk_tuple : value list -> value
+val mk_string : string -> value
 
 val mk_closure' : ('a -> 'b result) -> ('a,'b) closure toplevel
 
@@ -59,6 +63,9 @@ val bind: 'a result -> ('a -> 'b result)  -> 'b result
 
 val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 
+(** Catch errors. The state is not changed if the command fails. *)
+val catch : 'a toplevel -> ('a,Error.details) Error.res toplevel
+
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a result
 
@@ -73,6 +80,7 @@ val return_handler :
    (value -> value result) option ->
    value result
 
+val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
 (** Pretty-print a value. *)
 val print_value : (?max_level:int -> value -> Format.formatter -> unit) result
@@ -87,13 +95,13 @@ val as_ty : loc:Location.t -> value -> Judgement.ty
 val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> Store.key
+val as_string : loc:Location.t -> value -> string
 
 val as_option : loc:Location.t -> value -> value option
 val as_list : loc:Location.t -> value -> value list
 
 (** Wrappers for making tags *)
 val from_option : value option -> value
-val from_pair : value * value -> value
 val from_list : value list -> value
 
 val list_nil : value

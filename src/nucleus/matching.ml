@@ -73,25 +73,6 @@ let context_abstract ~loc ctx xs ts =
 
 exception Match_fail
 
-let application_pop {Tt.term=e;loc;_} =
-  match e with
-  | Tt.Spine (lhs,(absl,out),rhs) ->
-     let rec fold es xts = function
-       | [x,tx], [e2] ->
-          let xts = List.rev xts in
-          let u = Tt.mk_prod_ty ~loc [x,tx] out in
-          let e1 = Tt.mk_spine ~loc lhs xts u (List.rev es) in
-          let t1 = Tt.instantiate_ty es u in
-          let t2 = Tt.instantiate_ty es tx in
-          e1,t1,e2,t2
-       | (x,tx)::absl, e::rhs ->
-          fold (e::es) ((x,tx)::xts) (absl, rhs)
-       | [],[] | [],_::_ | _::_,[] ->
-                            Error.impossible ~loc "impossible spine encountered in application_pop"
-     in
-     fold [] [] (absl,rhs)
-  | _ -> raise Match_fail
-
 let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
   match p', e' with
   | Syntax.Tt_Anonymous, _ -> xvs
@@ -122,21 +103,18 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
      then xvs
      else raise Match_fail
 
-  | Syntax.Tt_Lambda (x,bopt,popt,p), Tt.Lambda ((x',ty)::abs,(te,out)) ->
+  | Syntax.Tt_Lambda (x,bopt,popt,p), Tt.Lambda ((x',ty),(te,out)) ->
      let Tt.Ty t = ty in
      let {Tt.loc=loc;_} = t in
      let xvs = begin match popt with
        | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
        | None -> xvs
      end in
-     (* XXX should we use [add_abstracting] instead of [add_free]? *)
      let y, ctx = Context.add_fresh ctx x ty in
      let yt = Value.mk_term (ctx, Tt.mk_atom ~loc y, ty) in
      let env = Value.push_bound x yt env in
-     let te = Tt.mk_lambda ~loc:(e.Tt.loc) abs te out in
      let te = Tt.unabstract [y] te in
-     let t = Tt.mk_prod_ty ~loc:(e.Tt.loc) abs out in
-     let t = Tt.unabstract_ty [y] t in
+     let out = Tt.unabstract_ty [y] out in
      let xvs = match bopt with
        | None -> xvs
        | Some k ->
@@ -149,27 +127,25 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             | Not_found -> (k,yt)::xvs
           end
      in
-     collect_tt_pattern env xvs p ctx te t
+     collect_tt_pattern env xvs p ctx te out
 
-  | Syntax.Tt_App (p1,p2), _ ->
-     let te1, ty1, te2, ty2 = application_pop e in
-     let xvs = collect_tt_pattern env xvs p1 ctx te1 ty1 in
-     let xvs = collect_tt_pattern env xvs p2 ctx te2 ty2 in
-     xvs
+  | Syntax.Tt_Apply (p1,p2), Tt.Apply (e1,((x,a),b),e2) ->
+    let prod = Tt.mk_prod_ty ~loc x a b in
+    let xvs = collect_tt_pattern env xvs p1 ctx e1 prod in
+    let xvs = collect_tt_pattern env xvs p2 ctx e2 a in
+    xvs
 
-  | Syntax.Tt_Prod (x,bopt,popt,p), Tt.Prod ((x',ty)::abs,out) ->
+  | Syntax.Tt_Prod (x,bopt,popt,p), Tt.Prod ((x',ty),out) ->
      let Tt.Ty t = ty in
      let {Tt.loc=loc;_} = t in
      let xvs = begin match popt with
        | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
        | None -> xvs
      end in
-     (* Should we use [add_abstracting] instead of [add_fresh]? *)
      let y, ctx = Context.add_fresh ctx x ty in
      let yt = Value.mk_term (ctx, Tt.mk_atom ~loc y, ty) in
      let env = Value.push_bound x yt env in
-     let t = Tt.mk_prod ~loc:(e.Tt.loc) abs out in
-     let t = Tt.unabstract [y] t in
+     let Tt.Ty out = Tt.unabstract_ty [y] out in
      let xvs = match bopt with
        | None -> xvs
        | Some k ->
@@ -182,7 +158,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             | Not_found -> (k,yt)::xvs
           end
      in
-     collect_tt_pattern env xvs p ctx t (Tt.mk_type_ty ~loc:(e.Tt.loc))
+     collect_tt_pattern env xvs p ctx out (Tt.mk_type_ty ~loc:(e.Tt.loc))
 
   | Syntax.Tt_Eq (p1,p2), Tt.Eq (ty,te1,te2) ->
      let xvs = collect_tt_pattern env xvs p1 ctx te1 ty in
@@ -270,8 +246,9 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
        xvs
      else raise Match_fail
 
-  | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Lambda _
-     | Syntax.Tt_Prod _ | Syntax.Tt_Eq _ | Syntax.Tt_Refl _
+  | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Apply _
+     | Syntax.Tt_Lambda _ | Syntax.Tt_Prod _
+     | Syntax.Tt_Eq _ | Syntax.Tt_Refl _
      | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
      | Syntax.Tt_Projection _) , _ ->
      raise Match_fail
@@ -313,14 +290,19 @@ let rec collect_pattern env xvs (p,loc) v =
     let xvs = collect_pattern env xvs p2 (Value.from_list v2) in
     xvs
 
+  | Syntax.Patt_Tuple ps, Value.Tuple vs ->
+    multicollect_pattern env xvs ps vs
+
   | Syntax.Patt_Jdg _, (Value.Ty _ | Value.Closure _ | Value.Handler _ |
-                        Value.Tag _ | Value.Ref _ | Value.List _)
+                        Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
   | Syntax.Patt_Tag _, (Value.Term _ | Value.Ty _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _)
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
   | Syntax.Patt_Nil, (Value.Term _ | Value.Ty _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_))
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_) | Value.Tuple _ | Value.String _)
   | Syntax.Patt_Cons _, (Value.Term _ | Value.Ty _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List []) ->
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List [] | Value.Tuple _ | Value.String _)
+  | Syntax.Patt_Tuple _, (Value.Term _ | Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _ |
+                          Value.List _ | Value.String _) ->
      raise Match_fail
 
 and multicollect_pattern env xvs ps vs =

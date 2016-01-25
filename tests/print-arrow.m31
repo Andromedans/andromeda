@@ -4,5 +4,5 @@
 constant A : Type
 constant a : A
 
-check
+do
    ∏ (eq : A ≡ Type), with local (lbeta eq) handle a : Type
