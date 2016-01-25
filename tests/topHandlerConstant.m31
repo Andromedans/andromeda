@@ -9,7 +9,7 @@ let h = handler
   | op ?v => whnf (v ((lambda (x : B), x) b))
 end
 
-constant f (reduce b : B) : A (* TODO *)
+constant f : B -> A (* TODO *)
 
 (* At this point h should know about f, does it? *)
 let _ = with h handle 

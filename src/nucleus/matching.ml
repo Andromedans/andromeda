@@ -98,8 +98,8 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
   | Syntax.Tt_Type, Tt.Type ->
      xvs
 
-  | Syntax.Tt_Constant x, Tt.Constant (y,lst) ->
-     if lst = [] && Name.eq_ident x y
+  | Syntax.Tt_Constant x, Tt.Constant y ->
+     if Name.eq_ident x y
      then xvs
      else raise Match_fail
 
@@ -293,15 +293,15 @@ let rec collect_pattern env xvs (p,loc) v =
   | Syntax.Patt_Tuple ps, Value.Tuple vs ->
     multicollect_pattern env xvs ps vs
 
-  | Syntax.Patt_Jdg _, (Value.Ty _ | Value.Closure _ | Value.Handler _ |
+  | Syntax.Patt_Jdg _, (Value.Closure _ | Value.Handler _ |
                         Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
-  | Syntax.Patt_Tag _, (Value.Term _ | Value.Ty _ | Value.Closure _ |
+  | Syntax.Patt_Tag _, (Value.Term _ | Value.Closure _ |
                         Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
-  | Syntax.Patt_Nil, (Value.Term _ | Value.Ty _ | Value.Closure _ |
+  | Syntax.Patt_Nil, (Value.Term _ | Value.Closure _ |
                         Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_) | Value.Tuple _ | Value.String _)
-  | Syntax.Patt_Cons _, (Value.Term _ | Value.Ty _ | Value.Closure _ |
+  | Syntax.Patt_Cons _, (Value.Term _ | Value.Closure _ |
                         Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List [] | Value.Tuple _ | Value.String _)
-  | Syntax.Patt_Tuple _, (Value.Term _ | Value.Ty _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _ |
+  | Syntax.Patt_Tuple _, (Value.Term _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _ |
                           Value.List _ | Value.String _) ->
      raise Match_fail
 

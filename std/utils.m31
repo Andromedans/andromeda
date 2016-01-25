@@ -13,7 +13,7 @@ let rec fold f acc lst = match lst with
 
 let rec assoc_find x lst = match lst with
   | [] => None
-  | (pair x ?v) :: _ => Some v
+  | (x, ?v) :: _ => Some v
   | _ :: ?lst => assoc_find x lst
   end
 
@@ -21,11 +21,11 @@ let rev_append = fun l1 l2 => fold (fun acc x => x :: acc) l2 l1
 
 (** pair stuff *)
 let fst = fun v => match v with
-  | pair ?v _ => v
+  | (?v, _) => v
   end
 
 let snd = fun v => match v with
-  | pair _ ?v => v
+  | (_, ?v) => v
   end
 
 

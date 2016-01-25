@@ -1,8 +1,8 @@
-(* Test primitive operations with beta hints. *)
+(* Test constants with beta hints. *)
 
 constant cow : Type
 constant horn : cow
-constant tail (_ : cow) : cow
+constant tail : cow -> cow
 constant tail_horn : tail horn == horn
 
 do
@@ -10,11 +10,11 @@ do
     refl horn : horn == tail horn
 
 
-constant prod (A B : Type) : Type
+constant prod : Type -> Type -> Type
 
-constant Pair (A : Type) (B : Type) (_ : A) (_ : B) : prod A B
+constant Pair : forall (A : Type) (B : Type) (_ : A) (_ : B), prod A B
 
-constant Fst (A : Type) (B : Type) (_ : prod A B) : A
+constant Fst : forall (A : Type) (B : Type) (_ : prod A B), A
 
 constant Fst_beta :
   Π (A B : Type) (a : A) (b : B), Fst A B (Pair A B a b) == a
@@ -24,7 +24,6 @@ constant Y : Type
 constant a : X
 constant f : X -> X
 
-(* TODO needs matching constants *)
 do
   with local (lbeta Fst_beta) handle
     λ (y : Y),

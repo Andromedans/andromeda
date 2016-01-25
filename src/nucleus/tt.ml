@@ -17,7 +17,7 @@ and term' =
   | Type
   | Atom of Name.atom
   | Bound of Syntax.bound
-  | Constant of Name.ident * term list
+  | Constant of Name.ident
   | Lambda of (term * ty) ty_abstraction
   | Apply of term * ty ty_abstraction * term
   | Prod of ty ty_abstraction
@@ -35,8 +35,6 @@ and signature = (Name.ident * Name.ident * ty) list
 
 and structure = (Name.ident * Name.ident * ty * term) list
 
-type constsig = (Name.ident * ty) list * ty
-
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
 
@@ -46,8 +44,8 @@ let mk_atom ~loc x = {
   loc = loc
 }
 
-let mk_constant ~loc x es = {
-  term = Constant (x, es);
+let mk_constant ~loc x = {
+  term = Constant x;
   assumptions=Assumption.empty;
   loc = loc
 }
@@ -139,6 +137,8 @@ and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
 
     | Atom _ -> {e with assumptions}
 
+    | Constant _ -> {e with assumptions}
+
     | Bound k ->
        if k < lvl
        then {e with assumptions}
@@ -154,10 +154,6 @@ and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
           (* this is a variable bound in an abstraction outside the
              instantiated term, so it remains bound, but its index decreases
              by the number of bound variables replaced by terms *)
-
-    | Constant (x, ds) ->
-      let ds = List.map (instantiate es ~lvl) ds in
-      {term = Constant (x, ds); assumptions; loc}
 
     | Lambda a ->
        let a = instantiate_ty_abstraction instantiate_term_ty es ~lvl a in
@@ -250,11 +246,9 @@ and abstract xs ?(lvl=0) ({term=e';assumptions;loc;} as e) =
 
   | Type -> {e with assumptions}
 
-  | Bound k -> {e with assumptions}
+  | Bound _ -> {e with assumptions}
 
-  | Constant (y, es) ->
-     let es = List.map (abstract xs ~lvl) es in
-      {term = Constant (y, es); assumptions; loc}
+  | Constant _ -> {e with assumptions}
 
   | Atom x ->
     begin
@@ -357,7 +351,7 @@ let rec occurs k {term=e';_} =
   | Type -> 0
   | Atom _ -> 0
   | Bound m -> if k = m then 1 else 0
-  | Constant (x, es) -> List.fold_left (fun i e -> i + occurs k e) 0 es
+  | Constant x -> 0
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
   | Apply (e1, xtst, e2) ->
     occurs k e1 +
@@ -411,12 +405,7 @@ let rec gather_assumptions_ty_abs : 'a. ('a -> Assumption.t) -> 'a ty_abstractio
 
 and gather_assumptions {term=e;assumptions;_} =
   match e with
-    | Type | Atom _ | Bound _ -> assumptions
-
-    | Constant (_,es) ->
-      List.fold_left (fun assumptions e ->
-          Assumption.union assumptions (gather_assumptions e))
-        assumptions es
+    | Type | Atom _ | Constant _ | Bound _ -> assumptions
 
     | Lambda a -> gather_assumptions_ty_abs gather_term_ty a
 
@@ -481,12 +470,6 @@ let assumptions_term ({loc;_} as e) =
 
 let assumptions_ty (Ty t) = assumptions_term t
 
-let bound_term e =
-  let a = gather_assumptions e in
-  Assumption.bound a
-
-let bound_ty (Ty t) = bound_term t
-
 (****** Alpha equality ******)
 
 (* Currently, the only difference between alpha and structural equality is that
@@ -494,13 +477,6 @@ let bound_ty (Ty t) = bound_term t
 let alpha_equal_abstraction alpha_equal_u alpha_equal_v ((x,u), v) ((x,u'), v') =
   alpha_equal_u u u' &&
   alpha_equal_v v v'
-
-let rec alpha_equal_list equal_e es es' =
-  match es, es' with
-  | [], [] -> true
-  | e :: es, e' :: es' ->
-    equal_e e e' && alpha_equal_list equal_e es es'
-  | ([],_::_) | ((_::_),[]) -> false
 
 let rec alpha_equal {term=e1;_} {term=e2;_} =
   e1 == e2 || (* a shortcut in case the terms are identical *)
@@ -510,9 +486,7 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
 
     | Bound i, Bound j -> i = j
 
-    | Constant (x, es), Constant (x', es') ->
-      Name.eq_ident x x' &&
-      alpha_equal_list alpha_equal es es'
+    | Constant x, Constant y -> Name.eq_ident x y
 
     | Lambda abs, Lambda abs' ->
       alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
@@ -621,11 +595,8 @@ and print_term' ?max_level xs e ppf =
       | Atom x ->
         print ~at_level:0 "%t" (Name.print_atom x)
 
-      | Constant (x, []) ->
+      | Constant x ->
         print ~at_level:0 "%t" (Name.print_ident x)
-
-      | Constant (x, ((_::_) as es)) ->
-        print ~at_level:1 "%t %t" (Name.print_ident x) (Print.sequence (print_term ~max_level:0 xs) "" es)
 
       | Bound k ->
         begin
@@ -771,8 +742,6 @@ and print_projection xs te xts p ppf =
     Print.print ppf "@[<hov 2>%t@ .%t@]"
       (print_term ~max_level:0 xs te)
       (Name.print_ident p)
-
-let print_constsig ?max_level xs (xus, t) ppf = assert false (* TODO *)
 
 (****** Structure stuff ********)
 
