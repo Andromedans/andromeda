@@ -32,6 +32,9 @@ val print_op : ident -> Format.formatter -> unit
 (** An anonymous name that cannot be referenced. *)
 val anonymous : ident
 
+(** Is the given identifier anonymous? *)
+val is_anonymous : ident -> bool
+
 (** Make a name from a string. *)
 val make : ?fixity:fixity -> string -> ident
 
