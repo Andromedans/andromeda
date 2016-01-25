@@ -1,27 +1,44 @@
-
 #include_once "base.m31"
 #include "utils.m31"
 
+(* Poor man's debugging mechanism. *)
 data (!!) 1 
 let debug = fun x => print !! x
 
-operation beta 1
-operation hint 1
-operation eta  1
-operation whnf 1
+(* Operations for installing equality hints *)
+operation beta 1  (* Install a beta hint *)
+operation hint 1  (* Install a general hint *)
+operation eta  1  (* Install an eta hint *)
 
-(* local hints *)
+(* Operations for installing local hints *)
 data lbeta 1
 data lhint 1
 data leta  1
-operation getbetas 0
-operation gethints 0
-operation getetas  0
+
+operation whnf 1  (* Compute the weak head normal form *)
+
+(* These return a list of hints in a preprocessed form, see process_xyz *)
+operation getbetas 0 (* Get the current beta hints *)
+operation gethints 0 (* Get the current general hints *)
+operation getetas  0 (* Get the current eta hints *)
+
+(* One of the tasks we need to be able to do is this: given a universally quantified type
+   `∏(x1:A1)...(xn:An) B` and a type `C`, find an instantiation `x1↦e1, ..., xn↦en` such that
+   `B[x1↦e1, ..., xn↦en]` equals `C`. Of course, everything has to be well-typed etc.
+
+   We provide here functions that solve this task, and in fact work more generally:
+   given a term `b` and atoms `x1:A1, ..., xn:An`, find an instantiation of the atoms
+   that will make b equal to a given term `c`.
+
+   We build the instantiation in steps. A partial instantiation below is called
+   `quants`. It is an associative list which maps an atom `x` to either `None` or `Some t`
+   where `t` is the instantiation for `x`.
+*)
 
 (*
 Matching works the following way:
 we have a list (|- xs : As = maybe vs) of typed atoms with potential values, such that each atom may appear in the following types
-we have a typed term (|- target : t) in which any of the atoms may appear
+we have a typed term (|- target : t) in which any of the atoms may appear (as well as other atoms)
 we have some value f
 we have a typed term (|- e : te) which is being matched
 
@@ -39,18 +56,17 @@ For instance a beta hint b : forall y : B, e1 ==[T] e2 gives us
 matching with e : T gives us a witness of e == e2[??/y]
 *)
 
-(* assoc_update which fails to match if the value to update isn't already present *)
-let assoc_update = fun x v lst =>
-  let rec aux acc lst = match lst with
-    | (x, _) :: ?lst => rev_append acc ((x, v) :: lst)
-    | ?y :: ?lst => aux (y :: acc) lst
-    end
-  in aux [] lst
+(* Update `quants` with values such that `lhs` matches `rhs`. 
+   Return updated `Some quants`, or `None` if `lhs` could not
+   be made to match `rhs`.
 
-(* updates quants with values such that lhs matches rhs *)
+   If `Some quants` is returned then `lhs` instantiated with
+   `quants` will be equal to `rhs` instantiated with `quants`.
+*)
 let rec collector quants lhs rhs =
   (* is lhs an atom?
-     NB it would be nice to have a matching primitive to know if some term is an atom. *)
+     NB it would be nice to have a matching primitive to know if some term is an atom. 
+  *)
   match assoc_find lhs quants with
     | Some None => (* not yet set atom *)
       let quants = assoc_update lhs (Some rhs) quants in
@@ -85,6 +101,10 @@ let rec collector quants lhs rhs =
       end
   end
 
+(* Given `(x1, Some v1), ..., (xn, Some vn)` apply `f` to the
+   values `v1, ..., vn` and return `Some (f v1 ... vn)`.
+   If any of the `Some vi` is `None`, fail by returning `None`.
+*)
 let rec apply_quants f quants = match quants with
   | [] => Some f
   | (_, None) :: _ => None
@@ -102,9 +122,13 @@ let generic_matcher = fun pat e =>
       end
   end
 
-(* A beta hint is a term e of type b == forall [xs], lhs == rhs.
-   It is used by matching lhs against a term to be reduced,
-   so all xs must appear in lhs (including the type??) *)
+(* A beta hint is a term `e` whose type is a universally quantified equations
+   `∏ (x1:A1) ... (xn:An), lhs == rhs`. It is used by matching `lhs` against a term
+   to be reduced to the instantiated `rhs`.
+
+   If the instantiation of `x1, .., xn` cannot be read off `lhs` (because not all the
+   `x1, ..., xn` appear in it) then the beta hint will fail later on.
+*)
 let process_beta =
   let rec deep quants e b = match b with
     | |- forall (?x : _), ?b =>
@@ -112,12 +136,12 @@ let process_beta =
     | |- ?lhs == _ => (e, (rev quants, lhs))
     end
   in
-  fun b => match b with
+  fun e => match e with
     | |- ?e : ?b => deep [] e b
     end
 
-(* A general hint is a term e of type h == forall [xs], lhs == rhs.
-  It is used by matching lhs == rhs against an equality to be verified. *)
+(* A general hint is a term `e` of type `forall [xs], lhs == rhs`.
+  It is used by matching `lhs == rhs` against an equality to be verified. *)
 let process_hint =
   let rec deep quants e h = match h with
     | |- forall (?x : _), ?h =>
@@ -129,17 +153,18 @@ let process_hint =
     | |- ?e : ?h => deep [] e h
     end
 
-(* An eta hint is a term e of type t == forall [xs] [a b : T] [eqs : ?? == ??], a == b.
-  It is used by matching T with the type of a target equality, then filling in a and b and solving the eqs.
+(* An eta hint is a term `e` of type `forall [xs] [a b : T] [eqs : ?? == ??], a == b`. It
+  is used by matching `T` with the type of a target equality, then filling in `a` and `b`
+  and solving the `eqs`.
   
-  ie if we have an equation lhs ==[T'] rhs to solve through eta,
-  - match T with T' to instantiate xs to vs
-  - compute (e vs lhs rhs) to get a term of type forall [eqs], lhs == rhs
-  - solve the eqs
+  If we have an equation `lhs == rhs` at type `T'` to solve through eta:
+  * match `T` with `T'` to instantiate `xs` to `vs`
+  * compute `e vs lhs rhs` to get a term of type `forall [eqs], lhs == rhs`
+  * solve the `eqs`
   
-  TODO allow eqs : forall [ys] ?? == ??
-  This is necessary eg for funext (which has eq : forall x, f x == g x)
-  *)
+  TODO allow `eqs : forall [ys] ?? == ??`
+  This is necessary eg for `funext` (which has `eq : forall x, f x == g x`)
+*)
 let process_eta =
   (* we have matched t with the general shape of an eta hint *)
   let finalize = fun e xs eqs a b =>
@@ -187,11 +212,13 @@ let process_eta =
     | |- ?e : ?t => deep [] e t
     end
 
+(* The term witnessing symmetry of equality. *)
 let sym = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
   | equal _ _ =>
     yield (Some h)
   end
 
+(* The term witnessing transitivity of equality *)
 let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
   handle eq2 : a == c with
     | equal ((|- a == c : _) as ?x) ((|- b == c : _) as ?y) => handle yield (congruence x y) with
@@ -199,13 +226,15 @@ let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
     end
   end
 
-(* pick the rhs because it's more reduced in practice *)
+(* Take `p : a == b` and return `refl b : a == b`. This is used to make
+   witnesses of equalities small. *)
 let hide_witness = fun eq => match eq with
   |- _ : ?a == ?b => match a with |- _ : ?t =>
     handle refl b : a == b with equal b a => yield (Some (sym t a b eq)) end
   end end
 
-(* implicit arguments and hide witness *)
+(* Take `p : a == b` and return `refl a : b == a`. This is used instead
+   of `sym` to keep witnesses of equality small. *)
 let symmetry = fun eq =>
   match eq with
     |- _ : ?a == ?b =>
@@ -214,6 +243,7 @@ let symmetry = fun eq =>
       end
   end
 
+(* As `symmetry` but for transitivity. *)
 let transitivity = fun eq1 eq2 =>
   match (eq1, eq2) with
     | ((|- _ : ?a == ?b), (|- _ : _ == ?c)) =>
@@ -222,11 +252,8 @@ let transitivity = fun eq1 eq2 =>
       end
   end
 
-let unopt = fun v => match v with
-  | Some ?v => v
-  end
-
-(* attempt to apply one of betas to e (not to a subterm of e) *)
+(* Attempt to apply one of `betas` to a term `e`. Here `betas` is a list of beta hints previously
+   processed by `process_beta`. Return `Some (⊢ p : e == e')` or `None` if no hint applies. *)
 let rec step_at betas e =
   match betas with
     | [] => None
@@ -237,6 +264,8 @@ let rec step_at betas e =
       end
   end
 
+(* Attempt to apply one of general `hints` to an equation `e`. Return `Some (⊢ p : e)` or
+   `None` if no hint applies. *)
 let rec hint_at hints e =
   match hints with
     | [] => None
@@ -247,6 +276,9 @@ let rec hint_at hints e =
       end
   end
 
+(* Attempt to apply one of `etas` to equation `a == b` at type `t`. It will trigger further
+   operations that try to solve the resulting subproblems. Return `Some (⊢ p : a == b)` on
+   success, or `None` otherwise. *)
 let rec eta_at etas a b t =
   match etas with
     | [] => None
@@ -257,7 +289,9 @@ let rec eta_at etas a b t =
       end
   end
 
-
+(* Compute the weak head normal form of a term `e` using the `betas` hints.
+   Return `Some (⊢ p : e == e')` where `e'` is the normal form, or `None` if
+   `e` is already normal. *)
 let rec do_whnf betas e =
   match e with
     | |- ?e1 ?e2 : ?t =>
@@ -334,13 +368,16 @@ let rec do_whnf betas e =
       end
   end
 
+(* Like `do_whnf betas e` except that it always returns the witness of equality between
+   `e` and its normal form (so reflexivity if `e` is normal). *)
 let whnf_eq = fun betas e =>
 match do_whnf betas e with
   | Some ?eq => eq
   | None => refl e
   end
 
-
+(* Structurally compare the whnf of `a` and `b`. Return `Some (⊢ p : a == b)` on
+   success, otherwise `None`. It will trigger general equality problems on subterms. *)
 let rec equate_congr a b =
   let betas = getbetas in
   match (whnf_eq betas a, whnf_eq betas b) with
@@ -362,6 +399,8 @@ let rec equate_congr a b =
       end
   end
 
+(* Try to show that [x] and [y] are equal by applying in succession:
+   general hints, eta hints, and structural equality. *)
 let rec equate x y =
   (* x and y must have the same derived type *)
   let t = match (x, y) with ((|- _ : ?t), (|- _ : ?t)) => t end in
@@ -374,7 +413,6 @@ let rec equate x y =
       end
     | Some ?eq => Some eq
   end
-
 
 let hint_provider = fun betas hints etas => handler
   | getbetas => yield betas
