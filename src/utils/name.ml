@@ -50,6 +50,10 @@ let print_op = print_ident
 
 let anonymous = Ident ("_", Anonymous)
 
+let is_anonymous = function
+  | Ident (_, Anonymous) -> true
+  | _ -> false
+
 let make ?(fixity=Word) s = Ident (s, fixity)
 
 let fresh =

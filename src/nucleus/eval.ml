@@ -707,7 +707,8 @@ let rec exec_cmd base_dir interactive c =
   | Syntax.TopLet (x, c) ->
      comp_value c >>= fun v ->
      Value.add_topbound ~loc x v >>
-     (if interactive then Format.printf "%t is defined.@." (Name.print_ident x) ;
+     (if interactive && not (Name.is_anonymous x)
+      then Format.printf "%t is defined.@." (Name.print_ident x) ;
      return ())
 
   | Syntax.TopDo c ->
