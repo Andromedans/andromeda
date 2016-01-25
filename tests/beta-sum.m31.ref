@@ -10,8 +10,6 @@ Constant sum_rect is declared.
             (Π (b : B),P (inr A B b)) → Π (t : sum A B),P t
 Constant sum_iota_l is declared.
 Constant sum_iota_r is declared.
-_ is defined.
-_ is defined.
 ⊢ λ (A : Type),
       λ (B : Type),
         λ (P : sum A B → Type),

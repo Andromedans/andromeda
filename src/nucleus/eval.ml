@@ -680,20 +680,20 @@ let rec exec_cmd base_dir interactive c =
   match c' with
 
   | Syntax.Operation (x, k) ->
-     Value.add_operation ~loc x k >>
-     (if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
-     return ())
+     Value.add_operation ~loc x k >>= fun () ->
+     if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
+     return ()
 
   | Syntax.Data (x, k) ->
-     Value.add_data ~loc x k >>
-     (if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
-     return ())
+     Value.add_data ~loc x k >>= fun () ->
+     if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
+     return ()
 
   | Syntax.Axiom (x, c) ->
      Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (ctxt, t) ->
       if Context.is_empty ctxt
       then
-        Value.add_constant ~loc x t >>
+        Value.add_constant ~loc x t >>= fun () ->
         (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
          return ())
       else
@@ -706,10 +706,10 @@ let rec exec_cmd base_dir interactive c =
 
   | Syntax.TopLet (x, c) ->
      comp_value c >>= fun v ->
-     Value.add_topbound ~loc x v >>
-     (if interactive && not (Name.is_anonymous x)
+     Value.add_topbound ~loc x v >>= fun () ->
+     if interactive && not (Name.is_anonymous x)
       then Format.printf "%t is defined.@." (Name.print_ident x) ;
-     return ())
+     return ()
 
   | Syntax.TopDo c ->
      comp_value c >>= fun v ->
