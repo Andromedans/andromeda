@@ -42,11 +42,17 @@ matching with e : T gives us a witness of e == e2[??/y]
 (* assoc_update which fails to match if the value to update isn't already present *)
 let assoc_update = fun x v lst =>
   let rec aux acc lst = match lst with
-    | (x, _) :: ?lst => rev_append acc ((x, v) :: lst)
+    | (x as ?x, _) :: ?lst => rev_append acc ((x, v) :: lst)
     | ?y :: ?lst => aux (y :: acc) lst
     end
   in aux [] lst
 
+let (>?=) = fun m f => match m with
+  | Some ?x => f x
+  | None => None
+  end
+
+(* TODO deal with rigids *)
 (* updates quants with values such that lhs matches rhs *)
 let rec collector quants lhs rhs =
   (* is lhs an atom?
@@ -68,18 +74,53 @@ let rec collector quants lhs rhs =
           match (lhs, rhs) with
             | (?a, ?a) => (* alpha equal *)
               Some quants
-            | ((|- ?l1 ?l2), (|- ?r1 ?r2)) =>
-              match collector quants l1 r1 with
-                (* could there be something smarter to do in either failure case? *)
-                | Some ?quants => collector quants l2 r2
-                | None => None
+
+            | ((|- lambda (?x1 : ?a1), ?e1), (|- lambda (?x2 : ?a2), ?e2)) =>
+              match (e1, e2) with
+                ((|- _ : ?b1), (|- _ : ?b2)) =>
+                  collector quants a1 a2 >?= (fun quants =>
+                  let quants = (x2, (Some x1)) :: quants in
+                  collector quants b1 b2 >?= (fun quants =>
+                  collector quants e1 e2 >?= (fun quants =>
+                  let quants = match quants with (x2, (Some x1)) :: ?quants => quants end in
+                  Some quants)))
               end
-            | ((|- ?l1 == ?l2), (|- ?r1 == ?r2)) =>
-              match collector quants l1 r1 with
-                | Some ?quants => collector quants l2 r2
-                | None => None
+
+            | ((|- ?l1 ?r1), (|- ?l2 ?r2)) =>
+              (* extract annotations *)
+              match (l1, l2) with
+                ((|- _ : forall (?x1 : ?a1), ?b1), (|- _ : forall (?x2 : ?a2), ?b2)) =>
+                  collector quants a1 a2 >?= (fun quants =>
+                  let quants = (x2, (Some x1)) :: quants in
+                  collector quants b1 b2 >?= (fun quants =>
+                  let quants = match quants with (x2, (Some x1)) :: ?quants => quants end in
+                  collector quants l1 l2 >?= (fun quants =>
+                  collector quants r1 r2)))
               end
-            (* TODO add cases *)
+
+            | ((|- forall (?x1 : ?a1), ?b1), (|- forall (?x2 : ?a2), ?b2)) =>
+              collector quants a1 a2 >?= (fun quants =>
+              let quants = (x2, (Some x1)) :: quants in
+              collector quants b1 b2 >?= (fun quants =>
+              let quants = match quants with (x2, (Some x1)) :: ?quants => quants end in
+              Some quants))
+
+            | ((|- ?l1 == ?r1), (|- ?l2 == ?r2)) =>
+              match (l1, l2) with
+                ((|- _ : ?t1), (|- _ : ?t2)) =>
+                  collector quants t1 t2 >?= (fun quants =>
+                  collector quants l1 l2 >?= (fun quants =>
+                  collector quants r1 r2))
+              end
+
+            | ((|- refl ?e1), (|- refl ?e2)) =>
+              match (e1, e2) with
+                ((|- _ : ?t1), (|- _ : ?t2)) =>
+                  collector quants t1 t2 >?= (fun quants =>
+                  collector quants e1 e2)
+              end
+
+            (* TODO structures *)
             | _ => None
           end
       end
