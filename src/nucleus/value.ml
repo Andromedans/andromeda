@@ -10,7 +10,7 @@ type dynamic = {
   decls : (Name.ident * decl) list ;
   (* Toplevel declaration *)
 
-  abstracting : Judgement.term list;
+  abstracting : Jdg.term list;
   (* The list of judgments about atoms which are going to be abstracted. We
      should avoid creating atoms which depends on these, as this will prevent
      abstraction from working. The list is in the reverse order from
@@ -28,7 +28,7 @@ type lexical = {
 and state = value Store.t
 
 and value =
-  | Term of Judgement.term
+  | Term of Jdg.term
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -174,7 +174,7 @@ let rec print_tag ?max_level refs xs t lst ppf =
 
 and print_value ?max_level refs xs v ppf =
   match v with
-  | Term e -> Judgement.print_term ?max_level xs e ppf
+  | Term e -> Jdg.print_term ?max_level xs e ppf
   | Closure f -> print_closure refs xs f ppf
   | Handler h -> print_handler refs xs h ppf
   | Tag (t, lst) -> print_tag ?max_level refs xs t lst ppf
@@ -351,7 +351,7 @@ let add_free ~loc x (ctx, t) m env =
 let add_abstracting ~loc x (ctx, t) m env =
   let y, ctx = Context.add_fresh ctx x t in
   let ya = Tt.mk_atom ~loc y in
-  let jyt = Judgement.mk_term ctx ya t in
+  let jyt = Jdg.mk_term ctx ya t in
   let env = add_bound0 x (Term jyt) env in
   let env = { env with
               dynamic = { env.dynamic with

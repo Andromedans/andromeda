@@ -14,7 +14,7 @@ type ('a,'b) closure
 (** The values are "finished" or "computed" results. They are inert pieces
     of data. *)
 type value = private
-  | Term of Judgement.term
+  | Term of Jdg.term
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -39,7 +39,7 @@ type 'a toplevel
 val name_of : value -> string
 
 (** Make values *)
-val mk_term : Judgement.term -> value
+val mk_term : Jdg.term -> value
 val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
 val mk_tuple : value list -> value
@@ -67,7 +67,7 @@ val catch : 'a toplevel -> ('a,Error.details) Error.res toplevel
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a result
 
-val return_term : Judgement.term -> value result
+val return_term : Jdg.term -> value result
 val return_closure : (value -> value result) -> value result
 val return_unit : value result
 
@@ -87,7 +87,7 @@ val print_ty : (?max_level:int -> Tt.ty -> Format.formatter -> unit) result
 val top_print_value : (?max_level:int -> value -> Format.formatter -> unit) toplevel
 
 (** Coerce values *)
-val as_term : loc:Location.t -> value -> Judgement.term
+val as_term : loc:Location.t -> value -> Jdg.term
 val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> Store.key
@@ -141,7 +141,7 @@ val lookup_constant : Name.ident -> Tt.ty option result
 val is_constant :  Name.ident -> env -> bool
 
 (** Lookup abstracting variables. *)
-val lookup_abstracting : Judgement.term list result
+val lookup_abstracting : Jdg.term list result
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> Syntax.bound -> value result
@@ -157,12 +157,12 @@ val push_bound : Name.ident -> value -> env -> env
 
 (** [add_free ~loc x t f] generates a fresh atom [y] from identifier [x].
     It then runs [f y] in the environment with [x] bound to [y]. *)
-val add_free: loc:Location.t -> Name.ident -> Judgement.ty -> (Context.t -> Name.atom -> 'a result) -> 'a result
+val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom -> 'a result) -> 'a result
 
 (** [add_abstracting ~loc x t] generates a fresh atom [y] from identifier [x] and marks
     it as abstracting (which means we intend to abstract it later).
     It then runs [f y] in the environment with [x] bound to [y]. *)
-val add_abstracting: loc:Location.t -> Name.ident -> Judgement.ty ->
+val add_abstracting: loc:Location.t -> Name.ident -> Jdg.ty ->
                      (Context.t -> Name.atom -> 'a result) -> 'a result
 
 (** Add an operation with the given arity.

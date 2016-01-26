@@ -132,7 +132,7 @@ let equal_signature ~loc ctx xts1 xts2 =
         let t1 = Tt.unabstract_ty ys t1 in
         let t2 = Tt.instantiate_ty ys' t2 in
         Opt.locally (equal_ty ctx t1 t2) >?= fun (ctx,hypst) ->
-        let jx = Judgement.mk_ty ctx t1 in
+        let jx = Jdg.mk_ty ctx t1 in
         Opt.add_free ~loc x jx (fun ctx y ->
         let y' = Tt.mention_atoms hypst (Tt.mk_atom ~loc y) in
         fold ctx (y::ys) (y'::ys') (t1::ts) xts1 xts2)
@@ -180,7 +180,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
 
   | Tt.Lambda ((x,a1), (e1, t1)), Tt.Lambda ((_,a2), (e2, t2)) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    let ja = Judgement.mk_ty ctx a1 in
+    let ja = Jdg.mk_ty ctx a1 in
     Opt.add_abstracting ~loc x ja (fun ctx y ->
     let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
     let e1 = Tt.unabstract [y] e1
@@ -195,7 +195,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
 
   | Tt.Apply (h1, ((x,a1),b1), e1), Tt.Apply (h2, ((_,a2),b2), e2) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    Opt.locally (Opt.add_abstracting ~loc x (Judgement.mk_ty ctx a1) (fun ctx y ->
+    Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun ctx y ->
       let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
       let b1 = Tt.unabstract_ty [y] b1
       and b2 = Tt.instantiate_ty [y'] b2 in
@@ -212,7 +212,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
 
   | Tt.Prod ((x,a1), b1), Tt.Prod ((_,a2), b2) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    Opt.add_abstracting ~loc x (Judgement.mk_ty ctx a1) (fun ctx y ->
+    Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun ctx y ->
     let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
     let b1 = Tt.unabstract_ty [y] b1
     and b2 = Tt.instantiate_ty [y'] b2 in
@@ -258,7 +258,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
     Returns the resulting expression. *)
 let beta_reduce ~loc ctx (x,a) e b (_,a') b' e' =
   Opt.locally (equal_ty ctx a a') >?= fun (ctx,hypsa) ->
-  Opt.locally (Opt.add_abstracting ~loc x (Judgement.mk_ty ctx a) (fun ctx y ->
+  Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a) (fun ctx y ->
     let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
     let b = Tt.unabstract_ty [y] b
     and b' = Tt.instantiate_ty [y'] b' in
@@ -361,20 +361,20 @@ and as_eq ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
     | _ ->
-      Monad.lift (Value.perform_as_eq (Value.mk_term (Judgement.term_of_ty jt))) >>=
+      Monad.lift (Value.perform_as_eq (Value.mk_term (Jdg.term_of_ty jt))) >>=
       as_form as_eq "an equality type" jt
 
 let rec as_prod ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
     | _ ->
-      Monad.lift (Value.perform_as_prod (Value.mk_term (Judgement.term_of_ty jt))) >>=
+      Monad.lift (Value.perform_as_prod (Value.mk_term (Jdg.term_of_ty jt))) >>=
       as_form as_prod "a product type" jt
 
 let rec as_signature ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Signature xts -> Monad.return (ctx, xts)
     | _ ->
-      Monad.lift (Value.perform_as_signature (Value.mk_term (Judgement.term_of_ty jt))) >>=
+      Monad.lift (Value.perform_as_signature (Value.mk_term (Jdg.term_of_ty jt))) >>=
       as_form as_signature "a signature type" jt
 

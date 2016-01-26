@@ -28,8 +28,8 @@ let mk_abstractable ~loc ctx xs =
                 | None -> Error.impossible
                   ~loc "cannot abstract %t as %t depends on it, but it does not appear in the context?"
                   (Name.print_atom x) (Name.print_atom y)) in
-              let vx = Value.mk_term (Judgement.mk_term ctx (Tt.mk_atom ~loc x) xty)
-              and vy = Value.mk_term (Judgement.mk_term ctx (Tt.mk_atom ~loc y) yty) in
+              let vx = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc x) xty)
+              and vy = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) yty) in
               Value.perform_abstract vx vy >>= fun v ->
               begin match Value.as_option ~loc v with
                 | None ->
