@@ -462,27 +462,23 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
 
   | Syntax.Structure xcs ->
      Equal.Monad.run (Equal.as_signature t_check) >>= fun ((ctx, yts),hyps) ->
-     let rec fold ctx ys ts xtes = function
+     let rec fold ctx es ts xtes = function
        | [], [] ->
-          let ctx = Context.abstract ~loc ctx ys ts in
           let xtes = List.rev xtes in
           let str = Tt.mk_structure ~loc xtes in
           Value.return (ctx, Tt.mention_atoms hyps str)
 
-       | (lbl1, _, c) :: xcs, (lbl2, x, ty) :: yts ->
+       | (lbl1, x, c) :: xcs, (lbl2, z, ty) :: yts ->
           if not (Name.eq_label lbl1 lbl2)
           then Error.typing ~loc "expected field %t but got field %t"
                             (Name.print_label lbl2)
                             (Name.print_label lbl1)
           else
-            let ty_inst = Tt.unabstract_ty ys ty in
+            let ty_inst = Tt.instantiate_ty es ty in
             let jty = Judgement.mk_ty ctx ty_inst in
             check c jty >>= fun (ctx, e) ->
-            Matching.mk_abstractable ~loc ctx ys >>= fun (ctx,zs,es) ->
-            let e = Tt.substitute zs es e in
-            Value.add_abstracting ~loc x jty (fun ctx y ->
-            let e_abs = Tt.abstract ys e in
-            fold ctx (y::ys) (ty_inst::ts) ((lbl2,x,ty,e_abs) :: xtes) (xcs, yts))
+            Value.add_bound x (Value.mk_term (ctx, e, ty_inst))
+            (fold ctx (e::es) (ty_inst::ts) ((lbl2,z,ty,e) :: xtes) (xcs, yts))
 
        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
        | [], _::_ -> Error.typing ~loc "this structure has too few fields"
