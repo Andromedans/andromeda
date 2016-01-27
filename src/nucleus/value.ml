@@ -140,7 +140,7 @@ let top_return x env = x,env
 
 let return x env = Return x, env.state
 
-let return_term e = return (Term e)
+let return_term e = return (mk_term e)
 
 let return_closure f env = Return (Closure (mk_closure0 f env)), env.state
 
@@ -339,20 +339,20 @@ let add_bound0 x v env = {env with lexical = { env.lexical with bound = (x,v)::e
 
 (** generate a fresh atom of type [t] and bind it to [x]
     NB: This is an effectful computation. TODO what? *)
-let add_free ~loc x (ctx, t) m env =
+let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
-  let yt = Term (ctx, Tt.mk_atom ~loc y, t) in
+  let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
   let env = add_bound0 x yt env in
   m ctx y env
 
 (** generate a fresh atom of type [t] and bind it to [x],
     and record that the atom will be abstracted.
     NB: This is an effectful computation. *)
-let add_abstracting ~loc x (ctx, t) m env =
+let add_abstracting ~loc x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
   let ya = Tt.mk_atom ~loc y in
   let jyt = Jdg.mk_term ctx ya t in
-  let env = add_bound0 x (Term jyt) env in
+  let env = add_bound0 x (mk_term jyt) env in
   let env = { env with
               dynamic = { env.dynamic with
                           abstracting = jyt :: env.dynamic.abstracting } }
@@ -525,7 +525,7 @@ let rec top_handle ~loc r env =
 (** Equality *)
 let rec equal_value v1 v2 =
   match v1, v2 with
-    | Term (_,te1,_), Term (_,te2,_) ->
+    | Term (Jdg.Term (_,te1,_)), Term (Jdg.Term (_,te2,_)) ->
       Tt.alpha_equal te1 te2
 
     | Tag (t1,vs1), Tag (t2,vs2) ->

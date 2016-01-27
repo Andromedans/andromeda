@@ -172,7 +172,7 @@ and project ~loc te xts p =
 let context ctx = ctx
 
 let rec value = function
-  | Value.Term (ctx,e,t) -> Value.mk_term (Jdg.mk_term (context ctx) (term e) (ty t))
+  | Value.Term (Jdg.Term (ctx,e,t)) -> Value.mk_term (Jdg.mk_term (context ctx) (term e) (ty t))
   | Value.Tag (x,vs) -> Value.mk_tag x (List.map value vs)
   | Value.List lst -> Value.from_list (List.map value lst)
   | Value.Tuple lst -> Value.mk_tuple (List.map value lst)

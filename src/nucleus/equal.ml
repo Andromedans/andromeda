@@ -107,11 +107,13 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   if Tt.alpha_equal e1 e2
   then Opt.return ctx
   else
-    Monad.lift (Value.perform_equal (Value.mk_term (ctx,e1,t)) (Value.mk_term (ctx,e2,t))) >!= fun v ->
+    Monad.lift (Value.perform_equal
+        (Value.mk_term (Jdg.mk_term ctx e1 t))
+        (Value.mk_term (Jdg.mk_term ctx e2 t))) >!= fun v ->
     let loc = loc1 in
     match Value.as_option ~loc v with
       | Some v ->
-        let (ctxeq,eq,teq) = Value.as_term ~loc v in
+        let Jdg.Term (ctxeq,eq,teq) = Value.as_term ~loc v in
         let ctx = Context.join ~loc ctx ctxeq in
         Monad.add_hyps (Tt.assumptions_term eq) >!= fun () ->
         let tgoal = Tt.mk_eq_ty ~loc t e1 e2 in
@@ -329,15 +331,15 @@ let reduce_step ctx {Tt.term=e'; assumptions; loc} =
   | Tt.Bound _ ->
      Error.impossible ~loc "de Bruijn encountered in reduce"
 
-
+(** TODO stop trying to be smart *)
 let rec as_form : type a. (_ -> a Monad.t) -> _ -> _ -> _ -> a Monad.t =
-  fun triviality thing (ctx, Tt.Ty ({Tt.term=t';loc;_} as t)) v ->
+  fun triviality thing (Jdg.Ty (ctx, Tt.Ty ({Tt.term=t';loc;_} as t))) v ->
   begin match Value.as_option ~loc v with
     | None ->  Error.typing ~loc "this expression should be %s, found@ %t" thing
                     (Tt.print_term [] t)
     | Some v ->
-      let (ctxv,ev,tv) = Value.as_term ~loc v in
-      as_eq (ctxv, tv) >>= fun (ctxv,tv,e1,e2) ->
+      let Jdg.Term (ctxv,ev,tv) = Value.as_term ~loc v in
+      as_eq (Jdg.mk_ty ctxv tv) >>= fun (ctxv,tv,e1,e2) ->
       (Opt.locally (equal_ty ctxv tv Tt.typ) >?= fun (ctx,hypst) ->
         let t1 = Tt.mention_atoms hypst e1
         and t2 = Tt.mention_atoms hypst e2 in
@@ -353,25 +355,25 @@ let rec as_form : type a. (_ -> a Monad.t) -> _ -> _ -> _ -> a Monad.t =
                   "this expression %t should be a witness of equality between %t and %s"
                   (pval v) (pte t) thing
         | Some (ctx,t) ->
-          triviality (ctx, Tt.ty t)
+          triviality (Jdg.mk_ty ctx (Tt.ty t))
       end
   end
 
-and as_eq ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
+and as_eq (Jdg.Ty (ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
     | _ ->
       Monad.lift (Value.perform_as_eq (Value.mk_term (Jdg.term_of_ty jt))) >>=
       as_form as_eq "an equality type" jt
 
-let rec as_prod ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
+let rec as_prod (Jdg.Ty (ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
     | _ ->
       Monad.lift (Value.perform_as_prod (Value.mk_term (Jdg.term_of_ty jt))) >>=
       as_form as_prod "a product type" jt
 
-let rec as_signature ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
+let rec as_signature (Jdg.Ty (ctx, Tt.Ty {Tt.term=t';_}) as jt) =
   match t' with
     | Tt.Signature xts -> Monad.return (ctx, xts)
     | _ ->

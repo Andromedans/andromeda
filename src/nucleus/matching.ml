@@ -36,7 +36,7 @@ let mk_abstractable ~loc ctx xs =
                   Error.runtime ~loc "Cannot abstract %t because %t depends on it in context@ %t."
                   (Name.print_atom x) (Name.print_atom y) (Context.print ctx)
                 | Some v ->
-                  let (ctxe,e,te) = Value.as_term ~loc v in
+                  let Jdg.Term (ctxe,e,te) = Value.as_term ~loc v in
                   if Tt.alpha_equal_ty yty te
                   then
                     let ctx = Context.join ~loc ctx ctxe in
@@ -78,7 +78,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
   | Syntax.Tt_Anonymous, _ -> xvs
 
   | Syntax.Tt_As (p,k), _ ->
-     let v = Value.mk_term (ctx,e,t) in
+     let v = Value.mk_term (Jdg.mk_term ctx e t) in
      let xvs = try
          let v' = List.assoc k xvs in
          if Value.equal_value v v'
@@ -91,7 +91,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
 
   | Syntax.Tt_Bound k, _ ->
      let v' = Value.get_bound ~loc k env in
-     if Value.equal_value (Value.mk_term (ctx,e,t)) v'
+     if Value.equal_value (Value.mk_term (Jdg.mk_term ctx e t)) v'
      then xvs
      else raise Match_fail
 
@@ -111,7 +111,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
        | None -> xvs
      end in
      let y, ctx = Context.add_fresh ctx x ty in
-     let yt = Value.mk_term (ctx, Tt.mk_atom ~loc y, ty) in
+     let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) ty) in
      let env = Value.push_bound x yt env in
      let te = Tt.unabstract [y] te in
      let out = Tt.unabstract_ty [y] out in
@@ -143,7 +143,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
        | None -> xvs
      end in
      let y, ctx = Context.add_fresh ctx x ty in
-     let yt = Value.mk_term (ctx, Tt.mk_atom ~loc y, ty) in
+     let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) ty) in
      let env = Value.push_bound x yt env in
      let Tt.Ty out = Tt.unabstract_ty [y] out in
      let xvs = match bopt with
@@ -182,7 +182,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             let xvs = collect_tt_pattern env xvs p ctx t' (Tt.mk_type_ty ~loc) in
             (* XXX should we use [add_abstracting] instead of [add_fresh]? *)
             let y, ctx = Context.add_fresh ctx x t in
-            let yt = Value.mk_term (ctx, Tt.mk_atom ~loc y, t) in
+            let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
             let env = Value.push_bound x yt env in
             let xvs = match bopt with
               | None -> xvs
@@ -217,7 +217,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             (* Should we use [add_abstracting] instead of [add_fresh]? *)
             let y, ctx = Context.add_fresh ctx x t in
             let Tt.Ty {Tt.loc=loc;_} = t in
-            let yt = Value.mk_term (ctx, Tt.mk_atom ~loc y, t) in
+            let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
             let env = Value.push_bound x yt env in
             let xvs = match bopt with
               | None -> xvs
@@ -273,7 +273,7 @@ let rec collect_pattern env xvs (p,loc) v =
      then xvs
      else raise Match_fail
 
-  | Syntax.Patt_Jdg (pe, pt), Value.Term (ctx, e, t) ->
+  | Syntax.Patt_Jdg (pe, pt), Value.Term (Jdg.Term (ctx, e, t)) ->
      let Tt.Ty t' = t in
      let {Tt.loc=loc;_} = t' in
      let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
