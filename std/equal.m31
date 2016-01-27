@@ -519,7 +519,10 @@ handle
     end
 
   | as_signature e => (* TODO no good way to match generic signature *)
-    with equality_in !top_betas !top_hints !top_etas handle whnf e
+    let eq = 
+      with equality_in !top_betas !top_hints !top_etas handle whnf e
+    in
+    Some eq
 
   | beta b =>
     match (with equality !top_betas !top_hints !top_etas handle beta b) with
