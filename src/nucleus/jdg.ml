@@ -79,7 +79,7 @@ type sig_def = (Name.label * Name.atom * ty) list
 type shape =
   | Type
   | Atom of atom
-  | Constant of Name.constant
+  | Constant of Name.constant * Tt.ty
   | Prod of ty abstraction
   | Lambda of term abstraction
   | Apply of term * term
@@ -136,7 +136,7 @@ let shape ~loc env (Term (ctx,e,t)) =
 
     | Tt.Atom x -> Atom (JAtom (ctx,x))
 
-    | Tt.Constant c -> Constant c
+    | Tt.Constant c -> Constant (c,t) (* TODO this is wrong *)
 
     | Tt.Prod ((x,a),b) ->
       let ja = mk_ty ctx a in

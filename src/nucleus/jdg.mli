@@ -65,15 +65,16 @@ type structure = ty * term list
 
 type sig_def = (Name.label * Name.atom * ty) list
 
+(** Contains enough information to construct a new judgement *)
 type shape =
   | Type
   | Atom of atom
-  | Constant of Name.constant
+  | Constant of Name.constant * Tt.ty
   | Prod of ty abstraction
   | Lambda of term abstraction
     (** Apply (j1,j2) means (up to alpha equivalence)
         - j1 = ctx1 |- e1 : forall x: A,B
-        - ctx2 |- e2 : A
+        - j2 = ctx2 |- e2 : A
         - ctx1 and ctx2 joinable *)
   | Apply of term * term
   | Eq of term * term

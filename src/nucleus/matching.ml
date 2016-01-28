@@ -35,7 +35,7 @@ let rec collect_tt_pattern env xvs p j =
   | Syntax.Tt_Type, Jdg.Type ->
      xvs
 
-  | Syntax.Tt_Constant x, Jdg.Constant y ->
+  | Syntax.Tt_Constant x, Jdg.Constant (y,_) ->
      if Name.eq_ident x y
      then xvs
      else raise Match_fail
@@ -142,7 +142,7 @@ let rec collect_tt_pattern env xvs p j =
     let j = Jdg.atom_term x in
     collect_tt_pattern env xvs p j
 
-  | Syntax.Tt_GenConstant p, Jdg.Constant c ->
+  | Syntax.Tt_GenConstant p, Jdg.Constant (c, _) ->
     let t = Runtime.get_constant c env in
     let c = Tt.mk_constant ~loc c in
     let j = Jdg.mk_term Context.empty c t in
