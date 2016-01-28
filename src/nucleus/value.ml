@@ -87,7 +87,7 @@ let predefined_ops = [
 ]
 
 (** Make values *)
-let mk_term j = Term j
+let mk_term j = Term (Jdg.strengthen j)
 let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
 let mk_tuple lst = Tuple lst

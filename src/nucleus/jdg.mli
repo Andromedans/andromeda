@@ -19,6 +19,9 @@ val mk_term : Context.t -> Tt.term -> Tt.ty -> term
 (** Create a type judgment. *)
 val mk_ty : Context.t -> Tt.ty -> ty
 
+(** Strengthening *)
+val strengthen : term -> term
+
 (** Print the judgement that something is a term. *)
 val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
 

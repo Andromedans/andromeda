@@ -12,6 +12,11 @@ let mk_ty ctx t = Ty (ctx, t)
 
 let ty_ty = Ty (Context.empty, Tt.typ)
 
+let strengthen (Term (ctx,e,t)) =
+  let hyps = Tt.assumptions_term e in
+  let ctx = Context.restrict ctx hyps in
+  Term (ctx,e,t)
+
 let print_term ?max_level xs (Term (ctx, e,t)) ppf =
   Print.print ?max_level ~at_level:100 ppf
               "%t@[<hov 2>%s %t@ : %t@]"
