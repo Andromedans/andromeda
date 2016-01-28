@@ -7,8 +7,13 @@ type env = private {
   signatures : Tt.sig_def SignatureMap.t
 }
 
+val empty : env
+
 (** The judgement that the given term has the given type. *)
 type term = private Term of Context.t * Tt.term * Tt.ty
+
+(** Special judgement for atoms *)
+type atom = private JAtom of Context.t * Name.atom
 
 (** The judgement that the given term is a type. *)
 type ty = private Ty of Context.t * Tt.ty
@@ -18,6 +23,12 @@ val ty_ty : ty
 
 (** The type judgement of a term judgement. *)
 val typeof : term -> ty
+
+(** Typeof for atoms *)
+val atom_ty : atom -> ty
+
+(** Convert atom judgement to term judgement *)
+val atom_term : atom -> term
 
 (** The judgement ctx |- t : Type associated with ctx |- t type *)
 val term_of_ty : ty -> term
@@ -34,19 +45,30 @@ val strengthen : term -> term
 (** Print the judgement that something is a term. *)
 val print_term : penv:Tt.print_env -> ?max_level:Level.t -> term -> Format.formatter -> unit
 
+(** Environment *)
+val constant_type : Name.constant -> env -> Tt.ty
+
+val signature_def : Name.signature -> env -> Tt.sig_def
+
+val add_constant : Name.constant -> Tt.ty -> env -> env
+
+val add_signature : Name.signature -> Tt.sig_def -> env -> env
+
 (** Destructors *)
-type 'a abstraction = Name.atom * ty * 'a
+(** The atom is used in the second component *)
+type 'a abstraction = atom * 'a
 
-type signature = Name.signature * (Name.atom, term) Tt.constrain list
+type signature = Name.signature * (atom, term) Tt.constrain list
 
-type structure = signature * term list
+(* The type must be a signature. XXX find a better way to do this (?) *)
+type structure = ty * term list
 
 type sig_def = (Name.label * Name.atom * ty) list
 
 type shape =
   | Type
-  | Atom of Context.t * Name.atom
-  | Constant of Name.ident
+  | Atom of atom
+  | Constant of Name.constant
   | Prod of ty abstraction
   | Lambda of term abstraction
     (** Apply (j1,j2) means (up to alpha equivalence)

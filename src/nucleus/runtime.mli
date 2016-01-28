@@ -97,12 +97,14 @@ val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
 val get_env : env comp
 
 (** Lookup a constant. *)
-val get_constant : Name.constant -> env -> Tt.ty option
+val get_constant : Name.constant -> env -> Tt.ty
 
 val lookup_constant : loc:Location.t -> Name.constant -> Tt.ty comp
 
 (** Lookup a signature definition *)
-val get_signature : Name.signature -> env -> Tt.sig_def option
+val get_signature : Name.signature -> env -> Tt.sig_def
+
+val get_typing_env : env -> Jdg.env
 
 (** Lookup a signature definition, monadically *)
 val lookup_signature : loc:Location.t -> Name.signature -> Tt.sig_def comp
@@ -175,10 +177,6 @@ val continue : loc:Location.t -> value -> value comp
 val lookup_penv : print_env comp
 
 val top_lookup_penv : print_env toplevel
-
-(** Print free variables in the environment *)
-val print_env : (Format.formatter -> unit) toplevel
-
 
 (** Interface to execute suspended computations. *)
 type topenv

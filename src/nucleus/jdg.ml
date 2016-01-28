@@ -6,11 +6,32 @@ type env = {
   signatures : Tt.sig_def SignatureMap.t
 }
 
+let empty = {
+  constants = ConstantMap.empty;
+  signatures = SignatureMap.empty;
+}
+
 type term = Term of Context.t * Tt.term * Tt.ty
+
+type atom = JAtom of Context.t * Name.atom
 
 type ty = Ty of Context.t * Tt.ty
 
 let typeof (Term (ctx, _, t)) = Ty (ctx, t)
+
+let atom_ty (JAtom (ctx,x)) =
+  match Context.lookup_ty x ctx with
+    | Some t ->
+      Ty (ctx,t)
+    | None ->
+      Error.impossible ~loc:Location.unknown "Bad atom judgement"
+
+let atom_term (JAtom (ctx,x)) =
+  match Context.lookup_ty x ctx with
+    | Some t ->
+      Term (ctx,Tt.mk_atom ~loc:Location.unknown x,t)
+    | None ->
+      Error.impossible ~loc:Location.unknown "Bad atom judgement"
 
 let term_of_ty (Ty (ctx,Tt.Ty ({Tt.loc=loc;_} as t))) = Term (ctx,t,Tt.mk_type_ty ~loc)
 
@@ -34,23 +55,31 @@ let print_term ~penv ?max_level (Term (ctx, e,t)) ppf =
               (Tt.print_ty ~penv ~max_level:Level.highest t)
 
 (** Environment *)
+let constant_type c env =
+  ConstantMap.find c env.constants
 
 let signature_def s env =
   SignatureMap.find s env.signatures
 
+let add_constant c t env =
+  {env with constants = ConstantMap.add c t env.constants}
+
+let add_signature s def env =
+  {env with signatures = SignatureMap.add s def env.signatures}
+
 (** Destructors *)
-type 'a abstraction = Name.atom * ty * 'a
+type 'a abstraction = atom * 'a
 
-type signature = Name.signature * (Name.atom, term) Tt.constrain list
+type signature = Name.signature * (atom, term) Tt.constrain list
 
-type structure = signature * term list
+type structure = ty * term list
 
 type sig_def = (Name.label * Name.atom * ty) list
 
 type shape =
   | Type
-  | Atom of Context.t * Name.atom
-  | Constant of Name.ident
+  | Atom of atom
+  | Constant of Name.constant
   | Prod of ty abstraction
   | Lambda of term abstraction
   | Apply of term * term
@@ -60,6 +89,10 @@ type shape =
   | Structure of structure
   | Projection of term * Name.label
 
+
+let mk_fresh x (Ty (ctx,a)) =
+  let y,ctx = Context.add_fresh ctx x a in
+  ctx,y,JAtom (ctx,y)
 
 let shape_sig ~loc ctx ((s, shares) : Tt.signature) (def : Tt.sig_def) : signature =
   (* [vs] instantiate types from the signature definition, [ys] instantiate constraint terms *)
@@ -71,7 +104,7 @@ let shape_sig ~loc ctx ((s, shares) : Tt.signature) (def : Tt.sig_def) : signatu
       let t = Tt.instantiate_ty vs t in
       let y, ctx = Context.add_fresh ctx x t in
       let e = Tt.mk_atom ~loc y in
-      fold ctx (e :: vs) (y :: ys) ((Tt.Unconstrained y) :: shares) rem
+      fold ctx (e :: vs) (y :: ys) (Tt.Unconstrained (JAtom (ctx, y)) :: shares) rem
     | (Tt.Constrained e, (_, _, t)) :: rem ->
       let t = Tt.instantiate_ty vs t
       and e = Tt.unabstract ys e in
@@ -81,7 +114,8 @@ let shape_sig ~loc ctx ((s, shares) : Tt.signature) (def : Tt.sig_def) : signatu
   fold ctx [] [] [] (List.combine shares def)
 
 let shape_struct ~loc ctx ((s, _) as str : Tt.structure) (def : Tt.sig_def) : structure =
-  let s = shape_sig ~loc ctx s def in
+  let s = Tt.mk_signature_ty ~loc s in
+  let s = mk_ty ctx s in
   let fields = Tt.struct_combine ~loc str in
   let rec fold vs js = function
     | [] ->
@@ -100,24 +134,24 @@ let shape ~loc env (Term (ctx,e,t)) =
   match e.Tt.term with
     | Tt.Type -> Type
 
-    | Tt.Atom x -> Atom (ctx,x)
+    | Tt.Atom x -> Atom (JAtom (ctx,x))
 
     | Tt.Constant c -> Constant c
 
     | Tt.Prod ((x,a),b) ->
       let ja = mk_ty ctx a in
-      let y,ctxy = Context.add_fresh ctx x a in
+      let ctx,y,jy = mk_fresh x ja in
       let b = Tt.unabstract_ty [y] b in
-      let jb = mk_ty ctxy b in
-      Prod (y,ja,jb)
+      let jb = mk_ty ctx b in
+      Prod (jy,jb)
 
     | Tt.Lambda ((x,a),(e,b)) ->
       let ja = mk_ty ctx a in
-      let y,ctxy = Context.add_fresh ctx x a in
+      let ctx,y,jy = mk_fresh x ja in
       let b = Tt.unabstract_ty [y] b
       and e = Tt.unabstract [y] e in
-      let je = mk_term ctxy e b in
-      Lambda (y,ja,je)
+      let je = mk_term ctx e b in
+      Lambda (jy,je)
 
 
     | Tt.Apply (e1,((x,a),b),e2) ->

@@ -75,9 +75,7 @@ x₀ : wrapped
 ⊢ x₀.unwrap : A
 ⊢ a : A
 ⊢ a : A
-((⊢ wrapped : Type, (unwrap, unwrap₀ : A 
-                               ⊢ unwrap₀ : A) :: []), Constrained
-(⊢ a : A) ::
+(⊢ wrapped : Type, Constrained (⊢ a : A) ::
 [])
 (⊢ {container with T = A} : Type, (⊢ a : A) ::
 [])

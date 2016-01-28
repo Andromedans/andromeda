@@ -26,7 +26,7 @@ and tt_pattern' =
   | Tt_Projection of tt_pattern * Name.ident
   | Tt_GenSig of pattern
   (* Matching [Signature s={li as xi : Ai} with lj = ej] is matching
-     [((s,[li,xi:Ai]),[either yk or ej])] where [yk] is used to instantiate
+     [(s,[either yk or ej])] where [yk] is used to instantiate
      non-constrained labels in later constraints. *)
   | Tt_GenStruct of tt_pattern * pattern (* Matching [Structure s, [es]] *)
   | Tt_GenProj of tt_pattern * pattern (* Matching [Projection e, _, l] *)

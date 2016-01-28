@@ -22,8 +22,7 @@ type env = {
 
 and dynamic = {
   (* Toplevel declarations *)
-  constants : (Name.constant * Tt.ty) list;
-  signatures : (Name.signature * Tt.sig_def) list;
+  typing : Jdg.env;
 
   (* The list of judgments about atoms which are going to be abstracted. We
      should avoid creating atoms which depends on these, as this will prevent
@@ -221,35 +220,37 @@ let operation op ?checking vs env =
 
 let get_env env = Return env, env.state
 
+let get_typing_env env = env.dynamic.typing
+
 let get_constant x env =
-  Name.assoc_ident x env.dynamic.constants
+  Jdg.constant_type x env.dynamic.typing
 
 let get_signature x env =
-  Name.assoc_ident x env.dynamic.signatures
+  Jdg.signature_def x env.dynamic.typing
 
 let lookup_constant ~loc x env =
-  match get_constant x env with
-    | Some t -> Return t, env.state
-    | None -> Error.impossible ~loc "Unknown constant %t" (Name.print_ident x)
+  let t = get_constant x env in
+  Return t, env.state
 
 let lookup_signature ~loc x env =
-  match get_signature x env with
-   | Some def -> Return def, env.state
-   | None -> Error.impossible ~loc "Unknown signature %t" (Name.print_ident x)
+  let def = get_signature x env in
+  Return def, env.state
 
 let find_signature ~loc ls env =
-  let rec fold = function
-    | [] -> Error.runtime ~loc "No signature has these exact fields."
-    | (s, s_def) :: lst ->
-       let rec cmp lst1 lst2 =
-         match lst1, lst2 with
-         | [], [] -> true
-         | l1::lst1, (l2,_,_)::lst2 -> Name.eq_ident l1 l2 && cmp lst1 lst2
-         | [],_::_ | _::_,[] -> false
-       in
-       if cmp ls s_def then s, s_def else fold lst
+  let f s def = function
+    | Some _ as v -> v
+    | None ->
+      let rec cmp lst1 lst2 =
+        match lst1, lst2 with
+          | [], [] -> true
+          | l1::lst1, (l2,_,_)::lst2 -> Name.eq_ident l1 l2 && cmp lst1 lst2
+          | [],_::_ | _::_,[] -> false
+      in
+      if cmp ls def then Some (s, def) else None
   in
-  Return (fold env.dynamic.signatures), env.state
+  match Jdg.SignatureMap.fold f env.dynamic.typing.Jdg.signatures None with
+    | Some v -> Return v, env.state
+    | None -> Error.runtime ~loc "No signature has these fields."
 
 let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 
@@ -298,13 +299,13 @@ let add_forbidden0 x env =
 let add_forbidden x env = (), add_forbidden0 x env
 
 let add_constant0 ~loc x t env =
-  { env with dynamic = {env.dynamic with constants = (x, t) :: env.dynamic.constants };
+  { env with dynamic = {env.dynamic with typing = Jdg.add_constant x t env.dynamic.typing };
              lexical = {env.lexical with forbidden = x :: env.lexical.forbidden } }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
 
-let add_signature0 ~loc s s_def env =
- { env with dynamic = {env.dynamic with signatures = (s, s_def) :: env.dynamic.signatures };
+let add_signature0 ~loc s def env =
+ { env with dynamic = {env.dynamic with typing = Jdg.add_signature s def env.dynamic.typing };
             lexical = {env.lexical with forbidden = s :: env.lexical.forbidden } }
 
 let add_signature ~loc s s_def env = (), add_signature0 ~loc s s_def env
@@ -393,9 +394,8 @@ let get_penv env =
       Tt.forbidden = env.lexical.forbidden ;
       Tt.atoms = Name.atom_printer () ;
       Tt.sigs = (fun s ->
-                 match get_signature s env with
-                   | None -> Error.impossible ~loc:Location.unknown "get_penv: unknown signature %t" (Name.print_ident s)
-                   | Some s_def -> List.map (fun (l,_,_) -> l) s_def) };
+                 let def = get_signature s env in
+                  List.map (fun (l,_,_) -> l) def) };
     extra = env.state;
   }
 
@@ -493,22 +493,6 @@ let print_operation env op vs ppf =
                                (Print.sequence (print_value ~max_level:Level.app_right ~penv) "" vs)
      end
 
-let print_env topenv =
-  let print env ppf =
-    let penv = get_penv env in
-    List.iter (fun (x,t) ->
-           Format.fprintf ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n"
-                          (Name.print_ident x)
-                          (Tt.print_ty ~penv:penv.base t))
-      env.dynamic.constants ;
-    List.iter (fun (x,s) ->
-           Format.fprintf ppf "@[<hov 4>signature %t %t@]@\n"
-                       (Name.print_ident x)
-                       (Tt.print_sig_def ~penv:penv.base s))
-      env.dynamic.signatures ;
-  in
-  print topenv, topenv
-
 let empty = {
   lexical = {
     forbidden = [] ;
@@ -517,8 +501,7 @@ let empty = {
     continuation = None ;
   } ;
   dynamic = {
-    constants = [] ;
-    signatures = [] ;
+    typing = Jdg.empty ;
     abstracting = [] ;
     vars = Store.Dyn.empty ;
   } ;
