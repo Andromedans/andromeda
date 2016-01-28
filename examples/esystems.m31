@@ -1,0 +1,77 @@
+(* Egbert's E-systems *)
+
+constant ctx : Type
+constant fam : ctx → Type
+constant trm : ∏ (Γ : ctx), fam Γ → Type
+
+constant emptyCtx : ctx
+constant emptyFam : ∏ (Γ : ctx), fam Γ
+
+constant ctxExt : ∏ (Γ : ctx), fam Γ → ctx
+constant famExt : ∏ (Γ : ctx) (A : fam Γ), fam (ctxExt Γ A) → fam Γ
+
+(* equations of category theory *)
+
+constant assocCtxExt :
+  ∏ (Γ : ctx) (A : fam Γ) (P : fam (ctxExt Γ A)),
+    ctxExt (ctxExt Γ A) P ≡ ctxExt Γ (famExt Γ A P)
+
+do add_beta assocCtxExt
+
+constant assocFamExt :
+  ∏ (Γ : ctx) (A : fam Γ) (P : fam (ctxExt Γ A))
+    (Q : fam (ctxExt (ctxExt Γ A) P)),
+    famExt Γ (famExt Γ A P) Q ≡
+    famExt Γ A (famExt (ctxExt Γ A) P Q)
+ 
+constant emptyCtxExt :
+  ∏ (Γ : ctx), ctxExt Γ (emptyFam Γ) ≡ Γ
+
+do add_beta emptyCtxExt
+
+constant emptyFamLeft :
+  ∏ (Γ : ctx) (A : fam Γ), famExt Γ (emptyFam Γ) A ≡ A
+
+constant emptyFamRight :
+  ∏ (Γ : ctx) (A : fam Γ),
+    famExt Γ A (emptyFam (ctxExt Γ A)) ≡ A
+
+(* And now the same thing as a structure. *)
+let catWithTerms = {
+
+  ctx : Type,
+
+  fam : ctx → Type,
+
+  trm : ∏ (Γ : ctx), fam Γ → Type,
+
+  emptyCtx : ctx,
+
+  emptyFam : ∏ (Γ : ctx), fam Γ,
+
+  ctxExt : ∏ (Γ : ctx), fam Γ → ctx,
+
+  famExt : ∏ (Γ : ctx) (A : fam Γ), fam (ctxExt Γ A) → fam Γ,
+
+  assocCtxExt :
+    ∏ (Γ : ctx) (A : fam Γ) (P : fam (ctxExt Γ A)),
+      ctxExt (ctxExt Γ A) P ≡ ctxExt Γ (famExt Γ A P),
+
+  assocFamExt :
+    (with local (lbeta assocCtxExt) handle
+    ∏ (Γ : ctx) (A : fam Γ) (P : fam (ctxExt Γ A))
+      (Q : fam (ctxExt (ctxExt Γ A) P)),
+      famExt Γ (famExt Γ A P) Q ≡
+      famExt Γ A (famExt (ctxExt Γ A) P Q)),
+ 
+  emptyCtxExt :
+    ∏ (Γ : ctx), ctxExt Γ (emptyFam Γ) ≡ Γ,
+  
+  emptyFamLeft :
+    (with local (lbeta emptyCtxExt) handle
+    ∏ (Γ : ctx) (A : fam Γ), famExt Γ (emptyFam Γ) A ≡ A),
+  
+  emptyFamRight :
+    ∏ (Γ : ctx) (A : fam Γ),
+      famExt Γ A (emptyFam (ctxExt Γ A)) ≡ A
+}

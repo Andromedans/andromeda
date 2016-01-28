@@ -462,27 +462,23 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
 
   | Syntax.Structure xcs ->
      Equal.Monad.run (Equal.as_signature t_check) >>= fun ((ctx, yts),hyps) ->
-     let rec fold ctx ys ts xtes = function
+     let rec fold ctx es ts xtes = function
        | [], [] ->
-          let ctx = Context.abstract ~loc ctx ys ts in
           let xtes = List.rev xtes in
           let str = Tt.mk_structure ~loc xtes in
           Value.return (ctx, Tt.mention_atoms hyps str)
 
-       | (lbl1, _, c) :: xcs, (lbl2, x, ty) :: yts ->
+       | (lbl1, x, c) :: xcs, (lbl2, z, ty) :: yts ->
           if not (Name.eq_label lbl1 lbl2)
           then Error.typing ~loc "expected field %t but got field %t"
                             (Name.print_label lbl2)
                             (Name.print_label lbl1)
           else
-            let ty_inst = Tt.unabstract_ty ys ty in
+            let ty_inst = Tt.instantiate_ty es ty in
             let jty = Judgement.mk_ty ctx ty_inst in
             check c jty >>= fun (ctx, e) ->
-            Matching.mk_abstractable ~loc ctx ys >>= fun (ctx,zs,es) ->
-            let e = Tt.substitute zs es e in
-            Value.add_abstracting ~loc x jty (fun ctx y ->
-            let e_abs = Tt.abstract ys e in
-            fold ctx (y::ys) (ty_inst::ts) ((lbl2,x,ty,e_abs) :: xtes) (xcs, yts))
+            Value.add_bound x (Value.mk_term (ctx, e, ty_inst))
+            (fold ctx (e::es) (ty_inst::ts) ((lbl2,z,ty,e) :: xtes) (xcs, yts))
 
        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
        | [], _::_ -> Error.typing ~loc "this structure has too few fields"
@@ -680,20 +676,20 @@ let rec exec_cmd base_dir interactive c =
   match c' with
 
   | Syntax.Operation (x, k) ->
-     Value.add_operation ~loc x k >>
-     (if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
-     return ())
+     Value.add_operation ~loc x k >>= fun () ->
+     if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
+     return ()
 
   | Syntax.Data (x, k) ->
-     Value.add_data ~loc x k >>
-     (if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
-     return ())
+     Value.add_data ~loc x k >>= fun () ->
+     if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
+     return ()
 
   | Syntax.Axiom (x, c) ->
      Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (ctxt, t) ->
       if Context.is_empty ctxt
       then
-        Value.add_constant ~loc x t >>
+        Value.add_constant ~loc x t >>= fun () ->
         (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
          return ())
       else
@@ -706,9 +702,10 @@ let rec exec_cmd base_dir interactive c =
 
   | Syntax.TopLet (x, c) ->
      comp_value c >>= fun v ->
-     Value.add_topbound ~loc x v >>
-     (if interactive then Format.printf "%t is defined.@." (Name.print_ident x) ;
-     return ())
+     Value.add_topbound ~loc x v >>= fun () ->
+     if interactive && not (Name.is_anonymous x)
+      then Format.printf "%t is defined.@." (Name.print_ident x) ;
+     return ()
 
   | Syntax.TopDo c ->
      comp_value c >>= fun v ->
