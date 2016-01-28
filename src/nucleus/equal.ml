@@ -100,7 +100,8 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
     (pte e1) (pte e2) (pty t);
   if Tt.alpha_equal e1 e2
-  then Opt.return ctx
+  then
+    Opt.return ctx
   else
     Monad.lift (Value.perform_equal
         (Value.mk_term (Jdg.mk_term ctx e1 t))
@@ -378,7 +379,7 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
       begin match Value.as_option ~loc v with
         | None ->
           Monad.lift Value.print_ty >>= fun pty ->
-          Error.typing ~loc "this expression should be an equality, found@ %t"
+          Error.typing ~loc "this expression should be a product, found@ %t"
               (pty t)
         | Some v ->
           let Jdg.Term (ctxv,ev,tv) = Value.as_term ~loc v in
@@ -414,7 +415,7 @@ let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
       begin match Value.as_option ~loc v with
         | None ->
           Monad.lift Value.print_ty >>= fun pty ->
-          Error.typing ~loc "this expression should be an equality, found@ %t"
+          Error.typing ~loc "this expression should be a signature, found@ %t"
               (pty t)
         | Some v ->
           let Jdg.Term (ctxv,ev,tv) = Value.as_term ~loc v in
@@ -429,7 +430,7 @@ let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
           else
             Monad.lift (Value.print_ty) >>= fun pty ->
             Error.typing ~loc:ev.Tt.loc
-                "this expression should be a witness of equality between %t and a product"
+                "this expression should be a witness of equality between %t and a signature"
                 (pty t)
       end
 

@@ -180,7 +180,6 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             let Tt.Ty t' = t in
             let {Tt.loc=loc;_} = t' in
             let xvs = collect_tt_pattern env xvs p ctx t' (Tt.mk_type_ty ~loc) in
-            (* XXX should we use [add_abstracting] instead of [add_fresh]? *)
             let y, ctx = Context.add_fresh ctx x t in
             let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
             let env = Value.push_bound x yt env in
@@ -214,7 +213,6 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             let t = Tt.unabstract_ty ys t in
             let te = Tt.unabstract ys te in
             let xvs = collect_tt_pattern env xvs p ctx te t in
-            (* Should we use [add_abstracting] instead of [add_fresh]? *)
             let y, ctx = Context.add_fresh ctx x t in
             let Tt.Ty {Tt.loc=loc;_} = t in
             let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in

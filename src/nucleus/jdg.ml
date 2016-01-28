@@ -13,7 +13,7 @@ let mk_ty ctx t = Ty (ctx, t)
 let ty_ty = Ty (Context.empty, Tt.typ)
 
 let strengthen (Term (ctx,e,t)) =
-  let hyps = Tt.assumptions_term e in
+  let hyps = Name.AtomSet.union (Tt.assumptions_term e) (Tt.assumptions_ty t) in
   let ctx = Context.restrict ctx hyps in
   Term (ctx,e,t)
 

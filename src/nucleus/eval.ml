@@ -167,9 +167,8 @@ let rec infer (c',loc) =
     let ctx = Context.join ~loc ctxa ctx in
     check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
     let ctx_s = Context.substitute ~loc a (ctx,e2,ta) in
-    let te_s = Tt.instantiate [e2] (Tt.abstract [a] e1) in
-    let ty_s = Tt.instantiate_ty [e2] (Tt.abstract_ty [a] t1) in
-    let ctx_s = Context.restrict ctx_s (Tt.assumptions_term te_s) in
+    let te_s = Tt.substitute [a] [e2] e1 in
+    let ty_s = Tt.substitute_ty [a] [e2] t1 in
     let j_s = Jdg.mk_term ctx_s te_s ty_s in
     Value.return_term j_s
 
@@ -760,3 +759,4 @@ and use_file (filename, line_limit, interactive, once) =
       Value.push_file filename >>
       fold (fun () c -> exec_cmd base_dir interactive c) () cmds
     end
+
