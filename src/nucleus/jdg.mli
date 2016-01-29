@@ -13,7 +13,7 @@ val empty : env
 type term = private Term of Context.t * Tt.term * Tt.ty
 
 (** Special judgement for atoms *)
-type atom = private JAtom of Context.t * Name.atom
+type atom = private JAtom of Context.t * Name.atom * Tt.ty
 
 (** The judgement that the given term is a type. *)
 type ty = private Ty of Context.t * Tt.ty
@@ -25,7 +25,7 @@ val ty_ty : ty
 val typeof : term -> ty
 
 (** Typeof for atoms *)
-val atom_ty : loc:Location.t -> atom -> ty
+val atom_ty : atom -> ty
 
 (** Convert atom judgement to term judgement *)
 val atom_term : loc:Location.t -> atom -> term

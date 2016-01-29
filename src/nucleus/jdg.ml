@@ -13,25 +13,23 @@ let empty = {
 
 type term = Term of Context.t * Tt.term * Tt.ty
 
-type atom = JAtom of Context.t * Name.atom
+type atom = JAtom of Context.t * Name.atom * Tt.ty
 
 type ty = Ty of Context.t * Tt.ty
 
-let typeof (Term (ctx, _, t)) = Ty (ctx, t)
+let typeof (Term (ctx, _, t)) =
+  Ty (ctx, t)
 
-let atom_ty ~loc (JAtom (ctx,x)) =
+let mk_atom ~loc ctx x =
   match Context.lookup_ty x ctx with
-    | Some t ->
-      Ty (ctx,t)
-    | None ->
-      Error.impossible ~loc "Bad atom judgement"
+    | Some t -> JAtom (ctx,x,t)
+    | None -> Error.impossible ~loc "Cannot make unknown atom judgement"
 
-let atom_term ~loc (JAtom (ctx,x)) =
-  match Context.lookup_ty x ctx with
-    | Some t ->
-      Term (ctx,Tt.mk_atom ~loc x,t)
-    | None ->
-      Error.impossible ~loc "Bad atom judgement"
+let atom_ty (JAtom (ctx,x,t)) =
+  Ty (ctx,t)
+
+let atom_term ~loc (JAtom (ctx,x,t)) =
+  Term (ctx,Tt.mk_atom ~loc x,t)
 
 let term_of_ty (Ty (ctx,Tt.Ty ({Tt.loc=loc;_} as t))) = Term (ctx,t,Tt.mk_type_ty ~loc)
 
@@ -92,7 +90,7 @@ type shape =
 
 let mk_fresh x (Ty (ctx,a)) =
   let y,ctx = Context.add_fresh ctx x a in
-  ctx,y,JAtom (ctx,y)
+  ctx,y,JAtom (ctx,y,a)
 
 let shape_sig ~loc ctx ((s, shares) : Tt.signature) (def : Tt.sig_def) : signature =
   (* [vs] instantiate types from the signature definition, [ys] instantiate constraint terms *)
@@ -104,7 +102,7 @@ let shape_sig ~loc ctx ((s, shares) : Tt.signature) (def : Tt.sig_def) : signatu
       let t = Tt.instantiate_ty vs t in
       let y, ctx = Context.add_fresh ctx x t in
       let e = Tt.mk_atom ~loc y in
-      fold ctx (e :: vs) (y :: ys) (Tt.Unconstrained (JAtom (ctx, y)) :: shares) rem
+      fold ctx (e :: vs) (y :: ys) (Tt.Unconstrained (JAtom (ctx, y, t)) :: shares) rem
     | (Tt.Constrained e, (_, _, t)) :: rem ->
       let t = Tt.instantiate_ty vs t
       and e = Tt.unabstract ys e in
@@ -134,7 +132,7 @@ let shape ~loc env (Term (ctx,e,t)) =
   match e.Tt.term with
     | Tt.Type -> Type
 
-    | Tt.Atom x -> Atom (JAtom (ctx,x))
+    | Tt.Atom x -> Atom (mk_atom ~loc:e.Tt.loc ctx x)
 
     | Tt.Constant c -> Constant c
 
@@ -199,15 +197,13 @@ let form ~loc ~penv env = function
     let t = constant_type c env in
     Term (Context.empty,Tt.mk_constant ~loc c,t)
 
-  | Prod ((JAtom (_,x) as jx),(Ty (ctxb,b))) ->
-    let Ty (ctxa,a) = atom_ty ~loc jx in
+  | Prod ((JAtom (ctxa,x,a)),(Ty (ctxb,b))) ->
     let ctx = Context.join ~loc ~penv ctxb ctxa in
     let ctx = Context.abstract ~loc ~penv ctx x a in
     let b = Tt.abstract_ty [x] b in
     Term (ctx,Tt.mk_prod ~loc (Name.ident_of_atom x) a b,Tt.mk_type_ty ~loc)
 
-  | Lambda ((JAtom (_,x) as jx),(Term (ctxe,e,b))) ->
-    let Ty (ctxa,a) = atom_ty ~loc jx in
+  | Lambda ((JAtom (ctxa,x,a)),(Term (ctxe,e,b))) ->
     let ctx = Context.join ~loc ~penv ctxe ctxa in
     let ctx = Context.abstract ~loc ~penv ctx x a in
     let b = Tt.abstract_ty [x] b
@@ -241,7 +237,6 @@ let form ~loc ~penv env = function
     Term (ctx,Tt.mk_refl ~loc t e,Tt.mk_eq_ty ~loc t e e)
 
   | Signature _ | Structure _ | Projection _ -> assert false (* TODO *)
-
 
 let is_ty ~penv (Term (ctx,e,t) as j) =
   if Tt.alpha_equal_ty t Tt.typ

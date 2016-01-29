@@ -42,7 +42,7 @@ let rec collect_tt_pattern env xvs p j =
 
   | Syntax.Tt_Lambda (x,bopt,popt,p), Jdg.Lambda (jy,je) ->
      let xvs = begin match popt with
-       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty ~loc jy))
+       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty jy))
        | None -> xvs
      end in
      let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
@@ -60,7 +60,7 @@ let rec collect_tt_pattern env xvs p j =
 
   | Syntax.Tt_Prod (x,bopt,popt,p), Jdg.Prod (jy,jb) ->
      let xvs = begin match popt with
-       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty ~loc jy))
+       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty jy))
        | None -> xvs
      end in
      let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
