@@ -8,10 +8,16 @@ let as_term ~loc v =
   let e = Value.as_term ~loc v in
     Value.return e
 
+(** Returns the atom with its natural type in [ctx] *)
 let as_atom ~loc v =
-  as_term ~loc v >>= fun (ctx,e,t) ->
+  as_term ~loc v >>= fun ((ctx,e,_) as j) ->
   match e.Tt.term with
-    | Tt.Atom x -> Value.return (ctx,x,t)
+    | Tt.Atom x ->
+      begin match Context.lookup_ty x ctx with
+        | Some t -> Value.return (ctx,x,t)
+        | None ->
+          Error.impossible ~loc "got an atom judgement %t but the atom is not in the context" (Judgement.print_term [] j)
+      end
     | _ -> Value.print_term >>= fun print_term ->
       Error.runtime ~loc "expected an atom but got %t" (print_term e)
 
