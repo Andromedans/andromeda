@@ -106,6 +106,8 @@ val get_signature : Name.signature -> env -> Tt.sig_def
 
 val get_typing_env : env -> Jdg.env
 
+val lookup_typing_env : Jdg.env comp
+
 (** Lookup a signature definition, monadically *)
 val lookup_signature : loc:Location.t -> Name.signature -> Tt.sig_def comp
 

@@ -222,6 +222,9 @@ let get_env env = Return env, env.state
 
 let get_typing_env env = env.dynamic.typing
 
+let lookup_typing_env env =
+  Return (get_typing_env env), env.state
+
 let get_constant x env =
   Jdg.constant_type x env.dynamic.typing
 

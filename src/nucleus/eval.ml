@@ -10,18 +10,12 @@ let as_term ~loc v =
 
 (** Returns the atom with its natural type in [ctx] *)
 let as_atom ~loc v =
-  as_term ~loc v >>= fun (Jdg.Term (ctx,e,t) as j) ->
-  match e.Tt.term with
-    | Tt.Atom x ->
-      begin match Context.lookup_ty x ctx with
-        | Some t -> Runtime.return (ctx,x,t)
-        | None ->
-          Runtime.lookup_penv >>= fun penv ->
-          Error.impossible ~loc "got an atom judgement %t but the atom is not in the context" (Jdg.print_term ~penv:penv.Runtime.base j)
-      end
-    | _ ->
-      Runtime.lookup_penv >>= fun penv ->
-      Error.runtime ~loc "expected an atom but got %t" (Tt.print_term ~penv:penv.Runtime.base e)
+  as_term ~loc v >>= fun j ->
+  Runtime.lookup_typing_env >>= fun env ->
+  match Jdg.shape ~loc env j with
+    | Jdg.Atom x -> Runtime.return x
+    | _ -> Runtime.lookup_penv >>= fun penv ->
+      Error.runtime ~loc "expected an atom but got %t" (Jdg.print_term ~penv:penv.Runtime.base j)
 
 let as_handler ~loc v =
   let e = Runtime.as_handler ~loc v in
@@ -39,6 +33,12 @@ let as_ident ~loc v =
   let s = Runtime.as_ident ~loc v in
   Runtime.return s
 
+(** Form a judgement *)
+let jdg_form ~loc s =
+  Runtime.lookup_typing_env >>= fun env ->
+  Runtime.lookup_penv >>= fun penv ->
+  Runtime.return (Jdg.form ~loc ~penv:penv.Runtime.base env s)
+
 (** Evaluate a computation -- infer mode. *)
 let rec infer {Location.thing=c'; loc} =
   match c' with
@@ -46,10 +46,8 @@ let rec infer {Location.thing=c'; loc} =
        Runtime.lookup_bound ~loc i
 
     | Syntax.Type ->
-       let e = Tt.mk_type ~loc in
-       let t = Tt.mk_type_ty ~loc in
-       let et = Jdg.mk_term Context.empty e t in
-       Runtime.return_term et
+      jdg_form ~loc Jdg.Type >>=
+      Runtime.return_term
 
     | Syntax.Function (x, c) ->
        let f v =
@@ -155,9 +153,8 @@ let rec infer {Location.thing=c'; loc} =
        infer c)
 
   | Syntax.Where (c1, c2, c3) ->
-    infer c2 >>= as_atom ~loc >>= fun (_, a, _) ->
-    infer c1 >>= fun v1 ->
-    as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
+    infer c2 >>= as_atom ~loc >>= fun (Jdg.JAtom (_, a, _)) ->
+    infer c1 >>= fun v1 -> as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
     begin match Context.lookup_ty a ctx with
     | None -> infer c3 >>=
        as_term ~loc:(c3.Location.loc) >>= fun _ ->
@@ -189,10 +186,8 @@ let rec infer {Location.thing=c'; loc} =
      Runtime.return_term j
 
   | Syntax.Constant x ->
-    Runtime.lookup_constant ~loc x >>= fun t ->
-    let e = Tt.mk_constant ~loc x in
-    let eu = Jdg.mk_term Context.empty e t in
-    Runtime.return_term eu
+    jdg_form ~loc (Jdg.Constant x) >>=
+    Runtime.return_term
 
   | Syntax.Lambda (x,u,c) ->
      infer_lambda ~loc x u c
@@ -213,20 +208,17 @@ let rec infer {Location.thing=c'; loc} =
     infer_prod ~loc x u c
 
   | Syntax.Eq (c1, c2) ->
-     infer c1 >>= as_term ~loc:(c1.Location.loc) >>= fun (Jdg.Term (ctx, e1, t1')) ->
-     let t1 = Jdg.mk_ty ctx t1' in
+     infer c1 >>= as_term ~loc:c1.Location.loc >>= fun j1 ->
+     let (Jdg.Ty (_,t1')) as t1 = Jdg.typeof j1 in
      check c2 t1 >>= fun (ctx, e2) ->
-     let eq = Tt.mk_eq ~loc t1' e1 e2 in
-     let typ = Tt.mk_type_ty ~loc in
-     let j = Jdg.mk_term ctx eq typ in
-     Runtime.return_term j
+     let j2 = Jdg.mk_term ctx e2 t1' in
+     jdg_form ~loc (Jdg.Eq (j1,j2)) >>=
+     Runtime.return_term
 
   | Syntax.Refl c ->
-     infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe, e, t)) ->
-     let e' = Tt.mk_refl ~loc t e
-     and t' = Tt.mk_eq_ty ~loc t e e in
-     let et' = Jdg.mk_term ctxe e' t' in
-     Runtime.return_term et'
+     infer c >>= as_term ~loc:c.Location.loc >>= fun j ->
+     jdg_form ~loc (Jdg.Refl j) >>=
+     Runtime.return_term
 
   | Syntax.Signature (s,lxcs) ->
     let rec align res def lxcs = match def, lxcs with
@@ -381,7 +373,7 @@ let rec infer {Location.thing=c'; loc} =
         | (l,_,t)::def, xe::xes ->
           begin match Predefined.as_constrain ~loc xe with
             | Tt.Unconstrained vx ->
-              as_atom ~loc vx >>= fun (ctx',y,ty) ->
+              as_atom ~loc vx >>= fun (Jdg.JAtom (ctx',y,ty)) ->
               let t = Tt.instantiate_ty es t in
               (* TODO use handled equal? *)
               if Tt.alpha_equal_ty t ty
@@ -456,7 +448,7 @@ let rec infer {Location.thing=c'; loc} =
     infer_projection ~loc c1 l
 
   | Syntax.Occurs (c1,c2) ->
-    infer c1 >>= as_atom ~loc >>= fun (_,x,_) ->
+    infer c1 >>= as_atom ~loc >>= fun (Jdg.JAtom (_,x,_)) ->
     infer c2 >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
     begin match Context.lookup_ty x ctx with
       | Some t ->
