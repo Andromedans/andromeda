@@ -35,17 +35,17 @@ let rec collect_tt_pattern env xvs p j =
   | Syntax.Tt_Type, Jdg.Type ->
      xvs
 
-  | Syntax.Tt_Constant x, Jdg.Constant (y,_) ->
+  | Syntax.Tt_Constant x, Jdg.Constant y ->
      if Name.eq_ident x y
      then xvs
      else raise Match_fail
 
   | Syntax.Tt_Lambda (x,bopt,popt,p), Jdg.Lambda (jy,je) ->
      let xvs = begin match popt with
-       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty jy))
+       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty ~loc jy))
        | None -> xvs
      end in
-     let yt = Runtime.mk_term (Jdg.atom_term jy) in
+     let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
      let env = Runtime.push_bound x yt env in
      let xvs = match bopt with
        | None -> xvs
@@ -60,10 +60,10 @@ let rec collect_tt_pattern env xvs p j =
 
   | Syntax.Tt_Prod (x,bopt,popt,p), Jdg.Prod (jy,jb) ->
      let xvs = begin match popt with
-       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty jy))
+       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty ~loc jy))
        | None -> xvs
      end in
-     let yt = Runtime.mk_term (Jdg.atom_term jy) in
+     let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
      let env = Runtime.push_bound x yt env in
      let xvs = match bopt with
        | None -> xvs
@@ -118,7 +118,7 @@ let rec collect_tt_pattern env xvs p j =
     let bare = Runtime.mk_term bare in
     let shares = List.map (function
         | Tt.Unconstrained y ->
-          let jy = Jdg.atom_term y in
+          let jy = Jdg.atom_term ~loc y in
           Predefined.from_constrain (Tt.Unconstrained (Runtime.mk_term jy))
         | Tt.Constrained j ->
           Predefined.from_constrain (Tt.Constrained (Runtime.mk_term j)))
@@ -139,10 +139,10 @@ let rec collect_tt_pattern env xvs p j =
     collect_tt_pattern env xvs p j
 
   | Syntax.Tt_GenAtom p, Jdg.Atom x ->
-    let j = Jdg.atom_term x in
+    let j = Jdg.atom_term ~loc x in
     collect_tt_pattern env xvs p j
 
-  | Syntax.Tt_GenConstant p, Jdg.Constant (c, _) ->
+  | Syntax.Tt_GenConstant p, Jdg.Constant c ->
     let t = Runtime.get_constant c env in
     let c = Tt.mk_constant ~loc c in
     let j = Jdg.mk_term Context.empty c t in
