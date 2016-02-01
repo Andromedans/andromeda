@@ -7,7 +7,7 @@ type term = {
   (* raw term *)
 
   assumptions : Assumption.t;
-  (* set of atoms on which the term dependsassumptions on the subterms *)
+  (* set of atoms on which the term depends *)
 
   loc : Location.t
   (* the location in input where the term appeared, as much as that makes sense *)
@@ -38,6 +38,12 @@ and structure = (Name.ident * Name.ident * ty * term) list
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
 
+(* Helpers *)
+let ty_hyps (Ty e) = e.assumptions
+let rec hyp_union acc = function
+  | [] -> acc
+  | x::rem -> hyp_union (Assumption.union acc x) rem
+
 let mk_atom ~loc x = {
   term = Atom x;
   assumptions = Assumption.singleton x;
@@ -52,19 +58,19 @@ let mk_constant ~loc x = {
 
 let mk_lambda ~loc x a e b = {
   term = Lambda ((x, a), (e, b)) ;
-  assumptions=Assumption.empty ;
+  assumptions=hyp_union (ty_hyps a) (List.map (Assumption.bind 1) [ty_hyps b;e.assumptions]) ;
   loc = loc
 }
 
 let mk_prod ~loc x a b = {
   term = Prod ((x, a), b) ;
-  assumptions=Assumption.empty ;
+  assumptions=hyp_union (ty_hyps a) [Assumption.bind 1 (ty_hyps b)] ;
   loc = loc
 }
 
 let mk_apply ~loc e1 x a b e2 = {
   term = Apply (e1, ((x, a),b), e2);
-  assumptions = Assumption.empty;
+  assumptions = hyp_union (ty_hyps a) [Assumption.bind 1 (ty_hyps b);e1.assumptions;e2.assumptions] ;
   loc = loc
 }
 
@@ -75,27 +81,33 @@ let mk_type ~loc =
 
 let mk_eq ~loc t e1 e2 =
   { term = Eq (t, e1, e2);
-    assumptions = Assumption.empty;
+    assumptions = hyp_union (ty_hyps t) [e1.assumptions;e2.assumptions];
     loc = loc }
 
 let mk_refl ~loc t e =
   { term = Refl (t, e);
-    assumptions = Assumption.empty;
+    assumptions = hyp_union (ty_hyps t) [e.assumptions];
     loc = loc }
 
 let mk_signature ~loc lst =
   { term = Signature lst;
-    assumptions = Assumption.empty;
+    assumptions = snd 
+        (List.fold_left (fun (n,acc) (_,_,a) -> (n+1),Assumption.union acc (Assumption.bind n (ty_hyps a)))
+            (0,Assumption.empty) lst);
     loc = loc }
 
 let mk_structure ~loc lst =
   { term = Structure lst;
-    assumptions = Assumption.empty;
+    assumptions = snd 
+        (List.fold_left (fun (n,acc) (_,_,a,e) -> (n+1),Assumption.union acc (Assumption.bind n (Assumption.union (ty_hyps a) e.assumptions)))
+            (0,Assumption.empty) lst);
     loc = loc }
 
 let mk_projection ~loc te xts x =
   { term = Projection (te,xts,x);
-    assumptions = Assumption.empty;
+    assumptions = snd 
+        (List.fold_left (fun (n,acc) (_,_,a) -> (n+1),Assumption.union acc (Assumption.bind n (ty_hyps a)))
+            (0,te.assumptions) xts);
     loc = loc }
 
 (** Convert a term to a type. *)
@@ -115,72 +127,7 @@ let mention_atoms a e =
 let mention a e =
   { e with assumptions = Assumption.union e.assumptions a }
 
-
-let rec gather_assumptions_ty_abs : 'a. ('a -> Assumption.t) -> 'a ty_abstraction -> Assumption.t = fun gather_v ((x,u),v) ->
-  let a1 = gather_assumptions_ty u in
-  let a2 = gather_v v in
-  Assumption.union a1 (Assumption.bind 1 a2)
-
-and gather_assumptions {term=e;assumptions;_} =
-  match e with
-    | Type | Atom _ | Constant _ | Bound _ -> assumptions
-
-    | Lambda a -> gather_assumptions_ty_abs gather_term_ty a
-
-    | Apply (e1,xts,e2) ->
-      let a1 = gather_assumptions e1
-      and a2 = gather_assumptions_ty_abs gather_assumptions_ty xts
-      and a3 = gather_assumptions e2 in
-      Assumption.union a1 (Assumption.union a2 a3)
-
-    | Prod a -> gather_assumptions_ty_abs gather_assumptions_ty a
-
-    | Eq (t,e1,e2) ->
-      let t = gather_assumptions_ty t
-      and e1 = gather_assumptions e1
-      and e2 = gather_assumptions e2 in
-      Assumption.union assumptions (Assumption.union t (Assumption.union e1 e2))
-
-    | Refl (t,e) ->
-      let t = gather_assumptions_ty t
-      and e = gather_assumptions e in
-      Assumption.union assumptions (Assumption.union t e)
-
-    | Signature xts ->
-      let assumptions' = List.fold_left (fun assumptions (l,x,t) ->
-          let assumptions = Assumption.bind 1 assumptions in
-          let t = gather_assumptions_ty t in
-          Assumption.union assumptions t)
-        Assumption.empty (List.rev xts)
-      in
-      Assumption.union assumptions assumptions'
-
-    | Structure xtes ->
-      let assumptions' = List.fold_left (fun assumptions (l,x,t,e) ->
-          let assumptions = Assumption.bind 1 assumptions in
-          let t = gather_assumptions_ty t
-          and e = gather_assumptions e in
-          Assumption.union assumptions (Assumption.union e t))
-        Assumption.empty (List.rev xtes)
-      in
-      Assumption.union assumptions assumptions'
-
-    | Projection (e,xts,l) ->
-      let assumptions' = List.fold_left (fun assumptions (l,x,t) ->
-          let assumptions = Assumption.bind 1 assumptions in
-          let t = gather_assumptions_ty t in
-          Assumption.union assumptions t)
-        Assumption.empty (List.rev xts)
-      in
-      let e = gather_assumptions e in
-      Assumption.union assumptions (Assumption.union e assumptions')
-
-and gather_assumptions_ty (Ty t) = gather_assumptions t
-
-and gather_term_ty (e,t) =
-  let a = gather_assumptions e
-  and a' = gather_assumptions_ty t in
-  Assumption.union a a'
+let gather_assumptions {assumptions;_} = assumptions
 
 let assumptions_term ({loc;_} as e) =
   let a = gather_assumptions e in
