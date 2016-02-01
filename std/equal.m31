@@ -423,16 +423,7 @@ let rec equate_congr a b =
   let betas = getbetas in
   match (whnf_eq betas a, whnf_eq betas b) with
     ((|- ?eqa : _ == ?a'), (|- ?eqb : _ == ?b')) =>
-      let r = match (a', b') with
-        | ((|- ?a1 ?a2), (|- ?b1 ?b2)) =>
-          (* TODO figure out how not to loop on etas without full equate_congr *)
-          handle congruence a' b' with
-            equal a2 b2 => yield (equate_congr a2 b2)
-          end
-        | _ => congruence a' b'
-        end
-      in
-      match r with
+      match congruence a' b' with
         | Some ?eq =>
           let eq = transitivity eqa (transitivity eq (symmetry eqb)) in
           Some eq
