@@ -1,16 +1,31 @@
-(* Natural numbers. *)
-Parameter nat : Type.
+(* Natural numbers *)
+constant nat : Type
 
-Parameter O : nat.
+constant O : nat
 
-Parameter S : nat -> nat.
+constant S : nat -> nat
 
-Parameter nat_rect : Π [P : nat -> Type] [s0 : P O] [s : Π [n : nat] P n -> P (S n)] [m : nat] P m.
+constant nat_rect : Π (P : nat -> Type) (s0 : P O) (s : Π (n : nat), P n -> P (S n)) (m : nat), P m
 
-Parameter nat_iota_O :
-  Π [P : nat -> Type] [s0 : P O] [s : Π [n : nat] P n -> P (S n)]
-  nat_rect P s0 s O == s0.
+constant nat_iota_O :
+  Π (P : nat -> Type) (s0 : P O) (s : Π (n : nat), P n -> P (S n)),
+  nat_rect P s0 s O == s0
 
-Parameter nat_iota_S :
-  Π [P : nat -> Type] [s0 : P O] [s : Π [n : nat] P n -> P (S n)] [m : nat]
-  nat_rect P s0 s (S m) == s m (nat_rect P s0 s m).
+constant nat_iota_S :
+  Π (P : nat -> Type) (s0 : P O) (s : Π (n : nat), P n -> P (S n)) (m : nat),
+  nat_rect P s0 s (S m) == s m (nat_rect P s0 s m)
+
+constant ( + ) : nat -> nat -> nat
+constant plus_def : forall n m : nat,
+                    n + m == nat_rect (lambda _, nat) n (lambda _ x, S x) m
+
+do add_beta nat_iota_O
+do add_beta nat_iota_S
+do add_beta plus_def
+
+let two   = S (S O)
+let three = S (S (S O))
+let four  = S (S (S (S O)))
+let five  = S (S (S (S (S O))))
+
+do refl five : five == two + three

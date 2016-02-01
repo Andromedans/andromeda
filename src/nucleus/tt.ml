@@ -115,288 +115,6 @@ let mention_atoms a e =
 let mention a e =
   { e with assumptions = Assumption.union e.assumptions a }
 
-(** Manipulation of variables *)
-
-let rec instantiate_ty_abstraction :
-  'a. (term list -> ?lvl:int -> 'a -> 'a) ->
-  term list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
-  = fun instantiate_v es ?(lvl=0) ((x,u), v) ->
-  let u = instantiate_ty es ~lvl u in
-  let lvl = lvl+1 in
-  let v = instantiate_v es ~lvl v in
-  ((x,u),v)
-
-and instantiate es ?(lvl=0) ({term=e';assumptions;loc;} as e) =
-  if es = [] then e else
-  let assumptions =
-    Assumption.instantiate (List.map (fun e -> e.assumptions) es) lvl assumptions
-  in
-  match e' with
-
-    | Type -> {e with assumptions}
-
-    | Atom _ -> {e with assumptions}
-
-    | Constant _ -> {e with assumptions}
-
-    | Bound k ->
-       if k < lvl
-       then {e with assumptions}
-        (* this is a variable bound in an abstraction inside the
-           instantiated term, so we leave it as it is *)
-       else
-         let n = List.length es in
-         if k < lvl + n
-         then (* variable corresponds to a substituted term, replace it *)
-           let e = List.nth es (k - lvl) in
-           {e with assumptions = Assumption.union assumptions e.assumptions}
-         else {term = Bound (k - n); assumptions; loc}
-          (* this is a variable bound in an abstraction outside the
-             instantiated term, so it remains bound, but its index decreases
-             by the number of bound variables replaced by terms *)
-
-    | Lambda a ->
-       let a = instantiate_ty_abstraction instantiate_term_ty es ~lvl a in
-       {term = Lambda a; assumptions; loc}
-
-    | Apply (e, xtst, d) ->
-       let e = instantiate es ~lvl e
-       and xtst = instantiate_ty_abstraction instantiate_ty es ~lvl xtst
-       and d = instantiate es ~lvl d in
-       {term = Apply (e, xtst, d); assumptions; loc}
-
-    | Prod a ->
-       let a = instantiate_ty_abstraction instantiate_ty es ~lvl a in
-       {term = Prod a; assumptions; loc}
-
-    | Eq (t, e1, e2) ->
-       let t = instantiate_ty es ~lvl t
-       and e1 = instantiate es ~lvl e1
-       and e2 = instantiate es ~lvl e2 in
-       {term = Eq (t, e1, e2); assumptions; loc}
-
-    | Refl (t, e) ->
-       let t = instantiate_ty es ~lvl t
-       and e = instantiate es ~lvl e in
-       {term = Refl (t, e); assumptions; loc}
-
-    | Signature xts ->
-      let rec fold lvl res = function
-        | [] -> List.rev res
-        | (x,y,t)::rem ->
-          let t = instantiate_ty es ~lvl t in
-          fold (lvl+1) ((x,y,t)::res) rem
-        in
-      let xts = fold lvl [] xts in
-      {term = Signature xts; assumptions; loc}
-
-    | Structure xts ->
-      let rec fold lvl res = function
-        | [] -> List.rev res
-        | (x,y,t,te)::rem ->
-          let t = instantiate_ty es ~lvl t in
-          let te = instantiate es ~lvl te in
-          fold (lvl+1) ((x,y,t,te)::res) rem
-        in
-      let xts = fold lvl [] xts in
-      {term = Structure xts; assumptions; loc}
-
-    | Projection (te,xts,p) ->
-      let te = instantiate es ~lvl te in
-      let rec fold lvl res = function
-        | [] -> List.rev res
-        | (x,y,t)::rem ->
-          let t = instantiate_ty es ~lvl t in
-          fold (lvl+1) ((x,y,t)::res) rem
-        in
-      let xts = fold lvl [] xts in
-      {term = Projection (te,xts,p); assumptions; loc}
-
-
-and instantiate_ty es ?(lvl=0) (Ty t) =
-  let t = instantiate es ~lvl t
-  in Ty t
-
-and instantiate_term_ty es ?(lvl=0) (e, t) =
-  let e = instantiate es ~lvl e
-  and t = instantiate_ty es ~lvl t
-  in (e, t)
-
-let unabstract xs ?(lvl=0) e =
-  let es = List.map (mk_atom ~loc:Location.unknown) xs
-  in instantiate es ~lvl e
-
-let unabstract_ty xs ?(lvl=0) (Ty t) =
-  let t = unabstract xs ~lvl t
-  in Ty t
-
-
-let rec abstract_ty_abstraction :
-  'a. (Name.atom list -> ?lvl:int -> 'a -> 'a) ->
-  Name.atom list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
-  = fun abst_v ys ?(lvl=0) ((x,u),v) ->
-  let u = abstract_ty ys ~lvl u in
-  let lvl = lvl+1 in
-  let v = abst_v ys ~lvl v in
-  ((x,u),v)
-
-and abstract xs ?(lvl=0) ({term=e';assumptions;loc;} as e) =
-  let assumptions = Assumption.abstract xs lvl assumptions in
-  match e' with
-
-  | Type -> {e with assumptions}
-
-  | Bound _ -> {e with assumptions}
-
-  | Constant _ -> {e with assumptions}
-
-  | Atom x ->
-    begin
-      match Name.index_of_atom x xs with
-      | None -> {e with assumptions}
-      | Some k -> {term = Bound (lvl + k); assumptions; loc}
-    end
-
-  | Lambda a ->
-    let a = abstract_ty_abstraction abstract_term_ty xs ~lvl a in
-    {term = Lambda a; assumptions; loc}
-
-  | Apply (e1, xtst, e2) ->
-    let e1 = abstract xs ~lvl e1
-    and xtst = abstract_ty_abstraction abstract_ty xs ~lvl xtst
-    and e2 = abstract xs ~lvl e2 in
-    {term = Apply (e1, xtst, e2); assumptions; loc}
-
-  | Prod a ->
-    let a = abstract_ty_abstraction abstract_ty xs ~lvl a in
-    {term = Prod a; assumptions; loc}
-
-  | Eq (t, e1, e2) ->
-    let t = abstract_ty xs ~lvl t
-    and e1 = abstract xs ~lvl e1
-    and e2 = abstract xs ~lvl e2 in
-    {term = Eq (t, e1, e2); assumptions; loc}
-
-  | Refl (t, e) ->
-    let t = abstract_ty xs ~lvl t
-    and e = abstract xs ~lvl e in
-    {term = Refl (t, e); assumptions; loc}
-
-  | Signature xts ->
-     let rec fold lvl res = function
-       | [] -> List.rev res
-       | (x,y,t)::rem ->
-          let t = abstract_ty xs ~lvl t in
-          fold (lvl+1) ((x,y,t)::res) rem
-     in
-     let xts = fold lvl [] xts in
-     {term = Signature xts; assumptions; loc}
-
-  | Structure xts ->
-     let rec fold lvl res = function
-       | [] -> List.rev res
-       | (x,y,t,te)::rem ->
-          let t = abstract_ty xs ~lvl t in
-          let te = abstract xs ~lvl te in
-          fold (lvl+1) ((x,y,t,te)::res) rem
-     in
-     let xts = fold lvl [] xts in
-     {term = Structure xts; assumptions; loc}
-
-  | Projection (te,xts,p) ->
-     let te = abstract xs ~lvl te in
-     let rec fold lvl res = function
-       | [] -> List.rev res
-       | (x,y,t)::rem ->
-          let t = abstract_ty xs ~lvl t in
-          fold (lvl+1) ((x,y,t)::res) rem
-     in
-     let xts = fold lvl [] xts in
-     {term = Projection (te,xts,p); assumptions; loc}
-
-and abstract_ty xs ?(lvl=0) (Ty t) =
-  let t = abstract xs ~lvl t
-  in Ty t
-
-and abstract_term_ty xs ?(lvl=0) (e, t) =
-  let e = abstract xs ~lvl e
-  and t = abstract_ty xs ~lvl t
-  in (e, t)
-
-
-let substitute xs es t =
-  if xs = [] && es = []
-  then t
-  else
-    let t = abstract xs ~lvl:0 t in
-    instantiate es ~lvl:0 t
-
-let substitute_ty xs es (Ty ty) =
-  Ty (substitute xs es ty)
-
-let substitute_ty_abstraction :
-  'a. (Name.atom list -> term list -> 'a -> 'a) ->
-  Name.atom list -> term list -> 'a ty_abstraction -> 'a ty_abstraction
-  = fun subst_v ys es ((x,u),v) ->
-  let u = substitute_ty ys es u in
-  let v = subst_v ys es v in
-  ((x,u),v)
-
-let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
-  occurs_u k u + occurs_v (k+1) v
-
-(* How many times does bound variable [k] occur in an expression? Used only for printing. *)
-let rec occurs k {term=e';_} =
-  match e' with
-  | Type -> 0
-  | Atom _ -> 0
-  | Bound m -> if k = m then 1 else 0
-  | Constant x -> 0
-  | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
-  | Apply (e1, xtst, e2) ->
-    occurs k e1 +
-    occurs_abstraction occurs_ty occurs_ty k xtst +
-    occurs k e2
-  | Prod a ->
-    occurs_abstraction occurs_ty occurs_ty k a
-  | Eq (t, e1, e2) ->
-    occurs_ty k t + occurs k e1 + occurs k e2
-  | Refl (t, e) ->
-    occurs_ty k t + occurs k e
-  | Signature xts ->
-    let rec fold k res = function
-      | [] -> res
-      | (x,y,t)::rem ->
-        let i = occurs_ty k t in
-        fold (k+1) (res+i) rem
-      in
-    fold k 0 xts
-  | Structure xts ->
-    let rec fold k res = function
-      | [] -> res
-      | (x,y,t,te)::rem ->
-        let i = occurs_ty k t in
-        let j = occurs k te in
-        fold (k+1) (res+i+j) rem
-      in
-    fold k 0 xts
-
-  | Projection (te,xts,p) ->
-    let rec fold k res = function
-      | [] -> res
-      | (x,y,t)::rem ->
-        let i = occurs_ty k t in
-        fold (k+1) (res+i) rem
-      in
-    fold k (occurs k te) xts
-
-and occurs_ty k (Ty t) = occurs k t
-
-and occurs_term_ty k (e, t) =
-  occurs k e + occurs_ty k t
-
-let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
-
 
 let rec gather_assumptions_ty_abs : 'a. ('a -> Assumption.t) -> 'a ty_abstraction -> Assumption.t = fun gather_v ((x,u),v) ->
   let a1 = gather_assumptions_ty u in
@@ -469,6 +187,214 @@ let assumptions_term ({loc;_} as e) =
   Assumption.as_atom_set ~loc a
 
 let assumptions_ty (Ty t) = assumptions_term t
+
+
+(** Manipulation of variables *)
+let rec at_var atom bound hyps ~lvl {term=e';assumptions;loc} =
+  let assumptions = hyps ~lvl assumptions in
+  match e' with
+    | Type | Constant _ as term -> {term;assumptions;loc}
+    | Atom x -> atom ~lvl x assumptions loc
+    | Bound k -> bound ~lvl k assumptions loc
+    | Prod ((x,a),b) ->
+      let a = at_var_ty atom bound hyps ~lvl a
+      and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b in
+      let term = Prod ((x,a),b) in
+      {term;assumptions;loc}
+    | Lambda ((x,a),(e,b)) ->
+      let a = at_var_ty atom bound hyps ~lvl a
+      and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b
+      and e = at_var atom bound hyps ~lvl:(lvl+1) e in
+      let term = Lambda ((x,a),(e,b)) in
+      {term;assumptions;loc}
+    | Apply (e1,((x,a),b),e2) ->
+      let a = at_var_ty atom bound hyps ~lvl a
+      and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b
+      and e1 = at_var atom bound hyps ~lvl e1
+      and e2 = at_var atom bound hyps ~lvl e2 in
+      let term = Apply (e1,((x,a),b),e2) in
+      {term;assumptions;loc}
+    | Eq (a,e1,e2) ->
+      let a = at_var_ty atom bound hyps ~lvl a
+      and e1 = at_var atom bound hyps ~lvl e1
+      and e2 = at_var atom bound hyps ~lvl e2 in
+      let term = Eq (a,e1,e2) in
+      {term;assumptions;loc}
+    | Refl (a,e) ->
+      let a = at_var_ty atom bound hyps ~lvl a
+      and e = at_var atom bound hyps ~lvl e in
+      let term = Refl (a,e) in
+      {term;assumptions;loc}
+    | Signature xts ->
+      let xts = at_var_sig atom bound hyps ~lvl xts in
+      let term = Signature xts in
+      {term;assumptions;loc}
+    | Structure xtes ->
+      let xtes = at_var_struct atom bound hyps ~lvl xtes in
+      let term = Structure xtes in
+      {term;assumptions;loc}
+    | Projection (e,xts,l) ->
+      let e = at_var atom bound hyps ~lvl e
+      and xts = at_var_sig atom bound hyps ~lvl xts in
+      let term = Projection (e,xts,l) in
+      {term;assumptions;loc}
+
+and at_var_ty atom bound hyps ~lvl (Ty a) =
+  Ty (at_var atom bound hyps ~lvl a)
+
+and at_var_sig atom bound hyps ~lvl xts =
+  let rec fold ~lvl xts = function
+    | [] ->
+      List.rev xts
+    | (l,x,a)::rem ->
+      let a = at_var_ty atom bound hyps ~lvl a in
+      fold ~lvl:(lvl+1) ((l,x,a)::xts) rem
+  in
+  fold ~lvl [] xts
+
+and at_var_struct atom bound hyps ~lvl xtes =
+  let rec fold ~lvl xtes = function
+    | [] ->
+      List.rev xtes
+    | (l,x,a,e)::rem ->
+      let a = at_var_ty atom bound hyps ~lvl a
+      and e = at_var atom bound hyps ~lvl e in
+      fold ~lvl:(lvl+1) ((l,x,a,e)::xtes) rem
+  in
+  fold ~lvl [] xtes
+
+(** Instantiate *)
+let instantiate_atom ~lvl x assumptions loc =
+  {term=Atom x;assumptions;loc}
+
+let instantiate_bound es ~lvl k assumptions loc =
+  if k < lvl
+  then
+    {term=Bound k;assumptions;loc}
+    (* this is a variable bound in an abstraction inside the
+    instantiated term, so we leave it as it is *)
+  else
+    let n = List.length es in
+    if k < lvl + n
+    then (* variable corresponds to a substituted term, replace it *)
+      let e = List.nth es (k - lvl) in
+      mention assumptions e
+    else
+      {term = Bound (k - n); assumptions; loc}
+      (* this is a variable bound in an abstraction outside the
+         instantiated term, so it remains bound, but its index decreases
+         by the number of bound variables replaced by terms *)
+
+let instantiate_hyps es =
+  let hs = List.map gather_assumptions es in
+  fun ~lvl h -> Assumption.instantiate hs lvl h
+
+let instantiate es ?(lvl=0) e =
+  if es = [] then e else
+  at_var instantiate_atom (instantiate_bound es) (instantiate_hyps es) ~lvl e
+
+let instantiate_ty es ?(lvl=0) (Ty t) =
+  let t = instantiate es ~lvl t
+  in Ty t
+
+let unabstract xs ?(lvl=0) e =
+  let es = List.map (mk_atom ~loc:Location.unknown) xs
+  in instantiate es ~lvl e
+
+let unabstract_ty xs ?(lvl=0) (Ty t) =
+  let t = unabstract xs ~lvl t
+  in Ty t
+
+
+(** Abstract *)
+let abstract_atom xs ~lvl x assumptions loc =
+  begin
+    match Name.index_of_atom x xs with
+      | None -> {term=Atom x;assumptions;loc}
+      | Some k -> {term = Bound (lvl + k); assumptions; loc}
+  end
+
+let abstract_bound ~lvl k assumptions loc =
+  {term=Bound k;assumptions;loc}
+
+let abstract_hyps xs ~lvl h =
+  Assumption.abstract xs lvl h
+
+let abstract xs ?(lvl=0) e =
+  if xs = [] then e else
+  at_var (abstract_atom xs) abstract_bound (abstract_hyps xs) ~lvl e
+
+let abstract_ty xs ?(lvl=0) (Ty t) =
+  let t = abstract xs ~lvl t
+  in Ty t
+
+(** Substitute *)
+let substitute xs es t =
+  if xs = [] && es = []
+  then t
+  else
+    let t = abstract xs ~lvl:0 t in
+    instantiate es ~lvl:0 t
+
+let substitute_ty xs es (Ty ty) =
+  Ty (substitute xs es ty)
+
+(** Occurs (for printing) *)
+let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
+  occurs_u k u + occurs_v (k+1) v
+
+(* How many times does bound variable [k] occur in an expression? Used only for printing. *)
+let rec occurs k {term=e';_} =
+  match e' with
+  | Type -> 0
+  | Atom _ -> 0
+  | Bound m -> if k = m then 1 else 0
+  | Constant x -> 0
+  | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
+  | Apply (e1, xtst, e2) ->
+    occurs k e1 +
+    occurs_abstraction occurs_ty occurs_ty k xtst +
+    occurs k e2
+  | Prod a ->
+    occurs_abstraction occurs_ty occurs_ty k a
+  | Eq (t, e1, e2) ->
+    occurs_ty k t + occurs k e1 + occurs k e2
+  | Refl (t, e) ->
+    occurs_ty k t + occurs k e
+  | Signature xts ->
+    let rec fold k res = function
+      | [] -> res
+      | (x,y,t)::rem ->
+        let i = occurs_ty k t in
+        fold (k+1) (res+i) rem
+      in
+    fold k 0 xts
+  | Structure xts ->
+    let rec fold k res = function
+      | [] -> res
+      | (x,y,t,te)::rem ->
+        let i = occurs_ty k t in
+        let j = occurs k te in
+        fold (k+1) (res+i+j) rem
+      in
+    fold k 0 xts
+
+  | Projection (te,xts,p) ->
+    let rec fold k res = function
+      | [] -> res
+      | (x,y,t)::rem ->
+        let i = occurs_ty k t in
+        fold (k+1) (res+i) rem
+      in
+    fold k (occurs k te) xts
+
+and occurs_ty k (Ty t) = occurs k t
+
+and occurs_term_ty k (e, t) =
+  occurs k e + occurs_ty k t
+
+let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
+
 
 (****** Alpha equality ******)
 
@@ -638,7 +564,7 @@ and print_term' ?max_level xs e ppf =
         print ~at_level:0 "{@[<hov>%t@]}"
           (print_structure xs xts)
 
-      | Projection (te,xts,p) -> print ~at_level:1 "%t" (print_projection xs te xts p)
+      | Projection (te,xts,p) -> print ~at_level:0 "%t" (print_projection xs te xts p)
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
@@ -739,7 +665,7 @@ and print_projection xs te xts p ppf =
       (print_signature xs xts)
       (Name.print_ident p)
   else
-    Print.print ppf "@[<hov 2>%t@ .%t@]"
+    Print.print ppf "@[<hov 2>%t.%t@]"
       (print_term ~max_level:0 xs te)
       (Name.print_ident p)
 

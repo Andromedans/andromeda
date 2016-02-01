@@ -70,9 +70,6 @@ module Opt = struct
   let locally (m : 'a opt) : ('a*state) opt =
     { k = fun sk fk s -> m.k (fun x s' -> sk (x,s') (AtomSet.union s s')) fk Monad.empty }
 
-  let unfold (m : 'a opt) : 'a option Monad.t =
-    { Monad.k = fun c s -> m.k (fun x s' -> c (Some x) s') (fun s' -> c None s') s }
-
   (* I have no clue if this does the right thing *)
   let add_free ~loc x j m =
     { k = fun sk fk s ->
@@ -92,8 +89,6 @@ let (>?=) = Opt.(>?=)
 
 let (>!=) m f = (Opt.unfailing m) >?= f
 
-let (>?>=) m f = (Opt.unfold m) >>= f
-
 (* counter for debugging depth  *)
 let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
 
@@ -105,13 +100,16 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
     (pte e1) (pte e2) (pty t);
   if Tt.alpha_equal e1 e2
-  then Opt.return ctx
+  then
+    Opt.return ctx
   else
-    Monad.lift (Value.perform_equal (Value.mk_term (ctx,e1,t)) (Value.mk_term (ctx,e2,t))) >!= fun v ->
+    Monad.lift (Value.perform_equal
+        (Value.mk_term (Jdg.mk_term ctx e1 t))
+        (Value.mk_term (Jdg.mk_term ctx e2 t))) >!= fun v ->
     let loc = loc1 in
     match Value.as_option ~loc v with
       | Some v ->
-        let (ctxeq,eq,teq) = Value.as_term ~loc v in
+        let Jdg.Term (ctxeq,eq,teq) = Value.as_term ~loc v in
         let ctx = Context.join ~loc ctx ctxeq in
         Monad.add_hyps (Tt.assumptions_term eq) >!= fun () ->
         let tgoal = Tt.mk_eq_ty ~loc t e1 e2 in
@@ -132,7 +130,7 @@ let equal_signature ~loc ctx xts1 xts2 =
         let t1 = Tt.unabstract_ty ys t1 in
         let t2 = Tt.instantiate_ty ys' t2 in
         Opt.locally (equal_ty ctx t1 t2) >?= fun (ctx,hypst) ->
-        let jx = Judgement.mk_ty ctx t1 in
+        let jx = Jdg.mk_ty ctx t1 in
         Opt.add_free ~loc x jx (fun ctx y ->
         let y' = Tt.mention_atoms hypst (Tt.mk_atom ~loc y) in
         fold ctx (y::ys) (y'::ys') (t1::ts) xts1 xts2)
@@ -180,7 +178,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
 
   | Tt.Lambda ((x,a1), (e1, t1)), Tt.Lambda ((_,a2), (e2, t2)) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    let ja = Judgement.mk_ty ctx a1 in
+    let ja = Jdg.mk_ty ctx a1 in
     Opt.add_abstracting ~loc x ja (fun ctx y ->
     let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
     let e1 = Tt.unabstract [y] e1
@@ -195,7 +193,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
 
   | Tt.Apply (h1, ((x,a1),b1), e1), Tt.Apply (h2, ((_,a2),b2), e2) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    Opt.locally (Opt.add_abstracting ~loc x (Judgement.mk_ty ctx a1) (fun ctx y ->
+    Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun ctx y ->
       let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
       let b1 = Tt.unabstract_ty [y] b1
       and b2 = Tt.instantiate_ty [y'] b2 in
@@ -212,7 +210,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
 
   | Tt.Prod ((x,a1), b1), Tt.Prod ((_,a2), b2) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    Opt.add_abstracting ~loc x (Judgement.mk_ty ctx a1) (fun ctx y ->
+    Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun ctx y ->
     let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
     let b1 = Tt.unabstract_ty [y] b1
     and b2 = Tt.instantiate_ty [y'] b2 in
@@ -258,7 +256,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
     Returns the resulting expression. *)
 let beta_reduce ~loc ctx (x,a) e b (_,a') b' e' =
   Opt.locally (equal_ty ctx a a') >?= fun (ctx,hypsa) ->
-  Opt.locally (Opt.add_abstracting ~loc x (Judgement.mk_ty ctx a) (fun ctx y ->
+  Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a) (fun ctx y ->
     let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
     let b = Tt.unabstract_ty [y] b
     and b' = Tt.instantiate_ty [y'] b' in
@@ -330,51 +328,109 @@ let reduce_step ctx {Tt.term=e'; assumptions; loc} =
      Error.impossible ~loc "de Bruijn encountered in reduce"
 
 
-let rec as_form : type a. (_ -> a Monad.t) -> _ -> _ -> _ -> a Monad.t =
-  fun triviality thing (ctx, Tt.Ty ({Tt.term=t';loc;_} as t)) v ->
-  begin match Value.as_option ~loc v with
-    | None ->  Error.typing ~loc "this expression should be %s, found@ %t" thing
-                    (Tt.print_term [] t)
-    | Some v ->
-      let (ctxv,ev,tv) = Value.as_term ~loc v in
-      as_eq (ctxv, tv) >>= fun (ctxv,tv,e1,e2) ->
-      (Opt.locally (equal_ty ctxv tv Tt.typ) >?= fun (ctx,hypst) ->
-        let t1 = Tt.mention_atoms hypst e1
-        and t2 = Tt.mention_atoms hypst e2 in
-        let ctx = Context.join ~loc ctx ctxv in
-        equal ctx t t1 Tt.typ >?= fun ctx ->
-        Monad.add_hyps (Tt.assumptions_term ev) >!= fun () ->
-        Opt.return (ctx,t2)
-      ) >?>= begin function
-        | None ->
-            Monad.lift (Value.print_value) >>= fun pval ->
-            Monad.lift (Value.print_term) >>= fun pte ->
-            Error.typing ~loc:(ev.Tt.loc)
-                  "this expression %t should be a witness of equality between %t and %s"
-                  (pval v) (pte t) thing
-        | Some (ctx,t) ->
-          triviality (ctx, Tt.ty t)
-      end
-  end
+let as_eq_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
+  match t' with
+    | Tt.Eq (t, e1, e2) -> Monad.return (t, e1, e2)
+    | _ ->
+      Monad.lift Value.print_ty >>= fun pty ->
+      Error.typing ~loc "this expression should be an equality, found@ %t"
+          (pty t)
 
-and as_eq ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
+let as_eq (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
     | _ ->
-      Monad.lift (Value.perform_as_eq (Value.mk_term (Judgement.term_of_ty jt))) >>=
-      as_form as_eq "an equality type" jt
+      Monad.lift (Value.perform_as_eq (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      begin match Value.as_option ~loc v with
+        | None ->
+          Monad.lift Value.print_ty >>= fun pty ->
+          Error.typing ~loc "this expression should be an equality, found@ %t"
+              (pty t)
+        | Some v ->
+          let Jdg.Term (ctxv,ev,tv) = Value.as_term ~loc v in
+          as_eq_alpha (Jdg.mk_ty ctxv tv) >>= fun (tv,e1,e2) ->
+          if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
+          then
+            as_eq_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun (t,e1,e2) ->
+            let ctx = Context.join ~loc ctx ctxv in
+            let hyps = Tt.assumptions_term ev in
+            Monad.add_hyps hyps >>= fun () ->
+            Monad.return (ctx,t,e1,e2)
+          else
+            Monad.lift (Value.print_ty) >>= fun pty ->
+            Error.typing ~loc:ev.Tt.loc
+                "this expression should be a witness of equality between %t and an equality"
+                (pty t)
+      end
 
-let rec as_prod ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
+let as_prod_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
+  match t' with
+    | Tt.Prod (xts,t) -> Monad.return (xts,t)
+    | _ ->
+      Monad.lift Value.print_ty >>= fun pty ->
+      Error.typing ~loc "this expression should be a product, found@ %t"
+          (pty t)
+
+let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
     | _ ->
-      Monad.lift (Value.perform_as_prod (Value.mk_term (Judgement.term_of_ty jt))) >>=
-      as_form as_prod "a product type" jt
+      Monad.lift (Value.perform_as_prod (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      begin match Value.as_option ~loc v with
+        | None ->
+          Monad.lift Value.print_ty >>= fun pty ->
+          Error.typing ~loc "this expression should be a product, found@ %t"
+              (pty t)
+        | Some v ->
+          let Jdg.Term (ctxv,ev,tv) = Value.as_term ~loc v in
+          as_eq_alpha (Jdg.mk_ty ctxv tv) >>= fun (tv,e1,e2) ->
+          if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
+          then
+            as_prod_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun (xts,t) ->
+            let ctx = Context.join ~loc ctx ctxv in
+            let hyps = Tt.assumptions_term ev in
+            Monad.add_hyps hyps >>= fun () ->
+            Monad.return (ctx,(xts,t))
+          else
+            Monad.lift (Value.print_ty) >>= fun pty ->
+            Error.typing ~loc:ev.Tt.loc
+                "this expression should be a witness of equality between %t and a product"
+                (pty t)
+      end
 
-let rec as_signature ((ctx, Tt.Ty {Tt.term=t';_}) as jt) =
+let as_signature_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
+  match t' with
+    | Tt.Signature xts -> Monad.return xts
+    | _ ->
+      Monad.lift Value.print_ty >>= fun pty ->
+      Error.typing ~loc "this expression should be a signature, found@ %t"
+          (pty t)
+
+
+let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Signature xts -> Monad.return (ctx, xts)
     | _ ->
-      Monad.lift (Value.perform_as_signature (Value.mk_term (Judgement.term_of_ty jt))) >>=
-      as_form as_signature "a signature type" jt
+      Monad.lift (Value.perform_as_signature (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      begin match Value.as_option ~loc v with
+        | None ->
+          Monad.lift Value.print_ty >>= fun pty ->
+          Error.typing ~loc "this expression should be a signature, found@ %t"
+              (pty t)
+        | Some v ->
+          let Jdg.Term (ctxv,ev,tv) = Value.as_term ~loc v in
+          as_eq_alpha (Jdg.mk_ty ctxv tv) >>= fun (tv,e1,e2) ->
+          if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
+          then
+            as_signature_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun xts ->
+            let ctx = Context.join ~loc ctx ctxv in
+            let hyps = Tt.assumptions_term ev in
+            Monad.add_hyps hyps >>= fun () ->
+            Monad.return (ctx,xts)
+          else
+            Monad.lift (Value.print_ty) >>= fun pty ->
+            Error.typing ~loc:ev.Tt.loc
+                "this expression should be a witness of equality between %t and a signature"
+                (pty t)
+      end
 
