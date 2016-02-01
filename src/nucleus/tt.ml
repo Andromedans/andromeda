@@ -564,7 +564,7 @@ and print_term' ?max_level xs e ppf =
         print ~at_level:0 "{@[<hov>%t@]}"
           (print_structure xs xts)
 
-      | Projection (te,xts,p) -> print ~at_level:1 "%t" (print_projection xs te xts p)
+      | Projection (te,xts,p) -> print ~at_level:0 "%t" (print_projection xs te xts p)
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
@@ -665,7 +665,7 @@ and print_projection xs te xts p ppf =
       (print_signature xs xts)
       (Name.print_ident p)
   else
-    Print.print ppf "@[<hov 2>%t@ .%t@]"
+    Print.print ppf "@[<hov 2>%t.%t@]"
       (print_term ~max_level:0 xs te)
       (Name.print_ident p)
 
