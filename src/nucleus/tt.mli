@@ -95,13 +95,7 @@ val mention : Assumption.t -> term -> term
     with terms [e0, ..., e{n-1}]. *)
 val instantiate: term list -> ?lvl:int -> term -> term
 
-val instantiate_ty_abstraction:
-  (term list -> ?lvl:int -> 'a -> 'a) ->
-  term list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
-
 val instantiate_ty: term list -> ?lvl:int -> ty -> ty
-
-val instantiate_term_ty: term list -> ?lvl:int -> term * ty -> term * ty
 
 (** [unabstract [x0,...,x{n-1}] k e] replaces bound variables in [e] indexed by [k, ..., k+n-1]
     with names [x0, ..., x{n-1}]. *)
@@ -117,18 +111,10 @@ val abstract : Name.atom list -> ?lvl:int -> term -> term
 
 val abstract_ty : Name.atom list -> ?lvl:int -> ty -> ty
 
-val abstract_ty_abstraction :
-  (Name.atom list -> ?lvl:int -> 'a -> 'a) ->
-  Name.atom list -> ?lvl:int -> 'a ty_abstraction -> 'a ty_abstraction
-
 (** abstract followed by instantiate *)
 val substitute : Name.atom list -> term list -> term -> term
 
 val substitute_ty : Name.atom list -> term list -> ty -> ty
-
-val substitute_ty_abstraction :
-  (Name.atom list -> term list -> 'a -> 'a) ->
-  Name.atom list -> term list -> 'a ty_abstraction -> 'a ty_abstraction
 
 
 val occurs: Syntax.bound -> term -> int

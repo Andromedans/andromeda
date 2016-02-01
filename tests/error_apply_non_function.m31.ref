@@ -2,4 +2,4 @@ f is defined.
 x is defined.
 y is defined.
 File "./error_apply_non_function.m31", line 2, characters 9-12: Typing error
-  this expression should be a product type, found Type
+  this expression should be a product, found Type
