@@ -10,7 +10,7 @@ type dynamic = {
   decls : (Name.ident * decl) list ;
   (* Toplevel declaration *)
 
-  abstracting : Judgement.term list;
+  abstracting : Jdg.term list;
   (* The list of judgments about atoms which are going to be abstracted. We
      should avoid creating atoms which depends on these, as this will prevent
      abstraction from working. The list is in the reverse order from
@@ -28,7 +28,7 @@ type lexical = {
 and state = value Store.t
 
 and value =
-  | Term of Judgement.term
+  | Term of Jdg.term
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -87,7 +87,10 @@ let predefined_ops = [
 ]
 
 (** Make values *)
-let mk_term j = Term j
+let mk_term j =
+  let j = Jdg.strengthen j in
+  Term j
+
 let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
 let mk_tuple lst = Tuple lst
@@ -140,7 +143,7 @@ let top_return x env = x,env
 
 let return x env = Return x, env.state
 
-let return_term e = return (Term e)
+let return_term e = return (mk_term e)
 
 let return_closure f env = Return (Closure (mk_closure0 f env)), env.state
 
@@ -174,7 +177,7 @@ let rec print_tag ?max_level refs xs t lst ppf =
 
 and print_value ?max_level refs xs v ppf =
   match v with
-  | Term e -> Judgement.print_term ?max_level xs e ppf
+  | Term e -> Jdg.print_term ?max_level xs e ppf
   | Closure f -> print_closure refs xs f ppf
   | Handler h -> print_handler refs xs h ppf
   | Tag (t, lst) -> print_tag ?max_level refs xs t lst ppf
@@ -339,20 +342,20 @@ let add_bound0 x v env = {env with lexical = { env.lexical with bound = (x,v)::e
 
 (** generate a fresh atom of type [t] and bind it to [x]
     NB: This is an effectful computation. TODO what? *)
-let add_free ~loc x (ctx, t) m env =
+let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
-  let yt = Term (ctx, Tt.mk_atom ~loc y, t) in
+  let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
   let env = add_bound0 x yt env in
   m ctx y env
 
 (** generate a fresh atom of type [t] and bind it to [x],
     and record that the atom will be abstracted.
     NB: This is an effectful computation. *)
-let add_abstracting ~loc x (ctx, t) m env =
+let add_abstracting ~loc x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
   let ya = Tt.mk_atom ~loc y in
-  let jyt = Judgement.mk_term ctx ya t in
-  let env = add_bound0 x (Term jyt) env in
+  let jyt = Jdg.mk_term ctx ya t in
+  let env = add_bound0 x (mk_term jyt) env in
   let env = { env with
               dynamic = { env.dynamic with
                           abstracting = jyt :: env.dynamic.abstracting } }
@@ -525,7 +528,7 @@ let rec top_handle ~loc r env =
 (** Equality *)
 let rec equal_value v1 v2 =
   match v1, v2 with
-    | Term (_,te1,_), Term (_,te2,_) ->
+    | Term (Jdg.Term (_,te1,_)), Term (Jdg.Term (_,te2,_)) ->
       Tt.alpha_equal te1 te2
 
     | Tag (t1,vs1), Tag (t2,vs2) ->

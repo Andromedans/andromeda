@@ -32,11 +32,11 @@ val congruence : loc:Location.t -> Context.t -> Tt.term -> Tt.term -> Tt.ty ->
                  Context.t Opt.opt
 
 (** Convert a type to an equality type. *)
-val as_eq : Judgement.ty -> (Context.t * Tt.ty * Tt.term * Tt.term) Monad.t
+val as_eq : Jdg.ty -> (Context.t * Tt.ty * Tt.term * Tt.term) Monad.t
 
 (** Convert a type to a product. *)
-val as_prod : Judgement.ty -> (Context.t * Tt.ty Tt.ty_abstraction) Monad.t
+val as_prod : Jdg.ty -> (Context.t * Tt.ty Tt.ty_abstraction) Monad.t
 
 (** Convert a type to a signature. *)
-val as_signature : Judgement.ty -> (Context.t * Tt.signature) Monad.t
+val as_signature : Jdg.ty -> (Context.t * Tt.signature) Monad.t
 

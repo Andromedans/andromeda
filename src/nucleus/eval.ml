@@ -10,13 +10,13 @@ let as_term ~loc v =
 
 (** Returns the atom with its natural type in [ctx] *)
 let as_atom ~loc v =
-  as_term ~loc v >>= fun ((ctx,e,_) as j) ->
+  as_term ~loc v >>= fun (Jdg.Term (ctx,e,t) as j) ->
   match e.Tt.term with
     | Tt.Atom x ->
       begin match Context.lookup_ty x ctx with
         | Some t -> Value.return (ctx,x,t)
         | None ->
-          Error.impossible ~loc "got an atom judgement %t but the atom is not in the context" (Judgement.print_term [] j)
+          Error.impossible ~loc "got an atom judgement %t but the atom is not in the context" (Jdg.print_term [] j)
       end
     | _ -> Value.print_term >>= fun print_term ->
       Error.runtime ~loc "expected an atom but got %t" (print_term e)
@@ -43,7 +43,7 @@ let rec infer (c',loc) =
     | Syntax.Type ->
        let e = Tt.mk_type ~loc in
        let t = Tt.mk_type_ty ~loc in
-       let et = Judgement.mk_term Context.empty e t in
+       let et = Jdg.mk_term Context.empty e t in
        Value.return_term et
 
     | Syntax.Function (x, c) ->
@@ -163,14 +163,13 @@ let rec infer (c',loc) =
 
   | Syntax.Where (c1, c2, c3) ->
     infer c2 >>= as_atom ~loc >>= fun (ctxa, a, ta) ->
-    infer c1 >>= as_term ~loc >>= fun (ctx, e1, t1) ->
+    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx, e1, t1)) ->
     let ctx = Context.join ~loc ctxa ctx in
-    check c3 (ctx, ta) >>= fun (ctx, e2) ->
+    check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
     let ctx_s = Context.substitute ~loc a (ctx,e2,ta) in
-    let te_s = Tt.instantiate [e2] (Tt.abstract [a] e1) in
-    let ty_s = Tt.instantiate_ty [e2] (Tt.abstract_ty [a] t1) in
-    let ctx_s = Context.restrict ctx_s (Tt.assumptions_term te_s) in
-    let j_s = Judgement.mk_term ctx_s te_s ty_s in
+    let te_s = Tt.substitute [a] [e2] e1 in
+    let ty_s = Tt.substitute_ty [a] [e2] t1 in
+    let j_s = Jdg.mk_term ctx_s te_s ty_s in
     Value.return_term j_s
 
   | Syntax.Match (c, cases) ->
@@ -178,14 +177,14 @@ let rec infer (c',loc) =
      match_cases ~loc cases
 
   | Syntax.Reduce c ->
-     infer c >>= as_term ~loc >>= fun (ctx, e, t) ->
+     infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx, e, t)) ->
      Equal.Opt.run (Equal.reduce_step ctx e) >>=
        begin function
          | Some ((ctx, e'), hyps) ->
             let eq = Tt.mk_refl ~loc t e in
             let eq = Tt.mention_atoms hyps eq in
             let teq = Tt.mk_eq_ty ~loc t e e' in
-            let eqj = Judgement.mk_term ctx eq teq in
+            let eqj = Jdg.mk_term ctx eq teq in
             Value.return (Value.from_option (Some (Value.mk_term eqj)))
          | None -> Value.return (Value.from_option None)
        end
@@ -199,22 +198,20 @@ let rec infer (c',loc) =
   | Syntax.Typeof c ->
     (* In future versions this is going to be a far less trivial computation,
        as it might actually fail when there is no way to name a type with a term. *)
-    infer c >>= as_term ~loc >>=
-    (fun (ctx, _, Tt.Ty t) ->
-     let j = Judgement.mk_term ctx t Tt.typ in
-         Value.return_term j)
+    infer c >>= as_term ~loc >>= fun j ->
+    Value.return_term (Jdg.term_of_ty (Jdg.typeof j))
 
   | Syntax.Ascribe (c1, c2) ->
-     check_ty c2 >>= fun ((_,t') as t) ->
+     check_ty c2 >>= fun (Jdg.Ty (_,t') as t) ->
      check c1 t >>= fun (ctx, e) ->
-     let j = Judgement.mk_term ctx e t' in
+     let j = Jdg.mk_term ctx e t' in
      Value.return_term j
 
   | Syntax.Constant x ->
     begin Value.lookup_constant x >>= function
       | Some t ->
          let e = Tt.mk_constant ~loc x in
-         let eu = Judgement.mk_term Context.empty e t in
+         let eu = Jdg.mk_term Context.empty e t in
          Value.return_term eu
       | None -> Error.impossible ~loc "unknown constant %t during evaluation"
                                  (Name.print_ident x)
@@ -239,19 +236,19 @@ let rec infer (c',loc) =
     infer_prod ~loc x u c
 
   | Syntax.Eq (c1, c2) ->
-     infer c1 >>= as_term ~loc:(snd c1) >>= fun (ctx, e1, t1') ->
-     let t1 = Judgement.mk_ty ctx t1' in
+     infer c1 >>= as_term ~loc:(snd c1) >>= fun (Jdg.Term (ctx, e1, t1')) ->
+     let t1 = Jdg.mk_ty ctx t1' in
      check c2 t1 >>= fun (ctx, e2) ->
      let eq = Tt.mk_eq ~loc t1' e1 e2 in
      let typ = Tt.mk_type_ty ~loc in
-     let j = Judgement.mk_term ctx eq typ in
+     let j = Jdg.mk_term ctx eq typ in
      Value.return_term j
 
   | Syntax.Refl c ->
-     infer c >>= as_term ~loc:(snd c) >>= fun (ctxe, e, t) ->
+     infer c >>= as_term ~loc:(snd c) >>= fun (Jdg.Term (ctxe, e, t)) ->
      let e' = Tt.mk_refl ~loc t e
      and t' = Tt.mk_eq_ty ~loc t e e in
-     let et' = Judgement.mk_term ctxe e' t' in
+     let et' = Jdg.mk_term ctxe e' t' in
      Value.return_term et'
 
   | Syntax.Signature xcs ->
@@ -260,13 +257,13 @@ let rec infer (c',loc) =
         let xts = List.rev xts in
         let te = Tt.mk_signature ~loc xts in
         let typ = Tt.mk_type_ty ~loc in
-        let j = Judgement.mk_term ctx te typ in
+        let j = Jdg.mk_term ctx te typ in
         Value.return_term j
       | (lbl,x,c) :: rem ->
-        check_ty c >>= fun (ctxt,t) ->
+        check_ty c >>= fun (Jdg.Ty (ctxt,t)) ->
         Matching.mk_abstractable ~loc ctxt ys >>= fun (ctxt,zs,es) ->
         let t = Tt.substitute_ty zs es t in
-        let jt = Judgement.mk_ty ctxt t in
+        let jt = Jdg.mk_ty ctxt t in
         Value.add_abstracting ~loc x jt (fun _ y ->
         let ctxt = Context.abstract ~loc ctxt ys ts in
         let tabs = Tt.abstract_ty ys t in
@@ -281,14 +278,14 @@ let rec infer (c',loc) =
         let xtes = List.rev xtes in
         let te = Tt.mk_structure ~loc xtes in
         let ty = Tt.mk_signature_ty ~loc (List.map (fun (l,x,t,_) -> l,x,t) xtes) in
-        let j = Judgement.mk_term ctx te ty in
+        let j = Jdg.mk_term ctx te ty in
         Value.return_term j
       | (lbl,x,c) :: rem ->
-        infer c >>= as_term ~loc >>= fun (ctxt,te,ty) ->
+        infer c >>= as_term ~loc >>= fun (Jdg.Term (ctxt,te,ty)) ->
         Matching.mk_abstractable ~loc ctxt ys >>= fun (ctxt,zs,es) ->
         let te = Tt.substitute zs es te
         and ty = Tt.substitute_ty zs es ty in
-        let jty = Judgement.mk_ty ctxt ty in
+        let jty = Jdg.mk_ty ctxt ty in
         Value.add_abstracting ~loc x jty (fun _ y ->
         let ctxt = Context.abstract ~loc ctxt ys ts in
         let te_abs = Tt.abstract ys te
@@ -299,13 +296,13 @@ let rec infer (c',loc) =
     fold Context.empty [] [] [] xcs
 
   | Syntax.Projection (c,p) ->
-    infer c >>= as_term ~loc >>= fun (ctx,te,ty) ->
-    let jty = Judgement.mk_ty ctx ty in
+    infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,te,ty)) ->
+    let jty = Jdg.mk_ty ctx ty in
     Equal.Monad.run (Equal.as_signature jty) >>= fun ((ctx,xts),hyps) ->
     let te = Tt.mention_atoms hyps te in
     let ty = Tt.field_type ~loc xts te p in
     let te = Tt.mk_projection ~loc te xts p in
-    let j = Judgement.mk_term ctx te ty in
+    let j = Jdg.mk_term ctx te ty in
     Value.return_term j
 
   | Syntax.Yield c ->
@@ -321,14 +318,14 @@ let rec infer (c',loc) =
      Value.return v
 
   | Syntax.Congruence (c1,c2) ->
-    infer c1 >>= as_term ~loc >>= fun (ctx,e1,t) ->
-    check c2 (ctx,t) >>= fun (ctx,e2) ->
+    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
+    check c2 (Jdg.mk_ty ctx t) >>= fun (ctx,e2) ->
     Equal.Opt.run (Equal.congruence ~loc ctx e1 e2 t) >>= begin function
       | Some (ctx,hyps) ->
         let eq = Tt.mk_refl ~loc t e1 in
         let eq = Tt.mention_atoms hyps eq in
         let teq = Tt.mk_eq_ty ~loc t e1 e2 in
-        let j = Judgement.mk_term ctx eq teq in
+        let j = Jdg.mk_term ctx eq teq in
         let v = Value.mk_term j in
         Value.return (Value.from_option (Some v))
       | None -> Value.return (Value.from_option None)
@@ -340,11 +337,11 @@ let rec infer (c',loc) =
 and require_equal ctx e1 e2 t =
   Equal.Opt.run (Equal.equal ctx e1 e2 t)
 
-and require_equal_ty ~loc (lctx, lte) (rctx, rte) =
+and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
   let ctx = Context.join ~loc lctx rctx in
   Equal.Opt.run (Equal.equal_ty ctx lte rte)
 
-and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : (Context.t * Tt.term) Value.result =
+and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t * Tt.term) Value.result =
   match c' with
 
   | Syntax.Type
@@ -379,8 +376,8 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
-    infer c >>= as_term ~loc >>= fun (ctxe, e, t') ->
-    require_equal_ty ~loc t_check (ctxe,t') >>=
+    infer c >>= as_term ~loc >>= fun (Jdg.Term (ctxe, e, t')) ->
+    require_equal_ty ~loc t_check (Jdg.mk_ty ctxe t') >>=
       begin function
         | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e)
         | None ->
@@ -394,9 +391,8 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
   | Syntax.Perform (op, cs) ->
      let rec fold vs = function
        | [] ->
-          Value.perform op vs >>= fun v ->
-          let (ctxe, e', t') = Value.as_term ~loc v in
-          require_equal_ty ~loc t_check (ctxe,t') >>=
+          Value.perform op vs >>= as_term ~loc >>= fun (Jdg.Term (ctxe, e', t')) ->
+          require_equal_ty ~loc t_check (Jdg.mk_ty ctxe t') >>=
             begin function
               | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e')
               | None ->
@@ -421,11 +417,11 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
      check c t_check)
 
   | Syntax.Ascribe (c1, c2) ->
-     check_ty c2 >>= fun (ctx',t') ->
-     require_equal_ty ~loc t_check (ctx',t') >>=
+     check_ty c2 >>= fun (Jdg.Ty (_,t') as t) ->
+     require_equal_ty ~loc t_check t >>=
        begin function
          | Some (ctx, hyps) ->
-            let jt = Judgement.mk_ty ctx t' in
+            let jt = Jdg.mk_ty ctx t' in
             check c1 jt >>= fun (ctx,e) ->
             Value.return (ctx,Tt.mention_atoms hyps e)
          | None ->
@@ -440,7 +436,7 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
 
   | Syntax.Refl c ->
     Equal.Monad.run (Equal.as_eq t_check) >>= fun ((ctx, t', e1, e2),hyps) ->
-    let t = Judgement.mk_ty ctx t' in
+    let t = Jdg.mk_ty ctx t' in
     check c t >>= fun (ctx, e) ->
     require_equal ctx e e1 t' >>=
      begin function
@@ -481,9 +477,9 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
                             (Name.print_label lbl1)
           else
             let ty_inst = Tt.instantiate_ty es ty in
-            let jty = Judgement.mk_ty ctx ty_inst in
+            let jty = Jdg.mk_ty ctx ty_inst in
             check c jty >>= fun (ctx, e) ->
-            Value.add_bound x (Value.mk_term (ctx, e, ty_inst))
+            Value.add_bound x (Value.mk_term (Jdg.mk_term ctx e ty_inst))
             (fold ctx (e::es) (ty_inst::ts) ((lbl2,z,ty,e) :: xtes) (xcs, yts))
 
        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
@@ -495,39 +491,38 @@ and check ((c',loc) as c) (((ctx_check, t_check') as t_check) : Judgement.ty) : 
 and infer_lambda ~loc x u c =
   match u with
     | Some u ->
-      check_ty u >>= fun ((ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
+      check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
       Value.add_abstracting ~loc:uloc x ju (fun _ y ->
-      infer c >>= as_term ~loc:(snd c) >>= fun (ctxe,e,t) ->
+      infer c >>= as_term ~loc:(snd c) >>= fun (Jdg.Term (ctxe,e,t)) ->
       Matching.context_abstract ~loc ctxe [y] [u] >>= fun (ctxe,zs,es) ->
       let ctx = Context.join ~loc ctxu ctxe in
       let e = Tt.abstract [y] (Tt.substitute zs es e) in
       let t = Tt.abstract_ty [y] (Tt.substitute_ty zs es t) in
       let lam = Tt.mk_lambda ~loc x u e t
       and prod = Tt.mk_prod_ty ~loc x u t in
-      Value.return_term (Judgement.mk_term ctx lam prod))
+      Value.return_term (Jdg.mk_term ctx lam prod))
     | None ->
       Error.runtime ~loc "cannot infer the type of %t" (Name.print_ident x)
 
 and infer_prod ~loc x u c =
-  check_ty u >>= fun ju ->
-  let (ctxu,u) = ju in
+  check_ty u >>= fun (Jdg.Ty (ctxu,u) as ju) ->
   let Tt.Ty {Tt.loc=uloc;_} = u in
   Value.add_abstracting ~loc:uloc x ju (fun _ y ->
-  check_ty c >>= fun (ctx,t) ->
+  check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
   Matching.context_abstract ~loc ctx [y] [u] >>= fun (ctx,zs,es) ->
   let ctx = Context.join ~loc ctx ctxu in
   let t = Tt.abstract_ty [y] (Tt.substitute_ty zs es t) in
   let prod = Tt.mk_prod ~loc x u t in
   let typ = Tt.mk_type_ty ~loc in
-  let j = Judgement.mk_term ctx prod typ in
+  let j = Jdg.mk_term ctx prod typ in
   Value.return_term j)
 
 and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
   Equal.Monad.run (Equal.as_prod t_check) >>= fun ((ctx,((_,a),b)),hypst) ->
   begin match u with
     | Some u ->
-      check_ty u >>= fun ((_,u) as ju) ->
-      require_equal_ty ~loc (ctx,a) ju >>= begin function
+      check_ty u >>= fun (Jdg.Ty (_,u) as ju) ->
+      require_equal_ty ~loc (Jdg.mk_ty ctx a) ju >>= begin function
         | Some (ctx,hypsu) ->
           Value.return (ctx,u,hypsu)
         | None ->
@@ -538,10 +533,10 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
     | None ->
       Value.return (ctx,a,Name.AtomSet.empty)
   end >>= fun (ctx,u,hypsu) -> (* u a type equal to a under hypsu *)
-  Value.add_abstracting ~loc x (ctx,u) (fun ctx y ->
+  Value.add_abstracting ~loc x (Jdg.mk_ty ctx u) (fun ctx y ->
   let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
   let b = Tt.instantiate_ty [y'] b in
-  check c (ctx,b) >>= fun (ctx,e) ->
+  check c (Jdg.mk_ty ctx b) >>= fun (ctx,e) ->
   Matching.context_abstract ~loc ctx [y] [u] >>= fun (ctx,zs,es) ->
   let e = Tt.abstract [y] (Tt.substitute zs es e) in
   (* XXX can the substitution mess us up here? *)
@@ -558,13 +553,13 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
     a apply from [e], [xeus] and [u], and the type of the resulting expression
     is [v].
   *)
-and apply ~loc ((_, h, _) as jh) c =
-  Equal.Monad.run (Equal.as_prod (Judgement.typeof jh)) >>= fun ((ctx,((x,a),b)),hyps) ->
+and apply ~loc (Jdg.Term (_, h, _) as jh) c =
+  Equal.Monad.run (Equal.as_prod (Jdg.typeof jh)) >>= fun ((ctx,((x,a),b)),hyps) ->
   let h = Tt.mention_atoms hyps h in
-  check c (ctx,a) >>= fun (ctx,e) ->
+  check c (Jdg.mk_ty ctx a) >>= fun (ctx,e) ->
   let res = Tt.mk_apply ~loc h x a b e in
   let out = Tt.instantiate_ty [e] b in
-  let j = Judgement.mk_term ctx res out in
+  let j = Jdg.mk_term ctx res out in
   Value.return_term j
 
 and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmp ->
@@ -622,10 +617,10 @@ and multimatch_cases ~loc op cases vs =
   in
   fold cases
 
-and check_ty c : Judgement.ty Value.result =
-  check c Judgement.ty_ty >>= fun (ctx, e) ->
+and check_ty c : Jdg.ty Value.result =
+  check c Jdg.ty_ty >>= fun (ctx, e) ->
   let t = Tt.ty e in
-  let j = Judgement.mk_ty ctx t in
+  let j = Jdg.mk_ty ctx t in
   Value.return j
 
 let comp_value ((_, loc) as c) =
@@ -692,7 +687,7 @@ let rec exec_cmd base_dir interactive c =
      return ()
 
   | Syntax.Axiom (x, c) ->
-     Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (ctxt, t) ->
+     Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
       if Context.is_empty ctxt
       then
         Value.add_constant ~loc x t >>= fun () ->
@@ -764,3 +759,4 @@ and use_file (filename, line_limit, interactive, once) =
       Value.push_file filename >>
       fold (fun () c -> exec_cmd base_dir interactive c) () cmds
     end
+
