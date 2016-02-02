@@ -8,9 +8,10 @@ OCAMLBUILD_FLAGS = -cflags -g,-annot,"-warn-error +a",-w,+a-4-27-29-48-50 -use-o
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
-all: andromeda.byte
+all: andromeda.native
 opt: andromeda.native
-default: andromeda.byte
+default: andromeda.native
+byte: andromeda.byte
 debug: andromeda.d.byte
 profile: andromeda.p.native
 
@@ -18,12 +19,12 @@ andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.m
 	ocamlbuild -j 4 -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
 
 # "make test" to see if anything broke
-test: andromeda.byte
+test: default
 	cd tests && sh ./test.sh
 
 # "make test-validate" to see if anything broke
 # and ask for validation of possibly broken things.
-test-validate: andromeda.byte
+test-validate: default
 	cd tests && sh ./test.sh -v
 
 PREFIX ?= /usr
