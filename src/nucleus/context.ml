@@ -90,7 +90,6 @@ let restrict ctx aset =
   in
   res
 
-
 let abstract1 ~loc (ctx : t) x ty =
   match lookup x ctx with
   | None ->
