@@ -5,7 +5,8 @@ Constant B is declared.
 Constant Q is declared.
 Operation implicit is declared.
 File "./handle-conjure.m31", line 21, characters 5-39: Runtime error
-  Cannot abstract a₁₆ because magic₁₇ depends on it in context
+  Cannot abstract a₁₆ because magic₁₇ depends on it.
+Context:
   a₁₆ : A 
   magic₁₇ : B a₁₆ 
-  .
+  

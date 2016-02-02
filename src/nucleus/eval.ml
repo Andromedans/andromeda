@@ -261,8 +261,6 @@ let rec infer (c',loc) =
         Value.return_term j
       | (lbl,x,c) :: rem ->
         check_ty c >>= fun (Jdg.Ty (ctxt,t)) ->
-        Matching.mk_abstractable ~loc ctxt ys >>= fun (ctxt,zs,es) ->
-        let t = Tt.substitute_ty zs es t in
         let jt = Jdg.mk_ty ctxt t in
         Value.add_abstracting ~loc x jt (fun _ y ->
         let ctxt = Context.abstract ~loc ctxt ys ts in
@@ -282,9 +280,6 @@ let rec infer (c',loc) =
         Value.return_term j
       | (lbl,x,c) :: rem ->
         infer c >>= as_term ~loc >>= fun (Jdg.Term (ctxt,te,ty)) ->
-        Matching.mk_abstractable ~loc ctxt ys >>= fun (ctxt,zs,es) ->
-        let te = Tt.substitute zs es te
-        and ty = Tt.substitute_ty zs es ty in
         let jty = Jdg.mk_ty ctxt ty in
         Value.add_abstracting ~loc x jty (fun _ y ->
         let ctxt = Context.abstract ~loc ctxt ys ts in
@@ -494,10 +489,10 @@ and infer_lambda ~loc x u c =
       check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
       Value.add_abstracting ~loc:uloc x ju (fun _ y ->
       infer c >>= as_term ~loc:(snd c) >>= fun (Jdg.Term (ctxe,e,t)) ->
-      Matching.context_abstract ~loc ctxe [y] [u] >>= fun (ctxe,zs,es) ->
+      let ctxe = Context.abstract ~loc ctxe [y] [u] in
       let ctx = Context.join ~loc ctxu ctxe in
-      let e = Tt.abstract [y] (Tt.substitute zs es e) in
-      let t = Tt.abstract_ty [y] (Tt.substitute_ty zs es t) in
+      let e = Tt.abstract [y] e in
+      let t = Tt.abstract_ty [y] t in
       let lam = Tt.mk_lambda ~loc x u e t
       and prod = Tt.mk_prod_ty ~loc x u t in
       Value.return_term (Jdg.mk_term ctx lam prod))
@@ -509,9 +504,9 @@ and infer_prod ~loc x u c =
   let Tt.Ty {Tt.loc=uloc;_} = u in
   Value.add_abstracting ~loc:uloc x ju (fun _ y ->
   check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
-  Matching.context_abstract ~loc ctx [y] [u] >>= fun (ctx,zs,es) ->
+  let ctx = Context.abstract ~loc ctx [y] [u] in
   let ctx = Context.join ~loc ctx ctxu in
-  let t = Tt.abstract_ty [y] (Tt.substitute_ty zs es t) in
+  let t = Tt.abstract_ty [y] t in
   let prod = Tt.mk_prod ~loc x u t in
   let typ = Tt.mk_type_ty ~loc in
   let j = Jdg.mk_term ctx prod typ in
@@ -537,9 +532,8 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
   let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
   let b = Tt.instantiate_ty [y'] b in
   check c (Jdg.mk_ty ctx b) >>= fun (ctx,e) ->
-  Matching.context_abstract ~loc ctx [y] [u] >>= fun (ctx,zs,es) ->
-  let e = Tt.abstract [y] (Tt.substitute zs es e) in
-  (* XXX can the substitution mess us up here? *)
+  let ctx = Context.abstract ~loc ctx [y] [u] in
+  let e = Tt.abstract [y] e in
   let b = Tt.abstract_ty [y] b in
   let lam = Tt.mk_lambda ~loc x u e b in
   (* lam : forall x : u, b

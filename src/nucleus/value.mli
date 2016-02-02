@@ -108,8 +108,6 @@ val perform : Name.ident -> value list -> value result
 
 val perform_equal : value -> value -> value result
 
-val perform_abstract : value -> value -> value result
-
 val perform_as_prod : value -> value result
 val perform_as_eq : value -> value result
 val perform_as_signature : value -> value result

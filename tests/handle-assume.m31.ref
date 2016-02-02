@@ -5,7 +5,8 @@ Operation inhabit is declared.
 hyp₁₈ : A → Type 
 ⊢ λ (a : A), Q A hyp₁₈ a : Π (a : A),hyp₁₈ a → Type
 File "./handle-assume.m31", line 18, characters 5-38: Runtime error
-  Cannot abstract a₁₉ because hyp₂₀ depends on it in context
+  Cannot abstract a₁₉ because hyp₂₀ depends on it.
+Context:
   a₁₉ : A 
   hyp₂₀ : B a₁₉ 
-  .
+  
