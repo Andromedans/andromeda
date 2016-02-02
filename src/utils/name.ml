@@ -16,6 +16,8 @@ type atom = Atom of string * fixity * int
 
 type label = ident
 
+type signature = ident
+
 let print_ident x ppf =
   match x with
   | Ident (s, Word) -> Print.print ppf "%s" s

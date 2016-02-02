@@ -1,6 +1,6 @@
 (* Egbert's E-systems *)
 
-let catWithTerms = {
+signature catWithTerms = {
 
   ctx : Type,
 
@@ -39,7 +39,7 @@ let catWithTerms = {
       famExt Γ A (emptyFam (ctxExt Γ A)) ≡ A
 }
 
-let functorWithTerms =  {
+signature functorWithTerms =  {
   dom : catWithTerms,
 
   cod : catWithTerms,
@@ -79,7 +79,13 @@ let slice =
       emptyCtx = C.emptyFam Γ,
       emptyFam = λ A, C.emptyFam (C.ctxExt Γ A),
       ctxExt = C.famExt Γ,
-      famExt = λ A, C.famExt (C.ctxExt Γ A)
+      famExt = λ A, C.famExt (C.ctxExt Γ A),
+
+      assocCtxExt = {},
+      assocFamExt = {},
+      emptyCtxExt = {},
+      emptyFamLeft = {},
+      emptyFamRight = {}
     } : catWithTerms
   )
   : ∏ (C : catWithTerms), C.ctx → catWithTerms

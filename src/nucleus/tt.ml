@@ -23,9 +23,9 @@ and term' =
   | Prod of ty ty_abstraction
   | Eq of ty * term * term
   | Refl of ty * term
-  | Signature of signature
+  | Signature of Name.ident
   | Structure of structure
-  | Projection of term * signature * Name.ident
+  | Projection of term * Name.ident * Name.label
 
 and ty = Ty of term
 
@@ -33,7 +33,7 @@ and 'a ty_abstraction = (ty, 'a) abstraction
 
 and signature = (Name.ident * Name.ident * ty) list
 
-and structure = (Name.ident * Name.ident * ty * term) list
+and structure = Name.signature * term list
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
@@ -89,25 +89,20 @@ let mk_refl ~loc t e =
     assumptions = hyp_union (ty_hyps t) [e.assumptions];
     loc = loc }
 
-let mk_signature ~loc lst =
-  { term = Signature lst;
-    assumptions = snd 
-        (List.fold_left (fun (n,acc) (_,_,a) -> (n+1),Assumption.union acc (Assumption.bind n (ty_hyps a)))
-            (0,Assumption.empty) lst);
+let mk_signature ~loc s =
+  { term = Signature s;
+    assumptions = Assumption.empty;
     loc = loc }
 
-let mk_structure ~loc lst =
-  { term = Structure lst;
-    assumptions = snd 
-        (List.fold_left (fun (n,acc) (_,_,a,e) -> (n+1),Assumption.union acc (Assumption.bind n (Assumption.union (ty_hyps a) e.assumptions)))
-            (0,Assumption.empty) lst);
+let mk_structure ~loc s es =
+  { term = Structure (s, es);
+    assumptions = List.fold_left (fun acc e -> Assumption.union acc e.assumptions)
+                                 Assumption.empty es;
     loc = loc }
 
-let mk_projection ~loc te xts x =
-  { term = Projection (te,xts,x);
-    assumptions = snd 
-        (List.fold_left (fun (n,acc) (_,_,a) -> (n+1),Assumption.union acc (Assumption.bind n (ty_hyps a)))
-            (0,te.assumptions) xts);
+let mk_projection ~loc e s l =
+  { term = Projection (e, s, l);
+    assumptions = e.assumptions;
     loc = loc }
 
 (** Convert a term to a type. *)
@@ -116,7 +111,7 @@ let ty e = Ty e
 let mk_eq_ty ~loc t e1 e2 = ty (mk_eq ~loc t e1 e2)
 let mk_prod_ty ~loc x a b = ty (mk_prod ~loc x a b)
 let mk_type_ty ~loc = ty (mk_type ~loc)
-let mk_signature_ty ~loc lst = ty (mk_signature ~loc lst)
+let mk_signature_ty ~loc s = ty (mk_signature ~loc s)
 
 (** The [Type] constant, without a location. *)
 let typ = Ty (mk_type ~loc:Location.unknown)
@@ -136,11 +131,13 @@ let assumptions_term ({loc;_} as e) =
 let assumptions_ty (Ty t) = assumptions_term t
 
 
-(** Manipulation of variables *)
+(** Generic fold on a term. The functions [atom], [bound] and
+    [hyps] tell it what to do with atoms, bound variables, and
+    assumptions, respectively. *)
 let rec at_var atom bound hyps ~lvl {term=e';assumptions;loc} =
   let assumptions = hyps ~lvl assumptions in
   match e' with
-    | Type | Constant _ as term -> {term;assumptions;loc}
+    | (Type | Constant _ | Signature _) as term -> {term;assumptions;loc}
     | Atom x -> atom ~lvl x assumptions loc
     | Bound k -> bound ~lvl k assumptions loc
     | Prod ((x,a),b) ->
@@ -172,43 +169,20 @@ let rec at_var atom bound hyps ~lvl {term=e';assumptions;loc} =
       and e = at_var atom bound hyps ~lvl e in
       let term = Refl (a,e) in
       {term;assumptions;loc}
-    | Signature xts ->
-      let xts = at_var_sig atom bound hyps ~lvl xts in
-      let term = Signature xts in
+    | Structure (s, es) ->
+      let es = at_var_struct atom bound hyps ~lvl es in
+      let term = Structure (s, es) in
       {term;assumptions;loc}
-    | Structure xtes ->
-      let xtes = at_var_struct atom bound hyps ~lvl xtes in
-      let term = Structure xtes in
-      {term;assumptions;loc}
-    | Projection (e,xts,l) ->
-      let e = at_var atom bound hyps ~lvl e
-      and xts = at_var_sig atom bound hyps ~lvl xts in
-      let term = Projection (e,xts,l) in
+    | Projection (e,s,l) ->
+      let e = at_var atom bound hyps ~lvl e in
+      let term = Projection (e,s,l) in
       {term;assumptions;loc}
 
 and at_var_ty atom bound hyps ~lvl (Ty a) =
   Ty (at_var atom bound hyps ~lvl a)
 
-and at_var_sig atom bound hyps ~lvl xts =
-  let rec fold ~lvl xts = function
-    | [] ->
-      List.rev xts
-    | (l,x,a)::rem ->
-      let a = at_var_ty atom bound hyps ~lvl a in
-      fold ~lvl:(lvl+1) ((l,x,a)::xts) rem
-  in
-  fold ~lvl [] xts
-
-and at_var_struct atom bound hyps ~lvl xtes =
-  let rec fold ~lvl xtes = function
-    | [] ->
-      List.rev xtes
-    | (l,x,a,e)::rem ->
-      let a = at_var_ty atom bound hyps ~lvl a
-      and e = at_var atom bound hyps ~lvl e in
-      fold ~lvl:(lvl+1) ((l,x,a,e)::xtes) rem
-  in
-  fold ~lvl [] xtes
+and at_var_struct atom bound hyps ~lvl es =
+  List.map (at_var atom bound hyps ~lvl) es
 
 (** Instantiate *)
 let instantiate_atom ~lvl x assumptions loc =
@@ -295,6 +269,7 @@ let rec occurs k {term=e';_} =
   match e' with
   | Type -> 0
   | Atom _ -> 0
+  | Signature _ -> 0
   | Bound m -> if k = m then 1 else 0
   | Constant x -> 0
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
@@ -308,32 +283,15 @@ let rec occurs k {term=e';_} =
     occurs_ty k t + occurs k e1 + occurs k e2
   | Refl (t, e) ->
     occurs_ty k t + occurs k e
-  | Signature xts ->
-    let rec fold k res = function
-      | [] -> res
-      | (x,y,t)::rem ->
-        let i = occurs_ty k t in
-        fold (k+1) (res+i) rem
-      in
-    fold k 0 xts
-  | Structure xts ->
-    let rec fold k res = function
-      | [] -> res
-      | (x,y,t,te)::rem ->
-        let i = occurs_ty k t in
-        let j = occurs k te in
-        fold (k+1) (res+i+j) rem
-      in
-    fold k 0 xts
-
-  | Projection (te,xts,p) ->
-    let rec fold k res = function
-      | [] -> res
-      | (x,y,t)::rem ->
-        let i = occurs_ty k t in
-        fold (k+1) (res+i) rem
-      in
-    fold k (occurs k te) xts
+  | Structure (_, es) ->
+     let rec fold res = function
+       | [] -> res
+       | e :: es ->
+          let j = occurs k e in
+          fold (res+j) es
+     in
+     fold 0 es
+  | Projection (e,_,_) -> occurs k e
 
 and occurs_ty k (Ty t) = occurs k t
 
@@ -383,41 +341,24 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
       alpha_equal_ty t t' &&
       alpha_equal e e'
 
-    | Signature xts1, Signature xts2 ->
-      let rec fold xts1 xts2 = match xts1, xts2 with
-        | [], [] -> true
-        | (x1,_,t1)::xts1, (x2,_,t2)::xts2 ->
-          Name.eq_ident x1 x2 &&
-          alpha_equal_ty t1 t2 &&
-          fold xts1 xts2
-        | _::_,[] | [],_::_ -> false
-        in
-      fold xts1 xts2
+    | Signature s1, Signature s2 -> Name.eq_ident s1 s2
 
-    | Structure xts1, Structure xts2 ->
-      let rec fold xts1 xts2 = match xts1, xts2 with
-        | [], [] -> true
-        | (x1,_,t1,te1)::xts1, (x2,_,t2,te2)::xts2 ->
-          Name.eq_ident x1 x2 &&
-          alpha_equal_ty t1 t2 &&
-          alpha_equal te1 te2 &&
-          fold xts1 xts2
-        | _::_,[] | [],_::_ -> false
-        in
-      fold xts1 xts2
+    | Structure (s1, lst1), Structure (s2, lst2) ->
+       Name.eq_ident s1 s2 &&
+         begin
+           let rec fold lst1 lst2 =
+             match lst1, lst2 with
+             | [], [] -> true
+             | e1::lst1, e2::lst2 -> alpha_equal e1 e2 && fold lst1 lst2
+             | [],_::_ | _::_,[] -> Error.impossible ~loc:Location.unknown "alpha_equal: malformed structures"
+           in
+           fold lst1 lst2
+         end
 
-    | Projection (te1,xts1,p1), Projection (te2,xts2,p2) ->
-      Name.eq_ident p1 p2 &&
-      alpha_equal te1 te2 &&
-      let rec fold xts1 xts2 = match xts1, xts2 with
-        | [], [] -> true
-        | (x1,_,t1)::xts1, (x2,_,t2)::xts2 ->
-          Name.eq_ident x1 x2 &&
-          alpha_equal_ty t1 t2 &&
-          fold xts1 xts2
-        | _::_,[] | [],_::_ -> false
-        in
-      fold xts1 xts2
+    | Projection (e1, s1, l1), Projection (e2, s2, l2) ->
+       Name.eq_ident s1 s2 &&
+       Name.eq_ident l1 l2 &&
+       alpha_equal e1 e2
 
     | (Atom _ | Bound _ | Constant _ | Lambda _ | Apply _ |
         Type | Prod _ | Eq _ | Refl _ |
@@ -501,17 +442,20 @@ and print_term' ?max_level xs e ppf =
           (print_annot (print_ty xs t))
           (print_term ~max_level:0 xs e)
 
-      | Signature xts ->
-        print ~at_level:0 "{@[<hov>%t@]}"
-          (print_signature xs xts)
+      | Signature s ->
+        print ~at_level:0 "%t" (Name.print_ident s)
 
-      | Structure [] -> print ~at_level:0 "()"
+      | Structure (s, es) ->
+         (* XXX Currently broken, see also print_structure below. *)
+        print ~at_level:0 "{@[<hov>%t@]}:%t"
+          (Print.sequence (print_term xs) "," es)
+          (Name.print_ident s)
 
-      | Structure xts ->
-        print ~at_level:0 "{@[<hov>%t@]}"
-          (print_structure xs xts)
-
-      | Projection (te,xts,p) -> print ~at_level:0 "%t" (print_projection xs te xts p)
+      | Projection (e, s, l) ->
+         print ~at_level:0 "%t%t.%t"
+               (print_term ~max_level:0 xs e)
+               (print_annot (Name.print_ident s))
+               (Name.print_ident l)
 
 and print_ty ?max_level xs (Ty t) ppf = print_term ?max_level xs t ppf
 
@@ -579,6 +523,7 @@ and print_signature xs xts ppf =
         (print_signature_clause xs x y t)
         (print_signature (y::xs) lst)
 
+(*
 and print_structure_clause xs x y t te ppf =
   if Name.eq_ident x y then
     Print.print ppf "@[<h>%t%t@ :=@ %t@]"
@@ -603,41 +548,31 @@ and print_structure xs xts ppf =
      Print.print ppf "%t,@ %t"
         (print_structure_clause xs x y t te)
         (print_structure (y::xs) lst)
-
-and print_projection xs te xts p ppf =
-  if !Config.annotate
-  then
-    Print.print ppf "@[<hov 2>%t@ @@{%t}.%t@]"
-      (print_term ~max_level:0 xs te)
-      (print_signature xs xts)
-      (Name.print_ident p)
-  else
-    Print.print ppf "@[<hov 2>%t.%t@]"
-      (print_term ~max_level:0 xs te)
-      (Name.print_ident p)
+*)
 
 (****** Structure stuff ********)
 
-let field_value ~loc xtes p =
-  let rec fold vs = function
-    | [] -> Error.impossible ~loc "Tt.field_value: field %t not found" (Name.print_ident p)
-    | (l,x,t,te)::rem ->
-      let te = instantiate vs te in
-      if Name.eq_ident p l
-      then te
-      else fold (te::vs) rem
-    in
-  fold [] xtes
+let field_value ~loc s_def lst l =
+  match Name.index_of_ident l (List.map (fun (l, _, _) -> l) s_def) with
+  | Some n ->
+     begin
+       try
+         List.nth lst n
+       with Failure _ -> Error.impossible ~loc "Tt.field_value: too few fields"
+     end
+  | None -> Error.impossible ~loc "Tt.field_value: field %t not found"
+                             (Name.print_ident l)
+                             (* XXX print signature as well? *)
 
-let field_type ~loc xts e p =
+let field_type ~loc s s_def e p =
   let rec fold vs = function
     | [] -> Error.typing ~loc "%t has no field %t" (print_term [] e) (Name.print_ident p)
     | (l,x,t)::rem ->
       if Name.eq_ident p l
       then instantiate_ty vs t
       else
-        let el = mk_projection ~loc e xts l in
+        let el = mk_projection ~loc e s l in
         fold (el::vs) rem
     in
-  fold [] xts
+  fold [] s_def
 

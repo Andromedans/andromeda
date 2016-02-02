@@ -5,6 +5,7 @@ type decl =
   | Constant of Tt.ty
   | Data of int
   | Operation of int
+  | Signature of Tt.signature
 
 type dynamic = {
   decls : (Name.ident * decl) list ;
@@ -301,26 +302,49 @@ let lookup_operation x env =
   match lookup_decl x env with
   | None -> None
   | Some (Operation k) -> Some k
-  | Some (Data _ | Constant _) -> None
+  | Some (Data _ | Constant _ | Signature _) -> None
 
 let lookup_data x env =
   match lookup_decl x env with
   | None -> None
   | Some (Data k) -> Some k
-  | Some (Operation _ | Constant _) -> None
+  | Some (Operation _ | Constant _ | Signature _) -> None
 
 let is_constant x env =
   match lookup_decl x env with
   | Some (Constant c) -> true
-  | None | Some (Data _ | Operation _) -> false
+  | None | Some (Data _ | Operation _ | Signature _) -> false
 
 let get_constant x env =
   match lookup_decl x env with
   | None -> None
   | Some (Constant c) -> Some c
-  | Some (Data _ | Operation _) -> None
+  | Some (Data _ | Operation _ | Signature _) -> None
+
+let get_signature x env =
+  match lookup_decl x env with
+  | None -> None
+  | Some (Signature s) -> Some s
+  | Some (Data _ | Operation _ | Constant _) -> None
 
 let lookup_constant x env = Return (get_constant x env), env.state
+
+let lookup_signature x env = Return (get_signature x env), env.state
+
+let find_signature env ls =
+  let rec fold = function
+    | [] -> None
+    | (s, Signature s_def) :: lst ->
+       let rec cmp lst1 lst2 =
+         match lst1, lst2 with
+         | [], [] -> true
+         | l1::lst1, (l2,_,_)::lst2 -> Name.eq_ident l1 l2 && cmp lst1 lst2
+         | [],_::_ | _::_,[] -> false
+       in
+       if cmp ls s_def then Some s else fold lst
+    | (_, (Constant _ | Data _ | Operation _)) :: lst -> fold lst
+  in
+  fold env.dynamic.decls
 
 let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 
@@ -388,6 +412,11 @@ let add_constant ~loc x ytsu env =
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
   else (),{ env with dynamic = {env.dynamic with decls = (x, Constant ytsu) :: env.dynamic.decls }}
 
+let add_signature ~loc s s_def env =
+  if is_known s env
+  then Error.runtime ~loc "%t is already declared" (Name.print_ident s)
+  else (), {env with dynamic = {env.dynamic with decls = (s, Signature s_def) :: env.dynamic.decls}}
+
 let add_bound x v m env =
   let env = add_bound0 x v env in
   m env
@@ -423,23 +452,28 @@ let push_file f env =
 let included f env =
   List.mem (Filename.basename f) env.lexical.files, env
 
-let print env ppf =
-  let forbidden_names = used_names env in
-  Print.print ppf "---ENVIRONMENT---@." ;
-  List.iter
-    (function
-      | (x, Constant t) ->
-         Print.print ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n" (Name.print_ident x)
-                     (Tt.print_ty forbidden_names t)
-      | (x, Data k) ->
-         Print.print ppf "@[<hov 4>data %t %d@]@\n" (Name.print_ident x) k
-      | (x, Operation k) ->
-         Print.print ppf "@[<hov 4>operation %t %d@]@\n" (Name.print_ident x) k
-    )
-    (List.rev env.dynamic.decls) ;
-  Print.print ppf "-----END-----@."
-
-let print_env env = print env,env
+let print_env env =
+  let print env ppf =
+    let forbidden_names = used_names env in
+    Print.print ppf "---ENVIRONMENT---@." ;
+    List.iter
+      (function
+        | (x, Constant t) ->
+           Print.print ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n" (Name.print_ident x)
+                       (Tt.print_ty forbidden_names t)
+        | (x, Data k) ->
+           Print.print ppf "@[<hov 4>data %t %d@]@\n" (Name.print_ident x) k
+        | (x, Operation k) ->
+           Print.print ppf "@[<hov 4>operation %t %d@]@\n" (Name.print_ident x) k
+        | (x, Signature s) ->
+           Print.print ppf "@[<hov 4>signature %t %t@]@\n"
+                       (Name.print_ident x)
+                       (Tt.print_signature forbidden_names s)
+      )
+      (List.rev env.dynamic.decls) ;
+    Print.print ppf "-----END-----@."
+  in
+  print env, env
 
 (* The empty environment *)
 let empty = {

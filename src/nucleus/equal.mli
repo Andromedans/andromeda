@@ -38,5 +38,5 @@ val as_eq : Jdg.ty -> (Context.t * Tt.ty * Tt.term * Tt.term) Monad.t
 val as_prod : Jdg.ty -> (Context.t * Tt.ty Tt.ty_abstraction) Monad.t
 
 (** Convert a type to a signature. *)
-val as_signature : Jdg.ty -> (Context.t * Tt.signature) Monad.t
+val as_signature : Jdg.ty -> (Context.t * Name.signature) Monad.t
 

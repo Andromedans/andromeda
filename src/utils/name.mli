@@ -17,6 +17,9 @@ type atom = private Atom of string * fixity * int
 (** The type of a structure or signature field. *)
 type label = ident
 
+(** The type of a signature name. *)
+type signature = ident
+
 (** Print a name. *)
 val print_ident : ident -> Format.formatter -> unit
 

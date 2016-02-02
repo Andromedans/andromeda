@@ -59,11 +59,6 @@ module Opt = struct
   let locally (m : 'a opt) : ('a*state) opt =
     { k = fun sk fk s -> m.k (fun x s' -> sk (x,s') (AtomSet.union s s')) fk Monad.empty }
 
-  (* I have no clue if this does the right thing *)
-  let add_free ~loc x j m =
-    { k = fun sk fk s ->
-          Value.add_free ~loc x j (fun ctx z -> (m ctx z).k (fun y s' -> (sk y s')) fk s) }
-
   let add_abstracting ~loc x j m =
     { k = fun sk fk s ->
           Value.add_abstracting ~loc x j (fun ctx z -> (m ctx z).k (fun y s' -> (sk y s')) fk s) }
@@ -107,45 +102,26 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
 
 and equal_ty ctx (Tt.Ty t1) (Tt.Ty t2) = equal ctx t1 t2 Tt.typ
 
-
-let equal_signature ~loc ctx xts1 xts2 =
-  let rec fold ctx ys ys' ts xts1 xts2 = match xts1, xts2 with
-    | [], [] ->
-      Monad.context_abstract ~loc ctx ys ts >!= fun ctx ->
-      Opt.return ctx
-    | (l1,x,t1)::xts1, (l2,_,t2)::xts2 ->
-      if Name.eq_ident l1 l2
-      then
-        let t1 = Tt.unabstract_ty ys t1 in
-        let t2 = Tt.instantiate_ty ys' t2 in
-        Opt.locally (equal_ty ctx t1 t2) >?= fun (ctx,hypst) ->
-        let jx = Jdg.mk_ty ctx t1 in
-        Opt.add_free ~loc x jx (fun ctx y ->
-        let y' = Tt.mention_atoms hypst (Tt.mk_atom ~loc y) in
-        fold ctx (y::ys) (y'::ys') (t1::ts) xts1 xts2)
-      else Opt.fail
-    | _::_,[] | [],_::_ -> Opt.fail
-    in
-  fold ctx [] [] [] xts1 xts2
-
 (** this function assumes that the derived signatures have already been checked equal label to label *)
-and equal_module ~loc ctx xtes1 xtes2 =
-  let rec fold ctx vs xtes1 xtes2 = match xtes1, xtes2 with
-    | [], [] ->
-      Opt.return ctx
-    | (l1,x,t1,te1)::xts1, (l2,_,t2,te2)::xts2 ->
-      (* TODO we do not use t2 so the call to equal_module should send the common signature *)
-      if Name.eq_ident l1 l2
-      then
-        let ty = Tt.instantiate_ty vs t1 in (* here we need to know that ctx |- instantiate t1 == instantiate t2. Is this true? *)
-        let te1 = Tt.instantiate vs te1 in
-        let te2 = Tt.instantiate vs te2 in
-        equal ctx te1 te2 ty >?= fun ctx ->
-        fold ctx (te1::vs) xts1 xts2
-      else Opt.fail
-    | _::_,[] | [],_::_ -> Opt.fail
+and equal_structure ~loc ctx s_def es1 es2 =
+  let rec fold ctx vs hyps fields es1 es2 =
+    match fields, es1, es2 with
+    | [], [], [] ->
+       Opt.return ctx
+
+    | (l,x,t)::fields, e1::es1, e2::es2 ->
+        let t = Tt.instantiate_ty vs t in
+        let e1 = Tt.instantiate vs e1 in
+        let e2 = Tt.instantiate vs e2 in
+        let e2 = Tt.mention_atoms hyps e2 in
+        Opt.locally (equal ctx e1 e2 t) >?= fun (ctx, hyps') ->
+        let hyps = AtomSet.union hyps hyps' in
+        fold ctx (e1::vs) hyps fields es1 es2
+
+    | _, _, _ ->
+       Error.impossible ~loc "equal_structure: unequal lengths"
     in
-  fold ctx [] xtes1 xtes2
+  fold ctx [] AtomSet.empty s_def es1 es2
 
 (** Apply the appropriate congruence rule *)
 let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_} as e2) t =
@@ -216,24 +192,28 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
      Opt.locally (equal_ty ctx u u') >?= fun (ctx,hyps) ->
      equal ctx d (Tt.mention_atoms hyps d') u
 
-  | Tt.Signature xts1, Tt.Signature xts2 -> equal_signature ~loc:loc1 ctx xts1 xts2
+  | Tt.Signature s1, Tt.Signature s2 ->
+     if Name.eq_ident s1 s2
+     then Opt.return ctx
+     else Opt.fail
 
-  | Tt.Structure xtes1, Tt.Structure xtes2 ->
-    let xts1 = List.map (fun (l,x,t,_) -> l,x,t) xtes1 in
-    let xts2 = List.map (fun (l,x,t,_) -> l,x,t) xtes2 in
-    Opt.locally (equal_signature ~loc:loc1 ctx xts1 xts2) >?= fun (ctx, hyps) ->
-    (* XXX TODO be more precise about which part of hyps is needed where *)
-    let xtes2 = List.map (fun (l, x, t, e) -> (l, x, t, Tt.mention_atoms hyps e)) xtes2 in
-    equal_module ~loc:loc1 ctx xtes1 xtes2
+  | Tt.Structure (s1, lst1), Tt.Structure (s2, lst2) ->
+     if Name.eq_ident s1 s2
+     then
+       Monad.lift (Value.lookup_signature s1) >!=
+         begin function
+           | None -> Error.impossible ~loc "Equal.congruence: unknown signature %t"
+                                      (Name.print_ident s1)
+           | Some s_def -> equal_structure ~loc:loc1 ctx s_def lst1 lst2
+         end
+     else Opt.fail
 
-  | Tt.Projection (te1,xts1,p1), Tt.Projection (te2,xts2,p2) ->
-    if Name.eq_ident p1 p2
-    then
-      Opt.locally (equal_signature ~loc:loc1 ctx xts1 xts2) >?= fun (ctx,hyps) ->
-      let t = Tt.mk_signature_ty ~loc:loc1 xts1 in
-      let te2 = Tt.mention_atoms hyps te2 in
-      equal ctx te1 te2 t
-    else Opt.fail
+  | Tt.Projection (e1, s1, l1), Tt.Projection (e2, s2, l2) ->
+     if Name.eq_ident l1 l2 && Name.eq_ident s1 s2
+     then
+       let t = Tt.mk_signature_ty ~loc:loc1 s1 in 
+       equal ctx e1 e2 t
+     else Opt.fail
 
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _ |
      Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ |
@@ -257,12 +237,6 @@ let beta_reduce ~loc ctx (x,a) e b (_,a') b' e' =
   let e = Tt.mention_atoms hypsb e in
   Opt.return (ctx,e)
 
-(** Reduction of [{xtes}.p] at type [{xts}] *)
-let projection_reduce ~loc ctx xts p xtes =
-  equal_signature ~loc ctx xts (List.map (fun (l,x,t,_) -> l,x,t) xtes) >?= fun ctx ->
-  let te = Tt.field_value ~loc xtes p in
-  Opt.return (ctx,te)
-
 let reduce_step ctx {Tt.term=e'; assumptions; loc} =
   match e' with
   | Tt.Apply (e1, (xts, t), e2) ->
@@ -284,12 +258,22 @@ let reduce_step ctx {Tt.term=e'; assumptions; loc} =
               Error.impossible ~loc "de Bruijn encountered in an apply head in reduce"
      end
 
-  | Tt.Projection (e,xts,p) ->
+  | Tt.Projection (e, s, l) ->
      begin
        match e.Tt.term with
-       | Tt.Structure xtes ->
-          projection_reduce ~loc ctx xts p xtes >?= fun (ctx, e) ->
-          Opt.return (ctx, Tt.mention assumptions e)
+       | Tt.Structure (s', es) ->
+          if Name.eq_ident s s'
+          then
+            Monad.lift (Value.lookup_signature s) >!=
+              begin function
+                | None -> Error.impossible ~loc "unknown signature %t in reduce"
+                                           (Name.print_ident s)
+                | Some s_def ->
+                   let e = Tt.field_value s_def es l ~loc in
+                   Opt.return (ctx, Tt.mention assumptions e)
+              end
+          else Opt.fail
+
        | Tt.Atom _
        | Tt.Constant _
        | Tt.Lambda _
@@ -389,7 +373,7 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
 
 let as_signature_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
   match t' with
-    | Tt.Signature xts -> Monad.return xts
+    | Tt.Signature s -> Monad.return s
     | _ ->
       Monad.lift Value.print_ty >>= fun pty ->
       Error.typing ~loc "this expression should be a signature, found@ %t"
@@ -398,7 +382,7 @@ let as_signature_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
 
 let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
-    | Tt.Signature xts -> Monad.return (ctx, xts)
+    | Tt.Signature s -> Monad.return (ctx, s)
     | _ ->
       Monad.lift (Value.perform_as_signature (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
       begin match Value.as_option ~loc v with

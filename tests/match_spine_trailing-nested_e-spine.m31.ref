@@ -1,25 +1,24 @@
-unit is defined.
-Constant top is declared.
+top is defined.
 Constant unit_rect is declared.
 Constant unit_iota_top is declared.
 it is defined.
-⊢ refl top
-  : (λ (T : Type), unit_rect (λ (m : {}), T → T) (λ (x : T), x))
-      {} top top
-      ≡ top
-⊢ refl top
-  : top
-      ≡ (λ (T : Type), unit_rect (λ (m : {}), T → T) (λ (x : T), x))
-            {} top top
-⊢ refl top
-  : top
-      ≡ (λ (T : Type), unit_rect (λ (m : {}), T → T) (λ (x : T), x))
-            {} top top
-⊢ refl top
-  : top
-      ≡ (λ (T : Type), unit_rect (λ (m : {}), T → T) (λ (x : T), x))
-            {} top top
-⊢ refl top
-  : top
-      ≡ (λ (T : Type), unit_rect (λ (m : {}), T → T) (λ (x : T), x))
-            {} top top
+⊢ refl {}:unit
+  : (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
+      unit {}:unit {}:unit
+      ≡ {}:unit
+⊢ refl {}:unit
+  : {}:unit
+      ≡ (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
+            unit {}:unit {}:unit
+⊢ refl {}:unit
+  : {}:unit
+      ≡ (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
+            unit {}:unit {}:unit
+⊢ refl {}:unit
+  : {}:unit
+      ≡ (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
+            unit {}:unit {}:unit
+⊢ refl {}:unit
+  : {}:unit
+      ≡ (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
+            unit {}:unit {}:unit

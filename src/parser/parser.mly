@@ -39,6 +39,7 @@
 (* Things specific to toplevel *)
 %token DO FAIL
 %token CONSTANT REDUCE
+%token SIGNATURE
 
 (* Let binding *)
 %token LET EQ AND IN
@@ -117,9 +118,11 @@ plain_topcomp:
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
-  | CONSTANT x=name COLON u=term                      { Axiom (x, u)}
-  | DATA x=name k=NUMERAL                             { Data (x, k) }
-  | OPERATION op=name k=NUMERAL                       { Operation (op, k) }
+  | CONSTANT x=name COLON u=term                      { DeclConstant (x, u)}
+  | SIGNATURE s=name EQ LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
+                                                      { DeclSignature (s, lst) }
+  | DATA x=name k=NUMERAL                             { DeclData (x, k) }
+  | OPERATION op=name k=NUMERAL                       { DeclOperation (op, k) }
 
 return_type:
   | COLON t=ty_term { t }
@@ -185,9 +188,7 @@ plain_binop_term:
 app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_prefix_term                             { e }
-  | e=prefix_term es=nonempty_list(prefix_term)     { match fst e with
-                                                      | Tag (t, []) -> Tag (t, es)
-                                                      | _ -> Spine (e, es) }
+  | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
   | CONGRUENCE t1=prefix_term t2=prefix_term        { Congruence (t1,t2) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
@@ -204,19 +205,19 @@ plain_prefix_term:
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
-  | TYPE                                            { Type }
-  | x=var_name                                      { Var x }
-  | EXTERNAL s=QUOTED_STRING                        { External s }
-  | s=QUOTED_STRING                                 { String s }
+  | TYPE                                                { Type }
+  | x=var_name                                          { Var x }
+  | EXTERNAL s=QUOTED_STRING                            { External s }
+  | s=QUOTED_STRING                                     { String s }
   | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
-  | LPAREN lst=separated_nonempty_list(COMMA, term) RPAREN { match lst with [e] -> fst e | _ -> Tuple lst }
-  | LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
-        { Signature lst }
-  | LPAREN RPAREN                                   { Structure [] }
-  | LBRACE lst=separated_nonempty_list(COMMA, structure_clause) RBRACE
-        { Structure lst }
-  | e1=simple_term p=PROJECTION                     { Projection(e1,Name.make p) }
-  | CONTEXT                                         { Context }
+  | LPAREN lst=separated_nonempty_list(COMMA, term) RPAREN
+                                                        { match lst with
+                                                          | [e] -> fst e
+                                                          | _ -> Tuple lst }
+  | LBRACE lst=separated_list(COMMA, structure_clause) RBRACE
+                                                        { Structure lst }
+  | e=simple_term p=PROJECTION                          { Projection (e, Name.make p) }
+  | CONTEXT                                             { Context }
 
 var_name:
   | NAME { Name.make $1 }
@@ -312,7 +313,6 @@ match_cases:
 match_case:
   | p=pattern DARROW c=term  { (p, c) }
 
-
 (** Pattern matching *)
 
 pattern: mark_location(plain_pattern) { $1 }
@@ -326,27 +326,28 @@ binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
   | e=plain_app_pattern                                { e }
   | e1=binop_pattern op=INFIXOP0 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix0 (fst op) in Patt_Tag (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix0 (fst op) in Patt_Data (op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP1 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix1 (fst op) in Patt_Tag (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix1 (fst op) in Patt_Data (op, [e1; e2]) }
   | e1=binop_pattern COLONCOLON  e2=binop_pattern
     { Patt_Cons (e1, e2) }
   | e1=binop_pattern op=INFIXOP2 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix2 (fst op) in Patt_Tag (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix2 (fst op) in Patt_Data (op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP3 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix3 (fst op) in Patt_Tag (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix3 (fst op) in Patt_Data (op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP4 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix4 (fst op) in Patt_Tag (op, [e1; e2]) }
+    { let op = Name.make ~fixity:Name.Infix4 (fst op) in Patt_Data (op, [e1; e2]) }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
 plain_app_pattern:
   | e=plain_prefix_pattern                    { e }
-  | t=var_name ps=prefix_pattern+             { Patt_Tag (t, ps) }
+  | t=var_name ps=prefix_pattern+             { Patt_Data (t, ps) }
 
 prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
 plain_prefix_pattern:
   | e=plain_simple_pattern           { e }
-  | op=PREFIXOP e=prefix_pattern     { let op = Name.make ~fixity:Name.Prefix (fst op) in Patt_Tag (op, [e]) }
+  | op=PREFIXOP e=prefix_pattern     { let op = Name.make ~fixity:Name.Prefix (fst op) in 
+                                       Patt_Data (op, [e]) }
 
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
 plain_simple_pattern:
@@ -408,18 +409,11 @@ plain_simple_tt_pattern:
   | x=patt_var                                                           { Tt_Var x }
   | x=var_name                                                           { Tt_Name x }
   | LPAREN p=plain_tt_pattern RPAREN                                     { p }
-  | LBRACE ps=separated_list(COMMA, tt_signature_clause) RBRACE          { Tt_Signature ps }
-  | LPAREN RPAREN                                                        { Tt_Structure [] }
-  | LBRACE ps=separated_nonempty_list(COMMA, tt_structure_clause) RBRACE { Tt_Structure ps }
+  | LBRACE ps=separated_list(COMMA, tt_structure_clause) RBRACE          { Tt_Structure ps }
   | p=simple_tt_pattern lbl=PROJECTION                                   { Tt_Projection (p, Name.make lbl) }
 
-tt_signature_clause:
-  | x=tt_name COLON p=tt_pattern           { let (x,b) = x in (x, b, None, p) }
-  | x=name AS y=tt_name COLON p=tt_pattern { let (y,b) = y in (x, b, Some y, p) }
-
 tt_structure_clause:
-  | x=tt_name EQ c=tt_pattern           { let (x,b) = x in (x, b, None, c) }
-  | x=name AS y=tt_name EQ c=tt_pattern { let (y,b) = y in (x, b, Some y, c) }
+  | l=name EQ c=tt_pattern              { (l, c) }
 
 tt_binder:
   | LPAREN lst=separated_nonempty_list(COMMA, maybe_typed_tt_names) RPAREN

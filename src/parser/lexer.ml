@@ -33,6 +33,7 @@ let reserved = [
   ("rec", REC) ;
   ("ref", REF) ;
   ("refl", REFL) ;
+  ("signature", SIGNATURE) ;
   ("Type", TYPE) ;
   ("typeof", TYPEOF) ;
   ("val", VAL) ;

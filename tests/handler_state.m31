@@ -1,5 +1,5 @@
-constant unit : Type
-constant top : unit
+constant cow : Type
+constant horn : cow
 
 operation lookup 0
 operation update 1
@@ -9,7 +9,7 @@ let state =
     handler
     | val ?x => (fun _ => x)
     | lookup => (fun s => yield s s)
-    | update ?s => (fun _ => yield top s)
+    | update ?s => (fun _ => yield horn s)
     | finally ?f => f s0
     end
 

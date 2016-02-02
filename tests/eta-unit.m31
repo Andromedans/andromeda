@@ -1,9 +1,7 @@
 (* Test an eta hint *)
-constant unit : Type
-constant top : unit
 constant unit_eta : Π (x y : unit), x == y
 
 do
   with local (lhint unit_eta) handle
-    λ (x : unit), (refl top : x == top)
+    λ (x : unit), (refl {} : x == {})
 

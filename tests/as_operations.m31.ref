@@ -4,5 +4,8 @@ Constant B_eq is declared.
 ⊢ refl A : B
 Constant B_prod is declared.
 ⊢ λ (x : A), x : B
+Constant P is declared.
+Signature cow is declared.
 Constant B_sig is declared.
-⊢ () : B
+Constant b is declared.
+⊢ b.tail : P b.horn

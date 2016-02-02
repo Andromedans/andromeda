@@ -1,7 +1,10 @@
 constant A : Type
 constant a : A
 
-(* TODO *)
+signature cow = { x : A, y : x ≡ a }
+
 do { x = a, y = refl a }
-      : { x : A, y : x ≡ a }
+
+do { x = a, y = refl x }
+
 

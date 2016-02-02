@@ -12,4 +12,3 @@ Constant list is declared.
 Constant Nil is declared.
 Constant Cons is declared.
 ((⊢ b : A), (⊢ Cons b (Cons c Nil) : list))
-⊢ () : {}
