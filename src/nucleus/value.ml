@@ -73,14 +73,12 @@ let predefined_tags = [
 ]
 
 let name_equal        = Name.make "equal"
-let name_abstract     = Name.make "abstract"
 let name_as_prod      = Name.make "as_prod"
 let name_as_eq        = Name.make "as_eq"
 let name_as_signature = Name.make "as_signature"
 
 let predefined_ops = [
   (name_equal       , 2) ;
-  (name_abstract    , 2) ;
   (name_as_prod     , 1) ;
   (name_as_eq       , 1) ;
   (name_as_signature, 1) ;
@@ -272,9 +270,6 @@ let perform op vs env =
 
 let perform_equal v1 v2 =
   perform name_equal [v1;v2]
-
-let perform_abstract v1 v2 =
-  perform name_abstract [v1;v2]
 
 let perform_as_prod v =
   perform name_as_prod [v]

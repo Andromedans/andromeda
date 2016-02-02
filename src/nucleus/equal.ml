@@ -28,20 +28,9 @@ module Monad = struct
 
   let add_hyps hyps = modify (AtomSet.union hyps)
 
-  (** The implicit equality witness [ctx, ys, zs |- e] is replaced by [ctx |- lambda ys, e[es/zs]] *)
   let context_abstract ~loc ctx ys ts =
-    lift (Matching.context_abstract ~loc ctx ys ts) >>= fun (ctx,zs,es) ->
+    let ctx = Context.abstract ~loc ctx ys ts in
     modify (fun hyps ->
-      let hyps = List.fold_left2 (fun hyps z e ->
-          if AtomSet.mem z hyps
-          then
-            let hyps = AtomSet.remove z hyps in
-            let hyps_e = Tt.assumptions_term e in
-            let hyps = AtomSet.union hyps hyps_e in
-            hyps
-          else hyps)
-        hyps zs es
-      in
       List.fold_left (fun hyps y -> AtomSet.remove y hyps) hyps ys) >>= fun () ->
     return ctx
 
