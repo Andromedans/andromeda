@@ -20,7 +20,7 @@ let strengthen (Term (ctx,e,t)) =
 let print_term ?max_level xs (Term (ctx, e,t)) ppf =
   Print.print ?max_level ~at_level:100 ppf
               "%t@[<hov 2>%s %t@ : %t@]"
-              (Context.print ctx)
+              (Context.print xs ctx)
               (Print.char_vdash ())
               (Tt.print_term ~max_level:999 xs e)
               (Tt.print_ty ~max_level:999 xs t)
@@ -28,6 +28,6 @@ let print_term ?max_level xs (Term (ctx, e,t)) ppf =
 let print_ty ?max_level xs (Ty (ctx, t)) ppf =
   Print.print ?max_level ~at_level:0 ppf
               "%t@[<hov 2>%s %t@ type@]"
-              (Context.print ctx)
+              (Context.print xs ctx)
               (Print.char_vdash ())
               (Tt.print_ty ~max_level:999 xs t)

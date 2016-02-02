@@ -27,15 +27,15 @@ let print_dependencies s v ppf =
   else Format.fprintf ppf "@ %s[%t]" s
                       (Print.sequence Name.print_atom "," (AtomSet.elements v))
 
-let print_entry ppf x {ty; needed_by;} =
+let print_entry xs ppf x {ty; needed_by;} =
   Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@]@]@ "
     (Name.print_atom x)
-    (Tt.print_ty [] ty)
+    (Tt.print_ty xs ty)
     (print_dependencies "needed_by" needed_by)
 
-let print ctx ppf =
+let print xs ctx ppf =
   Format.pp_open_vbox ppf 0 ;
-  AtomMap.iter (print_entry ppf) ctx ;
+  AtomMap.iter (print_entry xs ppf) ctx ;
   Format.pp_close_box ppf ()
 
 let lookup x (ctx : t) =
@@ -110,7 +110,7 @@ let abstract1 ~loc (ctx : t) x ty =
           (Name.print_atom x)
           (Print.sequence (Name.print_atom) "," needed_by_l)
           (match needed_by_l with [_] -> "s" | _ -> "")
-          (print ctx)
+          (print [] ctx)
     else
       Error.runtime ~loc "cannot abstract %t with type %t because it must have type %t."
         (Name.print_atom x)
@@ -137,8 +137,8 @@ let join ~loc ctx1 ctx2 =
             then res
             else AtomMap.add x {node' with needed_by = AtomSet.union node'.needed_by extra} res
           else Error.runtime ~loc "cannot join contexts@ %t and@ %t at %t"
-              (print ctx1)
-              (print ctx2)
+              (print [] ctx1)
+              (print [] ctx2)
               (Name.print_atom x)
         | None ->
           (* dependencies are handled above *)
