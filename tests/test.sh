@@ -23,7 +23,7 @@ then
   ANDROMEDA="$BASEDIR/../andromeda"
 elif [ -x "$BASEDIR/../andromeda.native" ]
 then
-  ANDROMEDA="$BASEDIR/../andromeda.byte"
+  ANDROMEDA="$BASEDIR/../andromeda.native"
 elif [ -x "$BASEDIR/../andromeda.byte" ]
 then
   ANDROMEDA="$BASEDIR/../andromeda.byte"
