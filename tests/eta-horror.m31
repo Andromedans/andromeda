@@ -26,10 +26,11 @@ constant D : Type
 constant p : prod C D
 constant q : prod C D
 
-(* The following should fail (and not cycle forever). *)
+(* The following should fail (and not cycle forever). TODO
 do
   with local (lbeta Pair_beta_Fst) handle
   with local (lbeta Pair_beta_Snd) handle
   with local (leta Pair_eta) handle
     refl p : p == q
+*)
 
