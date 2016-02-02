@@ -476,15 +476,15 @@ let rec equality betas hints etas = handler
 
   | beta ?b => fun betas hints etas =>
     let b = process_beta b in
-    yield () (b :: betas) hints etas
+    yield {} (b :: betas) hints etas
 
   | hint ?h => fun betas hints etas =>
     let h = process_hint h in
-    yield () betas (h :: hints) etas
+    yield {} betas (h :: hints) etas
 
   | eta ?h => fun betas hints etas =>
     let h = process_eta h in
-    yield () betas hints (h::etas)
+    yield {} betas hints (h::etas)
 
   | getbetas => fun betas hints etas =>
     yield betas betas hints etas

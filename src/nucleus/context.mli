@@ -7,7 +7,7 @@ val empty : t
 (** Is the context empty? *)
 val is_empty : t -> bool
 
-val print : t -> Format.formatter -> unit
+val print : Name.ident list -> t -> Format.formatter -> unit
 
 val lookup_ty : Name.atom -> t -> Tt.ty option
 

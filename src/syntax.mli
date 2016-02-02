@@ -17,8 +17,8 @@ and tt_pattern' =
   | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
-  | Tt_Signature of (Name.ident * Name.ident * bound option * tt_pattern) list
-  | Tt_Structure of (Name.ident * Name.ident * bound option * tt_pattern) list
+  | Tt_Signature of Name.signature
+  | Tt_Structure of Name.signature * tt_pattern list
   | Tt_Projection of tt_pattern * Name.ident
 
 type pattern = pattern' * Location.t
@@ -27,7 +27,7 @@ and pattern' =
   | Patt_As of pattern * bound
   | Patt_Bound of bound
   | Patt_Jdg of tt_pattern * tt_pattern
-  | Patt_Tag of Name.ident * pattern list
+  | Patt_Data of Name.ident * pattern list
   | Patt_Nil
   | Patt_Cons of pattern * pattern
   | Patt_Tuple of pattern list
@@ -40,11 +40,11 @@ and comp' =
   | Function of Name.ident * comp
   | Rec of Name.ident * Name.ident * comp
   | Handler of handler
-  | Tag of Name.ident * comp list
+  | Data of Name.ident * comp list
   | Nil
   | Cons of comp * comp
   | Tuple of comp list
-  | Perform of Name.ident * comp list
+  | Operation of Name.ident * comp list
   | With of comp * comp
   | Let of (Name.ident * comp) list * comp
   | Lookup of comp
@@ -64,8 +64,8 @@ and comp' =
   | Prod of Name.ident * comp * comp
   | Eq of comp * comp
   | Refl of comp
-  | Signature of (Name.ident * Name.ident * comp) list
-  | Structure of (Name.ident * Name.ident * comp) list
+  | Signature of Name.signature
+  | Structure of Name.signature * (Name.ident * comp) list
   | Projection of comp * Name.ident
   | Yield of comp
   | Context
@@ -86,9 +86,10 @@ and multimatch_case = Name.ident list * pattern list * comp
 (** Desugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Operation of Name.ident * int
-  | Data of Name.ident * int
-  | Axiom of Name.ident * comp (** introduce a constant *)
+  | DeclOperation of Name.ident * int
+  | DeclData of Name.ident * int
+  | DeclConstant of Name.ident * comp (** introduce a constant *)
+  | DeclSignature of Name.signature * (Name.label * Name.ident * comp) list
   | TopHandle of (Name.ident * (Name.ident list * comp)) list
   | TopLet of Name.ident * comp (** global let binding *)
   | TopDo of comp (** evaluate a computation *)
@@ -98,4 +99,3 @@ and toplevel' =
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)
-

@@ -23,6 +23,6 @@ do with equality_in !top_betas !top_hints !top_etas handle
    with
      | gimme_beta =>
        assume eq : a == b in
-       let _ = beta eq in yield ()
+       let _ = beta eq in yield {}
    end
 

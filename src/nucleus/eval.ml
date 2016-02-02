@@ -62,7 +62,7 @@ let rec infer (c',loc) =
        in
        Value.return_closure g
 
-    | Syntax.Tag (t, cs) ->
+    | Syntax.Data (t, cs) ->
        let rec fold vs = function
          | [] ->
             let vs = List.rev vs in
@@ -118,7 +118,7 @@ let rec infer (c',loc) =
         in
         Value.return_handler handler_val handler_ops handler_finally
 
-  | Syntax.Perform (op, cs) ->
+  | Syntax.Operation (op, cs) ->
      let rec fold vs = function
        | [] ->
           let vs = List.rev vs in
@@ -251,54 +251,50 @@ let rec infer (c',loc) =
      let et' = Jdg.mk_term ctxe e' t' in
      Value.return_term et'
 
-  | Syntax.Signature xcs ->
-    let rec fold ctx ys ts xts = function
-      | [] ->
-        let xts = List.rev xts in
-        let te = Tt.mk_signature ~loc xts in
-        let typ = Tt.mk_type_ty ~loc in
-        let j = Jdg.mk_term ctx te typ in
-        Value.return_term j
-      | (lbl,x,c) :: rem ->
-        check_ty c >>= fun (Jdg.Ty (ctxt,t)) ->
-        let jt = Jdg.mk_ty ctxt t in
-        Value.add_abstracting ~loc x jt (fun _ y ->
-        let ctxt = Context.abstract ~loc ctxt ys ts in
-        let tabs = Tt.abstract_ty ys t in
-        let ctx = Context.join ~loc ctx ctxt in
-        fold ctx (y :: ys) (t::ts) ((lbl, x, tabs) :: xts) rem)
-      in
-    fold Context.empty [] [] [] xcs
+  | Syntax.Signature s ->
+     let j = Jdg.mk_term Context.empty (Tt.mk_signature ~loc s) (Tt.mk_type_ty ~loc) in
+     Value.return_term j
 
-  | Syntax.Structure xcs ->
-    let rec fold ctx ys ts xtes = function
-      | [] ->
-        let xtes = List.rev xtes in
-        let te = Tt.mk_structure ~loc xtes in
-        let ty = Tt.mk_signature_ty ~loc (List.map (fun (l,x,t,_) -> l,x,t) xtes) in
-        let j = Jdg.mk_term ctx te ty in
-        Value.return_term j
-      | (lbl,x,c) :: rem ->
-        infer c >>= as_term ~loc >>= fun (Jdg.Term (ctxt,te,ty)) ->
-        let jty = Jdg.mk_ty ctxt ty in
-        Value.add_abstracting ~loc x jty (fun _ y ->
-        let ctxt = Context.abstract ~loc ctxt ys ts in
-        let te_abs = Tt.abstract ys te
-        and ty_abs = Tt.abstract_ty ys ty in
-        let ctx = Context.join ~loc ctx ctxt in
-        fold ctx (y::ys) (ty::ts) ((lbl,x,ty_abs,te_abs)::xtes) rem)
-      in
-    fold Context.empty [] [] [] xcs
+  | Syntax.Structure (s, xcs) ->
+     Value.lookup_signature s >>= begin function
+       | None -> Error.impossible ~loc "evaluating a structure of unknown signature %t"
+                                  (Name.print_ident s)
+       | Some lxts ->
+          let rec fold ctx es xcs lxts =
+            match xcs, lxts with
+            | [], [] ->
+               let es = List.rev es in
+               let str = Tt.mk_structure ~loc s es in
+               let t_str = Tt.mk_signature_ty ~loc s in
+               let j_str = Jdg.mk_term ctx str t_str in
+               Value.return_term j_str
+
+            | (x, c) :: xcs, (lbl, _, t) :: lxts ->
+                 let t_inst = Tt.instantiate_ty es t in
+                 let jty = Jdg.mk_ty ctx t_inst in
+                 check c jty >>= fun (ctx, e) ->
+                 Value.add_bound x (Value.mk_term (Jdg.mk_term ctx e t_inst))
+                 (fold ctx (e::es) xcs lxts)
+
+            | _::_, [] -> Error.typing ~loc "this structure has too many fields"
+            | [], _::_ -> Error.typing ~loc "this structure has too few fields"
+          in
+          fold Context.empty [] xcs lxts
+     end
 
   | Syntax.Projection (c,p) ->
     infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,te,ty)) ->
     let jty = Jdg.mk_ty ctx ty in
-    Equal.Monad.run (Equal.as_signature jty) >>= fun ((ctx,xts),hyps) ->
+    Equal.Monad.run (Equal.as_signature jty) >>= fun ((ctx,s),hyps) ->
     let te = Tt.mention_atoms hyps te in
-    let ty = Tt.field_type ~loc xts te p in
-    let te = Tt.mk_projection ~loc te xts p in
-    let j = Jdg.mk_term ctx te ty in
-    Value.return_term j
+    Value.lookup_signature s >>= begin function
+      | None -> Error.impossible ~loc "projecting at unknown signature %t" (Name.print_ident s)
+      | Some s_def ->
+         let ty = Tt.field_type ~loc s s_def te p in
+         let te = Tt.mk_projection ~loc te s p in
+         let j = Jdg.mk_term ctx te ty in
+         Value.return_term j
+    end
 
   | Syntax.Yield c ->
     Value.lookup_continuation >>= begin function
@@ -345,7 +341,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Rec _
   | Syntax.Handler _
   | Syntax.External _
-  | Syntax.Tag _
+  | Syntax.Data _
   | Syntax.Nil
   | Syntax.Cons _
   | Syntax.Tuple _
@@ -366,8 +362,9 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Ref _
   | Syntax.Lookup _
   | Syntax.Update _
-  | Syntax.Sequence _ 
-  | Syntax.String _ ->
+  | Syntax.Sequence _
+  | Syntax.String _
+  | Syntax.Structure _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
@@ -383,7 +380,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
                         (pte e) (pty t_check') (pty t')
       end
 
-  | Syntax.Perform (op, cs) ->
+  | Syntax.Operation (op, cs) ->
      let rec fold vs = function
        | [] ->
           Value.perform op vs >>= as_term ~loc >>= fun (Jdg.Term (ctxe, e', t')) ->
@@ -456,32 +453,6 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
                          "failed to check that the term@ %t is equal to@ %t"
                          (pte e) (pte e1)
      end
-
-  | Syntax.Structure xcs ->
-     Equal.Monad.run (Equal.as_signature t_check) >>= fun ((ctx, yts),hyps) ->
-     let rec fold ctx es ts xtes = function
-       | [], [] ->
-          let xtes = List.rev xtes in
-          let str = Tt.mk_structure ~loc xtes in
-          Value.return (ctx, Tt.mention_atoms hyps str)
-
-       | (lbl1, x, c) :: xcs, (lbl2, z, ty) :: yts ->
-          if not (Name.eq_label lbl1 lbl2)
-          then Error.typing ~loc "expected field %t but got field %t"
-                            (Name.print_label lbl2)
-                            (Name.print_label lbl1)
-          else
-            let ty_inst = Tt.instantiate_ty es ty in
-            let jty = Jdg.mk_ty ctx ty_inst in
-            check c jty >>= fun (ctx, e) ->
-            Value.add_bound x (Value.mk_term (Jdg.mk_term ctx e ty_inst))
-            (fold ctx (e::es) (ty_inst::ts) ((lbl2,z,ty,e) :: xtes) (xcs, yts))
-
-       | _::_, [] -> Error.typing ~loc "this structure has too many fields"
-       | [], _::_ -> Error.typing ~loc "this structure has too few fields"
-     in
-     fold ctx [] [] [] (xcs, yts)
-
 
 and infer_lambda ~loc x u c =
   match u with
@@ -630,6 +601,28 @@ let comp_handle (xs,c) =
       in
       fold2 xs vs)
 
+let comp_signature ~loc lxcs =
+  let rec fold ys ts lxts = function
+
+    | [] ->
+       let lxts = List.rev lxts in
+       Value.return lxts
+
+    | (l,x,c) :: lxcs ->
+       check_ty c >>= fun (Jdg.Ty (ctxt,t)) ->
+       if not (Context.is_empty (Context.abstract ~loc ctxt ys ts))
+       then Error.runtime ~loc "signature field %t has unresolved assumptions"
+                          (Name.print_ident l)
+       else begin
+         let jt = Jdg.mk_ty ctxt t
+         and tabs = Tt.abstract_ty ys t in
+         Value.add_abstracting ~loc x jt (fun _ y ->
+           fold (y::ys) (t::ts) ((l,x,tabs) :: lxts) lxcs)
+       end
+  in
+  Value.top_handle ~loc (fold [] [] [] lxcs)
+
+
 (** Evaluation of toplevel computations *)
 
 let parse lex parse resource =
@@ -670,17 +663,17 @@ let rec exec_cmd base_dir interactive c =
   let (c', loc) = Desugar.toplevel env xs c in
   match c' with
 
-  | Syntax.Operation (x, k) ->
+  | Syntax.DeclOperation (x, k) ->
      Value.add_operation ~loc x k >>= fun () ->
      if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
      return ()
 
-  | Syntax.Data (x, k) ->
+  | Syntax.DeclData (x, k) ->
      Value.add_data ~loc x k >>= fun () ->
      if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
      return ()
 
-  | Syntax.Axiom (x, c) ->
+  | Syntax.DeclConstant (x, c) ->
      Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
       if Context.is_empty ctxt
       then
@@ -689,6 +682,18 @@ let rec exec_cmd base_dir interactive c =
          return ())
       else
         Error.typing "Constants may not depend on free variables" ~loc:(snd c)
+
+  | Syntax.DeclSignature (s, lxcs) ->
+     begin
+       match Value.find_signature env (List.map (fun (l,_,_) -> l) lxcs) with
+       | Some s -> Error.syntax ~loc "signature %t already has these fields"
+                                  (Name.print_ident s)
+       | None ->
+          comp_signature ~loc lxcs >>= fun lxts ->
+          Value.add_signature ~loc s lxts  >>= fun () ->
+          (if interactive then Format.printf "Signature %t is declared.@." (Name.print_ident s) ;
+           return ())
+     end
 
   | Syntax.TopHandle lst ->
     fold (fun () (op, xc) ->

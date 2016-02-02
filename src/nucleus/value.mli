@@ -5,6 +5,7 @@ type decl =
   | Constant of Tt.ty
   | Data of int
   | Operation of int
+  | Signature of Tt.signature
 
 (** Runtime environment *)
 type env
@@ -135,6 +136,15 @@ val lookup_data : Name.ident -> env -> int option
 (** Lookup a constant. *)
 val lookup_constant : Name.ident -> Tt.ty option result
 
+(** Lookup a signature definition *)
+val get_signature : Name.signature -> env -> Tt.signature option
+
+(** Lookup a signature definition, monadically *)
+val lookup_signature : Name.ident -> Tt.signature option result
+
+(** Find a signature with the given labels (in this exact order) *)
+val find_signature : env -> Name.label list -> Name.signature option
+
 (** Is the given identifier a constant? *)
 val is_constant :  Name.ident -> env -> bool
 
@@ -171,9 +181,13 @@ val add_operation : loc:Location.t -> Name.ident -> int -> unit toplevel
     It fails if the constructor is already declared. *)
 val add_data : loc:Location.t -> Name.ident -> int -> unit toplevel
 
-(** Add a constant of a given signature to the environment.
+(** Add a constant of a given type to the environment.
   Fails if the constant is already declared. *)
 val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
+
+(** Add a signature declaration to the environment.
+  Fails if the signature is already declared. *)
+val add_signature : loc:Location.t -> Name.signature -> Tt.signature -> unit toplevel
 
 (** Add a bound variable with the given name to the environment.
     Complain if then name is already used. *)

@@ -48,48 +48,16 @@ let rec term ({Tt.term=e';loc;_} as e) =
       and e = term e in
         Tt.mk_refl ~loc t e
 
-    | Tt.Signature xts ->
-      let rec fold ys res = function
-        | [] -> List.rev res
-        | (x,y,t)::rem ->
-          let t = Tt.unabstract_ty ys t in
-          let t = ty t in
-          let t = Tt.abstract_ty ys t in
-          let y' = Name.fresh y in
-          fold (y'::ys) ((x,y,t)::res) rem
-        in
-      let xts = fold [] [] xts in
-      Tt.mk_signature ~loc xts
+    | Tt.Signature _ -> e
 
-    | Tt.Structure xts ->
-      let rec fold ys res = function
-        | [] -> List.rev res
-        | (x,y,t,te)::rem ->
-          let t = Tt.unabstract_ty ys t in
-          let t = ty t in
-          let t = Tt.abstract_ty ys t in
-          let te = Tt.unabstract ys te in
-          let te = term te in
-          let te = Tt.abstract ys te in
-          let y' = Name.fresh y in
-          fold (y'::ys) ((x,y,t,te)::res) rem
-        in
-      let xts = fold [] [] xts in
-      Tt.mk_structure ~loc xts
+    | Tt.Structure (s, es) ->
+       let es = List.map term es in
+       Tt.mk_structure ~loc s es
 
-    | Tt.Projection (te, xts, p) ->
-      let te = term te in
-      let rec fold ys res = function
-        | [] -> List.rev res
-        | (x,y,t)::rem ->
-          let t = Tt.unabstract_ty ys t in
-          let t = ty t in
-          let t = Tt.abstract_ty ys t in
-          let y' = Name.fresh y in
-          fold (y'::ys) ((x,y,t)::res) rem
-        in
-      let xts = fold [] [] xts in
-      project ~loc te xts p
+    | Tt.Projection (e, s, l) ->
+       let e = term e in
+       (* TODO pass in the environment and properly reduce here *)
+       Tt.mk_projection ~loc e s l
 
     | Tt.Bound _ ->
       Error.impossible ~loc "de Bruijn encountered in term"
@@ -138,36 +106,11 @@ and apply ~loc h x a b e =
   | Tt.Eq _
   | Tt.Refl _
   | Tt.Signature _
-  | Tt.Structure _ 
+  | Tt.Structure _
   | Tt.Projection _ ->
     Tt.mk_apply ~loc h x a b e
-
   | Tt.Bound _ ->
     Error.impossible ~loc "de Bruijn encountered in Simplify.apply"
-
-and project ~loc te xts p =
-  match te.Tt.term with
-  | Tt.Structure xtes ->
-     let sig1 = Tt.mk_signature ~loc (List.map (fun (x,y,t,_) -> x,y,t) xtes) in
-     let sig2 = Tt.mk_signature ~loc xts in
-     if Tt.alpha_equal sig1 sig2
-     then
-       let te = Tt.field_value ~loc xtes p in
-       term te
-     else Tt.mk_projection ~loc te xts p
-  | Tt.Constant _
-  | Tt.Lambda _
-  | Tt.Apply _
-  | Tt.Atom _
-  | Tt.Type
-  | Tt.Prod _
-  | Tt.Eq _
-  | Tt.Refl _
-  | Tt.Signature _
-  | Tt.Projection _ -> Tt.mk_projection ~loc te xts p
-
-  | Tt.Bound _ ->
-     Error.impossible ~loc "de Bruijn encountered in Simplify.project"
 
 let context ctx = ctx
 

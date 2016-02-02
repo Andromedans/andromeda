@@ -15,6 +15,12 @@ let mk_lambda ~loc ys c =
 let mk_prod ~loc ys t =
   List.fold_left (fun c (y,u) -> Syntax.Prod (y,u,c), loc) t ys
 
+let find_signature ~loc env ls =
+  match Value.find_signature env ls with
+  | Some s -> s
+  | None -> Error.syntax ~loc "unknown structure"
+
+
 (* n is the length of vars *)
 let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
   match p with
@@ -48,10 +54,12 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
         | Some k -> (Syntax.Tt_Bound k, loc), vars, n
         | None ->
            begin
-             if Value.is_constant x env then
-               (Syntax.Tt_Constant x, loc), vars, n
-             else
-               Error.syntax ~loc "unknown name %t" (Name.print_ident x)
+             match Value.lookup_decl x env with
+             | Some (Value.Constant _) -> (Syntax.Tt_Constant x, loc), vars, n
+             | Some (Value.Data _) -> Error.syntax ~loc "data in a term pattern"
+             | Some (Value.Operation _) -> Error.syntax ~loc "operation in a term pattern"
+             | Some (Value.Signature _) -> (Syntax.Tt_Signature x, loc), vars, n
+             | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
            end
       end
 
@@ -112,49 +120,17 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       let p, vars, n = tt_pattern env bound vars n p in
       (Syntax.Tt_Refl p, loc), vars, n
 
-    | Input.Tt_Signature xps ->
-      let rec fold bound vars n xps = function
+    | Input.Tt_Structure lps ->
+       let s = find_signature ~loc env (List.map fst lps) in
+       let rec fold vars n ps = function
         | [] ->
-          let xps = List.rev xps in
-          (Syntax.Tt_Signature xps, loc), vars, n
-        | (l,b,xopt,p)::rem ->
-          let x = match xopt with | Some x -> x | None -> l in
-          let bopt, vars, n =
-            if b
-            then
-              try
-                let i = List.assoc x vars in
-                Some i, vars, n
-              with | Not_found ->
-                Some n, ((x,n)::vars), (n+1)
-            else None, vars, n
-          in
+          let ps = List.rev ps in
+          (Syntax.Tt_Structure (s, ps), loc), vars, n
+        | (_,p)::rem ->
           let p, vars, n = tt_pattern env bound vars n p in
-          fold (add_bound x bound) vars n ((l,x,bopt,p)::xps) rem
+          fold vars n (p::ps) rem
         in
-      fold bound vars n [] xps
-
-    | Input.Tt_Structure xps ->
-      let rec fold bound vars n xps = function
-        | [] ->
-          let xps = List.rev xps in
-          (Syntax.Tt_Structure xps, loc), vars, n
-        | (l,b,xopt,p)::rem ->
-          let x = match xopt with | Some x -> x | None -> l in
-          let bopt, vars, n =
-            if b
-            then
-              try
-                let i = List.assoc x vars in
-                Some i, vars, n
-              with | Not_found ->
-                Some n, ((x,n)::vars), (n+1)
-            else None, vars, n
-          in
-          let p, vars, n = tt_pattern env bound vars n p in
-          fold (add_bound x bound) vars n ((l,x,bopt,p)::xps) rem
-        in
-      fold bound vars n [] xps
+      fold vars n [] lps
 
     | Input.Tt_Projection (p,l) ->
       let p, vars, n = tt_pattern env bound vars n p in
@@ -189,7 +165,7 @@ let rec pattern (env : Value.env) bound vars n (p,loc) =
           begin match Value.lookup_data x env with
             | Some k ->
               if k = 0
-              then (Syntax.Patt_Tag (x,[]), loc), vars, n
+              then (Syntax.Patt_Data (x,[]), loc), vars, n
               else Error.syntax ~loc "the data constructor %t expects %d arguments but is matched with 0"
                   (Name.print_ident x) k
             | None -> Error.syntax ~loc "unknown value name %t" (Name.print_ident x)
@@ -203,7 +179,7 @@ let rec pattern (env : Value.env) bound vars n (p,loc) =
       let p2, vars, n = tt_pattern env bound vars n p2 in
       (Syntax.Patt_Jdg (p1,p2), loc), vars, n
 
-    | Input.Patt_Tag (t,ps) ->
+    | Input.Patt_Data (t,ps) ->
       begin match Value.lookup_data t env with
         | Some k ->
           let l = List.length ps in
@@ -212,7 +188,7 @@ let rec pattern (env : Value.env) bound vars n (p,loc) =
             let rec fold vars n ps = function
               | [] ->
                 let ps = List.rev ps in
-                (Syntax.Patt_Tag (t,ps), loc), vars, n
+                (Syntax.Patt_Data (t,ps), loc), vars, n
               | p::rem ->
                 let p, vars, n = pattern env bound vars n p in
                 fold vars n (p::ps) rem
@@ -369,37 +345,17 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
       let c = comp ~yield env bound c in
       Syntax.Refl c, loc
 
-    | Input.Signature lst ->
-      let rec fold bound labels res = function
-        | [] -> List.rev res
-        | (x,y,c)::rem ->
-          let y = match y with | Some y -> y | None -> x in
-          if List.mem x labels
-          then Error.syntax ~loc "field %t appears more than once" (Name.print_ident x)
-          else if Name.eq_ident x Name.anonymous
-          then Error.syntax ~loc "anonymous field"
-          else
-            let c = comp ~yield env bound c in
-            fold (add_bound y bound) (x::labels) ((x,y,c)::res) rem
-        in
-      let lst = fold bound [] [] lst in
-      Syntax.Signature lst, loc
-
-    | Input.Structure lst ->
-      let rec fold bound labels res = function
+    | Input.Structure lycs ->
+       let s = find_signature ~loc env (List.map (fun (l,_,_)->l) lycs) in
+       let rec fold bound res = function
         | [] -> List.rev res
         | (x,y,c) :: rem ->
           let y = match y with | Some y -> y | None -> x in
-          if List.mem x labels
-          then Error.syntax ~loc "field %t appears more than once" (Name.print_ident x)
-          else if Name.eq_ident x Name.anonymous
-          then Error.syntax ~loc "anonymous field"
-          else
-            let c = comp ~yield env bound c in
-            fold (add_bound y bound) (x :: labels) ((x,y,c) :: res) rem
+          let c = comp ~yield env bound c in
+          fold (add_bound y bound) ((y,c) :: res) rem
         in
-      let lst = fold bound [] [] lst in
-      Syntax.Structure lst, loc
+      let lcs = fold bound [] lycs in
+      Syntax.Structure (s, lcs), loc
 
     | Input.Projection (c,x) ->
       let c = comp ~yield env bound c in
@@ -417,12 +373,15 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
                  Syntax.Constant x, loc
 
               | Some (Value.Data k) ->
-                 if k = 0 then Syntax.Tag (x, []), loc
-                 else Error.syntax ~loc "this data tag needs %d more arguments" k
+                 if k = 0 then Syntax.Data (x, []), loc
+                 else Error.syntax ~loc "this data constructor needs %d more arguments" k
 
               | Some (Value.Operation k) ->
-                 if k = 0 then Syntax.Perform (x, []), loc
+                 if k = 0 then Syntax.Operation (x, []), loc
                  else Error.syntax ~loc "this operation needs %d more arguments" k
+
+              | Some (Value.Signature _) ->
+                 Syntax.Signature x, loc
 
               | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
             end
@@ -471,10 +430,6 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
 
   | Input.Handler hcs ->
      handler ~loc env bound hcs
-
-  | Input.Tag (t, cs) ->
-     let cs = List.map (comp ~yield env bound) cs in
-     Syntax.Tag (t, cs), loc
 
   | Input.List cs ->
      let rec fold ~loc = function
@@ -531,12 +486,14 @@ and spine ~yield env bound ((c',loc) as c) cs =
 
            | Some (Value.Data k) ->
               let cs', cs = split "data constructor" k cs in
-              (* We make a tag from [x] and [cs'] *)
-              tag ~loc ~yield env bound x cs', cs
+              data ~loc ~yield env bound x cs', cs
 
            | Some (Value.Operation k) ->
               let cs', cs = split "operation" k cs in
-              perform ~loc ~yield env bound x cs', cs
+              operation ~loc ~yield env bound x cs', cs
+
+           | Some (Value.Signature _) ->
+              (Syntax.Signature x, loc), cs
 
            | None ->
               Error.syntax ~loc "unknown identifier %t" (Name.print_ident x)
@@ -613,23 +570,39 @@ and multimatch_case ~yield env bound (ps, c) =
   let c = comp ~yield env bound c in
   (xs, ps, c)
 
-and tag ~loc ~yield env bound x cs =
+and data ~loc ~yield env bound x cs =
   let cs = List.map (comp ~yield env bound) cs in
-  Syntax.Tag (x, cs), loc
+  Syntax.Data (x, cs), loc
 
-and perform ~loc ~yield env bound x cs =
+and operation ~loc ~yield env bound x cs =
   let cs = List.map (comp ~yield env bound) cs in
-  Syntax.Perform (x, cs), loc
+  Syntax.Operation (x, cs), loc
 
 let toplevel (env : Value.env) bound (d', loc) =
   let d' = match d' with
-    | Input.Operation (x, k) -> Syntax.Operation (x, k)
+    | Input.DeclOperation (x, k) -> Syntax.DeclOperation (x, k)
 
-    | Input.Data (x, k) -> Syntax.Data (x, k)
+    | Input.DeclData (x, k) -> Syntax.DeclData (x, k)
 
-    | Input.Axiom (x, u) ->
+    | Input.DeclConstant (x, u) ->
        let u = comp ~yield:false env bound u in
-       Syntax.Axiom (x, u)
+       Syntax.DeclConstant (x, u)
+
+    | Input.DeclSignature (s, lst) ->
+       let rec fold bound labels res = function
+         | [] -> List.rev res
+         | (x,y,c)::rem ->
+            let y = match y with | Some y -> y | None -> x in
+            if List.mem x labels
+            then Error.syntax ~loc "field %t appears more than once" (Name.print_ident x)
+            else if Name.is_anonymous x
+            then Error.syntax ~loc "anonymous field"
+            else
+              let c = comp ~yield:false env bound c in
+              fold (add_bound y bound) (x::labels) ((x,y,c)::res) rem
+       in
+       let lst = fold bound [] [] lst in
+       Syntax.DeclSignature (s, lst)
 
     | Input.TopHandle lst ->
         let lst =
@@ -643,7 +616,8 @@ let toplevel (env : Value.env) bound (d', loc) =
                     let bound = List.fold_left (fun bound x -> add_bound x bound) bound xs in
                     op, (xs, comp ~yield:false env bound c)
                   else
-                    Error.syntax ~loc "operation %t expects %d arguments but was matched with %d" (Name.print_ident op) k n
+                    Error.syntax ~loc "operation %t expects %d arguments but was matched with %d"
+                                 (Name.print_ident op) k n
                 | None -> Error.syntax ~loc "unknown operation %t" (Name.print_ident op)
             )
             lst

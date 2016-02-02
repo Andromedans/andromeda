@@ -101,73 +101,30 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
   | Syntax.Tt_Refl p, Tt.Refl (ty,te) ->
      collect_tt_pattern env xvs p ctx te ty
 
-  | Syntax.Tt_Signature xps, Tt.Signature xts ->
-     let rec fold env xvs ys ctx xps xts =
-       match xps, xts with
-       | [], [] ->
-          xvs
-       | (l,x,bopt,p)::xps, (l',x',t)::xts ->
-          if Name.eq_ident l l'
-          then
-            let t = Tt.unabstract_ty ys t in
-            let Tt.Ty t' = t in
-            let {Tt.loc=loc;_} = t' in
-            let xvs = collect_tt_pattern env xvs p ctx t' (Tt.mk_type_ty ~loc) in
-            let y, ctx = Context.add_fresh ctx x t in
-            let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
-            let env = Value.push_bound x yt env in
-            let xvs = match bopt with
-              | None -> xvs
-              | Some k ->
-                 begin try
-                     let v' = List.assoc k xvs in
-                     if Value.equal_value yt v'
-                     then xvs
-                     else raise Match_fail
-                   with
-                   | Not_found -> (k,yt)::xvs
-                 end
-            in
-            fold env xvs (y::ys) ctx xps xts
-          else raise Match_fail
-       | _::_, [] | [], _::_ ->
-          raise Match_fail
-     in
-     fold env xvs [] ctx xps xts
+  | Syntax.Tt_Signature s1, Tt.Signature s2 ->
+     if Name.eq_ident s1 s2
+     then xvs
+     else raise Match_fail
 
-  | Syntax.Tt_Structure xps, Tt.Structure xts ->
-     let rec fold env xvs ys ctx xps xts =
-       match xps, xts with
-       | [], [] ->
-          xvs
-       | (l,x,bopt,p)::xps, (l',x',t,te)::xts ->
-          if Name.eq_ident l l'
-          then
-            let t = Tt.unabstract_ty ys t in
-            let te = Tt.unabstract ys te in
-            let xvs = collect_tt_pattern env xvs p ctx te t in
-            let y, ctx = Context.add_fresh ctx x t in
-            let Tt.Ty {Tt.loc=loc;_} = t in
-            let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
-            let env = Value.push_bound x yt env in
-            let xvs = match bopt with
-              | None -> xvs
-              | Some k ->
-                 begin try
-                     let v' = List.assoc k xvs in
-                     if Value.equal_value yt v'
-                     then xvs
-                     else raise Match_fail
-                   with
-                   | Not_found -> (k,yt)::xvs
-                 end
-            in
-            fold env xvs (y::ys) ctx xps xts
-          else raise Match_fail
-       | _::_, [] | [], _::_ ->
-          raise Match_fail
-     in
-     fold env xvs [] ctx xps xts
+  | Syntax.Tt_Structure (s1, ps), Tt.Structure (s2, es) ->
+     if not (Name.eq_ident s1 s2)
+     then raise Match_fail
+     else
+       begin
+         match Value.get_signature s1 env with
+         | None -> Error.impossible ~loc "matching: unknown signature %t" (Name.print_ident s1)
+         | Some s_def ->
+            let rec fold xvs vs fields ps es =
+              match fields, ps, es with
+              | [], [], [] -> xvs
+              | (_,_,t)::fields, p::ps, e::es ->
+                 let t = Tt.instantiate_ty vs t in
+                 let xvs = collect_tt_pattern env xvs p ctx e t in
+                 fold xvs (e::vs) fields ps es
+              | _, _, _ -> Error.impossible ~loc "matching: field mismatch in structure"
+         in
+         fold xvs [] s_def ps es
+       end
 
   | Syntax.Tt_Projection (p,l), Tt.Projection (te,xts,l') ->
      if Name.eq_ident l l'
@@ -210,7 +167,7 @@ let rec collect_pattern env xvs (p,loc) v =
      let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
      collect_tt_pattern env xvs pe ctx e t
 
-  | Syntax.Patt_Tag (tag, ps), Value.Tag (tag', vs) when Name.eq_ident tag tag' ->
+  | Syntax.Patt_Data (tag, ps), Value.Tag (tag', vs) when Name.eq_ident tag tag' ->
     multicollect_pattern env xvs ps vs
 
   | Syntax.Patt_Nil, Value.List [] ->
@@ -226,7 +183,7 @@ let rec collect_pattern env xvs (p,loc) v =
 
   | Syntax.Patt_Jdg _, (Value.Closure _ | Value.Handler _ |
                         Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
-  | Syntax.Patt_Tag _, (Value.Term _ | Value.Closure _ |
+  | Syntax.Patt_Data _, (Value.Term _ | Value.Closure _ |
                         Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
   | Syntax.Patt_Nil, (Value.Term _ | Value.Closure _ |
                         Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_) | Value.Tuple _ | Value.String _)

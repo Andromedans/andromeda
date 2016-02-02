@@ -1,8 +1,0 @@
-A is defined.
-B is defined.
-a is defined.
-A₁₀ : Type 
-B₁₁ : Type 
-a₁₃ : {foo : A₁₀} 
-eq1₁₆ : {foo : B₁₁} ≡ {foo : A₁₀} 
-⊢ a₁₃ : {foo : B₁₁}

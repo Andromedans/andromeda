@@ -40,14 +40,14 @@ and term' = private
   | Refl of ty * term
 
   (** signature, also known as structure type *)
-  | Signature of signature
+  | Signature of Name.signature
 
   (** structure, also known as record or module *)
   | Structure of structure
 
-  (** a projection [e {x1:t1, ..., xn:tn} .xi] means that we project field [xi] of [e] and [e] has type [{x1:t1, ..., xn:tn}].
-      Currently field types do not depend on other fields so the result has type [ti]. *)
-  | Projection of term * signature * Name.ident
+  (** a projection [e s .xi] means that we project field [xi] of [e] and [e] has type
+      [Signature s]. *)
+  | Projection of term * Name.signature * Name.label
 
 (** Since we have [Type : Type] we do not distinguish terms from types,
     so the type of type [ty] is just a synonym for the type of terms.
@@ -58,9 +58,9 @@ and ty = private
 (** A ['a ty_abstraction] is a n abstraction where the [a1, ..., an] are types *)
 and 'a ty_abstraction = (ty, 'a) abstraction
 
-and signature = (Name.ident * Name.ident * ty) list
+and signature = (Name.label * Name.ident * ty) list
 
-and structure = (Name.ident * Name.ident * ty * term) list
+and structure = Name.signature * term list
 
 (** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
@@ -74,10 +74,10 @@ val mk_prod_ty: loc:Location.t -> Name.ident -> ty -> ty -> ty
 val mk_eq: loc:Location.t -> ty -> term -> term -> term
 val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
 val mk_refl: loc:Location.t -> ty -> term -> term
-val mk_signature : loc:Location.t -> signature -> term
-val mk_signature_ty : loc:Location.t -> signature -> ty
-val mk_structure : loc:Location.t -> structure -> term
-val mk_projection : loc:Location.t -> term -> signature -> Name.ident -> term
+val mk_signature : loc:Location.t -> Name.signature -> term
+val mk_signature_ty : loc:Location.t -> Name.signature -> ty
+val mk_structure : loc:Location.t -> Name.signature -> term list -> term
+val mk_projection : loc:Location.t -> term -> Name.signature -> Name.ident -> term
 
 (** Coerce a value to a type (does not check whether this is legal). *)
 val ty : term -> ty
@@ -135,11 +135,13 @@ val assumptions_ty : ty -> Name.AtomSet.t
 
 (** Module stuff *)
 
-(** [field_value defs p] is [defs.p] with all bound variables instantiated appropriately. *)
-val field_value : loc:Location.t -> structure -> Name.ident -> term
+(** [field_value s_def lst p] returns the value of field [p] in the record [lst]
+    whose type is described by the signature definition [s_def]. *)
+val field_value : loc:Location.t -> signature -> term list -> Name.label -> term
 
-(** [field_type tys e p] when [e : {tys}] is the type of [e.p] *)
-val field_type : loc:Location.t -> signature -> term -> Name.ident -> ty
+(** [field_type s s_def e p] where [e : Signature s] and [s_def] is the definition
+    of [s] computes the type of [e.p] *)
+val field_type : loc:Location.t -> Name.signature -> signature -> term -> Name.label -> ty
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool
@@ -149,4 +151,4 @@ val alpha_equal_ty: ty -> ty -> bool
 
 val print_ty : ?max_level:int -> Name.ident list -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
-
+val print_signature : Name.ident list -> signature -> Format.formatter -> unit

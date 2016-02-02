@@ -10,17 +10,17 @@ type tt_pattern = tt_pattern' * Location.t
 and tt_pattern' =
   | Tt_Anonymous
   | Tt_As of tt_pattern * Name.ident
-  | Tt_Var of Name.ident
+  | Tt_Var of Name.ident (* pattern variable *)
   | Tt_Type
   | Tt_Name of Name.ident
-  (** For each binder the boolean indicates whether the bound variable should be a pattern variable *)
+  (** For each binder the boolean indicates whether the bound variable
+      should be a pattern variable *)
   | Tt_Lambda of bool * Name.ident * tt_pattern option * tt_pattern
   | Tt_Apply of tt_pattern * tt_pattern
   | Tt_Prod of bool * Name.ident * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
-  | Tt_Signature of (Name.ident * bool * Name.ident option * tt_pattern) list
-  | Tt_Structure of (Name.ident * bool * Name.ident option * tt_pattern) list
+  | Tt_Structure of (Name.label * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
 
 type pattern = pattern' * Location.t
@@ -30,7 +30,7 @@ and pattern' =
   | Patt_Var of Name.ident
   | Patt_Name of Name.ident
   | Patt_Jdg of tt_pattern * tt_pattern
-  | Patt_Tag of Name.ident * pattern list
+  | Patt_Data of Name.ident * pattern list
   | Patt_Cons of pattern * pattern
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
@@ -47,7 +47,6 @@ and term' =
   (* computations *)
   | Handle of comp * handle_case list
   | With of expr * comp
-  | Tag of Name.ident * comp list
   | Cons of comp * comp
   | List of comp list
   | Tuple of comp list
@@ -68,7 +67,6 @@ and term' =
   | Prod of (Name.ident * ty) list * comp
   | Eq of comp * comp
   | Refl of comp
-  | Signature of (Name.ident * Name.ident option * ty) list
   | Structure of (Name.ident * Name.ident option * comp) list
   | Projection of comp * Name.ident
   | Yield of comp
@@ -98,15 +96,17 @@ and multimatch_case = pattern list * comp
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | Operation of Name.ident * int
-  | Data of Name.ident * int
-  | Axiom of Name.ident * ty
+  | DeclOperation of Name.ident * int
+  | DeclData of Name.ident * int
+  | DeclConstant of Name.ident * ty
+  | DeclSignature of Name.signature * (Name.label * Name.ident option * ty) list
   | TopHandle of (Name.ident * Name.ident list * comp) list
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopDo of comp (** evaluate a computation at top level *)
   | TopFail of comp
   | Verbosity of int
-  | Include of string list * bool (** the boolean is [true] if the files should be included only once *)
+  | Include of string list * bool
+    (** the boolean is [true] if the files should be included only once *)
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)

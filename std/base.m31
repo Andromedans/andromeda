@@ -1,3 +1,5 @@
+signature unit = {}
+
 (* A short-hand for the print function. *)
 let print = external "print"
 

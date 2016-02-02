@@ -1,3 +1,5 @@
 Constant A is declared.
 Constant a is declared.
-⊢ {x := a, y := refl a} : {x : A, y : x ≡ a}
+Signature cow is declared.
+⊢ {a, refl a}:cow : cow
+⊢ {a, refl a}:cow : cow

@@ -1,6 +1,4 @@
-
 constant A : Type
-
 constant B : Type
 
 constant B_eq : B == (A == A)
@@ -11,7 +9,11 @@ constant B_prod : B == (A -> A)
 
 do handle (lambda x, x) : B with as_prod _ => yield (Some B_prod) end
 
-constant B_sig : B == {}
+constant P : A -> Type
+signature cow = { horn as x : A, tail : P x }
 
-do handle () : B with as_signature _ => yield (Some B_sig) end
+constant B_sig : B == cow
+constant b : B
+
+do handle b.tail with as_signature _ => yield (Some B_sig) end
 
