@@ -19,12 +19,12 @@ andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.m
 	ocamlbuild -j 4 -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
 
 # "make test" to see if anything broke
-test: andromeda.byte
+test: default
 	cd tests && sh ./test.sh
 
 # "make test-validate" to see if anything broke
 # and ask for validation of possibly broken things.
-test-validate: andromeda.byte
+test-validate: default
 	cd tests && sh ./test.sh -v
 
 PREFIX ?= /usr
