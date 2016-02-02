@@ -28,7 +28,6 @@ module Monad = struct
 
   let add_hyps hyps = modify (AtomSet.union hyps)
 
-  (** The implicit equality witness [ctx, ys, zs |- e] is replaced by [ctx |- lambda ys, e[es/zs]] *)
   let context_abstract ~loc ctx ys ts =
     let ctx = Context.abstract ~loc ctx ys ts in
     modify (fun hyps ->
