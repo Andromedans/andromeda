@@ -101,9 +101,9 @@ let rec infer (c',loc) =
             Some f
           end
         and handler_ops = Name.IdentMap.mapi (fun op cases ->
-            let f (vs,cont) =
+            let f {Value.args=vs;checking;cont} =
               Value.set_continuation cont
-              (multimatch_cases ~loc op cases vs)
+              (match_op_cases ~loc op cases vs checking)
             in
             f)
           handler_ops
@@ -386,7 +386,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Operation (op, cs) ->
      let rec fold vs = function
        | [] ->
-          Value.operation op vs >>= as_term ~loc >>= fun (Jdg.Term (ctxe, e', t')) ->
+          Value.operation_at op vs t_check >>= as_term ~loc >>= fun (Jdg.Term (ctxe, e', t')) ->
           require_equal_ty ~loc t_check (Jdg.mk_ty ctxe t') >>=
             begin function
               | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e')
@@ -561,7 +561,7 @@ and match_cases ~loc cases v =
             | [], [] -> infer c
             | x::xs, v::vs ->
               Value.add_bound x v (fold2 xs vs)
-            | _::_, [] | [], _::_ -> Error.impossible ~loc "bad multimatch case"
+            | _::_, [] | [], _::_ -> Error.impossible ~loc "bad match case"
           in
           fold2 (List.rev xs) vs
         | None -> fold cases
@@ -569,12 +569,12 @@ and match_cases ~loc cases v =
   in
   fold cases
 
-and multimatch_cases ~loc op cases vs =
+and match_op_cases ~loc op cases vs checking =
   let rec fold = function
     | [] ->
       Value.operation op vs
-    | (xs, ps, c) :: cases ->
-      Matching.multimatch_pattern ps vs >>= begin function
+    | (xs, ps, pt, c) :: cases ->
+      Matching.match_op_pattern ps pt vs checking >>= begin function
         | Some vs ->
           let rec fold2 xs vs = match xs, vs with
             | [], [] -> infer c
@@ -598,10 +598,20 @@ let comp_value ((_, loc) as c) =
   let r = infer c in
   Value.top_handle ~loc r
 
-let comp_handle (xs,c) =
-  Value.mk_closure' (fun vs ->
+let comp_handle (xs,y,c) =
+  Value.mk_closure' (fun (vs,checking) ->
       let rec fold2 xs vs = match xs,vs with
-        | [], [] -> infer c
+        | [], [] ->
+          begin match y with
+            | Some y ->
+              let checking = match checking with
+                | Some jt -> Some (Value.mk_term (Jdg.term_of_ty jt))
+                | None -> None
+              in
+              let vy = Value.from_option checking in
+              Value.add_bound y vy (infer c)
+            | None -> infer c
+          end
         | x::xs, v::vs -> Value.add_bound x v (fold2 xs vs)
         | [],_::_ | _::_,[] -> Error.impossible ~loc:(snd c) "bad top handler case"
       in

@@ -22,7 +22,7 @@ type dynamic = {
 type lexical = {
   bound : (Name.ident * value) list;
   continuation : (value,value) closure option;
-  handle : (Name.ident * (value list,value) closure) list;
+  handle : (Name.ident * (value list * Jdg.ty option,value) closure) list;
   files : string list;
 }
 
@@ -43,13 +43,15 @@ and ('a,'b) closure = Clos of ('a -> 'b result)
 
 and 'a raw_result =
   | Return of 'a
-  | Operation of Name.ident * value list * dynamic * (value,'a) closure
+  | Operation of Name.ident * value list * Jdg.ty option * dynamic * (value,'a) closure
 
 and 'a result = env -> 'a raw_result * state
 
+and operation_args = { args : value list; checking : Jdg.ty option; cont : (value,value) closure }
+
 and handler = {
   handler_val: (value,value) closure option;
-  handler_ops: (value list * (value,value) closure, value) closure Name.IdentMap.t;
+  handler_ops: (operation_args, value) closure Name.IdentMap.t;
   handler_finally: (value,value) closure option;
 }
 
@@ -118,10 +120,10 @@ let update_ref x v env =
 let rec bind (r:'a result) (f:'a -> 'b result) : 'b result = fun env ->
   match r env with
   | Return v, state -> f v {env with state}
-  | Operation (op, vs, d, k), state -> 
+  | Operation (op, vs, jt, d, k), state -> 
      let env = {env with state} in
      let k = mk_closure0 (fun x -> bind (apply_closure k x) f) env in
-     Operation (op, vs, d, k), env.state
+     Operation (op, vs, jt, d, k), env.state
 
 let (>>=) = bind
 
@@ -221,9 +223,14 @@ let list_cons v lst = List (v :: lst)
 
 let return_unit = return (Tag (name_unit, []))
 
-(** DeclOperations *)
+(** Operations *)
+
 let operation op vs env =
-  Operation (op, vs, env.dynamic, mk_closure0 return env), env.state
+  Operation (op, vs, None, env.dynamic, mk_closure0 return env), env.state
+
+let operation_at op vs jt env =
+  Operation (op, vs, Some jt, env.dynamic, mk_closure0 return env), env.state
+
 
 let operation_equal v1 v2 =
   operation name_equal [v1;v2]
@@ -526,17 +533,17 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
      | Some f -> apply_closure f v env
      | None -> Return v, env.state
      end
-  | Operation (op, vs, dynamic, cont), state ->
+  | Operation (op, vs, jt, dynamic, cont), state ->
      let env = {env with dynamic; state} in
      let h = {handler_val; handler_ops; handler_finally=None} in
      let cont = mk_closure0 (fun v env -> handle_result h (apply_closure cont v) env) env in
      begin
        try
          let f = Name.IdentMap.find op handler_ops in
-         apply_closure f (vs, cont) env
+         apply_closure f {args=vs;checking=jt; cont} env
        with
          Not_found ->
-           Operation (op, vs, dynamic, cont), env.state
+           Operation (op, vs, jt, dynamic, cont), env.state
      end
   end >>= fun v ->
   match handler_finally with
@@ -546,12 +553,12 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
 let rec top_handle ~loc r env =
   match r env with
     | Return v, state -> v,{env with state}
-    | Operation (op, vs, dynamic, k), state ->
+    | Operation (op, vs, checking, dynamic, k), state ->
        let env = {env with dynamic;state} in
        begin match lookup_handle op env with
         | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
         | Some f ->
-          let r = apply_closure f vs >>=
+          let r = apply_closure f (vs,checking) >>=
             apply_closure k
           in
           top_handle ~loc r env

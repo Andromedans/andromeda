@@ -24,9 +24,11 @@ type value = private
   | Ref of Store.key
   | String of string (** NB: strings are opaque to the user, ie not lists *)
 
+and operation_args = { args : value list; checking : Jdg.ty option; cont : (value,value) closure }
+
 and handler = {
   handler_val: (value,value) closure option;
-  handler_ops: (value list * (value,value) closure, value) closure Name.IdentMap.t;
+  handler_ops: (operation_args, value) closure Name.IdentMap.t;
   handler_finally: (value,value) closure option;
 }
 
@@ -74,7 +76,7 @@ val return_unit : value result
 
 val return_handler :
    (value -> value result) option ->
-   (value list * (value,value) closure -> value result) Name.IdentMap.t ->
+   (operation_args -> value result) Name.IdentMap.t ->
    (value -> value result) option ->
    value result
 
@@ -106,6 +108,8 @@ val list_cons : value -> value list -> value
 
 (** Operations *)
 val operation : Name.ident -> value list -> value result
+
+val operation_at : Name.ident -> value list -> Jdg.ty -> value result
 
 val operation_equal : value -> value -> value result
 
@@ -194,7 +198,7 @@ val add_signature : loc:Location.t -> Name.signature -> Tt.signature -> unit top
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
-val add_handle : Name.ident -> (value list,value) closure -> unit toplevel
+val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel
 
 (** Set the continuation for a handler computation. *)
 val set_continuation : (value,value) closure -> 'a result -> 'a result
