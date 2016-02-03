@@ -27,15 +27,15 @@ let print_dependencies s v ppf =
   else Format.fprintf ppf "@ %s[%t]" s
                       (Print.sequence Name.print_atom "," (AtomSet.elements v))
 
-let print_entry xs ppf x {ty; needed_by;} =
+let print_entry ~penv ppf x {ty; needed_by;} =
   Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@]@]@ "
     (Name.print_atom x)
-    (Tt.print_ty xs ty)
+    (Tt.print_ty ~penv ty)
     (print_dependencies "needed_by" needed_by)
 
-let print xs ctx ppf =
+let print ~penv ctx ppf =
   Format.pp_open_vbox ppf 0 ;
-  AtomMap.iter (print_entry xs ppf) ctx ;
+  AtomMap.iter (print_entry ~penv ppf) ctx ;
   Format.pp_close_box ppf ()
 
 let lookup x (ctx : t) =
@@ -51,6 +51,16 @@ let needed_by ~loc x ctx =
     | None ->
       Error.impossible ~loc "cannot find needed_by of unknown atom %t"
         (Name.print_atom x)
+
+let is_subset ctx yts =
+  AtomMap.fold
+    (fun x node ok ->
+     ok && 
+     (try
+         let t' = List.assoc x yts in
+         Tt.alpha_equal_ty t' node.ty
+      with Not_found -> false))
+    ctx true
 
 let recursive_assumptions ctx aset =
   let rec fold visited = function
@@ -90,7 +100,7 @@ let restrict ctx aset =
   in
   res
 
-let abstract1 ~loc (ctx : t) x ty =
+let abstract ~penv ~loc (ctx : t) x ty =
   match lookup x ctx with
   | None ->
      ctx
@@ -109,17 +119,14 @@ let abstract1 ~loc (ctx : t) x ty =
           (Name.print_atom x)
           (Print.sequence (Name.print_atom) "," needed_by_l)
           (match needed_by_l with [_] -> "s" | _ -> "")
-          (print [] ctx)
+          (print ~penv ctx)
     else
       Error.runtime ~loc "cannot abstract %t with type %t because it must have type %t."
         (Name.print_atom x)
-        (Tt.print_ty [] ty)
-        (Tt.print_ty [] node.ty)
+        (Tt.print_ty ~penv ty)
+        (Tt.print_ty ~penv node.ty)
 
-let abstract ~loc ctx xs ts =
-  List.fold_left2 (abstract1 ~loc) ctx xs ts
-
-let join ~loc ctx1 ctx2 =
+let join ~penv ~loc ctx1 ctx2 =
   AtomMap.fold (fun x node res ->
       match lookup x res with
         | Some node' ->
@@ -136,8 +143,8 @@ let join ~loc ctx1 ctx2 =
             then res
             else AtomMap.add x {node' with needed_by = AtomSet.union node'.needed_by extra} res
           else Error.runtime ~loc "cannot join contexts@ %t and@ %t at %t"
-              (print [] ctx1)
-              (print [] ctx2)
+              (print ~penv ctx1)
+              (print ~penv ctx2)
               (Name.print_atom x)
         | None ->
           (* dependencies are handled above *)
@@ -150,7 +157,7 @@ let subst_ty ty x e =
     ty
 
 (* substitute x by e in ctx *)
-let substitute ~loc x (ctx,e,t) =
+let substitute ~penv ~loc x (ctx,e,t) =
   match lookup x ctx with
     | Some xnode ->
       if Tt.alpha_equal_ty xnode.ty t
@@ -162,7 +169,7 @@ let substitute ~loc x (ctx,e,t) =
             if AtomSet.mem y deps
             then Error.runtime ~loc "cannot substitute %t with %t: dependency cycle at %t."
                 (Name.print_atom x)
-                (Tt.print_term [] e)
+                (Tt.print_term ~penv e)
                 (Name.print_atom y)
             else
               let ty = subst_ty ynode.ty x e in
@@ -184,8 +191,8 @@ let substitute ~loc x (ctx,e,t) =
           ctx
       else
         Error.runtime ~loc "substituting %t : %t by %t : %t"
-          (Name.print_atom x) (Tt.print_ty [] xnode.ty)
-          (Tt.print_term [] e) (Tt.print_ty [] t)
+          (Name.print_atom x) (Tt.print_ty ~penv xnode.ty)
+          (Tt.print_term ~penv e) (Tt.print_ty ~penv t)
     | None -> ctx
 
 

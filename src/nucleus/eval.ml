@@ -16,7 +16,8 @@ let as_atom ~loc v =
       begin match Context.lookup_ty x ctx with
         | Some t -> Value.return (ctx,x,t)
         | None ->
-          Error.impossible ~loc "got an atom judgement %t but the atom is not in the context" (Jdg.print_term [] j)
+          Value.lookup_penv >>= fun penv ->
+          Error.impossible ~loc "got an atom judgement %t but the atom is not in the context" (Jdg.print_term ~penv j)
       end
     | _ -> Value.print_term >>= fun print_term ->
       Error.runtime ~loc "expected an atom but got %t" (print_term e)
@@ -164,9 +165,10 @@ let rec infer (c',loc) =
   | Syntax.Where (c1, c2, c3) ->
     infer c2 >>= as_atom ~loc >>= fun (ctxa, a, ta) ->
     infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx, e1, t1)) ->
-    let ctx = Context.join ~loc ctxa ctx in
+    Value.lookup_penv >>= fun penv ->
+    let ctx = Context.join ~penv ~loc ctxa ctx in
     check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
-    let ctx_s = Context.substitute ~loc a (ctx,e2,ta) in
+    let ctx_s = Context.substitute ~penv ~loc a (ctx,e2,ta) in
     let te_s = Tt.substitute [a] [e2] e1 in
     let ty_s = Tt.substitute_ty [a] [e2] t1 in
     let j_s = Jdg.mk_term ctx_s te_s ty_s in
@@ -329,7 +331,8 @@ and require_equal ctx e1 e2 t =
   Equal.Opt.run (Equal.equal ctx e1 e2 t)
 
 and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
-  let ctx = Context.join ~loc lctx rctx in
+  Value.lookup_penv >>= fun penv ->
+  let ctx = Context.join ~penv ~loc lctx rctx in
   Equal.Opt.run (Equal.equal_ty ctx lte rte)
 
 and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t * Tt.term) Value.result =
@@ -460,8 +463,9 @@ and infer_lambda ~loc x u c =
       check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
       Value.add_abstracting ~loc:uloc x ju (fun _ y ->
       infer c >>= as_term ~loc:(snd c) >>= fun (Jdg.Term (ctxe,e,t)) ->
-      let ctxe = Context.abstract ~loc ctxe [y] [u] in
-      let ctx = Context.join ~loc ctxu ctxe in
+      Value.lookup_penv >>= fun penv ->
+      let ctxe = Context.abstract ~penv ~loc ctxe y u in
+      let ctx = Context.join ~penv ~loc ctxu ctxe in
       let e = Tt.abstract [y] e in
       let t = Tt.abstract_ty [y] t in
       let lam = Tt.mk_lambda ~loc x u e t
@@ -475,8 +479,9 @@ and infer_prod ~loc x u c =
   let Tt.Ty {Tt.loc=uloc;_} = u in
   Value.add_abstracting ~loc:uloc x ju (fun _ y ->
   check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
-  let ctx = Context.abstract ~loc ctx [y] [u] in
-  let ctx = Context.join ~loc ctx ctxu in
+  Value.lookup_penv >>= fun penv ->
+  let ctx = Context.abstract ~penv ~loc ctx y u in
+  let ctx = Context.join ~penv ~loc ctx ctxu in
   let t = Tt.abstract_ty [y] t in
   let prod = Tt.mk_prod ~loc x u t in
   let typ = Tt.mk_type_ty ~loc in
@@ -503,7 +508,8 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
   let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
   let b = Tt.instantiate_ty [y'] b in
   check c (Jdg.mk_ty ctx b) >>= fun (ctx,e) ->
-  let ctx = Context.abstract ~loc ctx [y] [u] in
+  Value.lookup_penv >>= fun penv ->
+  let ctx = Context.abstract ~penv ~loc ctx y u in
   let e = Tt.abstract [y] e in
   let b = Tt.abstract_ty [y] b in
   let lam = Tt.mk_lambda ~loc x u e b in
@@ -602,7 +608,7 @@ let comp_handle (xs,c) =
       fold2 xs vs)
 
 let comp_signature ~loc lxcs =
-  let rec fold ys ts lxts = function
+  let rec fold ys yts lxts = function
 
     | [] ->
        let lxts = List.rev lxts in
@@ -610,14 +616,14 @@ let comp_signature ~loc lxcs =
 
     | (l,x,c) :: lxcs ->
        check_ty c >>= fun (Jdg.Ty (ctxt,t)) ->
-       if not (Context.is_empty (Context.abstract ~loc ctxt ys ts))
+       if not (Context.is_subset ctxt yts)
        then Error.runtime ~loc "signature field %t has unresolved assumptions"
                           (Name.print_ident l)
        else begin
          let jt = Jdg.mk_ty ctxt t
          and tabs = Tt.abstract_ty ys t in
          Value.add_abstracting ~loc x jt (fun _ y ->
-           fold (y::ys) (t::ts) ((l,x,tabs) :: lxts) lxcs)
+           fold (y::ys) ((y,t)::yts) ((l,x,tabs) :: lxts) lxcs)
        end
   in
   Value.top_handle ~loc (fold [] [] [] lxcs)

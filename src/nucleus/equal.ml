@@ -28,10 +28,10 @@ module Monad = struct
 
   let add_hyps hyps = modify (AtomSet.union hyps)
 
-  let context_abstract ~loc ctx ys ts =
-    let ctx = Context.abstract ~loc ctx ys ts in
-    modify (fun hyps ->
-      List.fold_left (fun hyps y -> AtomSet.remove y hyps) hyps ys) >>= fun () ->
+  let context_abstract ~loc ctx y t =
+    lift Value.lookup_penv >>= fun penv ->
+    let ctx = Context.abstract ~penv ~loc ctx y t in
+    modify (fun hyps -> AtomSet.remove y hyps) >>= fun () ->
     return ctx
 
   let run m =
@@ -79,7 +79,8 @@ let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
 
 (** Compare two types *)
 let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
-  Monad.lift Value.print_term >!= fun pte -> Monad.lift Value.print_ty >!= fun pty ->
+  Monad.lift Value.print_term >!= fun pte ->
+  Monad.lift Value.print_ty >!= fun pty ->
   let i = cnt () in
   Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
     (pte e1) (pte e2) (pty t);
@@ -94,7 +95,8 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
     match Value.as_option ~loc v with
       | Some v ->
         let Jdg.Term (ctxeq,eq,teq) = Value.as_term ~loc v in
-        let ctx = Context.join ~loc ctx ctxeq in
+        Monad.lift Value.lookup_penv >!= fun penv ->
+        let ctx = Context.join ~penv ~loc ctx ctxeq in
         Monad.add_hyps (Tt.assumptions_term eq) >!= fun () ->
         let tgoal = Tt.mk_eq_ty ~loc t e1 e2 in
         equal_ty ctx teq tgoal
@@ -125,9 +127,10 @@ and equal_structure ~loc ctx s_def es1 es2 =
 
 (** Apply the appropriate congruence rule *)
 let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_} as e2) t =
+  Monad.lift Value.lookup_penv >!= fun penv ->
   Print.debug "congruence of %t and %t"
-              (Tt.print_term [] e1)
-              (Tt.print_term [] e2) ;
+              (Tt.print_term ~penv e1)
+              (Tt.print_term ~penv e2) ;
   match e1', e2' with
 
   | Tt.Atom x, Tt.Atom y ->
@@ -153,7 +156,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
     Opt.locally (equal_ty ctx t1 t2) >?= fun (ctx,hypst) ->
     let e2 = Tt.mention_atoms hypst e2 in
     equal ctx e1 e2 t1 >?= fun ctx ->
-    Monad.context_abstract ~loc ctx [y] [a1] >!= fun ctx ->
+    Monad.context_abstract ~loc ctx y a1 >!= fun ctx ->
     Opt.return ctx)
 
   | Tt.Apply (h1, ((x,a1),b1), e1), Tt.Apply (h2, ((_,a2),b2), e2) ->
@@ -163,7 +166,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
       let b1 = Tt.unabstract_ty [y] b1
       and b2 = Tt.instantiate_ty [y'] b2 in
       equal_ty ctx b1 b2 >?= fun ctx ->
-      Monad.context_abstract ~loc ctx [y] [a1] >!= fun ctx ->
+      Monad.context_abstract ~loc ctx y a1 >!= fun ctx ->
       Opt.return ctx)) >?= fun (ctx,hypsb) ->
     let prod = Tt.mk_prod_ty ~loc x a1 b1 in
     let h2 = Tt.mention_atoms hypsb (Tt.mention_atoms hypsa h2) in
@@ -180,7 +183,7 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
     let b1 = Tt.unabstract_ty [y] b1
     and b2 = Tt.instantiate_ty [y'] b2 in
     equal_ty ctx b1 b2 >?= fun ctx ->
-    Monad.context_abstract ~loc ctx [y] [a1] >!= fun ctx ->
+    Monad.context_abstract ~loc ctx y a1 >!= fun ctx ->
     Opt.return ctx)
 
   | Tt.Eq (u, d1, d2), Tt.Eq (u', d1', d2') ->
@@ -230,7 +233,7 @@ let beta_reduce ~loc ctx (x,a) e b (_,a') b' e' =
     let b = Tt.unabstract_ty [y] b
     and b' = Tt.instantiate_ty [y'] b' in
     equal_ty ctx b b' >?= fun ctx ->
-    Monad.context_abstract ~loc ctx [y] [a] >!= fun ctx ->
+    Monad.context_abstract ~loc ctx y a >!= fun ctx ->
     Opt.return ctx)) >?= fun (ctx,hypsb) ->
   let e' = Tt.mention_atoms hypsa e' in
   let e = Tt.instantiate [e'] e in
@@ -325,7 +328,8 @@ let as_eq (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
           if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
           then
             as_eq_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun (t,e1,e2) ->
-            let ctx = Context.join ~loc ctx ctxv in
+            Monad.lift Value.lookup_penv >>= fun penv ->
+            let ctx = Context.join ~penv ~loc ctx ctxv in
             let hyps = Tt.assumptions_term ev in
             Monad.add_hyps hyps >>= fun () ->
             Monad.return (ctx,t,e1,e2)
@@ -360,7 +364,8 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
           if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
           then
             as_prod_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun (xts,t) ->
-            let ctx = Context.join ~loc ctx ctxv in
+            Monad.lift Value.lookup_penv >>= fun penv ->
+            let ctx = Context.join ~penv ~loc ctx ctxv in
             let hyps = Tt.assumptions_term ev in
             Monad.add_hyps hyps >>= fun () ->
             Monad.return (ctx,(xts,t))
@@ -396,7 +401,8 @@ let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
           if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
           then
             as_signature_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun xts ->
-            let ctx = Context.join ~loc ctx ctxv in
+            Monad.lift Value.lookup_penv >>= fun penv ->
+            let ctx = Context.join ~penv ~loc ctx ctxv in
             let hyps = Tt.assumptions_term ev in
             Monad.add_hyps hyps >>= fun () ->
             Monad.return (ctx,xts)

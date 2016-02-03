@@ -209,6 +209,9 @@ val push_file : string -> unit toplevel
   their basenames *)
 val included : string -> bool toplevel
 
+(** Get the printing environment from the monad *)
+val lookup_penv : Tt.print_env result
+
 (** Print free variables in the environment *)
 val print_env : (Format.formatter -> unit) toplevel
 
