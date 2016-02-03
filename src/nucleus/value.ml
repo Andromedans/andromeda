@@ -550,9 +550,10 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
     | Some f -> apply_closure f v
     | None -> return v
 
-let rec top_handle ~loc r env =
-  match r env with
-    | Return v, state -> v,{env with state}
+let top_handle ~loc r env0 =
+  let rec handle r env =
+    match r with
+    | Return v, state -> v, state
     | Operation (op, vs, checking, dynamic, k), state ->
        let env = {env with dynamic;state} in
        begin match lookup_handle op env with
@@ -561,8 +562,11 @@ let rec top_handle ~loc r env =
           let r = apply_closure f (vs,checking) >>=
             apply_closure k
           in
-          top_handle ~loc r env
+          handle (r env) env
        end
+  in
+  let v, state = handle (r env0) env0 in
+  v, {env0 with state}
 
 (** Equality *)
 let rec equal_value v1 v2 =
