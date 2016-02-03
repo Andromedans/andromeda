@@ -105,13 +105,13 @@ val list_nil : value
 val list_cons : value -> value list -> value
 
 (** Operations *)
-val perform : Name.ident -> value list -> value result
+val operation : Name.ident -> value list -> value result
 
-val perform_equal : value -> value -> value result
+val operation_equal : value -> value -> value result
 
-val perform_as_prod : value -> value result
-val perform_as_eq : value -> value result
-val perform_as_signature : value -> value result
+val operation_as_prod : value -> value result
+val operation_as_eq : value -> value result
+val operation_as_signature : value -> value result
 
 (** Interact with the environment *)
 

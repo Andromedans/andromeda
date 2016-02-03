@@ -123,7 +123,7 @@ let rec infer (c',loc) =
      let rec fold vs = function
        | [] ->
           let vs = List.rev vs in
-          Value.perform op vs
+          Value.operation op vs
        | c :: cs ->
           infer c >>= fun v ->
           fold (v :: vs) cs
@@ -386,7 +386,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Operation (op, cs) ->
      let rec fold vs = function
        | [] ->
-          Value.perform op vs >>= as_term ~loc >>= fun (Jdg.Term (ctxe, e', t')) ->
+          Value.operation op vs >>= as_term ~loc >>= fun (Jdg.Term (ctxe, e', t')) ->
           require_equal_ty ~loc t_check (Jdg.mk_ty ctxe t') >>=
             begin function
               | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e')
@@ -572,7 +572,7 @@ and match_cases ~loc cases v =
 and multimatch_cases ~loc op cases vs =
   let rec fold = function
     | [] ->
-      Value.perform op vs
+      Value.operation op vs
     | (xs, ps, c) :: cases ->
       Matching.multimatch_pattern ps vs >>= begin function
         | Some vs ->

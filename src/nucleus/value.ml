@@ -41,11 +41,11 @@ and value =
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a,'b) closure = Clos of ('a -> 'b result)
 
-and 'a performance =
+and 'a raw_result =
   | Return of 'a
-  | Perform of Name.ident * value list * dynamic * (value,'a) closure
+  | Operation of Name.ident * value list * dynamic * (value,'a) closure
 
-and 'a result = env -> 'a performance * state
+and 'a result = env -> 'a raw_result * state
 
 and handler = {
   handler_val: (value,value) closure option;
@@ -118,10 +118,10 @@ let update_ref x v env =
 let rec bind (r:'a result) (f:'a -> 'b result) : 'b result = fun env ->
   match r env with
   | Return v, state -> f v {env with state}
-  | Perform (op, vs, d, k), state -> 
+  | Operation (op, vs, d, k), state -> 
      let env = {env with state} in
      let k = mk_closure0 (fun x -> bind (apply_closure k x) f) env in
-     Perform (op, vs, d, k), env.state
+     Operation (op, vs, d, k), env.state
 
 let (>>=) = bind
 
@@ -222,20 +222,20 @@ let list_cons v lst = List (v :: lst)
 let return_unit = return (Tag (name_unit, []))
 
 (** DeclOperations *)
-let perform op vs env =
-  Perform (op, vs, env.dynamic, mk_closure0 return env), env.state
+let operation op vs env =
+  Operation (op, vs, env.dynamic, mk_closure0 return env), env.state
 
-let perform_equal v1 v2 =
-  perform name_equal [v1;v2]
+let operation_equal v1 v2 =
+  operation name_equal [v1;v2]
 
-let perform_as_prod v =
-  perform name_as_prod [v]
+let operation_as_prod v =
+  operation name_as_prod [v]
 
-let perform_as_eq v =
-  perform name_as_eq [v]
+let operation_as_eq v =
+  operation name_as_eq [v]
 
-let perform_as_signature v =
-  perform name_as_signature [v]
+let operation_as_signature v =
+  operation name_as_signature [v]
 
 
 (** Interact with the environment *)
@@ -526,7 +526,7 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
      | Some f -> apply_closure f v env
      | None -> Return v, env.state
      end
-  | Perform (op, vs, dynamic, cont), state ->
+  | Operation (op, vs, dynamic, cont), state ->
      let env = {env with dynamic; state} in
      let h = {handler_val; handler_ops; handler_finally=None} in
      let cont = mk_closure0 (fun v env -> handle_result h (apply_closure cont v) env) env in
@@ -536,7 +536,7 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
          apply_closure f (vs, cont) env
        with
          Not_found ->
-           Perform (op, vs, dynamic, cont), env.state
+           Operation (op, vs, dynamic, cont), env.state
      end
   end >>= fun v ->
   match handler_finally with
@@ -546,7 +546,7 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
 let rec top_handle ~loc r env =
   match r env with
     | Return v, state -> v,{env with state}
-    | Perform (op, vs, dynamic, k), state ->
+    | Operation (op, vs, dynamic, k), state ->
        let env = {env with dynamic;state} in
        begin match lookup_handle op env with
         | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
