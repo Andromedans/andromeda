@@ -217,10 +217,16 @@ let match_pattern p v =
   end in
   return r
 
-let multimatch_pattern ps vs =
+let match_op_pattern ps pt vs checking =
   Value.get_env >>= fun env ->
   let r = begin try
     let xvs = multicollect_pattern env [] ps vs in
+    let xvs = match pt, checking with
+      | None, (None | Some _) -> xvs
+      | Some p, Some (Jdg.Ty (ctx,Tt.Ty t)) ->
+        collect_tt_pattern env xvs p ctx t Tt.typ
+      | Some _, None -> raise Match_fail
+    in
     (* return in decreasing de bruijn order: ready to fold with add_bound *)
     let xvs = List.sort (fun (k,_) (k',_) -> compare k k') xvs in
     let xvs = List.rev_map snd xvs in

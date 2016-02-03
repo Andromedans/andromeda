@@ -86,12 +86,14 @@ and expr = term
 (** Handle cases *)
 and handle_case =
   | CaseVal of match_case (* val p -> c *)
-  | CaseOp of Name.ident * multimatch_case (* op p1 ... pn -> c *)
+  | CaseOp of Name.ident * match_op_case (* op p1 ... pn -> c *)
   | CaseFinally of match_case (* finally p -> c *)
 
 and match_case = pattern * comp
 
-and multimatch_case = pattern list * comp
+and match_op_case = pattern list * tt_pattern option * comp
+
+type top_op_case = Name.ident list * Name.ident option * comp
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
@@ -100,7 +102,7 @@ and toplevel' =
   | DeclData of Name.ident * int
   | DeclConstant of Name.ident * ty
   | DeclSignature of Name.signature * (Name.label * Name.ident option * ty) list
-  | TopHandle of (Name.ident * Name.ident list * comp) list
+  | TopHandle of (Name.ident * top_op_case) list
   | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
   | TopDo of comp (** evaluate a computation at top level *)
   | TopFail of comp
@@ -110,3 +112,4 @@ and toplevel' =
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)
+

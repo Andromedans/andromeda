@@ -271,20 +271,24 @@ handler_cases:
 
 handler_case:
   | VAL p=pattern DARROW t=term                                 { CaseVal (p, t) }
-  | op=var_name ps=prefix_pattern* DARROW t=term                { CaseOp (op, (ps, t)) }
-  | op=PREFIXOP p=prefix_pattern DARROW t=term
-    { let op = Name.make ~fixity:Name.Prefix (fst op) in CaseOp (op, ([p], t)) }
-  | p1=binop_pattern op=INFIXOP0 p2=binop_pattern DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix0 (fst op) in CaseOp (op, ([p1; p2], t)) }
-  | p1=binop_pattern op=INFIXOP1 p2=binop_pattern DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix1 (fst op) in CaseOp (op, ([p1; p2], t)) }
-  | p1=binop_pattern op=INFIXOP2 p2=binop_pattern DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix2 (fst op) in CaseOp (op, ([p1; p2], t)) }
-  | p1=binop_pattern op=INFIXOP3 p2=binop_pattern DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix3 (fst op) in CaseOp (op, ([p1; p2], t)) }
-  | p1=binop_pattern op=INFIXOP4 p2=binop_pattern DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix4 (fst op) in CaseOp (op, ([p1; p2], t)) }
+  | op=var_name ps=prefix_pattern* pt=handler_checking DARROW t=term                { CaseOp (op, (ps, pt, t)) }
+  | op=PREFIXOP p=prefix_pattern pt=handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Prefix (fst op) in CaseOp (op, ([p], pt, t)) }
+  | p1=binop_pattern op=INFIXOP0 p2=binop_pattern pt=handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix0 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
+  | p1=binop_pattern op=INFIXOP1 p2=binop_pattern pt=handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix1 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
+  | p1=binop_pattern op=INFIXOP2 p2=binop_pattern pt=handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix2 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
+  | p1=binop_pattern op=INFIXOP3 p2=binop_pattern pt=handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix3 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
+  | p1=binop_pattern op=INFIXOP4 p2=binop_pattern pt=handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix4 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
   | FINALLY p=pattern DARROW t=term                             { CaseFinally (p, t) }
+
+handler_checking:
+  |                    { None }
+  | COLON pt=tt_pattern { Some pt }
 
 top_handler_cases:
   | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }
@@ -292,19 +296,23 @@ top_handler_cases:
 
 (* XXX allow patterns here *)
 top_handler_case:
-  | op=var_name xs=name* DARROW t=term                    { (op, xs, t) }
-  | op=PREFIXOP x=name DARROW t=term
-    { let op = Name.make ~fixity:Name.Prefix (fst op) in (op, [x], t) }
-  | x1=name op=INFIXOP0 x2=name DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix0 (fst op) in (op, [x1;x2], t) }
-  | x1=name op=INFIXOP1 x2=name DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix1 (fst op) in (op, [x1;x2], t) }
-  | x1=name op=INFIXOP2 x2=name DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix2 (fst op) in (op, [x1;x2], t) }
-  | x1=name op=INFIXOP3 x2=name DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix3 (fst op) in (op, [x1;x2], t) }
-  | x1=name op=INFIXOP4 x2=name DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix4 (fst op) in (op, [x1;x2], t) }
+  | op=var_name xs=name* y=top_handler_checking DARROW t=term           { (op, (xs, y, t)) }
+  | op=PREFIXOP x=name y=top_handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Prefix (fst op) in (op, ([x], y, t)) }
+  | x1=name op=INFIXOP0 x2=name y=top_handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix0 (fst op) in (op, ([x1;x2], y, t)) }
+  | x1=name op=INFIXOP1 x2=name y=top_handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix1 (fst op) in (op, ([x1;x2], y, t)) }
+  | x1=name op=INFIXOP2 x2=name y=top_handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix2 (fst op) in (op, ([x1;x2], y, t)) }
+  | x1=name op=INFIXOP3 x2=name y=top_handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix3 (fst op) in (op, ([x1;x2], y, t)) }
+  | x1=name op=INFIXOP4 x2=name y=top_handler_checking DARROW t=term
+    { let op = Name.make ~fixity:Name.Infix4 (fst op) in (op, ([x1;x2], y, t)) }
+
+top_handler_checking:
+  |              { None }
+  | COLON x=name { Some x }
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
