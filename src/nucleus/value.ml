@@ -2,10 +2,10 @@
 
 (* Information about a toplevel declaration *)
 type decl =
-  | Constant of Tt.ty
-  | Data of int
-  | Operation of int
-  | Signature of Tt.signature
+  | DeclConstant of Tt.ty
+  | DeclData of int
+  | DeclOperation of int
+  | DeclSignature of Tt.signature
 
 type dynamic = {
   decls : (Name.ident * decl) list ;
@@ -41,11 +41,11 @@ and value =
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a,'b) closure = Clos of ('a -> 'b result)
 
-and 'a performance =
+and 'a raw_result =
   | Return of 'a
-  | Perform of Name.ident * value list * Jdg.ty option * dynamic * (value,'a) closure
+  | Operation of Name.ident * value list * Jdg.ty option * dynamic * (value,'a) closure
 
-and 'a result = env -> 'a performance * state
+and 'a result = env -> 'a raw_result * state
 
 and operation_args = { args : value list; checking : Jdg.ty option; cont : (value,value) closure }
 
@@ -120,10 +120,10 @@ let update_ref x v env =
 let rec bind (r:'a result) (f:'a -> 'b result) : 'b result = fun env ->
   match r env with
   | Return v, state -> f v {env with state}
-  | Perform (op, vs, jt, d, k), state -> 
+  | Operation (op, vs, jt, d, k), state -> 
      let env = {env with state} in
      let k = mk_closure0 (fun x -> bind (apply_closure k x) f) env in
-     Perform (op, vs, jt, d, k), env.state
+     Operation (op, vs, jt, d, k), env.state
 
 let (>>=) = bind
 
@@ -224,23 +224,25 @@ let list_cons v lst = List (v :: lst)
 let return_unit = return (Tag (name_unit, []))
 
 (** Operations *)
-let perform op vs env =
-  Perform (op, vs, None, env.dynamic, mk_closure0 return env), env.state
 
-let perform_at op vs jt env =
-  Perform (op, vs, Some jt, env.dynamic, mk_closure0 return env), env.state
+let operation op vs env =
+  Operation (op, vs, None, env.dynamic, mk_closure0 return env), env.state
 
-let perform_equal v1 v2 =
-  perform name_equal [v1;v2]
+let operation_at op vs jt env =
+  Operation (op, vs, Some jt, env.dynamic, mk_closure0 return env), env.state
 
-let perform_as_prod v =
-  perform name_as_prod [v]
 
-let perform_as_eq v =
-  perform name_as_eq [v]
+let operation_equal v1 v2 =
+  operation name_equal [v1;v2]
 
-let perform_as_signature v =
-  perform name_as_signature [v]
+let operation_as_prod v =
+  operation name_as_prod [v]
+
+let operation_as_eq v =
+  operation name_as_eq [v]
+
+let operation_as_signature v =
+  operation name_as_signature [v]
 
 
 (** Interact with the environment *)
@@ -262,31 +264,31 @@ let lookup_decl x env =
 let lookup_operation x env =
   match lookup_decl x env with
   | None -> None
-  | Some (Operation k) -> Some k
-  | Some (Data _ | Constant _ | Signature _) -> None
+  | Some (DeclOperation k) -> Some k
+  | Some (DeclData _ | DeclConstant _ | DeclSignature _) -> None
 
 let lookup_data x env =
   match lookup_decl x env with
   | None -> None
-  | Some (Data k) -> Some k
-  | Some (Operation _ | Constant _ | Signature _) -> None
+  | Some (DeclData k) -> Some k
+  | Some (DeclOperation _ | DeclConstant _ | DeclSignature _) -> None
 
 let is_constant x env =
   match lookup_decl x env with
-  | Some (Constant c) -> true
-  | None | Some (Data _ | Operation _ | Signature _) -> false
+  | Some (DeclConstant c) -> true
+  | None | Some (DeclData _ | DeclOperation _ | DeclSignature _) -> false
 
 let get_constant x env =
   match lookup_decl x env with
   | None -> None
-  | Some (Constant c) -> Some c
-  | Some (Data _ | Operation _ | Signature _) -> None
+  | Some (DeclConstant c) -> Some c
+  | Some (DeclData _ | DeclOperation _ | DeclSignature _) -> None
 
 let get_signature x env =
   match lookup_decl x env with
   | None -> None
-  | Some (Signature s) -> Some s
-  | Some (Data _ | Operation _ | Constant _) -> None
+  | Some (DeclSignature s) -> Some s
+  | Some (DeclData _ | DeclOperation _ | DeclConstant _) -> None
 
 let lookup_constant x env = Return (get_constant x env), env.state
 
@@ -295,7 +297,7 @@ let lookup_signature x env = Return (get_signature x env), env.state
 let find_signature env ls =
   let rec fold = function
     | [] -> None
-    | (s, Signature s_def) :: lst ->
+    | (s, DeclSignature s_def) :: lst ->
        let rec cmp lst1 lst2 =
          match lst1, lst2 with
          | [], [] -> true
@@ -303,7 +305,7 @@ let find_signature env ls =
          | [],_::_ | _::_,[] -> false
        in
        if cmp ls s_def then Some s else fold lst
-    | (_, (Constant _ | Data _ | Operation _)) :: lst -> fold lst
+    | (_, (DeclConstant _ | DeclData _ | DeclOperation _)) :: lst -> fold lst
   in
   fold env.dynamic.decls
 
@@ -357,26 +359,26 @@ let is_known x env =
 let add_operation0 ~loc x k env =
   if is_known x env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else { env with dynamic = {env.dynamic with decls = (x, Operation k) :: env.dynamic.decls }} 
+  else { env with dynamic = {env.dynamic with decls = (x, DeclOperation k) :: env.dynamic.decls }} 
 
 let add_operation ~loc x k env = (),add_operation0 ~loc x k env
 
 let add_data0 ~loc x k env =
   if is_known x env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else { env with dynamic = {env.dynamic with decls = (x, Data k) :: env.dynamic.decls }}
+  else { env with dynamic = {env.dynamic with decls = (x, DeclData k) :: env.dynamic.decls }}
 
 let add_data ~loc x k env = (), add_data0 ~loc x k env
 
 let add_constant ~loc x ytsu env =
   if is_known x env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else (),{ env with dynamic = {env.dynamic with decls = (x, Constant ytsu) :: env.dynamic.decls }}
+  else (),{ env with dynamic = {env.dynamic with decls = (x, DeclConstant ytsu) :: env.dynamic.decls }}
 
 let add_signature ~loc s s_def env =
   if is_known s env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident s)
-  else (), {env with dynamic = {env.dynamic with decls = (s, Signature s_def) :: env.dynamic.decls}}
+  else (), {env with dynamic = {env.dynamic with decls = (s, DeclSignature s_def) :: env.dynamic.decls}}
 
 let add_bound x v m env =
   let env = add_bound0 x v env in
@@ -466,14 +468,14 @@ let print_env env =
     Print.print ppf "---ENVIRONMENT---@." ;
     List.iter
       (function
-        | (x, Constant t) ->
+        | (x, DeclConstant t) ->
            Print.print ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n" (Name.print_ident x)
                        (Tt.print_ty ~penv t)
-        | (x, Data k) ->
+        | (x, DeclData k) ->
            Print.print ppf "@[<hov 4>data %t %d@]@\n" (Name.print_ident x) k
-        | (x, Operation k) ->
+        | (x, DeclOperation k) ->
            Print.print ppf "@[<hov 4>operation %t %d@]@\n" (Name.print_ident x) k
-        | (x, Signature s) ->
+        | (x, DeclSignature s) ->
            Print.print ppf "@[<hov 4>signature %t %t@]@\n"
                        (Name.print_ident x)
                        (Tt.print_signature ~penv s)
@@ -531,7 +533,7 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
      | Some f -> apply_closure f v env
      | None -> Return v, env.state
      end
-  | Perform (op, vs, jt, dynamic, cont), state ->
+  | Operation (op, vs, jt, dynamic, cont), state ->
      let env = {env with dynamic; state} in
      let h = {handler_val; handler_ops; handler_finally=None} in
      let cont = mk_closure0 (fun v env -> handle_result h (apply_closure cont v) env) env in
@@ -541,7 +543,7 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
          apply_closure f {args=vs;checking=jt; cont} env
        with
          Not_found ->
-           Perform (op, vs, jt, dynamic, cont), env.state
+           Operation (op, vs, jt, dynamic, cont), env.state
      end
   end >>= fun v ->
   match handler_finally with
@@ -551,7 +553,7 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
 let rec top_handle ~loc r env =
   match r env with
     | Return v, state -> v,{env with state}
-    | Perform (op, vs, checking, dynamic, k), state ->
+    | Operation (op, vs, checking, dynamic, k), state ->
        let env = {env with dynamic;state} in
        begin match lookup_handle op env with
         | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)

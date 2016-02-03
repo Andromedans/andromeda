@@ -55,10 +55,10 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
         | None ->
            begin
              match Value.lookup_decl x env with
-             | Some (Value.Constant _) -> (Syntax.Tt_Constant x, loc), vars, n
-             | Some (Value.Data _) -> Error.syntax ~loc "data in a term pattern"
-             | Some (Value.Operation _) -> Error.syntax ~loc "operation in a term pattern"
-             | Some (Value.Signature _) -> (Syntax.Tt_Signature x, loc), vars, n
+             | Some (Value.DeclConstant _) -> (Syntax.Tt_Constant x, loc), vars, n
+             | Some (Value.DeclData _) -> Error.syntax ~loc "data in a term pattern"
+             | Some (Value.DeclOperation _) -> Error.syntax ~loc "operation in a term pattern"
+             | Some (Value.DeclSignature _) -> (Syntax.Tt_Signature x, loc), vars, n
              | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
            end
       end
@@ -369,18 +369,18 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
          | None ->
             begin
               match Value.lookup_decl x env with
-              | Some (Value.Constant _) ->
+              | Some (Value.DeclConstant _) ->
                  Syntax.Constant x, loc
 
-              | Some (Value.Data k) ->
+              | Some (Value.DeclData k) ->
                  if k = 0 then Syntax.Data (x, []), loc
                  else Error.syntax ~loc "this data constructor needs %d more arguments" k
 
-              | Some (Value.Operation k) ->
+              | Some (Value.DeclOperation k) ->
                  if k = 0 then Syntax.Operation (x, []), loc
                  else Error.syntax ~loc "this operation needs %d more arguments" k
 
-              | Some (Value.Signature _) ->
+              | Some (Value.DeclSignature _) ->
                  Syntax.Signature x, loc
 
               | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
@@ -481,18 +481,18 @@ and spine ~yield env bound ((c',loc) as c) cs =
          begin
            match Value.lookup_decl x env with
 
-           | Some (Value.Constant _) ->
+           | Some (Value.DeclConstant _) ->
               (Syntax.Constant x, loc), cs
 
-           | Some (Value.Data k) ->
+           | Some (Value.DeclData k) ->
               let cs', cs = split "data constructor" k cs in
               data ~loc ~yield env bound x cs', cs
 
-           | Some (Value.Operation k) ->
+           | Some (Value.DeclOperation k) ->
               let cs', cs = split "operation" k cs in
               operation ~loc ~yield env bound x cs', cs
 
-           | Some (Value.Signature _) ->
+           | Some (Value.DeclSignature _) ->
               (Syntax.Signature x, loc), cs
 
            | None ->

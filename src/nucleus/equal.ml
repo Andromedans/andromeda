@@ -88,7 +88,7 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   then
     Opt.return ctx
   else
-    Monad.lift (Value.perform_equal
+    Monad.lift (Value.operation_equal
         (Value.mk_term (Jdg.mk_term ctx e1 t))
         (Value.mk_term (Jdg.mk_term ctx e2 t))) >!= fun v ->
     let loc = loc1 in
@@ -316,7 +316,7 @@ let as_eq (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
     | _ ->
-      Monad.lift (Value.perform_as_eq (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      Monad.lift (Value.operation_as_eq (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
       begin match Value.as_option ~loc v with
         | None ->
           Monad.lift Value.print_ty >>= fun pty ->
@@ -352,7 +352,7 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
     | _ ->
-      Monad.lift (Value.perform_as_prod (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      Monad.lift (Value.operation_as_prod (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
       begin match Value.as_option ~loc v with
         | None ->
           Monad.lift Value.print_ty >>= fun pty ->
@@ -389,7 +389,7 @@ let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Signature s -> Monad.return (ctx, s)
     | _ ->
-      Monad.lift (Value.perform_as_signature (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      Monad.lift (Value.operation_as_signature (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
       begin match Value.as_option ~loc v with
         | None ->
           Monad.lift Value.print_ty >>= fun pty ->

@@ -2,10 +2,10 @@
 
 (* Information about a toplevel declaration *)
 type decl =
-  | Constant of Tt.ty
-  | Data of int
-  | Operation of int
-  | Signature of Tt.signature
+  | DeclConstant of Tt.ty
+  | DeclData of int
+  | DeclOperation of int
+  | DeclSignature of Tt.signature
 
 (** Runtime environment *)
 type env
@@ -107,15 +107,15 @@ val list_nil : value
 val list_cons : value -> value list -> value
 
 (** Operations *)
-val perform : Name.ident -> value list -> value result
+val operation : Name.ident -> value list -> value result
 
-val perform_at : Name.ident -> value list -> Jdg.ty -> value result
+val operation_at : Name.ident -> value list -> Jdg.ty -> value result
 
-val perform_equal : value -> value -> value result
+val operation_equal : value -> value -> value result
 
-val perform_as_prod : value -> value result
-val perform_as_eq : value -> value result
-val perform_as_signature : value -> value result
+val operation_as_prod : value -> value result
+val operation_as_eq : value -> value result
+val operation_as_signature : value -> value result
 
 (** Interact with the environment *)
 
