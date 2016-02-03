@@ -2,10 +2,10 @@
 
 (* Information about a toplevel declaration *)
 type decl =
-  | Constant of Tt.ty
-  | Data of int
-  | Operation of int
-  | Signature of Tt.signature
+  | DeclConstant of Tt.ty
+  | DeclData of int
+  | DeclOperation of int
+  | DeclSignature of Tt.signature
 
 (** Runtime environment *)
 type env
