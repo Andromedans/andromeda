@@ -519,13 +519,13 @@ and handler ~loc env bound hcs =
       let case = match_case ~yield:false env bound c in
       fold (case::val_cases) op_cases finally_cases hcs
 
-    | Input.CaseOp (op, ((ps,_) as c)) :: hcs ->
+    | Input.CaseOp (op, ((ps,_,_) as c)) :: hcs ->
       begin match Value.lookup_operation op env with
         | Some k ->
           let n = List.length ps in
           if n = k
           then
-            let case = multimatch_case ~yield:true env bound c in
+            let case = match_op_case ~yield:true env bound c in
             let my_cases = try IdentMap.find op op_cases with | Not_found -> [] in
             let my_cases = case::my_cases in
             fold val_cases (IdentMap.add op my_cases op_cases) finally_cases hcs
@@ -554,21 +554,28 @@ and match_case ~yield env bound (p, c) =
   let c = comp ~yield env bound c in
   (xs, p, c)
 
-and multimatch_case ~yield env bound (ps, c) =
+and match_op_case ~yield env bound (ps, pt, c) =
   let rec fold_patterns ps vars n = function
     | [] -> List.rev ps, vars, n
     | p::rem ->
       let p, vars, n = pattern env bound vars n p in
       fold_patterns (p::ps) vars n rem
   in
-  let ps, vars, _ = fold_patterns [] [] 0 ps in
+  let ps, vars, n = fold_patterns [] [] 0 ps in
+  let pt, vars = match pt with
+    | Some p ->
+      let p, vars, n = tt_pattern env bound vars n p in
+      Some p, vars
+    | None ->
+      None, vars
+  in
   let rec fold xs bound = function
     | [] -> xs, bound
     | (x,_)::rem -> fold (x::xs) (add_bound x bound) rem
     in
   let xs, bound = fold [] bound vars in
   let c = comp ~yield env bound c in
-  (xs, ps, c)
+  (xs, ps, pt, c)
 
 and data ~loc ~yield env bound x cs =
   let cs = List.map (comp ~yield env bound) cs in
@@ -607,14 +614,15 @@ let toplevel (env : Value.env) bound (d', loc) =
     | Input.TopHandle lst ->
         let lst =
           List.map
-            (fun (op, xs, c) ->
+            (fun (op, (xs, y, c)) ->
               match Value.lookup_operation op env with
                 | Some k ->
                   let n = List.length xs in
                   if n = k
                   then
                     let bound = List.fold_left (fun bound x -> add_bound x bound) bound xs in
-                    op, (xs, comp ~yield:false env bound c)
+                    let bound = match y with | Some y -> add_bound y bound | None -> bound in
+                    op, (xs, y, comp ~yield:false env bound c)
                   else
                     Error.syntax ~loc "operation %t expects %d arguments but was matched with %d"
                                  (Name.print_ident op) k n
