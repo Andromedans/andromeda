@@ -129,13 +129,3 @@ let index_of_ident x ys =
   in
   fold 0 ys
 
-let print_binder1 print_u xs x u ppf =
-  Print.print ppf "(@[<hv>%t :@ %t@])"
-    (print_ident x) (print_u xs u)
-
-let print_binders print_xu print_v xs (x,u) ppf =
-  let x = refresh xs x in
-  Print.print ppf "%t,@,%t"
-    (print_xu xs x u)
-    (print_v (x::xs))
-

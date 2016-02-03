@@ -71,13 +71,3 @@ val index_of_atom : atom -> atom list -> int option
 
 (** [index_of_ident x xs] finds the index of [x] in list [xs] if it's there. *)
 val index_of_ident : ident -> ident list -> int option
-
-val print_binder1 :
-  (ident list -> 'a -> Format.formatter -> unit) -> ident list ->
-  ident -> 'a -> Format.formatter -> unit
-
-val print_binders :
-  (ident list -> ident -> 'a -> Format.formatter -> unit) ->
-  (ident list -> Format.formatter -> unit) ->
-  ident list -> (ident * 'a) ->
-  Format.formatter -> unit

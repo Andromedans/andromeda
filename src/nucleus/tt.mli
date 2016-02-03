@@ -149,6 +149,10 @@ val alpha_equal: term -> term -> bool
 (** [alpha_equal_ty t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
 val alpha_equal_ty: ty -> ty -> bool
 
-val print_ty : ?max_level:int -> Name.ident list -> ty -> Format.formatter -> unit
-val print_term : ?max_level:int -> Name.ident list -> term -> Format.formatter -> unit
-val print_signature : Name.ident list -> signature -> Format.formatter -> unit
+type print_env =
+  { forbidden : Name.ident list ;
+    sigs : Name.signature -> Name.label list }
+
+val print_ty : penv:print_env -> ?max_level:int -> ty -> Format.formatter -> unit
+val print_term : penv:print_env -> ?max_level:int -> term -> Format.formatter -> unit
+val print_signature : penv:print_env -> signature -> Format.formatter -> unit

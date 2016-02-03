@@ -160,34 +160,6 @@ let rec top_fold f acc = function
   | x::rem -> top_bind (f acc x) (fun acc ->
     top_fold f acc rem)
 
-(** Printers *)
-let print_closure refs xs _ ppf =
-  Print.print ~at_level:0 ppf "<function>"
-
-let print_handler refs xs h ppf =
-  Print.print ~at_level:0 ppf "<handler>" (* XXX improve in your spare time *)
-
-let rec print_tag ?max_level refs xs t lst ppf =
-  match lst with
-  | [] -> Print.print ?max_level ~at_level:0 ppf "%t" (Name.print_ident t)
-  | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t %t"
-                          (Name.print_ident t)
-                          (Print.sequence (print_value ~max_level:0 refs xs) "" lst)
-
-and print_value ?max_level refs xs v ppf =
-  match v with
-  | Term e -> Jdg.print_term ?max_level xs e ppf
-  | Closure f -> print_closure refs xs f ppf
-  | Handler h -> print_handler refs xs h ppf
-  | Tag (t, lst) -> print_tag ?max_level refs xs t lst ppf
-  | List lst -> Print.print ~at_level:0 ppf "[%t]"
-                            (Print.sequence (print_value ~max_level:2 refs xs) "," lst)
-  | Tuple lst -> Print.print ~at_level:0 ppf "(%t)"
-                            (Print.sequence (print_value ~max_level:2 refs xs) "," lst)
-  | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t := %t"
-                         (Store.print_key v) (print_value ~max_level:0 refs xs (Store.lookup v refs))
-  | String s -> Print.print ?max_level ~at_level:0 ppf "\"%s\"" s
-
 let name_of v =
   match v with
     | Term _ -> "a term"
@@ -198,22 +170,6 @@ let name_of v =
     | Tuple _ -> "a tuple"
     | Ref _ -> "a reference"
     | String _ -> "a string"
-
-(** Prefill the [xs] argument of print_* *)
-let used_names env =
-  List.map fst env.lexical.bound @ List.map fst env.dynamic.decls
-
-let top_print_value env =
-  (fun ?max_level -> print_value ?max_level env.state (used_names env)),env
-
-let print_value env =
-  Return (fun ?max_level -> print_value ?max_level env.state (used_names env)), env.state
-
-let print_term env =
-  Return (fun ?max_level -> Tt.print_term ?max_level (used_names env)), env.state
-
-let print_ty env =
-  Return (fun ?max_level -> Tt.print_ty ?max_level (used_names env)), env.state
 
 (** Coerce values *)
 let as_term ~loc = function
@@ -452,15 +408,62 @@ let push_file f env =
 let included f env =
   List.mem (Filename.basename f) env.lexical.files, env
 
+(** Printers *)
+
+(** Generate a printing environment from runtime environment *)
+let get_penv env =
+  { Tt.forbidden = List.map fst env.lexical.bound @ List.map fst env.dynamic.decls ;
+    Tt.sigs = (fun s ->
+               match get_signature s env with
+                 | None -> Error.impossible ~loc:Location.unknown "get_penv: unknown signature %t" (Name.print_ident s)
+                 | Some s_def -> List.map (fun (l,_,_) -> l) s_def)
+  }
+
+let lookup_penv env =
+  Return (get_penv env), env.state
+  
+let rec print_tag ~penv ?max_level refs t lst ppf =
+  match lst with
+  | [] -> Print.print ?max_level ~at_level:0 ppf "%t" (Name.print_ident t)
+  | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t %t"
+                          (Name.print_ident t)
+                          (Print.sequence (print_value ~penv ~max_level:0 refs) "" lst)
+
+and print_value ~penv ?max_level refs v ppf =
+  match v with
+  | Term e -> Jdg.print_term ~penv ?max_level e ppf
+  | Closure f -> Print.print ~at_level:0 ppf "<function>"
+  | Handler h -> Print.print ~at_level:0 ppf "<handler>"
+  | Tag (t, lst) -> print_tag ~penv ?max_level refs t lst ppf
+  | List lst -> Print.print ~at_level:0 ppf "[%t]"
+                            (Print.sequence (print_value ~penv ~max_level:2 refs) "," lst)
+  | Tuple lst -> Print.print ~at_level:0 ppf "(%t)"
+                            (Print.sequence (print_value ~penv ~max_level:2 refs) "," lst)
+  | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t := %t"
+                         (Store.print_key v) (print_value ~penv ~max_level:0 refs (Store.lookup v refs))
+  | String s -> Print.print ?max_level ~at_level:0 ppf "\"%s\"" s
+
+let top_print_value env =
+  (fun ?max_level -> print_value ~penv:(get_penv env) ?max_level env.state),env
+
+let print_value env =
+  Return (fun ?max_level -> print_value ~penv:(get_penv env) ?max_level env.state), env.state
+
+let print_term env =
+  Return (fun ?max_level -> Tt.print_term ~penv:(get_penv env) ?max_level), env.state
+
+let print_ty env =
+  Return (fun ?max_level -> Tt.print_ty ~penv:(get_penv env) ?max_level), env.state
+
 let print_env env =
   let print env ppf =
-    let forbidden_names = used_names env in
+    let penv = get_penv env in
     Print.print ppf "---ENVIRONMENT---@." ;
     List.iter
       (function
         | (x, Constant t) ->
            Print.print ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n" (Name.print_ident x)
-                       (Tt.print_ty forbidden_names t)
+                       (Tt.print_ty ~penv t)
         | (x, Data k) ->
            Print.print ppf "@[<hov 4>data %t %d@]@\n" (Name.print_ident x) k
         | (x, Operation k) ->
@@ -468,7 +471,7 @@ let print_env env =
         | (x, Signature s) ->
            Print.print ppf "@[<hov 4>signature %t %t@]@\n"
                        (Name.print_ident x)
-                       (Tt.print_signature forbidden_names s)
+                       (Tt.print_signature ~penv s)
       )
       (List.rev env.dynamic.decls) ;
     Print.print ppf "-----END-----@."
