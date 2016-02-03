@@ -462,10 +462,7 @@ and print_term' ~penv ?max_level e ppf =
         print ~at_level:0 "%t" (Name.print_ident s)
 
       | Structure (s, es) ->
-         (* XXX Currently broken, see also print_structure below. *)
-        print ~at_level:0 "{@[<hov>%t@]}:%t"
-          (Print.sequence (print_term ~penv) "," es)
-          (Name.print_ident s)
+         print_structure ~penv s es ppf
 
       | Projection (e, s, l) ->
          print ~at_level:0 "%t%t.%t"
@@ -538,32 +535,15 @@ and print_signature ~penv xts ppf =
         (print_signature_clause penv x y t)
         (print_signature ~penv:(add_forbidden y penv) lst)
 
-(*
-and print_structure_clause xs x y t te ppf =
-  if Name.eq_ident x y then
-    Print.print ppf "@[<h>%t%t@ :=@ %t@]"
-      (Name.print_ident x)
-      (print_annot ~prefix:" " (print_ty xs t))
-      (print_term xs te)
-  else
-    Print.print ppf "@[<h>%t as %t%t@ := %t@]"
-      (Name.print_ident x)
-      (Name.print_ident y)
-      (print_annot ~prefix:" " (print_ty penv t))
-      (print_term penv te)
+and print_structure_clause ~penv (l,e) ppf =
+  Print.print ppf "@[<h>%t@ =@ %t@]"
+              (Name.print_ident l)
+              (print_term ~penv e)
 
-and print_structure penv xts ppf =
-  match xts with
-  | [] -> ()
-  | [x,y,t,te] -> 
-     let y = Name.refresh xs y in
-     print_structure_clause penv x y t te ppf
-  | (x,y,t,te) :: lst ->
-     let y = Name.refresh xs y in
-     Print.print ppf "%t,@ %t"
-        (print_structure_clause penv x y t te)
-        (print_structure (y::xs) lst)
-*)
+and print_structure ~penv s es ppf =
+  let les = List.combine (penv.sigs s) es in
+  Print.print ppf "{@[<hv>%t@]}"
+       (Print.sequence (print_structure_clause ~penv) "," les)
 
 (****** Structure stuff ********)
 
