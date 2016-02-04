@@ -19,7 +19,7 @@ handle
     match t with
       | None => Type
       | Some ?t =>
-          let xs = context in
+          let xs = hypotheses in
           let t_abs = prodify xs t in
           assume hippy : t_abs in 
           apply hippy (rev xs)

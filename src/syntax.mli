@@ -71,7 +71,7 @@ and comp' =
   | Structure of Name.signature * (Name.ident * comp) list
   | Projection of comp * Name.ident
   | Yield of comp
-  | Context
+  | Hypotheses
   | Congruence of comp * comp
   | Extensionality of comp * comp
   | Reduction of comp

@@ -55,7 +55,7 @@
 %token CONGRUENCE
 %token REDUCTION
 %token EXTENSIONALITY
-%token CONTEXT
+%token HYPOTHESES
 
 %token EXTERNAL
 
@@ -220,7 +220,7 @@ plain_simple_term:
   | LBRACE lst=separated_list(COMMA, structure_clause) RBRACE
                                                         { Structure lst }
   | e=simple_term DOT p=var_name                        { Projection (e, p) }
-  | CONTEXT                                             { Context }
+  | HYPOTHESES                                          { Hypotheses }
 
 var_name:
   | NAME { $1 }
