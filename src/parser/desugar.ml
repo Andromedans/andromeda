@@ -341,9 +341,9 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
        and c = comp ~yield env bound c in
        Syntax.Ascribe (c, t), loc
 
-    | Input.Reduce c ->
+    | Input.Reduction c ->
       let c = comp ~yield env bound c in
-      Syntax.Reduce c, loc
+      Syntax.Reduction c, loc
 
     | Input.External s ->
        Syntax.External s, loc

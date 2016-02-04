@@ -240,7 +240,7 @@ let beta_reduce ~loc ctx (x,a) e b (_,a') b' e' =
   let e = Tt.mention_atoms hypsb e in
   Opt.return (ctx,e)
 
-let reduce_step ctx {Tt.term=e'; assumptions; loc} =
+let reduction_step ctx {Tt.term=e'; assumptions; loc} =
   match e' with
   | Tt.Apply (e1, (xts, t), e2) ->
      begin match e1.Tt.term with

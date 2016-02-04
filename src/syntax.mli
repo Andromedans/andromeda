@@ -59,7 +59,7 @@ and comp' =
   | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | Reduce of comp
+  | Reduction of comp
   | External of string
   | Typeof of comp
   | Constant of Name.ident

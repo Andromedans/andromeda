@@ -366,7 +366,7 @@ let rec do_whnf betas e =
             | None => Some eq
           end
         | None =>
-          match reduce e with
+          match reduction e with
             | Some (|- ?eq : _ == ?e') =>
               match do_whnf betas e' with
                 | Some (|- ?eq' : _ == ?e'') =>

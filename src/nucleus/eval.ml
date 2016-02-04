@@ -182,9 +182,9 @@ let rec infer (c',loc) =
      infer c >>=
      match_cases ~loc cases
 
-  | Syntax.Reduce c ->
+  | Syntax.Reduction c ->
      infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx, e, t)) ->
-     Equal.Opt.run (Equal.reduce_step ctx e) >>=
+     Equal.Opt.run (Equal.reduction_step ctx e) >>=
        begin function
          | Some ((ctx, e'), hyps) ->
             let eq = Tt.mk_refl ~loc t e in
@@ -398,7 +398,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Projection _
   | Syntax.Yield _
   | Syntax.Context
-  | Syntax.Reduce _
+  | Syntax.Reduction _
   | Syntax.Congruence _
   | Syntax.Ref _
   | Syntax.Lookup _

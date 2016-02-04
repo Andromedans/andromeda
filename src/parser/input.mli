@@ -64,7 +64,7 @@ and term' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
   | Ascribe of comp * ty
-  | Reduce of comp
+  | Reduction of comp
   | External of string
   | Typeof of comp
   | Lambda of (Name.ident * comp option) list * comp

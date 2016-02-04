@@ -35,7 +35,7 @@
 
 (* Things specific to toplevel *)
 %token DO FAIL
-%token CONSTANT REDUCE
+%token CONSTANT
 %token SIGNATURE
 
 (* Let binding *)
@@ -53,8 +53,8 @@
 %token SEMICOLON
 
 %token CONGRUENCE
+%token REDUCTION
 %token CONTEXT
-%token TYPEOF
 
 %token EXTERNAL
 
@@ -200,9 +200,8 @@ plain_prefix_term:
   | BANG e=prefix_term                         { Lookup e }
   | op=PREFIXOP e2=prefix_term                 { let e1 = Var (fst op), snd op in
                                                  Spine (e1, [e2]) }
-  | REDUCE t=prefix_term                       { Reduce t }
+  | REDUCTION t=prefix_term                    { Reduction t }
   | YIELD e=prefix_term                        { Yield e }
-  | TYPEOF t=prefix_term                       { Typeof t }
   | REFL e=prefix_term                         { Refl e }
 
 simple_term: mark_location(plain_simple_term) { $1 }
