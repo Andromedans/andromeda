@@ -156,9 +156,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
               | [], [] -> Value.from_list (List.rev vs)
               | (Name.Ident (l,_),_,a)::xts, e::es ->
                 let a = Tt.instantiate_ty fs a in
-                let ve = Value.mk_term (Jdg.mk_term ctx e a) in
-                let vl = Value.mk_string l in
-                let v = Value.mk_tuple [vl;ve] in
+                let v = Value.mk_term (Jdg.mk_term ctx e a) in
                 fold (e::fs) (v::vs) xts es
               | [],_::_ | _::_,[] -> Error.impossible ~loc "Encountered malformed structure while matching"
             in

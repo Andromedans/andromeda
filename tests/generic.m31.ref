@@ -3,7 +3,7 @@ Constant dwarf is declared.
 Constant urist is declared.
 ankle is defined.
 ⊢ {person = dwarf, pet = urist} : cat
-[("person", (⊢ dwarf : Type)), ("pet", (⊢ urist : dwarf))]
+[(⊢ dwarf : Type), (⊢ urist : dwarf)]
 [("person", (person₁₂ : Type 
              ⊢ person₁₂ : Type), (⊢ Type : Type)),
  ("pet",
