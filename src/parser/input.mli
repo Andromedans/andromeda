@@ -64,7 +64,6 @@ and term' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
   | Ascribe of comp * ty
-  | Reduction of comp
   | External of string
   | Typeof of comp
   | Lambda of (Name.ident * comp option) list * comp
@@ -77,6 +76,8 @@ and term' =
   | Yield of comp
   | Context
   | Congruence of comp * comp
+  | Extensionality of comp * comp
+  | Reduction of comp
   | String of string
   | GenStruct of comp * comp
   | GenProj of comp * comp

@@ -59,7 +59,6 @@ and comp' =
   | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | Reduction of comp
   | External of string
   | Typeof of comp
   | Constant of Name.ident
@@ -74,6 +73,8 @@ and comp' =
   | Yield of comp
   | Context
   | Congruence of comp * comp
+  | Extensionality of comp * comp
+  | Reduction of comp
   | String of string
   | GenStruct of comp * comp
   | GenProj of comp * comp

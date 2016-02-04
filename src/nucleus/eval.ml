@@ -182,19 +182,6 @@ let rec infer (c',loc) =
      infer c >>=
      match_cases ~loc cases
 
-  | Syntax.Reduction c ->
-     infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx, e, t)) ->
-     Equal.Opt.run (Equal.reduction_step ctx e) >>=
-       begin function
-         | Some ((ctx, e'), hyps) ->
-            let eq = Tt.mk_refl ~loc t e in
-            let eq = Tt.mention_atoms hyps eq in
-            let teq = Tt.mk_eq_ty ~loc t e e' in
-            let eqj = Jdg.mk_term ctx eq teq in
-            Value.return (Value.from_option (Some (Value.mk_term eqj)))
-         | None -> Value.return (Value.from_option None)
-       end
-
   | Syntax.External s ->
      begin match External.lookup s with
        | None -> Error.runtime ~loc "unknown external %s" s
@@ -317,6 +304,33 @@ let rec infer (c',loc) =
       | None -> Value.return (Value.from_option None)
       end
 
+  | Syntax.Extensionality (c1,c2) ->
+    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
+    check c2 (Jdg.mk_ty ctx t) >>= fun (ctx,e2) ->
+    Equal.Opt.run (Equal.extensionality ~loc ctx e1 e2 t) >>= begin function
+      | Some (ctx,hyps) ->
+        let eq = Tt.mk_refl ~loc t e1 in
+        let eq = Tt.mention_atoms hyps eq in
+        let teq = Tt.mk_eq_ty ~loc t e1 e2 in
+        let j = Jdg.mk_term ctx eq teq in
+        let v = Value.mk_term j in
+        Value.return (Value.from_option (Some v))
+      | None -> Value.return (Value.from_option None)
+      end
+
+  | Syntax.Reduction c ->
+     infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx, e, t)) ->
+     Equal.Opt.run (Equal.reduction_step ctx e) >>=
+       begin function
+         | Some ((ctx, e'), hyps) ->
+            let eq = Tt.mk_refl ~loc t e in
+            let eq = Tt.mention_atoms hyps eq in
+            let teq = Tt.mk_eq_ty ~loc t e e' in
+            let eqj = Jdg.mk_term ctx eq teq in
+            Value.return (Value.from_option (Some (Value.mk_term eqj)))
+         | None -> Value.return (Value.from_option None)
+       end
+
   | Syntax.String s ->
     Value.return (Value.mk_string s)
 
@@ -398,8 +412,9 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Projection _
   | Syntax.Yield _
   | Syntax.Context
-  | Syntax.Reduction _
   | Syntax.Congruence _
+  | Syntax.Extensionality _
+  | Syntax.Reduction _
   | Syntax.Ref _
   | Syntax.Lookup _
   | Syntax.Update _

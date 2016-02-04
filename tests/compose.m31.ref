@@ -1,12 +1,12 @@
 id is defined.
-⊢ λ (A : Type), λ (x : A), x : Π (A : Type),A → A
+⊢ λ (A : Type), λ (x : A), x : Π (A : Type), A → A
 compose is defined.
 ⊢ λ (A : Type),
       λ (B : Type),
         λ (C : Type),
           λ (g : B → C), λ (f : A → B), λ (x : A), g (f x)
   : Π (A : Type),
-      Π (B : Type),Π (C : Type),(B → C) → (A → B) → A → C
+      Π (B : Type), Π (C : Type), (B → C) → (A → B) → A → C
 Constant X is declared.
 Constant Y is declared.
 Constant Z is declared.

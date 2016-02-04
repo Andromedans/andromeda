@@ -341,10 +341,6 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
        and c = comp ~yield env bound c in
        Syntax.Ascribe (c, t), loc
 
-    | Input.Reduction c ->
-      let c = comp ~yield env bound c in
-      Syntax.Reduction c, loc
-
     | Input.External s ->
        Syntax.External s, loc
 
@@ -501,6 +497,15 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     let e1 = comp ~yield env bound e1 in
     let e2 = comp ~yield env bound e2 in
     Syntax.Congruence (e1,e2), loc
+
+  | Input.Extensionality (e1,e2) ->
+    let e1 = comp ~yield env bound e1 in
+    let e2 = comp ~yield env bound e2 in
+    Syntax.Extensionality (e1,e2), loc
+
+  | Input.Reduction c ->
+     let c = comp ~yield env bound c in
+     Syntax.Reduction c, loc
 
   | Input.String s ->
     Syntax.String s, loc

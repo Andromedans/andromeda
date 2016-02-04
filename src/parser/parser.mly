@@ -54,6 +54,7 @@
 
 %token CONGRUENCE
 %token REDUCTION
+%token EXTENSIONALITY
 %token CONTEXT
 
 %token EXTERNAL
@@ -192,6 +193,7 @@ plain_app_term:
   | e=plain_prefix_term                             { e }
   | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
   | CONGRUENCE t1=prefix_term t2=prefix_term        { Congruence (t1,t2) }
+  | EXTENSIONALITY t1=prefix_term t2=prefix_term    { Extensionality (t1,t2) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:

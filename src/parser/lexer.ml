@@ -17,6 +17,7 @@ let reserved = [
   ("data", DATA) ;
   ("do", DO) ;
   ("end", END) ;
+  ("extensionality", EXTENSIONALITY) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
   ("fail", FAIL) ;

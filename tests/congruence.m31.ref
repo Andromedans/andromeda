@@ -7,4 +7,4 @@ congr is defined.
   : Π (A : Type),
       Π (f : A → A),
         Π (g : A → A),
-          Π (u : A),Π (v : A),f ≡ g → u ≡ v → f u ≡ g v
+          Π (u : A), Π (v : A), f ≡ g → u ≡ v → f u ≡ g v

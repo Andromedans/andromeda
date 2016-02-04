@@ -4,5 +4,5 @@ Constant f is declared.
 foo is defined.
 ⊢ refl (λ (x : A), λ (y : B x), f x (f x y))
   : (λ (x : A), λ (y : B x), f x (f x y))
-      ≡ (λ (g : Π (x : A),B x → B x),
+      ≡ (λ (g : Π (x : A), B x → B x),
              λ (x : A), λ (y : B x), g x (g x y)) f

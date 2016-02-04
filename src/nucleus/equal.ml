@@ -223,6 +223,51 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
      Tt.Signature _ | Tt.Structure _ | Tt.Projection _), _ ->
      Opt.fail
 
+
+let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
+  match t'.Tt.term with
+  | Tt.Prod ((x, a), b) ->
+     Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a) (fun ctx y ->
+       let yt = Tt.mk_atom ~loc y in
+       let e1' = Tt.mk_apply ~loc e1 x a b yt in
+       let e2' = Tt.mk_apply ~loc e2 x a b yt in
+       let b' = Tt.unabstract_ty [y] b in
+       equal ctx e1' e2' b' >?= fun ctx ->
+       Monad.context_abstract ~loc ctx y a >!= fun ctx ->
+         Opt.return ctx)
+
+  | Tt.Eq _ -> Opt.return ctx
+
+  | Tt.Signature s ->
+     Monad.lift (Value.lookup_signature s) >!=
+       begin function
+         | None -> Error.impossible ~loc "Equal.extensionality: unknown signature %t"
+                                    (Name.print_ident s)
+         | Some s_def -> 
+            let rec fold ctx es hyps fields =
+              match fields with
+              | [] -> Opt.return ctx
+              | (l, _, t) :: fields ->
+                 let t = Tt.instantiate_ty es t in
+                 let e1_proj = Tt.mk_projection ~loc:e1.Tt.loc e1 s l in
+                 let e2_proj = Tt.mk_projection ~loc:e2.Tt.loc e2 s l in
+                 let e2_proj = Tt.mention_atoms hyps e2_proj in
+                 Opt.locally (equal ctx e1_proj e2_proj t) >?= fun (ctx, hyps') ->
+                 let hyps = AtomSet.union hyps hyps' in
+                 fold ctx (e1_proj :: es) hyps fields                                                               
+            in
+            fold ctx [] AtomSet.empty s_def
+       end
+
+  | Tt.Type | Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _
+  | Tt.Refl _ | Tt.Structure _ | Tt.Projection _ ->
+      Opt.fail
+
+  | Tt.Bound _ ->
+     Error.impossible ~loc "deBruijn encountered in extensionality"
+                                  
+
+
 (** Beta reduction of [Lambda ((x,a), (e, b))] applied to argument [e'],
     where [((x,a'), b')] is the typing annotation for the application.
     Returns the resulting expression. *)
