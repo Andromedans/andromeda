@@ -42,7 +42,7 @@ for FILE in $BASEDIR/*.m31
   "$ANDROMEDA" "$FILE" >"$FILE.out" 2>&1
   if [ -f $FILE.ref ]
       then
-      RESULT=`"$DIFF" "$FILE.out" "$FILE.ref"`
+      RESULT=`"$DIFF" "$FILE.ref" "$FILE.out"`
       if [ "$?" = "0" ]
       then
       $PRINTF "Test: $FILE                        \r"
@@ -51,7 +51,16 @@ for FILE in $BASEDIR/*.m31
       echo "FAILED:  $FILE                          "
       if [ $VALIDATE = "1" ]
           then
-          "$DIFF" "$FILE.out" "$FILE.ref"
+          # Is it about whitespace?
+          "$DIFF" --ignore-blank-lines --ignore-all-space "$FILE.ref" "$FILE.out" 2>/dev/null 1>/dev/null
+          if [ "$?" = "0" ]
+          then
+              ONLYWHITE="\n[Note: only white space changed]"
+          else
+              ONLYWHITE=""
+          fi
+          "$DIFF" --unified "$FILE.ref" "$FILE.out"
+          echo "$ONLYWHITE"
           read -p "Validate $FILE.out as new $FILE.ref? (y/n/q) [n] " ans
           if [ "$ans" = "y" -o "$ans" = "Y" ]
           then
