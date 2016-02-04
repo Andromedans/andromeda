@@ -1,9 +1,5 @@
 #include_once "base.m31"
-#include "utils.m31"
-
-(* Poor man's debugging mechanism. *)
-data (!!) 1 
-let debug = fun x => print !! x
+#include_once "utils.m31"
 
 (* Operations for installing equality hints *)
 operation beta 1  (* Install a beta hint *)

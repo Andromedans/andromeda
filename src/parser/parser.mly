@@ -74,7 +74,7 @@
 
 (* Toplevel directives *)
 %token ENVIRONMENT HELP QUIT
-%token <int> VERBOSITY
+%token VERBOSITY
 %token <string> QUOTED_STRING
 %token INCLUDE INCLUDEONCE
 
@@ -133,7 +133,7 @@ plain_topdirective:
   | ENVIRONMENT                                      { Environment }
   | HELP                                             { Help }
   | QUIT                                             { Quit }
-  | VERBOSITY                                        { Verbosity $1 }
+  | VERBOSITY n=NUMERAL                              { Verbosity n }
   | INCLUDE fs=QUOTED_STRING+                        { Include (fs, false) }
   | INCLUDEONCE fs=QUOTED_STRING+                    { Include (fs, true) }
 

@@ -93,7 +93,7 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "#environment"               -> f (); g (); ENVIRONMENT
   | "#help"                  -> f (); g (); HELP
   | "#quit"                  -> f (); g (); QUIT
-  | "#verbosity", Plus hspace -> g (); verbosity lexbuf
+  | "#verbosity"             -> f (); VERBOSITY
   | "#include"               -> f (); INCLUDE
   | "#include_once"          -> f (); INCLUDEONCE
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
@@ -140,15 +140,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | _ -> f ();
     Error.syntax ~loc:(Location.of_lexeme lexbuf)
       "Unexpected character, failed to parse"
-
-and verbosity ({ stream;_ } as lexbuf) =
-  begin match%sedlex stream with
-  | Opt '-', digit ->
-    update_pos lexbuf;
-    VERBOSITY (int_of_string (lexeme lexbuf))
-  | _ ->
-    Error.syntax ~loc:(Location.of_lexeme lexbuf) "Expected integer verbosity level"
-  end
 
 and comments level ({ stream;_ } as lexbuf) =
   match%sedlex stream with
