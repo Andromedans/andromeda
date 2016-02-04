@@ -1,0 +1,62 @@
+
+signature cat = { person : Type, pet : person }
+
+constant dwarf : Type
+
+constant urist : dwarf
+
+let ankle = { person = dwarf, pet = urist }
+
+do ankle
+
+do match ankle with
+  | |- _struct ?x => x
+  end
+
+do match ankle with
+  | |- _ : _sig ?x => x
+  end
+
+do match ankle.pet with
+  | |- _proj ?x ?l => (x,l)
+  end
+
+do match cat with
+  | |- _sig _ => tt
+  end
+
+do _struct cat [dwarf,urist]
+
+fail _struct cat [dwarf,dwarf]
+
+constant A : Type
+
+do
+  assume eq : A == cat in
+  add_beta eq;
+  _struct A [dwarf,urist]
+
+do _proj ankle "pet"
+
+let first_proj = fun v => match v with
+  |- _ : _sig ?s => match s with
+    | (?l,_,_)::_ =>
+      _proj v l
+    end
+  end
+
+do first_proj ankle
+
+let last_proj = fun v => match v with
+  |- _ : _sig ?s => match rev s with
+    | (?l,_,_)::_ =>
+      _proj v l
+    end
+  end
+
+do last_proj ankle
+
+fail _proj urist "gold"
+
+fail _proj ankle "gold"
+

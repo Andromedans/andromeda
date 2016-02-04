@@ -136,6 +136,49 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       let p, vars, n = tt_pattern env bound vars n p in
       (Syntax.Tt_Projection (p,l), loc), vars, n
 
+    | Input.Tt_GenSig x ->
+      let i,vars,n = begin match x with
+        | Some x ->
+          begin try
+            let i = List.assoc x vars in
+            Some i, vars, n
+          with | Not_found ->
+            Some n, ((x,n)::vars), (n+1)
+          end
+        | None -> None, vars, n
+        end
+      in
+      (Syntax.Tt_GenSig i, loc), vars, n
+
+    | Input.Tt_GenStruct x ->
+      let i,vars,n = begin match x with
+        | Some x ->
+          begin try
+            let i = List.assoc x vars in
+            Some i, vars, n
+          with | Not_found ->
+            Some n, ((x,n)::vars), (n+1)
+          end
+        | None -> None, vars, n
+        end
+      in
+      (Syntax.Tt_GenStruct i, loc), vars, n
+
+    | Input.Tt_GenProj (p,x) ->
+      let i,vars,n = begin match x with
+        | Some x ->
+          begin try
+            let i = List.assoc x vars in
+            Some i, vars, n
+          with | Not_found ->
+            Some n, ((x,n)::vars), (n+1)
+          end
+        | None -> None, vars, n
+        end
+      in
+      let p, vars, n = tt_pattern env bound vars n p in
+      (Syntax.Tt_GenProj (p,i), loc), vars, n
+
 let rec pattern (env : Value.env) bound vars n (p,loc) =
   match p with
     | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), vars, n
@@ -457,6 +500,16 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
 
   | Input.String s ->
     Syntax.String s, loc
+
+  | Input.GenStruct (c1,c2) ->
+    let c1 = comp ~yield env bound c1
+    and c2 = comp ~yield env bound c2 in
+    Syntax.GenStruct (c1,c2), loc
+
+  | Input.GenProj (c1,c2) ->
+    let c1 = comp ~yield env bound c1
+    and c2 = comp ~yield env bound c2 in
+    Syntax.GenProj (c1,c2), loc
 
 (* Desguar a spine. This function is a bit messy because we need to untangle
    to env. But it's worth doing to make users happy. *)

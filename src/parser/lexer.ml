@@ -4,6 +4,9 @@ open Ulexbuf
 
 let reserved = [
   ("_", UNDERSCORE) ;
+  ("_sig", USIG) ;
+  ("_struct", USTRUCT) ;
+  ("_proj", UPROJ) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;

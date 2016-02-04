@@ -60,6 +60,8 @@
 
 %token EXTERNAL
 
+%token USIG USTRUCT UPROJ
+
 (* REFERENCES *)
 %token BANG COLONEQ REF
 
@@ -152,6 +154,8 @@ plain_term:
   | HANDLER hcs=handler_cases END                              { Handler (hcs) }
   | e=app_term COLON t=ty_term                                 { Ascribe (e, t) }
   | e1=equal_term SEMICOLON e2=term                            { Sequence (e1, e2) }
+  | USTRUCT c1=prefix_term c2=prefix_term                      { GenStruct (c1,c2) }
+  | UPROJ c1=prefix_term c2=prefix_term                        { GenProj (c1,c2) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
@@ -405,8 +409,11 @@ plain_app_tt_pattern:
 
 prefix_tt_pattern: mark_location(plain_prefix_tt_pattern) { $1 }
 plain_prefix_tt_pattern:
-  | p=plain_simple_tt_pattern                 { p }
-  | REFL p=prefix_tt_pattern                  { Tt_Refl p }
+  | p=plain_simple_tt_pattern                   { p }
+  | REFL p=prefix_tt_pattern                    { Tt_Refl p }
+  | USIG x=patt_maybe_var                       { Tt_GenSig x }
+  | USTRUCT x=patt_maybe_var                    { Tt_GenStruct x }
+  | UPROJ p=simple_tt_pattern l=patt_maybe_var  { Tt_GenProj (p,l) }
   | op=PREFIXOP e=prefix_tt_pattern
     { let op = Tt_Name (Name.make ~fixity:Name.Infix4 (fst op)), snd op in Tt_Apply (op, e) }
 
@@ -435,6 +442,10 @@ plain_maybe_typed_tt_names:
 tt_name:
   | x=name                       { x, false }
   | x=patt_var                   { x, true  }
+
+patt_maybe_var:
+  | x=patt_var                   { Some x }
+  | UNDERSCORE                   { None }
 
 patt_var:
   | x=PATTVAR                    { Name.make x }

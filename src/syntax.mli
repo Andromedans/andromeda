@@ -20,6 +20,9 @@ and tt_pattern' =
   | Tt_Signature of Name.signature
   | Tt_Structure of Name.signature * tt_pattern list
   | Tt_Projection of tt_pattern * Name.ident
+  | Tt_GenSig of bound option
+  | Tt_GenStruct of bound option
+  | Tt_GenProj of tt_pattern * bound option
 
 type pattern = pattern' * Location.t
 and pattern' =
@@ -71,6 +74,8 @@ and comp' =
   | Context
   | Congruence of comp * comp
   | String of string
+  | GenStruct of comp * comp
+  | GenProj of comp * comp
 
 and handler = {
   handler_val: match_case list;
