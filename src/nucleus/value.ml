@@ -331,7 +331,7 @@ let lookup_bound ~loc k env =
 let add_bound0 x v env = {env with lexical = { env.lexical with bound = (x,v)::env.lexical.bound } }
 
 (** generate a fresh atom of type [t] and bind it to [x]
-    NB: This is an effectful computation. TODO what? *)
+    NB: This is an effectful computation, as it increases a global counter. *)
 let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
   let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
@@ -340,7 +340,7 @@ let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
 
 (** generate a fresh atom of type [t] and bind it to [x],
     and record that the atom will be abstracted.
-    NB: This is an effectful computation. *)
+    NB: This is an effectful computation, as it increases a global counter. *)
 let add_abstracting ~loc x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
   let ya = Tt.mk_atom ~loc y in
