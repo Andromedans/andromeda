@@ -21,7 +21,7 @@ and tt_pattern' =
   | Tt_Structure of Name.signature * tt_pattern list
   | Tt_Projection of tt_pattern * Name.ident
   | Tt_GenSig of bound option
-  | Tt_GenStruct of bound option
+  | Tt_GenStruct of tt_pattern * bound option
   | Tt_GenProj of tt_pattern * bound option
   | Tt_GenAtom
 

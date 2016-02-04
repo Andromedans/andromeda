@@ -150,7 +150,7 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       in
       (Syntax.Tt_GenSig i, loc), vars, n
 
-    | Input.Tt_GenStruct x ->
+    | Input.Tt_GenStruct (p,x) ->
       let i,vars,n = begin match x with
         | Some x ->
           begin try
@@ -162,7 +162,8 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
         | None -> None, vars, n
         end
       in
-      (Syntax.Tt_GenStruct i, loc), vars, n
+      let p, vars, n = tt_pattern env bound vars n p in
+      (Syntax.Tt_GenStruct (p,i), loc), vars, n
 
     | Input.Tt_GenProj (p,x) ->
       let i,vars,n = begin match x with

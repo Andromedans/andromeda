@@ -407,11 +407,11 @@ plain_app_tt_pattern:
 
 prefix_tt_pattern: mark_location(plain_prefix_tt_pattern) { $1 }
 plain_prefix_tt_pattern:
-  | p=plain_simple_tt_pattern                   { p }
-  | REFL p=prefix_tt_pattern                    { Tt_Refl p }
-  | USIG x=patt_maybe_var                       { Tt_GenSig x }
-  | USTRUCT x=patt_maybe_var                    { Tt_GenStruct x }
-  | UPROJ p=simple_tt_pattern l=patt_maybe_var  { Tt_GenProj (p,l) }
+  | p=plain_simple_tt_pattern                     { p }
+  | REFL p=prefix_tt_pattern                      { Tt_Refl p }
+  | USIG x=patt_maybe_var                         { Tt_GenSig x }
+  | USTRUCT p=simple_tt_pattern x=patt_maybe_var  { Tt_GenStruct (p,x) }
+  | UPROJ p=simple_tt_pattern l=patt_maybe_var    { Tt_GenProj (p,l) }
   | op=PREFIXOP e=prefix_tt_pattern
     { let op = Tt_Name (fst op), snd op in Tt_Apply (op, e) }
 

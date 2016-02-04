@@ -13,7 +13,7 @@ let ankle = { person = dwarf, pet = urist }
 do ankle
 
 do match ankle with
-  | |- _struct ?x => x
+  | |- _struct ?t ?x => (t,x)
   end
 
 do match ankle with

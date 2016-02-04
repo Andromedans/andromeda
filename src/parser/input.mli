@@ -24,7 +24,7 @@ and tt_pattern' =
   | Tt_Projection of tt_pattern * Name.ident
   (** Generic matching *)
   | Tt_GenSig of Name.ident option
-  | Tt_GenStruct of Name.ident option
+  | Tt_GenStruct of tt_pattern * Name.ident option
   | Tt_GenProj of tt_pattern * Name.ident option
   | Tt_GenAtom
 

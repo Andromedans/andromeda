@@ -146,7 +146,8 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
       | None -> xvs
     end
 
-  | Syntax.Tt_GenStruct k, Tt.Structure (s,es) ->
+  | Syntax.Tt_GenStruct (p,k), Tt.Structure (s,es) ->
+    let xvs = collect_tt_pattern env xvs p Context.empty (Tt.mk_signature ~loc s) Tt.typ in
     begin match k with
       | Some k ->
         begin match Value.get_signature s env with
