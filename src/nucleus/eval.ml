@@ -408,7 +408,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
-     Value.add_abstracting ~loc x t (fun _ _ ->
+     Value.add_free ~loc x t (fun _ _ ->
      check c t_check)
 
   | Syntax.Ascribe (c1, c2) ->
