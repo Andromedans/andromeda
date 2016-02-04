@@ -4,5 +4,5 @@
     that does not increase in size, for instance if the bound variable
     appears at most once in the body of the function, or if the argument
     is an atomic expression (a variable or a constant). *)
-val value : Value.value -> Value.value
+val value : Value.env -> Value.value -> Value.value
 

@@ -62,7 +62,8 @@ let externals =
 
     ("simplify", fun loc ->
       Value.return_closure (fun v ->
-          let v = Simplify.value v in
+          Value.get_env >>= fun env ->
+          let v = Simplify.value env v in
           Value.return v
         ));
   ]
