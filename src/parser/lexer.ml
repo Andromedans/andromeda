@@ -3,6 +3,11 @@ open Parser
 open Ulexbuf
 
 let reserved = [
+  ("_", UNDERSCORE) ;
+  ("_sig", USIG) ;
+  ("_struct", USTRUCT) ;
+  ("_proj", UPROJ) ;
+  ("_atom", UATOM) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;
@@ -22,12 +27,8 @@ let reserved = [
   ("reduce", REDUCE) ;
   ("forall", PROD) ;
   ("yield", YIELD) ;
-  ("∀", PROD) ;
-  ("Π", PROD) ;
-  ("∏", PROD) ;
   ("fun", FUNCTION) ;
   ("lambda", LAMBDA) ;
-  ("λ", LAMBDA) ;
   ("in", IN) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
@@ -37,19 +38,23 @@ let reserved = [
   ("Type", TYPE) ;
   ("typeof", TYPEOF) ;
   ("val", VAL) ;
-  ("⊢", VDASH) ;
   ("where", WHERE) ;
-  ("with", WITH)
+  ("with", WITH) ;
+  ("∀", PROD) ;
+  ("Π", PROD) ;
+  ("∏", PROD) ;
+  ("λ", LAMBDA) ;
+  ("⊢", VDASH)
 ]
 
 let ascii_name =
-  [%sedlex.regexp? ('a'..'z' | 'A'..'Z') ,
+  [%sedlex.regexp? ('_' | 'a'..'z' | 'A'..'Z') ,
                  Star ('_' | 'a'..'z' | 'A'..'Z' | '0'..'9' | '\'')]
 let name =
-  [%sedlex.regexp? (alphabetic | math),
-                 Star ('_' | alphabetic | math
+  [%sedlex.regexp? (('_' | alphabetic),
+                 Star ('_' | alphabetic
                       | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
-                      | '0'..'9' | '\'')]
+                      | '0'..'9' | '\'')) | math]
 
 let digit = [%sedlex.regexp? '0'..'9']
 let numeral = [%sedlex.regexp? Plus digit]
@@ -93,7 +98,7 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "#environment"               -> f (); g (); ENVIRONMENT
   | "#help"                  -> f (); g (); HELP
   | "#quit"                  -> f (); g (); QUIT
-  | "#verbosity", Plus hspace -> g (); verbosity lexbuf
+  | "#verbosity"             -> f (); VERBOSITY
   | "#include"               -> f (); INCLUDE
   | "#include_once"          -> f (); INCLUDEONCE
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
@@ -107,9 +112,10 @@ and token_aux ({ stream;_ } as lexbuf) =
   | ':'                      -> f (); COLON
   | "::"                     -> f (); COLONCOLON
   | ','                      -> f (); COMMA
-  | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
-  | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
-  | '_'                      -> f (); UNDERSCORE
+  | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in
+                                               let s = String.sub s 1 (String.length s - 1) in
+                                               Name.make s)
+  | '.'                      -> f (); DOT
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
   | "->" | 8594 | 10230      -> f (); ARROW
@@ -118,19 +124,25 @@ and token_aux ({ stream;_ } as lexbuf) =
   | '!'                      -> f (); BANG
   | ":="                     -> f (); COLONEQ
   | ';'                      -> f (); SEMICOLON
-  | prefixop                 -> f (); PREFIXOP (lexeme lexbuf, Location.of_lexeme lexbuf)
-  | infixop0                 -> f (); INFIXOP0 (lexeme lexbuf, Location.of_lexeme lexbuf)
-  | infixop1                 -> f (); INFIXOP1 (lexeme lexbuf, Location.of_lexeme lexbuf)
-  | infixop2                 -> f (); INFIXOP2 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | prefixop                 -> f (); PREFIXOP (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Prefix s, Location.of_lexeme lexbuf)
+  | infixop0                 -> f (); INFIXOP0 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix0 s, Location.of_lexeme lexbuf)
+  | infixop1                 -> f (); INFIXOP1 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix1 s, Location.of_lexeme lexbuf)
+  | infixop2                 -> f (); INFIXOP2 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix2 s, Location.of_lexeme lexbuf)
   (* Comes before infixop3 because ** matches the infixop3 pattern too *)
-  | infixop4                 -> f (); INFIXOP4 (lexeme lexbuf, Location.of_lexeme lexbuf)
-  | infixop3                 -> f (); INFIXOP3 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop4                 -> f (); INFIXOP4 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix4 s, Location.of_lexeme lexbuf)
+  | infixop3                 -> f (); INFIXOP3 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix3 s, Location.of_lexeme lexbuf)
 
   | eof                      -> f (); EOF
   | name                     -> f ();
     let n = lexeme lexbuf in
     begin try List.assoc n reserved
-    with Not_found -> NAME n
+    with Not_found -> NAME (Name.make n)
     end
   | numeral                  -> f (); let k = int_of_string (lexeme lexbuf) in NUMERAL k
   | any -> f ();
@@ -140,15 +152,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | _ -> f ();
     Error.syntax ~loc:(Location.of_lexeme lexbuf)
       "Unexpected character, failed to parse"
-
-and verbosity ({ stream;_ } as lexbuf) =
-  begin match%sedlex stream with
-  | Opt '-', digit ->
-    update_pos lexbuf;
-    VERBOSITY (int_of_string (lexeme lexbuf))
-  | _ ->
-    Error.syntax ~loc:(Location.of_lexeme lexbuf) "Expected integer verbosity level"
-  end
 
 and comments level ({ stream;_ } as lexbuf) =
   match%sedlex stream with

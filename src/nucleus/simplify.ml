@@ -119,5 +119,5 @@ let rec value = function
   | Value.Tag (x,vs) -> Value.mk_tag x (List.map value vs)
   | Value.List lst -> Value.from_list (List.map value lst)
   | Value.Tuple lst -> Value.mk_tuple (List.map value lst)
-  | Value.Ref _ | Value.Closure _ | Value.Handler _ | Value.String _ as v -> v
+  | Value.Ref _ | Value.Closure _ | Value.Handler _ | Value.String _ | Value.Ident _ as v -> v
 

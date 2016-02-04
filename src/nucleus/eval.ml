@@ -34,6 +34,10 @@ let as_list ~loc v =
   let lst = Value.as_list ~loc v in
   Value.return lst
 
+let as_ident ~loc v =
+  let s = Value.as_ident ~loc v in
+  Value.return s
+
 
 (** Evaluate a computation -- infer mode. *)
 let rec infer (c',loc) =
@@ -230,7 +234,7 @@ let rec infer (c',loc) =
         infer c2 >>= fun v ->
         Value.apply_closure f v
       | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Tuple _ |
-        Value.Ref _ | Value.String _ as h ->
+        Value.Ref _ | Value.String _ | Value.Ident _ as h ->
         Error.runtime ~loc "cannot apply %s" (Value.name_of h)
     end
 
@@ -285,18 +289,7 @@ let rec infer (c',loc) =
      end
 
   | Syntax.Projection (c,p) ->
-    infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,te,ty)) ->
-    let jty = Jdg.mk_ty ctx ty in
-    Equal.Monad.run (Equal.as_signature jty) >>= fun ((ctx,s),hyps) ->
-    let te = Tt.mention_atoms hyps te in
-    Value.lookup_signature s >>= begin function
-      | None -> Error.impossible ~loc "projecting at unknown signature %t" (Name.print_ident s)
-      | Some s_def ->
-         let ty = Tt.field_type ~loc s s_def te p in
-         let te = Tt.mk_projection ~loc te s p in
-         let j = Jdg.mk_term ctx te ty in
-         Value.return_term j
-    end
+    infer_projection ~loc c p
 
   | Syntax.Yield c ->
     Value.lookup_continuation >>= begin function
@@ -326,6 +319,50 @@ let rec infer (c',loc) =
 
   | Syntax.String s ->
     Value.return (Value.mk_string s)
+
+  | Syntax.GenStruct (c1,c2) ->
+    check_ty c1 >>= fun (Jdg.Ty (_,target) as jt) ->
+    Equal.Monad.run (Equal.as_signature jt) >>= fun ((ctx1,s),hyps1) ->
+    infer c2 >>= as_list ~loc >>= fun vs ->
+    Value.lookup_signature s >>= begin function
+      | None -> Error.impossible ~loc "evaluating a structure of unknown signature %t"
+                                 (Name.print_ident s)
+      | Some lxts ->
+        let rec fold ctx es vs lxts =
+          match vs, lxts with
+            | [], [] ->
+              let es = List.rev es in
+              let str = Tt.mk_structure ~loc s es in
+              let str = Tt.mention_atoms hyps1 str in
+              Value.lookup_penv >>= fun penv ->
+              let ctx = Context.join ~penv ~loc ctx ctx1 in
+              let j_str = Jdg.mk_term ctx str target in
+              Value.return_term j_str
+
+            | v :: vs, (lbl, _, t) :: lxts ->
+              as_term ~loc v >>= fun (Jdg.Term (_,e,_) as je) ->
+              let t_inst = Tt.instantiate_ty es t in
+              require_equal_ty ~loc (Jdg.mk_ty ctx t_inst) (Jdg.typeof je) >>= begin function
+                | Some (ctx,hyps) ->
+                  let e = Tt.mention_atoms hyps e in
+                  (fold ctx (e::es) vs lxts)
+                | None ->
+                  Value.print_term >>= fun pte ->
+                  Value.print_ty >>= fun pty ->
+                  Error.typing ~loc:e.Tt.loc "the expression %t should have type@ %t@ but has type@ %t"
+                               (pte e) (pty t_inst) (pty (let Jdg.Term (_,_,t) = je in t))
+              end
+
+            | _::_, [] -> Error.typing ~loc "this structure has too many fields"
+            | [], _::_ -> Error.typing ~loc "this structure has too few fields"
+        in
+        fold Context.empty [] vs lxts
+    end
+
+
+  | Syntax.GenProj (c1,c2) ->
+    infer c2 >>= as_ident ~loc >>= fun l ->
+    infer_projection ~loc c1 l
 
 and require_equal ctx e1 e2 t =
   Equal.Opt.run (Equal.equal ctx e1 e2 t)
@@ -357,6 +394,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Eq _
   | Syntax.Apply _
   | Syntax.Signature _
+  | Syntax.Structure _
   | Syntax.Projection _
   | Syntax.Yield _
   | Syntax.Context
@@ -367,7 +405,8 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Update _
   | Syntax.Sequence _
   | Syntax.String _
-  | Syntax.Structure _ ->
+  | Syntax.GenStruct _
+  | Syntax.GenProj _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
@@ -532,6 +571,23 @@ and apply ~loc (Jdg.Term (_, h, _) as jh) c =
   let out = Tt.instantiate_ty [e] b in
   let j = Jdg.mk_term ctx res out in
   Value.return_term j
+
+and infer_projection ~loc c p =
+  infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,te,ty)) ->
+  let jty = Jdg.mk_ty ctx ty in
+  Equal.Monad.run (Equal.as_signature jty) >>= fun ((ctx,s),hyps) ->
+  let te = Tt.mention_atoms hyps te in
+  Value.lookup_signature s >>= function
+    | None -> Error.impossible ~loc "projecting at unknown signature %t" (Name.print_ident s)
+    | Some s_def ->
+       (if not (List.exists (fun (l,_,_) -> Name.eq_ident p l) s_def)
+       then Error.typing ~loc "Cannot project field %t from signature %t: no such field"
+                         (Name.print_ident p) (Name.print_ident s));
+       let ty = Tt.field_type ~loc s s_def te p in
+       let te = Tt.mk_projection ~loc te s p in
+       let j = Jdg.mk_term ctx te ty in
+       Value.return_term j
+
 
 and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmp ->
   let rec fold vs = function

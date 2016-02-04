@@ -1,9 +1,5 @@
 #include_once "base.m31"
-#include "utils.m31"
-
-(* Poor man's debugging mechanism. *)
-data (!!) 1 
-let debug = fun x => print !! x
+#include_once "utils.m31"
 
 (* Operations for installing equality hints *)
 operation beta 1  (* Install a beta hint *)
@@ -468,10 +464,31 @@ let rec equality betas hints etas = handler
     let r = (with hint_provider betas hints etas handle equate a b) in
     yield r betas hints etas
 
-  | whnf ?e => fun betas hints =>
+  | whnf ?e => fun betas hints etas =>
     match (with equality betas hints etas handle whnf_eq betas e) with
       | (?eq, (?betas :: ?hints :: ?etas :: [])) =>
         yield eq betas hints etas
+    end
+
+  | as_prod ?e => fun betas hints etas =>
+    match (with equality betas hints etas handle whnf_eq betas e) with
+      | ((|- ?eq : _ == (forall (_), _)), (?betas :: ?hints :: ?etas :: [])) =>
+        yield (Some eq) betas hints etas
+      | (_, _) => yield None betas hints etas
+    end
+
+  | as_eq ?e => fun betas hints etas =>
+    match (with equality betas hints etas handle whnf_eq betas e) with
+      | ((|- ?eq : _ == (_ == _)), (?betas :: ?hints :: ?etas :: [])) =>
+        yield (Some eq) betas hints etas
+      | (_, _) => yield None betas hints etas
+    end
+
+  | as_signature ?e => fun betas hints etas =>
+    match (with equality betas hints etas handle whnf_eq betas e) with
+      | ((|- ?eq : _ == (_sig _)), (?betas :: ?hints :: ?etas :: [])) =>
+        yield (Some eq) betas hints etas
+      | (_, _) => yield None betas hints etas
     end
 
   | beta ?b => fun betas hints etas =>
@@ -495,8 +512,6 @@ let rec equality betas hints etas = handler
   | getetas => fun betas hints etas =>
     yield etas betas hints etas
 
-(* TODO | as_* *)
-
   | val ?v => fun betas hints etas => (v, betas :: hints :: etas :: [])
 
   | finally ?f => f betas hints etas
@@ -512,7 +527,22 @@ let equality_in = fun betas hints etas => handler
     end
 
   | whnf ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf_eq betas e) with
+    match (with equality betas hints etas handle whnf e) with
+      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+    end
+
+  | as_prod ?e => fun betas hints etas =>
+    match (with equality betas hints etas handle as_prod e) with
+      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+    end
+
+  | as_eq ?e => fun betas hints etas =>
+    match (with equality betas hints etas handle as_eq e) with
+      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+    end
+
+  | as_signature ?e => fun betas hints etas =>
+    match (with equality betas hints etas handle as_signature e) with
       | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
     end
 
@@ -577,22 +607,13 @@ handle
     with equality_in !top_betas !top_hints !top_etas handle whnf e
 
   | as_prod e =>
-    match (with equality_in !top_betas !top_hints !top_etas handle whnf e) with
-      | |- ?eq : _ == (forall (_ : _), _) => Some eq
-      | _ => None
-    end
+    with equality_in !top_betas !top_hints !top_etas handle as_prod e
 
   | as_eq e =>
-    match (with equality_in !top_betas !top_hints !top_etas handle whnf e) with
-      | |- ?eq : _ == (_ == _) => Some eq
-      | _ => None
-    end
+    with equality_in !top_betas !top_hints !top_etas handle as_eq e
 
-  | as_signature e => (* TODO no good way to match generic signature *)
-    let eq = 
-      with equality_in !top_betas !top_hints !top_etas handle whnf e
-    in
-    Some eq
+  | as_signature e =>
+    with equality_in !top_betas !top_hints !top_etas handle as_signature e
 
   | beta b =>
     match (with equality !top_betas !top_hints !top_etas handle beta b) with

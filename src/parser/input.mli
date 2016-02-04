@@ -22,6 +22,11 @@ and tt_pattern' =
   | Tt_Refl of tt_pattern
   | Tt_Structure of (Name.label * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
+  (** Generic matching *)
+  | Tt_GenSig of Name.ident option
+  | Tt_GenStruct of tt_pattern * Name.ident option
+  | Tt_GenProj of tt_pattern * Name.ident option
+  | Tt_GenAtom
 
 type pattern = pattern' * Location.t
 and pattern' =
@@ -73,6 +78,8 @@ and term' =
   | Context
   | Congruence of comp * comp
   | String of string
+  | GenStruct of comp * comp
+  | GenProj of comp * comp
 
 (** Sugared types *)
 and ty = term
