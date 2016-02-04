@@ -37,6 +37,7 @@ and value =
   | Tuple of value list
   | Ref of Store.key
   | String of string
+  | Ident of Name.ident
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a,'b) closure = Clos of ('a -> 'b result)
@@ -96,6 +97,7 @@ let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
 let mk_tuple lst = Tuple lst
 let mk_string s = String s
+let mk_ident x = Ident x
 
 let mk_closure0 (f : 'a -> 'b result) {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure' f env = mk_closure0 f env, env
@@ -172,43 +174,49 @@ let name_of v =
     | Tuple _ -> "a tuple"
     | Ref _ -> "a reference"
     | String _ -> "a string"
+    | Ident _ -> "an identifier"
 
 (** Coerce values *)
 let as_term ~loc = function
   | Term e -> e
-  | (Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
+  | (Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_closure ~loc = function
   | Closure f -> f
-  | (Term _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
+  | (Term _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a closure but got %s" (name_of v)
 
 let as_handler ~loc = function
   | Handler h -> h
-  | (Term _ | Closure _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
+  | (Term _ | Closure _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a handler but got %s" (name_of v)
 
 let as_ref ~loc = function
   | Ref v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | String _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a ref but got %s" (name_of v)
 
 let as_string ~loc = function
   | String v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | Ident _) as v ->
     Error.runtime ~loc "expected a string but got %s" (name_of v)
+
+let as_ident ~loc = function
+  | Ident v -> v
+  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
+    Error.runtime ~loc "expected an identifier but got %s" (name_of v)
 
 let as_option ~loc = function
   | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
-  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
 (** Wrappers for making tags *)
 let as_list ~loc = function
   | List lst -> lst
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a list but got %s" (name_of v)
 
 let from_option = function
@@ -449,6 +457,7 @@ and print_value ~penv ?max_level refs v ppf =
   | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t := %t"
                          (Store.print_key v) (print_value ~penv ~max_level:0 refs (Store.lookup v refs))
   | String s -> Print.print ?max_level ~at_level:0 ppf "\"%s\"" s
+  | Ident x -> Name.print_ident x ppf
 
 let top_print_value env =
   (fun ?max_level -> print_value ~penv:(get_penv env) ?max_level env.state),env
@@ -609,18 +618,23 @@ let rec equal_value v1 v2 =
     | String s1, String s2 ->
       s1 = s2
 
+    | Ident x1, Ident x2 ->
+      Name.eq_ident x1 x2
+
     | Closure _, Closure _
     | Handler _, Handler _ ->
        (* XXX should we use physical comparison == instead? *)
        false
 
     (* At some level the following is a bit ridiculous *)
-    | Term _, (Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _)
-    | Closure _, (Term _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _)
-    | Handler _, (Term _ | Closure _ | Tag _ | List _ | Tuple _ | Ref _ | String _)
-    | Tag _, (Term _ | Closure _ | Handler _ | List _ | Tuple _ | Ref _ | String _)
-    | List _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _ | String _)
-    | String _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _)
-    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | String _) ->
+    | Term _, (Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _)
+    | Closure _, (Term _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _)
+    | Handler _, (Term _ | Closure _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _)
+    | Tag _, (Term _ | Closure _ | Handler _ | List _ | Tuple _ | Ref _ | String _ | Ident _)
+    | List _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _)
+    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _ | String _ | Ident _)
+    | String _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | Ident _)
+    | Ident _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _)
+    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | String _ | Ident _) ->
       false
+

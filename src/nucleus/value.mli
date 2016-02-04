@@ -23,6 +23,7 @@ type value = private
   | Tuple of value list
   | Ref of Store.key
   | String of string (** NB: strings are opaque to the user, ie not lists *)
+  | Ident of Name.ident
 
 and operation_args = { args : value list; checking : Jdg.ty option; cont : (value,value) closure }
 
@@ -47,6 +48,7 @@ val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
 val mk_tuple : value list -> value
 val mk_string : string -> value
+val mk_ident : Name.ident -> value
 
 val mk_closure' : ('a -> 'b result) -> ('a,'b) closure toplevel
 
@@ -95,6 +97,7 @@ val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> Store.key
 val as_string : loc:Location.t -> value -> string
+val as_ident : loc:Location.t -> value -> Name.ident
 
 val as_option : loc:Location.t -> value -> value option
 val as_list : loc:Location.t -> value -> value list

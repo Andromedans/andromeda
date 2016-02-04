@@ -34,8 +34,8 @@ let as_list ~loc v =
   let lst = Value.as_list ~loc v in
   Value.return lst
 
-let as_string ~loc v =
-  let s = Value.as_string ~loc v in
+let as_ident ~loc v =
+  let s = Value.as_ident ~loc v in
   Value.return s
 
 
@@ -234,7 +234,7 @@ let rec infer (c',loc) =
         infer c2 >>= fun v ->
         Value.apply_closure f v
       | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Tuple _ |
-        Value.Ref _ | Value.String _ as h ->
+        Value.Ref _ | Value.String _ | Value.Ident _ as h ->
         Error.runtime ~loc "cannot apply %s" (Value.name_of h)
     end
 
@@ -361,8 +361,7 @@ let rec infer (c',loc) =
 
 
   | Syntax.GenProj (c1,c2) ->
-    infer c2 >>= as_string ~loc >>= fun s ->
-    let l = Name.make s in
+    infer c2 >>= as_ident ~loc >>= fun l ->
     infer_projection ~loc c1 l
 
 and require_equal ctx e1 e2 t =

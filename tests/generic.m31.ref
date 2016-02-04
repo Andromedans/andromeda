@@ -1,38 +1,42 @@
 Signature cat is declared.
+person_id is defined.
+pet_id is defined.
 Constant dwarf is declared.
 Constant urist is declared.
 ankle is defined.
 ⊢ {person = dwarf, pet = urist} : cat
 [(⊢ dwarf : Type), (⊢ urist : dwarf)]
-[("person", (person₁₂ : Type 
-             ⊢ person₁₂ : Type), (⊢ Type : Type)),
- ("pet",
-  (person₁₂ : Type 
-   pet₁₃ : person₁₂ 
-   ⊢ pet₁₃ : person₁₂),
-  (person₁₂ : Type 
-   ⊢ person₁₂ : Type))]
-((⊢ {person = dwarf, pet = urist} : cat), "pet")
+[(person, (person₁₆ : Type 
+           ⊢ person₁₆ : Type), (⊢ Type : Type)),
+ (pet,
+  (person₁₆ : Type 
+   pet₁₇ : person₁₆ 
+   ⊢ pet₁₇ : person₁₆),
+  (person₁₆ : Type 
+   ⊢ person₁₆ : Type))]
+((⊢ {person = dwarf, pet = urist} : cat), pet)
 tt
 ⊢ {person = dwarf, pet = urist} : cat
 The command failed with error:
-File "./generic.m31", line 30, characters 25-29: Typing error
+File "./generic.m31", line 33, characters 25-29: Typing error
   the expression dwarf should have type dwarf but has type Type
 Constant A is declared.
-eq₁₄ : A ≡ cat 
+eq₁₈ : A ≡ cat 
 ⊢ {person = dwarf, pet = urist} : A
 ⊢ {person = dwarf, pet = urist}.pet : {person = dwarf, pet = urist}.person
 first_proj is defined.
 ⊢ {person = dwarf, pet = urist}.person : Type
 last_proj is defined.
 ⊢ {person = dwarf, pet = urist}.pet : {person = dwarf, pet = urist}.person
+Signature treasure is declared.
+gold_id is defined.
 The command failed with error:
-File "./generic.m31", line 6, characters 18-22: Typing error
+File "./generic.m31", line 9, characters 18-22: Typing error
   this expression should be a signature, found dwarf
 The command failed with error:
-File "./generic.m31", line 61, characters 6-23: Typing error
+File "./generic.m31", line 68, characters 6-24: Typing error
   Cannot project field gold from signature cat: no such field
 tt
 The command failed with error:
-File "./generic.m31", lines 67-69, characters 6-5: Runtime error
+File "./generic.m31", lines 74-76, characters 6-5: Runtime error
   no match found for ⊢ {person = dwarf, pet = urist} : cat

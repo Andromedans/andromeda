@@ -129,12 +129,12 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             (* Build the value to be bound to [k] *)
             let rec fold ctx ys vs = function
               | [] -> Value.from_list (List.rev vs)
-              | (Name.Ident (l,_),x,a)::xts ->
+              | (l,x,a)::xts ->
                 let a = Tt.unabstract_ty ys a in
                 let va = Value.mk_term (Jdg.term_of_ty (Jdg.mk_ty ctx a)) in
                 let y, ctx = Context.add_fresh ctx x a in
                 let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) a) in
-                let vl = Value.mk_string l in
+                let vl = Value.mk_ident l in
                 let v = Value.mk_tuple [vl;yt;va] in
                 fold ctx (y::ys) (v::vs) xts
             in
@@ -154,7 +154,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             (* Build the value to be bound to [k] *)
             let rec fold fs vs xts es = match xts,es with
               | [], [] -> Value.from_list (List.rev vs)
-              | (Name.Ident (l,_),_,a)::xts, e::es ->
+              | (_,_,a)::xts, e::es ->
                 let a = Tt.instantiate_ty fs a in
                 let v = Value.mk_term (Jdg.mk_term ctx e a) in
                 fold (e::fs) (v::vs) xts es
@@ -168,10 +168,10 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
       | None -> xvs
     end
 
-  | Syntax.Tt_GenProj (p,k), Tt.Projection (e,s,Name.Ident (l,_)) ->
+  | Syntax.Tt_GenProj (p,k), Tt.Projection (e,s,l) ->
     let xvs = match k with
       | Some k ->
-        let vl = Value.mk_string l in
+        let vl = Value.mk_ident l in
         update k vl xvs
       | None -> xvs
     in
@@ -223,15 +223,15 @@ let rec collect_pattern env xvs (p,loc) v =
     multicollect_pattern env xvs ps vs
 
   | Syntax.Patt_Jdg _, (Value.Closure _ | Value.Handler _ |
-                        Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
+                        Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _ | Value.Ident _)
   | Syntax.Patt_Data _, (Value.Term _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _)
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _ | Value.Ident _)
   | Syntax.Patt_Nil, (Value.Term _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_) | Value.Tuple _ | Value.String _)
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_) | Value.Tuple _ | Value.String _ | Value.Ident _)
   | Syntax.Patt_Cons _, (Value.Term _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List [] | Value.Tuple _ | Value.String _)
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List [] | Value.Tuple _ | Value.String _ | Value.Ident _)
   | Syntax.Patt_Tuple _, (Value.Term _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _ |
-                          Value.List _ | Value.String _) ->
+                          Value.List _ | Value.String _ | Value.Ident _) ->
      raise Match_fail
 
 and multicollect_pattern env xvs ps vs =
