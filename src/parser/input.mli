@@ -74,7 +74,7 @@ and term' =
   | Structure of (Name.ident * Name.ident option * comp) list
   | Projection of comp * Name.ident
   | Yield of comp
-  | Context
+  | Hypotheses
   | Congruence of comp * comp
   | Extensionality of comp * comp
   | Reduction of comp

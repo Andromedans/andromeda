@@ -441,8 +441,8 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     else
       Error.syntax ~loc "yield may only be used in a handler"
 
-  | Input.Context ->
-     Syntax.Context, loc
+  | Input.Hypotheses ->
+     Syntax.Hypotheses, loc
 
   | Input.Function (xs, c) ->
      let rec fold bound = function

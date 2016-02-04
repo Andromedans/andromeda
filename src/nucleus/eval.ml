@@ -284,7 +284,7 @@ let rec infer (c',loc) =
       | None -> Error.impossible ~loc "yield without continuation set"
       end
 
-  | Syntax.Context ->
+  | Syntax.Hypotheses ->
      Value.lookup_abstracting >>= fun lst ->
      let v = Value.from_list
                (List.map (fun jxt -> Value.mk_term jxt) lst) in
@@ -411,7 +411,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Structure _
   | Syntax.Projection _
   | Syntax.Yield _
-  | Syntax.Context
+  | Syntax.Hypotheses
   | Syntax.Congruence _
   | Syntax.Extensionality _
   | Syntax.Reduction _

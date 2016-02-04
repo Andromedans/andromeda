@@ -81,11 +81,11 @@ let slice =
       ctxExt = C.famExt Γ,
       famExt = λ A, C.famExt (C.ctxExt Γ A),
 
-      assocCtxExt = {},
-      assocFamExt = {},
-      emptyCtxExt = {},
-      emptyFamLeft = {},
-      emptyFamRight = {}
+      assocCtxExt = hippy,
+      assocFamExt = hippy,
+      emptyCtxExt = hippy,
+      emptyFamLeft = hippy,
+      emptyFamRight = hippy
     } : catWithTerms
   )
   : ∏ (C : catWithTerms), C.ctx → catWithTerms
