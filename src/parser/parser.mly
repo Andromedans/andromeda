@@ -14,11 +14,11 @@
 %token PROD LAMBDA
 
 (* Records *)
-%token <string> PROJECTION
+%token <Name.ident> PROJECTION
 %token AS
 
 (* Infix operations *)
-%token <string * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXOP2 INFIXOP3 INFIXOP4
+%token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXOP2 INFIXOP3 INFIXOP4
 
 (* Equality types *)
 %token EQEQ
@@ -26,7 +26,7 @@
 
 (* Names and numerals *)
 %token UNDERSCORE
-%token <string> NAME
+%token <Name.ident> NAME
 %token <int> NUMERAL
 
 (* Parentheses & punctuations *)
@@ -47,7 +47,7 @@
 (* Meta-level programming *)
 %token OPERATION
 %token DATA
-%token <string> PATTVAR
+%token <Name.ident> PATTVAR
 %token MATCH
 %token VDASH
 
@@ -179,15 +179,15 @@ plain_binop_term:
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
   | e1=binop_term COLONCOLON e2=binop_term          { Cons (e1, e2) }
   | e2=binop_term op=INFIXOP0 e3=binop_term
-    { let e1 = Var (Name.make ~fixity:Name.Infix0 (fst op)), snd op in Spine (e1, [e2; e3]) }
+    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
   | e2=binop_term op=INFIXOP1 e3=binop_term
-    { let e1 = Var (Name.make ~fixity:Name.Infix1 (fst op)), snd op in Spine (e1, [e2; e3]) }
+    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
   | e2=binop_term op=INFIXOP2 e3=binop_term
-    { let e1 = Var (Name.make ~fixity:Name.Infix2 (fst op)), snd op in Spine (e1, [e2; e3]) }
+    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
   | e2=binop_term op=INFIXOP3 e3=binop_term
-    { let e1 = Var (Name.make ~fixity:Name.Infix3 (fst op)), snd op in Spine (e1, [e2; e3]) }
+    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
   | e2=binop_term op=INFIXOP4 e3=binop_term
-    { let e1 = Var (Name.make ~fixity:Name.Infix4 (fst op)), snd op in Spine (e1, [e2; e3]) }
+    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
 
 app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
@@ -200,7 +200,7 @@ plain_prefix_term:
   | e=plain_simple_term                        { e }
   | REF e=prefix_term                          { Ref e }
   | BANG e=prefix_term                         { Lookup e }
-  | op=PREFIXOP e2=prefix_term                 { let e1 = Var (Name.make ~fixity:Name.Prefix (fst op)), snd op in
+  | op=PREFIXOP e2=prefix_term                 { let e1 = Var (fst op), snd op in
                                                  Spine (e1, [e2]) }
   | REDUCE t=prefix_term                       { Reduce t }
   | YIELD e=prefix_term                        { Yield e }
@@ -220,17 +220,17 @@ plain_simple_term:
                                                           | _ -> Tuple lst }
   | LBRACE lst=separated_list(COMMA, structure_clause) RBRACE
                                                         { Structure lst }
-  | e=simple_term p=PROJECTION                          { Projection (e, Name.make p) }
+  | e=simple_term p=PROJECTION                          { Projection (e, p) }
   | CONTEXT                                             { Context }
 
 var_name:
-  | NAME { Name.make $1 }
-  | LPAREN op=PREFIXOP RPAREN  { Name.make ~fixity:Name.Prefix (fst op) }
-  | LPAREN op=INFIXOP0 RPAREN  { Name.make ~fixity:Name.Infix0 (fst op) }
-  | LPAREN op=INFIXOP1 RPAREN  { Name.make ~fixity:Name.Infix1 (fst op) }
-  | LPAREN op=INFIXOP2 RPAREN  { Name.make ~fixity:Name.Infix2 (fst op) }
-  | LPAREN op=INFIXOP3 RPAREN  { Name.make ~fixity:Name.Infix3 (fst op) }
-  | LPAREN op=INFIXOP4 RPAREN  { Name.make ~fixity:Name.Infix4 (fst op) }
+  | NAME { $1 }
+  | LPAREN op=PREFIXOP RPAREN  { fst op }
+  | LPAREN op=INFIXOP0 RPAREN  { fst op }
+  | LPAREN op=INFIXOP1 RPAREN  { fst op }
+  | LPAREN op=INFIXOP2 RPAREN  { fst op }
+  | LPAREN op=INFIXOP3 RPAREN  { fst op }
+  | LPAREN op=INFIXOP4 RPAREN  { fst op }
 
 name:
   | x=var_name { x }
@@ -277,17 +277,17 @@ handler_case:
   | VAL p=pattern DARROW t=term                                 { CaseVal (p, t) }
   | op=var_name ps=prefix_pattern* pt=handler_checking DARROW t=term                { CaseOp (op, (ps, pt, t)) }
   | op=PREFIXOP p=prefix_pattern pt=handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Prefix (fst op) in CaseOp (op, ([p], pt, t)) }
+    { let op = fst op in CaseOp (op, ([p], pt, t)) }
   | p1=binop_pattern op=INFIXOP0 p2=binop_pattern pt=handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix0 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
+    { CaseOp (fst op, ([p1; p2], pt, t)) }
   | p1=binop_pattern op=INFIXOP1 p2=binop_pattern pt=handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix1 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
+    { CaseOp (fst op, ([p1; p2], pt, t)) }
   | p1=binop_pattern op=INFIXOP2 p2=binop_pattern pt=handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix2 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
+    { CaseOp (fst op, ([p1; p2], pt, t)) }
   | p1=binop_pattern op=INFIXOP3 p2=binop_pattern pt=handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix3 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
+    { CaseOp (fst op, ([p1; p2], pt, t)) }
   | p1=binop_pattern op=INFIXOP4 p2=binop_pattern pt=handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix4 (fst op) in CaseOp (op, ([p1; p2], pt, t)) }
+    { CaseOp (fst op, ([p1; p2], pt, t)) }
   | FINALLY p=pattern DARROW t=term                             { CaseFinally (p, t) }
 
 handler_checking:
@@ -302,17 +302,17 @@ top_handler_cases:
 top_handler_case:
   | op=var_name xs=name* y=top_handler_checking DARROW t=term           { (op, (xs, y, t)) }
   | op=PREFIXOP x=name y=top_handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Prefix (fst op) in (op, ([x], y, t)) }
+    { (fst op, ([x], y, t)) }
   | x1=name op=INFIXOP0 x2=name y=top_handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix0 (fst op) in (op, ([x1;x2], y, t)) }
+    { (fst op, ([x1;x2], y, t)) }
   | x1=name op=INFIXOP1 x2=name y=top_handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix1 (fst op) in (op, ([x1;x2], y, t)) }
+    { (fst op, ([x1;x2], y, t)) }
   | x1=name op=INFIXOP2 x2=name y=top_handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix2 (fst op) in (op, ([x1;x2], y, t)) }
+    { (fst op, ([x1;x2], y, t)) }
   | x1=name op=INFIXOP3 x2=name y=top_handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix3 (fst op) in (op, ([x1;x2], y, t)) }
+    { (fst op, ([x1;x2], y, t)) }
   | x1=name op=INFIXOP4 x2=name y=top_handler_checking DARROW t=term
-    { let op = Name.make ~fixity:Name.Infix4 (fst op) in (op, ([x1;x2], y, t)) }
+    { (fst op, ([x1;x2], y, t)) }
 
 top_handler_checking:
   |              { None }
@@ -338,17 +338,17 @@ binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
   | e=plain_app_pattern                                { e }
   | e1=binop_pattern op=INFIXOP0 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix0 (fst op) in Patt_Data (op, [e1; e2]) }
+    { Patt_Data (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP1 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix1 (fst op) in Patt_Data (op, [e1; e2]) }
+    { Patt_Data (fst op, [e1; e2]) }
   | e1=binop_pattern COLONCOLON  e2=binop_pattern
     { Patt_Cons (e1, e2) }
   | e1=binop_pattern op=INFIXOP2 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix2 (fst op) in Patt_Data (op, [e1; e2]) }
+    { Patt_Data (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP3 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix3 (fst op) in Patt_Data (op, [e1; e2]) }
+    { Patt_Data (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP4 e2=binop_pattern
-    { let op = Name.make ~fixity:Name.Infix4 (fst op) in Patt_Data (op, [e1; e2]) }
+    { Patt_Data (fst op, [e1; e2]) }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
 plain_app_pattern:
@@ -358,7 +358,7 @@ plain_app_pattern:
 prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
 plain_prefix_pattern:
   | e=plain_simple_pattern           { e }
-  | op=PREFIXOP e=prefix_pattern     { let op = Name.make ~fixity:Name.Prefix (fst op) in 
+  | op=PREFIXOP e=prefix_pattern     { let op = fst op in 
                                        Patt_Data (op, [e]) }
 
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
@@ -391,15 +391,15 @@ binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
 plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
   | e1=binop_tt_pattern op=INFIXOP0 e2=binop_tt_pattern
-    { let op = Tt_Name (Name.make ~fixity:Name.Infix0 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
+    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
   | e1=binop_tt_pattern op=INFIXOP1 e2=binop_tt_pattern
-    { let op = Tt_Name (Name.make ~fixity:Name.Infix1 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
+    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
   | e1=binop_tt_pattern op=INFIXOP2 e2=binop_tt_pattern
-    { let op = Tt_Name (Name.make ~fixity:Name.Infix2 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
+    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
   | e1=binop_tt_pattern op=INFIXOP3 e2=binop_tt_pattern
-    { let op = Tt_Name (Name.make ~fixity:Name.Infix3 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
+    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
   | e1=binop_tt_pattern op=INFIXOP4 e2=binop_tt_pattern
-    { let op = Tt_Name (Name.make ~fixity:Name.Infix4 (fst op)), snd op in fst (tt_spine op [e1; e2]) }
+    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
 
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
@@ -415,7 +415,7 @@ plain_prefix_tt_pattern:
   | USTRUCT x=patt_maybe_var                    { Tt_GenStruct x }
   | UPROJ p=simple_tt_pattern l=patt_maybe_var  { Tt_GenProj (p,l) }
   | op=PREFIXOP e=prefix_tt_pattern
-    { let op = Tt_Name (Name.make ~fixity:Name.Infix4 (fst op)), snd op in Tt_Apply (op, e) }
+    { let op = Tt_Name (fst op), snd op in Tt_Apply (op, e) }
 
 simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:
@@ -425,7 +425,7 @@ plain_simple_tt_pattern:
   | x=var_name                                                           { Tt_Name x }
   | LPAREN p=plain_tt_pattern RPAREN                                     { p }
   | LBRACE ps=separated_list(COMMA, tt_structure_clause) RBRACE          { Tt_Structure ps }
-  | p=simple_tt_pattern lbl=PROJECTION                                   { Tt_Projection (p, Name.make lbl) }
+  | p=simple_tt_pattern lbl=PROJECTION                                   { Tt_Projection (p, lbl) }
 
 tt_structure_clause:
   | l=name EQ c=tt_pattern              { (l, c) }
@@ -448,7 +448,7 @@ patt_maybe_var:
   | UNDERSCORE                   { None }
 
 patt_var:
-  | x=PATTVAR                    { Name.make x }
+  | x=PATTVAR                    { x }
 
 mark_location(X):
   x=X

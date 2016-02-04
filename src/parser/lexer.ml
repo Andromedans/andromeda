@@ -111,8 +111,12 @@ and token_aux ({ stream;_ } as lexbuf) =
   | ':'                      -> f (); COLON
   | "::"                     -> f (); COLONCOLON
   | ','                      -> f (); COMMA
-  | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
-  | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
+  | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in
+                                               let s = String.sub s 1 (String.length s - 1) in
+                                               Name.make s)
+  | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in
+                                                  let s = String.sub s 1 (String.length s - 1) in
+                                                  Name.make s)
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
   | "->" | 8594 | 10230      -> f (); ARROW
@@ -121,19 +125,25 @@ and token_aux ({ stream;_ } as lexbuf) =
   | '!'                      -> f (); BANG
   | ":="                     -> f (); COLONEQ
   | ';'                      -> f (); SEMICOLON
-  | prefixop                 -> f (); PREFIXOP (lexeme lexbuf, Location.of_lexeme lexbuf)
-  | infixop0                 -> f (); INFIXOP0 (lexeme lexbuf, Location.of_lexeme lexbuf)
-  | infixop1                 -> f (); INFIXOP1 (lexeme lexbuf, Location.of_lexeme lexbuf)
-  | infixop2                 -> f (); INFIXOP2 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | prefixop                 -> f (); PREFIXOP (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Prefix s, Location.of_lexeme lexbuf)
+  | infixop0                 -> f (); INFIXOP0 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix0 s, Location.of_lexeme lexbuf)
+  | infixop1                 -> f (); INFIXOP1 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix1 s, Location.of_lexeme lexbuf)
+  | infixop2                 -> f (); INFIXOP2 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix2 s, Location.of_lexeme lexbuf)
   (* Comes before infixop3 because ** matches the infixop3 pattern too *)
-  | infixop4                 -> f (); INFIXOP4 (lexeme lexbuf, Location.of_lexeme lexbuf)
-  | infixop3                 -> f (); INFIXOP3 (lexeme lexbuf, Location.of_lexeme lexbuf)
+  | infixop4                 -> f (); INFIXOP4 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix4 s, Location.of_lexeme lexbuf)
+  | infixop3                 -> f (); INFIXOP3 (let s = lexeme lexbuf in
+                                                Name.make ~fixity:Name.Infix3 s, Location.of_lexeme lexbuf)
 
   | eof                      -> f (); EOF
   | name                     -> f ();
     let n = lexeme lexbuf in
     begin try List.assoc n reserved
-    with Not_found -> NAME n
+    with Not_found -> NAME (Name.make n)
     end
   | numeral                  -> f (); let k = int_of_string (lexeme lexbuf) in NUMERAL k
   | any -> f ();
