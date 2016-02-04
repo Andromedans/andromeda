@@ -32,3 +32,7 @@ File "./generic.m31", line 6, characters 18-22: Typing error
 The command failed with error:
 File "./generic.m31", line 61, characters 6-23: Typing error
   Cannot project field gold from signature cat: no such field
+tt
+The command failed with error:
+File "./generic.m31", lines 67-69, characters 6-5: Runtime error
+  no match found for ⊢ {person = dwarf, pet = urist} : cat

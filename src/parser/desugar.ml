@@ -179,6 +179,9 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       let p, vars, n = tt_pattern env bound vars n p in
       (Syntax.Tt_GenProj (p,i), loc), vars, n
 
+    | Input.Tt_GenAtom ->
+      (Syntax.Tt_GenAtom, loc), vars, n
+
 let rec pattern (env : Value.env) bound vars n (p,loc) =
   match p with
     | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), vars, n

@@ -60,3 +60,11 @@ fail _proj urist "gold"
 
 fail _proj ankle "gold"
 
+do match assume x : A in x with
+  |- _atom => tt
+  end
+
+fail match ankle with
+  |- _atom => tt
+  end
+

@@ -23,6 +23,7 @@ and tt_pattern' =
   | Tt_GenSig of bound option
   | Tt_GenStruct of bound option
   | Tt_GenProj of tt_pattern * bound option
+  | Tt_GenAtom
 
 type pattern = pattern' * Location.t
 and pattern' =

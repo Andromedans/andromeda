@@ -179,12 +179,15 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
     in
     collect_tt_pattern env xvs p ctx e (Tt.mk_signature_ty ~loc s)
 
+  | Syntax.Tt_GenAtom, Tt.Atom _ -> xvs
+
   | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Apply _
      | Syntax.Tt_Lambda _ | Syntax.Tt_Prod _
      | Syntax.Tt_Eq _ | Syntax.Tt_Refl _
      | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
      | Syntax.Tt_Projection _
-     | Syntax.Tt_GenSig _ | Syntax.Tt_GenStruct _ | Syntax.Tt_GenProj _) , _ ->
+     | Syntax.Tt_GenSig _ | Syntax.Tt_GenStruct _ | Syntax.Tt_GenProj _
+     | Syntax.Tt_GenAtom) , _ ->
      raise Match_fail
 
 let rec collect_pattern env xvs (p,loc) v =

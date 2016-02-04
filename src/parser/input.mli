@@ -26,6 +26,7 @@ and tt_pattern' =
   | Tt_GenSig of Name.ident option
   | Tt_GenStruct of Name.ident option
   | Tt_GenProj of tt_pattern * Name.ident option
+  | Tt_GenAtom
 
 type pattern = pattern' * Location.t
 and pattern' =

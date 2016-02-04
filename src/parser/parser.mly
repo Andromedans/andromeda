@@ -58,7 +58,7 @@
 
 %token EXTERNAL
 
-%token USIG USTRUCT UPROJ
+%token USIG USTRUCT UPROJ UATOM
 
 (* REFERENCES *)
 %token BANG COLONEQ REF
@@ -418,6 +418,7 @@ plain_prefix_tt_pattern:
 simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:
   | UNDERSCORE                                                           { Tt_Anonymous }
+  | UATOM                                                                { Tt_GenAtom }
   | TYPE                                                                 { Tt_Type }
   | x=patt_var                                                           { Tt_Var x }
   | x=var_name                                                           { Tt_Name x }
