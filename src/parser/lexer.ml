@@ -26,12 +26,8 @@ let reserved = [
   ("reduce", REDUCE) ;
   ("forall", PROD) ;
   ("yield", YIELD) ;
-  ("∀", PROD) ;
-  ("Π", PROD) ;
-  ("∏", PROD) ;
   ("fun", FUNCTION) ;
   ("lambda", LAMBDA) ;
-  ("λ", LAMBDA) ;
   ("in", IN) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
@@ -41,19 +37,23 @@ let reserved = [
   ("Type", TYPE) ;
   ("typeof", TYPEOF) ;
   ("val", VAL) ;
-  ("⊢", VDASH) ;
   ("where", WHERE) ;
-  ("with", WITH)
+  ("with", WITH) ;
+  ("∀", PROD) ;
+  ("Π", PROD) ;
+  ("∏", PROD) ;
+  ("λ", LAMBDA) ;
+  ("⊢", VDASH)
 ]
 
 let ascii_name =
   [%sedlex.regexp? ('_' | 'a'..'z' | 'A'..'Z') ,
                  Star ('_' | 'a'..'z' | 'A'..'Z' | '0'..'9' | '\'')]
 let name =
-  [%sedlex.regexp? ('_' | alphabetic | math),
-                 Star ('_' | alphabetic | math
+  [%sedlex.regexp? (('_' | alphabetic),
+                 Star ('_' | alphabetic
                       | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
-                      | '0'..'9' | '\'')]
+                      | '0'..'9' | '\'')) | math]
 
 let digit = [%sedlex.regexp? '0'..'9']
 let numeral = [%sedlex.regexp? Plus digit]
@@ -114,9 +114,7 @@ and token_aux ({ stream;_ } as lexbuf) =
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in
                                                let s = String.sub s 1 (String.length s - 1) in
                                                Name.make s)
-  | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in
-                                                  let s = String.sub s 1 (String.length s - 1) in
-                                                  Name.make s)
+  | '.'                      -> f (); DOT
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
   | "->" | 8594 | 10230      -> f (); ARROW

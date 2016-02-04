@@ -42,3 +42,15 @@ handle | ? x => x + a end
 
 do ? b
 
+signature monoid = { T : Type, (+) : T -> T -> T, assoc : forall x y z : T, x + (y + z) == (x + y) + z }
+
+constant unit_singleton : forall x y : unit, x == y
+let _ = add_eta unit_singleton
+
+let unit_mon = { T = unit, (+) = lambda x y, {}, assoc = lambda x y z, unit_singleton (x + (y + z)) ((x + y) + z) }
+
+let (++) = unit_mon.(+)
+let ( * ) = unit_mon . ( + )
+
+do refl (++) : (++) == ( * )
+

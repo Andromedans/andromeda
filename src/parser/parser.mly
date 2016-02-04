@@ -13,10 +13,6 @@
 (* Products *)
 %token PROD LAMBDA
 
-(* Records *)
-%token <Name.ident> PROJECTION
-%token AS
-
 (* Infix operations *)
 %token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXOP2 INFIXOP3 INFIXOP4
 
@@ -35,6 +31,7 @@
 %token LBRACK RBRACK
 %token COLON COLONCOLON COMMA
 %token ARROW DARROW
+%token DOT
 
 (* Things specific to toplevel *)
 %token DO FAIL
@@ -49,6 +46,7 @@
 %token DATA
 %token <Name.ident> PATTVAR
 %token MATCH
+%token AS
 %token VDASH
 
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
@@ -220,7 +218,7 @@ plain_simple_term:
                                                           | _ -> Tuple lst }
   | LBRACE lst=separated_list(COMMA, structure_clause) RBRACE
                                                         { Structure lst }
-  | e=simple_term p=PROJECTION                          { Projection (e, p) }
+  | e=simple_term DOT p=var_name                        { Projection (e, p) }
   | CONTEXT                                             { Context }
 
 var_name:
@@ -425,7 +423,7 @@ plain_simple_tt_pattern:
   | x=var_name                                                           { Tt_Name x }
   | LPAREN p=plain_tt_pattern RPAREN                                     { p }
   | LBRACE ps=separated_list(COMMA, tt_structure_clause) RBRACE          { Tt_Structure ps }
-  | p=simple_tt_pattern lbl=PROJECTION                                   { Tt_Projection (p, lbl) }
+  | p=simple_tt_pattern DOT lbl=var_name                                 { Tt_Projection (p, lbl) }
 
 tt_structure_clause:
   | l=name EQ c=tt_pattern              { (l, c) }
