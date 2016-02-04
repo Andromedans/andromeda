@@ -10,7 +10,8 @@ Constant projT1_beta is declared.
 ⊢ projT1_beta
   : Π (A0 : Type),
       Π (B0 : A0 → Type),
-        Π (a0 : A0),Π (b0 : B0 a0),projT1 A0 B0 (existT A0 B0 a0 b0) ≡ a0
+        Π (a0 : A0),
+          Π (b0 : B0 a0), projT1 A0 B0 (existT A0 B0 a0 b0) ≡ a0
 ⊢ refl a : projT1 A B (existT A B a b) ≡ a
 Constant projT2_beta is declared.
 ⊢ refl b : projT2 A B (existT A B a b) ≡ b
@@ -25,7 +26,7 @@ projT1' is defined.
             ((λ (X : Type), λ (Y : X → Type), λ (x : X), λ (y : Y x), x)
                A0 B0) s
   : Π (A0 : Type),
-      Π (B0 : A0 → Type),Π (s : sigT A0 B0),(λ (_ : sigT A0 B0), A0) s
+      Π (B0 : A0 → Type), Π (s : sigT A0 B0), (λ (_ : sigT A0 B0), A0) s
 ⊢ refl a
   : a
       ≡ (λ (A0 : Type),

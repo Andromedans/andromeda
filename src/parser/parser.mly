@@ -35,7 +35,7 @@
 
 (* Things specific to toplevel *)
 %token DO FAIL
-%token CONSTANT REDUCE
+%token CONSTANT
 %token SIGNATURE
 
 (* Let binding *)
@@ -53,8 +53,9 @@
 %token SEMICOLON
 
 %token CONGRUENCE
+%token REDUCTION
+%token EXTENSIONALITY
 %token CONTEXT
-%token TYPEOF
 
 %token EXTERNAL
 
@@ -192,6 +193,7 @@ plain_app_term:
   | e=plain_prefix_term                             { e }
   | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
   | CONGRUENCE t1=prefix_term t2=prefix_term        { Congruence (t1,t2) }
+  | EXTENSIONALITY t1=prefix_term t2=prefix_term    { Extensionality (t1,t2) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:
@@ -200,9 +202,8 @@ plain_prefix_term:
   | BANG e=prefix_term                         { Lookup e }
   | op=PREFIXOP e2=prefix_term                 { let e1 = Var (fst op), snd op in
                                                  Spine (e1, [e2]) }
-  | REDUCE t=prefix_term                       { Reduce t }
+  | REDUCTION t=prefix_term                    { Reduction t }
   | YIELD e=prefix_term                        { Yield e }
-  | TYPEOF t=prefix_term                       { Typeof t }
   | REFL e=prefix_term                         { Refl e }
 
 simple_term: mark_location(plain_simple_term) { $1 }

@@ -403,7 +403,7 @@ let print_binder1  ~penv print_u x u ppf =
 
 let print_binders ~penv print_xu print_v (x,u) ppf =
   let x = Name.refresh penv.forbidden x in
-  Print.print ppf "%t,@,%t"
+  Print.print ppf "%t,@ %t"
     (print_xu ~penv x u)
     (print_v ~penv:(add_forbidden x penv))
 
@@ -478,7 +478,7 @@ and print_lambda penv (yus, (e, t)) ppf =
     (Print.char_lambda ())
     (print_binders ~penv
       (print_binder1 (print_ty ~max_level:999))
-      (fun ~penv ppf -> Print.print ppf "%t@ %t"
+      (fun ~penv ppf -> Print.print ppf "%t%t"
         (print_annot (print_ty ~penv t))
         (print_term ~penv e))
       yus)

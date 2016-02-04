@@ -17,6 +17,7 @@ let reserved = [
   ("data", DATA) ;
   ("do", DO) ;
   ("end", END) ;
+  ("extensionality", EXTENSIONALITY) ;
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
   ("fail", FAIL) ;
@@ -24,7 +25,7 @@ let reserved = [
   ("handler", HANDLER) ;
   ("let", LET) ;
   ("match", MATCH) ;
-  ("reduce", REDUCE) ;
+  ("reduction", REDUCTION) ;
   ("forall", PROD) ;
   ("yield", YIELD) ;
   ("fun", FUNCTION) ;
@@ -36,7 +37,6 @@ let reserved = [
   ("refl", REFL) ;
   ("signature", SIGNATURE) ;
   ("Type", TYPE) ;
-  ("typeof", TYPEOF) ;
   ("val", VAL) ;
   ("where", WHERE) ;
   ("with", WITH) ;
