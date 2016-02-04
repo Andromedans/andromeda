@@ -52,11 +52,14 @@ for FILE in $BASEDIR/*.m31
       if [ $VALIDATE = "1" ]
           then
           "$DIFF" "$FILE.out" "$FILE.ref"
-          read -p "Validate $FILE.out as new $FILE.ref? (y/n) [n] " ans
+          read -p "Validate $FILE.out as new $FILE.ref? (y/n/q) [n] " ans
           if [ "$ans" = "y" -o "$ans" = "Y" ]
           then
           mv "$FILE.out" "$FILE.ref"
           echo "Validated: $FILE"
+          elif [ "$ans" = "q" -o "$ans" = "Q" ]
+          then
+          exit 0
           fi
       fi
       fi
