@@ -3,6 +3,7 @@ open Parser
 open Ulexbuf
 
 let reserved = [
+  ("_", UNDERSCORE) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;
@@ -43,10 +44,10 @@ let reserved = [
 ]
 
 let ascii_name =
-  [%sedlex.regexp? ('a'..'z' | 'A'..'Z') ,
+  [%sedlex.regexp? ('_' | 'a'..'z' | 'A'..'Z') ,
                  Star ('_' | 'a'..'z' | 'A'..'Z' | '0'..'9' | '\'')]
 let name =
-  [%sedlex.regexp? (alphabetic | math),
+  [%sedlex.regexp? ('_' | alphabetic | math),
                  Star ('_' | alphabetic | math
                       | 185 | 178 | 179 | 8304 .. 8351 (* sub-/super-scripts *)
                       | '0'..'9' | '\'')]
@@ -109,7 +110,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | ','                      -> f (); COMMA
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
   | '.', name                -> f (); PROJECTION (let s = lexeme lexbuf in String.sub s 1 (String.length s - 1))
-  | '_'                      -> f (); UNDERSCORE
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
   | "->" | 8594 | 10230      -> f (); ARROW
