@@ -766,13 +766,18 @@ let rec exec_cmd base_dir interactive c =
      if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
      return ()
 
-  | Syntax.DeclConstant (x, c) ->
+  | Syntax.DeclConstants (xs, c) ->
      Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
       if Context.is_empty ctxt
       then
-        Value.add_constant ~loc x t >>= fun () ->
-        (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
-         return ())
+        let rec fold = function
+          | [] -> return ()
+          | x :: xs ->
+             Value.add_constant ~loc x t >>= fun () ->
+             (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
+              fold xs)
+        in
+        fold xs
       else
         Error.typing "Constants may not depend on free variables" ~loc:(snd c)
 

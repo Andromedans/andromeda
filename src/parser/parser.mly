@@ -119,7 +119,7 @@ plain_topcomp:
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
-  | CONSTANT x=name COLON u=term                      { DeclConstant (x, u)}
+  | CONSTANT xs=nonempty_list(name) COLON u=term      { DeclConstants (xs, u) }
   | SIGNATURE s=name EQ LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
                                                       { DeclSignature (s, lst) }
   | DATA x=name k=NUMERAL                             { DeclData (x, k) }

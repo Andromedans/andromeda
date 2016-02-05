@@ -662,9 +662,9 @@ let toplevel (env : Value.env) bound (d', loc) =
 
     | Input.DeclData (x, k) -> Syntax.DeclData (x, k)
 
-    | Input.DeclConstant (x, u) ->
+    | Input.DeclConstants (xs, u) ->
        let u = comp ~yield:false env bound u in
-       Syntax.DeclConstant (x, u)
+       Syntax.DeclConstants (xs, u)
 
     | Input.DeclSignature (s, lst) ->
        let rec fold bound labels res = function

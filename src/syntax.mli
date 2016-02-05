@@ -99,7 +99,7 @@ type toplevel = toplevel' * Location.t
 and toplevel' =
   | DeclOperation of Name.ident * int
   | DeclData of Name.ident * int
-  | DeclConstant of Name.ident * comp (** introduce a constant *)
+  | DeclConstants of Name.ident list * comp (** introduce constants *)
   | DeclSignature of Name.signature * (Name.label * Name.ident * comp) list
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of Name.ident * comp (** global let binding *)
