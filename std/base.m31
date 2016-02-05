@@ -4,7 +4,7 @@ signature unit = {}
 let print = external "print"
 
 (* Poor man's debugging mechanism. *)
-data (!!) 1 
+data (!!) 1
 let debug = fun x => print !! x
 
 (* Top-level handlers default to failure. *)
@@ -15,3 +15,4 @@ handle
   | as_signature _ => None
 end
 
+let (|>) = fun x f => f x
