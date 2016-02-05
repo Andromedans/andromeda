@@ -261,39 +261,34 @@ let top_get_env env = env,env
 
 let get_env env = Return env, env.state
 
-let lookup_decl x env =
-  let rec lookup = function
+let get_decl x env =
+  let rec get = function
     | [] -> None
     | (y,v) :: lst ->
-       if Name.eq_ident x y then Some v else lookup lst
+       if Name.eq_ident x y then Some v else get lst
   in
-  lookup env.dynamic.decls
+  get env.dynamic.decls
 
-let lookup_operation x env =
-  match lookup_decl x env with
+let get_operation x env =
+  match get_decl x env with
   | None -> None
   | Some (DeclOperation k) -> Some k
   | Some (DeclData _ | DeclConstant _ | DeclSignature _) -> None
 
-let lookup_data x env =
-  match lookup_decl x env with
+let get_data x env =
+  match get_decl x env with
   | None -> None
   | Some (DeclData k) -> Some k
   | Some (DeclOperation _ | DeclConstant _ | DeclSignature _) -> None
 
-let is_constant x env =
-  match lookup_decl x env with
-  | Some (DeclConstant c) -> true
-  | None | Some (DeclData _ | DeclOperation _ | DeclSignature _) -> false
-
 let get_constant x env =
-  match lookup_decl x env with
+  match get_decl x env with
   | None -> None
   | Some (DeclConstant c) -> Some c
   | Some (DeclData _ | DeclOperation _ | DeclSignature _) -> None
 
 let get_signature x env =
-  match lookup_decl x env with
+  match get_decl x env with
   | None -> None
   | Some (DeclSignature s) -> Some s
   | Some (DeclData _ | DeclOperation _ | DeclConstant _) -> None
@@ -360,7 +355,7 @@ let is_known x env =
       | (y,_) :: lst -> Name.eq_ident x y || is_bound lst
     in
     is_bound env.lexical.bound ||
-    (match lookup_decl x env with
+    (match get_decl x env with
      | None -> false
      | Some _ -> true)
 

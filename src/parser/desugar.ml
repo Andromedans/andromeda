@@ -54,7 +54,7 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
         | Some k -> (Syntax.Tt_Bound k, loc), vars, n
         | None ->
            begin
-             match Value.lookup_decl x env with
+             match Value.get_decl x env with
              | Some (Value.DeclConstant _) -> (Syntax.Tt_Constant x, loc), vars, n
              | Some (Value.DeclData _) -> Error.syntax ~loc "data in a term pattern"
              | Some (Value.DeclOperation _) -> Error.syntax ~loc "operation in a term pattern"
@@ -209,7 +209,7 @@ let rec pattern (env : Value.env) bound vars n (p,loc) =
     | Input.Patt_Name x ->
       begin match Name.index_of_ident x bound with
         | None ->
-          begin match Value.lookup_data x env with
+          begin match Value.get_data x env with
             | Some k ->
               if k = 0
               then (Syntax.Patt_Data (x,[]), loc), vars, n
@@ -227,7 +227,7 @@ let rec pattern (env : Value.env) bound vars n (p,loc) =
       (Syntax.Patt_Jdg (p1,p2), loc), vars, n
 
     | Input.Patt_Data (t,ps) ->
-      begin match Value.lookup_data t env with
+      begin match Value.get_data t env with
         | Some k ->
           let l = List.length ps in
           if k = l
@@ -411,7 +411,7 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
          | Some k -> Syntax.Bound k, loc
          | None ->
             begin
-              match Value.lookup_decl x env with
+              match Value.get_decl x env with
               | Some (Value.DeclConstant _) ->
                  Syntax.Constant x, loc
 
@@ -541,7 +541,7 @@ and spine ~yield env bound ((c',loc) as c) cs =
       match c' with
       | Input.Var x when not (List.mem x bound) ->
          begin
-           match Value.lookup_decl x env with
+           match Value.get_decl x env with
 
            | Some (Value.DeclConstant _) ->
               (Syntax.Constant x, loc), cs
@@ -582,7 +582,7 @@ and handler ~loc env bound hcs =
       fold (case::val_cases) op_cases finally_cases hcs
 
     | Input.CaseOp (op, ((ps,_,_) as c)) :: hcs ->
-      begin match Value.lookup_operation op env with
+      begin match Value.get_operation op env with
         | Some k ->
           let n = List.length ps in
           if n = k
@@ -677,7 +677,7 @@ let toplevel (env : Value.env) bound (d', loc) =
         let lst =
           List.map
             (fun (op, (xs, y, c)) ->
-              match Value.lookup_operation op env with
+              match Value.get_operation op env with
                 | Some k ->
                   let n = List.length xs in
                   if n = k

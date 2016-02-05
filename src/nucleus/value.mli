@@ -132,13 +132,13 @@ val top_get_env : env toplevel
 val get_env : env result
 
 (** Lookup a data constructor. *)
-val lookup_decl : Name.ident -> env -> decl option
+val get_decl : Name.ident -> env -> decl option
 
 (** Lookup an operation *)
-val lookup_operation : Name.ident -> env -> int option
+val get_operation : Name.ident -> env -> int option
 
 (** Lookup a data constructor *)
-val lookup_data : Name.ident -> env -> int option
+val get_data : Name.ident -> env -> int option
 
 (** Lookup a constant. *)
 val lookup_constant : Name.ident -> Tt.ty option result
@@ -151,9 +151,6 @@ val lookup_signature : Name.ident -> Tt.signature option result
 
 (** Find a signature with the given labels (in this exact order) *)
 val find_signature : env -> Name.label list -> Name.signature option
-
-(** Is the given identifier a constant? *)
-val is_constant :  Name.ident -> env -> bool
 
 (** Lookup abstracting variables. *)
 val lookup_abstracting : Jdg.term list result
