@@ -203,12 +203,8 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
   | Tt.Structure (s1, lst1), Tt.Structure (s2, lst2) ->
      if Name.eq_ident s1 s2
      then
-       Monad.lift (Value.lookup_signature s1) >!=
-         begin function
-           | None -> Error.impossible ~loc "Equal.congruence: unknown signature %t"
-                                      (Name.print_ident s1)
-           | Some s_def -> equal_structure ~loc:loc1 ctx s_def lst1 lst2
-         end
+       Monad.lift (Value.lookup_signature ~loc:loc1 s1) >!= fun s_def ->
+       equal_structure ~loc:loc1 ctx s_def lst1 lst2
      else Opt.fail
 
   | Tt.Projection (e1, s1, l1), Tt.Projection (e2, s2, l2) ->
@@ -239,25 +235,20 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
   | Tt.Eq _ -> Opt.return ctx
 
   | Tt.Signature s ->
-     Monad.lift (Value.lookup_signature s) >!=
-       begin function
-         | None -> Error.impossible ~loc "Equal.extensionality: unknown signature %t"
-                                    (Name.print_ident s)
-         | Some s_def -> 
-            let rec fold ctx es hyps fields =
-              match fields with
-              | [] -> Opt.return ctx
-              | (l, _, t) :: fields ->
-                 let t = Tt.instantiate_ty es t in
-                 let e1_proj = Tt.mk_projection ~loc:e1.Tt.loc e1 s l in
-                 let e2_proj = Tt.mk_projection ~loc:e2.Tt.loc e2 s l in
-                 let e2_proj = Tt.mention_atoms hyps e2_proj in
-                 Opt.locally (equal ctx e1_proj e2_proj t) >?= fun (ctx, hyps') ->
-                 let hyps = AtomSet.union hyps hyps' in
-                 fold ctx (e1_proj :: es) hyps fields                                                               
-            in
-            fold ctx [] AtomSet.empty s_def
-       end
+     Monad.lift (Value.lookup_signature ~loc s) >!= fun s_def ->
+     let rec fold ctx es hyps fields =
+       match fields with
+         | [] -> Opt.return ctx
+         | (l, _, t) :: fields ->
+           let t = Tt.instantiate_ty es t in
+           let e1_proj = Tt.mk_projection ~loc:e1.Tt.loc e1 s l in
+           let e2_proj = Tt.mk_projection ~loc:e2.Tt.loc e2 s l in
+           let e2_proj = Tt.mention_atoms hyps e2_proj in
+           Opt.locally (equal ctx e1_proj e2_proj t) >?= fun (ctx, hyps') ->
+           let hyps = AtomSet.union hyps hyps' in
+           fold ctx (e1_proj :: es) hyps fields                                                               
+     in
+     fold ctx [] AtomSet.empty s_def
 
   | Tt.Type | Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _
   | Tt.Refl _ | Tt.Structure _ | Tt.Projection _ ->
@@ -312,14 +303,9 @@ let reduction_step ctx {Tt.term=e'; assumptions; loc} =
        | Tt.Structure (s', es) ->
           if Name.eq_ident s s'
           then
-            Monad.lift (Value.lookup_signature s) >!=
-              begin function
-                | None -> Error.impossible ~loc "unknown signature %t in reduce"
-                                           (Name.print_ident s)
-                | Some s_def ->
-                   let e = Tt.field_value s_def es l ~loc in
-                   Opt.return (ctx, Tt.mention assumptions e)
-              end
+            Monad.lift (Value.lookup_signature ~loc s) >!= fun s_def ->
+            let e = Tt.field_value s_def es l ~loc in
+            Opt.return (ctx, Tt.mention assumptions e)
           else Opt.fail
 
        | Tt.Atom _

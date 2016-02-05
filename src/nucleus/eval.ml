@@ -201,14 +201,10 @@ let rec infer (c',loc) =
      Value.return_term j
 
   | Syntax.Constant x ->
-    begin Value.lookup_constant x >>= function
-      | Some t ->
-         let e = Tt.mk_constant ~loc x in
-         let eu = Jdg.mk_term Context.empty e t in
-         Value.return_term eu
-      | None -> Error.impossible ~loc "unknown constant %t during evaluation"
-                                 (Name.print_ident x)
-    end
+    Value.lookup_constant ~loc x >>= fun t ->
+    let e = Tt.mk_constant ~loc x in
+    let eu = Jdg.mk_term Context.empty e t in
+    Value.return_term eu
 
   | Syntax.Lambda (x,u,c) ->
      infer_lambda ~loc x u c
@@ -249,40 +245,34 @@ let rec infer (c',loc) =
      Value.return_term j
 
   | Syntax.Structure (s, xcs) ->
-     Value.lookup_signature s >>= begin function
-       | None -> Error.impossible ~loc "evaluating a structure of unknown signature %t"
-                                  (Name.print_ident s)
-       | Some lxts ->
-          let rec fold ctx es xcs lxts =
-            match xcs, lxts with
-            | [], [] ->
-               let es = List.rev es in
-               let str = Tt.mk_structure ~loc s es in
-               let t_str = Tt.mk_signature_ty ~loc s in
-               let j_str = Jdg.mk_term ctx str t_str in
-               Value.return_term j_str
+     Value.lookup_signature ~loc s >>= fun lxts ->
+     let rec fold ctx es xcs lxts =
+       match xcs, lxts with
+         | [], [] ->
+           let es = List.rev es in
+           let str = Tt.mk_structure ~loc s es in
+           let t_str = Tt.mk_signature_ty ~loc s in
+           let j_str = Jdg.mk_term ctx str t_str in
+           Value.return_term j_str
 
-            | (x, c) :: xcs, (lbl, _, t) :: lxts ->
-                 let t_inst = Tt.instantiate_ty es t in
-                 let jty = Jdg.mk_ty ctx t_inst in
-                 check c jty >>= fun (ctx, e) ->
-                 Value.add_bound x (Value.mk_term (Jdg.mk_term ctx e t_inst))
-                 (fold ctx (e::es) xcs lxts)
+         | (x, c) :: xcs, (lbl, _, t) :: lxts ->
+           let t_inst = Tt.instantiate_ty es t in
+           let jty = Jdg.mk_ty ctx t_inst in
+           check c jty >>= fun (ctx, e) ->
+           Value.add_bound x (Value.mk_term (Jdg.mk_term ctx e t_inst))
+           (fold ctx (e::es) xcs lxts)
 
-            | _::_, [] -> Error.typing ~loc "this structure has too many fields"
-            | [], _::_ -> Error.typing ~loc "this structure has too few fields"
-          in
-          fold Context.empty [] xcs lxts
-     end
+         | _::_, [] -> Error.typing ~loc "this structure has too many fields"
+         | [], _::_ -> Error.typing ~loc "this structure has too few fields"
+    in
+    fold Context.empty [] xcs lxts
 
   | Syntax.Projection (c,p) ->
     infer_projection ~loc c p
 
   | Syntax.Yield c ->
-    Value.lookup_continuation >>= begin function
-      | Some k -> infer c >>= Value.apply_closure k
-      | None -> Error.impossible ~loc "yield without continuation set"
-      end
+    Value.lookup_continuation ~loc >>= fun k ->
+    infer c >>= Value.apply_closure k
 
   | Syntax.Hypotheses ->
      Value.lookup_abstracting >>= fun lst ->
@@ -338,40 +328,36 @@ let rec infer (c',loc) =
     check_ty c1 >>= fun (Jdg.Ty (_,target) as jt) ->
     Equal.Monad.run (Equal.as_signature jt) >>= fun ((ctx1,s),hyps1) ->
     infer c2 >>= as_list ~loc >>= fun vs ->
-    Value.lookup_signature s >>= begin function
-      | None -> Error.impossible ~loc "evaluating a structure of unknown signature %t"
-                                 (Name.print_ident s)
-      | Some lxts ->
-        let rec fold ctx es vs lxts =
-          match vs, lxts with
-            | [], [] ->
-              let es = List.rev es in
-              let str = Tt.mk_structure ~loc s es in
-              let str = Tt.mention_atoms hyps1 str in
-              Value.lookup_penv >>= fun penv ->
-              let ctx = Context.join ~penv ~loc ctx ctx1 in
-              let j_str = Jdg.mk_term ctx str target in
-              Value.return_term j_str
+    Value.lookup_signature ~loc s >>= fun lxts ->
+    let rec fold ctx es vs lxts =
+      match vs, lxts with
+        | [], [] ->
+          let es = List.rev es in
+          let str = Tt.mk_structure ~loc s es in
+          let str = Tt.mention_atoms hyps1 str in
+          Value.lookup_penv >>= fun penv ->
+          let ctx = Context.join ~penv ~loc ctx ctx1 in
+          let j_str = Jdg.mk_term ctx str target in
+          Value.return_term j_str
 
-            | v :: vs, (lbl, _, t) :: lxts ->
-              as_term ~loc v >>= fun (Jdg.Term (_,e,_) as je) ->
-              let t_inst = Tt.instantiate_ty es t in
-              require_equal_ty ~loc (Jdg.mk_ty ctx t_inst) (Jdg.typeof je) >>= begin function
-                | Some (ctx,hyps) ->
-                  let e = Tt.mention_atoms hyps e in
-                  (fold ctx (e::es) vs lxts)
-                | None ->
-                  Value.print_term >>= fun pte ->
-                  Value.print_ty >>= fun pty ->
-                  Error.typing ~loc:e.Tt.loc "the expression %t should have type@ %t@ but has type@ %t"
-                               (pte e) (pty t_inst) (pty (let Jdg.Term (_,_,t) = je in t))
-              end
+        | v :: vs, (lbl, _, t) :: lxts ->
+          as_term ~loc v >>= fun (Jdg.Term (_,e,_) as je) ->
+          let t_inst = Tt.instantiate_ty es t in
+          require_equal_ty ~loc (Jdg.mk_ty ctx t_inst) (Jdg.typeof je) >>= begin function
+            | Some (ctx,hyps) ->
+              let e = Tt.mention_atoms hyps e in
+              (fold ctx (e::es) vs lxts)
+            | None ->
+              Value.print_term >>= fun pte ->
+              Value.print_ty >>= fun pty ->
+              Error.typing ~loc:e.Tt.loc "the expression %t should have type@ %t@ but has type@ %t"
+                           (pte e) (pty t_inst) (pty (let Jdg.Term (_,_,t) = je in t))
+          end
 
-            | _::_, [] -> Error.typing ~loc "this structure has too many fields"
-            | [], _::_ -> Error.typing ~loc "this structure has too few fields"
-        in
-        fold Context.empty [] vs lxts
-    end
+        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
+        | [], _::_ -> Error.typing ~loc "this structure has too few fields"
+    in
+    fold Context.empty [] vs lxts
 
 
   | Syntax.GenProj (c1,c2) ->
@@ -592,16 +578,14 @@ and infer_projection ~loc c p =
   let jty = Jdg.mk_ty ctx ty in
   Equal.Monad.run (Equal.as_signature jty) >>= fun ((ctx,s),hyps) ->
   let te = Tt.mention_atoms hyps te in
-  Value.lookup_signature s >>= function
-    | None -> Error.impossible ~loc "projecting at unknown signature %t" (Name.print_ident s)
-    | Some s_def ->
-       (if not (List.exists (fun (l,_,_) -> Name.eq_ident p l) s_def)
-       then Error.typing ~loc "Cannot project field %t from signature %t: no such field"
-                         (Name.print_ident p) (Name.print_ident s));
-       let ty = Tt.field_type ~loc s s_def te p in
-       let te = Tt.mk_projection ~loc te s p in
-       let j = Jdg.mk_term ctx te ty in
-       Value.return_term j
+  Value.lookup_signature ~loc s >>= fun s_def ->
+  (if not (List.exists (fun (l,_,_) -> Name.eq_ident p l) s_def)
+  then Error.typing ~loc "Cannot project field %t from signature %t: no such field"
+                    (Name.print_ident p) (Name.print_ident s));
+  let ty = Tt.field_type ~loc s s_def te p in
+  let te = Tt.mk_projection ~loc te s p in
+  let j = Jdg.mk_term ctx te ty in
+  Value.return_term j
 
 
 and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmp ->

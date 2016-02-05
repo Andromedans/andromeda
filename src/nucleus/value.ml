@@ -261,46 +261,47 @@ let top_get_env env = env,env
 
 let get_env env = Return env, env.state
 
-let lookup_decl x env =
-  let rec lookup = function
+let get_decl x env =
+  let rec get = function
     | [] -> None
     | (y,v) :: lst ->
-       if Name.eq_ident x y then Some v else lookup lst
+       if Name.eq_ident x y then Some v else get lst
   in
-  lookup env.dynamic.decls
+  get env.dynamic.decls
 
-let lookup_operation x env =
-  match lookup_decl x env with
+let get_operation x env =
+  match get_decl x env with
   | None -> None
   | Some (DeclOperation k) -> Some k
   | Some (DeclData _ | DeclConstant _ | DeclSignature _) -> None
 
-let lookup_data x env =
-  match lookup_decl x env with
+let get_data x env =
+  match get_decl x env with
   | None -> None
   | Some (DeclData k) -> Some k
   | Some (DeclOperation _ | DeclConstant _ | DeclSignature _) -> None
 
-let is_constant x env =
-  match lookup_decl x env with
-  | Some (DeclConstant c) -> true
-  | None | Some (DeclData _ | DeclOperation _ | DeclSignature _) -> false
-
 let get_constant x env =
-  match lookup_decl x env with
+  match get_decl x env with
   | None -> None
   | Some (DeclConstant c) -> Some c
   | Some (DeclData _ | DeclOperation _ | DeclSignature _) -> None
 
 let get_signature x env =
-  match lookup_decl x env with
+  match get_decl x env with
   | None -> None
   | Some (DeclSignature s) -> Some s
   | Some (DeclData _ | DeclOperation _ | DeclConstant _) -> None
 
-let lookup_constant x env = Return (get_constant x env), env.state
+let lookup_constant ~loc x env =
+  match get_constant x env with
+    | Some t -> Return t, env.state
+    | None -> Error.impossible ~loc "Unknown constant %t" (Name.print_ident x)
 
-let lookup_signature x env = Return (get_signature x env), env.state
+let lookup_signature ~loc x env =
+  match get_signature x env with
+   | Some def -> Return def, env.state
+   | None -> Error.impossible ~loc "Unknown signature %t" (Name.print_ident x)
 
 let find_signature env ls =
   let rec fold = function
@@ -360,7 +361,7 @@ let is_known x env =
       | (y,_) :: lst -> Name.eq_ident x y || is_bound lst
     in
     is_bound env.lexical.bound ||
-    (match lookup_decl x env with
+    (match get_decl x env with
      | None -> false
      | Some _ -> true)
 
@@ -414,8 +415,10 @@ let lookup_handle op {lexical={handle=lst;_};_} =
 let set_continuation c m env =
   m { env with lexical = { env.lexical with continuation = Some c } }
 
-let lookup_continuation ({lexical={continuation;_};_} as env) =
-  Return continuation, env.state
+let lookup_continuation ~loc ({lexical={continuation;_};_} as env) =
+  match continuation with
+    | Some cont -> Return cont, env.state
+    | None -> Error.impossible ~loc "No continuation"
 
 let push_file f env =
   (),{ env with lexical = { env.lexical with files = (Filename.basename f) :: env.lexical.files } }
