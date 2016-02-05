@@ -78,6 +78,8 @@ and comp' =
   | String of string
   | GenStruct of comp * comp
   | GenProj of comp * comp
+  | Occurs of comp * comp
+  | Context of comp
 
 and handler = {
   handler_val: match_case list;

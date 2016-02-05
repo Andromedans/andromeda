@@ -196,15 +196,15 @@ let substitute ~penv ~loc x (ctx,e,t) =
     | None -> ctx
 
 
-let sort ctx =
+let elements ctx =
   let rec process x ((handled, _) as handled_ys) =
     if AtomSet.mem x handled
     then handled_ys
     else
-      let {needed_by;_} = AtomMap.find x ctx in
-      let (handled, ys) = AtomSet.fold process needed_by handled_ys  in
-      (AtomSet.add x handled, x :: ys)
+      let {needed_by;ty} = AtomMap.find x ctx in
+      let (handled, xts) = AtomSet.fold process needed_by handled_ys  in
+      (AtomSet.add x handled, (x,ty) :: xts)
   in
-  let _, ys = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
-  ys
+  let _, xts = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
+  xts
 
