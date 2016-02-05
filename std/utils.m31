@@ -12,6 +12,9 @@ let rec fold f acc lst = match lst with
   | ?x :: ?tl => fold f (f acc x) tl
   end
 
+(** `list_map f l` applies `f` to each element of `l`  *)
+let rec list_map f l = fold (fun acc x => f x :: acc) [] l |> rev
+
 (** Find in an associative list. *)
 let rec assoc_find x lst = match lst with
   | [] => None

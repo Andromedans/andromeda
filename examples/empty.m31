@@ -1,2 +1,2 @@
-Parameter empty : Type.
-Parameter ind_empty : Π [P : empty -> Type, x : empty] P x.
+constant empty : Type
+constant ind_empty : Π (P : empty -> Type, x : empty), P x

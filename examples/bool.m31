@@ -1,69 +1,73 @@
 (** The definition of booleans. *)
 
-Parameter bool : Type.
-Parameter true : bool.
-Parameter false : bool.
-Parameter ind_bool :
-  Π [P : bool -> Type] [x : P true] [y : P false] Π [b : bool] P b.
+constant bool : Type
+constant true : bool
+constant false : bool
+constant ind_bool :
+  Π (P : bool -> Type) (x : P true) (y : P false), Π (b : bool), P b
 
-Parameter ind_bool_true :
-  Π [P : bool -> Type] [x : P true] [y : P false] ind_bool P x y true == x.
+constant ind_bool_true :
+  Π (P : bool -> Type) (x : P true) (y : P false), ind_bool P x y true == x
 
-Parameter ind_bool_false :
-  Π [P : bool -> Type] [x : P true] [y : P false] ind_bool P x y false == y.
+constant ind_bool_false :
+  Π (P : bool -> Type) (x : P true) (y : P false), ind_bool P x y false == y
 
 (* We prove that "if b then true else false" equals "b". *)
-Check
- beta ind_bool_true in
- beta ind_bool_false in
- (ind_bool
-   (λ [b] ind_bool (λ [_] bool) true false b == b)
-  (refl true)
-   (refl false))
- :: Π [b : bool] ind_bool (λ [_] bool) true false b == b.
+do
+ with local (lbeta ind_bool_true) handle
+ with local (lbeta ind_bool_false) handle
+ ((ind_bool
+       (λ b, ind_bool (λ _, bool) true false b == b)
+       (refl true)
+       (refl false))
+  : Π (b : bool), ind_bool (λ _, bool) true false b == b)
+
+do Type
 
 (* Next we show that true and false are not equal. *)
 
- #include "empty.m31" "unit.m31".
+ #include "empty.m31" "unit.m31"
 
-(* Be very careful about when reductions may happen.
+(* Be very careful about when reductions may happen
    Better hint management would help here. *)
 
 (* Be very careful about when reductions may happen. *)
-Let bool_disjoint [p : true == false] : empty :=
-     let P :=
-         λ [b : bool] ind_bool (λ [_] Type) unit empty b
+let bool_disjoint : true ≡ false → empty =
+    λ (p : true == false),
+     let P =
+         λ (b : bool), ind_bool (λ (_), Type) unit empty b
      in
-     let p :=
-       beta p in
-         (refl (P true) :: P true == P false) in
-     let p :=
-       beta ind_bool_false in
-         p :: P true == empty in
-     let p :=
-       beta ind_bool_true in
-         p :: unit == empty in
-     beta p in
-       tt :: empty.
+     let p =
+       with local (lbeta p) handle
+         (refl (P true) : P true == P false) in
+     let p =
+       with local (lbeta ind_bool_false) handle
+         p : P true == empty in
+     let p =
+       with local (lbeta ind_bool_true) handle
+         p : unit == empty in
+     with local (lbeta p) handle
+       tt : empty
 
-(* Let's be less careful. *)
-Beta ind_bool_true.
-Beta ind_bool_false.
 
-Let bool_disjoint' [p : true == false] : empty :=
-     let P := λ [b : bool] ind_bool (λ [_ : bool] Type) unit empty b in
-     let p :=
-       beta p in
-         (refl (P true) :: P true == P false) in
-     let p := p :: unit == empty in
-     beta p in
-       tt.
+(* let's be less careful. *)
+do add_beta ind_bool_true
+do add_beta ind_bool_false
+
+let bool_disjoint' (p : true == false) : empty =
+     let P = λ (b : bool), ind_bool (λ (_ : bool), Type) unit empty b in
+     let p =
+       with local (lbeta p) handle
+         (refl (P true) : P true == P false) in
+     let p = p : unit == empty in
+     with local (lbeta p) handle
+       tt
 
 (* The information propagates inwards. *)
-Let bool_disjoint'' [p : true == false] : empty :=
-     let P := λ [b : bool] ind_bool (λ [_ : bool] Type) unit empty b in
-     let p := beta p in (refl empty :: P true == empty) in
-     let p := p :: unit == empty in
-     beta p in tt.
+let bool_disjoint'' (p : true == false) : empty =
+     let P = λ (b : bool), ind_bool (λ (_ : bool), Type) unit empty b in
+     let p = with local (lbeta p) handle (refl empty : P true == empty) in
+     let p = p : unit == empty in
+     with local (lbeta p) handle tt
 
-Check bool_disjoint''.
+do bool_disjoint''
