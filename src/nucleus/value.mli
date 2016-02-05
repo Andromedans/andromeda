@@ -141,13 +141,13 @@ val get_operation : Name.ident -> env -> int option
 val get_data : Name.ident -> env -> int option
 
 (** Lookup a constant. *)
-val lookup_constant : Name.ident -> Tt.ty option result
+val lookup_constant : loc:Location.t -> Name.ident -> Tt.ty result
 
 (** Lookup a signature definition *)
 val get_signature : Name.signature -> env -> Tt.signature option
 
 (** Lookup a signature definition, monadically *)
-val lookup_signature : Name.ident -> Tt.signature option result
+val lookup_signature : loc:Location.t -> Name.ident -> Tt.signature result
 
 (** Find a signature with the given labels (in this exact order) *)
 val find_signature : env -> Name.label list -> Name.signature option
@@ -204,7 +204,7 @@ val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> uni
 val set_continuation : (value,value) closure -> 'a result -> 'a result
 
 (** Lookup the current continuation. *)
-val lookup_continuation : ((value,value) closure) option result
+val lookup_continuation : loc:Location.t -> ((value,value) closure) result
 
 (** Add a file to the list of files included. *)
 val push_file : string -> unit toplevel

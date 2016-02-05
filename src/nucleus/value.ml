@@ -293,9 +293,15 @@ let get_signature x env =
   | Some (DeclSignature s) -> Some s
   | Some (DeclData _ | DeclOperation _ | DeclConstant _) -> None
 
-let lookup_constant x env = Return (get_constant x env), env.state
+let lookup_constant ~loc x env =
+  match get_constant x env with
+    | Some t -> Return t, env.state
+    | None -> Error.impossible ~loc "Unknown constant %t" (Name.print_ident x)
 
-let lookup_signature x env = Return (get_signature x env), env.state
+let lookup_signature ~loc x env =
+  match get_signature x env with
+   | Some def -> Return def, env.state
+   | None -> Error.impossible ~loc "Unknown signature %t" (Name.print_ident x)
 
 let find_signature env ls =
   let rec fold = function
@@ -409,8 +415,10 @@ let lookup_handle op {lexical={handle=lst;_};_} =
 let set_continuation c m env =
   m { env with lexical = { env.lexical with continuation = Some c } }
 
-let lookup_continuation ({lexical={continuation;_};_} as env) =
-  Return continuation, env.state
+let lookup_continuation ~loc ({lexical={continuation;_};_} as env) =
+  match continuation with
+    | Some cont -> Return cont, env.state
+    | None -> Error.impossible ~loc "No continuation"
 
 let push_file f env =
   (),{ env with lexical = { env.lexical with files = (Filename.basename f) :: env.lexical.files } }
