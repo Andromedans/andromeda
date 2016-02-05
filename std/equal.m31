@@ -600,34 +600,34 @@ let top_etas  = ref []
 
 (* top level handler with no hints *)
 handle
-  | equal a b =>
+  | equal ?a ?b =>
     with equality_in !top_betas !top_hints !top_etas handle equal a b
 
-  | whnf e =>
+  | whnf ?e =>
     with equality_in !top_betas !top_hints !top_etas handle whnf e
 
-  | as_prod e =>
+  | as_prod ?e =>
     with equality_in !top_betas !top_hints !top_etas handle as_prod e
 
-  | as_eq e =>
+  | as_eq ?e =>
     with equality_in !top_betas !top_hints !top_etas handle as_eq e
 
-  | as_signature e =>
+  | as_signature ?e =>
     with equality_in !top_betas !top_hints !top_etas handle as_signature e
 
-  | beta b =>
+  | beta ?b =>
     match (with equality !top_betas !top_hints !top_etas handle beta b) with
       | (_, ?betas :: ?hints :: ?etas :: []) =>
         top_betas := betas
     end
 
-  | hint h =>
+  | hint ?h =>
     match (with equality !top_betas !top_hints !top_etas handle hint h) with
       | (_, ?betas :: ?hints :: ?etas :: []) =>
         top_hints := hints
     end
 
-  | eta h =>
+  | eta ?h =>
     match (with equality !top_betas !top_hints !top_etas handle eta h) with
       | (_, ?betas :: ?hints :: ?etas :: []) =>
         top_etas := etas

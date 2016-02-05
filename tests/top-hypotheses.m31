@@ -1,7 +1,7 @@
 operation happy 0
 
 handle
-  happy : t =>
+  happy : ?t =>
     let rec prodify xs t =
       match xs with
         | [] => t

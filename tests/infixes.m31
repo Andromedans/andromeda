@@ -38,7 +38,7 @@ with
   | ? ?x => yield (x + x)
 end
 
-handle | ? x => x + a end
+handle | ? ?x => x + a end
 
 do ? b
 
