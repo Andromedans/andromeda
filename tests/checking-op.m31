@@ -17,7 +17,7 @@ end
 do with h' handle inhab : A
 
 handle
-  inhab : t =>
+  inhab : ?t =>
     match t with
       Some ?t => assume z_inhab : t in z_inhab
     end

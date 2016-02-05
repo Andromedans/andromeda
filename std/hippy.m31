@@ -15,7 +15,7 @@ let rec apply head es =
   end
 
 handle
-  hippy : t =>
+  hippy : ?t =>
     match t with
       | None => Type
       | Some ?t =>

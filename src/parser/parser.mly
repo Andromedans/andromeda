@@ -301,23 +301,23 @@ top_handler_cases:
 
 (* XXX allow patterns here *)
 top_handler_case:
-  | op=var_name xs=name* y=top_handler_checking DARROW t=term           { (op, (xs, y, t)) }
-  | op=PREFIXOP x=name y=top_handler_checking DARROW t=term
+  | op=var_name xs=top_patt_maybe_var* y=top_handler_checking DARROW t=term           { (op, (xs, y, t)) }
+  | op=PREFIXOP x=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x], y, t)) }
-  | x1=name op=INFIXOP0 x2=name y=top_handler_checking DARROW t=term
+  | x1=top_patt_maybe_var op=INFIXOP0 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x1;x2], y, t)) }
-  | x1=name op=INFIXOP1 x2=name y=top_handler_checking DARROW t=term
+  | x1=top_patt_maybe_var op=INFIXOP1 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x1;x2], y, t)) }
-  | x1=name op=INFIXOP2 x2=name y=top_handler_checking DARROW t=term
+  | x1=top_patt_maybe_var op=INFIXOP2 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x1;x2], y, t)) }
-  | x1=name op=INFIXOP3 x2=name y=top_handler_checking DARROW t=term
+  | x1=top_patt_maybe_var op=INFIXOP3 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x1;x2], y, t)) }
-  | x1=name op=INFIXOP4 x2=name y=top_handler_checking DARROW t=term
+  | x1=top_patt_maybe_var op=INFIXOP4 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x1;x2], y, t)) }
 
 top_handler_checking:
-  |              { None }
-  | COLON x=name { Some x }
+  |                        { None }
+  | COLON x=top_patt_maybe_var { Some x }
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
@@ -448,6 +448,10 @@ tt_name:
 patt_maybe_var:
   | x=patt_var                   { Some x }
   | UNDERSCORE                   { None }
+
+top_patt_maybe_var:
+  | x=patt_var                   { x }
+  | UNDERSCORE                   { Name.anonymous }
 
 patt_var:
   | x=PATTVAR                    { x }
