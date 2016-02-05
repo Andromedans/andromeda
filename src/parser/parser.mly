@@ -68,7 +68,7 @@
 %token REC FUNCTION
 
 (* Assumptions *)
-%token ASSUME
+%token ASSUME CONTEXT OCCURS
 
 (* Substitution *)
 %token WHERE
@@ -155,6 +155,8 @@ plain_term:
   | e1=equal_term SEMICOLON e2=term                            { Sequence (e1, e2) }
   | USTRUCT c1=prefix_term c2=prefix_term                      { GenStruct (c1,c2) }
   | UPROJ c1=prefix_term c2=prefix_term                        { GenProj (c1,c2) }
+  | CONTEXT c=prefix_term                                      { Context c }
+  | OCCURS c1=prefix_term c2=prefix_term                       { Occurs (c1,c2) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:

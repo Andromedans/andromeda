@@ -81,6 +81,8 @@ and term' =
   | String of string
   | GenStruct of comp * comp
   | GenProj of comp * comp
+  | Context of comp
+  | Occurs of comp * comp
 
 (** Sugared types *)
 and ty = term

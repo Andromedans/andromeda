@@ -13,6 +13,7 @@ let reserved = [
   ("and", AND) ;
   ("constant", CONSTANT) ;
   ("congruence", CONGRUENCE) ;
+  ("context", CONTEXT) ;
   ("data", DATA) ;
   ("do", DO) ;
   ("end", END) ;
@@ -31,6 +32,7 @@ let reserved = [
   ("fun", FUNCTION) ;
   ("lambda", LAMBDA) ;
   ("in", IN) ;
+  ("occurs", OCCURS) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
   ("ref", REF) ;

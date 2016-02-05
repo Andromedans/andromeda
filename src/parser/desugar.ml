@@ -520,6 +520,15 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     and c2 = comp ~yield env bound c2 in
     Syntax.GenProj (c1,c2), loc
 
+  | Input.Context c ->
+    let c = comp ~yield env bound c in
+    Syntax.Context c, loc
+
+  | Input.Occurs (c1,c2) ->
+    let c1 = comp ~yield env bound c1
+    and c2 = comp ~yield env bound c2 in
+    Syntax.Occurs (c1,c2), loc
+
 (* Desguar a spine. This function is a bit messy because we need to untangle
    to env. But it's worth doing to make users happy. *)
 and spine ~yield env bound ((c',loc) as c) cs =

@@ -364,6 +364,26 @@ let rec infer (c',loc) =
     infer c2 >>= as_ident ~loc >>= fun l ->
     infer_projection ~loc c1 l
 
+  | Syntax.Occurs (c1,c2) ->
+    infer c1 >>= as_atom ~loc >>= fun (_,x,_) ->
+    infer c2 >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
+    begin match Context.lookup_ty x ctx with
+      | Some t ->
+        let j = Jdg.term_of_ty (Jdg.mk_ty ctx t) in
+        Value.return (Value.from_option (Some (Value.mk_term j)))
+      | None ->
+        Value.return (Value.from_option None)
+    end
+
+  | Syntax.Context c ->
+    infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
+    let xts = Context.elements ctx in
+    let js = List.map (fun (x,t) ->
+      let e = Tt.mk_atom ~loc x in
+      let j = Jdg.mk_term ctx e t in
+      Value.mk_term j) xts in
+    Value.return (Value.from_list js)
+
 and require_equal ctx e1 e2 t =
   Equal.Opt.run (Equal.equal ctx e1 e2 t)
 
@@ -407,7 +427,9 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Sequence _
   | Syntax.String _
   | Syntax.GenStruct _
-  | Syntax.GenProj _ ->
+  | Syntax.GenProj _ 
+  | Syntax.Occurs _
+  | Syntax.Context _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
