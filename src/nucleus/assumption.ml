@@ -16,16 +16,16 @@ let print_db xs k ppf =
   try
     if !Config.debruijn
     then
-      Print.print ppf "%t[%d]" (Name.print_ident (List.nth xs k)) k
+      Format.fprintf ppf "%t[%d]" (Name.print_ident (List.nth xs k)) k
     else
-      Print.print ppf "%t" (Name.print_ident (List.nth xs k))
+      Name.print_ident (List.nth xs k) ppf
   with
-    | Not_found | Failure "nth" -> Print.print ppf "DEBRUIJN[%d]" k
+    | Not_found | Failure "nth" -> Format.fprintf ppf "DEBRUIJN[%d]" k
 
 let print xs {free;bound} ppf =
-  Print.print ppf "%t ; %t"
-              (Print.sequence Name.print_atom ", " (AtomSet.elements free))
-              (Print.sequence (print_db xs) ", " (BoundSet.elements bound))
+  Format.fprintf ppf "%t@ ;@ %t"
+              (Print.sequence Name.print_atom "," (AtomSet.elements free))
+              (Print.sequence (print_db xs) "," (BoundSet.elements bound))
 
 let singleton x =
   let free = AtomSet.add x AtomSet.empty in

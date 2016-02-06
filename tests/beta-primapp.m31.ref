@@ -11,4 +11,4 @@ Constant X is declared.
 Constant Y is declared.
 Constant a is declared.
 Constant f is declared.
-⊢ λ (y : Y), refl (f a) : Π (y : Y), f a ≡ Fst X Y (Pair X Y (f a) y)
+⊢ λ (_ : Y), refl (f a) : Π (y : Y), f a ≡ Fst X Y (Pair X Y (f a) y)

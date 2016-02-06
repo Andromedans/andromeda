@@ -16,30 +16,25 @@ Constant unit_singleton is declared.
 unit_mon is defined.
 ( ++ ) is defined.
 ( * ) is defined.
-⊢ refl {T = unit, ( + ) = λ (x0 : unit), λ (y : unit), {},
-          assoc = λ (x0 : unit),
-                    λ (y : unit),
-                      λ (z : unit),
-                        unit_singleton
-                          ((λ (x1 : unit), λ (y0 : unit), {})
-                             x0 ((λ (x1 : unit), λ (y0 : unit), {}) y z))
-                          ((λ (x1 : unit), λ (y0 : unit), {})
-                             ((λ (x1 : unit), λ (y0 : unit), {}) x0 y) z)}.( + )
-  : {T = unit, ( + ) = λ (x0 : unit), λ (y : unit), {},
-     assoc = λ (x0 : unit),
-               λ (y : unit),
-                 λ (z : unit),
-                   unit_singleton
-                     ((λ (x1 : unit), λ (y0 : unit), {})
-                        x0 ((λ (x1 : unit), λ (y0 : unit), {}) y z))
-                     ((λ (x1 : unit), λ (y0 : unit), {})
-                        ((λ (x1 : unit), λ (y0 : unit), {}) x0 y) z)}.( + )
-      ≡ {T = unit, ( + ) = λ (x0 : unit), λ (y : unit), {},
-           assoc = λ (x0 : unit),
-                     λ (y : unit),
-                       λ (z : unit),
-                         unit_singleton
-                           ((λ (x1 : unit), λ (y0 : unit), {})
-                              x0 ((λ (x1 : unit), λ (y0 : unit), {}) y z))
-                           ((λ (x1 : unit), λ (y0 : unit), {})
-                              ((λ (x1 : unit), λ (y0 : unit), {}) x0 y) z)}.( + )
+⊢ refl
+    {T = unit,
+     ( + ) = λ (_ : unit) (_ : unit), {},
+     assoc =
+     λ (x0 : unit) (y : unit) (z : unit), unit_singleton
+         ((λ (_ : unit) (_ : unit), {}) x0 ((λ (_ : unit) (_ : unit), {}) y
+         z)) ((λ (_ : unit) (_ : unit), {}) ((λ (_ : unit) (_ : unit), {})
+         x0 y) z)}.( + )
+  : {T = unit,
+     ( + ) = λ (_ : unit) (_ : unit), {},
+     assoc =
+     λ (x0 : unit) (y : unit) (z : unit), unit_singleton
+         ((λ (_ : unit) (_ : unit), {}) x0 ((λ (_ : unit) (_ : unit), {}) y
+         z)) ((λ (_ : unit) (_ : unit), {}) ((λ (_ : unit) (_ : unit), {})
+         x0 y) z)}.( + ) ≡
+    {T = unit,
+     ( + ) = λ (_ : unit) (_ : unit), {},
+     assoc =
+     λ (x0 : unit) (y : unit) (z : unit), unit_singleton
+         ((λ (_ : unit) (_ : unit), {}) x0 ((λ (_ : unit) (_ : unit), {}) y
+         z)) ((λ (_ : unit) (_ : unit), {}) ((λ (_ : unit) (_ : unit), {})
+         x0 y) z)}.( + )

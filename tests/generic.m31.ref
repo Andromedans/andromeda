@@ -7,13 +7,12 @@ ankle is defined.
 ⊢ {person = dwarf, pet = urist} : cat
 ((⊢ cat : Type), [(⊢ dwarf : Type), (⊢ urist : dwarf)])
 [(person, (person₁₆ : Type 
-           ⊢ person₁₆ : Type), (⊢ Type : Type)),
- (pet,
-  (person₁₆ : Type 
-   pet₁₇ : person₁₆ 
-   ⊢ pet₁₇ : person₁₆),
-  (person₁₆ : Type 
-   ⊢ person₁₆ : Type))]
+           ⊢ person₁₆ : Type), (⊢ Type : Type)), (pet,
+(person₁₆ : Type 
+ pet₁₇ : person₁₆ 
+ ⊢ pet₁₇ : person₁₆),
+(person₁₆ : Type 
+ ⊢ person₁₆ : Type))]
 ((⊢ {person = dwarf, pet = urist} : cat), pet)
 tt
 ⊢ {person = dwarf, pet = urist} : cat

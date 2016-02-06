@@ -300,11 +300,8 @@ and occurs_term_ty k (e, t) =
 
 let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
 
-
 (****** Alpha equality ******)
 
-(* Currently, the only difference between alpha and structural equality is that
-   the names of variables in abstractions are ignored. *)
 let alpha_equal_abstraction alpha_equal_u alpha_equal_v ((x,u), v) ((x,u'), v') =
   alpha_equal_u u u' &&
   alpha_equal_v v v'
@@ -350,7 +347,8 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
              match lst1, lst2 with
              | [], [] -> true
              | e1::lst1, e2::lst2 -> alpha_equal e1 e2 && fold lst1 lst2
-             | [],_::_ | _::_,[] -> Error.impossible ~loc:Location.unknown "alpha_equal: malformed structures"
+             | [],_::_ | _::_,[] -> Error.impossible ~loc:Location.unknown
+                                      "alpha_equal: malformed structures"
            in
            fold lst1 lst2
          end
@@ -369,7 +367,6 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
 and alpha_equal_ty (Ty t1) (Ty t2) = alpha_equal t1 t2
 
 and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
-
 
 (****** Printing routines *****)
 
@@ -397,15 +394,20 @@ let print_annot ?(prefix="") k ppf =
 
 *)
 
-let print_binder1  ~penv print_u x u ppf =
-  Print.print ppf "(@[<hv>%t :@ %t@])"
-    (Name.print_ident x) (print_u ~penv u)
-
-let print_binders ~penv print_xu print_v (x,u) ppf =
-  let x = Name.refresh penv.forbidden x in
-  Print.print ppf "%t,@ %t"
-    (print_xu ~penv x u)
-    (print_v ~penv:(add_forbidden x penv))
+let print_binders ~penv print_u print_v xus ppf =
+  Format.pp_open_hovbox ppf 2 ;
+  let rec fold ~penv = function
+    | [] -> penv
+    | (x,u) :: xus ->
+       let y = Name.refresh penv.forbidden x in
+       Print.print ppf "@;<1 -4>(%t : %t)"
+                   (Name.print_ident y)
+                   (print_u ~penv u) ;
+       fold ~penv:(add_forbidden y penv) xus
+  in
+  let penv = fold ~penv xus in
+  Print.print ppf ",@ %t" (print_v ~penv) ;
+  Format.pp_close_box ppf ()
 
 let rec print_term ~penv ?max_level {term=e;assumptions;_} ppf =
   if !Config.print_dependencies && not (Assumption.is_empty assumptions)
@@ -423,38 +425,39 @@ and print_term' ~penv ?max_level e ppf =
         print ~at_level:0 "Type"
 
       | Atom x ->
-        print ~at_level:0 "%t" (Name.print_atom x)
+        Name.print_atom x ppf
 
       | Constant x ->
-        print ~at_level:0 "%t" (Name.print_ident x)
+         Name.print_ident x ppf
 
       | Bound k ->
         begin
           try
+            let x = List.nth penv.forbidden k in
             if !Config.debruijn
-            then print ~at_level:0 "%t[%d]" (Name.print_ident (List.nth penv.forbidden k)) k
-            else print ~at_level:0 "%t" (Name.print_ident (List.nth penv.forbidden k))
+            then print ~at_level:0 "%t[%d]" (Name.print_ident x) k
+            else Name.print_ident x ppf
           with
           | Not_found | Failure "nth" ->
               (** XXX this should never get printed *)
               print ~at_level:0 "DEBRUIJN[%d]" k
         end
 
-      | Lambda a -> print ~at_level:3 "%t" (print_lambda penv a)
+      | Lambda a -> print_lambda ?max_level penv a ppf
 
-      | Apply (e, xtst, es) -> print ~at_level:1 "%t" (print_apply penv e xtst es)
+      | Apply (e, xtst, es) -> print_apply ?max_level penv e xtst es ppf
 
-      | Prod xts -> print ~at_level:3 "%t" (print_prod penv xts)
+      | Prod xts -> print_prod ?max_level penv xts ppf
 
       | Eq (t, e1, e2) ->
-        print ~at_level:2 "@[<hv 2>%t@ %s%t %t@]"
+        print ~at_level:2 "%t@ %s%t@ %t"
           (print_term ~penv ~max_level:1 e1)
           (Print.char_equal ())
           (print_annot (print_ty ~penv t))
           (print_term ~penv ~max_level:1 e2)
 
       | Refl (t, e) ->
-        print ~at_level:1 "refl%t %t"
+        print ~at_level:1 "refl%t@ %t"
           (print_annot (print_ty ~penv t))
           (print_term ~penv ~max_level:0 e)
 
@@ -462,7 +465,7 @@ and print_term' ~penv ?max_level e ppf =
         print ~at_level:0 "%t" (Name.print_ident s)
 
       | Structure (s, es) ->
-         print_structure ~penv s es ppf
+         print_structure ?max_level ~penv s es ppf
 
       | Projection (e, s, l) ->
          print ~at_level:0 "%t%t.%t"
@@ -473,52 +476,65 @@ and print_term' ~penv ?max_level e ppf =
 and print_ty ~penv ?max_level (Ty t) ppf = print_term ~penv ?max_level t ppf
 
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
-and print_lambda penv (yus, (e, t)) ppf =
-  Print.print ppf "@[<hov 2>%s %t@]"
+and print_lambda ?max_level penv ((x, u), (e, _)) ppf =
+  let x = (if occurs 0 e = 0 then Name.anonymous else x) in
+  let rec collect xus e =
+    match e.term with
+    | Lambda ((x, u), (e, _)) ->
+       let x = (if occurs 0 e = 0 then Name.anonymous else x) in
+       collect ((x, u) :: xus) e
+    | _ ->
+       (List.rev xus, e)
+  in
+  let xus, e = collect [(x,u)] e in
+  Print.print ?max_level ~at_level:3 ppf "%s%t"
     (Print.char_lambda ())
     (print_binders ~penv
-      (print_binder1 (print_ty ~max_level:999))
-      (fun ~penv ppf -> Print.print ppf "%t%t"
-        (print_annot (print_ty ~penv t))
-        (print_term ~penv e))
-      yus)
+                   (print_ty ~max_level:999)
+                   (fun ~penv -> print_term ~penv e)
+                   xus)
 
-(** [print_prod penv ts t ppf] prints a dependent product using formatter [ppf]. *)
-and print_prod penv ((y,u),t) ppf =
-  if occurs_ty 0 t > 0
-  then
-    Print.print ppf "@[<hov 2>%s %t@]"
-      (Print.char_prod ())
-      (print_binders ~penv
-        (print_binder1 (print_ty ~max_level:999))
-        (fun ~penv -> print_ty ~penv t)
-        (y,u))
-  else
-    Print.print ppf "@[<hov 2>%t@ %s@ %t@]"
+(** [print_prod a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
+and print_prod ?max_level penv ((x, u), t) ppf =
+  if occurs_ty 0 t = 0 then
+    Print.print ?max_level ~at_level:3 ppf "%t@ %s@ %t"
           (print_ty ~penv ~max_level:2 u)
           (Print.char_arrow ())
           (print_ty ~penv:(add_forbidden Name.anonymous penv) t)
+  else
+    let rec collect xus ((Ty t) as t_ty) =
+      match t.term with
+      | Prod ((x, u), t_ty) when occurs_ty 0 t_ty > 0 ->
+         collect ((x, u) :: xus) t_ty
+      | _ ->
+         (List.rev xus, t_ty)
+    in
+    let xus, t = collect [(x,u)] t in
+    Print.print ?max_level ~at_level:3 ppf "%s%t"
+                (Print.char_prod ())
+                (print_binders ~penv
+                               (print_ty ~max_level:999)
+                               (fun ~penv -> print_ty ~penv t)
+                               xus)
 
-and print_apply penv e1 (yts, u) e2 ppf =
+and print_apply ?max_level penv e1 (yts, u) e2 ppf =
   let rec collect_args es e =
     match e.term with
     | Apply (e, _, e') -> collect_args (e' :: es) e
-    | (Type | Atom _ | Bound _ | Constant _ | Lambda _
-    | Prod _ | Eq _ | Refl _ | Signature _ | Structure _ | Projection _) ->
-       e, es
+    | _ -> e, es
   in
   let e, es = collect_args [e2] e1 in
-  Print.print ppf "@[<hov 2>%t@ %t@]"
+  Print.print ?max_level ~at_level:1 ppf "%t@ %t"
               (print_term ~penv ~max_level:0 e)
               (Print.sequence (print_term ~penv ~max_level:0) "" es)
 
 and print_signature_clause penv x y t ppf =
   if Name.eq_ident x y then
-    Print.print ppf "@[<h>%t :@ %t@]"
+    Print.print ppf "@[<hov>%t :@ %t@]"
       (Name.print_ident x)
       (print_ty ~penv t)
   else
-    Print.print ppf "@[<h>%t as %t :@ %t@]"
+    Print.print ppf "@[<hov>%t as %t :@ %t@]"
       (Name.print_ident x)
       (Name.print_ident y)
       (print_ty ~penv t)
@@ -536,13 +552,13 @@ and print_signature ~penv xts ppf =
         (print_signature ~penv:(add_forbidden y penv) lst)
 
 and print_structure_clause ~penv (l,e) ppf =
-  Print.print ppf "@[<h>%t@ =@ %t@]"
+  Print.print ppf "@[<hov>%t@ =@ %t@]"
               (Name.print_ident l)
               (print_term ~penv e)
 
-and print_structure ~penv s es ppf =
+and print_structure ?max_level ~penv s es ppf =
   let les = List.combine (penv.sigs s) es in
-  Print.print ppf "{@[<hv>%t@]}"
+  Print.print ?max_level ~at_level:0 ppf "{@[<hv>%t@]}"
        (Print.sequence (print_structure_clause ~penv) "," les)
 
 (****** Structure stuff ********)

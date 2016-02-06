@@ -439,34 +439,49 @@ let get_penv env =
 
 let lookup_penv env =
   Return (get_penv env), env.state
-  
-let rec print_tag ~penv ?max_level refs t lst ppf =
-  match lst with
-  | [] -> Print.print ?max_level ~at_level:0 ppf "%t" (Name.print_ident t)
-  | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t %t"
-                          (Name.print_ident t)
-                          (Print.sequence (print_value ~penv ~max_level:0 refs) "" lst)
 
-and print_value ~penv ?max_level refs v ppf =
+let rec print_value' ?max_level ~penv refs v ppf =
   match v with
+
   | Term e -> Jdg.print_term ~penv ?max_level e ppf
-  | Closure f -> Print.print ~at_level:0 ppf "<function>"
-  | Handler h -> Print.print ~at_level:0 ppf "<handler>"
-  | Tag (t, lst) -> print_tag ~penv ?max_level refs t lst ppf
-  | List lst -> Print.print ~at_level:0 ppf "[%t]"
-                            (Print.sequence (print_value ~penv ~max_level:2 refs) "," lst)
-  | Tuple lst -> Print.print ~at_level:0 ppf "(%t)"
-                            (Print.sequence (print_value ~penv ~max_level:2 refs) "," lst)
+
+  | Closure f -> Format.fprintf ppf "<function>"
+
+  | Handler h -> Format.fprintf ppf "<handler>"
+
+  | Tag (t, lst) ->
+     begin
+       match lst with
+       | [] -> Name.print_ident t ppf
+       | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t@ %t"
+                               (Name.print_ident t)
+                               (Print.sequence (print_value' ~max_level:0 ~penv refs) "" lst)
+     end
+
+  | List lst -> Format.fprintf ppf "[%t]"
+                  (Print.sequence (print_value' ~max_level:2 ~penv refs) "," lst)
+
+  | Tuple lst -> Format.fprintf ppf "(%t)"
+                  (Print.sequence (print_value' ~max_level:2 ~penv refs) "," lst)
+
   | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t := %t"
-                         (Store.print_key v) (print_value ~penv ~max_level:0 refs (Store.lookup v refs))
-  | String s -> Print.print ?max_level ~at_level:0 ppf "\"%s\"" s
+                  (Store.print_key v)
+                  (print_value' ~penv ~max_level:0 refs (Store.lookup v refs))
+
+  | String s -> Format.fprintf ppf "\"%s\"" (String.escaped s)
+
   | Ident x -> Name.print_ident x ppf
 
-let top_print_value env =
-  (fun ?max_level -> print_value ~penv:(get_penv env) ?max_level env.state),env
+let print_value'' env ?max_level v ppf =
+  let penv = get_penv env in
+  let refs = env.state in
+  Format.fprintf ppf "@[<hov>%t@]"
+                 (print_value' ?max_level ~penv refs v)
+
+let top_print_value env = (print_value'' env), env
 
 let print_value env =
-  Return (fun ?max_level -> print_value ~penv:(get_penv env) ?max_level env.state), env.state
+  Return (print_value'' env), env.state
 
 let print_term env =
   Return (fun ?max_level -> Tt.print_term ~penv:(get_penv env) ?max_level), env.state
@@ -477,23 +492,26 @@ let print_ty env =
 let print_env env =
   let print env ppf =
     let penv = get_penv env in
-    Print.print ppf "---ENVIRONMENT---@." ;
     List.iter
       (function
         | (x, DeclConstant t) ->
-           Print.print ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n" (Name.print_ident x)
-                       (Tt.print_ty ~penv t)
+           Format.fprintf ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n"
+                          (Name.print_ident x)
+                          (Tt.print_ty ~penv t)
         | (x, DeclData k) ->
-           Print.print ppf "@[<hov 4>data %t %d@]@\n" (Name.print_ident x) k
+           Format.fprintf ppf "@[<hov 4>data %t %d@]@\n"
+                          (Name.print_ident x)
+                          k
         | (x, DeclOperation k) ->
-           Print.print ppf "@[<hov 4>operation %t %d@]@\n" (Name.print_ident x) k
+           Format.fprintf ppf "@[<hov 4>operation %t %d@]@\n"
+                          (Name.print_ident x)
+                          k
         | (x, DeclSignature s) ->
-           Print.print ppf "@[<hov 4>signature %t %t@]@\n"
-                       (Name.print_ident x)
-                       (Tt.print_signature ~penv s)
+           Format.fprintf ppf "@[<hov 4>signature %t %t@]@\n"
+                          (Name.print_ident x)
+                          (Tt.print_signature ~penv s)
       )
       (List.rev env.dynamic.decls) ;
-    Print.print ppf "-----END-----@."
   in
   print env, env
 
