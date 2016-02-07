@@ -697,20 +697,27 @@ let field_value ~loc s_def str p =
   in
   fold [] s_def (struct_combine ~loc str)
 
-let field_type ~loc s_def ((_,shares) as s) e p =
+let field_project ~loc s_def ((_,shares) as s) trm p =
   (* The [vs] instantiate the internal `as x` names in the signature definition,
      the [projs] instantiate the labels in the constraints *)
-  let rec fold vs projs def shares = match def, shares with
-    | (l,_,t)::_, _ when Name.eq_ident p l ->
-      instantiate_ty vs t
-    | _::def, Some el :: shares ->
-      let el = instantiate projs el in
-      fold (el::vs) projs def shares
-    | (l,_,_)::def, None :: shares ->
-      let el = mk_projection ~loc e s l in
-      fold (el::vs) (el::projs) def shares
-    | [], [] -> Error.impossible ~loc "field_type no such field %t" (Name.print_ident p)
-    | [], _ :: _ | _ :: _, [] -> Error.impossible ~loc "field_type: malformed signature"
+  let rec fold vs projs = function
+    | ((l,_,t),e)::rem ->
+      if Name.eq_ident p l
+      then
+        let e = match e with
+          | Some e -> instantiate projs e
+          | None -> mk_projection ~loc trm s l
+        and t = instantiate_ty vs t in
+        e,t
+      else
+        let e,projs = match e with
+          | Some e -> instantiate projs e,projs
+          | None ->
+            let e = mk_projection ~loc trm s l in
+            e,(e::projs)
+        in
+        fold (e::vs) projs rem
+    | [] -> Error.impossible ~loc "field_type: no such field %t" (Name.print_ident p)
     in
-  fold [] [] s_def shares
+  fold [] [] (List.combine s_def shares)
 
