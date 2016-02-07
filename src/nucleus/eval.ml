@@ -39,6 +39,15 @@ let as_ident ~loc v =
   Value.return s
 
 
+let list_combine3 =
+  let rec fold acc l1 l2 l3 = match l1,l2,l3 with
+    | [],[],[] -> List.rev acc
+    | x1::l1, x2::l2, x3::l3 -> fold ((x1,x2,x3)::acc) l1 l2 l3
+    | _,_,_ -> raise (Invalid_argument "list_combine3")
+  in
+  fun l1 l2 l3 -> fold [] l1 l2 l3
+
+
 (** Evaluate a computation -- infer mode. *)
 let rec infer (c',loc) =
   match c' with
@@ -495,7 +504,6 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Eq _
   | Syntax.Apply _
   | Syntax.Signature _
-  | Syntax.Structure _
   | Syntax.Projection _
   | Syntax.Yield _
   | Syntax.Hypotheses
@@ -600,6 +608,41 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
                          "failed to check that the term@ %t is equal to@ %t"
                          (pte e) (pte e1)
      end
+
+  | Syntax.Structure (s,xcs) ->
+    Equal.Monad.run (Equal.as_signature t_check) >>= fun ((ctx,((s',shares) as s_sig)),hyps) ->
+    if Name.eq_ident s s'
+    then
+      Value.lookup_signature ~loc s >>= fun s_def ->
+      (* [res] is only the explicit fields, [es] instantiates the types *)
+      let rec fold ctx res es = function
+        | [] ->
+          let res = List.rev res in
+          let e = Tt.mk_structure ~loc s_sig res in
+          let e = Tt.mention_atoms hyps e in
+          Value.return (ctx,e)
+        | ((_,_,t),Some e,(x,None))::rem ->
+          let e = Tt.instantiate res e
+          and t = Tt.instantiate_ty es t in
+          let j = Jdg.mk_term ctx e t in
+          Value.add_bound x (Value.mk_term j)
+          (fold ctx res (e::es) rem)
+        | ((_,_,t),None,(x,Some c))::rem ->
+          let t = Tt.instantiate_ty es t in
+          let jt = Jdg.mk_ty ctx t in
+          check c jt >>= fun (ctx,e) ->
+          let j = Jdg.mk_term ctx e t in
+          Value.add_bound x (Value.mk_term j)
+          (fold ctx (e::res) (e::es) rem)
+        | ((l,_,_),None,(_,None))::rem ->
+          Error.runtime ~loc "Field %t must be specified" (Name.print_ident l)
+        | ((l,_,_),Some _,(_,Some _))::rem ->
+          Error.runtime ~loc "Field %t is constrained and must not be specified" (Name.print_ident l)
+      in
+      fold ctx [] [] (list_combine3 s_def shares xcs)
+    else
+      Error.typing ~loc "This structure belongs to signature %t, but it should be in signature %t"
+        (Name.print_ident s) (Name.print_ident s')
 
 and infer_lambda ~loc x u c =
   match u with
