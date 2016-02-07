@@ -627,7 +627,7 @@ and print_sig_def ~penv xts ppf =
 
 and print_share ~penv lshare next ppf = match lshare with
   | l,None -> next (add_forbidden l penv) ppf
-  | l, Some e -> Format.fprintf ppf "%t = %t;%t" (Name.print_ident l) (print_term ~penv e) (next penv)
+  | l, Some e -> Format.fprintf ppf "%t = %t and %t" (Name.print_ident l) (print_term ~penv e) (next penv)
 
 (* TODO fix printing, esp bound variables *)
 and print_shares ~penv lshares ppf = match lshares with
@@ -638,7 +638,7 @@ and print_shares ~penv lshares ppf = match lshares with
 and print_sig ~penv (s,shares) ppf =
   if List.for_all (fun x -> x = None) shares then Name.print_ident s ppf
   else
-  Print.print ppf "%t with %t" (Name.print_ident s) (print_shares ~penv (List.combine (penv.sigs s) shares))
+  Print.print ppf "%t using %t end" (Name.print_ident s) (print_shares ~penv (List.combine (penv.sigs s) shares))
 
 and print_structure_clause ~penv (l,e) ppf =
   Format.fprintf ppf "@[<hov>%t@ =@ %t@]"
