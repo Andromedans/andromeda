@@ -17,15 +17,19 @@ and tt_pattern' =
   | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
-  | Tt_Signature of Name.signature
-  | Tt_Structure of Name.signature * tt_pattern list
+  | Tt_Signature of Name.signature (* TODO easy matching of signatures and structures with constraints *)
+  | Tt_Structure of Name.signature * tt_pattern list 
   | Tt_Projection of tt_pattern * Name.ident
-  | Tt_GenSig of bound option
-  | Tt_GenStruct of tt_pattern * bound option
-  | Tt_GenProj of tt_pattern * bound option
+  (** Matching [Signature s={li as xi : Ai} with lj = ej] is matching [((s,[li,xi:Ai]),[either yk or ej])]
+      where [yk] is used to instantiate non-constrained labels in later constraints. *)
+  | Tt_GenSig of pattern
+  (** Matching [Structure s, [es]] *)
+  | Tt_GenStruct of tt_pattern * pattern
+  (** Matching [Projection e, _, l] *)
+  | Tt_GenProj of tt_pattern * pattern
   | Tt_GenAtom
 
-type pattern = pattern' * Location.t
+and pattern = pattern' * Location.t
 and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * bound
