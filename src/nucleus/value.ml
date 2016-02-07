@@ -1,5 +1,9 @@
 (** Runtime values and results *)
 
+type ('a,'b) sum =
+  | Inl of 'a
+  | Inr of 'b
+
 (* Information about a toplevel declaration *)
 type decl =
   | DeclConstant of Tt.ty
@@ -69,11 +73,15 @@ type 'a toplevel = env -> 'a*env
 let name_some = Name.make "Some"
 let name_none = Name.make "None"
 let name_unit = Name.make "tt"
+let name_inl  = Name.make "inl"
+let name_inr  = Name.make "inr"
 
 let predefined_tags = [
   (name_some, 1);
   (name_none, 0);
   (name_unit, 0);
+  (name_inl,  1);
+  (name_inr,  1)
 ]
 
 let name_equal        = Name.make "equal"
@@ -213,6 +221,12 @@ let as_option ~loc = function
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
+let as_sum ~loc = function
+  | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Inl x
+  | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Inr x
+  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+    Error.runtime ~loc "expected a sum but got %s" (name_of v)
+
 (** Wrappers for making tags *)
 let as_list ~loc = function
   | List lst -> lst
@@ -224,6 +238,10 @@ let from_option = function
   | Some v -> Tag (name_some, [v])
 
 let from_list lst = List lst
+
+let from_sum = function
+  | Inl x -> Tag (name_inl, [x])
+  | Inr x -> Tag (name_inr, [x])
 
 let list_nil = List []
 
