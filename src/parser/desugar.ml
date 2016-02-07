@@ -136,54 +136,24 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       let p, vars, n = tt_pattern env bound vars n p in
       (Syntax.Tt_Projection (p,l), loc), vars, n
 
-    | Input.Tt_GenSig x ->
-      let i,vars,n = begin match x with
-        | Some x ->
-          begin try
-            let i = List.assoc x vars in
-            Some i, vars, n
-          with | Not_found ->
-            Some n, ((x,n)::vars), (n+1)
-          end
-        | None -> None, vars, n
-        end
-      in
-      (Syntax.Tt_GenSig i, loc), vars, n
+    | Input.Tt_GenSig p ->
+      let p,vars,n = pattern env bound vars n p in
+      (Syntax.Tt_GenSig p, loc), vars, n
 
-    | Input.Tt_GenStruct (p,x) ->
-      let i,vars,n = begin match x with
-        | Some x ->
-          begin try
-            let i = List.assoc x vars in
-            Some i, vars, n
-          with | Not_found ->
-            Some n, ((x,n)::vars), (n+1)
-          end
-        | None -> None, vars, n
-        end
-      in
-      let p, vars, n = tt_pattern env bound vars n p in
-      (Syntax.Tt_GenStruct (p,i), loc), vars, n
+    | Input.Tt_GenStruct (p1,p2) ->
+      let p1, vars, n = tt_pattern env bound vars n p1 in
+      let p2, vars, n = pattern env bound vars n p2 in
+      (Syntax.Tt_GenStruct (p1,p2), loc), vars, n
 
-    | Input.Tt_GenProj (p,x) ->
-      let i,vars,n = begin match x with
-        | Some x ->
-          begin try
-            let i = List.assoc x vars in
-            Some i, vars, n
-          with | Not_found ->
-            Some n, ((x,n)::vars), (n+1)
-          end
-        | None -> None, vars, n
-        end
-      in
-      let p, vars, n = tt_pattern env bound vars n p in
-      (Syntax.Tt_GenProj (p,i), loc), vars, n
+    | Input.Tt_GenProj (p1,p2) ->
+      let p1, vars, n = tt_pattern env bound vars n p1 in
+      let p2, vars, n = pattern env bound vars n p2 in
+      (Syntax.Tt_GenProj (p1,p2), loc), vars, n
 
     | Input.Tt_GenAtom ->
       (Syntax.Tt_GenAtom, loc), vars, n
 
-let rec pattern (env : Value.env) bound vars n (p,loc) =
+and pattern (env : Value.env) bound vars n (p,loc) =
   match p with
     | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), vars, n
 
@@ -271,6 +241,10 @@ let rec pattern (env : Value.env) bound vars n (p,loc) =
           fold vars n (p::ps) rem
         in
       fold vars n [] ps
+
+let raw_signature ~loc x def =
+  Syntax.Signature (x, List.map (fun (l,_,_) -> l,None) def), loc
+
 
 let rec comp ~yield (env : Value.env) bound (c',loc) =
   match c' with
@@ -388,13 +362,36 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
       let c = comp ~yield env bound c in
       Syntax.Refl c, loc
 
+    | Input.Signature (s,cs) ->
+      begin match Value.get_signature s env with
+        | Some s_def ->
+          let rec fold bound xcs def cs = match def,cs with
+            | [], [] ->
+              Syntax.Signature (s,List.rev xcs), loc
+            | (l,_,_)::def, (l',mx,mc)::cs ->
+              if Name.eq_ident l l'
+              then
+                let x = match mx with | Some x -> x | None -> l in
+                let mc = match mc with
+                  | Some c -> Some (comp ~yield env bound c)
+                  | None -> None
+                in
+                let bound = add_bound x bound in
+                fold bound ((x,mc)::xcs) def cs
+              else Error.syntax ~loc "Bad signature constraint: labels do not match.\nConstraints must be fully described."
+            | _::_,[] | [],_::_ -> Error.syntax ~loc "Bad signature constraint: lengths do not match.\nConstraints must be fully described."
+          in
+          fold bound [] s_def cs
+        | None -> Error.syntax ~loc "unknown signature %t" (Name.print_ident s)
+      end
+
     | Input.Structure lycs ->
        let s = find_signature ~loc env (List.map (fun (l,_,_)->l) lycs) in
        let rec fold bound res = function
         | [] -> List.rev res
         | (x,y,c) :: rem ->
           let y = match y with | Some y -> y | None -> x in
-          let c = comp ~yield env bound c in
+          let c = match c with | Some c -> Some (comp ~yield env bound c) | None -> None in
           fold (add_bound y bound) ((y,c) :: res) rem
         in
       let lcs = fold bound [] lycs in
@@ -423,8 +420,8 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
                  if k = 0 then Syntax.Operation (x, []), loc
                  else Error.syntax ~loc "this operation needs %d more arguments" k
 
-              | Some (Value.DeclSignature _) ->
-                 Syntax.Signature x, loc
+              | Some (Value.DeclSignature def) ->
+                raw_signature ~loc x def
 
               | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
             end
@@ -510,6 +507,11 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
   | Input.String s ->
     Syntax.String s, loc
 
+  | Input.GenSig (c1,c2) ->
+    let c1 = comp ~yield env bound c1
+    and c2 = comp ~yield env bound c2 in
+    Syntax.GenSig (c1,c2), loc
+
   | Input.GenStruct (c1,c2) ->
     let c1 = comp ~yield env bound c1
     and c2 = comp ~yield env bound c2 in
@@ -563,8 +565,8 @@ and spine ~yield env bound ((c',loc) as c) cs =
               let cs', cs = split "operation" k cs in
               operation ~loc ~yield env bound x cs', cs
 
-           | Some (Value.DeclSignature _) ->
-              (Syntax.Signature x, loc), cs
+           | Some (Value.DeclSignature def) ->
+              raw_signature ~loc x def, cs
 
            | None ->
               Error.syntax ~loc "unknown identifier %t" (Name.print_ident x)

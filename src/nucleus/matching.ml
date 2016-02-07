@@ -125,7 +125,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
         (* first build a representation of the signature definition *)
         let rec fold ctx nones res ys = function
           | [] ->
-            let js = Jdg.term_of_ty (Jdg.mk_ty Context.empty (Tt.mk_signature_ty ~loc nones)) in
+            let js = Jdg.term_of_ty (Jdg.mk_ty Context.empty (Tt.mk_signature_ty ~loc (s,nones))) in
             Value.mk_tuple [Value.mk_term js;Value.from_list (List.rev res)]
           | (l,x,t)::rem ->
             let t = Tt.unabstract_ty ys t in
@@ -145,16 +145,16 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             let y,ctx = Context.add_fresh ctx x t in
             let y = Tt.mk_atom ~loc y in
             let jy = Jdg.mk_term ctx y t in
-            let v = Value.from_sum (Inl (Value.mk_term jy)) in
+            let v = Value.from_sum (Value.Inl (Value.mk_term jy)) in
             fold ctx (v::lv) (y::es) (y::ys) rem
           | ((_,_,t),Some e)::rem ->
             let t = Tt.instantiate_ty es t
             and e = Tt.instantiate ys e in
             let je = Jdg.mk_term ctx e t in
-            let v = Value.from_sum (Inr (Value.mk_term je)) in
+            let v = Value.from_sum (Value.Inr (Value.mk_term je)) in
             fold ctx (v::lv) (e::es) ys rem
         in
-        let v = fold ctx lv es ys (List.combine s_def shares) in
+        let v = fold ctx [] [] [] (List.combine s_def shares) in
         collect_pattern env xvs p v
 
       | None -> Error.impossible ~loc "matching unknown signature %t" (Name.print_ident s)
@@ -178,15 +178,15 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             let v = Value.mk_term je in
             fold (v::vs) (e::es) exs rem
         in
-        let lv = fold [] [] [] (List.combine s_def (Tt.struct_combine str)) in
+        let lv = fold [] [] [] (List.combine s_def (Tt.struct_combine ~loc str)) in
         collect_pattern env xvs lp lv
 
-      | None -> Error.impossible ~loc "matching structure of unknown signature %t" (Name.print_ident s)
+      | None -> Error.impossible ~loc "matching structure of unknown signature %t" (Name.print_ident (fst s))
     end
 
   | Syntax.Tt_GenProj (p,pl), Tt.Projection (e,s,l) ->
     let vl = Value.mk_ident l in
-    let xvs = collect_pattern env xvs pl l in
+    let xvs = collect_pattern env xvs pl vl in
     collect_tt_pattern env xvs p ctx e (Tt.mk_signature_ty ~loc s)
 
   | Syntax.Tt_GenAtom, Tt.Atom _ -> xvs

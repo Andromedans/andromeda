@@ -38,6 +38,7 @@ let reserved = [
   ("ref", REF) ;
   ("refl", REFL) ;
   ("signature", SIGNATURE) ;
+  ("using", USING) ;
   ("Type", TYPE) ;
   ("val", VAL) ;
   ("where", WHERE) ;
