@@ -20,9 +20,9 @@ type signature = ident
 
 let print_ident x ppf =
   match x with
-  | Ident (s, Word) -> Print.print ppf "%s" s
-  | Ident (_, Anonymous) -> Print.print ppf "_"
-  | Ident (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4)) -> Print.print ppf "( %s )" s
+  | Ident (s, Word) -> Format.fprintf ppf "%s" s
+  | Ident (_, Anonymous) -> Format.fprintf ppf "_"
+  | Ident (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4)) -> Format.fprintf ppf "( %s )" s
 
 let print_label = print_ident
 
@@ -44,9 +44,14 @@ let subscript k =
 
 let print_atom x ppf =
   match x with
-  | Atom (s, Word, k) -> Print.print ppf "%s%s" s (subscript k)
-  | Atom (_, Anonymous, k) -> Print.print ppf "_%s" (subscript k)
-  | Atom (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4), k) -> Print.print ppf "( %s%s )" s (subscript k)
+  | Atom (s, Word, k) ->
+     Format.fprintf ppf "%s%s" s (subscript k)
+
+  | Atom (_, Anonymous, k) ->
+     Format.fprintf ppf "_%s" (subscript k)
+
+  | Atom (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4), k) ->
+     Format.fprintf ppf "( %s%s )" s (subscript k)
 
 let print_op = print_ident
 

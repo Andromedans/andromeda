@@ -3,22 +3,21 @@ Constant unit_rect is declared.
 Constant unit_iota_top is declared.
 it is defined.
 ⊢ refl {}
-  : (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
-      unit {} {}
-      ≡ {}
+  : (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
+    {} {} ≡ {}
 ⊢ refl {}
-  : {}
-      ≡ (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
-            unit {} {}
+  : {} ≡
+    (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
+    {} {}
 ⊢ refl {}
-  : {}
-      ≡ (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
-            unit {} {}
+  : {} ≡
+    (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
+    {} {}
 ⊢ refl {}
-  : {}
-      ≡ (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
-            unit {} {}
+  : {} ≡
+    (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
+    {} {}
 ⊢ refl {}
-  : {}
-      ≡ (λ (T : Type), unit_rect (λ (m : unit), T → T) (λ (x : T), x))
-            unit {} {}
+  : {} ≡
+    (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
+    {} {}

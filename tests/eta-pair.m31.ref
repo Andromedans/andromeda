@@ -8,8 +8,8 @@ Constant Pair_eta is declared.
 Constant C is declared.
 Constant D is declared.
 Constant p is declared.
-⊢ λ (c : C), λ (d : D), refl c
-  : Π (c : C), Π (d : D), Fst C D (Pair C D c d) ≡ c
-⊢ λ (c : C), λ (d : D), refl d
-  : Π (c : C), Π (d : D), Snd C D (Pair C D c d) ≡ d
+⊢ λ (c : C) (_ : D), refl c
+  : Π (c : C) (d : D), Fst C D (Pair C D c d) ≡ c
+⊢ λ (c : C) (d : D), refl d
+  : Π (c : C) (d : D), Snd C D (Pair C D c d) ≡ d
 ⊢ refl p : p ≡ Pair C D (Fst C D p) (Snd C D p)

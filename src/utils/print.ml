@@ -16,18 +16,15 @@ let print ?(at_level=min_int) ?(max_level=max_int) ppf =
   if at_level <= max_level then
     Format.fprintf ppf
   else
-    fun fmt -> Format.fprintf ppf ("(@[" ^^ fmt ^^ "@])")
+    fun fmt -> Format.fprintf ppf ("(" ^^ fmt ^^ ")")
 
 let sequence print_u separator us ppf =
-  Format.fprintf ppf "@[<hov>" ;
-  begin match us with
+  match us with
     | [] -> ()
     | [u] -> print_u u ppf
     | u :: ((_ :: _) as us) ->
       print_u u ppf ;
       List.iter (fun u -> print ppf "%s@ " separator ; print_u u ppf) us
-  end ;
-  Format.fprintf ppf "@]"
 
 (** Unicode and ascii version of symbols *)
 

@@ -14,13 +14,16 @@ and known = {
 
 let print loc ppf =
   match loc with
-  | Unknown -> Print.print ppf "?:?"
+
+  | Unknown -> Format.fprintf ppf "?:?"
+
   | Known {filename; start_line; start_col; end_line; end_col} ->
-    if start_line = end_line then
-      Print.print ppf "File \"%s\", line %d, characters %d-%d"
+    if start_line = end_line
+    then
+      Format.fprintf ppf "File \"%s\", line %d, characters %d-%d"
         filename start_line (1+ start_col) end_col
     else
-      Print.print ppf "File \"%s\", lines %d-%d, characters %d-%d"
+      Format.fprintf ppf "File \"%s\", lines %d-%d, characters %d-%d"
         filename start_line end_line (1+ start_col) end_col
 
 let unknown = Unknown
