@@ -5,7 +5,7 @@ type decl =
   | DeclConstant of Tt.ty
   | DeclData of int
   | DeclOperation of int
-  | DeclSignature of Tt.signature
+  | DeclSignature of Tt.sig_def
 
 type dynamic = {
   decls : (Name.ident * decl) list ;
@@ -508,8 +508,8 @@ let print_env env =
                           k
         | (x, DeclSignature s) ->
            Format.fprintf ppf "@[<hov 4>signature %t %t@]@\n"
-                          (Name.print_ident x)
-                          (Tt.print_signature ~penv s)
+                       (Name.print_ident x)
+                       (Tt.print_sig_def ~penv s)
       )
       (List.rev env.dynamic.decls) ;
   in

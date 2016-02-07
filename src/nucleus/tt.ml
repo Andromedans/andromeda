@@ -23,17 +23,19 @@ and term' =
   | Prod of ty ty_abstraction
   | Eq of ty * term * term
   | Refl of ty * term
-  | Signature of Name.ident
+  | Signature of signature
   | Structure of structure
-  | Projection of term * Name.ident * Name.label
+  | Projection of term * signature * Name.label
 
 and ty = Ty of term
 
 and 'a ty_abstraction = (ty, 'a) abstraction
 
-and signature = (Name.ident * Name.ident * ty) list
+and sig_def = (Name.label * Name.ident * ty) list
 
-and structure = Name.signature * term list
+and signature = Name.signature * term option list
+
+and structure = signature * term list
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
@@ -89,20 +91,30 @@ let mk_refl ~loc t e =
     assumptions = hyp_union (ty_hyps t) [e.assumptions];
     loc = loc }
 
+let assumptions_sig (_,shares) =
+  let rec fold lvl acc = function
+    | [] -> acc
+    | None :: shares -> fold (lvl+1) acc shares
+    | Some e :: shares ->
+      let acc = Assumption.union acc (Assumption.bind lvl e.assumptions) in
+      fold lvl acc shares
+  in
+  fold 0 Assumption.empty shares
+
 let mk_signature ~loc s =
   { term = Signature s;
-    assumptions = Assumption.empty;
+    assumptions = assumptions_sig s;
     loc = loc }
 
 let mk_structure ~loc s es =
   { term = Structure (s, es);
     assumptions = List.fold_left (fun acc e -> Assumption.union acc e.assumptions)
-                                 Assumption.empty es;
+                                 (assumptions_sig s) es;
     loc = loc }
 
 let mk_projection ~loc e s l =
   { term = Projection (e, s, l);
-    assumptions = e.assumptions;
+    assumptions = Assumption.union (assumptions_sig s) e.assumptions;
     loc = loc }
 
 (** Convert a term to a type. *)
@@ -137,7 +149,7 @@ let assumptions_ty (Ty t) = assumptions_term t
 let rec at_var atom bound hyps ~lvl {term=e';assumptions;loc} =
   let assumptions = hyps ~lvl assumptions in
   match e' with
-    | (Type | Constant _ | Signature _) as term -> {term;assumptions;loc}
+    | (Type | Constant _) as term -> {term;assumptions;loc}
     | Atom x -> atom ~lvl x assumptions loc
     | Bound k -> bound ~lvl k assumptions loc
     | Prod ((x,a),b) ->
@@ -169,17 +181,33 @@ let rec at_var atom bound hyps ~lvl {term=e';assumptions;loc} =
       and e = at_var atom bound hyps ~lvl e in
       let term = Refl (a,e) in
       {term;assumptions;loc}
+    | Signature s ->
+      let s = at_var_sig atom bound hyps ~lvl s in
+      let term = Signature s in
+      {term;assumptions;loc}
     | Structure (s, es) ->
-      let es = at_var_struct atom bound hyps ~lvl es in
+      let s = at_var_sig atom bound hyps ~lvl s
+      and es = at_var_struct atom bound hyps ~lvl es in
       let term = Structure (s, es) in
       {term;assumptions;loc}
     | Projection (e,s,l) ->
-      let e = at_var atom bound hyps ~lvl e in
+      let e = at_var atom bound hyps ~lvl e
+      and s = at_var_sig atom bound hyps ~lvl s in
       let term = Projection (e,s,l) in
       {term;assumptions;loc}
 
 and at_var_ty atom bound hyps ~lvl (Ty a) =
   Ty (at_var atom bound hyps ~lvl a)
+
+and at_var_sig atom bound hyps ~lvl (s, shares) =
+  let rec fold lvl res = function
+    | [] -> s, List.rev res
+    | None :: shares -> fold (lvl+1) (None::res) shares
+    | (Some e) :: shares ->
+      let e = at_var atom bound hyps ~lvl e in
+      fold lvl ((Some e)::res) shares
+  in
+  fold lvl [] shares
 
 and at_var_struct atom bound hyps ~lvl es =
   List.map (at_var atom bound hyps ~lvl) es
@@ -265,11 +293,10 @@ let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
   occurs_u k u + occurs_v (k+1) v
 
 (* How many times does bound variable [k] occur in an expression? Used only for printing. *)
-let rec occurs k {term=e';_} =
+let rec occurs k {term=e';loc;_} =
   match e' with
   | Type -> 0
   | Atom _ -> 0
-  | Signature _ -> 0
   | Bound m -> if k = m then 1 else 0
   | Constant x -> 0
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
@@ -283,17 +310,28 @@ let rec occurs k {term=e';_} =
     occurs_ty k t + occurs k e1 + occurs k e2
   | Refl (t, e) ->
     occurs_ty k t + occurs k e
-  | Structure (_, es) ->
-     let rec fold res = function
-       | [] -> res
-       | e :: es ->
-          let j = occurs k e in
-          fold (res+j) es
-     in
-     fold 0 es
-  | Projection (e,_,_) -> occurs k e
+  | Signature s -> occurs_sig k s
+  | Structure (s, es) -> occurs_sig k s + occurs_struct k es
+  | Projection (e,s,_) -> occurs k e + occurs_sig k s
 
 and occurs_ty k (Ty t) = occurs k t
+
+and occurs_sig k (_,shares) =
+  let rec fold acc k = function
+    | [] -> acc
+    | None :: shares -> fold acc (k+1) shares
+    | Some e :: shares -> let acc = acc + occurs k e in fold acc k shares
+  in
+  fold 0 k shares
+
+and occurs_struct k es =
+  let rec fold acc k = function
+    | [] -> acc
+    | e :: es ->
+      let acc = acc + occurs k e in
+      fold acc k es
+  in
+  fold 0 k es
 
 and occurs_term_ty k (e, t) =
   occurs k e + occurs_ty k t
@@ -338,24 +376,16 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
       alpha_equal_ty t t' &&
       alpha_equal e e'
 
-    | Signature s1, Signature s2 -> Name.eq_ident s1 s2
+    | Signature s1, Signature s2 ->
+      alpha_equal_sig s1 s2
 
     | Structure (s1, lst1), Structure (s2, lst2) ->
-       Name.eq_ident s1 s2 &&
-         begin
-           let rec fold lst1 lst2 =
-             match lst1, lst2 with
-             | [], [] -> true
-             | e1::lst1, e2::lst2 -> alpha_equal e1 e2 && fold lst1 lst2
-             | [],_::_ | _::_,[] -> Error.impossible ~loc:Location.unknown
-                                      "alpha_equal: malformed structures"
-           in
-           fold lst1 lst2
-         end
+      alpha_equal_sig s1 s2 &&
+      alpha_equal_struct lst1 lst2
 
     | Projection (e1, s1, l1), Projection (e2, s2, l2) ->
-       Name.eq_ident s1 s2 &&
        Name.eq_ident l1 l2 &&
+       alpha_equal_sig s1 s2 &&
        alpha_equal e1 e2
 
     | (Atom _ | Bound _ | Constant _ | Lambda _ | Apply _ |
@@ -365,6 +395,29 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
   end
 
 and alpha_equal_ty (Ty t1) (Ty t2) = alpha_equal t1 t2
+
+and alpha_equal_sig (s1,shares1) (s2,shares2) =
+  Name.eq_ident s1 s2 &&
+  let rec fold lst1 lst2 = match lst1, lst2 with
+    | [], [] -> true
+    | None::lst1, None::lst2 -> fold lst1 lst2
+    | Some e1 :: lst1, Some e2 :: lst2 ->
+      alpha_equal e1 e2 &&
+      fold lst1 lst2
+    | None :: _, Some _ :: _ | Some _ :: _, None :: _ -> false
+    | [], _:: _ | _ :: _, [] -> Error.impossible ~loc:Location.unknown "alpha_equal_sig: malformed signatures"
+  in
+  fold shares1 shares2
+
+and alpha_equal_struct es1 es2 =
+  let rec fold es1 es2 = match es1, es2 with
+    | [], [] -> true
+    | e1 :: es1, e2 :: es2 ->
+      alpha_equal e1 e2 &&
+      fold es1 es2
+    | [], _ :: _ | _ :: _, [] -> false
+  in
+  fold es1 es2
 
 and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
 
@@ -494,7 +547,7 @@ and print_term' ~penv ?max_level e ppf =
           (print_term ~max_level:Lvl.app_right ~penv  e)
 
       | Signature s ->
-        Name.print_ident s ppf
+        print ~at_level:0 "%t" (print_sig ~penv s)
 
       | Structure (s, es) ->
          print_structure ?max_level ~penv s es ppf
@@ -502,7 +555,7 @@ and print_term' ~penv ?max_level e ppf =
       | Projection (e, s, l) ->
          print ~at_level:Lvl.proj "%t%t.%t"
                (print_term ~max_level:Lvl.proj_left ~penv e)
-               (print_annot (Name.print_ident s))
+               (print_annot (print_sig ~penv s))
                (Name.print_ident l)
 
 and print_ty ?max_level ~penv (Ty t) ppf = print_term ?max_level ~penv t ppf
@@ -549,7 +602,7 @@ and print_prod ?max_level ~penv ((x, u), t) ppf =
                                (fun ~penv -> print_ty ~max_level:Lvl.in_binder ~penv t)
                                xus)
 
-and print_signature_clause ~penv x y t ppf =
+and print_sig_clause penv x y t ppf =
   if Name.eq_ident x y then
     Format.fprintf ppf "@[<hov>%t :@ %t@]"
       (Name.print_ident x)
@@ -560,51 +613,104 @@ and print_signature_clause ~penv x y t ppf =
       (Name.print_ident y)
       (print_ty ~max_level:Lvl.sig_clause ~penv t)
 
-and print_signature ~penv xts ppf =
+and print_sig_def ~penv xts ppf =
   match xts with
   | [] -> ()
   | [x,y,t] ->
      let y = Name.refresh penv.forbidden y in
-     print_signature_clause ~penv x y t ppf
+     print_sig_clause penv x y t ppf
   | (x,y,t) :: lst ->
      let y = Name.refresh penv.forbidden y in
      Print.print ppf "%t,@ %t"
-        (print_signature_clause ~penv x y t)
-        (print_signature ~penv:(add_forbidden y penv) lst)
+        (print_sig_clause penv x y t)
+        (print_sig_def ~penv:(add_forbidden y penv) lst)
+
+and print_share ~penv lshare next ppf = match lshare with
+  | l,None -> next (add_forbidden l penv) ppf
+  | l, Some e -> Format.fprintf ppf "%t = %t;%t" (Name.print_ident l) (print_term ~penv e) (next penv)
+
+(* TODO fix printing, esp bound variables *)
+and print_shares ~penv lshares ppf = match lshares with
+  | [] -> ()
+  | [lshare] -> print_share ~penv lshare (fun _ _ -> ()) ppf
+  | lshare :: lshares -> print_share ~penv lshare (fun penv -> print_shares ~penv lshares) ppf
+
+and print_sig ~penv (s,shares) ppf =
+  if shares = [] then Name.print_ident s ppf
+  else
+  Print.print ppf "%t with %t" (Name.print_ident s) (print_shares ~penv (List.combine (penv.sigs s) shares))
 
 and print_structure_clause ~penv (l,e) ppf =
   Format.fprintf ppf "@[<hov>%t@ =@ %t@]"
                  (Name.print_ident l)
                  (print_term ~max_level:Lvl.struct_clause ~penv e)
 
-and print_structure ?max_level ~penv s es ppf =
-  let les = List.combine (penv.sigs s) es in
-  Format.fprintf ppf "{@[<hv>%t@]}"
-                 (Print.sequence (print_structure_clause ~penv) "," les)
+and print_structure ?max_level ~penv (s,shares) es ppf =
+  let ls = penv.sigs s in
+  let rec fold acc es ls shares = match ls, shares with
+    | [], [] -> List.rev acc
+    | _::ls, Some _ :: shares -> fold acc es ls shares
+    | l::ls, None::shares ->
+      begin match es with
+        | [] -> Error.impossible ~loc:Location.unknown "print_structure: malformed structure"
+        | e::es -> fold ((l,e)::acc) es ls shares
+      end
+    | _::_, [] | [], _ :: _ -> Error.impossible ~loc:Location.unknown "print_structure: malformed signature"
+  in
+  let les = fold [] es ls shares in
+  Print.print ppf "{@[<hv>%t@]}"
+       (Print.sequence (print_structure_clause ~penv) "," les)
 
 (****** Structure stuff ********)
 
-let field_value ~loc s_def lst l =
-  match Name.index_of_ident l (List.map (fun (l, _, _) -> l) s_def) with
-  | Some n ->
-     begin
-       try
-         List.nth lst n
-       with Failure _ -> Error.impossible ~loc "Tt.field_value: too few fields"
-     end
-  | None -> Error.impossible ~loc "Tt.field_value: field %t not found"
-                             (Name.print_ident l)
-                             (* XXX print signature as well? *)
+type struct_field =
+  | Shared of term
+  | Explicit of term
 
-let field_type ~loc s s_def e p =
-  let rec fold vs = function
-    | [] -> Error.impossible ~loc "field_type no such field %t" (Name.print_ident p)
-    | (l,x,t)::rem ->
-      if Name.eq_ident p l
-      then instantiate_ty vs t
-      else
-        let el = mk_projection ~loc e s l in
-        fold (el::vs) rem
+let struct_combine ~loc ((_,shares),es) =
+  let rec fold fields es = function
+    | [] -> List.rev fields
+    | Some e :: shares ->
+      fold ((Shared e)::fields) es shares
+    | None::shares ->
+      begin match es with
+        | [] -> Error.impossible ~loc "struct_combine: malformed structure"
+        | e::es -> fold ((Explicit e)::fields) es shares
+      end
+  in
+  fold [] es shares
+
+let field_value ~loc s_def str p =
+  let rec fold vs def fields = match def, fields with
+    | (l,_,_)::_, e :: _ when Name.eq_ident p l ->
+      begin match e with
+        | Shared e -> instantiate vs e
+        | Explicit e -> e
+      end
+    | _::def, e :: fields ->
+      begin match e with
+        | Shared e -> fold vs def fields
+        | Explicit e -> fold (e::vs) def fields
+      end
+    | [], [] -> Error.impossible ~loc "field_value: no such field %t" (Name.print_ident p)
+    | [], _ :: _ | _ :: _, [] -> Error.impossible ~loc "field_value: malformed structure"
+  in
+  fold [] s_def (struct_combine ~loc str)
+
+let field_type ~loc s_def ((_,shares) as s) e p =
+  (* The [vs] instantiate the internal `as x` names in the signature definition,
+     the [projs] instantiate the labels in the constraints *)
+  let rec fold vs projs def shares = match def, shares with
+    | (l,_,t)::_, _ when Name.eq_ident p l ->
+      instantiate_ty vs t
+    | _::def, Some el :: shares ->
+      let el = instantiate projs el in
+      fold (el::vs) projs def shares
+    | (l,_,_)::def, None :: shares ->
+      let el = mk_projection ~loc e s l in
+      fold (el::vs) (el::projs) def shares
+    | [], [] -> Error.impossible ~loc "field_type no such field %t" (Name.print_ident p)
+    | [], _ :: _ | _ :: _, [] -> Error.impossible ~loc "field_type: malformed signature"
     in
-  fold [] s_def
+  fold [] [] s_def shares
 

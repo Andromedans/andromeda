@@ -113,12 +113,12 @@ and apply ~loc env h x a b e =
 and project ~loc env e s l =
   let e = term env e in
   match e.Tt.term with
-    | Tt.Structure (s',es) when Name.eq_ident s s' ->
-      begin match Value.get_signature s env with
+    | Tt.Structure ((s',_) as str) when Tt.alpha_equal_sig s s' ->
+      begin match Value.get_signature (fst s) env with
         | Some s_def ->
-          Tt.field_value ~loc s_def es l
+          Tt.field_value ~loc s_def str l
         | None ->
-          Error.impossible ~loc "unknown signature %t encountered in Simplify.project" (Name.print_ident s)
+          Error.impossible ~loc "unknown signature %t encountered in Simplify.project" (Name.print_ident (fst s))
       end
 
     | Tt.Constant _
