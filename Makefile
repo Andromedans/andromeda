@@ -74,7 +74,6 @@ uninstall-doc:
 install-project-info:
 	install -d $(DOC_DIR)
 	install -m 644 README.markdown $(DOC_DIR)/README.markdown
-	install -m 644 CHANGELOG.md $(DOC_DIR)/CHANGELOG.md
 uninstall-project-info:
 	rm -f $(DOC_DIR)/CHANGELOG.md $(DOC_DIR)/README.markdown
 	rmdir $(DOC_DIR) || true
