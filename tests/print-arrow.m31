@@ -1,8 +1,0 @@
-(* A somewhat surprising example when an arrow gets printed
-   instead of a product. But it really is ok. *)
-
-constant A : Type
-constant a : A
-
-do
-   ∏ (eq : A ≡ Type), with local (lbeta eq) handle a : Type

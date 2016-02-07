@@ -1,7 +1,0 @@
-Constant A is declared.
-Constant B is declared.
-Constant C is declared.
-Constant f is declared.
-Constant g is declared.
-Constant a is declared.
-⊢ λ (y : B a), g a y : Π (y : B a), C a y

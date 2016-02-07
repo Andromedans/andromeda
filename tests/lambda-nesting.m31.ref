@@ -1,5 +1,0 @@
-f is defined.
-g is defined.
-⊢ refl (λ (T : Type), λ (U : Type), λ (x : T), λ (y : U), x)
-  : (λ (T : Type), λ (U : Type), λ (x : T), λ (y : U), x)
-      ≡ (λ (T : Type), λ (U : Type), λ (x : T), λ (y : U), x)

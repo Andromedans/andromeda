@@ -1,3 +1,0 @@
-Constant empty is declared.
-File "./lambda-where-broken.m31", line 4, characters 4-44: Runtime error
-  cannot abstract y₁₁ with type x₁₀ because it must have type empty.

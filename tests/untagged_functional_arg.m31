@@ -1,5 +1,0 @@
-let G = (λ (T : Type) (g : T -> T) (x : T), g x)
-let G' = (λ (T' g, x : T'), g x) : ∀ (T : Type, g : T -> T), T -> T
-
-do refl G : G == G'
-

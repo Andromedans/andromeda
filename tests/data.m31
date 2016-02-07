@@ -1,4 +1,0 @@
-data cow 0
-data bull 0
-
-do cow :: (bull :: [])

@@ -1,1 +1,0 @@
-Definition up : Universe f0 -> Universe f1 := fun x : Universe f0 => (coerce (f1 , x)).

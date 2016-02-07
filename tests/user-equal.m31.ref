@@ -1,8 +1,0 @@
-Constant A is declared.
-Constant a is declared.
-Constant b is declared.
-Constant f is declared.
-test is defined.
-⊢ refl (f b a) : (λ (x : A), λ (y : A), f y x) a b ≡ f b a
-Constant eq is declared.
-⊢ eq a : f a a ≡ b

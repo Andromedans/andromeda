@@ -1,6 +1,0 @@
-constant empty : Type
-
-(* Should fail. *)
-do λ (x : Type) (y : x), (y where x = empty)
-
-
