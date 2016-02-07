@@ -147,6 +147,7 @@ type struct_field =
   | Shared of term
   | Explicit of term
 
+(* TODO should this instantiate the constraints? *)
 val struct_combine : loc:Location.t -> structure -> struct_field list
 
 (** Makes the projection, even when the field is constrained. *)

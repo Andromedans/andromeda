@@ -88,13 +88,13 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
   | Syntax.Tt_Refl p, Tt.Refl (ty,te) ->
      collect_tt_pattern env xvs p ctx te ty
 
-  | Syntax.Tt_Signature s1, Tt.Signature s2 ->
-     if Name.eq_ident s1 s2
-     then xvs
-     else raise Match_fail
+  | Syntax.Tt_Signature s1, Tt.Signature (s2,shares) ->
+     if not (Name.eq_ident s1 s2 && shares = [])
+     then raise Match_fail
+     else xvs
 
-  | Syntax.Tt_Structure (s1, ps), Tt.Structure (s2, es) ->
-     if not (Name.eq_ident s1 s2)
+  | Syntax.Tt_Structure (s1, ps), Tt.Structure ((s2,shares), es) ->
+     if not (Name.eq_ident s1 s2 && shares = [])
      then raise Match_fail
      else
        begin
@@ -113,69 +113,80 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
          fold xvs [] s_def ps es
        end
 
-  | Syntax.Tt_Projection (p,l), Tt.Projection (te,xts,l') ->
+  | Syntax.Tt_Projection (p,l), Tt.Projection (te,s,l') ->
      if Name.eq_ident l l'
      then
-       let {Tt.loc=loc;_} = e in
-       let xvs = collect_tt_pattern env xvs p ctx te (Tt.mk_signature_ty ~loc xts) in
-       xvs
+       collect_tt_pattern env xvs p ctx te (Tt.mk_signature_ty ~loc s)
      else raise Match_fail
 
-  | Syntax.Tt_GenSig k, Tt.Signature s ->
-    begin match k with
-      | Some k ->
-        begin match Value.get_signature s env with
-          | Some s_def ->
-            (* Build the value to be bound to [k] *)
-            let rec fold ctx ys vs = function
-              | [] -> Value.from_list (List.rev vs)
-              | (l,x,a)::xts ->
-                let a = Tt.unabstract_ty ys a in
-                let va = Value.mk_term (Jdg.term_of_ty (Jdg.mk_ty ctx a)) in
-                let y, ctx = Context.add_fresh ctx x a in
-                let yt = Value.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) a) in
-                let vl = Value.mk_ident l in
-                let v = Value.mk_tuple [vl;yt;va] in
-                fold ctx (y::ys) (v::vs) xts
-            in
-            let v = fold ctx [] [] s_def in
-            update k v xvs
+  | Syntax.Tt_GenSig p, Tt.Signature (s,shares) ->
+    begin match Value.get_signature s env with
+      | Some s_def ->
+        (* first build a representation of the signature definition *)
+        let rec fold ctx nones res ys = function
+          | [] ->
+            let js = Jdg.term_of_ty (Jdg.mk_ty Context.empty (Tt.mk_signature_ty ~loc nones)) in
+            Value.mk_tuple [Value.mk_term js;Value.from_list (List.rev res)]
+          | (l,x,t)::rem ->
+            let t = Tt.unabstract_ty ys t in
+            let y,ctx = Context.add_fresh ctx x t in
+            let jy = Jdg.mk_term ctx (Tt.mk_atom ~loc y) t in
+            let v = Value.mk_tuple [Value.mk_ident l;Value.mk_term jy] in
+            fold ctx (None::nones) (v::res) (y::ys) rem
+        in
+        let vbase = fold Context.empty [] [] [] s_def in
+        (* Build a representation of the constraints *)
+        let rec fold ctx lv es ys = function
+          | [] ->
+            let lv = Value.from_list (List.rev lv) in
+            Value.mk_tuple [vbase;lv]
+          | ((_,x,t),None)::rem ->
+            let t = Tt.instantiate_ty es t in
+            let y,ctx = Context.add_fresh ctx x t in
+            let y = Tt.mk_atom ~loc y in
+            let jy = Jdg.mk_term ctx y t in
+            let v = Value.from_sum (Inl (Value.mk_term jy)) in
+            fold ctx (v::lv) (y::es) (y::ys) rem
+          | ((_,_,t),Some e)::rem ->
+            let t = Tt.instantiate_ty es t
+            and e = Tt.instantiate ys e in
+            let je = Jdg.mk_term ctx e t in
+            let v = Value.from_sum (Inr (Value.mk_term je)) in
+            fold ctx (v::lv) (e::es) ys rem
+        in
+        let v = fold ctx lv es ys (List.combine s_def shares) in
+        collect_pattern env xvs p v
 
-          | None -> Error.impossible ~loc "matching unknown signature %t" (Name.print_ident s)
-        end
-      | None -> xvs
+      | None -> Error.impossible ~loc "matching unknown signature %t" (Name.print_ident s)
     end
 
-  | Syntax.Tt_GenStruct (p,k), Tt.Structure (s,es) ->
-    let xvs = collect_tt_pattern env xvs p Context.empty (Tt.mk_signature ~loc s) Tt.typ in
-    begin match k with
-      | Some k ->
-        begin match Value.get_signature s env with
-          | Some s_def ->
-            (* Build the value to be bound to [k] *)
-            let rec fold fs vs xts es = match xts,es with
-              | [], [] -> Value.from_list (List.rev vs)
-              | (_,_,a)::xts, e::es ->
-                let a = Tt.instantiate_ty fs a in
-                let v = Value.mk_term (Jdg.mk_term ctx e a) in
-                fold (e::fs) (v::vs) xts es
-              | [],_::_ | _::_,[] -> Error.impossible ~loc "Encountered malformed structure while matching"
+  | Syntax.Tt_GenStruct (p,lp), Tt.Structure ((s,_) as str) ->
+    let xvs = collect_tt_pattern env xvs p ctx (Tt.mk_signature ~loc s) Tt.typ in
+    begin match Value.get_signature (fst s) env with
+      | Some s_def ->
+        (* build the list of explicit terms
+           [es] instantiate the types, [exs] the constraints *)
+        let rec fold vs es exs = function
+          | [] -> Value.from_list (List.rev vs)
+          | ((_,_,t),e)::rem ->
+            let t = Tt.instantiate_ty es t
+            and e,exs = match e with
+              | Tt.Explicit e -> e,e::exs
+              | Tt.Shared e -> Tt.instantiate exs e,exs
             in
-            let v = fold [] [] s_def es in
-            update k v xvs
+            let je = Jdg.mk_term ctx e t in
+            let v = Value.mk_term je in
+            fold (v::vs) (e::es) exs rem
+        in
+        let lv = fold [] [] [] (List.combine s_def (Tt.struct_combine str)) in
+        collect_pattern env xvs lp lv
 
-          | None -> Error.impossible ~loc "matching structure at unknown signature %t" (Name.print_ident s)
-        end
-      | None -> xvs
+      | None -> Error.impossible ~loc "matching structure of unknown signature %t" (Name.print_ident s)
     end
 
-  | Syntax.Tt_GenProj (p,k), Tt.Projection (e,s,l) ->
-    let xvs = match k with
-      | Some k ->
-        let vl = Value.mk_ident l in
-        update k vl xvs
-      | None -> xvs
-    in
+  | Syntax.Tt_GenProj (p,pl), Tt.Projection (e,s,l) ->
+    let vl = Value.mk_ident l in
+    let xvs = collect_pattern env xvs pl l in
     collect_tt_pattern env xvs p ctx e (Tt.mk_signature_ty ~loc s)
 
   | Syntax.Tt_GenAtom, Tt.Atom _ -> xvs
@@ -189,7 +200,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
      | Syntax.Tt_GenAtom) , _ ->
      raise Match_fail
 
-let rec collect_pattern env xvs (p,loc) v =
+and collect_pattern env xvs (p,loc) v =
   match p, v with 
   | Syntax.Patt_Anonymous, _ -> xvs
 
