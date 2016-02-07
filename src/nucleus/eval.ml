@@ -240,32 +240,61 @@ let rec infer (c',loc) =
      let et' = Jdg.mk_term ctxe e' t' in
      Value.return_term et'
 
-  | Syntax.Signature s ->
-     let j = Jdg.mk_term Context.empty (Tt.mk_signature ~loc s) (Tt.mk_type_ty ~loc) in
-     Value.return_term j
+  | Syntax.Signature (s,xcs) ->
+    let rec fold ctx vs es ys ts = function
+      | [] ->
+        let vs = List.rev vs in
+        Value.lookup_penv >>= fun penv ->
+        let ctx = List.fold_left2 (Context.abstract ~penv ~loc) ctx ys ts in
+        let s = Tt.mk_signature_ty ~loc (s,vs) in
+        let j = Jdg.term_of_ty (Jdg.mk_ty ctx s) in
+        Value.return_term j
+      | ((_,_,t),(x,mc))::rem ->
+        let t = Tt.instantiate_ty es t in
+        let jt = Jdg.mk_ty ctx t in
+        begin match mc with
+          | Some c ->
+            check c jt >>= fun (ctx,e) ->
+            let je = Jdg.mk_term ctx e t in
+            let e_abs = Tt.abstract ys e in
+            Value.add_bound x (Value.mk_term je)
+            (fold ctx (Some e_abs :: vs) (e::es) ys ts rem)
+          | None ->
+            Value.add_abstracting ~loc x jt (fun ctx y ->
+            let ey = Tt.mk_atom ~loc y in
+            fold ctx (None::vs) (ey::es) (y::ys) (t::ts) rem)
+        end
+    in
+    Value.lookup_signature ~loc s >>= fun def ->
+    fold Context.empty [] [] [] [] (List.combine def xcs)
 
   | Syntax.Structure (s, xcs) ->
-     Value.lookup_signature ~loc s >>= fun lxts ->
-     let rec fold ctx es xcs lxts =
-       match xcs, lxts with
-         | [], [] ->
-           let es = List.rev es in
-           let str = Tt.mk_structure ~loc s es in
-           let t_str = Tt.mk_signature_ty ~loc s in
-           let j_str = Jdg.mk_term ctx str t_str in
-           Value.return_term j_str
+    (* In infer mode the structure must be fully specified. *)
+    let rec fold ctx nones es xcs lxts =
+      match xcs, lxts with
+        | [], [] ->
+          let es = List.rev es in
+          let s = (s,nones) in
+          let str = Tt.mk_structure ~loc s es in
+          let t_str = Tt.mk_signature_ty ~loc s in
+          let j_str = Jdg.mk_term ctx str t_str in
+          Value.return_term j_str
 
-         | (x, c) :: xcs, (lbl, _, t) :: lxts ->
-           let t_inst = Tt.instantiate_ty es t in
-           let jty = Jdg.mk_ty ctx t_inst in
-           check c jty >>= fun (ctx, e) ->
-           Value.add_bound x (Value.mk_term (Jdg.mk_term ctx e t_inst))
-           (fold ctx (e::es) xcs lxts)
+        | (x, Some c) :: xcs, (_, _, t) :: lxts ->
+          let t_inst = Tt.instantiate_ty es t in
+          let jty = Jdg.mk_ty ctx t_inst in
+          check c jty >>= fun (ctx, e) ->
+          Value.add_bound x (Value.mk_term (Jdg.mk_term ctx e t_inst))
+          (fold ctx (None::nones) (e::es) xcs lxts)
 
-         | _::_, [] -> Error.typing ~loc "this structure has too many fields"
-         | [], _::_ -> Error.typing ~loc "this structure has too few fields"
+        | (_,None) :: _, (l,_,_) :: _ ->
+          Error.runtime ~loc "missing field value for %t" (Name.print_ident l)
+
+        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
+        | [], _::_ -> Error.typing ~loc "this structure has too few fields"
     in
-    fold Context.empty [] xcs lxts
+    Value.lookup_signature ~loc s >>= fun lxts ->
+    fold Context.empty [] [] xcs lxts
 
   | Syntax.Projection (c,p) ->
     infer_projection ~loc c p
@@ -324,41 +353,93 @@ let rec infer (c',loc) =
   | Syntax.String s ->
     Value.return (Value.mk_string s)
 
+  | Syntax.GenSig (c1,c2) ->
+    check_ty c1 >>= fun j1 ->
+    Equal.Monad.run (Equal.as_signature j1) >>= fun ((_,(s,shares)),_) ->
+    if List.for_all (fun share -> share = None) shares
+    then
+      infer c2 >>= as_list ~loc >>= fun xes ->
+      Value.lookup_signature ~loc s >>= fun def ->
+      (* [es] instantiate types, [ys] are the previous unconstrained fields *)
+      let rec fold ctx vs es ys ts def xes = match def,xes with
+        | [], [] ->
+          Value.lookup_penv >>= fun penv ->
+          let vs = List.rev vs
+          and ctx = List.fold_left2 (Context.abstract ~penv ~loc) ctx ys ts in
+          let e = Tt.mk_signature_ty ~loc (s,vs) in
+          let j = Jdg.term_of_ty (Jdg.mk_ty ctx e) in
+          Value.return_term j
+        | (l,_,t)::def, xe::xes ->
+          begin match Value.as_sum ~loc xe with
+            | Value.Inl vx ->
+              as_atom ~loc vx >>= fun (ctx',y,ty) ->
+              let t = Tt.instantiate_ty es t in
+              (* TODO use handled equal? *)
+              if Tt.alpha_equal_ty t ty
+              then
+                Value.lookup_penv >>= fun penv ->
+                let ctx = Context.join ~penv ~loc ctx ctx' in
+                let ey = Tt.mk_atom ~loc y in
+                fold ctx (None::vs) (ey::es) (y::ys) (t::ts) def xes
+              else
+                Value.print_ty >>= fun pty ->
+                Error.typing ~loc "bad non-constraint for field %t: types %t and %t do not match"
+                  (Name.print_ident l) (pty t) (pty ty)
+            | Value.Inr ve ->
+              as_term ~loc ve >>= fun (Jdg.Term (ctx',e,te)) ->
+              let t = Tt.instantiate_ty es t in
+              require_equal_ty ~loc (Jdg.mk_ty ctx t) (Jdg.mk_ty ctx' te) >>= begin function
+                | Some (ctx,hyps) ->
+                  let e = Tt.mention_atoms hyps e in
+                  let e_abs = Tt.abstract ys e in
+                  fold ctx (Some e_abs :: vs) (e::es) ys ts def xes
+                | None ->
+                  Value.print_ty >>= fun pty ->
+                  Error.typing ~loc "bad constraint for field %t: types %t and %t do not match"
+                    (Name.print_ident l) (pty t) (pty te)
+              end
+          end
+        | _::_,[] -> Error.runtime ~loc "constraints missing"
+        | [],_::_ -> Error.runtime ~loc "too many constraints"
+      in
+      fold Context.empty [] [] [] [] def xes
+    else
+      Error.runtime ~loc "Cannot add constraints to already constrained signature"
+
   | Syntax.GenStruct (c1,c2) ->
-    check_ty c1 >>= fun (Jdg.Ty (_,target) as jt) ->
-    Equal.Monad.run (Equal.as_signature jt) >>= fun ((ctx1,s),hyps1) ->
+    check_ty c1 >>= fun jt ->
+    Equal.Monad.run (Equal.as_signature jt) >>= fun ((ctx,((s,shares) as s_sig)),_) ->
     infer c2 >>= as_list ~loc >>= fun vs ->
     Value.lookup_signature ~loc s >>= fun lxts ->
-    let rec fold ctx es vs lxts =
-      match vs, lxts with
-        | [], [] ->
-          let es = List.rev es in
-          let str = Tt.mk_structure ~loc s es in
-          let str = Tt.mention_atoms hyps1 str in
-          Value.lookup_penv >>= fun penv ->
-          let ctx = Context.join ~penv ~loc ctx ctx1 in
-          let j_str = Jdg.mk_term ctx str target in
-          Value.return_term j_str
-
-        | v :: vs, (lbl, _, t) :: lxts ->
-          as_term ~loc v >>= fun (Jdg.Term (_,e,_) as je) ->
-          let t_inst = Tt.instantiate_ty es t in
-          require_equal_ty ~loc (Jdg.mk_ty ctx t_inst) (Jdg.typeof je) >>= begin function
-            | Some (ctx,hyps) ->
-              let e = Tt.mention_atoms hyps e in
-              (fold ctx (e::es) vs lxts)
-            | None ->
-              Value.print_term >>= fun pte ->
-              Value.print_ty >>= fun pty ->
-              Error.typing ~loc:e.Tt.loc "the expression %t should have type@ %t@ but has type@ %t"
-                           (pte e) (pty t_inst) (pty (let Jdg.Term (_,_,t) = je in t))
-          end
-
-        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
-        | [], _::_ -> Error.typing ~loc "this structure has too few fields"
+    (* [es] instantiate types, [res] is the explicit fields (which instantiate constraints) *)
+    let rec fold ctx res es vs s_data = match s_data,vs with
+      | [], [] ->
+        let res = List.rev res in
+        let e = Tt.mk_structure ~loc s_sig res
+        and te = Tt.mk_signature_ty ~loc s_sig in
+        let j = Jdg.mk_term ctx e te in
+        Value.return_term j
+      | ((l,_,t),None)::s_data,v::vs ->
+        as_term ~loc v >>= fun (Jdg.Term (ctx',e,te)) ->
+        let t = Tt.instantiate_ty es t in
+        require_equal_ty ~loc (Jdg.mk_ty ctx t) (Jdg.mk_ty ctx' te) >>= begin function
+          | Some (ctx,hyps) ->
+            let e = Tt.mention_atoms hyps e in
+            fold ctx (e::res) (e::es) vs s_data
+          | None ->
+            Value.print_ty >>= fun pty ->
+            Error.typing ~loc "bad field %t: types %t and %t do not match"
+              (Name.print_ident l) (pty t) (pty te)
+        end
+      | ((_,_,t),Some e)::s_data, vs ->
+        let e = Tt.instantiate res e in
+        fold ctx res (e::es) vs s_data
+      | (_,None)::_,[] ->
+        Error.runtime ~loc "too few fields"
+      | [], _::_ ->
+        Error.runtime ~loc "too many fields"
     in
-    fold Context.empty [] vs lxts
-
+    fold ctx [] [] vs (List.combine lxts shares)
 
   | Syntax.GenProj (c1,c2) ->
     infer c2 >>= as_ident ~loc >>= fun l ->
@@ -426,6 +507,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Update _
   | Syntax.Sequence _
   | Syntax.String _
+  | Syntax.GenSig _
   | Syntax.GenStruct _
   | Syntax.GenProj _ 
   | Syntax.Occurs _
@@ -596,16 +678,15 @@ and apply ~loc (Jdg.Term (_, h, _) as jh) c =
   Value.return_term j
 
 and infer_projection ~loc c p =
-  infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,te,ty)) ->
-  let jty = Jdg.mk_ty ctx ty in
+  infer c >>= as_term ~loc >>= fun (Jdg.Term (_,te,_) as j) ->
+  let jty = Jdg.typeof j in
   Equal.Monad.run (Equal.as_signature jty) >>= fun ((ctx,s),hyps) ->
   let te = Tt.mention_atoms hyps te in
-  Value.lookup_signature ~loc s >>= fun s_def ->
+  Value.lookup_signature ~loc (fst s) >>= fun s_def ->
   (if not (List.exists (fun (l,_,_) -> Name.eq_ident p l) s_def)
   then Error.typing ~loc "Cannot project field %t from signature %t: no such field"
-                    (Name.print_ident p) (Name.print_ident s));
-  let ty = Tt.field_type ~loc s s_def te p in
-  let te = Tt.mk_projection ~loc te s p in
+                    (Name.print_ident p) (Name.print_ident (fst s)));
+  let te,ty = Tt.field_project ~loc s_def s te p in
   let j = Jdg.mk_term ctx te ty in
   Value.return_term j
 

@@ -154,8 +154,8 @@ val struct_combine : loc:Location.t -> structure -> struct_field list
 val field_value : loc:Location.t -> sig_def -> structure -> Name.label -> term
 
 (** [field_type s s_def e p] where [e : Signature s] and [s_def] is the definition
-    of [s] computes the type of [e.p] *)
-val field_type : loc:Location.t -> sig_def -> signature -> term -> Name.label -> ty
+    of [s] computes the value and type of [e.p], taking it from the constraints if possible. *)
+val field_project : loc:Location.t -> sig_def -> signature -> term -> Name.label -> term*ty
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool
