@@ -64,6 +64,7 @@ and sig_def = (Name.label * Name.ident * ty) list
 (** A signature with sharing constraints [s with li = vi], the [li] are implicit.
     [vi] is [None] when [li] has no constraint, [Some ei] when it has one.
     In that case the previous non-constrained labels are bound in [ei]. *)
+(* TODO keep the idents from syntax for printing purposes *)
 and signature = Name.signature * term option list
 
 (** A structure [s,es] where [es] are the values of the non constrained fields of [s].
