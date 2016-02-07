@@ -1,0 +1,31 @@
+operation happy 0
+
+handle
+  happy : ?t =>
+    let rec prodify xs t =
+      match xs with
+        | [] => t
+        | (|- ?x : ?u) :: ?xs =>
+            let t' = forall y : u, (t where x = y) in
+            prodify xs t'
+      end
+    in
+    let rec apply head es =
+      match es with
+        | [] => head
+        | ?e :: ?es => apply (head e) es
+      end
+    in
+    match t with
+      | None => Type
+      | Some ?t =>
+          let xs = hypotheses in
+          let t_abs = prodify xs t in
+          assume happy : t_abs in 
+          apply happy (rev xs)
+    end
+end
+
+constant A : Type
+do lambda (B : A -> Type), B happy
+do hypotheses

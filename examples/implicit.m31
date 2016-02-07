@@ -1,0 +1,148 @@
+
+Let rec fold f acc lst :=
+  match lst with
+    | 'nil => acc
+    | 'cons ?x ?lst =>
+      let acc := f acc x in
+      fold f acc lst
+    end.
+
+Let rev := fun lst =>
+  fold (fun acc e => 'cons e acc) 'nil lst.
+
+Let rec append l1 l2 :=
+  match l1 with
+    | 'nil =>
+      l2
+    | 'cons ?x ?tl =>
+      let lapp := append tl l2 in
+      'cons x lapp
+  end.
+
+(* We can isolate equations and 'actual' variables,
+   then choose an equation and run some unification algorithm on it.
+   That would either tell us we can't solve it or give us a (atom * term) list of instantiations.
+   Then we look at the next equation etc.
+   How does the equation choice matter?
+   How do we detect circularities?
+   
+   Example below:
+   -variables T : Type and x : T
+   -equations eqT := T |- A == T : Type and eqx := T, eqT, x |- P x == P a : Type
+   
+   If we choose eqT first, we get (T |- T; |- A) and (T?, eqT |- eqT; |- refl A)
+   Is T in the context of eqT or is it (eqT where T := A)? Does it matter?
+   Then we solve ((eqx where T := A) where eqT := refl A) : x : A |- P x == P a
+   This gives us instantiations (x |- x; |- a) and (x?, eqx |- eqx; |- refl a)
+   
+   We have solved every equation, so we return
+        v where T := A where eqT := refl A where x := a where eqx := refl a
+   ('where' left associative)
+   
+   Now if we choose eqx first
+   solve (eqx; T,eqT,x |- P x : Type; ?? |- P a : Type) ?? hopefully = ø
+   match as 2 applications, lhs is trivial so equate x and a
+   instantiation (T,eqT,x |- x : T; |- a : A)
+   if we try to use it, we either get an #equal (unhandled since outside the handler) or a fresh equation that we can't name.
+   So instead we need to make sure that it's (T,eqT,x |- x : T; T,eqT |- a : T) or (T,eqT,x |- x : A; |- a : A)
+   the former may be hard to get since it may be hard to figure out that we have T,eqT |- _ : A==T (ie without the x)
+   
+   OTOH more complicated problems will have variables on both sides. It may then be better to just give up on this choice order.
+   
+   
+   If we solve equations in the order of introduction, it's equivalent to solving them as they are introduced.
+   Since solving them as they are introduced lets us pass 'none to #equal for better errors when we can't solve, let's do that.
+*)
+
+Let add_fresh := fun s => match s with
+  | 'pair ?inst ?vars =>
+    assume T_ : Type in
+    assume x_ : T_ in
+    'pair x_ ('pair inst ('cons x_ ('cons T_ vars)))
+  end.
+
+(* usage : apply_insts v insts
+   IMPORTANT: insts must be in order of application *)
+Let apply_insts := fun v insts =>
+  fold (fun v inst => match inst with
+    | 'pair ?x ?vx =>
+      v where x := vx
+    end) v (rev insts).
+
+Let rec mem x l :=
+  match l with
+    | 'cons (x as ?y) _ => 'some y
+    | 'cons _ ?l => mem x l
+    | 'nil => 'none
+  end.
+
+(* return 'some s where s state such that its instantiations make A and B equal, else 'none *)
+Let rec solve_eq s A B :=
+  let instantiate := fun s x v =>
+    match 'pair x v with
+      | 'pair (|- _ : ?tx) (|- _ : ?tv) =>
+        match solve_eq s tx tv with
+          | 'some ('pair ?insts ?vars) =>
+            let insts := 'cons ('pair (apply_insts x insts) (apply_insts v insts)) insts in
+            'some ('pair insts vars)
+          | 'none => 'none
+        end
+    end
+  in
+  match s with | 'pair ?insts ?vars =>
+    let A := apply_insts A insts in
+    let B := apply_insts B insts in
+    match 'pair A B with
+      | 'pair A A => 'some s (* trivial case *)
+      | 'pair (|- ?A1 ?A2) (|- ?B1 ?B2) =>
+        match solve_eq s A1 B1 with
+          | 'some ?s =>
+            solve_eq s A2 B2
+          | 'none => 'none
+        end
+      | _ => match mem A vars with
+        | 'some ?A =>
+          instantiate s A B
+        | 'none => match mem B vars with
+          | 'some ?B =>
+            instantiate s B A
+          | 'none => 'none
+          end
+        end
+    end
+  end.
+
+Let finalize := fun s =>
+  match s with
+    | 'pair ('pair ?insts _) ?v =>
+      apply_insts v insts
+  end.
+
+
+Let h := handler
+  | val ?x => fun s => 'pair s x
+  | #implicit _ =>
+    fun s => match add_fresh s with
+      | 'pair ?x ?s => yield x s
+      end
+  | #equal ?eq =>
+    fun s =>
+    match eq with
+      | 'pair ?A ?B =>
+        match solve_eq s A B with
+          | 'some ('pair ?insts ?vars) =>
+            assume eq : A == B in
+            let eqinst := 'pair (apply_insts eq insts) (refl (apply_insts A insts)) in
+            let vars := 'cons eq vars in
+            let insts := 'cons eqinst insts in
+            yield ('some eq) ('pair insts vars)
+          | 'none => yield 'none s
+        end
+    end
+  | finally ?f => finalize (f ('pair 'nil 'nil))
+  end.
+
+Check with h handle
+  assume A : Type in assume P : A -> Type in assume f : forall [x : A] [y : P x] A in assume a : A in assume b : P a in
+  f (#implicit 'tt) b.
+

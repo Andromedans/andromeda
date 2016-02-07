@@ -1,0 +1,3 @@
+Constant A is declared.
+Constant a is declared.
+⊢ A ≡ Type → a : Type

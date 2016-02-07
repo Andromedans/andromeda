@@ -1,0 +1,24 @@
+eval
+  val `fun (b : unit) => b`
+
+eval
+   let ty = val t`unit` in 
+   lambda x : ty,  debruijn 0
+
+eval
+   let ty = val t`unit` in 
+   lambda z : ty, val `z` 
+     
+
+eval
+   lambda z : t`unit`, (`z` :> t`unit`)
+
+eval
+   lambda A : t`Universe 0`,
+     lambda x : t`A`, val `x`
+
+eval
+   val type_of `fun (b : unit) => b`
+
+eval
+   val name_of (type_of `fun (b : unit) => b`)

@@ -1,0 +1,174 @@
+(* The auto tactic, kind of *)
+
+Let prod := assume prod : Type -> Type -> Type in prod.
+Let pair := assume pair : Π [A B : Type] A -> (B -> (prod A B)) in pair.
+Let fst := assume fst : Π [X Y : Type] prod X Y -> X in fst.
+Let snd := assume snd : Π [X Y : Type] prod X Y -> Y in snd.
+
+Let rec fold f acc lst :=
+  match lst with
+    | 'nil => acc
+    | 'cons ?x ?lst =>
+      let acc := f acc x in
+      fold f acc lst
+    end.
+
+Let rev := fun lst =>
+  fold (fun acc e => 'cons e acc) 'nil lst.
+
+Let rec is_x xs t :=
+  match xs with
+    | 'cons ('pair t _) _ =>
+      'true
+    | 'cons _ ?xs =>
+      is_x xs t
+    | 'nil => 'false
+  end.
+
+Let rec set_x x v xs :=
+  match xs with
+    | 'cons ('pair x ('some v)) _ => 'some xs
+    | 'cons ('pair x 'none) ?tail =>
+      'some ('cons ('pair x ('some v)) tail)
+    | 'cons ('pair x _) _ => 'none (* x already set to something other than v *)
+    | 'cons ?y ?tail =>
+      match set_x x v tail with
+        | 'some ?tail => 'some ('cons y tail)
+        | 'none => 'none
+      end
+  end.
+          
+
+Let rec apply_match xs target t :=
+  match is_x xs t with
+    | 'true => set_x t target xs
+    | 'false =>
+      match 'pair target t with
+        | 'pair t t => 'some xs (* they were actually equal *)
+        | 'pair (|- ?a ?b) (|- ?c ?d) =>
+          match apply_match xs a c with
+            | 'some ?xs =>
+              apply_match xs b d
+            | 'none => 'none
+          end
+        | _ => 'none
+      end
+  end.
+
+(* [applicable A xs T] = Some xs' a list of (atom,term option) pairs,
+   such that we autofill if the term option is None and use the term otherwise. *)
+Let rec applicable A xs T :=
+  match apply_match xs A T with
+    | 'some ?xs => 'some xs
+    | 'none =>
+      match T with
+        | |- Π [?x : _] ?B =>
+          applicable A ('cons ('pair x 'none) xs) B
+        | _ => 'none
+      end
+  end.
+
+Let find := fun A lst =>
+  fold (fun acc v =>
+    match v with
+      | |- _ : ?T =>
+        match applicable A 'nil T with
+          | 'none => acc
+          | 'some ?n => 'cons ('pair (rev n) v) acc
+        end
+    end) 'nil lst.
+
+Let rec auto lst A :=
+  let rec auto_apply args a :=
+    match args with
+      | 'nil => 'some a
+      | 'cons ('pair _ 'none) ?args =>
+        match a with
+          | |- _ : Π [x : ?T] _ =>
+            match auto lst T with
+              | 'some ?t => auto_apply args (a t)
+              | 'none => 'none
+            end
+        end
+      | 'cons ('pair _ ('some ?v)) ?args =>
+        auto_apply args (a v)
+    end
+  in
+  match A with
+(*    | [A B] |- prod A B : Type =>
+      match auto lst A with
+        | [a] 'some a => match auto lst B with
+          | [b] 'some b => 'some (pair A B a b)
+          | 'none => 'none
+          end
+        | 'none => 'none
+      end
+*)
+    | |- _ : Type =>
+      fold (fun found v =>
+      match found with
+        | 'some _ => found
+        | 'none =>
+          match v with
+            | 'pair ?n ?v => auto_apply n v
+          end
+      end) 'none (find A lst)
+  end.
+
+Axiom unit : Type.
+Axiom tt : unit.
+
+Let auto_handler := handler
+  | val ?x => fun _ => x
+  | #inhabit ?goal =>
+    fun hints =>
+    match auto hints goal with
+      | 'some ?t => yield (t :: goal) hints
+      | 'none => yield (#inhabit goal) hints
+    end
+  | #new_hint ?h =>
+    match h with
+      | |- _ => fun hints =>
+        yield tt ('cons h hints)
+    end
+  | finally ?f => f 'nil
+  end.
+
+Axiom U : Type.
+Axiom V : Type.
+Axiom W : Type.
+Axiom u : U.
+
+Let print := fun v => match 'print v with end.
+
+
+Check
+  assume u : U in
+  assume v : U in
+  assume P : U -> U -> Type in
+  assume f : forall [x y : U] P x y in
+  handle
+  (with auto_handler handle
+    let _ := #new_hint u in
+    let _ := #new_hint f in
+    (#inhabit (P u v)) :: P u v)
+  with
+    | #inhabit ?v => print v
+  end.
+
+
+
+Check
+  assume v : V in
+  assume f : V -> W in
+  handle
+  (with auto_handler handle
+    let _ := #new_hint f in
+    let _ := #new_hint v in
+    let _ := #new_hint u in
+    let _ := #new_hint pair in
+    #inhabit (prod U (prod V W)))
+  with
+    | #inhabit ?v => print v
+  end.
+

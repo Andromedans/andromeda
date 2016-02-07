@@ -1,0 +1,31 @@
+(* Test constants with beta hints. *)
+
+constant cow : Type
+constant horn : cow
+constant tail : cow -> cow
+constant tail_horn : tail horn == horn
+
+do
+  with local (lbeta tail_horn) handle
+    refl horn : horn == tail horn
+
+
+constant prod : Type -> Type -> Type
+
+constant Pair : forall (A : Type) (B : Type) (_ : A) (_ : B), prod A B
+
+constant Fst : forall (A : Type) (B : Type) (_ : prod A B), A
+
+constant Fst_beta :
+  Π (A B : Type) (a : A) (b : B), Fst A B (Pair A B a b) == a
+
+constant X : Type
+constant Y : Type
+constant a : X
+constant f : X -> X
+
+do
+  with local (lbeta Fst_beta) handle
+    λ (y : Y),
+      refl (f a) : f a == Fst X Y (Pair X Y (f a) y)
+

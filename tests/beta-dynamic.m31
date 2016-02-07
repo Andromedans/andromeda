@@ -1,0 +1,28 @@
+(* Test whether beta hints are dynamic. *)
+
+constant A : Type
+constant a : A
+constant b : A
+
+let f = fun x => whnf x
+
+do f a
+
+do
+  assume eq : a == b in
+  with local (lbeta eq) handle
+    f a
+
+
+operation gimme_beta 0
+
+do with equality_in !top_betas !top_hints !top_etas handle
+   handle
+     let _ = gimme_beta in
+     whnf a
+   with
+     | gimme_beta =>
+       assume eq : a == b in
+       let _ = beta eq in yield {}
+   end
+

@@ -1,0 +1,32 @@
+
+let rec append l1 l2 =
+  match l1 with
+    | [] =>
+      l2
+    | ?x :: ?tl =>
+      x :: (append tl l2)
+  end
+
+let rec append' l1 l2 =
+  match l1 with
+    | [] =>
+      l2
+    | ?x :: ?tl =>
+      let lapp = append' tl l2 in
+      x :: lapp
+  end
+
+data a 0
+data b 0
+data c 0
+data d 0
+data e 0
+data f 0
+
+do 
+  let l1 = a :: (b :: (c :: [])) in
+  let l2 = d :: (e :: (f :: [])) in
+  let lapp = append l1 l2 in
+  let lapp' = append' l1 l2 in
+  (lapp, lapp')
+

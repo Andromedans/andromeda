@@ -1,0 +1,19 @@
+(* We potulate the existence of a type D which is equal to its function space. Then we show
+   that D has a fixpoint opreator that computes the fixed point of any function. *)
+
+Definition Type := Universe 0.
+
+Parameter D : Type.
+Parameter scott : (D -> D) == D.
+
+(* Fixpoint combinator *)
+Definition fix :=
+  fun (f : D -> D) =>
+    equation scott in
+      (fun (x : D) => f ((x :: D -> D) x)) (fun (x : D) => f ((x :: D -> D) x)).
+
+(* Fixpoint combinator computes fixed ponints. *)
+Definition fix_eq :=
+  fun (f : D -> D) =>
+    (refl (fix f) :: f (fix f) == fix f).
+  

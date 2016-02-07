@@ -1,0 +1,179 @@
+(* Definition of propositional truncation. *)
+
+Definition Type := Universe f0.
+
+(* The type former *)
+Parameter Trunc : Type -> Type.
+
+(* Definition of something being a (-1)-type *)
+
+Definition is_prop := fun (A : Type) => forall (x y : A), x = y.
+
+(* The type constructors for propositional truncation *)
+
+Parameter trunc : forall (A : Type), A -> Trunc A.
+
+Parameter Trunc_is_prop : forall (A : Type), is_prop (Trunc A).
+
+(* The non-dependent eliminator *)
+
+Parameter rec_trunc :
+  forall (A B : Type), is_prop B -> (A -> B) -> (Trunc A -> B).
+
+(* The computation rule for trunc_elim *)
+
+Parameter trunc_comp :
+  forall (A B : Type)
+         (p : is_prop B)
+         (f : A -> B)
+         (x : A),
+    rec_trunc A B p f (trunc A x) == f x.
+
+Rewrite trunc_comp.
+
+(* Contractible types *)
+
+Definition is_contr :=
+   fun (A : Type) =>
+   { center: A ;
+     center_to: (forall y : A, center = y)
+   }.
+
+Definition sanity :=
+  fun (A : Type) (c : is_contr A) => c.center_to.
+
+(* If A is an inhabited proposition then it is contractible. *)
+
+Definition inhab_prop_is_contr :
+  forall (A : Type) (p : is_prop A), A -> is_contr A 
+  :=
+  fun (A : Type) (p : is_prop A) (a : A) =>
+  { center = a ;
+    center_to = (fun b : A => p center b) }.
+
+(* Concatentaion and opposite paths *)
+Definition opp :=
+  fun (A : Type) (a b : A) (q : a = b) =>
+    J ([x y p . y = x], [z . idpath z], q).
+
+Definition concat :=
+  fun (A : Type) (a b c : A) (r : a = b) (s : b = c) =>
+    J ([x y p . forall (d : A)  (q : y = d), x = d],
+       [z . fun (d : A) (q : z = d) => q],
+       r)
+    c s.        
+
+(* If A is contractible then it is a proposition *)
+Definition contr_is_inhab_prop :
+  forall (A : Type), is_contr A -> { 1 : A ; 2 : is_prop A }
+  :=
+  fun (A : Type) (c : is_contr A) =>
+    (c.center,
+     (fun (x y : A) => concat A x c.center y (opp A c.center x (c.center_to x)) (c.center_to y))).
+
+(* Now we show that the truncation of booleans is the interval *)
+
+(* First we need the booleans *)
+
+Parameter bool : Type.
+Parameter true false : bool.
+
+Parameter bool_ind :
+  forall (P : bool -> Type) (b : bool), P true -> P false -> P b.
+
+Parameter bool_ind_false :
+  forall (P : bool -> Type) (x : P true) (y : P false),
+    bool_ind P false x y == y.
+
+Parameter bool_ind_true :
+  forall (P : bool -> Type) (x : P true)  (y : P false),
+    bool_ind P true x y == x.
+
+Rewrite bool_ind_true.
+Rewrite bool_ind_false.
+
+Definition cond := fun (A : Type) => bool_ind (fun (_ : bool) => A).
+
+(* We need transport and ap *)
+
+Definition tr :
+  forall (A : Type) (P : A -> Type) (a b : A) (s : a = b), P a -> P b
+  :=
+  fun (A : Type) (P : A -> Type) (a b : A) (s : a = b) (u : P a) =>
+    J ([x y p . (P x -> P y)], 
+       [z . fun v : P z => v], s)
+    u.
+
+Definition ap :
+  forall (A B : Type) (f : A -> B) (a b : A), a = b -> f a = f b
+  :=
+    fun (A B : Type) (f : A -> B) (a b : A) (p : a = b) =>
+      J ([x y p . f x = f y],
+         [z . idpath (f z)],
+         p).
+
+(* How to prove that two elements of a sigma type are equal *)
+
+Definition sigma := fun (A : Type) (P : A -> Type) => {1 as x : A ; 2 : P x}.
+
+Definition total_path :
+  forall (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b) (p : a = b),
+    (tr A P a b p u = v) -> ((a,u) :: sigma A P) = ((b,v) :: sigma A P)
+  :=
+  fun (A : Type) (P : A -> Type) (a : A) (u : P a) (b : A) (v : P b)
+      (p : a = b) (q : tr A P a b p u = v) =>
+    J ([x y s .
+         forall (u : P x) (v : P y) (q : tr A P x y s u = v),
+           ((x,u) :: sigma A P) = ((y, v) :: sigma A P)
+       ],
+       [z . fun (u v : P z) (q : u = v) =>
+              J ([u v q . ((z,u) :: sigma A P) = ((z,v) :: sigma A P)],
+                 [w . idpath ((z,w) :: sigma A P)],
+                 q)
+       ],
+       p) u v q.
+
+(* We need singletons *)
+
+Definition singleton := 
+  fun (A : Type) (x : A) => {1 as y : A; 2 : (x = y)}.
+
+(* TO DO *)
+Parameter singleton_is_prop : forall (A : Type) (x : A), is_prop (singleton A x).
+    
+(* Now we define the interval, but we only consider the non-dependent eliminator *)
+
+Definition I := Trunc bool.
+Definition zero := trunc bool false.
+Definition one := trunc bool true.
+Definition seg := Trunc_is_prop bool zero one.
+
+(* Auxiliary definition *)
+Definition rec_I_aux :
+  forall (A : Type) (a b : A), (a = b) -> I -> singleton A a
+  :=
+  fun (A : Type) (a b : A) (p : a = b) =>
+     rec_trunc bool (singleton A a) (singleton_is_prop A a)
+                      (fun (c : bool) => cond (singleton A a) c 
+                                              ((b, p) :: singleton A a)
+                                              ((a, idpath a) :: singleton A a)).
+
+Definition rec_I :
+  forall (A : Type) (a b : A), (a = b) -> I -> A 
+  :=
+  fun (A : Type) (a b : A) (p : a = b) (x : I) =>
+    (rec_I_aux A a b p x).1.
+   
+(* rec_I has the correct computational behavior at zero and one *)
+
+Definition rec_I_zero :
+  forall (A : Type) (a b : A) (p : a = b),
+    rec_I A a b p zero == a
+  :=
+  fun (A : Type) (a b : A) (p : a = b) => refl a.
+
+Definition rec_I_one :
+  forall (A : Type) (a b : A) (p : a = b),
+    rec_I A a b p one == b
+  :=
+  fun (A : Type) (a b : A) (p : a = b) => refl b.

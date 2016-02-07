@@ -1,0 +1,18 @@
+constant Unit : Type
+constant top : Unit
+constant Unit_rect : ∀ (P : Unit -> Type), (P top) -> ∀ (n : Unit), P n
+
+constant Unit_iota_top : ∀ (P : Unit -> Type) (s : P top), Unit_rect P s top == s
+
+let it = (λ (T : Type), Unit_rect (λ (_), T -> T) (λ (x : T), x))
+
+let _ = add_beta Unit_iota_top
+
+(* TODO loops
+do refl top : top == (Unit_rect   (λ (_), Unit -> Unit)) (λ (x : Unit), x) top top
+do refl top : top == (Unit_rect   (λ (_), Unit -> Unit) (λ (x : Unit), x)) top top
+do refl top : top == ((Unit_rect  (λ (_), Unit -> Unit) (λ (x : Unit), x)) top) top
+do refl top : top == (((Unit_rect (λ (_), Unit -> Unit)) (λ (x : Unit), x)) top) top
+do refl top : top == ((Unit_rect  (λ (_), Unit -> Unit)) (λ (x : Unit), x)) top top
+*)
+

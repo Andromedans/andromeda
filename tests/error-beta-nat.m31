@@ -1,0 +1,17 @@
+constant N : Type
+constant Z : N
+constant S : N -> N
+constant plus : N -> N -> N
+constant plus_Z : Π (x : N), plus x Z == x
+constant plus_S : Π (x y : N), plus x (S y) == S (plus x y)
+
+do
+  with local (lbeta plus_S) handle
+    Type
+
+(* This is supposed to fail. *)
+do
+  with local (lbeta plus_Z) handle
+  with local (lbeta plus_S) handle
+   (refl (S (S Z))) : plus (S Z) (S (S Z)) == S (S Z)
+

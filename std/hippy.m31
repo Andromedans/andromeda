@@ -1,0 +1,27 @@
+operation hippy 0
+
+let rec prodify xs t =
+  match xs with
+    | [] => t
+    | (|- ?x : ?u) :: ?xs =>
+        let t' = forall y : u, (t where x = y) in
+        prodify xs t'
+  end
+
+let rec apply head es =
+  match es with
+    | [] => head
+    | ?e :: ?es => apply (head e) es
+  end
+
+handle
+  hippy : ?t =>
+    match t with
+      | None => Type
+      | Some ?t =>
+          let xs = hypotheses in
+          let t_abs = prodify xs t in
+          assume hippy : t_abs in 
+          apply hippy (rev xs)
+    end
+end

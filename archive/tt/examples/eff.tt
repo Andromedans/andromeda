@@ -1,0 +1,115 @@
+// 7
+eval
+  let hdouble = val handler val x => val x + 1 | op double x k => k (x + x) end
+  in
+    with hdouble handle
+      op double 3;;
+
+// [4,5]
+eval 
+  let f = val fun b => match b with
+                          | true => val 4
+                          | false => val 5
+                       end  in
+      let a = f true in
+      let b = f false in
+      val [a,b]
+
+// 100
+eval
+  let hchoice = val handler val x => val x | op decide _ k => k true | finally z => val z + 99 end
+  in
+    with hchoice handle
+      let z = op decide () in
+      match () with
+      | _ when (!z) => val 0
+      | _ when z => val 1
+      end
+
+// 10
+eval
+  let hchoice = val handler op decide _ k => k true end
+  in
+    with hchoice handle
+      let x = let z = op decide () in
+              if z then
+                val 10
+              else
+                val 20
+              in
+      let y = let z = op decide () in
+              match z with
+              | true => val 0
+              | false => val 5 
+              end  in
+      val x + y 
+
+// [10, 15, 20, 25]
+let choose_all := val handler val x => val [x] | op decide _ k => 
+                                                    let l1 = k true in
+                                                    let l2 = k false in
+                                                    val l1 ++ l2 
+                       end
+eval
+    with choose_all handle
+      let x = let z = op decide () in
+              match z with
+              | true => val 10
+              | false => val 20 
+              end  in
+      let y = let z = op decide () in
+              match z with
+              | true => val 0
+              | false => val 5 
+              end  in
+      val x + y 
+
+// [27, 42]
+// ()
+let store := val handler val x => val (fun s => val x) 
+                          op lookup _ k => val (fun s => let z = k s in z s)
+                          op update x k => val (fun s => let z = k () in z x)
+                          finally f => f 99 
+             end
+
+eval
+   with store handle
+     let _ = op update 27 in
+     let a = op lookup () in
+     let _ = op update 42 in
+     let b = op lookup () in
+     op print [a,b]
+
+let stutter := val handler op print x k => let _ = op print x in op print x end
+
+// 22
+// 22
+// ()
+eval
+   with stutter handle
+     op print 22
+
+// [15,120]
+eval
+   let f = val fun g(x) =>
+             match x with
+             | 0 => val [0,1]
+             | _ => let [sum,fact] = g (x - 1) in val [sum+x, fact*x]
+             end
+   in 
+      f 5
+
+
+// ["zero", "one", "many"]
+eval
+   let counth = val handler
+                   | op count [] k => k "zero"
+                   | op count [_] k => k "one"
+                   | op count _ k => k "many"
+                end in
+   with counth handle
+     let a = op count []  in
+     let b = op count [0]  in
+     let c = op count [0,1]  in
+     val [a,b,c]
+

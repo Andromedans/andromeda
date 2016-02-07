@@ -1,0 +1,10 @@
+(* Test parallel lets. *)
+
+let cow =
+  let a = Type -> Type
+  in
+    let a = Type
+    and b = a
+    in a -> b
+
+do cow

@@ -1,0 +1,24 @@
+let id =
+  λ (A : Type), λ (x : A), x
+do id
+
+let compose =
+  λ (A B C : Type) (g : B -> C) (f : A -> B) (x : A), g (f x)
+do compose
+
+
+constant X : Type
+constant Y : Type
+constant Z : Type
+constant W : Type
+constant x : X
+constant f : X -> Y
+constant g : Y -> Z
+constant h : Z -> W
+
+do refl (g (f x)) : g (f x) == compose X Y Z g f x
+
+do refl (h (g (f x))) :
+        compose X Z W h (compose X Y Z g f) x ==
+        compose X Y W (compose Y Z W h g) f x
+

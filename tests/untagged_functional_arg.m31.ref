@@ -1,0 +1,5 @@
+G is defined.
+G' is defined.
+⊢ refl (λ (T : Type), λ (g : T → T), λ (x : T), g x)
+  : (λ (T : Type), λ (g : T → T), λ (x : T), g x)
+      ≡ (λ (T' : Type), λ (g : T' → T'), λ (x : T'), g x)

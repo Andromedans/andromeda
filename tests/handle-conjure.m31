@@ -1,0 +1,25 @@
+(* Create a variable of type A out of thin air. *)
+operation Conjure 1
+let conjure =
+  (fun U =>
+     handle
+       λ (magic : U), Conjure magic
+     with
+     | Conjure ?x => x
+     end
+  )
+
+(* "implicit" argument? *)
+
+constant A : Type
+constant B : A -> Type
+constant Q : Π (X : Type, P : X -> Type, x : X), P x → Type
+
+operation implicit 1
+do
+  handle
+    λ (a : A), Q A B a (implicit (B a))
+  with
+  | implicit ?T => yield (conjure T)
+  end
+

@@ -1,0 +1,11 @@
+data banana 0
+data apple 0
+
+let x = ref []
+
+do 
+  x := banana :: (!x)
+
+do
+  x := apple :: !x ; x
+

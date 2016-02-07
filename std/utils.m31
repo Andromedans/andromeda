@@ -1,0 +1,46 @@
+(** Reverse a list *)
+let rev =
+  let rec rev acc = fun lst => match lst with
+    | [] => acc
+    | ?x :: ?tl => rev (x :: acc) tl
+    end
+  in rev []
+
+(** Fold over a list *)
+let rec fold f acc lst = match lst with
+  | [] => acc
+  | ?x :: ?tl => fold f (f acc x) tl
+  end
+
+(** `list_map f l` applies `f` to each element of `l`  *)
+let rec list_map f l = fold (fun acc x => f x :: acc) [] l |> rev
+
+(** Find in an associative list. *)
+let rec assoc_find x lst = match lst with
+  | [] => None
+  | (x, ?v) :: _ => Some v
+  | _ :: ?lst => assoc_find x lst
+  end
+
+(** Append two lists, reverse the first one *)
+let rev_append = fun l1 l2 => fold (fun acc x => x :: acc) l2 l1
+
+(* Update a key-value in an associative list, fail if the key is not present. *)
+let assoc_update = fun x v lst =>
+  let rec aux acc lst = match lst with
+    | ((x as ?x), _) :: ?lst => rev_append acc ((x, v) :: lst)
+    | ?y :: ?lst => aux (y :: acc) lst
+    end
+  in aux [] lst
+
+(** First projection *)
+let fst = fun v => match v with
+  | (?v, _) => v
+  end
+
+(** Second projection *)
+let snd = fun v => match v with
+  | (_, ?v) => v
+  end
+
+

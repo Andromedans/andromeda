@@ -1,0 +1,54 @@
+Definition Type := Universe f0.
+
+Parameter bool : Type.
+Parameter true false : bool.
+
+Parameter bool_ind :
+  forall (P : bool -> Type) (b : bool), P true -> P false -> P b.
+
+Parameter bool_ind_false :
+  forall (P : bool -> Type) (x : P true) (y : P false),
+    bool_ind P false x y == y.
+
+Parameter bool_ind_true :
+  forall (P : bool -> Type) (x : P true)  (y : P false),
+    bool_ind P true x y == x.
+
+Rewrite bool_ind_true.
+Rewrite bool_ind_false.
+
+Parameter bool_comm :
+    forall (P : bool -> Type)
+           (Pt : P true)
+           (Pf : P false)
+           (R : forall (x : bool), P x -> Type)
+           (f : forall (x : bool) (q : P x), R x q)
+           (b : bool),
+  bool_ind (fun (x : bool) => R x (bool_ind P x Pt Pf))
+           b
+	   (f true Pt)
+           (f false Pf)
+      ==
+    f b (bool_ind P b Pt Pf).
+
+Definition bool_half_eta :=
+  fun (b : bool) =>
+    bool_comm (fun (_ : bool) => bool) true false (fun (_ : bool) (_ : bool) => bool) (fun (x : bool) (_ : bool) => x) b
+    :: bool_ind (fun (_ : bool) => bool) b true false == b.
+
+Definition cond := fun (A : Type) => bool_ind (fun (C : bool) => A).
+
+Definition cond_false :=
+  fun (A : Type) (x : A) (y : A) =>
+    (refl y :: bool_ind (fun U : bool => A) false x y == y).
+
+Definition cond_true :=
+  fun (A : Type) (x : A) (y : A) =>
+    (refl x :: bool_ind (fun V : bool => A) true x y == x).
+
+Definition or := fun (a b : bool) => cond bool a true b.
+Definition and := fun (a b : bool) => cond bool a b false.
+
+Definition test1 :=
+  fun (A : Type) (a b : A) =>
+    (refl a :: (a == cond A ((fun x : bool => x) true) a b)).

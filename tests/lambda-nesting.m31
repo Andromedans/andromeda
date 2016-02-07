@@ -1,0 +1,7 @@
+(* check that differently nested lambdas are equal. *)
+
+let f = λ (T : Type) (U : Type) (x : T) (y : U), x
+let g = λ (T : Type) (U : Type), let _ = Type in (λ (x : T) (y : U), x)
+
+do refl f : f == g
+

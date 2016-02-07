@@ -1,0 +1,17 @@
+constant N : Type
+constant z : N
+constant s : N -> N
+
+constant f : N -> N -> N -> N
+
+operation get 0
+
+do
+  handle
+    f get get get
+  with
+  | val ?v => (fun _ => v)
+  | get => (fun i => (yield i) (s i))
+  | finally ?f => f z
+  end
+

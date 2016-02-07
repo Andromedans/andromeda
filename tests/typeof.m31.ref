@@ -1,0 +1,11 @@
+Constant A is declared.
+Constant P is declared.
+Constant a is declared.
+Constant b is declared.
+typeof is defined.
+⊢ A : Type
+⊢ Type : Type
+⊢ Type : Type
+⊢ P a : Type
+⊢ b : P a
+⊢ Type : Type

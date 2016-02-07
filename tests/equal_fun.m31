@@ -1,0 +1,12 @@
+constant A : Type
+constant B : A -> Type
+constant f : Π (x : A), B x -> B x
+
+let foo =
+  λ (g : Π (x : A), B x -> B x),
+    (λ (x : A) (y : B x), g x (g x y))
+
+do
+  refl (λ (x : A) (y : B x), f x (f x y)) :
+    (λ (x : A) (y : B x), f x (f x y)) == foo f
+

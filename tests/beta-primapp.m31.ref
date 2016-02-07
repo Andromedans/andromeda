@@ -1,0 +1,14 @@
+Constant cow is declared.
+Constant horn is declared.
+Constant tail is declared.
+Constant tail_horn is declared.
+⊢ refl horn : horn ≡ tail horn
+Constant prod is declared.
+Constant Pair is declared.
+Constant Fst is declared.
+Constant Fst_beta is declared.
+Constant X is declared.
+Constant Y is declared.
+Constant a is declared.
+Constant f is declared.
+⊢ λ (y : Y), refl (f a) : Π (y : Y), f a ≡ Fst X Y (Pair X Y (f a) y)

@@ -1,0 +1,10 @@
+(* Test whether application errors have sensible locations *)
+let f = Type
+let x = Type
+let y = Type
+
+
+
+
+let z = f x y
+

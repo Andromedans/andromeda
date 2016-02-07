@@ -1,0 +1,14 @@
+Constant A is declared.
+Constant a is declared.
+Constant b is declared.
+Constant c is declared.
+⊢ a : A
+Data constructor lam is declared.
+lam (x₁₂ : A 
+     ⊢ x₁₂ : A) (⊢ A : Type) (⊢ a : A)
+    (((x'₁₁ : A 
+       ⊢ x'₁₁ : A), (⊢ A : Type)), (⊢ A : Type))
+Constant list is declared.
+Constant Nil is declared.
+Constant Cons is declared.
+((⊢ b : A), (⊢ Cons b (Cons c Nil) : list))

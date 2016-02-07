@@ -1,0 +1,5 @@
+Constant A is declared.
+Constant a is declared.
+Signature cow is declared.
+⊢ {x = a, y = refl a} : cow
+⊢ {x = a, y = refl a} : cow

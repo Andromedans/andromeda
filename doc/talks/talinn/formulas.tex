@@ -1,0 +1,296 @@
+\documentclass{article}
+
+\usepackage{concrete}
+\usepackage{amsmath,amssymb}
+\usepackage{mathpartir}
+
+\newcommand{\Type}{\mathsf{Type}}
+\newcommand{\prd}[1]{{\textstyle\prod_{#1}}\,}
+\newcommand{\lam}[1]{\lambda #1 \,.\,}
+\newcommand{\is}{\ :\ }
+\newcommand{\of}{{:}}
+\newcommand{\Eq}[2]{\mathsf{Eq}_{#1}(#2)}
+\newcommand{\refl}[2]{\mathsf{refl}_{#1}(#2)}
+
+\newcommand{\E}{\mathcal{E}}
+\newcommand{\Eeq}{\E_{\equiv}}
+\newcommand{\Ebeta}{\E_\beta}
+\newcommand{\Eeta}{\E_\eta}
+
+\newcommand{\bool}{\mathsf{bool}}
+\newcommand{\true}{\mathsf{true}}
+\newcommand{\false}{\mathsf{false}}
+
+\newcommand{\nat}{\mathsf{nat}}
+\newcommand{\indnat}{\mathsf{ind}}
+
+\newcommand{\syn}{\ \Rightarrow\ }
+\newcommand{\chk}{\ \Leftarrow\ }
+
+\newcommand{\equivnf}{\equiv^{\scriptscriptstyle\mathrm{whnf}}}
+
+\newcommand{\ascribe}[2]{#1 \mathbin{::} #2}
+\newcommand{\betain}[1]{\mathtt{beta}\ #1 \;\mathtt{in}\;}
+\newcommand{\etain}[1]{\mathtt{eta}\ #1 \;\mathtt{in}\;}
+\newcommand{\eqin}[1]{\mathtt{eq}\ #1 \;\mathtt{in}\;}
+
+\newcommand{\p}{\mathtt{p}}
+
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{equation*}
+  \infer{p \of  \Eq{A}{a,b}}{a \equiv_A b}
+\end{equation*}
+
+% Judgments
+
+\begin{align*}
+  & \Gamma \vdash A \is \Type \\
+  & \Gamma \vdash e \is A \\
+  & \Gamma \vdash e_1 \equiv_A e_2 \\
+  & \Gamma \vdash A \equiv_\Type B
+\end{align*}
+
+\begin{align*}
+  & \Gamma \vdash \Type_{i} \is \Type_{j} \\
+  & \Gamma \vdash e \is A \\
+  & \Gamma \vdash e_1 \equiv_A e_2
+\end{align*}
+
+\begin{align*}
+  & \Gamma \vdash \Type_{\phantom{i}} \is \Type_{\phantom{j}} \\
+  & \Gamma \vdash e \is A \\
+  & \Gamma \vdash e_1 \equiv_A e_2
+\end{align*}
+
+% Products
+
+\begin{mathpar}
+  \infer{\Gamma, x \of  A \vdash B \is \Type}{\Gamma \vdash \prd{x \of  A} B \is \Type}
+  \and
+  \infer{\Gamma, x \of  A \vdash e \is B}{\Gamma \vdash (\lam{x\of A} e) \is \prd{x\of A} B}
+  \and
+  \infer{\Gamma \vdash e_1 \is \prd{x\of A} B\\
+         \Gamma \vdash e_2 \is A}
+       {\Gamma \vdash e_1\,e_2 \is B[e_2/x]}
+\end{mathpar}
+
+\begin{align*}
+  (\lam{x\of A} e_1) \, e_2 &\equiv_{B[e_2/x]} e_1[e_2/x] \\
+  (\lam{x\of A} e\,x) &\equiv_{\Pi_{x\of A} B} e
+\end{align*}
+
+% Equality types
+
+\begin{mathpar}
+  \infer{\Gamma \vdash A \is \Type \\
+         \Gamma \vdash a \is A \\
+         \Gamma \vdash b \is A}
+       {\Gamma \vdash \Eq{A}{a,b} \is \Type}
+  \\
+  \infer{\Gamma \vdash a \is A}
+        {\Gamma \vdash \refl{A}{a} \is \Eq{A}{a,a}}
+  \and
+  \infer{\Gamma \vdash p \is \Eq{A}{a,b}}
+        {\Gamma \vdash a \equiv_A b}
+\end{mathpar}
+
+\begin{equation*}
+  p \equiv_{\Eq{A}{a,b}} \refl{A}{a}
+\end{equation*}
+
+% J rule
+
+\begin{mathpar}
+  \infer
+  {\Gamma \vdash a, b \is A \\\\
+   \Gamma \vdash p \is \Eq{A}{a, b} \\\\
+   \Gamma, x \of A \vdash c \is C (x, x, \refl{}{x})
+  }
+  {\Gamma \vdash \mathsf{J}(\dots) \is C (a, b, p)}
+\end{mathpar}
+
+% Exchange is invalid
+
+\begin{align*}
+  A &\is \Type, \\
+  a &\is A, \\
+  B &\is \Type, \\
+  b &\is B, \\
+  p &\is \Eq{\Type}{A,B}, \\
+  q &\is \Eq{A}{a,b}
+\end{align*}
+
+\begin{align*}
+  A &\is \Type, \\
+  a &\is A, \\
+  B &\is \Type, \\
+  b &\is B, \\
+  q &\is \Eq{A}{a,b}, \\
+  p &\is \Eq{\Type}{A,B}
+\end{align*}
+
+% Messing things up with a strange context
+
+\begin{align*}
+  & p \of \Eq{\Type}{\nat \to \nat, \nat \to \bool} \\
+  &{\vdash} \\
+  & (\lam{x \of \nat} x) \, 0 \is \bool
+\end{align*}
+
+% Natural numbers
+
+\begin{align*}
+  \nat &\is \Type \\
+  \mathsf{Z} &\is \nat \\
+  \mathsf{S} &\is \nat \to \nat \\
+  \indnat &\is \prd{P \of  \nat \to \Type}
+              P \mathsf{Z} \to (\prd{n\of \nat} P\,n \to P\,(\mathsf{S}\,n)) \to
+              \prd{m\of \nat} P\,m \\
+     & \\
+  \beta_\mathsf{Z} &\is
+     \begin{aligned}[t]
+     & \prd{P \of  \nat \to \Type}
+       \prd{x \of  P \mathsf{Z}}
+       \prd{f \of  (\Pi_{n\of \nat}\, P\,n \to P\,(\mathsf{S}\,n))} \\
+     & \qquad \Eq{P \mathsf{Z}}{\indnat\,P\,x\,f\,\mathsf{Z}, x}
+     \end{aligned} \\
+  \beta_\mathsf{S} &\is
+     \begin{aligned}[t]
+      & \prd{P \of  \nat \to \Type}
+       \prd{x \of  P \mathsf{Z}}
+       \prd{f \of  (\Pi_{n\of \nat}\, P\,n \to P\,(\mathsf{S}\,n))}
+       \prd{n \of  \nat} \\
+      &\qquad\Eq{P \mathsf{Z}}{\indnat\,P\,x\,f\,(\mathsf{S}\,n), f\,n\,(\indnat\,P\,x\,f\,n)}
+     \end{aligned}
+\end{align*}
+
+% Derivation using reflection
+
+\begin{equation*}
+  \infer{\cdots}{\Gamma \vdash e \is A}
+\end{equation*}
+
+\begin{equation*}
+  \infer{\cdots}{\Gamma \vdash u \equiv_B v}
+\end{equation*}
+
+\begin{equation*}
+  \infer{\Gamma \vdash p \is \Eq{B}{u,v}}{\Gamma \vdash u \equiv_B v}
+\end{equation*}
+
+% Bidirectional typing
+
+\begin{align*}
+  \Gamma &\vdash a \syn A \\
+  \Gamma &\vdash a \chk A
+\end{align*}
+
+% Inference rules
+
+\begin{mathpar}
+  \infer{\Gamma \vdash e_1 \syn \prd{x \of A} B \\
+         \Gamma \vdash e_2 \chk A}
+        {\Gamma \vdash e_1 \, e_2 \syn B[e_2/x]}
+  \\
+  \infer{\Gamma \vdash e \syn A \\
+         A \equiv_\Type B
+        }
+        {\Gamma \vdash e \chk B}
+\end{mathpar}
+
+\begin{equation*}
+  \Gamma \vdash e \leadsto_A e'
+\end{equation*}
+
+\begin{equation*}
+  \infer{\Gamma \vdash e_1 \syn C \\
+         \Gamma \vdash C \leadsto \prd{x \of A} B \\
+         \Gamma \vdash e_2 \chk A}
+        {\Gamma \vdash e_1 \, e_2 \syn B[e_2/x]}
+\end{equation*}
+
+% How equality splits
+
+\begin{align*}
+  \Gamma &\vdash e \leadsto_A e' \\
+  \Gamma &\vdash e_1 \equiv_A e_2 \\
+  \Gamma &\vdash e_1 \equivnf_A e_2
+\end{align*}
+
+% Judgment with equality hints
+
+\begin{align*}
+  \E &= (\Eeq, \Ebeta, \Eeta) \\
+  \Eeq, \Ebeta, \Eeta &= \{ e_1 \equiv_{A_1} e'_1, \ldots, e_n \equiv_{A_n} e'_n\}
+\end{align*}
+
+\begin{align*}
+  \Gamma &\vdash_{\E} e \syn A \\
+  \Gamma &\vdash_{\E} e \chk A \\
+  \Gamma &\vdash_{\E} e \leadsto_A e' \\
+  \Gamma &\vdash_{\E} e_1 \equiv_A e_2 \\
+  \Gamma &\vdash_{\E} e_1 \equivnf_A e_2
+\end{align*}
+
+\begin{mathpar}
+  \infer{(e \equiv_A e') \in \Ebeta}
+        {\Gamma \vdash_{\E} e \leadsto_A e'}
+  \\
+  \infer{(e \equiv_A e') \in \Eeta}
+        {\Gamma \vdash_{\E} e \equiv_A e'}
+  \\
+  \infer{(e \equiv_A e') \in \Eeq}
+        {\Gamma \vdash_{\E} e \equivnf_A e'}
+\end{mathpar}
+
+% Computation
+
+\begin{align*}
+  \Gamma &\vdash_\E \p \syn (e, A) \\
+  \Gamma &\vdash_\E \p \chk A \mapsto e
+\end{align*}
+
+% Programs
+
+\begin{gather*}
+  \p_1 \, \p_2 \\
+  \lam{x \of \p_1} \p_2 \\
+  \vdots
+\end{gather*}
+
+\begin{align*}
+  & \ascribe{\p_1}{\p_2} \\
+  & \betain{\p_1}{\p_2} \\
+  & \etain{\p_1}{\p_2} \\
+  & \eqin{\p_1}{\p_2}
+\end{align*}
+
+% Type ascription rule
+
+\begin{equation*}
+  \infer
+  {\Gamma \vdash_\E \p_2 \syn (e_2, A_2) \\
+   \Gamma \vdash_\E A_2 \leadsto_\Type \Type \\\\
+   \Gamma \vdash_\E \p_1 \chk e_2 \mapsto e_1
+  }
+  {\Gamma \vdash_\E (\ascribe{\p_1}{\p_2}) \syn (e_1, e_2)
+  }
+\end{equation*}
+
+% Rule for adding a hint
+
+\begin{equation*}
+  \infer
+  {\Gamma \vdash_\E \p_1 \syn (e_0, A_0)
+    \\
+    \Gamma \vdash_\E A_0 \leadsto_\Type \Eq{A}{e_1,e_2}
+   \\\\
+   \Gamma \vdash_{(\Eeq, (\Ebeta \cup \{e_1 \equiv_A e_2\}), \Eeta)} \p_2 \syn (e,A)
+  }
+  {\Gamma \vdash_\E (\betain{\p_1} \p_2) \syn (e,A) }
+\end{equation*}
+
+\end{document}

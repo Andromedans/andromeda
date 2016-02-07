@@ -1,0 +1,29 @@
+(* Here is an example where we assume an equality that
+   allows us to create weird beta redeces, and therefore
+   also weird spines. *)
+
+constant Bool : Type
+constant Nat : Type
+
+constant true : Bool
+constant false : Bool
+
+constant zero : Nat
+constant succ : Nat → Nat
+constant plus : Nat → Nat → Nat
+constant iszero : Nat → Bool
+
+constant eq1 : (Nat → Nat) ≡ (Nat → Bool)
+constant eq2 : (Nat → Bool) ≡ (Nat → Nat)
+
+let f = (λ (n : Nat), iszero (succ n))
+do f
+
+(* Succeed *)
+do
+  with local (lhint eq1) handle (f : Nat → Nat)
+
+(* Fail *)
+do
+  with local (lhint eq2) handle (f : Nat → Nat)
+

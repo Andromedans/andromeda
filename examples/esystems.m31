@@ -1,0 +1,101 @@
+(* Egbert's E-systems *)
+operation hippy 0
+
+handle
+  | equal ?a ?b : _ =>
+      match equal a b with
+      | None => assume ξ : a ≡ b in yield (Some ξ)
+      | Some ?ζ => yield (Some ζ)
+      end
+  | hippy : ?t => assume Ξ : t in yield Ξ
+end
+
+signature catWithTerms = {
+
+  ctx : Type,
+
+  fam : ctx → Type,
+
+  trm : ∏ (Γ : ctx), fam Γ → Type,
+
+  emptyCtx : ctx,
+
+  emptyFam : ∏ (Γ : ctx), fam Γ,
+
+  ctxExt : ∏ (Γ : ctx), fam Γ → ctx,
+
+  famExt : ∏ (Γ : ctx) (A : fam Γ), fam (ctxExt Γ A) → fam Γ,
+
+  assocCtxExt :
+    ∏ (Γ : ctx) (A : fam Γ) (P : fam (ctxExt Γ A)),
+      ctxExt (ctxExt Γ A) P ≡ ctxExt Γ (famExt Γ A P),
+
+  assocFamExt :
+    (with local (lbeta assocCtxExt) handle
+    ∏ (Γ : ctx) (A : fam Γ) (P : fam (ctxExt Γ A))
+      (Q : fam (ctxExt (ctxExt Γ A) P)),
+      famExt Γ (famExt Γ A P) Q ≡
+      famExt Γ A (famExt (ctxExt Γ A) P Q)),
+ 
+  emptyCtxExt :
+    ∏ (Γ : ctx), ctxExt Γ (emptyFam Γ) ≡ Γ,
+  
+  emptyFamLeft :
+    (with local (lbeta emptyCtxExt) handle
+    ∏ (Γ : ctx) (A : fam Γ), famExt Γ (emptyFam Γ) A ≡ A),
+  
+  emptyFamRight :
+    ∏ (Γ : ctx) (A : fam Γ),
+      famExt Γ A (emptyFam (ctxExt Γ A)) ≡ A
+}
+
+signature functorWithTerms =  {
+  dom : catWithTerms,
+
+  cod : catWithTerms,
+
+  ctx : dom.ctx → cod.ctx,
+
+  fam :
+    ∏ (Γ : dom.ctx),
+      dom.fam Γ → cod.fam (ctx Γ),
+
+  trm :
+    ∏ (Γ : dom.ctx) (A : dom.fam Γ), 
+      dom.trm Γ A → cod.trm (ctx Γ) (fam Γ A),
+
+  ctxExt :
+    ∏ (Γ : dom.ctx) (A : dom.fam Γ),
+      ctx (dom.ctxExt Γ A) ≡ cod.ctxExt (ctx Γ) (fam Γ A),
+
+  ctxFam :
+    (with local (lbeta ctxExt) handle
+    ∏ (Γ : dom.ctx) (A : dom.fam Γ) (P : dom.fam (dom.ctxExt Γ A)),      
+      fam Γ (dom.famExt Γ A P) ≡
+      cod.famExt (ctx Γ) (fam Γ A) (fam (dom.ctxExt Γ A) P)),
+
+  emptyFam :
+    ∏ (Γ : dom.ctx),
+      fam Γ (dom.emptyFam Γ) ≡ cod.emptyFam (ctx Γ)
+}
+
+let slice =
+  (λ C Γ,
+    with local (lbeta C.assocCtxExt) handle
+    { 
+      ctx = C.fam Γ,
+      fam = λ A, C.fam (C.ctxExt Γ A),
+      trm = λ A P, C.trm (C.ctxExt Γ A) P,
+      emptyCtx = C.emptyFam Γ,
+      emptyFam = λ A, C.emptyFam (C.ctxExt Γ A),
+      ctxExt = C.famExt Γ,
+      famExt = λ A, C.famExt (C.ctxExt Γ A),
+
+      assocCtxExt = hippy,
+      assocFamExt = hippy,
+      emptyCtxExt = hippy,
+      emptyFamLeft = hippy,
+      emptyFamRight = hippy
+    } : catWithTerms
+  )
+  : ∏ (C : catWithTerms), C.ctx → catWithTerms

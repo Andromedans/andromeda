@@ -1,0 +1,2 @@
+File "./bad-project.m31", line 2, characters 4-9: Typing error
+  Cannot project field bob from signature unit: no such field

@@ -1,0 +1,10 @@
+constant A : Type
+constant a : A
+
+signature cow = { x : A, y : x ≡ a }
+
+do { x = a, y = refl a }
+
+do { x = a, y = refl x }
+
+

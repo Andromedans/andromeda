@@ -1,0 +1,91 @@
+constant A : Type
+constant B : A -> Type
+constant a : A
+constant b : B a
+
+
+constant sigT : Π (A : Type, B : A -> Type), Type
+constant existT : Π (A : Type, B : A -> Type, a : A),
+    (B a) -> sigT A B
+
+constant projT1 : Π (A : Type, B : A -> Type), sigT A B -> A
+constant projT2 : Π (A : Type, B : A -> Type, p : sigT A B),
+    B (projT1 A B p)
+
+constant projT1_beta : Π (A : Type, B : A -> Type, a : A, b : B a),
+    (projT1 A B (existT A B a b) == a)
+
+do projT1_beta
+
+do
+  with local (lbeta projT1_beta) handle
+    refl a : projT1 A B (existT A B a b) == a
+
+constant projT2_beta :
+  with local (lbeta projT1_beta) handle
+    Π (A : Type, B : A -> Type, a : A, b : B a),
+      projT2 A B (existT A B a b) == b
+
+do
+  with local (lbeta projT1_beta) handle
+  with local (lbeta projT2_beta) handle
+    refl b : projT2 A B (existT A B a b) == b
+
+constant sig_ind :
+  Π (A : Type, B : A -> Type,
+     P : sigT A B -> Type)
+    (f : Π (a : A, b : B a), P (existT A B a b))
+    (s : sigT A B),
+      P s
+
+constant sig_ind_beta :
+  Π (A : Type, B : A -> Type,
+     P : sigT A B -> Type,
+     f : Π (a : A, b : B a), P (existT A B a b),
+     a : A, b : B a),
+    sig_ind A B P f
+            (existT A B
+                    a
+                    b)
+    == f a b
+
+let projT1' =
+  λ (A : Type, B : A -> Type, s : sigT A B),
+    sig_ind A B
+            (λ (_ : sigT A B), A)
+            ((λ (X : Type, Y : X -> Type, x : X, y : Y x), x) A B)
+            s
+
+do projT1'
+
+do
+  with local (lbeta sig_ind_beta) handle
+    refl a :
+         a ==
+    (projT1' A B (existT A B a b))
+
+
+do
+  with local (lbeta projT1_beta) handle
+  with local (lbeta sig_ind_beta) handle
+    refl a :
+         (projT1 A B (existT A B a b)) ==
+    (projT1' A B (existT A B a b))
+
+let projT2' =
+  λ (A : Type) (B : A -> Type) (s : sigT A B),
+    with local (lbeta sig_ind_beta) handle
+      sig_ind A B
+              (λ (s : sigT A B),
+                 B (projT1' A B s))
+              (λ (x : A) (y : B x), y)
+              s
+
+do
+  with local (lbeta projT1_beta) handle
+  with local (lbeta projT2_beta) handle
+  with local (lbeta sig_ind_beta) handle
+    refl b :
+         (projT2 A B (existT A B a b)) ==
+    (projT2' A B (existT A B a b))
+

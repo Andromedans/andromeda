@@ -1,0 +1,18 @@
+(* First a nice simple substitution. *)
+
+constant A : Type
+
+let x = assume x : A in x
+
+let P = assume P : A -> Type in P
+
+let y = assume y : P x in y
+
+do y where P = (lambda (z : A), A)
+
+(* Substitute an atom with something that depends on it? Seems to work. *)
+
+constant f : A -> A
+
+do (y where x = f x)
+

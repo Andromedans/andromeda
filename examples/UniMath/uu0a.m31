@@ -1,0 +1,202 @@
+(* Transcription of the uu0a.coq file from UniMath *)
+#include "uuu.m31".
+#include "paths_facts.m31".
+#include "paths_uip.m31".
+
+Let UU := Type.
+
+
+Let from_empty :=
+  (λ [X] empty_rect (λ [x] X))
+  :: forall [X : Type] empty -> X.
+
+Let to_unit :=
+  (λ [X x] tt)
+  :: forall [X : Type] X -> unit.
+
+Let termfun :=
+  (λ [X x _] x)
+  :: forall [X : Type] [x : X] unit -> X.
+
+Let idfun := λ [X : Type] [x : X] x.
+
+Let funcomp :=
+  λ [X Y Z : Type] [f : X -> Y] [g : Y -> Z] [x : X] g (f x).
+
+Let iteration :=
+  (λ [T f n] nat_rect (λ [_] T -> T) (idfun T) (λ [_ IHn] funcomp T T T f IHn) n)
+  :: forall [T : Type] (T -> T) -> nat -> (T -> T).
+
+Check
+  beta nat_iota_S in
+    beta nat_iota_O in
+    refl (S (S O)) ::
+      iteration nat S O (S (S O)) == S (S O).
+
+Let k := iteration nat S (S (S O)) (S O).
+Check k.
+
+Beta nat_iota_O.
+Beta nat_iota_S.
+
+Check (refl k) :: k == (S (S (S O))).
+
+
+(** *** Basic constructions related to the adjoint evaluation
+  function [ X -> ((X -> Y) -> Y) ] *)
+
+Let adjev := λ [X Y : Type] [x : X] [f : X -> Y] f x :: Y.
+
+Let adjev2 := λ [X Y : Type] [phi : ((X -> Y) -> Y) -> Y]
+                (λ [x : X] phi (λ [f : X -> Y] f x)) :: X -> Y.
+
+(** *** Pairwise direct products *)
+
+Let dirprod := λ [X Y : UU] total2 X (λ [x : X] Y).
+
+Let dirprodpair := λ [X Y : UU] tpair X (λ [x : X] Y).
+
+Let dirprodadj :=
+  λ [X Y Z : UU] [f : dirprod X Y -> Z]
+    (λ [x : X] (λ [y : Y] f (dirprodpair X Y x y))) :: X -> Y -> Z .
+
+Let dirprodf :=
+  λ [X Y X' Y' : UU]
+    [f : X -> Y]
+    [f' : X' -> Y']
+    [xx' : dirprod X X']
+    dirprodpair Y Y'
+        (f (pr1 X (λ [_ : X] X') xx'))
+        (f' (pr2 X (λ [_ : X] X') xx'))
+    :: dirprod Y Y'.
+
+
+Let ddualand :=
+  λ [X Y P : UU] [xp : (X -> P) -> P] [yp : (Y -> P) -> P] [X0 : dirprod X Y -> P]
+    xp (λ [x] yp (λ [y] X0 (dirprodpair X Y x y))).
+
+Check ddualand :: ∀ [X Y P : UU, xp : (X -> P) -> P, yp : (Y -> P) -> P] (dirprod X Y -> P) -> P.
+
+
+(** *** Negation and double negation *)
+
+Let neg := (λ [X : UU] (X -> empty) :: UU).
+
+Let negf := λ [X Y : UU] [f : X -> Y]
+              (λ [phi : Y -> empty] λ [x : X] phi (f x))
+              :: neg Y -> neg X.
+
+Let dneg := λ [X : UU] ((X -> empty) -> empty) :: UU.
+
+Let dnegf := λ [X Y : UU] [f : X -> Y] negf (neg Y) (neg X) (negf X Y f)
+               :: dneg X -> dneg Y.
+
+Let to_dneg [X : UU] : X -> dneg X := adjev X empty.
+
+Let dnegneg_to_neg := λ [X : UU] adjev2 X empty :: dneg (neg X) -> neg X.
+
+Let dneg_andd_neg_l1 :=
+  λ [X Y : UU] [dnx : dneg X] [dny : dneg Y]
+    (λ [X2 : X -> neg Y] (dnegf X (neg Y) X2) dnx dny)
+    :: neg (X -> neg Y).
+
+Let dneg_and_dneg_impl_dneg :=
+  λ [X Y : UU] [dnx : dneg X] [dny : dneg Y] ddualand X Y empty dnx dny :: dneg (dirprod X Y).
+
+
+(** *** Logical equivalence *)
+
+Let logeq := λ [X Y : UU] dirprod (X -> Y) (Y -> X).
+Let ↔ := logeq.
+
+Let logeqnegs :=
+  λ [X Y : UU] [l : ↔ X Y]
+    dirprodpair ((neg X) -> (neg Y)) ((neg Y) -> (neg X))
+                (negf Y X (pr2 (X -> Y) (λ [_ : (X -> Y)] Y -> X) l))
+                (negf X Y (pr1 (X -> Y) (λ [_ : (X -> Y)] Y -> X) l)) :: ↔ (neg X) (neg Y).
+
+(* end of "Some standard constructions not using idenity types (paths)". *)
+
+
+(** ** Operations on [ paths ] *)
+
+(* Notation "a = b" := (paths a b) (at level 70, no associativity) : type_scope. *)
+
+
+(** *** Composition of paths and inverse paths *)
+
+
+Let pathscomp0 :=
+  (λ [X a b c e1 e2]
+     paths_rect
+       X b
+       (λ [y : X] [p : = X b y]  = X a y)
+       e1 c e2)
+  :: ∀ [X : UU, a b c : X, e1 : = X a b, e2 : = X b c] = X a c.
+
+(** Alternative definitions of path composition, using reflection of equality
+    that we extract from paths. *)
+Let pathscomp0' := λ [X : UU] [a b c : X] [e1 : = X a b] [e2 : = X b c]
+                     beta (eq_of_paths X a b e1) in e2 :: = X a c.
+
+Let pathscomp0'' := λ [X : UU] [a b c : X] [e1 : = X a b] [e2 : = X b c]
+                      beta (eq_of_paths X b c e2) in e1 :: = X a c.
+
+(** Notation [p @ q] added by B.A., oct 2014 *)
+
+(* Notation "p @ q" := (pathscomp0 p q) (at level 60, right associativity). *)
+Let ∘ := pathscomp0.
+
+(* the end of Oct. 29, 2014 lecture *)
+
+Let pathscomp0rid :=
+  beta paths_iota in
+    (λ [X a b e1]
+       idpath (= X a b) (∘ X a b b e1 (idpath X b))) ::
+      ∀ [X : UU] [a b : X] [e1 : = X a b]
+        = (= X a b) (∘ X a b b e1 (idpath X b)) e1.
+
+(** Now we have to pay a price for using reflection in [pathscomp0']:
+    The type here should say that there's a path between [e1] and [e1 ∘ idpath],
+    but this reduces to [e1] and [idpath], that is to say we have to show that
+    an arbitrary path is equal to the constant path. Now, UIP holds for
+    reflective equality and we can show that it holds for paths, too. *)
+Let pathscomp0rid' :=
+  hint UIP_strict in
+    (λ [X a b e1]
+       idpath (= X a b) (pathscomp0' X a b b e1 (idpath X b)))
+    ::
+      ∀ [X : UU] [a b : X] [e1 : = X a b]
+        = (= X a b) (pathscomp0' X a b b e1 (idpath X b)) e1.
+
+Let pathscomp0lid' :=
+    (λ [X a b e1]
+       idpath (= X a b) (pathscomp0' X a a b (idpath X a) e1))
+    ::
+      ∀ [X : UU] [a b : X] [e1 : = X a b]
+        = (= X a b) (pathscomp0' X a a b (idpath X a) e1) e1.
+
+(** The third definition of composition reduces to its first component, so
+    reflexivity suffices to prove that there's a path between [e1] and [e1] *)
+Let pathscomp0rid'' :=
+  (λ [X a b e1]
+     idpath (= X a b) (pathscomp0'' X a b b e1 (idpath X b)))
+  ::
+    ∀ [X : UU] [a b : X] [e1 : = X a b]
+      = (= X a b) (pathscomp0'' X a b b e1 (idpath X b)) e1.
+
+(** But of course for the symmetric case, we have to use the same trick as for
+   the second definition *)
+Let pathscomp0lid'' :=
+  hint UIP_strict in
+  (λ [X a b e1]
+     idpath (= X a b) (pathscomp0'' X a a b (idpath X a) e1))
+  ::
+    ∀ [X : UU] [a b : X] [e1 : = X a b]
+      = (= X a b) (pathscomp0'' X a a b (idpath X a) e1) e1.
+
+Let pathsinv0 :=
+  λ [X : UU] [a b : X] [e : = X a b]
+    paths_rect
+      X a (λ [y : X] [p : = X a y] = X y a)
+      (idpath X a) b e :: = X b a.

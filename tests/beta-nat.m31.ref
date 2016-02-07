@@ -1,0 +1,11 @@
+Constant N is declared.
+Constant Z is declared.
+Constant S is declared.
+Constant plus is declared.
+Constant plus_Z is declared.
+Constant plus_S is declared.
+⊢ Type : Type
+⊢ refl (S (S Z)) : plus (S (S Z)) Z ≡ S (S Z)
+⊢ refl (S (S Z)) : plus (S Z) (S Z) ≡ S (S Z)
+⊢ λ (x : N), λ (y : N), refl (S (S (plus x y)))
+  : Π (x : N), Π (y : N), plus x (S (S y)) ≡ S (S (plus x y))

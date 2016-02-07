@@ -1,0 +1,7 @@
+
+let x = (lambda x : Type, x) Type
+
+do x
+
+do (external "simplify" x)
+

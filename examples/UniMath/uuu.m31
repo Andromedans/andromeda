@@ -1,0 +1,63 @@
+(* vv's introduction to UniMath *)
+
+#include "../empty.m31" "../unit.m31" "../sum.m31" "../nat.m31" "paths.m31".
+
+Let UUU := Type.
+Let empty_rect := ind_empty.
+
+(* Notation "a = b" := (paths a b) (at level 70, no associativity) : type_scope. *)
+Let = := paths :: forall [A : Type] [a b : A] Type.
+
+Let idpath := paths_refl.
+
+(* Remark: all of the uu0.v now uses only paths_rect and not the direct "match" construction
+on paths. By adding a constantin paths for the computation rule for paths_rect and then making
+both this constant and paths_rect itself opaque it is possible to check which of the
+constructions of the uu0 can be done with the weakened version of the Martin-Lof Type Theory
+that is interpreted by the Bezm-Coquand-Huber cubical set model of 2014. *)
+
+
+(** Coproducts .
+
+The coproduct of two types is introduced in Coq.Init.Datatypes by the lines:
+
+[ Inductive sum (A B:Type) : Type :=
+  | inl : A -> sum A B
+  | inr : B -> sum A B. ]
+ *)
+
+Let coprod := sum.
+
+Let ii1fun := inl.
+Let ii2fun := inr.
+
+Let ii1 := inl.
+Let ii2 := inr.
+
+Let coprod_rect := sum_rect.
+
+
+Parameter total2 : ∀ [T : Type] [P : T -> Type] Type.
+Parameter tpair  : ∀ [T : Type] [P : T -> Type] [t : T] [p : P t] total2 T P.
+
+Parameter total2_rect :
+  ∀ [T : Type] [P : T -> Type] [P0 : total2 T P -> Type]
+    ∀ [f : ∀ [t : T] [p : P t] P0 (tpair T P t p)]
+      ∀ [t : total2 T P] P0 t.
+
+Parameter total2_iota :
+  ∀ [T : Type] [P : T -> Type] [P0 : total2 T P -> Type]
+    ∀ [f : ∀ [t : T] [p : P t] P0 (tpair T P t p)]
+      ∀ [t : T] [p : P t]
+        total2_rect T P P0 f (tpair T P t p) == f t p.
+
+
+Let pr1 := λ [T : Type] [P : T -> Type] [t : total2 T P]
+             total2_rect T P (λ [_ : total2 T P] T) (λ [t : T] [_ : P t] t) t :: T.
+
+Let pr2 := λ [T : Type] [P : T -> Type] [t : total2 T P]
+             beta total2_iota in
+               total2_rect T P
+                           (λ [t : total2 T P] P (pr1 T P t))
+                           (λ [a : T] [b : P a] b)
+                           t :: P (pr1 T P t).

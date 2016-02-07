@@ -1,0 +1,56 @@
+
+(** TT infixes *)
+constant A : Type
+
+constant a : A
+constant b : A
+
+constant (+) : A -> A -> A
+
+let s = (+) a b
+
+do refl s : a + b == a + b
+
+do match s with
+  | |- ?x + ?y => (x, y)
+  end
+
+(** Data infixes *)
+
+data (@) 2
+
+let x = (fun x => x) @ a
+
+do match x with
+  | ?f @ ?y => f y
+  end
+
+(** Operation infixes *)
+
+operation (?) 1
+
+do
+handle
+  let sa = ? a in
+  let sb = ? b in
+  sa + sb
+with
+  | ? ?x => yield (x + x)
+end
+
+handle | ? ?x => x + a end
+
+do ? b
+
+signature monoid = { T : Type, (+) : T -> T -> T, assoc : forall x y z : T, x + (y + z) == (x + y) + z }
+
+constant unit_singleton : forall x y : unit, x == y
+let _ = add_eta unit_singleton
+
+let unit_mon = { T = unit, (+) = lambda x y, {}, assoc = lambda x y z, unit_singleton (x + (y + z)) ((x + y) + z) }
+
+let (++) = unit_mon.(+)
+let ( * ) = unit_mon . ( + )
+
+do refl (++) : (++) == ( * )
+
