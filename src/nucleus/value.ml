@@ -73,8 +73,8 @@ type 'a toplevel = env -> 'a*env
 let name_some = Name.make "Some"
 let name_none = Name.make "None"
 let name_unit = Name.make "tt"
-let name_inl  = Name.make "inl"
-let name_inr  = Name.make "inr"
+let name_inl  = Name.make "Inl"
+let name_inr  = Name.make "Inr"
 
 let predefined_tags = [
   (name_some, 1);

@@ -156,7 +156,6 @@ plain_term:
   | HANDLER hcs=handler_cases END                              { Handler (hcs) }
   | e=app_term COLON t=ty_term                                 { Ascribe (e, t) }
   | e1=equal_term SEMICOLON e2=term                            { Sequence (e1, e2) }
-  | x=var_name USING cs=constraint_clauses END                 { Signature (x,cs) }
   | USIG c1=prefix_term c2=prefix_term                         { GenSig (c1,c2) }
   | USTRUCT c1=prefix_term c2=prefix_term                      { GenStruct (c1,c2) }
   | UPROJ c1=prefix_term c2=prefix_term                        { GenProj (c1,c2) }
@@ -173,6 +172,7 @@ plain_ty_term:
   | FUNCTION a=function_abstraction DARROW e=term    { Function (a, e) }
   | REC x=name a=function_abstraction DARROW e=term  { Rec (x, a, e) }
   | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous, t1)], t2) }
+  | x=var_name USING cs=constraint_clauses END                 { Signature (x,cs) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
 plain_equal_term:
