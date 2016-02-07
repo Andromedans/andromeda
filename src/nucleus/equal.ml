@@ -76,6 +76,22 @@ let (>!=) m f = (Opt.unfailing m) >?= f
 (* counter for debugging depth  *)
 let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
 
+let context_multiabstract ~loc ctx yts =
+  let rec fold ctx = function
+    | [] -> Monad.return ctx
+    | (y,t)::yts ->
+      Monad.context_abstract ~loc ctx y t >>= fun ctx ->
+      fold ctx yts
+  in
+  fold ctx yts
+
+let list_combine3 =
+  let rec fold acc l1 l2 l3 = match l1,l2,l3 with
+    | [],[],[] -> List.rev acc
+    | x1::l1, x2::l2, x3::l3 -> fold ((x1,x2,x3)::acc) l1 l2 l3
+    | _,_,_ -> raise (Invalid_argument "list_combine3")
+  in
+  fun l1 l2 l3 -> fold [] l1 l2 l3
 
 (** Compare two types *)
 let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
@@ -104,26 +120,66 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
 
 and equal_ty ctx (Tt.Ty t1) (Tt.Ty t2) = equal ctx t1 t2 Tt.typ
 
-(** this function assumes that the derived signatures have already been checked equal label to label *)
-and equal_structure ~loc ctx s_def es1 es2 =
-  let rec fold ctx vs hyps fields es1 es2 =
-    match fields, es1, es2 with
-    | [], [], [] ->
-       Opt.return ctx
-
-    | (l,x,t)::fields, e1::es1, e2::es2 ->
+(** Compare signatures structurally *)
+let equal_signature ~loc ctx (s1,shares1) (s2,shares2) =
+  if Name.eq_ident s1 s2
+  then
+    Monad.lift (Value.lookup_signature ~loc s1) >!= fun s_def ->
+    (* [yts] abstracting data (types are instantiated using constraints from shares1)
+       [hyps] prove that the previous constraints were respectively equal
+          (and therefore that a type instantiated with shares1 is equal to the same instantiated with shares2)
+       [vs]  atoms of [ys1] and instantiated terms from [shares1] used to instantiate types
+       [ys1] atoms with type instantiated using shares1
+       [ys2] atoms with type instantiated using shares2
+    *)
+    let rec fold ctx hyps yts vs ys1 ys2 = function
+      | [] ->
+        context_multiabstract ~loc ctx yts >!= fun ctx ->
+        Opt.return ctx
+      | ((_,x,t),None,None)::rem ->
         let t = Tt.instantiate_ty vs t in
-        let e1 = Tt.instantiate vs e1 in
-        let e2 = Tt.instantiate vs e2 in
+        let jt = Jdg.mk_ty ctx t in
+        Opt.add_abstracting ~loc x jt (fun ctx y ->
+        let y1 = Tt.mk_atom ~loc y in
+        let y2 = Tt.mention_atoms hyps y1 in
+        fold ctx hyps ((y,t)::yts) (y1::vs) (y1::ys1) (y2::ys2) rem)
+      | ((_,_,t),Some e1,Some e2)::rem ->
+        let t = Tt.instantiate_ty vs t
+        and e1 = Tt.instantiate ys1 e1
+        and e2 = Tt.instantiate ys2 e2 in
+        (* TODO: this could be slightly more granular by using only the hyps relevant to the assumptions of t *)
         let e2 = Tt.mention_atoms hyps e2 in
-        Opt.locally (equal ctx e1 e2 t) >?= fun (ctx, hyps') ->
+        Opt.locally (equal ctx e1 e2 t) >?= fun (ctx,hyps') ->
         let hyps = AtomSet.union hyps hyps' in
-        fold ctx (e1::vs) hyps fields es1 es2
-
-    | _, _, _ ->
-       Error.impossible ~loc "equal_structure: unequal lengths"
+        fold ctx hyps yts (e1::vs) ys1 ys2 rem
+      | (_,None,Some _)::_ | (_,Some _,None)::_ -> Opt.fail
     in
-  fold ctx [] AtomSet.empty s_def es1 es2
+    fold ctx AtomSet.empty [] [] [] [] (list_combine3 s_def shares1 shares2)
+  else
+    Opt.fail
+
+(** Compare structures structurally *)
+(* TODO: compare constraints and fields simultaneously? *)
+let equal_structure ~loc ctx ((s1,_) as str1) ((s2,_) as str2) =
+  Opt.locally (equal_signature ~loc ctx s1 s2) >?= fun (ctx,hyps) ->
+  Monad.lift (Value.lookup_signature ~loc (fst s1)) >!= fun s_def ->
+  (* [vs] are used to instantiate the type
+     [es] are used to instantiate constraints *)
+  let rec fold ctx hyps vs es = function
+    | [] ->
+      Opt.return ctx
+    | (_,Tt.Shared e,Tt.Shared _)::rem -> (* already checked by equal_signature *)
+      let e = Tt.instantiate es e in
+      fold ctx hyps (e::vs) (e::es) rem
+    | ((_,_,t),Tt.Explicit e1,Tt.Explicit e2)::rem ->
+      let t = Tt.instantiate_ty vs t in
+      let e2 = Tt.mention_atoms hyps e2 in
+      Opt.locally (equal ctx e1 e2 t) >?= fun (ctx,hyps') ->
+      let hyps = AtomSet.union hyps hyps' in
+      fold ctx hyps (e1::vs) es rem
+    | (_,Tt.Explicit _,Tt.Shared _)::_ | (_,Tt.Shared _,Tt.Explicit _)::_ -> Error.impossible ~loc "equal_structure: malformed structure"
+  in
+  fold ctx AtomSet.empty [] [] (list_combine3 s_def (Tt.struct_combine ~loc str1) (Tt.struct_combine ~loc str2))
 
 (** Apply the appropriate congruence rule *)
 let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_} as e2) t =
@@ -196,23 +252,19 @@ let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;
      equal ctx d (Tt.mention_atoms hyps d') u
 
   | Tt.Signature s1, Tt.Signature s2 ->
-     if Name.eq_ident s1 s2
-     then Opt.return ctx
-     else Opt.fail
+    equal_signature ~loc ctx s1 s2
 
-  | Tt.Structure (s1, lst1), Tt.Structure (s2, lst2) ->
-     if Name.eq_ident s1 s2
-     then
-       Monad.lift (Value.lookup_signature ~loc:loc1 s1) >!= fun s_def ->
-       equal_structure ~loc:loc1 ctx s_def lst1 lst2
-     else Opt.fail
+  | Tt.Structure str1, Tt.Structure str2 ->
+    equal_structure ~loc ctx str1 str2
 
   | Tt.Projection (e1, s1, l1), Tt.Projection (e2, s2, l2) ->
-     if Name.eq_ident l1 l2 && Name.eq_ident s1 s2
-     then
-       let t = Tt.mk_signature_ty ~loc:loc1 s1 in 
-       equal ctx e1 e2 t
-     else Opt.fail
+    if Name.eq_ident l1 l2
+    then
+      Opt.locally (equal_signature ~loc ctx s1 s2) >?= fun (ctx,hyps) ->
+      let t = Tt.mk_signature_ty ~loc s1 in
+      let e2 = Tt.mention_atoms hyps e2 in
+      equal ctx e1 e2 t
+    else Opt.fail
 
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _ |
      Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ |
@@ -234,21 +286,25 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
 
   | Tt.Eq _ -> Opt.return ctx
 
-  | Tt.Signature s ->
-     Monad.lift (Value.lookup_signature ~loc s) >!= fun s_def ->
-     let rec fold ctx es hyps fields =
-       match fields with
-         | [] -> Opt.return ctx
-         | (l, _, t) :: fields ->
-           let t = Tt.instantiate_ty es t in
-           let e1_proj = Tt.mk_projection ~loc:e1.Tt.loc e1 s l in
-           let e2_proj = Tt.mk_projection ~loc:e2.Tt.loc e2 s l in
-           let e2_proj = Tt.mention_atoms hyps e2_proj in
-           Opt.locally (equal ctx e1_proj e2_proj t) >?= fun (ctx, hyps') ->
-           let hyps = AtomSet.union hyps hyps' in
-           fold ctx (e1_proj :: es) hyps fields                                                               
-     in
-     fold ctx [] AtomSet.empty s_def
+  | Tt.Signature ((s,shares) as s') ->
+    Monad.lift (Value.lookup_signature ~loc s) >!= fun s_def ->
+    (* [es] instantiate types
+       [projs] instantiate constraints *)
+    let rec fold ctx hyps es projs = function
+        | [] -> Opt.return ctx
+        | ((l, _, t), None) :: rem ->
+          let t = Tt.instantiate_ty es t in
+          let e1_proj = Tt.mk_projection ~loc:e1.Tt.loc e1 s' l in
+          let e2_proj = Tt.mk_projection ~loc:e2.Tt.loc e2 s' l in
+          let e2_proj = Tt.mention_atoms hyps e2_proj in
+          Opt.locally (equal ctx e1_proj e2_proj t) >?= fun (ctx, hyps') ->
+          let hyps = AtomSet.union hyps hyps' in
+          fold ctx hyps (e1_proj :: es) (e1_proj :: projs) rem
+        | (_,Some e) :: rem ->
+          let e = Tt.instantiate projs e in
+          fold ctx hyps (e::es) projs rem
+    in
+    fold ctx AtomSet.empty [] [] (List.combine s_def shares)
 
   | Tt.Type | Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _
   | Tt.Refl _ | Tt.Structure _ | Tt.Projection _ ->
@@ -298,15 +354,14 @@ let reduction_step ctx {Tt.term=e'; assumptions; loc} =
      end
 
   | Tt.Projection (e, s, l) ->
-     begin
-       match e.Tt.term with
-       | Tt.Structure (s', es) ->
-          if Name.eq_ident s s'
-          then
-            Monad.lift (Value.lookup_signature ~loc s) >!= fun s_def ->
-            let e = Tt.field_value s_def es l ~loc in
-            Opt.return (ctx, Tt.mention assumptions e)
-          else Opt.fail
+    begin
+      match e.Tt.term with
+        | Tt.Structure ((s', _) as str) ->
+          Opt.locally (equal_signature ~loc ctx s s') >?= fun (ctx,hyps) ->
+          Monad.lift (Value.lookup_signature ~loc (fst s)) >!= fun s_def ->
+          let e = Tt.field_value ~loc s_def str l in
+          let e = Tt.mention_atoms hyps e in
+          Opt.return (ctx, Tt.mention assumptions e)
 
        | Tt.Atom _
        | Tt.Constant _
