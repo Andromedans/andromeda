@@ -416,17 +416,17 @@ let rec infer (c',loc) =
       Error.runtime ~loc "Cannot add constraints to already constrained signature"
 
   | Syntax.GenStruct (c1,c2) ->
-    check_ty c1 >>= fun jt ->
-    Equal.Monad.run (Equal.as_signature jt) >>= fun ((ctx,((s,shares) as s_sig)),_) ->
+    check_ty c1 >>= fun (Jdg.Ty (_,target) as jt) ->
+    Equal.Monad.run (Equal.as_signature jt) >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
     infer c2 >>= as_list ~loc >>= fun vs ->
     Value.lookup_signature ~loc s >>= fun lxts ->
     (* [es] instantiate types, [res] is the explicit fields (which instantiate constraints) *)
     let rec fold ctx res es vs s_data = match s_data,vs with
       | [], [] ->
         let res = List.rev res in
-        let e = Tt.mk_structure ~loc s_sig res
-        and te = Tt.mk_signature_ty ~loc s_sig in
-        let j = Jdg.mk_term ctx e te in
+        let e = Tt.mk_structure ~loc s_sig res in
+        let e = Tt.mention_atoms hyps e in
+        let j = Jdg.mk_term ctx e target in
         Value.return_term j
       | ((l,_,t),None)::s_data,v::vs ->
         as_term ~loc v >>= fun (Jdg.Term (ctx',e,te)) ->
