@@ -71,15 +71,20 @@ and comp' =
   | Prod of Name.ident * comp * comp
   | Eq of comp * comp
   | Refl of comp
-  | Signature of Name.signature
-  | Structure of Name.signature * (Name.ident * comp) list
-  | Projection of comp * Name.ident
+  (** [s with li as xi = maybe ci] with every previous [xj] bound in [ci] (including the constrained ones) *)
+  | Signature of Name.signature * (Name.ident * comp option) list
+  (** [{ li as xi = maybe ci } : s with lj = ej] with previous [xj] bound in [ci].
+      Must be evaluated in checking mode unless fully explicit. *)
+  | Structure of Name.signature * (Name.ident * comp option) list
+  | Projection of comp * Name.label
   | Yield of comp
   | Hypotheses
   | Congruence of comp * comp
   | Extensionality of comp * comp
   | Reduction of comp
   | String of string
+  (** Inverts matching, except with just the name and not the definition of the signature *)
+  | GenSig of comp * comp
   | GenStruct of comp * comp
   | GenProj of comp * comp
   | Occurs of comp * comp

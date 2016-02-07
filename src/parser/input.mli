@@ -23,12 +23,12 @@ and tt_pattern' =
   | Tt_Structure of (Name.label * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
   (** Generic matching *)
-  | Tt_GenSig of Name.ident option
-  | Tt_GenStruct of tt_pattern * Name.ident option
-  | Tt_GenProj of tt_pattern * Name.ident option
+  | Tt_GenSig of pattern
+  | Tt_GenStruct of tt_pattern * pattern
+  | Tt_GenProj of tt_pattern * pattern
   | Tt_GenAtom
 
-type pattern = pattern' * Location.t
+and pattern = pattern' * Location.t
 and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * Name.ident
@@ -71,14 +71,16 @@ and term' =
   | Prod of (Name.ident * ty) list * comp
   | Eq of comp * comp
   | Refl of comp
-  | Structure of (Name.ident * Name.ident option * comp) list
-  | Projection of comp * Name.ident
+  | Signature of Name.signature * (Name.label * Name.ident option * comp option) list
+  | Structure of (Name.label * Name.ident option * comp option) list
+  | Projection of comp * Name.label
   | Yield of comp
   | Hypotheses
   | Congruence of comp * comp
   | Extensionality of comp * comp
   | Reduction of comp
   | String of string
+  | GenSig of comp * comp
   | GenStruct of comp * comp
   | GenProj of comp * comp
   | Context of comp
