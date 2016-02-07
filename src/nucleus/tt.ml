@@ -636,7 +636,7 @@ and print_shares ~penv lshares ppf = match lshares with
   | lshare :: lshares -> print_share ~penv lshare (fun penv -> print_shares ~penv lshares) ppf
 
 and print_sig ~penv (s,shares) ppf =
-  if shares = [] then Name.print_ident s ppf
+  if List.for_all (fun x -> x = None) shares then Name.print_ident s ppf
   else
   Print.print ppf "%t with %t" (Name.print_ident s) (print_shares ~penv (List.combine (penv.sigs s) shares))
 
