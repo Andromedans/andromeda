@@ -267,11 +267,11 @@ let rec infer (c',loc) =
             let je = Jdg.mk_term ctx e t in
             let e_abs = Tt.abstract ys e in
             Value.add_bound x (Value.mk_term je)
-            (fold ctx (Some e_abs :: vs) (e::es) ys ts rem)
+            (fold ctx ((x,Some e_abs) :: vs) (e::es) ys ts rem)
           | None ->
             Value.add_abstracting ~loc x jt (fun ctx y ->
             let ey = Tt.mk_atom ~loc y in
-            fold ctx (None::vs) (ey::es) (y::ys) (t::ts) rem)
+            fold ctx ((x,None)::vs) (ey::es) (y::ys) (t::ts) rem)
         end
     in
     Value.lookup_signature ~loc s >>= fun def ->
@@ -283,7 +283,7 @@ let rec infer (c',loc) =
       match xcs, lxts with
         | [], [] ->
           let es = List.rev es in
-          let s = (s,nones) in
+          let s = (s,List.rev nones) in
           let str = Tt.mk_structure ~loc s es in
           let t_str = Tt.mk_signature_ty ~loc s in
           let j_str = Jdg.mk_term ctx str t_str in
@@ -294,7 +294,7 @@ let rec infer (c',loc) =
           let jty = Jdg.mk_ty ctx t_inst in
           check c jty >>= fun (ctx, e) ->
           Value.add_bound x (Value.mk_term (Jdg.mk_term ctx e t_inst))
-          (fold ctx (None::nones) (e::es) xcs lxts)
+          (fold ctx ((x,None)::nones) (e::es) xcs lxts)
 
         | (_,None) :: _, (l,_,_) :: _ ->
           Error.runtime ~loc "missing field value for %t" (Name.print_ident l)
@@ -365,7 +365,7 @@ let rec infer (c',loc) =
   | Syntax.GenSig (c1,c2) ->
     check_ty c1 >>= fun j1 ->
     Equal.Monad.run (Equal.as_signature j1) >>= fun ((_,(s,shares)),_) ->
-    if List.for_all (fun share -> share = None) shares
+    if List.for_all (fun (_,share) -> share = None) shares
     then
       infer c2 >>= as_list ~loc >>= fun xes ->
       Value.lookup_signature ~loc s >>= fun def ->
@@ -389,7 +389,8 @@ let rec infer (c',loc) =
                 Value.lookup_penv >>= fun penv ->
                 let ctx = Context.join ~penv ~loc ctx ctx' in
                 let ey = Tt.mk_atom ~loc y in
-                fold ctx (None::vs) (ey::es) (y::ys) (t::ts) def xes
+                let x = Name.ident_of_atom y in
+                fold ctx ((x,None)::vs) (ey::es) (y::ys) (t::ts) def xes
               else
                 Value.print_ty >>= fun pty ->
                 Error.typing ~loc "bad non-constraint for field %t: types %t and %t do not match"
@@ -401,7 +402,7 @@ let rec infer (c',loc) =
                 | Some (ctx,hyps) ->
                   let e = Tt.mention_atoms hyps e in
                   let e_abs = Tt.abstract ys e in
-                  fold ctx (Some e_abs :: vs) (e::es) ys ts def xes
+                  fold ctx ((l,Some e_abs) :: vs) (e::es) ys ts def xes
                 | None ->
                   Value.print_ty >>= fun pty ->
                   Error.typing ~loc "bad constraint for field %t: types %t and %t do not match"
@@ -428,7 +429,7 @@ let rec infer (c',loc) =
         let e = Tt.mention_atoms hyps e in
         let j = Jdg.mk_term ctx e target in
         Value.return_term j
-      | ((l,_,t),None)::s_data,v::vs ->
+      | ((l,_,t),(_,None))::s_data,v::vs ->
         as_term ~loc v >>= fun (Jdg.Term (ctx',e,te)) ->
         let t = Tt.instantiate_ty es t in
         require_equal_ty ~loc (Jdg.mk_ty ctx t) (Jdg.mk_ty ctx' te) >>= begin function
@@ -440,10 +441,10 @@ let rec infer (c',loc) =
             Error.typing ~loc "bad field %t: types %t and %t do not match"
               (Name.print_ident l) (pty t) (pty te)
         end
-      | ((_,_,t),Some e)::s_data, vs ->
+      | ((_,_,t),(_,Some e))::s_data, vs ->
         let e = Tt.instantiate res e in
         fold ctx res (e::es) vs s_data
-      | (_,None)::_,[] ->
+      | (_,(_,None))::_,[] ->
         Error.runtime ~loc "too few fields"
       | [], _::_ ->
         Error.runtime ~loc "too many fields"
@@ -621,22 +622,22 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
           let e = Tt.mk_structure ~loc s_sig res in
           let e = Tt.mention_atoms hyps e in
           Value.return (ctx,e)
-        | ((_,_,t),Some e,(x,None))::rem ->
+        | ((_,_,t),(_,Some e),(x,None))::rem ->
           let e = Tt.instantiate res e
           and t = Tt.instantiate_ty es t in
           let j = Jdg.mk_term ctx e t in
           Value.add_bound x (Value.mk_term j)
           (fold ctx res (e::es) rem)
-        | ((_,_,t),None,(x,Some c))::rem ->
+        | ((_,_,t),(_,None),(x,Some c))::rem ->
           let t = Tt.instantiate_ty es t in
           let jt = Jdg.mk_ty ctx t in
           check c jt >>= fun (ctx,e) ->
           let j = Jdg.mk_term ctx e t in
           Value.add_bound x (Value.mk_term j)
           (fold ctx (e::res) (e::es) rem)
-        | ((l,_,_),None,(_,None))::rem ->
+        | ((l,_,_),(_,None),(_,None))::rem ->
           Error.runtime ~loc "Field %t must be specified" (Name.print_ident l)
-        | ((l,_,_),Some _,(_,Some _))::rem ->
+        | ((l,_,_),(_,Some _),(_,Some _))::rem ->
           Error.runtime ~loc "Field %t is constrained and must not be specified" (Name.print_ident l)
       in
       fold ctx [] [] (list_combine3 s_def shares xcs)

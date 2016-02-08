@@ -44,6 +44,8 @@ val make : ?fixity:fixity -> string -> ident
 (** Generate a variant of a given name that is guaranteed to not yet exist. *)
 val fresh : ident -> atom
 
+val ident_of_atom : atom -> ident
+
 (** [refresh xs x] finds a nice variant of [x] that does not occur in [xs]. *)
 val refresh : ident list -> ident -> ident
 

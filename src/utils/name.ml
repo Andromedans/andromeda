@@ -72,6 +72,8 @@ let fresh =
     else
       Atom (s, fixity, !counter)
 
+let ident_of_atom (Atom (s,fixity,_)) = Ident (s,fixity)
+
 (** Split a string into base and an optional numerical suffix, e.g.,
     ["x42"] is split into [("x", Some 42)], while ["xy"] is split into
     [("xy", None)]. *)
