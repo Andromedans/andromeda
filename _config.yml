@@ -1,0 +1,3 @@
+kramdown:
+  hard_wrap: false
+  input: GFM
