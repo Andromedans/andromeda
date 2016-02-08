@@ -125,14 +125,14 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
         (* first build a representation of the signature definition *)
         let rec fold ctx nones res ys = function
           | [] ->
-            let js = Jdg.term_of_ty (Jdg.mk_ty Context.empty (Tt.mk_signature_ty ~loc (s,nones))) in
+            let js = Jdg.term_of_ty (Jdg.mk_ty Context.empty (Tt.mk_signature_ty ~loc (s,List.rev nones))) in
             Value.mk_tuple [Value.mk_term js;Value.from_list (List.rev res)]
           | (l,x,t)::rem ->
             let t = Tt.unabstract_ty ys t in
             let y,ctx = Context.add_fresh ctx x t in
             let jy = Jdg.mk_term ctx (Tt.mk_atom ~loc y) t in
             let v = Value.mk_tuple [Value.mk_ident l;Value.mk_term jy] in
-            fold ctx (None::nones) (v::res) (y::ys) rem
+            fold ctx ((x,None)::nones) (v::res) (y::ys) rem
         in
         let vbase = fold Context.empty [] [] [] s_def in
         (* Build a representation of the constraints *)
@@ -140,14 +140,14 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
           | [] ->
             let lv = Value.from_list (List.rev lv) in
             Value.mk_tuple [vbase;lv]
-          | ((_,x,t),None)::rem ->
+          | ((_,_,t),(x,None))::rem ->
             let t = Tt.instantiate_ty es t in
             let y,ctx = Context.add_fresh ctx x t in
             let y = Tt.mk_atom ~loc y in
             let jy = Jdg.mk_term ctx y t in
             let v = Value.from_sum (Value.Inl (Value.mk_term jy)) in
             fold ctx (v::lv) (y::es) (y::ys) rem
-          | ((_,_,t),Some e)::rem ->
+          | ((_,_,t),(_,Some e))::rem ->
             let t = Tt.instantiate_ty es t
             and e = Tt.instantiate ys e in
             let je = Jdg.mk_term ctx e t in

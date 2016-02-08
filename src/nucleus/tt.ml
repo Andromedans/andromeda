@@ -33,7 +33,7 @@ and 'a ty_abstraction = (ty, 'a) abstraction
 
 and sig_def = (Name.label * Name.ident * ty) list
 
-and signature = Name.signature * term option list
+and signature = Name.signature * (Name.ident * term option) list
 
 and structure = signature * term list
 
@@ -94,8 +94,8 @@ let mk_refl ~loc t e =
 let assumptions_sig (_,shares) =
   let rec fold lvl acc = function
     | [] -> acc
-    | None :: shares -> fold (lvl+1) acc shares
-    | Some e :: shares ->
+    | (_,None) :: shares -> fold (lvl+1) acc shares
+    | (_,Some e) :: shares ->
       let acc = Assumption.union acc (Assumption.bind lvl e.assumptions) in
       fold lvl acc shares
   in
@@ -202,10 +202,10 @@ and at_var_ty atom bound hyps ~lvl (Ty a) =
 and at_var_sig atom bound hyps ~lvl (s, shares) =
   let rec fold lvl res = function
     | [] -> s, List.rev res
-    | None :: shares -> fold (lvl+1) (None::res) shares
-    | (Some e) :: shares ->
+    | (x,None) :: shares -> fold (lvl+1) ((x,None)::res) shares
+    | (x,Some e) :: shares ->
       let e = at_var atom bound hyps ~lvl e in
-      fold lvl ((Some e)::res) shares
+      fold lvl ((x,Some e)::res) shares
   in
   fold lvl [] shares
 
@@ -319,8 +319,8 @@ and occurs_ty k (Ty t) = occurs k t
 and occurs_sig k (_,shares) =
   let rec fold acc k = function
     | [] -> acc
-    | None :: shares -> fold acc (k+1) shares
-    | Some e :: shares -> let acc = acc + occurs k e in fold acc k shares
+    | (_,None) :: shares -> fold acc (k+1) shares
+    | (_,Some e) :: shares -> let acc = acc + occurs k e in fold acc k shares
   in
   fold 0 k shares
 
@@ -400,11 +400,11 @@ and alpha_equal_sig (s1,shares1) (s2,shares2) =
   Name.eq_ident s1 s2 &&
   let rec fold lst1 lst2 = match lst1, lst2 with
     | [], [] -> true
-    | None::lst1, None::lst2 -> fold lst1 lst2
-    | Some e1 :: lst1, Some e2 :: lst2 ->
+    | (_,None)::lst1, (_,None)::lst2 -> fold lst1 lst2
+    | (_,Some e1) :: lst1, (_,Some e2) :: lst2 ->
       alpha_equal e1 e2 &&
       fold lst1 lst2
-    | None :: _, Some _ :: _ | Some _ :: _, None :: _ -> false
+    | (_,None) :: _, (_,Some _) :: _ | (_,Some _) :: _, (_,None) :: _ -> false
     | [], _:: _ | _ :: _, [] -> Error.impossible ~loc:Location.unknown "alpha_equal_sig: malformed signatures"
   in
   fold shares1 shares2
@@ -490,6 +490,11 @@ let print_binders ~penv print_u print_v xus ppf =
   let penv = fold ~penv xus in
   Print.print ppf ",@ %t" (print_v ~penv) ;
   Format.pp_close_box ppf ()
+
+let print_label l x ppf =
+  if Name.eq_ident l x
+  then Format.fprintf ppf "%t" (Name.print_ident l)
+  else Format.fprintf ppf "%t as %t" (Name.print_ident l) (Name.print_ident x)
 
 let rec print_term ?max_level ~penv {term=e;assumptions;_} ppf =
   if !Config.print_dependencies && not (Assumption.is_empty assumptions)
@@ -625,18 +630,18 @@ and print_sig_def ~penv xts ppf =
         (print_sig_clause penv x y t)
         (print_sig_def ~penv:(add_forbidden y penv) lst)
 
-and print_share ~penv lshare next ppf = match lshare with
-  | l,None -> next (add_forbidden l penv) ppf
-  | l, Some e -> Format.fprintf ppf "%t = %t and %t" (Name.print_ident l) (print_term ~penv e) (next penv)
+and print_share ~penv lshare ppf = match lshare with
+  | l,(x,None) -> print_label l x ppf
+  | l, (x,Some e) -> Format.fprintf ppf "%t = %t" (print_label l x) (print_term ~penv e)
 
-(* TODO fix printing, esp bound variables *)
 and print_shares ~penv lshares ppf = match lshares with
   | [] -> ()
-  | [lshare] -> print_share ~penv lshare (fun _ _ -> ()) ppf
-  | lshare :: lshares -> print_share ~penv lshare (fun penv -> print_shares ~penv lshares) ppf
+  | [lshare] -> print_share ~penv lshare ppf
+  | ((_,(x,_)) as lshare) :: lshares ->
+    Format.fprintf ppf "%t and %t" (print_share ~penv lshare) (print_shares ~penv:(add_forbidden x penv) lshares)
 
 and print_sig ~penv (s,shares) ppf =
-  if List.for_all (fun x -> x = None) shares then Name.print_ident s ppf
+  if List.for_all (fun (_,x) -> x = None) shares then Name.print_ident s ppf
   else
   Print.print ppf "%t using %t end" (Name.print_ident s) (print_shares ~penv (List.combine (penv.sigs s) shares))
 
@@ -649,8 +654,8 @@ and print_structure ?max_level ~penv (s,shares) es ppf =
   let ls = penv.sigs s in
   let rec fold acc es ls shares = match ls, shares with
     | [], [] -> List.rev acc
-    | _::ls, Some _ :: shares -> fold acc es ls shares
-    | l::ls, None::shares ->
+    | _::ls, (_,Some _) :: shares -> fold acc es ls shares
+    | l::ls, (_,None)::shares ->
       begin match es with
         | [] -> Error.impossible ~loc:Location.unknown "print_structure: malformed structure"
         | e::es -> fold ((l,e)::acc) es ls shares
@@ -670,9 +675,9 @@ type struct_field =
 let struct_combine ~loc ((_,shares),es) =
   let rec fold fields es = function
     | [] -> List.rev fields
-    | Some e :: shares ->
+    | (_,Some e) :: shares ->
       fold ((Shared e)::fields) es shares
-    | None::shares ->
+    | (_,None)::shares ->
       begin match es with
         | [] -> Error.impossible ~loc "struct_combine: malformed structure"
         | e::es -> fold ((Explicit e)::fields) es shares
@@ -701,7 +706,7 @@ let field_project ~loc s_def ((_,shares) as s) trm p =
   (* The [vs] instantiate the internal `as x` names in the signature definition,
      the [projs] instantiate the labels in the constraints *)
   let rec fold vs projs = function
-    | ((l,_,t),e)::rem ->
+    | ((l,_,t),(_,e))::rem ->
       if Name.eq_ident p l
       then
         let e = match e with

@@ -136,14 +136,14 @@ let equal_signature ~loc ctx (s1,shares1) (s2,shares2) =
       | [] ->
         context_multiabstract ~loc ctx yts >!= fun ctx ->
         Opt.return ctx
-      | ((_,x,t),None,None)::rem ->
+      | ((_,_,t),(x,None),(_,None))::rem ->
         let t = Tt.instantiate_ty vs t in
         let jt = Jdg.mk_ty ctx t in
         Opt.add_abstracting ~loc x jt (fun ctx y ->
         let y1 = Tt.mk_atom ~loc y in
         let y2 = Tt.mention_atoms hyps y1 in
         fold ctx hyps ((y,t)::yts) (y1::vs) (y1::ys1) (y2::ys2) rem)
-      | ((_,_,t),Some e1,Some e2)::rem ->
+      | ((_,_,t),(_,Some e1),(_,Some e2))::rem ->
         let t = Tt.instantiate_ty vs t
         and e1 = Tt.instantiate ys1 e1
         and e2 = Tt.instantiate ys2 e2 in
@@ -152,7 +152,7 @@ let equal_signature ~loc ctx (s1,shares1) (s2,shares2) =
         Opt.locally (equal ctx e1 e2 t) >?= fun (ctx,hyps') ->
         let hyps = AtomSet.union hyps hyps' in
         fold ctx hyps yts (e1::vs) ys1 ys2 rem
-      | (_,None,Some _)::_ | (_,Some _,None)::_ -> Opt.fail
+      | (_,(_,None),(_,Some _))::_ | (_,(_,Some _),(_,None))::_ -> Opt.fail
     in
     fold ctx AtomSet.empty [] [] [] [] (list_combine3 s_def shares1 shares2)
   else
@@ -292,7 +292,7 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
        [projs] instantiate constraints *)
     let rec fold ctx hyps es projs = function
         | [] -> Opt.return ctx
-        | ((l, _, t), None) :: rem ->
+        | ((l, _, t), (_,None)) :: rem ->
           let t = Tt.instantiate_ty es t in
           let e1_proj = Tt.mk_projection ~loc:e1.Tt.loc e1 s' l in
           let e2_proj = Tt.mk_projection ~loc:e2.Tt.loc e2 s' l in
@@ -300,7 +300,7 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
           Opt.locally (equal ctx e1_proj e2_proj t) >?= fun (ctx, hyps') ->
           let hyps = AtomSet.union hyps hyps' in
           fold ctx hyps (e1_proj :: es) (e1_proj :: projs) rem
-        | (_,Some e) :: rem ->
+        | (_,(_,Some e)) :: rem ->
           let e = Tt.instantiate projs e in
           fold ctx hyps (e::es) projs rem
     in
