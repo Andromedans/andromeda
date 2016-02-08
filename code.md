@@ -10,28 +10,48 @@ layout: page
 
 The source code can be found in `src`, in the following folders:
 
-* `parser` - input syntax, lexer, parser, and the desugaring phase which computes de Bruijn indices
-   and separates expressions and computations
-* `runtime` - context manipulation, runtime values and the main evaluation loop
-* `tt` - abstract syntax, weak-head normal forms, equality checks
-* `utils` - error messages, file locations, pretty printing, manipulation of variable names
 * `andromeda.ml` - main program
-* `config.ml` - configuration
-* `syntax.mli` - desugared input syntax
+* `config.ml` - runtime configuration parameters
+* `syntax.mli` - abstract syntax of the meta-language (desugared form)
+* folder `parser`:
+   * `desugar.ml` - desugar the `Input` syntax to `Syntax` syntax.
+   * `input.mli` - abstract syntax of the meta-language (sugared form)
+   * `lexer.ml` - the lexical structure of the meta-language
+   * `parser.mly` - the meta-language parser
+* folder `utils`:
+   * `error.ml` - errors, warning, and other messages
+   * `location.ml` - source-code location datatype
+   * `name.ml` - manipulation of names
+   * `print.ml` - general printing routines
+   * `store.ml` - implementation of mutable storage
+* folder `nucleus`:
+   * `assumption.ml` - tracking of dependency of terms on free variables
+   * `context.ml` - contexts as directed graphs
+   * `equal.ml` - judgmental equality
+   * `eval.ml` - the main nucleus evaluation loop
+   * `external.ml` - interface to OCaml functions
+   * `jdg.ml` - type-theoretic judgements
+   * `matching.ml` - meta-language pattern matching
+   * `simplify.ml` - simplification of terms (currently not used)
+   * `tt.ml` - type theory syntax
+   * `value.ml` - meta-language run-time values, operations, and handlers
 
-The basic steps in the evaluation of input are:
+### Main evaluation loop
 
-1. An expression is parsed using the lexer `parser/lexer.mll` and the parser `parser/parser.mly`.
-   The result is a value of type `Input.term` or `Input.ty` or `Input.toplevel`. The user input
-   has no separation of computations (effectful) and expressions (pure).
-2. `Desugar` converts the parsed entity to the corresponding intermediate representation of
-   type `Syntax.expr`, `Syntax.comp` or `Syntax.toplevel`. Desugaring replaces named bound variables
-   with de Bruijn indices and separates computations from expressions.
-3. `Eval` evaluates the syntactic expression to a result of type `Value.result`. The result is a
-   pair [(e,t)] of a value [e] and its type [t]. Evaluation is done in a context [ctx] of type
-   [Context.t] which consists of: free variables with their types, bound variables mapped to their
-   values, and equality hints.
-
-The correctness guarantee for the evaluator is this: if a computation [c] evaluates to a value [(e,t)]
-in context [ctx] then the judgement [ctx |- e : t] is derivable.
+1. An expression is parsed using the lexer `parser/lexer.ml` and the parser `parser/parser.mly`.
+   The result is a value of type `Input.comp` (a computation) or  a `Input.toplevel` directive.
+2. `parser/desugar.ml` converts the parsed `Input` entity to the corresponding `Syntax` entity.
+   Desugaring discerns names into bound variables (represented as de Bruijn indices),
+   constants, data constructors, and operations. It also looks up labels in signature definitions.
+3. `nucleus/eval.ml` evaluates `Syntax` to a `Value.result` which is either a final value
+   or an operation. The possible values are:
+       * a `Value.Term` term judgement of the form `Γ ⊢ e : A`, see `Jdg.term`
+       * a function closure `Value.Closure` 
+       * a handler `Value.Handler`
+       * a data constructor `Value.Tag`
+       * a `Value.List` of values
+       * a `Value.Tuple` of values
+       * a mutable `Value.Ref`
+       * a `Value.String`
+       * an identifier `Value.Ident`
 
