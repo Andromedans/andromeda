@@ -1,0 +1,26 @@
+Signature wrap is declared.
+Constant A is declared.
+Constant a is declared.
+⊢ {T = A, x = a} : wrap
+⊢ {x = a} : wrap using T = A and  end
+⊢ {} : wrap using T = A and x = a and  end
+Constant exfalso is declared.
+exwrap is defined.
+bob is defined.
+⊢ {T = A} : wrap using x = exfalso T and  end
+⊢ exfalso {T = A}.T : {T = A}.T
+#including ../std/hacks.m31
+#processed ./../std/hacks.m31
+labels is defined.
+l_T is defined.
+l_x is defined.
+aT is defined.
+exwrap' is defined.
+Some
+(⊢ refl wrap using x = exfalso T and  end
+   : wrap using x = exfalso T and  end ≡ wrap using x = exfalso T and  end)
+guy is defined.
+Some (⊢ refl {T = A} : {T = A} ≡ {T = A})
+A' is defined.
+⊢ {T = A}.T : Type
+⊢ exfalso {T = A}.T : {T = A}.T
