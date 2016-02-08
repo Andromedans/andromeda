@@ -11,6 +11,6 @@ Constant eq2 is declared.
 f is defined.
 ⊢ λ (n : Nat), iszero (succ n) : Nat → Bool
 ⊢ λ (n : Nat), iszero (succ n) : Nat → Nat
-File "./tricky_spine.m31", line 19, characters 9-38: Typing error
+File "./tricky_spine.m31", line 28, characters 34-34: Typing error
   the expression λ (n : Nat), iszero (succ n) should have type Nat → Nat
   but has type Nat → Bool

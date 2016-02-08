@@ -530,7 +530,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
         | None ->
            Value.print_term >>= fun pte ->
            Value.print_ty >>= fun pty ->
-           Error.typing ~loc:(e.Tt.loc)
+           Error.typing ~loc
                         "the expression %t should have type@ %t@ but has type@ %t"
                         (pte e) (pty t_check') (pty t')
       end
@@ -545,7 +545,7 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
               | None ->
                  Value.print_term >>= fun pte ->
                  Value.print_ty >>= fun pty ->
-                 Error.typing ~loc:(e'.Tt.loc)
+                 Error.typing ~loc
                               "the expression %t should have type@ %t@ but has type@ %t"
                               (pte e') (pty t_check') (pty t')
             end
