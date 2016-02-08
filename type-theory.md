@@ -7,7 +7,5 @@ use_math: true
 
 ## Type theory with equality reflection
 
-Does this work? $x \geq 0$
-
-
-$$x^2 + y^2 = 1$$
+Here we are going to place a complete description of the underyling type theory of
+Andromeda.
