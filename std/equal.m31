@@ -389,6 +389,49 @@ let rec do_whnf betas e =
               end
           end
       end
+    | |- _proj ?e0 ?l : ?t =>
+      match do_whnf betas e0 with
+        | Some (|- ?eq : _ == ?e0') =>
+          let e' = _proj e0' l in
+          let e' = e' : t in
+          let meq = handle congruence e e' with
+            | equal e0 e0' => yield (Some eq)
+            end
+          in
+          let eq = match meq with
+              | Some ?eq => eq : e == e'
+            end
+          in
+          match do_whnf betas e' with
+            | Some (|- ?eq' : _ == ?e'') =>
+              let eq = transitivity eq eq' in
+              Some eq
+            | None => Some eq
+          end
+        | None =>
+          match reduction e with
+            | Some (|- ?eq : _ == ?e') =>
+              match do_whnf betas e' with
+                | Some (|- ?eq' : _ == ?e'') =>
+                  let eq = transitivity eq eq' in
+                  Some eq
+                | None => Some eq
+              end
+            | None =>
+              (* e0 is in whnf and e is not a beta redex, so we only need to see if a beta hint applies to e *)
+              match step_at betas e with
+                | Some (|- ?eq : _ == ?e') =>
+                      match do_whnf betas e' with
+                    | Some (|- ?eq' : _ == ?e'') =>
+                      let eq = transitivity eq eq' in
+                      Some eq
+                    | None =>
+                      Some eq
+                  end
+                | None => None
+              end
+          end
+      end
     | |- _ : ?t =>
       match step_at betas e with
         | Some (|- ?eq : _ == ?e') =>
@@ -400,8 +443,6 @@ let rec do_whnf betas e =
           end
         | None =>
           None
-          (* TODO are there any non application cases where we need to reduce a subterm?
-             Projections but we can't match them yet. *)
       end
   end
 
