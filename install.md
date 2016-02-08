@@ -35,9 +35,15 @@ toplevel will use them to give you line editing capabilities.
 
 #### Compilation
 
+Checkout the Andromeda repository
+
+    git clone git@github.com:Andromedans/andromeda.git
+
+or consider [forking it](https://github.com/Andromedans/andromeda#fork-destination-box) if
+you indent do contribute to the project.
+
 To build Andromeda type `make` at the command line. This will create the executable
 `andromeda.native`. You can run the tests in the `test` subfolder with `make test`.
 
 The file `prelude.m31` contains basic definitions and is loaded when Andromeda is
 started (unless the option `--no-prelude` is given).
-
