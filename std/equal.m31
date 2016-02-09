@@ -283,7 +283,7 @@ let symmetry = fun eq =>
 (* As `symmetry` but for transitivity. *)
 let transitivity = fun eq1 eq2 =>
   match (eq1, eq2) with
-    | ((|- _ : ?a == ?b), (|- _ : _ == ?c)) =>
+    | ((|- _ : ?a == ?b), (|- _ : ?b == ?c)) =>
       match a with |- _ : ?t =>
         hide_witness (tran t a b c eq1 eq2)
       end
@@ -317,12 +317,16 @@ let rec hint_at hints e =
    operations that try to solve the resulting subproblems. Return `Some (⊢ p : a == b)` on
    success, or `None` otherwise. *)
 let rec eta_at etas a b t =
-  match etas with
-    | [] => None
-    | ?h :: ?rem =>
-      match generic_matcher h t with
-        | Some ?f => f a b
-        | None => eta_at rem a b t
+  match extensionality a b with
+    | Some ?eq => Some eq
+    | None =>
+      match etas with
+        | [] => None
+        | ?h :: ?rem =>
+          match generic_matcher h t with
+            | Some ?f => f a b
+            | None => eta_at rem a b t
+          end
       end
   end
 
@@ -460,7 +464,16 @@ let rec equate_congr a b =
   let betas = getbetas in
   match (whnf_eq betas a, whnf_eq betas b) with
     ((|- ?eqa : _ == ?a'), (|- ?eqb : _ == ?b')) =>
-      match congruence a' b' with
+      let r = match (a',b') with
+        | (|- ?a1 ?a2, |- ?b1 ?b2) =>
+          (* We need to compare the head structurally because of lambda extensionality *)
+          handle congruence a' b' with | equal a1 b1 => yield (equate_congr a1 b1) end
+        | (|- _proj ?a0 _, |- _proj ?b0 _) =>
+          handle congruence a' b' with | equal a0 b0 => yield (equate_congr a0 b0) end
+        | _ =>
+          congruence a' b'
+      end in
+      match r with
         | Some ?eq =>
           let eq = transitivity eqa (transitivity eq (symmetry eqb)) in
           Some eq
