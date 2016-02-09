@@ -637,8 +637,10 @@ and print_share ~penv lshare ppf = match lshare with
 and print_shares ~penv lshares ppf = match lshares with
   | [] -> ()
   | [lshare] -> print_share ~penv lshare ppf
-  | ((_,(x,_)) as lshare) :: lshares ->
+  | ((_,(x,None)) as lshare) :: lshares ->
     Format.fprintf ppf "%t and %t" (print_share ~penv lshare) (print_shares ~penv:(add_forbidden x penv) lshares)
+  | ((_,(_,Some _)) as lshare) :: lshares ->
+    Format.fprintf ppf "%t and %t" (print_share ~penv lshare) (print_shares ~penv lshares)
 
 and print_sig ~penv (s,shares) ppf =
   if List.for_all (fun (_,x) -> x = None) shares then Name.print_ident s ppf
