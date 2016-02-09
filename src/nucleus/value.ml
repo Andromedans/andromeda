@@ -1,9 +1,5 @@
 (** Runtime values and results *)
 
-type ('a,'b) sum =
-  | Inl of 'a
-  | Inr of 'b
-
 (* Information about a toplevel declaration *)
 type decl =
   | DeclConstant of Tt.ty
@@ -222,8 +218,8 @@ let as_option ~loc = function
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
 let as_sum ~loc = function
-  | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Inl x
-  | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Inr x
+  | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Tt.Inl x
+  | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Tt.Inr x
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a sum but got %s" (name_of v)
 
@@ -240,8 +236,8 @@ let from_option = function
 let from_list lst = List lst
 
 let from_sum = function
-  | Inl x -> Tag (name_inl, [x])
-  | Inr x -> Tag (name_inr, [x])
+  | Tt.Inl x -> Tag (name_inl, [x])
+  | Tt.Inr x -> Tag (name_inr, [x])
 
 let list_nil = List []
 

@@ -1,9 +1,5 @@
 (** Runtime values and results *)
 
-type ('a,'b) sum =
-  | Inl of 'a
-  | Inr of 'b
-
 (* Information about a toplevel declaration *)
 type decl =
   | DeclConstant of Tt.ty
@@ -105,12 +101,12 @@ val as_ident : loc:Location.t -> value -> Name.ident
 
 val as_option : loc:Location.t -> value -> value option
 val as_list : loc:Location.t -> value -> value list
-val as_sum : loc:Location.t -> value -> (value,value) sum
+val as_sum : loc:Location.t -> value -> (value,value) Tt.sum
 
 (** Wrappers for making tags *)
 val from_option : value option -> value
 val from_list : value list -> value
-val from_sum : (value,value) sum -> value
+val from_sum : (value,value) Tt.sum -> value
 
 val list_nil : value
 val list_cons : value -> value list -> value
