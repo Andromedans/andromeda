@@ -679,17 +679,22 @@ type struct_field =
   | Explicit of term
 
 let struct_combine ~loc ((_,shares),es) =
-  let rec fold fields es = function
+  (* [fields] is the return
+     [exs] are the previous explicit fields which instantiate constraints
+     [es] are the remaining explicit fields
+     We assume we work on a valid structure so no need to check that no [es] remain at the end. *)
+  let rec fold fields exs es = function
     | [] -> List.rev fields
     | (Inr e) :: shares ->
-      fold ((Shared e)::fields) es shares
+      let e = instantiate exs e in
+      fold ((Shared e)::fields) exs es shares
     | (Inl _) :: shares ->
       begin match es with
         | [] -> Error.impossible ~loc "struct_combine: malformed structure"
-        | e::es -> fold ((Explicit e)::fields) es shares
+        | e::es -> fold ((Explicit e)::fields) (e::exs) es shares
       end
   in
-  fold [] es shares
+  fold [] [] es shares
 
 let field_value ~loc s_def str p =
   let rec fold vs def fields = match def, fields with

@@ -163,23 +163,21 @@ let equal_signature ~loc ctx (s1,shares1) (s2,shares2) =
 let equal_structure ~loc ctx ((s1,_) as str1) ((s2,_) as str2) =
   Opt.locally (equal_signature ~loc ctx s1 s2) >?= fun (ctx,hyps) ->
   Monad.lift (Value.lookup_signature ~loc (fst s1)) >!= fun s_def ->
-  (* [vs] are used to instantiate the type
-     [es] are used to instantiate constraints *)
-  let rec fold ctx hyps vs es = function
+  (* [vs] are used to instantiate the type *)
+  let rec fold ctx hyps vs = function
     | [] ->
       Opt.return ctx
     | (_,Tt.Shared e,Tt.Shared _)::rem -> (* already checked by equal_signature *)
-      let e = Tt.instantiate es e in
-      fold ctx hyps (e::vs) (e::es) rem
+      fold ctx hyps (e::vs) rem
     | ((_,_,t),Tt.Explicit e1,Tt.Explicit e2)::rem ->
       let t = Tt.instantiate_ty vs t in
       let e2 = Tt.mention_atoms hyps e2 in
       Opt.locally (equal ctx e1 e2 t) >?= fun (ctx,hyps') ->
       let hyps = AtomSet.union hyps hyps' in
-      fold ctx hyps (e1::vs) es rem
+      fold ctx hyps (e1::vs) rem
     | (_,Tt.Explicit _,Tt.Shared _)::_ | (_,Tt.Shared _,Tt.Explicit _)::_ -> Error.impossible ~loc "equal_structure: malformed structure"
   in
-  fold ctx AtomSet.empty [] [] (list_combine3 s_def (Tt.struct_combine ~loc str1) (Tt.struct_combine ~loc str2))
+  fold ctx AtomSet.empty [] (list_combine3 s_def (Tt.struct_combine ~loc str1) (Tt.struct_combine ~loc str2))
 
 (** Apply the appropriate congruence rule *)
 let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_} as e2) t =

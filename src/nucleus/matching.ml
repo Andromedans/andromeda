@@ -165,20 +165,19 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
     begin match Value.get_signature (fst s) env with
       | Some s_def ->
         (* build the list of explicit terms
-           [es] instantiate the types, [exs] the constraints *)
-        let rec fold vs es exs = function
+           [es] instantiate the types *)
+        let rec fold vs es = function
           | [] -> Value.from_list (List.rev vs)
           | ((_,_,t),e)::rem ->
             let t = Tt.instantiate_ty es t
-            and e,exs = match e with
-              | Tt.Explicit e -> e,e::exs
-              | Tt.Shared e -> Tt.instantiate exs e,exs
+            and e = match e with
+              | Tt.Explicit e | Tt.Shared e -> e
             in
             let je = Jdg.mk_term ctx e t in
             let v = Value.mk_term je in
-            fold (v::vs) (e::es) exs rem
+            fold (v::vs) (e::es) rem
         in
-        let lv = fold [] [] [] (List.combine s_def (Tt.struct_combine ~loc str)) in
+        let lv = fold [] [] (List.combine s_def (Tt.struct_combine ~loc str)) in
         collect_pattern env xvs lp lv
 
       | None -> Error.impossible ~loc "matching structure of unknown signature %t" (Name.print_ident (fst s))
