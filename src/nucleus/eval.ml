@@ -649,7 +649,9 @@ and match_cases ~loc cases v =
 and match_op_cases ~loc op cases vs checking =
   let rec fold = function
     | [] ->
-      Value.operation op vs
+      Value.operation op vs >>= fun v ->
+      Value.lookup_continuation ~loc >>= fun k ->
+      Value.apply_closure k v
     | (xs, ps, pt, c) :: cases ->
       Matching.match_op_pattern ps pt vs checking >>= begin function
         | Some vs ->
