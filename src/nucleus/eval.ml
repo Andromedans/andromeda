@@ -483,7 +483,20 @@ and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
   let ctx = Context.join ~penv ~loc lctx rctx in
   Equal.Opt.run (Equal.equal_ty ctx lte rte)
 
-and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t * Tt.term) Value.result =
+and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
+  as_term ~loc v >>= fun (Jdg.Term (ctxe, e, t')) ->
+  require_equal_ty ~loc t_check (Jdg.mk_ty ctxe t') >>=
+    begin function
+      | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e)
+      | None ->
+         Value.print_term >>= fun pte ->
+         Value.print_ty >>= fun pty ->
+         Error.typing ~loc
+                      "the expression %t should have type@ %t@ but has type@ %t"
+                      (pte e) (pty t_check') (pty t')
+    end
+
+and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.result =
   match c' with
 
   | Syntax.Type
@@ -524,32 +537,15 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
-    infer c >>= as_term ~loc >>= fun (Jdg.Term (ctxe, e, t')) ->
-    require_equal_ty ~loc t_check (Jdg.mk_ty ctxe t') >>=
-      begin function
-        | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e)
-        | None ->
-           Value.print_term >>= fun pte ->
-           Value.print_ty >>= fun pty ->
-           Error.typing ~loc
-                        "the expression %t should have type@ %t@ but has type@ %t"
-                        (pte e) (pty t_check') (pty t')
-      end
+    infer c >>= fun v ->
+    check_default ~loc v t_check
 
   | Syntax.Operation (op, cs) ->
+    (* TODO why don't we List.rev vs? *)
      let rec fold vs = function
        | [] ->
-          Value.operation_at op vs t_check >>= as_term ~loc >>= fun (Jdg.Term (ctxe, e', t')) ->
-          require_equal_ty ~loc t_check (Jdg.mk_ty ctxe t') >>=
-            begin function
-              | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e')
-              | None ->
-                 Value.print_term >>= fun pte ->
-                 Value.print_ty >>= fun pty ->
-                 Error.typing ~loc
-                              "the expression %t should have type@ %t@ but has type@ %t"
-                              (pte e') (pty t_check') (pty t')
-            end
+          Value.operation_at op vs t_check >>= fun v ->
+          check_default ~loc v t_check
        | c :: cs ->
           infer c >>= fun v ->
           fold (v :: vs) cs
