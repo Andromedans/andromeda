@@ -1,12 +1,14 @@
-Let G := (λ [T : Type] [g : T -> T] [x : T] x) :: ∀ [T : Type] [g : T -> T] [x : T] T.
-Let G' := (λ [U f] λ [y : U] y) :: ∀ [V : Type] [h : V -> V] [z : V] V.
+let G = (λ (T : Type, g : T -> T, x : T), x) : ∀ (T : Type, g : T -> T, x : T), T
+let G' = (λ U f, λ y : U, y) : ∀ (V : Type, h : V -> V, z : V), V
 
-#verbosity 4.
+#verbosity 4
 
 (* eta expansion of functions seems to lead to beta hints being not applied *)
-Parameter G'' : ∀ [T : Type] [g : T -> T] T -> T.
-Parameter h : G'' == G.
+constant G'' : ∀ (T : Type, g : T -> T), T -> T
+constant h : G'' == G
+
 (* this should work with a general hint! *)
-Check
-  hint h in
-  (refl G'' :: G'' == G).
+do with fasteq tt handle
+  hint h;
+  (refl G'' : G'' == G)
+

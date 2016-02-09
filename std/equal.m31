@@ -736,6 +736,9 @@ let add_eta = fun h =>
     | (_, _ :: _ :: ?etas :: []) => top_etas := etas
   end
 
-let add_betas = fun bs => list_map add_beta bs
-let add_hints = fun bs => list_map add_hint bs
-let add_etas = fun bs => list_map add_eta bs
+let add_betas = fun bs => fold (fun _ b => add_beta b) tt bs
+let add_hints = fun bs => fold (fun _ b => add_hint b) tt bs
+let add_etas = fun bs => fold (fun _ b => add_eta b) tt bs
+
+let fasteq = fun _ => equality_in getbetas gethints getetas
+
