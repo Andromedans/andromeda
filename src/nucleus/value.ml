@@ -317,9 +317,9 @@ let lookup_signature ~loc x env =
    | Some def -> Return def, env.state
    | None -> Error.impossible ~loc "Unknown signature %t" (Name.print_ident x)
 
-let find_signature env ls =
+let find_signature ~loc ls env =
   let rec fold = function
-    | [] -> None
+    | [] -> Error.runtime ~loc "No signature has these exact fields."
     | (s, DeclSignature s_def) :: lst ->
        let rec cmp lst1 lst2 =
          match lst1, lst2 with
@@ -327,10 +327,10 @@ let find_signature env ls =
          | l1::lst1, (l2,_,_)::lst2 -> Name.eq_ident l1 l2 && cmp lst1 lst2
          | [],_::_ | _::_,[] -> false
        in
-       if cmp ls s_def then Some s else fold lst
+       if cmp ls s_def then s, s_def else fold lst
     | (_, (DeclConstant _ | DeclData _ | DeclOperation _)) :: lst -> fold lst
   in
-  fold env.dynamic.decls
+  Return (fold env.dynamic.decls), env.state
 
 let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 

@@ -15,11 +15,6 @@ let mk_lambda ~loc ys c =
 let mk_prod ~loc ys t =
   List.fold_left (fun c (y,u) -> Syntax.Prod (y,u,c), loc) t ys
 
-let find_signature ~loc env ls =
-  match Value.find_signature env ls with
-  | Some s -> s
-  | None -> Error.syntax ~loc "unknown structure"
-
 
 (* n is the length of vars *)
 let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
@@ -121,14 +116,13 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       (Syntax.Tt_Refl p, loc), vars, n
 
     | Input.Tt_Structure lps ->
-       let s = find_signature ~loc env (List.map fst lps) in
        let rec fold vars n ps = function
         | [] ->
           let ps = List.rev ps in
-          (Syntax.Tt_Structure (s, ps), loc), vars, n
-        | (_,p)::rem ->
+          (Syntax.Tt_Structure ps, loc), vars, n
+        | (l,p)::rem ->
           let p, vars, n = tt_pattern env bound vars n p in
-          fold vars n (p::ps) rem
+          fold vars n ((l,p)::ps) rem
         in
       fold vars n [] lps
 
@@ -386,16 +380,15 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
       end
 
     | Input.Structure lycs ->
-       let s = find_signature ~loc env (List.map (fun (l,_,_)->l) lycs) in
        let rec fold bound res = function
         | [] -> List.rev res
         | (x,y,c) :: rem ->
           let y = match y with | Some y -> y | None -> x in
           let c = match c with | Some c -> Some (comp ~yield env bound c) | None -> None in
-          fold (add_bound y bound) ((y,c) :: res) rem
+          fold (add_bound y bound) ((x,y,c) :: res) rem
         in
       let lcs = fold bound [] lycs in
-      Syntax.Structure (s, lcs), loc
+      Syntax.Structure lcs, loc
 
     | Input.Projection (c,x) ->
       let c = comp ~yield env bound c in

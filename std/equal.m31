@@ -132,6 +132,13 @@ let rec collector quants lhs rhs =
                   collector quants e1 e2)
               end
 
+            | (|- _proj ?e1 ?l, |- _proj ?e2 ?l) =>
+              match (e1, e2) with
+                ((|- _ : ?t1), (|- _ : ?t2)) =>
+                  collector quants t1 t2 >?= (fun quants =>
+                  collector quants e1 e2)
+              end
+
             (* TODO structures *)
             | _ => None
           end

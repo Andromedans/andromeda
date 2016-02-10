@@ -152,7 +152,7 @@ val get_signature : Name.signature -> env -> Tt.sig_def option
 val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def result
 
 (** Find a signature with the given labels (in this exact order) *)
-val find_signature : env -> Name.label list -> Name.signature option
+val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) result
 
 (** Lookup abstracting variables. *)
 val lookup_abstracting : Jdg.term list result

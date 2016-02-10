@@ -1,0 +1,27 @@
+
+constant A : Type
+constant a : A
+
+let proj_x = fun v => v.x
+
+signature orig = { x : A }
+
+do { x = a }
+
+do { } : orig using x = a end
+
+do { x as y } : orig using x as z = a end
+
+do proj_x {x = a}
+
+signature copy = { x : A }
+
+do { x = a }
+
+do { x = a } : orig
+
+let s_orig = { } : orig using x = a end
+let s_copy = { } : copy using x = a end
+
+fail refl { } : s_orig == s_copy
+

@@ -18,7 +18,7 @@ and tt_pattern' =
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
   | Tt_Signature of Name.signature (* TODO easy matching of signatures and structures with constraints *)
-  | Tt_Structure of Name.signature * tt_pattern list 
+  | Tt_Structure of (Name.label * tt_pattern) list 
   | Tt_Projection of tt_pattern * Name.ident
   (** Matching [Signature s={li as xi : Ai} with lj = ej] is matching [((s,[li,xi:Ai]),[either yk or ej])]
       where [yk] is used to instantiate non-constrained labels in later constraints. *)
@@ -73,9 +73,10 @@ and comp' =
   | Refl of comp
   (** [s with li as xi = maybe ci] with every previous [xj] bound in [ci] (including the constrained ones) *)
   | Signature of Name.signature * (Name.ident * comp option) list
-  (** [{ li as xi = maybe ci } : s with lj = ej] with previous [xj] bound in [ci].
-      Must be evaluated in checking mode unless fully explicit. *)
-  | Structure of Name.signature * (Name.ident * comp option) list
+  (** [{ li as xi = maybe ci } ] with previous [xj] bound in [ci].
+      In checking mode, constrained fields may be omitted in which case they are not bound in the computations.
+      In infer mode all fields must be present and explicit. *)
+  | Structure of (Name.label * Name.ident * comp option) list
   | Projection of comp * Name.label
   | Yield of comp
   | Hypotheses
