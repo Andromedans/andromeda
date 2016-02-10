@@ -753,6 +753,8 @@ and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmp ->
     in
   fold [] xcs
 
+(* [match_cases loc cases eval v] tries for each case in [cases] to match [v]
+   and if successful continues on the computation using [eval] with the pattern variables bound. *)
 and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Value.result) -> _ -> a Value.result
  = fun ~loc cases eval v ->
   let rec fold = function
