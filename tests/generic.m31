@@ -1,8 +1,8 @@
 
 signature cat = { person : Type, pet : person }
 
-let person_id = match cat with |- _sig ?l => match l with [(?x,_,_),_] => x end end
-let pet_id = match cat with |- _sig ?l => match l with [_,(?x,_,_)] => x end end
+let person_id = match cat with |- _sig ((_, [(?l,_),_]),_) => l end
+let pet_id = match cat with |- _sig ((_, [_,(?l,_)]),_) => l end
 
 constant dwarf : Type
 
@@ -42,8 +42,8 @@ do
 do _proj ankle pet_id
 
 let first_proj = fun v => match v with
-  |- _ : _sig ?s => match s with
-    | (?l,_,_)::_ =>
+  |- _ : _sig ((_,?s),_) => match s with
+    | (?l,_)::_ =>
       _proj v l
     end
   end
@@ -51,8 +51,8 @@ let first_proj = fun v => match v with
 do first_proj ankle
 
 let last_proj = fun v => match v with
-  |- _ : _sig ?s => match rev s with
-    | (?l,_,_)::_ =>
+  |- _ : _sig ((_,?s),_) => match rev s with
+    | (?l,_)::_ =>
       _proj v l
     end
   end
@@ -61,7 +61,7 @@ do last_proj ankle
 
 signature treasure = { gold : A }
 
-let gold_id = match treasure with |- _sig ?l => match l with [(?x,_,_)] => x end end
+let gold_id = match treasure with |- _sig ((_,[(?l,_)]),_) => l end
 
 fail _proj urist gold_id
 

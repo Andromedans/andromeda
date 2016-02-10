@@ -1,0 +1,43 @@
+
+signature wrap = { T : Type, x : T }
+
+constant A : Type
+constant a : A
+
+do { T = A, x = a }
+
+do { T, x = a } : wrap using T = A and x end
+
+do { T, x } : wrap using T = A and x = a end
+
+constant exfalso : forall T : Type, T
+
+let exwrap = wrap using T as X and x = exfalso X end
+
+let bob = { T = A, x } : exwrap
+
+do bob
+
+do bob.x
+
+#include_once "../std/hacks.m31"
+
+let labels = extract_labels wrap
+
+let l_T = match labels with [?T,_] => T end
+let l_x = match labels with [_,?x] => x end
+
+let aT = assume T : Type in T
+
+let exwrap' = _sig wrap [(Inl aT),(Inr (exfalso aT))]
+
+do equal exwrap exwrap'
+
+let guy = _struct exwrap' [A]
+do equal bob guy
+
+let A' = _proj guy l_T
+do A'
+
+do _proj guy l_x
+

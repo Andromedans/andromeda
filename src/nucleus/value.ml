@@ -5,7 +5,7 @@ type decl =
   | DeclConstant of Tt.ty
   | DeclData of int
   | DeclOperation of int
-  | DeclSignature of Tt.signature
+  | DeclSignature of Tt.sig_def
 
 type dynamic = {
   decls : (Name.ident * decl) list ;
@@ -69,11 +69,15 @@ type 'a toplevel = env -> 'a*env
 let name_some = Name.make "Some"
 let name_none = Name.make "None"
 let name_unit = Name.make "tt"
+let name_inl  = Name.make "Inl"
+let name_inr  = Name.make "Inr"
 
 let predefined_tags = [
   (name_some, 1);
   (name_none, 0);
   (name_unit, 0);
+  (name_inl,  1);
+  (name_inr,  1)
 ]
 
 let name_equal        = Name.make "equal"
@@ -213,6 +217,12 @@ let as_option ~loc = function
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
+let as_sum ~loc = function
+  | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Tt.Inl x
+  | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Tt.Inr x
+  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+    Error.runtime ~loc "expected a sum but got %s" (name_of v)
+
 (** Wrappers for making tags *)
 let as_list ~loc = function
   | List lst -> lst
@@ -224,6 +234,10 @@ let from_option = function
   | Some v -> Tag (name_some, [v])
 
 let from_list lst = List lst
+
+let from_sum = function
+  | Tt.Inl x -> Tag (name_inl, [x])
+  | Tt.Inr x -> Tag (name_inr, [x])
 
 let list_nil = List []
 
@@ -508,8 +522,8 @@ let print_env env =
                           k
         | (x, DeclSignature s) ->
            Format.fprintf ppf "@[<hov 4>signature %t %t@]@\n"
-                          (Name.print_ident x)
-                          (Tt.print_signature ~penv s)
+                       (Name.print_ident x)
+                       (Tt.print_sig_def ~penv s)
       )
       (List.rev env.dynamic.decls) ;
   in

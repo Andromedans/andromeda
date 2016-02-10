@@ -17,15 +17,19 @@ and tt_pattern' =
   | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
-  | Tt_Signature of Name.signature
-  | Tt_Structure of Name.signature * tt_pattern list
+  | Tt_Signature of Name.signature (* TODO easy matching of signatures and structures with constraints *)
+  | Tt_Structure of Name.signature * tt_pattern list 
   | Tt_Projection of tt_pattern * Name.ident
-  | Tt_GenSig of bound option
-  | Tt_GenStruct of tt_pattern * bound option
-  | Tt_GenProj of tt_pattern * bound option
+  (** Matching [Signature s={li as xi : Ai} with lj = ej] is matching [((s,[li,xi:Ai]),[either yk or ej])]
+      where [yk] is used to instantiate non-constrained labels in later constraints. *)
+  | Tt_GenSig of pattern
+  (** Matching [Structure s, [es]] *)
+  | Tt_GenStruct of tt_pattern * pattern
+  (** Matching [Projection e, _, l] *)
+  | Tt_GenProj of tt_pattern * pattern
   | Tt_GenAtom
 
-type pattern = pattern' * Location.t
+and pattern = pattern' * Location.t
 and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * bound
@@ -67,15 +71,20 @@ and comp' =
   | Prod of Name.ident * comp * comp
   | Eq of comp * comp
   | Refl of comp
-  | Signature of Name.signature
-  | Structure of Name.signature * (Name.ident * comp) list
-  | Projection of comp * Name.ident
+  (** [s with li as xi = maybe ci] with every previous [xj] bound in [ci] (including the constrained ones) *)
+  | Signature of Name.signature * (Name.ident * comp option) list
+  (** [{ li as xi = maybe ci } : s with lj = ej] with previous [xj] bound in [ci].
+      Must be evaluated in checking mode unless fully explicit. *)
+  | Structure of Name.signature * (Name.ident * comp option) list
+  | Projection of comp * Name.label
   | Yield of comp
   | Hypotheses
   | Congruence of comp * comp
   | Extensionality of comp * comp
   | Reduction of comp
   | String of string
+  (** Inverts matching, except with just the name and not the definition of the signature *)
+  | GenSig of comp * comp
   | GenStruct of comp * comp
   | GenProj of comp * comp
   | Occurs of comp * comp

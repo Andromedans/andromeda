@@ -5,7 +5,7 @@ type decl =
   | DeclConstant of Tt.ty
   | DeclData of int
   | DeclOperation of int
-  | DeclSignature of Tt.signature
+  | DeclSignature of Tt.sig_def
 
 (** Runtime environment *)
 type env
@@ -101,10 +101,12 @@ val as_ident : loc:Location.t -> value -> Name.ident
 
 val as_option : loc:Location.t -> value -> value option
 val as_list : loc:Location.t -> value -> value list
+val as_sum : loc:Location.t -> value -> (value,value) Tt.sum
 
 (** Wrappers for making tags *)
 val from_option : value option -> value
 val from_list : value list -> value
+val from_sum : (value,value) Tt.sum -> value
 
 val list_nil : value
 val list_cons : value -> value list -> value
@@ -144,10 +146,10 @@ val get_data : Name.ident -> env -> int option
 val lookup_constant : loc:Location.t -> Name.ident -> Tt.ty result
 
 (** Lookup a signature definition *)
-val get_signature : Name.signature -> env -> Tt.signature option
+val get_signature : Name.signature -> env -> Tt.sig_def option
 
 (** Lookup a signature definition, monadically *)
-val lookup_signature : loc:Location.t -> Name.ident -> Tt.signature result
+val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def result
 
 (** Find a signature with the given labels (in this exact order) *)
 val find_signature : env -> Name.label list -> Name.signature option
@@ -191,7 +193,7 @@ val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
 
 (** Add a signature declaration to the environment.
   Fails if the signature is already declared. *)
-val add_signature : loc:Location.t -> Name.signature -> Tt.signature -> unit toplevel
+val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit toplevel
 
 (** Add a bound variable with the given name to the environment.
     Complain if then name is already used. *)

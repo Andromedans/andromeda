@@ -1,5 +1,9 @@
 (** Abstract syntax of value types and terms *)
 
+type ('a,'b) sum =
+  | Inl of 'a
+  | Inr of 'b
+
 (** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
 type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
@@ -40,14 +44,15 @@ and term' = private
   | Refl of ty * term
 
   (** signature, also known as structure type *)
-  | Signature of Name.signature
+  | Signature of signature
 
   (** structure, also known as record or module *)
   | Structure of structure
 
-  (** a projection [e s .xi] means that we project field [xi] of [e] and [e] has type
-      [Signature s]. *)
-  | Projection of term * Name.signature * Name.label
+  (** a projection [e s .li] means that we project field [li] of [e]
+      where [e] has type [Signature s].
+      [li] must not be a constrained field of [s]. *)
+  | Projection of term * signature * Name.label
 
 (** Since we have [Type : Type] we do not distinguish terms from types,
     so the type of type [ty] is just a synonym for the type of terms.
@@ -58,9 +63,17 @@ and ty = private
 (** A ['a ty_abstraction] is a n abstraction where the [a1, ..., an] are types *)
 and 'a ty_abstraction = (ty, 'a) abstraction
 
-and signature = (Name.label * Name.ident * ty) list
+and sig_def = (Name.label * Name.ident * ty) list
 
-and structure = Name.signature * term list
+(** A signature with sharing constraints [s with li = vi], the [li] are implicit.
+    [vi] is [Inl xi] when [li] has no constraint, then [xi] is bound in future constraints,
+            [Inr ei] when it has one.
+*)
+and signature = Name.signature * (Name.ident, term) sum list
+
+(** A structure [s,es] where [es] are the values of the non constrained fields of [s].
+    The [es] do not bind labels. *)
+and structure = signature * term list
 
 (** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
@@ -74,10 +87,10 @@ val mk_prod_ty: loc:Location.t -> Name.ident -> ty -> ty -> ty
 val mk_eq: loc:Location.t -> ty -> term -> term -> term
 val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
 val mk_refl: loc:Location.t -> ty -> term -> term
-val mk_signature : loc:Location.t -> Name.signature -> term
-val mk_signature_ty : loc:Location.t -> Name.signature -> ty
-val mk_structure : loc:Location.t -> Name.signature -> term list -> term
-val mk_projection : loc:Location.t -> term -> Name.signature -> Name.ident -> term
+val mk_signature : loc:Location.t -> signature -> term
+val mk_signature_ty : loc:Location.t -> signature -> ty
+val mk_structure : loc:Location.t -> signature -> term list -> term
+val mk_projection : loc:Location.t -> term -> signature -> Name.ident -> term
 
 (** Coerce a value to a type (does not check whether this is legal). *)
 val ty : term -> ty
@@ -133,15 +146,21 @@ val assumptions_term : term -> Name.AtomSet.t
 (** The assumptions used by a type. *)
 val assumptions_ty : ty -> Name.AtomSet.t
 
-(** Module stuff *)
+(** Structure stuff *)
 
-(** [field_value s_def lst p] returns the value of field [p] in the record [lst]
-    whose type is described by the signature definition [s_def]. *)
-val field_value : loc:Location.t -> signature -> term list -> Name.label -> term
+type struct_field =
+  | Shared of term
+  | Explicit of term
+
+(** Return the list of terms defining the structure, with constraints fully instantiated. *)
+val struct_combine : loc:Location.t -> structure -> struct_field list
+
+(** Makes the projection, even when the field is constrained. *)
+val field_value : loc:Location.t -> sig_def -> structure -> Name.label -> term
 
 (** [field_type s s_def e p] where [e : Signature s] and [s_def] is the definition
-    of [s] computes the type of [e.p] *)
-val field_type : loc:Location.t -> Name.signature -> signature -> term -> Name.label -> ty
+    of [s] computes the value and type of [e.p], taking it from the constraints if possible. *)
+val field_project : loc:Location.t -> sig_def -> signature -> term -> Name.label -> term*ty
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool
@@ -149,11 +168,13 @@ val alpha_equal: term -> term -> bool
 (** [alpha_equal_ty t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
 val alpha_equal_ty: ty -> ty -> bool
 
+val alpha_equal_sig : signature -> signature -> bool
+
 type print_env =
   { forbidden : Name.ident list ;
     sigs : Name.signature -> Name.label list }
 
 val print_ty : ?max_level:int -> penv:print_env -> ty -> Format.formatter -> unit
 val print_term : ?max_level:int -> penv:print_env -> term -> Format.formatter -> unit
-val print_signature : penv:print_env -> signature -> Format.formatter -> unit
+val print_sig_def : penv:print_env -> sig_def -> Format.formatter -> unit
 

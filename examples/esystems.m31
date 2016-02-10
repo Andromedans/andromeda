@@ -1,14 +1,5 @@
 (* Egbert's E-systems *)
-operation hippy 0
-
-handle
-  | equal ?a ?b : _ =>
-      match equal a b with
-      | None => assume ξ : a ≡ b in yield (Some ξ)
-      | Some ?ζ => yield (Some ζ)
-      end
-  | hippy : ?t => assume Ξ : t in yield Ξ
-end
+#include_once "../std/hippy.m31"
 
 signature catWithTerms = {
 

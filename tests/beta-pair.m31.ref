@@ -1,14 +1,14 @@
-Constant Product is declared.
-Constant Pair is declared.
-Constant Fst is declared.
-Constant beta_Fst is declared.
+Constant product is declared.
+Constant pair is declared.
+Constant fst is declared.
+Constant beta_fst is declared.
 Constant C is declared.
 Constant D is declared.
 Constant c is declared.
 Constant d is declared.
-⊢ refl (Fst C D (Pair C D c d)) : c ≡ Fst C D (Pair C D c d)
-⊢ refl (Fst D C (Pair D C d c)) : d ≡ Fst D C (Pair D C d c)
-⊢ refl (Fst C D (Pair C D ((λ (t : Type) (x : t), x) C c) d))
-  : c ≡ Fst C D (Pair C D c d)
-⊢ refl (Fst C D (Pair C D c d))
-  : c ≡ Fst C D (Pair C D ((λ (t : Type) (x : t), x) C c) d)
+⊢ refl (fst C D (pair C D c d)) : c ≡ fst C D (pair C D c d)
+⊢ refl (fst D C (pair D C d c)) : d ≡ fst D C (pair D C d c)
+⊢ refl (fst C D (pair C D ((λ (t : Type) (x : t), x) C c) d))
+  : c ≡ fst C D (pair C D c d)
+⊢ refl (fst C D (pair C D c d))
+  : c ≡ fst C D (pair C D ((λ (t : Type) (x : t), x) C c) d)

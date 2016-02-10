@@ -41,6 +41,9 @@
 (* Let binding *)
 %token LET EQ AND IN
 
+(* Signatures *)
+%token USING
+
 (* Meta-level programming *)
 %token OPERATION
 %token DATA
@@ -153,6 +156,7 @@ plain_term:
   | HANDLER hcs=handler_cases END                              { Handler (hcs) }
   | e=app_term COLON t=ty_term                                 { Ascribe (e, t) }
   | e1=equal_term SEMICOLON e2=term                            { Sequence (e1, e2) }
+  | USIG c1=prefix_term c2=prefix_term                         { GenSig (c1,c2) }
   | USTRUCT c1=prefix_term c2=prefix_term                      { GenStruct (c1,c2) }
   | UPROJ c1=prefix_term c2=prefix_term                        { GenProj (c1,c2) }
   | CONTEXT c=prefix_term                                      { Context c }
@@ -168,6 +172,7 @@ plain_ty_term:
   | FUNCTION a=function_abstraction DARROW e=term    { Function (a, e) }
   | REC x=name a=function_abstraction DARROW e=term  { Rec (x, a, e) }
   | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous, t1)], t2) }
+  | x=var_name USING cs=constraint_clauses END                 { Signature (x,cs) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
 plain_equal_term:
@@ -224,6 +229,15 @@ plain_simple_term:
   | e=simple_term DOT p=var_name                        { Projection (e, p) }
   | HYPOTHESES                                          { Hypotheses }
 
+constraint_clauses:
+| cs=separated_list(AND,constraint_clause) { cs }
+
+constraint_clause:
+  | l=var_name                      { (l,None,None) }
+  | l=var_name EQ c=term            { (l,None,Some c) }
+  | l=var_name AS y=name            { (l,Some y,None) }
+  | l=var_name AS y=name EQ c=term  { (l,Some y,Some c) }
+
 var_name:
   | NAME { $1 }
   | LPAREN op=PREFIXOP RPAREN  { fst op }
@@ -251,12 +265,14 @@ typed_names:
   | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, t)) xs }
 
 signature_clause:
-  | x=name COLON t=ty_term           { (x, None, t) }
-  | x=name AS y=name COLON t=ty_term { (x, Some y, t) }
+  | x=var_name COLON t=ty_term           { (x, None, t) }
+  | x=var_name AS y=name COLON t=ty_term { (x, Some y, t) }
 
 structure_clause :
-  | x=name EQ c=term                           { (x, None, c) }
-  | x=name AS y=name EQ c=term                 { (x, Some y, c) }
+  | x=var_name                                     { (x, None, None) }
+  | x=var_name EQ c=term                           { (x, None, Some c) }
+  | x=var_name AS y=name                           { (x, Some y, None) }
+  | x=var_name AS y=name EQ c=term                 { (x, Some y, Some c) }
 
 binder:
   | LPAREN lst=separated_nonempty_list(COMMA, maybe_typed_names) RPAREN
@@ -412,9 +428,9 @@ prefix_tt_pattern: mark_location(plain_prefix_tt_pattern) { $1 }
 plain_prefix_tt_pattern:
   | p=plain_simple_tt_pattern                     { p }
   | REFL p=prefix_tt_pattern                      { Tt_Refl p }
-  | USIG x=patt_maybe_var                         { Tt_GenSig x }
-  | USTRUCT p=simple_tt_pattern x=patt_maybe_var  { Tt_GenStruct (p,x) }
-  | UPROJ p=simple_tt_pattern l=patt_maybe_var    { Tt_GenProj (p,l) }
+  | USIG x=simple_pattern                         { Tt_GenSig x }
+  | USTRUCT p=simple_tt_pattern x=simple_pattern  { Tt_GenStruct (p,x) }
+  | UPROJ p=simple_tt_pattern l=simple_pattern    { Tt_GenProj (p,l) }
   | op=PREFIXOP e=prefix_tt_pattern
     { let op = Tt_Name (fst op), snd op in Tt_Apply (op, e) }
 
@@ -444,10 +460,6 @@ plain_maybe_typed_tt_names:
 tt_name:
   | x=name                       { x, false }
   | x=patt_var                   { x, true  }
-
-patt_maybe_var:
-  | x=patt_var                   { Some x }
-  | UNDERSCORE                   { None }
 
 top_patt_maybe_var:
   | x=patt_var                   { x }

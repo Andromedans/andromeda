@@ -6,21 +6,25 @@ Constant urist is declared.
 ankle is defined.
 ⊢ {person = dwarf, pet = urist} : cat
 ((⊢ cat : Type), [(⊢ dwarf : Type), (⊢ urist : dwarf)])
-[(person, (person₁₆ : Type 
-           ⊢ person₁₆ : Type), (⊢ Type : Type)), (pet,
-(person₁₆ : Type 
- pet₁₇ : person₁₆ 
- ⊢ pet₁₇ : person₁₆),
-(person₁₆ : Type 
- ⊢ person₁₆ : Type))]
+(((⊢ cat : Type), [(person,
+(person₂₄ : Type 
+ ⊢ person₂₄ : Type)), (pet,
+(person₂₄ : Type 
+ pet₂₅ : person₂₄ 
+ ⊢ pet₂₅ : person₂₄))]), [Inl
+(person₂₆ : Type 
+ ⊢ person₂₆ : Type), Inl
+(person₂₆ : Type 
+ pet₂₇ : person₂₆ 
+ ⊢ pet₂₇ : person₂₆)])
 ((⊢ {person = dwarf, pet = urist} : cat), pet)
 tt
 ⊢ {person = dwarf, pet = urist} : cat
 The command failed with error:
-File "./generic.m31", line 33, characters 25-29: Typing error
-  the expression dwarf should have type dwarf but has type Type
+File "./generic.m31", line 33, characters 6-30: Typing error
+  bad field pet: types dwarf and Type do not match
 Constant A is declared.
-eq₁₈ : A ≡ cat 
+eq₄₀ : A ≡ cat 
 ⊢ {person = dwarf, pet = urist} : A
 ⊢ {person = dwarf, pet = urist}.pet : {person = dwarf, pet = urist}.person
 first_proj is defined.

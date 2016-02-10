@@ -1,15 +1,15 @@
 Constant prod is declared.
-Constant Pair is declared.
-Constant Fst is declared.
-Constant Snd is declared.
-Constant Pair_beta_Fst is declared.
-Constant Pair_beta_Snd is declared.
-Constant Pair_eta is declared.
+Constant pair is declared.
+Constant fst is declared.
+Constant snd is declared.
+Constant pair_beta_fst is declared.
+Constant pair_beta_snd is declared.
+Constant pair_eta is declared.
 Constant C is declared.
 Constant D is declared.
 Constant p is declared.
 ⊢ λ (c : C) (_ : D), refl c
-  : Π (c : C) (d : D), Fst C D (Pair C D c d) ≡ c
+  : Π (c : C) (d : D), fst C D (pair C D c d) ≡ c
 ⊢ λ (c : C) (d : D), refl d
-  : Π (c : C) (d : D), Snd C D (Pair C D c d) ≡ d
-⊢ refl p : p ≡ Pair C D (Fst C D p) (Snd C D p)
+  : Π (c : C) (d : D), snd C D (pair C D c d) ≡ d
+⊢ refl p : p ≡ pair C D (fst C D p) (snd C D p)

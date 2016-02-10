@@ -283,7 +283,7 @@ let symmetry = fun eq =>
 (* As `symmetry` but for transitivity. *)
 let transitivity = fun eq1 eq2 =>
   match (eq1, eq2) with
-    | ((|- _ : ?a == ?b), (|- _ : _ == ?c)) =>
+    | ((|- _ : ?a == ?b), (|- _ : ?b == ?c)) =>
       match a with |- _ : ?t =>
         hide_witness (tran t a b c eq1 eq2)
       end
@@ -317,12 +317,16 @@ let rec hint_at hints e =
    operations that try to solve the resulting subproblems. Return `Some (⊢ p : a == b)` on
    success, or `None` otherwise. *)
 let rec eta_at etas a b t =
-  match etas with
-    | [] => None
-    | ?h :: ?rem =>
-      match generic_matcher h t with
-        | Some ?f => f a b
-        | None => eta_at rem a b t
+  match extensionality a b with
+    | Some ?eq => Some eq
+    | None =>
+      match etas with
+        | [] => None
+        | ?h :: ?rem =>
+          match generic_matcher h t with
+            | Some ?f => f a b
+            | None => eta_at rem a b t
+          end
       end
   end
 
@@ -389,6 +393,49 @@ let rec do_whnf betas e =
               end
           end
       end
+    | |- _proj ?e0 ?l : ?t =>
+      match do_whnf betas e0 with
+        | Some (|- ?eq : _ == ?e0') =>
+          let e' = _proj e0' l in
+          let e' = e' : t in
+          let meq = handle congruence e e' with
+            | equal e0 e0' => yield (Some eq)
+            end
+          in
+          let eq = match meq with
+              | Some ?eq => eq : e == e'
+            end
+          in
+          match do_whnf betas e' with
+            | Some (|- ?eq' : _ == ?e'') =>
+              let eq = transitivity eq eq' in
+              Some eq
+            | None => Some eq
+          end
+        | None =>
+          match reduction e with
+            | Some (|- ?eq : _ == ?e') =>
+              match do_whnf betas e' with
+                | Some (|- ?eq' : _ == ?e'') =>
+                  let eq = transitivity eq eq' in
+                  Some eq
+                | None => Some eq
+              end
+            | None =>
+              (* e0 is in whnf and e is not a beta redex, so we only need to see if a beta hint applies to e *)
+              match step_at betas e with
+                | Some (|- ?eq : _ == ?e') =>
+                      match do_whnf betas e' with
+                    | Some (|- ?eq' : _ == ?e'') =>
+                      let eq = transitivity eq eq' in
+                      Some eq
+                    | None =>
+                      Some eq
+                  end
+                | None => None
+              end
+          end
+      end
     | |- _ : ?t =>
       match step_at betas e with
         | Some (|- ?eq : _ == ?e') =>
@@ -400,8 +447,6 @@ let rec do_whnf betas e =
           end
         | None =>
           None
-          (* TODO are there any non application cases where we need to reduce a subterm?
-             Projections but we can't match them yet. *)
       end
   end
 
@@ -419,7 +464,16 @@ let rec equate_congr a b =
   let betas = getbetas in
   match (whnf_eq betas a, whnf_eq betas b) with
     ((|- ?eqa : _ == ?a'), (|- ?eqb : _ == ?b')) =>
-      match congruence a' b' with
+      let r = match (a',b') with
+        | (|- ?a1 ?a2, |- ?b1 ?b2) =>
+          (* We need to compare the head structurally because of lambda extensionality *)
+          handle congruence a' b' with | equal a1 b1 => yield (equate_congr a1 b1) end
+        | (|- _proj ?a0 _, |- _proj ?b0 _) =>
+          handle congruence a' b' with | equal a0 b0 => yield (equate_congr a0 b0) end
+        | _ =>
+          congruence a' b'
+      end in
+      match r with
         | Some ?eq =>
           let eq = transitivity eqa (transitivity eq (symmetry eqb)) in
           Some eq
@@ -427,19 +481,42 @@ let rec equate_congr a b =
       end
   end
 
+(* if `x : A` and `eq : A == B` return `x : B` *)
+let convert = fun x eq => match eq with
+(*  | |- _ : ?t == ?t => x*)
+  | |- _ : _ == ?t =>
+    handle x : t with equal _ _ => yield (Some (symmetry eq)) end
+  end
+
+(* if `eq = (a == b : A)` and `eqt : A == B` return a witness of `(a == b : A) == (a == b : B)` *)
+let convert_eq = fun eq eqt => match (eq,eqt) with
+  | (_, |- _ : ?t == ?t) => refl eq
+  | (|- ?a == ?b, |- _ : _ == ?t) =>
+    let a' = convert a eqt and b' = convert b eqt in
+    let eq' = a' == b' in
+    match handle congruence eq eq' with equal _ _ => yield (Some eqt) end with
+    Some ?eq => eq
+    end
+end
+
 (* Try to show that [x] and [y] are equal by applying in succession:
    general hints, eta hints, and structural equality. *)
 let rec equate x y =
   (* x and y must have the same derived type *)
   let t = match (x, y) with ((|- _ : ?t), (|- _ : ?t)) => t end in
-  match hint_at gethints (x == y) with
-    | None =>
-      match (handle eta_at getetas x y t with equal ?a ?b => yield (equate a b) end) with
-        | Some ?eq => Some eq
-        | None =>
-          handle equate_congr x y with equal ?a ?b => yield (equate a b) end
-      end
-    | Some ?eq => Some eq
+  match (handle whnf_eq getbetas t with equal ?a ?b => yield (equate a b) end) with
+  |- ?eqt : _ == ?t' =>
+    let x = convert x eqt and y = convert y eqt in
+    match hint_at gethints (x == y) with
+      | None =>
+        match (handle eta_at getetas x y t with equal ?a ?b => yield (equate a b) end) with
+          | Some ?eq => Some eq
+          | None =>
+            handle equate_congr x y with equal ?a ?b => yield (equate a b) end
+        end
+      | Some (|- ?eq : ?teq) =>
+        Some (convert eq (convert_eq teq eqt))
+    end
   end
 
 let hint_provider = fun betas hints etas => handler
