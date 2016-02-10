@@ -512,7 +512,6 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
   | Syntax.Where _
   | Syntax.With _
   | Syntax.Typeof _
-  | Syntax.Match _
   | Syntax.Constant _
   | Syntax.Prod _
   | Syntax.Eq _
@@ -527,7 +526,6 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
   | Syntax.Ref _
   | Syntax.Lookup _
   | Syntax.Update _
-  | Syntax.Sequence _
   | Syntax.String _
   | Syntax.GenSig _
   | Syntax.GenStruct _
@@ -555,10 +553,18 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
   | Syntax.Let (xcs, c) ->
      let_bind xcs (check c t_check)
 
+  | Syntax.Sequence (c1,c2) ->
+    infer c1 >>= fun _ ->
+    check c2 t_check
+
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
      Value.add_free ~loc x t (fun _ _ ->
      check c t_check)
+
+  | Syntax.Match (c, cases) ->
+     infer c >>=
+     match_cases_check ~loc cases t_check
 
   | Syntax.Ascribe (c1, c2) ->
      check_ty c2 >>= fun (Jdg.Ty (_,t') as t) ->
@@ -757,6 +763,26 @@ and match_cases ~loc cases v =
         | Some vs ->
           let rec fold2 xs vs = match xs, vs with
             | [], [] -> infer c
+            | x::xs, v::vs ->
+              Value.add_bound x v (fold2 xs vs)
+            | _::_, [] | [], _::_ -> Error.impossible ~loc "bad match case"
+          in
+          fold2 (List.rev xs) vs
+        | None -> fold cases
+      end
+  in
+  fold cases
+
+and match_cases_check ~loc cases t_check v =
+  let rec fold = function
+    | [] ->
+      Value.print_value >>= fun pval ->
+      Error.runtime ~loc "no match found for %t" (pval v)
+    | (xs, p, c) :: cases ->
+      Matching.match_pattern p v >>= begin function
+        | Some vs ->
+          let rec fold2 xs vs = match xs, vs with
+            | [], [] -> check c t_check
             | x::xs, v::vs ->
               Value.add_bound x v (fold2 xs vs)
             | _::_, [] | [], _::_ -> Error.impossible ~loc "bad match case"
