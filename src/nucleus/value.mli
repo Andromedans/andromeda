@@ -176,7 +176,7 @@ val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom 
 (** [add_abstracting ~loc x t] generates a fresh atom [y] from identifier [x] and marks
     it as abstracting (which means we intend to abstract it later).
     It then runs [f y] in the environment with [x] bound to [y]. *)
-val add_abstracting: loc:Location.t -> Name.ident -> Jdg.ty ->
+val add_abstracting: loc:Location.t -> ?bind:bool -> Name.ident -> Jdg.ty ->
                      (Context.t -> Name.atom -> 'a result) -> 'a result
 
 (** Add an operation with the given arity.

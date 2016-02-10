@@ -237,7 +237,7 @@ and pattern (env : Value.env) bound vars n (p,loc) =
       fold vars n [] ps
 
 let raw_signature ~loc x def =
-  Syntax.Signature (x, List.map (fun (l,_,_) -> l,None) def), loc
+  Syntax.Signature (x, List.map (fun _ -> None) def), loc
 
 
 let rec comp ~yield (env : Value.env) bound (c',loc) =
@@ -359,21 +359,31 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     | Input.Signature (s,cs) ->
       begin match Value.get_signature s env with
         | Some s_def ->
-          let rec fold bound xcs def cs = match def,cs with
-            | [], [] ->
-              Syntax.Signature (s,List.rev xcs), loc
-            | (l,_,_)::def, (l',mx,mc)::cs ->
-              if Name.eq_ident l l'
-              then
-                let x = match mx with | Some x -> x | None -> l in
-                let mc = match mc with
-                  | Some c -> Some (comp ~yield env bound c)
-                  | None -> None
-                in
-                let bound = add_bound x bound in
-                fold bound ((x,mc)::xcs) def cs
-              else Error.syntax ~loc "Bad signature constraint: labels do not match.\nConstraints must be fully described."
-            | _::_,[] | [],_::_ -> Error.syntax ~loc "Bad signature constraint: lengths do not match.\nConstraints must be fully described."
+          let rec fold bound xcs def = function
+            | [] ->
+              let rec complete xcs = function
+                | [] -> Syntax.Signature (s,List.rev xcs), loc
+                | _::def -> complete (None::xcs) def
+              in
+              complete xcs def
+            | (l,mx,mc)::cs ->
+              let rec find xcs = function
+                | (l',_,_)::def ->
+                  if not (Name.eq_ident l l')
+                  then
+                    find (None::xcs) def
+                  else
+                    let x = match mx with | Some x -> x | None -> l in
+                    let mc = match mc with
+                      | Some c -> Some (comp ~yield env bound c)
+                      | None -> None
+                    in
+                    let bound = add_bound x bound in
+                    fold bound (Some (x,mc)::xcs) def cs
+                | [] -> Error.syntax ~loc "Signature constraint: field %t does not appear in signature %t."
+                                     (Name.print_ident l) (Name.print_ident s)
+              in
+              find xcs def
           in
           fold bound [] s_def cs
         | None -> Error.syntax ~loc "unknown signature %t" (Name.print_ident s)

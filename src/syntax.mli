@@ -71,8 +71,8 @@ and comp' =
   | Prod of Name.ident * comp * comp
   | Eq of comp * comp
   | Refl of comp
-  (** [s with li as xi = maybe ci] with every previous [xj] bound in [ci] (including the constrained ones) *)
-  | Signature of Name.signature * (Name.ident * comp option) list
+  (** [s with li as xi = maybe ci] with every previous [xj] bound in [ci] (including the constrained ones). *)
+  | Signature of Name.signature * (Name.ident * comp option) option list
   (** [{ li as xi = maybe ci } ] with previous [xj] bound in [ci].
       In checking mode, constrained fields may be omitted in which case they are not bound in the computations.
       In infer mode all fields must be present and explicit. *)

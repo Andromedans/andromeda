@@ -25,3 +25,21 @@ let s_copy = { } : copy using x = a end
 
 fail refl { } : s_orig == s_copy
 
+
+constant B : Type
+constant b : B
+
+signature prod = { x : A, y : B }
+
+do { x = a } : prod using y = b end
+
+signature wrap = { T : Type, T' : Type, v : T }
+
+constant exfalso : forall T : Type, T
+operation inhab 0
+
+(* Not mentioning a field is no guarantee against it being used. We could also grab it from hypotheses. *)
+do { T = A, T' = B } : (handle wrap using v = inhab end with
+  | inhab : ?T => yield (exfalso T)
+  end)
+

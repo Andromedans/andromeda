@@ -241,6 +241,9 @@ let rec infer (c',loc) =
      Value.return_term et'
 
   | Syntax.Signature (s,xcs) ->
+    (* [vs] are the result,
+       [es] instantiate types,
+       [ys:ts] are assumed for unconstrained fields *)
     let rec fold ctx vs es ys ts = function
       | [] ->
         let vs = List.rev vs in
@@ -249,7 +252,7 @@ let rec infer (c',loc) =
         let s = Tt.mk_signature_ty ~loc (s,vs) in
         let j = Jdg.term_of_ty (Jdg.mk_ty ctx s) in
         Value.return_term j
-      | ((_,_,t),(x,mc))::rem ->
+      | ((_,_,t),Some (x,mc))::rem ->
         let t = Tt.instantiate_ty es t in
         let jt = Jdg.mk_ty ctx t in
         begin match mc with
@@ -264,6 +267,12 @@ let rec infer (c',loc) =
             let ey = Tt.mk_atom ~loc y in
             fold ctx ((Tt.Inl x)::vs) (ey::es) (y::ys) (t::ts) rem)
         end
+      | ((_,x,t),None)::rem ->
+        let t = Tt.instantiate_ty es t in
+        let jt = Jdg.mk_ty ctx t in
+        Value.add_abstracting ~loc ~bind:false x jt (fun ctx y ->
+        let ey = Tt.mk_atom ~loc y in
+        fold ctx ((Tt.Inl x)::vs) (ey::es) (y::ys) (t::ts) rem)
     in
     Value.lookup_signature ~loc s >>= fun def ->
     fold Context.empty [] [] [] [] (List.combine def xcs)

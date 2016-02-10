@@ -356,14 +356,19 @@ let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
 (** generate a fresh atom of type [t] and bind it to [x],
     and record that the atom will be abstracted.
     NB: This is an effectful computation, as it increases a global counter. *)
-let add_abstracting ~loc x (Jdg.Ty (ctx, t)) m env =
+let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
-  let ya = Tt.mk_atom ~loc y in
-  let jyt = Jdg.mk_term ctx ya t in
-  let env = add_bound0 x (mk_term jyt) env in
-  let env = { env with
-              dynamic = { env.dynamic with
-                          abstracting = jyt :: env.dynamic.abstracting } }
+  let env =
+    if not bind
+    then
+      env
+    else
+      let ya = Tt.mk_atom ~loc y in
+      let jyt = Jdg.mk_term ctx ya t in
+      let env = add_bound0 x (mk_term jyt) env in
+      { env with
+                dynamic = { env.dynamic with
+                            abstracting = jyt :: env.dynamic.abstracting } }
   in
   m ctx y env
 
