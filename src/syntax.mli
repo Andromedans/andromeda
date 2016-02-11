@@ -113,7 +113,7 @@ and toplevel' =
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of Name.ident * comp (** global let binding *)
   | TopDo of comp (** evaluate a computation *)
-  | TopFail of comp
+  | TopFail of comp Lazy.t (** desugaring is suspended to allow catching errors *)
   | Verbosity of int
   | Include of string list * bool (** the boolean is [true] if the files should be included only once *)
   | Quit (** quit the toplevel *)
