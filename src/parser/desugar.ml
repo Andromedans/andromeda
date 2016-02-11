@@ -144,8 +144,13 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       let p2, vars, n = pattern env bound vars n p2 in
       (Syntax.Tt_GenProj (p1,p2), loc), vars, n
 
-    | Input.Tt_GenAtom ->
-      (Syntax.Tt_GenAtom, loc), vars, n
+    | Input.Tt_GenAtom p ->
+      let p, vars, n = tt_pattern env bound vars n p in
+      (Syntax.Tt_GenAtom p, loc), vars, n
+
+    | Input.Tt_GenConstant p ->
+      let p, vars, n = tt_pattern env bound vars n p in
+      (Syntax.Tt_GenConstant p, loc), vars, n
 
 and pattern (env : Value.env) bound vars n (p,loc) =
   match p with

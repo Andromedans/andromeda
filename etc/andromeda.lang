@@ -94,6 +94,7 @@
     <keyword>_struct</keyword>
     <keyword>_proj</keyword>
     <keyword>_atom</keyword>
+    <keyword>_constant</keyword>
     <keyword>as</keyword>
     <keyword>assume</keyword>
     <keyword>and</keyword>
