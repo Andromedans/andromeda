@@ -636,16 +636,16 @@ and print_sig_def ~penv xts ppf =
 
 and print_share ~penv lshare ppf = match lshare with
   | l, Inl x -> print_label l x ppf
-  | l, Inr e -> Format.fprintf ppf "%t = %t" (Name.print_ident l) (print_term ~penv e)
+  | l, Inr e -> Format.fprintf ppf "%t@ =@ %t" (Name.print_ident l) (print_term ~penv e)
 
 and print_shares ~penv lshares ppf = match lshares with
   | [] -> ()
   | [lshare] -> print_share ~penv lshare ppf
   | (l,Inl x) :: lshares ->
     let x = Name.refresh penv.forbidden x in
-    Format.fprintf ppf "%t and %t" (print_share ~penv (l,Inl x)) (print_shares ~penv:(add_forbidden x penv) lshares)
+    Format.fprintf ppf "%t@ and@ %t" (print_share ~penv (l,Inl x)) (print_shares ~penv:(add_forbidden x penv) lshares)
   | ((_,Inr _) as lshare) :: lshares ->
-    Format.fprintf ppf "%t and %t" (print_share ~penv lshare) (print_shares ~penv lshares)
+    Format.fprintf ppf "%t@ and@ %t" (print_share ~penv lshare) (print_shares ~penv lshares)
 
 and print_sig ~penv (s,shares) ppf =
   if List.for_all (function | Inl _ -> true | Inr _ -> false) shares then Name.print_ident s ppf
