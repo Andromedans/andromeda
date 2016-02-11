@@ -247,12 +247,8 @@ let return_unit = return (Tag (name_unit, []))
 
 (** Operations *)
 
-let operation op vs env =
-  Operation (op, vs, None, env.dynamic, mk_closure0 return env), env.state
-
-let operation_at op vs jt env =
-  Operation (op, vs, Some jt, env.dynamic, mk_closure0 return env), env.state
-
+let operation op ?checking vs env =
+  Operation (op, vs, checking, env.dynamic, mk_closure0 return env), env.state
 
 let operation_equal v1 v2 =
   operation name_equal [v1;v2]

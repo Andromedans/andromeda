@@ -312,10 +312,6 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     | Input.External s ->
        Syntax.External s, loc
 
-    | Input.Typeof c ->
-      let c = comp ~yield env bound c in
-      Syntax.Typeof c, loc
-
     | Input.Lambda (xs, c) ->
       let rec fold bound ys = function
         | [] ->

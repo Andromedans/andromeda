@@ -100,7 +100,7 @@ let rec infer (c',loc) =
           | [] -> None
           | _ :: _ ->
             let f v =
-              match_cases ~loc handler_val v
+              match_cases ~loc handler_val infer v
             in
             Some f
           end
@@ -116,7 +116,7 @@ let rec infer (c',loc) =
           | [] -> None
           | _ :: _ ->
             let f v =
-              match_cases ~loc handler_finally v
+              match_cases ~loc handler_finally infer v
             in
             Some f
           end
@@ -180,19 +180,13 @@ let rec infer (c',loc) =
 
   | Syntax.Match (c, cases) ->
      infer c >>=
-     match_cases ~loc cases
+     match_cases ~loc cases infer
 
   | Syntax.External s ->
      begin match External.lookup s with
        | None -> Error.runtime ~loc "unknown external %s" s
        | Some v -> v loc
      end
-
-  | Syntax.Typeof c ->
-    (* In future versions this is going to be a far less trivial computation,
-       as it might actually fail when there is no way to name a type with a term. *)
-    infer c >>= as_term ~loc >>= fun j ->
-    Value.return_term (Jdg.term_of_ty (Jdg.typeof j))
 
   | Syntax.Ascribe (c1, c2) ->
      check_ty c2 >>= fun (Jdg.Ty (_,t') as t) ->
@@ -515,8 +509,6 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
   | Syntax.Tuple _
   | Syntax.Where _
   | Syntax.With _
-  | Syntax.Typeof _
-  | Syntax.Match _
   | Syntax.Constant _
   | Syntax.Prod _
   | Syntax.Eq _
@@ -531,7 +523,6 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
   | Syntax.Ref _
   | Syntax.Lookup _
   | Syntax.Update _
-  | Syntax.Sequence _
   | Syntax.String _
   | Syntax.GenSig _
   | Syntax.GenStruct _
@@ -548,7 +539,7 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
     (* TODO why don't we List.rev vs? *)
      let rec fold vs = function
        | [] ->
-          Value.operation_at op vs t_check >>= fun v ->
+          Value.operation op ~checking:t_check vs >>= fun v ->
           check_default ~loc v t_check
        | c :: cs ->
           infer c >>= fun v ->
@@ -559,10 +550,18 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
   | Syntax.Let (xcs, c) ->
      let_bind xcs (check c t_check)
 
+  | Syntax.Sequence (c1,c2) ->
+    infer c1 >>= fun _ ->
+    check c2 t_check
+
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
      Value.add_free ~loc x t (fun _ _ ->
      check c t_check)
+
+  | Syntax.Match (c, cases) ->
+     infer c >>=
+     match_cases ~loc cases (fun c -> check c t_check)
 
   | Syntax.Ascribe (c1, c2) ->
      check_ty c2 >>= fun (Jdg.Ty (_,t') as t) ->
@@ -774,7 +773,10 @@ and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmp ->
     in
   fold [] xcs
 
-and match_cases ~loc cases v =
+(* [match_cases loc cases eval v] tries for each case in [cases] to match [v]
+   and if successful continues on the computation using [eval] with the pattern variables bound. *)
+and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Value.result) -> _ -> a Value.result
+ = fun ~loc cases eval v ->
   let rec fold = function
     | [] ->
       Value.print_value >>= fun pval ->
@@ -783,7 +785,7 @@ and match_cases ~loc cases v =
       Matching.match_pattern p v >>= begin function
         | Some vs ->
           let rec fold2 xs vs = match xs, vs with
-            | [], [] -> infer c
+            | [], [] -> eval c
             | x::xs, v::vs ->
               Value.add_bound x v (fold2 xs vs)
             | _::_, [] | [], _::_ -> Error.impossible ~loc "bad match case"
@@ -797,7 +799,7 @@ and match_cases ~loc cases v =
 and match_op_cases ~loc op cases vs checking =
   let rec fold = function
     | [] ->
-      Value.operation op vs >>= fun v ->
+      Value.operation op ?checking vs >>= fun v ->
       Value.lookup_continuation ~loc >>= fun k ->
       Value.apply_closure k v
     | (xs, ps, pt, c) :: cases ->

@@ -65,7 +65,6 @@ and term' =
   | Where of comp * expr * comp
   | Ascribe of comp * ty
   | External of string
-  | Typeof of comp
   | Lambda of (Name.ident * comp option) list * comp
   | Spine of comp * comp list
   | Prod of (Name.ident * ty) list * comp
