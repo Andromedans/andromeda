@@ -720,7 +720,7 @@ let toplevel (env : Value.env) bound (d', loc) =
       Syntax.TopDo c
 
     | Input.TopFail c ->
-      let c = comp ~yield:false env bound c in
+      let c = lazy (comp ~yield:false env bound c) in
       Syntax.TopFail c
 
     | Input.Quit -> Syntax.Quit

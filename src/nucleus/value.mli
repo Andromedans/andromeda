@@ -67,7 +67,7 @@ val bind: 'a result -> ('a -> 'b result)  -> 'b result
 val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 
 (** Catch errors. The state is not changed if the command fails. *)
-val catch : 'a toplevel -> ('a,Error.details) Error.res toplevel
+val catch : (unit -> 'a toplevel) -> ('a,Error.details) Error.res toplevel
 
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a result

@@ -139,7 +139,7 @@ let top_bind m f env =
 
 let catch m env =
   try
-    let x,env = m env in
+    let x,env = m () env in
     Error.OK x, env
   with
     | Error.Error err ->
