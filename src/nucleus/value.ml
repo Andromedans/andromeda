@@ -421,18 +421,6 @@ let add_topbound ~loc x v env =
     let env = add_bound0 x v env in
     (), env
 
-let add_topbounds ~loc xvs env =
-  let rec fold env = function
-    | [] -> (), env
-    | (x,v) :: xvs ->
-       if is_known x env
-       then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-       else
-         let env = add_bound0 x v env in
-         fold env xvs
-  in
-  fold env xvs
-
 let add_handle op xsc env =
   (),{ env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
 

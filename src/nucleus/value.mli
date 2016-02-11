@@ -201,10 +201,6 @@ val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit tople
     Complain if then name is already used. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
 
-(** Simultaenously add bound variables with the given names to the environment.
-    Complain if any of the names is already used. *)
-val add_topbounds : loc:Location.t -> (Name.ident * value) list -> unit toplevel
-
 (** Add a top-level handler case to the environment. *)
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel
 
