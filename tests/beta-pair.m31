@@ -8,7 +8,7 @@ constant fst :
   Π (X Y : Type), product X Y -> X
 
 constant beta_fst :
-  Π (U V : Type, u : U, v : V),
+  Π (U V : Type) (u : U) (v : V),
     (fst V U (pair V U v u)) == v
 
 constant C : Type
@@ -33,7 +33,7 @@ do
 (* add a lambda redex in the proof *)
 do
   with local (lbeta beta_fst) handle
-    (refl (fst C D (pair C D ((λ (t : Type, x : t), x) C c) d)))
+    (refl (fst C D (pair C D ((λ (t : Type) (x : t), x) C c) d)))
          :
          c == (fst C D (pair C D c d))
 
@@ -42,5 +42,6 @@ do
   with local (lbeta beta_fst) handle
     (refl (fst C D (pair C D c d)))
          :
-         c == (fst C D (pair C D ((λ (t : Type, x : t), x) C c) d))
+         c == (fst C D (pair C D ((λ (t : Type) (x : t), x) C c) d))
+
 

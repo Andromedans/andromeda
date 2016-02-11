@@ -1,7 +1,7 @@
 
 signature prod_s = { A : Type, B : Type, fst : A, snd : B }
 
-let prod = lambda A B : Type, prod_s using A = A and B = B and fst and snd end
+let prod = lambda (A B : Type), prod_s using A = A and B = B and fst and snd end
 
 let pair = lambda (A B : Type) (x : A) (y : B),
   { A, B,
@@ -12,7 +12,7 @@ let fst = lambda (A B : Type) (p : prod A B), p.fst
 let snd = lambda (A B : Type) (p : prod A B), p.snd
 
 let pair_fst_pr =
-  ∀ (U V : Type, u : U, v : V),
+  ∀ (U V : Type) (u : U) (v : V),
     (fst V U (pair V U v u)) ≡ v
 
 do (lambda U V u v, refl v) : pair_fst_pr
@@ -23,7 +23,7 @@ let pair_eta_pr =
     snd U V x ≡ snd U V y ->
     x ≡ y
 
-do (lambda (U V x y) (eq1 : x.fst == y.fst) (eq2 : x.snd == y.snd),
+do (lambda U V x y (eq1 : x.fst == y.fst) (eq2 : x.snd == y.snd),
   with local (lhint eq1) handle
   with local (lhint eq2) handle
   refl x : x == y) : pair_eta_pr

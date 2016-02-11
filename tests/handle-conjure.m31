@@ -12,8 +12,8 @@ let conjure =
 (* "implicit" argument? *)
 
 constant A : Type
-constant B : A -> Type
-constant Q : Π (X : Type, P : X -> Type, x : X), P x → Type
+constant B : A → Type
+constant Q : Π (X : Type) (P : X → Type) (x : X), P x → Type
 
 operation implicit 1
 do

@@ -39,7 +39,7 @@
 %token SIGNATURE
 
 (* Let binding *)
-%token LET EQ AND IN
+%token LET REC EQ AND IN
 
 (* Signatures *)
 %token USING
@@ -68,7 +68,7 @@
 %token BANG COLONEQ REF
 
 (* Functions *)
-%token REC FUNCTION
+%token FUNCTION
 
 (* Assumptions *)
 %token ASSUME CONTEXT OCCURS
@@ -115,10 +115,9 @@ commandline:
 (* Things that can be defined on toplevel. *)
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
-  | LET x=name yts=typed_binder* u=return_type? EQ c=term
-       { TopLet (x, List.concat yts, u, c) }
-  | LET REC x=name a=function_abstraction EQ e=term
-       { TopLet (x, [], None, (Rec (x, a, e),snd e)) }
+  | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
+  | LET REC lst = separated_nonempty_list(AND, recursive_clause)
+                                                      { TopLetRec lst }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
@@ -127,9 +126,6 @@ plain_topcomp:
                                                       { DeclSignature (s, lst) }
   | DATA x=name k=NUMERAL                             { DeclData (x, k) }
   | OPERATION op=name k=NUMERAL                       { DeclOperation (op, k) }
-
-return_type:
-  | COLON t=ty_term { t }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
@@ -145,32 +141,30 @@ plain_topdirective:
 
 term: mark_location(plain_term) { $1 }
 plain_term:
-  | e=plain_ty_term                                            { e }
-  | LET a=let_clauses IN c=term                                { Let (a, c) }
-  | LET REC x=name a=function_abstraction EQ e=term IN c=term  { Let ([x,(Rec (x, a, e),snd e)], c) }
-  | ASSUME x=var_name COLON t=ty_term IN c=term                { Assume ((x, t), c) }
-  | c1=equal_term WHERE e=simple_term EQ c2=term               { Where (c1, e, c2) }
-  | MATCH e=term WITH lst=match_cases END                      { Match (e, lst) }
-  | HANDLE c=term WITH hcs=handler_cases END                   { Handle (c, hcs) }
-  | WITH h=term HANDLE c=term                                  { With (h, c) }
-  | HANDLER hcs=handler_cases END                              { Handler (hcs) }
-  | e=app_term COLON t=ty_term                                 { Ascribe (e, t) }
-  | e1=equal_term SEMICOLON e2=term                            { Sequence (e1, e2) }
-  | USIG c1=prefix_term c2=prefix_term                         { GenSig (c1,c2) }
-  | USTRUCT c1=prefix_term c2=prefix_term                      { GenStruct (c1,c2) }
-  | UPROJ c1=prefix_term c2=prefix_term                        { GenProj (c1,c2) }
-  | CONTEXT c=prefix_term                                      { Context c }
-  | OCCURS c1=prefix_term c2=prefix_term                       { Occurs (c1,c2) }
+  | e=plain_ty_term                                              { e }
+  | LET a=separated_nonempty_list(AND,let_clause) IN c=term      { Let (a, c) }
+  | LET REC lst=separated_nonempty_list(AND, recursive_clause) IN c=term
+                                                                 { LetRec (lst, c) }
+  | ASSUME x=var_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
+  | c1=equal_term WHERE e=simple_term EQ c2=term                 { Where (c1, e, c2) }
+  | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
+  | HANDLE c=term WITH hcs=handler_cases END                     { Handle (c, hcs) }
+  | WITH h=term HANDLE c=term                                    { With (h, c) }
+  | HANDLER hcs=handler_cases END                                { Handler (hcs) }
+  | e=app_term COLON t=ty_term                                   { Ascribe (e, t) }
+  | e1=equal_term SEMICOLON e2=term                              { Sequence (e1, e2) }
+  | USIG c1=prefix_term c2=prefix_term                           { GenSig (c1,c2) }
+  | USTRUCT c1=prefix_term c2=prefix_term                        { GenStruct (c1,c2) }
+  | UPROJ c1=prefix_term c2=prefix_term                          { GenProj (c1,c2) }
+  | CONTEXT c=prefix_term                                        { Context c }
+  | OCCURS c1=prefix_term c2=prefix_term                         { Occurs (c1,c2) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_equal_term                               { e }
-  | PROD a=typed_binder+ COMMA e=term                { Prod (List.concat a, e) }
-  | PROD a=typed_names COMMA e=term                  { Prod (a, e) }
-  | LAMBDA a=binder+ COMMA e=term                    { Lambda (List.concat a, e) }
-  | LAMBDA a=maybe_typed_names COMMA e=term          { Lambda (a, e) }
-  | FUNCTION a=function_abstraction DARROW e=term    { Function (a, e) }
-  | REC x=name a=function_abstraction DARROW e=term  { Rec (x, a, e) }
+  | PROD a=prod_abstraction COMMA e=term             { Prod (a, e) }
+  | LAMBDA a=lambda_abstraction COMMA e=term         { Lambda (a, e) }
+  | FUNCTION xs=name+ DARROW e=term                  { Function (xs, e) }
   | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous, t1)], t2) }
   | x=var_name USING cs=constraint_clauses END                 { Signature (x,cs) }
 
@@ -251,18 +245,16 @@ name:
   | x=var_name { x }
   | UNDERSCORE { Name.anonymous }
 
-let_clauses:
-  | ls=separated_nonempty_list(AND, let_clause)     { ls }
+recursive_clause:
+  | f=name y=name ys=name* u=return_type? EQ c=term
+       { (f, y, ys, u, c) }
 
 let_clause:
-  | x=name EQ c=term                           { (x,c) }
+  | x=name ys=name* u=return_type? EQ c=term
+       { (x, ys, u, c) }
 
-typed_binder:
-  | LPAREN lst=separated_nonempty_list(COMMA, typed_names) RPAREN
-       { List.concat lst }
-
-typed_names:
-  | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, t)) xs }
+return_type:
+  | COLON t=ty_term { t }
 
 signature_clause:
   | x=var_name COLON t=ty_term           { (x, None, t) }
@@ -274,17 +266,18 @@ structure_clause :
   | x=var_name AS y=name                           { (x, Some y, None) }
   | x=var_name AS y=name EQ c=term                 { (x, Some y, Some c) }
 
-binder:
-  | LPAREN lst=separated_nonempty_list(COMMA, maybe_typed_names) RPAREN
-      { List.concat lst }
+typed_binder:
+  | LPAREN xs=name+ COLON t=ty_term RPAREN  { List.map (fun x -> (x, t)) xs }
 
-maybe_typed_names:
-  | xs=name+ COLON t=ty_term  { List.map (fun x -> (x, Some t)) xs }
-  | xs=name+                  { List.map (fun x -> (x, None)) xs }
+maybe_typed_binder:
+  | x=name           { [(x, None)] }
+  | LPAREN xs=name+ COLON t=ty_term RPAREN  { List.map (fun x -> (x, Some t)) xs }
 
-(* function arguments *)
-function_abstraction:
-  | xs = nonempty_list(name)     { xs }
+prod_abstraction:
+  | lst=nonempty_list(typed_binder)   { List.concat lst }
+
+lambda_abstraction:
+  | lst=nonempty_list(maybe_typed_binder) { List.concat lst }
 
 handler_cases:
   | BAR lst=separated_nonempty_list(BAR, handler_case)  { lst }
@@ -396,7 +389,7 @@ plain_tt_pattern:
   | PROD bs=tt_binder+ COMMA p=tt_pattern     { fst (List.fold_right
                                                        (fun ((x, b, pt), loc) p -> Tt_Prod (b, x, pt, p), loc)
                                                        (List.concat bs) p)
-                                              } 
+                                              }
   | p1=equal_tt_pattern ARROW p2=tt_pattern   { Tt_Prod (false, Name.anonymous, Some p1, p2) }
 
 equal_tt_pattern: mark_location(plain_equal_tt_pattern) { $1 }
