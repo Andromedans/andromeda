@@ -64,7 +64,6 @@ and comp' =
   | Match of comp * match_case list
   | Ascribe of comp * comp
   | External of string
-  | Typeof of comp
   | Constant of Name.ident
   | Lambda of Name.ident * comp option * comp
   | Apply of comp * comp

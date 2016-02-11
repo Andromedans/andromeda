@@ -197,12 +197,6 @@ let rec infer (c',loc) =
        | Some v -> v loc
      end
 
-  | Syntax.Typeof c ->
-    (* In future versions this is going to be a far less trivial computation,
-       as it might actually fail when there is no way to name a type with a term. *)
-    infer c >>= as_term ~loc >>= fun j ->
-    Value.return_term (Jdg.term_of_ty (Jdg.typeof j))
-
   | Syntax.Ascribe (c1, c2) ->
      check_ty c2 >>= fun (Jdg.Ty (_,t') as t) ->
      check c1 t >>= fun (ctx, e) ->
@@ -511,7 +505,6 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
   | Syntax.Tuple _
   | Syntax.Where _
   | Syntax.With _
-  | Syntax.Typeof _
   | Syntax.Constant _
   | Syntax.Prod _
   | Syntax.Eq _
