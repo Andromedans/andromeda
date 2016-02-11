@@ -1,0 +1,25 @@
+Constant A is declared.
+Constant a is declared.
+proj_x is defined.
+Signature orig is declared.
+⊢ {x = a} : orig
+⊢ {} : orig using x = a end
+⊢ {} : orig using x = a end
+⊢ {x = a}.x : A
+Signature copy is declared.
+⊢ {x = a} : copy
+⊢ {x = a} : orig
+s_orig is defined.
+s_copy is defined.
+The command failed with error:
+File "./signature-shadow.m31", line 26, characters 27-32: Typing error
+  the expression {} should have type orig using x = a end but has type
+  copy using x = a end
+Constant B is declared.
+Constant b is declared.
+Signature prod is declared.
+⊢ {x = a} : prod using x and y = b end
+Signature wrap is declared.
+Constant exfalso is declared.
+Operation inhab is declared.
+⊢ {T = A, T' = B} : wrap using T and T' and v = exfalso T end

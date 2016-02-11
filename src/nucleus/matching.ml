@@ -93,22 +93,25 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
      then raise Match_fail
      else xvs
 
-  | Syntax.Tt_Structure (s1, ps), Tt.Structure ((s2,shares), es) ->
-     if not (Name.eq_ident s1 s2 && shares = [])
+  | Syntax.Tt_Structure ps, Tt.Structure ((s,shares), es) ->
+     if not (shares = [])
      then raise Match_fail
      else
        begin
-         match Value.get_signature s1 env with
-         | None -> Error.impossible ~loc "matching: unknown signature %t" (Name.print_ident s1)
+         match Value.get_signature s env with
+         | None -> Error.impossible ~loc "matching: unknown signature %t" (Name.print_ident s)
          | Some s_def ->
             let rec fold xvs vs fields ps es =
               match fields, ps, es with
               | [], [], [] -> xvs
-              | (_,_,t)::fields, p::ps, e::es ->
-                 let t = Tt.instantiate_ty vs t in
-                 let xvs = collect_tt_pattern env xvs p ctx e t in
-                 fold xvs (e::vs) fields ps es
-              | _, _, _ -> Error.impossible ~loc "matching: field mismatch in structure"
+              | (l,_,t)::fields, (l',p)::ps, e::es ->
+                 if not (Name.eq_ident l l')
+                 then raise Match_fail
+                 else
+                   let t = Tt.instantiate_ty vs t in
+                   let xvs = collect_tt_pattern env xvs p ctx e t in
+                   fold xvs (e::vs) fields ps es
+              | _, _, _ -> raise Match_fail
          in
          fold xvs [] s_def ps es
        end
