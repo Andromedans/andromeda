@@ -54,8 +54,6 @@ val mk_tuple : value list -> value
 val mk_string : string -> value
 val mk_ident : Name.ident -> value
 
-val mk_closure' : ('a -> 'b result) -> ('a,'b) closure toplevel
-
 val apply_closure : ('a,'b) closure -> 'a -> 'b result
 
 (** References *)
@@ -76,8 +74,12 @@ val catch : (unit -> 'a toplevel) -> ('a,Error.details) Error.res toplevel
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a result
 
-val return_term : Jdg.term -> value result
+(* XXX why do we need all of these? *)
+val top_return_closure : ('a -> 'b result) -> ('a,'b) closure toplevel
+val top_mk_closure : (value -> value result) -> value toplevel
 val return_closure : (value -> value result) -> value result
+
+val return_term : Jdg.term -> value result
 val return_unit : value result
 
 val return_handler :
@@ -202,6 +204,10 @@ val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit tople
 (** Add a bound variable with the given name to the environment.
     Complain if then name is already used. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
+
+(** Simultaenously add bound variables with the given names to the environment.
+    Complain if any of the names is already used. *)
+val add_topbounds : loc:Location.t -> (Name.ident * value) list -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel

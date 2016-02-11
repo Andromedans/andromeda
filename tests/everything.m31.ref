@@ -41,9 +41,9 @@ File "./everything.m31", line 113, characters 21-22: Typing error
   the expression {} should have type wrapped using unwrap = a end
   but has type unit
 y_combinator is defined.
-loop0 is defined.
-loop1 is defined.
-loop2 is defined.
+f is defined.
+g is defined.
+("f", ("g", "foo"))
 wrapped = {unwrap : A}
 tt
 Operation get is declared.

@@ -27,7 +27,7 @@ signature isContr = {
   (* Using `label as name : T` binds `name` to an hypothesis of type `T` in future types. Otherwise the label is bound. *)
   center as a : T,
   (* Using `label as _` makes it difficult to refer to the corresponding hypothesis, however it is still possible. See `hypotheses`. *)
-  contr_path as _ : forall x : T, a == x
+  contr_path as _ : forall (x : T), a == x
 }
 
 (** Install a top level handler *)
@@ -92,7 +92,7 @@ do refl Type : Type == Type
 (* TODO fail lambda T x, x *)
 (* Type ascription `c : c'` is one way to evaluate in checking mode.
    Checking mode allows inferring type annotations for the arguments of a lambda. *)
-do (lambda T x, x) : forall A : Type, A -> A
+do (lambda T x, x) : forall (A : Type), A -> A
 
 (* In infer mode, `{}` evaluates to the 0-field structure. *)
 do refl {}
@@ -116,11 +116,15 @@ fail let tt = {} in tt : wrapped_a
 (* The meta language is a model of lambda calculus! *)
 let y_combinator = fun f => let delta = fun x => f (x x) in delta delta
 
-(* There is no need to use `Y` for recursive functions: *)
-let loop0 = rec f x => f x
-(* The following are just syntactic sugar for the former. *)
-let loop1 = let rec f x = f x in f
-let rec loop2 x = loop2 x
+(* There is no need to use `Y` for recursive functions, we have
+   mutual recursive definitions.  *)
+(* Top-level recursive definition: *)
+let rec f x = ("f", g x)
+    and g y = ("g", y)
+(* And local recursive definition: *)
+do let rec f x = ("f", g x)
+        and g y = ("g", y)
+   in f "foo"
 
 (** Externals *)
 (* Some functions are provided by the kernel without using up a keyword: *)
@@ -176,7 +180,7 @@ do let var = assume T : Type in T in
    assume x : var in (x where var = A)
 
 (** Matching *)
-do match ((lambda x : A, x) a,b,A) with
+do match ((lambda (x : A), x) a, b, A) with
   | (|- a,_,_) => print "this won't happen"
   (* Matching under binders can be done as `lambda (?y : ...), e`
      to bind a free variable suitable for substitution to y, since `e` may depend on it. *)
@@ -193,7 +197,7 @@ end
 
 (** Structures *)
 (* Fields may be omitted depending on constraints *)
-constant exfalso : forall T : Type, T
+constant exfalso : forall (T : Type), T
 signature container = { T : Type, cont : T }
 
 do { T = A } : container using T and cont = exfalso T end
@@ -241,7 +245,7 @@ do context dependent
    and to substitute any variable they depend on.
    The list in debruijn index order can be accessed with `hypotheses`. *)
 operation emit 1
-do handle lambda x : A, emit hypotheses with emit ?v => v end
+do handle lambda (x : A), emit hypotheses with emit ?v => v end
 
 (** Equality *)
 (* The kernel may ask for a witness of an equality (a term of that equality type) using the `equal 2` operation.
@@ -260,7 +264,7 @@ do handle refl a : a == b with equal (|- a) (|- b) => yield (Some eq) end
 (* `reduction` to apply the reduction rule for application of a lambda and projection of a structure.
    It may emit `equal` operations since it needs to verify equality of annotations.
    It may fail and therefore returns an option value. *)
-do reduction ((lambda x : A, x) a)
+do reduction ((lambda (x : A), x) a)
 do reduction { unwrap = a }.unwrap
 
 (* `congruence` to apply the appropriate congruence rule (if possible).
@@ -273,11 +277,11 @@ do handle congruence (wrapped using unwrap = a end) (wrapped using unwrap = b en
    This is especially important for structure extensionality as no single axiom can provide that functionality.
    Will emit `equal`s on subgoals. *)
 (* `unit` is the zero field signature *)
-do lambda x : unit, match extensionality x {} with
+do lambda (x : unit), match extensionality x {} with
   Some ?wit => wit
 end
 
-do lambda (A : Type, x y : A, p q : x == y), match extensionality p q with
+do lambda (A : Type) (x y : A) (p q : x == y), match extensionality p q with
   Some ?wit => wit
 end
 

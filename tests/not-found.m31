@@ -1,20 +1,20 @@
 
-constant sigT : Π (A : Type, B : A -> Type), Type
-constant existT : Π (A : Type, B : A -> Type, a : A),
+constant sigT : Π (A : Type) (B : A -> Type), Type
+constant existT : Π (A : Type) (B : A -> Type) (a : A),
     (B a) -> sigT A B
 
 constant sig_ind :
-  Π (A : Type, B : A -> Type,
-     P : sigT A B -> Type)
-    (f : Π (a : A, b : B a), P (existT A B a b))
+  Π (A : Type) (B : A -> Type)
+    (P : sigT A B -> Type)
+    (f : Π (a : A) (b : B a), P (existT A B a b))
     (s : sigT A B),
       P s
 
 constant sig_ind_beta :
-  Π (A : Type, B : A -> Type,
-     P : sigT A B -> Type,
-     f : Π (a : A, b : B a), P (existT A B a b),
-     a : A, b : B a),
+  Π (A : Type) (B : A -> Type)
+     (P : sigT A B -> Type)
+     (f : Π (a : A) (b : B a), P (existT A B a b))
+     (a : A) (b : B a),
     sig_ind A B P f
             (existT A B
                     a
@@ -22,10 +22,10 @@ constant sig_ind_beta :
     == f a b
 
 let projT1' =
-  λ (A : Type, B : A -> Type, s : sigT A B),
+  λ (A : Type) (B : A -> Type) (s : sigT A B),
     sig_ind A B
             (λ (_ : sigT A B), A)
-            ((λ (X : Type, Y : X -> Type, x : X, y : Y x), x) A B)
+            ((λ (X : Type) (Y : X -> Type) (x : X) (y : Y x), x) A B)
             s
 
 

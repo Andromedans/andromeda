@@ -9,8 +9,8 @@ let funext =
   (lambda A B f g p,
     with local (lhint p) handle
     refl f : f == g)
-  : forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
-     (forall x : A, f x == g x) -> f == g
+  : forall (A : Type) (B : A -> Type) (f g : forall (x : A), B x),
+     (forall (x : A), f x == g x) -> f == g
 
 do funext
 

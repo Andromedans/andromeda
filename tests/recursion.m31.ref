@@ -1,0 +1,8 @@
+Data constructor Leaf is declared.
+Data constructor Node is declared.
+left is defined.
+right is defined.
+t is defined.
+Node (Node (Node "left" "right") (Node "left" "right")) (Node (Node (Node
+"left" "right") (Node "left" "right")) (Node (Node "left" "right") (Node
+"left" "right")))

@@ -35,7 +35,7 @@ do { x = a } : prod using y = b end
 
 signature wrap = { T : Type, T' : Type, v : T }
 
-constant exfalso : forall T : Type, T
+constant exfalso : forall (T : Type), T
 operation inhab 0
 
 (* Not mentioning a field is no guarantee against it being used. We could also grab it from hypotheses. *)

@@ -1,5 +1,5 @@
 
-let x = (lambda x : Type, x) Type
+let x = (lambda (x : Type), x) Type
 
 do x
 

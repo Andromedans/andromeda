@@ -34,7 +34,7 @@ and state = value Store.t
 
 and value =
   | Term of Jdg.term
-  | Closure of (value,value) closure
+  | Closure of (value, value) closure
   | Handler of handler
   | Tag of Name.ident * value list
   | List of value list
@@ -44,7 +44,7 @@ and value =
   | Ident of Name.ident
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
-and ('a,'b) closure = Clos of ('a -> 'b result)
+and ('a, 'b) closure = Clos of ('a -> 'b result)
 
 and 'a raw_result =
   | Return of 'a
@@ -67,7 +67,9 @@ and env = {
   state   : state  ;
 }
 
-type 'a toplevel = env -> 'a*env
+(** A toplevel computation carries around the current
+    environment. *)
+type 'a toplevel = env -> 'a * env
 
 (** Predeclared *)
 let name_some = Name.make "Some"
@@ -108,7 +110,6 @@ let mk_string s = String s
 let mk_ident x = Ident x
 
 let mk_closure0 (f : 'a -> 'b result) {lexical;_} = Clos (fun v env -> f v {env with lexical})
-let mk_closure' f env = mk_closure0 f env, env
 
 let apply_closure (Clos f) v env = f v env
 
@@ -130,7 +131,7 @@ let update_ref x v env =
 let rec bind (r:'a result) (f:'a -> 'b result) : 'b result = fun env ->
   match r env with
   | Return v, state -> f v {env with state}
-  | Operation (op, vs, jt, d, k), state -> 
+  | Operation (op, vs, jt, d, k), state ->
      let env = {env with state} in
      let k = mk_closure0 (fun x -> bind (apply_closure k x) f) env in
      Operation (op, vs, jt, d, k), env.state
@@ -138,19 +139,22 @@ let rec bind (r:'a result) (f:'a -> 'b result) : 'b result = fun env ->
 let (>>=) = bind
 
 let top_bind m f env =
-  let x,env = m env in
+  let x, env = m env in
   f x env
 
 let catch m env =
   try
-    let x,env = m () env in
+    let x, env = m () env in
     Error.OK x, env
   with
     | Error.Error err ->
       Error.Err err, env
 
 (** Returns *)
-let top_return x env = x,env
+let top_return x env = x, env
+
+let top_mk_closure f env = Closure (mk_closure0 f env), env
+let top_return_closure f env = mk_closure0 f env, env
 
 let return x env = Return x, env.state
 
@@ -271,7 +275,7 @@ let operation_as_signature v =
 
 let top_bound_names env = List.map fst env.lexical.bound, env
 
-let top_get_env env = env,env
+let top_get_env env = env, env
 
 let get_env env = Return env, env.state
 
@@ -419,8 +423,19 @@ let add_topbound ~loc x v env =
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
   else
     let env = add_bound0 x v env in
-    (),env
+    (), env
 
+let add_topbounds ~loc xvs env =
+  let rec fold env = function
+    | [] -> (), env
+    | (x,v) :: xvs ->
+       if is_known x env
+       then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+       else
+         let env = add_bound0 x v env in
+         fold env xvs
+  in
+  fold env xvs
 
 let add_handle op xsc env =
   (),{ env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
@@ -562,7 +577,7 @@ let initialised =
               (fun env (x, k) -> add_operation0 ~loc:Location.unknown x k env)
               env
               predefined_ops
-  in    
+  in
   env
 
 let run m = fst (m initialised)
@@ -570,7 +585,7 @@ let run m = fst (m initialised)
 type 'a progress = 'a * env
 
 let initial m = m initialised
-let progress (x,env) f = f x env
+let progress (x, env) f = f x env
 let finish (x,_) = x
 
 (** Handling *)
