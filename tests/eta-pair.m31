@@ -2,23 +2,23 @@
 
 constant prod : forall (_ _ : Type), Type
 
-constant Pair : forall (A B : Type) (_ : A) (_ : B), prod A B
+constant pair : forall (A B : Type) (_ : A) (_ : B), prod A B
 
-constant Fst : forall (X Y : Type) (_ : prod X Y), X
-constant Snd : forall (X Y : Type) (_ : prod X Y), Y
+constant fst : forall (X Y : Type) (_ : prod X Y), X
+constant snd : forall (X Y : Type) (_ : prod X Y), Y
 
-constant Pair_beta_Fst :
+constant pair_beta_fst :
   ∀ (U V : Type) (u : U) (v : V),
-    (Fst V U (Pair V U v u)) ≡ v
+    (fst V U (pair V U v u)) ≡ v
 
-constant Pair_beta_Snd :
+constant pair_beta_snd :
   ∀ (U V : Type) (u : U) (v : V),
-    (Snd V U (Pair V U v u)) ≡ u
+    (snd V U (pair V U v u)) ≡ u
 
-constant Pair_eta :
+constant pair_eta :
   ∀ (U V : Type) (x y : prod U V),
-    Fst U V x ≡ Fst U V y ->
-    Snd U V x ≡ Snd U V y ->
+    fst U V x ≡ fst U V y ->
+    snd U V x ≡ snd U V y ->
     x ≡ y
 
 constant C : Type
@@ -29,19 +29,19 @@ constant p : prod C D
 (* Beta rules. *)
 do
   (λ (c : C) (d : D),
-    with local (lbeta Pair_beta_Fst) handle
-      refl c : Fst C D (Pair C D c d) ≡ c)
+    with local (lbeta pair_beta_fst) handle
+      refl c : fst C D (pair C D c d) ≡ c)
 
 do
   (λ (c : C) (d : D),
-    with local (lbeta Pair_beta_Fst) handle
-    with local (lbeta Pair_beta_Snd) handle
-      refl d : Snd C D (Pair C D c d) ≡ d)
+    with local (lbeta pair_beta_fst) handle
+    with local (lbeta pair_beta_snd) handle
+      refl d : snd C D (pair C D c d) ≡ d)
 
-(* Surjective Pairing. *)
+(* Surjective pairing. *)
 do
-  with local (lbeta Pair_beta_Fst) handle
-  with local (lbeta Pair_beta_Snd) handle
-  with local (leta Pair_eta) handle
-     refl p : p ≡ Pair C D (Fst C D p) (Snd C D p)
+  with local (lbeta pair_beta_fst) handle
+  with local (lbeta pair_beta_snd) handle
+  with local (leta pair_eta) handle
+     refl p : p ≡ pair C D (fst C D p) (snd C D p)
 

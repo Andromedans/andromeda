@@ -144,7 +144,7 @@ let top_bind m f env =
 
 let catch m env =
   try
-    let x, env = m env in
+    let x, env = m () env in
     Error.OK x, env
   with
     | Error.Error err ->
@@ -226,8 +226,8 @@ let as_option ~loc = function
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
 let as_sum ~loc = function
-  | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Inl x
-  | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Inr x
+  | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Tt.Inl x
+  | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Tt.Inr x
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a sum but got %s" (name_of v)
 
@@ -244,8 +244,8 @@ let from_option = function
 let from_list lst = List lst
 
 let from_sum = function
-  | Inl x -> Tag (name_inl, [x])
-  | Inr x -> Tag (name_inr, [x])
+  | Tt.Inl x -> Tag (name_inl, [x])
+  | Tt.Inr x -> Tag (name_inr, [x])
 
 let list_nil = List []
 
@@ -255,12 +255,8 @@ let return_unit = return (Tag (name_unit, []))
 
 (** Operations *)
 
-let operation op vs env =
-  Operation (op, vs, None, env.dynamic, mk_closure0 return env), env.state
-
-let operation_at op vs jt env =
-  Operation (op, vs, Some jt, env.dynamic, mk_closure0 return env), env.state
-
+let operation op ?checking vs env =
+  Operation (op, vs, checking, env.dynamic, mk_closure0 return env), env.state
 
 let operation_equal v1 v2 =
   operation name_equal [v1;v2]
@@ -325,9 +321,9 @@ let lookup_signature ~loc x env =
    | Some def -> Return def, env.state
    | None -> Error.impossible ~loc "Unknown signature %t" (Name.print_ident x)
 
-let find_signature env ls =
+let find_signature ~loc ls env =
   let rec fold = function
-    | [] -> None
+    | [] -> Error.runtime ~loc "No signature has these exact fields."
     | (s, DeclSignature s_def) :: lst ->
        let rec cmp lst1 lst2 =
          match lst1, lst2 with
@@ -335,10 +331,10 @@ let find_signature env ls =
          | l1::lst1, (l2,_,_)::lst2 -> Name.eq_ident l1 l2 && cmp lst1 lst2
          | [],_::_ | _::_,[] -> false
        in
-       if cmp ls s_def then Some s else fold lst
+       if cmp ls s_def then s, s_def else fold lst
     | (_, (DeclConstant _ | DeclData _ | DeclOperation _)) :: lst -> fold lst
   in
-  fold env.dynamic.decls
+  Return (fold env.dynamic.decls), env.state
 
 let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 
@@ -364,14 +360,19 @@ let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
 (** generate a fresh atom of type [t] and bind it to [x],
     and record that the atom will be abstracted.
     NB: This is an effectful computation, as it increases a global counter. *)
-let add_abstracting ~loc x (Jdg.Ty (ctx, t)) m env =
+let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
-  let ya = Tt.mk_atom ~loc y in
-  let jyt = Jdg.mk_term ctx ya t in
-  let env = add_bound0 x (mk_term jyt) env in
-  let env = { env with
-              dynamic = { env.dynamic with
-                          abstracting = jyt :: env.dynamic.abstracting } }
+  let env =
+    if not bind
+    then
+      env
+    else
+      let ya = Tt.mk_atom ~loc y in
+      let jyt = Jdg.mk_term ctx ya t in
+      let env = add_bound0 x (mk_term jyt) env in
+      { env with
+                dynamic = { env.dynamic with
+                            abstracting = jyt :: env.dynamic.abstracting } }
   in
   m ctx y env
 

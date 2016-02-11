@@ -33,14 +33,3 @@ let assoc_update = fun x v lst =>
     end
   in aux [] lst
 
-(** First projection *)
-let fst = fun v => match v with
-  | (?v, _) => v
-  end
-
-(** Second projection *)
-let snd = fun v => match v with
-  | (_, ?v) => v
-  end
-
-

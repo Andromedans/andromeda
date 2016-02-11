@@ -26,7 +26,8 @@ and tt_pattern' =
   | Tt_GenSig of pattern
   | Tt_GenStruct of tt_pattern * pattern
   | Tt_GenProj of tt_pattern * pattern
-  | Tt_GenAtom
+  | Tt_GenAtom of tt_pattern
+  | Tt_GenConstant of tt_pattern
 
 and pattern = pattern' * Location.t
 and pattern' =
@@ -65,7 +66,6 @@ and term' =
   | Where of comp * expr * comp
   | Ascribe of comp * ty
   | External of string
-  | Typeof of comp
   | Lambda of (Name.ident * comp option) list * comp
   | Spine of comp * comp list
   | Prod of (Name.ident * ty) list * comp

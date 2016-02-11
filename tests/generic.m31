@@ -67,11 +67,20 @@ fail _proj urist gold_id
 
 fail _proj ankle gold_id
 
-do match assume x : A in x with
-  |- _atom => tt
+constant B : Type
+constant eq : A == B
+let _ = add_beta eq
+
+do match assume x : A in x : B with
+  |- _atom ?y => y
   end
 
 fail match ankle with
-  |- _atom => tt
+  |- _atom _ => tt
   end
+
+constant a : A
+do match a : B with
+  |- _constant ?y => y
+end
 

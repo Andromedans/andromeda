@@ -90,34 +90,43 @@
 	  <keyword>false</keyword>
 	</context>
 	<context id="keywords" style-ref="keyword">
+    <keyword>_sig</keyword>
+    <keyword>_struct</keyword>
+    <keyword>_proj</keyword>
+    <keyword>_atom</keyword>
+    <keyword>_constant</keyword>
     <keyword>as</keyword>
     <keyword>assume</keyword>
     <keyword>and</keyword>
-    <keyword>check</keyword>
     <keyword>constant</keyword>
-    <keyword>context</keyword>
     <keyword>congruence</keyword>
+    <keyword>context</keyword>
     <keyword>data</keyword>
+    <keyword>do</keyword>
     <keyword>end</keyword>
+    <keyword>extensionality</keyword>
     <keyword>external</keyword>
     <keyword>finally</keyword>
     <keyword>fail</keyword>
     <keyword>handle</keyword>
     <keyword>handler</keyword>
+    <keyword>hypotheses</keyword>
     <keyword>let</keyword>
     <keyword>match</keyword>
-    <keyword>reduce</keyword>
+    <keyword>reduction</keyword>
     <keyword>forall</keyword>
     <keyword>yield</keyword>
     <keyword>fun</keyword>
     <keyword>lambda</keyword>
     <keyword>in</keyword>
+    <keyword>occurs</keyword>
     <keyword>operation</keyword>
     <keyword>rec</keyword>
-    <keyword>refl</keyword>
     <keyword>ref</keyword>
+    <keyword>refl</keyword>
+    <keyword>signature</keyword>
+    <keyword>using</keyword>
     <keyword>Type</keyword>
-    <keyword>typeof</keyword>
     <keyword>val</keyword>
     <keyword>where</keyword>
     <keyword>with</keyword>

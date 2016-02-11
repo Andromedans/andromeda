@@ -8,6 +8,7 @@ let reserved = [
   ("_struct", USTRUCT) ;
   ("_proj", UPROJ) ;
   ("_atom", UATOM) ;
+  ("_constant", UCONSTANT) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
   ("and", AND) ;

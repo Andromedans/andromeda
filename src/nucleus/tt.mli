@@ -1,5 +1,9 @@
 (** Abstract syntax of value types and terms *)
 
+type ('a,'b) sum =
+  | Inl of 'a
+  | Inr of 'b
+
 (** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
 type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
@@ -62,9 +66,10 @@ and 'a ty_abstraction = (ty, 'a) abstraction
 and sig_def = (Name.label * Name.ident * ty) list
 
 (** A signature with sharing constraints [s with li = vi], the [li] are implicit.
-    [vi] is [None] when [li] has no constraint, [Some ei] when it has one.
-    In that case the previous non-constrained labels are bound in [ei]. *)
-and signature = Name.signature * (Name.ident * term option) list
+    [vi] is [Inl xi] when [li] has no constraint, then [xi] is bound in future constraints,
+            [Inr ei] when it has one.
+*)
+and signature = Name.signature * (Name.ident, term) sum list
 
 (** A structure [s,es] where [es] are the values of the non constrained fields of [s].
     The [es] do not bind labels. *)
@@ -147,7 +152,7 @@ type struct_field =
   | Shared of term
   | Explicit of term
 
-(* TODO should this instantiate the constraints? *)
+(** Return the list of terms defining the structure, with constraints fully instantiated. *)
 val struct_combine : loc:Location.t -> structure -> struct_field list
 
 (** Makes the projection, even when the field is constrained. *)

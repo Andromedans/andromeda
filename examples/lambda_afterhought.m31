@@ -1,13 +1,16 @@
-Parameter A : Type.
-Parameter B : A -> Type.
+constant A : Type
+constant B : A -> Type
 
-Parameter pair : Π [x : A] B x → Type.
+constant pair : Π (x : A), B x → Type
 
-Check
+operation fresh 1
+
+do
    handle
-     let a := #fresh A in
-     let b := #fresh (B a) in
-       λ [y : A] pair a b
+     let a = fresh A in
+     let b = fresh (B a) in
+       λ (y : A), pair a b
    with
-     | #fresh t k => λ [x : t] k x
-   end.
+     | fresh ?t => λ (x : t), yield x
+   end
+

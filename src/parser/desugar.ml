@@ -15,11 +15,6 @@ let mk_lambda ~loc ys c =
 let mk_prod ~loc ys t =
   List.fold_left (fun c (y,u) -> Syntax.Prod (y,u,c), loc) t ys
 
-let find_signature ~loc env ls =
-  match Value.find_signature env ls with
-  | Some s -> s
-  | None -> Error.syntax ~loc "unknown structure"
-
 
 (* n is the length of vars *)
 let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
@@ -121,14 +116,13 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       (Syntax.Tt_Refl p, loc), vars, n
 
     | Input.Tt_Structure lps ->
-       let s = find_signature ~loc env (List.map fst lps) in
        let rec fold vars n ps = function
         | [] ->
           let ps = List.rev ps in
-          (Syntax.Tt_Structure (s, ps), loc), vars, n
-        | (_,p)::rem ->
+          (Syntax.Tt_Structure ps, loc), vars, n
+        | (l,p)::rem ->
           let p, vars, n = tt_pattern env bound vars n p in
-          fold vars n (p::ps) rem
+          fold vars n ((l,p)::ps) rem
         in
       fold vars n [] lps
 
@@ -150,8 +144,13 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
       let p2, vars, n = pattern env bound vars n p2 in
       (Syntax.Tt_GenProj (p1,p2), loc), vars, n
 
-    | Input.Tt_GenAtom ->
-      (Syntax.Tt_GenAtom, loc), vars, n
+    | Input.Tt_GenAtom p ->
+      let p, vars, n = tt_pattern env bound vars n p in
+      (Syntax.Tt_GenAtom p, loc), vars, n
+
+    | Input.Tt_GenConstant p ->
+      let p, vars, n = tt_pattern env bound vars n p in
+      (Syntax.Tt_GenConstant p, loc), vars, n
 
 and pattern (env : Value.env) bound vars n (p,loc) =
   match p with
@@ -243,7 +242,7 @@ and pattern (env : Value.env) bound vars n (p,loc) =
       fold vars n [] ps
 
 let raw_signature ~loc x def =
-  Syntax.Signature (x, List.map (fun (l,_,_) -> l,None) def), loc
+  Syntax.Signature (x, List.map (fun _ -> None) def), loc
 
 
 let rec comp ~yield (env : Value.env) bound (c',loc) =
@@ -311,10 +310,6 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     | Input.External s ->
        Syntax.External s, loc
 
-    | Input.Typeof c ->
-      let c = comp ~yield env bound c in
-      Syntax.Typeof c, loc
-
     | Input.Lambda (xs, c) ->
       let rec fold bound ys = function
         | [] ->
@@ -358,37 +353,46 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     | Input.Signature (s,cs) ->
       begin match Value.get_signature s env with
         | Some s_def ->
-          let rec fold bound xcs def cs = match def,cs with
-            | [], [] ->
-              Syntax.Signature (s,List.rev xcs), loc
-            | (l,_,_)::def, (l',mx,mc)::cs ->
-              if Name.eq_ident l l'
-              then
-                let x = match mx with | Some x -> x | None -> l in
-                let mc = match mc with
-                  | Some c -> Some (comp ~yield env bound c)
-                  | None -> None
-                in
-                let bound = add_bound x bound in
-                fold bound ((x,mc)::xcs) def cs
-              else Error.syntax ~loc "Bad signature constraint: labels do not match.\nConstraints must be fully described."
-            | _::_,[] | [],_::_ -> Error.syntax ~loc "Bad signature constraint: lengths do not match.\nConstraints must be fully described."
+          let rec fold bound xcs def = function
+            | [] ->
+              let rec complete xcs = function
+                | [] -> Syntax.Signature (s,List.rev xcs), loc
+                | _::def -> complete (None::xcs) def
+              in
+              complete xcs def
+            | (l,mx,mc)::cs ->
+              let rec find xcs = function
+                | (l',_,_)::def ->
+                  if not (Name.eq_ident l l')
+                  then
+                    find (None::xcs) def
+                  else
+                    let x = match mx with | Some x -> x | None -> l in
+                    let mc = match mc with
+                      | Some c -> Some (comp ~yield env bound c)
+                      | None -> None
+                    in
+                    let bound = add_bound x bound in
+                    fold bound (Some (x,mc)::xcs) def cs
+                | [] -> Error.syntax ~loc "Signature constraint: field %t does not appear in signature %t."
+                                     (Name.print_ident l) (Name.print_ident s)
+              in
+              find xcs def
           in
           fold bound [] s_def cs
         | None -> Error.syntax ~loc "unknown signature %t" (Name.print_ident s)
       end
 
     | Input.Structure lycs ->
-       let s = find_signature ~loc env (List.map (fun (l,_,_)->l) lycs) in
        let rec fold bound res = function
         | [] -> List.rev res
         | (x,y,c) :: rem ->
           let y = match y with | Some y -> y | None -> x in
           let c = match c with | Some c -> Some (comp ~yield env bound c) | None -> None in
-          fold (add_bound y bound) ((y,c) :: res) rem
+          fold (add_bound y bound) ((x,y,c) :: res) rem
         in
       let lcs = fold bound [] lycs in
-      Syntax.Structure (s, lcs), loc
+      Syntax.Structure lcs, loc
 
     | Input.Projection (c,x) ->
       let c = comp ~yield env bound c in
@@ -754,7 +758,7 @@ let toplevel (env : Value.env) bound (d', loc) =
       Syntax.TopDo c
 
     | Input.TopFail c ->
-      let c = comp ~yield:false env bound c in
+      let c = lazy (comp ~yield:false env bound c) in
       Syntax.TopFail c
 
     | Input.Quit -> Syntax.Quit
