@@ -27,7 +27,8 @@ and tt_pattern' =
   | Tt_GenStruct of tt_pattern * pattern
   (** Matching [Projection e, _, l] *)
   | Tt_GenProj of tt_pattern * pattern
-  | Tt_GenAtom
+  | Tt_GenAtom of tt_pattern
+  | Tt_GenConstant of tt_pattern
 
 and pattern = pattern' * Location.t
 and pattern' =

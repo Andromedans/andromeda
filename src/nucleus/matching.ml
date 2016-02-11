@@ -191,7 +191,21 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
     let xvs = collect_pattern env xvs pl vl in
     collect_tt_pattern env xvs p ctx e (Tt.mk_signature_ty ~loc s)
 
-  | Syntax.Tt_GenAtom, Tt.Atom _ -> xvs
+  | Syntax.Tt_GenAtom p, Tt.Atom x ->
+    begin match Context.lookup_ty x ctx with
+      | Some t ->
+        let ex = Tt.mk_atom ~loc x in
+        collect_tt_pattern env xvs p ctx ex t
+      | None -> Error.impossible ~loc "matching atom %t not in context" (Name.print_atom x)
+    end
+
+  | Syntax.Tt_GenConstant p, Tt.Constant c ->
+    begin match Value.get_constant c env with
+      | Some t ->
+        let c = Tt.mk_constant ~loc c in
+        collect_tt_pattern env xvs p Context.empty c t
+      | None -> Error.impossible ~loc "matching unknown constant %t" (Name.print_ident c)
+    end
 
   | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Apply _
      | Syntax.Tt_Lambda _ | Syntax.Tt_Prod _
@@ -199,7 +213,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
      | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
      | Syntax.Tt_Projection _
      | Syntax.Tt_GenSig _ | Syntax.Tt_GenStruct _ | Syntax.Tt_GenProj _
-     | Syntax.Tt_GenAtom) , _ ->
+     | Syntax.Tt_GenAtom _ | Syntax.Tt_GenConstant _) , _ ->
      raise Match_fail
 
 and collect_pattern env xvs (p,loc) v =

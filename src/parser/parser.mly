@@ -62,7 +62,7 @@
 
 %token EXTERNAL
 
-%token USIG USTRUCT UPROJ UATOM
+%token USIG USTRUCT UPROJ UATOM UCONSTANT
 
 (* REFERENCES *)
 %token BANG COLONEQ REF
@@ -428,16 +428,17 @@ prefix_tt_pattern: mark_location(plain_prefix_tt_pattern) { $1 }
 plain_prefix_tt_pattern:
   | p=plain_simple_tt_pattern                     { p }
   | REFL p=prefix_tt_pattern                      { Tt_Refl p }
-  | USIG x=simple_pattern                         { Tt_GenSig x }
-  | USTRUCT p=simple_tt_pattern x=simple_pattern  { Tt_GenStruct (p,x) }
-  | UPROJ p=simple_tt_pattern l=simple_pattern    { Tt_GenProj (p,l) }
+  | USIG x=prefix_pattern                         { Tt_GenSig x }
+  | USTRUCT p=prefix_tt_pattern x=prefix_pattern  { Tt_GenStruct (p,x) }
+  | UPROJ p=prefix_tt_pattern l=prefix_pattern    { Tt_GenProj (p,l) }
+  | UATOM p=prefix_tt_pattern                     { Tt_GenAtom p }
+  | UCONSTANT p=prefix_tt_pattern                 { Tt_GenConstant p }
   | op=PREFIXOP e=prefix_tt_pattern
     { let op = Tt_Name (fst op), snd op in Tt_Apply (op, e) }
 
 simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:
   | UNDERSCORE                                                           { Tt_Anonymous }
-  | UATOM                                                                { Tt_GenAtom }
   | TYPE                                                                 { Tt_Type }
   | x=patt_var                                                           { Tt_Var x }
   | x=var_name                                                           { Tt_Name x }

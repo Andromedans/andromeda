@@ -141,6 +141,8 @@ val get_operation : Name.ident -> env -> int option
 val get_data : Name.ident -> env -> int option
 
 (** Lookup a constant. *)
+val get_constant : Name.ident -> env -> Tt.ty option
+
 val lookup_constant : loc:Location.t -> Name.ident -> Tt.ty result
 
 (** Lookup a signature definition *)

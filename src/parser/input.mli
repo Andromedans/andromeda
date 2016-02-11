@@ -26,7 +26,8 @@ and tt_pattern' =
   | Tt_GenSig of pattern
   | Tt_GenStruct of tt_pattern * pattern
   | Tt_GenProj of tt_pattern * pattern
-  | Tt_GenAtom
+  | Tt_GenAtom of tt_pattern
+  | Tt_GenConstant of tt_pattern
 
 and pattern = pattern' * Location.t
 and pattern' =
