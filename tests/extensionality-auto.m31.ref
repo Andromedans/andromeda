@@ -1,0 +1,16 @@
+eqext is defined.
+⊢ λ (A : Type) (a : A) (b : A) (p : a ≡ b) (_ : a ≡ b), refl p
+  : Π (A : Type) (a : A) (b : A) (p : a ≡ b) (q : a ≡ b), p ≡ q
+funext is defined.
+⊢ λ (A : Type) (B : A → Type) (f : Π (x : A), B x)
+    (g : Π (x : A), B x) (_ : Π (x : A), f x ≡ g x), refl f
+  : Π (A : Type) (B : A → Type) (f : Π (x : A), B x)
+    (g : Π (x : A), B x), (Π (x : A), f x ≡ g x) → f ≡ g
+Constant A is declared.
+Constant B is declared.
+Signature cow is declared.
+cowext is defined.
+⊢ λ (a : cow) (b : cow) (_ : a.head ≡ b.head) (_ : a.tail ≡ b.tail),
+        refl a
+  : Π (a : cow) (b : cow), a.head ≡ b.head → a.tail ≡ b.tail → a ≡
+        b

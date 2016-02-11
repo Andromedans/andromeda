@@ -1,6 +1,0 @@
-Let pi_eta := 
-  (λ [A B f g h] hint h in refl f)
-  :: Π [A : Type] [B : A → Type] [f g : Π [x : A] B x] (Π [x : A] f x == g x) → f == g.
-
-Check pi_eta.
-

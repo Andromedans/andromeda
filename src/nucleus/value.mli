@@ -71,7 +71,7 @@ val bind: 'a result -> ('a -> 'b result)  -> 'b result
 val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 
 (** Catch errors. The state is not changed if the command fails. *)
-val catch : 'a toplevel -> ('a,Error.details) Error.res toplevel
+val catch : (unit -> 'a toplevel) -> ('a,Error.details) Error.res toplevel
 
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a result
@@ -105,20 +105,18 @@ val as_ident : loc:Location.t -> value -> Name.ident
 
 val as_option : loc:Location.t -> value -> value option
 val as_list : loc:Location.t -> value -> value list
-val as_sum : loc:Location.t -> value -> (value,value) sum
+val as_sum : loc:Location.t -> value -> (value,value) Tt.sum
 
 (** Wrappers for making tags *)
 val from_option : value option -> value
 val from_list : value list -> value
-val from_sum : (value,value) sum -> value
+val from_sum : (value,value) Tt.sum -> value
 
 val list_nil : value
 val list_cons : value -> value list -> value
 
 (** Operations *)
-val operation : Name.ident -> value list -> value result
-
-val operation_at : Name.ident -> value list -> Jdg.ty -> value result
+val operation : Name.ident -> ?checking:Jdg.ty -> value list -> value result
 
 val operation_equal : value -> value -> value result
 
@@ -156,7 +154,7 @@ val get_signature : Name.signature -> env -> Tt.sig_def option
 val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def result
 
 (** Find a signature with the given labels (in this exact order) *)
-val find_signature : env -> Name.label list -> Name.signature option
+val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) result
 
 (** Lookup abstracting variables. *)
 val lookup_abstracting : Jdg.term list result
@@ -180,7 +178,7 @@ val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom 
 (** [add_abstracting ~loc x t] generates a fresh atom [y] from identifier [x] and marks
     it as abstracting (which means we intend to abstract it later).
     It then runs [f y] in the environment with [x] bound to [y]. *)
-val add_abstracting: loc:Location.t -> Name.ident -> Jdg.ty ->
+val add_abstracting: loc:Location.t -> ?bind:bool -> Name.ident -> Jdg.ty ->
                      (Context.t -> Name.atom -> 'a result) -> 'a result
 
 (** Add an operation with the given arity.

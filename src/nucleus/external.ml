@@ -14,6 +14,18 @@ let externals =
           Value.return_unit
         )) ;
 
+    ("print_signature", fun loc ->
+      Value.return_closure (fun v ->
+          let Jdg.Term (_,e,_) = Value.as_term ~loc v in
+          match e.Tt.term with
+            | Tt.Signature (s,_) ->
+              Value.lookup_signature ~loc s >>= fun s_def ->
+              Value.lookup_penv >>= fun penv ->
+              Format.printf "%t = {@[<hv>%t@]}@." (Name.print_ident s) (Tt.print_sig_def ~penv s_def) ;
+              Value.return_unit
+            | _ -> Error.runtime ~loc "this term should be a signature"
+        )) ;
+
     ("time", fun loc ->
       Value.return_closure (fun _ ->
         let time = ref 0. in

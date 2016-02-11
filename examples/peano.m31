@@ -1,223 +1,195 @@
 (* The definition of unary natural numbers. *)
 
-Parameter N : Type.
-Parameter Z : N.
-Parameter S : N → N.
+constant N : Type
+constant Z : N
+constant S : N → N
 
-Parameter ind_N :
-  ∀ [P : N → Type] P Z → (∀ [n : N] P n → P (S n)) → ∀ [m : N] P m.
+constant ind_N :
+  ∀ (P : N → Type), P Z → (∀ (n : N), P n → P (S n)) → ∀ (m : N), P m
 
-Parameter ind_N_Z :
-  ∀ [P : N → Type] [x : P Z] [f : ∏ [n : N] P n → P (S n)]
-    ind_N P x f Z ≡ x.
+constant ind_N_Z :
+  ∀ (P : N → Type) (x : P Z) (f : ∏ (n : N), P n → P (S n)),
+    ind_N P x f Z ≡ x
 
-Parameter ind_N_S :
-  ∀ [P : N → Type] [x : P Z] [f : ∏ [n : N] P n → P (S n)] [m : N]
-    ind_N P x f (S m) ≡ f m (ind_N P x f m).
+constant ind_N_S :
+  ∀ (P : N → Type) (x : P Z) (f : ∏ (n : N), P n → P (S n)) (m : N),
+    ind_N P x f (S m) ≡ f m (ind_N P x f m)
 
 (* It looks like the best way to define new things is not with a let-binding,
    which always automatically unfolds the definition, but rather by introducing
    a new constant and a new equation. *)
 
-Parameter pred : N → N.
-Parameter pred_Z : pred Z ≡ Z.
-Parameter pred_S : ∏ [x : N] pred (S x) ≡ x.
+constant pred : N → N
+constant pred_Z : pred Z ≡ Z
+constant pred_S : ∏ (x : N), pred (S x) ≡ x
 
-Parameter pred' : N → N.
-Parameter pred'_def :
-  ∀ [x : N] pred' x ≡ ind_N (λ [_ : N] N) Z (λ [x' _ : N] x') x.
+constant pred' : N → N
+constant pred'_def :
+  ∀ (x : N), pred' x ≡ ind_N (λ (_ : N), N) Z (λ (x' _ : N), x') x
 
-Check beta ind_N_Z in beta ind_N_S in beta pred'_def in
-  refl (S Z) :: pred' (S (S Z)) ≡ (S Z).
+do with fasteq tt handle
+  beta ind_N_Z; beta ind_N_S; beta pred'_def;
+  refl (S Z) : pred' (S (S Z)) ≡ (S Z)
 
 (* We define plus in such a way that it will unfold only when it is applied
    to two arguments. This seems to be an advantage. *)
-Parameter plus : N → N → N.
-Parameter plus_def :
-  ∀ [x y : N] plus x y ≡ ind_N (λ [_ : N] N) x (λ [_ : N] S) y.
+constant plus : N → N → N
+constant plus_def :
+  ∀ (x y : N), plus x y ≡ ind_N (λ (_ : N), N) x (λ (_ : N), S) y
 
-(* We now use the ind_N computation rules to establish properties of plus.
+(* We now use the ind_N computation rules to establish properties of plus
    Later we use these properties to compute with plus -- we do not have to
    always go back to ind_N. *)
-Let plus_Z :=
-  (λ [x : N]
-    beta plus_def in
-    beta ind_N_Z in
-      refl (plus x Z) ::
+let plus_Z = with fasteq tt handle
+  (λ (x : N),
+    beta plus_def;
+    beta ind_N_Z;
+      refl (plus x Z) :
         plus x Z ≡ x)
- ::
- ∀ [x : N] plus x Z ≡ x.
+ :
+ ∀ (x : N), plus x Z ≡ x
 
-Let plus_S :=
-  (λ [x y : N]
-     beta plus_def in
-     beta ind_N_S in
-     refl (plus x (S y)) ::
+let plus_S = with fasteq tt handle
+  (λ (x y : N),
+     beta plus_def;
+     beta ind_N_S;
+     refl (plus x (S y)) :
        plus x (S y) ≡ S (plus x y))
-  ::
-  ∀ [x y : N] plus x (S y) ≡ S (plus x y).
+  :
+  ∀ (x y : N), plus x (S y) ≡ S (plus x y)
 
 (* We can compute with these rules. *)
 
-Let one   := S Z.
-Let two   := S (S Z).
-Let three := S (S (S Z)).
-Let four  := S (S (S (S Z))).
-Let five  := S (S (S (S (S Z)))).
-Let six   := S (S (S (S (S (S Z))))).
-Let seven := S (S (S (S (S (S (S Z)))))).
-Let eight := S (S (S (S (S (S (S (S Z))))))).
-Let nine  := S (S (S (S (S (S (S (S (S Z)))))))).
+let one   = S Z
+let two   = S (S Z)
+let three = S (S (S Z))
+let four  = S (S (S (S Z)))
+let five  = S (S (S (S (S Z))))
+let six   = S (S (S (S (S (S Z)))))
+let seven = S (S (S (S (S (S (S Z))))))
+let eight = S (S (S (S (S (S (S (S Z)))))))
+let nine  = S (S (S (S (S (S (S (S (S Z))))))))
 
-Check
-  beta pred_Z in beta pred_S in
-    refl four :: pred five ≡ four.
+do with fasteq tt handle
+  beta pred_Z; beta pred_S;
+    refl four : pred five ≡ four
 
-Check
-  beta pred_Z in beta pred_S in
-    refl Z :: pred Z ≡ Z.
+do with fasteq tt handle
+  beta pred_Z; beta pred_S;
+    refl Z : pred Z ≡ Z
 
-Check
-  beta plus_Z in
-  beta plus_S in
-    refl five :: plus two three ≡ plus one four.
+do with fasteq tt handle
+  beta plus_Z;
+  beta plus_S;
+    refl five : plus two three ≡ plus one four
 
-(* Let us establish commutativity of addition. *)
+(* let us establish commutativity of addition. *)
 
-Let plus_Z' :=
+let plus_Z' = with fasteq tt handle
   ind_N
-    (λ [x : N] plus Z x ≡ x)
+    (λ (x : N), plus Z x ≡ x)
     (plus_Z Z)
-    (λ [x : N] [IH : plus Z x ≡ x]
-       beta IH in
-       beta plus_S in
-         refl (S (plus Z x)) :: plus Z (S x) ≡ S x)
-  :: ∀ [x : N] plus Z x ≡ x.
+    (λ (x : N) (IH : plus Z x ≡ x),
+       beta IH;
+       beta plus_S;
+         refl (S (plus Z x)) : plus Z (S x) ≡ S x)
+  : ∀ (x : N), plus Z x ≡ x
 
-(* With a Coq style development: we assume goals then fill them in, possibly assuming smaller goals in the process. *)
-
-Let goal := ∀ [x : N] plus Z x ≡ x.
-
-(* The following let, as well as similar ones below are necessary since we can't talk about H otherwise (after we shadow plus_Z_l). *)
-Let H := assume H : goal in H.
-Let plus_Z_l := H
-  :: goal.
-
-Let H0 := assume H0 : plus Z Z == Z in H0.
-
-(* Coq does the following more like
-    let H1 := assume x:N in assume IHx : ... in assume H1 : plus Z (S x) == S x in H1
-  used as
-    ind_N ... (fun x' IHx' => H1 where IHx := IHx' and x := x')
-  but if we tried that Andromeda would remove the IHx dependency on H1.
-*)
-Let H1 := assume H1 : forall [x:N] [IHx : plus Z x == x] plus Z (S x) == S x in H1.
-Let plus_Z_l := plus_Z_l where H := ind_N (λ [x : N] plus Z x == x) H0 H1
-  :: goal.
-
-Let plus_Z_l := (plus_Z_l where H0 := plus_Z Z)
-  :: goal.
-
-Let plus_Z_l := (plus_Z_l where
-  H1 := λ [x : N] [IH : plus Z x ≡ x]
-    beta IH in
-    beta plus_S in
-    refl (S (plus Z x)) :: plus Z (S x) == S x)
-  :: goal.
-
-Check refl plus_Z' :: plus_Z' == plus_Z_l.
-
-
-(* Back to writing everything at once. *)
-
-Let plus_S' :=
-  (λ [x y : N]
-    beta plus_Z in
-    beta plus_S in
+let plus_S' = with fasteq tt handle
+  (λ (x y : N),
+    beta plus_Z;
+    beta plus_S;
     ind_N
-      (λ [z : N] plus (S x) z ≡ S (plus x z))
+      (λ (z : N), plus (S x) z ≡ S (plus x z))
       (refl (S x))
-      (λ [z : N] [IH : plus (S x) z ≡ S (plus x z)]
-       beta IH in
-       beta plus_S in
-         refl (plus (S x) (S z)) :: plus (S x) (S z) ≡ S (plus x (S z)))
+      (λ (z : N) (IH : plus (S x) z ≡ S (plus x z)),
+       beta IH;
+       beta plus_S;
+         refl (plus (S x) (S z)) : plus (S x) (S z) ≡ S (plus x (S z)))
       y)
-  :: ∀ [x y : N] plus (S x) y ≡ S (plus x y).
+  : ∀ (x y : N), plus (S x) y ≡ S (plus x y)
 
-Let plus_commute :=
-  (λ [x y : N]
-    beta plus_Z in
-    beta plus_S in
-    beta plus_Z' in
-    beta plus_S' in
+let plus_commute = with fasteq tt handle
+  (λ (x y : N),
+    beta plus_Z;
+    beta plus_S;
+    beta plus_Z';
+    beta plus_S';
     ind_N
-      (λ [z : N] plus z y ≡ plus y z)
+      (λ (z : N), plus z y ≡ plus y z)
       (refl y)
-      (λ [z : N] [IH : plus z y ≡ plus y z]
-          beta IH in
-           refl (S (plus z y)) :: plus (S z) y ≡ plus y (S z) )
+      (λ (z : N) (IH : plus z y ≡ plus y z),
+          beta IH;
+           refl (S (plus z y)) : plus (S z) y ≡ plus y (S z) )
       x)
-  :: ∀ [x y : N] plus x y ≡ plus y x.
+  : ∀ (x y : N), plus x y ≡ plus y x
 
-Check plus_commute.
+do plus_commute
 
 (* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x). *)
-Check hint plus_commute in
-   (λ [P : N → Type] [x y : N] [a : P (plus x y)] a :: P (plus y x)).
+do with fasteq tt handle
+  hint plus_commute;
+   (λ (P : N → Type) (x y : N) (a : P (plus x y)), a : P (plus y x))
 
-(** [times n m] computes m*n as n-fold sum of m. *)
-Parameter times : N → N → N.
-Parameter times_def : ∀ [n m : N] times n m ≡ ind_N (λ [_ : N] N) Z (λ [_ : N] plus m) n.
+(** (times n m) computes m*n as n-fold sum of m. *)
+constant times : N → N → N
+constant times_def : ∀ (n m : N), times n m ≡ ind_N (λ (_ : N), N) Z (λ (_ : N), plus m) n
 
-Check
-  beta times_def in
-    beta ind_N_Z in
-    refl Z :: times Z two ≡ Z.
+do with fasteq tt handle
+  beta times_def;
+    beta ind_N_Z;
+    refl Z : times Z two ≡ Z
 
-Check
-  beta times_def in
-    beta plus_def in
-    beta ind_N_Z in
-    beta ind_N_S in
-    refl Z :: times two Z ≡ Z.
+(* TODO *)
+fail with fasteq tt handle
+  beta times_def;
+    beta plus_def;
+    beta ind_N_Z;
+    beta ind_N_S;
+    refl Z : times two Z ≡ Z
 
-Check
-  beta times_def in
-    beta plus_def in
-    beta ind_N_Z in
-    beta ind_N_S in
-    refl (plus two four) :: times three two ≡ (plus two four).
+(* TODO *)
+fail with fasteq tt handle
+  beta times_def;
+    beta plus_def;
+    beta ind_N_Z;
+    beta ind_N_S;
+    refl (plus two four) : times three two ≡ (plus two four)
 
 
-(** [exp b p] is the naive definition b^e as p-fold product of b. *)
-Parameter exp : N → N → N.
-Parameter exp_def :
-  ∀ [base power : N] exp base power ≡ ind_N (λ [_ : N] N) one (λ [_ : N] times base) power.
+(** (exp b p) is the naive definition b^e as p-fold product of b. *)
+constant exp : N → N → N
+constant exp_def :
+  ∀ (base power : N), exp base power ≡ ind_N (λ (_ : N), N) one (λ (_ : N), times base) power
 
-Check
-  beta exp_def in
-  beta times_def in
-  beta plus_def in
-  beta ind_N_Z in
-  beta ind_N_S in
-    refl four :: exp two two ≡ four.
+(* TODO *)
+fail with fasteq tt handle
+  beta exp_def;
+  beta times_def;
+  beta plus_def;
+  beta ind_N_Z;
+  beta ind_N_S;
+    refl four : exp two two ≡ four
 
-Let nine := times three three.
-Let ten := plus five five.
+let nine' = times three three
+let ten' = plus five five
 
-Check
-  beta exp_def in
-  beta times_def in
-  beta plus_def in
-  beta ind_N_Z in
-  beta ind_N_S in
-    refl nine :: exp three two ≡ nine.
+(* TODO *)
+fail with fasteq tt handle
+  beta exp_def;
+  beta times_def;
+  beta plus_def;
+  beta ind_N_Z;
+  beta ind_N_S;
+    refl nine' : exp three two ≡ nine'
 
 (* 2^7 is okay, 2^10 takes some time and memory *)
-Check
-  beta exp_def in
-  beta times_def in
-  beta plus_def in
-  beta ind_N_Z in
-  beta ind_N_S in
-    refl (exp two (plus three four)) :: exp two (plus three four) ≡ times two (exp two (plus four two)).
+(* TODO *)
+fail with fasteq tt handle
+  beta exp_def;
+  beta times_def;
+  beta plus_def;
+  beta ind_N_Z;
+  beta ind_N_S;
+    refl (exp two (plus three four)) : exp two (plus three four) ≡ times two (exp two (plus four two))
+

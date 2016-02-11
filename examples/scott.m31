@@ -1,21 +1,21 @@
 (* Untyped λ-calculus *)
 
 (* We assume that there is a type [D] equal to its function space. *)
-Parameter D : Type.
-Parameter scott : (D → D) ≡ D.
-Let dana : D ≡ (D → D) := symmetry Type (D → D) D scott.
-Hint dana; scott.
+constant D : Type
+constant scott : (D → D) ≡ D
+let dana : D ≡ (D → D) = sym Type (D → D) D scott
+let _ = add_hints [dana, scott]
 
 
 (* The Y combinator *)
-Let Y : (D → D) → D :=
-  λ [f : D → D]
-    (λ [x : D] f ((x :: D → D) x))
-    (λ [x : D] f ((x :: D → D) x)).
+let Y : (D → D) → D =
+  λ f : D → D,
+    let y = λ x : D, f ((x : D → D) x) in
+    y y
 
 (* The Y combinator indeed computes fixed points. *)
 (* This does not require any special tricks because [Y f] has a whnf. *)
-Check (λ [f] refl (Y f)) :: Π [f : D → D] Y f ≡ f (Y f).
+do (λ f, refl (Y f)) : Π f : D → D, Y f ≡ f (Y f)
 
 
 (* Here is a trick to prevent a term without weak head normal form from cycling. *)
@@ -23,19 +23,24 @@ Check (λ [f] refl (Y f)) :: Π [f : D → D] Y f ≡ f (Y f).
    to use an alias [D'] for [D]. We then make sure that the λ-abstractions
    happen at [D], but the application at [D']. *)
 
-Parameter D' : Type.
-Parameter h : D' ≡ D.
-Let scott' := hint h in scott :: (D' → D') ≡ D'.
-Hint scott'.
+constant D' : Type
+constant h : D' ≡ D
+let scott' =
+  with fasteq tt handle
+  hint h; scott : (D' → D') ≡ D'
+let _ = add_hint scott'
 
 (* The λ-abstraction happens at type [D] *)
-Let δ : D → D := λ [x] (x :: D → D) x.
+let δ : D → D = λ x, (x : D → D) x
 
 (* But we make sure that the application δ δ happens at [D']. *)
-Let Ω :=
-    hint h in
-      (δ :: D' → D')
-      ((δ :: D' → D') :: D').
+let Ω =
+  with fasteq tt handle
+    hint h;
+    let δ' = δ : D' → D' in
+    beta h;beta scott';
+      δ' (δ' : D')
 
 (* Notice that [Ω] does not diverge even though a beta-reduction happens. *)
-Check refl Ω :: (λ [x : D'] x) Ω ≡ Ω.
+do refl Ω : (λ x : D', x) Ω ≡ Ω
+

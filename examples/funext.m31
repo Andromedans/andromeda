@@ -1,6 +1,0 @@
-(* Function extensionality *)
-
-Let funext :=
-  (λ [A B f g H] hint H in refl f)
-  :: Π [A : Type] [B : A -> Type] [f g : Π [x : A] B x]
-       (Π [x : A] f x ≡ g x) -> f ≡ g.
