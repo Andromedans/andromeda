@@ -1,19 +1,19 @@
 let eqext =
-   (lambda A a b p q,
+   (λ A a b p q,
       (match extensionality p q with Some ?xi => xi end))
    : forall (A : Type) (a b : A) (p q : a == b), p == q
 
 do eqext
 
 let funext =
-  (lambda A B f g eq,
+  (λ A B f g eq,
      (handle
         match extensionality f g with Some ?xi => xi end
       with
-      | equal (|- f ?x) (|- g ?x) => yield (Some (eq x))
+      | equal (⊢ f ?x) (⊢ g ?x) => yield (Some (eq x))
       end))
-  : forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
-     (forall x : A, f x == g x) -> f == g
+  : forall (A : Type) (B : A -> Type) (f g : forall (x : A), B x),
+     (forall (x : A), f x == g x) -> f == g
 
 do funext
 
@@ -22,10 +22,10 @@ constant B : A -> Type
 signature cow = { head : A, tail : B head }
 
 let cowext =
-   lambda (a b : cow) (ppppppppp : a.head == b.head),
-     with local (lbeta ppppppppp) handle
-     lambda (qqqqqqqq : a.tail == b.tail),
-       (with local (lbeta qqqqqqqq) handle
+   λ (a b : cow) (p : a.head == b.head),
+     with local (lbeta p) handle
+     λ (q : a.tail == b.tail),
+       (with local (lbeta q) handle
           match extensionality a b with Some ?xi => xi end)
 
 do cowext

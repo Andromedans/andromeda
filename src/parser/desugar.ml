@@ -258,22 +258,15 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
        and c2 = comp ~yield env bound c2 in
        Syntax.With (c1, c2), loc
 
-    | Input.Let (xcs, c2) ->
-      let rec fold = function
-        | [] -> []
-        | (x,c) :: xcs ->
-          if List.mem_assoc x xcs
-          then
-            Error.syntax ~loc "%t is bound more than once" (Name.print_ident x)
-          else
-            let c = comp ~yield env bound c in
-            let xcs = fold xcs in
-            (x, c) :: xcs
-      in
-      let xcs = fold xcs in
-      let bound = List.fold_left (fun bound (x,_) -> add_bound x bound) bound xcs in
-      let c2 = comp ~yield env bound c2 in
-      Syntax.Let (xcs, c2), loc
+    | Input.Let (lst, c) ->
+       let bound, lst = let_clauses ~loc ~yield env bound lst in
+       let c = comp ~yield env bound c in
+       Syntax.Let (lst, c), loc
+
+    | Input.LetRec (lst, c) ->
+       let bound, lst = letrec_clauses ~loc ~yield env bound lst in
+       let c = comp ~yield env bound c in
+       Syntax.LetRec (lst, c), loc
 
     | Input.Lookup c ->
        let c = comp ~yield env bound c in
@@ -451,23 +444,6 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
      in
        fold bound xs
 
-  | Input.Rec (f, xs, c) ->
-     let rec fold bound = function
-       | [] -> comp ~yield env bound c
-       | y :: ys ->
-          let bound = add_bound y bound in
-          let c = fold bound ys in
-            Syntax.Function (y, c), loc
-     in
-     begin match xs with
-     | [] -> Error.impossible ~loc "empty recursion abstraction in desguar"
-     | x :: xs ->
-        let bound = add_bound f bound in
-        let bound = add_bound x bound in
-        let c = fold bound xs in
-        Syntax.Rec (f, x, c), loc
-     end
-
   | Input.Handler hcs ->
      handler ~loc env bound hcs
 
@@ -530,6 +506,66 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     let c1 = comp ~yield env bound c1
     and c2 = comp ~yield env bound c2 in
     Syntax.Occurs (c1,c2), loc
+
+and let_clauses ~loc ~yield env bound lst =
+  let rec fold bound' lst' = function
+    | [] ->
+       let lst' = List.rev lst' in
+       bound', lst'
+    | (x, ys, t_opt, c) :: xcs ->
+       if List.exists (fun (y, _, _, _) -> Name.eq_ident x y) xcs
+       then
+         Error.syntax ~loc "%t is bound more than once" (Name.print_ident x)
+       else
+         let c = let_clause ~yield env bound ys t_opt c in
+         let bound' = add_bound x bound' in
+         let lst' = (x, c) :: lst' in
+         fold bound' lst' xcs
+  in
+  fold bound [] lst
+
+and letrec_clauses ~loc ~yield env bound lst =
+  let bound =
+    List.fold_left (fun bound (f, _, _, _, _) -> add_bound f bound) bound lst
+  in
+  let rec fold lst' = function
+    | [] ->
+       let lst' = List.rev lst' in
+       bound, lst'
+    | (f, y, ys, t_opt, c) :: xcs ->
+       if List.exists (fun (g, _, _, _, _) -> Name.eq_ident f g) xcs
+       then
+         Error.syntax ~loc "%t is bound more than once" (Name.print_ident f)
+       else
+         let y, c = letrec_clause ~yield env bound y ys t_opt c in
+         let lst' = (f, y, c) :: lst' in
+         fold lst' xcs
+  in
+  fold [] lst
+
+and let_clause ~yield env bound ys t_opt c =
+  let rec fold bound = function
+    | [] ->
+       begin
+         match t_opt with
+         | None -> comp ~yield env bound c
+         | Some t ->
+            let t = comp ~yield env bound t
+            and c = comp ~yield env bound c in
+            Syntax.Ascribe (c, t), (snd c) (* XXX improve location *)
+       end
+    | y :: ys ->
+       let bound = add_bound y bound in
+       let c = fold bound ys in
+       Syntax.Function (y, c), (snd c) (* XXX improve location *)
+  in
+  fold bound ys
+
+and letrec_clause ~yield env bound y ys t_opt c =
+  let bound = add_bound y bound in
+  let c = let_clause ~yield env bound ys t_opt c in
+  y, c
+
 
 (* Desguar a spine. This function is a bit messy because we need to untangle
    to env. But it's worth doing to make users happy. *)
@@ -705,15 +741,13 @@ let toplevel (env : Value.env) bound (d', loc) =
         in
         Syntax.TopHandle lst
 
-    | Input.TopLet (x, yts, u, ((_, loc) as c)) ->
-      let c = match u with
-        | None -> c
-        | Some u ->
-          Input.Ascribe (c, u), loc in
-      let yts = List.map (fun (y, t) -> y, Some t) yts in
-      let c = Input.Lambda (yts, c), loc in
-      let c = comp ~yield:false env bound c in
-      Syntax.TopLet (x, c)
+    | Input.TopLet lst ->
+       let bound, lst = let_clauses ~loc ~yield:false env bound lst in
+       Syntax.TopLet lst
+
+    | Input.TopLetRec lst ->
+       let bound, lst = letrec_clauses ~loc ~yield:false env bound lst in
+       Syntax.TopLetRec lst
 
     | Input.TopDo c ->
       let c = comp ~yield:false env bound c in

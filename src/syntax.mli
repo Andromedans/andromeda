@@ -46,7 +46,6 @@ and comp' =
   | Type
   | Bound of bound
   | Function of Name.ident * comp
-  | Rec of Name.ident * Name.ident * comp
   | Handler of handler
   | Data of Name.ident * comp list
   | Nil
@@ -54,7 +53,8 @@ and comp' =
   | Tuple of comp list
   | Operation of Name.ident * comp list
   | With of comp * comp
-  | Let of (Name.ident * comp) list * comp
+  | Let of let_clause list * comp
+  | LetRec of letrec_clause list * comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -90,6 +90,10 @@ and comp' =
   | Occurs of comp * comp
   | Context of comp
 
+and let_clause = Name.ident * comp
+
+and letrec_clause = Name.ident * Name.ident * comp
+
 and handler = {
   handler_val: match_case list;
   handler_ops: match_op_case list Name.IdentMap.t;
@@ -111,7 +115,8 @@ and toplevel' =
   | DeclConstants of Name.ident list * comp (** introduce constants *)
   | DeclSignature of Name.signature * (Name.label * Name.ident * comp) list
   | TopHandle of (Name.ident * top_op_case) list
-  | TopLet of Name.ident * comp (** global let binding *)
+  | TopLet of let_clause list
+  | TopLetRec of letrec_clause list
   | TopDo of comp (** evaluate a computation *)
   | TopFail of comp
   | Verbosity of int

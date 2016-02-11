@@ -250,7 +250,7 @@ let process_eta =
     end
 
 (* The term witnessing symmetry of equality. *)
-let sym = λ (A : Type, x y : A, h : x ≡ y), handle refl x : y ≡ x with
+let sym = λ (A : Type) (x y : A) (h : x ≡ y), handle refl x : y ≡ x with
   | equal _ _ =>
     yield (Some h)
   end

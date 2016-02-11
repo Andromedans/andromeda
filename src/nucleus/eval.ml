@@ -67,15 +67,6 @@ let rec infer (c',loc) =
        in
        Value.return_closure f
 
-    | Syntax.Rec (f, x, c) ->
-       let rec g v =
-         Value.return_closure g >>= fun closed ->
-         Value.add_bound f closed
-         (Value.add_bound x v
-         (infer c))
-       in
-       Value.return_closure g
-
     | Syntax.Data (t, cs) ->
        let rec fold vs = function
          | [] ->
@@ -149,6 +140,9 @@ let rec infer (c',loc) =
 
   | Syntax.Let (xcs, c) ->
      let_bind xcs (infer c)
+
+  | Syntax.LetRec (fxcs, c) ->
+     letrec_bind fxcs (infer c)
 
   | Syntax.Ref c ->
      infer c >>= fun v ->
@@ -489,7 +483,6 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
   | Syntax.Type
   | Syntax.Bound _
   | Syntax.Function _
-  | Syntax.Rec _
   | Syntax.Handler _
   | Syntax.External _
   | Syntax.Data _
@@ -558,6 +551,9 @@ and check ((c',loc) as c) (Jdg.Ty (ctx_check, t_check') as t_check) : (Context.t
 
   | Syntax.Let (xcs, c) ->
      let_bind xcs (check c t_check)
+
+  | Syntax.LetRec (fxcs, c) ->
+     letrec_bind fxcs (check c t_check)
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
@@ -734,22 +730,36 @@ and infer_projection ~loc c p =
   let j = Jdg.mk_term ctx te ty in
   Value.return_term j
 
-
-and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmp ->
-  let rec fold vs = function
+and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmd ->
+  let rec fold xvs = function
     | [] ->
       (* parallel let: only bind at the end *)
-      let rec fold' = function
-        | [] -> cmp
-        | (x,v)::rem ->
-          Value.add_bound x v (fold' rem)
-      in
-      fold' (List.rev vs)
-    | (x,c) :: xcs ->
+      List.fold_left  (fun cmd (x,v) -> Value.add_bound x v cmd) cmd xvs
+    | (x, c) :: xcs ->
       infer c >>= fun v ->
-      fold ((x,v)::vs) xcs
+      fold ((x, v) :: xvs) xcs
     in
   fold [] xcs
+
+and letrec_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun fxcs cmd ->
+  let rec fix_many fs = List.map (fun f x -> f (fix_many fs) x) fs in
+  let gs = List.map
+             (fun (_, x, c) ->
+               fun gs v ->
+               List.fold_right2
+                 (fun (f, _, _) g cmd ->
+                   Value.return_closure g >>= fun g' ->
+                   Value.add_bound f g' cmd)
+                 fxcs gs
+                 (Value.add_bound x v (infer c)))
+             fxcs
+  in
+  let gs = fix_many gs in
+  List.fold_right2
+    (fun (f, _, _) g cmd ->
+      Value.return_closure g >>= fun g' ->
+      Value.add_bound f g' cmd)
+    fxcs gs cmd
 
 and match_cases ~loc cases v =
   let rec fold = function
@@ -801,7 +811,7 @@ let comp_value ((_, loc) as c) =
   Value.top_handle ~loc r
 
 let comp_handle (xs,y,c) =
-  Value.mk_closure' (fun (vs,checking) ->
+  Value.top_return_closure (fun (vs,checking) ->
       let rec fold2 xs vs = match xs,vs with
         | [], [] ->
           begin match y with
@@ -875,6 +885,50 @@ let rec fold f acc = function
   | x::rem -> f acc x >>= fun acc ->
     fold f acc rem
 
+and toplet_bind ~loc interactive xcs =
+  let rec fold xvs = function
+    | [] ->
+      (* parallel let: only bind at the end *)
+      List.fold_left
+        (fun cmd (x,v) ->
+          Value.add_topbound ~loc x v >>= fun () ->
+            if interactive && not (Name.is_anonymous x)
+            then Format.printf "%t is defined.@." (Name.print_ident x) ;
+            cmd)
+        (return ())
+        xvs
+    | (x, c) :: xcs ->
+       comp_value c >>= fun v ->
+       fold ((x, v) :: xvs) xcs
+    in
+  fold [] xcs
+
+and topletrec_bind ~loc interactive fxcs =
+  let rec fix_many fs = List.map (fun f x -> f (fix_many fs) x) fs in
+  let gs =
+    let ( >>= ) = Value.bind in
+    List.map
+      (fun (_, x, c) ->
+        fun gs v ->
+        List.fold_right2
+          (fun (f, _, _) g cmd ->
+            Value.return_closure g >>= fun g' ->
+            Value.add_bound f g' cmd)
+          fxcs gs
+          (Value.add_bound x v (infer c)))
+      fxcs
+  in
+  let gs = fix_many gs in
+  List.fold_right2
+    (fun (f, _, _) g cmd ->
+      Value.top_mk_closure g >>= fun g' ->
+      Value.add_topbound ~loc f g' >>= fun () ->
+      if interactive && not (Name.is_anonymous f)
+      then Format.printf "%t is defined.@." (Name.print_ident f) ;
+      cmd)
+    fxcs gs
+    (return ())
+
 let rec exec_cmd base_dir interactive c =
   Value.top_get_env >>= fun env ->
   Value.top_bound_names >>= fun xs ->
@@ -923,12 +977,11 @@ let rec exec_cmd base_dir interactive c =
         comp_handle xc >>= fun f ->
         Value.add_handle op f) () lst
 
-  | Syntax.TopLet (x, c) ->
-     comp_value c >>= fun v ->
-     Value.add_topbound ~loc x v >>= fun () ->
-     if interactive && not (Name.is_anonymous x)
-      then Format.printf "%t is defined.@." (Name.print_ident x) ;
-     return ()
+  | Syntax.TopLet xcs ->
+     toplet_bind ~loc interactive xcs
+
+  | Syntax.TopLetRec fxcs ->
+     topletrec_bind ~loc interactive fxcs
 
   | Syntax.TopDo c ->
      comp_value c >>= fun v ->

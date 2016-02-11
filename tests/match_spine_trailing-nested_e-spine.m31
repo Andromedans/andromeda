@@ -3,7 +3,7 @@ constant unit_rect : ∀ (P : unit -> Type), (P top) -> ∀ (n : unit), P n
 
 constant unit_iota_top : ∀ (P : unit -> Type) (s : P top), unit_rect P s top == s
 
-let it = (λ (T : Type), unit_rect (λ (m), T -> T) (λ (x : T), x))
+let it = (λ (T : Type), unit_rect (λ m, T -> T) (λ (x : T), x))
 
 let _ = add_beta unit_iota_top
 
