@@ -39,6 +39,15 @@ let as_ident ~loc v =
   Value.return s
 
 
+let list_combine3 =
+  let rec fold acc l1 l2 l3 = match l1,l2,l3 with
+    | [],[],[] -> List.rev acc
+    | x1::l1, x2::l2, x3::l3 -> fold ((x1,x2,x3)::acc) l1 l2 l3
+    | _,_,_ -> raise (Invalid_argument "list_combine3")
+  in
+  fun l1 l2 l3 -> fold [] l1 l2 l3
+
+
 (** Evaluate a computation -- infer mode. *)
 let rec infer (c',loc) =
   match c' with

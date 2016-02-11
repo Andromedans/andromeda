@@ -1,5 +1,9 @@
 (** Runtime values and results *)
 
+type ('a,'b) sum =
+  | Inl of 'a
+  | Inr of 'b
+
 (* Information about a toplevel declaration *)
 type decl =
   | DeclConstant of Tt.ty
