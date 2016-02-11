@@ -1,0 +1,171 @@
+Operation unary_op is declared.
+Operation nonary_op is declared.
+Data constructor dummy is declared.
+Data constructor black is declared.
+Data constructor rgb_color is declared.
+Constant A is declared.
+Constant a is declared.
+Constant b is declared.
+Constant ( + ) is declared.
+Signature isContr is declared.
+x0 is defined.
+x₁₈ : isContr using T = Type ≡ Type and center as a0 and
+          contr_path as _ end 
+⊢ x₁₈
+  : isContr using T = Type ≡ Type and center as a0 and contr_path as _ end
+The command failed with error:
+File "./everything.m31", line 78, characters 6-9: Typing error
+  this expression should be a product, found Type
+Debug: (46 checking equality of Type and Type at type
+Type
+Debug: (47 checking equality of Type and Type at type
+Type
+Debug: (48 checking equality of Type and Type at type
+Type
+Debug: (49 checking equality of Type and Type at type
+Type
+Debug: (50 checking equality of Type and Type at type
+Type
+⊢ refl Type : Type ≡ Type
+⊢ λ (T : Type) (x : T), x : Π (A0 : Type), A0 → A0
+⊢ refl {} : {} ≡ {}
+Signature wrapped is declared.
+wrapped_a is defined.
+⊢ refl {} : {} ≡ {}
+⊢ λ (x : A), x : A → A
+The command failed with error:
+File "./everything.m31", line 109, characters 13-25: Runtime error
+  cannot infer the type of x
+The command failed with error:
+File "./everything.m31", line 113, characters 21-22: Typing error
+  the expression {} should have type wrapped using unwrap = a end
+  but has type unit
+y_combinator is defined.
+loop0 is defined.
+loop1 is defined.
+loop2 is defined.
+wrapped = {unwrap : A}
+tt
+Operation get is declared.
+Operation set is declared.
+state_h is defined.
+⊢ b : A
+⊢ Type : Type
+[(⊢ a : A), (⊢ b : A), (⊢ A : Type), <function>]
+[]
+((⊢ a : A), (⊢ b : A), (⊢ A : Type))
+"a string\\nspecial characters aren't"
+register is defined.
+tt
+⊢ b : A
+⊢ A : Type
+x₂₈ : A 
+⊢ x₂₈ : A
+"this will happen"
+tt
+alpha_equal is defined.
+Constant exfalso is declared.
+Signature container is declared.
+⊢ {T = A} : container using T and cont = exfalso T end
+⊢ {T = A} : container using T and cont = exfalso T end
+⊢ {cont = exfalso A} : container using T = A and cont end
+⊢ {cont = exfalso A} : container using T = A and cont end
+⊢ {cont = a} : container using T = A and cont end
+⊢ {unwrap = a}.unwrap : A
+x₄₀ : wrapped 
+⊢ x₄₀.unwrap : A
+⊢ a : A
+⊢ a : A
+(((⊢ wrapped : Type), [(unwrap,
+(unwrap₄₂ : A 
+ ⊢ unwrap₄₂ : A))]), [Inr (⊢ a : A)])
+((⊢ container using T = A and cont end : Type), [(⊢ A : Type),
+(⊢ a : A)])
+((x₄₅ : wrapped 
+  ⊢ x₄₅ : wrapped), unwrap)
+Tvar is defined.
+yvar is defined.
+dependent is defined.
+Some (⊢ Type : Type)
+None
+[(T₄₆ : Type 
+  ⊢ T₄₆ : Type),
+(T₄₆ : Type 
+ x₄₈ : T₄₆ 
+ ⊢ x₄₈ : T₄₆)]
+Operation emit is declared.
+[(x₄₉ : A 
+  ⊢ x₄₉ : A)]
+Constant eq is declared.
+⊢ refl a : a ≡ a
+⊢ refl a : a ≡ b
+Some (⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ a)
+Some (⊢ refl {unwrap = a}.unwrap : {unwrap = a}.unwrap ≡ a)
+Some
+(⊢ refl wrapped using unwrap = a end
+   : wrapped using unwrap = a end ≡ wrapped using unwrap = b end)
+⊢ λ (x : unit), refl x : Π (x : unit), x ≡ {}
+⊢ λ (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (_ : x ≡ y), refl p
+  : Π (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (q : x ≡ y), p ≡ q
+#including ../std/hippy.m31
+#processed ./../std/hippy.m31
+#including everything.m31
+#processed ./everything.m31
+#including ../std/base.m31
+#processed ./../std/base.m31
+#including ../std/equal.m31
+#processed ./../std/equal.m31
+#including ../std/base.m31
+#processed ./../std/base.m31
+Toplevel directives:
+#environment. .... print current environment
+#help. ........... print this help
+#quit. ........... exit
+
+Parameter <ident> ... <ident> : <type> .     assume variable <ident> has type <type>
+Let <ident> := <expr> .                      define <ident> to be <expr>
+Check <expr> .                               check the type of <expr>
+
+The syntax is vaguely Coq-like. The strict equality is written with a double ==.
+
+data Some 1
+data None 0
+data tt 0
+data Inl 1
+data Inr 1
+operation equal 2
+operation as_prod 1
+operation as_eq 1
+operation as_signature 1
+signature unit 
+data ( !! ) 1
+operation beta 1
+operation hint 1
+operation eta 1
+data lbeta 1
+data lhint 1
+data leta 1
+operation whnf 1
+operation getbetas 0
+operation gethints 0
+operation getetas 0
+operation unary_op 1
+operation nonary_op 0
+data dummy 0
+data black 0
+data rgb_color 3
+constant A Type
+constant a A
+constant b A
+constant ( + ) A → A → A
+signature isContr T : Type, center as a0 : T,
+    contr_path as _ : Π (x : T), a0 ≡ x
+signature wrapped unwrap : A
+operation get 0
+operation set 1
+constant exfalso Π (T : Type), T
+signature container T : Type, cont : T
+operation emit 1
+constant eq a ≡ b
+operation hippy 0
+
