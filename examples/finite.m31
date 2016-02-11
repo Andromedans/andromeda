@@ -1,29 +1,29 @@
-#include "unit.m31" "peano.m31".
+#include_once "unit.m31" "peano.m31"
 
-Let nat := N.
+let nat = N
 
-Parameter Finite : nat -> Type.
-Parameter fzero : ∀ [n : nat] Finite (S n).
-Parameter fsucc : ∀ [n : nat, i : Finite n] Finite (S n).
+constant Finite : nat -> Type
+constant fzero : ∀ n : nat, Finite (S n)
+constant fsucc : ∀ (n : nat, i : Finite n), Finite (S n)
 
-Parameter Finite_rect :
-  ∀ [P : ∀ [n : nat, _ : Finite n] Type]
-    [_ : ∀ [n : nat] P (S n) (fzero n)]
-    [_ : ∀ [n : nat, f0 : Finite n, _ : P n f0] P (S n) (fsucc n f0)]
-    [n : nat, f1 : Finite n]
-    P n f1.
+constant Finite_rect :
+  ∀ (P : ∀ (n : nat, _ : Finite n), Type)
+    (_ : ∀ (n : nat), P (S n) (fzero n))
+    (_ : ∀ (n : nat, f0 : Finite n, _ : P n f0), P (S n) (fsucc n f0))
+    (n : nat, f1 : Finite n),
+    P n f1
 
-Parameter Finite_rect_fzero :
-  ∀ [P : ∀ [n : nat, _ : Finite n] Type]
-    [sz : ∀ [n : nat] P (S n) (fzero n)]
-    [ss : ∀ [n : nat, f0 : Finite n, _ : P n f0] P (S n) (fsucc n f0)]
-    [n : nat]
-    Finite_rect P sz ss (S n) (fzero n) == sz n.
+constant Finite_rect_fzero :
+  ∀ (P : ∀ (n : nat, _ : Finite n), Type)
+    (sz : ∀ n : nat, P (S n) (fzero n))
+    (ss : ∀ (n : nat, f0 : Finite n, _ : P n f0), P (S n) (fsucc n f0))
+    (n : nat),
+    Finite_rect P sz ss (S n) (fzero n) == sz n
 
 
-Parameter Finite_rect_fsucc :
-  ∀ [P : ∀ [n : nat, _ : Finite n] Type]
-    [sz : ∀ [n : nat] P (S n) (fzero n)]
-    [ss : ∀ [n : nat, f0 : Finite n, _ : P n f0] P (S n) (fsucc n f0)]
-    [n : nat, f1 : Finite n]
-    Finite_rect P sz ss (S n) (fsucc n f1) == (ss n f1 (Finite_rect P sz ss n f1)).
+constant Finite_rect_fsucc :
+  ∀ (P : ∀ (n : nat, _ : Finite n), Type)
+    (sz : ∀ n : nat, P (S n) (fzero n))
+    (ss : ∀ (n : nat, f0 : Finite n, _ : P n f0), P (S n) (fsucc n f0))
+    (n : nat, f1 : Finite n),
+    Finite_rect P sz ss (S n) (fsucc n f1) == (ss n f1 (Finite_rect P sz ss n f1))

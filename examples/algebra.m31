@@ -1,0 +1,53 @@
+
+(* helpers *)
+let whnf_e = fun e => match whnf e with |- _ : _ == ?e => e end
+
+let whnf_t = fun e => match e with
+  |- _ : ?t =>
+  let eqt = whnf t in
+  convert e eqt
+end
+
+let print_signature = external "print_signature"
+
+(** *************** **)
+
+let assoc_pr = lambda (G : Type) ((+) : G -> G -> G),
+  forall x y z : G, x + (y + z) == (x + y) + z
+
+signature semigroup = {
+  G : Type,
+  (+) : G -> G -> G,
+  assoc : whnf_e (assoc_pr G (+))
+}
+
+(* ad-hoc implicit arguments *)
+let (+) = fun x y => match x with |- _ : ?m .G => m.(+) x y end
+
+let is_id_l = lambda (M : semigroup, e : M.G), forall x : M.G, e + x == x
+let is_id_r = lambda (M : semigroup, e : M.G), forall x : M.G, x + e == x
+
+let id_is_unique : forall (M : semigroup, e f : M.G),
+    is_id_l M e ->
+    is_id_r M f ->
+    e == f
+  =
+    lambda M e f p_l p_r,
+    transitivity
+      (symmetry (with fasteq tt handle
+        beta (whnf_t p_r);
+        refl e : e + f == e))
+      (with fasteq tt handle
+        beta (whnf_t p_l);
+        refl f : e + f == f)
+
+signature monoid = {
+  S : semigroup,
+  id : S.G,
+  id_l : whnf_e (is_id_l S id),
+  id_r : whnf_e (is_id_r S id)
+}
+
+let _ =  print_signature monoid
+
+
