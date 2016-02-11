@@ -542,7 +542,7 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
     (* TODO why don't we List.rev vs? *)
      let rec fold vs = function
        | [] ->
-          Value.operation_at op vs t_check >>= fun v ->
+          Value.operation op ~checking:t_check vs >>= fun v ->
           check_default ~loc v t_check
        | c :: cs ->
           infer c >>= fun v ->
@@ -779,7 +779,7 @@ and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Value.result) -> _ -> 
 and match_op_cases ~loc op cases vs checking =
   let rec fold = function
     | [] ->
-      Value.operation op vs >>= fun v ->
+      Value.operation op ?checking vs >>= fun v ->
       Value.lookup_continuation ~loc >>= fun k ->
       Value.apply_closure k v
     | (xs, ps, pt, c) :: cases ->

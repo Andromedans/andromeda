@@ -112,9 +112,7 @@ val list_nil : value
 val list_cons : value -> value list -> value
 
 (** Operations *)
-val operation : Name.ident -> value list -> value result
-
-val operation_at : Name.ident -> value list -> Jdg.ty -> value result
+val operation : Name.ident -> ?checking:Jdg.ty -> value list -> value result
 
 val operation_equal : value -> value -> value result
 
