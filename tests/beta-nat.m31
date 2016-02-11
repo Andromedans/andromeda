@@ -22,6 +22,6 @@ do
 do
   with local (lbeta plus_Z) handle
   with local (lbeta plus_S) handle
-     λ (x : N, y : N),
+     λ (x y : N),
        refl (S (S (plus x y))) : plus x (S (S y)) == S (S (plus x y))
 

@@ -1,7 +1,7 @@
 data z 0
 data s 1
 
-let length = rec length lst =>
+let rec length lst =
   match lst with
   | [] => z
   | _ :: ?lst => s (length lst)

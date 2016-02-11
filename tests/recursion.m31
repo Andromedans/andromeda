@@ -1,0 +1,29 @@
+data Leaf 0
+data Node 2
+
+let rec left t =
+  match t with
+  | Leaf => "left"
+  | Node ?a ?b => Node (left a) (right b)
+  end
+
+and right t =
+  match t with
+  | Leaf => "right"
+  | Node ?a ?b => Node (left a) (right b)
+  end
+
+let t =
+Node
+  (Node
+    (Node Leaf Leaf)
+    (Node Leaf Leaf))
+  (Node
+    (Node
+      (Node Leaf Leaf)
+      (Node Leaf Leaf))
+    (Node
+      (Node Leaf Leaf)
+      (Node Leaf Leaf)))
+
+do left t

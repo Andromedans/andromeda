@@ -4,11 +4,11 @@ constant prod : forall (_ _ : Type), Type
 
 constant pair : forall (A B : Type) (_ : A) (_ : B), prod A B
 
-constant fst : forall (X Y : Type, _ : prod X Y), X
+constant fst : forall (X Y : Type) (_ : prod X Y), X
 constant snd : forall (X Y : Type) (_ : prod X Y), Y
 
 constant pair_beta_fst :
-  ∀ (U V : Type, u : U, v : V),
+  ∀ (U V : Type) (u : U) (v : V),
     (fst V U (pair V U v u)) ≡ v
 
 constant pair_beta_snd :

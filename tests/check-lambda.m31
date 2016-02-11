@@ -11,9 +11,9 @@ constant a : A
 do
   (λ (y : B a), g a y) : Π (y : B a), C a y
 
-do (λ (x y), g x y) : Π (x : A) (y : B x), C x y
+do (λ x y, g x y) : Π (x : A) (y : B x), C x y
 
-do (λ (x : A) (y), g x y) : Π (x : A) (y : B x), C x y
+do (λ (x : A) y, g x y) : Π (x : A) (y : B x), C x y
 
-do (λ (x) (y : B x), g x y) : Π (x : A) (y : B x), C x y
+do (λ x (y : B x), g x y) : Π (x : A) (y : B x), C x y
 

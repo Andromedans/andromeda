@@ -10,7 +10,7 @@ do { T, x = a } : wrap using T = A and x end
 
 do { T, x } : wrap using T = A and x = a end
 
-constant exfalso : forall T : Type, T
+constant exfalso : forall (T : Type), T
 
 let exwrap = wrap using T as X and x = exfalso X end
 
