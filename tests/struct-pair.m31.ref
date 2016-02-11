@@ -8,38 +8,38 @@ pair_fst_pr is defined.
   : Π (U : Type) (V : Type) (u : U) (v : V),
         (λ (A : Type) (B : Type)
          (p : (λ (A0 : Type) (B0 : Type),
-                   prod_s using A = A0 and B = B0 and fst and snd end) A B),
-             p.fst) V U
+                   prod_s using A = A0 and B = B0 and fst as fst0 and snd end)
+             A B), p.fst) V U
         ((λ (A : Type) (B : Type) (x : A) (y : B), {fst = x, snd = y}) V U v
         u) ≡ v
 pair_eta_pr is defined.
 ⊢ λ (U : Type) (V : Type)
     (x : (λ (A : Type) (B : Type),
-              prod_s using A = A and B = B and fst and snd end) U V)
+              prod_s using A = A and B = B and fst as fst0 and snd end) U V)
     (y : (λ (A : Type) (B : Type),
-              prod_s using A = A and B = B and fst and snd end) U V)
+              prod_s using A = A and B = B and fst as fst0 and snd end) U V)
     (_ : x.fst ≡ y.fst) (_ : x.snd ≡ y.snd), refl x
   : Π (U : Type) (V : Type)
     (x : (λ (A : Type) (B : Type),
-              prod_s using A = A and B = B and fst and snd end) U V)
+              prod_s using A = A and B = B and fst as fst0 and snd end) U V)
     (y : (λ (A : Type) (B : Type),
-              prod_s using A = A and B = B and fst and snd end) U V),
+              prod_s using A = A and B = B and fst as fst0 and snd end) U V),
         (λ (A : Type) (B : Type)
          (p : (λ (A0 : Type) (B0 : Type),
-                   prod_s using A = A0 and B = B0 and fst and snd end) A B),
-             p.fst) U V x ≡
+                   prod_s using A = A0 and B = B0 and fst as fst0 and snd end)
+             A B), p.fst) U V x ≡
         (λ (A : Type) (B : Type)
          (p : (λ (A0 : Type) (B0 : Type),
-                   prod_s using A = A0 and B = B0 and fst and snd end) A B),
-             p.fst) U V y →
+                   prod_s using A = A0 and B = B0 and fst as fst0 and snd end)
+             A B), p.fst) U V y →
         (λ (A : Type) (B : Type)
          (p : (λ (A0 : Type) (B0 : Type),
-                   prod_s using A = A0 and B = B0 and fst and snd end) A B),
-             p.snd) U V x ≡
+                   prod_s using A = A0 and B = B0 and fst as fst0 and snd end)
+             A B), p.snd) U V x ≡
         (λ (A : Type) (B : Type)
          (p : (λ (A0 : Type) (B0 : Type),
-                   prod_s using A = A0 and B = B0 and fst and snd end) A B),
-             p.snd) U V y → x ≡ y
+                   prod_s using A = A0 and B = B0 and fst as fst0 and snd end)
+             A B), p.snd) U V y → x ≡ y
 Constant C is declared.
 Constant D is declared.
 Constant p is declared.
@@ -51,9 +51,9 @@ File "./struct-pair.m31", line 34, characters 6-11: Typing error
   : p ≡ (λ (A : Type) (B : Type) (x : A) (y : B), {fst = x, snd = y}) C D
     ((λ (A : Type) (B : Type)
       (p0 : (λ (A0 : Type) (B0 : Type),
-                 prod_s using A = A0 and B = B0 and fst and snd end) A B),
-          p0.fst) C D p)
+                 prod_s using A = A0 and B = B0 and fst as fst0 and snd end)
+          A B), p0.fst) C D p)
     ((λ (A : Type) (B : Type)
       (p0 : (λ (A0 : Type) (B0 : Type),
-                 prod_s using A = A0 and B = B0 and fst and snd end) A B),
-          p0.snd) C D p)
+                 prod_s using A = A0 and B = B0 and fst as fst0 and snd end)
+          A B), p0.snd) C D p)

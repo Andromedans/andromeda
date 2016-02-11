@@ -10,9 +10,9 @@ Constant ( + ) is declared.
 Signature isContr is declared.
 x0 is defined.
 x₁₈ : isContr using T = Type ≡
-          Type and center as a and contr_path as _ end 
+          Type and center as a0 and contr_path as _ end 
 ⊢ x₁₈
-  : isContr using T = Type ≡ Type and center as a and contr_path as _ end
+  : isContr using T = Type ≡ Type and center as a0 and contr_path as _ end
 The command failed with error:
 File "./everything.m31", line 78, characters 6-9: Typing error
   this expression should be a product, found Type
