@@ -1,0 +1,301 @@
+
+(** Toplevel commands *)
+
+(** Declare operations *)
+(* operation `name` `arity` *)
+operation unary_op 1
+operation nonary_op 0
+
+(** Declare data constructors *)
+(* data `name` `arity` *)
+data dummy 0
+data black 0
+data rgb_color 3
+
+(** Declare constants *)
+(* constant `names` : `type` *)
+constant A : (* the type of types *) Type
+constant a b : A
+(* Ocaml-style infixes are valid `name`s and `label`s *)
+constant (+) :
+  (* non-dependent product type *) A -> A -> A
+
+(** Declare signatures *)
+(* signature `name` = { `label` [as `name`] : `type`, ... } *)
+signature isContr = {
+  T : Type,
+  (* Using `label as name : T` binds `name` to an hypothesis of type `T` in future types. Otherwise the label is bound. *)
+  center as a : T,
+  (* Using `label as _` makes it difficult to refer to the corresponding hypothesis, however it is still possible. See `hypotheses`. *)
+  contr_path as _ : forall x : T, a == x
+}
+
+(** Install a top level handler *)
+(*
+  Top level handlers are callbacks for operations. Therefore `yield` is not available.
+  A top level case `op => c` is equivalent to a handler case `op => yield c`.
+
+  Unlike handlers, operations emitted inside a top-level case will be handled by the top-level handler.
+  Therefore a case `op => op` will loop (and consume large amounts of memory fast).
+*)
+
+handle
+  (* The first | may be omitted in all matching-like statements *)
+    unary_op _ =>
+      (* Operations and data constructors are used curryfied, but must be fully applied. *)
+      rgb_color dummy dummy dummy
+
+(*
+  A top-level case for an operation `op` replaces any previously installed top-level case for `op`.
+  In order to avoid confusion, patterns are not allowed for top-level cases.
+  Then to preserve functionality a case `op : ?t => c` will assign
+    `None` to `t` if the operation was emitted in infer mode,
+    and `Some v` if it was emitted in checking mode for type `v`.
+*)
+  | nonary_op : ?t =>
+    (* Meta-level matching of values. Patterns are not linear. On judgements, equality is alpha equality. *)
+    match t with
+      (* The meta-level language is untyped, so match statements can return multiple kinds of values *)
+      | None => black
+      | Some ?t =>
+        (* `assume x : t in c` creates a new free variable `xi : t`
+           where `xi` is an atom based on the given name,
+           then binds `x` to it within `c`.
+           Note that `xi` may (and often does) escape this scope. *)
+        assume x : t in x
+    end
+end
+
+(** Top level let-binding *)
+let x0 = dummy
+
+(** Evaluate a computation *)
+(* This may have side effects through `ref` *)
+do nonary_op : isContr using T = Type == Type end
+
+(** Evaluate a failing computation *)
+(* This may not have side effects, it only verifies that the computation fails and fails if it does not. *)
+fail Type Type
+
+(** Change verbosity level *)
+#verbosity 3
+do refl Type : Type == Type
+#verbosity 2 (* default *)
+
+
+(** Non top level constructs *)
+
+(** Checking mode and infer mode *)
+(* Most computations are evaluated in a naive way.
+   However if we know that a computation should evaluate to a term of a given type,
+   a more refined strategy can be used: *)
+(* TODO fail lambda T x, x *)
+(* Type ascription `c : c'` is one way to evaluate in checking mode.
+   Checking mode allows inferring type annotations for the arguments of a lambda. *)
+do (lambda T x, x) : forall A : Type, A -> A
+
+(* In infer mode, `{}` evaluates to the 0-field structure. *)
+do refl {}
+
+signature wrapped = { unwrap : A }
+let wrapped_a = wrapped using unwrap = a end
+
+(* In checking mode sharing constraints can make `{}` evaluate to a fully constrained structure.
+   Checking mode and generics are the only ways to create constrained structures. *)
+do refl {} : ({} : wrapped_a) == {}
+
+(* Checking mode is preserved by some constructs but not all: *)
+do (let _ = Type in lambda x, x) : A -> A
+fail handle (lambda x, x) with end
+
+(* Checking mode can be a problem as it tries to simplify some equalities which are only true unsimplified. TODO example
+   If you need to break checking mode, use a let-in. *)
+fail let tt = {} in tt : wrapped_a
+
+(** Meta functions *)
+(* The meta language is a model of lambda calculus! *)
+let y_combinator = fun f => let delta = fun x => f (x x) in delta delta
+
+(* There is no need to use `Y` for recursive functions: *)
+let loop0 = rec f x => f x
+(* The following are just syntactic sugar for the former. *)
+let loop1 = let rec f x = f x in f
+let rec loop2 x = loop2 x
+
+(** Externals *)
+(* Some functions are provided by the kernel without using up a keyword: *)
+do external "print_signature" wrapped
+
+(** General handlers *)
+(* Handlers can be used to provide a wide range of effects.
+   The keyword `yield` is used to access the current continuation.
+   Handlers are first class values, so they can be parametrised using functions and even made recursive.
+*)
+operation get 0
+operation set 1
+let state_h = fun init => handler
+  | val ?v => fun _ => v
+  | get => fun s => yield s s
+  | set ?s => fun _ => yield tt s
+  | finally ?f => f init
+end
+
+do with state_h a handle set b; get
+(* One-time handlers can be defined in place *)
+do handle get with get => Type end
+
+
+(** Native data structures *)
+(* Some data constructors like `Some 1` and `None 0` are predefined. Moreover a few data types are evaluated to corresponding ocaml values. *)
+
+(* Lists *)
+do a::[b,A,state_h]
+do []
+
+(* Tuples (2 ary or more) *)
+do (a,b,A)
+
+(* Strings and names *)
+do "a string\nspecial characters aren't"
+(* There is no standard way to construct name values. They are produced by generic matching of projections and signatures. *)
+
+(** References *)
+(* References provide a global state where handler effects can only be local to at most a top level command.
+   Note that inaccessible references remain in memory without being garbage collected. *)
+let register = ref a
+do register := b
+do !register
+
+(** Sequencing *)
+do register := A; !register
+
+(** Substitution *)
+(* Free variables created by `assume` can be substituted by a term of the same type in a judgment.
+   This is also possible with variables created by type theory binders (lambda, product, ...) but not recommended. *)
+do let var = assume T : Type in T in
+   assume x : var in (x where var = A)
+
+(** Matching *)
+do match ((lambda x : A, x) a,b,A) with
+  | (|- a,_,_) => print "this won't happen"
+  (* Matching under binders can be done as `lambda (?y : ...), e`
+     to bind a free variable suitable for substitution to y, since `e` may depend on it. *)
+  | (|- (lambda (?y), y) _,|- _ : ?t,|- ?t) => print "this will happen"
+  | _ => print "this won't happen either"
+end
+
+(* Patterns are non linear, so we can check alpha-equality of terms.
+   `match y with x => true | _ => false end` may be slightly more efficient. *)
+let alpha_equal = fun x y => match (x,y) with
+  (?a,?a) => print "true"
+  | _ => print "false"
+end
+
+(** Structures *)
+(* Fields may be omitted depending on constraints *)
+constant exfalso : forall T : Type, T
+signature container = { T : Type, cont : T }
+
+do { T = A } : container using T and cont = exfalso T end
+do { T = A, cont } : container using T and cont = exfalso T end
+
+do { T as x, cont = exfalso x } : container using T = A end
+do { T as x, cont = exfalso x } : container using T = A and cont end
+do { cont = a } : container using T = A end
+
+(* Projecting a non constrained field of a structure gives a projection term,
+   but projecting a constrained field gives the constraint. *)
+do { unwrap = a }.unwrap
+do assume x : wrapped in x.unwrap
+do ({} : wrapped_a).unwrap
+do assume x : wrapped_a in x.unwrap
+
+(* For meta-language programmers, structures can be used in a generic way *)
+do match wrapped_a with |- _sig ?v => v end
+do match { cont = a } : container using T = A end with |- _struct ?sig ?v => (sig,v) end
+do match assume x : wrapped in x.unwrap with |- _proj ?v ?l => (v,l) end
+
+(* The matching syntax can be inverted to construct arbitrary terms (only for declared signatures, only derivable judgments) *)
+
+(** Variable management *)
+(* The variables a judgement depends on can be inspected in 2 ways *)
+let Tvar = assume T : Type in T
+let yvar = ref tt
+let dependent =
+  assume y : Tvar in
+  yvar := y; (* this variable will not appear in x *)
+  assume x : Tvar in
+  x
+
+(* `occurs x v` returns `Some t` if `v` depends on `x` with type `v`, `None` otherwise.
+   Note that the type of the term `x` may be different from `t` due to conversions or substitutions.
+*)
+do occurs Tvar dependent
+do occurs !yvar dependent
+
+(* `context (xi : Ai |- v : Tv)` returns the list of judgements `xi : Ai |- xj : Aj` (with only the necessary `xi` for each) *)
+do context dependent
+
+(* Some variables were introduced by binders and are intended to disappear.
+   It is unwise to assume free variables which depend on them, to substitute them,
+   and to substitute any variable they depend on.
+   The list in debruijn index order can be accessed with `hypotheses`. *)
+operation emit 1
+do handle lambda x : A, emit hypotheses with emit ?v => v end
+
+(** Equality *)
+(* The kernel may ask for a witness of an equality (a term of that equality type) using the `equal 2` operation.
+   Success is indicated by passing `Some` of that witness to the continuation, failure by passing `None`.
+   If there are nested handlers for the `equal` operation it may be useful to bubble it upwards instead of passing `None`.
+*)
+constant eq : a == b
+
+(* We can ask the kernel to produce equality witnesses (terms of type an equality) in only a few ways *)
+
+(* `refl` *)
+do refl a
+(* checking mode for `refl` is special: without it we would be asked to solve `(a==a) == (a==b)` *)
+do handle refl a : a == b with equal (|- a) (|- b) => yield (Some eq) end
+
+(* `reduction` to apply the reduction rule for application of a lambda and projection of a structure.
+   It may emit `equal` operations since it needs to verify equality of annotations.
+   It may fail and therefore returns an option value. *)
+do reduction ((lambda x : A, x) a)
+do reduction { unwrap = a }.unwrap
+
+(* `congruence` to apply the appropriate congruence rule (if possible).
+   It will emit `equal` for immediate subterms which are not alpha equal. *)
+do handle congruence (wrapped using unwrap = a end) (wrapped using unwrap = b end) with
+    equal (|- a) (|- b) => yield (Some eq)
+  end
+
+(* `extensionality` to apply function extensionality, structure extensionality or uniqueness of identity proofs as the case may be.
+   This is especially important for structure extensionality as no single axiom can provide that functionality.
+   Will emit `equal`s on subgoals. *)
+(* `unit` is the zero field signature *)
+do lambda x : unit, match extensionality x {} with
+  Some ?wit => wit
+end
+
+do lambda (A : Type, x y : A, p q : x == y), match extensionality p q with
+  Some ?wit => wit
+end
+
+(** Evaluate commands from another file *)
+#include "../std/hippy.m31"
+(* This variant does nothing if the file was already included.
+   The current file is considered to be already included. *)
+#include_once "everything.m31"
+
+(* both can be used with multiple files at once *)
+#include_once "../std/base.m31" "../std/equal.m31" "../std/base.m31"
+
+(** Display help *)
+#help
+
+(** Print the current environment *)
+#environment
+
+(** End evaluation *)
+#quit
+
