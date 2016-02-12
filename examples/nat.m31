@@ -16,7 +16,7 @@ constant nat_iota_S :
   nat_rect P s0 s (S m) == s m (nat_rect P s0 s m)
 
 constant ( + ) : nat -> nat -> nat
-constant plus_def : forall n m : nat,
+constant plus_def : forall (n m : nat),
                     n + m == nat_rect (lambda _, nat) n (lambda _ x, S x) m
 
 do add_beta nat_iota_O

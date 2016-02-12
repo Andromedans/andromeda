@@ -7,6 +7,9 @@ constant pair : forall (A B : Type) (_ : A) (_ : B), prod A B
 constant fst : forall (X Y : Type) (_ : prod X Y), X
 constant snd : forall (X Y : Type) (_ : prod X Y), Y
 
+let _ = set_reducing fst [lazy,lazy,eager]
+let _ = set_reducing snd [lazy,lazy,eager]
+
 constant pair_beta_fst :
   ∀ (U V : Type) (u : U) (v : V),
     (fst V U (pair V U v u)) ≡ v
@@ -23,7 +26,7 @@ constant pair_eta :
 
 constant C : Type
 constant D : Type
-constant p : prod C D
+constant p q : prod C D
 
 
 (* Beta rules. *)
@@ -44,4 +47,8 @@ do
   with local (lbeta pair_beta_snd) handle
   with local (leta pair_eta) handle
      refl p : p ≡ pair C D (fst C D p) (snd C D p)
+
+fail
+  with local (leta pair_eta) handle
+  refl p : p == q
 

@@ -3,6 +3,8 @@ constant Z : N
 constant S : N -> N
 
 constant plus : N -> N -> N
+let _ = set_reducing plus [lazy,eager]
+
 constant plus_Z : Π (x : N), plus x Z == x
 constant plus_S : Π (x y : N), plus x (S y) == S (plus x y)
 
@@ -23,12 +25,12 @@ do
     refl (plus five four) : plus four five == plus (plus two three) four
 
 
-fail
+do
   with local (lbeta plus_Z) handle
   with local (lbeta plus_S) handle
     refl three : three == plus one (plus one one)
 
-fail
+do
   with local (lbeta plus_Z) handle
   with local (lbeta plus_S) handle
   with local (lbeta times_Z) handle

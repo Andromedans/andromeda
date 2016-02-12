@@ -16,11 +16,5 @@ ten is defined.
 ⊢ refl (plus (S (S (S (S (S Z))))) (S (S (S (S Z)))))
   : plus (S (S (S (S Z)))) (S (S (S (S (S Z))))) ≡ plus (plus (S (S Z)) (S
     (S (S Z)))) (S (S (S (S Z))))
-The command failed with error:
-File "./beta-arithmetic.m31", line 29, characters 5-14: Typing error
-  failed to check that the term S (S (S Z)) is equal to plus (S Z) (plus (S
-  Z) (S Z))
-The command failed with error:
-File "./beta-arithmetic.m31", line 36, characters 5-13: Typing error
-  failed to check that the term S (S (S (S Z))) is equal to times (S (S Z))
-  (S (S Z))
+⊢ refl (S (S (S Z))) : S (S (S Z)) ≡ plus (S Z) (plus (S Z) (S Z))
+⊢ refl (S (S (S (S Z)))) : S (S (S (S Z))) ≡ times (S (S Z)) (S (S Z))
