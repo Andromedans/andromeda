@@ -45,13 +45,13 @@ The source code can be found in `src`, in the following folders:
    constants, data constructors, and operations. It also looks up labels in signature definitions.
 3. `nucleus/eval.ml` evaluates `Syntax` to a `Value.result` which is either a final value
    or an operation. The possible values are:
-       * a `Value.Term` term judgement of the form `Γ ⊢ e : A`, see `Jdg.term`
-       * a function closure `Value.Closure` 
-       * a handler `Value.Handler`
-       * a data constructor `Value.Tag`
-       * a `Value.List` of values
-       * a `Value.Tuple` of values
-       * a mutable `Value.Ref`
-       * a `Value.String`
-       * an identifier `Value.Ident`
+      * a `Value.Term` term judgement of the form `Γ ⊢ e : A`, see `Jdg.term`
+      * a function closure `Value.Closure`
+      * a handler `Value.Handler`
+      * a data constructor `Value.Tag`
+      * a `Value.List` of values
+      * a `Value.Tuple` of values
+      * a mutable `Value.Ref`
+      * a `Value.String`
+      * an identifier `Value.Ident`
 
