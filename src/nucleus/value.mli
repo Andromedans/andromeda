@@ -50,8 +50,6 @@ val mk_tuple : value list -> value
 val mk_string : string -> value
 val mk_ident : Name.ident -> value
 
-val mk_closure' : ('a -> 'b result) -> ('a,'b) closure toplevel
-
 val apply_closure : ('a,'b) closure -> 'a -> 'b result
 
 (** References *)
@@ -72,8 +70,12 @@ val catch : (unit -> 'a toplevel) -> ('a,Error.details) Error.res toplevel
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a result
 
-val return_term : Jdg.term -> value result
+(* XXX why do we need all of these? *)
+val top_return_closure : ('a -> 'b result) -> ('a,'b) closure toplevel
+val top_mk_closure : (value -> value result) -> value toplevel
 val return_closure : (value -> value result) -> value result
+
+val return_term : Jdg.term -> value result
 val return_unit : value result
 
 val return_handler :

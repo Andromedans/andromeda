@@ -48,7 +48,6 @@ and term' =
   | Var of Name.ident
   | Type
   | Function of Name.ident list * comp
-  | Rec of Name.ident * Name.ident list * comp
   | Handler of handle_case list
   (* computations *)
   | Handle of comp * handle_case list
@@ -57,7 +56,8 @@ and term' =
   | List of comp list
   | Tuple of comp list
   | Match of comp * match_case list
-  | Let of (Name.ident * comp) list * comp
+  | Let of let_clause list  * comp
+  | LetRec of letrec_clause list * comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -95,6 +95,10 @@ and comp = term
 (** Sugared expressions *)
 and expr = term
 
+and let_clause = Name.ident * Name.ident list * ty option * comp
+
+and letrec_clause = Name.ident * Name.ident * Name.ident list * ty option * comp
+
 (** Handle cases *)
 and handle_case =
   | CaseVal of match_case (* val p -> c *)
@@ -115,7 +119,8 @@ and toplevel' =
   | DeclConstants of Name.ident list * ty
   | DeclSignature of Name.signature * (Name.label * Name.ident option * ty) list
   | TopHandle of (Name.ident * top_op_case) list
-  | TopLet of Name.ident * (Name.ident * ty) list * ty option * comp (** global let binding *)
+  | TopLet of let_clause list
+  | TopLetRec of letrec_clause list
   | TopDo of comp (** evaluate a computation at top level *)
   | TopFail of comp
   | Verbosity of int

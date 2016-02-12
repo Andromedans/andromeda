@@ -1,5 +1,5 @@
 
-let congr = (lambda (A f g u v eqf equ), handle
+let congr = (λ A f g u v eqf equ, handle
   match congruence (f u) (g v) with
     | Some ?eq => eq
   end with
