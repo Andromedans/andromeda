@@ -2,4 +2,4 @@ Data constructor banana is declared.
 Data constructor apple is declared.
 x is defined.
 tt
-ref 3 := [apple, banana]
+ref 1 := [apple, banana]

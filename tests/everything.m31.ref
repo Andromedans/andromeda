@@ -149,6 +149,9 @@ operation whnf 1
 operation getbetas 0
 operation gethints 0
 operation getetas 0
+operation getreducing 0
+operation getstate 0
+operation set_reducing 2
 operation unary_op 1
 operation nonary_op 0
 data dummy 0

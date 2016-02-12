@@ -17,6 +17,14 @@ operation whnf 1  (* Compute the weak head normal form *)
 operation getbetas 0 (* Get the current beta hints *)
 operation gethints 0 (* Get the current general hints *)
 operation getetas  0 (* Get the current eta hints *)
+operation getreducing 0
+operation getstate 0
+
+(* Used as
+  `set_reducing plus [true,true]`
+  `set_reducing fst [false,false,true]`
+*)
+operation set_reducing 2
 
 (* One of the tasks we need to be able to do is this: given a universally quantified type
    `∏(x1:A1)...(xn:An) B` and a type `C`, find an instantiation `x1↦e1, ..., xn↦en` such that
@@ -526,10 +534,52 @@ let rec equate x y =
     end
   end
 
-let hint_provider = fun betas hints etas => handler
-  | getbetas => yield betas
-  | gethints => yield hints
-  | getetas => yield etas
+let state_betas state = match state with
+  | (?betas,_,_,_) => betas
+end
+
+let state_add_beta state b = match state with
+  | (?betas,?hints,?etas,?reducing) =>
+    let betas = b::betas in
+    (betas,hints,etas,reducing)
+end
+
+let state_hints state = match state with
+  | (_,?hints,_,_) => hints
+end
+
+let state_add_hint state h = match state with
+  | (?betas,?hints,?etas,?reducing) =>
+    let hints = h::hints in
+    (betas,hints,etas,reducing)
+end
+
+let state_etas state = match state with
+  | (_,_,?etas,_) => etas
+end
+
+let state_add_eta state e = match state with
+  | (?betas,?hints,?etas,?reducing) =>
+    let etas = e::etas in
+    (betas,hints,etas,reducing)
+end
+
+let state_reducing state = match state with
+  | (_,_,_,?reducing) => reducing
+end
+
+let state_add_reducing state r = match state with
+  | (?betas,?hints,?etas,?reducing) =>
+    let reducing = r::reducing in
+    (betas,hints,etas,reducing)
+end
+
+let hint_provider = fun state => handler
+  | getbetas => yield (state_betas state)
+  | gethints => yield (state_hints state)
+  | getetas => yield (state_etas state)
+  | getreducing => yield (state_reducing state)
+  | getstate => yield state
   end
 
 (* we return the betas and hints so that we may reuse them. eg
@@ -543,209 +593,220 @@ let comp2 = with equality betas hints handle ...
 
 then in comp2 the hint b is available
 *)
-let rec equality betas hints etas = handler
-  | equal (|- ?a : ?t) ?b (* : ?t *) => fun betas hints etas =>
-    let r = (with hint_provider betas hints etas handle equate a b) in
-    yield r betas hints etas
+let rec equality state = handler
+  | equal (|- ?a : ?t) ?b (* : ?t *) => fun state =>
+    let r = (with hint_provider state handle equate a b) in
+    yield r state
 
-  | whnf ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf_eq betas e) with
-      | (?eq, (?betas :: ?hints :: ?etas :: [])) =>
-        yield eq betas hints etas
+  | whnf ?e => fun state =>
+    match (with equality state handle whnf_eq getbetas e) with
+      | (?eq, (?state)) =>
+        yield eq state
     end
 
-  | as_prod ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf_eq betas e) with
-      | ((|- ?eq : _ == (forall (_), _)), (?betas :: ?hints :: ?etas :: [])) =>
-        yield (Some eq) betas hints etas
-      | (_, _) => yield None betas hints etas
+  | as_prod ?e => fun state =>
+    match (with equality state handle whnf_eq getbetas e) with
+      | ((|- ?eq : _ == (forall (_), _)), (?state)) =>
+        yield (Some eq) state
+      | (_, _) => yield None state
     end
 
-  | as_eq ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf_eq betas e) with
-      | ((|- ?eq : _ == (_ == _)), (?betas :: ?hints :: ?etas :: [])) =>
-        yield (Some eq) betas hints etas
-      | (_, _) => yield None betas hints etas
+  | as_eq ?e => fun state =>
+    match (with equality state handle whnf_eq getbetas e) with
+      | ((|- ?eq : _ == (_ == _)), (?state)) =>
+        yield (Some eq) state
+      | (_, _) => yield None state
     end
 
-  | as_signature ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf_eq betas e) with
-      | ((|- ?eq : _ == (_sig _)), (?betas :: ?hints :: ?etas :: [])) =>
-        yield (Some eq) betas hints etas
-      | (_, _) => yield None betas hints etas
+  | as_signature ?e => fun state =>
+    match (with equality state handle whnf_eq getbetas e) with
+      | ((|- ?eq : _ == (_sig _)), (?state)) =>
+        yield (Some eq) state
+      | (_, _) => yield None state
     end
 
-  | beta ?b => fun betas hints etas =>
+  | beta ?b => fun state =>
     let b = process_beta b in
-    yield {} (b :: betas) hints etas
+    let state = state_add_beta state b in
+    yield tt state
 
-  | hint ?h => fun betas hints etas =>
+  | hint ?h => fun state =>
     let h = process_hint h in
-    yield {} betas (h :: hints) etas
+    let state = state_add_hint state h in
+    yield tt state
 
-  | eta ?h => fun betas hints etas =>
+  | eta ?h => fun state =>
     let h = process_eta h in
-    yield {} betas hints (h::etas)
+    let state = state_add_eta state h in
+    yield tt state
 
-  | getbetas => fun betas hints etas =>
-    yield betas betas hints etas
+  | getbetas => fun state =>
+    yield (state_betas state) state
 
-  | gethints => fun betas hints etas =>
-    yield hints betas hints etas
+  | gethints => fun state =>
+    yield (state_hints state) state
 
-  | getetas => fun betas hints etas =>
-    yield etas betas hints etas
+  | getetas => fun state =>
+    yield (state_etas state) state
 
-  | val ?v => fun betas hints etas => (v, betas :: hints :: etas :: [])
+  | getstate => fun state => yield state state
 
-  | finally ?f => f betas hints etas
+  | val ?v => fun state => (v, state)
+
+  | finally ?f => f state
   end
 
 
 
 (* doesn't return the state *)
-let equality_in = fun betas hints etas => handler
-  | equal (|- ?a : ?t) ?b (* : ?t *) => fun betas hints etas =>
-    match (with equality betas hints etas handle equal a b) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+let equality_in = fun state => handler
+  | equal (|- ?a : ?t) ?b (* : ?t *) => fun state =>
+    match (with equality state handle equal a b) with
+      | (?v, ?state) => yield v state
     end
 
-  | whnf ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf e) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | whnf ?e => fun state =>
+    match (with equality state handle whnf e) with
+      | (?v, ?state) => yield v state
     end
 
-  | as_prod ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle as_prod e) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | as_prod ?e => fun state =>
+    match (with equality state handle as_prod e) with
+      | (?v, ?state) => yield v state
     end
 
-  | as_eq ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle as_eq e) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | as_eq ?e => fun state =>
+    match (with equality state handle as_eq e) with
+      | (?v, ?state) => yield v state
     end
 
-  | as_signature ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle as_signature e) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | as_signature ?e => fun state =>
+    match (with equality state handle as_signature e) with
+      | (?v, ?state) => yield v state
     end
 
-  | beta ?b => fun betas hints etas =>
-    match (with equality betas hints etas handle beta b) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | beta ?b => fun state =>
+    match (with equality state handle beta b) with
+      | (?v, ?state) => yield v state
     end
 
-  | hint ?h => fun betas hints etas =>
-    match (with equality betas hints etas handle hint h) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | hint ?h => fun state =>
+    match (with equality state handle hint h) with
+      | (?v, ?state) => yield v state
     end
 
-  | eta ?h => fun betas hints etas =>
-    match (with equality betas hints etas handle eta h) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | eta ?h => fun state =>
+    match (with equality state handle eta h) with
+      | (?v, ?state) => yield v state
     end
 
-  | getbetas => fun betas hints etas =>
-    match (with equality betas hints etas handle getbetas) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | getbetas => fun state =>
+    match (with equality state handle getbetas) with
+      | (?v, ?state) => yield v state
     end
 
-  | gethints => fun betas hints etas =>
-    match (with equality betas hints etas handle gethints) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | gethints => fun state =>
+    match (with equality state handle gethints) with
+      | (?v, ?state) => yield v state
     end
 
-  | getetas => fun betas hints etas =>
-    match (with equality betas hints etas handle getetas) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | getetas => fun state =>
+    match (with equality state handle getetas) with
+      | (?v, ?state) => yield v state
     end
 
-  | val ?v => fun betas hints etas => v
+  | getstate => fun state => yield state state
 
-  | finally ?f => f betas hints etas
+  | val ?v => fun state => v
+
+  | finally ?f => f state
   end
 
 (* TODO split into lbeta|lhint|... functions *)
 let local = fun action =>
-  let betas = getbetas and hints = gethints and etas = getetas in
-  match (with equality betas hints etas handle
+  match (with equality getstate handle
     match action with
       | lbeta ?b => beta b
       | lhint ?h => hint h
       | leta  ?h => eta  h
     end) with
-    | (_, ?betas :: ?hints :: ?etas :: []) =>
-      equality_in betas hints etas
+    | (_, ?state) =>
+      equality_in state
   end
 
-let top_betas = ref []
-let top_hints = ref []
-let top_etas  = ref []
+(* state: betas,hints,etas,reducing *)
+let empty_state = ([],[],[],[])
+let top_state = ref empty_state
 
 (* top level handler with no hints *)
 handle
   | equal ?a ?b =>
-    with equality_in !top_betas !top_hints !top_etas handle equal a b
+    with equality_in !top_state handle equal a b
 
   | whnf ?e =>
-    with equality_in !top_betas !top_hints !top_etas handle whnf e
+    with equality_in !top_state handle whnf e
 
   | as_prod ?e =>
-    with equality_in !top_betas !top_hints !top_etas handle as_prod e
+    with equality_in !top_state handle as_prod e
 
   | as_eq ?e =>
-    with equality_in !top_betas !top_hints !top_etas handle as_eq e
+    with equality_in !top_state handle as_eq e
 
   | as_signature ?e =>
-    with equality_in !top_betas !top_hints !top_etas handle as_signature e
+    with equality_in !top_state handle as_signature e
 
   | beta ?b =>
-    match (with equality !top_betas !top_hints !top_etas handle beta b) with
-      | (_, ?betas :: ?hints :: ?etas :: []) =>
-        top_betas := betas
+    match (with equality !top_state handle beta b) with
+      | (_, ?state) =>
+        top_state := state
     end
 
   | hint ?h =>
-    match (with equality !top_betas !top_hints !top_etas handle hint h) with
-      | (_, ?betas :: ?hints :: ?etas :: []) =>
-        top_hints := hints
+    match (with equality !top_state handle hint h) with
+      | (_, ?state) =>
+        top_state := state
     end
 
   | eta ?h =>
-    match (with equality !top_betas !top_hints !top_etas handle eta h) with
-      | (_, ?betas :: ?hints :: ?etas :: []) =>
-        top_etas := etas
+    match (with equality !top_state handle eta h) with
+      | (_, ?state) =>
+        top_state := state
     end
 
   | getbetas =>
-    !top_betas
+    state_betas !top_state
 
   | gethints =>
-    !top_hints
+    state_hints !top_state
 
   | getetas =>
-    !top_etas
+    state_etas !top_state
+
+  | getstate => !top_state
 end
 
 (* helper functions *)
 let add_beta = fun b =>
-  match with equality !top_betas !top_hints !top_etas handle beta b with
-    | (_, ?betas :: _ :: _ :: []) => top_betas := betas
+  match with equality !top_state handle beta b with
+    | (_, ?state) =>
+      top_state := state
   end
 
 let add_hint = fun h =>
-  match with equality !top_betas !top_hints !top_etas handle hint h with
-    | (_, _ :: ?hints :: _ :: []) => top_hints := hints
+  match with equality !top_state handle hint h with
+    | (_, ?state) =>
+      top_state := state
   end
 
 let add_eta = fun h =>
-  match with equality !top_betas !top_hints !top_etas handle eta h with
-    | (_, _ :: _ :: ?etas :: []) => top_etas := etas
+  match with equality !top_state handle eta h with
+    | (_, ?state) =>
+      top_state := state
   end
 
 let add_betas = fun bs => fold (fun _ b => add_beta b) tt bs
 let add_hints = fun bs => fold (fun _ b => add_hint b) tt bs
 let add_etas = fun bs => fold (fun _ b => add_eta b) tt bs
 
-let fasteq = fun _ => equality_in getbetas gethints getetas
+let fasteq = fun _ => equality_in getstate
 
