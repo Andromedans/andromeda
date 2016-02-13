@@ -396,11 +396,12 @@ or the form
 
     | op p₁ ... pᵢ : p => c
 
-The first form matches an invoked operation `op' v₁ ... vᵢ` when `op` equals `op'` and
-each `vⱼ` matches the corresponding pattern `pⱼ`. The second form matches an invoked
-operation `op' v₁ ... vᵢ` when `op` equals `op'`, each `vⱼ` matches the corresponding `pⱼ`
-*and* the operation was invoked in [checking mode](#inferring-and-checking-mode) at type
-`t` that matches `p`.
+The first form matches an invoked operation `op' v₁ ... vᵢ`
+when `op` equals `op'` and each `vⱼ` matches the corresponding pattern `pⱼ`.
+The second form matches an invoked operation `op' v₁ ... vᵢ`
+when `op` equals `op'`, each `vⱼ` matches the corresponding `pⱼ`
+*and* if the operation was invoked in [checking mode](#inferring-and-checking-mode) at type
+`t`, `Some t` matches `p`, otherwise `None` matches `p`.
 
 When an operation case matches the corresponding computation `c` is computed, with the
 pattern variables appearing in the patterns bound to the corresponding values.
