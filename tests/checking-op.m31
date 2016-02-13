@@ -2,7 +2,7 @@
 operation inhab 0
 
 let h = handler
-  inhab : ?t => assume x_inhab : t in yield x_inhab
+  inhab : Some ?t => assume x_inhab : t in yield x_inhab
 end
 
 constant A : Type
@@ -11,7 +11,7 @@ do with h handle inhab : A
 
 let h' = handler
   | inhab => assume y_inhab : A in yield y_inhab
-  | inhab : ?t => assume x_inhab : t in yield x_inhab
+  | inhab : Some ?t => assume x_inhab : t in yield x_inhab
 end
 
 do with h' handle inhab : A

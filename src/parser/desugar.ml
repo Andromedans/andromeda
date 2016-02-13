@@ -677,7 +677,7 @@ and match_op_case ~yield env bound (ps, pt, c) =
   let ps, vars, n = fold_patterns [] [] 0 ps in
   let pt, vars = match pt with
     | Some p ->
-      let p, vars, n = tt_pattern env bound vars n p in
+      let p, vars, n = pattern env bound vars n p in
       Some p, vars
     | None ->
       None, vars

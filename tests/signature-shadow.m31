@@ -40,6 +40,6 @@ operation inhab 0
 
 (* Not mentioning a field is no guarantee against it being used. We could also grab it from hypotheses. *)
 do { T = A, T' = B } : (handle wrap using v = inhab end with
-  | inhab : ?T => yield (exfalso T)
+  | inhab : Some ?T => yield (exfalso T)
   end)
 
