@@ -228,21 +228,24 @@ hr {
 }
 
 table {
-  border: 1px solid #373737;
+/*  border: 1px solid #373737; */
   margin-bottom: 20px;
   text-align: left;
+  margin-left: 5%;
  }
 
 th {
   font-family: 'Lucida Grande', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  padding: 10px;
-  background: #373737;
-  color: #fff;
+  padding: 0px 30px 10px 0px;
+  font-weight: bold;
+/*   background: #373737; */
+/*  color: #fff; */
  }
 
 td {
-  padding: 10px;
-  border: 1px solid #373737;
+  white-space: nowrap;
+  padding: 0px 30px 10px 0px;
+/*  border: 1px solid #373737; */
  }
 
 form {
@@ -285,6 +288,25 @@ nav ul {
 
 nav li {
   float: left;
+}
+
+/*** Anchor icons ***/
+.header-link {
+  position: absolute;
+  left: -0.5em;
+  opacity: 0;
+
+  \-webkit-transition: opacity 0.2s ease-in-out 0.1s;
+  \-moz-transition: opacity 0.2s ease-in-out 0.1s;
+  \-ms-transition: opacity 0.2s ease-in-out 0.1s;
+}
+
+h2:hover .header-link,
+h3:hover .header-link,
+h4:hover .header-link,
+h5:hover .header-link,
+h6:hover .header-link {
+  opacity: 1;
 }
 
 /*******************************************************************************
