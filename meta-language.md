@@ -267,7 +267,7 @@ successive `if`-`else if`-...-`else if`-`else` in others. The general form is
 The first bar `|` may be omitted.
 
 First `c` is computed to a value `v` which is matched in order against the patterns `p₁`,
-..., `pᵢ`. If the first matchinh pattern is `pⱼ`, by which we mean that it has the shape
+..., `pᵢ`. If the first matching pattern is `pⱼ`, by which we mean that it has the shape
 described by the pattern `pⱼ`, then the corresponding `cⱼ` is computed. The pattern `pⱼ`
 may bind variables in `cⱼ` to give `cⱼ` access to various parts of `v`.
 
@@ -304,7 +304,7 @@ which case the corresponding values must be equal. Thus in AML we can compare tw
 for equality with
 
     match (c₁, c₂) with
-    | (?x, ?x) => "equal
+    | (?x, ?x) => "equal"
     | _ => "not equal"
     end
 
@@ -317,7 +317,7 @@ Note that a pattern may refer to `let`-bound values by their name:
 
 In the above `match` statement the pattern refers to `a` whose values is `"foo"`.
 
-###### Judgement patterns
+###### judgment patterns
 
 A judgment pattern matches a judgment $\isterm{\G}{\e}{\T}$ as follows:
 
@@ -336,8 +336,8 @@ A judgment pattern matches a judgment $\isterm{\G}{\e}{\T}$ as follows:
    | `λ ?x, j` | shorthand for `λ (?x : _), j` |
    | `j₁ ≡ j₂` | match an [equality type](#equality-type) |
    | `refl j` | match a [reflexivity term](#reflexivity) |
-   | `_atom ?x` | match a [free variable](#assumptions) and bind its name to `x` |
-   | `_constant ?x` | match a [constant](#constants) and bind its name to `x` |
+   | `_atom ?x` | match a [free variable](#assumptions) and bind its natural judgment to `x` |
+   | `_constant ?x` | match a [constant](#constants) and bind its natural judgment to `x` |
 
 [TODO describe patterns for signatures and structures]
 
@@ -537,7 +537,7 @@ type `∏ (a : A), F a → Type`. Then it evaluated its second argument `a` in c
 at type `A` which evaluated to `a : A ⊢ a : A`. Then it evaluated the operation `Hole` in
 checking mode at type `F a`. At this point the handler `hole_filler` handled the
 operation. It created a new assumption `hole₁₆` of type `Π (y : A), F y`, applied it to
-`a` and `yield`-ed it back. The result was then a λ-abstraction, as displyaed.
+`a` and `yield`-ed it back. The result was then a λ-abstraction, as displayed.
 
 Here is another, simpler example:
 
@@ -602,8 +602,12 @@ Include the given file if it has not been included yet.
 
 ##### `#verbosity <n>`
 
-Set the verbosity level to something like `3` if you want to see insane amounts of
-unreadable debugging output.
+Set the verbosity level. The levels are:
+
+- `0`: only success messages
+- `1`: errors
+- `2`: warnings
+- `3`: debugging messages
 
 ##### `#environment`
 
@@ -640,20 +644,20 @@ which Andromeda is kindly keeping track of.
 
 ##### Infering and checking mode
 
-A judgement is computed in one of two modes, the **inferring** or the **checking** mode.
+A judgment is computed in one of two modes, the **inferring** or the **checking** mode.
 
-In the inferring mode the judgement that is being computed is unrestrained.
+In the inferring mode the judgment that is being computed is unrestrained.
 
-In checking mode there is a given type $\T$ (actually a judgement $\istype{\G}{\T}$) and
-the judgement that is being computed must have the form $\isterm{\D}{\e}{\T}$. In other
+In checking mode there is a given type $\T$ (actually a judgment $\istype{\G}{\T}$) and
+the judgment that is being computed must have the form $\isterm{\D}{\e}{\T}$. In other
 words, the type is prescribed in advanced. For example, an application
 
     c₁ c₂
 
 proceeds as follows:
 
-1. Compute `c₁` in inferring mode to obtain a judgement $\isTerm{\G}{\e}{\T}$.
-2. Verify that $\T$ is equal to $\prod{x : \T_1} \T_2$, using `as_prod` if necessary (see [equality checking](#equality-checking).
+1. Compute `c₁` in inferring mode to obtain a judgment $\isterm{\G}{\e}{\T}$.
+2. Verify that $\T$ is equal to $\Prod{x}{\T_1}{\T_2}$, using `as_prod` if necessary (see [equality checking](#equality-checking)).
 3. Compute `c₂` in checking mode at type $\T_1$.
 
 
@@ -663,8 +667,7 @@ The computation
 
     Type
 
-computes the judgment $\istype{}{\Type}$ which is valid by [the rule `ty-type`](type-theory.html#ty-type). Example (at the top level you have
-to type `do c` instead of `c` in order to evaluate a computation):
+computes the judgment $\istype{}{\Type}$ which is valid by [the rule `ty-type`](type-theory.html#ty-type). Example:
 
     # do Type
     ⊢ Type : Type
@@ -694,7 +697,7 @@ If computation `c₁` computes to judgment $\istype{\G}{\T}$ then
 
     assume x : c₁ in c₂
 
-binds `x` to $\isterm{\ctxextend{\G}{\x'}{\T}}{\x'}{\T}$ where $\x'$ is fresh in `c₂`,
+binds `x` to $\isterm{\ctxextend{\G}{\x'}{\T}}{\x'}{\T}$,
 then it evaluates `c₂`. The judgment is valid by
 [rule `ctx-var`](type-theory.html#term-var) and
 [rule `ctx-extend`](type-theory.html#ctx-extend). Example:
@@ -708,7 +711,7 @@ then it evaluates `c₂`. The judgment is valid by
 
 The judgment that was generated is $\istype{a_{11} \colon
 A}{\app{B}{x}{A}{\Type}{a_{11}}}$, but Andromeda is not showing the typing annotations.
-Every time `assume` is evaluated it generates a fresh variable that has never been seen before:
+Every time `assume` is evaluated it generates a fresh variable $\x'$ that has never been seen before:
 
     # do assume a : A in B a
     a₁₂ : A ⊢ B a₁₂ : Type
@@ -723,6 +726,8 @@ If we make several assumptions but then use only some of them, the context will 
     Constant f is declared.
     # do assume a : A in (assume b : A in (assume c : A in f a c))
     a₁₄ : A, c₁₆ : A ⊢ f a₁₄ c₁₆ : A
+
+#### Substitution
 
 We can get rid of an assumption with a *substitution*
 
@@ -753,7 +758,7 @@ introducing a new fresh variable of a given type. There is no reason to use `x` 
 `let` and in `assume`, we could write `let z = assume y : A in y` but then `z` would be
 bound to something like `y₄₂` which is perhaps a bit counter-intuitive.
 
-If we compute a term without first storing the 
+If we compute a term without first storing the assumed variables
 
     # let d = assume y : A in f y
     d is defined.
@@ -828,7 +833,7 @@ The reflexivity term is computed with
 
 #### Equality checking
 
-TODO: describe hoq equality checking works by invocation of operations
+TODO: describe how equality checking works by invocation of operations
 
 ##### Congruences
 
@@ -844,7 +849,7 @@ TODO: Describe `reduction`
 
 ##### Operations invoked by the nucleus
 
-TODO: describe `as_prod`, `as_eq` and `as_signature`
+TODO: describe `equal`, `as_prod`, `as_eq` and `as_signature`
 
 
 #### Type ascription
@@ -853,33 +858,9 @@ Type ascription
 
     c₁ : c₂
 
-first computed `c₂`, which must evaluate to a type $\istype{\G}{\T}$. It then computes
+first computes `c₂`, which must evaluate to a type $\istype{\G}{\T}$. It then computes
 `c₁` in checking mode at type $\T$ thereby guaranteeing that the result will be a judgment
 of the form $\isterm{\D}{\e}{\T}$.
-
-#### Substitution
-
-The computation
-
-    c₁ where x = c₂
-
-substitutes the value of `c₂` for assumption `x` in the judgement computed by `c₂`. Example:
-
-    # constant A : Type
-    Constant A is declared.
-    # constant f : A -> A
-    Constant f is declared.
-    # let x = assume x : A in x
-    x is defined.
-    # let y = f x
-    y is defined.
-    # do y
-    x₁₁ : A 
-    ⊢ f x₁₁ : A
-    # constant a : A
-    Constant a is declared.
-    # do y where x = a
-    ⊢ f a : A
 
 #### Context and occurs check
 
@@ -887,14 +868,14 @@ The computation
 
     context c
 
-computes `c` to a judgement $\isterm{\G}{\e}{\T}$ and gives the list of all assumptions in
+computes `c` to a judgment $\isterm{\G}{\e}{\T}$ and gives the list of all assumptions in
 $\Gamma$. Example:
 
     # constant A : Type
     Constant A is declared.
     # constant f : A -> A -> Type
     Constant f is declared.
-    # let b = assume x : A in (assume y : A in f x y)
+    # let b = assume x : A in assume y : A in f x y
     b is defined.
     # do context b
     [(y₁₃ : A ⊢ y₁₃ : A), (x₁₂ : A ⊢ x₁₂ : A)]
@@ -903,8 +884,9 @@ The computation
 
     occurs x c
 
-computes to `None` if assumption `c` does not occur in the value of `c`. It computed to
-`Some T` if `x` occurs in `c` as an assumption of type `T`.
+computes `x` to a judgment $\isterm{\D}{\x}{A}$ and `c` to a judgment $\isterm{\G}{\e}{\T}$ such that $x$ is a variable.
+It evaluates to `None` if $x$ does not occur in $\G$, and to
+`Some U` if $x$ occurs in $\G$ as an assumption of type `U`.
 
     # constant A : Type
     Constant A is declared.
@@ -919,7 +901,9 @@ computes to `None` if assumption `c` does not occur in the value of `c`. It comp
 
 #### Hypotheses
 
-In AML computations happen *inside* products and λ-abstractions, i.e., under binders. It is sometimes improtant to get the list of the binders. This is done with
+In AML computations happen *inside* products and λ-abstractions, i.e., under binders.
+It is sometimes important to get the list of the binders.
+This is done with
 
     hypotheses
 
@@ -935,6 +919,40 @@ Example:
 
 Here `hypotheses` returned the list `[(x₁₄ : A ⊢ x₁₄ : A), (a₁₃ : A ⊢ a₁₃ : A)]` which was printed, after which `⊢ Π (a : A), F ((λ (x : A), x) a) : Type` was computed as the result.
 
-#### Printing
+The handling of operations invoked under a binder is considered to be computed under that binder:
 
-The command `print c` prints to standard output.
+    # do handle ∏ (a : A), Hole with Hole => hypotheses end
+    [(a₁₃ : A ⊢ a₁₃ : A)]
+
+#### Externals
+
+Externals provide a way to call certain Ocaml functions.
+Each function has a name like `"print"` and is invoked with
+
+    external "print"
+
+The name `print` is bound to the external `"print"` in the standard library.
+
+The available externals are:
+
+   |---|---|
+   | `"print"` | A function taking one value and printing it to the standard output |
+   | `"print_signature"` | A function taking a value equal to a signature type and printing its definition to standard output |
+   | `"time"` | TODO describe time |
+   | `"config"` | A function allowing dynamic modification of some options |
+   | `"simplify"` | A function that simplifies terms appearing inside a value by using some reductions |
+
+The `"config"` external can be invoked with the following options:
+
+   |---|---|
+   | `"ascii"` | Future printing only uses ASCII characters |
+   | `"no-ascii"` | Future printing uses UTF-8 characters such as `∏` (default) |
+   | `"debruijn"` | Print De Bruijn indices of bound variables in terms |
+   | `"no-debruijn"` | Do not print De Bruijn indices of bound variables in terms (default) |
+   | `"annotate"` | Print typing annotations (partially implemented) |
+   | `"no-annotate"` | Do not print typing annotations (default) |
+   | `"dependencies"` | Print dependency information in contexts and terms |
+   | `"no-dependencies"` | Do not print dependency information |
+    
+The arguments to `external` and `external "config"` are case sensitive.
+
