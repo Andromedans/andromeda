@@ -107,7 +107,7 @@ operation implicit 0
 
 let h = handler
   | val ?x => fun s => (s, x)
-  | implicit : ?t =>
+  | implicit : Some ?t =>
     fun s => match add_fresh (Some t) s with
       | (?x, ?s) => yield x s
       end  

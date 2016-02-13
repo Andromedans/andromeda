@@ -302,7 +302,7 @@ handler_case:
 
 handler_checking:
   |                    { None }
-  | COLON pt=tt_pattern { Some pt }
+  | COLON pt=pattern { Some pt }
 
 top_handler_cases:
   | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }

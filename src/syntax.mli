@@ -104,7 +104,7 @@ and handler = {
 and match_case = Name.ident list * pattern * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
-and match_op_case = Name.ident list * pattern list * tt_pattern option * comp
+and match_op_case = Name.ident list * pattern list * pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 

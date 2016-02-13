@@ -107,7 +107,7 @@ and handle_case =
 
 and match_case = pattern * comp
 
-and match_op_case = pattern list * tt_pattern option * comp
+and match_op_case = pattern list * pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
