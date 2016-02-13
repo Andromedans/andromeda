@@ -33,7 +33,7 @@ Table of contents:
    * [Substitution](#substitution)
    * [Context and occurs check](#context-and-occurs-check)
    * [Hypotheses](#hypotheses)
-   * [Printing](#printing)
+   * [Externals](#externals)
    
 ### About the Andromeda meta-language
 
