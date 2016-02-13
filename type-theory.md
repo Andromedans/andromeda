@@ -9,44 +9,34 @@ use_math: true
 
 ### Syntax
 
-Contexts:
+Terms $\e$ and types $\T$, $\U$:
 
-$$
-\G
-  \begin{aligned}[t]
-    \bnf   {}& \ctxempty & & \text{empty context}\\
-    \bnfor {}& \ctxextend{\G}{\x}{\T} & & \text{context $\G$ extended with $\x : \T$}
-  \end{aligned}
-$$
+|---|---|
+| $\Type$ | universe |
+| $\Prod{x}{\T} \U$ | product |
+| $\JuEqual{\T}{\e_1}{\e_2}$ | equality type |
+| $\x$ | variable |
+| $\lam{\x}{\T_1}{\T_2} \e$ | $\lambda$-abstraction |
+| $\app{\e_1}{\x}{\T_1}{\T_2}{\e_2}$ | application |
+| $\juRefl{\T} \e$ | reflexivity |
 
-Terms and types:
+Contexts $\G$:
 
-$$
-  \e, \T, \U
-  \begin{aligned}[t]
-    \bnf   {}& \Type & & \text{universe}\\
-    \bnfor {}& \Prod{x}{\T} \U & & \text{product}\\
-    \bnfor {}& \JuEqual{\T}{\e_1}{\e_2} & & \text{equality type} \\
-    \bnfor {}&  \x   &&\text{variable} \\
-    \bnfor {}&  \lam{\x}{\T_1}{\T_2} \e  &&\text{$\lambda$-abstraction} \\
-    \bnfor {}&  \app{\e_1}{\x}{\T_1}{\T_2}{\e_2}  &&\text{application} \\
-    \bnfor {}&  \juRefl{\T} \e  &&\text{reflexivity} \\
-  \end{aligned}
-$$
+|---|---|
+| $\ctxempty$ | empty context |
+| $\ctxextend{\G}{\x}{\T}$ | context $\G$ extended with $\x : \T$ |
 
 ### Judgements
 
-$$
-\begin{aligned}[t]
-& \isctx{\G} & & \text{$\G$ is a well formed context} \\
-& \isterm{\G}{\e}{\T} & & \text{$\e$ is a well formed term of type $\T$ in context $\G$} \\
-& \eqterm{\G}{\e_1}{\e_2}{\T} & & \text{$e_1$ and $e_2$ are equal terms of type $\T$ in context $\G$}
-\end{aligned}
-$$
+|---|---|
+| $\isctx{\G}$          | $\G$ is a well formed context |
+| $\isterm{\G}{\e}{\T}$ | $\e$ is a well formed term of type $\T$ in context $\G$ |
+| $\eqterm{\G}{\e_1}{\e_2}{\T}$ | $e_1$ and $e_2$ are equal terms of type $\T$ in context |
+
 
 ### Judgement $\isctx{\G}$
 
-Rule `ctx-empty`:
+###### `ctx-empty`
 
 $$
   \infer
@@ -54,7 +44,7 @@ $$
   {\isctx{\ctxempty}}
 $$
 
-Rule `ctx-extend`:
+###### `ctx-extend`
 
 $$
   \infer
@@ -71,7 +61,7 @@ TODO: explain $\mathsf{dom}(\G)$.
 
 #### General rules
 
-Rule `term-conv`
+###### `term-conv`
 
 $$
   \infer
@@ -81,7 +71,7 @@ $$
   {\isterm{\G}{\e}{\U}}
 $$
 
-Rule `term-var`:
+###### `term-var`
 
 $$
   \infer
@@ -93,7 +83,7 @@ $$
 
 #### Universe
 
-Rule `ty-type`:
+###### `ty-type`
 
 $$
   \infer
@@ -104,7 +94,7 @@ $$
 
 #### Products
 
-Rule `ty-prod`:
+###### `ty-prod`
 
 $$\infer
   {\istype{\G}{\T} \qquad
@@ -113,14 +103,14 @@ $$\infer
   {\istype{\G}{\Prod{\x}{\T}{\U}}}
 $$
 
-Rule `term-abs`:
+###### `term-abs`
 
 $$\infer
   {\isterm{\ctxextend{\G}{\x}{\T}}{\e}{\U}}
   {\isterm{\G}{(\lam{\x}{\T}{\U}{\e})}{\Prod{\x}{\T}{\U}}}
 $$
 
-Rule `term-app`:
+###### `term-app`
 
 $$\infer
   {\isterm{\G}{\e_1}{\Prod{x}{\T} \U} \qquad
@@ -131,7 +121,7 @@ $$
 
 #### Equality type
 
-Rule `ty-eq`:
+###### `ty-eq`
 
 $$
   \infer
@@ -142,7 +132,7 @@ $$
   {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
 $$
 
-Rule `term-refl`:
+###### `term-refl`
 
 $$\infer
   {\isterm{\G}{\e}{\T}}
@@ -153,21 +143,21 @@ $$
 
 #### General rules
 
-Rule `eq-refl`:
+###### `eq-refl`
 
 $$  \infer
   {\isterm{\G}{\e}{\T}}
   {\eqterm{\G}{\e}{\e}{\T}}
 $$
 
-Rule `eq-sym`:
+###### `eq-sym`
 
 $$\infer
   {\eqterm{\G}{\e_2}{\e_1}{\T}}
   {\eqterm{\G}{\e_1}{\e_2}{\T}}
 $$
 
-Rule `eq-trans`:
+###### `eq-trans`
 
 $$\infer
   {\eqterm{\G}{\e_1}{\e_2}{\T}\qquad
@@ -175,7 +165,7 @@ $$\infer
   {\eqterm{\G}{\e_1}{\e_3}{\T}}
 $$
 
-Rule `eq-conv`:
+###### `eq-conv`
 
 $$\infer
   {\eqterm{\G}{\e_1}{\e_2}{\T}\qquad
@@ -188,7 +178,7 @@ Remark: in the presence of `eq-reflection` (see below) the rules `eq-conv`,
 
 #### Equality reflection
 
-Rule `eq-reflection`:
+###### `eq-reflection`
 
 $$
   \infer
@@ -198,7 +188,7 @@ $$
 
 #### Computations
 
-Rule `prod-beta`:
+###### `prod-beta`
 
 $$
 \infer
@@ -211,7 +201,7 @@ $$
 
 #### Extensionality
 
-Rule `eq-eta`:
+###### `eq-eta`
 
 $$\infer
   {\isterm{\G}{\e_3}{\JuEqual{\T}{\e_1}{\e_2}} \qquad
@@ -220,7 +210,7 @@ $$\infer
   {\eqterm{\G}{\e_3}{e_4}{\JuEqual{\T}{\e_1}{\e_2}}}
 $$
 
-Rule `prod-eta`:
+###### `prod-eta`
 
 $$\infer
   {\begin{aligned}[t]
@@ -237,7 +227,7 @@ $$
 
 ##### Type formers
 
-Rule `cong-prod`:
+###### `cong-prod`
 
 $$\infer
   {\eqtype{\G}{\T_1}{\U_1}\qquad
@@ -245,7 +235,7 @@ $$\infer
   {\eqtype{\G}{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}}
 $$
 
-Rule `cong-eq`:
+###### `cong-eq`
 
 $$
   \infer
@@ -259,7 +249,7 @@ $$
 
 ##### Products
 
-Rule `cong-abs`:
+###### `cong-abs`
 
 $$
   \infer
@@ -271,7 +261,7 @@ $$
               {\Prod{\x}{\T_1}{\T_2}}}
 $$
 
-Rule `cong-app`:
+###### `cong-app`
 
 $$
   \infer
@@ -286,7 +276,7 @@ $$
 
 ##### Equality types
 
-Rule `cong-refl`:
+###### `cong-refl`
 
 $$
 \infer
