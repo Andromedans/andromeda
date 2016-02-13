@@ -17,6 +17,16 @@ operation whnf 1  (* Compute the weak head normal form *)
 operation getbetas 0 (* Get the current beta hints *)
 operation gethints 0 (* Get the current general hints *)
 operation getetas  0 (* Get the current eta hints *)
+operation getreducing 0
+operation getstate 0
+
+(* Used as
+  `set_reducing plus [eager,eager]`
+  `set_reducing fst [lazy,lazy,eager]`
+*)
+operation set_reducing 2
+data eager 0
+data lazy 0
 
 (* One of the tasks we need to be able to do is this: given a universally quantified type
    `∏(x1:A1)...(xn:An) B` and a type `C`, find an instantiation `x1↦e1, ..., xn↦en` such that
@@ -337,14 +347,27 @@ let rec eta_at etas a b t =
       end
   end
 
+let compute_reducing reducing e =
+  match assoc_find e reducing with
+    | Some ?v => v
+    | None => []
+  end
+
+let opt_transitivity meq eq' = match meq with
+  | Some ?eq => transitivity eq eq'
+  | None => eq'
+end
+
 (* Compute the weak head normal form of a term `e` using the `betas` hints.
-   Return `Some (⊢ p : e == e')` where `e'` is the normal form, or `None` if
-   `e` is already normal. *)
-let rec do_whnf betas e =
+   Return `(eq,r)` where
+   `eq` is `Some (⊢ p : e == e')` where `e'` is the normal form,
+        or `None` if `e` is already normal.
+   `r` is information about how to reduce arguments when `e` is applied *)
+let rec do_whnf betas reducing e =
   match e with
     | |- ?e1 ?e2 : ?t =>
-      match do_whnf betas e1 with
-        | Some (|- ?eq : _ == ?e1') =>
+      match do_whnf betas reducing e1 with
+        | (Some (|- ?eq : _ == ?e1'), ?rlst) =>
           (*
             At this point, [e2] has type [a] for some [a], and both [e1] and [e1'] have the same type [forall x : a, foo] such that [foo[e2/x] == t].
             However if that equality is difficult to derive the following ascription may do something undesired or fail.
@@ -370,39 +393,64 @@ let rec do_whnf betas e =
               | Some ?eq => eq : e == e'
             end
           in
-          match do_whnf betas e' with
-            | Some (|- ?eq' : _ == ?e'') =>
+          match do_whnf betas reducing e' with
+            | (Some (|- ?eq' : _ == ?e''), ?rlst) =>
               let eq = transitivity eq eq' in
-              Some eq
-            | None => Some eq
+              (Some eq, rlst)
+            | (None,?rlst) =>
+              (Some eq, rlst)
           end
-        | None =>
+        | (None,?rlst) =>
           match reduction e with
             | Some (|- ?eq : _ == ?e') =>
-              match do_whnf betas e' with
-                | Some (|- ?eq' : _ == ?e'') =>
+              match do_whnf betas reducing e' with
+                | (Some (|- ?eq' : _ == ?e''), ?rlst) =>
                   let eq = transitivity eq eq' in
-                  Some eq
-                | None => Some eq
+                  (Some eq, rlst)
+                | (None,?rlst) => (Some eq,rlst)
               end
             | None =>
-              (* e1 is in whnf and e is not a beta redex, so we only need to see if a beta hint applies to e *)
-              match step_at betas e with
-                | Some (|- ?eq : _ == ?e') =>
-                      match do_whnf betas e' with
-                    | Some (|- ?eq' : _ == ?e'') =>
-                      let eq = transitivity eq eq' in
-                      Some eq
-                    | None =>
-                      Some eq
+              (* `e1` is in whnf and `e1 e2` not a beta redex *)
+              (* Do we need to reduce `e2`? *)
+              let meq = match rlst with
+                | [] => None
+                | ?b::_ =>
+                  match b with
+                    | eager =>
+                      match do_whnf betas reducing e2 with
+                        | (Some (|- ?eq2 : _ == ?e2'),_) =>
+                          let e' = e1 e2' in
+                          let e' = e' : t in (* <- this should use eq2 *)
+                          handle congruence e e' with
+                            | equal e2 e2' => yield (Some eq2)
+                          end
+                        | (None,_) => None
+                      end
+                    | lazy =>
+                      None
                   end
-                | None => None
+              end in
+              let e' = match meq with Some (|- _ : _ == ?e') => e' | None => e end in
+              (* e1 is in whnf and e is not a beta redex, so we only need to see if a beta hint applies to e *)
+              match step_at betas e' with
+                | Some (|- ?eq' : _ == ?e'') =>
+                  let eq = opt_transitivity meq eq' in
+                  match do_whnf betas reducing e'' with
+                    | (Some (|- ?eq'' : _ == _),?rlst) =>
+                      let eq = transitivity eq eq'' in
+                      (Some eq,rlst)
+                    | (None,?rlst) =>
+                      (Some eq, rlst)
+                  end
+                | None =>
+                  let rlst = match rlst with [] => [] | _::?rlst => rlst end in
+                  (meq,rlst)
               end
           end
       end
-    | |- _proj ?e0 ?l : ?t =>
-      match do_whnf betas e0 with
-        | Some (|- ?eq : _ == ?e0') =>
+    | |- _proj ?e0 ?l : ?t => (* TODO reducing for projections? *)
+      match do_whnf betas reducing e0 with
+        | (Some (|- ?eq : _ == ?e0'),_) =>
           let e' = _proj e0' l in
           let e' = e' : t in
           let meq = handle congruence e e' with
@@ -413,68 +461,87 @@ let rec do_whnf betas e =
               | Some ?eq => eq : e == e'
             end
           in
-          match do_whnf betas e' with
-            | Some (|- ?eq' : _ == ?e'') =>
+          match do_whnf betas reducing e' with
+            | (Some (|- ?eq' : _ == ?e''),?rlst) =>
               let eq = transitivity eq eq' in
-              Some eq
-            | None => Some eq
+              (Some eq,rlst)
+            | (None,?rlst) => (Some eq,rlst)
           end
-        | None =>
+        | (None,?rlst) =>
           match reduction e with
             | Some (|- ?eq : _ == ?e') =>
-              match do_whnf betas e' with
-                | Some (|- ?eq' : _ == ?e'') =>
+              match do_whnf betas reducing e' with
+                | (Some (|- ?eq' : _ == ?e''),?rlst) =>
                   let eq = transitivity eq eq' in
-                  Some eq
-                | None => Some eq
+                  (Some eq,rlst)
+                | (None,?rlst) => (Some eq,rlst)
               end
             | None =>
               (* e0 is in whnf and e is not a beta redex, so we only need to see if a beta hint applies to e *)
               match step_at betas e with
                 | Some (|- ?eq : _ == ?e') =>
-                      match do_whnf betas e' with
-                    | Some (|- ?eq' : _ == ?e'') =>
+                  match do_whnf betas reducing e' with
+                    | (Some (|- ?eq' : _ == ?e''),?rlst) =>
                       let eq = transitivity eq eq' in
-                      Some eq
-                    | None =>
-                      Some eq
+                      (Some eq, rlst)
+                    | (None, ?rlst) =>
+                      (Some eq, rlst)
                   end
-                | None => None
+                | None => (None, rlst)
               end
           end
       end
     | |- _ : ?t =>
       match step_at betas e with
         | Some (|- ?eq : _ == ?e') =>
-          match do_whnf betas e' with
-            | Some (|- ?eq' : _ == ?e'') =>
+          match do_whnf betas reducing e' with
+            | (Some (|- ?eq' : _ == ?e''),?rlst) =>
               let eq = transitivity eq eq' in
-              Some eq
-            | None => Some eq
+              (Some eq,rlst)
+            | (None,?rlst) => (Some eq,rlst)
           end
         | None =>
-          None
+          let rlst = compute_reducing reducing e in
+          (None,rlst)
       end
   end
 
+let reducing_spine reducing e =
+  let rec fold e = match e with
+    | |- ?e1 _ => match fold e1 with [] => [] | _::?l => l end
+    | _ => compute_reducing reducing e
+  end in
+  fold e
+      
+
 (* Like `do_whnf betas e` except that it always returns the witness of equality between
    `e` and its normal form (so reflexivity if `e` is normal). *)
-let whnf_eq = fun betas e =>
-match do_whnf betas e with
-  | Some ?eq => eq
-  | None => refl e
+let whnf_eq betas reducing e =
+  match do_whnf betas reducing e with
+    | (Some ?eq,_) => eq
+    | (None,_) => refl e
   end
 
 (* Structurally compare the whnf of `a` and `b`. Return `Some (⊢ p : a == b)` on
    success, otherwise `None`. It will trigger general equality problems on subterms. *)
 let rec equate_congr a b =
-  let betas = getbetas in
-  match (whnf_eq betas a, whnf_eq betas b) with
+  let betas = getbetas and reducing = getreducing in
+  match (whnf_eq betas reducing a, whnf_eq betas reducing b) with
     ((|- ?eqa : _ == ?a'), (|- ?eqb : _ == ?b')) =>
       let r = match (a',b') with
         | (|- ?a1 ?a2, |- ?b1 ?b2) =>
           (* We need to compare the head structurally because of lambda extensionality *)
-          handle congruence a' b' with | equal a1 b1 => yield (equate_congr a1 b1) end
+          handle congruence a' b' with
+            | equal a1 b1 => yield (equate_congr a1 b1)
+            | equal (a2 as ?x) (b2 as ?y) =>
+              let red = match reducing_spine reducing a1 with [] => lazy | ?b :: _ => b end in
+              match red with
+                | eager =>
+                  yield (equate_congr x y)
+                | lazy =>
+                  yield (equal x y)
+              end                
+          end
         | (|- _proj ?a0 _, |- _proj ?b0 _) =>
           handle congruence a' b' with | equal a0 b0 => yield (equate_congr a0 b0) end
         | _ =>
@@ -511,7 +578,7 @@ end
 let rec equate x y =
   (* x and y must have the same derived type *)
   let t = match (x, y) with ((|- _ : ?t), (|- _ : ?t)) => t end in
-  match (handle whnf_eq getbetas t with equal ?a ?b => yield (equate a b) end) with
+  match (handle whnf_eq getbetas getreducing t with equal ?a ?b => yield (equate a b) end) with
   |- ?eqt : _ == ?t' =>
     let x = convert x eqt and y = convert y eqt in
     match hint_at gethints (x == y) with
@@ -526,10 +593,52 @@ let rec equate x y =
     end
   end
 
-let hint_provider = fun betas hints etas => handler
-  | getbetas => yield betas
-  | gethints => yield hints
-  | getetas => yield etas
+let state_betas state = match state with
+  | (?betas,_,_,_) => betas
+end
+
+let state_add_beta state b = match state with
+  | (?betas,?hints,?etas,?reducing) =>
+    let betas = b::betas in
+    (betas,hints,etas,reducing)
+end
+
+let state_hints state = match state with
+  | (_,?hints,_,_) => hints
+end
+
+let state_add_hint state h = match state with
+  | (?betas,?hints,?etas,?reducing) =>
+    let hints = h::hints in
+    (betas,hints,etas,reducing)
+end
+
+let state_etas state = match state with
+  | (_,_,?etas,_) => etas
+end
+
+let state_add_eta state e = match state with
+  | (?betas,?hints,?etas,?reducing) =>
+    let etas = e::etas in
+    (betas,hints,etas,reducing)
+end
+
+let state_reducing state = match state with
+  | (_,_,_,?reducing) => reducing
+end
+
+let state_add_reducing state r = match state with
+  | (?betas,?hints,?etas,?reducing) =>
+    let reducing = r::reducing in
+    (betas,hints,etas,reducing)
+end
+
+let hint_provider = fun state => handler
+  | getbetas => yield (state_betas state)
+  | gethints => yield (state_hints state)
+  | getetas => yield (state_etas state)
+  | getreducing => yield (state_reducing state)
+  | getstate => yield state
   end
 
 (* we return the betas and hints so that we may reuse them. eg
@@ -543,209 +652,251 @@ let comp2 = with equality betas hints handle ...
 
 then in comp2 the hint b is available
 *)
-let rec equality betas hints etas = handler
-  | equal (|- ?a : ?t) ?b (* : ?t *) => fun betas hints etas =>
-    let r = (with hint_provider betas hints etas handle equate a b) in
-    yield r betas hints etas
+let rec equality state = handler
+  | equal (|- ?a : ?t) ?b (* : ?t *) => fun state =>
+    let r = (with hint_provider state handle equate a b) in
+    yield r state
 
-  | whnf ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf_eq betas e) with
-      | (?eq, (?betas :: ?hints :: ?etas :: [])) =>
-        yield eq betas hints etas
+  | whnf ?e => fun state =>
+    match (with equality state handle whnf_eq getbetas getreducing e) with
+      | (?eq, (?state)) =>
+        yield eq state
     end
 
-  | as_prod ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf_eq betas e) with
-      | ((|- ?eq : _ == (forall (_), _)), (?betas :: ?hints :: ?etas :: [])) =>
-        yield (Some eq) betas hints etas
-      | (_, _) => yield None betas hints etas
+  | as_prod ?e => fun state =>
+    match (with equality state handle whnf_eq getbetas getreducing e) with
+      | ((|- ?eq : _ == (forall (_), _)), (?state)) =>
+        yield (Some eq) state
+      | (_, _) => yield None state
     end
 
-  | as_eq ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf_eq betas e) with
-      | ((|- ?eq : _ == (_ == _)), (?betas :: ?hints :: ?etas :: [])) =>
-        yield (Some eq) betas hints etas
-      | (_, _) => yield None betas hints etas
+  | as_eq ?e => fun state =>
+    match (with equality state handle whnf_eq getbetas getreducing e) with
+      | ((|- ?eq : _ == (_ == _)), (?state)) =>
+        yield (Some eq) state
+      | (_, _) => yield None state
     end
 
-  | as_signature ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf_eq betas e) with
-      | ((|- ?eq : _ == (_sig _)), (?betas :: ?hints :: ?etas :: [])) =>
-        yield (Some eq) betas hints etas
-      | (_, _) => yield None betas hints etas
+  | as_signature ?e => fun state =>
+    match (with equality state handle whnf_eq getbetas getreducing e) with
+      | ((|- ?eq : _ == (_sig _)), (?state)) =>
+        yield (Some eq) state
+      | (_, _) => yield None state
     end
 
-  | beta ?b => fun betas hints etas =>
+  | beta ?b => fun state =>
     let b = process_beta b in
-    yield {} (b :: betas) hints etas
+    let state = state_add_beta state b in
+    yield tt state
 
-  | hint ?h => fun betas hints etas =>
+  | hint ?h => fun state =>
     let h = process_hint h in
-    yield {} betas (h :: hints) etas
+    let state = state_add_hint state h in
+    yield tt state
 
-  | eta ?h => fun betas hints etas =>
+  | eta ?h => fun state =>
     let h = process_eta h in
-    yield {} betas hints (h::etas)
+    let state = state_add_eta state h in
+    yield tt state
 
-  | getbetas => fun betas hints etas =>
-    yield betas betas hints etas
+  | set_reducing ?c ?l => fun state =>
+    let _ = match c with
+      | |- _constant _ => tt
+      | |- _atom _ => tt
+      | _ => print "only constants and atoms may have reducing information"; failure
+    end in
+    let state = state_add_reducing state (c,l) in
+    yield tt state
 
-  | gethints => fun betas hints etas =>
-    yield hints betas hints etas
+  | getbetas => fun state =>
+    yield (state_betas state) state
 
-  | getetas => fun betas hints etas =>
-    yield etas betas hints etas
+  | gethints => fun state =>
+    yield (state_hints state) state
 
-  | val ?v => fun betas hints etas => (v, betas :: hints :: etas :: [])
+  | getetas => fun state =>
+    yield (state_etas state) state
 
-  | finally ?f => f betas hints etas
+  | getreducing => fun state =>
+    yield (state_reducing state) state
+
+  | getstate => fun state => yield state state
+
+  | val ?v => fun state => (v, state)
+
+  | finally ?f => f state
   end
 
 
 
 (* doesn't return the state *)
-let equality_in = fun betas hints etas => handler
-  | equal (|- ?a : ?t) ?b (* : ?t *) => fun betas hints etas =>
-    match (with equality betas hints etas handle equal a b) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+let equality_in = fun state => handler
+  | equal (|- ?a : ?t) ?b (* : ?t *) => fun state =>
+    match (with equality state handle equal a b) with
+      | (?v, ?state) => yield v state
     end
 
-  | whnf ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle whnf e) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | whnf ?e => fun state =>
+    match (with equality state handle whnf e) with
+      | (?v, ?state) => yield v state
     end
 
-  | as_prod ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle as_prod e) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | as_prod ?e => fun state =>
+    match (with equality state handle as_prod e) with
+      | (?v, ?state) => yield v state
     end
 
-  | as_eq ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle as_eq e) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | as_eq ?e => fun state =>
+    match (with equality state handle as_eq e) with
+      | (?v, ?state) => yield v state
     end
 
-  | as_signature ?e => fun betas hints etas =>
-    match (with equality betas hints etas handle as_signature e) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | as_signature ?e => fun state =>
+    match (with equality state handle as_signature e) with
+      | (?v, ?state) => yield v state
     end
 
-  | beta ?b => fun betas hints etas =>
-    match (with equality betas hints etas handle beta b) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | beta ?b => fun state =>
+    match (with equality state handle beta b) with
+      | (?v, ?state) => yield v state
     end
 
-  | hint ?h => fun betas hints etas =>
-    match (with equality betas hints etas handle hint h) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | hint ?h => fun state =>
+    match (with equality state handle hint h) with
+      | (?v, ?state) => yield v state
     end
 
-  | eta ?h => fun betas hints etas =>
-    match (with equality betas hints etas handle eta h) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | eta ?h => fun state =>
+    match (with equality state handle eta h) with
+      | (?v, ?state) => yield v state
     end
 
-  | getbetas => fun betas hints etas =>
-    match (with equality betas hints etas handle getbetas) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | set_reducing ?c ?l => fun state =>
+    match (with equality state handle set_reducing c l) with
+      | (?v, ?state) => yield v state
     end
 
-  | gethints => fun betas hints etas =>
-    match (with equality betas hints etas handle gethints) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | getbetas => fun state =>
+    match (with equality state handle getbetas) with
+      | (?v, ?state) => yield v state
     end
 
-  | getetas => fun betas hints etas =>
-    match (with equality betas hints etas handle getetas) with
-      | (?v, ?betas :: ?hints :: ?etas :: []) => yield v betas hints etas
+  | gethints => fun state =>
+    match (with equality state handle gethints) with
+      | (?v, ?state) => yield v state
     end
 
-  | val ?v => fun betas hints etas => v
+  | getetas => fun state =>
+    match (with equality state handle getetas) with
+      | (?v, ?state) => yield v state
+    end
 
-  | finally ?f => f betas hints etas
+  | getreducing => fun state =>
+    match (with equality state handle getreducing) with
+      | (?v, ?state) => yield v state
+    end
+
+  | getstate => fun state => yield state state
+
+  | val ?v => fun state => v
+
+  | finally ?f => f state
   end
 
 (* TODO split into lbeta|lhint|... functions *)
 let local = fun action =>
-  let betas = getbetas and hints = gethints and etas = getetas in
-  match (with equality betas hints etas handle
+  match (with equality getstate handle
     match action with
       | lbeta ?b => beta b
       | lhint ?h => hint h
       | leta  ?h => eta  h
     end) with
-    | (_, ?betas :: ?hints :: ?etas :: []) =>
-      equality_in betas hints etas
+    | (_, ?state) =>
+      equality_in state
   end
 
-let top_betas = ref []
-let top_hints = ref []
-let top_etas  = ref []
+(* state: betas,hints,etas,reducing *)
+let empty_state = ([],[],[],[])
+let top_state = ref empty_state
 
 (* top level handler with no hints *)
 handle
   | equal ?a ?b =>
-    with equality_in !top_betas !top_hints !top_etas handle equal a b
+    with equality_in !top_state handle equal a b
 
   | whnf ?e =>
-    with equality_in !top_betas !top_hints !top_etas handle whnf e
+    with equality_in !top_state handle whnf e
 
   | as_prod ?e =>
-    with equality_in !top_betas !top_hints !top_etas handle as_prod e
+    with equality_in !top_state handle as_prod e
 
   | as_eq ?e =>
-    with equality_in !top_betas !top_hints !top_etas handle as_eq e
+    with equality_in !top_state handle as_eq e
 
   | as_signature ?e =>
-    with equality_in !top_betas !top_hints !top_etas handle as_signature e
+    with equality_in !top_state handle as_signature e
 
   | beta ?b =>
-    match (with equality !top_betas !top_hints !top_etas handle beta b) with
-      | (_, ?betas :: ?hints :: ?etas :: []) =>
-        top_betas := betas
+    match (with equality !top_state handle beta b) with
+      | (_, ?state) =>
+        top_state := state
     end
 
   | hint ?h =>
-    match (with equality !top_betas !top_hints !top_etas handle hint h) with
-      | (_, ?betas :: ?hints :: ?etas :: []) =>
-        top_hints := hints
+    match (with equality !top_state handle hint h) with
+      | (_, ?state) =>
+        top_state := state
     end
 
   | eta ?h =>
-    match (with equality !top_betas !top_hints !top_etas handle eta h) with
-      | (_, ?betas :: ?hints :: ?etas :: []) =>
-        top_etas := etas
+    match (with equality !top_state handle eta h) with
+      | (_, ?state) =>
+        top_state := state
+    end
+
+  | set_reducing ?c ?l =>
+    match (with equality !top_state handle set_reducing c l) with
+      | (_,?state) =>
+        top_state := state
     end
 
   | getbetas =>
-    !top_betas
+    state_betas !top_state
 
   | gethints =>
-    !top_hints
+    state_hints !top_state
 
   | getetas =>
-    !top_etas
+    state_etas !top_state
+
+  | getreducing =>
+    state_reducing !top_state
+
+  | getstate => !top_state
 end
 
 (* helper functions *)
 let add_beta = fun b =>
-  match with equality !top_betas !top_hints !top_etas handle beta b with
-    | (_, ?betas :: _ :: _ :: []) => top_betas := betas
+  match with equality !top_state handle beta b with
+    | (_, ?state) =>
+      top_state := state
   end
 
 let add_hint = fun h =>
-  match with equality !top_betas !top_hints !top_etas handle hint h with
-    | (_, _ :: ?hints :: _ :: []) => top_hints := hints
+  match with equality !top_state handle hint h with
+    | (_, ?state) =>
+      top_state := state
   end
 
 let add_eta = fun h =>
-  match with equality !top_betas !top_hints !top_etas handle eta h with
-    | (_, _ :: _ :: ?etas :: []) => top_etas := etas
+  match with equality !top_state handle eta h with
+    | (_, ?state) =>
+      top_state := state
   end
 
 let add_betas = fun bs => fold (fun _ b => add_beta b) tt bs
 let add_hints = fun bs => fold (fun _ b => add_hint b) tt bs
 let add_etas = fun bs => fold (fun _ b => add_eta b) tt bs
 
-let fasteq = fun _ => equality_in getbetas gethints getetas
+let fasteq = fun _ => equality_in getstate
 

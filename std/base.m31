@@ -16,3 +16,6 @@ handle
 end
 
 let (|>) = fun x f => f x
+
+operation failure 0
+

@@ -8,8 +8,12 @@ Constant pair_eta is declared.
 Constant C is declared.
 Constant D is declared.
 Constant p is declared.
+Constant q is declared.
 ⊢ λ (c : C) (_ : D), refl c
   : Π (c : C) (d : D), fst C D (pair C D c d) ≡ c
 ⊢ λ (c : C) (d : D), refl d
   : Π (c : C) (d : D), snd C D (pair C D c d) ≡ d
 ⊢ refl p : p ≡ pair C D (fst C D p) (snd C D p)
+The command failed with error:
+File "./eta-pair.m31", line 53, characters 3-8: Typing error
+  failed to check that the term p is equal to q
