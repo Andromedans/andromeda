@@ -176,16 +176,6 @@ $$
 Remark: in the presence of `eq-reflection` (see below) the rules `eq-conv`,
 `eq-sym` and `eq-trans` are derivable using `term-conv` and congruence rules.
 
-#### Equality reflection
-
-###### `eq-reflection`
-
-$$
-  \infer
-  {\isterm{\G}{\e}{\JuEqual{\T}{\e_1}{\e_2}}}
-  {\eqterm{\G}{\e_1}{\e_2}{\T}}
-$$
-
 #### Computations
 
 ###### `prod-beta`
@@ -199,9 +189,17 @@ $$
               {\subst{\T_2}{\x}{\e_2}}}
 $$
 
-#### Extensionality
+#### Reflection and extensionality
 
-###### `eq-eta`
+###### `eq-reflection`
+
+$$
+  \infer
+  {\isterm{\G}{\e}{\JuEqual{\T}{\e_1}{\e_2}}}
+  {\eqterm{\G}{\e_1}{\e_2}{\T}}
+$$
+
+###### `eq-ext`
 
 $$\infer
   {\isterm{\G}{\e_3}{\JuEqual{\T}{\e_1}{\e_2}} \qquad
@@ -210,7 +208,7 @@ $$\infer
   {\eqterm{\G}{\e_3}{e_4}{\JuEqual{\T}{\e_1}{\e_2}}}
 $$
 
-###### `prod-eta`
+###### `prod-ext`
 
 $$\infer
   {\begin{aligned}[t]
