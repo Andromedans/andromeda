@@ -594,9 +594,16 @@ and print_app ?max_level ~penv e1 e2 ppf =
          | Name.Ident (_, Name.Prefix) as op -> Some (As_ident op)
          | Name.Ident (_, _) -> None
        end
-    | Atom (Name.Atom (_, Name.Prefix, _) as op) -> Some (As_atom op)
     | Constant (Name.Ident (_, Name.Prefix) as op) -> Some (As_ident op)
-    | _ -> None
+    | Atom (Name.Atom (_, Name.Prefix, _) as op) -> Some (As_atom op)
+
+    | Constant (Name.Ident (_, (Name.Word | Name.Anonymous | Name.Infix0 |
+                           Name.Infix1 | Name.Infix2 | Name.Infix3 | Name.Infix4)))
+    | Atom (Name.Atom (_, (Name.Word | Name.Anonymous | Name.Infix0 |
+                           Name.Infix1 | Name.Infix2 | Name.Infix3 | Name.Infix4), _))
+    | Type | Lambda _ | Apply _ | Prod _ | Eq _ | Refl _ | Signature _
+    | Structure _ | Projection _ ->
+      None
   in
   match e1_prefix with
   | Some (As_atom op) ->
@@ -615,6 +622,14 @@ and print_app ?max_level ~penv e1 e2 ppf =
        let e1_infix =
          begin
            match e1.term with
+           | Apply ({term=Bound k; _}, _, e1) ->
+              begin
+                match List.nth penv.forbidden k with
+                | Name.Ident (_, ((Name.Infix0 | Name.Infix1 | Name.Infix2 |
+                                  Name.Infix3 | Name.Infix4) as fixity)) as op ->
+                   Some (As_ident op, fixity, e1)
+                | Name.Ident (_, (Name.Word | Name.Anonymous | Name.Prefix)) -> None
+              end
            | Apply ({term=Constant (Name.Ident (_,
                                                 ((Name.Infix0 | Name.Infix1 | Name.Infix2|
                                                   Name.Infix3 | Name.Infix4) as fixity)) as op);_},

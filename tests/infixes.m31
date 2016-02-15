@@ -14,6 +14,21 @@ do match s with
   ⊢ ?x + ?y - ?z => (x, y, z)
   end
 
+(** Infixes as bound variables *)
+do lambda (( ++ ) : A -> A -> A) (x y : A), x ++ (y ++ x)
+
+(** Infixes as atoms *)
+do assume (++) : A -> A -> A in
+   lambda (x y : A), x ++ (y ++ x)
+
+(** Prefixes as bound variables *)
+do lambda (( ??? ) : A -> A) (x y : A), ??? ??? x
+
+(** Prefixes as atoms *)
+do assume (???) : A -> A in
+   lambda (x y : A), ??? ??? x
+
+
 (** Data infixes *)
 
 data (@) 2
