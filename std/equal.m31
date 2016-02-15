@@ -448,7 +448,7 @@ let rec do_whnf betas reducing e =
               end
           end
       end
-    | |- _proj ?e0 ?l : ?t => (* TODO reducing for projections? *)
+    | |- _proj ?e0 ?l : ?t =>
       match do_whnf betas reducing e0 with
         | (Some (|- ?eq : _ == ?e0'),_) =>
           let e' = _proj e0' l in
@@ -467,7 +467,7 @@ let rec do_whnf betas reducing e =
               (Some eq,rlst)
             | (None,?rlst) => (Some eq,rlst)
           end
-        | (None,?rlst) =>
+        | (None,_) =>
           match reduction e with
             | Some (|- ?eq : _ == ?e') =>
               match do_whnf betas reducing e' with
@@ -487,7 +487,9 @@ let rec do_whnf betas reducing e =
                     | (None, ?rlst) =>
                       (Some eq, rlst)
                   end
-                | None => (None, rlst)
+                | None =>
+                  let rlst = compute_reducing reducing e in
+                  (None, rlst)
               end
           end
       end
@@ -703,6 +705,7 @@ let rec equality state = handler
     let _ = match c with
       | |- _constant _ => ()
       | |- _atom _ => ()
+      | |- _proj _ _ => ()
       | _ => print "only constants and atoms may have reducing information"; failure
     end in
     let state = state_add_reducing state (c,l) in
