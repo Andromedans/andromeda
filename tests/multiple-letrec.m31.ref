@@ -1,0 +1,11 @@
+f is defined.
+g is defined.
+h is defined.
+Constant A is declared.
+Constant B is declared.
+Constant a is declared.
+Constant b is declared.
+("f", [(⊢ A : Type), (⊢ a : A)], [(⊢ B : Type), (⊢ b : B)])
+( !! ) ("g", (⊢ A : Type), (⊢ B : Type))
+File "./../std/equal.m31", lines 65-68, characters 17-5: Runtime error
+  no match found for [(⊢ a : A)]

@@ -1,0 +1,15 @@
+
+constant A : Type
+constant a : A
+
+let x = assume x : A in x
+
+let quants = ([(x,None)],[])
+
+do collector quants (lambda (y : A), x) (lambda (y : A), a)
+
+do collector quants (lambda (y : A), x) (lambda (y : A), y)
+
+signature pair = { fst : A, snd : A }
+
+do collector quants (pair using fst and snd = fst end) (pair using fst and snd = x end)

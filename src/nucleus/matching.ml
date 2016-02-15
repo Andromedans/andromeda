@@ -172,13 +172,15 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
         let rec fold vs es = function
           | [] -> Value.from_list (List.rev vs)
           | ((_,_,t),e)::rem ->
-            let t = Tt.instantiate_ty es t
-            and e = match e with
-              | Tt.Explicit e | Tt.Shared e -> e
-            in
-            let je = Jdg.mk_term ctx e t in
-            let v = Value.mk_term je in
-            fold (v::vs) (e::es) rem
+            begin match e with
+              | Tt.Explicit e ->
+                let t = Tt.instantiate_ty es t in
+                let je = Jdg.mk_term ctx e t in
+                let v = Value.mk_term je in
+                fold (v::vs) (e::es) rem
+              | Tt.Shared e ->
+                fold vs (e::es) rem
+            end
         in
         let lv = fold [] [] (List.combine s_def (Tt.struct_combine ~loc str)) in
         collect_pattern env xvs lp lv

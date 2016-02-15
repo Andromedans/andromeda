@@ -19,7 +19,7 @@ let rec list_map f l = fold (fun acc x => f x :: acc) [] l |> rev
 let rec assoc_find x lst = match lst with
   | [] => None
   | (x, ?v) :: _ => Some v
-  | _ :: ?lst => assoc_find x lst
+  | (_,_) :: ?lst => assoc_find x lst
   end
 
 (** Append two lists, reverse the first one *)

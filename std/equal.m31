@@ -67,7 +67,99 @@ let (>?=) m f = match m with
   | None => None
   end
 
-(* TODO deal with rigids *)
+let atom_find x quants =
+  match quants with
+  (?vars,?rigids) =>
+    let u = assoc_find x vars in
+    match u with
+      | (Some _) as ?v => v
+      | None => match assoc_find x rigids with
+          | Some ?y => Some (Some y)
+          | None => None
+        end
+    end
+  end
+
+let rec rigid_occurs e rigids = match rigids with
+  | [] => None
+  | (?x,?y)::?rigids =>
+    match occurs x e with
+      | (Some _) as ?v => v
+      | None => match occurs y e with
+          | (Some _) as ?v => v
+          | None => rigid_occurs e rigids
+        end
+    end
+  end
+
+let atom_update x e quants =
+  match quants with
+  (?vars,?rigids) =>
+    match rigid_occurs e rigids with
+      | Some ?y =>
+        None
+      | None =>
+        Some (assoc_update x (Some e) vars,rigids)
+    end
+  end
+
+let add_paired_rigids x y quants = match quants with (?vars,?rigids) => (vars,(x,y)::rigids) end
+
+let pop_rigid quants =
+  match quants with
+    (?vars, _ :: ?rigids) => (vars,rigids)
+  end
+
+let rec pop_rigids pop quants =
+  match pop with
+    | None => quants
+    | Some ?pop =>
+      let quants = pop_rigid quants in
+      pop_rigids pop quants
+  end
+
+(* return `(quants',x',y')` where `x'` is `x` instantiated by `quants'` (resp `y'`, `y`)
+   and `quants'` is `quants` possibly updated to make `x'` and `y'` equal *)
+let rec inst_sides quants x y =
+  match x with
+  |- _atom _ =>
+    match atom_find x quants with
+      | Some None => (* not yet set atom *)
+        atom_update x y quants >?= (fun quants =>
+        Some (quants,y,y))
+      | Some (Some ?x') => (* already set atom *)
+        inst_sides quants x' y
+      | None => (* not a pattern variable *)
+        match y with
+        |- _atom _ =>
+          match atom_find y quants with
+            | Some None =>
+              atom_update y x quants >?= (fun quants =>
+              Some (quants,x,x))
+            | Some (Some ?y') =>
+              inst_sides quants x y'
+            | None =>
+              Some (quants,x,y)
+          end
+        | _ => Some (quants,x,y)
+        end
+    end
+  | _ =>
+    match y with
+    |- _atom _ =>
+      match atom_find y quants with
+        | Some None =>
+          atom_update y x quants >?= (fun quants =>
+          Some (quants,x,x))
+        | Some (Some ?y') =>
+          inst_sides quants x y'
+        | None =>
+          Some (quants,x,y)
+      end
+    | _ => Some (quants,x,y)
+    end
+  end
+
 (* Update `quants` with values such that `lhs` matches `rhs`. 
    Return updated `Some quants`, or `None` if `lhs` could not
    be made to match `rhs`.
@@ -79,81 +171,93 @@ let rec collector quants lhs rhs =
   (* is lhs an atom?
      NB it would be nice to have a matching primitive to know if some term is an atom. 
   *)
-  match assoc_find lhs quants with
-    | Some None => (* not yet set atom *)
-      let quants = assoc_update lhs (Some rhs) quants in
-      Some quants
-    | Some (Some ?lhs) => (* already set atom *)
-      collector quants lhs rhs
-    | None => (* not an atom *)
-      match assoc_find rhs quants with
-        | Some None =>
-          let quants = assoc_update rhs (Some lhs) quants in
-          Some quants
-        | Some (Some ?rhs) =>
-          collector quants lhs rhs
-        | None =>
-          match (lhs, rhs) with
-            | (?a, ?a) => (* alpha equal *)
-              Some quants
+    match inst_sides quants lhs rhs with
+      | Some (?quants,?lhs,?rhs) =>
+        match (lhs, rhs) with
+          | (?a, ?a) => (* alpha equal *)
+            Some quants
 
-            | ((|- lambda (?x1 : ?a1), ?e1), (|- lambda (?x2 : ?a2), ?e2)) =>
-              match (e1, e2) with
-                ((|- _ : ?b1), (|- _ : ?b2)) =>
-                  collector quants a1 a2 >?= (fun quants =>
-                  let quants = (x2, (Some x1)) :: quants in
-                  collector quants b1 b2 >?= (fun quants =>
-                  collector quants e1 e2 >?= (fun quants =>
-                  let quants = match quants with (x2, (Some x1)) :: ?quants => quants end in
-                  Some quants)))
-              end
+          | ((|- lambda (?x1 : ?a1), ?e1), (|- lambda (?x2 : ?a2), ?e2)) =>
+            match (e1, e2) with
+              ((|- _ : ?b1), (|- _ : ?b2)) =>
+                collector quants a1 a2 >?= (fun quants =>
+                let quants = add_paired_rigids x1 x2 quants in
+                collector quants b1 b2 >?= (fun quants =>
+                collector quants e1 e2 >?= (fun quants =>
+                let quants = pop_rigid quants in
+                Some quants)))
+            end
 
-            | ((|- ?l1 ?r1), (|- ?l2 ?r2)) =>
-              (* extract annotations *)
-              match (l1, l2) with
-                ((|- _ : forall (?x1 : ?a1), ?b1), (|- _ : forall (?x2 : ?a2), ?b2)) =>
-                  collector quants a1 a2 >?= (fun quants =>
-                  let quants = (x2, (Some x1)) :: quants in
-                  collector quants b1 b2 >?= (fun quants =>
-                  let quants = match quants with (x2, (Some x1)) :: ?quants => quants end in
-                  collector quants l1 l2 >?= (fun quants =>
-                  collector quants r1 r2)))
-              end
+          | ((|- ?l1 ?r1), (|- ?l2 ?r2)) =>
+            (* extract annotations *)
+            match (l1, l2) with
+              ((|- _ : forall (?x1 : ?a1), ?b1), (|- _ : forall (?x2 : ?a2), ?b2)) =>
+                collector quants a1 a2 >?= (fun quants =>
+                let quants = add_paired_rigids x1 x2 quants in
+                collector quants b1 b2 >?= (fun quants =>
+                collector quants l1 l2 >?= (fun quants =>
+                let quants = pop_rigid quants in
+                collector quants r1 r2)))
+            end
 
-            | ((|- forall (?x1 : ?a1), ?b1), (|- forall (?x2 : ?a2), ?b2)) =>
-              collector quants a1 a2 >?= (fun quants =>
-              let quants = (x2, (Some x1)) :: quants in
-              collector quants b1 b2 >?= (fun quants =>
-              let quants = match quants with (x2, (Some x1)) :: ?quants => quants end in
-              Some quants))
+          | ((|- forall (?x1 : ?a1), ?b1), (|- forall (?x2 : ?a2), ?b2)) =>
+            collector quants a1 a2 >?= (fun quants =>
+            let quants = add_paired_rigids x1 x2 quants in
+            collector quants b1 b2 >?= (fun quants =>
+            let quants = pop_rigid quants in
+            Some quants))
 
-            | ((|- ?l1 == ?r1), (|- ?l2 == ?r2)) =>
-              match (l1, l2) with
-                ((|- _ : ?t1), (|- _ : ?t2)) =>
-                  collector quants t1 t2 >?= (fun quants =>
-                  collector quants l1 l2 >?= (fun quants =>
-                  collector quants r1 r2))
-              end
+          | ((|- ?l1 == ?r1), (|- ?l2 == ?r2)) =>
+            match (l1, l2) with
+              ((|- _ : ?t1), (|- _ : ?t2)) =>
+                collector quants t1 t2 >?= (fun quants =>
+                collector quants l1 l2 >?= (fun quants =>
+                collector quants r1 r2))
+            end
 
-            | ((|- refl ?e1), (|- refl ?e2)) =>
-              match (e1, e2) with
-                ((|- _ : ?t1), (|- _ : ?t2)) =>
-                  collector quants t1 t2 >?= (fun quants =>
-                  collector quants e1 e2)
-              end
+          | ((|- refl ?e1), (|- refl ?e2)) =>
+            match (e1, e2) with
+              ((|- _ : ?t1), (|- _ : ?t2)) =>
+                collector quants t1 t2 >?= (fun quants =>
+                collector quants e1 e2)
+            end
 
-            | (|- _proj ?e1 ?l, |- _proj ?e2 ?l) =>
-              match (e1, e2) with
-                ((|- _ : ?t1), (|- _ : ?t2)) =>
-                  collector quants t1 t2 >?= (fun quants =>
-                  collector quants e1 e2)
-              end
+          | (|- _proj ?e1 ?l, |- _proj ?e2 ?l) =>
+            match (e1, e2) with
+              ((|- _ : ?t1), (|- _ : ?t2)) =>
+                collector quants t1 t2 >?= (fun quants =>
+                collector quants e1 e2)
+            end
 
-            (* TODO structures *)
-            | _ => None
-          end
-      end
+          | (|- _sig ((?s,_),?shares1), |- _sig ((?s,_),?shares2)) =>
+            collector_shares None quants shares1 shares2
+
+          | (|- _struct ?s1 ?l1, |- _struct ?s2 ?l2) =>
+            collector quants s1 s2 >?= (fun quants =>
+            collector_struct quants l1 l2)
+
+          | _ => None
+        end
+      | None => None
+    end
+
+and collector_shares pop quants s1 s2 = match (s1, s2) with
+    | ([], []) => Some (pop_rigids pop quants)
+    | ((Inl ?a)::?s1, (Inl ?b)::?s2) => (* non constrained *)
+      let quants = add_paired_rigids a b quants in
+      collector_shares (Some pop) quants s1 s2
+    | ((Inr ?a)::?s1, (Inr ?b)::?s2) =>
+      collector quants a b >?= (fun quants =>
+      collector_shares pop quants s1 s2)
   end
+
+and collector_struct quants l1 l2 = match (l1,l2) with
+  | ([], []) => Some quants
+  | (?e1 :: ?l1, ?e2 :: ?l2) =>
+    collector quants e1 e2 >?= (fun quants =>
+    collector_struct quants l1 l2)
+  end
+
 
 (* Given `(x1, Some v1), ..., (xn, Some vn)` apply `f` to the
    values `v1, ..., vn` and return `Some (f v1 ... vn)`.
@@ -169,8 +273,8 @@ let rec apply_quants f quants = match quants with
 let generic_matcher pat e =
   match pat with
     | (?f, (?quants, ?lhs)) =>
-      match collector quants lhs e with
-        | Some ?quants =>
+      match collector (quants,[]) lhs e with
+        | Some (?quants,_) =>
           apply_quants f quants
         | None => None
       end
