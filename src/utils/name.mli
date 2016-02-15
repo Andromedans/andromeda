@@ -21,10 +21,10 @@ type label = ident
 type signature = ident
 
 (** Print a name. *)
-val print_ident : ident -> Format.formatter -> unit
+val print_ident : ?parentheses:bool -> ident -> Format.formatter -> unit
 
 (** Print an atom *)
-val print_atom : atom -> Format.formatter -> unit
+val print_atom : ?parentheses:bool -> atom -> Format.formatter -> unit
 
 (** Print a field label *)
 val print_label : label -> Format.formatter -> unit

@@ -18,13 +18,17 @@ type label = ident
 
 type signature = ident
 
-let print_ident x ppf =
+let print_ident ?(parentheses=true) x ppf =
   match x with
   | Ident (s, Word) -> Format.fprintf ppf "%s" s
   | Ident (_, Anonymous) -> Format.fprintf ppf "_"
-  | Ident (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4)) -> Format.fprintf ppf "( %s )" s
+  | Ident (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4)) ->
+     if parentheses then
+       Format.fprintf ppf "( %s )" s
+     else
+       Format.fprintf ppf "%s" s
 
-let print_label = print_ident
+let print_label = print_ident ~parentheses:true
 
 (** Subscripts *)
 
@@ -42,7 +46,7 @@ let subscript k =
     in
     fold "" k
 
-let print_atom x ppf =
+let print_atom ?(parentheses=true) x ppf =
   match x with
   | Atom (s, Word, k) ->
      Format.fprintf ppf "%s%s" s (subscript k)
@@ -51,9 +55,13 @@ let print_atom x ppf =
      Format.fprintf ppf "_%s" (subscript k)
 
   | Atom (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4), k) ->
-     Format.fprintf ppf "( %s%s )" s (subscript k)
+     if parentheses then
+       Format.fprintf ppf "( %s%s )" s (subscript k)
+     else
+       Format.fprintf ppf "%s%s" s (subscript k)
 
-let print_op = print_ident
+
+let print_op = print_ident ~parentheses:true
 
 let anonymous = Ident ("_", Anonymous)
 

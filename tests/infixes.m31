@@ -2,17 +2,16 @@
 (** TT infixes *)
 constant A : Type
 
-constant a : A
-constant b : A
+constant a b c d : A
 
-constant (+) : A -> A -> A
+constant ( + ) ( - ) ( ^ ) ( / ) : A -> A -> A
 
-let s = (+) a b
+let s = (-) ((+) a b) ((^) c ((^) d d))
 
-do refl s : a + b == a + b
+do refl s : a + b - (c ^ d ^ d) == (a + b) - (c ^ (d ^ d))
 
 do match s with
-  ⊢ ?x + ?y => (x, y)
+  ⊢ ?x + ?y - ?z => (x, y, z)
   end
 
 (** Data infixes *)

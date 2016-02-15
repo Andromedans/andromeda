@@ -17,8 +17,11 @@ data rgb_color 3
 constant A : (* the type of types *) Type
 constant a b : A
 (* Ocaml-style infixes are valid `name`s and `label`s *)
-constant (+) :
+constant ( + ) ( * ) ( ^ ) ( - ) ( <= ) :
   (* non-dependent product type *) A -> A -> A
+
+(* Infixes and prefixes are printed as such. *)
+do lambda (x y z w : A), x + y * z ^ x ^ y - (z ^ x) ^ y <= w
 
 (** Declare signatures *)
 (* signature `name` = { `label` [as `name`] : `type`, ... } *)
