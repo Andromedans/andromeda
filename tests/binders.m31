@@ -1,0 +1,19 @@
+(* Various ways of writing binders *)
+constant A : Type
+constant F : A -> Type
+
+do (lambda x f, f x) : A -> (A -> A) -> A
+
+do lambda (x y z : A) (f g h : A -> A -> A), f y x
+
+do lambda x y z : A, y
+
+do lambda x y (f : A -> A -> A) z w : A, f x w
+
+(* This one is a bit strange *)
+do lambda x y (f : F x -> F y) : A, f
+
+(* Ways of writing products *)
+do forall A B C : Type, A -> B -> C
+do forall (A B C : Type), A -> B -> C
+do forall (A : Type) (B : Type) (C : Type), A -> B -> C
