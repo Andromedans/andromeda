@@ -267,17 +267,24 @@ structure_clause :
   | x=var_name AS y=name EQ c=term                 { (x, Some y, Some c) }
 
 typed_binder:
-  | LPAREN xs=name+ COLON t=ty_term RPAREN  { List.map (fun x -> (x, t)) xs }
+  | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }
 
 maybe_typed_binder:
-  | x=name           { [(x, None)] }
-  | LPAREN xs=name+ COLON t=ty_term RPAREN  { List.map (fun x -> (x, Some t)) xs }
+  | x=name                                         { [(x, None)] }
+  | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, Some t)) xs }
 
 prod_abstraction:
-  | lst=nonempty_list(typed_binder)   { List.concat lst }
+  | lst=nonempty_list(typed_binder)
+    { List.concat lst }
+  | lst=nonempty_list(name) COLON t=ty_term
+    { List.map (fun x -> (x, t)) lst }
 
 lambda_abstraction:
-  | lst=nonempty_list(maybe_typed_binder) { List.concat lst }
+  | lst=nonempty_list(maybe_typed_binder) t=overall_binder?
+    { List.map (fun (x, u) -> (x, match u with None -> t | Some _ -> u)) (List.concat lst) }
+
+overall_binder:
+  | COLON t=ty_term { t }
 
 handler_cases:
   | BAR lst=separated_nonempty_list(BAR, handler_case)  { lst }
