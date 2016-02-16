@@ -441,26 +441,39 @@ struct
   let proj = no_parens (* a projection is never parenthesized *)
   let proj_left = no_parens
 
+  (* Prefix operators *)
+  let prefix = 50
+  let prefix_arg = 50
+
   (* Things that look like an application *)
   let app = 100
-  let app_left = 100
+  let app_left = app (* application is left-associative *)
   let app_right = app - 1
 
+  (* Infix operators *)
+  let infix = function
+    | Name.Infix4 -> (200, 199, 200)
+    | Name.Infix3 -> (300, 300, 299)
+    | Name.Infix2 -> (400, 400, 399)
+    | Name.Infix1 -> (500, 499, 500)
+    | Name.Infix0 -> (600, 600, 599)
+    | Name.Word | Name.Anonymous | Name.Prefix -> assert false
+
   (* Equality type *)
-  let eq = 200
+  let eq = 700
   let eq_left = eq - 1
   let eq_right = eq - 1
 
   (* Lambdas, products and arrows *)
-  let binder = 300
+  let binder = 800
   let in_binder = binder
   let arr = binder
   let arr_left = arr - 1
   let arr_right = arr
 
   (* A structure or a signature clause *)
-  let struct_clause = 400
-  let sig_clause = 400
+  let struct_clause = 900
+  let sig_clause = 900
 
   (* Type ascription in a binding *)
   let ascription = highest
@@ -470,6 +483,10 @@ end
 type print_env =
   { forbidden : Name.ident list ;
     sigs : Name.signature -> Name.label list }
+
+type name_printing =
+  | As_atom of Name.atom
+  | As_ident of Name.ident
 
 let add_forbidden x penv = { penv with forbidden = x :: penv.forbidden }
 
@@ -536,10 +553,7 @@ and print_term' ~penv ?max_level e ppf =
 
       | Lambda a -> print_lambda ?max_level ~penv a ppf
 
-      | Apply (e1, _, e2) ->
-         print ~at_level:Lvl.app "%t@ %t"
-               (print_term ~max_level:Lvl.app_left ~penv e1)
-               (print_term ~max_level:Lvl.app_right ~penv e2)
+      | Apply (e1, _, e2) -> print_app ?max_level ~penv e1 e2 ppf
 
       | Prod xts -> print_prod ?max_level ~penv xts ppf
 
@@ -568,6 +582,88 @@ and print_term' ~penv ?max_level e ppf =
                (Name.print_ident l)
 
 and print_ty ?max_level ~penv (Ty t) ppf = print_term ?max_level ~penv t ppf
+
+(** [print_app e1 e2 ppf] prints the application [e1 e2] using formatter [ppf],
+    possibly as a prefix or infix operator. *)
+and print_app ?max_level ~penv e1 e2 ppf =
+  let e1_prefix =
+    match e1.term with
+    | Bound k ->
+       begin
+         match List.nth penv.forbidden k with
+         | Name.Ident (_, Name.Prefix) as op -> Some (As_ident op)
+         | Name.Ident (_, _) -> None
+       end
+    | Constant (Name.Ident (_, Name.Prefix) as op) -> Some (As_ident op)
+    | Atom (Name.Atom (_, Name.Prefix, _) as op) -> Some (As_atom op)
+
+    | Constant (Name.Ident (_, (Name.Word | Name.Anonymous | Name.Infix0 |
+                           Name.Infix1 | Name.Infix2 | Name.Infix3 | Name.Infix4)))
+    | Atom (Name.Atom (_, (Name.Word | Name.Anonymous | Name.Infix0 |
+                           Name.Infix1 | Name.Infix2 | Name.Infix3 | Name.Infix4), _))
+    | Type | Lambda _ | Apply _ | Prod _ | Eq _ | Refl _ | Signature _
+    | Structure _ | Projection _ ->
+      None
+  in
+  match e1_prefix with
+  | Some (As_atom op) ->
+     Print.print ppf ?max_level ~at_level:Lvl.prefix "%t@ %t"
+                 (Name.print_atom ~parentheses:false op)
+                 (print_term ~max_level:Lvl.prefix_arg ~penv e2)
+
+  | Some (As_ident op) ->
+     Print.print ppf ?max_level ~at_level:Lvl.prefix "%t@ %t"
+                 (Name.print_ident ~parentheses:false op)
+                 (print_term ~max_level:Lvl.prefix_arg ~penv e2)
+
+  | None ->
+     (* Infix or ordinary application. *)
+     begin
+       let e1_infix =
+         begin
+           match e1.term with
+           | Apply ({term=Bound k; _}, _, e1) ->
+              begin
+                match List.nth penv.forbidden k with
+                | Name.Ident (_, ((Name.Infix0 | Name.Infix1 | Name.Infix2 |
+                                  Name.Infix3 | Name.Infix4) as fixity)) as op ->
+                   Some (As_ident op, fixity, e1)
+                | Name.Ident (_, (Name.Word | Name.Anonymous | Name.Prefix)) -> None
+              end
+           | Apply ({term=Constant (Name.Ident (_,
+                                                ((Name.Infix0 | Name.Infix1 | Name.Infix2|
+                                                  Name.Infix3 | Name.Infix4) as fixity)) as op);_},
+                    _, e1) ->
+              Some (As_ident op, fixity, e1)
+           | Apply ({term=Atom (Name.Atom (_,
+                                           ((Name.Infix0 | Name.Infix1 | Name.Infix2|
+                                             Name.Infix3 | Name.Infix4) as fixity), _) as op);_},
+                    _, e1) ->
+              Some (As_atom op, fixity, e1)
+
+           | Apply _ (* Spelling out exactly which cases are not covered is quite
+                        verbose, so we do not do it. *)
+           | Type | Lambda _ | Prod _ | Eq _ | Refl _ | Signature _
+           | Structure _ | Projection _ | Atom _ | Constant _ | Bound _ ->
+             None
+         end
+       in
+       match e1_infix with
+       | Some (op, fixity, e1) ->
+          let (lvl_op, lvl_left, lvl_right) = Lvl.infix fixity in
+          Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
+                      (print_term ~max_level:lvl_left ~penv e1)
+                      (match op with
+                       | As_ident op -> Name.print_ident ~parentheses:false op
+                       | As_atom op -> Name.print_atom ~parentheses:false op)
+                      (print_term ~max_level:lvl_right ~penv e2)
+       | None ->
+          (* ordinary application *)
+          Print.print ppf ?max_level ~at_level:Lvl.app "%t@ %t"
+                       (print_term ~max_level:Lvl.app_left ~penv e1)
+                       (print_term ~max_level:Lvl.app_right ~penv e2)
+     end
+
 
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
 and print_lambda ?max_level ~penv ((x, u), (e, _)) ppf =

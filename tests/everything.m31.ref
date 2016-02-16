@@ -7,24 +7,30 @@ Constant A is declared.
 Constant a is declared.
 Constant b is declared.
 Constant ( + ) is declared.
+Constant ( * ) is declared.
+Constant ( ^ ) is declared.
+Constant ( - ) is declared.
+Constant ( <= ) is declared.
+⊢ λ (x : A) (y : A) (z : A) (w : A), x + y * z ^ x ^ y - (z ^ x) ^ y <= w
+  : A → A → A → A → A
 Signature isContr is declared.
 x0 is defined.
-x₁₈ : isContr using T = Type ≡ Type and center as a0 and
+x₂₂ : isContr using T = Type ≡ Type and center as a0 and
           contr_path as _ end 
-⊢ x₁₈
+⊢ x₂₂
   : isContr using T = Type ≡ Type and center as a0 and contr_path as _ end
 The command failed with error:
-File "./everything.m31", line 78, characters 6-9: Typing error
+File "./everything.m31", line 81, characters 6-9: Typing error
   this expression should be a product, found Type
-Debug: (46 checking equality of Type and Type at type
+Debug: (66 checking equality of Type and Type at type
 Type
-Debug: (47 checking equality of Type and Type at type
+Debug: (67 checking equality of Type and Type at type
 Type
-Debug: (48 checking equality of Type and Type at type
+Debug: (68 checking equality of Type and Type at type
 Type
-Debug: (49 checking equality of Type and Type at type
+Debug: (69 checking equality of Type and Type at type
 Type
-Debug: (50 checking equality of Type and Type at type
+Debug: (70 checking equality of Type and Type at type
 Type
 ⊢ refl Type : Type ≡ Type
 ⊢ λ (T : Type) (x : T), x : Π (A0 : Type), A0 → A0
@@ -34,10 +40,10 @@ wrapped_a is defined.
 ⊢ refl {} : {} ≡ {}
 ⊢ λ (x : A), x : A → A
 The command failed with error:
-File "./everything.m31", line 109, characters 13-25: Runtime error
+File "./everything.m31", line 112, characters 13-25: Runtime error
   cannot infer the type of x
 The command failed with error:
-File "./everything.m31", line 113, characters 21-22: Typing error
+File "./everything.m31", line 116, characters 21-22: Typing error
   the expression {} should have type wrapped using unwrap = a end
   but has type unit
 y_combinator is defined.
@@ -59,8 +65,8 @@ register is defined.
 tt
 ⊢ b : A
 ⊢ A : Type
-x₂₈ : A 
-⊢ x₂₈ : A
+x₃₂ : A 
+⊢ x₃₂ : A
 "this will happen"
 tt
 alpha_equal is defined.
@@ -72,30 +78,30 @@ Signature container is declared.
 ⊢ {cont = exfalso A} : container using T = A and cont end
 ⊢ {cont = a} : container using T = A and cont end
 ⊢ {unwrap = a}.unwrap : A
-x₄₀ : wrapped 
-⊢ x₄₀.unwrap : A
+x₄₄ : wrapped 
+⊢ x₄₄.unwrap : A
 ⊢ a : A
 ⊢ a : A
 (((⊢ wrapped : Type), [(unwrap,
-(unwrap₄₂ : A 
- ⊢ unwrap₄₂ : A))]), [Inr (⊢ a : A)])
+(unwrap₄₆ : A 
+ ⊢ unwrap₄₆ : A))]), [Inr (⊢ a : A)])
 ((⊢ container using T = A and cont end : Type), [(⊢ A : Type),
 (⊢ a : A)])
-((x₄₅ : wrapped 
-  ⊢ x₄₅ : wrapped), unwrap)
+((x₄₉ : wrapped 
+  ⊢ x₄₉ : wrapped), unwrap)
 Tvar is defined.
 yvar is defined.
 dependent is defined.
 Some (⊢ Type : Type)
 None
-[(T₄₆ : Type 
-  ⊢ T₄₆ : Type),
-(T₄₆ : Type 
- x₄₈ : T₄₆ 
- ⊢ x₄₈ : T₄₆)]
+[(T₅₀ : Type 
+  ⊢ T₅₀ : Type),
+(T₅₀ : Type 
+ x₅₂ : T₅₀ 
+ ⊢ x₅₂ : T₅₀)]
 Operation emit is declared.
-[(x₄₉ : A 
-  ⊢ x₄₉ : A)]
+[(x₅₃ : A 
+  ⊢ x₅₃ : A)]
 Constant eq is declared.
 ⊢ refl a : a ≡ a
 ⊢ refl a : a ≡ b
@@ -164,6 +170,10 @@ constant A Type
 constant a A
 constant b A
 constant ( + ) A → A → A
+constant ( * ) A → A → A
+constant ( ^ ) A → A → A
+constant ( - ) A → A → A
+constant ( <= ) A → A → A
 signature isContr T : Type, center as a0 : T,
     contr_path as _ : Π (x : T), a0 ≡ x
 signature wrapped unwrap : A
