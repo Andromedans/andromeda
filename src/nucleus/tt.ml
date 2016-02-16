@@ -640,7 +640,12 @@ and print_app ?max_level ~penv e1 e2 ppf =
                                              Name.Infix3 | Name.Infix4) as fixity), _) as op);_},
                     _, e1) ->
               Some (As_atom op, fixity, e1)
-           | _ -> None
+
+           | Apply _ (* Spelling out exactly which cases are not covered is quite
+                        verbose, so we do not do it. *)
+           | Type | Lambda _ | Prod _ | Eq _ | Refl _ | Signature _
+           | Structure _ | Projection _ | Atom _ | Constant _ | Bound _ ->
+             None
          end
        in
        match e1_infix with
