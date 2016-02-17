@@ -74,7 +74,7 @@ let x0 = dummy
 
 (** Evaluate a computation *)
 (* This may have side effects through `ref` *)
-do nonary_op : isContr using T = Type == Type end
+do nonary_op : {isContr with T = Type == Type}
 
 (** Evaluate a failing computation *)
 (* This may not have side effects, it only verifies that the computation fails and fails if it does not. *)
@@ -101,7 +101,7 @@ do (lambda T x, x) : forall (A : Type), A -> A
 do refl {}
 
 signature wrapped = { unwrap : A }
-let wrapped_a = wrapped using unwrap = a end
+let wrapped_a = {wrapped with unwrap = a}
 
 (* In checking mode sharing constraints can make `{}` evaluate to a fully constrained structure.
    Checking mode and generics are the only ways to create constrained structures. *)
@@ -203,12 +203,12 @@ end
 constant exfalso : forall (T : Type), T
 signature container = { T : Type, cont : T }
 
-do { T = A } : container using T and cont = exfalso T end
-do { T = A, cont } : container using T and cont = exfalso T end
+do { T = A } : {container with T, cont = exfalso T}
+do { T = A, cont } : {container with T, cont = exfalso T}
 
-do { T as x, cont = exfalso x } : container using T = A end
-do { T as x, cont = exfalso x } : container using T = A and cont end
-do { cont = a } : container using T = A end
+do { T as x, cont = exfalso x } : {container with T = A}
+do { T as x, cont = exfalso x } : {container with T = A, cont}
+do { cont = a } : {container with T = A}
 
 (* Projecting a non constrained field of a structure gives a projection term,
    but projecting a constrained field gives the constraint. *)
@@ -219,7 +219,7 @@ do assume x : wrapped_a in x.unwrap
 
 (* For meta-language programmers, structures can be used in a generic way *)
 do match wrapped_a with |- _sig ?v => v end
-do match { cont = a } : container using T = A end with |- _struct ?sig ?v => (sig,v) end
+do match { cont = a } : {container with T = A} with |- _struct ?sig ?v => (sig,v) end
 do match assume x : wrapped in x.unwrap with |- _proj ?v ?l => (v,l) end
 
 (* The matching syntax can be inverted to construct arbitrary terms (only for declared signatures, only derivable judgments) *)
@@ -272,7 +272,7 @@ do reduction { unwrap = a }.unwrap
 
 (* `congruence` to apply the appropriate congruence rule (if possible).
    It will emit `equal` for immediate subterms which are not alpha equal. *)
-do handle congruence (wrapped using unwrap = a end) (wrapped using unwrap = b end) with
+do handle congruence {wrapped with unwrap = a} {wrapped with unwrap = b} with
     equal (|- a) (|- b) => yield (Some eq)
   end
 

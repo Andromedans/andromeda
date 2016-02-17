@@ -739,14 +739,16 @@ and print_shares ~penv lshares ppf = match lshares with
   | [lshare] -> print_share ~penv lshare ppf
   | (l,Inl x) :: lshares ->
     let x = Name.refresh penv.forbidden x in
-    Format.fprintf ppf "%t@ and@ %t" (print_share ~penv (l,Inl x)) (print_shares ~penv:(add_forbidden x penv) lshares)
+    Format.fprintf ppf "%t,@ %t" (print_share ~penv (l,Inl x)) (print_shares ~penv:(add_forbidden x penv) lshares)
   | ((_,Inr _) as lshare) :: lshares ->
-    Format.fprintf ppf "%t@ and@ %t" (print_share ~penv lshare) (print_shares ~penv lshares)
+    Format.fprintf ppf "%t,@ %t" (print_share ~penv lshare) (print_shares ~penv lshares)
 
 and print_sig ~penv (s,shares) ppf =
-  if List.for_all (function | Inl _ -> true | Inr _ -> false) shares then Name.print_ident s ppf
+  if List.for_all (function | Inl _ -> true | Inr _ -> false) shares
+  then
+    Name.print_ident s ppf
   else
-  Print.print ppf "%t using %t end" (Name.print_ident s) (print_shares ~penv (List.combine (penv.sigs s) shares))
+    Print.print ppf "{@[<hv>%t with %t@]}" (Name.print_ident s) (print_shares ~penv (List.combine (penv.sigs s) shares))
 
 and print_structure_clause ~penv (l,e) ppf =
   Format.fprintf ppf "@[<hov>%t@ =@ %t@]"

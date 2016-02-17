@@ -41,9 +41,6 @@
 (* Let binding *)
 %token LET REC EQ AND IN
 
-(* Signatures *)
-%token USING
-
 (* Meta-level programming *)
 %token OPERATION
 %token DATA
@@ -166,7 +163,6 @@ plain_ty_term:
   | LAMBDA a=lambda_abstraction COMMA e=term         { Lambda (a, e) }
   | FUNCTION xs=name+ DARROW e=term                  { Function (xs, e) }
   | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous, t1)], t2) }
-  | x=var_name USING cs=constraint_clauses END                 { Signature (x,cs) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
 plain_equal_term:
@@ -219,11 +215,12 @@ plain_simple_term:
                                                           | _ -> Tuple lst }
   | LBRACE lst=separated_list(COMMA, structure_clause) RBRACE
                                                         { Structure lst }
+  | LBRACE x=var_name WITH cs=constraint_clauses RBRACE { Signature (x,cs) }
   | e=simple_term DOT p=var_name                        { Projection (e, p) }
   | HYPOTHESES                                          { Hypotheses }
 
 constraint_clauses:
-| cs=separated_list(AND,constraint_clause) { cs }
+| cs=separated_list(COMMA,constraint_clause) { cs }
 
 constraint_clause:
   | l=var_name                      { (l,None,None) }

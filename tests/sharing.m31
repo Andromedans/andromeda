@@ -6,13 +6,13 @@ constant a : A
 
 do { T = A, x = a }
 
-do { T, x = a } : wrap using T = A and x end
+do { T, x = a } : {wrap with T = A, x}
 
-do { T, x } : wrap using T = A and x = a end
+do { T, x } : {wrap with T = A, x = a}
 
 constant exfalso : forall (T : Type), T
 
-let exwrap = wrap using T as X and x = exfalso X end
+let exwrap = {wrap with T as X, x = exfalso X}
 
 let bob = { T = A, x } : exwrap
 
