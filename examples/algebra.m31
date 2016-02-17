@@ -34,10 +34,10 @@ let id_is_unique : forall (M : semigroup, e f : M.G),
   =
     lambda M e f p_l p_r,
     transitivity
-      (symmetry (with fasteq tt handle
+      (symmetry (with fasteq () handle
         beta (whnf_t p_r);
         refl e : e + f == e))
-      (with fasteq tt handle
+      (with fasteq () handle
         beta (whnf_t p_l);
         refl f : e + f == f)
 

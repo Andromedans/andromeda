@@ -51,7 +51,7 @@ f is defined.
 g is defined.
 ("f", ("g", "foo"))
 wrapped = {unwrap : A}
-tt
+()
 Operation get is declared.
 Operation set is declared.
 state_h is defined.
@@ -62,13 +62,13 @@ state_h is defined.
 ((⊢ a : A), (⊢ b : A), (⊢ A : Type))
 "a string\\nspecial characters aren't"
 register is defined.
-tt
+()
 ⊢ b : A
 ⊢ A : Type
 x₃₂ : A 
 ⊢ x₃₂ : A
 "this will happen"
-tt
+()
 alpha_equal is defined.
 Constant exfalso is declared.
 Signature container is declared.
@@ -136,7 +136,6 @@ The syntax is vaguely Coq-like. The strict equality is written with a double ==.
 
 data Some 1
 data None 0
-data tt 0
 data Inl 1
 data Inr 1
 operation equal 2

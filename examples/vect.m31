@@ -66,7 +66,7 @@ let vtail =
       (S n) v
 
 
-let vget = with fasteq tt handle
+let vget = with fasteq () handle
   beta Finite_rect_fzero;
   beta Finite_rect_fsucc;
   (λ (A : Type) (n : nat) (i : Finite n) (v : vect A n),
@@ -83,13 +83,13 @@ let vget = with fasteq tt handle
 let v2 = (vcons N Z two (vnil N))
 let v52 = (vcons N one five v2)
 
-do with fasteq tt handle
+do with fasteq () handle
   beta vect_ind_beta_vnil;
   beta vect_ind_beta_vcons;
   refl five :
   vhead N one v52 == five
 
-do with fasteq tt handle
+do with fasteq () handle
   beta vect_ind_beta_vnil;
   beta vect_ind_beta_vcons;
   refl v2 :

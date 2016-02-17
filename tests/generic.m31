@@ -25,7 +25,7 @@ do match ankle.pet with
   end
 
 do match cat with
-  | |- _sig _ => tt
+  | |- _sig _ => ()
   end
 
 do _struct cat [dwarf,urist]
@@ -76,7 +76,7 @@ do match assume x : A in x : B with
   end
 
 fail match ankle with
-  |- _atom _ => tt
+  |- _atom _ => ()
   end
 
 constant a : A

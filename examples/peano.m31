@@ -27,7 +27,7 @@ constant pred' : N → N
 constant pred'_def :
   ∀ (x : N), pred' x ≡ ind_N (λ (_ : N), N) Z (λ (x' _ : N), x') x
 
-do with fasteq tt handle
+do with fasteq () handle
   beta ind_N_Z; beta ind_N_S; beta pred'_def;
   refl (S Z) : pred' (S (S Z)) ≡ (S Z)
 
@@ -40,7 +40,7 @@ constant plus_def :
 (* We now use the ind_N computation rules to establish properties of plus
    Later we use these properties to compute with plus -- we do not have to
    always go back to ind_N. *)
-let plus_Z = with fasteq tt handle
+let plus_Z = with fasteq () handle
   (λ (x : N),
     beta plus_def;
     beta ind_N_Z;
@@ -49,7 +49,7 @@ let plus_Z = with fasteq tt handle
  :
  ∀ (x : N), plus x Z ≡ x
 
-let plus_S = with fasteq tt handle
+let plus_S = with fasteq () handle
   (λ (x y : N),
      beta plus_def;
      beta ind_N_S;
@@ -70,22 +70,22 @@ let seven = S (S (S (S (S (S (S Z))))))
 let eight = S (S (S (S (S (S (S (S Z)))))))
 let nine  = S (S (S (S (S (S (S (S (S Z))))))))
 
-do with fasteq tt handle
+do with fasteq () handle
   beta pred_Z; beta pred_S;
     refl four : pred five ≡ four
 
-do with fasteq tt handle
+do with fasteq () handle
   beta pred_Z; beta pred_S;
     refl Z : pred Z ≡ Z
 
-do with fasteq tt handle
+do with fasteq () handle
   beta plus_Z;
   beta plus_S;
     refl five : plus two three ≡ plus one four
 
 (* let us establish commutativity of addition. *)
 
-let plus_Z' = with fasteq tt handle
+let plus_Z' = with fasteq () handle
   ind_N
     (λ (x : N), plus Z x ≡ x)
     (plus_Z Z)
@@ -95,7 +95,7 @@ let plus_Z' = with fasteq tt handle
          refl (S (plus Z x)) : plus Z (S x) ≡ S x)
   : ∀ (x : N), plus Z x ≡ x
 
-let plus_S' = with fasteq tt handle
+let plus_S' = with fasteq () handle
   (λ (x y : N),
     beta plus_Z;
     beta plus_S;
@@ -109,7 +109,7 @@ let plus_S' = with fasteq tt handle
       y)
   : ∀ (x y : N), plus (S x) y ≡ S (plus x y)
 
-let plus_commute = with fasteq tt handle
+let plus_commute = with fasteq () handle
   (λ (x y : N),
     beta plus_Z;
     beta plus_S;
@@ -127,7 +127,7 @@ let plus_commute = with fasteq tt handle
 do plus_commute
 
 (* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x). *)
-do with fasteq tt handle
+do with fasteq () handle
   hint plus_commute;
    (λ (P : N → Type) (x y : N) (a : P (plus x y)), a : P (plus y x))
 
@@ -135,13 +135,13 @@ do with fasteq tt handle
 constant times : N → N → N
 constant times_def : ∀ (n m : N), times n m ≡ ind_N (λ (_ : N), N) Z (λ (_ : N), plus m) n
 
-do with fasteq tt handle
+do with fasteq () handle
   beta times_def;
     beta ind_N_Z;
     refl Z : times Z two ≡ Z
 
 (* TODO *)
-fail with fasteq tt handle
+fail with fasteq () handle
   beta times_def;
     beta plus_def;
     beta ind_N_Z;
@@ -149,7 +149,7 @@ fail with fasteq tt handle
     refl Z : times two Z ≡ Z
 
 (* TODO *)
-fail with fasteq tt handle
+fail with fasteq () handle
   beta times_def;
     beta plus_def;
     beta ind_N_Z;
@@ -163,7 +163,7 @@ constant exp_def :
   ∀ (base power : N), exp base power ≡ ind_N (λ (_ : N), N) one (λ (_ : N), times base) power
 
 (* TODO *)
-fail with fasteq tt handle
+fail with fasteq () handle
   beta exp_def;
   beta times_def;
   beta plus_def;
@@ -175,7 +175,7 @@ let nine' = times three three
 let ten' = plus five five
 
 (* TODO *)
-fail with fasteq tt handle
+fail with fasteq () handle
   beta exp_def;
   beta times_def;
   beta plus_def;
@@ -185,7 +185,7 @@ fail with fasteq tt handle
 
 (* 2^7 is okay, 2^10 takes some time and memory *)
 (* TODO *)
-fail with fasteq tt handle
+fail with fasteq () handle
   beta exp_def;
   beta times_def;
   beta plus_def;

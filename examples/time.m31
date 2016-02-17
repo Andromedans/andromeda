@@ -16,11 +16,11 @@ let rec snf t =
 let time = external "time"
 
 let t_2_7 =
-  time tt (snf (exp two seven))
+  time () (snf (exp two seven))
 
 do
   let _ = print "already_evaluated" in
-  time tt t_2_7
+  time () t_2_7
 
 (* The partially applied t_0 measures the cumulative time since receiving 'tt. *)
 let t_0 = time tt

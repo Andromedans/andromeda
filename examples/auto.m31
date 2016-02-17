@@ -129,7 +129,7 @@ Let auto_handler := handler
   | #new_hint ?h =>
     match h with
       | |- _ => fun hints =>
-        yield tt ('cons h hints)
+        yield () ('cons h hints)
     end
   | finally ?f => f 'nil
   end.

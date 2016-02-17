@@ -26,7 +26,7 @@ do (λ f, refl (Y f)) : Π f : D → D, Y f ≡ f (Y f)
 constant D' : Type
 constant h : D' ≡ D
 let scott' =
-  with fasteq tt handle
+  with fasteq () handle
   hint h; scott : (D' → D') ≡ D'
 let _ = add_hint scott'
 
@@ -35,7 +35,7 @@ let δ : D → D = λ x, (x : D → D) x
 
 (* But we make sure that the application δ δ happens at [D']. *)
 let Ω =
-  with fasteq tt handle
+  with fasteq () handle
     hint h;
     let δ' = δ : D' → D' in
     beta h;beta scott';

@@ -687,26 +687,26 @@ let rec equality state = handler
   | beta ?b => fun state =>
     let b = process_beta b in
     let state = state_add_beta state b in
-    yield tt state
+    yield () state
 
   | hint ?h => fun state =>
     let h = process_hint h in
     let state = state_add_hint state h in
-    yield tt state
+    yield () state
 
   | eta ?h => fun state =>
     let h = process_eta h in
     let state = state_add_eta state h in
-    yield tt state
+    yield () state
 
   | set_reducing ?c ?l => fun state =>
     let _ = match c with
-      | |- _constant _ => tt
-      | |- _atom _ => tt
+      | |- _constant _ => ()
+      | |- _atom _ => ()
       | _ => print "only constants and atoms may have reducing information"; failure
     end in
     let state = state_add_reducing state (c,l) in
-    yield tt state
+    yield () state
 
   | getbetas => fun state =>
     yield (state_betas state) state
@@ -894,9 +894,9 @@ let add_eta = fun h =>
       top_state := state
   end
 
-let add_betas = fun bs => fold (fun _ b => add_beta b) tt bs
-let add_hints = fun bs => fold (fun _ b => add_hint b) tt bs
-let add_etas = fun bs => fold (fun _ b => add_eta b) tt bs
+let add_betas = fun bs => fold (fun _ b => add_beta b) () bs
+let add_hints = fun bs => fold (fun _ b => add_hint b) () bs
+let add_etas = fun bs => fold (fun _ b => add_eta b) () bs
 
 let fasteq = fun _ => equality_in getstate
 

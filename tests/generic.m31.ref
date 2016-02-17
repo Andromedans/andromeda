@@ -18,7 +18,7 @@ ankle is defined.
  pet₂₇ : person₂₆ 
  ⊢ pet₂₇ : person₂₆)])
 ((⊢ {person = dwarf, pet = urist} : cat), pet)
-tt
+()
 ⊢ {person = dwarf, pet = urist} : cat
 The command failed with error:
 File "./generic.m31", line 33, characters 6-30: Typing error

@@ -143,7 +143,7 @@ operation set 1
 let state_h = fun init => handler
   | val ?v => fun _ => v
   | get => fun s => yield s s
-  | set ?s => fun _ => yield tt s
+  | set ?s => fun _ => yield () s
   | finally ?f => f init
 end
 
@@ -227,7 +227,7 @@ do match assume x : wrapped in x.unwrap with |- _proj ?v ?l => (v,l) end
 (** Variable management *)
 (* The variables a judgement depends on can be inspected in 2 ways *)
 let Tvar = assume T : Type in T
-let yvar = ref tt
+let yvar = ref ()
 let dependent =
   assume y : Tvar in
   yvar := y; (* this variable will not appear in x *)

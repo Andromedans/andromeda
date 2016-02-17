@@ -70,14 +70,12 @@ type 'a toplevel = env -> 'a * env
 (** Predeclared *)
 let name_some = Name.make "Some"
 let name_none = Name.make "None"
-let name_unit = Name.make "tt"
 let name_inl  = Name.make "Inl"
 let name_inr  = Name.make "Inr"
 
 let predefined_tags = [
   (name_some, 1);
   (name_none, 0);
-  (name_unit, 0);
   (name_inl,  1);
   (name_inr,  1)
 ]
@@ -247,7 +245,7 @@ let list_nil = List []
 
 let list_cons v lst = List (v :: lst)
 
-let return_unit = return (Tag (name_unit, []))
+let return_unit = return (Tuple [])
 
 (** Operations *)
 

@@ -8,7 +8,7 @@ constant G'' : ∀ (T : Type, g : T -> T), T -> T
 constant h : G'' == G
 
 (* this should work with a general hint! *)
-do with fasteq tt handle
+do with fasteq () handle
   hint h;
   (refl G'' : G'' == G)
 
