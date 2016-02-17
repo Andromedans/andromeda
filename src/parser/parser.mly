@@ -5,14 +5,6 @@
     let loc = snd h in
     List.fold_left (fun h e -> Tt_Apply (h, e), loc) h lst
 
-  let process_lambda ((lst,t),loc) = match t with
-    | Some _ ->
-      List.map (fun (x,u) -> x, (match u with None -> t | Some u ->
-          Error.syntax ~loc "This lambda abstraction has a global annotation and a local annotation on %t"
-                       (Name.print_ident x)))
-        lst
-    | None -> lst
-
 %}
 
 (* Type *)
@@ -286,14 +278,22 @@ prod_abstraction:
   | lst=nonempty_list(name) COLON t=ty_term
     { List.map (fun x -> (x, t)) lst }
 
-lambda_abstraction: lam=mark_location(plain_lambda_abstraction) { process_lambda lam }
+lambda_abstraction:
+  | lam=raw_nonempty_lambda_abstraction { fst lam }
 
-plain_lambda_abstraction:
-  | lst=nonempty_list(maybe_typed_binder) t=overall_binder?
-    { (List.concat lst), t }
+raw_nonempty_lambda_abstraction:
+  | x=name lam=raw_lambda_abstraction
+    { let (l,t) = lam in ((x,t)::l,t) }
+  | xs=typed_binder ys=maybe_typed_binder*
+    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
 
-overall_binder:
-  | COLON t=ty_term { t }
+raw_lambda_abstraction:
+  | { ([],None) }
+  | COLON t=ty_term { ([],Some t) }
+  | x=name lam=raw_lambda_abstraction
+    { let (l,t) = lam in ((x,t)::l,t) }
+  | xs=typed_binder ys=maybe_typed_binder*
+    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
 
 handler_cases:
   | BAR lst=separated_nonempty_list(BAR, handler_case)  { lst }
