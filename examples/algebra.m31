@@ -1,8 +1,8 @@
 
 (* helpers *)
-let whnf_e = fun e => match whnf e with |- _ : _ == ?e => e end
+let whnf_e e = match whnf e with |- _ : _ == ?e => e end
 
-let whnf_t = fun e => match e with
+let whnf_t e = match e with
   |- _ : ?t =>
   let eqt = whnf t in
   convert e eqt
@@ -22,7 +22,7 @@ signature semigroup = {
 }
 
 (* ad-hoc implicit arguments *)
-let (+) = fun x y => match x with |- _ : ?m .G => m.(+) x y end
+let (+) x y = match x with |- _ : ?m .G => m.(+) x y end
 
 let is_id_l = lambda (M : semigroup, e : M.G), forall x : M.G, e + x == x
 let is_id_r = lambda (M : semigroup, e : M.G), forall x : M.G, x + e == x

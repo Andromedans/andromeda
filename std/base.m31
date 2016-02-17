@@ -5,7 +5,7 @@ let print = external "print"
 
 (* Poor man's debugging mechanism. *)
 data (!!) 1
-let debug = fun x => print !! x
+let debug x = print (!! x)
 
 (* Top-level handlers default to failure. *)
 handle
@@ -15,7 +15,7 @@ handle
   | as_signature _ => None
 end
 
-let (|>) = fun x f => f x
+let (|>) x f = f x
 
 operation failure 0
 

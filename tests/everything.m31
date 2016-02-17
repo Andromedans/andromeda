@@ -140,7 +140,7 @@ do external "print_signature" wrapped
 *)
 operation get 0
 operation set 1
-let state_h = fun init => handler
+let state_h init = handler
   | val ?v => fun _ => v
   | get => fun s => yield s s
   | set ?s => fun _ => yield () s
@@ -193,7 +193,7 @@ end
 
 (* Patterns are non linear, so we can check alpha-equality of terms.
    `match y with x => true | _ => false end` may be slightly more efficient. *)
-let alpha_equal = fun x y => match (x,y) with
+let alpha_equal x y = match (x,y) with
   (?a,?a) => print "true"
   | _ => print "false"
 end

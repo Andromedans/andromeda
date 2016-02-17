@@ -62,7 +62,7 @@ For instance a beta hint b : forall y : B, e1 ==[T] e2 gives us
 matching with e : T gives us a witness of e == e2[??/y]
 *)
 
-let (>?=) = fun m f => match m with
+let (>?=) m f = match m with
   | Some ?x => f x
   | None => None
   end
@@ -166,7 +166,7 @@ let rec apply_quants f quants = match quants with
     apply_quants (f v) quants
   end
 
-let generic_matcher = fun pat e =>
+let generic_matcher pat e =
   match pat with
     | (?f, (?quants, ?lhs)) =>
       match collector quants lhs e with
@@ -221,7 +221,7 @@ let process_hint =
 *)
 let process_eta =
   (* we have matched t with the general shape of an eta hint *)
-  let finalize = fun e xs eqs a b =>
+  let finalize e xs eqs a b =
     let T = match a with |- _ : ?T => T end in
     let rec f e xs = match xs with
       | [] =>
@@ -282,14 +282,14 @@ let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
 
 (* Take `p : a == b` and return `refl b : a == b`. This is used to make
    witnesses of equalities small. *)
-let hide_witness = fun eq => match eq with
+let hide_witness eq = match eq with
   |- _ : ?a == ?b => match a with |- _ : ?t =>
     handle refl b : a == b with equal b a => yield (Some (sym t a b eq)) end
   end end
 
 (* Take `p : a == b` and return `refl a : b == a`. This is used instead
    of `sym` to keep witnesses of equality small. *)
-let symmetry = fun eq =>
+let symmetry eq =
   match eq with
     |- _ : ?a == ?b =>
       match a with |- _ : ?t =>
@@ -298,7 +298,7 @@ let symmetry = fun eq =>
   end
 
 (* As `symmetry` but for transitivity. *)
-let transitivity = fun eq1 eq2 =>
+let transitivity eq1 eq2 =
   match (eq1, eq2) with
     | ((|- _ : ?a == ?b), (|- _ : ?b == ?c)) =>
       match a with |- _ : ?t =>
@@ -556,14 +556,14 @@ let rec equate_congr a b =
   end
 
 (* if `x : A` and `eq : A == B` return `x : B` *)
-let convert = fun x eq => match eq with
+let convert x eq = match eq with
 (*  | |- _ : ?t == ?t => x*)
   | |- _ : _ == ?t =>
     handle x : t with equal _ _ => yield (Some (symmetry eq)) end
   end
 
 (* if `eq = (a == b : A)` and `eqt : A == B` return a witness of `(a == b : A) == (a == b : B)` *)
-let convert_eq = fun eq eqt => match (eq,eqt) with
+let convert_eq eq eqt = match (eq,eqt) with
   | (_, |- _ : ?t == ?t) => refl eq
   | (|- ?a == ?b, |- _ : _ == ?t) =>
     let a' = convert a eqt and b' = convert b eqt in
@@ -633,7 +633,7 @@ let state_add_reducing state r = match state with
     (betas,hints,etas,reducing)
 end
 
-let hint_provider = fun state => handler
+let hint_provider state = handler
   | getbetas => yield (state_betas state)
   | gethints => yield (state_hints state)
   | getetas => yield (state_etas state)
@@ -730,7 +730,7 @@ let rec equality state = handler
 
 
 (* doesn't return the state *)
-let equality_in = fun state => handler
+let equality_in state = handler
   | equal (|- ?a : ?t) ?b (* : ?t *) => fun state =>
     match (with equality state handle equal a b) with
       | (?v, ?state) => yield v state
@@ -804,7 +804,7 @@ let equality_in = fun state => handler
   end
 
 (* TODO split into lbeta|lhint|... functions *)
-let local = fun action =>
+let local action =
   match (with equality getstate handle
     match action with
       | lbeta ?b => beta b
@@ -876,27 +876,27 @@ handle
 end
 
 (* helper functions *)
-let add_beta = fun b =>
+let add_beta b =
   match with equality !top_state handle beta b with
     | (_, ?state) =>
       top_state := state
   end
 
-let add_hint = fun h =>
+let add_hint h =
   match with equality !top_state handle hint h with
     | (_, ?state) =>
       top_state := state
   end
 
-let add_eta = fun h =>
+let add_eta h =
   match with equality !top_state handle eta h with
     | (_, ?state) =>
       top_state := state
   end
 
-let add_betas = fun bs => fold (fun _ b => add_beta b) () bs
-let add_hints = fun bs => fold (fun _ b => add_hint b) () bs
-let add_etas = fun bs => fold (fun _ b => add_eta b) () bs
+let add_betas bs = fold (fun _ b => add_beta b) () bs
+let add_hints bs = fold (fun _ b => add_hint b) () bs
+let add_etas  bs = fold (fun _ b => add_eta b) () bs
 
-let fasteq = fun _ => equality_in getstate
+let fasteq _ = equality_in getstate
 

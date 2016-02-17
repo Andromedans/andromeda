@@ -1,7 +1,7 @@
 
 #include_once "utils.m31"
 
-let extract_labels = fun s => match s with
+let extract_labels s = match s with
   |- _sig ((_,?lst),_) =>
     list_map (fun x => match x with (?l,_) => l end) lst
   end

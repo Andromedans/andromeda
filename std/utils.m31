@@ -1,6 +1,6 @@
 (** Reverse a list *)
 let rev =
-  let rec rev acc = fun lst => match lst with
+  let rec rev acc lst = match lst with
     | [] => acc
     | ?x :: ?tl => rev (x :: acc) tl
     end
@@ -23,10 +23,10 @@ let rec assoc_find x lst = match lst with
   end
 
 (** Append two lists, reverse the first one *)
-let rev_append = fun l1 l2 => fold (fun acc x => x :: acc) l2 l1
+let rev_append l1 l2 = fold (fun acc x => x :: acc) l2 l1
 
 (* Update a key-value in an associative list, fail if the key is not present. *)
-let assoc_update = fun x v lst =>
+let assoc_update x v lst =
   let rec aux acc lst = match lst with
     | ((x as ?x), _) :: ?lst => rev_append acc ((x, v) :: lst)
     | ?y :: ?lst => aux (y :: acc) lst
