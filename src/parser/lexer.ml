@@ -168,8 +168,7 @@ and comments level ({ stream;_ } as lexbuf) =
   | start_longcomment -> comments (level+1) lexbuf
   | '\n'        -> new_line lexbuf; comments level lexbuf
   | eof         ->
-    print_endline "Input ended inside (unclosed) comment";
-    raise End_of_file
+    Error.syntax ~loc:(Location.of_lexeme lexbuf) "Input ended inside (unclosed) comment"
   | any           -> comments level lexbuf
   | _ -> Error.syntax ~loc:(Location.of_lexeme lexbuf)
            "Unexpected character in comment"
