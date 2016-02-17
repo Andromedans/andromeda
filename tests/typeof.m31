@@ -3,7 +3,7 @@ constant P : A -> Type
 constant a : A
 constant b : P a
 
-let typeof = fun e => match e with |- _ : ?t => t end
+let typeof e = match e with |- _ : ?t => t end
 
 do typeof a
 do typeof A

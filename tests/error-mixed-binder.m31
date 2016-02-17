@@ -1,0 +1,5 @@
+constant A : Type
+
+(* fails *)
+do lambda x y (f : A -> A -> A) z w : A, f x w
+

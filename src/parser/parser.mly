@@ -279,11 +279,21 @@ prod_abstraction:
     { List.map (fun x -> (x, t)) lst }
 
 lambda_abstraction:
-  | lst=nonempty_list(maybe_typed_binder) t=overall_binder?
-    { List.map (fun (x, u) -> (x, match u with None -> t | Some _ -> u)) (List.concat lst) }
+  | lam=raw_nonempty_lambda_abstraction { fst lam }
 
-overall_binder:
-  | COLON t=ty_term { t }
+raw_nonempty_lambda_abstraction:
+  | x=name lam=raw_lambda_abstraction
+    { let (l,t) = lam in ((x,t)::l,t) }
+  | xs=typed_binder ys=maybe_typed_binder*
+    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
+
+raw_lambda_abstraction:
+  | { ([],None) }
+  | COLON t=ty_term { ([],Some t) }
+  | x=name lam=raw_lambda_abstraction
+    { let (l,t) = lam in ((x,t)::l,t) }
+  | xs=typed_binder ys=maybe_typed_binder*
+    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
 
 handler_cases:
   | BAR lst=separated_nonempty_list(BAR, handler_case)  { lst }

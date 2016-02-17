@@ -1,5 +1,5 @@
 
-let append = fun l1 l2 => rev_append (rev l1) l2
+let append l1 l2 = rev_append (rev l1) l2
 
 (* We can isolate equations and 'actual' variables,
    then choose an equation and run some unification algorithm on it.
@@ -36,7 +36,7 @@ let append = fun l1 l2 => rev_append (rev l1) l2
    Since solving them as they are introduced lets us pass 'none to #equal for better errors when we can't solve, let's do that.
 *)
 
-let add_fresh = fun t s => match (t,s) with
+let add_fresh t s = match (t,s) with
   | (None,(?inst, ?vars)) =>
     assume T_ : Type in
     assume x_ : T_ in
@@ -48,7 +48,7 @@ let add_fresh = fun t s => match (t,s) with
 
 (* usage : apply_insts v insts
    IMPORTANT: insts must be in order of application *)
-let apply_insts = fun v insts =>
+let apply_insts v insts =
   fold (fun v inst => match inst with
     | (?x, ?vx) =>
       v where x = vx
@@ -63,7 +63,7 @@ let rec mem x l =
 
 (* return 'some s where s state such that its instantiations make A and B equal, else 'none *)
 let rec solve_eq s A B =
-  let instantiate = fun s x v =>
+  let instantiate s x v =
     match (x, v) with
       | ((|- _ : ?tx), (|- _ : ?tv)) =>
         match solve_eq s tx tv with
@@ -97,7 +97,7 @@ let rec solve_eq s A B =
     end
   end
 
-let finalize = fun s =>
+let finalize s =
   match s with
     | ((?insts, _), ?v) =>
       apply_insts v insts

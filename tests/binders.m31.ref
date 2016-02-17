@@ -6,10 +6,6 @@ Constant F is declared.
   : A → A → A → (A → A → A) → (A → A → A) → (A → A → A)
     → A
 ⊢ λ (_ : A) (y : A) (_ : A), y : A → A → A → A
-⊢ λ (x : A) (_ : A) (f : A → A → A) (_ : A) (w : A), f x w
-  : A → A → (A → A → A) → A → A → A
-⊢ λ (x : A) (y : A) (f : F x → F y), f
-  : Π (x : A) (y : A), (F x → F y) → F x → F y
 ⊢ Π (A0 : Type) (B : Type) (C : Type), A0 → B → C : Type
 ⊢ Π (A0 : Type) (B : Type) (C : Type), A0 → B → C : Type
 ⊢ Π (A0 : Type) (B : Type) (C : Type), A0 → B → C : Type

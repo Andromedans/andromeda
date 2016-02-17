@@ -2,7 +2,7 @@
 constant A : Type
 constant a : A
 
-let proj_x = fun v => v.x
+let proj_x v = v.x
 
 signature orig = { x : A }
 

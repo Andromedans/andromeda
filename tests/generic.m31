@@ -25,7 +25,7 @@ do match ankle.pet with
   end
 
 do match cat with
-  | |- _sig _ => tt
+  | |- _sig _ => ()
   end
 
 do _struct cat [dwarf,urist]
@@ -41,7 +41,7 @@ do
 
 do _proj ankle pet_id
 
-let first_proj = fun v => match v with
+let first_proj v = match v with
   |- _ : _sig ((_,?s),_) => match s with
     | (?l,_)::_ =>
       _proj v l
@@ -50,7 +50,7 @@ let first_proj = fun v => match v with
 
 do first_proj ankle
 
-let last_proj = fun v => match v with
+let last_proj v = match v with
   |- _ : _sig ((_,?s),_) => match rev s with
     | (?l,_)::_ =>
       _proj v l
@@ -76,7 +76,7 @@ do match assume x : A in x : B with
   end
 
 fail match ankle with
-  |- _atom _ => tt
+  |- _atom _ => ()
   end
 
 constant a : A
