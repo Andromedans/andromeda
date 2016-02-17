@@ -1,7 +1,7 @@
 
 signature prod_s = { A : Type, B : Type, fst : A, snd : B }
 
-let prod = lambda (A B : Type), prod_s using A = A and B = B and fst and snd end
+let prod = lambda (A B : Type), {prod_s with A = A, B = B}
 
 let pair = lambda (A B : Type) (x : A) (y : B),
   { A, B,

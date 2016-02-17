@@ -15,10 +15,8 @@ Constant ( <= ) is declared.
   : A → A → A → A → A
 Signature isContr is declared.
 x0 is defined.
-x₂₂ : isContr using T = Type ≡ Type and center as a0 and
-          contr_path as _ end 
-⊢ x₂₂
-  : isContr using T = Type ≡ Type and center as a0 and contr_path as _ end
+x₂₂ : {isContr with T = Type ≡ Type, center as a0, contr_path as _} 
+⊢ x₂₂ : {isContr with T = Type ≡ Type, center as a0, contr_path as _}
 The command failed with error:
 File "./everything.m31", line 81, characters 6-9: Typing error
   this expression should be a product, found Type
@@ -44,8 +42,8 @@ File "./everything.m31", line 112, characters 13-25: Runtime error
   cannot infer the type of x
 The command failed with error:
 File "./everything.m31", line 116, characters 21-22: Typing error
-  the expression {} should have type wrapped using unwrap = a end
-  but has type unit
+  the expression {} should have type {wrapped with unwrap = a} but has type
+  unit
 y_combinator is defined.
 f is defined.
 g is defined.
@@ -72,11 +70,11 @@ x₃₂ : A
 alpha_equal is defined.
 Constant exfalso is declared.
 Signature container is declared.
-⊢ {T = A} : container using T and cont = exfalso T end
-⊢ {T = A} : container using T and cont = exfalso T end
-⊢ {cont = exfalso A} : container using T = A and cont end
-⊢ {cont = exfalso A} : container using T = A and cont end
-⊢ {cont = a} : container using T = A and cont end
+⊢ {T = A} : {container with T, cont = exfalso T}
+⊢ {T = A} : {container with T, cont = exfalso T}
+⊢ {cont = exfalso A} : {container with T = A, cont}
+⊢ {cont = exfalso A} : {container with T = A, cont}
+⊢ {cont = a} : {container with T = A, cont}
 ⊢ {unwrap = a}.unwrap : A
 x₄₄ : wrapped 
 ⊢ x₄₄.unwrap : A
@@ -85,7 +83,7 @@ x₄₄ : wrapped
 (((⊢ wrapped : Type), [(unwrap,
 (unwrap₄₆ : A 
  ⊢ unwrap₄₆ : A))]), [Inr (⊢ a : A)])
-((⊢ container using T = A and cont end : Type), [(⊢ a : A)])
+((⊢ {container with T = A, cont} : Type), [(⊢ a : A)])
 ((x₄₉ : wrapped 
   ⊢ x₄₉ : wrapped), unwrap)
 Tvar is defined.
@@ -107,8 +105,8 @@ Constant eq is declared.
 Some (⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ a)
 Some (⊢ refl {unwrap = a}.unwrap : {unwrap = a}.unwrap ≡ a)
 Some
-(⊢ refl wrapped using unwrap = a end
-   : wrapped using unwrap = a end ≡ wrapped using unwrap = b end)
+(⊢ refl {wrapped with unwrap = a}
+   : {wrapped with unwrap = a} ≡ {wrapped with unwrap = b})
 ⊢ λ (x : unit), refl x : Π (x : unit), x ≡ {}
 ⊢ λ (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (_ : x ≡ y), refl p
   : Π (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (q : x ≡ y), p ≡ q

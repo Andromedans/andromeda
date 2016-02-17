@@ -5,7 +5,7 @@ constant N : Type
 constant Z : N
 constant S : N -> N
 
-constant N_lci : lci using T = N end
+constant N_lci : {lci with T = N}
 let (+) = N_lci.(+)
 
 constant plus_Z : forall n : N, Z + n == n
