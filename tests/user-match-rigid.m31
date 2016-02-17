@@ -14,3 +14,5 @@ signature pair = { fst : A, snd : A }
 
 do collector quants (pair using fst and snd = fst end) (pair using fst and snd = x end)
 
+do collector quants (pair using fst = x end) pair
+
