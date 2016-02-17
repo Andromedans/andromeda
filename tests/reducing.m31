@@ -1,0 +1,26 @@
+
+signature lci = { T : Type, (+) : T -> T -> T }
+
+constant N : Type
+constant Z : N
+constant S : N -> N
+
+constant N_lci : lci using T = N end
+let (+) = N_lci.(+)
+
+constant plus_Z : forall n : N, Z + n == n
+constant plus_S : forall n m : N, (S n) + m == S (n + m)
+
+(* Reducing argument for a projection *)
+let _ = set_reducing ( + ) [eager,lazy]
+let _ = add_betas [plus_S,plus_Z]
+
+do whnf (Z + Z)
+do whnf ((Z + Z) + Z)
+do whnf (((S Z) + (S Z)) + ((S Z) + (S Z)))
+
+do with fasteq () handle
+  (* Reducing argument for a constant *)
+  set_reducing S [eager];
+  whnf (((S Z) + (S Z)) + ((S Z) + (S Z)))
+

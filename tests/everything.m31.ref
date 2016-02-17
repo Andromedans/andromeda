@@ -85,8 +85,7 @@ x₄₄ : wrapped
 (((⊢ wrapped : Type), [(unwrap,
 (unwrap₄₆ : A 
  ⊢ unwrap₄₆ : A))]), [Inr (⊢ a : A)])
-((⊢ container using T = A and cont end : Type), [(⊢ A : Type),
-(⊢ a : A)])
+((⊢ container using T = A and cont end : Type), [(⊢ a : A)])
 ((x₄₉ : wrapped 
   ⊢ x₄₉ : wrapped), unwrap)
 Tvar is defined.
