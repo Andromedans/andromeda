@@ -13,3 +13,4 @@ do collector quants (lambda (y : A), x) (lambda (y : A), y)
 signature pair = { fst : A, snd : A }
 
 do collector quants (pair using fst and snd = fst end) (pair using fst and snd = x end)
+

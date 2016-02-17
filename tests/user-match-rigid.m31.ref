@@ -6,6 +6,4 @@ Some ([((x₁₀ : A
          ⊢ x₁₀ : A), Some (⊢ a : A))], [])
 None
 Signature pair is declared.
-File "./../std/equal.m31", lines 109-111, characters 3-5: Runtime error
-  no match found for fst₂₅ : A 
-                     ⊢ fst₂₅ : A
+None

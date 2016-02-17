@@ -160,6 +160,24 @@ let rec inst_sides quants x y =
     end
   end
 
+let rec collector_shares collector pop quants s1 s2 = match (s1, s2) with
+    | ([], []) => Some (pop_rigids pop quants)
+    | ((Inl ?a)::?s1, (Inl ?b)::?s2) => (* non constrained *)
+      let quants = add_paired_rigids a b quants in
+      collector_shares collector (Some pop) quants s1 s2
+    | ((Inr ?a)::?s1, (Inr ?b)::?s2) =>
+      collector quants a b >?= (fun quants =>
+      collector_shares collector pop quants s1 s2)
+  end
+
+let rec collector_struct collector quants l1 l2 = match (l1,l2) with
+  | ([], []) => Some quants
+  | (?e1 :: ?l1, ?e2 :: ?l2) =>
+    collector quants e1 e2 >?= (fun quants =>
+    collector_struct collector quants l1 l2)
+  end
+
+
 (* Update `quants` with values such that `lhs` matches `rhs`. 
    Return updated `Some quants`, or `None` if `lhs` could not
    be made to match `rhs`.
@@ -230,33 +248,16 @@ let rec collector quants lhs rhs =
             end
 
           | (|- _sig ((?s,_),?shares1), |- _sig ((?s,_),?shares2)) =>
-            collector_shares None quants shares1 shares2
+            collector_shares collector None quants shares1 shares2
 
           | (|- _struct ?s1 ?l1, |- _struct ?s2 ?l2) =>
             collector quants s1 s2 >?= (fun quants =>
-            collector_struct quants l1 l2)
+            collector_struct collector quants l1 l2)
 
           | _ => None
         end
       | None => None
     end
-
-and collector_shares pop quants s1 s2 = match (s1, s2) with
-    | ([], []) => Some (pop_rigids pop quants)
-    | ((Inl ?a)::?s1, (Inl ?b)::?s2) => (* non constrained *)
-      let quants = add_paired_rigids a b quants in
-      collector_shares (Some pop) quants s1 s2
-    | ((Inr ?a)::?s1, (Inr ?b)::?s2) =>
-      collector quants a b >?= (fun quants =>
-      collector_shares pop quants s1 s2)
-  end
-
-and collector_struct quants l1 l2 = match (l1,l2) with
-  | ([], []) => Some quants
-  | (?e1 :: ?l1, ?e2 :: ?l2) =>
-    collector quants e1 e2 >?= (fun quants =>
-    collector_struct quants l1 l2)
-  end
 
 
 (* Given `(x1, Some v1), ..., (xn, Some vn)` apply `f` to the
