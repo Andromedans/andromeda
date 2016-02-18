@@ -1,16 +1,10 @@
 Constant A is declared.
+Constant B is declared.
+Constant C is declared.
+Constant pair is declared.
+T is defined.
 x is defined.
-P is defined.
-y is defined.
-Constant a is declared.
-Constant b is declared.
-Constant ign is declared.
-Constant g is declared.
-igny is defined.
-File "./error-context-subst.m31", line 17, characters 25-42: Runtime error
-  cannot join contexts P₁₂ : A → Type 
-                       y₁₃ : P₁₂ a 
-                        and
-  P₁₂ : A → Type 
-  y₁₃ : P₁₂ b 
-   at y₁₃
+File "./error-context-subst.m31", line 9, characters 25-39: Runtime error
+  cannot join contexts x₁₃ : A 
+                        and x₁₃ : B 
+                             at x₁₃

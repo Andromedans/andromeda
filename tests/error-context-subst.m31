@@ -1,18 +1,10 @@
 (* Substitute with different values in separate subterms, then join. *)
 
-constant A : Type
+constant A B C : Type
+constant pair : A -> B -> C
 
-let x = assume x : A in x
-let P = assume P : A -> Type in P
-let y = assume y : P x in y
+let T = assume T : Type in T
+let x = assume x : T in x
 
-constant a : A
-constant b : A
-
-constant ign : forall (T : Type), T -> A
-constant g : A -> A -> A
-
-let igny = ign (P x) y
-
-do g (igny where x = a) (igny where x = b)
+do pair (x where T = A) (x where T = B)
 
