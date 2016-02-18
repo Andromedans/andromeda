@@ -149,9 +149,14 @@ let rec infer (c',loc) =
      Value.return_unit
 
   | Syntax.Sequence (c1, c2) ->
-     infer c1 >>= fun _ ->
-     (* XXX is it a good idea to ignore the value?
-        Maybe a warning would be nice when the value is not unit. *)
+     infer c1 >>= fun v ->
+     begin match v with
+       | Value.Tuple [] -> Value.return ()
+       | _ ->
+         Value.print_value >>= fun pval ->
+         Print.warning "%t: Sequence:@ The value %t should be ()" (Location.print loc) (pval v);
+         Value.return ()
+     end >>= fun () ->
      infer c2
 
   | Syntax.Assume ((x, t), c) ->
