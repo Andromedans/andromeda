@@ -171,13 +171,18 @@ val add_bound : Name.ident -> value -> 'a result -> 'a result
 (** Add a bound variable (for matching). *)
 val push_bound : Name.ident -> value -> env -> env
 
-(** [add_free ~loc x t f] generates a fresh atom [y] from identifier [x].
-    It then runs [f y] in the environment with [x] bound to [y]. *)
+(** [add_free ~loc x (ctx,t) f] generates a fresh atom [y] from identifier [x],
+    then it extends [ctx] to [ctx' = ctx, y : t]
+    and runs [f ctx' y] in the environment with [x] bound to [ctx' |- y : t].
+    NB: This is an effectful computation, as it increases a global counter. *)
 val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom -> 'a result) -> 'a result
 
-(** [add_abstracting ~loc x t] generates a fresh atom [y] from identifier [x] and marks
-    it as abstracting (which means we intend to abstract it later).
-    It then runs [f y] in the environment with [x] bound to [y]. *)
+(** [add_free ~loc ?bind x (ctx,t) f] generates a fresh atom [y] from identifier [x],
+    then it extends [ctx] to [ctx' = ctx, y : t]
+    and runs [f ctx' y] in the environment with
+      - [y] marked as abstracting and
+      - if [bind] then [x] bound to [ctx' |- y : t] (default behavior).
+    NB: This is an effectful computation, as it increases a global counter. *)
 val add_abstracting: loc:Location.t -> ?bind:bool -> Name.ident -> Jdg.ty ->
                      (Context.t -> Name.atom -> 'a result) -> 'a result
 
