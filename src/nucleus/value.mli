@@ -168,6 +168,9 @@ val get_bound : loc:Location.t -> Syntax.bound -> env -> value
 (** Add a bound variable with given name to the environment. *)
 val add_bound : Name.ident -> value -> 'a result -> 'a result
 
+val add_bound_rec :
+  (Name.ident * (value -> value result)) list -> 'a result -> 'a result
+
 (** Add a bound variable (for matching). *)
 val push_bound : Name.ident -> value -> env -> env
 
@@ -200,6 +203,8 @@ val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit tople
 (** Add a bound variable with the given name to the environment.
     Complain if then name is already used. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
+
+val add_topbound_rec : loc:Location.t -> (Name.ident * (value -> value result)) list -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel

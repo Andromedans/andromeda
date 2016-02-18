@@ -410,6 +410,18 @@ let add_bound x v m env =
   let env = add_bound0 x v env in
   m env
 
+let add_bound_rec lst m env =
+  let r = ref env in
+  let env =
+    List.fold_left
+      (fun env (f, g) ->
+        let v = Closure (Clos (fun v env -> g v {env with lexical = (!r).lexical})) in
+        add_bound0 f v env)
+      env lst
+  in
+  r := env ;
+  m env
+
 let push_bound = add_bound0
 
 let add_topbound ~loc x v env =
@@ -418,6 +430,21 @@ let add_topbound ~loc x v env =
   else
     let env = add_bound0 x v env in
     (), env
+
+let add_topbound_rec ~loc lst env =
+  let r = ref env in
+  let env =
+    List.fold_left
+      (fun env (f, g) ->
+        if is_known f env
+        then Error.runtime ~loc "%t is already declared" (Name.print_ident f)
+        else
+          let v = Closure (Clos (fun v env -> g v {env with lexical = (!r).lexical})) in
+          add_bound0 f v env)
+      env lst
+  in
+  r := env ;
+  (), env
 
 let add_handle op xsc env =
   (),{ env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }

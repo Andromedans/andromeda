@@ -6,3 +6,12 @@ t is defined.
 Node (Node (Node "left" "right") (Node "left" "right")) (Node (Node (Node
 "left" "right") (Node "left" "right")) (Node (Node "left" "right") (Node
 "left" "right")))
+(("f", "A", ("g", "A", ("h", "A"))), ("g", "A", ("h", "A")), ("h", "A"))
+a is defined.
+b is defined.
+c is defined.
+d is defined.
+f is defined.
+g is defined.
+h is defined.
+(("f", "A", ("g", "A", ("h", "A"))), ("g", "A", ("h", "A")), ("h", "A"))
