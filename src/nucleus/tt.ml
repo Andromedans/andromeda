@@ -329,13 +329,13 @@ and occurs_sig k (_,shares) =
   fold 0 k shares
 
 and occurs_struct k es =
-  let rec fold acc k = function
+  let rec fold acc = function
     | [] -> acc
     | e :: es ->
       let acc = acc + occurs k e in
-      fold acc k es
+      fold acc es
   in
-  fold 0 k es
+  fold 0 es
 
 and occurs_term_ty k (e, t) =
   occurs k e + occurs_ty k t
