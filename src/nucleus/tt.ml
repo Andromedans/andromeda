@@ -538,18 +538,7 @@ and print_term' ~penv ?max_level e ppf =
       | Constant x ->
          Name.print_ident x ppf
 
-      | Bound k ->
-        begin
-          try
-            let x = List.nth penv.forbidden k in
-            if !Config.debruijn
-            then Format.fprintf ppf "%t[%d]" (Name.print_ident x) k
-            else Name.print_ident x ppf
-          with
-          | Not_found | Failure "nth" ->
-              (** XXX this should never get printed *)
-              Format.fprintf ppf "DEBRUIJN[%d]" k
-        end
+      | Bound k -> Name.print_debruijn penv.forbidden k ppf
 
       | Lambda a -> print_lambda ?max_level ~penv a ppf
 
@@ -593,6 +582,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
          match List.nth penv.forbidden k with
          | Name.Ident (_, Name.Prefix) as op -> Some (As_ident op)
          | Name.Ident (_, _) -> None
+         | exception Failure "nth" -> None
        end
     | Constant (Name.Ident (_, Name.Prefix) as op) -> Some (As_ident op)
     | Atom (Name.Atom (_, Name.Prefix, _) as op) -> Some (As_atom op)
@@ -629,6 +619,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
                                   Name.Infix3 | Name.Infix4) as fixity)) as op ->
                    Some (As_ident op, fixity, e1)
                 | Name.Ident (_, (Name.Word | Name.Anonymous | Name.Prefix)) -> None
+                | exception Failure "nth" -> None
               end
            | Apply ({term=Constant (Name.Ident (_,
                                                 ((Name.Infix0 | Name.Infix1 | Name.Infix2|

@@ -144,3 +144,14 @@ let index_of_ident x ys =
   in
   fold 0 ys
 
+let print_debruijn xs k ppf =
+  try
+    let x = List.nth xs k in
+    if !Config.debruijn
+    then Format.fprintf ppf "%t[%d]" (print_ident x) k
+    else print_ident x ppf
+  with
+  | Failure "nth" ->
+      (** XXX this should never get printed *)
+      Format.fprintf ppf "DEBRUIJN[%d]" k
+
