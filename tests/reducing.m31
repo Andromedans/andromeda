@@ -24,3 +24,5 @@ do with fasteq () handle
   set_reducing S [eager];
   whnf (((S Z) + (S Z)) + ((S Z) + (S Z)))
 
+fail set_reducing ((+) Z) [lazy]
+

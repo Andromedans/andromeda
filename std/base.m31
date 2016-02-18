@@ -17,5 +17,5 @@ end
 
 let (|>) x f = f x
 
-operation failure 0
+operation failure 1
 

@@ -5,7 +5,9 @@ constant A : Type
 constant a b : A
 constant (+) : A -> A -> A
 
-fail failure
+operation Not_found 0
+
+fail Not_found
 
 operation info 3
 
