@@ -7,11 +7,29 @@ type decl =
   | DeclOperation of int
   | DeclSignature of Tt.sig_def
 
-type dynamic = {
+(** This module defines 2 monads:
+    - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
+      Primitives are like [add_bound].
+    - the toplevel monad [toplevel], a standard state monad with restricted accessors.
+      Primitives are like [top_add_bound].
+      Some modifications of the environment may only be done at the top level, for instance declaring constants.
+    For internal use, functions which work on the environment may be defined, eg [add_bound0].
+
+    Finally in a small number of restricted circumstances the environment is accessed outside the monads.
+*)
+
+(** Run-time environment. *)
+type env = {
+  dynamic : dynamic;
+  lexical : lexical;
+  state   : state  ;
+}
+
+and dynamic = {
   decls : (Name.ident * decl) list ;
   (* Toplevel declaration *)
 
-  abstracting : Jdg.term list;
+  abstracting : value list;
   (* The list of judgments about atoms which are going to be abstracted. We
      should avoid creating atoms which depends on these, as this will prevent
      abstraction from working. The list is in the reverse order from
@@ -19,9 +37,11 @@ type dynamic = {
      list. *)
 }
 
-type lexical = {
+and lexical = {
   bound : (Name.ident * value) list;
   continuation : (value,value) closure option;
+
+  (* The following are only modified at the top level *)
   handle : (Name.ident * (value list * Jdg.ty option,value) closure) list;
   files : string list;
 }
@@ -54,13 +74,6 @@ and handler = {
   handler_val: (value,value) closure option;
   handler_ops: (operation_args, value) closure Name.IdentMap.t;
   handler_finally: (value,value) closure option;
-}
-
-(** Run-time environment. *)
-and env = {
-  dynamic : dynamic;
-  lexical : lexical;
-  state   : state  ;
 }
 
 (** A toplevel computation carries around the current
@@ -354,11 +367,11 @@ let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
     then
       env
     else
-      let jyt = Jdg.mk_term ctx (Tt.mk_atom ~loc y) t in
-      let env = add_bound0 x (mk_term jyt) env in
+      let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
+      let env = add_bound0 x yt env in
       { env with
                 dynamic = { env.dynamic with
-                            abstracting = jyt :: env.dynamic.abstracting } }
+                            abstracting = yt :: env.dynamic.abstracting } }
   in
   m ctx y env
 

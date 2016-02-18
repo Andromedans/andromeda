@@ -304,8 +304,7 @@ let rec infer (c',loc) =
 
   | Syntax.Hypotheses ->
      Value.lookup_abstracting >>= fun lst ->
-     let v = Value.mk_list
-               (List.map (fun jxt -> Value.mk_term jxt) lst) in
+     let v = Value.mk_list lst in
      Value.return v
 
   | Syntax.Congruence (c1,c2) ->

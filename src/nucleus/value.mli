@@ -156,7 +156,7 @@ val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def comp
 val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) comp
 
 (** Lookup abstracting variables. *)
-val lookup_abstracting : Jdg.term list comp
+val lookup_abstracting : value list comp
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> Syntax.bound -> value comp
