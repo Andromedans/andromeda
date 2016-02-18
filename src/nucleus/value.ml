@@ -104,6 +104,7 @@ let mk_string s = String s
 let mk_ident x = Ident x
 
 let mk_closure0 (f : 'a -> 'b result) {lexical;_} = Clos (fun v env -> f v {env with lexical})
+let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
 
 let apply_closure (Clos f) v env = f v env
 
@@ -415,7 +416,7 @@ let add_bound_rec0 lst env =
   let env =
     List.fold_left
       (fun env (f, g) ->
-        let v = Closure (Clos (fun v env -> g v {env with lexical = (!r).lexical})) in
+        let v = Closure (mk_closure_ref g r) in
         add_bound0 f v env)
       env lst
   in
