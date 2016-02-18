@@ -144,4 +144,6 @@ let main =
       then toplevel comp
       else Value.run comp
   with
-    Error.Error err -> Print.error "%t" (Error.print err); exit 1
+    | Error.Error err -> Print.error "%t" (Error.print err); exit 1
+    | End_of_file -> ()
+
