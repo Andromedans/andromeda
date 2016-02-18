@@ -91,6 +91,8 @@ let list_combine3 =
 
 (** Compare two types *)
 let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
+  Monad.lift Value.print_term >!= fun pte ->
+  Monad.lift Value.print_ty >!= fun pty ->
   if Tt.alpha_equal e1 e2
   then
     Opt.return ctx

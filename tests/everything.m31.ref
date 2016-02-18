@@ -20,16 +20,6 @@ x₂₂ : {isContr with T = Type ≡ Type}
 The command failed with error:
 File "./everything.m31", line 81, characters 6-9: Typing error
   this expression should be a product, found Type
-Debug: (66 checking equality of Type and Type at type
-Type
-Debug: (67 checking equality of Type and Type at type
-Type
-Debug: (68 checking equality of Type and Type at type
-Type
-Debug: (69 checking equality of Type and Type at type
-Type
-Debug: (70 checking equality of Type and Type at type
-Type
 ⊢ refl Type : Type ≡ Type
 ⊢ λ (T : Type) (x : T), x : Π (A0 : Type), A0 → A0
 ⊢ refl {} : {} ≡ {}
