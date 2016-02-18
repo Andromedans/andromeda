@@ -129,7 +129,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
         let rec fold ctx shares res ys = function
           | [] ->
             let js = Jdg.term_of_ty (Jdg.mk_ty Context.empty (Tt.mk_signature_ty ~loc (s,List.rev shares))) in
-            Value.mk_tuple [Value.mk_term js;Value.from_list (List.rev res)]
+            Value.mk_tuple [Value.mk_term js;Value.mk_list (List.rev res)]
           | (l,x,t)::rem ->
             let t = Tt.unabstract_ty ys t in
             let y,ctx = Context.add_fresh ctx x t in
@@ -141,7 +141,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
         (* Build a representation of the constraints *)
         let rec fold ctx lv es ys = function
           | [] ->
-            let lv = Value.from_list (List.rev lv) in
+            let lv = Value.mk_list (List.rev lv) in
             Value.mk_tuple [vbase;lv]
           | ((_,_,t),(Tt.Inl x))::rem ->
             let t = Tt.instantiate_ty es t in
@@ -170,7 +170,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
         (* build the list of explicit terms
            [es] instantiate the types *)
         let rec fold vs es = function
-          | [] -> Value.from_list (List.rev vs)
+          | [] -> Value.mk_list (List.rev vs)
           | ((_,_,t),e)::rem ->
             begin match e with
               | Tt.Explicit e ->
@@ -246,7 +246,7 @@ and collect_pattern env xvs (p,loc) v =
 
   | Syntax.Patt_Cons (p1,p2), Value.List (v1::v2) ->
     let xvs = collect_pattern env xvs p1 v1 in
-    let xvs = collect_pattern env xvs p2 (Value.from_list v2) in
+    let xvs = collect_pattern env xvs p2 (Value.mk_list v2) in
     xvs
 
   | Syntax.Patt_Tuple ps, Value.Tuple vs ->

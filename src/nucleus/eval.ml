@@ -305,7 +305,7 @@ let rec infer (c',loc) =
 
   | Syntax.Hypotheses ->
      Value.lookup_abstracting >>= fun lst ->
-     let v = Value.from_list
+     let v = Value.mk_list
                (List.map (fun jxt -> Value.mk_term jxt) lst) in
      Value.return v
 
@@ -464,7 +464,7 @@ let rec infer (c',loc) =
       let e = Tt.mk_atom ~loc x in
       let j = Jdg.mk_term ctx e t in
       Value.mk_term j) xts in
-    Value.return (Value.from_list js)
+    Value.return (Value.mk_list js)
 
 and require_equal ctx e1 e2 t =
   Equal.Opt.run (Equal.equal ctx e1 e2 t)

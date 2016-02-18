@@ -141,7 +141,7 @@ let context _ ctx = ctx
 let rec value env = function
   | Value.Term (Jdg.Term (ctx,e,t)) -> Value.mk_term (Jdg.mk_term (context env ctx) (term env e) (ty env t))
   | Value.Tag (x,vs) -> Value.mk_tag x (List.map (value env) vs)
-  | Value.List lst -> Value.from_list (List.map (value env) lst)
+  | Value.List lst -> Value.mk_list (List.map (value env) lst)
   | Value.Tuple lst -> Value.mk_tuple (List.map (value env) lst)
   | Value.Ref _ | Value.Closure _ | Value.Handler _ | Value.String _ | Value.Ident _ as v -> v
 

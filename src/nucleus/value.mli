@@ -50,6 +50,10 @@ val mk_tuple : value list -> value
 val mk_string : string -> value
 val mk_ident : Name.ident -> value
 
+val mk_list : value list -> value
+val list_nil : value
+val list_cons : value -> value list -> value
+
 val apply_closure : ('a,'b) closure -> 'a -> 'b result
 
 (** References *)
@@ -100,18 +104,14 @@ val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> Store.key
 val as_string : loc:Location.t -> value -> string
 val as_ident : loc:Location.t -> value -> Name.ident
-
-val as_option : loc:Location.t -> value -> value option
 val as_list : loc:Location.t -> value -> value list
-val as_sum : loc:Location.t -> value -> (value,value) Tt.sum
 
 (** Wrappers for making tags *)
 val from_option : value option -> value
-val from_list : value list -> value
-val from_sum : (value,value) Tt.sum -> value
+val as_option : loc:Location.t -> value -> value option
 
-val list_nil : value
-val list_cons : value -> value list -> value
+val from_sum : (value,value) Tt.sum -> value
+val as_sum : loc:Location.t -> value -> (value,value) Tt.sum
 
 (** Operations *)
 val operation : Name.ident -> ?checking:Jdg.ty -> value list -> value result

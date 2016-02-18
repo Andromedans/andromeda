@@ -103,7 +103,11 @@ let mk_tuple lst = Tuple lst
 let mk_string s = String s
 let mk_ident x = Ident x
 
-let mk_closure0 (f : 'a -> 'b result) {lexical;_} = Clos (fun v env -> f v {env with lexical})
+let mk_list lst = List lst
+let list_nil = List []
+let list_cons v lst = List (v :: lst)
+
+let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
 
 let apply_closure (Clos f) v env = f v env
 
@@ -165,6 +169,8 @@ let return_handler handler_val handler_ops handler_finally env =
   } in
   Return (Handler h), env.state
 
+let return_unit = return (Tuple [])
+
 let rec top_fold f acc = function
   | [] -> top_return acc
   | x::rem -> top_bind (f acc x) (fun acc ->
@@ -213,39 +219,31 @@ let as_ident ~loc = function
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected an identifier but got %s" (name_of v)
 
+let as_list ~loc = function
+  | List lst -> lst
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+    Error.runtime ~loc "expected a list but got %s" (name_of v)
+
+(** Wrappers for making tags *)
+let from_option = function
+  | None -> Tag (name_none, [])
+  | Some v -> Tag (name_some, [v])
+
 let as_option ~loc = function
   | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
+let from_sum = function
+  | Tt.Inl x -> Tag (name_inl, [x])
+  | Tt.Inr x -> Tag (name_inr, [x])
+
 let as_sum ~loc = function
   | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Tt.Inl x
   | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Tt.Inr x
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a sum but got %s" (name_of v)
-
-(** Wrappers for making tags *)
-let as_list ~loc = function
-  | List lst -> lst
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
-    Error.runtime ~loc "expected a list but got %s" (name_of v)
-
-let from_option = function
-  | None -> Tag (name_none, [])
-  | Some v -> Tag (name_some, [v])
-
-let from_list lst = List lst
-
-let from_sum = function
-  | Tt.Inl x -> Tag (name_inl, [x])
-  | Tt.Inr x -> Tag (name_inr, [x])
-
-let list_nil = List []
-
-let list_cons v lst = List (v :: lst)
-
-let return_unit = return (Tuple [])
 
 (** Operations *)
 
