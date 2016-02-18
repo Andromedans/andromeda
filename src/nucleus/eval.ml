@@ -311,7 +311,7 @@ let rec infer (c',loc) =
   | Syntax.Congruence (c1,c2) ->
     infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
     check c2 (Jdg.mk_ty ctx t) >>= fun (ctx,e2) ->
-    Equal.Opt.run (Equal.congruence ~loc ctx e1 e2 t) >>= begin function
+    Equal.congruence ~loc ctx e1 e2 t >>= begin function
       | Some (ctx,hyps) ->
         let eq = Tt.mk_refl ~loc t e1 in
         let eq = Tt.mention_atoms hyps eq in
@@ -325,7 +325,7 @@ let rec infer (c',loc) =
   | Syntax.Extensionality (c1,c2) ->
     infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
     check c2 (Jdg.mk_ty ctx t) >>= fun (ctx,e2) ->
-    Equal.Opt.run (Equal.extensionality ~loc ctx e1 e2 t) >>= begin function
+    Equal.extensionality ~loc ctx e1 e2 t >>= begin function
       | Some (ctx,hyps) ->
         let eq = Tt.mk_refl ~loc t e1 in
         let eq = Tt.mention_atoms hyps eq in
@@ -338,7 +338,7 @@ let rec infer (c',loc) =
 
   | Syntax.Reduction c ->
      infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx, e, t)) ->
-     Equal.Opt.run (Equal.reduction_step ctx e) >>=
+     Equal.reduction_step ctx e >>=
        begin function
          | Some ((ctx, e'), hyps) ->
             let eq = Tt.mk_refl ~loc t e in
@@ -354,7 +354,7 @@ let rec infer (c',loc) =
 
   | Syntax.GenSig (c1,c2) ->
     check_ty c1 >>= fun j1 ->
-    Equal.Monad.run (Equal.as_signature j1) >>= fun ((_,(s,shares)),_) ->
+    Equal.as_signature j1 >>= fun ((_,(s,shares)),_) ->
     if List.for_all (function | Tt.Inl _ -> true | Tt.Inr _ -> false) shares
     then
       infer c2 >>= as_list ~loc >>= fun xes ->
@@ -408,7 +408,7 @@ let rec infer (c',loc) =
 
   | Syntax.GenStruct (c1,c2) ->
     check_ty c1 >>= fun (Jdg.Ty (_,target) as jt) ->
-    Equal.Monad.run (Equal.as_signature jt) >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
+    Equal.as_signature jt >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
     infer c2 >>= as_list ~loc >>= fun vs ->
     Value.lookup_signature ~loc s >>= fun lxts ->
     (* [es] instantiate types, [res] is the explicit fields (which instantiate constraints) *)
@@ -465,13 +465,10 @@ let rec infer (c',loc) =
       Value.mk_term j) xts in
     Value.return (Value.mk_list js)
 
-and require_equal ctx e1 e2 t =
-  Equal.Opt.run (Equal.equal ctx e1 e2 t)
-
 and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
   Value.lookup_penv >>= fun penv ->
   let ctx = Context.join ~penv ~loc lctx rctx in
-  Equal.Opt.run (Equal.equal_ty ctx lte rte)
+  Equal.equal_ty ctx lte rte
 
 and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
   as_term ~loc v >>= fun (Jdg.Term (ctxe, e, t')) ->
@@ -577,16 +574,16 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
     check_lambda ~loc t_check x u c
 
   | Syntax.Refl c ->
-    Equal.Monad.run (Equal.as_eq t_check) >>= fun ((ctx, t', e1, e2),hyps) ->
+    Equal.as_eq t_check >>= fun ((ctx, t', e1, e2),hyps) ->
     let t = Jdg.mk_ty ctx t' in
     check c t >>= fun (ctx, e) ->
-    require_equal ctx e e1 t' >>= begin function
+    Equal.equal ctx e e1 t' >>= begin function
       | None ->
         Value.print_term >>= fun pte ->
         Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
                      (pte e) (pte e1)
       | Some (ctx, hyps1) ->
-        require_equal ctx e e2 t' >>=
+        Equal.equal ctx e e2 t' >>=
           begin function
             | None ->
               Value.print_term >>= fun pte ->
@@ -602,7 +599,7 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
       end
 
   | Syntax.Structure lxcs ->
-    Equal.Monad.run (Equal.as_signature t_check) >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
+    Equal.as_signature t_check >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
     Value.lookup_signature ~loc s >>= fun s_def ->
     (* Set up to skip fields not mentioned in [lxcs] *)
     let rec align fields s_data = function
@@ -691,7 +688,7 @@ and infer_prod ~loc x u c =
   Value.return_term j)
 
 and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.comp =
-  Equal.Monad.run (Equal.as_prod t_check) >>= fun ((ctx,((_,a),b)),hypst) ->
+  Equal.as_prod t_check >>= fun ((ctx,((_,a),b)),hypst) ->
   begin match u with
     | Some u ->
       check_ty u >>= fun (Jdg.Ty (_,u) as ju) ->
@@ -722,7 +719,7 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.comp =
   Value.return (ctx,lam))
 
 and apply ~loc (Jdg.Term (_, h, _) as jh) c =
-  Equal.Monad.run (Equal.as_prod (Jdg.typeof jh)) >>= fun ((ctx,((x,a),b)),hyps) ->
+  Equal.as_prod (Jdg.typeof jh) >>= fun ((ctx,((x,a),b)),hyps) ->
   let h = Tt.mention_atoms hyps h in
   check c (Jdg.mk_ty ctx a) >>= fun (ctx,e) ->
   let res = Tt.mk_apply ~loc h x a b e in
@@ -733,7 +730,7 @@ and apply ~loc (Jdg.Term (_, h, _) as jh) c =
 and infer_projection ~loc c p =
   infer c >>= as_term ~loc >>= fun (Jdg.Term (_,te,_) as j) ->
   let jty = Jdg.typeof j in
-  Equal.Monad.run (Equal.as_signature jty) >>= fun ((ctx,s),hyps) ->
+  Equal.as_signature jty >>= fun ((ctx,s),hyps) ->
   let te = Tt.mention_atoms hyps te in
   Value.lookup_signature ~loc (fst s) >>= fun s_def ->
   (if not (List.exists (fun (l,_,_) -> Name.eq_ident p l) s_def)

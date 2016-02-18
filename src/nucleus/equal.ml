@@ -66,6 +66,8 @@ module Opt = struct
     m.k (fun x s -> Value.return (Some (x,s))) (fun _ -> Value.return None) AtomSet.empty
 end
 
+module Internals = struct
+
 let (>>=) = Monad.(>>=)
 
 let (>?=) = Opt.(>?=)
@@ -485,4 +487,28 @@ let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
                 "this expression should be a witness of equality between %t and a signature"
                 (pty t)
       end
+
+end
+
+(** Expose without the monad stuff *)
+
+type 'a witness = ('a * AtomSet.t) Value.comp
+
+type 'a opt = ('a * AtomSet.t) option Value.comp
+
+let equal ctx e1 e2 t = Opt.run (Internals.equal ctx e1 e2 t)
+
+let equal_ty ctx t1 t2 = Opt.run (Internals.equal_ty ctx t1 t2)
+
+let reduction_step ctx e = Opt.run (Internals.reduction_step ctx e)
+
+let congruence ~loc ctx e1 e2 t = Opt.run (Internals.congruence ~loc ctx e1 e2 t)
+
+let extensionality ~loc ctx e1 e2 t = Opt.run (Internals.extensionality ~loc ctx e1 e2 t)
+
+let as_eq j = Monad.run (Internals.as_eq j)
+
+let as_prod j = Monad.run (Internals.as_prod j)
+
+let as_signature j = Monad.run (Internals.as_signature j)
 
