@@ -10,7 +10,7 @@ module Monad = struct
   let empty = AtomSet.empty
 
   type 'a t =
-    { k : 'r. ('a -> state -> 'r Value.result) -> state -> 'r Value.result }
+    { k : 'r. ('a -> state -> 'r Value.comp) -> state -> 'r Value.comp }
 
   let return x =
     { k = fun c s -> c x s }
@@ -18,7 +18,7 @@ module Monad = struct
   let (>>=) m f =
     { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
 
-  (* lift : 'a Value.result -> 'a t *)
+  (* lift : 'a Value.comp -> 'a t *)
   let lift m =
     { k = fun c s -> Value.bind m (fun x -> c x s) }
 
@@ -41,7 +41,7 @@ module Opt = struct
   type state = Monad.state
 
   type 'a opt =
-    { k : 'r. ('a -> state -> 'r Value.result) -> (state -> 'r Value.result) -> state -> 'r Value.result }
+    { k : 'r. ('a -> state -> 'r Value.comp) -> (state -> 'r Value.comp) -> state -> 'r Value.comp }
 
   let return x =
     { k = fun sk _ s -> sk x s }

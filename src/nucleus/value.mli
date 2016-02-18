@@ -1,4 +1,4 @@
-(** Runtime values and results *)
+(** Runtime values and computations *)
 
 (* Information about a toplevel declaration *)
 type decl =
@@ -12,8 +12,7 @@ type env
 
 type ('a,'b) closure
 
-(** The values are "finished" or "computed" results. They are inert pieces
-    of data. *)
+(** The values are "finished" or "computed". They are inert pieces of data. *)
 type value = private
   | Term of Jdg.term
   | Closure of (value,value) closure
@@ -33,8 +32,8 @@ and handler = {
   handler_finally: (value,value) closure option;
 }
 
-(** dynamically scoped environment + operations *)
-type 'a result
+(** computations provide a dynamically scoped environment and operations *)
+type 'a comp
 
 (** state environment, no operations *)
 type 'a toplevel
@@ -54,17 +53,17 @@ val mk_list : value list -> value
 val list_nil : value
 val list_cons : value -> value list -> value
 
-val apply_closure : ('a,'b) closure -> 'a -> 'b result
+val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 
 (** References *)
-val mk_ref : value -> value result
+val mk_ref : value -> value comp
 
-val lookup_ref : Store.key -> value result
+val lookup_ref : Store.key -> value comp
 
-val update_ref : Store.key -> value -> unit result
+val update_ref : Store.key -> value -> unit comp
 
 (** Monadic primitives *)
-val bind: 'a result -> ('a -> 'b result)  -> 'b result
+val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
 
 val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 
@@ -72,28 +71,28 @@ val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 val catch : (unit -> 'a toplevel) -> ('a,Error.details) Error.res toplevel
 
 val top_return : 'a -> 'a toplevel
-val return : 'a -> 'a result
+val return : 'a -> 'a comp
 
 (* XXX why do we need all of these? *)
-val top_return_closure : ('a -> 'b result) -> ('a,'b) closure toplevel
-val top_mk_closure : (value -> value result) -> value toplevel
-val return_closure : (value -> value result) -> value result
+val top_return_closure : ('a -> 'b comp) -> ('a,'b) closure toplevel
+val top_mk_closure : (value -> value comp) -> value toplevel
+val return_closure : (value -> value comp) -> value comp
 
-val return_term : Jdg.term -> value result
-val return_unit : value result
+val return_term : Jdg.term -> value comp
+val return_unit : value comp
 
 val return_handler :
-   (value -> value result) option ->
-   (operation_args -> value result) Name.IdentMap.t ->
-   (value -> value result) option ->
-   value result
+   (value -> value comp) option ->
+   (operation_args -> value comp) Name.IdentMap.t ->
+   (value -> value comp) option ->
+   value comp
 
 val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
 (** Pretty-print a value. *)
-val print_value : (?max_level:int -> value -> Format.formatter -> unit) result
-val print_term : (?max_level:int -> Tt.term -> Format.formatter -> unit) result
-val print_ty : (?max_level:int -> Tt.ty -> Format.formatter -> unit) result
+val print_value : (?max_level:int -> value -> Format.formatter -> unit) comp
+val print_term : (?max_level:int -> Tt.term -> Format.formatter -> unit) comp
+val print_ty : (?max_level:int -> Tt.ty -> Format.formatter -> unit) comp
 
 val top_print_value : (?max_level:int -> value -> Format.formatter -> unit) toplevel
 
@@ -114,13 +113,13 @@ val from_sum : (value,value) Tt.sum -> value
 val as_sum : loc:Location.t -> value -> (value,value) Tt.sum
 
 (** Operations *)
-val operation : Name.ident -> ?checking:Jdg.ty -> value list -> value result
+val operation : Name.ident -> ?checking:Jdg.ty -> value list -> value comp
 
-val operation_equal : value -> value -> value result
+val operation_equal : value -> value -> value comp
 
-val operation_as_prod : value -> value result
-val operation_as_eq : value -> value result
-val operation_as_signature : value -> value result
+val operation_as_prod : value -> value comp
+val operation_as_eq : value -> value comp
+val operation_as_signature : value -> value comp
 
 (** Interact with the environment *)
 
@@ -131,7 +130,7 @@ val top_bound_names : Name.ident list toplevel
 val top_get_env : env toplevel
 
 (** Extract the current environment (for matching) *)
-val get_env : env result
+val get_env : env comp
 
 (** Lookup a data constructor. *)
 val get_decl : Name.ident -> env -> decl option
@@ -145,28 +144,28 @@ val get_data : Name.ident -> env -> int option
 (** Lookup a constant. *)
 val get_constant : Name.ident -> env -> Tt.ty option
 
-val lookup_constant : loc:Location.t -> Name.ident -> Tt.ty result
+val lookup_constant : loc:Location.t -> Name.ident -> Tt.ty comp
 
 (** Lookup a signature definition *)
 val get_signature : Name.signature -> env -> Tt.sig_def option
 
 (** Lookup a signature definition, monadically *)
-val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def result
+val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def comp
 
 (** Find a signature with the given labels (in this exact order) *)
-val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) result
+val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) comp
 
 (** Lookup abstracting variables. *)
-val lookup_abstracting : Jdg.term list result
+val lookup_abstracting : Jdg.term list comp
 
 (** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : loc:Location.t -> Syntax.bound -> value result
+val lookup_bound : loc:Location.t -> Syntax.bound -> value comp
 
 (** For matching *)
 val get_bound : loc:Location.t -> Syntax.bound -> env -> value
 
 (** Add a bound variable with given name to the environment. *)
-val add_bound : Name.ident -> value -> 'a result -> 'a result
+val add_bound : Name.ident -> value -> 'a comp -> 'a comp
 
 (** Add a bound variable (for matching). *)
 val push_bound : Name.ident -> value -> env -> env
@@ -175,7 +174,7 @@ val push_bound : Name.ident -> value -> env -> env
     then it extends [ctx] to [ctx' = ctx, y : t]
     and runs [f ctx' y] in the environment with [x] bound to [ctx' |- y : t].
     NB: This is an effectful computation, as it increases a global counter. *)
-val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom -> 'a result) -> 'a result
+val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom -> 'a comp) -> 'a comp
 
 (** [add_free ~loc ?bind x (ctx,t) f] generates a fresh atom [y] from identifier [x],
     then it extends [ctx] to [ctx' = ctx, y : t]
@@ -184,7 +183,7 @@ val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom 
       - if [bind] then [x] bound to [ctx' |- y : t] (default behavior).
     NB: This is an effectful computation, as it increases a global counter. *)
 val add_abstracting: loc:Location.t -> ?bind:bool -> Name.ident -> Jdg.ty ->
-                     (Context.t -> Name.atom -> 'a result) -> 'a result
+                     (Context.t -> Name.atom -> 'a comp) -> 'a comp
 
 (** Add an operation with the given arity.
     It fails if the operation is already declared. *)
@@ -210,10 +209,10 @@ val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel
 
 (** Set the continuation for a handler computation. *)
-val set_continuation : (value,value) closure -> 'a result -> 'a result
+val set_continuation : (value,value) closure -> 'a comp -> 'a comp
 
 (** Lookup the current continuation. *)
-val lookup_continuation : loc:Location.t -> ((value,value) closure) result
+val lookup_continuation : loc:Location.t -> ((value,value) closure) comp
 
 (** Add a file to the list of files included. *)
 val push_file : string -> unit toplevel
@@ -223,7 +222,7 @@ val push_file : string -> unit toplevel
 val included : string -> bool toplevel
 
 (** Get the printing environment from the monad *)
-val lookup_penv : Tt.print_env result
+val lookup_penv : Tt.print_env comp
 
 (** Print free variables in the environment *)
 val print_env : (Format.formatter -> unit) toplevel
@@ -239,9 +238,9 @@ val progress : 'a progress -> ('a -> 'b toplevel) -> 'b progress
 val finish : 'a progress -> 'a
 
 (** Handling *)
-val handle_result : handler -> value result -> value result
+val handle_comp : handler -> value comp -> value comp
 
-val top_handle : loc:Location.t -> 'a result -> 'a toplevel
+val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 
 (** Check whether two values are equal. *)
 val equal_value: value -> value -> bool

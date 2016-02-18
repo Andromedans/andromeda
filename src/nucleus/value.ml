@@ -1,4 +1,4 @@
-(** Runtime values and results *)
+(** Runtime values and computations *)
 
 (* Information about a toplevel declaration *)
 type decl =
@@ -40,13 +40,13 @@ and value =
   | Ident of Name.ident
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
-and ('a, 'b) closure = Clos of ('a -> 'b result)
+and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
-and 'a raw_result =
+and 'a result =
   | Return of 'a
   | Operation of Name.ident * value list * Jdg.ty option * dynamic * (value,'a) closure
 
-and 'a result = env -> 'a raw_result * state
+and 'a comp = env -> 'a result * state
 
 and operation_args = { args : value list; checking : Jdg.ty option; cont : (value,value) closure }
 
@@ -126,7 +126,7 @@ let update_ref x v env =
 
 (** The monadic bind [bind r f] feeds the result [r : result]
     into function [f : value -> 'a]. *)
-let rec bind (r:'a result) (f:'a -> 'b result) : 'b result = fun env ->
+let rec bind (r:'a comp) (f:'a -> 'b comp) : 'b comp = fun env ->
   match r env with
   | Return v, state -> f v {env with state}
   | Operation (op, vs, jt, d, k), state ->
@@ -569,7 +569,7 @@ let progress (x, env) f = f x env
 let finish (x,_) = x
 
 (** Handling *)
-let rec handle_result {handler_val; handler_ops; handler_finally} (r : value result) : value result =
+let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp) : value comp =
   begin fun env -> match r env with
   | Return v , state ->
      let env = {env with state} in
@@ -580,7 +580,7 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
   | Operation (op, vs, jt, dynamic, cont), state ->
      let env = {env with dynamic; state} in
      let h = {handler_val; handler_ops; handler_finally=None} in
-     let cont = mk_closure0 (fun v env -> handle_result h (apply_closure cont v) env) env in
+     let cont = mk_closure0 (fun v env -> handle_comp h (apply_closure cont v) env) env in
      begin
        try
          let f = Name.IdentMap.find op handler_ops in

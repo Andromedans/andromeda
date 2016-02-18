@@ -3,13 +3,13 @@
 module Monad : sig
   type +'a t
 
-  val run : 'a t -> ('a*Name.AtomSet.t) Value.result
+  val run : 'a t -> ('a*Name.AtomSet.t) Value.comp
 end
 
 module Opt : sig
   type +'a opt
 
-  val run : 'a opt -> ('a*Name.AtomSet.t) option Value.result
+  val run : 'a opt -> ('a*Name.AtomSet.t) option Value.comp
 end
 
 (** [equal env ctx e1 e2 t] returns a context [G] that is an extension of [ctx]

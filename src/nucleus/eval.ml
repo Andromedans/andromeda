@@ -126,7 +126,7 @@ let rec infer (c',loc) =
 
   | Syntax.With (c1, c2) ->
      infer c1 >>= as_handler ~loc >>= fun h ->
-     Value.handle_result h (infer c2)
+     Value.handle_comp h (infer c2)
 
   | Syntax.Let (xcs, c) ->
      let_bind xcs (infer c)
@@ -227,7 +227,7 @@ let rec infer (c',loc) =
      Value.return_term et'
 
   | Syntax.Signature (s,xcs) ->
-    (* [vs] are the result,
+    (* [vs] are the constraints,
        [es] instantiate types,
        [ys:ts] are assumed for unconstrained fields *)
     let rec fold ctx vs es ys ts = function
@@ -486,7 +486,7 @@ and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
                       (pte e) (pty t_check') (pty t')
     end
 
-and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.result =
+and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.comp =
   match c' with
 
   | Syntax.Type
@@ -690,7 +690,7 @@ and infer_prod ~loc x u c =
   let j = Jdg.mk_term ctx prod typ in
   Value.return_term j)
 
-and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
+and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.comp =
   Equal.Monad.run (Equal.as_prod t_check) >>= fun ((ctx,((_,a),b)),hypst) ->
   begin match u with
     | Some u ->
@@ -751,7 +751,7 @@ and sequence ~loc v =
       Print.warning "%t: Sequence:@ The value %t should be ()" (Location.print loc) (pval v);
       Value.return ()
 
-and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmd ->
+and let_bind : 'a. _ -> 'a Value.comp -> 'a Value.comp = fun xcs cmd ->
   let rec fold xvs = function
     | [] ->
       (* parallel let: only bind at the end *)
@@ -762,7 +762,7 @@ and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmd ->
     in
   fold [] xcs
 
-and letrec_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun fxcs cmd ->
+and letrec_bind : 'a. _ -> 'a Value.comp -> 'a Value.comp = fun fxcs cmd ->
   let rec fix_many fs = List.map (fun f x -> f (fix_many fs) x) fs in
   let gs = List.map
              (fun (_, x, c) ->
@@ -784,7 +784,7 @@ and letrec_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun fxcs cmd ->
 
 (* [match_cases loc cases eval v] tries for each case in [cases] to match [v]
    and if successful continues on the computation using [eval] with the pattern variables bound. *)
-and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Value.result) -> _ -> a Value.result
+and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Value.comp) -> _ -> a Value.comp
  = fun ~loc cases eval v ->
   let rec fold = function
     | [] ->
@@ -826,7 +826,7 @@ and match_op_cases ~loc op cases vs checking =
   in
   fold cases
 
-and check_ty c : Jdg.ty Value.result =
+and check_ty c : Jdg.ty Value.comp =
   check c Jdg.ty_ty >>= fun (ctx, e) ->
   let t = Tt.ty e in
   let j = Jdg.mk_ty ctx t in
