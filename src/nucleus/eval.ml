@@ -580,29 +580,26 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
     Equal.Monad.run (Equal.as_eq t_check) >>= fun ((ctx, t', e1, e2),hyps) ->
     let t = Jdg.mk_ty ctx t' in
     check c t >>= fun (ctx, e) ->
-    require_equal ctx e e1 t' >>=
-     begin function
-         | Some (ctx, hyps1) ->
-            require_equal ctx e e2 t' >>=
-              begin function
-                | Some (ctx, hyps2) ->
-                   let e = Tt.mk_refl ~loc t' e in
-                   let e = Tt.mention_atoms hyps e in
-                   let e = Tt.mention_atoms hyps1 e in
-                   let e = Tt.mention_atoms hyps2 e in
-                   Value.return (ctx, e)
-                | None ->
-                   Value.print_term >>= fun pte ->
-                   Error.typing ~loc
-                                "failed to check that the term@ %t is equal to@ %t"
-                                (pte e) (pte e2)
-              end
-         | None ->
-            Value.print_term >>= fun pte ->
-            Error.typing ~loc
-                         "failed to check that the term@ %t is equal to@ %t"
-                         (pte e) (pte e1)
-     end
+    require_equal ctx e e1 t' >>= begin function
+      | None ->
+        Value.print_term >>= fun pte ->
+        Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
+                     (pte e) (pte e1)
+      | Some (ctx, hyps1) ->
+        require_equal ctx e e2 t' >>=
+          begin function
+            | None ->
+              Value.print_term >>= fun pte ->
+              Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
+                           (pte e) (pte e2)
+            | Some (ctx, hyps2) ->
+              let e = Tt.mk_refl ~loc t' e in
+              let e = Tt.mention_atoms hyps e in
+              let e = Tt.mention_atoms hyps1 e in
+              let e = Tt.mention_atoms hyps2 e in
+              Value.return (ctx, e)
+          end
+      end
 
   | Syntax.Structure lxcs ->
     Equal.Monad.run (Equal.as_signature t_check) >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
