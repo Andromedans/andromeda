@@ -150,13 +150,7 @@ let rec infer (c',loc) =
 
   | Syntax.Sequence (c1, c2) ->
      infer c1 >>= fun v ->
-     begin match v with
-       | Value.Tuple [] -> Value.return ()
-       | _ ->
-         Value.print_value >>= fun pval ->
-         Print.warning "%t: Sequence:@ The value %t should be ()" (Location.print loc) (pval v);
-         Value.return ()
-     end >>= fun () ->
+     sequence ~loc v >>= fun () ->
      infer c2
 
   | Syntax.Assume ((x, t), c) ->
@@ -548,7 +542,8 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
      let_bind xcs (check c t_check)
 
   | Syntax.Sequence (c1,c2) ->
-    infer c1 >>= fun _ ->
+    infer c1 >>= fun v ->
+    sequence ~loc v >>= fun () ->
     check c2 t_check
 
   | Syntax.LetRec (fxcs, c) ->
@@ -755,6 +750,14 @@ and infer_projection ~loc c p =
   let te,ty = Tt.field_project ~loc s_def s te p in
   let j = Jdg.mk_term ctx te ty in
   Value.return_term j
+
+and sequence ~loc v =
+  match v with
+    | Value.Tuple [] -> Value.return ()
+    | _ ->
+      Value.print_value >>= fun pval ->
+      Print.warning "%t: Sequence:@ The value %t should be ()" (Location.print loc) (pval v);
+      Value.return ()
 
 and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmd ->
   let rec fold xvs = function
