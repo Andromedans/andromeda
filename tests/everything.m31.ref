@@ -15,8 +15,8 @@ Constant ( <= ) is declared.
   : A → A → A → A → A
 Signature isContr is declared.
 x0 is defined.
-x₂₂ : {isContr with T = Type ≡ Type, center as a0, contr_path as _} 
-⊢ x₂₂ : {isContr with T = Type ≡ Type, center as a0, contr_path as _}
+x₂₂ : {isContr with T = Type ≡ Type} 
+⊢ x₂₂ : {isContr with T = Type ≡ Type}
 The command failed with error:
 File "./everything.m31", line 81, characters 6-9: Typing error
   this expression should be a product, found Type
@@ -72,9 +72,9 @@ Constant exfalso is declared.
 Signature container is declared.
 ⊢ {T = A} : {container with T, cont = exfalso T}
 ⊢ {T = A} : {container with T, cont = exfalso T}
-⊢ {cont = exfalso A} : {container with T = A, cont}
-⊢ {cont = exfalso A} : {container with T = A, cont}
-⊢ {cont = a} : {container with T = A, cont}
+⊢ {cont = exfalso A} : {container with T = A}
+⊢ {cont = exfalso A} : {container with T = A}
+⊢ {cont = a} : {container with T = A}
 ⊢ {unwrap = a}.unwrap : A
 x₄₄ : wrapped 
 ⊢ x₄₄.unwrap : A
@@ -83,7 +83,7 @@ x₄₄ : wrapped
 (((⊢ wrapped : Type), [(unwrap,
 (unwrap₄₆ : A 
  ⊢ unwrap₄₆ : A))]), [Inr (⊢ a : A)])
-((⊢ {container with T = A, cont} : Type), [(⊢ a : A)])
+((⊢ {container with T = A} : Type), [(⊢ a : A)])
 ((x₄₉ : wrapped 
   ⊢ x₄₉ : wrapped), unwrap)
 Tvar is defined.

@@ -2,7 +2,7 @@ Signature wrap is declared.
 Constant A is declared.
 Constant a is declared.
 ⊢ {T = A, x = a} : wrap
-⊢ {x = a} : {wrap with T = A, x}
+⊢ {x = a} : {wrap with T = A}
 ⊢ {} : {wrap with T = A, x = a}
 Constant exfalso is declared.
 exwrap is defined.

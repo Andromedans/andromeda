@@ -18,8 +18,8 @@ File "./signature-shadow.m31", line 26, characters 27-32: Typing error
 Constant B is declared.
 Constant b is declared.
 Signature prod is declared.
-⊢ {x = a} : {prod with x, y = b}
+⊢ {x = a} : {prod with y = b}
 Signature wrap is declared.
 Constant exfalso is declared.
 Operation inhab is declared.
-⊢ {T = A, T' = B} : {wrap with T, T', v = exfalso T}
+⊢ {T = A, T' = B} : {wrap with T, v = exfalso T}
