@@ -494,6 +494,16 @@ let print_value'' env ?max_level v ppf =
   Format.fprintf ppf "@[<hov>%t@]"
                  (print_value' ?max_level ~penv refs v)
 
+let print_operation env op vs ppf =
+  if vs = []
+  then Name.print_ident op ppf
+  else
+    let penv = get_penv env
+    and refs = env.state in
+    Format.fprintf ppf "@[<hov>%t@ %t@]"
+      (Name.print_ident op)
+      (Print.sequence (print_value' ~max_level:0 ~penv refs) "" vs)
+
 let top_print_value env = (print_value'' env), env
 
 let print_value env =
@@ -603,7 +613,7 @@ let top_handle ~loc r env0 =
     | Operation (op, vs, checking, dynamic, k), state ->
        let env = {env with dynamic;state} in
        begin match lookup_handle op env with
-        | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
+        | None -> Error.runtime ~loc "unhandled operation %t" (print_operation env op vs)
         | Some f ->
           let r = apply_closure f (vs,checking) >>=
             apply_closure k

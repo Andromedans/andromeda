@@ -1,0 +1,13 @@
+
+data x 0
+
+constant A : Type
+constant a b : A
+constant (+) : A -> A -> A
+
+fail failure
+
+operation info 3
+
+fail info (!! x) (a + b) (fun x => x)
+
