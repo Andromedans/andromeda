@@ -721,11 +721,6 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
   let lam = Tt.mention_atoms (Name.AtomSet.union hypst hypsu) lam in
   Value.return (ctx,lam))
 
-(** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
-    Then [apply env e t cs] computes [xeus], [u] and [v] such that we can make
-    a apply from [e], [xeus] and [u], and the type of the resulting expression
-    is [v].
-  *)
 and apply ~loc (Jdg.Term (_, h, _) as jh) c =
   Equal.Monad.run (Equal.as_prod (Jdg.typeof jh)) >>= fun ((ctx,((x,a),b)),hyps) ->
   let h = Tt.mention_atoms hyps h in
@@ -862,7 +857,6 @@ let comp_handle (xs,y,c) =
 
 let comp_signature ~loc lxcs =
   let rec fold ys yts lxts = function
-
     | [] ->
        let lxts = List.rev lxts in
        Value.return lxts
@@ -908,7 +902,6 @@ The syntax is vaguely Coq-like. The strict equality is written with a double ==.
 
 
 let (>>=) = Value.top_bind
-let (>>) m1 m2 = m1 >>= fun () -> m2
 let return = Value.top_return
 
 let rec fold f acc = function
@@ -1033,7 +1026,7 @@ let rec exec_cmd base_dir interactive c =
              then Filename.concat base_dir f
              else f
            in
-           use_file (f, None, false, once) >>
+           use_file (f, None, false, once) >>= fun () ->
            (if interactive then Format.printf "#processed %s@." f ;
            return ())) () fs
 
@@ -1056,7 +1049,7 @@ and use_file (filename, line_limit, interactive, once) =
     begin
       let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
       let base_dir = Filename.dirname filename in
-      Value.push_file filename >>
+      Value.push_file filename >>= fun () ->
       fold (fun () c -> exec_cmd base_dir interactive c) () cmds
     end
 
