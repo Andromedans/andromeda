@@ -152,6 +152,5 @@ let print_debruijn xs k ppf =
     else print_ident x ppf
   with
   | Failure "nth" ->
-      (** XXX this should never get printed *)
       Format.fprintf ppf "DEBRUIJN[%d]" k
 
