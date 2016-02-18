@@ -528,9 +528,9 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
     check_default ~loc v t_check
 
   | Syntax.Operation (op, cs) ->
-    (* TODO why don't we List.rev vs? *)
      let rec fold vs = function
        | [] ->
+          let vs = List.rev vs in
           Value.operation op ~checking:t_check vs >>= fun v ->
           check_default ~loc v t_check
        | c :: cs ->
