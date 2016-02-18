@@ -388,15 +388,19 @@ let add_data0 ~loc x k env =
 
 let add_data ~loc x k env = (), add_data0 ~loc x k env
 
-let add_constant ~loc x ytsu env =
+let add_constant0 ~loc x ytsu env =
   if is_known x env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else (),{ env with dynamic = {env.dynamic with decls = (x, DeclConstant ytsu) :: env.dynamic.decls }}
+  else { env with dynamic = {env.dynamic with decls = (x, DeclConstant ytsu) :: env.dynamic.decls }}
 
-let add_signature ~loc s s_def env =
+let add_constant ~loc x ytsu env = (), add_constant0 ~loc x ytsu env
+
+let add_signature0 ~loc s s_def env =
   if is_known s env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident s)
-  else (), {env with dynamic = {env.dynamic with decls = (s, DeclSignature s_def) :: env.dynamic.decls}}
+  else {env with dynamic = {env.dynamic with decls = (s, DeclSignature s_def) :: env.dynamic.decls}}
+
+let add_signature ~loc s s_def env = (), add_signature0 ~loc s s_def env
 
 let add_bound x v m env =
   let env = add_bound0 x v env in
@@ -411,8 +415,10 @@ let add_topbound ~loc x v env =
     let env = add_bound0 x v env in
     (), env
 
-let add_handle op xsc env =
-  (),{ env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
+let add_handle0 op xsc env =
+  { env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
+
+let add_handle op xsc env = (), add_handle0 op xsc env
 
 (* This function for internal use *)
 let lookup_handle op {lexical={handle=lst;_};_} =
@@ -448,7 +454,7 @@ let get_penv env =
 let lookup_penv env =
   Return (get_penv env), env.state
 
-let rec print_value' ?max_level ~penv refs v ppf =
+let rec print_value_aux ?max_level ~penv refs v ppf =
   match v with
 
   | Term e -> Jdg.print_term ~penv ?max_level e ppf
@@ -463,33 +469,33 @@ let rec print_value' ?max_level ~penv refs v ppf =
        | [] -> Name.print_ident t ppf
        | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t@ %t"
                                (Name.print_ident t)
-                               (Print.sequence (print_value' ~max_level:0 ~penv refs) "" lst)
+                               (Print.sequence (print_value_aux ~max_level:0 ~penv refs) "" lst)
      end
 
   | List lst -> Format.fprintf ppf "[%t]"
-                  (Print.sequence (print_value' ~max_level:2 ~penv refs) "," lst)
+                  (Print.sequence (print_value_aux ~max_level:2 ~penv refs) "," lst)
 
   | Tuple lst -> Format.fprintf ppf "(%t)"
-                  (Print.sequence (print_value' ~max_level:2 ~penv refs) "," lst)
+                  (Print.sequence (print_value_aux ~max_level:2 ~penv refs) "," lst)
 
   | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t := %t"
                   (Store.print_key v)
-                  (print_value' ~penv ~max_level:0 refs (Store.lookup v refs))
+                  (print_value_aux ~penv ~max_level:0 refs (Store.lookup v refs))
 
   | String s -> Format.fprintf ppf "\"%s\"" (String.escaped s)
 
   | Ident x -> Name.print_ident x ppf
 
-let print_value'' env ?max_level v ppf =
+let print_value0 env ?max_level v ppf =
   let penv = get_penv env in
   let refs = env.state in
   Format.fprintf ppf "@[<hov>%t@]"
-                 (print_value' ?max_level ~penv refs v)
+                 (print_value_aux ?max_level ~penv refs v)
 
-let top_print_value env = (print_value'' env), env
+let top_print_value env = (print_value0 env), env
 
 let print_value env =
-  Return (print_value'' env), env.state
+  Return (print_value0 env), env.state
 
 let print_term env =
   Return (fun ?max_level -> Tt.print_term ~penv:(get_penv env) ?max_level), env.state
