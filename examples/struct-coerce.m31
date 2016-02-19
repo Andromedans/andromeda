@@ -8,20 +8,30 @@ let instantiate insts e =
   end in
   fold (rev insts) e
 
-let extract_fields terms shares =
-  let rec fold defined insts terms shares = match shares with
-    | [] => rev defined
-    | (Inl ?x)::?shares =>
-      match terms with ?e::?terms => fold (e::defined) ((x,e)::insts) terms shares end
-    | (Inr ?e)::?shares =>
-      let e = instantiate insts e in
-      fold (e::defined) insts terms shares
-  end in
-  fold [] [] terms shares
+let extract_fields str =
+  match str with
+    | |- _struct (_sig (_,?shares)) ?terms =>
+      let rec fold defined insts terms shares = match shares with
+        | [] => rev defined
+        | (Inl ?x)::?shares =>
+          match terms with ?e::?terms => fold (e::defined) ((x,e)::insts) terms shares end
+        | (Inr ?e)::?shares =>
+          let e = instantiate insts e in
+          fold (e::defined) insts terms shares
+      end in
+      fold [] [] terms shares
+    | |- _ : _sig ((_,?def),_) =>
+      let rec fold defined def = match def with
+        | [] => rev defined
+        | (?l,_)::?def =>
+          fold ((_proj str l)::defined) def
+      end in
+      fold [] def
+  end
 
 let full_struct s = match s with
-  |- _struct (_sig ((?sig,_),?shares)) ?terms =>
-    let defined = extract_fields terms shares in
+  |- _ : _sig ((?sig,_),_) =>
+    let defined = extract_fields s in
     _struct sig defined
 end
 
@@ -43,9 +53,9 @@ do full_struct pair
 
 (* `sig` is `s with shares1`, `str : s with shares2`, output `str : sig`.
    Assumes it's actually true, wrap it in a handler if it's not ;). *)
-let struct_coerce str sig = match (str,sig) with
-  (|- _struct (_sig ((?s,_),?shares1)) ?terms, |- _sig ((?s,_),?shares2)) =>
-    let defined = extract_fields terms shares1 in
+let struct_coerce str sig = match sig with
+  |- _sig ((?s,_),?shares2) =>
+    let defined = extract_fields str in
     let rec fold terms defined shares = match (defined,shares) with
       | ([], []) => rev terms
       | (?e::?defined,(Inl _)::?shares) => fold (e::terms) defined shares
@@ -65,4 +75,16 @@ let full_triple = { fst = a, snd = a, thrd = a + a }
 let double = {triple with fst, snd, thrd = fst + snd}
 
 do struct_coerce full_triple double
+
+constant cst_triple : {triple with fst, snd = fst + fst}
+do struct_coerce cst_triple triple
+
+operation coerce 1
+
+handle coerce ?str : ?t =>
+  match t with
+    Some ?sig =>
+      struct_coerce str sig
+  end
+end
 

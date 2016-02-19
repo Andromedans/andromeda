@@ -10,29 +10,38 @@ end
 
 let print_signature = external "print_signature"
 
+#include_once "struct-coerce.m31"
+
 (** *************** **)
+
+signature magma = { C : Type, ( * ) : C -> C -> C }
 
 let assoc_pr = lambda (G : Type) ((+) : G -> G -> G),
   forall x y z : G, x + (y + z) == (x + y) + z
 
+let comm_pr = lambda (G : Type) ((+) : G -> G -> G),
+  forall x y : G, x + y == y + x
+
 signature semigroup = {
-  G : Type,
-  (+) : G -> G -> G,
-  assoc : whnf_e (assoc_pr G (+))
+  C : Type,
+  sg_mag as M : {magma with C = C},
+  assoc : whnf_e (assoc_pr C M.( * ))
 }
 
-(* ad-hoc implicit arguments *)
-let (+) x y = match x with |- _ : ?m .G => m.(+) x y end
+let sg_op G = G.sg_mag.( * )
 
-let is_id_l = lambda (M : semigroup, e : M.G), forall x : M.G, e + x == x
-let is_id_r = lambda (M : semigroup, e : M.G), forall x : M.G, x + e == x
+let is_id_l = lambda (M : semigroup) (e : M.C), let (+) = sg_op M in
+  forall x : M.C, e + x == x
 
-let id_is_unique : forall (M : semigroup, e f : M.G),
+let is_id_r = lambda (M : semigroup) (e : M.C), let (+) = sg_op M in
+  forall x : M.C, x + e == x
+
+let id_is_unique : forall (M : semigroup) (e f : M.C),
     is_id_l M e ->
     is_id_r M f ->
     e == f
   =
-    lambda M e f p_l p_r,
+    lambda M e f p_l p_r, let (+) = sg_op M in
     transitivity
       (symmetry (with fasteq () handle
         beta (whnf_t p_r);
@@ -42,12 +51,59 @@ let id_is_unique : forall (M : semigroup, e f : M.G),
         refl f : e + f == f)
 
 signature monoid = {
-  S : semigroup,
-  id : S.G,
-  id_l : whnf_e (is_id_l S id),
-  id_r : whnf_e (is_id_r S id)
+  C : Type,
+  mon_sg : {semigroup with C = C},
+  id : C,
+  id_l : whnf_e (is_id_l (coerce mon_sg) id),
+  id_r : whnf_e (is_id_r (coerce mon_sg) id)
 }
+
+let mon_op M = sg_op M.mon_sg
 
 let _ =  print_signature monoid
 
+signature presemiring = {
+  C : Type,
+  additive : {monoid with C = C},
+  multiplicative : {monoid with C = C}
+}
+
+let prplus R = mon_op R.additive
+let prmult R = mon_op R.multiplicative
+
+let pzero R = R.additive.id
+let pone R = R.multiplicative.id
+
+let distrib_l_pr = lambda R : presemiring,
+  let C = R.C in let (+) = prplus R in let ( * ) = prmult R in
+  forall a b c : C, a * (b + c) == (a * b) + (a * c)
+
+let distrib_r_pr = lambda R : presemiring,
+  let C = R.C in let (+) = prplus R in let ( * ) = prmult R in
+  forall a b c : C, (b + c) * a == (b * a) + (c * a)
+
+let annihilates_l_pr = lambda R : presemiring,
+  let C = R.C in let Z = pzero R in let ( * ) = prmult R in
+  forall a : C, Z * a == Z
+
+let annihilates_r_pr = lambda R : presemiring,
+  let C = R.C in let Z = pzero R in let ( * ) = prmult R in
+  forall a : C, a * Z == Z
+
+
+signature semiring = {
+  C : Type,
+  psr : {presemiring with C = C},
+  distrib_l : whnf_e (distrib_l_pr (coerce psr)),
+  distrib_r : whnf_e (distrib_r_pr (coerce psr)),
+  annihilates_l : whnf_e (annihilates_l_pr (coerce psr)),
+  annihilates_r : whnf_e (annihilates_r_pr (coerce psr)),
+  sg_comm : whnf_e (comm_pr C (prplus psr))
+}
+
+let _ = print_signature semiring
+let _ = match semiring with |- _sig ((_,?def),_) =>
+  let def = external "simplify" def in
+  print def
+end
 
