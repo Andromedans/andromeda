@@ -21,3 +21,5 @@ let annotate = ref false
 
 let print_dependencies = ref false
 
+let max_boxes = ref 42
+

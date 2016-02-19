@@ -35,3 +35,6 @@ val annotate : bool ref
 (** Should context dependencies between variables be printed? *)
 val print_dependencies : bool ref
 
+(** *)
+val max_boxes : int ref
+
