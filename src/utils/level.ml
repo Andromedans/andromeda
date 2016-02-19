@@ -10,6 +10,7 @@ type infix =
 let highest = 1000
 
 let no_parens = 0
+let least = no_parens
 
 let proj = no_parens
 let proj_left = no_parens

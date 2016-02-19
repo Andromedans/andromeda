@@ -507,7 +507,7 @@ and print_term' ~penv ?max_level e ppf =
           (print_term ~max_level:Level.app_right ~penv  e)
 
       | Signature s ->
-        print ~at_level:Level.no_parens "%t" (print_sig ~penv s)
+        print_sig ~penv s ppf
 
       | Structure (s, es) ->
          print_structure ?max_level ~penv s es ppf
@@ -708,7 +708,7 @@ and print_sig ~penv (s,shares) ppf =
   then
     Name.print_ident s ppf
   else
-    Print.print ppf "{@[<hv>%t with %t@]}" (Name.print_ident s) (print_shares ~penv (penv.sigs s) shares)
+    Format.fprintf ppf "{@[<hv>%t with %t@]}" (Name.print_ident s) (print_shares ~penv (penv.sigs s) shares)
 
 and print_structure_clause ~penv (l,e) ppf =
   Format.fprintf ppf "@[<hov>%t@ =@ %t@]"

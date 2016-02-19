@@ -14,6 +14,7 @@ type infix =
 val highest : t
 
 (** Under no circumstances will this be parenthesized *)
+val least : t
 val no_parens : t
 
 val proj : t
