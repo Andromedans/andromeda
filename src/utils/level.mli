@@ -3,6 +3,12 @@
     parentheses around itself") *)
 type t = int
 
+type infix =
+  | Infix0
+  | Infix1
+  | Infix2
+  | Infix3
+  | Infix4
 
 (** Highest level possible for a term *)
 val highest : t
@@ -23,7 +29,7 @@ val app_left : t
 val app_right : t
 
 (** Infix operators *)
-val infix : Name.fixity -> t * t * t
+val infix : infix -> t * t * t
 
 (** Equality type *)
 val eq : t

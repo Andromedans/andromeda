@@ -10,6 +10,14 @@ type fixity =
   | Infix3
   | Infix4
 
+let infix = function
+  | Infix0 -> Level.Infix0
+  | Infix1 -> Level.Infix1
+  | Infix2 -> Level.Infix2
+  | Infix3 -> Level.Infix3
+  | Infix4 -> Level.Infix4
+  | Word | Anonymous | Prefix -> assert false
+
 type ident = Ident of string * fixity
 
 type atom = Atom of string * fixity * int

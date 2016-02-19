@@ -589,7 +589,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
        in
        match e1_infix with
        | Some (op, fixity, e1) ->
-          let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
+          let (lvl_op, lvl_left, lvl_right) = Level.infix (Name.infix fixity) in
           Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
                       (print_term ~max_level:lvl_left ~penv e1)
                       (match op with

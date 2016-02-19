@@ -10,6 +10,8 @@ type fixity =
   | Infix3
   | Infix4
 
+val infix : fixity -> Level.infix
+
 type ident = private Ident of string * fixity
 
 type atom = private Atom of string * fixity * int
