@@ -1,0 +1,68 @@
+
+let instantiate insts e =
+  let rec fold insts e = match insts with
+    | [] => e
+    | (?x,?v)::?insts =>
+      let e = e where x = v in
+      fold insts e
+  end in
+  fold (rev insts) e
+
+let extract_fields terms shares =
+  let rec fold defined insts terms shares = match shares with
+    | [] => rev defined
+    | (Inl ?x)::?shares =>
+      match terms with ?e::?terms => fold (e::defined) ((x,e)::insts) terms shares end
+    | (Inr ?e)::?shares =>
+      let e = instantiate insts e in
+      fold (e::defined) insts terms shares
+  end in
+  fold [] [] terms shares
+
+let full_struct s = match s with
+  |- _struct (_sig ((?sig,_),?shares)) ?terms =>
+    let defined = extract_fields terms shares in
+    _struct sig defined
+end
+
+
+signature prod = { dom as A : Type, cod as B : A -> Type, p1 as a : A, p2 : B a }
+
+constant A : Type
+constant B : A -> Type
+constant a : A
+constant b : B a
+
+let full_pair = { dom = A, cod = B, p1 = a, p2 = b }
+
+do full_struct full_pair
+
+let pair = { p1 = a, p2 = b } : {prod with dom = A, cod = B}
+
+do full_struct pair
+
+(* `sig` is `s with shares1`, `str : s with shares2`, output `str : sig`.
+   Assumes it's actually true, wrap it in a handler if it's not ;). *)
+let struct_coerce str sig = match (str,sig) with
+  (|- _struct (_sig ((?s,_),?shares1)) ?terms, |- _sig ((?s,_),?shares2)) =>
+    let defined = extract_fields terms shares1 in
+    let rec fold terms defined shares = match (defined,shares) with
+      | ([], []) => rev terms
+      | (?e::?defined,(Inl _)::?shares) => fold (e::terms) defined shares
+      | (_::?defined,(Inr _)::?shares) => fold terms defined shares
+    end in
+    let terms = fold [] defined shares2 in
+    _struct sig terms
+end
+
+do struct_coerce full_pair {prod with dom = A, cod = B}
+
+constant (+) : A -> A -> A
+signature triple = { fst : A, snd : A, thrd : A }
+
+let full_triple = { fst = a, snd = a, thrd = a + a }
+
+let double = {triple with fst, snd, thrd = fst + snd}
+
+do struct_coerce full_triple double
+
