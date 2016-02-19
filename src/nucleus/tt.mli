@@ -174,7 +174,7 @@ type print_env =
   { forbidden : Name.ident list ;
     sigs : Name.signature -> Name.label list }
 
-val print_ty : ?max_level:int -> penv:print_env -> ty -> Format.formatter -> unit
-val print_term : ?max_level:int -> penv:print_env -> term -> Format.formatter -> unit
+val print_ty : ?max_level:Level.t -> penv:print_env -> ty -> Format.formatter -> unit
+val print_term : ?max_level:Level.t -> penv:print_env -> term -> Format.formatter -> unit
 val print_sig_def : penv:print_env -> sig_def -> Format.formatter -> unit
 

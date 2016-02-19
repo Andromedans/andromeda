@@ -510,20 +510,20 @@ let rec print_value_aux ?max_level ~penv refs v ppf =
      begin
        match lst with
        | [] -> Name.print_ident t ppf
-       | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t@ %t"
+       | (_::_) -> Print.print ?max_level ~at_level:Level.app ppf "%t@ %t"
                                (Name.print_ident t)
-                               (Print.sequence (print_value_aux ~max_level:0 ~penv refs) "" lst)
+                               (Print.sequence (print_value_aux ~max_level:Level.no_parens ~penv refs) "" lst)
      end
 
   | List lst -> Format.fprintf ppf "[%t]"
-                  (Print.sequence (print_value_aux ~max_level:2 ~penv refs) "," lst)
+                  (Print.sequence (print_value_aux ~penv refs) "," lst)
 
   | Tuple lst -> Format.fprintf ppf "(%t)"
-                  (Print.sequence (print_value_aux ~max_level:2 ~penv refs) "," lst)
+                  (Print.sequence (print_value_aux ~penv refs) "," lst)
 
-  | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t := %t"
+  | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref@ %t := %t"
                   (Store.print_key v)
-                  (print_value_aux ~penv ~max_level:0 refs (Store.lookup v refs))
+                  (print_value_aux ~penv ~max_level:Level.no_parens refs (Store.lookup v refs))
 
   | String s -> Format.fprintf ppf "\"%s\"" (String.escaped s)
 
@@ -545,7 +545,7 @@ let print_operation env op vs ppf =
     and refs = env.state in
     Format.fprintf ppf "@[<hov>%t@ %t@]"
       (Name.print_ident op)
-      (Print.sequence (print_value_aux ~max_level:0 ~penv refs) "" vs)
+      (Print.sequence (print_value_aux ~max_level:Level.app_right ~penv refs) "" vs)
 
 let print_value env =
   Return (print_value0 env), env.state

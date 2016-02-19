@@ -12,7 +12,7 @@ let warning fmt = message ~verbosity:2 ("Warning: " ^^ fmt)
 
 let debug fmt = message ~verbosity:3 ("Debug: " ^^ fmt)
 
-let print ?(at_level=min_int) ?(max_level=max_int) ppf =
+let print ?(at_level=Level.no_parens) ?(max_level=Level.highest) ppf =
   if at_level <= max_level then
     Format.fprintf ppf
   else

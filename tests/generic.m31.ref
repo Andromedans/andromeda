@@ -5,19 +5,18 @@ Constant dwarf is declared.
 Constant urist is declared.
 ankle is defined.
 ⊢ {person = dwarf, pet = urist} : cat
-((⊢ cat : Type), [(⊢ dwarf : Type), (⊢ urist : dwarf)])
-(((⊢ cat : Type), [(person,
-(person₂₄ : Type 
- ⊢ person₂₄ : Type)), (pet,
-(person₂₄ : Type 
- pet₂₅ : person₂₄ 
- ⊢ pet₂₅ : person₂₄))]), [Inl
+(⊢ cat : Type, [⊢ dwarf : Type, ⊢ urist : dwarf])
+((⊢ cat : Type, [(person, person₂₄ : Type 
+                            ⊢ person₂₄ : Type), (pet,
+person₂₄ : Type 
+pet₂₅ : person₂₄ 
+⊢ pet₂₅ : person₂₄)]), [Inl
 (person₂₆ : Type 
  ⊢ person₂₆ : Type), Inl
 (person₂₆ : Type 
  pet₂₇ : person₂₆ 
  ⊢ pet₂₇ : person₂₆)])
-((⊢ {person = dwarf, pet = urist} : cat), pet)
+(⊢ {person = dwarf, pet = urist} : cat, pet)
 ()
 ⊢ {person = dwarf, pet = urist} : cat
 The command failed with error:

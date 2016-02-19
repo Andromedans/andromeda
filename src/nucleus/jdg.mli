@@ -23,4 +23,4 @@ val mk_ty : Context.t -> Tt.ty -> ty
 val strengthen : term -> term
 
 (** Print the judgement that something is a term. *)
-val print_term : penv:Tt.print_env -> ?max_level:int -> term -> Format.formatter -> unit
+val print_term : penv:Tt.print_env -> ?max_level:Level.t -> term -> Format.formatter -> unit

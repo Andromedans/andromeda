@@ -90,11 +90,11 @@ val return_handler :
 val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
 (** Pretty-print a value. *)
-val print_value : (?max_level:int -> value -> Format.formatter -> unit) comp
-val print_term : (?max_level:int -> Tt.term -> Format.formatter -> unit) comp
-val print_ty : (?max_level:int -> Tt.ty -> Format.formatter -> unit) comp
+val print_value : (?max_level:Level.t -> value -> Format.formatter -> unit) comp
+val print_term : (?max_level:Level.t -> Tt.term -> Format.formatter -> unit) comp
+val print_ty : (?max_level:Level.t -> Tt.ty -> Format.formatter -> unit) comp
 
-val top_print_value : (?max_level:int -> value -> Format.formatter -> unit) toplevel
+val top_print_value : (?max_level:Level.t -> value -> Format.formatter -> unit) toplevel
 
 (** Coerce values *)
 val as_term : loc:Location.t -> value -> Jdg.term

@@ -14,7 +14,7 @@ val debug : ('a, Format.formatter, unit) format -> 'a
 
 (** Print a construct to a given formatter, possibly parenthesizing it. *)
 val print :
-  ?at_level:int -> ?max_level:int ->
+  ?at_level:Level.t -> ?max_level:Level.t ->
   Format.formatter -> ('a, Format.formatter, unit) format -> 'a
 (** Each construct has a level [at_level] at which it is printed. The lower the
     level, the tighter the construct. Next, each construct is printed in some
@@ -74,3 +74,4 @@ val char_darrow : unit -> string
 val char_prod : unit -> string
 val char_equal : unit -> string
 val char_vdash : unit -> string
+

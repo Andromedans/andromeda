@@ -1,7 +1,7 @@
 
 (** Parenthesis levels (low level means "less likely to need
     parentheses around itself") *)
-type t = int
+type t
 
 type infix =
   | Infix0
@@ -49,4 +49,7 @@ val sig_clause : t
 
 (** Type ascription in a binding *)
 val ascription : t
+
+(** A judgement [ctx |- e : t] *)
+val jdg : t
 

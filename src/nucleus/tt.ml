@@ -507,7 +507,7 @@ and print_term' ~penv ?max_level e ppf =
           (print_term ~max_level:Level.app_right ~penv  e)
 
       | Signature s ->
-        print ~at_level:0 "%t" (print_sig ~penv s)
+        print ~at_level:Level.no_parens "%t" (print_sig ~penv s)
 
       | Structure (s, es) ->
          print_structure ?max_level ~penv s es ppf
