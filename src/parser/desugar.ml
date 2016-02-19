@@ -511,6 +511,8 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
     and c2 = comp ~yield env bound c2 in
     Syntax.Occurs (c1,c2), loc
 
+  | Input.Ident x -> Syntax.Ident x, loc
+
 and let_clauses ~loc ~yield env bound lst =
   let rec fold bound' lst' = function
     | [] ->

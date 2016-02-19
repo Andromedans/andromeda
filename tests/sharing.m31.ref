@@ -9,9 +9,6 @@ exwrap is defined.
 bob is defined.
 ⊢ {T = A} : {wrap with T as X, x = exfalso X}
 ⊢ exfalso {T = A}.T : {T = A}.T
-#including ../std/hacks.m31
-#processed ./../std/hacks.m31
-labels is defined.
 l_T is defined.
 l_x is defined.
 aT is defined.

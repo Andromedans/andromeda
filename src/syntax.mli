@@ -90,6 +90,7 @@ and comp' =
   | GenProj of comp * comp
   | Occurs of comp * comp
   | Context of comp
+  | Ident of Name.ident
 
 and let_clause = Name.ident * comp
 

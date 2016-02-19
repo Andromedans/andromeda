@@ -464,6 +464,9 @@ let rec infer (c',loc) =
       Value.mk_term j) xts in
     Value.return (Value.mk_list js)
 
+  | Syntax.Ident x ->
+    Value.return (Value.mk_ident x)
+
 and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
   Value.lookup_penv >>= fun penv ->
   let ctx = Context.join ~penv ~loc lctx rctx in
@@ -515,7 +518,8 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
   | Syntax.GenStruct _
   | Syntax.GenProj _ 
   | Syntax.Occurs _
-  | Syntax.Context _ ->
+  | Syntax.Context _
+  | Syntax.Ident _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
