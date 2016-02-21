@@ -14,3 +14,7 @@ Constant plus_S is declared.
 ⊢ refl (S (S (S (S Z))))
   : N_lci.( + ) (N_lci.( + ) (S Z) (S Z)) (N_lci.( + ) (S Z) (S Z)) ≡ S (S
     (S (S Z)))
+The command failed with error:
+File "./reducing.m31", line 27, characters 6-17: Runtime error
+  unhandled operation failure
+                      "only constants and atoms may have reducing information"
