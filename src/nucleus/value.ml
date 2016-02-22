@@ -121,6 +121,7 @@ let list_nil = List []
 let list_cons v lst = List (v :: lst)
 
 let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
+let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
 
 let apply_closure (Clos f) v env = f v env
 
@@ -419,6 +420,22 @@ let add_bound x v m env =
   let env = add_bound0 x v env in
   m env
 
+let add_bound_rec0 lst env =
+  let r = ref env in
+  let env =
+    List.fold_left
+      (fun env (f, g) ->
+        let v = Closure (mk_closure_ref g r) in
+        add_bound0 f v env)
+      env lst
+  in
+  r := env ;
+  env
+
+let add_bound_rec lst m env =
+  let env = add_bound_rec0 lst env in
+  m env
+
 let push_bound = add_bound0
 
 let add_topbound ~loc x v env =
@@ -432,6 +449,19 @@ let add_handle0 op xsc env =
   { env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
 
 let add_handle op xsc env = (), add_handle0 op xsc env
+
+
+let add_topbound_rec ~loc lst env =
+  let rec find_known = function
+    | (f,_)::_ when (is_known f env) -> Some f
+    | _::rem -> find_known rem
+    | [] -> None
+  in
+  match find_known lst with
+    | Some f -> Error.runtime ~loc "%t is already declared" (Name.print_ident f)
+    | None ->
+      let env = add_bound_rec0 lst env in
+      (), env
 
 (* This function for internal use *)
 let lookup_handle op {lexical={handle=lst;_};_} =
@@ -506,6 +536,16 @@ let print_value0 env ?max_level v ppf =
                  (print_value_aux ?max_level ~penv refs v)
 
 let top_print_value env = (print_value0 env), env
+
+let print_operation env op vs ppf =
+  if vs = []
+  then Name.print_ident op ppf
+  else
+    let penv = get_penv env
+    and refs = env.state in
+    Format.fprintf ppf "@[<hov>%t@ %t@]"
+      (Name.print_ident op)
+      (Print.sequence (print_value_aux ~max_level:0 ~penv refs) "" vs)
 
 let print_value env =
   Return (print_value0 env), env.state
@@ -614,7 +654,7 @@ let top_handle ~loc r env0 =
     | Operation (op, vs, checking, dynamic, k), state ->
        let env = {env with dynamic;state} in
        begin match lookup_handle op env with
-        | None -> Error.runtime ~loc "unhandled operation %t" (Name.print_op op)
+        | None -> Error.runtime ~loc "unhandled operation %t" (print_operation env op vs)
         | Some f ->
           let r = apply_closure f (vs,checking) >>=
             apply_closure k

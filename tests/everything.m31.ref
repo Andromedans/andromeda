@@ -131,7 +131,7 @@ operation as_eq 1
 operation as_signature 1
 signature unit 
 data ( !! ) 1
-operation failure 0
+operation failure 1
 operation beta 1
 operation hint 1
 operation eta 1

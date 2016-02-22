@@ -820,7 +820,7 @@ let rec equality state = handler
       | |- _constant _ => ()
       | |- _atom _ => ()
       | |- _proj _ _ => ()
-      | _ => print "only constants and atoms may have reducing information"; failure
+      | _ => failure "only constants and atoms may have reducing information"
     end in
     let state = state_add_reducing state (c,l) in
     yield () state
