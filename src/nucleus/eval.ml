@@ -762,25 +762,13 @@ and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmd ->
     in
   fold [] xcs
 
-and letrec_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun fxcs cmd ->
-  let rec fix_many fs = List.map (fun f x -> f (fix_many fs) x) fs in
-  let gs = List.map
-             (fun (_, x, c) ->
-               fun gs v ->
-               List.fold_right2
-                 (fun (f, _, _) g cmd ->
-                   Value.return_closure g >>= fun g' ->
-                   Value.add_bound f g' cmd)
-                 fxcs gs
-                 (Value.add_bound x v (infer c)))
-             fxcs
+and letrec_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun fxcs ->
+  let gs =
+    List.map
+      (fun (f, x, c) -> (f, (fun v -> Value.add_bound x v (infer c))))
+      fxcs
   in
-  let gs = fix_many gs in
-  List.fold_right2
-    (fun (f, _, _) g cmd ->
-      Value.return_closure g >>= fun g' ->
-      Value.add_bound f g' cmd)
-    fxcs gs cmd
+  Value.add_bound_rec gs
 
 (* [match_cases loc cases eval v] tries for each case in [cases] to match [v]
    and if successful continues on the computation using [eval] with the pattern variables bound. *)
@@ -930,30 +918,17 @@ and toplet_bind ~loc interactive xcs =
   fold [] xcs
 
 and topletrec_bind ~loc interactive fxcs =
-  let rec fix_many fs = List.map (fun f x -> f (fix_many fs) x) fs in
   let gs =
-    let ( >>= ) = Value.bind in
     List.map
-      (fun (_, x, c) ->
-        fun gs v ->
-        List.fold_right2
-          (fun (f, _, _) g cmd ->
-            Value.return_closure g >>= fun g' ->
-            Value.add_bound f g' cmd)
-          fxcs gs
-          (Value.add_bound x v (infer c)))
+      (fun (f, x, c) -> (f, (fun v -> Value.add_bound x v (infer c))))
       fxcs
   in
-  let gs = fix_many gs in
-  List.fold_right2
-    (fun (f, _, _) g cmd ->
-      Value.top_mk_closure g >>= fun g' ->
-      Value.add_topbound ~loc f g' >>= fun () ->
-      if interactive && not (Name.is_anonymous f)
-      then Format.printf "%t is defined.@." (Name.print_ident f) ;
-      cmd)
-    fxcs gs
-    (return ())
+  Value.add_topbound_rec ~loc gs >>= fun () ->
+  if interactive then
+    List.iter (fun (f, _, _) ->
+        if not (Name.is_anonymous f) then
+          Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
+  return ()
 
 let rec exec_cmd base_dir interactive c =
   Value.top_get_env >>= fun env ->

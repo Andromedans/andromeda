@@ -27,3 +27,26 @@ Node
       (Node Leaf Leaf)))
 
 do left t
+
+(* Testing how recursion works with binding. *)
+do
+   let a = "A" in
+   let b = "B" in
+   let c = "C" in
+   let d = "D" in
+   let rec f x = ("f", a, g ())
+       and g y = ("g", a, h ())
+       and h z = ("h", a)
+   in
+     (f (), g (), h ())
+
+(* The same thing at toplevel *)
+
+let a = "A"
+let b = "B"
+let c = "C"
+let d = "D"
+let rec f x = ("f", a, g ())
+    and g y = ("g", a, h ())
+    and h z = ("h", a)
+do (f (), g (), h ())

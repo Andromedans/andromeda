@@ -104,6 +104,7 @@ let mk_string s = String s
 let mk_ident x = Ident x
 
 let mk_closure0 (f : 'a -> 'b result) {lexical;_} = Clos (fun v env -> f v {env with lexical})
+let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
 
 let apply_closure (Clos f) v env = f v env
 
@@ -410,6 +411,22 @@ let add_bound x v m env =
   let env = add_bound0 x v env in
   m env
 
+let add_bound_rec0 lst env =
+  let r = ref env in
+  let env =
+    List.fold_left
+      (fun env (f, g) ->
+        let v = Closure (mk_closure_ref g r) in
+        add_bound0 f v env)
+      env lst
+  in
+  r := env ;
+  env
+
+let add_bound_rec lst m env =
+  let env = add_bound_rec0 lst env in
+  m env
+
 let push_bound = add_bound0
 
 let add_topbound ~loc x v env =
@@ -418,6 +435,19 @@ let add_topbound ~loc x v env =
   else
     let env = add_bound0 x v env in
     (), env
+
+let add_topbound_rec ~loc lst env =
+  let rec find_known = function
+    | (f,_)::_ when (is_known f env) -> Some f
+    | _::rem -> find_known rem
+    | [] -> None
+  in
+  match find_known lst with
+    | Some f -> Error.runtime ~loc "%t is already declared" (Name.print_ident f)
+    | None ->
+      let env = add_bound_rec0 lst env in
+      (), env
+
 
 let add_handle op xsc env =
   (),{ env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
