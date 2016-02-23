@@ -28,7 +28,11 @@ let options = Arg.align [
 
     ("--dependencies",
      Arg.Set Config.print_dependencies,
-     " Print depdenencies between assumptions");
+     " Print dependencies between free variables and inside terms");
+
+    ("--max-boxes",
+     Arg.Set_int Config.max_boxes,
+     " Set the maximum depth of pretty printing");
 
     ("--wrapper",
      Arg.String (fun str -> Config.wrapper := Some [str]),
@@ -135,7 +139,7 @@ let main =
   end ;
 
   (* Set the maximum depth of pretty-printing, after which it prints ellipsis. *)
-  Format.set_max_boxes 42 ;
+  Format.set_max_boxes !Config.max_boxes ;
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
@@ -144,4 +148,6 @@ let main =
       then toplevel comp
       else Value.run comp
   with
-    Error.Error err -> Print.error "%t" (Error.print err); exit 1
+    | Error.Error err -> Print.error "%t" (Error.print err); exit 1
+    | End_of_file -> ()
+

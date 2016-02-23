@@ -73,3 +73,6 @@ val index_of_atom : atom -> atom list -> int option
 
 (** [index_of_ident x xs] finds the index of [x] in list [xs] if it's there. *)
 val index_of_ident : ident -> ident list -> int option
+
+val print_debruijn : ident list -> int -> Format.formatter -> unit
+

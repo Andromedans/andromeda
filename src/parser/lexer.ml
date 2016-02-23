@@ -32,6 +32,7 @@ let reserved = [
   ("yield", YIELD) ;
   ("fun", FUNCTION) ;
   ("lambda", LAMBDA) ;
+  ("ident", IDENT) ;
   ("in", IN) ;
   ("occurs", OCCURS) ;
   ("operation", OPERATION) ;

@@ -126,7 +126,7 @@ let rec infer (c',loc) =
 
   | Syntax.With (c1, c2) ->
      infer c1 >>= as_handler ~loc >>= fun h ->
-     Value.handle_result h (infer c2)
+     Value.handle_comp h (infer c2)
 
   | Syntax.Let (xcs, c) ->
      let_bind xcs (infer c)
@@ -149,9 +149,8 @@ let rec infer (c',loc) =
      Value.return_unit
 
   | Syntax.Sequence (c1, c2) ->
-     infer c1 >>= fun _ ->
-     (* XXX is it a good idea to ignore the value?
-        Maybe a warning would be nice when the value is not unit. *)
+     infer c1 >>= fun v ->
+     sequence ~loc v >>= fun () ->
      infer c2
 
   | Syntax.Assume ((x, t), c) ->
@@ -228,7 +227,7 @@ let rec infer (c',loc) =
      Value.return_term et'
 
   | Syntax.Signature (s,xcs) ->
-    (* [vs] are the result,
+    (* [vs] are the constraints,
        [es] instantiate types,
        [ys:ts] are assumed for unconstrained fields *)
     let rec fold ctx vs es ys ts = function
@@ -305,14 +304,13 @@ let rec infer (c',loc) =
 
   | Syntax.Hypotheses ->
      Value.lookup_abstracting >>= fun lst ->
-     let v = Value.from_list
-               (List.map (fun jxt -> Value.mk_term jxt) lst) in
+     let v = Value.mk_list lst in
      Value.return v
 
   | Syntax.Congruence (c1,c2) ->
     infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
     check c2 (Jdg.mk_ty ctx t) >>= fun (ctx,e2) ->
-    Equal.Opt.run (Equal.congruence ~loc ctx e1 e2 t) >>= begin function
+    Equal.congruence ~loc ctx e1 e2 t >>= begin function
       | Some (ctx,hyps) ->
         let eq = Tt.mk_refl ~loc t e1 in
         let eq = Tt.mention_atoms hyps eq in
@@ -326,7 +324,7 @@ let rec infer (c',loc) =
   | Syntax.Extensionality (c1,c2) ->
     infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
     check c2 (Jdg.mk_ty ctx t) >>= fun (ctx,e2) ->
-    Equal.Opt.run (Equal.extensionality ~loc ctx e1 e2 t) >>= begin function
+    Equal.extensionality ~loc ctx e1 e2 t >>= begin function
       | Some (ctx,hyps) ->
         let eq = Tt.mk_refl ~loc t e1 in
         let eq = Tt.mention_atoms hyps eq in
@@ -339,7 +337,7 @@ let rec infer (c',loc) =
 
   | Syntax.Reduction c ->
      infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx, e, t)) ->
-     Equal.Opt.run (Equal.reduction_step ctx e) >>=
+     Equal.reduction_step ctx e >>=
        begin function
          | Some ((ctx, e'), hyps) ->
             let eq = Tt.mk_refl ~loc t e in
@@ -355,7 +353,7 @@ let rec infer (c',loc) =
 
   | Syntax.GenSig (c1,c2) ->
     check_ty c1 >>= fun j1 ->
-    Equal.Monad.run (Equal.as_signature j1) >>= fun ((_,(s,shares)),_) ->
+    Equal.as_signature j1 >>= fun ((_,(s,shares)),_) ->
     if List.for_all (function | Tt.Inl _ -> true | Tt.Inr _ -> false) shares
     then
       infer c2 >>= as_list ~loc >>= fun xes ->
@@ -409,7 +407,7 @@ let rec infer (c',loc) =
 
   | Syntax.GenStruct (c1,c2) ->
     check_ty c1 >>= fun (Jdg.Ty (_,target) as jt) ->
-    Equal.Monad.run (Equal.as_signature jt) >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
+    Equal.as_signature jt >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
     infer c2 >>= as_list ~loc >>= fun vs ->
     Value.lookup_signature ~loc s >>= fun lxts ->
     (* [es] instantiate types, [res] is the explicit fields (which instantiate constraints) *)
@@ -464,15 +462,15 @@ let rec infer (c',loc) =
       let e = Tt.mk_atom ~loc x in
       let j = Jdg.mk_term ctx e t in
       Value.mk_term j) xts in
-    Value.return (Value.from_list js)
+    Value.return (Value.mk_list js)
 
-and require_equal ctx e1 e2 t =
-  Equal.Opt.run (Equal.equal ctx e1 e2 t)
+  | Syntax.Ident x ->
+    Value.return (Value.mk_ident x)
 
 and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
   Value.lookup_penv >>= fun penv ->
   let ctx = Context.join ~penv ~loc lctx rctx in
-  Equal.Opt.run (Equal.equal_ty ctx lte rte)
+  Equal.equal_ty ctx lte rte
 
 and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
   as_term ~loc v >>= fun (Jdg.Term (ctxe, e, t')) ->
@@ -487,7 +485,7 @@ and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
                       (pte e) (pty t_check') (pty t')
     end
 
-and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.result =
+and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.comp =
   match c' with
 
   | Syntax.Type
@@ -520,7 +518,8 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
   | Syntax.GenStruct _
   | Syntax.GenProj _ 
   | Syntax.Occurs _
-  | Syntax.Context _ ->
+  | Syntax.Context _
+  | Syntax.Ident _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
@@ -528,9 +527,9 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
     check_default ~loc v t_check
 
   | Syntax.Operation (op, cs) ->
-    (* TODO why don't we List.rev vs? *)
      let rec fold vs = function
        | [] ->
+          let vs = List.rev vs in
           Value.operation op ~checking:t_check vs >>= fun v ->
           check_default ~loc v t_check
        | c :: cs ->
@@ -543,7 +542,8 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
      let_bind xcs (check c t_check)
 
   | Syntax.Sequence (c1,c2) ->
-    infer c1 >>= fun _ ->
+    infer c1 >>= fun v ->
+    sequence ~loc v >>= fun () ->
     check c2 t_check
 
   | Syntax.LetRec (fxcs, c) ->
@@ -577,35 +577,32 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
     check_lambda ~loc t_check x u c
 
   | Syntax.Refl c ->
-    Equal.Monad.run (Equal.as_eq t_check) >>= fun ((ctx, t', e1, e2),hyps) ->
+    Equal.as_eq t_check >>= fun ((ctx, t', e1, e2),hyps) ->
     let t = Jdg.mk_ty ctx t' in
     check c t >>= fun (ctx, e) ->
-    require_equal ctx e e1 t' >>=
-     begin function
-         | Some (ctx, hyps1) ->
-            require_equal ctx e e2 t' >>=
-              begin function
-                | Some (ctx, hyps2) ->
-                   let e = Tt.mk_refl ~loc t' e in
-                   let e = Tt.mention_atoms hyps e in
-                   let e = Tt.mention_atoms hyps1 e in
-                   let e = Tt.mention_atoms hyps2 e in
-                   Value.return (ctx, e)
-                | None ->
-                   Value.print_term >>= fun pte ->
-                   Error.typing ~loc
-                                "failed to check that the term@ %t is equal to@ %t"
-                                (pte e) (pte e2)
-              end
-         | None ->
-            Value.print_term >>= fun pte ->
-            Error.typing ~loc
-                         "failed to check that the term@ %t is equal to@ %t"
-                         (pte e) (pte e1)
-     end
+    Equal.equal ctx e e1 t' >>= begin function
+      | None ->
+        Value.print_term >>= fun pte ->
+        Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
+                     (pte e) (pte e1)
+      | Some (ctx, hyps1) ->
+        Equal.equal ctx e e2 t' >>=
+          begin function
+            | None ->
+              Value.print_term >>= fun pte ->
+              Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
+                           (pte e) (pte e2)
+            | Some (ctx, hyps2) ->
+              let e = Tt.mk_refl ~loc t' e in
+              let e = Tt.mention_atoms hyps e in
+              let e = Tt.mention_atoms hyps1 e in
+              let e = Tt.mention_atoms hyps2 e in
+              Value.return (ctx, e)
+          end
+      end
 
   | Syntax.Structure lxcs ->
-    Equal.Monad.run (Equal.as_signature t_check) >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
+    Equal.as_signature t_check >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
     Value.lookup_signature ~loc s >>= fun s_def ->
     (* Set up to skip fields not mentioned in [lxcs] *)
     let rec align fields s_data = function
@@ -693,8 +690,8 @@ and infer_prod ~loc x u c =
   let j = Jdg.mk_term ctx prod typ in
   Value.return_term j)
 
-and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
-  Equal.Monad.run (Equal.as_prod t_check) >>= fun ((ctx,((_,a),b)),hypst) ->
+and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.comp =
+  Equal.as_prod t_check >>= fun ((ctx,((_,a),b)),hypst) ->
   begin match u with
     | Some u ->
       check_ty u >>= fun (Jdg.Ty (_,u) as ju) ->
@@ -724,13 +721,8 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.result =
   let lam = Tt.mention_atoms (Name.AtomSet.union hypst hypsu) lam in
   Value.return (ctx,lam))
 
-(** Suppose [e] has type [t], and [cs] is a list of computations [c1, ..., cn].
-    Then [apply env e t cs] computes [xeus], [u] and [v] such that we can make
-    a apply from [e], [xeus] and [u], and the type of the resulting expression
-    is [v].
-  *)
 and apply ~loc (Jdg.Term (_, h, _) as jh) c =
-  Equal.Monad.run (Equal.as_prod (Jdg.typeof jh)) >>= fun ((ctx,((x,a),b)),hyps) ->
+  Equal.as_prod (Jdg.typeof jh) >>= fun ((ctx,((x,a),b)),hyps) ->
   let h = Tt.mention_atoms hyps h in
   check c (Jdg.mk_ty ctx a) >>= fun (ctx,e) ->
   let res = Tt.mk_apply ~loc h x a b e in
@@ -741,7 +733,7 @@ and apply ~loc (Jdg.Term (_, h, _) as jh) c =
 and infer_projection ~loc c p =
   infer c >>= as_term ~loc >>= fun (Jdg.Term (_,te,_) as j) ->
   let jty = Jdg.typeof j in
-  Equal.Monad.run (Equal.as_signature jty) >>= fun ((ctx,s),hyps) ->
+  Equal.as_signature jty >>= fun ((ctx,s),hyps) ->
   let te = Tt.mention_atoms hyps te in
   Value.lookup_signature ~loc (fst s) >>= fun s_def ->
   (if not (List.exists (fun (l,_,_) -> Name.eq_ident p l) s_def)
@@ -751,7 +743,15 @@ and infer_projection ~loc c p =
   let j = Jdg.mk_term ctx te ty in
   Value.return_term j
 
-and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmd ->
+and sequence ~loc v =
+  match v with
+    | Value.Tuple [] -> Value.return ()
+    | _ ->
+      Value.print_value >>= fun pval ->
+      Print.warning "%t: Sequence:@ The value %t should be ()" (Location.print loc) (pval v);
+      Value.return ()
+
+and let_bind : 'a. _ -> 'a Value.comp -> 'a Value.comp = fun xcs cmd ->
   let rec fold xvs = function
     | [] ->
       (* parallel let: only bind at the end *)
@@ -762,7 +762,7 @@ and let_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun xcs cmd ->
     in
   fold [] xcs
 
-and letrec_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun fxcs ->
+and letrec_bind : 'a. _ -> 'a Value.comp -> 'a Value.comp = fun fxcs ->
   let gs =
     List.map
       (fun (f, x, c) -> (f, (fun v -> Value.add_bound x v (infer c))))
@@ -772,7 +772,7 @@ and letrec_bind : 'a. _ -> 'a Value.result -> 'a Value.result = fun fxcs ->
 
 (* [match_cases loc cases eval v] tries for each case in [cases] to match [v]
    and if successful continues on the computation using [eval] with the pattern variables bound. *)
-and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Value.result) -> _ -> a Value.result
+and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Value.comp) -> _ -> a Value.comp
  = fun ~loc cases eval v ->
   let rec fold = function
     | [] ->
@@ -814,7 +814,7 @@ and match_op_cases ~loc op cases vs checking =
   in
   fold cases
 
-and check_ty c : Jdg.ty Value.result =
+and check_ty c : Jdg.ty Value.comp =
   check c Jdg.ty_ty >>= fun (ctx, e) ->
   let t = Tt.ty e in
   let j = Jdg.mk_ty ctx t in
@@ -845,7 +845,6 @@ let comp_handle (xs,y,c) =
 
 let comp_signature ~loc lxcs =
   let rec fold ys yts lxts = function
-
     | [] ->
        let lxts = List.rev lxts in
        Value.return lxts
@@ -891,7 +890,6 @@ The syntax is vaguely Coq-like. The strict equality is written with a double ==.
 
 
 let (>>=) = Value.top_bind
-let (>>) m1 m2 = m1 >>= fun () -> m2
 let return = Value.top_return
 
 let rec fold f acc = function
@@ -1003,7 +1001,7 @@ let rec exec_cmd base_dir interactive c =
              then Filename.concat base_dir f
              else f
            in
-           use_file (f, None, false, once) >>
+           use_file (f, None, false, once) >>= fun () ->
            (if interactive then Format.printf "#processed %s@." f ;
            return ())) () fs
 
@@ -1026,7 +1024,7 @@ and use_file (filename, line_limit, interactive, once) =
     begin
       let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
       let base_dir = Filename.dirname filename in
-      Value.push_file filename >>
+      Value.push_file filename >>= fun () ->
       fold (fun () c -> exec_cmd base_dir interactive c) () cmds
     end
 

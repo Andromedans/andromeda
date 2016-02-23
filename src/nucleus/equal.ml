@@ -4,14 +4,13 @@
 
 module AtomSet = Name.AtomSet
 
-(* XXX we seem to use Monad only to lift to Opt and trivially in the as_* functions, so merge with Opt? *)
 module Monad = struct
   type state = AtomSet.t
 
   let empty = AtomSet.empty
 
   type 'a t =
-    { k : 'r. ('a -> state -> 'r Value.result) -> state -> 'r Value.result }
+    { k : 'r. ('a -> state -> 'r Value.comp) -> state -> 'r Value.comp }
 
   let return x =
     { k = fun c s -> c x s }
@@ -19,7 +18,7 @@ module Monad = struct
   let (>>=) m f =
     { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
 
-  (* lift : 'a Value.result -> 'a t *)
+  (* lift : 'a Value.comp -> 'a t *)
   let lift m =
     { k = fun c s -> Value.bind m (fun x -> c x s) }
 
@@ -42,7 +41,7 @@ module Opt = struct
   type state = Monad.state
 
   type 'a opt =
-    { k : 'r. ('a -> state -> 'r Value.result) -> (state -> 'r Value.result) -> state -> 'r Value.result }
+    { k : 'r. ('a -> state -> 'r Value.comp) -> (state -> 'r Value.comp) -> state -> 'r Value.comp }
 
   let return x =
     { k = fun sk _ s -> sk x s }
@@ -67,14 +66,13 @@ module Opt = struct
     m.k (fun x s -> Value.return (Some (x,s))) (fun _ -> Value.return None) AtomSet.empty
 end
 
+module Internals = struct
+
 let (>>=) = Monad.(>>=)
 
 let (>?=) = Opt.(>?=)
 
 let (>!=) m f = (Opt.unfailing m) >?= f
-
-(* counter for debugging depth  *)
-let cnt = let msg_cnt = ref (-1) in fun () -> (incr msg_cnt; !msg_cnt)
 
 let context_multiabstract ~loc ctx yts =
   let rec fold ctx = function
@@ -97,9 +95,6 @@ let list_combine3 =
 let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   Monad.lift Value.print_term >!= fun pte ->
   Monad.lift Value.print_ty >!= fun pty ->
-  let i = cnt () in
-  Print.debug "(%i checking equality of@ %t@ and@ %t@ at type@ %t" i
-    (pte e1) (pte e2) (pty t);
   if Tt.alpha_equal e1 e2
   then
     Opt.return ctx
@@ -109,6 +104,7 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
         (Value.mk_term (Jdg.mk_term ctx e2 t))) >!= fun v ->
     let loc = loc1 in
     match Value.as_option ~loc v with
+      | None -> Opt.fail
       | Some v ->
         let Jdg.Term (ctxeq,eq,teq) = Value.as_term ~loc v in
         Monad.lift Value.lookup_penv >!= fun penv ->
@@ -116,7 +112,6 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
         Monad.add_hyps (Tt.assumptions_term eq) >!= fun () ->
         let tgoal = Tt.mk_eq_ty ~loc t e1 e2 in
         equal_ty ctx teq tgoal
-      | None -> Opt.fail
 
 and equal_ty ctx (Tt.Ty t1) (Tt.Ty t2) = equal ctx t1 t2 Tt.typ
 
@@ -180,12 +175,8 @@ let equal_structure ~loc ctx ((s1,_) as str1) ((s2,_) as str2) =
   fold ctx AtomSet.empty [] (list_combine3 s_def (Tt.struct_combine ~loc str1) (Tt.struct_combine ~loc str2))
 
 (** Apply the appropriate congruence rule *)
-let congruence ~loc ctx ({Tt.term=e1';loc=loc1;_} as e1) ({Tt.term=e2';loc=loc2;_} as e2) t =
-  Monad.lift Value.lookup_penv >!= fun penv ->
-  Print.debug "congruence of %t and %t"
-              (Tt.print_term ~penv e1)
-              (Tt.print_term ~penv e2) ;
-  match e1', e2' with
+let congruence ~loc ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
+  match e1.Tt.term, e2.Tt.term with
 
   | Tt.Atom x, Tt.Atom y ->
      if Name.eq_atom x y then Opt.return ctx
@@ -496,4 +487,28 @@ let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
                 "this expression should be a witness of equality between %t and a signature"
                 (pty t)
       end
+
+end
+
+(** Expose without the monad stuff *)
+
+type 'a witness = ('a * AtomSet.t) Value.comp
+
+type 'a opt = ('a * AtomSet.t) option Value.comp
+
+let equal ctx e1 e2 t = Opt.run (Internals.equal ctx e1 e2 t)
+
+let equal_ty ctx t1 t2 = Opt.run (Internals.equal_ty ctx t1 t2)
+
+let reduction_step ctx e = Opt.run (Internals.reduction_step ctx e)
+
+let congruence ~loc ctx e1 e2 t = Opt.run (Internals.congruence ~loc ctx e1 e2 t)
+
+let extensionality ~loc ctx e1 e2 t = Opt.run (Internals.extensionality ~loc ctx e1 e2 t)
+
+let as_eq j = Monad.run (Internals.as_eq j)
+
+let as_prod j = Monad.run (Internals.as_prod j)
+
+let as_signature j = Monad.run (Internals.as_signature j)
 

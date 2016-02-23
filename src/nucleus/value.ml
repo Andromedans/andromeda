@@ -1,4 +1,4 @@
-(** Runtime values and results *)
+(** Runtime values and computations *)
 
 (* Information about a toplevel declaration *)
 type decl =
@@ -7,11 +7,29 @@ type decl =
   | DeclOperation of int
   | DeclSignature of Tt.sig_def
 
-type dynamic = {
+(** This module defines 2 monads:
+    - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
+      Primitives are like [add_bound].
+    - the toplevel monad [toplevel], a standard state monad with restricted accessors.
+      Primitives are like [top_add_bound].
+      Some modifications of the environment may only be done at the top level, for instance declaring constants.
+    For internal use, functions which work on the environment may be defined, eg [add_bound0].
+
+    Finally in a small number of restricted circumstances the environment is accessed outside the monads.
+*)
+
+(** Run-time environment. *)
+type env = {
+  dynamic : dynamic;
+  lexical : lexical;
+  state   : state  ;
+}
+
+and dynamic = {
   decls : (Name.ident * decl) list ;
   (* Toplevel declaration *)
 
-  abstracting : Jdg.term list;
+  abstracting : value list;
   (* The list of judgments about atoms which are going to be abstracted. We
      should avoid creating atoms which depends on these, as this will prevent
      abstraction from working. The list is in the reverse order from
@@ -19,9 +37,11 @@ type dynamic = {
      list. *)
 }
 
-type lexical = {
+and lexical = {
   bound : (Name.ident * value) list;
   continuation : (value,value) closure option;
+
+  (* The following are only modified at the top level *)
   handle : (Name.ident * (value list * Jdg.ty option,value) closure) list;
   files : string list;
 }
@@ -40,13 +60,13 @@ and value =
   | Ident of Name.ident
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
-and ('a, 'b) closure = Clos of ('a -> 'b result)
+and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
-and 'a raw_result =
+and 'a result =
   | Return of 'a
   | Operation of Name.ident * value list * Jdg.ty option * dynamic * (value,'a) closure
 
-and 'a result = env -> 'a raw_result * state
+and 'a comp = env -> 'a result * state
 
 and operation_args = { args : value list; checking : Jdg.ty option; cont : (value,value) closure }
 
@@ -54,13 +74,6 @@ and handler = {
   handler_val: (value,value) closure option;
   handler_ops: (operation_args, value) closure Name.IdentMap.t;
   handler_finally: (value,value) closure option;
-}
-
-(** Run-time environment. *)
-and env = {
-  dynamic : dynamic;
-  lexical : lexical;
-  state   : state  ;
 }
 
 (** A toplevel computation carries around the current
@@ -103,7 +116,11 @@ let mk_tuple lst = Tuple lst
 let mk_string s = String s
 let mk_ident x = Ident x
 
-let mk_closure0 (f : 'a -> 'b result) {lexical;_} = Clos (fun v env -> f v {env with lexical})
+let mk_list lst = List lst
+let list_nil = List []
+let list_cons v lst = List (v :: lst)
+
+let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
 
 let apply_closure (Clos f) v env = f v env
@@ -123,7 +140,7 @@ let update_ref x v env =
 
 (** The monadic bind [bind r f] feeds the result [r : result]
     into function [f : value -> 'a]. *)
-let rec bind (r:'a result) (f:'a -> 'b result) : 'b result = fun env ->
+let rec bind (r:'a comp) (f:'a -> 'b comp) : 'b comp = fun env ->
   match r env with
   | Return v, state -> f v {env with state}
   | Operation (op, vs, jt, d, k), state ->
@@ -165,6 +182,8 @@ let return_handler handler_val handler_ops handler_finally env =
     handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
   Return (Handler h), env.state
+
+let return_unit = return (Tuple [])
 
 let rec top_fold f acc = function
   | [] -> top_return acc
@@ -214,39 +233,31 @@ let as_ident ~loc = function
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected an identifier but got %s" (name_of v)
 
+let as_list ~loc = function
+  | List lst -> lst
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+    Error.runtime ~loc "expected a list but got %s" (name_of v)
+
+(** Wrappers for making tags *)
+let from_option = function
+  | None -> Tag (name_none, [])
+  | Some v -> Tag (name_some, [v])
+
 let as_option ~loc = function
   | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
+let from_sum = function
+  | Tt.Inl x -> Tag (name_inl, [x])
+  | Tt.Inr x -> Tag (name_inr, [x])
+
 let as_sum ~loc = function
   | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Tt.Inl x
   | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Tt.Inr x
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a sum but got %s" (name_of v)
-
-(** Wrappers for making tags *)
-let as_list ~loc = function
-  | List lst -> lst
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
-    Error.runtime ~loc "expected a list but got %s" (name_of v)
-
-let from_option = function
-  | None -> Tag (name_none, [])
-  | Some v -> Tag (name_some, [v])
-
-let from_list lst = List lst
-
-let from_sum = function
-  | Tt.Inl x -> Tag (name_inl, [x])
-  | Tt.Inr x -> Tag (name_inr, [x])
-
-let list_nil = List []
-
-let list_cons v lst = List (v :: lst)
-
-let return_unit = return (Tuple [])
 
 (** Operations *)
 
@@ -344,17 +355,12 @@ let lookup_bound ~loc k env =
 
 let add_bound0 x v env = {env with lexical = { env.lexical with bound = (x,v)::env.lexical.bound } }
 
-(** generate a fresh atom of type [t] and bind it to [x]
-    NB: This is an effectful computation, as it increases a global counter. *)
 let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
   let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
   let env = add_bound0 x yt env in
   m ctx y env
 
-(** generate a fresh atom of type [t] and bind it to [x],
-    and record that the atom will be abstracted.
-    NB: This is an effectful computation, as it increases a global counter. *)
 let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
   let env =
@@ -362,12 +368,11 @@ let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
     then
       env
     else
-      let ya = Tt.mk_atom ~loc y in
-      let jyt = Jdg.mk_term ctx ya t in
-      let env = add_bound0 x (mk_term jyt) env in
+      let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
+      let env = add_bound0 x yt env in
       { env with
                 dynamic = { env.dynamic with
-                            abstracting = jyt :: env.dynamic.abstracting } }
+                            abstracting = yt :: env.dynamic.abstracting } }
   in
   m ctx y env
 
@@ -397,15 +402,19 @@ let add_data0 ~loc x k env =
 
 let add_data ~loc x k env = (), add_data0 ~loc x k env
 
-let add_constant ~loc x ytsu env =
+let add_constant0 ~loc x ytsu env =
   if is_known x env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else (),{ env with dynamic = {env.dynamic with decls = (x, DeclConstant ytsu) :: env.dynamic.decls }}
+  else { env with dynamic = {env.dynamic with decls = (x, DeclConstant ytsu) :: env.dynamic.decls }}
 
-let add_signature ~loc s s_def env =
+let add_constant ~loc x ytsu env = (), add_constant0 ~loc x ytsu env
+
+let add_signature0 ~loc s s_def env =
   if is_known s env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident s)
-  else (), {env with dynamic = {env.dynamic with decls = (s, DeclSignature s_def) :: env.dynamic.decls}}
+  else {env with dynamic = {env.dynamic with decls = (s, DeclSignature s_def) :: env.dynamic.decls}}
+
+let add_signature ~loc s s_def env = (), add_signature0 ~loc s s_def env
 
 let add_bound x v m env =
   let env = add_bound0 x v env in
@@ -436,6 +445,12 @@ let add_topbound ~loc x v env =
     let env = add_bound0 x v env in
     (), env
 
+let add_handle0 op xsc env =
+  { env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
+
+let add_handle op xsc env = (), add_handle0 op xsc env
+
+
 let add_topbound_rec ~loc lst env =
   let rec find_known = function
     | (f,_)::_ when (is_known f env) -> Some f
@@ -447,10 +462,6 @@ let add_topbound_rec ~loc lst env =
     | None ->
       let env = add_bound_rec0 lst env in
       (), env
-
-
-let add_handle op xsc env =
-  (),{ env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
 
 (* This function for internal use *)
 let lookup_handle op {lexical={handle=lst;_};_} =
@@ -486,7 +497,7 @@ let get_penv env =
 let lookup_penv env =
   Return (get_penv env), env.state
 
-let rec print_value' ?max_level ~penv refs v ppf =
+let rec print_value_aux ?max_level ~penv refs v ppf =
   match v with
 
   | Term e -> Jdg.print_term ~penv ?max_level e ppf
@@ -501,28 +512,30 @@ let rec print_value' ?max_level ~penv refs v ppf =
        | [] -> Name.print_ident t ppf
        | (_::_) -> Print.print ?max_level ~at_level:1 ppf "%t@ %t"
                                (Name.print_ident t)
-                               (Print.sequence (print_value' ~max_level:0 ~penv refs) "" lst)
+                               (Print.sequence (print_value_aux ~max_level:0 ~penv refs) "" lst)
      end
 
   | List lst -> Format.fprintf ppf "[%t]"
-                  (Print.sequence (print_value' ~max_level:2 ~penv refs) "," lst)
+                  (Print.sequence (print_value_aux ~max_level:2 ~penv refs) "," lst)
 
   | Tuple lst -> Format.fprintf ppf "(%t)"
-                  (Print.sequence (print_value' ~max_level:2 ~penv refs) "," lst)
+                  (Print.sequence (print_value_aux ~max_level:2 ~penv refs) "," lst)
 
   | Ref v -> Print.print ?max_level ~at_level:1 ppf "ref@ %t := %t"
                   (Store.print_key v)
-                  (print_value' ~penv ~max_level:0 refs (Store.lookup v refs))
+                  (print_value_aux ~penv ~max_level:0 refs (Store.lookup v refs))
 
   | String s -> Format.fprintf ppf "\"%s\"" (String.escaped s)
 
   | Ident x -> Name.print_ident x ppf
 
-let print_value'' env ?max_level v ppf =
+let print_value0 env ?max_level v ppf =
   let penv = get_penv env in
   let refs = env.state in
   Format.fprintf ppf "@[<hov>%t@]"
-                 (print_value' ?max_level ~penv refs v)
+                 (print_value_aux ?max_level ~penv refs v)
+
+let top_print_value env = (print_value0 env), env
 
 let print_operation env op vs ppf =
   if vs = []
@@ -532,12 +545,10 @@ let print_operation env op vs ppf =
     and refs = env.state in
     Format.fprintf ppf "@[<hov>%t@ %t@]"
       (Name.print_ident op)
-      (Print.sequence (print_value' ~max_level:0 ~penv refs) "" vs)
-
-let top_print_value env = (print_value'' env), env
+      (Print.sequence (print_value_aux ~max_level:0 ~penv refs) "" vs)
 
 let print_value env =
-  Return (print_value'' env), env.state
+  Return (print_value0 env), env.state
 
 let print_term env =
   Return (fun ?max_level -> Tt.print_term ~penv:(get_penv env) ?max_level), env.state
@@ -611,7 +622,7 @@ let progress (x, env) f = f x env
 let finish (x,_) = x
 
 (** Handling *)
-let rec handle_result {handler_val; handler_ops; handler_finally} (r : value result) : value result =
+let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp) : value comp =
   begin fun env -> match r env with
   | Return v , state ->
      let env = {env with state} in
@@ -622,7 +633,7 @@ let rec handle_result {handler_val; handler_ops; handler_finally} (r : value res
   | Operation (op, vs, jt, dynamic, cont), state ->
      let env = {env with dynamic; state} in
      let h = {handler_val; handler_ops; handler_finally=None} in
-     let cont = mk_closure0 (fun v env -> handle_result h (apply_closure cont v) env) env in
+     let cont = mk_closure0 (fun v env -> handle_comp h (apply_closure cont v) env) env in
      begin
        try
          let f = Name.IdentMap.find op handler_ops in

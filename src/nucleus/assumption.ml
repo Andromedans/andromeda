@@ -12,20 +12,10 @@ let empty = {free = AtomSet.empty; bound = BoundSet.empty; }
 let is_empty {free;bound} =
   AtomSet.is_empty free && BoundSet.is_empty bound
 
-let print_db xs k ppf =
-  try
-    if !Config.debruijn
-    then
-      Format.fprintf ppf "%t[%d]" (Name.print_ident (List.nth xs k)) k
-    else
-      Name.print_ident (List.nth xs k) ppf
-  with
-    | Not_found | Failure "nth" -> Format.fprintf ppf "DEBRUIJN[%d]" k
-
 let print xs {free;bound} ppf =
   Format.fprintf ppf "%t@ ;@ %t"
               (Print.sequence Name.print_atom "," (AtomSet.elements free))
-              (Print.sequence (print_db xs) "," (BoundSet.elements bound))
+              (Print.sequence (Name.print_debruijn xs) "," (BoundSet.elements bound))
 
 let singleton x =
   let free = AtomSet.add x AtomSet.empty in

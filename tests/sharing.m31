@@ -20,12 +20,8 @@ do bob
 
 do bob.x
 
-#include_once "../std/hacks.m31"
-
-let labels = extract_labels wrap
-
-let l_T = match labels with [?T,_] => T end
-let l_x = match labels with [_,?x] => x end
+let l_T = ident T
+let l_x = ident x
 
 let aT = assume T : Type in T
 

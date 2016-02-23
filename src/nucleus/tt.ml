@@ -320,7 +320,7 @@ let rec occurs k {term=e';loc;_} =
 
 and occurs_ty k (Ty t) = occurs k t
 
-and occurs_sig k (_,shares) =
+and occurs_shares k shares =
   let rec fold acc k = function
     | [] -> acc
     | (Inl _) :: shares -> fold acc (k+1) shares
@@ -328,14 +328,16 @@ and occurs_sig k (_,shares) =
   in
   fold 0 k shares
 
+and occurs_sig k (_,shares) = occurs_shares k shares
+
 and occurs_struct k es =
-  let rec fold acc k = function
+  let rec fold acc = function
     | [] -> acc
     | e :: es ->
       let acc = acc + occurs k e in
-      fold acc k es
+      fold acc es
   in
-  fold 0 k es
+  fold 0 es
 
 and occurs_term_ty k (e, t) =
   occurs k e + occurs_ty k t
@@ -538,18 +540,7 @@ and print_term' ~penv ?max_level e ppf =
       | Constant x ->
          Name.print_ident x ppf
 
-      | Bound k ->
-        begin
-          try
-            let x = List.nth penv.forbidden k in
-            if !Config.debruijn
-            then Format.fprintf ppf "%t[%d]" (Name.print_ident x) k
-            else Name.print_ident x ppf
-          with
-          | Not_found | Failure "nth" ->
-              (** XXX this should never get printed *)
-              Format.fprintf ppf "DEBRUIJN[%d]" k
-        end
+      | Bound k -> Name.print_debruijn penv.forbidden k ppf
 
       | Lambda a -> print_lambda ?max_level ~penv a ppf
 
@@ -593,6 +584,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
          match List.nth penv.forbidden k with
          | Name.Ident (_, Name.Prefix) as op -> Some (As_ident op)
          | Name.Ident (_, _) -> None
+         | exception Failure "nth" -> None
        end
     | Constant (Name.Ident (_, Name.Prefix) as op) -> Some (As_ident op)
     | Atom (Name.Atom (_, Name.Prefix, _) as op) -> Some (As_atom op)
@@ -629,6 +621,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
                                   Name.Infix3 | Name.Infix4) as fixity)) as op ->
                    Some (As_ident op, fixity, e1)
                 | Name.Ident (_, (Name.Word | Name.Anonymous | Name.Prefix)) -> None
+                | exception Failure "nth" -> None
               end
            | Apply ({term=Constant (Name.Ident (_,
                                                 ((Name.Infix0 | Name.Infix1 | Name.Infix2|
@@ -734,21 +727,42 @@ and print_share ~penv lshare ppf = match lshare with
   | l, Inl x -> print_label l x ppf
   | l, Inr e -> Format.fprintf ppf "%t@ =@ %t" (Name.print_ident l) (print_term ~penv e)
 
-and print_shares ~penv lshares ppf = match lshares with
+and print_selected_shares ~penv lshares ppf =
+  match lshares with
   | [] -> ()
-  | [lshare] -> print_share ~penv lshare ppf
-  | (l,Inl x) :: lshares ->
+  | (_,None) :: lshares ->
+    print_selected_shares ~penv:(add_forbidden Name.anonymous penv) lshares ppf
+  | (l,Some share) :: rem when (List.for_all (fun (_,maybe) -> maybe = None) rem) ->
+    print_share ~penv (l,share) ppf
+  | (l, Some ((Inl x) as share)) :: lshares ->
     let x = Name.refresh penv.forbidden x in
-    Format.fprintf ppf "%t,@ %t" (print_share ~penv (l,Inl x)) (print_shares ~penv:(add_forbidden x penv) lshares)
-  | ((_,Inr _) as lshare) :: lshares ->
-    Format.fprintf ppf "%t,@ %t" (print_share ~penv lshare) (print_shares ~penv lshares)
+    Format.fprintf ppf "%t,@ %t" (print_share ~penv (l,share))
+                                 (print_selected_shares ~penv:(add_forbidden x penv) lshares)
+  | (l, Some ((Inr _) as share)) :: lshares ->
+    Format.fprintf ppf "%t,@ %t" (print_share ~penv (l,share))
+                                 (print_selected_shares ~penv lshares)
+
+and print_shares ~penv s_def shares ppf =
+  let rec select acc = function
+    | [] -> List.rev acc
+    | ((Inl x) as share) :: shares ->
+      if occurs_shares 0 shares > 0
+      then
+        select (Some share :: acc) shares
+      else
+        select (None::acc) shares
+    | ((Inr _) as share) :: shares ->
+      select (Some share :: acc) shares
+  in
+  let lshares = List.combine s_def (select [] shares) in
+  print_selected_shares ~penv lshares ppf
 
 and print_sig ~penv (s,shares) ppf =
   if List.for_all (function | Inl _ -> true | Inr _ -> false) shares
   then
     Name.print_ident s ppf
   else
-    Print.print ppf "{@[<hv>%t with %t@]}" (Name.print_ident s) (print_shares ~penv (List.combine (penv.sigs s) shares))
+    Print.print ppf "{@[<hv>%t with %t@]}" (Name.print_ident s) (print_shares ~penv (penv.sigs s) shares)
 
 and print_structure_clause ~penv (l,e) ppf =
   Format.fprintf ppf "@[<hov>%t@ =@ %t@]"

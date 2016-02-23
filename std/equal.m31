@@ -692,15 +692,20 @@ let rec equate x y =
   match (handle whnf_eq getbetas getreducing t with equal ?a ?b => yield (equate a b) end) with
   |- ?eqt : _ == ?t' =>
     let x = convert x eqt and y = convert y eqt in
-    match hint_at gethints (x == y) with
+    let r = match hint_at gethints (x == y) with
       | None =>
         match (handle eta_at getetas x y t with equal ?a ?b => yield (equate a b) end) with
           | Some ?eq => Some eq
           | None =>
             handle equate_congr x y with equal ?a ?b => yield (equate a b) end
         end
+      | Some ?eq =>
+        Some eq
+    end
+    in match r with
       | Some (|- ?eq : ?teq) =>
         Some (convert eq (convert_eq teq eqt))
+      | None => None
     end
   end
 
