@@ -1,5 +1,7 @@
 type t = int
 
+let parenthesize ~at_level ~max_level = max_level < at_level
+
 type infix =
   | Infix0
   | Infix1

@@ -13,10 +13,10 @@ let warning fmt = message ~verbosity:2 ("Warning: " ^^ fmt)
 let debug fmt = message ~verbosity:3 ("Debug: " ^^ fmt)
 
 let print ?(at_level=Level.no_parens) ?(max_level=Level.highest) ppf =
-  if at_level <= max_level then
-    Format.fprintf ppf
-  else
+  if Level.parenthesize ~at_level ~max_level then
     fun fmt -> Format.fprintf ppf ("(" ^^ fmt ^^ ")")
+  else
+    Format.fprintf ppf
 
 let sequence print_u separator us ppf =
   match us with

@@ -3,6 +3,8 @@
     parentheses around itself") *)
 type t
 
+val parenthesize : at_level:t -> max_level:t -> bool
+
 type infix =
   | Infix0
   | Infix1
