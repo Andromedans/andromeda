@@ -9,7 +9,7 @@ Constant ( ^ ) is declared.
 Constant ( / ) is declared.
 s is defined.
 ⊢ refl (a + b - (c ^ d ^ d)) : a + b - (c ^ d ^ d) ≡ a + b - (c ^ d ^ d)
-((⊢ a : A), (⊢ b : A), (⊢ c ^ d ^ d : A))
+(⊢ a : A, ⊢ b : A, ⊢ c ^ d ^ d : A)
 ⊢ λ (( ++ ) : A → A → A) (x : A) (y : A), x ++ (y ++ x)
   : (A → A → A) → A → A → A
 ( ++₁₉ ) : A → A → A 
