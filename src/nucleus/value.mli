@@ -1,11 +1,15 @@
 (** Runtime values and computations *)
 
+type ref
+type dyn
+
 (* Information about a toplevel declaration *)
 type decl =
   | DeclConstant of Tt.ty
   | DeclData of int
   | DeclOperation of int
   | DeclSignature of Tt.sig_def
+  | DeclDynamic of dyn
 
 (** Runtime environment *)
 type env
@@ -20,7 +24,7 @@ type value = private
   | Tag of Name.ident * value list
   | List of value list
   | Tuple of value list
-  | Ref of Store.key
+  | Ref of ref
   | String of string (** NB: strings are opaque to the user, ie not lists *)
   | Ident of Name.ident
 
@@ -58,9 +62,9 @@ val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 (** References *)
 val mk_ref : value -> value comp
 
-val lookup_ref : Store.key -> value comp
+val lookup_ref : ref -> value comp
 
-val update_ref : Store.key -> value -> unit comp
+val update_ref : ref -> value -> unit comp
 
 (** Monadic primitives *)
 val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
@@ -100,7 +104,7 @@ val top_print_value : (?max_level:Level.t -> value -> Format.formatter -> unit) 
 val as_term : loc:Location.t -> value -> Jdg.term
 val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
-val as_ref : loc:Location.t -> value -> Store.key
+val as_ref : loc:Location.t -> value -> ref
 val as_string : loc:Location.t -> value -> string
 val as_ident : loc:Location.t -> value -> Name.ident
 val as_list : loc:Location.t -> value -> value list
@@ -155,20 +159,32 @@ val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def comp
 (** Find a signature with the given labels (in this exact order) *)
 val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) comp
 
+(** Lookup a dynamic variable by name. *)
+val get_dynamic : Name.ident -> env -> dyn option
+
 (** Lookup abstracting variables. *)
 val lookup_abstracting : value list comp
 
 (** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : loc:Location.t -> Syntax.bound -> value comp
+val lookup_bound : loc:Location.t -> int -> value comp
+
+val lookup_dynamic : dyn -> value comp
 
 (** For matching *)
-val get_bound : loc:Location.t -> Syntax.bound -> env -> value
+val get_bound : loc:Location.t -> int -> env -> value
+
+val get_dyn : dyn -> env -> value
 
 (** Add a bound variable with given name to the environment. *)
 val add_bound : Name.ident -> value -> 'a comp -> 'a comp
 
 val add_bound_rec :
   (Name.ident * (value -> value comp)) list -> 'a comp -> 'a comp
+
+(** Modify the value bound by a dynamic variable *)
+val now : dyn -> value -> 'a comp -> 'a comp
+
+val top_now : dyn -> value -> unit toplevel
 
 (** Add a bound variable (for matching). *)
 val push_bound : Name.ident -> value -> env -> env
@@ -197,18 +213,22 @@ val add_operation : loc:Location.t -> Name.ident -> int -> unit toplevel
 val add_data : loc:Location.t -> Name.ident -> int -> unit toplevel
 
 (** Add a constant of a given type to the environment.
-  Fails if the constant is already declared. *)
+    It fails if the constant is already declared. *)
 val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
 
 (** Add a signature declaration to the environment.
-  Fails if the signature is already declared. *)
+    It fails if the signature is already declared. *)
 val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit toplevel
 
 (** Add a bound variable with the given name to the environment.
-    Complain if then name is already used. *)
+    It fails if the name is already used. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 val add_topbound_rec : loc:Location.t -> (Name.ident * (value -> value comp)) list -> unit toplevel
+
+(** Add a dynamic variable.
+    It fails if the name is already used. *)
+val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel

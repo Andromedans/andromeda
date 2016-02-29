@@ -1,11 +1,16 @@
 (** Runtime values and computations *)
 
+type ref = Store.key
+
+type dyn = Store.key
+
 (* Information about a toplevel declaration *)
 type decl =
   | DeclConstant of Tt.ty
   | DeclData of int
   | DeclOperation of int
   | DeclSignature of Tt.sig_def
+  | DeclDynamic of dyn
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
@@ -35,6 +40,8 @@ and dynamic = {
      abstraction from working. The list is in the reverse order from
      abstraction, i.e., the inner-most abstracted variable appears first in the
      list. *)
+
+  vars : value Store.t
 }
 
 and lexical = {
@@ -55,7 +62,7 @@ and value =
   | Tag of Name.ident * value list
   | List of value list
   | Tuple of value list
-  | Ref of Store.key
+  | Ref of ref
   | String of string
   | Ident of Name.ident
 
@@ -297,25 +304,31 @@ let get_operation x env =
   match get_decl x env with
   | None -> None
   | Some (DeclOperation k) -> Some k
-  | Some (DeclData _ | DeclConstant _ | DeclSignature _) -> None
+  | Some (DeclData _ | DeclConstant _ | DeclSignature _ | DeclDynamic _) -> None
 
 let get_data x env =
   match get_decl x env with
   | None -> None
   | Some (DeclData k) -> Some k
-  | Some (DeclOperation _ | DeclConstant _ | DeclSignature _) -> None
+  | Some (DeclOperation _ | DeclConstant _ | DeclSignature _ | DeclDynamic _) -> None
 
 let get_constant x env =
   match get_decl x env with
   | None -> None
   | Some (DeclConstant c) -> Some c
-  | Some (DeclData _ | DeclOperation _ | DeclSignature _) -> None
+  | Some (DeclData _ | DeclOperation _ | DeclSignature _ | DeclDynamic _) -> None
 
 let get_signature x env =
   match get_decl x env with
   | None -> None
   | Some (DeclSignature s) -> Some s
-  | Some (DeclData _ | DeclOperation _ | DeclConstant _) -> None
+  | Some (DeclData _ | DeclOperation _ | DeclConstant _ | DeclDynamic _) -> None
+
+let get_dynamic x env =
+  match get_decl x env with
+    | None -> None
+    | Some (DeclDynamic y) -> Some y
+    | Some (DeclData _ | DeclOperation _ | DeclConstant _ | DeclSignature _) -> None
 
 let lookup_constant ~loc x env =
   match get_constant x env with
@@ -338,7 +351,7 @@ let find_signature ~loc ls env =
          | [],_::_ | _::_,[] -> false
        in
        if cmp ls s_def then s, s_def else fold lst
-    | (_, (DeclConstant _ | DeclData _ | DeclOperation _)) :: lst -> fold lst
+    | (_, (DeclConstant _ | DeclData _ | DeclOperation _ | DeclDynamic _)) :: lst -> fold lst
   in
   Return (fold env.dynamic.decls), env.state
 
@@ -350,8 +363,13 @@ let get_bound ~loc k env =
   with
   | Failure _ -> Error.impossible ~loc "invalid de Bruijn index %d" k
 
+let get_dyn x env = Store.lookup x env.dynamic.vars
+
 let lookup_bound ~loc k env =
   Return (get_bound ~loc k env), env.state
+
+let lookup_dynamic x env =
+  Return (get_dyn x env), env.state
 
 let add_bound0 x v env = {env with lexical = { env.lexical with bound = (x,v)::env.lexical.bound } }
 
@@ -444,6 +462,28 @@ let add_topbound ~loc x v env =
   else
     let env = add_bound0 x v env in
     (), env
+
+let now0 x v env =
+  {env with dynamic = {env.dynamic with vars = Store.update x v env.dynamic.vars }}
+
+let now x v m env =
+  let env = now0 x v env in
+  m env
+
+let top_now x v env =
+  let env = now0 x v env in
+  (), env
+
+let add_dynamic0 ~loc x v env =
+  if is_known x env
+  then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+  else
+    let y,vars = Store.fresh v env.dynamic.vars in
+    { env with dynamic = {env.dynamic with
+        decls = (x, DeclDynamic y) :: env.dynamic.decls;
+        vars }}
+
+let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
 let add_handle0 op xsc env =
   { env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
@@ -577,6 +617,8 @@ let print_env env =
            Format.fprintf ppf "@[<hov 4>signature %t %t@]@\n"
                        (Name.print_ident x)
                        (Tt.print_sig_def ~penv s)
+        | (x, DeclDynamic _) ->
+          Format.fprintf ppf "@[<hov 4>dynamic %t@]@\n" (Name.print_ident x)
       )
       (List.rev env.dynamic.decls) ;
   in
@@ -593,6 +635,7 @@ let empty = {
   dynamic = {
     decls = [] ;
     abstracting = [] ;
+    vars = Store.empty ;
   } ;
   state = Store.empty;
 }

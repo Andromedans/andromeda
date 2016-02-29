@@ -10,6 +10,7 @@ and tt_pattern' =
   | Tt_Anonymous
   | Tt_As of tt_pattern * bound
   | Tt_Bound of bound
+  | Tt_Dynamic of Value.dyn
   | Tt_Type
   | Tt_Constant of Name.ident
   | Tt_Lambda of Name.ident * bound option * tt_pattern option * tt_pattern
@@ -46,6 +47,7 @@ type comp = comp' * Location.t
 and comp' =
   | Type
   | Bound of bound
+  | Dynamic of Value.dyn
   | Function of Name.ident * comp
   | Handler of handler
   | Data of Name.ident * comp list
@@ -56,6 +58,7 @@ and comp' =
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
+  | Now of Value.dyn * comp * comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -119,6 +122,8 @@ and toplevel' =
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopDynamic of Name.ident * comp
+  | TopNow of Value.dyn * comp
   | TopDo of comp (** evaluate a computation *)
   | TopFail of comp Lazy.t (** desugaring is suspended to allow catching errors *)
   | Verbosity of int

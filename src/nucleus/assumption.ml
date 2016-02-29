@@ -1,5 +1,5 @@
 module BoundSet = Set.Make (struct
-                    type t = Syntax.bound
+                    type t = int
                     let compare = compare
                   end)
 
