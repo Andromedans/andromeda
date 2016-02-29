@@ -71,7 +71,8 @@ x₄₄ : wrapped
 ⊢ a : A
 ⊢ a : A
 ((⊢ wrapped : Type, [(unwrap, unwrap₄₆ : A 
-                                ⊢ unwrap₄₆ : A)]), [Inr (⊢ a : A)])
+                                ⊢ unwrap₄₆ : A)]), [Constrained
+(⊢ a : A)])
 (⊢ {container with T = A} : Type, [⊢ a : A])
 (x₄₉ : wrapped 
  ⊢ x₄₉ : wrapped, unwrap)
@@ -122,8 +123,8 @@ The syntax is vaguely Coq-like. The strict equality is written with a double ==.
 
 data Some 1
 data None 0
-data Inl 1
-data Inr 1
+data Unconstrained 1
+data Constrained 1
 operation equal 2
 operation as_prod 1
 operation as_eq 1

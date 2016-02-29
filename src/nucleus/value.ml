@@ -81,16 +81,16 @@ and handler = {
 type 'a toplevel = env -> 'a * env
 
 (** Predeclared *)
-let name_some = Name.make "Some"
-let name_none = Name.make "None"
-let name_inl  = Name.make "Inl"
-let name_inr  = Name.make "Inr"
+let name_some          = Name.make "Some"
+let name_none          = Name.make "None"
+let name_unconstrained = Name.make "Unconstrained"
+let name_constrained   = Name.make "Constrained"
 
 let predefined_tags = [
-  (name_some, 1);
-  (name_none, 0);
-  (name_inl,  1);
-  (name_inr,  1)
+  (name_some,          1);
+  (name_none,          0);
+  (name_unconstrained, 1);
+  (name_constrained,   1);
 ]
 
 let name_equal        = Name.make "equal"
@@ -249,15 +249,15 @@ let as_option ~loc = function
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
-let from_sum = function
-  | Tt.Inl x -> Tag (name_inl, [x])
-  | Tt.Inr x -> Tag (name_inr, [x])
+let from_constrain = function
+  | Tt.Unconstrained x -> Tag (name_unconstrained, [x])
+  | Tt.Constrained x -> Tag (name_constrained, [x])
 
-let as_sum ~loc = function
-  | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Tt.Inl x
-  | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Tt.Inr x
+let as_constrain ~loc = function
+  | Tag (t,[x]) when (Name.eq_ident t name_unconstrained) -> Tt.Unconstrained x
+  | Tag (t,[x]) when (Name.eq_ident t name_constrained) -> Tt.Constrained x
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
-    Error.runtime ~loc "expected a sum but got %s" (name_of v)
+    Error.runtime ~loc "expected a constrain but got %s" (name_of v)
 
 (** Operations *)
 

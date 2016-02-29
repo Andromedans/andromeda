@@ -44,7 +44,7 @@ data lazy 0
      (when we descend in `forall x : A, B` and `forall y : A', B'`,
      we know that `A' == B'` but only under the instantiation, so we can't combine `x` and `y`.
      We also are not allowed to instantiate a pattern variable to any term that depends on `x` or `y`)
-   
+
    TODO occurs check (currently we might instantiate `x := f y`, `y := g x`)
 *)
 
@@ -159,14 +159,14 @@ let rec inst_sides quants x y =
 
 let rec collector_shares collector pop quants s1 s2 = match (s1, s2) with
     | ([], []) => Some (pop_rigids pop quants)
-    | ((Inl ?a)::?s1, (Inl ?b)::?s2) => (* non constrained *)
+    | ((Unconstrained ?a)::?s1, (Unconstrained ?b)::?s2) => (* non constrained *)
       let quants = add_paired_rigids a b quants in
       collector_shares collector (Some pop) quants s1 s2
-    | ((Inr ?a)::?s1, (Inr ?b)::?s2) => (* constrained *)
+    | ((Constrained ?a)::?s1, (Constrained ?b)::?s2) => (* constrained *)
       collector quants a b >?= (fun quants =>
       collector_shares collector pop quants s1 s2)
-    | ((Inl _)::_, (Inr _)::_) => None
-    | ((Inr _)::_, (Inl _)::_) => None
+    | ((Unconstrained _)::_, (Constrained _)::_) => None
+    | ((Constrained _)::_, (Unconstrained _)::_) => None
   end
 
 let rec collector_struct collector quants l1 l2 = match (l1,l2) with
@@ -177,7 +177,7 @@ let rec collector_struct collector quants l1 l2 = match (l1,l2) with
   end
 
 
-(* Update `quants` with values such that `lhs` matches `rhs`. 
+(* Update `quants` with values such that `lhs` matches `rhs`.
    Return updated `Some quants`, or `None` if `lhs` could not
    be made to match `rhs`.
 
@@ -272,7 +272,7 @@ let rec apply_quants f quants = match quants with
 (* given `pat = (f,quants,lhs)`
    where `quants` is an instantiation (usually with only non instantiated pattern variables),
    match `e` with `lhs` and apply `f` to the resulting instantiation if successful.
-   
+
    `f` may be either a closure or a term with a product type.
 *)
 let generic_matcher pat e =
@@ -319,12 +319,12 @@ let process_hint =
 (* An eta hint is a term `e` of type `forall [xs] [a b : T] [eqs : ?? == ??], a == b`. It
   is used by matching `T` with the type of a target equality, then filling in `a` and `b`
   and solving the `eqs`.
-  
+
   If we have an equation `lhs == rhs` at type `T'` to solve through eta:
   * match `T` with `T'` to instantiate `xs` to `vs`
   * compute `e vs lhs rhs` to get a term of type `forall [eqs], lhs == rhs`
   * solve the `eqs`
-  
+
   TODO allow `eqs : forall [ys] ?? == ??`
   This is necessary eg for `funext` (which has `eq : forall x, f x == g x`)
 *)
@@ -485,11 +485,11 @@ let rec do_whnf betas reducing e =
               | Some ?eqt => use eqt in (e1' e2) : t
               | None => fail
             end
-            
+
             The other option would be to have unicity of typing primitives which,
             given a judgement (ctx |- e : t) derives a type t' from the annotations of e and from ctx such that (ctx |- e : t'),
             and then return ctx |- refl t : t == t' and ctx |- e : t'
-            
+
             then t' would be foo[e2/x] for both (e1 e2) and (e1' e2), problem solved (because e1, e1' : forall x : A, foo)
           *)
           let e' = e1' e2 in
@@ -623,7 +623,7 @@ let reducing_spine reducing e =
     | _ => compute_reducing reducing e
   end in
   fold e
-      
+
 
 (* Like `do_whnf betas e` except that it always returns the witness of equality between
    `e` and its normal form (so reflexivity if `e` is normal). *)
@@ -651,7 +651,7 @@ let rec equate_congr a b =
                   yield (equate_congr x y)
                 | lazy =>
                   yield (equal x y)
-              end                
+              end
           end
         | (|- _proj ?a0 _, |- _proj ?b0 _) =>
           handle congruence a' b' with | equal a0 b0 => yield (equate_congr a0 b0) end
@@ -1016,4 +1016,3 @@ let add_hints bs = fold (fun _ b => add_hint b) () bs
 let add_etas  bs = fold (fun _ b => add_eta b) () bs
 
 let fasteq _ = equality_in getstate
-
