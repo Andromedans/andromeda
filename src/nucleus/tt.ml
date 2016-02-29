@@ -1,8 +1,8 @@
 (** The abstract syntax of Andromedan type theory (TT). *)
 
-type ('a,'b) sum =
-  | Inl of 'a
-  | Inr of 'b
+type ('a,'b) constrain =
+  | Unconstrained of 'a
+  | Constrained of 'b
 
 type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
@@ -37,7 +37,7 @@ and 'a ty_abstraction = (ty, 'a) abstraction
 
 and sig_def = (Name.label * Name.ident * ty) list
 
-and signature = Name.signature * (Name.ident, term) sum list
+and signature = Name.signature * (Name.ident, term) constrain list
 
 and structure = signature * term list
 
@@ -98,8 +98,8 @@ let mk_refl ~loc t e =
 let assumptions_sig (_,shares) =
   let rec fold lvl acc = function
     | [] -> acc
-    | (Inl _) :: shares -> fold (lvl+1) acc shares
-    | (Inr e) :: shares ->
+    | (Unconstrained _) :: shares -> fold (lvl+1) acc shares
+    | (Constrained e) :: shares ->
       let acc = Assumption.union acc (Assumption.bind lvl e.assumptions) in
       fold lvl acc shares
   in
@@ -206,10 +206,10 @@ and at_var_ty atom bound hyps ~lvl (Ty a) =
 and at_var_sig atom bound hyps ~lvl (s, shares) =
   let rec fold lvl res = function
     | [] -> s, List.rev res
-    | (Inl x) :: shares -> fold (lvl+1) ((Inl x)::res) shares
-    | (Inr e) :: shares ->
+    | (Unconstrained x) :: shares -> fold (lvl+1) ((Unconstrained x)::res) shares
+    | (Constrained e) :: shares ->
       let e = at_var atom bound hyps ~lvl e in
-      fold lvl ((Inr e)::res) shares
+      fold lvl ((Constrained e)::res) shares
   in
   fold lvl [] shares
 
@@ -323,8 +323,8 @@ and occurs_ty k (Ty t) = occurs k t
 and occurs_shares k shares =
   let rec fold acc k = function
     | [] -> acc
-    | (Inl _) :: shares -> fold acc (k+1) shares
-    | (Inr e) :: shares -> let acc = acc + occurs k e in fold acc k shares
+    | (Unconstrained _) :: shares -> fold acc (k+1) shares
+    | (Constrained e) :: shares -> let acc = acc + occurs k e in fold acc k shares
   in
   fold 0 k shares
 
@@ -406,11 +406,11 @@ and alpha_equal_sig (s1,shares1) (s2,shares2) =
   Name.eq_ident s1 s2 &&
   let rec fold lst1 lst2 = match lst1, lst2 with
     | [], [] -> true
-    | (Inl _)::lst1, (Inl _)::lst2 -> fold lst1 lst2
-    | (Inr e1) :: lst1, (Inr e2) :: lst2 ->
+    | (Unconstrained _)::lst1, (Unconstrained _)::lst2 -> fold lst1 lst2
+    | (Constrained e1) :: lst1, (Constrained e2) :: lst2 ->
       alpha_equal e1 e2 &&
       fold lst1 lst2
-    | (Inl _) :: _, (Inr _) :: _ | (Inr _) :: _, (Inl _) :: _ -> false
+    | (Unconstrained _) :: _, (Constrained _) :: _ | (Constrained _) :: _, (Unconstrained _) :: _ -> false
     | [], _:: _ | _ :: _, [] -> Error.impossible ~loc:Location.unknown "alpha_equal_sig: malformed signatures"
   in
   fold shares1 shares2
@@ -670,8 +670,8 @@ and print_sig_def ~penv xts ppf =
         (print_sig_def ~penv:(add_forbidden y penv) lst)
 
 and print_share ~penv lshare ppf = match lshare with
-  | l, Inl x -> print_label l x ppf
-  | l, Inr e -> Format.fprintf ppf "%t@ =@ %t" (Name.print_ident l) (print_term ~penv e)
+  | l, Unconstrained x -> print_label l x ppf
+  | l, Constrained e -> Format.fprintf ppf "%t@ =@ %t" (Name.print_ident l) (print_term ~penv e)
 
 and print_selected_shares ~penv lshares ppf =
   match lshares with
@@ -680,31 +680,31 @@ and print_selected_shares ~penv lshares ppf =
     print_selected_shares ~penv:(add_forbidden Name.anonymous penv) lshares ppf
   | (l,Some share) :: rem when (List.for_all (fun (_,maybe) -> maybe = None) rem) ->
     print_share ~penv (l,share) ppf
-  | (l, Some ((Inl x) as share)) :: lshares ->
+  | (l, Some ((Unconstrained x) as share)) :: lshares ->
     let x = Name.refresh penv.forbidden x in
     Format.fprintf ppf "%t,@ %t" (print_share ~penv (l,share))
                                  (print_selected_shares ~penv:(add_forbidden x penv) lshares)
-  | (l, Some ((Inr _) as share)) :: lshares ->
+  | (l, Some ((Constrained _) as share)) :: lshares ->
     Format.fprintf ppf "%t,@ %t" (print_share ~penv (l,share))
                                  (print_selected_shares ~penv lshares)
 
 and print_shares ~penv s_def shares ppf =
   let rec select acc = function
     | [] -> List.rev acc
-    | ((Inl x) as share) :: shares ->
+    | ((Unconstrained x) as share) :: shares ->
       if occurs_shares 0 shares > 0
       then
         select (Some share :: acc) shares
       else
         select (None::acc) shares
-    | ((Inr _) as share) :: shares ->
+    | ((Constrained _) as share) :: shares ->
       select (Some share :: acc) shares
   in
   let lshares = List.combine s_def (select [] shares) in
   print_selected_shares ~penv lshares ppf
 
 and print_sig ~penv (s,shares) ppf =
-  if List.for_all (function | Inl _ -> true | Inr _ -> false) shares
+  if List.for_all (function | Unconstrained _ -> true | Constrained _ -> false) shares
   then
     Name.print_ident s ppf
   else
@@ -719,8 +719,8 @@ and print_structure ?max_level ~penv (s,shares) es ppf =
   let ls = penv.sigs s in
   let rec fold acc es ls shares = match ls, shares with
     | [], [] -> List.rev acc
-    | _::ls, (Inr _) :: shares -> fold acc es ls shares
-    | l::ls, (Inl _) :: shares ->
+    | _::ls, (Constrained _) :: shares -> fold acc es ls shares
+    | l::ls, (Unconstrained _) :: shares ->
       begin match es with
         | [] -> Error.impossible ~loc:Location.unknown "print_structure: malformed structure"
         | e::es -> fold ((l,e)::acc) es ls shares
@@ -744,10 +744,10 @@ let struct_combine ~loc ((_,shares),es) =
      We assume we work on a valid structure so no need to check that no [es] remain at the end. *)
   let rec fold fields exs es = function
     | [] -> List.rev fields
-    | (Inr e) :: shares ->
+    | (Constrained e) :: shares ->
       let e = instantiate exs e in
       fold ((Shared e)::fields) exs es shares
-    | (Inl _) :: shares ->
+    | (Unconstrained _) :: shares ->
       begin match es with
         | [] -> Error.impossible ~loc "struct_combine: malformed structure"
         | e::es -> fold ((Explicit e)::fields) (e::exs) es shares
@@ -780,14 +780,14 @@ let field_project ~loc s_def ((_,shares) as s) trm p =
       if Name.eq_ident p l
       then
         let e = match e with
-          | Inr e -> instantiate projs e
-          | Inl _ -> mk_projection ~loc trm s l
+          | Constrained e -> instantiate projs e
+          | Unconstrained _ -> mk_projection ~loc trm s l
         and t = instantiate_ty vs t in
         e,t
       else
         let e,projs = match e with
-          | Inr e -> instantiate projs e,projs
-          | Inl _ ->
+          | Constrained e -> instantiate projs e,projs
+          | Unconstrained _ ->
             let e = mk_projection ~loc trm s l in
             e,(e::projs)
         in

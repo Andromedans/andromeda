@@ -131,14 +131,14 @@ let equal_signature ~loc ctx (s1,shares1) (s2,shares2) =
       | [] ->
         context_multiabstract ~loc ctx yts >!= fun ctx ->
         Opt.return ctx
-      | ((_,_,t),(Tt.Inl x),(Tt.Inl _))::rem ->
+      | ((_,_,t),(Tt.Unconstrained x),(Tt.Unconstrained _))::rem ->
         let t = Tt.instantiate_ty vs t in
         let jt = Jdg.mk_ty ctx t in
         Opt.add_abstracting ~loc x jt (fun ctx y ->
         let y1 = Tt.mk_atom ~loc y in
         let y2 = Tt.mention_atoms hyps y1 in
         fold ctx hyps ((y,t)::yts) (y1::vs) (y1::ys1) (y2::ys2) rem)
-      | ((_,_,t),(Tt.Inr e1),(Tt.Inr e2))::rem ->
+      | ((_,_,t),(Tt.Constrained e1),(Tt.Constrained e2))::rem ->
         let t = Tt.instantiate_ty vs t
         and e1 = Tt.instantiate ys1 e1
         and e2 = Tt.instantiate ys2 e2 in
@@ -147,7 +147,7 @@ let equal_signature ~loc ctx (s1,shares1) (s2,shares2) =
         Opt.locally (equal ctx e1 e2 t) >?= fun (ctx,hyps') ->
         let hyps = AtomSet.union hyps hyps' in
         fold ctx hyps yts (e1::vs) ys1 ys2 rem
-      | (_,Tt.Inl _,Tt.Inr _)::_ | (_,Tt.Inr _,Tt.Inl _)::_ -> Opt.fail
+      | (_,Tt.Unconstrained _,Tt.Constrained _)::_ | (_,Tt.Constrained _,Tt.Unconstrained _)::_ -> Opt.fail
     in
     fold ctx AtomSet.empty [] [] [] [] (list_combine3 s_def shares1 shares2)
   else
@@ -281,7 +281,7 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
        [projs] instantiate constraints *)
     let rec fold ctx hyps es projs = function
         | [] -> Opt.return ctx
-        | ((l, _, t), Tt.Inl _) :: rem ->
+        | ((l, _, t), Tt.Unconstrained _) :: rem ->
           let t = Tt.instantiate_ty es t in
           let e1_proj = Tt.mk_projection ~loc:e1.Tt.loc e1 s' l in
           let e2_proj = Tt.mk_projection ~loc:e2.Tt.loc e2 s' l in
@@ -289,7 +289,7 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
           Opt.locally (equal ctx e1_proj e2_proj t) >?= fun (ctx, hyps') ->
           let hyps = AtomSet.union hyps hyps' in
           fold ctx hyps (e1_proj :: es) (e1_proj :: projs) rem
-        | (_,Tt.Inr e) :: rem ->
+        | (_,Tt.Constrained e) :: rem ->
           let e = Tt.instantiate projs e in
           fold ctx hyps (e::es) projs rem
     in
@@ -301,7 +301,7 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
 
   | Tt.Bound _ ->
      Error.impossible ~loc "deBruijn encountered in extensionality"
-                                  
+
 
 
 (** Beta reduction of [Lambda ((x,a), (e, b))] applied to argument [e'],

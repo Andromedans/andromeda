@@ -25,7 +25,7 @@ let l_x = ident x
 
 let aT = assume T : Type in T
 
-let exwrap' = _sig wrap [(Inl aT),(Inr (exfalso aT))]
+let exwrap' = _sig wrap [(Unconstrained aT),(Constrained (exfalso aT))]
 
 do equal exwrap exwrap'
 

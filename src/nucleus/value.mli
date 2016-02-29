@@ -109,8 +109,8 @@ val as_list : loc:Location.t -> value -> value list
 val from_option : value option -> value
 val as_option : loc:Location.t -> value -> value option
 
-val from_sum : (value,value) Tt.sum -> value
-val as_sum : loc:Location.t -> value -> (value,value) Tt.sum
+val from_constrain : (value,value) Tt.constrain -> value
+val as_constrain : loc:Location.t -> value -> (value,value) Tt.constrain
 
 (** Operations *)
 val operation : Name.ident -> ?checking:Jdg.ty -> value list -> value comp

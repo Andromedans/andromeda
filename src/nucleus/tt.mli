@@ -1,8 +1,8 @@
 (** Abstract syntax of value types and terms *)
 
-type ('a,'b) sum =
-  | Inl of 'a
-  | Inr of 'b
+type ('a,'b) constrain =
+  | Unconstrained of 'a
+  | Constrained of 'b
 
 (** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
 type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
@@ -66,10 +66,10 @@ and 'a ty_abstraction = (ty, 'a) abstraction
 and sig_def = (Name.label * Name.ident * ty) list
 
 (** A signature with sharing constraints [s with li = vi], the [li] are implicit.
-    [vi] is [Inl xi] when [li] has no constraint, then [xi] is bound in future constraints,
-            [Inr ei] when it has one.
+    [vi] is [Unconstrained xi] when [li] has no constraint, then [xi] is bound in future constraints,
+            [Constrained ei] when it has one.
 *)
-and signature = Name.signature * (Name.ident, term) sum list
+and signature = Name.signature * (Name.ident, term) constrain list
 
 (** A structure [s,es] where [es] are the values of the non constrained fields of [s].
     The [es] do not bind labels. *)
