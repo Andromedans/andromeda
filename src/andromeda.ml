@@ -83,17 +83,17 @@ let options = Arg.align [
 (** Interactive toplevel *)
 let toplevel cmp =
   Format.printf "Andromeda %s@\n[Type #help for help.]@." Build.version ;
-  while true do
-    try
-      let rec fold state =
+  let rec fold state =
+    let state =
+      try
         let cmd = Eval.parse Lexer.read_toplevel Parser.commandline () in
-        let state = Value.progress state (fun () -> Eval.exec_cmd Filename.current_dir_name true cmd) in
-        fold state in
-      fold (Value.initial cmp)
-    with
-    | Error.Error err -> Print.error "%t" (Error.print err)
-    | Sys.Break -> Format.eprintf "Interrupted.@."
-  done
+        Value.progress state (fun () -> Eval.exec_cmd Filename.current_dir_name true cmd)
+      with
+      | Error.Error err -> Print.error "%t" (Error.print err); state
+      | Sys.Break -> Format.eprintf "Interrupted.@."; state
+    in fold state
+  in
+  fold (Value.initial cmp)
 
 (** Main program *)
 let main =
