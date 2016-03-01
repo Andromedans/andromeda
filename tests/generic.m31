@@ -30,7 +30,7 @@ do match cat with
 
 do _struct cat [dwarf,urist]
 
-fail _struct cat [dwarf,dwarf]
+dont _struct cat [dwarf,dwarf]
 
 constant A : Type
 
@@ -63,9 +63,9 @@ signature treasure = { gold : A }
 
 let gold_id = match treasure with |- _sig ((_,[(?l,_)]),_) => l end
 
-fail _proj urist gold_id
+dont _proj urist gold_id
 
-fail _proj ankle gold_id
+dont _proj ankle gold_id
 
 constant B : Type
 constant eq : A == B
@@ -75,7 +75,7 @@ do match assume x : A in x : B with
   |- _atom ?y => y
   end
 
-fail match ankle with
+dont match ankle with
   |- _atom _ => ()
   end
 

@@ -25,5 +25,5 @@ end
 
 do inhab : A
 
-fail inhab
+dont inhab
 

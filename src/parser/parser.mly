@@ -34,7 +34,7 @@
 %token DOT
 
 (* Things specific to toplevel *)
-%token DO FAIL
+%token DO DONT
 %token CONSTANT
 %token SIGNATURE
 
@@ -119,7 +119,7 @@ plain_topcomp:
                                                       { TopLetRec lst }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
-  | FAIL c=term                                       { TopFail c }
+  | DONT c=term                                       { TopDont c }
   | CONSTANT xs=nonempty_list(name) COLON u=term      { DeclConstants (xs, u) }
   | SIGNATURE s=name EQ LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
                                                       { DeclSignature (s, lst) }

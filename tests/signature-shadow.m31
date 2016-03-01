@@ -23,7 +23,7 @@ do { x = a } : orig
 let s_orig = { } : {orig with x = a}
 let s_copy = { } : {copy with x = a}
 
-fail refl { } : s_orig == s_copy
+dont refl { } : s_orig == s_copy
 
 
 constant B : Type

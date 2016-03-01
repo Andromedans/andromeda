@@ -78,7 +78,7 @@ do nonary_op : {isContr with T = Type == Type}
 
 (** Evaluate a failing computation *)
 (* This may not have side effects, it only verifies that the computation fails and fails if it does not. *)
-fail Type Type
+dont Type Type
 
 (** Change verbosity level *)
 #verbosity 3
@@ -92,7 +92,7 @@ do refl Type : Type == Type
 (* Most computations are evaluated in a naive way.
    However if we know that a computation should evaluate to a term of a given type,
    a more refined strategy can be used: *)
-(* TODO fail lambda T x, x *)
+(* TODO dont lambda T x, x *)
 (* Type ascription `c : c'` is one way to evaluate in checking mode.
    Checking mode allows inferring type annotations for the arguments of a lambda. *)
 do (lambda T x, x) : forall (A : Type), A -> A
@@ -109,11 +109,11 @@ do refl {} : ({} : wrapped_a) == {}
 
 (* Checking mode is preserved by some constructs but not all: *)
 do (let _ = Type in lambda x, x) : A -> A
-fail handle (lambda x, x) with end
+dont handle (lambda x, x) with end
 
 (* Checking mode can be a problem as it tries to simplify some equalities which are only true unsimplified. TODO example
    If you need to break checking mode, use a let-in. *)
-fail let tt = {} in tt : wrapped_a
+dont let tt = {} in tt : wrapped_a
 
 (** Meta functions *)
 (* The meta language is a model of lambda calculus! *)

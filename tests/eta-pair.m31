@@ -48,7 +48,7 @@ do
   with local (leta pair_eta) handle
      refl p : p ≡ pair C D (fst C D p) (snd C D p)
 
-fail
+dont
   with local (leta pair_eta) handle
   refl p : p == q
 
