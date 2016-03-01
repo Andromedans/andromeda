@@ -45,7 +45,7 @@ let rec infer (c',loc) =
        Value.lookup_bound ~loc i
 
     | Syntax.Dynamic x ->
-       Value.lookup_dynamic x
+       Value.lookup_dynamic_value x
 
     | Syntax.Type ->
        let e = Tt.mk_type ~loc in
@@ -233,7 +233,7 @@ let rec infer (c',loc) =
      let et' = Jdg.mk_term ctxe e' t' in
      Value.return_term et'
 
-  | Syntax.Signature (s,xcs) ->
+  | Syntax.Signature (s,xcs) -> assert false (* TODO
     (* [vs] are the constraints,
        [es] instantiate types,
        [ys:ts] are assumed for unconstrained fields *)
@@ -268,7 +268,7 @@ let rec infer (c',loc) =
         fold ctx ((Tt.Unconstrained x)::vs) (ey::es) (y::ys) (t::ts) rem)
     in
     Value.lookup_signature ~loc s >>= fun def ->
-    fold Context.empty [] [] [] [] (List.combine def xcs)
+    fold Context.empty [] [] [] [] (List.combine def xcs) *)
 
   | Syntax.Structure lxcs ->
     (* In infer mode the structure must be fully specified. *)
@@ -941,9 +941,8 @@ and topletrec_bind ~loc interactive fxcs =
   return ()
 
 let rec exec_cmd base_dir interactive c =
-  Value.top_get_env >>= fun env ->
-  Value.top_bound_names >>= fun xs ->
-  let (c', loc) = Desugar.toplevel env xs c in
+  Value.top_bound_info >>= fun bound ->
+  let (c', loc) = Desugar.toplevel bound c in
   match c' with
 
   | Syntax.DeclOperation (x, k) ->

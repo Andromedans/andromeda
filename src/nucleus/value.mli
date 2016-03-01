@@ -1,15 +1,25 @@
 (** Runtime values and computations *)
 
+(** The type of an AML reference. *)
 type ref
+
+(** The type of an AML dynamically scoped variable. *)
 type dyn
 
-(* Information about a toplevel declaration *)
-type decl =
-  | DeclConstant of Tt.ty
-  | DeclData of int
-  | DeclOperation of int
-  | DeclSignature of Tt.sig_def
-  | DeclDynamic of dyn
+(** A name may refer to: *)
+type bound_info =
+  (** A bound value (the index being the number of bound values before it) *)
+  | BoundVal
+  (** The constant [a] *)
+  | BoundConst of Name.constant
+  (** The data constructor [C] with arity [n] *)
+  | BoundData of Name.data * int
+  (** The operation [op] with arity [n] *)
+  | BoundOp of Name.operation * int
+  (** The signature [s] *)
+  | BoundSig of Name.signature
+  (** The dynamic variable [x] *)
+  | BoundDyn of dyn
 
 (** Runtime environment *)
 type env
@@ -128,16 +138,13 @@ val operation_as_signature : value -> value comp
 (** Interact with the environment *)
 
 (** Known bound variables *)
-val top_bound_names : Name.ident list toplevel
+val top_bound_info : (Name.ident * bound_info) list toplevel
 
 (** Extract the current environment (for desugaring) *)
 val top_get_env : env toplevel
 
 (** Extract the current environment (for matching) *)
 val get_env : env comp
-
-(** Lookup a data constructor. *)
-val get_decl : Name.ident -> env -> decl option
 
 (** Lookup an operation *)
 val get_operation : Name.ident -> env -> int option
@@ -159,21 +166,18 @@ val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def comp
 (** Find a signature with the given labels (in this exact order) *)
 val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) comp
 
-(** Lookup a dynamic variable by name. *)
-val get_dynamic : Name.ident -> env -> dyn option
-
 (** Lookup abstracting variables. *)
 val lookup_abstracting : value list comp
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
 
-val lookup_dynamic : dyn -> value comp
+val lookup_dynamic_value : dyn -> value comp
 
 (** For matching *)
 val get_bound : loc:Location.t -> int -> env -> value
 
-val get_dyn : dyn -> env -> value
+val get_dynamic_value : dyn -> env -> value
 
 (** Add a bound variable with given name to the environment. *)
 val add_bound : Name.ident -> value -> 'a comp -> 'a comp
