@@ -132,19 +132,11 @@ operation as_signature 1
 signature unit 
 data ( !! ) 1
 operation failure 1
-operation beta 1
-operation hint 1
-operation eta 1
-data lbeta 1
-data lhint 1
-data leta 1
 operation whnf 1
-operation getbetas 0
-operation gethints 0
-operation getetas 0
-operation getreducing 0
-operation getstate 0
-operation set_reducing 2
+dynamic betas
+dynamic hints
+dynamic etas
+dynamic reducing
 data eager 0
 data lazy 0
 operation unary_op 1

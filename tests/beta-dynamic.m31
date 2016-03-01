@@ -10,19 +10,19 @@ do f a
 
 do
   assume eq : a == b in
-  with local (lbeta eq) handle
+  now betas = add_beta eq betas in
     f a
 
 
 operation gimme_beta 0
 
-do with equality !top_state handle
+do
    handle
      let _ = gimme_beta in
      whnf a
    with
      | gimme_beta =>
        assume eq : a == b in
-       let _ = beta eq in yield {}
+       now betas = add_beta eq betas in yield {}
    end
 

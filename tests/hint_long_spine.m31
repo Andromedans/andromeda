@@ -9,5 +9,5 @@ constant f : A -> B
 constant f_def : f == (λ (x : A), b)
 
 do
-  with local (lbeta f_def) handle
+  now betas = add_beta f_def betas in
     refl b : f a == b

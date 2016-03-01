@@ -24,8 +24,7 @@ let pair_eta_pr =
     x ≡ y
 
 do (lambda U V x y (eq1 : x.fst == y.fst) (eq2 : x.snd == y.snd),
-  with local (lhint eq1) handle
-  with local (lhint eq2) handle
+  now hints = add_hints [eq1,eq2] hints in
   refl x : x == y) : pair_eta_pr
 
 constant C D : Type

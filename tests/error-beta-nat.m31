@@ -6,12 +6,11 @@ constant plus_Z : Π (x : N), plus x Z == x
 constant plus_S : Π (x y : N), plus x (S y) == S (plus x y)
 
 do
-  with local (lbeta plus_S) handle
+  now betas = add_beta plus_S betas in
     Type
 
 (* This is supposed to fail. *)
 do
-  with local (lbeta plus_Z) handle
-  with local (lbeta plus_S) handle
+  now betas = add_betas [plus_Z,plus_S] betas in
    (refl (S (S Z))) : plus (S Z) (S (S Z)) == S (S Z)
 
