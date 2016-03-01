@@ -535,10 +535,8 @@ and print_app ?max_level ~penv e1 e2 ppf =
     | Constant (Name.Ident (_, Name.Prefix) as op) -> Some (As_ident op)
     | Atom (Name.Atom (_, Name.Prefix, _) as op) -> Some (As_atom op)
 
-    | Constant (Name.Ident (_, (Name.Word | Name.Anonymous | Name.Infix0 |
-                           Name.Infix1 | Name.Infix2 | Name.Infix3 | Name.Infix4)))
-    | Atom (Name.Atom (_, (Name.Word | Name.Anonymous | Name.Infix0 |
-                           Name.Infix1 | Name.Infix2 | Name.Infix3 | Name.Infix4), _))
+    | Constant (Name.Ident (_, (Name.Word | Name.Anonymous | Name.Infix _)))
+    | Atom (Name.Atom (_, (Name.Word | Name.Anonymous | Name.Infix _), _))
     | Type | Lambda _ | Apply _ | Prod _ | Eq _ | Refl _ | Signature _
     | Structure _ | Projection _ ->
       None
@@ -563,20 +561,15 @@ and print_app ?max_level ~penv e1 e2 ppf =
            | Apply ({term=Bound k; _}, _, e1) ->
               begin
                 match List.nth penv.forbidden k with
-                | Name.Ident (_, ((Name.Infix0 | Name.Infix1 | Name.Infix2 |
-                                  Name.Infix3 | Name.Infix4) as fixity)) as op ->
+                | Name.Ident (_, Name.Infix fixity) as op ->
                    Some (As_ident op, fixity, e1)
                 | Name.Ident (_, (Name.Word | Name.Anonymous | Name.Prefix)) -> None
                 | exception Failure "nth" -> None
               end
-           | Apply ({term=Constant (Name.Ident (_,
-                                                ((Name.Infix0 | Name.Infix1 | Name.Infix2|
-                                                  Name.Infix3 | Name.Infix4) as fixity)) as op);_},
+           | Apply ({term=Constant (Name.Ident (_, Name.Infix fixity) as op);_},
                     _, e1) ->
               Some (As_ident op, fixity, e1)
-           | Apply ({term=Atom (Name.Atom (_,
-                                           ((Name.Infix0 | Name.Infix1 | Name.Infix2|
-                                             Name.Infix3 | Name.Infix4) as fixity), _) as op);_},
+           | Apply ({term=Atom (Name.Atom (_, Name.Infix fixity, _) as op);_},
                     _, e1) ->
               Some (As_atom op, fixity, e1)
 
@@ -589,7 +582,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
        in
        match e1_infix with
        | Some (op, fixity, e1) ->
-          let (lvl_op, lvl_left, lvl_right) = Level.infix (Name.infix fixity) in
+          let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
           Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
                       (print_term ~max_level:lvl_left ~penv e1)
                       (match op with

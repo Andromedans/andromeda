@@ -507,13 +507,7 @@ let rec print_value_aux ?max_level ~penv refs v ppf =
   | Handler h -> Format.fprintf ppf "<handler>"
 
   | Tag (t, lst) ->
-     begin
-       match lst with
-       | [] -> Name.print_ident t ppf
-       | (_::_) -> Print.print ?max_level ~at_level:Level.app ppf "%t@ %t"
-                               (Name.print_ident t)
-                               (Print.sequence (print_value_aux ~max_level:Level.no_parens ~penv refs) "" lst)
-     end
+     print_tag ?max_level ~penv refs t lst ppf
 
   | List lst -> Format.fprintf ppf "[%t]"
                   (Print.sequence (print_value_aux ~penv refs) "," lst)
@@ -528,6 +522,34 @@ let rec print_value_aux ?max_level ~penv refs v ppf =
   | String s -> Format.fprintf ppf "\"%s\"" (String.escaped s)
 
   | Ident x -> Name.print_ident x ppf
+
+and print_tag ?max_level ~penv refs t lst ppf =
+  match t, lst with
+
+  | Name.Ident (_, Name.Prefix) as op, [v] ->
+     (* prefix tag applied to one argument *)
+     Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
+                 (Name.print_ident ~parentheses:false op)
+                 (print_value_aux ~max_level:Level.prefix_arg ~penv refs v)
+
+  | Name.Ident (_, Name.Infix fixity) as op,
+    [v1; v2] ->
+     (* infix tag applied to two arguments *)
+     let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
+     Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
+                 (print_value_aux ~max_level:lvl_left ~penv refs v1)
+                 (Name.print_ident ~parentheses:false op)
+                 (print_value_aux ~max_level:lvl_right ~penv refs v2)
+
+  | _ ->
+     (* print as application *)
+     begin
+       match lst with
+       | [] -> Name.print_ident t ppf
+       | (_::_) -> Print.print ?max_level ~at_level:Level.app ppf "%t@ %t"
+                               (Name.print_ident t)
+                               (Print.sequence (print_value_aux ~max_level:Level.no_parens ~penv refs) "" lst)
+     end
 
 let print_value0 env ?max_level v ppf =
   let penv = get_penv env in
