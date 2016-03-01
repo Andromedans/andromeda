@@ -27,8 +27,8 @@ constant pred' : N → N
 constant pred'_def :
   ∀ (x : N), pred' x ≡ ind_N (λ (_ : N), N) Z (λ (x' _ : N), x') x
 
-do with fasteq () handle
-  beta ind_N_Z; beta ind_N_S; beta pred'_def;
+do
+  now betas = add_betas [ind_N_Z, ind_N_S, pred'_def] betas in
   refl (S Z) : pred' (S (S Z)) ≡ (S Z)
 
 (* We define plus in such a way that it will unfold only when it is applied
@@ -40,19 +40,17 @@ constant plus_def :
 (* We now use the ind_N computation rules to establish properties of plus
    Later we use these properties to compute with plus -- we do not have to
    always go back to ind_N. *)
-let plus_Z = with fasteq () handle
+let plus_Z =
   (λ (x : N),
-    beta plus_def;
-    beta ind_N_Z;
+    now betas = add_betas [plus_def, ind_N_Z] betas in
       refl (plus x Z) :
         plus x Z ≡ x)
  :
  ∀ (x : N), plus x Z ≡ x
 
-let plus_S = with fasteq () handle
+let plus_S =
   (λ (x y : N),
-     beta plus_def;
-     beta ind_N_S;
+    now betas = add_betas [plus_def, ind_N_S] betas in
      refl (plus x (S y)) :
        plus x (S y) ≡ S (plus x y))
   :
@@ -70,56 +68,49 @@ let seven = S (S (S (S (S (S (S Z))))))
 let eight = S (S (S (S (S (S (S (S Z)))))))
 let nine  = S (S (S (S (S (S (S (S (S Z))))))))
 
-do with fasteq () handle
-  beta pred_Z; beta pred_S;
+do
+  now betas = add_betas [pred_Z,pred_S] betas in
     refl four : pred five ≡ four
 
-do with fasteq () handle
-  beta pred_Z; beta pred_S;
+do
+  now betas = add_betas [pred_Z,pred_S] betas in
     refl Z : pred Z ≡ Z
 
-do with fasteq () handle
-  beta plus_Z;
-  beta plus_S;
+do
+  now betas = add_betas [plus_Z,plus_S] betas in
     refl five : plus two three ≡ plus one four
 
 (* let us establish commutativity of addition. *)
 
-let plus_Z' = with fasteq () handle
+let plus_Z' =
   ind_N
     (λ (x : N), plus Z x ≡ x)
     (plus_Z Z)
     (λ (x : N) (IH : plus Z x ≡ x),
-       beta IH;
-       beta plus_S;
+       now betas = add_betas [IH,plus_S] betas in
          refl (S (plus Z x)) : plus Z (S x) ≡ S x)
   : ∀ (x : N), plus Z x ≡ x
 
-let plus_S' = with fasteq () handle
+let plus_S' =
   (λ (x y : N),
-    beta plus_Z;
-    beta plus_S;
+    now betas = add_betas [plus_Z,plus_S] betas in
     ind_N
       (λ (z : N), plus (S x) z ≡ S (plus x z))
       (refl (S x))
       (λ (z : N) (IH : plus (S x) z ≡ S (plus x z)),
-       beta IH;
-       beta plus_S;
+       now betas = add_betas [IH,plus_S] betas in
          refl (plus (S x) (S z)) : plus (S x) (S z) ≡ S (plus x (S z)))
       y)
   : ∀ (x y : N), plus (S x) y ≡ S (plus x y)
 
-let plus_commute = with fasteq () handle
+let plus_commute =
   (λ (x y : N),
-    beta plus_Z;
-    beta plus_S;
-    beta plus_Z';
-    beta plus_S';
+    now betas = add_betas [plus_Z,plus_S,plus_Z',plus_S'] betas in
     ind_N
       (λ (z : N), plus z y ≡ plus y z)
       (refl y)
       (λ (z : N) (IH : plus z y ≡ plus y z),
-          beta IH;
+          now betas = add_beta IH betas in
            refl (S (plus z y)) : plus (S z) y ≡ plus y (S z) )
       x)
   : ∀ (x y : N), plus x y ≡ plus y x
@@ -127,33 +118,26 @@ let plus_commute = with fasteq () handle
 do plus_commute
 
 (* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x). *)
-do with fasteq () handle
-  hint plus_commute;
+do
+  now hints = add_hint plus_commute hints in
    (λ (P : N → Type) (x y : N) (a : P (plus x y)), a : P (plus y x))
 
 (** (times n m) computes m*n as n-fold sum of m. *)
 constant times : N → N → N
 constant times_def : ∀ (n m : N), times n m ≡ ind_N (λ (_ : N), N) Z (λ (_ : N), plus m) n
 
-do with fasteq () handle
-  beta times_def;
-    beta ind_N_Z;
+do
+  now betas = add_betas [times_def,ind_N_Z] betas in
     refl Z : times Z two ≡ Z
 
 (* TODO *)
-fail with fasteq () handle
-  beta times_def;
-    beta plus_def;
-    beta ind_N_Z;
-    beta ind_N_S;
+fail
+  now betas = add_betas [times_def,plus_def,ind_N_Z,ind_N_S] betas in
     refl Z : times two Z ≡ Z
 
 (* TODO *)
 fail with fasteq () handle
-  beta times_def;
-    beta plus_def;
-    beta ind_N_Z;
-    beta ind_N_S;
+  now betas = add_betas [times_def,plus_def,ind_N_Z,ind_N_S] betas in
     refl (plus two four) : times three two ≡ (plus two four)
 
 
@@ -163,33 +147,21 @@ constant exp_def :
   ∀ (base power : N), exp base power ≡ ind_N (λ (_ : N), N) one (λ (_ : N), times base) power
 
 (* TODO *)
-fail with fasteq () handle
-  beta exp_def;
-  beta times_def;
-  beta plus_def;
-  beta ind_N_Z;
-  beta ind_N_S;
+fail
+  now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S] betas in
     refl four : exp two two ≡ four
 
 let nine' = times three three
 let ten' = plus five five
 
 (* TODO *)
-fail with fasteq () handle
-  beta exp_def;
-  beta times_def;
-  beta plus_def;
-  beta ind_N_Z;
-  beta ind_N_S;
+fail
+  now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S] betas in
     refl nine' : exp three two ≡ nine'
 
 (* 2^7 is okay, 2^10 takes some time and memory *)
 (* TODO *)
-fail with fasteq () handle
-  beta exp_def;
-  beta times_def;
-  beta plus_def;
-  beta ind_N_Z;
-  beta ind_N_S;
+fail
+  now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S] betas in
     refl (exp two (plus three four)) : exp two (plus three four) ≡ times two (exp two (plus four two))
 

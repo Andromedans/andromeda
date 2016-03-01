@@ -35,7 +35,7 @@ constant vect_ind_beta_vcons :
     f n a t (vect_ind A P z f n t)
 
 
-let _ = add_betas [ind_N_Z,ind_N_S]
+now betas = add_betas [ind_N_Z,ind_N_S] betas
 
 let vhead =
   λ (A : Type) (n : N) (v : vect A (S n)),
@@ -66,9 +66,8 @@ let vtail =
       (S n) v
 
 
-let vget = with fasteq () handle
-  beta Finite_rect_fzero;
-  beta Finite_rect_fsucc;
+let vget =
+  now betas = add_betas [Finite_rect_fzero,Finite_rect_fsucc] betas in
   (λ (A : Type) (n : nat) (i : Finite n) (v : vect A n),
      Finite_rect
        (λ (n0 : nat) (_ : Finite n0), forall (_ : vect A n0), A)
@@ -83,19 +82,17 @@ let vget = with fasteq () handle
 let v2 = (vcons N Z two (vnil N))
 let v52 = (vcons N one five v2)
 
-do with fasteq () handle
-  beta vect_ind_beta_vnil;
-  beta vect_ind_beta_vcons;
+do
+  now betas = add_betas [vect_ind_beta_vnil,vect_ind_beta_vcons] betas in
   refl five :
   vhead N one v52 == five
 
-do with fasteq () handle
-  beta vect_ind_beta_vnil;
-  beta vect_ind_beta_vcons;
+do
+  now betas = add_betas [vect_ind_beta_vnil,vect_ind_beta_vcons] betas in
   refl v2 :
   vtail N one v52 == v2
 
-let _ = add_betas [Finite_rect_fzero,Finite_rect_fsucc,vect_ind_beta_vnil,vect_ind_beta_vcons]
+now betas = add_betas [Finite_rect_fzero,Finite_rect_fsucc,vect_ind_beta_vnil,vect_ind_beta_vcons] betas
 
 do refl two : ((vget nat one (fzero Z) v2) == two)
 
