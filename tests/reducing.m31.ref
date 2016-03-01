@@ -17,4 +17,4 @@ Constant plus_S is declared.
 The command failed with error:
 File "./reducing.m31", line 27, characters 6-17: Runtime error
   unhandled operation failure
-                      "only constants and atoms may have reducing information"
+  "only constants and atoms may have reducing information"
