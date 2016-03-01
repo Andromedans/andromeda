@@ -36,7 +36,7 @@ Constant D is declared.
 Constant p is declared.
 Constant q is declared.
 The command failed with error:
-File "./struct-pair.m31", line 34, characters 6-11: Typing error
+File "./struct-pair.m31", line 33, characters 6-11: Typing error
   failed to check that the term p is equal to q
 ⊢ refl p
   : p ≡ (λ (A : Type) (B : Type) (x : A) (y : B), {fst = x, snd = y}) C D

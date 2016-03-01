@@ -1,0 +1,18 @@
+
+constant A : Type
+constant a b : A
+
+dynamic x = a
+
+let f _ = print x
+
+do f ()
+
+do now x = b in f ()
+
+do f ()
+
+now x = A
+
+do f ()
+

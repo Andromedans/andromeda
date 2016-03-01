@@ -44,6 +44,9 @@ let rec infer (c',loc) =
     | Syntax.Bound i ->
        Value.lookup_bound ~loc i
 
+    | Syntax.Dynamic x ->
+       Value.lookup_dynamic x
+
     | Syntax.Type ->
        let e = Tt.mk_type ~loc in
        let t = Tt.mk_type_ty ~loc in
@@ -133,6 +136,10 @@ let rec infer (c',loc) =
 
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (infer c)
+
+  | Syntax.Now (x,c1,c2) ->
+    infer c1 >>= fun v ->
+    Value.now x v (infer c2)
 
   | Syntax.Ref c ->
      infer c >>= fun v ->
@@ -490,6 +497,7 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
 
   | Syntax.Type
   | Syntax.Bound _
+  | Syntax.Dynamic _
   | Syntax.Function _
   | Syntax.Handler _
   | Syntax.External _
@@ -548,6 +556,10 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
 
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (check c t_check)
+
+  | Syntax.Now (x,c1,c2) ->
+    infer c1 >>= fun v ->
+    Value.now x v (check c2 t_check)
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
@@ -975,6 +987,14 @@ let rec exec_cmd base_dir interactive c =
 
   | Syntax.TopLetRec fxcs ->
      topletrec_bind ~loc interactive fxcs
+
+  | Syntax.TopDynamic (x,c) ->
+    comp_value c >>= fun v ->
+    Value.add_dynamic ~loc x v
+
+  | Syntax.TopNow (x,c) ->
+    comp_value c >>= fun v ->
+    Value.top_now x v
 
   | Syntax.TopDo c ->
      comp_value c >>= fun v ->

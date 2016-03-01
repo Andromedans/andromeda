@@ -22,7 +22,7 @@ signature catWithTerms = {
       ctxExt (ctxExt Γ A) P ≡ ctxExt Γ (famExt Γ A P),
 
   assocFamExt :
-    (with local (lbeta assocCtxExt) handle
+    (now betas = add_beta assocCtxExt betas in
     ∏ (Γ : ctx) (A : fam Γ) (P : fam (ctxExt Γ A))
       (Q : fam (ctxExt (ctxExt Γ A) P)),
       famExt Γ (famExt Γ A P) Q ≡
@@ -32,7 +32,7 @@ signature catWithTerms = {
     ∏ (Γ : ctx), ctxExt Γ (emptyFam Γ) ≡ Γ,
   
   emptyFamLeft :
-    (with local (lbeta emptyCtxExt) handle
+    (now betas = add_beta emptyCtxExt betas in
     ∏ (Γ : ctx) (A : fam Γ), famExt Γ (emptyFam Γ) A ≡ A),
   
   emptyFamRight :
@@ -60,7 +60,7 @@ signature functorWithTerms =  {
       ctx (dom.ctxExt Γ A) ≡ cod.ctxExt (ctx Γ) (fam Γ A),
 
   ctxFam :
-    (with local (lbeta ctxExt) handle
+    (now betas = add_beta ctxExt betas in
     ∏ (Γ : dom.ctx) (A : dom.fam Γ) (P : dom.fam (dom.ctxExt Γ A)),      
       fam Γ (dom.famExt Γ A P) ≡
       cod.famExt (ctx Γ) (fam Γ A) (fam (dom.ctxExt Γ A) P)),
@@ -72,7 +72,7 @@ signature functorWithTerms =  {
 
 let slice =
   (λ C Γ,
-    with local (lbeta C.assocCtxExt) handle
+    now betas = add_beta C.assocCtxExt betas in
     { 
       ctx = C.fam Γ,
       fam = λ A, C.fam (C.ctxExt Γ A),
@@ -90,3 +90,4 @@ let slice =
     } : catWithTerms
   )
   : ∏ (C : catWithTerms), C.ctx → catWithTerms
+  

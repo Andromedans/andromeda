@@ -58,6 +58,7 @@ and term' =
   | Match of comp * match_case list
   | Let of let_clause list  * comp
   | LetRec of letrec_clause list * comp
+  | Now of Name.ident * comp * comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -122,6 +123,8 @@ and toplevel' =
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopDynamic of Name.ident * comp
+  | TopNow of Name.ident * comp
   | TopDo of comp (** evaluate a computation at top level *)
   | TopFail of comp
   | Verbosity of int

@@ -54,6 +54,7 @@ let rec tt_pattern (env : Value.env) bound vars n (p,loc) =
              | Some (Value.DeclData _) -> Error.syntax ~loc "data in a term pattern"
              | Some (Value.DeclOperation _) -> Error.syntax ~loc "operation in a term pattern"
              | Some (Value.DeclSignature _) -> (Syntax.Tt_Signature x, loc), vars, n
+             | Some (Value.DeclDynamic y) -> (Syntax.Tt_Dynamic y, loc), vars, n
              | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
            end
       end
@@ -178,7 +179,7 @@ and pattern (env : Value.env) bound vars n (p,loc) =
     | Input.Patt_Name x ->
       begin match Name.index_of_ident x bound with
         | None ->
-          begin match Value.get_data x env with
+          begin match Value.get_data x env with (* TODO get_decl *)
             | Some k ->
               if k = 0
               then (Syntax.Patt_Data (x,[]), loc), vars, n
@@ -266,6 +267,15 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
        let bound, lst = letrec_clauses ~loc ~yield env bound lst in
        let c = comp ~yield env bound c in
        Syntax.LetRec (lst, c), loc
+
+    | Input.Now (x,c1,c2) ->
+      begin match Value.get_dynamic x env with
+        | Some y ->
+          let c1 = comp ~yield env bound c1
+          and c2 = comp ~yield env bound c2 in
+          Syntax.Now (y,c1,c2), loc
+        | None -> Error.syntax ~loc "%t is not a dynamic variable." (Name.print_ident x)
+      end
 
     | Input.Lookup c ->
        let c = comp ~yield env bound c in
@@ -419,6 +429,9 @@ let rec comp ~yield (env : Value.env) bound (c',loc) =
 
               | Some (Value.DeclSignature def) ->
                 raw_signature ~loc x def
+
+              | Some (Value.DeclDynamic y) ->
+                Syntax.Dynamic y, loc
 
               | None -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
             end
@@ -610,6 +623,9 @@ and spine ~yield env bound ((c',loc) as c) cs =
            | Some (Value.DeclSignature def) ->
               raw_signature ~loc x def, cs
 
+           | Some (Value.DeclDynamic y) ->
+              (Syntax.Dynamic y, loc), cs
+
            | None ->
               Error.syntax ~loc "unknown identifier %t" (Name.print_ident x)
          end
@@ -754,6 +770,18 @@ let toplevel (env : Value.env) bound (d', loc) =
     | Input.TopLetRec lst ->
        let bound, lst = letrec_clauses ~loc ~yield:false env bound lst in
        Syntax.TopLetRec lst
+
+    | Input.TopDynamic (x,c) ->
+      let c = comp ~yield:false env bound c in
+      Syntax.TopDynamic (x,c)
+
+    | Input.TopNow (x,c) ->
+      begin match Value.get_dynamic x env with
+        | Some y ->
+          let c = comp ~yield:false env bound c in
+          Syntax.TopNow (y,c)
+        | None -> Error.syntax ~loc "%t is not a dynamic variable." (Name.print_ident x)
+      end
 
     | Input.TopDo c ->
       let c = comp ~yield:false env bound c in
