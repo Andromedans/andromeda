@@ -233,7 +233,16 @@ let rec infer (c',loc) =
      let et' = Jdg.mk_term ctxe e' t' in
      Value.return_term et'
 
-  | Syntax.Signature (s,xcs) -> assert false (* TODO
+  | Syntax.Signature (s,lxcs) ->
+    let rec align res def lxcs = match def, lxcs with
+      | [], [] -> List.rev res
+      | lxt::def, [] -> align ((lxt,None)::res) def []
+      | [], (l,_,_)::_ -> Error.runtime ~loc "Field %t did not appear in %t." (Name.print_ident l) (Name.print_ident s)
+      | ((l,_,_) as lxt)::def, (l',_,_)::_ when (not (Name.eq_ident l l')) ->
+        align ((lxt,None)::res) def lxcs
+      | lxt::def, (_,x,c)::lxcs ->
+        align ((lxt,Some (x,c))::res) def lxcs
+    in
     (* [vs] are the constraints,
        [es] instantiate types,
        [ys:ts] are assumed for unconstrained fields *)
@@ -268,7 +277,7 @@ let rec infer (c',loc) =
         fold ctx ((Tt.Unconstrained x)::vs) (ey::es) (y::ys) (t::ts) rem)
     in
     Value.lookup_signature ~loc s >>= fun def ->
-    fold Context.empty [] [] [] [] (List.combine def xcs) *)
+    fold Context.empty [] [] [] [] (align [] def lxcs)
 
   | Syntax.Structure lxcs ->
     (* In infer mode the structure must be fully specified. *)
