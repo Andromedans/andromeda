@@ -140,17 +140,8 @@ val operation_as_signature : value -> value comp
 (** Known bound variables *)
 val top_bound_info : (Name.ident * bound_info) list toplevel
 
-(** Extract the current environment (for desugaring) *)
-val top_get_env : env toplevel
-
 (** Extract the current environment (for matching) *)
 val get_env : env comp
-
-(** Lookup an operation *)
-val get_operation : Name.ident -> env -> int option
-
-(** Lookup a data constructor *)
-val get_data : Name.ident -> env -> int option
 
 (** Lookup a constant. *)
 val get_constant : Name.ident -> env -> Tt.ty option

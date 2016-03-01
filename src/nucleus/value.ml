@@ -294,22 +294,13 @@ let operation_as_signature v =
 
 let top_bound_info env = env.lexical.context, env
 
-let top_get_env env = env, env
-
 let get_env env = Return env, env.state
-
-let get_operation x env =
-  Name.assoc_ident x env.dynamic.operations
-
-let get_data x env =
-  Name.assoc_ident x env.dynamic.datas
 
 let get_constant x env =
   Name.assoc_ident x env.dynamic.constants
 
 let get_signature x env =
   Name.assoc_ident x env.dynamic.signatures
-
 
 let lookup_constant ~loc x env =
   match get_constant x env with
