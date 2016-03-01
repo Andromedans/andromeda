@@ -16,7 +16,7 @@ do
 
 operation gimme_beta 0
 
-do with equality_in !top_state handle
+do with equality !top_state handle
    handle
      let _ = gimme_beta in
      whnf a

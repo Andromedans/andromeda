@@ -56,7 +56,7 @@ do add_beta ind_bool_false
 let bool_disjoint' (p : true == false) : empty =
      let P = λ (b : bool), ind_bool (λ (_ : bool), Type) unit empty b in
      let p =
-       with equality_in [] [] [] handle (* need to remove global hints else P true --> unit and P false --> empty *)
+       with equality empty_state handle (* need to remove global hints else P true --> unit and P false --> empty *)
          let _ = beta p in
          (refl (P true) : P true == P false) in
      let p = p : unit == empty in
