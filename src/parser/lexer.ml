@@ -131,16 +131,16 @@ and token_aux ({ stream;_ } as lexbuf) =
   | prefixop                 -> f (); PREFIXOP (let s = lexeme lexbuf in
                                                 Name.make ~fixity:Name.Prefix s, Location.of_lexeme lexbuf)
   | infixop0                 -> f (); INFIXOP0 (let s = lexeme lexbuf in
-                                                Name.make ~fixity:Name.Infix0 s, Location.of_lexeme lexbuf)
+                                                Name.make ~fixity:(Name.Infix Level.Infix0) s, Location.of_lexeme lexbuf)
   | infixop1                 -> f (); INFIXOP1 (let s = lexeme lexbuf in
-                                                Name.make ~fixity:Name.Infix1 s, Location.of_lexeme lexbuf)
+                                                Name.make ~fixity:(Name.Infix Level.Infix1) s, Location.of_lexeme lexbuf)
   | infixop2                 -> f (); INFIXOP2 (let s = lexeme lexbuf in
-                                                Name.make ~fixity:Name.Infix2 s, Location.of_lexeme lexbuf)
+                                                Name.make ~fixity:(Name.Infix Level.Infix2) s, Location.of_lexeme lexbuf)
   (* Comes before infixop3 because ** matches the infixop3 pattern too *)
   | infixop4                 -> f (); INFIXOP4 (let s = lexeme lexbuf in
-                                                Name.make ~fixity:Name.Infix4 s, Location.of_lexeme lexbuf)
+                                                Name.make ~fixity:(Name.Infix Level.Infix4) s, Location.of_lexeme lexbuf)
   | infixop3                 -> f (); INFIXOP3 (let s = lexeme lexbuf in
-                                                Name.make ~fixity:Name.Infix3 s, Location.of_lexeme lexbuf)
+                                                Name.make ~fixity:(Name.Infix Level.Infix3) s, Location.of_lexeme lexbuf)
 
   | eof                      -> f (); EOF
   | name                     -> f ();

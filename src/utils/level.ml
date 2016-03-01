@@ -10,9 +10,9 @@ type infix =
   | Infix4
 
 let highest = 1000
+let least = 0
 
-let no_parens = 0
-let least = no_parens
+let no_parens = least
 
 let proj = no_parens
 let proj_left = no_parens
@@ -44,7 +44,6 @@ let arr_right = arr
 let struct_clause = 900
 let sig_clause = 900
 
-let ascription = highest
+let ascription = 950
 
-let jdg = 4
-
+let jdg = highest

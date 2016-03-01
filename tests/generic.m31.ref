@@ -10,9 +10,9 @@ ankle is defined.
                             ⊢ person₂₄ : Type), (pet,
 person₂₄ : Type 
 pet₂₅ : person₂₄ 
-⊢ pet₂₅ : person₂₄)]), [Inl
+⊢ pet₂₅ : person₂₄)]), [Unconstrained
 (person₂₆ : Type 
- ⊢ person₂₆ : Type), Inl
+ ⊢ person₂₆ : Type), Unconstrained
 (person₂₆ : Type 
  pet₂₇ : person₂₆ 
  ⊢ pet₂₇ : person₂₆)])

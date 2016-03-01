@@ -81,16 +81,16 @@ and handler = {
 type 'a toplevel = env -> 'a * env
 
 (** Predeclared *)
-let name_some = Name.make "Some"
-let name_none = Name.make "None"
-let name_inl  = Name.make "Inl"
-let name_inr  = Name.make "Inr"
+let name_some          = Name.make "Some"
+let name_none          = Name.make "None"
+let name_unconstrained = Name.make "Unconstrained"
+let name_constrained   = Name.make "Constrained"
 
 let predefined_tags = [
-  (name_some, 1);
-  (name_none, 0);
-  (name_inl,  1);
-  (name_inr,  1)
+  (name_some,          1);
+  (name_none,          0);
+  (name_unconstrained, 1);
+  (name_constrained,   1);
 ]
 
 let name_equal        = Name.make "equal"
@@ -249,15 +249,15 @@ let as_option ~loc = function
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
-let from_sum = function
-  | Tt.Inl x -> Tag (name_inl, [x])
-  | Tt.Inr x -> Tag (name_inr, [x])
+let from_constrain = function
+  | Tt.Unconstrained x -> Tag (name_unconstrained, [x])
+  | Tt.Constrained x -> Tag (name_constrained, [x])
 
-let as_sum ~loc = function
-  | Tag (t,[x]) when (Name.eq_ident t name_inl) -> Tt.Inl x
-  | Tag (t,[x]) when (Name.eq_ident t name_inr) -> Tt.Inr x
+let as_constrain ~loc = function
+  | Tag (t,[x]) when (Name.eq_ident t name_unconstrained) -> Tt.Unconstrained x
+  | Tag (t,[x]) when (Name.eq_ident t name_constrained) -> Tt.Constrained x
   | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
-    Error.runtime ~loc "expected a sum but got %s" (name_of v)
+    Error.runtime ~loc "expected a constrain but got %s" (name_of v)
 
 (** Operations *)
 
@@ -507,13 +507,7 @@ let rec print_value_aux ?max_level ~penv refs v ppf =
   | Handler h -> Format.fprintf ppf "<handler>"
 
   | Tag (t, lst) ->
-     begin
-       match lst with
-       | [] -> Name.print_ident t ppf
-       | (_::_) -> Print.print ?max_level ~at_level:Level.app ppf "%t@ %t"
-                               (Name.print_ident t)
-                               (Print.sequence (print_value_aux ~max_level:Level.no_parens ~penv refs) "" lst)
-     end
+     print_tag ?max_level ~penv refs t lst ppf
 
   | List lst -> Format.fprintf ppf "[%t]"
                   (Print.sequence (print_value_aux ~penv refs) "," lst)
@@ -529,6 +523,33 @@ let rec print_value_aux ?max_level ~penv refs v ppf =
 
   | Ident x -> Name.print_ident x ppf
 
+and print_tag ?max_level ~penv refs t lst ppf =
+  match t, lst with
+
+  | Name.Ident (_, Name.Prefix), [v] ->
+     (* prefix tag applied to one argument *)
+     Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
+                 (Name.print_ident ~parentheses:false t)
+                 (print_value_aux ~max_level:Level.prefix_arg ~penv refs v)
+
+  | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
+     (* infix tag applied to two arguments *)
+     let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
+     Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
+                 (print_value_aux ~max_level:lvl_left ~penv refs v1)
+                 (Name.print_ident ~parentheses:false t)
+                 (print_value_aux ~max_level:lvl_right ~penv refs v2)
+
+  | _ ->
+     (* print as application *)
+     begin
+       match lst with
+       | [] -> Name.print_ident t ppf
+       | (_::_) -> Print.print ?max_level ~at_level:Level.app ppf "%t@ %t"
+                               (Name.print_ident t)
+                               (Print.sequence (print_value_aux ~max_level:Level.app_right ~penv refs) "" lst)
+     end
+
 let print_value0 env ?max_level v ppf =
   let penv = get_penv env in
   let refs = env.state in
@@ -537,15 +558,34 @@ let print_value0 env ?max_level v ppf =
 
 let top_print_value env = (print_value0 env), env
 
-let print_operation env op vs ppf =
-  if vs = []
-  then Name.print_ident op ppf
-  else
-    let penv = get_penv env
-    and refs = env.state in
-    Format.fprintf ppf "@[<hov>%t@ %t@]"
-      (Name.print_ident op)
-      (Print.sequence (print_value_aux ~max_level:Level.app_right ~penv refs) "" vs)
+and print_operation env op vs ppf =
+  let penv = get_penv env
+  and refs = env.state in
+  match op, vs with
+
+  | Name.Ident (_, Name.Prefix), [v] ->
+     (* prefix op applied to one argument *)
+     Print.print ppf ~at_level:Level.prefix "%t@ %t"
+                 (Name.print_ident ~parentheses:false op)
+                 (print_value_aux ~max_level:Level.prefix_arg ~penv refs v)
+
+  | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
+     (* infix op applied to two arguments *)
+     let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
+     Print.print ppf ~at_level:lvl_op "%t@ %t@ %t"
+                 (print_value_aux ~max_level:lvl_left ~penv refs v1)
+                 (Name.print_ident ~parentheses:false op)
+                 (print_value_aux ~max_level:lvl_right ~penv refs v2)
+
+  | _ ->
+     (* print as application *)
+     begin
+       match vs with
+       | [] -> Name.print_ident op ppf
+       | (_::_) -> Print.print ~at_level:Level.app ppf "%t@ %t"
+                               (Name.print_ident op)
+                               (Print.sequence (print_value_aux ~max_level:Level.app_right ~penv refs) "" vs)
+     end
 
 let print_value env =
   Return (print_value0 env), env.state

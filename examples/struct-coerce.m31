@@ -13,9 +13,9 @@ let extract_fields str =
     | |- _struct (_sig (_,?shares)) ?terms =>
       let rec fold defined insts terms shares = match shares with
         | [] => rev defined
-        | (Inl ?x)::?shares =>
+        | (Unconstrained ?x)::?shares =>
           match terms with ?e::?terms => fold (e::defined) ((x,e)::insts) terms shares end
-        | (Inr ?e)::?shares =>
+        | (Constrained ?e)::?shares =>
           let e = instantiate insts e in
           fold (e::defined) insts terms shares
       end in
@@ -58,8 +58,8 @@ let struct_coerce str sig = match sig with
     let defined = extract_fields str in
     let rec fold terms defined shares = match (defined,shares) with
       | ([], []) => rev terms
-      | (?e::?defined,(Inl _)::?shares) => fold (e::terms) defined shares
-      | (_::?defined,(Inr _)::?shares) => fold terms defined shares
+      | (?e::?defined,(Unconstrained _)::?shares) => fold (e::terms) defined shares
+      | (_::?defined,(Constrained _)::?shares) => fold terms defined shares
     end in
     let terms = fold [] defined shares2 in
     _struct sig terms

@@ -4,19 +4,7 @@ type fixity =
   | Word
   | Anonymous
   | Prefix
-  | Infix0
-  | Infix1
-  | Infix2
-  | Infix3
-  | Infix4
-
-let infix = function
-  | Infix0 -> Level.Infix0
-  | Infix1 -> Level.Infix1
-  | Infix2 -> Level.Infix2
-  | Infix3 -> Level.Infix3
-  | Infix4 -> Level.Infix4
-  | Word | Anonymous | Prefix -> assert false
+  | Infix of Level.infix
 
 type ident = Ident of string * fixity
 
@@ -30,7 +18,7 @@ let print_ident ?(parentheses=true) x ppf =
   match x with
   | Ident (s, Word) -> Format.fprintf ppf "%s" s
   | Ident (_, Anonymous) -> Format.fprintf ppf "_"
-  | Ident (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4)) ->
+  | Ident (s, (Prefix|Infix _)) ->
      if parentheses then
        Format.fprintf ppf "( %s )" s
      else
@@ -62,7 +50,7 @@ let print_atom ?(parentheses=true) x ppf =
   | Atom (_, Anonymous, k) ->
      Format.fprintf ppf "_%s" (subscript k)
 
-  | Atom (s, (Prefix|Infix0|Infix1|Infix2|Infix3|Infix4), k) ->
+  | Atom (s, (Prefix|Infix _), k) ->
      if parentheses then
        Format.fprintf ppf "( %s%s )" s (subscript k)
      else

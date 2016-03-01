@@ -4,13 +4,7 @@ type fixity =
   | Word
   | Anonymous
   | Prefix
-  | Infix0
-  | Infix1
-  | Infix2
-  | Infix3
-  | Infix4
-
-val infix : fixity -> Level.infix
+  | Infix of Level.infix
 
 type ident = private Ident of string * fixity
 

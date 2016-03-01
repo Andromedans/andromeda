@@ -135,7 +135,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
             let y,ctx = Context.add_fresh ctx x t in
             let jy = Jdg.mk_term ctx (Tt.mk_atom ~loc y) t in
             let v = Value.mk_tuple [Value.mk_ident l;Value.mk_term jy] in
-            fold ctx ((Tt.Inl x)::shares) (v::res) (y::ys) rem
+            fold ctx ((Tt.Unconstrained x)::shares) (v::res) (y::ys) rem
         in
         let vbase = fold Context.empty [] [] [] s_def in
         (* Build a representation of the constraints *)
@@ -143,18 +143,18 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
           | [] ->
             let lv = Value.mk_list (List.rev lv) in
             Value.mk_tuple [vbase;lv]
-          | ((_,_,t),(Tt.Inl x))::rem ->
+          | ((_,_,t),(Tt.Unconstrained x))::rem ->
             let t = Tt.instantiate_ty es t in
             let y,ctx = Context.add_fresh ctx x t in
             let y = Tt.mk_atom ~loc y in
             let jy = Jdg.mk_term ctx y t in
-            let v = Value.from_sum (Tt.Inl (Value.mk_term jy)) in
+            let v = Value.from_constrain (Tt.Unconstrained (Value.mk_term jy)) in
             fold ctx (v::lv) (y::es) (y::ys) rem
-          | ((_,_,t),(Tt.Inr e))::rem ->
+          | ((_,_,t),(Tt.Constrained e))::rem ->
             let t = Tt.instantiate_ty es t
             and e = Tt.instantiate ys e in
             let je = Jdg.mk_term ctx e t in
-            let v = Value.from_sum (Tt.Inr (Value.mk_term je)) in
+            let v = Value.from_constrain (Tt.Constrained (Value.mk_term je)) in
             fold ctx (v::lv) (e::es) ys rem
         in
         let v = fold ctx [] [] [] (List.combine s_def shares) in
