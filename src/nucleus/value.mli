@@ -127,7 +127,7 @@ val from_constrain : (value,value) Tt.constrain -> value
 val as_constrain : loc:Location.t -> value -> (value,value) Tt.constrain
 
 (** Operations *)
-val operation : Name.ident -> ?checking:Jdg.ty -> value list -> value comp
+val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
 
 val operation_equal : value -> value -> value comp
 
@@ -144,15 +144,15 @@ val top_bound_info : (Name.ident * bound_info) list toplevel
 val get_env : env comp
 
 (** Lookup a constant. *)
-val get_constant : Name.ident -> env -> Tt.ty option
+val get_constant : Name.constant -> env -> Tt.ty option
 
-val lookup_constant : loc:Location.t -> Name.ident -> Tt.ty comp
+val lookup_constant : loc:Location.t -> Name.constant -> Tt.ty comp
 
 (** Lookup a signature definition *)
 val get_signature : Name.signature -> env -> Tt.sig_def option
 
 (** Lookup a signature definition, monadically *)
-val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def comp
+val lookup_signature : loc:Location.t -> Name.signature -> Tt.sig_def comp
 
 (** Find a signature with the given labels (in this exact order) *)
 val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) comp

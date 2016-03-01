@@ -28,7 +28,7 @@ and term' = private
   | Bound of bound
 
   (** a constant *)
-  | Constant of Name.ident
+  | Constant of Name.constant
 
   (** a lambda abstraction [fun (x1 : t1) -> e : t] *)
   | Lambda of (term * ty) ty_abstraction

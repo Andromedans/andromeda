@@ -23,7 +23,7 @@ and term' =
   | Type
   | Atom of Name.atom
   | Bound of bound
-  | Constant of Name.ident
+  | Constant of Name.constant
   | Lambda of (term * ty) ty_abstraction
   | Apply of term * ty ty_abstraction * term
   | Prod of ty ty_abstraction
