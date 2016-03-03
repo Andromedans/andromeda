@@ -174,6 +174,7 @@ val alpha_equal_sig : signature -> signature -> bool
 
 type print_env =
   { forbidden : Name.ident list ;
+    atoms : (Name.atom * Name.ident) list ;
     sigs : Name.signature -> Name.label list }
 
 val print_ty : ?max_level:Level.t -> penv:print_env -> ty -> Format.formatter -> unit

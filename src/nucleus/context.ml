@@ -21,22 +21,29 @@ let empty = AtomMap.empty
 
 let is_empty = AtomMap.is_empty
 
-let print_dependencies s v ppf =
+let print_dependencies ~penv s v ppf =
   if not !Config.print_dependencies || AtomSet.is_empty v
   then Format.fprintf ppf ""
   else Format.fprintf ppf "@ %s[%t]" s
-                      (Print.sequence Name.print_atom "," (AtomSet.elements v))
+                      (Print.sequence (Name.print_atom ~penv) "," (AtomSet.elements v))
 
 let print_entry ~penv ppf x {ty; needed_by;} =
   Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@]@]@ "
-    (Name.print_atom x)
+    (Name.print_atom ~penv:(penv.Tt.atoms) x)
     (Tt.print_ty ~penv ty)
-    (print_dependencies "needed_by" needed_by)
+    (print_dependencies ~penv:(penv.Tt.atoms) "needed_by" needed_by)
 
 let print ~penv ctx ppf =
   Format.pp_open_vbox ppf 0 ;
   AtomMap.iter (print_entry ~penv ppf) ctx ;
   Format.pp_close_box ppf ()
+
+let penv_atoms ~penv ctx =
+  AtomMap.fold (fun x _ penv ->
+      let y = Name.refresh penv.Tt.forbidden (Name.ident_of_atom x) in
+      {penv with Tt.forbidden = y :: penv.Tt.forbidden;
+                 Tt.atoms = (x,y) :: penv.Tt.atoms })
+    ctx penv
 
 let lookup x (ctx : t) =
   try Some (AtomMap.find x ctx)
@@ -114,15 +121,16 @@ let abstract ~penv ~loc (ctx : t) x ty =
         ctx
       else
         let needed_by_l = AtomSet.elements node.needed_by in
+        let penv = penv_atoms ~penv ctx in
         Error.runtime
           ~loc "Cannot abstract %t because %t depend%s on it.\nContext:@ %t"
-          (Name.print_atom x)
-          (Print.sequence (Name.print_atom) "," needed_by_l)
+          (Name.print_atom ~penv:penv.Tt.atoms x)
+          (Print.sequence (Name.print_atom ~penv:penv.Tt.atoms) "," needed_by_l)
           (match needed_by_l with [_] -> "s" | _ -> "")
           (print ~penv ctx)
     else
       Error.runtime ~loc "cannot abstract %t with type %t because it must have type %t."
-        (Name.print_atom x)
+        (Name.print_atom ~penv:penv.Tt.atoms x)
         (Tt.print_ty ~penv ty)
         (Tt.print_ty ~penv node.ty)
 
@@ -142,10 +150,11 @@ let join ~penv ~loc ctx1 ctx2 =
             if AtomSet.is_empty extra
             then res
             else AtomMap.add x {node' with needed_by = AtomSet.union node'.needed_by extra} res
-          else Error.runtime ~loc "cannot join contexts@ %t and@ %t at %t"
+          else
+            Error.runtime ~loc "cannot join contexts@ %t and@ %t at %t"
               (print ~penv ctx1)
               (print ~penv ctx2)
-              (Name.print_atom x)
+              (Name.print_atom ~penv:penv.Tt.atoms x)
         | None ->
           (* dependencies are handled above *)
           AtomMap.add x node res)
@@ -167,10 +176,12 @@ let substitute ~penv ~loc x (ctx,e,t) =
         let ctx = AtomSet.fold (fun y ctx ->
             let ynode = AtomMap.find y ctx in
             if AtomSet.mem y deps
-            then Error.runtime ~loc "cannot substitute %t with %t: dependency cycle at %t."
-                (Name.print_atom x)
+            then
+              let penv = penv_atoms ~penv ctx in
+              Error.runtime ~loc "cannot substitute %t with %t: dependency cycle at %t."
+                (Name.print_atom ~penv:penv.Tt.atoms x)
                 (Tt.print_term ~penv e)
-                (Name.print_atom y)
+                (Name.print_atom ~penv:penv.Tt.atoms y)
             else
               let ty = subst_ty ynode.ty x e in
               AtomMap.add y {ynode with ty} ctx)
@@ -190,8 +201,9 @@ let substitute ~penv ~loc x (ctx,e,t) =
           let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
           ctx
       else
+        let penv = penv_atoms ~penv ctx in
         Error.runtime ~loc "substituting %t : %t by %t : %t"
-          (Name.print_atom x) (Tt.print_ty ~penv xnode.ty)
+          (Name.print_atom ~penv:penv.Tt.atoms x) (Tt.print_ty ~penv xnode.ty)
           (Tt.print_term ~penv e) (Tt.print_ty ~penv t)
     | None -> ctx
 

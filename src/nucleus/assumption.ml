@@ -12,9 +12,9 @@ let empty = {free = AtomSet.empty; bound = BoundSet.empty; }
 let is_empty {free;bound} =
   AtomSet.is_empty free && BoundSet.is_empty bound
 
-let print xs {free;bound} ppf =
+let print xs atoms {free;bound} ppf =
   Format.fprintf ppf "%t@ ;@ %t"
-              (Print.sequence Name.print_atom "," (AtomSet.elements free))
+              (Print.sequence (Name.print_atom ~penv:atoms) "," (AtomSet.elements free))
               (Print.sequence (Name.print_debruijn xs) "," (BoundSet.elements bound))
 
 let singleton x =

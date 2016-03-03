@@ -432,6 +432,7 @@ and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t
 (****** Printing routines *****)
 type print_env =
   { forbidden : Name.ident list ;
+    atoms : (Name.atom * Name.ident) list ;
     sigs : Name.signature -> Name.label list }
 
 type name_printing =
@@ -472,7 +473,7 @@ let rec print_term ?max_level ~penv {term=e;assumptions;_} ppf =
   then
     Format.fprintf ppf "(%t)^{{%t}}"
                 (print_term' ~penv ~max_level:Level.highest e)
-                (Assumption.print penv.forbidden assumptions)
+                (Assumption.print penv.forbidden penv.atoms assumptions)
   else
     print_term' ~penv ?max_level e ppf
 
@@ -483,7 +484,7 @@ and print_term' ~penv ?max_level e ppf =
         Format.fprintf ppf "Type"
 
       | Atom x ->
-        Name.print_atom x ppf
+        Name.print_atom ~penv:(penv.atoms) x ppf
 
       | Constant x ->
          Name.print_ident x ppf

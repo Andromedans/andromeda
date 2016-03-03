@@ -490,6 +490,7 @@ let included f env =
 (** Generate a printing environment from runtime environment *)
 let get_penv env =
   { Tt.forbidden = List.map fst env.lexical.context ;
+    Tt.atoms = [] ;
     Tt.sigs = (fun s ->
                match get_signature s env with
                  | None -> Error.impossible ~loc:Location.unknown "get_penv: unknown signature %t" (Name.print_ident s)
