@@ -7,9 +7,9 @@ constant (+) : A -> A -> A
 
 operation Not_found 0
 
-fail Not_found
+dont Not_found
 
 operation info 3
 
-fail info (!! x) (a + b) (fun x => x)
+dont info (!! x) (a + b) (fun x => x)
 

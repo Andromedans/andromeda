@@ -126,7 +126,7 @@ and toplevel' =
   | TopDynamic of Name.ident * comp
   | TopNow of Name.ident * comp
   | TopDo of comp (** evaluate a computation at top level *)
-  | TopFail of comp
+  | TopDont of comp
   | Verbosity of int
   | Include of string list * bool
     (** the boolean is [true] if the files should be included only once *)

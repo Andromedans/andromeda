@@ -786,9 +786,9 @@ let toplevel bound (d', loc) =
       let c = comp ~yield:false bound c in
       Syntax.TopDo c
 
-    | Input.TopFail c ->
+    | Input.TopDont c ->
       let c = lazy (comp ~yield:false bound c) in
-      Syntax.TopFail c
+      Syntax.TopDont c
 
     | Input.Quit -> Syntax.Quit
 

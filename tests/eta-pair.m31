@@ -46,7 +46,7 @@ do
   now etas = add_eta pair_eta etas in
      refl p : p ≡ pair C D (fst C D p) (snd C D p)
 
-fail
+dont
   now etas = add_eta pair_eta etas in
   refl p : p == q
 

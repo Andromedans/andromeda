@@ -24,5 +24,6 @@ do
   now reducing = add_reducing S [eager] reducing in
   whnf (((S Z) + (S Z)) + ((S Z) + (S Z)))
 
-fail add_reducing ((+) Z) [lazy] reducing
+dont add_reducing ((+) Z) [lazy] reducing
+
 

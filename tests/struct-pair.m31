@@ -30,7 +30,7 @@ do (lambda U V x y (eq1 : x.fst == y.fst) (eq2 : x.snd == y.snd),
 constant C D : Type
 constant p q : prod C D
 
-fail refl p : p == q
+dont refl p : p == q
 
 do refl p : p == pair C D (fst C D p) (snd C D p)
 

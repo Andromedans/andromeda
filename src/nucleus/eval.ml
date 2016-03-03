@@ -1016,7 +1016,7 @@ let rec exec_cmd base_dir interactive c =
      (if interactive then Format.printf "%t@." (print_value v) ;
      return ())
 
-  | Syntax.TopFail c ->
+  | Syntax.TopDont c ->
      Value.catch (fun () -> comp_value (Lazy.force c)) >>= begin function
      | Error.Err err ->
         (if interactive then Format.printf "The command failed with error:\n%t@." (Error.print err));

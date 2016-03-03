@@ -5,7 +5,7 @@ constant x : Type
 
 do x
 
-fail let x = x and x = x in x
+dont let x = x and x = x in x
 
 data x 0
 

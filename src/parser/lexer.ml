@@ -17,12 +17,12 @@ let reserved = [
   ("context", CONTEXT) ;
   ("data", DATA) ;
   ("do", DO) ;
+  ("dont", DONT) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
   ("extensionality", EXTENSIONALITY);
   ("external", EXTERNAL) ;
   ("finally", FINALLY) ;
-  ("fail", FAIL) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("hypotheses", HYPOTHESES) ;

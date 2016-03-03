@@ -1,8 +1,8 @@
 
-fail Type Type
+dont Type Type
 
-fail Type
+dont Type
 
 (* this never happens *)
-fail let x = Type in y y
+dont let x = Type in y y
 
