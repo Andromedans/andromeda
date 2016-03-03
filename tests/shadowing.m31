@@ -1,0 +1,20 @@
+
+let x = None
+
+constant x : Type
+
+do x
+
+fail let x = x and x = x in x
+
+data x 0
+
+dynamic x = x
+
+do x
+
+operation x 0
+
+(* This fails *)
+data x 2
+
