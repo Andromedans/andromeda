@@ -33,6 +33,7 @@ let print_label = print_ident ~parentheses:true
 let subdigit = [|"₀"; "₁"; "₂"; "₃"; "₄"; "₅"; "₆"; "₇"; "₈"; "₉"|]
 
 let subscript k =
+  if not !Config.print_subscripts then "" else
   if !Config.ascii then "_" ^ string_of_int k
   else if k = 0 then subdigit.(0)
   else

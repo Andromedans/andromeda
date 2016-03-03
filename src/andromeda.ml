@@ -30,6 +30,10 @@ let options = Arg.align [
      Arg.Set Config.print_dependencies,
      " Print dependencies between free variables and inside terms");
 
+    ("--no-subscripts",
+     Arg.Set Config.print_dependencies,
+     " Do not print the freshness-index subscripts of atoms");
+
     ("--max-boxes",
      Arg.Set_int Config.max_boxes,
      " Set the maximum depth of pretty printing");
