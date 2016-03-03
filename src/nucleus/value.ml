@@ -49,6 +49,7 @@ and dynamic = {
 }
 
 and lexical = {
+  (* The context contains information used to desugar the syntax, and to get the forbidden names for printing. *)
   context : (Name.ident * bound_info) list;
   bound : value list;
 
