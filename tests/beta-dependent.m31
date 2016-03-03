@@ -12,6 +12,6 @@ constant b : B a
 constant c : C a b
 
 do
-  with local (lbeta f_beta) handle
+  now betas = add_beta f_beta betas in
       refl b : b == f a b c
 

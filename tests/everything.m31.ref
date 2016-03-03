@@ -121,53 +121,41 @@ Check <expr> .                               check the type of <expr>
 
 The syntax is vaguely Coq-like. The strict equality is written with a double ==.
 
-data Some 1
-data None 0
-data Unconstrained 1
-data Constrained 1
-operation equal 2
-operation as_prod 1
-operation as_eq 1
-operation as_signature 1
-signature unit 
-data ( !! ) 1
-operation failure 1
-operation beta 1
-operation hint 1
-operation eta 1
-data lbeta 1
-data lhint 1
-data leta 1
-operation whnf 1
-operation getbetas 0
-operation gethints 0
-operation getetas 0
-operation getreducing 0
-operation getstate 0
-operation set_reducing 2
-data eager 0
-data lazy 0
-operation unary_op 1
-operation nonary_op 0
-data dummy 0
-data black 0
-data rgb_color 3
-constant A Type
-constant a A
-constant b A
-constant ( + ) A → A → A
-constant ( * ) A → A → A
-constant ( ^ ) A → A → A
-constant ( - ) A → A → A
+constant eq a ≡ b
+constant exfalso Π (T : Type), T
 constant ( <= ) A → A → A
+constant ( - ) A → A → A
+constant ( ^ ) A → A → A
+constant ( * ) A → A → A
+constant ( + ) A → A → A
+constant b A
+constant a A
+constant A Type
+data rgb_color 3
+data black 0
+data dummy 0
+data lazy 0
+data eager 0
+data ( !! ) 1
+data Constrained 1
+data Unconstrained 1
+data None 0
+data Some 1
+operation hippy 0
+operation emit 1
+operation set 1
+operation get 0
+operation nonary_op 0
+operation unary_op 1
+operation whnf 1
+operation failure 1
+operation as_signature 1
+operation as_eq 1
+operation as_prod 1
+operation equal 2
+signature container T : Type, cont : T
+signature wrapped unwrap : A
 signature isContr T : Type, center as a0 : T,
     contr_path as _ : Π (x : T), a0 ≡ x
-signature wrapped unwrap : A
-operation get 0
-operation set 1
-constant exfalso Π (T : Type), T
-signature container T : Type, cont : T
-operation emit 1
-constant eq a ≡ b
-operation hippy 0
+signature unit 
 

@@ -6,6 +6,8 @@ type ('a,'b) constrain =
 
 type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
+type bound = int
+
 type term = {
   term : term';
   (* raw term *)
@@ -20,8 +22,8 @@ type term = {
 and term' =
   | Type
   | Atom of Name.atom
-  | Bound of Syntax.bound
-  | Constant of Name.ident
+  | Bound of bound
+  | Constant of Name.constant
   | Lambda of (term * ty) ty_abstraction
   | Apply of term * ty ty_abstraction * term
   | Prod of ty ty_abstraction

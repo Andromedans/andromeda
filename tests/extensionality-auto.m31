@@ -7,7 +7,7 @@ do eqext
 
 let funext =
   (lambda A B f g p,
-    with local (lhint p) handle
+    now hints = add_hint p hints in
     refl f : f == g)
   : forall (A : Type) (B : A -> Type) (f g : forall (x : A), B x),
      (forall (x : A), f x == g x) -> f == g
@@ -20,9 +20,9 @@ signature cow = { head : A, tail : B head }
 
 let cowext =
    lambda (a b : cow) (p : a.head == b.head),
-     with local (lbeta p) handle
+     now betas = add_beta p betas in
      lambda (q : a.tail == b.tail),
-       (with local (lbeta q) handle
+       (now betas = add_beta q betas in
           refl a : a == b)
 
 do cowext

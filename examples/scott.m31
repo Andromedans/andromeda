@@ -4,7 +4,7 @@
 constant D : Type
 constant scott : (D → D) ≡ D
 let dana : D ≡ (D → D) = sym Type (D → D) D scott
-let _ = add_hints [dana, scott]
+now hints = add_hints [dana, scott] hints
 
 
 (* The Y combinator *)
@@ -26,19 +26,19 @@ do (λ f, refl (Y f)) : Π f : D → D, Y f ≡ f (Y f)
 constant D' : Type
 constant h : D' ≡ D
 let scott' =
-  with fasteq () handle
-  hint h; scott : (D' → D') ≡ D'
-let _ = add_hint scott'
+  now hints = add_hint h hints in
+  scott : (D' → D') ≡ D'
+
+now hints = add_hint scott' hints
 
 (* The λ-abstraction happens at type [D] *)
 let δ : D → D = λ x, (x : D → D) x
 
 (* But we make sure that the application δ δ happens at [D']. *)
 let Ω =
-  with fasteq () handle
-    hint h;
+    now hints = add_hint h hints in
     let δ' = δ : D' → D' in
-    beta h;beta scott';
+    now betas = add_betas [h,scott'] betas in
       δ' (δ' : D')
 
 (* Notice that [Ω] does not diverge even though a beta-reduction happens. *)

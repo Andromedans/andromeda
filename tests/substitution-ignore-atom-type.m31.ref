@@ -1,0 +1,6 @@
+T is defined.
+P is defined.
+Constant A is declared.
+Constant B is declared.
+⊢ B : A → Type
+⊢ B : A → Type

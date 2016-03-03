@@ -36,7 +36,7 @@ constant A : Type
 
 do
   assume eq : A == cat in
-  add_beta eq;
+  now betas = add_beta eq betas in
   _struct A [dwarf,urist]
 
 do _proj ankle pet_id
@@ -69,7 +69,7 @@ dont _proj ankle gold_id
 
 constant B : Type
 constant eq : A == B
-let _ = add_beta eq
+now betas = add_beta eq betas
 
 do match assume x : A in x : B with
   |- _atom ?y => y

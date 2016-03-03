@@ -2,6 +2,6 @@
 constant unit_eta : Π (x y : unit), x == y
 
 do
-  with local (lhint unit_eta) handle
+  now hints = add_hint unit_eta hints in
     λ (x : unit), (refl {} : x == {})
 

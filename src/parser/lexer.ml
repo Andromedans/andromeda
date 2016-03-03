@@ -18,6 +18,7 @@ let reserved = [
   ("data", DATA) ;
   ("do", DO) ;
   ("dont", DONT) ;
+  ("dynamic", DYNAMIC) ;
   ("end", END) ;
   ("extensionality", EXTENSIONALITY);
   ("external", EXTERNAL) ;
@@ -27,6 +28,7 @@ let reserved = [
   ("hypotheses", HYPOTHESES) ;
   ("let", LET) ;
   ("match", MATCH) ;
+  ("now", NOW) ;
   ("reduction", REDUCTION) ;
   ("forall", PROD) ;
   ("yield", YIELD) ;

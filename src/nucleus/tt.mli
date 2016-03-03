@@ -7,6 +7,8 @@ type ('a,'b) constrain =
 (** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
 type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
+type bound = int
+
 (** The type of TT terms.
     (For details on the mutual definition with [term'], see module Location.)
 
@@ -23,10 +25,10 @@ and term' = private
   | Atom of Name.atom
 
   (** a bound variable *)
-  | Bound of Syntax.bound
+  | Bound of bound
 
   (** a constant *)
-  | Constant of Name.ident
+  | Constant of Name.constant
 
   (** a lambda abstraction [fun (x1 : t1) -> e : t] *)
   | Lambda of (term * ty) ty_abstraction
@@ -130,15 +132,15 @@ val substitute : Name.atom list -> term list -> term -> term
 val substitute_ty : Name.atom list -> term list -> ty -> ty
 
 
-val occurs: Syntax.bound -> term -> int
+val occurs: bound -> term -> int
 
-val occurs_ty: Syntax.bound -> ty -> int
+val occurs_ty: bound -> ty -> int
 
-val occurs_term_ty: Syntax.bound -> term * ty -> int
+val occurs_term_ty: bound -> term * ty -> int
 
 val occurs_ty_abstraction:
-  (Syntax.bound -> 'a -> int) ->
-  Syntax.bound -> 'a ty_abstraction -> int
+  (bound -> 'a -> int) ->
+  bound -> 'a ty_abstraction -> int
 
 (** The asssumptions used by a term. *)
 val assumptions_term : term -> Name.AtomSet.t

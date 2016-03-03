@@ -8,7 +8,7 @@ operation mafia 1
 
 do
   (handle
-     (λ (e : B == A), let crime = (with local (lhint e) handle (a : B)) in mafia crime)
+     (λ (e : B == A), let crime = (now hints = add_hint e hints in (a : B)) in mafia crime)
    with
    | mafia ?x => x
    end

@@ -1,11 +1,25 @@
 (** Runtime values and computations *)
 
-(* Information about a toplevel declaration *)
-type decl =
-  | DeclConstant of Tt.ty
-  | DeclData of int
-  | DeclOperation of int
-  | DeclSignature of Tt.sig_def
+(** The type of an AML reference. *)
+type ref
+
+(** The type of an AML dynamically scoped variable. *)
+type dyn
+
+(** A name may refer to: *)
+type bound_info =
+  (** A bound value (the index being the number of bound values before it) *)
+  | BoundVal
+  (** The constant [a] *)
+  | BoundConst of Name.constant
+  (** The data constructor [C] with arity [n] *)
+  | BoundData of Name.data * int
+  (** The operation [op] with arity [n] *)
+  | BoundOp of Name.operation * int
+  (** The signature [s] *)
+  | BoundSig of Name.signature
+  (** The dynamic variable [x] *)
+  | BoundDyn of dyn
 
 (** Runtime environment *)
 type env
@@ -20,7 +34,7 @@ type value = private
   | Tag of Name.ident * value list
   | List of value list
   | Tuple of value list
-  | Ref of Store.key
+  | Ref of ref
   | String of string (** NB: strings are opaque to the user, ie not lists *)
   | Ident of Name.ident
 
@@ -58,9 +72,9 @@ val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 (** References *)
 val mk_ref : value -> value comp
 
-val lookup_ref : Store.key -> value comp
+val lookup_ref : ref -> value comp
 
-val update_ref : Store.key -> value -> unit comp
+val update_ref : ref -> value -> unit comp
 
 (** Monadic primitives *)
 val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
@@ -100,7 +114,7 @@ val top_print_value : (?max_level:Level.t -> value -> Format.formatter -> unit) 
 val as_term : loc:Location.t -> value -> Jdg.term
 val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
-val as_ref : loc:Location.t -> value -> Store.key
+val as_ref : loc:Location.t -> value -> ref
 val as_string : loc:Location.t -> value -> string
 val as_ident : loc:Location.t -> value -> Name.ident
 val as_list : loc:Location.t -> value -> value list
@@ -113,7 +127,7 @@ val from_constrain : (value,value) Tt.constrain -> value
 val as_constrain : loc:Location.t -> value -> (value,value) Tt.constrain
 
 (** Operations *)
-val operation : Name.ident -> ?checking:Jdg.ty -> value list -> value comp
+val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
 
 val operation_equal : value -> value -> value comp
 
@@ -124,33 +138,21 @@ val operation_as_signature : value -> value comp
 (** Interact with the environment *)
 
 (** Known bound variables *)
-val top_bound_names : Name.ident list toplevel
-
-(** Extract the current environment (for desugaring) *)
-val top_get_env : env toplevel
+val top_bound_info : (Name.ident * bound_info) list toplevel
 
 (** Extract the current environment (for matching) *)
 val get_env : env comp
 
-(** Lookup a data constructor. *)
-val get_decl : Name.ident -> env -> decl option
-
-(** Lookup an operation *)
-val get_operation : Name.ident -> env -> int option
-
-(** Lookup a data constructor *)
-val get_data : Name.ident -> env -> int option
-
 (** Lookup a constant. *)
-val get_constant : Name.ident -> env -> Tt.ty option
+val get_constant : Name.constant -> env -> Tt.ty option
 
-val lookup_constant : loc:Location.t -> Name.ident -> Tt.ty comp
+val lookup_constant : loc:Location.t -> Name.constant -> Tt.ty comp
 
 (** Lookup a signature definition *)
 val get_signature : Name.signature -> env -> Tt.sig_def option
 
 (** Lookup a signature definition, monadically *)
-val lookup_signature : loc:Location.t -> Name.ident -> Tt.sig_def comp
+val lookup_signature : loc:Location.t -> Name.signature -> Tt.sig_def comp
 
 (** Find a signature with the given labels (in this exact order) *)
 val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) comp
@@ -159,16 +161,25 @@ val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.s
 val lookup_abstracting : value list comp
 
 (** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : loc:Location.t -> Syntax.bound -> value comp
+val lookup_bound : loc:Location.t -> int -> value comp
+
+val lookup_dynamic_value : dyn -> value comp
 
 (** For matching *)
-val get_bound : loc:Location.t -> Syntax.bound -> env -> value
+val get_bound : loc:Location.t -> int -> env -> value
+
+val get_dynamic_value : dyn -> env -> value
 
 (** Add a bound variable with given name to the environment. *)
 val add_bound : Name.ident -> value -> 'a comp -> 'a comp
 
 val add_bound_rec :
   (Name.ident * (value -> value comp)) list -> 'a comp -> 'a comp
+
+(** Modify the value bound by a dynamic variable *)
+val now : dyn -> value -> 'a comp -> 'a comp
+
+val top_now : dyn -> value -> unit toplevel
 
 (** Add a bound variable (for matching). *)
 val push_bound : Name.ident -> value -> env -> env
@@ -197,18 +208,22 @@ val add_operation : loc:Location.t -> Name.ident -> int -> unit toplevel
 val add_data : loc:Location.t -> Name.ident -> int -> unit toplevel
 
 (** Add a constant of a given type to the environment.
-  Fails if the constant is already declared. *)
+    It fails if the constant is already declared. *)
 val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
 
 (** Add a signature declaration to the environment.
-  Fails if the signature is already declared. *)
+    It fails if the signature is already declared. *)
 val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit toplevel
 
 (** Add a bound variable with the given name to the environment.
-    Complain if then name is already used. *)
+    It fails if the name is already used. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 val add_topbound_rec : loc:Location.t -> (Name.ident * (value -> value comp)) list -> unit toplevel
+
+(** Add a dynamic variable.
+    It fails if the name is already used. *)
+val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel

@@ -44,6 +44,9 @@ let rec infer (c',loc) =
     | Syntax.Bound i ->
        Value.lookup_bound ~loc i
 
+    | Syntax.Dynamic x ->
+       Value.lookup_dynamic_value x
+
     | Syntax.Type ->
        let e = Tt.mk_type ~loc in
        let t = Tt.mk_type_ty ~loc in
@@ -134,6 +137,10 @@ let rec infer (c',loc) =
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (infer c)
 
+  | Syntax.Now (x,c1,c2) ->
+    infer c1 >>= fun v ->
+    Value.now x v (infer c2)
+
   | Syntax.Ref c ->
      infer c >>= fun v ->
      Value.mk_ref v
@@ -159,16 +166,22 @@ let rec infer (c',loc) =
        infer c)
 
   | Syntax.Where (c1, c2, c3) ->
-    infer c2 >>= as_atom ~loc >>= fun (ctxa, a, ta) ->
-    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx, e1, t1)) ->
+    infer c2 >>= as_atom ~loc >>= fun (_, a, _) ->
+    infer c1 >>= fun v1 ->
+    as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
     Value.lookup_penv >>= fun penv ->
-    let ctx = Context.join ~penv ~loc ctxa ctx in
-    check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
-    let ctx_s = Context.substitute ~penv ~loc a (ctx,e2,ta) in
-    let te_s = Tt.substitute [a] [e2] e1 in
-    let ty_s = Tt.substitute_ty [a] [e2] t1 in
-    let j_s = Jdg.mk_term ctx_s te_s ty_s in
-    Value.return_term j_s
+    begin match Context.lookup_ty a ctx with
+    | None -> infer c3 >>=
+       as_term ~loc:(snd c3) >>= fun _ ->
+       Value.return v1
+    | Some ta ->
+       check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
+       let ctx_s = Context.substitute ~penv ~loc a (ctx,e2,ta) in
+       let te_s = Tt.substitute [a] [e2] e1 in
+       let ty_s = Tt.substitute_ty [a] [e2] t1 in
+       let j_s = Jdg.mk_term ctx_s te_s ty_s in
+       Value.return_term j_s
+    end
 
   | Syntax.Match (c, cases) ->
      infer c >>=
@@ -226,7 +239,16 @@ let rec infer (c',loc) =
      let et' = Jdg.mk_term ctxe e' t' in
      Value.return_term et'
 
-  | Syntax.Signature (s,xcs) ->
+  | Syntax.Signature (s,lxcs) ->
+    let rec align res def lxcs = match def, lxcs with
+      | [], [] -> List.rev res
+      | lxt::def, [] -> align ((lxt,None)::res) def []
+      | [], (l,_,_)::_ -> Error.runtime ~loc "Field %t did not appear in %t." (Name.print_ident l) (Name.print_ident s)
+      | ((l,_,_) as lxt)::def, (l',_,_)::_ when (not (Name.eq_ident l l')) ->
+        align ((lxt,None)::res) def lxcs
+      | lxt::def, (_,x,c)::lxcs ->
+        align ((lxt,Some (x,c))::res) def lxcs
+    in
     (* [vs] are the constraints,
        [es] instantiate types,
        [ys:ts] are assumed for unconstrained fields *)
@@ -261,7 +283,7 @@ let rec infer (c',loc) =
         fold ctx ((Tt.Unconstrained x)::vs) (ey::es) (y::ys) (t::ts) rem)
     in
     Value.lookup_signature ~loc s >>= fun def ->
-    fold Context.empty [] [] [] [] (List.combine def xcs)
+    fold Context.empty [] [] [] [] (align [] def lxcs)
 
   | Syntax.Structure lxcs ->
     (* In infer mode the structure must be fully specified. *)
@@ -490,6 +512,7 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
 
   | Syntax.Type
   | Syntax.Bound _
+  | Syntax.Dynamic _
   | Syntax.Function _
   | Syntax.Handler _
   | Syntax.External _
@@ -548,6 +571,10 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
 
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (check c t_check)
+
+  | Syntax.Now (x,c1,c2) ->
+    infer c1 >>= fun v ->
+    Value.now x v (check c2 t_check)
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
@@ -929,9 +956,8 @@ and topletrec_bind ~loc interactive fxcs =
   return ()
 
 let rec exec_cmd base_dir interactive c =
-  Value.top_get_env >>= fun env ->
-  Value.top_bound_names >>= fun xs ->
-  let (c', loc) = Desugar.toplevel env xs c in
+  Value.top_bound_info >>= fun bound ->
+  let (c', loc) = Desugar.toplevel bound c in
   match c' with
 
   | Syntax.DeclOperation (x, k) ->
@@ -975,6 +1001,14 @@ let rec exec_cmd base_dir interactive c =
 
   | Syntax.TopLetRec fxcs ->
      topletrec_bind ~loc interactive fxcs
+
+  | Syntax.TopDynamic (x,c) ->
+    comp_value c >>= fun v ->
+    Value.add_dynamic ~loc x v
+
+  | Syntax.TopNow (x,c) ->
+    comp_value c >>= fun v ->
+    Value.top_now x v
 
   | Syntax.TopDo c ->
      comp_value c >>= fun v ->

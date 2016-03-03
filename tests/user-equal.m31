@@ -4,12 +4,12 @@ constant b : A
 constant f : A -> A -> A
 
 
-let test = with equality_in ([],[],[],[]) handle whnf ((lambda (x y : A), f y x) a b)
+let test = whnf ((lambda (x y : A), f y x) a b)
 let _ = print test
 
 constant eq : forall (x : A), f a x == b
 
-let _ = add_beta eq
+now betas = add_beta eq betas
 
 do whnf (f a a)
 

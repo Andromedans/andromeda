@@ -1,0 +1,11 @@
+x is defined.
+Constant x is declared.
+⊢ x : Type
+The command failed with error:
+File "./shadowing.m31", line 8, characters 6-29: Syntax error
+  x is bound more than once
+Data constructor x is declared.
+x
+Operation x is declared.
+File "./shadowing.m31", line 19, characters 1-8: Runtime error
+  data constructor x is already declared

@@ -1,5 +1,5 @@
 (** Sets of assumptions *)
-module BoundSet : Set.S with type elt = Syntax.bound
+module BoundSet : Set.S with type elt = int
 
 type t
 

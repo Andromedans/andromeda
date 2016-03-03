@@ -7,8 +7,8 @@ constant pair : forall (A B : Type) (_ : A) (_ : B), prod A B
 constant fst : forall (X Y : Type) (_ : prod X Y), X
 constant snd : forall (X Y : Type) (_ : prod X Y), Y
 
-let _ = set_reducing fst [lazy,lazy,eager]
-let _ = set_reducing snd [lazy,lazy,eager]
+now reducing = add_reducing fst [lazy,lazy,eager] reducing
+now reducing = add_reducing snd [lazy,lazy,eager] reducing
 
 constant pair_beta_fst :
   ∀ (U V : Type) (u : U) (v : V),
@@ -32,23 +32,21 @@ constant p q : prod C D
 (* Beta rules. *)
 do
   (λ (c : C) (d : D),
-    with local (lbeta pair_beta_fst) handle
+    now betas = add_beta pair_beta_fst betas in
       refl c : fst C D (pair C D c d) ≡ c)
 
 do
   (λ (c : C) (d : D),
-    with local (lbeta pair_beta_fst) handle
-    with local (lbeta pair_beta_snd) handle
+    now betas = add_betas [pair_beta_fst,pair_beta_snd] betas in
       refl d : snd C D (pair C D c d) ≡ d)
 
 (* Surjective pairing. *)
 do
-  with local (lbeta pair_beta_fst) handle
-  with local (lbeta pair_beta_snd) handle
-  with local (leta pair_eta) handle
+  now betas = add_betas [pair_beta_fst,pair_beta_snd] betas in
+  now etas = add_eta pair_eta etas in
      refl p : p ≡ pair C D (fst C D p) (snd C D p)
 
 dont
-  with local (leta pair_eta) handle
+  now etas = add_eta pair_eta etas in
   refl p : p == q
 

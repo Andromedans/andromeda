@@ -21,9 +21,11 @@ do f
 
 (* Succeed *)
 do
-  with local (lhint eq1) handle (f : Nat → Nat)
+  now hints = add_hint eq1 hints in
+    (f : Nat → Nat)
 
 (* Fail *)
 do
-  with local (lhint eq2) handle (f : Nat → Nat)
+  now hints = add_hint eq2 hints in
+    (f : Nat → Nat)
 
