@@ -166,16 +166,22 @@ let rec infer (c',loc) =
        infer c)
 
   | Syntax.Where (c1, c2, c3) ->
-    infer c2 >>= as_atom ~loc >>= fun (ctxa, a, ta) ->
-    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx, e1, t1)) ->
+    infer c2 >>= as_atom ~loc >>= fun (_, a, _) ->
+    infer c1 >>= fun v1 ->
+    as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
     Value.lookup_penv >>= fun penv ->
-    let ctx = Context.join ~penv ~loc ctxa ctx in
-    check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
-    let ctx_s = Context.substitute ~penv ~loc a (ctx,e2,ta) in
-    let te_s = Tt.substitute [a] [e2] e1 in
-    let ty_s = Tt.substitute_ty [a] [e2] t1 in
-    let j_s = Jdg.mk_term ctx_s te_s ty_s in
-    Value.return_term j_s
+    begin match Context.lookup_ty a ctx with
+    | None -> infer c3 >>=
+       as_term ~loc:(snd c3) >>= fun _ ->
+       Value.return v1
+    | Some ta ->
+       check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
+       let ctx_s = Context.substitute ~penv ~loc a (ctx,e2,ta) in
+       let te_s = Tt.substitute [a] [e2] e1 in
+       let ty_s = Tt.substitute_ty [a] [e2] t1 in
+       let j_s = Jdg.mk_term ctx_s te_s ty_s in
+       Value.return_term j_s
+    end
 
   | Syntax.Match (c, cases) ->
      infer c >>=
