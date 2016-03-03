@@ -49,6 +49,7 @@ and dynamic = {
 }
 
 and lexical = {
+  (* The context contains information used to desugar the syntax, and to get the forbidden names for printing. *)
   context : (Name.ident * bound_info) list;
   bound : value list;
 
@@ -368,16 +369,15 @@ let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
   in
   m ctx y env
 
-let is_known x env =
-  if Name.eq_ident Name.anonymous x then false
-  else
-    match Name.assoc_ident x env.lexical.context with
-      | Some _ -> true
-      | None -> false
+(* Does [x] appear in the [ys]? *)
+let is_known x ys =
+  match Name.assoc_ident x ys with
+    | Some _ -> true
+    | None -> false
 
 let add_operation0 ~loc x k env =
-  if is_known x env
-  then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+  if is_known x env.dynamic.operations
+  then Error.runtime ~loc "operation %t is already declared" (Name.print_ident x)
   else
   { env with dynamic = {env.dynamic with operations = (x, k) :: env.dynamic.operations };
              lexical = {env.lexical with context = (x, BoundOp (x, k)) :: env.lexical.context } }
@@ -385,8 +385,8 @@ let add_operation0 ~loc x k env =
 let add_operation ~loc x k env = (),add_operation0 ~loc x k env
 
 let add_data0 ~loc x k env =
-  if is_known x env
-  then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+  if is_known x env.dynamic.datas
+  then Error.runtime ~loc "data constructor %t is already declared" (Name.print_ident x)
   else
   { env with dynamic = {env.dynamic with datas = (x, k) :: env.dynamic.datas };
              lexical = {env.lexical with context = (x, BoundData (x, k)) :: env.lexical.context } }
@@ -394,8 +394,8 @@ let add_data0 ~loc x k env =
 let add_data ~loc x k env = (), add_data0 ~loc x k env
 
 let add_constant0 ~loc x t env =
-  if is_known x env
-  then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
+  if is_known x env.dynamic.constants
+  then Error.runtime ~loc "constant %t is already declared" (Name.print_ident x)
   else
   { env with dynamic = {env.dynamic with constants = (x, t) :: env.dynamic.constants };
              lexical = {env.lexical with context = (x, BoundConst x) :: env.lexical.context } }
@@ -403,8 +403,8 @@ let add_constant0 ~loc x t env =
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
 
 let add_signature0 ~loc s s_def env =
-  if is_known s env
-  then Error.runtime ~loc "%t is already declared" (Name.print_ident s)
+  if is_known s env.dynamic.signatures
+  then Error.runtime ~loc "signature %t is already declared" (Name.print_ident s)
   else
   { env with dynamic = {env.dynamic with signatures = (s, s_def) :: env.dynamic.signatures };
              lexical = {env.lexical with context = (s, BoundSig s) :: env.lexical.context } }
@@ -434,11 +434,8 @@ let add_bound_rec lst m env =
 let push_bound = add_bound0
 
 let add_topbound ~loc x v env =
-  if is_known x env
-  then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else
-    let env = add_bound0 x v env in
-    (), env
+  let env = add_bound0 x v env in
+  (), env
 
 let now0 x v env =
   {env with dynamic = {env.dynamic with vars = Store.update x v env.dynamic.vars }}
@@ -452,12 +449,9 @@ let top_now x v env =
   (), env
 
 let add_dynamic0 ~loc x v env =
-  if is_known x env
-  then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else
-    let y,vars = Store.fresh v env.dynamic.vars in
-    { env with dynamic = {env.dynamic with vars };
-               lexical = {env.lexical with context = (x, BoundDyn y) :: env.lexical.context } }
+  let y,vars = Store.fresh v env.dynamic.vars in
+  { env with dynamic = {env.dynamic with vars };
+             lexical = {env.lexical with context = (x, BoundDyn y) :: env.lexical.context } }
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
@@ -468,16 +462,8 @@ let add_handle op xsc env = (), add_handle0 op xsc env
 
 
 let add_topbound_rec ~loc lst env =
-  let rec find_known = function
-    | (f,_)::_ when (is_known f env) -> Some f
-    | _::rem -> find_known rem
-    | [] -> None
-  in
-  match find_known lst with
-    | Some f -> Error.runtime ~loc "%t is already declared" (Name.print_ident f)
-    | None ->
-      let env = add_bound_rec0 lst env in
-      (), env
+  let env = add_bound_rec0 lst env in
+  (), env
 
 (* This function for internal use *)
 let lookup_handle op {lexical={handle=lst;_};_} =
