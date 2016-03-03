@@ -1,13 +1,13 @@
 Operation inhab is declared.
 h is defined.
 Constant A is declared.
-x_inhab₁₀ : A 
-⊢ x_inhab₁₀ : A
+x_inhab : A 
+⊢ x_inhab : A
 h' is defined.
-y_inhab₁₁ : A 
-⊢ y_inhab₁₁ : A
-z_inhab₁₂ : A 
-⊢ z_inhab₁₂ : A
+y_inhab : A 
+⊢ y_inhab : A
+z_inhab : A 
+⊢ z_inhab : A
 The command failed with error:
 File "./checking-op.m31", lines 21-23, characters 5-7: Runtime error
   no match found for None

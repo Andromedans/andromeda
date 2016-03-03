@@ -3,8 +3,8 @@ Constant a is declared.
 Constant b is declared.
 f is defined.
 ⊢ refl a : a ≡ a
-eq₁₀ : a ≡ b 
-⊢ eq₁₀ : a ≡ b
+eq : a ≡ b 
+⊢ eq : a ≡ b
 Operation gimme_beta is declared.
-eq₁₁ : a ≡ b 
-⊢ eq₁₁ : a ≡ b
+eq : a ≡ b 
+⊢ eq : a ≡ b

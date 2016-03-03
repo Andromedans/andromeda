@@ -15,8 +15,8 @@ Constant ( <= ) is declared.
   : A → A → A → A → A
 Signature isContr is declared.
 x0 is defined.
-x₂₂ : {isContr with T = Type ≡ Type} 
-⊢ x₂₂ : {isContr with T = Type ≡ Type}
+x : {isContr with T = Type ≡ Type} 
+⊢ x : {isContr with T = Type ≡ Type}
 The command failed with error:
 File "./everything.m31", line 81, characters 6-9: Typing error
   this expression should be a product, found Type
@@ -53,8 +53,8 @@ register is defined.
 ()
 ⊢ b : A
 ⊢ A : Type
-x₃₂ : A 
-⊢ x₃₂ : A
+x : A 
+⊢ x : A
 "this will happen"
 ()
 alpha_equal is defined.
@@ -66,29 +66,28 @@ Signature container is declared.
 ⊢ {cont = exfalso A} : {container with T = A}
 ⊢ {cont = a} : {container with T = A}
 ⊢ {unwrap = a}.unwrap : A
-x₄₄ : wrapped 
-⊢ x₄₄.unwrap : A
+x : wrapped 
+⊢ x.unwrap : A
 ⊢ a : A
 ⊢ a : A
-((⊢ wrapped : Type, [(unwrap, unwrap₄₆ : A 
-                                ⊢ unwrap₄₆ : A)]), [Constrained
-(⊢ a : A)])
+((⊢ wrapped : Type, [(unwrap, unwrap : A 
+                                ⊢ unwrap : A)]), [Constrained (⊢ 
+a : A)])
 (⊢ {container with T = A} : Type, [⊢ a : A])
-(x₄₉ : wrapped 
- ⊢ x₄₉ : wrapped, unwrap)
+(x : wrapped 
+ ⊢ x : wrapped, unwrap)
 Tvar is defined.
 yvar is defined.
 dependent is defined.
 Some (⊢ Type : Type)
 None
-[T₅₀ : Type 
- ⊢ T₅₀ : Type,
-T₅₀ : Type 
-x₅₂ : T₅₀ 
-⊢ x₅₂ : T₅₀]
+[T : Type 
+ ⊢ T : Type, T : Type 
+               x : T 
+               ⊢ x : T]
 Operation emit is declared.
-[x₅₃ : A 
- ⊢ x₅₃ : A]
+[x : A 
+ ⊢ x : A]
 Constant eq is declared.
 ⊢ refl a : a ≡ a
 ⊢ refl a : a ≡ b

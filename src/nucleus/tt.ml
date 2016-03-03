@@ -547,7 +547,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
   match e1_prefix with
   | Some (As_atom op) ->
      Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
-                 (Name.print_atom ~parentheses:false op)
+                 (Name.print_atom ~parentheses:false ~penv:penv.atoms op)
                  (print_term ~max_level:Level.prefix_arg ~penv e2)
 
   | Some (As_ident op) ->
@@ -590,7 +590,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
                       (print_term ~max_level:lvl_left ~penv e1)
                       (match op with
                        | As_ident op -> Name.print_ident ~parentheses:false op
-                       | As_atom op -> Name.print_atom ~parentheses:false op)
+                       | As_atom op -> Name.print_atom ~parentheses:false ~penv:penv.atoms op)
                       (print_term ~max_level:lvl_right ~penv e2)
        | None ->
           (* ordinary application *)

@@ -23,4 +23,5 @@ let print_dependencies = ref false
 
 let max_boxes = ref 42
 
-let print_subscripts = ref false
+let print_subscripts = ref true
+
