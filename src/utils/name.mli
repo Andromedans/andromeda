@@ -10,11 +10,12 @@ type ident = private Ident of string * fixity
 
 type atom = private Atom of string * fixity * int
 
-(** The type of a structure or signature field. *)
+(** Aliases with different semantics *)
 type label = ident
-
-(** The type of a signature name. *)
 type signature = ident
+type constant = ident
+type data = ident
+type operation = ident
 
 (** Print a name. *)
 val print_ident : ?parentheses:bool -> ident -> Format.formatter -> unit
@@ -69,6 +70,9 @@ val index_of_atom : atom -> atom list -> int option
 
 (** [index_of_ident x xs] finds the index of [x] in list [xs] if it's there. *)
 val index_of_ident : ident -> ident list -> int option
+
+(** Like List.assoc, but using [eq_ident] and without exceptions. *)
+val assoc_ident : ident -> (ident * 'a) list -> 'a option
 
 val print_debruijn : ident list -> int -> Format.formatter -> unit
 

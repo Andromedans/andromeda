@@ -4,13 +4,13 @@ type ref = Store.key
 
 type dyn = Store.key
 
-(* Information about a toplevel declaration *)
-type decl =
-  | DeclConstant of Tt.ty
-  | DeclData of int
-  | DeclOperation of int
-  | DeclSignature of Tt.sig_def
-  | DeclDynamic of dyn
+type bound_info =
+  | BoundVal
+  | BoundConst of Name.constant
+  | BoundData of Name.data * int
+  | BoundOp of Name.operation * int
+  | BoundSig of Name.signature
+  | BoundDyn of dyn
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
@@ -31,21 +31,27 @@ type env = {
 }
 
 and dynamic = {
-  decls : (Name.ident * decl) list ;
-  (* Toplevel declaration *)
+  (* Toplevel declarations *)
+  constants : (Name.constant * Tt.ty) list;
+  datas : (Name.data * int) list;
+  operations : (Name.operation * int) list;
+  signatures : (Name.signature * Tt.sig_def) list;
 
-  abstracting : value list;
   (* The list of judgments about atoms which are going to be abstracted. We
      should avoid creating atoms which depends on these, as this will prevent
      abstraction from working. The list is in the reverse order from
      abstraction, i.e., the inner-most abstracted variable appears first in the
      list. *)
+  abstracting : value list;
 
+  (* Current values of dynamic variables *)
   vars : value Store.t
 }
 
 and lexical = {
-  bound : (Name.ident * value) list;
+  context : (Name.ident * bound_info) list;
+  bound : value list;
+
   continuation : (value,value) closure option;
 
   (* The following are only modified at the top level *)
@@ -286,49 +292,15 @@ let operation_as_signature v =
 
 (** Interact with the environment *)
 
-let top_bound_names env = List.map fst env.lexical.bound, env
-
-let top_get_env env = env, env
+let top_bound_info env = env.lexical.context, env
 
 let get_env env = Return env, env.state
 
-let get_decl x env =
-  let rec get = function
-    | [] -> None
-    | (y,v) :: lst ->
-       if Name.eq_ident x y then Some v else get lst
-  in
-  get env.dynamic.decls
-
-let get_operation x env =
-  match get_decl x env with
-  | None -> None
-  | Some (DeclOperation k) -> Some k
-  | Some (DeclData _ | DeclConstant _ | DeclSignature _ | DeclDynamic _) -> None
-
-let get_data x env =
-  match get_decl x env with
-  | None -> None
-  | Some (DeclData k) -> Some k
-  | Some (DeclOperation _ | DeclConstant _ | DeclSignature _ | DeclDynamic _) -> None
-
 let get_constant x env =
-  match get_decl x env with
-  | None -> None
-  | Some (DeclConstant c) -> Some c
-  | Some (DeclData _ | DeclOperation _ | DeclSignature _ | DeclDynamic _) -> None
+  Name.assoc_ident x env.dynamic.constants
 
 let get_signature x env =
-  match get_decl x env with
-  | None -> None
-  | Some (DeclSignature s) -> Some s
-  | Some (DeclData _ | DeclOperation _ | DeclConstant _ | DeclDynamic _) -> None
-
-let get_dynamic x env =
-  match get_decl x env with
-    | None -> None
-    | Some (DeclDynamic y) -> Some y
-    | Some (DeclData _ | DeclOperation _ | DeclConstant _ | DeclSignature _) -> None
+  Name.assoc_ident x env.dynamic.signatures
 
 let lookup_constant ~loc x env =
   match get_constant x env with
@@ -343,7 +315,7 @@ let lookup_signature ~loc x env =
 let find_signature ~loc ls env =
   let rec fold = function
     | [] -> Error.runtime ~loc "No signature has these exact fields."
-    | (s, DeclSignature s_def) :: lst ->
+    | (s, s_def) :: lst ->
        let rec cmp lst1 lst2 =
          match lst1, lst2 with
          | [], [] -> true
@@ -351,27 +323,29 @@ let find_signature ~loc ls env =
          | [],_::_ | _::_,[] -> false
        in
        if cmp ls s_def then s, s_def else fold lst
-    | (_, (DeclConstant _ | DeclData _ | DeclOperation _ | DeclDynamic _)) :: lst -> fold lst
   in
-  Return (fold env.dynamic.decls), env.state
+  Return (fold env.dynamic.signatures), env.state
 
 let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 
 let get_bound ~loc k env =
   try
-    snd (List.nth env.lexical.bound k)
+    List.nth env.lexical.bound k
   with
+  (* TODO is there a point in having this? *)
   | Failure _ -> Error.impossible ~loc "invalid de Bruijn index %d" k
 
-let get_dyn x env = Store.lookup x env.dynamic.vars
+let get_dynamic_value x env = Store.lookup x env.dynamic.vars
 
 let lookup_bound ~loc k env =
   Return (get_bound ~loc k env), env.state
 
-let lookup_dynamic x env =
-  Return (get_dyn x env), env.state
+let lookup_dynamic_value x env =
+  Return (get_dynamic_value x env), env.state
 
-let add_bound0 x v env = {env with lexical = { env.lexical with bound = (x,v)::env.lexical.bound } }
+let add_bound0 x v env = {env with lexical = { env.lexical with
+                                               context = (x, BoundVal) :: env.lexical.context;
+                                               bound = v :: env.lexical.bound } }
 
 let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
@@ -397,40 +371,43 @@ let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
 let is_known x env =
   if Name.eq_ident Name.anonymous x then false
   else
-    let rec is_bound = function
-      | [] -> false
-      | (y,_) :: lst -> Name.eq_ident x y || is_bound lst
-    in
-    is_bound env.lexical.bound ||
-    (match get_decl x env with
-     | None -> false
-     | Some _ -> true)
+    match Name.assoc_ident x env.lexical.context with
+      | Some _ -> true
+      | None -> false
 
 let add_operation0 ~loc x k env =
   if is_known x env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else { env with dynamic = {env.dynamic with decls = (x, DeclOperation k) :: env.dynamic.decls }} 
+  else
+  { env with dynamic = {env.dynamic with operations = (x, k) :: env.dynamic.operations };
+             lexical = {env.lexical with context = (x, BoundOp (x, k)) :: env.lexical.context } }
 
 let add_operation ~loc x k env = (),add_operation0 ~loc x k env
 
 let add_data0 ~loc x k env =
   if is_known x env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else { env with dynamic = {env.dynamic with decls = (x, DeclData k) :: env.dynamic.decls }}
+  else
+  { env with dynamic = {env.dynamic with datas = (x, k) :: env.dynamic.datas };
+             lexical = {env.lexical with context = (x, BoundData (x, k)) :: env.lexical.context } }
 
 let add_data ~loc x k env = (), add_data0 ~loc x k env
 
-let add_constant0 ~loc x ytsu env =
+let add_constant0 ~loc x t env =
   if is_known x env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
-  else { env with dynamic = {env.dynamic with decls = (x, DeclConstant ytsu) :: env.dynamic.decls }}
+  else
+  { env with dynamic = {env.dynamic with constants = (x, t) :: env.dynamic.constants };
+             lexical = {env.lexical with context = (x, BoundConst x) :: env.lexical.context } }
 
-let add_constant ~loc x ytsu env = (), add_constant0 ~loc x ytsu env
+let add_constant ~loc x t env = (), add_constant0 ~loc x t env
 
 let add_signature0 ~loc s s_def env =
   if is_known s env
   then Error.runtime ~loc "%t is already declared" (Name.print_ident s)
-  else {env with dynamic = {env.dynamic with decls = (s, DeclSignature s_def) :: env.dynamic.decls}}
+  else
+  { env with dynamic = {env.dynamic with signatures = (s, s_def) :: env.dynamic.signatures };
+             lexical = {env.lexical with context = (s, BoundSig s) :: env.lexical.context } }
 
 let add_signature ~loc s s_def env = (), add_signature0 ~loc s s_def env
 
@@ -479,9 +456,8 @@ let add_dynamic0 ~loc x v env =
   then Error.runtime ~loc "%t is already declared" (Name.print_ident x)
   else
     let y,vars = Store.fresh v env.dynamic.vars in
-    { env with dynamic = {env.dynamic with
-        decls = (x, DeclDynamic y) :: env.dynamic.decls;
-        vars }}
+    { env with dynamic = {env.dynamic with vars };
+               lexical = {env.lexical with context = (x, BoundDyn y) :: env.lexical.context } }
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
@@ -527,7 +503,7 @@ let included f env =
 
 (** Generate a printing environment from runtime environment *)
 let get_penv env =
-  { Tt.forbidden = List.map fst env.lexical.bound @ List.map fst env.dynamic.decls ;
+  { Tt.forbidden = List.map fst env.lexical.context ;
     Tt.sigs = (fun s ->
                match get_signature s env with
                  | None -> Error.impossible ~loc:Location.unknown "get_penv: unknown signature %t" (Name.print_ident s)
@@ -639,41 +615,43 @@ let print_ty env =
 let print_env env =
   let print env ppf =
     let penv = get_penv env in
-    List.iter
-      (function
-        | (x, DeclConstant t) ->
+    List.iter (fun (x,t) ->
            Format.fprintf ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n"
                           (Name.print_ident x)
-                          (Tt.print_ty ~penv t)
-        | (x, DeclData k) ->
+                          (Tt.print_ty ~penv t))
+      env.dynamic.constants ;
+    List.iter (fun (x,k) ->
            Format.fprintf ppf "@[<hov 4>data %t %d@]@\n"
                           (Name.print_ident x)
-                          k
-        | (x, DeclOperation k) ->
+                          k)
+      env.dynamic.datas ;
+    List.iter (fun (x,k) ->
            Format.fprintf ppf "@[<hov 4>operation %t %d@]@\n"
                           (Name.print_ident x)
-                          k
-        | (x, DeclSignature s) ->
+                          k)
+      env.dynamic.operations ;
+    List.iter (fun (x,s) ->
            Format.fprintf ppf "@[<hov 4>signature %t %t@]@\n"
                        (Name.print_ident x)
-                       (Tt.print_sig_def ~penv s)
-        | (x, DeclDynamic _) ->
-          Format.fprintf ppf "@[<hov 4>dynamic %t@]@\n" (Name.print_ident x)
-      )
-      (List.rev env.dynamic.decls) ;
+                       (Tt.print_sig_def ~penv s))
+      env.dynamic.signatures ;
   in
   print env, env
 
 (* The empty environment *)
 let empty = {
   lexical = {
+    context = [] ;
     bound = [] ;
     handle = [] ;
     continuation = None ;
     files = [] ;
   } ;
   dynamic = {
-    decls = [] ;
+    constants = [] ;
+    datas = [] ;
+    operations = [] ;
+    signatures = [] ;
     abstracting = [] ;
     vars = Store.empty ;
   } ;

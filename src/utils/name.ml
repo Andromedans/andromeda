@@ -11,8 +11,10 @@ type ident = Ident of string * fixity
 type atom = Atom of string * fixity * int
 
 type label = ident
-
 type signature = ident
+type constant = ident
+type data = ident
+type operation = ident
 
 let print_ident ?(parentheses=true) x ppf =
   match x with
@@ -139,6 +141,11 @@ let index_of_ident x ys =
     | y :: ys -> if eq_ident x y then Some k else fold (k + 1) ys
   in
   fold 0 ys
+
+let rec assoc_ident x = function
+  | [] -> None
+  | (y,v)::_ when (eq_ident x y) -> Some v
+  | _::l -> assoc_ident x l
 
 let print_debruijn xs k ppf =
   try
