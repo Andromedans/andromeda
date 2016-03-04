@@ -474,9 +474,9 @@ let lookup_handle op {lexical={handle=lst;_};_} =
     Some (List.assoc op lst)
   with Not_found -> None
 
-let lookup_continuation ~loc ({lexical={continuation;_};_} as env) =
+let continue ~loc v ({lexical={continuation;_};_} as env) =
   match continuation with
-    | Some cont -> Return cont, env.state
+    | Some cont -> apply_closure cont v env
     | None -> Error.impossible ~loc "No continuation"
 
 let push_file f env =

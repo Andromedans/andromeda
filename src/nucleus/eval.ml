@@ -320,8 +320,8 @@ let rec infer (c',loc) =
     infer_projection ~loc c p
 
   | Syntax.Yield c ->
-    Value.lookup_continuation ~loc >>= fun k ->
-    infer c >>= Value.apply_closure k
+    infer c >>= fun v ->
+    Value.continue ~loc v
 
   | Syntax.Hypotheses ->
      Value.lookup_abstracting >>= fun lst ->
@@ -823,8 +823,7 @@ and match_op_cases ~loc op cases vs checking =
   let rec fold = function
     | [] ->
       Value.operation op ?checking vs >>= fun v ->
-      Value.lookup_continuation ~loc >>= fun k ->
-      Value.apply_closure k v
+      Value.continue ~loc v
     | (xs, ps, pt, c) :: cases ->
       Matching.match_op_pattern ps pt vs checking >>= begin function
         | Some vs ->

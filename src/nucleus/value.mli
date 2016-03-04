@@ -225,7 +225,7 @@ val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel
 
 (** Lookup the current continuation. *)
-val lookup_continuation : loc:Location.t -> ((value,value) closure) comp
+val continue : loc:Location.t -> value -> value comp
 
 (** Add a file to the list of files included. *)
 val push_file : string -> unit toplevel
