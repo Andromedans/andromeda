@@ -238,6 +238,12 @@ and collect_pattern env xvs {Syntax.term=p;loc} v =
      then xvs
      else raise Match_fail
 
+  | Syntax.Patt_Dyn y, v ->
+    let v' = Value.get_dynamic_value y env in
+    if Value.equal_value v v'
+    then xvs
+    else raise Match_fail
+
   | Syntax.Patt_Jdg (pe, pt), Value.Term (Jdg.Term (ctx, e, t)) ->
      let Tt.Ty t' = t in
      let {Tt.loc=loc;_} = t' in
