@@ -1,4 +1,4 @@
-BUILD_CMD=${BUILD_CMD:-make all}
+BUILD_CMD=${BUILD_CMD:-make all test}
 ## basic OCaml and opam installation
 
 full_apt_version () {
