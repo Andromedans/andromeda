@@ -38,6 +38,8 @@ then
     VALIDATE=1
 fi
 
+_EXIT=0
+
 for FILE in $BASEDIR/*.m31
 do
     while :
@@ -51,6 +53,7 @@ do
                 $PRINTF "Test: $FILE                        \r"
                 rm "$FILE.out"
             else
+                _EXIT=1
                 echo "FAILED:  $FILE                          "
                 if [ "$VALIDATE" = "1" ]
                 then
@@ -88,3 +91,4 @@ do
     done
 done
 echo "Done.                                       "
+exit $_EXIT
