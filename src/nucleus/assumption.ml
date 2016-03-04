@@ -75,3 +75,6 @@ let as_atom_set ~loc {free;bound;} =
   then free
   else Error.impossible ~loc "reducing assumptions to free assumptions not allowed when there are bound assumptions"
 
+let equal {free=free1;bound=bound1} {free=free2;bound=bound2} =
+  AtomSet.equal free1 free2 && BoundSet.equal bound1 bound2
+
