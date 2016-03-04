@@ -82,13 +82,15 @@ and 'a result =
 
 and 'a comp = env -> 'a result * state
 
-and operation_args = { args : value list; checking : Jdg.ty option; cont : (value,value) closure }
+and operation_args = { args : value list; checking : Jdg.ty option }
 
 and handler = {
   handler_val: (value,value) closure option;
-  handler_ops: (operation_args, value) closure Name.IdentMap.t;
+  handler_ops: (continuation -> (operation_args, value) closure) Name.IdentMap.t;
   handler_finally: (value,value) closure option;
 }
+
+and continuation = (value,value) closure
 
 (** A toplevel computation carries around the current
     environment. *)
@@ -192,7 +194,8 @@ let return_handler handler_val handler_ops handler_finally env =
   let option_map g = function None -> None | Some x -> Some (g x) in
   let h = {
     handler_val = option_map (fun v -> mk_closure0 v env) handler_val ;
-    handler_ops = Name.IdentMap.map (fun f -> mk_closure0 f env) handler_ops ;
+    handler_ops = Name.IdentMap.map (fun f ->
+      fun k -> mk_closure0 f {env with lexical = {env.lexical with continuation = Some k}}) handler_ops ;
     handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
   Return (Handler h), env.state
@@ -471,9 +474,6 @@ let lookup_handle op {lexical={handle=lst;_};_} =
     Some (List.assoc op lst)
   with Not_found -> None
 
-let set_continuation c m env =
-  m { env with lexical = { env.lexical with continuation = Some c } }
-
 let lookup_continuation ~loc ({lexical={continuation;_};_} as env) =
   match continuation with
     | Some cont -> Return cont, env.state
@@ -683,8 +683,8 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
      let cont = mk_closure0 (fun v env -> handle_comp h (apply_closure cont v) env) env in
      begin
        try
-         let f = Name.IdentMap.find op handler_ops in
-         apply_closure f {args=vs;checking=jt; cont} env
+         let f = (Name.IdentMap.find op handler_ops) cont in
+         (apply_closure f {args=vs;checking=jt}) env
        with
          Not_found ->
            Operation (op, vs, jt, dynamic, cont), env.state

@@ -38,13 +38,9 @@ type value = private
   | String of string (** NB: strings are opaque to the user, ie not lists *)
   | Ident of Name.ident
 
-and operation_args = { args : value list; checking : Jdg.ty option; cont : (value,value) closure }
+and operation_args = { args : value list; checking : Jdg.ty option}
 
-and handler = {
-  handler_val: (value,value) closure option;
-  handler_ops: (operation_args, value) closure Name.IdentMap.t;
-  handler_finally: (value,value) closure option;
-}
+and handler
 
 (** computations provide a dynamically scoped environment and operations *)
 type 'a comp
@@ -227,9 +223,6 @@ val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel
-
-(** Set the continuation for a handler computation. *)
-val set_continuation : (value,value) closure -> 'a comp -> 'a comp
 
 (** Lookup the current continuation. *)
 val lookup_continuation : loc:Location.t -> ((value,value) closure) comp

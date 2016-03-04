@@ -98,9 +98,8 @@ let rec infer (c',loc) =
             Some f
           end
         and handler_ops = Name.IdentMap.mapi (fun op cases ->
-            let f {Value.args=vs;checking;cont} =
-              Value.set_continuation cont
-              (match_op_cases ~loc op cases vs checking)
+            let f {Value.args=vs;checking} =
+              match_op_cases ~loc op cases vs checking
             in
             f)
           handler_ops
