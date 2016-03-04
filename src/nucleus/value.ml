@@ -53,7 +53,7 @@ and lexical = {
   context : (Name.ident * bound_info) list;
   bound : value list;
 
-  continuation : (value,value) closure option;
+  continuation : continuation option;
 
   (* The following are only modified at the top level *)
   handle : (Name.ident * (value list * Jdg.ty option,value) closure) list;
