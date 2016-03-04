@@ -162,10 +162,10 @@ let print_atom_subs ?(parentheses=true) x ppf =
 let print_atom ?parentheses ?(penv=[]) x ppf =
   if !Config.print_subscripts
   then
+    print_atom_subs ?parentheses x ppf
+  else
     try
       print_ident ?parentheses (snd (List.find (fun (y,_) -> eq_atom x y) penv)) ppf
     with
       | Not_found -> print_atom_subs ?parentheses x ppf
-  else
-    print_atom_subs ?parentheses x ppf
 
