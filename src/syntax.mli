@@ -36,6 +36,7 @@ and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * bound
   | Patt_Bound of bound
+  | Patt_Dyn of Value.dyn
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Data of Name.ident * pattern list
   | Patt_Nil
