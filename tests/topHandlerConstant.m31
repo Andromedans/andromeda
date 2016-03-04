@@ -1,17 +1,8 @@
 constant A : Type
-constant B : Type
-constant b : B
-constant a : A
 
-operation op 1
+signature foo = { x : A }
 
-let h = handler
-  | op ?v => whnf (v ((lambda (x : B), x) b))
-end
+(* foo is defined after equality, but equality knows about it *)
 
-constant f : B -> A (* TODO *)
-
-(* At this point h should know about f, does it? *)
-let _ = with h handle 
-           op (lambda (x : B), f x)
+do lambda (a b : foo) (h : a.x == b.x), now hints = add_hint h hints in refl a : a == b
 

@@ -3,3 +3,18 @@ Constant top is declared.
 Constant Unit_rect is declared.
 Constant Unit_iota_top is declared.
 it is defined.
+⊢ refl top
+  : top ≡ Unit_rect (λ (_ : Unit), Unit → Unit) (λ (x : Unit), x) top
+    top
+⊢ refl top
+  : top ≡ Unit_rect (λ (_ : Unit), Unit → Unit) (λ (x : Unit), x) top
+    top
+⊢ refl top
+  : top ≡ Unit_rect (λ (_ : Unit), Unit → Unit) (λ (x : Unit), x) top
+    top
+⊢ refl top
+  : top ≡ Unit_rect (λ (_ : Unit), Unit → Unit) (λ (x : Unit), x) top
+    top
+⊢ refl top
+  : top ≡ Unit_rect (λ (_ : Unit), Unit → Unit) (λ (x : Unit), x) top
+    top

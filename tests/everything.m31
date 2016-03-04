@@ -92,7 +92,8 @@ do refl Type : Type == Type
 (* Most computations are evaluated in a naive way.
    However if we know that a computation should evaluate to a term of a given type,
    a more refined strategy can be used: *)
-(* TODO fail lambda T x, x *)
+fail lambda T x, x
+
 (* Type ascription `c : c'` is one way to evaluate in checking mode.
    Checking mode allows inferring type annotations for the arguments of a lambda. *)
 do (lambda T x, x) : forall (A : Type), A -> A

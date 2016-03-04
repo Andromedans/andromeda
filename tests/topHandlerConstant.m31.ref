@@ -1,7 +1,4 @@
 Constant A is declared.
-Constant B is declared.
-Constant b is declared.
-Constant a is declared.
-Operation op is declared.
-h is defined.
-Constant f is declared.
+Signature foo is declared.
+⊢ λ (a : foo) (b : foo) (_ : a.x ≡ b.x), refl a
+  : Π (a : foo) (b : foo), a.x ≡ b.x → a ≡ b
