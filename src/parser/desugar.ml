@@ -233,8 +233,18 @@ and pattern bound vars n (p,loc) =
           then (Syntax.Patt_Data (c,[]), loc), vars, n
           else Error.syntax ~loc "the data constructor %t expects %d arguments but is matched with 0"
               (Name.print_ident c) k
-        | Bound.Const _ | Bound.Op _ | Bound.Sig _ | Bound.Dyn _ ->
-          Error.syntax ~loc "cannot match this." (* TODO some can be done *)
+        | Bound.Const c ->
+          let p = (Syntax.Tt_Constant c, loc) in
+          let pt = (Syntax.Tt_Anonymous, loc) in
+          (Syntax.Patt_Jdg (p,pt), loc), vars, n
+        | Bound.Sig s ->
+          let p = (Syntax.Tt_Signature s, loc) in
+          let pt = (Syntax.Tt_Anonymous, loc) in
+          (Syntax.Patt_Jdg (p,pt), loc), vars, n
+        | Bound.Dyn y ->
+          (Syntax.Patt_Dyn y, loc), vars, n
+        | Bound.Op _ ->
+          Error.syntax ~loc "Operations are not valid patterns."
       end
 
     | Input.Patt_Jdg (p1,p2) ->
