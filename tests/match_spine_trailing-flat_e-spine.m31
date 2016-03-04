@@ -8,11 +8,9 @@ let it = (λ (T : Type), Unit_rect (λ _, T -> T) (λ (x : T), x))
 
 now betas = add_beta Unit_iota_top betas
 
-(* TODO loops
-do refl top : top == (Unit_rect   (λ (_), Unit -> Unit)) (λ (x : Unit), x) top top
-do refl top : top == (Unit_rect   (λ (_), Unit -> Unit) (λ (x : Unit), x)) top top
-do refl top : top == ((Unit_rect  (λ (_), Unit -> Unit) (λ (x : Unit), x)) top) top
-do refl top : top == (((Unit_rect (λ (_), Unit -> Unit)) (λ (x : Unit), x)) top) top
-do refl top : top == ((Unit_rect  (λ (_), Unit -> Unit)) (λ (x : Unit), x)) top top
-*)
+do refl top : top == (Unit_rect   (λ _, Unit -> Unit)) (λ (x : Unit), x) top top
+do refl top : top == (Unit_rect   (λ _, Unit -> Unit) (λ (x : Unit), x)) top top
+do refl top : top == ((Unit_rect  (λ _, Unit -> Unit) (λ (x : Unit), x)) top) top
+do refl top : top == (((Unit_rect (λ _, Unit -> Unit)) (λ (x : Unit), x)) top) top
+do refl top : top == ((Unit_rect  (λ _, Unit -> Unit)) (λ (x : Unit), x)) top top
 
