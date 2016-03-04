@@ -39,7 +39,7 @@ let as_ident ~loc v =
   Value.return s
 
 (** Evaluate a computation -- infer mode. *)
-let rec infer (c',loc) =
+let rec infer {Syntax.term=c'; loc} =
   match c' with
     | Syntax.Bound i ->
        Value.lookup_bound ~loc i
@@ -172,7 +172,7 @@ let rec infer (c',loc) =
     Value.lookup_penv >>= fun penv ->
     begin match Context.lookup_ty a ctx with
     | None -> infer c3 >>=
-       as_term ~loc:(snd c3) >>= fun _ ->
+       as_term ~loc:(c3.Syntax.loc) >>= fun _ ->
        Value.return v1
     | Some ta ->
        check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
@@ -224,7 +224,7 @@ let rec infer (c',loc) =
     infer_prod ~loc x u c
 
   | Syntax.Eq (c1, c2) ->
-     infer c1 >>= as_term ~loc:(snd c1) >>= fun (Jdg.Term (ctx, e1, t1')) ->
+     infer c1 >>= as_term ~loc:(c1.Syntax.loc) >>= fun (Jdg.Term (ctx, e1, t1')) ->
      let t1 = Jdg.mk_ty ctx t1' in
      check c2 t1 >>= fun (ctx, e2) ->
      let eq = Tt.mk_eq ~loc t1' e1 e2 in
@@ -233,7 +233,7 @@ let rec infer (c',loc) =
      Value.return_term j
 
   | Syntax.Refl c ->
-     infer c >>= as_term ~loc:(snd c) >>= fun (Jdg.Term (ctxe, e, t)) ->
+     infer c >>= as_term ~loc:(c.Syntax.loc) >>= fun (Jdg.Term (ctxe, e, t)) ->
      let e' = Tt.mk_refl ~loc t e
      and t' = Tt.mk_eq_ty ~loc t e e in
      let et' = Jdg.mk_term ctxe e' t' in
@@ -507,7 +507,7 @@ and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
                       (pte e) (pty t_check') (pty t')
     end
 
-and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.comp =
+and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.comp =
   match c' with
 
   | Syntax.Type
@@ -595,7 +595,7 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
             Value.return (ctx,Tt.mention_atoms hyps e)
          | None ->
             Value.print_ty >>= fun pty ->
-            Error.typing ~loc:(snd c2)
+            Error.typing ~loc:(c2.Syntax.loc)
                          "this type should be equal to@ %t"
                          (pty t_check')
        end
@@ -691,7 +691,7 @@ and infer_lambda ~loc x u c =
     | Some u ->
       check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
       Value.add_abstracting ~loc:uloc x ju (fun _ y ->
-      infer c >>= as_term ~loc:(snd c) >>= fun (Jdg.Term (ctxe,e,t)) ->
+      infer c >>= as_term ~loc:(c.Syntax.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
       Value.lookup_penv >>= fun penv ->
       let ctxe = Context.abstract ~penv ~loc ctxe y u in
       let ctx = Context.join ~penv ~loc ctxu ctxe in
@@ -847,9 +847,9 @@ and check_ty c : Jdg.ty Value.comp =
   let j = Jdg.mk_ty ctx t in
   Value.return j
 
-let comp_value ((_, loc) as c) =
+let comp_value c =
   let r = infer c in
-  Value.top_handle ~loc r
+  Value.top_handle ~loc:c.Syntax.loc r
 
 let comp_handle (xs,y,c) =
   Value.top_return_closure (fun (vs,checking) ->
@@ -866,7 +866,7 @@ let comp_handle (xs,y,c) =
             | None -> infer c
           end
         | x::xs, v::vs -> Value.add_bound x v (fold2 xs vs)
-        | [],_::_ | _::_,[] -> Error.impossible ~loc:(snd c) "bad top handler case"
+        | [],_::_ | _::_,[] -> Error.impossible ~loc:(c.Syntax.loc) "bad top handler case"
       in
       fold2 xs vs)
 
@@ -971,7 +971,7 @@ let rec exec_cmd base_dir interactive c =
      return ()
 
   | Syntax.DeclConstants (xs, c) ->
-     Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
+     Value.top_handle ~loc:(c.Syntax.loc) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
       if Context.is_empty ctxt
       then
         let rec fold = function
@@ -983,7 +983,7 @@ let rec exec_cmd base_dir interactive c =
         in
         fold xs
       else
-        Error.typing "Constants may not depend on free variables" ~loc:(snd c)
+        Error.typing "Constants may not depend on free variables" ~loc:(c.Syntax.loc)
 
   | Syntax.DeclSignature (s, lxcs) ->
     comp_signature ~loc lxcs >>= fun lxts ->

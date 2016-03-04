@@ -16,7 +16,7 @@ let update k v xvs =
     Not_found ->
       (k,v) :: xvs
 
-let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
+let rec collect_tt_pattern env xvs {Syntax.term = p'; _} ctx ({Tt.term=e';loc;_} as e) t =
   match p', e' with
   | Syntax.Tt_Anonymous, _ -> xvs
 
@@ -224,7 +224,7 @@ let rec collect_tt_pattern env xvs (p',_) ctx ({Tt.term=e';loc;_} as e) t =
      | Syntax.Tt_GenAtom _ | Syntax.Tt_GenConstant _) , _ ->
      raise Match_fail
 
-and collect_pattern env xvs (p,loc) v =
+and collect_pattern env xvs {Syntax.term=p;loc} v =
   match p, v with 
   | Syntax.Patt_Anonymous, _ -> xvs
 
