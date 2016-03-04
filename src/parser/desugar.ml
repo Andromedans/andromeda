@@ -60,48 +60,51 @@ end
 
 module IdentMap = Name.IdentMap
 
+let mark v loc = {Syntax.term=v; loc}
+
+(* TODO improve locs *)
 let mk_lambda ~loc ys c =
-  List.fold_left (fun c (y,u) -> Syntax.Lambda (y,u,c), loc) c ys
+  List.fold_left (fun c (y,u) -> mark (Syntax.Lambda (y,u,c)) loc) c ys
 
 let mk_prod ~loc ys t =
-  List.fold_left (fun c (y,u) -> Syntax.Prod (y,u,c), loc) t ys
+  List.fold_left (fun c (y,u) -> mark (Syntax.Prod (y,u,c)) loc) t ys
 
 (* n is the length of vars *)
 let rec tt_pattern bound vars n (p,loc) =
   match p with
     | Input.Tt_Anonymous ->
-      (Syntax.Tt_Anonymous, loc), vars, n
+      (mark Syntax.Tt_Anonymous loc), vars, n
 
     | Input.Tt_As (p,x) ->
       begin match Name.assoc_ident x vars with
         | Some i ->
           let p, vars, n = tt_pattern bound vars n p in
-          (Syntax.Tt_As (p,i), loc), vars, n
+          (mark (Syntax.Tt_As (p,i)) loc), vars, n
         | None ->
           let i = n in
           let p, vars, n = tt_pattern bound ((x,n)::vars) (n+1) p in
-          (Syntax.Tt_As (p,i), loc), vars, n
+          (mark (Syntax.Tt_As (p,i)) loc), vars, n
       end
 
     | Input.Tt_Var x ->
       begin match Name.assoc_ident x vars with
         | Some i ->
-          (Syntax.Tt_As ((Syntax.Tt_Anonymous, loc), i), loc), vars, n
+          mark (Syntax.Tt_As ((mark Syntax.Tt_Anonymous loc), i)) loc, vars, n
         | None ->
-          (Syntax.Tt_As ((Syntax.Tt_Anonymous, loc), n), loc), ((x,n)::vars), (n+1)
+          mark (Syntax.Tt_As ((mark Syntax.Tt_Anonymous loc), n)) loc, ((x,n)::vars), (n+1)
       end
 
     | Input.Tt_Type ->
-      (Syntax.Tt_Type, loc), vars, n
+      (mark Syntax.Tt_Type loc), vars, n
 
     | Input.Tt_Name x ->
       begin match Bound.find ~loc x bound with
-        | Bound.Val k -> (Syntax.Tt_Bound k, loc), vars, n
-        | Bound.Const c -> (Syntax.Tt_Constant c, loc), vars, n
+        | Bound.Val k -> mark (Syntax.Tt_Bound k) loc, vars, n
+        | Bound.Const c -> mark (Syntax.Tt_Constant c) loc, vars, n
         | Bound.Data _ -> Error.syntax ~loc "data constructor in a term pattern"
         | Bound.Op _ -> Error.syntax ~loc "operation in a term pattern"
-        | Bound.Sig s -> (Syntax.Tt_Signature s, loc), vars, n
-        | Bound.Dyn y -> (Syntax.Tt_Dynamic y, loc), vars, n
+        | Bound.Sig s -> mark (Syntax.Tt_Signature s) loc, vars, n
+        | Bound.Dyn y -> mark (Syntax.Tt_Dynamic y) loc, vars, n
       end
 
     | Input.Tt_Lambda (b,x,popt,p) ->
@@ -125,12 +128,12 @@ let rec tt_pattern bound vars n (p,loc) =
         else None, vars, n
       in
       let p, vars, n = tt_pattern (Bound.add x bound) vars n p in
-      (Syntax.Tt_Lambda (x,bopt,popt,p), loc), vars, n
+      mark (Syntax.Tt_Lambda (x,bopt,popt,p)) loc, vars, n
 
     | Input.Tt_Apply (p1,p2) ->
       let p1, vars, n = tt_pattern bound vars n p1 in
       let p2, vars, n = tt_pattern bound vars n p2 in
-      (Syntax.Tt_Apply (p1,p2), loc), vars, n
+      mark (Syntax.Tt_Apply (p1,p2)) loc, vars, n
 
     | Input.Tt_Prod (b,x,popt,p) ->
       let popt, vars, n = match popt with
@@ -153,22 +156,22 @@ let rec tt_pattern bound vars n (p,loc) =
         else None, vars, n
       in
       let p, vars, n = tt_pattern (Bound.add x bound) vars n p in
-      (Syntax.Tt_Prod (x,bopt,popt,p), loc), vars, n
+      mark (Syntax.Tt_Prod (x,bopt,popt,p)) loc, vars, n
 
     | Input.Tt_Eq (p1,p2) ->
       let p1, vars, n = tt_pattern bound vars n p1 in
       let p2, vars, n = tt_pattern bound vars n p2 in
-      (Syntax.Tt_Eq (p1,p2), loc), vars, n
+      mark (Syntax.Tt_Eq (p1,p2)) loc, vars, n
 
     | Input.Tt_Refl p ->
       let p, vars, n = tt_pattern bound vars n p in
-      (Syntax.Tt_Refl p, loc), vars, n
+      mark (Syntax.Tt_Refl p) loc, vars, n
 
     | Input.Tt_Structure lps ->
        let rec fold vars n ps = function
         | [] ->
           let ps = List.rev ps in
-          (Syntax.Tt_Structure ps, loc), vars, n
+          mark (Syntax.Tt_Structure ps) loc, vars, n
         | (l,p)::rem ->
           let p, vars, n = tt_pattern bound vars n p in
           fold vars n ((l,p)::ps) rem
@@ -177,70 +180,80 @@ let rec tt_pattern bound vars n (p,loc) =
 
     | Input.Tt_Projection (p,l) ->
       let p, vars, n = tt_pattern bound vars n p in
-      (Syntax.Tt_Projection (p,l), loc), vars, n
+      mark (Syntax.Tt_Projection (p,l)) loc, vars, n
 
     | Input.Tt_GenSig p ->
       let p,vars,n = pattern bound vars n p in
-      (Syntax.Tt_GenSig p, loc), vars, n
+      mark (Syntax.Tt_GenSig p) loc, vars, n
 
     | Input.Tt_GenStruct (p1,p2) ->
       let p1, vars, n = tt_pattern bound vars n p1 in
       let p2, vars, n = pattern bound vars n p2 in
-      (Syntax.Tt_GenStruct (p1,p2), loc), vars, n
+      mark (Syntax.Tt_GenStruct (p1,p2)) loc, vars, n
 
     | Input.Tt_GenProj (p1,p2) ->
       let p1, vars, n = tt_pattern bound vars n p1 in
       let p2, vars, n = pattern bound vars n p2 in
-      (Syntax.Tt_GenProj (p1,p2), loc), vars, n
+      mark (Syntax.Tt_GenProj (p1,p2)) loc, vars, n
 
     | Input.Tt_GenAtom p ->
       let p, vars, n = tt_pattern bound vars n p in
-      (Syntax.Tt_GenAtom p, loc), vars, n
+      mark (Syntax.Tt_GenAtom p) loc, vars, n
 
     | Input.Tt_GenConstant p ->
       let p, vars, n = tt_pattern bound vars n p in
-      (Syntax.Tt_GenConstant p, loc), vars, n
+      mark (Syntax.Tt_GenConstant p) loc, vars, n
 
 and pattern bound vars n (p,loc) =
   match p with
-    | Input.Patt_Anonymous -> (Syntax.Patt_Anonymous, loc), vars, n
+    | Input.Patt_Anonymous -> mark Syntax.Patt_Anonymous loc, vars, n
 
     | Input.Patt_As (p,x) ->
       begin match Name.assoc_ident x vars with
         | Some i ->
           let p, vars, n = pattern bound vars n p in
-          (Syntax.Patt_As (p,i), loc), vars, n
+          mark (Syntax.Patt_As (p,i)) loc, vars, n
         | None ->
           let i = n in
           let p, vars, n = pattern bound ((x,i)::vars) (n+1) p in
-          (Syntax.Patt_As (p,i), loc), vars, n
+          mark (Syntax.Patt_As (p,i)) loc, vars, n
       end
 
     | Input.Patt_Var x ->
       begin match Name.assoc_ident x vars with
         | Some i ->
-          (Syntax.Patt_As ((Syntax.Patt_Anonymous, loc), i), loc), vars, n
+          mark (Syntax.Patt_As (mark Syntax.Patt_Anonymous loc, i)) loc, vars, n
         | None ->
-          (Syntax.Patt_As ((Syntax.Patt_Anonymous, loc), n), loc), ((x,n)::vars), (n+1)
+          mark (Syntax.Patt_As (mark Syntax.Patt_Anonymous loc, n)) loc, ((x,n)::vars), (n+1)
       end
 
     | Input.Patt_Name x ->
       begin match Bound.find ~loc x bound with
         | Bound.Val k ->
-            (Syntax.Patt_Bound k, loc), vars, n
+            mark (Syntax.Patt_Bound k) loc, vars, n
         | Bound.Data (c,k) ->
           if k = 0
-          then (Syntax.Patt_Data (c,[]), loc), vars, n
+          then mark (Syntax.Patt_Data (c,[])) loc, vars, n
           else Error.syntax ~loc "the data constructor %t expects %d arguments but is matched with 0"
               (Name.print_ident c) k
-        | Bound.Const _ | Bound.Op _ | Bound.Sig _ | Bound.Dyn _ ->
-          Error.syntax ~loc "cannot match this." (* TODO some can be done *)
+        | Bound.Const c ->
+          let p = mark (Syntax.Tt_Constant c) loc in
+          let pt = mark Syntax.Tt_Anonymous loc in
+          mark (Syntax.Patt_Jdg (p,pt)) loc, vars, n
+        | Bound.Sig s ->
+          let p = mark (Syntax.Tt_Signature s) loc in
+          let pt = mark Syntax.Tt_Anonymous loc in
+          mark (Syntax.Patt_Jdg (p,pt)) loc, vars, n
+        | Bound.Dyn y ->
+          mark (Syntax.Patt_Dyn y) loc, vars, n
+        | Bound.Op _ ->
+          Error.syntax ~loc "Operations are not valid patterns."
       end
 
     | Input.Patt_Jdg (p1,p2) ->
       let p1, vars, n = tt_pattern bound vars n p1 in
       let p2, vars, n = tt_pattern bound vars n p2 in
-      (Syntax.Patt_Jdg (p1,p2), loc), vars, n
+      mark (Syntax.Patt_Jdg (p1,p2)) loc, vars, n
 
     | Input.Patt_Data (t,ps) ->
       begin match Bound.find ~loc t bound with
@@ -251,7 +264,7 @@ and pattern bound vars n (p,loc) =
             let rec fold vars n ps = function
               | [] ->
                 let ps = List.rev ps in
-                (Syntax.Patt_Data (c,ps), loc), vars, n
+                mark (Syntax.Patt_Data (c,ps)) loc, vars, n
               | p::rem ->
                 let p, vars, n = pattern bound vars n p in
                 fold vars n (p::ps) rem
@@ -267,23 +280,23 @@ and pattern bound vars n (p,loc) =
     | Input.Patt_Cons (p1, p2) ->
       let p1, vars, n = pattern bound vars n p1 in
       let p2, vars, n = pattern bound vars n p2 in
-      (Syntax.Patt_Cons (p1,p2), loc), vars, n
+      mark (Syntax.Patt_Cons (p1,p2)) loc, vars, n
 
     | Input.Patt_List ps ->
        let rec fold ~loc vars n = function
-         | [] -> (Syntax.Patt_Nil, loc), vars, n
+         | [] -> mark Syntax.Patt_Nil loc, vars, n
          | p :: ps ->
             let p, vars, n = pattern bound vars n p in
-            let ps, vars, n = fold ~loc:(snd p) vars n ps in
-            (Syntax.Patt_Cons (p, ps), loc), vars, n
+            let ps, vars, n = fold ~loc:(p.Syntax.loc) vars n ps in
+            mark (Syntax.Patt_Cons (p, ps)) loc, vars, n
        in
-         fold ~loc vars n ps
+       fold ~loc vars n ps
 
     | Input.Patt_Tuple ps ->
       let rec fold vars n ps = function
         | [] ->
           let ps = List.rev ps in
-          (Syntax.Patt_Tuple ps, loc), vars, n
+          mark (Syntax.Patt_Tuple ps) loc, vars, n
         | p::rem ->
           let p, vars, n = pattern bound vars n p in
           fold vars n (p::ps) rem
@@ -295,71 +308,71 @@ let rec comp ~yield bound (c',loc) =
     | Input.Handle (c, hcs) ->
        let c = comp ~yield bound c
        and h = handler ~loc bound hcs in
-       Syntax.With (h, c), loc
+       mark (Syntax.With (h, c)) loc
 
     | Input.With (c1, c2) ->
        let c1 = comp ~yield bound c1
        and c2 = comp ~yield bound c2 in
-       Syntax.With (c1, c2), loc
+       mark (Syntax.With (c1, c2)) loc
 
     | Input.Let (lst, c) ->
        let bound, lst = let_clauses ~loc ~yield bound lst in
        let c = comp ~yield bound c in
-       Syntax.Let (lst, c), loc
+       mark (Syntax.Let (lst, c)) loc
 
     | Input.LetRec (lst, c) ->
        let bound, lst = letrec_clauses ~loc ~yield bound lst in
        let c = comp ~yield bound c in
-       Syntax.LetRec (lst, c), loc
+       mark (Syntax.LetRec (lst, c)) loc
 
     | Input.Now (x,c1,c2) ->
       let y = Bound.get_dynamic ~loc x bound
       and c1 = comp ~yield bound c1
       and c2 = comp ~yield bound c2 in
-      Syntax.Now (y,c1,c2), loc
+      mark (Syntax.Now (y,c1,c2)) loc
 
     | Input.Lookup c ->
        let c = comp ~yield bound c in
-       Syntax.Lookup c, loc
+       mark (Syntax.Lookup c) loc
 
     | Input.Ref c ->
        let c = comp ~yield bound c in
-       Syntax.Ref c, loc
+       mark (Syntax.Ref c) loc
 
     | Input.Update (c1, c2) ->
        let c1 = comp ~yield bound c1
        and c2 = comp ~yield bound c2 in
-       Syntax.Update (c1, c2), loc
+       mark (Syntax.Update (c1, c2)) loc
 
     | Input.Sequence (c1, c2) ->
        let c1 = comp ~yield bound c1
        and c2 = comp ~yield bound c2 in
-       Syntax.Sequence (c1, c2), loc
+       mark (Syntax.Sequence (c1, c2)) loc
 
     | Input.Assume ((x, t), c) ->
        let t = comp ~yield bound t in
        let bound = Bound.add x bound in
        let c = comp ~yield bound c in
-       Syntax.Assume ((x, t), c), loc
+       mark (Syntax.Assume ((x, t), c)) loc
 
     | Input.Where (c1, c2, c3) ->
        let c1 = comp ~yield bound c1
        and c2 = comp ~yield bound c2
        and c3 = comp ~yield bound c3 in
-       Syntax.Where (c1, c2, c3), loc
+       mark (Syntax.Where (c1, c2, c3)) loc
 
     | Input.Match (c, cases) ->
        let c = comp ~yield bound c
        and cases = List.map (match_case ~yield bound) cases in
-       Syntax.Match (c, cases), loc
+       mark (Syntax.Match (c, cases)) loc
 
     | Input.Ascribe (c, t) ->
        let t = comp ~yield bound t
        and c = comp ~yield bound c in
-       Syntax.Ascribe (c, t), loc
+       mark (Syntax.Ascribe (c, t)) loc
 
     | Input.External s ->
-       Syntax.External s, loc
+       mark (Syntax.External s) loc
 
     | Input.Lambda (xs, c) ->
       let rec fold bound ys = function
@@ -395,17 +408,17 @@ let rec comp ~yield bound (c',loc) =
     | Input.Eq (c1, c2) ->
       let c1 = comp ~yield bound c1
       and c2 = comp ~yield bound c2 in
-      Syntax.Eq (c1, c2), loc
+      mark (Syntax.Eq (c1, c2)) loc
 
     | Input.Refl c ->
       let c = comp ~yield bound c in
-      Syntax.Refl c, loc
+      mark (Syntax.Refl c) loc
 
     | Input.Signature (s,cs) ->
       let s = Bound.get_signature ~loc s bound in
       let rec fold bound xcs = function
         | [] ->
-          Syntax.Signature (s,List.rev xcs), loc
+          mark (Syntax.Signature (s,List.rev xcs)) loc
         | (l,mx,mc)::cs ->
           let x = match mx with | Some x -> x | None -> l in
           let mc = match mc with
@@ -426,46 +439,46 @@ let rec comp ~yield bound (c',loc) =
           fold (Bound.add x bound) ((l,x,c) :: res) rem
         in
       let lcs = fold bound [] lycs in
-      Syntax.Structure lcs, loc
+      mark (Syntax.Structure lcs) loc
 
     | Input.Projection (c,l) ->
       let c = comp ~yield bound c in
-      Syntax.Projection (c,l), loc
+      mark (Syntax.Projection (c,l)) loc
 
     | Input.Var x ->
       begin match Bound.find ~loc x bound with
-        | Bound.Val k -> Syntax.Bound k, loc
+        | Bound.Val k -> mark (Syntax.Bound k) loc
         | Bound.Const c ->
-          Syntax.Constant c, loc
+          mark (Syntax.Constant c) loc
 
         | Bound.Data (c,k) ->
-          if k = 0 then Syntax.Data (c, []), loc
+          if k = 0 then mark (Syntax.Data (c, [])) loc
           else Error.syntax ~loc "this data constructor needs %d more arguments" k
 
         | Bound.Op (op,k) ->
-          if k = 0 then Syntax.Operation (op, []), loc
+          if k = 0 then mark (Syntax.Operation (op, [])) loc
           else Error.syntax ~loc "this operation needs %d more arguments" k
 
         | Bound.Sig s ->
-          Syntax.Signature (s,[]), loc
+          mark (Syntax.Signature (s,[])) loc
 
         | Bound.Dyn y ->
-          Syntax.Dynamic y, loc
+          mark (Syntax.Dynamic y) loc
       end
 
   | Input.Type ->
-    Syntax.Type, loc
+    mark Syntax.Type loc
 
   | Input.Yield c ->
     if yield
     then
       let c = comp ~yield bound c in
-      Syntax.Yield c, loc
+      mark (Syntax.Yield c) loc
     else
       Error.syntax ~loc "yield may only be used in a handler"
 
   | Input.Hypotheses ->
-     Syntax.Hypotheses, loc
+     mark Syntax.Hypotheses loc
 
   | Input.Function (xs, c) ->
      let rec fold bound = function
@@ -473,7 +486,7 @@ let rec comp ~yield bound (c',loc) =
        | x :: xs ->
           let bound = Bound.add x bound in
           let c = fold bound xs in
-          Syntax.Function (x, c), loc
+          mark (Syntax.Function (x, c)) loc
      in
      fold bound xs
 
@@ -482,65 +495,65 @@ let rec comp ~yield bound (c',loc) =
 
   | Input.List cs ->
      let rec fold ~loc = function
-       | [] -> Syntax.Nil, loc
+       | [] -> mark Syntax.Nil loc
        | c :: cs ->
           let c = comp ~yield bound c in
-          let cs = fold ~loc:(snd c) cs in
-          Syntax.Cons (c, cs), loc
+          let cs = fold ~loc:(c.Syntax.loc) cs in
+          mark (Syntax.Cons (c, cs)) loc
      in
      fold ~loc cs
 
   | Input.Cons (e1, e2) ->
     let e1 = comp ~yield bound e1 in
     let e2 = comp ~yield bound e2 in
-    Syntax.Cons (e1,e2), loc
+    mark (Syntax.Cons (e1,e2)) loc
 
   | Input.Tuple cs ->
     let lst = List.map (comp ~yield bound) cs in
-    Syntax.Tuple lst, loc
+    mark (Syntax.Tuple lst) loc
 
   | Input.Congruence (e1,e2) ->
     let e1 = comp ~yield bound e1 in
     let e2 = comp ~yield bound e2 in
-    Syntax.Congruence (e1,e2), loc
+    mark (Syntax.Congruence (e1,e2)) loc
 
   | Input.Extensionality (e1,e2) ->
     let e1 = comp ~yield bound e1 in
     let e2 = comp ~yield bound e2 in
-    Syntax.Extensionality (e1,e2), loc
+    mark (Syntax.Extensionality (e1,e2)) loc
 
   | Input.Reduction c ->
      let c = comp ~yield bound c in
-     Syntax.Reduction c, loc
+     mark (Syntax.Reduction c) loc
 
   | Input.String s ->
-    Syntax.String s, loc
+    mark (Syntax.String s) loc
 
   | Input.GenSig (c1,c2) ->
     let c1 = comp ~yield bound c1
     and c2 = comp ~yield bound c2 in
-    Syntax.GenSig (c1,c2), loc
+    mark (Syntax.GenSig (c1,c2)) loc
 
   | Input.GenStruct (c1,c2) ->
     let c1 = comp ~yield bound c1
     and c2 = comp ~yield bound c2 in
-    Syntax.GenStruct (c1,c2), loc
+    mark (Syntax.GenStruct (c1,c2)) loc
 
   | Input.GenProj (c1,c2) ->
     let c1 = comp ~yield bound c1
     and c2 = comp ~yield bound c2 in
-    Syntax.GenProj (c1,c2), loc
+    mark (Syntax.GenProj (c1,c2)) loc
 
   | Input.Context c ->
     let c = comp ~yield bound c in
-    Syntax.Context c, loc
+    mark (Syntax.Context c) loc
 
   | Input.Occurs (c1,c2) ->
     let c1 = comp ~yield bound c1
     and c2 = comp ~yield bound c2 in
-    Syntax.Occurs (c1,c2), loc
+    mark (Syntax.Occurs (c1,c2)) loc
 
-  | Input.Ident x -> Syntax.Ident x, loc
+  | Input.Ident x -> mark (Syntax.Ident x) loc
 
 and let_clauses ~loc ~yield bound lst =
   let rec fold bound' lst' = function
@@ -587,12 +600,12 @@ and let_clause ~yield bound ys t_opt c =
          | Some t ->
             let t = comp ~yield bound t
             and c = comp ~yield bound c in
-            Syntax.Ascribe (c, t), (snd c) (* XXX improve location *)
+            mark (Syntax.Ascribe (c, t)) (c.Syntax.loc) (* XXX improve location *)
        end
     | y :: ys ->
        let bound = Bound.add y bound in
        let c = fold bound ys in
-       Syntax.Function (y, c), (snd c) (* XXX improve location *)
+       mark (Syntax.Function (y, c)) (c.Syntax.loc) (* XXX improve location *)
   in
   fold bound ys
 
@@ -622,9 +635,10 @@ and spine ~yield bound ((c',loc) as c) cs =
     match c' with
       | Input.Var x ->
         begin match Bound.find ~loc x bound with
-          | Bound.Val i -> (Syntax.Bound i, loc), cs
+          | Bound.Val i ->
+            mark (Syntax.Bound i) loc, cs
           | Bound.Const x ->
-            (Syntax.Constant x, loc), cs
+            mark (Syntax.Constant x) loc, cs
           | Bound.Data (x,k) ->
             let cs', cs = split "data constructor" k cs in
             data ~loc ~yield bound x cs', cs
@@ -632,17 +646,18 @@ and spine ~yield bound ((c',loc) as c) cs =
             let cs', cs = split "operation" k cs in
             operation ~loc ~yield bound op cs', cs
           | Bound.Sig s ->
-            (Syntax.Signature (s,[]),loc), cs
+            mark (Syntax.Signature (s,[])) loc, cs
           | Bound.Dyn y ->
-            (Syntax.Dynamic y, loc), cs
+            mark (Syntax.Dynamic y) loc, cs
         end
 
       | _ -> comp ~yield bound c, cs
   in
 
+  (* TODO improve locs *)
   List.fold_left (fun h c ->
     let c = comp ~yield bound c in
-    Syntax.Apply (h,c), loc) c cs
+    mark (Syntax.Apply (h,c)) loc) c cs
 
 (* Desugar handler cases. *)
 and handler ~loc bound hcs =
@@ -675,7 +690,7 @@ and handler ~loc bound hcs =
 
   in
   let handler_val, handler_ops, handler_finally = fold [] IdentMap.empty [] hcs in
-  Syntax.Handler (Syntax.{handler_val; handler_ops; handler_finally}), loc
+  mark (Syntax.Handler (Syntax.{handler_val; handler_ops; handler_finally})) loc
 
 (* Desugar a match case *)
 and match_case ~yield bound (p, c) =
@@ -713,11 +728,11 @@ and match_op_case ~yield bound (ps, pt, c) =
 
 and data ~loc ~yield bound x cs =
   let cs = List.map (comp ~yield bound) cs in
-  Syntax.Data (x, cs), loc
+  mark (Syntax.Data (x, cs)) loc
 
 and operation ~loc ~yield bound x cs =
   let cs = List.map (comp ~yield bound) cs in
-  Syntax.Operation (x, cs), loc
+  mark (Syntax.Operation (x, cs)) loc
 
 let toplevel bound (d', loc) =
   let bound = Bound.compute_indices bound in

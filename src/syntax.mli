@@ -5,7 +5,9 @@ type bound = int
 
 (** Patterns *)
 
-type tt_pattern = tt_pattern' * Location.t
+type 'a marked = { term : 'a; loc : Location.t }
+
+type tt_pattern = tt_pattern' marked
 and tt_pattern' =
   | Tt_Anonymous
   | Tt_As of tt_pattern * bound
@@ -31,11 +33,12 @@ and tt_pattern' =
   | Tt_GenAtom of tt_pattern
   | Tt_GenConstant of tt_pattern
 
-and pattern = pattern' * Location.t
+and pattern = pattern' marked
 and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * bound
   | Patt_Bound of bound
+  | Patt_Dyn of Value.dyn
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Data of Name.ident * pattern list
   | Patt_Nil
@@ -43,7 +46,7 @@ and pattern' =
   | Patt_Tuple of pattern list
 
 (** Desugared computations *)
-type comp = comp' * Location.t
+type comp = comp' marked
 and comp' =
   | Type
   | Bound of bound
