@@ -90,8 +90,8 @@ let toplevel cmp =
   let rec fold state =
     let state =
       try
-        let cmd = Eval.parse Lexer.read_toplevel Parser.commandline () in
-        Value.progress state (fun () -> Eval.exec_cmd Filename.current_dir_name true cmd)
+        let cmd = Toplevel.parse Lexer.read_toplevel Parser.commandline () in
+        Value.progress state (fun () -> Toplevel.exec_cmd Filename.current_dir_name true cmd)
       with
       | Error.Error err -> Print.error "%t" (Error.print err); state
       | Sys.Break -> Format.eprintf "Interrupted.@."; state
@@ -147,7 +147,7 @@ let main =
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
-    let comp = Value.top_fold (fun () f -> Eval.use_file f) () !files in
+    let comp = Value.top_fold (fun () f -> Toplevel.use_file f) () !files in
     if !Config.interactive_shell
       then toplevel comp
       else Value.run comp

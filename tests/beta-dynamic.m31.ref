@@ -6,5 +6,4 @@ f is defined.
 eq : a ≡ b 
 ⊢ eq : a ≡ b
 Operation gimme_beta is declared.
-eq : a ≡ b 
-⊢ eq : a ≡ b
+⊢ refl a : a ≡ a

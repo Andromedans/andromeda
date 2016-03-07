@@ -30,4 +30,3 @@ val bind : int -> t -> t
     Otherwise it raises an Error.impossible. *)
 val as_atom_set : loc:Location.t -> t -> Name.AtomSet.t
 
-val bound : t -> BoundSet.t

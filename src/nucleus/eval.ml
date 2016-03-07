@@ -39,7 +39,7 @@ let as_ident ~loc v =
   Value.return s
 
 (** Evaluate a computation -- infer mode. *)
-let rec infer (c',loc) =
+let rec infer {Syntax.term=c'; loc} =
   match c' with
     | Syntax.Bound i ->
        Value.lookup_bound ~loc i
@@ -98,9 +98,8 @@ let rec infer (c',loc) =
             Some f
           end
         and handler_ops = Name.IdentMap.mapi (fun op cases ->
-            let f {Value.args=vs;checking;cont} =
-              Value.set_continuation cont
-              (match_op_cases ~loc op cases vs checking)
+            let f {Value.args=vs;checking} =
+              match_op_cases ~loc op cases vs checking
             in
             f)
           handler_ops
@@ -166,16 +165,22 @@ let rec infer (c',loc) =
        infer c)
 
   | Syntax.Where (c1, c2, c3) ->
-    infer c2 >>= as_atom ~loc >>= fun (ctxa, a, ta) ->
-    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx, e1, t1)) ->
+    infer c2 >>= as_atom ~loc >>= fun (_, a, _) ->
+    infer c1 >>= fun v1 ->
+    as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
     Value.lookup_penv >>= fun penv ->
-    let ctx = Context.join ~penv ~loc ctxa ctx in
-    check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
-    let ctx_s = Context.substitute ~penv ~loc a (ctx,e2,ta) in
-    let te_s = Tt.substitute [a] [e2] e1 in
-    let ty_s = Tt.substitute_ty [a] [e2] t1 in
-    let j_s = Jdg.mk_term ctx_s te_s ty_s in
-    Value.return_term j_s
+    begin match Context.lookup_ty a ctx with
+    | None -> infer c3 >>=
+       as_term ~loc:(c3.Syntax.loc) >>= fun _ ->
+       Value.return v1
+    | Some ta ->
+       check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
+       let ctx_s = Context.substitute ~penv ~loc a (ctx,e2,ta) in
+       let te_s = Tt.substitute [a] [e2] e1 in
+       let ty_s = Tt.substitute_ty [a] [e2] t1 in
+       let j_s = Jdg.mk_term ctx_s te_s ty_s in
+       Value.return_term j_s
+    end
 
   | Syntax.Match (c, cases) ->
      infer c >>=
@@ -218,7 +223,7 @@ let rec infer (c',loc) =
     infer_prod ~loc x u c
 
   | Syntax.Eq (c1, c2) ->
-     infer c1 >>= as_term ~loc:(snd c1) >>= fun (Jdg.Term (ctx, e1, t1')) ->
+     infer c1 >>= as_term ~loc:(c1.Syntax.loc) >>= fun (Jdg.Term (ctx, e1, t1')) ->
      let t1 = Jdg.mk_ty ctx t1' in
      check c2 t1 >>= fun (ctx, e2) ->
      let eq = Tt.mk_eq ~loc t1' e1 e2 in
@@ -227,7 +232,7 @@ let rec infer (c',loc) =
      Value.return_term j
 
   | Syntax.Refl c ->
-     infer c >>= as_term ~loc:(snd c) >>= fun (Jdg.Term (ctxe, e, t)) ->
+     infer c >>= as_term ~loc:(c.Syntax.loc) >>= fun (Jdg.Term (ctxe, e, t)) ->
      let e' = Tt.mk_refl ~loc t e
      and t' = Tt.mk_eq_ty ~loc t e e in
      let et' = Jdg.mk_term ctxe e' t' in
@@ -315,8 +320,8 @@ let rec infer (c',loc) =
     infer_projection ~loc c p
 
   | Syntax.Yield c ->
-    Value.lookup_continuation ~loc >>= fun k ->
-    infer c >>= Value.apply_closure k
+    infer c >>= fun v ->
+    Value.continue ~loc v
 
   | Syntax.Hypotheses ->
      Value.lookup_abstracting >>= fun lst ->
@@ -501,7 +506,7 @@ and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
                       (pte e) (pty t_check') (pty t')
     end
 
-and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.comp =
+and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.comp =
   match c' with
 
   | Syntax.Type
@@ -589,7 +594,7 @@ and check ((c',loc) as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.te
             Value.return (ctx,Tt.mention_atoms hyps e)
          | None ->
             Value.print_ty >>= fun pty ->
-            Error.typing ~loc:(snd c2)
+            Error.typing ~loc:(c2.Syntax.loc)
                          "this type should be equal to@ %t"
                          (pty t_check')
        end
@@ -685,7 +690,7 @@ and infer_lambda ~loc x u c =
     | Some u ->
       check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
       Value.add_abstracting ~loc:uloc x ju (fun _ y ->
-      infer c >>= as_term ~loc:(snd c) >>= fun (Jdg.Term (ctxe,e,t)) ->
+      infer c >>= as_term ~loc:(c.Syntax.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
       Value.lookup_penv >>= fun penv ->
       let ctxe = Context.abstract ~penv ~loc ctxe y u in
       let ctx = Context.join ~penv ~loc ctxu ctxe in
@@ -818,8 +823,7 @@ and match_op_cases ~loc op cases vs checking =
   let rec fold = function
     | [] ->
       Value.operation op ?checking vs >>= fun v ->
-      Value.lookup_continuation ~loc >>= fun k ->
-      Value.apply_closure k v
+      Value.continue ~loc v
     | (xs, ps, pt, c) :: cases ->
       Matching.match_op_pattern ps pt vs checking >>= begin function
         | Some vs ->
@@ -841,217 +845,3 @@ and check_ty c : Jdg.ty Value.comp =
   let j = Jdg.mk_ty ctx t in
   Value.return j
 
-let comp_value ((_, loc) as c) =
-  let r = infer c in
-  Value.top_handle ~loc r
-
-let comp_handle (xs,y,c) =
-  Value.top_return_closure (fun (vs,checking) ->
-      let rec fold2 xs vs = match xs,vs with
-        | [], [] ->
-          begin match y with
-            | Some y ->
-              let checking = match checking with
-                | Some jt -> Some (Value.mk_term (Jdg.term_of_ty jt))
-                | None -> None
-              in
-              let vy = Value.from_option checking in
-              Value.add_bound y vy (infer c)
-            | None -> infer c
-          end
-        | x::xs, v::vs -> Value.add_bound x v (fold2 xs vs)
-        | [],_::_ | _::_,[] -> Error.impossible ~loc:(snd c) "bad top handler case"
-      in
-      fold2 xs vs)
-
-let comp_signature ~loc lxcs =
-  let rec fold ys yts lxts = function
-    | [] ->
-       let lxts = List.rev lxts in
-       Value.return lxts
-
-    | (l,x,c) :: lxcs ->
-       check_ty c >>= fun (Jdg.Ty (ctxt,t)) ->
-       if not (Context.is_subset ctxt yts)
-       then Error.runtime ~loc "signature field %t has unresolved assumptions"
-                          (Name.print_ident l)
-       else begin
-         let jt = Jdg.mk_ty ctxt t
-         and tabs = Tt.abstract_ty ys t in
-         Value.add_abstracting ~loc x jt (fun _ y ->
-           fold (y::ys) ((y,t)::yts) ((l,x,tabs) :: lxts) lxcs)
-       end
-  in
-  Value.top_handle ~loc (fold [] [] [] lxcs)
-
-
-(** Evaluation of toplevel computations *)
-
-let parse lex parse resource =
-  try
-    lex parse resource
-  with
-  | Ulexbuf.Parse_Error (w, p_start, p_end) ->
-     let loc = Location.make p_start p_end in
-     Error.syntax ~loc "Unexpected: %s" w
-
-
-(** The help text printed when [#help] is used. *)
-let help_text = "Toplevel directives:
-#environment. .... print current environment
-#help. ........... print this help
-#quit. ........... exit
-
-Parameter <ident> ... <ident> : <type> .     assume variable <ident> has type <type>
-Let <ident> := <expr> .                      define <ident> to be <expr>
-Check <expr> .                               check the type of <expr>
-
-The syntax is vaguely Coq-like. The strict equality is written with a double ==.
-" ;;
-
-
-let (>>=) = Value.top_bind
-let return = Value.top_return
-
-let rec fold f acc = function
-  | [] -> return acc
-  | x::rem -> f acc x >>= fun acc ->
-    fold f acc rem
-
-and toplet_bind ~loc interactive xcs =
-  let rec fold xvs = function
-    | [] ->
-      (* parallel let: only bind at the end *)
-      List.fold_left
-        (fun cmd (x,v) ->
-          Value.add_topbound ~loc x v >>= fun () ->
-            if interactive && not (Name.is_anonymous x)
-            then Format.printf "%t is defined.@." (Name.print_ident x) ;
-            cmd)
-        (return ())
-        xvs
-    | (x, c) :: xcs ->
-       comp_value c >>= fun v ->
-       fold ((x, v) :: xvs) xcs
-    in
-  fold [] xcs
-
-and topletrec_bind ~loc interactive fxcs =
-  let gs =
-    List.map
-      (fun (f, x, c) -> (f, (fun v -> Value.add_bound x v (infer c))))
-      fxcs
-  in
-  Value.add_topbound_rec ~loc gs >>= fun () ->
-  if interactive then
-    List.iter (fun (f, _, _) ->
-        if not (Name.is_anonymous f) then
-          Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
-  return ()
-
-let rec exec_cmd base_dir interactive c =
-  Value.top_bound_info >>= fun bound ->
-  let (c', loc) = Desugar.toplevel bound c in
-  match c' with
-
-  | Syntax.DeclOperation (x, k) ->
-     Value.add_operation ~loc x k >>= fun () ->
-     if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
-     return ()
-
-  | Syntax.DeclData (x, k) ->
-     Value.add_data ~loc x k >>= fun () ->
-     if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
-     return ()
-
-  | Syntax.DeclConstants (xs, c) ->
-     Value.top_handle ~loc:(snd c) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
-      if Context.is_empty ctxt
-      then
-        let rec fold = function
-          | [] -> return ()
-          | x :: xs ->
-             Value.add_constant ~loc x t >>= fun () ->
-             (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
-              fold xs)
-        in
-        fold xs
-      else
-        Error.typing "Constants may not depend on free variables" ~loc:(snd c)
-
-  | Syntax.DeclSignature (s, lxcs) ->
-    comp_signature ~loc lxcs >>= fun lxts ->
-    Value.add_signature ~loc s lxts  >>= fun () ->
-    (if interactive then Format.printf "Signature %t is declared.@." (Name.print_ident s) ;
-      return ())
-
-  | Syntax.TopHandle lst ->
-    fold (fun () (op, xc) ->
-        comp_handle xc >>= fun f ->
-        Value.add_handle op f) () lst
-
-  | Syntax.TopLet xcs ->
-     toplet_bind ~loc interactive xcs
-
-  | Syntax.TopLetRec fxcs ->
-     topletrec_bind ~loc interactive fxcs
-
-  | Syntax.TopDynamic (x,c) ->
-    comp_value c >>= fun v ->
-    Value.add_dynamic ~loc x v
-
-  | Syntax.TopNow (x,c) ->
-    comp_value c >>= fun v ->
-    Value.top_now x v
-
-  | Syntax.TopDo c ->
-     comp_value c >>= fun v ->
-     Value.top_print_value >>= fun print_value ->
-     (if interactive then Format.printf "%t@." (print_value v) ;
-     return ())
-
-  | Syntax.TopFail c ->
-     Value.catch (fun () -> comp_value (Lazy.force c)) >>= begin function
-     | Error.Err err ->
-        (if interactive then Format.printf "The command failed with error:\n%t@." (Error.print err));
-        return ()
-     | Error.OK v ->
-        Value.top_print_value >>= fun pval ->
-        Error.runtime ~loc "The command has not failed: got %t." (pval v)
-     end
-
-  | Syntax.Include (fs,once) ->
-    fold (fun () f ->
-         (* don't print deeper includes *)
-         if interactive then Format.printf "#including %s@." f ;
-           let f =
-             if Filename.is_relative f
-             then Filename.concat base_dir f
-             else f
-           in
-           use_file (f, None, false, once) >>= fun () ->
-           (if interactive then Format.printf "#processed %s@." f ;
-           return ())) () fs
-
-  | Syntax.Verbosity i -> Config.verbosity := i; return ()
-
-  | Syntax.Environment ->
-    Value.print_env >>= fun p ->
-    Format.printf "%t@." p;
-    return ()
-
-  | Syntax.Help ->
-    Format.printf "%s@." help_text ; return ()
-
-  | Syntax.Quit ->
-    exit 0
-
-and use_file (filename, line_limit, interactive, once) =
-  (if once then Value.included filename else return false) >>= fun skip ->
-  if skip then return () else
-    begin
-      let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
-      let base_dir = Filename.dirname filename in
-      Value.push_file filename >>= fun () ->
-      fold (fun () c -> exec_cmd base_dir interactive c) () cmds
-    end

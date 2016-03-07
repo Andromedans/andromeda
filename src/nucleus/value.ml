@@ -53,7 +53,7 @@ and lexical = {
   context : (Name.ident * bound_info) list;
   bound : value list;
 
-  continuation : (value,value) closure option;
+  continuation : value continuation option;
 
   (* The following are only modified at the top level *)
   handle : (Name.ident * (value list * Jdg.ty option,value) closure) list;
@@ -78,17 +78,19 @@ and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
-  | Operation of Name.ident * value list * Jdg.ty option * dynamic * (value,'a) closure
+  | Operation of Name.ident * value list * Jdg.ty option * dynamic * 'a continuation
 
 and 'a comp = env -> 'a result * state
 
-and operation_args = { args : value list; checking : Jdg.ty option; cont : (value,value) closure }
+and operation_args = { args : value list; checking : Jdg.ty option }
 
 and handler = {
   handler_val: (value,value) closure option;
-  handler_ops: (operation_args, value) closure Name.IdentMap.t;
+  handler_ops: (value continuation -> (operation_args, value) closure) Name.IdentMap.t;
   handler_finally: (value,value) closure option;
 }
+
+and 'a continuation = Continuation of (value -> state -> 'a result * state)
 
 (** A toplevel computation carries around the current
     environment. *)
@@ -139,6 +141,9 @@ let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical
 
 let apply_closure (Clos f) v env = f v env
 
+let mk_cont f env = Continuation (fun v state -> f v {env with state})
+let apply_cont (Continuation f) v {state;_} = f v state
+
 (** References *)
 let mk_ref v env =
   let x,state = Store.fresh v env.state in
@@ -159,7 +164,7 @@ let rec bind (r:'a comp) (f:'a -> 'b comp) : 'b comp = fun env ->
   | Return v, state -> f v {env with state}
   | Operation (op, vs, jt, d, k), state ->
      let env = {env with state} in
-     let k = mk_closure0 (fun x -> bind (apply_closure k x) f) env in
+     let k = mk_cont (fun x -> bind (apply_cont k x) f) env in
      Operation (op, vs, jt, d, k), env.state
 
 let (>>=) = bind
@@ -192,7 +197,8 @@ let return_handler handler_val handler_ops handler_finally env =
   let option_map g = function None -> None | Some x -> Some (g x) in
   let h = {
     handler_val = option_map (fun v -> mk_closure0 v env) handler_val ;
-    handler_ops = Name.IdentMap.map (fun f -> mk_closure0 f env) handler_ops ;
+    handler_ops = Name.IdentMap.map (fun f ->
+      fun k -> mk_closure0 f {env with lexical = {env.lexical with continuation = Some k}}) handler_ops ;
     handler_finally = option_map (fun v -> mk_closure0 v env) handler_finally ;
   } in
   Return (Handler h), env.state
@@ -276,7 +282,7 @@ let as_constrain ~loc = function
 (** Operations *)
 
 let operation op ?checking vs env =
-  Operation (op, vs, checking, env.dynamic, mk_closure0 return env), env.state
+  Operation (op, vs, checking, env.dynamic, mk_cont return env), env.state
 
 let operation_equal v1 v2 =
   operation name_equal [v1;v2]
@@ -471,12 +477,9 @@ let lookup_handle op {lexical={handle=lst;_};_} =
     Some (List.assoc op lst)
   with Not_found -> None
 
-let set_continuation c m env =
-  m { env with lexical = { env.lexical with continuation = Some c } }
-
-let lookup_continuation ~loc ({lexical={continuation;_};_} as env) =
+let continue ~loc v ({lexical={continuation;_};_} as env) =
   match continuation with
-    | Some cont -> Return cont, env.state
+    | Some cont -> apply_cont cont v env
     | None -> Error.impossible ~loc "No continuation"
 
 let push_file f env =
@@ -681,11 +684,11 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
   | Operation (op, vs, jt, dynamic, cont), state ->
      let env = {env with dynamic; state} in
      let h = {handler_val; handler_ops; handler_finally=None} in
-     let cont = mk_closure0 (fun v env -> handle_comp h (apply_closure cont v) env) env in
+     let cont = mk_cont (fun v env -> handle_comp h (apply_cont cont v) env) env in
      begin
        try
-         let f = Name.IdentMap.find op handler_ops in
-         apply_closure f {args=vs;checking=jt; cont} env
+         let f = (Name.IdentMap.find op handler_ops) cont in
+         (apply_closure f {args=vs;checking=jt}) env
        with
          Not_found ->
            Operation (op, vs, jt, dynamic, cont), env.state
@@ -705,7 +708,7 @@ let top_handle ~loc r env0 =
         | None -> Error.runtime ~loc "unhandled operation %t" (print_operation env op vs)
         | Some f ->
           let r = apply_closure f (vs,checking) >>=
-            apply_closure k
+            apply_cont k
           in
           handle (r env) env
        end

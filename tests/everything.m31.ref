@@ -21,6 +21,9 @@ The command failed with error:
 File "./everything.m31", line 81, characters 6-9: Typing error
   this expression should be a product, found Type
 ⊢ refl Type : Type ≡ Type
+The command failed with error:
+File "./everything.m31", line 95, characters 6-18: Runtime error
+  cannot infer the type of T
 ⊢ λ (T : Type) (x : T), x : Π (A0 : Type), A0 → A0
 ⊢ refl {} : {} ≡ {}
 Signature wrapped is declared.
@@ -28,10 +31,10 @@ wrapped_a is defined.
 ⊢ refl {} : {} ≡ {}
 ⊢ λ (x : A), x : A → A
 The command failed with error:
-File "./everything.m31", line 112, characters 13-25: Runtime error
+File "./everything.m31", line 113, characters 13-25: Runtime error
   cannot infer the type of x
 The command failed with error:
-File "./everything.m31", line 116, characters 21-22: Typing error
+File "./everything.m31", line 117, characters 21-22: Typing error
   the expression {} should have type {wrapped with unwrap = a} but has type
   unit
 y_combinator is defined.

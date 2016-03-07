@@ -1,0 +1,10 @@
+(* PR #268 *)
+
+let T = assume T : Type in T
+let P = assume P : T → Type in P
+constant A : Type
+constant B : A → Type
+
+do (P where T = A) where P = B
+
+do (P where T = A) where (P where T = A) = B
