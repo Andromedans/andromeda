@@ -151,9 +151,23 @@ let assumptions_ty (Ty t) = assumptions_term t
 
 (** Generic fold on a term. The functions [atom], [bound] and
     [hyps] tell it what to do with atoms, bound variables, and
-    assumptions, respectively. *)
-let rec at_var atom bound hyps ~lvl {term=e';assumptions;loc} =
-  let assumptions = hyps ~lvl assumptions in
+    assumptions, respectively.
+
+    If the assumptions on a subterm do not change, this means the entire subterm does not change.
+
+    If [substitute] used [at_var] directly, this shortcut would be incorrect:
+    [x where x = x * x] with [x] some atom does not change the assumptions.
+
+    However we only use [at_var] in the following cases:
+    - instantiation, which changes bound variables to atoms
+    - abstraction, which changes atoms to bound variables
+    So if a variable which will change appears, it will be in the assumptions and the assumptions will change.
+    *)
+let rec at_var atom bound hyps ~lvl ({term=e';assumptions=hs;loc} as e) =
+  let assumptions = hyps ~lvl hs in
+  if Assumption.equal assumptions hs
+  then e
+  else
   match e' with
     | (Type | Constant _) as term -> {term;assumptions;loc}
     | Atom x -> atom ~lvl x assumptions loc
