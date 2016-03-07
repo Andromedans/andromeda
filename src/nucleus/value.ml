@@ -1,16 +1,6 @@
 (** Runtime values and computations *)
 
-type ref = Store.key
-
-type dyn = Store.key
-
-type bound_info =
-  | BoundVal
-  | BoundConst of Name.constant
-  | BoundData of Name.data * int
-  | BoundOp of Name.operation * int
-  | BoundSig of Name.signature
-  | BoundDyn of dyn
+type ref = Store.Ref.key
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
@@ -45,12 +35,11 @@ and dynamic = {
   abstracting : value list;
 
   (* Current values of dynamic variables *)
-  vars : value Store.t
+  vars : value Store.Dyn.t
 }
 
 and lexical = {
-  (* The context contains information used to desugar the syntax, and to get the forbidden names for printing. *)
-  context : (Name.ident * bound_info) list;
+  forbidden : Name.ident list; (* for printing only *)
   bound : value list;
 
   continuation : value continuation option;
@@ -60,7 +49,7 @@ and lexical = {
   files : string list;
 }
 
-and state = value Store.t
+and state = value Store.Ref.t
 
 and value =
   | Term of Jdg.term
@@ -93,7 +82,12 @@ and 'a continuation = Continuation of (value -> state -> 'a result * state)
 
 (** A toplevel computation carries around the current
     environment. *)
-type 'a toplevel = env -> 'a * env
+type topenv = {
+  runtime : env ;
+  typing : Mltype.ctx
+}
+
+type 'a toplevel = topenv -> 'a * topenv
 
 (** Predeclared *)
 let name_some          = Name.make "Some"
@@ -149,15 +143,15 @@ let apply_cont (Continuation f) v {state;_} = f v state
 
 (** References *)
 let mk_ref v env =
-  let x,state = Store.fresh v env.state in
+  let x,state = Store.Ref.fresh v env.state in
   Return (Ref x),state
 
 let lookup_ref x env =
-  let v = Store.lookup x env.state in
+  let v = Store.Ref.lookup x env.state in
   Return v, env.state
 
 let update_ref x v env =
-  let state = Store.update x v env.state in
+  let state = Store.Ref.update x v env.state in
   Return (), state
 
 (** The monadic bind [bind r f] feeds the result [r : result]
@@ -187,8 +181,8 @@ let catch m env =
 (** Returns *)
 let top_return x env = x, env
 
-let top_mk_closure f env = Closure (mk_closure0 f env), env
-let top_return_closure f env = mk_closure0 f env, env
+let top_mk_closure f topenv = Closure (mk_closure0 f topenv.runtime), topenv
+let top_return_closure f topenv = mk_closure0 f topenv.runtime, topenv
 
 let return x env = Return x, env.state
 
@@ -312,7 +306,7 @@ let operation_as_signature v =
 
 (** Interact with the environment *)
 
-let top_bound_info env = env.lexical.context, env
+let top_bound_info topenv = topenv.typing, topenv
 
 let get_env env = Return env, env.state
 
@@ -355,7 +349,7 @@ let get_bound ~loc k env =
   (* TODO is there a point in having this? *)
   | Failure _ -> Error.impossible ~loc "invalid de Bruijn index %d" k
 
-let get_dynamic_value x env = Store.lookup x env.dynamic.vars
+let get_dynamic_value x env = Store.Dyn.lookup x env.dynamic.vars
 
 let lookup_bound ~loc k env =
   Return (get_bound ~loc k env), env.state
@@ -364,7 +358,7 @@ let lookup_dynamic_value x env =
   Return (get_dynamic_value x env), env.state
 
 let add_bound0 x v env = {env with lexical = { env.lexical with
-                                               context = (x, BoundVal) :: env.lexical.context;
+                                               forbidden = x :: env.lexical.forbidden;
                                                bound = v :: env.lexical.bound } }
 
 let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
@@ -394,39 +388,43 @@ let is_known x ys =
     | Some _ -> true
     | None -> false
 
-let add_operation0 ~loc x k env =
-  if is_known x env.dynamic.operations
+let add_operation0 ~loc x k {runtime; typing} =
+  if is_known x runtime.dynamic.operations
   then Error.runtime ~loc "operation %t is already declared" (Name.print_ident x)
   else
-  { env with dynamic = {env.dynamic with operations = (x, k) :: env.dynamic.operations };
-             lexical = {env.lexical with context = (x, BoundOp (x, k)) :: env.lexical.context } }
+  { runtime = { runtime with dynamic = {runtime.dynamic with operations = (x, k) :: runtime.dynamic.operations };
+                             lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
+    typing = (x, Mltype.BoundOp (x, k)) :: typing }
 
-let add_operation ~loc x k env = (),add_operation0 ~loc x k env
+let add_operation ~loc x k topenv = (), add_operation0 ~loc x k topenv
 
-let add_data0 ~loc x k env =
-  if is_known x env.dynamic.datas
+let add_data0 ~loc x k {runtime; typing} =
+  if is_known x runtime.dynamic.datas
   then Error.runtime ~loc "data constructor %t is already declared" (Name.print_ident x)
   else
-  { env with dynamic = {env.dynamic with datas = (x, k) :: env.dynamic.datas };
-             lexical = {env.lexical with context = (x, BoundData (x, k)) :: env.lexical.context } }
+  { runtime = { runtime with dynamic = {runtime.dynamic with datas = (x, k) :: runtime.dynamic.datas };
+                             lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
+    typing = (x, Mltype.BoundData (x, k)) :: typing }
 
 let add_data ~loc x k env = (), add_data0 ~loc x k env
 
-let add_constant0 ~loc x t env =
-  if is_known x env.dynamic.constants
+let add_constant0 ~loc x t {runtime; typing} =
+  if is_known x runtime.dynamic.constants
   then Error.runtime ~loc "constant %t is already declared" (Name.print_ident x)
   else
-  { env with dynamic = {env.dynamic with constants = (x, t) :: env.dynamic.constants };
-             lexical = {env.lexical with context = (x, BoundConst x) :: env.lexical.context } }
+  { runtime = { runtime with dynamic = {runtime.dynamic with constants = (x, t) :: runtime.dynamic.constants };
+                             lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
+    typing = (x, Mltype.BoundConst x) :: typing }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
 
-let add_signature0 ~loc s s_def env =
-  if is_known s env.dynamic.signatures
+let add_signature0 ~loc s s_def {runtime; typing} =
+  if is_known s runtime.dynamic.signatures
   then Error.runtime ~loc "signature %t is already declared" (Name.print_ident s)
   else
-  { env with dynamic = {env.dynamic with signatures = (s, s_def) :: env.dynamic.signatures };
-             lexical = {env.lexical with context = (s, BoundSig s) :: env.lexical.context } }
+  { runtime = { runtime with dynamic = {runtime.dynamic with signatures = (s, s_def) :: runtime.dynamic.signatures };
+                             lexical = {runtime.lexical with forbidden = s :: runtime.lexical.forbidden } } ;
+    typing = (s, Mltype.BoundSig s) :: typing }
 
 let add_signature ~loc s s_def env = (), add_signature0 ~loc s s_def env
 
@@ -452,37 +450,49 @@ let add_bound_rec lst m env =
 
 let push_bound = add_bound0
 
-let add_topbound ~loc x v env =
-  let env = add_bound0 x v env in
-  (), env
+let add_topbound ~loc x v {runtime; typing} =
+  let topenv =
+    { runtime = add_bound0 x v runtime;
+      typing = (x, Mltype.BoundVal) :: typing }
+  in
+  (), topenv
 
 let now0 x v env =
-  {env with dynamic = {env.dynamic with vars = Store.update x v env.dynamic.vars }}
+  {env with dynamic = {env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars }}
 
 let now x v m env =
   let env = now0 x v env in
   m env
 
-let top_now x v env =
-  let env = now0 x v env in
-  (), env
+let top_now x v topenv =
+  let topenv = { topenv with runtime = now0 x v topenv.runtime } in
+  (), topenv
 
-let add_dynamic0 ~loc x v env =
-  let y,vars = Store.fresh v env.dynamic.vars in
-  { env with dynamic = {env.dynamic with vars };
-             lexical = {env.lexical with context = (x, BoundDyn y) :: env.lexical.context } }
+let add_dynamic0 ~loc x v {runtime; typing} =
+  let y,vars = Store.Dyn.fresh v runtime.dynamic.vars in
+
+  { runtime = { runtime with dynamic = {runtime.dynamic with vars };
+                             lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
+    typing = (x, Mltype.BoundDyn y) :: typing }
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
-let add_handle0 op xsc env =
-  { env with lexical = { env.lexical with handle = (op, xsc) :: env.lexical.handle } }
+let add_handle0 op xsc topenv =
+  { topenv with
+    runtime = { topenv.runtime with
+                lexical = { topenv.runtime.lexical with
+                            handle = (op, xsc) :: topenv.runtime.lexical.handle } } }
 
-let add_handle op xsc env = (), add_handle0 op xsc env
+let add_handle op xsc topenv = (), add_handle0 op xsc topenv
 
-
-let add_topbound_rec ~loc lst env =
-  let env = add_bound_rec0 lst env in
-  (), env
+let add_topbound_rec ~loc lst {runtime; typing} =
+  let topenv = 
+    { runtime = add_bound_rec0 lst runtime ;
+      typing = List.fold_left
+                 (fun typing (f,_) -> (f, Mltype.BoundVal) :: typing)
+                 typing lst }
+  in
+  (), topenv
 
 (* This function for internal use *)
 let lookup_handle op {lexical={handle=lst;_};_} =
@@ -495,17 +505,24 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
     | Some cont -> apply_cont cont v env
     | None -> Error.impossible ~loc "No continuation"
 
-let push_file f env =
-  (),{ env with lexical = { env.lexical with files = (Filename.basename f) :: env.lexical.files } }
+let push_file f topenv =
+  let topenv =
+  { topenv with
+    runtime = { topenv.runtime with
+                lexical = { topenv.runtime.lexical with
+                            files = (Filename.basename f) :: topenv.runtime.lexical.files } }
+  }
+  in 
+  (), topenv
 
-let included f env =
-  List.mem (Filename.basename f) env.lexical.files, env
+let included f topenv =
+  List.mem (Filename.basename f) topenv.runtime.lexical.files, topenv
 
 (** Printers *)
 
 (** Generate a printing environment from runtime environment *)
 let get_penv env =
-  { Tt.forbidden = List.map fst env.lexical.context ;
+  { Tt.forbidden = env.lexical.forbidden ;
     Tt.atoms = [] ;
     Tt.sigs = (fun s ->
                match get_signature s env with
@@ -537,8 +554,8 @@ let rec print_value_aux ?max_level ~penv refs v ppf =
                   (Print.sequence (print_value_aux ~penv refs) "," lst)
 
   | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref@ %t := %t"
-                  (Store.print_key v)
-                  (print_value_aux ~penv ~max_level:Level.no_parens refs (Store.lookup v refs))
+                  (Store.Ref.print_key v)
+                  (print_value_aux ~penv ~max_level:Level.no_parens refs (Store.Ref.lookup v refs))
 
   | String s -> Format.fprintf ppf "\"%s\"" (String.escaped s)
 
@@ -577,7 +594,7 @@ let print_value0 env ?max_level v ppf =
   Format.fprintf ppf "@[<hov>%t@]"
                  (print_value_aux ?max_level ~penv refs v)
 
-let top_print_value env = (print_value0 env), env
+let top_print_value topenv = (print_value0 topenv.runtime), topenv
 
 and print_operation env op vs ppf =
   let penv = get_penv env
@@ -617,7 +634,7 @@ let print_term env =
 let print_ty env =
   Return (fun ?max_level -> Tt.print_ty ~penv:(get_penv env) ?max_level), env.state
 
-let print_env env =
+let print_env topenv =
   let print env ppf =
     let penv = get_penv env in
     List.iter (fun (x,t) ->
@@ -641,12 +658,12 @@ let print_env env =
                        (Tt.print_sig_def ~penv s))
       env.dynamic.signatures ;
   in
-  print env, env
+  print topenv.runtime, topenv
 
 (* The empty environment *)
-let empty = {
+let empty_runtime = {
   lexical = {
-    context = [] ;
+    forbidden = [] ;
     bound = [] ;
     handle = [] ;
     continuation = None ;
@@ -658,9 +675,14 @@ let empty = {
     operations = [] ;
     signatures = [] ;
     abstracting = [] ;
-    vars = Store.empty ;
+    vars = Store.Dyn.empty ;
   } ;
-  state = Store.empty;
+  state = Store.Ref.empty;
+}
+
+let empty = {
+  runtime = empty_runtime;
+  typing = []
 }
 
 let initialised =
@@ -681,7 +703,7 @@ let initialised =
 
 let run m = fst (m initialised)
 
-type 'a progress = 'a * env
+type 'a progress = 'a * topenv
 
 let initial m = m initialised
 let progress (x, env) f = f x env
@@ -713,7 +735,7 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
     | Some f -> apply_closure f v
     | None -> return v
 
-let top_handle ~loc r env0 =
+let top_handle ~loc r topenv =
   let rec handle r env =
     match r with
     | Return v, state -> v, state
@@ -728,8 +750,8 @@ let top_handle ~loc r env0 =
           handle (r env) env
        end
   in
-  let v, state = handle (r env0) env0 in
-  v, {env0 with state}
+  let v, state = handle (r topenv.runtime) topenv.runtime in
+  v, {topenv with runtime = {topenv.runtime with state} }
 
 (** Equality *)
 let rec equal_value v1 v2 =
@@ -759,7 +781,7 @@ let rec equal_value v1 v2 =
 
     | Ref v1, Ref v2 ->
        (* XXX should we compare references by value instead? *)
-       Store.key_eq v1 v2
+       Store.Ref.key_eq v1 v2
 
     | String s1, String s2 ->
       s1 = s2

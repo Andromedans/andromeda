@@ -1,27 +1,54 @@
+module type S =
+  sig
+    type key
 
-type key = int
+    val key_eq : key -> key -> bool
 
-let key_eq x y = (x == y)
+    val print_key : key -> Format.formatter -> unit
 
-let print_key x ppf = Format.fprintf ppf "%d" x
+    type 'a t
 
-module KeyMap = Map.Make (struct
-    type t = key
-    let compare = compare
-  end)
+    val empty : 'a t
 
-type 'a t = {store : 'a KeyMap.t; counter : int}
+    (** [lookup x s] returns the value bound to [x] in [s] *)
+    val lookup : key -> 'a t -> 'a
 
-let empty = {store=KeyMap.empty; counter=0}
+    (** [fresh v s] returns a new key [x] and store [s'] such that the bindings in [s] are in [s'], and [x] is bound to [v] in [s'] *)
+    val fresh : 'a -> 'a t -> key * 'a t
 
-let lookup x s =
-  KeyMap.find x s.store
+    (** [update x v s] when [x] is already bound in [s] returns [s'] in which it is bound to [v] *)
+    val update : key -> 'a -> 'a t -> 'a t
+  end
 
-let fresh v {store;counter} =
-  let x = counter in
-  let store = KeyMap.add x v store in
-  x,{store;counter=counter+1}
+module Store =
+struct
+  type key = int
 
-let update x v s =
-  {s with store = KeyMap.add x v s.store}
+  let key_eq x y = (x == y)
+
+  let print_key x ppf = Format.fprintf ppf "%d" x
+
+  module KeyMap = Map.Make (struct
+                             type t = key
+                             let compare = compare
+                           end)
+
+  type 'a t = {store : 'a KeyMap.t; counter : int}
+
+  let empty = {store=KeyMap.empty; counter=0}
+
+  let lookup x s =
+    KeyMap.find x s.store
+
+  let fresh v {store;counter} =
+    let x = counter in
+    let store = KeyMap.add x v store in
+    x,{store;counter=counter+1}
+
+  let update x v s =
+    {s with store = KeyMap.add x v s.store}
+end
+
+module Ref = Store
+module Dyn = Store
 

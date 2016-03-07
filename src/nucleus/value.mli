@@ -3,24 +3,6 @@
 (** The type of an AML reference. *)
 type ref
 
-(** The type of an AML dynamically scoped variable. *)
-type dyn
-
-(** A name may refer to: *)
-type bound_info =
-  (** A bound value (the index being the number of bound values before it) *)
-  | BoundVal
-  (** The constant [a] *)
-  | BoundConst of Name.constant
-  (** The data constructor [C] with arity [n] *)
-  | BoundData of Name.data * int
-  (** The operation [op] with arity [n] *)
-  | BoundOp of Name.operation * int
-  (** The signature [s] *)
-  | BoundSig of Name.signature
-  (** The dynamic variable [x] *)
-  | BoundDyn of dyn
-
 (** Runtime environment *)
 type env
 
@@ -130,8 +112,7 @@ val operation_as_signature : value -> value comp
 
 (** Interact with the environment *)
 
-(** Known bound variables *)
-val top_bound_info : (Name.ident * bound_info) list toplevel
+val top_bound_info : Mltype.ctx toplevel
 
 (** Extract the current environment (for matching) *)
 val get_env : env comp
@@ -156,12 +137,12 @@ val lookup_abstracting : value list comp
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
 
-val lookup_dynamic_value : dyn -> value comp
+val lookup_dynamic_value : Store.Dyn.key -> value comp
 
 (** For matching *)
 val get_bound : loc:Location.t -> int -> env -> value
 
-val get_dynamic_value : dyn -> env -> value
+val get_dynamic_value : Store.Dyn.key -> env -> value
 
 (** Add a bound variable with given name to the environment. *)
 val add_bound : Name.ident -> value -> 'a comp -> 'a comp
@@ -170,9 +151,9 @@ val add_bound_rec :
   (Name.ident * (value -> value comp)) list -> 'a comp -> 'a comp
 
 (** Modify the value bound by a dynamic variable *)
-val now : dyn -> value -> 'a comp -> 'a comp
+val now : Store.Dyn.key -> value -> 'a comp -> 'a comp
 
-val top_now : dyn -> value -> unit toplevel
+val top_now : Store.Dyn.key -> value -> unit toplevel
 
 (** Add a bound variable (for matching). *)
 val push_bound : Name.ident -> value -> env -> env

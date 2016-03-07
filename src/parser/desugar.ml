@@ -9,7 +9,7 @@ module Bound = struct
     | Data of Name.data * int
     | Op of Name.operation * int
     | Sig of Name.signature
-    | Dyn of Value.dyn
+    | Dyn of Store.Dyn.key
 
   type t = { toplevel : (Name.ident * bound_info) list; locals : Name.ident list; depth : int }
 
@@ -17,12 +17,12 @@ module Bound = struct
   let compute_indices bound =
     let rec fold acc i = function
       | [] -> List.rev acc
-      | (x,Value.BoundVal) :: rem -> fold ((x,Val i)::acc) (i+1) rem
-      | (x,Value.BoundConst c) :: rem -> fold ((x,Const c)::acc) i rem
-      | (x,Value.BoundData (c,k)) :: rem -> fold ((x,Data (c,k))::acc) i rem
-      | (x,Value.BoundOp (op,k)) :: rem -> fold ((x,Op (op,k))::acc) i rem
-      | (x,Value.BoundSig s) :: rem -> fold ((x,Sig s)::acc) i rem
-      | (x,Value.BoundDyn y) :: rem -> fold ((x,Dyn y)::acc) i rem
+      | (x, Mltype.BoundVal) :: rem -> fold ((x,Val i)::acc) (i+1) rem
+      | (x, Mltype.BoundConst c) :: rem -> fold ((x,Const c)::acc) i rem
+      | (x, Mltype.BoundData (c,k)) :: rem -> fold ((x,Data (c,k))::acc) i rem
+      | (x, Mltype.BoundOp (op,k)) :: rem -> fold ((x,Op (op,k))::acc) i rem
+      | (x, Mltype.BoundSig s) :: rem -> fold ((x,Sig s)::acc) i rem
+      | (x, Mltype.BoundDyn y) :: rem -> fold ((x,Dyn y)::acc) i rem
     in
     {toplevel = fold [] 0 bound; locals = []; depth = 0}
 
