@@ -16,7 +16,8 @@ Table of contents:
    * [Datatypes](#datatypes)
    * [`match` statements and patterns](#match-statements-and-patterns)
    * [Operations and handlers](#operations-and-handlers)
-   * [Toplevel computations](#toplevel-computations)
+   * [Mutable references](#mutable-references)
+   * [Dynamic variables](#dynamic-variables)
 * [Judgment computations](#judgment-computations)
    * [Infering and checking mode](#inferring-and-checking-mode)
    * [The universe](#the-universe)
@@ -34,7 +35,19 @@ Table of contents:
    * [Context and occurs check](#context-and-occurs-check)
    * [Hypotheses](#hypotheses)
    * [Externals](#externals)
-   
+* [Toplevel commands](#toplevel-commands)
+   * [Toplevel let binding](#toplevel-let-binding)
+   * [Toplevel dynamic variables](#toplevel-dynamic-variables)
+   * [Declarations](#declarations)
+   * [`Do` command](#do-command)
+   * [`Fail` command](#fail-command)
+   * [Toplevel handlers](#toplevel-handlers)
+   * [Include](#include)
+   * [Verbosity](#verbosity)
+   * [Help](#help)
+   * [Environment](#environment)
+   * [Quit](#quit)
+
 ### About the Andromeda meta-language
 
 Andromeda is a proof assistant designed as a programming language following the tradition
@@ -58,6 +71,11 @@ able to print the [HOL Light kernel](http://www.cl.cam.ac.uk/~jrh13/) on a T-shi
 take a super-hero's cape to print the 4000 lines of
 [Andromeda nucleus](https://en.wikipedia.org/wiki/Andromeda_Galaxy#Nucleus).
 
+The constructs of the language are divided into **computations** which evaluate to values and may emit operations,
+and **top-level commands** which have side effects (such as binding a variable to a value)
+and must be self-contained with regards to operations.
+An Andromeda program is a list of top-level commands, each containing some computations.
+
 It is important to distinguish the expressions that are evaluated by AML from the
 expressions of underlying type theory. We refer to AML expressions as **computations** to
 emphasize that Andromeda *computes* their values and that the computations may have
@@ -72,14 +90,15 @@ programming features:
 
 * `let-`bindings of values
 * first-class functions 
-* recursive definitions of functions
+* (mutually) recursive definitions of functions
 * datatypes (lists, tuples, and user-definable data constructors)
 * `match` statements and pattern matching
-* mutable references
 * operations and handlers
+* mutable references
+* dynamic variables
 
 Note: the `match` statement is part of the meta-language and is not available in the
-underlying type theory (where we would have to postulate suitable eliminators instead)a. It
+underlying type theory (where we would have to postulate suitable eliminators instead). It
 is a mechanism for analyzing terms and other values at the meta-level.
 
 ##### `let`-binding
@@ -89,10 +108,7 @@ A binding of the form
     let x = c₁ in c₂
 
 computes `c₁` to a value `v`, binds `x` to `v`, and computes `c₂`. Thus, whenever `x` is
-encountered in `c₂` it is replaced by `v`. At the top-level we may a global `let`-binding
-has the form
-
-    let x = c
+encountered in `c₂` it is replaced by `v`.
  
 It is possible to bind several values simultaneously:
 
@@ -161,18 +177,20 @@ computes `c₁`, discards the result, and computes `c₂`. It is equivalent to
 
     let _ = c₁ in c₂
 
+except for warning when `c₁` evaluates to something other than the empty tuple `()`.
+
 ##### Recursive functions
 
-A recursive function at the top level is
-
-    let rec f x₁ ... xᵢ = c
-
-while 
+Recursive functions can be defined:
 
     let rec f x₁ ... xᵢ = c₁ in
       c₂
 
-is a local recursive function definition.
+Mutually recursive functions are also possible:
+
+    let rec f x = c₁
+    and g y = c₂ in
+      c
 
 ##### Datatypes
 
@@ -185,7 +203,7 @@ A string is a sequence of characters delimited by quotes, e.g.
 
     "This string contains forty-two characters."
 
-There are at present no facilities to manipulate strings in AML.
+There are at present no facilities to manipulate strings in AML other than printing.
 
 ###### Tuples
 
@@ -249,8 +267,8 @@ However, it complains if we provide too few or too many arguments to the data co
     File "?", line 2, characters 4-7: Runtime error
       cannot apply a data tag
 
-The last error message is generated because `Leaf "foo"` is applied to `"bar"` but `Leaf
-"foo"` is not a function.
+The last error message is generated because `Leaf "foo"` is applied to `"bar"` but
+`Leaf "foo"` is not a function.
 
 ##### `match` statements and patterns
 
@@ -283,16 +301,17 @@ Example:
 computes to `("bar", "foo")` because the second pattern matches the list and binds `x` to
 `"foo"` and `y` to `"bar"`.
 
-###### Datatype patterns
+###### General patterns
 
-The datatype patterns are:
+The general patterns are:
 
    |---|---|
    | `_` | match any value |
    | `?x` | match any value and bind it to `x` |
    | `p as ?x` | match according to pattern `p` and also bind the value to `x` |
    | `x` | match a value if it equals the value of `x` |
-   | `⊢ j` | match a judgment according to the *judgment pattern `j`*, see below |
+   | `⊢ j` | match a judgment $\isterm{\G}{\e}{\T}$ according to the *judgment pattern `j`*, see below |
+   | `⊢ j₁ : j₂` | match a judgement $\isterm{\G}{\e}{\T}$ with `j₁` and $\isterm{\G}{\T}{Type}$ with `j₂` |
    | `Tag p₁ ... pᵢ` | match a data tag |
    | `[]` | match the empty list |
    | `p₁ :: p₂` | match the head and the tail of a non-empty list |
@@ -317,18 +336,16 @@ Note that a pattern may refer to `let`-bound values by their name:
 
 In the above `match` statement the pattern refers to `a` whose values is `"foo"`.
 
-###### judgment patterns
+###### Judgment patterns
 
 A judgment pattern matches a judgment $\isterm{\G}{\e}{\T}$ as follows:
 
    |---|---|
-   | `⊢ j₁ : j₂` | match $\e$ with `j₁` and $\T$ with `j₂` |
-   | `⊢ j`       | match $\e$ with `j` |
    | `_` | match any term |
    | `?x` | match any term and bind it to `x` |
-   | `x` | match the value of `x` or the constant `x` if it is a constant |
+   | `x` | match the value of `x` |
    | `Type` | match a [universe](#the-universe) |
-   | `∏ (?x : j₁), j₂` | match a [product](#product) |
+   | `∏ (?x : j₁), j₂` | match a [product](#product) (see [matching under binders](#matching-under-binders)) |
    | `∏ (x : j₁), j₂` | match a product but not the bound variable |
    | `j₁ j₂` | match an [application](#application) |
    | `λ (?x : j₁), j₂` | match a [λ-abstraction](#abstraction) |
@@ -340,6 +357,17 @@ A judgment pattern matches a judgment $\isterm{\G}{\e}{\T}$ as follows:
    | `_constant ?x` | match a [constant](#constants) and bind its natural judgment to `x` |
 
 [TODO describe patterns for signatures and structures]
+
+###### Matching under binders
+
+When matching a judgement $\isterm{\G}{∏ (x : A) B}{Type}$ with a pattern `∏ (y : j₁), j₂`,
+a fresh variable $y₁$ is produced so that we may match $\isterm{\G, y₁ : A}{B}{Type}$ with `j₂`.
+
+Patterns which match under a binder have two forms:
+* one in which the binder variable is a pattern variable, such as `∏ (?y : j₁), j₂`.
+  Then `?y` is a pattern variable which is bound to $\isterm{\G, y₁ : A}{y₁}{A}$.
+* one in which the binder variable is not a pattern variable, such as `∏ (y : j₁), j₂`.
+  Then `y` is bound to $\isterm{\G, y₁ : A}{y₁}{A}$ only in `j₂`.
 
 #### Operations and handlers
 
@@ -425,6 +453,12 @@ It is used when the handler handles a computation that did *not* invoke a comput
 rather computed to a value `v`. In this case the value cases are matched against the value
 and the first one that matches is used.
 
+If no value case is present in the handler, it is considered to be the trivial case `val ?x => x`.
+
+If at least one value case is present,
+but the handled computation evaluates to a value which is matched by none of them,
+a runtime error will occur.
+
 ###### The `finally` case
 
 A finally case has the form
@@ -433,6 +467,9 @@ A finally case has the form
 
 It is used at the very end of handling, after the final value has been computed through
 handling by operation and value cases. The first finally case that matches is used.
+
+As with value cases, no finally case is equivalent to a trivial case,
+and non-exhaustive matching results in a runtime error.
 
 ##### The handling construct
 
@@ -549,74 +586,40 @@ Here is another, simpler example:
 
 In this case `hole_filler` created a new assumption `hole₂₂` of the displayed type.
 
+#### Mutable references
 
-#### Toplevel computations
+Mutable references are as in Ocaml:
+* a fresh reference is introduced by `ref c` where `c` evaluates to its initial value
+* if `c` evaluates to a reference, its value can be accessed by `! c`
+* if `c` evaluates to a reference, its value can be modified by `c := c'` where `c'` evaluates to the new value.
 
-##### `do c`
+#### Dynamic variables
 
-At the toplevel the `do c` construct computes `c`:
+Dynamic variables can be declared only at the top-level, by
 
-    do c
+    dynamic x = c
 
-You *cannot* just write `c` because that would create ambiguities. For instance,
+where `c` evaluates to the initial value.
+The current value is accessed with simply `x`.
 
-    let x = c₁
-    c₂
+Dynamic variables can be updated by the following construct:
 
-could mean `let x = c₁ c₂` or
+    now x = c in c'
 
-    let x = c₁
-    do c₂
+`x` will evaluate to the result of `c` when it is used in `c'`, including through function application and operation handling:
 
-We could do without `do` if we requires that toplevel computations be terminated with `;;`
-a la OCaml. We do not have a strong opinion about this particular syntactic detail.
+    let f _ = x in
+    now x = v in f ()
 
-##### `fail c`
-
-The construct
-
-    fail c
-
-is the "opposite" of `do c` in the sense that it will succeed *only if* `c` reports an
-error. This is useful for testing AML.
-
-##### `handle ... end`
-
-A global handler may be installed at the toplevel with
+and
 
     handle
-    | op-case₁
-    | op-case₂
-    ...
-    | op-caseᵢ
+      now x = v in getx
+    with
+      getx => yield x
     end
 
-TODO: explain the special provisos of a toplevel handler (no patterns, no `yield`).
-
-##### `#include "<file>"`
-
-Include the given file.
-
-##### `#include_once "<file>"`
-
-Include the given file if it has not been included yet.
-
-##### `#verbosity <n>`
-
-Set the verbosity level. The levels are:
-
-- `0`: only success messages
-- `1`: errors
-- `2`: warnings
-- `3`: debugging messages
-
-##### `#environment`
-
-Print the currently known datatype constructors, constants, operations, and signatures.
-
-##### `#quit`
-
-Quit Andromeda.
+both evaluate to `v` regardless of the previous value of `x`.
 
 
 ### Judgment computations
@@ -956,4 +959,124 @@ The `"config"` external can be invoked with the following options:
    | `"no-dependencies"` | Do not print dependency information |
     
 The arguments to `external` and `external "config"` are case sensitive.
+
+
+#### Toplevel commands
+
+An andromeda program is a stream of top-level commands.
+
+##### Toplevel let binding
+
+The top-level can bind variables to values and define recursive functions like inside computations:
+
+    let x = c
+    and y = c'
+
+and
+
+    let rec f x = c
+    and g y = c'
+
+##### Toplevel dynamic variables
+
+The top-level can create new dynamic variables
+
+    dynamic x = c
+
+and update them for the rest of the program
+
+    now x = c
+
+##### Declarations
+
+The top-level can create new basic values:
+* type theoretic constants as `constant a b : T`
+* type theoretic signatures as `signature s = { foo as x : Type, bar : x }`
+* operations of given arities as `operation hippy 0`
+* data constructors of given arities as `data Some 1`
+
+##### Do command
+
+At the toplevel the `do c` construct computes `c`:
+
+    do c
+
+You *cannot* just write `c` because that would create ambiguities. For instance,
+
+    let x = c₁
+    c₂
+
+could mean `let x = c₁ c₂` or
+
+    let x = c₁
+    do c₂
+
+We could do without `do` if we requires that toplevel computations be terminated with `;;`
+a la OCaml. We do not have a strong opinion about this particular syntactic detail.
+
+##### Fail command
+
+The construct
+
+    fail c
+
+is the "opposite" of `do c` in the sense that it will succeed *only if* `c` reports an
+error. This is useful for testing AML.
+
+If `c` has side effects they are cancelled:
+
+    # let x = ref None
+    x is defined.
+    # fail x := Some (); None None
+    The command failed with error:
+    File "?", line 2, characters 20-23: Runtime error
+      cannot apply a data tag
+    # do !x
+    None
+
+##### Toplevel handlers
+
+A global handler may be installed at the toplevel with
+
+    handle
+    | op-case₁
+    | op-case₂
+    ...
+    | op-caseᵢ
+    end
+
+Top-level handlers may only be simple callbacks: the cases may not contain patterns
+(to avoid confusion, as new cases replace old ones completely)
+and for case `op ?x => c`, `yield` may not appear in `c`. Instead the result of `c` is passed to the continuation.
+
+Thus a top-level operation case `op ?x => c` is equivalent to a general handler case `op ?x => yield c`.
+
+##### Include
+
+`#include "<file>"` includes the given file.
+
+`#include_once "<file>"` includes the given file if it has not been included yet.
+
+The path is relative to the current file.
+
+##### Verbosity
+
+`#verbosity <n>` sets the verbosity level. The levels are:
+
+- `0`: only success messages
+- `1`: errors
+- `2`: warnings
+- `3`: debugging messages
+
+##### Help
+
+`#help` prints the internal help.
+
+##### Environment
+
+`#environment` prints information about the runtime environment.
+
+##### Quit
+
+`#quit` ends evaluation.
 
