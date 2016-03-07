@@ -28,23 +28,25 @@ The source code can be found in `src`, in the following folders:
    * `assumption.ml` - tracking of dependency of terms on free variables
    * `context.ml` - contexts as directed graphs
    * `equal.ml` - judgmental equality
-   * `eval.ml` - the main nucleus evaluation loop
+   * `eval.ml` - evaluation of meta-language computations
    * `external.ml` - interface to OCaml functions
    * `jdg.ml` - type-theoretic judgements
    * `matching.ml` - meta-language pattern matching
    * `simplify.ml` - simplification of terms (currently not used)
+   * `toplevel.ml` - evaluation of top-level meta-language commands
    * `tt.ml` - type theory syntax
    * `value.ml` - meta-language run-time values, operations, and handlers
 
 ### Main evaluation loop
 
 1. An expression is parsed using the lexer `parser/lexer.ml` and the parser `parser/parser.mly`.
-   The result is a value of type `Input.comp` (a computation) or  a `Input.toplevel` directive.
+   The result is a list of `Input.toplevel` commands or a single command.
 2. `parser/desugar.ml` converts the parsed `Input` entity to the corresponding `Syntax` entity.
    Desugaring discerns names into bound variables (represented as de Bruijn indices),
-   constants, data constructors, and operations. It also looks up labels in signature definitions.
-3. `nucleus/eval.ml` evaluates `Syntax` to a `Value.result` which is either a final value
-   or an operation. The possible values are:
+   constants, signatures, data constructors, operations and dynamic variables.
+3. `nucleus/eval.ml` evaluates `Syntax.comp` computations inside `Syntax.toplevel` commands to `Value.comp`,
+   which are functions from a runtime environment to either a final value or an operation.
+   The possible values are:
       * a `Value.Term` term judgement of the form `Γ ⊢ e : A`, see `Jdg.term`
       * a function closure `Value.Closure`
       * a handler `Value.Handler`
@@ -54,4 +56,5 @@ The source code can be found in `src`, in the following folders:
       * a mutable `Value.Ref`
       * a `Value.String`
       * an identifier `Value.Ident`
+4. `nucleus/toplevel.ml` evaluates `Syntax.toplevel` commands to `Value.toplevel` functions modifying the runtime environment.
 
