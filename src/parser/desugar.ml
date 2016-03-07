@@ -17,12 +17,12 @@ module Bound = struct
   let compute_indices bound =
     let rec fold acc i = function
       | [] -> List.rev acc
-      | (x, Mltype.BoundVal) :: rem -> fold ((x,Val i)::acc) (i+1) rem
-      | (x, Mltype.BoundConst c) :: rem -> fold ((x,Const c)::acc) i rem
-      | (x, Mltype.BoundData (c,k)) :: rem -> fold ((x,Data (c,k))::acc) i rem
-      | (x, Mltype.BoundOp (op,k)) :: rem -> fold ((x,Op (op,k))::acc) i rem
-      | (x, Mltype.BoundSig s) :: rem -> fold ((x,Sig s)::acc) i rem
-      | (x, Mltype.BoundDyn y) :: rem -> fold ((x,Dyn y)::acc) i rem
+      | (x, Boundinfo.BoundVal) :: rem -> fold ((x,Val i)::acc) (i+1) rem
+      | (x, Boundinfo.BoundConst c) :: rem -> fold ((x,Const c)::acc) i rem
+      | (x, Boundinfo.BoundData (c,k)) :: rem -> fold ((x,Data (c,k))::acc) i rem
+      | (x, Boundinfo.BoundOp (op,k)) :: rem -> fold ((x,Op (op,k))::acc) i rem
+      | (x, Boundinfo.BoundSig s) :: rem -> fold ((x,Sig s)::acc) i rem
+      | (x, Boundinfo.BoundDyn y) :: rem -> fold ((x,Dyn y)::acc) i rem
     in
     {toplevel = fold [] 0 bound; locals = []; depth = 0}
 

@@ -112,7 +112,7 @@ val operation_as_signature : value -> value comp
 
 (** Interact with the environment *)
 
-val top_bound_info : Mltype.ctx toplevel
+val top_bound_info : Boundinfo.ctx toplevel
 
 (** Extract the current environment (for matching) *)
 val get_env : env comp

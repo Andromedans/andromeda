@@ -1,4 +1,4 @@
-type bound_info =
+type t =
   | BoundVal
   | BoundConst of Name.constant
   | BoundData of Name.data * int
@@ -6,5 +6,4 @@ type bound_info =
   | BoundSig of Name.signature
   | BoundDyn of Store.Dyn.key
 
-type ctx = (Name.ident * bound_info) list
-
+type ctx = (Name.ident * t) list

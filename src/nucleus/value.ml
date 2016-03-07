@@ -84,7 +84,7 @@ and 'a continuation = Continuation of (value -> state -> 'a result * state)
     environment. *)
 type topenv = {
   runtime : env ;
-  typing : Mltype.ctx
+  typing : Boundinfo.ctx
 }
 
 type 'a toplevel = topenv -> 'a * topenv
@@ -394,7 +394,7 @@ let add_operation0 ~loc x k {runtime; typing} =
   else
   { runtime = { runtime with dynamic = {runtime.dynamic with operations = (x, k) :: runtime.dynamic.operations };
                              lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
-    typing = (x, Mltype.BoundOp (x, k)) :: typing }
+    typing = (x, Boundinfo.BoundOp (x, k)) :: typing }
 
 let add_operation ~loc x k topenv = (), add_operation0 ~loc x k topenv
 
@@ -404,7 +404,7 @@ let add_data0 ~loc x k {runtime; typing} =
   else
   { runtime = { runtime with dynamic = {runtime.dynamic with datas = (x, k) :: runtime.dynamic.datas };
                              lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
-    typing = (x, Mltype.BoundData (x, k)) :: typing }
+    typing = (x, Boundinfo.BoundData (x, k)) :: typing }
 
 let add_data ~loc x k env = (), add_data0 ~loc x k env
 
@@ -414,7 +414,7 @@ let add_constant0 ~loc x t {runtime; typing} =
   else
   { runtime = { runtime with dynamic = {runtime.dynamic with constants = (x, t) :: runtime.dynamic.constants };
                              lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
-    typing = (x, Mltype.BoundConst x) :: typing }
+    typing = (x, Boundinfo.BoundConst x) :: typing }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
 
@@ -424,7 +424,7 @@ let add_signature0 ~loc s s_def {runtime; typing} =
   else
   { runtime = { runtime with dynamic = {runtime.dynamic with signatures = (s, s_def) :: runtime.dynamic.signatures };
                              lexical = {runtime.lexical with forbidden = s :: runtime.lexical.forbidden } } ;
-    typing = (s, Mltype.BoundSig s) :: typing }
+    typing = (s, Boundinfo.BoundSig s) :: typing }
 
 let add_signature ~loc s s_def env = (), add_signature0 ~loc s s_def env
 
@@ -453,7 +453,7 @@ let push_bound = add_bound0
 let add_topbound ~loc x v {runtime; typing} =
   let topenv =
     { runtime = add_bound0 x v runtime;
-      typing = (x, Mltype.BoundVal) :: typing }
+      typing = (x, Boundinfo.BoundVal) :: typing }
   in
   (), topenv
 
@@ -473,7 +473,7 @@ let add_dynamic0 ~loc x v {runtime; typing} =
 
   { runtime = { runtime with dynamic = {runtime.dynamic with vars };
                              lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
-    typing = (x, Mltype.BoundDyn y) :: typing }
+    typing = (x, Boundinfo.BoundDyn y) :: typing }
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
@@ -489,7 +489,7 @@ let add_topbound_rec ~loc lst {runtime; typing} =
   let topenv = 
     { runtime = add_bound_rec0 lst runtime ;
       typing = List.fold_left
-                 (fun typing (f,_) -> (f, Mltype.BoundVal) :: typing)
+                 (fun typing (f,_) -> (f, Boundinfo.BoundVal) :: typing)
                  typing lst }
   in
   (), topenv
