@@ -18,6 +18,7 @@ let strengthen (Term (ctx,e,t)) =
   Term (ctx,e,t)
 
 let print_term ~penv ?max_level (Term (ctx, e,t)) ppf =
+  let penv = Context.penv_atoms ~penv ctx in
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%t%s @[<hv>@[<hov>%t@]@;<1 -2>: @[<hov>%t@]@]"
               (Context.print ~penv ctx)

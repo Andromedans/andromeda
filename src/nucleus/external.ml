@@ -69,6 +69,13 @@ let externals =
             Config.print_dependencies := false;
             Value.return_unit
 
+          | "subscripts" ->
+            Config.print_subscripts := true;
+            Value.return_unit
+          | "no-subscripts" ->
+            Config.print_subscripts := false;
+            Value.return_unit
+
           | _ -> Error.runtime ~loc "unknown config %s" s
         ));
 

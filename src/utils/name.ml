@@ -10,6 +10,8 @@ type ident = Ident of string * fixity
 
 type atom = Atom of string * fixity * int
 
+type env = (atom * ident) list
+
 type label = ident
 type signature = ident
 type constant = ident
@@ -27,37 +29,6 @@ let print_ident ?(parentheses=true) x ppf =
        Format.fprintf ppf "%s" s
 
 let print_label = print_ident ~parentheses:true
-
-(** Subscripts *)
-
-let subdigit = [|"₀"; "₁"; "₂"; "₃"; "₄"; "₅"; "₆"; "₇"; "₈"; "₉"|]
-
-let subscript k =
-  if !Config.ascii then "_" ^ string_of_int k
-  else if k = 0 then subdigit.(0)
-  else
-    let rec fold s = function
-      | 0 -> s
-      | k ->
-         let s = subdigit.(k mod 10) ^ s in
-         fold s (k / 10)
-    in
-    fold "" k
-
-let print_atom ?(parentheses=true) x ppf =
-  match x with
-  | Atom (s, Word, k) ->
-     Format.fprintf ppf "%s%s" s (subscript k)
-
-  | Atom (_, Anonymous, k) ->
-     Format.fprintf ppf "_%s" (subscript k)
-
-  | Atom (s, (Prefix|Infix _), k) ->
-     if parentheses then
-       Format.fprintf ppf "( %s%s )" s (subscript k)
-     else
-       Format.fprintf ppf "%s%s" s (subscript k)
-
 
 let print_op = print_ident ~parentheses:true
 
@@ -156,4 +127,45 @@ let print_debruijn xs k ppf =
   with
   | Failure "nth" ->
       Format.fprintf ppf "DEBRUIJN[%d]" k
+
+
+(** Subscripts *)
+
+let subdigit = [|"₀"; "₁"; "₂"; "₃"; "₄"; "₅"; "₆"; "₇"; "₈"; "₉"|]
+
+let subscript k =
+  if !Config.ascii then "_" ^ string_of_int k
+  else if k = 0 then subdigit.(0)
+  else
+    let rec fold s = function
+      | 0 -> s
+      | k ->
+         let s = subdigit.(k mod 10) ^ s in
+         fold s (k / 10)
+    in
+    fold "" k
+
+let print_atom_subs ?(parentheses=true) x ppf =
+  match x with
+  | Atom (s, Word, k) ->
+     Format.fprintf ppf "%s%s" s (subscript k)
+
+  | Atom (_, Anonymous, k) ->
+     Format.fprintf ppf "_%s" (subscript k)
+
+  | Atom (s, (Prefix|Infix _), k) ->
+     if parentheses then
+       Format.fprintf ppf "( %s%s )" s (subscript k)
+     else
+       Format.fprintf ppf "%s%s" s (subscript k)
+
+let print_atom ?parentheses ?(penv=[]) x ppf =
+  if !Config.print_subscripts
+  then
+    print_atom_subs ?parentheses x ppf
+  else
+    try
+      print_ident ?parentheses (snd (List.find (fun (y,_) -> eq_atom x y) penv)) ppf
+    with
+      | Not_found -> print_atom_subs ?parentheses x ppf
 

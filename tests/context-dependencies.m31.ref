@@ -2,8 +2,8 @@ Constant A is declared.
 Constant B is declared.
 Constant P is declared.
 Constant Q is declared.
-b₁₃ : B 
-e₁₄ : B ≡ A 
-x₁₅ : P b₁₃ 
-f₁₇ : Q b₁₃ x₁₅ → A 
-⊢ f₁₇ : Q b₁₃ x₁₅ → A
+b : B 
+e : B ≡ A 
+x : P b 
+f : Q b x → A 
+⊢ f : Q b x → A

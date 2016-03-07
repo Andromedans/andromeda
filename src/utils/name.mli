@@ -10,6 +10,9 @@ type ident = private Ident of string * fixity
 
 type atom = private Atom of string * fixity * int
 
+(** A name environment tells us how to print atoms found in it. *)
+type env = (atom * ident) list
+
 (** Aliases with different semantics *)
 type label = ident
 type signature = ident
@@ -21,7 +24,7 @@ type operation = ident
 val print_ident : ?parentheses:bool -> ident -> Format.formatter -> unit
 
 (** Print an atom *)
-val print_atom : ?parentheses:bool -> atom -> Format.formatter -> unit
+val print_atom : ?parentheses:bool -> ?penv:env -> atom -> Format.formatter -> unit
 
 (** Print a field label *)
 val print_label : label -> Format.formatter -> unit

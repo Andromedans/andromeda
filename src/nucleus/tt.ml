@@ -432,6 +432,7 @@ and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t
 (****** Printing routines *****)
 type print_env =
   { forbidden : Name.ident list ;
+    atoms : (Name.atom * Name.ident) list ;
     sigs : Name.signature -> Name.label list }
 
 type name_printing =
@@ -472,7 +473,7 @@ let rec print_term ?max_level ~penv {term=e;assumptions;_} ppf =
   then
     Format.fprintf ppf "(%t)^{{%t}}"
                 (print_term' ~penv ~max_level:Level.highest e)
-                (Assumption.print penv.forbidden assumptions)
+                (Assumption.print penv.forbidden penv.atoms assumptions)
   else
     print_term' ~penv ?max_level e ppf
 
@@ -483,7 +484,7 @@ and print_term' ~penv ?max_level e ppf =
         Format.fprintf ppf "Type"
 
       | Atom x ->
-        Name.print_atom x ppf
+        Name.print_atom ~penv:(penv.atoms) x ppf
 
       | Constant x ->
          Name.print_ident x ppf
@@ -546,7 +547,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
   match e1_prefix with
   | Some (As_atom op) ->
      Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
-                 (Name.print_atom ~parentheses:false op)
+                 (Name.print_atom ~parentheses:false ~penv:penv.atoms op)
                  (print_term ~max_level:Level.prefix_arg ~penv e2)
 
   | Some (As_ident op) ->
@@ -589,7 +590,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
                       (print_term ~max_level:lvl_left ~penv e1)
                       (match op with
                        | As_ident op -> Name.print_ident ~parentheses:false op
-                       | As_atom op -> Name.print_atom ~parentheses:false op)
+                       | As_atom op -> Name.print_atom ~parentheses:false ~penv:penv.atoms op)
                       (print_term ~max_level:lvl_right ~penv e2)
        | None ->
           (* ordinary application *)

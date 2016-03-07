@@ -7,7 +7,7 @@ val empty : t
 
 val is_empty : t -> bool
 
-val print : Name.ident list -> t -> Format.formatter -> unit
+val print : Name.ident list -> Name.env -> t -> Format.formatter -> unit
 
 val singleton : Name.atom -> t
 
