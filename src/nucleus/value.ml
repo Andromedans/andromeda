@@ -40,7 +40,7 @@ and dynamic = {
 
 and lexical = {
   forbidden : Name.ident list; (* for printing only *)
-  bound : value list;
+  bound : bound list;
 
   continuation : value continuation option;
 
@@ -50,6 +50,10 @@ and lexical = {
 }
 
 and state = value Store.Ref.t
+
+and bound =
+  | Val of value
+  | Dyn of Store.Dyn.key
 
 and value =
   | Term of Jdg.term
@@ -344,22 +348,21 @@ let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 
 let get_bound ~loc k env =
   try
-    List.nth env.lexical.bound k
+    begin match List.nth env.lexical.bound k with
+      | Val v -> v
+      | Dyn y ->
+        Store.Dyn.lookup y env.dynamic.vars
+    end
   with
   (* TODO is there a point in having this? *)
   | Failure _ -> Error.impossible ~loc "invalid de Bruijn index %d" k
 
-let get_dynamic_value x env = Store.Dyn.lookup x env.dynamic.vars
-
 let lookup_bound ~loc k env =
   Return (get_bound ~loc k env), env.state
 
-let lookup_dynamic_value x env =
-  Return (get_dynamic_value x env), env.state
-
 let add_bound0 x v env = {env with lexical = { env.lexical with
                                                forbidden = x :: env.lexical.forbidden;
-                                               bound = v :: env.lexical.bound } }
+                                               bound = (Val v) :: env.lexical.bound } }
 
 let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
   let y, ctx = Context.add_fresh ctx x t in
@@ -453,27 +456,30 @@ let push_bound = add_bound0
 let add_topbound ~loc x v {runtime; typing} =
   let topenv =
     { runtime = add_bound0 x v runtime;
-      typing = (x, Boundinfo.BoundVal) :: typing }
+      typing = (x, Boundinfo.BoundVal Boundinfo.Lexical) :: typing }
   in
   (), topenv
 
-let now0 x v env =
-  {env with dynamic = {env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars }}
+let now0 ~loc x v env =
+  match List.nth env.lexical.bound x with
+    | Dyn y -> {env with dynamic = {env.dynamic with vars = Store.Dyn.update y v env.dynamic.vars } }
+    | Val _ -> Error.impossible ~loc "trying to update a lexical variable"
 
-let now x v m env =
-  let env = now0 x v env in
+let now ~loc x v m env =
+  let env = now0 ~loc x v env in
   m env
 
-let top_now x v topenv =
-  let topenv = { topenv with runtime = now0 x v topenv.runtime } in
+let top_now ~loc x v topenv =
+  let topenv = { topenv with runtime = now0 ~loc x v topenv.runtime } in
   (), topenv
 
 let add_dynamic0 ~loc x v {runtime; typing} =
   let y,vars = Store.Dyn.fresh v runtime.dynamic.vars in
-
   { runtime = { runtime with dynamic = {runtime.dynamic with vars };
-                             lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
-    typing = (x, Boundinfo.BoundDyn y) :: typing }
+                             lexical = {runtime.lexical with
+                                        bound = Dyn y :: runtime.lexical.bound;
+                                        forbidden = x :: runtime.lexical.forbidden } } ;
+    typing = (x, Boundinfo.BoundVal Boundinfo.Dynamic) :: typing }
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
@@ -489,7 +495,7 @@ let add_topbound_rec ~loc lst {runtime; typing} =
   let topenv = 
     { runtime = add_bound_rec0 lst runtime ;
       typing = List.fold_left
-                 (fun typing (f,_) -> (f, Boundinfo.BoundVal) :: typing)
+                 (fun typing (f,_) -> (f, Boundinfo.BoundVal Boundinfo.Lexical) :: typing)
                  typing lst }
   in
   (), topenv

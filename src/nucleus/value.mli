@@ -137,12 +137,8 @@ val lookup_abstracting : value list comp
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
 
-val lookup_dynamic_value : Store.Dyn.key -> value comp
-
 (** For matching *)
 val get_bound : loc:Location.t -> int -> env -> value
-
-val get_dynamic_value : Store.Dyn.key -> env -> value
 
 (** Add a bound variable with given name to the environment. *)
 val add_bound : Name.ident -> value -> 'a comp -> 'a comp
@@ -151,9 +147,9 @@ val add_bound_rec :
   (Name.ident * (value -> value comp)) list -> 'a comp -> 'a comp
 
 (** Modify the value bound by a dynamic variable *)
-val now : Store.Dyn.key -> value -> 'a comp -> 'a comp
+val now : loc:Location.t -> int -> value -> 'a comp -> 'a comp
 
-val top_now : Store.Dyn.key -> value -> unit toplevel
+val top_now : loc:Location.t -> int -> value -> unit toplevel
 
 (** Add a bound variable (for matching). *)
 val push_bound : Name.ident -> value -> env -> env
@@ -189,14 +185,12 @@ val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
     It fails if the signature is already declared. *)
 val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit toplevel
 
-(** Add a bound variable with the given name to the environment.
-    It fails if the name is already used. *)
+(** Add a bound variable with the given name to the environment. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 val add_topbound_rec : loc:Location.t -> (Name.ident * (value -> value comp)) list -> unit toplevel
 
-(** Add a dynamic variable.
-    It fails if the name is already used. *)
+(** Add a dynamic variable. *)
 val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
@@ -208,8 +202,8 @@ val continue : loc:Location.t -> value -> value comp
 (** Add a file to the list of files included. *)
 val push_file : string -> unit toplevel
 
-(** Check whether a file has already been included. Files are compared by
-  their basenames *)
+(** Check whether a file has already been included.
+    Files are compared by their basenames *)
 val included : string -> bool toplevel
 
 (** Get the printing environment from the monad *)

@@ -12,7 +12,6 @@ and tt_pattern' =
   | Tt_Anonymous
   | Tt_As of tt_pattern * bound
   | Tt_Bound of bound
-  | Tt_Dynamic of Store.Dyn.key
   | Tt_Type
   | Tt_Constant of Name.ident
   | Tt_Lambda of Name.ident * bound option * tt_pattern option * tt_pattern
@@ -38,7 +37,6 @@ and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * bound
   | Patt_Bound of bound
-  | Patt_Dyn of Store.Dyn.key
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Data of Name.ident * pattern list
   | Patt_Tuple of pattern list
@@ -48,7 +46,6 @@ type comp = comp' marked
 and comp' =
   | Type
   | Bound of bound
-  | Dynamic of Store.Dyn.key
   | Function of Name.ident * comp
   | Handler of handler
   | Data of Name.ident * comp list
@@ -57,7 +54,7 @@ and comp' =
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
-  | Now of Store.Dyn.key * comp * comp
+  | Now of bound * comp * comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -122,7 +119,7 @@ and toplevel' =
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
   | TopDynamic of Name.ident * comp
-  | TopNow of Store.Dyn.key * comp
+  | TopNow of bound * comp
   | TopDo of comp (** evaluate a computation *)
   | TopFail of comp Lazy.t (** desugaring is suspended to allow catching errors *)
   | Verbosity of int

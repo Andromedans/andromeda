@@ -31,12 +31,6 @@ let rec collect_tt_pattern env xvs {Syntax.term = p'; _} ctx ({Tt.term=e';loc;_}
      then xvs
      else raise Match_fail
 
-  | Syntax.Tt_Dynamic x, _ ->
-     let v' = Value.get_dynamic_value x env in
-     if Value.equal_value (Value.mk_term (Jdg.mk_term ctx e t)) v'
-     then xvs
-     else raise Match_fail
-
   | Syntax.Tt_Type, Tt.Type ->
      xvs
 
@@ -237,12 +231,6 @@ and collect_pattern env xvs {Syntax.term=p;loc} v =
      if Value.equal_value v v'
      then xvs
      else raise Match_fail
-
-  | Syntax.Patt_Dyn y, v ->
-    let v' = Value.get_dynamic_value y env in
-    if Value.equal_value v v'
-    then xvs
-    else raise Match_fail
 
   | Syntax.Patt_Jdg (pe, pt), Value.Term (Jdg.Term (ctx, e, t)) ->
      let Tt.Ty t' = t in

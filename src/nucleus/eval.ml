@@ -44,9 +44,6 @@ let rec infer {Syntax.term=c'; loc} =
     | Syntax.Bound i ->
        Value.lookup_bound ~loc i
 
-    | Syntax.Dynamic x ->
-       Value.lookup_dynamic_value x
-
     | Syntax.Type ->
        let e = Tt.mk_type ~loc in
        let t = Tt.mk_type_ty ~loc in
@@ -130,7 +127,7 @@ let rec infer {Syntax.term=c'; loc} =
 
   | Syntax.Now (x,c1,c2) ->
     infer c1 >>= fun v ->
-    Value.now x v (infer c2)
+    Value.now ~loc x v (infer c2)
 
   | Syntax.Ref c ->
      infer c >>= fun v ->
@@ -503,7 +500,6 @@ and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Conte
 
   | Syntax.Type
   | Syntax.Bound _
-  | Syntax.Dynamic _
   | Syntax.Function _
   | Syntax.Handler _
   | Syntax.External _
@@ -563,7 +559,7 @@ and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Conte
 
   | Syntax.Now (x,c1,c2) ->
     infer c1 >>= fun v ->
-    Value.now x v (check c2 t_check)
+    Value.now ~loc x v (check c2 t_check)
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
