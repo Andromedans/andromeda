@@ -14,7 +14,7 @@
 %token PROD LAMBDA
 
 (* Infix operations *)
-%token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXOP2 INFIXOP3 INFIXOP4
+%token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 INFIXOP3 INFIXOP4
 
 (* Equality types *)
 %token EQEQ
@@ -29,7 +29,7 @@
 %token LPAREN RPAREN
 %token LBRACE RBRACE
 %token LBRACK RBRACK
-%token COLON COLONCOLON COMMA
+%token COLON COMMA
 %token ARROW DARROW
 %token DOT
 
@@ -90,7 +90,7 @@
 %nonassoc COLONEQ
 %left     INFIXOP0
 %right    INFIXOP1
-%right    COLONCOLON
+%right    INFIXCONS
 %left     INFIXOP2
 %left     INFIXOP3
 %right    INFIXOP4
@@ -181,7 +181,8 @@ binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
   | e=plain_app_term                                { e }
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
-  | e1=binop_term COLONCOLON e2=binop_term          { Cons (e1, e2) }
+  | e2=binop_term op=INFIXCONS e3=binop_term
+    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
   | e2=binop_term op=INFIXOP0 e3=binop_term
     { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
   | e2=binop_term op=INFIXOP1 e3=binop_term
@@ -373,8 +374,8 @@ plain_binop_pattern:
     { Patt_Data (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP1 e2=binop_pattern
     { Patt_Data (fst op, [e1; e2]) }
-  | e1=binop_pattern COLONCOLON  e2=binop_pattern
-    { Patt_Cons (e1, e2) }
+  | e1=binop_pattern op=INFIXCONS  e2=binop_pattern
+    { Patt_Data (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP2 e2=binop_pattern
     { Patt_Data (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP3 e2=binop_pattern

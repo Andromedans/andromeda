@@ -41,8 +41,6 @@ and pattern' =
   | Patt_Dyn of Value.dyn
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Data of Name.ident * pattern list
-  | Patt_Nil
-  | Patt_Cons of pattern * pattern
   | Patt_Tuple of pattern list
 
 (** Desugared computations *)
@@ -54,8 +52,6 @@ and comp' =
   | Function of Name.ident * comp
   | Handler of handler
   | Data of Name.ident * comp list
-  | Nil
-  | Cons of comp * comp
   | Tuple of comp list
   | Operation of Name.ident * comp list
   | With of comp * comp

@@ -14,6 +14,7 @@ val parenthesize : at_level:t -> max_level:t -> bool
 type infix =
   | Infix0
   | Infix1
+  | InfixCons
   | Infix2
   | Infix3
   | Infix4

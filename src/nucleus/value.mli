@@ -32,7 +32,6 @@ type value = private
   | Closure of (value,value) closure
   | Handler of handler
   | Tag of Name.ident * value list
-  | List of value list
   | Tuple of value list
   | Ref of ref
   | String of string (** NB: strings are opaque to the user, ie not lists *)
@@ -60,8 +59,6 @@ val mk_string : string -> value
 val mk_ident : Name.ident -> value
 
 val mk_list : value list -> value
-val list_nil : value
-val list_cons : value -> value list -> value
 
 val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 

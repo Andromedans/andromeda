@@ -72,6 +72,7 @@ let symbolchar = [%sedlex.regexp?  ('!' | '$' | '%' | '&' | '*' | '+' | '-' | '.
 let prefixop = [%sedlex.regexp? ('~' | '?' | '!'), Star symbolchar ]
 let infixop0 = [%sedlex.regexp? ('=' | '<' | '>' | '|' | '&' | '$'), Star symbolchar]
 let infixop1 = [%sedlex.regexp? ('@' | '^'), Star symbolchar ]
+let infixcons = [%sedlex.regexp? "::"]
 let infixop2 = [%sedlex.regexp? ('+' | '-'), Star symbolchar ]
 let infixop3 = [%sedlex.regexp? ('*' | '/' | '%'), Star symbolchar ]
 let infixop4 = [%sedlex.regexp? "**", Star symbolchar ]
@@ -116,7 +117,6 @@ and token_aux ({ stream;_ } as lexbuf) =
   | '}'                      -> f (); RBRACE
   | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
-  | "::"                     -> f (); COLONCOLON
   | ','                      -> f (); COMMA
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in
                                                let s = String.sub s 1 (String.length s - 1) in
@@ -136,6 +136,8 @@ and token_aux ({ stream;_ } as lexbuf) =
                                                 Name.make ~fixity:(Name.Infix Level.Infix0) s, Location.of_lexeme lexbuf)
   | infixop1                 -> f (); INFIXOP1 (let s = lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix1) s, Location.of_lexeme lexbuf)
+  | infixcons                -> f (); INFIXCONS(let s = lexeme lexbuf in
+                                                Name.make ~fixity:(Name.Infix Level.InfixCons) s, Location.of_lexeme lexbuf)
   | infixop2                 -> f (); INFIXOP2 (let s = lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix2) s, Location.of_lexeme lexbuf)
   (* Comes before infixop3 because ** matches the infixop3 pattern too *)

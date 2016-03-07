@@ -20,6 +20,12 @@ type constant = ident
 type data = ident
 type operation = ident
 
+(** The name of empty list *)
+val nil : ident
+
+(** The name of the cons constructor *)
+val cons : ident
+
 (** Print a name. *)
 val print_ident : ?parentheses:bool -> ident -> Format.formatter -> unit
 

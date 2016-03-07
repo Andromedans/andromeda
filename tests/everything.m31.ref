@@ -139,6 +139,8 @@ data dummy 0
 data lazy 0
 data eager 0
 data ( !! ) 1
+data [] 0
+data ( :: ) 2
 data Constrained 1
 data Unconstrained 1
 data None 0

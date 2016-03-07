@@ -253,27 +253,15 @@ and collect_pattern env xvs {Syntax.term=p;loc} v =
   | Syntax.Patt_Data (tag, ps), Value.Tag (tag', vs) when Name.eq_ident tag tag' ->
     multicollect_pattern env xvs ps vs
 
-  | Syntax.Patt_Nil, Value.List [] ->
-    xvs
-
-  | Syntax.Patt_Cons (p1,p2), Value.List (v1::v2) ->
-    let xvs = collect_pattern env xvs p1 v1 in
-    let xvs = collect_pattern env xvs p2 (Value.mk_list v2) in
-    xvs
-
   | Syntax.Patt_Tuple ps, Value.Tuple vs ->
     multicollect_pattern env xvs ps vs
 
   | Syntax.Patt_Jdg _, (Value.Closure _ | Value.Handler _ |
-                        Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _ | Value.Ident _)
+                        Value.Tag _ | Value.Ref _ | Value.Tuple _ | Value.String _ | Value.Ident _)
   | Syntax.Patt_Data _, (Value.Term _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List _ | Value.Tuple _ | Value.String _ | Value.Ident _)
-  | Syntax.Patt_Nil, (Value.Term _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List (_::_) | Value.Tuple _ | Value.String _ | Value.Ident _)
-  | Syntax.Patt_Cons _, (Value.Term _ | Value.Closure _ |
-                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.List [] | Value.Tuple _ | Value.String _ | Value.Ident _)
+                        Value.Handler _ | Value.Tag _ | Value.Ref _ | Value.Tuple _ | Value.String _ | Value.Ident _)
   | Syntax.Patt_Tuple _, (Value.Term _ | Value.Closure _ | Value.Handler _ | Value.Tag _ | Value.Ref _ |
-                          Value.List _ | Value.String _ | Value.Ident _) ->
+                          Value.String _ | Value.Ident _) ->
      raise Match_fail
 
 and multicollect_pattern env xvs ps vs =

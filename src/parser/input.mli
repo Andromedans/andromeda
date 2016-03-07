@@ -37,7 +37,6 @@ and pattern' =
   | Patt_Name of Name.ident
   | Patt_Jdg of tt_pattern * tt_pattern
   | Patt_Data of Name.ident * pattern list
-  | Patt_Cons of pattern * pattern
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
 
@@ -52,7 +51,6 @@ and term' =
   (* computations *)
   | Handle of comp * handle_case list
   | With of expr * comp
-  | Cons of comp * comp
   | List of comp list
   | Tuple of comp list
   | Match of comp * match_case list

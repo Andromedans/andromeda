@@ -5,6 +5,7 @@ let parenthesize ~at_level ~max_level = max_level < at_level
 type infix =
   | Infix0
   | Infix1
+  | InfixCons
   | Infix2
   | Infix3
   | Infix4
@@ -28,6 +29,7 @@ let infix = function
   | Infix4 -> (200, 199, 200)
   | Infix3 -> (300, 300, 299)
   | Infix2 -> (400, 400, 399)
+  | InfixCons -> (450, 449, 450)
   | Infix1 -> (500, 499, 500)
   | Infix0 -> (600, 600, 599)
 

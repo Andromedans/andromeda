@@ -40,6 +40,9 @@ let is_anonymous = function
 
 let make ?(fixity=Word) s = Ident (s, fixity)
 
+let nil = make "[]"
+let cons = make ~fixity:(Infix Level.InfixCons) "::"
+
 let fresh =
   let counter = ref (-1) in
   function Ident (s, fixity) ->

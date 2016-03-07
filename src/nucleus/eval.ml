@@ -72,14 +72,6 @@ let rec infer {Syntax.term=c'; loc} =
        in
        fold [] cs
 
-    | Syntax.Nil ->
-       Value.return Value.list_nil
-
-    | Syntax.Cons (c1, c2) ->
-       infer c1 >>= fun v1 ->
-       infer c2 >>= as_list ~loc >>= fun lst ->
-       Value.return (Value.list_cons v1 lst)
-
     | Syntax.Tuple cs ->
       let rec fold vs = function
         | [] -> Value.return (Value.mk_tuple (List.rev vs))
@@ -214,7 +206,7 @@ let rec infer {Syntax.term=c'; loc} =
       | Value.Closure f ->
         infer c2 >>= fun v ->
         Value.apply_closure f v
-      | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Tuple _ |
+      | Value.Handler _ | Value.Tag _ | Value.Tuple _ |
         Value.Ref _ | Value.String _ | Value.Ident _ as h ->
         Error.runtime ~loc "cannot apply %s" (Value.name_of h)
     end
@@ -516,8 +508,6 @@ and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Conte
   | Syntax.Handler _
   | Syntax.External _
   | Syntax.Data _
-  | Syntax.Nil
-  | Syntax.Cons _
   | Syntax.Tuple _
   | Syntax.Where _
   | Syntax.With _

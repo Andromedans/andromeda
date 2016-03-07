@@ -277,18 +277,13 @@ and pattern bound vars n (p,loc) =
           Error.syntax ~loc "only data constructors can be applied in general patterns"
       end
 
-    | Input.Patt_Cons (p1, p2) ->
-      let p1, vars, n = pattern bound vars n p1 in
-      let p2, vars, n = pattern bound vars n p2 in
-      mark (Syntax.Patt_Cons (p1,p2)) loc, vars, n
-
     | Input.Patt_List ps ->
        let rec fold ~loc vars n = function
-         | [] -> mark Syntax.Patt_Nil loc, vars, n
+         | [] -> mark (Syntax.Patt_Data (Name.nil, [])) loc, vars, n
          | p :: ps ->
             let p, vars, n = pattern bound vars n p in
             let ps, vars, n = fold ~loc:(p.Syntax.loc) vars n ps in
-            mark (Syntax.Patt_Cons (p, ps)) loc, vars, n
+            mark (Syntax.Patt_Data (Name.cons, [p; ps])) loc, vars, n
        in
        fold ~loc vars n ps
 
@@ -495,18 +490,13 @@ let rec comp ~yield bound (c',loc) =
 
   | Input.List cs ->
      let rec fold ~loc = function
-       | [] -> mark Syntax.Nil loc
+       | [] -> mark (Syntax.Data (Name.nil, [])) loc
        | c :: cs ->
           let c = comp ~yield bound c in
           let cs = fold ~loc:(c.Syntax.loc) cs in
-          mark (Syntax.Cons (c, cs)) loc
+          mark (Syntax.Data (Name.cons, [c; cs])) loc
      in
      fold ~loc cs
-
-  | Input.Cons (e1, e2) ->
-    let e1 = comp ~yield bound e1 in
-    let e2 = comp ~yield bound e2 in
-    mark (Syntax.Cons (e1,e2)) loc
 
   | Input.Tuple cs ->
     let lst = List.map (comp ~yield bound) cs in

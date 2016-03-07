@@ -67,7 +67,6 @@ and value =
   | Closure of (value, value) closure
   | Handler of handler
   | Tag of Name.ident * value list
-  | List of value list
   | Tuple of value list
   | Ref of ref
   | String of string
@@ -101,12 +100,16 @@ let name_some          = Name.make "Some"
 let name_none          = Name.make "None"
 let name_unconstrained = Name.make "Unconstrained"
 let name_constrained   = Name.make "Constrained"
+let name_cons          = Name.cons
+let name_nil           = Name.nil
 
 let predefined_tags = [
   (name_some,          1);
   (name_none,          0);
   (name_unconstrained, 1);
   (name_constrained,   1);
+  (name_cons,          2);
+  (name_nil,           0);
 ]
 
 let name_equal        = Name.make "equal"
@@ -132,9 +135,9 @@ let mk_tuple lst = Tuple lst
 let mk_string s = String s
 let mk_ident x = Ident x
 
-let mk_list lst = List lst
-let list_nil = List []
-let list_cons v lst = List (v :: lst)
+let rec mk_list = function
+  | [] -> mk_tag name_nil []
+  | x :: xs -> mk_tag name_cons [x; mk_list xs]
 
 let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
@@ -216,7 +219,6 @@ let name_of v =
     | Closure _ -> "a function"
     | Handler _ -> "a handler"
     | Tag _ -> "a data tag"
-    | List _ -> "a list"
     | Tuple _ -> "a tuple"
     | Ref _ -> "a reference"
     | String _ -> "a string"
@@ -225,38 +227,49 @@ let name_of v =
 (** Coerce values *)
 let as_term ~loc = function
   | Term e -> e
-  | (Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+  | (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a term but got %s" (name_of v)
 
 let as_closure ~loc = function
   | Closure f -> f
-  | (Term _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+  | (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a closure but got %s" (name_of v)
 
 let as_handler ~loc = function
   | Handler h -> h
-  | (Term _ | Closure _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+  | (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a handler but got %s" (name_of v)
 
 let as_ref ~loc = function
   | Ref v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | String _ | Ident _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a ref but got %s" (name_of v)
 
 let as_string ~loc = function
   | String v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | Ident _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Ident _) as v ->
     Error.runtime ~loc "expected a string but got %s" (name_of v)
 
 let as_ident ~loc = function
   | Ident v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected an identifier but got %s" (name_of v)
 
-let as_list ~loc = function
-  | List lst -> lst
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
-    Error.runtime ~loc "expected a list but got %s" (name_of v)
+let rec as_list_opt = function
+  | Tag (t, []) when Name.eq_ident t name_nil -> Some []
+  | Tag (t, [x;xs]) when Name.eq_ident t name_cons ->
+     begin
+       match as_list_opt xs with
+       | None -> None
+       | Some xs -> Some (x :: xs)
+     end
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) ->
+     None
+
+let as_list ~loc v =
+  match as_list_opt v with
+  | Some lst -> lst
+  | None -> Error.runtime ~loc "expected a list but got %s" (name_of v)
 
 (** Wrappers for making tags *)
 let from_option = function
@@ -266,7 +279,7 @@ let from_option = function
 let as_option ~loc = function
   | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
-  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected an option but got %s" (name_of v)
 
 let from_constrain = function
@@ -276,7 +289,7 @@ let from_constrain = function
 let as_constrain ~loc = function
   | Tag (t,[x]) when (Name.eq_ident t name_unconstrained) -> Tt.Unconstrained x
   | Tag (t,[x]) when (Name.eq_ident t name_constrained) -> Tt.Constrained x
-  | (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
     Error.runtime ~loc "expected a constrain but got %s" (name_of v)
 
 (** Operations *)
@@ -512,11 +525,13 @@ let rec print_value_aux ?max_level ~penv refs v ppf =
 
   | Handler h -> Format.fprintf ppf "<handler>"
 
-  | Tag (t, lst) ->
-     print_tag ?max_level ~penv refs t lst ppf
-
-  | List lst -> Format.fprintf ppf "[%t]"
-                  (Print.sequence (print_value_aux ~penv refs) "," lst)
+  | Tag (t, lst) as v ->
+     begin
+       match as_list_opt v with
+       | Some lst -> Format.fprintf ppf "[%t]"
+                                    (Print.sequence (print_value_aux ~penv refs) "," lst)
+       | None ->  print_tag ?max_level ~penv refs t lst ppf
+     end
 
   | Tuple lst -> Format.fprintf ppf "(%t)"
                   (Print.sequence (print_value_aux ~penv refs) "," lst)
@@ -734,14 +749,6 @@ let rec equal_value v1 v2 =
         in
       fold vs1 vs2
 
-    | List lst1, List lst2 ->
-       let rec fold = function
-         | [], [] -> true
-         | v1 :: lst1, v2 :: lst2 -> equal_value v1 v2 && fold (lst1, lst2)
-         | [], _::_ | _::_, [] -> false
-       in
-       fold (lst1, lst2)
-
     | Tuple lst1, Tuple lst2 ->
        let rec fold = function
          | [], [] -> true
@@ -766,14 +773,13 @@ let rec equal_value v1 v2 =
        false
 
     (* At some level the following is a bit ridiculous *)
-    | Term _, (Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _)
-    | Closure _, (Term _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _)
-    | Handler _, (Term _ | Closure _ | Tag _ | List _ | Tuple _ | Ref _ | String _ | Ident _)
-    | Tag _, (Term _ | Closure _ | Handler _ | List _ | Tuple _ | Ref _ | String _ | Ident _)
-    | List _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _)
-    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Ref _ | String _ | Ident _)
-    | String _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | Ident _)
-    | Ident _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | Ref _ | String _)
-    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | List _ | Tuple _ | String _ | Ident _) ->
+    | Term _, (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _)
+    | Closure _, (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _)
+    | Handler _, (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _)
+    | Tag _, (Term _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _ | Ident _)
+    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _ | String _ | Ident _)
+    | String _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Ident _)
+    | Ident _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ident _) ->
       false
 
