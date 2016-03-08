@@ -162,7 +162,7 @@ let rec exec_cmd base_dir interactive c =
 
   | Syntax.TopNow (x,c) ->
     comp_value c >>= fun v ->
-    Value.top_now x v
+    Value.top_now ~loc x v
 
   | Syntax.TopDo c ->
      comp_value c >>= fun v ->

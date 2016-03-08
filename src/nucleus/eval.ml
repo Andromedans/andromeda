@@ -44,9 +44,6 @@ let rec infer {Syntax.term=c'; loc} =
     | Syntax.Bound i ->
        Value.lookup_bound ~loc i
 
-    | Syntax.Dynamic x ->
-       Value.lookup_dynamic_value x
-
     | Syntax.Type ->
        let e = Tt.mk_type ~loc in
        let t = Tt.mk_type_ty ~loc in
@@ -71,14 +68,6 @@ let rec infer {Syntax.term=c'; loc} =
             fold (v :: vs) cs
        in
        fold [] cs
-
-    | Syntax.Nil ->
-       Value.return Value.list_nil
-
-    | Syntax.Cons (c1, c2) ->
-       infer c1 >>= fun v1 ->
-       infer c2 >>= as_list ~loc >>= fun lst ->
-       Value.return (Value.list_cons v1 lst)
 
     | Syntax.Tuple cs ->
       let rec fold vs = function
@@ -138,7 +127,7 @@ let rec infer {Syntax.term=c'; loc} =
 
   | Syntax.Now (x,c1,c2) ->
     infer c1 >>= fun v ->
-    Value.now x v (infer c2)
+    Value.now ~loc x v (infer c2)
 
   | Syntax.Ref c ->
      infer c >>= fun v ->
@@ -214,7 +203,7 @@ let rec infer {Syntax.term=c'; loc} =
       | Value.Closure f ->
         infer c2 >>= fun v ->
         Value.apply_closure f v
-      | Value.Handler _ | Value.Tag _ | Value.List _ | Value.Tuple _ |
+      | Value.Handler _ | Value.Tag _ | Value.Tuple _ |
         Value.Ref _ | Value.String _ | Value.Ident _ as h ->
         Error.runtime ~loc "cannot apply %s" (Value.name_of h)
     end
@@ -511,13 +500,10 @@ and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Conte
 
   | Syntax.Type
   | Syntax.Bound _
-  | Syntax.Dynamic _
   | Syntax.Function _
   | Syntax.Handler _
   | Syntax.External _
   | Syntax.Data _
-  | Syntax.Nil
-  | Syntax.Cons _
   | Syntax.Tuple _
   | Syntax.Where _
   | Syntax.With _
@@ -573,7 +559,7 @@ and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Conte
 
   | Syntax.Now (x,c1,c2) ->
     infer c1 >>= fun v ->
-    Value.now x v (check c2 t_check)
+    Value.now ~loc x v (check c2 t_check)
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->

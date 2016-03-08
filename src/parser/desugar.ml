@@ -4,12 +4,11 @@
 module Bound = struct
 
   type bound_info =
-    | Val of int
+    | Val of int * Boundinfo.scoping
     | Const of Name.constant
     | Data of Name.data * int
     | Op of Name.operation * int
     | Sig of Name.signature
-    | Dyn of Value.dyn
 
   type t = { toplevel : (Name.ident * bound_info) list; locals : Name.ident list; depth : int }
 
@@ -17,12 +16,11 @@ module Bound = struct
   let compute_indices bound =
     let rec fold acc i = function
       | [] -> List.rev acc
-      | (x,Value.BoundVal) :: rem -> fold ((x,Val i)::acc) (i+1) rem
-      | (x,Value.BoundConst c) :: rem -> fold ((x,Const c)::acc) i rem
-      | (x,Value.BoundData (c,k)) :: rem -> fold ((x,Data (c,k))::acc) i rem
-      | (x,Value.BoundOp (op,k)) :: rem -> fold ((x,Op (op,k))::acc) i rem
-      | (x,Value.BoundSig s) :: rem -> fold ((x,Sig s)::acc) i rem
-      | (x,Value.BoundDyn y) :: rem -> fold ((x,Dyn y)::acc) i rem
+      | (x, Boundinfo.BoundVal scope) :: rem -> fold ((x,Val (i, scope))::acc) (i+1) rem
+      | (x, Boundinfo.BoundConst c) :: rem -> fold ((x,Const c)::acc) i rem
+      | (x, Boundinfo.BoundData (c,k)) :: rem -> fold ((x,Data (c,k))::acc) i rem
+      | (x, Boundinfo.BoundOp (op,k)) :: rem -> fold ((x,Op (op,k))::acc) i rem
+      | (x, Boundinfo.BoundSig s) :: rem -> fold ((x,Sig s)::acc) i rem
     in
     {toplevel = fold [] 0 bound; locals = []; depth = 0}
 
@@ -30,30 +28,32 @@ module Bound = struct
 
   let find ~loc x {toplevel;locals;depth} =
     match Name.index_of_ident x locals with
-      | Some i -> Val i
+      | Some i -> Val (i, Boundinfo.Lexical)
       | None ->
         begin match Name.assoc_ident x toplevel with
-          | Some (Val k) -> Val (k+depth)
-          | Some (Const _ | Data _ | Op _ | Sig _ | Dyn _ as b) -> b
+          | Some (Val (k, scope)) -> Val (k+depth, scope)
+          | Some (Const _ | Data _ | Op _ | Sig _ as b) -> b
           | None -> Error.syntax ~loc "Unknown name %t." (Name.print_ident x)
         end
 
   let get_dynamic ~loc x bound =
     match find ~loc x bound with
-      | Dyn y -> y
-      | Val _ | Const _ | Op _ | Data _ | Sig _ ->
-        Error.syntax ~loc "The variable %t is not a dynamic variable." (Name.print_ident x)
+      | Val (k, Boundinfo.Dynamic) -> k
+      | Val (_, Boundinfo.Lexical) ->
+        Error.syntax ~loc "The variable %t is not dynamic." (Name.print_ident x)
+      | Sig _ | Const _ | Op _ | Data _ ->
+        Error.syntax ~loc "The name %t is not a dynamic variable." (Name.print_ident x)
 
   let get_signature ~loc x bound =
     match find ~loc x bound with
       | Sig s -> s
-      | Val _ | Const _ | Op _ | Data _ | Dyn _ ->
-        Error.syntax ~loc "The variable %t is not a signature." (Name.print_ident x)
+      | Val _ | Const _ | Op _ | Data _ ->
+        Error.syntax ~loc "The name %t is not a signature." (Name.print_ident x)
 
   let get_operation ~loc x bound =
     match find ~loc x bound with
       | Op (op,k) -> op,k
-      | Val _ | Const _ | Data _ | Sig _ | Dyn _ ->
+      | Val _ | Const _ | Data _ | Sig _ ->
         Error.syntax ~loc "The name %t is not a operation." (Name.print_ident x)
 
 end
@@ -99,12 +99,11 @@ let rec tt_pattern bound vars n (p,loc) =
 
     | Input.Tt_Name x ->
       begin match Bound.find ~loc x bound with
-        | Bound.Val k -> mark (Syntax.Tt_Bound k) loc, vars, n
+        | Bound.Val (k,_) -> mark (Syntax.Tt_Bound k) loc, vars, n
         | Bound.Const c -> mark (Syntax.Tt_Constant c) loc, vars, n
         | Bound.Data _ -> Error.syntax ~loc "data constructor in a term pattern"
         | Bound.Op _ -> Error.syntax ~loc "operation in a term pattern"
         | Bound.Sig s -> mark (Syntax.Tt_Signature s) loc, vars, n
-        | Bound.Dyn y -> mark (Syntax.Tt_Dynamic y) loc, vars, n
       end
 
     | Input.Tt_Lambda (b,x,popt,p) ->
@@ -229,7 +228,7 @@ and pattern bound vars n (p,loc) =
 
     | Input.Patt_Name x ->
       begin match Bound.find ~loc x bound with
-        | Bound.Val k ->
+        | Bound.Val (k,_) ->
             mark (Syntax.Patt_Bound k) loc, vars, n
         | Bound.Data (c,k) ->
           if k = 0
@@ -244,8 +243,6 @@ and pattern bound vars n (p,loc) =
           let p = mark (Syntax.Tt_Signature s) loc in
           let pt = mark Syntax.Tt_Anonymous loc in
           mark (Syntax.Patt_Jdg (p,pt)) loc, vars, n
-        | Bound.Dyn y ->
-          mark (Syntax.Patt_Dyn y) loc, vars, n
         | Bound.Op _ ->
           Error.syntax ~loc "Operations are not valid patterns."
       end
@@ -273,22 +270,17 @@ and pattern bound vars n (p,loc) =
           else
             Error.syntax ~loc "the data constructor %t expects %d arguments but is matched with %d"
                          (Name.print_ident c) k l
-        | Bound.Val _ | Bound.Const _ | Bound.Op _ | Bound.Sig _ | Bound.Dyn _ ->
+        | Bound.Val _ | Bound.Const _ | Bound.Op _ | Bound.Sig _ ->
           Error.syntax ~loc "only data constructors can be applied in general patterns"
       end
 
-    | Input.Patt_Cons (p1, p2) ->
-      let p1, vars, n = pattern bound vars n p1 in
-      let p2, vars, n = pattern bound vars n p2 in
-      mark (Syntax.Patt_Cons (p1,p2)) loc, vars, n
-
     | Input.Patt_List ps ->
        let rec fold ~loc vars n = function
-         | [] -> mark Syntax.Patt_Nil loc, vars, n
+         | [] -> mark (Syntax.Patt_Data (Name.nil, [])) loc, vars, n
          | p :: ps ->
             let p, vars, n = pattern bound vars n p in
             let ps, vars, n = fold ~loc:(p.Syntax.loc) vars n ps in
-            mark (Syntax.Patt_Cons (p, ps)) loc, vars, n
+            mark (Syntax.Patt_Data (Name.cons, [p; ps])) loc, vars, n
        in
        fold ~loc vars n ps
 
@@ -447,7 +439,7 @@ let rec comp ~yield bound (c',loc) =
 
     | Input.Var x ->
       begin match Bound.find ~loc x bound with
-        | Bound.Val k -> mark (Syntax.Bound k) loc
+        | Bound.Val (k,_) -> mark (Syntax.Bound k) loc
         | Bound.Const c ->
           mark (Syntax.Constant c) loc
 
@@ -461,9 +453,6 @@ let rec comp ~yield bound (c',loc) =
 
         | Bound.Sig s ->
           mark (Syntax.Signature (s,[])) loc
-
-        | Bound.Dyn y ->
-          mark (Syntax.Dynamic y) loc
       end
 
   | Input.Type ->
@@ -495,18 +484,13 @@ let rec comp ~yield bound (c',loc) =
 
   | Input.List cs ->
      let rec fold ~loc = function
-       | [] -> mark Syntax.Nil loc
+       | [] -> mark (Syntax.Data (Name.nil, [])) loc
        | c :: cs ->
           let c = comp ~yield bound c in
           let cs = fold ~loc:(c.Syntax.loc) cs in
-          mark (Syntax.Cons (c, cs)) loc
+          mark (Syntax.Data (Name.cons, [c; cs])) loc
      in
      fold ~loc cs
-
-  | Input.Cons (e1, e2) ->
-    let e1 = comp ~yield bound e1 in
-    let e2 = comp ~yield bound e2 in
-    mark (Syntax.Cons (e1,e2)) loc
 
   | Input.Tuple cs ->
     let lst = List.map (comp ~yield bound) cs in
@@ -635,7 +619,7 @@ and spine ~yield bound ((c',loc) as c) cs =
     match c' with
       | Input.Var x ->
         begin match Bound.find ~loc x bound with
-          | Bound.Val i ->
+          | Bound.Val (i,_) ->
             mark (Syntax.Bound i) loc, cs
           | Bound.Const x ->
             mark (Syntax.Constant x) loc, cs
@@ -647,8 +631,6 @@ and spine ~yield bound ((c',loc) as c) cs =
             operation ~loc ~yield bound op cs', cs
           | Bound.Sig s ->
             mark (Syntax.Signature (s,[])) loc, cs
-          | Bound.Dyn y ->
-            mark (Syntax.Dynamic y) loc, cs
         end
 
       | _ -> comp ~yield bound c, cs
