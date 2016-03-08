@@ -114,7 +114,7 @@ and project ~loc env e s l =
   let e = term env e in
   match e.Tt.term with
     | Tt.Structure ((s',_) as str) when Tt.alpha_equal_sig s s' ->
-      begin match Value.get_signature (fst s) env with
+      begin match Runtime.get_signature (fst s) env with
         | Some s_def ->
           Tt.field_value ~loc s_def str l
         | None ->
@@ -139,8 +139,8 @@ and project ~loc env e s l =
 let context _ ctx = ctx
 
 let rec value env = function
-  | Value.Term (Jdg.Term (ctx,e,t)) -> Value.mk_term (Jdg.mk_term (context env ctx) (term env e) (ty env t))
-  | Value.Tag (x,vs) -> Value.mk_tag x (List.map (value env) vs)
-  | Value.Tuple lst -> Value.mk_tuple (List.map (value env) lst)
-  | Value.Ref _ | Value.Closure _ | Value.Handler _ | Value.String _ | Value.Ident _ as v -> v
+  | Runtime.Term (Jdg.Term (ctx,e,t)) -> Runtime.mk_term (Jdg.mk_term (context env ctx) (term env e) (ty env t))
+  | Runtime.Tag (x,vs) -> Runtime.mk_tag x (List.map (value env) vs)
+  | Runtime.Tuple lst -> Runtime.mk_tuple (List.map (value env) lst)
+  | Runtime.Ref _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.String _ | Runtime.Ident _ as v -> v
 

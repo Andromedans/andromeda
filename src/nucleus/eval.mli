@@ -1,6 +1,6 @@
 (** Evaluation of computations *)
 
-val infer : Syntax.comp -> Value.value Value.comp
+val infer : Syntax.comp -> Runtime.value Runtime.comp
 
-val check_ty : Syntax.comp -> Jdg.ty Value.comp
+val check_ty : Syntax.comp -> Jdg.ty Runtime.comp
 
