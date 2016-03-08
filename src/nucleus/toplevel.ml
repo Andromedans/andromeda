@@ -1,6 +1,3 @@
-
-let (>>=) = Value.bind
-
 let comp_value c =
   let r = Eval.infer c in
   Value.top_handle ~loc:c.Syntax.loc r
@@ -25,6 +22,7 @@ let comp_handle (xs,y,c) =
       fold2 xs vs)
 
 let comp_signature ~loc lxcs =
+  let (>>=) = Value.bind in
   let rec fold ys yts lxts = function
     | [] ->
        let lxts = List.rev lxts in
@@ -73,10 +71,10 @@ The syntax is vaguely Coq-like. The strict equality is written with a double ==.
 let (>>=) = Value.top_bind
 let return = Value.top_return
 
-let rec fold f acc = function
+let rec mfold f acc = function
   | [] -> return acc
   | x::rem -> f acc x >>= fun acc ->
-    fold f acc rem
+    mfold f acc rem
 
 and toplet_bind ~loc interactive xcs =
   let rec fold xvs = function
@@ -146,7 +144,7 @@ let rec exec_cmd base_dir interactive c =
       return ())
 
   | Syntax.TopHandle lst ->
-    fold (fun () (op, xc) ->
+    mfold (fun () (op, xc) ->
         comp_handle xc >>= fun f ->
         Value.add_handle op f) () lst
 
@@ -181,7 +179,7 @@ let rec exec_cmd base_dir interactive c =
      end
 
   | Syntax.Include (fs,once) ->
-    fold (fun () f ->
+    mfold (fun () f ->
          (* don't print deeper includes *)
          if interactive then Format.printf "#including %s@." f ;
            let f =
@@ -213,6 +211,6 @@ and use_file (filename, line_limit, interactive, once) =
       let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
       let base_dir = Filename.dirname filename in
       Value.push_file filename >>= fun () ->
-      fold (fun () c -> exec_cmd base_dir interactive c) () cmds
+      mfold (fun () c -> exec_cmd base_dir interactive c) () cmds
     end
 
