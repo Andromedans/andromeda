@@ -99,11 +99,11 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   then
     Opt.return ctx
   else
-    Monad.lift (Runtime.operation_equal
+    Monad.lift (Predefined.operation_equal
         (Runtime.mk_term (Jdg.mk_term ctx e1 t))
         (Runtime.mk_term (Jdg.mk_term ctx e2 t))) >!= fun v ->
     let loc = loc1 in
-    match Runtime.as_option ~loc v with
+    match Predefined.as_option ~loc v with
       | None -> Opt.fail
       | Some v ->
         let Jdg.Term (ctxeq,eq,teq) = Runtime.as_term ~loc v in
@@ -391,8 +391,8 @@ let as_eq (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
     | _ ->
-      Monad.lift (Runtime.operation_as_eq (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
-      begin match Runtime.as_option ~loc v with
+      Monad.lift (Predefined.operation_as_eq (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      begin match Predefined.as_option ~loc v with
         | None ->
           Monad.lift Runtime.print_ty >>= fun pty ->
           Error.typing ~loc "this expression should be an equality, found@ %t"
@@ -427,8 +427,8 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
     | _ ->
-      Monad.lift (Runtime.operation_as_prod (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
-      begin match Runtime.as_option ~loc v with
+      Monad.lift (Predefined.operation_as_prod (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      begin match Predefined.as_option ~loc v with
         | None ->
           Monad.lift Runtime.print_ty >>= fun pty ->
           Error.typing ~loc "this expression should be a product, found@ %t"
@@ -464,8 +464,8 @@ let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Signature s -> Monad.return (ctx, s)
     | _ ->
-      Monad.lift (Runtime.operation_as_signature (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
-      begin match Runtime.as_option ~loc v with
+      Monad.lift (Predefined.operation_as_signature (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      begin match Predefined.as_option ~loc v with
         | None ->
           Monad.lift Runtime.print_ty >>= fun pty ->
           Error.typing ~loc "this expression should be a signature, found@ %t"

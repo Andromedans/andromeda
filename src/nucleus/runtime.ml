@@ -23,8 +23,6 @@ type env = {
 and dynamic = {
   (* Toplevel declarations *)
   constants : (Name.constant * Tt.ty) list;
-  datas : (Name.data * int) list;
-  operations : (Name.operation * int) list;
   signatures : (Name.signature * Tt.sig_def) list;
 
   (* The list of judgments about atoms which are going to be abstracted. We
@@ -84,43 +82,7 @@ and handler = {
 
 and 'a continuation = Continuation of (value -> state -> 'a result * state)
 
-(** A toplevel computation carries around the current
-    environment. *)
-type topenv = {
-  runtime : env ;
-  typing : Boundinfo.ctx
-}
-
-type 'a toplevel = topenv -> 'a * topenv
-
-(** Predeclared *)
-let name_some          = Name.make "Some"
-let name_none          = Name.make "None"
-let name_unconstrained = Name.make "Unconstrained"
-let name_constrained   = Name.make "Constrained"
-let name_cons          = Name.cons
-let name_nil           = Name.nil
-
-let predefined_tags = [
-  (name_some,          1);
-  (name_none,          0);
-  (name_unconstrained, 1);
-  (name_constrained,   1);
-  (name_cons,          2);
-  (name_nil,           0);
-]
-
-let name_equal        = Name.make "equal"
-let name_as_prod      = Name.make "as_prod"
-let name_as_eq        = Name.make "as_eq"
-let name_as_signature = Name.make "as_signature"
-
-let predefined_ops = [
-  (name_equal       , 2) ;
-  (name_as_prod     , 1) ;
-  (name_as_eq       , 1) ;
-  (name_as_signature, 1) ;
-]
+type 'a toplevel = env -> 'a * env
 
 (** Make values *)
 let mk_term j =
@@ -132,10 +94,6 @@ let mk_tag t lst = Tag (t, lst)
 let mk_tuple lst = Tuple lst
 let mk_string s = String s
 let mk_ident x = Ident x
-
-let rec mk_list = function
-  | [] -> mk_tag name_nil []
-  | x :: xs -> mk_tag name_cons [x; mk_list xs]
 
 let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
@@ -185,8 +143,8 @@ let catch m env =
 (** Returns *)
 let top_return x env = x, env
 
-let top_mk_closure f topenv = Closure (mk_closure0 f topenv.runtime), topenv
-let top_return_closure f topenv = mk_closure0 f topenv.runtime, topenv
+let top_mk_closure f env = Closure (mk_closure0 f env), env
+let top_return_closure f env = mk_closure0 f env, env
 
 let return x env = Return x, env.state
 
@@ -253,64 +211,12 @@ let as_ident ~loc = function
   | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     Error.runtime ~loc "expected an identifier but got %s" (name_of v)
 
-let rec as_list_opt = function
-  | Tag (t, []) when Name.eq_ident t name_nil -> Some []
-  | Tag (t, [x;xs]) when Name.eq_ident t name_cons ->
-     begin
-       match as_list_opt xs with
-       | None -> None
-       | Some xs -> Some (x :: xs)
-     end
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) ->
-     None
-
-let as_list ~loc v =
-  match as_list_opt v with
-  | Some lst -> lst
-  | None -> Error.runtime ~loc "expected a list but got %s" (name_of v)
-
-(** Wrappers for making tags *)
-let from_option = function
-  | None -> Tag (name_none, [])
-  | Some v -> Tag (name_some, [v])
-
-let as_option ~loc = function
-  | Tag (t,[]) when (Name.eq_ident t name_none)  -> None
-  | Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
-    Error.runtime ~loc "expected an option but got %s" (name_of v)
-
-let from_constrain = function
-  | Tt.Unconstrained x -> Tag (name_unconstrained, [x])
-  | Tt.Constrained x -> Tag (name_constrained, [x])
-
-let as_constrain ~loc = function
-  | Tag (t,[x]) when (Name.eq_ident t name_unconstrained) -> Tt.Unconstrained x
-  | Tag (t,[x]) when (Name.eq_ident t name_constrained) -> Tt.Constrained x
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
-    Error.runtime ~loc "expected a constrain but got %s" (name_of v)
-
 (** Operations *)
 
 let operation op ?checking vs env =
   Operation (op, vs, checking, env.dynamic, mk_cont return env), env.state
 
-let operation_equal v1 v2 =
-  operation name_equal [v1;v2]
-
-let operation_as_prod v =
-  operation name_as_prod [v]
-
-let operation_as_eq v =
-  operation name_as_eq [v]
-
-let operation_as_signature v =
-  operation name_as_signature [v]
-
-
 (** Interact with the environment *)
-
-let top_bound_info topenv = topenv.typing, topenv
 
 let get_env env = Return env, env.state
 
@@ -385,52 +291,29 @@ let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
   in
   m ctx y env
 
-(* Does [x] appear in the [ys]? *)
-let is_known x ys =
-  match Name.assoc_ident x ys with
-    | Some _ -> true
-    | None -> false
+let add_operation0 ~loc x env =
+  { env with lexical = { env.lexical with forbidden = x :: env.lexical.forbidden } }
 
-let add_operation0 ~loc x k {runtime; typing} =
-  if is_known x runtime.dynamic.operations
-  then Error.runtime ~loc "operation %t is already declared" (Name.print_ident x)
-  else
-  { runtime = { runtime with dynamic = {runtime.dynamic with operations = (x, k) :: runtime.dynamic.operations };
-                             lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
-    typing = (x, Boundinfo.BoundOp (x, k)) :: typing }
+let add_operation ~loc x env = (), add_operation0 ~loc x env
 
-let add_operation ~loc x k topenv = (), add_operation0 ~loc x k topenv
+let add_data0 ~loc x env =
+  { env with lexical = { env.lexical with forbidden = x :: env.lexical.forbidden } }
 
-let add_data0 ~loc x k {runtime; typing} =
-  if is_known x runtime.dynamic.datas
-  then Error.runtime ~loc "data constructor %t is already declared" (Name.print_ident x)
-  else
-  { runtime = { runtime with dynamic = {runtime.dynamic with datas = (x, k) :: runtime.dynamic.datas };
-                             lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
-    typing = (x, Boundinfo.BoundData (x, k)) :: typing }
+let add_data ~loc x env = (), add_data0 ~loc x env
 
-let add_data ~loc x k env = (), add_data0 ~loc x k env
-
-let add_constant0 ~loc x t {runtime; typing} =
-  if is_known x runtime.dynamic.constants
-  then Error.runtime ~loc "constant %t is already declared" (Name.print_ident x)
-  else
-  { runtime = { runtime with dynamic = {runtime.dynamic with constants = (x, t) :: runtime.dynamic.constants };
-                             lexical = {runtime.lexical with forbidden = x :: runtime.lexical.forbidden } } ;
-    typing = (x, Boundinfo.BoundConst x) :: typing }
+let add_constant0 ~loc x t env =
+  { env with dynamic = {env.dynamic with constants = (x, t) :: env.dynamic.constants };
+             lexical = {env.lexical with forbidden = x :: env.lexical.forbidden } }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
 
-let add_signature0 ~loc s s_def {runtime; typing} =
-  if is_known s runtime.dynamic.signatures
-  then Error.runtime ~loc "signature %t is already declared" (Name.print_ident s)
-  else
-  { runtime = { runtime with dynamic = {runtime.dynamic with signatures = (s, s_def) :: runtime.dynamic.signatures };
-                             lexical = {runtime.lexical with forbidden = s :: runtime.lexical.forbidden } } ;
-    typing = (s, Boundinfo.BoundSig s) :: typing }
+let add_signature0 ~loc s s_def env =
+ { env with dynamic = {env.dynamic with signatures = (s, s_def) :: env.dynamic.signatures };
+            lexical = {env.lexical with forbidden = s :: env.lexical.forbidden } }
 
 let add_signature ~loc s s_def env = (), add_signature0 ~loc s s_def env
 
+(* XXX rename to bind_value *)
 let add_bound x v m env =
   let env = add_bound0 x v env in
   m env
@@ -453,12 +336,8 @@ let add_bound_rec lst m env =
 
 let push_bound = add_bound0
 
-let add_topbound ~loc x v {runtime; typing} =
-  let topenv =
-    { runtime = add_bound0 x v runtime;
-      typing = (x, Boundinfo.BoundVal Boundinfo.Lexical) :: typing }
-  in
-  (), topenv
+let add_topbound ~loc x v env =
+  (), add_bound0 x v env
 
 let now0 ~loc x v env =
   match List.nth env.lexical.bound x with
@@ -469,36 +348,29 @@ let now ~loc x v m env =
   let env = now0 ~loc x v env in
   m env
 
-let top_now ~loc x v topenv =
-  let topenv = { topenv with runtime = now0 ~loc x v topenv.runtime } in
-  (), topenv
+let top_now ~loc x v env =
+  let env = now0 ~loc x v env in
+  (), env
 
-let add_dynamic0 ~loc x v {runtime; typing} =
-  let y,vars = Store.Dyn.fresh v runtime.dynamic.vars in
-  { runtime = { runtime with dynamic = {runtime.dynamic with vars };
-                             lexical = {runtime.lexical with
-                                        bound = Dyn y :: runtime.lexical.bound;
-                                        forbidden = x :: runtime.lexical.forbidden } } ;
-    typing = (x, Boundinfo.BoundVal Boundinfo.Dynamic) :: typing }
+let add_dynamic0 ~loc x v env =
+  let y,vars = Store.Dyn.fresh v env.dynamic.vars in
+  { env with dynamic = {env.dynamic with vars };
+             lexical = {env.lexical with
+                        bound = Dyn y :: env.lexical.bound;
+                        forbidden = x :: env.lexical.forbidden } }
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 
-let add_handle0 op xsc topenv =
-  { topenv with
-    runtime = { topenv.runtime with
-                lexical = { topenv.runtime.lexical with
-                            handle = (op, xsc) :: topenv.runtime.lexical.handle } } }
+let add_handle0 op xsc env =
+  { env with lexical =
+               { env.lexical with
+                 handle = (op, xsc) :: env.lexical.handle } }
 
-let add_handle op xsc topenv = (), add_handle0 op xsc topenv
+let add_handle op xsc env = (), add_handle0 op xsc env
 
-let add_topbound_rec ~loc lst {runtime; typing} =
-  let topenv = 
-    { runtime = add_bound_rec0 lst runtime ;
-      typing = List.fold_left
-                 (fun typing (f,_) -> (f, Boundinfo.BoundVal Boundinfo.Lexical) :: typing)
-                 typing lst }
-  in
-  (), topenv
+let add_topbound_rec ~loc lst env =
+  let env = add_bound_rec0 lst env in
+  (), env
 
 (* This function for internal use *)
 let lookup_handle op {lexical={handle=lst;_};_} =
@@ -511,18 +383,14 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
     | Some cont -> apply_cont cont v env
     | None -> Error.impossible ~loc "No continuation"
 
-let push_file f topenv =
-  let topenv =
-  { topenv with
-    runtime = { topenv.runtime with
-                lexical = { topenv.runtime.lexical with
-                            files = (Filename.basename f) :: topenv.runtime.lexical.files } }
-  }
-  in 
-  (), topenv
+let push_file f env =
+  let env =
+    { env with lexical = { env.lexical with
+                           files = (Filename.basename f) :: env.lexical.files }} in
+  (), env
 
-let included f topenv =
-  List.mem (Filename.basename f) topenv.runtime.lexical.files, topenv
+let included f env =
+  List.mem (Filename.basename f) env.lexical.files, env
 
 (** Printers *)
 
@@ -549,11 +417,14 @@ let rec print_value_aux ?max_level ~penv refs v ppf =
   | Handler h -> Format.fprintf ppf "<handler>"
 
   | Tag (t, lst) as v ->
+     (* TODO: fix printing without creating a cycle with predefined.ml *)
      begin
-       match as_list_opt v with
-       | Some lst -> Format.fprintf ppf "[%t]"
-                                    (Print.sequence (print_value_aux ~penv refs) "," lst)
-       | None ->  print_tag ?max_level ~penv refs t lst ppf
+       ignore v;
+       (* match as_list_opt v with *)
+       (* | Some lst -> Format.fprintf ppf "[%t]" *)
+       (*                              (Print.sequence (print_value_aux ~penv refs) "," lst) *)
+       (* | None ->   *)
+       print_tag ?max_level ~penv refs t lst ppf
      end
 
   | Tuple lst -> Format.fprintf ppf "(%t)"
@@ -600,7 +471,7 @@ let print_value0 env ?max_level v ppf =
   Format.fprintf ppf "@[<hov>%t@]"
                  (print_value_aux ?max_level ~penv refs v)
 
-let top_print_value topenv = (print_value0 topenv.runtime), topenv
+let top_print_value env = (print_value0 env), env
 
 and print_operation env op vs ppf =
   let penv = get_penv env
@@ -640,7 +511,7 @@ let print_term env =
 let print_ty env =
   Return (fun ?max_level -> Tt.print_ty ~penv:(get_penv env) ?max_level), env.state
 
-let print_env topenv =
+let print_env env =
   let print env ppf =
     let penv = get_penv env in
     List.iter (fun (x,t) ->
@@ -648,26 +519,15 @@ let print_env topenv =
                           (Name.print_ident x)
                           (Tt.print_ty ~penv t))
       env.dynamic.constants ;
-    List.iter (fun (x,k) ->
-           Format.fprintf ppf "@[<hov 4>data %t %d@]@\n"
-                          (Name.print_ident x)
-                          k)
-      env.dynamic.datas ;
-    List.iter (fun (x,k) ->
-           Format.fprintf ppf "@[<hov 4>operation %t %d@]@\n"
-                          (Name.print_ident x)
-                          k)
-      env.dynamic.operations ;
     List.iter (fun (x,s) ->
            Format.fprintf ppf "@[<hov 4>signature %t %t@]@\n"
                        (Name.print_ident x)
                        (Tt.print_sig_def ~penv s))
       env.dynamic.signatures ;
   in
-  print topenv.runtime, topenv
+  print env, env
 
-(* The empty environment *)
-let empty_runtime = {
+let empty = {
   lexical = {
     forbidden = [] ;
     bound = [] ;
@@ -677,8 +537,6 @@ let empty_runtime = {
   } ;
   dynamic = {
     constants = [] ;
-    datas = [] ;
-    operations = [] ;
     signatures = [] ;
     abstracting = [] ;
     vars = Store.Dyn.empty ;
@@ -686,33 +544,10 @@ let empty_runtime = {
   state = Store.Ref.empty;
 }
 
-let empty = {
-  runtime = empty_runtime;
-  typing = []
-}
+type 'a progress = 'a * env
 
-let initialised =
-  let env = empty in
-  (* Declare predefined data constructors *)
-  let env = List.fold_left
-              (fun env (x, k) -> add_data0 ~loc:Location.unknown x k env)
-              env
-              predefined_tags
-  in
-  (* Declare predefined operations *)
-  let env = List.fold_left
-              (fun env (x, k) -> add_operation0 ~loc:Location.unknown x k env)
-              env
-              predefined_ops
-  in
-  env
-
-let run m = fst (m initialised)
-
-type 'a progress = 'a * topenv
-
-let initial m = m initialised
-let progress (x, env) f = f x env
+let start m = m empty
+let step (x, env) f = f x env
 let finish (x,_) = x
 
 (** Handling *)
@@ -741,7 +576,7 @@ let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp)
     | Some f -> apply_closure f v
     | None -> return v
 
-let top_handle ~loc r topenv =
+let top_handle ~loc r env =
   let rec handle r env =
     match r with
     | Return v, state -> v, state
@@ -756,8 +591,8 @@ let top_handle ~loc r topenv =
           handle (r env) env
        end
   in
-  let v, state = handle (r topenv.runtime) topenv.runtime in
-  v, {topenv with runtime = {topenv.runtime with state} }
+  let v, state = handle (r env) env in
+  v, { env with state }
 
 (** Equality *)
 let rec equal_value v1 v2 =

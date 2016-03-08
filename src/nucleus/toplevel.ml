@@ -1,3 +1,33 @@
+(** A toplevel computation carries around the current
+    environment. *)
+type topenv = {
+  runtime : env ;
+  typing : Boundinfo.ctx
+}
+
+type 'a toplevel = topenv -> 'a * topenv
+
+let empty = {
+  runtime = Runtime.empty;
+  typing = Mlty.Ctx.empty
+}
+
+let initialise_runtime =
+  (* Declare predefined data constructors *)
+  let env = List.fold_left
+              (fun env (x, k) -> add_data0 ~loc:Location.unknown x env)
+              Runtime.empty
+              predefined_tags
+  in
+  (* Declare predefined operations *)
+  let env = List.fold_left
+              (fun env (x, k) -> add_operation0 ~loc:Location.unknown x k env)
+              env
+              predefined_ops
+  in
+  env
+
+
 let comp_value c =
   let r = Eval.infer c in
   Runtime.top_handle ~loc:c.Syntax.loc r

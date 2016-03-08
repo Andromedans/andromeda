@@ -40,8 +40,6 @@ val mk_tuple : value list -> value
 val mk_string : string -> value
 val mk_ident : Name.ident -> value
 
-val mk_list : value list -> value
-
 val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 
 (** References *)
@@ -92,27 +90,9 @@ val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> ref
 val as_string : loc:Location.t -> value -> string
 val as_ident : loc:Location.t -> value -> Name.ident
-val as_list : loc:Location.t -> value -> value list
-
-(** Wrappers for making tags *)
-val from_option : value option -> value
-val as_option : loc:Location.t -> value -> value option
-
-val from_constrain : (value,value) Tt.constrain -> value
-val as_constrain : loc:Location.t -> value -> (value,value) Tt.constrain
 
 (** Operations *)
 val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
-
-val operation_equal : value -> value -> value comp
-
-val operation_as_prod : value -> value comp
-val operation_as_eq : value -> value comp
-val operation_as_signature : value -> value comp
-
-(** Interact with the environment *)
-
-val top_bound_info : Boundinfo.ctx toplevel
 
 (** Extract the current environment (for matching) *)
 val get_env : env comp
@@ -169,20 +149,16 @@ val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom 
 val add_abstracting: loc:Location.t -> ?bind:bool -> Name.ident -> Jdg.ty ->
                      (Context.t -> Name.atom -> 'a comp) -> 'a comp
 
-(** Add an operation with the given arity.
-    It fails if the operation is already declared. *)
-val add_operation : loc:Location.t -> Name.ident -> int -> unit toplevel
+(** Add an operation. *)
+val add_operation : loc:Location.t -> Name.ident -> unit toplevel
 
-(** Add a data constructor with the given arity.
-    It fails if the constructor is already declared. *)
-val add_data : loc:Location.t -> Name.ident -> int -> unit toplevel
+(** Add a data constructor. *)
+val add_data : loc:Location.t -> Name.ident -> unit toplevel
 
-(** Add a constant of a given type to the environment.
-    It fails if the constant is already declared. *)
+(** Add a constant of a given type to the environment. *)
 val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
 
-(** Add a signature declaration to the environment.
-    It fails if the signature is already declared. *)
+(** Add a signature declaration to the environment. *)
 val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit toplevel
 
 (** Add a bound variable with the given name to the environment. *)
@@ -212,14 +188,13 @@ val lookup_penv : Tt.print_env comp
 (** Print free variables in the environment *)
 val print_env : (Format.formatter -> unit) toplevel
 
-(** runs with starting environment already containing declarations used by the kernel *)
-val run : 'a toplevel -> 'a
 
 (** Used to compute command per command *)
 type 'a progress
 
-val initial : 'a toplevel -> 'a progress
-val progress : 'a progress -> ('a -> 'b toplevel) -> 'b progress
+(** runs with empty starting environment not containing declarations used by the kernel *)
+val start : 'a toplevel -> 'a progress
+val step : 'a progress -> ('a -> 'b toplevel) -> 'b progress
 val finish : 'a progress -> 'a
 
 (** Handling *)
