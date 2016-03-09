@@ -66,6 +66,9 @@
 
 %token IDENT
 
+(* Meta types *)
+%token JUDGEMENT
+
 (* REFERENCES *)
 %token BANG COLONEQ REF
 

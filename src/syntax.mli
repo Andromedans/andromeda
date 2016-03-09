@@ -108,23 +108,37 @@ and match_op_case = Name.ident list * pattern list * pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
+type aml_ty = aml_ty' * Location.t
+and aml_ty' =
+  | AML_ty_Arrow of aml_ty * aml_ty
+  | AML_ty_Prod of aml_ty list
+  | AML_ty_Apply of bound * aml_ty list
+  | AML_ty_Handler of aml_ty * aml_ty
+  | AML_ty_Judgement
+  | AML_ty_Param of bound
+
+type aml_schema = Forall of Name.ty list * aml_ty
+
+type decl_constructor = Name.constructor * aml_ty list
+
 (** Desugared toplevel commands *)
 (* TODO: change to marked *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | DeclOperation of Name.ident * int
-  | DeclData of Name.ident * int
-  | DeclConstants of Name.ident list * comp (** introduce constants *)
+  | DeclType of Name.ty * Name.ty list * decl_constructor list
+  | DeclOperation of Name.ident * Name.ty list * aml_ty list * aml_ty
+  | DeclConstants of Name.ident list * comp
   | DeclSignature of Name.signature * (Name.label * Name.ident * comp) list
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
   | TopDynamic of Name.ident * comp
   | TopNow of bound * comp
-  | TopDo of comp (** evaluate a computation *)
+  | TopDo of comp
   | TopFail of comp Lazy.t (** desugaring is suspended to allow catching errors *)
   | Verbosity of int
-  | Include of string list * bool (** the boolean is [true] if the files should be included only once *)
+  | Include_begin of string
+  | Include_end of string
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)

@@ -3,17 +3,18 @@ open Parser
 open Ulexbuf
 
 let reserved = [
+  ("Type", TYPE) ;
   ("_", UNDERSCORE) ;
-  ("_sig", USIG) ;
-  ("_struct", USTRUCT) ;
-  ("_proj", UPROJ) ;
   ("_atom", UATOM) ;
   ("_constant", UCONSTANT) ;
+  ("_proj", UPROJ) ;
+  ("_sig", USIG) ;
+  ("_struct", USTRUCT) ;
+  ("and", AND) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
-  ("and", AND) ;
-  ("constant", CONSTANT) ;
   ("congruence", CONGRUENCE) ;
+  ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("data", DATA) ;
   ("do", DO) ;
@@ -21,36 +22,36 @@ let reserved = [
   ("end", END) ;
   ("extensionality", EXTENSIONALITY);
   ("external", EXTERNAL) ;
-  ("finally", FINALLY) ;
   ("fail", FAIL) ;
+  ("finally", FINALLY) ;
+  ("forall", PROD) ;
+  ("judgement", JUDGEMENT) ;
+  ("fun", FUNCTION) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("hypotheses", HYPOTHESES) ;
+  ("ident", IDENT) ;
+  ("in", IN) ;
+  ("lambda", LAMBDA) ;
   ("let", LET) ;
   ("match", MATCH) ;
   ("now", NOW) ;
-  ("reduction", REDUCTION) ;
-  ("forall", PROD) ;
-  ("yield", YIELD) ;
-  ("fun", FUNCTION) ;
-  ("lambda", LAMBDA) ;
-  ("ident", IDENT) ;
-  ("in", IN) ;
   ("occurs", OCCURS) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
+  ("reduction", REDUCTION) ;
   ("ref", REF) ;
   ("refl", REFL) ;
   ("signature", SIGNATURE) ;
-  ("Type", TYPE) ;
   ("val", VAL) ;
   ("where", WHERE) ;
   ("with", WITH) ;
-  ("∀", PROD) ;
+  ("yield", YIELD) ;
   ("Π", PROD) ;
-  ("∏", PROD) ;
   ("λ", LAMBDA) ;
-  ("⊢", VDASH)
+  ("∀", PROD) ;
+  ("∏", PROD) ;
+  ("⊢", VDASH) ;
 ]
 
 let ascii_name =

@@ -111,11 +111,23 @@ and match_op_case = pattern list * pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
+type aml_ty = aml_ty' * Location.t
+and aml_ty' =
+  | AML_ty_Arrow of aml_ty * aml_ty
+  | AML_ty_Prod of aml_ty list
+  | AML_ty_Apply of Name.ty * aml_ty list
+  | AML_ty_Handler of aml_ty * aml_ty
+  | AML_ty_Judgement
+
+type aml_schema = Forall of Name.ty list * aml_ty
+
+type decl_constructor = Name.constructor * aml_ty list
+
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | DeclOperation of Name.ident * int
-  | DeclData of Name.ident * int
+  | DeclType of Name.ty * Name.ty list * decl_constructor list
+  | DeclOperation of Name.ident * Name.ty list * aml_ty list * aml_ty
   | DeclConstants of Name.ident list * ty
   | DeclSignature of Name.signature * (Name.label * Name.ident option * ty) list
   | TopHandle of (Name.ident * top_op_case) list

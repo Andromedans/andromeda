@@ -1,7 +1,8 @@
 (** A toplevel computation carries around the current
     environment. *)
-type topenv = {
-  runtime : unit Runtime.toplevel ;
+type state = {
+  desugar : Desugar.ctx ;
+  runtime : Runtime.env ;
   typing : Mlty.Ctx.t
 }
 
@@ -82,21 +83,6 @@ let rec mfold f acc = function
   | [] -> return acc
   | x::rem -> f acc x >>= fun acc ->
      mfold f acc rem
-
-let add_predefined_runtime =
-  (* Declare predefined data constructors *)
-  mfold
-    (fun () (x, _) -> Runtime.add_data ~loc:Location.unknown x)
-    ()
-    Predefined.predefined_tags
-  >>= fun () ->
-  (* Declare predefined operations *)
-  mfold
-    (fun () (x, _) -> Runtime.add_operation ~loc:Location.unknown x)
-    ()
-    Predefined.predefined_ops
-
-let initial = ()
 
 let toplet_bind ~loc interactive xcs =
   let rec fold xvs = function
