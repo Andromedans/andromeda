@@ -9,7 +9,7 @@ let files = ref []
 
 (** Add a file to the list of files to be loaded, and record whether it should
     be processed in interactive mode. *)
-let add_file ?lim ~once interactive filename = (files := (filename, lim, interactive, once) :: !files)
+let add_file interactive filename = (files := (filename, interactive) :: !files)
 
 (** Command-line options *)
 let options = Arg.align [
@@ -69,35 +69,24 @@ let options = Arg.align [
      " Do not run the interactive toplevel");
 
     ("-l",
-     Arg.String (fun str -> add_file ~once:false false str),
+     Arg.String (fun str -> add_file false str),
      "<file> Load <file> into the initial environment");
-
-    ("--lim-file",
-     Arg.Tuple
-       (let lim = ref 0 in
-        [Arg.Set_int lim;
-         Arg.String
-           (fun fn ->
-            Config.interactive_shell := false ;
-            add_file ~lim:!lim ~once:false true fn)]),
-     "<lim> <file> Process <file> up to the end of the statement at character\
-      <lim>, do not enter interactive mode");
   ]
 
 (** Interactive toplevel *)
-let toplevel cmp =
+let interactive_shell state =
   Format.printf "Andromeda %s@\n[Type #help for help.]@." Build.version ;
-  let rec fold state =
+  let rec loop state =
     let state =
       try
         let cmd = Toplevel.parse Lexer.read_toplevel Parser.commandline () in
-        Runtime.progress state (fun () -> Toplevel.exec_cmd Filename.current_dir_name true cmd)
+        Toplevel.exec_cmd Filename.current_dir_name true cmd state
       with
       | Error.Error err -> Print.error "%t" (Error.print err); state
       | Sys.Break -> Format.eprintf "Interrupted.@."; state
-    in fold state
+    in loop state
   in
-  fold (Runtime.initial cmp)
+  loop state
 
 (** Main program *)
 let main =
@@ -105,7 +94,7 @@ let main =
   (* Parse the arguments. *)
   Arg.parse
     options
-    (fun str -> add_file ~once:false true str ; Config.interactive_shell := false)
+    (fun str -> add_file true str ; Config.interactive_shell := false)
     usage ;
   (* Attempt to wrap yourself with a line-editing wrapper. *)
   if !Config.interactive_shell then
@@ -130,7 +119,7 @@ let main =
   begin
     match !Config.prelude_file with
     | Config.PreludeNone -> ()
-    | Config.PreludeFile f -> add_file ~once:false false f
+    | Config.PreludeFile f -> add_file false f
     | Config.PreludeDefault ->
       (* look for prelude next to the executable and in the , don't whine if it is not there *)
       try
@@ -138,7 +127,7 @@ let main =
         let d' = Filename.dirname Sys.argv.(0) in
         let l = List.map (fun d -> Filename.concat d "prelude.m31") [d; d'] in
         let f = List.find (fun f ->  Sys.file_exists f) l in
-        add_file ~once:false false f
+        add_file false f
       with Not_found -> ()
   end ;
 
@@ -146,11 +135,17 @@ let main =
   Format.set_max_boxes !Config.max_boxes ;
   Format.set_ellipsis_text "..." ;
   try
+
     (* Run and load all the specified files. *)
-    let comp = Runtime.top_fold (fun () f -> Toplevel.use_file f) () !files in
+    let topstate =
+      List.fold_left
+        (fun topstate (fn, interactive) -> Toplevel.use_file ~fn ~interactive topstate)
+        Toplevel.initial !files in
+
     if !Config.interactive_shell
-      then toplevel comp
-      else Runtime.run comp
+      then interactive_shell topstate
+      else ()
+
   with
     | Error.Error err -> Print.error "%t" (Error.print err); exit 1
     | End_of_file -> ()

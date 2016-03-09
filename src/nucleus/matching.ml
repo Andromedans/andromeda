@@ -129,7 +129,7 @@ let rec collect_tt_pattern env xvs {Syntax.term = p'; _} ctx ({Tt.term=e';loc;_}
         let rec fold ctx shares res ys = function
           | [] ->
             let js = Jdg.term_of_ty (Jdg.mk_ty Context.empty (Tt.mk_signature_ty ~loc (s,List.rev shares))) in
-            Runtime.mk_tuple [Runtime.mk_term js;Runtime.mk_list (List.rev res)]
+            Runtime.mk_tuple [Runtime.mk_term js; Predefined.mk_list (List.rev res)]
           | (l,x,t)::rem ->
             let t = Tt.unabstract_ty ys t in
             let y,ctx = Context.add_fresh ctx x t in
@@ -141,20 +141,20 @@ let rec collect_tt_pattern env xvs {Syntax.term = p'; _} ctx ({Tt.term=e';loc;_}
         (* Build a representation of the constraints *)
         let rec fold ctx lv es ys = function
           | [] ->
-            let lv = Runtime.mk_list (List.rev lv) in
+            let lv = Predefined.mk_list (List.rev lv) in
             Runtime.mk_tuple [vbase;lv]
           | ((_,_,t),(Tt.Unconstrained x))::rem ->
             let t = Tt.instantiate_ty es t in
             let y,ctx = Context.add_fresh ctx x t in
             let y = Tt.mk_atom ~loc y in
             let jy = Jdg.mk_term ctx y t in
-            let v = Runtime.from_constrain (Tt.Unconstrained (Runtime.mk_term jy)) in
+            let v = Predefined.from_constrain (Tt.Unconstrained (Runtime.mk_term jy)) in
             fold ctx (v::lv) (y::es) (y::ys) rem
           | ((_,_,t),(Tt.Constrained e))::rem ->
             let t = Tt.instantiate_ty es t
             and e = Tt.instantiate ys e in
             let je = Jdg.mk_term ctx e t in
-            let v = Runtime.from_constrain (Tt.Constrained (Runtime.mk_term je)) in
+            let v = Predefined.from_constrain (Tt.Constrained (Runtime.mk_term je)) in
             fold ctx (v::lv) (e::es) ys rem
         in
         let v = fold ctx [] [] [] (List.combine s_def shares) in
@@ -170,7 +170,7 @@ let rec collect_tt_pattern env xvs {Syntax.term = p'; _} ctx ({Tt.term=e';loc;_}
         (* build the list of explicit terms
            [es] instantiate the types *)
         let rec fold vs es = function
-          | [] -> Runtime.mk_list (List.rev vs)
+          | [] -> Predefined.mk_list (List.rev vs)
           | ((_,_,t),e)::rem ->
             begin match e with
               | Tt.Explicit e ->
@@ -284,8 +284,8 @@ let match_op_pattern ps pt vs checking =
       | None -> xvs
       | Some p ->
         let v = match checking with
-          | Some j -> Runtime.from_option (Some (Runtime.mk_term (Jdg.term_of_ty j)))
-          | None -> Runtime.from_option None
+          | Some j -> Predefined.from_option (Some (Runtime.mk_term (Jdg.term_of_ty j)))
+          | None -> Predefined.from_option None
        in
        collect_pattern env xvs p v
     in

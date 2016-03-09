@@ -31,7 +31,7 @@ let as_ref ~loc v =
   Runtime.return e
 
 let as_list ~loc v =
-  let lst = Runtime.as_list ~loc v in
+  let lst = Predefined.as_list ~loc v in
   Runtime.return lst
 
 let as_ident ~loc v =
@@ -314,7 +314,7 @@ let rec infer {Syntax.term=c'; loc} =
 
   | Syntax.Hypotheses ->
      Runtime.lookup_abstracting >>= fun lst ->
-     let v = Runtime.mk_list lst in
+     let v = Predefined.mk_list lst in
      Runtime.return v
 
   | Syntax.Congruence (c1,c2) ->
@@ -327,8 +327,8 @@ let rec infer {Syntax.term=c'; loc} =
         let teq = Tt.mk_eq_ty ~loc t e1 e2 in
         let j = Jdg.mk_term ctx eq teq in
         let v = Runtime.mk_term j in
-        Runtime.return (Runtime.from_option (Some v))
-      | None -> Runtime.return (Runtime.from_option None)
+        Runtime.return (Predefined.from_option (Some v))
+      | None -> Runtime.return (Predefined.from_option None)
       end
 
   | Syntax.Extensionality (c1,c2) ->
@@ -341,8 +341,8 @@ let rec infer {Syntax.term=c'; loc} =
         let teq = Tt.mk_eq_ty ~loc t e1 e2 in
         let j = Jdg.mk_term ctx eq teq in
         let v = Runtime.mk_term j in
-        Runtime.return (Runtime.from_option (Some v))
-      | None -> Runtime.return (Runtime.from_option None)
+        Runtime.return (Predefined.from_option (Some v))
+      | None -> Runtime.return (Predefined.from_option None)
       end
 
   | Syntax.Reduction c ->
@@ -354,8 +354,8 @@ let rec infer {Syntax.term=c'; loc} =
             let eq = Tt.mention_atoms hyps eq in
             let teq = Tt.mk_eq_ty ~loc t e e' in
             let eqj = Jdg.mk_term ctx eq teq in
-            Runtime.return (Runtime.from_option (Some (Runtime.mk_term eqj)))
-         | None -> Runtime.return (Runtime.from_option None)
+            Runtime.return (Predefined.from_option (Some (Runtime.mk_term eqj)))
+         | None -> Runtime.return (Predefined.from_option None)
        end
 
   | Syntax.String s ->
@@ -378,7 +378,7 @@ let rec infer {Syntax.term=c'; loc} =
           let j = Jdg.term_of_ty (Jdg.mk_ty ctx e) in
           Runtime.return_term j
         | (l,_,t)::def, xe::xes ->
-          begin match Runtime.as_constrain ~loc xe with
+          begin match Predefined.as_constrain ~loc xe with
             | Tt.Unconstrained vx ->
               as_atom ~loc vx >>= fun (ctx',y,ty) ->
               let t = Tt.instantiate_ty es t in
@@ -460,9 +460,9 @@ let rec infer {Syntax.term=c'; loc} =
     begin match Context.lookup_ty x ctx with
       | Some t ->
         let j = Jdg.term_of_ty (Jdg.mk_ty ctx t) in
-        Runtime.return (Runtime.from_option (Some (Runtime.mk_term j)))
+        Runtime.return (Predefined.from_option (Some (Runtime.mk_term j)))
       | None ->
-        Runtime.return (Runtime.from_option None)
+        Runtime.return (Predefined.from_option None)
     end
 
   | Syntax.Context c ->
@@ -472,7 +472,7 @@ let rec infer {Syntax.term=c'; loc} =
       let e = Tt.mk_atom ~loc x in
       let j = Jdg.mk_term ctx e t in
       Runtime.mk_term j) xts in
-    Runtime.return (Runtime.mk_list js)
+    Runtime.return (Predefined.mk_list js)
 
   | Syntax.Ident x ->
     Runtime.return (Runtime.mk_ident x)

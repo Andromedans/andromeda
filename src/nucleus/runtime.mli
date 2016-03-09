@@ -29,6 +29,8 @@ type 'a comp
 (** state environment, no operations *)
 type 'a toplevel
 
+val empty : env
+
 (** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
 val name_of : value -> string
 

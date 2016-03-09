@@ -1,32 +1,11 @@
 (** A toplevel computation carries around the current
     environment. *)
 type topenv = {
-  runtime : env ;
-  typing : Boundinfo.ctx
+  runtime : Runtime.env ;
+  typing : Mlty.Ctx.t
 }
 
 type 'a toplevel = topenv -> 'a * topenv
-
-let empty = {
-  runtime = Runtime.empty;
-  typing = Mlty.Ctx.empty
-}
-
-let initialise_runtime =
-  (* Declare predefined data constructors *)
-  let env = List.fold_left
-              (fun env (x, k) -> add_data0 ~loc:Location.unknown x env)
-              Runtime.empty
-              predefined_tags
-  in
-  (* Declare predefined operations *)
-  let env = List.fold_left
-              (fun env (x, k) -> add_operation0 ~loc:Location.unknown x k env)
-              env
-              predefined_ops
-  in
-  env
-
 
 let comp_value c =
   let r = Eval.infer c in
@@ -36,16 +15,16 @@ let comp_handle (xs,y,c) =
   Runtime.top_return_closure (fun (vs,checking) ->
       let rec fold2 xs vs = match xs,vs with
         | [], [] ->
-          begin match y with
-            | Some y ->
+           begin match y with
+           | Some y ->
               let checking = match checking with
                 | Some jt -> Some (Runtime.mk_term (Jdg.term_of_ty jt))
                 | None -> None
               in
-              let vy = Runtime.from_option checking in
+              let vy = Predefined.from_option checking in
               Runtime.add_bound y vy (Eval.infer c)
-            | None -> Eval.infer c
-          end
+           | None -> Eval.infer c
+           end
         | x::xs, v::vs -> Runtime.add_bound x v (fold2 xs vs)
         | [],_::_ | _::_,[] -> Error.impossible ~loc:(c.Syntax.loc) "bad top handler case"
       in
@@ -62,12 +41,12 @@ let comp_signature ~loc lxcs =
        Eval.check_ty c >>= fun (Jdg.Ty (ctxt,t)) ->
        if not (Context.is_subset ctxt yts)
        then Error.runtime ~loc "signature field %t has unresolved assumptions"
-                          (Name.print_ident l)
+           (Name.print_ident l)
        else begin
          let jt = Jdg.mk_ty ctxt t
          and tabs = Tt.abstract_ty ys t in
          Runtime.add_abstracting ~loc x jt (fun _ y ->
-           fold (y::ys) ((y,t)::yts) ((l,x,tabs) :: lxts) lxcs)
+             fold (y::ys) ((y,t)::yts) ((l,x,tabs) :: lxts) lxcs)
        end
   in
   Runtime.top_handle ~loc (fold [] [] [] lxcs)
@@ -104,27 +83,42 @@ let return = Runtime.top_return
 let rec mfold f acc = function
   | [] -> return acc
   | x::rem -> f acc x >>= fun acc ->
-    mfold f acc rem
+     mfold f acc rem
 
-and toplet_bind ~loc interactive xcs =
+let add_predefined_runtime =
+  (* Declare predefined data constructors *)
+  mfold
+    (fun () (x, _) -> Runtime.add_data ~loc:Location.unknown x)
+    ()
+    Predefined.predefined_tags
+  >>= fun () ->
+  (* Declare predefined operations *)
+  mfold
+    (fun () (x, _) -> Runtime.add_operation ~loc:Location.unknown x)
+    ()
+    Predefined.predefined_ops
+
+let initial = ()
+
+let toplet_bind ~loc interactive xcs =
   let rec fold xvs = function
     | [] ->
-      (* parallel let: only bind at the end *)
-      List.fold_left
-        (fun cmd (x,v) ->
-          Runtime.add_topbound ~loc x v >>= fun () ->
+       (* parallel let: only bind at the end *)
+       List.fold_left
+         (fun cmd (x,v) ->
+            Runtime.add_topbound ~loc x v >>= fun () ->
             if interactive && not (Name.is_anonymous x)
             then Format.printf "%t is defined.@." (Name.print_ident x) ;
             cmd)
-        (return ())
-        xvs
+         (return ())
+         xvs
     | (x, c) :: xcs ->
        comp_value c >>= fun v ->
        fold ((x, v) :: xvs) xcs
-    in
+  in
   fold [] xcs
 
-and topletrec_bind ~loc interactive fxcs =
+let topletrec_bind ~loc interactive fxcs =
   let gs =
     List.map
       (fun (f, x, c) -> (f, (fun v -> Runtime.add_bound x v (Eval.infer c))))
@@ -137,10 +131,10 @@ and topletrec_bind ~loc interactive fxcs =
           Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
   return ()
 
-let rec exec_cmd base_dir interactive c =
-  Runtime.top_bound_info >>= fun bound ->
-  let (c', loc) = Desugar.toplevel bound c in
-  match c' with
+let rec exec_cmd base_dir interactive c {runtime; typing} =
+  let (c, loc) = Desugar.toplevel typing c in
+  let typing = Mlty.infer (c, loc) typing in
+  match c with
 
   | Syntax.DeclOperation (x, k) ->
      Runtime.add_operation ~loc x k >>= fun () ->
@@ -154,29 +148,29 @@ let rec exec_cmd base_dir interactive c =
 
   | Syntax.DeclConstants (xs, c) ->
      Runtime.top_handle ~loc:(c.Syntax.loc) (Eval.check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
-      if Context.is_empty ctxt
-      then
-        let rec fold = function
-          | [] -> return ()
-          | x :: xs ->
-             Runtime.add_constant ~loc x t >>= fun () ->
-             (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
-              fold xs)
-        in
-        fold xs
-      else
-        Error.typing "Constants may not depend on free variables" ~loc:(c.Syntax.loc)
+     if Context.is_empty ctxt
+     then
+       let rec fold = function
+         | [] -> return ()
+         | x :: xs ->
+            Runtime.add_constant ~loc x t >>= fun () ->
+            (if interactive then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
+             fold xs)
+       in
+       fold xs
+     else
+       Error.typing "Constants may not depend on free variables" ~loc:(c.Syntax.loc)
 
   | Syntax.DeclSignature (s, lxcs) ->
-    comp_signature ~loc lxcs >>= fun lxts ->
-    Runtime.add_signature ~loc s lxts  >>= fun () ->
-    (if interactive then Format.printf "Signature %t is declared.@." (Name.print_ident s) ;
+     comp_signature ~loc lxcs >>= fun lxts ->
+     Runtime.add_signature ~loc s lxts  >>= fun () ->
+     (if interactive then Format.printf "Signature %t is declared.@." (Name.print_ident s) ;
       return ())
 
   | Syntax.TopHandle lst ->
-    mfold (fun () (op, xc) ->
-        comp_handle xc >>= fun f ->
-        Runtime.add_handle op f) () lst
+     mfold (fun () (op, xc) ->
+         comp_handle xc >>= fun f ->
+         Runtime.add_handle op f) () lst
 
   | Syntax.TopLet xcs ->
      toplet_bind ~loc interactive xcs
@@ -185,18 +179,18 @@ let rec exec_cmd base_dir interactive c =
      topletrec_bind ~loc interactive fxcs
 
   | Syntax.TopDynamic (x,c) ->
-    comp_value c >>= fun v ->
-    Runtime.add_dynamic ~loc x v
+     comp_value c >>= fun v ->
+     Runtime.add_dynamic ~loc x v
 
   | Syntax.TopNow (x,c) ->
-    comp_value c >>= fun v ->
-    Runtime.top_now ~loc x v
+     comp_value c >>= fun v ->
+     Runtime.top_now ~loc x v
 
   | Syntax.TopDo c ->
      comp_value c >>= fun v ->
      Runtime.top_print_value >>= fun print_value ->
      (if interactive then Format.printf "%t@." (print_value v) ;
-     return ())
+      return ())
 
   | Syntax.TopFail c ->
      Runtime.catch (fun () -> comp_value (Lazy.force c)) >>= begin function
@@ -209,38 +203,37 @@ let rec exec_cmd base_dir interactive c =
      end
 
   | Syntax.Include (fs,once) ->
-    mfold (fun () f ->
+     mfold (fun () f ->
          (* don't print deeper includes *)
          if interactive then Format.printf "#including %s@." f ;
-           let f =
-             if Filename.is_relative f
-             then Filename.concat base_dir f
-             else f
-           in
-           use_file (f, None, false, once) >>= fun () ->
-           (if interactive then Format.printf "#processed %s@." f ;
-           return ())) () fs
+         let f =
+           if Filename.is_relative f
+           then Filename.concat base_dir f
+           else f
+         in
+         use_file (f, None, false, once) >>= fun () ->
+         (if interactive then Format.printf "#processed %s@." f ;
+          return ())) () fs
 
   | Syntax.Verbosity i -> Config.verbosity := i; return ()
 
   | Syntax.Environment ->
-    Runtime.print_env >>= fun p ->
-    Format.printf "%t@." p;
-    return ()
+     Runtime.print_env >>= fun p ->
+     Format.printf "%t@." p;
+     return ()
 
   | Syntax.Help ->
-    Format.printf "%s@." help_text ; return ()
+     Format.printf "%s@." help_text ; return ()
 
   | Syntax.Quit ->
-    exit 0
+     exit 0
 
-and use_file (filename, line_limit, interactive, once) =
-  (if once then Runtime.included filename else return false) >>= fun skip ->
-  if skip then return () else
+and use_file ~fn ~limit ~interactive ~state =
+  if Runtime.included fn then return () else
     begin
-      let cmds = parse (Lexer.read_file ?line_limit) Parser.file filename in
-      let base_dir = Filename.dirname filename in
-      Runtime.push_file filename >>= fun () ->
-      mfold (fun () c -> exec_cmd base_dir interactive c) () cmds
+      let cmds = parse (Lexer.read_file ?line_limit) Parser.file fn in
+      let base_dir = Filename.dirname fn in
+      let typing, cmds = typecheck cmds typing in
+      Runtime.push_file fn >>= fun () ->
+      mfold (fun () c -> chain_cmd base_dir interactive c) () cmds
     end
-

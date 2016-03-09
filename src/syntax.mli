@@ -109,6 +109,7 @@ and match_op_case = Name.ident list * pattern list * pattern option * comp
 type top_op_case = Name.ident list * Name.ident option * comp
 
 (** Desugared toplevel commands *)
+(* TODO: change to marked *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
   | DeclOperation of Name.ident * int

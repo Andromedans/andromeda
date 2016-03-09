@@ -3,8 +3,9 @@
 (** Bound variable management *)
 module Bound = struct
 
+  (* TODO: remove names from constructors (redundant) *)
   type bound_info =
-    | Val of int * Boundinfo.scoping
+    | Val of int * Mlty.Ctx.scoping
     | Const of Name.constant
     | Data of Name.data * int
     | Op of Name.operation * int
@@ -16,11 +17,15 @@ module Bound = struct
   let compute_indices bound =
     let rec fold acc i = function
       | [] -> List.rev acc
-      | (x, Boundinfo.BoundVal scope) :: rem -> fold ((x,Val (i, scope))::acc) (i+1) rem
-      | (x, Boundinfo.BoundConst c) :: rem -> fold ((x,Const c)::acc) i rem
-      | (x, Boundinfo.BoundData (c,k)) :: rem -> fold ((x,Data (c,k))::acc) i rem
-      | (x, Boundinfo.BoundOp (op,k)) :: rem -> fold ((x,Op (op,k))::acc) i rem
-      | (x, Boundinfo.BoundSig s) :: rem -> fold ((x,Sig s)::acc) i rem
+      | (x, Mlty.Ctx.Val (scope, _)) :: rem -> fold ((x,Val (i, scope))::acc) (i+1) rem
+      | (x, Mlty.Ctx.Const) :: rem -> fold ((x,Const x)::acc) i rem
+      | (x, Mlty.Ctx.Data (arg_tys,_)) :: rem ->
+         let k = List.length arg_tys in
+         fold ((x,Data (x,k))::acc) i rem
+      | (x, Mlty.Ctx.Op (arg_tys,_)) :: rem ->
+         let k = List.length arg_tys in
+         fold ((x,Op (x,k))::acc) i rem
+      | (x, Mlty.Ctx.Sig) :: rem -> fold ((x,Sig x)::acc) i rem
     in
     {toplevel = fold [] 0 bound; locals = []; depth = 0}
 
@@ -28,7 +33,7 @@ module Bound = struct
 
   let find ~loc x {toplevel;locals;depth} =
     match Name.index_of_ident x locals with
-      | Some i -> Val (i, Boundinfo.Lexical)
+      | Some i -> Val (i, Mlty.Ctx.Lexical)
       | None ->
         begin match Name.assoc_ident x toplevel with
           | Some (Val (k, scope)) -> Val (k+depth, scope)
@@ -38,8 +43,8 @@ module Bound = struct
 
   let get_dynamic ~loc x bound =
     match find ~loc x bound with
-      | Val (k, Boundinfo.Dynamic) -> k
-      | Val (_, Boundinfo.Lexical) ->
+      | Val (k, Mlty.Ctx.Dynamic) -> k
+      | Val (_, Mlty.Ctx.Lexical) ->
         Error.syntax ~loc "The variable %t is not dynamic." (Name.print_ident x)
       | Sig _ | Const _ | Op _ | Data _ ->
         Error.syntax ~loc "The name %t is not a dynamic variable." (Name.print_ident x)
