@@ -37,14 +37,16 @@ and dynamic = {
 }
 
 and lexical = {
-  forbidden : Name.ident list; (* for printing only *)
-  bound : bound list;
+  (* for printing only *)
+  forbidden : Name.ident list;
+  quiet     : bool;
 
+  bound : bound list;
+  (* current continuation if we're handling an operation *)
   continuation : value continuation option;
 
-  (* The following are only modified at the top level *)
+  (* toplevel handlers *)
   handle : (Name.ident * (value list * Jdg.ty option,value) closure) list;
-  files : string list;
 }
 
 and state = value Store.Ref.t

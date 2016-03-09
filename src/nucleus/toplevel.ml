@@ -1,11 +1,9 @@
 (** A toplevel computation carries around the current
     environment. *)
 type topenv = {
-  runtime : Runtime.env ;
+  runtime : unit Runtime.toplevel ;
   typing : Mlty.Ctx.t
 }
-
-type 'a toplevel = topenv -> 'a * topenv
 
 let comp_value c =
   let r = Eval.infer c in
@@ -137,12 +135,12 @@ let rec exec_cmd base_dir interactive c {runtime; typing} =
   match c with
 
   | Syntax.DeclOperation (x, k) ->
-     Runtime.add_operation ~loc x k >>= fun () ->
+     Runtime.add_operation ~loc x >>= fun () ->
      if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
      return ()
 
   | Syntax.DeclData (x, k) ->
-     Runtime.add_data ~loc x k >>= fun () ->
+     Runtime.add_data ~loc x >>= fun () ->
      if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
      return ()
 
@@ -203,16 +201,16 @@ let rec exec_cmd base_dir interactive c {runtime; typing} =
      end
 
   | Syntax.Include (fs,once) ->
-     mfold (fun () f ->
+     mfold (fun () fn ->
          (* don't print deeper includes *)
-         if interactive then Format.printf "#including %s@." f ;
-         let f =
-           if Filename.is_relative f
-           then Filename.concat base_dir f
-           else f
+         if interactive then Format.printf "#including %s@." fn ;
+         let fn =
+           if Filename.is_relative fn
+           then Filename.concat base_dir fn
+           else fn
          in
-         use_file (f, None, false, once) >>= fun () ->
-         (if interactive then Format.printf "#processed %s@." f ;
+         use_file ~fn ~interactive:false >>= fun () ->
+         (if interactive then Format.printf "#processed %s@." fn ;
           return ())) () fs
 
   | Syntax.Verbosity i -> Config.verbosity := i; return ()
