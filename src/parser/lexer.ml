@@ -16,7 +16,6 @@ let reserved = [
   ("congruence", CONGRUENCE) ;
   ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
-  ("data", DATA) ;
   ("do", DO) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
@@ -25,7 +24,8 @@ let reserved = [
   ("fail", FAIL) ;
   ("finally", FINALLY) ;
   ("forall", PROD) ;
-  ("judgement", JUDGEMENT) ;
+  ("judgement", JUDGMENT) ;
+  ("judgment", JUDGMENT) ;
   ("fun", FUNCTION) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
@@ -35,6 +35,7 @@ let reserved = [
   ("lambda", LAMBDA) ;
   ("let", LET) ;
   ("match", MATCH) ;
+  ("mltype", MLTYPE) ;
   ("now", NOW) ;
   ("occurs", OCCURS) ;
   ("operation", OPERATION) ;
@@ -144,6 +145,9 @@ and token_aux ({ stream;_ } as lexbuf) =
   (* Comes before infixop3 because ** matches the infixop3 pattern too *)
   | infixop4                 -> f (); INFIXOP4 (let s = lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix4) s, Location.of_lexeme lexbuf)
+  (* Comes before infixop3 because * matches the infixop3 pattern too *)
+  | '*'                      -> f (); STAR (Name.make ~fixity:(Name.Infix Level.Infix3) "*", Location.of_lexeme lexbuf)
+  (* Comes before infixop3 because * matches the infixop3 pattern too *)
   | infixop3                 -> f (); INFIXOP3 (let s = lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix3) s, Location.of_lexeme lexbuf)
 

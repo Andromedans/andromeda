@@ -113,20 +113,23 @@ type top_op_case = Name.ident list * Name.ident option * comp
 
 type aml_ty = aml_ty' * Location.t
 and aml_ty' =
-  | AML_ty_Arrow of aml_ty * aml_ty
-  | AML_ty_Prod of aml_ty list
-  | AML_ty_Apply of Name.ty * aml_ty list
-  | AML_ty_Handler of aml_ty * aml_ty
-  | AML_ty_Judgement
+  | AML_Arrow of aml_ty * aml_ty
+  | AML_Prod of aml_ty list
+  | AML_TyApply of Name.ty * aml_ty list
+  | AML_Handler of aml_ty * aml_ty
+  | AML_Judgment
 
 type aml_schema = Forall of Name.ty list * aml_ty
 
-type decl_constructor = Name.constructor * aml_ty list
+type aml_tydef =
+  | AML_Sum of (Name.constructor * aml_ty list * aml_ty) list
+  | AML_Alias of aml_ty
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | DeclType of Name.ty * Name.ty list * decl_constructor list
+  | DeclAMLType of (Name.ty * Name.ty list * aml_tydef) list
+  | DeclAMLTypeRec of (Name.ty * Name.ty list * aml_tydef) list
   | DeclOperation of Name.ident * Name.ty list * aml_ty list * aml_ty
   | DeclConstants of Name.ident list * ty
   | DeclSignature of Name.signature * (Name.label * Name.ident option * ty) list
