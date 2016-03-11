@@ -57,7 +57,7 @@ let rec infer {Syntax.term=c'; loc} =
        in
        Runtime.return_closure f
 
-    | Syntax.Data (t, cs) ->
+    | Syntax.Constructor (t, cs) ->
        let rec fold vs = function
          | [] ->
             let vs = List.rev vs in
@@ -503,7 +503,7 @@ and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Conte
   | Syntax.Function _
   | Syntax.Handler _
   | Syntax.External _
-  | Syntax.Data _
+  | Syntax.Constructor _
   | Syntax.Tuple _
   | Syntax.Where _
   | Syntax.With _

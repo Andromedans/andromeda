@@ -1,7 +1,9 @@
 (** Desugared input syntax *)
 
-(** Bound variables - represented by de Bruijn indices *)
+(** Bound variables are de Bruijn indices *)
 type bound = int
+(** AML type declarations are referred to by de Bruijn levels *)
+type level = int
 
 (** Patterns *)
 
@@ -20,7 +22,7 @@ and tt_pattern' =
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
   | Tt_Signature of Name.signature (* TODO easy matching of signatures and structures with constraints *)
-  | Tt_Structure of (Name.label * tt_pattern) list 
+  | Tt_Structure of (Name.label * tt_pattern) list
   | Tt_Projection of tt_pattern * Name.ident
   (** Matching [Signature s={li as xi : Ai} with lj = ej] is matching [((s,[li,xi:Ai]),[either yk or ej])]
       where [yk] is used to instantiate non-constrained labels in later constraints. *)
@@ -38,7 +40,7 @@ and pattern' =
   | Patt_As of pattern * bound
   | Patt_Bound of bound
   | Patt_Jdg of tt_pattern * tt_pattern
-  | Patt_Data of Name.ident * pattern list
+  | Patt_Constructor of Name.ident * pattern list
   | Patt_Tuple of pattern list
 
 (** Desugared computations *)
@@ -48,7 +50,7 @@ and comp' =
   | Bound of bound
   | Function of Name.ident * comp
   | Handler of handler
-  | Data of Name.ident * comp list
+  | Constructor of Name.ident * comp list
   | Tuple of comp list
   | Operation of Name.ident * comp list
   | With of comp * comp
@@ -108,25 +110,26 @@ and match_op_case = Name.ident list * pattern list * pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
-type aml_ty = aml_ty' * Location.t
+type aml_ty = aml_ty' marked
 and aml_ty' =
-  | AML_ty_Arrow of aml_ty * aml_ty
-  | AML_ty_Prod of aml_ty list
-  | AML_ty_Apply of bound * aml_ty list
-  | AML_ty_Handler of aml_ty * aml_ty
-  | AML_ty_Judgement
-  | AML_ty_Param of bound
+  | AML_Arrow of aml_ty * aml_ty
+  | AML_Prod of aml_ty list
+  | AML_TyApply of level * aml_ty list
+  | AML_Handler of aml_ty * aml_ty
+  | AML_Judgment
+  | AML_Param of bound
 
-type aml_schema = Forall of Name.ty list * aml_ty
-
-type decl_constructor = Name.constructor * aml_ty list
+type aml_tydef =
+  | AML_Sum of (Name.constructor * aml_ty list * aml_ty) list
+  | AML_Alias of aml_ty
 
 (** Desugared toplevel commands *)
 (* TODO: change to marked *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | DeclType of Name.ty * Name.ty list * decl_constructor list
-  | DeclOperation of Name.ident * Name.ty list * aml_ty list * aml_ty
+  | DeclAMLType of (Name.ty * (Name.ty list * aml_tydef)) list
+  | DeclAMLTypeRec of (Name.ty * (Name.ty list * aml_tydef)) list
+  | DeclOperation of Name.ident * (Name.ty list * aml_ty list * aml_ty)
   | DeclConstants of Name.ident list * comp
   | DeclSignature of Name.signature * (Name.label * Name.ident * comp) list
   | TopHandle of (Name.ident * top_op_case) list

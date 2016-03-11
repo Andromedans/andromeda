@@ -380,29 +380,29 @@ binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
   | e=plain_app_pattern                                { e }
   | e1=binop_pattern op=INFIXOP0 e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
+    { Patt_Constr (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP1 e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
+    { Patt_Constr (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXCONS  e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
+    { Patt_Constr (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP2 e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
+    { Patt_Constr (fst op, [e1; e2]) }
   | e1=binop_pattern op=infixop3 e2=binop_pattern
     %prec INFIXOP3
-    { Patt_Data (fst op, [e1; e2]) }
+    { Patt_Constr (fst op, [e1; e2]) }
   | e1=binop_pattern op=INFIXOP4 e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
+    { Patt_Constr (fst op, [e1; e2]) }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
 plain_app_pattern:
   | e=plain_prefix_pattern                    { e }
-  | t=var_name ps=prefix_pattern+             { Patt_Data (t, ps) }
+  | t=var_name ps=prefix_pattern+             { Patt_Constr (t, ps) }
 
 prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
 plain_prefix_pattern:
   | e=plain_simple_pattern           { e }
-  | op=PREFIXOP e=prefix_pattern     { let op = fst op in 
-                                       Patt_Data (op, [e]) }
+  | op=PREFIXOP e=prefix_pattern     { let op = fst op in
+                                       Patt_Constr (op, [e]) }
 
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
 plain_simple_pattern:

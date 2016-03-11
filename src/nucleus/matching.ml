@@ -238,7 +238,7 @@ and collect_pattern env xvs {Syntax.term=p;loc} v =
      let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
      collect_tt_pattern env xvs pe ctx e t
 
-  | Syntax.Patt_Data (tag, ps), Runtime.Tag (tag', vs) when Name.eq_ident tag tag' ->
+  | Syntax.Patt_Constructor (tag, ps), Runtime.Tag (tag', vs) when Name.eq_ident tag tag' ->
     multicollect_pattern env xvs ps vs
 
   | Syntax.Patt_Tuple ps, Runtime.Tuple vs ->
@@ -246,7 +246,7 @@ and collect_pattern env xvs {Syntax.term=p;loc} v =
 
   | Syntax.Patt_Jdg _, (Runtime.Closure _ | Runtime.Handler _ |
                         Runtime.Tag _ | Runtime.Ref _ | Runtime.Tuple _ | Runtime.String _ | Runtime.Ident _)
-  | Syntax.Patt_Data _, (Runtime.Term _ | Runtime.Closure _ |
+  | Syntax.Patt_Constructor _, (Runtime.Term _ | Runtime.Closure _ |
                         Runtime.Handler _ | Runtime.Tag _ | Runtime.Ref _ | Runtime.Tuple _ | Runtime.String _ | Runtime.Ident _)
   | Syntax.Patt_Tuple _, (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Ref _ |
                           Runtime.String _ | Runtime.Ident _) ->

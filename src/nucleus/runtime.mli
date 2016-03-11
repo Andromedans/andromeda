@@ -177,13 +177,6 @@ val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> uni
 (** Lookup the current continuation. *)
 val continue : loc:Location.t -> value -> value comp
 
-(** Add a file to the list of files included. *)
-val push_file : string -> unit toplevel
-
-(** Check whether a file has already been included.
-    Files are compared by their basenames *)
-val included : string -> bool toplevel
-
 (** Get the printing environment from the monad *)
 val lookup_penv : Tt.print_env comp
 

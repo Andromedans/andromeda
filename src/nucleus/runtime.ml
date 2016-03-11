@@ -385,15 +385,6 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
     | Some cont -> apply_cont cont v env
     | None -> Error.impossible ~loc "No continuation"
 
-let push_file f env =
-  let env =
-    { env with lexical = { env.lexical with
-                           files = (Filename.basename f) :: env.lexical.files }} in
-  (), env
-
-let included f env =
-  List.mem (Filename.basename f) env.lexical.files, env
-
 (** Printers *)
 
 (** Generate a printing environment from runtime environment *)
@@ -535,7 +526,7 @@ let empty = {
     bound = [] ;
     handle = [] ;
     continuation = None ;
-    files = [] ;
+    quiet = true ;
   } ;
   dynamic = {
     constants = [] ;
