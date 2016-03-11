@@ -111,24 +111,24 @@ and match_op_case = pattern list * pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
-type aml_ty = aml_ty' * Location.t
-and aml_ty' =
-  | AML_Arrow of aml_ty * aml_ty
-  | AML_Prod of aml_ty list
-  | AML_TyApply of Name.ty * aml_ty list
-  | AML_Handler of aml_ty * aml_ty
-  | AML_Judgment
+type ml_ty = ml_ty' * Location.t
+and ml_ty' =
+  | ML_Arrow of ml_ty * ml_ty
+  | ML_Prod of ml_ty list
+  | ML_TyApply of Name.ty * ml_ty list
+  | ML_Handler of ml_ty * ml_ty
+  | ML_Judgment
 
-type aml_tydef =
-  | AML_Sum of (Name.constructor * aml_ty list * aml_ty) list
-  | AML_Alias of aml_ty
+type ml_tydef =
+  | ML_Sum of (Name.constructor * ml_ty list * ml_ty) list
+  | ML_Alias of ml_ty
 
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | DeclAMLType of (Name.ty * (Name.ty list * aml_tydef)) list
-  | DeclAMLTypeRec of (Name.ty * (Name.ty list * aml_tydef)) list
-  | DeclOperation of Name.ident * (Name.ty list * aml_ty list * aml_ty)
+  | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
+  | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
+  | DeclOperation of Name.ident * (Name.ty list * ml_ty list * ml_ty)
   | DeclConstants of Name.ident list * ty
   | DeclSignature of Name.signature * (Name.label * Name.ident option * ty) list
   | TopHandle of (Name.ident * top_op_case) list

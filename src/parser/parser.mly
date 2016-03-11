@@ -131,10 +131,10 @@ plain_topcomp:
   | CONSTANT xs=nonempty_list(name) COLON u=term      { DeclConstants (xs, u) }
   | SIGNATURE s=name EQ LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
                                                       { DeclSignature (s, lst) }
-  | MLTYPE lst=mlty_defs                              { DeclAMLType lst }
-  | MLTYPE REC lst=mlty_defs                          { DeclAMLTypeRec lst }
+  | MLTYPE lst=mlty_defs                              { DefMLType lst }
+  | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=name COLON params=mlparams opsig=op_mlsig
-    { let (args, res) = opsig in DeclOperation (op, params, args, res) }
+    { let (args, res) = opsig in DeclOperation (op, (params, args, res)) }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
@@ -512,8 +512,8 @@ op_mlsig:
 mlty: mark_location(plain_mlty) { $1 }
 plain_mlty:
   | plain_prod_mlty                  { $1 }
-  | t1=prod_mlty ARROW t2=mlty       { AML_Arrow (t1, t2) }
-  | t1=prod_mlty DARROW t2=mlty      { AML_Handler (t1, t2) }
+  | t1=prod_mlty ARROW t2=mlty       { ML_Arrow (t1, t2) }
+  | t1=prod_mlty DARROW t2=mlty      { ML_Handler (t1, t2) }
 
 prod_mlty: mark_location(plain_prod_mlty) { $1 }
 plain_prod_mlty:
@@ -521,29 +521,29 @@ plain_prod_mlty:
     { match ts with
       | [] -> assert false
       | [t] -> fst t
-      | _::_::_ -> AML_Prod ts
+      | _::_::_ -> ML_Prod ts
     }
 
 app_mlty: mark_location(plain_app_mlty) { $1 }
 plain_app_mlty:
   | plain_simple_mlty                   { $1 }
-  | c=var_name args=list(simple_mlty)   { AML_TyApply (c, args) }
+  | c=var_name args=list(simple_mlty)   { ML_TyApply (c, args) }
 
 simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
-  | JUDGMENT                            { AML_Judgment }
+  | JUDGMENT                            { ML_Judgment }
 
 mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }
 
 mlty_def:
-  | a=var_name xs=list(name) EQ body=mlty_def_body { (a, xs, body) }
+  | a=var_name xs=list(name) EQ body=mlty_def_body { (a, (xs, body)) }
 
 mlty_def_body:
-  | t=mlty                                                   { AML_Alias t }
-  | lst=separated_list(BAR, mlty_constructor)                { AML_Sum lst }
-  | BAR lst=separated_nonempty_list(BAR, mlty_constructor)   { AML_Sum lst }
+  | t=mlty                                                   { ML_Alias t }
+  | lst=separated_list(BAR, mlty_constructor)                { ML_Sum lst }
+  | BAR lst=separated_nonempty_list(BAR, mlty_constructor)   { ML_Sum lst }
 
 mlty_constructor:
   | c=var_name COLON lst=separated_nonempty_list(ARROW, prod_mlty)

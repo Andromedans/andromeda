@@ -61,7 +61,7 @@ module Ctx = struct
 
 end
 
-let infer : Syntax.toplevel -> Ctx.t -> Ctx.t = fun (c, loc) ctx ->
+let infer ctx c =
   assert false
   (* match c with *)
 

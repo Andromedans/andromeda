@@ -1,14 +1,14 @@
 (** A toplevel computation carries around the current
     environment. *)
 type state = {
-  desugar : Desugar.ctx ;
-  runtime : Runtime.env ;
-  typing : Mlty.Ctx.t
+  desugar : Desugar.Ctx.t ;
+  typing : Mlty.Ctx.t ;
+  runtime : Runtime.env
 }
 
 let comp_value c =
   let r = Eval.infer c in
-  Runtime.top_handle ~loc:c.Syntax.loc r
+  Runtime.top_handle ~loc:c.Location.loc r
 
 let comp_handle (xs,y,c) =
   Runtime.top_return_closure (fun (vs,checking) ->
@@ -25,7 +25,7 @@ let comp_handle (xs,y,c) =
            | None -> Eval.infer c
            end
         | x::xs, v::vs -> Runtime.add_bound x v (fold2 xs vs)
-        | [],_::_ | _::_,[] -> Error.impossible ~loc:(c.Syntax.loc) "bad top handler case"
+        | [],_::_ | _::_,[] -> Error.impossible ~loc:(c.Location.loc) "bad top handler case"
       in
       fold2 xs vs)
 
@@ -115,23 +115,18 @@ let topletrec_bind ~loc interactive fxcs =
           Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
   return ()
 
-let rec exec_cmd base_dir interactive c {runtime; typing} =
-  let (c, loc) = Desugar.toplevel typing c in
-  let typing = Mlty.infer (c, loc) typing in
-  match c with
+let rec exec_cmd base_dir interactive c {desugar; typing; runtime} =
+  let desugar, ({Location.thing=c'; loc} as c) = Desugar.toplevel desugar c in
+  let typing = Mlty.infer typing c in
+  match c' with
 
   | Syntax.DeclOperation (x, k) ->
      Runtime.add_operation ~loc x >>= fun () ->
      if interactive then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
      return ()
 
-  | Syntax.DeclData (x, k) ->
-     Runtime.add_data ~loc x >>= fun () ->
-     if interactive then Format.printf "Data constructor %t is declared.@." (Name.print_ident x) ;
-     return ()
-
   | Syntax.DeclConstants (xs, c) ->
-     Runtime.top_handle ~loc:(c.Syntax.loc) (Eval.check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
+     Runtime.top_handle ~loc:(c.Location.loc) (Eval.check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
      if Context.is_empty ctxt
      then
        let rec fold = function
@@ -143,7 +138,7 @@ let rec exec_cmd base_dir interactive c {runtime; typing} =
        in
        fold xs
      else
-       Error.typing "Constants may not depend on free variables" ~loc:(c.Syntax.loc)
+       Error.typing "Constants may not depend on free variables" ~loc:(c.Location.loc)
 
   | Syntax.DeclSignature (s, lxcs) ->
      comp_signature ~loc lxcs >>= fun lxts ->
@@ -186,18 +181,19 @@ let rec exec_cmd base_dir interactive c {runtime; typing} =
         Error.runtime ~loc "The command has not failed: got %t." (pval v)
      end
 
-  | Syntax.Include (fs,once) ->
-     mfold (fun () fn ->
-         (* don't print deeper includes *)
-         if interactive then Format.printf "#including %s@." fn ;
-         let fn =
-           if Filename.is_relative fn
-           then Filename.concat base_dir fn
-           else fn
-         in
-         use_file ~fn ~interactive:false >>= fun () ->
-         (if interactive then Format.printf "#processed %s@." fn ;
-          return ())) () fs
+  | Syntax.Included lst ->
+     failwith "not implemented"
+     (* mfold (fun () fn -> *)
+     (*     (\* don't print deeper includes *\) *)
+     (*     if interactive then Format.printf "#including %s@." fn ; *)
+     (*     let fn = *)
+     (*       if Filename.is_relative fn *)
+     (*       then Filename.concat base_dir fn *)
+     (*       else fn *)
+     (*     in *)
+     (*     use_file ~fn ~interactive:false >>= fun () -> *)
+     (*     (if interactive then Format.printf "#processed %s@." fn ; *)
+     (*      return ())) () fs *)
 
   | Syntax.Verbosity i -> Config.verbosity := i; return ()
 

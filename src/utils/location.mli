@@ -21,6 +21,9 @@
 (** Type of locations. *)
 type t
 
+(** Type of located things. *)
+type 'a located = private {thing: 'a; loc: t}
+
 (** Print a location. *)
 val print : t -> Format.formatter -> unit
 
@@ -32,3 +35,6 @@ val make : Lexing.position -> Lexing.position -> t
 
 (** Get the location of the current lexeme in a lexing buffer. *)
 val of_lexeme : Ulexbuf.t -> t
+
+(** Create a located thing. *)
+val locate : 'a -> t -> 'a located

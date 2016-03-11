@@ -39,7 +39,7 @@ let as_ident ~loc v =
   Runtime.return s
 
 (** Evaluate a computation -- infer mode. *)
-let rec infer {Syntax.term=c'; loc} =
+let rec infer {Location.thing=c'; loc} =
   match c' with
     | Syntax.Bound i ->
        Runtime.lookup_bound ~loc i
@@ -160,7 +160,7 @@ let rec infer {Syntax.term=c'; loc} =
     Runtime.lookup_penv >>= fun penv ->
     begin match Context.lookup_ty a ctx with
     | None -> infer c3 >>=
-       as_term ~loc:(c3.Syntax.loc) >>= fun _ ->
+       as_term ~loc:(c3.Location.loc) >>= fun _ ->
        Runtime.return v1
     | Some ta ->
        check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
@@ -212,7 +212,7 @@ let rec infer {Syntax.term=c'; loc} =
     infer_prod ~loc x u c
 
   | Syntax.Eq (c1, c2) ->
-     infer c1 >>= as_term ~loc:(c1.Syntax.loc) >>= fun (Jdg.Term (ctx, e1, t1')) ->
+     infer c1 >>= as_term ~loc:(c1.Location.loc) >>= fun (Jdg.Term (ctx, e1, t1')) ->
      let t1 = Jdg.mk_ty ctx t1' in
      check c2 t1 >>= fun (ctx, e2) ->
      let eq = Tt.mk_eq ~loc t1' e1 e2 in
@@ -221,7 +221,7 @@ let rec infer {Syntax.term=c'; loc} =
      Runtime.return_term j
 
   | Syntax.Refl c ->
-     infer c >>= as_term ~loc:(c.Syntax.loc) >>= fun (Jdg.Term (ctxe, e, t)) ->
+     infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe, e, t)) ->
      let e' = Tt.mk_refl ~loc t e
      and t' = Tt.mk_eq_ty ~loc t e e in
      let et' = Jdg.mk_term ctxe e' t' in
@@ -495,9 +495,8 @@ and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
                       (pte e) (pty t_check') (pty t')
     end
 
-and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Runtime.comp =
+and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
   match c' with
-
   | Syntax.Type
   | Syntax.Bound _
   | Syntax.Function _
@@ -580,7 +579,7 @@ and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Conte
             Runtime.return (ctx,Tt.mention_atoms hyps e)
          | None ->
             Runtime.print_ty >>= fun pty ->
-            Error.typing ~loc:(c2.Syntax.loc)
+            Error.typing ~loc:(c2.Location.loc)
                          "this type should be equal to@ %t"
                          (pty t_check')
        end
@@ -676,7 +675,7 @@ and infer_lambda ~loc x u c =
     | Some u ->
       check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
       Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
-      infer c >>= as_term ~loc:(c.Syntax.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
+      infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
       Runtime.lookup_penv >>= fun penv ->
       let ctxe = Context.abstract ~penv ~loc ctxe y u in
       let ctx = Context.join ~penv ~loc ctxu ctxe in
