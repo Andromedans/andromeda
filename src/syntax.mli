@@ -140,7 +140,7 @@ and toplevel' =
   | TopDo of comp
   | TopFail of comp Lazy.t (** desugaring is suspended to allow catching errors *)
   | Verbosity of int
-  | Included of toplevel list
+  | Included of (string * toplevel list) list
   | Quit (** quit the toplevel *)
   | Help (** print help *)
   | Environment (** print the current environment *)

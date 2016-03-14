@@ -829,28 +829,38 @@ let decl_operation ~loc ctx params args res =
   and res = mlty ctx params res in
   args, res
 
+(* TODO check for reuse of type and constructor name (eg type foo = Bob | Bob) *)
+
+(* [mlty_def ctx params def] desugars [def] and adds the constructors to [ctx] *)
 let mlty_def ctx params def =
   match def with
   | Input.ML_Alias ty ->
      let ty = mlty ctx params ty in
-     Syntax.ML_Alias ty
+     ctx, Syntax.ML_Alias ty
   | Input.ML_Sum lst ->
-     failwith "Not implemented"
+    let rec fold ctx res = function
+      | [] -> ctx, Syntax.ML_Sum (List.rev res)
+      | (c,args,out) :: lst ->
+        let args = List.map (mlty ctx params) args
+        and out = List.map (mlty ctx params) out in
+        let ctx = Ctx.add_constructor c (List.length args) ctx in
+        fold ctx ((c,args,out)::res) lst
+    in
+    fold ctx [] lst
 
-let mlty_defs ~loc ctx lst =
-  let rec fold ctx' defs = function
-    | [] -> ctx', List.rev defs
+let mlty_defs ~loc ctx lst = assert false
+
+let mlty_rec_defs ~loc ctx lst =
+  let ctx = List.fold_left (fun ctx (t, (params,_)) -> Ctx.add_tydef t (List.length params)) in
+  let rec fold ctx defs = function
+    | [] -> ctx, List.rev defs
     | (t, (params, def)) :: lst ->
-       (* NB: parallel definition, must use original ctx here *)
-       let def = mlty_def ctx params def in
-       let ctx' = Ctx.add_tydef t (List.length params) ctx' in
-       fold ctx' ((t, (params, def)) :: defs) lst
+       let ctx, def = mlty_def ctx params def in
+       fold ctx ((t, (params, def)) :: defs) lst
   in
   fold ctx [] lst
 
-let mlty_rec_defs ~loc ctx lst  = assert false
-
-let toplevel ctx (cmd, loc) =
+let rec toplevel ctx (cmd, loc) =
   match cmd with
 
     | Input.DeclOperation (op, (params, args, res)) ->
@@ -943,7 +953,24 @@ let toplevel ctx (cmd, loc) =
        (ctx, locate (Syntax.Verbosity n) loc)
 
     | Input.Include (fs, b) ->
-       assert false (* TODO *)
+      let rec fold ctx res = function
+        | [] -> (ctx, locate (Syntax.Included (List.rev res)) loc)
+        | fn::fs ->
+          if Ctx.included fn ctx
+          then
+            let ctx = Ctx.push_file fn ctx in
+            let cmds = parse Lexer.read_file Parser.file fn in
+            let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->
+                let ctx, cmd = toplevel ctx cmd in
+                (ctx, cmd::cmds))
+              (ctx,[]) cmds
+            in
+            fold ctx ((fn, List.rev cmds)::res) lst
+          else
+            fold ctx res lst
+      in
+      fold ctx [] fs
 
     | Input.Environment ->
        (ctx, locate Syntax.Environment loc)
+
