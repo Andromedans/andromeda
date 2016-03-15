@@ -8,7 +8,7 @@ type state = {
 
 (** Evaluation of toplevel computations *)
 let exec_cmd ~quiet c {desugar;typing;runtime} =
-  let desugar, c = Desugar.toplevel desugar c in
+  let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
   let typing = Mlty.infer typing c in
   let comp = Eval.toplevel ~quiet c in
   let (), runtime = Runtime.exec comp runtime in
@@ -28,7 +28,7 @@ let initial =
   try
     let cmds = Desugar.parse Lexer.read_string Parser.file Predefined.definitions in
     let desugar, cmds = List.fold_left (fun (desugar, cmds) cmd ->
-        let desugar, cmd = Desugar.toplevel desugar cmd in
+        let desugar, cmd = Desugar.toplevel ~basedir:Filename.current_dir_name desugar cmd in
         (desugar, cmd :: cmds))
       (Desugar.Ctx.empty, []) cmds
     in

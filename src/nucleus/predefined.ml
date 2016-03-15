@@ -29,7 +29,7 @@ let name_as_signature = Name.make "as_signature"
 
 let predefined_ops =
   let ops =
-    ["operation equal : Judgement -> Judgement -> Judgement";
+    ["operation equal : Judgement -> Judgement -> option Judgement";
      "operation as_prod : Judgement -> option Judgement";
      "operation as_eq : Judgement -> option Judgement";
      "operation as_signature : Judgement -> option Judgement"] in

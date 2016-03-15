@@ -37,7 +37,7 @@ module Ctx = struct
   let empty = {
       bound = [];
       tydefs = [];
-      files = []
+      files = [];
     }
 
   let find ~loc x {bound; _} =
@@ -869,7 +869,7 @@ let mlty_rec_defs ~loc ctx lst =
   in
   fold ctx [] lst
 
-let rec toplevel ctx (cmd, loc) =
+let rec toplevel ~basedir ctx (cmd, loc) =
   match cmd with
 
     | Input.DeclOperation (op, (params, args, res)) ->
@@ -962,11 +962,15 @@ let rec toplevel ctx (cmd, loc) =
       let rec fold ctx res = function
         | [] -> (ctx, locate (Syntax.Included (List.rev res)) loc)
         | fn::fs ->
+          let fn =
+            if Filename.is_relative fn
+            then Filename.concat basedir fn
+            else fn
+          in
           if Ctx.included fn ctx
           then
             fold ctx res fs
           else
-            let fn = assert false (* TODO basedir stuff *) in
             let ctx, cmds = file ctx fn in
             fold ctx ((fn, cmds)::res) fs
       in
@@ -977,10 +981,11 @@ and file ctx fn =
   then
     ctx, []
   else
+    let basedir = Filename.dirname fn in
     let ctx = Ctx.push_file fn ctx in
     let cmds = parse (Lexer.read_file ?line_limit:None) Parser.file fn in
     let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->
-        let ctx, cmd = toplevel ctx cmd in
+        let ctx, cmd = toplevel ~basedir ctx cmd in
         (ctx, cmd::cmds))
       (ctx,[]) cmds
     in

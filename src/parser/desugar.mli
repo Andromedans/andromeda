@@ -16,7 +16,7 @@ end
 (** [toplevel primitive bound c] desugars a toplevel command [c] with a
     list of primitives and their arities, and a list of bound variables
     that are converted to de Bruijn indiced. *)
-val toplevel : Ctx.t -> Input.toplevel -> Ctx.t * Syntax.toplevel
+val toplevel : basedir:string -> Ctx.t -> Input.toplevel -> Ctx.t * Syntax.toplevel
 
 (** [file limit ctx fn] loads [fn] a path relative to the working directory or absolute.
     If [fn] has already been included it does nothing, returning the input context and the empty list. *)
