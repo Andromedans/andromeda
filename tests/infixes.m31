@@ -31,7 +31,9 @@ do assume (???) : A -> A in
 
 (** Data infixes *)
 
-data (@) 2
+mltype suspended a b =
+  (@) of a -> b and a
+  end
 
 let x = (fun x => x) @ a
 
@@ -41,7 +43,7 @@ do match x with
 
 (** Operation infixes *)
 
-operation (?) 1
+operation (?) : Judgement -> Judgement
 
 do
 handle

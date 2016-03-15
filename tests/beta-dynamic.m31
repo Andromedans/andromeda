@@ -14,7 +14,7 @@ do
     f a
 
 
-operation gimme_beta 0
+operation gimme_beta : Judgement
 
 do
    handle

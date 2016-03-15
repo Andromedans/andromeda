@@ -16,12 +16,14 @@ let rec append' l1 l2 =
       x :: lapp
   end
 
-data a 0
-data b 0
-data c 0
-data d 0
-data e 0
-data f 0
+mltype letters =
+  | a
+  | b
+  | c
+  | d
+  | e
+  | f
+  end
 
 do 
   let l1 = a :: (b :: (c :: [])) in

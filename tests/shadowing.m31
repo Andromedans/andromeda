@@ -7,14 +7,14 @@ do x
 
 fail let x = x and x = x in x
 
-data x 0
+mltype x = x end
 
 dynamic x = x
 
 do x
 
-operation x 0
+operation x : x
 
 (* This fails *)
-data x 2
+mltype y = x end
 

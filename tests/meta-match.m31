@@ -10,7 +10,10 @@ do match a with
   | |- a => a
   end
 
-data lam 4
+mltype lam =
+  lam of Judgement and Judgement and Judgement and ((Judgement * Judgement) * Judgement)
+  end
+
 do match λ (x : A), a with
   | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => lam x y z ((x', y'), t)
   end

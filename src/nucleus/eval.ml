@@ -929,13 +929,13 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
   | Syntax.DefMLType lst ->
     mfold (fun names (t,(_,def)) -> add_def def >>= fun () -> return (t::names)) [] lst >>= fun names ->
     let names = List.rev names in
-    (if not quiet then Format.printf "Type%s %t declared." (match names with [] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
+    (if not quiet then Format.printf "Type%s %t declared.@." (match names with [] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
     return ()
 
   | Syntax.DefMLTypeRec lst ->
     mfold (fun names (t,(_,def)) -> add_def def >>= fun () -> return (t::names)) [] lst >>= fun names ->
     let names = List.rev names in
-    (if not quiet then Format.printf "Type%s %t declared." (match names with [] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
+    (if not quiet then Format.printf "Type%s %t declared.@." (match names with [] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
     return ()
 
   | Syntax.DeclOperation (x, k) ->
@@ -1001,9 +1001,9 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
 
   | Syntax.Included lst ->
     mfold (fun () (fn, cmds) ->
-        (if not quiet then Format.printf "#including %s" fn);
+        (if not quiet then Format.printf "#including %s@." fn);
         mfold (fun () cmd -> toplevel ~quiet:true cmd) () cmds >>= fun () ->
-        (if not quiet then Format.printf "#processed %s" fn);
+        (if not quiet then Format.printf "#processed %s@." fn);
         return ())
       () lst
 

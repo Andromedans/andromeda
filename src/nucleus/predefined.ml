@@ -13,8 +13,8 @@ let predefined_aml_types =
      "end"]
   and decl_constrain =
     ["mltype constrain α β =";
-     "  | unconstrained of α";
-     "  | constrained of β";
+     "  | Unconstrained of α";
+     "  | Constrained of β";
      "end"]
   and decl_list =
     ["mltype rec list α =";

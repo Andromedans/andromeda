@@ -2,15 +2,16 @@
 (** Toplevel commands *)
 
 (** Declare operations *)
-(* operation `name` `arity` *)
-operation unary_op 1
-operation nonary_op 0
+(* operation `name : type` *)
+operation unary_op : forall a, a -> Judgement
+operation nonary_op : Judgement
 
-(** Declare data constructors *)
-(* data `name` `arity` *)
-data dummy 0
-data black 0
-data rgb_color 3
+mltype dummy = | dummy end
+
+mltype color =
+  | black
+  | rgb_color of dummy and dummy and dummy
+  end
 
 (** Declare constants *)
 (* constant `names` : `type` *)
@@ -139,8 +140,8 @@ do external "print_signature" wrapped
    The keyword `yield` is used to access the current continuation.
    Handlers are first class values, so they can be parametrised using functions and even made recursive.
 *)
-operation get 0
-operation set 1
+operation get : Judgement
+operation set : Judgement -> Judgement
 let state_h init = handler
   | val ?v => fun _ => v
   | get => fun s => yield s s
@@ -248,7 +249,7 @@ do context dependent
    It is unwise to assume free variables which depend on them, to substitute them,
    and to substitute any variable they depend on.
    The list in debruijn index order can be accessed with `hypotheses`. *)
-operation emit 1
+operation emit : forall a, list Judgement -> a
 do handle lambda (x : A), emit hypotheses with emit ?v => v end
 
 (** Equality *)
@@ -290,19 +291,12 @@ do lambda (A : Type) (x y : A) (p q : x == y), match extensionality p q with
 end
 
 (** Evaluate commands from another file *)
-#include "../std/hippy.m31"
-(* This variant does nothing if the file was already included.
-   The current file is considered to be already included. *)
+#include_once "../std/hippy.m31"
+
 #include_once "everything.m31"
 
 (* both can be used with multiple files at once *)
 #include_once "../std/base.m31" "../std/equal.m31" "../std/base.m31"
-
-(** Display help *)
-#help
-
-(** Print the current environment *)
-#environment
 
 (** End evaluation *)
 #quit

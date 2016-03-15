@@ -1,5 +1,4 @@
-Data constructor banana is declared.
-Data constructor apple is declared.
+Types fruit declared.
 x is defined.
 ()
-ref 0 := [apple, banana]
+ref 0 := (apple :: banana :: [])

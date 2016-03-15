@@ -1,5 +1,7 @@
-data Leaf 0
-data Node 2
+mltype rec tree =
+  | Leaf
+  | Node of tree and tree
+  end
 
 let rec left t =
   match t with

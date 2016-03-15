@@ -1,5 +1,7 @@
-data z 0
-data s 1
+mltype rec nat =
+  | z
+  | s of nat
+  end
 
 let rec length lst =
   match lst with
