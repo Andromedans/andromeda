@@ -8,16 +8,19 @@ let name_nil           = Name.nil
 let predefined_aml_types =
   let decl_option =
     ["mltype option α = ";
-     "  | None : option α ";
-     "  | Some : α → option α"]
+     "  | None";
+     "  | Some of α";
+     "end"]
   and decl_constrain =
     ["mltype constrain α β =";
-     "  | unconstrained : α → constrain α β";
-     "  | constrained : β → constrain α β"]
+     "  | unconstrained of α";
+     "  | constrained of β";
+     "end"]
   and decl_list =
     ["mltype rec list α =";
-    "  | nil : list α";
-    "  | cons : α → list α → list α"]
+    "  | nil";
+    "  | cons of α and list α";
+     "end"]
   in
   List.map (String.concat "\n") [decl_option; decl_constrain; decl_list]
   |> (String.concat "\n")

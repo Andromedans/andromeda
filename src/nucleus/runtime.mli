@@ -149,11 +149,8 @@ val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom 
 val add_abstracting: loc:Location.t -> ?bind:bool -> Name.ident -> Jdg.ty ->
                      (Context.t -> Name.atom -> 'a comp) -> 'a comp
 
-(** Add an operation. *)
-val add_operation : loc:Location.t -> Name.ident -> unit toplevel
-
-(** Add a data constructor. *)
-val add_data : loc:Location.t -> Name.ident -> unit toplevel
+(** Add a forbidden name (for declarations not used by the runtime). *)
+val add_forbidden : Name.ident -> unit toplevel
 
 (** Add a constant of a given type to the environment. *)
 val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel

@@ -4,6 +4,8 @@ open Ulexbuf
 
 let reserved = [
   ("Type", TYPE) ;
+  ("Judgement", JUDGMENT) ;
+  ("Judgment", JUDGMENT) ;
   ("_", UNDERSCORE) ;
   ("_atom", UATOM) ;
   ("_constant", UCONSTANT) ;
@@ -24,8 +26,6 @@ let reserved = [
   ("fail", FAIL) ;
   ("finally", FINALLY) ;
   ("forall", PROD) ;
-  ("judgement", JUDGMENT) ;
-  ("judgment", JUDGMENT) ;
   ("fun", FUNCTION) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
@@ -38,6 +38,7 @@ let reserved = [
   ("mltype", MLTYPE) ;
   ("now", NOW) ;
   ("occurs", OCCURS) ;
+  ("of", OF) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
   ("reduction", REDUCTION) ;

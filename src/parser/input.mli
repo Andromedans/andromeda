@@ -119,8 +119,12 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Judgment
 
+type constructor_decl =
+  | ML_GADT of Name.constructor * ml_ty list * ml_ty
+  | ML_Variant of Name.constructor * ml_ty list
+
 type ml_tydef =
-  | ML_Sum of (Name.constructor * ml_ty list * ml_ty) list
+  | ML_Sum of constructor_decl list
   | ML_Alias of ml_ty
 
 (** Sugared toplevel commands *)

@@ -39,7 +39,6 @@ and dynamic = {
 and lexical = {
   (* for printing only *)
   forbidden : Name.ident list;
-  quiet     : bool;
 
   bound : bound list;
   (* current continuation if we're handling an operation *)
@@ -293,15 +292,10 @@ let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
   in
   m ctx y env
 
-let add_operation0 ~loc x env =
+let add_forbidden0 x env =
   { env with lexical = { env.lexical with forbidden = x :: env.lexical.forbidden } }
 
-let add_operation ~loc x env = (), add_operation0 ~loc x env
-
-let add_data0 ~loc x env =
-  { env with lexical = { env.lexical with forbidden = x :: env.lexical.forbidden } }
-
-let add_data ~loc x env = (), add_data0 ~loc x env
+let add_forbidden x env = (), add_forbidden0 x env
 
 let add_constant0 ~loc x t env =
   { env with dynamic = {env.dynamic with constants = (x, t) :: env.dynamic.constants };
@@ -526,7 +520,6 @@ let empty = {
     bound = [] ;
     handle = [] ;
     continuation = None ;
-    quiet = true ;
   } ;
   dynamic = {
     constants = [] ;

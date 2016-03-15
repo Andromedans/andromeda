@@ -74,24 +74,40 @@ module Ctx = struct
   let add_dynamic x ctx =
     { ctx with bound = (x, Variable Dynamic) :: ctx.bound }
 
-  let add_operation op k ctx =
-    { ctx with bound = (op, Operation k) :: ctx.bound }
+  let add_operation ~loc op k ctx =
+    if List.exists (function (op', Operation _) -> Name.eq_ident op op' | _ -> false) ctx.bound
+    then
+      Error.syntax ~loc "Operation %t is already declared." (Name.print_ident op)
+    else
+      { ctx with bound = (op, Operation k) :: ctx.bound }
 
-  let add_constructor c k ctx =
-    { ctx with bound = (c, Constructor k) :: ctx.bound }
+  let add_constructor ~loc c k ctx =
+    if List.exists (function (c', Constructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
+    then
+      Error.syntax ~loc "Constructor %t is already declared." (Name.print_ident c)
+    else
+      { ctx with bound = (c, Constructor k) :: ctx.bound }
 
-  let add_signature s ctx =
-    { ctx with bound = (s, Signature) :: ctx.bound }
+  let add_signature ~loc s ctx =
+    if List.exists (function (s', Signature) -> Name.eq_ident s s' | _ -> false) ctx.bound
+    then
+      Error.syntax ~loc "Signature %t is already declared." (Name.print_ident s)
+    else
+      { ctx with bound = (s, Signature) :: ctx.bound }
 
-  let add_constant c ctx =
-    { ctx with bound = (c, Constant) :: ctx.bound }
+  let add_constant ~loc c ctx =
+    if List.exists (function (c', Constant) -> Name.eq_ident c c' | _ -> false) ctx.bound
+    then
+      Error.syntax ~loc "Constant %t is already declared." (Name.print_ident c)
+    else
+      { ctx with bound = (c, Constant) :: ctx.bound }
 
   (* Add to the contex the fact that [ty] is a type constructor with
      [k] parameters. *)
   let add_tydef t k ctx =
     { ctx with tydefs = List.append ctx.tydefs [(t, k)] }
 
-  (* Get the arit and de Bruijn level of type named [t] and its definiton *)
+  (* Get the arity and de Bruijn level of type named [t] and its definition *)
   let get_tydef ~loc t {tydefs=lst; _} =
     let rec find k = function
       | [] -> Error.syntax ~loc "unknown type constructor %t" (Name.print_ident t)
@@ -838,34 +854,64 @@ let decl_operation ~loc ctx params args res =
   and res = mlty ctx params res in
   args, res
 
-(* TODO check for reuse of type and constructor name (eg type foo = Bob | Bob) *)
 
-(* [mlty_def ctx params def] desugars [def] and adds the constructors to [ctx] *)
-let mlty_def ctx params def =
+let mlty_def ~loc ctx outctx params def =
   match def with
+  | Input.ML_Alias ty ->
+     let ty = mlty ctx params ty in
+     outctx, Syntax.ML_Alias ty
+  | Input.ML_Sum lst ->
+    let rec fold outctx res = function
+      | [] -> outctx, Syntax.ML_Sum (List.rev res)
+      | (Input.ML_Variant (c,args)) :: lst ->
+        let args = List.map (mlty ctx params) args in
+        let outctx = Ctx.add_constructor ~loc c (List.length args) outctx in
+        fold outctx ((Syntax.ML_Variant (c,args))::res) lst
+      | (Input.ML_GADT _) :: _ -> Error.impossible ~loc "no gadt style constructors in nonrecursive type declarations."
+    in
+    fold outctx [] lst
+
+let mlty_rec_def ~loc ctx params def =
+  match def with 
   | Input.ML_Alias ty ->
      let ty = mlty ctx params ty in
      ctx, Syntax.ML_Alias ty
   | Input.ML_Sum lst ->
     let rec fold ctx res = function
       | [] -> ctx, Syntax.ML_Sum (List.rev res)
-      | (c,args,out) :: lst ->
+      | (Input.ML_Variant (c,args)) :: lst ->
+        let args = List.map (mlty ctx params) args in
+        let ctx = Ctx.add_constructor ~loc c (List.length args) ctx in
+        fold ctx ((Syntax.ML_Variant (c,args))::res) lst
+      | (Input.ML_GADT (c,args,out)) :: lst ->
         let args = List.map (mlty ctx params) args
         and out = mlty ctx params out in
-        let ctx = Ctx.add_constructor c (List.length args) ctx in
-        fold ctx ((c,args,out)::res) lst
+        let ctx = Ctx.add_constructor ~loc c (List.length args) ctx in
+        fold ctx ((Syntax.ML_GADT (c,args,out))::res) lst        
     in
     fold ctx [] lst
-
-let mlty_defs ~loc ctx lst = assert false
+  
+let mlty_defs ~loc ctx lst =
+  let rec fold outctx res = function
+    | [] -> outctx, List.rev res
+    | (t, (params, def)) :: lst ->
+      let outctx = Ctx.add_tydef t (List.length params) outctx in
+      let outctx, def = mlty_def ~loc ctx outctx params def in
+      fold outctx ((t, (params, def)) :: res) lst
+  in
+  fold ctx [] lst
 
 let mlty_rec_defs ~loc ctx lst =
   let ctx = List.fold_left (fun ctx (t, (params,_)) -> Ctx.add_tydef t (List.length params) ctx) ctx lst in
   let rec fold ctx defs = function
     | [] -> (ctx, List.rev defs)
     | (t, (params, def)) :: lst ->
-       let ctx, def = mlty_def ctx params def in
-       fold ctx ((t, (params, def)) :: defs) lst
+       if List.exists (fun (t', _) -> Name.eq_ident t t') lst
+       then
+         Error.syntax ~loc "%t is declared more than once." (Name.print_ident t)
+       else
+         let ctx, def = mlty_rec_def ~loc ctx params def in
+         fold ctx ((t, (params, def)) :: defs) lst
   in
   fold ctx [] lst
 
@@ -874,7 +920,7 @@ let rec toplevel ~basedir ctx (cmd, loc) =
 
     | Input.DeclOperation (op, (params, args, res)) ->
        let args, res = decl_operation ~loc ctx params args res in
-       let ctx = Ctx.add_operation op (List.length args) ctx in
+       let ctx = Ctx.add_operation ~loc op (List.length args) ctx in
        (ctx, locate (Syntax.DeclOperation (op, (params, args, res))) loc)
 
     | Input.DefMLType lst ->
@@ -887,7 +933,7 @@ let rec toplevel ~basedir ctx (cmd, loc) =
 
     | Input.DeclConstants (xs, u) ->
        let u = comp ~yield:false ctx u
-       and ctx = List.fold_left (fun ctx x -> Ctx.add_constant x ctx) ctx xs in
+       and ctx = List.fold_left (fun ctx x -> Ctx.add_constant ~loc x ctx) ctx xs in
        (ctx, locate (Syntax.DeclConstants (xs, u)) loc)
 
     | Input.DeclSignature (s, lst) ->
@@ -904,7 +950,7 @@ let rec toplevel ~basedir ctx (cmd, loc) =
               fold (Ctx.add_lexical y ctx) (x::labels) ((x,y,c)::res) rem
        in
        let lst = fold ctx [] [] lst in
-       let ctx = Ctx.add_signature s ctx in
+       let ctx = Ctx.add_signature ~loc s ctx in
        (ctx, locate (Syntax.DeclSignature (s, lst)) loc)
 
     | Input.TopHandle lst ->

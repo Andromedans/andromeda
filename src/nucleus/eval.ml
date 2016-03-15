@@ -918,11 +918,28 @@ let topletrec_bind ~loc ~quiet fxcs =
           Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
   return ()
 
+let add_def = function
+  | Syntax.ML_Alias _ -> return ()
+  | Syntax.ML_Sum lst ->
+    mfold (fun () (Syntax.ML_GADT (cstr,_,_) | Syntax.ML_Variant (cstr,_)) -> Runtime.add_forbidden cstr) () lst
+
 let rec toplevel ~quiet {Location.thing=c;loc} =
   match c with
 
+  | Syntax.DefMLType lst ->
+    mfold (fun names (t,(_,def)) -> add_def def >>= fun () -> return (t::names)) [] lst >>= fun names ->
+    let names = List.rev names in
+    (if not quiet then Format.printf "Type%s %t declared." (match names with [] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
+    return ()
+
+  | Syntax.DefMLTypeRec lst ->
+    mfold (fun names (t,(_,def)) -> add_def def >>= fun () -> return (t::names)) [] lst >>= fun names ->
+    let names = List.rev names in
+    (if not quiet then Format.printf "Type%s %t declared." (match names with [] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
+    return ()
+
   | Syntax.DeclOperation (x, k) ->
-     Runtime.add_operation ~loc x >>= fun () ->
+     Runtime.add_forbidden x >>= fun () ->
      if not quiet then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
      return ()
 
@@ -983,18 +1000,12 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
      end
 
   | Syntax.Included lst ->
-     assert false (* TODO *)
-     (* mfold (fun () fn -> *)
-     (*     (\* don't print deeper includes *\) *)
-     (*     if not quiet then Format.printf "#including %s@." fn ; *)
-     (*     let fn = *)
-     (*       if Filename.is_relative fn *)
-     (*       then Filename.concat base_dir fn *)
-     (*       else fn *)
-     (*     in *)
-     (*     use_file ~fn ~quiet:true >>= fun () -> *)
-     (*     (if not quiet then Format.printf "#processed %s@." fn ; *)
-     (*      return ())) () fs *)
+    mfold (fun () (fn, cmds) ->
+        (if not quiet then Format.printf "#including %s" fn);
+        mfold (fun () cmd -> toplevel ~quiet:true cmd) () cmds >>= fun () ->
+        (if not quiet then Format.printf "#processed %s" fn);
+        return ())
+      () lst
 
   | Syntax.Verbosity i -> Config.verbosity := i; return ()
 
