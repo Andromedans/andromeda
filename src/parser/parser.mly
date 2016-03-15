@@ -247,6 +247,7 @@ constraint_clause:
 
 var_name:
   | NAME { $1 }
+  | LPAREN op=INFIXCONS RPAREN { fst op }
   | LPAREN op=PREFIXOP RPAREN  { fst op }
   | LPAREN op=INFIXOP0 RPAREN  { fst op }
   | LPAREN op=INFIXOP1 RPAREN  { fst op }

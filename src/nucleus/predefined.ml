@@ -19,7 +19,7 @@ let predefined_aml_types =
   and decl_list =
     ["mltype rec list α =";
     "  | nil";
-    "  | cons of α and list α";
+    "  | ( :: ) of α and list α";
      "end"]
   in
   List.map (String.concat "\n") [decl_option; decl_constrain; decl_list]
