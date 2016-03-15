@@ -55,9 +55,6 @@ let reserved = [
   ("⊢", VDASH) ;
 ]
 
-let ascii_name =
-  [%sedlex.regexp? ('_' | 'a'..'z' | 'A'..'Z') ,
-                 Star ('_' | 'a'..'z' | 'A'..'Z' | '0'..'9' | '\'')]
 let name =
   [%sedlex.regexp? (('_' | alphabetic),
                  Star ('_' | alphabetic
