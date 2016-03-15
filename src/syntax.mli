@@ -142,6 +142,4 @@ and toplevel' =
   | Verbosity of int
   | Included of (string * toplevel list) list
   | Quit (** quit the toplevel *)
-  | Help (** print help *)
-  | Environment (** print the current environment *)
 

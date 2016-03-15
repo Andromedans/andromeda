@@ -1,6 +1,4 @@
 (** Evaluation of computations *)
 
-val infer : Syntax.comp -> Runtime.value Runtime.comp
-
-val check_ty : Syntax.comp -> Jdg.ty Runtime.comp
+val toplevel : quiet:bool -> Syntax.toplevel -> unit Runtime.toplevel
 

@@ -139,9 +139,7 @@ and toplevel' =
   | TopDo of comp (** evaluate a computation at top level *)
   | TopFail of comp
   | Verbosity of int
-  | Include of string list * bool
+  | Include of string list
     (** the boolean is [true] if the files should be included only once *)
   | Quit (** quit the toplevel *)
-  | Help (** print help *)
-  | Environment (** print the current environment *)
 

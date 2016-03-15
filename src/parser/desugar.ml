@@ -1,5 +1,14 @@
 (** Conversion from sugared to desugared input syntax *)
 
+let parse lex parse resource =
+  try
+    lex parse resource
+  with
+  | Ulexbuf.Parse_Error (w, p_start, p_end) ->
+     let loc = Location.make p_start p_end in
+     Error.syntax ~loc "Unexpected: %s" w
+
+
 (** Ctx variable management *)
 module Ctx = struct
 
@@ -842,7 +851,7 @@ let mlty_def ctx params def =
       | [] -> ctx, Syntax.ML_Sum (List.rev res)
       | (c,args,out) :: lst ->
         let args = List.map (mlty ctx params) args
-        and out = List.map (mlty ctx params) out in
+        and out = mlty ctx params out in
         let ctx = Ctx.add_constructor c (List.length args) ctx in
         fold ctx ((c,args,out)::res) lst
     in
@@ -851,9 +860,9 @@ let mlty_def ctx params def =
 let mlty_defs ~loc ctx lst = assert false
 
 let mlty_rec_defs ~loc ctx lst =
-  let ctx = List.fold_left (fun ctx (t, (params,_)) -> Ctx.add_tydef t (List.length params)) in
+  let ctx = List.fold_left (fun ctx (t, (params,_)) -> Ctx.add_tydef t (List.length params) ctx) ctx lst in
   let rec fold ctx defs = function
-    | [] -> ctx, List.rev defs
+    | [] -> (ctx, List.rev defs)
     | (t, (params, def)) :: lst ->
        let ctx, def = mlty_def ctx params def in
        fold ctx ((t, (params, def)) :: defs) lst
@@ -946,31 +955,34 @@ let rec toplevel ctx (cmd, loc) =
     | Input.Quit ->
        (ctx, locate Syntax.Quit loc)
 
-    | Input.Help ->
-       (ctx, locate Syntax.Help loc)
-
     | Input.Verbosity n ->
        (ctx, locate (Syntax.Verbosity n) loc)
 
-    | Input.Include (fs, b) ->
+    | Input.Include fs ->
       let rec fold ctx res = function
         | [] -> (ctx, locate (Syntax.Included (List.rev res)) loc)
         | fn::fs ->
           if Ctx.included fn ctx
           then
-            let ctx = Ctx.push_file fn ctx in
-            let cmds = parse Lexer.read_file Parser.file fn in
-            let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->
-                let ctx, cmd = toplevel ctx cmd in
-                (ctx, cmd::cmds))
-              (ctx,[]) cmds
-            in
-            fold ctx ((fn, List.rev cmds)::res) lst
+            fold ctx res fs
           else
-            fold ctx res lst
+            let fn = assert false (* TODO basedir stuff *) in
+            let ctx, cmds = file ctx fn in
+            fold ctx ((fn, cmds)::res) fs
       in
       fold ctx [] fs
 
-    | Input.Environment ->
-       (ctx, locate Syntax.Environment loc)
+and file ctx fn =
+  if Ctx.included fn ctx
+  then
+    ctx, []
+  else
+    let ctx = Ctx.push_file fn ctx in
+    let cmds = parse (Lexer.read_file ?line_limit:None) Parser.file fn in
+    let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->
+        let ctx, cmd = toplevel ctx cmd in
+        (ctx, cmd::cmds))
+      (ctx,[]) cmds
+    in
+    ctx, List.rev cmds
 

@@ -29,8 +29,6 @@ type 'a comp
 (** state environment, no operations *)
 type 'a toplevel
 
-val empty : env
-
 (** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
 val name_of : value -> string
 
@@ -184,13 +182,12 @@ val lookup_penv : Tt.print_env comp
 val print_env : (Format.formatter -> unit) toplevel
 
 
-(** Used to compute command per command *)
-type 'a progress
+(** Interface to execute suspended computations. *)
+type topenv
 
-(** runs with empty starting environment not containing declarations used by the kernel *)
-val start : 'a toplevel -> 'a progress
-val step : 'a progress -> ('a -> 'b toplevel) -> 'b progress
-val finish : 'a progress -> 'a
+val empty : topenv
+
+val exec : 'a toplevel -> topenv -> 'a * topenv
 
 (** Handling *)
 val handle_comp : handler -> value comp -> value comp

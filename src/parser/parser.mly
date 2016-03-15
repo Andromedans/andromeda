@@ -82,10 +82,10 @@
 %token WHERE
 
 (* Toplevel directives *)
-%token ENVIRONMENT HELP QUIT
+%token QUIT
 %token VERBOSITY
 %token <string> QUOTED_STRING
-%token INCLUDE INCLUDEONCE
+%token INCLUDEONCE
 
 %token EOF
 
@@ -139,12 +139,9 @@ plain_topcomp:
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
 plain_topdirective:
-  | ENVIRONMENT                                      { Environment }
-  | HELP                                             { Help }
   | QUIT                                             { Quit }
   | VERBOSITY n=NUMERAL                              { Verbosity n }
-  | INCLUDE fs=QUOTED_STRING+                        { Include (fs, false) }
-  | INCLUDEONCE fs=QUOTED_STRING+                    { Include (fs, true) }
+  | INCLUDEONCE fs=QUOTED_STRING+                    { Include fs }
 
 (* Main syntax tree *)
 

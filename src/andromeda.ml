@@ -9,7 +9,7 @@ let files = ref []
 
 (** Add a file to the list of files to be loaded, and record whether it should
     be processed in interactive mode. *)
-let add_file interactive filename = (files := (filename, interactive) :: !files)
+let add_file quiet filename = (files := (filename, quiet) :: !files)
 
 (** Command-line options *)
 let options = Arg.align [
@@ -69,7 +69,7 @@ let options = Arg.align [
      " Do not run the interactive toplevel");
 
     ("-l",
-     Arg.String (fun str -> add_file false str),
+     Arg.String (fun str -> add_file true str),
      "<file> Load <file> into the initial environment");
   ]
 
@@ -79,8 +79,8 @@ let interactive_shell state =
   let rec loop state =
     let state =
       try
-        let cmd = Toplevel.parse Lexer.read_toplevel Parser.commandline () in
-        Toplevel.exec_cmd Filename.current_dir_name true cmd state
+        let cmd = Desugar.parse Lexer.read_toplevel Parser.commandline () in
+        Toplevel.exec_cmd ~quiet:false cmd state
       with
       | Error.Error err -> Print.error "%t" (Error.print err); state
       | Sys.Break -> Format.eprintf "Interrupted.@."; state
@@ -94,7 +94,7 @@ let main =
   (* Parse the arguments. *)
   Arg.parse
     options
-    (fun str -> add_file true str ; Config.interactive_shell := false)
+    (fun str -> add_file false str ; Config.interactive_shell := false)
     usage ;
   (* Attempt to wrap yourself with a line-editing wrapper. *)
   if !Config.interactive_shell then
@@ -119,7 +119,7 @@ let main =
   begin
     match !Config.prelude_file with
     | Config.PreludeNone -> ()
-    | Config.PreludeFile f -> add_file false f
+    | Config.PreludeFile f -> add_file true f
     | Config.PreludeDefault ->
       (* look for prelude next to the executable and in the , don't whine if it is not there *)
       try
@@ -127,7 +127,7 @@ let main =
         let d' = Filename.dirname Sys.argv.(0) in
         let l = List.map (fun d -> Filename.concat d "prelude.m31") [d; d'] in
         let f = List.find (fun f ->  Sys.file_exists f) l in
-        add_file false f
+        add_file true f
       with Not_found -> ()
   end ;
 
@@ -139,7 +139,7 @@ let main =
     (* Run and load all the specified files. *)
     let topstate =
       List.fold_left
-        (fun topstate (fn, interactive) -> Toplevel.use_file ~fn ~interactive topstate)
+        (fun topstate (fn, quiet) -> Toplevel.use_file ~fn ~quiet topstate)
         Toplevel.initial !files in
 
     if !Config.interactive_shell

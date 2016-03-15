@@ -104,11 +104,8 @@ and token_aux ({ stream;_ } as lexbuf) =
   | newline                  -> f (); new_line lexbuf; token_aux lexbuf
   | start_longcomment        -> f (); comments 0 lexbuf
   | Plus hspace              -> f (); token_aux lexbuf
-  | "#environment"               -> f (); g (); ENVIRONMENT
-  | "#help"                  -> f (); g (); HELP
   | "#quit"                  -> f (); g (); QUIT
   | "#verbosity"             -> f (); VERBOSITY
-  | "#include"               -> f (); INCLUDE
   | "#include_once"          -> f (); INCLUDEONCE
   | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
   | '('                      -> f (); LPAREN
@@ -252,3 +249,8 @@ let read_toplevel parse () =
   let str = read_more "# " "" in
   let lex = from_string (str ^ "\n") in
   run token parse lex
+
+let read_string parse s =
+  let lex = from_string s in
+  run token parse lex
+

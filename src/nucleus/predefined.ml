@@ -35,6 +35,7 @@ let predefined_ops =
      "operation as_signature : Judgement -> option Judgement"] in
   String.concat "\n" ops
 
+let definitions = String.concat "\n" [predefined_aml_types; predefined_ops]
 
 let rec mk_list = function
   | [] -> Runtime.mk_tag name_nil []

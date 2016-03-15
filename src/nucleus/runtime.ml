@@ -537,12 +537,6 @@ let empty = {
   state = Store.Ref.empty;
 }
 
-type 'a progress = 'a * env
-
-let start m = m empty
-let step (x, env) f = f x env
-let finish (x,_) = x
-
 (** Handling *)
 let rec handle_comp {handler_val; handler_ops; handler_finally} (r : value comp) : value comp =
   begin fun env -> match r env with
@@ -638,4 +632,9 @@ let rec equal_value v1 v2 =
     | Ident _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
     | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ident _) ->
       false
+
+
+type topenv = env
+
+let exec m = m
 

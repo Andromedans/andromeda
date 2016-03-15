@@ -830,3 +830,174 @@ and check_ty c : Jdg.ty Runtime.comp =
   let j = Jdg.mk_ty ctx t in
   Runtime.return j
 
+
+(** Move to toplevel monad *)
+
+let comp_value c =
+  let r = infer c in
+  Runtime.top_handle ~loc:c.Location.loc r
+
+let comp_handle (xs,y,c) =
+  Runtime.top_return_closure (fun (vs,checking) ->
+      let rec fold2 xs vs = match xs,vs with
+        | [], [] ->
+           begin match y with
+           | Some y ->
+              let checking = match checking with
+                | Some jt -> Some (Runtime.mk_term (Jdg.term_of_ty jt))
+                | None -> None
+              in
+              let vy = Predefined.from_option checking in
+              Runtime.add_bound y vy (infer c)
+           | None -> infer c
+           end
+        | x::xs, v::vs -> Runtime.add_bound x v (fold2 xs vs)
+        | [],_::_ | _::_,[] -> Error.impossible ~loc:(c.Location.loc) "bad top handler case"
+      in
+      fold2 xs vs)
+
+let comp_signature ~loc lxcs =
+  let (>>=) = Runtime.bind in
+  let rec fold ys yts lxts = function
+    | [] ->
+       let lxts = List.rev lxts in
+       Runtime.return lxts
+
+    | (l,x,c) :: lxcs ->
+       check_ty c >>= fun (Jdg.Ty (ctxt,t)) ->
+       if not (Context.is_subset ctxt yts)
+       then Error.runtime ~loc "signature field %t has unresolved assumptions"
+           (Name.print_ident l)
+       else begin
+         let jt = Jdg.mk_ty ctxt t
+         and tabs = Tt.abstract_ty ys t in
+         Runtime.add_abstracting ~loc x jt (fun _ y ->
+             fold (y::ys) ((y,t)::yts) ((l,x,tabs) :: lxts) lxcs)
+       end
+  in
+  Runtime.top_handle ~loc (fold [] [] [] lxcs)
+
+(** Toplevel commands *)
+
+let (>>=) = Runtime.top_bind
+let return = Runtime.top_return
+
+let rec mfold f acc = function
+  | [] -> return acc
+  | x::rem -> f acc x >>= fun acc ->
+     mfold f acc rem
+
+let toplet_bind ~loc ~quiet xcs =
+  let rec fold xvs = function
+    | [] ->
+       (* parallel let: only bind at the end *)
+       List.fold_left
+         (fun cmd (x,v) ->
+            Runtime.add_topbound ~loc x v >>= fun () ->
+            if not quiet && not (Name.is_anonymous x)
+            then Format.printf "%t is defined.@." (Name.print_ident x) ;
+            cmd)
+         (return ())
+         xvs
+    | (x, c) :: xcs ->
+       comp_value c >>= fun v ->
+       fold ((x, v) :: xvs) xcs
+  in
+  fold [] xcs
+
+let topletrec_bind ~loc ~quiet fxcs =
+  let gs =
+    List.map
+      (fun (f, x, c) -> (f, (fun v -> Runtime.add_bound x v (infer c))))
+      fxcs
+  in
+  Runtime.add_topbound_rec ~loc gs >>= fun () ->
+  if not quiet then
+    List.iter (fun (f, _, _) ->
+        if not (Name.is_anonymous f) then
+          Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
+  return ()
+
+let rec toplevel ~quiet {Location.thing=c;loc} =
+  match c with
+
+  | Syntax.DeclOperation (x, k) ->
+     Runtime.add_operation ~loc x >>= fun () ->
+     if not quiet then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
+     return ()
+
+  | Syntax.DeclConstants (xs, c) ->
+     Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
+     if Context.is_empty ctxt
+     then
+       let rec fold = function
+         | [] -> return ()
+         | x :: xs ->
+            Runtime.add_constant ~loc x t >>= fun () ->
+            (if not quiet then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
+             fold xs)
+       in
+       fold xs
+     else
+       Error.typing "Constants may not depend on free variables" ~loc:(c.Location.loc)
+
+  | Syntax.DeclSignature (s, lxcs) ->
+     comp_signature ~loc lxcs >>= fun lxts ->
+     Runtime.add_signature ~loc s lxts  >>= fun () ->
+     (if not quiet then Format.printf "Signature %t is declared.@." (Name.print_ident s) ;
+      return ())
+
+  | Syntax.TopHandle lst ->
+     mfold (fun () (op, xc) ->
+         comp_handle xc >>= fun f ->
+         Runtime.add_handle op f) () lst
+
+  | Syntax.TopLet xcs ->
+     toplet_bind ~loc ~quiet xcs
+
+  | Syntax.TopLetRec fxcs ->
+     topletrec_bind ~loc ~quiet fxcs
+
+  | Syntax.TopDynamic (x,c) ->
+     comp_value c >>= fun v ->
+     Runtime.add_dynamic ~loc x v
+
+  | Syntax.TopNow (x,c) ->
+     comp_value c >>= fun v ->
+     Runtime.top_now ~loc x v
+
+  | Syntax.TopDo c ->
+     comp_value c >>= fun v ->
+     Runtime.top_print_value >>= fun print_value ->
+     (if not quiet then Format.printf "%t@." (print_value v) ;
+      return ())
+
+  | Syntax.TopFail c ->
+     Runtime.catch (fun () -> comp_value (Lazy.force c)) >>= begin function
+     | Error.Err err ->
+        (if not quiet then Format.printf "The command failed with error:\n%t@." (Error.print err));
+        return ()
+     | Error.OK v ->
+        Runtime.top_print_value >>= fun pval ->
+        Error.runtime ~loc "The command has not failed: got %t." (pval v)
+     end
+
+  | Syntax.Included lst ->
+     assert false (* TODO *)
+     (* mfold (fun () fn -> *)
+     (*     (\* don't print deeper includes *\) *)
+     (*     if not quiet then Format.printf "#including %s@." fn ; *)
+     (*     let fn = *)
+     (*       if Filename.is_relative fn *)
+     (*       then Filename.concat base_dir fn *)
+     (*       else fn *)
+     (*     in *)
+     (*     use_file ~fn ~quiet:true >>= fun () -> *)
+     (*     (if not quiet then Format.printf "#processed %s@." fn ; *)
+     (*      return ())) () fs *)
+
+  | Syntax.Verbosity i -> Config.verbosity := i; return ()
+
+  | Syntax.Quit ->
+     exit 0
+
