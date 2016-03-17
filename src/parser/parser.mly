@@ -180,25 +180,11 @@ plain_equal_term:
   | e=plain_binop_term                               { e }
   | e1=binop_term EQEQ e2=binop_term                 { Eq (e1, e2) }
 
-infixop3:
-  | op=INFIXOP3 { op }
-  | op=STAR     { op }
-
 binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
   | e=plain_app_term                                { e }
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
-  | e2=binop_term op=INFIXCONS e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=INFIXOP0 e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=INFIXOP1 e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=INFIXOP2 e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=infixop3 e3=binop_term %prec INFIXOP3
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=INFIXOP4 e3=binop_term
+  | e2=binop_term op=infix e3=binop_term
     { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
 
 app_term: mark_location(plain_app_term) { $1 }
@@ -247,13 +233,18 @@ constraint_clause:
 
 var_name:
   | NAME { $1 }
-  | LPAREN op=INFIXCONS RPAREN { fst op }
+  | LPAREN op=infix RPAREN { fst op }
   | LPAREN op=PREFIXOP RPAREN  { fst op }
-  | LPAREN op=INFIXOP0 RPAREN  { fst op }
-  | LPAREN op=INFIXOP1 RPAREN  { fst op }
-  | LPAREN op=INFIXOP2 RPAREN  { fst op }
-  | LPAREN op=infixop3 RPAREN  { fst op }
-  | LPAREN op=INFIXOP4 RPAREN  { fst op }
+
+%inline infix:
+  | op=INFIXCONS   { op }
+  | op=INFIXOP0    { op }
+  | op=INFIXOP1    { op }
+  | op=INFIXOP2    { op }
+  | op=INFIXOP3    { op }
+  | op=STAR        { op }
+  | op=INFIXOP4    { op }
+
 
 name:
   | x=var_name { x }
@@ -319,15 +310,7 @@ handler_case:
   | op=var_name ps=prefix_pattern* pt=handler_checking DARROW t=term                { CaseOp (op, (ps, pt, t)) }
   | op=PREFIXOP p=prefix_pattern pt=handler_checking DARROW t=term
     { let op = fst op in CaseOp (op, ([p], pt, t)) }
-  | p1=binop_pattern op=INFIXOP0 p2=binop_pattern pt=handler_checking DARROW t=term
-    { CaseOp (fst op, ([p1; p2], pt, t)) }
-  | p1=binop_pattern op=INFIXOP1 p2=binop_pattern pt=handler_checking DARROW t=term
-    { CaseOp (fst op, ([p1; p2], pt, t)) }
-  | p1=binop_pattern op=INFIXOP2 p2=binop_pattern pt=handler_checking DARROW t=term
-    { CaseOp (fst op, ([p1; p2], pt, t)) }
-  | p1=binop_pattern op=infixop3 p2=binop_pattern pt=handler_checking DARROW t=term
-    { CaseOp (fst op, ([p1; p2], pt, t)) }
-  | p1=binop_pattern op=INFIXOP4 p2=binop_pattern pt=handler_checking DARROW t=term
+  | p1=binop_pattern op=infix p2=binop_pattern pt=handler_checking DARROW t=term
     { CaseOp (fst op, ([p1; p2], pt, t)) }
   | FINALLY p=pattern DARROW t=term                             { CaseFinally (p, t) }
 
@@ -344,15 +327,7 @@ top_handler_case:
   | op=var_name xs=top_patt_maybe_var* y=top_handler_checking DARROW t=term           { (op, (xs, y, t)) }
   | op=PREFIXOP x=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x], y, t)) }
-  | x1=top_patt_maybe_var op=INFIXOP0 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x1;x2], y, t)) }
-  | x1=top_patt_maybe_var op=INFIXOP1 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x1;x2], y, t)) }
-  | x1=top_patt_maybe_var op=INFIXOP2 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x1;x2], y, t)) }
-  | x1=top_patt_maybe_var op=infixop3 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x1;x2], y, t)) }
-  | x1=top_patt_maybe_var op=INFIXOP4 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
+  | x1=top_patt_maybe_var op=infix x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x1;x2], y, t)) }
 
 top_handler_checking:
@@ -378,18 +353,7 @@ plain_pattern:
 binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
   | e=plain_app_pattern                                { e }
-  | e1=binop_pattern op=INFIXOP0 e2=binop_pattern
-    { Patt_Constr (fst op, [e1; e2]) }
-  | e1=binop_pattern op=INFIXOP1 e2=binop_pattern
-    { Patt_Constr (fst op, [e1; e2]) }
-  | e1=binop_pattern op=INFIXCONS  e2=binop_pattern
-    { Patt_Constr (fst op, [e1; e2]) }
-  | e1=binop_pattern op=INFIXOP2 e2=binop_pattern
-    { Patt_Constr (fst op, [e1; e2]) }
-  | e1=binop_pattern op=infixop3 e2=binop_pattern
-    %prec INFIXOP3
-    { Patt_Constr (fst op, [e1; e2]) }
-  | e1=binop_pattern op=INFIXOP4 e2=binop_pattern
+  | e1=binop_pattern op=infix e2=binop_pattern
     { Patt_Constr (fst op, [e1; e2]) }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
@@ -432,16 +396,7 @@ plain_equal_tt_pattern:
 binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
 plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
-  | e1=binop_tt_pattern op=INFIXOP0 e2=binop_tt_pattern
-    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
-  | e1=binop_tt_pattern op=INFIXOP1 e2=binop_tt_pattern
-    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
-  | e1=binop_tt_pattern op=INFIXOP2 e2=binop_tt_pattern
-    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
-  | e1=binop_tt_pattern op=infixop3 e2=binop_tt_pattern
-    %prec INFIXOP3
-    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
-  | e1=binop_tt_pattern op=INFIXOP4 e2=binop_tt_pattern
+  | e1=binop_tt_pattern op=infix e2=binop_tt_pattern
     { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
 
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }

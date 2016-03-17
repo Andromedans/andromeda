@@ -142,7 +142,6 @@ and token_aux ({ stream;_ } as lexbuf) =
                                                 Name.make ~fixity:(Name.Infix Level.Infix4) s, Location.of_lexeme lexbuf)
   (* Comes before infixop3 because * matches the infixop3 pattern too *)
   | '*'                      -> f (); STAR (Name.make ~fixity:(Name.Infix Level.Infix3) "*", Location.of_lexeme lexbuf)
-  (* Comes before infixop3 because * matches the infixop3 pattern too *)
   | infixop3                 -> f (); INFIXOP3 (let s = lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix3) s, Location.of_lexeme lexbuf)
 
