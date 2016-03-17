@@ -13,12 +13,11 @@ module Ctx : sig
   val empty : t
 end
 
-(** [toplevel primitive bound c] desugars a toplevel command [c] with a
-    list of primitives and their arities, and a list of bound variables
-    that are converted to de Bruijn indiced. *)
+(** [toplevel basedir ctx c] desugars a toplevel command [c] with
+    [ctx] information about bound names and [basedir] the directory used for relative inclusion paths. *)
 val toplevel : basedir:string -> Ctx.t -> Input.toplevel -> Ctx.t * Syntax.toplevel
 
-(** [file limit ctx fn] loads [fn] a path relative to the working directory or absolute.
+(** [file ctx fn] loads [fn] a path relative to the working directory or absolute.
     If [fn] has already been included it does nothing, returning the input context and the empty list. *)
 val file : Ctx.t -> string -> Ctx.t * Syntax.toplevel list
 
