@@ -79,7 +79,7 @@ let interactive_shell state =
   let rec loop state =
     let state =
       try
-        let cmd = Desugar.parse Lexer.read_toplevel Parser.commandline () in
+        let cmd = Ulexbuf.parse Lexer.read_toplevel Parser.commandline () in
         Toplevel.exec_cmd ~quiet:false cmd state
       with
       | Error.Error err -> Print.error "%t" (Error.print err); state

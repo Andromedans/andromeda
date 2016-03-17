@@ -26,7 +26,7 @@ let use_file ~fn ~quiet {desugar;typing;runtime} =
 
 let initial =
   try
-    let cmds = Desugar.parse Lexer.read_string Parser.file Predefined.definitions in
+    let cmds = Ulexbuf.parse Lexer.read_string Parser.file Predefined.definitions in
     let desugar, cmds = List.fold_left (fun (desugar, cmds) cmd ->
         let desugar, cmd = Desugar.toplevel ~basedir:Filename.current_dir_name desugar cmd in
         (desugar, cmd :: cmds))

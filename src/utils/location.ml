@@ -44,7 +44,4 @@ let make start_lexpos end_lexpos =
   assert (start_filename = end_filename);
   Known {filename = start_filename; start_line; start_col; end_line; end_col}
 
-let of_lexeme lex =
-  Ulexbuf.(make lex.pos_start lex.pos_end)
-
 let locate x loc = { thing = x; loc }

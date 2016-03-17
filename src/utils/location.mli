@@ -33,8 +33,5 @@ val unknown : t
 (** Make a location from two lexing positions. *)
 val make : Lexing.position -> Lexing.position -> t
 
-(** Get the location of the current lexeme in a lexing buffer. *)
-val of_lexeme : Ulexbuf.t -> t
-
 (** Create a located thing. *)
 val locate : 'a -> t -> 'a located

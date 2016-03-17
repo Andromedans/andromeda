@@ -1,14 +1,5 @@
 (** Conversion from sugared to desugared input syntax *)
 
-let parse lex parse resource =
-  try
-    lex parse resource
-  with
-  | Ulexbuf.Parse_Error (w, p_start, p_end) ->
-     let loc = Location.make p_start p_end in
-     Error.syntax ~loc "Unexpected: %s" w
-
-
 (** Ctx variable management *)
 module Ctx = struct
 
@@ -1029,7 +1020,7 @@ and file ctx fn =
   else
     let basedir = Filename.dirname fn in
     let ctx = Ctx.push_file fn ctx in
-    let cmds = parse (Lexer.read_file ?line_limit:None) Parser.file fn in
+    let cmds = Ulexbuf.parse (Lexer.read_file ?line_limit:None) Parser.file fn in
     let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->
         let ctx, cmd = toplevel ~basedir ctx cmd in
         (ctx, cmd::cmds))

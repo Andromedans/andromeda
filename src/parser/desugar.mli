@@ -1,9 +1,5 @@
 (** Conversion from sugared to desugared input syntax *)
 
-
-(** Parser wrapper that reads extra lines on demand. *)
-val parse : ('a -> 'b -> 'c) -> 'a -> 'b -> 'c
-
 (** A module which holds the desugaring context *)
 module Ctx : sig
   (** The type of desugaring context *)
