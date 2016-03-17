@@ -11,16 +11,18 @@ module Ctx = struct
   (** The arity of an operation or a data constructor. *)
   type arity = int
 
+  type unknown = Unknown
+
   (** Information about names *)
-  type info =
-    | Variable of scoping
+  type 'index info =
+    | Variable of 'index * scoping
     | Constant
     | Constructor of arity
     | Operation of arity
     | Signature
 
   type t = {
-      bound : (Name.ident * info) list;
+      bound : (Name.ident * unknown info) list;
       tydefs : (Name.ident * arity) list;
       files : string list;
     }
@@ -31,10 +33,18 @@ module Ctx = struct
       files = [];
     }
 
+
   let find ~loc x {bound; _} =
+    let at_index i = function
+      | Variable (Unknown, s) -> Variable (i, s)
+      | Constant -> Constant
+      | Signature -> Signature
+      | Constructor k -> Constructor k
+      | Operation k -> Operation k
+    in
     let rec search i = function
       | [] -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
-      | (y, info) :: _ when Name.eq_ident x y -> (i, info)
+      | (y, info) :: _ when Name.eq_ident y x -> at_index i info
       | (_, Variable _) :: bound -> search (i+1) bound
       | (_, (Constant | Constructor _ | Operation _ | Signature)) :: bound ->
          search i bound
@@ -43,27 +53,27 @@ module Ctx = struct
 
   let get_dynamic ~loc x ctx =
     match find ~loc x ctx with
-    | (i, Variable Dynamic) -> i
-    | (_, (Variable Lexical | Signature | Constant | Operation _ | Constructor _)) ->
+    | Variable (i, Dynamic) -> i
+    | Variable (_, Lexical) | Signature | Constant | Operation _ | Constructor _ ->
        Error.syntax ~loc "%t is not a dynamic variable" (Name.print_ident x)
 
   let check_signature ~loc x ctx =
-    match snd (find ~loc x ctx) with
+    match find ~loc x ctx with
     | Signature -> ()
-    | (Variable _ | Constant | Operation _ | Constructor _) ->
+    | Variable _ | Constant | Operation _ | Constructor _ ->
        Error.syntax ~loc "%t is not a signature." (Name.print_ident x)
 
   let get_operation ~loc x ctx =
-    match snd (find ~loc x ctx) with
+    match find ~loc x ctx with
     | Operation k -> k
     | Variable _ | Constant | Constructor _ | Signature ->
        Error.syntax ~loc "%t is not a operation." (Name.print_ident x)
 
   let add_lexical x ctx =
-    { ctx with bound = (x, Variable Lexical) :: ctx.bound }
+    { ctx with bound = (x, Variable (Unknown, Lexical)) :: ctx.bound }
 
   let add_dynamic x ctx =
-    { ctx with bound = (x, Variable Dynamic) :: ctx.bound }
+    { ctx with bound = (x, Variable (Unknown, Dynamic)) :: ctx.bound }
 
   let add_operation ~loc op k ctx =
     if List.exists (function (op', Operation _) -> Name.eq_ident op op' | _ -> false) ctx.bound
@@ -160,9 +170,8 @@ let rec tt_pattern bound vars n (p,loc) =
      (locate Syntax.Tt_Type loc), vars, n
 
   | Input.Tt_Name x ->
-     let (i, info) = Ctx.find ~loc x bound in
-     begin match info with
-     | Ctx.Variable _ -> locate (Syntax.Tt_Bound i) loc, vars, n
+     begin match Ctx.find ~loc x bound with
+     | Ctx.Variable (i,_) -> locate (Syntax.Tt_Bound i) loc, vars, n
      | Ctx.Constant -> locate (Syntax.Tt_Constant x) loc, vars, n
      | Ctx.Constructor _ -> Error.syntax ~loc "data constructor in a term pattern"
      | Ctx.Operation _ -> Error.syntax ~loc "operation in a term pattern"
@@ -291,9 +300,8 @@ and pattern bound vars n (p,loc) =
      end
 
   | Input.Patt_Name x ->
-     let (i, info) = Ctx.find ~loc x bound in
-     begin match info with
-     | Ctx.Variable _ ->
+     begin match Ctx.find ~loc x bound with
+     | Ctx.Variable (i,_) ->
         locate (Syntax.Patt_Bound i) loc, vars, n
      | Ctx.Constructor k ->
         if k = 0
@@ -318,7 +326,7 @@ and pattern bound vars n (p,loc) =
      locate (Syntax.Patt_Jdg (p1,p2)) loc, vars, n
 
   | Input.Patt_Constr (c,ps) ->
-     begin match snd (Ctx.find ~loc c bound) with
+     begin match Ctx.find ~loc c bound with
      | Ctx.Constructor k ->
         if k = List.length ps
         then
@@ -502,9 +510,8 @@ let rec comp ~yield bound (c',loc) =
      locate (Syntax.Projection (c,l)) loc
 
   | Input.Var x ->
-     let (i, info) = Ctx.find ~loc x bound in
-     begin match info with
-     | Ctx.Variable _ -> locate (Syntax.Bound i) loc
+     begin match Ctx.find ~loc x bound with
+     | Ctx.Variable (i,_) -> locate (Syntax.Bound i) loc
      | Ctx.Constant -> locate (Syntax.Constant x) loc
      | Ctx.Constructor k ->
         if k = 0 then locate (Syntax.Constructor (x, [])) loc
@@ -679,9 +686,8 @@ and spine ~yield bound ((c',loc) as c) cs =
   let c, cs =
     match c' with
     | Input.Var x ->
-       let (i, info) = Ctx.find ~loc x bound in
-       begin match info with
-       | Ctx.Variable _ ->
+       begin match Ctx.find ~loc x bound with
+       | Ctx.Variable (i,_) ->
           locate (Syntax.Bound i) loc, cs
        | Ctx.Constant ->
           locate (Syntax.Constant x) loc, cs
