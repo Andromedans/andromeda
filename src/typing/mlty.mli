@@ -1,4 +1,3 @@
-type ty
 
 module Ctx : sig
 
