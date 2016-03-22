@@ -1,7 +1,7 @@
 Operation unary_op is declared.
 Operation nonary_op is declared.
-Types dummy declared.
-Types color declared.
+ML type dummy declared.
+ML type color declared.
 Constant A is declared.
 Constant a is declared.
 Constant b is declared.

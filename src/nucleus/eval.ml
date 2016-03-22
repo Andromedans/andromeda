@@ -929,13 +929,13 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
   | Syntax.DefMLType lst ->
     mfold (fun names (t,(_,def)) -> add_def def >>= fun () -> return (t::names)) [] lst >>= fun names ->
     let names = List.rev names in
-    (if not quiet then Format.printf "Type%s %t declared.@." (match names with [] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
+    (if not quiet then Format.printf "ML type%s %t declared.@." (match names with [_] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
     return ()
 
   | Syntax.DefMLTypeRec lst ->
     mfold (fun names (t,(_,def)) -> add_def def >>= fun () -> return (t::names)) [] lst >>= fun names ->
     let names = List.rev names in
-    (if not quiet then Format.printf "Type%s %t declared.@." (match names with [] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
+    (if not quiet then Format.printf "ML type%s %t declared.@." (match names with [_] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
     return ()
 
   | Syntax.DeclOperation (x, k) ->

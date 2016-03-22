@@ -1,4 +1,4 @@
-Types fruit declared.
+ML type fruit declared.
 x is defined.
 ()
 ref 0 := (apple :: banana :: [])
