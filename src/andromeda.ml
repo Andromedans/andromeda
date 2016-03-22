@@ -75,7 +75,7 @@ let options = Arg.align [
 
 (** Interactive toplevel *)
 let interactive_shell state =
-  Format.printf "Andromeda %s@\n[Type #help for help.]@." Build.version ;
+  Format.printf "Andromeda %s@ [https://andromedans.github.io/andromeda/]@." Build.version ;
   let rec loop state =
     let state =
       try
