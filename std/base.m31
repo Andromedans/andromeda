@@ -4,7 +4,7 @@ signature unit = {}
 let print = external "print"
 
 (* Poor man's debugging mechanism. *)
-data (!!) 1
+mltype debug a = (!!) of a end
 let debug x = print (!! x)
 
 (* Top-level handlers default to failure. *)
@@ -17,5 +17,5 @@ end
 
 let (|>) x f = f x
 
-operation failure 1
+operation failure : forall a b, a -> b
 

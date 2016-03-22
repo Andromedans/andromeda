@@ -5,18 +5,19 @@ Constant dwarf is declared.
 Constant urist is declared.
 ankle is defined.
 ⊢ {person = dwarf, pet = urist} : cat
-(⊢ cat : Type, [⊢ dwarf : Type,
-⊢ urist : dwarf])
-((⊢ cat : Type, [(person, person₀ : Type 
-                            ⊢ person₀ : Type), (pet,
+(⊢ cat : Type, (⊢ dwarf : Type) :: (⊢ urist : dwarf) ::
+[])
+((⊢ cat : Type, (person, person₀ : Type 
+                           ⊢ person₀ : Type) :: (pet,
 person₀ : Type 
 pet₁ : person₀ 
-⊢ pet₁ : person₀)]), [Unconstrained
+⊢ pet₁ : person₀) :: []), Unconstrained
 (person₂ : Type 
- ⊢ person₂ : Type), Unconstrained
+ ⊢ person₂ : Type) :: Unconstrained
 (person₂ : Type 
  pet₃ : person₂ 
- ⊢ pet₃ : person₂)])
+ ⊢ pet₃ : person₂) ::
+[])
 (⊢ {person = dwarf, pet = urist} : cat,
 pet)
 ()

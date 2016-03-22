@@ -1,4 +1,4 @@
-operation hippy 0
+operation hippy : Judgement
 
 let rec prodify xs t =
   match xs with

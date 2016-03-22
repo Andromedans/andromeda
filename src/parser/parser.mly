@@ -14,7 +14,7 @@
 %token PROD LAMBDA
 
 (* Infix operations *)
-%token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 INFIXOP3 INFIXOP4
+%token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
 
 (* Equality types *)
 %token EQEQ
@@ -46,7 +46,6 @@
 
 (* Meta-level programming *)
 %token OPERATION
-%token DATA
 %token <Name.ident> PATTVAR
 %token MATCH
 %token AS
@@ -66,6 +65,11 @@
 
 %token IDENT
 
+(* Meta types *)
+%token JUDGMENT
+%token MLTYPE
+%token OF
+
 (* REFERENCES *)
 %token BANG COLONEQ REF
 
@@ -79,10 +83,10 @@
 %token WHERE
 
 (* Toplevel directives *)
-%token ENVIRONMENT HELP QUIT
+%token QUIT
 %token VERBOSITY
 %token <string> QUOTED_STRING
-%token INCLUDE INCLUDEONCE
+%token INCLUDEONCE
 
 %token EOF
 
@@ -92,7 +96,7 @@
 %right    INFIXOP1
 %right    INFIXCONS
 %left     INFIXOP2
-%left     INFIXOP3
+%left     STAR INFIXOP3
 %right    INFIXOP4
 
 %start <Input.toplevel list> file
@@ -128,18 +132,17 @@ plain_topcomp:
   | CONSTANT xs=nonempty_list(name) COLON u=term      { DeclConstants (xs, u) }
   | SIGNATURE s=name EQ LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
                                                       { DeclSignature (s, lst) }
-  | DATA x=name k=NUMERAL                             { DeclData (x, k) }
-  | OPERATION op=name k=NUMERAL                       { DeclOperation (op, k) }
+  | MLTYPE lst=mlty_defs                              { DefMLType lst }
+  | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
+  | OPERATION op=name COLON params=mlparams opsig=op_mlsig
+    { let (args, res) = opsig in DeclOperation (op, (params, args, res)) }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
 plain_topdirective:
-  | ENVIRONMENT                                      { Environment }
-  | HELP                                             { Help }
   | QUIT                                             { Quit }
   | VERBOSITY n=NUMERAL                              { Verbosity n }
-  | INCLUDE fs=QUOTED_STRING+                        { Include (fs, false) }
-  | INCLUDEONCE fs=QUOTED_STRING+                    { Include (fs, true) }
+  | INCLUDEONCE fs=QUOTED_STRING+                    { Include fs }
 
 (* Main syntax tree *)
 
@@ -181,17 +184,7 @@ binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
   | e=plain_app_term                                { e }
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
-  | e2=binop_term op=INFIXCONS e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=INFIXOP0 e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=INFIXOP1 e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=INFIXOP2 e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=INFIXOP3 e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
-  | e2=binop_term op=INFIXOP4 e3=binop_term
+  | e2=binop_term op=infix e3=binop_term
     { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
 
 app_term: mark_location(plain_app_term) { $1 }
@@ -240,12 +233,18 @@ constraint_clause:
 
 var_name:
   | NAME { $1 }
+  | LPAREN op=infix RPAREN { fst op }
   | LPAREN op=PREFIXOP RPAREN  { fst op }
-  | LPAREN op=INFIXOP0 RPAREN  { fst op }
-  | LPAREN op=INFIXOP1 RPAREN  { fst op }
-  | LPAREN op=INFIXOP2 RPAREN  { fst op }
-  | LPAREN op=INFIXOP3 RPAREN  { fst op }
-  | LPAREN op=INFIXOP4 RPAREN  { fst op }
+
+%inline infix:
+  | op=INFIXCONS   { op }
+  | op=INFIXOP0    { op }
+  | op=INFIXOP1    { op }
+  | op=INFIXOP2    { op }
+  | op=INFIXOP3    { op }
+  | op=STAR        { op }
+  | op=INFIXOP4    { op }
+
 
 name:
   | x=var_name { x }
@@ -311,15 +310,7 @@ handler_case:
   | op=var_name ps=prefix_pattern* pt=handler_checking DARROW t=term                { CaseOp (op, (ps, pt, t)) }
   | op=PREFIXOP p=prefix_pattern pt=handler_checking DARROW t=term
     { let op = fst op in CaseOp (op, ([p], pt, t)) }
-  | p1=binop_pattern op=INFIXOP0 p2=binop_pattern pt=handler_checking DARROW t=term
-    { CaseOp (fst op, ([p1; p2], pt, t)) }
-  | p1=binop_pattern op=INFIXOP1 p2=binop_pattern pt=handler_checking DARROW t=term
-    { CaseOp (fst op, ([p1; p2], pt, t)) }
-  | p1=binop_pattern op=INFIXOP2 p2=binop_pattern pt=handler_checking DARROW t=term
-    { CaseOp (fst op, ([p1; p2], pt, t)) }
-  | p1=binop_pattern op=INFIXOP3 p2=binop_pattern pt=handler_checking DARROW t=term
-    { CaseOp (fst op, ([p1; p2], pt, t)) }
-  | p1=binop_pattern op=INFIXOP4 p2=binop_pattern pt=handler_checking DARROW t=term
+  | p1=binop_pattern op=infix p2=binop_pattern pt=handler_checking DARROW t=term
     { CaseOp (fst op, ([p1; p2], pt, t)) }
   | FINALLY p=pattern DARROW t=term                             { CaseFinally (p, t) }
 
@@ -336,15 +327,7 @@ top_handler_case:
   | op=var_name xs=top_patt_maybe_var* y=top_handler_checking DARROW t=term           { (op, (xs, y, t)) }
   | op=PREFIXOP x=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x], y, t)) }
-  | x1=top_patt_maybe_var op=INFIXOP0 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x1;x2], y, t)) }
-  | x1=top_patt_maybe_var op=INFIXOP1 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x1;x2], y, t)) }
-  | x1=top_patt_maybe_var op=INFIXOP2 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x1;x2], y, t)) }
-  | x1=top_patt_maybe_var op=INFIXOP3 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x1;x2], y, t)) }
-  | x1=top_patt_maybe_var op=INFIXOP4 x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
+  | x1=top_patt_maybe_var op=infix x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
     { (fst op, ([x1;x2], y, t)) }
 
 top_handler_checking:
@@ -370,29 +353,19 @@ plain_pattern:
 binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
   | e=plain_app_pattern                                { e }
-  | e1=binop_pattern op=INFIXOP0 e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
-  | e1=binop_pattern op=INFIXOP1 e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
-  | e1=binop_pattern op=INFIXCONS  e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
-  | e1=binop_pattern op=INFIXOP2 e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
-  | e1=binop_pattern op=INFIXOP3 e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
-  | e1=binop_pattern op=INFIXOP4 e2=binop_pattern
-    { Patt_Data (fst op, [e1; e2]) }
+  | e1=binop_pattern op=infix e2=binop_pattern
+    { Patt_Constr (fst op, [e1; e2]) }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
 plain_app_pattern:
   | e=plain_prefix_pattern                    { e }
-  | t=var_name ps=prefix_pattern+             { Patt_Data (t, ps) }
+  | t=var_name ps=prefix_pattern+             { Patt_Constr (t, ps) }
 
 prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
 plain_prefix_pattern:
   | e=plain_simple_pattern           { e }
-  | op=PREFIXOP e=prefix_pattern     { let op = fst op in 
-                                       Patt_Data (op, [e]) }
+  | op=PREFIXOP e=prefix_pattern     { let op = fst op in
+                                       Patt_Constr (op, [e]) }
 
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
 plain_simple_pattern:
@@ -423,15 +396,7 @@ plain_equal_tt_pattern:
 binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
 plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
-  | e1=binop_tt_pattern op=INFIXOP0 e2=binop_tt_pattern
-    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
-  | e1=binop_tt_pattern op=INFIXOP1 e2=binop_tt_pattern
-    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
-  | e1=binop_tt_pattern op=INFIXOP2 e2=binop_tt_pattern
-    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
-  | e1=binop_tt_pattern op=INFIXOP3 e2=binop_tt_pattern
-    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
-  | e1=binop_tt_pattern op=INFIXOP4 e2=binop_tt_pattern
+  | e1=binop_tt_pattern op=infix e2=binop_tt_pattern
     { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
 
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
@@ -484,6 +449,60 @@ top_patt_maybe_var:
 
 patt_var:
   | x=PATTVAR                    { x }
+
+(* ML types *)
+
+mlparams:
+  | PROD params=nonempty_list(name) COMMA { params }
+  |                                       { [] }
+
+op_mlsig:
+  | lst=separated_nonempty_list(ARROW, prod_mlty)
+    { match List.rev lst with
+      | t :: ts -> (List.rev ts, t)
+      | [] -> assert false
+     }
+
+mlty: mark_location(plain_mlty) { $1 }
+plain_mlty:
+  | plain_prod_mlty                  { $1 }
+  | t1=prod_mlty ARROW t2=mlty       { ML_Arrow (t1, t2) }
+  | t1=prod_mlty DARROW t2=mlty      { ML_Handler (t1, t2) }
+
+prod_mlty: mark_location(plain_prod_mlty) { $1 }
+plain_prod_mlty:
+  | ts=separated_nonempty_list(STAR, app_mlty)
+    { match ts with
+      | [] -> assert false
+      | [t] -> fst t
+      | _::_::_ -> ML_Prod ts
+    }
+
+app_mlty: mark_location(plain_app_mlty) { $1 }
+plain_app_mlty:
+  | plain_simple_mlty                   { $1 }
+  | c=var_name args=nonempty_list(simple_mlty)   { ML_TyApply (c, args) }
+
+simple_mlty: mark_location(plain_simple_mlty) { $1 }
+plain_simple_mlty:
+  | LPAREN t=plain_mlty RPAREN          { t }
+  | c=var_name                          { ML_TyApply (c, []) }
+  | JUDGMENT                            { ML_Judgment }
+
+mlty_defs:
+  | lst=separated_nonempty_list(AND, mlty_def) { lst }
+
+mlty_def:
+  | a=var_name xs=list(name) EQ body=mlty_def_body { (a, (xs, body)) }
+
+mlty_def_body:
+  | t=mlty                                                       { ML_Alias t }
+  | lst=separated_list(BAR, mlty_constructor) END                { ML_Sum lst }
+  | BAR lst=separated_nonempty_list(BAR, mlty_constructor) END   { ML_Sum lst }
+
+mlty_constructor:
+  | c=var_name OF lst=separated_nonempty_list(AND, mlty)      { (c, lst) }
+  | c=var_name                                                { (c, []) }
 
 mark_location(X):
   x=X

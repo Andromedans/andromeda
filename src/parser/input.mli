@@ -36,7 +36,7 @@ and pattern' =
   | Patt_Var of Name.ident
   | Patt_Name of Name.ident
   | Patt_Jdg of tt_pattern * tt_pattern
-  | Patt_Data of Name.ident * pattern list
+  | Patt_Constr of Name.ident * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
 
@@ -111,11 +111,26 @@ and match_op_case = pattern list * pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
+type ml_ty = ml_ty' * Location.t
+and ml_ty' =
+  | ML_Arrow of ml_ty * ml_ty
+  | ML_Prod of ml_ty list
+  | ML_TyApply of Name.ty * ml_ty list
+  | ML_Handler of ml_ty * ml_ty
+  | ML_Judgment
+
+type constructor_decl = Name.constructor * ml_ty list
+
+type ml_tydef =
+  | ML_Sum of constructor_decl list
+  | ML_Alias of ml_ty
+
 (** Sugared toplevel commands *)
 type toplevel = toplevel' * Location.t
 and toplevel' =
-  | DeclOperation of Name.ident * int
-  | DeclData of Name.ident * int
+  | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
+  | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
+  | DeclOperation of Name.ident * (Name.ty list * ml_ty list * ml_ty)
   | DeclConstants of Name.ident list * ty
   | DeclSignature of Name.signature * (Name.label * Name.ident option * ty) list
   | TopHandle of (Name.ident * top_op_case) list
@@ -126,9 +141,7 @@ and toplevel' =
   | TopDo of comp (** evaluate a computation at top level *)
   | TopFail of comp
   | Verbosity of int
-  | Include of string list * bool
+  | Include of string list
     (** the boolean is [true] if the files should be included only once *)
   | Quit (** quit the toplevel *)
-  | Help (** print help *)
-  | Environment (** print the current environment *)
 

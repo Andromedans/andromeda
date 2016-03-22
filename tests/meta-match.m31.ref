@@ -3,7 +3,7 @@ Constant a is declared.
 Constant b is declared.
 Constant c is declared.
 ⊢ a : A
-Data constructor lam is declared.
+ML type lam declared.
 lam (x₀ : A 
      ⊢ x₀ : A) (⊢ A : Type) (⊢ a : A) ((x'₁ : A 
                                                 ⊢ x'₁ : A, ⊢ A : Type),

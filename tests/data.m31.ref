@@ -1,4 +1,3 @@
-Data constructor cow is declared.
-Data constructor bull is declared.
-[cow,
-bull]
+ML type cattle declared.
+cow :: bull ::
+[]

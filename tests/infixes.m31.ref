@@ -19,7 +19,7 @@ s is defined.
   : (A → A) → A → A → A
 ( ???₀ ) : A → A 
 ⊢ λ (x : A) (_ : A), ???₀ ???₀ x : A → A → A
-Data constructor ( @ ) is declared.
+ML type suspended declared.
 x is defined.
 ⊢ a : A
 Operation ( ? ) is declared.

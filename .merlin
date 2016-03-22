@@ -6,5 +6,6 @@ B _build/src
 B _build/src/parser
 B _build/src/nucleus
 B _build/src/utils
+B _build/src/typing
 PKG menhirLib
 PKG sedlex

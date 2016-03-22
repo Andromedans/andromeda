@@ -1,10 +1,10 @@
 (** Equality checking and weak-head-normal-forms *)
 
 (** A value along with a set of assumptions verifying some implied equality. *)
-type 'a witness = ('a * Name.AtomSet.t) Value.comp
+type 'a witness = ('a * Name.AtomSet.t) Runtime.comp
 
 (** When the equality is not guaranteed to hold. *)
-type 'a opt = ('a * Name.AtomSet.t) option Value.comp
+type 'a opt = ('a * Name.AtomSet.t) option Runtime.comp
 
 (** [equal env ctx e1 e2 t] returns a context [G] that is an extension of [ctx]
     such that the terms [e1] and [e2] of type [t] are equal under [G]. *)

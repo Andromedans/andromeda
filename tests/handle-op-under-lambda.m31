@@ -4,7 +4,7 @@ constant C : Type
 constant a : A
 constant f : A -> C
 
-operation gimme 0
+operation gimme : Judgement
 
 do
   handle

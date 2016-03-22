@@ -2,7 +2,7 @@ constant A : Type
 constant B : A -> Type
 constant Q : Π (X : Type) (P : X -> Type) (x : X), P x → Type
 
-operation inhabit 1
+operation inhabit : Judgement -> Judgement
 
 (* Works *)
 do

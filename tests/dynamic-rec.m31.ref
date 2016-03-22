@@ -3,8 +3,8 @@ iter is defined.
 None
 Some
 []
-Some
-[None]
+Some (None ::
+[])
 ("fixed",
 ())
 rev is defined.
@@ -13,20 +13,20 @@ Constant a is declared.
 Constant b is declared.
 Constant c is declared.
 Constant d is declared.
-[⊢ d : T, ⊢ c : T, ⊢ b : T,
-⊢ a : T]
-[⊢ c : T, ⊢ b : T, ⊢ a : T,
-⊢ d : T]
+(⊢ d : T) :: (⊢ c : T) :: (⊢ b : T) :: (⊢ a : T) ::
 []
-[⊢ d : T, ⊢ c : T,
-⊢ a : T]
+(⊢ c : T) :: (⊢ b : T) :: (⊢ a : T) :: (⊢ d : T) ::
+[]
+[]
+(⊢ d : T) :: (⊢ c : T) :: (⊢ a : T) ::
+[]
 ()
 rev' is defined.
-[⊢ d : T, ⊢ c : T, ⊢ b : T,
-⊢ a : T]
-[⊢ c : T, ⊢ b : T, ⊢ a : T,
-⊢ d : T]
+(⊢ d : T) :: (⊢ c : T) :: (⊢ b : T) :: (⊢ a : T) ::
 []
-[⊢ d : T, ⊢ c : T,
-⊢ a : T]
+(⊢ c : T) :: (⊢ b : T) :: (⊢ a : T) :: (⊢ d : T) ::
+[]
+[]
+(⊢ d : T) :: (⊢ c : T) :: (⊢ a : T) ::
+[]
 ()

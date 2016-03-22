@@ -4,15 +4,17 @@
 (* TODO Operations for installing equality hints in the continuation (consider what to do for top level handler) *)
 
 (* TODO make a function? *)
-operation whnf 1  (* Compute the weak head normal form *)
+operation whnf : Judgement -> Judgement (* Compute the weak head normal form *)
 
 dynamic betas = []
 dynamic hints = []
 dynamic etas = []
 dynamic reducing = []
 
-data eager 0
-data lazy 0
+mltype eagerness =
+  | eager
+  | lazy
+  end
 
 (* One of the tasks we need to be able to do is this: given a universally quantified type
    `∏(x1:A1)...(xn:An) B` and a type `C`, find an instantiation `x1↦e1, ..., xn↦en` such that

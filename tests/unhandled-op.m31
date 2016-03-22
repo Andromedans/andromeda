@@ -1,15 +1,15 @@
 
-data x 0
+mltype x = x end
 
 constant A : Type
 constant a b : A
 constant (+) : A -> A -> A
 
-operation Not_found 0
+operation Not_found : forall a, a
 
 fail Not_found
 
-operation info 3
+operation info : forall a, debug x -> Judgement -> (a -> a) -> a
 
 fail info (!! x) (a + b) (fun x => x)
 

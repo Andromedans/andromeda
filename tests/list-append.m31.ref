@@ -1,10 +1,5 @@
 append is defined.
 append' is defined.
-Data constructor a is declared.
-Data constructor b is declared.
-Data constructor c is declared.
-Data constructor d is declared.
-Data constructor e is declared.
-Data constructor f is declared.
-([a, b, c, d, e, f], [a, b, c, d, e,
-f])
+ML type letters declared.
+(a :: b :: c :: d :: e :: f :: [], a :: b :: c :: d :: e :: f ::
+[])
