@@ -5,6 +5,7 @@ type t = {
   mutable line_limit : int option ;
   mutable end_of_input : bool ;
 }
+
 exception Parse_Error of string * Lexing.position * Lexing.position
 
 let create_lexbuf ?(fn="?") stream =
@@ -28,15 +29,15 @@ let from_string ?(fn="?") s =
 let lexeme { stream;_ } = Sedlexing.Utf8.lexeme stream
 
 let new_line ?(n=1) lexbuf =
-  assert (n >= 0);
-  if n = 0 then ();
-  let open Lexing in
-  let lcp = lexbuf.pos_end in
-  lexbuf.pos_end <-
-    {lcp with
-     pos_lnum = lcp.pos_lnum + n;
-     pos_bol = lcp.pos_cnum;
-    }
+  assert (n >= 0) ;
+  if n = 0 then () else
+    let open Lexing in
+    let lcp = lexbuf.pos_end in
+    lexbuf.pos_end <-
+      { lcp with
+        pos_lnum = lcp.pos_lnum + n ;
+        pos_bol = lcp.pos_cnum ;
+      }
 
 let update_pos ({pos_end; pos_start; stream;_} as buf) =
   let p_start, p_end = Sedlexing.loc stream in

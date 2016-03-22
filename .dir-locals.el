@@ -19,7 +19,7 @@
               (if (not m31-project-find-file)
                   (setq compile-command (concat "make -C " m31-root-directory)))
               )
-            (setq m31-executable (concat m31-root-directory "andromeda.byte")))))))
+            (setq m31-executable (concat m31-root-directory "andromeda.native")))))))
  (tuareg-mode
   (show-trailing-whitespace . t))
  (m31-mode
