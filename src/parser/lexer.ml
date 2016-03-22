@@ -83,7 +83,7 @@ let end_longcomment= [%sedlex.regexp? "*)"]
 let newline = [%sedlex.regexp? ('\n' | '\r' | "\n\r" | "\r\n")]
 let hspace  = [%sedlex.regexp? (' ' | '\t' | '\r')]
 
-let quoted_string = [%sedlex.regexp? '"', Plus (Compl '"'), '"']
+let quoted_string = [%sedlex.regexp? '"', Star (Compl '"'), '"']
 
 let update_eoi ({ pos_end; line_limit;_ } as lexbuf) =
   match line_limit with None -> () | Some line_limit ->
@@ -108,7 +108,13 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "#verbosity"             -> f (); VERBOSITY
   | "#include"               -> f (); INCLUDE
   | "#include_once"          -> f (); INCLUDEONCE
-  | quoted_string            -> f (); let s = lexeme lexbuf in QUOTED_STRING (String.sub s 1 (String.length s - 2))
+  | quoted_string            -> f ();
+     let s = lexeme lexbuf in
+     let l = String.length s in
+     let n = ref 0 in
+     String.iter (fun c -> if c = '\n' then incr n) s;
+     new_line ~n:!n lexbuf;
+     QUOTED_STRING (String.sub s 1 (l - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
   | '['                      -> f (); LBRACK
