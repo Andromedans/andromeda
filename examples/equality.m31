@@ -1,29 +1,30 @@
 (** Properties of equality. *)
 
-(* NB: this technically pollutes the global betas with p_103 : a_101 == b_102 or some such *)
-let symmetric =
-  (λ A a b p, now betas = add_beta p betas in refl b)
-  : Π (A : Type) (a b : A), a ≡ b -> b ≡ a
+let symmetric : Π (A : Type) (a b : A), a ≡ b -> b ≡ a =
+  λ A a b p,
+        now betas = add_beta p betas in
+        refl b
 
 do symmetric
 
-let transitive =
-  (λ A a b c p q,
-     now betas = add_beta p betas in q)
-  : Π (A : Type) (a b c : A), a ≡ b -> b ≡ c -> a ≡ c
+let transitive : Π (A : Type) (a b c : A), a ≡ b -> b ≡ c -> a ≡ c =
+  λ A a b c p q,
+     now betas = add_beta p betas in
+     q
+
 
 do transitive
 
-let J =
-  (λ A B r a b p,
-    now betas = add_beta p betas in r b)
-  : Π
+let J : Π
        (A : Type)
        (B : Π (a b : A), a ≡ b -> Type)
        (d : Π (x : A), B x x (refl x))
        (a b : A)
        (p : a ≡ b),
      B a b p
+  =
+  λ A B r a b p,
+    now betas = add_beta p betas in
+    r b
 
 do J
-

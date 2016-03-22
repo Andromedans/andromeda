@@ -15,17 +15,15 @@ constant nat_iota_S :
   Π (P : nat -> Type) (s0 : P O) (s : Π (n : nat), P n -> P (S n)) (m : nat),
   nat_rect P s0 s (S m) == s m (nat_rect P s0 s m)
 
-constant ( + ) : nat -> nat -> nat
-constant plus_def : forall (n m : nat),
-                    n + m == nat_rect (lambda _, nat) n (lambda _ x, S x) m
+constant plus : nat -> nat -> nat
+constant plus_def : ∀ (n m : nat),
+                      plus n m == nat_rect (λ _, nat) n (λ _ x, S x) m
 
-do add_beta nat_iota_O
-do add_beta nat_iota_S
-do add_beta plus_def
+now betas = add_betas [nat_iota_O, nat_iota_S, plus_def]
 
 let two   = S (S O)
 let three = S (S (S O))
 let four  = S (S (S (S O)))
 let five  = S (S (S (S (S O))))
 
-do refl five : five == two + three
+do refl five : five == plus two three

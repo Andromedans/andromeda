@@ -20,15 +20,14 @@ let five =  S (S (S (S (S Z))))
 let ten =   S (S (S (S (S (S (S (S (S (S Z)))))))))
 
 do
-  now betas = add_betas [plus_Z,plus_S] betas in
+  now betas = add_betas [plus_Z,plus_S] in
     refl (plus five four) : plus four five == plus (plus two three) four
 
 
 do
-  now betas = add_betas [plus_Z,plus_S] betas in
+  now betas = add_betas [plus_Z,plus_S] in
     refl three : three == plus one (plus one one)
 
 do
-  now betas = add_betas [plus_Z,plus_S,times_Z,times_S] betas in
+  now betas = add_betas [plus_Z,plus_S,times_Z,times_S] in
     refl four : four == times two two
-

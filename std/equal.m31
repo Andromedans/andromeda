@@ -778,7 +778,7 @@ let add_reducing c l reducing =
   let r = process_reducing c l in
   r :: reducing
 
-let add_betas bs betas = fold (fun betas b => add_beta b betas) betas bs
-let add_hints bs hints = fold (fun hints b => add_hint b hints) hints bs
-let add_etas  bs etas  = fold (fun etas  b => add_eta  b etas ) etas  bs
+let add_betas bs = fold (fun betas b => add_beta b betas) betas bs
+let add_hints bs = fold (fun hints b => add_hint b hints) hints bs
+let add_etas  bs = fold (fun etas  b => add_eta  b etas ) etas  bs
 

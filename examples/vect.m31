@@ -35,8 +35,7 @@ constant vect_ind_beta_vcons :
     f n a t (vect_ind A P z f n t)
 
 
-now betas = add_betas [ind_N_Z,ind_N_S] betas
-
+now betas = add_betas [ind_N_Z,ind_N_S]
 let vhead =
   λ (A : Type) (n : N) (v : vect A (S n)),
     let P =
@@ -67,7 +66,7 @@ let vtail =
 
 
 let vget =
-  now betas = add_betas [Finite_rect_fzero,Finite_rect_fsucc] betas in
+  now betas = add_betas [Finite_rect_fzero,Finite_rect_fsucc] in
   (λ (A : Type) (n : nat) (i : Finite n) (v : vect A n),
      Finite_rect
        (λ (n0 : nat) (_ : Finite n0), forall (_ : vect A n0), A)
@@ -76,23 +75,23 @@ let vget =
           vhead A n0 v0)
        (λ (n0 : nat) (_ : Finite n0) (IHi : forall (_ : vect A n0), A)
             (v0 : vect A (S n0)), IHi (vtail A n0 v0)) n i v)
-  : forall (A : Type) (n : nat) (_ : Finite n) (_ : vect A n), A
+  : forall (A : Type) (n : nat), Finite n -> vect A n -> A
 
 
 let v2 = (vcons N Z two (vnil N))
 let v52 = (vcons N one five v2)
 
 do
-  now betas = add_betas [vect_ind_beta_vnil,vect_ind_beta_vcons] betas in
+  now betas = add_betas [vect_ind_beta_vnil,vect_ind_beta_vcons] in
   refl five :
   vhead N one v52 == five
 
 do
-  now betas = add_betas [vect_ind_beta_vnil,vect_ind_beta_vcons] betas in
+  now betas = add_betas [vect_ind_beta_vnil,vect_ind_beta_vcons] in
   refl v2 :
   vtail N one v52 == v2
 
-now betas = add_betas [Finite_rect_fzero,Finite_rect_fsucc,vect_ind_beta_vnil,vect_ind_beta_vcons] betas
+now betas = add_betas [Finite_rect_fzero,Finite_rect_fsucc,vect_ind_beta_vnil,vect_ind_beta_vcons]
 
 do refl two : ((vget nat one (fzero Z) v2) == two)
 
@@ -106,3 +105,21 @@ do
                           (vnil nat)))) == five)
 *)
 
+(* do external "verbosity" 1 *)
+(** XXX this should work  *)
+(* do refl two : ((vget nat one (fzero Z) v2) == two) *)
+
+
+(* do *)
+(*   beta ind_N_Z in *)
+(*   beta ind_N_S in *)
+(*   beta Finite_rect_fzero in *)
+(*   beta Finite_rect_fsucc in *)
+(*   beta vect_ind_beta_vnil in *)
+(*   beta vect_ind_beta_vcons in *)
+(*   refl five : *)
+(*     ((vget nat two *)
+(*            (fsucc one (fzero Z)) *)
+(*            (vcons nat one five *)
+(*                   (vcons nat Z three *)
+(*                          (vnil nat)))) == five). *)

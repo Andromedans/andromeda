@@ -14,54 +14,56 @@ constant ind_bool_false :
 
 (* We prove that "if b then true else false" equals "b". *)
 do
- with local (lbeta ind_bool_true) handle
- with local (lbeta ind_bool_false) handle
- ((ind_bool
-       (λ b, ind_bool (λ _, bool) true false b == b)
-       (refl true)
-       (refl false))
-  : Π (b : bool), ind_bool (λ _, bool) true false b == b)
+  now betas = add_betas [ind_bool_true, ind_bool_false] in
+  ((ind_bool
+        (λ b, ind_bool (λ _, bool) true false b == b)
+        (refl true)
+        (refl false))
+   : Π (b : bool), ind_bool (λ _, bool) true false b == b)
 
 do Type
 
 (* Next we show that true and false are not equal. *)
 
- #include "empty.m31" "unit.m31"
+ #include_once "empty.m31" "unit.m31"
 
 (* Be very careful about when reductions may happen
    Better hint management would help here. *)
+(* do external "config" "verbosity" 3 *)
 
-(* Be very careful about when reductions may happen. *)
 let bool_disjoint : true ≡ false → empty =
     λ (p : true == false),
-     let P =
-         λ (b : bool), ind_bool (λ (_), Type) unit empty b
-     in
-     let p =
-       with local (lbeta p) handle
-         (refl (P true) : P true == P false) in
-     let p =
-       with local (lbeta ind_bool_false) handle
-         p : P true == empty in
-     let p =
-       with local (lbeta ind_bool_true) handle
-         p : unit == empty in
-     with local (lbeta p) handle
-       let u = {} in u : empty
-
-(* let's be less careful. *)
-do add_beta ind_bool_true
-do add_beta ind_bool_false
-
-let bool_disjoint' (p : true == false) : empty =
      let P = λ (b : bool), ind_bool (λ (_ : bool), Type) unit empty b in
      let p =
-       with equality empty_state handle (* need to remove global hints else P true --> unit and P false --> empty *)
-         let _ = beta p in
+       now betas = add_betas [p] in
          (refl (P true) : P true == P false) in
-     let p = p : unit == empty in
-     with local (lbeta p) handle
+     let p =
+       now betas = add_betas [ind_bool_false] in
+         p : P true == empty in
+     let p =
+       now betas = add_betas [ind_bool_true] in
+         p : unit == empty in
+     now betas = add_betas [p] in
        let u = {} in u : empty
+
+
+(* let's be less careful. *)
+now betas = add_beta ind_bool_true betas
+now betas = add_beta ind_bool_false betas
+
+let bool_disjoint' : true == false → empty = λ p,
+     let P = λ (b : bool), ind_bool (λ (_ : bool), Type) unit empty b in
+     let p =
+         (* we need to remove the global hints, otherwise
+            P true ~~> unit and P false ~~> empty *)
+         now betas = [] in
+         now betas = add_betas [p] in
+         (refl (P true) : P true == P false) in
+
+     let p = p : unit == empty in
+     now betas = add_betas [p] in
+     let u = {} in u : empty
+     (* {} : empty *)
 
 do bool_disjoint'
 

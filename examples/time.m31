@@ -1,14 +1,14 @@
-#include "peano.m31"
+#include_once "peano.m31"
 
-let _ = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S]
+now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S]
 
 let rec snf t =
   match t with
   | |- ?e1 ?e2 =>
     let e = (snf e1) (snf e2) in
-    match do_whnf getbetas e with
-      | Some (|- _ : _ == ?e) => snf e
-      | None => e
+    match do_whnf e with
+      | (Some (|- _ : _ == ?e), _) => snf e
+      | (None, _) => e
     end
   | _ => match whnf t with |- _ : _ == ?e => e end
   end
@@ -23,7 +23,6 @@ do
   time () t_2_7
 
 (* The partially applied t_0 measures the cumulative time since receiving 'tt. *)
-let t_0 = time tt
+let t_0 = time ()
 let t_0_to_1 = t_0 (snf (exp two seven))
 let t_0_to_2 = t_0 (snf (exp two seven))
-
