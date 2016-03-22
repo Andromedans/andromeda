@@ -198,7 +198,7 @@ let rec collect_tt_pattern env xvs {Location.thing=p'; _} ctx ({Tt.term=e';loc;_
       | Some t ->
         let ex = Tt.mk_atom ~loc x in
         collect_tt_pattern env xvs p ctx ex t
-      | None -> Error.impossible ~loc "matching atom %t not in context" (Name.print_atom x)
+      | None -> Error.impossible ~loc "matching atom %t not in context" (Name.print_atom ~printer:(Name.atom_printer ()) x)
     end
 
   | Syntax.Tt_GenConstant p, Tt.Constant c ->

@@ -23,7 +23,7 @@ let print_dependencies = ref false
 
 let max_boxes = ref 42
 
-let columns = ref (Format.get_margin ())
+let global_atom_printer = ref false
 
-let print_subscripts = ref false
+let columns = ref (Format.get_margin ())
 

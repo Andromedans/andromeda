@@ -5,24 +5,28 @@ Constant dwarf is declared.
 Constant urist is declared.
 ankle is defined.
 ⊢ {person = dwarf, pet = urist} : cat
-(⊢ cat : Type, (⊢ dwarf : Type) :: (⊢ urist : dwarf) :: [])
-((⊢ cat : Type, (person, person : Type 
-                           ⊢ person : Type) :: (pet,
-person : Type 
-pet : person 
-⊢ pet : person) :: []), Unconstrained (person : Type 
-                                         ⊢ person : Type) :: Unconstrained
-(person : Type 
- pet : person 
- ⊢ pet : person) :: [])
-(⊢ {person = dwarf, pet = urist} : cat, pet)
+(⊢ cat : Type, (⊢ dwarf : Type) :: (⊢ urist : dwarf) ::
+[])
+((⊢ cat : Type, (person, person₀ : Type 
+                           ⊢ person₀ : Type) :: (pet,
+person₀ : Type 
+pet₁ : person₀ 
+⊢ pet₁ : person₀) :: []), Unconstrained
+(person₂ : Type 
+ ⊢ person₂ : Type) :: Unconstrained
+(person₂ : Type 
+ pet₃ : person₂ 
+ ⊢ pet₃ : person₂) ::
+[])
+(⊢ {person = dwarf, pet = urist} : cat,
+pet)
 ()
 ⊢ {person = dwarf, pet = urist} : cat
 The command failed with error:
 File "./generic.m31", line 33, characters 6-30: Typing error
   bad field pet: types dwarf and Type do not match
 Constant A is declared.
-eq : A ≡ cat 
+eq₀ : A ≡ cat 
 ⊢ {person = dwarf, pet = urist} : A
 ⊢ {person = dwarf, pet = urist}.pet : {person = dwarf, pet = urist}.person
 first_proj is defined.
@@ -39,8 +43,8 @@ File "./generic.m31", line 68, characters 6-24: Typing error
   Cannot project field gold from signature cat: no such field
 Constant B is declared.
 Constant eq is declared.
-x : A 
-⊢ x : A
+x₀ : A 
+⊢ x₀ : A
 The command failed with error:
 File "./generic.m31", lines 78-80, characters 6-5: Runtime error
   no match found for ⊢ {person = dwarf, pet = urist} : cat

@@ -7,9 +7,6 @@ val empty : t
 (** Is the context empty? *)
 val is_empty : t -> bool
 
-(** Add atoms to the printing environment, avoiding name collisions. *)
-val penv_atoms : penv:Tt.print_env -> t -> Tt.print_env
-
 (** Print the context. Atoms are printed according to the environment. *)
 val print : penv:Tt.print_env -> t -> Format.formatter -> unit
 

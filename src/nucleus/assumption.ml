@@ -14,7 +14,7 @@ let is_empty {free;bound} =
 
 let print xs atoms {free;bound} ppf =
   Format.fprintf ppf "%t@ ;@ %t"
-              (Print.sequence (Name.print_atom ~penv:atoms) "," (AtomSet.elements free))
+              (Print.sequence (Name.print_atom ~printer:atoms) "," (AtomSet.elements free))
               (Print.sequence (Name.print_debruijn xs) "," (BoundSet.elements bound))
 
 let singleton x =

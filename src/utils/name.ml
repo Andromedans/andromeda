@@ -10,8 +10,6 @@ type ident = Ident of string * fixity
 
 type atom = Atom of string * fixity * int
 
-type env = (atom * ident) list
-
 type label = ident
 type signature = ident
 type constant = ident
@@ -104,6 +102,11 @@ module AtomSet = Set.Make (struct
                     let compare = compare_atom
                   end)
 
+module AtomMap = Map.Make (struct
+                    type t = atom
+                    let compare = compare_atom
+                  end)
+
 let index_of_atom x ys =
   let rec fold k = function
     | [] -> None
@@ -150,6 +153,15 @@ let subscript k =
     in
     fold "" k
 
+type atom_printer = { mutable reindex : atom AtomMap.t; mutable next : int }
+
+let global_printer = { reindex = AtomMap.empty; next = 0 }
+
+let atom_printer () = 
+  if !Config.global_atom_printer
+  then global_printer
+  else { reindex = AtomMap.empty; next = 0 }
+
 let print_atom_subs ?(parentheses=true) x ppf =
   match x with
   | Atom (s, Word, k) ->
@@ -164,13 +176,17 @@ let print_atom_subs ?(parentheses=true) x ppf =
      else
        Format.fprintf ppf "%s%s" s (subscript k)
 
-let print_atom ?parentheses ?(penv=[]) x ppf =
-  if !Config.print_subscripts
-  then
-    print_atom_subs ?parentheses x ppf
-  else
+let print_atom ?parentheses ~printer x ppf =
+  let y =
     try
-      print_ident ?parentheses (snd (List.find (fun (y,_) -> eq_atom x y) penv)) ppf
+      AtomMap.find x printer.reindex
     with
-      | Not_found -> print_atom_subs ?parentheses x ppf
+      Not_found ->
+        let n = printer.next in
+        let y = match x with Atom (s,fixity,_) -> Atom (s,fixity,n) in
+        printer.reindex <- AtomMap.add x y printer.reindex;
+        printer.next <- n + 1;
+        y
+  in
+  print_atom_subs ?parentheses y ppf
 

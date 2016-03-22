@@ -1,4 +1,5 @@
 ML type nat declared.
 length is defined.
 mylist is defined.
-s (s (s z))
+s (s (s
+z))
