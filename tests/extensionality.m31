@@ -23,9 +23,9 @@ signature cow = { head : A, tail : B head }
 
 let cowext =
    λ (a b : cow) (p : a.head == b.head),
-     now betas = add_beta p betas in
+     now betas = add_beta p in
      λ (q : a.tail == b.tail),
-       (now betas = add_beta q betas in
+       (now betas = add_beta q in
           match extensionality a b with Some ?xi => xi end)
 
 do cowext

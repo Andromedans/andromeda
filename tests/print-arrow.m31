@@ -5,4 +5,4 @@ constant A : Type
 constant a : A
 
 do
-   ∏ (eq : A ≡ Type), now betas = add_beta eq betas in a : Type
+   ∏ (eq : A ≡ Type), now betas = add_beta eq in a : Type

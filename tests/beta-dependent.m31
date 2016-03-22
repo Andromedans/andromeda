@@ -12,6 +12,6 @@ constant b : B a
 constant c : C a b
 
 do
-  now betas = add_beta f_beta betas in
+  now betas = add_beta f_beta in
       refl b : b == f a b c
 

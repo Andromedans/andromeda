@@ -4,5 +4,5 @@ signature foo = { x : A }
 
 (* foo is defined after equality, but equality knows about it *)
 
-do lambda (a b : foo) (h : a.x == b.x), now hints = add_hint h hints in refl a : a == b
+do lambda (a b : foo) (h : a.x == b.x), now hints = add_hint h in refl a : a == b
 

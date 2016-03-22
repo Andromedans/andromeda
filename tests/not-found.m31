@@ -31,7 +31,7 @@ let projT1' =
 
 let projT2' =
   λ (A : Type) (B : A -> Type) (s : sigT A B),
-    now betas = add_beta sig_ind_beta betas in
+    now betas = add_beta sig_ind_beta in
       sig_ind A B
               (λ (s : sigT A B),
                  B (projT1' A B s))
@@ -39,7 +39,7 @@ let projT2' =
               s
 
 do
-  now betas = add_betas [projT1_beta,projT2_beta,sig_ind_beta] betas in
+  now betas = add_betas [projT1_beta,projT2_beta,sig_ind_beta] in
     refl b :
          (projT2 A B (existT A B a b)) ==
     (projT2' A B (existT A B a b))

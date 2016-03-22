@@ -21,11 +21,11 @@ do f
 
 (* Succeed *)
 do
-  now hints = add_hint eq1 hints in
+  now hints = add_hint eq1 in
     (f : Nat → Nat)
 
 (* Fail *)
-do
-  now hints = add_hint eq2 hints in
+fail
+  now hints = add_hint eq2 in
     (f : Nat → Nat)
 

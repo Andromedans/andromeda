@@ -9,7 +9,7 @@ let _ = print test
 
 constant eq : forall (x : A), f a x == b
 
-now betas = add_beta eq betas
+now betas = add_beta eq
 
 do whnf (f a a)
 

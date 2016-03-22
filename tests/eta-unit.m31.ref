@@ -1,2 +1,0 @@
-Constant unit_eta is declared.
-⊢ λ (_ : unit), refl {} : Π (x : unit), x ≡ {}

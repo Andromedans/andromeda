@@ -1,0 +1,9 @@
+(* Test an eta hint *)
+
+constant contractible : Type
+constant centre : contractible
+constant contractible_eta : Π (x y : contractible), x == y
+
+do
+  now etas = add_eta contractible_eta in
+    λ (x : contractible), (refl centre : x == centre)

@@ -24,7 +24,7 @@ let pair_eta_pr =
     x ≡ y
 
 do (lambda U V x y (eq1 : x.fst == y.fst) (eq2 : x.snd == y.snd),
-  now hints = add_hints [eq1,eq2] hints in
+  now hints = add_hints [eq1,eq2] in
   refl x : x == y) : pair_eta_pr
 
 constant C D : Type

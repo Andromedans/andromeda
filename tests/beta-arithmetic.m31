@@ -3,7 +3,7 @@ constant Z : N
 constant S : N -> N
 
 constant plus : N -> N -> N
-now reducing = add_reducing plus [lazy,eager] reducing
+now reducing = add_reducing plus [lazy,eager]
 
 constant plus_Z : Π (x : N), plus x Z == x
 constant plus_S : Π (x y : N), plus x (S y) == S (plus x y)
