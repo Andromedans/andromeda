@@ -133,7 +133,7 @@ plain_topcomp:
   | SIGNATURE s=name EQ LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
                                                       { DeclSignature (s, lst) }
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
-  | MLTYPE REC lst=mlty_rec_defs                      { DefMLTypeRec lst }
+  | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=name COLON params=mlparams opsig=op_mlsig
     { let (args, res) = opsig in DeclOperation (op, (params, args, res)) }
 
@@ -492,38 +492,17 @@ plain_simple_mlty:
 mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }
 
-mlty_rec_defs:
-  | lst=separated_nonempty_list(AND, mlty_rec_def) { lst }
-
 mlty_def:
   | a=var_name xs=list(name) EQ body=mlty_def_body { (a, (xs, body)) }
-
-mlty_rec_def:
-  | a=var_name xs=list(name) EQ body=mlty_rec_def_body { (a, (xs, body)) }
 
 mlty_def_body:
   | t=mlty                                                       { ML_Alias t }
   | lst=separated_list(BAR, mlty_constructor) END                { ML_Sum lst }
   | BAR lst=separated_nonempty_list(BAR, mlty_constructor) END   { ML_Sum lst }
 
-mlty_rec_def_body:
-  | t=mlty                                                           { ML_Alias t }
-  | lst=separated_list(BAR, mlty_rec_constructor) END                { ML_Sum lst }
-  | BAR lst=separated_nonempty_list(BAR, mlty_rec_constructor) END   { ML_Sum lst }
-
 mlty_constructor:
-  | c=var_name OF lst=separated_nonempty_list(AND, mlty)      { ML_Variant (c, lst) }
-  | c=var_name                                                { ML_Variant (c, []) }
-
-mlty_rec_constructor:
-  | c=var_name OF lst=separated_nonempty_list(AND, mlty)      { ML_Variant (c, lst) }
-  | c=var_name                                                { ML_Variant (c, []) }
-  | c=var_name COLON lst=separated_nonempty_list(ARROW, prod_mlty)
-    { match List.rev lst with
-      | t :: ts -> ML_GADT (c, List.rev ts, t)
-      | [] -> assert false
-     }
-
+  | c=var_name OF lst=separated_nonempty_list(AND, mlty)      { (c, lst) }
+  | c=var_name                                                { (c, []) }
 
 mark_location(X):
   x=X

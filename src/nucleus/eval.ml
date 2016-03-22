@@ -921,7 +921,7 @@ let topletrec_bind ~loc ~quiet fxcs =
 let add_def = function
   | Syntax.ML_Alias _ -> return ()
   | Syntax.ML_Sum lst ->
-    mfold (fun () (Syntax.ML_GADT (cstr,_,_) | Syntax.ML_Variant (cstr,_)) -> Runtime.add_forbidden cstr) () lst
+    mfold (fun () (cstr, _) -> Runtime.add_forbidden cstr) () lst
 
 let rec toplevel ~quiet {Location.thing=c;loc} =
   match c with

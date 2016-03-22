@@ -860,11 +860,10 @@ let mlty_def ~loc ctx outctx params def =
   | Input.ML_Sum lst ->
     let rec fold outctx res = function
       | [] -> outctx, Syntax.ML_Sum (List.rev res)
-      | (Input.ML_Variant (c,args)) :: lst ->
+      | (c, args) :: lst ->
         let args = List.map (mlty ctx params) args in
         let outctx = Ctx.add_constructor ~loc c (List.length args) outctx in
-        fold outctx ((Syntax.ML_Variant (c,args))::res) lst
-      | (Input.ML_GADT _) :: _ -> Error.impossible ~loc "no gadt style constructors in nonrecursive type declarations."
+        fold outctx ((c, args)::res) lst
     in
     fold outctx [] lst
 
@@ -876,15 +875,10 @@ let mlty_rec_def ~loc ctx params def =
   | Input.ML_Sum lst ->
     let rec fold ctx res = function
       | [] -> ctx, Syntax.ML_Sum (List.rev res)
-      | (Input.ML_Variant (c,args)) :: lst ->
+      | (c, args) :: lst ->
         let args = List.map (mlty ctx params) args in
         let ctx = Ctx.add_constructor ~loc c (List.length args) ctx in
-        fold ctx ((Syntax.ML_Variant (c,args))::res) lst
-      | (Input.ML_GADT (c,args,out)) :: lst ->
-        let args = List.map (mlty ctx params) args
-        and out = mlty ctx params out in
-        let ctx = Ctx.add_constructor ~loc c (List.length args) ctx in
-        fold ctx ((Syntax.ML_GADT (c,args,out))::res) lst        
+        fold ctx ((c, args)::res) lst
     in
     fold ctx [] lst
   
