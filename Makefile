@@ -75,7 +75,7 @@ install-project-info:
 	install -d $(DOC_DIR)
 	install -m 644 README.markdown $(DOC_DIR)/README.markdown
 uninstall-project-info:
-	rm -f $(DOC_DIR)/CHANGELOG.md $(DOC_DIR)/README.markdown
+	rm -f $(DOC_DIR)/README.markdown
 	rmdir $(DOC_DIR) || true
 
 install-emacs:
