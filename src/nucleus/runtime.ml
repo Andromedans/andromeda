@@ -434,7 +434,7 @@ let rec print_value ?max_level ~penv v ppf =
                   (Store.Ref.print_key v)
                   (print_value ~penv ~max_level:Level.no_parens (Store.Ref.lookup v penv.extra))
 
-  | String s -> Format.fprintf ppf "\"%s\"" (String.escaped s)
+  | String s -> Format.fprintf ppf "\"%s\"" s
 
   | Ident x -> Name.print_ident x ppf
 
