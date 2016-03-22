@@ -85,8 +85,18 @@ let externals =
           let v = Simplify.value env v in
           Value.return v
         ));
+
+    ("random_choice", fun loc ->
+        Value.return_closure (fun v1 ->
+            Value.return_closure (fun v2 ->
+                if Random.bool ()
+                then Value.return v1
+                else Value.return v2))
+    );
+
   ]
 
+let () = Random.self_init ()
 
 let lookup s =
   try
