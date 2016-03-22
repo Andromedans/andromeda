@@ -525,24 +525,35 @@ let included f topenv =
   List.mem (Filename.basename f) topenv.runtime.lexical.files, topenv
 
 (** Printers *)
+type penv_extra = value Store.Ref.t
+
+type print_env = {
+  base : Tt.print_env;
+  extra : penv_extra
+}
 
 (** Generate a printing environment from runtime environment *)
 let get_penv env =
-  { Tt.forbidden = env.lexical.forbidden ;
-    Tt.atoms = [] ;
-    Tt.sigs = (fun s ->
-               match get_signature s env with
-                 | None -> Error.impossible ~loc:Location.unknown "get_penv: unknown signature %t" (Name.print_ident s)
-                 | Some s_def -> List.map (fun (l,_,_) -> l) s_def)
+  { base = {
+      Tt.forbidden = env.lexical.forbidden ;
+      Tt.atoms = Name.atom_printer () ;
+      Tt.sigs = (fun s ->
+                 match get_signature s env with
+                   | None -> Error.impossible ~loc:Location.unknown "get_penv: unknown signature %t" (Name.print_ident s)
+                   | Some s_def -> List.map (fun (l,_,_) -> l) s_def) };
+    extra = env.state;
   }
 
 let lookup_penv env =
   Return (get_penv env), env.state
 
-let rec print_value_aux ?max_level ~penv refs v ppf =
+let top_lookup_penv env =
+  get_penv env.runtime, env
+
+let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | Term e -> Jdg.print_term ~penv ?max_level e ppf
+  | Term e -> Jdg.print_term ~penv:penv.base ?max_level e ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 
@@ -552,37 +563,37 @@ let rec print_value_aux ?max_level ~penv refs v ppf =
      begin
        match as_list_opt v with
        | Some lst -> Format.fprintf ppf "[%t]"
-                                    (Print.sequence (print_value_aux ~penv refs) "," lst)
-       | None ->  print_tag ?max_level ~penv refs t lst ppf
+                                    (Print.sequence (print_value ~penv) "," lst)
+       | None ->  print_tag ?max_level ~penv t lst ppf
      end
 
   | Tuple lst -> Format.fprintf ppf "(%t)"
-                  (Print.sequence (print_value_aux ~penv refs) "," lst)
+                  (Print.sequence (print_value ~penv) "," lst)
 
   | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref@ %t := %t"
                   (Store.Ref.print_key v)
-                  (print_value_aux ~penv ~max_level:Level.no_parens refs (Store.Ref.lookup v refs))
+                  (print_value ~penv ~max_level:Level.no_parens (Store.Ref.lookup v penv.extra))
 
   | String s -> Format.fprintf ppf "\"%s\"" (String.escaped s)
 
   | Ident x -> Name.print_ident x ppf
 
-and print_tag ?max_level ~penv refs t lst ppf =
+and print_tag ?max_level ~penv t lst ppf =
   match t, lst with
 
   | Name.Ident (_, Name.Prefix), [v] ->
      (* prefix tag applied to one argument *)
      Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
                  (Name.print_ident ~parentheses:false t)
-                 (print_value_aux ~max_level:Level.prefix_arg ~penv refs v)
+                 (print_value ~max_level:Level.prefix_arg ~penv v)
 
   | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
      (* infix tag applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ?max_level ~at_level:lvl_op "%t@ %t@ %t"
-                 (print_value_aux ~max_level:lvl_left ~penv refs v1)
+                 (print_value ~max_level:lvl_left ~penv v1)
                  (Name.print_ident ~parentheses:false t)
-                 (print_value_aux ~max_level:lvl_right ~penv refs v2)
+                 (print_value ~max_level:lvl_right ~penv v2)
 
   | _ ->
      (* print as application *)
@@ -591,35 +602,26 @@ and print_tag ?max_level ~penv refs t lst ppf =
        | [] -> Name.print_ident t ppf
        | (_::_) -> Print.print ?max_level ~at_level:Level.app ppf "%t@ %t"
                                (Name.print_ident t)
-                               (Print.sequence (print_value_aux ~max_level:Level.app_right ~penv refs) "" lst)
+                               (Print.sequence (print_value ~max_level:Level.app_right ~penv) "" lst)
      end
 
-let print_value0 env ?max_level v ppf =
+let print_operation env op vs ppf =
   let penv = get_penv env in
-  let refs = env.state in
-  Format.fprintf ppf "@[<hov>%t@]"
-                 (print_value_aux ?max_level ~penv refs v)
-
-let top_print_value topenv = (print_value0 topenv.runtime), topenv
-
-and print_operation env op vs ppf =
-  let penv = get_penv env
-  and refs = env.state in
   match op, vs with
 
   | Name.Ident (_, Name.Prefix), [v] ->
      (* prefix op applied to one argument *)
      Print.print ppf ~at_level:Level.prefix "%t@ %t"
                  (Name.print_ident ~parentheses:false op)
-                 (print_value_aux ~max_level:Level.prefix_arg ~penv refs v)
+                 (print_value ~max_level:Level.prefix_arg ~penv v)
 
   | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
      (* infix op applied to two arguments *)
      let (lvl_op, lvl_left, lvl_right) = Level.infix fixity in
      Print.print ppf ~at_level:lvl_op "%t@ %t@ %t"
-                 (print_value_aux ~max_level:lvl_left ~penv refs v1)
+                 (print_value ~max_level:lvl_left ~penv v1)
                  (Name.print_ident ~parentheses:false op)
-                 (print_value_aux ~max_level:lvl_right ~penv refs v2)
+                 (print_value ~max_level:lvl_right ~penv v2)
 
   | _ ->
      (* print as application *)
@@ -628,17 +630,8 @@ and print_operation env op vs ppf =
        | [] -> Name.print_ident op ppf
        | (_::_) -> Print.print ~at_level:Level.app ppf "%t@ %t"
                                (Name.print_ident op)
-                               (Print.sequence (print_value_aux ~max_level:Level.app_right ~penv refs) "" vs)
+                               (Print.sequence (print_value ~max_level:Level.app_right ~penv) "" vs)
      end
-
-let print_value env =
-  Return (print_value0 env), env.state
-
-let print_term env =
-  Return (fun ?max_level -> Tt.print_term ~penv:(get_penv env) ?max_level), env.state
-
-let print_ty env =
-  Return (fun ?max_level -> Tt.print_ty ~penv:(get_penv env) ?max_level), env.state
 
 let print_env topenv =
   let print env ppf =
@@ -646,7 +639,7 @@ let print_env topenv =
     List.iter (fun (x,t) ->
            Format.fprintf ppf "@[<hov 4>constant %t@;<1 -2>%t@]@\n"
                           (Name.print_ident x)
-                          (Tt.print_ty ~penv t))
+                          (Tt.print_ty ~penv:penv.base t))
       env.dynamic.constants ;
     List.iter (fun (x,k) ->
            Format.fprintf ppf "@[<hov 4>data %t %d@]@\n"
@@ -661,7 +654,7 @@ let print_env topenv =
     List.iter (fun (x,s) ->
            Format.fprintf ppf "@[<hov 4>signature %t %t@]@\n"
                        (Name.print_ident x)
-                       (Tt.print_sig_def ~penv s))
+                       (Tt.print_sig_def ~penv:penv.base s))
       env.dynamic.signatures ;
   in
   print topenv.runtime, topenv

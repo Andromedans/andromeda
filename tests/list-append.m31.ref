@@ -6,4 +6,5 @@ Data constructor c is declared.
 Data constructor d is declared.
 Data constructor e is declared.
 Data constructor f is declared.
-([a, b, c, d, e, f], [a, b, c, d, e, f])
+([a, b, c, d, e, f], [a, b, c, d, e,
+f])

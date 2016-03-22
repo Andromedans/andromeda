@@ -9,8 +9,8 @@ let externals =
   [
     ("print", fun loc ->
       Value.return_closure (fun v ->
-          Value.print_value >>= fun pval ->
-          Format.printf "%t@." (pval v) ;
+          Value.lookup_penv >>= fun penv ->
+          Format.printf "%t@." (Value.print_value ~penv v) ;
           Value.return_unit
         )) ;
 
@@ -21,7 +21,7 @@ let externals =
             | Tt.Signature (s,_) ->
               Value.lookup_signature ~loc s >>= fun s_def ->
               Value.lookup_penv >>= fun penv ->
-              Format.printf "%t = {@[<hv>%t@]}@." (Name.print_ident s) (Tt.print_sig_def ~penv s_def) ;
+              Format.printf "%t = {@[<hv>%t@]}@." (Name.print_ident s) (Tt.print_sig_def ~penv:penv.Value.base s_def) ;
               Value.return_unit
             | _ -> Error.runtime ~loc "this term should be a signature"
         )) ;
@@ -67,13 +67,6 @@ let externals =
             Value.return_unit
           | "no-dependencies" ->
             Config.print_dependencies := false;
-            Value.return_unit
-
-          | "subscripts" ->
-            Config.print_subscripts := true;
-            Value.return_unit
-          | "no-subscripts" ->
-            Config.print_subscripts := false;
             Value.return_unit
 
           | _ -> Error.runtime ~loc "unknown config %s" s

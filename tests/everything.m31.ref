@@ -15,8 +15,8 @@ Constant ( <= ) is declared.
   : A → A → A → A → A
 Signature isContr is declared.
 x0 is defined.
-x : {isContr with T = Type ≡ Type} 
-⊢ x : {isContr with T = Type ≡ Type}
+x₀ : {isContr with T = Type ≡ Type} 
+⊢ x₀ : {isContr with T = Type ≡ Type}
 The command failed with error:
 File "./everything.m31", line 81, characters 6-9: Typing error
   this expression should be a product, found Type
@@ -40,7 +40,8 @@ File "./everything.m31", line 117, characters 21-22: Typing error
 y_combinator is defined.
 f is defined.
 g is defined.
-("f", ("g", "foo"))
+("f", ("g",
+"foo"))
 wrapped = {unwrap : A}
 ()
 Operation get is declared.
@@ -48,16 +49,18 @@ Operation set is declared.
 state_h is defined.
 ⊢ b : A
 ⊢ Type : Type
-[⊢ a : A, ⊢ b : A, ⊢ A : Type, <function>]
+[⊢ a : A, ⊢ b : A, ⊢ A : Type,
+<function>]
 []
-(⊢ a : A, ⊢ b : A, ⊢ A : Type)
+(⊢ a : A, ⊢ b : A,
+⊢ A : Type)
 "a string\\nspecial characters aren't"
 register is defined.
 ()
 ⊢ b : A
 ⊢ A : Type
-x : A 
-⊢ x : A
+x₀ : A 
+⊢ x₀ : A
 "this will happen"
 ()
 alpha_equal is defined.
@@ -69,33 +72,39 @@ Signature container is declared.
 ⊢ {cont = exfalso A} : {container with T = A}
 ⊢ {cont = a} : {container with T = A}
 ⊢ {unwrap = a}.unwrap : A
-x : wrapped 
-⊢ x.unwrap : A
+x₀ : wrapped 
+⊢ x₀.unwrap : A
 ⊢ a : A
 ⊢ a : A
-((⊢ wrapped : Type, [(unwrap, unwrap : A 
-                                ⊢ unwrap : A)]), [Constrained (⊢ 
-a : A)])
-(⊢ {container with T = A} : Type, [⊢ a : A])
-(x : wrapped 
- ⊢ x : wrapped, unwrap)
+((⊢ wrapped : Type, [(unwrap, unwrap₀ : A 
+                                ⊢ unwrap₀ : A)]), [Constrained
+(⊢ a : A)])
+(⊢ {container with T = A} : Type,
+[⊢ a : A])
+(x₀ : wrapped 
+ ⊢ x₀ : wrapped,
+unwrap)
 Tvar is defined.
 yvar is defined.
 dependent is defined.
-Some (⊢ Type : Type)
+Some
+(⊢ Type : Type)
 None
-[T : Type 
- ⊢ T : Type, T : Type 
-               x : T 
-               ⊢ x : T]
+[T₀ : Type 
+ ⊢ T₀ : Type,
+T₀ : Type 
+x₁ : T₀ 
+⊢ x₁ : T₀]
 Operation emit is declared.
-[x : A 
- ⊢ x : A]
+[x₀ : A 
+ ⊢ x₀ : A]
 Constant eq is declared.
 ⊢ refl a : a ≡ a
 ⊢ refl a : a ≡ b
-Some (⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ a)
-Some (⊢ refl {unwrap = a}.unwrap : {unwrap = a}.unwrap ≡ a)
+Some
+(⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ a)
+Some
+(⊢ refl {unwrap = a}.unwrap : {unwrap = a}.unwrap ≡ a)
 Some
 (⊢ refl {wrapped with unwrap = a}
    : {wrapped with unwrap = a} ≡ {wrapped with unwrap = b})

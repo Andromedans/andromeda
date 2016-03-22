@@ -39,4 +39,5 @@ val print_dependencies : bool ref
 val max_boxes : int ref
 
 (** Should atoms be printed with freshness subscripts? *)
-val print_subscripts : bool ref
+val global_atom_printer : bool ref
+

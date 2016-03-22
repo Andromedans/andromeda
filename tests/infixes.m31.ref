@@ -9,15 +9,16 @@ Constant ( ^ ) is declared.
 Constant ( / ) is declared.
 s is defined.
 ⊢ refl (a + b - (c ^ d ^ d)) : a + b - (c ^ d ^ d) ≡ a + b - (c ^ d ^ d)
-(⊢ a : A, ⊢ b : A, ⊢ c ^ d ^ d : A)
+(⊢ a : A, ⊢ b : A,
+⊢ c ^ d ^ d : A)
 ⊢ λ (( ++ ) : A → A → A) (x : A) (y : A), x ++ (y ++ x)
   : (A → A → A) → A → A → A
-( ++ ) : A → A → A 
-⊢ λ (x : A) (y : A), x ++ (y ++ x) : A → A → A
+( ++₀ ) : A → A → A 
+⊢ λ (x : A) (y : A), x ++₀ (y ++₀ x) : A → A → A
 ⊢ λ (( ??? ) : A → A) (x : A) (_ : A), ??? ??? x
   : (A → A) → A → A → A
-( ??? ) : A → A 
-⊢ λ (x : A) (_ : A), ??? ??? x : A → A → A
+( ???₀ ) : A → A 
+⊢ λ (x : A) (_ : A), ???₀ ???₀ x : A → A → A
 Data constructor ( @ ) is declared.
 x is defined.
 ⊢ a : A

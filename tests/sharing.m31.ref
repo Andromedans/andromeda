@@ -17,7 +17,8 @@ Some
 (⊢ refl {wrap with T, x = exfalso T}
    : {wrap with T as X, x = exfalso X} ≡ {wrap with T, x = exfalso T})
 guy is defined.
-Some (⊢ refl {T = A} : {T = A} ≡ {T = A})
+Some
+(⊢ refl {T = A} : {T = A} ≡ {T = A})
 A' is defined.
 ⊢ {T = A}.T : Type
 ⊢ exfalso {T = A}.T : {T = A}.T

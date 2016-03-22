@@ -166,8 +166,8 @@ let rec exec_cmd base_dir interactive c =
 
   | Syntax.TopDo c ->
      comp_value c >>= fun v ->
-     Value.top_print_value >>= fun print_value ->
-     (if interactive then Format.printf "%t@." (print_value v) ;
+     Value.top_lookup_penv >>= fun penv ->
+     (if interactive then Format.printf "%t@." (Value.print_value ~penv v) ;
      return ())
 
   | Syntax.TopFail c ->
@@ -176,8 +176,8 @@ let rec exec_cmd base_dir interactive c =
         (if interactive then Format.printf "The command failed with error:\n%t@." (Error.print err));
         return ()
      | Error.OK v ->
-        Value.top_print_value >>= fun pval ->
-        Error.runtime ~loc "The command has not failed: got %t." (pval v)
+        Value.top_lookup_penv >>= fun penv ->
+        Error.runtime ~loc "The command has not failed: got %t." (Value.print_value ~penv v)
      end
 
   | Syntax.Include (fs,once) ->

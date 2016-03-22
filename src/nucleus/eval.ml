@@ -17,10 +17,11 @@ let as_atom ~loc v =
         | Some t -> Value.return (ctx,x,t)
         | None ->
           Value.lookup_penv >>= fun penv ->
-          Error.impossible ~loc "got an atom judgement %t but the atom is not in the context" (Jdg.print_term ~penv j)
+          Error.impossible ~loc "got an atom judgement %t but the atom is not in the context" (Jdg.print_term ~penv:penv.Value.base j)
       end
-    | _ -> Value.print_term >>= fun print_term ->
-      Error.runtime ~loc "expected an atom but got %t" (print_term e)
+    | _ ->
+      Value.lookup_penv >>= fun penv ->
+      Error.runtime ~loc "expected an atom but got %t" (Tt.print_term ~penv:penv.Value.base e)
 
 let as_handler ~loc v =
   let e = Value.as_handler ~loc v in
@@ -157,14 +158,14 @@ let rec infer {Syntax.term=c'; loc} =
     infer c2 >>= as_atom ~loc >>= fun (_, a, _) ->
     infer c1 >>= fun v1 ->
     as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
-    Value.lookup_penv >>= fun penv ->
     begin match Context.lookup_ty a ctx with
     | None -> infer c3 >>=
        as_term ~loc:(c3.Syntax.loc) >>= fun _ ->
        Value.return v1
     | Some ta ->
        check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
-       let ctx_s = Context.substitute ~penv ~loc a (ctx,e2,ta) in
+       Value.lookup_penv >>= fun penv ->
+       let ctx_s = Context.substitute ~penv:penv.Value.base ~loc a (ctx,e2,ta) in
        let te_s = Tt.substitute [a] [e2] e1 in
        let ty_s = Tt.substitute_ty [a] [e2] t1 in
        let j_s = Jdg.mk_term ctx_s te_s ty_s in
@@ -244,7 +245,7 @@ let rec infer {Syntax.term=c'; loc} =
       | [] ->
         let vs = List.rev vs in
         Value.lookup_penv >>= fun penv ->
-        let ctx = List.fold_left2 (Context.abstract ~penv ~loc) ctx ys ts in
+        let ctx = List.fold_left2 (Context.abstract ~penv:penv.Value.base ~loc) ctx ys ts in
         let s = Tt.mk_signature_ty ~loc (s,vs) in
         let j = Jdg.term_of_ty (Jdg.mk_ty ctx s) in
         Value.return_term j
@@ -373,7 +374,7 @@ let rec infer {Syntax.term=c'; loc} =
         | [], [] ->
           Value.lookup_penv >>= fun penv ->
           let vs = List.rev vs
-          and ctx = List.fold_left2 (Context.abstract ~penv ~loc) ctx ys ts in
+          and ctx = List.fold_left2 (Context.abstract ~penv:penv.Value.base ~loc) ctx ys ts in
           let e = Tt.mk_signature_ty ~loc (s,vs) in
           let j = Jdg.term_of_ty (Jdg.mk_ty ctx e) in
           Value.return_term j
@@ -386,14 +387,14 @@ let rec infer {Syntax.term=c'; loc} =
               if Tt.alpha_equal_ty t ty
               then
                 Value.lookup_penv >>= fun penv ->
-                let ctx = Context.join ~penv ~loc ctx ctx' in
+                let ctx = Context.join ~penv:penv.Value.base ~loc ctx ctx' in
                 let ey = Tt.mk_atom ~loc y in
                 let x = Name.ident_of_atom y in
                 fold ctx ((Tt.Unconstrained x)::vs) (ey::es) (y::ys) (t::ts) def xes
               else
-                Value.print_ty >>= fun pty ->
+                Value.lookup_penv >>= fun penv ->
                 Error.typing ~loc "bad non-constraint for field %t: types %t and %t do not match"
-                  (Name.print_ident l) (pty t) (pty ty)
+                  (Name.print_ident l) (Tt.print_ty ~penv:penv.Value.base t) (Tt.print_ty ~penv:penv.Value.base ty)
             | Tt.Constrained ve ->
               as_term ~loc ve >>= fun (Jdg.Term (ctx',e,te)) ->
               let t = Tt.instantiate_ty es t in
@@ -403,9 +404,9 @@ let rec infer {Syntax.term=c'; loc} =
                   let e_abs = Tt.abstract ys e in
                   fold ctx ((Tt.Constrained e_abs) :: vs) (e::es) ys ts def xes
                 | None ->
-                  Value.print_ty >>= fun pty ->
+                  Value.lookup_penv >>= fun penv ->
                   Error.typing ~loc "bad constraint for field %t: types %t and %t do not match"
-                    (Name.print_ident l) (pty t) (pty te)
+                    (Name.print_ident l) (Tt.print_ty ~penv:penv.Value.base t) (Tt.print_ty ~penv:penv.Value.base te)
               end
           end
         | _::_,[] -> Error.runtime ~loc "constraints missing"
@@ -436,9 +437,9 @@ let rec infer {Syntax.term=c'; loc} =
             let e = Tt.mention_atoms hyps e in
             fold ctx (e::res) (e::es) vs s_data
           | None ->
-            Value.print_ty >>= fun pty ->
+            Value.lookup_penv >>= fun penv ->
             Error.typing ~loc "bad field %t: types %t and %t do not match"
-              (Name.print_ident l) (pty t) (pty te)
+              (Name.print_ident l) (Tt.print_ty ~penv:penv.Value.base t) (Tt.print_ty ~penv:penv.Value.base te)
         end
       | ((_,_,t),Tt.Constrained e)::s_data, vs ->
         let e = Tt.instantiate res e in
@@ -479,7 +480,7 @@ let rec infer {Syntax.term=c'; loc} =
 
 and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
   Value.lookup_penv >>= fun penv ->
-  let ctx = Context.join ~penv ~loc lctx rctx in
+  let ctx = Context.join ~penv:penv.Value.base ~loc lctx rctx in
   Equal.equal_ty ctx lte rte
 
 and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
@@ -488,11 +489,12 @@ and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
     begin function
       | Some (ctx, hyps) -> Value.return (ctx, Tt.mention_atoms hyps e)
       | None ->
-         Value.print_term >>= fun pte ->
-         Value.print_ty >>= fun pty ->
+         Value.lookup_penv >>= fun penv ->
          Error.typing ~loc
                       "the expression %t should have type@ %t@ but has type@ %t"
-                      (pte e) (pty t_check') (pty t')
+                      (Tt.print_term ~penv:penv.Value.base e)
+                      (Tt.print_ty ~penv:penv.Value.base t_check')
+                      (Tt.print_ty ~penv:penv.Value.base t')
     end
 
 and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Context.t * Tt.term) Value.comp =
@@ -579,10 +581,10 @@ and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Conte
             check c1 jt >>= fun (ctx,e) ->
             Value.return (ctx,Tt.mention_atoms hyps e)
          | None ->
-            Value.print_ty >>= fun pty ->
+            Value.lookup_penv >>= fun penv ->
             Error.typing ~loc:(c2.Syntax.loc)
                          "this type should be equal to@ %t"
-                         (pty t_check')
+                         (Tt.print_ty ~penv:penv.Value.base t_check')
        end
 
   | Syntax.Lambda (x,u,c) ->
@@ -594,16 +596,16 @@ and check ({Syntax.term=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) : (Conte
     check c t >>= fun (ctx, e) ->
     Equal.equal ctx e e1 t' >>= begin function
       | None ->
-        Value.print_term >>= fun pte ->
+        Value.lookup_penv >>= fun penv ->
         Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
-                     (pte e) (pte e1)
+                     (Tt.print_term ~penv:penv.Value.base e) (Tt.print_term ~penv:penv.Value.base e1)
       | Some (ctx, hyps1) ->
         Equal.equal ctx e e2 t' >>=
           begin function
             | None ->
-              Value.print_term >>= fun pte ->
+              Value.lookup_penv >>= fun penv ->
               Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
-                           (pte e) (pte e2)
+                       (Tt.print_term ~penv:penv.Value.base e) (Tt.print_term ~penv:penv.Value.base e2)
             | Some (ctx, hyps2) ->
               let e = Tt.mk_refl ~loc t' e in
               let e = Tt.mention_atoms hyps e in
@@ -678,8 +680,8 @@ and infer_lambda ~loc x u c =
       Value.add_abstracting ~loc:uloc x ju (fun _ y ->
       infer c >>= as_term ~loc:(c.Syntax.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
       Value.lookup_penv >>= fun penv ->
-      let ctxe = Context.abstract ~penv ~loc ctxe y u in
-      let ctx = Context.join ~penv ~loc ctxu ctxe in
+      let ctxe = Context.abstract ~penv:penv.Value.base ~loc ctxe y u in
+      let ctx = Context.join ~penv:penv.Value.base ~loc ctxu ctxe in
       let e = Tt.abstract [y] e in
       let t = Tt.abstract_ty [y] t in
       let lam = Tt.mk_lambda ~loc x u e t
@@ -694,8 +696,8 @@ and infer_prod ~loc x u c =
   Value.add_abstracting ~loc:uloc x ju (fun _ y ->
   check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
   Value.lookup_penv >>= fun penv ->
-  let ctx = Context.abstract ~penv ~loc ctx y u in
-  let ctx = Context.join ~penv ~loc ctx ctxu in
+  let ctx = Context.abstract ~penv:penv.Value.base ~loc ctx y u in
+  let ctx = Context.join ~penv:penv.Value.base ~loc ctx ctxu in
   let t = Tt.abstract_ty [y] t in
   let prod = Tt.mk_prod ~loc x u t in
   let typ = Tt.mk_type_ty ~loc in
@@ -711,9 +713,9 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.comp =
         | Some (ctx,hypsu) ->
           Value.return (ctx,u,hypsu)
         | None ->
-          Value.print_ty >>= fun pty ->
+          Value.lookup_penv >>= fun penv ->
           Error.typing ~loc "this annotation has type %t but should have type %t"
-            (pty u) (pty a)
+            (Tt.print_ty ~penv:penv.Value.base u) (Tt.print_ty ~penv:penv.Value.base a)
       end
     | None ->
       Value.return (ctx,a,Name.AtomSet.empty)
@@ -723,7 +725,7 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Value.comp =
   let b = Tt.instantiate_ty [y'] b in
   check c (Jdg.mk_ty ctx b) >>= fun (ctx,e) ->
   Value.lookup_penv >>= fun penv ->
-  let ctx = Context.abstract ~penv ~loc ctx y u in
+  let ctx = Context.abstract ~penv:penv.Value.base ~loc ctx y u in
   let e = Tt.abstract [y] e in
   let b = Tt.abstract_ty [y] b in
   let lam = Tt.mk_lambda ~loc x u e b in
@@ -759,8 +761,8 @@ and sequence ~loc v =
   match v with
     | Value.Tuple [] -> Value.return ()
     | _ ->
-      Value.print_value >>= fun pval ->
-      Print.warning "%t: Sequence:@ The value %t should be ()" (Location.print loc) (pval v);
+      Value.lookup_penv >>= fun penv ->
+      Print.warning "%t: Sequence:@ The value %t should be ()" (Location.print loc) (Value.print_value ~penv v);
       Value.return ()
 
 and let_bind : 'a. _ -> 'a Value.comp -> 'a Value.comp = fun xcs cmd ->
@@ -788,8 +790,8 @@ and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Value.comp) -> _ -> a 
  = fun ~loc cases eval v ->
   let rec fold = function
     | [] ->
-      Value.print_value >>= fun pval ->
-      Error.runtime ~loc "no match found for %t" (pval v)
+      Value.lookup_penv >>= fun penv ->
+      Error.runtime ~loc "no match found for %t" (Value.print_value ~penv v)
     | (xs, p, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | Some vs ->

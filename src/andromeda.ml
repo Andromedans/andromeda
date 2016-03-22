@@ -30,9 +30,9 @@ let options = Arg.align [
      Arg.Set Config.print_dependencies,
      " Print dependencies between free variables and inside terms");
 
-    ("--no-subscripts",
-     Arg.Set Config.print_dependencies,
-     " Do not print the freshness-index subscripts of atoms");
+    ("--global-atom-printer",
+     Arg.Set Config.global_atom_printer,
+     " Do print the freshness-index subscripts of atoms on a global basis");
 
     ("--max-boxes",
      Arg.Set_int Config.max_boxes,

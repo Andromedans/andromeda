@@ -5,6 +5,6 @@ Constant pair is declared.
 T is defined.
 x is defined.
 File "./error-context-subst.m31", line 9, characters 25-39: Runtime error
-  cannot join contexts x₁₃ : A 
-                        and x₁₃ : B 
-                             at x₁₃
+  cannot join contexts x₀ : A 
+                        and x₀ : B 
+                             at x₀
