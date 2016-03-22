@@ -51,7 +51,7 @@ state_h is defined.
 [⊢ a : A, ⊢ b : A, ⊢ A : Type, <function>]
 []
 (⊢ a : A, ⊢ b : A, ⊢ A : Type)
-"a string\\nspecial characters aren't"
+"a string\nspecial characters aren't"
 register is defined.
 ()
 ⊢ b : A
