@@ -49,3 +49,12 @@ let reached_end_of_input b =
 
 let set_line_limit ll b =
   b.line_limit <- ll
+
+let parse lex parse resource =
+  try
+    lex parse resource
+  with
+  | Parse_Error (w, p_start, p_end) ->
+     let loc = Location.make p_start p_end in
+     Error.syntax ~loc "Unexpected: %s" w
+

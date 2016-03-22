@@ -1,4 +1,6 @@
-data cow 0
-data bull 0
+mltype cattle =
+  | cow
+  | bull
+  end
 
 do cow :: (bull :: [])

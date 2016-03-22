@@ -1,5 +1,7 @@
-data banana 0
-data apple 0
+mltype fruit =
+    banana
+  | apple
+  end
 
 let x = ref []
 

@@ -17,8 +17,10 @@ type env = (atom * ident) list
 type label = ident
 type signature = ident
 type constant = ident
-type data = ident
 type operation = ident
+
+type ty = ident
+type constructor = ident
 
 (** The name of empty list *)
 val nil : ident

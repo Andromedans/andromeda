@@ -2,8 +2,8 @@ Constant A is declared.
 Constant a is declared.
 x is defined.
 quants is defined.
-Some ([(x0 : A 
-        ⊢ x0 : A, Some (⊢ a : A))], [])
+Some ((x0 : A 
+       ⊢ x0 : A, Some (⊢ a : A)) :: [], [])
 None
 Signature pair is declared.
 None

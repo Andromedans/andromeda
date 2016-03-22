@@ -15,8 +15,10 @@ type env = (atom * ident) list
 type label = ident
 type signature = ident
 type constant = ident
-type data = ident
 type operation = ident
+
+type ty = ident
+type constructor = ident
 
 let print_ident ?(parentheses=true) x ppf =
   match x with

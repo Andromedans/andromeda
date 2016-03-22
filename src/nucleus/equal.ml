@@ -10,7 +10,7 @@ module Monad = struct
   let empty = AtomSet.empty
 
   type 'a t =
-    { k : 'r. ('a -> state -> 'r Value.comp) -> state -> 'r Value.comp }
+    { k : 'r. ('a -> state -> 'r Runtime.comp) -> state -> 'r Runtime.comp }
 
   let return x =
     { k = fun c s -> c x s }
@@ -18,9 +18,9 @@ module Monad = struct
   let (>>=) m f =
     { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
 
-  (* lift : 'a Value.comp -> 'a t *)
+  (* lift : 'a Runtime.comp -> 'a t *)
   let lift m =
-    { k = fun c s -> Value.bind m (fun x -> c x s) }
+    { k = fun c s -> Runtime.bind m (fun x -> c x s) }
 
   let modify f =
     { k = fun c s -> c () (f s) }
@@ -28,20 +28,20 @@ module Monad = struct
   let add_hyps hyps = modify (AtomSet.union hyps)
 
   let context_abstract ~loc ctx y t =
-    lift Value.lookup_penv >>= fun penv ->
+    lift Runtime.lookup_penv >>= fun penv ->
     let ctx = Context.abstract ~penv ~loc ctx y t in
     modify (fun hyps -> AtomSet.remove y hyps) >>= fun () ->
     return ctx
 
   let run m =
-    m.k (fun x s -> Value.return (x,s)) empty
+    m.k (fun x s -> Runtime.return (x,s)) empty
 end
 
 module Opt = struct
   type state = Monad.state
 
   type 'a opt =
-    { k : 'r. ('a -> state -> 'r Value.comp) -> (state -> 'r Value.comp) -> state -> 'r Value.comp }
+    { k : 'r. ('a -> state -> 'r Runtime.comp) -> (state -> 'r Runtime.comp) -> state -> 'r Runtime.comp }
 
   let return x =
     { k = fun sk _ s -> sk x s }
@@ -60,10 +60,10 @@ module Opt = struct
 
   let add_abstracting ~loc x j m =
     { k = fun sk fk s ->
-          Value.add_abstracting ~loc x j (fun ctx z -> (m ctx z).k (fun y s' -> (sk y s')) fk s) }
+          Runtime.add_abstracting ~loc x j (fun ctx z -> (m ctx z).k (fun y s' -> (sk y s')) fk s) }
 
   let run m =
-    m.k (fun x s -> Value.return (Some (x,s))) (fun _ -> Value.return None) AtomSet.empty
+    m.k (fun x s -> Runtime.return (Some (x,s))) (fun _ -> Runtime.return None) AtomSet.empty
 end
 
 module Internals = struct
@@ -93,21 +93,21 @@ let list_combine3 =
 
 (** Compare two types *)
 let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
-  Monad.lift Value.print_term >!= fun pte ->
-  Monad.lift Value.print_ty >!= fun pty ->
+  Monad.lift Runtime.print_term >!= fun pte ->
+  Monad.lift Runtime.print_ty >!= fun pty ->
   if Tt.alpha_equal e1 e2
   then
     Opt.return ctx
   else
-    Monad.lift (Value.operation_equal
-        (Value.mk_term (Jdg.mk_term ctx e1 t))
-        (Value.mk_term (Jdg.mk_term ctx e2 t))) >!= fun v ->
+    Monad.lift (Predefined.operation_equal
+        (Runtime.mk_term (Jdg.mk_term ctx e1 t))
+        (Runtime.mk_term (Jdg.mk_term ctx e2 t))) >!= fun v ->
     let loc = loc1 in
-    match Value.as_option ~loc v with
+    match Predefined.as_option ~loc v with
       | None -> Opt.fail
       | Some v ->
-        let Jdg.Term (ctxeq,eq,teq) = Value.as_term ~loc v in
-        Monad.lift Value.lookup_penv >!= fun penv ->
+        let Jdg.Term (ctxeq,eq,teq) = Runtime.as_term ~loc v in
+        Monad.lift Runtime.lookup_penv >!= fun penv ->
         let ctx = Context.join ~penv ~loc ctx ctxeq in
         Monad.add_hyps (Tt.assumptions_term eq) >!= fun () ->
         let tgoal = Tt.mk_eq_ty ~loc t e1 e2 in
@@ -119,7 +119,7 @@ and equal_ty ctx (Tt.Ty t1) (Tt.Ty t2) = equal ctx t1 t2 Tt.typ
 let equal_signature ~loc ctx (s1,shares1) (s2,shares2) =
   if Name.eq_ident s1 s2
   then
-    Monad.lift (Value.lookup_signature ~loc s1) >!= fun s_def ->
+    Monad.lift (Runtime.lookup_signature ~loc s1) >!= fun s_def ->
     (* [yts] abstracting data (types are instantiated using constraints from shares1)
        [hyps] prove that the previous constraints were respectively equal
           (and therefore that a type instantiated with shares1 is equal to the same instantiated with shares2)
@@ -157,7 +157,7 @@ let equal_signature ~loc ctx (s1,shares1) (s2,shares2) =
 (* TODO: compare constraints and fields simultaneously? *)
 let equal_structure ~loc ctx ((s1,_) as str1) ((s2,_) as str2) =
   Opt.locally (equal_signature ~loc ctx s1 s2) >?= fun (ctx,hyps) ->
-  Monad.lift (Value.lookup_signature ~loc (fst s1)) >!= fun s_def ->
+  Monad.lift (Runtime.lookup_signature ~loc (fst s1)) >!= fun s_def ->
   (* [vs] are used to instantiate the type *)
   let rec fold ctx hyps vs = function
     | [] ->
@@ -276,7 +276,7 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
   | Tt.Eq _ -> Opt.return ctx
 
   | Tt.Signature ((s,shares) as s') ->
-    Monad.lift (Value.lookup_signature ~loc s) >!= fun s_def ->
+    Monad.lift (Runtime.lookup_signature ~loc s) >!= fun s_def ->
     (* [es] instantiate types
        [projs] instantiate constraints *)
     let rec fold ctx hyps es projs = function
@@ -347,7 +347,7 @@ let reduction_step ctx {Tt.term=e'; assumptions; loc} =
       match e.Tt.term with
         | Tt.Structure ((s', _) as str) ->
           Opt.locally (equal_signature ~loc ctx s s') >?= fun (ctx,hyps) ->
-          Monad.lift (Value.lookup_signature ~loc (fst s)) >!= fun s_def ->
+          Monad.lift (Runtime.lookup_signature ~loc (fst s)) >!= fun s_def ->
           let e = Tt.field_value ~loc s_def str l in
           let e = Tt.mention_atoms hyps e in
           Opt.return (ctx, Tt.mention assumptions e)
@@ -383,7 +383,7 @@ let as_eq_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
   match t' with
     | Tt.Eq (t, e1, e2) -> Monad.return (t, e1, e2)
     | _ ->
-      Monad.lift Value.print_ty >>= fun pty ->
+      Monad.lift Runtime.print_ty >>= fun pty ->
       Error.typing ~loc "this expression should be an equality, found@ %t"
           (pty t)
 
@@ -391,25 +391,25 @@ let as_eq (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
     | _ ->
-      Monad.lift (Value.operation_as_eq (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
-      begin match Value.as_option ~loc v with
+      Monad.lift (Predefined.operation_as_eq (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      begin match Predefined.as_option ~loc v with
         | None ->
-          Monad.lift Value.print_ty >>= fun pty ->
+          Monad.lift Runtime.print_ty >>= fun pty ->
           Error.typing ~loc "this expression should be an equality, found@ %t"
               (pty t)
         | Some v ->
-          let Jdg.Term (ctxv,ev,tv) = Value.as_term ~loc v in
+          let Jdg.Term (ctxv,ev,tv) = Runtime.as_term ~loc v in
           as_eq_alpha (Jdg.mk_ty ctxv tv) >>= fun (tv,e1,e2) ->
           if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
           then
             as_eq_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun (t,e1,e2) ->
-            Monad.lift Value.lookup_penv >>= fun penv ->
+            Monad.lift Runtime.lookup_penv >>= fun penv ->
             let ctx = Context.join ~penv ~loc ctx ctxv in
             let hyps = Tt.assumptions_term ev in
             Monad.add_hyps hyps >>= fun () ->
             Monad.return (ctx,t,e1,e2)
           else
-            Monad.lift (Value.print_ty) >>= fun pty ->
+            Monad.lift (Runtime.print_ty) >>= fun pty ->
             Error.typing ~loc:ev.Tt.loc
                 "this expression should be a witness of equality between %t and an equality"
                 (pty t)
@@ -419,7 +419,7 @@ let as_prod_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
   match t' with
     | Tt.Prod (xts,t) -> Monad.return (xts,t)
     | _ ->
-      Monad.lift Value.print_ty >>= fun pty ->
+      Monad.lift Runtime.print_ty >>= fun pty ->
       Error.typing ~loc "this expression should be a product, found@ %t"
           (pty t)
 
@@ -427,25 +427,25 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
     | _ ->
-      Monad.lift (Value.operation_as_prod (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
-      begin match Value.as_option ~loc v with
+      Monad.lift (Predefined.operation_as_prod (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      begin match Predefined.as_option ~loc v with
         | None ->
-          Monad.lift Value.print_ty >>= fun pty ->
+          Monad.lift Runtime.print_ty >>= fun pty ->
           Error.typing ~loc "this expression should be a product, found@ %t"
               (pty t)
         | Some v ->
-          let Jdg.Term (ctxv,ev,tv) = Value.as_term ~loc v in
+          let Jdg.Term (ctxv,ev,tv) = Runtime.as_term ~loc v in
           as_eq_alpha (Jdg.mk_ty ctxv tv) >>= fun (tv,e1,e2) ->
           if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
           then
             as_prod_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun (xts,t) ->
-            Monad.lift Value.lookup_penv >>= fun penv ->
+            Monad.lift Runtime.lookup_penv >>= fun penv ->
             let ctx = Context.join ~penv ~loc ctx ctxv in
             let hyps = Tt.assumptions_term ev in
             Monad.add_hyps hyps >>= fun () ->
             Monad.return (ctx,(xts,t))
           else
-            Monad.lift (Value.print_ty) >>= fun pty ->
+            Monad.lift (Runtime.print_ty) >>= fun pty ->
             Error.typing ~loc:ev.Tt.loc
                 "this expression should be a witness of equality between %t and a product"
                 (pty t)
@@ -455,7 +455,7 @@ let as_signature_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
   match t' with
     | Tt.Signature s -> Monad.return s
     | _ ->
-      Monad.lift Value.print_ty >>= fun pty ->
+      Monad.lift Runtime.print_ty >>= fun pty ->
       Error.typing ~loc "this expression should be a signature, found@ %t"
           (pty t)
 
@@ -464,25 +464,25 @@ let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
     | Tt.Signature s -> Monad.return (ctx, s)
     | _ ->
-      Monad.lift (Value.operation_as_signature (Value.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
-      begin match Value.as_option ~loc v with
+      Monad.lift (Predefined.operation_as_signature (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
+      begin match Predefined.as_option ~loc v with
         | None ->
-          Monad.lift Value.print_ty >>= fun pty ->
+          Monad.lift Runtime.print_ty >>= fun pty ->
           Error.typing ~loc "this expression should be a signature, found@ %t"
               (pty t)
         | Some v ->
-          let Jdg.Term (ctxv,ev,tv) = Value.as_term ~loc v in
+          let Jdg.Term (ctxv,ev,tv) = Runtime.as_term ~loc v in
           as_eq_alpha (Jdg.mk_ty ctxv tv) >>= fun (tv,e1,e2) ->
           if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
           then
             as_signature_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun xts ->
-            Monad.lift Value.lookup_penv >>= fun penv ->
+            Monad.lift Runtime.lookup_penv >>= fun penv ->
             let ctx = Context.join ~penv ~loc ctx ctxv in
             let hyps = Tt.assumptions_term ev in
             Monad.add_hyps hyps >>= fun () ->
             Monad.return (ctx,xts)
           else
-            Monad.lift (Value.print_ty) >>= fun pty ->
+            Monad.lift (Runtime.print_ty) >>= fun pty ->
             Error.typing ~loc:ev.Tt.loc
                 "this expression should be a witness of equality between %t and a signature"
                 (pty t)
@@ -492,9 +492,9 @@ end
 
 (** Expose without the monad stuff *)
 
-type 'a witness = ('a * AtomSet.t) Value.comp
+type 'a witness = ('a * AtomSet.t) Runtime.comp
 
-type 'a opt = ('a * AtomSet.t) option Value.comp
+type 'a opt = ('a * AtomSet.t) option Runtime.comp
 
 let equal ctx e1 e2 t = Opt.run (Internals.equal ctx e1 e2 t)
 

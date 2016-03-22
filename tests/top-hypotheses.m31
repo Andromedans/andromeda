@@ -1,4 +1,4 @@
-operation happy 0
+operation happy : Judgement
 
 handle
   happy : ?t =>

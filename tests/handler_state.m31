@@ -1,8 +1,8 @@
 constant cow : Type
 constant horn : cow
 
-operation lookup 0
-operation update 1
+operation lookup : Judgement
+operation update : Judgement -> Judgement
 
 let state =
   fun s0 =>
