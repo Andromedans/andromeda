@@ -5,8 +5,7 @@
 #48: implicit elimination of optional arguments
 #50: unexpected documentation comment
 
-#,"-warn-error +a"
-OCAMLBUILD_FLAGS = -cflags -g,-annot,-w,+a-4-27-29-48-50 -use-ocamlfind -pkg menhirLib -pkg sedlex
+OCAMLBUILD_FLAGS = -cflags -g,-annot,-w,+a-4-27-29-48-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
