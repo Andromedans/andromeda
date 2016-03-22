@@ -38,6 +38,10 @@ let options = Arg.align [
      Arg.Set_int Config.max_boxes,
      " Set the maximum depth of pretty printing");
 
+    ("--columns",
+     Arg.Set_int Config.columns,
+     " Set the maximum number of columns of pretty printing");
+
     ("--wrapper",
      Arg.String (fun str -> Config.wrapper := Some [str]),
      "<program> Specify a command-line wrapper to be used (such as rlwrap or ledit)");
@@ -144,6 +148,7 @@ let main =
 
   (* Set the maximum depth of pretty-printing, after which it prints ellipsis. *)
   Format.set_max_boxes !Config.max_boxes ;
+  Format.set_margin !Config.columns ;
   Format.set_ellipsis_text "..." ;
   try
     (* Run and load all the specified files. *)
