@@ -38,6 +38,7 @@ val print_dependencies : bool ref
 (** *)
 val max_boxes : int ref
 
+(** The maximum number of characters that will be printed on one line *)
 val columns : int ref
 
 (** Should atoms be printed with freshness subscripts? *)
