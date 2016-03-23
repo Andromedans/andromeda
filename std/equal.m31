@@ -145,26 +145,6 @@ let rec inst_sides quants x y =
     end
   end
 
-let rec collector_shares collector pop quants s1 s2 = match (s1, s2) with
-    | ([], []) => Some (pop_rigids pop quants)
-    | ((Unconstrained ?a)::?s1, (Unconstrained ?b)::?s2) => (* non constrained *)
-      let quants = add_paired_rigids a b quants in
-      collector_shares collector (Some pop) quants s1 s2
-    | ((Constrained ?a)::?s1, (Constrained ?b)::?s2) => (* constrained *)
-      collector quants a b >?= (fun quants =>
-      collector_shares collector pop quants s1 s2)
-    | ((Unconstrained _)::_, (Constrained _)::_) => None
-    | ((Constrained _)::_, (Unconstrained _)::_) => None
-  end
-
-let rec collector_struct collector quants l1 l2 = match (l1,l2) with
-  | ([], []) => Some quants
-  | (?e1 :: ?l1, ?e2 :: ?l2) =>
-    collector quants e1 e2 >?= (fun quants =>
-    collector_struct collector quants l1 l2)
-  end
-
-
 (* Update `quants` with values such that `lhs` matches `rhs`.
    Return updated `Some quants`, or `None` if `lhs` could not
    be made to match `rhs`.
@@ -223,22 +203,6 @@ let rec collector quants lhs rhs =
                 collector quants t1 t2 >?= (fun quants =>
                 collector quants e1 e2)
             end
-
-          | (|- _proj ?e1 ?l, |- _proj ?e2 ?l) =>
-            match (e1, e2) with
-              ((|- _ : ?t1), (|- _ : ?t2)) =>
-                collector quants t1 t2 >?= (fun quants =>
-                collector quants e1 e2)
-            end
-
-          | (|- _sig ((?s,_),?shares1), |- _sig ((?s,_),?shares2)) =>
-            (* NB: we don't care about the signature definition.
-               NB': the signature names have to be equal *)
-            collector_shares collector None quants shares1 shares2
-
-          | (|- _struct ?s1 ?l1, |- _struct ?s2 ?l2) =>
-            collector quants s1 s2 >?= (fun quants =>
-            collector_struct collector quants l1 l2)
 
           | _ => None
         end
@@ -367,7 +331,6 @@ let process_reducing c l =
   let _ = match c with
       | |- _constant _ => ()
       | |- _atom _ => ()
-      | |- _proj _ _ => ()
       | _ => failure "only constants and atoms may have reducing information"
     end in
   (c,l)
@@ -554,51 +517,6 @@ let rec do_whnf e =
               end
           end
       end
-    | |- _proj ?e0 ?l : ?t =>
-      match do_whnf e0 with
-        | (Some (|- ?eq : _ == ?e0'),_) =>
-          let e' = _proj e0' l in
-          let e' = e' : t in
-          let meq = handle congruence e e' with
-            | equal e0 e0' => yield (Some eq)
-            end
-          in
-          let eq = match meq with
-              | Some ?eq => eq : e == e'
-            end
-          in
-          match do_whnf e' with
-            | (Some (|- ?eq' : _ == ?e''),?rlst) =>
-              let eq = transitivity eq eq' in
-              (Some eq,rlst)
-            | (None,?rlst) => (Some eq,rlst)
-          end
-        | (None,_) =>
-          match reduction e with
-            | Some (|- ?eq : _ == ?e') =>
-              match do_whnf e' with
-                | (Some (|- ?eq' : _ == ?e''),?rlst) =>
-                  let eq = transitivity eq eq' in
-                  (Some eq,rlst)
-                | (None,?rlst) => (Some eq,rlst)
-              end
-            | None =>
-              (* e0 is in whnf and e is not a beta redex, so we only need to see if a beta hint applies to e *)
-              match step_at betas e with
-                | Some (|- ?eq : _ == ?e') =>
-                  match do_whnf e' with
-                    | (Some (|- ?eq' : _ == ?e''),?rlst) =>
-                      let eq = transitivity eq eq' in
-                      (Some eq, rlst)
-                    | (None, ?rlst) =>
-                      (Some eq, rlst)
-                  end
-                | None =>
-                  let rlst = compute_reducing e in
-                  (None, rlst)
-              end
-          end
-      end
     | |- _ : ?t =>
       match step_at betas e with
         | Some (|- ?eq : _ == ?e') =>
@@ -649,8 +567,6 @@ let rec equate_congr a b =
                   yield (equal x y)
               end
           end
-        | (|- _proj ?a0 _, |- _proj ?b0 _) =>
-          handle congruence a' b' with | equal a0 b0 => yield (equate_congr a0 b0) end
         | _ =>
           congruence a' b'
       end in
@@ -737,13 +653,6 @@ let rec equality _ = handler
       | _ => yield None
     end
 
-  | as_signature ?e =>
-    match (with equality () handle whnf_eq e) with
-      | |- ?eq : _ == (_sig _) =>
-        yield (Some eq)
-      | _ => yield None
-    end
-
   end
 
 handle
@@ -759,8 +668,6 @@ handle
   | as_eq ?e =>
     with equality () handle as_eq e
 
-  | as_signature ?e =>
-    with equality () handle as_signature e
 end
 
 (* helper functions *)

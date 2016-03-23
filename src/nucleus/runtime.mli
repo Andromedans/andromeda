@@ -101,18 +101,9 @@ val get_constant : Name.constant -> env -> Tt.ty
 
 val lookup_constant : loc:Location.t -> Name.constant -> Tt.ty comp
 
-(** Lookup a signature definition *)
-val get_signature : Name.signature -> env -> Tt.sig_def
-
 val get_typing_env : env -> Jdg.env
 
 val lookup_typing_env : Jdg.env comp
-
-(** Lookup a signature definition, monadically *)
-val lookup_signature : loc:Location.t -> Name.signature -> Tt.sig_def comp
-
-(** Find a signature with the given labels (in this exact order) *)
-val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) comp
 
 (** Lookup abstracting variables. *)
 val lookup_abstracting : value list comp
@@ -157,9 +148,6 @@ val add_forbidden : Name.ident -> unit toplevel
 
 (** Add a constant of a given type to the environment. *)
 val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
-
-(** Add a signature declaration to the environment. *)
-val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit toplevel
 
 (** Add a bound variable with the given name to the environment. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel

@@ -74,23 +74,6 @@ let (>?=) = Opt.(>?=)
 
 let (>!=) m f = (Opt.unfailing m) >?= f
 
-let context_multiabstract ~loc ctx yts =
-  let rec fold ctx = function
-    | [] -> Monad.return ctx
-    | (y,t)::yts ->
-      Monad.context_abstract ~loc ctx y t >>= fun ctx ->
-      fold ctx yts
-  in
-  fold ctx yts
-
-let list_combine3 =
-  let rec fold acc l1 l2 l3 = match l1,l2,l3 with
-    | [],[],[] -> List.rev acc
-    | x1::l1, x2::l2, x3::l3 -> fold ((x1,x2,x3)::acc) l1 l2 l3
-    | _,_,_ -> raise (Invalid_argument "list_combine3")
-  in
-  fun l1 l2 l3 -> fold [] l1 l2 l3
-
 (** Compare two types *)
 let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   if Tt.alpha_equal e1 e2
@@ -112,65 +95,6 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
         equal_ty ctx teq tgoal
 
 and equal_ty ctx (Tt.Ty t1) (Tt.Ty t2) = equal ctx t1 t2 Tt.typ
-
-(** Compare signatures structurally *)
-let equal_signature ~loc ctx (s1,shares1) (s2,shares2) =
-  if Name.eq_ident s1 s2
-  then
-    Monad.lift (Runtime.lookup_signature ~loc s1) >!= fun s_def ->
-    (* [yts] abstracting data (types are instantiated using constraints from shares1)
-       [hyps] prove that the previous constraints were respectively equal
-          (and therefore that a type instantiated with shares1 is equal to the same instantiated with shares2)
-       [vs]  atoms of [ys1] and instantiated terms from [shares1] used to instantiate types
-       [ys1] atoms with type instantiated using shares1
-       [ys2] atoms with type instantiated using shares2
-    *)
-    let rec fold ctx hyps yts vs ys1 ys2 = function
-      | [] ->
-        context_multiabstract ~loc ctx yts >!= fun ctx ->
-        Opt.return ctx
-      | ((_,_,t),(Tt.Unconstrained x),(Tt.Unconstrained _))::rem ->
-        let t = Tt.instantiate_ty vs t in
-        let jt = Jdg.mk_ty ctx t in
-        Opt.add_abstracting ~loc x jt (fun ctx y ->
-        let y1 = Tt.mk_atom ~loc y in
-        let y2 = Tt.mention_atoms hyps y1 in
-        fold ctx hyps ((y,t)::yts) (y1::vs) (y1::ys1) (y2::ys2) rem)
-      | ((_,_,t),(Tt.Constrained e1),(Tt.Constrained e2))::rem ->
-        let t = Tt.instantiate_ty vs t
-        and e1 = Tt.instantiate ys1 e1
-        and e2 = Tt.instantiate ys2 e2 in
-        (* TODO: this could be slightly more granular by using only the hyps relevant to the assumptions of t *)
-        let e2 = Tt.mention_atoms hyps e2 in
-        Opt.locally (equal ctx e1 e2 t) >?= fun (ctx,hyps') ->
-        let hyps = AtomSet.union hyps hyps' in
-        fold ctx hyps yts (e1::vs) ys1 ys2 rem
-      | (_,Tt.Unconstrained _,Tt.Constrained _)::_ | (_,Tt.Constrained _,Tt.Unconstrained _)::_ -> Opt.fail
-    in
-    fold ctx AtomSet.empty [] [] [] [] (list_combine3 s_def shares1 shares2)
-  else
-    Opt.fail
-
-(** Compare structures structurally *)
-(* TODO: compare constraints and fields simultaneously? *)
-let equal_structure ~loc ctx ((s1,_) as str1) ((s2,_) as str2) =
-  Opt.locally (equal_signature ~loc ctx s1 s2) >?= fun (ctx,hyps) ->
-  Monad.lift (Runtime.lookup_signature ~loc (fst s1)) >!= fun s_def ->
-  (* [vs] are used to instantiate the type *)
-  let rec fold ctx hyps vs = function
-    | [] ->
-      Opt.return ctx
-    | (_,Tt.Shared e,Tt.Shared _)::rem -> (* already checked by equal_signature *)
-      fold ctx hyps (e::vs) rem
-    | ((_,_,t),Tt.Explicit e1,Tt.Explicit e2)::rem ->
-      let t = Tt.instantiate_ty vs t in
-      let e2 = Tt.mention_atoms hyps e2 in
-      Opt.locally (equal ctx e1 e2 t) >?= fun (ctx,hyps') ->
-      let hyps = AtomSet.union hyps hyps' in
-      fold ctx hyps (e1::vs) rem
-    | (_,Tt.Explicit _,Tt.Shared _)::_ | (_,Tt.Shared _,Tt.Explicit _)::_ -> Error.impossible ~loc "equal_structure: malformed structure"
-  in
-  fold ctx AtomSet.empty [] (list_combine3 s_def (Tt.struct_combine ~loc str1) (Tt.struct_combine ~loc str2))
 
 (** Apply the appropriate congruence rule *)
 let congruence ~loc ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
@@ -238,64 +162,28 @@ let congruence ~loc ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
      Opt.locally (equal_ty ctx u u') >?= fun (ctx,hyps) ->
      equal ctx d (Tt.mention_atoms hyps d') u
 
-  | Tt.Signature s1, Tt.Signature s2 ->
-    equal_signature ~loc ctx s1 s2
-
-  | Tt.Structure str1, Tt.Structure str2 ->
-    equal_structure ~loc ctx str1 str2
-
-  | Tt.Projection (e1, s1, l1), Tt.Projection (e2, s2, l2) ->
-    if Name.eq_ident l1 l2
-    then
-      Opt.locally (equal_signature ~loc ctx s1 s2) >?= fun (ctx,hyps) ->
-      let t = Tt.mk_signature_ty ~loc s1 in
-      let e2 = Tt.mention_atoms hyps e2 in
-      equal ctx e1 e2 t
-    else Opt.fail
-
   | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _ |
-     Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _ |
-     Tt.Signature _ | Tt.Structure _ | Tt.Projection _), _ ->
+     Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _), _ ->
      Opt.fail
 
 
 let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
   match t'.Tt.term with
   | Tt.Prod ((x, a), b) ->
-     Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a) (fun ctx y ->
-       let yt = Tt.mk_atom ~loc y in
-       let e1' = Tt.mk_apply ~loc e1 x a b yt in
-       let e2' = Tt.mk_apply ~loc e2 x a b yt in
-       let b' = Tt.unabstract_ty [y] b in
-       equal ctx e1' e2' b' >?= fun ctx ->
-       Monad.context_abstract ~loc ctx y a >!= fun ctx ->
-         Opt.return ctx)
+    Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a)
+      (fun ctx y ->
+      let yt = Tt.mk_atom ~loc y in
+      let e1' = Tt.mk_apply ~loc e1 x a b yt in
+      let e2' = Tt.mk_apply ~loc e2 x a b yt in
+      let b' = Tt.unabstract_ty [y] b in
+      equal ctx e1' e2' b' >?= fun ctx ->
+      Monad.context_abstract ~loc ctx y a >!= fun ctx ->
+      Opt.return ctx)
 
   | Tt.Eq _ -> Opt.return ctx
 
-  | Tt.Signature ((s,shares) as s') ->
-    Monad.lift (Runtime.lookup_signature ~loc s) >!= fun s_def ->
-    (* [es] instantiate types
-       [projs] instantiate constraints *)
-    let rec fold ctx hyps es projs = function
-        | [] -> Opt.return ctx
-        | ((l, _, t), Tt.Unconstrained _) :: rem ->
-          let t = Tt.instantiate_ty es t in
-          let e1_proj = Tt.mk_projection ~loc:e1.Tt.loc e1 s' l in
-          let e2_proj = Tt.mk_projection ~loc:e2.Tt.loc e2 s' l in
-          let e2_proj = Tt.mention_atoms hyps e2_proj in
-          Opt.locally (equal ctx e1_proj e2_proj t) >?= fun (ctx, hyps') ->
-          let hyps = AtomSet.union hyps hyps' in
-          fold ctx hyps (e1_proj :: es) (e1_proj :: projs) rem
-        | (_,Tt.Constrained e) :: rem ->
-          let e = Tt.instantiate projs e in
-          fold ctx hyps (e::es) projs rem
-    in
-    fold ctx AtomSet.empty [] [] (List.combine s_def shares)
-
-  | Tt.Type | Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _
-  | Tt.Refl _ | Tt.Structure _ | Tt.Projection _ ->
-      Opt.fail
+  | Tt.Type | Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _ | Tt.Refl _ ->
+    Opt.fail
 
   | Tt.Bound _ ->
      Error.impossible ~loc "deBruijn encountered in extensionality"
@@ -332,36 +220,9 @@ let reduction_step ctx {Tt.term=e'; assumptions; loc} =
            | Tt.Type
            | Tt.Prod _
            | Tt.Eq _
-           | Tt.Refl _
-           | Tt.Signature _
-           | Tt.Structure _
-           | Tt.Projection _ -> Opt.fail
+           | Tt.Refl _ -> Opt.fail
            | Tt.Bound _ ->
               Error.impossible ~loc "de Bruijn encountered in an apply head in reduce"
-     end
-
-  | Tt.Projection (e, s, l) ->
-    begin
-      match e.Tt.term with
-        | Tt.Structure ((s', _) as str) ->
-          Opt.locally (equal_signature ~loc ctx s s') >?= fun (ctx,hyps) ->
-          Monad.lift (Runtime.lookup_signature ~loc (fst s)) >!= fun s_def ->
-          let e = Tt.field_value ~loc s_def str l in
-          let e = Tt.mention_atoms hyps e in
-          Opt.return (ctx, Tt.mention assumptions e)
-
-       | Tt.Atom _
-       | Tt.Constant _
-       | Tt.Lambda _
-       | Tt.Apply _
-       | Tt.Type
-       | Tt.Prod _
-       | Tt.Eq _
-       | Tt.Refl _
-       | Tt.Signature _
-       | Tt.Projection _ -> Opt.fail
-       | Tt.Bound _ ->
-          Error.impossible ~loc "de Bruijn encountered in a projection head in reduce"
      end
 
   | Tt.Constant _
@@ -370,9 +231,7 @@ let reduction_step ctx {Tt.term=e'; assumptions; loc} =
   | Tt.Atom _
   | Tt.Type
   | Tt.Eq _
-  | Tt.Refl _
-  | Tt.Signature _
-  | Tt.Structure _ -> Opt.fail
+  | Tt.Refl _ -> Opt.fail
   | Tt.Bound _ ->
      Error.impossible ~loc "de Bruijn encountered in reduce"
 
@@ -449,43 +308,6 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
                 (Tt.print_ty ~penv:penv.Runtime.base t)
       end
 
-let as_signature_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
-  match t' with
-    | Tt.Signature s -> Monad.return s
-    | _ ->
-      Monad.lift Runtime.lookup_penv >>= fun penv ->
-      Error.typing ~loc "this expression should be a signature, found@ %t"
-          (Tt.print_ty ~penv:penv.Runtime.base t)
-
-
-let as_signature (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
-  match t' with
-    | Tt.Signature s -> Monad.return (ctx, s)
-    | _ ->
-      Monad.lift (Predefined.operation_as_signature (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
-      begin match Predefined.as_option ~loc v with
-        | None ->
-          Monad.lift Runtime.lookup_penv >>= fun penv ->
-          Error.typing ~loc "this expression should be a signature, found@ %t"
-              (Tt.print_ty ~penv:penv.Runtime.base t)
-        | Some v ->
-          let Jdg.Term (ctxv,ev,tv) = Runtime.as_term ~loc v in
-          as_eq_alpha (Jdg.mk_ty ctxv tv) >>= fun (tv,e1,e2) ->
-          if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
-          then
-            as_signature_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun xts ->
-            Monad.lift Runtime.lookup_penv >>= fun penv ->
-            let ctx = Context.join ~penv:penv.Runtime.base ~loc ctx ctxv in
-            let hyps = Tt.assumptions_term ev in
-            Monad.add_hyps hyps >>= fun () ->
-            Monad.return (ctx,xts)
-          else
-            Monad.lift Runtime.lookup_penv >>= fun penv ->
-            Error.typing ~loc:ev.Tt.loc
-                "this expression should be a witness of equality between %t and a signature"
-                (Tt.print_ty ~penv:penv.Runtime.base t)
-      end
-
 end
 
 (** Expose without the monad stuff *)
@@ -507,6 +329,4 @@ let extensionality ~loc ctx e1 e2 t = Opt.run (Internals.extensionality ~loc ctx
 let as_eq j = Monad.run (Internals.as_eq j)
 
 let as_prod j = Monad.run (Internals.as_prod j)
-
-let as_signature j = Monad.run (Internals.as_signature j)
 

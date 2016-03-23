@@ -9,9 +9,6 @@ let reserved = [
   ("_", UNDERSCORE) ;
   ("_atom", UATOM) ;
   ("_constant", UCONSTANT) ;
-  ("_proj", UPROJ) ;
-  ("_sig", USIG) ;
-  ("_struct", USTRUCT) ;
   ("and", AND) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
@@ -44,7 +41,6 @@ let reserved = [
   ("reduction", REDUCTION) ;
   ("ref", REF) ;
   ("refl", REFL) ;
-  ("signature", SIGNATURE) ;
   ("val", VAL) ;
   ("where", WHERE) ;
   ("with", WITH) ;
@@ -118,15 +114,12 @@ and token_aux ({ stream;_ } as lexbuf) =
   | ')'                      -> f (); RPAREN
   | '['                      -> f (); LBRACK
   | ']'                      -> f (); RBRACK
-  | '{'                      -> f (); LBRACE
-  | '}'                      -> f (); RBRACE
   | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
   | ','                      -> f (); COMMA
   | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in
                                                let s = String.sub s 1 (String.length s - 1) in
                                                Name.make s)
-  | '.'                      -> f (); DOT
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
   | "->" | 8594 | 10230      -> f (); ARROW

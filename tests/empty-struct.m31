@@ -1,7 +1,0 @@
-do λ (x y : unit), refl {} : x == y
-
-do λ (x y : unit), refl {} : x == y
-
-do match { } with | |- { } : unit => {} end
-do match { } with | |- {} : unit => {} end
-

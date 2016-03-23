@@ -1,5 +1,3 @@
-signature unit = {}
-
 (* A short-hand for the print function. *)
 let print = external "print"
 
@@ -12,7 +10,6 @@ handle
   | equal _ _ => None
   | as_prod _ => None
   | as_eq _ => None
-  | as_signature _ => None
 end
 
 let (|>) x f = f x

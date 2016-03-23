@@ -14,15 +14,3 @@ let funext =
 
 do funext
 
-constant A : Type
-constant B : A -> Type
-signature cow = { head : A, tail : B head }
-
-let cowext =
-   lambda (a b : cow) (p : a.head == b.head),
-     now betas = add_beta p betas in
-     lambda (q : a.tail == b.tail),
-       (now betas = add_beta q betas in
-          refl a : a == b)
-
-do cowext

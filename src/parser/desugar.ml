@@ -19,7 +19,6 @@ module Ctx = struct
     | Constant
     | Constructor of arity
     | Operation of arity
-    | Signature
 
   type t = {
       bound : (Name.ident * unknown info) list;
@@ -38,7 +37,6 @@ module Ctx = struct
     let at_index i = function
       | Variable (Unknown, s) -> Variable (i, s)
       | Constant -> Constant
-      | Signature -> Signature
       | Constructor k -> Constructor k
       | Operation k -> Operation k
     in
@@ -46,7 +44,7 @@ module Ctx = struct
       | [] -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
       | (y, info) :: _ when Name.eq_ident y x -> at_index i info
       | (_, Variable _) :: bound -> search (i+1) bound
-      | (_, (Constant | Constructor _ | Operation _ | Signature)) :: bound ->
+      | (_, (Constant | Constructor _ | Operation _)) :: bound ->
          search i bound
     in
     search 0 bound
@@ -54,19 +52,13 @@ module Ctx = struct
   let get_dynamic ~loc x ctx =
     match find ~loc x ctx with
     | Variable (i, Dynamic) -> i
-    | Variable (_, Lexical) | Signature | Constant | Operation _ | Constructor _ ->
+    | Variable (_, Lexical) | Constant | Operation _ | Constructor _ ->
        Error.syntax ~loc "%t is not a dynamic variable" (Name.print_ident x)
-
-  let check_signature ~loc x ctx =
-    match find ~loc x ctx with
-    | Signature -> ()
-    | Variable _ | Constant | Operation _ | Constructor _ ->
-       Error.syntax ~loc "%t is not a signature." (Name.print_ident x)
 
   let get_operation ~loc x ctx =
     match find ~loc x ctx with
     | Operation k -> k
-    | Variable _ | Constant | Constructor _ | Signature ->
+    | Variable _ | Constant | Constructor _ ->
        Error.syntax ~loc "%t is not a operation." (Name.print_ident x)
 
   let add_lexical x ctx =
@@ -88,13 +80,6 @@ module Ctx = struct
       Error.syntax ~loc "Constructor %t is already declared." (Name.print_ident c)
     else
       { ctx with bound = (c, Constructor k) :: ctx.bound }
-
-  let add_signature ~loc s ctx =
-    if List.exists (function (s', Signature) -> Name.eq_ident s s' | _ -> false) ctx.bound
-    then
-      Error.syntax ~loc "Signature %t is already declared." (Name.print_ident s)
-    else
-      { ctx with bound = (s, Signature) :: ctx.bound }
 
   let add_constant ~loc c ctx =
     if List.exists (function (c', Constant) -> Name.eq_ident c c' | _ -> false) ctx.bound
@@ -175,7 +160,6 @@ let rec tt_pattern bound vars n (p,loc) =
      | Ctx.Constant -> locate (Syntax.Tt_Constant x) loc, vars, n
      | Ctx.Constructor _ -> Error.syntax ~loc "data constructor in a term pattern"
      | Ctx.Operation _ -> Error.syntax ~loc "operation in a term pattern"
-     | Ctx.Signature -> locate (Syntax.Tt_Signature x) loc, vars, n
      end
 
   | Input.Tt_Lambda (b, x, popt, p) ->
@@ -239,35 +223,6 @@ let rec tt_pattern bound vars n (p,loc) =
      let p, vars, n = tt_pattern bound vars n p in
      locate (Syntax.Tt_Refl p) loc, vars, n
 
-  | Input.Tt_Structure lps ->
-     let rec fold vars n ps = function
-       | [] ->
-          let ps = List.rev ps in
-          locate (Syntax.Tt_Structure ps) loc, vars, n
-       | (l,p)::rem ->
-          let p, vars, n = tt_pattern bound vars n p in
-          fold vars n ((l,p)::ps) rem
-     in
-     fold vars n [] lps
-
-  | Input.Tt_Projection (p,l) ->
-     let p, vars, n = tt_pattern bound vars n p in
-     locate (Syntax.Tt_Projection (p,l)) loc, vars, n
-
-  | Input.Tt_GenSig p ->
-     let p,vars,n = pattern bound vars n p in
-     locate (Syntax.Tt_GenSig p) loc, vars, n
-
-  | Input.Tt_GenStruct (p1,p2) ->
-     let p1, vars, n = tt_pattern bound vars n p1 in
-     let p2, vars, n = pattern bound vars n p2 in
-     locate (Syntax.Tt_GenStruct (p1,p2)) loc, vars, n
-
-  | Input.Tt_GenProj (p1,p2) ->
-     let p1, vars, n = tt_pattern bound vars n p1 in
-     let p2, vars, n = pattern bound vars n p2 in
-     locate (Syntax.Tt_GenProj (p1,p2)) loc, vars, n
-
   | Input.Tt_GenAtom p ->
      let p, vars, n = tt_pattern bound vars n p in
      locate (Syntax.Tt_GenAtom p) loc, vars, n
@@ -312,10 +267,6 @@ and pattern bound vars n (p,loc) =
         let p = locate (Syntax.Tt_Constant x) loc in
         let pt = locate Syntax.Tt_Anonymous loc in
         locate (Syntax.Patt_Jdg (p, pt)) loc, vars, n
-     | Ctx.Signature ->
-        let p = locate (Syntax.Tt_Signature x) loc in
-        let pt = locate Syntax.Tt_Anonymous loc in
-        locate (Syntax.Patt_Jdg (p, pt)) loc, vars, n
      | Ctx.Operation _ ->
         Error.syntax ~loc "Operations are not valid patterns."
      end
@@ -342,7 +293,7 @@ and pattern bound vars n (p,loc) =
         else
           Error.syntax ~loc "the data constructor %t expects %d arguments"
             (Name.print_ident c) k
-     | Ctx.Variable _ | Ctx.Constant | Ctx.Operation _ | Ctx.Signature ->
+     | Ctx.Variable _ | Ctx.Constant | Ctx.Operation _ ->
         Error.syntax ~loc "only data constructors can be applied in general patterns"
      end
 
@@ -478,37 +429,6 @@ let rec comp ~yield bound (c',loc) =
      let c = comp ~yield bound c in
      locate (Syntax.Refl c) loc
 
-  | Input.Signature (s,cs) ->
-     Ctx.check_signature ~loc s bound ;
-     let rec fold bound xcs = function
-       | [] ->
-          locate (Syntax.Signature (s,List.rev xcs)) loc
-       | (l,mx,mc)::cs ->
-          let x = match mx with | Some x -> x | None -> l in
-          let mc = match mc with
-            | Some c -> Some (comp ~yield bound c)
-            | None -> None
-          in
-          let bound = Ctx.add_lexical x bound in
-          fold bound ((l,x,mc)::xcs) cs
-     in
-     fold bound [] cs
-
-  | Input.Structure lycs ->
-     let rec fold bound res = function
-       | [] -> List.rev res
-       | (l,x,c) :: rem ->
-          let x = match x with | Some x -> x | None -> l in
-          let c = match c with | Some c -> Some (comp ~yield bound c) | None -> None in
-          fold (Ctx.add_lexical x bound) ((l,x,c) :: res) rem
-     in
-     let lcs = fold bound [] lycs in
-     locate (Syntax.Structure lcs) loc
-
-  | Input.Projection (c,l) ->
-     let c = comp ~yield bound c in
-     locate (Syntax.Projection (c,l)) loc
-
   | Input.Var x ->
      begin match Ctx.find ~loc x bound with
      | Ctx.Variable (i,_) -> locate (Syntax.Bound i) loc
@@ -519,8 +439,6 @@ let rec comp ~yield bound (c',loc) =
      | Ctx.Operation k ->
         if k = 0 then locate (Syntax.Operation (x, [])) loc
         else Error.syntax ~loc "this operation needs %d more arguments" k
-     | Ctx.Signature ->
-        locate (Syntax.Signature (x, [])) loc
      end
 
   | Input.Type ->
@@ -580,21 +498,6 @@ let rec comp ~yield bound (c',loc) =
 
   | Input.String s ->
      locate (Syntax.String s) loc
-
-  | Input.GenSig (c1,c2) ->
-     let c1 = comp ~yield bound c1
-     and c2 = comp ~yield bound c2 in
-     locate (Syntax.GenSig (c1,c2)) loc
-
-  | Input.GenStruct (c1,c2) ->
-     let c1 = comp ~yield bound c1
-     and c2 = comp ~yield bound c2 in
-     locate (Syntax.GenStruct (c1,c2)) loc
-
-  | Input.GenProj (c1,c2) ->
-     let c1 = comp ~yield bound c1
-     and c2 = comp ~yield bound c2 in
-     locate (Syntax.GenProj (c1,c2)) loc
 
   | Input.Context c ->
      let c = comp ~yield bound c in
@@ -697,8 +600,6 @@ and spine ~yield bound ((c',loc) as c) cs =
        | Ctx.Operation k ->
           let cs', cs = split "operation" k cs in
           operation ~loc ~yield bound x cs', cs
-       | Ctx.Signature ->
-          locate (Syntax.Signature (x, [])) loc, cs
        end
 
     | _ -> comp ~yield bound c, cs
@@ -926,23 +827,6 @@ let rec toplevel ~basedir ctx (cmd, loc) =
        let u = comp ~yield:false ctx u
        and ctx = List.fold_left (fun ctx x -> Ctx.add_constant ~loc x ctx) ctx xs in
        (ctx, locate (Syntax.DeclConstants (xs, u)) loc)
-
-    | Input.DeclSignature (s, lst) ->
-       let rec fold ctx labels res = function
-         | [] -> List.rev res
-         | (x,y,c)::rem ->
-            let y = match y with | Some y -> y | None -> x in
-            if List.mem x labels
-            then Error.syntax ~loc "field %t appears more than once" (Name.print_ident x)
-            else if Name.is_anonymous x
-            then Error.syntax ~loc "anonymous field"
-            else
-              let c = comp ~yield:false ctx c in
-              fold (Ctx.add_lexical y ctx) (x::labels) ((x,y,c)::res) rem
-       in
-       let lst = fold ctx [] [] lst in
-       let ctx = Ctx.add_signature ~loc s ctx in
-       (ctx, locate (Syntax.DeclSignature (s, lst)) loc)
 
     | Input.TopHandle lst ->
        let lst =

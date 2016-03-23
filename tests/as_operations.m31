@@ -10,10 +10,4 @@ constant B_prod : B == (A -> A)
 do handle (lambda x, x) : B with as_prod _ => yield (Some B_prod) end
 
 constant P : A -> Type
-signature cow = { horn as x : A, tail : P x }
-
-constant B_sig : B == cow
-constant b : B
-
-do handle b.tail with as_signature _ => yield (Some B_sig) end
 

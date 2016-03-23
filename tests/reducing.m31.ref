@@ -1,20 +1,15 @@
-Signature lci is declared.
 Constant N is declared.
 Constant Z is declared.
 Constant S is declared.
-Constant N_lci is declared.
-( + ) is defined.
+Constant ( + ) is declared.
 Constant plus_Z is declared.
 Constant plus_S is declared.
-⊢ plus_Z Z : N_lci.( + ) Z Z ≡ Z
-⊢ refl Z : N_lci.( + ) (N_lci.( + ) Z Z) Z ≡ Z
-⊢ refl (S (N_lci.( + ) (N_lci.( + ) Z (S Z)) (N_lci.( + ) (S Z) (S Z))))
-  : N_lci.( + ) (N_lci.( + ) (S Z) (S Z)) (N_lci.( + ) (S Z) (S Z)) ≡ S
-    (N_lci.( + ) (N_lci.( + ) Z (S Z)) (N_lci.( + ) (S Z) (S Z)))
-⊢ refl (S (S (S (S Z))))
-  : N_lci.( + ) (N_lci.( + ) (S Z) (S Z)) (N_lci.( + ) (S Z) (S Z)) ≡ S (S
-    (S (S Z)))
+⊢ plus_Z Z : Z + Z ≡ Z
+⊢ refl Z : Z + Z + Z ≡ Z
+⊢ refl (S (Z + S Z + (S Z + S Z)))
+  : S Z + S Z + (S Z + S Z) ≡ S (Z + S Z + (S Z + S Z))
+⊢ refl (S (S (S (S Z)))) : S Z + S Z + (S Z + S Z) ≡ S (S (S (S Z)))
 The command failed with error:
-File "./reducing.m31", line 27, characters 6-17: Runtime error
+File "./reducing.m31", line 22, characters 6-17: Runtime error
   unhandled operation failure
   "only constants and atoms may have reducing information"

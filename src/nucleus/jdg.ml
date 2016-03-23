@@ -1,14 +1,11 @@
 module ConstantMap = Name.IdentMap
-module SignatureMap = Name.IdentMap
 
 type env = {
   constants : Tt.ty ConstantMap.t;
-  signatures : Tt.sig_def SignatureMap.t
 }
 
 let empty = {
   constants = ConstantMap.empty;
-  signatures = SignatureMap.empty;
 }
 
 type term = Term of Context.t * Tt.term * Tt.ty
@@ -56,23 +53,11 @@ let print_term ~penv ?max_level (Term (ctx, e,t)) ppf =
 let constant_type c env =
   ConstantMap.find c env.constants
 
-let signature_def s env =
-  SignatureMap.find s env.signatures
-
 let add_constant c t env =
-  {env with constants = ConstantMap.add c t env.constants}
-
-let add_signature s def env =
-  {env with signatures = SignatureMap.add s def env.signatures}
+  {constants = ConstantMap.add c t env.constants}
 
 (** Destructors *)
 type 'a abstraction = atom * 'a
-
-type signature = Name.signature * (atom, term) Tt.constrain list
-
-type structure = ty * term list
-
-type sig_def = (Name.label * Name.atom * ty) list
 
 type shape =
   | Type
@@ -83,50 +68,10 @@ type shape =
   | Apply of term * term
   | Eq of term * term
   | Refl of term
-  | Signature of signature
-  | Structure of structure
-  | Projection of term * Name.label
-
 
 let mk_fresh x (Ty (ctx,a)) =
   let y,ctx = Context.add_fresh ctx x a in
   ctx,y,JAtom (ctx,y,a)
-
-let shape_sig ~loc ctx ((s, shares) : Tt.signature) (def : Tt.sig_def) : signature =
-  (* [vs] instantiate types from the signature definition, [ys] instantiate constraint terms *)
-  let rec fold ctx vs ys shares = function
-    | [] ->
-      let shares = List.rev shares in
-      (s, shares)
-    | (Tt.Unconstrained x, (_, _, t)) :: rem ->
-      let t = Tt.instantiate_ty vs t in
-      let y, ctx = Context.add_fresh ctx x t in
-      let e = Tt.mk_atom ~loc y in
-      fold ctx (e :: vs) (y :: ys) (Tt.Unconstrained (JAtom (ctx, y, t)) :: shares) rem
-    | (Tt.Constrained e, (_, _, t)) :: rem ->
-      let t = Tt.instantiate_ty vs t
-      and e = Tt.unabstract ys e in
-      let j = mk_term ctx e t in
-      fold ctx (e :: vs) ys ((Tt.Constrained j) :: shares) rem
-  in
-  fold ctx [] [] [] (List.combine shares def)
-
-let shape_struct ~loc ctx ((s, _) as str : Tt.structure) (def : Tt.sig_def) : structure =
-  let s = Tt.mk_signature_ty ~loc s in
-  let s = mk_ty ctx s in
-  let fields = Tt.struct_combine ~loc str in
-  let rec fold vs js = function
-    | [] ->
-      let js = List.rev js in
-      (s, js)
-    | (Tt.Shared e, _) :: fields ->
-      fold (e :: vs) js fields
-    | (Tt.Explicit e, (_, _, t)) :: fields ->
-      let t = Tt.instantiate_ty vs t in
-      let j = mk_term ctx e t in
-      fold (e :: vs) (j :: js) fields
-  in
-  fold [] [] (List.combine fields def)
 
 let shape ~loc env (Term (ctx,e,t)) =
   match e.Tt.term with
@@ -166,21 +111,6 @@ let shape ~loc env (Term (ctx,e,t)) =
     | Tt.Refl (a,e) ->
       let e = mk_term ctx e a in
       Refl e
-
-    | Tt.Signature ((s, _) as si) ->
-      let def = signature_def s env in
-      let si = shape_sig ~loc ctx si def in
-      Signature si
-
-    | Tt.Structure (((s, _), _) as str) ->
-      let def = signature_def s env in
-      let str = shape_struct ~loc ctx str def in
-      Structure str
-
-    | Tt.Projection (e,xts,l) ->
-      let t = Tt.mk_signature_ty ~loc:e.Tt.loc xts in
-      let je = mk_term ctx e t in
-      Projection (je,l)
 
     | Tt.Bound _ -> Error.impossible ~loc:e.Tt.loc "Unbound variable in judgement"
 
@@ -235,8 +165,6 @@ let form ~loc ~penv env = function
 
   | Refl (Term (ctx,e,t)) ->
     Term (ctx,Tt.mk_refl ~loc t e,Tt.mk_eq_ty ~loc t e e)
-
-  | Signature _ | Structure _ | Projection _ -> assert false (* TODO *)
 
 let is_ty ~penv (Term (ctx,e,t) as j) =
   if Tt.alpha_equal_ty t Tt.typ

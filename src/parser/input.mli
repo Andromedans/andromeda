@@ -20,12 +20,6 @@ and tt_pattern' =
   | Tt_Prod of bool * Name.ident * tt_pattern option * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
-  | Tt_Structure of (Name.label * tt_pattern) list
-  | Tt_Projection of tt_pattern * Name.ident
-  (** Generic matching *)
-  | Tt_GenSig of pattern
-  | Tt_GenStruct of tt_pattern * pattern
-  | Tt_GenProj of tt_pattern * pattern
   | Tt_GenAtom of tt_pattern
   | Tt_GenConstant of tt_pattern
 
@@ -70,18 +64,12 @@ and term' =
   | Prod of (Name.ident * ty) list * comp
   | Eq of comp * comp
   | Refl of comp
-  | Signature of Name.signature * (Name.label * Name.ident option * comp option) list
-  | Structure of (Name.label * Name.ident option * comp option) list
-  | Projection of comp * Name.label
   | Yield of comp
   | Hypotheses
   | Congruence of comp * comp
   | Extensionality of comp * comp
   | Reduction of comp
   | String of string
-  | GenSig of comp * comp
-  | GenStruct of comp * comp
-  | GenProj of comp * comp
   | Context of comp
   | Occurs of comp * comp
   | Ident of Name.ident
@@ -132,7 +120,6 @@ and toplevel' =
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
   | DeclOperation of Name.ident * (Name.ty list * ml_ty list * ml_ty)
   | DeclConstants of Name.ident list * ty
-  | DeclSignature of Name.signature * (Name.label * Name.ident option * ty) list
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list

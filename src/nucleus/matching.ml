@@ -79,65 +79,6 @@ let rec collect_tt_pattern env xvs p j =
   | Syntax.Tt_Refl p, Jdg.Refl je ->
      collect_tt_pattern env xvs p je
 
-  | Syntax.Tt_Signature s1, Jdg.Signature (s2,shares) ->
-     if not (Name.eq_ident s1 s2 &&
-             List.for_all (function Tt.Unconstrained _ -> true | Tt.Constrained _ -> false) shares)
-     then raise Match_fail
-     else xvs
-
-  | Syntax.Tt_Structure ps, Jdg.Structure (s, js) ->
-    let s, shares = match Jdg.shape_ty ~loc:Location.unknown (Runtime.get_typing_env env) s with
-      | Jdg.Signature s -> s
-      | _ -> assert false
-    in
-    if not (List.for_all (function Tt.Unconstrained _ -> true | Tt.Constrained _ -> false) shares &&
-            List.length ps = List.length js)
-    then raise Match_fail
-    else
-      let s_def = Runtime.get_signature s env in
-      let rec fold xvs = function
-        | [] -> xvs
-        | ((l1, p), (l2, j)) :: rem ->
-          if not (Name.eq_ident l1 l2)
-          then raise Match_fail
-          else
-            let xvs = collect_tt_pattern env xvs p j in
-            fold xvs rem
-      in
-      let ljs = List.map2 (fun j (l, _, _) -> (l, j)) js s_def in
-      fold xvs (List.combine ps ljs)
-
-  | Syntax.Tt_Projection (p,l), Jdg.Projection (je,l') ->
-     if Name.eq_ident l l'
-     then collect_tt_pattern env xvs p je
-     else raise Match_fail
-
-  | Syntax.Tt_GenSig p, Jdg.Signature (s,shares) ->
-    let bare = Tt.mk_signature ~loc (s, List.map (fun _ -> Tt.Unconstrained Name.anonymous) shares) in
-    let bare = Jdg.mk_term Context.empty bare Tt.typ in
-    let bare = Runtime.mk_term bare in
-    let shares = List.map (function
-        | Tt.Unconstrained y ->
-          let jy = Jdg.atom_term ~loc y in
-          Predefined.from_constrain (Tt.Unconstrained (Runtime.mk_term jy))
-        | Tt.Constrained j ->
-          Predefined.from_constrain (Tt.Constrained (Runtime.mk_term j)))
-      shares
-    in
-    let shares = Predefined.mk_list shares in
-    let v = Runtime.mk_tuple [bare;shares] in
-    collect_pattern env xvs p v
-
-  | Syntax.Tt_GenStruct (p,lp), Jdg.Structure (s, js) ->
-    let xvs = collect_tt_pattern env xvs p (Jdg.term_of_ty s) in
-    let v = Predefined.mk_list (List.map Runtime.mk_term js) in
-    collect_pattern env xvs lp v
-
-  | Syntax.Tt_GenProj (p,pl), Jdg.Projection (j,l) ->
-    let vl = Runtime.mk_ident l in
-    let xvs = collect_pattern env xvs pl vl in
-    collect_tt_pattern env xvs p j
-
   | Syntax.Tt_GenAtom p, Jdg.Atom x ->
     let j = Jdg.atom_term ~loc x in
     collect_tt_pattern env xvs p j
@@ -151,9 +92,6 @@ let rec collect_tt_pattern env xvs p j =
   | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Apply _
      | Syntax.Tt_Lambda _ | Syntax.Tt_Prod _
      | Syntax.Tt_Eq _ | Syntax.Tt_Refl _
-     | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
-     | Syntax.Tt_Projection _
-     | Syntax.Tt_GenSig _ | Syntax.Tt_GenStruct _ | Syntax.Tt_GenProj _
      | Syntax.Tt_GenAtom _ | Syntax.Tt_GenConstant _) , _ ->
      raise Match_fail
 

@@ -23,6 +23,6 @@ do
    with
      | gimme_beta =>
        assume eq : a == b in
-       now betas = add_beta eq betas in yield {}
+       now betas = add_beta eq betas in yield ()
    end
 

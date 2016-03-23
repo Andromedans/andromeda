@@ -1,43 +1,10 @@
-Signature cat is declared.
-person_id is defined.
-pet_id is defined.
-Constant dwarf is declared.
-Constant urist is declared.
-ankle is defined.
-⊢ {person = dwarf, pet = urist} : cat
-(⊢ cat : Type, (⊢ dwarf : Type) :: (⊢ urist : dwarf) ::
-[])
-(⊢ cat : Type, Unconstrained (person₀ : Type 
-                                ⊢ person₀ : Type) :: Unconstrained
-(person₀ : Type 
- pet₁ : person₀ 
- ⊢ pet₁ : person₀) ::
-[])
-(⊢ {person = dwarf, pet = urist} : cat,
-pet)
-()
-⊢ {person = dwarf, pet = urist} : cat
-The command failed with error:
-File "./generic.m31", line 33, characters 6-30: Typing error
-  bad field pet: types dwarf and Type do not match
 Constant A is declared.
-eq₀ : A ≡ cat 
-⊢ {person = dwarf, pet = urist} : A
-⊢ {person = dwarf, pet = urist}.pet : {person = dwarf, pet = urist}.person
-Signature treasure is declared.
-gold_id is defined.
-The command failed with error:
-File "./generic.m31", line 9, characters 18-22: Typing error
-  this expression should be a signature, found dwarf
-The command failed with error:
-File "./generic.m31", line 70, characters 6-24: Typing error
-  Cannot project field gold from signature cat: no such field
 Constant B is declared.
 Constant eq is declared.
 x₀ : A 
 ⊢ x₀ : A
 The command failed with error:
-File "./generic.m31", lines 80-82, characters 6-5: Runtime error
-  no match found for ⊢ {person = dwarf, pet = urist} : cat
+File "./generic.m31", lines 10-12, characters 6-5: Runtime error
+  no match found for ⊢ A : Type
 Constant a is declared.
 ⊢ a : A

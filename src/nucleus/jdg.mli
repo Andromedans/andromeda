@@ -1,10 +1,8 @@
 module ConstantMap : Map.S with type key = Name.constant
-module SignatureMap : Map.S with type key = Name.signature
 
 (** Contains global declarations. *)
 type env = private {
   constants : Tt.ty ConstantMap.t;
-  signatures : Tt.sig_def SignatureMap.t
 }
 
 val empty : env
@@ -48,22 +46,11 @@ val print_term : penv:Tt.print_env -> ?max_level:Level.t -> term -> Format.forma
 (** Environment *)
 val constant_type : Name.constant -> env -> Tt.ty
 
-val signature_def : Name.signature -> env -> Tt.sig_def
-
 val add_constant : Name.constant -> Tt.ty -> env -> env
-
-val add_signature : Name.signature -> Tt.sig_def -> env -> env
 
 (** Destructors *)
 (** The atom is used in the second component *)
 type 'a abstraction = atom * 'a
-
-type signature = Name.signature * (atom, term) Tt.constrain list
-
-(* The type must be a signature. XXX find a better way to do this (?) *)
-type structure = ty * term list
-
-type sig_def = (Name.label * Name.atom * ty) list
 
 (** Contains enough information to construct a new judgement *)
 type shape =
@@ -79,9 +66,6 @@ type shape =
   | Apply of term * term
   | Eq of term * term
   | Refl of term
-  | Signature of signature
-  | Structure of structure
-  | Projection of term * Name.label
 
 val shape : loc:Location.t -> env -> term -> shape
 val shape_ty : loc:Location.t -> env -> ty -> shape

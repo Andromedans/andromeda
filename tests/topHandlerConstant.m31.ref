@@ -1,4 +1,0 @@
-Constant A is declared.
-Signature foo is declared.
-⊢ λ (a : foo) (b : foo) (_ : a.x ≡ b.x), refl a
-  : Π (a : foo) (b : foo), a.x ≡ b.x → a ≡ b

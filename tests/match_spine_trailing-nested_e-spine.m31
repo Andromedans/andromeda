@@ -1,4 +1,5 @@
-let top = {}
+constant unit : Type
+constant top : unit
 constant unit_rect : ∀ (P : unit -> Type), (P top) -> ∀ (n : unit), P n
 
 constant unit_iota_top : ∀ (P : unit -> Type) (s : P top), unit_rect P s top == s

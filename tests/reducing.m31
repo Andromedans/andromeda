@@ -1,17 +1,13 @@
 
-signature lci = { T : Type, (+) : T -> T -> T }
-
 constant N : Type
 constant Z : N
 constant S : N -> N
 
-constant N_lci : {lci with T = N}
-let (+) = N_lci.(+)
+constant (+) : N -> N -> N
 
 constant plus_Z : forall n : N, Z + n == n
 constant plus_S : forall n m : N, (S n) + m == S (n + m)
 
-(* Reducing argument for a projection *)
 now reducing = add_reducing ( + ) [eager,lazy] reducing
 now betas = add_betas [plus_S,plus_Z] betas
 
@@ -20,7 +16,6 @@ do whnf ((Z + Z) + Z)
 do whnf (((S Z) + (S Z)) + ((S Z) + (S Z)))
 
 do
-  (* Reducing argument for a constant *)
   now reducing = add_reducing S [eager] reducing in
   whnf (((S Z) + (S Z)) + ((S Z) + (S Z)))
 

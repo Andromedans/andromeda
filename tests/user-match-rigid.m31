@@ -10,9 +10,3 @@ do collector quants (lambda (y : A), x) (lambda (y : A), a)
 
 do collector quants (lambda (y : A), x) (lambda (y : A), y)
 
-signature pair = { fst : A, snd : A }
-
-do collector quants {pair with fst, snd = fst} {pair with fst, snd = x}
-
-do collector quants {pair with fst = x} pair
-

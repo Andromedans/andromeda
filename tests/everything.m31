@@ -24,16 +24,6 @@ constant ( + ) ( * ) ( ^ ) ( - ) ( <= ) :
 (* Infixes and prefixes are printed as such. *)
 do lambda (x y z w : A), x + y * z ^ x ^ y - (z ^ x) ^ y <= w
 
-(** Declare signatures *)
-(* signature `name` = { `label` [as `name`] : `type`, ... } *)
-signature isContr = {
-  T : Type,
-  (* Using `label as name : T` binds `name` to an hypothesis of type `T` in future types. Otherwise the label is bound. *)
-  center as a : T,
-  (* Using `label as _` makes it difficult to refer to the corresponding hypothesis, however it is still possible. See `hypotheses`. *)
-  contr_path as _ : forall (x : T), a == x
-}
-
 (** Install a top level handler *)
 (*
   Top level handlers are callbacks for operations. Therefore `yield` is not available.
@@ -75,7 +65,7 @@ let x0 = dummy
 
 (** Evaluate a computation *)
 (* This may have side effects through `ref` *)
-do nonary_op : {isContr with T = Type == Type}
+do x0
 
 (** Evaluate a failing computation *)
 (* This may not have side effects, it only verifies that the computation fails and fails if it does not. *)
@@ -99,23 +89,9 @@ fail lambda T x, x
    Checking mode allows inferring type annotations for the arguments of a lambda. *)
 do (lambda T x, x) : forall (A : Type), A -> A
 
-(* In infer mode, `{}` evaluates to the 0-field structure. *)
-do refl {}
-
-signature wrapped = { unwrap : A }
-let wrapped_a = {wrapped with unwrap = a}
-
-(* In checking mode sharing constraints can make `{}` evaluate to a fully constrained structure.
-   Checking mode and generics are the only ways to create constrained structures. *)
-do refl {} : ({} : wrapped_a) == {}
-
 (* Checking mode is preserved by some constructs but not all: *)
 do (let _ = Type in lambda x, x) : A -> A
 fail handle (lambda x, x) with end
-
-(* Checking mode can be a problem as it tries to simplify some equalities which are only true unsimplified. TODO example
-   If you need to break checking mode, use a let-in. *)
-fail let tt = {} in tt : wrapped_a
 
 (** Meta functions *)
 (* The meta language is a model of lambda calculus! *)
@@ -133,7 +109,7 @@ do let rec f x = ("f", g x)
 
 (** Externals *)
 (* Some functions are provided by the kernel without using up a keyword: *)
-do external "print_signature" wrapped
+do external "print" ((),())
 
 (** General handlers *)
 (* Handlers can be used to provide a wide range of effects.
@@ -166,7 +142,6 @@ do (a,b,A)
 
 (* Strings and names *)
 do "a string\nspecial characters aren't"
-(* There is no standard way to construct name values. They are produced by generic matching of projections and signatures. *)
 
 (** References *)
 (* References provide a global state where handler effects can only be local to at most a top level command.
@@ -199,32 +174,6 @@ let alpha_equal x y = match (x,y) with
   (?a,?a) => print "true"
   | _ => print "false"
 end
-
-(** Structures *)
-(* Fields may be omitted depending on constraints *)
-constant exfalso : forall (T : Type), T
-signature container = { T : Type, cont : T }
-
-do { T = A } : {container with T, cont = exfalso T}
-do { T = A, cont } : {container with T, cont = exfalso T}
-
-do { T as x, cont = exfalso x } : {container with T = A}
-do { T as x, cont = exfalso x } : {container with T = A, cont}
-do { cont = a } : {container with T = A}
-
-(* Projecting a non constrained field of a structure gives a projection term,
-   but projecting a constrained field gives the constraint. *)
-do { unwrap = a }.unwrap
-do assume x : wrapped in x.unwrap
-do ({} : wrapped_a).unwrap
-do assume x : wrapped_a in x.unwrap
-
-(* For meta-language programmers, structures can be used in a generic way *)
-do match wrapped_a with |- _sig ?v => v end
-do match { cont = a } : {container with T = A} with |- _struct ?sig ?v => (sig,v) end
-do match assume x : wrapped in x.unwrap with |- _proj ?v ?l => (v,l) end
-
-(* The matching syntax can be inverted to construct arbitrary terms (only for declared signatures, only derivable judgments) *)
 
 (** Variable management *)
 (* The variables a judgement depends on can be inspected in 2 ways *)
@@ -270,22 +219,15 @@ do handle refl a : a == b with equal (|- a) (|- b) => yield (Some eq) end
    It may emit `equal` operations since it needs to verify equality of annotations.
    It may fail and therefore returns an option value. *)
 do reduction ((lambda (x : A), x) a)
-do reduction { unwrap = a }.unwrap
 
 (* `congruence` to apply the appropriate congruence rule (if possible).
    It will emit `equal` for immediate subterms which are not alpha equal. *)
-do handle congruence {wrapped with unwrap = a} {wrapped with unwrap = b} with
+do handle congruence ((lambda (x : A), x) a) ((lambda (x : A), x) b) with
     equal (|- a) (|- b) => yield (Some eq)
   end
 
 (* `extensionality` to apply function extensionality, structure extensionality or uniqueness of identity proofs as the case may be.
-   This is especially important for structure extensionality as no single axiom can provide that functionality.
    Will emit `equal`s on subgoals. *)
-(* `unit` is the zero field signature *)
-do lambda (x : unit), match extensionality x {} with
-  Some ?wit => wit
-end
-
 do lambda (A : Type) (x y : A) (p q : x == y), match extensionality p q with
   Some ?wit => wit
 end

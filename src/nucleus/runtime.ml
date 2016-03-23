@@ -228,32 +228,9 @@ let lookup_typing_env env =
 let get_constant x env =
   Jdg.constant_type x env.dynamic.typing
 
-let get_signature x env =
-  Jdg.signature_def x env.dynamic.typing
-
 let lookup_constant ~loc x env =
   let t = get_constant x env in
   Return t, env.state
-
-let lookup_signature ~loc x env =
-  let def = get_signature x env in
-  Return def, env.state
-
-let find_signature ~loc ls env =
-  let f s def = function
-    | Some _ as v -> v
-    | None ->
-      let rec cmp lst1 lst2 =
-        match lst1, lst2 with
-          | [], [] -> true
-          | l1::lst1, (l2,_,_)::lst2 -> Name.eq_ident l1 l2 && cmp lst1 lst2
-          | [],_::_ | _::_,[] -> false
-      in
-      if cmp ls def then Some (s, def) else None
-  in
-  match Jdg.SignatureMap.fold f env.dynamic.typing.Jdg.signatures None with
-    | Some v -> Return v, env.state
-    | None -> Error.runtime ~loc "No signature has these fields."
 
 let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 
@@ -306,12 +283,6 @@ let add_constant0 ~loc x t env =
              lexical = {env.lexical with forbidden = x :: env.lexical.forbidden } }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
-
-let add_signature0 ~loc s def env =
- { env with dynamic = {env.dynamic with typing = Jdg.add_signature s def env.dynamic.typing };
-            lexical = {env.lexical with forbidden = s :: env.lexical.forbidden } }
-
-let add_signature ~loc s s_def env = (), add_signature0 ~loc s s_def env
 
 (* XXX rename to bind_value *)
 let add_bound x v m env =
@@ -395,10 +366,7 @@ type print_env = {
 let get_penv env =
   { base = {
       Tt.forbidden = env.lexical.forbidden ;
-      Tt.atoms = Name.atom_printer () ;
-      Tt.sigs = (fun s ->
-                 let def = get_signature s env in
-                  List.map (fun (l,_,_) -> l) def) };
+      Tt.atoms = Name.atom_printer () };
     extra = env.state;
   }
 

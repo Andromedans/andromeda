@@ -11,8 +11,6 @@ type ident = private Ident of string * fixity
 type atom = private Atom of string * fixity * int
 
 (** Aliases with different semantics *)
-type label = ident
-type signature = ident
 type constant = ident
 type operation = ident
 
@@ -34,9 +32,6 @@ val atom_printer : unit -> atom_printer
 
 (** Effectful: atoms are reindexed as they are encountered. *)
 val print_atom : ?parentheses:bool -> printer:atom_printer -> atom -> Format.formatter -> unit
-
-(** Print a field label *)
-val print_label : label -> Format.formatter -> unit
 
 (** Print an operation name. *)
 val print_op : ident -> Format.formatter -> unit
@@ -68,9 +63,6 @@ module IdentMap : Map.S with type key = ident
 
 (** Compare atoms for equality. *)
 val eq_atom : atom -> atom -> bool
-
-(** Compare labels for equality. *)
-val eq_label : label -> label -> bool
 
 (** Compare atoms. *)
 val compare_atom : atom -> atom -> int

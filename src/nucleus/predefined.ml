@@ -1,7 +1,5 @@
 let name_some          = Name.make "Some"
 let name_none          = Name.make "None"
-let name_unconstrained = Name.make "Unconstrained"
-let name_constrained   = Name.make "Constrained"
 let name_cons          = Name.cons
 let name_nil           = Name.nil
 
@@ -11,31 +9,24 @@ let predefined_aml_types =
      "  | None";
      "  | Some of α";
      "end"]
-  and decl_constrain =
-    ["mltype constrain α β =";
-     "  | Unconstrained of α";
-     "  | Constrained of β";
-     "end"]
   and decl_list =
     ["mltype rec list α =";
     "  | nil";
     "  | ( :: ) of α and list α";
      "end"]
   in
-  List.map (String.concat "\n") [decl_option; decl_constrain; decl_list]
+  List.map (String.concat "\n") [decl_option; decl_list]
   |> (String.concat "\n")
 
 let name_equal        = Name.make "equal"
 let name_as_prod      = Name.make "as_prod"
 let name_as_eq        = Name.make "as_eq"
-let name_as_signature = Name.make "as_signature"
 
 let predefined_ops =
   let ops =
     ["operation equal : Judgement -> Judgement -> option Judgement";
      "operation as_prod : Judgement -> option Judgement";
-     "operation as_eq : Judgement -> option Judgement";
-     "operation as_signature : Judgement -> option Judgement"] in
+     "operation as_eq : Judgement -> option Judgement"] in
   String.concat "\n" ops
 
 let definitions = String.concat "\n" [predefined_aml_types; predefined_ops]
@@ -70,16 +61,6 @@ let as_option ~loc = function
   | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.String _ | Runtime.Ident _) as v ->
      Error.runtime ~loc "expected an option but got %s" (Runtime.name_of v)
 
-let from_constrain = function
-  | Tt.Unconstrained x -> Runtime.mk_tag name_unconstrained [x]
-  | Tt.Constrained x -> Runtime.mk_tag name_constrained [x]
-
-let as_constrain ~loc = function
-  | Runtime.Tag (t,[x]) when (Name.eq_ident t name_unconstrained) -> Tt.Unconstrained x
-  | Runtime.Tag (t,[x]) when (Name.eq_ident t name_constrained) -> Tt.Constrained x
-  | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.String _ | Runtime.Ident _) as v ->
-     Error.runtime ~loc "expected a constrain but got %s" (Runtime.name_of v)
-
 let operation_equal v1 v2 =
   Runtime.operation name_equal [v1;v2]
 
@@ -89,5 +70,3 @@ let operation_as_prod v =
 let operation_as_eq v =
   Runtime.operation name_as_eq [v]
 
-let operation_as_signature v =
-  Runtime.operation name_as_signature [v]
