@@ -112,12 +112,9 @@ val return_handler :
 val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
 (** Pretty-print a value. *)
-type penv_extra
-type print_env = private { base : Tt.print_env; extra : penv_extra }
+val print_value : ?max_level:Level.t -> penv:Tt.print_env -> value -> Format.formatter -> unit
 
-val print_value : ?max_level:Level.t -> penv:print_env -> value -> Format.formatter -> unit
-
-val print_error : penv:print_env -> error -> Format.formatter -> unit
+val print_error : penv:Tt.print_env -> error -> Format.formatter -> unit
 
 (** Coerce values *)
 val as_term : loc:Location.t -> value -> Jdg.term
@@ -201,9 +198,10 @@ val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> uni
 val continue : loc:Location.t -> value -> value comp
 
 (** Get the printing environment from the monad *)
-val lookup_penv : print_env comp
+val lookup_penv : Tt.print_env comp
 
-val top_lookup_penv : print_env toplevel
+(** Get the printing environment from the toplevel monad *)
+val top_lookup_penv : Tt.print_env toplevel
 
 (** Interface to execute suspended computations. *)
 type topenv

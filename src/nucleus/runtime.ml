@@ -382,20 +382,11 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
     | None -> assert false
 
 (** Printers *)
-type penv_extra = value Store.Ref.t
-
-type print_env = {
-  base : Tt.print_env;
-  extra : penv_extra
-}
 
 (** Generate a printing environment from runtime environment *)
 let get_penv env =
-  { base = {
-      Tt.forbidden = env.lexical.forbidden ;
-      Tt.atoms = Name.atom_printer () };
-    extra = env.state;
-  }
+  { Tt.forbidden = env.lexical.forbidden ;
+    Tt.atoms = Name.atom_printer () }
 
 let lookup_penv env =
   Return (get_penv env), env.state
@@ -406,7 +397,7 @@ let top_lookup_penv env =
 let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | Term e -> Jdg.print_term ~penv:penv.base ?max_level e ppf
+  | Term e -> Jdg.print_term ~penv:penv ?max_level e ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 
@@ -428,9 +419,8 @@ let rec print_value ?max_level ~penv v ppf =
   | Tuple lst -> Format.fprintf ppf "(%t)"
                   (Print.sequence (print_value ~penv) "," lst)
 
-  | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref@ %t := %t"
+  | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
                   (Store.Ref.print_key v)
-                  (print_value ~penv ~max_level:Level.no_parens (Store.Ref.lookup v penv.extra))
 
   | String s -> Format.fprintf ppf "\"%s\"" s
 
@@ -495,7 +485,7 @@ let print_error ~penv err ppf =
 
   | ExpectedAtom j ->
      Format.fprintf ppf "expected an atom but got %t"
-                    (Jdg.print_term ~penv:penv.base j)
+                    (Jdg.print_term ~penv:penv j)
 
   | UnknownExternal s ->
      Format.fprintf ppf "unknown external %s" s
@@ -505,13 +495,13 @@ let print_error ~penv err ppf =
 
   | TypeMismatch (t1, t2) ->
      Format.fprintf ppf "got type@ %t@ but expected type@ %t"
-                    (Tt.print_ty ~penv:penv.base t1)
-                    (Tt.print_ty ~penv:penv.base t2)
+                    (Tt.print_ty ~penv:penv t1)
+                    (Tt.print_ty ~penv:penv t2)
 
   | EqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
-                    (Tt.print_term ~penv:penv.base e1)
-                    (Tt.print_term ~penv:penv.base e2)
+                    (Tt.print_term ~penv:penv e1)
+                    (Tt.print_term ~penv:penv e2)
 
   | UnannotatedLambda x ->
      Format.fprintf ppf "cannot infer the type of@ %t" (Name.print_ident x)
@@ -528,19 +518,19 @@ let print_error ~penv err ppf =
 
   | EqualityTypeExpected j ->
      Format.fprintf ppf "expected an equality type but got@ %t"
-                    (Jdg.print_ty ~penv:penv.base j)
+                    (Jdg.print_ty ~penv:penv j)
 
   | InvalidAsEquality j ->
      Format.fprintf ppf "this should be an equality between %t and an equality"
-                    (Jdg.print_ty ~penv:penv.base j)
+                    (Jdg.print_ty ~penv:penv j)
 
   | ProductExpected j ->
      Format.fprintf ppf "expected a product but got@ %t"
-                    (Jdg.print_ty ~penv:penv.base j)
+                    (Jdg.print_ty ~penv:penv j)
 
   | InvalidAsProduct j ->
      Format.fprintf ppf "this should be an equality between %t and a product"
-                    (Jdg.print_ty ~penv:penv.base j)
+                    (Jdg.print_ty ~penv:penv j)
 
   | ListExpected v ->
      Format.fprintf ppf "expected a list but got %s" (name_of v)
