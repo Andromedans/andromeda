@@ -1,6 +1,13 @@
 (** The type of contexts. *)
 type t
 
+type error =
+  | AbstractDependency of Name.atom * Name.atom list
+  | AbstractInvalidType of Name.atom * Tt.ty * Tt.ty
+  | InvalidJoin of t * t * Name.atom
+  | SubstitutionDependency of Name.atom * Tt.term * Name.atom
+  | SubstitutionInvalidType of Name.atom * Tt.ty * Tt.ty
+
 (** The empty context. *)
 val empty : t
 
@@ -10,9 +17,9 @@ val is_empty : t -> bool
 (** Print the context. Atoms are printed according to the environment. *)
 val print : penv:Tt.print_env -> t -> Format.formatter -> unit
 
-val lookup_ty : Name.atom -> t -> Tt.ty option
+val print_error : penv:Tt.print_env -> error -> Format.formatter -> unit
 
-val needed_by : loc:Location.t -> Name.atom -> t -> Name.AtomSet.t
+val lookup_ty : Name.atom -> t -> Tt.ty option
 
 (** [is_subset ctx yts] returns [true] if the nodes of [ctx] are a subset of [yts]. *)
 val is_subset : t -> (Name.atom * Tt.ty) list -> bool

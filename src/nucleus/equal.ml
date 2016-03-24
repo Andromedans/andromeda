@@ -105,7 +105,7 @@ let congruence ~loc ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
      else Opt.fail
 
   | Tt.Bound _, _ | _, Tt.Bound _ ->
-     Error.impossible ~loc "deBruijn encountered in congruence"
+     assert false
 
   | Tt.Constant x, Tt.Constant y ->
      if Name.eq_ident x y then Opt.return ctx
@@ -186,7 +186,7 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
     Opt.fail
 
   | Tt.Bound _ ->
-     Error.impossible ~loc "deBruijn encountered in extensionality"
+     assert false
 
 
 
@@ -221,8 +221,7 @@ let reduction_step ctx {Tt.term=e'; assumptions; loc} =
            | Tt.Prod _
            | Tt.Eq _
            | Tt.Refl _ -> Opt.fail
-           | Tt.Bound _ ->
-              Error.impossible ~loc "de Bruijn encountered in an apply head in reduce"
+           | Tt.Bound _ -> assert false              
      end
 
   | Tt.Constant _
@@ -232,17 +231,13 @@ let reduction_step ctx {Tt.term=e'; assumptions; loc} =
   | Tt.Type
   | Tt.Eq _
   | Tt.Refl _ -> Opt.fail
-  | Tt.Bound _ ->
-     Error.impossible ~loc "de Bruijn encountered in reduce"
+  | Tt.Bound _ -> assert false
 
 
-let as_eq_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
+let as_eq_alpha (Jdg.Ty (_, (Tt.Ty {Tt.term=t';_}))) =
   match t' with
-    | Tt.Eq (t, e1, e2) -> Monad.return (t, e1, e2)
-    | _ ->
-      Monad.lift Runtime.lookup_penv >>= fun penv ->
-      Error.typing ~loc "this expression should be an equality, found@ %t"
-          (Tt.print_ty ~penv:penv.Runtime.base t)
+    | Tt.Eq (t, e1, e2) -> Some (t, e1, e2)
+    | _ -> None
 
 let as_eq (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
@@ -251,34 +246,39 @@ let as_eq (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
       Monad.lift (Predefined.operation_as_eq (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
       begin match Predefined.as_option ~loc v with
         | None ->
-          Monad.lift Runtime.lookup_penv >>= fun penv ->
-          Error.typing ~loc "this expression should be an equality, found@ %t"
-              (Tt.print_ty ~penv:penv.Runtime.base t)
+          Runtime.(error ~loc (EqualityTypeExpected jt))
         | Some v ->
           let Jdg.Term (ctxv,ev,tv) = Runtime.as_term ~loc v in
-          as_eq_alpha (Jdg.mk_ty ctxv tv) >>= fun (tv,e1,e2) ->
-          if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
-          then
-            as_eq_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun (t,e1,e2) ->
-            Monad.lift Runtime.lookup_penv >>= fun penv ->
-            let ctx = Context.join ~penv:penv.Runtime.base ~loc ctx ctxv in
-            let hyps = Tt.assumptions_term ev in
-            Monad.add_hyps hyps >>= fun () ->
-            Monad.return (ctx,t,e1,e2)
-          else
-            Monad.lift Runtime.lookup_penv >>= fun penv ->
-            Error.typing ~loc:ev.Tt.loc
-                "this expression should be a witness of equality between %t and an equality"
-                (Tt.print_ty ~penv:penv.Runtime.base t)
+          begin
+            let j_tv = Jdg.mk_ty ctxv tv in
+            match as_eq_alpha j_tv with
+            | None ->
+               Runtime.(error ~loc (InvalidAsEquality j_tv))
+            | Some (tv, e1, e2) ->
+               if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
+               then
+                 let j_e2 = Jdg.mk_ty ctxv (Tt.ty e2) in
+                 begin
+                   match as_eq_alpha j_e2 with
+                   | None -> 
+                      Runtime.(error ~loc (InvalidAsEquality j_tv))
+
+                   | Some (t,e1,e2) ->
+                      Monad.lift Runtime.lookup_penv >>= fun penv ->
+                      let ctx = Context.join ~penv:penv.Runtime.base ~loc ctx ctxv in
+                      let hyps = Tt.assumptions_term ev in
+                      Monad.add_hyps hyps >>= fun () ->
+                      Monad.return (ctx,t,e1,e2)
+                 end
+               else
+                 Runtime.(error ~loc (InvalidAsEquality j_tv))
+          end
       end
 
-let as_prod_alpha (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t))) =
+let as_prod_alpha (Jdg.Ty (_, (Tt.Ty {Tt.term=t';_}))) =
   match t' with
-    | Tt.Prod (xts,t) -> Monad.return (xts,t)
-    | _ ->
-      Monad.lift Runtime.lookup_penv >>= fun penv ->
-      Error.typing ~loc "this expression should be a product, found@ %t"
-        (Tt.print_ty ~penv:penv.Runtime.base t)
+    | Tt.Prod (xts,t) -> Some (xts,t)
+    | _ -> None
 
 let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
   match t' with
@@ -286,26 +286,29 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
     | _ ->
       Monad.lift (Predefined.operation_as_prod (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
       begin match Predefined.as_option ~loc v with
-        | None ->
-          Monad.lift Runtime.lookup_penv >>= fun penv ->
-          Error.typing ~loc "this expression should be a product, found@ %t"
-              (Tt.print_ty ~penv:penv.Runtime.base t)
+        | None -> Runtime.(error ~loc (ProductExpected jt))
         | Some v ->
           let Jdg.Term (ctxv,ev,tv) = Runtime.as_term ~loc v in
-          as_eq_alpha (Jdg.mk_ty ctxv tv) >>= fun (tv,e1,e2) ->
-          if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
-          then
-            as_prod_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) >>= fun (xts,t) ->
-            Monad.lift Runtime.lookup_penv >>= fun penv ->
-            let ctx = Context.join ~penv:penv.Runtime.base ~loc ctx ctxv in
-            let hyps = Tt.assumptions_term ev in
-            Monad.add_hyps hyps >>= fun () ->
-            Monad.return (ctx,(xts,t))
-          else
-            Monad.lift Runtime.lookup_penv >>= fun penv ->
-            Error.typing ~loc:ev.Tt.loc
-                "this expression should be a witness of equality between %t and a product"
-                (Tt.print_ty ~penv:penv.Runtime.base t)
+          let j_tv = Jdg.mk_ty ctxv tv in
+          begin
+            match as_eq_alpha j_tv with
+            | None -> Runtime.(error ~loc (InvalidAsProduct j_tv))
+            | Some (tv,e1,e2) ->
+               if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
+               then
+                 begin
+                   match as_prod_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) with
+                   | None -> Runtime.(error ~loc (InvalidAsProduct j_tv))
+                   | Some (xts,t) ->
+                      Monad.lift Runtime.lookup_penv >>= fun penv ->
+                      let ctx = Context.join ~penv:penv.Runtime.base ~loc ctx ctxv in
+                      let hyps = Tt.assumptions_term ev in
+                      Monad.add_hyps hyps >>= fun () ->
+                      Monad.return (ctx,(xts,t))
+                 end
+               else
+                 Runtime.(error ~loc (InvalidAsProduct j_tv))
+          end
       end
 
 end

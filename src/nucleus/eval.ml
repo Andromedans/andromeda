@@ -14,8 +14,8 @@ let as_atom ~loc v =
   Runtime.lookup_typing_env >>= fun env ->
   match Jdg.shape ~loc env j with
     | Jdg.Atom x -> Runtime.return x
-    | _ -> Runtime.lookup_penv >>= fun penv ->
-      Error.runtime ~loc "expected an atom but got %t" (Jdg.print_term ~penv:penv.Runtime.base j)
+    | _ -> Runtime.(error ~loc (ExpectedAtom j))
+      
 
 let as_handler ~loc v =
   let e = Runtime.as_handler ~loc v in
@@ -167,7 +167,7 @@ let rec infer {Location.thing=c'; loc} =
 
   | Syntax.External s ->
      begin match External.lookup s with
-       | None -> Error.runtime ~loc "unknown external %s" s
+       | None -> Runtime.(error ~loc (UnknownExternal s))
        | Some v -> v loc
      end
 
@@ -193,7 +193,7 @@ let rec infer {Location.thing=c'; loc} =
         Runtime.apply_closure f v
       | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
         Runtime.Ref _ | Runtime.String _ | Runtime.Ident _ as h ->
-        Error.runtime ~loc "cannot apply %s" (Runtime.name_of h)
+        Runtime.(error ~loc (Inapplicable h))
     end
 
   | Syntax.Prod (x,u,c) ->
@@ -300,11 +300,7 @@ and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
       | Some (ctx, hyps) -> Runtime.return (ctx, Tt.mention_atoms hyps e)
       | None ->
          Runtime.lookup_penv >>= fun penv ->
-         Error.typing ~loc
-                      "the expression %t should have type@ %t@ but has type@ %t"
-                      (Tt.print_term ~penv:penv.Runtime.base e)
-                      (Tt.print_ty ~penv:penv.Runtime.base t_check')
-                      (Tt.print_ty ~penv:penv.Runtime.base t')
+         Runtime.(error ~loc (TypeMismatch (t', t_check')))
     end
 
 and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
@@ -386,9 +382,7 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
             Runtime.return (ctx,Tt.mention_atoms hyps e)
          | None ->
             Runtime.lookup_penv >>= fun penv ->
-            Error.typing ~loc:(c2.Location.loc)
-                         "this type should be equal to@ %t"
-                         (Tt.print_ty ~penv:penv.Runtime.base t_check')
+            Runtime.(error ~loc:(c2.Location.loc) (TypeMismatch (t', t_check')))
        end
 
   | Syntax.Lambda (x,u,c) ->
@@ -401,15 +395,13 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
     Equal.equal ctx e e1 t' >>= begin function
       | None ->
         Runtime.lookup_penv >>= fun penv ->
-        Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
-                     (Tt.print_term ~penv:penv.Runtime.base e) (Tt.print_term ~penv:penv.Runtime.base e1)
+        Runtime.(error ~loc (EqualityFail (e, e1)))
       | Some (ctx, hyps1) ->
         Equal.equal ctx e e2 t' >>=
           begin function
             | None ->
               Runtime.lookup_penv >>= fun penv ->
-              Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
-                       (Tt.print_term ~penv:penv.Runtime.base e) (Tt.print_term ~penv:penv.Runtime.base e2)
+              Runtime.(error ~loc (EqualityFail (e, e2)))
             | Some (ctx, hyps2) ->
               let e = Tt.mk_refl ~loc t' e in
               let e = Tt.mention_atoms hyps e in
@@ -434,7 +426,7 @@ and infer_lambda ~loc x u c =
       and prod = Tt.mk_prod_ty ~loc x u t in
       Runtime.return_term (Jdg.mk_term ctx lam prod))
     | None ->
-      Error.runtime ~loc "cannot infer the type of %t" (Name.print_ident x)
+      Runtime.(error ~loc (UnannotatedLambda x))
 
 and infer_prod ~loc x u c =
   check_ty u >>= fun (Jdg.Ty (ctxu,u) as ju) ->
@@ -460,8 +452,7 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Runtime.comp =
           Runtime.return (ctx,u,hypsu)
         | None ->
           Runtime.lookup_penv >>= fun penv ->
-          Error.typing ~loc "this annotation has type %t but should have type %t"
-            (Tt.print_ty ~penv:penv.Runtime.base u) (Tt.print_ty ~penv:penv.Runtime.base a)
+          Runtime.(error ~loc (TypeMismatch (u, a)))
       end
     | None ->
       Runtime.return (ctx,a,Name.AtomSet.empty)
@@ -524,7 +515,7 @@ and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Runtime.comp) -> _ -> 
   let rec fold = function
     | [] ->
       Runtime.lookup_penv >>= fun penv ->
-      Error.runtime ~loc "no match found for %t" (Runtime.print_value ~penv v)
+      Runtime.(error ~loc (MatchFail v))
     | (xs, p, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | Some vs ->
@@ -532,7 +523,7 @@ and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Runtime.comp) -> _ -> 
             | [], [] -> eval c
             | x::xs, v::vs ->
               Runtime.add_bound x v (fold2 xs vs)
-            | _::_, [] | [], _::_ -> Error.impossible ~loc "bad match case"
+            | _::_, [] | [], _::_ -> assert false
           in
           fold2 (List.rev xs) vs
         | None -> fold cases
@@ -552,7 +543,7 @@ and match_op_cases ~loc op cases vs checking =
             | [], [] -> infer c
             | x::xs, v::vs ->
               Runtime.add_bound x v (fold2 xs vs)
-            | _::_, [] | [], _::_ -> Error.impossible ~loc "bad multimatch case"
+            | _::_, [] | [], _::_ -> assert false
           in
           fold2 (List.rev xs) vs
         | None -> fold cases
@@ -588,7 +579,7 @@ let comp_handle (xs,y,c) =
            | None -> infer c
            end
         | x::xs, v::vs -> Runtime.add_bound x v (fold2 xs vs)
-        | [],_::_ | _::_,[] -> Error.impossible ~loc:(c.Location.loc) "bad top handler case"
+        | [],_::_ | _::_,[] -> assert false
       in
       fold2 xs vs)
 
@@ -671,7 +662,7 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
        in
        fold xs
      else
-       Error.typing "Constants may not depend on free variables" ~loc:(c.Location.loc)
+       Runtime.(error ~loc ConstantDependency)
 
   | Syntax.TopHandle lst ->
      mfold (fun () (op, xc) ->
@@ -700,12 +691,23 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
 
   | Syntax.TopFail c ->
      Runtime.catch (fun () -> comp_value (Lazy.force c)) >>= begin function
-     | Error.Err err ->
-        (if not quiet then Format.printf "The command failed with error:\n%t@." (Error.print err));
-        return ()
-     | Error.OK v ->
+
+     | Runtime.Caught exn  ->
+        begin
+          Runtime.top_lookup_penv >>= fun penv ->
+          match exn with
+          | Runtime.Error {Location.thing=err; loc} ->
+             (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+                                              (Location.print loc)
+                                              (Runtime.print_error ~penv err)
+             );
+             return ()
+          | _ -> raise exn
+        end
+
+     | Runtime.Value v ->
         Runtime.top_lookup_penv >>= fun penv ->
-        Error.runtime ~loc "The command has not failed: got %t." (Runtime.print_value ~penv v)
+        Runtime.(error ~loc (FailureFail v))
      end
 
   | Syntax.Included lst ->

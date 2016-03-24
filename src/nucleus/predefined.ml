@@ -49,17 +49,18 @@ let rec as_list_opt = function
 let as_list ~loc v =
   match as_list_opt v with
   | Some lst -> lst
-  | None -> Error.runtime ~loc "expected a list but got %s" (Runtime.name_of v)
+  | None -> Runtime.(error ~loc (ListExpected v))
 
 let from_option = function
-  | None -> Runtime.mk_tag name_none []
   | Some v -> Runtime.mk_tag name_some [v]
+  | None -> Runtime.mk_tag name_none []
 
 let as_option ~loc = function
   | Runtime.Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Runtime.Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
-  | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.String _ | Runtime.Ident _) as v ->
-     Error.runtime ~loc "expected an option but got %s" (Runtime.name_of v)
+  | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
+     Runtime.Ref _ | Runtime.String _ | Runtime.Ident _) as v ->
+     Runtime.(error ~loc (OptionExpected v))
 
 let operation_equal v1 v2 =
   Runtime.operation name_equal [v1;v2]

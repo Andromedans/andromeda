@@ -71,9 +71,8 @@ let bind k {free;bound} =
   {free;bound}
 
 let as_atom_set ~loc {free;bound;} =
-  if BoundSet.is_empty bound
-  then free
-  else Error.impossible ~loc "reducing assumptions to free assumptions not allowed when there are bound assumptions"
+  assert (BoundSet.is_empty bound) ;
+  free
 
 let equal {free=free1;bound=bound1} {free=free2;bound=bound2} =
   AtomSet.equal free1 free2 && BoundSet.equal bound1 bound2

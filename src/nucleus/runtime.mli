@@ -29,6 +29,37 @@ type 'a comp
 (** state environment, no operations *)
 type 'a toplevel
 
+(** the runtime errors *)
+type error =
+  | ExpectedAtom of Jdg.term
+  | UnknownExternal of string
+  | Inapplicable of value
+  | TypeMismatch of Tt.ty * Tt.ty
+  | EqualityFail of Tt.term * Tt.term
+  | UnannotatedLambda of Name.ident
+  | MatchFail of value
+  | ConstantDependency
+  | FailureFail of value
+  | EqualityTypeExpected of Jdg.ty
+  | InvalidAsEquality of Jdg.ty
+  | ProductExpected of Jdg.ty
+  | InvalidAsProduct of Jdg.ty
+  | ListExpected of value
+  | OptionExpected of value
+  | TermExpected of value
+  | ClosureExpected of value
+  | HandlerExpected of value
+  | RefExpected of value
+  | StringExpected of value
+  | IdentExpected of value
+  | UnhandledOperation of Name.operation * value list
+
+(** The exception that is raised on runtime error *)
+exception Error of error Location.located
+
+(** Report a runtime error (fails irrevocably) *)
+val error : loc:Location.t -> error -> 'a
+
 (** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
 val name_of : value -> string
 
@@ -54,8 +85,12 @@ val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
 
 val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 
-(** Catch errors. The state is not changed if the command fails. *)
-val catch : (unit -> 'a toplevel) -> ('a,Error.details) Error.res toplevel
+type 'a caught =
+  | Caught of exn
+  | Value of 'a
+
+(** Catch exceptions. The state is not changed if an exception is caught. *)
+val catch : (unit -> 'a toplevel) -> 'a caught toplevel
 
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a comp
@@ -81,6 +116,8 @@ type penv_extra
 type print_env = private { base : Tt.print_env; extra : penv_extra }
 
 val print_value : ?max_level:Level.t -> penv:print_env -> value -> Format.formatter -> unit
+
+val print_error : penv:print_env -> error -> Format.formatter -> unit
 
 (** Coerce values *)
 val as_term : loc:Location.t -> value -> Jdg.term

@@ -41,6 +41,6 @@ let initial =
     let (), runtime = Runtime.exec comp Runtime.empty in
     {desugar;typing;runtime}
   with
-   | Error.Error err -> Print.error "Error while setting predefined constructs:\n%t" (Error.print err); exit 1
+   | Error.Error err -> assert false
 
 
