@@ -411,16 +411,11 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
 and infer_lambda ~loc x u c =
   match u with
     | Some u ->
-      check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
-      Runtime.add_abstracting ~loc:uloc x ju (fun (Jdg.JAtom (_, y, _)) ->
-      infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
-      let ctxe = Jdg.Ctx.abstract ~loc ctxe y u in
-      let ctx = Jdg.Ctx.join ~loc ctxu ctxe in
-      let e = Tt.abstract [y] e in
-      let t = Tt.abstract_ty [y] t in
-      let lam = Tt.mk_lambda ~loc x u e t
-      and prod = Tt.mk_prod_ty ~loc x u t in
-      Runtime.return_term (Jdg.mk_term ctx lam prod))
+      check_ty u >>= fun (Jdg.Ty (_, Tt.Ty {Tt.loc=uloc;_}) as ju) ->
+      Runtime.add_abstracting ~loc:uloc x ju (fun jy ->
+      infer c >>= as_term ~loc:(c.Location.loc) >>= fun je ->
+      jdg_form ~loc (Jdg.Lambda (jy,je)) >>=
+      Runtime.return_term)
     | None ->
       Runtime.(error ~loc (UnannotatedLambda x))
 
