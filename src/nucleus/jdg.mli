@@ -1,6 +1,17 @@
+type ctx
+
+(** The judgement that the given term has the given type. *)
+type term = private Term of ctx * Tt.term * Tt.ty
+
+(** Special judgement for atoms *)
+type atom = private JAtom of ctx * Name.atom * Tt.ty
+
+(** The judgement that the given term is a type. *)
+type ty = private Ty of ctx * Tt.ty
+
 module Ctx : sig
   (** The type of contexts. *)
-  type t
+  type t = ctx
 
   (** The empty context. *)
   val empty : t
@@ -11,7 +22,7 @@ module Ctx : sig
   (** Print the context. Atoms are printed according to the environment. *)
   val print : penv:Tt.print_env -> t -> Format.formatter -> unit
 
-  val lookup_ty : Name.atom -> t -> Tt.ty option
+  val lookup_atom : Name.atom -> t -> atom option
 
   (** [is_subset ctx yts] returns [true] if the nodes of [ctx] are a subset of [yts]. *)
   val is_subset : t -> (Name.atom * Tt.ty) list -> bool
@@ -58,15 +69,6 @@ type error
 exception Error of error Location.located
 
 val print_error : penv:Tt.print_env -> error -> Format.formatter -> unit
-
-(** The judgement that the given term has the given type. *)
-type term = private Term of Ctx.t * Tt.term * Tt.ty
-
-(** Special judgement for atoms *)
-type atom = private JAtom of Ctx.t * Name.atom * Tt.ty
-
-(** The judgement that the given term is a type. *)
-type ty = private Ty of Ctx.t * Tt.ty
 
 (** The jdugement that [Type] is a type. *)
 val ty_ty : ty

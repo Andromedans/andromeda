@@ -145,12 +145,13 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Where (c1, c2, c3) ->
     infer c2 >>= as_atom ~loc >>= fun (Jdg.JAtom (_, a, _)) ->
     infer c1 >>= fun v1 -> as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
-    begin match Jdg.Ctx.lookup_ty a ctx with
+    begin match Jdg.Ctx.lookup_atom a ctx with
     | None -> infer c3 >>=
        as_term ~loc:(c3.Location.loc) >>= fun _ ->
        Runtime.return v1
-    | Some ta ->
-       check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
+    | Some ja ->
+       let Jdg.Ty (_, ta) as jta = Jdg.atom_ty ja in
+       check c3 jta >>= fun (ctx, e2) ->
        let ctx_s = Jdg.Ctx.substitute ~loc a (ctx,e2,ta) in
        let te_s = Tt.substitute [a] [e2] e1 in
        let ty_s = Tt.substitute_ty [a] [e2] t1 in
@@ -265,9 +266,9 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Occurs (c1,c2) ->
     infer c1 >>= as_atom ~loc >>= fun (Jdg.JAtom (_,x,_)) ->
     infer c2 >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
-    begin match Jdg.Ctx.lookup_ty x ctx with
-      | Some t ->
-        let j = Jdg.term_of_ty (Jdg.mk_ty ctx t) in
+    begin match Jdg.Ctx.lookup_atom x ctx with
+      | Some jx ->
+        let j = Jdg.term_of_ty (Jdg.atom_ty jx) in
         Runtime.return (Predefined.from_option (Some (Runtime.mk_term j)))
       | None ->
         Runtime.return (Predefined.from_option None)

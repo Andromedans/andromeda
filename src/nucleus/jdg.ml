@@ -1,6 +1,8 @@
 module AtomSet = Name.AtomSet
 module AtomMap = Name.AtomMap
 
+(** Start with the types. *)
+
 (* A Ctx is a map which assigns to an atom its type and the dependencies and dependants respectively.
    We can think of it as a directed graph whose vertices are the atoms, labelled by
    the type, and the sets of atoms are the two directions of edges. *)
@@ -10,6 +12,12 @@ type node =
     needed_by : AtomSet.t } (* atoms which depend on x *)
 
 type ctx = node AtomMap.t
+
+type term = Term of ctx * Tt.term * Tt.ty
+
+type atom = JAtom of ctx * Name.atom * Tt.ty
+
+type ty = Ty of ctx * Tt.ty
 
 type error =
   | AbstractDependency of Name.atom * Name.atom list
@@ -53,8 +61,10 @@ module Ctx = struct
     try Some (AtomMap.find x ctx)
     with Not_found -> None
 
-  let lookup_ty x ctx =
-    match lookup x ctx with None -> None | Some {ty;_} -> Some ty
+  let lookup_atom x ctx =
+    match lookup x ctx with
+      | None -> None
+      | Some {ty;_} -> Some (JAtom (ctx, x, ty))
 
   let is_subset ctx yts =
     AtomMap.fold
@@ -200,12 +210,6 @@ module Ctx = struct
 
 end
 
-type term = Term of Ctx.t * Tt.term * Tt.ty
-
-type atom = JAtom of Ctx.t * Name.atom * Tt.ty
-
-type ty = Ty of Ctx.t * Tt.ty
-
 module Env = struct
   module ConstantMap = Name.IdentMap
 
@@ -267,11 +271,6 @@ let print_error ~penv err ppf = match err with
 let typeof (Term (ctx, _, t)) =
   Ty (ctx, t)
 
-let mk_atom ctx x =
-  match Ctx.lookup_ty x ctx with
-    | Some t -> JAtom (ctx,x,t)
-    | None -> assert false
-
 let atom_ty (JAtom (ctx,x,t)) =
   Ty (ctx,t)
 
@@ -327,7 +326,11 @@ let shape ~loc (Term (ctx,e,t)) =
   match e.Tt.term with
     | Tt.Type -> Type
 
-    | Tt.Atom x -> Atom (mk_atom ctx x)
+    | Tt.Atom x ->
+      begin match Ctx.lookup_atom x ctx with
+        | Some j -> Atom j
+        | None -> assert false
+      end
 
     | Tt.Constant c -> Constant c
 
