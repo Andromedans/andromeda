@@ -137,7 +137,7 @@ let restrict ctx aset =
   in
   res
 
-let abstract ~penv ~loc (ctx : t) x ty =
+let abstract ~loc (ctx : t) x ty =
   match lookup x ctx with
   | None ->
      ctx
@@ -155,7 +155,7 @@ let abstract ~penv ~loc (ctx : t) x ty =
     else
       error ~loc (AbstractInvalidType (x, ty, node.ty))
 
-let join ~penv ~loc ctx1 ctx2 =
+let join ~loc ctx1 ctx2 =
   AtomMap.fold (fun x node res ->
       match lookup x res with
         | Some node' ->
@@ -184,7 +184,7 @@ let subst_ty ty x e =
     ty
 
 (* substitute x by e in ctx *)
-let substitute ~penv ~loc x (ctx,e,t) =
+let substitute ~loc x (ctx,e,t) =
   match lookup x ctx with
     | Some xnode ->
       if Tt.alpha_equal_ty xnode.ty t

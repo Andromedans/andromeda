@@ -8,6 +8,8 @@ type error =
   | SubstitutionDependency of Name.atom * Tt.term * Name.atom
   | SubstitutionInvalidType of Name.atom * Tt.ty * Tt.ty
 
+exception Error of error Location.located
+
 (** The empty context. *)
 val empty : t
 
@@ -34,16 +36,16 @@ val restrict : t -> Name.AtomSet.t -> t
     It verifies that in [ctx] the atom [x] has type [t] (using alpha equality)
     and that no atom depends on [x].
 *)
-val abstract : penv:Tt.print_env -> loc:Location.t -> t -> Name.atom -> Tt.ty -> t
+val abstract : loc:Location.t -> t -> Name.atom -> Tt.ty -> t
 
 (** Join two contexts into a single one.
     Types of common atoms need to be alpha equal.
     The dependencies from the first context are used when both atoms are present. *)
-val join : penv:Tt.print_env -> loc:Location.t -> t -> t -> t
+val join : loc:Location.t -> t -> t -> t
 
 (** [substitute x (ctx,e,ty)] replaces [x] in [ctx] by [e].
     It assumes that the type of [x] in [ctx] is equal to [ty]. *)
-val substitute : penv:Tt.print_env -> loc:Location.t -> Name.atom -> t * Tt.term * Tt.ty -> t
+val substitute : loc:Location.t -> Name.atom -> t * Tt.term * Tt.ty -> t
 
 (** [elements ctx] returns the elements of [ctx] sorted into a list so that all dependencies
     point forward in the list, ie the first atom does not depend on any atom, etc. *)

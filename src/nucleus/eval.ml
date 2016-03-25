@@ -28,8 +28,7 @@ let as_ref ~loc v =
 (** Form a judgement *)
 let jdg_form ~loc s =
   Runtime.lookup_typing_env >>= fun env ->
-  Runtime.lookup_penv >>= fun penv ->
-  Runtime.return (Jdg.form ~loc ~penv:penv env s)
+  Runtime.return (Jdg.form ~loc env s)
 
 (** Evaluate a computation -- infer mode. *)
 let rec infer {Location.thing=c'; loc} =
@@ -153,8 +152,7 @@ let rec infer {Location.thing=c'; loc} =
        Runtime.return v1
     | Some ta ->
        check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
-       Runtime.lookup_penv >>= fun penv ->
-       let ctx_s = Context.substitute ~penv:penv ~loc a (ctx,e2,ta) in
+       let ctx_s = Context.substitute ~loc a (ctx,e2,ta) in
        let te_s = Tt.substitute [a] [e2] e1 in
        let ty_s = Tt.substitute_ty [a] [e2] t1 in
        let j_s = Jdg.mk_term ctx_s te_s ty_s in
@@ -289,8 +287,7 @@ let rec infer {Location.thing=c'; loc} =
     Runtime.return (Runtime.mk_ident x)
 
 and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
-  Runtime.lookup_penv >>= fun penv ->
-  let ctx = Context.join ~penv:penv ~loc lctx rctx in
+  let ctx = Context.join ~loc lctx rctx in
   Equal.equal_ty ctx lte rte
 
 and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
@@ -299,7 +296,6 @@ and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
     begin function
       | Some (ctx, hyps) -> Runtime.return (ctx, Tt.mention_atoms hyps e)
       | None ->
-         Runtime.lookup_penv >>= fun penv ->
          Runtime.(error ~loc (TypeMismatch (t', t_check')))
     end
 
@@ -381,7 +377,6 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
             check c1 jt >>= fun (ctx,e) ->
             Runtime.return (ctx,Tt.mention_atoms hyps e)
          | None ->
-            Runtime.lookup_penv >>= fun penv ->
             Runtime.(error ~loc:(c2.Location.loc) (TypeMismatch (t', t_check')))
        end
 
@@ -394,13 +389,11 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
     check c t >>= fun (ctx, e) ->
     Equal.equal ctx e e1 t' >>= begin function
       | None ->
-        Runtime.lookup_penv >>= fun penv ->
         Runtime.(error ~loc (EqualityFail (e, e1)))
       | Some (ctx, hyps1) ->
         Equal.equal ctx e e2 t' >>=
           begin function
             | None ->
-              Runtime.lookup_penv >>= fun penv ->
               Runtime.(error ~loc (EqualityFail (e, e2)))
             | Some (ctx, hyps2) ->
               let e = Tt.mk_refl ~loc t' e in
@@ -417,9 +410,8 @@ and infer_lambda ~loc x u c =
       check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
       Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
       infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
-      Runtime.lookup_penv >>= fun penv ->
-      let ctxe = Context.abstract ~penv:penv ~loc ctxe y u in
-      let ctx = Context.join ~penv:penv ~loc ctxu ctxe in
+      let ctxe = Context.abstract ~loc ctxe y u in
+      let ctx = Context.join ~loc ctxu ctxe in
       let e = Tt.abstract [y] e in
       let t = Tt.abstract_ty [y] t in
       let lam = Tt.mk_lambda ~loc x u e t
@@ -433,9 +425,8 @@ and infer_prod ~loc x u c =
   let Tt.Ty {Tt.loc=uloc;_} = u in
   Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
   check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
-  Runtime.lookup_penv >>= fun penv ->
-  let ctx = Context.abstract ~penv:penv ~loc ctx y u in
-  let ctx = Context.join ~penv:penv ~loc ctx ctxu in
+  let ctx = Context.abstract ~loc ctx y u in
+  let ctx = Context.join ~loc ctx ctxu in
   let t = Tt.abstract_ty [y] t in
   let prod = Tt.mk_prod ~loc x u t in
   let typ = Tt.mk_type_ty ~loc in
@@ -461,8 +452,7 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Runtime.comp =
   let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
   let b = Tt.instantiate_ty [y'] b in
   check c (Jdg.mk_ty ctx b) >>= fun (ctx,e) ->
-  Runtime.lookup_penv >>= fun penv ->
-  let ctx = Context.abstract ~penv:penv ~loc ctx y u in
+  let ctx = Context.abstract ~loc ctx y u in
   let e = Tt.abstract [y] e in
   let b = Tt.abstract_ty [y] b in
   let lam = Tt.mk_lambda ~loc x u e b in

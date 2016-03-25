@@ -186,6 +186,7 @@ val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
 (** Add a bound variable with the given name to the environment. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
 
+(** Add a list of mutually recursive definitions to the toplevel environment. *)
 val add_topbound_rec : loc:Location.t -> (Name.ident * (value -> value comp)) list -> unit toplevel
 
 (** Add a dynamic variable. *)
@@ -206,13 +207,19 @@ val top_lookup_penv : Tt.print_env toplevel
 (** Interface to execute suspended computations. *)
 type topenv
 
+(** Get the printing environment from the toplevel environment. *)
+val get_penv : topenv -> Tt.print_env
+
+(** The empty toplevel environment. *)
 val empty : topenv
 
+(** Execute a toplevel command in the given environment. *)
 val exec : 'a toplevel -> topenv -> 'a * topenv
 
 (** Handling *)
 val handle_comp : handler -> value comp -> value comp
 
+(** Handle a computation at the toplevel. *)
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 
 (** Check whether two values are equal. *)

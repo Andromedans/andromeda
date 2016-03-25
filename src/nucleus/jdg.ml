@@ -4,6 +4,14 @@ type env = {
   constants : Tt.ty ConstantMap.t;
 }
 
+type error =
+  | UnknownAtom
+  | InvalidApplication
+  | InvalidEquality
+  | NotAType
+
+exception Error of error
+
 let empty = {
   constants = ConstantMap.empty;
 }
@@ -17,10 +25,10 @@ type ty = Ty of Context.t * Tt.ty
 let typeof (Term (ctx, _, t)) =
   Ty (ctx, t)
 
-let mk_atom ~loc ctx x =
+let mk_atom ctx x =
   match Context.lookup_ty x ctx with
     | Some t -> JAtom (ctx,x,t)
-    | None -> Error.impossible ~loc "Cannot make unknown atom judgement"
+    | None -> raise (Error UnknownAtom)
 
 let atom_ty (JAtom (ctx,x,t)) =
   Ty (ctx,t)
@@ -84,7 +92,7 @@ let shape ~loc env (Term (ctx,e,t)) =
   match e.Tt.term with
     | Tt.Type -> Type
 
-    | Tt.Atom x -> Atom (mk_atom ~loc:e.Tt.loc ctx x)
+    | Tt.Atom x -> Atom (mk_atom ctx x)
 
     | Tt.Constant c -> Constant c
 
@@ -119,12 +127,12 @@ let shape ~loc env (Term (ctx,e,t)) =
       let e = mk_term ctx e a in
       Refl e
 
-    | Tt.Bound _ -> Error.impossible ~loc:e.Tt.loc "Unbound variable in judgement"
+    | Tt.Bound _ -> assert false
 
 let shape_ty ~loc env j = shape ~loc env (term_of_ty j)
 
 (** Construct judgements *)
-let form ~loc ~penv env = function
+let form ~loc env = function
   | Type ->
     Term (Context.empty, Tt.mk_type ~loc, Tt.mk_type_ty ~loc)
 
@@ -135,21 +143,21 @@ let form ~loc ~penv env = function
     Term (Context.empty,Tt.mk_constant ~loc c,t)
 
   | Prod ((JAtom (ctxa,x,a)),(Ty (ctxb,b))) ->
-    let ctx = Context.join ~loc ~penv ctxb ctxa in
-    let ctx = Context.abstract ~loc ~penv ctx x a in
+    let ctx = Context.join ~loc ctxb ctxa in
+    let ctx = Context.abstract ~loc ctx x a in
     let b = Tt.abstract_ty [x] b in
     Term (ctx,Tt.mk_prod ~loc (Name.ident_of_atom x) a b,Tt.mk_type_ty ~loc)
 
   | Lambda ((JAtom (ctxa,x,a)),(Term (ctxe,e,b))) ->
-    let ctx = Context.join ~loc ~penv ctxe ctxa in
-    let ctx = Context.abstract ~loc ~penv ctx x a in
+    let ctx = Context.join ~loc ctxe ctxa in
+    let ctx = Context.abstract ~loc ctx x a in
     let b = Tt.abstract_ty [x] b
     and e = Tt.abstract [x] e in
     let x = Name.ident_of_atom x in
     Term (ctx,Tt.mk_lambda ~loc x a e b,Tt.mk_prod_ty ~loc x a b)
 
-  | Apply ((Term (ctx1,e1,t1) as j1), (Term (ctx2,e2,t2) as j2)) ->
-    let ctx = Context.join ~loc ~penv ctx2 ctx1 in
+  | Apply (Term (ctx1,e1,t1), Term (ctx2,e2,t2)) ->
+    let ctx = Context.join ~loc ctx2 ctx1 in
     let Tt.Ty te1 = t1 in
     begin match te1.Tt.term with
       | Tt.Prod ((x,a),b) ->
@@ -158,28 +166,28 @@ let form ~loc ~penv env = function
           let out = Tt.instantiate_ty [e2] b in
           Term (ctx,Tt.mk_apply ~loc e1 x a b e2,out)
         else
-          Error.impossible ~loc "cannot apply %t to %t: wrong argument type" (print_term ~penv j1) (print_term ~penv j2)
-      | _ -> Error.impossible ~loc "cannot apply %t to %t: not a product" (print_term ~penv j1) (print_term ~penv j2)
+          raise (Error InvalidApplication)
+      | _ -> raise (Error InvalidApplication)
     end
 
-  | Eq ((Term (ctx1,e1,t1) as j1), (Term (ctx2,e2,t2) as j2)) ->
-    let ctx = Context.join ~loc ~penv ctx2 ctx1 in
+  | Eq (Term (ctx1,e1,t1), Term (ctx2,e2,t2)) ->
+    let ctx = Context.join ~loc ctx2 ctx1 in
     if Tt.alpha_equal_ty t1 t2
     then
       Term (ctx, Tt.mk_eq ~loc t1 e1 e2, Tt.mk_type_ty ~loc)
     else
-      Error.impossible ~loc "cannot consider %t == %t: different types" (print_term ~penv j1) (print_term ~penv j2)
+      raise (Error InvalidEquality)
 
   | Refl (Term (ctx,e,t)) ->
     Term (ctx,Tt.mk_refl ~loc t e,Tt.mk_eq_ty ~loc t e e)
 
-let is_ty ~penv (Term (ctx,e,t) as j) =
+let is_ty (Term (ctx,e,t)) =
   if Tt.alpha_equal_ty t Tt.typ
   then
     Ty (ctx,Tt.ty e)
   else
-    Error.impossible ~loc:e.Tt.loc "%t is not a judgement that the term is a type." (print_term ~penv j)
+    raise (Error NotAType)
 
-let form_ty ~loc ~penv env s =
-  is_ty ~penv (form ~loc ~penv env s)
+let form_ty ~loc env s =
+  is_ty (form ~loc env s)
 

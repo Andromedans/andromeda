@@ -6,23 +6,51 @@ type state = {
   runtime : Runtime.topenv
 }
 
+type error =
+  | RuntimeError of Runtime.error * Tt.print_env
+  | ContextError of Context.error * Tt.print_env
+
+exception Error of error Location.located
+
+let print_error err ppf =
+  match err with
+  | RuntimeError (err, penv) -> Runtime.print_error ~penv err ppf
+  | ContextError (err, penv) -> Context.print_error ~penv err ppf
+
 (** Evaluation of toplevel computations *)
 let exec_cmd ~quiet c {desugar;typing;runtime} =
-  let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
-  let typing = Mlty.infer typing c in
-  let comp = Eval.toplevel ~quiet c in
-  let (), runtime = Runtime.exec comp runtime in
-  {desugar;typing;runtime}
+  try
+    let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
+    let typing = Mlty.infer typing c in
+    let comp = Eval.toplevel ~quiet c in
+    let (), runtime = Runtime.exec comp runtime in
+    {desugar;typing;runtime}
+  with
+  | Runtime.Error {Location.thing=err; loc} ->
+     let penv = Runtime.get_penv runtime in
+     raise (Error (Location.locate (RuntimeError (err, penv)) loc))
+  | Context.Error {Location.thing=err; loc} ->
+     let penv = Runtime.get_penv runtime in
+     raise (Error (Location.locate (ContextError (err, penv)) loc))
 
 let use_file ~fn ~quiet {desugar;typing;runtime} =
-  let desugar, cmds = Desugar.file desugar fn in
-  let typing = List.fold_left Mlty.infer typing cmds in
-  let comp = List.fold_left
-    (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet cmd))
-    (Runtime.top_return ()) cmds
-  in
-  let (), runtime = Runtime.exec comp runtime in
-  {desugar;typing;runtime}
+  try
+    let desugar, cmds = Desugar.file desugar fn in
+    let typing = List.fold_left Mlty.infer typing cmds in
+    let comp =
+      List.fold_left
+        (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet cmd))
+        (Runtime.top_return ()) cmds
+    in
+    let (), runtime = Runtime.exec comp runtime in
+    {desugar;typing;runtime}
+  with
+  | Runtime.Error {Location.thing=err; loc} ->
+     let penv = Runtime.get_penv runtime in
+     raise (Error (Location.locate (RuntimeError (err, penv)) loc))
+  | Context.Error {Location.thing=err; loc} ->
+     let penv = Runtime.get_penv runtime in
+     raise (Error (Location.locate (ContextError (err, penv)) loc))
 
 let initial =
   try
@@ -41,6 +69,5 @@ let initial =
     let (), runtime = Runtime.exec comp Runtime.empty in
     {desugar;typing;runtime}
   with
-   | Error.Error err -> assert false
-
-
+   | Runtime.Error _ -> assert false
+   | Context.Error _ -> assert false

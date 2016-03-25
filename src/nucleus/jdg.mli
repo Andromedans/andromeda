@@ -5,6 +5,14 @@ type env = private {
   constants : Tt.ty ConstantMap.t;
 }
 
+type error =
+  | UnknownAtom
+  | InvalidApplication
+  | InvalidEquality
+  | NotAType
+
+exception Error of error
+
 val empty : env
 
 (** The judgement that the given term has the given type. *)
@@ -74,11 +82,11 @@ val shape : loc:Location.t -> env -> term -> shape
 val shape_ty : loc:Location.t -> env -> ty -> shape
 
 (** Construct a judgement using the appropriate formation rule. The type is the natural type. *)
-val form : loc:Location.t -> penv:Tt.print_env -> env -> shape -> term
+val form : loc:Location.t -> env -> shape -> term
 
 (** Fails if the type isn't [Type] *)
-val is_ty : penv:Tt.print_env -> term -> ty
+val is_ty : term -> ty
 
 (** [is_ty ∘ form] *)
-val form_ty : loc:Location.t -> penv:Tt.print_env -> env -> shape -> ty
+val form_ty : loc:Location.t -> env -> shape -> ty
 
