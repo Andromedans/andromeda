@@ -10,12 +10,12 @@ exception Error of error Location.located
 
 val print_error: error -> Format.formatter -> unit
 
-(** [exec_cmd d] executes toplevel command [c].
-    It prints the result if in interactive mode.
-    The environment is passed through a state monad. *)
-val exec_cmd : quiet:bool -> Input.toplevel -> state -> state
+val print_located_error : error Location.located -> Format.formatter -> unit
 
-(** Load directives from the given file. *)
+(** Run a command from the interactive input. *)
+val exec_interactive : state -> state
+
+(** Run commands from the given file. *)
 val use_file : fn:string -> quiet:bool -> state -> state
 
 val initial : state

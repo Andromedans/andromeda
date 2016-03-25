@@ -154,12 +154,10 @@ and token_aux ({ stream;_ } as lexbuf) =
     end
   | numeral                  -> f (); let k = int_of_string (lexeme lexbuf) in NUMERAL k
   | any -> f ();
-    let c = lexeme lexbuf in
-    Error.syntax ~loc:(loc_of lexbuf)
-      "Unexpected character: %s" c
-  | _ -> f ();
-    Error.syntax ~loc:(loc_of lexbuf)
-      "Unexpected character, failed to parse"
+     let w = lexeme lexbuf in
+     let loc = loc_of lexbuf in
+     error ~loc (Unexpected w)
+  | _ -> assert false
 
 and comments level ({ stream;_ } as lexbuf) =
   match%sedlex stream with
@@ -171,11 +169,9 @@ and comments level ({ stream;_ } as lexbuf) =
 
   | start_longcomment -> comments (level+1) lexbuf
   | '\n'        -> new_line lexbuf; comments level lexbuf
-  | eof         ->
-    Error.syntax ~loc:(loc_of lexbuf) "Input ended inside (unclosed) comment"
-  | any           -> comments level lexbuf
-  | _ -> Error.syntax ~loc:(loc_of lexbuf)
-           "Unexpected character in comment"
+  | eof         -> error ~loc:(loc_of lexbuf) UnclosedComment
+  | any         -> comments level lexbuf
+  | _           -> assert false
 
 
 (** run a menhir parser with a sedlexer on a t *)
@@ -197,8 +193,9 @@ let run
   | Parser.Error
   | Sedlexing.MalFormed
   | Sedlexing.InvalidCodepoint _ ->
-     let w = Ulexbuf.lexeme lexbuf in
-     raise (Parse_Error (w, lexbuf.pos_start, lexbuf.pos_end))
+     let w = lexeme lexbuf in
+     let loc = loc_of lexbuf in
+     error ~loc (Unexpected w)
 
 
 let read_file ?line_limit parse fn =
@@ -211,10 +208,10 @@ let read_file ?line_limit parse fn =
       terms
     with
     (* Close the file in case of any parsing errors. *)
-      Error.Error err -> close_in fh; raise (Error.Error err)
+      Ulexbuf.Error err -> close_in fh; raise (Ulexbuf.Error err)
   with
   (* Any errors when opening or closing a file are fatal. *)
-    Sys_error msg -> raise (Parser_error.raise ~loc:Location.unknown (Parser_error.SysError msg))
+    Sys_error msg -> raise (Ulexbuf.error ~loc:Location.unknown (Ulexbuf.SysError msg))
 
 
 let read_toplevel parse () =

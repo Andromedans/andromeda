@@ -1,24 +1,67 @@
 (** Conversion from sugared to desugared input syntax *)
 
+(** A let-bound name has lexical scoping and a dynamic-bound name dynamic scoping. *)
+type scoping =
+  | Lexical
+  | Dynamic
+
+(** The arity of an operation or a data constructor. *)
+type arity = int
+
+type unknown = Unknown
+
+(** Information about names *)
+type 'index info =
+  | Variable of 'index * scoping
+  | Constant
+  | Constructor of arity
+  | Operation of arity
+
+let print_info info ppf = match info with
+  | Variable (_, Lexical) -> Format.fprintf ppf "a lexical variable"
+  | Variable (_, Dynamic) -> Format.fprintf ppf "a dynamic variable"
+  | Constant -> Format.fprintf ppf "a constant"
+  | Constructor _ -> Format.fprintf ppf "an AML constructor"
+  | Operation _ -> Format.fprintf ppf "an operation"
+
+type error =
+  | UnknownName of Name.ident
+  | UnknownTypeName of Name.ident
+  | DynamicExpected : Name.ident * 'a info -> error
+  | OperationExpected : Name.ident * 'a info -> error
+  | ConstantAlreadyDeclared of Name.ident
+  | OperationAlreadyDeclared of Name.ident
+  | ConstructorAlreadyDeclared of Name.ident
+  | InvalidTermPatternName : Name.ident * 'a info -> error
+  | InvalidPatternName : Name.ident * 'a info -> error
+  | InvalidAppliedPatternName : Name.ident * 'a info -> error
+  | ArityMismatch of Name.ident * int * int
+  | UnboundYield
+  | ParallelShadowing of Name.ident
+  | AppliedTyParam
+
+let print_error err ppf = match err with
+  | UnknownName x -> Format.fprintf ppf "Unknown name %t." (Name.print_ident x)
+  | UnknownTypeName x -> Format.fprintf ppf "Unknown type name %t." (Name.print_ident x)
+  | DynamicExpected (x,info) -> Format.fprintf ppf "%t should be a dynamic variable, but is %t." (Name.print_ident x) (print_info info)
+  | OperationExpected (x, info) -> Format.fprintf ppf "%t should be an operation, but is %t." (Name.print_ident x) (print_info info)
+  | ConstantAlreadyDeclared x -> Format.fprintf ppf "A constant %t is already declared." (Name.print_ident x)
+  | OperationAlreadyDeclared x -> Format.fprintf ppf "An operation %t is already declared." (Name.print_ident x)
+  | ConstructorAlreadyDeclared x -> Format.fprintf ppf "An AML constructor %t is already declared." (Name.print_ident x)
+  | InvalidTermPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a term pattern as it is %t." (Name.print_ident x) (print_info info)
+  | InvalidPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a pattern as it is %t." (Name.print_ident x) (print_info info)
+  | InvalidAppliedPatternName (x, info) -> Format.fprintf ppf "%t cannot be applied in a pattern as it is %t." (Name.print_ident x) (print_info info)
+  | ArityMismatch (x, used, expected) -> Format.fprintf ppf "%t expected %d arguments but is used with %d." (Name.print_ident x) used expected
+  | UnboundYield -> Format.fprintf ppf "yield may only appear in a handler's operation cases."
+  | ParallelShadowing x -> Format.fprintf ppf "%t is bound more than once." (Name.print_ident x)
+  | AppliedTyParam -> Format.fprintf ppf "AML type parameters cannot be applied."
+
+exception Error of error Location.located
+
+let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
+
 (** Ctx variable management *)
 module Ctx = struct
-
-  (** A let-bound name has lexical scoping and a dynamic-bound name dynamic scoping. *)
-  type scoping =
-    | Lexical
-    | Dynamic
-
-  (** The arity of an operation or a data constructor. *)
-  type arity = int
-
-  type unknown = Unknown
-
-  (** Information about names *)
-  type 'index info =
-    | Variable of 'index * scoping
-    | Constant
-    | Constructor of arity
-    | Operation of arity
 
   type t = {
       bound : (Name.ident * unknown info) list;
@@ -41,7 +84,7 @@ module Ctx = struct
       | Operation k -> Operation k
     in
     let rec search i = function
-      | [] -> Error.syntax ~loc "unknown name %t" (Name.print_ident x)
+      | [] -> error ~loc (UnknownName x)
       | (y, info) :: _ when Name.eq_ident y x -> at_index i info
       | (_, Variable _) :: bound -> search (i+1) bound
       | (_, (Constant | Constructor _ | Operation _)) :: bound ->
@@ -52,14 +95,14 @@ module Ctx = struct
   let get_dynamic ~loc x ctx =
     match find ~loc x ctx with
     | Variable (i, Dynamic) -> i
-    | Variable (_, Lexical) | Constant | Operation _ | Constructor _ ->
-       Error.syntax ~loc "%t is not a dynamic variable" (Name.print_ident x)
+    | Variable (_, Lexical) | Constant | Operation _ | Constructor _ as info ->
+      error ~loc (DynamicExpected (x, info))
 
   let get_operation ~loc x ctx =
     match find ~loc x ctx with
     | Operation k -> k
-    | Variable _ | Constant | Constructor _ ->
-       Error.syntax ~loc "%t is not a operation." (Name.print_ident x)
+    | Variable _ | Constant | Constructor _ as info ->
+      error ~loc (OperationExpected (x, info))
 
   let add_lexical x ctx =
     { ctx with bound = (x, Variable (Unknown, Lexical)) :: ctx.bound }
@@ -70,21 +113,21 @@ module Ctx = struct
   let add_operation ~loc op k ctx =
     if List.exists (function (op', Operation _) -> Name.eq_ident op op' | _ -> false) ctx.bound
     then
-      Error.syntax ~loc "Operation %t is already declared." (Name.print_ident op)
+      error ~loc (OperationAlreadyDeclared op)
     else
       { ctx with bound = (op, Operation k) :: ctx.bound }
 
   let add_constructor ~loc c k ctx =
     if List.exists (function (c', Constructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
     then
-      Error.syntax ~loc "Constructor %t is already declared." (Name.print_ident c)
+      error ~loc (ConstructorAlreadyDeclared c)
     else
       { ctx with bound = (c, Constructor k) :: ctx.bound }
 
   let add_constant ~loc c ctx =
     if List.exists (function (c', Constant) -> Name.eq_ident c c' | _ -> false) ctx.bound
     then
-      Error.syntax ~loc "Constant %t is already declared." (Name.print_ident c)
+      error ~loc (ConstantAlreadyDeclared c)
     else
       { ctx with bound = (c, Constant) :: ctx.bound }
 
@@ -96,7 +139,7 @@ module Ctx = struct
   (* Get the arity and de Bruijn level of type named [t] and its definition *)
   let get_tydef ~loc t {tydefs=lst; _} =
     let rec find k = function
-      | [] -> Error.syntax ~loc "unknown type constructor %t" (Name.print_ident t)
+      | [] -> error ~loc (UnknownTypeName t)
       | (u, arity) :: lst ->
          if Name.eq_ident t u
          then (k, arity)
@@ -156,10 +199,9 @@ let rec tt_pattern bound vars n (p,loc) =
 
   | Input.Tt_Name x ->
      begin match Ctx.find ~loc x bound with
-     | Ctx.Variable (i,_) -> locate (Syntax.Tt_Bound i) loc, vars, n
-     | Ctx.Constant -> locate (Syntax.Tt_Constant x) loc, vars, n
-     | Ctx.Constructor _ -> Error.syntax ~loc "data constructor in a term pattern"
-     | Ctx.Operation _ -> Error.syntax ~loc "operation in a term pattern"
+     | Variable (i,_) -> locate (Syntax.Tt_Bound i) loc, vars, n
+     | Constant -> locate (Syntax.Tt_Constant x) loc, vars, n
+     | Constructor _ | Operation _ as info -> error ~loc (InvalidTermPatternName (x, info))
      end
 
   | Input.Tt_Lambda (b, x, popt, p) ->
@@ -256,19 +298,17 @@ and pattern bound vars n (p,loc) =
 
   | Input.Patt_Name x ->
      begin match Ctx.find ~loc x bound with
-     | Ctx.Variable (i,_) ->
+     | Variable (i,_) ->
         locate (Syntax.Patt_Bound i) loc, vars, n
-     | Ctx.Constructor k ->
+     | Constructor k ->
         if k = 0
         then locate (Syntax.Patt_Constructor (x,[])) loc, vars, n
-        else Error.syntax ~loc "the data constructor %t expects %d arguments but is matched with 0"
-            (Name.print_ident x) k
-     | Ctx.Constant ->
+        else error ~loc (ArityMismatch (x, 0, k))
+     | Constant ->
         let p = locate (Syntax.Tt_Constant x) loc in
         let pt = locate Syntax.Tt_Anonymous loc in
         locate (Syntax.Patt_Jdg (p, pt)) loc, vars, n
-     | Ctx.Operation _ ->
-        Error.syntax ~loc "Operations are not valid patterns."
+     | Operation _ as info -> error ~loc (InvalidPatternName (x, info))
      end
 
   | Input.Patt_Jdg (p1,p2) ->
@@ -278,8 +318,9 @@ and pattern bound vars n (p,loc) =
 
   | Input.Patt_Constr (c,ps) ->
      begin match Ctx.find ~loc c bound with
-     | Ctx.Constructor k ->
-        if k = List.length ps
+     | Constructor k ->
+        let n = List.length ps in
+        if k = n
         then
           let rec fold vars n ps = function
             | [] ->
@@ -291,10 +332,9 @@ and pattern bound vars n (p,loc) =
           in
           fold vars n [] ps
         else
-          Error.syntax ~loc "the data constructor %t expects %d arguments"
-            (Name.print_ident c) k
-     | Ctx.Variable _ | Ctx.Constant | Ctx.Operation _ ->
-        Error.syntax ~loc "only data constructors can be applied in general patterns"
+          error ~loc (ArityMismatch (c, n, k))
+     | Variable _ | Constant | Operation _ as info ->
+        error ~loc (InvalidAppliedPatternName (c, info))
      end
 
   | Input.Patt_List ps ->
@@ -431,14 +471,14 @@ let rec comp ~yield bound (c',loc) =
 
   | Input.Var x ->
      begin match Ctx.find ~loc x bound with
-     | Ctx.Variable (i,_) -> locate (Syntax.Bound i) loc
-     | Ctx.Constant -> locate (Syntax.Constant x) loc
-     | Ctx.Constructor k ->
+     | Variable (i,_) -> locate (Syntax.Bound i) loc
+     | Constant -> locate (Syntax.Constant x) loc
+     | Constructor k ->
         if k = 0 then locate (Syntax.Constructor (x, [])) loc
-        else Error.syntax ~loc "this data constructor needs %d more arguments" k
-     | Ctx.Operation k ->
+        else error ~loc (ArityMismatch (x, 0, k))
+     | Operation k ->
         if k = 0 then locate (Syntax.Operation (x, [])) loc
-        else Error.syntax ~loc "this operation needs %d more arguments" k
+        else error ~loc (ArityMismatch (x, 0, k))
      end
 
   | Input.Type ->
@@ -450,7 +490,7 @@ let rec comp ~yield bound (c',loc) =
        let c = comp ~yield bound c in
        locate (Syntax.Yield c) loc
      else
-       Error.syntax ~loc "yield may only be used in a handler"
+      error ~loc UnboundYield
 
   | Input.Hypotheses ->
      locate Syntax.Hypotheses loc
@@ -518,7 +558,7 @@ and let_clauses ~loc ~yield bound lst =
     | (x, ys, t_opt, c) :: xcs ->
        if List.exists (fun (y, _, _, _) -> Name.eq_ident x y) xcs
        then
-         Error.syntax ~loc "%t is bound more than once" (Name.print_ident x)
+         error ~loc (ParallelShadowing x)
        else
          let c = let_clause ~yield bound ys t_opt c in
          let bound' = Ctx.add_lexical x bound' in
@@ -538,7 +578,7 @@ and letrec_clauses ~loc ~yield bound lst =
     | (f, y, ys, t_opt, c) :: xcs ->
        if List.exists (fun (g, _, _, _, _) -> Name.eq_ident f g) xcs
        then
-         Error.syntax ~loc "%t is bound more than once" (Name.print_ident f)
+         error ~loc (ParallelShadowing f)
        else
          let y, c = letrec_clause ~yield bound y ys t_opt c in
          let lst' = (f, y, c) :: lst' in
@@ -576,13 +616,21 @@ and spine ~yield bound ((c',loc) as c) cs =
 
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
-  let rec split thing k lst =
-    if k = 0 then
-      [], lst
+  let split x k lst =
+    let n = List.length lst in
+    if n < k
+    then
+      error ~loc (ArityMismatch (x, n, k))
     else
-      match lst with
-      | [] -> Error.syntax ~loc "this %s needs %d more arguments" thing k
-      | x::lst -> let lst, lst' = split thing (k-1) lst in (x :: lst, lst')
+    let rec split acc k lst =
+      if k = 0 then
+        List.rev acc, lst
+      else
+        match lst with
+        | [] -> assert false
+        | x :: lst -> split (x :: acc) (k - 1) lst
+    in
+    split [] k lst
   in
 
   (* First we calculate the head of the spine, and the remaining arguments. *)
@@ -590,15 +638,15 @@ and spine ~yield bound ((c',loc) as c) cs =
     match c' with
     | Input.Var x ->
        begin match Ctx.find ~loc x bound with
-       | Ctx.Variable (i,_) ->
+       | Variable (i,_) ->
           locate (Syntax.Bound i) loc, cs
-       | Ctx.Constant ->
+       | Constant ->
           locate (Syntax.Constant x) loc, cs
-       | Ctx.Constructor k ->
-          let cs', cs = split "data constructor" k cs in
+       | Constructor k ->
+          let cs', cs = split x k cs in
           data ~loc ~yield bound x cs', cs
-       | Ctx.Operation k ->
-          let cs', cs = split "operation" k cs in
+       | Operation k ->
+          let cs', cs = split x k cs in
           operation ~loc ~yield bound x cs', cs
        end
 
@@ -633,7 +681,7 @@ and handler ~loc bound hcs =
          let my_cases = case::my_cases in
          fold val_cases (Name.IdentMap.add op my_cases op_cases) finally_cases hcs
        else
-         Error.syntax ~loc "operation %t expects %d arguments but was matched with %d" (Name.print_ident op) k n
+         error ~loc (ArityMismatch (op, n, k))
 
     | Input.CaseFinally c :: hcs ->
        let case = match_case ~yield:false bound c in
@@ -725,19 +773,19 @@ let mlty ctx params ty =
               begin
                 match args with
                 | [] -> Syntax.ML_Param k
-                | _::_ -> Error.syntax ~loc "ML type parameters cannot be applied"
+                | _::_ -> error ~loc AppliedTyParam
               end
            | None ->
               (* It is a type name *)
               begin
                 let (level, arity) = Ctx.get_tydef ~loc x ctx in
-                if arity = List.length args
+                let n = List.length args in
+                if arity = n
                 then
                   let args = List.map mlty args in
                   Syntax.ML_TyApply (level, args)
                 else
-                  Error.syntax ~loc "ML type %t should be applied to %d argument%s"
-                               (Name.print_ident x) arity (if arity = 1 then "" else "s")
+                  error ~loc (ArityMismatch (x, n, arity))
               end
          end
       | Input.ML_Judgment -> Syntax.ML_Judgment
@@ -800,7 +848,7 @@ let mlty_rec_defs ~loc ctx lst =
     | (t, (params, def)) :: lst ->
        if List.exists (fun (t', _) -> Name.eq_ident t t') lst
        then
-         Error.syntax ~loc "%t is declared more than once." (Name.print_ident t)
+         error ~loc (ParallelShadowing t)
        else
          let ctx, def = mlty_rec_def ~loc ctx params def in
          fold ctx ((t, (params, def)) :: defs) lst
@@ -840,8 +888,7 @@ let rec toplevel ~basedir ctx (cmd, loc) =
                 let ctx = match y with | Some y -> Ctx.add_lexical y ctx | None -> ctx in
                 op, (xs, y, comp ~yield:false ctx c)
               else
-                Error.syntax ~loc "operation %t expects %d arguments but was matched with %d"
-                  (Name.print_ident op) k n
+                error ~loc (ArityMismatch (op, n, k))
            )
            lst
        in
@@ -904,7 +951,7 @@ and file ctx fn =
   else
     let basedir = Filename.dirname fn in
     let ctx = Ctx.push_file fn ctx in
-    let cmds = Ulexbuf.parse (Lexer.read_file ?line_limit:None) Parser.file fn in
+    let cmds = Lexer.read_file ?line_limit:None Parser.file fn in
     let ctx, cmds = List.fold_left (fun (ctx,cmds) cmd ->
         let ctx, cmd = toplevel ~basedir ctx cmd in
         (ctx, cmd::cmds))

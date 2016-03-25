@@ -47,8 +47,7 @@ let rec term env ({Tt.term=e';loc;_} as e) =
       and e = term env e in
         Tt.mk_refl ~loc t e
 
-    | Tt.Bound _ ->
-      Error.impossible ~loc "de Bruijn encountered in term"
+    | Tt.Bound _ -> assert false
 
 and ty env (Tt.Ty e) =
   let e = term env e in
@@ -94,8 +93,7 @@ and apply ~loc env h x a b e =
   | Tt.Eq _
   | Tt.Refl _ ->
     Tt.mk_apply ~loc h x a b e
-  | Tt.Bound _ ->
-    Error.impossible ~loc "de Bruijn encountered in Simplify.apply"
+  | Tt.Bound _ -> assert false
 
 let context _ ctx = ctx
 

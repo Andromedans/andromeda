@@ -43,10 +43,7 @@ let fresh =
   let counter = ref (-1) in
   function Ident (s, fixity) ->
     incr counter;
-    if !counter < 0 then
-      Error.impossible ~loc:Location.unknown "More than %d fresh names generated." max_int
-    else
-      Atom (s, fixity, !counter)
+    Atom (s, fixity, !counter)
 
 let ident_of_atom (Atom (s,fixity,_)) = Ident (s,fixity)
 

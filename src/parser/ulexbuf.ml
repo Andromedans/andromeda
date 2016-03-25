@@ -6,7 +6,19 @@ type t = {
   mutable end_of_input : bool ;
 }
 
-exception Parse_Error of string * Lexing.position * Lexing.position
+type error =
+  | SysError of string
+  | Unexpected of string
+  | UnclosedComment
+
+let print_error err ppf = match err with
+  | SysError s -> Format.fprintf ppf "System error: %s" s
+  | Unexpected s -> Format.fprintf ppf "Unexpected %s" s
+  | UnclosedComment -> Format.fprintf ppf "Input ended inside unclosed comment"
+
+exception Error of error Location.located
+
+let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
 let create_lexbuf ?(fn="?") stream =
   let pos_end =
@@ -49,12 +61,4 @@ let reached_end_of_input b =
 
 let set_line_limit ll b =
   b.line_limit <- ll
-
-let parse lex parse resource =
-  try
-    lex parse resource
-  with
-  | Parse_Error (w, p_start, p_end) ->
-     let loc = Location.make p_start p_end in
-     Error.syntax ~loc "Unexpected: %s" w
 
