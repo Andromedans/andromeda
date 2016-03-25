@@ -4,6 +4,8 @@ BASEDIR=`dirname "$0"`
 DIFF=`which diff`
 PRINTF=`which printf`
 
+VALDIFF=$(which colordiff || which diff)
+
 cd "$BASEDIR"
 
 if [ ! -x "$DIFF" ]
@@ -62,7 +64,7 @@ do
                     else
                         ONLYWHITE=""
                     fi
-                    "$DIFF" --unified "$FILE.ref" "$FILE.out"
+                    "$VALDIFF" --unified "$FILE.ref" "$FILE.out"
                     echo "$ONLYWHITE"
                     echo "Validate $FILE.out as new .ref?"
                     read -p "[y:yes, n:no, q:quit, r:rerun) [n] " ans
