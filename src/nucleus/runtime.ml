@@ -90,7 +90,7 @@ type error =
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | TypeMismatch of Tt.ty * Tt.ty
+  | TypeMismatch of Jdg.ty * Jdg.ty
   | EqualityFail of Tt.term * Tt.term
   | UnannotatedLambda of Name.ident
   | MatchFail of value
@@ -499,8 +499,8 @@ let print_error ~penv err ppf =
 
   | TypeMismatch (t1, t2) ->
      Format.fprintf ppf "got type@ %t@ but expected type@ %t"
-                    (Tt.print_ty ~penv:penv t1)
-                    (Tt.print_ty ~penv:penv t2)
+                    (Jdg.print_ty ~penv:penv t1)
+                    (Jdg.print_ty ~penv:penv t2)
 
   | EqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"

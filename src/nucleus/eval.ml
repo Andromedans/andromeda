@@ -291,12 +291,13 @@ and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
   Equal.equal_ty ctx lte rte
 
 and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
-  as_term ~loc v >>= fun (Jdg.Term (ctxe, e, t')) ->
-  require_equal_ty ~loc t_check (Jdg.mk_ty ctxe t') >>=
+  as_term ~loc v >>= fun (Jdg.Term (_, e, _) as je) ->
+  let jt = Jdg.typeof je in
+  require_equal_ty ~loc t_check jt >>=
     begin function
       | Some (ctx, hyps) -> Runtime.return (ctx, Tt.mention_atoms hyps e)
       | None ->
-         Runtime.(error ~loc (TypeMismatch (t', t_check')))
+         Runtime.(error ~loc (TypeMismatch (jt, t_check)))
     end
 
 and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
@@ -377,7 +378,7 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
             check c1 jt >>= fun (ctx,e) ->
             Runtime.return (ctx,Tt.mention_atoms hyps e)
          | None ->
-            Runtime.(error ~loc:(c2.Location.loc) (TypeMismatch (t', t_check')))
+            Runtime.(error ~loc:(c2.Location.loc) (TypeMismatch (t, t_check)))
        end
 
   | Syntax.Lambda (x,u,c) ->
@@ -443,7 +444,7 @@ and check_lambda ~loc t_check x u c : (Jdg.Ctx.t * Tt.term) Runtime.comp =
           Runtime.return (ctx,u,hypsu)
         | None ->
           Runtime.lookup_penv >>= fun penv ->
-          Runtime.(error ~loc (TypeMismatch (u, a)))
+          Runtime.(error ~loc (TypeMismatch (ju, Jdg.mk_ty ctx a)))
       end
     | None ->
       Runtime.return (ctx,a,Name.AtomSet.empty)
