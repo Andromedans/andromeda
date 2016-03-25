@@ -9,6 +9,7 @@ type state = {
 type error =
   | RuntimeError of Runtime.error * Tt.print_env
   | ContextError of Context.error * Tt.print_env
+  | ParserError of Parser_error.t
 
 exception Error of error Location.located
 
@@ -16,6 +17,7 @@ let print_error err ppf =
   match err with
   | RuntimeError (err, penv) -> Runtime.print_error ~penv err ppf
   | ContextError (err, penv) -> Context.print_error ~penv err ppf
+  | ParserError err -> Parser_error.print err ppf
 
 (** Evaluation of toplevel computations *)
 let exec_cmd ~quiet c {desugar;typing;runtime} =
@@ -32,6 +34,8 @@ let exec_cmd ~quiet c {desugar;typing;runtime} =
   | Context.Error {Location.thing=err; loc} ->
      let penv = Runtime.get_penv runtime in
      raise (Error (Location.locate (ContextError (err, penv)) loc))
+  | Parser_error.Error {Location.thing=err; loc} ->
+    raise (Error (Location.locate (ParserError err) loc))
 
 let use_file ~fn ~quiet {desugar;typing;runtime} =
   try
@@ -51,6 +55,8 @@ let use_file ~fn ~quiet {desugar;typing;runtime} =
   | Context.Error {Location.thing=err; loc} ->
      let penv = Runtime.get_penv runtime in
      raise (Error (Location.locate (ContextError (err, penv)) loc))
+  | Parser_error.Error {Location.thing=err; loc} ->
+    raise (Error (Location.locate (ParserError err) loc))
 
 let initial =
   try
@@ -71,3 +77,5 @@ let initial =
   with
    | Runtime.Error _ -> assert false
    | Context.Error _ -> assert false
+   | Parser_error.Error _ -> assert false
+

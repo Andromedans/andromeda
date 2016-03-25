@@ -24,18 +24,6 @@ exception Error of details
 (** Raise a syntax error - used during lexing, parsing, or desugaring. *)
 val syntax : loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
 
-(** Raise a typing error - used for both static type-checking of Andromeda and
-    runtime type-checking of TT. *)
-val typing : loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
-
-(** Raise a runtime error - used for errors that should be prevented by
-    type-checking, for example wrong data types or inexhaustive patterns. *)
-val runtime : loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
-
-(** Raise a fatal error - used for errors over which we have no control, for
-    example when a file cannot be opened. *)
-val fatal : loc:Location.t -> ('a, Format.formatter, unit, 'b) format4 -> 'a
-
 (** Raise an impossible error - used in situations where we are {e almost} sure
     in theory that a certain situation cannot exist and we want to alert the
     user to alert us about its existence. *)

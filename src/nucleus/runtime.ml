@@ -88,6 +88,7 @@ type 'a toplevel = env -> 'a * env
 type error =
   | ExpectedAtom of Jdg.term
   | UnknownExternal of string
+  | UnknownConfig of string
   | Inapplicable of value
   | TypeMismatch of Tt.ty * Tt.ty
   | EqualityFail of Tt.term * Tt.term
@@ -489,6 +490,9 @@ let print_error ~penv err ppf =
 
   | UnknownExternal s ->
      Format.fprintf ppf "unknown external %s" s
+
+  | UnknownConfig s ->
+    Format.fprintf ppf "unknown config %s" s
 
   | Inapplicable v ->
      Format.fprintf ppf "cannot apply %s" (name_of v)

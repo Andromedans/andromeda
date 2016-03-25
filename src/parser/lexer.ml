@@ -214,7 +214,7 @@ let read_file ?line_limit parse fn =
       Error.Error err -> close_in fh; raise (Error.Error err)
   with
   (* Any errors when opening or closing a file are fatal. *)
-    Sys_error msg -> Error.fatal ~loc:Location.unknown "%s" msg
+    Sys_error msg -> raise (Parser_error.raise ~loc:Location.unknown (Parser_error.SysError msg))
 
 
 let read_toplevel parse () =

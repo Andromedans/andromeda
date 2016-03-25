@@ -4,9 +4,7 @@
 type state
 
 (** The type of errors that may be reported to the toplevel. *)
-type error =
-  | RuntimeError of Runtime.error * Tt.print_env
-  | ContextError of Context.error * Tt.print_env
+type error
 
 exception Error of error Location.located
 

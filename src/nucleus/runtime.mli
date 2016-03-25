@@ -33,6 +33,7 @@ type 'a toplevel
 type error =
   | ExpectedAtom of Jdg.term
   | UnknownExternal of string
+  | UnknownConfig of string
   | Inapplicable of value
   | TypeMismatch of Tt.ty * Tt.ty
   | EqualityFail of Tt.term * Tt.term

@@ -57,7 +57,7 @@ let externals =
             Config.print_dependencies := false;
             Runtime.return_unit
 
-          | _ -> Error.runtime ~loc "unknown config %s" s
+          | _ -> Runtime.(error ~loc (UnknownConfig s))
         ));
 
     ("simplify", fun loc ->
