@@ -50,7 +50,7 @@ module Ctx : sig
 
   (** [elements ctx] returns the elements of [ctx] sorted into a list so that all dependencies
       point forward in the list, ie the first atom does not depend on any atom, etc. *)
-  val elements : t -> (Name.atom * Tt.ty) list
+  val elements : t -> atom list
 
 end
 

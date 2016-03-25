@@ -204,7 +204,7 @@ module Ctx = struct
       else
         let {needed_by;ty} = AtomMap.find x ctx in
         let (handled, xts) = AtomSet.fold process needed_by handled_ys  in
-        (AtomSet.add x handled, (x,ty) :: xts)
+        (AtomSet.add x handled, (JAtom (ctx, x, ty)) :: xts)
     in
     let _, xts = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
     xts

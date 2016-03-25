@@ -275,10 +275,7 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Context c ->
     infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
     let xts = Jdg.Ctx.elements ctx in
-    let js = List.map (fun (x,t) ->
-      let e = Tt.mk_atom ~loc x in
-      let j = Jdg.mk_term ctx e t in
-      Runtime.mk_term j) xts in
+    let js = List.map (fun j -> Runtime.mk_term (Jdg.atom_term ~loc j)) xts in
     Runtime.return (Predefined.mk_list js)
 
   | Syntax.Ident x ->
