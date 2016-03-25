@@ -5,13 +5,11 @@ type env = private {
   constants : Tt.ty ConstantMap.t;
 }
 
-type error =
-  | UnknownAtom
-  | InvalidApplication
-  | InvalidEquality
-  | NotAType
+type error
 
-exception Error of error
+exception Error of error Location.located
+
+val print_error : error -> Format.formatter -> unit
 
 val empty : env
 

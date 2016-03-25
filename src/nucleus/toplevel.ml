@@ -9,6 +9,7 @@ type state = {
 type error =
   | RuntimeError of Runtime.error * Tt.print_env
   | ContextError of Context.error * Tt.print_env
+  | JdgError of Jdg.error
   | ParserError of Ulexbuf.error
   | DesugarError of Desugar.error
 
@@ -18,6 +19,7 @@ let print_error err ppf =
   match err with
   | RuntimeError (err, penv) -> Runtime.print_error ~penv err ppf
   | ContextError (err, penv) -> Context.print_error ~penv err ppf
+  | JdgError err -> Jdg.print_error err ppf
   | ParserError err -> Ulexbuf.print_error err ppf
   | DesugarError err -> Desugar.print_error err ppf
 
@@ -31,6 +33,8 @@ let reraise runtime = function
   | Context.Error {Location.thing=err; loc} ->
      let penv = Runtime.get_penv runtime in
      raise (Error (Location.locate (ContextError (err, penv)) loc))
+  | Jdg.Error {Location.thing=err; loc} ->
+    raise (Error (Location.locate (JdgError err) loc))
   | Ulexbuf.Error {Location.thing=err; loc} ->
     raise (Error (Location.locate (ParserError err) loc))
   | Desugar.Error {Location.thing=err; loc} ->
