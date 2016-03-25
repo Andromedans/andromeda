@@ -27,7 +27,7 @@ module Ctx : sig
   (** [is_subset ctx yts] returns [true] if the nodes of [ctx] are a subset of [yts]. *)
   val is_subset : t -> (Name.atom * Tt.ty) list -> bool
 
-  val add_fresh : t -> Name.ident -> Tt.ty -> Name.atom * t
+  val add_fresh : ty -> Name.ident -> atom
 
   val recursive_assumptions : t -> Name.AtomSet.t -> Name.AtomSet.t
 

@@ -91,7 +91,7 @@ module Ctx = struct
     in
     fold AtomSet.empty (AtomSet.elements aset)
 
-  let add_fresh ctx x ty =
+  let add_fresh (Ty (ctx, ty)) x =
     let y = Name.fresh x in
     let aset = Tt.assumptions_ty ty in
     let needs = recursive_assumptions ctx aset in
@@ -101,7 +101,8 @@ module Ctx = struct
                             else node)
                            ctx
     in
-    y, AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx
+    let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
+    JAtom (ctx, y, ty)
 
   let restrict ctx aset =
     let domain = recursive_assumptions ctx aset in
@@ -275,7 +276,7 @@ let atom_ty (JAtom (ctx,x,t)) =
   Ty (ctx,t)
 
 let atom_term ~loc (JAtom (ctx,x,t)) =
-  Term (ctx,Tt.mk_atom ~loc x,t)
+  Term (ctx, Tt.mk_atom ~loc x, t)
 
 let term_of_ty (Ty (ctx,Tt.Ty ({Tt.loc=loc;_} as t))) = Term (ctx,t,Tt.mk_type_ty ~loc)
 
@@ -318,10 +319,6 @@ type shape =
   | Eq of term * term
   | Refl of term
 
-let mk_fresh x (Ty (ctx,a)) =
-  let y,ctx = Ctx.add_fresh ctx x a in
-  ctx,y,JAtom (ctx,y,a)
-
 let shape ~loc (Term (ctx,e,t)) =
   match e.Tt.term with
     | Tt.Type -> Type
@@ -336,14 +333,14 @@ let shape ~loc (Term (ctx,e,t)) =
 
     | Tt.Prod ((x,a),b) ->
       let ja = mk_ty ctx a in
-      let ctx,y,jy = mk_fresh x ja in
+      let JAtom (ctx, y, _) as jy = Ctx.add_fresh ja x in
       let b = Tt.unabstract_ty [y] b in
       let jb = mk_ty ctx b in
       Prod (jy,jb)
 
     | Tt.Lambda ((x,a),(e,b)) ->
       let ja = mk_ty ctx a in
-      let ctx,y,jy = mk_fresh x ja in
+      let JAtom (ctx, y, _) as jy = Ctx.add_fresh ja x in
       let b = Tt.unabstract_ty [y] b
       and e = Tt.unabstract [y] e in
       let je = mk_term ctx e b in

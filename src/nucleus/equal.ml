@@ -59,7 +59,7 @@ module Opt = struct
 
   let add_abstracting ~loc x j m =
     { k = fun sk fk s ->
-          Runtime.add_abstracting ~loc x j (fun ctx z -> (m ctx z).k (fun y s' -> (sk y s')) fk s) }
+          Runtime.add_abstracting ~loc x j (fun jx -> (m jx).k (fun y s' -> (sk y s')) fk s) }
 
   let run m =
     m.k (fun x s -> Runtime.return (Some (x,s))) (fun _ -> Runtime.return None) AtomSet.empty
@@ -112,7 +112,7 @@ let congruence ~loc ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
   | Tt.Lambda ((x,a1), (e1, t1)), Tt.Lambda ((_,a2), (e2, t2)) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
     let ja = Jdg.mk_ty ctx a1 in
-    Opt.add_abstracting ~loc x ja (fun ctx y ->
+    Opt.add_abstracting ~loc x ja (fun (Jdg.JAtom (ctx, y, _)) ->
     let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
     let e1 = Tt.unabstract [y] e1
     and t1 = Tt.unabstract_ty [y] t1
@@ -126,7 +126,7 @@ let congruence ~loc ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
 
   | Tt.Apply (h1, ((x,a1),b1), e1), Tt.Apply (h2, ((_,a2),b2), e2) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun ctx y ->
+    Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun (Jdg.JAtom (ctx, y, _)) ->
       let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
       let b1 = Tt.unabstract_ty [y] b1
       and b2 = Tt.instantiate_ty [y'] b2 in
@@ -143,7 +143,7 @@ let congruence ~loc ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
 
   | Tt.Prod ((x,a1), b1), Tt.Prod ((_,a2), b2) ->
     Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun ctx y ->
+    Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun (Jdg.JAtom (ctx, y, _)) ->
     let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
     let b1 = Tt.unabstract_ty [y] b1
     and b2 = Tt.instantiate_ty [y'] b2 in
@@ -169,7 +169,7 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
   match t'.Tt.term with
   | Tt.Prod ((x, a), b) ->
     Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a)
-      (fun ctx y ->
+      (fun (Jdg.JAtom (ctx, y, _)) ->
       let yt = Tt.mk_atom ~loc y in
       let e1' = Tt.mk_apply ~loc e1 x a b yt in
       let e2' = Tt.mk_apply ~loc e2 x a b yt in
@@ -193,7 +193,7 @@ let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
     Returns the resulting expression. *)
 let beta_reduce ~loc ctx (x,a) e b (_,a') b' e' =
   Opt.locally (equal_ty ctx a a') >?= fun (ctx,hypsa) ->
-  Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a) (fun ctx y ->
+  Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a) (fun (Jdg.JAtom (ctx, y, _)) ->
     let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
     let b = Tt.unabstract_ty [y] b
     and b' = Tt.instantiate_ty [y'] b' in

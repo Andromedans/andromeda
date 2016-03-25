@@ -280,26 +280,26 @@ let add_bound0 x v env = {env with lexical = { env.lexical with
                                                forbidden = x :: env.lexical.forbidden;
                                                bound = (Val v) :: env.lexical.bound } }
 
-let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
-  let y, ctx = Jdg.Ctx.add_fresh ctx x t in
-  let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
-  let env = add_bound0 x yt env in
-  m ctx y env
+let add_free ~loc x jt m env =
+  let jy = Jdg.Ctx.add_fresh jt x in
+  let y_val = mk_term (Jdg.atom_term ~loc jy) in
+  let env = add_bound0 x y_val env in
+  m jy env
 
-let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
-  let y, ctx = Jdg.Ctx.add_fresh ctx x t in
+let add_abstracting ~loc ?(bind=true) x jt m env =
+  let jy = Jdg.Ctx.add_fresh jt x in
+  let y_val = mk_term (Jdg.atom_term ~loc jy) in
   let env =
     if not bind
     then
       env
     else
-      let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
-      let env = add_bound0 x yt env in
+      let env = add_bound0 x y_val env in
       { env with
                 dynamic = { env.dynamic with
-                            abstracting = yt :: env.dynamic.abstracting } }
+                            abstracting = y_val :: env.dynamic.abstracting } }
   in
-  m ctx y env
+  m jy env
 
 let add_forbidden0 x env =
   { env with lexical = { env.lexical with forbidden = x :: env.lexical.forbidden } }

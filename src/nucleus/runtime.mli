@@ -165,18 +165,18 @@ val push_bound : Name.ident -> value -> env -> env
 
 (** [add_free ~loc x (ctx,t) f] generates a fresh atom [y] from identifier [x],
     then it extends [ctx] to [ctx' = ctx, y : t]
-    and runs [f ctx' y] in the environment with [x] bound to [ctx' |- y : t].
+    and runs [f (ctx' |- y : t)] in the environment with [x] bound to [ctx' |- y : t].
     NB: This is an effectful computation, as it increases a global counter. *)
-val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Jdg.Ctx.t -> Name.atom -> 'a comp) -> 'a comp
+val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Jdg.atom -> 'a comp) -> 'a comp
 
 (** [add_free ~loc ?bind x (ctx,t) f] generates a fresh atom [y] from identifier [x],
     then it extends [ctx] to [ctx' = ctx, y : t]
-    and runs [f ctx' y] in the environment with
+    and runs [f (ctx' |- y : t)] in the environment with
       - [y] marked as abstracting and
       - if [bind] then [x] bound to [ctx' |- y : t] (default behavior).
     NB: This is an effectful computation, as it increases a global counter. *)
 val add_abstracting: loc:Location.t -> ?bind:bool -> Name.ident -> Jdg.ty ->
-                     (Jdg.Ctx.t -> Name.atom -> 'a comp) -> 'a comp
+                     (Jdg.atom -> 'a comp) -> 'a comp
 
 (** Add a forbidden name (for declarations not used by the runtime). *)
 val add_forbidden : Name.ident -> unit toplevel

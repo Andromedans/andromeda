@@ -139,7 +139,7 @@ let rec infer {Location.thing=c'; loc} =
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
-     Runtime.add_free ~loc x t (fun _ _ ->
+     Runtime.add_free ~loc x t (fun _ ->
        infer c)
 
   | Syntax.Where (c1, c2, c3) ->
@@ -199,8 +199,7 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Eq (c1, c2) ->
      infer c1 >>= as_term ~loc:c1.Location.loc >>= fun j1 ->
      let (Jdg.Ty (_,t1')) as t1 = Jdg.typeof j1 in
-     check c2 t1 >>= fun (Jdg.Term (ctx, e2, _)) ->
-     let j2 = Jdg.mk_term ctx e2 t1' in
+     check c2 t1 >>= fun j2 ->
      jdg_form ~loc (Jdg.Eq (j1,j2)) >>=
      Runtime.return_term
 
@@ -363,7 +362,7 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
-     Runtime.add_free ~loc x t (fun _ _ ->
+     Runtime.add_free ~loc x t (fun _ ->
      check c t_check)
 
   | Syntax.Match (c, cases) ->
@@ -413,7 +412,7 @@ and infer_lambda ~loc x u c =
   match u with
     | Some u ->
       check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
-      Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
+      Runtime.add_abstracting ~loc:uloc x ju (fun (Jdg.JAtom (_, y, _)) ->
       infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
       let ctxe = Jdg.Ctx.abstract ~loc ctxe y u in
       let ctx = Jdg.Ctx.join ~loc ctxu ctxe in
@@ -428,7 +427,7 @@ and infer_lambda ~loc x u c =
 and infer_prod ~loc x u c =
   check_ty u >>= fun (Jdg.Ty (ctxu,u) as ju) ->
   let Tt.Ty {Tt.loc=uloc;_} = u in
-  Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
+  Runtime.add_abstracting ~loc:uloc x ju (fun (Jdg.JAtom (_, y, _)) ->
   check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
   let ctx = Jdg.Ctx.abstract ~loc ctx y u in
   let ctx = Jdg.Ctx.join ~loc ctx ctxu in
@@ -453,7 +452,7 @@ and check_lambda ~loc t_check x u c =
     | None ->
       Runtime.return (ctx,a,Name.AtomSet.empty)
   end >>= fun (ctx,u,hypsu) -> (* u a type equal to a under hypsu *)
-  Runtime.add_abstracting ~loc x (Jdg.mk_ty ctx u) (fun ctx y ->
+  Runtime.add_abstracting ~loc x (Jdg.mk_ty ctx u) (fun (Jdg.JAtom (ctx, y, _)) ->
   let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
   let b = Tt.instantiate_ty [y'] b in
   check c (Jdg.mk_ty ctx b) >>= fun (Jdg.Term (ctx, e, _)) ->
