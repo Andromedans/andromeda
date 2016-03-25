@@ -178,8 +178,15 @@ let rec infer {Location.thing=c'; loc} =
     jdg_form ~loc (Jdg.Constant x) >>=
     Runtime.return_term
 
-  | Syntax.Lambda (x,u,c) ->
-     infer_lambda ~loc x u c
+  | Syntax.Lambda (x, None, _) ->
+    Runtime.(error ~loc (UnannotatedLambda x))
+
+  | Syntax.Lambda (x, Some u, c) ->
+    check_ty u >>= fun ju ->
+    Runtime.add_abstracting ~loc:(u.Location.loc) x ju (fun jy ->
+    infer c >>= as_term ~loc:(c.Location.loc) >>= fun je ->
+    jdg_form ~loc (Jdg.Lambda (jy, je)) >>=
+    Runtime.return_term)
 
   | Syntax.Apply (c1, c2) ->
     infer c1 >>= begin function
@@ -194,7 +201,11 @@ let rec infer {Location.thing=c'; loc} =
     end
 
   | Syntax.Prod (x,u,c) ->
-    infer_prod ~loc x u c
+    check_ty u >>= fun ju ->
+    Runtime.add_abstracting ~loc:u.Location.loc x ju (fun jy ->
+    check_ty c >>= fun jt ->
+    jdg_form ~loc (Jdg.Prod (jy, jt)) >>=
+    Runtime.return_term)
 
   | Syntax.Eq (c1, c2) ->
      infer c1 >>= as_term ~loc:c1.Location.loc >>= fun j1 ->
@@ -404,30 +415,6 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
               Runtime.return (Jdg.mk_term ctx e t_check')
           end
       end
-
-and infer_lambda ~loc x u c =
-  match u with
-    | Some u ->
-      check_ty u >>= fun (Jdg.Ty (_, Tt.Ty {Tt.loc=uloc;_}) as ju) ->
-      Runtime.add_abstracting ~loc:uloc x ju (fun jy ->
-      infer c >>= as_term ~loc:(c.Location.loc) >>= fun je ->
-      jdg_form ~loc (Jdg.Lambda (jy,je)) >>=
-      Runtime.return_term)
-    | None ->
-      Runtime.(error ~loc (UnannotatedLambda x))
-
-and infer_prod ~loc x u c =
-  check_ty u >>= fun (Jdg.Ty (ctxu,u) as ju) ->
-  let Tt.Ty {Tt.loc=uloc;_} = u in
-  Runtime.add_abstracting ~loc:uloc x ju (fun (Jdg.JAtom (_, y, _)) ->
-  check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
-  let ctx = Jdg.Ctx.abstract ~loc ctx y u in
-  let ctx = Jdg.Ctx.join ~loc ctx ctxu in
-  let t = Tt.abstract_ty [y] t in
-  let prod = Tt.mk_prod ~loc x u t in
-  let typ = Tt.mk_type_ty ~loc in
-  let j = Jdg.mk_term ctx prod typ in
-  Runtime.return_term j)
 
 and check_lambda ~loc t_check x u c =
   Equal.as_prod t_check >>= fun ((ctx,((_,a),b)),hypst) ->
