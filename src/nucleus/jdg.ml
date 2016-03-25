@@ -416,13 +416,13 @@ let form ~loc env = function
   | Refl (Term (ctx,e,t)) ->
     Term (ctx,Tt.mk_refl ~loc t e,Tt.mk_eq_ty ~loc t e e)
 
-let is_ty (Term (ctx,e,t)) =
+let is_ty ~loc (Term (ctx,e,t)) =
   if Tt.alpha_equal_ty t Tt.typ
   then
     Ty (ctx,Tt.ty e)
   else
-    error ~loc:e.Tt.loc NotAType
+    error ~loc NotAType
 
 let form_ty ~loc env s =
-  is_ty (form ~loc env s)
+  is_ty ~loc (form ~loc env s)
 

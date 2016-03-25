@@ -126,7 +126,7 @@ val shape_ty : loc:Location.t -> ty -> shape
 val form : loc:Location.t -> Env.t -> shape -> term
 
 (** Fails if the type isn't [Type] *)
-val is_ty : term -> ty
+val is_ty : loc:Location.t -> term -> ty
 
 (** [is_ty ∘ form] *)
 val form_ty : loc:Location.t -> Env.t -> shape -> ty

@@ -229,8 +229,8 @@ let rec infer {Location.thing=c'; loc} =
      Runtime.return v
 
   | Syntax.Congruence (c1,c2) ->
-    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
-    check c2 (Jdg.mk_ty ctx t) >>= fun (Jdg.Term (ctx, e2, _)) ->
+    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t) as j1) ->
+    check c2 (Jdg.typeof j1) >>= fun (Jdg.Term (ctx, e2, _)) ->
     Equal.congruence ~loc ctx e1 e2 t >>= begin function
       | Some (ctx,hyps) ->
         let eq = Tt.mk_refl ~loc t e1 in
@@ -243,8 +243,8 @@ let rec infer {Location.thing=c'; loc} =
       end
 
   | Syntax.Extensionality (c1,c2) ->
-    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
-    check c2 (Jdg.mk_ty ctx t) >>= fun (Jdg.Term (ctx, e2, _)) ->
+    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t) as j1) ->
+    check c2 (Jdg.typeof j1) >>= fun (Jdg.Term (ctx, e2, _)) ->
     Equal.extensionality ~loc ctx e1 e2 t >>= begin function
       | Some (ctx,hyps) ->
         let eq = Tt.mk_refl ~loc t e1 in
@@ -430,7 +430,7 @@ and check_lambda ~loc t_check x u c =
       end
     | None ->
       Runtime.return (ctx,a,Name.AtomSet.empty)
-  end >>= fun (ctx,u,hypsu) -> (* u a type equal to a under hypsu *)
+  end >>= fun (ctx,u,hypsu) -> (* [u] a type equal to [a] under [hypsu] *)
   Runtime.add_abstracting ~loc x (Jdg.mk_ty ctx u) (fun (Jdg.JAtom (ctx, y, _)) ->
   let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
   let b = Tt.instantiate_ty [y'] b in
@@ -526,10 +526,8 @@ and match_op_cases ~loc op cases vs checking =
   fold cases
 
 and check_ty c : Jdg.ty Runtime.comp =
-  check c Jdg.ty_ty >>= fun (Jdg.Term (ctx, e, _)) ->
-  let t = Tt.ty e in
-  let j = Jdg.mk_ty ctx t in
-  Runtime.return j
+  check c Jdg.ty_ty >>= fun j ->
+  Runtime.return (Jdg.is_ty ~loc:c.Location.loc j)
 
 
 (** Move to toplevel monad *)
