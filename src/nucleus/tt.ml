@@ -243,33 +243,31 @@ let substitute_ty xs es (Ty ty) =
 
 (** Occurs (for printing) *)
 let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
-  occurs_u k u + occurs_v (k+1) v
+  occurs_u k u || occurs_v (k+1) v
 
 (* How many times does bound variable [k] occur in an expression? Used only for printing. *)
 let rec occurs k {term=e';loc;_} =
   match e' with
-  | Type -> 0
-  | Atom _ -> 0
-  | Bound m -> if k = m then 1 else 0
-  | Constant x -> 0
+  | Type -> false
+  | Atom _ -> true
+  | Bound m -> k = m
+  | Constant x -> false
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
   | Apply (e1, xtst, e2) ->
-    occurs k e1 +
-    occurs_abstraction occurs_ty occurs_ty k xtst +
+    occurs k e1 ||
+    occurs_abstraction occurs_ty occurs_ty k xtst ||
     occurs k e2
   | Prod a ->
     occurs_abstraction occurs_ty occurs_ty k a
   | Eq (t, e1, e2) ->
-    occurs_ty k t + occurs k e1 + occurs k e2
+    occurs_ty k t || occurs k e1 || occurs k e2
   | Refl (t, e) ->
-    occurs_ty k t + occurs k e
+    occurs_ty k t || occurs k e
 
 and occurs_ty k (Ty t) = occurs k t
 
 and occurs_term_ty k (e, t) =
-  occurs k e + occurs_ty k t
-
-let occurs_ty_abstraction f = occurs_abstraction occurs_ty f
+  occurs k e || occurs_ty k t
 
 (****** Alpha equality ******)
 
@@ -472,11 +470,11 @@ and print_app ?max_level ~penv e1 e2 ppf =
 
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
 and print_lambda ?max_level ~penv ((x, u), (e, _)) ppf =
-  let x = (if occurs 0 e = 0 then Name.anonymous else x) in
+  let x = (if not (occurs 0 e) then Name.anonymous else x) in
   let rec collect xus e =
     match e.term with
     | Lambda ((x, u), (e, _)) ->
-       let x = (if occurs 0 e = 0 then Name.anonymous else x) in
+       let x = (if not (occurs 0 e) then Name.anonymous else x) in
        collect ((x, u) :: xus) e
     | _ ->
        (List.rev xus, e)
@@ -491,7 +489,7 @@ and print_lambda ?max_level ~penv ((x, u), (e, _)) ppf =
 
 (** [print_prod a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
 and print_prod ?max_level ~penv ((x, u), t) ppf =
-  if occurs_ty 0 t = 0 then
+  if not (occurs_ty 0 t) then
     Print.print ?max_level ~at_level:Level.arr ppf "%t@ %s@ %t"
           (print_ty ~max_level:Level.arr_left ~penv u)
           (Print.char_arrow ())
@@ -499,7 +497,7 @@ and print_prod ?max_level ~penv ((x, u), t) ppf =
   else
     let rec collect xus ((Ty t) as t_ty) =
       match t.term with
-      | Prod ((x, u), t_ty) when occurs_ty 0 t_ty > 0 ->
+      | Prod ((x, u), t_ty) when occurs_ty 0 t_ty ->
          collect ((x, u) :: xus) t_ty
       | _ ->
          (List.rev xus, t_ty)
