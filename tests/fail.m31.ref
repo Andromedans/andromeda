@@ -1,5 +1,6 @@
 The command failed with error:
-File "./fail.m31", line 2, characters 6-9: Typing error
-  this expression should be a product, found Type
-File "./fail.m31", line 4, characters 1-9: Runtime error
-  The command has not failed: got ⊢ Type : Type.
+File "./fail.m31", line 2, characters 6-9: expected a product but got
+⊢ Type
+type
+File "./fail.m31", line 4, characters 1-9: expected to fail but computed
+⊢ Type : Type

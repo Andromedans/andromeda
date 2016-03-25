@@ -15,17 +15,18 @@ Constant ( <= ) is declared.
 x0 is defined.
 dummy
 The command failed with error:
-File "./everything.m31", line 72, characters 6-9: Typing error
-  this expression should be a product, found Type
+File "./everything.m31", line 72, characters 6-9: expected a product but got
+⊢ Type
+type
 ⊢ refl Type : Type ≡ Type
 The command failed with error:
-File "./everything.m31", line 86, characters 6-18: Runtime error
-  cannot infer the type of T
+File "./everything.m31", line 86, characters 6-18: cannot infer the type of
+T
 ⊢ λ (T : Type) (x : T), x : Π (A0 : Type), A0 → A0
 ⊢ λ (x : A), x : A → A
 The command failed with error:
-File "./everything.m31", line 94, characters 13-25: Runtime error
-  cannot infer the type of x
+File "./everything.m31", line 94, characters 13-25: cannot infer the type of
+x
 y_combinator is defined.
 f is defined.
 g is defined.
