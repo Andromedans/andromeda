@@ -136,9 +136,9 @@ val get_constant : Name.constant -> env -> Tt.ty
 
 val lookup_constant : loc:Location.t -> Name.constant -> Tt.ty comp
 
-val get_typing_env : env -> Jdg.env
+val get_typing_env : env -> Jdg.Env.t
 
-val lookup_typing_env : Jdg.env comp
+val lookup_typing_env : Jdg.Env.t comp
 
 (** Lookup abstracting variables. *)
 val lookup_abstracting : value list comp
@@ -167,7 +167,7 @@ val push_bound : Name.ident -> value -> env -> env
     then it extends [ctx] to [ctx' = ctx, y : t]
     and runs [f ctx' y] in the environment with [x] bound to [ctx' |- y : t].
     NB: This is an effectful computation, as it increases a global counter. *)
-val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom -> 'a comp) -> 'a comp
+val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Jdg.Ctx.t -> Name.atom -> 'a comp) -> 'a comp
 
 (** [add_free ~loc ?bind x (ctx,t) f] generates a fresh atom [y] from identifier [x],
     then it extends [ctx] to [ctx' = ctx, y : t]
@@ -176,7 +176,7 @@ val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Context.t -> Name.atom 
       - if [bind] then [x] bound to [ctx' |- y : t] (default behavior).
     NB: This is an effectful computation, as it increases a global counter. *)
 val add_abstracting: loc:Location.t -> ?bind:bool -> Name.ident -> Jdg.ty ->
-                     (Context.t -> Name.atom -> 'a comp) -> 'a comp
+                     (Jdg.Ctx.t -> Name.atom -> 'a comp) -> 'a comp
 
 (** Add a forbidden name (for declarations not used by the runtime). *)
 val add_forbidden : Name.ident -> unit toplevel

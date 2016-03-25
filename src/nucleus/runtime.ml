@@ -22,7 +22,7 @@ type env = {
 
 and dynamic = {
   (* Toplevel declarations *)
-  typing : Jdg.env;
+  typing : Jdg.Env.t;
 
   (* The list of judgments about atoms which are going to be abstracted. We
      should avoid creating atoms which depends on these, as this will prevent
@@ -260,7 +260,7 @@ let lookup_typing_env env =
   Return (get_typing_env env), env.state
 
 let get_constant x env =
-  Jdg.constant_type x env.dynamic.typing
+  Jdg.Env.constant_type x env.dynamic.typing
 
 let lookup_constant ~loc x env =
   let t = get_constant x env in
@@ -281,13 +281,13 @@ let add_bound0 x v env = {env with lexical = { env.lexical with
                                                bound = (Val v) :: env.lexical.bound } }
 
 let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
-  let y, ctx = Context.add_fresh ctx x t in
+  let y, ctx = Jdg.Ctx.add_fresh ctx x t in
   let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
   let env = add_bound0 x yt env in
   m ctx y env
 
 let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
-  let y, ctx = Context.add_fresh ctx x t in
+  let y, ctx = Jdg.Ctx.add_fresh ctx x t in
   let env =
     if not bind
     then
@@ -307,7 +307,7 @@ let add_forbidden0 x env =
 let add_forbidden x env = (), add_forbidden0 x env
 
 let add_constant0 ~loc x t env =
-  { env with dynamic = {env.dynamic with typing = Jdg.add_constant x t env.dynamic.typing };
+  { env with dynamic = {env.dynamic with typing = Jdg.Env.add_constant x t env.dynamic.typing };
              lexical = {env.lexical with forbidden = x :: env.lexical.forbidden } }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
@@ -573,7 +573,7 @@ let empty = {
     continuation = None ;
   } ;
   dynamic = {
-    typing = Jdg.empty ;
+    typing = Jdg.Env.empty ;
     abstracting = [] ;
     vars = Store.Dyn.empty ;
   } ;

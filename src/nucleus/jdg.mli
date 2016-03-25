@@ -1,26 +1,72 @@
-module ConstantMap : Map.S with type key = Name.constant
+module Ctx : sig
+  (** The type of contexts. *)
+  type t
 
-(** Contains global declarations. *)
-type env = private {
-  constants : Tt.ty ConstantMap.t;
-}
+  (** The empty context. *)
+  val empty : t
+
+  (** Is the context empty? *)
+  val is_empty : t -> bool
+
+  (** Print the context. Atoms are printed according to the environment. *)
+  val print : penv:Tt.print_env -> t -> Format.formatter -> unit
+
+  val lookup_ty : Name.atom -> t -> Tt.ty option
+
+  (** [is_subset ctx yts] returns [true] if the nodes of [ctx] are a subset of [yts]. *)
+  val is_subset : t -> (Name.atom * Tt.ty) list -> bool
+
+  val add_fresh : t -> Name.ident -> Tt.ty -> Name.atom * t
+
+  val recursive_assumptions : t -> Name.AtomSet.t -> Name.AtomSet.t
+
+  val restrict : t -> Name.AtomSet.t -> t
+
+  (** [abstract ctx x t] removes atom [x] from context [ctx].
+      It verifies that in [ctx] the atom [x] has type [t] (using alpha equality)
+      and that no atom depends on [x].
+  *)
+  val abstract : loc:Location.t -> t -> Name.atom -> Tt.ty -> t
+
+  (** Join two contexts into a single one.
+      Types of common atoms need to be alpha equal.
+      The dependencies from the first context are used when both atoms are present. *)
+  val join : loc:Location.t -> t -> t -> t
+
+  (** [substitute x (ctx,e,ty)] replaces [x] in [ctx] by [e].
+      It assumes that the type of [x] in [ctx] is equal to [ty]. *)
+  val substitute : loc:Location.t -> Name.atom -> t * Tt.term * Tt.ty -> t
+
+  (** [elements ctx] returns the elements of [ctx] sorted into a list so that all dependencies
+      point forward in the list, ie the first atom does not depend on any atom, etc. *)
+  val elements : t -> (Name.atom * Tt.ty) list
+
+end
+
+module Env : sig
+  type t
+
+  val empty : t
+
+  val constant_type : Name.constant -> t -> Tt.ty
+
+  val add_constant : Name.constant -> Tt.ty -> t -> t
+end
 
 type error
 
 exception Error of error Location.located
 
-val print_error : error -> Format.formatter -> unit
-
-val empty : env
+val print_error : penv:Tt.print_env -> error -> Format.formatter -> unit
 
 (** The judgement that the given term has the given type. *)
-type term = private Term of Context.t * Tt.term * Tt.ty
+type term = private Term of Ctx.t * Tt.term * Tt.ty
 
 (** Special judgement for atoms *)
-type atom = private JAtom of Context.t * Name.atom * Tt.ty
+type atom = private JAtom of Ctx.t * Name.atom * Tt.ty
 
 (** The judgement that the given term is a type. *)
-type ty = private Ty of Context.t * Tt.ty
+type ty = private Ty of Ctx.t * Tt.ty
 
 (** The jdugement that [Type] is a type. *)
 val ty_ty : ty
@@ -38,10 +84,10 @@ val atom_term : loc:Location.t -> atom -> term
 val term_of_ty : ty -> term
 
 (** Create a term judgment. *)
-val mk_term : Context.t -> Tt.term -> Tt.ty -> term
+val mk_term : Ctx.t -> Tt.term -> Tt.ty -> term
 
 (** Create a type judgment. *)
-val mk_ty : Context.t -> Tt.ty -> ty
+val mk_ty : Ctx.t -> Tt.ty -> ty
 
 (** Strengthening *)
 val strengthen : term -> term
@@ -51,11 +97,6 @@ val print_term : penv:Tt.print_env -> ?max_level:Level.t -> term -> Format.forma
 
 (** Print the judgement that something is a type. *)
 val print_ty : penv:Tt.print_env -> ?max_level:Level.t -> ty -> Format.formatter -> unit
-
-(** Environment *)
-val constant_type : Name.constant -> env -> Tt.ty
-
-val add_constant : Name.constant -> Tt.ty -> env -> env
 
 (** Destructors *)
 (** The atom is used in the second component *)
@@ -80,11 +121,11 @@ val shape : loc:Location.t -> term -> shape
 val shape_ty : loc:Location.t -> ty -> shape
 
 (** Construct a judgement using the appropriate formation rule. The type is the natural type. *)
-val form : loc:Location.t -> env -> shape -> term
+val form : loc:Location.t -> Env.t -> shape -> term
 
 (** Fails if the type isn't [Type] *)
 val is_ty : term -> ty
 
 (** [is_ty ∘ form] *)
-val form_ty : loc:Location.t -> env -> shape -> ty
+val form_ty : loc:Location.t -> Env.t -> shape -> ty
 

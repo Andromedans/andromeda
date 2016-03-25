@@ -28,7 +28,7 @@ module Monad = struct
   let add_hyps hyps = modify (AtomSet.union hyps)
 
   let context_abstract ~loc ctx y t =
-    let ctx = Context.abstract ~loc ctx y t in
+    let ctx = Jdg.Ctx.abstract ~loc ctx y t in
     modify (fun hyps -> AtomSet.remove y hyps) >>= fun () ->
     return ctx
 
@@ -87,7 +87,7 @@ let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
       | None -> Opt.fail
       | Some v ->
         let Jdg.Term (ctxeq,eq,teq) = Runtime.as_term ~loc v in
-        let ctx = Context.join ~loc ctx ctxeq in
+        let ctx = Jdg.Ctx.join ~loc ctx ctxeq in
         Monad.add_hyps (Tt.assumptions_term eq) >!= fun () ->
         let tgoal = Tt.mk_eq_ty ~loc t e1 e2 in
         equal_ty ctx teq tgoal
@@ -262,7 +262,7 @@ let as_eq (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
                       Runtime.(error ~loc (InvalidAsEquality j_tv))
 
                    | Some (t,e1,e2) ->
-                      let ctx = Context.join ~loc ctx ctxv in
+                      let ctx = Jdg.Ctx.join ~loc ctx ctxv in
                       let hyps = Tt.assumptions_term ev in
                       Monad.add_hyps hyps >>= fun () ->
                       Monad.return (ctx,t,e1,e2)
@@ -297,7 +297,7 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
                    match as_prod_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) with
                    | None -> Runtime.(error ~loc (InvalidAsProduct j_tv))
                    | Some (xts,t) ->
-                      let ctx = Context.join ~loc ctx ctxv in
+                      let ctx = Jdg.Ctx.join ~loc ctx ctxv in
                       let hyps = Tt.assumptions_term ev in
                       Monad.add_hyps hyps >>= fun () ->
                       Monad.return (ctx,(xts,t))

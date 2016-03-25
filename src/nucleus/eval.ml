@@ -145,13 +145,13 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Where (c1, c2, c3) ->
     infer c2 >>= as_atom ~loc >>= fun (Jdg.JAtom (_, a, _)) ->
     infer c1 >>= fun v1 -> as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
-    begin match Context.lookup_ty a ctx with
+    begin match Jdg.Ctx.lookup_ty a ctx with
     | None -> infer c3 >>=
        as_term ~loc:(c3.Location.loc) >>= fun _ ->
        Runtime.return v1
     | Some ta ->
        check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
-       let ctx_s = Context.substitute ~loc a (ctx,e2,ta) in
+       let ctx_s = Jdg.Ctx.substitute ~loc a (ctx,e2,ta) in
        let te_s = Tt.substitute [a] [e2] e1 in
        let ty_s = Tt.substitute_ty [a] [e2] t1 in
        let j_s = Jdg.mk_term ctx_s te_s ty_s in
@@ -265,7 +265,7 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Occurs (c1,c2) ->
     infer c1 >>= as_atom ~loc >>= fun (Jdg.JAtom (_,x,_)) ->
     infer c2 >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
-    begin match Context.lookup_ty x ctx with
+    begin match Jdg.Ctx.lookup_ty x ctx with
       | Some t ->
         let j = Jdg.term_of_ty (Jdg.mk_ty ctx t) in
         Runtime.return (Predefined.from_option (Some (Runtime.mk_term j)))
@@ -275,7 +275,7 @@ let rec infer {Location.thing=c'; loc} =
 
   | Syntax.Context c ->
     infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
-    let xts = Context.elements ctx in
+    let xts = Jdg.Ctx.elements ctx in
     let js = List.map (fun (x,t) ->
       let e = Tt.mk_atom ~loc x in
       let j = Jdg.mk_term ctx e t in
@@ -286,7 +286,7 @@ let rec infer {Location.thing=c'; loc} =
     Runtime.return (Runtime.mk_ident x)
 
 and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
-  let ctx = Context.join ~loc lctx rctx in
+  let ctx = Jdg.Ctx.join ~loc lctx rctx in
   Equal.equal_ty ctx lte rte
 
 and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
@@ -409,8 +409,8 @@ and infer_lambda ~loc x u c =
       check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
       Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
       infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
-      let ctxe = Context.abstract ~loc ctxe y u in
-      let ctx = Context.join ~loc ctxu ctxe in
+      let ctxe = Jdg.Ctx.abstract ~loc ctxe y u in
+      let ctx = Jdg.Ctx.join ~loc ctxu ctxe in
       let e = Tt.abstract [y] e in
       let t = Tt.abstract_ty [y] t in
       let lam = Tt.mk_lambda ~loc x u e t
@@ -424,15 +424,15 @@ and infer_prod ~loc x u c =
   let Tt.Ty {Tt.loc=uloc;_} = u in
   Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
   check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
-  let ctx = Context.abstract ~loc ctx y u in
-  let ctx = Context.join ~loc ctx ctxu in
+  let ctx = Jdg.Ctx.abstract ~loc ctx y u in
+  let ctx = Jdg.Ctx.join ~loc ctx ctxu in
   let t = Tt.abstract_ty [y] t in
   let prod = Tt.mk_prod ~loc x u t in
   let typ = Tt.mk_type_ty ~loc in
   let j = Jdg.mk_term ctx prod typ in
   Runtime.return_term j)
 
-and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Runtime.comp =
+and check_lambda ~loc t_check x u c : (Jdg.Ctx.t * Tt.term) Runtime.comp =
   Equal.as_prod t_check >>= fun ((ctx,((_,a),b)),hypst) ->
   begin match u with
     | Some u ->
@@ -451,7 +451,7 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Runtime.comp =
   let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
   let b = Tt.instantiate_ty [y'] b in
   check c (Jdg.mk_ty ctx b) >>= fun (ctx,e) ->
-  let ctx = Context.abstract ~loc ctx y u in
+  let ctx = Jdg.Ctx.abstract ~loc ctx y u in
   let e = Tt.abstract [y] e in
   let b = Tt.abstract_ty [y] b in
   let lam = Tt.mk_lambda ~loc x u e b in
@@ -640,7 +640,7 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
 
   | Syntax.DeclConstants (xs, c) ->
      Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
-     if Context.is_empty ctxt
+     if Jdg.Ctx.is_empty ctxt
      then
        let rec fold = function
          | [] -> return ()
