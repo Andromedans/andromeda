@@ -78,8 +78,8 @@ type shape =
   | Eq of term * term
   | Refl of term
 
-val shape : loc:Location.t -> env -> term -> shape
-val shape_ty : loc:Location.t -> env -> ty -> shape
+val shape : loc:Location.t -> term -> shape
+val shape_ty : loc:Location.t -> ty -> shape
 
 (** Construct a judgement using the appropriate formation rule. The type is the natural type. *)
 val form : loc:Location.t -> env -> shape -> term

@@ -88,7 +88,7 @@ let mk_fresh x (Ty (ctx,a)) =
   let y,ctx = Context.add_fresh ctx x a in
   ctx,y,JAtom (ctx,y,a)
 
-let shape ~loc env (Term (ctx,e,t)) =
+let shape ~loc (Term (ctx,e,t)) =
   match e.Tt.term with
     | Tt.Type -> Type
 
@@ -129,7 +129,7 @@ let shape ~loc env (Term (ctx,e,t)) =
 
     | Tt.Bound _ -> assert false
 
-let shape_ty ~loc env j = shape ~loc env (term_of_ty j)
+let shape_ty ~loc j = shape ~loc (term_of_ty j)
 
 (** Construct judgements *)
 let form ~loc env = function

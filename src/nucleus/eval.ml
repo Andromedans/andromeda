@@ -11,8 +11,7 @@ let as_term ~loc v =
 (** Returns the atom with its natural type in [ctx] *)
 let as_atom ~loc v =
   as_term ~loc v >>= fun j ->
-  Runtime.lookup_typing_env >>= fun env ->
-  match Jdg.shape ~loc env j with
+  match Jdg.shape ~loc j with
     | Jdg.Atom x -> Runtime.return x
     | _ -> Runtime.(error ~loc (ExpectedAtom j))
       
