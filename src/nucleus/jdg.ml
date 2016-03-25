@@ -5,12 +5,18 @@ type env = {
 }
 
 type error =
-  | UnknownAtom
   | InvalidApplication
   | InvalidEquality
   | NotAType
 
-exception Error of error
+exception Error of error Location.located
+
+let print_error err ppf = match err with
+  | InvalidApplication -> Format.fprintf ppf "Invalid application."
+  | InvalidEquality -> Format.fprintf ppf "Invalid equality."
+  | NotAType -> Format.fprintf ppf "Not a type."
+
+let error ~loc err = raise (Error (Location.locate err loc))
 
 let empty = {
   constants = ConstantMap.empty;
@@ -28,7 +34,7 @@ let typeof (Term (ctx, _, t)) =
 let mk_atom ctx x =
   match Context.lookup_ty x ctx with
     | Some t -> JAtom (ctx,x,t)
-    | None -> raise (Error UnknownAtom)
+    | None -> assert false
 
 let atom_ty (JAtom (ctx,x,t)) =
   Ty (ctx,t)
@@ -166,8 +172,8 @@ let form ~loc env = function
           let out = Tt.instantiate_ty [e2] b in
           Term (ctx,Tt.mk_apply ~loc e1 x a b e2,out)
         else
-          raise (Error InvalidApplication)
-      | _ -> raise (Error InvalidApplication)
+          error ~loc InvalidApplication
+      | _ -> error ~loc InvalidApplication
     end
 
   | Eq (Term (ctx1,e1,t1), Term (ctx2,e2,t2)) ->
@@ -176,7 +182,7 @@ let form ~loc env = function
     then
       Term (ctx, Tt.mk_eq ~loc t1 e1 e2, Tt.mk_type_ty ~loc)
     else
-      raise (Error InvalidEquality)
+      error ~loc InvalidEquality
 
   | Refl (Term (ctx,e,t)) ->
     Term (ctx,Tt.mk_refl ~loc t e,Tt.mk_eq_ty ~loc t e e)
@@ -186,7 +192,7 @@ let is_ty (Term (ctx,e,t)) =
   then
     Ty (ctx,Tt.ty e)
   else
-    raise (Error NotAType)
+    error ~loc:e.Tt.loc NotAType
 
 let form_ty ~loc env s =
   is_ty (form ~loc env s)
