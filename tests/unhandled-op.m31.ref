@@ -5,9 +5,10 @@ Constant b is declared.
 Constant ( + ) is declared.
 Operation Not_found is declared.
 The command failed with error:
-File "./unhandled-op.m31", line 10, characters 6-14: Runtime error
-  unhandled operation Not_found
+File "./unhandled-op.m31", line 10, characters 6-14:
+unhandled operation Not_found
 Operation info is declared.
 The command failed with error:
-File "./unhandled-op.m31", line 14, characters 6-9: Runtime error
-  unhandled operation info !! x (⊢ a + b : A) <function>
+File "./unhandled-op.m31", line 14, characters 6-9: unhandled operation info
+!! x (⊢ a + b : A)
+<function>

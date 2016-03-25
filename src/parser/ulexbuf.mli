@@ -6,7 +6,17 @@ type t = private {
   mutable line_limit : int option ;
   mutable end_of_input : bool ;
 }
-exception Parse_Error of string * Lexing.position * Lexing.position
+
+type error =
+  | SysError of string
+  | Unexpected of string
+  | UnclosedComment
+
+val print_error : error -> Format.formatter -> unit
+
+exception Error of error Location.located
+
+val error : loc:Location.t -> error -> 'a
 
 (** Update the start and end positions from the stream. *)
 val update_pos : t -> unit
@@ -21,7 +31,4 @@ val from_string : ?fn:string -> string -> t
 
 val reached_end_of_input : t -> unit
 val set_line_limit : int option -> t -> unit
-
-(** Parser wrapper that makes parse errors into Error.syntax errors. *)
-val parse : ('a -> 'b -> 'c) -> 'a -> 'b -> 'c
 

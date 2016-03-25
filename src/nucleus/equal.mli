@@ -37,6 +37,3 @@ val as_eq : Jdg.ty -> (Context.t * Tt.ty * Tt.term * Tt.term) witness
 (** Convert a type to a product. *)
 val as_prod : Jdg.ty -> (Context.t * Tt.ty Tt.ty_abstraction) witness
 
-(** Convert a type to a signature. *)
-val as_signature : Jdg.ty -> (Context.t * Tt.signature) witness
-

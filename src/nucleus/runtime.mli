@@ -29,6 +29,38 @@ type 'a comp
 (** state environment, no operations *)
 type 'a toplevel
 
+(** the runtime errors *)
+type error =
+  | ExpectedAtom of Jdg.term
+  | UnknownExternal of string
+  | UnknownConfig of string
+  | Inapplicable of value
+  | TypeMismatch of Tt.ty * Tt.ty
+  | EqualityFail of Tt.term * Tt.term
+  | UnannotatedLambda of Name.ident
+  | MatchFail of value
+  | ConstantDependency
+  | FailureFail of value
+  | EqualityTypeExpected of Jdg.ty
+  | InvalidAsEquality of Jdg.ty
+  | ProductExpected of Jdg.ty
+  | InvalidAsProduct of Jdg.ty
+  | ListExpected of value
+  | OptionExpected of value
+  | TermExpected of value
+  | ClosureExpected of value
+  | HandlerExpected of value
+  | RefExpected of value
+  | StringExpected of value
+  | IdentExpected of value
+  | UnhandledOperation of Name.operation * value list
+
+(** The exception that is raised on runtime error *)
+exception Error of error Location.located
+
+(** Report a runtime error (fails irrevocably) *)
+val error : loc:Location.t -> error -> 'a
+
 (** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
 val name_of : value -> string
 
@@ -54,8 +86,12 @@ val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
 
 val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 
-(** Catch errors. The state is not changed if the command fails. *)
-val catch : (unit -> 'a toplevel) -> ('a,Error.details) Error.res toplevel
+type 'a caught =
+  | Caught of exn
+  | Value of 'a
+
+(** Catch exceptions. The state is not changed if an exception is caught. *)
+val catch : (unit -> 'a toplevel) -> 'a caught toplevel
 
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a comp
@@ -77,10 +113,9 @@ val return_handler :
 val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
 (** Pretty-print a value. *)
-type penv_extra
-type print_env = private { base : Tt.print_env; extra : penv_extra }
+val print_value : ?max_level:Level.t -> penv:Tt.print_env -> value -> Format.formatter -> unit
 
-val print_value : ?max_level:Level.t -> penv:print_env -> value -> Format.formatter -> unit
+val print_error : penv:Tt.print_env -> error -> Format.formatter -> unit
 
 (** Coerce values *)
 val as_term : loc:Location.t -> value -> Jdg.term
@@ -97,18 +132,13 @@ val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
 val get_env : env comp
 
 (** Lookup a constant. *)
-val get_constant : Name.constant -> env -> Tt.ty option
+val get_constant : Name.constant -> env -> Tt.ty
 
 val lookup_constant : loc:Location.t -> Name.constant -> Tt.ty comp
 
-(** Lookup a signature definition *)
-val get_signature : Name.signature -> env -> Tt.sig_def option
+val get_typing_env : env -> Jdg.env
 
-(** Lookup a signature definition, monadically *)
-val lookup_signature : loc:Location.t -> Name.signature -> Tt.sig_def comp
-
-(** Find a signature with the given labels (in this exact order) *)
-val find_signature : loc:Location.t -> Name.label list -> (Name.signature * Tt.sig_def) comp
+val lookup_typing_env : Jdg.env comp
 
 (** Lookup abstracting variables. *)
 val lookup_abstracting : value list comp
@@ -154,12 +184,10 @@ val add_forbidden : Name.ident -> unit toplevel
 (** Add a constant of a given type to the environment. *)
 val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
 
-(** Add a signature declaration to the environment. *)
-val add_signature : loc:Location.t -> Name.signature -> Tt.sig_def -> unit toplevel
-
 (** Add a bound variable with the given name to the environment. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
 
+(** Add a list of mutually recursive definitions to the toplevel environment. *)
 val add_topbound_rec : loc:Location.t -> (Name.ident * (value -> value comp)) list -> unit toplevel
 
 (** Add a dynamic variable. *)
@@ -172,24 +200,27 @@ val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> uni
 val continue : loc:Location.t -> value -> value comp
 
 (** Get the printing environment from the monad *)
-val lookup_penv : print_env comp
+val lookup_penv : Tt.print_env comp
 
-val top_lookup_penv : print_env toplevel
-
-(** Print free variables in the environment *)
-val print_env : (Format.formatter -> unit) toplevel
-
+(** Get the printing environment from the toplevel monad *)
+val top_lookup_penv : Tt.print_env toplevel
 
 (** Interface to execute suspended computations. *)
 type topenv
 
+(** Get the printing environment from the toplevel environment. *)
+val get_penv : topenv -> Tt.print_env
+
+(** The empty toplevel environment. *)
 val empty : topenv
 
+(** Execute a toplevel command in the given environment. *)
 val exec : 'a toplevel -> topenv -> 'a * topenv
 
 (** Handling *)
 val handle_comp : handler -> value comp -> value comp
 
+(** Handle a computation at the toplevel. *)
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 
 (** Check whether two values are equal. *)

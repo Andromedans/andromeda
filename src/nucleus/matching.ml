@@ -16,205 +16,82 @@ let update k v xvs =
     Not_found ->
       (k,v) :: xvs
 
-let rec collect_tt_pattern env xvs {Location.thing=p'; _} ctx ({Tt.term=e';loc;_} as e) t =
-  match p', e' with
+let rec collect_tt_pattern env xvs p j =
+  let loc = p.Location.loc in
+  match p.Location.thing, Jdg.shape ~loc j with
   | Syntax.Tt_Anonymous, _ -> xvs
 
   | Syntax.Tt_As (p,k), _ ->
-     let v = Runtime.mk_term (Jdg.mk_term ctx e t) in
+     let v = Runtime.mk_term j in
      let xvs = update k v xvs in
-     collect_tt_pattern env xvs p ctx e t
+     collect_tt_pattern env xvs p j
 
   | Syntax.Tt_Bound k, _ ->
      let v' = Runtime.get_bound ~loc k env in
-     if Runtime.equal_value (Runtime.mk_term (Jdg.mk_term ctx e t)) v'
+     if Runtime.equal_value (Runtime.mk_term j) v'
      then xvs
      else raise Match_fail
 
-  | Syntax.Tt_Type, Tt.Type ->
+  | Syntax.Tt_Type, Jdg.Type ->
      xvs
 
-  | Syntax.Tt_Constant x, Tt.Constant y ->
+  | Syntax.Tt_Constant x, Jdg.Constant y ->
      if Name.eq_ident x y
      then xvs
      else raise Match_fail
 
-  | Syntax.Tt_Lambda (x,bopt,popt,p), Tt.Lambda ((x',ty),(te,out)) ->
-     let Tt.Ty t = ty in
-     let {Tt.loc=loc;_} = t in
+  | Syntax.Tt_Lambda (x,bopt,popt,p), Jdg.Lambda (jy,je) ->
      let xvs = begin match popt with
-       | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
+       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty jy))
        | None -> xvs
      end in
-     let y, ctx = Context.add_fresh ctx x ty in
-     let yt = Runtime.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) ty) in
+     let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
      let env = Runtime.push_bound x yt env in
-     let te = Tt.unabstract [y] te in
-     let out = Tt.unabstract_ty [y] out in
      let xvs = match bopt with
        | None -> xvs
        | Some k -> update k yt xvs
      in
-     collect_tt_pattern env xvs p ctx te out
+     collect_tt_pattern env xvs p je
 
-  | Syntax.Tt_Apply (p1,p2), Tt.Apply (e1,((x,a),b),e2) ->
-    let prod = Tt.mk_prod_ty ~loc x a b in
-    let xvs = collect_tt_pattern env xvs p1 ctx e1 prod in
-    let xvs = collect_tt_pattern env xvs p2 ctx e2 a in
+  | Syntax.Tt_Apply (p1,p2), Jdg.Apply (je1,je2) ->
+    let xvs = collect_tt_pattern env xvs p1 je1 in
+    let xvs = collect_tt_pattern env xvs p2 je2 in
     xvs
 
-  | Syntax.Tt_Prod (x,bopt,popt,p), Tt.Prod ((x',ty),out) ->
-     let Tt.Ty t = ty in
-     let {Tt.loc=loc;_} = t in
+  | Syntax.Tt_Prod (x,bopt,popt,p), Jdg.Prod (jy,jb) ->
      let xvs = begin match popt with
-       | Some pt -> collect_tt_pattern env xvs pt ctx t (Tt.mk_type_ty ~loc)
+       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty jy))
        | None -> xvs
      end in
-     let y, ctx = Context.add_fresh ctx x ty in
-     let yt = Runtime.mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) ty) in
+     let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
      let env = Runtime.push_bound x yt env in
-     let Tt.Ty out = Tt.unabstract_ty [y] out in
      let xvs = match bopt with
        | None -> xvs
        | Some k -> update k yt xvs
      in
-     collect_tt_pattern env xvs p ctx out (Tt.mk_type_ty ~loc:(e.Tt.loc))
+     collect_tt_pattern env xvs p (Jdg.term_of_ty jb)
 
-  | Syntax.Tt_Eq (p1,p2), Tt.Eq (ty,te1,te2) ->
-     let xvs = collect_tt_pattern env xvs p1 ctx te1 ty in
-     let xvs = collect_tt_pattern env xvs p2 ctx te2 ty in
+  | Syntax.Tt_Eq (p1,p2), Jdg.Eq (je1,je2) ->
+     let xvs = collect_tt_pattern env xvs p1 je1 in
+     let xvs = collect_tt_pattern env xvs p2 je2 in
      xvs
 
-  | Syntax.Tt_Refl p, Tt.Refl (ty,te) ->
-     collect_tt_pattern env xvs p ctx te ty
+  | Syntax.Tt_Refl p, Jdg.Refl je ->
+     collect_tt_pattern env xvs p je
 
-  | Syntax.Tt_Signature s1, Tt.Signature (s2,shares) ->
-     if not (Name.eq_ident s1 s2 && shares = [])
-     then raise Match_fail
-     else xvs
+  | Syntax.Tt_GenAtom p, Jdg.Atom x ->
+    let j = Jdg.atom_term ~loc x in
+    collect_tt_pattern env xvs p j
 
-  | Syntax.Tt_Structure ps, Tt.Structure ((s,shares), es) ->
-     if not (shares = [])
-     then raise Match_fail
-     else
-       begin
-         match Runtime.get_signature s env with
-         | None -> Error.impossible ~loc "matching: unknown signature %t" (Name.print_ident s)
-         | Some s_def ->
-            let rec fold xvs vs fields ps es =
-              match fields, ps, es with
-              | [], [], [] -> xvs
-              | (l,_,t)::fields, (l',p)::ps, e::es ->
-                 if not (Name.eq_ident l l')
-                 then raise Match_fail
-                 else
-                   let t = Tt.instantiate_ty vs t in
-                   let xvs = collect_tt_pattern env xvs p ctx e t in
-                   fold xvs (e::vs) fields ps es
-              | _, _, _ -> raise Match_fail
-         in
-         fold xvs [] s_def ps es
-       end
-
-  | Syntax.Tt_Projection (p,l), Tt.Projection (te,s,l') ->
-     if Name.eq_ident l l'
-     then
-       collect_tt_pattern env xvs p ctx te (Tt.mk_signature_ty ~loc s)
-     else raise Match_fail
-
-  | Syntax.Tt_GenSig p, Tt.Signature (s,shares) ->
-    begin match Runtime.get_signature s env with
-      | Some s_def ->
-        (* first build a representation of the signature definition *)
-        let rec fold ctx shares res ys = function
-          | [] ->
-            let js = Jdg.term_of_ty (Jdg.mk_ty Context.empty (Tt.mk_signature_ty ~loc (s,List.rev shares))) in
-            Runtime.mk_tuple [Runtime.mk_term js; Predefined.mk_list (List.rev res)]
-          | (l,x,t)::rem ->
-            let t = Tt.unabstract_ty ys t in
-            let y,ctx = Context.add_fresh ctx x t in
-            let jy = Jdg.mk_term ctx (Tt.mk_atom ~loc y) t in
-            let v = Runtime.mk_tuple [Runtime.mk_ident l;Runtime.mk_term jy] in
-            fold ctx ((Tt.Unconstrained x)::shares) (v::res) (y::ys) rem
-        in
-        let vbase = fold Context.empty [] [] [] s_def in
-        (* Build a representation of the constraints *)
-        let rec fold ctx lv es ys = function
-          | [] ->
-            let lv = Predefined.mk_list (List.rev lv) in
-            Runtime.mk_tuple [vbase;lv]
-          | ((_,_,t),(Tt.Unconstrained x))::rem ->
-            let t = Tt.instantiate_ty es t in
-            let y,ctx = Context.add_fresh ctx x t in
-            let y = Tt.mk_atom ~loc y in
-            let jy = Jdg.mk_term ctx y t in
-            let v = Predefined.from_constrain (Tt.Unconstrained (Runtime.mk_term jy)) in
-            fold ctx (v::lv) (y::es) (y::ys) rem
-          | ((_,_,t),(Tt.Constrained e))::rem ->
-            let t = Tt.instantiate_ty es t
-            and e = Tt.instantiate ys e in
-            let je = Jdg.mk_term ctx e t in
-            let v = Predefined.from_constrain (Tt.Constrained (Runtime.mk_term je)) in
-            fold ctx (v::lv) (e::es) ys rem
-        in
-        let v = fold ctx [] [] [] (List.combine s_def shares) in
-        collect_pattern env xvs p v
-
-      | None -> Error.impossible ~loc "matching unknown signature %t" (Name.print_ident s)
-    end
-
-  | Syntax.Tt_GenStruct (p,lp), Tt.Structure ((s,_) as str) ->
-    let xvs = collect_tt_pattern env xvs p ctx (Tt.mk_signature ~loc s) Tt.typ in
-    begin match Runtime.get_signature (fst s) env with
-      | Some s_def ->
-        (* build the list of explicit terms
-           [es] instantiate the types *)
-        let rec fold vs es = function
-          | [] -> Predefined.mk_list (List.rev vs)
-          | ((_,_,t),e)::rem ->
-            begin match e with
-              | Tt.Explicit e ->
-                let t = Tt.instantiate_ty es t in
-                let je = Jdg.mk_term ctx e t in
-                let v = Runtime.mk_term je in
-                fold (v::vs) (e::es) rem
-              | Tt.Shared e ->
-                fold vs (e::es) rem
-            end
-        in
-        let lv = fold [] [] (List.combine s_def (Tt.struct_combine ~loc str)) in
-        collect_pattern env xvs lp lv
-
-      | None -> Error.impossible ~loc "matching structure of unknown signature %t" (Name.print_ident (fst s))
-    end
-
-  | Syntax.Tt_GenProj (p,pl), Tt.Projection (e,s,l) ->
-    let vl = Runtime.mk_ident l in
-    let xvs = collect_pattern env xvs pl vl in
-    collect_tt_pattern env xvs p ctx e (Tt.mk_signature_ty ~loc s)
-
-  | Syntax.Tt_GenAtom p, Tt.Atom x ->
-    begin match Context.lookup_ty x ctx with
-      | Some t ->
-        let ex = Tt.mk_atom ~loc x in
-        collect_tt_pattern env xvs p ctx ex t
-      | None -> Error.impossible ~loc "matching atom %t not in context" (Name.print_atom ~printer:(Name.atom_printer ()) x)
-    end
-
-  | Syntax.Tt_GenConstant p, Tt.Constant c ->
-    begin match Runtime.get_constant c env with
-      | Some t ->
-        let c = Tt.mk_constant ~loc c in
-        collect_tt_pattern env xvs p Context.empty c t
-      | None -> Error.impossible ~loc "matching unknown constant %t" (Name.print_ident c)
-    end
+  | Syntax.Tt_GenConstant p, Jdg.Constant c ->
+    let t = Runtime.get_constant c env in
+    let c = Tt.mk_constant ~loc c in
+    let j = Jdg.mk_term Context.empty c t in
+    collect_tt_pattern env xvs p j
 
   | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Apply _
      | Syntax.Tt_Lambda _ | Syntax.Tt_Prod _
      | Syntax.Tt_Eq _ | Syntax.Tt_Refl _
-     | Syntax.Tt_Signature _ | Syntax.Tt_Structure _
-     | Syntax.Tt_Projection _
-     | Syntax.Tt_GenSig _ | Syntax.Tt_GenStruct _ | Syntax.Tt_GenProj _
      | Syntax.Tt_GenAtom _ | Syntax.Tt_GenConstant _) , _ ->
      raise Match_fail
 
@@ -232,11 +109,9 @@ and collect_pattern env xvs {Location.thing=p;loc} v =
      then xvs
      else raise Match_fail
 
-  | Syntax.Patt_Jdg (pe, pt), Runtime.Term (Jdg.Term (ctx, e, t)) ->
-     let Tt.Ty t' = t in
-     let {Tt.loc=loc;_} = t' in
-     let xvs = collect_tt_pattern env xvs pt ctx t' (Tt.mk_type_ty ~loc) in
-     collect_tt_pattern env xvs pe ctx e t
+  | Syntax.Patt_Jdg (pe, pt), Runtime.Term j ->
+     let xvs = collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.typeof j)) in
+     collect_tt_pattern env xvs pe j
 
   | Syntax.Patt_Constructor (tag, ps), Runtime.Tag (tag', vs) when Name.eq_ident tag tag' ->
     multicollect_pattern env xvs ps vs

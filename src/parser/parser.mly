@@ -27,16 +27,13 @@
 
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
-%token LBRACE RBRACE
 %token LBRACK RBRACK
 %token COLON COMMA
 %token ARROW DARROW
-%token DOT
 
 (* Things specific to toplevel *)
 %token DO FAIL
 %token CONSTANT
-%token SIGNATURE
 
 (* Let binding *)
 %token LET REC EQ AND IN
@@ -61,7 +58,7 @@
 
 %token EXTERNAL
 
-%token USIG USTRUCT UPROJ UATOM UCONSTANT
+%token UATOM UCONSTANT
 
 %token IDENT
 
@@ -130,8 +127,6 @@ plain_topcomp:
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
   | CONSTANT xs=nonempty_list(name) COLON u=term      { DeclConstants (xs, u) }
-  | SIGNATURE s=name EQ LBRACE lst=separated_list(COMMA, signature_clause) RBRACE
-                                                      { DeclSignature (s, lst) }
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=name COLON params=mlparams opsig=op_mlsig
@@ -161,9 +156,6 @@ plain_term:
   | HANDLER hcs=handler_cases END                                { Handler (hcs) }
   | e=app_term COLON t=ty_term                                   { Ascribe (e, t) }
   | e1=equal_term SEMICOLON e2=term                              { Sequence (e1, e2) }
-  | USIG c1=prefix_term c2=prefix_term                           { GenSig (c1,c2) }
-  | USTRUCT c1=prefix_term c2=prefix_term                        { GenStruct (c1,c2) }
-  | UPROJ c1=prefix_term c2=prefix_term                          { GenProj (c1,c2) }
   | CONTEXT c=prefix_term                                        { Context c }
   | OCCURS c1=prefix_term c2=prefix_term                         { Occurs (c1,c2) }
 
@@ -216,20 +208,7 @@ plain_simple_term:
   | LPAREN lst=separated_list(COMMA, term) RPAREN       { match lst with
                                                           | [e] -> fst e
                                                           | _ -> Tuple lst }
-  | LBRACE lst=separated_list(COMMA, structure_clause) RBRACE
-                                                        { Structure lst }
-  | LBRACE x=var_name WITH cs=constraint_clauses RBRACE { Signature (x,cs) }
-  | e=simple_term DOT p=var_name                        { Projection (e, p) }
   | HYPOTHESES                                          { Hypotheses }
-
-constraint_clauses:
-| cs=separated_list(COMMA,constraint_clause) { cs }
-
-constraint_clause:
-  | l=var_name                      { (l,None,None) }
-  | l=var_name EQ c=term            { (l,None,Some c) }
-  | l=var_name AS y=name            { (l,Some y,None) }
-  | l=var_name AS y=name EQ c=term  { (l,Some y,Some c) }
 
 var_name:
   | NAME { $1 }
@@ -260,16 +239,6 @@ let_clause:
 
 return_type:
   | COLON t=ty_term { t }
-
-signature_clause:
-  | x=var_name COLON t=ty_term           { (x, None, t) }
-  | x=var_name AS y=name COLON t=ty_term { (x, Some y, t) }
-
-structure_clause :
-  | x=var_name                                     { (x, None, None) }
-  | x=var_name EQ c=term                           { (x, None, Some c) }
-  | x=var_name AS y=name                           { (x, Some y, None) }
-  | x=var_name AS y=name EQ c=term                 { (x, Some y, Some c) }
 
 typed_binder:
   | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }
@@ -409,26 +378,17 @@ prefix_tt_pattern: mark_location(plain_prefix_tt_pattern) { $1 }
 plain_prefix_tt_pattern:
   | p=plain_simple_tt_pattern                     { p }
   | REFL p=prefix_tt_pattern                      { Tt_Refl p }
-  | USIG x=prefix_pattern                         { Tt_GenSig x }
-  | USTRUCT p=prefix_tt_pattern x=prefix_pattern  { Tt_GenStruct (p,x) }
-  | UPROJ p=prefix_tt_pattern l=prefix_pattern    { Tt_GenProj (p,l) }
   | UATOM p=prefix_tt_pattern                     { Tt_GenAtom p }
   | UCONSTANT p=prefix_tt_pattern                 { Tt_GenConstant p }
   | op=PREFIXOP e=prefix_tt_pattern
     { let op = Tt_Name (fst op), snd op in Tt_Apply (op, e) }
 
-simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:
   | UNDERSCORE                                                           { Tt_Anonymous }
   | TYPE                                                                 { Tt_Type }
   | x=patt_var                                                           { Tt_Var x }
   | x=var_name                                                           { Tt_Name x }
   | LPAREN p=plain_tt_pattern RPAREN                                     { p }
-  | LBRACE ps=separated_list(COMMA, tt_structure_clause) RBRACE          { Tt_Structure ps }
-  | p=simple_tt_pattern DOT lbl=var_name                                 { Tt_Projection (p, lbl) }
-
-tt_structure_clause:
-  | l=name EQ c=tt_pattern              { (l, c) }
 
 tt_binder:
   | LPAREN lst=separated_nonempty_list(COMMA, maybe_typed_tt_names) RPAREN

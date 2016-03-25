@@ -10,8 +10,6 @@ type ident = Ident of string * fixity
 
 type atom = Atom of string * fixity * int
 
-type label = ident
-type signature = ident
 type constant = ident
 type operation = ident
 
@@ -27,8 +25,6 @@ let print_ident ?(parentheses=true) x ppf =
        Format.fprintf ppf "( %s )" s
      else
        Format.fprintf ppf "%s" s
-
-let print_label = print_ident ~parentheses:true
 
 let print_op = print_ident ~parentheses:true
 
@@ -47,10 +43,7 @@ let fresh =
   let counter = ref (-1) in
   function Ident (s, fixity) ->
     incr counter;
-    if !counter < 0 then
-      Error.impossible ~loc:Location.unknown "More than %d fresh names generated." max_int
-    else
-      Atom (s, fixity, !counter)
+    Atom (s, fixity, !counter)
 
 let ident_of_atom (Atom (s,fixity,_)) = Ident (s,fixity)
 
@@ -89,8 +82,6 @@ module IdentMap = Map.Make (struct
                     type t = ident
                     let compare = compare_ident
                   end)
-
-let eq_label = eq_ident
 
 let eq_atom (Atom (_, _, k)) (Atom (_, _, m)) = (k = m)
 

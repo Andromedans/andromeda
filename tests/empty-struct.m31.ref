@@ -1,4 +1,0 @@
-⊢ λ (x : unit) (_ : unit), refl {} : Π (x : unit) (y : unit), x ≡ y
-⊢ λ (x : unit) (_ : unit), refl {} : Π (x : unit) (y : unit), x ≡ y
-⊢ {} : unit
-⊢ {} : unit

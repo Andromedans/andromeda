@@ -10,18 +10,11 @@ let as_term ~loc v =
 
 (** Returns the atom with its natural type in [ctx] *)
 let as_atom ~loc v =
-  as_term ~loc v >>= fun (Jdg.Term (ctx,e,t) as j) ->
-  match e.Tt.term with
-    | Tt.Atom x ->
-      begin match Context.lookup_ty x ctx with
-        | Some t -> Runtime.return (ctx,x,t)
-        | None ->
-          Runtime.lookup_penv >>= fun penv ->
-          Error.impossible ~loc "got an atom judgement %t but the atom is not in the context" (Jdg.print_term ~penv:penv.Runtime.base j)
-      end
-    | _ ->
-      Runtime.lookup_penv >>= fun penv ->
-      Error.runtime ~loc "expected an atom but got %t" (Tt.print_term ~penv:penv.Runtime.base e)
+  as_term ~loc v >>= fun j ->
+  match Jdg.shape ~loc j with
+    | Jdg.Atom x -> Runtime.return x
+    | _ -> Runtime.(error ~loc (ExpectedAtom j))
+      
 
 let as_handler ~loc v =
   let e = Runtime.as_handler ~loc v in
@@ -31,13 +24,10 @@ let as_ref ~loc v =
   let e = Runtime.as_ref ~loc v in
   Runtime.return e
 
-let as_list ~loc v =
-  let lst = Predefined.as_list ~loc v in
-  Runtime.return lst
-
-let as_ident ~loc v =
-  let s = Runtime.as_ident ~loc v in
-  Runtime.return s
+(** Form a judgement *)
+let jdg_form ~loc s =
+  Runtime.lookup_typing_env >>= fun env ->
+  Runtime.return (Jdg.form ~loc env s)
 
 (** Evaluate a computation -- infer mode. *)
 let rec infer {Location.thing=c'; loc} =
@@ -46,10 +36,8 @@ let rec infer {Location.thing=c'; loc} =
        Runtime.lookup_bound ~loc i
 
     | Syntax.Type ->
-       let e = Tt.mk_type ~loc in
-       let t = Tt.mk_type_ty ~loc in
-       let et = Jdg.mk_term Context.empty e t in
-       Runtime.return_term et
+      jdg_form ~loc Jdg.Type >>=
+      Runtime.return_term
 
     | Syntax.Function (x, c) ->
        let f v =
@@ -155,17 +143,15 @@ let rec infer {Location.thing=c'; loc} =
        infer c)
 
   | Syntax.Where (c1, c2, c3) ->
-    infer c2 >>= as_atom ~loc >>= fun (_, a, _) ->
-    infer c1 >>= fun v1 ->
-    as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
+    infer c2 >>= as_atom ~loc >>= fun (Jdg.JAtom (_, a, _)) ->
+    infer c1 >>= fun v1 -> as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
     begin match Context.lookup_ty a ctx with
     | None -> infer c3 >>=
        as_term ~loc:(c3.Location.loc) >>= fun _ ->
        Runtime.return v1
     | Some ta ->
        check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
-       Runtime.lookup_penv >>= fun penv ->
-       let ctx_s = Context.substitute ~penv:penv.Runtime.base ~loc a (ctx,e2,ta) in
+       let ctx_s = Context.substitute ~loc a (ctx,e2,ta) in
        let te_s = Tt.substitute [a] [e2] e1 in
        let ty_s = Tt.substitute_ty [a] [e2] t1 in
        let j_s = Jdg.mk_term ctx_s te_s ty_s in
@@ -178,7 +164,7 @@ let rec infer {Location.thing=c'; loc} =
 
   | Syntax.External s ->
      begin match External.lookup s with
-       | None -> Error.runtime ~loc "unknown external %s" s
+       | None -> Runtime.(error ~loc (UnknownExternal s))
        | Some v -> v loc
      end
 
@@ -189,10 +175,8 @@ let rec infer {Location.thing=c'; loc} =
      Runtime.return_term j
 
   | Syntax.Constant x ->
-    Runtime.lookup_constant ~loc x >>= fun t ->
-    let e = Tt.mk_constant ~loc x in
-    let eu = Jdg.mk_term Context.empty e t in
-    Runtime.return_term eu
+    jdg_form ~loc (Jdg.Constant x) >>=
+    Runtime.return_term
 
   | Syntax.Lambda (x,u,c) ->
      infer_lambda ~loc x u c
@@ -206,108 +190,24 @@ let rec infer {Location.thing=c'; loc} =
         Runtime.apply_closure f v
       | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
         Runtime.Ref _ | Runtime.String _ | Runtime.Ident _ as h ->
-        Error.runtime ~loc "cannot apply %s" (Runtime.name_of h)
+        Runtime.(error ~loc (Inapplicable h))
     end
 
   | Syntax.Prod (x,u,c) ->
     infer_prod ~loc x u c
 
   | Syntax.Eq (c1, c2) ->
-     infer c1 >>= as_term ~loc:(c1.Location.loc) >>= fun (Jdg.Term (ctx, e1, t1')) ->
-     let t1 = Jdg.mk_ty ctx t1' in
+     infer c1 >>= as_term ~loc:c1.Location.loc >>= fun j1 ->
+     let (Jdg.Ty (_,t1')) as t1 = Jdg.typeof j1 in
      check c2 t1 >>= fun (ctx, e2) ->
-     let eq = Tt.mk_eq ~loc t1' e1 e2 in
-     let typ = Tt.mk_type_ty ~loc in
-     let j = Jdg.mk_term ctx eq typ in
-     Runtime.return_term j
+     let j2 = Jdg.mk_term ctx e2 t1' in
+     jdg_form ~loc (Jdg.Eq (j1,j2)) >>=
+     Runtime.return_term
 
   | Syntax.Refl c ->
-     infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe, e, t)) ->
-     let e' = Tt.mk_refl ~loc t e
-     and t' = Tt.mk_eq_ty ~loc t e e in
-     let et' = Jdg.mk_term ctxe e' t' in
-     Runtime.return_term et'
-
-  | Syntax.Signature (s,lxcs) ->
-    let rec align res def lxcs = match def, lxcs with
-      | [], [] -> List.rev res
-      | lxt::def, [] -> align ((lxt,None)::res) def []
-      | [], (l,_,_)::_ -> Error.runtime ~loc "Field %t did not appear in %t." (Name.print_ident l) (Name.print_ident s)
-      | ((l,_,_) as lxt)::def, (l',_,_)::_ when (not (Name.eq_ident l l')) ->
-        align ((lxt,None)::res) def lxcs
-      | lxt::def, (_,x,c)::lxcs ->
-        align ((lxt,Some (x,c))::res) def lxcs
-    in
-    (* [vs] are the constraints,
-       [es] instantiate types,
-       [ys:ts] are assumed for unconstrained fields *)
-    let rec fold ctx vs es ys ts = function
-      | [] ->
-        let vs = List.rev vs in
-        Runtime.lookup_penv >>= fun penv ->
-        let ctx = List.fold_left2 (Context.abstract ~penv:penv.Runtime.base ~loc) ctx ys ts in
-        let s = Tt.mk_signature_ty ~loc (s,vs) in
-        let j = Jdg.term_of_ty (Jdg.mk_ty ctx s) in
-        Runtime.return_term j
-      | ((_,_,t),Some (x,mc))::rem ->
-        let t = Tt.instantiate_ty es t in
-        let jt = Jdg.mk_ty ctx t in
-        begin match mc with
-          | Some c ->
-            check c jt >>= fun (ctx,e) ->
-            let je = Jdg.mk_term ctx e t in
-            let e_abs = Tt.abstract ys e in
-            Runtime.add_bound x (Runtime.mk_term je)
-            (fold ctx ((Tt.Constrained e_abs) :: vs) (e::es) ys ts rem)
-          | None ->
-            Runtime.add_abstracting ~loc x jt (fun ctx y ->
-            let ey = Tt.mk_atom ~loc y in
-            fold ctx ((Tt.Unconstrained x)::vs) (ey::es) (y::ys) (t::ts) rem)
-        end
-      | ((_,x,t),None)::rem ->
-        let t = Tt.instantiate_ty es t in
-        let jt = Jdg.mk_ty ctx t in
-        Runtime.add_abstracting ~loc ~bind:false x jt (fun ctx y ->
-        let ey = Tt.mk_atom ~loc y in
-        fold ctx ((Tt.Unconstrained x)::vs) (ey::es) (y::ys) (t::ts) rem)
-    in
-    Runtime.lookup_signature ~loc s >>= fun def ->
-    fold Context.empty [] [] [] [] (align [] def lxcs)
-
-  | Syntax.Structure lxcs ->
-    (* In infer mode the structure must be fully specified. *)
-    let rec prefold ls xcs = function
-      | [] -> List.rev ls, List.rev xcs
-      | (l,x,Some c)::rem -> prefold (l::ls) ((x,c)::xcs) rem
-      | (l,_,None)::_ ->
-        Error.runtime ~loc "Field %t must be specified in infer mode." (Name.print_ident l)
-    in
-    let ls, xcs = prefold [] [] lxcs in
-    Runtime.find_signature ~loc ls >>= fun (s,lxts) ->
-    let rec fold ctx shares es xcs lxts =
-      match xcs, lxts with
-        | [], [] ->
-          let es = List.rev es in
-          let s = (s,List.rev shares) in
-          let str = Tt.mk_structure ~loc s es in
-          let t_str = Tt.mk_signature_ty ~loc s in
-          let j_str = Jdg.mk_term ctx str t_str in
-          Runtime.return_term j_str
-
-        | (x, c) :: lxcs, (_, _, t) :: lxts ->
-          let t_inst = Tt.instantiate_ty es t in
-          let jty = Jdg.mk_ty ctx t_inst in
-          check c jty >>= fun (ctx, e) ->
-          Runtime.add_bound x (Runtime.mk_term (Jdg.mk_term ctx e t_inst))
-          (fold ctx ((Tt.Unconstrained x)::shares) (e::es) lxcs lxts)
-
-        | _::_, [] -> Error.typing ~loc "this structure has too many fields"
-        | [], _::_ -> Error.typing ~loc "this structure has too few fields"
-    in
-    fold Context.empty [] [] xcs lxts
-
-  | Syntax.Projection (c,p) ->
-    infer_projection ~loc c p
+     infer c >>= as_term ~loc:c.Location.loc >>= fun j ->
+     jdg_form ~loc (Jdg.Refl j) >>=
+     Runtime.return_term
 
   | Syntax.Yield c ->
     infer c >>= fun v ->
@@ -362,101 +262,8 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.String s ->
     Runtime.return (Runtime.mk_string s)
 
-  | Syntax.GenSig (c1,c2) ->
-    check_ty c1 >>= fun j1 ->
-    Equal.as_signature j1 >>= fun ((_,(s,shares)),_) ->
-    if List.for_all (function | Tt.Unconstrained _ -> true | Tt.Constrained _ -> false) shares
-    then
-      infer c2 >>= as_list ~loc >>= fun xes ->
-      Runtime.lookup_signature ~loc s >>= fun def ->
-      (* [es] instantiate types, [ys] are the previous unconstrained fields *)
-      let rec fold ctx vs es ys ts def xes = match def,xes with
-        | [], [] ->
-          Runtime.lookup_penv >>= fun penv ->
-          let vs = List.rev vs
-          and ctx = List.fold_left2 (Context.abstract ~penv:penv.Runtime.base ~loc) ctx ys ts in
-          let e = Tt.mk_signature_ty ~loc (s,vs) in
-          let j = Jdg.term_of_ty (Jdg.mk_ty ctx e) in
-          Runtime.return_term j
-        | (l,_,t)::def, xe::xes ->
-          begin match Predefined.as_constrain ~loc xe with
-            | Tt.Unconstrained vx ->
-              as_atom ~loc vx >>= fun (ctx',y,ty) ->
-              let t = Tt.instantiate_ty es t in
-              (* TODO use handled equal? *)
-              if Tt.alpha_equal_ty t ty
-              then
-                Runtime.lookup_penv >>= fun penv ->
-                let ctx = Context.join ~penv:penv.Runtime.base ~loc ctx ctx' in
-                let ey = Tt.mk_atom ~loc y in
-                let x = Name.ident_of_atom y in
-                fold ctx ((Tt.Unconstrained x)::vs) (ey::es) (y::ys) (t::ts) def xes
-              else
-                Runtime.lookup_penv >>= fun penv ->
-                Error.typing ~loc "bad non-constraint for field %t: types %t and %t do not match"
-                  (Name.print_ident l) (Tt.print_ty ~penv:penv.Runtime.base t) (Tt.print_ty ~penv:penv.Runtime.base ty)
-            | Tt.Constrained ve ->
-              as_term ~loc ve >>= fun (Jdg.Term (ctx',e,te)) ->
-              let t = Tt.instantiate_ty es t in
-              require_equal_ty ~loc (Jdg.mk_ty ctx t) (Jdg.mk_ty ctx' te) >>= begin function
-                | Some (ctx,hyps) ->
-                  let e = Tt.mention_atoms hyps e in
-                  let e_abs = Tt.abstract ys e in
-                  fold ctx ((Tt.Constrained e_abs) :: vs) (e::es) ys ts def xes
-                | None ->
-                  Runtime.lookup_penv >>= fun penv ->
-                  Error.typing ~loc "bad constraint for field %t: types %t and %t do not match"
-                    (Name.print_ident l) (Tt.print_ty ~penv:penv.Runtime.base t) (Tt.print_ty ~penv:penv.Runtime.base te)
-              end
-          end
-        | _::_,[] -> Error.runtime ~loc "constraints missing"
-        | [],_::_ -> Error.runtime ~loc "too many constraints"
-      in
-      fold Context.empty [] [] [] [] def xes
-    else
-      Error.runtime ~loc "Cannot add constraints to already constrained signature"
-
-  | Syntax.GenStruct (c1,c2) ->
-    check_ty c1 >>= fun (Jdg.Ty (_,target) as jt) ->
-    Equal.as_signature jt >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
-    infer c2 >>= as_list ~loc >>= fun vs ->
-    Runtime.lookup_signature ~loc s >>= fun lxts ->
-    (* [es] instantiate types, [res] is the explicit fields (which instantiate constraints) *)
-    let rec fold ctx res es vs s_data = match s_data,vs with
-      | [], [] ->
-        let res = List.rev res in
-        let e = Tt.mk_structure ~loc s_sig res in
-        let e = Tt.mention_atoms hyps e in
-        let j = Jdg.mk_term ctx e target in
-        Runtime.return_term j
-      | ((l,_,t),Tt.Unconstrained _)::s_data,v::vs ->
-        as_term ~loc v >>= fun (Jdg.Term (ctx',e,te)) ->
-        let t = Tt.instantiate_ty es t in
-        require_equal_ty ~loc (Jdg.mk_ty ctx t) (Jdg.mk_ty ctx' te) >>= begin function
-          | Some (ctx,hyps) ->
-            let e = Tt.mention_atoms hyps e in
-            fold ctx (e::res) (e::es) vs s_data
-          | None ->
-            Runtime.lookup_penv >>= fun penv ->
-            Error.typing ~loc "bad field %t: types %t and %t do not match"
-              (Name.print_ident l) (Tt.print_ty ~penv:penv.Runtime.base t) (Tt.print_ty ~penv:penv.Runtime.base te)
-        end
-      | ((_,_,t),Tt.Constrained e)::s_data, vs ->
-        let e = Tt.instantiate res e in
-        fold ctx res (e::es) vs s_data
-      | (_,Tt.Unconstrained _)::_,[] ->
-        Error.runtime ~loc "too few fields"
-      | [], _::_ ->
-        Error.runtime ~loc "too many fields"
-    in
-    fold ctx [] [] vs (List.combine lxts shares)
-
-  | Syntax.GenProj (c1,c2) ->
-    infer c2 >>= as_ident ~loc >>= fun l ->
-    infer_projection ~loc c1 l
-
   | Syntax.Occurs (c1,c2) ->
-    infer c1 >>= as_atom ~loc >>= fun (_,x,_) ->
+    infer c1 >>= as_atom ~loc >>= fun (Jdg.JAtom (_,x,_)) ->
     infer c2 >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
     begin match Context.lookup_ty x ctx with
       | Some t ->
@@ -479,8 +286,7 @@ let rec infer {Location.thing=c'; loc} =
     Runtime.return (Runtime.mk_ident x)
 
 and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
-  Runtime.lookup_penv >>= fun penv ->
-  let ctx = Context.join ~penv:penv.Runtime.base ~loc lctx rctx in
+  let ctx = Context.join ~loc lctx rctx in
   Equal.equal_ty ctx lte rte
 
 and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
@@ -489,12 +295,7 @@ and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
     begin function
       | Some (ctx, hyps) -> Runtime.return (ctx, Tt.mention_atoms hyps e)
       | None ->
-         Runtime.lookup_penv >>= fun penv ->
-         Error.typing ~loc
-                      "the expression %t should have type@ %t@ but has type@ %t"
-                      (Tt.print_term ~penv:penv.Runtime.base e)
-                      (Tt.print_ty ~penv:penv.Runtime.base t_check')
-                      (Tt.print_ty ~penv:penv.Runtime.base t')
+         Runtime.(error ~loc (TypeMismatch (t', t_check')))
     end
 
 and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
@@ -512,8 +313,6 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
   | Syntax.Prod _
   | Syntax.Eq _
   | Syntax.Apply _
-  | Syntax.Signature _
-  | Syntax.Projection _
   | Syntax.Yield _
   | Syntax.Hypotheses
   | Syntax.Congruence _
@@ -523,9 +322,6 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
   | Syntax.Lookup _
   | Syntax.Update _
   | Syntax.String _
-  | Syntax.GenSig _
-  | Syntax.GenStruct _
-  | Syntax.GenProj _
   | Syntax.Occurs _
   | Syntax.Context _
   | Syntax.Ident _ ->
@@ -580,10 +376,7 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
             check c1 jt >>= fun (ctx,e) ->
             Runtime.return (ctx,Tt.mention_atoms hyps e)
          | None ->
-            Runtime.lookup_penv >>= fun penv ->
-            Error.typing ~loc:(c2.Location.loc)
-                         "this type should be equal to@ %t"
-                         (Tt.print_ty ~penv:penv.Runtime.base t_check')
+            Runtime.(error ~loc:(c2.Location.loc) (TypeMismatch (t', t_check')))
        end
 
   | Syntax.Lambda (x,u,c) ->
@@ -595,16 +388,12 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
     check c t >>= fun (ctx, e) ->
     Equal.equal ctx e e1 t' >>= begin function
       | None ->
-        Runtime.lookup_penv >>= fun penv ->
-        Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
-                     (Tt.print_term ~penv:penv.Runtime.base e) (Tt.print_term ~penv:penv.Runtime.base e1)
+        Runtime.(error ~loc (EqualityFail (e, e1)))
       | Some (ctx, hyps1) ->
         Equal.equal ctx e e2 t' >>=
           begin function
             | None ->
-              Runtime.lookup_penv >>= fun penv ->
-              Error.typing ~loc "failed to check that the term@ %t is equal to@ %t"
-                       (Tt.print_term ~penv:penv.Runtime.base e) (Tt.print_term ~penv:penv.Runtime.base e2)
+              Runtime.(error ~loc (EqualityFail (e, e2)))
             | Some (ctx, hyps2) ->
               let e = Tt.mk_refl ~loc t' e in
               let e = Tt.mention_atoms hyps e in
@@ -614,89 +403,29 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
           end
       end
 
-  | Syntax.Structure lxcs ->
-    Equal.as_signature t_check >>= fun ((ctx,((s,shares) as s_sig)),hyps) ->
-    Runtime.lookup_signature ~loc s >>= fun s_def ->
-    (* Set up to skip fields not mentioned in [lxcs] *)
-    let rec align fields s_data = function
-      | [] ->
-        let rec complete fields = function
-          | [] -> List.rev fields
-          | ((_,Tt.Constrained _) as data)::s_data ->
-             complete ((data,None)::fields) s_data
-          | ((l,_,_),Tt.Unconstrained _)::_ ->
-             Error.runtime ~loc "Field %t missing" (Name.print_ident l)
-        in
-        complete fields s_data
-      | (l,x,c)::lxcs ->
-        let rec find fields = function
-          | (((l',_,_),_) as data)::s_data ->
-            if Name.eq_ident l l'
-            then
-              align ((data,Some (x,c))::fields) s_data lxcs
-            else
-              find ((data,None)::fields) s_data
-          | [] -> Error.runtime ~loc "Field %t does not appear in signature %t"
-                                (Name.print_ident l) (Name.print_ident s)
-        in
-        find fields s_data
-    in
-    (* [res] is only the explicit fields, [es] instantiates the types *)
-    let rec fold ctx res es = function
-      | [] ->
-        let res = List.rev res in
-        let e = Tt.mk_structure ~loc s_sig res in
-        let e = Tt.mention_atoms hyps e in
-        Runtime.return (ctx,e)
-      | (((_,_,t),Tt.Constrained e),Some (x,None))::rem ->
-        let e = Tt.instantiate res e
-        and t = Tt.instantiate_ty es t in
-        let j = Jdg.mk_term ctx e t in
-        Runtime.add_bound x (Runtime.mk_term j)
-        (fold ctx res (e::es) rem)
-      | (((_,_,t),Tt.Unconstrained _),Some (x,Some c))::rem ->
-        let t = Tt.instantiate_ty es t in
-        let jt = Jdg.mk_ty ctx t in
-        check c jt >>= fun (ctx,e) ->
-        let j = Jdg.mk_term ctx e t in
-        Runtime.add_bound x (Runtime.mk_term j)
-        (fold ctx (e::res) (e::es) rem)
-      | ((_,Tt.Constrained e),None)::rem ->
-        let e = Tt.instantiate res e in
-        fold ctx res (e::es) rem
-      | (((l,_,_),Tt.Unconstrained _),(None | Some (_,None)))::_ ->
-        Error.runtime ~loc "Field %t must be specified" (Name.print_ident l)
-      | (((l,_,_),Tt.Constrained _),Some (_,Some _))::_ ->
-        Error.runtime ~loc "Field %t is constrained and must not be specified" (Name.print_ident l)
-    in
-    let fields = align [] (List.combine s_def shares) lxcs in
-    fold ctx [] [] fields
-
 and infer_lambda ~loc x u c =
   match u with
     | Some u ->
       check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
       Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
       infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
-      Runtime.lookup_penv >>= fun penv ->
-      let ctxe = Context.abstract ~penv:penv.Runtime.base ~loc ctxe y u in
-      let ctx = Context.join ~penv:penv.Runtime.base ~loc ctxu ctxe in
+      let ctxe = Context.abstract ~loc ctxe y u in
+      let ctx = Context.join ~loc ctxu ctxe in
       let e = Tt.abstract [y] e in
       let t = Tt.abstract_ty [y] t in
       let lam = Tt.mk_lambda ~loc x u e t
       and prod = Tt.mk_prod_ty ~loc x u t in
       Runtime.return_term (Jdg.mk_term ctx lam prod))
     | None ->
-      Error.runtime ~loc "cannot infer the type of %t" (Name.print_ident x)
+      Runtime.(error ~loc (UnannotatedLambda x))
 
 and infer_prod ~loc x u c =
   check_ty u >>= fun (Jdg.Ty (ctxu,u) as ju) ->
   let Tt.Ty {Tt.loc=uloc;_} = u in
   Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
   check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
-  Runtime.lookup_penv >>= fun penv ->
-  let ctx = Context.abstract ~penv:penv.Runtime.base ~loc ctx y u in
-  let ctx = Context.join ~penv:penv.Runtime.base ~loc ctx ctxu in
+  let ctx = Context.abstract ~loc ctx y u in
+  let ctx = Context.join ~loc ctx ctxu in
   let t = Tt.abstract_ty [y] t in
   let prod = Tt.mk_prod ~loc x u t in
   let typ = Tt.mk_type_ty ~loc in
@@ -713,8 +442,7 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Runtime.comp =
           Runtime.return (ctx,u,hypsu)
         | None ->
           Runtime.lookup_penv >>= fun penv ->
-          Error.typing ~loc "this annotation has type %t but should have type %t"
-            (Tt.print_ty ~penv:penv.Runtime.base u) (Tt.print_ty ~penv:penv.Runtime.base a)
+          Runtime.(error ~loc (TypeMismatch (u, a)))
       end
     | None ->
       Runtime.return (ctx,a,Name.AtomSet.empty)
@@ -723,8 +451,7 @@ and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Runtime.comp =
   let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
   let b = Tt.instantiate_ty [y'] b in
   check c (Jdg.mk_ty ctx b) >>= fun (ctx,e) ->
-  Runtime.lookup_penv >>= fun penv ->
-  let ctx = Context.abstract ~penv:penv.Runtime.base ~loc ctx y u in
+  let ctx = Context.abstract ~loc ctx y u in
   let e = Tt.abstract [y] e in
   let b = Tt.abstract_ty [y] b in
   let lam = Tt.mk_lambda ~loc x u e b in
@@ -741,19 +468,6 @@ and apply ~loc (Jdg.Term (_, h, _) as jh) c =
   let res = Tt.mk_apply ~loc h x a b e in
   let out = Tt.instantiate_ty [e] b in
   let j = Jdg.mk_term ctx res out in
-  Runtime.return_term j
-
-and infer_projection ~loc c p =
-  infer c >>= as_term ~loc >>= fun (Jdg.Term (_,te,_) as j) ->
-  let jty = Jdg.typeof j in
-  Equal.as_signature jty >>= fun ((ctx,s),hyps) ->
-  let te = Tt.mention_atoms hyps te in
-  Runtime.lookup_signature ~loc (fst s) >>= fun s_def ->
-  (if not (List.exists (fun (l,_,_) -> Name.eq_ident p l) s_def)
-  then Error.typing ~loc "Cannot project field %t from signature %t: no such field"
-                    (Name.print_ident p) (Name.print_ident (fst s)));
-  let te,ty = Tt.field_project ~loc s_def s te p in
-  let j = Jdg.mk_term ctx te ty in
   Runtime.return_term j
 
 and sequence ~loc v =
@@ -790,7 +504,7 @@ and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Runtime.comp) -> _ -> 
   let rec fold = function
     | [] ->
       Runtime.lookup_penv >>= fun penv ->
-      Error.runtime ~loc "no match found for %t" (Runtime.print_value ~penv v)
+      Runtime.(error ~loc (MatchFail v))
     | (xs, p, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | Some vs ->
@@ -798,7 +512,7 @@ and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Runtime.comp) -> _ -> 
             | [], [] -> eval c
             | x::xs, v::vs ->
               Runtime.add_bound x v (fold2 xs vs)
-            | _::_, [] | [], _::_ -> Error.impossible ~loc "bad match case"
+            | _::_, [] | [], _::_ -> assert false
           in
           fold2 (List.rev xs) vs
         | None -> fold cases
@@ -818,7 +532,7 @@ and match_op_cases ~loc op cases vs checking =
             | [], [] -> infer c
             | x::xs, v::vs ->
               Runtime.add_bound x v (fold2 xs vs)
-            | _::_, [] | [], _::_ -> Error.impossible ~loc "bad multimatch case"
+            | _::_, [] | [], _::_ -> assert false
           in
           fold2 (List.rev xs) vs
         | None -> fold cases
@@ -854,30 +568,9 @@ let comp_handle (xs,y,c) =
            | None -> infer c
            end
         | x::xs, v::vs -> Runtime.add_bound x v (fold2 xs vs)
-        | [],_::_ | _::_,[] -> Error.impossible ~loc:(c.Location.loc) "bad top handler case"
+        | [],_::_ | _::_,[] -> assert false
       in
       fold2 xs vs)
-
-let comp_signature ~loc lxcs =
-  let (>>=) = Runtime.bind in
-  let rec fold ys yts lxts = function
-    | [] ->
-       let lxts = List.rev lxts in
-       Runtime.return lxts
-
-    | (l,x,c) :: lxcs ->
-       check_ty c >>= fun (Jdg.Ty (ctxt,t)) ->
-       if not (Context.is_subset ctxt yts)
-       then Error.runtime ~loc "signature field %t has unresolved assumptions"
-           (Name.print_ident l)
-       else begin
-         let jt = Jdg.mk_ty ctxt t
-         and tabs = Tt.abstract_ty ys t in
-         Runtime.add_abstracting ~loc x jt (fun _ y ->
-             fold (y::ys) ((y,t)::yts) ((l,x,tabs) :: lxts) lxcs)
-       end
-  in
-  Runtime.top_handle ~loc (fold [] [] [] lxcs)
 
 (** Toplevel commands *)
 
@@ -958,13 +651,7 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
        in
        fold xs
      else
-       Error.typing "Constants may not depend on free variables" ~loc:(c.Location.loc)
-
-  | Syntax.DeclSignature (s, lxcs) ->
-     comp_signature ~loc lxcs >>= fun lxts ->
-     Runtime.add_signature ~loc s lxts  >>= fun () ->
-     (if not quiet then Format.printf "Signature %t is declared.@." (Name.print_ident s) ;
-      return ())
+       Runtime.(error ~loc ConstantDependency)
 
   | Syntax.TopHandle lst ->
      mfold (fun () (op, xc) ->
@@ -993,12 +680,23 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
 
   | Syntax.TopFail c ->
      Runtime.catch (fun () -> comp_value (Lazy.force c)) >>= begin function
-     | Error.Err err ->
-        (if not quiet then Format.printf "The command failed with error:\n%t@." (Error.print err));
-        return ()
-     | Error.OK v ->
+
+     | Runtime.Caught exn  ->
+        begin
+          Runtime.top_lookup_penv >>= fun penv ->
+          match exn with
+          | Runtime.Error {Location.thing=err; loc} ->
+             (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+                                              (Location.print loc)
+                                              (Runtime.print_error ~penv err)
+             );
+             return ()
+          | _ -> raise exn
+        end
+
+     | Runtime.Value v ->
         Runtime.top_lookup_penv >>= fun penv ->
-        Error.runtime ~loc "The command has not failed: got %t." (Runtime.print_value ~penv v)
+        Runtime.(error ~loc (FailureFail v))
      end
 
   | Syntax.Included lst ->

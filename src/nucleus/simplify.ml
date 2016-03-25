@@ -3,8 +3,7 @@
 let is_small {Tt.term=e';_} =
 match e' with
   | Tt.Type | Tt.Bound _ | Tt.Constant _ | Tt.Atom _ -> true
-  | Tt.Lambda _ | Tt.Apply _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _
-  | Tt.Signature _ | Tt.Structure _ | Tt.Projection _ -> false
+  | Tt.Lambda _ | Tt.Apply _ | Tt.Prod _ | Tt.Refl _ | Tt.Eq _ -> false
 
 let rec term env ({Tt.term=e';loc;_} as e) =
     match e' with
@@ -48,17 +47,7 @@ let rec term env ({Tt.term=e';loc;_} as e) =
       and e = term env e in
         Tt.mk_refl ~loc t e
 
-    | Tt.Signature _ -> e
-
-    | Tt.Structure (s, es) ->
-       let es = List.map (term env) es in
-       Tt.mk_structure ~loc s es
-
-    | Tt.Projection (e, s, l) ->
-      project ~loc env e s l
-
-    | Tt.Bound _ ->
-      Error.impossible ~loc "de Bruijn encountered in term"
+    | Tt.Bound _ -> assert false
 
 and ty env (Tt.Ty e) =
   let e = term env e in
@@ -102,39 +91,9 @@ and apply ~loc env h x a b e =
   | Tt.Type
   | Tt.Prod _
   | Tt.Eq _
-  | Tt.Refl _
-  | Tt.Signature _
-  | Tt.Structure _
-  | Tt.Projection _ ->
+  | Tt.Refl _ ->
     Tt.mk_apply ~loc h x a b e
-  | Tt.Bound _ ->
-    Error.impossible ~loc "de Bruijn encountered in Simplify.apply"
-
-and project ~loc env e s l =
-  let e = term env e in
-  match e.Tt.term with
-    | Tt.Structure ((s',_) as str) when Tt.alpha_equal_sig s s' ->
-      begin match Runtime.get_signature (fst s) env with
-        | Some s_def ->
-          Tt.field_value ~loc s_def str l
-        | None ->
-          Error.impossible ~loc "unknown signature %t encountered in Simplify.project" (Name.print_ident (fst s))
-      end
-
-    | Tt.Constant _
-    | Tt.Lambda _
-    | Tt.Apply _
-    | Tt.Atom _
-    | Tt.Type
-    | Tt.Prod _
-    | Tt.Eq _
-    | Tt.Refl _
-    | Tt.Signature _
-    | Tt.Structure _
-    | Tt.Projection _ ->
-      Tt.mk_projection ~loc e s l
-    | Tt.Bound _ ->
-      Error.impossible ~loc "de Bruijn encountered in Simplify.project"
+  | Tt.Bound _ -> assert false
 
 let context _ ctx = ctx
 

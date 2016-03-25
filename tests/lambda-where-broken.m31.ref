@@ -1,3 +1,4 @@
 Constant empty is declared.
-File "./lambda-where-broken.m31", line 4, characters 4-44: Runtime error
-  cannot abstract y₀ with type x₁ because it must have type empty.
+File "./lambda-where-broken.m31", line 4, characters 4-44: cannot abstract
+y₀ with type x₁ because it must have type
+empty

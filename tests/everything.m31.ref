@@ -12,36 +12,28 @@ Constant ( - ) is declared.
 Constant ( <= ) is declared.
 ⊢ λ (x : A) (y : A) (z : A) (w : A), x + y * z ^ x ^ y - (z ^ x) ^ y <= w
   : A → A → A → A → A
-Signature isContr is declared.
 x0 is defined.
-x₀ : {isContr with T = Type ≡ Type} 
-⊢ x₀ : {isContr with T = Type ≡ Type}
+dummy
 The command failed with error:
-File "./everything.m31", line 82, characters 6-9: Typing error
-  this expression should be a product, found Type
+File "./everything.m31", line 72, characters 6-9: expected a product but got
+⊢ Type
+type
 ⊢ refl Type : Type ≡ Type
 The command failed with error:
-File "./everything.m31", line 96, characters 6-18: Runtime error
-  cannot infer the type of T
+File "./everything.m31", line 86, characters 6-18: cannot infer the type of
+T
 ⊢ λ (T : Type) (x : T), x : Π (A0 : Type), A0 → A0
-⊢ refl {} : {} ≡ {}
-Signature wrapped is declared.
-wrapped_a is defined.
-⊢ refl {} : {} ≡ {}
 ⊢ λ (x : A), x : A → A
 The command failed with error:
-File "./everything.m31", line 114, characters 13-25: Runtime error
-  cannot infer the type of x
-The command failed with error:
-File "./everything.m31", line 118, characters 21-22: Typing error
-  the expression {} should have type {wrapped with unwrap = a} but has type
-  unit
+File "./everything.m31", line 94, characters 13-25: cannot infer the type of
+x
 y_combinator is defined.
 f is defined.
 g is defined.
 ("f", ("g",
 "foo"))
-wrapped = {unwrap : A}
+((),
+())
 ()
 Operation get is declared.
 Operation set is declared.
@@ -63,27 +55,6 @@ x₀ : A
 "this will happen"
 ()
 alpha_equal is defined.
-Constant exfalso is declared.
-Signature container is declared.
-⊢ {T = A} : {container with T, cont = exfalso T}
-⊢ {T = A} : {container with T, cont = exfalso T}
-⊢ {cont = exfalso A} : {container with T = A}
-⊢ {cont = exfalso A} : {container with T = A}
-⊢ {cont = a} : {container with T = A}
-⊢ {unwrap = a}.unwrap : A
-x₀ : wrapped 
-⊢ x₀.unwrap : A
-⊢ a : A
-⊢ a : A
-((⊢ wrapped : Type, (unwrap, unwrap₀ : A 
-                               ⊢ unwrap₀ : A) :: []), Constrained
-(⊢ a : A) ::
-[])
-(⊢ {container with T = A} : Type, (⊢ a : A) ::
-[])
-(x₀ : wrapped 
- ⊢ x₀ : wrapped,
-unwrap)
 Tvar is defined.
 yvar is defined.
 dependent is defined.
@@ -105,11 +76,7 @@ Constant eq is declared.
 Some
 (⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ a)
 Some
-(⊢ refl {unwrap = a}.unwrap : {unwrap = a}.unwrap ≡ a)
-Some
-(⊢ refl {wrapped with unwrap = a}
-   : {wrapped with unwrap = a} ≡ {wrapped with unwrap = b})
-⊢ λ (x : unit), refl x : Π (x : unit), x ≡ {}
+(⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ (λ (x : A), x) b)
 ⊢ λ (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (_ : x ≡ y), refl p
   : Π (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (q : x ≡ y), p ≡ q
 #including ./../std/hippy.m31

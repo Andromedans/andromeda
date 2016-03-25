@@ -1,5 +1,11 @@
 (** Conversion from sugared to desugared input syntax *)
 
+type error
+
+val print_error : error -> Format.formatter -> unit
+
+exception Error of error Location.located
+
 (** A module which holds the desugaring context *)
 module Ctx : sig
   (** The type of desugaring context *)

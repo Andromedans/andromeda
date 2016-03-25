@@ -6,6 +6,3 @@ Some ((x₀ : A
        ⊢ x₀ : A, Some (⊢ a : A)) :: [],
 [])
 None
-Signature pair is declared.
-None
-None

@@ -17,15 +17,3 @@ let funext =
 
 do funext
 
-constant A : Type
-constant B : A -> Type
-signature cow = { head : A, tail : B head }
-
-let cowext =
-   λ (a b : cow) (p : a.head == b.head),
-     now betas = add_beta p betas in
-     λ (q : a.tail == b.tail),
-       (now betas = add_beta q betas in
-          match extensionality a b with Some ?xi => xi end)
-
-do cowext

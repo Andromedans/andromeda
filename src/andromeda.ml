@@ -83,10 +83,10 @@ let interactive_shell state =
   let rec loop state =
     let state =
       try
-        let cmd = Ulexbuf.parse Lexer.read_toplevel Parser.commandline () in
-        Toplevel.exec_cmd ~quiet:false cmd state
+        Toplevel.exec_interactive state
       with
-      | Error.Error err -> Print.error "%t" (Error.print err); state
+      | Toplevel.Error err ->
+         Format.eprintf "%t@." (Toplevel.print_located_error err) ; state
       | Sys.Break -> Format.eprintf "Interrupted.@."; state
     in loop state
   in
@@ -152,6 +152,7 @@ let main =
       else ()
 
   with
-    | Error.Error err -> Print.error "%t" (Error.print err); exit 1
+    | Toplevel.Error err ->
+       Format.eprintf "%t@." (Toplevel.print_located_error err) ; exit 1
     | End_of_file -> ()
 

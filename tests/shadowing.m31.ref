@@ -1,2 +1,2 @@
-File "./shadowing.m31", line 19, characters 1-16: Syntax error
-  Constructor x is already declared.
+File "./shadowing.m31", line 19, characters 1-16:
+An AML constructor x is already declared.

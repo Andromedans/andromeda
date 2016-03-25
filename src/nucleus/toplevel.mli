@@ -3,12 +3,19 @@
 (** Contains the desugaring context, the typing context and the runtime environment synchronized with each other. *)
 type state
 
-(** [exec_cmd d] executes toplevel command [c].
-    It prints the result if in interactive mode.
-    The environment is passed through a state monad. *)
-val exec_cmd : quiet:bool -> Input.toplevel -> state -> state
+(** The type of errors that may be reported to the toplevel. *)
+type error
 
-(** Load directives from the given file. *)
+exception Error of error Location.located
+
+val print_error: error -> Format.formatter -> unit
+
+val print_located_error : error Location.located -> Format.formatter -> unit
+
+(** Run a command from the interactive input. *)
+val exec_interactive : state -> state
+
+(** Run commands from the given file. *)
 val use_file : fn:string -> quiet:bool -> state -> state
 
 val initial : state

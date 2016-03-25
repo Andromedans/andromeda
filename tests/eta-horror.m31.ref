@@ -9,5 +9,6 @@ Constant C is declared.
 Constant D is declared.
 Constant p is declared.
 Constant q is declared.
-File "./eta-horror.m31", line 35, characters 5-10: Typing error
-  failed to check that the term p is equal to q
+File "./eta-horror.m31", line 35, characters 5-10: failed to check that p and
+q
+are equal

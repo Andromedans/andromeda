@@ -1,7 +1,0 @@
-(* Test an eta hint *)
-constant unit_eta : Π (x y : unit), x == y
-
-do
-  now hints = add_hint unit_eta hints in
-    λ (x : unit), (refl {} : x == {})
-
