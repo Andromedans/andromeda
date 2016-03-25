@@ -1,9 +1,5 @@
-module AtomMap = Map.Make (struct
-                      type t = Name.atom
-                      let compare = Name.compare_atom
-                    end)
-
 module AtomSet = Name.AtomSet
+module AtomMap = Name.AtomMap
 
 
 (* A context is a map which assigns to an atom its type and the dependencies and dependants respectively.

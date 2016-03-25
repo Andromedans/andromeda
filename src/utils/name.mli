@@ -68,6 +68,7 @@ val eq_atom : atom -> atom -> bool
 val compare_atom : atom -> atom -> int
 
 module AtomSet : Set.S with type elt = atom
+module AtomMap : Map.S with type key = atom
 
 (** [index_of_atom x xs] finds the index of [x] in list [xs] if it's there. *)
 val index_of_atom : atom -> atom list -> int option
