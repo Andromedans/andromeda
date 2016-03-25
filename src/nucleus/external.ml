@@ -58,14 +58,7 @@ let externals =
             Runtime.return_unit
 
           | _ -> Runtime.(error ~loc (UnknownConfig s))
-        ));
-
-    ("simplify", fun loc ->
-      Runtime.return_closure (fun v ->
-          Runtime.get_env >>= fun env ->
-          let v = Simplify.value env v in
-          Runtime.return v
-        ));
+        ))
   ]
 
 

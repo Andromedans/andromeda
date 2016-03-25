@@ -3,7 +3,7 @@
 (** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
 type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
-type bound = int
+type bound
 
 (** The type of TT terms.
     (For details on the mutual definition with [term'], see module Location.)
@@ -99,17 +99,6 @@ val abstract_ty : Name.atom list -> ?lvl:int -> ty -> ty
 val substitute : Name.atom list -> term list -> term -> term
 
 val substitute_ty : Name.atom list -> term list -> ty -> ty
-
-
-val occurs: bound -> term -> int
-
-val occurs_ty: bound -> ty -> int
-
-val occurs_term_ty: bound -> term * ty -> int
-
-val occurs_ty_abstraction:
-  (bound -> 'a -> int) ->
-  bound -> 'a ty_abstraction -> int
 
 (** The asssumptions used by a term. *)
 val assumptions_term : term -> Name.AtomSet.t
