@@ -22,7 +22,7 @@ let print_error err ppf =
   | DesugarError err -> Desugar.print_error err ppf
 
 let print_located_error {Location.thing=err; loc} ppf =
-  Format.fprintf ppf "%t: %t" (Location.print loc) (print_error err)
+  Format.fprintf ppf "%t:@ %t" (Location.print loc) (print_error err)
 
 let reraise runtime = function
   | Runtime.Error {Location.thing=err; loc} ->
