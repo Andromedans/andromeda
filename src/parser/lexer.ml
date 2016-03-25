@@ -1,6 +1,5 @@
 
 open Parser
-open Ulexbuf
 
 let reserved = [
   ("Type", TYPE) ;
@@ -81,34 +80,34 @@ let hspace  = [%sedlex.regexp? (' ' | '\t' | '\r')]
 
 let quoted_string = [%sedlex.regexp? '"', Star (Compl '"'), '"']
 
-let update_eoi ({ pos_end; line_limit;_ } as lexbuf) =
+let update_eoi ({ Ulexbuf.pos_end; line_limit;_ } as lexbuf) =
   match line_limit with None -> () | Some line_limit ->
     if pos_end.Lexing.pos_lnum >= line_limit
-    then reached_end_of_input lexbuf
+    then Ulexbuf.reached_end_of_input lexbuf
 
-let loc_of lex = Location.make lex.pos_start lex.pos_end
+let loc_of lex = Location.make lex.Ulexbuf.pos_start lex.Ulexbuf.pos_end
 
-let rec token ({ end_of_input;_ } as lexbuf) =
+let rec token ({ Ulexbuf.end_of_input;_ } as lexbuf) =
   if end_of_input then EOF else token_aux lexbuf
 
-and token_aux ({ stream;_ } as lexbuf) =
-  let f () = update_pos lexbuf in
+and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
+  let f () = Ulexbuf.update_pos lexbuf in
   (* [g] updates the lexbuffer state to indicate whether a sensible end of
      input has been found, typically after a dot or a directive *)
   let g () = update_eoi lexbuf in
   match%sedlex stream with
-  | newline                  -> f (); new_line lexbuf; token_aux lexbuf
+  | newline                  -> f (); Ulexbuf.new_line lexbuf; token_aux lexbuf
   | start_longcomment        -> f (); comments 0 lexbuf
   | Plus hspace              -> f (); token_aux lexbuf
   | "#quit"                  -> f (); g (); QUIT
   | "#verbosity"             -> f (); VERBOSITY
   | "#include_once"          -> f (); INCLUDEONCE
   | quoted_string            -> f ();
-     let s = lexeme lexbuf in
+     let s = Ulexbuf.lexeme lexbuf in
      let l = String.length s in
      let n = ref 0 in
      String.iter (fun c -> if c = '\n' then incr n) s;
-     new_line ~n:!n lexbuf;
+     Ulexbuf.new_line ~n:!n lexbuf;
      QUOTED_STRING (String.sub s 1 (l - 2))
   | '('                      -> f (); LPAREN
   | ')'                      -> f (); RPAREN
@@ -117,7 +116,7 @@ and token_aux ({ stream;_ } as lexbuf) =
   | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
   | ','                      -> f (); COMMA
-  | '?', name                -> f (); PATTVAR (let s = lexeme lexbuf in
+  | '?', name                -> f (); PATTVAR (let s = Ulexbuf.lexeme lexbuf in
                                                let s = String.sub s 1 (String.length s - 1) in
                                                Name.make s)
   | "|-"                     -> f (); VDASH
@@ -128,48 +127,48 @@ and token_aux ({ stream;_ } as lexbuf) =
   | '!'                      -> f (); BANG
   | ":="                     -> f (); COLONEQ
   | ';'                      -> f (); SEMICOLON
-  | prefixop                 -> f (); PREFIXOP (let s = lexeme lexbuf in
+  | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:Name.Prefix s, loc_of lexbuf)
-  | infixop0                 -> f (); INFIXOP0 (let s = lexeme lexbuf in
+  | infixop0                 -> f (); INFIXOP0 (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix0) s, loc_of lexbuf)
-  | infixop1                 -> f (); INFIXOP1 (let s = lexeme lexbuf in
+  | infixop1                 -> f (); INFIXOP1 (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix1) s, loc_of lexbuf)
-  | infixcons                -> f (); INFIXCONS(let s = lexeme lexbuf in
+  | infixcons                -> f (); INFIXCONS(let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.InfixCons) s, loc_of lexbuf)
-  | infixop2                 -> f (); INFIXOP2 (let s = lexeme lexbuf in
+  | infixop2                 -> f (); INFIXOP2 (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix2) s, loc_of lexbuf)
   (* Comes before infixop3 because ** matches the infixop3 pattern too *)
-  | infixop4                 -> f (); INFIXOP4 (let s = lexeme lexbuf in
+  | infixop4                 -> f (); INFIXOP4 (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix4) s, loc_of lexbuf)
   (* Comes before infixop3 because * matches the infixop3 pattern too *)
   | '*'                      -> f (); STAR (Name.make ~fixity:(Name.Infix Level.Infix3) "*", loc_of lexbuf)
-  | infixop3                 -> f (); INFIXOP3 (let s = lexeme lexbuf in
+  | infixop3                 -> f (); INFIXOP3 (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix3) s, loc_of lexbuf)
 
   | eof                      -> f (); EOF
   | name                     -> f ();
-    let n = lexeme lexbuf in
+    let n = Ulexbuf.lexeme lexbuf in
     begin try List.assoc n reserved
     with Not_found -> NAME (Name.make n)
     end
-  | numeral                  -> f (); let k = int_of_string (lexeme lexbuf) in NUMERAL k
+  | numeral                  -> f (); let k = int_of_string (Ulexbuf.lexeme lexbuf) in NUMERAL k
   | any -> f ();
-     let w = lexeme lexbuf in
+     let w = Ulexbuf.lexeme lexbuf in
      let loc = loc_of lexbuf in
-     error ~loc (Unexpected w)
+     Ulexbuf.error ~loc (Ulexbuf.Unexpected w)
   | _ -> assert false
 
-and comments level ({ stream;_ } as lexbuf) =
+and comments level ({ Ulexbuf.stream;_ } as lexbuf) =
   match%sedlex stream with
   | end_longcomment ->
     if level = 0 then
-      begin update_pos lexbuf; token lexbuf end
+      begin Ulexbuf.update_pos lexbuf; token lexbuf end
     else
       comments (level-1) lexbuf
 
   | start_longcomment -> comments (level+1) lexbuf
-  | '\n'        -> new_line lexbuf; comments level lexbuf
-  | eof         -> error ~loc:(loc_of lexbuf) UnclosedComment
+  | '\n'        -> Ulexbuf.new_line lexbuf; comments level lexbuf
+  | eof         -> Ulexbuf.error ~loc:(loc_of lexbuf) Ulexbuf.UnclosedComment
   | any         -> comments level lexbuf
   | _           -> assert false
 
@@ -179,13 +178,13 @@ and comments level ({ stream;_ } as lexbuf) =
 (* (t -> 'a) -> ('a, 'b) MenhirLib.Convert.traditional -> t -> 'b *)
 let run
     ?(line_limit : int option)
-    (lexer : t -> 'a)
+    (lexer : Ulexbuf.t -> 'a)
     (parser : (Lexing.lexbuf -> 'a) -> Lexing.lexbuf -> 'b)
-    (lexbuf : t) : 'b =
-  set_line_limit line_limit lexbuf;
+    (lexbuf : Ulexbuf.t) : 'b =
+  Ulexbuf.set_line_limit line_limit lexbuf;
   let lexer () =
     let token = lexer lexbuf in
-    (token, lexbuf.pos_start, lexbuf.pos_end) in
+    (token, lexbuf.Ulexbuf.pos_start, lexbuf.Ulexbuf.pos_end) in
   let parser = MenhirLib.Convert.Simplified.traditional2revised parser in
   try
     parser lexer
@@ -193,15 +192,15 @@ let run
   | Parser.Error
   | Sedlexing.MalFormed
   | Sedlexing.InvalidCodepoint _ ->
-     let w = lexeme lexbuf in
+     let w = Ulexbuf.lexeme lexbuf in
      let loc = loc_of lexbuf in
-     error ~loc (Unexpected w)
+     Ulexbuf.error ~loc (Ulexbuf.Unexpected w)
 
 
 let read_file ?line_limit parse fn =
   try
     let fh = open_in fn in
-    let lex = from_channel ~fn fh in
+    let lex = Ulexbuf.from_channel ~fn fh in
     try
       let terms = run ?line_limit token parse lex in
       close_in fh;
@@ -242,10 +241,10 @@ let read_toplevel parse () =
   in
 
   let str = read_more "# " "" in
-  let lex = from_string (str ^ "\n") in
+  let lex = Ulexbuf.from_string (str ^ "\n") in
   run token parse lex
 
 let read_string parse s =
-  let lex = from_string s in
+  let lex = Ulexbuf.from_string s in
   run token parse lex
 
