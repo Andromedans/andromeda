@@ -9,6 +9,10 @@ type atom = private JAtom of ctx * Name.atom * Tt.ty
 (** The judgement that the given term is a type. *)
 type ty = private Ty of ctx * Tt.ty
 
+type eq_term
+
+type eq_ty
+
 module Ctx : sig
   (** The type of contexts. *)
   type t = ctx
@@ -130,4 +134,24 @@ val is_ty : loc:Location.t -> term -> ty
 
 (** [is_ty ∘ form] *)
 val form_ty : loc:Location.t -> Env.t -> shape -> ty
+
+
+(** Conversion *)
+
+type side = LEFT | RIGHT
+
+val eq_term_side : side -> eq_term -> term
+
+val eq_term_at_ty : eq_term -> ty
+
+val eq_ty_side : side -> eq_ty -> ty
+
+val eq_term_alpha : term -> eq_term
+
+val eq_ty_alpha : ty -> eq_ty
+
+(** Derivable rules *)
+
+(** if [e == e1] and [e == e2] then [refl e : e1 == e2] *)
+val mk_refl : loc:Location.t -> eq_term -> eq_term -> term
 

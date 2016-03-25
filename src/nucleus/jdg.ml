@@ -19,6 +19,12 @@ type atom = JAtom of ctx * Name.atom * Tt.ty
 
 type ty = Ty of ctx * Tt.ty
 
+(** The atom set is the hypotheses actually needed to prove the equality.
+    Remember that strengthening is controlled by the runtime. *)
+type eq_term = EqTerm of ctx * AtomSet.t * Tt.term * Tt.term * Tt.ty
+
+type eq_ty = EqTy of ctx * AtomSet.t * Tt.ty * Tt.ty
+
 type error =
   | AbstractDependency of Name.atom * Name.atom list
   | AbstractInvalidType of Name.atom * Tt.ty * Tt.ty
@@ -425,4 +431,38 @@ let is_ty ~loc (Term (ctx,e,t)) =
 
 let form_ty ~loc env s =
   is_ty ~loc (form ~loc env s)
+
+(** Conversion *)
+
+type side = LEFT | RIGHT
+
+let eq_term_side side (EqTerm (ctx, _, lhs, rhs, ty)) =
+  let term = match side with LEFT -> lhs | RIGHT -> rhs in
+  Term (ctx, term, ty)
+
+let eq_term_at_ty (EqTerm (ctx, _, _, _, ty)) =
+  Ty (ctx, ty)
+
+let eq_ty_side side (EqTy (ctx, _, lhs, rhs)) : ty =
+  let ty = match side with LEFT -> lhs | RIGHT -> rhs in
+  Ty (ctx, ty)
+
+let eq_term_alpha (Term (ctx, e, t)) =
+  let hyps = Tt.assumptions_term e in
+  EqTerm (ctx, hyps, e, e, t)
+
+let eq_ty_alpha (Ty (ctx, (Tt.Ty e as t))) =
+  let hyps = Tt.assumptions_term e in
+  EqTy (ctx, hyps, t, t)
+
+
+(** Derivables *)
+
+let mk_refl ~loc (EqTerm (ctx1, hyps1, lhs1, rhs1, t1)) (EqTerm (ctx2, hyps2, lhs2, rhs2, t2)) =
+  assert (Tt.alpha_equal_ty t1 t2 && Tt.alpha_equal lhs1 lhs2);
+  let hyps = AtomSet.union hyps1 hyps2 in
+  let ctx = Ctx.join ~loc ctx1 ctx2 in
+  let term = Tt.mk_refl ~loc t1 lhs1 in
+  let term = Tt.mention_atoms hyps term in
+  Term (ctx, term, Tt.mk_eq_ty ~loc t1 rhs1 rhs2)
 
