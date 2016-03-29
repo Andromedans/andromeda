@@ -470,6 +470,14 @@ let convert ~loc (Term (ctx1, e, t)) (EqTy (ctx2, hyps, t1, t2)) =
   let e = Tt.mention_atoms hyps e in
   Term (ctx, e, t2)
 
+let convert_eq ~loc (EqTerm (ctx1, hyps1, e1, e2, ty)) (EqTy (ctx2, hyps2, t1, t2)) =
+  assert (Tt.alpha_equal_ty ty t1);
+  let e1 = Tt.mention_atoms hyps2 e1
+  and e2 = Tt.mention_atoms hyps2 e2
+  and ctx = Ctx.join ~loc ctx1 ctx2
+  and hyps = AtomSet.union hyps1 hyps2 in
+  EqTerm (ctx, hyps, e1, e2, t2)
+
 (** Constructors *)
 let alpha_equal ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
   assert (Tt.alpha_equal_ty t1 t2);
@@ -496,6 +504,41 @@ let symmetry_ty (EqTy (ctx, hyps, t1, t2)) = EqTy (ctx, hyps, t2, t1)
 let is_type_equality (EqTerm (ctx, hyps, e1, e2, t)) =
   assert (Tt.alpha_equal_ty t Tt.typ);
   EqTy (ctx, hyps, Tt.ty e1, Tt.ty e2)
+
+let natural_ty ~loc env ctx e =
+  match e.Tt.term with
+    | Tt.Type ->
+      Tt.typ
+
+    | Tt.Atom x ->
+      begin match Ctx.lookup_atom x ctx with
+        | Some (JAtom (_, _, t)) -> t
+        | None -> assert false
+      end
+
+    | Tt.Constant c ->
+      Env.constant_type c env
+
+    | Tt.Prod _ ->
+      Tt.typ
+
+    | Tt.Lambda ((x,a),(_,b)) ->
+      Tt.mk_prod_ty ~loc x a b
+
+    | Tt.Apply (_,(_,b),e2) ->
+      Tt.instantiate_ty [e2] b
+
+    | Tt.Eq _ ->
+      Tt.typ
+
+    | Tt.Refl (a,e) ->
+      Tt.mk_eq_ty ~loc a e e
+
+    | Tt.Bound _ -> assert false
+
+let natural_eq ~loc env (Term (ctx, e, t)) =
+  let t' = natural_ty ~loc env ctx e in
+  EqTy (ctx, Tt.assumptions_term e, t, t')
 
 let reflect (Term (ctx, term, Tt.Ty t)) =
   match t.Tt.term with

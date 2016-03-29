@@ -153,8 +153,11 @@ val eq_term_at_ty : eq_term -> ty
 
 val eq_ty_side : side -> eq_ty -> ty
 
-(** The conversion rule *)
+(** The conversion rule: if [e : A] and [A == B] then [e : B] *)
 val convert : loc:Location.t -> term -> eq_ty -> term
+
+(** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
+val convert_eq : loc:Location.t -> eq_term -> eq_ty -> eq_term
 
 (** Constructors *)
 
@@ -167,6 +170,9 @@ val alpha_equal_ty : loc:Location.t -> ty -> ty -> eq_ty option
 val symmetry_ty : eq_ty -> eq_ty
 
 val is_type_equality : eq_term -> eq_ty
+
+(** If [e : B] and [A] is the natural type of [e] then [A == B] *)
+val natural_eq : loc:Location.t -> Env.t -> term -> eq_ty
 
 (** The reflection rule *)
 val reflect : term -> eq_term

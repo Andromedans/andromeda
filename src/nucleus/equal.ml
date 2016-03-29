@@ -61,8 +61,8 @@ let equal_ty ~loc j1 j2 =
   Opt.return eq
 
 (** Apply the appropriate congruence rule *)
-let congruence ~loc j1 j2 = (* TODO need to convert from natural type *)
-  match Jdg.shape j1, Jdg.shape j2 with
+let congruence ~loc j1 j2 =
+  begin match Jdg.shape j1, Jdg.shape j2 with
 
   | Jdg.Type, Jdg.Type | Jdg.Atom _, Jdg.Atom _ | Jdg.Constant _, Jdg.Constant _ ->
     begin match Jdg.alpha_equal ~loc j1 j2 with
@@ -141,6 +141,13 @@ let congruence ~loc j1 j2 = (* TODO need to convert from natural type *)
     | Jdg.Prod _ | Jdg.Lambda _ | Jdg.Apply _
     | Jdg.Eq _ | Jdg.Refl _), _ ->
     Opt.fail
+
+  end >?= fun eq ->
+  (* Ensure that the equality is at the right type. *)
+  Runtime.lookup_typing_env >!= fun env ->
+  let eqt = Jdg.natural_eq ~loc env j1 in
+  let eq = Jdg.convert_eq ~loc eq eqt in
+  Opt.return eq
 
 let extensionality ~loc j1 j2 = assert false (* TODO *)
 
