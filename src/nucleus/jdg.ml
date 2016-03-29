@@ -168,11 +168,15 @@ module Ctx = struct
       ty
 
   (* substitute x by e in ctx *)
-  let substitute ~loc x (ctx,e,t) =
+  let substitute ~loc ctx x (Term (ctxe, e, t)) =
+    let ctx = join ~loc ctx ctxe in
     match lookup x ctx with
+      | None -> ctx
       | Some xnode ->
-        if Tt.alpha_equal_ty xnode.ty t
+        if not (Tt.alpha_equal_ty xnode.ty t)
         then
+          error ~loc (SubstitutionInvalidType (x, xnode.ty, t))
+        else
           (* NB: rec_assumptions(t) <= rec_assumptions(e) *)
           let deps = recursive_assumptions ctx (Tt.assumptions_term e) in
           let ctx = AtomSet.fold (fun y ctx ->
@@ -198,9 +202,6 @@ module Ctx = struct
             let ctx = AtomMap.remove x ctx in
             let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
             ctx
-        else
-          error ~loc (SubstitutionInvalidType (x, xnode.ty, t))
-      | None -> ctx
 
 
   let elements ctx =
@@ -297,6 +298,9 @@ let strengthen (Term (ctx,e,t)) =
   let ctx = Ctx.restrict ctx hyps in
   Term (ctx,e,t)
 
+let occurs (JAtom (_, x, _)) (Term (ctx, _, _)) =
+  Ctx.lookup_atom x ctx
+
 let print_term ~penv ?max_level (Term (ctx, e, t)) ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%t%s @[<hv>@[<hov>%t@]@;<1 -2>: @[<hov>%t@]@]"
@@ -325,7 +329,7 @@ type shape =
   | Eq of term * term
   | Refl of term
 
-let shape ~loc (Term (ctx,e,t)) =
+let shape (Term (ctx,e,t)) =
   match e.Tt.term with
     | Tt.Type -> Type
 
@@ -370,7 +374,7 @@ let shape ~loc (Term (ctx,e,t)) =
 
     | Tt.Bound _ -> assert false
 
-let shape_ty ~loc j = shape ~loc (term_of_ty j)
+let shape_ty j = shape (term_of_ty j)
 
 (** Construct judgements *)
 let form ~loc env = function
@@ -432,6 +436,20 @@ let is_ty ~loc (Term (ctx,e,t)) =
 let form_ty ~loc env s =
   is_ty ~loc (form ~loc env s)
 
+(** Substitution *)
+let substitute_ty ~loc (Ty (ctxt, t)) (JAtom (ctxa, a, _)) (Term (_, s, _) as js) =
+  let ctxt = Ctx.join ~loc ctxt ctxa in
+  let ctxt = Ctx.substitute ~loc ctxt a js in
+  let t = Tt.substitute_ty [a] [s] t in
+  Ty (ctxt, t)
+
+let substitute ~loc (Term (ctxe, e, t)) (JAtom (ctxa, a, _)) (Term (_, s, _) as js) =
+  let ctxe = Ctx.join ~loc ctxe ctxa in
+  let ctxe = Ctx.substitute ~loc ctxe a js in
+  let t = Tt.substitute_ty [a] [s] t
+  and e = Tt.substitute [a] [s] e in
+  Term (ctxe, e, t)
+
 (** Conversion *)
 
 type side = LEFT | RIGHT
@@ -447,14 +465,45 @@ let eq_ty_side side (EqTy (ctx, _, lhs, rhs)) : ty =
   let ty = match side with LEFT -> lhs | RIGHT -> rhs in
   Ty (ctx, ty)
 
-let eq_term_alpha (Term (ctx, e, t)) =
-  let hyps = Tt.assumptions_term e in
-  EqTerm (ctx, hyps, e, e, t)
+let convert ~loc (Term (ctx1, e, t)) (EqTy (ctx2, hyps, t1, t2)) =
+  assert (Tt.alpha_equal_ty t t1);
+  let ctx = Ctx.join ~loc ctx2 ctx1 in
+  let e = Tt.mention_atoms hyps e in
+  Term (ctx, e, t2)
 
-let eq_ty_alpha (Ty (ctx, (Tt.Ty e as t))) =
-  let hyps = Tt.assumptions_term e in
-  EqTy (ctx, hyps, t, t)
+(** Constructors *)
+let alpha_equal ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
+  assert (Tt.alpha_equal_ty t1 t2);
+  if Tt.alpha_equal e1 e2
+  then
+    let ctx = Ctx.join ~loc ctx1 ctx2 in
+    (* XXX we use just one instead? *)
+    let hyps = AtomSet.union (Tt.assumptions_term e1) (Tt.assumptions_term e2) in
+    Some (EqTerm (ctx, hyps, e1, e2, t1))
+  else
+    None
 
+let alpha_equal_ty ~loc (Ty (ctx1, t1)) (Ty (ctx2, t2)) =
+  if Tt.alpha_equal_ty t1 t2
+  then
+    let ctx = Ctx.join ~loc ctx1 ctx2 in
+    let hyps = AtomSet.union (Tt.assumptions_ty t1) (Tt.assumptions_ty t2) in
+    Some (EqTy (ctx, hyps, t1, t2))
+  else
+    None
+
+let symmetry_ty (EqTy (ctx, hyps, t1, t2)) = EqTy (ctx, hyps, t2, t1)
+
+let is_type_equality (EqTerm (ctx, hyps, e1, e2, t)) =
+  assert (Tt.alpha_equal_ty t Tt.typ);
+  EqTy (ctx, hyps, Tt.ty e1, Tt.ty e2)
+
+let reflect (Term (ctx, term, Tt.Ty t)) =
+  match t.Tt.term with
+    | Tt.Eq (a, e1, e2) ->
+      let hyps = Tt.assumptions_term term in
+      EqTerm (ctx, hyps, e1, e2, a)
+    | _ -> assert false
 
 (** Derivables *)
 
@@ -465,4 +514,9 @@ let mk_refl ~loc (EqTerm (ctx1, hyps1, lhs1, rhs1, t1)) (EqTerm (ctx2, hyps2, lh
   let term = Tt.mk_refl ~loc t1 lhs1 in
   let term = Tt.mention_atoms hyps term in
   Term (ctx, term, Tt.mk_eq_ty ~loc t1 rhs1 rhs2)
+
+let refl_of_eq ~loc (EqTerm (ctx, hyps, lhs, rhs, ty)) =
+  let term = Tt.mk_refl ~loc ty lhs in
+  let term = Tt.mention_atoms hyps term in
+  Term (ctx, term, Tt.mk_eq_ty ~loc ty lhs rhs)
 

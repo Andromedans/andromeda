@@ -48,10 +48,6 @@ module Ctx : sig
       The dependencies from the first context are used when both atoms are present. *)
   val join : loc:Location.t -> t -> t -> t
 
-  (** [substitute x (ctx,e,ty)] replaces [x] in [ctx] by [e].
-      It assumes that the type of [x] in [ctx] is equal to [ty]. *)
-  val substitute : loc:Location.t -> Name.atom -> t * Tt.term * Tt.ty -> t
-
   (** [elements ctx] returns the elements of [ctx] sorted into a list so that all dependencies
       point forward in the list, ie the first atom does not depend on any atom, etc. *)
   val elements : t -> atom list
@@ -98,6 +94,9 @@ val mk_ty : Ctx.t -> Tt.ty -> ty
 (** Strengthening *)
 val strengthen : term -> term
 
+(** Does this atom occur in this judgement, and if so with what type? *)
+val occurs : atom -> term -> atom option
+
 (** Print the judgement that something is a term. *)
 val print_term : penv:Tt.print_env -> ?max_level:Level.t -> term -> Format.formatter -> unit
 
@@ -123,8 +122,8 @@ type shape =
   | Eq of term * term
   | Refl of term
 
-val shape : loc:Location.t -> term -> shape
-val shape_ty : loc:Location.t -> ty -> shape
+val shape : term -> shape
+val shape_ty : ty -> shape
 
 (** Construct a judgement using the appropriate formation rule. The type is the natural type. *)
 val form : loc:Location.t -> Env.t -> shape -> term
@@ -135,9 +134,17 @@ val is_ty : loc:Location.t -> term -> ty
 (** [is_ty ∘ form] *)
 val form_ty : loc:Location.t -> Env.t -> shape -> ty
 
+(** Substitution *)
+
+(** [substitute_ty t a v] substitutes [a] with [v] in [t]. *)
+val substitute_ty : loc:Location.t -> ty -> atom -> term -> ty
+
+(** [substitute e a v] substitutes [a] with [v] in [e]. *)
+val substitute : loc:Location.t -> term -> atom -> term -> term
 
 (** Conversion *)
 
+(** Destructors *)
 type side = LEFT | RIGHT
 
 val eq_term_side : side -> eq_term -> term
@@ -146,12 +153,29 @@ val eq_term_at_ty : eq_term -> ty
 
 val eq_ty_side : side -> eq_ty -> ty
 
-val eq_term_alpha : term -> eq_term
+(** The conversion rule *)
+val convert : loc:Location.t -> term -> eq_ty -> term
 
-val eq_ty_alpha : ty -> eq_ty
+(** Constructors *)
+
+(** Compare 2 terms up to alpha equality. They must have alpha-equivalent types. *)
+val alpha_equal : loc:Location.t -> term -> term -> eq_term option
+
+(** Compare 2 types up to alpha-equality. *)
+val alpha_equal_ty : loc:Location.t -> ty -> ty -> eq_ty option
+
+val symmetry_ty : eq_ty -> eq_ty
+
+val is_type_equality : eq_term -> eq_ty
+
+(** The reflection rule *)
+val reflect : term -> eq_term
 
 (** Derivable rules *)
 
 (** if [e == e1] and [e == e2] then [refl e : e1 == e2] *)
 val mk_refl : loc:Location.t -> eq_term -> eq_term -> term
+
+(** if [e1 == e2] then [refl e1 : e1 == e2] *)
+val refl_of_eq : loc:Location.t -> eq_term -> term
 

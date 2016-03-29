@@ -1,238 +1,99 @@
 (** Equality checking and weak-head-normal-forms *)
 
-(** Notation for the monads bind *)
-
-module AtomSet = Name.AtomSet
-
-module Monad = struct
-  type state = AtomSet.t
-
-  let empty = AtomSet.empty
-
-  type 'a t =
-    { k : 'r. ('a -> state -> 'r Runtime.comp) -> state -> 'r Runtime.comp }
-
-  let return x =
-    { k = fun c s -> c x s }
-
-  let (>>=) m f =
-    { k = fun c s -> m.k (fun x s -> (f x).k c s) s }
-
-  (* lift : 'a Runtime.comp -> 'a t *)
-  let lift m =
-    { k = fun c s -> Runtime.bind m (fun x -> c x s) }
-
-  let modify f =
-    { k = fun c s -> c () (f s) }
-
-  let add_hyps hyps = modify (AtomSet.union hyps)
-
-  let context_abstract ~loc ctx y t =
-    let ctx = Jdg.Ctx.abstract ~loc ctx y t in
-    modify (fun hyps -> AtomSet.remove y hyps) >>= fun () ->
-    return ctx
-
-  let run m =
-    m.k (fun x s -> Runtime.return (x,s)) empty
-end
-
+(** An option monad on top of Runtime.comp, which only uses Runtime.bind when necessary. *)
 module Opt = struct
-  type state = Monad.state
-
   type 'a opt =
-    { k : 'r. ('a -> state -> 'r Runtime.comp) -> (state -> 'r Runtime.comp) -> state -> 'r Runtime.comp }
+    { k : 'r. ('a -> 'r Runtime.comp) -> 'r Runtime.comp -> 'r Runtime.comp }
 
   let return x =
-    { k = fun sk _ s -> sk x s }
+    { k = fun sk _ -> sk x }
 
   let (>?=) m f =
-    { k = fun sk fk s -> m.k (fun x s -> (f x).k sk fk s) fk s }
+    { k = fun sk fk -> m.k (fun x -> (f x).k sk fk) fk }
 
-  let unfailing (m : 'a Monad.t) : 'a opt =
-    { k = fun sk _ s -> m.Monad.k sk s }
+  let lift (m : 'a Runtime.comp) : 'a opt =
+    { k = fun sk _ -> Runtime.bind m sk }
 
   let fail =
-    { k = fun _ fk s -> fk s }
+    { k = fun _ fk -> fk }
 
-  let locally (m : 'a opt) : ('a*state) opt =
-    { k = fun sk fk s -> m.k (fun x s' -> sk (x,s') (AtomSet.union s s')) fk Monad.empty }
-
+(*
   let add_abstracting ~loc x j m =
-    { k = fun sk fk s ->
-          Runtime.add_abstracting ~loc x j (fun jx -> (m jx).k (fun y s' -> (sk y s')) fk s) }
+    { k = fun sk fk ->
+          Runtime.add_abstracting ~loc x j (fun jx -> (m jx).k sk fk) }
+*)
 
   let run m =
-    m.k (fun x s -> Runtime.return (Some (x,s))) (fun _ -> Runtime.return None) AtomSet.empty
+    m.k (fun x -> Runtime.return (Some x)) (Runtime.return None)
 end
 
-module Internals = struct
-
-let (>>=) = Monad.(>>=)
+(*
+let (>>=) = Runtime.bind
+*)
 
 let (>?=) = Opt.(>?=)
 
-let (>!=) m f = (Opt.unfailing m) >?= f
+let (>!=) m f = (Opt.lift m) >?= f
+
+module Internals = struct
 
 (** Compare two types *)
-let rec equal ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
-  if Tt.alpha_equal e1 e2
-  then
-    Opt.return ctx
-  else
-    Monad.lift (Predefined.operation_equal
-        (Runtime.mk_term (Jdg.mk_term ctx e1 t))
-        (Runtime.mk_term (Jdg.mk_term ctx e2 t))) >!= fun v ->
-    let loc = loc1 in
-    match Predefined.as_option ~loc v with
-      | None -> Opt.fail
-      | Some v ->
-        let Jdg.Term (ctxeq,eq,teq) = Runtime.as_term ~loc v in
-        let ctx = Jdg.Ctx.join ~loc ctx ctxeq in
-        Monad.add_hyps (Tt.assumptions_term eq) >!= fun () ->
-        let tgoal = Tt.mk_eq_ty ~loc t e1 e2 in
-        equal_ty ctx teq tgoal
+let equal ~loc j1 j2 =
+  match Jdg.alpha_equal ~loc j1 j2 with
+    | Some eq -> Opt.return eq
+    | None ->
+      Predefined.operation_equal ~loc j1 j2 >!= begin function
+        | Some juser ->
+          Runtime.lookup_typing_env >!= fun env ->
+          let target = Jdg.form_ty ~loc env (Jdg.Eq (j1, j2)) in
+          begin match Jdg.alpha_equal_ty ~loc target (Jdg.typeof juser) with
+            | Some _ -> 
+              let eq = Jdg.reflect juser in
+              Opt.return eq
+            | None -> Opt.lift (Runtime.(error ~loc (InvalidEqual target)))
+          end
+        | None -> Opt.fail
+      end
 
-and equal_ty ctx (Tt.Ty t1) (Tt.Ty t2) = equal ctx t1 t2 Tt.typ
+let equal_ty ~loc j1 j2 =
+  equal ~loc (Jdg.term_of_ty j1) (Jdg.term_of_ty j2) >?= fun eq ->
+  let eq = Jdg.is_type_equality eq in
+  Opt.return eq
 
 (** Apply the appropriate congruence rule *)
-let congruence ~loc ctx ({Tt.loc=loc1;_} as e1) ({Tt.loc=loc2;_} as e2) t =
-  match e1.Tt.term, e2.Tt.term with
+let congruence ~loc j1 j2 =
+  match Jdg.shape j1, Jdg.shape j2 with
 
-  | Tt.Atom x, Tt.Atom y ->
-     if Name.eq_atom x y then Opt.return ctx
-     else Opt.fail
+  | Jdg.Type, Jdg.Type | Jdg.Atom _, Jdg.Atom _ | Jdg.Constant _, Jdg.Constant _ ->
+    begin match Jdg.alpha_equal ~loc j1 j2 with
+      | Some eq -> Opt.return eq
+      | None -> Opt.fail
+    end
 
-  | Tt.Bound _, _ | _, Tt.Bound _ ->
-     assert false
+  | Jdg.Prod (a1, b1), Jdg.Prod (a2, b2) ->
+    let ta1 = Jdg.atom_ty a1
+    and ta2 = Jdg.atom_ty a2 in
+    equal_ty ~loc ta1 ta2 >?= fun eq_a ->
+    assert false (* TODO *)
 
-  | Tt.Constant x, Tt.Constant y ->
-     if Name.eq_ident x y then Opt.return ctx
-     else Opt.fail
-
-  | Tt.Lambda ((x,a1), (e1, t1)), Tt.Lambda ((_,a2), (e2, t2)) ->
-    Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    let ja = Jdg.mk_ty ctx a1 in
-    Opt.add_abstracting ~loc x ja (fun (Jdg.JAtom (ctx, y, _)) ->
-    let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
-    let e1 = Tt.unabstract [y] e1
-    and t1 = Tt.unabstract_ty [y] t1
-    and e2 = Tt.instantiate [y'] e2
-    and t2 = Tt.instantiate_ty [y'] t2 in
-    Opt.locally (equal_ty ctx t1 t2) >?= fun (ctx,hypst) ->
-    let e2 = Tt.mention_atoms hypst e2 in
-    equal ctx e1 e2 t1 >?= fun ctx ->
-    Monad.context_abstract ~loc ctx y a1 >!= fun ctx ->
-    Opt.return ctx)
-
-  | Tt.Apply (h1, ((x,a1),b1), e1), Tt.Apply (h2, ((_,a2),b2), e2) ->
-    Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun (Jdg.JAtom (ctx, y, _)) ->
-      let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
-      let b1 = Tt.unabstract_ty [y] b1
-      and b2 = Tt.instantiate_ty [y'] b2 in
-      equal_ty ctx b1 b2 >?= fun ctx ->
-      Monad.context_abstract ~loc ctx y a1 >!= fun ctx ->
-      Opt.return ctx)) >?= fun (ctx,hypsb) ->
-    let prod = Tt.mk_prod_ty ~loc x a1 b1 in
-    let h2 = Tt.mention_atoms hypsb (Tt.mention_atoms hypsa h2) in
-    equal ctx h1 h2 prod >?= fun ctx ->
-    let e2 = Tt.mention_atoms hypsa e2 in
-    equal ctx e1 e2 a1
-
-  | Tt.Type, Tt.Type -> Opt.return ctx
-
-  | Tt.Prod ((x,a1), b1), Tt.Prod ((_,a2), b2) ->
-    Opt.locally (equal_ty ctx a1 a2) >?= fun (ctx,hypsa) ->
-    Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a1) (fun (Jdg.JAtom (ctx, y, _)) ->
-    let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
-    let b1 = Tt.unabstract_ty [y] b1
-    and b2 = Tt.instantiate_ty [y'] b2 in
-    equal_ty ctx b1 b2 >?= fun ctx ->
-    Monad.context_abstract ~loc ctx y a1 >!= fun ctx ->
-    Opt.return ctx)
-
-  | Tt.Eq (u, d1, d2), Tt.Eq (u', d1', d2') ->
-     Opt.locally (equal_ty ctx u u') >?= fun (ctx,hyps) ->
-     equal ctx d1 (Tt.mention_atoms hyps d1') u >?= fun ctx ->
-     equal ctx d2 (Tt.mention_atoms hyps d2') u
-
-  | Tt.Refl (u, d), Tt.Refl (u', d') ->
-     Opt.locally (equal_ty ctx u u') >?= fun (ctx,hyps) ->
-     equal ctx d (Tt.mention_atoms hyps d') u
-
-  | (Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _ |
-     Tt.Type | Tt.Prod _ | Tt.Eq _ | Tt.Refl _), _ ->
-     Opt.fail
-
-
-let extensionality ~loc ctx e1 e2 (Tt.Ty t') =
-  match t'.Tt.term with
-  | Tt.Prod ((x, a), b) ->
-    Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a)
-      (fun (Jdg.JAtom (ctx, y, _)) ->
-      let yt = Tt.mk_atom ~loc y in
-      let e1' = Tt.mk_apply ~loc e1 x a b yt in
-      let e2' = Tt.mk_apply ~loc e2 x a b yt in
-      let b' = Tt.unabstract_ty [y] b in
-      equal ctx e1' e2' b' >?= fun ctx ->
-      Monad.context_abstract ~loc ctx y a >!= fun ctx ->
-      Opt.return ctx)
-
-  | Tt.Eq _ -> Opt.return ctx
-
-  | Tt.Type | Tt.Atom _ | Tt.Constant _ | Tt.Lambda _ | Tt.Apply _ | Tt.Refl _ ->
+(*
+  | (Jdg.Type | Jdg.Atom _ | Jdg.Constant _
+    | Jdg.Prod _ | Jdg.Lambda _ | Jdg.Apply _
+    | Jdg.Eq _ | Jdg.Refl _), _ ->
     Opt.fail
+*)
+  | _ -> assert false (* TODO *)
 
-  | Tt.Bound _ ->
-     assert false
-
-
-
-(** Beta reduction of [Lambda ((x,a), (e, b))] applied to argument [e'],
-    where [((x,a'), b')] is the typing annotation for the application.
-    Returns the resulting expression. *)
-let beta_reduce ~loc ctx (x,a) e b (_,a') b' e' =
-  Opt.locally (equal_ty ctx a a') >?= fun (ctx,hypsa) ->
-  Opt.locally (Opt.add_abstracting ~loc x (Jdg.mk_ty ctx a) (fun (Jdg.JAtom (ctx, y, _)) ->
-    let y' = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
-    let b = Tt.unabstract_ty [y] b
-    and b' = Tt.instantiate_ty [y'] b' in
-    equal_ty ctx b b' >?= fun ctx ->
-    Monad.context_abstract ~loc ctx y a >!= fun ctx ->
-    Opt.return ctx)) >?= fun (ctx,hypsb) ->
-  let e' = Tt.mention_atoms hypsa e' in
-  let e = Tt.instantiate [e'] e in
-  let e = Tt.mention_atoms hypsb e in
-  Opt.return (ctx,e)
-
-let reduction_step ctx {Tt.term=e'; assumptions; loc} =
-  match e' with
-  | Tt.Apply (e1, (xts, t), e2) ->
-     begin match e1.Tt.term with
-           | Tt.Lambda (xus, (e', u)) ->
-              beta_reduce ~loc ctx xus e' u xts t e2 >?= fun (ctx, e) ->
-              Opt.return (ctx, Tt.mention assumptions e)
-           | Tt.Atom _
-           | Tt.Constant _
-           | Tt.Apply _
-           | Tt.Type
-           | Tt.Prod _
-           | Tt.Eq _
-           | Tt.Refl _ -> Opt.fail
-           | Tt.Bound _ -> assert false              
-     end
-
-  | Tt.Constant _
-  | Tt.Lambda _
-  | Tt.Prod _
-  | Tt.Atom _
-  | Tt.Type
-  | Tt.Eq _
-  | Tt.Refl _ -> Opt.fail
-  | Tt.Bound _ -> assert false
+let extensionality ~loc j1 j2 = assert false (* TODO *)
 
 
-let as_eq_alpha (Jdg.Ty (_, (Tt.Ty {Tt.term=t';_}))) =
+let reduction_step ~loc j = assert false (* TODO *)
+
+let as_eq ~loc j = assert false (* TODO *)
+let as_prod ~loc j = assert false (* TODO *)
+
+(*
+let as_eq_alpha t' =
   match t' with
     | Tt.Eq (t, e1, e2) -> Some (t, e1, e2)
     | _ -> None
@@ -306,26 +167,22 @@ let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
                  Runtime.(error ~loc (InvalidAsProduct j_tv))
           end
       end
-
+*)
 end
 
 (** Expose without the monad stuff *)
 
-type 'a witness = ('a * AtomSet.t) Runtime.comp
+let equal ~loc j1 j2 = Opt.run (Internals.equal ~loc j1 j2)
 
-type 'a opt = ('a * AtomSet.t) option Runtime.comp
+let equal_ty ~loc j1 j2 = Opt.run (Internals.equal_ty ~loc j1 j2)
 
-let equal ctx e1 e2 t = Opt.run (Internals.equal ctx e1 e2 t)
+let reduction_step ~loc j = Opt.run (Internals.reduction_step ~loc j)
 
-let equal_ty ctx t1 t2 = Opt.run (Internals.equal_ty ctx t1 t2)
+let congruence ~loc j1 j2 = Opt.run (Internals.congruence ~loc j1 j2)
 
-let reduction_step ctx e = Opt.run (Internals.reduction_step ctx e)
+let extensionality ~loc j1 j2 = Opt.run (Internals.extensionality ~loc j1 j2)
 
-let congruence ~loc ctx e1 e2 t = Opt.run (Internals.congruence ~loc ctx e1 e2 t)
+let as_eq ~loc j = Opt.run (Internals.as_eq ~loc j)
 
-let extensionality ~loc ctx e1 e2 t = Opt.run (Internals.extensionality ~loc ctx e1 e2 t)
-
-let as_eq j = Monad.run (Internals.as_eq j)
-
-let as_prod j = Monad.run (Internals.as_prod j)
+let as_prod ~loc j = Opt.run (Internals.as_prod ~loc j)
 

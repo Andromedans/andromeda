@@ -18,7 +18,7 @@ let update k v xvs =
 
 let rec collect_tt_pattern env xvs p j =
   let loc = p.Location.loc in
-  match p.Location.thing, Jdg.shape ~loc j with
+  match p.Location.thing, Jdg.shape j with
   | Syntax.Tt_Anonymous, _ -> xvs
 
   | Syntax.Tt_As (p,k), _ ->

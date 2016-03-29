@@ -36,11 +36,12 @@ type error =
   | UnknownConfig of string
   | Inapplicable of value
   | TypeMismatch of Jdg.ty * Jdg.ty
-  | EqualityFail of Tt.term * Tt.term
+  | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
   | MatchFail of value
   | ConstantDependency
   | FailureFail of value
+  | InvalidEqual of Jdg.ty
   | EqualityTypeExpected of Jdg.ty
   | InvalidAsEquality of Jdg.ty
   | ProductExpected of Jdg.ty
