@@ -191,7 +191,7 @@ val congr_apply : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term ->
 val congr_eq : loc:Location.t -> eq_ty -> eq_term -> eq_term -> eq_term
 val congr_eq_ty : loc:Location.t -> eq_ty -> eq_term -> eq_term -> eq_ty
 
-(** If [A == B] and [e1 == e2 : A] then [refl A e1 == refl B e2 : Eq A e1 e2] *)
+(** If [A == B] and [e1 == e2 : A] then [refl A e1 == refl B e2 : Eq A e1 e1] *)
 val congr_refl : loc:Location.t -> eq_ty -> eq_term -> eq_term
 
 (** Derivable rules *)

@@ -97,6 +97,8 @@ let typ = Ty (mk_type ~loc:Location.unknown)
 let mention_atoms a e =
   { e with assumptions = Assumption.add_atoms a e.assumptions }
 
+let mention_atoms_ty a (Ty e) = Ty (mention_atoms a e)
+
 let mention a e =
   { e with assumptions = Assumption.union e.assumptions a }
 

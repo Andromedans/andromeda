@@ -443,8 +443,7 @@ let substitute_ty ~loc (Ty (ctxt, t)) (JAtom (ctxa, a, _)) (Term (_, s, _) as js
   let t = Tt.substitute_ty [a] [s] t in
   Ty (ctxt, t)
 
-let substitute ~loc (Term (ctxe, e, t)) (JAtom (ctxa, a, _)) (Term (_, s, _) as js) =
-  let ctxe = Ctx.join ~loc ctxe ctxa in
+let substitute ~loc (Term (ctxe, e, t)) (JAtom (_, a, _)) (Term (_, s, _) as js) =
   let ctxe = Ctx.substitute ~loc ctxe a js in
   let t = Tt.substitute_ty [a] [s] t
   and e = Tt.substitute [a] [s] e in
@@ -511,7 +510,7 @@ let congr_prod ~loc (EqTy (ctxa, hypsa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, 
   let ctxb = Ctx.abstract ~loc ctxb x ta1
   and hypsb = AtomSet.remove x hypsb
   and b1 = Tt.abstract_ty [x] b1
-  and b2 = Tt.abstract_ty [x] b2 in (* TODO do we need to put hypsa in b2 ? *)
+  and b2 = Tt.abstract_ty [y] (Tt.substitute_ty [x] [Tt.mention_atoms hypsa (Tt.mk_atom ~loc y)] b2) in
   let ctx = Ctx.join ~loc ctxa ctxb
   and hyps = AtomSet.union hypsa hypsb in
   let lhs = Tt.mk_prod ~loc (Name.ident_of_atom x) ta1 b1
@@ -526,15 +525,19 @@ let congr_lambda ~loc (EqTy (ctxa, hypsa, ta1, ta2))
                  (EqTy (ctxb, hypsb, b1, b2))
                  (EqTerm (ctxe, hypse, e1, e2, ty_e)) =
   assert (Tt.alpha_equal_ty b1 ty_e);
-  let ctx = Ctx.join ~loc ctxa (Ctx.abstract ~loc (Ctx.join ~loc ctxb ctxe) x ta1)
-  and hyps = AtomSet.union hypsa (AtomSet.remove x (AtomSet.union hypsb hypse)) in
+  let ctx = Ctx.join ~loc ctxa (Ctx.abstract ~loc (Ctx.join ~loc ctxb ctxe) x ta1) in
+  let hypsb = AtomSet.remove x hypsb
+  and hypse = AtomSet.remove x hypse in
+  let hypsab = AtomSet.union hypsa hypsb in
+  let hyps = AtomSet.union hypsab hypse in
+  let y_mentions = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
   let e1 = Tt.abstract [x] e1
-  and e2 = Tt.abstract [x] e2
+  and e2 = Tt.abstract [y] (Tt.substitute [x] [y_mentions] e2)
   and b1 = Tt.abstract_ty [x] b1
-  and b2 = Tt.abstract_ty [x] b2 in
+  and b2 = Tt.abstract_ty [x] (Tt.substitute_ty [x] [y_mentions] b2) in
   let lhs = Tt.mk_lambda ~loc (Name.ident_of_atom x) ta1 e1 b1
-  and rhs = Tt.mk_lambda ~loc (Name.ident_of_atom y) ta2 e2 b2
-  and ty = Tt.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in (* TODO do we need to put hyps in b2, e2, or rhs ? *)
+  and rhs = Tt.mention_atoms hypsab (Tt.mk_lambda ~loc (Name.ident_of_atom y) ta2 e2 b2)
+  and ty = Tt.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in
   EqTerm (ctx, hyps, lhs, rhs, ty)
 
 let congr_apply ~loc (EqTy (ctxa, hypsa, ta1, ta2))
@@ -542,29 +545,31 @@ let congr_apply ~loc (EqTy (ctxa, hypsa, ta1, ta2))
                 (EqTy (ctxb, hypsb, b1, b2))
                 (EqTerm (ctxh, hypsh, h1, h2, ty_h))
                 (EqTerm (ctxe, hypse, e1, e2, ty_e)) =
-  (* TODO hyps ? *)
+  let y_mentions = Tt.mention_atoms hypsa (Tt.mk_atom ~loc y) in
   let b1 = Tt.abstract_ty [x] b1
-  and b2 = Tt.abstract_ty [x] b2
+  and b2 = Tt.abstract_ty [y] (Tt.substitute_ty [x] [y_mentions] b2)
   and ctxb = Ctx.abstract ~loc ctxb x ta1
   and hypsb = AtomSet.remove x hypsb in
   let prod1 = Tt.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in
   assert (Tt.alpha_equal_ty prod1 ty_h && Tt.alpha_equal_ty ta1 ty_e);
-  let ctx = Ctx.join ~loc ctxa (Ctx.join ~loc ctxb (Ctx.join ~loc ctxh ctxe))
-  and hyps = AtomSet.union hypsa (AtomSet.union hypsb (AtomSet.union hypsh hypse))
-  and lhs = Tt.mk_apply ~loc h1 (Name.ident_of_atom x) ta1 b1 e1
-  and rhs = Tt.mk_apply ~loc h2 (Name.ident_of_atom y) ta2 b2 e2
+  let ctx = Ctx.join ~loc ctxa (Ctx.join ~loc ctxb (Ctx.join ~loc ctxh ctxe)) in
+  let hypsab = AtomSet.union hypsa hypsb in
+  let hypsabe = AtomSet.union hypsab hypse in
+  let hyps = AtomSet.union hypsabe hypsh in
+  let lhs = Tt.mk_apply ~loc h1 (Name.ident_of_atom x) ta1 b1 e1
+  and rhs = Tt.mk_apply ~loc (Tt.mention_atoms hypsab h2) (Name.ident_of_atom y) ta2 (Tt.mention_atoms_ty hypsa b2) (Tt.mention_atoms hypsa e2)
   and ty = Tt.instantiate_ty [e1] b1 in
+  let rhs = Tt.mention_atoms hypsabe rhs in
   EqTerm (ctx, hyps, lhs, rhs, ty)
 
 let congr_eq ~loc (EqTy (ctxt, hypst, t1, t2))
              (EqTerm (ctxl, hypsl, l1, l2, ty_l))
              (EqTerm (ctxr, hypsr, r1, r2, ty_r)) =
-  (* TODO hyps ? *)
-  assert (Tt.alpha_equal_ty t1 ty_l && Tt.alpha_equal_ty t2 ty_r);
+  assert (Tt.alpha_equal_ty t1 ty_l && Tt.alpha_equal_ty t1 ty_r);
   let ctx = Ctx.join ~loc ctxt (Ctx.join ~loc ctxl ctxr)
   and hyps = AtomSet.union hypst (AtomSet.union hypsl hypsr) in
-  let lhs = Tt.mk_eq ~loc t1 l1 r1
-  and rhs = Tt.mk_eq ~loc t2 l2 r2 in
+  let lhs = Tt.mk_eq ~loc t1 l1 (Tt.mention_atoms hypst r1)
+  and rhs = Tt.mk_eq ~loc t2 l2 (Tt.mention_atoms hypst r2) in
   EqTerm (ctx, hyps, lhs, rhs, Tt.typ)
 
 let congr_eq_ty ~loc eq_ty eq_l eq_r =
@@ -572,13 +577,12 @@ let congr_eq_ty ~loc eq_ty eq_l eq_r =
 
 let congr_refl ~loc (EqTy (ctxt, hypst, t1, t2))
                (EqTerm (ctxe, hypse, e1, e2, ty_e)) =
-  (* TODO hyps ? *)
   assert (Tt.alpha_equal_ty t1 ty_e);
   let ctx = Ctx.join ~loc ctxt ctxe
   and hyps = AtomSet.union hypst hypse in
   let lhs = Tt.mk_refl ~loc t1 e1
-  and rhs = Tt.mk_refl ~loc t2 e2
-  and ty = Tt.mk_eq_ty ~loc t1 e1 e2 in
+  and rhs = Tt.mention_atoms hyps (Tt.mk_refl ~loc t2 (Tt.mention_atoms hypst e2))
+  and ty = Tt.mk_eq_ty ~loc t1 e1 e1 in
   EqTerm (ctx, hyps, lhs, rhs, ty)
 
 (** Derivables *)
