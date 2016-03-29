@@ -547,6 +547,28 @@ let reflect (Term (ctx, term, Tt.Ty t)) =
       EqTerm (ctx, hyps, e1, e2, a)
     | _ -> assert false
 
+(** Beta *)
+
+let beta ~loc (EqTy (ctxa, hypsa, a1, a2))
+              (JAtom (_, x, _)) (JAtom (_, y, _))
+              (EqTy (ctxb, hypsb, b1, b2))
+              (Term (ctx1, e1, t1))
+              (Term (ctx2, e2, t2)) =
+  assert (Tt.alpha_equal_ty b1 t1 && Tt.alpha_equal_ty a2 t2);
+  let ctxb = Ctx.abstract ~loc ctxb x a1
+  and hypsb = AtomSet.remove x hypsb
+  and b1 = Tt.abstract_ty [x] b1
+  and e1 = Tt.abstract [x] e1
+  and b2 = Tt.abstract_ty [y] (Tt.substitute_ty [x] [Tt.mention_atoms hypsa (Tt.mk_atom ~loc y)] b2) in
+  let ctx = Ctx.join ~loc ctxa ctxb
+  and hyps = AtomSet.union hypsa hypsb
+  and lam = Tt.mk_lambda ~loc (Name.ident_of_atom x) a1 e1 b1
+  and e_s = Tt.mention_atoms hypsb (Tt.instantiate [Tt.mention_atoms hypsa e2] e1) in
+  let app = Tt.mk_apply ~loc lam (Name.ident_of_atom y) a2 b2 e2
+  and ty = Tt.instantiate_ty [e2] b2 in
+  EqTerm (ctx, hyps, app, e_s, ty)
+  
+
 (** Congruence *)
 
 let congr_prod ~loc (EqTy (ctxa, hypsa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) (EqTy (ctxb, hypsb, b1, b2)) =

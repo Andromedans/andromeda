@@ -177,6 +177,11 @@ val natural_eq : loc:Location.t -> Env.t -> term -> eq_ty
 (** The reflection rule *)
 val reflect : term -> eq_term
 
+(** Beta reduction *)
+
+(** If [A1 == A2], [B1 == B2], [e1 : B1] and [e2 : A2] then [(lambda A1 B1 e1) @[A2 B2] e2 == e1[e2] : B2[e2]]. *)
+val beta : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> term -> term -> eq_term
+
 (** Congruence rules *)
 
 (** If [A1 == A2] and [B1 == B2] then [prod A1 B1 == prod A2 B2].
