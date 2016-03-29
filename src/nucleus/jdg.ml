@@ -628,6 +628,38 @@ let congr_refl ~loc (EqTy (ctxt, hypst, t1, t2))
   and ty = Tt.mk_eq_ty ~loc t1 e1 e1 in
   EqTerm (ctx, hyps, lhs, rhs, ty)
 
+(** Extensionality *)
+
+let uip ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
+  assert (Tt.alpha_equal_ty t1 t2);
+  let Tt.Ty t1_term = t1 in
+  match t1_term.Tt.term with
+    | Tt.Eq _ ->
+      let ctx = Ctx.join ~loc ctx1 ctx2 in
+      let hyps = AtomSet.union (Tt.assumptions_term e1) (Tt.assumptions_term e2) in
+      EqTerm (ctx, hyps, e1, e2, t1)
+
+    | _ -> assert false
+
+let funext ~loc (EqTerm (ctx, hyps, lhs, rhs, _)) =
+  match lhs.Tt.term, rhs.Tt.term with
+    | Tt.Apply (h1, ((x,a1),b1), e1), Tt.Apply (h2, ((_,a2),b2), e2) ->
+      assert (Tt.alpha_equal_ty a1 a2 && Tt.alpha_equal_ty b1 b2);
+      assert (Tt.alpha_equal e1 e2);
+      begin match e1.Tt.term with
+        | Tt.Atom a ->
+          let ctx = Ctx.abstract ~loc ctx a a1
+          and hyps = AtomSet.remove a hyps
+          and prod = Tt.mk_prod_ty ~loc x a1 b1 in
+          EqTerm (ctx, hyps, h1, h2, prod)
+
+        | Tt.Type | Tt.Bound _ | Tt.Constant _
+        | Tt.Prod _ | Tt.Lambda _ | Tt.Apply _
+        | Tt.Eq _ | Tt.Refl _ -> assert false
+      end
+
+   | _ -> assert false
+
 (** Derivables *)
 
 let mk_refl ~loc (EqTerm (ctx1, hyps1, lhs1, rhs1, t1)) (EqTerm (ctx2, hyps2, lhs2, rhs2, t2)) =

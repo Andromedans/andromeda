@@ -200,6 +200,12 @@ val congr_eq_ty : loc:Location.t -> eq_ty -> eq_term -> eq_term -> eq_ty
 (** If [A == B] and [e1 == e2 : A] then [refl A e1 == refl B e2 : Eq A e1 e1] *)
 val congr_refl : loc:Location.t -> eq_ty -> eq_term -> eq_term
 
+(** Extensionality rules *)
+
+val uip : loc:Location.t -> term -> term -> eq_term
+
+val funext : loc:Location.t -> eq_term -> eq_term
+
 (** Derivable rules *)
 
 (** if [e == e1] and [e == e2] then [refl e : e1 == e2] *)

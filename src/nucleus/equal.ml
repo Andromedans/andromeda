@@ -149,8 +149,25 @@ let congruence ~loc j1 j2 =
   let eq = Jdg.convert_eq ~loc eq eqt in
   Opt.return eq
 
-let extensionality ~loc j1 j2 = assert false (* TODO *)
 
+let extensionality ~loc j1 j2 =
+  match Jdg.shape_ty (Jdg.typeof j1) with
+
+    | Jdg.Prod (a, b) ->
+      Runtime.lookup_typing_env >!= fun env ->
+      let ja = Jdg.form ~loc env (Jdg.Atom a) in
+      let lhs = Jdg.form ~loc env (Jdg.Apply (j1, ja))
+      and rhs = Jdg.form ~loc env (Jdg.Apply (j2, ja)) in
+      equal ~loc lhs rhs >?= fun eq ->
+      let eq = Jdg.funext ~loc eq in
+      Opt.return eq
+    
+    | Jdg.Eq _ ->
+      let eq = Jdg.uip ~loc j1 j2 in
+      Opt.return eq
+    
+    | Jdg.Type | Jdg.Atom _ | Jdg.Constant _ | Jdg.Lambda _ | Jdg.Apply _ | Jdg.Refl _ ->
+      Opt.fail
 
 let reduction_step ~loc j = assert false (* TODO *)
 
