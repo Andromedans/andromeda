@@ -17,7 +17,7 @@ module Opt = struct
   let fail =
     { k = fun _ fk -> fk }
 
-(*
+(* TODO
   let add_abstracting ~loc x j m =
     { k = fun sk fk ->
           Runtime.add_abstracting ~loc x j (fun jx -> (m jx).k sk fk) }
@@ -61,7 +61,7 @@ let equal_ty ~loc j1 j2 =
   Opt.return eq
 
 (** Apply the appropriate congruence rule *)
-let congruence ~loc j1 j2 =
+let congruence ~loc j1 j2 = (* TODO need to convert from natural type *)
   match Jdg.shape j1, Jdg.shape j2 with
 
   | Jdg.Type, Jdg.Type | Jdg.Atom _, Jdg.Atom _ | Jdg.Constant _, Jdg.Constant _ ->
@@ -74,15 +74,73 @@ let congruence ~loc j1 j2 =
     let ta1 = Jdg.atom_ty a1
     and ta2 = Jdg.atom_ty a2 in
     equal_ty ~loc ta1 ta2 >?= fun eq_a ->
-    assert false (* TODO *)
+    let a1_ta2 = Jdg.convert ~loc (Jdg.atom_term ~loc a1) eq_a in
+    let b2 = Jdg.substitute_ty ~loc b2 a2 a1_ta2 in
+    equal_ty ~loc b1 b2 >?= fun eq_b ->
+    let eq = Jdg.congr_prod ~loc eq_a a1 a2 eq_b in
+    Opt.return eq
 
-(*
+  | Jdg.Lambda (a1, e1), Jdg.Lambda (a2, e2) ->
+    let ta1 = Jdg.atom_ty a1
+    and ta2 = Jdg.atom_ty a2 in
+    equal_ty ~loc ta1 ta2 >?= fun eq_a ->
+    let a1_ta2 = Jdg.convert ~loc (Jdg.atom_term ~loc a1) eq_a in
+    let e2 = Jdg.substitute ~loc e2 a2 a1_ta2 in
+    let b1 = Jdg.typeof e1
+    and b2 = Jdg.typeof e2 in
+    equal_ty ~loc b1 b2 >?= fun eq_b ->
+    let e2 = Jdg.convert ~loc e2 (Jdg.symmetry_ty eq_b) in
+    equal ~loc e1 e2 >?= fun eq_e ->
+    let eq = Jdg.congr_lambda ~loc eq_a a1 a2 eq_b eq_e in
+    Opt.return eq
+
+  | Jdg.Apply (h1, e1), Jdg.Apply (h2, e2) ->
+    let a1, b1 = match Jdg.shape_ty (Jdg.typeof h1) with
+      | Jdg.Prod (a, b) -> a, b
+      | _ -> assert false
+    and a2, b2 = match Jdg.shape_ty (Jdg.typeof h2) with
+      | Jdg.Prod (a, b) -> a, b
+      | _ -> assert false
+    in
+    let ta1 = Jdg.atom_ty a1
+    and ta2 = Jdg.atom_ty a2 in
+    equal_ty ~loc ta1 ta2 >?= fun eq_a ->
+    let a1_ta2 = Jdg.convert ~loc (Jdg.atom_term ~loc a1) eq_a in
+    let b2 = Jdg.substitute_ty ~loc b2 a2 a1_ta2 in
+    equal_ty ~loc b1 b2 >?= fun eq_b ->
+    let eq_prod = Jdg.congr_prod_ty ~loc eq_a a1 a2 eq_b in
+    let h2 = Jdg.convert ~loc h2 (Jdg.symmetry_ty eq_prod) in
+    equal ~loc h1 h2 >?= fun eq_h ->
+    let e2 = Jdg.convert ~loc e2 (Jdg.symmetry_ty eq_a) in
+    equal ~loc e1 e2 >?= fun eq_e ->
+    let eq = Jdg.congr_apply ~loc eq_a a1 a2 eq_b eq_h eq_e in
+    Opt.return eq
+
+  | Jdg.Eq (lhs1, rhs1), Jdg.Eq (lhs2, rhs2) ->
+    let ty1 = Jdg.typeof lhs1
+    and ty2 = Jdg.typeof lhs2 in
+    equal_ty ~loc ty1 ty2 >?= fun eq_ty ->
+    let eq_ty_r = Jdg.symmetry_ty eq_ty in
+    let lhs2 = Jdg.convert ~loc lhs2 eq_ty_r
+    and rhs2 = Jdg.convert ~loc rhs2 eq_ty_r in
+    equal ~loc lhs1 lhs2 >?= fun eq_l ->
+    equal ~loc rhs1 rhs2 >?= fun eq_r ->
+    let eq = Jdg.congr_eq ~loc eq_ty eq_l eq_r in
+    Opt.return eq
+
+  | Jdg.Refl e1, Jdg.Refl e2 ->
+    let ty1 = Jdg.typeof e1
+    and ty2 = Jdg.typeof e2 in
+    equal_ty ~loc ty1 ty2 >?= fun eq_ty ->
+    let e2 = Jdg.convert ~loc e2 (Jdg.symmetry_ty eq_ty) in
+    equal ~loc e1 e2 >?= fun eq_e ->
+    let eq = Jdg.congr_refl ~loc eq_ty eq_e in
+    Opt.return eq
+
   | (Jdg.Type | Jdg.Atom _ | Jdg.Constant _
     | Jdg.Prod _ | Jdg.Lambda _ | Jdg.Apply _
     | Jdg.Eq _ | Jdg.Refl _), _ ->
     Opt.fail
-*)
-  | _ -> assert false (* TODO *)
 
 let extensionality ~loc j1 j2 = assert false (* TODO *)
 
