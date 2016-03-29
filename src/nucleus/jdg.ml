@@ -479,6 +479,15 @@ let convert_eq ~loc (EqTerm (ctx1, hyps1, e1, e2, ty)) (EqTy (ctx2, hyps2, t1, t
   EqTerm (ctx, hyps, e1, e2, t2)
 
 (** Constructors *)
+
+let reflexivity (Term (ctx, e, t)) =
+  let hyps = Tt.assumptions_term e in
+  EqTerm (ctx, hyps, e, e, t)
+
+let reflexivity_ty (Ty (ctx, t)) =
+  let hyps = Tt.assumptions_ty t in
+  EqTy (ctx, hyps, t, t)
+
 let alpha_equal ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
   assert (Tt.alpha_equal_ty t1 t2);
   if Tt.alpha_equal e1 e2

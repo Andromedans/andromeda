@@ -203,85 +203,83 @@ let reduction_step ~loc j = match Jdg.shape j with
   | Jdg.Eq _ | Jdg.Refl _ ->
     Opt.fail
 
-let as_eq ~loc j = assert false (* TODO *)
-let as_prod ~loc j = assert false (* TODO *)
 
-(*
-let as_eq_alpha t' =
-  match t' with
-    | Tt.Eq (t, e1, e2) -> Some (t, e1, e2)
+let as_eq_alpha t =
+  match Jdg.shape_ty t with
+    | Jdg.Eq (e1, e2) -> Some (e1, e2)
     | _ -> None
 
-let as_eq (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
-  match t' with
-    | Tt.Eq (t, e1, e2) -> Monad.return (ctx, t, e1, e2)
-    | _ ->
-      Monad.lift (Predefined.operation_as_eq (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
-      begin match Predefined.as_option ~loc v with
+let as_eq ~loc t =
+  match as_eq_alpha t with
+    | Some (e1, e2) -> Opt.return (Jdg.reflexivity_ty t, e1, e2)
+    | None ->
+      Predefined.operation_as_eq ~loc (Jdg.term_of_ty t) >!=
+      begin function
         | None ->
-          Runtime.(error ~loc (EqualityTypeExpected jt))
-        | Some v ->
-          let Jdg.Term (ctxv,ev,tv) = Runtime.as_term ~loc v in
-          begin
-            let j_tv = Jdg.mk_ty ctxv tv in
-            match as_eq_alpha j_tv with
+          Opt.fail
+        | Some juser ->
+          let jt = Jdg.typeof juser in
+          begin match as_eq_alpha jt with
             | None ->
-               Runtime.(error ~loc (InvalidAsEquality j_tv))
-            | Some (tv, e1, e2) ->
-               if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
-               then
-                 let j_e2 = Jdg.mk_ty ctxv (Tt.ty e2) in
-                 begin
-                   match as_eq_alpha j_e2 with
-                   | None -> 
-                      Runtime.(error ~loc (InvalidAsEquality j_tv))
+               Opt.lift Runtime.(error ~loc (InvalidAsEquality jt))
+            | Some (e1, e2) ->
+              begin match Jdg.alpha_equal_ty ~loc Jdg.ty_ty (Jdg.typeof e1) with
+                | None -> Opt.lift Runtime.(error ~loc (InvalidAsEquality jt))
+                | Some _ ->
+                  begin match Jdg.alpha_equal_ty ~loc t (Jdg.is_ty ~loc e1) with
+                    | None -> Opt.lift Runtime.(error ~loc (InvalidAsEquality jt))
+                    | Some _ ->
+                      begin match as_eq_alpha (Jdg.is_ty ~loc e2) with
+                        | None -> 
+                          Runtime.(error ~loc (InvalidAsEquality jt))
 
-                   | Some (t,e1,e2) ->
-                      let ctx = Jdg.Ctx.join ~loc ctx ctxv in
-                      let hyps = Tt.assumptions_term ev in
-                      Monad.add_hyps hyps >>= fun () ->
-                      Monad.return (ctx,t,e1,e2)
-                 end
-               else
-                 Runtime.(error ~loc (InvalidAsEquality j_tv))
+                        | Some (e1,e2) ->
+                          let eq = Jdg.is_type_equality (Jdg.reflect juser) in
+                          Opt.return (eq, e1, e2)
+                      end
+                  end
+              end
           end
       end
 
-let as_prod_alpha (Jdg.Ty (_, (Tt.Ty {Tt.term=t';_}))) =
-  match t' with
-    | Tt.Prod (xts,t) -> Some (xts,t)
+let as_prod_alpha t =
+  match Jdg.shape_ty t with
+    | Jdg.Prod (a, b) -> Some (a, b)
     | _ -> None
 
-let as_prod (Jdg.Ty (ctx, (Tt.Ty {Tt.term=t';loc;_} as t)) as jt) =
-  match t' with
-    | Tt.Prod (xts,t) -> Monad.return (ctx, (xts,t))
-    | _ ->
-      Monad.lift (Predefined.operation_as_prod (Runtime.mk_term (Jdg.term_of_ty jt))) >>= fun v ->
-      begin match Predefined.as_option ~loc v with
-        | None -> Runtime.(error ~loc (ProductExpected jt))
-        | Some v ->
-          let Jdg.Term (ctxv,ev,tv) = Runtime.as_term ~loc v in
-          let j_tv = Jdg.mk_ty ctxv tv in
-          begin
-            match as_eq_alpha j_tv with
-            | None -> Runtime.(error ~loc (InvalidAsProduct j_tv))
-            | Some (tv,e1,e2) ->
-               if Tt.alpha_equal_ty tv Tt.typ && Tt.alpha_equal_ty t (Tt.ty e1)
-               then
-                 begin
-                   match as_prod_alpha (Jdg.mk_ty ctxv (Tt.ty e2)) with
-                   | None -> Runtime.(error ~loc (InvalidAsProduct j_tv))
-                   | Some (xts,t) ->
-                      let ctx = Jdg.Ctx.join ~loc ctx ctxv in
-                      let hyps = Tt.assumptions_term ev in
-                      Monad.add_hyps hyps >>= fun () ->
-                      Monad.return (ctx,(xts,t))
-                 end
-               else
-                 Runtime.(error ~loc (InvalidAsProduct j_tv))
+let as_prod ~loc t =
+  match as_prod_alpha t with
+    | Some (a, b) -> Opt.return (Jdg.reflexivity_ty t, a, b)
+    | None ->
+      Predefined.operation_as_prod ~loc (Jdg.term_of_ty t) >!=
+      begin function
+        | None ->
+          Opt.fail
+        | Some juser ->
+          let jt = Jdg.typeof juser in
+          begin match as_eq_alpha jt with
+            | None ->
+               Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
+            | Some (e1, e2) ->
+              begin match Jdg.alpha_equal_ty ~loc Jdg.ty_ty (Jdg.typeof e1) with
+                | None -> Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
+                | Some _ ->
+                  begin match Jdg.alpha_equal_ty ~loc t (Jdg.is_ty ~loc e1) with
+                    | None -> Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
+                    | Some _ ->
+                      begin match as_prod_alpha (Jdg.is_ty ~loc e2) with
+                        | None -> 
+                          Runtime.(error ~loc (InvalidAsProduct jt))
+
+                        | Some (a, b) ->
+                          let eq = Jdg.is_type_equality (Jdg.reflect juser) in
+                          Opt.return (eq, a, b)
+                      end
+                  end
+              end
           end
       end
-*)
+
 end
 
 (** Expose without the monad stuff *)

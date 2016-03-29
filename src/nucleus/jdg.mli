@@ -161,6 +161,10 @@ val convert_eq : loc:Location.t -> eq_term -> eq_ty -> eq_term
 
 (** Constructors *)
 
+val reflexivity : term -> eq_term
+
+val reflexivity_ty : ty -> eq_ty
+
 (** Compare 2 terms up to alpha equality. They must have alpha-equivalent types. *)
 val alpha_equal : loc:Location.t -> term -> term -> eq_term option
 
