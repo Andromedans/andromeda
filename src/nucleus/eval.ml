@@ -179,10 +179,12 @@ let rec infer {Location.thing=c'; loc} =
 
   | Syntax.Lambda (x, Some u, c) ->
     check_ty u >>= fun ju ->
-    Runtime.add_abstracting ~loc:(u.Location.loc) x ju (fun jy ->
-    infer c >>= as_term ~loc:(c.Location.loc) >>= fun je ->
+    Runtime.add_free ~loc:(u.Location.loc) x ju (fun jy ->
+    let vy = Runtime.mk_term (Jdg.atom_term ~loc:(u.Location.loc) jy) in
+    Runtime.add_abstracting vy
+    (infer c >>= as_term ~loc:(c.Location.loc) >>= fun je ->
     jdg_form ~loc (Jdg.Lambda (jy, je)) >>=
-    Runtime.return_term)
+    Runtime.return_term))
 
   | Syntax.Apply (c1, c2) ->
     infer c1 >>= begin function
@@ -198,10 +200,12 @@ let rec infer {Location.thing=c'; loc} =
 
   | Syntax.Prod (x,u,c) ->
     check_ty u >>= fun ju ->
-    Runtime.add_abstracting ~loc:u.Location.loc x ju (fun jy ->
-    check_ty c >>= fun jt ->
+    Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
+    let vy = Runtime.mk_term (Jdg.atom_term ~loc:(u.Location.loc) jy) in
+    Runtime.add_abstracting vy
+    (check_ty c >>= fun jt ->
     jdg_form ~loc (Jdg.Prod (jy, jt)) >>=
-    Runtime.return_term)
+    Runtime.return_term))
 
   | Syntax.Eq (c1, c2) ->
      infer c1 >>= as_term ~loc:c1.Location.loc >>= fun j1 ->

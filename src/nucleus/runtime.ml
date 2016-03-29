@@ -287,20 +287,12 @@ let add_free ~loc x jt m env =
   let env = add_bound0 x y_val env in
   m jy env
 
-let add_abstracting ~loc ?(bind=true) x jt m env =
-  let jy = Jdg.Ctx.add_fresh jt x in
-  let y_val = mk_term (Jdg.atom_term ~loc jy) in
-  let env =
-    if not bind
-    then
-      env
-    else
-      let env = add_bound0 x y_val env in
-      { env with
-                dynamic = { env.dynamic with
-                            abstracting = y_val :: env.dynamic.abstracting } }
+let add_abstracting v m env =
+  let env = { env with
+              dynamic = { env.dynamic with
+                          abstracting = v :: env.dynamic.abstracting } }
   in
-  m jy env
+  m env
 
 let add_forbidden0 x env =
   { env with lexical = { env.lexical with forbidden = x :: env.lexical.forbidden } }

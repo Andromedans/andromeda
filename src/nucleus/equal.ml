@@ -17,11 +17,9 @@ module Opt = struct
   let fail =
     { k = fun _ fk -> fk }
 
-(* TODO
-  let add_abstracting ~loc x j m =
+  let add_abstracting v m =
     { k = fun sk fk ->
-          Runtime.add_abstracting ~loc x j (fun jx -> (m jx).k sk fk) }
-*)
+          Runtime.add_abstracting v (m.k sk fk) }
 
   let run m =
     m.k (fun x -> Runtime.return (Some x)) (Runtime.return None)
@@ -76,9 +74,10 @@ let congruence ~loc j1 j2 =
     equal_ty ~loc ta1 ta2 >?= fun eq_a ->
     let a1_ta2 = Jdg.convert ~loc (Jdg.atom_term ~loc a1) eq_a in
     let b2 = Jdg.substitute_ty ~loc b2 a2 a1_ta2 in
-    equal_ty ~loc b1 b2 >?= fun eq_b ->
+    Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a1))
+    (equal_ty ~loc b1 b2 >?= fun eq_b ->
     let eq = Jdg.congr_prod ~loc eq_a a1 a2 eq_b in
-    Opt.return eq
+    Opt.return eq)
 
   | Jdg.Lambda (a1, e1), Jdg.Lambda (a2, e2) ->
     let ta1 = Jdg.atom_ty a1
@@ -88,11 +87,12 @@ let congruence ~loc j1 j2 =
     let e2 = Jdg.substitute ~loc e2 a2 a1_ta2 in
     let b1 = Jdg.typeof e1
     and b2 = Jdg.typeof e2 in
-    equal_ty ~loc b1 b2 >?= fun eq_b ->
+    Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a1))
+    (equal_ty ~loc b1 b2 >?= fun eq_b ->
     let e2 = Jdg.convert ~loc e2 (Jdg.symmetry_ty eq_b) in
     equal ~loc e1 e2 >?= fun eq_e ->
     let eq = Jdg.congr_lambda ~loc eq_a a1 a2 eq_b eq_e in
-    Opt.return eq
+    Opt.return eq)
 
   | Jdg.Apply (h1, e1), Jdg.Apply (h2, e2) ->
     let a1, b1 = match Jdg.shape_ty (Jdg.typeof h1) with
@@ -107,7 +107,8 @@ let congruence ~loc j1 j2 =
     equal_ty ~loc ta1 ta2 >?= fun eq_a ->
     let a1_ta2 = Jdg.convert ~loc (Jdg.atom_term ~loc a1) eq_a in
     let b2 = Jdg.substitute_ty ~loc b2 a2 a1_ta2 in
-    equal_ty ~loc b1 b2 >?= fun eq_b ->
+    Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a1))
+    (equal_ty ~loc b1 b2) >?= fun eq_b ->
     let eq_prod = Jdg.congr_prod_ty ~loc eq_a a1 a2 eq_b in
     let h2 = Jdg.convert ~loc h2 (Jdg.symmetry_ty eq_prod) in
     equal ~loc h1 h2 >?= fun eq_h ->
@@ -158,10 +159,11 @@ let extensionality ~loc j1 j2 =
       let ja = Jdg.form ~loc env (Jdg.Atom a) in
       let lhs = Jdg.form ~loc env (Jdg.Apply (j1, ja))
       and rhs = Jdg.form ~loc env (Jdg.Apply (j2, ja)) in
-      equal ~loc lhs rhs >?= fun eq ->
+      Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a))
+      (equal ~loc lhs rhs) >?= fun eq ->
       let eq = Jdg.funext ~loc eq in
       Opt.return eq
-    
+
     | Jdg.Eq _ ->
       let eq = Jdg.uip ~loc j1 j2 in
       Opt.return eq
