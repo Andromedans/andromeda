@@ -396,7 +396,29 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
 and check_lambda ~loc t_check x u c =
   Equal.as_prod ~loc t_check >>= function
     | None -> Runtime.(error ~loc (ProductExpected t_check))
-    | Some (eq, a, b) -> assert false (* TODO *)
+    | Some (eq, a, b) ->
+      begin match u with
+        | Some u ->
+          check_ty u >>= fun ju ->
+          Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.atom_ty a) >>= begin function
+            | Some equ -> Runtime.return (ju, equ)
+            | None ->
+              Runtime.(error ~loc:(u.Location.loc) (TypeMismatch (ju, (Jdg.atom_ty a))))
+            end
+        | None ->
+          let ju = Jdg.atom_ty a in
+          let equ = Jdg.reflexivity_ty ju in
+          Runtime.return (ju, equ)
+      end >>= fun (ju, equ) -> (* equ : ju == typeof a *)
+      Runtime.add_free ~loc x ju (fun jy ->
+      Runtime.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc jy))
+      (let b = Jdg.substitute_ty ~loc b a (Jdg.convert ~loc (Jdg.atom_term ~loc jy) equ) in
+      check c b >>= fun e ->
+      jdg_form ~loc (Jdg.Lambda (jy, e)) >>= fun lam ->
+      let eq_prod = Jdg.congr_prod_ty ~loc equ jy a (Jdg.reflexivity_ty b) in
+      let lam = Jdg.convert ~loc lam eq_prod in
+      let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
+      Runtime.return lam))
 
 and apply ~loc h c =
   Equal.as_prod ~loc (Jdg.typeof h) >>= function
