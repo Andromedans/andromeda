@@ -455,7 +455,9 @@ let rec do_whnf e =
           let e' = e1' e2 in
           let e' = e' : t in
           let meq = handle congruence e e' with
-            | equal e1 e1' => yield (Some eq)
+            | equal (e1 as ?x) (e1' as ?y) =>
+              (* apparently the types get messed up *)
+              yield (Some (eq : x == y))
             end
           in
           let eq = match meq with
