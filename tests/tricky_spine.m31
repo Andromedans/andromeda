@@ -13,8 +13,8 @@ constant succ : Nat → Nat
 constant plus : Nat → Nat → Nat
 constant iszero : Nat → Bool
 
-constant eq1 : (Nat → Nat) ≡ (Nat → Bool)
-constant eq2 : (Nat → Bool) ≡ (Nat → Nat)
+constant eq1 : (Nat → Bool) ≡ (Nat → Nat)
+constant eq2 : (Nat → Nat) ≡ (Nat → Bool)
 
 let f = (λ (n : Nat), iszero (succ n))
 do f
