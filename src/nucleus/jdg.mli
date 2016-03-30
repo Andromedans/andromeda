@@ -1,13 +1,13 @@
 type ctx
 
 (** The judgement that the given term has the given type. *)
-type term = private Term of ctx * Tt.term * Tt.ty
+type term
 
 (** Special judgement for atoms *)
-type atom = private JAtom of ctx * Name.atom * Tt.ty
+type atom
 
 (** The judgement that the given term is a type. *)
-type ty = private Ty of ctx * Tt.ty
+type ty
 
 type closed_ty
 
@@ -19,36 +19,7 @@ module Ctx : sig
   (** The type of contexts. *)
   type t = ctx
 
-  (** The empty context. *)
-  val empty : t
-
-  (** Is the context empty? *)
-  val is_empty : t -> bool
-
-  (** Print the context. Atoms are printed according to the environment. *)
-  val print : penv:Tt.print_env -> t -> Format.formatter -> unit
-
-  val lookup_atom : Name.atom -> t -> atom option
-
-  (** [is_subset ctx yts] returns [true] if the nodes of [ctx] are a subset of [yts]. *)
-  val is_subset : t -> (Name.atom * Tt.ty) list -> bool
-
   val add_fresh : ty -> Name.ident -> atom
-
-  val recursive_assumptions : t -> Name.AtomSet.t -> Name.AtomSet.t
-
-  val restrict : t -> Name.AtomSet.t -> t
-
-  (** [abstract ctx x t] removes atom [x] from context [ctx].
-      It verifies that in [ctx] the atom [x] has type [t] (using alpha equality)
-      and that no atom depends on [x].
-  *)
-  val abstract : loc:Location.t -> t -> Name.atom -> Tt.ty -> t
-
-  (** Join two contexts into a single one.
-      Types of common atoms need to be alpha equal.
-      The dependencies from the first context are used when both atoms are present. *)
-  val join : loc:Location.t -> t -> t -> t
 
   (** [elements ctx] returns the elements of [ctx] sorted into a list so that all dependencies
       point forward in the list, ie the first atom does not depend on any atom, etc. *)
@@ -86,12 +57,6 @@ val atom_term : loc:Location.t -> atom -> term
 
 (** The judgement ctx |- t : Type associated with ctx |- t type *)
 val term_of_ty : ty -> term
-
-(** Create a term judgment. *)
-val mk_term : Ctx.t -> Tt.term -> Tt.ty -> term
-
-(** Create a type judgment. *)
-val mk_ty : Ctx.t -> Tt.ty -> ty
 
 (** Strengthening *)
 val strengthen : term -> term

@@ -75,16 +75,6 @@ module Ctx = struct
       | None -> None
       | Some {ty;_} -> Some (JAtom (ctx, x, ty))
 
-  let is_subset ctx yts =
-    AtomMap.fold
-      (fun x node ok ->
-       ok && 
-       (try
-           let t' = List.assoc x yts in
-           Tt.alpha_equal_ty t' node.ty
-        with Not_found -> false))
-      ctx true
-
   let recursive_assumptions ctx aset =
     let rec fold visited = function
       | [] -> visited
