@@ -425,7 +425,7 @@ and apply ~loc h c =
     | None -> Runtime.(error ~loc (ProductExpected (Jdg.typeof h)))
     | Some (eq, a, _) ->
       check c (Jdg.atom_ty a) >>= fun e ->
-      let h = Jdg.convert ~loc h (Jdg.symmetry_ty eq) in
+      let h = Jdg.convert ~loc h eq in
       jdg_form ~loc (Jdg.Apply (h, e)) >>= fun j ->
       Runtime.return_term j
 
