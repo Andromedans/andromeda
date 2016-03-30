@@ -61,6 +61,8 @@ val term_of_ty : ty -> term
 (** Strengthening *)
 val strengthen : term -> term
 
+val strengthen_ty : ty -> ty
+
 (** Does this atom occur in this judgement, and if so with what type? *)
 val occurs : atom -> term -> atom option
 

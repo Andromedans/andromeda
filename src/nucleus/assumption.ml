@@ -17,6 +17,8 @@ let print xs atoms {free;bound} ppf =
               (Print.sequence (Name.print_atom ~printer:atoms) "," (AtomSet.elements free))
               (Print.sequence (Name.print_debruijn xs) "," (BoundSet.elements bound))
 
+let mem_atom x s = AtomSet.mem x s.free
+
 let singleton x =
   let free = AtomSet.add x AtomSet.empty in
   {free;bound=BoundSet.empty;}

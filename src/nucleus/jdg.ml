@@ -272,6 +272,16 @@ let print_error ~penv err ppf = match err with
 
 (** Judgements *)
 
+let strengthen (Term (ctx,e,t)) =
+  let hyps = Name.AtomSet.union (Tt.assumptions_term e) (Tt.assumptions_ty t) in
+  let ctx = Ctx.restrict ctx hyps in
+  Term (ctx,e,t)
+
+let strengthen_ty (Ty (ctx, t)) =
+  let hyps = Tt.assumptions_ty t in
+  let ctx = Ctx.restrict ctx hyps in
+  Ty (ctx, t)
+
 let typeof (Term (ctx, _, t)) =
   Ty (ctx, t)
 
@@ -293,11 +303,6 @@ let is_closed_ty ~loc (Ty (ctx, t)) =
   if Ctx.is_empty ctx
   then t
   else error ~loc ConstantDependency
-
-let strengthen (Term (ctx,e,t)) =
-  let hyps = Name.AtomSet.union (Tt.assumptions_term e) (Tt.assumptions_ty t) in
-  let ctx = Ctx.restrict ctx hyps in
-  Term (ctx,e,t)
 
 let occurs (JAtom (_, x, _)) (Term (ctx, _, _)) =
   Ctx.lookup_atom x ctx
@@ -675,6 +680,12 @@ let funext ~loc (EqTerm (ctx, hyps, lhs, rhs, _)) =
       assert (Tt.alpha_equal e1 e2);
       begin match e1.Tt.term with
         | Tt.Atom a ->
+          let check_hyps e =
+            assert (not (Assumption.mem_atom a e.Tt.assumptions))
+          in
+          let check_hyps_ty (Tt.Ty e) = check_hyps e in
+          check_hyps h1; check_hyps_ty a1; check_hyps_ty b1;
+          check_hyps h2; check_hyps_ty a2; check_hyps_ty b2;
           let ctx = Ctx.abstract ~loc ctx a a1
           and hyps = AtomSet.remove a hyps
           and prod = Tt.mk_prod_ty ~loc x a1 b1 in
