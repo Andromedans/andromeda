@@ -316,6 +316,25 @@ let print_ty ~penv ?max_level (Ty (ctx, t)) ppf =
               (Print.char_vdash ())
               (Tt.print_ty ~penv ~max_level:Level.highest t)
 
+let print_eq_term ~penv ?max_level (EqTerm (ctx, _, e1, e2, t)) ppf =
+  Print.print ?max_level ~at_level:Level.jdg ppf
+              "%t%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]@]"
+              (Ctx.print ~penv ctx)
+              (Print.char_vdash ())
+              (Tt.print_term ~penv e1)
+              (Print.char_equal ())
+              (Tt.print_term ~penv e2)
+              (Tt.print_ty ~penv t)
+
+let print_eq_ty ~penv ?max_level (EqTy (ctx, _, t1, t2)) ppf =
+  Print.print ?max_level ~at_level:Level.jdg ppf
+              "%t%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
+              (Ctx.print ~penv ctx)
+              (Print.char_vdash ())
+              (Tt.print_ty ~penv t1)
+              (Print.char_equal ())
+              (Tt.print_ty ~penv t2)
+
 (** Destructors *)
 type 'a abstraction = atom * 'a
 
@@ -514,41 +533,6 @@ let is_type_equality (EqTerm (ctx, hyps, e1, e2, t)) =
   assert (Tt.alpha_equal_ty t Tt.typ);
   EqTy (ctx, hyps, Tt.ty e1, Tt.ty e2)
 
-let natural_ty ~loc env ctx e =
-  match e.Tt.term with
-    | Tt.Type ->
-      Tt.typ
-
-    | Tt.Atom x ->
-      begin match Ctx.lookup_atom x ctx with
-        | Some (JAtom (_, _, t)) -> t
-        | None -> assert false
-      end
-
-    | Tt.Constant c ->
-      Env.constant_type c env
-
-    | Tt.Prod _ ->
-      Tt.typ
-
-    | Tt.Lambda ((x,a),(_,b)) ->
-      Tt.mk_prod_ty ~loc x a b
-
-    | Tt.Apply (_,(_,b),e2) ->
-      Tt.instantiate_ty [e2] b
-
-    | Tt.Eq _ ->
-      Tt.typ
-
-    | Tt.Refl (a,e) ->
-      Tt.mk_eq_ty ~loc a e e
-
-    | Tt.Bound _ -> assert false
-
-let natural_eq ~loc env (Term (ctx, e, t)) =
-  let t' = natural_ty ~loc env ctx e in
-  EqTy (ctx, Tt.assumptions_term e, t, t')
-
 let reflect (Term (ctx, term, Tt.Ty t)) =
   match t.Tt.term with
     | Tt.Eq (a, e1, e2) ->
@@ -692,6 +676,41 @@ let funext ~loc (EqTerm (ctx, hyps, lhs, rhs, _)) =
    | _ -> assert false
 
 (** Derivables *)
+
+let natural_ty ~loc env ctx e =
+  match e.Tt.term with
+    | Tt.Type ->
+      Tt.typ
+
+    | Tt.Atom x ->
+      begin match Ctx.lookup_atom x ctx with
+        | Some (JAtom (_, _, t)) -> t
+        | None -> assert false
+      end
+
+    | Tt.Constant c ->
+      Env.constant_type c env
+
+    | Tt.Prod _ ->
+      Tt.typ
+
+    | Tt.Lambda ((x,a),(_,b)) ->
+      Tt.mk_prod_ty ~loc x a b
+
+    | Tt.Apply (_,(_,b),e2) ->
+      Tt.instantiate_ty [e2] b
+
+    | Tt.Eq _ ->
+      Tt.typ
+
+    | Tt.Refl (a,e) ->
+      Tt.mk_eq_ty ~loc a e e
+
+    | Tt.Bound _ -> assert false
+
+let natural_eq ~loc env (Term (ctx, e, derived)) =
+  let natural = natural_ty ~loc env ctx e in
+  EqTy (ctx, Tt.assumptions_term e, natural, derived)
 
 let mk_refl ~loc (EqTerm (ctx1, hyps1, lhs1, rhs1, t1)) (EqTerm (ctx2, hyps2, lhs2, rhs2, t2)) =
   assert (Tt.alpha_equal_ty t1 t2 && Tt.alpha_equal lhs1 lhs2);

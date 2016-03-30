@@ -103,6 +103,10 @@ val print_term : penv:Tt.print_env -> ?max_level:Level.t -> term -> Format.forma
 (** Print the judgement that something is a type. *)
 val print_ty : penv:Tt.print_env -> ?max_level:Level.t -> ty -> Format.formatter -> unit
 
+val print_eq_term : penv:Tt.print_env -> ?max_level:Level.t -> eq_term -> Format.formatter -> unit
+
+val print_eq_ty : penv:Tt.print_env -> ?max_level:Level.t -> eq_ty -> Format.formatter -> unit
+
 (** Destructors *)
 (** The atom is used in the second component *)
 type 'a abstraction = atom * 'a
@@ -175,9 +179,6 @@ val symmetry_ty : eq_ty -> eq_ty
 
 val is_type_equality : eq_term -> eq_ty
 
-(** If [e : B] and [A] is the natural type of [e] then [A == B] *)
-val natural_eq : loc:Location.t -> Env.t -> term -> eq_ty
-
 (** The reflection rule *)
 val reflect : term -> eq_term
 
@@ -216,6 +217,9 @@ val uip : loc:Location.t -> term -> term -> eq_term
 val funext : loc:Location.t -> eq_term -> eq_term
 
 (** Derivable rules *)
+
+(** If [e : B] and [A] is the natural type of [e] then [A == B] *)
+val natural_eq : loc:Location.t -> Env.t -> term -> eq_ty
 
 (** if [e == e1] and [e == e2] then [refl e : e1 == e2] *)
 val mk_refl : loc:Location.t -> eq_term -> eq_term -> term

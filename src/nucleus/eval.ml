@@ -387,7 +387,7 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
               | None -> Runtime.(error ~loc (EqualityFail (e, e2)))
               | Some eq2 ->
                 let j = Jdg.mk_refl ~loc eq1 eq2 in
-                let j = Jdg.convert ~loc j eq in
+                let j = Jdg.convert ~loc j (Jdg.symmetry_ty eq) in
                 Runtime.return j
               end
           end
