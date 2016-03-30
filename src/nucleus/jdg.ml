@@ -564,7 +564,12 @@ let beta ~loc (EqTy (ctxa, hypsa, a1, a2))
 
 (** Congruence *)
 
-let congr_prod ~loc (EqTy (ctxa, hypsa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) (EqTy (ctxb, hypsb, b1, b2)) =
+let finalize_congr ~loc ?at_ty eq =
+  match at_ty with
+    | Some eqt -> convert_eq ~loc eq eqt
+    | None -> eq
+
+let congr_prod ~loc ?at_ty (EqTy (ctxa, hypsa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) (EqTy (ctxb, hypsb, b1, b2)) =
   let ctxb = Ctx.abstract ~loc ctxb x ta1
   and hypsb = AtomSet.remove x hypsb
   and b1 = Tt.abstract_ty [x] b1
@@ -573,12 +578,12 @@ let congr_prod ~loc (EqTy (ctxa, hypsa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, 
   and hyps = AtomSet.union hypsa hypsb in
   let lhs = Tt.mk_prod ~loc (Name.ident_of_atom x) ta1 b1
   and rhs = Tt.mk_prod ~loc (Name.ident_of_atom y) ta2 b2 in
-  EqTerm (ctx, hyps, lhs, rhs, Tt.typ)
+  finalize_congr ~loc ?at_ty (EqTerm (ctx, hyps, lhs, rhs, Tt.typ))
 
 let congr_prod_ty ~loc eq_a x y eq_b =
   is_type_equality (congr_prod ~loc eq_a x y eq_b)
 
-let congr_lambda ~loc (EqTy (ctxa, hypsa, ta1, ta2))
+let congr_lambda ~loc ?at_ty (EqTy (ctxa, hypsa, ta1, ta2))
                  (JAtom (_, x, _)) (JAtom (_, y, _))
                  (EqTy (ctxb, hypsb, b1, b2))
                  (EqTerm (ctxe, hypse, e1, e2, ty_e)) =
@@ -596,9 +601,9 @@ let congr_lambda ~loc (EqTy (ctxa, hypsa, ta1, ta2))
   let lhs = Tt.mk_lambda ~loc (Name.ident_of_atom x) ta1 e1 b1
   and rhs = Tt.mention_atoms hypsab (Tt.mk_lambda ~loc (Name.ident_of_atom y) ta2 e2 b2)
   and ty = Tt.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in
-  EqTerm (ctx, hyps, lhs, rhs, ty)
+  finalize_congr ~loc ?at_ty (EqTerm (ctx, hyps, lhs, rhs, ty))
 
-let congr_apply ~loc (EqTy (ctxa, hypsa, ta1, ta2))
+let congr_apply ~loc ?at_ty (EqTy (ctxa, hypsa, ta1, ta2))
                 (JAtom (_, x, _)) (JAtom (_, y, _))
                 (EqTy (ctxb, hypsb, b1, b2))
                 (EqTerm (ctxh, hypsh, h1, h2, ty_h))
@@ -618,9 +623,9 @@ let congr_apply ~loc (EqTy (ctxa, hypsa, ta1, ta2))
   and rhs = Tt.mk_apply ~loc (Tt.mention_atoms hypsab h2) (Name.ident_of_atom y) ta2 (Tt.mention_atoms_ty hypsa b2) (Tt.mention_atoms hypsa e2)
   and ty = Tt.instantiate_ty [e1] b1 in
   let rhs = Tt.mention_atoms hypsabe rhs in
-  EqTerm (ctx, hyps, lhs, rhs, ty)
+  finalize_congr ~loc ?at_ty (EqTerm (ctx, hyps, lhs, rhs, ty))
 
-let congr_eq ~loc (EqTy (ctxt, hypst, t1, t2))
+let congr_eq ~loc ?at_ty (EqTy (ctxt, hypst, t1, t2))
              (EqTerm (ctxl, hypsl, l1, l2, ty_l))
              (EqTerm (ctxr, hypsr, r1, r2, ty_r)) =
   assert (Tt.alpha_equal_ty t1 ty_l && Tt.alpha_equal_ty t1 ty_r);
@@ -628,12 +633,12 @@ let congr_eq ~loc (EqTy (ctxt, hypst, t1, t2))
   and hyps = AtomSet.union hypst (AtomSet.union hypsl hypsr) in
   let lhs = Tt.mk_eq ~loc t1 l1 (Tt.mention_atoms hypst r1)
   and rhs = Tt.mk_eq ~loc t2 l2 (Tt.mention_atoms hypst r2) in
-  EqTerm (ctx, hyps, lhs, rhs, Tt.typ)
+  finalize_congr ~loc ?at_ty (EqTerm (ctx, hyps, lhs, rhs, Tt.typ))
 
 let congr_eq_ty ~loc eq_ty eq_l eq_r =
   is_type_equality (congr_eq ~loc eq_ty eq_l eq_r)
 
-let congr_refl ~loc (EqTy (ctxt, hypst, t1, t2))
+let congr_refl ~loc ?at_ty (EqTy (ctxt, hypst, t1, t2))
                (EqTerm (ctxe, hypse, e1, e2, ty_e)) =
   assert (Tt.alpha_equal_ty t1 ty_e);
   let ctx = Ctx.join ~loc ctxt ctxe
@@ -641,7 +646,7 @@ let congr_refl ~loc (EqTy (ctxt, hypst, t1, t2))
   let lhs = Tt.mk_refl ~loc t1 e1
   and rhs = Tt.mention_atoms hyps (Tt.mk_refl ~loc t2 (Tt.mention_atoms hypst e2))
   and ty = Tt.mk_eq_ty ~loc t1 e1 e1 in
-  EqTerm (ctx, hyps, lhs, rhs, ty)
+  finalize_congr ~loc ?at_ty (EqTerm (ctx, hyps, lhs, rhs, ty))
 
 (** Extensionality *)
 

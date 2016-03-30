@@ -60,6 +60,8 @@ let equal_ty ~loc j1 j2 =
 
 (** Apply the appropriate congruence rule *)
 let congruence ~loc j1 j2 =
+  Runtime.lookup_typing_env >!= fun env ->
+  let at_ty = Jdg.natural_eq ~loc env j1 in
   begin match Jdg.shape j1, Jdg.shape j2 with
 
   | Jdg.Type, Jdg.Type | Jdg.Atom _, Jdg.Atom _ | Jdg.Constant _, Jdg.Constant _ ->
@@ -76,7 +78,7 @@ let congruence ~loc j1 j2 =
     let b2 = Jdg.substitute_ty ~loc b2 a2 a1_ta2 in
     Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a1))
     (equal_ty ~loc b1 b2 >?= fun eq_b ->
-    let eq = Jdg.congr_prod ~loc eq_a a1 a2 eq_b in
+    let eq = Jdg.congr_prod ~loc ~at_ty eq_a a1 a2 eq_b in
     Opt.return eq)
 
   | Jdg.Lambda (a1, e1), Jdg.Lambda (a2, e2) ->
@@ -91,7 +93,7 @@ let congruence ~loc j1 j2 =
     (equal_ty ~loc b1 b2 >?= fun eq_b ->
     let e2 = Jdg.convert ~loc e2 (Jdg.symmetry_ty eq_b) in
     equal ~loc e1 e2 >?= fun eq_e ->
-    let eq = Jdg.congr_lambda ~loc eq_a a1 a2 eq_b eq_e in
+    let eq = Jdg.congr_lambda ~loc ~at_ty eq_a a1 a2 eq_b eq_e in
     Opt.return eq)
 
   | Jdg.Apply (h1, e1), Jdg.Apply (h2, e2) ->
@@ -114,7 +116,7 @@ let congruence ~loc j1 j2 =
     equal ~loc h1 h2 >?= fun eq_h ->
     let e2 = Jdg.convert ~loc e2 (Jdg.symmetry_ty eq_a) in
     equal ~loc e1 e2 >?= fun eq_e ->
-    let eq = Jdg.congr_apply ~loc eq_a a1 a2 eq_b eq_h eq_e in
+    let eq = Jdg.congr_apply ~loc ~at_ty eq_a a1 a2 eq_b eq_h eq_e in
     Opt.return eq
 
   | Jdg.Eq (lhs1, rhs1), Jdg.Eq (lhs2, rhs2) ->
@@ -126,7 +128,7 @@ let congruence ~loc j1 j2 =
     and rhs2 = Jdg.convert ~loc rhs2 eq_ty_r in
     equal ~loc lhs1 lhs2 >?= fun eq_l ->
     equal ~loc rhs1 rhs2 >?= fun eq_r ->
-    let eq = Jdg.congr_eq ~loc eq_ty eq_l eq_r in
+    let eq = Jdg.congr_eq ~loc ~at_ty eq_ty eq_l eq_r in
     Opt.return eq
 
   | Jdg.Refl e1, Jdg.Refl e2 ->
@@ -135,7 +137,7 @@ let congruence ~loc j1 j2 =
     equal_ty ~loc ty1 ty2 >?= fun eq_ty ->
     let e2 = Jdg.convert ~loc e2 (Jdg.symmetry_ty eq_ty) in
     equal ~loc e1 e2 >?= fun eq_e ->
-    let eq = Jdg.congr_refl ~loc eq_ty eq_e in
+    let eq = Jdg.congr_refl ~loc ~at_ty eq_ty eq_e in
     Opt.return eq
 
   | (Jdg.Type | Jdg.Atom _ | Jdg.Constant _
@@ -143,12 +145,7 @@ let congruence ~loc j1 j2 =
     | Jdg.Eq _ | Jdg.Refl _), _ ->
     Opt.fail
 
-  end >?= fun eq ->
-  (* Ensure that the equality is at the right type. *)
-  Runtime.lookup_typing_env >!= fun env ->
-  let eqt = Jdg.natural_eq ~loc env j1 in
-  let eq = Jdg.convert_eq ~loc eq eqt in
-  Opt.return eq
+  end
 
 
 let extensionality ~loc j1 j2 =
