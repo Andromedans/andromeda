@@ -166,7 +166,7 @@ let rec infer {Location.thing=c'; loc} =
      end
 
   | Syntax.Ascribe (c1, c2) ->
-     check_ty c2 >>= fun (Jdg.Ty (_,t') as t) ->
+     check_ty c2 >>= fun t ->
      check c1 t >>=
      Runtime.return_term
 
@@ -209,7 +209,7 @@ let rec infer {Location.thing=c'; loc} =
 
   | Syntax.Eq (c1, c2) ->
      infer c1 >>= as_term ~loc:c1.Location.loc >>= fun j1 ->
-     let (Jdg.Ty (_,t1')) as t1 = Jdg.typeof j1 in
+     let t1 = Jdg.typeof j1 in
      check c2 t1 >>= fun j2 ->
      jdg_form ~loc (Jdg.Eq (j1,j2)) >>=
      Runtime.return_term
@@ -272,7 +272,8 @@ let rec infer {Location.thing=c'; loc} =
     end
 
   | Syntax.Context c ->
-    infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
+    infer c >>= as_term ~loc >>= fun j ->
+    let ctx = Jdg.contextof j in
     let xts = Jdg.Ctx.elements ctx in
     let js = List.map (fun j -> Runtime.mk_term (Jdg.atom_term ~loc j)) xts in
     Runtime.return (Predefined.mk_list js)
@@ -291,7 +292,7 @@ and check_default ~loc v t_check =
          Runtime.(error ~loc (TypeMismatch (jt, t_check)))
     end
 
-and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
+and check ({Location.thing=c';loc} as c) t_check =
   match c' with
   | Syntax.Type
   | Syntax.Bound _
@@ -596,19 +597,16 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
      return ()
 
   | Syntax.DeclConstants (xs, c) ->
-     Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
-     if Jdg.Ctx.is_empty ctxt
-     then
-       let rec fold = function
-         | [] -> return ()
-         | x :: xs ->
-            Runtime.add_constant ~loc x t >>= fun () ->
-            (if not quiet then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
-             fold xs)
-       in
-       fold xs
-     else
-       Runtime.(error ~loc ConstantDependency)
+    Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun t ->
+    let t = Jdg.is_closed_ty ~loc t in
+    let rec fold = function
+      | [] -> return ()
+      | x :: xs ->
+        Runtime.add_constant ~loc x t >>= fun () ->
+        (if not quiet then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
+         fold xs)
+    in
+    fold xs
 
   | Syntax.TopHandle lst ->
      mfold (fun () (op, xc) ->

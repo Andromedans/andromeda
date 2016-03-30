@@ -94,7 +94,6 @@ type error =
   | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
   | MatchFail of value
-  | ConstantDependency
   | FailureFail of value
   | InvalidEqual of Jdg.ty
   | EqualityTypeExpected of Jdg.ty
@@ -259,13 +258,6 @@ let get_typing_env env = env.dynamic.typing
 
 let lookup_typing_env env =
   Return (get_typing_env env), env.state
-
-let get_constant x env =
-  Jdg.Env.constant_type x env.dynamic.typing
-
-let lookup_constant ~loc x env =
-  let t = get_constant x env in
-  Return t, env.state
 
 let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 
@@ -506,9 +498,6 @@ let print_error ~penv err ppf =
   | MatchFail v ->
      Format.fprintf ppf "no match found for@ %t" (print_value ~penv v)
 
-  | ConstantDependency ->
-     Format.fprintf ppf "constants may not depend on assumptions"
-
   | FailureFail v ->
      Format.fprintf ppf "expected to fail but computed@ %t"
                     (print_value ~penv v)
@@ -624,8 +613,11 @@ let top_handle ~loc r env =
 (** Equality *)
 let rec equal_value v1 v2 =
   match v1, v2 with
-    | Term (Jdg.Term (_,te1,_)), Term (Jdg.Term (_,te2,_)) ->
-      Tt.alpha_equal te1 te2
+    | Term j1, Term j2 ->
+      begin match Jdg.alpha_equal ~loc:Location.unknown j1 j2 with
+        | Some _ -> true
+        | None -> false
+      end
 
     | Tag (t1,vs1), Tag (t2,vs2) ->
       Name.eq_ident t1 t2 &&

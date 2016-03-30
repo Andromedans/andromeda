@@ -84,9 +84,8 @@ let rec collect_tt_pattern env xvs p j =
     collect_tt_pattern env xvs p j
 
   | Syntax.Tt_GenConstant p, Jdg.Constant c ->
-    let t = Runtime.get_constant c env in
-    let c = Tt.mk_constant ~loc c in
-    let j = Jdg.mk_term Jdg.Ctx.empty c t in
+    let tenv = Runtime.get_typing_env env in
+    let j = Jdg.form ~loc tenv (Jdg.Constant c) in
     collect_tt_pattern env xvs p j
 
   | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Apply _

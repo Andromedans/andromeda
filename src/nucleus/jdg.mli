@@ -9,6 +9,8 @@ type atom = private JAtom of ctx * Name.atom * Tt.ty
 (** The judgement that the given term is a type. *)
 type ty = private Ty of ctx * Tt.ty
 
+type closed_ty
+
 type eq_term
 
 type eq_ty
@@ -59,9 +61,7 @@ module Env : sig
 
   val empty : t
 
-  val constant_type : Name.constant -> t -> Tt.ty
-
-  val add_constant : Name.constant -> Tt.ty -> t -> t
+  val add_constant : Name.constant -> closed_ty -> t -> t
 end
 
 type error
@@ -72,6 +72,8 @@ val print_error : penv:Tt.print_env -> error -> Format.formatter -> unit
 
 (** The jdugement that [Type] is a type. *)
 val ty_ty : ty
+
+val is_closed_ty : loc:Location.t -> ty -> closed_ty
 
 (** The type judgement of a term judgement. *)
 val typeof : term -> ty
@@ -96,6 +98,8 @@ val strengthen : term -> term
 
 (** Does this atom occur in this judgement, and if so with what type? *)
 val occurs : atom -> term -> atom option
+
+val contextof : term -> Ctx.t
 
 (** Print the judgement that something is a term. *)
 val print_term : penv:Tt.print_env -> ?max_level:Level.t -> term -> Format.formatter -> unit

@@ -39,7 +39,6 @@ type error =
   | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
   | MatchFail of value
-  | ConstantDependency
   | FailureFail of value
   | InvalidEqual of Jdg.ty
   | EqualityTypeExpected of Jdg.ty
@@ -132,11 +131,7 @@ val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
 (** Extract the current environment (for matching) *)
 val get_env : env comp
 
-(** Lookup a constant. *)
-val get_constant : Name.constant -> env -> Tt.ty
-
-val lookup_constant : loc:Location.t -> Name.constant -> Tt.ty comp
-
+(** Typing environment *)
 val get_typing_env : env -> Jdg.Env.t
 
 val lookup_typing_env : Jdg.Env.t comp
@@ -176,7 +171,7 @@ val add_abstracting : value -> 'a comp -> 'a comp
 val add_forbidden : Name.ident -> unit toplevel
 
 (** Add a constant of a given type to the environment. *)
-val add_constant : loc:Location.t -> Name.ident -> Tt.ty -> unit toplevel
+val add_constant : loc:Location.t -> Name.ident -> Jdg.closed_ty -> unit toplevel
 
 (** Add a bound variable with the given name to the environment. *)
 val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel

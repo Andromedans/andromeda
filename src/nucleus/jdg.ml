@@ -19,6 +19,8 @@ type atom = JAtom of ctx * Name.atom * Tt.ty
 
 type ty = Ty of ctx * Tt.ty
 
+type closed_ty = Tt.ty
+
 (** The atom set is the hypotheses actually needed to prove the equality.
     Remember that strengthening is controlled by the runtime. *)
 type eq_term = EqTerm of ctx * AtomSet.t * Tt.term * Tt.term * Tt.ty
@@ -26,6 +28,7 @@ type eq_term = EqTerm of ctx * AtomSet.t * Tt.term * Tt.term * Tt.ty
 type eq_ty = EqTy of ctx * AtomSet.t * Tt.ty * Tt.ty
 
 type error =
+  | ConstantDependency
   | AbstractDependency of Name.atom * Name.atom list
   | AbstractInvalidType of Name.atom * Tt.ty * Tt.ty
   | InvalidJoin of ctx * ctx * Name.atom
@@ -238,6 +241,9 @@ module Env = struct
 end
 
 let print_error ~penv err ppf = match err with
+  | ConstantDependency ->
+     Format.fprintf ppf "constants may not depend on assumptions"
+
   | InvalidApplication -> Format.fprintf ppf "Invalid application."
 
   | InvalidEquality -> Format.fprintf ppf "Invalid equality."
@@ -293,6 +299,11 @@ let mk_ty ctx t = Ty (ctx, t)
 
 let ty_ty = Ty (Ctx.empty, Tt.typ)
 
+let is_closed_ty ~loc (Ty (ctx, t)) =
+  if Ctx.is_empty ctx
+  then t
+  else error ~loc ConstantDependency
+
 let strengthen (Term (ctx,e,t)) =
   let hyps = Name.AtomSet.union (Tt.assumptions_term e) (Tt.assumptions_ty t) in
   let ctx = Ctx.restrict ctx hyps in
@@ -300,6 +311,9 @@ let strengthen (Term (ctx,e,t)) =
 
 let occurs (JAtom (_, x, _)) (Term (ctx, _, _)) =
   Ctx.lookup_atom x ctx
+
+let contextof (Term (ctx, _, _)) =
+  ctx
 
 let print_term ~penv ?max_level (Term (ctx, e, t)) ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
