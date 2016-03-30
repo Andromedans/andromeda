@@ -4,8 +4,8 @@ Constant C is declared.
 Constant pair is declared.
 T is defined.
 x is defined.
-File "./error-context-subst.m31", line 9, characters 25-39:
-cannot join contexts x₀ : A 
+File "./error-context-subst.m31", line 9, characters 4-7:
+cannot join contexts x₀ : B 
                       and
-x₀ : B 
+x₀ : A 
  at x₀
