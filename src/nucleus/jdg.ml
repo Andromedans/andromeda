@@ -27,6 +27,14 @@ type eq_term = EqTerm of ctx * Tt.term * Tt.term * Tt.ty
 
 type eq_ty = EqTy of ctx * Tt.ty * Tt.ty
 
+(* The following do not guarantee a minimal context. *)
+(* XXX: can we have a single type 'a term with some value for 'a guaranteeing strength? Then some functions like typeof can be polymorphic. *)
+type weakty = WeakTy of ctx * Tt.ty
+
+type weakterm = WeakTerm of ctx * Tt.term * Tt.ty
+
+type weakatom = WeakAtom of ctx * Name.atom * Tt.ty
+
 type error =
   | ConstantDependency
   | AbstractDependency of Name.atom * Name.atom list
@@ -114,6 +122,19 @@ module Ctx = struct
     in
     let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
     JAtom (ctx, y, ty)
+
+  let add_weak (WeakTy (ctx, ty)) x =
+    let y = Name.fresh x in
+    let aset = Tt.assumptions_ty ty in
+    let needs = recursive_assumptions ctx aset in
+    let ctx = AtomMap.mapi (fun z node ->
+                            if AtomSet.mem z needs
+                            then {node with needed_by = AtomSet.add y node.needed_by}
+                            else node)
+                           ctx
+    in
+    let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
+    WeakAtom (ctx, y, ty)
 
   let abstract ~loc (ctx : t) x ty =
     match lookup x ctx with
@@ -267,21 +288,26 @@ let print_error ~penv err ppf = match err with
 
 (** Judgements *)
 
-let strengthen ctx e t =
+let strengthen (WeakTerm (ctx, e, t)) =
   let hyps = Name.AtomSet.union (Tt.assumptions_term e) (Tt.assumptions_ty t) in
   let ctx = Ctx.restrict ctx hyps in
   Term (ctx,e,t)
 
-let strengthen_ty ctx t =
+let strengthen_ty (WeakTy (ctx, t)) =
   let hyps = Tt.assumptions_ty t in
   let ctx = Ctx.restrict ctx hyps in
   Ty (ctx, t)
 
+let strengthen_atom (WeakAtom (ctx, x, t)) =
+  let hyps = AtomSet.singleton x in
+  let ctx = Ctx.restrict ctx hyps in
+  JAtom (ctx, x, t)
+
 let typeof (Term (ctx, _, t)) =
-  strengthen_ty ctx t
+  strengthen_ty (WeakTy (ctx, t))
 
 let atom_ty (JAtom (ctx,x,t)) =
-  strengthen_ty ctx t
+  strengthen_ty (WeakTy (ctx, t))
 
 let atom_term ~loc (JAtom (ctx,x,t)) =
   Term (ctx, Tt.mk_atom ~loc x, t)
@@ -361,35 +387,35 @@ let shape (Term (ctx,e,t)) =
     | Tt.Constant c -> Constant c
 
     | Tt.Prod ((x,a),b) ->
-      let ja = strengthen_ty ctx a in
-      let JAtom (ctx, y, _) as jy = Ctx.add_fresh ja x in
+      let ja = WeakTy (ctx, a) in
+      let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
       let b = Tt.unabstract_ty [y] b in
-      let jb = strengthen_ty ctx b in
-      Prod (jy,jb)
+      let jb = WeakTy (ctx, b) in
+      Prod (strengthen_atom jy, strengthen_ty jb)
 
     | Tt.Lambda ((x,a),(e,b)) ->
-      let ja = strengthen_ty ctx a in
-      let JAtom (ctx, y, _) as jy = Ctx.add_fresh ja x in
+      let ja = WeakTy (ctx, a) in
+      let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
       let b = Tt.unabstract_ty [y] b
       and e = Tt.unabstract [y] e in
-      let je = strengthen ctx e b in
-      Lambda (jy,je)
+      let je = WeakTerm (ctx, e, b) in
+      Lambda (strengthen_atom jy, strengthen je)
 
 
     | Tt.Apply (e1,((x,a),b),e2) ->
-      let je2 = strengthen ctx e2 a in
+      let je2 = WeakTerm (ctx, e2, a) in
       let prod = Tt.mk_prod_ty ~loc:e.Tt.loc x a b in
-      let je1 = strengthen ctx e1 prod in
-      Apply (je1,je2)
+      let je1 = WeakTerm (ctx, e1, prod) in
+      Apply (strengthen je1, strengthen je2)
 
     | Tt.Eq (a,e1,e2) ->
-      let je1 = strengthen ctx e1 a
-      and je2 = strengthen ctx e2 a in
-      Eq (je1,je2)
+      let je1 = WeakTerm (ctx, e1, a)
+      and je2 = WeakTerm (ctx, e2, a) in
+      Eq (strengthen je1, strengthen je2)
 
     | Tt.Refl (a,e) ->
-      let e = strengthen ctx e a in
-      Refl e
+      let e = WeakTerm (ctx, e, a) in
+      Refl (strengthen e)
 
     | Tt.Bound _ -> assert false
 
@@ -404,13 +430,13 @@ let form ~loc env = function
 
   | Constant c ->
     let t = Env.constant_type c env in
-    Term (Ctx.empty,Tt.mk_constant ~loc c,t)
+    Term (Ctx.empty, Tt.mk_constant ~loc c,t)
 
   | Prod ((JAtom (ctxa,x,a)),(Ty (ctxb,b))) ->
     let ctx = Ctx.join ~loc ctxb ctxa in
     let ctx = Ctx.abstract ~loc ctx x a in
     let b = Tt.abstract_ty [x] b in
-    Term (ctx,Tt.mk_prod ~loc (Name.ident_of_atom x) a b,Tt.mk_type_ty ~loc)
+    Term (ctx, Tt.mk_prod ~loc (Name.ident_of_atom x) a b, Tt.mk_type_ty ~loc)
 
   | Lambda ((JAtom (ctxa,x,a)),(Term (ctxe,e,b))) ->
     let ctx = Ctx.join ~loc ctxe ctxa in
@@ -418,7 +444,7 @@ let form ~loc env = function
     let b = Tt.abstract_ty [x] b
     and e = Tt.abstract [x] e in
     let x = Name.ident_of_atom x in
-    Term (ctx,Tt.mk_lambda ~loc x a e b,Tt.mk_prod_ty ~loc x a b)
+    Term (ctx, Tt.mk_lambda ~loc x a e b, Tt.mk_prod_ty ~loc x a b)
 
   | Apply (Term (ctx1,e1,t1), Term (ctx2,e2,t2)) ->
     let ctx = Ctx.join ~loc ctx2 ctx1 in
@@ -428,7 +454,7 @@ let form ~loc env = function
         if Tt.alpha_equal_ty a t2
         then
           let out = Tt.instantiate_ty [e2] b in
-          Term (ctx,Tt.mk_apply ~loc e1 x a b e2,out)
+          Term (ctx, Tt.mk_apply ~loc e1 x a b e2, out)
         else
           error ~loc InvalidApplication
       | _ -> error ~loc InvalidApplication
@@ -459,13 +485,13 @@ let form_ty ~loc env s =
 let substitute_ty ~loc (Ty (ctxt, t)) (JAtom (_, a, _)) (Term (_, s, _) as js) =
   let ctxt = Ctx.substitute ~loc ctxt a js in
   let t = Tt.substitute_ty [a] [s] t in
-  strengthen_ty ctxt t
+  strengthen_ty (WeakTy (ctxt, t))
 
 let substitute ~loc (Term (ctxe, e, t)) (JAtom (_, a, _)) (Term (_, s, _) as js) =
   let ctxe = Ctx.substitute ~loc ctxe a js in
   let t = Tt.substitute_ty [a] [s] t
   and e = Tt.substitute [a] [s] e in
-  strengthen ctxe e t
+  strengthen (WeakTerm (ctxe, e, t))
 
 (** Conversion *)
 
@@ -473,14 +499,14 @@ type side = LEFT | RIGHT
 
 let eq_term_side side (EqTerm (ctx, lhs, rhs, ty)) =
   let term = match side with LEFT -> lhs | RIGHT -> rhs in
-  strengthen ctx term ty
+  strengthen (WeakTerm (ctx, term, ty))
 
 let eq_term_at_ty (EqTerm (ctx, _, _, ty)) =
-  strengthen_ty ctx ty
+  strengthen_ty (WeakTy (ctx, ty))
 
 let eq_ty_side side (EqTy (ctx, lhs, rhs)) : ty =
   let ty = match side with LEFT -> lhs | RIGHT -> rhs in
-  strengthen_ty ctx ty
+  strengthen_ty (WeakTy (ctx, ty))
 
 let convert ~loc (Term (ctx1, e, t)) (EqTy (ctx2, t1, t2)) =
   assert (Tt.alpha_equal_ty t t1);
