@@ -289,7 +289,7 @@ let print_error ~penv err ppf = match err with
 (** Judgements *)
 
 let strengthen (WeakTerm (ctx, e, t)) =
-  let hyps = Name.AtomSet.union (Tt.assumptions_term e) (Tt.assumptions_ty t) in
+  let hyps = Tt.assumptions_term e in
   let ctx = Ctx.restrict ctx hyps in
   Term (ctx,e,t)
 
