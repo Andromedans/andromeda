@@ -584,7 +584,7 @@ let rec equate_congr a b =
 let convert x eq = match eq with
 (*  | |- _ : ?t == ?t => x*)
   | |- _ : _ == ?t =>
-    handle x : t with equal _ _ => yield (Some (symmetry eq)) end
+    handle x : t with equal _ t => yield (Some eq) end
   end
 
 (* if `eq = (a == b : A)` and `eqt : A == B` return a witness of `(a == b : A) == (a == b : B)` *)
