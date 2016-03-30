@@ -1,5 +1,9 @@
 (* Eventually this example should not work. *)
 (* We convince Andromeda that a has type B. *)
+
+(* Update:
+   We went a different route: Instead of failing, we track assumptions. *)
+
 constant A : Type
 constant B : Type
 constant a : A
