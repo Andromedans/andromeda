@@ -676,7 +676,7 @@ let uip ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
 let funext ~loc (EqTerm (ctx, hyps, lhs, rhs, _)) =
   match lhs.Tt.term, rhs.Tt.term with
     | Tt.Apply (h1, ((x,a1),b1), e1), Tt.Apply (h2, ((_,a2),b2), e2) ->
-      assert (Tt.alpha_equal_ty a1 a2 && Tt.alpha_equal_ty b1 b2);
+      assert (Tt.alpha_equal_ty a1 a2 && Tt.alpha_equal_ty b1 b2); (* this makes h1 and h2 have the same type *)
       assert (Tt.alpha_equal e1 e2);
       begin match e1.Tt.term with
         | Tt.Atom a ->

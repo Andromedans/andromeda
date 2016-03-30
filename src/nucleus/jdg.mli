@@ -1,18 +1,21 @@
 type ctx
 
-(** The judgement that the given term has the given type. *)
+(** Judgements [ctx |- e : t] *)
 type term
 
-(** Special judgement for atoms *)
+(** Judgements [(x : t) in ctx] *)
 type atom
 
-(** The judgement that the given term is a type. *)
+(** Judgements [ctx |- t type] *)
 type ty
 
+(** Judgements [|- t type] *)
 type closed_ty
 
+(** Judgements [ctx |- e1 == e2 : t] *)
 type eq_term
 
+(** Judgements [ctx |- t1 == t2] *)
 type eq_ty
 
 module Ctx : sig
