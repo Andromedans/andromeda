@@ -1,6 +1,6 @@
 f is defined.
 x is defined.
 y is defined.
-File "./error_apply_non_function.m31", line 2, characters 9-12:
+File "./error_apply_non_function.m31", line 9, characters 9-9:
 expected a product but got ⊢ Type
 type
