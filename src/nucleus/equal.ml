@@ -37,14 +37,14 @@ module Internals = struct
 
 (** Compare two types *)
 let equal ~loc j1 j2 =
-  match Jdg.alpha_equal ~loc j1 j2 with
+  match Jdg.alpha_equal_eq_term ~loc j1 j2 with
     | Some eq -> Opt.return eq
     | None ->
       Predefined.operation_equal ~loc j1 j2 >!= begin function
         | Some juser ->
           Runtime.lookup_typing_env >!= fun env ->
           let target = Jdg.form_ty ~loc env (Jdg.Eq (j1, j2)) in
-          begin match Jdg.alpha_equal_ty ~loc target (Jdg.typeof juser) with
+          begin match Jdg.alpha_equal_eq_ty ~loc target (Jdg.typeof juser) with
             | Some _ -> 
               let eq = Jdg.reflect juser in
               Opt.return eq
@@ -65,7 +65,7 @@ let congruence ~loc j1 j2 =
   begin match Jdg.shape j1, Jdg.shape j2 with
 
   | Jdg.Type, Jdg.Type | Jdg.Atom _, Jdg.Atom _ | Jdg.Constant _, Jdg.Constant _ ->
-    begin match Jdg.alpha_equal ~loc j1 j2 with
+    begin match Jdg.alpha_equal_eq_term ~loc j1 j2 with
       | Some eq -> Opt.return eq
       | None -> Opt.fail
     end
@@ -220,10 +220,10 @@ let as_eq ~loc t =
             | None ->
                Opt.lift Runtime.(error ~loc (InvalidAsEquality jt))
             | Some (e1, e2) ->
-              begin match Jdg.alpha_equal_ty ~loc Jdg.ty_ty (Jdg.typeof e1) with
+              begin match Jdg.alpha_equal_eq_ty ~loc Jdg.ty_ty (Jdg.typeof e1) with
                 | None -> Opt.lift Runtime.(error ~loc (InvalidAsEquality jt))
                 | Some _ ->
-                  begin match Jdg.alpha_equal_ty ~loc t (Jdg.is_ty ~loc e1) with
+                  begin match Jdg.alpha_equal_eq_ty ~loc t (Jdg.is_ty ~loc e1) with
                     | None -> Opt.lift Runtime.(error ~loc (InvalidAsEquality jt))
                     | Some _ ->
                       begin match as_eq_alpha (Jdg.is_ty ~loc e2) with
@@ -258,10 +258,10 @@ let as_prod ~loc t =
             | None ->
                Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
             | Some (e1, e2) ->
-              begin match Jdg.alpha_equal_ty ~loc Jdg.ty_ty (Jdg.typeof e1) with
+              begin match Jdg.alpha_equal_eq_ty ~loc Jdg.ty_ty (Jdg.typeof e1) with
                 | None -> Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
                 | Some _ ->
-                  begin match Jdg.alpha_equal_ty ~loc t (Jdg.is_ty ~loc e1) with
+                  begin match Jdg.alpha_equal_eq_ty ~loc t (Jdg.is_ty ~loc e1) with
                     | None -> Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
                     | Some _ ->
                       begin match as_prod_alpha (Jdg.is_ty ~loc e2) with

@@ -511,7 +511,10 @@ let reflexivity_ty (Ty (ctx, t)) =
   let hyps = Tt.assumptions_ty t in
   EqTy (ctx, hyps, t, t)
 
-let alpha_equal ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
+let alpha_equal (Term (_, e1, _)) (Term (_, e2, _)) =
+  Tt.alpha_equal e1 e2
+
+let alpha_equal_eq_term ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
   assert (Tt.alpha_equal_ty t1 t2);
   if Tt.alpha_equal e1 e2
   then
@@ -522,7 +525,7 @@ let alpha_equal ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
   else
     None
 
-let alpha_equal_ty ~loc (Ty (ctx1, t1)) (Ty (ctx2, t2)) =
+let alpha_equal_eq_ty ~loc (Ty (ctx1, t1)) (Ty (ctx2, t2)) =
   if Tt.alpha_equal_ty t1 t2
   then
     let ctx = Ctx.join ~loc ctx1 ctx2 in

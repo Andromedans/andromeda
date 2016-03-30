@@ -614,10 +614,7 @@ let top_handle ~loc r env =
 let rec equal_value v1 v2 =
   match v1, v2 with
     | Term j1, Term j2 ->
-      begin match Jdg.alpha_equal ~loc:Location.unknown j1 j2 with
-        | Some _ -> true
-        | None -> false
-      end
+      Jdg.alpha_equal j1 j2
 
     | Tag (t1,vs1), Tag (t2,vs2) ->
       Name.eq_ident t1 t2 &&

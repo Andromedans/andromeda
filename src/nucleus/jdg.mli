@@ -138,11 +138,14 @@ val reflexivity : term -> eq_term
 
 val reflexivity_ty : ty -> eq_ty
 
-(** Compare 2 terms up to alpha equality. They must have alpha-equivalent types. *)
-val alpha_equal : loc:Location.t -> term -> term -> eq_term option
+(** Test whether 2 terms are alpha-equal. They may have different types and incompatible contexts even if [true] is returned. *)
+val alpha_equal : term -> term -> bool
 
-(** Compare 2 types up to alpha-equality. *)
-val alpha_equal_ty : loc:Location.t -> ty -> ty -> eq_ty option
+(** Compare 2 terms up to alpha equality. They must have alpha-equivalent types and compatible contexts. *)
+val alpha_equal_eq_term : loc:Location.t -> term -> term -> eq_term option
+
+(** Compare 2 types up to alpha-equality. They must have compatible contexts. *)
+val alpha_equal_eq_ty : loc:Location.t -> ty -> ty -> eq_ty option
 
 val symmetry_ty : eq_ty -> eq_ty
 
