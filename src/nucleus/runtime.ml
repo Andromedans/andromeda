@@ -117,7 +117,6 @@ let error ~loc err = raise (Error (Location.locate err loc))
 
 (** Make values *)
 let mk_term j =
-  let j = Jdg.strengthen j in
   Term j
 
 let mk_handler h = Handler h
