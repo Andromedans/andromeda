@@ -90,46 +90,48 @@
 	  <keyword>false</keyword>
 	</context>
 	<context id="keywords" style-ref="keyword">
-    <keyword>_sig</keyword>
-    <keyword>_struct</keyword>
-    <keyword>_proj</keyword>
+    <keyword>Type</keyword>
+    <keyword>Judgement</keyword>
+    <keyword>Judgment</keyword>
     <keyword>_atom</keyword>
     <keyword>_constant</keyword>
+    <keyword>and</keyword>
     <keyword>as</keyword>
     <keyword>assume</keyword>
-    <keyword>and</keyword>
-    <keyword>constant</keyword>
     <keyword>congruence</keyword>
+    <keyword>constant</keyword>
     <keyword>context</keyword>
-    <keyword>data</keyword>
     <keyword>do</keyword>
+    <keyword>dynamic</keyword>
     <keyword>end</keyword>
     <keyword>extensionality</keyword>
     <keyword>external</keyword>
-    <keyword>finally</keyword>
     <keyword>fail</keyword>
+    <keyword>finally</keyword>
+    <keyword>forall</keyword>
+    <keyword>fun</keyword>
     <keyword>handle</keyword>
     <keyword>handler</keyword>
     <keyword>hypotheses</keyword>
+    <keyword>ident</keyword>
+    <keyword>in</keyword>
+    <keyword>lambda</keyword>
     <keyword>let</keyword>
     <keyword>match</keyword>
-    <keyword>reduction</keyword>
-    <keyword>forall</keyword>
-    <keyword>yield</keyword>
-    <keyword>fun</keyword>
-    <keyword>lambda</keyword>
-    <keyword>in</keyword>
+    <keyword>mltype</keyword>
+    <keyword>now</keyword>
     <keyword>occurs</keyword>
+    <keyword>of</keyword>
     <keyword>operation</keyword>
     <keyword>rec</keyword>
+    <keyword>reduction</keyword>
     <keyword>ref</keyword>
     <keyword>refl</keyword>
-    <keyword>signature</keyword>
-    <keyword>using</keyword>
-    <keyword>Type</keyword>
     <keyword>val</keyword>
+    <keyword>verbosity</keyword>
     <keyword>where</keyword>
     <keyword>with</keyword>
+    <keyword>yield</keyword>
   </context>
 	<context id="types" style-ref="type">
 	  <keyword>Type</keyword>
