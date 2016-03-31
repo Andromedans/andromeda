@@ -537,7 +537,12 @@ let alpha_equal_eq_term ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
   assert (TT.alpha_equal_ty t1 t2);
   if TT.alpha_equal e1 e2
   then
-    let ctx = Ctx.join ~loc ctx1 ctx2 in
+    let ctx = Ctx.join ~loc ctx1 ctx2
+    and e2 = TT.mention_atoms (TT.assumptions_term e1) e2 in
+    (* We need to adjust the assumptions on [e2]:
+       if [e1] and [t1] use [x : empty], but [e2] and [t2] use [y : empty],
+       projecting the rhs gives us [ctx' |- e2 : t1] where [ctx'] does not contain [x],
+       then typeof fails. *)
     Some (EqTerm (ctx, e1, e2, t1))
   else
     None
