@@ -7,8 +7,8 @@ constant Pair : forall (A : Type) (B : Type) (_ : A) (_ : B), prod A B
 constant Fst : forall (X Y : Type) (_ : prod X Y), X
 constant Snd : forall (X Y : Type) (_ : prod X Y), Y
 
-now reducing = add_reducing Fst [lazy,lazy,eager] reducing
-now reducing = add_reducing Snd [lazy,lazy,eager] reducing
+now reducing = add_reducing Fst [lazy,lazy,eager]
+now reducing = add_reducing Snd [lazy,lazy,eager]
 
 constant Pair_beta_Fst :
   Π (U V : Type) (u : U) (v : V),
@@ -29,8 +29,8 @@ constant D : Type
 constant p : prod C D
 constant q : prod C D
 
-do
-  now betas = add_betas [Pair_beta_Fst, Pair_beta_Snd] betas in
-  now etas = add_eta Pair_eta etas in
+fail
+  now betas = add_betas [Pair_beta_Fst, Pair_beta_Snd] in
+  now etas = add_eta Pair_eta in
     refl p : p == q
 

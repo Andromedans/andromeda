@@ -15,6 +15,6 @@ constant lst : List (plus m n)
 
 (** Then we can convince Andromeda that lst has size n+m. *)
 do
-  now hints = add_hint plus_commute hints in
+  now hints = add_hint plus_commute in
     (lst : List (plus n m))
 

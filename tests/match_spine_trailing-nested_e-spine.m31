@@ -6,7 +6,7 @@ constant unit_iota_top : ∀ (P : unit -> Type) (s : P top), unit_rect P s top =
 
 let it = (λ (T : Type), unit_rect (λ m, T -> T) (λ (x : T), x))
 
-now betas = add_beta unit_iota_top betas
+now betas = add_beta unit_iota_top
 
 do whnf (it unit top top)
 

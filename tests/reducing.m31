@@ -8,16 +8,17 @@ constant (+) : N -> N -> N
 constant plus_Z : forall n : N, Z + n == n
 constant plus_S : forall n m : N, (S n) + m == S (n + m)
 
-now reducing = add_reducing ( + ) [eager,lazy] reducing
-now betas = add_betas [plus_S,plus_Z] betas
+(* Reducing argument for a projection *)
+now reducing = add_reducing ( + ) [eager,lazy]
+now betas = add_betas [plus_S,plus_Z]
 
 do whnf (Z + Z)
 do whnf ((Z + Z) + Z)
 do whnf (((S Z) + (S Z)) + ((S Z) + (S Z)))
 
 do
-  now reducing = add_reducing S [eager] reducing in
+  (* Reducing argument for a constant *)
+  now reducing = add_reducing S [eager] in
   whnf (((S Z) + (S Z)) + ((S Z) + (S Z)))
 
-fail add_reducing ((+) Z) [lazy] reducing
-
+fail add_reducing ((+) Z) [lazy]

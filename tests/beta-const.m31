@@ -3,5 +3,5 @@ constant B : Type
 constant a : A
 constant eq_A_B : A == B
 do
-  now betas = add_beta eq_A_B betas in
+  now betas = add_beta eq_A_B in
     a : B

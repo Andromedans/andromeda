@@ -6,7 +6,7 @@ constant Q : ∏ (a : A), P a → Type
 do
    assume b : B in
    assume e : B ≡ A in
-   now betas = add_beta e betas in
+   now betas = add_beta e in
    assume x : P b in
    assume f : Q b x → A in
      f

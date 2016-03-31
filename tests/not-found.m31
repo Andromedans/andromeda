@@ -31,7 +31,7 @@ let projT1' =
 
 let projT2' =
   λ (A : Type) (B : A -> Type) (s : sigT A B),
-    now betas = add_beta sig_ind_beta betas in
+    now betas = add_beta sig_ind_beta in
       sig_ind A B
               (λ (s : sigT A B),
                  B (projT1' A B s))

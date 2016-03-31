@@ -1,7 +1,7 @@
 
 constant A B : Type
 constant eq : A == B
-now betas = add_beta eq betas
+now betas = add_beta eq
 
 do match assume x : A in x : B with
   |- _atom ?y => y

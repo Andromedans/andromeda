@@ -4,7 +4,7 @@
 constant D : Type
 constant scott : (D → D) ≡ D
 let dana : D ≡ (D → D) = sym Type (D → D) D scott
-now hints = add_hints [dana, scott] hints
+now hints = add_hints [dana, scott]
 
 
 (* The Y combinator *)
@@ -38,9 +38,11 @@ let δ : D → D = λ x, (x : D → D) x
 let Ω =
     now hints = add_hint h hints in
     let δ' = δ : D' → D' in
-    now betas = add_betas [h,scott'] betas in
+    now betas = add_betas [h,scott'] in
       δ' (δ' : D')
 
 (* Notice that [Ω] does not diverge even though a beta-reduction happens. *)
 do refl Ω : (λ x : D', x) Ω ≡ Ω
 
+#quit
+do refl (δ δ) : (λ x : D, x) (δ δ) ≡ (δ δ)
