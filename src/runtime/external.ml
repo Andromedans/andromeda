@@ -58,7 +58,11 @@ let externals =
             Runtime.return_unit
 
           | _ -> Runtime.(error ~loc (UnknownConfig s))
-        ))
+        ));
+
+    ("exit", fun _ ->
+      Runtime.return_closure (fun _ ->
+        exit 0))
   ]
 
 

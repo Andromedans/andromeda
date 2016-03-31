@@ -18,28 +18,28 @@ constant d : D
 
 (* just a pair *)
 do
-  now betas = add_beta beta_fst betas in
+  now betas = add_beta beta_fst in
     (refl (fst C D (pair C D c d)))
          :
          c == (fst C D (pair C D c d))
 
 (* change the order of the parameters *)
 do
-  now betas = add_beta beta_fst betas in
+  now betas = add_beta beta_fst in
        (refl (fst D C (pair D C d c)))
          :
          d == (fst D C (pair D C d c))
 
 (* add a lambda redex in the proof *)
 do
-  now betas = add_beta beta_fst betas in
+  now betas = add_beta beta_fst in
     (refl (fst C D (pair C D ((λ (t : Type) (x : t), x) C c) d)))
          :
          c == (fst C D (pair C D c d))
 
 (* add a lambda redex in the type *)
 do
-  now betas = add_beta beta_fst betas in
+  now betas = add_beta beta_fst in
     (refl (fst C D (pair C D c d)))
          :
          c == (fst C D (pair C D ((λ (t : Type) (x : t), x) C c) d))

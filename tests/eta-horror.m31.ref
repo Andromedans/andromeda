@@ -9,6 +9,7 @@ Constant C is declared.
 Constant D is declared.
 Constant p is declared.
 Constant q is declared.
+The command failed with error:
 File "./eta-horror.m31", line 35, characters 5-10: failed to check that
 ⊢ p : prod C D and ⊢ q : prod C D
 are equal

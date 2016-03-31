@@ -673,23 +673,27 @@ handle
 end
 
 (* helper functions *)
-let add_beta b betas =
+let add_beta_to b betas =
   let b = process_beta b in
   b :: betas
 
-let add_hint h hints =
+let add_hint_to h hints =
   let h = process_hint h in
   h :: hints
 
-let add_eta h etas =
+let add_eta_to h etas =
   let h = process_eta h in
   h :: etas
 
-let add_reducing c l reducing =
+let add_reducing_to c l reducing =
   let r = process_reducing c l in
   r :: reducing
 
-let add_betas bs betas = fold (fun betas b => add_beta b betas) betas bs
-let add_hints bs hints = fold (fun hints b => add_hint b hints) hints bs
-let add_etas  bs etas  = fold (fun etas  b => add_eta  b etas ) etas  bs
+let add_beta      h = add_beta_to h betas
+let add_eta       h = add_eta_to h etas
+let add_hint      h = add_hint_to h hints
+let add_reducing  h l = add_reducing_to h l reducing
 
+let add_betas hs = fold (fun betas b => add_beta_to b betas) betas hs
+let add_etas  hs = fold (fun etas  b => add_eta_to  b etas) etas  hs
+let add_hints hs = fold (fun hints b => add_hint_to b hints) hints hs

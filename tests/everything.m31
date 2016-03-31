@@ -72,9 +72,9 @@ do x0
 fail Type Type
 
 (** Change verbosity level *)
-#verbosity 3
+verbosity 3
 do refl Type : Type == Type
-#verbosity 2 (* default *)
+verbosity 2 (* default *)
 
 
 (** Non top level constructs *)
@@ -239,7 +239,4 @@ end
 
 (* both can be used with multiple files at once *)
 #include_once "../std/base.m31" "../std/equal.m31" "../std/base.m31"
-
-(** End evaluation *)
-#quit
 

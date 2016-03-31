@@ -6,7 +6,7 @@ constant tail : cow -> cow
 constant tail_horn : tail horn == horn
 
 do
-  now betas = add_beta tail_horn betas in
+  now betas = add_beta tail_horn in
     refl horn : horn == tail horn
 
 
@@ -25,7 +25,7 @@ constant a : X
 constant f : X -> X
 
 do
-  now betas = add_beta Fst_beta betas in
+  now betas = add_beta Fst_beta in
     λ (y : Y),
       refl (f a) : f a == Fst X Y (Pair X Y (f a) y)
 

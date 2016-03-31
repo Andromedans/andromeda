@@ -28,7 +28,7 @@ constant pred'_def :
   ∀ (x : N), pred' x ≡ ind_N (λ (_ : N), N) Z (λ (x' _ : N), x') x
 
 do
-  now betas = add_betas [ind_N_Z, ind_N_S, pred'_def] betas in
+  now betas = add_betas [ind_N_Z, ind_N_S, pred'_def] in
   refl (S Z) : pred' (S (S Z)) ≡ (S Z)
 
 (* We define plus in such a way that it will unfold only when it is applied
@@ -42,7 +42,7 @@ constant plus_def :
    always go back to ind_N. *)
 let plus_Z =
   (λ (x : N),
-    now betas = add_betas [plus_def, ind_N_Z] betas in
+    now betas = add_betas [plus_def, ind_N_Z] in
       refl (plus x Z) :
         plus x Z ≡ x)
  :
@@ -50,7 +50,7 @@ let plus_Z =
 
 let plus_S =
   (λ (x y : N),
-    now betas = add_betas [plus_def, ind_N_S] betas in
+    now betas = add_betas [plus_def, ind_N_S] in
      refl (plus x (S y)) :
        plus x (S y) ≡ S (plus x y))
   :
@@ -69,15 +69,15 @@ let eight = S (S (S (S (S (S (S (S Z)))))))
 let nine  = S (S (S (S (S (S (S (S (S Z))))))))
 
 do
-  now betas = add_betas [pred_Z,pred_S] betas in
+  now betas = add_betas [pred_Z,pred_S] in
     refl four : pred five ≡ four
 
 do
-  now betas = add_betas [pred_Z,pred_S] betas in
+  now betas = add_betas [pred_Z,pred_S] in
     refl Z : pred Z ≡ Z
 
 do
-  now betas = add_betas [plus_Z,plus_S] betas in
+  now betas = add_betas [plus_Z,plus_S] in
     refl five : plus two three ≡ plus one four
 
 (* let us establish commutativity of addition. *)
@@ -87,25 +87,25 @@ let plus_Z' =
     (λ (x : N), plus Z x ≡ x)
     (plus_Z Z)
     (λ (x : N) (IH : plus Z x ≡ x),
-       now betas = add_betas [IH,plus_S] betas in
+       now betas = add_betas [IH,plus_S] in
          refl (S (plus Z x)) : plus Z (S x) ≡ S x)
   : ∀ (x : N), plus Z x ≡ x
 
 let plus_S' =
   (λ (x y : N),
-    now betas = add_betas [plus_Z,plus_S] betas in
+    now betas = add_betas [plus_Z,plus_S] in
     ind_N
       (λ (z : N), plus (S x) z ≡ S (plus x z))
       (refl (S x))
       (λ (z : N) (IH : plus (S x) z ≡ S (plus x z)),
-       now betas = add_betas [IH,plus_S] betas in
+       now betas = add_betas [IH,plus_S] in
          refl (plus (S x) (S z)) : plus (S x) (S z) ≡ S (plus x (S z)))
       y)
   : ∀ (x y : N), plus (S x) y ≡ S (plus x y)
 
-let plus_commute =
+let plus_commute : ∀ (x y : N), plus x y ≡ plus y x =
   (λ (x y : N),
-    now betas = add_betas [plus_Z,plus_S,plus_Z',plus_S'] betas in
+    now betas = add_betas [plus_Z,plus_S,plus_Z',plus_S'] in
     ind_N
       (λ (z : N), plus z y ≡ plus y z)
       (refl y)
@@ -113,7 +113,7 @@ let plus_commute =
           now betas = add_beta IH betas in
            refl (S (plus z y)) : plus (S z) y ≡ plus y (S z) )
       x)
-  : ∀ (x y : N), plus x y ≡ plus y x
+
 
 do plus_commute
 
@@ -127,19 +127,48 @@ constant times : N → N → N
 constant times_def : ∀ (n m : N), times n m ≡ ind_N (λ (_ : N), N) Z (λ (_ : N), plus m) n
 
 do
-  now betas = add_betas [times_def,ind_N_Z] betas in
+  now betas = add_betas [times_def,ind_N_Z] in
     refl Z : times Z two ≡ Z
 
 (* TODO *)
 fail
-  now betas = add_betas [times_def,plus_def,ind_N_Z,ind_N_S] betas in
+  now betas = add_betas [times_def,plus_def,ind_N_Z,ind_N_S] in
     refl Z : times two Z ≡ Z
 
 (* TODO *)
-fail with fasteq () handle
-  now betas = add_betas [times_def,plus_def,ind_N_Z,ind_N_S] betas in
+fail
+  now betas = add_betas [times_def,plus_def,ind_N_Z,ind_N_S] in
     refl (plus two four) : times three two ≡ (plus two four)
 
+let goal = ∀ (x : N), plus Z x ≡ x
+
+(* The following let, as well as similar ones below are necessary since we can't talk about H otherwise (after we shadow plus_Z_l). *)
+let H = assume H : goal in H
+let plus_Z_l = H
+  : goal
+
+let H0 = assume H0 : plus Z Z == Z in H0
+
+(* Coq does the following more like
+    let H1 = assume x:N in assume IHx : ... in assume H1 : plus Z (S x) == S x in H1
+  used as
+    ind_N ... (fun x' IHx' => H1 where IHx = IHx' and x = x')
+  but if we tried that Andromeda would remove the IHx dependency on H1
+*)
+let H1 = assume H1 : forall (x:N) (IHx : plus Z x == x), plus Z (S x) == S x in H1
+let plus_Z_l_0 = plus_Z_l where H = ind_N (λ (x : N), plus Z x == x) H0 H1
+  : goal
+
+let plus_Z_l_1 = (plus_Z_l_0 where H0 = plus_Z Z)
+  : goal
+
+let plus_Z_l_2 = (plus_Z_l_1 where
+  H1 = λ (x : N) (IH : plus Z x ≡ x),
+    now betas = add_betas [IH, plus_S] in
+    refl (S (plus Z x)) : plus Z (S x) == S x)
+  : goal
+
+do refl plus_Z' : plus_Z' == plus_Z_l_2
 
 (** (exp b p) is the naive definition b^e as p-fold product of b. *)
 constant exp : N → N → N
@@ -148,7 +177,7 @@ constant exp_def :
 
 (* TODO *)
 fail
-  now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S] betas in
+  now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S] in
     refl four : exp two two ≡ four
 
 let nine' = times three three
@@ -156,12 +185,11 @@ let ten' = plus five five
 
 (* TODO *)
 fail
-  now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S] betas in
+  now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S] in
     refl nine' : exp three two ≡ nine'
 
 (* 2^7 is okay, 2^10 takes some time and memory *)
 (* TODO *)
 fail
-  now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S] betas in
+  now betas = add_betas [exp_def,times_def,plus_def,ind_N_Z,ind_N_S] in
     refl (exp two (plus three four)) : exp two (plus three four) ≡ times two (exp two (plus four two))
-

@@ -920,9 +920,6 @@ let rec toplevel ~basedir ctx (cmd, loc) =
        let c = lazy (comp ~yield:false ctx c) in
        (ctx, locate (Syntax.TopFail c) loc)
 
-    | Input.Quit ->
-       (ctx, locate Syntax.Quit loc)
-
     | Input.Verbosity n ->
        (ctx, locate (Syntax.Verbosity n) loc)
 

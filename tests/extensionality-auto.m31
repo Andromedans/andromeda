@@ -7,7 +7,7 @@ do eqext
 
 let funext =
   (lambda A B f g p,
-    now hints = add_hint p hints in
+    now hints = add_hint p in
     refl f : f == g)
   : forall (A : Type) (B : A -> Type) (f g : forall (x : A), B x),
      (forall (x : A), f x == g x) -> f == g

@@ -1,6 +1,6 @@
 (* vv's introduction to UniMath *)
 
-#include "../empty.m31" "../unit.m31" "../sum.m31" "../nat.m31" "paths.m31".
+#include_once "../empty.m31" "../unit.m31" "../sum.m31" "../nat.m31" "paths.m31".
 
 Let UUU := Type.
 Let empty_rect := ind_empty.

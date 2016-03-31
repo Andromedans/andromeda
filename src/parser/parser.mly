@@ -80,7 +80,6 @@
 %token WHERE
 
 (* Toplevel directives *)
-%token QUIT
 %token VERBOSITY
 %token <string> QUOTED_STRING
 %token INCLUDEONCE
@@ -126,17 +125,16 @@ plain_topcomp:
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
-  | CONSTANT xs=nonempty_list(name) COLON u=term      { DeclConstants (xs, u) }
+  | CONSTANT xs=nonempty_list(var_name) COLON u=term  { DeclConstants (xs, u) }
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
-  | OPERATION op=name COLON params=mlparams opsig=op_mlsig
+  | OPERATION op=var_name COLON params=mlparams opsig=op_mlsig
     { let (args, res) = opsig in DeclOperation (op, (params, args, res)) }
+  | VERBOSITY n=NUMERAL                              { Verbosity n }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
 plain_topdirective:
-  | QUIT                                             { Quit }
-  | VERBOSITY n=NUMERAL                              { Verbosity n }
   | INCLUDEONCE fs=QUOTED_STRING+                    { Include fs }
 
 (* Main syntax tree *)

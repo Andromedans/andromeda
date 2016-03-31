@@ -53,19 +53,19 @@ let mk_constant ~loc x = {
 
 let mk_lambda ~loc x a e b = {
   term = Lambda ((x, a), (e, b)) ;
-  assumptions=hyp_union (ty_hyps a) (List.map (Assumption.bind 1) [ty_hyps b;e.assumptions]) ;
+  assumptions=hyp_union (ty_hyps a) (List.map Assumption.bind1 [ty_hyps b;e.assumptions]) ;
   loc = loc
 }
 
 let mk_prod ~loc x a b = {
   term = Prod ((x, a), b) ;
-  assumptions=hyp_union (ty_hyps a) [Assumption.bind 1 (ty_hyps b)] ;
+  assumptions=hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b)] ;
   loc = loc
 }
 
 let mk_apply ~loc e1 x a b e2 = {
   term = Apply (e1, ((x, a),b), e2);
-  assumptions = hyp_union (ty_hyps a) [Assumption.bind 1 (ty_hyps b);e1.assumptions;e2.assumptions] ;
+  assumptions = hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b);e1.assumptions;e2.assumptions] ;
   loc = loc
 }
 

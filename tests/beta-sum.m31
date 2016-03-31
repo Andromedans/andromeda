@@ -24,7 +24,7 @@ constant sum_iota_r :
     (b : B),
     sum_rect A B P l r (inr A B b) == r b
 
-now betas = add_betas [sum_iota_l,sum_iota_r] betas
+now betas = add_betas [sum_iota_l,sum_iota_r]
 
 do
   λ (A B : Type)

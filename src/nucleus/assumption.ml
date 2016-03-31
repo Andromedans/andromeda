@@ -63,11 +63,11 @@ let abstract l lvl a =
   in
   acc
 
-let bind k {free;bound} =
+let bind1 {free;bound} =
   let bound = BoundSet.fold (fun n bound ->
-      if n < k
+      if n = 0
       then bound
-      else BoundSet.add (n-k) bound)
+      else BoundSet.add (n - 1) bound)
     bound BoundSet.empty
   in
   {free;bound}

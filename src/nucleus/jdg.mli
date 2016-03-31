@@ -42,7 +42,7 @@ type error
 
 exception Error of error Location.located
 
-val print_error : penv:Tt.print_env -> error -> Format.formatter -> unit
+val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
 
 (** The jdugement that [Type] is a type. *)
 val ty_ty : ty
@@ -67,14 +67,14 @@ val occurs : atom -> term -> atom option
 val contextof : term -> Ctx.t
 
 (** Print the judgement that something is a term. *)
-val print_term : penv:Tt.print_env -> ?max_level:Level.t -> term -> Format.formatter -> unit
+val print_term : penv:TT.print_env -> ?max_level:Level.t -> term -> Format.formatter -> unit
 
 (** Print the judgement that something is a type. *)
-val print_ty : penv:Tt.print_env -> ?max_level:Level.t -> ty -> Format.formatter -> unit
+val print_ty : penv:TT.print_env -> ?max_level:Level.t -> ty -> Format.formatter -> unit
 
-val print_eq_term : penv:Tt.print_env -> ?max_level:Level.t -> eq_term -> Format.formatter -> unit
+val print_eq_term : penv:TT.print_env -> ?max_level:Level.t -> eq_term -> Format.formatter -> unit
 
-val print_eq_ty : penv:Tt.print_env -> ?max_level:Level.t -> eq_ty -> Format.formatter -> unit
+val print_eq_ty : penv:TT.print_env -> ?max_level:Level.t -> eq_ty -> Format.formatter -> unit
 
 (** Destructors *)
 (** The atom is used in the second component *)
