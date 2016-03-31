@@ -7,8 +7,8 @@ type state = {
 }
 
 type error =
-  | RuntimeError of Runtime.error * Tt.print_env
-  | JdgError of Jdg.error * Tt.print_env
+  | RuntimeError of Runtime.error * TT.print_env
+  | JdgError of Jdg.error * TT.print_env
   | ParserError of Ulexbuf.error
   | DesugarError of Desugar.error
 

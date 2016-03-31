@@ -363,8 +363,8 @@ let continue ~loc v ({lexical={continuation;_};_} as env) =
 
 (** Generate a printing environment from runtime environment *)
 let get_penv env =
-  { Tt.forbidden = env.lexical.forbidden ;
-    Tt.atoms = Name.atom_printer () }
+  { TT.forbidden = env.lexical.forbidden ;
+    TT.atoms = Name.atom_printer () }
 
 let lookup_penv env =
   Return (get_penv env), env.state
