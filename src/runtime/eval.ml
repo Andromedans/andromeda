@@ -571,28 +571,16 @@ let topletrec_bind ~loc ~quiet fxcs =
           Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
   return ()
 
-let add_def = function
-  | Syntax.ML_Alias _ -> return ()
-  | Syntax.ML_Sum lst ->
-    mfold (fun () (cstr, _) -> Runtime.add_forbidden cstr) () lst
 
 let rec toplevel ~quiet {Location.thing=c;loc} =
   match c with
 
-  | Syntax.DefMLType lst ->
-    mfold (fun names (t,(_,def)) -> add_def def >>= fun () -> return (t::names)) [] lst >>= fun names ->
-    let names = List.rev names in
-    (if not quiet then Format.printf "ML type%s %t declared.@." (match names with [_] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
-    return ()
-
+  | Syntax.DefMLType lst
   | Syntax.DefMLTypeRec lst ->
-    mfold (fun names (t,(_,def)) -> add_def def >>= fun () -> return (t::names)) [] lst >>= fun names ->
-    let names = List.rev names in
-    (if not quiet then Format.printf "ML type%s %t declared.@." (match names with [_] -> "" | _ -> "s") (Print.sequence Name.print_ident " " names));
+    (if not quiet then Format.printf "ML type%s %t declared.@." (match lst with [_] -> "" | _ -> "s") (Print.sequence (fun (t,_) -> Name.print_ident t) " " lst));
     return ()
 
   | Syntax.DeclOperation (x, k) ->
-     Runtime.add_forbidden x >>= fun () ->
      if not quiet then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
      return ()
 

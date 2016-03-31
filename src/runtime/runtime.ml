@@ -269,7 +269,6 @@ let lookup_bound ~loc k env =
   Return (get_bound ~loc k env), env.state
 
 let add_bound0 x v env = {env with lexical = { env.lexical with
-                                               forbidden = x :: env.lexical.forbidden;
                                                bound = (Val v) :: env.lexical.bound } }
 
 let add_free ~loc x jt m env =
@@ -284,11 +283,6 @@ let add_abstracting v m env =
                           abstracting = v :: env.dynamic.abstracting } }
   in
   m env
-
-let add_forbidden0 x env =
-  { env with lexical = { env.lexical with forbidden = x :: env.lexical.forbidden } }
-
-let add_forbidden x env = (), add_forbidden0 x env
 
 let add_constant0 ~loc x t env =
   { env with dynamic = {env.dynamic with typing = Jdg.Env.add_constant x t env.dynamic.typing };
@@ -339,8 +333,7 @@ let add_dynamic0 ~loc x v env =
   let y,vars = Store.Dyn.fresh v env.dynamic.vars in
   { env with dynamic = {env.dynamic with vars };
              lexical = {env.lexical with
-                        bound = Dyn y :: env.lexical.bound;
-                        forbidden = x :: env.lexical.forbidden } }
+                        bound = Dyn y :: env.lexical.bound } }
 
 let add_dynamic ~loc x v env = (), add_dynamic0 ~loc x v env
 

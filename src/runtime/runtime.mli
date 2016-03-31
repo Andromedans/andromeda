@@ -167,9 +167,6 @@ val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Jdg.atom -> 'a comp) ->
 
 val add_abstracting : value -> 'a comp -> 'a comp
 
-(** Add a forbidden name (for declarations not used by the runtime). *)
-val add_forbidden : Name.ident -> unit toplevel
-
 (** Add a constant of a given type to the environment. *)
 val add_constant : loc:Location.t -> Name.ident -> Jdg.closed_ty -> unit toplevel
 
