@@ -87,11 +87,12 @@ val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
 val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 
 type 'a caught =
-  | Caught of exn
+  | CaughtJdg of Jdg.error Location.located
+  | CaughtRuntime of error Location.located
   | Value of 'a
 
 (** Catch exceptions. The state is not changed if an exception is caught. *)
-val catch : (unit -> 'a toplevel) -> 'a caught toplevel
+val catch : 'a toplevel Lazy.t -> 'a caught toplevel
 
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a comp
