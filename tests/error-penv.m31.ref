@@ -1,0 +1,10 @@
+Constant A is declared.
+Constant ( + ) is declared.
+Constant a is declared.
+b is defined.
+⊢ λ (a0 : A), a0 + a : A → A
+lam is defined.
+File "./error-penv.m31", line 15, characters 4-6: got type
+⊢ Π (a : A), a + a ≡ a + a type but expected type
+⊢ Π (a : A), a + a ≡ a + a
+type

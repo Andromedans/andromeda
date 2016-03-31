@@ -1,0 +1,16 @@
+
+constant A : Type
+constant (+) : A -> A -> A
+constant a : A
+
+let b = a
+
+(* Normal printing gets the printing environment which contains the constant [a], so the binding gets disambiguated. *)
+do lambda a : A, a + b
+
+let lam = lambda a : A, refl (a + b)
+
+(* This gets the wrong environment, so the error message is that [forall a : A, a + a == a + a] doesn't match itself.
+   We can still see the difference if we set --debruijn (or --dependencies, but that's almost accidental) but that really shouldn't be necessary. *)
+do lam : forall a : A, a + a == a + a
+
