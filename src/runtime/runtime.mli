@@ -87,7 +87,8 @@ val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
 val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
 
 type 'a caught =
-  | Caught of exn
+  | CaughtJdg of Jdg.error Location.located
+  | CaughtRuntime of error Location.located
   | Value of 'a
 
 (** Catch exceptions. The state is not changed if an exception is caught. *)

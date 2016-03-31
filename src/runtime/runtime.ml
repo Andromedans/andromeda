@@ -163,7 +163,8 @@ let top_bind m f env =
   f x env
 
 type 'a caught =
-  | Caught of exn
+  | CaughtJdg of Jdg.error Location.located
+  | CaughtRuntime of error Location.located
   | Value of 'a
 
 let catch m env =
@@ -171,7 +172,8 @@ let catch m env =
     let x, env = m () env in
     Value x, env
   with
-    | exc -> Caught exc, env
+    | Jdg.Error err -> CaughtJdg err, env
+    | Error err -> CaughtRuntime err, env
 
 (** Returns *)
 let top_return x env = x, env

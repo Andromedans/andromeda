@@ -624,22 +624,23 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
   | Syntax.TopFail c ->
      Runtime.catch (fun () -> comp_value (Lazy.force c)) >>= begin function
 
-     | Runtime.Caught exn  ->
-        begin
-          Runtime.top_lookup_penv >>= fun penv ->
-          match exn with
-          | Runtime.Error {Location.thing=err; loc} ->
-             (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
-                                              (Location.print loc)
-                                              (Runtime.print_error ~penv err)
-             );
-             return ()
-          | _ -> raise exn
-        end
+     | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
+       Runtime.top_lookup_penv >>= fun penv ->
+       (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+                                        (Location.print loc)
+                                        (Runtime.print_error ~penv err));
+       return ()
+
+     | Runtime.CaughtJdg {Location.thing=err; loc}  ->
+       Runtime.top_lookup_penv >>= fun penv ->
+       (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+                                        (Location.print loc)
+                                        (Jdg.print_error ~penv err));
+       return ()
 
      | Runtime.Value v ->
-        Runtime.top_lookup_penv >>= fun penv ->
-        Runtime.(error ~loc (FailureFail v))
+       Runtime.top_lookup_penv >>= fun penv ->
+       Runtime.(error ~loc (FailureFail v))
      end
 
   | Syntax.Included lst ->
