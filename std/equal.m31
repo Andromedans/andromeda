@@ -337,15 +337,15 @@ let process_reducing c l =
 
 (* The term witnessing symmetry of equality. *)
 let sym = λ (A : Type) (x y : A) (h : x ≡ y), handle refl x : y ≡ x with
-  | equal _ _ =>
+  | equal x y =>
     yield (Some h)
   end
 
 (* The term witnessing transitivity of equality *)
 let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
-  handle eq2 : a == c with
-    | equal ((|- a == c : _) as ?x) ((|- b == c : _) as ?y) => handle yield (congruence x y) with
-      | equal a b => yield (Some eq1)
+  handle eq1 : a == c with
+    | equal ((|- a == b : _) as ?x) ((|- a == c : _) as ?y) => handle yield (congruence x y) with
+      | equal b c => yield (Some eq2)
     end
   end
 
@@ -455,7 +455,9 @@ let rec do_whnf e =
           let e' = e1' e2 in
           let e' = e' : t in
           let meq = handle congruence e e' with
-            | equal e1 e1' => yield (Some eq)
+            | equal (e1 as ?x) (e1' as ?y) =>
+              (* apparently the types get messed up *)
+              yield (Some (eq : x == y))
             end
           in
           let eq = match meq with
@@ -582,7 +584,7 @@ let rec equate_congr a b =
 let convert x eq = match eq with
 (*  | |- _ : ?t == ?t => x*)
   | |- _ : _ == ?t =>
-    handle x : t with equal _ _ => yield (Some (symmetry eq)) end
+    handle x : t with equal _ t => yield (Some eq) end
   end
 
 (* if `eq = (a == b : A)` and `eqt : A == B` return a witness of `(a == b : A) == (a == b : B)` *)

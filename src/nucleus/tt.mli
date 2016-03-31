@@ -72,6 +72,8 @@ val typ : ty
 (** Add the given set of atoms as assumption to a term. *)
 val mention_atoms : Name.AtomSet.t -> term -> term
 
+val mention_atoms_ty : Name.AtomSet.t -> ty -> ty
+
 (** Add an assumption to a term. *)
 val mention : Assumption.t -> term -> term
 

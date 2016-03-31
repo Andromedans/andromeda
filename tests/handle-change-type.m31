@@ -12,7 +12,7 @@ operation mafia : Judgement -> Judgement
 
 do
   (handle
-     (λ (e : B == A), let crime = (now hints = add_hint e hints in (a : B)) in mafia crime)
+     (λ (e : A == B), let crime = (now hints = add_hint e hints in (a : B)) in mafia crime)
    with
    | mafia ?x => x
    end

@@ -11,7 +11,7 @@ let as_term ~loc v =
 (** Returns the atom with its natural type in [ctx] *)
 let as_atom ~loc v =
   as_term ~loc v >>= fun j ->
-  match Jdg.shape ~loc j with
+  match Jdg.shape j with
     | Jdg.Atom x -> Runtime.return x
     | _ -> Runtime.(error ~loc (ExpectedAtom j))
       
@@ -139,23 +139,20 @@ let rec infer {Location.thing=c'; loc} =
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
-     Runtime.add_free ~loc x t (fun _ _ ->
+     Runtime.add_free ~loc x t (fun _ ->
        infer c)
 
   | Syntax.Where (c1, c2, c3) ->
-    infer c2 >>= as_atom ~loc >>= fun (Jdg.JAtom (_, a, _)) ->
-    infer c1 >>= fun v1 -> as_term ~loc v1 >>= fun (Jdg.Term (ctx, e1, t1)) ->
-    begin match Context.lookup_ty a ctx with
-    | None -> infer c3 >>=
-       as_term ~loc:(c3.Location.loc) >>= fun _ ->
-       Runtime.return v1
-    | Some ta ->
-       check c3 (Jdg.mk_ty ctx ta) >>= fun (ctx, e2) ->
-       let ctx_s = Context.substitute ~loc a (ctx,e2,ta) in
-       let te_s = Tt.substitute [a] [e2] e1 in
-       let ty_s = Tt.substitute_ty [a] [e2] t1 in
-       let j_s = Jdg.mk_term ctx_s te_s ty_s in
-       Runtime.return_term j_s
+    infer c2 >>= as_atom ~loc >>= fun a ->
+    infer c1 >>= as_term ~loc:(c1.Location.loc) >>= fun je ->
+    begin match Jdg.occurs a je with
+    | None ->
+       check c3 (Jdg.atom_ty a) >>= fun _ ->
+       Runtime.return_term je
+    | Some a ->
+       check c3 (Jdg.atom_ty a) >>= fun js ->
+       let j = Jdg.substitute ~loc je a js in
+       Runtime.return_term j
     end
 
   | Syntax.Match (c, cases) ->
@@ -169,17 +166,25 @@ let rec infer {Location.thing=c'; loc} =
      end
 
   | Syntax.Ascribe (c1, c2) ->
-     check_ty c2 >>= fun (Jdg.Ty (_,t') as t) ->
-     check c1 t >>= fun (ctx, e) ->
-     let j = Jdg.mk_term ctx e t' in
-     Runtime.return_term j
+     check_ty c2 >>= fun t ->
+     check c1 t >>=
+     Runtime.return_term
 
   | Syntax.Constant x ->
     jdg_form ~loc (Jdg.Constant x) >>=
     Runtime.return_term
 
-  | Syntax.Lambda (x,u,c) ->
-     infer_lambda ~loc x u c
+  | Syntax.Lambda (x, None, _) ->
+    Runtime.(error ~loc (UnannotatedLambda x))
+
+  | Syntax.Lambda (x, Some u, c) ->
+    check_ty u >>= fun ju ->
+    Runtime.add_free ~loc:(u.Location.loc) x ju (fun jy ->
+    let vy = Runtime.mk_term (Jdg.atom_term ~loc:(u.Location.loc) jy) in
+    Runtime.add_abstracting vy
+    (infer c >>= as_term ~loc:(c.Location.loc) >>= fun je ->
+    jdg_form ~loc (Jdg.Lambda (jy, je)) >>=
+    Runtime.return_term))
 
   | Syntax.Apply (c1, c2) ->
     infer c1 >>= begin function
@@ -194,13 +199,18 @@ let rec infer {Location.thing=c'; loc} =
     end
 
   | Syntax.Prod (x,u,c) ->
-    infer_prod ~loc x u c
+    check_ty u >>= fun ju ->
+    Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
+    let vy = Runtime.mk_term (Jdg.atom_term ~loc:(u.Location.loc) jy) in
+    Runtime.add_abstracting vy
+    (check_ty c >>= fun jt ->
+    jdg_form ~loc (Jdg.Prod (jy, jt)) >>=
+    Runtime.return_term))
 
   | Syntax.Eq (c1, c2) ->
      infer c1 >>= as_term ~loc:c1.Location.loc >>= fun j1 ->
-     let (Jdg.Ty (_,t1')) as t1 = Jdg.typeof j1 in
-     check c2 t1 >>= fun (ctx, e2) ->
-     let j2 = Jdg.mk_term ctx e2 t1' in
+     let t1 = Jdg.typeof j1 in
+     check c2 t1 >>= fun j2 ->
      jdg_form ~loc (Jdg.Eq (j1,j2)) >>=
      Runtime.return_term
 
@@ -219,86 +229,70 @@ let rec infer {Location.thing=c'; loc} =
      Runtime.return v
 
   | Syntax.Congruence (c1,c2) ->
-    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
-    check c2 (Jdg.mk_ty ctx t) >>= fun (ctx,e2) ->
-    Equal.congruence ~loc ctx e1 e2 t >>= begin function
-      | Some (ctx,hyps) ->
-        let eq = Tt.mk_refl ~loc t e1 in
-        let eq = Tt.mention_atoms hyps eq in
-        let teq = Tt.mk_eq_ty ~loc t e1 e2 in
-        let j = Jdg.mk_term ctx eq teq in
-        let v = Runtime.mk_term j in
+    infer c1 >>= as_term ~loc >>= fun j1 ->
+    check c2 (Jdg.typeof j1) >>= fun j2 ->
+    Equal.congruence ~loc j1 j2 >>= begin function
+      | Some eq ->
+        let v = Runtime.mk_term (Jdg.refl_of_eq ~loc eq) in
         Runtime.return (Predefined.from_option (Some v))
       | None -> Runtime.return (Predefined.from_option None)
       end
 
   | Syntax.Extensionality (c1,c2) ->
-    infer c1 >>= as_term ~loc >>= fun (Jdg.Term (ctx,e1,t)) ->
-    check c2 (Jdg.mk_ty ctx t) >>= fun (ctx,e2) ->
-    Equal.extensionality ~loc ctx e1 e2 t >>= begin function
-      | Some (ctx,hyps) ->
-        let eq = Tt.mk_refl ~loc t e1 in
-        let eq = Tt.mention_atoms hyps eq in
-        let teq = Tt.mk_eq_ty ~loc t e1 e2 in
-        let j = Jdg.mk_term ctx eq teq in
-        let v = Runtime.mk_term j in
+    infer c1 >>= as_term ~loc >>= fun j1 ->
+    check c2 (Jdg.typeof j1) >>= fun j2 ->
+    Equal.extensionality ~loc j1 j2 >>= begin function
+      | Some eq ->
+        let v = Runtime.mk_term (Jdg.refl_of_eq ~loc eq) in
         Runtime.return (Predefined.from_option (Some v))
       | None -> Runtime.return (Predefined.from_option None)
       end
 
   | Syntax.Reduction c ->
-     infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx, e, t)) ->
-     Equal.reduction_step ctx e >>=
-       begin function
-         | Some ((ctx, e'), hyps) ->
-            let eq = Tt.mk_refl ~loc t e in
-            let eq = Tt.mention_atoms hyps eq in
-            let teq = Tt.mk_eq_ty ~loc t e e' in
-            let eqj = Jdg.mk_term ctx eq teq in
-            Runtime.return (Predefined.from_option (Some (Runtime.mk_term eqj)))
-         | None -> Runtime.return (Predefined.from_option None)
-       end
+    infer c >>= as_term ~loc >>= fun j ->
+    Equal.reduction_step ~loc j >>= begin function
+      | Some eq ->
+        let v = Runtime.mk_term (Jdg.refl_of_eq ~loc eq) in
+        Runtime.return (Predefined.from_option (Some v))
+      | None -> Runtime.return (Predefined.from_option None)
+      end
 
   | Syntax.String s ->
     Runtime.return (Runtime.mk_string s)
 
   | Syntax.Occurs (c1,c2) ->
-    infer c1 >>= as_atom ~loc >>= fun (Jdg.JAtom (_,x,_)) ->
-    infer c2 >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
-    begin match Context.lookup_ty x ctx with
-      | Some t ->
-        let j = Jdg.term_of_ty (Jdg.mk_ty ctx t) in
+    infer c1 >>= as_atom ~loc >>= fun a ->
+    infer c2 >>= as_term ~loc >>= fun j ->
+    begin match Jdg.occurs a j with
+      | Some jx ->
+        let j = Jdg.term_of_ty (Jdg.atom_ty jx) in
         Runtime.return (Predefined.from_option (Some (Runtime.mk_term j)))
       | None ->
         Runtime.return (Predefined.from_option None)
     end
 
   | Syntax.Context c ->
-    infer c >>= as_term ~loc >>= fun (Jdg.Term (ctx,_,_)) ->
-    let xts = Context.elements ctx in
-    let js = List.map (fun (x,t) ->
-      let e = Tt.mk_atom ~loc x in
-      let j = Jdg.mk_term ctx e t in
-      Runtime.mk_term j) xts in
+    infer c >>= as_term ~loc >>= fun j ->
+    let ctx = Jdg.contextof j in
+    let xts = Jdg.Ctx.elements ctx in
+    let js = List.map (fun j -> Runtime.mk_term (Jdg.atom_term ~loc j)) xts in
     Runtime.return (Predefined.mk_list js)
 
   | Syntax.Ident x ->
     Runtime.return (Runtime.mk_ident x)
 
-and require_equal_ty ~loc (Jdg.Ty (lctx, lte)) (Jdg.Ty (rctx, rte)) =
-  let ctx = Context.join ~loc lctx rctx in
-  Equal.equal_ty ctx lte rte
-
-and check_default ~loc v (Jdg.Ty (_, t_check') as t_check) =
-  as_term ~loc v >>= fun (Jdg.Term (ctxe, e, t')) ->
-  require_equal_ty ~loc t_check (Jdg.mk_ty ctxe t') >>=
+and check_default ~loc v t_check =
+  as_term ~loc v >>= fun je ->
+  let jt = Jdg.typeof je in
+  Equal.equal_ty ~loc jt t_check >>=
     begin function
-      | Some (ctx, hyps) -> Runtime.return (ctx, Tt.mention_atoms hyps e)
+      | Some eq ->
+        Runtime.return (Jdg.convert ~loc je eq)
       | None ->
-         Runtime.(error ~loc (TypeMismatch (t', t_check')))
+         Runtime.(error ~loc (TypeMismatch (jt, t_check)))
     end
 
-and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
+and check ({Location.thing=c';loc} as c) t_check =
   match c' with
   | Syntax.Type
   | Syntax.Bound _
@@ -360,7 +354,7 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
 
   | Syntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
-     Runtime.add_free ~loc x t (fun _ _ ->
+     Runtime.add_free ~loc x t (fun _ ->
      check c t_check)
 
   | Syntax.Match (c, cases) ->
@@ -368,107 +362,73 @@ and check ({Location.thing=c';loc} as c) (Jdg.Ty (_, t_check') as t_check) =
      match_cases ~loc cases (fun c -> check c t_check)
 
   | Syntax.Ascribe (c1, c2) ->
-     check_ty c2 >>= fun (Jdg.Ty (_,t') as t) ->
-     require_equal_ty ~loc t_check t >>=
-       begin function
-         | Some (ctx, hyps) ->
-            let jt = Jdg.mk_ty ctx t' in
-            check c1 jt >>= fun (ctx,e) ->
-            Runtime.return (ctx,Tt.mention_atoms hyps e)
-         | None ->
-            Runtime.(error ~loc:(c2.Location.loc) (TypeMismatch (t', t_check')))
-       end
+    check_ty c2 >>= fun t2 ->
+    Equal.equal_ty ~loc t2 t_check >>= begin function
+      | Some eq ->
+        check c1 t2 >>= fun j ->
+        let j = Jdg.convert ~loc j eq in
+        Runtime.return j
+      | None ->
+        Runtime.(error ~loc:(c2.Location.loc) (TypeMismatch (t2, t_check)))
+      end
 
   | Syntax.Lambda (x,u,c) ->
     check_lambda ~loc t_check x u c
 
   | Syntax.Refl c ->
-    Equal.as_eq t_check >>= fun ((ctx, t', e1, e2),hyps) ->
-    let t = Jdg.mk_ty ctx t' in
-    check c t >>= fun (ctx, e) ->
-    Equal.equal ctx e e1 t' >>= begin function
-      | None ->
-        Runtime.(error ~loc (EqualityFail (e, e1)))
-      | Some (ctx, hyps1) ->
-        Equal.equal ctx e e2 t' >>=
-          begin function
-            | None ->
-              Runtime.(error ~loc (EqualityFail (e, e2)))
-            | Some (ctx, hyps2) ->
-              let e = Tt.mk_refl ~loc t' e in
-              let e = Tt.mention_atoms hyps e in
-              let e = Tt.mention_atoms hyps1 e in
-              let e = Tt.mention_atoms hyps2 e in
-              Runtime.return (ctx, e)
+    Equal.as_eq ~loc t_check >>= begin function
+      | None -> Runtime.(error ~loc (EqualityTypeExpected t_check))
+      | Some (eq, e1, e2) ->
+        let t = Jdg.typeof e1 in
+        check c t >>= fun e ->
+        Equal.equal ~loc e e1 >>= begin function
+          | None -> Runtime.(error ~loc (EqualityFail (e, e1)))
+          | Some eq1 ->
+            Equal.equal ~loc e e2 >>= begin function
+              | None -> Runtime.(error ~loc (EqualityFail (e, e2)))
+              | Some eq2 ->
+                let j = Jdg.mk_refl ~loc eq1 eq2 in
+                let j = Jdg.convert ~loc j (Jdg.symmetry_ty eq) in
+                Runtime.return j
+              end
           end
       end
 
-and infer_lambda ~loc x u c =
-  match u with
-    | Some u ->
-      check_ty u >>= fun (Jdg.Ty (ctxu, (Tt.Ty {Tt.loc=uloc;_} as u)) as ju) ->
-      Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
-      infer c >>= as_term ~loc:(c.Location.loc) >>= fun (Jdg.Term (ctxe,e,t)) ->
-      let ctxe = Context.abstract ~loc ctxe y u in
-      let ctx = Context.join ~loc ctxu ctxe in
-      let e = Tt.abstract [y] e in
-      let t = Tt.abstract_ty [y] t in
-      let lam = Tt.mk_lambda ~loc x u e t
-      and prod = Tt.mk_prod_ty ~loc x u t in
-      Runtime.return_term (Jdg.mk_term ctx lam prod))
-    | None ->
-      Runtime.(error ~loc (UnannotatedLambda x))
-
-and infer_prod ~loc x u c =
-  check_ty u >>= fun (Jdg.Ty (ctxu,u) as ju) ->
-  let Tt.Ty {Tt.loc=uloc;_} = u in
-  Runtime.add_abstracting ~loc:uloc x ju (fun _ y ->
-  check_ty c >>= fun (Jdg.Ty (ctx,t)) ->
-  let ctx = Context.abstract ~loc ctx y u in
-  let ctx = Context.join ~loc ctx ctxu in
-  let t = Tt.abstract_ty [y] t in
-  let prod = Tt.mk_prod ~loc x u t in
-  let typ = Tt.mk_type_ty ~loc in
-  let j = Jdg.mk_term ctx prod typ in
-  Runtime.return_term j)
-
-and check_lambda ~loc t_check x u c : (Context.t * Tt.term) Runtime.comp =
-  Equal.as_prod t_check >>= fun ((ctx,((_,a),b)),hypst) ->
-  begin match u with
-    | Some u ->
-      check_ty u >>= fun (Jdg.Ty (_,u) as ju) ->
-      require_equal_ty ~loc (Jdg.mk_ty ctx a) ju >>= begin function
-        | Some (ctx,hypsu) ->
-          Runtime.return (ctx,u,hypsu)
+and check_lambda ~loc t_check x u c =
+  Equal.as_prod ~loc t_check >>= function
+    | None -> Runtime.(error ~loc (ProductExpected t_check))
+    | Some (eq, a, b) ->
+      begin match u with
+        | Some u ->
+          check_ty u >>= fun ju ->
+          Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.atom_ty a) >>= begin function
+            | Some equ -> Runtime.return (ju, equ)
+            | None ->
+              Runtime.(error ~loc:(u.Location.loc) (TypeMismatch (ju, (Jdg.atom_ty a))))
+            end
         | None ->
-          Runtime.lookup_penv >>= fun penv ->
-          Runtime.(error ~loc (TypeMismatch (u, a)))
-      end
-    | None ->
-      Runtime.return (ctx,a,Name.AtomSet.empty)
-  end >>= fun (ctx,u,hypsu) -> (* u a type equal to a under hypsu *)
-  Runtime.add_abstracting ~loc x (Jdg.mk_ty ctx u) (fun ctx y ->
-  let y' = Tt.mention_atoms hypsu (Tt.mk_atom ~loc y) in (* y' : a *)
-  let b = Tt.instantiate_ty [y'] b in
-  check c (Jdg.mk_ty ctx b) >>= fun (ctx,e) ->
-  let ctx = Context.abstract ~loc ctx y u in
-  let e = Tt.abstract [y] e in
-  let b = Tt.abstract_ty [y] b in
-  let lam = Tt.mk_lambda ~loc x u e b in
-  (* lam : forall x : u, b
-     == forall x : a, b by hypsu
-     == check_ty by hypst *)
-  let lam = Tt.mention_atoms (Name.AtomSet.union hypst hypsu) lam in
-  Runtime.return (ctx,lam))
+          let ju = Jdg.atom_ty a in
+          let equ = Jdg.reflexivity_ty ju in
+          Runtime.return (ju, equ)
+      end >>= fun (ju, equ) -> (* equ : ju == typeof a *)
+      Runtime.add_free ~loc x ju (fun jy ->
+      Runtime.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc jy))
+      (let b = Jdg.substitute_ty ~loc b a (Jdg.convert ~loc (Jdg.atom_term ~loc jy) equ) in
+      check c b >>= fun e ->
+      jdg_form ~loc (Jdg.Lambda (jy, e)) >>= fun lam ->
+      let eq_prod = Jdg.congr_prod_ty ~loc equ jy a (Jdg.reflexivity_ty b) in
+      let lam = Jdg.convert ~loc lam eq_prod in
+      let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
+      Runtime.return lam))
 
-and apply ~loc (Jdg.Term (_, h, _) as jh) c =
-  Equal.as_prod (Jdg.typeof jh) >>= fun ((ctx,((x,a),b)),hyps) ->
-  let h = Tt.mention_atoms hyps h in
-  check c (Jdg.mk_ty ctx a) >>= fun (ctx,e) ->
-  let res = Tt.mk_apply ~loc h x a b e in
-  let out = Tt.instantiate_ty [e] b in
-  let j = Jdg.mk_term ctx res out in
-  Runtime.return_term j
+and apply ~loc h c =
+  Equal.as_prod ~loc (Jdg.typeof h) >>= function
+    | None -> Runtime.(error ~loc (ProductExpected (Jdg.typeof h)))
+    | Some (eq, a, _) ->
+      check c (Jdg.atom_ty a) >>= fun e ->
+      let h = Jdg.convert ~loc h eq in
+      jdg_form ~loc (Jdg.Apply (h, e)) >>= fun j ->
+      Runtime.return_term j
 
 and sequence ~loc v =
   match v with
@@ -541,10 +501,8 @@ and match_op_cases ~loc op cases vs checking =
   fold cases
 
 and check_ty c : Jdg.ty Runtime.comp =
-  check c Jdg.ty_ty >>= fun (ctx, e) ->
-  let t = Tt.ty e in
-  let j = Jdg.mk_ty ctx t in
-  Runtime.return j
+  check c Jdg.ty_ty >>= fun j ->
+  Runtime.return (Jdg.is_ty ~loc:c.Location.loc j)
 
 
 (** Move to toplevel monad *)
@@ -639,19 +597,16 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
      return ()
 
   | Syntax.DeclConstants (xs, c) ->
-     Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun (Jdg.Ty (ctxt, t)) ->
-     if Context.is_empty ctxt
-     then
-       let rec fold = function
-         | [] -> return ()
-         | x :: xs ->
-            Runtime.add_constant ~loc x t >>= fun () ->
-            (if not quiet then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
-             fold xs)
-       in
-       fold xs
-     else
-       Runtime.(error ~loc ConstantDependency)
+    Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun t ->
+    let t = Jdg.is_closed_ty ~loc t in
+    let rec fold = function
+      | [] -> return ()
+      | x :: xs ->
+        Runtime.add_constant ~loc x t >>= fun () ->
+        (if not quiet then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
+         fold xs)
+    in
+    fold xs
 
   | Syntax.TopHandle lst ->
      mfold (fun () (op, xc) ->

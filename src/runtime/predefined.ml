@@ -62,12 +62,26 @@ let as_option ~loc = function
      Runtime.Ref _ | Runtime.String _ | Runtime.Ident _) as v ->
      Runtime.(error ~loc (OptionExpected v))
 
-let operation_equal v1 v2 =
-  Runtime.operation name_equal [v1;v2]
+let (>>=) = Runtime.bind
 
-let operation_as_prod v =
-  Runtime.operation name_as_prod [v]
+let as_term_option ~loc v =
+  match as_option ~loc v with
+    | Some v -> Some (Runtime.as_term ~loc v)
+    | None -> None
 
-let operation_as_eq v =
-  Runtime.operation name_as_eq [v]
+let operation_equal ~loc j1 j2 =
+  let v1 = Runtime.mk_term j1
+  and v2 = Runtime.mk_term j2 in
+  Runtime.operation name_equal [v1;v2] >>= fun v ->
+  Runtime.return (as_term_option ~loc v)
+
+let operation_as_prod ~loc j =
+  let v = Runtime.mk_term j in
+  Runtime.operation name_as_prod [v] >>= fun v ->
+  Runtime.return (as_term_option ~loc v)
+
+let operation_as_eq ~loc j =
+  let v = Runtime.mk_term j in
+  Runtime.operation name_as_eq [v] >>= fun v ->
+  Runtime.return (as_term_option ~loc v)
 

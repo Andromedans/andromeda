@@ -9,6 +9,8 @@ val is_empty : t -> bool
 
 val print : Name.ident list -> Name.atom_printer -> t -> Format.formatter -> unit
 
+val mem_atom : Name.atom -> t -> bool
+
 val singleton : Name.atom -> t
 
 val add_atoms : Name.AtomSet.t -> t -> t
@@ -24,6 +26,8 @@ val instantiate : t list -> int -> t -> t
     replaces the free variables [x0 ... xn] by the bound variables [lvl ... lvl+n] respectively. *)
 val abstract : Name.atom list -> int -> t -> t
 
+(** If [hyps] are the assumptions on a term, [bind k hyps] are the assumptions after putting the term under [k] binders. *)
+(* TODO we only ever use [bind 1] *)
 val bind : int -> t -> t
 
 (** If [a] has no bound assumptions, [as_atom_set a] returns the set of free assumptions. *)

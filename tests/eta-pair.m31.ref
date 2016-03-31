@@ -15,5 +15,6 @@ Constant q is declared.
   : Π (c : C) (d : D), snd C D (pair C D c d) ≡ d
 ⊢ refl p : p ≡ pair C D (fst C D p) (snd C D p)
 The command failed with error:
-File "./eta-pair.m31", line 51, characters 3-8: failed to check that p and q
+File "./eta-pair.m31", line 51, characters 3-8: failed to check that
+⊢ p : prod C D and ⊢ q : prod C D
 are equal

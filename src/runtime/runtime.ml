@@ -22,7 +22,7 @@ type env = {
 
 and dynamic = {
   (* Toplevel declarations *)
-  typing : Jdg.env;
+  typing : Jdg.Env.t;
 
   (* The list of judgments about atoms which are going to be abstracted. We
      should avoid creating atoms which depends on these, as this will prevent
@@ -90,12 +90,12 @@ type error =
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | TypeMismatch of Tt.ty * Tt.ty
-  | EqualityFail of Tt.term * Tt.term
+  | TypeMismatch of Jdg.ty * Jdg.ty
+  | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
   | MatchFail of value
-  | ConstantDependency
   | FailureFail of value
+  | InvalidEqual of Jdg.ty
   | EqualityTypeExpected of Jdg.ty
   | InvalidAsEquality of Jdg.ty
   | ProductExpected of Jdg.ty
@@ -117,7 +117,6 @@ let error ~loc err = raise (Error (Location.locate err loc))
 
 (** Make values *)
 let mk_term j =
-  let j = Jdg.strengthen j in
   Term j
 
 let mk_handler h = Handler h
@@ -259,13 +258,6 @@ let get_typing_env env = env.dynamic.typing
 let lookup_typing_env env =
   Return (get_typing_env env), env.state
 
-let get_constant x env =
-  Jdg.constant_type x env.dynamic.typing
-
-let lookup_constant ~loc x env =
-  let t = get_constant x env in
-  Return t, env.state
-
 let lookup_abstracting env = Return env.dynamic.abstracting, env.state
 
 let get_bound ~loc k env =
@@ -280,26 +272,18 @@ let add_bound0 x v env = {env with lexical = { env.lexical with
                                                forbidden = x :: env.lexical.forbidden;
                                                bound = (Val v) :: env.lexical.bound } }
 
-let add_free ~loc x (Jdg.Ty (ctx, t)) m env =
-  let y, ctx = Context.add_fresh ctx x t in
-  let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
-  let env = add_bound0 x yt env in
-  m ctx y env
+let add_free ~loc x jt m env =
+  let jy = Jdg.Ctx.add_fresh jt x in
+  let y_val = mk_term (Jdg.atom_term ~loc jy) in
+  let env = add_bound0 x y_val env in
+  m jy env
 
-let add_abstracting ~loc ?(bind=true) x (Jdg.Ty (ctx, t)) m env =
-  let y, ctx = Context.add_fresh ctx x t in
-  let env =
-    if not bind
-    then
-      env
-    else
-      let yt = mk_term (Jdg.mk_term ctx (Tt.mk_atom ~loc y) t) in
-      let env = add_bound0 x yt env in
-      { env with
-                dynamic = { env.dynamic with
-                            abstracting = yt :: env.dynamic.abstracting } }
+let add_abstracting v m env =
+  let env = { env with
+              dynamic = { env.dynamic with
+                          abstracting = v :: env.dynamic.abstracting } }
   in
-  m ctx y env
+  m env
 
 let add_forbidden0 x env =
   { env with lexical = { env.lexical with forbidden = x :: env.lexical.forbidden } }
@@ -307,7 +291,7 @@ let add_forbidden0 x env =
 let add_forbidden x env = (), add_forbidden0 x env
 
 let add_constant0 ~loc x t env =
-  { env with dynamic = {env.dynamic with typing = Jdg.add_constant x t env.dynamic.typing };
+  { env with dynamic = {env.dynamic with typing = Jdg.Env.add_constant x t env.dynamic.typing };
              lexical = {env.lexical with forbidden = x :: env.lexical.forbidden } }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
@@ -499,13 +483,13 @@ let print_error ~penv err ppf =
 
   | TypeMismatch (t1, t2) ->
      Format.fprintf ppf "got type@ %t@ but expected type@ %t"
-                    (Tt.print_ty ~penv:penv t1)
-                    (Tt.print_ty ~penv:penv t2)
+                    (Jdg.print_ty ~penv:penv t1)
+                    (Jdg.print_ty ~penv:penv t2)
 
   | EqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
-                    (Tt.print_term ~penv:penv e1)
-                    (Tt.print_term ~penv:penv e2)
+                    (Jdg.print_term ~penv:penv e1)
+                    (Jdg.print_term ~penv:penv e2)
 
   | UnannotatedLambda x ->
      Format.fprintf ppf "cannot infer the type of@ %t" (Name.print_ident x)
@@ -513,12 +497,13 @@ let print_error ~penv err ppf =
   | MatchFail v ->
      Format.fprintf ppf "no match found for@ %t" (print_value ~penv v)
 
-  | ConstantDependency ->
-     Format.fprintf ppf "constants may not depend on assumptions"
-
   | FailureFail v ->
      Format.fprintf ppf "expected to fail but computed@ %t"
                     (print_value ~penv v)
+
+  | InvalidEqual j ->
+     Format.fprintf ppf "this should be a witness of %t"
+                    (Jdg.print_ty ~penv:penv j)
 
   | EqualityTypeExpected j ->
      Format.fprintf ppf "expected an equality type but got@ %t"
@@ -573,7 +558,7 @@ let empty = {
     continuation = None ;
   } ;
   dynamic = {
-    typing = Jdg.empty ;
+    typing = Jdg.Env.empty ;
     abstracting = [] ;
     vars = Store.Dyn.empty ;
   } ;
@@ -627,8 +612,8 @@ let top_handle ~loc r env =
 (** Equality *)
 let rec equal_value v1 v2 =
   match v1, v2 with
-    | Term (Jdg.Term (_,te1,_)), Term (Jdg.Term (_,te2,_)) ->
-      Tt.alpha_equal te1 te2
+    | Term j1, Term j2 ->
+      Jdg.alpha_equal j1 j2
 
     | Tag (t1,vs1), Tag (t2,vs2) ->
       Name.eq_ident t1 t2 &&
