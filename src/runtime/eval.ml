@@ -652,6 +652,3 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
 
   | Syntax.Verbosity i -> Config.verbosity := i; return ()
 
-  | Syntax.Quit ->
-     exit 0
-

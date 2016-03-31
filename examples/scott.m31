@@ -44,5 +44,6 @@ let Ω =
 (* Notice that [Ω] does not diverge even though a beta-reduction happens. *)
 do refl Ω : (λ x : D', x) Ω ≡ Ω
 
-#quit
+do external "exit" ()
+
 do refl (δ δ) : (λ x : D, x) (δ δ) ≡ (δ δ)

@@ -130,5 +130,4 @@ and toplevel' =
   | Verbosity of int
   | Include of string list
     (** the boolean is [true] if the files should be included only once *)
-  | Quit (** quit the toplevel *)
 

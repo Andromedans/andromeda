@@ -41,6 +41,7 @@ let reserved = [
   ("ref", REF) ;
   ("refl", REFL) ;
   ("val", VAL) ;
+  ("verbosity", VERBOSITY) ;
   ("where", WHERE) ;
   ("with", WITH) ;
   ("yield", YIELD) ;
@@ -92,15 +93,10 @@ let rec token ({ Ulexbuf.end_of_input;_ } as lexbuf) =
 
 and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   let f () = Ulexbuf.update_pos lexbuf in
-  (* [g] updates the lexbuffer state to indicate whether a sensible end of
-     input has been found, typically after a dot or a directive *)
-  let g () = update_eoi lexbuf in
   match%sedlex stream with
   | newline                  -> f (); Ulexbuf.new_line lexbuf; token_aux lexbuf
   | start_longcomment        -> f (); comments 0 lexbuf
   | Plus hspace              -> f (); token_aux lexbuf
-  | "#quit"                  -> f (); g (); QUIT
-  | "#verbosity"             -> f (); VERBOSITY
   | "#include_once"          -> f (); INCLUDEONCE
   | quoted_string            -> f ();
      let s = Ulexbuf.lexeme lexbuf in

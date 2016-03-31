@@ -120,5 +120,4 @@ and toplevel' =
   | TopFail of comp Lazy.t (** desugaring is suspended to allow catching errors *)
   | Verbosity of int
   | Included of (string * toplevel list) list
-  | Quit (** quit the toplevel *)
 

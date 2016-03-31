@@ -80,7 +80,6 @@
 %token WHERE
 
 (* Toplevel directives *)
-%token QUIT
 %token VERBOSITY
 %token <string> QUOTED_STRING
 %token INCLUDEONCE
@@ -131,12 +130,11 @@ plain_topcomp:
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=name COLON params=mlparams opsig=op_mlsig
     { let (args, res) = opsig in DeclOperation (op, (params, args, res)) }
+  | VERBOSITY n=NUMERAL                              { Verbosity n }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
 plain_topdirective:
-  | QUIT                                             { Quit }
-  | VERBOSITY n=NUMERAL                              { Verbosity n }
   | INCLUDEONCE fs=QUOTED_STRING+                    { Include fs }
 
 (* Main syntax tree *)

@@ -1,7 +1,7 @@
 let G = (λ (T : Type) (g : T -> T) (x : T), x) : ∀ (T : Type) (g : T -> T) (x : T), T
 let G' = (λ U f, λ y : U, y) : ∀ (V : Type) (h : V -> V) (z : V), V
 
-#verbosity 4
+verbosity 4
 
 (* eta expansion of functions seems to lead to beta hints being not applied *)
 constant G'' : ∀ (T : Type) (g : T -> T), T -> T
