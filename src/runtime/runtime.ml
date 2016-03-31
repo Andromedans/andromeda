@@ -169,7 +169,7 @@ type 'a caught =
 
 let catch m env =
   try
-    let x, env = m () env in
+    let x, env = Lazy.force m env in
     Value x, env
   with
     | Jdg.Error err -> CaughtJdg err, env

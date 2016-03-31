@@ -92,7 +92,7 @@ type 'a caught =
   | Value of 'a
 
 (** Catch exceptions. The state is not changed if an exception is caught. *)
-val catch : (unit -> 'a toplevel) -> 'a caught toplevel
+val catch : 'a toplevel Lazy.t -> 'a caught toplevel
 
 val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a comp

@@ -7,8 +7,7 @@ type state = {
 }
 
 type error =
-  | RuntimeError of Runtime.error * TT.print_env
-  | JdgError of Jdg.error * TT.print_env
+  | EvalError of Eval.error
   | ParserError of Ulexbuf.error
   | DesugarError of Desugar.error
 
@@ -16,8 +15,7 @@ exception Error of error Location.located
 
 let print_error err ppf =
   match err with
-  | RuntimeError (err, penv) -> Runtime.print_error ~penv err ppf
-  | JdgError (err, penv) -> Jdg.print_error ~penv err ppf
+  | EvalError err -> Eval.print_error err ppf
   | ParserError err -> Ulexbuf.print_error err ppf
   | DesugarError err -> Desugar.print_error err ppf
 
@@ -27,12 +25,8 @@ let print_located_error {Location.thing=err; loc} ppf =
 let wrap f state =
   try f state
   with
-    | Runtime.Error {Location.thing=err; loc} ->
-       let penv = Runtime.get_penv state.runtime in
-       raise (Error (Location.locate (RuntimeError (err, penv)) loc))
-    | Jdg.Error {Location.thing=err; loc} ->
-       let penv = Runtime.get_penv state.runtime in
-       raise (Error (Location.locate (JdgError (err, penv)) loc))
+    | Eval.Error {Location.thing=err; loc} ->
+       raise (Error (Location.locate (EvalError err) loc))
     | Ulexbuf.Error {Location.thing=err; loc} ->
       raise (Error (Location.locate (ParserError err) loc))
     | Desugar.Error {Location.thing=err; loc} ->

@@ -5,6 +5,6 @@ b is defined.
 ⊢ λ (a0 : A), a0 + a : A → A
 lam is defined.
 File "./error-penv.m31", line 15, characters 4-6: got type
-⊢ Π (a : A), a + a ≡ a + a type but expected type
-⊢ Π (a : A), a + a ≡ a + a
+⊢ Π (a0 : A), a0 + a ≡ a0 + a type but expected type
+⊢ Π (a0 : A), a0 + a0 ≡ a0 + a0
 type

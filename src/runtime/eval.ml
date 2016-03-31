@@ -571,85 +571,106 @@ let topletrec_bind ~loc ~quiet fxcs =
           Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
   return ()
 
+type error =
+  | RuntimeError of TT.print_env * Runtime.error
+  | JdgError of TT.print_env * Jdg.error
+
+exception Error of error Location.located
+
+let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
+
+let print_error err ppf =
+  match err with
+    | RuntimeError (penv, err) -> Runtime.print_error ~penv err ppf
+    | JdgError (penv, err) -> Jdg.print_error ~penv err ppf
 
 let rec toplevel ~quiet {Location.thing=c;loc} =
-  match c with
+  Runtime.catch (lazy (match c with
 
-  | Syntax.DefMLType lst
-  | Syntax.DefMLTypeRec lst ->
-    (if not quiet then Format.printf "ML type%s %t declared.@." (match lst with [_] -> "" | _ -> "s") (Print.sequence (fun (t,_) -> Name.print_ident t) " " lst));
-    return ()
+    | Syntax.DefMLType lst
+    | Syntax.DefMLTypeRec lst ->
+      (if not quiet then Format.printf "ML type%s %t declared.@." (match lst with [_] -> "" | _ -> "s") (Print.sequence (fun (t,_) -> Name.print_ident t) " " lst));
+      return ()
 
-  | Syntax.DeclOperation (x, k) ->
-     if not quiet then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
-     return ()
-
-  | Syntax.DeclConstants (xs, c) ->
-    Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun t ->
-    let t = Jdg.is_closed_ty ~loc t in
-    let rec fold = function
-      | [] -> return ()
-      | x :: xs ->
-        Runtime.add_constant ~loc x t >>= fun () ->
-        (if not quiet then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
-         fold xs)
-    in
-    fold xs
-
-  | Syntax.TopHandle lst ->
-     mfold (fun () (op, xc) ->
-         comp_handle xc >>= fun f ->
-         Runtime.add_handle op f) () lst
-
-  | Syntax.TopLet xcs ->
-     toplet_bind ~loc ~quiet xcs
-
-  | Syntax.TopLetRec fxcs ->
-     topletrec_bind ~loc ~quiet fxcs
-
-  | Syntax.TopDynamic (x,c) ->
-     comp_value c >>= fun v ->
-     Runtime.add_dynamic ~loc x v
-
-  | Syntax.TopNow (x,c) ->
-     comp_value c >>= fun v ->
-     Runtime.top_now ~loc x v
-
-  | Syntax.TopDo c ->
-     comp_value c >>= fun v ->
-     Runtime.top_lookup_penv >>= fun penv ->
-     (if not quiet then Format.printf "%t@." (Runtime.print_value ~penv v) ;
-      return ())
-
-  | Syntax.TopFail c ->
-     Runtime.catch (fun () -> comp_value (Lazy.force c)) >>= begin function
-
-     | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
-       Runtime.top_lookup_penv >>= fun penv ->
-       (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
-                                        (Location.print loc)
-                                        (Runtime.print_error ~penv err));
+    | Syntax.DeclOperation (x, k) ->
+       if not quiet then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
        return ()
 
-     | Runtime.CaughtJdg {Location.thing=err; loc}  ->
-       Runtime.top_lookup_penv >>= fun penv ->
-       (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
-                                        (Location.print loc)
-                                        (Jdg.print_error ~penv err));
-       return ()
+    | Syntax.DeclConstants (xs, c) ->
+      Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun t ->
+      let t = Jdg.is_closed_ty ~loc t in
+      let rec fold = function
+        | [] -> return ()
+        | x :: xs ->
+          Runtime.add_constant ~loc x t >>= fun () ->
+          (if not quiet then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
+           fold xs)
+      in
+      fold xs
 
-     | Runtime.Value v ->
-       Runtime.top_lookup_penv >>= fun penv ->
-       Runtime.(error ~loc (FailureFail v))
-     end
+    | Syntax.TopHandle lst ->
+       mfold (fun () (op, xc) ->
+           comp_handle xc >>= fun f ->
+           Runtime.add_handle op f) () lst
 
-  | Syntax.Included lst ->
-    mfold (fun () (fn, cmds) ->
-        (if not quiet then Format.printf "#including %s@." fn);
-        mfold (fun () cmd -> toplevel ~quiet:true cmd) () cmds >>= fun () ->
-        (if not quiet then Format.printf "#processed %s@." fn);
+    | Syntax.TopLet xcs ->
+       toplet_bind ~loc ~quiet xcs
+
+    | Syntax.TopLetRec fxcs ->
+       topletrec_bind ~loc ~quiet fxcs
+
+    | Syntax.TopDynamic (x,c) ->
+       comp_value c >>= fun v ->
+       Runtime.add_dynamic ~loc x v
+
+    | Syntax.TopNow (x,c) ->
+       comp_value c >>= fun v ->
+       Runtime.top_now ~loc x v
+
+    | Syntax.TopDo c ->
+       comp_value c >>= fun v ->
+       Runtime.top_lookup_penv >>= fun penv ->
+       (if not quiet then Format.printf "%t@." (Runtime.print_value ~penv v) ;
         return ())
-      () lst
 
-  | Syntax.Verbosity i -> Config.verbosity := i; return ()
+    | Syntax.TopFail c ->
+       Runtime.catch (lazy (comp_value (Lazy.force c))) >>= begin function
+
+       | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
+         Runtime.top_lookup_penv >>= fun penv ->
+         (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+                                          (Location.print loc)
+                                          (Runtime.print_error ~penv err));
+         return ()
+
+       | Runtime.CaughtJdg {Location.thing=err; loc}  ->
+         Runtime.top_lookup_penv >>= fun penv ->
+         (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+                                          (Location.print loc)
+                                          (Jdg.print_error ~penv err));
+         return ()
+
+       | Runtime.Value v ->
+         Runtime.error ~loc (Runtime.FailureFail v)
+       end
+
+    | Syntax.Included lst ->
+      mfold (fun () (fn, cmds) ->
+          (if not quiet then Format.printf "#including %s@." fn);
+          mfold (fun () cmd -> toplevel ~quiet:true cmd) () cmds >>= fun () ->
+          (if not quiet then Format.printf "#processed %s@." fn);
+          return ())
+        () lst
+
+    | Syntax.Verbosity i -> Config.verbosity := i; return ()
+  )) >>= function
+  | Runtime.CaughtJdg {Location.thing=err; loc}  ->
+    Runtime.top_lookup_penv >>= fun penv ->
+    error ~loc (JdgError (penv, err))
+
+  | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
+    Runtime.top_lookup_penv >>= fun penv ->
+    error ~loc (RuntimeError (penv, err))
+
+  | Runtime.Value v -> return v
 
