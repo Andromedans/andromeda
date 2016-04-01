@@ -817,7 +817,7 @@ let mlty_def ~loc ctx outctx params def =
     fold outctx [] lst
 
 let mlty_rec_def ~loc ctx params def =
-  match def with 
+  match def with
   | Input.ML_Alias ty ->
      let ty = mlty ctx params ty in
      ctx, Syntax.ML_Alias ty
@@ -830,7 +830,7 @@ let mlty_rec_def ~loc ctx params def =
         fold ctx ((c, args)::res) lst
     in
     fold ctx [] lst
-  
+
 let mlty_defs ~loc ctx lst =
   let rec fold outctx res = function
     | [] -> outctx, List.rev res
@@ -917,7 +917,7 @@ let rec toplevel ~basedir ctx (cmd, loc) =
        (ctx, locate (Syntax.TopDo c) loc)
 
     | Input.TopFail c ->
-       let c = lazy (comp ~yield:false ctx c) in
+       let c = comp ~yield:false ctx c in
        (ctx, locate (Syntax.TopFail c) loc)
 
     | Input.Verbosity n ->

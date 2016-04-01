@@ -634,7 +634,7 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
         return ())
 
     | Syntax.TopFail c ->
-       Runtime.catch (lazy (comp_value (Lazy.force c))) >>= begin function
+       Runtime.catch (lazy (comp_value c)) >>= begin function
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->

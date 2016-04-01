@@ -7,4 +7,4 @@ module Ctx : sig
 
 end
 
-val infer : Ctx.t -> Syntax.toplevel -> Ctx.t
+val toplevel : Ctx.t -> Syntax.toplevel -> Ctx.t

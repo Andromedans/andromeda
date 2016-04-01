@@ -35,7 +35,7 @@ let wrap f state =
 (** Evaluation of toplevel computations *)
 let exec_cmd ~quiet c = wrap (fun {desugar;typing;runtime} ->
   let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
-  let typing = Mlty.infer typing c in
+  let typing = Mlty.toplevel typing c in
   let comp = Eval.toplevel ~quiet c in
   let (), runtime = Runtime.exec comp runtime in
   {desugar;typing;runtime})
@@ -46,7 +46,7 @@ let exec_interactive = wrap (fun state ->
 
 let use_file ~fn ~quiet = wrap (fun {desugar;typing;runtime} ->
   let desugar, cmds = Desugar.file desugar fn in
-  let typing = List.fold_left Mlty.infer typing cmds in
+  let typing = List.fold_left Mlty.toplevel typing cmds in
   let comp =
     List.fold_left
       (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet cmd))
@@ -63,7 +63,7 @@ let initial =
     (Desugar.Ctx.empty, []) cmds
   in
   let cmds = List.rev cmds in
-  let typing = List.fold_left Mlty.infer Mlty.Ctx.empty cmds in
+  let typing = List.fold_left Mlty.toplevel Mlty.Ctx.empty cmds in
   let comp = List.fold_left
     (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet:true cmd))
     (Runtime.top_return ()) cmds
