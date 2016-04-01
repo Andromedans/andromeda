@@ -26,7 +26,6 @@ let reserved = [
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("hypotheses", HYPOTHESES) ;
-  ("ident", IDENT) ;
   ("in", IN) ;
   ("lambda", LAMBDA) ;
   ("let", LET) ;

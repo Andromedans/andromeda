@@ -43,7 +43,7 @@ let rec as_list_opt = function
        | None -> None
        | Some xs -> Some (x :: xs)
      end
-  | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.String _ | Runtime.Ident _) ->
+  | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.String _) ->
      None
 
 let as_list ~loc v =
@@ -59,7 +59,7 @@ let as_option ~loc = function
   | Runtime.Tag (t,[]) when (Name.eq_ident t name_none)  -> None
   | Runtime.Tag (t,[x]) when (Name.eq_ident t name_some) -> Some x
   | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-     Runtime.Ref _ | Runtime.String _ | Runtime.Ident _) as v ->
+     Runtime.Ref _ | Runtime.String _) as v ->
      Runtime.(error ~loc (OptionExpected v))
 
 let (>>=) = Runtime.bind

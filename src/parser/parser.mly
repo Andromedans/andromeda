@@ -60,8 +60,6 @@
 
 %token UATOM UCONSTANT
 
-%token IDENT
-
 (* Meta types *)
 %token JUDGMENT
 %token MLTYPE
@@ -194,7 +192,6 @@ plain_prefix_term:
   | REDUCTION t=prefix_term                    { Reduction t }
   | YIELD e=prefix_term                        { Yield e }
   | REFL e=prefix_term                         { Refl e }
-  | IDENT x=var_name                           { Ident x }
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:

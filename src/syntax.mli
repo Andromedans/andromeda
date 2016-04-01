@@ -70,7 +70,6 @@ and comp' =
   | String of string
   | Occurs of comp * comp
   | Context of comp
-  | Ident of Name.ident
 
 and let_clause = Name.ident * comp
 

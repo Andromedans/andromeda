@@ -548,8 +548,6 @@ let rec comp ~yield bound (c',loc) =
      and c2 = comp ~yield bound c2 in
      locate (Syntax.Occurs (c1,c2)) loc
 
-  | Input.Ident x -> locate (Syntax.Ident x) loc
-
 and let_clauses ~loc ~yield bound lst =
   let rec fold bound' lst' = function
     | [] ->
