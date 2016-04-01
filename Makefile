@@ -49,10 +49,8 @@ src/build.ml:
 emacs-autoloads:
 	cd etc && emacs --batch --eval '(setq backup-inhibited t)' --eval '(update-file-autoloads "andromeda.el" t "'`pwd`'/andromeda-autoloads.el")'
 
-doc: default
-	cd doc && latex -output-format pdf theory.tex
-	/bin/mkdir -p ./doc/html
-	ocamlbuild -docflag "-d" -docflag "doc/html" doc/andromeda.docdir/index.html
+doc:
+	ocamlbuild andromeda.docdir/index.html
 
 
 
