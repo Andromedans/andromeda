@@ -52,6 +52,12 @@ emacs-autoloads:
 doc:
 	ocamlbuild andromeda.docdir/index.html
 
+andromeda.docdir/andromeda.dot:
+	ocamlbuild andromeda.docdir/andromeda.dot
+	sed -i '' 's/digraph G/digraph Andromeda/; s/rotate=90;//' _build/andromeda.docdir/andromeda.dot
+
+graph: andromeda.docdir/andromeda.dot
+	dot -Tsvg < _build/andromeda.docdir/andromeda.dot > andromeda.svg
 
 
 install: install-binary install-lib install-examples install-project-info install-emacs
@@ -102,4 +108,6 @@ clean:
 	ocamlbuild -clean
 
 .PHONY: doc src/build.ml clean andromeda.byte andromeda.native version \
-install install-binary install-doc install-examples install-lib uninstall
+install install-binary install-doc install-examples install-lib uninstall \
+andromeda.docdir/andromeda.dot
+
