@@ -50,14 +50,14 @@ emacs-autoloads:
 	cd etc && emacs --batch --eval '(setq backup-inhibited t)' --eval '(update-file-autoloads "andromeda.el" t "'`pwd`'/andromeda-autoloads.el")'
 
 andromeda.odocl:
-	find src/ -name '*.mli' -exec basename {} '.mli' \; | sed -r 's/^(.)/\u\1/' > andromeda.odocl
+	find src/ -name '*.mli' -exec basename {} '.mli' \; | perl -p -e 's/^(.)/\u\1/' > andromeda.odocl
 
 doc: andromeda.odocl
 	ocamlbuild $(OCAMLBUILD_FLAGS) andromeda.docdir/index.html
 
 andromeda.docdir/andromeda.dot: andromeda.odocl
 	ocamlbuild $(OCAMLBUILD_FLAGS) andromeda.docdir/andromeda.dot
-	sed --in-place='' 's/digraph G/digraph Andromeda/; s/rotate=90;//' _build/andromeda.docdir/andromeda.dot
+	perl -i -p -e 's/digraph G/digraph Andromeda/; s/rotate=90;//' _build/andromeda.docdir/andromeda.dot
 
 graph: andromeda.docdir/andromeda.dot
 	dot -Tsvg < _build/andromeda.docdir/andromeda.dot > andromeda.svg
