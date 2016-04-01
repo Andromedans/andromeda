@@ -5,7 +5,7 @@
 #48: implicit elimination of optional arguments
 #50: unexpected documentation comment
 
-OCAMLBUILD_FLAGS = -cflags -g,-annot,-w,+a-4-27-29-48-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
+OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-48-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
@@ -17,7 +17,7 @@ debug: andromeda.d.byte
 profile: andromeda.p.native
 
 andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.ml
-	ocamlbuild -j 4 -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
+	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
 
 # "make test" to see if anything broke
 test: default
@@ -49,11 +49,18 @@ src/build.ml:
 emacs-autoloads:
 	cd etc && emacs --batch --eval '(setq backup-inhibited t)' --eval '(update-file-autoloads "andromeda.el" t "'`pwd`'/andromeda-autoloads.el")'
 
-doc: default
-	cd doc && latex -output-format pdf theory.tex
-	/bin/mkdir -p ./doc/html
-	ocamlbuild -docflag "-d" -docflag "doc/html" doc/andromeda.docdir/index.html
+andromeda.odocl:
+	find src/ -name '*.mli' -exec basename {} '.mli' \; | perl -p -e 's/^(.)/\u\1/' > andromeda.odocl
 
+doc: andromeda.odocl
+	ocamlbuild $(OCAMLBUILD_FLAGS) andromeda.docdir/index.html
+
+andromeda.docdir/andromeda.dot: andromeda.odocl
+	ocamlbuild $(OCAMLBUILD_FLAGS) andromeda.docdir/andromeda.dot
+	perl -i -p -e 's/digraph G/digraph Andromeda/; s/rotate=90;//' _build/andromeda.docdir/andromeda.dot
+
+graph: andromeda.docdir/andromeda.dot
+	dot -Tsvg < _build/andromeda.docdir/andromeda.dot > andromeda.svg
 
 
 install: install-binary install-lib install-examples install-project-info install-emacs
@@ -104,4 +111,5 @@ clean:
 	ocamlbuild -clean
 
 .PHONY: doc src/build.ml clean andromeda.byte andromeda.native version \
-install install-binary install-doc install-examples install-lib uninstall
+install install-binary install-doc install-examples install-lib uninstall \
+andromeda.docdir/andromeda.dot andromeda.odocl
