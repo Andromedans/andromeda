@@ -5,7 +5,7 @@
 #48: implicit elimination of optional arguments
 #50: unexpected documentation comment
 
-OCAMLBUILD_FLAGS = -cflags -g,-annot,-w,+a-4-27-29-48-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
+OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-48-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 
@@ -17,7 +17,7 @@ debug: andromeda.d.byte
 profile: andromeda.p.native
 
 andromeda.byte andromeda.native andromeda.d.byte andromeda.p.native: src/build.ml
-	ocamlbuild -j 4 -lib unix $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
+	ocamlbuild $(OCAMLBUILD_MENHIRFLAGS) $(OCAMLBUILD_FLAGS) $@
 
 # "make test" to see if anything broke
 test: default
@@ -49,12 +49,15 @@ src/build.ml:
 emacs-autoloads:
 	cd etc && emacs --batch --eval '(setq backup-inhibited t)' --eval '(update-file-autoloads "andromeda.el" t "'`pwd`'/andromeda-autoloads.el")'
 
-doc:
-	ocamlbuild andromeda.docdir/index.html
+andromeda.odocl:
+	find src/ -name '*.mli' -exec basename {} '.mli' \; | sed -r 's/^(.)/\u\1/' > andromeda.odocl
 
-andromeda.docdir/andromeda.dot:
-	ocamlbuild andromeda.docdir/andromeda.dot
-	sed -i '' 's/digraph G/digraph Andromeda/; s/rotate=90;//' _build/andromeda.docdir/andromeda.dot
+doc: andromeda.odocl
+	ocamlbuild $(OCAMLBUILD_FLAGS) andromeda.docdir/index.html
+
+andromeda.docdir/andromeda.dot: andromeda.odocl
+	ocamlbuild $(OCAMLBUILD_FLAGS) andromeda.docdir/andromeda.dot
+	sed --in-place='' 's/digraph G/digraph Andromeda/; s/rotate=90;//' _build/andromeda.docdir/andromeda.dot
 
 graph: andromeda.docdir/andromeda.dot
 	dot -Tsvg < _build/andromeda.docdir/andromeda.dot > andromeda.svg
@@ -109,5 +112,4 @@ clean:
 
 .PHONY: doc src/build.ml clean andromeda.byte andromeda.native version \
 install install-binary install-doc install-examples install-lib uninstall \
-andromeda.docdir/andromeda.dot
-
+andromeda.docdir/andromeda.dot andromeda.odocl
