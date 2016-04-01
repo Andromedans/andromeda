@@ -2,10 +2,13 @@ S src
 S src/parser
 S src/nucleus
 S src/utils
+S src/runtime
+S src/typing
 B _build/src
 B _build/src/parser
 B _build/src/nucleus
 B _build/src/utils
+B _build/src/runtime
 B _build/src/typing
 PKG menhirLib
 PKG sedlex
