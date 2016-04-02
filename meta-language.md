@@ -97,7 +97,7 @@ It is possible to bind several values simultaneously:
 
     let x₁ = c₁
     and x₂ = c₂
-    ...
+     ⋮
     and xᵢ = cᵢ in
       c
 
@@ -171,7 +171,13 @@ while
     let rec f x₁ ... xᵢ = c₁ in
       c₂
 
-is a local recursive function definition.
+is a local recursive function definition. Multiple mutually recursive functions may be
+defined with
+
+    let rec f₁ x₁ x₂ ... = c₁
+        and f₂ y₁ y₂ ... = c₂
+         ⋮
+        and fⱼ z₁ z₂ ... = cⱼ
 
 ##### Datatypes
 
@@ -190,6 +196,12 @@ There are at present no facilities to manipulate strings in AML.
 
 A meta-level tuple is written as `(c₁, ..., cᵢ)`.
 
+##### Type definitions
+
+AML type system is currently under construction. It will support the usual datatype
+defintions, such as inductive datatypes and records. At the moment there are predefined
+lists and optional types.
+
 ###### Lists
 
 The empty list is written as `[]`. The list whose head is `c₁` and the tail is `c₂` is
@@ -203,53 +215,6 @@ is shorthand for
 
 At present, due to lack of meta-level types, lists are heterogeneous in the sense that
 they may contain values of different shapes.
-
-###### Data constructors
-
-AML is currently untyped. Nevertheless we can declare a data constructor using the top-level `data` declaration:
-
-    data Tag n
-
-Here `Tag` is the name of the data constructor and `n` is a numeral which signifies the
-arity of `Tag`. To see how this works, suppose we wanted to implement in AML the inductive
-type (written in OCaml syntax)
-
-    type 'a tree = Empty | Leaf of 'a | Tree of 'a tree * 'a tree
-
-In AML we would declare the three data constructors as
-
-    data Empty 0
-    data Leaf 1
-    data Tree 2
-
-The trees are then written as in OCaml except that we write `Tag c₁ ... cᵢ` instead of
-`Tag (c₁, ..., cᵢ)`, for example:
-
-    # data Empty 0
-    Data constructor Empty is declared.
-    # data Leaf 1
-    Data constructor Leaf is declared.
-    # data Tree 2
-    Data constructor Tree is declared.
-    # do Tree (Leaf "foo") (Tree Empty (Tree (Leaf "bar") (Leaf "baz")))
-    Tree (Leaf "foo") (Tree Empty (Tree (Leaf "bar") (Leaf "baz")))
-
-Because AML is untyped it allows us to write silly things such as
-
-    # do Tree (fun x => x) Empty
-    Tree <function> Empty
-
-However, it complains if we provide too few or too many arguments to the data constructor:
-
-    # do Leaf
-    File "?", line 2, characters 4-7: Syntax error
-      this data constructor needs 1 more arguments
-    # do Leaf "foo" "bar" "baz"
-    File "?", line 2, characters 4-7: Runtime error
-      cannot apply a data tag
-
-The last error message is generated because `Leaf "foo"` is applied to `"bar"` but `Leaf
-"foo"` is not a function.
 
 ##### `match` statements and patterns
 
