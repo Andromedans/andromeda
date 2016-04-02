@@ -27,7 +27,6 @@ Table of contents:
    * [Product](#product)
    * [$λ$-abstraction](#abstraction)
    * [Application](#application)
-   * [Signatures and structures](#signatures-and-structures)
    * [Equality type](#equality-type)
    * [Reflexivity](#reflexivity)
    * [Equality checking](#equality-checking)
@@ -114,7 +113,7 @@ It is possible to bind several values simultaneously:
 
     let x₁ = c₁
     and x₂ = c₂
-    ...
+     ⋮
     and xᵢ = cᵢ in
       c
 
@@ -186,11 +185,14 @@ Recursive functions can be defined:
     let rec f x₁ ... xᵢ = c₁ in
       c₂
 
-Mutually recursive functions are also possible:
 
-    let rec f x = c₁
-    and g y = c₂ in
-      c
+is a local recursive function definition. Multiple mutually recursive functions may be
+defined with
+
+    let rec f₁ x₁ x₂ ... = c₁
+        and f₂ y₁ y₂ ... = c₂
+         ⋮
+        and fⱼ z₁ z₂ ... = cⱼ
 
 ##### Datatypes
 
@@ -209,6 +211,16 @@ There are at present no facilities to manipulate strings in AML other than print
 
 A meta-level tuple is written as `(c₁, ..., cᵢ)`.
 
+##### Type definitions
+
+AML type system is currently under construction. It will support the usual datatype
+defintions, such as inductive datatypes and records. At the moment there are predefined
+lists and optional types.
+
+###### Optional values
+
+The value `None` indicates a lack of value and `Some v` indicates the presence of value `v`.
+
 ###### Lists
 
 The empty list is written as `[]`. The list whose head is `c₁` and the tail is `c₂` is
@@ -222,53 +234,6 @@ is shorthand for
 
 At present, due to lack of meta-level types, lists are heterogeneous in the sense that
 they may contain values of different shapes.
-
-###### Data constructors
-
-AML is currently untyped. Nevertheless we can declare a data constructor using the top-level `data` declaration:
-
-    data Tag n
-
-Here `Tag` is the name of the data constructor and `n` is a numeral which signifies the
-arity of `Tag`. To see how this works, suppose we wanted to implement in AML the inductive
-type (written in OCaml syntax)
-
-    type 'a tree = Empty | Leaf of 'a | Tree of 'a tree * 'a tree
-
-In AML we would declare the three data constructors as
-
-    data Empty 0
-    data Leaf 1
-    data Tree 2
-
-The trees are then written as in OCaml except that we write `Tag c₁ ... cᵢ` instead of
-`Tag (c₁, ..., cᵢ)`, for example:
-
-    # data Empty 0
-    Data constructor Empty is declared.
-    # data Leaf 1
-    Data constructor Leaf is declared.
-    # data Tree 2
-    Data constructor Tree is declared.
-    # do Tree (Leaf "foo") (Tree Empty (Tree (Leaf "bar") (Leaf "baz")))
-    Tree (Leaf "foo") (Tree Empty (Tree (Leaf "bar") (Leaf "baz")))
-
-Because AML is untyped it allows us to write silly things such as
-
-    # do Tree (fun x => x) Empty
-    Tree <function> Empty
-
-However, it complains if we provide too few or too many arguments to the data constructor:
-
-    # do Leaf
-    File "?", line 2, characters 4-7: Syntax error
-      this data constructor needs 1 more arguments
-    # do Leaf "foo" "bar" "baz"
-    File "?", line 2, characters 4-7: Runtime error
-      cannot apply a data tag
-
-The last error message is generated because `Leaf "foo"` is applied to `"bar"` but
-`Leaf "foo"` is not a function.
 
 ##### `match` statements and patterns
 
@@ -355,8 +320,6 @@ A judgment pattern matches a judgment $\isterm{\G}{\e}{\T}$ as follows:
    | `refl j` | match a [reflexivity term](#reflexivity) |
    | `_atom ?x` | match a [free variable](#assumptions) and bind its natural judgment to `x` |
    | `_constant ?x` | match a [constant](#constants) and bind its natural judgment to `x` |
-
-[TODO describe patterns for signatures and structures]
 
 ###### Matching under binders
 
@@ -606,7 +569,8 @@ Dynamic variables can be updated by the following construct:
 
     now x = c in c'
 
-`x` will evaluate to the result of `c` when it is used in `c'`, including through function application and operation handling:
+Here `x` will evaluate to the result of `c` when it is used in `c'`, including through
+function application and operation handling
 
     let f _ = x in
     now x = v in f ()
@@ -620,6 +584,19 @@ and
     end
 
 both evaluate to `v` regardless of the previous value of `x`.
+
+##### `#include_once "<file>"`
+
+Include the given file if it has not been included yet.
+
+##### `verbosity <n>`
+
+Set the verbosity level. The levels are:
+
+- `0`: only success messages
+- `1`: errors
+- `2`: warnings
+- `3`: debugging messages
 
 
 ### Judgment computations
@@ -817,10 +794,6 @@ An application is computed with
 
 Application associates to the left so that `c₁ c₂ c₃` is the same as `(c₁ c₂) c₃`.
 
-#### Signatures and structures
-
-TODO
-
 #### Equality type
 
 The equality type is computed with
@@ -853,7 +826,7 @@ TODO: Describe `reduction`
 
 ##### Operations invoked by the nucleus
 
-TODO: describe `equal`, `as_prod`, `as_eq` and `as_signature`
+TODO: describe `equal`, `as_prod` and `as_eq`.
 
 
 #### Type ascription
@@ -941,10 +914,9 @@ The available externals are:
 
    |---|---|
    | `"print"` | A function taking one value and printing it to the standard output |
-   | `"print_signature"` | A function taking a value equal to a signature type and printing its definition to standard output |
    | `"time"` | TODO describe time |
    | `"config"` | A function allowing dynamic modification of some options |
-   | `"simplify"` | A function that simplifies terms appearing inside a value by using some reductions |
+   | `"exit"` | Exit Andromeda ML |
 
 The `"config"` external can be invoked with the following options:
 
