@@ -26,7 +26,6 @@ Table of contents:
    * [Product](#product)
    * [$λ$-abstraction](#abstraction)
    * [Application](#application)
-   * [Signatures and structures](#signatures-and-structures)
    * [Equality type](#equality-type)
    * [Reflexivity](#reflexivity)
    * [Equality checking](#equality-checking)
@@ -339,8 +338,6 @@ A judgment pattern matches a judgment $\isterm{\G}{\e}{\T}$ as follows:
    | `_atom ?x` | match a [free variable](#assumptions) and bind its natural judgment to `x` |
    | `_constant ?x` | match a [constant](#constants) and bind its natural judgment to `x` |
 
-[TODO describe patterns for signatures and structures]
-
 #### Operations and handlers
 
 The AML operations and handlers are similar to those of the
@@ -593,15 +590,11 @@ A global handler may be installed at the toplevel with
 
 TODO: explain the special provisos of a toplevel handler (no patterns, no `yield`).
 
-##### `#include "<file>"`
-
-Include the given file.
-
 ##### `#include_once "<file>"`
 
 Include the given file if it has not been included yet.
 
-##### `#verbosity <n>`
+##### `verbosity <n>`
 
 Set the verbosity level. The levels are:
 
@@ -609,14 +602,6 @@ Set the verbosity level. The levels are:
 - `1`: errors
 - `2`: warnings
 - `3`: debugging messages
-
-##### `#environment`
-
-Print the currently known datatype constructors, constants, operations, and signatures.
-
-##### `#quit`
-
-Quit Andromeda.
 
 
 ### Judgment computations
@@ -814,10 +799,6 @@ An application is computed with
 
 Application associates to the left so that `c₁ c₂ c₃` is the same as `(c₁ c₂) c₃`.
 
-#### Signatures and structures
-
-TODO
-
 #### Equality type
 
 The equality type is computed with
@@ -850,7 +831,7 @@ TODO: Describe `reduction`
 
 ##### Operations invoked by the nucleus
 
-TODO: describe `equal`, `as_prod`, `as_eq` and `as_signature`
+TODO: describe `equal`, `as_prod` and `as_eq`.
 
 
 #### Type ascription
@@ -938,10 +919,9 @@ The available externals are:
 
    |---|---|
    | `"print"` | A function taking one value and printing it to the standard output |
-   | `"print_signature"` | A function taking a value equal to a signature type and printing its definition to standard output |
    | `"time"` | TODO describe time |
    | `"config"` | A function allowing dynamic modification of some options |
-   | `"simplify"` | A function that simplifies terms appearing inside a value by using some reductions |
+   | `"exit"` | Exit Andromeda ML |
 
 The `"config"` external can be invoked with the following options:
 

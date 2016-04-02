@@ -4,19 +4,28 @@ navigation: about
 layout: page
 ---
 
-Andromeda is an implementation of dependent type theory with equality reflection. Thanks
-to the equality reflection the type theory is very expressive, as it allows one to postulate
-new judgmental equalities.
+Andromeda is an implementation of dependent type theory with equality reflection.
+The type theory is very expressive, as it allows one to postulate new judgmental equalities.
 
-The design of Andromeda is much closer to
-[HOL Light](http://www.cl.cam.ac.uk/~jrh13/hol-light/) than to [Coq](https://coq.inria.fr)
-or [Agda](http://wiki.portal.chalmers.se/agda/pmwiki.php) in the sense that its nucleus
-(galaxies do not have "kernels") is minimalistic: it does not perform any normalization
-because the underlying type theory has no normal forms. Instead, equality checking is
-delegated to the meta-language. The nucleus and the meta-language communicate through
-operations and handlers akin to those of the
-[Eff programming language](http://www.eff-lang.org). Andromeda is safe by design as the
-meta-language can only create typing judgements by passing through the nucleus.
+The design of Andromeda follows the tradition of
+[LCF](https://en.wikipedia.org/wiki/Logic_for_Computable_Functions)-style theorem provers:
+
+* there is an abstract datatype of judgements,
+* all constructions of judgements are done by a trusted *nucleus* and directly correspond
+  to the inference rules of type theory (or easy derivations),
+* the user interacts with the nucleus by writing programs in a high-level, statically
+  typed meta-language *Andromeda ML (AML)*.
+
+The nucleus does not perform any normalization (it cannot as the underlying type theory
+has no normal forms), unification, or perform proof search. These techniques can all be
+implemented on top of the nucleus in AML, and therefore cannot go wrong by design.
+
+Equality checking is delegated to the meta-level (equality checking in the underlyying
+type theory is undecidable) by a mechanism of operations and handlers akin to those of the
+[Eff programming language](http://www.eff-lang.org). Whenever the nucleus needs to check a
+non-trivial equation, it triggers an operation (question) which propagates to the
+meta-level. There it is intercepted by a user-defined handler which handles (answers) the
+equation by providing a witness for it.
 
 ### Theoretical background
 
@@ -24,12 +33,6 @@ Documents: see the
 [documents folder](https://github.com/Andromedans/andromeda/tree/master/doc) in the GitHub
 repository.
 
-Talks:
-
-* Andrej Bauer: "How to implemenent type theory with a reflection rule"
-  ([slides](http://www.qmac.ox.ac.uk/events/Talk%20slides/Bauer-HoTT-Oxford.pdf) and
-   [video](https://www.youtube.com/watch?v=IlfQjWqrK6I))
-* Andrej Bauer: ["The troublesome reflection rule"](http://math.andrej.com/2015/05/19/the-troublesome-reflection-rule-types-2015-slides/), TYPES 2015, invited talk.
 
 
 ### History of the name
