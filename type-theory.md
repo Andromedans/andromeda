@@ -26,7 +26,7 @@ Contexts $\G$:
 | $\ctxempty$ | empty context |
 | $\ctxextend{\G}{\x}{\T}$ | context $\G$ extended with $\x : \T$ |
 
-### Judgements
+### Judgments
 
 |---|---|
 | $\isctx{\G}$          | $\G$ is a well formed context |
@@ -34,7 +34,7 @@ Contexts $\G$:
 | $\eqterm{\G}{\e_1}{\e_2}{\T}$ | $e_1$ and $e_2$ are equal terms of type $\T$ in context |
 
 
-### Judgement $\isctx{\G}$
+### Judgment $\isctx{\G}$
 
 ###### `ctx-empty`
 
@@ -57,7 +57,7 @@ $$
 
 TODO: explain $\mathsf{dom}(\G)$.
 
-### Judgement $\isterm{\G}{\e}{\T}$
+### Judgment $\isterm{\G}{\e}{\T}$
 
 #### General rules
 
