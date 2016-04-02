@@ -19,7 +19,7 @@ Table of contents:
    * [Mutable references](#mutable-references)
    * [Dynamic variables](#dynamic-variables)
 * [Judgment computations](#judgment-computations)
-   * [Infering and checking mode](#inferring-and-checking-mode)
+   * [Inferring and checking mode](#inferring-and-checking-mode)
    * [The universe](#the-universe)
    * [Constants](#constants)
    * [Assumptions](#assumptions)
@@ -214,7 +214,7 @@ A meta-level tuple is written as `(c₁, ..., cᵢ)`.
 ##### Type definitions
 
 AML type system is currently under construction. It will support the usual datatype
-defintions, such as inductive datatypes and records. At the moment there are predefined
+definitions, such as inductive datatypes and records. At the moment there are predefined
 lists and optional types.
 
 ###### Optional values
@@ -276,7 +276,7 @@ The general patterns are:
    | `p as ?x` | match according to pattern `p` and also bind the value to `x` |
    | `x` | match a value if it equals the value of `x` |
    | `⊢ j` | match a judgment $\isterm{\G}{\e}{\T}$ according to the *judgment pattern `j`*, see below |
-   | `⊢ j₁ : j₂` | match a judgement $\isterm{\G}{\e}{\T}$ with `j₁` and $\isterm{\G}{\T}{Type}$ with `j₂` |
+   | `⊢ j₁ : j₂` | match a judgment $\isterm{\G}{\e}{\T}$ with `j₁` and $\isterm{\G}{\T}{Type}$ with `j₂` |
    | `Tag p₁ ... pᵢ` | match a data tag |
    | `[]` | match the empty list |
    | `p₁ :: p₂` | match the head and the tail of a non-empty list |
@@ -323,7 +323,7 @@ A judgment pattern matches a judgment $\isterm{\G}{\e}{\T}$ as follows:
 
 ###### Matching under binders
 
-When matching a judgement $\isterm{\G}{∏ (x : A) B}{Type}$ with a pattern `∏ (y : j₁), j₂`,
+When matching a judgment $\isterm{\G}{∏ (x : A) B}{Type}$ with a pattern `∏ (y : j₁), j₂`,
 a fresh variable $y₁$ is produced so that we may match $\isterm{\G, y₁ : A}{B}{Type}$ with `j₂`.
 
 Patterns which match under a binder have two forms:
@@ -551,7 +551,7 @@ In this case `hole_filler` created a new assumption `hole₂₂` of the displaye
 
 #### Mutable references
 
-Mutable references are as in Ocaml:
+Mutable references are as in OCaml:
 * a fresh reference is introduced by `ref c` where `c` evaluates to its initial value
 * if `c` evaluates to a reference, its value can be accessed by `! c`
 * if `c` evaluates to a reference, its value can be modified by `c := c'` where `c'` evaluates to the new value.
@@ -623,7 +623,7 @@ Even though Andromeda always computes an entire judgment $\isterm{\G}{\e}{\T}$ i
 useful to think of it as just a term $\e$ with a known type $\T$ and assumptions $\G$
 which Andromeda is kindly keeping track of.
 
-##### Infering and checking mode
+##### Inferring and checking mode
 
 A judgment is computed in one of two modes, the **inferring** or the **checking** mode.
 
@@ -903,7 +903,7 @@ The handling of operations invoked under a binder is considered to be computed u
 
 #### Externals
 
-Externals provide a way to call certain Ocaml functions.
+Externals provide a way to call certain OCaml functions.
 Each function has a name like `"print"` and is invoked with
 
     external "print"
@@ -935,7 +935,7 @@ The arguments to `external` and `external "config"` are case sensitive.
 
 #### Toplevel commands
 
-An andromeda program is a stream of top-level commands.
+An Andromeda program is a stream of top-level commands.
 
 ##### Toplevel let binding
 
@@ -995,7 +995,7 @@ The construct
 is the "opposite" of `do c` in the sense that it will succeed *only if* `c` reports an
 error. This is useful for testing AML.
 
-If `c` has side effects they are cancelled:
+If `c` has side effects they are canceled:
 
     # let x = ref None
     x is defined.

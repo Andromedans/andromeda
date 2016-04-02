@@ -10,8 +10,8 @@ The type theory is very expressive, as it allows one to postulate new judgmental
 The design of Andromeda follows the tradition of
 [LCF](https://en.wikipedia.org/wiki/Logic_for_Computable_Functions)-style theorem provers:
 
-* there is an abstract datatype of judgements,
-* all constructions of judgements are done by a trusted *nucleus* and directly correspond
+* there is an abstract datatype of judgments,
+* all constructions of judgments are done by a trusted *nucleus* and directly correspond
   to the inference rules of type theory (or easy derivations),
 * the user interacts with the nucleus by writing programs in a high-level, statically
   typed meta-language *Andromeda ML (AML)*.
@@ -20,7 +20,7 @@ The nucleus does not perform any normalization (it cannot as the underlying type
 has no normal forms), unification, or perform proof search. These techniques can all be
 implemented on top of the nucleus in AML, and therefore cannot go wrong by design.
 
-Equality checking is delegated to the meta-level (equality checking in the underlyying
+Equality checking is delegated to the meta-level (equality checking in the underlying
 type theory is undecidable) by a mechanism of operations and handlers akin to those of the
 [Eff programming language](http://www.eff-lang.org). Whenever the nucleus needs to check a
 non-trivial equation, it triggers an operation (question) which propagates to the

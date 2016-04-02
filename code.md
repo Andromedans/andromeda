@@ -26,7 +26,7 @@ The source code can be found in `src`, in the following folders:
    * `store.ml` - implementation of mutable storage
 * folder `nucleus`:
    * `assumption.ml` - tracking of dependency of terms on free variables
-   * `jdg.ml` - type-theoretic judgements and contexts
+   * `jdg.ml` - type-theoretic judgments and contexts
    * `TT.ml` - type theory syntax
 * folder `runtime`:
    * `equal.ml` - judgmental equality
