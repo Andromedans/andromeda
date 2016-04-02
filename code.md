@@ -30,7 +30,7 @@ The source code can be found in `src`, in the following folders:
    * `TT.ml` - type theory syntax
 * folder `runtime`:
    * `equal.ml` - judgmental equality
-   * `eval.ml` - the main nucleus evaluation loop
+   * `eval.ml` - evaluation of meta-language computations
    * `external.ml` - interface to OCaml functions
    * `matching.ml` - meta-language pattern matching
    * `predefined.ml` - pre-defined types and values
@@ -45,7 +45,7 @@ The source code can be found in `src`, in the following folders:
 2. `parser/desugar.ml` converts the parsed `Input` entity to the corresponding `Syntax` entity.
    Desugaring discerns names into bound variables (represented as de Bruijn indices),
    constants, data constructors, and operations.
-3. `typing/mlty.ml` infers the ML-types
+3. `typing/mlty.ml` infers the ML-types (under construction)
 4. `runtime/eval.ml` evaluates `Syntax.toplevel` to a `Runtime.toplevel`. In the course of
    a top-level evaluation there are subordinate evaluation procedures, the most interesting of
    which takes a computation `Syntax.comp` to a `Runtime.result` which is either a `Runtime.value`
