@@ -2,7 +2,7 @@
     environment. *)
 type state = {
   desugar : Desugar.Ctx.t ;
-  typing : Mlty.Ctx.t ;
+  typing : Mlty.TopEnv.t ;
   runtime : Runtime.topenv
 }
 
@@ -10,6 +10,7 @@ type error =
   | EvalError of Eval.error
   | ParserError of Ulexbuf.error
   | DesugarError of Desugar.error
+  | TypingError of Mlty.error
 
 exception Error of error Location.located
 
@@ -18,6 +19,7 @@ let print_error err ppf =
   | EvalError err -> Eval.print_error err ppf
   | ParserError err -> Ulexbuf.print_error err ppf
   | DesugarError err -> Desugar.print_error err ppf
+  | TypingError err -> Mlty.print_error err ppf
 
 let print_located_error {Location.thing=err; loc} ppf =
   Format.fprintf ppf "%t:@ %t" (Location.print loc) (print_error err)
@@ -31,6 +33,8 @@ let wrap f state =
       raise (Error (Location.locate (ParserError err) loc))
     | Desugar.Error {Location.thing=err; loc} ->
       raise (Error (Location.locate (DesugarError err) loc))
+    | Mlty.Error {Location.thing=err; loc} ->
+      raise (Error (Location.locate (TypingError err) loc))
 
 (** Evaluation of toplevel computations *)
 let exec_cmd ~quiet c = wrap (fun {desugar;typing;runtime} ->
@@ -63,7 +67,7 @@ let initial =
     (Desugar.Ctx.empty, []) cmds
   in
   let cmds = List.rev cmds in
-  let typing = List.fold_left Mlty.toplevel Mlty.Ctx.empty cmds in
+  let typing = List.fold_left Mlty.toplevel Mlty.TopEnv.empty cmds in
   let comp = List.fold_left
     (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet:true cmd))
     (Runtime.top_return ()) cmds

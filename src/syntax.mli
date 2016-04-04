@@ -24,7 +24,7 @@ and tt_pattern' =
   | Tt_GenAtom of tt_pattern
   | Tt_GenConstant of tt_pattern
 
-and pattern = pattern' located
+type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * bound
