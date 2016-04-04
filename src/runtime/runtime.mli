@@ -17,7 +17,6 @@ type value = private
   | Tuple of value list
   | Ref of ref
   | String of string (** NB: strings are opaque to the user, ie not lists *)
-  | Ident of Name.ident
 
 and operation_args = { args : value list; checking : Jdg.ty option}
 
@@ -52,7 +51,6 @@ type error =
   | HandlerExpected of value
   | RefExpected of value
   | StringExpected of value
-  | IdentExpected of value
   | UnhandledOperation of Name.operation * value list
 
 (** The exception that is raised on runtime error *)
@@ -70,7 +68,6 @@ val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
 val mk_tuple : value list -> value
 val mk_string : string -> value
-val mk_ident : Name.ident -> value
 
 val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 
@@ -124,7 +121,6 @@ val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> ref
 val as_string : loc:Location.t -> value -> string
-val as_ident : loc:Location.t -> value -> Name.ident
 
 (** Operations *)
 val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp

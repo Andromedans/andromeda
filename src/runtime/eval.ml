@@ -194,7 +194,7 @@ let rec infer {Location.thing=c'; loc} =
         infer c2 >>= fun v ->
         Runtime.apply_closure f v
       | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-        Runtime.Ref _ | Runtime.String _ | Runtime.Ident _ as h ->
+        Runtime.Ref _ | Runtime.String _ as h ->
         Runtime.(error ~loc (Inapplicable h))
     end
 
@@ -278,9 +278,6 @@ let rec infer {Location.thing=c'; loc} =
     let js = List.map (fun j -> Runtime.mk_term (Jdg.atom_term ~loc j)) xts in
     Runtime.return (Predefined.mk_list js)
 
-  | Syntax.Ident x ->
-    Runtime.return (Runtime.mk_ident x)
-
 and check_default ~loc v t_check =
   as_term ~loc v >>= fun je ->
   let jt = Jdg.typeof je in
@@ -317,8 +314,7 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Update _
   | Syntax.String _
   | Syntax.Occurs _
-  | Syntax.Context _
-  | Syntax.Ident _ ->
+  | Syntax.Context _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
@@ -634,7 +630,7 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
         return ())
 
     | Syntax.TopFail c ->
-       Runtime.catch (lazy (comp_value (Lazy.force c))) >>= begin function
+       Runtime.catch (lazy (comp_value c)) >>= begin function
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->

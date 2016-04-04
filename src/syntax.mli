@@ -70,7 +70,6 @@ and comp' =
   | String of string
   | Occurs of comp * comp
   | Context of comp
-  | Ident of Name.ident
 
 and let_clause = Name.ident * comp
 
@@ -117,7 +116,7 @@ and toplevel' =
   | TopDynamic of Name.ident * comp
   | TopNow of bound * comp
   | TopDo of comp
-  | TopFail of comp Lazy.t (** desugaring is suspended to allow catching errors *)
+  | TopFail of comp
   | Verbosity of int
   | Included of (string * toplevel list) list
 

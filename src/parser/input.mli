@@ -72,7 +72,6 @@ and term' =
   | String of string
   | Context of comp
   | Occurs of comp * comp
-  | Ident of Name.ident
 
 (** Sugared types *)
 and ty = term
