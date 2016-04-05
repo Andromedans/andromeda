@@ -781,7 +781,7 @@ let mlty ctx params ty =
                 if arity = n
                 then
                   let args = List.map mlty args in
-                  Syntax.ML_TyApply (level, args)
+                  Syntax.ML_TyApply (x, level, args)
                 else
                   error ~loc (ArityMismatch (x, n, arity))
               end

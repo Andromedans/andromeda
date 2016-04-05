@@ -15,7 +15,7 @@ type ty =
   | Tuple of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
-  | App of Syntax.level * ty list
+  | App of Name.ident * Syntax.level * ty list
   | Ref of ty
 
 let fresh_type () = Meta (fresh_meta ())
@@ -67,7 +67,8 @@ let rec print_ty ~penv t ppf = match t with
     Format.fprintf ppf "%t %s@ %t" (print_ty ~penv t1) (Print.char_arrow ()) (print_ty ~penv t2)
   | Handler (t1, t2) ->
     Format.fprintf ppf "%t %s@ %t" (print_ty ~penv t1) (Print.char_darrow ()) (print_ty ~penv t2)
-  | App (x, ts) -> assert false (* TODO *)
+  | App (x, _, ts) ->
+    Format.fprintf ppf "%t@ %t" (Name.print_ident x) (Print.sequence (print_ty ~penv) " " ts)
   | Ref t -> Format.fprintf ppf "ref@ %t" (print_ty ~penv t)
 
 let print_error err ppf =
@@ -94,7 +95,7 @@ let print_error err ppf =
 let rec occurs m = function
   | Jdg | String -> false
   | Meta m' -> m = m'
-  | Tuple ts  | App (_, ts) ->
+  | Tuple ts  | App (_, _, ts) ->
     List.exists (occurs m) ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     occurs m t1 || occurs m t2
@@ -147,9 +148,9 @@ end = struct
         let t1 = aux t1
         and t2 = aux t2 in
         Handler (t1, t2)
-      | App (x, ts) ->
+      | App (x, k, ts) ->
         let ts = List.map aux ts in
-        App (x, ts)
+        App (x, k, ts)
       | Ref t ->
         let t = aux t in
         Ref t
@@ -241,13 +242,13 @@ end = struct
     let rec fold = function
       | [] -> raise Not_found
       | (_, Alias _) :: types -> fold types
-      | (_, Sum (ms, constructors)) :: types ->
+      | (x, Sum (ms, constructors)) :: types ->
         let rec search = function
           | [] -> fold types
           | (c', ts) :: _ when Name.eq_ident c c' ->
             let s, ms' = Substitution.freshen_metas ms in
             let ts = List.map (Substitution.apply s) ts
-            and out = App (List.length types, List.map (fun m -> Meta m) ms') in
+            and out = App (x, List.length types, List.map (fun m -> Meta m) ms') in
             ts, out
           | _ :: rem -> search rem
         in
@@ -386,7 +387,7 @@ end = struct
         | Some t -> whnf ctx s t
         | None -> t
       end
-    | App (x, ts) as t ->
+    | App (_, x, ts) as t ->
       begin match Ctx.unfold ctx x ts with
         | Some t -> whnf ctx s t
         | None -> t
@@ -422,7 +423,7 @@ end = struct
       | Handler (t1, t2), Handler (t1', t2') ->
         unifiable ctx s t1 t1' >?= fun s ->
         unifiable ctx s t2 t2'
-      | App (x, ts), App (y, ts') when x = y ->
+      | App (_, x, ts), App (_, y, ts') when x = y ->
         let rec fold s ts ts' = match ts, ts' with
           | [], [] -> Some s
           | t :: ts, t' :: ts' ->
@@ -829,9 +830,9 @@ let rec ml_ty params {Location.thing=t; loc} =
   | Syntax.ML_Prod ts ->
     let ts = List.map (ml_ty params) ts in
     Tuple ts
-  | Syntax.ML_TyApply (x, ts) ->
+  | Syntax.ML_TyApply (x, k, ts) ->
     let ts = List.map (ml_ty params) ts in
-    App (x, ts)
+    App (x, k, ts)
   | Syntax.ML_Handler (t1, t2) ->
     let t1 = ml_ty params t1
     and t2 = ml_ty params t2 in

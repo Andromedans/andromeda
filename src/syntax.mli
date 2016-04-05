@@ -92,7 +92,7 @@ type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
   | ML_Prod of ml_ty list
-  | ML_TyApply of level * ml_ty list
+  | ML_TyApply of Name.ident * level * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Judgment
   | ML_Param of bound
