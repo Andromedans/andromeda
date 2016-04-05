@@ -23,6 +23,10 @@ val nil : ident
 (** The name of the cons constructor *)
 val cons : ident
 
+(** Convert an index to a greek letter, possibly with subscript. This is used
+    for printing ML type parameters. *)
+val greek : int -> string
+
 (** Print a name. *)
 val print_ident : ?parentheses:bool -> ident -> Format.formatter -> unit
 

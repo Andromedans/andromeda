@@ -50,7 +50,7 @@ let print_meta ~(penv : print_env) (m : meta) ppf =
     try List.assoc m !penv
     with Not_found ->
       let l = List.length !penv in
-      let s = Print.char_greek l in
+      let s = Name.greek l in
       penv := (m, s) :: !penv;
       s
   in

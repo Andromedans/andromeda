@@ -34,6 +34,3 @@ let char_darrow () = if !Config.ascii then "=>" else "⇒"
 let char_prod ()   = if !Config.ascii then "forall" else "Π"
 let char_equal ()  = if !Config.ascii then "==" else "≡"
 let char_vdash ()  = if !Config.ascii then "|-" else "⊢"
-
-let char_greek k = "greek"^(string_of_int k) (* TODO *)
-
