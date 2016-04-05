@@ -101,6 +101,24 @@ let rec occurs m = function
     occurs m t1 || occurs m t2
   | Ref t -> occurs m t
 
+module MetaSet = Set.Make(struct
+  type t = meta
+  let compare = compare
+  end)
+
+let rec occuring = function
+  | Jdg | String -> MetaSet.empty
+  | Meta m -> MetaSet.singleton m
+  | Tuple ts  | App (_, _, ts) ->
+    List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
+  | Arrow (t1, t2) | Handler (t1, t2) ->
+    MetaSet.union (occuring t1) (occuring t2)
+  | Ref t -> occuring t
+
+let occuring_schema ((ms, t) : ty_schema) : MetaSet.t =
+  let s = occuring t in
+  List.fold_left (fun s m -> MetaSet.remove m s) s ms
+
 module Substitution : sig
   type t
 
@@ -115,6 +133,8 @@ module Substitution : sig
   val from_lists : meta list -> ty list -> t
 
   val add : meta -> ty -> t -> t option
+
+  val gather_known : t -> MetaSet.t
 end = struct
   module MetaMap = Map.Make(struct
     type t = meta
@@ -179,10 +199,33 @@ end = struct
       None
     else
       Some (MetaMap.add m t s)
+
+  let gather_known s =
+    MetaMap.fold (fun m _t known ->
+        MetaSet.add m known)
+      s MetaSet.empty
 end
 
 type constrain =
   | AppConstraint of Location.t * ty * ty * ty
+
+type generalizable =
+  | Generalizable
+  | Ungeneralizable
+
+let rec generalizable c = match c.Location.thing with
+(* yes *)
+  | Syntax.Bound _ | Syntax.Function _ | Syntax.Handler _ -> Generalizable
+  | Syntax.Constructor (_, cs) | Syntax.Tuple cs ->
+    if List.for_all (fun c -> generalizable c = Generalizable) cs
+    then Generalizable
+    else Ungeneralizable
+
+(* who knows *)
+  | Syntax.Let _ | Syntax.LetRec _ | Syntax.Sequence _ -> Ungeneralizable
+
+(* no *)
+  | _ -> Ungeneralizable
 
 module Ctx : sig
   type t
@@ -203,12 +246,16 @@ module Ctx : sig
 
   val add_operation : Name.operation -> (ty list * ty) forall -> t -> t
 
+  val add_lets : (Name.ident * generalizable * ty) list -> MetaSet.t -> Substitution.t -> t -> t
+
   (** Creates the context for evaluating the operation handling of [op] *)
   val op_cases : Name.operation -> output:ty -> t -> ty list * t
 
   val unfold : t -> Syntax.level -> ty list -> ty option
 
   val is_param : meta -> t -> bool
+
+  val gather_known : t -> MetaSet.t
 end = struct
   module OperationMap = Name.IdentMap
 
@@ -273,6 +320,26 @@ end = struct
     let operations = OperationMap.add op opty ctx.operations in
     {ctx with operations}
 
+  let remove_known ~known s =
+    MetaSet.fold MetaSet.remove known s
+
+  let add_let known s ctx (x, gen, t) =
+    let t = Substitution.apply s t in
+    let s = match gen with
+      | Ungeneralizable -> fake_schema t
+      | Generalizable ->
+        let gen = occuring t in
+        let gen = remove_known ~known gen in
+        let gen = MetaSet.elements gen in
+        gen, t
+    in
+    let variables = (x, s) :: ctx.variables in
+    {ctx with variables}
+      
+
+  let add_lets xts known s ctx =
+    List.fold_left (add_let known s) ctx xts
+
   let op_cases op ~output ctx =
     let (ms, (args, opout)) = OperationMap.find op ctx.operations in
     let s, ms' = Substitution.freshen_metas ms in
@@ -292,6 +359,15 @@ end = struct
 
   let is_param m {params;_} =
     List.exists (fun m' -> m = m') params
+
+  let gather_known {types = _; variables; operations = _; continuation; params;} =
+    let known = List.fold_left (fun known (_, s) -> MetaSet.union known (occuring_schema s)) MetaSet.empty variables in
+    let known = match continuation with
+      | Some (t1, t2) -> MetaSet.union known (MetaSet.union (occuring t1) (occuring t2))
+      | None -> known
+    in
+    let known = List.fold_left (fun known m -> MetaSet.add m known) known params in
+    known
 end
 
 module TopEnv = struct
@@ -311,6 +387,14 @@ module TopEnv = struct
 
   let add_operation op opty env =
     let topctx = Ctx.add_operation op opty env.topctx in
+    {env with topctx}
+
+  let gather_known env =
+    MetaSet.union (Ctx.gather_known env.topctx) (Substitution.gather_known env.topsubst)
+
+  let add_lets xts env =
+    let known = gather_known env in
+    let topctx = Ctx.add_lets xts known env.topsubst env.topctx in
     {env with topctx}
 end
 
@@ -336,6 +420,8 @@ module Env : sig
   val add_equation : loc:Location.t -> ty -> ty -> unit mon
 
   val add_application : loc:Location.t -> ty -> ty -> ty -> unit mon
+
+  val add_lets : (Name.ident * generalizable * ty) list -> 'a mon -> 'a mon
 
   val as_handler : loc:Location.t -> ty -> (ty * ty) mon
 
@@ -378,6 +464,17 @@ end = struct
 
   let add_var x t m env =
     let context = Ctx.add_var x (fake_schema t) env.context in
+    m {env with context}
+
+  let gather_known env =
+    let known = MetaSet.union (Ctx.gather_known env.context) (Substitution.gather_known env.substitution) in
+    List.fold_left (fun known (AppConstraint (_, t1, t2, t3)) ->
+        MetaSet.union known (MetaSet.union (occuring t1) (MetaSet.union (occuring t2) (occuring t3))))
+      known env.unsolved
+
+  let add_lets xts m env =
+    let known = gather_known env in
+    let context = Ctx.add_lets xts known env.substitution env.context in
     m {env with context}
 
   (* Whnf for meta instantiations and type aliases *)
@@ -444,9 +541,9 @@ end = struct
 
   let add_application ~loc h arg out env =
     let s = env.substitution in
-    let h = whnf env.context env.substitution h
-    and arg = whnf env.context env.substitution arg
-    and out = whnf env.context env.substitution out in
+    let h = whnf env.context s h
+    and arg = whnf env.context s arg
+    and out = whnf env.context s out in
     match h, arg, out with
       | Jdg, _, _ ->
         (>>=) (add_equation ~loc arg Jdg) (fun () -> add_equation ~loc out Jdg) env
@@ -455,6 +552,12 @@ end = struct
       | Meta _, (Jdg | Meta _), (Jdg | Meta _) ->
         let unsolved = AppConstraint (loc, h, arg, out) :: env.unsolved in
         (), s, unsolved
+      | Meta m, _, _ when not (Ctx.is_param m env.context) ->
+        begin match Substitution.add m (Arrow (arg, out)) s with
+          | Some s ->
+            (), s, env.unsolved
+          | None -> error ~loc (InvalidApplication (h, arg, out))
+        end
       | _, _, _ -> error ~loc (InvalidApplication (h, arg, out))
 
   let as_handler ~loc t env =
@@ -662,9 +765,29 @@ let rec comp ({Location.thing=c; loc} : Syntax.comp) =
     check_comp c a >>= fun () ->
     Env.return b
 
-  | Syntax.Let (_,_) -> assert false (* TODO *)
+  | Syntax.Let (xcs, c) ->
+    let rec fold xts = function
+      | [] ->
+        let xts = List.rev xts in
+        Env.return xts
+      | (x, c) :: xcs ->
+        comp c >>= fun t ->
+        let gen = generalizable c in
+        fold ((x, gen, t) :: xts) xcs
+    in
+    fold [] xcs >>= fun xts ->
+    Env.add_lets xts (comp c)
 
-  | Syntax.LetRec (_,_) -> assert false (* TODO *)
+  | Syntax.LetRec (xycs, c) ->
+    let abxycs = List.map (fun xyc -> fresh_type (), fresh_type (), xyc) xycs in
+    let rec fold = function
+      | [] -> Env.return ()
+      | (a, b, (_, y, c)) :: rem ->
+        Env.add_var y a (check_comp c b) >>= fun () ->
+        fold rem
+    in
+    Env.add_lets (List.map (fun (a, b, (x, _, _)) -> x, Ungeneralizable, Arrow (a, b)) abxycs) (fold abxycs) >>= fun () ->
+    Env.add_lets (List.map (fun (a, b, (x, _, _)) -> x, Generalizable, Arrow (a, b)) abxycs) (comp c)
 
   | Syntax.Now (x, c1, c2) ->
     Env.lookup_var x >>= fun tx ->
@@ -709,7 +832,7 @@ let rec comp ({Location.thing=c; loc} : Syntax.comp) =
     check_comp c2 Jdg >>= fun () ->
     Env.return Jdg
 
-  | Syntax.External _ -> assert false (* TODO *)
+  | Syntax.External _ -> Env.return (fresh_type ()) (* TODO *)
 
   | Syntax.Constant _ -> Env.return Jdg
 
@@ -873,9 +996,31 @@ let rec toplevel env ({Location.thing=c; loc} : Syntax.toplevel) =
 
   | Syntax.TopHandle _ -> assert false (* TODO *)
 
-  | Syntax.TopLet _ -> assert false (* TODO *)
+  | Syntax.TopLet xcs ->
+    let rec fold xts = function
+      | [] ->
+        let xts = List.rev xts in
+        Env.return xts
+      | (x, c) :: xcs ->
+        Env.(comp c >>= fun t ->
+        let gen = generalizable c in
+        fold ((x, gen, t) :: xts) xcs)
+    in
+    let xts, env = Env.at_toplevel env (fold [] xcs) in
+    TopEnv.add_lets xts env
 
-  | Syntax.TopLetRec _ -> assert false (* TODO *)
+  | Syntax.TopLetRec xycs ->
+    let abxycs = List.map (fun xyc -> fresh_type (), fresh_type (), xyc) xycs in
+    let rec fold = function
+      | [] -> Env.return ()
+      | (a, b, (_, y, c)) :: rem ->
+        Env.(add_var y a (check_comp c b) >>= fun () ->
+        fold rem)
+    in
+    let (), env = Env.at_toplevel env
+      (Env.add_lets (List.map (fun (a, b, (x, _, _)) -> x, Ungeneralizable, Arrow (a, b)) abxycs) (fold abxycs))
+    in
+    TopEnv.add_lets (List.map (fun (a, b, (x, _, _)) -> x, Generalizable, Arrow (a, b)) abxycs) env
 
   | Syntax.TopDynamic (_,_) -> assert false (* TODO *)
 
