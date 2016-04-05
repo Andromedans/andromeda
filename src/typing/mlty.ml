@@ -105,6 +105,8 @@ module Substitution : sig
 
   val empty : t
 
+  val lookup : meta -> t -> ty option
+
   val apply : t -> ty -> ty
 
   val freshen_metas : meta list -> t * meta list
@@ -379,7 +381,11 @@ end = struct
 
   (* Whnf for meta instantiations and type aliases *)
   let rec whnf ctx s = function
-    | Meta _ as t -> whnf ctx s (Substitution.apply s t)
+    | Meta m as t ->
+      begin match Substitution.lookup m s with
+        | Some t -> whnf ctx s t
+        | None -> t
+      end
     | App (x, ts) as t ->
       begin match Ctx.unfold ctx x ts with
         | Some t -> whnf ctx s t
