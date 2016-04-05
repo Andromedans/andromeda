@@ -43,33 +43,48 @@ exception Error of error Location.located
 
 let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
-type print_env = (meta * string) list ref
-
-let print_meta ~(penv : print_env) (m : meta) ppf =
+let print_meta ~penv (m : meta) ppf =
   let s =
     try List.assoc m !penv
     with Not_found ->
       let l = List.length !penv in
-      let s = Print.char_greek l in
+      let s = Name.greek l in
       penv := (m, s) :: !penv;
       s
   in
   Format.fprintf ppf "%s" s
 
-(* TODO parenthesizing *)
-let rec print_ty ~penv t ppf = match t with
+let rec print_ty ~penv ?max_level t ppf =
+  match t with
+
   | Jdg -> Format.fprintf ppf "Judgement"
+
   | String -> Format.fprintf ppf "string"
+
   | Meta m -> print_meta ~penv m ppf
-  | Tuple ts ->
-    Print.sequence (print_ty ~penv) "*" ts ppf
+
+  | Tuple ts -> Print.print ?max_level ppf "%t"
+                            (Print.sequence (print_ty ~penv ~max_level:Level.ml_prod_arg) " *" ts)
+
   | Arrow (t1, t2) ->
-    Format.fprintf ppf "%t %s@ %t" (print_ty ~penv t1) (Print.char_arrow ()) (print_ty ~penv t2)
+     Print.print ?max_level ~at_level:(Level.ml_arr) ppf "%t@ %s@ %t"
+                 (print_ty ~penv ~max_level:(Level.ml_arr_left) t1)
+                 (Print.char_arrow ())
+                 (print_ty ~penv ~max_level:(Level.ml_arr_right) t2)
+
   | Handler (t1, t2) ->
-    Format.fprintf ppf "%t %s@ %t" (print_ty ~penv t1) (Print.char_darrow ()) (print_ty ~penv t2)
+     Print.print ?max_level ~at_level:(Level.ml_handler) ppf "%t@ %s@ %t"
+                 (print_ty ~penv ~max_level:(Level.ml_handler_left) t1)
+                 (Print.char_darrow ())
+                 (print_ty ~penv ~max_level:(Level.ml_handler_right) t2)
+
   | App (x, _, ts) ->
-    Format.fprintf ppf "%t@ %t" (Name.print_ident x) (Print.sequence (print_ty ~penv) " " ts)
-  | Ref t -> Format.fprintf ppf "ref@ %t" (print_ty ~penv t)
+     Print.print ?max_level ~at_level:Level.ml_app ppf "%t@ %t"
+                 (Name.print_ident x)
+                 (Print.sequence (print_ty ~penv ~max_level:Level.ml_app_arg) "" ts)
+
+  | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "ref@ %t"
+                         (print_ty ~penv ~max_level:Level.ml_app_arg t)
 
 let print_error err ppf =
   let penv = ref [] in

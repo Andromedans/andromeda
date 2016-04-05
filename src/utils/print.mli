@@ -75,5 +75,3 @@ val char_prod : unit -> string
 val char_equal : unit -> string
 val char_vdash : unit -> string
 
-val char_greek : int -> string
-
