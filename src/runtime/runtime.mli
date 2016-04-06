@@ -142,11 +142,11 @@ val lookup_bound : loc:Location.t -> int -> value comp
 (** For matching *)
 val get_bound : loc:Location.t -> int -> env -> value
 
-(** Add a bound variable with given name to the environment. *)
-val add_bound : Name.ident -> value -> 'a comp -> 'a comp
+(** Add a bound variable to the environment. *)
+val add_bound : value -> 'a comp -> 'a comp
 
 val add_bound_rec :
-  (Name.ident * (value -> value comp)) list -> 'a comp -> 'a comp
+  (value -> value comp) list -> 'a comp -> 'a comp
 
 (** Modify the value bound by a dynamic variable *)
 val now : loc:Location.t -> int -> value -> 'a comp -> 'a comp
@@ -154,7 +154,7 @@ val now : loc:Location.t -> int -> value -> 'a comp -> 'a comp
 val top_now : loc:Location.t -> int -> value -> unit toplevel
 
 (** Add a bound variable (for matching). *)
-val push_bound : Name.ident -> value -> env -> env
+val push_bound : value -> env -> env
 
 (** [add_free ~loc x (ctx,t) f] generates a fresh atom [y] from identifier [x],
     then it extends [ctx] to [ctx' = ctx, y : t]
@@ -168,10 +168,10 @@ val add_abstracting : value -> 'a comp -> 'a comp
 val add_constant : loc:Location.t -> Name.ident -> Jdg.closed_ty -> unit toplevel
 
 (** Add a bound variable with the given name to the environment. *)
-val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
+val add_topbound : value -> unit toplevel
 
 (** Add a list of mutually recursive definitions to the toplevel environment. *)
-val add_topbound_rec : loc:Location.t -> (Name.ident * (value -> value comp)) list -> unit toplevel
+val add_topbound_rec : (value -> value comp) list -> unit toplevel
 
 (** Add a dynamic variable. *)
 val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel

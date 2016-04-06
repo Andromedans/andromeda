@@ -261,13 +261,13 @@ let get_bound ~loc k env =
 let lookup_bound ~loc k env =
   Return (get_bound ~loc k env), env.state
 
-let add_bound0 x v env = {env with lexical = { env.lexical with
-                                               bound = (Val v) :: env.lexical.bound } }
+let add_bound0 v env = {env with lexical = { env.lexical with
+                                             bound = (Val v) :: env.lexical.bound } }
 
 let add_free ~loc x jt m env =
   let jy = Jdg.Ctx.add_fresh jt x in
   let y_val = mk_term (Jdg.atom_term ~loc jy) in
-  let env = add_bound0 x y_val env in
+  let env = add_bound0 y_val env in
   m jy env
 
 let add_abstracting v m env =
@@ -284,17 +284,17 @@ let add_constant0 ~loc x t env =
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
 
 (* XXX rename to bind_value *)
-let add_bound x v m env =
-  let env = add_bound0 x v env in
+let add_bound v m env =
+  let env = add_bound0 v env in
   m env
 
 let add_bound_rec0 lst env =
   let r = ref env in
   let env =
     List.fold_left
-      (fun env (f, g) ->
+      (fun env g ->
         let v = Closure (mk_closure_ref g r) in
-        add_bound0 f v env)
+        add_bound0 v env)
       env lst
   in
   r := env ;
@@ -306,8 +306,8 @@ let add_bound_rec lst m env =
 
 let push_bound = add_bound0
 
-let add_topbound ~loc x v env =
-  (), add_bound0 x v env
+let add_topbound v env =
+  (), add_bound0 v env
 
 let now0 ~loc x v env =
   match List.nth env.lexical.bound x with
@@ -337,7 +337,7 @@ let add_handle0 op xsc env =
 
 let add_handle op xsc env = (), add_handle0 op xsc env
 
-let add_topbound_rec ~loc lst env =
+let add_topbound_rec lst env =
   let env = add_bound_rec0 lst env in
   (), env
 

@@ -46,7 +46,7 @@ let rec collect_tt_pattern env xvs p j =
        | None -> xvs
      end in
      let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
-     let env = Runtime.push_bound x yt env in
+     let env = Runtime.push_bound yt env in
      let xvs = match bopt with
        | None -> xvs
        | Some k -> update k yt xvs
@@ -64,7 +64,7 @@ let rec collect_tt_pattern env xvs p j =
        | None -> xvs
      end in
      let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
-     let env = Runtime.push_bound x yt env in
+     let env = Runtime.push_bound yt env in
      let xvs = match bopt with
        | None -> xvs
        | Some k -> update k yt xvs

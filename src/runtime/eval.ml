@@ -39,9 +39,9 @@ let rec infer {Location.thing=c'; loc} =
       jdg_form ~loc Jdg.Type >>=
       Runtime.return_term
 
-    | Syntax.Function (x, c) ->
+    | Syntax.Function (_, c) ->
        let f v =
-         Runtime.add_bound x v
+         Runtime.add_bound v
            (infer c)
        in
        Runtime.return_closure f
@@ -435,20 +435,20 @@ and sequence ~loc v =
       Runtime.return ()
 
 and let_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun xcs cmd ->
-  let rec fold xvs = function
+  let rec fold vs = function
     | [] ->
       (* parallel let: only bind at the end *)
-      List.fold_left  (fun cmd (x,v) -> Runtime.add_bound x v cmd) cmd xvs
-    | (x, c) :: xcs ->
+      List.fold_left  (fun cmd v -> Runtime.add_bound v cmd) cmd vs
+    | (_, c) :: xcs ->
       infer c >>= fun v ->
-      fold ((x, v) :: xvs) xcs
+      fold (v :: vs) xcs
     in
   fold [] xcs
 
 and letrec_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun fxcs ->
   let gs =
     List.map
-      (fun (f, x, c) -> (f, (fun v -> Runtime.add_bound x v (infer c))))
+      (fun (_, _, c) -> (fun v -> Runtime.add_bound v (infer c)))
       fxcs
   in
   Runtime.add_bound_rec gs
@@ -464,13 +464,12 @@ and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Runtime.comp) -> _ -> 
     | (xs, p, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | Some vs ->
-          let rec fold2 xs vs = match xs, vs with
-            | [], [] -> eval c
-            | x::xs, v::vs ->
-              Runtime.add_bound x v (fold2 xs vs)
-            | _::_, [] | [], _::_ -> assert false
+          let rec bind = function
+            | [] -> eval c
+            | v::vs ->
+              Runtime.add_bound v (bind vs)
           in
-          fold2 (List.rev xs) vs
+          bind vs
         | None -> fold cases
       end
   in
@@ -484,13 +483,12 @@ and match_op_cases ~loc op cases vs checking =
     | (xs, ps, pt, c) :: cases ->
       Matching.match_op_pattern ps pt vs checking >>= begin function
         | Some vs ->
-          let rec fold2 xs vs = match xs, vs with
-            | [], [] -> infer c
-            | x::xs, v::vs ->
-              Runtime.add_bound x v (fold2 xs vs)
-            | _::_, [] | [], _::_ -> assert false
+          let rec bind = function
+            | [] -> infer c
+            | v::vs ->
+              Runtime.add_bound v (bind vs)
           in
-          fold2 (List.rev xs) vs
+          bind vs
         | None -> fold cases
       end
   in
@@ -509,22 +507,21 @@ let comp_value c =
 
 let comp_handle (xs,y,c) =
   Runtime.top_return_closure (fun (vs,checking) ->
-      let rec fold2 xs vs = match xs,vs with
-        | [], [] ->
+      let rec bind = function
+        | [] ->
            begin match y with
-           | Some y ->
+           | Some _ ->
               let checking = match checking with
                 | Some jt -> Some (Runtime.mk_term (Jdg.term_of_ty jt))
                 | None -> None
               in
               let vy = Predefined.from_option checking in
-              Runtime.add_bound y vy (infer c)
+              Runtime.add_bound vy (infer c)
            | None -> infer c
            end
-        | x::xs, v::vs -> Runtime.add_bound x v (fold2 xs vs)
-        | [],_::_ | _::_,[] -> assert false
+        | v::vs -> Runtime.add_bound v (bind vs)
       in
-      fold2 xs vs)
+      bind vs)
 
 (** Toplevel commands *)
 
@@ -541,8 +538,8 @@ let toplet_bind ~loc ~quiet xcs =
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (fun cmd (x,v) ->
-            Runtime.add_topbound ~loc x v >>= fun () ->
+         (fun cmd (x, v) ->
+            Runtime.add_topbound v >>= fun () ->
             if not quiet && not (Name.is_anonymous x)
             then Format.printf "%t is defined.@." (Name.print_ident x) ;
             cmd)
@@ -557,10 +554,10 @@ let toplet_bind ~loc ~quiet xcs =
 let topletrec_bind ~loc ~quiet fxcs =
   let gs =
     List.map
-      (fun (f, x, c) -> (f, (fun v -> Runtime.add_bound x v (infer c))))
+      (fun (_, _, c) -> (fun v -> Runtime.add_bound v (infer c)))
       fxcs
   in
-  Runtime.add_topbound_rec ~loc gs >>= fun () ->
+  Runtime.add_topbound_rec gs >>= fun () ->
   if not quiet then
     List.iter (fun (f, _, _) ->
         if not (Name.is_anonymous f) then
