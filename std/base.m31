@@ -14,5 +14,5 @@ end
 
 let (|>) x f = f x
 
-operation failure : forall a b, a -> b
+let failure x = print ("FAILURE", x); external "exit" ()
 
