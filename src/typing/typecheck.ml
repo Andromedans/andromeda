@@ -237,7 +237,15 @@ let rec comp ({Location.thing=c; loc} : Syntax.comp) =
     check_comp c2 Jdg >>= fun () ->
     Env.return Jdg
 
-  | Syntax.External _ -> Env.return (fresh_type ()) (* TODO *)
+  | Syntax.External s ->
+    begin match External.lookup_ty s with
+      | None ->
+        error ~loc (UnknownExternal s)
+      | Some (ms, t) ->
+        let subst, _ = Substitution.freshen_metas ms in
+        let t = Substitution.apply subst t in
+        Env.return t
+    end
 
   | Syntax.Constant _ -> Env.return Jdg
 

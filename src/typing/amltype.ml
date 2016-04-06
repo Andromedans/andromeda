@@ -46,6 +46,7 @@ type error =
   | UnsolvedApp of ty * ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
+  | UnknownExternal of string
 
 exception Error of error Location.located
 
@@ -121,6 +122,8 @@ let print_error err ppf =
   | RefExpected t ->
     Format.fprintf ppf "Expected a reference but got %t"
       (print_ty ~penv t)
+  | UnknownExternal s ->
+    Format.fprintf ppf "Unknown external %s" s
 
 let rec occurs m = function
   | Jdg | String -> false

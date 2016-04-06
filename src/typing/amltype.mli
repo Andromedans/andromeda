@@ -44,6 +44,7 @@ type error =
   | UnsolvedApp of ty * ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
+  | UnknownExternal of string
 
 exception Error of error Location.located
 
