@@ -69,11 +69,13 @@ let print_meta ~penv (m : meta) ppf =
 let rec print_ty ~penv ?max_level t ppf =
   match t with
 
-  | Jdg -> Format.fprintf ppf "Judgement"
+  | Jdg -> Format.fprintf ppf "judgment"
 
   | String -> Format.fprintf ppf "string"
 
   | Meta m -> print_meta ~penv m ppf
+
+  | Tuple [] -> Format.fprintf ppf "unit"
 
   | Tuple ts -> Print.print ?max_level ppf "%t"
                             (Print.sequence (print_ty ~penv ~max_level:Level.ml_prod_arg) " *" ts)
