@@ -209,7 +209,7 @@ let rec apply_quants f quants = match quants with
   | [] => Some f
   | (_, None) :: _ => None
   | (_, Some ?v) :: ?quants =>
-    apply_quants (f v) quants
+    apply_quants (external "magic" f v) quants
   end
 
 (* given `pat = (f,quants,lhs)`
@@ -291,7 +291,7 @@ let process_eta =
         in
         auto e
       | _ :: ?xs =>
-        fun v => f (e v) xs
+        fun v => external "magic" f (e v) xs
       end
     in
     (f e xs, (xs, T))
@@ -304,7 +304,7 @@ let process_eta =
         finalize e xs eqs a b
       | ?eq :: ?quants =>
         quant_splitter e (eq::eqs) quants a b
-      | [] => let _ = print "Bad eta:" in let _ = print e in match [] with end
+      | [] => failure ("Bad eta:", e)
     end
   in
   let rec deep quants e h = match h with
@@ -650,16 +650,16 @@ let rec equality _ = handler
 
 handle
   | equal ?a ?b =>
-    with equality () handle equal a b
+    external "magic" (with equality () handle external "magic" (equal a b))
 
   | whnf ?e =>
     with equality () handle whnf e
 
   | as_prod ?e =>
-    with equality () handle as_prod e
+    external "magic" (with equality () handle external "magic" (as_prod e))
 
   | as_eq ?e =>
-    with equality () handle as_eq e
+    external "magic" (with equality () handle external "magic" (as_eq e))
 
 end
 

@@ -18,6 +18,11 @@ let exit_ty = let open Amltype in
   and b = fresh_meta () in
   ([a;b], Arrow (Meta a, Meta b))
 
+let magic_ty = let open Amltype in
+  let a = fresh_meta ()
+  and b = fresh_meta () in
+  ([a;b], Arrow (Meta a, Meta b))
+
 (* An associative list mapping external names to their values.
    A typical external is a closure, which is made using [Runtime.mk_closure].
    A closure needs an environment, which for externals is the empty environment. *)
@@ -86,7 +91,13 @@ let externals =
       ((fun _ ->
       Runtime.return_closure (fun _ ->
         exit 0)),
-      exit_ty))
+      exit_ty));
+
+    ("magic",
+      ((fun _ ->
+      Runtime.return_closure (fun v ->
+        Runtime.return v)),
+      magic_ty))
   ]
 
 
