@@ -17,11 +17,13 @@ type ty =
   | Jdg
   | String
   | Meta of meta
-  | Tuple of ty list
+  | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
   | App of Name.ident * Syntax.level * ty list
   | Ref of ty
+
+let unit_ty = Prod []
 
 let fresh_type () = Meta (fresh_meta ())
 
@@ -75,9 +77,9 @@ let rec print_ty ~penv ?max_level t ppf =
 
   | Meta m -> print_meta ~penv m ppf
 
-  | Tuple [] -> Format.fprintf ppf "unit"
+  | Prod [] -> Format.fprintf ppf "unit"
 
-  | Tuple ts -> Print.print ?max_level ppf "%t"
+  | Prod ts -> Print.print ?max_level ppf "%t"
                             (Print.sequence (print_ty ~penv ~max_level:Level.ml_prod_arg) " *" ts)
 
   | Arrow (t1, t2) ->
@@ -132,7 +134,7 @@ let print_error err ppf =
 let rec occurs m = function
   | Jdg | String -> false
   | Meta m' -> m = m'
-  | Tuple ts  | App (_, _, ts) ->
+  | Prod ts  | App (_, _, ts) ->
     List.exists (occurs m) ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     occurs m t1 || occurs m t2
@@ -146,7 +148,7 @@ module MetaSet = Set.Make(struct
 let rec occuring = function
   | Jdg | String -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
-  | Tuple ts  | App (_, _, ts) ->
+  | Prod ts  | App (_, _, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     MetaSet.union (occuring t1) (occuring t2)

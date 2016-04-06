@@ -12,11 +12,14 @@ type ty =
   | Jdg
   | String
   | Meta of meta
-  | Tuple of ty list
+  | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
   | App of Name.ident * Syntax.level * ty list
   | Ref of ty
+
+(** The unit type encoded as an empty product. *)
+val unit_ty : ty
 
 val fresh_meta : unit -> meta
 

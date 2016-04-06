@@ -2,26 +2,26 @@
 
 let (>>=) = Runtime.bind
 
-let print_ty = let open Amltype in
-  let a = fresh_meta () in
-  ([a], Arrow (Meta a, Tuple []))
+let print_ty =
+  let a = Mlty.fresh_meta () in
+  ([a], Mlty.Arrow (Mlty.Meta a, Mlty.unit_ty))
 
-let time_ty = let open Amltype in
-  let a = fresh_meta () in
-  ([a], Arrow (Tuple [], Arrow (Meta a, Meta a)))
+let time_ty =
+  let a = Mlty.fresh_meta () in
+  ([a], Mlty.Arrow (Mlty.unit_ty, Mlty.Arrow (Mlty.Meta a, Mlty.Meta a)))
 
-let config_ty = let open Amltype in
-  ([], Arrow (String, Tuple []))
+let config_ty =
+  ([], Mlty.Arrow (Mlty.String, Mlty.unit_ty))
 
-let exit_ty = let open Amltype in
-  let a = fresh_meta ()
-  and b = fresh_meta () in
-  ([a;b], Arrow (Meta a, Meta b))
+let exit_ty =
+  let a = Mlty.fresh_meta ()
+  and b = Mlty.fresh_meta () in
+  ([a;b], Mlty.Arrow (Mlty.Meta a, Mlty.Meta b))
 
-let magic_ty = let open Amltype in
-  let a = fresh_meta ()
-  and b = fresh_meta () in
-  ([a;b], Arrow (Meta a, Meta b))
+let magic_ty =
+  let a = Mlty.fresh_meta ()
+  and b = Mlty.fresh_meta () in
+  ([a;b], Mlty.Arrow (Mlty.Meta a, Mlty.Meta b))
 
 (* An associative list mapping external names to their values.
    A typical external is a closure, which is made using [Runtime.mk_closure].

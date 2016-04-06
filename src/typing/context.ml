@@ -1,7 +1,5 @@
-open Amltype
-
 type constrain =
-  | AppConstraint of Location.t * ty * ty * ty
+  | AppConstraint of Location.t * Mlty.ty * Mlty.ty * Mlty.ty
 
 type generalizable =
   | Generalizable
@@ -24,10 +22,10 @@ let rec generalizable c = match c.Location.thing with
 module OperationMap = Name.IdentMap
 
 type t = {
-  types : (Name.ident * ty_def) list; (* types are accessed by De Bruijn level, the name is for printing only. *)
-  variables : (Name.ident * ty_schema) list; (* variables are accessed by De Bruijn index, the name is for printing only. *)
-  operations : (ty list * ty) OperationMap.t;
-  continuation : (ty * ty) option;
+  types : (Name.ident * Mlty.ty_def) list; (* types are accessed by De Bruijn level, the name is for printing *)
+  variables : (Name.ident * Mlty.ty_schema) list; (* variables are accessed by De Bruijn index, the name is for printing *)
+  operations : (Mlty.ty list * Mlty.ty) OperationMap.t;
+  continuation : (Mlty.ty * Mlty.ty) option;
 }
 
 let empty = {
@@ -48,14 +46,14 @@ let lookup_op op {operations;_} =
 let lookup_constructor c {types;_} =
   let rec fold = function
     | [] -> raise Not_found
-    | (_, Alias _) :: types -> fold types
-    | (x, Sum (ms, constructors)) :: types ->
+    | (_, Mlty.Alias _) :: types -> fold types
+    | (x, Mlty.Sum (ms, constructors)) :: types ->
       let rec search = function
         | [] -> fold types
         | (c', ts) :: _ when Name.eq_ident c c' ->
           let s, ms' = Substitution.freshen_metas ms in
           let ts = List.map (Substitution.apply s) ts
-          and out = App (x, List.length types, List.map (fun m -> Meta m) ms') in
+          and out = Mlty.App (x, List.length types, List.map (fun m -> Mlty.Meta m) ms') in
           ts, out
         | _ :: rem -> search rem
       in
@@ -81,21 +79,21 @@ let add_operation op opty ctx =
   {ctx with operations}
 
 let remove_known ~known s =
-  MetaSet.fold MetaSet.remove known s
+  Mlty.MetaSet.fold Mlty.MetaSet.remove known s
 
 let add_let known s ctx (x, gen, t) =
   let t = Substitution.apply s t in
   let s = match gen with
-    | Ungeneralizable -> ungeneralized_schema t
+    | Ungeneralizable -> Mlty.ungeneralized_schema t
     | Generalizable ->
-      let gen = occuring t in
+      let gen = Mlty.occuring t in
       let gen = remove_known ~known gen in
-      let gen = MetaSet.elements gen in
+      let gen = Mlty.MetaSet.elements gen in
       gen, t
   in
   let variables = (x, s) :: ctx.variables in
   {ctx with variables}
-    
+
 
 let add_lets xts known s ctx =
   List.fold_left (add_let known s) ctx xts
@@ -108,15 +106,21 @@ let op_cases op ~output ctx =
 let unfold ctx x ts =
   let _, def = List.nth (List.rev ctx.types) x in
   match def with
-    | Sum _ -> None
-    | Alias (ms, t) ->
+    | Mlty.Sum _ -> None
+    | Mlty.Alias (ms, t) ->
       let s = Substitution.from_lists ms ts in
       Some (Substitution.apply s t)
 
 let gather_known {types = _; variables; operations = _; continuation} =
-  let known = List.fold_left (fun known (_, s) -> MetaSet.union known (occuring_schema s)) MetaSet.empty variables in
+  let known =
+    List.fold_left
+      (fun known (_, s) -> Mlty.MetaSet.union known (Mlty.occuring_schema s))
+      Mlty.MetaSet.empty
+      variables
+  in
   let known = match continuation with
-    | Some (t1, t2) -> MetaSet.union known (MetaSet.union (occuring t1) (occuring t2))
+    | Some (t1, t2) ->
+       Mlty.MetaSet.union known (Mlty.MetaSet.union (Mlty.occuring t1) (Mlty.occuring t2))
     | None -> known
   in
   known
@@ -125,7 +129,7 @@ let predefined_type x ts {types;_} =
   let rec search k = function
     | [] -> assert false
     | (y, _) :: _ when Name.eq_ident x y ->
-      App (x, k, ts)
+      Mlty.App (x, k, ts)
     | _ :: types -> search (k + 1) types
   in
   search 0 (List.rev types)

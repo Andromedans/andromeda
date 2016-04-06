@@ -2,15 +2,15 @@ type t
 
 val empty : t
 
-val lookup : Amltype.meta -> t -> Amltype.ty option
+val lookup : Mlty.meta -> t -> Mlty.ty option
 
-val apply : t -> Amltype.ty -> Amltype.ty
+val apply : t -> Mlty.ty -> Mlty.ty
 
-val freshen_metas : Amltype.meta list -> t * Amltype.meta list
+val freshen_metas : Mlty.meta list -> t * Mlty.meta list
 
-val from_lists : Amltype.meta list -> Amltype.ty list -> t
+val from_lists : Mlty.meta list -> Mlty.ty list -> t
 
-val add : Amltype.meta -> Amltype.ty -> t -> t option
+val add : Mlty.meta -> Mlty.ty -> t -> t option
 
-val gather_known : t -> Amltype.MetaSet.t
+val gather_known : t -> Mlty.MetaSet.t
 

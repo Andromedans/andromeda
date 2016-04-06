@@ -538,11 +538,7 @@ let toplet_bind ~loc ~quiet xcs =
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (fun cmd (x, v) ->
-            Runtime.add_topbound v >>= fun () ->
-            if not quiet && not (Name.is_anonymous x)
-            then Format.printf "%t is defined.@." (Name.print_ident x) ;
-            cmd)
+         (fun cmd (x, v) -> Runtime.add_topbound v >>= fun () -> cmd)
          (return ())
          xvs
     | (x, c) :: xcs ->
