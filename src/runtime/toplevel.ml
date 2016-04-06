@@ -60,11 +60,10 @@ let use_file ~fn ~quiet = wrap (fun {desugar;typing;runtime} ->
   {desugar;typing;runtime})
 
 let initial =
-  let cmds = Lexer.read_string Parser.file Predefined.definitions in
   let desugar, cmds = List.fold_left (fun (desugar, cmds) cmd ->
       let desugar, cmd = Desugar.toplevel ~basedir:Filename.current_dir_name desugar cmd in
       (desugar, cmd :: cmds))
-    (Desugar.Ctx.empty, []) cmds
+    (Desugar.Ctx.empty, []) Predefined.definitions
   in
   let cmds = List.rev cmds in
   let typing = List.fold_left Typecheck.toplevel Tyenv.TopEnv.empty cmds in

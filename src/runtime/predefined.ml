@@ -3,33 +3,41 @@ let name_none          = Name.make "None"
 let name_cons          = Name.cons
 let name_nil           = Name.nil
 
-let predefined_aml_types =
-  let decl_option =
-    ["mltype option α = ";
-     "  | None";
-     "  | Some of α";
-     "end"]
-  and decl_list =
-    ["mltype rec list α =";
-    "  | nil";
-    "  | ( :: ) of α and list α";
-     "end"]
+let name_option = Name.make "option"
+
+let name_list = Name.make "list"
+
+let name_alpha = Name.make (Name.greek 0)
+
+let predefined_aml_types = let open Input in
+  let loc = Location.unknown in
+  let ty_alpha = ML_TyApply (name_alpha, []), loc in
+  let decl_option = DefMLType [name_option, ([name_alpha],
+    ML_Sum [
+    (name_none, []);
+    (name_some, [ty_alpha])
+    ])], loc
+  and decl_list = DefMLTypeRec [name_list, ([name_alpha],
+    ML_Sum [
+    (Name.nil, []);
+    (Name.cons, [ty_alpha; (ML_TyApply (name_list, [ty_alpha]), loc)])
+    ])], loc
   in
-  List.map (String.concat "\n") [decl_option; decl_list]
-  |> (String.concat "\n")
+  [decl_option; decl_list]
 
 let name_equal        = Name.make "equal"
 let name_as_prod      = Name.make "as_prod"
 let name_as_eq        = Name.make "as_eq"
 
-let predefined_ops =
-  let ops =
-    ["operation equal : Judgement -> Judgement -> option Judgement";
-     "operation as_prod : Judgement -> option Judgement";
-     "operation as_eq : Judgement -> option Judgement"] in
-  String.concat "\n" ops
+let predefined_ops = let open Input in
+  let loc = Location.unknown in
+  let decl_equal = DeclOperation (name_equal, ([ML_Judgment, loc; ML_Judgment, loc], (ML_TyApply (name_option, [ML_Judgment, loc]), loc))), loc
+  and decl_as_prod = DeclOperation (name_as_prod, ([ML_Judgment, loc], (ML_TyApply (name_option, [ML_Judgment, loc]), loc))), loc
+  and decl_as_eq = DeclOperation (name_as_eq, ([ML_Judgment, loc], (ML_TyApply (name_option, [ML_Judgment, loc]), loc))), loc
+  in
+  [decl_equal; decl_as_prod; decl_as_eq]
 
-let definitions = String.concat "\n" [predefined_aml_types; predefined_ops]
+let definitions = List.concat [predefined_aml_types; predefined_ops]
 
 let rec mk_list = function
   | [] -> Runtime.mk_tag name_nil []

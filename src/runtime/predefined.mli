@@ -1,4 +1,4 @@
-val definitions : string
+val definitions : Input.toplevel list
 
 val operation_equal : loc:Location.t -> Jdg.term -> Jdg.term -> Jdg.term option Runtime.comp
 
