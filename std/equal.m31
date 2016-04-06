@@ -625,22 +625,23 @@ let comp2 = with equality betas hints handle ...
 
 then in comp2 the hint b is available
 *)
+(* TODO we need magic because we need equality : forall a, a => a but we need type annotations for that to happen. *)
 let rec equality _ = handler
   | equal (|- ?a : ?t) ?b (* : ?t *) =>
     yield (equate a b)
 
   | whnf ?e =>
-    yield (with equality () handle whnf_eq e)
+    yield (with external "magic" equality () handle whnf_eq e)
 
   | as_prod ?e =>
-    match (with equality () handle whnf_eq e) with
+    match (with external "magic" equality () handle whnf_eq e) with
       | |- ?eq : _ == (forall (_), _) =>
         yield (Some eq)
       | _ => yield None
     end
 
   | as_eq ?e =>
-    match (with equality () handle whnf_eq e) with
+    match (with external "magic" equality () handle whnf_eq e) with
       | |- ?eq : _ == (_ == _) =>
         yield (Some eq)
       | _ => yield None
@@ -650,16 +651,16 @@ let rec equality _ = handler
 
 handle
   | equal ?a ?b =>
-    external "magic" (with equality () handle external "magic" (equal a b))
+    (with equality () handle (equal a b))
 
   | whnf ?e =>
     with equality () handle whnf e
 
   | as_prod ?e =>
-    external "magic" (with equality () handle external "magic" (as_prod e))
+    (with equality () handle (as_prod e))
 
   | as_eq ?e =>
-    external "magic" (with equality () handle external "magic" (as_eq e))
+    (with equality () handle (as_eq e))
 
 end
 
