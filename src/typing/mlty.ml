@@ -269,8 +269,6 @@ module Ctx : sig
 
   val unfold : t -> Syntax.level -> ty list -> ty option
 
-  val is_param : meta -> t -> bool
-
   val gather_known : t -> MetaSet.t
 end = struct
   module OperationMap = Name.IdentMap
@@ -280,7 +278,6 @@ end = struct
     variables : (Name.ident * ty_schema) list; (* variables are accessed by De Bruijn index, the name is for printing only. *)
     operations : (ty list * ty) OperationMap.t;
     continuation : (ty * ty) option;
-    params : meta list; (* these metavariables may not be instantiated in this context *)
   }
 
   let empty = {
@@ -288,7 +285,6 @@ end = struct
     variables = [];
     operations = OperationMap.empty;
     continuation = None;
-    params = [];
   }
 
   let lookup_var k {variables;_} =
@@ -367,16 +363,12 @@ end = struct
         let s = Substitution.from_lists ms ts in
         Some (Substitution.apply s t)
 
-  let is_param m {params;_} =
-    List.exists (fun m' -> m = m') params
-
-  let gather_known {types = _; variables; operations = _; continuation; params;} =
+  let gather_known {types = _; variables; operations = _; continuation} =
     let known = List.fold_left (fun known (_, s) -> MetaSet.union known (occuring_schema s)) MetaSet.empty variables in
     let known = match continuation with
       | Some (t1, t2) -> MetaSet.union known (MetaSet.union (occuring t1) (occuring t2))
       | None -> known
     in
-    let known = List.fold_left (fun known m -> MetaSet.add m known) known params in
     known
 end
 
@@ -509,11 +501,8 @@ end = struct
     match whnf ctx s t, whnf ctx s t' with
       | Jdg, Jdg | String, String -> Some s
       | Meta m, Meta m' when m = m' -> Some s
-      | Meta m, t when not (Ctx.is_param m ctx) ->
-        Substitution.add m t s
-      | t, Meta m when not (Ctx.is_param m ctx) ->
-        Substitution.add m t s
-      | Meta _, _ | _, Meta _ -> None (* param == not itself *)
+      | Meta m, t -> Substitution.add m t s
+      | t, Meta m -> Substitution.add m t s
       | Ref t, Ref t' -> unifiable ctx s t t'
       | Tuple ts, Tuple ts' ->
         let rec fold s ts ts' = match ts, ts' with
@@ -562,7 +551,7 @@ end = struct
       | Meta _, (Jdg | Meta _), (Jdg | Meta _) ->
         let unsolved = AppConstraint (loc, h, arg, out) :: env.unsolved in
         (), s, unsolved
-      | Meta m, _, _ when not (Ctx.is_param m env.context) ->
+      | Meta m, _, _ ->
         begin match Substitution.add m (Arrow (arg, out)) s with
           | Some s ->
             (), s, env.unsolved
@@ -574,7 +563,7 @@ end = struct
     let t = whnf env.context env.substitution t in
     match t with
       | Handler (a, b) -> return (a, b) env
-      | Meta m when not (Ctx.is_param m env.context) ->
+      | Meta m ->
         let a = fresh_type ()
         and b = fresh_type () in
         begin match Substitution.add m (Handler (a, b)) env.substitution with
