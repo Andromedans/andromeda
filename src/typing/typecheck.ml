@@ -275,32 +275,33 @@ let rec comp ({Location.thing=c; loc} : Syntax.comp) =
     check_comp c a >>= fun () ->
     Env.return b
 
-  | Syntax.Hypotheses -> assert false (* TODO *)
+  | Syntax.Hypotheses ->
+    Env.predefined_type Name.Predefined.list [Jdg]
 
   | Syntax.Congruence (c1, c2) ->
     check_comp c1 Jdg >>= fun () ->
     check_comp c2 Jdg >>= fun () ->
-    assert false (* TODO *)    
+    Env.predefined_type Name.Predefined.option [Jdg]
 
   | Syntax.Extensionality (c1, c2) ->
     check_comp c1 Jdg >>= fun () ->
     check_comp c2 Jdg >>= fun () ->
-    assert false (* TODO *)    
+    Env.predefined_type Name.Predefined.option [Jdg]
 
   | Syntax.Reduction c ->
     check_comp c Jdg >>= fun () ->
-    assert false (* TODO *)
+    Env.predefined_type Name.Predefined.option [Jdg]
 
   | Syntax.String _ -> Env.return String
 
   | Syntax.Occurs (c1, c2) ->
     check_comp c1 Jdg >>= fun () ->
     check_comp c2 Jdg >>= fun () ->
-    assert false (* TODO *)
+    Env.predefined_type Name.Predefined.option [Jdg]
 
   | Syntax.Context c ->
     check_comp c Jdg >>= fun () ->
-    assert false (* TODO *)    
+    Env.predefined_type Name.Predefined.list [Jdg]
 
 and check_comp c t =
   let (>>=) = Env.(>>=) in
