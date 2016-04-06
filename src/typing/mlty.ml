@@ -31,7 +31,8 @@ type ty_def =
   | Alias of ty forall
   | Sum of constructor list forall
 
-let fake_schema (t : ty) : ty_schema = [], t
+(** Make a schema from a type without generalizing anything. *)
+let ungeneralized_schema (t : ty) : ty_schema = [], t
 
 type error =
   | InvalidApplication of ty * ty * ty
@@ -341,7 +342,7 @@ end = struct
   let add_let known s ctx (x, gen, t) =
     let t = Substitution.apply s t in
     let s = match gen with
-      | Ungeneralizable -> fake_schema t
+      | Ungeneralizable -> ungeneralized_schema t
       | Generalizable ->
         let gen = occuring t in
         let gen = remove_known ~known gen in
@@ -478,7 +479,7 @@ end = struct
     return (Ctx.lookup_continuation env.context) env
 
   let add_var x t m env =
-    let context = Ctx.add_var x (fake_schema t) env.context in
+    let context = Ctx.add_var x (ungeneralized_schema t) env.context in
     m {env with context}
 
   let gather_known env =

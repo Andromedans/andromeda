@@ -1,5 +1,6 @@
 (** Type checking of the metalanguage. *)
 
+(** The errors reported by type inference. *)
 type error
 
 exception Error of error Location.located
