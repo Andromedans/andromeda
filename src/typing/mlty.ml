@@ -958,6 +958,28 @@ and match_op_cases op cases output =
   in
   fold cases)
 
+let top_handler ~loc lst =
+  let (>>=) = Env.(>>=) in
+  let rec fold = function
+    | [] -> Env.return ()
+    | (op, (xs, y, c)) :: lst ->
+      Env.lookup_op op >>= fun (argts, out) ->
+      let xts = List.combine xs argts in
+      let rec bind = function
+        | [] ->
+          let bindy m = match y with
+            | Some y -> Env.add_var y Jdg m
+            | None -> m
+          in
+          bindy (check_comp c out)
+        | (x, t) :: xts ->
+          Env.add_var x t (bind xts)
+      in
+      bind xts >>= fun () ->
+      fold lst
+  in
+  fold lst
+
 let rec ml_ty params {Location.thing=t; loc} =
   match t with
   | Syntax.ML_Arrow (t1, t2) ->
@@ -1007,7 +1029,9 @@ let rec toplevel env ({Location.thing=c; loc} : Syntax.toplevel) =
     let (), env = Env.at_toplevel env (check_comp t Jdg) in
     env
 
-  | Syntax.TopHandle _ -> assert false (* TODO *)
+  | Syntax.TopHandle lst ->
+    let (), env = Env.at_toplevel env (top_handler ~loc lst) in
+    env
 
   | Syntax.TopLet xcs ->
     let rec fold xts = function
