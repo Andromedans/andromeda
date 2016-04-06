@@ -32,5 +32,5 @@ type appty_guess =
   | GuessJdg
   | GuessArrow
 
-let appty_guess = ref NoGuess
+let appty_guess = ref GuessArrow
 
