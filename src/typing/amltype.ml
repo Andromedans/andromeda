@@ -1,4 +1,3 @@
-
 type meta = int
 
 let fresh_meta : unit -> meta =
@@ -91,6 +90,9 @@ let rec print_ty ~penv ?max_level t ppf =
                  (Print.char_darrow ())
                  (print_ty ~penv ~max_level:(Level.ml_handler_right) t2)
 
+  | App (x, _, []) ->
+     Format.fprintf ppf "%t" (Name.print_ident x)
+
   | App (x, _, ts) ->
      Print.print ?max_level ~at_level:Level.ml_app ppf "%t@ %t"
                  (Name.print_ident x)
@@ -151,5 +153,3 @@ let rec occuring = function
 let occuring_schema ((ms, t) : ty_schema) : MetaSet.t =
   let s = occuring t in
   List.fold_left (fun s m -> MetaSet.remove m s) s ms
-
-
