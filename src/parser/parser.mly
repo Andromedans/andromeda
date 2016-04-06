@@ -126,9 +126,8 @@ plain_topcomp:
   | CONSTANT xs=nonempty_list(var_name) COLON u=term  { DeclConstants (xs, u) }
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
-  | OPERATION op=var_name COLON params=mlparams opsig=op_mlsig
-    { let (args, res) = opsig in DeclOperation (op, (params, args, res)) }
-  | VERBOSITY n=NUMERAL                              { Verbosity n }
+  | OPERATION op=var_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
+  | VERBOSITY n=NUMERAL                               { Verbosity n }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
@@ -406,10 +405,6 @@ patt_var:
   | x=PATTVAR                    { x }
 
 (* ML types *)
-
-mlparams:
-  | PROD params=nonempty_list(name) COMMA { params }
-  |                                       { [] }
 
 op_mlsig:
   | lst=separated_nonempty_list(ARROW, prod_mlty)

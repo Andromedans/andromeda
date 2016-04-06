@@ -260,7 +260,7 @@ module Ctx : sig
 
   val add_tydef : Name.ident -> ty_def -> t -> t
 
-  val add_operation : Name.operation -> (ty list * ty) forall -> t -> t
+  val add_operation : Name.operation -> ty list * ty -> t -> t
 
   val add_lets : (Name.ident * generalizable * ty) list -> MetaSet.t -> Substitution.t -> t -> t
 
@@ -278,7 +278,7 @@ end = struct
   type t = {
     types : (Name.ident * ty_def) list; (* types are accessed by De Bruijn level, the name is for printing only. *)
     variables : (Name.ident * ty_schema) list; (* variables are accessed by De Bruijn index, the name is for printing only. *)
-    operations : (ty list * ty) forall OperationMap.t;
+    operations : (ty list * ty) OperationMap.t;
     continuation : (ty * ty) option;
     params : meta list; (* these metavariables may not be instantiated in this context *)
   }
@@ -297,9 +297,7 @@ end = struct
     Substitution.apply s t
 
   let lookup_op op {operations;_} =
-    let (ms, (args, out)) = OperationMap.find op operations in
-    let s, _ = Substitution.freshen_metas ms in
-    List.map (Substitution.apply s) args, Substitution.apply s out
+    OperationMap.find op operations
 
   let lookup_constructor c {types;_} =
     let rec fold = function
@@ -357,13 +355,9 @@ end = struct
     List.fold_left (add_let known s) ctx xts
 
   let op_cases op ~output ctx =
-    let (ms, (args, opout)) = OperationMap.find op ctx.operations in
-    let s, ms' = Substitution.freshen_metas ms in
-    let args = List.map (Substitution.apply s) args
-    and opout = Substitution.apply s opout in
-    let params = List.append ms' ctx.params in
+    let (args, opout) = OperationMap.find op ctx.operations in
     let continuation = Some (opout, output) in
-    args, {ctx with params; continuation}
+    args, {ctx with continuation}
 
   let unfold ctx x ts =
     let _, def = List.nth (List.rev ctx.types) x in
@@ -990,11 +984,10 @@ let add_tydef env (t, (params, def)) =
       let constructors = List.map (fun (c, ts) -> c, List.map (ml_ty params) ts) constructors in
       TopEnv.add_tydef t (Sum (params, constructors)) env
 
-let add_operation op (params, args, out) env =
-  let params = List.map (fun _ -> fresh_meta ()) params in
-  let args = List.map (ml_ty params) args
-  and out = ml_ty params out in
-  TopEnv.add_operation op (params, (args, out)) env
+let add_operation op (args, out) env =
+  let args = List.map (ml_ty []) args
+  and out = ml_ty [] out in
+  TopEnv.add_operation op (args, out) env
 
 let rec toplevel env ({Location.thing=c; loc} : Syntax.toplevel) =
   match c with

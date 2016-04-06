@@ -793,9 +793,9 @@ let mlty ctx params ty =
   in
   mlty ty
 
-let decl_operation ~loc ctx params args res =
-  let args = List.map (mlty ctx params) args
-  and res = mlty ctx params res in
+let decl_operation ~loc ctx args res =
+  let args = List.map (mlty ctx []) args
+  and res = mlty ctx [] res in
   args, res
 
 
@@ -856,10 +856,10 @@ let mlty_rec_defs ~loc ctx lst =
 let rec toplevel ~basedir ctx (cmd, loc) =
   match cmd with
 
-    | Input.DeclOperation (op, (params, args, res)) ->
-       let args, res = decl_operation ~loc ctx params args res in
+    | Input.DeclOperation (op, (args, res)) ->
+       let args, res = decl_operation ~loc ctx args res in
        let ctx = Ctx.add_operation ~loc op (List.length args) ctx in
-       (ctx, locate (Syntax.DeclOperation (op, (params, args, res))) loc)
+       (ctx, locate (Syntax.DeclOperation (op, (args, res))) loc)
 
     | Input.DefMLType lst ->
        let ctx, lst = mlty_defs ~loc ctx lst in
