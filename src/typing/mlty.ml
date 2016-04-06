@@ -214,6 +214,7 @@ end = struct
     then
       None
     else
+      let s = MetaMap.map (apply (MetaMap.singleton m t)) s in
       Some (MetaMap.add m t s)
 
   let gather_known s =
