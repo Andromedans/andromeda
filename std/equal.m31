@@ -93,15 +93,6 @@ let pop_rigid quants =
     (?vars, _ :: ?rigids) => (vars,rigids)
   end
 
-(* Signatures introduce multiple rigids in a row. Their number is represented by a stack of `Somes`. *)
-let rec pop_rigids pop quants =
-  match pop with
-    | None => quants
-    | Some ?pop =>
-      let quants = pop_rigid quants in
-      pop_rigids pop quants
-  end
-
 (* Return `(quants',x',y')` where `x'` is `x` fully instantiated by `quants'` (resp `y'`, `y`)
    and `quants'` is `quants` possibly updated to make `x'` and `y'` equal.
    Note that `x'` and `y'` are usually not equal. *)
