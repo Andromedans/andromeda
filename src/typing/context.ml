@@ -15,8 +15,8 @@ let rec generalizable c = match c.Location.thing with
     then Generalizable
     else Ungeneralizable
 
-(* who knows *)
-  | Syntax.Let _ | Syntax.LetRec _ | Syntax.Sequence _ -> Ungeneralizable
+  | Syntax.Let (_, c) | Syntax.LetRec (_, c) | Syntax.Sequence (_, c) ->
+    generalizable c
 
 (* no *)
   | _ -> Ungeneralizable

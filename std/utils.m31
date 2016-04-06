@@ -4,7 +4,8 @@ let rev =
     | [] => acc
     | ?x :: ?tl => rev (x :: acc) tl
     end
-  in rev []
+  in
+  fun x => rev [] x
 
 (** Fold over a list *)
 let rec fold f acc lst = match lst with
