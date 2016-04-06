@@ -35,3 +35,6 @@ val unfold : t -> Syntax.level -> Amltype.ty list -> Amltype.ty option
 
 val gather_known : t -> Amltype.MetaSet.t
 
+(** Make an instance of a predefined type. Must be used with the correct arity. *)
+val predefined_type : Name.ty -> Amltype.ty list -> t -> Amltype.ty
+

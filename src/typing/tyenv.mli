@@ -43,5 +43,7 @@ module Env : sig
   val as_ref : loc:Location.t -> Amltype.ty -> Amltype.ty mon
 
   val op_cases : Name.operation -> output:Amltype.ty -> (Amltype.ty list -> 'a mon) -> 'a mon
+
+  val predefined_type : Name.ty -> Amltype.ty list -> Amltype.ty mon
 end
 

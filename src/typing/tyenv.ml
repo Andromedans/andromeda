@@ -28,37 +28,7 @@ module TopEnv = struct
     {env with topctx}
 end
 
-module Env : sig
-  type 'a mon
-
-  val return : 'a -> 'a mon
-
-  val (>>=) : 'a mon -> ('a -> 'b mon) -> 'b mon
-
-  val at_toplevel : TopEnv.t -> 'a mon -> 'a * TopEnv.t
-
-  val lookup_var : Syntax.bound -> ty mon
-
-  val lookup_op : Name.operation -> (ty list * ty) mon
-
-  val lookup_constructor : Name.constructor -> (ty list * ty) mon
-
-  val lookup_continuation : (ty * ty) mon
-
-  val add_var : Name.ident -> ty -> 'a mon -> 'a mon
-
-  val add_equation : loc:Location.t -> ty -> ty -> unit mon
-
-  val add_application : loc:Location.t -> ty -> ty -> ty -> unit mon
-
-  val add_lets : (Name.ident * Context.generalizable * ty) list -> 'a mon -> 'a mon
-
-  val as_handler : loc:Location.t -> ty -> (ty * ty) mon
-
-  val as_ref : loc:Location.t -> ty -> ty mon
-
-  val op_cases : Name.operation -> output:ty -> (ty list -> 'a mon) -> 'a mon
-end = struct
+module Env = struct
   type t = {
     context : Context.t;
     substitution : Substitution.t;
@@ -245,5 +215,9 @@ end = struct
     let x, substitution, unsolved = m env in
     let top = to_solved {env with substitution; unsolved} in
     x, top
+
+  let predefined_type x ts env =
+    let t = Context.predefined_type x ts env.context in
+    return t env
 end
 

@@ -121,3 +121,12 @@ let gather_known {types = _; variables; operations = _; continuation} =
   in
   known
 
+let predefined_type x ts {types;_} =
+  let rec search k = function
+    | [] -> assert false
+    | (y, _) :: _ when Name.eq_ident x y ->
+      App (x, k, ts)
+    | _ :: types -> search (k + 1) types
+  in
+  search 0 types
+
