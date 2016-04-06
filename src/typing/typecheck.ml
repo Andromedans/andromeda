@@ -91,7 +91,7 @@ let match_case : type a. _ -> _ -> _ -> a Env.mon -> a Env.mon = fun xs p t m ->
     | (x, t) :: xs ->
       Env.add_var x t (add_vars xs)
   in
-  add_vars xs
+  add_vars (List.rev xs)
 
 let match_op_case xs ps popt argts m =
   let (>>=) = Env.(>>=) in
@@ -113,7 +113,7 @@ let match_op_case xs ps popt argts m =
     | (x, t) :: xs ->
       Env.add_var x t (add_vars xs)
   in
-  add_vars xs  
+  add_vars (List.rev xs)
 
 let rec comp ({Location.thing=c; loc} : Syntax.comp) =
   let (>>=) = Env.(>>=) in
@@ -289,7 +289,7 @@ let rec comp ({Location.thing=c; loc} : Syntax.comp) =
 
   | Syntax.Reduction c ->
     check_comp c Jdg >>= fun () ->
-    assert false (* TODO *)    
+    assert false (* TODO *)
 
   | Syntax.String _ -> Env.return String
 
