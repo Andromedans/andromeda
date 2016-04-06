@@ -14,8 +14,10 @@ let predefined_aml_types = let open Input in
     (Name.Predefined.nil, []);
     (Name.Predefined.cons, [ty_alpha; (ML_TyApply (Name.Predefined.list, [ty_alpha]), loc)])
     ])], loc
+  and decl_empty = DefMLType [Name.Predefined.empty, ([],
+  ML_Sum [])], loc
   in
-  [decl_option; decl_list]
+  [decl_option; decl_list; decl_empty]
 
 let predefined_ops = let open Input in
   let loc = Location.unknown in

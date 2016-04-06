@@ -44,6 +44,9 @@ module Predefined : sig
 
   (** The name of the [as_eq] operation *)
   val as_eq : operation
+
+  (** The name of the empty type *)
+  val empty : ty
 end
 
 (** Convert an index to a greek letter, possibly with subscript. This is used

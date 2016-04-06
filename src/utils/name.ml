@@ -54,6 +54,8 @@ module Predefined = struct
   let as_prod = make "as_prod"
 
   let as_eq = make "as_eq"
+
+  let empty = make "empty"
 end
 
 let fresh =

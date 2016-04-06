@@ -328,7 +328,10 @@ and handler ~loc {Syntax.handler_val=handler_val;handler_ops;handler_finally} =
 and match_cases ~loc t cases =
   let (>>=) = Env.(>>=) in
   match cases with
-    | [] -> assert false (* TODO *)
+    | [] ->
+      Env.predefined_type Name.Predefined.empty [] >>= fun empty ->
+      Env.add_equation ~loc t empty >>= fun () ->
+      Env.return (fresh_type ())
     | (xs, p, c) :: others ->
       match_case xs p t (comp c) >>= fun out ->
       let rec fold = function
