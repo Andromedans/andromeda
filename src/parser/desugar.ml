@@ -339,11 +339,11 @@ and pattern bound vars n (p,loc) =
 
   | Input.Patt_List ps ->
      let rec fold ~loc vars n = function
-       | [] -> locate (Syntax.Patt_Constructor (Name.nil, [])) loc, vars, n
+       | [] -> locate (Syntax.Patt_Constructor (Name.Predefined.nil, [])) loc, vars, n
        | p :: ps ->
           let p, vars, n = pattern bound vars n p in
           let ps, vars, n = fold ~loc:(p.Location.loc) vars n ps in
-          locate (Syntax.Patt_Constructor (Name.cons, [p ; ps])) loc, vars, n
+          locate (Syntax.Patt_Constructor (Name.Predefined.cons, [p ; ps])) loc, vars, n
      in
      fold ~loc vars n ps
 
@@ -510,11 +510,11 @@ let rec comp ~yield bound (c',loc) =
 
   | Input.List cs ->
      let rec fold ~loc = function
-       | [] -> locate (Syntax.Constructor (Name.nil, [])) loc
+       | [] -> locate (Syntax.Constructor (Name.Predefined.nil, [])) loc
        | c :: cs ->
           let c = comp ~yield bound c in
           let cs = fold ~loc:(c.Location.loc) cs in
-          locate (Syntax.Constructor (Name.cons, [c ; cs])) loc
+          locate (Syntax.Constructor (Name.Predefined.cons, [c ; cs])) loc
      in
      fold ~loc cs
 

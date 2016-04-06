@@ -36,8 +36,25 @@ let is_anonymous = function
 
 let make ?(fixity=Word) s = Ident (s, fixity)
 
-let nil = make "[]"
-let cons = make ~fixity:(Infix Level.InfixCons) "::"
+module Predefined = struct
+  let list = make "list"
+
+  let nil = make "[]"
+
+  let cons = make ~fixity:(Infix Level.InfixCons) "::"
+
+  let option = make "option"
+
+  let some = make "Some"
+
+  let none = make "None"
+
+  let equal = make "equal"
+
+  let as_prod = make "as_prod"
+
+  let as_eq = make "as_eq"
+end
 
 let fresh =
   let counter = ref (-1) in
