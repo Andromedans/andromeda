@@ -319,8 +319,8 @@ and pattern bound vars n (p,loc) =
   | Input.Patt_Constr (c,ps) ->
      begin match Ctx.find ~loc c bound with
      | Constructor k ->
-        let n = List.length ps in
-        if k = n
+        let len = List.length ps in
+        if k = len
         then
           let rec fold vars n ps = function
             | [] ->
