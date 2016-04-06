@@ -39,6 +39,7 @@ type error =
   | TypeMismatch of ty * ty
   | UnsolvedApp of ty * ty * ty
   | HandlerExpected of ty
+  | RefExpected of ty
 
 exception Error of error Location.located
 
@@ -106,6 +107,9 @@ let print_error err ppf =
       (print_ty ~penv out)
   | HandlerExpected t ->
     Format.fprintf ppf "Expected a handler but got %t"
+      (print_ty ~penv t)
+  | RefExpected t ->
+    Format.fprintf ppf "Expected a reference but got %t"
       (print_ty ~penv t)
 
 let rec occurs m = function
@@ -573,7 +577,17 @@ end = struct
         end
       | _ -> error ~loc (HandlerExpected t)
 
-  let as_ref ~loc t = assert false (* TODO *)
+  let as_ref ~loc t env =
+    let t = whnf env.context env.substitution t in
+    match t with
+      | Ref t -> return t env
+      | Meta m ->
+        let a = fresh_type () in
+        begin match Substitution.add m (Ref a) env.substitution with
+          | Some substitution -> return a {env with substitution}
+          | None -> assert false
+        end
+      | _ -> error ~loc (RefExpected t)
 
   let op_cases op ~output m env =
     let argts, context = Ctx.op_cases op ~output env.context in
@@ -1021,9 +1035,15 @@ let rec toplevel env ({Location.thing=c; loc} : Syntax.toplevel) =
     in
     TopEnv.add_lets (List.map (fun (a, b, (x, _, _)) -> x, Generalizable, Arrow (a, b)) abxycs) env
 
-  | Syntax.TopDynamic (_,_) -> assert false (* TODO *)
+  | Syntax.TopDynamic (x, c) ->
+    let t, env = Env.at_toplevel env (comp c) in
+    TopEnv.add_lets [x, Ungeneralizable, t] env
 
-  | Syntax.TopNow (_,_) -> assert false (* TODO *)
+  | Syntax.TopNow (x, c) ->
+    let (), env = Env.at_toplevel env (Env.(lookup_var x >>= fun tx ->
+      check_comp c tx))
+    in
+    env
 
   | Syntax.TopDo c ->
     let _, env = Env.at_toplevel env (comp c) in
