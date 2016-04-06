@@ -9,7 +9,7 @@ type generalizable =
 
 let rec generalizable c = match c.Location.thing with
 (* yes *)
-  | Syntax.Bound _ | Syntax.Function _ | Syntax.Handler _ -> Generalizable
+  | Syntax.Bound _ | Syntax.Function _ | Syntax.Handler _ | Syntax.External _ -> Generalizable
   | Syntax.Constructor (_, cs) | Syntax.Tuple cs ->
     if List.for_all (fun c -> generalizable c = Generalizable) cs
     then Generalizable
