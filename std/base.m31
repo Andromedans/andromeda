@@ -1,5 +1,5 @@
 (* A short-hand for the print function. *)
-let print = external "print"
+let print x = external "print" x
 
 (* Poor man's debugging mechanism. *)
 mltype debug a = (!!) of a end

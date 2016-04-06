@@ -221,15 +221,24 @@ end = struct
     let argts, context = Context.op_cases op ~output env.context in
     m argts {env with context}
 
-  let to_solved env =
+  let rec to_solved env =
     match env.unsolved with
       | [] -> {TopEnv.topctx = env.context; topsubst = env.substitution}
       | Context.AppConstraint (loc, arg, h, out) :: unsolved ->
-        let s = env.substitution in
-        let h = Substitution.apply s h
-        and arg = Substitution.apply s arg
-        and out = Substitution.apply s out in
-        error ~loc (UnsolvedApp (arg, h, out))
+        begin match !Config.appty_guess with
+          | Config.NoGuess ->
+            let s = env.substitution in
+            let h = Substitution.apply s h
+            and arg = Substitution.apply s arg
+            and out = Substitution.apply s out in
+            error ~loc (UnsolvedApp (arg, h, out))
+          | Config.GuessJdg ->
+            let (), substitution, unsolved = add_equation ~loc arg Jdg env in
+            to_solved {env with substitution; unsolved}
+          | Config.GuessArrow ->
+            let (), substitution, unsolved = add_equation ~loc arg (Arrow (h, out)) env in
+            to_solved {env with substitution; unsolved}
+        end
 
   let at_toplevel top m =
     let env = of_topenv top in
