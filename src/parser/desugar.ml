@@ -882,7 +882,14 @@ let rec toplevel ~basedir ctx (cmd, loc) =
               let n = List.length xs in
               if n = k
               then
-                let ctx = List.fold_left (fun ctx x -> Ctx.add_lexical x ctx) ctx xs in
+                let rec fold ctx = function
+                  | [] -> ctx
+                  | x :: xs ->
+                    if not (Name.is_anonymous x) && List.exists (Name.eq_ident x) xs
+                    then error ~loc (ParallelShadowing x)
+                    else fold (Ctx.add_lexical x ctx) xs
+                in
+                let ctx = fold ctx xs in
                 let ctx = match y with | Some y -> Ctx.add_lexical y ctx | None -> ctx in
                 op, (xs, y, comp ~yield:false ctx c)
               else
