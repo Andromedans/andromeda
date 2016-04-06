@@ -158,15 +158,20 @@ end = struct
         fold s ts ts'
       | (Jdg | String | Ref _ | Tuple _ | Arrow _ | Handler _ | App _), _ -> None
 
-  let add_equation ~loc t t' env =
+  let rec add_equation ~loc t t' env =
     match unifiable env.context env.substitution t t' with
       | Some s ->
-        (* TODO process unsolved *)
-        (), s, env.unsolved
+        let rec fold = function
+          | [] -> return ()
+          | Context.AppConstraint (loc, h, arg, out) :: unsolved ->
+            add_application ~loc h arg out >>= fun () ->
+            fold unsolved
+        in
+        fold env.unsolved {env with substitution=s; unsolved=[]}
       | None -> error ~loc (TypeMismatch (Substitution.apply env.substitution t,
                                           Substitution.apply env.substitution t'))
 
-  let add_application ~loc h arg out env =
+  and add_application ~loc h arg out env =
     let s = env.substitution in
     let h = whnf env.context s h
     and arg = whnf env.context s arg
