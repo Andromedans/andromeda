@@ -1,24 +1,6 @@
 type constrain =
   | AppConstraint of Location.t * Mlty.ty * Mlty.ty * Mlty.ty
 
-type generalizable =
-  | Generalizable
-  | Ungeneralizable
-
-let rec generalizable c = match c.Location.thing with
-(* yes *)
-  | Syntax.Bound _ | Syntax.Function _ | Syntax.Handler _ | Syntax.External _ -> Generalizable
-  | Syntax.Constructor (_, cs) | Syntax.Tuple cs ->
-    if List.for_all (fun c -> generalizable c = Generalizable) cs
-    then Generalizable
-    else Ungeneralizable
-
-  | Syntax.Let (_, c) | Syntax.LetRec (_, c) | Syntax.Sequence (_, c) ->
-    generalizable c
-
-(* no *)
-  | _ -> Ungeneralizable
-
 module OperationMap = Name.IdentMap
 
 type t = {
@@ -78,25 +60,9 @@ let add_operation op opty ctx =
   let operations = OperationMap.add op opty ctx.operations in
   {ctx with operations}
 
-let remove_known ~known s =
-  Mlty.MetaSet.fold Mlty.MetaSet.remove known s
-
-let add_let known s ctx (x, gen, t) =
-  let t = Substitution.apply s t in
-  let s = match gen with
-    | Ungeneralizable -> Mlty.ungeneralized_schema t
-    | Generalizable ->
-      let gen = Mlty.occuring t in
-      let gen = remove_known ~known gen in
-      let gen = Mlty.MetaSet.elements gen in
-      gen, t
-  in
+let add_let x s ctx =
   let variables = (x, s) :: ctx.variables in
   {ctx with variables}
-
-
-let add_lets xts known s ctx =
-  List.fold_left (add_let known s) ctx xts
 
 let op_cases op ~output ctx =
   let (args, opout) = OperationMap.find op ctx.operations in

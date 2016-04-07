@@ -22,7 +22,7 @@ val add_equation : loc:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
 
 val add_application : loc:Location.t -> Mlty.ty -> Mlty.ty -> Mlty.ty -> unit tyenvM
 
-val add_lets : (Name.ident * Context.generalizable * Mlty.ty) list -> 'a tyenvM -> 'a tyenvM
+val add_let : Name.ident -> Mlty.ty_schema -> 'a tyenvM -> 'a tyenvM
 
 val as_handler : loc:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) tyenvM
 
@@ -34,13 +34,15 @@ val at_toplevel : t -> 'a tyenvM -> 'a * t
 
 val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty tyenvM
 
+val generalize : Mlty.ty -> Mlty.ty_schema tyenvM
+
 (** Toplevel functionality *)
 
 val topadd_tydef : Name.ty -> Mlty.ty_def -> t -> t
 
 val topadd_operation : Name.operation -> Mlty.ty list * Mlty.ty -> t -> t
 
-val topadd_lets : (Name.ty * Context.generalizable * Mlty.ty) list -> t -> t
+val topadd_let : Name.ty -> Mlty.ty_schema -> t -> t
 
 val apply_subst : t -> Mlty.ty -> Mlty.ty
 

@@ -10,6 +10,12 @@ let empty =
     substitution = Substitution.empty;
     unsolved = [] }
 
+let return x env = x, env.substitution, env.unsolved
+
+let (>>=) m f env =
+  let x, substitution, unsolved = m env in
+  f x {env with substitution; unsolved}
+
 let gather_known env =
   let known =
     Mlty.MetaSet.union
@@ -24,16 +30,21 @@ let gather_known env =
                             (Mlty.MetaSet.union (Mlty.occuring t2) (Mlty.occuring t3))))
     known env.unsolved
 
-let add_lets xts m env =
+
+let remove_known ~known s =
+  Mlty.MetaSet.fold Mlty.MetaSet.remove known s
+
+let generalize t env =
   let known = gather_known env in
-  let context = Context.add_lets xts known env.substitution env.context in
+  let t = Substitution.apply env.substitution t in
+  let gen = Mlty.occuring t in
+  let gen = remove_known ~known gen in
+  let gen = Mlty.MetaSet.elements gen in
+  return (gen, t) env
+
+let add_let x s m env =
+  let context = Context.add_let x s env.context in
   m {env with context}
-
-let return x env = x, env.substitution, env.unsolved
-
-let (>>=) m f env =
-  let x, substitution, unsolved = m env in
-  f x {env with substitution; unsolved}
 
 let lookup_var k env =
   let t = Context.lookup_var k env.context in
@@ -226,7 +237,7 @@ let topadd_operation op opty env =
   let context = Context.add_operation op opty env.context in
   { env with context }
 
-let topadd_lets xts env = add_lets xts (fun env -> env) env
+let topadd_let x s env = add_let x s (fun env -> env) env
 
 let apply_subst {substitution;_} = Substitution.apply substitution
 

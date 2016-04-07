@@ -2,12 +2,6 @@
 type constrain =
   | AppConstraint of Location.t * Mlty.ty * Mlty.ty * Mlty.ty
 
-type generalizable =
-  | Generalizable
-  | Ungeneralizable
-
-val generalizable : Syntax.comp -> generalizable
-
 type t
 
 val empty : t
@@ -26,7 +20,7 @@ val add_tydef : Name.ident -> Mlty.ty_def -> t -> t
 
 val add_operation : Name.operation -> Mlty.ty list * Mlty.ty -> t -> t
 
-val add_lets : (Name.ident * generalizable * Mlty.ty) list -> Mlty.MetaSet.t -> Substitution.t -> t -> t
+val add_let : Name.ident -> Mlty.ty_schema -> t -> t
 
 (** Creates the context for evaluating the operation handling of [op] *)
 val op_cases : Name.operation -> output:Mlty.ty -> t -> Mlty.ty list * t

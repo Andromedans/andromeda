@@ -1,3 +1,23 @@
+
+type generalizable =
+  | Generalizable
+  | Ungeneralizable
+
+let rec generalizable c = match c.Location.thing with
+(* yes *)
+  | Syntax.Bound _ | Syntax.Function _ | Syntax.Handler _ | Syntax.External _ -> Generalizable
+  | Syntax.Constructor (_, cs) | Syntax.Tuple cs ->
+    if List.for_all (fun c -> generalizable c = Generalizable) cs
+    then Generalizable
+    else Ungeneralizable
+
+  | Syntax.Let (_, c) | Syntax.LetRec (_, c) | Syntax.Sequence (_, c) ->
+    generalizable c
+
+(* no *)
+  | _ -> Ungeneralizable
+
+
 let rec tt_pattern xs {Location.thing = p; loc} =
   let (>>=) = Tyenv.(>>=) in
   match p with
@@ -168,17 +188,18 @@ let rec comp ({Location.thing=c; loc} : Syntax.comp) =
     Tyenv.return b
 
   | Syntax.Let (xcs, c) ->
-    let rec fold xts = function
-      | [] ->
-        let xts = List.rev xts in
-        Tyenv.return xts
+    let rec fold = function
+      | [] -> comp c
       | (x, c) :: xcs ->
         comp c >>= fun t ->
-        let gen = Context.generalizable c in
-        fold ((x, gen, t) :: xts) xcs
+        let gen = generalizable c in
+        begin match gen with
+          | Generalizable -> Tyenv.generalize t
+          | Ungeneralizable -> Tyenv.return (Mlty.ungeneralized_schema t)
+        end >>= fun s ->
+        Tyenv.add_let x s (fold xcs)
     in
-    fold [] xcs >>= fun xts ->
-    Tyenv.add_lets xts (comp c)
+    fold xcs
 
   | Syntax.LetRec (xycs, c) ->
     let abxycs =
@@ -190,13 +211,16 @@ let rec comp ({Location.thing=c; loc} : Syntax.comp) =
         Tyenv.add_var y a (check_comp c b) >>= fun () ->
         fold rem
     in
-    Tyenv.add_lets
-      (List.map (fun (a, b, (x, _, _)) -> x, Context.Ungeneralizable, Mlty.Arrow (a, b)) abxycs)
-      (fold abxycs)
+    List.fold_left (fun m (a, b, (x, _, _)) ->
+        Tyenv.add_let
+          x (Mlty.ungeneralized_schema (Mlty.Arrow(a, b)))
+          m)
+      (fold abxycs) abxycs 
     >>= fun () ->
-    Tyenv.add_lets
-      (List.map (fun (a, b, (x, _, _)) -> x, Context.Generalizable, Mlty.Arrow (a, b)) abxycs)
-      (comp c)
+    List.fold_left (fun m (a, b, (x, _, _)) ->
+        Tyenv.generalize (Mlty.Arrow (a, b)) >>= fun s ->
+        Tyenv.add_let x s m)
+      (comp c) abxycs
 
   | Syntax.Now (x, c1, c2) ->
     Tyenv.lookup_var x >>= fun tx ->
@@ -451,44 +475,52 @@ let rec toplevel ~quiet env ({Location.thing=c; loc} : Syntax.toplevel) =
     env
 
   | Syntax.TopLet xcs ->
-    let rec fold xts = function
+    let rec fold xs = function
       | [] ->
-        let xts = List.rev xts in
-        Tyenv.return xts
+        let xs = List.rev xs in
+        Tyenv.return xs
       | (x, c) :: xcs ->
         Tyenv.(comp c >>= fun t ->
-        let gen = Context.generalizable c in
-        fold ((x, gen, t) :: xts) xcs)
+        let gen = generalizable c in
+        begin match gen with
+          | Generalizable -> Tyenv.generalize t
+          | Ungeneralizable -> Tyenv.return (Mlty.ungeneralized_schema t)
+        end >>= fun s ->
+        fold ((x, s) :: xs) xcs)
     in
-    let xts, env = Tyenv.at_toplevel env (fold [] xcs) in
-    if not quiet then
-      List.iter (fun (x, _, t) -> Format.printf "%t : %t@."
-                                  (Name.print_ident x)
-                                  (Mlty.print_ty ~penv:(Mlty.fresh_penv ()) (Tyenv.apply_subst env t)))
-                xts ;
-    Tyenv.topadd_lets xts env
+    let xs, env = Tyenv.at_toplevel env (fold [] xcs) in
+    List.fold_left (fun env (x, s) -> Tyenv.topadd_let x s env) env xs
 
   | Syntax.TopLetRec xycs ->
-    let abxycs = List.map (fun xyc -> Mlty.fresh_type (), Mlty.fresh_type (), xyc) xycs in
+    let abxycs =
+      List.map (fun xyc -> Mlty.fresh_type (), Mlty.fresh_type (), xyc) xycs
+    in
     let rec fold = function
       | [] -> Tyenv.return ()
       | (a, b, (_, y, c)) :: rem ->
         Tyenv.(add_var y a (check_comp c b) >>= fun () ->
         fold rem)
     in
-    let (), env =
-      Tyenv.at_toplevel env
-        (Tyenv.add_lets
-           (List.map (fun (a, b, (x, _, _)) -> x, Context.Ungeneralizable, Mlty.Arrow (a, b)) abxycs)
-           (fold abxycs))
+    let xs, env = Tyenv.at_toplevel env
+      (let (>>=) = Tyenv.(>>=) in
+      List.fold_left (fun m (a, b, (x, _, _)) ->
+        Tyenv.add_let
+          x (Mlty.ungeneralized_schema (Mlty.Arrow(a, b)))
+          m)
+      (fold abxycs) abxycs >>= fun () ->
+      let rec fold xs = function
+        | [] -> Tyenv.return (List.rev xs)
+        | (a, b, (x, _, _)) :: rem ->
+          Tyenv.generalize (Mlty.Arrow (a, b)) >>= fun s ->
+          fold ((x, s) :: xs) rem
+      in
+      fold [] abxycs)
     in
-    Tyenv.topadd_lets
-      (List.map (fun (a, b, (x, _, _)) -> x, Context.Generalizable, Mlty.Arrow (a, b)) abxycs)
-      env
+    List.fold_left (fun env (x, s) -> Tyenv.topadd_let x s env) env xs
 
   | Syntax.TopDynamic (x, c) ->
     let t, env = Tyenv.at_toplevel env (comp c) in
-    Tyenv.topadd_lets [x, Context.Ungeneralizable, t] env
+    Tyenv.topadd_let x (Mlty.ungeneralized_schema t) env
 
   | Syntax.TopNow (x, c) ->
     let (), env = Tyenv.at_toplevel env (Tyenv.(lookup_var x >>= fun tx ->
