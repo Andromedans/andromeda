@@ -15,9 +15,7 @@ let apply (s : t) t =
   else begin
       let rec app = function
 
-        | Mlty.Jdg -> t
-
-        | Mlty.String as t -> t
+        | Mlty.Jdg | Mlty.String as t -> t
 
         | Mlty.Meta m as orig ->
            begin match lookup m s with
