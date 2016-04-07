@@ -390,18 +390,18 @@ and let_rec_clauses xycs =
    let abxycs =
       List.map (fun xyc -> Mlty.fresh_type (), Mlty.fresh_type (), xyc) xycs
     in
-    let rec fold = function
+    let rec check_bodies = function
       | [] -> Tyenv.return ()
       | (a, b, (_, y, c)) :: rem ->
         Tyenv.add_var y a (check_comp c b) >>= fun () ->
-        fold rem
+        check_bodies rem
     in
-    List.fold_left (fun m (a, b, (x, _, _)) ->
-        Tyenv.add_let
-          x (Mlty.ungeneralized_schema (Mlty.Arrow(a, b)))
-          m)
-      (fold abxycs) abxycs 
-    >>= fun () ->
+    let rec bind_bodies = function
+      | [] -> check_bodies abxycs
+      | (a, b, (x, _, _)) :: rem ->
+        Tyenv.add_let x (Mlty.ungeneralized_schema (Mlty.Arrow(a, b))) (bind_bodies rem)
+    in
+    bind_bodies abxycs >>= fun () ->
     let rec fold xs = function
       | [] -> Tyenv.return (List.rev xs)
       | (a, b, (x, _, _)) :: rem ->
