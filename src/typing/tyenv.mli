@@ -1,49 +1,44 @@
+type t
 
-module TopEnv : sig
-  type t
+val empty : t
 
-  val empty : t
+type 'a tyenvM
 
-  val add_tydef : Name.ty -> Mlty.ty_def -> t -> t
+val return : 'a -> 'a tyenvM
 
-  val add_operation : Name.operation -> Mlty.ty list * Mlty.ty -> t -> t
+val (>>=) : 'a tyenvM -> ('a -> 'b tyenvM) -> 'b tyenvM
 
-  val gather_known : t -> Mlty.MetaSet.t
+val lookup_var : Syntax.bound -> Mlty.ty tyenvM
 
-  val add_lets : (Name.ty * Context.generalizable * Mlty.ty) list -> t -> t
-end
+val lookup_op : Name.operation -> (Mlty.ty list * Mlty.ty) tyenvM
 
-module Env : sig
-  type 'a mon
+val lookup_constructor : Name.constructor -> (Mlty.ty list * Mlty.ty) tyenvM
 
-  val return : 'a -> 'a mon
+val lookup_continuation : (Mlty.ty * Mlty.ty) tyenvM
 
-  val (>>=) : 'a mon -> ('a -> 'b mon) -> 'b mon
+val add_var : Name.ident -> Mlty.ty -> 'a tyenvM -> 'a tyenvM
 
-  val at_toplevel : TopEnv.t -> 'a mon -> 'a * TopEnv.t
+val add_equation : loc:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
 
-  val lookup_var : Syntax.bound -> Mlty.ty mon
+val add_application : loc:Location.t -> Mlty.ty -> Mlty.ty -> Mlty.ty -> unit tyenvM
 
-  val lookup_op : Name.operation -> (Mlty.ty list * Mlty.ty) mon
+val add_lets : (Name.ident * Context.generalizable * Mlty.ty) list -> 'a tyenvM -> 'a tyenvM
 
-  val lookup_constructor : Name.constructor -> (Mlty.ty list * Mlty.ty) mon
+val as_handler : loc:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) tyenvM
 
-  val lookup_continuation : (Mlty.ty * Mlty.ty) mon
+val as_ref : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 
-  val add_var : Name.ident -> Mlty.ty -> 'a mon -> 'a mon
+val op_cases : Name.operation -> output:Mlty.ty -> (Mlty.ty list -> 'a tyenvM) -> 'a tyenvM
 
-  val add_equation : loc:Location.t -> Mlty.ty -> Mlty.ty -> unit mon
+val at_toplevel : t -> 'a tyenvM -> 'a * t
 
-  val add_application : loc:Location.t -> Mlty.ty -> Mlty.ty -> Mlty.ty -> unit mon
+val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty tyenvM
 
-  val add_lets : (Name.ident * Context.generalizable * Mlty.ty) list -> 'a mon -> 'a mon
+(** Toplevel functionality *)
 
-  val as_handler : loc:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) mon
+val topadd_tydef : Name.ty -> Mlty.ty_def -> t -> t
 
-  val as_ref : loc:Location.t -> Mlty.ty -> Mlty.ty mon
+val topadd_operation : Name.operation -> Mlty.ty list * Mlty.ty -> t -> t
 
-  val op_cases : Name.operation -> output:Mlty.ty -> (Mlty.ty list -> 'a mon) -> 'a mon
-
-  val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty mon
-end
+val topadd_lets : (Name.ty * Context.generalizable * Mlty.ty) list -> t -> t
 

@@ -2,7 +2,7 @@
     environment. *)
 type state = {
   desugar : Desugar.Ctx.t ;
-  typing : Tyenv.TopEnv.t ;
+  typing : Tyenv.t ;
   runtime : Runtime.topenv
 }
 
@@ -66,7 +66,7 @@ let initial =
     (Desugar.Ctx.empty, []) Predefined.definitions
   in
   let cmds = List.rev cmds in
-  let typing = List.fold_left (Typecheck.toplevel ~quiet:true) Tyenv.TopEnv.empty cmds in
+  let typing = List.fold_left (Typecheck.toplevel ~quiet:true) Tyenv.empty cmds in
   let comp = List.fold_left
     (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet:true cmd))
     (Runtime.top_return ()) cmds
