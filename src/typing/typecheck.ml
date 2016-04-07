@@ -466,7 +466,7 @@ let add_operation op (args, out) env =
   and out = ml_ty [] out in
   Tyenv.topadd_operation op (args, out) env
 
-let rec toplevel ~quiet env ({Location.thing=c; loc} : Syntax.toplevel) =
+let rec toplevel env ({Location.thing=c; loc} : Syntax.toplevel) =
   match c with
   (* Desugar is the only place where recursion/nonrecursion matters *)
   | Syntax.DefMLType tydefs
@@ -514,5 +514,5 @@ let rec toplevel ~quiet env ({Location.thing=c; loc} : Syntax.toplevel) =
 
   | Syntax.Included cs ->
      List.fold_left
-       (fun env (f, cs) -> List.fold_left (toplevel ~quiet) env cs) env cs
+       (fun env (f, cs) -> List.fold_left toplevel env cs) env cs
 
