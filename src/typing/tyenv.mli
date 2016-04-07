@@ -42,3 +42,5 @@ val topadd_operation : Name.operation -> Mlty.ty list * Mlty.ty -> t -> t
 
 val topadd_lets : (Name.ty * Context.generalizable * Mlty.ty) list -> t -> t
 
+val apply_subst : t -> Mlty.ty -> Mlty.ty
+

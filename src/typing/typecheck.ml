@@ -464,7 +464,7 @@ let rec toplevel ~quiet env ({Location.thing=c; loc} : Syntax.toplevel) =
     if not quiet then
       List.iter (fun (x, _, t) -> Format.printf "%t : %t@."
                                   (Name.print_ident x)
-                                  (Mlty.print_ty ~penv:(Mlty.fresh_penv ()) t))
+                                  (Mlty.print_ty ~penv:(Mlty.fresh_penv ()) (Tyenv.apply_subst env t)))
                 xts ;
     Tyenv.topadd_lets xts env
 
