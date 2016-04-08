@@ -1,0 +1,18 @@
+let printj = external "print_json"
+
+do printj Type
+
+constant A : Type
+constant B : A → Type
+
+do printj A
+
+constant a : A
+
+let h = λ f : (∏ (x : A), B x), f a
+
+do printj h
+
+do assume g : A → A in
+   assume b : A in
+   printj (g b)
