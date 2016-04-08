@@ -59,6 +59,8 @@ val fresh_penv : unit -> print_env
 
 val print_ty : penv:print_env -> ?max_level:Level.t -> ty -> Format.formatter -> unit
 
+val print_ty_schema :  penv:print_env -> ?max_level:Level.t -> ty_schema -> Format.formatter -> unit
+
 val print_error : error -> Format.formatter -> unit
 
 

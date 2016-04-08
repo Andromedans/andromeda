@@ -533,8 +533,6 @@ let rec mfold f acc = function
   | x::rem -> f acc x >>= fun acc ->
      mfold f acc rem
 
-(** TODO: print annotations with the same penv. *)
-
 let toplet_bind ~loc ~quiet ~print_annot xcs =
   let rec fold xvs = function
     | [] ->
@@ -620,10 +618,18 @@ let rec toplevel ~quiet ?print_annot {Location.thing=c;loc} =
            Runtime.add_handle op f) () lst
 
     | Syntax.TopLet xcs ->
-       toplet_bind ~loc ~quiet ~print_annot xcs
+      let print_annot = match print_annot with
+        | Some print -> Some (print ())
+        | None -> None
+      in
+      toplet_bind ~loc ~quiet ~print_annot xcs
 
     | Syntax.TopLetRec fxcs ->
-       topletrec_bind ~loc ~quiet ~print_annot fxcs
+      let print_annot = match print_annot with
+        | Some print -> Some (print ())
+        | None -> None
+      in
+      topletrec_bind ~loc ~quiet ~print_annot fxcs
 
     | Syntax.TopDynamic (x, annot, c) ->
        comp_value c >>= fun v ->
@@ -639,7 +645,7 @@ let rec toplevel ~quiet ?print_annot {Location.thing=c;loc} =
        (begin if not quiet then
         match print_annot with
           | Some print_annot ->
-            Format.printf "%t : %t@." (Runtime.print_value ~penv v) (print_annot annot)
+            Format.printf "%t : %t@." (Runtime.print_value ~penv v) (print_annot () annot)
           | None ->
             Format.printf "%t@." (Runtime.print_value ~penv v)
         end;

@@ -60,3 +60,6 @@ let ml_handler_right = ml_arr_right
 
 let ml_app = 600
 let ml_app_arg = ml_app - 1
+
+let ml_forall_r = highest
+

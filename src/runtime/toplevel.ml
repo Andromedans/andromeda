@@ -37,10 +37,14 @@ let wrap f state =
       raise (Error (Location.locate (TypingError err) loc))
 
 (** Evaluation of toplevel computations *)
+let print_annot () =
+  let penv = Mlty.fresh_penv () in
+  fun t ppf -> Mlty.print_ty_schema ~penv t ppf
+
 let exec_cmd ~quiet c = wrap (fun {desugar;typing;runtime} ->
   let desugar, c = Desugar.toplevel  ~basedir:Filename.current_dir_name desugar c in
   let typing, c = Typecheck.toplevel typing c in
-  let comp = Eval.toplevel ~quiet c in
+  let comp = Eval.toplevel ~quiet ~print_annot c in
   let (), runtime = Runtime.exec comp runtime in
   {desugar;typing;runtime})
 
@@ -58,7 +62,7 @@ let use_file ~fn ~quiet = wrap (fun {desugar;typing;runtime} ->
   let cmds = List.rev cmds in
   let comp =
     List.fold_left
-      (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet cmd))
+      (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet ~print_annot cmd))
       (Runtime.top_return ()) cmds
   in
   let (), runtime = Runtime.exec comp runtime in
@@ -78,7 +82,7 @@ let initial =
   in
   let cmds = List.rev cmds in
   let comp = List.fold_left
-    (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet:true cmd))
+    (fun m cmd -> Runtime.top_bind m (fun () -> Eval.toplevel ~quiet:true ~print_annot cmd))
     (Runtime.top_return ()) cmds
   in
   let (), runtime = Runtime.exec comp Runtime.empty in

@@ -95,3 +95,7 @@ val ml_app : t
 
 (** ML argument of a type application *)
 val ml_app_arg : t
+
+(** [t] in [forall a, t] *)
+val ml_forall_r : t
+

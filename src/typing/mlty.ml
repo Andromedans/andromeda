@@ -98,12 +98,22 @@ let rec print_ty ~penv ?max_level t ppf =
      Format.fprintf ppf "%t" (Name.print_ident x)
 
   | App (x, _, ts) ->
-     Print.print ?max_level ~at_level:Level.ml_app ppf "%t@ %t"
+     Print.print ?max_level ~at_level:Level.ml_app ppf "@[<hov>%t@ %t@]"
                  (Name.print_ident x)
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_app_arg) "" ts)
 
   | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "ref@ %t"
                          (print_ty ~penv ~max_level:Level.ml_app_arg t)
+
+let print_ty_schema ~penv ?max_level (ms, t) ppf =
+  match ms with
+    | [] ->
+      print_ty ~penv ?max_level t ppf
+    | _ :: _ ->
+      Format.fprintf ppf "%s %t, %t"
+                     (Print.char_forall ())
+                     (Print.sequence (print_meta ~penv) " " ms)
+                     (print_ty ~penv ~max_level:Level.ml_forall_r t)
 
 let print_error err ppf =
   let penv = fresh_penv () in
