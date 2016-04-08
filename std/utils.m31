@@ -13,6 +13,8 @@ let rec fold f acc lst = match lst with
   | ?x :: ?tl => fold f (f acc x) tl
   end
 
+let fold f acc lst = external "magic" fold (external "magic" f) (external "magic" acc) (external "magic" lst)
+
 (** `list_map f l` applies `f` to each element of `l`  *)
 let rec list_map f l = fold (fun acc x => f x :: acc) [] l |> rev
 

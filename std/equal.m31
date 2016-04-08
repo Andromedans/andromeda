@@ -234,7 +234,7 @@ let generic_matcher pat e =
       end
   end
 
-let spine h es = fold (fun h e => h e) h es
+let spine h es = external "magic" fold (fun h e => h e) h es
 
 (* A beta hint is a term `e` whose type is a universally quantified equation
    `∏ (x1:A1) ... (xn:An), lhs == rhs`.
@@ -284,19 +284,22 @@ let process_eta =
   let finalize e xs eqs a b =
     let T = match a with |- _ : ?T => T end in
     let f ea eb quants =
-      let e = spine e quants in
-      let e = e ea eb in
-      (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
-      let rec auto e = match e with
-        | |- _ : forall (_ : ?lhs == ?rhs), _ =>
-          match equal lhs rhs with
-            | Some ?eq => auto (e eq)
-            | None => None
-          end
-        | |- _ : _ == _ => Some e
-        end
-      in
-      auto e
+      match spine e quants with
+        | Some ?e =>
+          let e = e ea eb in
+          (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
+          let rec auto e = match e with
+            | |- _ : forall (_ : ?lhs == ?rhs), _ =>
+              match equal lhs rhs with
+                | Some ?eq => auto (e eq)
+                | None => None
+              end
+            | |- _ : _ == _ => Some e
+            end
+          in
+          auto e
+        | None => None
+      end
     in
     fun ea eb => (f ea eb, (xs, T))
   in
