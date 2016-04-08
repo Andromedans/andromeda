@@ -39,29 +39,9 @@ let externals =
           | "ascii" ->
             Config.ascii := true;
             Runtime.return_unit
+
           | "no-ascii" ->
             Config.ascii := false;
-            Runtime.return_unit
-
-          | "debruijn" ->
-            Config.debruijn := true;
-            Runtime.return_unit
-          | "no-debruijn" ->
-            Config.debruijn := false;
-            Runtime.return_unit
-
-          | "annotate" ->
-            Config.annotate := true;
-            Runtime.return_unit
-          | "no-annotate" ->
-            Config.annotate := false;
-            Runtime.return_unit
-
-          | "dependencies" ->
-            Config.print_dependencies := true;
-            Runtime.return_unit
-          | "no-dependencies" ->
-            Config.print_dependencies := false;
             Runtime.return_unit
 
           | _ -> Runtime.(error ~loc (UnknownConfig s))

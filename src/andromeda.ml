@@ -14,21 +14,9 @@ let add_file quiet filename = (files := (filename, quiet) :: !files)
 (** Command-line options *)
 let options = Arg.align [
 
-    ("--annotate",
-     Arg.Set Config.annotate,
-     " Print type annotations");
-
     ("--ascii",
       Arg.Set Config.ascii,
      " Print terms in ASCII format");
-
-    ("--debruijn",
-     Arg.Set Config.debruijn,
-     " Print de Bruijn indices of bound variables");
-
-    ("--dependencies",
-     Arg.Set Config.print_dependencies,
-     " Print dependencies between free variables and inside terms");
 
     ("--global-atom-printer",
      Arg.Set Config.global_atom_printer,

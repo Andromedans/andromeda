@@ -50,7 +50,7 @@ register is defined.
 ()
 ⊢ b : A
 ⊢ A : Type
-x₀ : A 
+x₀ : A
 ⊢ x₀ : A
 "this will happen"
 ()
@@ -61,13 +61,13 @@ dependent is defined.
 Some
 (⊢ Type : Type)
 None
-(T₀ : Type 
- ⊢ T₀ : Type) :: (T₀ : Type 
-                      x₁ : T₀ 
+(T₀ : Type
+ ⊢ T₀ : Type) :: (T₀ : Type
+                      x₁ : T₀
                       ⊢ x₁ : T₀) ::
 []
 Operation emit is declared.
-(x₀ : A 
+(x₀ : A
  ⊢ x₀ : A) ::
 []
 Constant eq is declared.

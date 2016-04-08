@@ -118,15 +118,8 @@ let rec assoc_ident x = function
   | _::l -> assoc_ident x l
 
 let print_debruijn xs k ppf =
-  try
-    let x = List.nth xs k in
-    if !Config.debruijn
-    then Format.fprintf ppf "%t[%d]" (print_ident x) k
-    else print_ident x ppf
-  with
-  | Failure "nth" ->
-      Format.fprintf ppf "DEBRUIJN[%d]" k
-
+  let x = List.nth xs k in
+  print_ident x ppf
 
 (** Subscripts *)
 

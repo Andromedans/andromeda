@@ -2,11 +2,11 @@ Constant A is declared.
 x is defined.
 P is defined.
 y is defined.
-x₀ : A 
-y₁ : (λ (_ : A), A) x₀ 
+x₀ : A
+y₁ : (λ (_ : A), A) x₀
 ⊢ y₁ : (λ (_ : A), A) x₀
 Constant f is declared.
-x₀ : A 
-P₁ : A → Type 
-y₂ : P₁ (f x₀) 
+x₀ : A
+P₁ : A → Type
+y₂ : P₁ (f x₀)
 ⊢ y₂ : P₁ (f x₀)

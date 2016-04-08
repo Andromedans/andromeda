@@ -23,19 +23,10 @@ val wrapper : string list option ref
     - 3 errors, warnings, and debug messages *)
 val verbosity : int ref
 
-(* Print using ASCII format rather than UTF8 *)
+(** Print using ASCII format rather than UTF8 *)
 val ascii : bool ref
 
-(** Print de Bruijn indices of bound variables for debugging purposes *)
-val debruijn : bool ref
-
-(** Display full type annotations *)
-val annotate : bool ref
-
-(** Should context dependencies between variables be printed? *)
-val print_dependencies : bool ref
-
-(** *)
+(** How deeply to print output *)
 val max_boxes : int ref
 
 (** The maximum number of characters that will be printed on one line *)

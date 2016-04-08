@@ -1,7 +1,7 @@
 Constant T is declared.
 Constant ( * ) is declared.
 x is defined.
-x₀ : T 
+x₀ : T
 ⊢ x₀ : T
-x₀ : T 
+x₀ : T
 ⊢ x₀ * x₀ : T

@@ -2,7 +2,7 @@ Constant A is declared.
 Constant a is declared.
 x is defined.
 quants is defined.
-Some ((x₀ : A 
+Some ((x₀ : A
        ⊢ x₀ : A, Some (⊢ a : A)) :: [],
 [])
 None

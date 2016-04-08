@@ -58,17 +58,10 @@ module Ctx = struct
 
   let is_empty = AtomMap.is_empty
 
-  let print_dependencies ~printer s v ppf =
-    if not !Config.print_dependencies || AtomSet.is_empty v
-    then Format.fprintf ppf ""
-    else Format.fprintf ppf "@ %s[%t]" s
-                        (Print.sequence (Name.print_atom ~printer) "," (AtomSet.elements v))
-
   let print_entry ~penv ppf x {ty; needed_by;} =
-    Format.fprintf ppf "%t : @[<hov>%t@ @[<h>%t@]@]@ "
+    Format.fprintf ppf "%t : @[<hov>%t@]@ "
       (Name.print_atom ~printer:(penv.TT.atoms) x)
       (TT.print_ty ~penv ty)
-      (print_dependencies ~printer:(penv.TT.atoms) "needed_by" needed_by)
 
   let print ~penv ctx ppf =
     Format.pp_open_vbox ppf 0 ;

@@ -2,7 +2,7 @@ Constant A is declared.
 Constant B is declared.
 Constant Q is declared.
 Operation inhabit is declared.
-hyp₀ : A → Type 
+hyp₀ : A → Type
 ⊢ λ (a : A), Q A hyp₀ a : Π (a : A), hyp₀ a → Type
 File "./handle-assume.m31", line 18, characters 5-38: cannot abstract a₀
 because hyp₁

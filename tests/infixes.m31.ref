@@ -13,11 +13,11 @@ s is defined.
 ⊢ c ^ d ^ d : A)
 ⊢ λ (( ++ ) : A → A → A) (x : A) (y : A), x ++ (y ++ x)
   : (A → A → A) → A → A → A
-( ++₀ ) : A → A → A 
+( ++₀ ) : A → A → A
 ⊢ λ (x : A) (y : A), x ++₀ (y ++₀ x) : A → A → A
 ⊢ λ (( ??? ) : A → A) (x : A) (_ : A), ??? ??? x
   : (A → A) → A → A → A
-( ???₀ ) : A → A 
+( ???₀ ) : A → A
 ⊢ λ (x : A) (y : A), ???₀ ???₀ x : A → A → A
 ML type suspended declared.
 x is defined.

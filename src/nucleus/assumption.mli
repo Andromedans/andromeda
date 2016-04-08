@@ -7,8 +7,6 @@ val empty : t
 
 val is_empty : t -> bool
 
-val print : Name.ident list -> Name.atom_printer -> t -> Format.formatter -> unit
-
 val mem_atom : Name.atom -> t -> bool
 
 val singleton : Name.atom -> t

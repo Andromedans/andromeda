@@ -1,5 +1,5 @@
 Operation happy is declared.
 Constant A is declared.
-happy₀ : (A → Type) → A 
+happy₀ : (A → Type) → A
 ⊢ λ (B : A → Type), B (happy₀ B) : (A → Type) → Type
 []
