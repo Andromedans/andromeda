@@ -34,3 +34,9 @@ val as_atom_set : loc:Location.t -> t -> Name.AtomSet.t
 
 val equal : t -> t -> bool
 
+module Json :
+sig
+
+  val assumptions : t -> Json.t
+
+end

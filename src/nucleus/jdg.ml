@@ -7,6 +7,7 @@ module AtomMap = Name.AtomMap
    We can think of it as a directed graph whose vertices are the atoms, labelled by
    the type, and the sets of atoms are the two directions of edges. *)
 
+(* XXX rename this to entry *)
 type node =
   { ty : TT.ty; (* type of x *)
     needed_by : AtomSet.t } (* atoms which depend on x *)
@@ -781,3 +782,29 @@ let refl_of_eq ~loc (EqTerm (ctx, lhs, rhs, ty)) =
   let term = TT.mention_atoms hyps term in
   Term (ctx, term, TT.mk_eq_ty ~loc ty lhs rhs)
 
+module Json =
+struct
+
+  let context ctx =
+    let dict =
+      AtomMap.fold
+        (fun x {ty; needed_by} dict ->
+         (Name.Json.atom x,
+          Json.record "entry" ["ty", TT.Json.ty ty;
+                               "needed_by", Name.Json.atomset needed_by]) :: dict)
+        ctx
+        []
+    in
+    Json.of_ty "ctx" ["data", Json.Dict dict]
+
+  let term (Term (ctx, e, ty)) =
+    (* XXX We pretend that terms are records, which they should be anyhow. *)
+    Json.of_ty "Jdg.term" ["context", context ctx;
+                           "term", TT.Json.term e;
+                           "type", TT.Json.ty ty]
+
+  let ty (Ty (ctx, ty)) =
+    (* XXX We pretend that types are records, which they should be anyhow. *)
+    Json.of_ty "Jdg.term" ["context", context ctx;
+                           "type", TT.Json.ty ty]
+end

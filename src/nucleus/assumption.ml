@@ -79,3 +79,12 @@ let as_atom_set ~loc {free;bound;} =
 let equal {free=free1;bound=bound1} {free=free2;bound=bound2} =
   AtomSet.equal free1 free2 && BoundSet.equal bound1 bound2
 
+module Json =
+struct
+
+  let assumptions {free; bound} =
+    let bound = List.map (fun k -> Json.Int k) (BoundSet.elements bound) in
+    Json.record "assumptions" ["free", Name.Json.atomset free;
+                               "bound", Json.List bound]
+
+end

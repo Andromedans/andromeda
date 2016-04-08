@@ -512,3 +512,42 @@ and print_prod ?max_level ~penv ((x, u), t) ppf =
                                (fun ~penv -> print_ty ~max_level:Level.in_binder ~penv t)
                                xus)
 
+
+(** Conversion to s-expressions *)
+
+module Json =
+struct
+
+  let rec term {term=e; assumptions=asm; loc} =
+    Json.record "term" ["term", term' e;
+                        "assumptions", Assumption.Json.assumptions asm;
+                        "loc", Location.Json.location loc]
+
+  and term' e =
+    let json = Json.tag "term'"  in
+    match e with
+
+      | Type -> json "Type" []
+
+      | Atom a -> json "Atom" [Name.Json.atom a]
+
+      | Bound b -> json "Bound" [Json.Int b]
+
+      | Constant c -> json "Constant" [Name.Json.ident c]
+
+      | Lambda (xt, (e, u)) ->
+         json "Lambda" [abstraction xt (Json.tuple [term e; ty u])]
+
+      | Apply (e1, (xt, u), e2) -> json "Apply" [term e1; abstraction xt (ty u)]
+
+      | Prod (xt, u) -> json "Prod" [abstraction xt (ty u)]
+
+      | Eq (t, e1, e2) -> json "Eq" [ty t; term e1; term e2]
+
+      | Refl (t, e) -> json "Refl" [ty t; term e]
+
+  and abstraction (x, t) d = Json.tuple [Name.Json.ident x; ty t; d]
+
+  and ty (Ty e) = Json.tag "ty" "Ty" [term e]
+
+end
