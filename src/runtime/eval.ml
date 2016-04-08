@@ -439,7 +439,7 @@ and let_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun xcs cmd ->
     | [] ->
       (* parallel let: only bind at the end *)
       List.fold_left  (fun cmd v -> Runtime.add_bound v cmd) cmd vs
-    | (_, c) :: xcs ->
+    | (_, _, c) :: xcs ->
       infer c >>= fun v ->
       fold (v :: vs) xcs
     in
@@ -448,14 +448,14 @@ and let_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun xcs cmd ->
 and letrec_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun fxcs ->
   let gs =
     List.map
-      (fun (_, _, c) -> (fun v -> Runtime.add_bound v (infer c)))
+      (fun (_, _, _, c) -> (fun v -> Runtime.add_bound v (infer c)))
       fxcs
   in
   Runtime.add_bound_rec gs
 
 (* [match_cases loc cases eval v] tries for each case in [cases] to match [v]
    and if successful continues on the computation using [eval] with the pattern variables bound. *)
-and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Runtime.comp) -> _ -> a Runtime.comp
+and match_cases : type a. loc:_ -> _ -> ('annot Syntax.comp -> a Runtime.comp) -> _ -> a Runtime.comp
  = fun ~loc cases eval v ->
   let rec fold = function
     | [] ->
@@ -541,7 +541,7 @@ let toplet_bind ~loc ~quiet xcs =
          (fun cmd (x, v) -> Runtime.add_topbound v >>= fun () -> cmd)
          (return ())
          xvs
-    | (x, c) :: xcs ->
+    | (x, _, c) :: xcs ->
        comp_value c >>= fun v ->
        fold ((x, v) :: xvs) xcs
   in
@@ -550,12 +550,12 @@ let toplet_bind ~loc ~quiet xcs =
 let topletrec_bind ~loc ~quiet fxcs =
   let gs =
     List.map
-      (fun (_, _, c) -> (fun v -> Runtime.add_bound v (infer c)))
+      (fun (_, _, _, c) -> (fun v -> Runtime.add_bound v (infer c)))
       fxcs
   in
   Runtime.add_topbound_rec gs >>= fun () ->
   if not quiet then
-    List.iter (fun (f, _, _) ->
+    List.iter (fun (f, _, _, _) ->
         if not (Name.is_anonymous f) then
           Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
   return ()
@@ -573,7 +573,7 @@ let print_error err ppf =
     | RuntimeError (penv, err) -> Runtime.print_error ~penv err ppf
     | JdgError (penv, err) -> Jdg.print_error ~penv err ppf
 
-let rec toplevel ~quiet {Location.thing=c;loc} =
+let rec toplevel ~quiet ?print_annot {Location.thing=c;loc} =
   Runtime.catch (lazy (match c with
 
     | Syntax.DefMLType lst
@@ -608,7 +608,7 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
     | Syntax.TopLetRec fxcs ->
        topletrec_bind ~loc ~quiet fxcs
 
-    | Syntax.TopDynamic (x,c) ->
+    | Syntax.TopDynamic (x, annot, c) ->
        comp_value c >>= fun v ->
        Runtime.add_dynamic ~loc x v
 
@@ -616,13 +616,13 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
        comp_value c >>= fun v ->
        Runtime.top_now ~loc x v
 
-    | Syntax.TopDo c ->
+    | Syntax.TopDo (annot, c) ->
        comp_value c >>= fun v ->
        Runtime.top_lookup_penv >>= fun penv ->
        (if not quiet then Format.printf "%t@." (Runtime.print_value ~penv v) ;
         return ())
 
-    | Syntax.TopFail c ->
+    | Syntax.TopFail (annot, c) ->
        Runtime.catch (lazy (comp_value c)) >>= begin function
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->

@@ -30,7 +30,7 @@ val as_ref : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 
 val op_cases : Name.operation -> output:Mlty.ty -> (Mlty.ty list -> 'a tyenvM) -> 'a tyenvM
 
-val at_toplevel : t -> 'a tyenvM -> 'a * t
+val at_toplevel : t -> 'a tyenvM -> t * 'a
 
 val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty tyenvM
 

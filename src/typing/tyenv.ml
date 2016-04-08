@@ -221,7 +221,7 @@ let op_cases op ~output m env =
 
 let at_toplevel env m =
   let x, substitution, unsolved = m env in
-  x, { env with substitution; unsolved }
+  { env with substitution; unsolved }, x
 
 let predefined_type x ts env =
   let t = Context.predefined_type x ts env.context in

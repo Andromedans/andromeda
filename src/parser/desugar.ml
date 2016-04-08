@@ -1,5 +1,8 @@
 (** Conversion from sugared to desugared input syntax *)
 
+(* Desugar has trivial annotations on lets *)
+let annot = ()
+
 (** A let-bound name has lexical scoping and a dynamic-bound name dynamic scoping. *)
 type scoping =
   | Lexical
@@ -560,7 +563,7 @@ and let_clauses ~loc ~yield bound lst =
        else
          let c = let_clause ~yield bound ys t_opt c in
          let bound' = Ctx.add_lexical x bound' in
-         let lst' = (x, c) :: lst' in
+         let lst' = (x, annot, c) :: lst' in
          fold bound' lst' xcs
   in
   fold bound [] lst
@@ -579,7 +582,7 @@ and letrec_clauses ~loc ~yield bound lst =
          error ~loc (ParallelShadowing f)
        else
          let y, c = letrec_clause ~yield bound y ys t_opt c in
-         let lst' = (f, y, c) :: lst' in
+         let lst' = (f, y, annot, c) :: lst' in
          fold lst' xcs
   in
   fold [] lst
@@ -907,23 +910,23 @@ let rec toplevel ~basedir ctx (cmd, loc) =
        let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
        (ctx, locate (Syntax.TopLetRec lst) loc)
 
-    | Input.TopDynamic (x,c) ->
+    | Input.TopDynamic (x, c) ->
        let c = comp ~yield:false ctx c in
        let ctx = Ctx.add_dynamic x ctx in
-       (ctx, locate (Syntax.TopDynamic (x,c)) loc)
+       (ctx, locate (Syntax.TopDynamic (x, annot, c)) loc)
 
-    | Input.TopNow (x,c) ->
+    | Input.TopNow (x, c) ->
        let y = Ctx.get_dynamic ~loc x ctx in
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Syntax.TopNow (y,c)) loc)
+       (ctx, locate (Syntax.TopNow (y, c)) loc)
 
     | Input.TopDo c ->
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Syntax.TopDo c) loc)
+       (ctx, locate (Syntax.TopDo (annot, c)) loc)
 
     | Input.TopFail c ->
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Syntax.TopFail c) loc)
+       (ctx, locate (Syntax.TopFail (annot, c)) loc)
 
     | Input.Verbosity n ->
        (ctx, locate (Syntax.Verbosity n) loc)
