@@ -21,20 +21,20 @@ let record = of_ty
 
 let tag ty tag data = of_ty ty ["tag", String tag; "data", List data]
 
-let rec print_json data ppf =
+let rec print data ppf =
   match data with
 
-  | String s -> Format.fprintf ppf "%s" (String.escaped s)
+  | String s -> Format.fprintf ppf "\"%s\"" (String.escaped s)
 
   | Int k -> Format.fprintf ppf "%d" k
 
-  | List lst -> Format.fprintf ppf "[%t]" (Print.sequence print_json "," lst)
+  | List lst -> Format.fprintf ppf "[@[<hov>%t@]]" (Print.sequence print "," lst)
 
   | Dict lst ->
-     Format.fprintf ppf "{%t}" (Print.sequence print_entry "," lst)
+     Format.fprintf ppf "{@[<hv>%t@]}" (Print.sequence print_entry "," lst)
 
 and print_entry (label, data) ppf =
-  Format.fprintf ppf "@[<hov 2>%t@] :@ @[<hov 2>%t@]"
-                 (print_json label)
-                 (print_json data)
+  Format.fprintf ppf "@[<hv>%t :@ %t@]"
+                 (print label)
+                 (print data)
 

@@ -47,4 +47,4 @@ val record : string -> (string * t) list -> t
 val tag : string -> string -> t list -> t
                         
 (** Nicely print an s-expression *)
-val print_json : t -> Format.formatter -> unit
+val print : t -> Format.formatter -> unit

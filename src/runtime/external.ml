@@ -14,6 +14,13 @@ let externals =
           Runtime.return_unit
         )) ;
 
+    ("print_json", fun loc ->
+      Runtime.return_closure (fun v ->
+          let j = Runtime.Json.value v in
+          Format.printf "%t@." (Json.print j) ;
+          Runtime.return_unit
+        )) ;
+
     ("time", fun loc ->
       Runtime.return_closure (fun _ ->
         let time = ref 0. in
