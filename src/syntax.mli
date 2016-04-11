@@ -8,6 +8,18 @@ type level = int
 
 type 'a located = 'a Location.located
 
+type ml_ty = ml_ty' located
+and ml_ty' =
+  | ML_Arrow of ml_ty * ml_ty
+  | ML_Prod of ml_ty list
+  | ML_TyApply of Name.ident * level * ml_ty list
+  | ML_Handler of ml_ty * ml_ty
+  | ML_Judgment
+  | ML_Bound of bound
+
+type ml_schema = ml_schema' located
+and ml_schema' = ML_Forall of Name.ty list * ml_ty
+
 (** Patterns *)
 type tt_pattern = tt_pattern' located
 and tt_pattern' =
@@ -87,15 +99,6 @@ and 'annot match_case = Name.ident list * pattern * 'annot comp
 and 'annot match_op_case = Name.ident list * pattern list * pattern option * 'annot comp
 
 type 'annot top_op_case = Name.ident list * Name.ident option * 'annot comp
-
-type ml_ty = ml_ty' located
-and ml_ty' =
-  | ML_Arrow of ml_ty * ml_ty
-  | ML_Prod of ml_ty list
-  | ML_TyApply of Name.ident * level * ml_ty list
-  | ML_Handler of ml_ty * ml_ty
-  | ML_Judgment
-  | ML_Bound of bound
 
 type constructor_decl = Name.constructor * ml_ty list
 

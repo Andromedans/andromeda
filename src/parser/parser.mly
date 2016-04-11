@@ -232,7 +232,7 @@ let_clause:
        { (x, ys, u, c) }
 
 return_type:
-  | COLON t=ty_term { t }
+  | COLON t=ml_schema { t }
 
 typed_binder:
   | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }
@@ -412,6 +412,11 @@ op_mlsig:
       | t :: ts -> (List.rev ts, t)
       | [] -> assert false
      }
+
+ml_schema: mark_location(plain_ml_schema) { $1 }
+plain_ml_schema:
+  | PROD params=var_name+ COMMA t=mlty    { ML_Forall (params, t) }
+  | t=mlty                                { ML_Forall ([], t) }
 
 mlty: mark_location(plain_mlty) { $1 }
 plain_mlty:

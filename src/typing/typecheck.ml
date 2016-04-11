@@ -132,7 +132,7 @@ let match_op_case xs ps popt argts m =
   in
   add_vars (List.rev xs)
 
-let rec comp ({Location.thing=c; loc} : unit Syntax.comp) : (Mlty.ty_schema Syntax.comp * Mlty.ty) Tyenv.tyenvM =
+let rec comp ({Location.thing=c; loc} : _ Syntax.comp) : (Mlty.ty_schema Syntax.comp * Mlty.ty) Tyenv.tyenvM =
   match c with
   | Syntax.Type ->
     return (locate ~loc Syntax.Type, Mlty.Jdg)
@@ -397,10 +397,10 @@ and match_op_cases op cases output =
   in
   fold [] cases)
 
-and let_clauses (xcs : unit Syntax.let_clause list) : Mlty.ty_schema Syntax.let_clause list Tyenv.tyenvM =
+and let_clauses (xcs : _ Syntax.let_clause list) : Mlty.ty_schema Syntax.let_clause list Tyenv.tyenvM =
   let rec fold xs = function
     | [] -> Tyenv.return (List.rev xs)
-    | (x, (), c) :: xcs ->
+    | (x, _, c) :: xcs ->
       comp c >>= fun (c, t) ->
       let gen = generalizable c in
       begin match gen with
@@ -411,25 +411,25 @@ and let_clauses (xcs : unit Syntax.let_clause list) : Mlty.ty_schema Syntax.let_
   in
   fold [] xcs
 
-and let_rec_clauses (xycs : unit Syntax.letrec_clause list) : Mlty.ty_schema Syntax.letrec_clause list Tyenv.tyenvM =
+and let_rec_clauses (xycs : _ Syntax.letrec_clause list) : Mlty.ty_schema Syntax.letrec_clause list Tyenv.tyenvM =
  let abxycs =
     List.map (fun xyc -> Mlty.fresh_type (), Mlty.fresh_type (), xyc) xycs
   in
   let rec check_bodies cs = function
     | [] -> Tyenv.return (List.rev cs)
-    | (a, b, (_, y, (), c)) :: rem ->
+    | (a, b, (_, y, _, c)) :: rem ->
       Tyenv.add_var y a (check_comp c b) >>= fun c ->
       check_bodies (c :: cs) rem
   in
   let rec bind_bodies = function
     | [] -> check_bodies [] abxycs
-    | (a, b, (x, _, (), _)) :: rem ->
+    | (a, b, (x, _, _, _)) :: rem ->
       Tyenv.add_let x (Mlty.ungeneralized_schema (Mlty.Arrow(a, b))) (bind_bodies rem)
   in
   bind_bodies abxycs >>= fun cs ->
   let rec fold xycs = function
     | [] -> Tyenv.return (List.rev xycs)
-    | ((a, b, (x, y, (), _)), c) :: rem ->
+    | ((a, b, (x, y, _, _)), c) :: rem ->
       Tyenv.generalize (Mlty.Arrow (a, b)) >>= fun s ->
       fold ((x, y, s, c) :: xycs) rem
   in
@@ -509,7 +509,7 @@ let comp_schema c =
   end >>= fun s ->
   return (c, s)
 
-let rec toplevel env ({Location.thing=c; loc} : unit Syntax.toplevel) =
+let rec toplevel env ({Location.thing=c; loc} : _ Syntax.toplevel) =
   match c with
   (* Desugar is the only place where recursion/nonrecursion matters *)
   | Syntax.DefMLType tydefs ->
@@ -542,7 +542,7 @@ let rec toplevel env ({Location.thing=c; loc} : unit Syntax.toplevel) =
     let env = List.fold_left (fun env (x, _, s, _) -> Tyenv.topadd_let x s env) env xycs in
     env, locate ~loc (Syntax.TopLetRec xycs)
 
-  | Syntax.TopDynamic (x, (), c) ->
+  | Syntax.TopDynamic (x, _, c) ->
     let env, (c, t) = Tyenv.at_toplevel env (comp c) in
     let s = Mlty.ungeneralized_schema t in
     let env = Tyenv.topadd_let x s env in
@@ -554,11 +554,11 @@ let rec toplevel env ({Location.thing=c; loc} : unit Syntax.toplevel) =
     in
     env, locate ~loc (Syntax.TopNow (x, c))
 
-  | Syntax.TopDo ((), c) ->
+  | Syntax.TopDo (_, c) ->
     let env, (c, s) = Tyenv.at_toplevel env (comp_schema c) in
     env, locate ~loc (Syntax.TopDo (s, c))
 
-  | Syntax.TopFail ((), c) ->
+  | Syntax.TopFail (_, c) ->
     let env, (c, s) = Tyenv.at_toplevel env (comp_schema c) in
     env, locate ~loc (Syntax.TopFail (s, c))
 
