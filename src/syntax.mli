@@ -95,7 +95,7 @@ and ml_ty' =
   | ML_TyApply of Name.ident * level * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Judgment
-  | ML_Param of bound
+  | ML_Bound of bound
 
 type constructor_decl = Name.constructor * ml_ty list
 

@@ -773,7 +773,7 @@ let mlty ctx params ty =
               (* It is a type parameter *)
               begin
                 match args with
-                | [] -> Syntax.ML_Param k
+                | [] -> Syntax.ML_Bound k
                 | _::_ -> error ~loc AppliedTyParam
               end
            | None ->

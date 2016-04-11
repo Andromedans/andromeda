@@ -480,7 +480,7 @@ let rec ml_ty params {Location.thing=t; loc} =
   | Syntax.ML_Judgment ->
      Mlty.Jdg
 
-  | Syntax.ML_Param p ->
+  | Syntax.ML_Bound p ->
      Mlty.Meta (List.nth params p)
 
 
