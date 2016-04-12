@@ -1,11 +1,20 @@
 type meta = int
 
+type param = int
+
 let fresh_meta : unit -> meta =
   let counter = ref 0 in
   fun () ->
     let m = !counter in
     incr counter;
     m
+
+let fresh_param : unit -> param =
+  let counter = ref 0 in
+  fun () ->
+    let p = !counter in
+    incr counter;
+    p
 
 module MetaOrd = struct
   type t = meta
@@ -17,6 +26,7 @@ type ty =
   | Jdg
   | String
   | Meta of meta
+  | Param of param
   | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
@@ -27,8 +37,8 @@ let unit_ty = Prod []
 
 let fresh_type () = Meta (fresh_meta ())
 
-(** The metavariables are generalised in the following values. *)
-type 'a forall = meta list * 'a
+(** Type parameters are generalised in the following values. *)
+type 'a forall = param list * 'a
 
 type ty_schema = ty forall
 
@@ -54,17 +64,31 @@ exception Error of error Location.located
 
 let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
-type print_env = (meta * string) list ref
+type print_env = {
+  mutable metas : (meta * string) list ;
+  mutable params : (param * string) list
+}
 
-let fresh_penv () = ref []
+let fresh_penv () = { metas = []; params = [] }
 
 let print_meta ~penv (m : meta) ppf =
   let s =
-    try List.assoc m !penv
+    try List.assoc m penv.metas
     with Not_found ->
-      let l = List.length !penv in
+      let l = List.length penv.metas in
       let s = Name.greek l in
-      penv := (m, s) :: !penv;
+      penv.metas <- (m, s) :: penv.metas;
+      s
+  in
+  Format.fprintf ppf "?%s" s
+
+let print_param ~penv (p : param) ppf =
+  let s =
+    try List.assoc p penv.params
+    with Not_found ->
+      let l = List.length penv.params in
+      let s = Name.greek l in
+      penv.params <- (p, s) :: penv.params;
       s
   in
   Format.fprintf ppf "%s" s
@@ -78,10 +102,12 @@ let rec print_ty ~penv ?max_level t ppf =
 
   | Meta m -> print_meta ~penv m ppf
 
+  | Param p -> print_param ~penv p ppf
+
   | Prod [] -> Format.fprintf ppf "unit"
 
   | Prod ts -> Print.print ?max_level ppf "%t"
-                            (Print.sequence (print_ty ~penv ~max_level:Level.ml_prod_arg) " *" ts)
+                 (Print.sequence (print_ty ~penv ~max_level:Level.ml_prod_arg) " *" ts)
 
   | Arrow (t1, t2) ->
      Print.print ?max_level ~at_level:(Level.ml_arr) ppf "%t@ %s@ %t"
@@ -145,7 +171,7 @@ let print_error err ppf =
      Format.fprintf ppf "This computation cannot be polymorphic (value restriction)"
 
 let rec occurs m = function
-  | Jdg | String -> false
+  | Jdg | String | Param _ -> false
   | Meta m' -> m = m'
   | Prod ts  | App (_, _, ts) ->
     List.exists (occurs m) ts
@@ -159,7 +185,7 @@ module MetaSet = Set.Make(struct
   end)
 
 let rec occuring = function
-  | Jdg | String -> MetaSet.empty
+  | Jdg | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
   | Prod ts  | App (_, _, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
@@ -167,6 +193,42 @@ let rec occuring = function
     MetaSet.union (occuring t1) (occuring t2)
   | Ref t -> occuring t
 
-let occuring_schema ((ms, t) : ty_schema) : MetaSet.t =
-  let s = occuring t in
-  List.fold_left (fun s m -> MetaSet.remove m s) s ms
+let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
+  occuring t
+
+let instantiate pus t =
+  let rec inst = function
+
+    | Jdg | String | Meta _ as t -> t
+
+    | Param p as t ->
+       begin
+         try
+           List.assoc p pus
+         with Not_found -> t
+       end
+       
+    | Prod ts ->
+       let ts = List.map inst ts in
+       Prod ts
+            
+    | Ref t ->
+       let t = inst t in
+       Ref t
+
+    | Arrow (t1, t2) ->
+       let t1 = inst t1
+       and t2 = inst t2 in
+       Arrow (t1, t2)
+
+    | Handler (t1, t2) ->
+       let t1 = inst t1
+       and t2 = inst t2 in
+       Handler (t1, t2)
+
+    | App (x, lvl, ts) ->
+       let ts = List.map inst ts in
+       App (x, lvl, ts)
+
+  in
+  inst t

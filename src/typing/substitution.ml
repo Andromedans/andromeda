@@ -15,7 +15,7 @@ let apply (s : t) t =
   else begin
       let rec app = function
 
-        | Mlty.Jdg | Mlty.String as t -> t
+        | Mlty.Jdg | Mlty.String | Mlty.Param _ as t -> t
 
         | Mlty.Meta m as orig ->
            begin match lookup m s with
@@ -49,14 +49,6 @@ let apply (s : t) t =
     end
 
 let empty : t = MetaMap.empty
-
-let freshen_metas ms =
-  let s, ms' = List.fold_left (fun (s, ms') m ->
-      let m' = Mlty.fresh_meta () in
-      MetaMap.add m (Mlty.Meta m') s, m' :: ms')
-    (empty, []) ms
-  in
-  s, List.rev ms'
 
 let from_lists ms ts =
   List.fold_left2 (fun s m t ->

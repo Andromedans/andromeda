@@ -40,7 +40,10 @@ let generalize t env =
   let gen = Mlty.occuring t in
   let gen = remove_known ~known gen in
   let gen = Mlty.MetaSet.elements gen in
-  return (gen, t) env
+  let ps = List.map (fun _ -> Mlty.fresh_param ()) gen in
+  let s = Substitution.from_lists gen (List.map (fun p -> Mlty.Param p) ps) in
+  let t = Substitution.apply s t in
+  return (ps, t) env
 
 let add_let x s m env =
   let context = Context.add_let x s env.context in
@@ -78,7 +81,8 @@ let rec whnf ctx s = function
            | None -> t
      end
 
-  | (Mlty.Jdg | Mlty.String | Mlty.Prod _ | Mlty.Arrow _ | Mlty.Handler _ | Mlty.Ref _) as t -> t
+  | (Mlty.Jdg | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
+     Mlty.Handler _ | Mlty.Ref _) as t -> t
 
 let rec unifiable ctx s t t' =
   let (>?=) m f = match m with
@@ -99,6 +103,9 @@ let rec unifiable ctx s t t' =
 
   | t, Mlty.Meta m ->
      Substitution.add m t s
+
+  | Mlty.Param p, Mlty.Param p' when p = p' ->
+     Some s
 
   | Mlty.Ref t, Mlty.Ref t' ->
      unifiable ctx s t t'
@@ -131,7 +138,7 @@ let rec unifiable ctx s t t' =
      in
      fold s ts ts'
 
-  | (Mlty.Jdg | Mlty.String | Mlty.Ref _ | Mlty.Prod _ |
+  | (Mlty.Jdg | Mlty.String | Mlty.Ref _ | Mlty.Prod _ | Mlty.Param _ |
      Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _), _ -> None
 
 let rec add_equation ~loc t t' env =
@@ -179,7 +186,7 @@ and add_application ~loc h arg out env =
           end
      end
 
-  | (Mlty.String | Mlty.Ref _ | Mlty.Prod _ |  Mlty.Handler _ | Mlty.App _) ->
+  | (Mlty.String | Mlty.Ref _ | Mlty.Param _ | Mlty.Prod _ |  Mlty.Handler _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.InvalidApplication (h, arg, out))
 
 let as_handler ~loc t env =
@@ -196,7 +203,8 @@ let as_handler ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Jdg | Mlty.String | Mlty.Ref _ | Mlty.Prod _ | Mlty.Arrow _ | Mlty.App _) ->
+  | (Mlty.Jdg | Mlty.String | Mlty.Ref _ | Mlty.Param _ | Mlty.Prod _ |
+     Mlty.Arrow _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.HandlerExpected t)
 
 let as_ref ~loc t env =
@@ -212,7 +220,8 @@ let as_ref ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Jdg | Mlty.String | Mlty.Prod _ | Mlty.Handler _ | Mlty.Arrow _ | Mlty.App _) ->
+  | (Mlty.Jdg | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
+     Mlty.Arrow _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.RefExpected t)
 
 let op_cases op ~output m env =

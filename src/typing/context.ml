@@ -18,9 +18,9 @@ let empty = {
 }
 
 let lookup_var k {variables;_} =
-  let _, (ms, t) = List.nth variables k in
-  let s, _ = Substitution.freshen_metas ms in
-  Substitution.apply s t
+  let _, (ps, t) = List.nth variables k in
+  let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
+  Mlty.instantiate pus t
 
 let lookup_op op {operations;_} =
   OperationMap.find op operations
@@ -29,13 +29,13 @@ let lookup_constructor c {types;_} =
   let rec fold = function
     | [] -> raise Not_found
     | (_, Mlty.Alias _) :: types -> fold types
-    | (x, Mlty.Sum (ms, constructors)) :: types ->
+    | (x, Mlty.Sum (ps, constructors)) :: types ->
       let rec search = function
         | [] -> fold types
         | (c', ts) :: _ when Name.eq_ident c c' ->
-          let s, ms' = Substitution.freshen_metas ms in
-          let ts = List.map (Substitution.apply s) ts
-          and out = Mlty.App (x, List.length types, List.map (fun m -> Mlty.Meta m) ms') in
+           let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
+           let ts = List.map (Mlty.instantiate pus) ts
+           and out = Mlty.App (x, List.length types, List.map snd pus) in
           ts, out
         | _ :: rem -> search rem
       in
@@ -73,9 +73,9 @@ let unfold ctx x ts =
   let _, def = List.nth (List.rev ctx.types) x in
   match def with
     | Mlty.Sum _ -> None
-    | Mlty.Alias (ms, t) ->
-      let s = Substitution.from_lists ms ts in
-      Some (Substitution.apply s t)
+    | Mlty.Alias (ps, t) ->
+       let pus = List.combine ps ts in
+       Some (Mlty.instantiate pus t)
 
 let gather_known {types = _; variables; operations = _; continuation} =
   let known =

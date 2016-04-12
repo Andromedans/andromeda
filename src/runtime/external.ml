@@ -3,25 +3,25 @@
 let (>>=) = Runtime.bind
 
 let print_ty =
-  let a = Mlty.fresh_meta () in
-  ([a], Mlty.Arrow (Mlty.Meta a, Mlty.unit_ty))
+  let a = Mlty.fresh_param () in
+  ([a], Mlty.Arrow (Mlty.Param a, Mlty.unit_ty))
 
 let time_ty =
-  let a = Mlty.fresh_meta () in
-  ([a], Mlty.Arrow (Mlty.unit_ty, Mlty.Arrow (Mlty.Meta a, Mlty.Meta a)))
+  let a = Mlty.fresh_param () in
+  ([a], Mlty.Arrow (Mlty.unit_ty, Mlty.Arrow (Mlty.Param a, Mlty.Param a)))
 
 let config_ty =
   ([], Mlty.Arrow (Mlty.String, Mlty.unit_ty))
 
 let exit_ty =
-  let a = Mlty.fresh_meta ()
-  and b = Mlty.fresh_meta () in
-  ([a;b], Mlty.Arrow (Mlty.Meta a, Mlty.Meta b))
+  let a = Mlty.fresh_param ()
+  and b = Mlty.fresh_param () in
+  ([a;b], Mlty.Arrow (Mlty.Param a, Mlty.Param b))
 
 let magic_ty =
-  let a = Mlty.fresh_meta ()
-  and b = Mlty.fresh_meta () in
-  ([a;b], Mlty.Arrow (Mlty.Meta a, Mlty.Meta b))
+  let a = Mlty.fresh_param ()
+  and b = Mlty.fresh_param () in
+  ([a;b], Mlty.Arrow (Mlty.Param a, Mlty.Param b))
 
 (* An associative list mapping external names to their values.
    A typical external is a closure, which is made using [Runtime.mk_closure].

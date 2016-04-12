@@ -48,13 +48,13 @@ let rec ml_ty params {Location.thing=t; loc} =
      Mlty.Jdg
 
   | Syntax.ML_Bound p ->
-     Mlty.Meta (List.nth params p)
+     Mlty.Param (List.nth params p)
 
   | Syntax.ML_Anonymous ->
      Mlty.fresh_type ()
 
 let ml_schema (Syntax.ML_Forall (params, t)) =
-  let params = List.map (fun _ -> Mlty.fresh_meta ()) params in
+  let params = List.map (fun _ -> Mlty.fresh_param ()) params in
   let t = ml_ty params t in
   (params, t)
 
@@ -303,10 +303,10 @@ let rec comp ({Location.thing=c; loc} : _ Syntax.comp) : (Mlty.ty_schema Syntax.
     begin match External.lookup_ty s with
       | None ->
         Mlty.error ~loc (Mlty.UnknownExternal s)
-      | Some (ms, t) ->
-        let subst, _ = Substitution.freshen_metas ms in
-        let t = Substitution.apply subst t in
-        Tyenv.return (locate ~loc (Syntax.External s), t)
+      | Some (ps, t) ->
+         let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
+         let t = Mlty.instantiate pus t in
+         Tyenv.return (locate ~loc (Syntax.External s), t)
     end
 
   | Syntax.Constant c -> Tyenv.return (locate ~loc (Syntax.Constant c), Mlty.Jdg)
@@ -512,7 +512,7 @@ let top_handler ~loc lst =
   fold [] lst
 
 let add_tydef env (t, (params, def)) =
-  let params = List.map (fun _ -> Mlty.fresh_meta ()) params in
+  let params = List.map (fun _ -> Mlty.fresh_param ()) params in
   match def with
 
     | Syntax.ML_Alias t' ->

@@ -2,6 +2,8 @@
 
 type meta
 
+type param
+
 module MetaOrd : sig
   type t = meta
 
@@ -12,6 +14,7 @@ type ty =
   | Jdg
   | String
   | Meta of meta
+  | Param of param
   | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
@@ -21,12 +24,17 @@ type ty =
 (** The unit type encoded as an empty product. *)
 val unit_ty : ty
 
+(** Generate a fresh meta variable *)
 val fresh_meta : unit -> meta
 
+(** Generate a fresh type parameter *)
+val fresh_param : unit -> param
+
+(** Generate a fresh meta variable as a type *)
 val fresh_type : unit -> ty
 
 (** The metavariables are generalised in the following values. *)
-type 'a forall = meta list * 'a
+type 'a forall = param list * 'a
 
 type ty_schema = ty forall
 
@@ -73,3 +81,5 @@ val occuring : ty -> MetaSet.t
 
 val occuring_schema : ty_schema -> MetaSet.t
 
+(** Instantiate the type parameters with the given types. *)
+val instantiate : (param * ty) list -> ty -> ty
