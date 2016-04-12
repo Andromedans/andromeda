@@ -2,5 +2,5 @@ Constant A is declared.
 Constant B is declared.
 Constant a is declared.
 Operation mafia is declared.
-e₀ : A ≡ B 
+e₀ : A ≡ B
 ⊢ a : B

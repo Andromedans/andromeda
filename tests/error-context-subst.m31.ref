@@ -5,7 +5,7 @@ Constant pair is declared.
 val T : judgment
 val x : judgment
 File "./error-context-subst.m31", line 9, characters 4-7:
-cannot join contexts x₀ : B 
+cannot join contexts x₀ : B
                       and
-x₀ : A 
+x₀ : A
  at x₀

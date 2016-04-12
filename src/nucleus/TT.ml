@@ -329,13 +329,6 @@ type name_printing =
 
 let add_forbidden x penv = { penv with forbidden = x :: penv.forbidden }
 
-(** Optionally print a typing annotation in brackets. *)
-let print_annot ?(prefix="") k ppf =
-  if !Config.annotate then
-    Format.fprintf ppf "%s[@[%t@]]" prefix k
-  else
-    Format.fprintf ppf ""
-
 let print_binders ~penv print_u print_v xus ppf =
   Format.pp_open_hovbox ppf 2 ;
   let rec fold ~penv = function
@@ -351,13 +344,7 @@ let print_binders ~penv print_u print_v xus ppf =
   Print.print ppf ",@ %t" (print_v ~penv) ;
   Format.pp_close_box ppf ()
 
-let rec print_term ?max_level ~penv {term=e;assumptions;_} ppf =
-  if !Config.print_dependencies && not (Assumption.is_empty assumptions)
-  then
-    Format.fprintf ppf "(%t)^{{%t}}"
-                (print_term' ~penv ~max_level:Level.highest e)
-                (Assumption.print penv.forbidden penv.atoms assumptions)
-  else
+let rec print_term ?max_level ~penv {term=e;_} ppf =
     print_term' ~penv ?max_level e ppf
 
 and print_term' ~penv ?max_level e ppf =
@@ -381,15 +368,13 @@ and print_term' ~penv ?max_level e ppf =
       | Prod xts -> print_prod ?max_level ~penv xts ppf
 
       | Eq (t, e1, e2) ->
-        print ~at_level:Level.eq "%t@ %s%t@ %t"
+        print ~at_level:Level.eq "%t@ %s@ %t"
           (print_term ~max_level:Level.eq_left ~penv e1)
           (Print.char_equal ())
-          (print_annot (print_ty ~penv t))
           (print_term ~max_level:Level.eq_right ~penv e2)
 
       | Refl (t, e) ->
-        print ~at_level:Level.app "refl%t@ %t"
-          (print_annot (print_ty ~penv t))
+        print ~at_level:Level.app "refl@ %t"
           (print_term ~max_level:Level.app_right ~penv  e)
 
 and print_ty ?max_level ~penv (Ty t) ppf = print_term ?max_level ~penv t ppf
@@ -512,3 +497,42 @@ and print_prod ?max_level ~penv ((x, u), t) ppf =
                                (fun ~penv -> print_ty ~max_level:Level.in_binder ~penv t)
                                xus)
 
+
+(** Conversion to s-expressions *)
+
+module Json =
+struct
+
+  let rec term {term=e; assumptions=asm; loc} =
+    Json.record "term" ["term", term' e;
+                        "assumptions", Assumption.Json.assumptions asm;
+                        "loc", Location.Json.location loc]
+
+  and term' e =
+    let json = Json.tag "term'"  in
+    match e with
+
+      | Type -> json "Type" []
+
+      | Atom a -> json "Atom" [Name.Json.atom a]
+
+      | Bound b -> json "Bound" [Json.Int b]
+
+      | Constant c -> json "Constant" [Name.Json.ident c]
+
+      | Lambda (xt, (e, u)) ->
+         json "Lambda" [abstraction xt (Json.tuple [term e; ty u])]
+
+      | Apply (e1, (xt, u), e2) -> json "Apply" [term e1; abstraction xt (ty u)]
+
+      | Prod (xt, u) -> json "Prod" [abstraction xt (ty u)]
+
+      | Eq (t, e1, e2) -> json "Eq" [ty t; term e1; term e2]
+
+      | Refl (t, e) -> json "Refl" [ty t; term e]
+
+  and abstraction (x, t) d = Json.tuple [Name.Json.ident x; ty t; d]
+
+  and ty (Ty e) = Json.tag "ty" "Ty" [term e]
+
+end

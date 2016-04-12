@@ -35,3 +35,14 @@ val make : Lexing.position -> Lexing.position -> t
 
 (** Create a located thing. *)
 val locate : 'a -> t -> 'a located
+
+(** Conversion to JSON *)
+module Json :
+sig
+  (** Convert a location to JSON *)
+  val location : t -> Json.t
+
+  (** Convert a located thing to JSON *)
+  val located : ('a -> Json.t) -> 'a located -> Json.t
+end
+

@@ -12,11 +12,6 @@ let empty = {free = AtomSet.empty; bound = BoundSet.empty; }
 let is_empty {free;bound} =
   AtomSet.is_empty free && BoundSet.is_empty bound
 
-let print xs atoms {free;bound} ppf =
-  Format.fprintf ppf "%t@ ;@ %t"
-              (Print.sequence (Name.print_atom ~printer:atoms) "," (AtomSet.elements free))
-              (Print.sequence (Name.print_debruijn xs) "," (BoundSet.elements bound))
-
 let mem_atom x s = AtomSet.mem x s.free
 
 let singleton x =
@@ -79,3 +74,12 @@ let as_atom_set ~loc {free;bound;} =
 let equal {free=free1;bound=bound1} {free=free2;bound=bound2} =
   AtomSet.equal free1 free2 && BoundSet.equal bound1 bound2
 
+module Json =
+struct
+
+  let assumptions {free; bound} =
+    let bound = List.map (fun k -> Json.Int k) (BoundSet.elements bound) in
+    Json.record "assumptions" ["free", Name.Json.atomset free;
+                               "bound", Json.List bound]
+
+end

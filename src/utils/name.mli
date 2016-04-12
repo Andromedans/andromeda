@@ -111,3 +111,14 @@ val assoc_ident : ident -> (ident * 'a) list -> 'a option
 
 val print_debruijn : ident list -> int -> Format.formatter -> unit
 
+module Json :
+sig
+  (** Convert an identifier to JSON. *)
+  val ident : ident -> Json.t
+
+  (** Convert an atom to JSON. *)
+  val atom : atom -> Json.t
+
+  (** Convert a set of atoms to JSON. *)
+  val atomset : AtomSet.t -> Json.t
+end

@@ -5,8 +5,8 @@ Constant c is declared.
 ML type sum declared.
 ⊢ a : A
 ML type lam declared.
-lam (x₀ : A 
-     ⊢ x₀ : A) (⊢ A : Type) (⊢ a : A) ((x₁ : A 
+lam (x₀ : A
+     ⊢ x₀ : A) (⊢ A : Type) (⊢ a : A) ((x₁ : A
                                                 ⊢ x₁ : A, ⊢ A : Type),
 ⊢ A : Type)
 Constant list is declared.

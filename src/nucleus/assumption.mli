@@ -7,8 +7,6 @@ val empty : t
 
 val is_empty : t -> bool
 
-val print : Name.ident list -> Name.atom_printer -> t -> Format.formatter -> unit
-
 val mem_atom : Name.atom -> t -> bool
 
 val singleton : Name.atom -> t
@@ -34,3 +32,9 @@ val as_atom_set : loc:Location.t -> t -> Name.AtomSet.t
 
 val equal : t -> t -> bool
 
+module Json :
+sig
+
+  val assumptions : t -> Json.t
+
+end

@@ -137,15 +137,8 @@ let rec assoc_ident x = function
   | _::l -> assoc_ident x l
 
 let print_debruijn xs k ppf =
-  try
-    let x = List.nth xs k in
-    if !Config.debruijn
-    then Format.fprintf ppf "%t[%d]" (print_ident x) k
-    else print_ident x ppf
-  with
-  | Failure "nth" ->
-      Format.fprintf ppf "DEBRUIJN[%d]" k
-
+  let x = List.nth xs k in
+  print_ident x ppf
 
 (** Subscripts *)
 
@@ -207,3 +200,15 @@ let print_atom ?parentheses ~printer x ppf =
   in
   print_atom_subs ?parentheses y ppf
 
+
+module Json =
+struct
+  let ident (Ident (s, _)) =
+    Json.of_ty "ident" ["data", Json.String s]
+
+  let atom (Atom (s, _, k)) =
+    Json.of_ty "atom" ["data", Json.tuple [Json.String s; Json.Int k]]
+
+  let atomset s = Json.List (List.map atom (AtomSet.elements s))
+
+end
