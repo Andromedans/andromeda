@@ -203,6 +203,10 @@ let mlty ctx params ty =
                   error ~loc (ArityMismatch (x, n, arity))
               end
          end
+
+      | Input.ML_Anonymous ->
+         Syntax.ML_Anonymous
+
       | Input.ML_Judgment -> Syntax.ML_Judgment
       end
     in

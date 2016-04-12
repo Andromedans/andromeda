@@ -443,6 +443,7 @@ plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
   | c=var_name                          { ML_TyApply (c, []) }
   | JUDGMENT                            { ML_Judgment }
+  | UNDERSCORE                          { ML_Anonymous }
 
 mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }

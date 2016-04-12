@@ -48,6 +48,7 @@ type error =
   | HandlerExpected of ty
   | RefExpected of ty
   | UnknownExternal of string
+  | ValueRestriction
 
 exception Error of error Location.located
 

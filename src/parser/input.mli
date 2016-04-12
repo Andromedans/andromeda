@@ -12,6 +12,7 @@ and ml_ty' =
   | ML_TyApply of Name.ty * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Judgment
+  | ML_Anonymous
 
 type ml_schema = ml_schema' * Location.t
 and ml_schema' = ML_Forall of Name.ty list * ml_ty

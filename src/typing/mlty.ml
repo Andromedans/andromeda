@@ -48,6 +48,7 @@ type error =
   | HandlerExpected of ty
   | RefExpected of ty
   | UnknownExternal of string
+  | ValueRestriction
 
 exception Error of error Location.located
 
@@ -140,6 +141,8 @@ let print_error err ppf =
       (print_ty ~penv t)
   | UnknownExternal s ->
     Format.fprintf ppf "Unknown external %s" s
+  | ValueRestriction ->
+     Format.fprintf ppf "This computation cannot be polymorphic (value restriction)"
 
 let rec occurs m = function
   | Jdg | String -> false

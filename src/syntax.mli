@@ -16,6 +16,7 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Judgment
   | ML_Bound of bound
+  | ML_Anonymous
 
 type ml_schema = ml_schema' located
 and ml_schema' = ML_Forall of Name.ty list * ml_ty

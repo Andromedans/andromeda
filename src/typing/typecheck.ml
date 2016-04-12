@@ -23,6 +23,41 @@ let rec generalizable c = match c.Location.thing with
   | _ -> Ungeneralizable
 
 
+let rec ml_ty params {Location.thing=t; loc} =
+  match t with
+
+  | Syntax.ML_Arrow (t1, t2) ->
+    let t1 = ml_ty params t1
+    and t2 = ml_ty params t2 in
+    Mlty.Arrow (t1, t2)
+
+  | Syntax.ML_Prod ts ->
+    let ts = List.map (ml_ty params) ts in
+    Mlty.Prod ts
+
+  | Syntax.ML_TyApply (x, k, ts) ->
+    let ts = List.map (ml_ty params) ts in
+    Mlty.App (x, k, ts)
+
+  | Syntax.ML_Handler (t1, t2) ->
+    let t1 = ml_ty params t1
+    and t2 = ml_ty params t2 in
+    Mlty.Handler (t1, t2)
+
+  | Syntax.ML_Judgment ->
+     Mlty.Jdg
+
+  | Syntax.ML_Bound p ->
+     Mlty.Meta (List.nth params p)
+
+  | Syntax.ML_Anonymous ->
+     Mlty.fresh_type ()
+
+let ml_schema (Syntax.ML_Forall (params, t)) =
+  let params = List.map (fun _ -> Mlty.fresh_meta ()) params in
+  let t = ml_ty params t in
+  (params, t)
+
 let rec tt_pattern xs {Location.thing = p; loc} =
   match p with
   | Syntax.Tt_Anonymous -> Tyenv.return ()
@@ -399,15 +434,35 @@ and match_op_cases op cases output =
 
 and let_clauses (xcs : _ Syntax.let_clause list) : Mlty.ty_schema Syntax.let_clause list Tyenv.tyenvM =
   let rec fold xs = function
+
     | [] -> Tyenv.return (List.rev xs)
-    | (x, _, c) :: xcs ->
+
+    | (x, None, c) :: xcs ->
       comp c >>= fun (c, t) ->
-      let gen = generalizable c in
-      begin match gen with
+      begin
+        match generalizable c with
         | Generalizable -> Tyenv.generalize t
         | Ungeneralizable -> Tyenv.return (Mlty.ungeneralized_schema t)
       end >>= fun s ->
       fold ((x, s, c) :: xs) xcs
+
+    | (x, Some {Location.thing=sch; loc}, c) :: xcs ->
+      let sch = ml_schema sch in
+      comp c >>= fun (c, t) ->
+       begin
+         match generalizable c with
+         | Generalizable -> 
+            assert false (* TODO *)
+         | Ungeneralizable ->
+            begin
+              match sch with
+              | ([], tsch) ->
+                 Tyenv.add_equation ~loc t tsch
+              | (_::_, _) ->
+                 Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
+            end
+       end >>= fun () ->
+       fold ((x, sch, c) :: xs) xcs
   in
   fold [] xcs
 
@@ -455,34 +510,6 @@ let top_handler ~loc lst =
       fold ((op, (xs, y, c)) :: cases) lst
   in
   fold [] lst
-
-let rec ml_ty params {Location.thing=t; loc} =
-  match t with
-
-  | Syntax.ML_Arrow (t1, t2) ->
-    let t1 = ml_ty params t1
-    and t2 = ml_ty params t2 in
-    Mlty.Arrow (t1, t2)
-
-  | Syntax.ML_Prod ts ->
-    let ts = List.map (ml_ty params) ts in
-    Mlty.Prod ts
-
-  | Syntax.ML_TyApply (x, k, ts) ->
-    let ts = List.map (ml_ty params) ts in
-    Mlty.App (x, k, ts)
-
-  | Syntax.ML_Handler (t1, t2) ->
-    let t1 = ml_ty params t1
-    and t2 = ml_ty params t2 in
-    Mlty.Handler (t1, t2)
-
-  | Syntax.ML_Judgment ->
-     Mlty.Jdg
-
-  | Syntax.ML_Bound p ->
-     Mlty.Meta (List.nth params p)
-
 
 let add_tydef env (t, (params, def)) =
   let params = List.map (fun _ -> Mlty.fresh_meta ()) params in
