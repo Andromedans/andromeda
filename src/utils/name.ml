@@ -36,8 +36,27 @@ let is_anonymous = function
 
 let make ?(fixity=Word) s = Ident (s, fixity)
 
-let nil = make "[]"
-let cons = make ~fixity:(Infix Level.InfixCons) "::"
+module Predefined = struct
+  let list = make "list"
+
+  let nil = make "[]"
+
+  let cons = make ~fixity:(Infix Level.InfixCons) "::"
+
+  let option = make "option"
+
+  let some = make "Some"
+
+  let none = make "None"
+
+  let equal = make "equal"
+
+  let as_prod = make "as_prod"
+
+  let as_eq = make "as_eq"
+
+  let empty = make "empty"
+end
 
 let fresh =
   let counter = ref (-1) in
@@ -130,9 +149,8 @@ let print_debruijn xs k ppf =
 
 (** Subscripts *)
 
-let subdigit = [|"₀"; "₁"; "₂"; "₃"; "₄"; "₅"; "₆"; "₇"; "₈"; "₉"|]
-
 let subscript k =
+  let subdigit = [|"₀"; "₁"; "₂"; "₃"; "₄"; "₅"; "₆"; "₇"; "₈"; "₉"|] in
   if !Config.ascii then "_" ^ string_of_int k
   else if k = 0 then subdigit.(0)
   else
@@ -143,6 +161,14 @@ let subscript k =
          fold s (k / 10)
     in
     fold "" k
+
+let greek k =
+  let greek = [| ("α", "a"); ("β", "b"); ("γ", "c"); ("δ", "d"); ("ε", "e") |] in
+  let n = Array.length greek in
+  let i = k / n in
+  let j = k mod n in
+  let base = (if !Config.ascii then snd greek.(j) else fst greek.(j)) in
+  if i = 0 then base else (base ^ subscript i)
 
 type atom_printer = { mutable reindex : atom AtomMap.t; mutable next : int }
 

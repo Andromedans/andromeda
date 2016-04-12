@@ -1,5 +1,5 @@
 (* A short-hand for the print function. *)
-let print = external "print"
+let print x = external "print" x
 
 (* Poor man's debugging mechanism. *)
 mltype debug a = (!!) of a end
@@ -14,5 +14,5 @@ end
 
 let (|>) x f = f x
 
-operation failure : forall a b, a -> b
+let failure x = print ("FAILURE", x); external "exit" ()
 

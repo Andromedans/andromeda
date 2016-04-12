@@ -43,7 +43,7 @@ do match x with
 
 (** Operation infixes *)
 
-operation (?) : Judgement -> Judgement
+operation (?) : judgement -> judgement
 
 do
 handle

@@ -1,2 +1,2 @@
-cow is defined.
+val cow : judgment
 ⊢ Type → Type → Type : Type

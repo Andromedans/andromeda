@@ -46,7 +46,7 @@ let rec collect_tt_pattern env xvs p j =
        | None -> xvs
      end in
      let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
-     let env = Runtime.push_bound x yt env in
+     let env = Runtime.push_bound yt env in
      let xvs = match bopt with
        | None -> xvs
        | Some k -> update k yt xvs
@@ -64,7 +64,7 @@ let rec collect_tt_pattern env xvs p j =
        | None -> xvs
      end in
      let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
-     let env = Runtime.push_bound x yt env in
+     let env = Runtime.push_bound yt env in
      let xvs = match bopt with
        | None -> xvs
        | Some k -> update k yt xvs
@@ -95,7 +95,7 @@ let rec collect_tt_pattern env xvs p j =
      raise Match_fail
 
 and collect_pattern env xvs {Location.thing=p;loc} v =
-  match p, v with 
+  match p, v with
   | Syntax.Patt_Anonymous, _ -> xvs
 
   | Syntax.Patt_As (p,k), v ->
@@ -119,11 +119,11 @@ and collect_pattern env xvs {Location.thing=p;loc} v =
     multicollect_pattern env xvs ps vs
 
   | Syntax.Patt_Jdg _, (Runtime.Closure _ | Runtime.Handler _ |
-                        Runtime.Tag _ | Runtime.Ref _ | Runtime.Tuple _ | Runtime.String _ | Runtime.Ident _)
+                        Runtime.Tag _ | Runtime.Ref _ | Runtime.Tuple _ | Runtime.String _)
   | Syntax.Patt_Constructor _, (Runtime.Term _ | Runtime.Closure _ |
-                        Runtime.Handler _ | Runtime.Tag _ | Runtime.Ref _ | Runtime.Tuple _ | Runtime.String _ | Runtime.Ident _)
+                        Runtime.Handler _ | Runtime.Tag _ | Runtime.Ref _ | Runtime.Tuple _ | Runtime.String _)
   | Syntax.Patt_Tuple _, (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Ref _ |
-                          Runtime.String _ | Runtime.Ident _) ->
+                          Runtime.String _) ->
      raise Match_fail
 
 and multicollect_pattern env xvs ps vs =

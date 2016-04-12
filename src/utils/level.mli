@@ -60,12 +60,42 @@ val arr : t
 val arr_left : t
 val arr_right : t
 
-(** A structure or a signature clause *)
-val struct_clause : t
-val sig_clause : t
-
 (** Type ascription in a binding *)
 val ascription : t
 
 (** A judgement [ctx |- e : t] *)
 val jdg : t
+
+(** ML product type *)
+val ml_prod : t
+
+(** ML product type, arguments *)
+val ml_prod_arg : t
+
+(** ML type arrow *)
+val ml_arr : t
+
+(** ML type arrow, left argument *)
+val ml_arr_left : t
+
+(** ML type arrow, right argument*)
+val ml_arr_right : t
+
+(** ML handler *)
+val ml_handler : t
+
+(** ML handler, left argument *)
+val ml_handler_left : t
+
+(** ML handler, righ argument*)
+val ml_handler_right : t
+
+(** ML type application *)
+val ml_app : t
+
+(** ML argument of a type application *)
+val ml_app_arg : t
+
+(** [t] in [forall a, t] *)
+val ml_forall_r : t
+

@@ -1,5 +1,5 @@
 ML type nat declared.
-length is defined.
-mylist is defined.
+val length : ∀ α, list α → nat
+val mylist : list mlstring
 s (s (s
 z))

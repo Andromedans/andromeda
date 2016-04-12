@@ -39,9 +39,9 @@ let rec infer {Location.thing=c'; loc} =
       jdg_form ~loc Jdg.Type >>=
       Runtime.return_term
 
-    | Syntax.Function (x, c) ->
+    | Syntax.Function (_, c) ->
        let f v =
-         Runtime.add_bound x v
+         Runtime.add_bound v
            (infer c)
        in
        Runtime.return_closure f
@@ -194,7 +194,7 @@ let rec infer {Location.thing=c'; loc} =
         infer c2 >>= fun v ->
         Runtime.apply_closure f v
       | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-        Runtime.Ref _ | Runtime.String _ | Runtime.Ident _ as h ->
+        Runtime.Ref _ | Runtime.String _ as h ->
         Runtime.(error ~loc (Inapplicable h))
     end
 
@@ -278,9 +278,6 @@ let rec infer {Location.thing=c'; loc} =
     let js = List.map (fun j -> Runtime.mk_term (Jdg.atom_term ~loc j)) xts in
     Runtime.return (Predefined.mk_list js)
 
-  | Syntax.Ident x ->
-    Runtime.return (Runtime.mk_ident x)
-
 and check_default ~loc v t_check =
   as_term ~loc v >>= fun je ->
   let jt = Jdg.typeof je in
@@ -317,8 +314,7 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Update _
   | Syntax.String _
   | Syntax.Occurs _
-  | Syntax.Context _
-  | Syntax.Ident _ ->
+  | Syntax.Context _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
@@ -439,27 +435,27 @@ and sequence ~loc v =
       Runtime.return ()
 
 and let_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun xcs cmd ->
-  let rec fold xvs = function
+  let rec fold vs = function
     | [] ->
       (* parallel let: only bind at the end *)
-      List.fold_left  (fun cmd (x,v) -> Runtime.add_bound x v cmd) cmd xvs
-    | (x, c) :: xcs ->
+      List.fold_left  (fun cmd v -> Runtime.add_bound v cmd) cmd vs
+    | (_, _, c) :: xcs ->
       infer c >>= fun v ->
-      fold ((x, v) :: xvs) xcs
+      fold (v :: vs) xcs
     in
   fold [] xcs
 
 and letrec_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun fxcs ->
   let gs =
     List.map
-      (fun (f, x, c) -> (f, (fun v -> Runtime.add_bound x v (infer c))))
+      (fun (_, _, _, c) -> (fun v -> Runtime.add_bound v (infer c)))
       fxcs
   in
   Runtime.add_bound_rec gs
 
 (* [match_cases loc cases eval v] tries for each case in [cases] to match [v]
    and if successful continues on the computation using [eval] with the pattern variables bound. *)
-and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Runtime.comp) -> _ -> a Runtime.comp
+and match_cases : type a. loc:_ -> _ -> ('annot Syntax.comp -> a Runtime.comp) -> _ -> a Runtime.comp
  = fun ~loc cases eval v ->
   let rec fold = function
     | [] ->
@@ -468,13 +464,12 @@ and match_cases : type a. loc:_ -> _ -> (Syntax.comp -> a Runtime.comp) -> _ -> 
     | (xs, p, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | Some vs ->
-          let rec fold2 xs vs = match xs, vs with
-            | [], [] -> eval c
-            | x::xs, v::vs ->
-              Runtime.add_bound x v (fold2 xs vs)
-            | _::_, [] | [], _::_ -> assert false
+          let rec bind = function
+            | [] -> eval c
+            | v::vs ->
+              Runtime.add_bound v (bind vs)
           in
-          fold2 (List.rev xs) vs
+          bind vs
         | None -> fold cases
       end
   in
@@ -488,13 +483,12 @@ and match_op_cases ~loc op cases vs checking =
     | (xs, ps, pt, c) :: cases ->
       Matching.match_op_pattern ps pt vs checking >>= begin function
         | Some vs ->
-          let rec fold2 xs vs = match xs, vs with
-            | [], [] -> infer c
-            | x::xs, v::vs ->
-              Runtime.add_bound x v (fold2 xs vs)
-            | _::_, [] | [], _::_ -> assert false
+          let rec bind = function
+            | [] -> infer c
+            | v::vs ->
+              Runtime.add_bound v (bind vs)
           in
-          fold2 (List.rev xs) vs
+          bind vs
         | None -> fold cases
       end
   in
@@ -513,22 +507,21 @@ let comp_value c =
 
 let comp_handle (xs,y,c) =
   Runtime.top_return_closure (fun (vs,checking) ->
-      let rec fold2 xs vs = match xs,vs with
-        | [], [] ->
+      let rec bind = function
+        | [] ->
            begin match y with
-           | Some y ->
+           | Some _ ->
               let checking = match checking with
                 | Some jt -> Some (Runtime.mk_term (Jdg.term_of_ty jt))
                 | None -> None
               in
               let vy = Predefined.from_option checking in
-              Runtime.add_bound y vy (infer c)
+              Runtime.add_bound vy (infer c)
            | None -> infer c
            end
-        | x::xs, v::vs -> Runtime.add_bound x v (fold2 xs vs)
-        | [],_::_ | _::_,[] -> assert false
+        | v::vs -> Runtime.add_bound v (bind vs)
       in
-      fold2 xs vs)
+      bind vs)
 
 (** Toplevel commands *)
 
@@ -540,35 +533,40 @@ let rec mfold f acc = function
   | x::rem -> f acc x >>= fun acc ->
      mfold f acc rem
 
-let toplet_bind ~loc ~quiet xcs =
+let toplet_bind ~loc ~quiet ~print_annot xcs =
   let rec fold xvs = function
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (fun cmd (x,v) ->
-            Runtime.add_topbound ~loc x v >>= fun () ->
-            if not quiet && not (Name.is_anonymous x)
-            then Format.printf "%t is defined.@." (Name.print_ident x) ;
-            cmd)
+         (fun cmd (x, v) -> Runtime.add_topbound v >>= fun () -> cmd)
          (return ())
          xvs
-    | (x, c) :: xcs ->
+    | (x, s, c) :: xcs ->
        comp_value c >>= fun v ->
        fold ((x, v) :: xvs) xcs
   in
-  fold [] xcs
+  fold [] xcs >>= fun () ->
+  begin if not quiet then
+    List.iter
+      (fun (x, annot, _) ->
+       Format.printf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident x) (print_annot annot))
+      xcs
+  end;
+  return ()
 
-let topletrec_bind ~loc ~quiet fxcs =
+let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   let gs =
     List.map
-      (fun (f, x, c) -> (f, (fun v -> Runtime.add_bound x v (infer c))))
+      (fun (_, _, _, c) -> (fun v -> Runtime.add_bound v (infer c)))
       fxcs
   in
-  Runtime.add_topbound_rec ~loc gs >>= fun () ->
-  if not quiet then
-    List.iter (fun (f, _, _) ->
-        if not (Name.is_anonymous f) then
-          Format.printf "%t is defined.@." (Name.print_ident f)) fxcs ;
+  Runtime.add_topbound_rec gs >>= fun () ->
+  begin if not quiet then
+    List.iter
+      (fun (f, _, annot, _) ->
+       Format.printf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident f) (print_annot annot))
+      fxcs
+  end;
   return ()
 
 type error =
@@ -584,7 +582,7 @@ let print_error err ppf =
     | RuntimeError (penv, err) -> Runtime.print_error ~penv err ppf
     | JdgError (penv, err) -> Jdg.print_error ~penv err ppf
 
-let rec toplevel ~quiet {Location.thing=c;loc} =
+let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   Runtime.catch (lazy (match c with
 
     | Syntax.DefMLType lst
@@ -614,12 +612,14 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
            Runtime.add_handle op f) () lst
 
     | Syntax.TopLet xcs ->
-       toplet_bind ~loc ~quiet xcs
+      let print_annot = print_annot () in
+      toplet_bind ~loc ~quiet ~print_annot xcs
 
     | Syntax.TopLetRec fxcs ->
-       topletrec_bind ~loc ~quiet fxcs
+      let print_annot = print_annot () in
+      topletrec_bind ~loc ~quiet ~print_annot fxcs
 
-    | Syntax.TopDynamic (x,c) ->
+    | Syntax.TopDynamic (x, annot, c) ->
        comp_value c >>= fun v ->
        Runtime.add_dynamic ~loc x v
 
@@ -630,11 +630,13 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
     | Syntax.TopDo c ->
        comp_value c >>= fun v ->
        Runtime.top_lookup_penv >>= fun penv ->
-       (if not quiet then Format.printf "%t@." (Runtime.print_value ~penv v) ;
+       (begin if not quiet then
+            Format.printf "%t@." (Runtime.print_value ~penv v)
+        end;
         return ())
 
     | Syntax.TopFail c ->
-       Runtime.catch (lazy (comp_value (Lazy.force c))) >>= begin function
+       Runtime.catch (lazy (comp_value c)) >>= begin function
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
@@ -657,7 +659,7 @@ let rec toplevel ~quiet {Location.thing=c;loc} =
     | Syntax.Included lst ->
       mfold (fun () (fn, cmds) ->
           (if not quiet then Format.printf "#including %s@." fn);
-          mfold (fun () cmd -> toplevel ~quiet:true cmd) () cmds >>= fun () ->
+          mfold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
           (if not quiet then Format.printf "#processed %s@." fn);
           return ())
         () lst

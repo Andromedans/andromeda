@@ -61,7 +61,6 @@ and value =
   | Tuple of value list
   | Ref of ref
   | String of string
-  | Ident of Name.ident
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
 and ('a, 'b) closure = Clos of ('a -> 'b comp)
@@ -107,7 +106,6 @@ type error =
   | HandlerExpected of value
   | RefExpected of value
   | StringExpected of value
-  | IdentExpected of value
   | UnhandledOperation of Name.operation * value list
 
 exception Error of error Location.located
@@ -123,7 +121,6 @@ let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
 let mk_tuple lst = Tuple lst
 let mk_string s = String s
-let mk_ident x = Ident x
 
 let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
@@ -213,38 +210,32 @@ let name_of v =
     | Tuple _ -> "a tuple"
     | Ref _ -> "a reference"
     | String _ -> "a string"
-    | Ident _ -> "an identifier"
 
 (** Coerce values *)
 let as_term ~loc = function
   | Term e -> e
-  | (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+  | (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~loc (TermExpected v)
 
 let as_closure ~loc = function
   | Closure f -> f
-  | (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+  | (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~loc (ClosureExpected v)
 
 let as_handler ~loc = function
   | Handler h -> h
-  | (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _) as v ->
+  | (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~loc (HandlerExpected v)
 
 let as_ref ~loc = function
   | Ref v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ident _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _) as v ->
     error ~loc (RefExpected v)
 
 let as_string ~loc = function
   | String v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Ident _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _) as v ->
     error ~loc (StringExpected v)
-
-let as_ident ~loc = function
-  | Ident v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
-    error ~loc (IdentExpected v)
 
 (** Operations *)
 
@@ -270,13 +261,13 @@ let get_bound ~loc k env =
 let lookup_bound ~loc k env =
   Return (get_bound ~loc k env), env.state
 
-let add_bound0 x v env = {env with lexical = { env.lexical with
-                                               bound = (Val v) :: env.lexical.bound } }
+let add_bound0 v env = {env with lexical = { env.lexical with
+                                             bound = (Val v) :: env.lexical.bound } }
 
 let add_free ~loc x jt m env =
   let jy = Jdg.Ctx.add_fresh jt x in
   let y_val = mk_term (Jdg.atom_term ~loc jy) in
-  let env = add_bound0 x y_val env in
+  let env = add_bound0 y_val env in
   m jy env
 
 let add_abstracting v m env =
@@ -293,17 +284,17 @@ let add_constant0 ~loc x t env =
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
 
 (* XXX rename to bind_value *)
-let add_bound x v m env =
-  let env = add_bound0 x v env in
+let add_bound v m env =
+  let env = add_bound0 v env in
   m env
 
 let add_bound_rec0 lst env =
   let r = ref env in
   let env =
     List.fold_left
-      (fun env (f, g) ->
+      (fun env g ->
         let v = Closure (mk_closure_ref g r) in
-        add_bound0 f v env)
+        add_bound0 v env)
       env lst
   in
   r := env ;
@@ -315,8 +306,8 @@ let add_bound_rec lst m env =
 
 let push_bound = add_bound0
 
-let add_topbound ~loc x v env =
-  (), add_bound0 x v env
+let add_topbound v env =
+  (), add_bound0 v env
 
 let now0 ~loc x v env =
   match List.nth env.lexical.bound x with
@@ -346,7 +337,7 @@ let add_handle0 op xsc env =
 
 let add_handle op xsc env = (), add_handle0 op xsc env
 
-let add_topbound_rec ~loc lst env =
+let add_topbound_rec lst env =
   let env = add_bound_rec0 lst env in
   (), env
 
@@ -403,8 +394,6 @@ let rec print_value ?max_level ~penv v ppf =
                   (Store.Ref.print_key v)
 
   | String s -> Format.fprintf ppf "\"%s\"" s
-
-  | Ident x -> Name.print_ident x ppf
 
 and print_tag ?max_level ~penv t lst ppf =
   match t, lst with
@@ -537,9 +526,6 @@ let print_error ~penv err ppf =
   | StringExpected v ->
      Format.fprintf ppf "expected a string but got %s" (name_of v)
 
-  | IdentExpected v ->
-     Format.fprintf ppf "expected an identifier but got %s" (name_of v)
-
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "unhandled operation %t" (print_operation ~penv op vs)
 
@@ -637,24 +623,20 @@ let rec equal_value v1 v2 =
     | String s1, String s2 ->
       s1 = s2
 
-    | Ident x1, Ident x2 ->
-      Name.eq_ident x1 x2
-
     | Closure _, Closure _
     | Handler _, Handler _ ->
        (* XXX should we use physical comparison == instead? *)
        false
 
     (* At some level the following is a bit ridiculous *)
-    | Term _, (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _)
-    | Closure _, (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _)
-    | Handler _, (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | String _ | Ident _)
-    | Tag _, (Term _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _ | Ident _)
-    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _ | String _ | Ident _)
-    | String _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Ident _)
-    | Ident _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ident _) ->
-      false
+    | Term _, (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Closure _, (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Handler _, (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | String _)
+    | Tag _, (Term _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _)
+    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _ | String _)
+    | String _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _)
+    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _) ->
+       false
 
 
 type topenv = env

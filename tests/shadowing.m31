@@ -5,8 +5,6 @@ constant x : Type
 
 do x
 
-fail let x = x and x = x in x
-
 mltype x = x end
 
 dynamic x = x
@@ -17,4 +15,3 @@ operation x : x
 
 (* This fails *)
 mltype y = x end
-

@@ -1,8 +1,3 @@
-
 fail Type Type
 
 fail Type
-
-(* this never happens *)
-fail let x = Type in y y
-

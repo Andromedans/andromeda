@@ -1,7 +1,7 @@
 Constant A is declared.
 Constant a is declared.
 Constant b is declared.
-f is defined.
+val f : judgment → judgment
 ⊢ refl a : a ≡ a
 eq₀ : a ≡ b 
 ⊢ eq₀ : a ≡ b

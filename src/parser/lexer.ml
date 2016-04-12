@@ -3,8 +3,8 @@ open Parser
 
 let reserved = [
   ("Type", TYPE) ;
-  ("Judgement", JUDGMENT) ;
-  ("Judgment", JUDGMENT) ;
+  ("judgement", JUDGMENT) ;
+  ("judgment", JUDGMENT) ;
   ("_", UNDERSCORE) ;
   ("_atom", UATOM) ;
   ("_constant", UCONSTANT) ;
@@ -26,12 +26,13 @@ let reserved = [
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("hypotheses", HYPOTHESES) ;
-  ("ident", IDENT) ;
   ("in", IN) ;
   ("lambda", LAMBDA) ;
   ("let", LET) ;
   ("match", MATCH) ;
+  ("mlstring", MLSTRING) ;
   ("mltype", MLTYPE) ;
+  ("mlunit", MLUNIT) ;
   ("now", NOW) ;
   ("occurs", OCCURS) ;
   ("of", OF) ;

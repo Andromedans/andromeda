@@ -4,7 +4,7 @@
 (* TODO Operations for installing equality hints in the continuation (consider what to do for top level handler) *)
 
 (* TODO make a function? *)
-operation whnf : Judgement -> Judgement (* Compute the weak head normal form *)
+operation whnf : judgement -> judgement (* Compute the weak head normal form *)
 
 dynamic betas = []
 dynamic hints = []
@@ -91,15 +91,6 @@ let add_paired_rigids x y quants = match quants with (?vars,?rigids) => (vars,(x
 let pop_rigid quants =
   match quants with
     (?vars, _ :: ?rigids) => (vars,rigids)
-  end
-
-(* Signatures introduce multiple rigids in a row. Their number is represented by a stack of `Somes`. *)
-let rec pop_rigids pop quants =
-  match pop with
-    | None => quants
-    | Some ?pop =>
-      let quants = pop_rigid quants in
-      pop_rigids pop quants
   end
 
 (* Return `(quants',x',y')` where `x'` is `x` fully instantiated by `quants'` (resp `y'`, `y`)
@@ -214,11 +205,17 @@ let rec collector quants lhs rhs =
    values `v1, ..., vn` and return `Some (f v1 ... vn)`.
    If any of the `Some vi` is `None`, fail by returning `None`.
 *)
-let rec apply_quants f quants = match quants with
-  | [] => Some f
-  | (_, None) :: _ => None
-  | (_, Some ?v) :: ?quants =>
-    apply_quants (f v) quants
+let apply_quants =
+  let rec filter acc quants = match quants with
+    | [] => Some (rev acc)
+    | (_, None) :: _ => None
+    | (_, Some ?v) :: ?quants => filter (v :: acc) quants
+    end
+  in
+  fun f quants =>
+  match filter [] quants with
+    | None => None
+    | Some ?vs => f vs
   end
 
 (* given `pat = (f,quants,lhs)`
@@ -237,6 +234,9 @@ let generic_matcher pat e =
       end
   end
 
+let spine h es : judgement → list judgement → judgement = 
+  fold (fun h e => h e) h es
+
 (* A beta hint is a term `e` whose type is a universally quantified equation
    `∏ (x1:A1) ... (xn:An), lhs == rhs`.
    It is used by matching `lhs` against a term to be reduced to the instantiated `rhs`.
@@ -248,7 +248,7 @@ let process_beta =
   let rec deep quants e b = match b with
     | |- forall (?x : _), ?b =>
       deep ((x, None) :: quants) e b
-    | |- ?lhs == _ => (e, (rev quants, lhs))
+    | |- ?lhs == _ => (fun lst => Some (spine e lst), (rev quants, lhs))
     end
   in
   fun e => match e with
@@ -261,7 +261,7 @@ let process_hint =
   let rec deep quants e h = match h with
     | |- forall (?x : _), ?h =>
       deep ((x, None) :: quants) e h
-    | |- _ == _ => (e, (rev quants, h))
+    | |- _ == _ => (fun lst => Some (spine e lst), (rev quants, h))
     end
   in
   fun h => match h with
@@ -284,26 +284,22 @@ let process_eta =
   (* we have matched t with the general shape of an eta hint *)
   let finalize e xs eqs a b =
     let T = match a with |- _ : ?T => T end in
-    let rec f e xs = match xs with
-      | [] =>
-        fun ea eb =>
-        let e = e ea eb in
-        (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
-        let rec auto e = match e with
-          | |- _ : forall (_ : ?lhs == ?rhs), _ =>
-            match equal lhs rhs with
-              | Some ?eq => auto (e eq)
-              | None => None
-            end
-          | |- _ : _ == _ => Some e
-          end
-        in
-        auto e
-      | _ :: ?xs =>
-        fun v => f (e v) xs
-      end
+    let f ea eb quants =
+      let e = spine e quants in
+      let e = e ea eb in
+      (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
+      let rec auto e = match e with
+        | |- _ : forall (_ : ?lhs == ?rhs), _ =>
+           match equal lhs rhs with
+           | Some ?eq => auto (e eq)
+           | None => None
+           end
+        | |- _ : _ == _ => Some e
+        end
+      in
+      auto e
     in
-    (f e xs, (xs, T))
+    fun ea eb => (f ea eb, (xs, T))
   in
   (* quants++(rev eqs) is the list [xs;a;b;eqs] in reverse order. We want to split it into [xs] and [eqs]. *)
   let rec quant_splitter e eqs quants a b =
@@ -313,7 +309,7 @@ let process_eta =
         finalize e xs eqs a b
       | ?eq :: ?quants =>
         quant_splitter e (eq::eqs) quants a b
-      | [] => let _ = print "Bad eta:" in let _ = print e in match [] with end
+      | [] => failure ("Bad eta:", e)
     end
   in
   let rec deep quants e h = match h with
@@ -409,8 +405,8 @@ let rec eta_at etas a b t =
       match etas with
         | [] => None
         | ?h :: ?rem =>
-          match generic_matcher h t with
-            | Some ?f => f a b
+          match generic_matcher (h a b) t with
+            | (Some _) as ?m => m
             | None => eta_at rem a b t
           end
       end
@@ -634,7 +630,8 @@ let comp2 = with equality betas hints handle ...
 
 then in comp2 the hint b is available
 *)
-let rec equality _ = handler
+let rec equality _ : forall a, _ -> (a => a) = 
+handler
   | equal (|- ?a : ?t) ?b (* : ?t *) =>
     yield (equate a b)
 
@@ -659,16 +656,16 @@ let rec equality _ = handler
 
 handle
   | equal ?a ?b =>
-    with equality () handle equal a b
+    (with equality () handle (equal a b))
 
   | whnf ?e =>
     with equality () handle whnf e
 
   | as_prod ?e =>
-    with equality () handle as_prod e
+    (with equality () handle (as_prod e))
 
   | as_eq ?e =>
-    with equality () handle as_eq e
+    (with equality () handle (as_eq e))
 
 end
 

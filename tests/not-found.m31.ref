@@ -2,5 +2,5 @@ Constant sigT is declared.
 Constant existT is declared.
 Constant sig_ind is declared.
 Constant sig_ind_beta is declared.
-projT1' is defined.
-projT2' is defined.
+val projT1' : judgment
+val projT2' : judgment

@@ -8,6 +8,20 @@ type level = int
 
 type 'a located = 'a Location.located
 
+type ml_ty = ml_ty' located
+and ml_ty' =
+  | ML_Arrow of ml_ty * ml_ty
+  | ML_Prod of ml_ty list
+  | ML_TyApply of Name.ident * level * ml_ty list
+  | ML_Handler of ml_ty * ml_ty
+  | ML_Judgment
+  | ML_String
+  | ML_Bound of bound
+  | ML_Anonymous
+
+type ml_schema = ml_schema' located
+and ml_schema' = ML_Forall of Name.ty list * ml_ty
+
 (** Patterns *)
 type tt_pattern = tt_pattern' located
 and tt_pattern' =
@@ -24,7 +38,7 @@ and tt_pattern' =
   | Tt_GenAtom of tt_pattern
   | Tt_GenConstant of tt_pattern
 
-and pattern = pattern' located
+type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * bound
@@ -33,70 +47,60 @@ and pattern' =
   | Patt_Constructor of Name.ident * pattern list
   | Patt_Tuple of pattern list
 
-(** Desugared computations *)
-type comp = comp' located
-and comp' =
+(** Desugared 'annot computations *)
+type 'annot comp = 'annot comp' located
+and 'annot comp' =
   | Type
   | Bound of bound
-  | Function of Name.ident * comp
-  | Handler of handler
-  | Constructor of Name.ident * comp list
-  | Tuple of comp list
-  | Operation of Name.ident * comp list
-  | With of comp * comp
-  | Let of let_clause list * comp
-  | LetRec of letrec_clause list * comp
-  | Now of bound * comp * comp
-  | Lookup of comp
-  | Update of comp * comp
-  | Ref of comp
-  | Sequence of comp * comp
-  | Assume of (Name.ident * comp) * comp
-  | Where of comp * comp * comp
-  | Match of comp * match_case list
-  | Ascribe of comp * comp
+  | Function of Name.ident * 'annot comp
+  | Handler of 'annot handler
+  | Constructor of Name.ident * 'annot comp list
+  | Tuple of 'annot comp list
+  | Operation of Name.ident * 'annot comp list
+  | With of 'annot comp * 'annot comp
+  | Let of 'annot let_clause list * 'annot comp
+  | LetRec of 'annot letrec_clause list * 'annot comp
+  | Now of bound * 'annot comp * 'annot comp
+  | Lookup of 'annot comp
+  | Update of 'annot comp * 'annot comp
+  | Ref of 'annot comp
+  | Sequence of 'annot comp * 'annot comp
+  | Assume of (Name.ident * 'annot comp) * 'annot comp
+  | Where of 'annot comp * 'annot comp * 'annot comp
+  | Match of 'annot comp * 'annot match_case list
+  | Ascribe of 'annot comp * 'annot comp
   | External of string
   | Constant of Name.ident
-  | Lambda of Name.ident * comp option * comp
-  | Apply of comp * comp
-  | Prod of Name.ident * comp * comp
-  | Eq of comp * comp
-  | Refl of comp
-  | Yield of comp
+  | Lambda of Name.ident * 'annot comp option * 'annot comp
+  | Apply of 'annot comp * 'annot comp
+  | Prod of Name.ident * 'annot comp * 'annot comp
+  | Eq of 'annot comp * 'annot comp
+  | Refl of 'annot comp
+  | Yield of 'annot comp
   | Hypotheses
-  | Congruence of comp * comp
-  | Extensionality of comp * comp
-  | Reduction of comp
+  | Congruence of 'annot comp * 'annot comp
+  | Extensionality of 'annot comp * 'annot comp
+  | Reduction of 'annot comp
   | String of string
-  | Occurs of comp * comp
-  | Context of comp
-  | Ident of Name.ident
+  | Occurs of 'annot comp * 'annot comp
+  | Context of 'annot comp
 
-and let_clause = Name.ident * comp
+and 'annot let_clause = Name.ident * 'annot * 'annot comp
 
-and letrec_clause = Name.ident * Name.ident * comp
+and 'annot letrec_clause = Name.ident * Name.ident * 'annot * 'annot comp
 
-and handler = {
-  handler_val: match_case list;
-  handler_ops: match_op_case list Name.IdentMap.t;
-  handler_finally : match_case list;
+and 'annot handler = {
+  handler_val: 'annot match_case list;
+  handler_ops: 'annot match_op_case list Name.IdentMap.t;
+  handler_finally : 'annot match_case list;
 }
 
-and match_case = Name.ident list * pattern * comp
+and 'annot match_case = Name.ident list * pattern * 'annot comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
-and match_op_case = Name.ident list * pattern list * pattern option * comp
+and 'annot match_op_case = Name.ident list * pattern list * pattern option * 'annot comp
 
-type top_op_case = Name.ident list * Name.ident option * comp
-
-type ml_ty = ml_ty' located
-and ml_ty' =
-  | ML_Arrow of ml_ty * ml_ty
-  | ML_Prod of ml_ty list
-  | ML_TyApply of level * ml_ty list
-  | ML_Handler of ml_ty * ml_ty
-  | ML_Judgment
-  | ML_Param of bound
+type 'annot top_op_case = Name.ident list * Name.ident option * 'annot comp
 
 type constructor_decl = Name.constructor * ml_ty list
 
@@ -105,19 +109,19 @@ type ml_tydef =
   | ML_Alias of ml_ty
 
 (** Desugared toplevel commands *)
-type toplevel = toplevel' located
-and toplevel' =
+type 'annot toplevel = 'annot toplevel' located
+and 'annot toplevel' =
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
-  | DeclOperation of Name.ident * (Name.ty list * ml_ty list * ml_ty)
-  | DeclConstants of Name.ident list * comp
-  | TopHandle of (Name.ident * top_op_case) list
-  | TopLet of let_clause list
-  | TopLetRec of letrec_clause list
-  | TopDynamic of Name.ident * comp
-  | TopNow of bound * comp
-  | TopDo of comp
-  | TopFail of comp Lazy.t (** desugaring is suspended to allow catching errors *)
+  | DeclOperation of Name.operation * (ml_ty list * ml_ty)
+  | DeclConstants of Name.constant list * 'annot comp
+  | TopHandle of (Name.operation * 'annot top_op_case) list
+  | TopLet of 'annot let_clause list
+  | TopLetRec of 'annot letrec_clause list
+  | TopDynamic of Name.ident * 'annot * 'annot comp
+  | TopNow of bound * 'annot comp
+  | TopDo of 'annot comp
+  | TopFail of 'annot comp
   | Verbosity of int
-  | Included of (string * toplevel list) list
+  | Included of (string * 'annot toplevel list) list
 

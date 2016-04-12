@@ -1,7 +1,7 @@
 Constant A is declared.
-x is defined.
-P is defined.
-y is defined.
+val x : judgment
+val P : judgment
+val y : judgment
 x₀ : A 
 y₁ : (λ (_ : A), A) x₀ 
 ⊢ y₁ : (λ (_ : A), A) x₀

@@ -1,35 +1,35 @@
-Nat is defined.
+val Nat : judgment
 ⊢ Π (X : Type), (X → X) → X → X : Type
-zero is defined.
+val zero : judgment
 ⊢ λ (A : Type) (_ : A → A) (z : A), z
   : Π (X : Type), (X → X) → X → X
-one is defined.
+val one : judgment
 ⊢ λ (A : Type) (s : A → A) (z : A), s z
   : Π (X : Type), (X → X) → X → X
-two is defined.
+val two : judgment
 ⊢ λ (A : Type) (s : A → A) (z : A), s (s z)
   : Π (X : Type), (X → X) → X → X
-three is defined.
+val three : judgment
 ⊢ λ (A : Type) (s : A → A) (z : A), s (s (s z))
   : Π (X : Type), (X → X) → X → X
-succ is defined.
+val succ : judgment
 ⊢ λ (n : Π (X : Type), (X → X) → X → X) (B : Type) (s : B → B)
     (z : B), s (n B s z)
   : (Π (X : Type), (X → X) → X → X) →
     Π (X : Type), (X → X) → X → X
-succ' is defined.
+val succ' : judgment
 ⊢ λ (n : Π (X : Type), (X → X) → X → X) (A : Type) (s : A → A)
     (z : A), n A s (s z)
   : (Π (X : Type), (X → X) → X → X) →
     Π (X : Type), (X → X) → X → X
-add is defined.
+val add : judgment
 ⊢ λ (m : Π (X : Type), (X → X) → X → X)
     (n : Π (X : Type), (X → X) → X → X) (A : Type) (s : A → A)
     (z : A), m A s (n A s z)
   : (Π (X : Type), (X → X) → X → X) →
     (Π (X : Type), (X → X) → X → X) →
     Π (X : Type), (X → X) → X → X
-mult is defined.
+val mult : judgment
 ⊢ λ (m : Π (X : Type), (X → X) → X → X)
     (n : Π (X : Type), (X → X) → X → X) (A : Type) (s : A → A), m A
         (n A s)

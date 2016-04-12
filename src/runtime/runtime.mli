@@ -17,7 +17,6 @@ type value = private
   | Tuple of value list
   | Ref of ref
   | String of string (** NB: strings are opaque to the user, ie not lists *)
-  | Ident of Name.ident
 
 and operation_args = { args : value list; checking : Jdg.ty option}
 
@@ -52,7 +51,6 @@ type error =
   | HandlerExpected of value
   | RefExpected of value
   | StringExpected of value
-  | IdentExpected of value
   | UnhandledOperation of Name.operation * value list
 
 (** The exception that is raised on runtime error *)
@@ -70,7 +68,6 @@ val mk_handler : handler -> value
 val mk_tag : Name.ident -> value list -> value
 val mk_tuple : value list -> value
 val mk_string : string -> value
-val mk_ident : Name.ident -> value
 
 val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 
@@ -124,7 +121,6 @@ val as_closure : loc:Location.t -> value -> (value,value) closure
 val as_handler : loc:Location.t -> value -> handler
 val as_ref : loc:Location.t -> value -> ref
 val as_string : loc:Location.t -> value -> string
-val as_ident : loc:Location.t -> value -> Name.ident
 
 (** Operations *)
 val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
@@ -146,11 +142,11 @@ val lookup_bound : loc:Location.t -> int -> value comp
 (** For matching *)
 val get_bound : loc:Location.t -> int -> env -> value
 
-(** Add a bound variable with given name to the environment. *)
-val add_bound : Name.ident -> value -> 'a comp -> 'a comp
+(** Add a bound variable to the environment. *)
+val add_bound : value -> 'a comp -> 'a comp
 
 val add_bound_rec :
-  (Name.ident * (value -> value comp)) list -> 'a comp -> 'a comp
+  (value -> value comp) list -> 'a comp -> 'a comp
 
 (** Modify the value bound by a dynamic variable *)
 val now : loc:Location.t -> int -> value -> 'a comp -> 'a comp
@@ -158,7 +154,7 @@ val now : loc:Location.t -> int -> value -> 'a comp -> 'a comp
 val top_now : loc:Location.t -> int -> value -> unit toplevel
 
 (** Add a bound variable (for matching). *)
-val push_bound : Name.ident -> value -> env -> env
+val push_bound : value -> env -> env
 
 (** [add_free ~loc x (ctx,t) f] generates a fresh atom [y] from identifier [x],
     then it extends [ctx] to [ctx' = ctx, y : t]
@@ -172,10 +168,10 @@ val add_abstracting : value -> 'a comp -> 'a comp
 val add_constant : loc:Location.t -> Name.ident -> Jdg.closed_ty -> unit toplevel
 
 (** Add a bound variable with the given name to the environment. *)
-val add_topbound : loc:Location.t -> Name.ident -> value -> unit toplevel
+val add_topbound : value -> unit toplevel
 
 (** Add a list of mutually recursive definitions to the toplevel environment. *)
-val add_topbound_rec : loc:Location.t -> (Name.ident * (value -> value comp)) list -> unit toplevel
+val add_topbound_rec : (value -> value comp) list -> unit toplevel
 
 (** Add a dynamic variable. *)
 val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel

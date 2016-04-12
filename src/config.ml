@@ -27,3 +27,10 @@ let global_atom_printer = ref false
 
 let columns = ref (Format.get_margin ())
 
+type appty_guess =
+  | NoGuess
+  | GuessJdg
+  | GuessArrow
+
+let appty_guess = ref GuessArrow
+

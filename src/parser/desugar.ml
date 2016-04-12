@@ -158,6 +158,64 @@ end (* module Ctx *)
 
 let locate = Location.locate
 
+let mlty ctx params ty =
+  (* Get the de Bruijn index of type parameter x *)
+  let get_index x = Name.index_of_ident x params in
+
+  let rec mlty (ty', loc) =
+    let ty' =
+      begin match ty' with
+
+      | Input.ML_Arrow (ty1, ty2) ->
+         let ty1 = mlty ty1
+         and ty2 = mlty ty2 in
+         Syntax.ML_Arrow (ty1, ty2)
+
+      | Input.ML_Handler (ty1, ty2) ->
+         let ty1 = mlty ty1
+         and ty2 = mlty ty2 in
+         Syntax.ML_Handler (ty1, ty2)
+
+      | Input.ML_Prod tys ->
+         let tys = List.map mlty tys in
+         Syntax.ML_Prod tys
+
+      | Input.ML_TyApply (x, args) ->
+         begin
+           match get_index x with
+           | Some k ->
+              (* It is a type parameter *)
+              begin
+                match args with
+                | [] -> Syntax.ML_Bound k
+                | _::_ -> error ~loc AppliedTyParam
+              end
+           | None ->
+              (* It is a type name *)
+              begin
+                let (level, arity) = Ctx.get_tydef ~loc x ctx in
+                let n = List.length args in
+                if arity = n
+                then
+                  let args = List.map mlty args in
+                  Syntax.ML_TyApply (x, level, args)
+                else
+                  error ~loc (ArityMismatch (x, n, arity))
+              end
+         end
+
+      | Input.ML_Anonymous ->
+         Syntax.ML_Anonymous
+
+      | Input.ML_Judgment -> Syntax.ML_Judgment
+
+      | Input.ML_String -> Syntax.ML_String
+      end
+    in
+    locate ty' loc
+  in
+  mlty ty
+
 (* TODO improve locs *)
 let mk_lambda ~loc ys c =
   List.fold_left
@@ -319,8 +377,8 @@ and pattern bound vars n (p,loc) =
   | Input.Patt_Constr (c,ps) ->
      begin match Ctx.find ~loc c bound with
      | Constructor k ->
-        let n = List.length ps in
-        if k = n
+        let len = List.length ps in
+        if k = len
         then
           let rec fold vars n ps = function
             | [] ->
@@ -339,11 +397,11 @@ and pattern bound vars n (p,loc) =
 
   | Input.Patt_List ps ->
      let rec fold ~loc vars n = function
-       | [] -> locate (Syntax.Patt_Constructor (Name.nil, [])) loc, vars, n
+       | [] -> locate (Syntax.Patt_Constructor (Name.Predefined.nil, [])) loc, vars, n
        | p :: ps ->
           let p, vars, n = pattern bound vars n p in
           let ps, vars, n = fold ~loc:(p.Location.loc) vars n ps in
-          locate (Syntax.Patt_Constructor (Name.cons, [p ; ps])) loc, vars, n
+          locate (Syntax.Patt_Constructor (Name.Predefined.cons, [p ; ps])) loc, vars, n
      in
      fold ~loc vars n ps
 
@@ -510,11 +568,11 @@ let rec comp ~yield bound (c',loc) =
 
   | Input.List cs ->
      let rec fold ~loc = function
-       | [] -> locate (Syntax.Constructor (Name.nil, [])) loc
+       | [] -> locate (Syntax.Constructor (Name.Predefined.nil, [])) loc
        | c :: cs ->
           let c = comp ~yield bound c in
           let cs = fold ~loc:(c.Location.loc) cs in
-          locate (Syntax.Constructor (Name.cons, [c ; cs])) loc
+          locate (Syntax.Constructor (Name.Predefined.cons, [c ; cs])) loc
      in
      fold ~loc cs
 
@@ -548,8 +606,6 @@ let rec comp ~yield bound (c',loc) =
      and c2 = comp ~yield bound c2 in
      locate (Syntax.Occurs (c1,c2)) loc
 
-  | Input.Ident x -> locate (Syntax.Ident x) loc
-
 and let_clauses ~loc ~yield bound lst =
   let rec fold bound' lst' = function
     | [] ->
@@ -560,9 +616,14 @@ and let_clauses ~loc ~yield bound lst =
        then
          error ~loc (ParallelShadowing x)
        else
-         let c = let_clause ~yield bound ys t_opt c in
+         let c = let_clause ~yield bound ys c in
+         let t_opt = match t_opt with
+           | Some (Input.ML_Forall (params, t), loc) ->
+             Some (locate (Syntax.ML_Forall (params, mlty bound params t)) loc)
+           | None -> None
+         in
          let bound' = Ctx.add_lexical x bound' in
-         let lst' = (x, c) :: lst' in
+         let lst' = (x, t_opt, c) :: lst' in
          fold bound' lst' xcs
   in
   fold bound [] lst
@@ -580,23 +641,21 @@ and letrec_clauses ~loc ~yield bound lst =
        then
          error ~loc (ParallelShadowing f)
        else
-         let y, c = letrec_clause ~yield bound y ys t_opt c in
-         let lst' = (f, y, c) :: lst' in
+         let y, c = letrec_clause ~yield bound y ys c in
+         let t_opt = match t_opt with
+           | Some (Input.ML_Forall (params, t), loc) ->
+             Some (locate (Syntax.ML_Forall (params, mlty bound params t)) loc)
+           | None -> None
+         in
+         let lst' = (f, y, t_opt, c) :: lst' in
          fold lst' xcs
   in
   fold [] lst
 
-and let_clause ~yield bound ys t_opt c =
+and let_clause ~yield bound ys c =
   let rec fold bound = function
-    | [] ->
-       begin
-         match t_opt with
-         | None -> comp ~yield bound c
-         | Some t ->
-            let t = comp ~yield bound t
-            and c = comp ~yield bound c in
-            locate (Syntax.Ascribe (c, t)) (c.Location.loc) (* XXX improve location *)
-       end
+    | [] ->       
+       comp ~yield bound c
     | y :: ys ->
        let bound = Ctx.add_lexical y bound in
        let c = fold bound ys in
@@ -604,9 +663,9 @@ and let_clause ~yield bound ys t_opt c =
   in
   fold bound ys
 
-and letrec_clause ~yield bound y ys t_opt c =
+and letrec_clause ~yield bound y ys c =
   let bound = Ctx.add_lexical y bound in
-  let c = let_clause ~yield bound ys t_opt c in
+  let c = let_clause ~yield bound ys c in
   y, c
 
 
@@ -734,70 +793,9 @@ and operation ~loc ~yield bound x cs =
   locate (Syntax.Operation (x, cs)) loc
 
 
-let mlty ctx params ty =
-  (* Get the de Bruijn index of type parameter x *)
-  let get_index x =
-    let rec find k = function
-      | [] -> None
-      | y :: ys ->
-         if Name.eq_ident x y
-         then Some k
-         else find (k+1) ys
-    in
-    find 0 params
-  in
-
-  let rec mlty (ty', loc) =
-    let ty' =
-      begin match ty' with
-
-      | Input.ML_Arrow (ty1, ty2) ->
-         let ty1 = mlty ty1
-         and ty2 = mlty ty2 in
-         Syntax.ML_Arrow (ty1, ty2)
-
-      | Input.ML_Handler (ty1, ty2) ->
-         let ty1 = mlty ty1
-         and ty2 = mlty ty2 in
-         Syntax.ML_Handler (ty1, ty2)
-
-      | Input.ML_Prod tys ->
-         let tys = List.map mlty tys in
-         Syntax.ML_Prod tys
-
-      | Input.ML_TyApply (x, args) ->
-         begin
-           match get_index x with
-           | Some k ->
-              (* It is a type parameter *)
-              begin
-                match args with
-                | [] -> Syntax.ML_Param k
-                | _::_ -> error ~loc AppliedTyParam
-              end
-           | None ->
-              (* It is a type name *)
-              begin
-                let (level, arity) = Ctx.get_tydef ~loc x ctx in
-                let n = List.length args in
-                if arity = n
-                then
-                  let args = List.map mlty args in
-                  Syntax.ML_TyApply (level, args)
-                else
-                  error ~loc (ArityMismatch (x, n, arity))
-              end
-         end
-      | Input.ML_Judgment -> Syntax.ML_Judgment
-      end
-    in
-    locate ty' loc
-  in
-  mlty ty
-
-let decl_operation ~loc ctx params args res =
-  let args = List.map (mlty ctx params) args
-  and res = mlty ctx params res in
+let decl_operation ~loc ctx args res =
+  let args = List.map (mlty ctx []) args
+  and res = mlty ctx [] res in
   args, res
 
 
@@ -817,7 +815,7 @@ let mlty_def ~loc ctx outctx params def =
     fold outctx [] lst
 
 let mlty_rec_def ~loc ctx params def =
-  match def with 
+  match def with
   | Input.ML_Alias ty ->
      let ty = mlty ctx params ty in
      ctx, Syntax.ML_Alias ty
@@ -830,7 +828,7 @@ let mlty_rec_def ~loc ctx params def =
         fold ctx ((c, args)::res) lst
     in
     fold ctx [] lst
-  
+
 let mlty_defs ~loc ctx lst =
   let rec fold outctx res = function
     | [] -> outctx, List.rev res
@@ -858,10 +856,10 @@ let mlty_rec_defs ~loc ctx lst =
 let rec toplevel ~basedir ctx (cmd, loc) =
   match cmd with
 
-    | Input.DeclOperation (op, (params, args, res)) ->
-       let args, res = decl_operation ~loc ctx params args res in
+    | Input.DeclOperation (op, (args, res)) ->
+       let args, res = decl_operation ~loc ctx args res in
        let ctx = Ctx.add_operation ~loc op (List.length args) ctx in
-       (ctx, locate (Syntax.DeclOperation (op, (params, args, res))) loc)
+       (ctx, locate (Syntax.DeclOperation (op, (args, res))) loc)
 
     | Input.DefMLType lst ->
        let ctx, lst = mlty_defs ~loc ctx lst in
@@ -884,7 +882,14 @@ let rec toplevel ~basedir ctx (cmd, loc) =
               let n = List.length xs in
               if n = k
               then
-                let ctx = List.fold_left (fun ctx x -> Ctx.add_lexical x ctx) ctx xs in
+                let rec fold ctx = function
+                  | [] -> ctx
+                  | x :: xs ->
+                    if not (Name.is_anonymous x) && List.exists (Name.eq_ident x) xs
+                    then error ~loc (ParallelShadowing x)
+                    else fold (Ctx.add_lexical x ctx) xs
+                in
+                let ctx = fold ctx xs in
                 let ctx = match y with | Some y -> Ctx.add_lexical y ctx | None -> ctx in
                 op, (xs, y, comp ~yield:false ctx c)
               else
@@ -902,22 +907,22 @@ let rec toplevel ~basedir ctx (cmd, loc) =
        let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
        (ctx, locate (Syntax.TopLetRec lst) loc)
 
-    | Input.TopDynamic (x,c) ->
+    | Input.TopDynamic (x, c) ->
        let c = comp ~yield:false ctx c in
        let ctx = Ctx.add_dynamic x ctx in
-       (ctx, locate (Syntax.TopDynamic (x,c)) loc)
+       (ctx, locate (Syntax.TopDynamic (x, None, c)) loc)
 
-    | Input.TopNow (x,c) ->
+    | Input.TopNow (x, c) ->
        let y = Ctx.get_dynamic ~loc x ctx in
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Syntax.TopNow (y,c)) loc)
+       (ctx, locate (Syntax.TopNow (y, c)) loc)
 
     | Input.TopDo c ->
        let c = comp ~yield:false ctx c in
        (ctx, locate (Syntax.TopDo c) loc)
 
     | Input.TopFail c ->
-       let c = lazy (comp ~yield:false ctx c) in
+       let c = comp ~yield:false ctx c in
        (ctx, locate (Syntax.TopFail c) loc)
 
     | Input.Verbosity n ->

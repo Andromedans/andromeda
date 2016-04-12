@@ -60,10 +60,8 @@
 
 %token UATOM UCONSTANT
 
-%token IDENT
-
 (* Meta types *)
-%token JUDGMENT
+%token JUDGMENT MLUNIT MLSTRING
 %token MLTYPE
 %token OF
 
@@ -128,9 +126,8 @@ plain_topcomp:
   | CONSTANT xs=nonempty_list(var_name) COLON u=term  { DeclConstants (xs, u) }
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
-  | OPERATION op=var_name COLON params=mlparams opsig=op_mlsig
-    { let (args, res) = opsig in DeclOperation (op, (params, args, res)) }
-  | VERBOSITY n=NUMERAL                              { Verbosity n }
+  | OPERATION op=var_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
+  | VERBOSITY n=NUMERAL                               { Verbosity n }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
@@ -194,7 +191,6 @@ plain_prefix_term:
   | REDUCTION t=prefix_term                    { Reduction t }
   | YIELD e=prefix_term                        { Yield e }
   | REFL e=prefix_term                         { Refl e }
-  | IDENT x=var_name                           { Ident x }
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
@@ -236,7 +232,7 @@ let_clause:
        { (x, ys, u, c) }
 
 return_type:
-  | COLON t=ty_term { t }
+  | COLON t=ml_schema { t }
 
 typed_binder:
   | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }
@@ -410,16 +406,17 @@ patt_var:
 
 (* ML types *)
 
-mlparams:
-  | PROD params=nonempty_list(name) COMMA { params }
-  |                                       { [] }
-
 op_mlsig:
   | lst=separated_nonempty_list(ARROW, prod_mlty)
     { match List.rev lst with
       | t :: ts -> (List.rev ts, t)
       | [] -> assert false
      }
+
+ml_schema: mark_location(plain_ml_schema) { $1 }
+plain_ml_schema:
+  | PROD params=var_name+ COMMA t=mlty    { ML_Forall (params, t) }
+  | t=mlty                                { ML_Forall ([], t) }
 
 mlty: mark_location(plain_mlty) { $1 }
 plain_mlty:
@@ -446,6 +443,9 @@ plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
   | c=var_name                          { ML_TyApply (c, []) }
   | JUDGMENT                            { ML_Judgment }
+  | MLUNIT                              { ML_Prod [] }
+  | MLSTRING                            { ML_String }
+  | UNDERSCORE                          { ML_Anonymous }
 
 mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }

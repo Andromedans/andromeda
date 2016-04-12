@@ -1,10 +1,10 @@
 Constant A is declared.
 Constant ( + ) is declared.
 Constant a is declared.
-b is defined.
+val b : judgment
 ⊢ λ (a0 : A), a0 + a : A → A
-lam is defined.
-File "./error-penv.m31", line 12, characters 4-6: got type
-⊢ Π (a0 : A), a0 + a ≡ a0 + a type but expected type
+val lam : judgment
+File "./error-penv.m31", line 12, characters 4-6:
+got type ⊢ Π (a0 : A), a0 + a ≡ a0 + a type but expected type
 ⊢ Π (a0 : A), a0 + a0 ≡ a0 + a0
 type

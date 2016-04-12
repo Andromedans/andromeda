@@ -1,17 +1,18 @@
 
 (** Toplevel commands *)
 
-(** Declare operations *)
-(* operation `name : type` *)
-operation unary_op : forall a, a -> Judgement
-operation nonary_op : Judgement
-
 mltype dummy = | dummy end
 
 mltype color =
   | black
   | rgb_color of dummy and dummy and dummy
   end
+
+(** Declare operations *)
+(* operation `name : type` *)
+operation unary_op : _ -> color
+operation nonary_op : color
+
 
 (** Declare constants *)
 (* constant `names` : `type` *)
@@ -36,7 +37,7 @@ do lambda (x y z w : A), x + y * z ^ x ^ y - (z ^ x) ^ y <= w
 handle
   (* The first | may be omitted in all matching-like statements *)
     unary_op _ =>
-      (* Operations and data constructors are used curryfied, but must be fully applied. *)
+      (* Operations and data constructors are curried, but must be fully applied. *)
       rgb_color dummy dummy dummy
 
 (*
@@ -49,16 +50,17 @@ handle
   | nonary_op : ?t =>
     (* Meta-level matching of values. Patterns are not linear. On judgements, equality is alpha equality. *)
     match t with
-      (* The meta-level language is untyped, so match statements can return multiple kinds of values *)
       | None => black
-      | Some ?t =>
-        (* `assume x : t in c` creates a new free variable `xi : t`
-           where `xi` is an atom based on the given name,
-           then binds `x` to it within `c`.
-           Note that `xi` may (and often does) escape this scope. *)
-        assume x : t in x
+      | Some ?t => black
     end
 end
+
+(* `assume x : t in c` creates a new free variable `xi : t`
+   where `xi` is an atom based on the given name,
+   then binds `x` to it within `c`.
+   Note that `xi` may (and often does) escape this scope. *)
+do assume t : Type in
+   assume x : t in x
 
 (** Top level let-binding *)
 let x0 = dummy
@@ -94,11 +96,8 @@ do (let _ = Type in lambda x, x) : A -> A
 fail handle (lambda x, x) with end
 
 (** Meta functions *)
-(* The meta language is a model of lambda calculus! *)
-let y_combinator = fun f => let delta = fun x => f (x x) in delta delta
 
-(* There is no need to use `Y` for recursive functions, we have
-   mutual recursive definitions.  *)
+(* We have mutual recursive definitions.  *)
 (* Top-level recursive definition: *)
 let rec f x = ("f", g x)
     and g y = ("g", y)
@@ -116,8 +115,8 @@ do external "print" ((),())
    The keyword `yield` is used to access the current continuation.
    Handlers are first class values, so they can be parametrised using functions and even made recursive.
 *)
-operation get : Judgement
-operation set : Judgement -> Judgement
+operation get : judgement
+operation set : judgement -> mlunit
 let state_h init = handler
   | val ?v => fun _ => v
   | get => fun s => yield s s
@@ -131,17 +130,21 @@ do handle get with get => Type end
 
 
 (** Native data structures *)
-(* Some data constructors like `Some 1` and `None 0` are predefined. Moreover a few data types are evaluated to corresponding ocaml values. *)
+
+(* Some datatypes are predefined, for instance options *)
+do None
+do Some "foo"
+
+(* Strings are there to, but we can only compare and print them. *)
+do "a string\nspecial characters aren't"
 
 (* Lists *)
-do a::[b,A,state_h]
+do "foo" :: ["bar", "baz"]
 do []
 
 (* Tuples (2 ary or more) *)
 do (a,b,A)
 
-(* Strings and names *)
-do "a string\nspecial characters aren't"
 
 (** References *)
 (* References provide a global state where handler effects can only be local to at most a top level command.
@@ -178,7 +181,7 @@ end
 (** Variable management *)
 (* The variables a judgement depends on can be inspected in 2 ways *)
 let Tvar = assume T : Type in T
-let yvar = ref ()
+let yvar = ref Type
 let dependent =
   assume y : Tvar in
   yvar := y; (* this variable will not appear in x *)
@@ -198,8 +201,13 @@ do context dependent
    It is unwise to assume free variables which depend on them, to substitute them,
    and to substitute any variable they depend on.
    The list in debruijn index order can be accessed with `hypotheses`. *)
-operation emit : forall a, list Judgement -> a
-do handle lambda (x : A), emit hypotheses with emit ?v => v end
+operation emit : list judgement -> _
+do handle
+    lambda (x : A), emit hypotheses
+   with
+   | val _ => []
+   | emit ?v => v
+   end
 
 (** Equality *)
 (* The kernel may ask for a witness of an equality (a term of that equality type) using the `equal 2` operation.

@@ -8,7 +8,7 @@ Constant plus is declared.
 Constant iszero is declared.
 Constant eq1 is declared.
 Constant eq2 is declared.
-f is defined.
+val f : judgment
 ⊢ λ (n : Nat), iszero (succ n) : Nat → Bool
 ⊢ λ (n : Nat), iszero (succ n) : Nat → Nat
 The command failed with error:

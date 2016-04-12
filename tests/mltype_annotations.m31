@@ -1,0 +1,8 @@
+let id : forall a, a -> a = fun x => x
+
+let f = id id
+
+let g : forall b, b -> b = f
+
+
+

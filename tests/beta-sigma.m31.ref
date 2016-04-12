@@ -15,7 +15,7 @@ Constant projT2_beta is declared.
 ⊢ refl b : projT2 A B (existT A B a b) ≡ b
 Constant sig_ind is declared.
 Constant sig_ind_beta is declared.
-projT1' is defined.
+val projT1' : judgment
 ⊢ λ (A0 : Type) (B0 : A0 → Type) (s : sigT A0 B0), sig_ind A0 B0
         (λ (_ : sigT A0 B0), A0)
         ((λ (X : Type) (Y : X → Type) (x : X) (_ : Y x), x) A0 B0) s
@@ -33,7 +33,7 @@ projT1' is defined.
          (λ (_ : sigT A0 B0), A0)
          ((λ (X : Type) (Y : X → Type) (x : X) (_ : Y x), x) A0 B0) s) A B
     (existT A B a b)
-projT2' is defined.
+val projT2' : judgment
 ⊢ refl b
   : projT2 A B (existT A B a b) ≡
     (λ (A0 : Type) (B0 : A0 → Type) (s : sigT A0 B0), sig_ind A0 B0

@@ -1,5 +1,5 @@
-append is defined.
-append' is defined.
+val append : ∀ α, list α → list α → list α
+val append' : ∀ α, list α → list α → list α
 ML type letters declared.
 (a :: b :: c :: d :: e :: f :: [], a :: b :: c :: d :: e :: f ::
 [])

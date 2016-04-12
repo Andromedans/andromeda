@@ -5,6 +5,19 @@
     However, we define type aliases for these for better readability.
     There are no de Bruijn indices either. *)
 
+type ml_ty = ml_ty' * Location.t
+and ml_ty' =
+  | ML_Arrow of ml_ty * ml_ty
+  | ML_Prod of ml_ty list
+  | ML_TyApply of Name.ty * ml_ty list
+  | ML_Handler of ml_ty * ml_ty
+  | ML_Judgment
+  | ML_String
+  | ML_Anonymous
+
+type ml_schema = ml_schema' * Location.t
+and ml_schema' = ML_Forall of Name.ty list * ml_ty
+
 (** Sugared term patterns *)
 type tt_pattern = tt_pattern' * Location.t
 and tt_pattern' =
@@ -72,7 +85,6 @@ and term' =
   | String of string
   | Context of comp
   | Occurs of comp * comp
-  | Ident of Name.ident
 
 (** Sugared types *)
 and ty = term
@@ -83,9 +95,9 @@ and comp = term
 (** Sugared expressions *)
 and expr = term
 
-and let_clause = Name.ident * Name.ident list * ty option * comp
+and let_clause = Name.ident * Name.ident list * ml_schema option * comp
 
-and letrec_clause = Name.ident * Name.ident * Name.ident list * ty option * comp
+and letrec_clause = Name.ident * Name.ident * Name.ident list * ml_schema option * comp
 
 (** Handle cases *)
 and handle_case =
@@ -99,14 +111,6 @@ and match_op_case = pattern list * pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
-type ml_ty = ml_ty' * Location.t
-and ml_ty' =
-  | ML_Arrow of ml_ty * ml_ty
-  | ML_Prod of ml_ty list
-  | ML_TyApply of Name.ty * ml_ty list
-  | ML_Handler of ml_ty * ml_ty
-  | ML_Judgment
-
 type constructor_decl = Name.constructor * ml_ty list
 
 type ml_tydef =
@@ -118,7 +122,7 @@ type toplevel = toplevel' * Location.t
 and toplevel' =
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
-  | DeclOperation of Name.ident * (Name.ty list * ml_ty list * ml_ty)
+  | DeclOperation of Name.ident * (ml_ty list * ml_ty)
   | DeclConstants of Name.ident list * ty
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list

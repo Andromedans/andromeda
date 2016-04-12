@@ -17,11 +17,41 @@ type operation = ident
 type ty = ident
 type constructor = ident
 
-(** The name of empty list *)
-val nil : ident
+module Predefined : sig
+  (** The name of the list type *)
+  val list : ty
 
-(** The name of the cons constructor *)
-val cons : ident
+  (** The name [[]] constructor *)
+  val nil : constructor
+
+  (** The name of the [::] constructor *)
+  val cons : constructor
+
+  (** The name of the option type *)
+  val option : ty
+
+  (** The name of the [Some] constructor *)
+  val some : constructor
+
+  (** The name of the [None] constructor *)
+  val none : constructor
+
+  (** The name of the [equal] operation *)
+  val equal : operation
+
+  (** The name of the [as_prod] operation *)
+  val as_prod : operation
+
+  (** The name of the [as_eq] operation *)
+  val as_eq : operation
+
+  (** The name of the empty type *)
+  val empty : ty
+end
+
+(** Convert an index to a greek letter, possibly with subscript. This is used
+    for printing ML type parameters. *)
+val greek : int -> string
 
 (** Print a name. *)
 val print_ident : ?parentheses:bool -> ident -> Format.formatter -> unit

@@ -1,9 +1,18 @@
 
-operation O : Judgement -> Judgement
+operation O : judgement -> mlstring
 
 constant A : Type
 constant a b : A
 
 (* when an operation doesn't match, we need to bubble it upwards, then pass the result to the continuation *)
-do handle handle print [O b] with | O (|- a) => b end with | O ?x => yield () end
+do 
+handle 
+   handle
+     print [O b] ; (A -> A)
+   with
+   | O (|- a) => b
+   end 
+with
+| O ?x => yield "cow"
+end
 

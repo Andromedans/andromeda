@@ -8,7 +8,7 @@ constant A : Type
 constant B : Type
 constant a : A
 
-operation mafia : Judgement -> Judgement
+operation mafia : judgement -> judgement
 
 do
   (handle

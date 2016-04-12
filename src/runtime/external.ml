@@ -2,19 +2,43 @@
 
 let (>>=) = Runtime.bind
 
+let print_ty =
+  let a = Mlty.fresh_param () in
+  ([a], Mlty.Arrow (Mlty.Param a, Mlty.unit_ty))
+
+let time_ty =
+  let a = Mlty.fresh_param () in
+  ([a], Mlty.Arrow (Mlty.unit_ty, Mlty.Arrow (Mlty.Param a, Mlty.Param a)))
+
+let config_ty =
+  ([], Mlty.Arrow (Mlty.String, Mlty.unit_ty))
+
+let exit_ty =
+  let a = Mlty.fresh_param ()
+  and b = Mlty.fresh_param () in
+  ([a;b], Mlty.Arrow (Mlty.Param a, Mlty.Param b))
+
+let magic_ty =
+  let a = Mlty.fresh_param ()
+  and b = Mlty.fresh_param () in
+  ([a;b], Mlty.Arrow (Mlty.Param a, Mlty.Param b))
+
 (* An associative list mapping external names to their values.
    A typical external is a closure, which is made using [Runtime.mk_closure].
    A closure needs an environment, which for externals is the empty environment. *)
 let externals =
   [
-    ("print", fun loc ->
+    ("print",
+      ((fun loc ->
       Runtime.return_closure (fun v ->
           Runtime.lookup_penv >>= fun penv ->
           Format.printf "%t@." (Runtime.print_value ~penv v) ;
           Runtime.return_unit
-        )) ;
+        )),
+       print_ty));
 
-    ("time", fun loc ->
+    ("time",
+      ((fun loc ->
       Runtime.return_closure (fun _ ->
         let time = ref 0. in
         time := Sys.time ();
@@ -23,9 +47,11 @@ let externals =
               let t0 = !time in let t = Sys.time () in
               Format.printf "Time used: %fs\n" (t -. t0) ;
               Runtime.return v)
-        ));
+        )),
+       time_ty));
 
-    ("config", fun loc ->
+    ("config",
+      ((fun loc ->
       Runtime.return_closure (fun v ->
         let s = Runtime.as_string ~loc v in
         match s with
@@ -58,17 +84,32 @@ let externals =
             Runtime.return_unit
 
           | _ -> Runtime.(error ~loc (UnknownConfig s))
-        ));
+        )),
+       config_ty));
 
-    ("exit", fun _ ->
+    ("exit",
+      ((fun _ ->
       Runtime.return_closure (fun _ ->
-        exit 0))
+        exit 0)),
+      exit_ty));
+
+    ("magic",
+      ((fun _ ->
+      Runtime.return_closure (fun v ->
+        Runtime.return v)),
+      magic_ty))
   ]
 
 
 let lookup s =
   try
-    Some (List.assoc s externals)
+    Some (fst (List.assoc s externals))
+  with
+    Not_found -> None
+
+let lookup_ty s =
+  try
+    Some (snd (List.assoc s externals))
   with
     Not_found -> None
 

@@ -9,7 +9,7 @@ let rec length lst =
   | _ :: ?lst => s (length lst)
   end
 
-let mylist = () :: (Type :: ([] :: []))
+let mylist = "foo" :: ("bar" :: ("baz" :: []))
 
 do length mylist
 

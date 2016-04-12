@@ -72,6 +72,7 @@ val char_lambda : unit -> string
 val char_arrow : unit -> string
 val char_darrow : unit -> string
 val char_prod : unit -> string
+val char_forall : unit -> string
 val char_equal : unit -> string
 val char_vdash : unit -> string
 
