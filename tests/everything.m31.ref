@@ -12,8 +12,8 @@ Constant ( - ) is declared.
 Constant ( <= ) is declared.
 ⊢ λ (x : A) (y : A) (z : A) (w : A), x + y * z ^ x ^ y - (z ^ x) ^ y <= w
   : A → A → A → A → A
-t₀ : Type 
-x₁ : t₀ 
+t₀ : Type
+x₁ : t₀
 ⊢ x₁ : t₀
 val x0 : dummy
 dummy
@@ -55,7 +55,7 @@ val register : ref judgment
 ()
 ⊢ b : A
 ⊢ A : Type
-x₀ : A 
+x₀ : A
 ⊢ x₀ : A
 "this will happen"
 ()
@@ -66,13 +66,13 @@ val dependent : judgment
 Some
 (⊢ Type : Type)
 None
-(T₀ : Type 
- ⊢ T₀ : Type) :: (T₀ : Type 
-                      x₁ : T₀ 
+(T₀ : Type
+ ⊢ T₀ : Type) :: (T₀ : Type
+                      x₁ : T₀
                       ⊢ x₁ : T₀) ::
 []
 Operation emit is declared.
-(x₀ : A 
+(x₀ : A
  ⊢ x₀ : A) ::
 []
 Constant eq is declared.

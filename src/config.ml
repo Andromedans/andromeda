@@ -15,12 +15,6 @@ let verbosity = ref 2
 
 let ascii = ref false
 
-let debruijn = ref false
-
-let annotate = ref false
-
-let print_dependencies = ref false
-
 let max_boxes = ref 42
 
 let global_atom_printer = ref false

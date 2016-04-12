@@ -643,3 +643,25 @@ type topenv = env
 
 let exec m = m
 
+module Json =
+struct
+  
+  let rec value v =
+    let json = Json.tag "Runtime.value" in
+    match v with
+
+      | Term e -> json "Term" [Jdg.Json.term e]
+
+      | Closure _ -> json "Closure" [Json.String "<closure>"]
+
+      | Handler _ -> json "Handler" [Json.String "<handler>"]
+
+      | Tag (c, lst) -> json "Tag" [Name.Json.ident c; Json.List (List.map value lst)]
+
+      | Tuple lst -> json "Tuple" [Json.List (List.map value lst)]
+
+      | Ref r -> json "Ref" [Json.String "<ref>"]
+
+      | String s -> json "String" [Json.String s]
+end
+

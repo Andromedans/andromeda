@@ -121,3 +121,13 @@ type print_env =
 val print_ty : ?max_level:Level.t -> penv:print_env -> ty -> Format.formatter -> unit
 val print_term : ?max_level:Level.t -> penv:print_env -> term -> Format.formatter -> unit
 
+module Json :
+sig
+
+  (** Convert a term to JSON *)
+  val term : term -> Json.t
+
+  (** Convert a type to JSON *)
+  val ty : ty -> Json.t
+
+end

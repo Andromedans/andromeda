@@ -1,7 +1,7 @@
 Constant T is declared.
 Constant ( * ) is declared.
 val x : judgment
-x₀ : T 
+x₀ : T
 ⊢ x₀ : T
-x₀ : T 
+x₀ : T
 ⊢ x₀ * x₀ : T

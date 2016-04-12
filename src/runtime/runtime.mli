@@ -209,4 +209,7 @@ val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 (** Check whether two values are equal. *)
 val equal_value: value -> value -> bool
 
-
+module Json :
+sig
+  val value : value -> Json.t
+end
