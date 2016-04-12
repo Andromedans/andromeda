@@ -3,8 +3,8 @@ open Parser
 
 let reserved = [
   ("Type", TYPE) ;
-  ("Judgement", JUDGMENT) ;
-  ("Judgment", JUDGMENT) ;
+  ("judgement", JUDGMENT) ;
+  ("judgment", JUDGMENT) ;
   ("_", UNDERSCORE) ;
   ("_atom", UATOM) ;
   ("_constant", UCONSTANT) ;
