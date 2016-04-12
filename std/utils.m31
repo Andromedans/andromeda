@@ -8,12 +8,11 @@ let rev =
   fun x => rev [] x
 
 (** Fold over a list *)
-let rec fold f acc lst = match lst with
+let rec fold f acc lst : forall a b, (a -> b -> a) -> a -> list b -> a =
+match lst with
   | [] => acc
   | ?x :: ?tl => fold f (f acc x) tl
   end
-
-let fold f acc lst = external "magic" fold (external "magic" f) (external "magic" acc) (external "magic" lst)
 
 (** `list_map f l` applies `f` to each element of `l`  *)
 let rec list_map f l = fold (fun acc x => f x :: acc) [] l |> rev

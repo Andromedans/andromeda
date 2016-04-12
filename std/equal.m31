@@ -4,7 +4,7 @@
 (* TODO Operations for installing equality hints in the continuation (consider what to do for top level handler) *)
 
 (* TODO make a function? *)
-operation whnf : Judgement -> Judgement (* Compute the weak head normal form *)
+operation whnf : judgement -> judgement (* Compute the weak head normal form *)
 
 dynamic betas = []
 dynamic hints = []
@@ -234,7 +234,8 @@ let generic_matcher pat e =
       end
   end
 
-let spine h es = external "magic" fold (fun h e => h e) h es
+let spine h es : judgement → list judgement → judgement = 
+  fold (fun h e => h e) h es
 
 (* A beta hint is a term `e` whose type is a universally quantified equation
    `∏ (x1:A1) ... (xn:An), lhs == rhs`.
@@ -247,7 +248,7 @@ let process_beta =
   let rec deep quants e b = match b with
     | |- forall (?x : _), ?b =>
       deep ((x, None) :: quants) e b
-    | |- ?lhs == _ => (spine e, (rev quants, lhs))
+    | |- ?lhs == _ => (fun lst => Some (spine e lst), (rev quants, lhs))
     end
   in
   fun e => match e with
@@ -260,7 +261,7 @@ let process_hint =
   let rec deep quants e h = match h with
     | |- forall (?x : _), ?h =>
       deep ((x, None) :: quants) e h
-    | |- _ == _ => (spine e, (rev quants, h))
+    | |- _ == _ => (fun lst => Some (spine e lst), (rev quants, h))
     end
   in
   fun h => match h with
@@ -284,22 +285,19 @@ let process_eta =
   let finalize e xs eqs a b =
     let T = match a with |- _ : ?T => T end in
     let f ea eb quants =
-      match spine e quants with
-        | Some ?e =>
-          let e = e ea eb in
-          (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
-          let rec auto e = match e with
-            | |- _ : forall (_ : ?lhs == ?rhs), _ =>
-              match equal lhs rhs with
-                | Some ?eq => auto (e eq)
-                | None => None
-              end
-            | |- _ : _ == _ => Some e
-            end
-          in
-          auto e
-        | None => None
-      end
+      let e = spine e quants in
+      let e = e ea eb in
+      (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
+      let rec auto e = match e with
+        | |- _ : forall (_ : ?lhs == ?rhs), _ =>
+           match equal lhs rhs with
+           | Some ?eq => auto (e eq)
+           | None => None
+           end
+        | |- _ : _ == _ => Some e
+        end
+      in
+      auto e
     in
     fun ea eb => (f ea eb, (xs, T))
   in
@@ -632,23 +630,23 @@ let comp2 = with equality betas hints handle ...
 
 then in comp2 the hint b is available
 *)
-(* TODO we need magic because we need equality : forall a, a => a but we need type annotations for that to happen. *)
-let rec equality _ = handler
+let rec equality _ : forall a, _ -> (a => a) = 
+handler
   | equal (|- ?a : ?t) ?b (* : ?t *) =>
     yield (equate a b)
 
   | whnf ?e =>
-    yield (with external "magic" equality () handle whnf_eq e)
+    yield (with equality () handle whnf_eq e)
 
   | as_prod ?e =>
-    match (with external "magic" equality () handle whnf_eq e) with
+    match (with equality () handle whnf_eq e) with
       | |- ?eq : _ == (forall (_), _) =>
         yield (Some eq)
       | _ => yield None
     end
 
   | as_eq ?e =>
-    match (with external "magic" equality () handle whnf_eq e) with
+    match (with equality () handle whnf_eq e) with
       | |- ?eq : _ == (_ == _) =>
         yield (Some eq)
       | _ => yield None
