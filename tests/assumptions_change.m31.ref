@@ -1,6 +1,6 @@
 Constant T is declared.
 Constant ( * ) is declared.
-x is defined.
+val x : judgment
 x₀ : T 
 ⊢ x₀ : T
 x₀ : T 

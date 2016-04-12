@@ -5,13 +5,18 @@ constant a : A
 constant b : A
 constant c : A
 
+mltype sum a b =
+  | Left of a 
+  | Right of b
+end
+
 do match a with
   | |- b => b
   | |- a => a
   end
 
 mltype lam =
-  lam of Judgement and Judgement and Judgement and ((Judgement * Judgement) * Judgement)
+  lam of judgement and judgement and judgement and ((judgement * judgement) * judgement)
   end
 
 do match λ (x : A), a with
@@ -23,7 +28,6 @@ constant Nil : list
 constant Cons : A -> list -> list
 
 do match Cons a (Cons b (Cons c Nil)) with
-  | None => Type Type
-  | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => lam x y z ((x', y'), t)
-  | (|- Cons _ ((Cons ?x _) as ?y)) => (x, y)
+  | |- λ (?x : ?y), ?z : Π (?x' : ?y'), ?t => Left (lam x y z ((x', y'), t))
+  | (|- Cons _ ((Cons ?x _) as ?y)) => Right (x, y)
   end

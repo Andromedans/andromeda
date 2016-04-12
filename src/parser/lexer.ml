@@ -30,7 +30,9 @@ let reserved = [
   ("lambda", LAMBDA) ;
   ("let", LET) ;
   ("match", MATCH) ;
+  ("mlstring", MLSTRING) ;
   ("mltype", MLTYPE) ;
+  ("mlunit", MLUNIT) ;
   ("now", NOW) ;
   ("occurs", OCCURS) ;
   ("of", OF) ;

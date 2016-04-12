@@ -14,7 +14,7 @@ do
     f a
 
 
-operation gimme_beta : Judgement
+operation gimme_beta : mlunit
 
 do
    handle

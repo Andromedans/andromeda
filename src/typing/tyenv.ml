@@ -265,6 +265,10 @@ let generalizes_to ~loc t (ps, u) env =
     in
     Mlty.error ~loc (Mlty.Ungeneralizable (ps, u))
 
+let normalize_schema (ps, t) env =
+  let t = Substitution.apply env.substitution t in
+  return (ps, t) env
+
 (* Toplevel functionality *)
 
 let topadd_tydef t d env =

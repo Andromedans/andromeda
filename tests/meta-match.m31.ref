@@ -2,6 +2,7 @@ Constant A is declared.
 Constant a is declared.
 Constant b is declared.
 Constant c is declared.
+ML type sum declared.
 ⊢ a : A
 ML type lam declared.
 lam (x₀ : A 
@@ -11,5 +12,5 @@ lam (x₀ : A
 Constant list is declared.
 Constant Nil is declared.
 Constant Cons is declared.
-(⊢ b : A,
+Right (⊢ b : A,
 ⊢ Cons b (Cons c Nil) : list)

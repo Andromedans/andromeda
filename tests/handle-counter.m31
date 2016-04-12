@@ -4,7 +4,7 @@ constant s : N -> N
 
 constant f : N -> N -> N -> N
 
-operation get : Judgement
+operation get : judgement
 
 do
   handle

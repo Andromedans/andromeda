@@ -104,19 +104,19 @@ let rec print_ty ~penv ?max_level t ppf =
 
   | Jdg -> Format.fprintf ppf "judgment"
 
-  | String -> Format.fprintf ppf "string"
+  | String -> Format.fprintf ppf "mlstring"
 
   | Meta m -> print_meta ~penv m ppf
 
   | Param p -> print_param ~penv p ppf
 
-  | Prod [] -> Format.fprintf ppf "unit"
+  | Prod [] -> Format.fprintf ppf "mlunit"
 
-  | Prod ts -> Print.print ?max_level ppf "%t"
+  | Prod ts -> Print.print ?max_level ~at_level:Level.ml_prod ppf "%t"
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_prod_arg) " *" ts)
 
   | Arrow (t1, t2) ->
-     Print.print ?max_level ~at_level:(Level.ml_arr) ppf "@[%t@ %s@ %t@]"
+     Print.print ?max_level ~at_level:Level.ml_arr ppf "@[%t@ %s@ %t@]"
                  (print_ty ~penv ~max_level:(Level.ml_arr_left) t1)
                  (Print.char_arrow ())
                  (print_ty ~penv ~max_level:(Level.ml_arr_right) t2)

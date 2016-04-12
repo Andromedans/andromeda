@@ -2,5 +2,6 @@ The command failed with error:
 File "./fail.m31", line 1, characters 6-9: expected a product but got
 ⊢ Type
 type
-File "./fail.m31", line 3, characters 1-9: expected to fail but computed
+File "./fail.m31", line 3, characters 1-9:
+expected to fail but computed
 ⊢ Type : Type

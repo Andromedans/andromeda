@@ -5,11 +5,11 @@ constant A : Type
 constant a b : A
 constant (+) : A -> A -> A
 
-operation Not_found : forall a, a
+operation Not_found : empty
 
 fail Not_found
 
-operation info : forall a, debug x -> Judgement -> (a -> a) -> a
+operation info : debug x -> judgement -> (_ -> _) -> _
 
 fail info (!! x) (a + b) (fun x => x)
 

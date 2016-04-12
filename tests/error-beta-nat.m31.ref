@@ -5,6 +5,6 @@ Constant plus is declared.
 Constant plus_Z is declared.
 Constant plus_S is declared.
 ⊢ Type : Type
-File "./error-beta-nat.m31", line 15, characters 4-19: failed to check that
-⊢ S (S Z) : N and ⊢ plus (S Z) (S (S Z)) : N
+File "./error-beta-nat.m31", line 15, characters 4-19:
+failed to check that ⊢ S (S Z) : N and ⊢ plus (S Z) (S (S Z)) : N
 are equal

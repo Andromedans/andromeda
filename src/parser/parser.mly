@@ -61,7 +61,7 @@
 %token UATOM UCONSTANT
 
 (* Meta types *)
-%token JUDGMENT
+%token JUDGMENT MLUNIT MLSTRING
 %token MLTYPE
 %token OF
 
@@ -443,6 +443,8 @@ plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
   | c=var_name                          { ML_TyApply (c, []) }
   | JUDGMENT                            { ML_Judgment }
+  | MLUNIT                              { ML_Prod [] }
+  | MLSTRING                            { ML_String }
   | UNDERSCORE                          { ML_Anonymous }
 
 mlty_defs:

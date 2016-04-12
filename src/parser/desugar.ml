@@ -208,6 +208,8 @@ let mlty ctx params ty =
          Syntax.ML_Anonymous
 
       | Input.ML_Judgment -> Syntax.ML_Judgment
+
+      | Input.ML_String -> Syntax.ML_String
       end
     in
     locate ty' loc
@@ -917,11 +919,11 @@ let rec toplevel ~basedir ctx (cmd, loc) =
 
     | Input.TopDo c ->
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Syntax.TopDo (None, c)) loc)
+       (ctx, locate (Syntax.TopDo c) loc)
 
     | Input.TopFail c ->
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Syntax.TopFail (None, c)) loc)
+       (ctx, locate (Syntax.TopFail c) loc)
 
     | Input.Verbosity n ->
        (ctx, locate (Syntax.Verbosity n) loc)

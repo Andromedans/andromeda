@@ -1,7 +1,7 @@
 Constant A is declared.
 Constant a is declared.
 Constant b is declared.
-f is defined.
+val f : ∀ α, α → mlunit
 ⊢ a : A
 ()
 ⊢ b : A

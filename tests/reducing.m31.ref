@@ -9,6 +9,5 @@ Constant plus_S is declared.
 ⊢ refl (S (Z + S Z + (S Z + S Z)))
   : S Z + S Z + (S Z + S Z) ≡ S (Z + S Z + (S Z + S Z))
 ⊢ refl (S (S (S (S Z)))) : S Z + S Z + (S Z + S Z) ≡ S (S (S (S Z)))
-The command failed with error:
-File "./reducing.m31", line 24, characters 6-17: unhandled operation failure
-"only constants and atoms may have reducing information"
+("FAILURE",
+"only constants and atoms may have reducing information")

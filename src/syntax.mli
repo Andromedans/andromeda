@@ -15,6 +15,7 @@ and ml_ty' =
   | ML_TyApply of Name.ident * level * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Judgment
+  | ML_String
   | ML_Bound of bound
   | ML_Anonymous
 
@@ -119,8 +120,8 @@ and 'annot toplevel' =
   | TopLetRec of 'annot letrec_clause list
   | TopDynamic of Name.ident * 'annot * 'annot comp
   | TopNow of bound * 'annot comp
-  | TopDo of 'annot * 'annot comp
-  | TopFail of 'annot * 'annot comp
+  | TopDo of 'annot comp
+  | TopFail of 'annot comp
   | Verbosity of int
   | Included of (string * 'annot toplevel list) list
 

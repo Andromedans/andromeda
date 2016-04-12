@@ -1,23 +1,16 @@
 
-dynamic fixed = ()
+dynamic fixed = None
 
-let fix f x = now fixed = fun x => f fixed x in fixed x
+let fix f x =
+ let g x =
+   let self = (match fixed with Some ?self => self end) in
+   f self x
+ in
+ now fixed = Some g in 
+ g x
 
 let iter f = fix (fun iter l => match l with [] => () | ?x :: ?l => f x; iter l end)
 
 let _ = iter print [None,Some [],Some [None]]
 
 let _ = print ("fixed", fixed)
-
-
-let rev x = now fixed = fun acc l => match l with [] => acc | ?x :: ?l => fixed (x::acc) l end in fixed [] x
-
-constant T : Type
-constant a b c d : T
-
-do iter (fun x => print (rev x)) [[a,b,c,d],[d,a,b,c],[],[a,c,d]]
-
-let rev' l = fix (fun rev acc => match acc with (?acc,[]) => acc | (?acc,?x::?l) => rev ((x::acc),l) end) ([],l)
-
-do iter (fun x => print (rev' x)) [[a,b,c,d],[d,a,b,c],[],[a,c,d]]
-

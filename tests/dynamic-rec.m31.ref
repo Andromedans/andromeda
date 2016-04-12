@@ -1,32 +1,11 @@
-fix is defined.
-iter is defined.
+val fix : ((?α → ?β) → ?γ) → ?α → ?β
+val iter : ?α → list ?β → mlunit
 None
 Some
 []
 Some (None ::
 [])
+val _ : mlunit
 ("fixed",
-())
-rev is defined.
-Constant T is declared.
-Constant a is declared.
-Constant b is declared.
-Constant c is declared.
-Constant d is declared.
-(⊢ d : T) :: (⊢ c : T) :: (⊢ b : T) :: (⊢ a : T) ::
-[]
-(⊢ c : T) :: (⊢ b : T) :: (⊢ a : T) :: (⊢ d : T) ::
-[]
-[]
-(⊢ d : T) :: (⊢ c : T) :: (⊢ a : T) ::
-[]
-()
-rev' is defined.
-(⊢ d : T) :: (⊢ c : T) :: (⊢ b : T) :: (⊢ a : T) ::
-[]
-(⊢ c : T) :: (⊢ b : T) :: (⊢ a : T) :: (⊢ d : T) ::
-[]
-[]
-(⊢ d : T) :: (⊢ c : T) :: (⊢ a : T) ::
-[]
-()
+None)
+val _ : mlunit

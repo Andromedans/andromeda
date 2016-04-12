@@ -1,5 +1,5 @@
 
-operation inhab : Judgement
+operation inhab : judgement
 
 let h = handler
   inhab : Some ?t => assume x_inhab : t in yield x_inhab

@@ -1,5 +1,5 @@
 (* Create a variable of type A out of thin air. *)
-operation Conjure : forall a, Judgement -> a
+operation Conjure : judgement -> judgement
 let conjure =
   (fun U =>
      handle
@@ -15,7 +15,7 @@ constant A : Type
 constant B : A → Type
 constant Q : Π (X : Type) (P : X → Type) (x : X), P x → Type
 
-operation implicit : Judgement -> Judgement
+operation implicit : judgement -> judgement
 do
   handle
     λ (a : A), Q A B a (implicit (B a))

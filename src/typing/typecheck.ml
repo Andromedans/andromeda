@@ -47,6 +47,9 @@ let rec ml_ty params {Location.thing=t; loc} =
   | Syntax.ML_Judgment ->
      Mlty.Jdg
 
+  | Syntax.ML_String ->
+     Mlty.String
+
   | Syntax.ML_Bound p ->
      Mlty.Param (List.nth params p)
 
@@ -149,10 +152,13 @@ let match_case xs p t m =
 let match_op_case xs ps popt argts m =
   let xs = List.map (fun x -> x, Mlty.fresh_type ()) xs in
   let pts = List.combine ps argts in
-  let pts = match popt with
-    | Some p -> (p, Mlty.Jdg) :: pts
-    | None -> pts
-  in
+  begin match popt with
+    | Some p -> 
+       Tyenv.predefined_type Name.Predefined.option [Mlty.Jdg] >>= fun t ->
+       Tyenv.return ((p, t) :: pts)
+    | None ->
+       Tyenv.return pts
+  end >>= fun pts ->
   let rec fold = function
     | [] -> Tyenv.return ()
     | (p, t) :: pts ->
@@ -443,8 +449,9 @@ and let_clauses (xcs : _ Syntax.let_clause list) : Mlty.ty_schema Syntax.let_cla
         match generalizable c with
         | Generalizable -> Tyenv.generalize t
         | Ungeneralizable -> Tyenv.return (Mlty.ungeneralized_schema t)
-      end >>= fun s ->
-      fold ((x, s, c) :: xs) xcs
+      end >>= fun sch ->
+      Tyenv.normalize_schema sch >>= fun sch ->
+      fold ((x, sch, c) :: xs) xcs
 
     | (x, Some {Location.thing=sch; _}, c) :: xcs ->
       let sch = ml_schema sch in
@@ -502,6 +509,7 @@ and let_rec_clauses (fycs : _ Syntax.letrec_clause list) : Mlty.ty_schema Syntax
     | (f, None, y, a, c, b) :: rem ->
        let t = Mlty.Arrow (a, b) in
        Tyenv.generalize t >>= fun sch ->
+       Tyenv.normalize_schema sch >>= fun sch ->
        fold ((f, y, sch, c) :: acc) rem
   in
   fold [] lst
@@ -515,7 +523,9 @@ let top_handler ~loc lst =
       let rec bind = function
         | [] ->
           let bindy m = match y with
-            | Some y -> Tyenv.add_var y Mlty.Jdg m
+            | Some y -> 
+               Tyenv.predefined_type Name.Predefined.option [Mlty.Jdg] >>= fun jdg_opt ->
+               Tyenv.add_var y jdg_opt m
             | None -> m
           in
           bindy (check_comp c out)
@@ -543,14 +553,6 @@ let add_operation op (args, out) env =
   let args = List.map (ml_ty []) args
   and out = ml_ty [] out in
   Tyenv.topadd_operation op (args, out) env
-
-let comp_schema c =
-  comp c >>= fun (c, t) ->
-  begin match generalizable c with
-    | Generalizable -> Tyenv.generalize t
-    | Ungeneralizable -> return (Mlty.ungeneralized_schema t)
-  end >>= fun s ->
-  return (c, s)
 
 let rec toplevel env ({Location.thing=c; loc} : _ Syntax.toplevel) =
   match c with
@@ -597,13 +599,13 @@ let rec toplevel env ({Location.thing=c; loc} : _ Syntax.toplevel) =
     in
     env, locate ~loc (Syntax.TopNow (x, c))
 
-  | Syntax.TopDo (_, c) ->
-    let env, (c, s) = Tyenv.at_toplevel env (comp_schema c) in
-    env, locate ~loc (Syntax.TopDo (s, c))
+  | Syntax.TopDo c ->
+    let env, (c, _) = Tyenv.at_toplevel env (comp c) in
+    env, locate ~loc (Syntax.TopDo c)
 
-  | Syntax.TopFail (_, c) ->
-    let env, (c, s) = Tyenv.at_toplevel env (comp_schema c) in
-    env, locate ~loc (Syntax.TopFail (s, c))
+  | Syntax.TopFail c ->
+    let env, (c, _) = Tyenv.at_toplevel env (comp c) in
+    env, locate ~loc (Syntax.TopFail c)
 
   | Syntax.Verbosity v ->
     env, locate ~loc (Syntax.Verbosity v)

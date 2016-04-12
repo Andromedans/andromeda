@@ -38,6 +38,9 @@ val generalize : Mlty.ty -> Mlty.ty_schema tyenvM
 
 val generalizes_to : loc:Location.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
 
+(** Apply the current substitution to the schema. *)
+val normalize_schema : Mlty.ty_schema -> Mlty.ty_schema tyenvM
+
 (** Toplevel functionality *)
 
 val topadd_tydef : Name.ty -> Mlty.ty_def -> t -> t

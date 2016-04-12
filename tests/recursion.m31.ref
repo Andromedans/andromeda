@@ -1,19 +1,23 @@
 ML type tree declared.
-left is defined.
-right is defined.
-t is defined.
-Node (Node (Node "left" "right") (Node "left" "right")) (Node (Node (Node
-"left" "right") (Node "left" "right")) (Node (Node "left" "right") (Node
-"left"
-"right")))
+val left : ∀ α, tree α → tree (mlstring * α)
+val right : ∀ β, tree β → tree (mlstring * β)
+val t : tree mlunit
+Node (Node (Node (Leaf ("left", ())) (Leaf ("right", ()))) (Node (Leaf
+("left", ())) (Leaf ("right", ())))) (Node (Node (Node (Leaf ("left", ()))
+(Leaf ("right", ()))) (Node (Leaf ("left", ())) (Leaf ("right", ())))) (Node
+(Node (Leaf ("left", ())) (Leaf ("right", ()))) (Node (Leaf ("left", ()))
+(Leaf ("right",
+())))))
 (("f", "A", ("g", "A", ("h", "A"))), ("g", "A", ("h", "A")), ("h",
 "A"))
-a is defined.
-b is defined.
-c is defined.
-d is defined.
-f is defined.
-g is defined.
-h is defined.
+val a : mlstring
+val b : mlstring
+val c : mlstring
+val d : mlstring
+val f :
+  ∀ α, α → mlstring * mlstring * (mlstring * mlstring * (mlstring *
+          mlstring))
+val g : mlunit → mlstring * mlstring * (mlstring * mlstring)
+val h : mlunit → mlstring * mlstring
 (("f", "A", ("g", "A", ("h", "A"))), ("g", "A", ("h", "A")), ("h",
 "A"))

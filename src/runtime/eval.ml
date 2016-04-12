@@ -547,13 +547,10 @@ let toplet_bind ~loc ~quiet ~print_annot xcs =
   in
   fold [] xcs >>= fun () ->
   begin if not quiet then
-    List.iter (fun (x, annot, _) ->
-        if not (Name.is_anonymous x) then
-          match print_annot with
-            | Some print_annot ->
-              Format.printf "%t : %t is defined.@." (Name.print_ident x) (print_annot annot)
-            | None ->
-              Format.printf "%t is defined.@." (Name.print_ident x)) xcs
+    List.iter
+      (fun (x, annot, _) ->
+       Format.printf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident x) (print_annot annot))
+      xcs
   end;
   return ()
 
@@ -565,13 +562,10 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   in
   Runtime.add_topbound_rec gs >>= fun () ->
   begin if not quiet then
-    List.iter (fun (f, _, annot, _) ->
-        if not (Name.is_anonymous f) then
-          match print_annot with
-            | Some print_annot ->
-              Format.printf "%t : %t is defined.@." (Name.print_ident f) (print_annot annot)
-            | None ->
-              Format.printf "%t is defined.@." (Name.print_ident f)) fxcs
+    List.iter
+      (fun (f, _, annot, _) ->
+       Format.printf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident f) (print_annot annot))
+      fxcs
   end;
   return ()
 
@@ -588,7 +582,7 @@ let print_error err ppf =
     | RuntimeError (penv, err) -> Runtime.print_error ~penv err ppf
     | JdgError (penv, err) -> Jdg.print_error ~penv err ppf
 
-let rec toplevel ~quiet ?print_annot {Location.thing=c;loc} =
+let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   Runtime.catch (lazy (match c with
 
     | Syntax.DefMLType lst
@@ -618,17 +612,11 @@ let rec toplevel ~quiet ?print_annot {Location.thing=c;loc} =
            Runtime.add_handle op f) () lst
 
     | Syntax.TopLet xcs ->
-      let print_annot = match print_annot with
-        | Some print -> Some (print ())
-        | None -> None
-      in
+      let print_annot = print_annot () in
       toplet_bind ~loc ~quiet ~print_annot xcs
 
     | Syntax.TopLetRec fxcs ->
-      let print_annot = match print_annot with
-        | Some print -> Some (print ())
-        | None -> None
-      in
+      let print_annot = print_annot () in
       topletrec_bind ~loc ~quiet ~print_annot fxcs
 
     | Syntax.TopDynamic (x, annot, c) ->
@@ -639,19 +627,15 @@ let rec toplevel ~quiet ?print_annot {Location.thing=c;loc} =
        comp_value c >>= fun v ->
        Runtime.top_now ~loc x v
 
-    | Syntax.TopDo (annot, c) ->
+    | Syntax.TopDo c ->
        comp_value c >>= fun v ->
        Runtime.top_lookup_penv >>= fun penv ->
        (begin if not quiet then
-        match print_annot with
-          | Some print_annot ->
-            Format.printf "%t : %t@." (Runtime.print_value ~penv v) (print_annot () annot)
-          | None ->
             Format.printf "%t@." (Runtime.print_value ~penv v)
         end;
         return ())
 
-    | Syntax.TopFail (annot, c) ->
+    | Syntax.TopFail c ->
        Runtime.catch (lazy (comp_value c)) >>= begin function
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
@@ -675,7 +659,7 @@ let rec toplevel ~quiet ?print_annot {Location.thing=c;loc} =
     | Syntax.Included lst ->
       mfold (fun () (fn, cmds) ->
           (if not quiet then Format.printf "#including %s@." fn);
-          mfold (fun () cmd -> toplevel ~quiet:true cmd) () cmds >>= fun () ->
+          mfold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
           (if not quiet then Format.printf "#processed %s@." fn);
           return ())
         () lst

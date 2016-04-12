@@ -1,32 +1,32 @@
-mltype rec tree =
-  | Leaf
-  | Node of tree and tree
+mltype rec tree a =
+  | Leaf of a
+  | Node of tree a and tree a
   end
 
 let rec left t =
   match t with
-  | Leaf => "left"
+  | Leaf ?x => Leaf ("left", x)
   | Node ?a ?b => Node (left a) (right b)
   end
 
 and right t =
   match t with
-  | Leaf => "right"
+  | Leaf ?x => Leaf ("right", x)
   | Node ?a ?b => Node (left a) (right b)
   end
 
 let t =
 Node
   (Node
-    (Node Leaf Leaf)
-    (Node Leaf Leaf))
+    (Node (Leaf ()) (Leaf ()))
+    (Node (Leaf ()) (Leaf ())))
   (Node
     (Node
-      (Node Leaf Leaf)
-      (Node Leaf Leaf))
+      (Node (Leaf ()) (Leaf ()))
+      (Node (Leaf ()) (Leaf ())))
     (Node
-      (Node Leaf Leaf)
-      (Node Leaf Leaf)))
+      (Node (Leaf ()) (Leaf ()))
+      (Node (Leaf ()) (Leaf ()))))
 
 do left t
 
