@@ -9,6 +9,9 @@ let lookup m s =
   try Some (MetaMap.find m s)
   with Not_found -> None
 
+let domain s =
+  MetaMap.fold (fun m _ ms -> Mlty.MetaSet.add m ms) s Mlty.MetaSet.empty
+
 let apply (s : t) t =
   if MetaMap.is_empty s
   then t
@@ -70,3 +73,4 @@ let gather_known s =
       Mlty.MetaSet.add m known)
     s Mlty.MetaSet.empty
 
+let partition = MetaMap.partition

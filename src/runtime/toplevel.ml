@@ -22,7 +22,7 @@ let print_error err ppf =
   | TypingError err -> Mlty.print_error err ppf
 
 let print_located_error {Location.thing=err; loc} ppf =
-  Format.fprintf ppf "%t:@ %t" (Location.print loc) (print_error err)
+  Format.fprintf ppf "%t:@\n%t" (Location.print loc) (print_error err)
 
 let wrap f state =
   try f state

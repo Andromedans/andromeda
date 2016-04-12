@@ -2,6 +2,11 @@ type meta = int
 
 type param = int
 
+module MetaSet = Set.Make(struct
+  type t = meta
+  let compare = compare
+  end)
+
 let fresh_meta : unit -> meta =
   let counter = ref 0 in
   fun () ->
@@ -59,6 +64,7 @@ type error =
   | RefExpected of ty
   | UnknownExternal of string
   | ValueRestriction
+  | Ungeneralizable of param list * ty
 
 exception Error of error Location.located
 
@@ -110,13 +116,13 @@ let rec print_ty ~penv ?max_level t ppf =
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_prod_arg) " *" ts)
 
   | Arrow (t1, t2) ->
-     Print.print ?max_level ~at_level:(Level.ml_arr) ppf "%t@ %s@ %t"
+     Print.print ?max_level ~at_level:(Level.ml_arr) ppf "@[%t@ %s@ %t@]"
                  (print_ty ~penv ~max_level:(Level.ml_arr_left) t1)
                  (Print.char_arrow ())
                  (print_ty ~penv ~max_level:(Level.ml_arr_right) t2)
 
   | Handler (t1, t2) ->
-     Print.print ?max_level ~at_level:(Level.ml_handler) ppf "%t@ %s@ %t"
+     Print.print ?max_level ~at_level:(Level.ml_handler) ppf "@[%t@ %s@ %t@]"
                  (print_ty ~penv ~max_level:(Level.ml_handler_left) t1)
                  (Print.char_darrow ())
                  (print_ty ~penv ~max_level:(Level.ml_handler_right) t2)
@@ -129,7 +135,7 @@ let rec print_ty ~penv ?max_level t ppf =
                  (Name.print_ident x)
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_app_arg) "" ts)
 
-  | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "ref@ %t"
+  | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "@[ref@ %t@]"
                          (print_ty ~penv ~max_level:Level.ml_app_arg t)
 
 let print_ty_schema ~penv ?max_level (ms, t) ppf =
@@ -137,9 +143,9 @@ let print_ty_schema ~penv ?max_level (ms, t) ppf =
     | [] ->
       print_ty ~penv ?max_level t ppf
     | _ :: _ ->
-      Format.fprintf ppf "%s %t, %t"
+      Format.fprintf ppf "@[<hov>%s %t, %t@]"
                      (Print.char_forall ())
-                     (Print.sequence (print_meta ~penv) " " ms)
+                     (Print.sequence (print_param ~penv) "" ms)
                      (print_ty ~penv ~max_level:Level.ml_forall_r t)
 
 let print_error err ppf =
@@ -169,6 +175,10 @@ let print_error err ppf =
     Format.fprintf ppf "Unknown external %s" s
   | ValueRestriction ->
      Format.fprintf ppf "This computation cannot be polymorphic (value restriction)"
+  | Ungeneralizable (ps, ty) ->
+     Format.fprintf ppf "Cannot generalize %t in %t"
+                    (Print.sequence (print_param ~penv) "," ps)
+                    (print_ty ~penv ty)
 
 let rec occurs m = function
   | Jdg | String | Param _ -> false
@@ -178,11 +188,6 @@ let rec occurs m = function
   | Arrow (t1, t2) | Handler (t1, t2) ->
     occurs m t1 || occurs m t2
   | Ref t -> occurs m t
-
-module MetaSet = Set.Make(struct
-  type t = meta
-  let compare = compare
-  end)
 
 let rec occuring = function
   | Jdg | String | Param _ -> MetaSet.empty
@@ -232,3 +237,15 @@ let instantiate pus t =
 
   in
   inst t
+
+let params_occur ps t =
+  let rec occurs = function
+  | Jdg | String | Meta _ -> false
+  | Param p -> List.mem p ps
+  | Prod ts  | App (_, _, ts) ->
+    List.exists occurs ts
+  | Arrow (t1, t2) | Handler (t1, t2) ->
+    occurs t1 || occurs t2
+  | Ref t -> occurs t
+  in
+  occurs t

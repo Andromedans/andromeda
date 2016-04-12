@@ -36,6 +36,8 @@ val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty tyenvM
 
 val generalize : Mlty.ty -> Mlty.ty_schema tyenvM
 
+val generalizes_to : loc:Location.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
+
 (** Toplevel functionality *)
 
 val topadd_tydef : Name.ty -> Mlty.ty_def -> t -> t

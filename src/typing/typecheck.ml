@@ -4,6 +4,7 @@ let return = Tyenv.return
 
 let locate ~loc v = Location.locate v loc
 
+(** Is a computation generalizable *)
 type generalizable =
   | Generalizable
   | Ungeneralizable
@@ -21,7 +22,6 @@ let rec generalizable c = match c.Location.thing with
 
 (* no *)
   | _ -> Ungeneralizable
-
 
 let rec ml_ty params {Location.thing=t; loc} =
   match t with
@@ -446,18 +446,18 @@ and let_clauses (xcs : _ Syntax.let_clause list) : Mlty.ty_schema Syntax.let_cla
       end >>= fun s ->
       fold ((x, s, c) :: xs) xcs
 
-    | (x, Some {Location.thing=sch; loc}, c) :: xcs ->
+    | (x, Some {Location.thing=sch; _}, c) :: xcs ->
       let sch = ml_schema sch in
       comp c >>= fun (c, t) ->
        begin
          match generalizable c with
          | Generalizable -> 
-            assert false (* TODO *)
+            Tyenv.generalizes_to ~loc:c.Location.loc t sch
          | Ungeneralizable ->
             begin
               match sch with
               | ([], tsch) ->
-                 Tyenv.add_equation ~loc t tsch
+                 Tyenv.add_equation ~loc:c.Location.loc t tsch
               | (_::_, _) ->
                  Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
             end
@@ -466,29 +466,45 @@ and let_clauses (xcs : _ Syntax.let_clause list) : Mlty.ty_schema Syntax.let_cla
   in
   fold [] xcs
 
-and let_rec_clauses (xycs : _ Syntax.letrec_clause list) : Mlty.ty_schema Syntax.letrec_clause list Tyenv.tyenvM =
- let abxycs =
-    List.map (fun xyc -> Mlty.fresh_type (), Mlty.fresh_type (), xyc) xycs
+and let_rec_clauses (fycs : _ Syntax.letrec_clause list) : Mlty.ty_schema Syntax.letrec_clause list Tyenv.tyenvM =
+  let rec bind_functions acc = function
+    | (f, y, None, c) :: rem ->
+       let a = Mlty.fresh_type ()
+       and b = Mlty.fresh_type () in
+       let sch = Mlty.ungeneralized_schema (Mlty.Arrow (a, b)) in
+       Tyenv.add_let f sch (bind_functions ((f, None, y, a, c, b) :: acc) rem)
+       
+    | (f, y, Some sch, c) :: rem ->
+       let sch = ml_schema sch.Location.thing in
+       let a = Mlty.fresh_type ()
+       and b = Mlty.fresh_type () in
+       Tyenv.add_let f sch (bind_functions ((f, Some sch, y, a, c, b) :: acc) rem)
+
+    | [] -> 
+       let rec check_bodies acc = function
+         | [] -> Tyenv.return (List.rev acc)
+
+         | (f, schopt, y, a, c, b) :: rem ->
+            Tyenv.add_var y a (check_comp c b) >>= fun c ->
+            check_bodies ((f, schopt, y, a, c, b) :: acc) rem
+       in
+       check_bodies [] (List.rev acc)
   in
-  let rec check_bodies cs = function
-    | [] -> Tyenv.return (List.rev cs)
-    | (a, b, (_, y, _, c)) :: rem ->
-      Tyenv.add_var y a (check_comp c b) >>= fun c ->
-      check_bodies (c :: cs) rem
+  bind_functions [] fycs >>= fun lst ->
+  let rec fold acc = function
+    | [] -> Tyenv.return (List.rev acc)
+
+    | (f, Some sch, y, a, c, b) :: rem ->
+       let t = Mlty.Arrow (a, b) in
+       Tyenv.generalizes_to ~loc:c.Location.loc t sch >>= fun () ->
+       fold ((f, y, sch, c) :: acc) rem
+
+    | (f, None, y, a, c, b) :: rem ->
+       let t = Mlty.Arrow (a, b) in
+       Tyenv.generalize t >>= fun sch ->
+       fold ((f, y, sch, c) :: acc) rem
   in
-  let rec bind_bodies = function
-    | [] -> check_bodies [] abxycs
-    | (a, b, (x, _, _, _)) :: rem ->
-      Tyenv.add_let x (Mlty.ungeneralized_schema (Mlty.Arrow(a, b))) (bind_bodies rem)
-  in
-  bind_bodies abxycs >>= fun cs ->
-  let rec fold xycs = function
-    | [] -> Tyenv.return (List.rev xycs)
-    | ((a, b, (x, y, _, _)), c) :: rem ->
-      Tyenv.generalize (Mlty.Arrow (a, b)) >>= fun s ->
-      fold ((x, y, s, c) :: xycs) rem
-  in
-  fold [] (List.combine abxycs cs)
+  fold [] lst
 
 let top_handler ~loc lst =
   let rec fold cases = function

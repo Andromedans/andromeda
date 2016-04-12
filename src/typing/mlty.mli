@@ -10,6 +10,8 @@ module MetaOrd : sig
   val compare : t -> t -> int
 end
 
+module MetaSet : Set.S with type elt = meta
+
 type ty =
   | Jdg
   | String
@@ -57,6 +59,7 @@ type error =
   | RefExpected of ty
   | UnknownExternal of string
   | ValueRestriction
+  | Ungeneralizable of param list * ty
 
 exception Error of error Location.located
 
@@ -75,11 +78,12 @@ val print_error : error -> Format.formatter -> unit
 
 val occurs : meta -> ty -> bool
 
-module MetaSet : Set.S with type elt = meta
-
 val occuring : ty -> MetaSet.t
 
 val occuring_schema : ty_schema -> MetaSet.t
 
 (** Instantiate the type parameters with the given types. *)
 val instantiate : (param * ty) list -> ty -> ty
+
+(** Do any of the given parameters appear in the given type? *)
+val params_occur : param list -> ty -> bool

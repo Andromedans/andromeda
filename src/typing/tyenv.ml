@@ -16,20 +16,21 @@ let (>>=) m f env =
   let x, substitution, unsolved = m env in
   f x {env with substitution; unsolved}
 
-let gather_known env =
-  let known =
-    Mlty.MetaSet.union
-      (Context.gather_known env.context)
-      (Substitution.gather_known env.substitution)
-  in
+let unsolved_known unsolved =
   List.fold_left
     (fun known (Context.AppConstraint (_, t1, t2, t3)) ->
       Mlty.MetaSet.union known
                          (Mlty.MetaSet.union
                             (Mlty.occuring t1)
                             (Mlty.MetaSet.union (Mlty.occuring t2) (Mlty.occuring t3))))
-    known env.unsolved
+    Mlty.MetaSet.empty unsolved
 
+let gather_known env =
+  Mlty.MetaSet.union
+    (Mlty.MetaSet.union
+       (Context.gather_known env.context)
+       (Substitution.gather_known env.substitution))
+    (unsolved_known env.unsolved)
 
 let remove_known ~known s =
   Mlty.MetaSet.fold Mlty.MetaSet.remove known s
@@ -235,6 +236,34 @@ let at_toplevel env m =
 let predefined_type x ts env =
   let t = Context.predefined_type x ts env.context in
   return t env
+
+let generalizes_to ~loc t (ps, u) env =
+  let (), substitution, unsolved = add_equation ~loc t u env in
+  (* NB: [s1] is the one that has [ps] appearing in the image *)
+  let s1, s2 = Substitution.partition
+            (fun _ t -> Mlty.params_occur ps t)
+            substitution
+  in
+  let s1dom = Substitution.domain s1 in
+  let known =
+    Mlty.MetaSet.union
+      (Context.gather_known env.context)
+      (unsolved_known unsolved)
+  in
+  let ms = Mlty.MetaSet.inter s1dom known in
+  if Mlty.MetaSet.is_empty ms
+  then
+    (), s2, unsolved
+  else
+    let ps =
+      List.filter
+        (fun p ->
+         Mlty.MetaSet.exists
+           (fun m -> Mlty.params_occur [p] (Substitution.apply s1 (Mlty.Meta m)))
+           ms)
+        ps
+    in
+    Mlty.error ~loc (Mlty.Ungeneralizable (ps, u))
 
 (* Toplevel functionality *)
 
