@@ -281,6 +281,3 @@ let topadd_operation op opty env =
 
 let topadd_let x s env = add_let x s (fun env -> env) env
 
-let apply_subst {substitution;_} = Substitution.apply substitution
-
-
