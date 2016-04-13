@@ -1,0 +1,79 @@
+(** Taken from https://www.cs.princeton.edu/courses/archive/fall07/cos595/stdlib/html/Coq.Logic.Hurkens.html *)
+
+let bool = assume bool : Type in bool
+let p2b = assume p2b : Type -> bool in p2b
+let b2p = assume b2p : bool -> Type in b2p
+
+let p2p1 = assume p2p1 : forall A : Type, b2p (p2b A) -> A in p2p1
+let p2p2 = assume p2p2 : forall A : Type, A -> b2p (p2b A) in p2p2
+
+let B = assume B : Type in B
+
+let V = forall A : Type, ((A -> bool) -> A -> bool) -> A -> bool
+let U = V -> bool
+
+let sb = lambda z : V, (lambda A r a, r (z A r) a) : V
+
+let le = lambda (i : U -> bool) (x : U), (x (lambda A r a, i (lambda v, sb v A r a))) : bool
+
+let induct = lambda i : U -> bool, (forall x : U, b2p (le i x) -> b2p (i x)) : Type
+
+let WF = (lambda  z, p2b (induct (z U le))) : U
+
+let I = lambda x : U, ((forall i : U -> bool, b2p (le i x) -> b2p (i (lambda v, sb v U le x))) -> B) : Type
+
+
+let Omega =
+(lambda i y,
+  y WF
+  (p2p2
+     (forall x : U,
+      b2p (le (lambda a : U, i (lambda v : V, sb v U le a)) x) ->
+      b2p (i (lambda v : V, sb v U le x)))
+     (lambda (x : U)
+        (H0 : b2p (le (lambda a : U, i (lambda v : V, sb v U le a)) x)),
+      y (lambda v : V, sb v U le x) H0)))
+ : forall i : U -> bool, induct i -> b2p (i WF)
+
+
+let lemma1 =
+(lambda (x : U) (p : b2p (le (lambda u : U , p2b (I u)) x)) ,
+p2p2 (I x)
+  (lambda
+     q : forall i : U -> bool,
+         b2p (le i x) -> b2p (i (lambda v : V , sb v U le x)) ,
+   p2p1 (I (lambda v : V , sb v U le x)) (q (lambda u : U , p2b (I u)) p)
+     (lambda i : U -> bool , q (lambda y : U , i (lambda v : V , sb v U le y)))))
+ : induct (lambda u, p2b (I u))
+
+let lemma2 =
+(lambda x : forall i : U -> bool, induct i -> b2p (i WF) ,
+p2p1 (I WF) (x (lambda u : U , p2b (I u)) lemma1)
+  (lambda (i : U -> bool) (H0 : b2p (le i WF)) ,
+   x (lambda y : U , i (lambda v : V , sb v U le y))
+     (p2p1
+        (induct
+           ((lambda (A : Type) (r : (A -> bool) -> A -> bool) (a : A) ,
+             i (lambda v : V , sb v A r a)) U le)) H0)))
+ : (forall i : U -> bool, induct i -> b2p (i WF)) -> B
+
+let paradox = (lemma2 Omega) : B
+
+let instantiated =
+((((paradox
+  where bool = Type)
+  where p2b = lambda T, T)
+  where b2p = lambda T, T)
+  where p2p1 = lambda A H, H)
+  where p2p2 = lambda A H, H
+
+let inhab = (lambda A, instantiated where B = A) : forall A : Type, A
+
+let short_inhab =
+  handle Type : forall A : Type, A with
+    | equal ?lhs ?rhs =>
+      yield (Some (inhab (lhs == rhs)))
+  end
+
+do short_inhab
+
