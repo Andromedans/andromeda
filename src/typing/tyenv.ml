@@ -29,7 +29,7 @@ let gather_known env =
   Mlty.MetaSet.union
     (Mlty.MetaSet.union
        (Context.gather_known env.context)
-       (Substitution.gather_known env.substitution))
+       (Substitution.domain env.substitution))
     (unsolved_known env.unsolved)
 
 let remove_known ~known s =
@@ -280,7 +280,4 @@ let topadd_operation op opty env =
   { env with context }
 
 let topadd_let x s env = add_let x s (fun env -> env) env
-
-let apply_subst {substitution;_} = Substitution.apply substitution
-
 

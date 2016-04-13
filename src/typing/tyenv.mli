@@ -49,5 +49,3 @@ val topadd_operation : Name.operation -> Mlty.ty list * Mlty.ty -> t -> t
 
 val topadd_let : Name.ty -> Mlty.ty_schema -> t -> t
 
-val apply_subst : t -> Mlty.ty -> Mlty.ty
-
