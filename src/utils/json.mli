@@ -6,16 +6,16 @@
     - types which already exist in JSON are exported as such (ints, strings, lists, ...)
     - a value [{lbl1=v1; ... lblN=vN}] of record type [t] is exported as a dictionary
 
-        { "_ty" : "t",
+        [{ "_ty" : "t",
           "lbl1" : v1,
           ..
-          "lblN" : vN }
+          "lblN" : vN }]
 
     - a value [Tag v] of sum type [t] is exported as
 
-        { "_ty" : "t",
+        [{ "_ty" : "t",
           "tag" : "Tag",
-          "data" : v }
+          "data" : v }]
 
     - if the tag does not have any [v] associated with it then the [data] key is omitted.
 
@@ -42,7 +42,7 @@ val tuple : t list -> t
     values [d]. *)
 val record : string -> (string * t) list -> t
 
-(** [tag ty "Tag" v) gives the JSON representation of a value of sum type [ty] with the
+(** [tag ty "Tag" v] gives the JSON representation of a value of sum type [ty] with the
    given ["Tag"] and [data]. *)
 val tag : string -> string -> t list -> t
                         

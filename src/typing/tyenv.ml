@@ -1,9 +1,12 @@
+type constrain =
+  | AppConstraint of Location.t * Mlty.ty * Mlty.ty * Mlty.ty
+
 type t =
   { context : Context.t;
     substitution : Substitution.t;
-    unsolved : Context.constrain list }
+    unsolved : constrain list }
 
-type 'a tyenvM = t -> 'a * Substitution.t * Context.constrain list
+type 'a tyenvM = t -> 'a * Substitution.t * constrain list
 
 let empty =
   { context = Context.empty;
@@ -18,7 +21,7 @@ let (>>=) m f env =
 
 let unsolved_known unsolved =
   List.fold_left
-    (fun known (Context.AppConstraint (_, t1, t2, t3)) ->
+    (fun known (AppConstraint (_, t1, t2, t3)) ->
       Mlty.MetaSet.union known
                          (Mlty.MetaSet.union
                             (Mlty.occuring t1)
@@ -148,7 +151,7 @@ let rec add_equation ~loc t t' env =
   | Some s ->
      let rec fold = function
        | [] -> return ()
-       | Context.AppConstraint (loc, h, arg, out) :: unsolved ->
+       | AppConstraint (loc, h, arg, out) :: unsolved ->
           add_application ~loc h arg out >>= fun () ->
           fold unsolved
      in
@@ -176,7 +179,7 @@ and add_application ~loc h arg out env =
      begin
        match arg, out with
        | (Mlty.Jdg | Mlty.Meta _), (Mlty.Jdg | Mlty.Meta _) ->
-          let unsolved = Context.AppConstraint (loc, h, arg, out) :: env.unsolved in
+          let unsolved = AppConstraint (loc, h, arg, out) :: env.unsolved in
           (), s, unsolved
        | _, _ ->
           begin
