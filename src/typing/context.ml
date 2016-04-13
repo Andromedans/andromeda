@@ -1,5 +1,3 @@
-type constrain =
-  | AppConstraint of Location.t * Mlty.ty * Mlty.ty * Mlty.ty
 
 module OperationMap = Name.IdentMap
 
