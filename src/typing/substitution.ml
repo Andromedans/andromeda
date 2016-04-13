@@ -22,7 +22,7 @@ let apply (s : t) t =
 
         | Mlty.Meta m as orig ->
            begin match lookup m s with
-                 | Some t -> t
+                 | Some t -> app t
                  | None -> orig
            end
 
@@ -64,13 +64,7 @@ let add m t s =
   then
     None
   else
-    let s = MetaMap.map (apply (MetaMap.singleton m t)) s in
     Some (MetaMap.add m t s)
 
-
-let gather_known s =
-  MetaMap.fold (fun m _t known ->
-      Mlty.MetaSet.add m known)
-    s Mlty.MetaSet.empty
-
 let partition = MetaMap.partition
+

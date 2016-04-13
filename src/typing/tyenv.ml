@@ -29,7 +29,7 @@ let gather_known env =
   Mlty.MetaSet.union
     (Mlty.MetaSet.union
        (Context.gather_known env.context)
-       (Substitution.gather_known env.substitution))
+       (Substitution.domain env.substitution))
     (unsolved_known env.unsolved)
 
 let remove_known ~known s =
