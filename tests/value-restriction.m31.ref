@@ -1,2 +1,2 @@
-File "./value-restriction.m31", line 4, characters 38-39:
-Unexpected ->
+File "./value-restriction.m31", line 6, characters 9-12:
+Expected option judgment but got option mlstring
