@@ -390,12 +390,12 @@ let rec print_value ?max_level ~penv v ppf =
      begin
        match as_list_opt v with
        | Some lst -> Format.fprintf ppf "@[<hov>[%t]@]"
-                                    (Print.sequence (print_value ~penv) "," lst)
+                                    (Print.sequence (print_value ~max_level:Level.highest ~penv) "," lst)
        | None ->  print_tag ?max_level ~penv t lst ppf
      end
 
   | Tuple lst -> Format.fprintf ppf "(%t)"
-                  (Print.sequence (print_value ~penv) "," lst)
+                  (Print.sequence (print_value ~max_level:Level.highest ~penv) "," lst)
 
   | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
                   (Store.Ref.print_key v)
