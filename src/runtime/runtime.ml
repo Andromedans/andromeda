@@ -365,6 +365,18 @@ let lookup_penv env =
 let top_lookup_penv env =
   get_penv env, env
 
+
+let rec as_list_opt = function
+  | Tag (t, []) when Name.eq_ident t Name.Predefined.nil -> Some []
+  | Tag (t, [x;xs]) when Name.eq_ident t Name.Predefined.cons ->
+     begin
+       match as_list_opt xs with
+       | None -> None
+       | Some xs -> Some (x :: xs)
+     end
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) ->
+     None
+
 let rec print_value ?max_level ~penv v ppf =
   match v with
 
@@ -375,16 +387,11 @@ let rec print_value ?max_level ~penv v ppf =
   | Handler h -> Format.fprintf ppf "<handler>"
 
   | Tag (t, lst) as v ->
-     (* TODO: fix printing without creating a cycle with predefined.ml *)
      begin
-(*
        match as_list_opt v with
-       | Some lst -> Format.fprintf ppf "[%t]"
+       | Some lst -> Format.fprintf ppf "@[<hov>[%t]@]"
                                     (Print.sequence (print_value ~penv) "," lst)
        | None ->  print_tag ?max_level ~penv t lst ppf
-*)
-       ignore v;
-       print_tag ?max_level ~penv t lst ppf
      end
 
   | Tuple lst -> Format.fprintf ppf "(%t)"
