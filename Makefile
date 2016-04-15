@@ -94,9 +94,10 @@ uninstall-emacs:
 
 install-lib:
 	install -d $(LIB_DIR)
+	cp -r std $(LIB_DIR)
 	install -m 644 prelude.m31 $(LIB_DIR)/prelude.m31
 uninstall-lib:
-	rm -f $(LIB_DIR)/prelude.m31
+	rm -rf $(LIB_DIR)/* || true
 	rmdir $(LIB_DIR) || true
 
 install-examples:
