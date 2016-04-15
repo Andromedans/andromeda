@@ -47,6 +47,24 @@ module Predefined : sig
 
   (** The name of the empty type *)
   val empty : ty
+
+  (** The name of the [coercible] type *)
+  val coercible_ty : ty
+
+  (** The name of the [Coercible] constructor *)
+  val coercible_constructor : constructor
+
+  (** The name of the [Convertible] constructor *)
+  val convertible : constructor
+
+  (** The name of the [NotCoercible] constructor *)
+  val notcoercible : constructor
+
+  (** The name of the [coerce] operation *)
+  val coerce : operation
+
+  (** The name of the [coerce_fun] operation *)
+  val coerce_fun : operation
 end
 
 (** Convert an index to a greek letter, possibly with subscript. This is used

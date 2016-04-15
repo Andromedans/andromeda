@@ -106,6 +106,7 @@ type error =
   | HandlerExpected of value
   | RefExpected of value
   | StringExpected of value
+  | CoercibleExpected of value
   | UnhandledOperation of Name.operation * value list
 
 exception Error of error Location.located
@@ -532,6 +533,9 @@ let print_error ~penv err ppf =
 
   | StringExpected v ->
      Format.fprintf ppf "expected a string but got %s" (name_of v)
+
+  | CoercibleExpected v ->
+    Format.fprintf ppf "expected a coercible but got %s" (name_of v)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "unhandled operation %t" (print_operation ~penv op vs)

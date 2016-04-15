@@ -46,6 +46,7 @@ type error =
   | InvalidApplication
   | InvalidEquality
   | NotAType
+  | TypeEqualityWitnessExpected of term
 
 exception Error of error Location.located
 
@@ -240,46 +241,6 @@ module Env = struct
 
 end
 
-let print_error ~penv err ppf = match err with
-  | ConstantDependency ->
-     Format.fprintf ppf "constants may not depend on assumptions"
-
-  | InvalidApplication -> Format.fprintf ppf "Invalid application."
-
-  | InvalidEquality -> Format.fprintf ppf "Invalid equality."
-
-  | NotAType -> Format.fprintf ppf "Not a type."
-
-  | AbstractDependency (x, needed_by_l) ->
-     Format.fprintf ppf "cannot abstract@ %t@ because@ %t@ depend%s on it"
-          (Name.print_atom ~printer:penv.TT.atoms x)
-          (Print.sequence (Name.print_atom ~printer:penv.TT.atoms ~parentheses:true) "," needed_by_l)
-          (match needed_by_l with [_] -> "s" | _ -> "")
-
-  | AbstractInvalidType (x, t1, t2) ->
-     Format.fprintf ppf "cannot abstract@ %t@ with type@ %t@ because it must have type@ %t"
-        (Name.print_atom ~printer:penv.TT.atoms x)
-        (TT.print_ty ~penv t1)
-        (TT.print_ty ~penv t2)
-
-  | InvalidJoin (ctx1, ctx2, x) ->
-     Format.fprintf ppf "cannot join contexts@ %t and@ %t at %t"
-                    (Ctx.print ~penv ctx1)
-                    (Ctx.print ~penv ctx2)
-                    (Name.print_atom ~printer:penv.TT.atoms x)
-
-  | SubstitutionDependency (x, e, y) ->
-     Format.fprintf ppf "cannot substitute@ %t@ with@ %t,@ dependency cycle at@ %t"
-                (Name.print_atom ~printer:penv.TT.atoms x)
-                (TT.print_term ~penv e)
-                (Name.print_atom ~printer:penv.TT.atoms y)
-
-  | SubstitutionInvalidType (x, x_ty, t) ->
-     Format.fprintf ppf "cannot substitute term of type %t for %t of type %t"
-                    (TT.print_ty ~penv t)
-                    (Name.print_atom ~printer:penv.TT.atoms x)
-                    (TT.print_ty ~penv x_ty)
-
 (** Judgements *)
 
 let strengthen (WeakTerm (ctx, e, t)) =
@@ -354,6 +315,50 @@ let print_eq_ty ~penv ?max_level (EqTy (ctx, t1, t2)) ppf =
               (TT.print_ty ~penv t1)
               (Print.char_equal ())
               (TT.print_ty ~penv t2)
+
+let print_error ~penv err ppf = match err with
+  | ConstantDependency ->
+     Format.fprintf ppf "constants may not depend on assumptions"
+
+  | InvalidApplication -> Format.fprintf ppf "Invalid application."
+
+  | InvalidEquality -> Format.fprintf ppf "Invalid equality."
+
+  | NotAType -> Format.fprintf ppf "Not a type."
+
+  | AbstractDependency (x, needed_by_l) ->
+     Format.fprintf ppf "cannot abstract@ %t@ because@ %t@ depend%s on it"
+          (Name.print_atom ~printer:penv.TT.atoms x)
+          (Print.sequence (Name.print_atom ~printer:penv.TT.atoms ~parentheses:true) "," needed_by_l)
+          (match needed_by_l with [_] -> "s" | _ -> "")
+
+  | AbstractInvalidType (x, t1, t2) ->
+     Format.fprintf ppf "cannot abstract@ %t@ with type@ %t@ because it must have type@ %t"
+        (Name.print_atom ~printer:penv.TT.atoms x)
+        (TT.print_ty ~penv t1)
+        (TT.print_ty ~penv t2)
+
+  | InvalidJoin (ctx1, ctx2, x) ->
+     Format.fprintf ppf "cannot join contexts@ %t and@ %t at %t"
+                    (Ctx.print ~penv ctx1)
+                    (Ctx.print ~penv ctx2)
+                    (Name.print_atom ~printer:penv.TT.atoms x ~parentheses:true)
+
+  | SubstitutionDependency (x, e, y) ->
+     Format.fprintf ppf "cannot substitute@ %t@ with@ %t,@ dependency cycle at@ %t"
+                (Name.print_atom ~printer:penv.TT.atoms x)
+                (TT.print_term ~penv e)
+                (Name.print_atom ~printer:penv.TT.atoms y)
+
+  | SubstitutionInvalidType (x, x_ty, t) ->
+     Format.fprintf ppf "cannot substitute term of type %t for %t of type %t"
+                    (TT.print_ty ~penv t)
+                    (Name.print_atom ~printer:penv.TT.atoms x)
+                    (TT.print_ty ~penv x_ty)
+
+  | TypeEqualityWitnessExpected j ->
+    Format.fprintf ppf "Expected a witness of an equality between types but got@ %t@."
+                   (print_term ~penv j)
 
 (** Destructors *)
 type 'a abstraction = atom * 'a
@@ -495,7 +500,7 @@ let eq_term_side side (EqTerm (ctx, lhs, rhs, ty)) =
   let term = match side with LEFT -> lhs | RIGHT -> rhs in
   strengthen (WeakTerm (ctx, term, ty))
 
-let eq_term_at_ty (EqTerm (ctx, _, _, ty)) =
+let eq_term_typeof (EqTerm (ctx, _, _, ty)) =
   strengthen_ty (WeakTy (ctx, ty))
 
 let eq_ty_side side (EqTy (ctx, lhs, rhs)) : ty =
@@ -560,6 +565,14 @@ let reflect (Term (ctx, term, TT.Ty t)) =
     | TT.Eq (a, e1, e2) ->
       EqTerm (ctx, e1, e2, a)
     | _ -> assert false
+
+let reflect_ty_eq ~loc (Term (ctx, term, TT.Ty t) as j) =
+  match t.TT.term with
+    | TT.Eq (a, e1, e2) ->
+      if TT.alpha_equal_ty a TT.typ
+      then EqTy (ctx, TT.ty e1, TT.ty e2)
+      else error ~loc (TypeEqualityWitnessExpected j)
+    | _ -> error ~loc (TypeEqualityWitnessExpected j)
 
 (** Beta *)
 

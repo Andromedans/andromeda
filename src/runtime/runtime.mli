@@ -51,6 +51,7 @@ type error =
   | HandlerExpected of value
   | RefExpected of value
   | StringExpected of value
+  | CoercibleExpected of value
   | UnhandledOperation of Name.operation * value list
 
 (** The exception that is raised on runtime error *)
