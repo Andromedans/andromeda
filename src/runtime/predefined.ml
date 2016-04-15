@@ -97,7 +97,7 @@ let operation_coerce ~loc j1 j2 =
 
 let operation_coerce_fun ~loc j =
   let v = Runtime.mk_term j in
-  Runtime.operation Name.Predefined.coerce [v] >>= fun v ->
+  Runtime.operation Name.Predefined.coerce_fun [v] >>= fun v ->
   Runtime.return (as_coercible ~loc v)
 
 let operation_as_prod ~loc j =

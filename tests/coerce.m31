@@ -1,0 +1,36 @@
+constant A B C : Type
+constant a : A
+constant f : A -> B
+constant g : B -> C
+
+do
+  handle
+    g a
+  with
+  | coerce (|- ?x : A) (|- B) =>
+      yield (Coercible (f x))
+  end
+
+do
+  handle
+    g a
+  with
+  | coerce (|- ?x : A) (|- B) =>
+    assume e : A == B in
+    yield (Convertible e)
+  end
+
+constant D : Type
+constant stewart : D
+constant dana : D -> (D -> D)
+constant scott : (D -> D) -> D
+
+do
+  handle
+    stewart stewart stewart (dana stewart)
+  with
+  | coerce_fun (|- ?x : D) =>
+    yield (Coercible (dana x))
+  | coerce (|- ?f : D -> D) (|- D) =>
+    yield (Coercible (scott f))
+  end
