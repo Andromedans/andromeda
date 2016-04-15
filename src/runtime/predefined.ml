@@ -33,19 +33,8 @@ let rec mk_list = function
   | [] -> Runtime.mk_tag Name.Predefined.nil []
   | x :: xs -> Runtime.mk_tag Name.Predefined.cons [x; mk_list xs]
 
-let rec as_list_opt = function
-  | Runtime.Tag (t, []) when Name.eq_ident t Name.Predefined.nil -> Some []
-  | Runtime.Tag (t, [x;xs]) when Name.eq_ident t Name.Predefined.cons ->
-     begin
-       match as_list_opt xs with
-       | None -> None
-       | Some xs -> Some (x :: xs)
-     end
-  | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.String _) ->
-     None
-
 let as_list ~loc v =
-  match as_list_opt v with
+  match Runtime.as_list_opt v with
   | Some lst -> lst
   | None -> Runtime.(error ~loc (ListExpected v))
 

@@ -111,6 +111,8 @@ val return_handler :
 val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
 (** Pretty-print a value. *)
+val as_list_opt : value -> value list option
+
 val print_value : ?max_level:Level.t -> penv:TT.print_env -> value -> Format.formatter -> unit
 
 val print_error : penv:TT.print_env -> error -> Format.formatter -> unit

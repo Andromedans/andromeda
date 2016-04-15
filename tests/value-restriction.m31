@@ -1,7 +1,7 @@
 
 dynamic r (* : 'a option *) = None
 
-let f (* 'b -> jdg option *) = fun _ -> match r with Some (|- _) => r end
+let f (* 'b -> jdg option *) = fun _ => match r with Some (|- _) => r end
 
 now r = Some "foo"
 

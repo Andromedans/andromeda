@@ -1,3 +1,2 @@
 ML type cattle declared.
-cow :: bull ::
-[]
+[cow, bull]

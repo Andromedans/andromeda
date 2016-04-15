@@ -253,7 +253,7 @@ let print_error ~penv err ppf = match err with
   | AbstractDependency (x, needed_by_l) ->
      Format.fprintf ppf "cannot abstract@ %t@ because@ %t@ depend%s on it"
           (Name.print_atom ~printer:penv.TT.atoms x)
-          (Print.sequence (Name.print_atom ~printer:penv.TT.atoms) "," needed_by_l)
+          (Print.sequence (Name.print_atom ~printer:penv.TT.atoms ~parentheses:true) "," needed_by_l)
           (match needed_by_l with [_] -> "s" | _ -> "")
 
   | AbstractInvalidType (x, t1, t2) ->

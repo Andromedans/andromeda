@@ -2,10 +2,9 @@
 # 4: fragile pattern matching (we try to stick to it but don't always)
 #27: innocuous unused variable
 #29: non-escaped end-of-line in string constant
-#48: implicit elimination of optional arguments
 #50: unexpected documentation comment
 
-OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-48-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
+OCAMLBUILD_FLAGS = -j 4 -lib unix -cflags -g,-annot,-w,+a-4-27-29-50,"-warn-error +a" -use-ocamlfind -pkg menhirLib -pkg sedlex
 OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain"
 #OCAMLBUILD_MENHIRFLAGS = -use-menhir -menhir "menhir --explain --trace"
 

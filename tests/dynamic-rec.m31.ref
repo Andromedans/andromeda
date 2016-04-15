@@ -3,8 +3,8 @@ val iter : ?α → list ?β → mlunit
 None
 Some
 []
-Some (None ::
-[])
+Some
+[None]
 val _ : mlunit
 ("fixed",
 None)
