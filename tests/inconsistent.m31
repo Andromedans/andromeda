@@ -71,8 +71,8 @@ let inhab = (lambda A, instantiated where B = A) : forall A : Type, A
 
 let short_inhab =
   handle Type : forall A : Type, A with
-    | equal ?lhs ?rhs =>
-      yield (Some (inhab (lhs == rhs)))
+    | coerce (|- _ : ?lhs) (|- ?rhs) =>
+      yield (Convertible (inhab (lhs == rhs)))
   end
 
 do short_inhab

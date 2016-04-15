@@ -657,6 +657,17 @@ handler
       | _ => yield None
     end
 
+  | coerce (|- _ : ?t) ?u =>
+    match equate t u with
+    | Some ?eq => yield (Convertible eq)
+    | None => yield NotCoercible
+    end
+
+  | coerce_fun (|- _ : ?t) =>
+    match (with equality () handle whnf_eq t) with
+    | |- ?eq : _ == (forall (_), _) => yield (Convertible eq)
+    | _ => yield NotCoercible
+    end
   end
 
 handle
@@ -672,6 +683,11 @@ handle
   | as_eq ?e =>
     (with equality () handle (as_eq e))
 
+  | coerce ?e ?t =>
+    (with equality () handle (coerce e t))
+
+  | coerce_fun ?e =>
+    (with equality () handle (coerce_fun e))
 end
 
 (* helper functions *)
