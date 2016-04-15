@@ -98,6 +98,9 @@ type shape =
 val shape : term -> shape
 val shape_ty : ty -> shape
 
+(** Deconstruct a type judgment into a product, if possible. *)
+val shape_prod : ty -> (atom * ty) option
+
 (** Construct a judgement using the appropriate formation rule. The type is the natural type. *)
 val form : loc:Location.t -> Env.t -> shape -> term
 

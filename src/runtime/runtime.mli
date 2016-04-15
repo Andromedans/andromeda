@@ -54,6 +54,8 @@ type error =
   | CoercibleExpected of value
   | InvalidConvertible of Jdg.ty * Jdg.ty * Jdg.eq_ty
   | InvalidCoerce of Jdg.ty * Jdg.term
+  | InvalidFunConvertible of Jdg.ty * Jdg.eq_ty
+  | InvalidFunCoerce of Jdg.term
   | UnhandledOperation of Name.operation * value list
 
 (** The exception that is raised on runtime error *)

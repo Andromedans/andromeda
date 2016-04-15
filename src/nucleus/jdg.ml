@@ -420,6 +420,12 @@ let shape (Term (ctx,e,t)) =
 
 let shape_ty j = shape (term_of_ty j)
 
+let shape_prod j =
+  match shape_ty j with
+  | Prod (a, b) -> Some (a, b)
+  | (Type | Atom _ | Constant _ | Lambda _ | Apply _ | Eq _ | Refl _) -> None
+
+
 (** Construct judgements *)
 let form ~loc env = function
   | Type ->
