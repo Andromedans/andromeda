@@ -91,7 +91,7 @@ let operation_equal ~loc j1 j2 =
 
 let operation_coerce ~loc j1 j2 =
   let v1 = Runtime.mk_term j1
-  and v2 = Runtime.mk_term j2 in
+  and v2 = Runtime.mk_term (Jdg.term_of_ty j2) in
   Runtime.operation Name.Predefined.coerce [v1;v2] >>= fun v ->
   Runtime.return (as_coercible ~loc v)
 

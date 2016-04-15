@@ -9,7 +9,7 @@ val definitions : Input.toplevel list
 
 val operation_equal : loc:Location.t -> Jdg.term -> Jdg.term -> Jdg.term option Runtime.comp
 
-val operation_coerce : loc:Location.t -> Jdg.term -> Jdg.term -> coercible Runtime.comp
+val operation_coerce : loc:Location.t -> Jdg.term -> Jdg.ty -> coercible Runtime.comp
 
 val operation_coerce_fun : loc:Location.t -> Jdg.term -> coercible Runtime.comp
 
