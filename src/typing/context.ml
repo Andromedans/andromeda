@@ -75,16 +75,17 @@ let unfold ctx x ts =
        let pus = List.combine ps ts in
        Some (Mlty.instantiate pus t)
 
-let gather_known {types = _; variables; operations = _; continuation} =
+let gather_known s {types = _; variables; operations = _; continuation} =
+  let subst = Substitution.apply s in
   let known =
     List.fold_left
-      (fun known (_, s) -> Mlty.MetaSet.union known (Mlty.occuring_schema s))
+      (fun known (_, (_, t)) -> Mlty.MetaSet.union known (Mlty.occuring (subst t)))
       Mlty.MetaSet.empty
       variables
   in
   let known = match continuation with
     | Some (t1, t2) ->
-       Mlty.MetaSet.union known (Mlty.MetaSet.union (Mlty.occuring t1) (Mlty.occuring t2))
+       Mlty.MetaSet.union known (Mlty.MetaSet.union (Mlty.occuring (subst t1)) (Mlty.occuring (subst t2)))
     | None -> known
   in
   known

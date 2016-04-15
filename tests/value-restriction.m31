@@ -3,7 +3,5 @@ dynamic r (* : 'a option *) = None
 
 let f (* 'b -> jdg option *) = fun _ => match r with Some (|- _) => r end
 
-now r = Some "foo"
-
-do match f () with Some ?x => x end (* : jdg *)
+do now r = Some "foo" in match f () with Some ?x => x end
 

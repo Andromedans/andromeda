@@ -1,0 +1,7 @@
+
+let l = ref []
+
+do l := [[]]
+
+let _ = l
+
