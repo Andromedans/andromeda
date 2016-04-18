@@ -85,6 +85,7 @@ and term' =
   | String of string
   | Context of comp
   | Occurs of comp * comp
+  | Natural of comp
 
 (** Sugared types *)
 and ty = term

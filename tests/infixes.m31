@@ -43,18 +43,18 @@ do match x with
 
 (** Operation infixes *)
 
-operation (?) : judgement -> judgement
+operation (??) : judgement -> judgement
 
 do
 handle
-  let sa = ? a in
-  let sb = ? b in
+  let sa = ?? a in
+  let sb = ?? b in
   sa + sb
 with
-  | ? ?x => yield (x + x)
+  | ?? ?x => yield (x + x)
 end
 
-handle | ? ?x => x + a end
+handle | ?? ?x => x + a end
 
-do ? b
+do ?? b
 

@@ -278,6 +278,13 @@ let rec infer {Location.thing=c'; loc} =
     let js = List.map (fun j -> Runtime.mk_term (Jdg.atom_term ~loc j)) xts in
     Runtime.return (Predefined.mk_list js)
 
+  | Syntax.Natural c ->
+    infer c >>= as_term ~loc >>= fun j ->
+    Runtime.lookup_typing_env >>= fun env ->
+    let eq = Jdg.natural_eq ~loc env j in
+    let e = Jdg.refl_of_eq_ty ~loc eq in
+    Runtime.return_term e
+
 and check_default ~loc v t_check =
   as_term ~loc v >>= fun je ->
   Equal.coerce ~loc je t_check >>=
@@ -311,7 +318,8 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Update _
   | Syntax.String _
   | Syntax.Occurs _
-  | Syntax.Context _ ->
+  | Syntax.Context _
+  | Syntax.Natural _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 

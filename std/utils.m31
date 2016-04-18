@@ -1,3 +1,5 @@
+#include_once "base.m31"
+
 (** Reverse a list *)
 let rev =
   let rec rev acc lst = match lst with
@@ -34,4 +36,3 @@ let assoc_update x v lst =
     | ?y :: ?lst => aux (y :: acc) lst
     end
   in aux [] lst
-

@@ -84,6 +84,7 @@ and 'annot comp' =
   | String of string
   | Occurs of 'annot comp * 'annot comp
   | Context of 'annot comp
+  | Natural of 'annot comp
 
 and 'annot let_clause = Name.ident * 'annot * 'annot comp
 

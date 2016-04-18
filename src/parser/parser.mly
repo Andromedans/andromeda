@@ -55,6 +55,7 @@
 %token REDUCTION
 %token EXTENSIONALITY
 %token HYPOTHESES
+%token NATURAL
 
 %token EXTERNAL
 
@@ -189,6 +190,7 @@ plain_prefix_term:
   | op=PREFIXOP e2=prefix_term                 { let e1 = Var (fst op), snd op in
                                                  Spine (e1, [e2]) }
   | REDUCTION t=prefix_term                    { Reduction t }
+  | NATURAL t=prefix_term                      { Natural t }
   | YIELD e=prefix_term                        { Yield e }
   | REFL e=prefix_term                         { Refl e }
 

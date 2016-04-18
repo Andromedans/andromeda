@@ -789,10 +789,16 @@ let mk_refl ~loc (EqTerm (ctx1, lhs1, rhs1, t1)) (EqTerm (ctx2, lhs2, rhs2, t2))
 
 let refl_of_eq ~loc (EqTerm (ctx, lhs, rhs, ty)) =
   let hyps = Ctx.as_set ctx in
-  
   let term = TT.mk_refl ~loc ty lhs in
   let term = TT.mention_atoms hyps term in
   Term (ctx, term, TT.mk_eq_ty ~loc ty lhs rhs)
+
+let refl_of_eq_ty ~loc (EqTy (ctx, TT.Ty lhs, TT.Ty rhs)) =
+  let hyps = Ctx.as_set ctx in
+  let term = TT.mk_refl ~loc TT.typ lhs in
+  let term = TT.mention_atoms hyps term in
+  Term (ctx, term, TT.mk_eq_ty ~loc TT.typ lhs rhs)
+
 
 module Json =
 struct

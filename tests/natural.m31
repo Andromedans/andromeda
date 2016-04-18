@@ -1,0 +1,21 @@
+constant A B : Type
+constant a : A
+constant eq : A == B
+
+do 
+  handle
+    natural (a : B)
+  with
+    coerce _ B => yield (Convertible eq)
+  end
+
+constant C : A -> Type
+constant xi : C a == (a == a)
+constant f : forall (x : A), C x
+
+do 
+  handle
+    natural (f a : (a == a))
+  with
+  | coerce (|- _ : C a) (|- a == a) => yield (Convertible xi)
+  end

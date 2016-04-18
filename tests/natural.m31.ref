@@ -1,0 +1,9 @@
+Constant A is declared.
+Constant B is declared.
+Constant a is declared.
+Constant eq is declared.
+⊢ refl A : A ≡ B
+Constant C is declared.
+Constant xi is declared.
+Constant f is declared.
+⊢ refl (C a) : C a ≡ (a ≡ a)

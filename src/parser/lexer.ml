@@ -33,6 +33,7 @@ let reserved = [
   ("mlstring", MLSTRING) ;
   ("mltype", MLTYPE) ;
   ("mlunit", MLUNIT) ;
+  ("natural", NATURAL) ;
   ("now", NOW) ;
   ("occurs", OCCURS) ;
   ("of", OF) ;

@@ -22,6 +22,6 @@ val s : judgment
 ML type suspended declared.
 val x : suspended judgment judgment
 ⊢ a : A
-Operation ( ? ) is declared.
+Operation ( ?? ) is declared.
 ⊢ a + a + (b + b) : A
 ⊢ b + a : A

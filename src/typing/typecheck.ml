@@ -385,6 +385,10 @@ let rec comp ({Location.thing=c; loc} : _ Syntax.comp) : (Mlty.ty_schema Syntax.
     Tyenv.predefined_type Name.Predefined.list [Mlty.Jdg] >>= fun t ->
     return (locate ~loc (Syntax.Context c), t)
 
+  | Syntax.Natural c ->
+    check_comp c Mlty.Jdg >>= fun c ->
+    return (locate ~loc (Syntax.Natural c), Mlty.Jdg)
+
 and check_comp c t =
   comp c >>= fun (c, t') ->
   Tyenv.add_equation ~loc:c.Location.loc t' t >>= fun () ->
