@@ -124,6 +124,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | '!'                      -> f (); BANG
   | ":="                     -> f (); COLONEQ
   | ';'                      -> f (); SEMICOLON
+  (* Comes before prefixop because it also matches prefixop *)
+  | '?'                      -> f (); NAME (Name.make ~fixity:Name.Word "?")
   | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:Name.Prefix s, loc_of lexbuf)
   | infixop0                 -> f (); INFIXOP0 (let s = Ulexbuf.lexeme lexbuf in
