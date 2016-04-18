@@ -1,3 +1,5 @@
+#include_once "utils.m31"
+
 let typeof e =
   match e with |- _ : ?A => A end
 
@@ -154,19 +156,50 @@ and whnf_ty imps A = whnf_term imps A
 and whnf_term imps e =
   match e with
 
-  | |- (lambda (_), _) _ =>
-    handle
-      match reduction e with
-      | Some (|- ?xi : _ == ?e') =>
-        let zeta = whnf_term imps e' in
-        transitivity xi zeta
-      | None => refl e
+  | |- ?h ?a =>
+    match whnf_term imps h with
+
+    | |- ?eqH : _ == ?h' =>
+      let zeta = (* h a == h' a at type of e *)
+        handle 
+          match congruence (h a) (h' a) with
+          | Some (|- ?zeta : ?zeta_ty) =>
+            convert zeta (convert_eq zeta_ty (natural e))
+          end
+        with
+        | equal h h' => yield (Some eqH)
+        end
+      in
+      match h' with
+      | |- (lambda (_), _) =>
+        let e' = 
+          match zeta with |- _ : _ == ?e' => e' end
+        in
+        handle
+          match reduction e' with
+          | Some (|- ?xi : _ == ?e'') =>
+            let theta = whnf_term imps e'' in
+            transitivity zeta (transitivity xi theta)
+          | None => refl e
+          end
+        with
+        | equal ?x ?y => yield (equal_term imps x y)
+        end
+
+      | |- _ => zeta
       end
-    with
-    | equal ?x ?y => yield (equal_term imps x y)
     end
 
-  | |- _ => refl e
+  | |- _ =>
+    match assoc_find e imps with
+    | None => refl e
+    | Some ?r =>
+      match !r with
+      | None => refl e
+      | Some (|- ?xi : _ == ?e') =>
+        let zeta  = whnf_term imps e' in
+        transitivity xi zeta
+      end
+    end
 
   end
-
