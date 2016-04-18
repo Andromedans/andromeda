@@ -87,12 +87,10 @@ do
 (* repeat the bug without implicits handler *)
 do
   assume X : Type in
-  assume Y : Type in
   assume x : X in
-  assume y : Y in
-  let imps = [(X, ref None), (Y, ref None)] in
+  let imps = [(X, ref None)] in
   handle
-    x == y
+    x == x
    with
      coerce (|- _ : ?B) ?C =>
        match equal_ty imps B C with
