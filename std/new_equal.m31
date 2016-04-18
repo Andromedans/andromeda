@@ -1,0 +1,172 @@
+let typeof e =
+  match e with |- _ : ?A => A end
+
+(* if `x : A` and `eq : A == B` return `x : B` *)
+let convert x eq =
+match eq with
+  |- _ : _ == ?t =>
+  handle x : t with coerce x t => yield (Convertible eq) end
+end
+
+(* if `eq = (a == b : A)` and `eqt : A == B` return a witness of `(a == b : A) == (a == b : B)` *)
+let convert_eq eq eqt =
+match (eq, eqt) with
+  | (_, |- _ : ?t == ?t) => refl eq
+  | (|- ?a == ?b, |- _ : _ == ?t) =>
+    let a' = convert a eqt
+    and b' = convert b eqt in
+    let eq' = a' == b' in
+    match (handle congruence eq eq' with equal _ _ => yield (Some eqt) end) with
+    Some ?eq => eq
+    end
+end
+
+(* The term witnessing symmetry of equality. *)
+let sym = λ (A : Type) (x y : A) (h : x ≡ y), handle refl x : y ≡ x with
+  | equal x y =>
+    yield (Some h)
+  end
+
+(* The term witnessing transitivity of equality *)
+let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
+  handle eq1 : a == c with
+    | coerce (|- eq1 : ?X) (|- ?Y) =>
+      handle
+        match congruence X Y with
+        | Some ?xi => yield (Convertible xi)
+        end
+      with
+      | equal b c => yield (Some eq2)
+      end
+  end
+
+(* Take `p : a == b` and return `refl b : a == b`. This is used to make
+   witnesses of equalities small. *)
+let hide_witness eq = match eq with
+  |- _ : ?a == ?b => match a with |- _ : ?t =>
+    handle refl b : a == b with equal b a => yield (Some (sym t a b eq)) end
+  end end
+
+(* Take `p : a == b` and return `refl a : b == a`. This is used instead
+   of `sym` to keep witnesses of equality small. *)
+let symmetry eq =
+  match eq with
+    |- _ : ?a == ?b =>
+      match a with |- _ : ?t =>
+        hide_witness (sym t a b eq)
+      end
+  end
+
+(* As `symmetry` but for transitivity. *)
+let transitivity eq1 eq2 =
+  match (eq1, eq2) with
+    | ((|- _ : ?a == ?b), (|- _ : ?b == ?c)) =>
+      match a with |- _ : ?t =>
+        hide_witness (tran t a b c eq1 eq2)
+      end
+  end
+
+(* Check that two types are equal *)
+let rec equal_ty A B = equal_term A B
+
+(* General equality check *)
+and equal_term e1 e2 =
+  let A = typeof e1 in
+  match whnf_ty A with
+  |- ?eqA : _ == ?A' =>
+    match A' with
+
+    | |- _ == _ =>
+      let e1' = convert e1 eqA
+      and e2' = convert e2 eqA in
+      match extensionality e1' e2' with
+      | Some ?xi =>
+          let delta = convert_eq (typeof xi) (symmetry eqA) in
+          let xi' = convert xi delta in
+            Some xi'
+      end
+
+    | |- forall (_), _ =>
+      let e1' = convert e1 eqA
+      and e2' = convert e2 eqA in
+      handle
+        match extensionality e1' e2' with
+        | Some ?xi =>
+          let delta = convert_eq (typeof xi) (symmetry eqA) in
+          let xi' = convert xi delta in
+            Some xi'
+        | None => None
+        end
+      with
+        equal ?a ?b => yield (equal_term a b)
+      end
+
+    | _ =>
+      match (whnf_term e1, whnf_term e2) with
+        (|- ?eq1 : _ == ?e1', |- ?eq2 : _ == ?e2') =>
+        match equal_term_whnf e1' e2' with
+        | Some ?xi =>
+          Some (transitivity eq1 (transitivity xi (symmetry eq2)))
+        | None => None
+        end
+      end
+
+    end
+  end
+
+and equal_term_whnf e1 e2 =
+  let by_congruence _ =
+    handle
+      congruence e1 e2
+    with
+      equal ?A ?B => yield (equal_ty A B)
+    end
+  in  
+  match (e1, e2) with
+
+  | (?e, ?e) => Some (refl e1)
+
+  | (|- forall (_), _, |- forall (_), _) =>
+    by_congruence ()
+
+  | (|- lambda (_), _, |- lambda (_), _) =>
+    by_congruence ()
+
+  | (|- ?h1 _, |- ?h2 _) =>
+    handle
+      congruence e1 e2
+    with
+    | equal h1 h2 => yield (equal_term_whnf h1 h2)
+    | equal ?x ?y => yield (equal_term x y)
+    end
+
+  | (|- _ == _, |- _ == _) =>
+    by_congruence ()
+
+  | (|- refl _, |- refl _) =>
+    by_congruence ()
+
+  | (_, _) => None
+  end
+
+and whnf_ty A = whnf_term A
+
+and whnf_term e =
+  match e with
+
+  | |- (lambda (_), _) _ =>
+    handle
+      match reduction e with
+      | Some (|- ?xi : _ == ?e') =>
+        let zeta = whnf_term e' in
+        transitivity xi zeta
+      | None => refl e
+      end
+    with
+    | equal ?x ?y => yield (equal_term x y)
+    end
+
+  | |- _ => refl e
+
+  end
+
