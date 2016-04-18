@@ -31,7 +31,7 @@ let unsolved_known unsolved =
 let gather_known env =
   Mlty.MetaSet.union
     (Mlty.MetaSet.union
-       (Context.gather_known env.context)
+       (Context.gather_known env.substitution env.context)
        (Substitution.domain env.substitution))
     (unsolved_known env.unsolved)
 
@@ -250,7 +250,8 @@ let generalizes_to ~loc t (ps, u) env =
   let s1dom = Substitution.domain s1 in
   let known =
     Mlty.MetaSet.union
-      (Context.gather_known env.context)
+      (* XXX is it [substitution] or one of [s1], [s2]? *)
+      (Context.gather_known s2 env.context)
       (unsolved_known unsolved)
   in
   let ms = Mlty.MetaSet.inter s1dom known in

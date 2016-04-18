@@ -38,7 +38,7 @@ val op_cases : Name.operation -> output:Mlty.ty -> t -> Mlty.ty list * t
 val unfold : t -> Syntax.level -> Mlty.ty list -> Mlty.ty option
 
 (** Produce the set of all metavariables appearing in the context. *)
-val gather_known : t -> Mlty.MetaSet.t
+val gather_known : Substitution.t -> t -> Mlty.MetaSet.t
 
 (** [predefined_type x ts ctx] creates the type [x ts] assuming the type definition for [x] can be found in [ctx]. *)
 val predefined_type : Name.ty -> Mlty.ty list -> t -> Mlty.ty
