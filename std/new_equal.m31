@@ -1,60 +1,60 @@
 #include_once "utils.m31"
 
 let typeof e =
-  match e with |- _ : ?A => A end
+  match e with ⊢ _ : ?A ⇒ A end
 
 (* if `x : A` and `eq : A == B` return `x : B` *)
 let convert x eq =
 match eq with
-  |- _ : _ == ?t =>
-  handle x : t with coerce x t => yield (Convertible eq) end
+  ⊢ _ : _ == ?t ⇒
+  handle x : t with coerce x t ⇒ yield (Convertible eq) end
 end
 
 (* if `eq = (a == b : A)` and `eqt : A == B` return a witness of `(a == b : A) == (a == b : B)` *)
 let convert_eq eq eqt =
 match (eq, eqt) with
-  | (_, |- _ : ?t == ?t) => refl eq
-  | (|- ?a == ?b, |- _ : _ == ?t) =>
+  | (_, ⊢ _ : ?t == ?t) ⇒ refl eq
+  | (⊢ ?a == ?b, ⊢ _ : _ == ?t) ⇒
     let a' = convert a eqt
     and b' = convert b eqt in
     let eq' = a' == b' in
-    match (handle congruence eq eq' with equal _ _ => yield (Some eqt) end) with
-    Some ?eq => eq
+    match (handle congruence eq eq' with equal _ _ ⇒ yield (Some eqt) end) with
+    Some ?eq ⇒ eq
     end
 end
 
 (* The term witnessing symmetry of equality. *)
 let sym = λ (A : Type) (x y : A) (h : x ≡ y), handle refl x : y ≡ x with
-  | equal x y =>
+  | equal x y ⇒
     yield (Some h)
   end
 
 (* The term witnessing transitivity of equality *)
 let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
   handle eq1 : a == c with
-    | coerce (|- eq1 : ?X) (|- ?Y) =>
+    | coerce (⊢ eq1 : ?X) (⊢ ?Y) ⇒
       handle
         match congruence X Y with
-        | Some ?xi => yield (Convertible xi)
+        | Some ?xi ⇒ yield (Convertible xi)
         end
       with
-      | equal b c => yield (Some eq2)
+      | equal b c ⇒ yield (Some eq2)
       end
   end
 
 (* Take `p : a == b` and return `refl b : a == b`. This is used to make
    witnesses of equalities small. *)
 let hide_witness eq = match eq with
-  |- _ : ?a == ?b => match a with |- _ : ?t =>
-    handle refl b : a == b with equal b a => yield (Some (sym t a b eq)) end
+  ⊢ _ : ?a == ?b ⇒ match a with ⊢ _ : ?t ⇒
+    handle refl b : a == b with equal b a ⇒ yield (Some (sym t a b eq)) end
   end end
 
 (* Take `p : a == b` and return `refl a : b == a`. This is used instead
    of `sym` to keep witnesses of equality small. *)
 let symmetry eq =
   match eq with
-    |- _ : ?a == ?b =>
-      match a with |- _ : ?t =>
+    ⊢ _ : ?a == ?b ⇒
+      match a with ⊢ _ : ?t ⇒
         hide_witness (sym t a b eq)
       end
   end
@@ -62,30 +62,30 @@ let symmetry eq =
 (* As `symmetry` but for transitivity. *)
 let transitivity eq1 eq2 =
   match (eq1, eq2) with
-    | ((|- _ : ?a == ?b), (|- _ : ?b == ?c)) =>
-      match a with |- _ : ?t =>
+    | ((⊢ _ : ?a == ?b), (⊢ _ : ?b == ?c)) ⇒
+      match a with ⊢ _ : ?t ⇒
         hide_witness (tran t a b c eq1 eq2)
       end
   end
 
 let rec occurs_check imps a e =
   match occurs a e with
-  | (Some _) as ?xi => xi
-  | None =>
+  | (Some _) as ?xi ⇒ xi
+  | None ⇒
     (* it could still occur via imps *)
     let rec fold ctx =
       match ctx with
-      | [] => None
-      | ?b :: ?ctx =>
+      | [] ⇒ None
+      | ?b :: ?ctx ⇒
         match assoc_find b imps with
-        | None => fold ctx
-        | Some ?r =>
+        | None ⇒ fold ctx
+        | Some ?r ⇒
           match !r with
-          | None => fold ctx
-          | Some ?e' =>
+          | None ⇒ fold ctx
+          | Some ?e' ⇒
             match occurs_check imps a e' with
-            | None => fold ctx
-            | (Some _) as ?xi => xi
+            | None ⇒ fold ctx
+            | (Some _) as ?xi ⇒ xi
             end
           end
         end
@@ -101,41 +101,41 @@ let rec equal_ty imps A B = equal_term imps A B
 and equal_term imps e1 e2 =
   let A = typeof e1 in
   match whnf_ty imps A with
-  |- ?eqA : _ == ?A' =>
+  ⊢ ?eqA : _ == ?A' ⇒
     match A' with
 
-    | |- _ == _ =>
+    | ⊢ _ == _ ⇒
       let e1' = convert e1 eqA
       and e2' = convert e2 eqA in
       match extensionality e1' e2' with
-      | Some ?xi =>
+      | Some ?xi ⇒
           let delta = convert_eq (typeof xi) (symmetry eqA) in
           let xi' = convert xi delta in
             Some xi'
       end
 
-    | |- forall (_), _ =>
+    | ⊢ forall (_), _ ⇒
       let e1' = convert e1 eqA
       and e2' = convert e2 eqA in
       handle
         match extensionality e1' e2' with
-        | Some ?xi =>
+        | Some ?xi ⇒
           let delta = convert_eq (typeof xi) (symmetry eqA) in
           let xi' = convert xi delta in
             Some xi'
-        | None => None
+        | None ⇒ None
         end
       with
-        equal ?a ?b => yield (equal_term imps a b)
+        equal ?a ?b ⇒ yield (equal_term imps a b)
       end
 
-    | _ =>
+    | _ ⇒
       match (whnf_term imps e1, whnf_term imps e2) with
-        (|- ?eq1 : _ == ?e1', |- ?eq2 : _ == ?e2') =>
+        (⊢ ?eq1 : _ == ?e1', ⊢ ?eq2 : _ == ?e2') ⇒
         match equal_term_whnf imps e1' e2' with
-        | Some ?xi =>
+        | Some ?xi ⇒
           Some (transitivity eq1 (transitivity xi (symmetry eq2)))
-        | None => None
+        | None ⇒ None
         end
       end
 
@@ -147,62 +147,62 @@ and equal_term_whnf imps e1 e2 =
     handle
       congruence e1 e2
     with
-      equal ?A ?B => yield (equal_ty imps A B)
+      equal ?A ?B ⇒ yield (equal_ty imps A B)
     end
   in  
   match (e1, e2) with
 
-  | (?e, ?e) => Some (refl e1)
+  | (?e, ?e) ⇒ Some (refl e1)
 
-  | (|- forall (_), _, |- forall (_), _) =>
+  | (⊢ forall (_), _, ⊢ forall (_), _) ⇒
     by_congruence ()
 
-  | (|- lambda (_), _, |- lambda (_), _) =>
+  | (⊢ lambda (_), _, ⊢ lambda (_), _) ⇒
     by_congruence ()
 
-  | (|- ?h1 _, |- ?h2 _) =>
+  | (⊢ ?h1 _, ⊢ ?h2 _) ⇒
     handle
       congruence e1 e2
     with
-    | equal h1 h2 => yield (equal_term_whnf imps h1 h2)
-    | equal ?x ?y => yield (equal_term imps x y)
+    | equal h1 h2 ⇒ yield (equal_term_whnf imps h1 h2)
+    | equal ?x ?y ⇒ yield (equal_term imps x y)
     end
 
-  | (|- _ == _, |- _ == _) =>
+  | (⊢ _ == _, ⊢ _ == _) ⇒
     by_congruence ()
 
-  | (|- refl _, |- refl _) =>
+  | (⊢ refl _, ⊢ refl _) ⇒
     by_congruence ()
 
-  | (?a, ?b) =>
+  | (?a, ?b) ⇒
     match assoc_find a imps with
-    | Some ?r =>
+    | Some ?r ⇒
       match !r with
-      | None =>
+      | None ⇒
         match occurs_check imps a b with
-        | None => 
+        | None ⇒ 
           assume eq : a == b in
             r := Some eq ;
             Some eq
-        | Some _ => None
+        | Some _ ⇒ None
         end
-      | Some _ =>
+      | Some _ ⇒
         print "WEIRDNESS" ; None
       end
-    | None => 
+    | None ⇒ 
       match assoc_find b imps with
-      | None => None
-      | Some ?r =>
+      | None ⇒ None
+      | Some ?r ⇒
         match !r with
-        | None =>
+        | None ⇒
           match occurs_check imps b a with
-          | None => 
+          | None ⇒ 
             assume eq : b == a in
               r := Some eq ;
               Some (symmetry eq)
-          | Some _ => None
+          | Some _ ⇒ None
           end
-        | Some _ =>
+        | Some _ ⇒
           print "WEIRDNESS" ; None
         end
       end
@@ -215,47 +215,47 @@ and whnf_ty imps A = whnf_term imps A
 and whnf_term imps e =
   match e with
 
-  | |- ?h ?a =>
+  | ⊢ ?h ?a ⇒
     match whnf_term imps h with
 
-    | |- ?eqH : _ == ?h' =>
+    | ⊢ ?eqH : _ == ?h' ⇒
       let zeta = (* h a == h' a at type of e *)
         handle 
           match congruence (h a) (h' a) with
-          | Some (|- ?zeta : ?zeta_ty) =>
+          | Some (⊢ ?zeta : ?zeta_ty) ⇒
             convert zeta (convert_eq zeta_ty (natural e))
           end
         with
-        | equal h h' => yield (Some eqH)
+        | equal h h' ⇒ yield (Some eqH)
         end
       in
       match h' with
-      | |- (lambda (_), _) =>
+      | ⊢ (lambda (_), _) ⇒
         let e' = 
-          match zeta with |- _ : _ == ?e' => e' end
+          match zeta with ⊢ _ : _ == ?e' ⇒ e' end
         in
         handle
           match reduction e' with
-          | Some (|- ?xi : _ == ?e'') =>
+          | Some (⊢ ?xi : _ == ?e'') ⇒
             let theta = whnf_term imps e'' in
             transitivity zeta (transitivity xi theta)
-          | None => refl e
+          | None ⇒ refl e
           end
         with
-        | equal ?x ?y => yield (equal_term imps x y)
+        | equal ?x ?y ⇒ yield (equal_term imps x y)
         end
 
-      | |- _ => zeta
+      | ⊢ _ ⇒ zeta
       end
     end
 
-  | |- _ =>
+  | ⊢ _ ⇒
     match assoc_find e imps with
-    | None => refl e
-    | Some ?r =>
+    | None ⇒ refl e
+    | Some ?r ⇒
       match !r with
-      | None => refl e
-      | Some (|- ?xi : _ == ?e') =>
+      | None ⇒ refl e
+      | Some (⊢ ?xi : _ == ?e') ⇒
         let zeta  = whnf_term imps e' in
         transitivity xi zeta
       end
@@ -265,53 +265,50 @@ and whnf_term imps e =
 
 operation ? : judgement
 
-operation resolve : judgement -> judgement
-
-mltype bool = False | True end
-
-let rec mem x lst =
-  match lst with
-  | [] => False
-  | x :: ?lst => True
-  | _ :: ?lst => mem x lst
-  end
-
-(* XXX TODO not implemented *)
-let sort_imps imps0 = imps0
+operation resolve : judgement → judgement
 
 let implicits =
 handler
-  | equal ?a ?b => fun imps =>
+  | equal ?a ?b ⇒ fun imps ⇒
     yield (equal_term imps a b) imps
 
-  | coerce (|- _ : ?A) ?B => fun imps =>
+  | coerce (⊢ _ : ?A) ?B ⇒ fun imps ⇒
     match equal_ty imps A B with
-    | Some ?xi => yield (Convertible xi) imps
-    | None => yield NotCoercible imps
+    | Some ?xi ⇒ yield (Convertible xi) imps
+    | None ⇒ yield NotCoercible imps
     end
 
-  | ? : Some ?A => fun imps =>
+  | ? : Some ?A ⇒ fun imps ⇒
     assume imp : A in
       let imps = (imp, ref None) :: imps in
       yield imp imps
 
-  | resolve ?e => fun imps =>
-    let rec fold imps e =
-      match imps with
-      | [] => e
-      | (?x, ?r) :: ?imps =>
-        match !r with
-        | None => fold imps e
-        | Some (|- ?eq : _ == ?a) =>
-          let e = e where x = a in
-          let e = e where eq = refl a in
-          fold imps e
+  | resolve ?e ⇒ fun imps ⇒
+    let rec fold eqs e hyps =
+      match hyps with
+      | [] ⇒ e
+      | ((⊢ _atom _) as ?a) :: ?hyps ⇒
+        match assoc_find a imps with
+        | Some ?r =>
+          match !r with
+          | None => fold eqs e hyps
+          | Some (⊢ ?eq : _ == ?e') ⇒
+            let e = (e where a = e') in
+            fold ((eq, refl e') :: eqs) e hyps
+          end
+        | None ⇒ 
+          match assoc_find a eqs with
+          | None => fold eqs e hyps
+          | Some ?xi =>
+            let e = (e where a = xi) in
+            fold eqs e hyps
+          end
         end
       end
     in
-    yield (fold imps e) imps
+    yield (fold [] e (context e)) imps
 
-  | val ?v => fun imps => v
+  | val ?v ⇒ fun imps ⇒ v
 
-  | finally ?f => f []
+  | finally ?f ⇒ f []
 end

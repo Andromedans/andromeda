@@ -58,8 +58,8 @@ do
   with implicits handle
     (id (id ? ?) a)
 
-(* this does not work yet because we need to be careful
-   about the order of substituting the imps *)
-fail
+(* Here we need to be careful about order of resolution,
+   but it is taken care of by the handler. *)
+do
   with implicits handle
     resolve (id (id ? ?) a)
