@@ -68,6 +68,33 @@ let transitivity eq1 eq2 =
       end
   end
 
+
+let rec occurs_check imps a e =
+  match occurs a e with
+  | (Some _) as ?xi => xi
+  | None =>
+    (* it could still occur via imps *)
+    let rec fold ctx =
+      match ctx with
+      | [] => None
+      | ?b :: ?ctx =>
+        match assoc_find b imps with
+        | None => fold ctx
+        | Some ?r =>
+          match !r with
+          | None => fold ctx
+          | Some ?e' =>
+            match occurs_check imps a e' with
+            | None => fold ctx
+            | (Some _) as ?xi => xi
+            end
+          end
+        end
+      end
+    in
+    fold (context e)
+  end
+
 (* Check that two types are equal *)
 let rec equal_ty imps A B = equal_term imps A B
 
@@ -148,7 +175,40 @@ and equal_term_whnf imps e1 e2 =
   | (|- refl _, |- refl _) =>
     by_congruence ()
 
-  | (_, _) => None
+  | (?a, ?b) =>
+    match assoc_find a imps with
+    | Some ?r =>
+      match !r with
+      | None =>
+        match occurs_check imps a b with
+        | None => 
+          assume eq : a == b in
+            r := Some eq ;
+            Some eq
+        | Some _ => None
+        end
+      | Some _ =>
+        print "WEIRDNESS" ; None
+      end
+    | None => 
+      match assoc_find b imps with
+      | None => None
+      | Some ?r =>
+        match !r with
+        | None =>
+          match occurs_check imps b a with
+          | None => 
+            assume eq : b == a in
+              r := Some eq ;
+              Some (symmetry eq)
+          | Some _ => None
+          end
+        | Some _ =>
+          print "WEIRDNESS" ; None
+        end
+      end
+    end
+
   end
 
 and whnf_ty imps A = whnf_term imps A
