@@ -1,135 +1,65 @@
+#include_once "../std/new_equal.m31"
 
-let append l1 l2 = rev_append (rev l1) l2
+constant A : Type
+constant a : A
+constant f g h : A -> A
+constant g_def : g == (lambda x : A, f (f x))
+constant h_def : h == g
 
-(* We can isolate equations and 'actual' variables,
-   then choose an equation and run some unification algorithm on it.
-   That would either tell us we can't solve it or give us a (atom * term) list of instantiations.
-   Then we look at the next equation etc.
-   How does the equation choice matter?
-   How do we detect circularities?
-   
-   Example below:
-   -variables T : Type and x : T
-   -equations eqT = T |- A == T : Type and eqx = T, eqT, x |- P x == P a : Type
-   
-   If we choose eqT first, we get (T |- T; |- A) and (T?, eqT |- eqT; |- refl A)
-   Is T in the context of eqT or is it (eqT where T = A)? Does it matter?
-   Then we solve ((eqx where T = A) where eqT = refl A) : x : A |- P x == P a
-   This gives us instantiations (x |- x; |- a) and (x?, eqx |- eqx; |- refl a)
-   
-   We have solved every equation, so we return
-        v where T = A where eqT = refl A where x = a where eqx = refl a
-   ('where' left associative)
-   
-   Now if we choose eqx first
-   solve (eqx; T,eqT,x |- P x : Type; ?? |- P a : Type) ?? hopefully = ø
-   match as 2 applications, lhs is trivial so equate x and a
-   instantiation (T,eqT,x |- x : T; |- a : A)
-   if we try to use it, we either get an #equal (unhandled since outside the handler) or a fresh equation that we can't name.
-   So instead we need to make sure that it's (T,eqT,x |- x : T; T,eqT |- a : T) or (T,eqT,x |- x : A; |- a : A)
-   the former may be hard to get since it may be hard to figure out that we have T,eqT |- _ : A==T (ie without the x)
-   
-   OTOH more complicated problems will have variables on both sides. It may then be better to just give up on this choice order.
-   
-   
-   If we solve equations in the order of introduction, it's equivalent to solving them as they are introduced.
-   Since solving them as they are introduced lets us pass 'none to #equal for better errors when we can't solve, let's do that.
-*)
+let imps = [(g, ref (Some g_def)), (h, ref (Some h_def))]
 
-let add_fresh t s = match (t,s) with
-  | (None,(?inst, ?vars)) =>
-    assume T_ : Type in
-    assume x_ : T_ in
-    (x_, (inst, (x_ :: (T_ :: vars))))
-  | (Some ?t,(?inst, ?vars)) =>
-    assume x_ : t in
-    (x_, (inst, (x_ :: vars)))
-  end
+do whnf_term imps (h (g (h a)))
 
-(* usage : apply_insts v insts
-   IMPORTANT: insts must be in order of application *)
-let apply_insts v insts =
-  fold (fun v inst => match inst with
-    | (?x, ?vx) =>
-      v where x = vx
-    end) v (rev insts)
+(* Trying to solve an equation *)
+let id = lambda (A : Type) (x : A), x
 
-let rec mem x l =
-  match l with
-    | (x as ?y) :: _ => Some y
-    | _ :: ?l => mem x l
-    | [] => None
-  end
+do assume U : Type in
+     let imps = (U, ref None) :: imps in
+     handle
+       whnf_term imps (id U (id U a))
+     with
+       coerce (|- _ : ?B) ?C =>
+         match equal_ty imps B C with
+         | Some ?xi => yield (Convertible xi)
+         | None => yield NotCoercible
+         end
+     end
 
-(* return 'some s where s state such that its instantiations make A and B equal, else 'none *)
-let rec solve_eq s A B =
-  let instantiate s x v =
-    match (x, v) with
-      | ((|- _ : ?tx), (|- _ : ?tv)) =>
-        match solve_eq s tx tv with
-          | Some (?insts, ?vars) =>
-            let insts = ((apply_insts x insts), (apply_insts v insts)) :: insts in
-            Some (insts, vars)
-          | None => None
-        end
-    end
-  in
-  match s with (?insts, ?vars) =>
-    let A = apply_insts A insts in
-    let B = apply_insts B insts in
-    match (A, B) with
-      | (A, A) => Some s (* trivial case *)
-      | ((|- ?A1 ?A2), (|- ?B1 ?B2)) =>
-        match solve_eq s A1 B1 with
-          | Some ?s =>
-            solve_eq s A2 B2
-          | None => None
-        end
-      | _ => match mem A vars with
-        | Some ?A =>
-          instantiate s A B
-        | None => match mem B vars with
-          | Some ?B =>
-            instantiate s B A
-          | None => None
-          end
-        end
-    end
-  end
+(* Does it work with several levels of definitions? *)
 
-let finalize s =
-  match s with
-    | ((?insts, _), ?v) =>
-      apply_insts v insts
-  end
+constant T : Type -> Type
 
-operation implicit 0
+constant cow : forall A B : Type, A -> B -> Type
 
-let h = handler
-  | val ?x => fun s => (s, x)
-  | implicit : Some ?t =>
-    fun s => match add_fresh (Some t) s with
-      | (?x, ?s) => yield x s
-      end  
-  | implicit =>
-    fun s => match add_fresh None s with
-      | (?x, ?s) => yield x s
-      end
-  | equal ?A ?B =>
-    fun s =>
-    match solve_eq s A B with
-      | Some (?insts, ?vars) =>
-        assume eq : A == B in
-        let eqinst = ((apply_insts eq insts), (refl (apply_insts A insts))) in
-        let vars = eq :: vars in
-        let insts = eqinst :: insts in
-        yield (Some eq) (insts, vars)
-      | None => yield None s
-    end
-  | finally ?f => finalize (f ([], []))
-  end
 
-do with h handle
-  assume A : Type in assume P : A -> Type in assume f : forall (x : A) (y : P x), A in assume a : A in assume b : P a in
-  f implicit b
+fail
+   assume X : Type in
+   assume Y : Type in
+   assume Z : Type in
+   assume W : Type in
+   let imps = [(X, ref None), (Y, ref None), (Z, ref None), (W, ref None)] in
+   handle
+     let a = lambda y : Y, (y : T X) in
+     let b = lambda x : X, (x : T Y) in
+     cow Z W a b
+   with
+     coerce (|- _ : ?B) ?C =>
+       match equal_ty imps B C with
+       | Some ?xi => yield (Convertible xi)
+       | None => yield NotCoercible
+       end
+   end
 
+do
+  with implicits handle
+    resolve (id ? a)
+
+do
+  with implicits handle
+    (id (id ? ?) a)
+
+(* this does not work yet because we need to be careful
+   about the order of substituting the imps *)
+fail
+  with implicits handle
+    resolve (id (id ? ?) a)
