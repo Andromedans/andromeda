@@ -69,22 +69,12 @@ do
   assume x : ? in x
 
 
-(* XXX this looks like a bug, since it gives 
-
-   imp₀ : Type
-   s₁ : imp₀
-   imp₂ : Type
-   t₃ : imp₂
-   eq₄ : imp₂ ≡ imp₀
-   ⊢ s₁ ≡ t₃ : Type
-*)
 do
   with implicits handle
     assume s : ? in
     assume t : ? in
     s == t
 
-(* repeat the bug without implicits handler *)
 do
   assume X : Type in
   assume x : X in
