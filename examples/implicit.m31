@@ -90,3 +90,7 @@ do
    end
    
 
+do
+  with implicits handle
+    resolve (refl a : ?)
+

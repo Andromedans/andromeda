@@ -82,7 +82,7 @@ let rec occurs_check imps a e =
         | Some ?r ⇒
           match !r with
           | None ⇒ fold ctx
-          | Some ?e' ⇒
+          | Some (|- _ : _ == ?e') ⇒
             match occurs_check imps a e' with
             | None ⇒ fold ctx
             | (Some _) as ?xi ⇒ xi
@@ -196,7 +196,7 @@ and equal_term_whnf imps e1 e2 =
         match !r with
         | None ⇒
           match occurs_check imps b a with
-          | None ⇒ 
+          | None ⇒
             assume eq : b == a in
               r := Some eq ;
               Some (symmetry eq)
@@ -267,6 +267,72 @@ operation ? : judgement
 
 operation resolve : judgement → judgement
 
+let resolver imps e =
+  let rec fold eqs e hyps =
+    match hyps with
+    | [] ⇒ e
+    | ((⊢ _atom _) as ?a) :: ?hyps ⇒
+      match assoc_find a imps with
+      | Some ?r =>
+        match !r with
+        | None => fold eqs e hyps
+        | Some (⊢ ?eq : _ == ?e') ⇒
+          let e = (e where a = e') in
+          fold ((eq, refl e') :: eqs) e (context e)
+        end
+      | None ⇒ 
+        match assoc_find a eqs with
+        | None => fold eqs e hyps
+        | Some ?xi =>
+          let e = (e where a = xi) in
+          fold eqs e (context e)
+        end
+      end
+    end
+  in
+  fold [] e (context e)
+
+let unify_prod imps A =
+  match whnf_ty imps A with
+  |- ?eq : _ == ?B =>
+    match B with
+    | |- forall (_), _ => Some (eq, imps)
+    | _ =>
+      match assoc_find B imps with
+      | Some ?r => (* B is whnf so !r = None *)
+        assume dom : Type in
+        assume cod : Type in
+        assume xi : B == (dom -> cod) in
+        r := Some xi;
+        let imps = (dom, ref None) :: (cod, ref None) :: imps in
+        let zeta = transitivity eq xi in
+        Some (zeta, imps)
+      | None => None
+      end
+    end
+  end
+
+let unify_eq imps A =
+  match whnf_ty imps A with
+  |- ?eq : _ == ?B =>
+    match B with
+    | |- _ == _ => Some (eq, imps)
+    | _ =>
+      match assoc_find B imps with
+      | Some ?r => (* B is whnf so !r = None *)
+        assume T : Type in
+        assume lhs : T in
+        assume rhs : T in
+        assume xi : B == (lhs == rhs) in
+        r := Some xi;
+        let imps = (T, ref None) :: (lhs, ref None) :: (rhs, ref None) :: imps in
+        let zeta = transitivity eq xi in
+        Some (zeta, imps)
+      | None => None
+      end
+    end
+  end
+
 let implicits =
 handler
   | equal ?a ?b ⇒ fun imps ⇒
@@ -278,35 +344,31 @@ handler
     | None ⇒ yield NotCoercible imps
     end
 
+  | coerce_fun (|-_ : ?A) => fun imps =>
+    match unify_prod imps A with
+    | Some (?eq, ?imps) => yield (Convertible eq) imps
+    | None => yield NotCoercible imps
+    end
+
+  | as_prod ?A => fun imps =>
+    match unify_prod imps A with
+    | Some (?eq, ?imps) => yield (Some eq) imps
+    | None => yield None imps
+    end
+
+  | as_eq ?A => fun imps =>
+    match unify_eq imps A with
+    | Some (?eq, ?imps) => yield (Some eq) imps
+    | None => yield None imps
+    end
+
   | ? : Some ?A ⇒ fun imps ⇒
     assume imp : A in
       let imps = (imp, ref None) :: imps in
       yield imp imps
 
   | resolve ?e ⇒ fun imps ⇒
-    let rec fold eqs e hyps =
-      match hyps with
-      | [] ⇒ e
-      | ((⊢ _atom _) as ?a) :: ?hyps ⇒
-        match assoc_find a imps with
-        | Some ?r =>
-          match !r with
-          | None => fold eqs e hyps
-          | Some (⊢ ?eq : _ == ?e') ⇒
-            let e = (e where a = e') in
-            fold ((eq, refl e') :: eqs) e hyps
-          end
-        | None ⇒ 
-          match assoc_find a eqs with
-          | None => fold eqs e hyps
-          | Some ?xi =>
-            let e = (e where a = xi) in
-            fold eqs e hyps
-          end
-        end
-      end
-    in
-    yield (fold [] e (context e)) imps
+    yield (resolver imps e) imps
 
   | val ?v ⇒ fun imps ⇒ v
 
