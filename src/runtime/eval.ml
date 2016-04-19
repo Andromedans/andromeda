@@ -550,10 +550,10 @@ let toplet_bind ~loc ~quiet ~print_annot xcs =
   in
   fold [] xcs >>= fun () ->
   begin if not quiet then
-    List.iter
-      (fun (x, annot, _) ->
-       Format.printf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident x) (print_annot annot))
-      xcs
+    Format.printf "%t@." (Print.sequence
+      (fun (x, annot, _) ppf -> Format.fprintf ppf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident x) (print_annot annot))
+      ""
+      xcs)
   end;
   return ()
 
@@ -565,10 +565,10 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   in
   Runtime.add_topbound_rec gs >>= fun () ->
   begin if not quiet then
-    List.iter
-      (fun (f, _, annot, _) ->
-       Format.printf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident f) (print_annot annot))
-      fxcs
+    Format.printf "%t@." (Print.sequence
+      (fun (f, _, annot, _) ppf -> Format.fprintf ppf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident f) (print_annot annot))
+      ""
+      fxcs)
   end;
   return ()
 
@@ -590,18 +590,18 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
     | Syntax.DefMLType lst
     | Syntax.DefMLTypeRec lst ->
-      (if not quiet then Format.printf "ML type%s %t declared.@." (match lst with [_] -> "" | _ -> "s") (Print.sequence (fun (t,_) -> Name.print_ident t) " " lst));
+      (if not quiet then Format.printf "ML type%s %t declared.@.@." (match lst with [_] -> "" | _ -> "s") (Print.sequence (fun (t,_) -> Name.print_ident t) " " lst));
       return ()
 
     | Syntax.DeclOperation (x, k) ->
-       if not quiet then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
+       if not quiet then Format.printf "Operation %t is declared.@.@." (Name.print_ident x) ;
        return ()
 
     | Syntax.DeclConstants (xs, c) ->
       Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun t ->
       let t = Jdg.is_closed_ty ~loc t in
       let rec fold = function
-        | [] -> return ()
+        | [] -> (if not quiet then Format.printf "@."); return ()
         | x :: xs ->
           Runtime.add_constant ~loc x t >>= fun () ->
           (if not quiet then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
@@ -634,7 +634,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        comp_value c >>= fun v ->
        Runtime.top_lookup_penv >>= fun penv ->
        (begin if not quiet then
-            Format.printf "%t@." (Runtime.print_value ~penv v)
+            Format.printf "%t@.@." (Runtime.print_value ~penv v)
         end;
         return ())
 
@@ -643,14 +643,14 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+         (if not quiet then Format.printf "The command failed with error:@.%t:@ %t@.@."
                                           (Location.print loc)
                                           (Runtime.print_error ~penv err));
          return ()
 
        | Runtime.CaughtJdg {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+         (if not quiet then Format.printf "The command failed with error:@.%t:@ %t@.@."
                                           (Location.print loc)
                                           (Jdg.print_error ~penv err));
          return ()

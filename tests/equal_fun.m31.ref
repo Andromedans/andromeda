@@ -1,7 +1,12 @@
 Constant A is declared.
+
 Constant B is declared.
+
 Constant f is declared.
+
 val foo : judgment
+
 ⊢ refl (λ (x : A) (y : B x), f x (f x y))
   : (λ (x : A) (y : B x), f x (f x y)) ≡
     (λ (g : Π (x : A), B x → B x) (x : A) (y : B x), g x (g x y)) f
+

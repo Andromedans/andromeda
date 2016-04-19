@@ -1,6 +1,12 @@
 val T : judgment
+
 val P : judgment
+
 Constant A is declared.
+
 Constant B is declared.
+
 ⊢ B : A → Type
+
 ⊢ B : A → Type
+

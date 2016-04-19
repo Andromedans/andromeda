@@ -1,9 +1,14 @@
 Constant A is declared.
+
 Constant B is declared.
+
 Constant P is declared.
+
 Constant Q is declared.
+
 b₀ : B
 e₁ : B ≡ A
 x₂ : P b₀
 f₃ : Q b₀ x₂ → A
 ⊢ f₃ : Q b₀ x₂ → A
+

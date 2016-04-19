@@ -1,4 +1,8 @@
 Constant contractible is declared.
+
 Constant centre is declared.
+
 Constant contractible_eta is declared.
+
 ⊢ λ (_ : contractible), refl centre : Π (x : contractible), x ≡ centre
+
