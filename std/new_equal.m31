@@ -267,7 +267,7 @@ operation ? : judgement
 
 operation resolve : judgement → judgement
 
-let resolver imps e =
+let rec resolver imps e =
   let rec fold eqs e hyps =
     match hyps with
     | [] ⇒ e
@@ -277,15 +277,16 @@ let resolver imps e =
         match !r with
         | None => fold eqs e hyps
         | Some (⊢ ?eq : _ == ?e') ⇒
+          let e' = resolver imps e' in
           let e = (e where a = e') in
-          fold ((eq, refl e') :: eqs) e (context e)
+          fold ((eq, refl e') :: eqs) e hyps
         end
       | None ⇒ 
         match assoc_find a eqs with
         | None => fold eqs e hyps
         | Some ?xi =>
           let e = (e where a = xi) in
-          fold eqs e (context e)
+          fold eqs e hyps
         end
       end
     end
