@@ -79,7 +79,7 @@ let rec occurs_check imps a e =
       | ?b :: ?ctx ⇒
         match assoc_find b imps with
         | None ⇒ fold ctx
-        | Some ?r ⇒
+        | Some (_, _, ?r) ⇒
           match !r with
           | None ⇒ fold ctx
           | Some (|- _ : _ == ?e') ⇒
@@ -93,6 +93,9 @@ let rec occurs_check imps a e =
     in
     fold (context e)
   end
+
+(* Helper functions for imps *)
+let mk_imp imp = (imp, ([], imp, ref None))
 
 (* Check that two types are equal *)
 let rec equal_ty imps A B = equal_term imps A B
@@ -147,7 +150,7 @@ and equal_term_whnf imps e1 e2 =
     handle
       congruence e1 e2
     with
-      equal ?A ?B ⇒ yield (equal_ty imps A B)
+      equal ?a ?b ⇒ yield (equal_term imps a b)
     end
   in  
   match (e1, e2) with
@@ -160,6 +163,12 @@ and equal_term_whnf imps e1 e2 =
   | (⊢ lambda (_), _, ⊢ lambda (_), _) ⇒
     by_congruence ()
 
+  | (⊢ _ == _, ⊢ _ == _) ⇒
+    by_congruence ()
+
+  | (⊢ refl _, ⊢ refl _) ⇒
+    by_congruence ()
+
   | (⊢ ?h1 _, ⊢ ?h2 _) ⇒
     handle
       congruence e1 e2
@@ -168,15 +177,9 @@ and equal_term_whnf imps e1 e2 =
     | equal ?x ?y ⇒ yield (equal_term imps x y)
     end
 
-  | (⊢ _ == _, ⊢ _ == _) ⇒
-    by_congruence ()
-
-  | (⊢ refl _, ⊢ refl _) ⇒
-    by_congruence ()
-
   | (?a, ?b) ⇒
     match assoc_find a imps with
-    | Some ?r ⇒
+    | Some (_, _, ?r) ⇒
       match !r with
       | None ⇒
         match occurs_check imps a b with
@@ -192,7 +195,7 @@ and equal_term_whnf imps e1 e2 =
     | None ⇒ 
       match assoc_find b imps with
       | None ⇒ None
-      | Some ?r ⇒
+      | Some (_, _, ?r) ⇒
         match !r with
         | None ⇒
           match occurs_check imps b a with
@@ -252,7 +255,7 @@ and whnf_term imps e =
   | ⊢ _ ⇒
     match assoc_find e imps with
     | None ⇒ refl e
-    | Some ?r ⇒
+    | Some (_, _, ?r) ⇒
       match !r with
       | None ⇒ refl e
       | Some (⊢ ?xi : _ == ?e') ⇒
@@ -261,6 +264,20 @@ and whnf_term imps e =
       end
     end
 
+  end
+
+let rec prodify xs t =
+  match xs with
+    | [] => t
+    | (|- ?x : ?u) :: ?xs =>
+        let t' = forall (y : u), (t where x = y) in
+        prodify xs t'
+  end
+
+let rec spine head es =
+  match es with
+    | [] => head
+    | ?e :: ?es => spine (head e) es
   end
 
 operation ? : judgement
@@ -273,7 +290,7 @@ let rec resolver imps e =
     | [] ⇒ e
     | ((⊢ _atom _) as ?a) :: ?hyps ⇒
       match assoc_find a imps with
-      | Some ?r =>
+      | Some (_, _, ?r) =>
         match !r with
         | None => fold eqs e hyps
         | Some (⊢ ?eq : _ == ?e') ⇒
@@ -300,12 +317,12 @@ let unify_prod imps A =
     | |- forall (_), _ => Some (eq, imps)
     | _ =>
       match assoc_find B imps with
-      | Some ?r => (* B is whnf so !r = None *)
+      | Some (_, _, ?r) => (* B is whnf so !r = None *)
         assume dom : Type in
         assume cod : Type in
         assume xi : B == (dom -> cod) in
         r := Some xi;
-        let imps = (dom, ref None) :: (cod, ref None) :: imps in
+        let imps = mk_imp dom :: mk_imp cod :: imps in
         let zeta = transitivity eq xi in
         Some (zeta, imps)
       | None => None
@@ -320,13 +337,13 @@ let unify_eq imps A =
     | |- _ == _ => Some (eq, imps)
     | _ =>
       match assoc_find B imps with
-      | Some ?r => (* B is whnf so !r = None *)
+      | Some (_, _, ?r) => (* B is whnf so !r = None *)
         assume T : Type in
         assume lhs : T in
         assume rhs : T in
         assume xi : B == (lhs == rhs) in
         r := Some xi;
-        let imps = (T, ref None) :: (lhs, ref None) :: (rhs, ref None) :: imps in
+        let imps = mk_imp T :: mk_imp lhs :: mk_imp rhs :: imps in
         let zeta = transitivity eq xi in
         Some (zeta, imps)
       | None => None
@@ -363,10 +380,14 @@ handler
     | None => yield None imps
     end
 
-  | ? : Some ?A ⇒ fun imps ⇒
-    assume imp : A in
-      let imps = (imp, ref None) :: imps in
-      yield imp imps
+  | ? : Some ?A ⇒ 
+    let xs = hypotheses in
+    let A' = prodify xs A in
+    assume imp : A' in
+    fun imps ⇒
+      let s = spine imp (rev xs) in
+      let imps = (imp, (xs, s, ref None)) :: imps in
+      yield s imps
 
   | resolve ?e ⇒ fun imps ⇒
     yield (resolver imps e) imps

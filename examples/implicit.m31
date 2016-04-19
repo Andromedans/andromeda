@@ -6,7 +6,7 @@ constant f g h : A -> A
 constant g_def : g == (lambda x : A, f (f x))
 constant h_def : h == g
 
-let imps = [(g, ref (Some g_def)), (h, ref (Some h_def))]
+let imps = [(g, ([], g, ref (Some g_def))), (h, ([], h, ref (Some h_def)))]
 
 do whnf_term imps (h (g (h a)))
 
@@ -14,7 +14,7 @@ do whnf_term imps (h (g (h a)))
 let id = lambda (A : Type) (x : A), x
 
 do assume U : Type in
-     let imps = (U, ref None) :: imps in
+     let imps = mk_imp U :: imps in
      handle
        whnf_term imps (id U (id U a))
      with
@@ -37,7 +37,7 @@ fail
    assume Y : Type in
    assume Z : Type in
    assume W : Type in
-   let imps = [(X, ref None), (Y, ref None), (Z, ref None), (W, ref None)] in
+   let imps = list_map mk_imp [X,Y,Z,W] in
    handle
      let a = lambda y : Y, (y : T X) in
      let b = lambda x : X, (x : T Y) in
@@ -73,12 +73,13 @@ do
   with implicits handle
     assume s : ? in
     assume t : ? in
-    s == t
+    let _ = s == t in
+    (s, resolve t)
 
 do
   assume X : Type in
   assume x : X in
-  let imps = [(X, ref None)] in
+  let imps = [mk_imp X] in
   handle
     x == x
    with
@@ -94,3 +95,11 @@ do
   with implicits handle
     resolve (refl a : ?)
 
+fail
+  with implicits handle
+    λ (B : Type) (b : B), id ? b
+
+fail
+  with implicits handle
+  assume f : ∏ (x : A), (∏ (y : A), x ≡ y) → A in
+    f ? (λ y, refl y)
