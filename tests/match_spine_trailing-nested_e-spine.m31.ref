@@ -1,24 +1,34 @@
 Constant unit is declared.
+
 Constant top is declared.
+
 Constant unit_rect is declared.
+
 Constant unit_iota_top is declared.
+
 val it : judgment
+
 ⊢ refl top
   : (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
     top top ≡ top
+
 ⊢ refl top
   : top ≡
     (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
     top top
+
 ⊢ refl top
   : top ≡
     (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
     top top
+
 ⊢ refl top
   : top ≡
     (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
     top top
+
 ⊢ refl top
   : top ≡
     (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit
     top top
+

@@ -1,17 +1,31 @@
 Constant Bool is declared.
+
 Constant Nat is declared.
+
 Constant true is declared.
+
 Constant false is declared.
+
 Constant zero is declared.
+
 Constant succ is declared.
+
 Constant plus is declared.
+
 Constant iszero is declared.
+
 Constant eq1 is declared.
+
 Constant eq2 is declared.
+
 val f : judgment
+
 ⊢ λ (n : Nat), iszero (succ n) : Nat → Bool
+
 ⊢ λ (n : Nat), iszero (succ n) : Nat → Nat
+
 The command failed with error:
 File "./tricky_spine.m31", line 30, characters 6-6: got type ⊢ Nat → Bool
 type but expected type ⊢ Nat → Nat
 type
+

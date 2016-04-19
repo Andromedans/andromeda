@@ -1,4 +1,8 @@
 ML type fruit declared.
+
 val x : ref (list ?α)
+
 ()
+
 ref<0>
+

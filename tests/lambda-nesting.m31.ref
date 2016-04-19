@@ -1,5 +1,8 @@
 val f : judgment
+
 val g : judgment
+
 ⊢ refl (λ (T : Type) (U : Type) (x : T) (_ : U), x)
   : (λ (T : Type) (U : Type) (x : T) (_ : U), x) ≡
     (λ (T : Type) (U : Type) (x : T) (_ : U), x)
+

@@ -1,14 +1,25 @@
 Constant A is declared.
 Constant B is declared.
 Constant C is declared.
+
 Constant a is declared.
+
 Constant f is declared.
+
 Constant g is declared.
+
 ⊢ g (f a) : C
+
 e₀ : A ≡ B
 ⊢ g a : C
+
 Constant D is declared.
+
 Constant stewart is declared.
+
 Constant dana is declared.
+
 Constant scott is declared.
+
 ⊢ dana (dana (dana stewart stewart) stewart) (scott (dana stewart)) : D
+

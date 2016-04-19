@@ -1,85 +1,138 @@
 ML type dummy declared.
+
 ML type color declared.
+
 Operation unary_op is declared.
+
 Operation nonary_op is declared.
+
 Constant A is declared.
+
 Constant a is declared.
 Constant b is declared.
+
 Constant ( + ) is declared.
 Constant ( * ) is declared.
 Constant ( ^ ) is declared.
 Constant ( - ) is declared.
 Constant ( <= ) is declared.
+
 ⊢ λ (x : A) (y : A) (z : A) (w : A), x + y * z ^ x ^ y - (z ^ x) ^ y <= w
   : A → A → A → A → A
+
 t₀ : Type
 x₁ : t₀
 ⊢ x₁ : t₀
+
 val x0 : dummy
+
 dummy
+
 The command failed with error:
 File "./everything.m31", line 74, characters 6-9: expected a product but got
 ⊢ Type
 type
+
 ⊢ refl Type : Type ≡ Type
+
 The command failed with error:
 File "./everything.m31", line 88, characters 6-18: cannot infer the type of
 T
+
 ⊢ λ (T : Type) (x : T), x : Π (A0 : Type), A0 → A0
+
 ⊢ λ (x : A), x : A → A
+
 The command failed with error:
 File "./everything.m31", line 96, characters 13-25: cannot infer the type of
 x
+
 val f : ∀ α, α → mlstring * (mlstring * α)
+
 val g : ∀ β, β → mlstring * β
+
 ("f", ("g",
 "foo"))
+
 ((),
 ())
 ()
+
 Operation get is declared.
+
 Operation set is declared.
+
 val state_h : ∀ α, judgment → α ⇒ α
+
 ⊢ b : A
+
 ⊢ Type : Type
+
 None
+
 Some
 "foo"
+
 "a string\nspecial characters aren't"
+
 ["foo", "bar", "baz"]
+
 []
+
 (⊢ a : A, ⊢ b : A,
 ⊢ A : Type)
+
 val register : ref judgment
+
 ()
+
 ⊢ b : A
+
 ⊢ A : Type
+
 x₀ : A
 ⊢ x₀ : A
+
 "this will happen"
 ()
+
 val alpha_equal : ∀ α, α → α → mlunit
+
 val Tvar : judgment
+
 val yvar : ref judgment
+
 val dependent : judgment
+
 Some
 (⊢ Type : Type)
+
 None
+
 [T₀ : Type
  ⊢ T₀ : Type, T₀ : Type
                   x₁ : T₀
                   ⊢ x₁ : T₀]
+
 Operation emit is declared.
+
 [x₀ : A
  ⊢ x₀ : A]
+
 Constant eq is declared.
+
 ⊢ refl a : a ≡ a
+
 ⊢ refl a : a ≡ b
+
 Some
 (⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ a)
+
 Some
 (⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ (λ (x : A), x) b)
+
 ⊢ λ (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (_ : x ≡ y), refl p
   : Π (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (q : x ≡ y), p ≡ q
+
 #including ./../std/hippy.m31
 #processed ./../std/hippy.m31

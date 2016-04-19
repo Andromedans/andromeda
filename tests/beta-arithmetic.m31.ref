@@ -1,20 +1,38 @@
 Constant N is declared.
+
 Constant Z is declared.
+
 Constant S is declared.
+
 Constant plus is declared.
+
 Constant plus_Z is declared.
+
 Constant plus_S is declared.
+
 Constant times is declared.
+
 Constant times_Z is declared.
+
 Constant times_S is declared.
+
 val one : judgment
+
 val two : judgment
+
 val three : judgment
+
 val four : judgment
+
 val five : judgment
+
 val ten : judgment
+
 ⊢ refl (plus (S (S (S (S (S Z))))) (S (S (S (S Z)))))
   : plus (S (S (S (S Z)))) (S (S (S (S (S Z))))) ≡ plus (plus (S (S Z)) (S
     (S (S Z)))) (S (S (S (S Z))))
+
 ⊢ refl (S (S (S Z))) : S (S (S Z)) ≡ plus (S Z) (plus (S Z) (S Z))
+
 ⊢ refl (S (S (S (S Z)))) : S (S (S (S Z))) ≡ times (S (S Z)) (S (S Z))
+
