@@ -94,6 +94,34 @@ let rec occurs_check imps a e =
     fold (context e)
   end
 
+let rec prodify xs t =
+  match xs with
+    | [] => t
+    | (|- ?x : ?u) :: ?xs =>
+      let t = prodify xs t in
+      forall (y : u), t where x = y
+  end
+
+let rec spine head es =
+  match es with
+    | [] => head
+    | ?e :: ?es => spine (head e) es
+  end
+
+let rec lambdafy xs e =
+  match xs with
+  | [] => e
+  | (|- ?x : ?t) :: ?xs =>
+    let e = lambdafy xs e in
+    lambda (y : t), e where x = y
+  end
+
+let rec spine_head e =
+  match e with
+  | |- ?e1 _ => spine_head e1
+  | |- _ => e
+  end
+
 (* Helper functions for imps *)
 let mk_imp imp = (imp, ([], imp, ref None))
 
@@ -153,64 +181,70 @@ and equal_term_whnf imps e1 e2 =
       equal ?a ?b ⇒ yield (equal_term imps a b)
     end
   in  
-  match (e1, e2) with
+  let eq_by_congruence =
+    match (e1, e2) with
 
-  | (?e, ?e) ⇒ Some (refl e1)
+    | (?e, ?e) ⇒ Some (refl e1)
 
-  | (⊢ forall (_), _, ⊢ forall (_), _) ⇒
-    by_congruence ()
+    | (⊢ forall (_), _, ⊢ forall (_), _) ⇒
+      by_congruence ()
 
-  | (⊢ lambda (_), _, ⊢ lambda (_), _) ⇒
-    by_congruence ()
+    | (⊢ lambda (_), _, ⊢ lambda (_), _) ⇒
+      by_congruence ()
 
-  | (⊢ _ == _, ⊢ _ == _) ⇒
-    by_congruence ()
+    | (⊢ _ == _, ⊢ _ == _) ⇒
+      by_congruence ()
 
-  | (⊢ refl _, ⊢ refl _) ⇒
-    by_congruence ()
+    | (⊢ refl _, ⊢ refl _) ⇒
+      by_congruence ()
 
-  | (⊢ ?h1 _, ⊢ ?h2 _) ⇒
-    handle
-      congruence e1 e2
-    with
-    | equal h1 h2 ⇒ yield (equal_term_whnf imps h1 h2)
-    | equal ?x ?y ⇒ yield (equal_term imps x y)
-    end
-
-  | (?a, ?b) ⇒
-    match assoc_find a imps with
-    | Some (_, _, ?r) ⇒
-      match !r with
-      | None ⇒
-        match occurs_check imps a b with
-        | None ⇒ 
-          assume eq : a == b in
-            r := Some eq ;
-            Some eq
-        | Some _ ⇒ None
-        end
-      | Some _ ⇒
-        print "WEIRDNESS" ; None
+    | (⊢ ?h1 _, ⊢ ?h2 _) ⇒
+      handle
+        congruence e1 e2
+      with
+      | equal h1 h2 ⇒ yield (equal_term_whnf imps h1 h2)
+      | equal ?x ?y ⇒ yield (equal_term imps x y)
       end
-    | None ⇒ 
-      match assoc_find b imps with
-      | None ⇒ None
-      | Some (_, _, ?r) ⇒
-        match !r with
-        | None ⇒
-          match occurs_check imps b a with
-          | None ⇒
-            assume eq : b == a in
-              r := Some eq ;
-              Some (symmetry eq)
-          | Some _ ⇒ None
-          end
-        | Some _ ⇒
-          print "WEIRDNESS" ; None
-        end
+
+    | (_, _) ⇒ None
+    end
+  in
+  match eq_by_congruence with
+  | Some _ => eq_by_congruence
+  | None =>
+    (* Here we try to make one side equal to another by
+       instantiating an imp *)
+    match instantiate imps e1 e2 with
+    | (Some _) as ?xi => xi
+    | None =>
+      match instantiate imps e2 e1 with
+      | None => None
+      | Some ?xi => Some (symmetry xi)
       end
     end
+  end
 
+(* Try to make a equal to b by instantiating an imp in a.
+   This will work if a is an imp applied to suitable atoms. *)
+and instantiate imps a b =
+  let imp = spine_head a in
+  match assoc_find imp imps with
+  | None => None
+  | Some (?xs, ?s, ?r) =>
+    match a with
+    | s => 
+      (* TODO check that the context of b satisfies:
+         if any current hypothesis x appears in context of b then it also appears in xs *)
+      let e = lambdafy xs b in
+      match occurs_check imps imp e with
+      | None =>
+        assume xi : imp == e in
+          r := Some xi ;
+          equal_term imps a b
+      | Some _ => None
+      end
+    | _ => None
+    end
   end
 
 and whnf_ty imps A = whnf_term imps A
@@ -264,20 +298,6 @@ and whnf_term imps e =
       end
     end
 
-  end
-
-let rec prodify xs t =
-  match xs with
-    | [] => t
-    | (|- ?x : ?u) :: ?xs =>
-        let t' = forall (y : u), (t where x = y) in
-        prodify xs t'
-  end
-
-let rec spine head es =
-  match es with
-    | [] => head
-    | ?e :: ?es => spine (head e) es
   end
 
 operation ? : judgement
@@ -381,11 +401,11 @@ handler
     end
 
   | ? : Some ?A ⇒ 
-    let xs = hypotheses in
+    let xs = rev hypotheses in
     let A' = prodify xs A in
     assume imp : A' in
     fun imps ⇒
-      let s = spine imp (rev xs) in
+      let s = spine imp xs in
       let imps = (imp, (xs, s, ref None)) :: imps in
       yield s imps
 

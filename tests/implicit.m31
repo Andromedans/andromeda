@@ -13,42 +13,9 @@ do whnf_term imps (h (g (h a)))
 (* Trying to solve an equation *)
 let id = lambda (A : Type) (x : A), x
 
-do assume U : Type in
-     let imps = mk_imp U :: imps in
-     handle
-       whnf_term imps (id U (id U a))
-     with
-       coerce (|- _ : ?B) ?C =>
-         match equal_ty imps B C with
-         | Some ?xi => yield (Convertible xi)
-         | None => yield NotCoercible
-         end
-     end
-
-(* Does it work with several levels of definitions? *)
-
-constant T : Type -> Type
-
-constant cow : forall A B : Type, A -> B -> Type
-
-
-fail
-   assume X : Type in
-   assume Y : Type in
-   assume Z : Type in
-   assume W : Type in
-   let imps = list_map mk_imp [X,Y,Z,W] in
-   handle
-     let a = lambda y : Y, (y : T X) in
-     let b = lambda x : X, (x : T Y) in
-     cow Z W a b
-   with
-     coerce (|- _ : ?B) ?C =>
-       match equal_ty imps B C with
-       | Some ?xi => yield (Convertible xi)
-       | None => yield NotCoercible
-       end
-   end
+do
+  with implicits handle
+   id ? a
 
 do
   with implicits handle
@@ -95,11 +62,28 @@ do
   with implicits handle
     resolve (refl a : ?)
 
-fail
+do
   with implicits handle
-    λ (B : Type) (b : B), id ? b
+    resolve (λ (B : Type) (b : B), id ? b)
 
 fail
   with implicits handle
   assume f : ∏ (x : A), (∏ (y : A), x ≡ y) → A in
     f ? (λ y, refl y)
+
+do
+  with implicits handle
+    let f = id ? in
+    resolve (lambda (x : A), f x)
+
+fail
+  with implicits handle
+    let f = id ? in
+    resolve (lambda (B : Type) (x : B), f x)
+
+do
+  with implicits handle
+    let f = fun y => id ? y in
+    resolve (lambda (B : Type) (x : f B), f (f x))
+
+
