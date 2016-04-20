@@ -54,7 +54,6 @@
 %token CONGRUENCE
 %token REDUCTION
 %token EXTENSIONALITY
-%token HYPOTHESES
 %token NATURAL
 
 %token EXTERNAL
@@ -204,7 +203,6 @@ plain_simple_term:
   | LPAREN lst=separated_list(COMMA, term) RPAREN       { match lst with
                                                           | [e] -> fst e
                                                           | _ -> Tuple lst }
-  | HYPOTHESES                                          { Hypotheses }
 
 var_name:
   | NAME { $1 }

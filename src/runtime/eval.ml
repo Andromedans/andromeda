@@ -180,8 +180,8 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Lambda (x, Some u, c) ->
     check_ty u >>= fun ju ->
     Runtime.add_free ~loc:(u.Location.loc) x ju (fun jy ->
-    let vy = Runtime.mk_term (Jdg.atom_term ~loc:(u.Location.loc) jy) in
-    Runtime.add_abstracting vy
+    let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
+    Predefined.add_abstracting vy
     (infer c >>= as_term ~loc:(c.Location.loc) >>= fun je ->
     jdg_form ~loc (Jdg.Lambda (jy, je)) >>=
     Runtime.return_term))
@@ -201,8 +201,8 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Prod (x,u,c) ->
     check_ty u >>= fun ju ->
     Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
-    let vy = Runtime.mk_term (Jdg.atom_term ~loc:(u.Location.loc) jy) in
-    Runtime.add_abstracting vy
+    let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
+    Predefined.add_abstracting vy
     (check_ty c >>= fun jt ->
     jdg_form ~loc (Jdg.Prod (jy, jt)) >>=
     Runtime.return_term))
@@ -222,11 +222,6 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Yield c ->
     infer c >>= fun v ->
     Runtime.continue ~loc v
-
-  | Syntax.Hypotheses ->
-     Runtime.lookup_abstracting >>= fun lst ->
-     let v = Predefined.mk_list lst in
-     Runtime.return v
 
   | Syntax.Congruence (c1,c2) ->
     infer c1 >>= as_term ~loc >>= fun j1 ->
@@ -309,7 +304,6 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Eq _
   | Syntax.Apply _
   | Syntax.Yield _
-  | Syntax.Hypotheses
   | Syntax.Congruence _
   | Syntax.Extensionality _
   | Syntax.Reduction _
@@ -411,7 +405,7 @@ and check_lambda ~loc t_check x u c =
           Runtime.return (ju, equ)
       end >>= fun (ju, equ) -> (* equ : ju == typeof a *)
       Runtime.add_free ~loc x ju (fun jy ->
-      Runtime.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc jy))
+      Predefined.add_abstracting (Jdg.atom_term ~loc jy)
       (let b = Jdg.substitute_ty ~loc b a (Jdg.convert ~loc (Jdg.atom_term ~loc jy) equ) in
       check c b >>= fun e ->
       jdg_form ~loc (Jdg.Lambda (jy, e)) >>= fun lam ->

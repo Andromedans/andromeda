@@ -68,6 +68,8 @@ module Predefined = struct
   let coerce = make "coerce"
 
   let coerce_fun = make "coerce_fun"
+
+  let hypotheses = make "hypotheses"
 end
 
 let fresh =
@@ -142,6 +144,8 @@ let index_of_ident x ys =
     | y :: ys -> if eq_ident x y then Some k else fold (k + 1) ys
   in
   fold 0 ys
+
+let level_of_ident x ys = index_of_ident x (List.rev ys)
 
 let rec assoc_ident x = function
   | [] -> None

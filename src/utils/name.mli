@@ -65,6 +65,9 @@ module Predefined : sig
 
   (** The name of the [coerce_fun] operation *)
   val coerce_fun : operation
+
+  (** The name of the [hypotheses] dynamic variable *)
+  val hypotheses : ident
 end
 
 (** Convert an index to a greek letter, possibly with subscript. This is used
@@ -123,6 +126,9 @@ val index_of_atom : atom -> atom list -> int option
 
 (** [index_of_ident x xs] finds the index of [x] in list [xs] if it's there. *)
 val index_of_ident : ident -> ident list -> int option
+
+(** [index_of_ident x xs] finds the level of [x] in list [xs] if it's there. *)
+val level_of_ident : ident -> ident list -> int option
 
 (** Like List.assoc, but using [eq_ident] and without exceptions. *)
 val assoc_ident : ident -> (ident * 'a) list -> 'a option

@@ -78,7 +78,6 @@ and term' =
   | Eq of comp * comp
   | Refl of comp
   | Yield of comp
-  | Hypotheses
   | Congruence of comp * comp
   | Extensionality of comp * comp
   | Reduction of comp

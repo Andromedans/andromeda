@@ -77,7 +77,6 @@ and 'annot comp' =
   | Eq of 'annot comp * 'annot comp
   | Refl of 'annot comp
   | Yield of 'annot comp
-  | Hypotheses
   | Congruence of 'annot comp * 'annot comp
   | Extensionality of 'annot comp * 'annot comp
   | Reduction of 'annot comp

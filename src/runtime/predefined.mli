@@ -23,3 +23,5 @@ val mk_list : Runtime.value list -> Runtime.value
 val from_option : Runtime.value option -> Runtime.value
 val as_option : loc:Location.t -> Runtime.value -> Runtime.value option
 
+val add_abstracting : Jdg.term -> 'a Runtime.comp -> 'a Runtime.comp
+

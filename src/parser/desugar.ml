@@ -550,9 +550,6 @@ let rec comp ~yield bound (c',loc) =
      else
       error ~loc UnboundYield
 
-  | Input.Hypotheses ->
-     locate Syntax.Hypotheses loc
-
   | Input.Function (xs, c) ->
      let rec fold bound = function
        | [] -> comp ~yield bound c
