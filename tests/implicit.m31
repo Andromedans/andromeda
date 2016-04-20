@@ -44,21 +44,6 @@ do
     (s, resolve t)
 
 do
-  assume X : Type in
-  assume x : X in
-  let imps = [mk_imp X] in
-  handle
-    x == x
-   with
-     coerce (|- _ : ?B) ?C =>
-       match equal_ty imps B C with
-       | Some ?xi => yield (Convertible xi)
-       | None => yield NotCoercible
-       end
-   end
-   
-
-do
   with implicits handle
     resolve (refl a : ?)
 
@@ -86,4 +71,10 @@ do
     let f = fun y => id ? y in
     resolve (lambda (B : Type) (x : f B), f (f x))
 
+do
+  with implicits handle
+  resolve (lambda (x : A), (refl x : ?))
 
+do
+  with implicits handle
+  resolve ((lambda (f : A -> A), f (f a)) : ?)

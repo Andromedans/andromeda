@@ -46,10 +46,6 @@ imp₀ : Type
 t₂ : imp₀
 ⊢ t₂ : imp₀)
 
-X₀ : Type
-x₁ : X₀
-⊢ x₁ ≡ x₁ : Type
-
 ⊢ refl a : a ≡ a
 
 ⊢ λ (B : Type) (b : B), (λ (A0 : Type) (x : A0), x)
@@ -57,14 +53,14 @@ x₁ : X₀
   : Π (B : Type) (b : B), (λ (y : Type) (_ : y), y) B b
 
 The command failed with error:
-File "./implicit.m31", line 72, characters 9-21: cannot abstract y₀ because
+File "./implicit.m31", line 57, characters 9-21: cannot abstract y₀ because
 xi₁
 depends on it
 
 ⊢ λ (x : A), (λ (A0 : Type) (x0 : A0), x0) A x : A → A
 
 The command failed with error:
-File "./implicit.m31", line 82, characters 13-44: cannot abstract B₀
+File "./implicit.m31", line 67, characters 13-44: cannot abstract B₀
 because xi₁
 depends on it
 
@@ -79,4 +75,9 @@ depends on it
         B),
         (λ (y : Type) (_ : (λ (A0 : Type) (x0 : A0), x0)
              ((λ (_ : Type), Type) y) y), y) B x
+
+⊢ λ (x : A), refl x
+  : Π (x : A), (λ (y : A), (λ (y0 : A), y0) y ≡ (λ (y0 : A), y0) y) x
+
+⊢ λ (f0 : A → A), f0 (f0 a) : (A → A) → A
 

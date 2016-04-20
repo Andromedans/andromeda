@@ -123,7 +123,10 @@ let rec spine_head e =
   end
 
 (* Helper functions for imps *)
-let mk_imp imp = (imp, ([], imp, ref None))
+let mk_imp xs T =
+  let T = prodify xs T in
+  assume imp : T in
+  (imp, (xs, spine imp xs, ref None))
 
 (* Check that two types are equal *)
 let rec equal_ty imps A B = equal_term imps A B
@@ -336,15 +339,25 @@ let unify_prod imps A =
     match B with
     | |- forall (_), _ => Some (eq, imps)
     | _ =>
-      match assoc_find B imps with
-      | Some (_, _, ?r) => (* B is whnf so !r = None *)
-        assume dom : Type in
-        assume cod : Type in
-        assume xi : B == (dom -> cod) in
-        r := Some xi;
-        let imps = mk_imp dom :: mk_imp cod :: imps in
-        let zeta = transitivity eq xi in
-        Some (zeta, imps)
+      let imp = spine_head B in
+      match assoc_find imp imps with
+      | Some (?xs, ?s, ?r) =>
+        match B with
+        | s => 
+          match mk_imp xs Type with
+          | (_, (_, ?spineD, _)) as ?impD =>
+            match mk_imp xs Type with
+            | (_, (_, ?spineC, _)) as ?impC =>
+              let C = lambdafy xs (spineD -> spineC) in
+              assume xi : (imp == C) in
+              r := Some xi;
+              let imps = impD :: impC :: imps in
+              let zeta = transitivity eq (whnf_ty imps B) in
+              Some (zeta, imps)
+            end
+          end
+        | _ => None
+        end
       | None => None
       end
     end
@@ -356,16 +369,25 @@ let unify_eq imps A =
     match B with
     | |- _ == _ => Some (eq, imps)
     | _ =>
-      match assoc_find B imps with
-      | Some (_, _, ?r) => (* B is whnf so !r = None *)
-        assume T : Type in
-        assume lhs : T in
-        assume rhs : T in
-        assume xi : B == (lhs == rhs) in
-        r := Some xi;
-        let imps = mk_imp T :: mk_imp lhs :: mk_imp rhs :: imps in
-        let zeta = transitivity eq xi in
-        Some (zeta, imps)
+      let imp = spine_head B in
+      match assoc_find imp imps with
+      | Some (?xs, ?s, ?r) =>
+        match B with
+        | s => 
+          match mk_imp xs Type with
+          | (_, (_, ?spineT, _)) as ?impT =>
+            match (mk_imp xs spineT, mk_imp xs spineT) with
+            | ((_, (_, ?spineL, _)) as ?impL, (_, (_, ?spineR, _)) as ?impR) =>
+              let C = lambdafy xs (spineL == spineR) in
+              assume xi : (imp == C) in
+              r := Some xi;
+              let imps = impT :: impL :: impR :: imps in
+              let zeta = transitivity eq (whnf_ty imps B) in
+              Some (zeta, imps)
+            end
+          end
+        | _ => None
+        end
       | None => None
       end
     end
