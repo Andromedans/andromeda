@@ -346,9 +346,9 @@ let unify_prod imps A =
         | s => 
           match mk_imp xs Type with
           | (_, (_, ?spineD, _)) as ?impD =>
-            match mk_imp xs Type with
+            match mk_imp xs (spineD -> Type) with
             | (_, (_, ?spineC, _)) as ?impC =>
-              let C = lambdafy xs (spineD -> spineC) in
+              let C = lambdafy xs (forall (z : spineD), spineC z) in
               assume xi : (imp == C) in
               r := Some xi;
               let imps = impD :: impC :: imps in
