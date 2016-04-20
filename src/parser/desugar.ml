@@ -51,7 +51,7 @@ let print_error err ppf = match err with
   | InvalidTermPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a term pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidAppliedPatternName (x, info) -> Format.fprintf ppf "%t cannot be applied in a pattern as it is %t." (Name.print_ident x) (print_info info)
-  | ArityMismatch (x, used, expected) -> Format.fprintf ppf "%t expected %d arguments but is used with %d." (Name.print_ident x) used expected
+  | ArityMismatch (x, used, expected) -> Format.fprintf ppf "%t expects %d arguments but is used with %d." (Name.print_ident x) expected used
   | UnboundYield -> Format.fprintf ppf "yield may only appear in a handler's operation cases."
   | ParallelShadowing x -> Format.fprintf ppf "%t is bound more than once." (Name.print_ident x)
   | AppliedTyParam -> Format.fprintf ppf "AML type parameters cannot be applied."

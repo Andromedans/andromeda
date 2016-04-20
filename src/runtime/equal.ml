@@ -58,6 +58,88 @@ let equal_ty ~loc j1 j2 =
   let eq = Jdg.is_type_equality eq in
   Opt.return eq
 
+let coerce ~loc je jt =
+  let je_ty = Jdg.typeof je in
+  match Jdg.alpha_equal_eq_ty ~loc je_ty jt with
+
+  | Some _ ->
+     Opt.return je
+                  
+  | None ->
+     Predefined.operation_coerce ~loc je jt >!=
+       begin function
+
+       | Predefined.NotCoercible -> Opt.fail
+
+       | Predefined.Convertible eq ->
+          let eq_lhs = Jdg.eq_ty_side Jdg.LEFT eq
+          and eq_rhs = Jdg.eq_ty_side Jdg.RIGHT eq in
+          begin
+            match Jdg.alpha_equal_eq_ty ~loc je_ty eq_lhs,
+                  Jdg.alpha_equal_eq_ty ~loc jt eq_rhs
+            with
+            | Some _, Some _ ->
+               Opt.return (Jdg.convert ~loc je eq)
+            | (None, Some _ | Some _, None | None, None) ->
+               Runtime.(error ~loc (InvalidConvertible (je_ty, jt, eq)))
+          end
+
+       | Predefined.Coercible je ->
+          begin
+            match Jdg.alpha_equal_eq_ty ~loc (Jdg.typeof je) jt with
+            | Some _ ->
+               Opt.return je
+            | None ->
+               Runtime.(error ~loc (InvalidCoerce (jt, je)))
+          end
+       end
+  
+
+let coerce_fun ~loc je =
+  let jt = Jdg.typeof je in
+  match Jdg.shape_prod jt with
+
+  | Some (a, b) -> Opt.return (je, a, b)
+
+  | None ->
+     Predefined.operation_coerce_fun ~loc je >!=
+     begin function
+
+       | Predefined.NotCoercible ->
+          Opt.fail
+
+       | Predefined.Convertible eq ->
+          let eq_lhs = Jdg.eq_ty_side Jdg.LEFT eq
+          and eq_rhs = Jdg.eq_ty_side Jdg.RIGHT eq in
+          begin
+            match Jdg.alpha_equal_eq_ty ~loc jt eq_lhs with
+              | Some _ ->
+                 begin
+                   match Jdg.shape_prod eq_rhs with
+                   | Some (a, b) ->
+                      let je = Jdg.convert ~loc je eq in
+                      Opt.return (je, a, b)
+                   | None ->
+                      Runtime.(error ~loc (InvalidFunConvertible (jt, eq)))
+                 end
+                 
+              | None ->
+                 Runtime.(error ~loc (InvalidFunConvertible (jt, eq)))
+          end
+          
+       | Predefined.Coercible je ->
+          begin
+            let jt = Jdg.typeof je in
+            match Jdg.shape_prod jt with
+            | Some (a, b) ->
+               Opt.return (je, a, b)
+            | None ->
+               Runtime.(error ~loc (InvalidFunCoerce je))
+          end
+          
+     end
+     
+
 (** Apply the appropriate congruence rule *)
 let congruence ~loc j1 j2 =
   Runtime.lookup_typing_env >!= fun env ->
@@ -284,6 +366,10 @@ end
 let equal ~loc j1 j2 = Opt.run (Internals.equal ~loc j1 j2)
 
 let equal_ty ~loc j1 j2 = Opt.run (Internals.equal_ty ~loc j1 j2)
+
+let coerce ~loc je jt = Opt.run (Internals.coerce ~loc je jt)
+
+let coerce_fun ~loc je = Opt.run (Internals.coerce_fun ~loc je)
 
 let reduction_step ~loc j = Opt.run (Internals.reduction_step ~loc j)
 

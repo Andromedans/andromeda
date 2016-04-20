@@ -280,14 +280,11 @@ let rec infer {Location.thing=c'; loc} =
 
 and check_default ~loc v t_check =
   as_term ~loc v >>= fun je ->
-  let jt = Jdg.typeof je in
-  Equal.equal_ty ~loc jt t_check >>=
+  Equal.coerce ~loc je t_check >>=
     begin function
-      | Some eq ->
-        Runtime.return (Jdg.convert ~loc je eq)
-      | None ->
-         Runtime.(error ~loc (TypeMismatch (jt, t_check)))
-    end
+      | Some je -> Runtime.return je
+      | None -> Runtime.(error ~loc (TypeMismatch (Jdg.typeof je, t_check)))
+  end
 
 and check ({Location.thing=c';loc} as c) t_check =
   match c' with
@@ -359,14 +356,12 @@ and check ({Location.thing=c';loc} as c) t_check =
 
   | Syntax.Ascribe (c1, c2) ->
     check_ty c2 >>= fun t2 ->
-    Equal.equal_ty ~loc t2 t_check >>= begin function
-      | Some eq ->
-        check c1 t2 >>= fun j ->
-        let j = Jdg.convert ~loc j eq in
-        Runtime.return j
-      | None ->
-        Runtime.(error ~loc:(c2.Location.loc) (TypeMismatch (t2, t_check)))
-      end
+    check c1 t2 >>= fun je ->
+    Equal.coerce ~loc je t_check >>=
+    begin function
+      | Some je -> Runtime.return je
+      | None -> Runtime.(error ~loc (TypeMismatch (t2, t_check)))
+    end
 
   | Syntax.Lambda (x,u,c) ->
     check_lambda ~loc t_check x u c
@@ -418,13 +413,13 @@ and check_lambda ~loc t_check x u c =
       Runtime.return lam))
 
 and apply ~loc h c =
-  Equal.as_prod ~loc (Jdg.typeof h) >>= function
-    | None -> Runtime.(error ~loc (ProductExpected (Jdg.typeof h)))
-    | Some (eq, a, _) ->
+  Equal.coerce_fun ~loc h >>= function
+    | Some (h, a, _) ->
       check c (Jdg.atom_ty a) >>= fun e ->
-      let h = Jdg.convert ~loc h eq in
       jdg_form ~loc (Jdg.Apply (h, e)) >>= fun j ->
       Runtime.return_term j
+    | None ->
+       Runtime.(error ~loc (ProductExpected (Jdg.typeof h)))
 
 and sequence ~loc v =
   match v with

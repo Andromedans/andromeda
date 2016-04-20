@@ -340,9 +340,14 @@ let sym = λ (A : Type) (x y : A) (h : x ≡ y), handle refl x : y ≡ x with
 (* The term witnessing transitivity of equality *)
 let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
   handle eq1 : a == c with
-    | equal ((|- a == b : _) as ?x) ((|- a == c : _) as ?y) => handle yield (congruence x y) with
+    | coerce (|- eq1 : ?X) (|- ?Y) =>
+      handle
+        match congruence X Y with
+        | Some ?xi => yield (Convertible xi)
+        end
+      with
       | equal b c => yield (Some eq2)
-    end
+      end
   end
 
 (* Take `p : a == b` and return `refl b : a == b`. This is used to make
@@ -652,6 +657,17 @@ handler
       | _ => yield None
     end
 
+  | coerce (|- _ : ?t) ?u =>
+    match equate t u with
+    | Some ?eq => yield (Convertible eq)
+    | None => yield NotCoercible
+    end
+
+  | coerce_fun (|- _ : ?t) =>
+    match (with equality () handle whnf_eq t) with
+    | |- ?eq : _ == (forall (_), _) => yield (Convertible eq)
+    | _ => yield NotCoercible
+    end
   end
 
 handle
@@ -667,6 +683,11 @@ handle
   | as_eq ?e =>
     (with equality () handle (as_eq e))
 
+  | coerce ?e ?t =>
+    (with equality () handle (coerce e t))
+
+  | coerce_fun ?e =>
+    (with equality () handle (coerce_fun e))
 end
 
 (* helper functions *)

@@ -98,6 +98,9 @@ type shape =
 val shape : term -> shape
 val shape_ty : ty -> shape
 
+(** Deconstruct a type judgment into a product, if possible. *)
+val shape_prod : ty -> (atom * ty) option
+
 (** Construct a judgement using the appropriate formation rule. The type is the natural type. *)
 val form : loc:Location.t -> Env.t -> shape -> term
 
@@ -122,7 +125,7 @@ type side = LEFT | RIGHT
 
 val eq_term_side : side -> eq_term -> term
 
-val eq_term_at_ty : eq_term -> ty
+val eq_term_typeof : eq_term -> ty
 
 val eq_ty_side : side -> eq_ty -> ty
 
@@ -153,6 +156,8 @@ val is_type_equality : eq_term -> eq_ty
 
 (** The reflection rule *)
 val reflect : term -> eq_term
+
+val reflect_ty_eq : loc:Location.t -> term -> eq_ty
 
 (** Beta reduction *)
 

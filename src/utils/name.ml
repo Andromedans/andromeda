@@ -56,6 +56,18 @@ module Predefined = struct
   let as_eq = make "as_eq"
 
   let empty = make "empty"
+
+  let coercible_ty = make "coercible"
+ 
+  let coercible_constructor = make "Coercible"
+
+  let convertible = make "Convertible"
+
+  let notcoercible = make "NotCoercible"
+
+  let coerce = make "coerce"
+
+  let coerce_fun = make "coerce_fun"
 end
 
 let fresh =

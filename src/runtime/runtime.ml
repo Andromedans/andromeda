@@ -106,6 +106,11 @@ type error =
   | HandlerExpected of value
   | RefExpected of value
   | StringExpected of value
+  | CoercibleExpected of value
+  | InvalidConvertible of Jdg.ty * Jdg.ty * Jdg.eq_ty
+  | InvalidCoerce of Jdg.ty * Jdg.term
+  | InvalidFunConvertible of Jdg.ty * Jdg.eq_ty
+  | InvalidFunCoerce of Jdg.term
   | UnhandledOperation of Name.operation * value list
 
 exception Error of error Location.located
@@ -532,6 +537,29 @@ let print_error ~penv err ppf =
 
   | StringExpected v ->
      Format.fprintf ppf "expected a string but got %s" (name_of v)
+
+  | CoercibleExpected v ->
+    Format.fprintf ppf "expected a coercible but got %s" (name_of v)
+
+  | InvalidConvertible (t1, t2, eq) ->
+     Format.fprintf ppf "expected a witness of equality between %t and %t but got %t"
+                    (Jdg.print_ty ~penv t1)
+                    (Jdg.print_ty ~penv t2)
+                    (Jdg.print_eq_ty ~penv eq)
+
+  | InvalidCoerce (t, e) ->
+     Format.fprintf ppf "expected a term of type %t but got %t"
+                    (Jdg.print_ty ~penv t)
+                    (Jdg.print_term ~penv e)
+
+  | InvalidFunConvertible (t, eq) ->
+     Format.fprintf ppf "expected a witness of equality between %t and a product but got %t"
+                    (Jdg.print_ty ~penv t)
+                    (Jdg.print_eq_ty ~penv eq)
+
+  | InvalidFunCoerce e ->
+     Format.fprintf ppf "expected a term of a product type got %t"
+                    (Jdg.print_term ~penv e)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "unhandled operation %t" (print_operation ~penv op vs)
