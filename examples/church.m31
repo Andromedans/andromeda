@@ -25,11 +25,30 @@ constant S_def : with implicits handle define nat_def;
 constant plus_def : with implicits handle define nat_def;
   plus == (lambda n m : nat, lambda (A : Type) (x : A) (f : A -> A), n A (m A x f) f)
 
+constant mult_def : with implicits handle define nat_def;
+  mult == (lambda n m : nat, lambda (A : Type) (x : A) (f : A -> A), n A x (lambda y : A, m A y f))
+
 (* no global state so we have to define at each toplevel command *)
 let do_defines _ : mlunit -> mlunit =
-  define nat_def; define O_def; define S_def; define plus_def
+  define nat_def;
+  define O_def;
+  define S_def;
+  define plus_def;
+  define mult_def;
+  ()
 
 do with implicits handle
   do_defines ();
-  resolve (refl (S (S O)) : plus (S O) (S O) == plus O (S (S O)))
+  (refl (S (S O)) : plus (S O) (S O) == plus O (S (S O)))
+
+let five = S (S (S (S (S O))))
+let ten = S (S (S (S (S (S (S (S (S (S O)))))))))
+
+do with implicits handle
+  do_defines ();
+  (refl ten : plus five five == ten)
+
+do with implicits handle
+  do_defines ();
+  resolve ((refl ? : mult five five == plus five (plus ten ten)))
 

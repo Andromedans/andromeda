@@ -127,7 +127,7 @@ let imp_atoms imps e =
       | mltrue => None
       | mlfalse => fold (x :: xs) e
       end
-    | |- (_atom _) as ?a =>
+    | |- _atom ?a =>
       match assoc_find a imps with
       | None => None
       | Some ?r =>
