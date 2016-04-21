@@ -9,11 +9,11 @@ x_inhab₀ : A
 
 val h' : ∀ α, α ⇒ α
 
-y_inhab₀ : A
-⊢ y_inhab₀ : A
+y_inhab₁ : A
+⊢ y_inhab₁ : A
 
-z_inhab₀ : A
-⊢ z_inhab₀ : A
+z_inhab₂ : A
+⊢ z_inhab₂ : A
 
 The command failed with error:
 File "./checking-op.m31", lines 21-23, characters 5-7: no match found for

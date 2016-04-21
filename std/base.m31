@@ -16,3 +16,4 @@ let (|>) x f = f x
 
 let failure x = print ("FAILURE", x); external "exit" ()
 
+mltype mlbool = mltrue | mlfalse end

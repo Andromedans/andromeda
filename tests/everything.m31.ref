@@ -90,8 +90,8 @@ val register : ref judgment
 
 ⊢ A : Type
 
-x₀ : A
-⊢ x₀ : A
+x₂ : A
+⊢ x₂ : A
 
 "this will happen"
 ()
@@ -109,15 +109,15 @@ Some
 
 None
 
-[T₀ : Type
- ⊢ T₀ : Type, T₀ : Type
-                  x₁ : T₀
-                  ⊢ x₁ : T₀]
+[T₃ : Type
+ ⊢ T₃ : Type, T₃ : Type
+                  x₄ : T₃
+                  ⊢ x₄ : T₃]
 
 Operation emit is declared.
 
-[x₀ : A
- ⊢ x₀ : A]
+[x₅ : A
+ ⊢ x₅ : A]
 
 Constant eq is declared.
 
