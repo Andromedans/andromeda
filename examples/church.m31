@@ -1,0 +1,35 @@
+(** Church naturals *)
+
+#include_once "../std/new_equal.m31"
+
+(** Declare constants that will be defined. *)
+constant nat : Type
+
+constant O : nat
+
+constant S : nat -> nat
+
+constant plus : nat -> nat -> nat
+
+constant mult : nat -> nat -> nat
+
+(* definition constants *)
+constant nat_def : nat == (forall A : Type, A -> (A -> A) -> A)
+
+constant O_def : with implicits handle define nat_def;
+  O == (lambda (A : Type) (x : A) (f : A -> A), x)
+
+constant S_def : with implicits handle define nat_def;
+  S == (lambda (n : nat) (A : Type) (x : A) (f : A -> A), n A (f x) f)
+
+constant plus_def : with implicits handle define nat_def;
+  plus == (lambda n m : nat, lambda (A : Type) (x : A) (f : A -> A), n A (m A x f) f)
+
+(* no global state so we have to define at each toplevel command *)
+let do_defines _ : mlunit -> mlunit =
+  define nat_def; define O_def; define S_def; define plus_def
+
+do with implicits handle
+  do_defines ();
+  resolve (refl (S (S O)) : plus (S O) (S O) == plus O (S (S O)))
+
