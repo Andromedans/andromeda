@@ -114,13 +114,8 @@ let rec lambdafy xs e =
   | [] => e
   | (|- ?x : ?t) :: ?xs =>
     let e = lambdafy xs e in
-    lambda (y : t), e where x = y
-  end
-
-let rec spine_head e =
-  match e with
-  | |- ?e1 _ => spine_head e1
-  | |- _ => e
+    lambda (y : t), 
+      e where x = y
   end
 
 (** Is e an imp applied to distinct atoms? *)
@@ -132,11 +127,11 @@ let imp_atoms imps e =
       | mltrue => None
       | mlfalse => fold (x :: xs) e
       end
-    | |- _atom _ =>
-      match assoc_find e imps with
+    | |- (_atom _) as ?a =>
+      match assoc_find a imps with
       | None => None
       | Some ?r =>
-        Some (e, r, xs)
+        Some (a, r, xs)
       end
     | _ => None
     end
@@ -250,19 +245,33 @@ and equal_term_whnf imps e1 e2 =
 
 (* Try to make a equal to b by instantiating an imp in a.
    This will work if a is an imp applied to suitable atoms. *)
-and instantiate imps a b =
+and instantiate imps a b =  
   match imp_atoms imps a with
   | None => None
-  | Some (?imp, ?r, ?xs) =>
+  | Some ((|- ?imp : ?impT), ?r, ?xs) =>
       (* TODO check that the context of b satisfies:
          if any current hypothesis x appears in context of b then it also appears in xs *)
-    let solution = lambdafy xs b in
-    match occurs_check imps imp solution with
-    | None =>
-      assume xi : imp == solution in
-      r := Some xi ;
-      equal_term imps a b
-    | Some _ => None
+    let solution =
+      handle
+        Some (lambdafy xs b : impT)
+      with
+        coerce (|- _ : ?A) ?B =>
+          match equal_ty imps A B with
+          | Some ?zeta => yield (Convertible zeta)
+          | None => None
+          end
+      end
+    in
+    match solution with
+    | None => None
+    | Some ?solution =>
+      match occurs_check imps imp solution with
+      | None =>
+        assume xi : imp == solution in
+        r := Some xi ;
+        equal_term imps a b
+      | Some _ => None
+      end
     end
   end
 
@@ -305,14 +314,16 @@ and whnf_term imps e =
       end
     end
 
-  | ⊢ _ ⇒
+  | ⊢ _  ⇒
     match assoc_find e imps with
     | None ⇒ refl e
     | Some ?r ⇒
       match !r with
       | None ⇒ refl e
       | Some (⊢ ?xi : _ == ?e') ⇒
-        let zeta  = whnf_term imps e' in
+        (* XXX here we create a witness of equality at the type of e' but we need
+           and equality at the type of e *)
+        let zeta = whnf_term imps e' in
         transitivity xi zeta
       end
     end
