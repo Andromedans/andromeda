@@ -334,7 +334,7 @@ operation ? : judgement
 
 operation resolve : judgement → judgement
 
-operation define : judgement -> judgement -> mlunit
+operation define : judgement -> mlunit
 
 let rec resolver imps e =
   let rec fold eqs e hyps =
@@ -453,20 +453,8 @@ handler
   | resolve ?e ⇒ fun imps ⇒
     yield (resolver imps e) imps
 
-  | define (|- ?x : ?tx) ?y => fun imps =>
-    let y =
-      handle
-        y : tx
-      with
-        coerce (|- _ : ?A) ?B =>
-          match equal_ty imps A B with
-          | Some ?zeta => yield (Convertible zeta)
-          | None => yield NotCoercible
-          end
-      end
-    in
-    assume xi : x == y in
-    let imps = (x, ref (Some xi)) :: imps in
+  | define (|- ?xi : ?lhs == _) => fun imps =>
+    let imps = (lhs, ref (Some xi)) :: imps in
     yield () imps
 
   | val ?v ⇒ fun imps ⇒ v
