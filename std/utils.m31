@@ -29,10 +29,19 @@ let rec assoc_find x lst = match lst with
 (** Append two lists, reverse the first one *)
 let rev_append l1 l2 = fold (fun acc x => x :: acc) l2 l1
 
+(** Append two lists *)
 let rec append l1 l2 =
   match l1 with
   | [] => l2
   | ?x :: ?l1 => x :: (append l1 l2)
+  end
+
+(** Does an element appear in a list? *)
+let rec mem x lst =
+  match lst with
+  | [] => mlfalse
+  | x :: _ => mltrue
+  | _ :: ?lst => mem x lst
   end
 
 (* Update a key-value in an associative list, fail if the key is not present. *)

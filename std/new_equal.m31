@@ -68,6 +68,7 @@ let transitivity eq1 eq2 =
       end
   end
 
+(* Does atom a appear in e (with imps replaced with current values)? *)
 let rec occurs_check imps a e =
   match occurs a e with
   | (Some _) as ?xi ⇒ xi
@@ -79,7 +80,7 @@ let rec occurs_check imps a e =
       | ?b :: ?ctx ⇒
         match assoc_find b imps with
         | None ⇒ fold ctx
-        | Some (_, _, ?r) ⇒
+        | Some ?r ⇒
           match !r with
           | None ⇒ fold ctx
           | Some (|- _ : _ == ?e') ⇒
@@ -122,11 +123,31 @@ let rec spine_head e =
   | |- _ => e
   end
 
+(** Is e an imp applied to distinct atoms? *)
+let imp_atoms imps e =
+  let rec fold xs e =
+    match e with
+    | |- ?e ((_atom _) as ?x) =>
+      match mem x xs with
+      | mltrue => None
+      | mlfalse => fold (x :: xs) e
+      end
+    | |- _atom _ =>
+      match assoc_find e imps with
+      | None => None
+      | Some ?r =>
+        Some (e, r, xs)
+      end
+    | _ => None
+    end
+  in
+  fold [] e
+
 (* Helper functions for imps *)
 let mk_imp xs T =
   let T = prodify xs T in
   assume imp : T in
-  (imp, (xs, spine imp xs, ref None))
+  ((imp, ref None), spine imp xs)
 
 (* Check that two types are equal *)
 let rec equal_ty imps A B = equal_term imps A B
@@ -230,23 +251,18 @@ and equal_term_whnf imps e1 e2 =
 (* Try to make a equal to b by instantiating an imp in a.
    This will work if a is an imp applied to suitable atoms. *)
 and instantiate imps a b =
-  let imp = spine_head a in
-  match assoc_find imp imps with
+  match imp_atoms imps a with
   | None => None
-  | Some (?xs, ?s, ?r) =>
-    match a with
-    | s => 
+  | Some (?imp, ?r, ?xs) =>
       (* TODO check that the context of b satisfies:
          if any current hypothesis x appears in context of b then it also appears in xs *)
-      let e = lambdafy xs b in
-      match occurs_check imps imp e with
-      | None =>
-        assume xi : imp == e in
-          r := Some xi ;
-          equal_term imps a b
-      | Some _ => None
-      end
-    | _ => None
+    let solution = lambdafy xs b in
+    match occurs_check imps imp solution with
+    | None =>
+      assume xi : imp == solution in
+      r := Some xi ;
+      equal_term imps a b
+    | Some _ => None
     end
   end
 
@@ -292,7 +308,7 @@ and whnf_term imps e =
   | ⊢ _ ⇒
     match assoc_find e imps with
     | None ⇒ refl e
-    | Some (_, _, ?r) ⇒
+    | Some ?r ⇒
       match !r with
       | None ⇒ refl e
       | Some (⊢ ?xi : _ == ?e') ⇒
@@ -313,7 +329,7 @@ let rec resolver imps e =
     | [] ⇒ e
     | ((⊢ _atom _) as ?a) :: ?hyps ⇒
       match assoc_find a imps with
-      | Some (_, _, ?r) =>
+      | Some ?r =>
         match !r with
         | None => fold eqs e hyps
         | Some (⊢ ?eq : _ == ?e') ⇒
@@ -339,26 +355,21 @@ let unify_prod imps A =
     match B with
     | |- forall (_), _ => Some (eq, imps)
     | _ =>
-      let imp = spine_head B in
-      match assoc_find imp imps with
-      | Some (?xs, ?s, ?r) =>
-        match B with
-        | s => 
-          match mk_imp xs Type with
-          | (_, (_, ?spineD, _)) as ?impD =>
-            match mk_imp xs (spineD -> Type) with
-            | (_, (_, ?spineC, _)) as ?impC =>
-              let C = lambdafy xs (forall (z : spineD), spineC z) in
-              assume xi : (imp == C) in
-              r := Some xi;
-              let imps = impD :: impC :: imps in
-              let zeta = transitivity eq (whnf_ty imps B) in
-              Some (zeta, imps)
-            end
-          end
-        | _ => None
-        end
+      match imp_atoms imps B with
       | None => None
+      | Some (?imp, ?r, ?xs) =>
+        match mk_imp xs Type with
+        | (?impD, ?spineD) =>
+          match mk_imp xs (spineD -> Type) with
+          | (?impC, ?spineC) =>
+            let C = lambdafy xs (forall (z : spineD), spineC z) in
+            assume xi : imp == C in
+            r := Some xi;
+            let imps = impD :: impC :: imps in
+            let zeta = transitivity eq (whnf_ty imps B) in
+            Some (zeta, imps)
+          end
+        end
       end
     end
   end
@@ -369,26 +380,21 @@ let unify_eq imps A =
     match B with
     | |- _ == _ => Some (eq, imps)
     | _ =>
-      let imp = spine_head B in
-      match assoc_find imp imps with
-      | Some (?xs, ?s, ?r) =>
-        match B with
-        | s => 
-          match mk_imp xs Type with
-          | (_, (_, ?spineT, _)) as ?impT =>
-            match (mk_imp xs spineT, mk_imp xs spineT) with
-            | ((_, (_, ?spineL, _)) as ?impL, (_, (_, ?spineR, _)) as ?impR) =>
-              let C = lambdafy xs (spineL == spineR) in
-              assume xi : (imp == C) in
-              r := Some xi;
-              let imps = impT :: impL :: impR :: imps in
-              let zeta = transitivity eq (whnf_ty imps B) in
-              Some (zeta, imps)
-            end
-          end
-        | _ => None
-        end
+      match imp_atoms imps B with
       | None => None
+      | Some (?imp, ?r, ?xs) =>
+        match mk_imp xs Type with
+        | (?impT, ?spineT) =>
+          match (mk_imp xs spineT, mk_imp xs spineT) with
+          | ((?impL, ?spineL), (?impR, ?spineR)) =>
+            let C = lambdafy xs (spineL == spineR) in
+            assume xi : (imp == C) in
+            r := Some xi;
+            let imps = impT :: impL :: impR :: imps in
+            let zeta = transitivity eq (whnf_ty imps B) in
+            Some (zeta, imps)
+          end
+        end
       end
     end
   end
@@ -424,12 +430,12 @@ handler
 
   | ? : Some ?A ⇒ 
     let xs = rev hypotheses in
-    let A' = prodify xs A in
-    assume imp : A' in
     fun imps ⇒
-      let s = spine imp xs in
-      let imps = (imp, (xs, s, ref None)) :: imps in
-      yield s imps
+      match mk_imp xs A with
+      | (?imp, ?spine) =>
+        let imps = imp :: imps in
+        yield spine imps
+      end
 
   | resolve ?e ⇒ fun imps ⇒
     yield (resolver imps e) imps

@@ -6,7 +6,7 @@ constant f g h : A -> A
 constant g_def : g == (lambda x : A, f (f x))
 constant h_def : h == g
 
-let imps = [(g, ([], g, ref (Some g_def))), (h, ([], h, ref (Some h_def)))]
+let imps = [(g, ref (Some g_def)), (h, ref (Some h_def))]
 
 do whnf_term imps (h (g (h a)))
 
