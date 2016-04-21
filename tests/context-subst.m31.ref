@@ -13,7 +13,7 @@ y₁ : (λ (_ : A), A) x₀
 Constant f is declared.
 
 x₀ : A
-P₁ : A → Type
-y₂ : P₁ (f x₀)
-⊢ y₂ : P₁ (f x₀)
+P₂ : A → Type
+y₁ : P₂ (f x₀)
+⊢ y₁ : P₂ (f x₀)
 
