@@ -43,7 +43,10 @@ let predefined_ops = let open Input in
 let predefined_bound = let open Input in
   let loc = Location.unknown in
   let decl_hyps = TopDynamic (Name.Predefined.hypotheses, (List [], loc)), loc in
-  [decl_hyps]
+  let force_hyps_type = TopDo (Let ([Name.anonymous, [],
+    Some (ML_Forall ([], (ML_TyApply (Name.Predefined.list, [ML_Judgment, loc]) , loc)), loc),
+    (Var Name.Predefined.hypotheses, loc)], (Tuple [], loc)), loc), loc in
+  [decl_hyps; force_hyps_type]
 
 let predefined_bound_names =
   [Name.Predefined.hypotheses]
