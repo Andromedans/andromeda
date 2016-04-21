@@ -320,11 +320,11 @@ and whnf_term imps e =
     | Some ?r ⇒
       match !r with
       | None ⇒ refl e
-      | Some (⊢ ?xi : _ == ?e') ⇒
-        (* XXX here we create a witness of equality at the type of e' but we need
-           and equality at the type of e *)
+      | Some (⊢ ?xi : (e as ?e0) == ?e') ⇒
         let zeta = whnf_term imps e' in
-        transitivity xi zeta
+        let eq = transitivity xi zeta in
+        (* eq is at typeof e0 but needs to be at typeof e *)
+        convert eq (convert_eq (typeof eq) (transitivity (symmetry (natural e0)) (natural e)))
       end
     end
 
