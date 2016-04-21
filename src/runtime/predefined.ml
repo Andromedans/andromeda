@@ -51,9 +51,13 @@ let predefined_bound_names =
 let definitions = List.concat [predefined_aml_types; predefined_ops; predefined_bound]
 
 
+let list_nil = Runtime.mk_tag Name.Predefined.nil []
+
+let list_cons v lst = Runtime.mk_tag Name.Predefined.cons [v; lst]
+
 let rec mk_list = function
-  | [] -> Runtime.mk_tag Name.Predefined.nil []
-  | x :: xs -> Runtime.mk_tag Name.Predefined.cons [x; mk_list xs]
+  | [] -> list_nil
+  | x :: xs -> list_cons x (mk_list xs)
 
 let as_list ~loc v =
   match Runtime.as_list_opt v with
@@ -128,6 +132,6 @@ let add_abstracting j m =
   let v = Runtime.mk_term j in
   Runtime.index_of_level k >>= fun k ->
   Runtime.lookup_bound ~loc k >>= fun hyps ->
-  let hyps = mk_list (v :: as_list ~loc hyps) in
+  let hyps = list_cons v hyps in
   Runtime.now ~loc k hyps m
 
