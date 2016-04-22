@@ -1,4 +1,5 @@
 #include_once "utils.m31"
+#include_once "hints.m31"
 
 let typeof e =
   match e with ⊢ _ : ?A ⇒ A end
@@ -144,6 +145,7 @@ let mk_imp xs T =
   assume imp : T in
   ((imp, ref None), spine imp xs)
 
+
 (* Check that two types are equal *)
 let rec equal_ty imps A B = equal_term imps A B
 
@@ -278,6 +280,17 @@ and instantiate imps a b =
 and whnf_ty imps A = whnf_term imps A
 
 and whnf_term imps e =
+  match whnf_term_no_betas imps e with
+  | |- ?xi : _ == ?e' =>
+    match apply_beta_hint e' with
+    | Some (|- ?zeta : _ == ?e'') =>
+      let theta = whnf_term imps e'' in
+      transitivity xi (transitivity zeta theta)
+    | None => xi
+    end
+  end
+
+and whnf_term_no_betas imps e =
   match e with
 
   | ⊢ ?h ?a ⇒
@@ -302,7 +315,7 @@ and whnf_term imps e =
         handle
           match reduction e' with
           | Some (⊢ ?xi : _ == ?e'') ⇒
-            let theta = whnf_term imps e'' in
+            let theta = whnf_term_no_betas imps e'' in
             transitivity zeta (transitivity xi theta)
           | None ⇒ refl e
           end
@@ -321,7 +334,7 @@ and whnf_term imps e =
       match !r with
       | None ⇒ refl e
       | Some (⊢ ?xi : (e as ?e0) == ?e') ⇒
-        let zeta = whnf_term imps e' in
+        let zeta = whnf_term_no_betas imps e' in
         let eq = transitivity xi zeta in
         (* eq is at typeof e0 but needs to be at typeof e *)
         convert eq (convert_eq (typeof eq) (transitivity (symmetry (natural e0)) (natural e)))
@@ -333,8 +346,6 @@ and whnf_term imps e =
 operation ? : judgement
 
 operation resolve : judgement → judgement
-
-operation define : judgement -> mlunit
 
 let rec resolver imps e =
   let rec fold eqs e hyps =
@@ -412,53 +423,54 @@ let unify_eq imps A =
     end
   end
 
-let implicits =
-handler
-  | equal ?a ?b ⇒ fun imps ⇒
-    yield (equal_term imps a b) imps
+let imps = ref []
 
-  | coerce (⊢ _ : ?A) ?B ⇒ fun imps ⇒
-    match equal_ty imps A B with
-    | Some ?xi ⇒ yield (Convertible xi) imps
-    | None ⇒ yield NotCoercible imps
+handle
+  | equal ?a ?b ⇒
+    equal_term !imps a b
+
+  | coerce ?e ?B =>
+    let A = typeof e in
+    match equal_ty !imps A B with
+    | Some ?xi ⇒ Convertible xi
+    | None ⇒ NotCoercible
     end
 
-  | coerce_fun (|-_ : ?A) => fun imps =>
-    match unify_prod imps A with
-    | Some (?eq, ?imps) => yield (Convertible eq) imps
-    | None => yield NotCoercible imps
+  | coerce_fun ?e =>
+    let A = typeof e in
+    match unify_prod !imps A with
+    | Some (?eq, ?imps) => Convertible eq
+    | None => NotCoercible
     end
 
-  | as_prod ?A => fun imps =>
-    match unify_prod imps A with
-    | Some (?eq, ?imps) => yield (Some eq) imps
-    | None => yield None imps
+  | as_prod ?A =>
+    match unify_prod !imps A with
+    | Some (?eq, ?imps') => 
+      imps := imps' ;
+      Some eq
+    | None => None
     end
 
-  | as_eq ?A => fun imps =>
-    match unify_eq imps A with
-    | Some (?eq, ?imps) => yield (Some eq) imps
-    | None => yield None imps
+  | as_eq ?A =>
+    match unify_eq !imps A with
+    | Some (?eq, ?imps') => 
+      imps := imps' ;
+      Some eq
+    | None => None
     end
 
-  | ? : Some ?A ⇒ 
-    let xs = rev hypotheses in
-    fun imps ⇒
+  | ? : ?Aopt ⇒
+    match Aopt with
+    | Some ?A =>
+      let xs = rev hypotheses in
       match mk_imp xs A with
       | (?imp, ?spine) =>
-        let imps = imp :: imps in
-        yield spine imps
+        imps := imp :: !imps ;
+        spine
       end
+    end
 
-  | resolve ?e ⇒ fun imps ⇒
-    yield (resolver imps e) imps
-
-  | define (|- ?xi : ?lhs == _) => fun imps =>
-    let imps = (lhs, ref (Some xi)) :: imps in
-    yield () imps
-
-  | val ?v ⇒ fun imps ⇒ v
-
-  | finally ?f ⇒ f []
+  | resolve ?e ⇒
+    resolver !imps e
 end
 
