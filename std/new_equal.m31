@@ -169,7 +169,7 @@ and equal_term imps e1 e2 =
         end
 
       | _ ⇒
-        match apply_eta_hint e1' e2' A' with
+        match apply_eta_hint imps e1' e2' A' with
         | None =>
           (* go to the normalization phase *)
           match (whnf_term imps e1', whnf_term imps e2') with
@@ -271,6 +271,32 @@ and equal_term_whnf imps e1 e2 =
       end
     end
   end
+
+(* Attempt to apply an eta hints to prove e1 == e2 at a whnf type A. *)
+and apply_eta_hint imps e1 e2 A =
+  let rec fold etas =
+    match etas with
+    | [] => None
+    | ?h :: ?rem =>
+      match generic_matcher (h e1 e2) A with
+      | None => fold rem
+      | Some ?e =>
+        (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
+        let rec auto e =
+          match e with
+          | |- _ : forall (_ : ?lhs == ?rhs), _ =>
+            match equal_term imps lhs rhs with
+            | Some ?eq => auto (e eq)
+            | None => fold rem
+            end
+          | |- _ : _ == _ => Some e
+          end
+        in
+        auto e
+      end
+    end
+  in
+  fold etas
 
 (* Try to make a equal to b by instantiating an imp in a.
    This will work if a is an imp applied to suitable atoms. *)

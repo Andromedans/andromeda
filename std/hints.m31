@@ -250,17 +250,7 @@ let process_eta =
     let f ea eb quants =
       let e = spine e quants in
       let e = e ea eb in
-      (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
-      let rec auto e = match e with
-        | |- _ : forall (_ : ?lhs == ?rhs), _ =>
-           match equal lhs rhs with
-           | Some ?eq => auto (e eq)
-           | None => None
-           end
-        | |- _ : _ == _ => Some e
-        end
-      in
-      auto e
+      Some e
     in
     fun ea eb => (f ea eb, (xs, T))
   in
@@ -272,7 +262,6 @@ let process_eta =
         finalize e xs eqs a b
       | ?eq :: ?quants =>
         quant_splitter e (eq::eqs) quants a b
-      | [] => failure ("Bad eta:", e)
     end
   in
   let rec deep quants e h = match h with
@@ -320,20 +309,6 @@ let apply_beta_hint e =
   end
   in
   fold betas
-
-(* Attempt to apply an eta hints to prove e1 == e2 at a whnf type A. *)
-let apply_eta_hint e1 e2 A =
-  let rec fold etas =
-    match etas with
-      | [] => None
-      | ?h :: ?rem =>
-        match generic_matcher (h e1 e2) A with
-          | (Some _) as ?m => m
-          | None => fold rem
-        end
-    end
-  in
-  fold etas
 
 let add_beta_to b betas =
   let b = process_beta b in
