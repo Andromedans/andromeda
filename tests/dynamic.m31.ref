@@ -1,12 +1,19 @@
 Constant A is declared.
+
 Constant a is declared.
 Constant b is declared.
+
 val f : ∀ α, α → mlunit
+
 ⊢ a : A
 ()
+
 ⊢ b : A
 ()
+
 ⊢ a : A
 ()
+
 ⊢ A : Type
 ()
+

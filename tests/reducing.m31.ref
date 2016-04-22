@@ -1,13 +1,23 @@
 Constant N is declared.
+
 Constant Z is declared.
+
 Constant S is declared.
+
 Constant ( + ) is declared.
+
 Constant plus_Z is declared.
+
 Constant plus_S is declared.
-⊢ plus_Z Z : Z + Z ≡ Z
+
+⊢ refl Z : Z + Z ≡ Z
+
 ⊢ refl Z : Z + Z + Z ≡ Z
+
 ⊢ refl (S (Z + S Z + (S Z + S Z)))
   : S Z + S Z + (S Z + S Z) ≡ S (Z + S Z + (S Z + S Z))
+
 ⊢ refl (S (S (S (S Z)))) : S Z + S Z + (S Z + S Z) ≡ S (S (S (S Z)))
+
 ("FAILURE",
 "only constants and atoms may have reducing information")

@@ -40,11 +40,27 @@ let predefined_ops = let open Input in
   in
   [decl_equal; decl_as_prod; decl_as_eq; decl_coerce; decl_coerce_fun]
 
-let definitions = List.concat [predefined_aml_types; predefined_ops]
+let predefined_bound = let open Input in
+  let loc = Location.unknown in
+  let decl_hyps = TopDynamic (Name.Predefined.hypotheses, (List [], loc)), loc in
+  let force_hyps_type = TopDo (Let ([Name.anonymous, [],
+    Some (ML_Forall ([], (ML_TyApply (Name.Predefined.list, [ML_Judgment, loc]) , loc)), loc),
+    (Var Name.Predefined.hypotheses, loc)], (Tuple [], loc)), loc), loc in
+  [decl_hyps; force_hyps_type]
+
+let predefined_bound_names =
+  [Name.Predefined.hypotheses]
+
+let definitions = List.concat [predefined_aml_types; predefined_ops; predefined_bound]
+
+
+let list_nil = Runtime.mk_tag Name.Predefined.nil []
+
+let list_cons v lst = Runtime.mk_tag Name.Predefined.cons [v; lst]
 
 let rec mk_list = function
-  | [] -> Runtime.mk_tag Name.Predefined.nil []
-  | x :: xs -> Runtime.mk_tag Name.Predefined.cons [x; mk_list xs]
+  | [] -> list_nil
+  | x :: xs -> list_cons x (mk_list xs)
 
 let as_list ~loc v =
   match Runtime.as_list_opt v with
@@ -109,4 +125,16 @@ let operation_as_eq ~loc j =
   let v = Runtime.mk_term j in
   Runtime.operation Name.Predefined.as_eq [v] >>= fun v ->
   Runtime.return (as_term_option ~loc v)
+
+let add_abstracting j m =
+  let loc = Location.unknown in
+  let k = match Name.level_of_ident Name.Predefined.hypotheses predefined_bound_names with
+    | Some k -> k
+    | None -> assert false
+  in
+  let v = Runtime.mk_term j in
+  Runtime.index_of_level k >>= fun k ->
+  Runtime.lookup_bound ~loc k >>= fun hyps ->
+  let hyps = list_cons v hyps in
+  Runtime.now ~loc k hyps m
 

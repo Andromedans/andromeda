@@ -1,7 +1,14 @@
 Constant A is declared.
+
 Constant B is declared.
+
 Constant C is declared.
+
 Constant a is declared.
+
 Constant f is declared.
+
 Operation gimme is declared.
+
 ⊢ λ (_ : B), f a : B → C
+

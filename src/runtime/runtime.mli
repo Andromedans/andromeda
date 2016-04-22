@@ -140,9 +140,6 @@ val get_typing_env : env -> Jdg.Env.t
 
 val lookup_typing_env : Jdg.Env.t comp
 
-(** Lookup abstracting variables. *)
-val lookup_abstracting : value list comp
-
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
 
@@ -154,6 +151,9 @@ val add_bound : value -> 'a comp -> 'a comp
 
 val add_bound_rec :
   (value -> value comp) list -> 'a comp -> 'a comp
+
+(** [index_of_level n] gives the De Bruijn index of the variable whose De Bruijn level is [n]. *)
+val index_of_level : Syntax.level -> Syntax.bound comp
 
 (** Modify the value bound by a dynamic variable *)
 val now : loc:Location.t -> int -> value -> 'a comp -> 'a comp
@@ -168,8 +168,6 @@ val push_bound : value -> env -> env
     and runs [f (ctx' |- y : t)] in the environment with [x] bound to [ctx' |- y : t].
     NB: This is an effectful computation, as it increases a global counter. *)
 val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Jdg.atom -> 'a comp) -> 'a comp
-
-val add_abstracting : value -> 'a comp -> 'a comp
 
 (** Add a constant of a given type to the environment. *)
 val add_constant : loc:Location.t -> Name.ident -> Jdg.closed_ty -> unit toplevel

@@ -1,7 +1,14 @@
 Constant A is declared.
+
 Constant B is declared.
+
 Constant a is declared.
+
 Constant b is declared.
+
 Constant f is declared.
+
 Constant f_def is declared.
+
 ⊢ refl b : f a ≡ b
+

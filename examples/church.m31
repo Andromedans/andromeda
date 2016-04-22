@@ -1,0 +1,37 @@
+(** Church naturals *)
+
+(** Declare constants that will be defined. *)
+constant nat : Type
+
+constant O : nat
+
+constant S : nat -> nat
+
+constant plus : nat -> nat -> nat
+
+constant mult : nat -> nat -> nat
+
+(* definition constants *)
+constant nat_def : nat == (forall A : Type, A -> (A -> A) -> A)
+
+now betas = add_beta nat_def
+
+constant O_def : O == (lambda (A : Type) (x : A) (f : A -> A), x)
+
+constant S_def : S == (lambda (n : nat) (A : Type) (x : A) (f : A -> A), n A (f x) f)
+
+constant plus_def : plus == (lambda n m : nat, lambda (A : Type) (x : A) (f : A -> A), n A (m A x f) f)
+
+constant mult_def : mult == (lambda n m : nat, lambda (A : Type) (x : A) (f : A -> A), n A x (lambda y : A, m A y f))
+
+now betas = add_betas [O_def, S_def, plus_def, mult_def]
+
+do (refl (S (S O)) : plus (S O) (S O) == plus O (S (S O)))
+
+let five = S (S (S (S (S O))))
+let ten = S (S (S (S (S (S (S (S (S (S O)))))))))
+
+do (refl ten : plus five five == ten)
+
+do resolve ((refl ? : mult five five == plus five (plus ten ten)))
+

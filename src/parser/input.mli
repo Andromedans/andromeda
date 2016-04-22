@@ -78,13 +78,13 @@ and term' =
   | Eq of comp * comp
   | Refl of comp
   | Yield of comp
-  | Hypotheses
   | Congruence of comp * comp
   | Extensionality of comp * comp
   | Reduction of comp
   | String of string
   | Context of comp
   | Occurs of comp * comp
+  | Natural of comp
 
 (** Sugared types *)
 and ty = term

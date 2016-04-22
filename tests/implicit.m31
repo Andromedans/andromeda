@@ -1,0 +1,62 @@
+constant A : Type
+constant a : A
+constant f g h : A -> A
+constant g_def : g == (lambda x : A, f (f x))
+constant h_def : h == g
+
+do whnf_term [(g, ref (Some g_def)), (h, ref (Some h_def))] (h (g (h a)))
+
+(* Trying to solve an equation *)
+let id = lambda (A : Type) (x : A), x
+
+do
+   id ? a
+
+do
+    resolve (id ? a)
+
+do
+    (id (id ? ?) a)
+
+(* Here we need to be careful about order of resolution,
+   but it is taken care of by the handler. *)
+do
+    resolve (id (id ? ?) a)
+
+do
+  assume x : ? in x
+
+do
+    assume s : ? in
+    assume t : ? in
+    let _ = s == t in
+    (s, resolve t)
+
+do
+    resolve (refl a : ?)
+
+do
+    resolve (λ (B : Type) (b : B), id ? b)
+
+fail
+  assume f : ∏ (x : A), (∏ (y : A), x ≡ y) → A in
+    f ? (λ y, refl y)
+
+do
+    let f = id ? in
+    resolve (lambda (x : A), f x)
+
+fail
+    let f = id ? in
+    resolve (lambda (B : Type) (x : B), f x)
+
+do
+    let f = fun y => id ? y in
+    resolve (lambda (B : Type) (x : f B), f (f x))
+
+do
+  resolve (lambda (x : A), (refl x : ?))
+
+do
+  resolve ((lambda (f : A -> A), f (f a)) : ?)
+

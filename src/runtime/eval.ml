@@ -180,8 +180,8 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Lambda (x, Some u, c) ->
     check_ty u >>= fun ju ->
     Runtime.add_free ~loc:(u.Location.loc) x ju (fun jy ->
-    let vy = Runtime.mk_term (Jdg.atom_term ~loc:(u.Location.loc) jy) in
-    Runtime.add_abstracting vy
+    let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
+    Predefined.add_abstracting vy
     (infer c >>= as_term ~loc:(c.Location.loc) >>= fun je ->
     jdg_form ~loc (Jdg.Lambda (jy, je)) >>=
     Runtime.return_term))
@@ -201,8 +201,8 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Prod (x,u,c) ->
     check_ty u >>= fun ju ->
     Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
-    let vy = Runtime.mk_term (Jdg.atom_term ~loc:(u.Location.loc) jy) in
-    Runtime.add_abstracting vy
+    let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
+    Predefined.add_abstracting vy
     (check_ty c >>= fun jt ->
     jdg_form ~loc (Jdg.Prod (jy, jt)) >>=
     Runtime.return_term))
@@ -222,11 +222,6 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.Yield c ->
     infer c >>= fun v ->
     Runtime.continue ~loc v
-
-  | Syntax.Hypotheses ->
-     Runtime.lookup_abstracting >>= fun lst ->
-     let v = Predefined.mk_list lst in
-     Runtime.return v
 
   | Syntax.Congruence (c1,c2) ->
     infer c1 >>= as_term ~loc >>= fun j1 ->
@@ -278,6 +273,13 @@ let rec infer {Location.thing=c'; loc} =
     let js = List.map (fun j -> Runtime.mk_term (Jdg.atom_term ~loc j)) xts in
     Runtime.return (Predefined.mk_list js)
 
+  | Syntax.Natural c ->
+    infer c >>= as_term ~loc >>= fun j ->
+    Runtime.lookup_typing_env >>= fun env ->
+    let eq = Jdg.natural_eq ~loc env j in
+    let e = Jdg.refl_of_eq_ty ~loc eq in
+    Runtime.return_term e
+
 and check_default ~loc v t_check =
   as_term ~loc v >>= fun je ->
   Equal.coerce ~loc je t_check >>=
@@ -302,7 +304,6 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Eq _
   | Syntax.Apply _
   | Syntax.Yield _
-  | Syntax.Hypotheses
   | Syntax.Congruence _
   | Syntax.Extensionality _
   | Syntax.Reduction _
@@ -311,7 +312,8 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Update _
   | Syntax.String _
   | Syntax.Occurs _
-  | Syntax.Context _ ->
+  | Syntax.Context _
+  | Syntax.Natural _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
@@ -403,7 +405,7 @@ and check_lambda ~loc t_check x u c =
           Runtime.return (ju, equ)
       end >>= fun (ju, equ) -> (* equ : ju == typeof a *)
       Runtime.add_free ~loc x ju (fun jy ->
-      Runtime.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc jy))
+      Predefined.add_abstracting (Jdg.atom_term ~loc jy)
       (let b = Jdg.substitute_ty ~loc b a (Jdg.convert ~loc (Jdg.atom_term ~loc jy) equ) in
       check c b >>= fun e ->
       jdg_form ~loc (Jdg.Lambda (jy, e)) >>= fun lam ->
@@ -542,10 +544,10 @@ let toplet_bind ~loc ~quiet ~print_annot xcs =
   in
   fold [] xcs >>= fun () ->
   begin if not quiet then
-    List.iter
-      (fun (x, annot, _) ->
-       Format.printf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident x) (print_annot annot))
-      xcs
+    Format.printf "%t@." (Print.sequence
+      (fun (x, annot, _) ppf -> Format.fprintf ppf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident x) (print_annot annot))
+      ""
+      xcs)
   end;
   return ()
 
@@ -557,10 +559,10 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   in
   Runtime.add_topbound_rec gs >>= fun () ->
   begin if not quiet then
-    List.iter
-      (fun (f, _, annot, _) ->
-       Format.printf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident f) (print_annot annot))
-      fxcs
+    Format.printf "%t@." (Print.sequence
+      (fun (f, _, annot, _) ppf -> Format.fprintf ppf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident f) (print_annot annot))
+      ""
+      fxcs)
   end;
   return ()
 
@@ -582,18 +584,18 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
     | Syntax.DefMLType lst
     | Syntax.DefMLTypeRec lst ->
-      (if not quiet then Format.printf "ML type%s %t declared.@." (match lst with [_] -> "" | _ -> "s") (Print.sequence (fun (t,_) -> Name.print_ident t) " " lst));
+      (if not quiet then Format.printf "ML type%s %t declared.@.@." (match lst with [_] -> "" | _ -> "s") (Print.sequence (fun (t,_) -> Name.print_ident t) " " lst));
       return ()
 
     | Syntax.DeclOperation (x, k) ->
-       if not quiet then Format.printf "Operation %t is declared.@." (Name.print_ident x) ;
+       if not quiet then Format.printf "Operation %t is declared.@.@." (Name.print_ident x) ;
        return ()
 
     | Syntax.DeclConstants (xs, c) ->
       Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun t ->
       let t = Jdg.is_closed_ty ~loc t in
       let rec fold = function
-        | [] -> return ()
+        | [] -> (if not quiet then Format.printf "@."); return ()
         | x :: xs ->
           Runtime.add_constant ~loc x t >>= fun () ->
           (if not quiet then Format.printf "Constant %t is declared.@." (Name.print_ident x) ;
@@ -626,7 +628,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        comp_value c >>= fun v ->
        Runtime.top_lookup_penv >>= fun penv ->
        (begin if not quiet then
-            Format.printf "%t@." (Runtime.print_value ~penv v)
+            Format.printf "%t@.@." (Runtime.print_value ~penv v)
         end;
         return ())
 
@@ -635,14 +637,14 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+         (if not quiet then Format.printf "The command failed with error:@.%t:@ %t@.@."
                                           (Location.print loc)
                                           (Runtime.print_error ~penv err));
          return ()
 
        | Runtime.CaughtJdg {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "The command failed with error:@\n%t:@ %t@."
+         (if not quiet then Format.printf "The command failed with error:@.%t:@ %t@.@."
                                           (Location.print loc)
                                           (Jdg.print_error ~penv err));
          return ()

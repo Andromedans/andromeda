@@ -17,7 +17,7 @@ let ascii = ref false
 
 let max_boxes = ref 42
 
-let global_atom_printer = ref false
+let global_atom_printer = ref true
 
 let columns = ref (Format.get_margin ())
 

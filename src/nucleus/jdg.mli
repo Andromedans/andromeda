@@ -204,6 +204,9 @@ val mk_refl : loc:Location.t -> eq_term -> eq_term -> term
 (** if [e1 == e2] then [refl e1 : e1 == e2] *)
 val refl_of_eq : loc:Location.t -> eq_term -> term
 
+(** if [e1 == e2] then [refl e1 : e1 == e2] *)
+val refl_of_eq_ty : loc:Location.t -> eq_ty -> term
+
 module Json :
 sig
   val term : term -> Json.t

@@ -1,9 +1,17 @@
 Constant A is declared.
+
 Constant a is declared.
+
 Constant b is declared.
+
 Constant f is declared.
+
 val test : judgment
+
 ⊢ refl (f b a) : (λ (x : A) (y : A), f y x) a b ≡ f b a
 val _ : mlunit
+
 Constant eq is declared.
-⊢ eq a : f a a ≡ b
+
+⊢ refl b : f a a ≡ b
+

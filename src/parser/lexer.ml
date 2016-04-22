@@ -25,7 +25,6 @@ let reserved = [
   ("fun", FUNCTION) ;
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
-  ("hypotheses", HYPOTHESES) ;
   ("in", IN) ;
   ("lambda", LAMBDA) ;
   ("let", LET) ;
@@ -33,6 +32,7 @@ let reserved = [
   ("mlstring", MLSTRING) ;
   ("mltype", MLTYPE) ;
   ("mlunit", MLUNIT) ;
+  ("natural", NATURAL) ;
   ("now", NOW) ;
   ("occurs", OCCURS) ;
   ("of", OF) ;
@@ -124,6 +124,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | '!'                      -> f (); BANG
   | ":="                     -> f (); COLONEQ
   | ';'                      -> f (); SEMICOLON
+  (* Comes before prefixop because it also matches prefixop *)
+  | '?'                      -> f (); NAME (Name.make ~fixity:Name.Word "?")
   | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:Name.Prefix s, loc_of lexbuf)
   | infixop0                 -> f (); INFIXOP0 (let s = Ulexbuf.lexeme lexbuf in

@@ -1,21 +1,34 @@
 val id : judgment
+
 ⊢ λ (A : Type) (x : A), x : Π (A : Type), A → A
+
 val compose : judgment
+
 ⊢ λ (A : Type) (B : Type) (C : Type) (g : B → C) (f : A → B) (x : A),
         g (f x)
   : Π (A : Type) (B : Type) (C : Type), (B → C) → (A → B) → A → C
+
 Constant X is declared.
+
 Constant Y is declared.
+
 Constant Z is declared.
+
 Constant W is declared.
+
 Constant x is declared.
+
 Constant f is declared.
+
 Constant g is declared.
+
 Constant h is declared.
+
 ⊢ refl (g (f x))
   : g (f x) ≡
     (λ (A : Type) (B : Type) (C : Type) (g0 : B → C) (f0 : A → B)
      (x0 : A), g0 (f0 x0)) X Y Z g f x
+
 ⊢ refl (h (g (f x)))
   : (λ (A : Type) (B : Type) (C : Type) (g0 : B → C) (f0 : A → B)
      (x0 : A), g0 (f0 x0)) X Z W h
@@ -25,3 +38,4 @@ Constant h is declared.
      (x0 : A), g0 (f0 x0)) X Y W
     ((λ (A : Type) (B : Type) (C : Type) (g0 : B → C) (f0 : A → B)
       (x0 : A), g0 (f0 x0)) Y Z W h g) f x
+

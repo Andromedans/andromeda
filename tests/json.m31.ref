@@ -1,4 +1,5 @@
 val printj : ∀ α, α → mlunit
+
 {"_ty" : "Runtime.value",
  "tag" : "Term",
  "data" :
@@ -24,8 +25,11 @@ val printj : ∀ α, α → mlunit
        "tag" : "Known",
        "data" : ["./json.m31", 3, 10, 3, 14]}}]}}]}
 ()
+
 Constant A is declared.
+
 Constant B is declared.
+
 {"_ty" : "Runtime.value",
  "tag" : "Term",
  "data" :
@@ -54,8 +58,11 @@ Constant B is declared.
        "tag" : "Known",
        "data" : ["./json.m31", 5, 13, 5, 17]}}]}}]}
 ()
+
 Constant a is declared.
+
 val h : judgment
+
 {"_ty" : "Runtime.value",
  "tag" : "Term",
  "data" :
@@ -434,6 +441,7 @@ val h : judgment
        "tag" : "Known",
        "data" : ["./json.m31", 12, 8, 12, 35]}}]}}]}
 ()
+
 {"_ty" : "Runtime.value",
  "tag" : "Term",
  "data" :
@@ -575,3 +583,4 @@ val h : judgment
        "tag" : "Known",
        "data" : ["./json.m31", 16, 18, 16, 19]}}]}}]}
 ()
+

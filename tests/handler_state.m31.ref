@@ -1,10 +1,20 @@
 Constant cow is declared.
+
 Constant horn is declared.
+
 Operation lookup is declared.
+
 Operation update is declared.
+
 val state : ∀ α, judgment → α ⇒ α
+
 Constant N is declared.
+
 Constant z is declared.
+
 Constant s is declared.
+
 Constant f is declared.
+
 ⊢ f z (s z) (s (s z)) : N
+

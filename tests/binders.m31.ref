@@ -1,11 +1,19 @@
 Constant A is declared.
+
 Constant F is declared.
+
 ⊢ λ (x : A) (f : A → A), f x : A → (A → A) → A
+
 ⊢ λ (x : A) (y : A) (_ : A) (f : A → A → A) (_ : A → A → A) (_ : A
         → A → A), f y x
   : A → A → A → (A → A → A) → (A → A → A) → (A → A → A)
     → A
+
 ⊢ λ (_ : A) (y : A) (_ : A), y : A → A → A → A
+
 ⊢ Π (A0 : Type) (B : Type) (C : Type), A0 → B → C : Type
+
 ⊢ Π (A0 : Type) (B : Type) (C : Type), A0 → B → C : Type
+
 ⊢ Π (A0 : Type) (B : Type) (C : Type), A0 → B → C : Type
+

@@ -1,0 +1,79 @@
+Constant A is declared.
+
+Constant a is declared.
+
+Constant f is declared.
+Constant g is declared.
+Constant h is declared.
+
+Constant g_def is declared.
+
+Constant h_def is declared.
+
+⊢ refl (f (f (g (h a)))) : h (g (h a)) ≡ f (f (g (h a)))
+
+val id : judgment
+
+imp₀ : Type
+xi₁ : imp₀ ≡ A
+⊢ (λ (A0 : Type) (x : A0), x) imp₀ a : imp₀
+
+⊢ (λ (A0 : Type) (x : A0), x) A a : A
+
+imp₂ : Type
+imp₃ : imp₂
+xi₄ : imp₂ ≡ Type
+xi₅ : imp₃ ≡ A
+⊢ (λ (A0 : Type) (x : A0), x) ((λ (A0 : Type) (x : A0), x) imp₂ imp₃)
+    a
+  : (λ (A0 : Type) (x : A0), x) imp₂ imp₃
+
+⊢ (λ (A0 : Type) (x : A0), x) ((λ (A0 : Type) (x : A0), x) Type A) a
+  : (λ (A0 : Type) (x : A0), x) Type A
+
+imp₆ : Type
+x₇ : imp₆
+⊢ x₇ : imp₆
+
+(imp₈ : Type
+ s₉ : imp₈
+ ⊢ s₉ : imp₈,
+imp₈ : Type
+t₁₀ : imp₈
+⊢ t₁₀ : imp₈)
+
+⊢ refl a : a ≡ a
+
+⊢ λ (B : Type) (b : B), (λ (A0 : Type) (x : A0), x)
+        ((λ (y : Type) (_ : y), y) B b) b
+  : Π (B : Type) (b : B), (λ (y : Type) (_ : y), y) B b
+
+The command failed with error:
+File "./implicit.m31", line 43, characters 9-21: cannot abstract y₁₁
+because xi₁₂
+depends on it
+
+⊢ λ (x : A), (λ (A0 : Type) (x0 : A0), x0) A x : A → A
+
+The command failed with error:
+File "./implicit.m31", line 51, characters 13-44: cannot abstract B₁₃
+because xi₁₄
+depends on it
+
+⊢ λ (B : Type) (x : (λ (A0 : Type) (x : A0), x) ((λ (_ : Type), Type) B)
+        B), (λ (A0 : Type) (x0 : A0), x0)
+        ((λ (y : Type) (_ : (λ (A0 : Type) (x0 : A0), x0)
+              ((λ (_ : Type), Type) y) y), y) B x)
+        ((λ (A0 : Type) (x0 : A0), x0)
+        ((λ (y : Type) (_ : (λ (A0 : Type) (x0 : A0), x0)
+              ((λ (_ : Type), Type) y) y), y) B x) x)
+  : Π (B : Type) (x : (λ (A0 : Type) (x : A0), x) ((λ (_ : Type), Type) B)
+        B),
+        (λ (y : Type) (_ : (λ (A0 : Type) (x0 : A0), x0)
+             ((λ (_ : Type), Type) y) y), y) B x
+
+⊢ λ (x : A), refl x
+  : Π (x : A), (λ (y : A), (λ (y0 : A), y0) y ≡ (λ (y0 : A), y0) y) x
+
+⊢ λ (f0 : A → A), f0 (f0 a) : Π (z : A → A), (λ (_ : A → A), A) z
+

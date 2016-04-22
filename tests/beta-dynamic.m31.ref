@@ -1,9 +1,17 @@
 Constant A is declared.
+
 Constant a is declared.
+
 Constant b is declared.
+
 val f : judgment → judgment
+
 ⊢ refl a : a ≡ a
+
 eq₀ : a ≡ b
-⊢ eq₀ : a ≡ b
+⊢ refl b : a ≡ b
+
 Operation gimme_beta is declared.
+
 ⊢ refl a : a ≡ a
+

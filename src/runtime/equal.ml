@@ -19,7 +19,7 @@ module Opt = struct
 
   let add_abstracting v m =
     { k = fun sk fk ->
-          Runtime.add_abstracting v (m.k sk fk) }
+          Predefined.add_abstracting v (m.k sk fk) }
 
   let run m =
     m.k (fun x -> Runtime.return (Some x)) (Runtime.return None)
@@ -158,7 +158,7 @@ let congruence ~loc j1 j2 =
     equal_ty ~loc ta1 ta2 >?= fun eq_a ->
     let a1_ta2 = Jdg.convert ~loc (Jdg.atom_term ~loc a1) eq_a in
     let b2 = Jdg.substitute_ty ~loc b2 a2 a1_ta2 in
-    Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a1))
+    Opt.add_abstracting (Jdg.atom_term ~loc a1)
     (equal_ty ~loc b1 b2 >?= fun eq_b ->
     let eq = Jdg.congr_prod ~loc ~at_ty eq_a a1 a2 eq_b in
     Opt.return eq)
@@ -171,7 +171,7 @@ let congruence ~loc j1 j2 =
     let e2 = Jdg.substitute ~loc e2 a2 a1_ta2 in
     let b1 = Jdg.typeof e1
     and b2 = Jdg.typeof e2 in
-    Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a1))
+    Opt.add_abstracting (Jdg.atom_term ~loc a1)
     (equal_ty ~loc b1 b2 >?= fun eq_b ->
     let e2 = Jdg.convert ~loc e2 (Jdg.symmetry_ty eq_b) in
     equal ~loc e1 e2 >?= fun eq_e ->
@@ -191,7 +191,7 @@ let congruence ~loc j1 j2 =
     equal_ty ~loc ta1 ta2 >?= fun eq_a ->
     let a1_ta2 = Jdg.convert ~loc (Jdg.atom_term ~loc a1) eq_a in
     let b2 = Jdg.substitute_ty ~loc b2 a2 a1_ta2 in
-    Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a1))
+    Opt.add_abstracting (Jdg.atom_term ~loc a1)
     (equal_ty ~loc b1 b2) >?= fun eq_b ->
     let eq_prod = Jdg.congr_prod_ty ~loc eq_a a1 a2 eq_b in
     let h2 = Jdg.convert ~loc h2 (Jdg.symmetry_ty eq_prod) in
@@ -238,7 +238,7 @@ let extensionality ~loc j1 j2 =
       let ja = Jdg.form ~loc env (Jdg.Atom a) in
       let lhs = Jdg.form ~loc env (Jdg.Apply (j1, ja))
       and rhs = Jdg.form ~loc env (Jdg.Apply (j2, ja)) in
-      Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a))
+      Opt.add_abstracting (Jdg.atom_term ~loc a)
       (equal ~loc lhs rhs) >?= fun eq ->
       let eq = Jdg.funext ~loc eq in
       Opt.return eq
@@ -260,7 +260,7 @@ let reduction_step ~loc j = match Jdg.shape j with
             let b = Jdg.typeof e in
             let a_ty' = Jdg.convert ~loc (Jdg.atom_term ~loc a) eq_a in
             let b' = Jdg.substitute_ty ~loc b' a' a_ty' in
-            Opt.add_abstracting (Runtime.mk_term (Jdg.atom_term ~loc a))
+            Opt.add_abstracting (Jdg.atom_term ~loc a)
             (equal_ty ~loc b b') >?= fun eq_b ->
             let eq = Jdg.beta ~loc eq_a a a' eq_b e j2 in
             Runtime.lookup_typing_env >!= fun env ->

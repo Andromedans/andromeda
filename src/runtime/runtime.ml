@@ -24,13 +24,6 @@ and dynamic = {
   (* Toplevel declarations *)
   typing : Jdg.Env.t;
 
-  (* The list of judgments about atoms which are going to be abstracted. We
-     should avoid creating atoms which depends on these, as this will prevent
-     abstraction from working. The list is in the reverse order from
-     abstraction, i.e., the inner-most abstracted variable appears first in the
-     list. *)
-  abstracting : value list;
-
   (* Current values of dynamic variables *)
   vars : value Store.Dyn.t
 }
@@ -256,7 +249,9 @@ let get_typing_env env = env.dynamic.typing
 let lookup_typing_env env =
   Return (get_typing_env env), env.state
 
-let lookup_abstracting env = Return env.dynamic.abstracting, env.state
+let index_of_level k env =
+  let n = List.length env.lexical.bound - k - 1 in
+  Return n, env.state
 
 let get_bound ~loc k env =
   match List.nth env.lexical.bound k with
@@ -274,13 +269,6 @@ let add_free ~loc x jt m env =
   let y_val = mk_term (Jdg.atom_term ~loc jy) in
   let env = add_bound0 y_val env in
   m jy env
-
-let add_abstracting v m env =
-  let env = { env with
-              dynamic = { env.dynamic with
-                          abstracting = v :: env.dynamic.abstracting } }
-  in
-  m env
 
 let add_constant0 ~loc x t env =
   { env with dynamic = {env.dynamic with typing = Jdg.Env.add_constant x t env.dynamic.typing };
@@ -575,7 +563,6 @@ let empty = {
   } ;
   dynamic = {
     typing = Jdg.Env.empty ;
-    abstracting = [] ;
     vars = Store.Dyn.empty ;
   } ;
   state = Store.Ref.empty;

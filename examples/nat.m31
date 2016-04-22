@@ -25,5 +25,43 @@ let two   = S (S O)
 let three = S (S (S O))
 let four  = S (S (S (S O)))
 let five  = S (S (S (S (S O))))
+let ten = S (S (S (S (S (S (S (S (S (S O)))))))))
+
 
 do refl five : five == plus two three
+
+now reducing = add_reducing S [eager]
+
+now reducing = add_reducing nat_rect [lazy, lazy, lazy, eager]
+
+do whnf (plus two two)
+
+constant mult : nat -> nat -> nat
+constant mult_def : forall (n m : nat),
+                      mult n m == nat_rect (λ _, nat) O (λ _ x, plus x n) m
+
+do 
+  now betas = add_beta mult_def in
+  whnf (mult five five)
+
+(* A better way to do arithmetic. *)
+constant ( + ) : nat -> nat -> nat
+constant plus_O : ∏ (n : nat), n + O == n
+constant plus_S : ∏ (n m : nat), n + (S m) == S (n + m)
+
+now betas = add_betas [plus_O, plus_S]
+
+now reducing = add_reducing (+) [eager, eager]
+
+constant ( * ) : nat -> nat -> nat
+constant mult_O : ∏ (n : nat), n * O == O
+constant mult_S : ∏ (n m : nat), n * (S m) == n * m + n
+
+now betas = add_betas [mult_O, mult_S]
+
+now reducing = add_reducing ( * ) [eager, eager]
+
+do whnf (two * three * four * five)
+
+
+

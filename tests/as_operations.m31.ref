@@ -1,7 +1,14 @@
 Constant A is declared.
+
 Constant B is declared.
+
 Constant B_eq is declared.
+
 ⊢ refl A : B
+
 Constant B_prod is declared.
+
 ⊢ λ (x : A), x : B
+
 Constant P is declared.
+
