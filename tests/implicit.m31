@@ -62,4 +62,3 @@ do
 do
   resolve ((lambda (f : A -> A), f (f a)) : ?)
 
-do !imps

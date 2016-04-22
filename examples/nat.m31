@@ -27,3 +27,10 @@ let four  = S (S (S (S O)))
 let five  = S (S (S (S (S O))))
 
 do refl five : five == plus two three
+
+now reducing = add_reducing S [eager]
+
+now reducing = add_reducing nat_rect [lazy, lazy, lazy, eager]
+
+do whnf (plus two two)
+

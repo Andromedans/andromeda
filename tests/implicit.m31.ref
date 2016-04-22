@@ -12,8 +12,6 @@ Constant g_def is declared.
 
 Constant h_def is declared.
 
-val imps : list (judgment * ref (option judgment))
-
 ⊢ refl (f (f (g (h a)))) : h (g (h a)) ≡ f (f (g (h a)))
 
 val id : judgment
@@ -53,14 +51,14 @@ t₁₀ : imp₈
   : Π (B : Type) (b : B), (λ (y : Type) (_ : y), y) B b
 
 The command failed with error:
-File "./implicit.m31", line 57, characters 9-21: cannot abstract y₁₁
+File "./implicit.m31", line 45, characters 9-21: cannot abstract y₁₁
 because xi₁₂
 depends on it
 
 ⊢ λ (x : A), (λ (A0 : Type) (x0 : A0), x0) A x : A → A
 
 The command failed with error:
-File "./implicit.m31", line 67, characters 13-44: cannot abstract B₁₃
+File "./implicit.m31", line 53, characters 13-44: cannot abstract B₁₃
 because xi₁₄
 depends on it
 

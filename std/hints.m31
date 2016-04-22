@@ -1,6 +1,7 @@
 (* The normalization hints. *)
 
 dynamic betas = []
+dynamic reducing = []
 
 let (>?=) m f = match m with
   | Some ?x => f x
@@ -221,6 +222,34 @@ let process_beta =
     | |- ?e : ?b => deep [] e b
     end
 
+let process_reducing c l =
+  let _ = match c with
+      | |- _constant _ => ()
+      | |- _atom _ => ()
+      | _ => failure "only constants and atoms may have reducing information"
+    end in
+  (c,l)
+
+(** If e is applied to something, should that thing be reduced? *)
+let is_arg_reducing e =
+  let compute_reducing e =
+    match assoc_find e reducing with
+    | Some ?v => v
+    | None => []
+    end
+  in
+  let rec fold e =
+    match e with
+    | |- ?e1 _ => match fold e1 with [] => [] | _::?l => l end
+    | _ => compute_reducing e
+    end
+  in
+  match fold e with
+  | [] => lazy
+  | ?v :: _ => v
+  end
+
+
 (* Attempt to apply one of `betas` to a term `e`. Here `betas` is a list of beta hints previously
    processed by `process_beta`. Return `Some (⊢ p : e == e')` or `None` if no hint applies. *)
 let apply_beta_hint e =
@@ -240,7 +269,14 @@ let add_beta_to b betas =
   let b = process_beta b in
   b :: betas
 
+let add_reducing_to c l reducing =
+  let r = process_reducing c l in
+  r :: reducing
+
 let add_beta h = add_beta_to h betas
+
+let add_reducing h l = add_reducing_to h l reducing
 
 let add_betas hs =
   fold (fun betas b => add_beta_to b betas) betas hs
+

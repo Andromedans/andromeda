@@ -220,6 +220,7 @@ and equal_term_whnf imps e1 e2 =
       by_congruence ()
 
     | (⊢ ?h1 _, ⊢ ?h2 _) ⇒
+      (* TODO reducing *)
       handle
         congruence e1 e2
       with
@@ -297,33 +298,51 @@ and whnf_term_no_betas imps e =
     match whnf_term imps h with
 
     | ⊢ ?eqH : _ == ?h' ⇒
-      let zeta = (* h a == h' a at type of e *)
-        handle 
-          match congruence (h a) (h' a) with
-          | Some (⊢ ?zeta : ?zeta_ty) ⇒
-            convert zeta (convert_eq zeta_ty (natural e))
-          end
-        with
-        | equal h h' ⇒ yield (Some eqH)
+      let eqa = match is_arg_reducing h' with
+        | lazy => refl a
+        | eager => whnf_term imps a
         end
       in
-      match h' with
-      | ⊢ (lambda (_), _) ⇒
-        let e' = 
-          match zeta with ⊢ _ : _ == ?e' ⇒ e' end
-        in
-        handle
-          match reduction e' with
-          | Some (⊢ ?xi : _ == ?e'') ⇒
-            let theta = whnf_term_no_betas imps e'' in
-            transitivity zeta (transitivity xi theta)
-          | None ⇒ refl e
+      match eqa with
+      |- _ : _ == ?a' =>
+        let e0 = h a in (* e at its natural type *)
+        let e1 = h' a' in
+        let t_e0 = typeof e0 and t_e1 = typeof e1 in
+        let zeta = (* e == e1 at type of e *)
+          handle
+            match congruence e0 e1 with
+            | Some (⊢ ?zeta : ?zeta_ty) ⇒
+              convert zeta (convert_eq zeta_ty (natural e))
+            end
+          with
+          | coerce (|- _ : t_e1) t_e0 =>
+          (* need to prove that type of h' a' == type of h a, so just recompute *)
+            match equal_ty imps t_e1 t_e0 with
+            | Some ?eqT => yield (Convertible eqT)
+            | None => yield NotCoercible
+            end
+          | equal h h' ⇒ yield (Some eqH)
+          | equal a a' => yield (Some eqa)
           end
-        with
-        | equal ?x ?y ⇒ yield (equal_term imps x y)
-        end
+        in
+        match h' with
+        | ⊢ (lambda (_), _) ⇒
+          let e' = (* e1 at type of e *)
+            match zeta with ⊢ _ : _ == ?e' ⇒ e' end
+          in
+          handle
+            match reduction e' with
+            | Some (⊢ ?xi : _ == ?e'') ⇒
+              let theta = whnf_term_no_betas imps e'' in
+              transitivity zeta (transitivity xi theta)
+            | None ⇒ refl e
+            end
+          with
+          | equal ?x ?y ⇒ yield (equal_term imps x y)
+          end
 
-      | ⊢ _ ⇒ zeta
+        | ⊢ _ ⇒ zeta
+        end
       end
     end
 
@@ -458,6 +477,8 @@ handle
       Some eq
     | None => None
     end
+
+  | whnf ?e => whnf_term !imps e
 
   | ? : ?Aopt ⇒
     match Aopt with
