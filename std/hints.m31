@@ -2,6 +2,7 @@
 
 dynamic betas = []
 dynamic reducing = []
+dynamic etas = []
 
 let (>?=) m f = match m with
   | Some ?x => f x
@@ -230,6 +231,61 @@ let process_reducing c l =
     end in
   (c,l)
 
+(* An eta hint is a term `e` of type `forall [xs] [a b : T] [eqs : ?? == ??], a == b`. It
+  is used by matching `T` with the type of a target equality, then filling in `a` and `b`
+  and solving the `eqs`.
+
+  If we have an equation `lhs == rhs` at type `T'` to solve through eta:
+  * match `T` with `T'` to instantiate `xs` to `vs`
+  * compute `e vs lhs rhs` to get a term of type `forall [eqs], lhs == rhs`
+  * solve the `eqs`
+
+  TODO allow `eqs : forall [ys] ?? == ??`
+  This is necessary eg for `funext` (which has `eq : forall x, f x == g x`)
+*)
+let process_eta =
+  (* we have matched t with the general shape of an eta hint *)
+  let finalize e xs eqs a b =
+    let T = match a with |- _ : ?T => T end in
+    let f ea eb quants =
+      let e = spine e quants in
+      let e = e ea eb in
+      (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
+      let rec auto e = match e with
+        | |- _ : forall (_ : ?lhs == ?rhs), _ =>
+           match equal lhs rhs with
+           | Some ?eq => auto (e eq)
+           | None => None
+           end
+        | |- _ : _ == _ => Some e
+        end
+      in
+      auto e
+    in
+    fun ea eb => (f ea eb, (xs, T))
+  in
+  (* quants++(rev eqs) is the list [xs;a;b;eqs] in reverse order. We want to split it into [xs] and [eqs]. *)
+  let rec quant_splitter e eqs quants a b =
+    match quants with
+      | (b, _) :: (a, _) :: ?xs =>
+        let xs = rev xs in
+        finalize e xs eqs a b
+      | ?eq :: ?quants =>
+        quant_splitter e (eq::eqs) quants a b
+      | [] => failure ("Bad eta:", e)
+    end
+  in
+  let rec deep quants e h = match h with
+    | |- forall (?x : _), ?h =>
+      deep ((x, None) :: quants) e h
+    | |- ?a == ?b =>
+      quant_splitter e [] quants a b
+    end
+  in
+  fun h => match h with
+    | |- ?e : ?t => deep [] e t
+    end
+
 (** If e is applied to something, should that thing be reduced? *)
 let is_arg_reducing e =
   let compute_reducing e =
@@ -265,6 +321,20 @@ let apply_beta_hint e =
   in
   fold betas
 
+(* Attempt to apply an eta hints to prove e1 == e2 at a whnf type A. *)
+let apply_eta_hint e1 e2 A =
+  let rec fold etas =
+    match etas with
+      | [] => None
+      | ?h :: ?rem =>
+        match generic_matcher (h e1 e2) A with
+          | (Some _) as ?m => m
+          | None => fold rem
+        end
+    end
+  in
+  fold etas
+
 let add_beta_to b betas =
   let b = process_beta b in
   b :: betas
@@ -273,10 +343,18 @@ let add_reducing_to c l reducing =
   let r = process_reducing c l in
   r :: reducing
 
+let add_eta_to h etas =
+  let h = process_eta h in
+  h :: etas
+
 let add_beta h = add_beta_to h betas
 
 let add_reducing h l = add_reducing_to h l reducing
 
+let add_eta h = add_eta_to h etas
+
 let add_betas hs =
   fold (fun betas b => add_beta_to b betas) betas hs
 
+let add_etas hs =
+  fold (fun etas  b => add_eta_to  b etas) etas  hs

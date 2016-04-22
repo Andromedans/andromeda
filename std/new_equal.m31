@@ -154,43 +154,42 @@ and equal_term imps e1 e2 =
   let A = typeof e1 in
   match whnf_ty imps A with
   ⊢ ?eqA : _ == ?A' ⇒
-    match A' with
+    let e1' = convert e1 eqA
+    and e2' = convert e2 eqA in
+    let xiopt =
+      match A' with
 
-    | ⊢ _ == _ ⇒
-      let e1' = convert e1 eqA
-      and e2' = convert e2 eqA in
-      match extensionality e1' e2' with
-      | Some ?xi ⇒
-          let delta = convert_eq (typeof xi) (symmetry eqA) in
-          let xi' = convert xi delta in
-            Some xi'
-      end
+      | ⊢ _ == _ ⇒ extensionality e1' e2'
 
-    | ⊢ forall (_), _ ⇒
-      let e1' = convert e1 eqA
-      and e2' = convert e2 eqA in
-      handle
-        match extensionality e1' e2' with
-        | Some ?xi ⇒
-          let delta = convert_eq (typeof xi) (symmetry eqA) in
-          let xi' = convert xi delta in
-            Some xi'
-        | None ⇒ None
+      | ⊢ forall (_), _ ⇒
+        handle
+          extensionality e1' e2'
+        with
+          equal ?a ?b ⇒ yield (equal_term imps a b)
         end
-      with
-        equal ?a ?b ⇒ yield (equal_term imps a b)
-      end
 
-    | _ ⇒
-      match (whnf_term imps e1, whnf_term imps e2) with
-        (⊢ ?eq1 : _ == ?e1', ⊢ ?eq2 : _ == ?e2') ⇒
-        match equal_term_whnf imps e1' e2' with
-        | Some ?xi ⇒
-          Some (transitivity eq1 (transitivity xi (symmetry eq2)))
-        | None ⇒ None
+      | _ ⇒
+        match apply_eta_hint e1' e2' A' with
+        | None =>
+          (* go to the normalization phase *)
+          match (whnf_term imps e1', whnf_term imps e2') with
+            (⊢ ?eq1 : _ == ?e1'', ⊢ ?eq2 : _ == ?e2'') ⇒
+            match equal_term_whnf imps e1'' e2'' with
+            | Some ?xi ⇒
+              Some (transitivity eq1 (transitivity xi (symmetry eq2)))
+            | None ⇒ None
+            end
+          end
+        | (Some _) as ?xiopt => xiopt
         end
       end
-
+    in
+    match xiopt with
+    | Some ?xi ⇒
+      let delta = convert_eq (typeof xi) (symmetry eqA) in
+      let xi' = convert xi delta in
+        Some xi'
+    | None ⇒ None
     end
   end
 
