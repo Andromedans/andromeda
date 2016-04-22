@@ -1,5 +1,3 @@
-#include_once "../std/new_equal.m31"
-
 constant A : Type
 constant a : A
 constant f g h : A -> A

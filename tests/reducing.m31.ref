@@ -10,7 +10,7 @@ Constant plus_Z is declared.
 
 Constant plus_S is declared.
 
-⊢ plus_Z Z : Z + Z ≡ Z
+⊢ refl Z : Z + Z ≡ Z
 
 ⊢ refl Z : Z + Z + Z ≡ Z
 

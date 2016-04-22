@@ -4,5 +4,5 @@ val x : ref (list ?α)
 
 ()
 
-ref<0>
+ref<1>
 

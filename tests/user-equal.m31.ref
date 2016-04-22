@@ -13,5 +13,5 @@ val _ : mlunit
 
 Constant eq is declared.
 
-⊢ eq a : f a a ≡ b
+⊢ refl b : f a a ≡ b
 

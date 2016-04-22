@@ -1,7 +1,5 @@
 (** Church naturals *)
 
-#include_once "../std/new_equal.m31"
-
 (** Declare constants that will be defined. *)
 constant nat : Type
 
