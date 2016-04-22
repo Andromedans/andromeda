@@ -3,6 +3,7 @@
 dynamic betas = []
 dynamic reducing = []
 dynamic etas = []
+dynamic hints = []
 
 let (>?=) m f = match m with
   | Some ?x => f x
@@ -223,6 +224,19 @@ let process_beta =
     | |- ?e : ?b => deep [] e b
     end
 
+(* A general hint is a term `e` of type `forall [xs], lhs == rhs`.
+  It is used by matching `lhs == rhs` against an equality type to be verified. *)
+let process_hint =
+  let rec deep quants e h = match h with
+    | |- forall (?x : _), ?h =>
+      deep ((x, None) :: quants) e h
+    | |- _ == _ => (fun lst => Some (spine e lst), (rev quants, h))
+    end
+  in
+  fun h => match h with
+    | |- ?e : ?h => deep [] e h
+    end
+
 let process_reducing c l =
   let _ = match c with
       | |- _constant _ => ()
@@ -295,6 +309,21 @@ let is_arg_reducing e =
   end
 
 
+let apply_general_hint e1 e2 =
+  let eq = e1 == e2 in
+  let rec fold lst =
+  match lst with
+    | [] => None
+    | ?hint :: ?rem =>
+      match generic_matcher hint eq with
+        | (Some _) as ?xi => xi
+        | None => fold rem
+      end
+  end
+  in
+  fold hints
+
+
 (* Attempt to apply one of `betas` to a term `e`. Here `betas` is a list of beta hints previously
    processed by `process_beta`. Return `Some (⊢ p : e == e')` or `None` if no hint applies. *)
 let apply_beta_hint e =
@@ -322,14 +351,25 @@ let add_eta_to h etas =
   let h = process_eta h in
   h :: etas
 
+let add_hint_to h hints =
+  let h = process_hint h in
+  h :: hints
+
 let add_beta h = add_beta_to h betas
 
 let add_reducing h l = add_reducing_to h l reducing
 
 let add_eta h = add_eta_to h etas
 
+let add_hint h = add_hint_to h hints
+
 let add_betas hs =
   fold (fun betas b => add_beta_to b betas) betas hs
 
 let add_etas hs =
   fold (fun etas  b => add_eta_to  b etas) etas  hs
+
+let add_hints hs =
+  fold (fun hints b => add_hint_to b hints) hints hs
+
+
