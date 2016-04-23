@@ -19,8 +19,6 @@ let predefined_aml_types = let open Input in
     (Name.Predefined.nil, []);
     (Name.Predefined.cons, [ty_alpha; (ML_TyApply (Name.Predefined.list, [ty_alpha]), loc)])
     ])], loc
-  and decl_empty = DefMLType [Name.Predefined.empty, ([],
-  ML_Sum [])], loc
   and decl_coercible = DefMLType [Name.Predefined.coercible_ty, ([],
     ML_Sum [
     (Name.Predefined.notcoercible, []);
@@ -28,7 +26,7 @@ let predefined_aml_types = let open Input in
     (Name.Predefined.coercible_constructor, [ML_Judgment, loc])
     ])], loc
   in
-  [decl_option; decl_list; decl_empty; decl_coercible]
+  [decl_option; decl_list; decl_coercible]
 
 let predefined_ops = let open Input in
   let loc = Location.unknown in

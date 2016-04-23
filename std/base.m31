@@ -25,3 +25,5 @@ mltype eagerness =
   | lazy
   end
 
+mltype empty = end
+
