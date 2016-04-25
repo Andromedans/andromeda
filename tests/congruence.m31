@@ -9,3 +9,7 @@ let congr = (λ A f g u v eqf equ, handle
 
 do congr
 
+let congr' = (λ A f g u v eqf equ, congr_apply (assume x : A in x) eqf equ (refl A) (refl A))
+ : forall (A : Type) (f g : A -> A) (u v : A), f == g -> u == v -> f u == g v
+
+do congr'

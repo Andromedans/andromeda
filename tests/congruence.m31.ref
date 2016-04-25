@@ -5,3 +5,10 @@ val congr : judgment
   : Π (A : Type) (f : A → A) (g : A → A) (u : A) (v : A), f ≡ g → u
         ≡ v → f u ≡ g v
 
+val congr' : judgment
+
+⊢ λ (A : Type) (f : A → A) (g : A → A) (u : A) (v : A) (_ : f ≡ g)
+    (_ : u ≡ v), refl (f u)
+  : Π (A : Type) (f : A → A) (g : A → A) (u : A) (v : A), f ≡ g → u
+        ≡ v → f u ≡ g v
+

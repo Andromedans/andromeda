@@ -16,12 +16,7 @@ let convert_eq eq eqt =
 match (eq, eqt) with
   | (_, ⊢ _ : ?t == ?t) ⇒ refl eq
   | (⊢ ?a == ?b, ⊢ _ : _ == ?t) ⇒
-    let a' = convert a eqt
-    and b' = convert b eqt in
-    let eq' = a' == b' in
-    match (handle congruence eq eq' with equal _ _ ⇒ yield (Some eqt) end) with
-    Some ?eq ⇒ eq
-    end
+    congr_eq eqt (refl a) (refl b)
 end
 
 (* The term witnessing symmetry of equality. *)
@@ -33,14 +28,8 @@ let sym = λ (A : Type) (x y : A) (h : x ≡ y), handle refl x : y ≡ x with
 (* The term witnessing transitivity of equality *)
 let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
   handle eq1 : a == c with
-    | coerce (⊢ eq1 : ?X) (⊢ ?Y) ⇒
-      handle
-        match congruence X Y with
-        | Some ?xi ⇒ yield (Convertible xi)
-        end
-      with
-      | equal b c ⇒ yield (Some eq2)
-      end
+    | coerce (⊢ eq1 : a == b) (⊢ a == c) ⇒
+      yield (Convertible (congr_eq (refl t) (refl a) eq2))
   end
 
 (* Take `p : a == b` and return `refl b : a == b`. This is used to make
@@ -200,25 +189,66 @@ and equal_term imps e1 e2 =
 
 and equal_term_whnf imps e1 e2 =
   let by_congruence _ =
-    handle
-      congruence e1 e2
-    with
-      equal ?a ?b ⇒ yield (equal_term imps a b)
+    handle congruence e1 e2
+    with equal ?x ?y => yield (equal_term imps x y)
     end
-  in  
+  in
+  let finalize_congr eq =
+    convert eq (convert_eq (typeof eq) (natural e1))
+  in
   let eq_by_congruence =
     match (e1, e2) with
 
     | (?e, ?e) ⇒ Some (refl e1)
 
-    | (⊢ forall (_), _, ⊢ forall (_), _) ⇒
-      by_congruence ()
+    | (⊢ forall (?x : ?A), ?B, ⊢ forall (?y : ?A'), ?B') ⇒
+      match equal_ty imps A A' with
+      | None => None
+      | Some ?eqA =>
+        let B0' = B' where y = (convert x (symmetry eqA)) in
+        match now hypotheses = x :: hypotheses in equal_ty imps B B0' with
+        | None => None
+        | Some ?eqB =>
+          Some (finalize_congr (congr_prod x eqA eqB))
+        end
+      end
 
-    | (⊢ lambda (_), _, ⊢ lambda (_), _) ⇒
-      by_congruence ()
+    | (⊢ lambda (?x : ?A), ?body, ⊢ lambda (?y : ?A'), ?body') ⇒
+      match equal_ty imps A A' with
+      | None => None
+      | Some ?eqA =>
+        let B = typeof body and B' = typeof body' in
+        let x' = convert x (symmetry eqA) in
+        let B0' = B' where y = x' in
+        match now hypotheses = x :: hypotheses in equal_ty imps B B0' with
+        | None => None
+        | Some ?eqB =>
+          let body0' = convert (body' where y = x') (symmetry eqB) in
+          match now hypotheses = x :: hypotheses in equal_term imps body body0' with
+          | None => None
+          | Some ?eqbody =>
+            Some (finalize_congr (congr_lambda x eqA eqB eqbody))
+          end
+        end
+      end
 
-    | (⊢ _ == _, ⊢ _ == _) ⇒
-      by_congruence ()
+    | (⊢ ?lhs == ?rhs, ⊢ ?lhs' == ?rhs') ⇒
+      let t = typeof lhs and t' = typeof lhs' in
+      match equal_ty imps t t' with
+      | None => None
+      | Some ?eqt =>
+        let lhs0' = convert lhs' (symmetry eqt)
+        and rhs0' = convert rhs' (symmetry eqt) in
+        match equal_term imps lhs lhs0' with
+        | None => None
+        | Some ?eqlhs =>
+          match equal_term imps rhs rhs0' with
+          | None => None
+          | Some ?eqrhs =>
+            Some (finalize_congr (congr_eq eqt eqlhs eqrhs))
+          end
+        end
+      end
 
     | (⊢ refl _, ⊢ refl _) ⇒
       by_congruence ()
