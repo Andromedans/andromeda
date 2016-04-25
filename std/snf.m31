@@ -1,0 +1,103 @@
+
+let rec snf_term imps e =
+  match snf_term_no_betas imps e with
+  | |- ?xi : _ == ?e' =>
+    match apply_beta_hint e' with
+    | Some (|- ?zeta : _ == ?e'') =>
+      let theta = snf_term imps e'' in
+      transitivity xi (transitivity zeta theta)
+    | None => xi
+    end
+  end
+
+and snf_term_no_betas imps e =
+  match e with
+
+  | ⊢ ?h ?a ⇒
+    match snf_term imps h with
+
+    | ⊢ ?eqH : _ == ?h' ⇒
+      let eqa = snf_term imps a in
+      match eqa with
+      |- _ : _ == ?a' =>
+        let e0 = h a in (* e at its natural type *)
+        let e1 = h' a' in
+        let t_e0 = typeof e0 and t_e1 = typeof e1 in
+        let zeta = (* e == e1 at type of e *)
+          handle
+            match congruence e0 e1 with
+            | Some (⊢ ?zeta : ?zeta_ty) ⇒
+              convert zeta (convert_eq zeta_ty (natural e))
+            end
+          with
+          | coerce (|- _ : t_e1) t_e0 =>
+          (* need to prove that type of h' a' == type of h a, so just recompute *)
+            match equal_ty imps t_e1 t_e0 with
+            | Some ?eqT => yield (Convertible eqT)
+            | None => yield NotCoercible
+            end
+          | equal h h' ⇒ yield (Some eqH)
+          | equal a a' => yield (Some eqa)
+          end
+        in
+        match h' with
+        | ⊢ (lambda (_), _) ⇒
+          let e' = (* e1 at type of e *)
+            match zeta with ⊢ _ : _ == ?e' ⇒ e' end
+          in
+          handle
+            match reduction e' with
+            | Some (⊢ ?xi : _ == ?e'') ⇒
+              let theta = snf_term_no_betas imps e'' in
+              transitivity zeta (transitivity xi theta)
+            | None ⇒ refl e
+            end
+          with
+          | equal ?x ?y ⇒ yield (equal_term imps x y)
+          end
+
+        | ⊢ _ ⇒ zeta
+        end
+      end
+    end
+
+  | ⊢ _atom _  ⇒
+    match assoc_find e imps with
+    | None ⇒ refl e
+    | Some ?r ⇒
+      match !r with
+      | None ⇒ refl e
+      | Some (⊢ ?xi : (e as ?e0) == ?e') ⇒
+        let zeta = snf_term_no_betas imps e' in
+        let eq = transitivity xi zeta in
+        (* eq is at typeof e0 but needs to be at typeof e *)
+        convert eq (convert_eq (typeof eq) (transitivity (symmetry (natural e0)) (natural e)))
+      end
+    end
+
+  | Type => refl e
+  
+  | _constant _ => refl e
+  
+  | forall (?x : ?A), ?B =>
+    match snf_term imps A with
+    |- ?eqA : _ == ?A' =>
+      assume x' : A' in
+      let B0 = B where x = (convert x' (symmetry eqA)) in
+      match snf_term imps B0 with
+      |- ?eqB : _ == ?B' =>
+        let e0' = forall y : A', B' where x' = y in
+        handle
+          match congruence e (convert e0' (symmetry (natural e))) with
+          | Some ?eq => eq
+          end
+        with
+          | equal A A' => yield (Some eqA)
+          | equal B B' => yield (Some eqB)
+        end
+      end
+    end
+  
+  | lambda (?x : ?A), ?e =>
+  end
+
