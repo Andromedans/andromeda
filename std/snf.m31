@@ -98,6 +98,29 @@ and snf_term_no_betas imps e =
       end
     end
   
-  | lambda (?x : ?A), ?e =>
+  | lambda (?x : ?A), ?body =>
+    match snf_term imps A with
+    |- ?eqA : _ == ?A' =>
+       assume x' : A' in
+       let body0 = body where x = (convert x' (symmetry eqA)) in
+      match snf_term imps (typeof body0) with
+      |- ?eqB : _ == ?B' =>
+        let body1 = convert body0 eqB in
+        match snf_term imps body1 with
+        |- ?eqbody : _ == ?body' =>
+          let e0' = lambda y : A', body' where x' = y in
+          handle
+            match congruence e (convert e0' ()) with
+            | Some ?eq => eq
+            end
+          with
+          | equal A A' => yield (Some eqA)
+          | equal B B' => yield (Some eqB)
+          | equal body body' => yield (Some eqbody)
+          end
+        end
+      end
+
+    end  
   end
 
