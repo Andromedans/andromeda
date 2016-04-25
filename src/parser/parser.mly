@@ -52,6 +52,8 @@
 %token SEMICOLON
 
 %token CONGRUENCE
+%token CONGR_PROD CONGR_APPLY CONGR_LAMBDA CONGR_EQ CONGR_REFL
+
 %token REDUCTION
 %token EXTENSIONALITY
 %token NATURAL
@@ -180,6 +182,15 @@ plain_app_term:
   | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
   | CONGRUENCE t1=prefix_term t2=prefix_term        { Congruence (t1,t2) }
   | EXTENSIONALITY t1=prefix_term t2=prefix_term    { Extensionality (t1,t2) }
+  | CONGR_PROD e1=prefix_term e2=prefix_term e3=prefix_term { CongrProd (e1, e2, e3) }
+  | CONGR_APPLY e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
+    { CongrApply (e1, e2, e3, e4, e5) }
+  | CONGR_LAMBDA e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term
+    { CongrLambda (e1, e2, e3, e4) }
+  | CONGR_EQ e1=prefix_term e2=prefix_term e3=prefix_term
+    { CongrEq (e1, e2, e3) }
+  | CONGR_REFL e1=prefix_term e2=prefix_term
+    { CongrRefl (e1, e2) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:

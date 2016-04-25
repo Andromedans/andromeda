@@ -12,6 +12,11 @@ let reserved = [
   ("as", AS) ;
   ("assume", ASSUME) ;
   ("congruence", CONGRUENCE) ;
+  ("congr_prod", CONGR_PROD) ;
+  ("congr_apply", CONGR_APPLY) ;
+  ("congr_lambda", CONGR_LAMBDA) ;
+  ("congr_eq", CONGR_EQ) ;
+  ("congr_refl", CONGR_REFL) ;
   ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("do", DO) ;

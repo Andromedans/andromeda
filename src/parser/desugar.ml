@@ -582,6 +582,38 @@ let rec comp ~yield bound (c',loc) =
      let e2 = comp ~yield bound e2 in
      locate (Syntax.Congruence (e1,e2)) loc
 
+  | Input.CongrProd (e1, e2, e3) ->
+     let e1 = comp ~yield bound e1
+     and e2 = comp ~yield bound e2
+     and e3 = comp ~yield bound e3 in
+     locate (Syntax.CongrProd (e1, e2, e3)) loc
+
+  | Input.CongrApply (e1, e2, e3, e4, e5) ->
+     let e1 = comp ~yield bound e1
+     and e2 = comp ~yield bound e2
+     and e3 = comp ~yield bound e3
+     and e4 = comp ~yield bound e4
+     and e5 = comp ~yield bound e5 in
+     locate (Syntax.CongrApply (e1, e2, e3, e4, e5)) loc
+
+  | Input.CongrLambda (e1, e2, e3, e4) ->
+     let e1 = comp ~yield bound e1
+     and e2 = comp ~yield bound e2
+     and e3 = comp ~yield bound e3
+     and e4 = comp ~yield bound e4 in
+     locate (Syntax.CongrLambda (e1, e2, e3, e4)) loc
+
+  | Input.CongrEq (e1, e2, e3) ->
+     let e1 = comp ~yield bound e1
+     and e2 = comp ~yield bound e2
+     and e3 = comp ~yield bound e3 in
+     locate (Syntax.CongrEq (e1, e2, e3)) loc
+
+  | Input.CongrRefl (e1, e2) ->
+     let e1 = comp ~yield bound e1
+     and e2 = comp ~yield bound e2 in
+     locate (Syntax.CongrRefl (e1, e2)) loc
+
   | Input.Extensionality (e1,e2) ->
      let e1 = comp ~yield bound e1 in
      let e2 = comp ~yield bound e2 in

@@ -79,6 +79,11 @@ and term' =
   | Refl of comp
   | Yield of comp
   | Congruence of comp * comp
+  | CongrProd of comp * comp * comp
+  | CongrApply of comp * comp * comp * comp * comp
+  | CongrLambda of comp * comp * comp * comp
+  | CongrEq of comp * comp * comp
+  | CongrRefl of comp * comp
   | Extensionality of comp * comp
   | Reduction of comp
   | String of string
