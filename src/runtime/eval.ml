@@ -502,6 +502,10 @@ let comp_value c =
   let r = infer c in
   Runtime.top_handle ~loc:c.Location.loc r
 
+let comp_ty c =
+  let r = check_ty c in
+  Runtime.top_handle ~loc:(c.Location.loc) r
+
 let comp_handle (xs,y,c) =
   Runtime.top_return_closure (fun (vs,checking) ->
       let rec bind = function
@@ -592,7 +596,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        return ()
 
     | Syntax.DeclConstants (xs, c) ->
-      Runtime.top_handle ~loc:(c.Location.loc) (check_ty c) >>= fun t ->
+      comp_ty c >>= fun t ->
       let t = Jdg.is_closed_ty ~loc t in
       let rec fold = function
         | [] -> (if not quiet then Format.printf "@."); return ()
