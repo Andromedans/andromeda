@@ -155,7 +155,7 @@ val symmetry_ty : eq_ty -> eq_ty
 val is_type_equality : eq_term -> eq_ty
 
 (** The reflection rule *)
-val reflect : term -> eq_term
+val reflect : term -> eq_term (* TODO take a loc *)
 
 val reflect_ty_eq : loc:Location.t -> term -> eq_ty
 

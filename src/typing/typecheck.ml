@@ -357,6 +357,38 @@ let rec comp ({Location.thing=c; loc} : _ Syntax.comp) : (Mlty.ty_schema Syntax.
     Tyenv.predefined_type Name.Predefined.option [Mlty.Jdg] >>= fun t ->
     return (locate ~loc (Syntax.Congruence (c1, c2)), t)
 
+  | Syntax.CongrProd (c1, c2, c3) ->
+    check_comp c1 Mlty.Jdg >>= fun c1 ->
+    check_comp c2 Mlty.Jdg >>= fun c2 ->
+    check_comp c3 Mlty.Jdg >>= fun c3 ->
+    return (locate ~loc (Syntax.CongrProd (c1, c2, c3)), Mlty.Jdg)
+
+  | Syntax.CongrApply (c1, c2, c3, c4, c5) ->
+    check_comp c1 Mlty.Jdg >>= fun c1 ->
+    check_comp c2 Mlty.Jdg >>= fun c2 ->
+    check_comp c3 Mlty.Jdg >>= fun c3 ->
+    check_comp c4 Mlty.Jdg >>= fun c4 ->
+    check_comp c5 Mlty.Jdg >>= fun c5 ->
+    return (locate ~loc (Syntax.CongrApply (c1, c2, c3, c4, c5)), Mlty.Jdg)
+
+  | Syntax.CongrLambda (c1, c2, c3, c4) ->
+    check_comp c1 Mlty.Jdg >>= fun c1 ->
+    check_comp c2 Mlty.Jdg >>= fun c2 ->
+    check_comp c3 Mlty.Jdg >>= fun c3 ->
+    check_comp c4 Mlty.Jdg >>= fun c4 ->
+    return (locate ~loc (Syntax.CongrLambda (c1, c2, c3, c4)), Mlty.Jdg)
+
+  | Syntax.CongrEq (c1, c2, c3) ->
+    check_comp c1 Mlty.Jdg >>= fun c1 ->
+    check_comp c2 Mlty.Jdg >>= fun c2 ->
+    check_comp c3 Mlty.Jdg >>= fun c3 ->
+    return (locate ~loc (Syntax.CongrEq (c1, c2, c3)), Mlty.Jdg)
+
+  | Syntax.CongrRefl (c1, c2) ->
+    check_comp c1 Mlty.Jdg >>= fun c1 ->
+    check_comp c2 Mlty.Jdg >>= fun c2 ->
+    return (locate ~loc (Syntax.CongrRefl (c1, c2)), Mlty.Jdg)
+
   | Syntax.Extensionality (c1, c2) ->
     check_comp c1 Mlty.Jdg >>= fun c1 ->
     check_comp c2 Mlty.Jdg >>= fun c2 ->
