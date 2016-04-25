@@ -45,9 +45,6 @@ module Predefined : sig
   (** The name of the [as_eq] operation *)
   val as_eq : operation
 
-  (** The name of the empty type *)
-  val empty : ty
-
   (** The name of the [coercible] type *)
   val coercible_ty : ty
 
