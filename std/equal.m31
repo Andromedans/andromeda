@@ -6,9 +6,9 @@ let typeof e =
 
 (* if `x : A` and `eq : A == B` return `x : B` *)
 let convert x eq =
-match eq with
-  ⊢ _ : _ == ?t ⇒
-  handle x : t with coerce x t ⇒ yield (Convertible eq) end
+match (x, eq) with
+  (|- _ : ?t, ⊢ _ : ?t == ?t') ⇒
+  handle x : t' with coerce x t' ⇒ yield (Convertible eq) end
 end
 
 (* if `eq = (a == b : A)` and `eqt : A == B` return a witness of `(a == b : A) == (a == b : B)` *)
@@ -209,7 +209,8 @@ and equal_term_whnf imps e1 e2 =
       match equal_ty imps A A' with
       | None => None
       | Some ?eqA =>
-        let B0' = B' where y = (convert x (symmetry eqA)) in
+        let x' = convert x eqA in
+        let B0' = B' where y = x' in
         match now hypotheses = x :: hypotheses in equal_ty imps B B0' with
         | None => None
         | Some ?eqB =>
@@ -241,8 +242,8 @@ and equal_term_whnf imps e1 e2 =
       match equal_ty imps t t' with
       | None => None
       | Some ?eqt =>
-        let lhs0' = convert lhs' (symmetry eqt)
-        and rhs0' = convert rhs' (symmetry eqt) in
+        let lhs0' = convert lhs' (symmetry eqt) in
+        let rhs0' = convert rhs' (symmetry eqt) in
         match equal_term imps lhs lhs0' with
         | None => None
         | Some ?eqlhs =>
@@ -254,43 +255,67 @@ and equal_term_whnf imps e1 e2 =
         end
       end
 
-    | (⊢ refl _, ⊢ refl _) ⇒
-      by_congruence ()
+    | (⊢ refl ?e, ⊢ refl ?e') ⇒
+      let t = typeof e and t' = typeof e' in
+      match equal_ty imps t t' with
+      | None => None
+      | Some ?eqt =>
+        let e0' = convert e' (symmetry eqt) in
+        match equal_term imps e e0' with
+        | None => None
+        | Some ?eqe =>
+          Some (finalize_congr (congr_refl eqt eqe))
+        end
+      end
 
     | (⊢ ?h1 ?a1, ⊢ ?h2 ?a2) ⇒
-      handle
-        congruence e1 e2
-      with
-      | equal (h1 as ?x) (h2 as ?y) ⇒ yield (equal_term_whnf imps x y)
-      | equal (a1 as ?a1) (a2 as ?a2) ⇒
-        let eqa_opt =
-          match (is_arg_reducing h1, is_arg_reducing h2) with
-          | (lazy, lazy) =>
-            equal_term imps a1 a2
-          | (eager, eager) =>
-            equal_term_whnf imps a1 a2
-          | (lazy, eager) =>
-            match whnf_term imps a1 with
-            |- ?eqa1 : _ == ?a1' =>
-              match equal_term_whnf imps a1' a2 with
+      match (typeof h1, typeof h2) with
+      | (|- forall (?x1 : ?A1), ?B1, |- forall (?x2 : ?A2), ?B2) =>
+        match equal_ty imps A1 A2 with
+        | None => None
+        | Some ?eqA =>
+          let x1' = convert x1 eqA in
+          let B2 = B2 where x2 = x1' in
+          let h2 = h2 where x2 = x1' in
+          match equal_ty imps B1 B2 with
+          | None => None
+          | Some ?eqB =>
+            let eqprod = congr_prod x1 eqA eqB in
+            let h2 = convert h2 (symmetry eqprod) in
+            match equal_term_whnf imps h1 h2 with
+            | None => None
+            | Some ?eqh =>
+              let a2 = convert a2 (symmetry eqA) in
+              let equal_arg =
+                match (is_arg_reducing h1, is_arg_reducing h2) with
+                | (lazy, lazy) => equal_term imps a1 a2
+                | (eager, eager) => equal_term_whnf imps a1 a2
+                | (lazy, eager) =>
+                  match whnf_term imps a1 with
+                  |- ?eqa1 : _ == ?a1' =>
+                    match equal_term_whnf imps a1' a2 with
+                    | None => None
+                    | Some ?eqa2 => Some (transitivity eqa1 eqa2)
+                    end
+                  end
+                | (eager, lazy) =>
+                  match whnf_term imps a2 with
+                  |- ?eqa2 : _ == ?a2' =>
+                    match equal_term_whnf imps a1 a2' with
+                    | None => None
+                    | Some ?eqa1 => Some (transitivity eqa1 eqa2)
+                    end
+                  end
+                end
+              in
+              match equal_arg with
               | None => None
-              | Some ?eqa2 =>
-                Some (transitivity eqa1 eqa2)
-              end
-            end
-          | (eager, lazy) =>
-            match whnf_term imps a2 with
-            |- ?eqa2 : _ == ?a2' =>
-              match equal_term_whnf imps a1 a2' with
-              | None => None
-              | Some ?eqa1 =>
-                Some (transitivity eqa1 (symmetry eqa2))
+              | Some ?eqa =>
+                Some (finalize_congr (congr_apply x1 eqh eqa eqA eqB))
               end
             end
           end
-        in
-        yield eqa_opt
-      | equal ?A ?B => yield (equal_ty imps A B)
+        end
       end
 
     | (_, _) ⇒ None
