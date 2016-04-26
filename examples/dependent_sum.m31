@@ -1,44 +1,4 @@
-(* Dependent sums *)
-constant Σ : Π (A : Type) (B : A → Type), Type
-constant existT : Π (A : Type) (B : A → Type) (a : A), B a → Σ A B
-
-constant π₁ : Π (A : Type) (B : A → Type), Σ A B → A
-now reducing = add_reducing π₁ [lazy, lazy, eager]
-
-constant π₂ : Π (A : Type) (B : A → Type) (p : Σ A B), B (π₁ A B p)
-now reducing = add_reducing π₂ [lazy, lazy, eager]
-
-constant π₁_β :
-  Π (A : Type) (B : A → Type) (a : A) (b : B a),
-    (π₁ A B (existT A B a b) == a)
-
-now betas = add_beta π₁_β
-
-constant π₂_β :
-  Π (A : Type) (B : A → Type) (a : A) (b : B a),
-    (π₂ A B (existT A B a b) == b)
-
-now betas = add_beta π₂_β
-
-constant Σ_η : Π (A : Type) (B : A → Type) (p q : Σ A B)
-                 (ξ : π₁ A B p ≡ π₁ A B q),
-                 now hints = add_hint (symmetry ξ) in
-                   π₂ A B p ≡ π₂ A B q → p ≡ q
-
-now etas = add_eta Σ_η
-
-(* Simple products as a dependent sum *)
-constant ( * ) : Type → Type → Type
-constant prod_def : ∏ (A B : Type), A * B ≡ Σ A (λ _, B)
-now betas = add_beta prod_def
-
-constant pair : ∏ (A B : Type), A → B → A * B
-constant pair_def : ∏ (A B : Type) (x : A) (y : B), pair A B x y ≡ existT A (λ _, B) x y
-now betas = add_beta pair_def
-
-(* Identity function *)
-constant id : ∏ (A : Type), A → A
-constant id_def : id ≡ (λ (A : Type) (x : A), x)
+constant id_def : forall (A : Type) (x : A), id A x ≡ x
 now betas = add_beta id_def
 
 (* Composition of functions *)
@@ -78,6 +38,8 @@ constant id_iso : ∏ (A : Type), is_inverse A A (id A) (id A)
 constant id_iso_proof:
   resolve
     (id_iso ≡ (λ _, pair ? ? (refl ?) (refl ?)))
+
+do id_iso_proof
 
 (* Isomorphism is symmetric *)
 constant iso_sym : ∏ (A B : Type), iso A B → iso B A

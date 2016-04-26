@@ -14,48 +14,32 @@ and snf_term_no_betas imps e =
   match e with
 
   | ⊢ ?h ?a ⇒
-    match snf_term imps h with
+    match (typeof h, snf_term imps h) with
 
-    | ⊢ ?eqH : _ == ?h' ⇒
+    | (|- forall (?x : ?A), ?B, |- ?eqH : _ == ?h') ⇒
       let eqa = snf_term imps a in
       match eqa with
       |- _ : _ == ?a' =>
-        let e0 = h a in (* e at its natural type *)
-        let e1 = h' a' in
-        let t_e0 = typeof e0 and t_e1 = typeof e1 in
-        let zeta = (* e == e1 at type of e *)
-          handle
-            match congruence e0 e1 with
-            | Some (⊢ ?zeta : ?zeta_ty) ⇒
-              convert zeta (convert_eq zeta_ty (natural e))
-            end
-          with
-          | coerce (|- _ : t_e1) t_e0 =>
-          (* need to prove that type of h' a' == type of h a, so just recompute *)
-            match equal_ty imps t_e1 t_e0 with
-            | Some ?eqT => yield (Convertible eqT)
-            | None => yield NotCoercible
-            end
-          | equal h h' ⇒ yield (Some eqH)
-          | equal a a' => yield (Some eqa)
-          end
-        in
+        (* h @[A B] a == h' @[A B] a' : B[a] *)
+        let zeta = congr_apply x eqH eqa (refl A) (refl B) in
+        let zeta = convert zeta (convert_eq (typeof zeta) (natural e)) in
         match h' with
-        | ⊢ (lambda (_), _) ⇒
-          let e' = (* e1 at type of e *)
-            match zeta with ⊢ _ : _ == ?e' ⇒ e' end
-          in
-          handle
-            match reduction e' with
-            | Some (⊢ ?xi : _ == ?e'') ⇒
-              let theta = snf_term_no_betas imps e'' in
-              transitivity zeta (transitivity xi theta)
-            | None ⇒ refl e
+        | ⊢ lambda (?y : ?C), ?body =>
+          match equal_ty imps C A with
+          | None => zeta
+          | Some ?eqCA =>
+            let D = typeof body in
+            let B = B where x = convert y eqCA in
+            match now hypotheses = x :: hypotheses in equal_ty imps D B with
+            | None => zeta
+            | Some ?eqDB =>
+              let beta = beta_step y eqCA eqDB body a' in
+              match typeof beta with
+              |- _ == ?e' =>
+                transitivity zeta (transitivity beta (snf_term_no_betas imps e'))
+              end
             end
-          with
-          | equal ?x ?y ⇒ yield (equal_term imps x y)
           end
-
         | ⊢ _ ⇒ zeta
         end
       end
@@ -75,52 +59,36 @@ and snf_term_no_betas imps e =
       end
     end
 
-  | Type => refl e
+  | ⊢ Type => refl e
   
-  | _constant _ => refl e
+  | ⊢ _constant _ => refl e
   
-  | forall (?x : ?A), ?B =>
-    match snf_term imps A with
-    |- ?eqA : _ == ?A' =>
-      assume x' : A' in
-      let B0 = B where x = (convert x' (symmetry eqA)) in
-      match snf_term imps B0 with
-      |- ?eqB : _ == ?B' =>
-        let e0' = forall y : A', B' where x' = y in
-        handle
-          match congruence e (convert e0' (symmetry (natural e))) with
-          | Some ?eq => eq
-          end
-        with
-          | equal A A' => yield (Some eqA)
-          | equal B B' => yield (Some eqB)
-        end
-      end
-    end
+  | ⊢ forall (?x : ?A), ?B =>
+    let eqA = snf_term imps A in
+    let eqB = snf_term imps B in
+    let xi = congr_prod x eqA eqB in
+    convert xi (convert_eq (typeof xi) (natural e))
   
-  | lambda (?x : ?A), ?body =>
-    match snf_term imps A with
-    |- ?eqA : _ == ?A' =>
-       assume x' : A' in
-       let body0 = body where x = (convert x' (symmetry eqA)) in
-      match snf_term imps (typeof body0) with
-      |- ?eqB : _ == ?B' =>
-        let body1 = convert body0 eqB in
-        match snf_term imps body1 with
-        |- ?eqbody : _ == ?body' =>
-          let e0' = lambda y : A', body' where x' = y in
-          handle
-            match congruence e (convert e0' ()) with
-            | Some ?eq => eq
-            end
-          with
-          | equal A A' => yield (Some eqA)
-          | equal B B' => yield (Some eqB)
-          | equal body body' => yield (Some eqbody)
-          end
-        end
-      end
+  | ⊢ lambda (?x : ?A), ?body =>
+    let eqA = snf_term imps A in
+    let eqB = snf_term imps (typeof body) in
+    let eqbody = snf_term imps body in
+    let xi = congr_lambda x eqA eqB eqbody in
+    convert xi (convert_eq (typeof xi) (natural e))
 
-    end  
+  | ⊢ ?a == ?b =>
+    let eqT = snf_term imps (typeof a) in
+    let eqa = snf_term imps a in
+    let eqb = snf_term imps b in
+    let xi = congr_eq eqT eqa eqb in
+    convert xi (convert_eq (typeof xi) (natural e))
+
+  | ⊢ refl ?a =>
+    let eqT = snf_term imps (typeof a) in
+    let eqa = snf_term imps a in
+    let xi = congr_refl eqT eqa in
+    convert xi (convert_eq (typeof xi) (natural e))
+    
   end
 
+let snf e = snf_term !imps e
