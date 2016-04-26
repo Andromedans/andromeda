@@ -244,7 +244,7 @@ end
 (** Judgements *)
 
 let strengthen (WeakTerm (ctx, e, t)) =
-  let hyps = TT.assumptions_term e in
+  let hyps = AtomSet.union (TT.assumptions_term e) (TT.assumptions_ty t) in
   let ctx = Ctx.restrict ctx hyps in
   Term (ctx,e,t)
 
