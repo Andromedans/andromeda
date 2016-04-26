@@ -42,7 +42,6 @@ let reserved = [
   ("of", OF) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
-  ("reduction", REDUCTION) ;
   ("ref", REF) ;
   ("refl", REFL) ;
   ("val", VAL) ;

@@ -617,10 +617,6 @@ let rec comp ~yield bound (c',loc) =
      and e5 = comp ~yield bound e5 in
      locate (Syntax.BetaStep (e1, e2, e3, e4, e5)) loc
 
-  | Input.Reduction c ->
-     let c = comp ~yield bound c in
-     locate (Syntax.Reduction c) loc
-
   | Input.String s ->
      locate (Syntax.String s) loc
 

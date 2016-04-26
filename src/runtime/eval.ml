@@ -291,15 +291,6 @@ let rec infer {Location.thing=c'; loc} =
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
 
-  | Syntax.Reduction c ->
-    infer c >>= as_term ~loc >>= fun j ->
-    Equal.reduction_step ~loc j >>= begin function
-      | Some eq ->
-        let v = Runtime.mk_term (Jdg.refl_of_eq ~loc eq) in
-        Runtime.return (Predefined.from_option (Some v))
-      | None -> Runtime.return (Predefined.from_option None)
-      end
-
   | Syntax.String s ->
     Runtime.return (Runtime.mk_string s)
 
@@ -353,7 +344,6 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Apply _
   | Syntax.Yield _
   | Syntax.CongrProd _ | Syntax.CongrApply _ | Syntax.CongrLambda _ | Syntax.CongrEq _ | Syntax.CongrRefl _
-  | Syntax.Reduction _
   | Syntax.BetaStep _
   | Syntax.Ref _
   | Syntax.Lookup _

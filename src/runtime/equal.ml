@@ -17,10 +17,6 @@ module Opt = struct
   let fail =
     { k = fun _ fk -> fk }
 
-  let add_abstracting v m =
-    { k = fun sk fk ->
-          Predefined.add_abstracting v (m.k sk fk) }
-
   let run m =
     m.k (fun x -> Runtime.return (Some x)) (Runtime.return None)
 end
@@ -139,38 +135,6 @@ let coerce_fun ~loc je =
           
      end
 
-let reduction_step ~loc j = match Jdg.shape j with
-  | Jdg.Apply (j1, j2) ->
-    begin match Jdg.shape j1 with
-      | Jdg.Lambda (a, e) ->
-        begin match Jdg.shape_ty (Jdg.typeof j1) with
-          | Jdg.Prod (a', b') ->
-            equal_ty ~loc (Jdg.atom_ty a) (Jdg.atom_ty a') >?= fun eq_a ->
-            let b = Jdg.typeof e in
-            let a_ty' = Jdg.convert ~loc (Jdg.atom_term ~loc a) eq_a in
-            let b' = Jdg.substitute_ty ~loc b' a' a_ty' in
-            Opt.add_abstracting (Jdg.atom_term ~loc a)
-            (equal_ty ~loc b b') >?= fun eq_b ->
-            let eq = Jdg.beta ~loc eq_a a a' eq_b e j2 in
-            Runtime.lookup_typing_env >!= fun env ->
-            let eqt = Jdg.natural_eq ~loc env j in
-            let eq = Jdg.convert_eq ~loc eq eqt in
-            Opt.return eq
-
-          | _ -> assert false
-        end
-
-      | Jdg.Type | Jdg.Atom _ | Jdg.Constant _
-      | Jdg.Prod _ | Jdg.Apply _
-      | Jdg.Eq _ | Jdg.Refl _ ->
-        Opt.fail
-    end
-
-  | Jdg.Type | Jdg.Atom _ | Jdg.Constant _
-  | Jdg.Prod _ | Jdg.Lambda _
-  | Jdg.Eq _ | Jdg.Refl _ ->
-    Opt.fail
-
 
 let as_eq_alpha t =
   match Jdg.shape_ty t with
@@ -259,8 +223,6 @@ let equal_ty ~loc j1 j2 = Opt.run (Internals.equal_ty ~loc j1 j2)
 let coerce ~loc je jt = Opt.run (Internals.coerce ~loc je jt)
 
 let coerce_fun ~loc je = Opt.run (Internals.coerce_fun ~loc je)
-
-let reduction_step ~loc j = Opt.run (Internals.reduction_step ~loc j)
 
 let as_eq ~loc j = Opt.run (Internals.as_eq ~loc j)
 

@@ -84,7 +84,6 @@ and term' =
   | CongrEq of comp * comp * comp
   | CongrRefl of comp * comp
   | BetaStep of comp * comp * comp * comp * comp
-  | Reduction of comp
   | String of string
   | Context of comp
   | Occurs of comp * comp
