@@ -423,9 +423,9 @@ and whnf_term_no_betas imps e =
   match e with
 
   | ⊢ ?h ?a ⇒
-    match whnf_term imps h with
+    match (typeof h, whnf_term imps h) with
 
-    | ⊢ ?eqH : _ == ?h' ⇒
+    | (|- forall (?x : ?A), ?B, |- ?eqH : _ == ?h') ⇒
       let eqa = match is_arg_reducing h' with
         | lazy => refl a
         | eager => whnf_term imps a
@@ -433,29 +433,26 @@ and whnf_term_no_betas imps e =
       in
       match eqa with
       |- _ : _ == ?a' =>
-        let zeta =
-          match typeof h with
-          |- forall (?x : ?A), ?B =>
-            congr_apply x eqH eqa (refl A) (refl B)
-          end
-        in
+        (* h @[A B] a == h' @[A B] a' : B[a] *)
+        let zeta = congr_apply x eqH eqa (refl A) (refl B) in
         let zeta = convert zeta (convert_eq (typeof zeta) (natural e)) in
         match h' with
-        | ⊢ (lambda (_), _) ⇒
-          let e' = (* e1 at type of e *)
-            match zeta with ⊢ _ : _ == ?e' ⇒ e' end
-          in
-          handle
-            match reduction e' with
-            | Some (⊢ ?xi : _ == ?e'') ⇒
-              let theta = whnf_term_no_betas imps e'' in
-              transitivity zeta (transitivity xi theta)
-            | None ⇒ refl e
+        | ⊢ lambda (?y : ?C), ?body =>
+          match equal_ty imps C A with
+          | None => zeta
+          | Some ?eqCA =>
+            let D = typeof body in
+            let B = B where x = convert y eqCA in
+            match now hypotheses = x :: hypotheses in equal_ty imps D B with
+            | None => zeta
+            | Some ?eqDB =>
+              let beta = beta_step y eqCA eqDB body a' in
+              match typeof beta with
+              |- _ == ?e' =>
+                transitivity zeta (transitivity beta (whnf_term_no_betas imps e'))
+              end
             end
-          with
-          | equal ?x ?y ⇒ yield (equal_term imps x y)
           end
-
         | ⊢ _ ⇒ zeta
         end
       end
