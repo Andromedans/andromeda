@@ -228,11 +228,8 @@ do handle refl a : a == b with equal (|- a) (|- b) => yield (Some eq) end
    It may fail and therefore returns an option value. *)
 do reduction ((lambda (x : A), x) a)
 
-(* `congruence` to apply the appropriate congruence rule (if possible).
-   It will emit `equal` for immediate subterms which are not alpha equal. *)
-do handle congruence ((lambda (x : A), x) a) ((lambda (x : A), x) b) with
-    equal (|- a) (|- b) => yield (Some eq)
-  end
+(* `congr_foo` to apply the appropriate congruence rule to the given premisses. *)
+do congr_apply (assume x : A in x) (refl (lambda (x : A), x)) eq (refl A) (refl A)
 
 (* `extensionality` to apply function extensionality, structure extensionality or uniqueness of identity proofs as the case may be.
    Will emit `equal`s on subgoals. *)
