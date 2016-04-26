@@ -97,5 +97,3 @@ constant iso_sym_proof:
                        (π₁ ? ? (π₂ ? ? (π₂ ? ? φ))))))
     )
 
-do iso_sym_proof
-
