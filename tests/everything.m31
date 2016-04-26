@@ -223,10 +223,9 @@ do refl a
 (* checking mode for `refl` is special: without it we would be asked to solve `(a==a) == (a==b)` *)
 do handle refl a : a == b with equal (|- a) (|- b) => yield (Some eq) end
 
-(* `reduction` to apply the reduction rule for application of a lambda and projection of a structure.
-   It may emit `equal` operations since it needs to verify equality of annotations.
-   It may fail and therefore returns an option value. *)
-do reduction ((lambda (x : A), x) a)
+(* `beta_step` to apply the reduction rule for application of a lambda. *)
+do assume x : A in
+  beta_step x (refl A) (refl A) x a
 
 (* `congr_foo` to apply the appropriate congruence rule to the given premisses. *)
 do congr_apply (assume x : A in x) (refl (lambda (x : A), x)) eq (refl A) (refl A)

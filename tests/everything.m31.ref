@@ -125,8 +125,7 @@ Constant eq is declared.
 
 ⊢ refl a : a ≡ b
 
-Some
-(⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ a)
+⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ a
 
 ⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ (λ (x : A), x) b
 
