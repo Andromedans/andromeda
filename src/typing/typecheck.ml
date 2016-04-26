@@ -383,12 +383,6 @@ let rec comp ({Location.thing=c; loc} : _ Syntax.comp) : (Mlty.ty_schema Syntax.
     check_comp c2 Mlty.Jdg >>= fun c2 ->
     return (locate ~loc (Syntax.CongrRefl (c1, c2)), Mlty.Jdg)
 
-  | Syntax.Extensionality (c1, c2) ->
-    check_comp c1 Mlty.Jdg >>= fun c1 ->
-    check_comp c2 Mlty.Jdg >>= fun c2 ->
-    Tyenv.predefined_type Name.Predefined.option [Mlty.Jdg] >>= fun t ->
-    return (locate ~loc (Syntax.Extensionality (c1, c2)), t)
-
   | Syntax.Reduction c ->
     check_comp c Mlty.Jdg >>= fun c ->
     Tyenv.predefined_type Name.Predefined.option [Mlty.Jdg] >>= fun t ->

@@ -155,15 +155,32 @@ and equal_term imps e1 e2 =
         | None =>
           match A' with
     
-          | ⊢ _ == _ ⇒ extensionality e1' e2'
+          | ⊢ ?lhs == ?rhs ⇒ Some (uip (typeof lhs) lhs rhs e1' e2')
     
-          | ⊢ forall (_), _ ⇒
-            handle
-              extensionality e1' e2'
-            with
-              equal ?a ?b ⇒ yield (equal_term imps a b)
+          | ⊢ forall (?x : ?C), ?D ⇒
+            match now hypotheses = x :: hypotheses in equal_term imps (e1' x) (e2' x) with
+            | None => None
+            | Some ?xi =>
+              let D_f = lambda y : C, D where x = y in
+              (* D == (lambda x, D) x *)
+              let eqD =
+                match reduction (D_f x) with
+                Some ?eqD => symmetry eqD
+                end
+              in
+              (* A' == forall x : C, (lambda x, D) x *)
+              let eqprod = congr_prod x (refl C) eqD in
+              let e1'' = convert e1' eqprod and e2'' = convert e2' eqprod in
+              (* for both i, ei' x !== ei'' x because the annotations are different *)
+              let eqlhs = congr_apply x (refl e1') (refl x) (refl C) eqD
+              and eqrhs = congr_apply x (refl e2') (refl x) (refl C) eqD in
+              let xi = transitivity (symmetry eqlhs) (transitivity xi eqrhs) in
+              let xi = lambda y : C, xi where x = y in
+              let xi = funext C D_f e1'' e2'' xi in
+              let xi = convert xi (convert_eq (typeof xi) (symmetry eqprod)) in
+              Some xi
             end
-    
+
           | _ ⇒
             match apply_eta_hint imps e1' e2' A' with
             | None =>

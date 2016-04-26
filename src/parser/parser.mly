@@ -54,7 +54,6 @@
 %token CONGR_PROD CONGR_APPLY CONGR_LAMBDA CONGR_EQ CONGR_REFL
 
 %token REDUCTION
-%token EXTENSIONALITY
 %token NATURAL
 
 %token EXTERNAL
@@ -179,7 +178,6 @@ app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_prefix_term                             { e }
   | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
-  | EXTENSIONALITY t1=prefix_term t2=prefix_term    { Extensionality (t1,t2) }
   | CONGR_PROD e1=prefix_term e2=prefix_term e3=prefix_term { CongrProd (e1, e2, e3) }
   | CONGR_APPLY e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
     { CongrApply (e1, e2, e3, e4, e5) }

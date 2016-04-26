@@ -130,8 +130,5 @@ Some
 
 ⊢ refl ((λ (x : A), x) a) : (λ (x : A), x) a ≡ (λ (x : A), x) b
 
-⊢ λ (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (_ : x ≡ y), refl p
-  : Π (A0 : Type) (x : A0) (y : A0) (p : x ≡ y) (q : x ≡ y), p ≡ q
-
 #including ./../std/hippy.m31
 #processed ./../std/hippy.m31

@@ -46,7 +46,7 @@ let equal ~loc j1 j2 =
           let target = Jdg.form_ty ~loc env (Jdg.Eq (j1, j2)) in
           begin match Jdg.alpha_equal_eq_ty ~loc target (Jdg.typeof juser) with
             | Some _ -> 
-              let eq = Jdg.reflect juser in
+              let eq = Jdg.reflect ~loc juser in
               Opt.return eq
             | None -> Opt.lift (Runtime.(error ~loc (InvalidEqual target)))
           end
@@ -55,7 +55,7 @@ let equal ~loc j1 j2 =
 
 let equal_ty ~loc j1 j2 =
   equal ~loc (Jdg.term_of_ty j1) (Jdg.term_of_ty j2) >?= fun eq ->
-  let eq = Jdg.is_type_equality eq in
+  let eq = Jdg.is_type_equality ~loc eq in
   Opt.return eq
 
 let coerce ~loc je jt =
@@ -139,26 +139,6 @@ let coerce_fun ~loc je =
           
      end
 
-let extensionality ~loc j1 j2 =
-  match Jdg.shape_ty (Jdg.typeof j1) with
-
-    | Jdg.Prod (a, b) ->
-      Runtime.lookup_typing_env >!= fun env ->
-      let ja = Jdg.form ~loc env (Jdg.Atom a) in
-      let lhs = Jdg.form ~loc env (Jdg.Apply (j1, ja))
-      and rhs = Jdg.form ~loc env (Jdg.Apply (j2, ja)) in
-      Opt.add_abstracting (Jdg.atom_term ~loc a)
-      (equal ~loc lhs rhs) >?= fun eq ->
-      let eq = Jdg.funext ~loc eq in
-      Opt.return eq
-
-    | Jdg.Eq _ ->
-      let eq = Jdg.uip ~loc j1 j2 in
-      Opt.return eq
-    
-    | Jdg.Type | Jdg.Atom _ | Jdg.Constant _ | Jdg.Lambda _ | Jdg.Apply _ | Jdg.Refl _ ->
-      Opt.fail
-
 let reduction_step ~loc j = match Jdg.shape j with
   | Jdg.Apply (j1, j2) ->
     begin match Jdg.shape j1 with
@@ -222,7 +202,7 @@ let as_eq ~loc t =
                           Runtime.(error ~loc (InvalidAsEquality jt))
 
                         | Some (e1,e2) ->
-                          let eq = Jdg.is_type_equality (Jdg.reflect juser) in
+                          let eq = Jdg.is_type_equality ~loc (Jdg.reflect ~loc juser) in
                           Opt.return (eq, e1, e2)
                       end
                   end
@@ -260,7 +240,7 @@ let as_prod ~loc t =
                           Runtime.(error ~loc (InvalidAsProduct jt))
 
                         | Some (a, b) ->
-                          let eq = Jdg.is_type_equality (Jdg.reflect juser) in
+                          let eq = Jdg.is_type_equality ~loc (Jdg.reflect ~loc juser) in
                           Opt.return (eq, a, b)
                       end
                   end
@@ -281,8 +261,6 @@ let coerce ~loc je jt = Opt.run (Internals.coerce ~loc je jt)
 let coerce_fun ~loc je = Opt.run (Internals.coerce_fun ~loc je)
 
 let reduction_step ~loc j = Opt.run (Internals.reduction_step ~loc j)
-
-let extensionality ~loc j1 j2 = Opt.run (Internals.extensionality ~loc j1 j2)
 
 let as_eq ~loc j = Opt.run (Internals.as_eq ~loc j)
 

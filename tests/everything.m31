@@ -231,12 +231,6 @@ do reduction ((lambda (x : A), x) a)
 (* `congr_foo` to apply the appropriate congruence rule to the given premisses. *)
 do congr_apply (assume x : A in x) (refl (lambda (x : A), x)) eq (refl A) (refl A)
 
-(* `extensionality` to apply function extensionality, structure extensionality or uniqueness of identity proofs as the case may be.
-   Will emit `equal`s on subgoals. *)
-do lambda (A : Type) (x y : A) (p q : x == y), match extensionality p q with
-  Some ?wit => wit
-end
-
 (** Evaluate commands from another file *)
 #include_once "../std/hippy.m31"
 

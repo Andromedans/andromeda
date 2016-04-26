@@ -609,11 +609,6 @@ let rec comp ~yield bound (c',loc) =
      and e2 = comp ~yield bound e2 in
      locate (Syntax.CongrRefl (e1, e2)) loc
 
-  | Input.Extensionality (e1,e2) ->
-     let e1 = comp ~yield bound e1 in
-     let e2 = comp ~yield bound e2 in
-     locate (Syntax.Extensionality (e1,e2)) loc
-
   | Input.Reduction c ->
      let c = comp ~yield bound c in
      locate (Syntax.Reduction c) loc

@@ -21,7 +21,6 @@ let reserved = [
   ("do", DO) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
-  ("extensionality", EXTENSIONALITY);
   ("external", EXTERNAL) ;
   ("fail", FAIL) ;
   ("finally", FINALLY) ;

@@ -1,0 +1,13 @@
+
+fail congr_prod Type Type Type
+
+constant A B : Type
+
+fail congr_prod (assume x : A -> B in x) A (refl B)
+
+fail congr_refl (refl Type) Type
+
+constant a : A
+
+fail congr_apply (assume x : A in x) (refl (lambda x : A, x)) (refl a) (refl (A -> A)) (refl (A -> A))
+

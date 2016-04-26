@@ -83,7 +83,6 @@ and term' =
   | CongrLambda of comp * comp * comp * comp
   | CongrEq of comp * comp * comp
   | CongrRefl of comp * comp
-  | Extensionality of comp * comp
   | Reduction of comp
   | String of string
   | Context of comp
