@@ -11,13 +11,17 @@ let reserved = [
   ("and", AND) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
-  ("congruence", CONGRUENCE) ;
+  ("beta_step", BETA_STEP) ;
+  ("congr_prod", CONGR_PROD) ;
+  ("congr_apply", CONGR_APPLY) ;
+  ("congr_lambda", CONGR_LAMBDA) ;
+  ("congr_eq", CONGR_EQ) ;
+  ("congr_refl", CONGR_REFL) ;
   ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("do", DO) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;
-  ("extensionality", EXTENSIONALITY);
   ("external", EXTERNAL) ;
   ("fail", FAIL) ;
   ("finally", FINALLY) ;
@@ -38,7 +42,6 @@ let reserved = [
   ("of", OF) ;
   ("operation", OPERATION) ;
   ("rec", REC) ;
-  ("reduction", REDUCTION) ;
   ("ref", REF) ;
   ("refl", REFL) ;
   ("val", VAL) ;

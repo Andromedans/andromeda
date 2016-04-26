@@ -223,34 +223,73 @@ let rec infer {Location.thing=c'; loc} =
     infer c >>= fun v ->
     Runtime.continue ~loc v
 
-  | Syntax.Congruence (c1,c2) ->
-    infer c1 >>= as_term ~loc >>= fun j1 ->
-    check c2 (Jdg.typeof j1) >>= fun j2 ->
-    Equal.congruence ~loc j1 j2 >>= begin function
-      | Some eq ->
-        let v = Runtime.mk_term (Jdg.refl_of_eq ~loc eq) in
-        Runtime.return (Predefined.from_option (Some v))
-      | None -> Runtime.return (Predefined.from_option None)
-      end
+  | Syntax.CongrProd (c1, c2, c3) ->
+    infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
+    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
+    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
+    let eqa = Jdg.reflect_ty_eq ~loc ja
+    and eqb = Jdg.reflect_ty_eq ~loc jb in
+    let eq = Jdg.congr_prod_ty ~loc eqa x x eqb in
+    let e = Jdg.refl_of_eq_ty ~loc eq in
+    Runtime.return_term e
 
-  | Syntax.Extensionality (c1,c2) ->
-    infer c1 >>= as_term ~loc >>= fun j1 ->
-    check c2 (Jdg.typeof j1) >>= fun j2 ->
-    Equal.extensionality ~loc j1 j2 >>= begin function
-      | Some eq ->
-        let v = Runtime.mk_term (Jdg.refl_of_eq ~loc eq) in
-        Runtime.return (Predefined.from_option (Some v))
-      | None -> Runtime.return (Predefined.from_option None)
-      end
+  | Syntax.CongrApply (c1, c2, c3, c4, c5) ->
+    infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
+    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun jh ->
+    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jarg ->
+    infer c4 >>= as_term ~loc:c4.Location.loc >>= fun ja ->
+    infer c5 >>= as_term ~loc:c5.Location.loc >>= fun jb ->
+    let eqh = Jdg.reflect ~loc jh
+    and eqarg = Jdg.reflect ~loc jarg
+    and eqa = Jdg.reflect_ty_eq ~loc ja
+    and eqb = Jdg.reflect_ty_eq ~loc jb in
+    let eq = Jdg.congr_apply ~loc eqa x x eqb eqh eqarg in
+    let e = Jdg.refl_of_eq ~loc eq in
+    Runtime.return_term e
 
-  | Syntax.Reduction c ->
-    infer c >>= as_term ~loc >>= fun j ->
-    Equal.reduction_step ~loc j >>= begin function
-      | Some eq ->
-        let v = Runtime.mk_term (Jdg.refl_of_eq ~loc eq) in
-        Runtime.return (Predefined.from_option (Some v))
-      | None -> Runtime.return (Predefined.from_option None)
-      end
+  | Syntax.CongrLambda (c1, c2, c3, c4) ->
+    infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
+    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
+    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
+    infer c4 >>= as_term ~loc:c4.Location.loc >>= fun jbody ->
+    let eqbody = Jdg.reflect ~loc jbody
+    and eqa = Jdg.reflect_ty_eq ~loc ja
+    and eqb = Jdg.reflect_ty_eq ~loc jb in
+    let eq = Jdg.congr_lambda ~loc eqa x x eqb eqbody in
+    let e = Jdg.refl_of_eq ~loc eq in
+    Runtime.return_term e
+
+  | Syntax.CongrEq (c1, c2, c3) ->
+    infer c1 >>= as_term ~loc:c1.Location.loc >>= fun jt ->
+    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun jlhs ->
+    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jrhs ->
+    let eqt = Jdg.reflect_ty_eq ~loc jt
+    and eqlhs = Jdg.reflect ~loc jlhs
+    and eqrhs = Jdg.reflect  ~loc jrhs in
+    let eq = Jdg.congr_eq_ty ~loc eqt eqlhs eqrhs in
+    let e = Jdg.refl_of_eq_ty ~loc eq in
+    Runtime.return_term e
+
+  | Syntax.CongrRefl (c1, c2) ->
+    infer c1 >>= as_term ~loc:c1.Location.loc >>= fun jt ->
+    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun je ->
+    let eqt = Jdg.reflect_ty_eq ~loc jt
+    and eqe = Jdg.reflect ~loc je in
+    let eq = Jdg.congr_refl ~loc eqt eqe in
+    let e = Jdg.refl_of_eq ~loc eq in
+    Runtime.return_term e
+
+  | Syntax.BetaStep (c1, c2, c3, c4, c5) ->
+    infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
+    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
+    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
+    infer c4 >>= as_term ~loc:c4.Location.loc >>= fun jbody ->
+    infer c5 >>= as_term ~loc:c5.Location.loc >>= fun jarg ->
+    let eqa = Jdg.reflect_ty_eq ~loc ja
+    and eqb = Jdg.reflect_ty_eq ~loc jb in
+    let eq = Jdg.beta ~loc eqa x x eqb jbody jarg in
+    let e = Jdg.refl_of_eq ~loc eq in
+    Runtime.return_term e
 
   | Syntax.String s ->
     Runtime.return (Runtime.mk_string s)
@@ -304,9 +343,8 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Eq _
   | Syntax.Apply _
   | Syntax.Yield _
-  | Syntax.Congruence _
-  | Syntax.Extensionality _
-  | Syntax.Reduction _
+  | Syntax.CongrProd _ | Syntax.CongrApply _ | Syntax.CongrLambda _ | Syntax.CongrEq _ | Syntax.CongrRefl _
+  | Syntax.BetaStep _
   | Syntax.Ref _
   | Syntax.Lookup _
   | Syntax.Update _

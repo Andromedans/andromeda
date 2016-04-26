@@ -51,9 +51,9 @@
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 %token SEMICOLON
 
-%token CONGRUENCE
-%token REDUCTION
-%token EXTENSIONALITY
+%token CONGR_PROD CONGR_APPLY CONGR_LAMBDA CONGR_EQ CONGR_REFL
+%token BETA_STEP
+
 %token NATURAL
 
 %token EXTERNAL
@@ -178,8 +178,17 @@ app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_prefix_term                             { e }
   | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
-  | CONGRUENCE t1=prefix_term t2=prefix_term        { Congruence (t1,t2) }
-  | EXTENSIONALITY t1=prefix_term t2=prefix_term    { Extensionality (t1,t2) }
+  | CONGR_PROD e1=prefix_term e2=prefix_term e3=prefix_term { CongrProd (e1, e2, e3) }
+  | CONGR_APPLY e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
+    { CongrApply (e1, e2, e3, e4, e5) }
+  | CONGR_LAMBDA e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term
+    { CongrLambda (e1, e2, e3, e4) }
+  | CONGR_EQ e1=prefix_term e2=prefix_term e3=prefix_term
+    { CongrEq (e1, e2, e3) }
+  | CONGR_REFL e1=prefix_term e2=prefix_term
+    { CongrRefl (e1, e2) }
+  | BETA_STEP e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
+    { BetaStep (e1, e2, e3, e4, e5) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:
@@ -188,7 +197,6 @@ plain_prefix_term:
   | BANG e=prefix_term                         { Lookup e }
   | op=PREFIXOP e2=prefix_term                 { let e1 = Var (fst op), snd op in
                                                  Spine (e1, [e2]) }
-  | REDUCTION t=prefix_term                    { Reduction t }
   | NATURAL t=prefix_term                      { Natural t }
   | YIELD e=prefix_term                        { Yield e }
   | REFL e=prefix_term                         { Refl e }
