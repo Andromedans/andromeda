@@ -630,7 +630,8 @@ let beta ~loc (EqTy (ctxa, a1, a2))
   else if not (TT.alpha_equal_ty a2 t2)
   then error ~loc (RuleInputMismatch ("beta", a2, t2))
   else
-    let ctxb = Ctx.abstract ~loc ctxb x a1 in
+    let ctxa = Ctx.join ~loc ctxa ctx2
+    and ctxb = Ctx.abstract ~loc (Ctx.join ~loc ctxb ctx1) x a1 in
 
     let hypsa = Ctx.as_set ctxa
     and hypsb = Ctx.as_set ctxb in

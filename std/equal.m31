@@ -161,13 +161,13 @@ and equal_term imps e1 e2 =
             match now hypotheses = x :: hypotheses in equal_term imps (e1' x) (e2' x) with
             | None => None
             | Some ?xi =>
-              let D_f = lambda y : C, D where x = y in
               (* D == (lambda x, D) x *)
               let eqD =
-                match reduction (D_f x) with
-                Some ?eqD => symmetry eqD
-                end
+                assume y : C in
+                beta_step y (refl C) (refl Type) (D where x = y) x
               in
+              let eqD = symmetry eqD in
+              let D_f = match typeof eqD with |- _ == ?f _ => f end in
               (* A' == forall x : C, (lambda x, D) x *)
               let eqprod = congr_prod x (refl C) eqD in
               let e1'' = convert e1' eqprod and e2'' = convert e2' eqprod in
