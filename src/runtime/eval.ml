@@ -279,6 +279,18 @@ let rec infer {Location.thing=c'; loc} =
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
 
+  | Syntax.BetaStep (c1, c2, c3, c4, c5) ->
+    infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
+    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
+    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
+    infer c4 >>= as_term ~loc:c4.Location.loc >>= fun jbody ->
+    infer c5 >>= as_term ~loc:c5.Location.loc >>= fun jarg ->
+    let eqa = Jdg.reflect_ty_eq ~loc ja
+    and eqb = Jdg.reflect_ty_eq ~loc jb in
+    let eq = Jdg.beta ~loc eqa x x eqb jbody jarg in
+    let e = Jdg.refl_of_eq ~loc eq in
+    Runtime.return_term e
+
   | Syntax.Reduction c ->
     infer c >>= as_term ~loc >>= fun j ->
     Equal.reduction_step ~loc j >>= begin function
@@ -342,6 +354,7 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Yield _
   | Syntax.CongrProd _ | Syntax.CongrApply _ | Syntax.CongrLambda _ | Syntax.CongrEq _ | Syntax.CongrRefl _
   | Syntax.Reduction _
+  | Syntax.BetaStep _
   | Syntax.Ref _
   | Syntax.Lookup _
   | Syntax.Update _

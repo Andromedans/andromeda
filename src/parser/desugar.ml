@@ -609,6 +609,14 @@ let rec comp ~yield bound (c',loc) =
      and e2 = comp ~yield bound e2 in
      locate (Syntax.CongrRefl (e1, e2)) loc
 
+  | Input.BetaStep (e1, e2, e3, e4, e5) ->
+     let e1 = comp ~yield bound e1
+     and e2 = comp ~yield bound e2
+     and e3 = comp ~yield bound e3
+     and e4 = comp ~yield bound e4
+     and e5 = comp ~yield bound e5 in
+     locate (Syntax.BetaStep (e1, e2, e3, e4, e5)) loc
+
   | Input.Reduction c ->
      let c = comp ~yield bound c in
      locate (Syntax.Reduction c) loc

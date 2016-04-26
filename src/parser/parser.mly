@@ -52,6 +52,7 @@
 %token SEMICOLON
 
 %token CONGR_PROD CONGR_APPLY CONGR_LAMBDA CONGR_EQ CONGR_REFL
+%token BETA_STEP
 
 %token REDUCTION
 %token NATURAL
@@ -187,6 +188,8 @@ plain_app_term:
     { CongrEq (e1, e2, e3) }
   | CONGR_REFL e1=prefix_term e2=prefix_term
     { CongrRefl (e1, e2) }
+  | BETA_STEP e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
+    { BetaStep (e1, e2, e3, e4, e5) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:

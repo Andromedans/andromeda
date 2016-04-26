@@ -82,6 +82,7 @@ and 'annot comp' =
   | CongrLambda of 'annot comp * 'annot comp * 'annot comp * 'annot comp
   | CongrEq of 'annot comp * 'annot comp * 'annot comp
   | CongrRefl of 'annot comp * 'annot comp
+  | BetaStep of 'annot comp * 'annot comp * 'annot comp * 'annot comp * 'annot comp
   | Reduction of 'annot comp
   | String of string
   | Occurs of 'annot comp * 'annot comp
