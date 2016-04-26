@@ -77,7 +77,6 @@ and 'annot comp' =
   | Eq of 'annot comp * 'annot comp
   | Refl of 'annot comp
   | Yield of 'annot comp
-  | Congruence of 'annot comp * 'annot comp
   | CongrProd of 'annot comp * 'annot comp * 'annot comp
   | CongrApply of 'annot comp * 'annot comp * 'annot comp * 'annot comp * 'annot comp
   | CongrLambda of 'annot comp * 'annot comp * 'annot comp * 'annot comp

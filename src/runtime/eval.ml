@@ -223,16 +223,6 @@ let rec infer {Location.thing=c'; loc} =
     infer c >>= fun v ->
     Runtime.continue ~loc v
 
-  | Syntax.Congruence (c1,c2) ->
-    infer c1 >>= as_term ~loc >>= fun j1 ->
-    check c2 (Jdg.typeof j1) >>= fun j2 ->
-    Equal.congruence ~loc j1 j2 >>= begin function
-      | Some eq ->
-        let v = Runtime.mk_term (Jdg.refl_of_eq ~loc eq) in
-        Runtime.return (Predefined.from_option (Some v))
-      | None -> Runtime.return (Predefined.from_option None)
-      end
-
   | Syntax.CongrProd (c1, c2, c3) ->
     infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
@@ -360,7 +350,6 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Eq _
   | Syntax.Apply _
   | Syntax.Yield _
-  | Syntax.Congruence _
   | Syntax.CongrProd _ | Syntax.CongrApply _ | Syntax.CongrLambda _ | Syntax.CongrEq _ | Syntax.CongrRefl _
   | Syntax.Extensionality _
   | Syntax.Reduction _

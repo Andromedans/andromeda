@@ -577,11 +577,6 @@ let rec comp ~yield bound (c',loc) =
      let lst = List.map (comp ~yield bound) cs in
      locate (Syntax.Tuple lst) loc
 
-  | Input.Congruence (e1,e2) ->
-     let e1 = comp ~yield bound e1 in
-     let e2 = comp ~yield bound e2 in
-     locate (Syntax.Congruence (e1,e2)) loc
-
   | Input.CongrProd (e1, e2, e3) ->
      let e1 = comp ~yield bound e1
      and e2 = comp ~yield bound e2

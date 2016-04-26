@@ -351,12 +351,6 @@ let rec comp ({Location.thing=c; loc} : _ Syntax.comp) : (Mlty.ty_schema Syntax.
     check_comp c a >>= fun c ->
     Tyenv.return (locate ~loc (Syntax.Yield c), b)
 
-  | Syntax.Congruence (c1, c2) ->
-    check_comp c1 Mlty.Jdg >>= fun c1 ->
-    check_comp c2 Mlty.Jdg >>= fun c2 ->
-    Tyenv.predefined_type Name.Predefined.option [Mlty.Jdg] >>= fun t ->
-    return (locate ~loc (Syntax.Congruence (c1, c2)), t)
-
   | Syntax.CongrProd (c1, c2, c3) ->
     check_comp c1 Mlty.Jdg >>= fun c1 ->
     check_comp c2 Mlty.Jdg >>= fun c2 ->
