@@ -46,7 +46,13 @@ type error =
   | InvalidApplication
   | InvalidEquality
   | NotAType
+  | EqualityWitnessExpected of term
   | TypeEqualityWitnessExpected of term
+  | InvalidConvert of TT.ty * TT.ty
+  | AlphaEqualTypeMismatch of TT.ty * TT.ty
+  | NotATypeEquality of TT.ty
+  | RuleInputMismatch of string * TT.ty * TT.ty
+  | RuleInputMismatchTerm of string * TT.term * TT.term
 
 exception Error of error Location.located
 
@@ -244,7 +250,7 @@ end
 (** Judgements *)
 
 let strengthen (WeakTerm (ctx, e, t)) =
-  let hyps = TT.assumptions_term e in
+  let hyps = AtomSet.union (TT.assumptions_term e) (TT.assumptions_ty t) in
   let ctx = Ctx.restrict ctx hyps in
   Term (ctx,e,t)
 
@@ -330,7 +336,7 @@ let print_error ~penv err ppf = match err with
      Format.fprintf ppf "cannot abstract@ %t@ because@ %t@ depend%s on it"
           (Name.print_atom ~printer:penv.TT.atoms x)
           (Print.sequence (Name.print_atom ~printer:penv.TT.atoms ~parentheses:true) "," needed_by_l)
-          (match needed_by_l with [_] -> "s" | _ -> "")
+           (match needed_by_l with [_] -> "s" | _ -> "")
 
   | AbstractInvalidType (x, t1, t2) ->
      Format.fprintf ppf "cannot abstract@ %t@ with type@ %t@ because it must have type@ %t"
@@ -356,9 +362,33 @@ let print_error ~penv err ppf = match err with
                     (Name.print_atom ~printer:penv.TT.atoms x)
                     (TT.print_ty ~penv x_ty)
 
-  | TypeEqualityWitnessExpected j ->
-    Format.fprintf ppf "Expected a witness of an equality between types but got@ %t@."
+  | EqualityWitnessExpected j ->
+    Format.fprintf ppf "Expected an equality judgement but got@ %t@."
                    (print_term ~penv j)
+
+  | TypeEqualityWitnessExpected j ->
+    Format.fprintf ppf "Expected an equality judgement between types but got@ %t@."
+                   (print_term ~penv j)
+
+  | InvalidConvert (t1, t2) ->
+    Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
+      (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
+
+  | AlphaEqualTypeMismatch (t1, t2) ->
+    Format.fprintf ppf "Alpha equality only produces witnesses of equality between terms at alpha equal types, but got@ %t@ and@ %t@."
+      (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
+
+  | NotATypeEquality t ->
+    Format.fprintf ppf "Expected a type equality judgement, but got an equality at @%t@."
+      (TT.print_ty ~penv t)
+
+  | RuleInputMismatch (rule, t1, t2) ->
+    Format.fprintf ppf "In the %s rule, the following types should be the same:@ %t@ and@ %t@."
+      rule (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
+
+  | RuleInputMismatchTerm (rule, e1, e2) ->
+    Format.fprintf ppf "In the %s rule, the following terms should be the same:@ %t@ and@ %t@."
+      rule (TT.print_term ~penv e1) (TT.print_term ~penv e2)
 
 (** Destructors *)
 type 'a abstraction = atom * 'a
@@ -514,18 +544,22 @@ let eq_ty_side side (EqTy (ctx, lhs, rhs)) : ty =
   strengthen_ty (WeakTy (ctx, ty))
 
 let convert ~loc (Term (ctx1, e, t)) (EqTy (ctx2, t1, t2)) =
-  assert (TT.alpha_equal_ty t t1);
-  let ctx = Ctx.join ~loc ctx1 ctx2 in
-  let e = TT.mention_atoms (Ctx.as_set ctx2) e in
-  Term (ctx, e, t2)
+  if not (TT.alpha_equal_ty t t1)
+  then error ~loc (InvalidConvert (t, t1))
+  else
+    let ctx = Ctx.join ~loc ctx1 ctx2 in
+    let e = TT.mention_atoms (Ctx.as_set ctx2) e in
+    Term (ctx, e, t2)
 
 let convert_eq ~loc (EqTerm (ctx1, e1, e2, ty)) (EqTy (ctx2, t1, t2)) =
-  assert (TT.alpha_equal_ty ty t1);
-  let hyps2 = Ctx.as_set ctx2 in
-  let e1 = TT.mention_atoms hyps2 e1
-  and e2 = TT.mention_atoms hyps2 e2
-  and ctx = Ctx.join ~loc ctx1 ctx2 in
-  EqTerm (ctx, e1, e2, t2)
+  if not (TT.alpha_equal_ty ty t1)
+  then error ~loc (InvalidConvert (ty, t1))
+  else
+    let hyps2 = Ctx.as_set ctx2 in
+    let e1 = TT.mention_atoms hyps2 e1
+    and e2 = TT.mention_atoms hyps2 e2
+    and ctx = Ctx.join ~loc ctx1 ctx2 in
+    EqTerm (ctx, e1, e2, t2)
 
 (** Constructors *)
 
@@ -539,38 +573,42 @@ let alpha_equal (Term (_, e1, _)) (Term (_, e2, _)) =
   TT.alpha_equal e1 e2
 
 let alpha_equal_eq_term ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
-  assert (TT.alpha_equal_ty t1 t2);
-  if TT.alpha_equal e1 e2
-  then
-    let ctx = Ctx.join ~loc ctx1 ctx2
-    and e2 = TT.mention_atoms (TT.assumptions_term e1) e2 in
-    (* We need to adjust the assumptions on [e2]:
-       if [e1] and [t1] use [x : empty], but [e2] and [t2] use [y : empty],
-       projecting the rhs gives us [ctx' |- e2 : t1] where [ctx'] does not contain [x],
-       then typeof fails. *)
-    Some (EqTerm (ctx, e1, e2, t1))
+  if not (TT.alpha_equal_ty t1 t2)
+  then error ~loc (AlphaEqualTypeMismatch (t1, t2))
   else
-    None
+    if not (TT.alpha_equal e1 e2)
+    then
+      None
+    else
+      let ctx = Ctx.join ~loc ctx1 ctx2
+      and e2 = TT.mention_atoms (TT.assumptions_term e1) e2 in
+      (* We need to adjust the assumptions on [e2]:
+         if [e1] and [t1] use [x : empty], but [e2] and [t2] use [y : empty],
+         projecting the rhs gives us [ctx' |- e2 : t1] where [ctx'] does not contain [x],
+         then typeof fails. *)
+      Some (EqTerm (ctx, e1, e2, t1))
 
 let alpha_equal_eq_ty ~loc (Ty (ctx1, t1)) (Ty (ctx2, t2)) =
-  if TT.alpha_equal_ty t1 t2
+  if not (TT.alpha_equal_ty t1 t2)
   then
+    None
+  else
     let ctx = Ctx.join ~loc ctx1 ctx2 in
     Some (EqTy (ctx, t1, t2))
-  else
-    None
 
 let symmetry_ty (EqTy (ctx, t1, t2)) = EqTy (ctx, t2, t1)
 
-let is_type_equality (EqTerm (ctx, e1, e2, t)) =
-  assert (TT.alpha_equal_ty t TT.typ);
-  EqTy (ctx, TT.ty e1, TT.ty e2)
+let is_type_equality ~loc (EqTerm (ctx, e1, e2, t)) =
+  if not (TT.alpha_equal_ty t TT.typ)
+  then error ~loc (NotATypeEquality t)
+  else
+    EqTy (ctx, TT.ty e1, TT.ty e2)
 
-let reflect (Term (ctx, term, TT.Ty t)) =
+let reflect ~loc (Term (ctx, term, TT.Ty t) as j) =
   match t.TT.term with
     | TT.Eq (a, e1, e2) ->
       EqTerm (ctx, e1, e2, a)
-    | _ -> assert false
+    | _ -> error ~loc (EqualityWitnessExpected j)
 
 let reflect_ty_eq ~loc (Term (ctx, term, TT.Ty t) as j) =
   match t.TT.term with
@@ -587,31 +625,31 @@ let beta ~loc (EqTy (ctxa, a1, a2))
               (EqTy (ctxb, b1, b2))
               (Term (ctx1, e1, t1))
               (Term (ctx2, e2, t2)) =
-  assert (TT.alpha_equal_ty b1 t1 && TT.alpha_equal_ty a2 t2);
-  let ctxb = Ctx.abstract ~loc ctxb x a1 in
+  if not (TT.alpha_equal_ty b1 t1)
+  then error ~loc (RuleInputMismatch ("beta", b1, t1))
+  else if not (TT.alpha_equal_ty a2 t2)
+  then error ~loc (RuleInputMismatch ("beta", a2, t2))
+  else
+    let ctxa = Ctx.join ~loc ctxa ctx2
+    and ctxb = Ctx.abstract ~loc (Ctx.join ~loc ctxb ctx1) x a1 in
 
-  let hypsa = Ctx.as_set ctxa
-  and hypsb = Ctx.as_set ctxb in
+    let hypsa = Ctx.as_set ctxa
+    and hypsb = Ctx.as_set ctxb in
 
-  let b1 = TT.abstract_ty [x] b1
-  and e1 = TT.abstract [x] e1
-  and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
-  let ctx = Ctx.join ~loc ctxa ctxb
-  and lam = TT.mk_lambda ~loc (Name.ident_of_atom x) a1 e1 b1
-  and e_s = TT.mention_atoms hypsb (TT.instantiate [TT.mention_atoms hypsa e2] e1) in
-  let app = TT.mk_apply ~loc lam (Name.ident_of_atom y) a2 b2 e2
-  and ty = TT.instantiate_ty [e2] b2 in
-  EqTerm (ctx, app, e_s, ty)
+    let b1 = TT.abstract_ty [x] b1
+    and e1 = TT.abstract [x] e1
+    and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
+    let ctx = Ctx.join ~loc ctxa ctxb
+    and lam = TT.mk_lambda ~loc (Name.ident_of_atom x) a1 e1 b1
+    and e_s = TT.mention_atoms hypsb (TT.instantiate [TT.mention_atoms hypsa e2] e1) in
+    let app = TT.mk_apply ~loc lam (Name.ident_of_atom y) a2 b2 e2
+    and ty = TT.instantiate_ty [e2] b2 in
+    EqTerm (ctx, app, e_s, ty)
   
 
 (** Congruence *)
 
-let finalize_congr ~loc ?at_ty eq =
-  match at_ty with
-    | Some eqt -> convert_eq ~loc eq eqt
-    | None -> eq
-
-let congr_prod ~loc ?at_ty (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) (EqTy (ctxb, b1, b2)) =
+let congr_prod ~loc (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) (EqTy (ctxb, b1, b2)) =
   let ctxb = Ctx.abstract ~loc ctxb x ta1 in
 
   let hypsa = Ctx.as_set ctxa in
@@ -621,122 +659,97 @@ let congr_prod ~loc ?at_ty (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, 
   let ctx = Ctx.join ~loc ctxa ctxb in
   let lhs = TT.mk_prod ~loc (Name.ident_of_atom x) ta1 b1
   and rhs = TT.mk_prod ~loc (Name.ident_of_atom y) ta2 b2 in
-  finalize_congr ~loc ?at_ty (EqTerm (ctx, lhs, rhs, TT.typ))
+  EqTerm (ctx, lhs, rhs, TT.typ)
 
 let congr_prod_ty ~loc eq_a x y eq_b =
-  is_type_equality (congr_prod ~loc eq_a x y eq_b)
+  is_type_equality ~loc (congr_prod ~loc eq_a x y eq_b)
 
-let congr_lambda ~loc ?at_ty (EqTy (ctxa, ta1, ta2))
+let congr_lambda ~loc (EqTy (ctxa, ta1, ta2))
                  (JAtom (_, x, _)) (JAtom (_, y, _))
                  (EqTy (ctxb, b1, b2))
                  (EqTerm (ctxe, e1, e2, ty_e)) =
-  assert (TT.alpha_equal_ty b1 ty_e);
-  let ctx = Ctx.join ~loc ctxa (Ctx.abstract ~loc (Ctx.join ~loc ctxb ctxe) x ta1) in
+  if not (TT.alpha_equal_ty b1 ty_e)
+  then error ~loc (RuleInputMismatch ("congr-lambda", b1, ty_e))
+  else
+    let ctx = Ctx.join ~loc ctxa (Ctx.abstract ~loc (Ctx.join ~loc ctxb ctxe) x ta1) in
 
-  let hypsa = Ctx.as_set ctxa
-  and hypsb = AtomSet.remove x (Ctx.as_set ctxb) in
-  let hypsab = AtomSet.union hypsa hypsb in
+    let hypsa = Ctx.as_set ctxa
+    and hypsb = AtomSet.remove x (Ctx.as_set ctxb) in
+    let hypsab = AtomSet.union hypsa hypsb in
 
-  let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
-  let e1 = TT.abstract [x] e1
-  and e2 = TT.abstract [y] (TT.substitute [x] [y_mentions] e2)
-  and b1 = TT.abstract_ty [x] b1
-  and b2 = TT.abstract_ty [x] (TT.substitute_ty [x] [y_mentions] b2) in
-  let lhs = TT.mk_lambda ~loc (Name.ident_of_atom x) ta1 e1 b1
-  and rhs = TT.mention_atoms hypsab (TT.mk_lambda ~loc (Name.ident_of_atom y) ta2 e2 b2)
-  and ty = TT.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in
-  finalize_congr ~loc ?at_ty (EqTerm (ctx, lhs, rhs, ty))
+    let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
+    let e1 = TT.abstract [x] e1
+    and e2 = TT.abstract [y] (TT.substitute [x] [y_mentions] e2)
+    and b1 = TT.abstract_ty [x] b1
+    and b2 = TT.abstract_ty [x] (TT.substitute_ty [x] [y_mentions] b2) in
+    let lhs = TT.mk_lambda ~loc (Name.ident_of_atom x) ta1 e1 b1
+    and rhs = TT.mention_atoms hypsab (TT.mk_lambda ~loc (Name.ident_of_atom y) ta2 e2 b2)
+    and ty = TT.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in
+    EqTerm (ctx, lhs, rhs, ty)
 
-let congr_apply ~loc ?at_ty (EqTy (ctxa, ta1, ta2))
+let congr_apply ~loc (EqTy (ctxa, ta1, ta2))
                 (JAtom (_, x, _)) (JAtom (_, y, _))
                 (EqTy (ctxb, b1, b2))
                 (EqTerm (ctxh, h1, h2, ty_h))
                 (EqTerm (ctxe, e1, e2, ty_e)) =
-  let ctxb = Ctx.abstract ~loc ctxb x ta1 in
-
-  let hypsa = Ctx.as_set ctxa
-  and hypsb = Ctx.as_set ctxb
-  and hypse = Ctx.as_set ctxe in
-  let hypsab = AtomSet.union hypsa hypsb in
-  let hypsabe = AtomSet.union hypsab hypse in
-
-  let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
-  let b1 = TT.abstract_ty [x] b1
-  and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [y_mentions] b2) in
+  let b1 = TT.abstract_ty [x] b1 in
   let prod1 = TT.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in
-  assert (TT.alpha_equal_ty prod1 ty_h && TT.alpha_equal_ty ta1 ty_e);
-  let ctx = Ctx.join ~loc ctxa (Ctx.join ~loc ctxb (Ctx.join ~loc ctxh ctxe)) in
-  let lhs = TT.mk_apply ~loc h1 (Name.ident_of_atom x) ta1 b1 e1
-  and rhs = TT.mk_apply ~loc (TT.mention_atoms hypsab h2) (Name.ident_of_atom y) ta2 (TT.mention_atoms_ty hypsa b2) (TT.mention_atoms hypsa e2)
-  and ty = TT.instantiate_ty [e1] b1 in
-  let rhs = TT.mention_atoms hypsabe rhs in
-  finalize_congr ~loc ?at_ty (EqTerm (ctx, lhs, rhs, ty))
+  if not (TT.alpha_equal_ty prod1 ty_h)
+  then error ~loc (RuleInputMismatch ("congr-apply", prod1, ty_h))
+  else if not (TT.alpha_equal_ty ta1 ty_e)
+  then error ~loc (RuleInputMismatch ("congr-apply", ta1, ty_e))
+  else
+    let ctxb = Ctx.abstract ~loc ctxb x ta1 in
 
-let congr_eq ~loc ?at_ty (EqTy (ctxt, t1, t2))
+    let hypsa = Ctx.as_set ctxa
+    and hypsb = Ctx.as_set ctxb
+    and hypse = Ctx.as_set ctxe in
+    let hypsab = AtomSet.union hypsa hypsb in
+    let hypsabe = AtomSet.union hypsab hypse in
+
+    let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
+    let b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [y_mentions] b2) in
+    let ctx = Ctx.join ~loc ctxa (Ctx.join ~loc ctxb (Ctx.join ~loc ctxh ctxe)) in
+    let lhs = TT.mk_apply ~loc h1 (Name.ident_of_atom x) ta1 b1 e1
+    and rhs = TT.mk_apply ~loc (TT.mention_atoms hypsab h2) (Name.ident_of_atom y) ta2 (TT.mention_atoms_ty hypsa b2) (TT.mention_atoms hypsa e2)
+    and ty = TT.instantiate_ty [e1] b1 in
+    let rhs = TT.mention_atoms hypsabe rhs in
+    EqTerm (ctx, lhs, rhs, ty)
+
+let congr_eq ~loc (EqTy (ctxt, t1, t2))
              (EqTerm (ctxl, l1, l2, ty_l))
              (EqTerm (ctxr, r1, r2, ty_r)) =
-  assert (TT.alpha_equal_ty t1 ty_l && TT.alpha_equal_ty t1 ty_r);
-  let ctx = Ctx.join ~loc ctxt (Ctx.join ~loc ctxl ctxr) in
+  if not (TT.alpha_equal_ty t1 ty_l)
+  then error ~loc (RuleInputMismatch ("congr-eq", t1, ty_l))
+  else if not (TT.alpha_equal_ty t1 ty_r)
+  then error ~loc (RuleInputMismatch ("congr-eq", t1, ty_r))
+  else
+    let ctx = Ctx.join ~loc ctxt (Ctx.join ~loc ctxl ctxr) in
 
-  let hypst = Ctx.as_set ctxt in
+    let hypst = Ctx.as_set ctxt in
 
-  let lhs = TT.mk_eq ~loc t1 l1 (TT.mention_atoms hypst r1)
-  and rhs = TT.mk_eq ~loc t2 l2 (TT.mention_atoms hypst r2) in
-  finalize_congr ~loc ?at_ty (EqTerm (ctx, lhs, rhs, TT.typ))
+    let lhs = TT.mk_eq ~loc t1 l1 (TT.mention_atoms hypst r1)
+    and rhs = TT.mk_eq ~loc t2 l2 (TT.mention_atoms hypst r2) in
+    EqTerm (ctx, lhs, rhs, TT.typ)
 
 let congr_eq_ty ~loc eq_ty eq_l eq_r =
-  is_type_equality (congr_eq ~loc eq_ty eq_l eq_r)
+  is_type_equality ~loc (congr_eq ~loc eq_ty eq_l eq_r)
 
-let congr_refl ~loc ?at_ty (EqTy (ctxt, t1, t2))
+let congr_refl ~loc (EqTy (ctxt, t1, t2))
                (EqTerm (ctxe, e1, e2, ty_e)) =
-  assert (TT.alpha_equal_ty t1 ty_e);
-  let ctx = Ctx.join ~loc ctxt ctxe in
-  
-  let hypst = Ctx.as_set ctxt
-  and hypse = Ctx.as_set ctxe in
-  let hyps = AtomSet.union hypst hypse in
+  if not (TT.alpha_equal_ty t1 ty_e)
+  then error ~loc (RuleInputMismatch ("congr-refl", t1, ty_e))
+  else
+    let ctx = Ctx.join ~loc ctxt ctxe in
+    
+    let hypst = Ctx.as_set ctxt
+    and hypse = Ctx.as_set ctxe in
+    let hyps = AtomSet.union hypst hypse in
 
-  let lhs = TT.mk_refl ~loc t1 e1
-  and rhs = TT.mention_atoms hyps (TT.mk_refl ~loc t2 (TT.mention_atoms hypst e2))
-  and ty = TT.mk_eq_ty ~loc t1 e1 e1 in
-  finalize_congr ~loc ?at_ty (EqTerm (ctx, lhs, rhs, ty))
-
-(** Extensionality *)
-
-let uip ~loc (Term (ctx1, e1, t1)) (Term (ctx2, e2, t2)) =
-  assert (TT.alpha_equal_ty t1 t2);
-  let TT.Ty t1_term = t1 in
-  match t1_term.TT.term with
-    | TT.Eq _ ->
-      let ctx = Ctx.join ~loc ctx1 ctx2 in
-      EqTerm (ctx, e1, e2, t1)
-
-    | _ -> assert false
-
-let funext ~loc (EqTerm (ctx, lhs, rhs, _)) =
-  match lhs.TT.term, rhs.TT.term with
-    | TT.Apply (h1, ((x,a1),b1), e1), TT.Apply (h2, ((_,a2),b2), e2) ->
-      assert (TT.alpha_equal_ty a1 a2 && TT.alpha_equal_ty b1 b2); (* this makes h1 and h2 have the same type *)
-      assert (TT.alpha_equal e1 e2);
-      begin match e1.TT.term with
-        | TT.Atom a ->
-          let check_hyps e =
-            assert (not (Assumption.mem_atom a e.TT.assumptions))
-          in
-          let check_hyps_ty (TT.Ty e) = check_hyps e in
-          check_hyps h1; check_hyps_ty a1; check_hyps_ty b1;
-          check_hyps h2; check_hyps_ty a2; check_hyps_ty b2;
-
-          let ctx = Ctx.abstract ~loc ctx a a1
-          and prod = TT.mk_prod_ty ~loc x a1 b1 in
-          EqTerm (ctx, h1, h2, prod)
-
-        | TT.Type | TT.Bound _ | TT.Constant _
-        | TT.Prod _ | TT.Lambda _ | TT.Apply _
-        | TT.Eq _ | TT.Refl _ -> assert false
-      end
-
-   | _ -> assert false
+    let lhs = TT.mk_refl ~loc t1 e1
+    and rhs = TT.mention_atoms hyps (TT.mk_refl ~loc t2 (TT.mention_atoms hypst e2))
+    and ty = TT.mk_eq_ty ~loc t1 e1 e1 in
+    EqTerm (ctx, lhs, rhs, ty)
 
 (** Derivables *)
 
@@ -776,16 +789,19 @@ let natural_eq ~loc env (Term (ctx, e, derived)) =
   EqTy (ctx, natural, derived)
 
 let mk_refl ~loc (EqTerm (ctx1, lhs1, rhs1, t1)) (EqTerm (ctx2, lhs2, rhs2, t2)) =
-  assert (TT.alpha_equal_ty t1 t2 && TT.alpha_equal lhs1 lhs2);
+  if not (TT.alpha_equal_ty t1 t2)
+  then error ~loc (RuleInputMismatch ("mk-refl", t1, t2))
+  else if not (TT.alpha_equal lhs1 lhs2)
+  then error ~loc (RuleInputMismatchTerm ("mk-refl", lhs1, lhs2))
+  else
+    let hyps1 = Ctx.as_set ctx1
+    and hyps2 = Ctx.as_set ctx2 in
+    let hyps = AtomSet.union hyps1 hyps2 in
 
-  let hyps1 = Ctx.as_set ctx1
-  and hyps2 = Ctx.as_set ctx2 in
-  let hyps = AtomSet.union hyps1 hyps2 in
-
-  let ctx = Ctx.join ~loc ctx1 ctx2 in
-  let term = TT.mk_refl ~loc t1 lhs1 in
-  let term = TT.mention_atoms hyps term in
-  Term (ctx, term, TT.mk_eq_ty ~loc t1 rhs1 rhs2)
+    let ctx = Ctx.join ~loc ctx1 ctx2 in
+    let term = TT.mk_refl ~loc t1 lhs1 in
+    let term = TT.mention_atoms hyps term in
+    Term (ctx, term, TT.mk_eq_ty ~loc t1 rhs1 rhs2)
 
 let refl_of_eq ~loc (EqTerm (ctx, lhs, rhs, ty)) =
   let hyps = Ctx.as_set ctx in

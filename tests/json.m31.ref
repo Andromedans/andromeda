@@ -449,7 +449,7 @@ val h : judgment
    "context" :
    {"_ty" : "ctx",
     "data" :
-    {{"_ty" : "atom", "data" : ["b", 17]} :
+    {{"_ty" : "atom", "data" : ["b", 50]} :
      {"_ty" : "entry",
       "ty" :
       {"_ty" : "ty",
@@ -466,7 +466,7 @@ val h : judgment
           "tag" : "Known",
           "data" : ["./json.m31", 17, 14, 17, 15]}}]},
       "needed_by" : []},
-     {"_ty" : "atom", "data" : ["g", 16]} :
+     {"_ty" : "atom", "data" : ["g", 49]} :
      {"_ty" : "entry",
       "ty" :
       {"_ty" : "ty",
@@ -522,10 +522,10 @@ val h : judgment
        "term" :
        {"_ty" : "term'",
         "tag" : "Atom",
-        "data" : [{"_ty" : "atom", "data" : ["g", 16]}]},
+        "data" : [{"_ty" : "atom", "data" : ["g", 49]}]},
        "assumptions" :
        {"_ty" : "assumptions",
-        "free" : [{"_ty" : "atom", "data" : ["g", 16]}],
+        "free" : [{"_ty" : "atom", "data" : ["g", 49]}],
         "bound" : []},
        "loc" :
        {"_ty" : "location",
@@ -561,8 +561,8 @@ val h : judgment
     "assumptions" :
     {"_ty" : "assumptions",
      "free" :
-     [{"_ty" : "atom", "data" : ["g", 16]},
-      {"_ty" : "atom", "data" : ["b", 17]}],
+     [{"_ty" : "atom", "data" : ["g", 49]},
+      {"_ty" : "atom", "data" : ["b", 50]}],
      "bound" : []},
     "loc" :
     {"_ty" : "location",

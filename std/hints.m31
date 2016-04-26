@@ -257,32 +257,36 @@ let process_reducing c l =
   TODO allow `eqs : forall [ys] ?? == ??`
   This is necessary eg for `funext` (which has `eq : forall x, f x == g x`)
 *)
-let process_eta =
-  (* we have matched t with the general shape of an eta hint *)
-  let finalize e xs eqs a b =
-    let T = match a with |- _ : ?T => T end in
-    let f ea eb quants =
-      let e = spine e quants in
-      let e = e ea eb in
-      Some e
-    in
-    fun ea eb => (f ea eb, (xs, T))
+let finalize_eta e xs eqs a b =
+  let T = match a with |- _ : ?T => T end in
+  let f ea eb quants =
+    let e = spine e quants in
+    let e = e ea eb in
+    Some e
   in
-  (* quants++(rev eqs) is the list [xs;a;b;eqs] in reverse order. We want to split it into [xs] and [eqs]. *)
-  let rec quant_splitter e eqs quants a b =
+  fun ea eb => (f ea eb, (xs, T))
+
+let eta_split_quants quants a b =
+  let rec fold eqs quants =
     match quants with
       | (b, _) :: (a, _) :: ?xs =>
         let xs = rev xs in
-        finalize e xs eqs a b
+        (xs, eqs)
       | ?eq :: ?quants =>
-        quant_splitter e (eq::eqs) quants a b
+        fold (eq::eqs) quants
     end
   in
+  fold [] quants
+
+let process_eta =
   let rec deep quants e h = match h with
     | |- forall (?x : _), ?h =>
       deep ((x, None) :: quants) e h
     | |- ?a == ?b =>
-      quant_splitter e [] quants a b
+      match eta_split_quants quants a b with
+        | (?xs, ?eqs) =>
+          finalize_eta e xs eqs a b
+      end
     end
   in
   fun h => match h with
@@ -371,5 +375,9 @@ let add_etas hs =
 
 let add_hints hs =
   fold (fun hints b => add_hint_to b hints) hints hs
+
+
+(** uip is an eta rule *)
+now etas = add_eta uip
 
 

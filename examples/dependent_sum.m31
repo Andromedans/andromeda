@@ -1,0 +1,61 @@
+constant id_def : forall (A : Type) (x : A), id A x ≡ x
+now betas = add_beta id_def
+
+(* Composition of functions *)
+constant compose : ∏ (A B C : Type), (B → C) → (A → B) → (A → C)
+constant compose_def : 
+  ∏ (A B C : Type) (g : B → C) (f : A → B) (x : A), compose A B C g f x ≡ g (f x)
+now betas = add_beta compose_def
+
+(* Here we should probably normalize the types of g and f before
+   matching them. We should also check that C does not depend on x. *)
+let compose' g f =
+  match g with
+  | ⊢ _ : ∏ (?x : ?B), ?C =>
+    match f with
+    | ⊢ _ : ∏ (?y : ?A), _ =>
+      compose A B C g f
+    end
+  end
+
+(* Isomorphic types *)
+
+constant is_inverse :
+  ∏ (A B : Type) (f : A → B) (g : B → A), Type
+constant is_inverse_def :
+  ∏ (A B : Type) (f : A → B) (g : B → A),
+    is_inverse A B f g ≡ (compose' f g ≡ id B) * (compose' g f ≡ id A)
+now betas = add_beta is_inverse_def
+
+constant iso : Type → Type → Type
+constant iso_def :
+ ∏ (A B : Type),
+   iso A B ≡ Σ (A → B) (λ f, Σ (B → A) (λ g, is_inverse A B f g))
+now betas = add_beta iso_def
+
+(* The identity is an isomorphism *)
+constant id_iso : ∏ (A : Type), is_inverse A A (id A) (id A)
+constant id_iso_proof:
+  resolve
+    (id_iso ≡ (λ _, pair ? ? (refl ?) (refl ?)))
+
+do id_iso_proof
+
+(* Isomorphism is symmetric *)
+constant iso_sym : ∏ (A B : Type), iso A B → iso B A
+
+constant iso_sym_proof:
+  resolve
+    (iso_sym ≡
+     (λ A B φ, 
+        let f = π₁ ? ? φ
+        and g = π₁ ? ? (π₂ ? ? φ) in
+        existT ? (λ g', Σ ? (λ f', is_inverse B A g' f'))
+                 g
+                 (existT ? (λ f', is_inverse B A g f')
+                    f
+                    (pair ? ?
+                       (π₂ ? ? (π₂ ? ? (π₂ ? ? φ)))
+                       (π₁ ? ? (π₂ ? ? (π₂ ? ? φ))))))
+    )
+

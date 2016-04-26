@@ -152,10 +152,10 @@ val alpha_equal_eq_ty : loc:Location.t -> ty -> ty -> eq_ty option
 
 val symmetry_ty : eq_ty -> eq_ty
 
-val is_type_equality : eq_term -> eq_ty
+val is_type_equality : loc:Location.t -> eq_term -> eq_ty
 
 (** The reflection rule *)
-val reflect : term -> eq_term
+val reflect : loc:Location.t -> term -> eq_term
 
 val reflect_ty_eq : loc:Location.t -> term -> eq_ty
 
@@ -168,30 +168,24 @@ val beta : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> term -> term -> e
 
 (** If [A1 == A2] and [B1 == B2] then [prod A1 B1 == prod A2 B2].
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side product. *)
-val congr_prod : loc:Location.t -> ?at_ty:eq_ty -> eq_ty -> atom -> atom -> eq_ty -> eq_term
+val congr_prod : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term
 
 val congr_prod_ty : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_ty
 
 (** If [A1 == A2], [B1 == B2] and [e1 == e2 : B1] then [lambda A1. B1. e1 == lambda A2. B2. e2 : prod A1 B1].
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side. *)
-val congr_lambda : loc:Location.t -> ?at_ty:eq_ty -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term
+val congr_lambda : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term
 
 (** If [A1 == A2], [B1 == B2], [h1 == h2 : prod A1 B1] and [e1 == e2 : A1], then [h1 @ [A1 . B1] e1 == h2 @ [A2 . B2] e2 : B1[e1]].
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side. *)
-val congr_apply : loc:Location.t -> ?at_ty:eq_ty -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term -> eq_term
+val congr_apply : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term -> eq_term
 
 (** If [A == B], [lhs1 == lhs2 : A] and [rhs1 == rhs2 : A] then [Eq A lhs1 rhs1 == Eq B lhs2 rhs2]. *)
-val congr_eq : loc:Location.t -> ?at_ty:eq_ty -> eq_ty -> eq_term -> eq_term -> eq_term
+val congr_eq : loc:Location.t -> eq_ty -> eq_term -> eq_term -> eq_term
 val congr_eq_ty : loc:Location.t -> eq_ty -> eq_term -> eq_term -> eq_ty
 
 (** If [A == B] and [e1 == e2 : A] then [refl A e1 == refl B e2 : Eq A e1 e1] *)
-val congr_refl : loc:Location.t -> ?at_ty:eq_ty -> eq_ty -> eq_term -> eq_term
-
-(** Extensionality rules *)
-
-val uip : loc:Location.t -> term -> term -> eq_term
-
-val funext : loc:Location.t -> eq_term -> eq_term
+val congr_refl : loc:Location.t -> eq_ty -> eq_term -> eq_term
 
 (** Derivable rules *)
 

@@ -1,0 +1,13 @@
+(* If you load this in addition to the standard library,
+   the reuslt of computing implicit arguments will be
+   agressively simplified. *)
+
+#include_once "snf.m31"
+
+let resolve e = 
+  let e' = resolve e in
+  match snf e' with
+  |- _ : _ == ?e'' => 
+     convert e'' (snf (typeof e''))
+  end
+
