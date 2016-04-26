@@ -192,11 +192,6 @@ and equal_term imps e1 e2 =
   end
 
 and equal_term_whnf imps e1 e2 =
-  let by_congruence _ =
-    handle congruence e1 e2
-    with equal ?x ?y => yield (equal_term imps x y)
-    end
-  in
   let finalize_congr eq =
     convert eq (convert_eq (typeof eq) (natural e1))
   in
@@ -421,26 +416,13 @@ and whnf_term_no_betas imps e =
       in
       match eqa with
       |- _ : _ == ?a' =>
-        let e0 = h a in (* e at its natural type *)
-        let e1 = h' a' in
-        let t_e0 = typeof e0 and t_e1 = typeof e1 in
-        let zeta = (* e == e1 at type of e *)
-          handle
-            match congruence e0 e1 with
-            | Some (⊢ ?zeta : ?zeta_ty) ⇒
-              convert zeta (convert_eq zeta_ty (natural e))
-            end
-          with
-          | coerce (|- _ : t_e1) t_e0 =>
-          (* need to prove that type of h' a' == type of h a, so just recompute *)
-            match equal_ty imps t_e1 t_e0 with
-            | Some ?eqT => yield (Convertible eqT)
-            | None => yield NotCoercible
-            end
-          | equal h h' ⇒ yield (Some eqH)
-          | equal a a' => yield (Some eqa)
+        let zeta =
+          match typeof h with
+          |- forall (?x : ?A), ?B =>
+            congr_apply x eqH eqa (refl A) (refl B)
           end
         in
+        let zeta = convert zeta (convert_eq (typeof zeta) (natural e)) in
         match h' with
         | ⊢ (lambda (_), _) ⇒
           let e' = (* e1 at type of e *)
