@@ -436,8 +436,6 @@ and handler ~loc {Syntax.handler_val=handler_val;handler_ops;handler_finally} =
 and match_cases ~loc t cases =
   match cases with
     | [] ->
-      Tyenv.predefined_type Name.Predefined.empty [] >>= fun empty ->
-      Tyenv.add_equation ~loc t empty >>= fun () ->
       Tyenv.return ([], Mlty.fresh_type ())
     | (xs, p, c) :: others ->
       match_case xs p t (comp c) >>= fun (c, out) ->

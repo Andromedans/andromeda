@@ -30,3 +30,5 @@ constant funext : forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
 
 constant uip : forall (A : Type) (lhs rhs : A) (p q : lhs == rhs), p == q
 
+mltype empty = end
+

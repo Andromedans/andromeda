@@ -55,8 +55,6 @@ module Predefined = struct
 
   let as_eq = make "as_eq"
 
-  let empty = make "empty"
-
   let coercible_ty = make "coercible"
  
   let coercible_constructor = make "Coercible"
