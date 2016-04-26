@@ -373,3 +373,7 @@ let add_hints hs =
   fold (fun hints b => add_hint_to b hints) hints hs
 
 
+(** uip is an eta rule *)
+now etas = add_eta uip
+
+

@@ -154,9 +154,7 @@ and equal_term imps e1 e2 =
         | (Some _) as ?xiopt => xiopt
         | None =>
           match A' with
-    
-          | ⊢ ?lhs == ?rhs ⇒ Some (uip (typeof lhs) lhs rhs e1' e2')
-    
+
           | ⊢ forall (?x : ?C), ?D ⇒
             match now hypotheses = x :: hypotheses in equal_term imps (e1' x) (e2' x) with
             | None => None
