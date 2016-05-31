@@ -61,14 +61,14 @@ let rec name_of_eq T =
           end
       end
   | ?J => 
-    let eq_whnf = whnf T  in
-    let T' = match eq_whnf with ⊢ _ : _ ≡ ?e => e  end  in
+    let ζ = whnf T  in
+    let T' = match ζ with ⊢ _ : _ ≡ ?e => e  end  in
     match T' with
     | T => None
     | _ => 
       match name_of_eq T' with
       | Some (⊢ ?ξ : El ?a ≡ _) =>
-          let answer = tran Type (El a) T' T ξ (symmetry eq_whnf)  in
+          let answer = tran Type (El a) T' T ξ (symmetry ζ)  in
           Some answer
       | None => None
       end
