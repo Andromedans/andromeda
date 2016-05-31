@@ -1,0 +1,79 @@
+(* An example showing how we might work with a universe,
+   where conversion from names to types is done automatically
+   through handlers. *)
+
+constant U : Type
+constant El : U → Type
+
+(* The name of a product *)
+constant pi : ∏ (a : U), (El a → U) → U
+constant El_pi : ∏ (a : U) (b : El a → U), El (pi a b) ≡ (∏ (x : El a), El (b x))
+now betas = add_beta El_pi
+
+(* The name of an arrow *)
+constant arrow : U → U → U
+constant arrow_def : ∏ (a b : U), arrow a b ≡ pi a (λ _, b)
+now betas = add_beta arrow_def
+
+(* The name of an equality type *)
+constant eq : ∏ (a : U), El a → El a → U
+constant El_eq : ∏ (a : U) (x y : El a), El (eq a x y) ≡ (x ≡ y)
+now betas = add_beta El_eq
+
+(* The unit type *)
+constant Unit : Type
+constant tt : Unit
+constant Unit_eta : ∏ (x y : Unit), x ≡ y
+now etas = add_eta Unit_eta
+
+(* The name of the unit type *)
+constant unit : U
+constant El_unit : El unit ≡ Unit
+now betas = add_beta El_unit
+
+(* Reverse-engineer the name of a type with a proof that
+   it is correctly reverse-engineered *)
+let rec name_of_eq T =
+match T with
+| ⊢ El _ => Some (refl T)
+| ⊢ Unit => Some El_unit
+| ⊢ (?x ≡ ?y) =>
+    let A = typeof x in
+    match name_of_eq A with
+    | None => None
+    | Some (⊢ ?ξ : El ?a ≡ _) => 
+      let x' = convert x (symmetry ξ)
+      and y' = convert y (symmetry ξ) in
+      let α = (El_eq a x' y') in
+      let β = convert_eq (x' ≡ y') ξ  in
+      Some (transitivity α β)
+    end
+| _ => None
+end
+
+(* The name of a type *)
+let name_of T =
+match name_of_eq T with
+| None => None
+| Some (⊢ _ : El ?a ≡ _) => Some a
+end
+
+(* tests *)
+do
+  now reducing = add_reducing El [eager] in
+  handle 
+    let foo = Unit : U in
+    let bar = (tt ≡ tt) : U in
+    let baz = λ (x : Unit) (f : arrow (El unit) Unit), (x ≡ f x) : U in
+    let qux = tt : unit in
+    let quux = (λ x, x) : arrow unit unit in
+    let quuux = quux tt in
+      (foo, bar, baz, qux, quux, quuux)
+  with
+  | coerce (⊢ ?a : U) (⊢ Type) => yield (Coercible (El a))
+  | coerce (⊢ ?T : Type) (⊢ U) =>
+    match name_of T with
+    | None => yield NotCoercible
+    | Some ?name => yield (Coercible name)
+    end
+  end
