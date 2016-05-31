@@ -36,32 +36,44 @@ let whnf_e e = match whnf e with |- _ : _ == ?e => e end
 (* Reverse-engineer the name of a type with a proof that
    it is correctly reverse-engineered *)
 let rec name_of_eq T =
-match whnf_e T with
-| ⊢ El _ => Some (refl T)
-| ⊢ Unit => Some El_unit
-| ⊢ (?x ≡ ?y) =>
-    let A = typeof x in
-    match name_of_eq A with
-    | None => None
-    | Some (⊢ ?ξ : El ?a ≡ _) => 
-      let x' = convert x (symmetry ξ)
-      and y' = convert y (symmetry ξ) in
-      let α = (El_eq a x' y') in
-      let β = convert_eq (x' ≡ y') ξ  in
-      Some (transitivity α β)
+  match T with
+  | ⊢ El _ => Some (refl T)
+  | ⊢ Unit => Some El_unit
+  | ⊢ (?x ≡ ?y) =>
+      let A = typeof x in
+      match name_of_eq A with
+      | None => None
+      | Some (⊢ ?ξ : El ?a ≡ _) => 
+        let x' = convert x (symmetry ξ)
+        and y' = convert y (symmetry ξ) in
+        let α = (El_eq a x' y') in
+        let β = convert_eq (x' ≡ y') ξ  in
+        Some (transitivity α β)
+      end
+  | ⊢ Π (?x : ?A), ?B => 
+      match name_of_eq A with
+      | None => None
+      | Some (⊢ ?ξ : El ?a ≡ _) => 
+          match name_of_eq B with
+          | None => None
+          | Some (⊢ ?ξ2 : El ?b ≡ _) => 
+             Some (El_pi a (λ (y : El a), b where x = y))
+          end
+      end
+  | ?J => 
+    let eq_whnf = whnf T  in
+    let T' = match eq_whnf with ⊢ _ : _ ≡ ?e => e  end  in
+    match T' with
+    | T => None
+    | _ => 
+      match name_of_eq T' with
+      | Some (⊢ ?ξ : El ?a ≡ _) =>
+          let answer = tran Type (El a) T' T ξ (symmetry eq_whnf)  in
+          Some answer
+      | None => None
+      end
     end
-| ⊢ Π (?x : ?A), ?B => 
-    match name_of_eq A with
-    | None => None
-    | Some (⊢ ?ξ : El ?a ≡ _) => 
-        match name_of_eq B with
-        | None => None
-        | Some (⊢ ?ξ2 : El ?b ≡ _) => 
-           Some (El_pi a (λ (y : El a), b where x = y))
-        end
-    end
-| ?J => (print ("can't find name of:", J); None)
-end
+  end
 
 (* The name of a type *)
 let name_of T =
@@ -76,13 +88,14 @@ do
   handle 
     let woo = (Π(x:Unit), x ≡ x) : U in
     let woot = (Unit -> Unit) : U in
+    let wooot = (λ (x : Type), x)(Unit -> Unit) : U in 
     let foo = Unit : U in
     let bar = (tt ≡ tt) : U in
     let baz = λ (x : Unit) (f : arrow (El unit) Unit), (x ≡ f x) : U in
     let qux = tt : unit in
     let quux = (λ x, x) : arrow unit unit in
     let quuux = quux tt in
-      (woo, woot, foo, bar, baz, qux, quux, quuux)
+      (woo, woot, woot, foo, bar, baz, qux, quux, quuux)
   with
   | coerce (⊢ ?a : U) (⊢ Type) => yield (Coercible (El a))
   | coerce (⊢ ?T : Type) (⊢ U) =>
