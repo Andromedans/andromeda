@@ -31,10 +31,12 @@ constant unit : U
 constant El_unit : El unit ≡ Unit
 now betas = add_beta El_unit
 
+let whnf_e e = match whnf e with |- _ : _ == ?e => e end
+
 (* Reverse-engineer the name of a type with a proof that
    it is correctly reverse-engineered *)
 let rec name_of_eq T =
-match T with
+match whnf_e T with
 | ⊢ El _ => Some (refl T)
 | ⊢ Unit => Some El_unit
 | ⊢ (?x ≡ ?y) =>
@@ -48,7 +50,17 @@ match T with
       let β = convert_eq (x' ≡ y') ξ  in
       Some (transitivity α β)
     end
-| _ => None
+| ⊢ Π (?x : ?A), ?B => 
+    match name_of_eq A with
+    | None => None
+    | Some (⊢ ?ξ : El ?a ≡ _) => 
+        match name_of_eq B with
+        | None => None
+        | Some (⊢ ?ξ2 : El ?b ≡ _) => 
+           Some (El_pi a (λ (y : El a), b where x = y))
+        end
+    end
+| ?J => (print ("can't find name of:", J); None)
 end
 
 (* The name of a type *)
@@ -62,13 +74,15 @@ end
 do
   now reducing = add_reducing El [eager] in
   handle 
+    let woo = (Π(x:Unit), x ≡ x) : U in
+    let woot = (Unit -> Unit) : U in
     let foo = Unit : U in
     let bar = (tt ≡ tt) : U in
     let baz = λ (x : Unit) (f : arrow (El unit) Unit), (x ≡ f x) : U in
     let qux = tt : unit in
     let quux = (λ x, x) : arrow unit unit in
     let quuux = quux tt in
-      (foo, bar, baz, qux, quux, quuux)
+      (woo, woot, foo, bar, baz, qux, quux, quuux)
   with
   | coerce (⊢ ?a : U) (⊢ Type) => yield (Coercible (El a))
   | coerce (⊢ ?T : Type) (⊢ U) =>
