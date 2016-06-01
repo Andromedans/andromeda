@@ -38,10 +38,10 @@ let equal ~loc j1 j2 =
     | None ->
       Predefined.operation_equal ~loc j1 j2 >!= begin function
         | Some juser ->
-          Runtime.lookup_typing_env >!= fun env ->
-          let target = Jdg.form_ty ~loc env (Jdg.Eq (j1, j2)) in
+          Runtime.lookup_typing_signature >!= fun signature ->
+          let target = Jdg.form_ty ~loc signature (Jdg.Eq (j1, j2)) in
           begin match Jdg.alpha_equal_eq_ty ~loc target (Jdg.typeof juser) with
-            | Some _ -> 
+            | Some _ ->
               let eq = Jdg.reflect ~loc juser in
               Opt.return eq
             | None -> Opt.lift (Runtime.(error ~loc (InvalidEqual target)))
@@ -60,7 +60,7 @@ let coerce ~loc je jt =
 
   | Some _ ->
      Opt.return je
-                  
+
   | None ->
      Predefined.operation_coerce ~loc je jt >!=
        begin function
@@ -89,7 +89,7 @@ let coerce ~loc je jt =
                Runtime.(error ~loc (InvalidCoerce (jt, je)))
           end
        end
-  
+
 
 let coerce_fun ~loc je =
   let jt = Jdg.typeof je in
@@ -118,11 +118,11 @@ let coerce_fun ~loc je =
                    | None ->
                       Runtime.(error ~loc (InvalidFunConvertible (jt, eq)))
                  end
-                 
+
               | None ->
                  Runtime.(error ~loc (InvalidFunConvertible (jt, eq)))
           end
-          
+
        | Predefined.Coercible je ->
           begin
             let jt = Jdg.typeof je in
@@ -132,7 +132,7 @@ let coerce_fun ~loc je =
             | None ->
                Runtime.(error ~loc (InvalidFunCoerce je))
           end
-          
+
      end
 
 
@@ -162,7 +162,7 @@ let as_eq ~loc t =
                     | None -> Opt.lift Runtime.(error ~loc (InvalidAsEquality jt))
                     | Some _ ->
                       begin match as_eq_alpha (Jdg.is_ty ~loc e2) with
-                        | None -> 
+                        | None ->
                           Runtime.(error ~loc (InvalidAsEquality jt))
 
                         | Some (e1,e2) ->
@@ -200,7 +200,7 @@ let as_prod ~loc t =
                     | None -> Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
                     | Some _ ->
                       begin match as_prod_alpha (Jdg.is_ty ~loc e2) with
-                        | None -> 
+                        | None ->
                           Runtime.(error ~loc (InvalidAsProduct jt))
 
                         | Some (a, b) ->
@@ -227,4 +227,3 @@ let coerce_fun ~loc je = Opt.run (Internals.coerce_fun ~loc je)
 let as_eq ~loc j = Opt.run (Internals.as_eq ~loc j)
 
 let as_prod ~loc j = Opt.run (Internals.as_prod ~loc j)
-

@@ -30,7 +30,7 @@ module Ctx : sig
 
 end
 
-module Env : sig
+module Signature : sig
   type t
 
   val empty : t
@@ -102,13 +102,13 @@ val shape_ty : ty -> shape
 val shape_prod : ty -> (atom * ty) option
 
 (** Construct a judgement using the appropriate formation rule. The type is the natural type. *)
-val form : loc:Location.t -> Env.t -> shape -> term
+val form : loc:Location.t -> Signature.t -> shape -> term
 
 (** Fails if the type isn't [Type] *)
 val is_ty : loc:Location.t -> term -> ty
 
 (** [is_ty ∘ form] *)
-val form_ty : loc:Location.t -> Env.t -> shape -> ty
+val form_ty : loc:Location.t -> Signature.t -> shape -> ty
 
 (** Substitution *)
 
@@ -190,7 +190,7 @@ val congr_refl : loc:Location.t -> eq_ty -> eq_term -> eq_term
 (** Derivable rules *)
 
 (** If [e : B] and [A] is the natural type of [e] then [A == B] *)
-val natural_eq : loc:Location.t -> Env.t -> term -> eq_ty
+val natural_eq : loc:Location.t -> Signature.t -> term -> eq_ty
 
 (** if [e == e1] and [e == e2] then [refl e : e1 == e2] *)
 val mk_refl : loc:Location.t -> eq_term -> eq_term -> term
