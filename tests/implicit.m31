@@ -1,6 +1,6 @@
 constant A : Type
 constant a : A
-constant f g h : A -> A
+constant f, g, h : A -> A
 constant g_def : g == (lambda x : A, f (f x))
 constant h_def : h == g
 

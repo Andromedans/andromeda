@@ -1,7 +1,7 @@
 
 fail congr_prod Type Type Type
 
-constant A B : Type
+constant A, B : Type
 
 fail congr_prod (assume x : A -> B in x) A (refl B)
 

@@ -1,6 +1,6 @@
 (* Substitute with different values in separate subterms, then join. *)
 
-constant A B C : Type
+constant A, B, C : Type
 constant pair : A -> B -> C
 
 let T = assume T : Type in T
