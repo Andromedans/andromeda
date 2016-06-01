@@ -1,5 +1,5 @@
 
-constant A B : Type
+constant A, B : Type
 constant eq : A == B
 now betas = add_beta eq
 

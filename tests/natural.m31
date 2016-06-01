@@ -1,4 +1,4 @@
-constant A B : Type
+constant A, B : Type
 constant a : A
 constant eq : A == B
 

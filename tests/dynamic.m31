@@ -1,6 +1,6 @@
 
 constant A : Type
-constant a b : A
+constant a, b : A
 
 dynamic x = a
 

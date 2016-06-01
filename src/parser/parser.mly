@@ -123,7 +123,7 @@ plain_topcomp:
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
-  | CONSTANT xs=nonempty_list(var_name) COLON u=term  { DeclConstants (xs, u) }
+  | CONSTANT xs=separated_nonempty_list(COMMA, var_name) COLON u=term  { DeclConstants (xs, u) }
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=var_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
