@@ -60,8 +60,9 @@ assumptions $\G$ term $\e$ has type $\T$"), but only the ones that are *derivabl
 AML. *Completeness* of AML states that every derivable judgment is computed by some
 program. Neither property has actually been proved yet, we are working on it.
 
-AML is a functional call-by-value language with algebraic effects and handlers.
-At present AML is dynamically typed. We are planning to put some types on it.
+AML is a functional call-by-value language with algebraic effects and handlers. AML is
+statically typed in a Hindley-Milner-style type system with parametric polymorphism and
+inference.
 
 While Robin Milner's LCF and its HOL-style descendants compute judgments in *simple* type theory,
 AML computes judgments in *dependent* type theory. This creates a significant overhead in the
@@ -81,6 +82,12 @@ emphasize that Andromeda *computes* their values and that the computations may h
 *effects* (such as printing things on the screen).
 We refer to the expressions of the type theory as **(type-theoretic) terms**.
 
+### The AML types
+
+The AML types are called **ML-types** in order to be distinguished from the type-theoretic
+types. They follow closely the usual ML-style parametric polymorphism. AML has type definitions.
+
+TODO: explain beter what the types are like.
 
 ### General-purpose programming
 
