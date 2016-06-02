@@ -67,7 +67,7 @@ While Robin Milner's LCF and its HOL-style descendants compute judgments in *sim
 AML computes judgments in *dependent* type theory. This creates a significant overhead in the
 complexity of the system and so while [John Harisson](http://www.cl.cam.ac.uk/~jrh13/) is
 able to print the [HOL Light kernel](http://www.cl.cam.ac.uk/~jrh13/) on a T-shirt, it may
-take a super-hero's cape to print the 4000 lines of
+take a super-hero's cape to print the 1800 lines of
 [Andromeda nucleus](https://en.wikipedia.org/wiki/Andromeda_Galaxy#Nucleus).
 
 The constructs of the language are divided into **computations** which evaluate to values and may emit operations,
