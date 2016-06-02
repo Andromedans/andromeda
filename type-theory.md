@@ -7,6 +7,52 @@ use_math: true
 
 ## Type theory with equality reflection
 
+We give here the rules of type theory that is implemented in Andromeda. The rules are
+simplified with respect to the implementation in the following ways:
+
+1. In Andromeda each subexpression carries an explicit set of variables on which it
+   depends. We call these *assumptions tags*. This is necessary to recover the
+   strengthening rule (because of equality reflection it may happen that the
+   well-formedness of a term relies on an assumption which is not recorded in the term).
+
+2. The typing context is not a list but rather a directed graph whose vertices are the
+   context entries and whose edges are dependencies between context entries (they edges
+   are recoverable from the assumption tags).
+
+3. The actual rules implemented by the nucleus perform a *context join*. This is best
+   illustrated with an example. The introduction rule for equality types
+   [`ty-eq`](#ty-eq) is here stated as
+
+   $$
+   \infer
+   {\istype{\G}{\T} \qquad
+    \isterm{\G}{\e_1}{\T} \qquad
+    \isterm{\G}{\e_2}{\T}
+   }
+   {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
+   $$
+
+   but is implemented as
+
+   $$
+   \infer
+   {\istype{\G}{\T} \qquad
+    \isterm{\D}{\e_1}{\T} \qquad
+    \isterm{\Xi}{\e_2}{\T}
+   }
+   {\istype{(\G \bowtie \D \bowtie \Xi)}{\JuEqual{\T}{\e_1}{\e_2}}}
+   $$
+
+   where the *join* $\G \bowtie \D$ is computed as the union of (directed graphs
+   representing) context $\G$ and $\D$. The join operation may fail if there is
+   a variable appears in $\G$ and $\D$ with different types.
+
+   TODO: Explain precisely how the context joins work and what properties
+   they have.
+
+Unlike in traditional type theory the terms are explicitly tagged with typing information.
+For instance, a $\lambda$-abstraction is tagged with both the doman and the codomain.
+
 ### Syntax
 
 Terms $\e$ and types $\T$, $\U$:
@@ -32,9 +78,9 @@ Contexts $\G$:
 | $\isctx{\G}$          | $\G$ is a well formed context |
 | $\isterm{\G}{\e}{\T}$ | $\e$ is a well formed term of type $\T$ in context $\G$ |
 | $\eqterm{\G}{\e_1}{\e_2}{\T}$ | $e_1$ and $e_2$ are equal terms of type $\T$ in context |
+| $\eqctx{\G}{\D}$      | $\G$ and $\D$ are equal contexts |
 
-
-### Judgment $\isctx{\G}$
+### Judgment: $\isctx{\G}$
 
 ###### `ctx-empty`
 
@@ -55,9 +101,57 @@ $$
   {\isctx{\ctxextend{\G}{\x}{\T}}}
 $$
 
-TODO: explain $\mathsf{dom}(\G)$.
+Here $\mathsf{dom}(\G)$ is the set of all variables that are declared in $\G$, i.e.:
 
-### Judgment $\isterm{\G}{\e}{\T}$
+$$
+\mathsf{dom}(\ctxempty) = \emptyset
+\qquad\text{and}\qquad
+\mathsf{dom}(\ctxextend{\G}{\x}{\T}) = \mathsf{dom}(\G) \cup \{x\}.
+$$
+
+### Judgment: $\eqctx{\G}{\D}$
+
+###### `eq-ctx-empty`
+
+$$
+  \infer
+  { }
+  {\eqctx{\ctxempty}{\ctxempty}}
+$$
+
+###### `eq-ctx-extend`
+
+$$
+  \infer
+  {\begin{aligned}[t]
+   &\eqctx{\G}{\D} \qquad
+   x \not\in \mathsf{dom}(\G) \cup \mathsf{dom}(\D) \\
+   &
+   \istype{\G}{\T} \qquad
+   \istype{\D}{\U}
+   \end{aligned}}
+  {\eqctx{\ctxextend{\G}{\x}{\T}}{\ctxextend{\D}{\x}{\U}}}
+$$
+
+###### `ctx-term-conv`
+
+$$
+  \infer
+  {\eqctx{\G}{\D} \qquad
+   \isterm{\G}{\e}{\T}}
+  {\isterm{\D}{\e}{\T}}
+$$
+
+###### `ctx-eq-conv`
+
+$$
+  \infer
+  {\eqctx{\G}{\D} \qquad
+   \eqterm{\G}{\e_1}{\e_2}{\T}}
+  {\eqterm{\D}{\e_1}{\e_2}{\T}}
+$$
+
+### Judgment: $\isterm{\G}{\e}{\T}$
 
 #### General rules
 
