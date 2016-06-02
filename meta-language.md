@@ -8,12 +8,16 @@ use_math: true
 Table of contents:
 
 * [About the Andromeda meta-language](#about-the-andromeda-meta-language)
+* [ML-types](#ml-types)
+   * [ML-type definitions](#ml-type-definitions)
+   * [Inductive ML-datatypes](#inductive-ml-datatypes)
+   * [Predefined ML-types](#predefined-ml-types)
 * [General-purpose programming](#general-purpose-programming)
    * [`let`-binding](#let-binding)
    * [Sequencing](#sequencing)
    * [Functions](#functions)
    * [Recursive functions](#recursive-functions)
-   * [Datatypes](#datatypes)
+   * [Predefined data values](#predefined-data-values)
    * [`match` statements and patterns](#match-statements-and-patterns)
    * [Operations and handlers](#operations-and-handlers)
    * [Mutable references](#mutable-references)
@@ -82,12 +86,64 @@ emphasize that Andromeda *computes* their values and that the computations may h
 *effects* (such as printing things on the screen).
 We refer to the expressions of the type theory as **(type-theoretic) terms**.
 
-### The AML types
+### ML-types
 
 The AML types are called **ML-types** in order to be distinguished from the type-theoretic
-types. They follow closely the usual ML-style parametric polymorphism. AML has type definitions.
+types. They follow closely the usual ML-style parametric polymorphism.
 
-TODO: explain beter what the types are like.
+#### ML-Type definitions
+
+An ML-type abbreviation may be defined as
+
+    mltype foo = ...
+
+An ML-type may be parametrized:
+
+    mltype foo α β ... γ = ...
+
+A disjoint sum ML-type is defined as
+
+    mltype foo =
+      | Constructor₁ of t₁₁ and ... and t₁ᵢ
+      ...
+      | Constructorⱼ of tⱼ₁ and ... and tⱼᵢ
+    end
+
+The arguments to constructors are written in curried form, e.g., if we have
+
+    mltype color = Red | Green | Blue end
+    mlyype cow =
+      | Horn of color and color * color
+      | Tail of color and color and color
+
+then we write `Horn Red (Green, Blue)` and `Tail Red Green Blue`. Data constructors must
+be fully applied.
+
+The empty ML-type is defined as
+
+    type empty = end
+
+#### Inductive ML-datatypes
+
+A recursive ML-type may be defined as
+
+    mltype rec t α β ... γ = ...
+
+The recursion must be guarded by data constructors, i.e., we only allow *inductive*
+defintions. E.g., the ML-type of binary trees can be defined as
+
+    mltype rec tree α =
+      | Empty
+      | Tree of α and α tree and α tree
+
+#### Predefined ML-types
+
+The following types are predefined by Andromeda:
+
+* `mlstring` is the type of [strings](#strings)
+* `option α` is the type of [optional values](#optional-values)
+* `list α` is the type of [lists](#lists)
+* `coercible` is the type of values used to signal the nucleus how to handle a coercion
 
 ### General-purpose programming
 
@@ -201,34 +257,29 @@ defined with
          ⋮
         and fⱼ z₁ z₂ ... = cⱼ
 
-##### Datatypes
+#### Predefined data values
 
-Apart from judgments AML also computes other values, such as functions, lists, tuples, and
-elements of other datatypes. We describe the datatypes in this section.
-
-###### Strings
+#### Strings
 
 A string is a sequence of characters delimited by quotes, e.g.
 
     "This string contains forty-two characters."
 
+Its type is `mlstring`.
 There are at present no facilities to manipulate strings in AML other than printing.
 
-###### Tuples
+#### Tuples
 
-A meta-level tuple is written as `(c₁, ..., cᵢ)`.
+A meta-level tuple is written as `(c₁, ..., cᵢ)`. Its type is `t₁ * ... tᵢ` where `tⱼ` is
+the type of `cⱼ`.
 
-##### Type definitions
+#### Optional values
 
-AML type system is currently under construction. It will support the usual datatype
-definitions, such as inductive datatypes and records. At the moment there are predefined
-lists and optional types.
+The value `None` indicates a lack of value and `Some c` indicates the presence of value
+`c`. The type of `None` is `∀ α, option α` and the type of `Some v` is `option t` if `t` is the
+type of `c`.
 
-###### Optional values
-
-The value `None` indicates a lack of value and `Some v` indicates the presence of value `v`.
-
-###### Lists
+#### Lists
 
 The empty list is written as `[]`. The list whose head is `c₁` and the tail is `c₂` is
 written as `c₁ :: c₂`. The computation
@@ -241,6 +292,8 @@ is shorthand for
 
 At present, due to lack of meta-level types, lists are heterogeneous in the sense that
 they may contain values of different shapes.
+
+
 
 ##### `match` statements and patterns
 
