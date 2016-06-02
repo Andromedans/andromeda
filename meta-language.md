@@ -403,12 +403,16 @@ several examples below.
 
 A new operation is declared by
 
-    operation op i
+    operation op : t₁ → t₂ → ... → tᵢ → u
 
-where `op` is the operation name and the numeral `i` is its arity, i.e., the number of
-arguments it takes. An operation is then invoked with
+where `op` is the operation name, `t₁`, ..., `tᵢ` are the types of the operation
+arguments, and `u` is its return type.
+
+An operation is then invoked with
 
     op c₁ .. cᵢ
+
+where `cⱼ` must have type `tⱼ`.
 
 One way to think of an operation is as a generalized resumable exception: when an
 operation is invoked it "propagates" outward to the innermost handler that handles it. The
