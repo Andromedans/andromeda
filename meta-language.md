@@ -7,7 +7,7 @@ use_math: true
 
 Table of contents:
 
-* [About the Andromeda meta-language](#about-the-andromeda-meta-language)
+* [About the Andromeda meta-language](#about-the-a1ndromeda-meta-language)
 * [ML-types](#ml-types)
    * [ML-type definitions](#ml-type-definitions)
    * [Inductive ML-datatypes](#inductive-ml-datatypes)
@@ -58,8 +58,8 @@ of Robin Milner's
 [Logic for computable functions](http://i.stanford.edu/pub/cstr/reports/cs/tr/72/288/CS-TR-72-288.pdf)
 (LCF). We call it the **Andromeda meta-language (AML)**.
 
-Andromeda computes typing judgments of the form $\isterm{\G}{\e}{\T}$ ("Under
-assumptions $\G$ term $\e$ has type $\T$"), but only the ones that are *derivable* in
+Andromeda computes typing judgments of the form $\isterm{\G}{\e}{\tyA}$ ("Under
+assumptions $\G$ term $\e$ has type $\tyA$"), but only the ones that are *derivable* in
 [type theory with equality reflection](type-theory.html). This is known as *soundness* of
 AML. *Completeness* of AML states that every derivable judgment is computed by some
 program. Neither property has actually been proved yet, we are working on it.
@@ -140,6 +140,7 @@ defintions. E.g., the ML-type of binary trees can be defined as
 
 The following types are predefined by Andromeda:
 
+* `mlunit` is the unit type whose only value is the empty tuple `()`
 * `mlstring` is the type of [strings](#strings)
 * `option α` is the type of [optional values](#optional-values)
 * `list α` is the type of [lists](#lists)
@@ -239,7 +240,7 @@ computes `c₁`, discards the result, and computes `c₂`. It is equivalent to
 
     let _ = c₁ in c₂
 
-except for warning when `c₁` evaluates to something other than the empty tuple `()`.
+except for warning when `c₁` has type other than `mlunit`.
 
 ##### Recursive functions
 
@@ -335,8 +336,8 @@ The general patterns are:
    | `?x` | match any value and bind it to `x` |
    | `p as ?x` | match according to pattern `p` and also bind the value to `x` |
    | `x` | match a value if it equals the value of `x` |
-   | `⊢ j` | match a judgment $\isterm{\G}{\e}{\T}$ according to the *judgment pattern `j`*, see below |
-   | `⊢ j₁ : j₂` | match a judgment $\isterm{\G}{\e}{\T}$ with `j₁` and $\isterm{\G}{\T}{Type}$ with `j₂` |
+   | `⊢ j` | match a judgment $\isterm{\G}{\e}{\tyA}$ according to the *judgment pattern `j`*, see below |
+   | `⊢ j₁ : j₂` | match a judgment $\isterm{\G}{\e}{\tyA}$ with `j₁` and $\isterm{\G}{\tyA}{\Type}$ with `j₂` |
    | `Tag p₁ ... pᵢ` | match a data tag |
    | `[]` | match the empty list |
    | `p₁ :: p₂` | match the head and the tail of a non-empty list |
@@ -363,7 +364,7 @@ In the above `match` statement the pattern refers to `a` whose values is `"foo"`
 
 ###### Judgment patterns
 
-A judgment pattern matches a judgment $\isterm{\G}{\e}{\T}$ as follows:
+A judgment pattern matches a judgment $\isterm{\G}{\e}{\tyA}$ as follows:
 
    |---|---|
    | `_` | match any term |
@@ -383,8 +384,8 @@ A judgment pattern matches a judgment $\isterm{\G}{\e}{\T}$ as follows:
 
 ###### Matching under binders
 
-When matching a judgment $\isterm{\G}{∏ (x : A) B}{Type}$ with a pattern `∏ (y : j₁), j₂`,
-a fresh variable $y₁$ is produced so that we may match $\isterm{\G, y₁ : A}{B}{Type}$ with `j₂`.
+When matching a judgment $\isterm{\G}{∏ (x : A) B}{\Type}$ with a pattern `∏ (y : j₁), j₂`,
+a fresh variable $y₁$ is produced so that we may match $\isterm{\G, y₁ : A}{B}{\Type}$ with `j₂`.
 
 Patterns which match under a binder have two forms:
 * one in which the binder variable is a pattern variable, such as `∏ (?y : j₁), j₂`.
@@ -662,25 +663,25 @@ Set the verbosity level. The levels are:
 ### Judgment computations
 
 There is no way in Andromeda to create a bare type-theoretic term $\e$, only a complete
-typing judgment $\isterm{\G}{\e}{\T}$. Even those computations that *look* like terms
+typing judgment $\isterm{\G}{\e}{\tyA}$. Even those computations that *look* like terms
 actually compute judgments. For instance, if `c₁` computes to
 
-$$\isterm{\G}{\e_1}{\Prod{\x}{\T} \U}$$
+$$\isterm{\G}{\e_1}{\Prod{\x}{\tyA} \tyB}$$
 
 and `c₂` computes to
 
-$$\isterm{\D}{\e_2}{\T},$$
+$$\isterm{\D}{\e_2}{\tyA},$$
 
 then the "application" `c₁ c₂` computes to
 
-$$\isterm{\G \bowtie \D}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\subst{\U}{\x}{\e_2}}$$
+$$\isterm{\G \bowtie \D}{\app{\e_1}{\x}{\tyA}{\tyB}{\e_2}}{\subst{\tyB}{\x}{\e_2}}$$
 
 where $\G \bowtie \D$ is the *join* of contexts $\G$ and $\D$, satisfying the property
 that $\G \bowtie \D$ contains both $\G$ and $\D$ (the two contexts $\G$ and $\D$ may be
 incompatible, in which case Andromeda reports an error).
 
-Even though Andromeda always computes an entire judgment $\isterm{\G}{\e}{\T}$ it is
-useful to think of it as just a term $\e$ with a known type $\T$ and assumptions $\G$
+Even though Andromeda always computes an entire judgment $\isterm{\G}{\e}{\tyA}$ it is
+useful to think of it as just a term $\e$ with a known type $\tyA$ and assumptions $\G$
 which Andromeda is kindly keeping track of.
 
 ##### Inferring and checking mode
@@ -689,17 +690,17 @@ A judgment is computed in one of two modes, the **inferring** or the **checking*
 
 In the inferring mode the judgment that is being computed is unrestrained.
 
-In checking mode there is a given type $\T$ (actually a judgment $\istype{\G}{\T}$) and
-the judgment that is being computed must have the form $\isterm{\D}{\e}{\T}$. In other
+In checking mode there is a given type $\tyA$ (actually a judgment $\istype{\G}{\tyA}$) and
+the judgment that is being computed must have the form $\isterm{\D}{\e}{\tyA}$. In other
 words, the type is prescribed in advanced. For example, an application
 
     c₁ c₂
 
 proceeds as follows:
 
-1. Compute `c₁` in inferring mode to obtain a judgment $\isterm{\G}{\e}{\T}$.
-2. Verify that $\T$ is equal to $\Prod{x}{\T_1}{\T_2}$, using `as_prod` if necessary (see [equality checking](#equality-checking)).
-3. Compute `c₂` in checking mode at type $\T_1$.
+1. Compute `c₁` in inferring mode to obtain a judgment $\isterm{\G}{\e}{\tyA}$.
+2. Verify that $\tyA$ is equal to $\Prod{x}{\tyA_1}{\tyA_2}$, using `as_prod` if necessary (see [equality checking](#equality-checking)).
+3. Compute `c₂` in checking mode at type $\tyA_1$.
 
 
 #### The universe
@@ -734,11 +735,11 @@ A primitive type `T` is declared with
 
 #### Assumptions
 
-If computation `c₁` computes to judgment $\istype{\G}{\T}$ then
+If computation `c₁` computes to judgment $\istype{\G}{\tyA}$ then
 
     assume x : c₁ in c₂
 
-binds `x` to $\isterm{\ctxextend{\G}{\x'}{\T}}{\x'}{\T}$,
+binds `x` to $\isterm{\ctxextend{\G}{\x'}{\tyA}}{\x'}{\tyA}$,
 then it evaluates `c₂`. The judgment is valid by
 [rule `ctx-var`](type-theory.html#term-var) and
 [rule `ctx-extend`](type-theory.html#ctx-extend). Example:
@@ -895,9 +896,9 @@ Type ascription
 
     c₁ : c₂
 
-first computes `c₂`, which must evaluate to a type $\istype{\G}{\T}$. It then computes
-`c₁` in checking mode at type $\T$ thereby guaranteeing that the result will be a judgment
-of the form $\isterm{\D}{\e}{\T}$.
+first computes `c₂`, which must evaluate to a type $\istype{\G}{\tyA}$. It then computes
+`c₁` in checking mode at type $\tyA$ thereby guaranteeing that the result will be a judgment
+of the form $\isterm{\D}{\e}{\tyA}$.
 
 #### Context and occurs check
 
@@ -905,7 +906,7 @@ The computation
 
     context c
 
-computes `c` to a judgment $\isterm{\G}{\e}{\T}$ and gives the list of all assumptions in
+computes `c` to a judgment $\isterm{\G}{\e}{\tyA}$ and gives the list of all assumptions in
 $\Gamma$. Example:
 
     # constant A : Type
@@ -921,7 +922,7 @@ The computation
 
     occurs x c
 
-computes `x` to a judgment $\isterm{\D}{\x}{A}$ and `c` to a judgment $\isterm{\G}{\e}{\T}$ such that $x$ is a variable.
+computes `x` to a judgment $\isterm{\D}{\x}{A}$ and `c` to a judgment $\isterm{\G}{\e}{\tyA}$ such that $x$ is a variable.
 It evaluates to `None` if $x$ does not occur in $\G$, and to
 `Some U` if $x$ occurs in $\G$ as an assumption of type `U`.
 

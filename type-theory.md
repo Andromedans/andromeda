@@ -25,22 +25,22 @@ simplified with respect to the implementation in the following ways:
 
    $$
    \infer
-   {\istype{\G}{\T} \qquad
-    \isterm{\G}{\e_1}{\T} \qquad
-    \isterm{\G}{\e_2}{\T}
+   {\istype{\G}{\tyA} \qquad
+    \isterm{\G}{\e_1}{\tyA} \qquad
+    \isterm{\G}{\e_2}{\tyA}
    }
-   {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
+   {\istype{\G}{\JuEqual{\tyA}{\e_1}{\e_2}}}
    $$
 
    but is implemented as
 
    $$
    \infer
-   {\istype{\G}{\T} \qquad
-    \isterm{\D}{\e_1}{\T} \qquad
-    \isterm{\Xi}{\e_2}{\T}
+   {\istype{\G}{\tyA} \qquad
+    \isterm{\D}{\e_1}{\tyA} \qquad
+    \isterm{\Xi}{\e_2}{\tyA}
    }
-   {\istype{(\G \bowtie \D \bowtie \Xi)}{\JuEqual{\T}{\e_1}{\e_2}}}
+   {\istype{(\G \bowtie \D \bowtie \Xi)}{\JuEqual{\tyA}{\e_1}{\e_2}}}
    $$
 
    where the *join* $\G \bowtie \D$ is computed as the union of (directed graphs
@@ -55,29 +55,29 @@ For instance, a $\lambda$-abstraction is tagged with both the doman and the codo
 
 ### Syntax
 
-Terms $\e$ and types $\T$, $\U$:
+Terms $\e$ and types $\tyA$, $\tyB$:
 
 |---|---|
 | $\Type$ | universe |
-| $\Prod{x}{\T} \U$ | product |
-| $\JuEqual{\T}{\e_1}{\e_2}$ | equality type |
+| $\Prod{x}{\tyA} \tyB$ | product |
+| $\JuEqual{\tyA}{\e_1}{\e_2}$ | equality type |
 | $\x$ | variable |
-| $\lam{\x}{\T_1}{\T_2} \e$ | $\lambda$-abstraction |
-| $\app{\e_1}{\x}{\T_1}{\T_2}{\e_2}$ | application |
-| $\juRefl{\T} \e$ | reflexivity |
+| $\lam{\x}{\tyA}{\tyB} \e$ | $\lambda$-abstraction |
+| $\app{\e_1}{\x}{\tyA}{\tyB}{\e_2}$ | application |
+| $\juRefl{\tyA} \e$ | reflexivity |
 
 Contexts $\G$:
 
 |---|---|
 | $\ctxempty$ | empty context |
-| $\ctxextend{\G}{\x}{\T}$ | context $\G$ extended with $\x : \T$ |
+| $\ctxextend{\G}{\x}{\tyA}$ | context $\G$ extended with $\x : \tyA$ |
 
 ### Judgments
 
 |---|---|
 | $\isctx{\G}$          | $\G$ is a well formed context |
-| $\isterm{\G}{\e}{\T}$ | $\e$ is a well formed term of type $\T$ in context $\G$ |
-| $\eqterm{\G}{\e_1}{\e_2}{\T}$ | $e_1$ and $e_2$ are equal terms of type $\T$ in context |
+| $\isterm{\G}{\e}{\tyA}$ | $\e$ is a well formed term of type $\tyA$ in context $\G$ |
+| $\eqterm{\G}{\e_1}{\e_2}{\tyA}$ | $e_1$ and $e_2$ are equal terms of type $\tyA$ in context |
 | $\eqctx{\G}{\D}$      | $\G$ and $\D$ are equal contexts |
 
 ### Judgment: $\isctx{\G}$
@@ -95,10 +95,10 @@ $$
 $$
   \infer
   {\isctx{\G} \qquad
-   \istype{\G}{\T} \qquad
+   \istype{\G}{\tyA} \qquad
    x \not\in \mathsf{dom}(\G)
   }
-  {\isctx{\ctxextend{\G}{\x}{\T}}}
+  {\isctx{\ctxextend{\G}{\x}{\tyA}}}
 $$
 
 Here $\mathsf{dom}(\G)$ is the set of all variables that are declared in $\G$, i.e.:
@@ -106,7 +106,7 @@ Here $\mathsf{dom}(\G)$ is the set of all variables that are declared in $\G$, i
 $$
 \mathsf{dom}(\ctxempty) = \emptyset
 \qquad\text{and}\qquad
-\mathsf{dom}(\ctxextend{\G}{\x}{\T}) = \mathsf{dom}(\G) \cup \{x\}.
+\mathsf{dom}(\ctxextend{\G}{\x}{\tyA}) = \mathsf{dom}(\G) \cup \{x\}.
 $$
 
 ### Judgment: $\eqctx{\G}{\D}$
@@ -127,10 +127,10 @@ $$
    &\eqctx{\G}{\D} \qquad
    x \not\in \mathsf{dom}(\G) \cup \mathsf{dom}(\D) \\
    &
-   \istype{\G}{\T} \qquad
-   \istype{\D}{\U}
+   \istype{\G}{\tyA} \qquad
+   \istype{\D}{\tyB}
    \end{aligned}}
-  {\eqctx{\ctxextend{\G}{\x}{\T}}{\ctxextend{\D}{\x}{\U}}}
+  {\eqctx{\ctxextend{\G}{\x}{\tyA}}{\ctxextend{\D}{\x}{\tyB}}}
 $$
 
 ###### `ctx-term-conv`
@@ -138,8 +138,8 @@ $$
 $$
   \infer
   {\eqctx{\G}{\D} \qquad
-   \isterm{\G}{\e}{\T}}
-  {\isterm{\D}{\e}{\T}}
+   \isterm{\G}{\e}{\tyA}}
+  {\isterm{\D}{\e}{\tyA}}
 $$
 
 ###### `ctx-eq-conv`
@@ -147,11 +147,11 @@ $$
 $$
   \infer
   {\eqctx{\G}{\D} \qquad
-   \eqterm{\G}{\e_1}{\e_2}{\T}}
-  {\eqterm{\D}{\e_1}{\e_2}{\T}}
+   \eqterm{\G}{\e_1}{\e_2}{\tyA}}
+  {\eqterm{\D}{\e_1}{\e_2}{\tyA}}
 $$
 
-### Judgment: $\isterm{\G}{\e}{\T}$
+### Judgment: $\isterm{\G}{\e}{\tyA}$
 
 #### General rules
 
@@ -159,10 +159,10 @@ $$
 
 $$
   \infer
-  {\isterm{\G}{\e}{\T} \qquad
-   \eqtype{\G}{\T}{\U}
+  {\isterm{\G}{\e}{\tyA} \qquad
+   \eqtype{\G}{\tyA}{\tyB}
   }
-  {\isterm{\G}{\e}{\U}}
+  {\isterm{\G}{\e}{\tyB}}
 $$
 
 ###### `term-var`
@@ -170,9 +170,9 @@ $$
 $$
   \infer
   {\isctx{\G} \qquad
-   (\x{:}\T) \in \G
+   (\x{:}\tyA) \in \G
   }
-  {\isterm{\G}{\x}{\T}}
+  {\isterm{\G}{\x}{\tyA}}
 $$
 
 #### Universe
@@ -191,26 +191,26 @@ $$
 ###### `ty-prod`
 
 $$\infer
-  {\istype{\G}{\T} \qquad
-   \istype{\ctxextend{\G}{\x}{\T}}{\U}
+  {\istype{\G}{\tyA} \qquad
+   \istype{\ctxextend{\G}{\x}{\tyA}}{\tyB}
   }
-  {\istype{\G}{\Prod{\x}{\T}{\U}}}
+  {\istype{\G}{\Prod{\x}{\tyA}{\tyB}}}
 $$
 
 ###### `term-abs`
 
 $$\infer
-  {\isterm{\ctxextend{\G}{\x}{\T}}{\e}{\U}}
-  {\isterm{\G}{(\lam{\x}{\T}{\U}{\e})}{\Prod{\x}{\T}{\U}}}
+  {\isterm{\ctxextend{\G}{\x}{\tyA}}{\e}{\tyB}}
+  {\isterm{\G}{(\lam{\x}{\tyA}{\tyB}{\e})}{\Prod{\x}{\tyA}{\tyB}}}
 $$
 
 ###### `term-app`
 
 $$\infer
-  {\isterm{\G}{\e_1}{\Prod{x}{\T} \U} \qquad
-   \isterm{\G}{\e_2}{\T}
+  {\isterm{\G}{\e_1}{\Prod{x}{\tyA} \tyB} \qquad
+   \isterm{\G}{\e_2}{\tyA}
   }
-  {\isterm{\G}{\app{\e_1}{\x}{\T}{\U}{\e_2}}{\subst{\U}{\x}{\e_2}}}
+  {\isterm{\G}{\app{\e_1}{\x}{\tyA}{\tyB}{\e_2}}{\subst{\tyB}{\x}{\e_2}}}
 $$
 
 #### Equality type
@@ -219,18 +219,18 @@ $$
 
 $$
   \infer
-  {\istype{\G}{\T} \qquad
-   \isterm{\G}{\e_1}{\T} \qquad
-   \isterm{\G}{\e_2}{\T}
+  {\istype{\G}{\tyA} \qquad
+   \isterm{\G}{\e_1}{\tyA} \qquad
+   \isterm{\G}{\e_2}{\tyA}
   }
-  {\istype{\G}{\JuEqual{\T}{\e_1}{\e_2}}}
+  {\istype{\G}{\JuEqual{\tyA}{\e_1}{\e_2}}}
 $$
 
 ###### `term-refl`
 
 $$\infer
-  {\isterm{\G}{\e}{\T}}
-  {\isterm{\G}{\juRefl{\T} \e}{\JuEqual{\T}{\e}{\e}}}
+  {\isterm{\G}{\e}{\tyA}}
+  {\isterm{\G}{\juRefl{\tyA} \e}{\JuEqual{\tyA}{\e}{\e}}}
 $$
 
 ### Equality
@@ -240,31 +240,31 @@ $$
 ###### `eq-refl`
 
 $$  \infer
-  {\isterm{\G}{\e}{\T}}
-  {\eqterm{\G}{\e}{\e}{\T}}
+  {\isterm{\G}{\e}{\tyA}}
+  {\eqterm{\G}{\e}{\e}{\tyA}}
 $$
 
 ###### `eq-sym`
 
 $$\infer
-  {\eqterm{\G}{\e_2}{\e_1}{\T}}
-  {\eqterm{\G}{\e_1}{\e_2}{\T}}
+  {\eqterm{\G}{\e_2}{\e_1}{\tyA}}
+  {\eqterm{\G}{\e_1}{\e_2}{\tyA}}
 $$
 
 ###### `eq-trans`
 
 $$\infer
-  {\eqterm{\G}{\e_1}{\e_2}{\T}\qquad
-   \eqterm{\G}{\e_2}{\e_3}{\T}}
-  {\eqterm{\G}{\e_1}{\e_3}{\T}}
+  {\eqterm{\G}{\e_1}{\e_2}{\tyA}\qquad
+   \eqterm{\G}{\e_2}{\e_3}{\tyA}}
+  {\eqterm{\G}{\e_1}{\e_3}{\tyA}}
 $$
 
 ###### `eq-conv`
 
 $$\infer
-  {\eqterm{\G}{\e_1}{\e_2}{\T}\qquad
-    \eqtype{\G}{\T}{\U}}
-  {\eqterm{\G}{\e_1}{\e_2}{\U}}
+  {\eqterm{\G}{\e_1}{\e_2}{\tyA}\qquad
+    \eqtype{\G}{\tyA}{\tyB}}
+  {\eqterm{\G}{\e_1}{\e_2}{\tyB}}
 $$
 
 Remark: in the presence of `eq-reflection` (see below) the rules `eq-conv`,
@@ -276,11 +276,11 @@ Remark: in the presence of `eq-reflection` (see below) the rules `eq-conv`,
 
 $$
 \infer
-  {\isterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\T_2}\qquad
-   \isterm{\G}{\e_2}{\T_1}}
-  {\eqterm{\G}{\bigl(\app{(\lam{\x}{\T_1}{\T_2}{\e_1})}{\x}{\T_1}{\T_2}{\e_2}\bigr)}
+  {\isterm{\ctxextend{\G}{\x}{\tyA}}{\e_1}{\tyB}\qquad
+   \isterm{\G}{\e_2}{\tyA}}
+  {\eqterm{\G}{\bigl(\app{(\lam{\x}{\tyA}{\tyB}{\e_1})}{\x}{\tyA}{\tyB}{\e_2}\bigr)}
               {\subst{\e_1}{\x}{\e_2}}
-              {\subst{\T_2}{\x}{\e_2}}}
+              {\subst{\tyB}{\x}{\e_2}}}
 $$
 
 #### Reflection and extensionality
@@ -289,30 +289,30 @@ $$
 
 $$
   \infer
-  {\isterm{\G}{\e}{\JuEqual{\T}{\e_1}{\e_2}}}
-  {\eqterm{\G}{\e_1}{\e_2}{\T}}
+  {\isterm{\G}{\e}{\JuEqual{\tyA}{\e_1}{\e_2}}}
+  {\eqterm{\G}{\e_1}{\e_2}{\tyA}}
 $$
 
 ###### `eq-ext`
 
 $$\infer
-  {\isterm{\G}{\e_3}{\JuEqual{\T}{\e_1}{\e_2}} \qquad
-    \isterm{\G}{\e_4}{\JuEqual{\T}{\e_1}{\e_2}}
+  {\isterm{\G}{\e_3}{\JuEqual{\tyA}{\e_1}{\e_2}} \qquad
+    \isterm{\G}{\e_4}{\JuEqual{\tyA}{\e_1}{\e_2}}
   }
-  {\eqterm{\G}{\e_3}{e_4}{\JuEqual{\T}{\e_1}{\e_2}}}
+  {\eqterm{\G}{\e_3}{e_4}{\JuEqual{\tyA}{\e_1}{\e_2}}}
 $$
 
 ###### `prod-ext`
 
 $$\infer
   {\begin{aligned}[t]
-   &\isterm{\G}{\e_1}{\Prod{\x}{\T}{\U}}\qquad
-    \isterm{\G}{\e_2}{\Prod{\x}{\T}{\U}}\\
-   &\eqterm{\ctxextend{\G}{\x}{\T}}{(\app{\e_1}{\x}{\T}{\U}{\x})}
-          {(\app{\e_2}{\x}{\T}{\U}{\x})}{\U}
+   &\isterm{\G}{\e_1}{\Prod{\x}{\tyA}{\tyB}}\qquad
+    \isterm{\G}{\e_2}{\Prod{\x}{\tyA}{\tyB}}\\
+   &\eqterm{\ctxextend{\G}{\x}{\tyA}}{(\app{\e_1}{\x}{\tyA}{\tyB}{\x})}
+          {(\app{\e_2}{\x}{\tyA}{\tyB}{\x})}{\tyB}
   \end{aligned}
   }
-  {\eqterm{\G}{\e_1}{\e_2}{\Prod{\x}{\T}{\U}}}
+  {\eqterm{\G}{\e_1}{\e_2}{\Prod{\x}{\tyA}{\tyB}}}
 $$
 
 #### Congruences
@@ -322,21 +322,21 @@ $$
 ###### `cong-prod`
 
 $$\infer
-  {\eqtype{\G}{\T_1}{\U_1}\qquad
-   \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}}
-  {\eqtype{\G}{\Prod{\x}{\T_1}{\T_2}}{\Prod{\x}{\U_1}{\U_2}}}
+  {\eqtype{\G}{\tyA_1}{\tyB_1}\qquad
+   \eqtype{\ctxextend{\G}{\x}{\tyA_1}}{\tyA_2}{\tyB_2}}
+  {\eqtype{\G}{\Prod{\x}{\tyA_1}{\tyA_2}}{\Prod{\x}{\tyB_1}{\tyB_2}}}
 $$
 
 ###### `cong-eq`
 
 $$
   \infer
-  {\eqtype{\G}{\T}{\U}\qquad
-   \eqterm{\G}{\e_1}{\e'_1}{\T}\qquad
-   \eqterm{\G}{\e_2}{\e'_2}{\T}
+  {\eqtype{\G}{\tyA}{\tyB}\qquad
+   \eqterm{\G}{\e_1}{\e'_1}{\tyA}\qquad
+   \eqterm{\G}{\e_2}{\e'_2}{\tyA}
   }
-  {\eqtype{\G}{\JuEqual{\T}{\e_1}{\e_2}}
-              {\JuEqual{\U}{\e'_1}{\e'_2}}}
+  {\eqtype{\G}{\JuEqual{\tyA}{\e_1}{\e_2}}
+              {\JuEqual{\tyB}{\e'_1}{\e'_2}}}
 $$
 
 ##### Products
@@ -345,12 +345,12 @@ $$
 
 $$
   \infer
-  {\eqtype{\G}{\T_1}{\U_1}\qquad
-    \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\qquad
-    \eqterm{\ctxextend{\G}{\x}{\T_1}}{\e_1}{\e_2}{\T_2}}
-  {\eqterm{\G}{(\lam{\x}{\T_1}{\T_2}{\e_1})}
-              {(\lam{\x}{\U_1}{\U_2}{\e_2})}
-              {\Prod{\x}{\T_1}{\T_2}}}
+  {\eqtype{\G}{\tyA_1}{\tyB_1}\qquad
+    \eqtype{\ctxextend{\G}{\x}{\tyA_1}}{\tyA_2}{\tyB_2}\qquad
+    \eqterm{\ctxextend{\G}{\x}{\tyA_1}}{\e_1}{\e_2}{\tyA_2}}
+  {\eqterm{\G}{(\lam{\x}{\tyA_1}{\tyA_2}{\e_1})}
+              {(\lam{\x}{\tyB_1}{\tyB_2}{\e_2})}
+              {\Prod{\x}{\tyA_1}{\tyA_2}}}
 $$
 
 ###### `cong-app`
@@ -358,12 +358,12 @@ $$
 $$
   \infer
   {\begin{aligned}[t]
-   &\eqtype{\G}{\T_1}{\U_1}\qquad
-    \eqtype{\ctxextend{\G}{\x}{\T_1}}{\T_2}{\U_2}\\
-   &\eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\T_1}{\T_2}}\qquad
-    \eqterm{\G}{\e_2}{\e'_2}{\T_1}
+   &\eqtype{\G}{\tyA_1}{\tyB_1}\qquad
+    \eqtype{\ctxextend{\G}{\x}{\tyA_1}}{\tyA_2}{\tyB_2}\\
+   &\eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\tyA_1}{\tyA_2}}\qquad
+    \eqterm{\G}{\e_2}{\e'_2}{\tyA_1}
    \end{aligned}}
-{\eqterm{\G}{(\app{\e_1}{\x}{\T_1}{\T_2}{\e_2})}{(\app{\e'_1}{\x}{\U_1}{\U_2}{\e'_2})}{\subst{\T_2}{\x}{\e_2}}}
+{\eqterm{\G}{(\app{\e_1}{\x}{\tyA_1}{\tyA_2}{\e_2})}{(\app{\e'_1}{\x}{\tyB_1}{\tyB_2}{\e'_2})}{\subst{\tyA_2}{\x}{\e_2}}}
 $$
 
 ##### Equality types
@@ -372,9 +372,9 @@ $$
 
 $$
 \infer
-{\eqterm{\G}{\e_1}{\e_2}{\T}\qquad
- \eqtype{\G}{\T}{\U}}
-{\eqterm{\G}{\juRefl{\T} \e_1}{\juRefl{\U} \e_2}{\JuEqual{\T}{\e_1}{\e_1}}}
+{\eqterm{\G}{\e_1}{\e_2}{\tyA}\qquad
+ \eqtype{\G}{\tyA}{\tyB}}
+{\eqterm{\G}{\juRefl{\tyA} \e_1}{\juRefl{\tyB} \e_2}{\JuEqual{\tyA}{\e_1}{\e_1}}}
 $$
 
 TODO: Substitution.
