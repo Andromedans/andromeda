@@ -112,7 +112,7 @@ A disjoint sum ML-type is defined as
 The arguments to constructors are written in curried form, e.g., if we have
 
     mltype color = Red | Green | Blue end
-    mlyype cow =
+    mltype cow =
       | Horn of color and color * color
       | Tail of color and color and color
 
@@ -130,7 +130,7 @@ A recursive ML-type may be defined as
     mltype rec t α β ... γ = ...
 
 The recursion must be guarded by data constructors, i.e., we only allow *inductive*
-defintions. E.g., the ML-type of binary trees can be defined as
+definitions. E.g., the ML-type of binary trees can be defined as
 
     mltype rec tree α =
       | Empty
