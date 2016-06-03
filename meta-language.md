@@ -7,7 +7,7 @@ use_math: true
 
 Table of contents:
 
-* [About the Andromeda meta-language](#about-the-a1ndromeda-meta-language)
+* [About the Andromeda meta-language](#about-the-andromeda-meta-language)
 * [ML-types](#ml-types)
    * [ML-type definitions](#ml-type-definitions)
    * [Inductive ML-datatypes](#inductive-ml-datatypes)
@@ -412,7 +412,7 @@ An operation is then invoked with
 
     op c₁ .. cᵢ
 
-where `cⱼ` must have type `tⱼ`.
+where `cⱼ` must have type `tⱼ`, and the type of the computation is `u`.
 
 One way to think of an operation is as a generalized resumable exception: when an
 operation is invoked it "propagates" outward to the innermost handler that handles it. The
