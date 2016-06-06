@@ -24,6 +24,7 @@ Table of contents:
    * [Dynamic variables](#dynamic-variables)
 * [Judgment computations](#judgment-computations)
    * [Inferring and checking mode](#inferring-and-checking-mode)
+   * [Equality checking](#equality-checking)
    * [The universe](#the-universe)
    * [Constants](#constants)
    * [Assumptions](#assumptions)
@@ -32,8 +33,10 @@ Table of contents:
    * [$λ$-abstraction](#abstraction)
    * [Application](#application)
    * [Equality type](#equality-type)
-   * [Reflexivity](#reflexivity)
-   * [Equality checking](#equality-checking)
+     * [Reflexivity](#reflexivity)
+     * [Reduction](#reduction)
+     * [Congruences](#congruences)
+     * [Extensionality](#extensionality)
    * [Type ascription](#type-ascription)
    * [Context and occurs check](#context-and-occurs-check)
    * [Hypotheses](#hypotheses)
@@ -696,16 +699,81 @@ In the inferring mode the judgment that is being computed is unrestrained.
 
 In checking mode there is a given type $\tyA$ (actually a judgment $\istype{\G}{\tyA}$) and
 the judgment that is being computed must have the form $\isterm{\D}{\e}{\tyA}$. In other
-words, the type is prescribed in advanced. For example, an application
+words, the type is prescribed in advanced. For example, an equality type
 
-    c₁ c₂
+    c₁ ≡ c₂
 
 proceeds as follows:
 
 1. Compute `c₁` in inferring mode to obtain a judgment $\isterm{\G}{\e}{\tyA}$.
-2. Verify that $\tyA$ is equal to $\Prod{x}{\tyA_1}{\tyA_2}$, using `as_prod` if necessary (see [equality checking](#equality-checking)).
-3. Compute `c₂` in checking mode at type $\tyA_1$.
+2. Compute `c₂` in checking mode at type $\tyA$.
 
+#### Equality checking
+
+The nucleus and AML only know about syntactic equality (also known as α-equality), and
+delegate all other equality checks to the user level via a handlers mechanism. There are
+several situations in which AML triggers an operation that requires the user to provide
+evidence of an equality (see the section on [equality type](#equality-type) for
+information on how to generate evidence of equality).
+
+##### Operation `equal`
+
+When AML requires evidence of an equality `e₁ ≡ e₂` at type `A` it triggers the operation
+`equal e₁ e₂`. The user provided handler must yield
+
+* `None` if the equality is to be considered invalid (which results in a runtime error),
+* `Some (⊢ ξ : e₁ ≡ e₂)` if the equality is valid and `ξ` is evidence for it.
+
+##### Operation `as_prod`
+
+When AML requires evidence that a type `A` is a dependent product it triggers the operation `as_prod A`. The user provided handler must yield
+
+* `None` if `A` is to be considered as not equal to a dependent product (which results in
+  a runtime error),
+* `Some (⊢ ξ : A ≡ ∏ (x : A), B)` if `A` is equal to the dependent product `∏ (x : A), B`
+  and `ξ` is evidence for it.
+
+##### Operation `as_eq`
+
+When AML requires evidence that a type `A` is an equality type it triggers the operation
+`as_eq A`. The user provided handler must yield
+
+* `None` if `A` is to be considered as not equal to an equality type (which results in
+  a runtime error),
+* `Some (⊢ ξ : A ≡ (B ≡ C)` if `A` is equal to the equality type `B ≡ C` and `ξ` is
+  evidence for it.
+
+##### Operation `coerce`
+
+AML evaluates an inferring judgment computation `c` in checking mode at type `B` as follows:
+
+* evaluate `c` to a judgement `⊢ e : A`,
+* if `A` and `B` are syntactically equal, evaluate to `⊢ e : B`,
+* otherwise, trigger the operation `coerce (⊢ e : A) (⊢ B : Type)`
+
+The user provided handler must yield a value of type `coercible`, as follows:
+
+* `NotCoercible` if `e` is to be considered as not coercible to type `B` (which results in
+  a runtime error),
+* `Convertible (⊢ ξ : A ≡ B)` if the types `A` and `B` are equal, as witnessed by `ξ`, and hence no coercion of `e` is required. In this case the result is `⊢ e : B`.
+* `Coercible (⊢ e' : B)` if `e` can be coerced to `e'` of type `B`.
+
+##### Operation `coerce_fun`
+
+AML evaluates an application `c₁ c₂` as follows:
+
+* Evaluate `c₁` in inferring mode to a judgement `⊢ e₁ : A`.
+* if `A` is syntactically equal to a product `∏ (x : B), C`, evaluate `c₂` in checking mode at type `B` to a judgement `⊢ e₂ : B`. In this case the result is `⊢ e₁ e₂ : C[e₂/x]`.
+* otherwise, trigger the operation `coerce_fun (⊢ e₁ : A)`.
+
+The user provided handler must yield a value of type `coercible` as follows:
+
+* `NotCoercible` if `e₁` is to be considered as not coercible to a product type (which results in
+  a runtime error),
+* `Convertible (⊢ ξ : A ≡ ∏ (x : B), C)` if th types `A` is equal to the product `∏ (x :
+  B), C`, as witnessed by `ξ`, and hence no coercion of `e₁` in required. In this case the
+  result is `⊢ e₁ e₂ : C[e₂/x]`.
+* `Coercible (⊢ e₁' : ∏ (x : B), C)` if `e₁` can be coerced to `e₁'` of the product type `∏ (x : B), C`. In this the result is `⊢ e₁' e₂ : C[e₂/x]`.
 
 #### The universe
 
@@ -865,34 +933,138 @@ The equality type is computed with
 
     c₁ ≡ c₂
 
-Instead of the character `≡` you may use `==`.
+Instead of the character `≡` you may use `==`. There are a number of constructors for
+generating elements of the equality types, as follows.
 
-#### Reflexivity
+###### Reflexivity
 
 The reflexivity term is computed with
 
     refl c
 
-#### Equality checking
-
-TODO: describe how equality checking works by invocation of operations
-
-##### Congruences
-
-TODO: Describe `congruence`
-
-##### Extensionality
-
-TODO: Describe `extensionality`
+If `c` evaluates to $\isterm{\G}{\e}{\tyA}$ then `refl c` evaluates to $\isterm{\G}{\juRefl{\tyA} \e}{\JuEqual{\tyA}{\e}{\e}}$.
 
 ##### Reduction
 
-TODO: Describe `reduction`
+The rule [`prod-beta`](./type-theory.html#prod-beta) is available through
 
-##### Operations invoked by the nucleus
+    beta_step x A B e₁ e₂
 
-TODO: describe `equal`, `as_prod` and `as_eq`.
+where:
 
+* `A` evaluates to a type $\istype{\G}{\tyA}$
+* `x` evaluates to an atom $\isterm{\G}{\x}{\tyA}$
+* `B` evaluates to a type $\istype{\ctxextend{\G}{\x}{\tyA}}{\tyB}$
+* `e₁` evaluates to a term $\isterm{\ctxextend{\G}{\x}{\tyA}}{\e_1}{\tyB}$
+* `e₂` evaluates to a term $\isterm{\G}{\e_2}{\tyA}$
+
+If this is the case, then the computation evaluates to a term of equality type witnessing
+the fact that
+
+$$
+   \eqterm{\G}
+   {\app{(\lam{\x}{\tyA}{\tyB} \e_1)}{\x}{\tyA}{\tyB}{\e_2}}
+   {\subst{\e_1}{\x}{\e_2}}
+   {\subst{\tyB}{\x}{\e_2}}
+$$
+
+###### Congruences
+
+The following computations generate evidence for congruence rules. Each one corresponds to
+an inference rule.
+
+###### `congr_prod` (rule [`cong-prod`](./type-theory.html#cong-prod))
+
+Assuming
+
+* `x` evaluates to an atom $\isterm{\G}{\x}{\tyA_1}$
+* `ξ` evaluates to evidence of $\eqtype{\G}{\tyA_1}{\tyA_2}$
+* `ζ` evaluates to evidence of $\eqtype{\ctxextend{\G}{\x}{\tyA_1}}{\tyB_1}{\tyB_2}$
+
+the computation
+
+    congr_prod x ξ ζ
+
+evaluates to evidence of $\eqtype{\G}{\Prod{\x}{\tyA_1}{\tyA_2}}{\Prod{\x}{\tyB_1}{\tyB_2}}$.
+
+###### `congr_apply` (rule [`congr-apply`](./type-theory.html#congr-apply))
+
+Assuming
+
+* `x` evaluates to an atom $\isterm{\G}{\x}{\tyA_1}$
+* `η` evaluates to evidence of $\eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\tyA_1}{\tyA_2}}$
+* `θ` evaluates to evidence of $\eqterm{\G}{\e_2}{\e'_2}{\tyA_1}$
+* `ξ` evaluates to evidence of $\eqtype{\G}{\tyA_1}{\tyB_1}$
+* `̣ζ` evaluates to evidence of $\eqtype{\ctxextend{\G}{\x}{\tyA_1}}{\tyA_2}{\tyB_2}$
+
+the computation
+
+    congr_apply x η θ ξ ζ
+
+evaluates to evidence of $\eqterm{\G}{(\app{\e_1}{\x}{\tyA_1}{\tyA_2}{\e_2})}{(\app{\e'_1}{\x}{\tyB_1}{\tyB_2}{\e'_2})}{\subst{\tyA_2}{\x}{\e_2}}$.
+
+
+###### `congr_lambda` (rule [`congr-lambda`](./type-theory.html#congr-lambda))
+
+Assuming
+
+* `x` evaluates to an atom $\isterm{\G}{\x}{\tyA_1}$
+* `η` evaluates to evidence of $\eqtype{\G}{\tyA_1}{\tyB_1}$
+* `θ` evaluates to evidence of $\eqtype{\ctxextend{\G}{\x}{\tyA_1}}{\tyA_2}{\tyB_2}$
+* `ξ` evaluates to evidence of $\eqterm{\ctxextend{\G}{\x}{\tyA_1}}{\e_1}{\e_2}{\tyA_2}$
+
+the computation
+
+    congr_apply x η θ ξ
+
+evaluates to evidence of $\eqterm{\G}{(\lam{\x}{\tyA_1}{\tyA_2}{\e_1})}
+              {(\lam{\x}{\tyB_1}{\tyB_2}{\e_2})}
+              {\Prod{\x}{\tyA_1}{\tyA_2}}$.
+
+###### `congr_eq` (rule [`congr-eq`](./type-theory.html#congr-eq))
+
+Assuming
+
+* `η` evaluates to evidence of $\eqtype{\G}{\tyA}{\tyB}$
+* `θ` evaluates to evidence of $\eqterm{\G}{\e_1}{\e'_1}{\tyA}$
+* `ξ` evaluates to evidence of $\eqterm{\G}{\e_2}{\e'_2}{\tyA}$
+
+the computation
+
+    congr_eq η θ ξ
+
+evaluates to evidence of $\eqtype{\G}{\JuEqual{\tyA}{\e_1}{\e_2}}{\JuEqual{\tyB}{\e'_1}{\e'_2}}$.
+
+###### `congr_refl` (rule [`congr-refl`](./type-theory.html#congr-refl))
+
+Assuming
+
+* `η` evaluates to evidence of $\eqterm{\G}{\e_1}{\e_2}{\tyA}$
+* `θ` evaluates to evidence of $\eqtype{\G}{\tyA}{\tyB}$
+
+the computation
+
+    congr_refl η θ
+
+evaluates to evidence of $\eqterm{\G}{\juRefl{\tyA} \e_1}{\juRefl{\tyB} \e_2}{\JuEqual{\tyA}{\e_1}{\e_1}}$.
+
+
+##### Extensionality
+
+Extensionality rules such as function extensionality and uniqueness of identity proofs are
+not built-in. They may be defined at user level, which indeed they are, see the standard
+library.
+
+For instance, function extensionality may be axiomatized as
+
+    constant funext :
+      ∏ (A : Type) (B : A → Type) (f g : ∏ (x : A), B x),
+        (∏ (x : A), f x ≡ g x) → f ≡ g
+
+The constant `funext` can then be used by the standard equality checking algorithm
+(implemented in the standard library) as an η-rule:
+
+    now etas = add_eta funext
 
 #### Type ascription
 

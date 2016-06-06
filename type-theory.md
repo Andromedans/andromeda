@@ -319,7 +319,7 @@ $$
 
 ##### Type formers
 
-###### `cong-prod`
+###### `congr-prod`
 
 $$\infer
   {\eqtype{\G}{\tyA_1}{\tyB_1}\qquad
@@ -327,7 +327,7 @@ $$\infer
   {\eqtype{\G}{\Prod{\x}{\tyA_1}{\tyA_2}}{\Prod{\x}{\tyB_1}{\tyB_2}}}
 $$
 
-###### `cong-eq`
+###### `congr-eq`
 
 $$
   \infer
@@ -341,7 +341,7 @@ $$
 
 ##### Products
 
-###### `cong-abs`
+###### `congr-lambda`
 
 $$
   \infer
@@ -353,7 +353,7 @@ $$
               {\Prod{\x}{\tyA_1}{\tyA_2}}}
 $$
 
-###### `cong-app`
+###### `congr-apply`
 
 $$
   \infer
@@ -368,7 +368,7 @@ $$
 
 ##### Equality types
 
-###### `cong-refl`
+###### `congr-refl`
 
 $$
 \infer
