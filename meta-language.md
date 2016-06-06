@@ -33,7 +33,10 @@ Table of contents:
    * [$λ$-abstraction](#abstraction)
    * [Application](#application)
    * [Equality type](#equality-type)
-   * [Reflexivity](#reflexivity)
+     * [Reflexivity](#reflexivity)
+     * [Reduction](#reduction)
+     * [Congruences](#congruences)
+     * [Extensionality](#extensionality)
    * [Type ascription](#type-ascription)
    * [Context and occurs check](#context-and-occurs-check)
    * [Hypotheses](#hypotheses)
@@ -930,30 +933,57 @@ The equality type is computed with
 
     c₁ ≡ c₂
 
-Instead of the character `≡` you may use `==`.
+Instead of the character `≡` you may use `==`. There are a number of constructors for
+generating elements of the equality types, as follows.
 
-##### Reflexivity
+###### Reflexivity
 
 The reflexivity term is computed with
 
     refl c
 
-
-##### Congruences
-
-TODO: Describe `congruence`
-
-##### Extensionality
-
-TODO: Describe `extensionality`
+If `c` evaluates to $\isterm{\G}{\e}{\tyA}$ then `refl c` evaluates to $\isterm{\G}{\juRefl{\tyA} \e}{\JuEqual{\tyA}{\e}{\e}}$.
 
 ##### Reduction
 
-TODO: Describe `reduction`
+The rule [`prod-beta`](./type-theory.html#prod-beta) is available through
 
-##### Operations invoked by the nucleus
+    beta_step x A B e₁ e₂
 
-TODO: describe `equal`, `as_prod` and `as_eq`.
+where:
+
+* `A` evaluates to a type $\istype{\G}{\tyA}$
+* `x` evaluates to an atom $\isterm{\G}{\x}{\tyA}$
+* `B` evaluates to a type $\istype{\ctxextend{\G}{\x}{\tyA}}{\tyB}$
+* `e₁` evaluates to a term $\isterm{\ctxextend{\G}{\x}{\tyA}}{\e_1}{\tyB}$
+* `e₂` evaluates to a term $\isterm{\G}{\e_2}{\tyA}$
+
+If this is the case, then the computation evaluates to a term of equality type witnessing
+the fact that
+
+$$
+   \eqterm{\G}
+   {\app{(\lam{\x}{\tyA}{\tyB} \e_1)}{\x}{\tyA}{\tyB}{\e_2}}
+   {\subst{\e_1}{\x}{\e_2}}
+   {\subst{\tyB}{\x}{\e_2}}
+$$
+
+###### Congruences
+
+
+
+##### Extensionality
+
+Extensionality rules such as function extensionality and uniqueness of identity proofs are
+not built-in. They may be defined at user level, which indeed they are, see the standard
+library.
+
+For instance, function extensionality may be axiomatized as
+
+    constant funext :
+      ∏ (A : Type) (B : A → Type) (f g : ∏ (x : A), B x),
+        (∏ (x : A), f x ≡ g x) -> f ≡ g
+
 
 
 #### Type ascription
