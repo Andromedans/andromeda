@@ -970,6 +970,83 @@ $$
 
 ###### Congruences
 
+The following computations generate evidence for congruence rules. Each one corresponds to
+an inference rule.
+
+###### `congr_prod` (rule [`cong-prod`](./type-theory.html#cong-prod))
+
+Assuming
+
+* `x` evaluates to an atom $\isterm{\G}{\x}{\tyA_1}$
+* `ξ` evaluates to evidence of $\eqtype{\G}{\tyA_1}{\tyA_2}$
+* `ζ` evaluates to evidence of $\eqtype{\ctxextend{\G}{\x}{\tyA_1}}{\tyB_1}{\tyB_2}$
+
+the computation
+
+    congr_prod x ξ ζ
+
+evaluates to evidence of $\eqtype{\G}{\Prod{\x}{\tyA_1}{\tyA_2}}{\Prod{\x}{\tyB_1}{\tyB_2}}$.
+
+###### `congr_apply` (rule [`congr-apply`](./type-theory.html#congr-apply))
+
+Assuming
+
+* `x` evaluates to an atom $\isterm{\G}{\x}{\tyA_1}$
+* `η` evaluates to evidence of $\eqterm{\G}{\e_1}{\e'_1}{\Prod{\x}{\tyA_1}{\tyA_2}}$
+* `θ` evaluates to evidence of $\eqterm{\G}{\e_2}{\e'_2}{\tyA_1}$
+* `ξ` evaluates to evidence of $\eqtype{\G}{\tyA_1}{\tyB_1}$
+* `̣ζ` evaluates to evidence of $\eqtype{\ctxextend{\G}{\x}{\tyA_1}}{\tyA_2}{\tyB_2}$
+
+the computation
+
+    congr_apply x η θ ξ ζ
+
+evaluates to evidence of $\eqterm{\G}{(\app{\e_1}{\x}{\tyA_1}{\tyA_2}{\e_2})}{(\app{\e'_1}{\x}{\tyB_1}{\tyB_2}{\e'_2})}{\subst{\tyA_2}{\x}{\e_2}}$.
+
+
+###### `congr_lambda` (rule [`congr-lambda`](./type-theory.html#congr-lambda))
+
+Assuming
+
+* `x` evaluates to an atom $\isterm{\G}{\x}{\tyA_1}$
+* `η` evaluates to evidence of $\eqtype{\G}{\tyA_1}{\tyB_1}$
+* `θ` evaluates to evidence of $\eqtype{\ctxextend{\G}{\x}{\tyA_1}}{\tyA_2}{\tyB_2}$
+* `ξ` evaluates to evidence of $\eqterm{\ctxextend{\G}{\x}{\tyA_1}}{\e_1}{\e_2}{\tyA_2}$
+
+the computation
+
+    congr_apply x η θ ξ
+
+evaluates to evidence of $\eqterm{\G}{(\lam{\x}{\tyA_1}{\tyA_2}{\e_1})}
+              {(\lam{\x}{\tyB_1}{\tyB_2}{\e_2})}
+              {\Prod{\x}{\tyA_1}{\tyA_2}}$.
+
+###### `congr_eq` (rule [`congr-eq`](./type-theory.html#congr-eq))
+
+Assuming
+
+* `η` evaluates to evidence of $\eqtype{\G}{\tyA}{\tyB}$
+* `θ` evaluates to evidence of $\eqterm{\G}{\e_1}{\e'_1}{\tyA}$
+* `ξ` evaluates to evidence of $\eqterm{\G}{\e_2}{\e'_2}{\tyA}$
+
+the computation
+
+    congr_eq η θ ξ
+
+evaluates to evidence of $\eqtype{\G}{\JuEqual{\tyA}{\e_1}{\e_2}}{\JuEqual{\tyB}{\e'_1}{\e'_2}}$.
+
+###### `congr_refl` (rule [`congr-refl`](./type-theory.html#congr-refl))
+
+Assuming
+
+* `η` evaluates to evidence of $\eqterm{\G}{\e_1}{\e_2}{\tyA}$
+* `θ` evaluates to evidence of $\eqtype{\G}{\tyA}{\tyB}$
+
+the computation
+
+    congr_refl η θ
+
+evaluates to evidence of $\eqterm{\G}{\juRefl{\tyA} \e_1}{\juRefl{\tyB} \e_2}{\JuEqual{\tyA}{\e_1}{\e_1}}$.
 
 
 ##### Extensionality
@@ -982,9 +1059,12 @@ For instance, function extensionality may be axiomatized as
 
     constant funext :
       ∏ (A : Type) (B : A → Type) (f g : ∏ (x : A), B x),
-        (∏ (x : A), f x ≡ g x) -> f ≡ g
+        (∏ (x : A), f x ≡ g x) → f ≡ g
 
+The constant `funext` can then be used by the standard equality checking algorithm
+(implemented in the standard library) as an η-rule:
 
+    now etas = add_eta funext
 
 #### Type ascription
 
