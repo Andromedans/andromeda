@@ -2,7 +2,7 @@
 mltype x = x end
 
 constant A : Type
-constant a b : A
+constant a, b : A
 constant (+) : A -> A -> A
 
 operation Not_found : empty

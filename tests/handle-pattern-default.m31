@@ -2,7 +2,7 @@
 operation O : judgement -> mlstring
 
 constant A : Type
-constant a b : A
+constant a, b : A
 
 (* when an operation doesn't match, we need to bubble it upwards, then pass the result to the continuation *)
 do 

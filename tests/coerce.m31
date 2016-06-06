@@ -1,4 +1,4 @@
-constant A B C : Type
+constant A, B, C : Type
 constant a : A
 constant f : A -> B
 constant g : B -> C
