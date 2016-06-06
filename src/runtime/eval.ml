@@ -14,7 +14,7 @@ let as_atom ~loc v =
   match Jdg.shape j with
     | Jdg.Atom x -> Runtime.return x
     | _ -> Runtime.(error ~loc (ExpectedAtom j))
-      
+
 
 let as_handler ~loc v =
   let e = Runtime.as_handler ~loc v in
@@ -26,8 +26,8 @@ let as_ref ~loc v =
 
 (** Form a judgement *)
 let jdg_form ~loc s =
-  Runtime.lookup_typing_env >>= fun env ->
-  Runtime.return (Jdg.form ~loc env s)
+  Runtime.lookup_typing_signature >>= fun signature ->
+  Runtime.return (Jdg.form ~loc signature s)
 
 (** Evaluate a computation -- infer mode. *)
 let rec infer {Location.thing=c'; loc} =
@@ -314,8 +314,8 @@ let rec infer {Location.thing=c'; loc} =
 
   | Syntax.Natural c ->
     infer c >>= as_term ~loc >>= fun j ->
-    Runtime.lookup_typing_env >>= fun env ->
-    let eq = Jdg.natural_eq ~loc env j in
+    Runtime.lookup_typing_signature >>= fun signature ->
+    let eq = Jdg.natural_eq ~loc signature j in
     let e = Jdg.refl_of_eq_ty ~loc eq in
     Runtime.return_term e
 
@@ -714,4 +714,3 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
     error ~loc (RuntimeError (penv, err))
 
   | Runtime.Value v -> return v
-
