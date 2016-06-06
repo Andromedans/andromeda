@@ -24,6 +24,7 @@ Table of contents:
    * [Dynamic variables](#dynamic-variables)
 * [Judgment computations](#judgment-computations)
    * [Inferring and checking mode](#inferring-and-checking-mode)
+   * [Equality checking](#equality-checking)
    * [The universe](#the-universe)
    * [Constants](#constants)
    * [Assumptions](#assumptions)
@@ -33,7 +34,6 @@ Table of contents:
    * [Application](#application)
    * [Equality type](#equality-type)
    * [Reflexivity](#reflexivity)
-   * [Equality checking](#equality-checking)
    * [Type ascription](#type-ascription)
    * [Context and occurs check](#context-and-occurs-check)
    * [Hypotheses](#hypotheses)
@@ -696,16 +696,81 @@ In the inferring mode the judgment that is being computed is unrestrained.
 
 In checking mode there is a given type $\tyA$ (actually a judgment $\istype{\G}{\tyA}$) and
 the judgment that is being computed must have the form $\isterm{\D}{\e}{\tyA}$. In other
-words, the type is prescribed in advanced. For example, an application
+words, the type is prescribed in advanced. For example, an equality type
 
-    c₁ c₂
+    c₁ ≡ c₂
 
 proceeds as follows:
 
 1. Compute `c₁` in inferring mode to obtain a judgment $\isterm{\G}{\e}{\tyA}$.
-2. Verify that $\tyA$ is equal to $\Prod{x}{\tyA_1}{\tyA_2}$, using `as_prod` if necessary (see [equality checking](#equality-checking)).
-3. Compute `c₂` in checking mode at type $\tyA_1$.
+2. Compute `c₂` in checking mode at type $\tyA$.
 
+#### Equality checking
+
+The nucleus and AML only know about syntactic equality (also known as α-equality), and
+delegate all other equality checks to the user level via a handlers mechanism. There are
+several situations in which AML triggers an operation that requires the user to provide
+evidence of an equality (see the section on [equality type](#equality-type) for
+information on how to generate evidence of equality).
+
+##### Operation `equal`
+
+When AML requires evidence of an equality `e₁ ≡ e₂` at type `A` it triggers the operation
+`equal e₁ e₂`. The user provided handler must yield
+
+* `None` if the equality is to be considered invalid (which results in a runtime error),
+* `Some (⊢ ξ : e₁ ≡ e₂)` if the equality is valid and `ξ` is evidence for it.
+
+##### Operation `as_prod`
+
+When AML requires evidence that a type `A` is a dependent product it triggers the operation `as_prod A`. The user provided handler must yield
+
+* `None` if `A` is to be considered as not equal to a dependent product (which results in
+  a runtime error),
+* `Some (⊢ ξ : A ≡ ∏ (x : A), B)` if `A` is equal to the dependent product `∏ (x : A), B`
+  and `ξ` is evidence for it.
+
+##### Operation `as_eq`
+
+When AML requires evidence that a type `A` is an equality type it triggers the operation
+`as_eq A`. The user provided handler must yield
+
+* `None` if `A` is to be considered as not equal to an equality type (which results in
+  a runtime error),
+* `Some (⊢ ξ : A ≡ (B ≡ C)` if `A` is equal to the equality type `B ≡ C` and `ξ` is
+  evidence for it.
+
+##### Operation `coerce`
+
+AML evaluates an inferring judgment computation `c` in checking mode at type `B` as follows:
+
+* evaluate `c` to a judgement `⊢ e : A`,
+* if `A` and `B` are syntactically equal, evaluate to `⊢ e : B`,
+* otherwise, trigger the operation `coerce (⊢ e : A) (⊢ B : Type)`
+
+The user provided handler must yield a value of type `coercible`, as follows:
+
+* `NotCoercible` if `e` is to be considered as not coercible to type `B` (which results in
+  a runtime error),
+* `Convertible (⊢ ξ : A ≡ B)` if the types `A` and `B` are equal, as witnessed by `ξ`, and hence no coercion of `e` is required. In this case the result is `⊢ e : B`.
+* `Coercible (⊢ e' : B)` if `e` can be coerced to `e'` of type `B`.
+
+##### Operation `coerce_fun`
+
+AML evaluates an application `c₁ c₂` as follows:
+
+* Evaluate `c₁` in inferring mode to a judgement `⊢ e₁ : A`.
+* if `A` is syntactically equal to a product `∏ (x : B), C`, evaluate `c₂` in checking mode at type `B` to a judgement `⊢ e₂ : B`. In this case the result is `⊢ e₁ e₂ : C[e₂/x]`.
+* otherwise, trigger the operation `coerce_fun (⊢ e₁ : A)`.
+
+The user provided handler must yield a value of type `coercible` as follows:
+
+* `NotCoercible` if `e₁` is to be considered as not coercible to a product type (which results in
+  a runtime error),
+* `Convertible (⊢ ξ : A ≡ ∏ (x : B), C)` if th types `A` is equal to the product `∏ (x :
+  B), C`, as witnessed by `ξ`, and hence no coercion of `e₁` in required. In this case the
+  result is `⊢ e₁ e₂ : C[e₂/x]`.
+* `Coercible (⊢ e₁' : ∏ (x : B), C)` if `e₁` can be coerced to `e₁'` of the product type `∏ (x : B), C`. In this the result is `⊢ e₁' e₂ : C[e₂/x]`.
 
 #### The universe
 
@@ -867,15 +932,12 @@ The equality type is computed with
 
 Instead of the character `≡` you may use `==`.
 
-#### Reflexivity
+##### Reflexivity
 
 The reflexivity term is computed with
 
     refl c
 
-#### Equality checking
-
-TODO: describe how equality checking works by invocation of operations
 
 ##### Congruences
 
