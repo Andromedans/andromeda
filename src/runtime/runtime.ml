@@ -175,7 +175,6 @@ let catch m env =
 (** Returns *)
 let top_return x env = x, env
 
-let top_mk_closure f env = Closure (mk_closure0 f env), env
 let top_return_closure f env = mk_closure0 f env, env
 
 let return x env = Return x, env.state
