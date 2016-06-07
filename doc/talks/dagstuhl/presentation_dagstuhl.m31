@@ -1,0 +1,311 @@
+do "
+
+ *************************************************************
+ *                 __    __    __           __  __           *
+ *     /\   |\  | |  \  |  \  /  \  |\  /| |   |  \   /\     *
+ *    /__\  | \ | |   ) |__/ (    ) | \/ | |—— |   ) /__\    *
+ *   /    \ |  \| |__/  |  \  \__/  |    | |__ |__/ /    \   *
+ *                                                           *
+ *           Type Theory with Equality Reflection            *
+ *                                                           *
+ *************************************************************
+
+    Andrej Bauer, Gaëtan Gilbert, Philipp Haselwarter **,
+              Matija Pretnar, Christopher A. Stone
+
+
+      >>   http://andromedans.github.io/andromeda/   <<
+
+
+
+  Martin-Löf type theory + equality reflection
+  --------------------------------------------
+
+  - judgements:
+
+    Γ ctx             ``Γ is a well-formed context''
+
+    Γ ⊢ e : T         ``in Γ, e has type T''
+
+    Γ ⊢ e₁ ≡ e₂ : T   ``in Γ, e₁ and e₂ of type T are equal''
+
+
+  - dependent products Π & equality types Eq is all you need ™
+
+
+  - equality reflection:
+
+
+               Γ ⊢ p : Eq A e₁ e₂
+              ———————————————————Eq-Reflection
+               Γ ⊢ e₁ ≡ e₂ : T
+
+
+
+  - extensionality for equality types:
+
+
+         Γ ⊢ p : Eq A e₁ e₂  Γ ⊢ q : Eq A e₁ e₂
+         ——————————————————————————————————————Eq-Ext
+            Γ ⊢ p ≡ q : Eq A e₁ e₂
+
+
+  - UIP and J are derivable (and trivial)
+
+
+  - tricky to implement:
+
+      no normal forms, equality is undecidable, ...
+
+      ... but it's fun! The theory is very expressive.
+
+
+  - can axiomatise
+
+      sums, propositional truncation,
+      (co)inductive types, induction-induction,
+      induction-recursion, ...
+
+    with desired judgemental equalities!
+
+
+
+
+  System design : LCF-style theorem prover
+  ----------------------------------------
+
+  - a programming language for computing judgements
+
+  - safety: only derivable judgements are computed
+
+
+
+  Meta language
+  -------------
+
+  - Eff-like language
+
+  - abstract data type of judgements
+    --> must be constructed by the nucleus (trusted kernel)
+    --> can be deconstructed by pattern matching
+
+
+
+  Nucleus
+  -------
+
+  - performs bidirectional type checking
+
+  - but how does the nucleus check equality   a ≡ b      ?
+
+  - it invokes the operation (question)       equal a b  !
+
+  - user-provided AML code handles (answers) the operation
+    by passing a witness of   a ≡ b   back to the nucleus
+
+
+"
+
+#quit
+
+do "
+
+
+  Demo
+  ----
+
+  in Andromeda, we write   Eq A a b    as    a ≡ b
+
+
+  - uniqueness of identity proofs (UIP)
+"
+do (λ T x y p q, refl p) :
+   Π (T : Type) (x y : T) (p q : x ≡ y), p ≡ q
+
+#quit
+
+do "
+
+
+  - transitivity of equality
+"
+let trans : Π (T : Type) (a b c : T), a ≡ b → b ≡ c → a ≡ c
+  =
+  λ T a b c p q,
+     handle
+       q : a ≡ c
+     with
+     | equal ((⊢ a ≡ c) as ?X) ((⊢ b ≡ c) as ?Y) =>
+         handle
+           let ξ = congruence X Y in
+           yield ξ
+         with
+         | equal a b => yield (Some p)
+         end
+     end
+
+#quit
+
+do trans
+
+#quit
+
+do "
+
+
+ - equality is proof-irrelevant
+"
+do λ (A : Type)
+     (P : A → Type)
+     (a b : A)
+     (e : a ≡ b)
+     (x : P a),
+    now betas = add_betas [e] betas in
+    x : P b
+
+#quit
+
+do "
+
+
+Natural numbers
+"
+constant nat : Type
+constant O : nat
+constant S : nat → nat
+
+constant nat_rect :
+    Π (P : nat → Type),
+      (P O) →
+      (Π (n : nat), P n → P (S n)) →
+      Π (m : nat), P m
+
+#quit
+do "
+  - equalities for nat_rect
+"
+constant nat_rect_O :
+  Π (P : nat → Type) (x : P O)
+    (f : Π (n : nat), P n → P (S n)),
+    nat_rect P x f O ≡ x
+
+constant nat_rect_S :
+  Π (P : nat → Type) (x : P O)
+    (f : Π (n : nat), P n → P (S n)) (m : nat),
+    nat_rect P x f (S m) ≡ f m (nat_rect P x f m)
+
+do "
+
+  - a constant and its definition
+"
+constant (+) : nat → nat → nat
+constant plus_def : Π (n m : nat),
+        n + m ≡ nat_rect (λ _, nat) n (λ _ x, S x) m
+
+do "
+  - tell the standard library to use these equalities as
+    beta rules
+"
+
+now betas = add_betas [nat_rect_O, nat_rect_S, plus_def] betas
+
+#quit
+
+do "
+
+  - how much is 2 + 3  ?
+"
+
+let two   = S (S O)
+let three = S (S (S O))
+let five  = S (S (S (S (S O))))
+
+do refl five : five ≡ two + three
+
+#quit
+
+do "
+
+  - normal form of 2 + 3:
+"
+
+do whnf (two + three)
+
+#quit
+
+do "
+
+
+  - tell the standard library to eagerly reduce  S
+"
+
+do now reducing = add_reducing S [eager] reducing in
+
+    whnf (two + three)
+
+
+
+
+
+#quit
+
+
+do "
+
+
+
+  - memoizing an operation
+
+"
+
+let seven = S (S (S (S (S (S (S O))))))
+let n42 = seven + seven + seven + seven + seven + seven
+
+let time = external "time"
+
+
+operation get 0
+operation set 1
+let state x = handler
+  | val ?y => (fun _ => y)
+  | get => (fun s => yield s s)
+  | set ?s' => (fun _ => yield () s')
+  | finally ?f => f x
+  end
+
+let add x = let s = get in set (x :: s)
+
+let rec lookup k s =
+  match s with
+  | []            ⇒  None
+  | (k, ?v) :: _  ⇒  Some v
+  | _ :: ?t       ⇒  lookup k t
+  end
+
+do "
+
+
+"
+
+do with (state []) handle
+   with handler
+   | whnf ?x ⇒
+     match lookup x get with
+     | Some ?y ⇒ yield y
+     | None    ⇒ let y = whnf x in
+                 add (x, y);
+                 yield y
+     end
+   end handle
+   let t0 = time () (whnf (n42 + n42)) in
+   print "hello dagstuhl";
+   let t1 = time () (whnf (n42 + n42)) in
+   let t2 = time () (whnf (n42 + n42)) in
+   ()
+
+
+
+
+
+
+(* more examples: see examples/{scott,overloading}.m31 *)
