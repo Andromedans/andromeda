@@ -1,0 +1,59 @@
+(* An attempt to formalize a hierachy of universes. *)
+
+(* The type of all universe indices *)
+constant INDEX : Type
+constant zero : INDEX
+constant succ : INDEX -> INDEX
+
+constant U : INDEX -> Type
+
+let U0 = U zero : Type
+let U1 = U (succ zero) : Type 
+let U2 = U (succ (succ zero)) : Type
+
+constant u : Π (i : INDEX), U (succ i)
+
+let u0 = u zero : U1
+let u1 = u (succ zero) : U2
+
+constant El : Π (i : INDEX), U i -> Type
+
+constant u_def : Π (i : INDEX), El (succ i) (u i) ≡ U i  (* : Type *)
+
+constant succ_coerce : Π(i : INDEX), U i → U (succ i)
+constant succ_coerce_def: Π(i : INDEX), Π (n : U i),
+   El (succ i) (succ_coerce i n) ≡ El i n (* : Type *)
+
+constant Unit : Type
+
+(*
+constant unit0 : U0
+constant unit0_el : El zero unit0 ≡ Unit (* : Type *)
+
+let unit1 = succ_coerce zero unit0 : U1
+let unit2 = succ_coerce (succ zero) unit1 : U2
+
+OR:
+
+*)
+
+constant unit : Π (i : INDEX), U i
+constant unit_el: Π (i : INDEX), El i (unit i) ≡ Unit  (* : Type *)
+constant unit_coerce : Π (i : INDEX), succ_coerce i (unit i) ≡ unit (succ i) (* : U i *)
+
+let unit0 = unit zero
+let unit1 = unit (succ zero)
+let unit2 = unit (succ (succ zero))
+
+constant pi : Π (i : INDEX) (a : U i), (El i a -> U i) -> U i
+constant pi_el : Π (i : INDEX) (a : U i) (b : El i a -> U i),
+                           (El i (pi i a b)) ≡ (Π (x : El i a), El i (b x))  (* : Type *)
+
+(* NB: needs succ_coerce_def to type check "b x"
+*)
+constant pi_coerce: Π (i : INDEX) (a : U i) (b : El i a -> U i),
+now betas = add_beta succ_coerce_def in
+             succ_coerce i (pi i a b) ≡
+                pi (succ i) (succ_coerce i a) (λ x : El (succ i) (succ_coerce i a),
+                                                  (succ_coerce i (b x)))   (* : U (succ i) *)
+
