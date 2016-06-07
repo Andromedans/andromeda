@@ -1,5 +1,5 @@
 (* Test whether declaration of several constants works. *)
-constant A B : Type
-constant f g : A -> Type
+constant A, B : Type
+constant f, g : A -> Type
 constant a : A
-constant x y z : f a -> Type
+constant x, y, z : f a -> Type

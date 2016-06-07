@@ -84,8 +84,8 @@ let rec collect_tt_pattern env xvs p j =
     collect_tt_pattern env xvs p j
 
   | Syntax.Tt_GenConstant p, Jdg.Constant c ->
-    let tenv = Runtime.get_typing_env env in
-    let j = Jdg.form ~loc tenv (Jdg.Constant c) in
+    let signature = Runtime.get_typing_signature env in
+    let j = Jdg.form ~loc signature (Jdg.Constant c) in
     collect_tt_pattern env xvs p j
 
   | (Syntax.Tt_Type | Syntax.Tt_Constant _ | Syntax.Tt_Apply _
@@ -170,4 +170,3 @@ let match_op_pattern ps pt vs checking =
   with Match_fail -> None
   end in
   return r
-
