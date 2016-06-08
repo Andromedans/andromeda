@@ -1,59 +1,139 @@
 (* An attempt to formalize a hierachy of universes. *)
 
 (* The type of all universe indices *)
-constant INDEX : Type
-constant zero : INDEX
-constant succ : INDEX -> INDEX
+constant index : Type
 
-constant U : INDEX -> Type
+(* The partial ordering of universe indices *)
 
-let U0 = U zero : Type
-let U1 = U (succ zero) : Type 
-let U2 = U (succ (succ zero)) : Type
+constant ( < ) : index → index → Type
+constant lt-uip : ∏ (i j : index) (p q : i < j), p ≡ q
+now etas = add_eta lt-uip
 
-constant u : Π (i : INDEX), U (succ i)
+constant ( <= ) : index → index → Type
+constant leq-uip : ∏ (i j : index) (p q : i <= j), p ≡ q
+now etas = add_eta leq-uip
 
-let u0 = u zero : U1
-let u1 = u (succ zero) : U2
+constant lt-leq : ∏ (i j : index), i < j → i <= j
+constant lt-refl : ∏ i : index, i <= i
 
-constant El : Π (i : INDEX), U i -> Type
+(* The universes form a family indexed by, well, index. *)
+constant U : index → Type
 
-constant u_def : Π (i : INDEX), El (succ i) (u i) ≡ U i  (* : Type *)
+(* If i < j then U i has a name u i j _ in U j *)
+constant u : Π (i j : index), i < j → U j
 
-constant succ_coerce : Π(i : INDEX), U i → U (succ i)
-constant succ_coerce_def: Π(i : INDEX), Π (n : U i),
-   El (succ i) (succ_coerce i n) ≡ El i n (* : Type *)
+(* The elements of a universe are names of types *)
+constant El : Π (i : index), U i → Type
 
-constant Unit : Type
+constant u-def : Π (i j : index) (p : i < j), El j (u i j p) ≡ U i  (* : Type *)
 
-(*
-constant unit0 : U0
-constant unit0_el : El zero unit0 ≡ Unit (* : Type *)
+constant lift : ∏ (i j : index) (p : i <= j), U i → U j
+constant lift-El :
+   ∏ (i j : index) (p : i <= j) (a : U i), El j (lift i j p a) ≡ El i a
 
-let unit1 = succ_coerce zero unit0 : U1
-let unit2 = succ_coerce (succ zero) unit1 : U2
+(* The following might be used to make people's brains happy(er) *)
+(* constant lift-id : ∏ (i : index) (p : i <= i) (a : U i), lift i i p a ≡ a *)
 
-OR:
+(* Names of dependent products *)
+constant pi : Π (i j k : index), i <= k → j <= k → ∏ (a : U i), (El i a → U j) → U k
+constant pi-El :
+   Π (i j k : index) (p : i <= k) (q : j <= k),
+   ∏ (a : U i) (b : El i a → U j),
+     El k (pi i j k p q a b) ≡ (Π (x : El i a), El j (b x))  (* : Type *)
 
+(* To have something to work with we give ourselves a base type *)
+constant Cow : Type
+
+constant cow : Π (i : index), U i
+constant cow-El: Π (i : index), El i (cow i) ≡ Cow  (* : Type *)
+
+(* We do not want the user to worry about the indices so we
+   do magic using handlers. *)
+
+operation UU : judgment
+
+(* A "temporary" "solution" *)
+let prove-leq i j =
+  assume p : i <= j in p
+
+(* Reverse-engineer the name of a type with a proof that
+   it is correctly reverse-engineered *)
+let rec name-of-eq T j =
+  match T with
+  | ⊢ Cow => Some (cow-El j)
+  | ⊢ El j _ => Some (refl T)
+  | ⊢ El ?i ?a =>
+      let p = prove-leq i j in
+      Some (lift-El i j p a)
+(*      
+  | ⊢ (?x ≡ ?y) =>
+      let A = typeof x in
+      match name-of-eq A with
+      | None => None
+      | Some (⊢ ?ξ : El ?a ≡ _) => 
+        let x' = convert x (symmetry ξ)
+        and y' = convert y (symmetry ξ) in
+        let α = (El_eq a x' y') in
+        let β = convert_eq (x' ≡ y') ξ  in
+        Some (transitivity α β)
+      end
+  | ⊢ Π (?x : ?A), ?B => 
+      match name-of-eq A with
+      | None => None
+      | Some (⊢ ?ξ : El ?a ≡ _) => 
+          match name-of-eq B with
+          | None => None
+          | Some (⊢ ?ξ2 : El ?b ≡ _) => 
+             Some (El_pi a (λ (y : El a), b where x = y))
+          end
+      end
 *)
+  | ?J => 
+    match whnf T with
+    | ⊢ ?ζ : _ ≡ ?T' =>
+      match T' with
+      | T => None
+      | _ => 
+        match name-of-eq T' j with
+        | Some (⊢ ?ξ : El j ?a ≡ _) =>
+            let answer = tran Type (El j a) T' T ξ (symmetry ζ)  in
+            Some answer
+        | None => None
+        end
+      end
+    end
+  end
 
-constant unit : Π (i : INDEX), U i
-constant unit_el: Π (i : INDEX), El i (unit i) ≡ Unit  (* : Type *)
-constant unit_coerce : Π (i : INDEX), succ_coerce i (unit i) ≡ unit (succ i) (* : U i *)
+(* The name of a type *)
+let name-of T i =
+  match name-of-eq T i with
+  | None => None
+  | Some (⊢ _ : El _ ?a ≡ _) => Some a
+  end
 
-let unit0 = unit zero
-let unit1 = unit (succ zero)
-let unit2 = unit (succ (succ zero))
+let universe-handler =
+  handler
 
-constant pi : Π (i : INDEX) (a : U i), (El i a -> U i) -> U i
-constant pi_el : Π (i : INDEX) (a : U i) (b : El i a -> U i),
-                           (El i (pi i a b)) ≡ (Π (x : El i a), El i (b x))  (* : Type *)
+  | coerce (⊢ ?a : U ?i) (⊢ Type) => yield (Coercible (El i a))
 
-(* NB: needs succ_coerce_def to type check "b x"
-*)
-constant pi_coerce: Π (i : INDEX) (a : U i) (b : El i a -> U i),
-now betas = add_beta succ_coerce_def in
-             succ_coerce i (pi i a b) ≡
-                pi (succ i) (succ_coerce i a) (λ x : El (succ i) (succ_coerce i a),
-                                                  (succ_coerce i (b x)))   (* : U (succ i) *)
+  | coerce (⊢ ?T : Type) (⊢ U ?i) =>
+    match name-of T i with
+    | None => yield NotCoercible
+    | Some ?a => yield (Coercible a)
+    end
 
+  | UU : None => 
+    assume i : index in
+    assume j : index in
+    assume p : i < j in
+      yield (u i j p)
+
+  | UU : Some ?A =>
+    match whnf A with
+do
+  with universe-handler handle
+   let u0 = UU in
+   let u1 = UU : u0 in
+   let u2 = UU : u1 in
+   let u3 = UU : u1 in
+   (u0, u1, u2, u3)
