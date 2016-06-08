@@ -65,6 +65,14 @@ constant cow : Π (i : index), U i
 constant cow_El: Π (i : index), El i (cow i) ≡ Cow  (* : Type *)
 now betas = add_beta cow_El
 
+(* EXPERIMENT
+
+constant indx : Π (i : index), U i
+constant indx_El: Π (i : index), El i (indx i) ≡ index  (* : Type *)
+now betas = add_beta indx_El
+*)
+
+
 (* We do not want the user to worry about the indices so we
    do magic using handlers. *)
 
@@ -74,11 +82,23 @@ operation UU : judgment
 let prove_leq i j =
   assume p : i <= j in p
 
+let prove_lt i j =
+  assume p : i < j in p
+
 (* Reverse_engineer the name of a type with a proof that
    it is correctly reverse_engineered *)
 let rec name_of_eq T j =
   match T with
   | ⊢ Cow => Some (cow_El j)
+
+  | ⊢ U ?i =>
+      let p = prove_lt i j in
+      Some (u_El i j p)
+
+(* EXPERIMENT
+  | ⊢ index => Some (indx_El j)
+*)
+
   | ⊢ El j _ => Some (refl T)
   | ⊢ El ?i ?a =>
       let p = prove_leq i j in
@@ -97,12 +117,14 @@ let rec name_of_eq T j =
         Some (transitivity α β)
       end
 
-  | ⊢ Π (?x : ?A), ?B => 
+  | ⊢ Π (?x : ?A), ?B =>
+      print ("pi1", A);
       match name_of_eq A j with
       | None => None
       | Some (⊢ ?ξ : El j ?a ≡ _) => 
+          print ("pi2", B);
           match name_of_eq B j with
-          | None => None
+          | None => print "None"; None
           | Some (⊢ ?ξ2 : El j ?b ≡ _) => 
              let p = leq_refl j in
              Some (pi_El j j j p p a (λ (y : El j a), b where x = y))
@@ -183,11 +205,23 @@ do with universe_handler handle
 do with universe_handler handle
   (Cow → Cow) : UU
 
+
+(* EXPERIMENT
+
+do with universe_handler handle
+  (Π (i : index), U i) : UU
+*)
+
 do
   with universe_handler handle
    let u0 = UU in
    let u1 = UU : u0 in
-   print "aha";
-   let u2 = UU : u1 in
+   let u2 = UU : u1 in  (* Currently fails because 
+                             | coerce (⊢ ?a : U ?i) (⊢ Type) => ...
+                           is beta-equivalent but not alpha equivalent to
+                           the operation being invoked, which seems to be
+                              coerce (⊢ ... : El ... (u ..)) (⊢ Type)
+                         *)
+   
    let u3 = UU : u1 in
    (u0, u1, u2, u3)
