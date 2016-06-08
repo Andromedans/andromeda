@@ -130,6 +130,25 @@ let universe-handler =
 
   | UU : Some ?A =>
     match whnf A with
+    | ⊢ ?ξ : _ ≡ U ?j =>
+        assume i : index in
+        assume p : i < j in
+          yield (convert (u i j p) (symmetry ξ))
+    | ⊢ ?ξ : _ ≡ Type =>
+      assume i : index in
+        yield (convert (U i) (symmetry ξ))
+    end
+  end
+
+(* examples *)
+do
+  with universe-handler handle
+    Cow : UU
+
+do
+  with universe-handler handle
+    UU : UU
+
 do
   with universe-handler handle
    let u0 = UU in
