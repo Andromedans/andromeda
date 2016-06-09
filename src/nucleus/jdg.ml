@@ -51,8 +51,8 @@ type error =
   | InvalidConvert of TT.ty * TT.ty
   | AlphaEqualTypeMismatch of TT.ty * TT.ty
   | NotATypeEquality of TT.ty
-  | RuleInputMismatch of string * TT.ty * TT.ty
-  | RuleInputMismatchTerm of string * TT.term * TT.term
+  | RuleInputMismatch of string * TT.ty * string * TT.ty * string
+  | RuleInputMismatchTerm of string * TT.term * string * TT.term * string
 
 exception Error of error Location.located
 
@@ -382,13 +382,13 @@ let print_error ~penv err ppf = match err with
     Format.fprintf ppf "Expected a type equality judgement, but got an equality at @%t@."
       (TT.print_ty ~penv t)
 
-  | RuleInputMismatch (rule, t1, t2) ->
-    Format.fprintf ppf "In the %s rule, the following types should be the same:@ %t@ and@ %t@."
-      rule (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
+  | RuleInputMismatch (rule, t1, desc1, t2, desc2) ->
+    Format.fprintf ppf "@[<v>In the %s rule, the following types should be identical:@,   @[<hov>%t@]@,(%s) and@,   @[<hov>%t@]@,(%s)@]@."
+      rule (TT.print_ty ~penv t1) desc1 (TT.print_ty ~penv t2) desc2
 
-  | RuleInputMismatchTerm (rule, e1, e2) ->
-    Format.fprintf ppf "In the %s rule, the following terms should be the same:@ %t@ and@ %t@."
-      rule (TT.print_term ~penv e1) (TT.print_term ~penv e2)
+  | RuleInputMismatchTerm (rule, e1, desc1, e2, desc2) ->
+    Format.fprintf ppf "@[<v>In the %s rule, the following terms should be identical:@,   @[<hov>%t@]@,(%s) and@,   @[<hov>%t@]@,(%s)@]@."
+      rule (TT.print_term ~penv e1) desc1 (TT.print_term ~penv e2) desc2
 
 (** Destructors *)
 type 'a abstraction = atom * 'a
@@ -626,9 +626,13 @@ let beta ~loc (EqTy (ctxa, a1, a2))
               (Term (ctx1, e1, t1))
               (Term (ctx2, e2, t2)) =
   if not (TT.alpha_equal_ty b1 t1)
-  then error ~loc (RuleInputMismatch ("beta", b1, t1))
+  then error ~loc (RuleInputMismatch ("beta",
+          b1, "the given type family ('B')",
+          t1, "the type of the expression being substituted into ('e1')"))
   else if not (TT.alpha_equal_ty a2 t2)
-  then error ~loc (RuleInputMismatch ("beta", a2, t2))
+  then error ~loc (RuleInputMismatch ("beta",
+          a2, "the given parameter type ('A')",
+          t2, "the type of the expression to be substituted ('e2')"))
   else
     let ctxa = Ctx.join ~loc ctxa ctx2
     and ctxb = Ctx.abstract ~loc (Ctx.join ~loc ctxb ctx1) x a1 in
@@ -669,7 +673,7 @@ let congr_lambda ~loc (EqTy (ctxa, ta1, ta2))
                  (EqTy (ctxb, b1, b2))
                  (EqTerm (ctxe, e1, e2, ty_e)) =
   if not (TT.alpha_equal_ty b1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-lambda", b1, ty_e))
+  then error ~loc (RuleInputMismatch ("congr-lambda", b1, "???", ty_e, "???"))
   else
     let ctx = Ctx.join ~loc ctxa (Ctx.abstract ~loc (Ctx.join ~loc ctxb ctxe) x ta1) in
 
@@ -695,9 +699,15 @@ let congr_apply ~loc (EqTy (ctxa, ta1, ta2))
   let b1 = TT.abstract_ty [x] b1 in
   let prod1 = TT.mk_prod_ty ~loc (Name.ident_of_atom x) ta1 b1 in
   if not (TT.alpha_equal_ty prod1 ty_h)
-  then error ~loc (RuleInputMismatch ("congr-apply", prod1, ty_h))
+  then error ~loc (RuleInputMismatch ("congr-apply", prod1,
+       "the Pi inferred from the left-hand-sides of the type equalities",
+       ty_h,
+       "the type at which the functions are equal"))
   else if not (TT.alpha_equal_ty ta1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-apply", ta1, ty_e))
+  then error ~loc (RuleInputMismatch ("congr-apply", ta1,
+       "the parameter type on the left-hand-side of the type equality",
+       ty_e,
+       "the type at which the arguments are equal"))
   else
     let ctxb = Ctx.abstract ~loc ctxb x ta1 in
 
@@ -720,9 +730,13 @@ let congr_eq ~loc (EqTy (ctxt, t1, t2))
              (EqTerm (ctxl, l1, l2, ty_l))
              (EqTerm (ctxr, r1, r2, ty_r)) =
   if not (TT.alpha_equal_ty t1 ty_l)
-  then error ~loc (RuleInputMismatch ("congr-eq", t1, ty_l))
+  then error ~loc (RuleInputMismatch ("congr-eq",
+       t1, "the left-hand-side of the type equality",
+       ty_l, "the type at which the first pair of terms are being compared"))
   else if not (TT.alpha_equal_ty t1 ty_r)
-  then error ~loc (RuleInputMismatch ("congr-eq", t1, ty_r))
+  then error ~loc (RuleInputMismatch ("congr-eq",
+       t1, "the left-hand-side of the type equality",
+       ty_r,  "the type at which the second pair of terms are being compared"))
   else
     let ctx = Ctx.join ~loc ctxt (Ctx.join ~loc ctxl ctxr) in
 
@@ -738,7 +752,9 @@ let congr_eq_ty ~loc eq_ty eq_l eq_r =
 let congr_refl ~loc (EqTy (ctxt, t1, t2))
                (EqTerm (ctxe, e1, e2, ty_e)) =
   if not (TT.alpha_equal_ty t1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-refl", t1, ty_e))
+  then error ~loc (RuleInputMismatch ("congr-refl",
+         t1, "the left-hand-side of the type equality",
+         ty_e, "the type at which the two terms are being compared"))
   else
     let ctx = Ctx.join ~loc ctxt ctxe in
 
@@ -790,9 +806,13 @@ let natural_eq ~loc env (Term (ctx, e, derived)) =
 
 let mk_refl ~loc (EqTerm (ctx1, lhs1, rhs1, t1)) (EqTerm (ctx2, lhs2, rhs2, t2)) =
   if not (TT.alpha_equal_ty t1 t2)
-  then error ~loc (RuleInputMismatch ("mk-refl", t1, t2))
+  then error ~loc (RuleInputMismatch ("mk-refl",
+     t1, "the type at which the first equality holds",
+     t2, "the type at which the second equality holds"))
   else if not (TT.alpha_equal lhs1 lhs2)
-  then error ~loc (RuleInputMismatchTerm ("mk-refl", lhs1, lhs2))
+  then error ~loc (RuleInputMismatchTerm ("mk-refl",
+     lhs1, "the left-hand term in the first equality",
+     lhs2, "the left-hand term in the second equality"))
   else
     let hyps1 = Ctx.as_set ctx1
     and hyps2 = Ctx.as_set ctx2 in

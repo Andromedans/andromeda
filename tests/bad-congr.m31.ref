@@ -21,8 +21,10 @@ Constant a is declared.
 
 Successfully failed command with judgment error:
 File "./bad-congr.m31", line 12, characters 6-102:
-In the congr-apply rule, the following types should be the same: (A → A)
-→ A → A and A →
-A
+In the congr-apply rule, the following types should be identical:
+   (A → A) → A → A
+(the Pi inferred from the left-hand-sides of the type equalities) and
+   A → A
+(the type at which the functions are equal)
 
 
