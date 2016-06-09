@@ -1,5 +1,12 @@
 (* An attempt to formalize a hierachy of universes. *)
 
+(* An auxliary lemma *)
+let f_apply f θ =
+  match (f, θ) with
+  | ((⊢ ?f : ∏ (?x : ?A), ?B), (⊢ ?θ : ?a ≡ ?b)) =>
+    congr_apply x (refl f) θ (refl A) (refl B)
+  end
+
 (* The type of all universe indices *)
 constant index : Type
 
@@ -37,26 +44,17 @@ constant lift_El :
    now betas = add_beta lift_id *)
 
 (* Names of dependent products *)
-constant pi : Π (i j k : index), i <= k → j <= k → ∏ (a : U i), (El i a → U j) → U k
+constant pi : Π (i : index), ∏ (a : U i), (El i a → U i) → U i
 constant pi_El :
-   Π (i j k : index) (p : i <= k) (q : j <= k),
-   ∏ (a : U i) (b : El i a → U j),
-     El k (pi i j k p q a b) ≡ (Π (x : El i a), El j (b x))  (* : Type *)
+   Π (i : index) (a : U i) (b : El i a → U i),
+     El i (pi i a b) ≡ (Π (x : El i a), El i (b x))  (* : Type *)
 now betas = add_beta pi_El
 
 
 (* The name of an equality type *)
-(* constant eq : Π (i : index) (a : U i), El i a → El i a → U i
+constant eq : Π (i : index) (a : U i), El i a → El i a → U i
 constant eq_El : ∏ (i : index) (a : U i) (x y : El i a), El i (eq i a x y) ≡ (x ≡ y)
 now betas = add_beta eq_El
-*)
-
-(* Or if we want to avoid lifts: *)
-constant eq : Π (i j : index), (i <= j) → Π (a : U i), El i a → El i a → U j
-constant eq_El : ∏ (i j : index) (p : i <= j) (a : U i) (x y : El i a), 
-                    El j (eq i j p a x y) ≡ (x ≡ y)
-now betas = add_beta eq_El
-
 
 (* To have something to work with we give ourselves a base type *)
 constant Cow : Type
@@ -102,11 +100,10 @@ let rec name_of_eq T j =
       let A = typeof x in
       match name_of_eq A j with
       | None => None
-      | Some (⊢ ?ξ : El ?i ?a ≡ _) => 
-        let p = prove_leq i j in
+      | Some (⊢ ?ξ : El j ?a ≡ _) => 
         let x' = convert x (symmetry ξ)
         and y' = convert y (symmetry ξ) in
-        let α = (eq_El i j p a x' y') in
+        let α = (eq_El j a x' y') in
         let β = convert_eq (x' ≡ y') ξ  in
         Some (transitivity α β)
       end
@@ -118,8 +115,7 @@ let rec name_of_eq T j =
           match name_of_eq B j with
           | None => None
           | Some (⊢ ?ξ2 : El j ?b ≡ _) => 
-             let p = leq_refl j in
-             Some (pi_El j j j p p a (λ (y : El j a), b where x = y))
+             Some (pi_El j a (λ (y : El j a), b where x = y))
           end
       end
 
@@ -184,6 +180,10 @@ let universe_handler =
       assume i : index in
         yield (convert (U i) (symmetry ξ))
     end
+
+  | equal (⊢ U ?i) (⊢ U ?j) =>
+    assume θ : i ≡ j in
+    yield (Some (f_apply U θ))
   end
 
 (* examples *)
@@ -219,3 +219,8 @@ do with universe_handler handle
   assume A : UU in
   assume a : A in
     A : UU
+
+do with universe_handler handle
+   (λ (A : UU) (a : A), a) : ∏ (B : UU), B → B
+
+
