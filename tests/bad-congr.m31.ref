@@ -6,15 +6,15 @@ Constant A is declared.
 Constant B is declared.
 
 Successfully failed command with judgment error:
-File "./bad-congr.m31", line 6, characters 6-51:
-Expected an equality judgement between types but got
-⊢ A : Type
+File "./bad-congr.m31", line 6, characters 42-42:
+Expected a witness to a type equality but got
+   ⊢ A : Type
 
 
 Successfully failed command with judgment error:
-File "./bad-congr.m31", line 8, characters 6-32:
-Expected an equality judgement but got
-⊢ Type : Type
+File "./bad-congr.m31", line 8, characters 29-32:
+Expected a witness to a term equality but got
+   ⊢ Type : Type
 
 
 Constant a is declared.

@@ -363,11 +363,11 @@ let print_error ~penv err ppf = match err with
                     (TT.print_ty ~penv x_ty)
 
   | EqualityWitnessExpected j ->
-    Format.fprintf ppf "Expected an equality judgement but got@ %t@."
+    Format.fprintf ppf "@[<v>Expected a witness to a term equality but got@,   @[<hov>%t@]@]@."
                    (print_term ~penv j)
 
   | TypeEqualityWitnessExpected j ->
-    Format.fprintf ppf "Expected an equality judgement between types but got@ %t@."
+    Format.fprintf ppf  "@[<v>Expected a witness to a type equality but got@,   @[<hov>%t@]@]@."
                    (print_term ~penv j)
 
   | InvalidConvert (t1, t2) ->
@@ -606,8 +606,7 @@ let is_type_equality ~loc (EqTerm (ctx, e1, e2, t)) =
 
 let reflect ~loc (Term (ctx, term, TT.Ty t) as j) =
   match t.TT.term with
-    | TT.Eq (a, e1, e2) ->
-      EqTerm (ctx, e1, e2, a)
+    | TT.Eq (a, e1, e2) -> EqTerm (ctx, e1, e2, a)
     | _ -> error ~loc (EqualityWitnessExpected j)
 
 let reflect_ty_eq ~loc (Term (ctx, term, TT.Ty t) as j) =
