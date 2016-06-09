@@ -11,5 +11,7 @@ hyp₀ : A → Type
 
 
 File "./handle-assume.m31", line 18, characters 5-38:
-cannot abstract a₁ because hyp₂
-depends on it
+cannot abstract a₁ because hyp₂ depends on it, in context
+   a₁ : A
+   hyp₂ : B a₁
+   

@@ -38,7 +38,7 @@ type weakatom = WeakAtom of ctx * Name.atom * TT.ty
 
 type error =
   | ConstantDependency
-  | AbstractDependency of Name.atom * Name.atom list
+  | AbstractDependency of ctx * Name.atom * Name.atom list
   | AbstractInvalidType of Name.atom * TT.ty * TT.ty
   | InvalidJoin of ctx * ctx * Name.atom
   | SubstitutionDependency of Name.atom * TT.term * Name.atom
@@ -151,7 +151,7 @@ module Ctx = struct
           ctx
         else
           let needed_by_l = AtomSet.elements node.needed_by in
-          error ~loc (AbstractDependency (x, needed_by_l))
+          error ~loc (AbstractDependency (ctx, x, needed_by_l))
       else
         error ~loc (AbstractInvalidType (x, ty, node.ty))
 
@@ -332,11 +332,12 @@ let print_error ~penv err ppf = match err with
 
   | NotAType -> Format.fprintf ppf "Not a type."
 
-  | AbstractDependency (x, needed_by_l) ->
-     Format.fprintf ppf "cannot abstract@ %t@ because@ %t@ depend%s on it"
+  | AbstractDependency (ctx, x, needed_by_l) ->
+     Format.fprintf ppf "@[<hov>cannot abstract@ %t@ because@ %t@ depend%s on it, in context@,   @[<hov>%t@]@]"
           (Name.print_atom ~printer:penv.TT.atoms x)
           (Print.sequence (Name.print_atom ~printer:penv.TT.atoms ~parentheses:true) "," needed_by_l)
            (match needed_by_l with [_] -> "s" | _ -> "")
+          (Ctx.print ~penv ctx)
 
   | AbstractInvalidType (x, t1, t2) ->
      Format.fprintf ppf "cannot abstract@ %t@ with type@ %t@ because it must have type@ %t"
