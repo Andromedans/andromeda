@@ -298,7 +298,7 @@ let print_term ~penv ?max_level (Term (ctx, e, t)) ppf =
 
 let print_ty ~penv ?max_level (Ty (ctx, t)) ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%t%s @[<hov>%t@]@ type"
+              "%t%s @[<hov>%t@] @ type"
               (Ctx.print ~penv ctx)
               (Print.char_vdash ())
               (TT.print_ty ~penv ~max_level:Level.highest t)

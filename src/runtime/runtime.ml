@@ -82,7 +82,7 @@ type error =
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | TypeMismatch of Jdg.ty * Jdg.ty
+  | AnnotationMismatch of Jdg.ty * Jdg.ty
   | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
   | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
@@ -467,8 +467,9 @@ let print_error ~penv err ppf =
   | Inapplicable v ->
      Format.fprintf ppf "cannot apply %s" (name_of v)
 
-  | TypeMismatch (t1, t2) ->
-     Format.fprintf ppf "got type@ %t@ but expected type@ %t"
+  | AnnotationMismatch (t1, t2) ->
+      Format.fprintf ppf
+      "@[<v>The type annotation is@,   @[<hov>%t@]@,but the surroundings imply it should be@,   @[<hov>%t@].@]"
                     (Jdg.print_ty ~penv:penv t1)
                     (Jdg.print_ty ~penv:penv t2)
 

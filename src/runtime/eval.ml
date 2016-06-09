@@ -427,7 +427,7 @@ and check_lambda ~loc t_check x u c =
           Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.atom_ty a) >>= begin function
             | Some equ -> Runtime.return (ju, equ)
             | None ->
-              Runtime.(error ~loc:(u.Location.loc) (TypeMismatch (ju, (Jdg.atom_ty a))))
+              Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Jdg.atom_ty a))))
             end
         | None ->
           let ju = Jdg.atom_ty a in

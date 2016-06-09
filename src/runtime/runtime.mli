@@ -34,7 +34,7 @@ type error =
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | TypeMismatch of Jdg.ty * Jdg.ty
+  | AnnotationMismatch of Jdg.ty * Jdg.ty
   | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
   | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
