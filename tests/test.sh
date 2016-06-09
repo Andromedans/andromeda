@@ -16,7 +16,7 @@ fi
 
 if [ ! -x "$PRINTF" ]
 then
-    echo "Cuould not find the printf command. Falling back on echo -- expect ugly output."
+    echo "Could not find the printf command. Falling back on echo -- expect ugly output."
     PRINTF="echo"
 fi
 

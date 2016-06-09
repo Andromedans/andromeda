@@ -324,7 +324,7 @@ and check_default ~loc v t_check =
   Equal.coerce ~loc je t_check >>=
     begin function
       | Some je -> Runtime.return je
-      | None -> Runtime.(error ~loc (TypeMismatch (Jdg.typeof je, t_check)))
+      | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (je, t_check)))
   end
 
 and check ({Location.thing=c';loc} as c) t_check =
@@ -671,14 +671,14 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "The command failed with error:@.%t:@ %t@.@."
+         (if not quiet then Format.printf "Successfully failed command with runtime error:@.%t:@ %t@.@."
                                           (Location.print loc)
                                           (Runtime.print_error ~penv err));
          return ()
 
        | Runtime.CaughtJdg {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "The command failed with error:@.%t:@ %t@.@."
+         (if not quiet then Format.printf "Successfully failed command with judgment error:@.%t:@ %t@.@."
                                           (Location.print loc)
                                           (Jdg.print_error ~penv err));
          return ()

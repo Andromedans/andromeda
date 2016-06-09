@@ -35,6 +35,7 @@ type error =
   | UnknownConfig of string
   | Inapplicable of value
   | TypeMismatch of Jdg.ty * Jdg.ty
+  | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
   | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
   | MatchFail of value

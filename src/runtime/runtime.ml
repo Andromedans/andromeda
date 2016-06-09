@@ -83,6 +83,7 @@ type error =
   | UnknownConfig of string
   | Inapplicable of value
   | TypeMismatch of Jdg.ty * Jdg.ty
+  | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
   | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
   | MatchFail of value
@@ -470,6 +471,11 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "got type@ %t@ but expected type@ %t"
                     (Jdg.print_ty ~penv:penv t1)
                     (Jdg.print_ty ~penv:penv t2)
+
+  | TypeMismatchCheckingMode (v, t) ->
+      Format.fprintf ppf "The term@,   @[<hov>%t@]@,is expected by its surroundings to have type@,   @[<hov>%t@]"
+                    (Jdg.print_term ~penv:penv v)
+                    (Jdg.print_ty ~penv:penv t)
 
   | EqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"

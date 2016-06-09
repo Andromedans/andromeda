@@ -9,13 +9,13 @@ Constant ( + ) is declared.
 
 Operation Not_found is declared.
 
-The command failed with error:
+Successfully failed command with runtime error:
 File "./unhandled-op.m31", line 10, characters 6-14:
 unhandled operation Not_found
 
 Operation info is declared.
 
-The command failed with error:
+Successfully failed command with runtime error:
 File "./unhandled-op.m31", line 14, characters 6-9: unhandled operation info
 !! x (⊢ a + b : A)
 <function>

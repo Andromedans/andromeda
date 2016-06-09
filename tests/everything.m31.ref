@@ -28,14 +28,14 @@ val x0 : dummy
 
 dummy
 
-The command failed with error:
+Successfully failed command with runtime error:
 File "./everything.m31", line 74, characters 6-9: expected a product but got
 ⊢ Type
 type
 
 ⊢ refl Type : Type ≡ Type
 
-The command failed with error:
+Successfully failed command with runtime error:
 File "./everything.m31", line 88, characters 6-18: cannot infer the type of
 T
 
@@ -43,7 +43,7 @@ T
 
 ⊢ λ (x : A), x : A → A
 
-The command failed with error:
+Successfully failed command with runtime error:
 File "./everything.m31", line 96, characters 13-25: cannot infer the type of
 x
 

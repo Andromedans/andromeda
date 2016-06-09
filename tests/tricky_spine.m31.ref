@@ -24,8 +24,9 @@ val f : judgment
 
 ⊢ λ (n : Nat), iszero (succ n) : Nat → Nat
 
-The command failed with error:
-File "./tricky_spine.m31", line 30, characters 6-6: got type ⊢ Nat → Bool
-type but expected type ⊢ Nat → Nat
-type
+Successfully failed command with runtime error:
+File "./tricky_spine.m31", line 30, characters 6-6: The term
+   ⊢ λ (n : Nat), iszero (succ n) : Nat → Bool
+is expected by its surroundings to have type
+   ⊢ Nat → Nat type
 
