@@ -451,7 +451,7 @@ and apply ~loc h c =
       jdg_form ~loc (Jdg.Apply (h, e)) >>= fun j ->
       Runtime.return_term j
     | None ->
-       Runtime.(error ~loc (ProductExpected (Jdg.typeof h)))
+       Runtime.(error ~loc (FunctionExpected h))
 
 and sequence ~loc v =
   match v with

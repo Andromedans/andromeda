@@ -29,9 +29,10 @@ val x0 : dummy
 dummy
 
 Successfully failed command with runtime error:
-File "./everything.m31", line 74, characters 6-9: expected a product but got
-⊢ Type 
-type
+File "./everything.m31", line 74, characters 6-9:
+Application of the non-function:
+   ⊢ Type : Type
+
 
 ⊢ refl Type : Type ≡ Type
 

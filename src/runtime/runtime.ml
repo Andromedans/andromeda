@@ -98,6 +98,7 @@ type error =
   | TermExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
+  | FunctionExpected of Jdg.term
   | RefExpected of value
   | StringExpected of value
   | CoercibleExpected of value
@@ -487,7 +488,8 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "cannot infer the type of@ %t" (Name.print_ident x)
 
   | MatchFail v ->
-     Format.fprintf ppf "no match found for@ %t" (print_value ~penv v)
+     Format.fprintf ppf "@[<v>No matching pattern found for value@,   @[<hov>%t@]@]@."
+                    (print_value ~penv v)
 
   | FailureFail v ->
      Format.fprintf ppf "expected to fail but computed@ %t"
@@ -512,6 +514,10 @@ let print_error ~penv err ppf =
   | InvalidAsProduct j ->
      Format.fprintf ppf "this should be an equality between %t and a product"
                     (Jdg.print_ty ~penv:penv j)
+
+  | FunctionExpected t ->
+     Format.fprintf ppf "@[<v>Application of the non-function:@    @[<hov>%t@]@]@."
+                    (Jdg.print_term ~penv:penv t)
 
   | ListExpected v ->
      Format.fprintf ppf "expected a list but got %s" (name_of v)
