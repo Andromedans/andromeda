@@ -17,9 +17,9 @@ operation nonary_op : color
 (** Declare constants *)
 (* constant `names` : `type` *)
 constant A : (* the type of types *) Type
-constant a b : A
+constant a, b : A
 (* Ocaml-style infixes are valid `name`s and `label`s *)
-constant ( + ) ( * ) ( ^ ) ( - ) ( <= ) :
+constant ( + ), ( * ), ( ^ ), ( - ), ( <= ) :
   (* non-dependent product type *) A -> A -> A
 
 (* Infixes and prefixes are printed as such. *)

@@ -228,7 +228,7 @@ module Ctx = struct
 
 end
 
-module Env = struct
+module Signature = struct
   module ConstantMap = Name.IdentMap
 
   type t = {
@@ -464,7 +464,7 @@ let form ~loc env = function
   | Atom x -> atom_term ~loc x
 
   | Constant c ->
-    let t = Env.constant_type c env in
+    let t = Signature.constant_type c env in
     Term (Ctx.empty, TT.mk_constant ~loc c,t)
 
   | Prod ((JAtom (ctxa,x,a)),(Ty (ctxb,b))) ->
@@ -645,7 +645,7 @@ let beta ~loc (EqTy (ctxa, a1, a2))
     let app = TT.mk_apply ~loc lam (Name.ident_of_atom y) a2 b2 e2
     and ty = TT.instantiate_ty [e2] b2 in
     EqTerm (ctx, app, e_s, ty)
-  
+
 
 (** Congruence *)
 
@@ -741,7 +741,7 @@ let congr_refl ~loc (EqTy (ctxt, t1, t2))
   then error ~loc (RuleInputMismatch ("congr-refl", t1, ty_e))
   else
     let ctx = Ctx.join ~loc ctxt ctxe in
-    
+
     let hypst = Ctx.as_set ctxt
     and hypse = Ctx.as_set ctxe in
     let hyps = AtomSet.union hypst hypse in
@@ -765,7 +765,7 @@ let natural_ty ~loc env ctx e =
       end
 
     | TT.Constant c ->
-      Env.constant_type c env
+      Signature.constant_type c env
 
     | TT.Prod _ ->
       TT.typ

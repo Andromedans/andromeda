@@ -21,8 +21,8 @@ type env = {
 }
 
 and dynamic = {
-  (* Toplevel declarations *)
-  typing : Jdg.Env.t;
+  (* Toplevel constant declarations *)
+  signature : Jdg.Signature.t;
 
   (* Current values of dynamic variables *)
   vars : value Store.Dyn.t
@@ -244,10 +244,10 @@ let operation op ?checking vs env =
 
 let get_env env = Return env, env.state
 
-let get_typing_env env = env.dynamic.typing
+let get_typing_signature env = env.dynamic.signature
 
-let lookup_typing_env env =
-  Return (get_typing_env env), env.state
+let lookup_typing_signature env =
+  Return (get_typing_signature env), env.state
 
 let index_of_level k env =
   let n = List.length env.lexical.bound - k - 1 in
@@ -271,7 +271,8 @@ let add_free ~loc x jt m env =
   m jy env
 
 let add_constant0 ~loc x t env =
-  { env with dynamic = {env.dynamic with typing = Jdg.Env.add_constant x t env.dynamic.typing };
+  { env with dynamic = {env.dynamic with signature =
+                           Jdg.Signature.add_constant x t env.dynamic.signature };
              lexical = {env.lexical with forbidden = x :: env.lexical.forbidden } }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
@@ -449,7 +450,7 @@ let print_operation ~penv op vs ppf =
                                (Print.sequence (print_value ~max_level:Level.app_right ~penv) "" vs)
      end
 
-let print_error ~penv err ppf = 
+let print_error ~penv err ppf =
   match err with
 
   | ExpectedAtom j ->
@@ -562,7 +563,7 @@ let empty = {
     continuation = None ;
   } ;
   dynamic = {
-    typing = Jdg.Env.empty ;
+    signature = Jdg.Signature.empty ;
     vars = Store.Dyn.empty ;
   } ;
   state = Store.Ref.empty;
@@ -667,7 +668,7 @@ let exec m = m
 
 module Json =
 struct
-  
+
   let rec value v =
     let json = Json.tag "Runtime.value" in
     match v with
@@ -686,4 +687,3 @@ struct
 
       | String s -> json "String" [Json.String s]
 end
-

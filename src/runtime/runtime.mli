@@ -135,10 +135,10 @@ val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
 (** Extract the current environment (for matching) *)
 val get_env : env comp
 
-(** Typing environment *)
-val get_typing_env : env -> Jdg.Env.t
+(** Typing Signature *)
+val get_typing_signature : env -> Jdg.Signature.t
 
-val lookup_typing_env : Jdg.Env.t comp
+val lookup_typing_signature : Jdg.Signature.t comp
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
