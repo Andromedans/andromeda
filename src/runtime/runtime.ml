@@ -403,9 +403,16 @@ and print_tag ?max_level ~penv t lst ppf =
 
   | Name.Ident (_, Name.Prefix), [v] ->
      (* prefix tag applied to one argument *)
-     Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
+     (* Although it is reasonable to parse prefix operators as
+        binding very tightly, it can be confusing to see
+            f SOME x instead of f (SOME x).
+        So we print out unary tags, at least, with the
+        same parenthesization as application, i.e.,
+        Level.app and Level.app_right instead of
+        Level.prefix and Level.prefix_arg *) 
+     Print.print ppf ?max_level ~at_level:Level.app "%t@ %t"
                  (Name.print_ident ~parentheses:false t)
-                 (print_value ~max_level:Level.prefix_arg ~penv v)
+                 (print_value ~max_level:Level.app_right ~penv v)
 
   | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
      (* infix tag applied to two arguments *)
@@ -564,7 +571,8 @@ let print_error ~penv err ppf =
                     (Jdg.print_term ~penv e)
 
   | UnhandledOperation (op, vs) ->
-     Format.fprintf ppf "unhandled operation %t" (print_operation ~penv op vs)
+     Format.fprintf ppf "@[<v>Unhandled operation:@.   @[<hov>%t@]@]@."
+                    (print_operation ~penv op vs)
 
 
 
