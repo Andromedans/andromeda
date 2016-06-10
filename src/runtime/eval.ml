@@ -333,6 +333,7 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Bound _
   | Syntax.Function _
   | Syntax.Handler _
+  | Syntax.Ascribe _
   | Syntax.External _
   | Syntax.Constructor _
   | Syntax.Tuple _
@@ -393,15 +394,6 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Syntax.Match (c, cases) ->
      infer c >>=
      match_cases ~loc cases (fun c -> check c t_check)
-
-  | Syntax.Ascribe (c1, c2) ->
-    check_ty c2 >>= fun t2 ->
-    check c1 t2 >>= fun je ->
-    Equal.coerce ~loc je t_check >>=
-    begin function
-      | Some je -> Runtime.return je
-      | None -> Runtime.(error ~loc (TypeMismatch (t2, t_check)))
-    end
 
   | Syntax.Lambda (x,u,c) ->
     check_lambda ~loc t_check x u c
