@@ -673,7 +673,9 @@ let congr_lambda ~loc (EqTy (ctxa, ta1, ta2))
                  (EqTy (ctxb, b1, b2))
                  (EqTerm (ctxe, e1, e2, ty_e)) =
   if not (TT.alpha_equal_ty b1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-lambda", b1, "???", ty_e, "???"))
+  then error ~loc (RuleInputMismatch ("congr-lambda",
+            b1, "The left-hand-side in the equality between body types",
+            ty_e, "The type at which the body terms are compared"))
   else
     let ctx = Ctx.join ~loc ctxa (Ctx.abstract ~loc (Ctx.join ~loc ctxb ctxe) x ta1) in
 
