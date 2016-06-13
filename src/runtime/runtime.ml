@@ -405,11 +405,11 @@ and print_tag ?max_level ~penv t lst ppf =
      (* prefix tag applied to one argument *)
      (* Although it is reasonable to parse prefix operators as
         binding very tightly, it can be confusing to see
-            f SOME x instead of f (SOME x).
+            f !! x instead of f (!! x).
         So we print out unary tags, at least, with the
         same parenthesization as application, i.e.,
         Level.app and Level.app_right instead of
-        Level.prefix and Level.prefix_arg *) 
+        Level.prefix and Level.prefix_arg *)
      Print.print ppf ?max_level ~at_level:Level.app "%t@ %t"
                  (Name.print_ident ~parentheses:false t)
                  (print_value ~max_level:Level.app_right ~penv v)
