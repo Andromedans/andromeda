@@ -12,7 +12,7 @@ handle
   | as_eq _ => None
 end
 
-let (|>) x f = f x
+let (|>) x f : Π α β, α → (α → β) → β = f x
 
 let failure x = print ("FAILURE", x); external "exit" ()
 
@@ -31,4 +31,3 @@ constant funext : forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
 constant uip : forall (A : Type) (lhs rhs : A) (p q : lhs == rhs), p == q
 
 mltype empty = end
-
