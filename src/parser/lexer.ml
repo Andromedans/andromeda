@@ -67,15 +67,18 @@ let numeral = [%sedlex.regexp? Plus digit]
 
 let project = [%sedlex.regexp? '.', (name | numeral)]
 
-let symbolchar = [%sedlex.regexp?  ('!' | '$' | '%' | '&' | '*' | '+' | '-' | '.' | '/' | ':' | '<' | '=' | '>' | '?' | '@' | '^' | '|' | '~')]
+let symbolchar = [%sedlex.regexp?  ( '!' | '$' | '%' | '&' | '*' | '+' | '-'
+                                   | '.' | '/' | ':' | '<' | '=' | '>' | '?'
+                                   | '@' | '^' | '|' | '~' )]
 
 let prefixop = [%sedlex.regexp? ('~' | '?' | '!'), Star symbolchar ]
-let infixop0 = [%sedlex.regexp? ('=' | '<' | '>' | '|' | '&' | '$'), Star symbolchar]
-let infixop1 = [%sedlex.regexp? ('@' | '^'), Star symbolchar ]
-let infixop2 = [%sedlex.regexp? ('+' | '-'), Star symbolchar ]
-let infixop3 = [%sedlex.regexp? ('*' | '/' | '%'), Star symbolchar ]
-let infixop4 = [%sedlex.regexp? "**", Star symbolchar ]
+let infixop0 = [%sedlex.regexp? ('=' | '<' | '>' | '|' | '&' | '$' | 8728),
+                              Star ( symbolchar | name )]
+let infixop1 = [%sedlex.regexp? ('@' | '^'), Star ( symbolchar | name ) ]
 let dcolon   = [%sedlex.regexp? "::"]
+let infixop2 = [%sedlex.regexp? ('+' | '-'), Star ( symbolchar | name ) ]
+let infixop3 = [%sedlex.regexp? ('*' | '/' | '%'), Star ( symbolchar | name ) ]
+let infixop4 = [%sedlex.regexp? "**", Star ( symbolchar | name ) ]
 
 let start_longcomment = [%sedlex.regexp? "(*"]
 let end_longcomment= [%sedlex.regexp? "*)"]
