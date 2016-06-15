@@ -10,7 +10,8 @@ val b : judgment
 
 val lam : judgment
 
+
 File "./error-penv.m31", line 12, characters 4-6:
-got type ⊢ Π (a0 : A), a0 + a ≡ a0 + a type but expected type
-⊢ Π (a0 : A), a0 + a0 ≡ a0 + a0
-type
+The term   ⊢ λ (a0 : A), refl (a0 + a) : Π (a0 : A), a0 + a ≡ a0 + a
+is expected by its surroundings to have type
+   ⊢ Π (a0 : A), a0 + a0 ≡ a0 + a0  type

@@ -6,9 +6,11 @@ Constant eq is declared.
 x₀ : A
 ⊢ x₀ : A
 
-The command failed with error:
-File "./generic.m31", lines 10-12, characters 6-5: no match found for
-⊢ A : Type
+Successfully failed command with runtime error:
+File "./generic.m31", line 10 character 6 - line 12 character 5:
+No matching pattern found for value
+   ⊢ A : Type
+
 
 Constant a is declared.
 

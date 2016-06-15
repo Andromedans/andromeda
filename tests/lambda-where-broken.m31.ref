@@ -1,5 +1,6 @@
 Constant empty is declared.
 
+
 File "./lambda-where-broken.m31", line 4, characters 4-44:
 cannot join contexts y₀ : empty
                       and
