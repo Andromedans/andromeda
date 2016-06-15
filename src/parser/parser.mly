@@ -14,7 +14,7 @@
 %token PROD LAMBDA
 
 (* Infix operations *)
-%token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
+%token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXOP2 STAR INFIXOP3 INFIXOP4
 
 (* Equality types *)
 %token EQEQ
@@ -30,6 +30,11 @@
 %token LBRACK RBRACK
 %token COLON COMMA
 %token ARROW DARROW
+
+(* DCOLON is overloaded:
+   - if it occurs in `let ... :: ... = ...` it is a TT ascription
+   - else it is a List.cons *)
+%token <string * Location.t> DCOLON
 
 (* Things specific to toplevel *)
 %token DO FAIL
@@ -88,7 +93,7 @@
 %nonassoc COLONEQ
 %left     INFIXOP0
 %right    INFIXOP1
-%right    INFIXCONS
+%right    DCOLON
 %left     INFIXOP2
 %left     STAR INFIXOP3
 %right    INFIXOP4
@@ -218,7 +223,7 @@ var_name:
   | LPAREN op=PREFIXOP RPAREN  { fst op }
 
 %inline infix:
-  | op=INFIXCONS   { op }
+  | op=DCOLON      { (Name.make ~fixity:(Name.Infix Level.InfixCons) (fst op), (snd op)) }
   | op=INFIXOP0    { op }
   | op=INFIXOP1    { op }
   | op=INFIXOP2    { op }
@@ -240,7 +245,8 @@ let_clause:
        { (x, ys, u, c) }
 
 return_type:
-  | COLON t=ml_schema { t }
+  | COLON t=ml_schema   { ML_type_ascription t }
+  | _=DCOLON t=term     { TT_type_ascription t }
 
 typed_binder:
   | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }

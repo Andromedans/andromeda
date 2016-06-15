@@ -72,10 +72,10 @@ let symbolchar = [%sedlex.regexp?  ('!' | '$' | '%' | '&' | '*' | '+' | '-' | '.
 let prefixop = [%sedlex.regexp? ('~' | '?' | '!'), Star symbolchar ]
 let infixop0 = [%sedlex.regexp? ('=' | '<' | '>' | '|' | '&' | '$'), Star symbolchar]
 let infixop1 = [%sedlex.regexp? ('@' | '^'), Star symbolchar ]
-let infixcons = [%sedlex.regexp? "::"]
 let infixop2 = [%sedlex.regexp? ('+' | '-'), Star symbolchar ]
 let infixop3 = [%sedlex.regexp? ('*' | '/' | '%'), Star symbolchar ]
 let infixop4 = [%sedlex.regexp? "**", Star symbolchar ]
+let dcolon   = [%sedlex.regexp? "::"]
 
 let start_longcomment = [%sedlex.regexp? "(*"]
 let end_longcomment= [%sedlex.regexp? "*)"]
@@ -135,8 +135,7 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
                                                 Name.make ~fixity:(Name.Infix Level.Infix0) s, loc_of lexbuf)
   | infixop1                 -> f (); INFIXOP1 (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix1) s, loc_of lexbuf)
-  | infixcons                -> f (); INFIXCONS(let s = Ulexbuf.lexeme lexbuf in
-                                                Name.make ~fixity:(Name.Infix Level.InfixCons) s, loc_of lexbuf)
+  | dcolon                   -> f (); DCOLON (Ulexbuf.lexeme lexbuf, loc_of lexbuf)
   | infixop2                 -> f (); INFIXOP2 (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:(Name.Infix Level.Infix2) s, loc_of lexbuf)
   (* Comes before infixop3 because ** matches the infixop3 pattern too *)
