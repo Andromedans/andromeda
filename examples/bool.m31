@@ -31,7 +31,7 @@ do Type
    Better hint management would help here. *)
 (* do external "config" "verbosity" 3 *)
 
-let bool_disjoint : true ≡ false → empty =
+let bool_disjoint :: true ≡ false → empty =
     λ (p : true == false),
      let P = λ (b : bool), ind_bool (λ (_ : bool), Type) unit empty b in
      let p =
@@ -44,14 +44,14 @@ let bool_disjoint : true ≡ false → empty =
        now betas = add_betas [ind_bool_true] in
          p : unit == empty in
      now betas = add_betas [p] in
-       let u = {} in u : empty
+       let u = tt in u : empty
 
 
 (* let's be less careful. *)
-now betas = add_beta ind_bool_true betas
-now betas = add_beta ind_bool_false betas
+now betas = add_beta ind_bool_true
+now betas = add_beta ind_bool_false
 
-let bool_disjoint' : true == false → empty = λ p,
+let bool_disjoint' :: true == false → empty = λ p,
      let P = λ (b : bool), ind_bool (λ (_ : bool), Type) unit empty b in
      let p =
          (* we need to remove the global hints, otherwise
@@ -62,8 +62,7 @@ let bool_disjoint' : true == false → empty = λ p,
 
      let p = p : unit == empty in
      now betas = add_betas [p] in
-     let u = {} in u : empty
-     (* {} : empty *)
+     let u = tt in u : empty
 
 do bool_disjoint'
 

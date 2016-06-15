@@ -103,14 +103,14 @@ let plus_S' =
       y)
   : ∀ (x y : N), plus (S x) y ≡ S (plus x y)
 
-let plus_commute : ∀ (x y : N), plus x y ≡ plus y x =
+let plus_commute :: ∀ (x y : N), plus x y ≡ plus y x =
   (λ (x y : N),
     now betas = add_betas [plus_Z,plus_S,plus_Z',plus_S'] in
     ind_N
       (λ (z : N), plus z y ≡ plus y z)
       (refl y)
       (λ (z : N) (IH : plus z y ≡ plus y z),
-          now betas = add_beta IH betas in
+          now betas = add_beta IH in
            refl (S (plus z y)) : plus (S z) y ≡ plus y (S z) )
       x)
 
@@ -119,7 +119,7 @@ do plus_commute
 
 (* Using commutativity we can now verify that if a : P (x + y) then a : P (y + x). *)
 do
-  now hints = add_hint plus_commute hints in
+  now hints = add_hint plus_commute in
    (λ (P : N → Type) (x y : N) (a : P (plus x y)), a : P (plus y x))
 
 (** (times n m) computes m*n as n-fold sum of m. *)
