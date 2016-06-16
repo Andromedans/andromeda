@@ -145,7 +145,7 @@ let as_eq ~loc t =
   match as_eq_alpha t with
     | Some (e1, e2) -> Opt.return (Jdg.reflexivity_ty t, e1, e2)
     | None ->
-      Predefined.operation_as_eq ~loc (Jdg.term_of_ty t) >!=
+      Predefined.operation_as_eq ~loc t >!=
       begin function
         | None ->
           Opt.fail
@@ -183,7 +183,7 @@ let as_prod ~loc t =
   match as_prod_alpha t with
     | Some (a, b) -> Opt.return (Jdg.reflexivity_ty t, a, b)
     | None ->
-      Predefined.operation_as_prod ~loc (Jdg.term_of_ty t) >!=
+      Predefined.operation_as_prod ~loc t >!=
       begin function
         | None ->
           Opt.fail

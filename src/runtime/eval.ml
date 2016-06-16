@@ -3,33 +3,39 @@
 (** Notation for the monadic bind *)
 let (>>=) = Runtime.bind
 
-(** A filter that verifies the result is a term. *)
+(** A computation filter that verifies the result is a term,
+    and fails otherwise. *)
+(* as_term : loc:Location.t -> Runtime.value -> Jdg.term Runtime.comp *)
 let as_term ~loc v =
   let e = Runtime.as_term ~loc v in
     Runtime.return e
 
 (** Returns the atom with its natural type in [ctx] *)
+(* as_atom: loc:Location.t -> Runtime.value -> Jdg.term Runtime.comp *)
 let as_atom ~loc v =
   as_term ~loc v >>= fun j ->
   match Jdg.shape j with
     | Jdg.Atom x -> Runtime.return x
     | _ -> Runtime.(error ~loc (ExpectedAtom j))
 
-
+(* as_handler: loc:Location.t -> Runtime.value -> Runtime.handler Runtime.comp *)
 let as_handler ~loc v =
   let e = Runtime.as_handler ~loc v in
   Runtime.return e
 
+(* as_ref: loc:Location.t -> Runtime.value -> Runtime.ref Runtime.comp *)
 let as_ref ~loc v =
   let e = Runtime.as_ref ~loc v in
   Runtime.return e
 
 (** Form a judgement *)
+(* loc:Location.t -> Jdg.shape -> Jdg.term Runtime.comp *)
 let jdg_form ~loc s =
   Runtime.lookup_typing_signature >>= fun signature ->
   Runtime.return (Jdg.form ~loc signature s)
 
 (** Evaluate a computation -- infer mode. *)
+(*   infer : 'annot Syntax.comp -> Runtime.value Runtime.comp *)
 let rec infer {Location.thing=c'; loc} =
   match c' with
     | Syntax.Bound i ->
@@ -327,6 +333,7 @@ and check_default ~loc v t_check =
       | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (je, t_check)))
   end
 
+(* 'annot Syntax.comp -> Jdg.ty -> Jdg.term Runtime.comp *)
 and check ({Location.thing=c';loc} as c) t_check =
   match c' with
   | Syntax.Type
@@ -417,6 +424,9 @@ and check ({Location.thing=c';loc} as c) t_check =
           end
       end
 
+(* check_lambda: loc:Location.t -> Jdg.ty -> Name.ident
+                   -> 'annot Syntax.comp option -> 'annot Syntax.comp
+                   -> Jdg.term Runtime.comp *)
 and check_lambda ~loc t_check x u c =
   Equal.as_prod ~loc t_check >>= function
     | None -> Runtime.(error ~loc (ProductExpected t_check))
@@ -444,6 +454,8 @@ and check_lambda ~loc t_check x u c =
       let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
       Runtime.return lam))
 
+(* apply: loc:Location.t -> Jdg.term -> 'annot Syntax.comp
+               -> Runtime.value Runtime.comp *)
 and apply ~loc h c =
   Equal.coerce_fun ~loc h >>= function
     | Some (h, a, _) ->
@@ -453,6 +465,7 @@ and apply ~loc h c =
     | None ->
        Runtime.(error ~loc (FunctionExpected h))
 
+(* sequence: loc:Location.t -> Runtime.value -> unit Runtime.comp *)
 and sequence ~loc v =
   match v with
     | Runtime.Tuple [] -> Runtime.return ()
@@ -528,10 +541,12 @@ and check_ty c : Jdg.ty Runtime.comp =
 
 (** Move to toplevel monad *)
 
+(* comp_value: 'a Syntax.comp -> Runtime.value Runtime.toplevel *)
 let comp_value c =
   let r = infer c in
   Runtime.top_handle ~loc:c.Location.loc r
 
+(* comp_ty: 'a Syntax.comp -> Jdg.ty Runtime.toplevel *)
 let comp_ty c =
   let r = check_ty c in
   Runtime.top_handle ~loc:(c.Location.loc) r
@@ -558,11 +573,6 @@ let comp_handle (xs,y,c) =
 
 let (>>=) = Runtime.top_bind
 let return = Runtime.top_return
-
-let rec mfold f acc = function
-  | [] -> return acc
-  | x::rem -> f acc x >>= fun acc ->
-     mfold f acc rem
 
 let toplet_bind ~loc ~quiet ~print_annot xcs =
   let rec fold xvs = function
@@ -638,7 +648,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
       fold xs
 
     | Syntax.TopHandle lst ->
-       mfold (fun () (op, xc) ->
+       Runtime.top_fold (fun () (op, xc) ->
            comp_handle xc >>= fun f ->
            Runtime.add_handle op f) () lst
 
@@ -688,9 +698,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        end
 
     | Syntax.Included lst ->
-      mfold (fun () (fn, cmds) ->
+      Runtime.top_fold (fun () (fn, cmds) ->
           (if not quiet then Format.printf "#including %s@." fn);
-          mfold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
+          Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
           (if not quiet then Format.printf "#processed %s@." fn);
           return ())
         () lst
