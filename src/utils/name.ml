@@ -28,7 +28,7 @@ let print_ident ?(parentheses=true) x ppf =
 
 let print_op = print_ident ~parentheses:true
 
-let anonymous = Ident ("_", Anonymous)
+let anonymous = Ident ("anon", Anonymous)
 
 let is_anonymous = function
   | Ident (_, Anonymous) -> true

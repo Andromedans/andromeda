@@ -117,7 +117,7 @@ val h : judgment
                    {"_ty" : "location",
                     "tag" : "Known",
                     "data" : ["./json.m31", 12, 26, 12, 27]}},
-                  [{"_ty" : "ident", "data" : "_"},
+                  [{"_ty" : "ident", "data" : "anon"},
                    {"_ty" : "ty",
                     "tag" : "Ty",
                     "data" :
@@ -201,7 +201,7 @@ val h : judgment
                   {"_ty" : "location",
                    "tag" : "Known",
                    "data" : ["./json.m31", 12, 26, 12, 27]}},
-                 [{"_ty" : "ident", "data" : "_"},
+                 [{"_ty" : "ident", "data" : "anon"},
                   {"_ty" : "ty",
                    "tag" : "Ty",
                    "data" :
@@ -257,7 +257,7 @@ val h : judgment
               {"_ty" : "location",
                "tag" : "Known",
                "data" : ["./json.m31", 12, 26, 12, 27]}},
-             [{"_ty" : "ident", "data" : "_"},
+             [{"_ty" : "ident", "data" : "anon"},
               {"_ty" : "ty",
                "tag" : "Ty",
                "data" :
@@ -345,7 +345,7 @@ val h : judgment
                      {"_ty" : "location",
                       "tag" : "Known",
                       "data" : ["./json.m31", 12, 26, 12, 27]}},
-                    [{"_ty" : "ident", "data" : "_"},
+                    [{"_ty" : "ident", "data" : "anon"},
                      {"_ty" : "ty",
                       "tag" : "Ty",
                       "data" :
@@ -403,7 +403,7 @@ val h : judgment
                {"_ty" : "location",
                 "tag" : "Known",
                 "data" : ["./json.m31", 12, 26, 12, 27]}},
-              [{"_ty" : "ident", "data" : "_"},
+              [{"_ty" : "ident", "data" : "anon"},
                {"_ty" : "ty",
                 "tag" : "Ty",
                 "data" :
@@ -477,7 +477,7 @@ val h : judgment
          {"_ty" : "term'",
           "tag" : "Prod",
           "data" :
-          [[{"_ty" : "ident", "data" : "_"},
+          [[{"_ty" : "ident", "data" : "anon"},
             {"_ty" : "ty",
              "tag" : "Ty",
              "data" :
@@ -531,7 +531,7 @@ val h : judgment
        {"_ty" : "location",
         "tag" : "Known",
         "data" : ["./json.m31", 16, 3, 18, 15]}},
-      [{"_ty" : "ident", "data" : "_"},
+      [{"_ty" : "ident", "data" : "anon"},
        {"_ty" : "ty",
         "tag" : "Ty",
         "data" :
