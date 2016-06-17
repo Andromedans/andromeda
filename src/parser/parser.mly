@@ -160,7 +160,7 @@ plain_ty_term:
   | PROD a=prod_abstraction COMMA e=term             { Prod (a, e) }
   | LAMBDA a=lambda_abstraction COMMA e=term         { Lambda (a, e) }
   | FUNCTION xs=name+ DARROW e=term                  { Function (xs, e) }
-  | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous, t1)], t2) }
+  | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous (), t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
 plain_equal_term:
@@ -229,7 +229,7 @@ var_name:
 
 name:
   | x=var_name { x }
-  | UNDERSCORE { Name.anonymous }
+  | UNDERSCORE { Name.anonymous () }
 
 recursive_clause:
   | f=name y=name ys=name* u=return_type? EQ c=term
@@ -357,7 +357,7 @@ plain_tt_pattern:
                                                        (fun ((x, b, pt), loc) p -> Tt_Prod (b, x, pt, p), loc)
                                                        (List.concat bs) p)
                                               }
-  | p1=equal_tt_pattern ARROW p2=tt_pattern   { Tt_Prod (false, Name.anonymous, Some p1, p2) }
+  | p1=equal_tt_pattern ARROW p2=tt_pattern   { Tt_Prod (false, Name.anonymous (), Some p1, p2) }
 
 equal_tt_pattern: mark_location(plain_equal_tt_pattern) { $1 }
 plain_equal_tt_pattern:
@@ -407,7 +407,7 @@ tt_name:
 
 top_patt_maybe_var:
   | x=patt_var                   { x }
-  | UNDERSCORE                   { Name.anonymous }
+  | UNDERSCORE                   { Name.anonymous () }
 
 patt_var:
   | x=PATTVAR                    { x }

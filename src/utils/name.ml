@@ -2,7 +2,7 @@
 
 type fixity =
   | Word
-  | Anonymous
+  | Anonymous of int
   | Prefix
   | Infix of Level.infix
 
@@ -19,7 +19,7 @@ type constructor = ident
 let print_ident ?(parentheses=true) x ppf =
   match x with
   | Ident (s, Word) -> Format.fprintf ppf "%s" s
-  | Ident (_, Anonymous) -> Format.fprintf ppf "_"
+  | Ident (_, Anonymous k) -> Format.fprintf ppf "_"
   | Ident (s, (Prefix|Infix _)) ->
      if parentheses then
        Format.fprintf ppf "( %s )" s
@@ -28,10 +28,14 @@ let print_ident ?(parentheses=true) x ppf =
 
 let print_op = print_ident ~parentheses:true
 
-let anonymous = Ident ("anon", Anonymous)
+let anonymous =
+  let k = ref (-1) in
+  fun () ->
+  incr k ;
+  Ident ("anon", Anonymous !k)
 
 let is_anonymous = function
-  | Ident (_, Anonymous) -> true
+  | Ident (_, Anonymous _) -> true
   | _ -> false
 
 let make ?(fixity=Word) s = Ident (s, fixity)
@@ -105,9 +109,9 @@ let refresh xs ((Ident (s, fixity)) as x) =
     while used (s ^ string_of_int !k) xs do incr k done;
     Ident (s ^ string_of_int !k, fixity)
 
-let eq_ident (Ident (x, _)) (Ident (y, _)) = (x = y)
+let eq_ident (x : ident) (y : ident) = (x = y)
 
-let compare_ident (Ident (x, _)) (Ident (y, _)) = compare x y
+let compare_ident (x : ident) (y : ident) = Pervasives.compare x y
 
 module IdentMap = Map.Make (struct
                     type t = ident
@@ -191,8 +195,8 @@ let print_atom_subs ?(parentheses=true) x ppf =
   | Atom (s, Word, k) ->
      Format.fprintf ppf "%s%s" s (subscript k)
 
-  | Atom (_, Anonymous, k) ->
-     Format.fprintf ppf "_%s" (subscript k)
+  | Atom (_, Anonymous j, k) ->
+     Format.fprintf ppf "anon%d%s" j (subscript k)
 
   | Atom (s, (Prefix|Infix _), k) ->
      if parentheses then

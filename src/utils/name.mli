@@ -1,10 +1,11 @@
 (** Variable names *)
 
+(** The fixity classes charcterize the various kinds of identifiers. *)
 type fixity =
-  | Word
-  | Anonymous
-  | Prefix
-  | Infix of Level.infix
+  | Word (** an ordinary word *)
+  | Anonymous of int (** an anonymous binder, written as [_] by the user *)
+  | Prefix (** a prefix operator *)
+  | Infix of Level.infix (** an infix operator of given level *)
 
 type ident = private Ident of string * fixity
 
@@ -84,8 +85,8 @@ val print_atom : ?parentheses:bool -> printer:atom_printer -> atom -> Format.for
 (** Print an operation name. *)
 val print_op : ident -> Format.formatter -> unit
 
-(** An anonymous name that cannot be referenced. *)
-val anonymous : ident
+(** An new anonymous name that cannot be referenced by the user. *)
+val anonymous : unit -> ident
 
 (** Is the given identifier anonymous? *)
 val is_anonymous : ident -> bool

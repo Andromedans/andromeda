@@ -1,0 +1,21 @@
+constant A : Type
+
+let B = A → ∏ (_ : A), A
+
+do B
+
+do match B with
+   | ⊢ (∏ (?x : _), _) => x
+   end
+
+do match B with
+   | ⊢ (∏ (?x : _), ∏ (?z : _), _) =>
+     match B with
+        | ⊢ (∏ (?y : _), _) =>
+          (x ≡ y) → (z ≡ z)
+     end
+   end
+
+do match B with
+   | ⊢ (∏ (?x : ?U), ?V) => ∏ (y : U), (V where x = y)
+   end
