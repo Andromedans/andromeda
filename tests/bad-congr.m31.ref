@@ -1,28 +1,30 @@
-The command failed with error:
+Successfully failed command with runtime error:
 File "./bad-congr.m31", line 2, characters 17-20:
 expected an atom but got ⊢ Type : Type
 
 Constant A is declared.
 Constant B is declared.
 
-The command failed with error:
-File "./bad-congr.m31", line 6, characters 6-51:
-Expected an equality judgement between types but got
-⊢ A : Type
+Successfully failed command with judgment error:
+File "./bad-congr.m31", line 6, characters 42-42:
+Expected a witness to a type equality but got
+   ⊢ A : Type
 
 
-The command failed with error:
-File "./bad-congr.m31", line 8, characters 6-32:
-Expected an equality judgement but got
-⊢ Type : Type
+Successfully failed command with judgment error:
+File "./bad-congr.m31", line 8, characters 29-32:
+Expected a witness to a term equality but got
+   ⊢ Type : Type
 
 
 Constant a is declared.
 
-The command failed with error:
+Successfully failed command with judgment error:
 File "./bad-congr.m31", line 12, characters 6-102:
-In the congr-apply rule, the following types should be the same: (A → A)
-→ A → A and A →
-A
+In the congr-apply rule, the following types should be identical:
+   (A → A) → A → A
+(the Pi inferred from the left-hand-sides of the type equalities) and
+   A → A
+(the type at which the functions are equal)
 
 

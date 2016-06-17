@@ -1,40 +1,70 @@
 (** Runtime values and computations *)
 
-(** The type of an AML reference. *)
-type ref
+(** {6 Values} *)
 
-(** Runtime environment *)
-type env
-
-type ('a,'b) closure
-
-(** The values are "finished" or "computed". They are inert pieces of data. *)
+(** values are "finished" or "computed". They are inert pieces of data. *)
 type value = private
-  | Term of Jdg.term
-  | Closure of (value,value) closure
-  | Handler of handler
-  | Tag of Name.ident * value list
-  | Tuple of value list
-  | Ref of ref
-  | String of string (** NB: strings are opaque to the user, ie not lists *)
+  | Term of Jdg.term                 (** A *typing* judgment built by the nucleus *)
+  | Closure of (value,value) closure (** An AML function *)
+  | Handler of handler               (** Handler value *)
+  | Tag of Name.ident * value list   (** Application of a data constructor *)
+  | Tuple of value list              (** Tuple of values *)
+  | Ref of ref                       (** Ref cell *)
+  | String of string                 (** String constant (opaque, not a list) *)
 
 and operation_args = { args : value list; checking : Jdg.ty option}
 
+(** A handler contains AML code for handling zero or more operations,
+    plus the default case *)
 and handler
 
-(** computations provide a dynamically scoped environment and operations *)
-type 'a comp
+(** Maps an ['a] to a ['b comp]. In practice ['b] is usually [value] *)
+and ('a,'b) closure
 
-(** state environment, no operations *)
-type 'a toplevel
+(** An AML reference cell. *)
+and ref
 
-(** the runtime errors *)
+(** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
+val name_of : value -> string
+
+(** {b Value construction} *)
+
+val mk_term    : Jdg.term   -> value                (** Builds a [Term] value *)
+val mk_handler : handler    -> value                (** Builds a [Handler] value *)
+val mk_tag     : Name.ident -> value list -> value  (** Builds a [Tag] value *)
+val mk_tuple   : value list -> value                (** Builds a [Tuple] value *)
+val mk_string  : string     -> value                (** Builds a [String] value *)
+
+(** {b Value extraction} *)
+
+val as_term : loc:Location.t -> value -> Jdg.term   (** Fails with [TermExpected] *)
+val as_closure : loc:Location.t -> value -> (value,value) closure (** Fails with [ClosureExpected] *)
+val as_handler : loc:Location.t -> value -> handler (** Fails with [HandlerExpected] *)
+val as_ref : loc:Location.t -> value -> ref         (** Fails with [RefExpected] *)
+val as_string : loc:Location.t -> value -> string   (** Fails with [StringExpected] *)
+
+(** {b Other operations} *)
+
+(** Check whether two values are equal. *)
+val equal_value: value -> value -> bool
+
+(** Check whether the given value represents an AML list *)
+val as_list_opt : value -> value list option
+
+(** Pretty-print a value. *)
+val print_value : ?max_level:Level.t -> penv:TT.print_env -> value -> Format.formatter -> unit
+
+
+(** {6 Error Handling} *)
+
+(** The runtime errors *)
 type error =
   | ExpectedAtom of Jdg.term
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | TypeMismatch of Jdg.ty * Jdg.ty
+  | AnnotationMismatch of Jdg.ty * Jdg.ty
+  | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
   | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
   | MatchFail of value
@@ -49,6 +79,7 @@ type error =
   | TermExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
+  | FunctionExpected of Jdg.term
   | RefExpected of value
   | StringExpected of value
   | CoercibleExpected of value
@@ -61,90 +92,71 @@ type error =
 (** The exception that is raised on runtime error *)
 exception Error of error Location.located
 
-(** Report a runtime error (fails irrevocably) *)
+(** Pretty-print a runtime error *)
+val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
+
+(** Report a runtime error (raises an Error exception) *)
 val error : loc:Location.t -> error -> 'a
 
-(** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
-val name_of : value -> string
 
-(** Make values *)
-val mk_term : Jdg.term -> value
-val mk_handler : handler -> value
-val mk_tag : Name.ident -> value list -> value
-val mk_tuple : value list -> value
-val mk_string : string -> value
+(** {6 Computation} *)
 
-val apply_closure : ('a,'b) closure -> 'a -> 'b comp
+(** computations provide a dynamically scoped environment and operations *)
+type 'a comp
 
-(** References *)
-val mk_ref : value -> value comp
 
-val lookup_ref : ref -> value comp
+(** {b Monadic structure} *)
 
-val update_ref : ref -> value -> unit comp
-
-(** Monadic primitives *)
 val bind: 'a comp -> ('a -> 'b comp)  -> 'b comp
-
-val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
-
-type 'a caught =
-  | CaughtJdg of Jdg.error Location.located
-  | CaughtRuntime of error Location.located
-  | Value of 'a
-
-(** Catch exceptions. The state is not changed if an exception is caught. *)
-val catch : 'a toplevel Lazy.t -> 'a caught toplevel
-
-val top_return : 'a -> 'a toplevel
 val return : 'a -> 'a comp
 
-(* XXX why do we need all of these? *)
-val top_return_closure : ('a -> 'b comp) -> ('a,'b) closure toplevel
-val top_mk_closure : (value -> value comp) -> value toplevel
-val return_closure : (value -> value comp) -> value comp
 
-val return_term : Jdg.term -> value comp
+(** {b Monadic shorthand} *)
+
 val return_unit : value comp
 
+val return_term : Jdg.term -> value comp
+val return_closure : (value -> value comp) -> value comp
 val return_handler :
    (value -> value comp) option ->
    (operation_args -> value comp) Name.IdentMap.t ->
    (value -> value comp) option ->
    value comp
 
-val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
+(** {b Monadic interface} *)
 
-(** Pretty-print a value. *)
-val as_list_opt : value -> value list option
+(** A computation that applies the given closure to the given argument
+    and produces the result. *)
+val apply_closure : ('a,'b) closure -> 'a -> 'b comp
 
-val print_value : ?max_level:Level.t -> penv:TT.print_env -> value -> Format.formatter -> unit
+(** A computation that creates and returns a new reference cell. *)
+val mk_ref : value -> value comp
 
-val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
+(** A computation that dereferences the given reference cell. *)
+val lookup_ref : ref -> value comp
 
-(** Coerce values *)
-val as_term : loc:Location.t -> value -> Jdg.term
-val as_closure : loc:Location.t -> value -> (value,value) closure
-val as_handler : loc:Location.t -> value -> handler
-val as_ref : loc:Location.t -> value -> ref
-val as_string : loc:Location.t -> value -> string
+(** A computation that updates the given reference cell with the given value. *)
+val update_ref : ref -> value -> unit comp
 
-(** Operations *)
+(** A computation that invokes the specified operation. *)
 val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
 
-(** Extract the current environment (for matching) *)
-val get_env : env comp
+(** Wrap the given computation with a handler. *)
+val handle_comp : handler -> value comp -> value comp
 
-(** Typing Signature *)
-val get_typing_signature : env -> Jdg.Signature.t
+(** Wrap the given computation with a dynamic variable binding. *)
+val now : loc:Location.t -> int -> value -> 'a comp -> 'a comp
 
+(** Lookup the current continuation. Only usable while handling an operation. *)
+val continue : loc:Location.t -> value -> value comp
+
+(** Get the printing environment from the monad *)
+val lookup_penv : TT.print_env comp
+
+(** Gets the current constants *)
 val lookup_typing_signature : Jdg.Signature.t comp
 
-(** Lookup a free variable by its de Bruijn index *)
-val lookup_bound : loc:Location.t -> int -> value comp
-
-(** For matching *)
-val get_bound : loc:Location.t -> int -> env -> value
+(** Bound and free variable stuff *)
 
 (** Add a bound variable to the environment. *)
 val add_bound : value -> 'a comp -> 'a comp
@@ -155,19 +167,32 @@ val add_bound_rec :
 (** [index_of_level n] gives the De Bruijn index of the variable whose De Bruijn level is [n]. *)
 val index_of_level : Syntax.level -> Syntax.bound comp
 
-(** Modify the value bound by a dynamic variable *)
-val now : loc:Location.t -> int -> value -> 'a comp -> 'a comp
-
-val top_now : loc:Location.t -> int -> value -> unit toplevel
-
-(** Add a bound variable (for matching). *)
-val push_bound : value -> env -> env
-
 (** [add_free ~loc x (ctx,t) f] generates a fresh atom [y] from identifier [x],
     then it extends [ctx] to [ctx' = ctx, y : t]
     and runs [f (ctx' |- y : t)] in the environment with [x] bound to [ctx' |- y : t].
     NB: This is an effectful computation, as it increases a global counter. *)
 val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Jdg.atom -> 'a comp) -> 'a comp
+
+(** Lookup a free variable by its de Bruijn index *)
+val lookup_bound : loc:Location.t -> int -> value comp
+
+(** {6 Toplevel} *)
+
+(** state environment, no operations *)
+type 'a toplevel
+
+(** {b Monadic structure } *)
+
+val top_bind : 'a toplevel -> ('a -> 'b toplevel) -> 'b toplevel
+val top_return : 'a -> 'a toplevel
+
+(** {b Monadic shorthand} *)
+
+val top_return_closure : ('a -> 'b comp) -> ('a,'b) closure toplevel
+
+val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
+
+(** {b Monadic interface} *)
 
 (** Add a constant of a given type to the environment. *)
 val add_constant : loc:Location.t -> Name.ident -> Jdg.closed_ty -> unit toplevel
@@ -184,20 +209,27 @@ val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 (** Add a top-level handler case to the environment. *)
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel
 
-(** Lookup the current continuation. *)
-val continue : loc:Location.t -> value -> value comp
+(** Modify the value bound by a dynamic variable *)
+val top_now : loc:Location.t -> int -> value -> unit toplevel
 
-(** Get the printing environment from the monad *)
-val lookup_penv : TT.print_env comp
+(** Handle a computation at the toplevel. *)
+val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
 
 (** Get the printing environment from the toplevel monad *)
 val top_lookup_penv : TT.print_env toplevel
 
-(** Interface to execute suspended computations. *)
-type topenv
+type 'a caught =
+  | CaughtJdg of Jdg.error Location.located
+  | CaughtRuntime of error Location.located
+  | Value of 'a
 
-(** Get the printing environment from the toplevel environment. *)
-val get_penv : topenv -> TT.print_env
+(** Catch Error exceptions. The state is not changed if an exception occurs. *)
+val catch : 'a toplevel Lazy.t -> 'a caught toplevel
+
+(** {6 Running a toplevel computation} *)
+
+(** toplevel environment *)
+type topenv
 
 (** The empty toplevel environment. *)
 val empty : topenv
@@ -205,14 +237,23 @@ val empty : topenv
 (** Execute a toplevel command in the given environment. *)
 val exec : 'a toplevel -> topenv -> 'a * topenv
 
-(** Handling *)
-val handle_comp : handler -> value comp -> value comp
+(** {6 Poorly-Documented Functions used by Matching } *)
 
-(** Handle a computation at the toplevel. *)
-val top_handle : loc:Location.t -> 'a comp -> 'a toplevel
+(** Runtime environment *)
+type env
 
-(** Check whether two values are equal. *)
-val equal_value: value -> value -> bool
+(** Extract the current environment (for matching) *)
+val get_env : env comp
+
+val get_typing_signature : env -> Jdg.Signature.t
+
+(** For matching *)
+val get_bound : loc:Location.t -> int -> env -> value
+
+(** Add a bound variable (for matching). *)
+val push_bound : value -> env -> env
+
+(** {6 Conversion to JSON} *)
 
 module Json :
 sig

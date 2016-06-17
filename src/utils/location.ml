@@ -24,10 +24,10 @@ let print loc ppf =
     if start_line = end_line
     then
       Format.fprintf ppf "File \"%s\", line %d, characters %d-%d"
-        filename start_line (1+ start_col) end_col
+        filename start_line (1 + start_col) end_col
     else
-      Format.fprintf ppf "File \"%s\", lines %d-%d, characters %d-%d"
-        filename start_line end_line (1+ start_col) end_col
+      Format.fprintf ppf "File \"%s\", line %d character %d - line %d character %d"
+        filename start_line (1 + start_col) end_line end_col
 
 let unknown = Unknown
 

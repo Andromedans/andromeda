@@ -3,33 +3,39 @@
 (** Notation for the monadic bind *)
 let (>>=) = Runtime.bind
 
-(** A filter that verifies the result is a term. *)
+(** A computation filter that verifies the result is a term,
+    and fails otherwise. *)
+(* as_term : loc:Location.t -> Runtime.value -> Jdg.term Runtime.comp *)
 let as_term ~loc v =
   let e = Runtime.as_term ~loc v in
     Runtime.return e
 
 (** Returns the atom with its natural type in [ctx] *)
+(* as_atom: loc:Location.t -> Runtime.value -> Jdg.term Runtime.comp *)
 let as_atom ~loc v =
   as_term ~loc v >>= fun j ->
   match Jdg.shape j with
     | Jdg.Atom x -> Runtime.return x
     | _ -> Runtime.(error ~loc (ExpectedAtom j))
 
-
+(* as_handler: loc:Location.t -> Runtime.value -> Runtime.handler Runtime.comp *)
 let as_handler ~loc v =
   let e = Runtime.as_handler ~loc v in
   Runtime.return e
 
+(* as_ref: loc:Location.t -> Runtime.value -> Runtime.ref Runtime.comp *)
 let as_ref ~loc v =
   let e = Runtime.as_ref ~loc v in
   Runtime.return e
 
 (** Form a judgement *)
+(* loc:Location.t -> Jdg.shape -> Jdg.term Runtime.comp *)
 let jdg_form ~loc s =
   Runtime.lookup_typing_signature >>= fun signature ->
   Runtime.return (Jdg.form ~loc signature s)
 
 (** Evaluate a computation -- infer mode. *)
+(*   infer : 'annot Syntax.comp -> Runtime.value Runtime.comp *)
 let rec infer {Location.thing=c'; loc} =
   match c' with
     | Syntax.Bound i ->
@@ -227,8 +233,8 @@ let rec infer {Location.thing=c'; loc} =
     infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
-    let eqa = Jdg.reflect_ty_eq ~loc ja
-    and eqb = Jdg.reflect_ty_eq ~loc jb in
+    let eqa = Jdg.reflect_ty_eq ~loc:c2.Location.loc ja
+    and eqb = Jdg.reflect_ty_eq ~loc:c3.Location.loc jb in
     let eq = Jdg.congr_prod_ty ~loc eqa x x eqb in
     let e = Jdg.refl_of_eq_ty ~loc eq in
     Runtime.return_term e
@@ -239,10 +245,10 @@ let rec infer {Location.thing=c'; loc} =
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jarg ->
     infer c4 >>= as_term ~loc:c4.Location.loc >>= fun ja ->
     infer c5 >>= as_term ~loc:c5.Location.loc >>= fun jb ->
-    let eqh = Jdg.reflect ~loc jh
-    and eqarg = Jdg.reflect ~loc jarg
-    and eqa = Jdg.reflect_ty_eq ~loc ja
-    and eqb = Jdg.reflect_ty_eq ~loc jb in
+    let eqh = Jdg.reflect ~loc:c2.Location.loc jh
+    and eqarg = Jdg.reflect ~loc:c3.Location.loc jarg
+    and eqa = Jdg.reflect_ty_eq ~loc:c4.Location.loc ja
+    and eqb = Jdg.reflect_ty_eq ~loc:c5.Location.loc jb in
     let eq = Jdg.congr_apply ~loc eqa x x eqb eqh eqarg in
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
@@ -252,9 +258,9 @@ let rec infer {Location.thing=c'; loc} =
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
     infer c4 >>= as_term ~loc:c4.Location.loc >>= fun jbody ->
-    let eqbody = Jdg.reflect ~loc jbody
-    and eqa = Jdg.reflect_ty_eq ~loc ja
-    and eqb = Jdg.reflect_ty_eq ~loc jb in
+    let eqbody = Jdg.reflect ~loc:c4.Location.loc jbody
+    and eqa = Jdg.reflect_ty_eq ~loc:c2.Location.loc ja
+    and eqb = Jdg.reflect_ty_eq ~loc:c3.Location.loc jb in
     let eq = Jdg.congr_lambda ~loc eqa x x eqb eqbody in
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
@@ -263,9 +269,9 @@ let rec infer {Location.thing=c'; loc} =
     infer c1 >>= as_term ~loc:c1.Location.loc >>= fun jt ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun jlhs ->
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jrhs ->
-    let eqt = Jdg.reflect_ty_eq ~loc jt
-    and eqlhs = Jdg.reflect ~loc jlhs
-    and eqrhs = Jdg.reflect  ~loc jrhs in
+    let eqt = Jdg.reflect_ty_eq ~loc:c1.Location.loc jt
+    and eqlhs = Jdg.reflect ~loc:c2.Location.loc jlhs
+    and eqrhs = Jdg.reflect  ~loc:c3.Location.loc jrhs in
     let eq = Jdg.congr_eq_ty ~loc eqt eqlhs eqrhs in
     let e = Jdg.refl_of_eq_ty ~loc eq in
     Runtime.return_term e
@@ -273,8 +279,8 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.CongrRefl (c1, c2) ->
     infer c1 >>= as_term ~loc:c1.Location.loc >>= fun jt ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun je ->
-    let eqt = Jdg.reflect_ty_eq ~loc jt
-    and eqe = Jdg.reflect ~loc je in
+    let eqt = Jdg.reflect_ty_eq ~loc:c1.Location.loc jt
+    and eqe = Jdg.reflect ~loc:c2.Location.loc je in
     let eq = Jdg.congr_refl ~loc eqt eqe in
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
@@ -285,8 +291,8 @@ let rec infer {Location.thing=c'; loc} =
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
     infer c4 >>= as_term ~loc:c4.Location.loc >>= fun jbody ->
     infer c5 >>= as_term ~loc:c5.Location.loc >>= fun jarg ->
-    let eqa = Jdg.reflect_ty_eq ~loc ja
-    and eqb = Jdg.reflect_ty_eq ~loc jb in
+    let eqa = Jdg.reflect_ty_eq ~loc:c2.Location.loc ja
+    and eqb = Jdg.reflect_ty_eq ~loc:c3.Location.loc jb in
     let eq = Jdg.beta ~loc eqa x x eqb jbody jarg in
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
@@ -324,15 +330,17 @@ and check_default ~loc v t_check =
   Equal.coerce ~loc je t_check >>=
     begin function
       | Some je -> Runtime.return je
-      | None -> Runtime.(error ~loc (TypeMismatch (Jdg.typeof je, t_check)))
+      | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (je, t_check)))
   end
 
+(* 'annot Syntax.comp -> Jdg.ty -> Jdg.term Runtime.comp *)
 and check ({Location.thing=c';loc} as c) t_check =
   match c' with
   | Syntax.Type
   | Syntax.Bound _
   | Syntax.Function _
   | Syntax.Handler _
+  | Syntax.Ascribe _
   | Syntax.External _
   | Syntax.Constructor _
   | Syntax.Tuple _
@@ -394,15 +402,6 @@ and check ({Location.thing=c';loc} as c) t_check =
      infer c >>=
      match_cases ~loc cases (fun c -> check c t_check)
 
-  | Syntax.Ascribe (c1, c2) ->
-    check_ty c2 >>= fun t2 ->
-    check c1 t2 >>= fun je ->
-    Equal.coerce ~loc je t_check >>=
-    begin function
-      | Some je -> Runtime.return je
-      | None -> Runtime.(error ~loc (TypeMismatch (t2, t_check)))
-    end
-
   | Syntax.Lambda (x,u,c) ->
     check_lambda ~loc t_check x u c
 
@@ -425,6 +424,9 @@ and check ({Location.thing=c';loc} as c) t_check =
           end
       end
 
+(* check_lambda: loc:Location.t -> Jdg.ty -> Name.ident
+                   -> 'annot Syntax.comp option -> 'annot Syntax.comp
+                   -> Jdg.term Runtime.comp *)
 and check_lambda ~loc t_check x u c =
   Equal.as_prod ~loc t_check >>= function
     | None -> Runtime.(error ~loc (ProductExpected t_check))
@@ -435,7 +437,7 @@ and check_lambda ~loc t_check x u c =
           Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.atom_ty a) >>= begin function
             | Some equ -> Runtime.return (ju, equ)
             | None ->
-              Runtime.(error ~loc:(u.Location.loc) (TypeMismatch (ju, (Jdg.atom_ty a))))
+              Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Jdg.atom_ty a))))
             end
         | None ->
           let ju = Jdg.atom_ty a in
@@ -452,6 +454,8 @@ and check_lambda ~loc t_check x u c =
       let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
       Runtime.return lam))
 
+(* apply: loc:Location.t -> Jdg.term -> 'annot Syntax.comp
+               -> Runtime.value Runtime.comp *)
 and apply ~loc h c =
   Equal.coerce_fun ~loc h >>= function
     | Some (h, a, _) ->
@@ -459,8 +463,9 @@ and apply ~loc h c =
       jdg_form ~loc (Jdg.Apply (h, e)) >>= fun j ->
       Runtime.return_term j
     | None ->
-       Runtime.(error ~loc (ProductExpected (Jdg.typeof h)))
+       Runtime.(error ~loc (FunctionExpected h))
 
+(* sequence: loc:Location.t -> Runtime.value -> unit Runtime.comp *)
 and sequence ~loc v =
   match v with
     | Runtime.Tuple [] -> Runtime.return ()
@@ -536,10 +541,12 @@ and check_ty c : Jdg.ty Runtime.comp =
 
 (** Move to toplevel monad *)
 
+(* comp_value: 'a Syntax.comp -> Runtime.value Runtime.toplevel *)
 let comp_value c =
   let r = infer c in
   Runtime.top_handle ~loc:c.Location.loc r
 
+(* comp_ty: 'a Syntax.comp -> Jdg.ty Runtime.toplevel *)
 let comp_ty c =
   let r = check_ty c in
   Runtime.top_handle ~loc:(c.Location.loc) r
@@ -566,11 +573,6 @@ let comp_handle (xs,y,c) =
 
 let (>>=) = Runtime.top_bind
 let return = Runtime.top_return
-
-let rec mfold f acc = function
-  | [] -> return acc
-  | x::rem -> f acc x >>= fun acc ->
-     mfold f acc rem
 
 let toplet_bind ~loc ~quiet ~print_annot xcs =
   let rec fold xvs = function
@@ -646,7 +648,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
       fold xs
 
     | Syntax.TopHandle lst ->
-       mfold (fun () (op, xc) ->
+       Runtime.top_fold (fun () (op, xc) ->
            comp_handle xc >>= fun f ->
            Runtime.add_handle op f) () lst
 
@@ -679,14 +681,14 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "The command failed with error:@.%t:@ %t@.@."
+         (if not quiet then Format.printf "Successfully failed command with runtime error:@.%t:@ %t@.@."
                                           (Location.print loc)
                                           (Runtime.print_error ~penv err));
          return ()
 
        | Runtime.CaughtJdg {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->
-         (if not quiet then Format.printf "The command failed with error:@.%t:@ %t@.@."
+         (if not quiet then Format.printf "Successfully failed command with judgment error:@.%t:@ %t@.@."
                                           (Location.print loc)
                                           (Jdg.print_error ~penv err));
          return ()
@@ -696,9 +698,9 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        end
 
     | Syntax.Included lst ->
-      mfold (fun () (fn, cmds) ->
+      Runtime.top_fold (fun () (fn, cmds) ->
           (if not quiet then Format.printf "#including %s@." fn);
-          mfold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
+          Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
           (if not quiet then Format.printf "#processed %s@." fn);
           return ())
         () lst

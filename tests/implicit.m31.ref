@@ -48,17 +48,23 @@ t₁₀ : imp₈
         ((λ (y : Type) (_ : y), y) B b) b
   : Π (B : Type) (b : B), (λ (y : Type) (_ : y), y) B b
 
-The command failed with error:
-File "./implicit.m31", line 43, characters 9-21: cannot abstract y₁₁
-because xi₁₂
-depends on it
+Successfully failed command with judgment error:
+File "./implicit.m31", line 43, characters 9-21:
+cannot abstract y₁₁ because xi₁₂ depends on it, in context
+   imp₁₃ : A
+   y₁₁ : A
+   xi₁₂ : imp₁₃ ≡ y₁₁
+   
 
 ⊢ λ (x : A), (λ (A0 : Type) (x0 : A0), x0) A x : A → A
 
-The command failed with error:
-File "./implicit.m31", line 51, characters 13-44: cannot abstract B₁₃
-because xi₁₄
-depends on it
+Successfully failed command with judgment error:
+File "./implicit.m31", line 51, characters 13-44:
+cannot abstract B₁₄ because xi₁₅ depends on it, in context
+   imp₁₆ : Type
+   B₁₄ : Type
+   xi₁₅ : imp₁₆ ≡ B₁₄
+   
 
 ⊢ λ (B : Type) (x : (λ (A0 : Type) (x : A0), x) ((λ (_ : Type), Type) B)
         B), (λ (A0 : Type) (x0 : A0), x0)

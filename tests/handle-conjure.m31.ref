@@ -10,6 +10,9 @@ Constant Q is declared.
 
 Operation implicit is declared.
 
+
 File "./handle-conjure.m31", line 21, characters 5-39:
-cannot abstract a₀ because magic₁
-depends on it
+cannot abstract a₀ because magic₁ depends on it, in context
+   a₀ : A
+   magic₁ : B a₀
+   

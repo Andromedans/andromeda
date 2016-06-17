@@ -82,7 +82,8 @@ type error =
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | TypeMismatch of Jdg.ty * Jdg.ty
+  | AnnotationMismatch of Jdg.ty * Jdg.ty
+  | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
   | EqualityFail of Jdg.term * Jdg.term
   | UnannotatedLambda of Name.ident
   | MatchFail of value
@@ -97,6 +98,7 @@ type error =
   | TermExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
+  | FunctionExpected of Jdg.term
   | RefExpected of value
   | StringExpected of value
   | CoercibleExpected of value
@@ -173,7 +175,6 @@ let catch m env =
 (** Returns *)
 let top_return x env = x, env
 
-let top_mk_closure f env = Closure (mk_closure0 f env), env
 let top_return_closure f env = mk_closure0 f env, env
 
 let return x env = Return x, env.state
@@ -401,9 +402,16 @@ and print_tag ?max_level ~penv t lst ppf =
 
   | Name.Ident (_, Name.Prefix), [v] ->
      (* prefix tag applied to one argument *)
-     Print.print ppf ?max_level ~at_level:Level.prefix "%t@ %t"
+     (* Although it is reasonable to parse prefix operators as
+        binding very tightly, it can be confusing to see
+            f !! x instead of f (!! x).
+        So we print out unary tags, at least, with the
+        same parenthesization as application, i.e.,
+        Level.app and Level.app_right instead of
+        Level.prefix and Level.prefix_arg *)
+     Print.print ppf ?max_level ~at_level:Level.app "%t@ %t"
                  (Name.print_ident ~parentheses:false t)
-                 (print_value ~max_level:Level.prefix_arg ~penv v)
+                 (print_value ~max_level:Level.app_right ~penv v)
 
   | Name.Ident (_, Name.Infix fixity), [v1; v2] ->
      (* infix tag applied to two arguments *)
@@ -466,10 +474,16 @@ let print_error ~penv err ppf =
   | Inapplicable v ->
      Format.fprintf ppf "cannot apply %s" (name_of v)
 
-  | TypeMismatch (t1, t2) ->
-     Format.fprintf ppf "got type@ %t@ but expected type@ %t"
+  | AnnotationMismatch (t1, t2) ->
+      Format.fprintf ppf
+      "@[<v>The type annotation is@,   @[<hov>%t@]@,but the surroundings imply it should be@,   @[<hov>%t@].@]"
                     (Jdg.print_ty ~penv:penv t1)
                     (Jdg.print_ty ~penv:penv t2)
+
+  | TypeMismatchCheckingMode (v, t) ->
+      Format.fprintf ppf "The term@,   @[<hov>%t@]@,is expected by its surroundings to have type@,   @[<hov>%t@]"
+                    (Jdg.print_term ~penv:penv v)
+                    (Jdg.print_ty ~penv:penv t)
 
   | EqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
@@ -480,7 +494,8 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "cannot infer the type of@ %t" (Name.print_ident x)
 
   | MatchFail v ->
-     Format.fprintf ppf "no match found for@ %t" (print_value ~penv v)
+     Format.fprintf ppf "@[<v>No matching pattern found for value@,   @[<hov>%t@]@]@."
+                    (print_value ~penv v)
 
   | FailureFail v ->
      Format.fprintf ppf "expected to fail but computed@ %t"
@@ -505,6 +520,10 @@ let print_error ~penv err ppf =
   | InvalidAsProduct j ->
      Format.fprintf ppf "this should be an equality between %t and a product"
                     (Jdg.print_ty ~penv:penv j)
+
+  | FunctionExpected t ->
+     Format.fprintf ppf "@[<v>Application of the non-function:@    @[<hov>%t@]@]@."
+                    (Jdg.print_term ~penv:penv t)
 
   | ListExpected v ->
      Format.fprintf ppf "expected a list but got %s" (name_of v)
@@ -551,7 +570,8 @@ let print_error ~penv err ppf =
                     (Jdg.print_term ~penv e)
 
   | UnhandledOperation (op, vs) ->
-     Format.fprintf ppf "unhandled operation %t" (print_operation ~penv op vs)
+     Format.fprintf ppf "@[<v>Unhandled operation:@.   @[<hov>%t@]@]@."
+                    (print_operation ~penv op vs)
 
 
 
