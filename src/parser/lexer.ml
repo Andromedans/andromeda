@@ -129,6 +129,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ';'                      -> f (); SEMICOLON
   (* Comes before prefixop because it also matches prefixop *)
   | '?'                      -> f (); NAME (Name.make ~fixity:Name.Word "?")
+  (* We record the location of operators here because menhir cannot handle %infix and
+     mark_location simultaneously, it seems. *)
   | prefixop                 -> f (); PREFIXOP (let s = Ulexbuf.lexeme lexbuf in
                                                 Name.make ~fixity:Name.Prefix s, loc_of lexbuf)
   | infixop0                 -> f (); INFIXOP0 (let s = Ulexbuf.lexeme lexbuf in
