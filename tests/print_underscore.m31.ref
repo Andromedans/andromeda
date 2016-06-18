@@ -1,0 +1,16 @@
+Constant A is declared.
+
+val B : judgment
+
+⊢ A → A → A : Type
+
+anon12₀ : A
+⊢ anon12₀ : A
+
+anon12₁ : A
+anon11₂ : A
+anon12₃ : A
+⊢ Π (_ : anon12₁ ≡ anon12₃), anon11₂ ≡ anon11₂ : Type
+
+⊢ A → A → A : Type
+
