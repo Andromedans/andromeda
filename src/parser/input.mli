@@ -5,7 +5,7 @@
     However, we define type aliases for these for better readability.
     There are no de Bruijn indices either. *)
 
-type ml_ty = ml_ty' * Location.t
+type ml_ty = ml_ty' Location.located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
   | ML_Prod of ml_ty list
@@ -15,40 +15,44 @@ and ml_ty' =
   | ML_String
   | ML_Anonymous
 
-type ml_schema = ml_schema' * Location.t
+type ml_schema = ml_schema' Location.located
 and ml_schema' = ML_Forall of Name.ty list * ml_ty
 
+(** A binder in a pattern may or may not bind the bound variable
+    as a pattern variable. *)
+type tt_variable =
+  | PattVar of Name.ident
+  | NonPattVar of Name.ident
+
 (** Sugared term patterns *)
-type tt_pattern = tt_pattern' * Location.t
+type tt_pattern = tt_pattern' Location.located
 and tt_pattern' =
   | Tt_Anonymous
   | Tt_As of tt_pattern * Name.ident
   | Tt_Var of Name.ident (* pattern variable *)
   | Tt_Type
   | Tt_Name of Name.ident
-  (** For each binder the boolean indicates whether the bound variable
-      should be a pattern variable *)
-  | Tt_Lambda of bool * Name.ident * tt_pattern option * tt_pattern
-  | Tt_Apply of tt_pattern * tt_pattern
-  | Tt_Prod of bool * Name.ident * tt_pattern option * tt_pattern
+  | Tt_Lambda of (tt_variable * tt_pattern option) list * tt_pattern
+  | Tt_Spine of tt_pattern * tt_pattern list
+  | Tt_Prod of (tt_variable * tt_pattern option) list * tt_pattern
   | Tt_Eq of tt_pattern * tt_pattern
   | Tt_Refl of tt_pattern
   | Tt_GenAtom of tt_pattern
   | Tt_GenConstant of tt_pattern
 
-and pattern = pattern' * Location.t
+and pattern = pattern' Location.located
 and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * Name.ident
   | Patt_Var of Name.ident
   | Patt_Name of Name.ident
-  | Patt_Jdg of tt_pattern * tt_pattern
+  | Patt_Jdg of tt_pattern * tt_pattern option
   | Patt_Constr of Name.ident * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
 
 (** Sugared terms *)
-type term = term' * Location.t
+type term = term' Location.located
 and term' =
   (* expressions *)
   | Var of Name.ident
@@ -121,7 +125,7 @@ type ml_tydef =
   | ML_Alias of ml_ty
 
 (** Sugared toplevel commands *)
-type toplevel = toplevel' * Location.t
+type toplevel = toplevel' Location.located
 and toplevel' =
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
@@ -136,5 +140,4 @@ and toplevel' =
   | TopFail of comp
   | Verbosity of int
   | Include of string list
-    (** the boolean is [true] if the files should be included only once *)
 

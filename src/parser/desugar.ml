@@ -162,7 +162,7 @@ let mlty ctx params ty =
   (* Get the de Bruijn index of type parameter x *)
   let get_index x = Name.index_of_ident x params in
 
-  let rec mlty (ty', loc) =
+  let rec mlty ({Location.thing=ty';loc}) =
     let ty' =
       begin match ty' with
 
@@ -228,7 +228,7 @@ let mk_prod ~loc ys t =
     t ys
 
 (* n is the length of vars *)
-let rec tt_pattern bound vars n (p,loc) =
+let rec tt_pattern bound vars n {Location.thing=p;loc} =
   match p with
   | Input.Tt_Anonymous ->
      (locate Syntax.Tt_Anonymous loc), vars, n
@@ -262,57 +262,76 @@ let rec tt_pattern bound vars n (p,loc) =
      | Constructor _ | Operation _ as info -> error ~loc (InvalidTermPatternName (x, info))
      end
 
-  | Input.Tt_Lambda (b, x, popt, p) ->
-     let popt, vars, n = match popt with
-       | None ->
-          None, vars, n
-       | Some p ->
-          let p, vars, n = tt_pattern bound vars n p in
-          Some p, vars, n
+  | Input.Tt_Lambda (lst, p) ->
+     let rec fold bound vars n = function
+       | [] -> tt_pattern bound vars n p
+       | (x, popt) :: lst ->
+          let popt, vars, n = match popt with
+            | None -> None, vars, n
+            | Some p ->
+               let p, vars, n = tt_pattern bound vars n p in
+               Some p, vars, n
+          in
+          let x, bopt, vars, n =
+            begin
+              match x with
+              | Input.PattVar x ->
+                 begin
+                   match Name.assoc_ident x vars with
+                   | Some i -> x, Some i, vars, n (* previously seen pattern variable *)
+                             (* XXX it might be a good idea to warn if x is already
+                             a pattern variable, since that should never match. *)
+                   | None -> x, Some n, ((x,n)::vars), (n+1) (* new pattern variable *)
+                 end
+              | Input.NonPattVar x -> x, None, vars, n
+            end
+          in
+          let bound = Ctx.add_lexical x bound in
+          let p, vars, n = fold bound vars n lst in
+          locate (Syntax.Tt_Lambda (x,bopt,popt,p)) loc, vars, n
      in
-     let bopt, vars, n =
-       if b
-       then
-         begin match Name.assoc_ident x vars with
-         | Some i ->
-            (* XXX it might be a good idea to warn if x is already
-               a pattern variable, since that should never match. *)
-            Some i, vars, n
-         | None ->
-            Some n, ((x,n)::vars), (n+1)
-         end
-       else None, vars, n
-     in
-     let p, vars, n = tt_pattern (Ctx.add_lexical x bound) vars n p in
-     locate (Syntax.Tt_Lambda (x,bopt,popt,p)) loc, vars, n
+     fold bound vars n lst
 
-  | Input.Tt_Apply (p1,p2) ->
-     let p1, vars, n = tt_pattern bound vars n p1 in
-     let p2, vars, n = tt_pattern bound vars n p2 in
-     locate (Syntax.Tt_Apply (p1,p2)) loc, vars, n
+  | Input.Tt_Spine (p, ps) ->
+     let rec fold p vars n = function
+       | [] -> p, vars, n
+       | q :: lst ->
+          let q, vars, n = tt_pattern bound vars n q in
+          let p = locate (Syntax.Tt_Apply (p, q)) loc in
+          fold p vars n lst
+     in
+     let p, vars, n = tt_pattern bound vars n p in
+     fold p vars n ps
 
-  | Input.Tt_Prod (b,x,popt,p) ->
-     let popt, vars, n = match popt with
-       | None ->
-          None, vars, n
-       | Some p ->
-          let p, vars, n = tt_pattern bound vars n p in
-          Some p, vars, n
+  | Input.Tt_Prod (lst, p) ->
+     let rec fold bound vars n = function
+       | [] -> tt_pattern bound vars n p
+       | (x, popt) :: lst ->
+          let popt, vars, n = match popt with
+            | None -> None, vars, n
+            | Some p ->
+               let p, vars, n = tt_pattern bound vars n p in
+               Some p, vars, n
+          in
+          let x, bopt, vars, n =
+            begin
+              match x with
+              | Input.PattVar x ->
+                 begin
+                   match Name.assoc_ident x vars with
+                   | Some i -> x, Some i, vars, n (* previously seen pattern variable *)
+                             (* XXX it might be a good idea to warn if x is already
+                             a pattern variable, since that should never match. *)
+                   | None -> x, Some n, ((x,n)::vars), (n+1) (* new pattern variable *)
+                 end
+              | Input.NonPattVar x -> x, None, vars, n
+            end
+          in
+          let bound = Ctx.add_lexical x bound in
+          let p, vars, n = fold bound vars n lst in
+          locate (Syntax.Tt_Prod (x,bopt,popt,p)) loc, vars, n
      in
-     let bopt, vars, n =
-       if b
-       then
-         begin match Name.assoc_ident x vars with
-         | Some i ->
-            (* XXX it might be a good idea to warn if x is already a pattern variable, since that should never match. *)
-            Some i, vars, n
-         | None ->
-            Some n, ((x,n)::vars), (n+1)
-         end
-       else None, vars, n
-     in
-     let p, vars, n = tt_pattern (Ctx.add_lexical x bound) vars n p in
-     locate (Syntax.Tt_Prod (x,bopt,popt,p)) loc, vars, n
+     fold bound vars n lst
 
   | Input.Tt_Eq (p1,p2) ->
      let p1, vars, n = tt_pattern bound vars n p1 in
@@ -331,7 +350,7 @@ let rec tt_pattern bound vars n (p,loc) =
      let p, vars, n = tt_pattern bound vars n p in
      locate (Syntax.Tt_GenConstant p) loc, vars, n
 
-and pattern bound vars n (p,loc) =
+and pattern bound vars n {Location.thing=p; loc} =
   match p with
   | Input.Patt_Anonymous -> locate Syntax.Patt_Anonymous loc, vars, n
 
@@ -369,10 +388,15 @@ and pattern bound vars n (p,loc) =
      | Operation _ as info -> error ~loc (InvalidPatternName (x, info))
      end
 
-  | Input.Patt_Jdg (p1,p2) ->
+  | Input.Patt_Jdg (p1, Some p2) ->
      let p1, vars, n = tt_pattern bound vars n p1 in
      let p2, vars, n = tt_pattern bound vars n p2 in
      locate (Syntax.Patt_Jdg (p1,p2)) loc, vars, n
+
+  | Input.Patt_Jdg (p1, None) ->
+     let p1, vars, n = tt_pattern bound vars n p1
+     and p2 = Location.locate (Syntax.Tt_Anonymous) Location.unknown in
+     locate (Syntax.Patt_Jdg (p1, p2)) loc, vars, n
 
   | Input.Patt_Constr (c,ps) ->
      begin match Ctx.find ~loc c bound with
@@ -416,7 +440,7 @@ and pattern bound vars n (p,loc) =
      in
      fold vars n [] ps
 
-let rec comp ~yield bound (c',loc) =
+let rec comp ~yield bound {Location.thing=c';loc} =
   match c' with
   | Input.Handle (c, hcs) ->
      let c = comp ~yield bound c
@@ -645,7 +669,7 @@ and let_clauses ~loc ~yield bound lst =
        else
          let c = let_clause ~yield bound ys c in
          let t_opt = match t_opt with
-           | Some (Input.ML_Forall (params, t), loc) ->
+           | Some {Location.thing=Input.ML_Forall (params, t); loc} ->
              Some (locate (Syntax.ML_Forall (params, mlty bound params t)) loc)
            | None -> None
          in
@@ -670,7 +694,7 @@ and letrec_clauses ~loc ~yield bound lst =
        else
          let y, c = letrec_clause ~yield bound y ys c in
          let t_opt = match t_opt with
-           | Some (Input.ML_Forall (params, t), loc) ->
+           | Some {Location.thing=Input.ML_Forall (params, t); loc} ->
              Some (locate (Syntax.ML_Forall (params, mlty bound params t)) loc)
            | None -> None
          in
@@ -681,7 +705,7 @@ and letrec_clauses ~loc ~yield bound lst =
 
 and let_clause ~yield bound ys c =
   let rec fold bound = function
-    | [] ->       
+    | [] ->
        comp ~yield bound c
     | y :: ys ->
        let bound = Ctx.add_lexical y bound in
@@ -698,7 +722,7 @@ and letrec_clause ~yield bound y ys c =
 
 (* Desugar a spine. This function is a bit messy because we need to untangle
    to env. But it's worth doing to make users happy. TODO outdated comment *)
-and spine ~yield bound ((c',loc) as c) cs =
+and spine ~yield bound ({Location.thing=c';loc} as c) cs =
 
   (* Auxiliary function which splits a list into two parts with k
      elements in the first part. *)
@@ -880,7 +904,7 @@ let mlty_rec_defs ~loc ctx lst =
   in
   fold ctx [] lst
 
-let rec toplevel ~basedir ctx (cmd, loc) =
+let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
   match cmd with
 
     | Input.DeclOperation (op, (args, res)) ->

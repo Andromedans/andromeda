@@ -11,44 +11,54 @@ type coercible =
 let name_alpha = Name.make (Name.greek 0)
 
 let predefined_aml_types = let open Input in
-  let loc = Location.unknown in
-  let ty_alpha = ML_TyApply (name_alpha, []), loc in
+  let unloc x = Location.locate x Location.unknown in
+  let ty_alpha = unloc (ML_TyApply (name_alpha, [])) in
+  let un_ml_judg = unloc ML_Judgment in
   let decl_option = DefMLType [Name.Predefined.option, ([name_alpha],
     ML_Sum [
     (Name.Predefined.none, []);
     (Name.Predefined.some, [ty_alpha])
-    ])], loc
+    ])]
   and decl_list = DefMLTypeRec [Name.Predefined.list, ([name_alpha],
     ML_Sum [
     (Name.Predefined.nil, []);
-    (Name.Predefined.cons, [ty_alpha; (ML_TyApply (Name.Predefined.list, [ty_alpha]), loc)])
-    ])], loc
+    (Name.Predefined.cons, [ty_alpha; unloc (ML_TyApply (Name.Predefined.list, [ty_alpha]))])
+    ])]
   and decl_coercible = DefMLType [Name.Predefined.coercible_ty, ([],
     ML_Sum [
     (Name.Predefined.notcoercible, []);
-    (Name.Predefined.convertible, [ML_Judgment, loc]);
-    (Name.Predefined.coercible_constructor, [ML_Judgment, loc])
-    ])], loc
+    (Name.Predefined.convertible, [un_ml_judg]);
+    (Name.Predefined.coercible_constructor, [un_ml_judg])
+    ])]
   in
-  [decl_option; decl_list; decl_coercible]
+  [unloc decl_option; unloc decl_list; unloc decl_coercible]
 
 let predefined_ops = let open Input in
-  let loc = Location.unknown in
-  let decl_equal = DeclOperation (Name.Predefined.equal, ([ML_Judgment, loc; ML_Judgment, loc], (ML_TyApply (Name.Predefined.option, [ML_Judgment, loc]), loc))), loc
-  and decl_as_prod = DeclOperation (Name.Predefined.as_prod, ([ML_Judgment, loc], (ML_TyApply (Name.Predefined.option, [ML_Judgment, loc]), loc))), loc
-  and decl_as_eq = DeclOperation (Name.Predefined.as_eq, ([ML_Judgment, loc], (ML_TyApply (Name.Predefined.option, [ML_Judgment, loc]), loc))), loc
-  and decl_coerce = DeclOperation (Name.Predefined.coerce, ([ML_Judgment, loc; ML_Judgment, loc], (ML_TyApply (Name.Predefined.coercible_ty, []), loc))), loc
-  and decl_coerce_fun = DeclOperation (Name.Predefined.coerce_fun, ([ML_Judgment, loc], (ML_TyApply (Name.Predefined.coercible_ty, []), loc))), loc
+  let unloc x = Location.locate x Location.unknown in
+  let un_ml_judg = unloc ML_Judgment in
+  let decl_equal = DeclOperation (Name.Predefined.equal, ([un_ml_judg; un_ml_judg], unloc (ML_TyApply (Name.Predefined.option, [un_ml_judg]))))
+  and decl_as_prod = DeclOperation (Name.Predefined.as_prod, ([un_ml_judg], unloc (ML_TyApply (Name.Predefined.option, [un_ml_judg]))))
+  and decl_as_eq = DeclOperation (Name.Predefined.as_eq, ([un_ml_judg], unloc (ML_TyApply (Name.Predefined.option, [un_ml_judg]))))
+  and decl_coerce = DeclOperation (Name.Predefined.coerce, ([un_ml_judg; un_ml_judg], unloc (ML_TyApply (Name.Predefined.coercible_ty, []))))
+  and decl_coerce_fun = DeclOperation (Name.Predefined.coerce_fun, ([un_ml_judg], unloc (ML_TyApply (Name.Predefined.coercible_ty, []))))
   in
-  [decl_equal; decl_as_prod; decl_as_eq; decl_coerce; decl_coerce_fun]
+  [unloc decl_equal;
+   unloc decl_as_prod;
+   unloc decl_as_eq;
+   unloc decl_coerce;
+   unloc decl_coerce_fun]
 
 let predefined_bound = let open Input in
-  let loc = Location.unknown in
-  let decl_hyps = TopDynamic (Name.Predefined.hypotheses, (List [], loc)), loc in
-  let force_hyps_type = TopDo (Let ([Name.anonymous (), [],
-    Some (ML_Forall ([], (ML_TyApply (Name.Predefined.list, [ML_Judgment, loc]) , loc)), loc),
-    (Var Name.Predefined.hypotheses, loc)], (Tuple [], loc)), loc), loc in
-  [decl_hyps; force_hyps_type]
+  let unloc x = Location.locate x Location.unknown in
+  let un_ml_judg = unloc ML_Judgment in
+  let decl_hyps = TopDynamic (Name.Predefined.hypotheses, unloc (List [])) in
+  let force_hyps_type = 
+    TopDo (unloc
+             (Let ([Name.anonymous (), [],
+                    Some (unloc (ML_Forall ([],
+                                            unloc (ML_TyApply (Name.Predefined.list, [un_ml_judg]))))),
+                    unloc (Var Name.Predefined.hypotheses)], unloc (Tuple [])))) in
+  [unloc decl_hyps; unloc force_hyps_type]
 
 let predefined_bound_names =
   [Name.Predefined.hypotheses]
