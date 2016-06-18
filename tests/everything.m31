@@ -167,7 +167,7 @@ do match ((lambda (x : A), x) a, b, A) with
   | (|- a,_,_) => print "this won't happen"
   (* Matching under binders can be done as `lambda (?y : ...), e`
      to bind a free variable suitable for substitution to y, since `e` may depend on it. *)
-  | (|- (lambda (?y), y) _,|- _ : ?t,|- ?t) => print "this will happen"
+  | (|- (lambda ?y, y) _,|- _ : ?t,|- ?t) => print "this will happen"
   | _ => print "this won't happen either"
 end
 

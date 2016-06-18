@@ -506,7 +506,7 @@ let unify_prod imps A =
   match whnf_ty imps A with
   |- ?eq : _ == ?B =>
     match B with
-    | |- forall (_), _ => Some (eq, imps)
+    | |- forall _, _ => Some (eq, imps)
     | _ =>
       match imp_atoms imps B with
       | None => None
