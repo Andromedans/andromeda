@@ -1,0 +1,8 @@
+constant A : Type
+constant B : A → Type
+
+(* Why is the output printed as a ∏ instead of → ? *)
+do match ∏ (x : A), B x with
+   ⊢ ∏ (?y : ?U), ?V =>
+     y ≡ y → y ≡ y
+   end
