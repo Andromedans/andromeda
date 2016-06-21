@@ -394,8 +394,8 @@ and print_app ?max_level ~penv e1 e2 ppf =
     | Constant (Name.Ident (_, Name.Prefix) as op) -> Some (As_ident op)
     | Atom (Name.Atom (_, Name.Prefix, _) as op) -> Some (As_atom op)
 
-    | Constant (Name.Ident (_, (Name.Word | Name.Anonymous | Name.Infix _)))
-    | Atom (Name.Atom (_, (Name.Word | Name.Anonymous | Name.Infix _), _))
+    | Constant (Name.Ident (_, (Name.Word | Name.Anonymous _| Name.Infix _)))
+    | Atom (Name.Atom (_, (Name.Word | Name.Anonymous _| Name.Infix _), _))
     | Type | Lambda _ | Apply _ | Prod _ | Eq _ | Refl _ ->
       None
   in
@@ -421,7 +421,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
                 match List.nth penv.forbidden k with
                 | Name.Ident (_, Name.Infix fixity) as op ->
                    Some (As_ident op, fixity, e1)
-                | Name.Ident (_, (Name.Word | Name.Anonymous | Name.Prefix)) -> None
+                | Name.Ident (_, (Name.Word | Name.Anonymous _| Name.Prefix)) -> None
                 | exception Failure "nth" -> None
               end
            | Apply ({term=Constant (Name.Ident (_, Name.Infix fixity) as op);_},
@@ -457,11 +457,11 @@ and print_app ?max_level ~penv e1 e2 ppf =
 
 (** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
 and print_lambda ?max_level ~penv ((x, u), (e, _)) ppf =
-  let x = (if not (occurs 0 e) then Name.anonymous else x) in
+  let x = (if not (occurs 0 e) then Name.anonymous () else x) in
   let rec collect xus e =
     match e.term with
     | Lambda ((x, u), (e, _)) ->
-       let x = (if not (occurs 0 e) then Name.anonymous else x) in
+       let x = (if not (occurs 0 e) then Name.anonymous () else x) in
        collect ((x, u) :: xus) e
     | _ ->
        (List.rev xus, e)
@@ -480,7 +480,7 @@ and print_prod ?max_level ~penv ((x, u), t) ppf =
     Print.print ?max_level ~at_level:Level.arr ppf "%t@ %s@ %t"
           (print_ty ~max_level:Level.arr_left ~penv u)
           (Print.char_arrow ())
-          (print_ty ~max_level:Level.arr_right ~penv:(add_forbidden Name.anonymous penv) t)
+          (print_ty ~max_level:Level.arr_right ~penv:(add_forbidden (Name.anonymous ()) penv) t)
   else
     let rec collect xus ((Ty t) as t_ty) =
       match t.term with
