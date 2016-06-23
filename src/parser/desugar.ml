@@ -764,9 +764,9 @@ and spine ~yield bound ({Location.thing=c';loc} as c) cs =
   in
 
   (* TODO improve locs *)
-  List.fold_left (fun h c ->
-      let c = comp ~yield bound c in
-      locate (Syntax.Apply (h,c)) loc) c cs
+  List.fold_left (fun h arg ->
+      let arg = comp ~yield bound arg in
+      locate (Syntax.Apply (h, arg)) (Location.union loc arg.Location.loc)) c cs
 
 (* Desugar handler cases. *)
 and handler ~loc bound hcs =
