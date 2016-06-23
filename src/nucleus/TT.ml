@@ -251,7 +251,7 @@ let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
 let rec occurs k {term=e';loc;_} =
   match e' with
   | Type -> false
-  | Atom _ -> true
+  | Atom _ -> false
   | Bound m -> k = m
   | Constant x -> false
   | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a

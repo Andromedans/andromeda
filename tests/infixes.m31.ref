@@ -27,7 +27,7 @@ val s : judgment
   : (A → A) → A → A → A
 
 ( ???₁ ) : A → A
-⊢ λ (x : A) (y : A), ???₁ ???₁ x : A → A → A
+⊢ λ (x : A) (_ : A), ???₁ ???₁ x : A → A → A
 
 ML type suspended declared.
 

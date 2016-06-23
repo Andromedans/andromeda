@@ -1,0 +1,226 @@
+(* An attempt to formalize a hierachy of universes. *)
+
+(* An auxliary lemma *)
+let f_apply f θ =
+  match (f, θ) with
+  | ((⊢ ?f : ∏ (?x : ?A), ?B), (⊢ ?θ : ?a ≡ ?b)) =>
+    congr_apply x (refl f) θ (refl A) (refl B)
+  end
+
+(* The type of all universe indices *)
+constant index : Type
+
+(* The partial ordering of universe indices *)
+
+constant ( < ) : index → index → Type
+constant lt_uip : ∏ (i j : index) (p q : i < j), p ≡ q
+now etas = add_eta lt_uip
+
+constant ( <= ) : index → index → Type
+constant leq_uip : ∏ (i j : index) (p q : i <= j), p ≡ q
+now etas = add_eta leq_uip
+
+constant lt_leq : ∏ (i j : index), i < j → i <= j
+constant leq_refl : ∏ i : index, i <= i
+
+(* The universes form a family indexed by, well, index. *)
+constant U : index → Type
+
+(* If i < j then U i has a name u i j _ in U j *)
+constant u : Π (i j : index), i < j → U j
+
+(* The elements of a universe are names of types *)
+constant El : Π (i : index), U i → Type
+
+constant u_El : Π (i j : index) (p : i < j), El j (u i j p) ≡ U i  (* : Type *)
+now betas = add_beta u_El
+
+constant lift : ∏ (i j : index) (p : i <= j), U i → U j
+constant lift_El :
+   ∏ (i j : index) (p : i <= j) (a : U i), El j (lift i j p a) ≡ El i a
+
+(* The following might be used to make people's brains happy(er) *)
+(* constant lift_id : ∏ (i : index) (p : i <= i) (a : U i), lift i i p a ≡ a
+   now betas = add_beta lift_id *)
+
+(* Names of dependent products *)
+constant pi : Π (i : index), ∏ (a : U i), (El i a → U i) → U i
+constant pi_El :
+   Π (i : index) (a : U i) (b : El i a → U i),
+     El i (pi i a b) ≡ (Π (x : El i a), El i (b x))  (* : Type *)
+now betas = add_beta pi_El
+
+
+(* The name of an equality type *)
+constant eq : Π (i : index) (a : U i), El i a → El i a → U i
+constant eq_El : ∏ (i : index) (a : U i) (x y : El i a), El i (eq i a x y) ≡ (x ≡ y)
+now betas = add_beta eq_El
+
+(* To have something to work with we give ourselves a base type *)
+constant Cow : Type
+
+constant cow : Π (i : index), U i
+constant cow_El: Π (i : index), El i (cow i) ≡ Cow  (* : Type *)
+now betas = add_beta cow_El
+
+constant indx : Π (i : index), U i
+constant indx_El: Π (i : index), El i (indx i) ≡ index  (* : Type *)
+now betas = add_beta indx_El
+
+(* We do not want the user to worry about the indices so we
+   do magic using handlers. *)
+
+operation UU : judgment
+
+(* A "temporary" "solution" *)
+let prove_leq i j =
+  assume p : i <= j in p
+
+let prove_lt i j =
+  assume p : i < j in p
+
+(* Reverse_engineer the name of a type with a proof that
+   it is correctly reverse_engineered *)
+let rec name_of_eq T j =
+  match T with
+  | ⊢ Cow => Some (cow_El j)
+
+  | ⊢ U ?i =>
+      let p = prove_lt i j in
+      Some (u_El i j p)
+
+  | ⊢ index => Some (indx_El j)
+
+  | ⊢ El j _ => Some (refl T)
+  | ⊢ El ?i ?a =>
+      let p = prove_leq i j in
+      Some (lift_El i j p a)
+
+  | ⊢ (?x ≡ ?y) =>
+      let A = typeof x in
+      match name_of_eq A j with
+      | None => None
+      | Some (⊢ ?ξ : El j ?a ≡ _) => 
+        let x' = convert x (symmetry ξ)
+        and y' = convert y (symmetry ξ) in
+        let α = (eq_El j a x' y') in
+        let β = convert_eq (x' ≡ y') ξ  in
+        Some (transitivity α β)
+      end
+
+  | ⊢ Π (?x : ?A), ?B =>
+      match name_of_eq A j with
+      | None => None
+      | Some (⊢ ?ξ : El j ?a ≡ _) => 
+          match name_of_eq B j with
+          | None => None
+          | Some (⊢ ?ξ2 : El j ?b ≡ _) => 
+             Some (pi_El j a (λ (y : El j a), b where x = y))
+          end
+      end
+
+  | ?J => 
+    match whnf T with
+    | ⊢ ?ζ : _ ≡ ?T' =>
+      match T' with
+      | T => None
+      | _ => 
+        match name_of_eq T' j with
+        | Some (⊢ ?ξ : El j ?a ≡ _) =>
+            let answer = tran Type (El j a) T' T ξ (symmetry ζ)  in
+            Some answer
+        | None => None
+        end
+      end
+    end
+  end
+
+(* The name of a type *)
+let name_of T i =
+  match name_of_eq T i with
+  | None => None
+  | Some (⊢ _ : El _ ?a ≡ _) => Some a
+  end
+
+let universe_handler =
+  handler
+
+  | coerce (⊢ ?a : ?B) (⊢ Type) =>
+    match whnf B with
+    | ⊢ ?ξ : _ ≡ U ?i => 
+      match whnf (El i a) with ⊢ _ : _ ≡ ?A => yield (Coercible A) end
+    | _ => yield (coerce a Type)
+    end
+
+  | coerce (⊢ ?a : ?B) (⊢ U ?j) =>
+    match whnf B with
+    | ⊢ _ : _ ≡ Type =>
+      match name_of a j with
+      | None => yield NotCoercible
+      | Some ?a => yield (Coercible a)
+      end
+    | ⊢ _ : _ ≡ U ?i =>
+      let p = prove_leq i j in
+      yield (Coercible (lift i j p a))
+    end
+
+  | UU : None => 
+    assume i : index in
+    assume j : index in
+    assume p : i < j in
+      yield (u i j p)
+
+  | UU : Some ?A =>
+    match whnf A with
+    | ⊢ ?ξ : _ ≡ U ?j =>
+        assume i : index in
+        assume p : i < j in
+          yield (convert (u i j p) (symmetry ξ))
+    | ⊢ ?ξ : _ ≡ Type =>
+      assume i : index in
+        yield (convert (U i) (symmetry ξ))
+    end
+
+  | equal (⊢ U ?i) (⊢ U ?j) =>
+    assume θ : i ≡ j in
+    yield (Some (f_apply U θ))
+  end
+
+(* examples *)
+do
+  with universe_handler handle
+    Cow : UU
+
+do
+  with universe_handler handle
+    UU : UU
+
+do with universe_handler handle
+  assume x : Cow in
+     (x ≡ x) : UU
+
+do with universe_handler handle
+  (Cow → Cow) : UU
+
+do
+  with universe_handler handle
+   let u0 = UU in
+   let u1 = UU : u0 in
+   let u2 = UU : u1 in
+   let u3 = UU : u1 in
+   (u0, u1, u2, u3)
+
+
+fail with universe_handler handle
+  (Π (i : index), U i) : UU
+
+
+do with universe_handler handle
+  assume A : UU in
+  assume a : A in
+    A : UU
+
+do with universe_handler handle
+   (λ (A : UU) (a : A), a) : ∏ (B : UU), B → B
+
+
