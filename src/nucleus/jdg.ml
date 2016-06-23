@@ -384,11 +384,13 @@ let print_error ~penv err ppf = match err with
       (TT.print_ty ~penv t)
 
   | RuleInputMismatch (rule, t1, desc1, t2, desc2) ->
-    Format.fprintf ppf "@[<v>In the %s rule, the following types should be identical:@,   @[<hov>%t@]@,(%s) and@,   @[<hov>%t@]@,(%s)@]@."
+    Format.fprintf ppf "@[<v>In the %s rule, the following types should be identical\
+:@,   @[<hov>%t@]@ (%s) and@,   @[<hov>%t@]@ (%s)@]@."
       rule (TT.print_ty ~penv t1) desc1 (TT.print_ty ~penv t2) desc2
 
   | RuleInputMismatchTerm (rule, e1, desc1, e2, desc2) ->
-    Format.fprintf ppf "@[<v>In the %s rule, the following terms should be identical:@,   @[<hov>%t@]@,(%s) and@,   @[<hov>%t@]@,(%s)@]@."
+    Format.fprintf ppf "@[<v>In the %s rule, the following terms should be identical\
+:@,   @[<hov>%t@]@ (%s) and@,   @[<hov>%t@]@ (%s)@]@."
       rule (TT.print_term ~penv e1) desc1 (TT.print_term ~penv e2) desc2
 
 (** Destructors *)
