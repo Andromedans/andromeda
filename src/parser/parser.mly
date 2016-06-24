@@ -313,12 +313,12 @@ top_handler_case:
       (op, ([x1;x2], y, t)) }
 
 top_patt_maybe_var:
-  | x=patt_var                   { x }
-  | UNDERSCORE                   { Name.anonymous () }
+  | x=patt_var                   { Some x }
+  | UNDERSCORE                   { None }
 
 top_handler_checking:
-  |                        { None }
-  | COLON x=top_patt_maybe_var { Some x }
+  |                            { None }
+  | COLON x=top_patt_maybe_var { x }
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
