@@ -396,8 +396,8 @@ plain_app_tt_pattern:
   | p=plain_prefix_tt_pattern                                { p }
   | p=prefix_tt_pattern ps=nonempty_list(prefix_tt_pattern)  { Tt_Spine (p, ps) }
 
-%inline prefix_tt_pattern: op=mark_location(plain_prefix_tt_pattern) { op }
-%inline plain_prefix_tt_pattern:
+prefix_tt_pattern: op=mark_location(plain_prefix_tt_pattern) { op }
+plain_prefix_tt_pattern:
   | p=plain_simple_tt_pattern        { p }
   | REFL p=prefix_tt_pattern         { Tt_Refl p }
   | UATOM p=prefix_tt_pattern        { Tt_GenAtom p }
