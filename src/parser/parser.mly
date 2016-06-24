@@ -424,6 +424,8 @@ tt_name:
 patt_var:
   | x=PATTVAR                    { x }
 
+(* TODO It is likely that tt_typed_binder and typed_binder share enough structure that
+   they could be unified and presented as two instances of the same thing. *)
 tt_typed_binder:
   | LPAREN xs=tt_name+ COLON t=tt_pattern RPAREN         { List.map (fun x -> (x, t)) xs }
 

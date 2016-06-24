@@ -46,8 +46,6 @@ let make start_lexpos end_lexpos =
 
 let locate x loc = { thing = x; loc }
 
-let apply f {thing=x; loc} = { thing = f x; loc }
-
 module Json =
 struct
   let location = function
