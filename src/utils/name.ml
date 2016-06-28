@@ -221,11 +221,11 @@ let print_atom ?parentheses ~printer x ppf =
 
 module Json =
 struct
-  let ident (Ident (s, _)) =
-    Json.of_ty "ident" ["data", Json.String s]
+  let ident = function
+    | Ident (s, Anonymous k) -> Json.tuple [Json.String s; Json.Int k]
+    | Ident (s, (Word|Prefix|Infix _)) -> Json.String s
 
-  let atom (Atom (s, _, k)) =
-    Json.of_ty "atom" ["data", Json.tuple [Json.String s; Json.Int k]]
+  let atom (Atom (s, _, k)) = Json.tuple [Json.String s; Json.Int k]
 
   let atomset s = Json.List (List.map atom (AtomSet.elements s))
 

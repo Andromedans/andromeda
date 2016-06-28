@@ -43,7 +43,11 @@ let externals =
       ((fun loc ->
       Runtime.return_closure (fun v ->
           let j = Runtime.Json.value v in
+          (* Temporarily set printing depth to infinity *)
+          let b = Format.get_max_boxes () in
+          Format.set_max_boxes 0 ;
           Format.printf "%t@." (Json.print j) ;
+          Format.set_max_boxes b ;
           Runtime.return_unit
         )),
       json_ty));
@@ -73,6 +77,14 @@ let externals =
           | "no-ascii" ->
             Config.ascii := false;
             Runtime.return_unit
+
+          | "json-location" ->
+             Config.json_location := true;
+             Runtime.return_unit
+
+          | "no-json-location" ->
+             Config.json_location := false;
+             Runtime.return_unit
 
           | _ -> Runtime.(error ~loc (UnknownConfig s))
         )),

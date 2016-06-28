@@ -846,21 +846,18 @@ struct
       AtomMap.fold
         (fun x {ty; needed_by} dict ->
          (Name.Json.atom x,
-          Json.record "entry" ["ty", TT.Json.ty ty;
-                               "needed_by", Name.Json.atomset needed_by]) :: dict)
+          Json.tuple [TT.Json.ty ty; Name.Json.atomset needed_by]) :: dict)
         ctx
         []
     in
-    Json.of_ty "ctx" ["data", Json.Dict dict]
+    Json.Dict dict
 
   let term (Term (ctx, e, ty)) =
-    (* XXX We pretend that terms are records, which they should be anyhow. *)
-    Json.of_ty "Jdg.term" ["context", context ctx;
-                           "term", TT.Json.term e;
-                           "type", TT.Json.ty ty]
+    Json.record [("context", context ctx);
+                 ("term", TT.Json.term e);
+                 ("ty", TT.Json.ty ty)]
 
   let ty (Ty (ctx, ty)) =
-    (* XXX We pretend that types are records, which they should be anyhow. *)
-    Json.of_ty "Jdg.term" ["context", context ctx;
-                           "type", TT.Json.ty ty]
+    Json.record [("context", context ctx);
+                 ("ty", TT.Json.ty ty)]
 end

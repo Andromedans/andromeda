@@ -11,15 +11,13 @@ type t =
   | List of t list
   | Dict of (t * t) list
 
-let of_ty ty lst =
-  let lst = List.map (fun (key, value) -> (String key, value)) lst in
-  Dict ((String "_ty", String ty) :: lst)
-
 let tuple lst = List lst
 
-let record = of_ty
+let record lst =
+  let lst = List.map (fun (key, value) -> (String key, value)) lst in
+  Dict lst
 
-let tag ty tag data = of_ty ty ["tag", String tag; "data", List data]
+let tag tag data = tuple ((String tag) :: data)
 
 let rec print data ppf =
   match data with
@@ -37,4 +35,3 @@ and print_entry (label, data) ppf =
   Format.fprintf ppf "@[<hv>%t :@ %t@]"
                  (print label)
                  (print data)
-

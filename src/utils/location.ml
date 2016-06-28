@@ -49,15 +49,16 @@ let locate x loc = { thing = x; loc }
 module Json =
 struct
   let location = function
-    | Unknown -> Json.tag "location" "Unknown" []
+    | Unknown -> Json.tag "Unknown" []
     | Known {filename; start_line; start_col; end_line; end_col} ->
-       Json.tag "location" "Known" [Json.String filename;
-                                    Json.Int start_line;
-                                    Json.Int start_col;
-                                    Json.Int end_line;
-                                    Json.Int end_col ]
+       Json.tuple [Json.String filename;
+                   Json.Int start_line;
+                   Json.Int start_col;
+                   Json.Int end_line;
+                   Json.Int end_col ]
 
   let located to_json {thing; loc} =
-    Json.record "located" ["thing", to_json thing;
-                           "loc", location loc]
+    if !Config.json_location
+    then Json.tuple [to_json thing; location loc]
+    else to_json thing
 end
