@@ -3,5 +3,5 @@ Constant A is declared.
 Constant B is declared.
 
 x₀ : A
-⊢ Π (_ : x₀ ≡ x₀), x₀ ≡ x₀ : Type
+⊢ x₀ ≡ x₀ → x₀ ≡ x₀ : Type
 
