@@ -476,12 +476,12 @@ let print_error ~penv err ppf =
 
   | AnnotationMismatch (t1, t2) ->
       Format.fprintf ppf
-      "@[<v>The type annotation is@,   @[<hov>%t@]@,but the surroundings imply it should be@,   @[<hov>%t@].@]"
+      "@[<v>The type annotation is@,   @[<hov>%t@]@ but the surroundings imply it should be@,   @[<hov>%t@].@]"
                     (Jdg.print_ty ~penv:penv t1)
                     (Jdg.print_ty ~penv:penv t2)
 
   | TypeMismatchCheckingMode (v, t) ->
-      Format.fprintf ppf "The term@,   @[<hov>%t@]@,is expected by its surroundings to have type@,   @[<hov>%t@]"
+      Format.fprintf ppf "The term@,   @[<hov>%t@]@ is expected by its surroundings to have type@,   @[<hov>%t@]"
                     (Jdg.print_term ~penv:penv v)
                     (Jdg.print_ty ~penv:penv t)
 
