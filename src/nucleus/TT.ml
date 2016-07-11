@@ -498,41 +498,41 @@ and print_prod ?max_level ~penv ((x, u), t) ppf =
                                xus)
 
 
-(** Conversion to s-expressions *)
+(** Conversion to JSON *)
 
 module Json =
 struct
 
   let rec term {term=e; assumptions=asm; loc} =
-    Json.record "term" ["term", term' e;
-                        "assumptions", Assumption.Json.assumptions asm;
-                        "loc", Location.Json.location loc]
+    if !Config.json_location
+    then Json.tuple [term' e; Assumption.Json.assumptions asm; Location.Json.location loc]
+    else Json.tuple [term' e; Assumption.Json.assumptions asm]
+
 
   and term' e =
-    let json = Json.tag "term'"  in
     match e with
 
-      | Type -> json "Type" []
+      | Type -> Json.tag "Type" []
 
-      | Atom a -> json "Atom" [Name.Json.atom a]
+      | Atom a -> Json.tag "Atom" [Name.Json.atom a]
 
-      | Bound b -> json "Bound" [Json.Int b]
+      | Bound b -> Json.tag "Bound" [Json.Int b]
 
-      | Constant c -> json "Constant" [Name.Json.ident c]
+      | Constant c -> Json.tag "Constant" [Name.Json.ident c]
 
       | Lambda (xt, (e, u)) ->
-         json "Lambda" [abstraction xt (Json.tuple [term e; ty u])]
+         Json.tag "Lambda" [abstraction xt (Json.tuple [term e; ty u])]
 
-      | Apply (e1, (xt, u), e2) -> json "Apply" [term e1; abstraction xt (ty u)]
+      | Apply (e1, (xt, u), e2) -> Json.tag "Apply" [term e1; abstraction xt (ty u); term e2]
 
-      | Prod (xt, u) -> json "Prod" [abstraction xt (ty u)]
+      | Prod (xt, u) -> Json.tag "Prod" [abstraction xt (ty u)]
 
-      | Eq (t, e1, e2) -> json "Eq" [ty t; term e1; term e2]
+      | Eq (t, e1, e2) -> Json.tag "Eq" [ty t; term e1; term e2]
 
-      | Refl (t, e) -> json "Refl" [ty t; term e]
+      | Refl (t, e) -> Json.tag "Refl" [ty t; term e]
 
   and abstraction (x, t) d = Json.tuple [Name.Json.ident x; ty t; d]
 
-  and ty (Ty e) = Json.tag "ty" "Ty" [term e]
+  and ty (Ty e) = term e
 
 end

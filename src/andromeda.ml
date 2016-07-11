@@ -58,6 +58,10 @@ let options = Arg.align [
       Arg.Unit (fun () -> Config.appty_guess := Config.GuessJdg),
       " Assume that unsolved applications are judgement applications.");
 
+    ("--json-location",
+     Arg.Set Config.json_location,
+     " Print locations in JSON output");
+
     ("-v",
      Arg.Unit (fun () ->
          Format.printf "Andromeda %s (%s)@." Build.version Sys.os_type ;

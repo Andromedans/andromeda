@@ -690,20 +690,20 @@ module Json =
 struct
 
   let rec value v =
-    let json = Json.tag "Runtime.value" in
     match v with
 
-      | Term e -> json "Term" [Jdg.Json.term e]
+    | Term e -> Json.tag "Term" [Jdg.Json.term e]
 
-      | Closure _ -> json "Closure" [Json.String "<closure>"]
+    | Closure _ -> Json.tag "<fun>" []
 
-      | Handler _ -> json "Handler" [Json.String "<handler>"]
+    | Handler _ -> Json.tag "<handler>" []
 
-      | Tag (c, lst) -> json "Tag" [Name.Json.ident c; Json.List (List.map value lst)]
+    | Tag (c, lst) -> Json.tag "Tag" [Name.Json.ident c; Json.List (List.map value lst)]
 
-      | Tuple lst -> json "Tuple" [Json.List (List.map value lst)]
+    | Tuple lst -> Json.tag "Tuple" [Json.List (List.map value lst)]
 
-      | Ref r -> json "Ref" [Json.String "<ref>"]
+    | Ref r -> Json.tag "<ref>" []
 
-      | String s -> json "String" [Json.String s]
+    | String s -> Json.tag "String" [Json.String s]
+
 end

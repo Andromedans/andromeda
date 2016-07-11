@@ -78,8 +78,15 @@ module Json =
 struct
 
   let assumptions {free; bound} =
-    let bound = List.map (fun k -> Json.Int k) (BoundSet.elements bound) in
-    Json.record "assumptions" ["free", Name.Json.atomset free;
-                               "bound", Json.List bound]
+    let free =
+      if AtomSet.is_empty free
+      then []
+      else [("free", Name.Json.atomset free)]
+    and bound =
+      if BoundSet.is_empty bound
+      then []
+      else [("bound", Json.List (List.map (fun k -> Json.Int k) (BoundSet.elements bound)))]
+    in
+      Json.record (free @ bound)
 
 end

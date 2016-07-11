@@ -1,5 +1,8 @@
 let printj = external "print_json"
 
+(* without locations *)
+do external "config" "no-json-location"
+
 do printj Type
 
 constant A : Type
@@ -16,3 +19,17 @@ do printj h
 do assume g : A → A in
    assume b : A in
    printj (g b)
+
+(* with locations *)
+do external "config" "json-location"
+
+do printj Type
+
+do printj A
+
+do printj h
+
+do assume g : A → A in
+   assume b : A in
+   printj (g b)
+

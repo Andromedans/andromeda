@@ -1,586 +1,149 @@
 val printj : ∀ α, α → mlunit
 
-{"_ty" : "Runtime.value",
- "tag" : "Term",
- "data" :
- [{"_ty" : "Jdg.term",
-   "context" : {"_ty" : "ctx", "data" : {}},
-   "term" :
-   {"_ty" : "term",
-    "term" : {"_ty" : "term'", "tag" : "Type", "data" : []},
-    "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-    "loc" :
-    {"_ty" : "location",
-     "tag" : "Known",
-     "data" : ["./json.m31", 3, 10, 3, 14]}},
-   "type" :
-   {"_ty" : "ty",
-    "tag" : "Ty",
-    "data" :
-    [{"_ty" : "term",
-      "term" : {"_ty" : "term'", "tag" : "Type", "data" : []},
-      "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-      "loc" :
-      {"_ty" : "location",
-       "tag" : "Known",
-       "data" : ["./json.m31", 3, 10, 3, 14]}}]}}]}
+()
+
+["Term", {"context" : {}, "term" : [["Type"], {}], "ty" : [["Type"], {}]}]
 ()
 
 Constant A is declared.
 
 Constant B is declared.
 
-{"_ty" : "Runtime.value",
- "tag" : "Term",
- "data" :
- [{"_ty" : "Jdg.term",
-   "context" : {"_ty" : "ctx", "data" : {}},
-   "term" :
-   {"_ty" : "term",
-    "term" :
-    {"_ty" : "term'",
-     "tag" : "Constant",
-     "data" : [{"_ty" : "ident", "data" : "A"}]},
-    "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-    "loc" :
-    {"_ty" : "location",
-     "tag" : "Known",
-     "data" : ["./json.m31", 8, 10, 8, 11]}},
-   "type" :
-   {"_ty" : "ty",
-    "tag" : "Ty",
-    "data" :
-    [{"_ty" : "term",
-      "term" : {"_ty" : "term'", "tag" : "Type", "data" : []},
-      "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-      "loc" :
-      {"_ty" : "location",
-       "tag" : "Known",
-       "data" : ["./json.m31", 5, 13, 5, 17]}}]}}]}
+["Term",
+ {"context" : {}, "term" : [["Constant", "A"], {}], "ty" : [["Type"], {}]}]
 ()
 
 Constant a is declared.
 
 val h : judgment
 
-{"_ty" : "Runtime.value",
- "tag" : "Term",
- "data" :
- [{"_ty" : "Jdg.term",
-   "context" : {"_ty" : "ctx", "data" : {}},
-   "term" :
-   {"_ty" : "term",
-    "term" :
-    {"_ty" : "term'",
-     "tag" : "Lambda",
-     "data" :
-     [[{"_ty" : "ident", "data" : "f"},
-       {"_ty" : "ty",
-        "tag" : "Ty",
-        "data" :
-        [{"_ty" : "term",
-          "term" :
-          {"_ty" : "term'",
-           "tag" : "Prod",
-           "data" :
-           [[{"_ty" : "ident", "data" : "x"},
-             {"_ty" : "ty",
-              "tag" : "Ty",
-              "data" :
-              [{"_ty" : "term",
-                "term" :
-                {"_ty" : "term'",
-                 "tag" : "Constant",
-                 "data" : [{"_ty" : "ident", "data" : "A"}]},
-                "assumptions" :
-                {"_ty" : "assumptions", "free" : [], "bound" : []},
-                "loc" :
-                {"_ty" : "location",
-                 "tag" : "Known",
-                 "data" : ["./json.m31", 12, 22, 12, 23]}}]},
-             {"_ty" : "ty",
-              "tag" : "Ty",
-              "data" :
-              [{"_ty" : "term",
-                "term" :
-                {"_ty" : "term'",
-                 "tag" : "Apply",
-                 "data" :
-                 [{"_ty" : "term",
-                   "term" :
-                   {"_ty" : "term'",
-                    "tag" : "Constant",
-                    "data" : [{"_ty" : "ident", "data" : "B"}]},
-                   "assumptions" :
-                   {"_ty" : "assumptions", "free" : [], "bound" : []},
-                   "loc" :
-                   {"_ty" : "location",
-                    "tag" : "Known",
-                    "data" : ["./json.m31", 12, 26, 12, 27]}},
-                  [{"_ty" : "ident", "data" : "anon"},
-                   {"_ty" : "ty",
-                    "tag" : "Ty",
-                    "data" :
-                    [{"_ty" : "term",
-                      "term" :
-                      {"_ty" : "term'",
-                       "tag" : "Constant",
-                       "data" : [{"_ty" : "ident", "data" : "A"}]},
-                      "assumptions" :
-                      {"_ty" : "assumptions", "free" : [], "bound" : []},
-                      "loc" :
-                      {"_ty" : "location",
-                       "tag" : "Known",
-                       "data" : ["./json.m31", 6, 13, 6, 14]}}]},
-                   {"_ty" : "ty",
-                    "tag" : "Ty",
-                    "data" :
-                    [{"_ty" : "term",
-                      "term" : {"_ty" : "term'", "tag" : "Type", "data" : []},
-                      "assumptions" :
-                      {"_ty" : "assumptions", "free" : [], "bound" : []},
-                      "loc" :
-                      {"_ty" : "location",
-                       "tag" : "Known",
-                       "data" : ["./json.m31", 6, 17, 6, 21]}}]}]]},
-                "assumptions" :
-                {"_ty" : "assumptions", "free" : [], "bound" : [0]},
-                "loc" :
-                {"_ty" : "location",
-                 "tag" : "Known",
-                 "data" : ["./json.m31", 12, 26, 12, 27]}}]}]]},
-          "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-          "loc" :
-          {"_ty" : "location",
-           "tag" : "Known",
-           "data" : ["./json.m31", 12, 14, 12, 30]}}]},
-       [{"_ty" : "term",
-         "term" :
-         {"_ty" : "term'",
-          "tag" : "Apply",
-          "data" :
-          [{"_ty" : "term",
-            "term" : {"_ty" : "term'", "tag" : "Bound", "data" : [0]},
-            "assumptions" :
-            {"_ty" : "assumptions", "free" : [], "bound" : [0]},
-            "loc" :
-            {"_ty" : "location",
-             "tag" : "Known",
-             "data" : ["./json.m31", 12, 14, 12, 30]}},
-           [{"_ty" : "ident", "data" : "x"},
-            {"_ty" : "ty",
-             "tag" : "Ty",
-             "data" :
-             [{"_ty" : "term",
-               "term" :
-               {"_ty" : "term'",
-                "tag" : "Constant",
-                "data" : [{"_ty" : "ident", "data" : "A"}]},
-               "assumptions" :
-               {"_ty" : "assumptions", "free" : [], "bound" : []},
-               "loc" :
-               {"_ty" : "location",
-                "tag" : "Known",
-                "data" : ["./json.m31", 12, 22, 12, 23]}}]},
-            {"_ty" : "ty",
-             "tag" : "Ty",
-             "data" :
-             [{"_ty" : "term",
-               "term" :
-               {"_ty" : "term'",
-                "tag" : "Apply",
-                "data" :
-                [{"_ty" : "term",
-                  "term" :
-                  {"_ty" : "term'",
-                   "tag" : "Constant",
-                   "data" : [{"_ty" : "ident", "data" : "B"}]},
-                  "assumptions" :
-                  {"_ty" : "assumptions", "free" : [], "bound" : []},
-                  "loc" :
-                  {"_ty" : "location",
-                   "tag" : "Known",
-                   "data" : ["./json.m31", 12, 26, 12, 27]}},
-                 [{"_ty" : "ident", "data" : "anon"},
-                  {"_ty" : "ty",
-                   "tag" : "Ty",
-                   "data" :
-                   [{"_ty" : "term",
-                     "term" :
-                     {"_ty" : "term'",
-                      "tag" : "Constant",
-                      "data" : [{"_ty" : "ident", "data" : "A"}]},
-                     "assumptions" :
-                     {"_ty" : "assumptions", "free" : [], "bound" : []},
-                     "loc" :
-                     {"_ty" : "location",
-                      "tag" : "Known",
-                      "data" : ["./json.m31", 6, 13, 6, 14]}}]},
-                  {"_ty" : "ty",
-                   "tag" : "Ty",
-                   "data" :
-                   [{"_ty" : "term",
-                     "term" : {"_ty" : "term'", "tag" : "Type", "data" : []},
-                     "assumptions" :
-                     {"_ty" : "assumptions", "free" : [], "bound" : []},
-                     "loc" :
-                     {"_ty" : "location",
-                      "tag" : "Known",
-                      "data" : ["./json.m31", 6, 17, 6, 21]}}]}]]},
-               "assumptions" :
-               {"_ty" : "assumptions", "free" : [], "bound" : [0]},
-               "loc" :
-               {"_ty" : "location",
-                "tag" : "Known",
-                "data" : ["./json.m31", 12, 26, 12, 27]}}]}]]},
-         "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : [0]},
-         "loc" :
-         {"_ty" : "location",
-          "tag" : "Known",
-          "data" : ["./json.m31", 12, 32, 12, 33]}},
-        {"_ty" : "ty",
-         "tag" : "Ty",
-         "data" :
-         [{"_ty" : "term",
-           "term" :
-           {"_ty" : "term'",
-            "tag" : "Apply",
-            "data" :
-            [{"_ty" : "term",
-              "term" :
-              {"_ty" : "term'",
-               "tag" : "Constant",
-               "data" : [{"_ty" : "ident", "data" : "B"}]},
-              "assumptions" :
-              {"_ty" : "assumptions", "free" : [], "bound" : []},
-              "loc" :
-              {"_ty" : "location",
-               "tag" : "Known",
-               "data" : ["./json.m31", 12, 26, 12, 27]}},
-             [{"_ty" : "ident", "data" : "anon"},
-              {"_ty" : "ty",
-               "tag" : "Ty",
-               "data" :
-               [{"_ty" : "term",
-                 "term" :
-                 {"_ty" : "term'",
-                  "tag" : "Constant",
-                  "data" : [{"_ty" : "ident", "data" : "A"}]},
-                 "assumptions" :
-                 {"_ty" : "assumptions", "free" : [], "bound" : []},
-                 "loc" :
-                 {"_ty" : "location",
-                  "tag" : "Known",
-                  "data" : ["./json.m31", 6, 13, 6, 14]}}]},
-              {"_ty" : "ty",
-               "tag" : "Ty",
-               "data" :
-               [{"_ty" : "term",
-                 "term" : {"_ty" : "term'", "tag" : "Type", "data" : []},
-                 "assumptions" :
-                 {"_ty" : "assumptions", "free" : [], "bound" : []},
-                 "loc" :
-                 {"_ty" : "location",
-                  "tag" : "Known",
-                  "data" : ["./json.m31", 6, 17, 6, 21]}}]}]]},
-           "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-           "loc" :
-           {"_ty" : "location",
-            "tag" : "Known",
-            "data" : ["./json.m31", 12, 26, 12, 27]}}]}]]]},
-    "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-    "loc" :
-    {"_ty" : "location",
-     "tag" : "Known",
-     "data" : ["./json.m31", 12, 8, 12, 35]}},
-   "type" :
-   {"_ty" : "ty",
-    "tag" : "Ty",
-    "data" :
-    [{"_ty" : "term",
-      "term" :
-      {"_ty" : "term'",
-       "tag" : "Prod",
-       "data" :
-       [[{"_ty" : "ident", "data" : "f"},
-         {"_ty" : "ty",
-          "tag" : "Ty",
-          "data" :
-          [{"_ty" : "term",
-            "term" :
-            {"_ty" : "term'",
-             "tag" : "Prod",
-             "data" :
-             [[{"_ty" : "ident", "data" : "x"},
-               {"_ty" : "ty",
-                "tag" : "Ty",
-                "data" :
-                [{"_ty" : "term",
-                  "term" :
-                  {"_ty" : "term'",
-                   "tag" : "Constant",
-                   "data" : [{"_ty" : "ident", "data" : "A"}]},
-                  "assumptions" :
-                  {"_ty" : "assumptions", "free" : [], "bound" : []},
-                  "loc" :
-                  {"_ty" : "location",
-                   "tag" : "Known",
-                   "data" : ["./json.m31", 12, 22, 12, 23]}}]},
-               {"_ty" : "ty",
-                "tag" : "Ty",
-                "data" :
-                [{"_ty" : "term",
-                  "term" :
-                  {"_ty" : "term'",
-                   "tag" : "Apply",
-                   "data" :
-                   [{"_ty" : "term",
-                     "term" :
-                     {"_ty" : "term'",
-                      "tag" : "Constant",
-                      "data" : [{"_ty" : "ident", "data" : "B"}]},
-                     "assumptions" :
-                     {"_ty" : "assumptions", "free" : [], "bound" : []},
-                     "loc" :
-                     {"_ty" : "location",
-                      "tag" : "Known",
-                      "data" : ["./json.m31", 12, 26, 12, 27]}},
-                    [{"_ty" : "ident", "data" : "anon"},
-                     {"_ty" : "ty",
-                      "tag" : "Ty",
-                      "data" :
-                      [{"_ty" : "term",
-                        "term" :
-                        {"_ty" : "term'",
-                         "tag" : "Constant",
-                         "data" : [{...}]},
-                        "assumptions" :
-                        {"_ty" : "assumptions", "free" : [], "bound" : []},
-                        "loc" :
-                        {"_ty" : "location",
-                         "tag" : "Known",
-                         "data" : ["./json.m31", 6, 13, 6, 14]}}]},
-                     {"_ty" : "ty",
-                      "tag" : "Ty",
-                      "data" :
-                      [{"_ty" : "term",
-                        "term" :
-                        {"_ty" : "term'", "tag" : "Type", "data" : []},
-                        "assumptions" :
-                        {"_ty" : "assumptions", "free" : [], "bound" : []},
-                        "loc" :
-                        {"_ty" : "location",
-                         "tag" : "Known",
-                         "data" : ["./json.m31", 6, 17, 6, 21]}}]}]]},
-                  "assumptions" :
-                  {"_ty" : "assumptions", "free" : [], "bound" : [0]},
-                  "loc" :
-                  {"_ty" : "location",
-                   "tag" : "Known",
-                   "data" : ["./json.m31", 12, 26, 12, 27]}}]}]]},
-            "assumptions" :
-            {"_ty" : "assumptions", "free" : [], "bound" : []},
-            "loc" :
-            {"_ty" : "location",
-             "tag" : "Known",
-             "data" : ["./json.m31", 12, 14, 12, 30]}}]},
-         {"_ty" : "ty",
-          "tag" : "Ty",
-          "data" :
-          [{"_ty" : "term",
-            "term" :
-            {"_ty" : "term'",
-             "tag" : "Apply",
-             "data" :
-             [{"_ty" : "term",
-               "term" :
-               {"_ty" : "term'",
-                "tag" : "Constant",
-                "data" : [{"_ty" : "ident", "data" : "B"}]},
-               "assumptions" :
-               {"_ty" : "assumptions", "free" : [], "bound" : []},
-               "loc" :
-               {"_ty" : "location",
-                "tag" : "Known",
-                "data" : ["./json.m31", 12, 26, 12, 27]}},
-              [{"_ty" : "ident", "data" : "anon"},
-               {"_ty" : "ty",
-                "tag" : "Ty",
-                "data" :
-                [{"_ty" : "term",
-                  "term" :
-                  {"_ty" : "term'",
-                   "tag" : "Constant",
-                   "data" : [{"_ty" : "ident", "data" : "A"}]},
-                  "assumptions" :
-                  {"_ty" : "assumptions", "free" : [], "bound" : []},
-                  "loc" :
-                  {"_ty" : "location",
-                   "tag" : "Known",
-                   "data" : ["./json.m31", 6, 13, 6, 14]}}]},
-               {"_ty" : "ty",
-                "tag" : "Ty",
-                "data" :
-                [{"_ty" : "term",
-                  "term" : {"_ty" : "term'", "tag" : "Type", "data" : []},
-                  "assumptions" :
-                  {"_ty" : "assumptions", "free" : [], "bound" : []},
-                  "loc" :
-                  {"_ty" : "location",
-                   "tag" : "Known",
-                   "data" : ["./json.m31", 6, 17, 6, 21]}}]}]]},
-            "assumptions" :
-            {"_ty" : "assumptions", "free" : [], "bound" : []},
-            "loc" :
-            {"_ty" : "location",
-             "tag" : "Known",
-             "data" : ["./json.m31", 12, 26, 12, 27]}}]}]]},
-      "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-      "loc" :
-      {"_ty" : "location",
-       "tag" : "Known",
-       "data" : ["./json.m31", 12, 8, 12, 35]}}]}}]}
+["Term",
+ {"context" : {},
+  "term" :
+  [["Lambda",
+    ["f",
+     [["Prod",
+       ["x", [["Constant", "A"], {}],
+        [["Apply", [["Constant", "B"], {}],
+          [["anon", 11], [["Constant", "A"], {}], [["Type"], {}]],
+          [["Bound", 0], {"bound" : [0]}]], {"bound" : [0]}]]], {}],
+     [[["Apply", [["Bound", 0], {"bound" : [0]}],
+        ["x", [["Constant", "A"], {}],
+         [["Apply", [["Constant", "B"], {}],
+           [["anon", 11], [["Constant", "A"], {}], [["Type"], {}]],
+           [["Bound", 0], {"bound" : [0]}]], {"bound" : [0]}]],
+        [["Constant", "a"], {}]], {"bound" : [0]}],
+      [["Apply", [["Constant", "B"], {}],
+        [["anon", 11], [["Constant", "A"], {}], [["Type"], {}]],
+        [["Constant", "a"], {}]], {}]]]], {}],
+  "ty" :
+  [["Prod",
+    ["f",
+     [["Prod",
+       ["x", [["Constant", "A"], {}],
+        [["Apply", [["Constant", "B"], {}],
+          [["anon", 11], [["Constant", "A"], {}], [["Type"], {}]],
+          [["Bound", 0], {"bound" : [0]}]], {"bound" : [0]}]]], {}],
+     [["Apply", [["Constant", "B"], {}],
+       [["anon", 11], [["Constant", "A"], {}], [["Type"], {}]],
+       [["Constant", "a"], {}]], {}]]], {}]}]
 ()
 
-{"_ty" : "Runtime.value",
- "tag" : "Term",
- "data" :
- [{"_ty" : "Jdg.term",
-   "context" :
-   {"_ty" : "ctx",
-    "data" :
-    {{"_ty" : "atom", "data" : ["b", 50]} :
-     {"_ty" : "entry",
-      "ty" :
-      {"_ty" : "ty",
-       "tag" : "Ty",
-       "data" :
-       [{"_ty" : "term",
-         "term" :
-         {"_ty" : "term'",
-          "tag" : "Constant",
-          "data" : [{"_ty" : "ident", "data" : "A"}]},
-         "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-         "loc" :
-         {"_ty" : "location",
-          "tag" : "Known",
-          "data" : ["./json.m31", 17, 14, 17, 15]}}]},
-      "needed_by" : []},
-     {"_ty" : "atom", "data" : ["g", 49]} :
-     {"_ty" : "entry",
-      "ty" :
-      {"_ty" : "ty",
-       "tag" : "Ty",
-       "data" :
-       [{"_ty" : "term",
-         "term" :
-         {"_ty" : "term'",
-          "tag" : "Prod",
-          "data" :
-          [[{"_ty" : "ident", "data" : "anon"},
-            {"_ty" : "ty",
-             "tag" : "Ty",
-             "data" :
-             [{"_ty" : "term",
-               "term" :
-               {"_ty" : "term'",
-                "tag" : "Constant",
-                "data" : [{"_ty" : "ident", "data" : "A"}]},
-               "assumptions" :
-               {"_ty" : "assumptions", "free" : [], "bound" : []},
-               "loc" :
-               {"_ty" : "location",
-                "tag" : "Known",
-                "data" : ["./json.m31", 16, 14, 16, 15]}}]},
-            {"_ty" : "ty",
-             "tag" : "Ty",
-             "data" :
-             [{"_ty" : "term",
-               "term" :
-               {"_ty" : "term'",
-                "tag" : "Constant",
-                "data" : [{"_ty" : "ident", "data" : "A"}]},
-               "assumptions" :
-               {"_ty" : "assumptions", "free" : [], "bound" : []},
-               "loc" :
-               {"_ty" : "location",
-                "tag" : "Known",
-                "data" : ["./json.m31", 16, 18, 16, 19]}}]}]]},
-         "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-         "loc" :
-         {"_ty" : "location",
-          "tag" : "Known",
-          "data" : ["./json.m31", 16, 14, 16, 19]}}]},
-      "needed_by" : []}}},
-   "term" :
-   {"_ty" : "term",
-    "term" :
-    {"_ty" : "term'",
-     "tag" : "Apply",
-     "data" :
-     [{"_ty" : "term",
-       "term" :
-       {"_ty" : "term'",
-        "tag" : "Atom",
-        "data" : [{"_ty" : "atom", "data" : ["g", 49]}]},
-       "assumptions" :
-       {"_ty" : "assumptions",
-        "free" : [{"_ty" : "atom", "data" : ["g", 49]}],
-        "bound" : []},
-       "loc" :
-       {"_ty" : "location",
-        "tag" : "Known",
-        "data" : ["./json.m31", 16, 3, 18, 15]}},
-      [{"_ty" : "ident", "data" : "anon"},
-       {"_ty" : "ty",
-        "tag" : "Ty",
-        "data" :
-        [{"_ty" : "term",
-          "term" :
-          {"_ty" : "term'",
-           "tag" : "Constant",
-           "data" : [{"_ty" : "ident", "data" : "A"}]},
-          "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-          "loc" :
-          {"_ty" : "location",
-           "tag" : "Known",
-           "data" : ["./json.m31", 16, 14, 16, 15]}}]},
-       {"_ty" : "ty",
-        "tag" : "Ty",
-        "data" :
-        [{"_ty" : "term",
-          "term" :
-          {"_ty" : "term'",
-           "tag" : "Constant",
-           "data" : [{"_ty" : "ident", "data" : "A"}]},
-          "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-          "loc" :
-          {"_ty" : "location",
-           "tag" : "Known",
-           "data" : ["./json.m31", 16, 18, 16, 19]}}]}]]},
-    "assumptions" :
-    {"_ty" : "assumptions",
-     "free" :
-     [{"_ty" : "atom", "data" : ["g", 49]},
-      {"_ty" : "atom", "data" : ["b", 50]}],
-     "bound" : []},
-    "loc" :
-    {"_ty" : "location",
-     "tag" : "Known",
-     "data" : ["./json.m31", 18, 11, 18, 12]}},
-   "type" :
-   {"_ty" : "ty",
-    "tag" : "Ty",
-    "data" :
-    [{"_ty" : "term",
-      "term" :
-      {"_ty" : "term'",
-       "tag" : "Constant",
-       "data" : [{"_ty" : "ident", "data" : "A"}]},
-      "assumptions" : {"_ty" : "assumptions", "free" : [], "bound" : []},
-      "loc" :
-      {"_ty" : "location",
-       "tag" : "Known",
-       "data" : ["./json.m31", 16, 18, 16, 19]}}]}}]}
+["Term",
+ {"context" :
+  {["b", 50] : [[["Constant", "A"], {}], []],
+   ["g", 49] :
+   [[["Prod",
+      [["anon", 12], [["Constant", "A"], {}], [["Constant", "A"], {}]]], {
+     }], []]},
+  "term" :
+  [["Apply", [["Atom", ["g", 49]], {"free" : [["g", 49]]}],
+    [["anon", 12], [["Constant", "A"], {}], [["Constant", "A"], {}]],
+    [["Atom", ["b", 50]], {"free" : [["b", 50]]}]],
+   {"free" : [["g", 49], ["b", 50]]}],
+  "ty" : [["Constant", "A"], {}]}]
+()
+
+()
+
+["Term",
+ {"context" : {},
+  "term" : [["Type"], {}, ["./json.m31", 26, 10, 26, 14]],
+  "ty" : [["Type"], {}, ["./json.m31", 26, 10, 26, 14]]}]
+()
+
+["Term",
+ {"context" : {},
+  "term" : [["Constant", "A"], {}, ["./json.m31", 28, 10, 28, 11]],
+  "ty" : [["Type"], {}, ["./json.m31", 8, 13, 8, 17]]}]
+()
+
+["Term",
+ {"context" : {},
+  "term" :
+  [["Lambda",
+    ["f",
+     [["Prod",
+       ["x", [["Constant", "A"], {}, ["./json.m31", 15, 22, 15, 23]],
+        [["Apply", [["Constant", "B"], {}, ["./json.m31", 15, 26, 15, 27]],
+          [["anon", 11],
+           [["Constant", "A"], {}, ["./json.m31", 9, 13, 9, 14]],
+           [["Type"], {}, ["./json.m31", 9, 17, 9, 21]]],
+          [["Bound", 0], {"bound" : [0]}, ["./json.m31", 15, 22, 15, 23]]],
+         {"bound" : [0]}, ["./json.m31", 15, 26, 15, 27]]]], {},
+      ["./json.m31", 15, 14, 15, 30]],
+     [[["Apply",
+        [["Bound", 0], {"bound" : [0]}, ["./json.m31", 15, 14, 15, 30]],
+        ["x", [["Constant", "A"], {}, ["./json.m31", 15, 22, 15, 23]],
+         [["Apply", [["Constant", "B"], {}, ["./json.m31", 15, 26, 15, 27]],
+           [["anon", 11],
+            [["Constant", "A"], {}, ["./json.m31", 9, 13, 9, 14]],
+            [["Type"], {}, ["./json.m31", 9, 17, 9, 21]]],
+           [["Bound", 0], {"bound" : [0]}, ["./json.m31", 15, 22, 15, 23]]],
+          {"bound" : [0]}, ["./json.m31", 15, 26, 15, 27]]],
+        [["Constant", "a"], {}, ["./json.m31", 15, 34, 15, 35]]],
+       {"bound" : [0]}, ["./json.m31", 15, 32, 15, 33]],
+      [["Apply", [["Constant", "B"], {}, ["./json.m31", 15, 26, 15, 27]],
+        [["anon", 11], [["Constant", "A"], {}, ["./json.m31", 9, 13, 9, 14]],
+         [["Type"], {}, ["./json.m31", 9, 17, 9, 21]]],
+        [["Constant", "a"], {}, ["./json.m31", 15, 34, 15, 35]]], {},
+       ["./json.m31", 15, 26, 15, 27]]]]], {}, ["./json.m31", 15, 8, 15, 35]],
+  "ty" :
+  [["Prod",
+    ["f",
+     [["Prod",
+       ["x", [["Constant", "A"], {}, ["./json.m31", 15, 22, 15, 23]],
+        [["Apply", [["Constant", "B"], {}, ["./json.m31", 15, 26, 15, 27]],
+          [["anon", 11],
+           [["Constant", "A"], {}, ["./json.m31", 9, 13, 9, 14]],
+           [["Type"], {}, ["./json.m31", 9, 17, 9, 21]]],
+          [["Bound", 0], {"bound" : [0]}, ["./json.m31", 15, 22, 15, 23]]],
+         {"bound" : [0]}, ["./json.m31", 15, 26, 15, 27]]]], {},
+      ["./json.m31", 15, 14, 15, 30]],
+     [["Apply", [["Constant", "B"], {}, ["./json.m31", 15, 26, 15, 27]],
+       [["anon", 11], [["Constant", "A"], {}, ["./json.m31", 9, 13, 9, 14]],
+        [["Type"], {}, ["./json.m31", 9, 17, 9, 21]]],
+       [["Constant", "a"], {}, ["./json.m31", 15, 34, 15, 35]]], {},
+      ["./json.m31", 15, 26, 15, 27]]]], {}, ["./json.m31", 15, 8, 15, 35]]}]
+()
+
+["Term",
+ {"context" :
+  {["b", 54] : [[["Constant", "A"], {}, ["./json.m31", 33, 14, 33, 15]], []],
+   ["g", 53] :
+   [[["Prod",
+      [["anon", 13], [["Constant", "A"], {}, ["./json.m31", 32, 14, 32, 15]],
+       [["Constant", "A"], {}, ["./json.m31", 32, 18, 32, 19]]]], {},
+     ["./json.m31", 32, 14, 32, 19]], []]},
+  "term" :
+  [["Apply",
+    [["Atom", ["g", 53]], {"free" : [["g", 53]]},
+     ["./json.m31", 32, 3, 34, 15]],
+    [["anon", 13], [["Constant", "A"], {}, ["./json.m31", 32, 14, 32, 15]],
+     [["Constant", "A"], {}, ["./json.m31", 32, 18, 32, 19]]],
+    [["Atom", ["b", 54]], {"free" : [["b", 54]]},
+     ["./json.m31", 33, 3, 34, 15]]], {"free" : [["g", 53], ["b", 54]]},
+   ["./json.m31", 34, 11, 34, 12]],
+  "ty" : [["Constant", "A"], {}, ["./json.m31", 32, 18, 32, 19]]}]
 ()
 

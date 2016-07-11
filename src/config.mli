@@ -35,6 +35,9 @@ val columns : int ref
 (** Should atoms be printed with freshness subscripts? *)
 val global_atom_printer : bool ref
 
+(** Should JSON format print locations? *)
+val json_location : bool ref
+
 (** What should we do if we get an unsolved application constraint? *)
 type appty_guess =
   | NoGuess

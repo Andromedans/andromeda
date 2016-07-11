@@ -19,6 +19,8 @@ let max_boxes = ref 42
 
 let global_atom_printer = ref true
 
+let json_location = ref false
+
 let columns = ref (Format.get_margin ())
 
 type appty_guess =
