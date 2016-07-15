@@ -46,9 +46,7 @@ for FILE in $BASEDIR/*.m31
 do
     while :
     do
-        # if egrep -qe 'local' -e "add_" $FILE; then break; fi;
-        # PRELUDE="--prelude ~/su/lib/harper-stone.m31"
-        "$ANDROMEDA" $PRELUDE "$FILE" >"$FILE.out" 2>&1
+        "$ANDROMEDA" "$FILE" >"$FILE.out" 2>&1
         if [ -f $FILE.ref ]
         then
             RESULT=`"$DIFF" "$FILE.ref" "$FILE.out"`

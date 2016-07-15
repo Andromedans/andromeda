@@ -1,0 +1,7 @@
+Constant A is declared.
+
+Constant B is declared.
+
+x₀ : A
+⊢ x₀ ≡ x₀ → x₀ ≡ x₀ : Type
+

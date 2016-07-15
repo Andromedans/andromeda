@@ -1,10 +1,5 @@
 %{
   open Input
-
-  let tt_spine h lst =
-    let loc = snd h in
-    List.fold_left (fun h e -> Tt_Apply (h, e), loc) h lst
-
 %}
 
 (* Type *)
@@ -171,8 +166,11 @@ binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
   | e=plain_app_term                                { e }
   | e1=app_term COLONEQ e2=binop_term               { Update (e1, e2) }
-  | e2=binop_term op=infix e3=binop_term
-    { let e1 = Var (fst op), snd op in Spine (e1, [e2; e3]) }
+  | e2=binop_term oploc=infix e3=binop_term
+    { let (op, loc) = oploc in
+      let op = Location.locate (Var op) loc in
+      Spine (op, [e2; e3])
+    }
 
 app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
@@ -195,8 +193,11 @@ plain_prefix_term:
   | e=plain_simple_term                        { e }
   | REF e=prefix_term                          { Ref e }
   | BANG e=prefix_term                         { Lookup e }
-  | op=PREFIXOP e2=prefix_term                 { let e1 = Var (fst op), snd op in
-                                                 Spine (e1, [e2]) }
+  | oploc=prefix e2=prefix_term
+    { let (op, loc) = oploc in
+      let op = Location.locate (Var op) loc in
+      Spine (op, [e2])
+    }
   | NATURAL t=prefix_term                      { Natural t }
   | YIELD e=prefix_term                        { Yield e }
   | REFL e=prefix_term                         { Refl e }
@@ -209,13 +210,13 @@ plain_simple_term:
   | s=QUOTED_STRING                                     { String s }
   | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
   | LPAREN lst=separated_list(COMMA, term) RPAREN       { match lst with
-                                                          | [e] -> fst e
+                                                          | [{Location.thing=e;loc=_}] -> e
                                                           | _ -> Tuple lst }
 
 var_name:
   | NAME { $1 }
-  | LPAREN op=infix RPAREN { fst op }
-  | LPAREN op=PREFIXOP RPAREN  { fst op }
+  | LPAREN op=infix RPAREN   { fst op }
+  | LPAREN op=prefix RPAREN  { fst op }
 
 %inline infix:
   | op=INFIXCONS   { op }
@@ -226,6 +227,8 @@ var_name:
   | op=STAR        { op }
   | op=INFIXOP4    { op }
 
+%inline prefix:
+  | op=PREFIXOP { op }
 
 name:
   | x=var_name { x }
@@ -279,10 +282,14 @@ handler_cases:
 handler_case:
   | VAL p=pattern DARROW t=term                                 { CaseVal (p, t) }
   | op=var_name ps=prefix_pattern* pt=handler_checking DARROW t=term                { CaseOp (op, (ps, pt, t)) }
-  | op=PREFIXOP p=prefix_pattern pt=handler_checking DARROW t=term
-    { let op = fst op in CaseOp (op, ([p], pt, t)) }
-  | p1=binop_pattern op=infix p2=binop_pattern pt=handler_checking DARROW t=term
-    { CaseOp (fst op, ([p1; p2], pt, t)) }
+  | oploc=prefix p=prefix_pattern pt=handler_checking DARROW t=term
+      { let (op, _) = oploc in
+        CaseOp (op, ([p], pt, t))
+      }
+  | p1=binop_pattern oploc=infix p2=binop_pattern pt=handler_checking DARROW t=term
+    { let (op, _) = oploc in
+      CaseOp (op, ([p1; p2], pt, t))
+    }
   | FINALLY p=pattern DARROW t=term                             { CaseFinally (p, t) }
 
 handler_checking:
@@ -295,15 +302,23 @@ top_handler_cases:
 
 (* XXX allow patterns here *)
 top_handler_case:
-  | op=var_name xs=top_patt_maybe_var* y=top_handler_checking DARROW t=term           { (op, (xs, y, t)) }
-  | op=PREFIXOP x=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x], y, t)) }
-  | x1=top_patt_maybe_var op=infix x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
-    { (fst op, ([x1;x2], y, t)) }
+  | op=var_name xs=top_patt_maybe_var* y=top_handler_checking DARROW t=term
+    { (op, (xs, y, t)) }
+  | oploc=prefix x=top_patt_maybe_var y=top_handler_checking DARROW t=term
+    { let (op, _) = oploc in
+      (op, ([x], y, t))
+    }
+  | x1=top_patt_maybe_var oploc=infix x2=top_patt_maybe_var y=top_handler_checking DARROW t=term
+    { let (op, _) = oploc in
+      (op, ([x1;x2], y, t)) }
+
+top_patt_maybe_var:
+  | x=patt_var                   { Some x }
+  | UNDERSCORE                   { None }
 
 top_handler_checking:
-  |                        { None }
-  | COLON x=top_patt_maybe_var { Some x }
+  |                            { None }
+  | COLON x=top_patt_maybe_var { x }
 
 match_cases:
   | BAR lst=separated_nonempty_list(BAR, match_case)  { lst }
@@ -318,14 +333,16 @@ pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
   | p=plain_binop_pattern                   { p }
   | p=simple_pattern AS x=patt_var          { Patt_As (p,x) }
-  | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, e2) }
-  | VDASH e1=tt_pattern                     { Patt_Jdg (e1, (Tt_Anonymous, snd e1)) }
+  | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, Some e2) }
+  | VDASH e1=tt_pattern                     { Patt_Jdg (e1, None) }
 
 binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
   | e=plain_app_pattern                                { e }
-  | e1=binop_pattern op=infix e2=binop_pattern
-    { Patt_Constr (fst op, [e1; e2]) }
+  | e1=binop_pattern oploc=infix e2=binop_pattern
+    { let (op, _) = oploc in
+      Patt_Constr (op, [e1; e2])
+    }
 
 (* app_pattern: mark_location(plain_app_pattern) { $1 } *)
 plain_app_pattern:
@@ -334,30 +351,31 @@ plain_app_pattern:
 
 prefix_pattern: mark_location(plain_prefix_pattern) { $1 }
 plain_prefix_pattern:
-  | e=plain_simple_pattern           { e }
-  | op=PREFIXOP e=prefix_pattern     { let op = fst op in
-                                       Patt_Constr (op, [e]) }
+  | e=plain_simple_pattern            { e }
+  | oploc=prefix e=prefix_pattern
+    { let (op, _) = oploc in
+      Patt_Constr (op, [e])
+    }
 
 simple_pattern: mark_location(plain_simple_pattern) { $1 }
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
   | x=patt_var                     { Patt_Var x }
   | x=var_name                     { Patt_Name x }
-  | LPAREN ps=separated_list(COMMA, pattern) RPAREN  { match ps with [p] -> fst p | _ -> Patt_Tuple ps }
+  | LPAREN ps=separated_list(COMMA, pattern) RPAREN
+    { match ps with
+      | [{Location.thing=p;loc=_}] -> p
+      | _ -> Patt_Tuple ps
+    }
   | LBRACK ps=separated_list(COMMA, pattern) RBRACK { Patt_List ps }
 
 tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
-  | p=plain_equal_tt_pattern                  { p }
-  | LAMBDA bs=tt_binder+ COMMA p=tt_pattern   { fst (List.fold_right
-                                                       (fun ((x, b, pt), loc) p -> Tt_Lambda (b, x, pt, p), loc)
-                                                       (List.concat bs) p)
-                                               }
-  | PROD bs=tt_binder+ COMMA p=tt_pattern     { fst (List.fold_right
-                                                       (fun ((x, b, pt), loc) p -> Tt_Prod (b, x, pt, p), loc)
-                                                       (List.concat bs) p)
-                                              }
-  | p1=equal_tt_pattern ARROW p2=tt_pattern   { Tt_Prod (false, Name.anonymous (), Some p1, p2) }
+  | p=plain_equal_tt_pattern                     { p }
+  | LAMBDA a=tt_abstraction COMMA p=tt_pattern   { Tt_Lambda (a, p) }
+  | PROD a=tt_abstraction COMMA p=tt_pattern     { Tt_Prod (a, p) }
+  | p1=equal_tt_pattern ARROW p2=tt_pattern      { Tt_Prod ([(NonPattVar (Name.anonymous ()), Some p1)], p2) }
+  | p=app_tt_pattern AS x=patt_var               { Tt_As (p,x) }
 
 equal_tt_pattern: mark_location(plain_equal_tt_pattern) { $1 }
 plain_equal_tt_pattern:
@@ -367,23 +385,28 @@ plain_equal_tt_pattern:
 binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
 plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
-  | e1=binop_tt_pattern op=infix e2=binop_tt_pattern
-    { let op = Tt_Name (fst op), snd op in fst (tt_spine op [e1; e2]) }
+  | e1=binop_tt_pattern oploc=infix e2=binop_tt_pattern
+    { let (op, loc) = oploc in
+      let op = Location.locate (Tt_Name op) loc in
+      Tt_Spine (op, [e1; e2])
+    }
 
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
-  | p=plain_prefix_tt_pattern                 { p }
-  | p=app_tt_pattern AS x=patt_var            { Tt_As (p,x) }
-  | p1=app_tt_pattern p2=prefix_tt_pattern    { Tt_Apply (p1, p2) }
+  | p=plain_prefix_tt_pattern                                { p }
+  | p=prefix_tt_pattern ps=nonempty_list(prefix_tt_pattern)  { Tt_Spine (p, ps) }
 
-prefix_tt_pattern: mark_location(plain_prefix_tt_pattern) { $1 }
+prefix_tt_pattern: op=mark_location(plain_prefix_tt_pattern) { op }
 plain_prefix_tt_pattern:
-  | p=plain_simple_tt_pattern                     { p }
-  | REFL p=prefix_tt_pattern                      { Tt_Refl p }
-  | UATOM p=prefix_tt_pattern                     { Tt_GenAtom p }
-  | UCONSTANT p=prefix_tt_pattern                 { Tt_GenConstant p }
-  | op=PREFIXOP e=prefix_tt_pattern
-    { let op = Tt_Name (fst op), snd op in Tt_Apply (op, e) }
+  | p=plain_simple_tt_pattern        { p }
+  | REFL p=prefix_tt_pattern         { Tt_Refl p }
+  | UATOM p=prefix_tt_pattern        { Tt_GenAtom p }
+  | UCONSTANT p=prefix_tt_pattern    { Tt_GenConstant p }
+  | oploc=prefix e=prefix_tt_pattern
+    { let (op, loc) = oploc in
+      let op = Location.locate (Tt_Name op) loc in
+      Tt_Spine (op, [e])
+    }
 
 plain_simple_tt_pattern:
   | UNDERSCORE                                                           { Tt_Anonymous }
@@ -392,25 +415,43 @@ plain_simple_tt_pattern:
   | x=var_name                                                           { Tt_Name x }
   | LPAREN p=plain_tt_pattern RPAREN                                     { p }
 
-tt_binder:
-  | LPAREN lst=separated_nonempty_list(COMMA, maybe_typed_tt_names) RPAREN
-      { List.concat (List.map (fun (xs, loc) -> List.map (fun x -> x, loc) xs) lst) }
-
-maybe_typed_tt_names: mark_location(plain_maybe_typed_tt_names) { $1 }
-plain_maybe_typed_tt_names:
-  | xs=tt_name+ COLON p=tt_pattern  { List.map (fun (x,b) -> (x, b, Some p)) xs }
-  | xs=tt_name+                     { List.map (fun (x,b) -> (x, b, None)) xs }
-
+(* The TT pattern for abstraction follows the lambda abstraction syntax *)
 tt_name:
-  | x=name                       { x, false }
-  | x=patt_var                   { x, true  }
-
-top_patt_maybe_var:
-  | x=patt_var                   { x }
-  | UNDERSCORE                   { Name.anonymous () }
+  | x=var_name      { NonPattVar x }
+  | UNDERSCORE      { PattVar (Name.anonymous ()) }
+  | x=PATTVAR       { PattVar x }
 
 patt_var:
   | x=PATTVAR                    { x }
+
+(* TODO It is likely that tt_typed_binder and typed_binder share enough structure that
+   they could be unified and presented as two instances of the same thing. *)
+tt_typed_binder:
+  | LPAREN xs=tt_name+ COLON t=tt_pattern RPAREN         { List.map (fun x -> (x, t)) xs }
+
+tt_maybe_typed_binder:
+  | x=tt_name                                            { [(x, None)] }
+  | LPAREN xs=tt_name+ COLON t=tt_pattern RPAREN         { List.map (fun x -> (x, Some t)) xs }
+
+tt_abstraction:
+  | lam=raw_nonempty_tt_abstraction { fst lam }
+
+raw_nonempty_tt_abstraction:
+  | x=tt_name lam=raw_tt_abstraction
+    { let (l,t) = lam in ((x,t)::l,t) }
+  | xs=tt_typed_binder ys=tt_maybe_typed_binder*
+    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
+
+raw_tt_abstraction:
+  | { ([],None) }
+  | COLON t=tt_pattern { ([],Some t) }
+  | x=tt_name lam=raw_tt_abstraction
+    { let (l,t) = lam in ((x,t)::l,t) }
+  | xs=tt_typed_binder ys=tt_maybe_typed_binder*
+    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
+
+(***)
+
 
 (* ML types *)
 
@@ -437,7 +478,7 @@ plain_prod_mlty:
   | ts=separated_nonempty_list(STAR, app_mlty)
     { match ts with
       | [] -> assert false
-      | [t] -> fst t
+      | [{Location.thing=t;loc=_}] -> t
       | _::_::_ -> ML_Prod ts
     }
 
@@ -472,5 +513,5 @@ mlty_constructor:
 
 mark_location(X):
   x=X
-  { x, Location.make $startpos $endpos }
+  { Location.locate x (Location.make $startpos $endpos) }
 %%
