@@ -454,7 +454,7 @@ and check_lambda ~loc t_check x u c =
       let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
       Runtime.return lam))
 
-(* apply: loc:Location.t -> Jdg.term -> 'annot Syntax.comp
+(* apply: loc:Location.t -> loc_head:Location.t -> Jdg.term -> 'annot Syntax.comp
                -> Runtime.value Runtime.comp *)
 and apply ~loc ~loc_head h c =
   Equal.coerce_fun ~loc h >>= function
