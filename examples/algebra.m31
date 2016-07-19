@@ -10,7 +10,7 @@ end
 
 let print_signature = external "print_signature"
 
-#include_once "struct-coerce.m31"
+require "struct-coerce.m31"
 
 (** *************** **)
 

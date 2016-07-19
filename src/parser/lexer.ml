@@ -44,6 +44,7 @@ let reserved = [
   ("rec", REC) ;
   ("ref", REF) ;
   ("refl", REFL) ;
+  ("require", REQUIRE) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;
   ("where", WHERE) ;
@@ -101,7 +102,6 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | newline                  -> f (); Ulexbuf.new_line lexbuf; token_aux lexbuf
   | start_longcomment        -> f (); comments 0 lexbuf
   | Plus hspace              -> f (); token_aux lexbuf
-  | "#include_once"          -> f (); INCLUDEONCE
   | quoted_string            -> f ();
      let s = Ulexbuf.lexeme lexbuf in
      let l = String.length s in

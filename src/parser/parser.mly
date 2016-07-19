@@ -75,7 +75,7 @@
 (* Toplevel directives *)
 %token VERBOSITY
 %token <string> QUOTED_STRING
-%token INCLUDEONCE
+%token REQUIRE
 
 %token EOF
 
@@ -127,7 +127,7 @@ plain_topcomp:
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
 plain_topdirective:
-  | INCLUDEONCE fs=QUOTED_STRING+                    { Include fs }
+  | REQUIRE fs=QUOTED_STRING+                        { Require fs }
 
 (* Main syntax tree *)
 

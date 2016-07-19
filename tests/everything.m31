@@ -231,10 +231,10 @@ do assume x : A in
 do congr_apply (assume x : A in x) (refl (lambda (x : A), x)) eq (refl A) (refl A)
 
 (** Evaluate commands from another file *)
-#include_once "../std/hippy.m31"
+require "../std/hippy.m31"
 
-#include_once "everything.m31"
+require "everything.m31"
 
 (* both can be used with multiple files at once *)
-#include_once "../std/base.m31" "../std/equal.m31" "../std/base.m31"
+require "../std/base.m31" "../std/equal.m31" "../std/base.m31"
 

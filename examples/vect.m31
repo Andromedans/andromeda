@@ -1,4 +1,4 @@
-#include_once "peano.m31" "unit.m31" "finite.m31"
+require "peano.m31" "unit.m31" "finite.m31"
 
 constant vect : forall (A : Type), N -> Type
 constant vnil : forall (A : Type), vect A Z

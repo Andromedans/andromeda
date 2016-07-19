@@ -1,4 +1,4 @@
-#include_once "unit.m31" "peano.m31"
+require "unit.m31" "peano.m31"
 
 let nat = N
 

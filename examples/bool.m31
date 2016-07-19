@@ -25,7 +25,7 @@ do Type
 
 (* Next we show that true and false are not equal. *)
 
- #include_once "empty.m31" "unit.m31"
+ require "empty.m31" "unit.m31"
 
 (* Be very careful about when reductions may happen
    Better hint management would help here. *)

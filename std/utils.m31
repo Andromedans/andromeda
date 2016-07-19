@@ -1,4 +1,4 @@
-#include_once "base.m31"
+require "base.m31"
 
 (** Reverse a list *)
 let rev =

@@ -139,5 +139,5 @@ and toplevel' =
   | TopDo of comp (** evaluate a computation at top level *)
   | TopFail of comp
   | Verbosity of int
-  | Include of string list
+  | Require of string list
 

@@ -982,7 +982,7 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
     | Input.Verbosity n ->
        (ctx, locate (Syntax.Verbosity n) loc)
 
-    | Input.Include fs ->
+    | Input.Require fs ->
       let rec fold ctx res = function
         | [] -> (ctx, locate (Syntax.Included (List.rev res)) loc)
         | fn::fs ->
