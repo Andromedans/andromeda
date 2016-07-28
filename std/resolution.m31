@@ -2,7 +2,7 @@
    the reuslt of computing implicit arguments will be
    agressively simplified. *)
 
-#include_once "snf.m31"
+require "snf.m31"
 
 let resolve e = 
   let e' = resolve e in

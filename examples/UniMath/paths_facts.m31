@@ -1,7 +1,7 @@
 (* Prove that the axiomatisation of the inductive definition of paths inherits
    UIP from the reflective equality of andromeda. *)
 
-#include_once "paths.m31".
+require "paths.m31".
 
 Let eq_of_paths :=
   λ [A : Type] [a y : A] [p : paths A a y]

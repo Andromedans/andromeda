@@ -1,5 +1,5 @@
 (* Egbert's E-systems *)
-#include_once "../std/hippy.m31"
+require "../std/hippy.m31"
 
 signature catWithTerms = {
 

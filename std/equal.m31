@@ -1,5 +1,5 @@
-#include_once "utils.m31"
-#include_once "hints.m31"
+require "utils.m31"
+require "hints.m31"
 
 let typeof e =
   match e with ⊢ _ : ?A ⇒ A end

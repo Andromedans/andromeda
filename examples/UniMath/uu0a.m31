@@ -1,7 +1,7 @@
 (* Transcription of the uu0a.coq file from UniMath *)
-#include_once "uuu.m31".
-#include_once "paths_facts.m31".
-#include_once "paths_uip.m31".
+require "uuu.m31".
+require "paths_facts.m31".
+require "paths_uip.m31".
 
 Let UU := Type.
 
