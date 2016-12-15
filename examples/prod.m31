@@ -1,0 +1,42 @@
+(* Simple binary products. *)
+constant ( * ) : Type → Type → Type
+constant pair : ∏ (A B : Type), A → B → A * B
+constant fst : ∏ (A B : Type), A * B → A
+constant snd : ∏ (A B : Type), A * B → B
+constant prod_beta_fst : ∏ (A B : Type) (a : A) (b : B), fst A B (pair A B a b) ≡ a
+constant prod_beta_snd : ∏ (A B : Type) (a : A) (b : B), snd A B (pair A B a b) ≡ b
+constant prod_eta : ∏ (A B : Type) (u v : A * B),
+                    fst A B u ≡ fst A B v → snd A B u ≡ snd A B v → u ≡ v
+
+now betas = add_beta prod_beta_fst
+now betas = add_beta prod_beta_snd
+now reducing = add_reducing fst [lazy, lazy, eager]
+now reducing = add_reducing snd [lazy, lazy, eager]
+now etas = add_eta prod_eta
+
+let fst' x =
+  match x with
+  | ⊢ _ : ?A * ?B ⇒ fst A B x
+  end
+
+let snd' x =
+  match x with
+  | ⊢ _ : ?A * ?B ⇒ snd A B x
+  end
+
+let pair' x y =
+  match (x, y) with
+  | (⊢ _ : ?A, ⊢ _ : ?B) ⇒ pair A B x y
+  end
+  
+(* Products are commutative. *)
+let twist =
+  λ (A B : Type) (u : A * B), pair' (snd' u) (fst' u)
+
+let twist' u =
+  match u with
+  | ⊢  _ : ?A * ?B ⇒ twist A B u
+  end
+
+let twist_iso =
+  (λ A B u, refl u) : ∏ (A B : Type) (u : A * B), (twist' (twist' u)) ≡ u
