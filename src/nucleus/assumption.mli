@@ -11,6 +11,8 @@ val mem_atom : Name.atom -> t -> bool
 
 val singleton : Name.atom -> t
 
+val of_atoms : Name.AtomSet.t -> t
+
 val add_atoms : Name.AtomSet.t -> t -> t
 
 val union : t -> t -> t

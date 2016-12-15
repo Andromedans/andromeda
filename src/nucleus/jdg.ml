@@ -82,23 +82,13 @@ module Ctx = struct
     try Some (AtomMap.find x ctx)
     with Not_found -> None
 
-  let recursive_assumptions ctx aset =
-    let rec fold visited = function
-      | [] -> visited
-      | x::rem ->
-        if AtomSet.mem x visited
-        then fold visited rem
-        else
-          let visited = AtomSet.add x visited in
-          let {ty;_} = AtomMap.find x ctx in
-          let aset = TT.assumptions_ty ty in
-          let rem = List.rev_append (AtomSet.elements aset) rem in
-          fold visited rem
-    in
-    fold AtomSet.empty (AtomSet.elements aset)
+  let assumptions_of_atoms ctx aset =
+    AtomSet.fold (fun x acc ->
+        let {ty;_} = AtomMap.find x ctx in
+        AtomSet.union acc (TT.assumptions_ty ty)) aset aset
 
   let restrict ctx aset =
-    let domain = recursive_assumptions ctx aset in
+    let domain = assumptions_of_atoms ctx aset in
     let res = AtomMap.fold (fun x node res ->
         if AtomSet.mem x domain
         then
@@ -126,8 +116,7 @@ module Ctx = struct
 
   let add_weak (WeakTy (ctx, ty)) x =
     let y = Name.fresh x in
-    let aset = TT.assumptions_ty ty in
-    let needs = recursive_assumptions ctx aset in
+    let needs = TT.assumptions_ty ty in
     let ctx = AtomMap.mapi (fun z node ->
                             if AtomSet.mem z needs
                             then {node with needed_by = AtomSet.add y node.needed_by}
@@ -188,7 +177,7 @@ module Ctx = struct
         then
           error ~loc (SubstitutionInvalidType (x, xnode.ty, t))
         else
-          let deps = recursive_assumptions ctx (TT.assumptions_term e) in
+          let deps = assumptions_of_atoms ctx (TT.assumptions_term e) in
           let ctx = AtomSet.fold (fun y ctx ->
               let ynode = AtomMap.find y ctx in
               if AtomSet.mem y deps
@@ -271,7 +260,7 @@ let atom_ty (JAtom (ctx,x,t)) =
   strengthen_ty (WeakTy (ctx, t))
 
 let atom_term ~loc (JAtom (ctx,x,t)) =
-  Term (ctx, TT.mk_atom ~loc x, t)
+  Term (ctx, TT.mk_atom ~loc x (TT.assumptions_ty t), t)
 
 let term_of_ty (Ty (ctx,TT.Ty ({TT.loc=loc;_} as t))) = Term (ctx,t,TT.mk_type_ty ~loc)
 
@@ -406,6 +395,14 @@ type shape =
   | Eq of term * term
   | Refl of term
 
+let unabstract (WeakAtom (ctx, x, tx)) e =
+  let ex = TT.mk_atom ~loc:Location.unknown x (TT.assumptions_ty tx) in
+  TT.instantiate [ex] e
+
+let unabstract_ty (WeakAtom (ctx, x, tx)) t =
+  let ex = TT.mk_atom ~loc:Location.unknown x (TT.assumptions_ty tx) in
+  TT.instantiate_ty [ex] t
+
 let shape (Term (ctx,e,t)) =
   match e.TT.term with
     | TT.Type -> Type
@@ -420,16 +417,16 @@ let shape (Term (ctx,e,t)) =
 
     | TT.Prod ((x,a),b) ->
       let ja = WeakTy (ctx, a) in
-      let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
-      let b = TT.unabstract_ty [y] b in
+      let WeakAtom (ctx, _, _) as jy = Ctx.add_weak ja x in
+      let b = unabstract_ty jy b in
       let jb = WeakTy (ctx, b) in
       Prod (strengthen_atom jy, strengthen_ty jb)
 
     | TT.Lambda ((x,a),(e,b)) ->
       let ja = WeakTy (ctx, a) in
-      let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
-      let b = TT.unabstract_ty [y] b
-      and e = TT.unabstract [y] e in
+      let WeakAtom (ctx, _, _) as jy = Ctx.add_weak ja x in
+      let b = unabstract_ty jy b
+      and e = unabstract jy e in
       let je = WeakTerm (ctx, e, b) in
       Lambda (strengthen_atom jy, strengthen je)
 
@@ -644,7 +641,7 @@ let beta ~loc (EqTy (ctxa, a1, a2))
 
     let b1 = TT.abstract_ty [x] b1
     and e1 = TT.abstract [x] e1
-    and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
+    and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mk_atom ~loc y hypsa] b2) in
     let ctx = Ctx.join ~loc ctxa ctxb
     and lam = TT.mk_lambda ~loc (Name.ident_of_atom x) a1 e1 b1
     and e_s = TT.mention_atoms hypsb (TT.instantiate [TT.mention_atoms hypsa e2] e1) in
@@ -661,7 +658,7 @@ let congr_prod ~loc (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) 
   let hypsa = Ctx.as_set ctxa in
 
   let b1 = TT.abstract_ty [x] b1
-  and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
+  and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mk_atom ~loc y hypsa] b2) in
   let ctx = Ctx.join ~loc ctxa ctxb in
   let lhs = TT.mk_prod ~loc (Name.ident_of_atom x) ta1 b1
   and rhs = TT.mk_prod ~loc (Name.ident_of_atom y) ta2 b2 in
@@ -685,7 +682,7 @@ let congr_lambda ~loc (EqTy (ctxa, ta1, ta2))
     and hypsb = AtomSet.remove x (Ctx.as_set ctxb) in
     let hypsab = AtomSet.union hypsa hypsb in
 
-    let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
+    let y_mentions = TT.mk_atom ~loc y hypsa in
     let e1 = TT.abstract [x] e1
     and e2 = TT.abstract [y] (TT.substitute [x] [y_mentions] e2)
     and b1 = TT.abstract_ty [x] b1
@@ -721,7 +718,7 @@ let congr_apply ~loc (EqTy (ctxa, ta1, ta2))
     let hypsab = AtomSet.union hypsa hypsb in
     let hypsabe = AtomSet.union hypsab hypse in
 
-    let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
+    let y_mentions = TT.mk_atom ~loc y hypsa in
     let b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [y_mentions] b2) in
     let ctx = Ctx.join ~loc ctxa (Ctx.join ~loc ctxb (Ctx.join ~loc ctxh ctxe)) in
     let lhs = TT.mk_apply ~loc h1 (Name.ident_of_atom x) ta1 b1 e1

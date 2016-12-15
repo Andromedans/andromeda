@@ -51,7 +51,9 @@ and ty = private
 and 'a ty_abstraction = (ty, 'a) abstraction
 
 (** Term constructors, these do not check for legality of constructions. *)
-val mk_atom: loc:Location.t -> Name.atom -> term
+(* [mk_atom x hyps] is fine if [x] is not in [hyps] (ie it gets added inside) *)
+val mk_atom: loc:Location.t -> Name.atom -> Name.AtomSet.t -> term
+
 val mk_constant: loc:Location.t -> Name.ident -> term
 val mk_lambda: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
 val mk_apply: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
@@ -82,14 +84,6 @@ val mention : Assumption.t -> term -> term
 val instantiate: term list -> ?lvl:int -> term -> term
 
 val instantiate_ty: term list -> ?lvl:int -> ty -> ty
-
-(** [unabstract [x0,...,x{n-1}] k e] replaces bound variables in [e] indexed by [k, ..., k+n-1]
-    with names [x0, ..., x{n-1}]. *)
-val unabstract: Name.atom list -> ?lvl:int -> term -> term
-
-(** [unabstract_ty [x0,...,x{n-1}] k t] replaces bound variables in [t] indexed by [k, ..., k+n-1]
-    with names [x0, ..., x{n-1}]. *)
-val unabstract_ty: Name.atom list -> ?lvl:int -> ty -> ty
 
 (** [abstract xs k e] replaces names [xs] in term [e] with bound variables [k, ..., k+n-1] where
     [xs] is the list [x0,...,x{n-1}]. *)

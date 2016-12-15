@@ -39,9 +39,9 @@ let rec hyp_union acc = function
   | [] -> acc
   | x::rem -> hyp_union (Assumption.union acc x) rem
 
-let mk_atom ~loc x = {
+let mk_atom ~loc x hyps = {
   term = Atom x;
-  assumptions = Assumption.singleton x;
+  assumptions = Assumption.of_atoms (Name.AtomSet.add x hyps);
   loc = loc
 }
 
@@ -199,14 +199,6 @@ let instantiate es ?(lvl=0) e =
 
 let instantiate_ty es ?(lvl=0) (Ty t) =
   let t = instantiate es ~lvl t
-  in Ty t
-
-let unabstract xs ?(lvl=0) e =
-  let es = List.map (mk_atom ~loc:Location.unknown) xs
-  in instantiate es ~lvl e
-
-let unabstract_ty xs ?(lvl=0) (Ty t) =
-  let t = unabstract xs ~lvl t
   in Ty t
 
 
