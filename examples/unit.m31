@@ -1,7 +1,8 @@
-constant unit_rect: Π (P : unit -> Type) (x : P {}) (u : unit), P u
-constant unit_iota: Π (P : unit -> Type) (x : P {}), unit_rect P x {} == x
+constant unit : Type
+constant tt : unit
+constant unit_rect: Π (P : unit -> Type) (x : P tt) (u : unit), P u
+constant unit_eta : ∏ (x y : unit), x ≡ y
 
-let unit_contractible = (λ x, refl x : x == {}) : ∀ (x : unit), x == {}
-
-(* Inhabit {} *)
+let unit_contract =
+  (now etas = add_eta unit_eta in (λ x, refl x)) : ∏ (x : unit), x ≡ tt
 
