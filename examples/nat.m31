@@ -1,51 +1,58 @@
 (** Natural numbers *)
 
 constant nat : Type
-
 constant O : nat
-
 constant S : nat -> nat
 
-now reducing = add_reducing S [eager]
-
-constant nat_rect : Π (P : nat -> Type) (s0 : P O) (s : Π (n : nat), P n -> P (S n)) (m : nat), P m
+constant nat_rect : 
+  ∏ (P : nat -> Type), 
+    P O → (∏ (n : nat), P n → P (S n)) → ∏ (m : nat), P m
 
 now reducing = add_reducing nat_rect [lazy, lazy, lazy, eager]
 
-constant nat_iota_O :
-  Π (P : nat -> Type) (s0 : P O) (s : Π (n : nat), P n -> P (S n)),
-  nat_rect P s0 s O == s0
+constant nat_β_O :
+  ∏ (P : nat → Type) (x : P O) (f : ∏ (n : nat), P n → P (S n)),
+    nat_rect P x f O ≡ x
 
-constant nat_iota_S :
-  Π (P : nat -> Type) (s0 : P O) (s : Π (n : nat), P n -> P (S n)) (m : nat),
-  nat_rect P s0 s (S m) == s m (nat_rect P s0 s m)
+constant nat_β_S :
+  ∏ (P : nat → Type) (x : P O) (f : ∏ (n : nat), P n → P (S n)) (m : nat),
+    nat_rect P x f (S m) ≡ f m (nat_rect P x f m)
 
-now betas = add_betas [nat_iota_O, nat_iota_S]
+now betas = add_betas [nat_β_O, nat_β_S]
 
-constant ( + ) : nat -> nat -> nat
-constant plus_def : ∀ (n m : nat),
-                      n + m == nat_rect (λ _, nat) n (λ _ x, S x) m
+do 
+  let plus = λ (n m : nat), nat_rect (λ _, nat) n (λ _ x, S x) m in
+  whnf (plus (S (S (S O))) (S (S O)))
 
-let plus_O = now betas = add_beta plus_def in
-  resolve ((lambda n, refl ?) : forall n : nat, n + O == n)
+constant ( + ) : nat → nat → nat
+constant plus_def :
+  ∏ (n m : nat), n + m ≡ nat_rect (λ _, nat) n (λ _ x, S x) m
 
-let plus_S = now betas = add_beta plus_def in
-  resolve ((lambda n m, refl ?) : forall n m : nat, n + (S m) == S (n + m))
+constant plus_def' :
+  ( + ) ≡ (λ (n m : nat), nat_rect (λ _, nat) n (λ _ x, S x) m)
 
-now reducing = add_reducing ( + ) [eager, eager]
+let plus_O =
+  now betas = add_beta plus_def in
+    (λ n, refl n) : ∏ (n : nat), n + O ≡ n
+
+let plus_S =
+  now betas = add_beta plus_def in
+    (λ n m, refl (n + (S m))) : ∏ (n m : nat), n + (S m) ≡ S (n + m)
+
 now betas = add_betas [plus_O, plus_S]
 
+constant ( * ) : nat → nat → nat
+constant mult_def : 
+  ∏ (n m : nat), n * m ≡ nat_rect (λ _, nat) O (λ _ x, x + n) m
 
-constant ( * ) : nat -> nat -> nat
-constant mult_def : forall n m : nat, n * m == nat_rect (lambda _, nat) O (lambda _ x, x + n) m
+let mult_O = 
+  now betas = add_beta mult_def in
+    (λ n, refl O) : ∏ (n : nat), n * O ≡ O
 
-let mult_O = now betas = add_beta mult_def in
-  resolve ((lambda n, refl ?) : forall n : nat, n * O == O)
+let mult_S =
+  now betas = add_beta mult_def in
+    (λ n m, refl (n * (S m))) : ∏ (n m : nat), n * (S m) ≡ n * m + n
 
-let mult_S = now betas = add_beta mult_def in
-  resolve ((lambda n m, refl ?) : forall n m : nat, n * (S m) == n * m + n)
-
-now reducing = add_reducing ( * ) [eager, eager]
 now betas = add_betas [mult_O, mult_S]
 
 let one = S O
@@ -61,3 +68,12 @@ let ten = S nine
 
 do whnf (two * three * four)
 
+do now reducing = add_reducing S [eager] in
+   now reducing = add_reducing ( * ) [eager, eager] in
+   now reducing = add_reducing ( + ) [eager, eager] in
+     whnf (two * three * four)
+
+do now reducing = add_reducing S [eager] in
+   now reducing = add_reducing ( * ) [eager, eager] in
+   now reducing = add_reducing ( + ) [eager, eager] in
+     whnf ((S (S (S O))) * (S (S (S (S O)))))

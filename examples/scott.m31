@@ -2,21 +2,21 @@
 
 (* We assume that there is a type [D] equal to its function space. *)
 constant D : Type
-constant scott : (D → D) ≡ D
-let dana = sym Type (D → D) D scott
-now hints = add_hints [dana, scott]
+constant D_reflexive : D ≡ (D → D)
+now hints = add_hints [D_reflexive, symmetry D_reflexive]
 
-
-(* The Y combinator *)
-let Y =
-  (λ f : D → D,
-    let y = λ x : D, f ((x : D → D) x) in
+(* The fixpoint combinator *)
+let fix =
+  (λ f,
+    let y = (λ x : D, f ((x : D → D) x)) in
     y y)
   : (D → D) → D
 
-(* The Y combinator indeed computes fixed points. *)
-(* This does not require any special tricks because [Y f] has a whnf. *)
-do (λ f, refl (Y f)) : Π f : D → D, Y f ≡ f (Y f)
+(* The fix combinator indeed computes fixed points. *)
+(* This does not require any special tricks because [fix f] has a whnf. *)
+let fix_eq =
+ (λ f, refl (fix f)) : 
+ Π (f : D → D), fix f ≡ f (fix f)
 
 
 (* Here is a trick to prevent a term without weak head normal form from cycling. *)
@@ -25,28 +25,19 @@ do (λ f, refl (Y f)) : Π f : D → D, Y f ≡ f (Y f)
    happen at [D], but the application at [D']. *)
 
 constant D' : Type
-constant h : D ≡ D'
-let scott' =
-  now hints = add_hint h in
-  scott : (D' → D') ≡ D'
-
-now hints = add_hint scott'
+constant D'_eq_D : D' ≡ D
 
 (* The λ-abstraction happens at type [D] *)
-let δ = 
-  (λ x, (x : D → D) x)
-  : D → D
+let δ = (λ x : D, (x : D → D) x)
 
 (* But we make sure that the application δ δ happens at [D']. *)
 let Ω =
-    now hints = add_hint h in
-    let δ' = δ : D' → D' in
-    now betas = add_betas [h,scott'] in
-      δ' (δ' : D')
+  now hints = add_hints [D'_eq_D, symmetry D'_eq_D] in
+  (δ : D' → D') (δ : D)
+
+do whnf Ω
 
 (* Notice that [Ω] does not diverge even though a beta-reduction happens. *)
 do refl Ω : (λ x : D', x) Ω ≡ Ω
 
-do external "exit" ()
-
-do refl (δ δ) : (λ x : D, x) (δ δ) ≡ (δ δ)
+(* do refl (δ δ) : (λ x : D, x) (δ δ) ≡ (δ δ) *)
