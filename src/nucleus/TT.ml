@@ -389,7 +389,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
          match List.nth penv.forbidden k with
          | Name.Ident (_, Name.Prefix) as op -> Some (As_ident op)
          | Name.Ident (_, _) -> None
-         | exception Failure "nth" -> None
+         | exception Failure failure when failure = "nth" -> None
        end
     | Constant (Name.Ident (_, Name.Prefix) as op) -> Some (As_ident op)
     | Atom (Name.Atom (_, Name.Prefix, _) as op) -> Some (As_atom op)
@@ -422,7 +422,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
                 | Name.Ident (_, Name.Infix fixity) as op ->
                    Some (As_ident op, fixity, e1)
                 | Name.Ident (_, (Name.Word | Name.Anonymous _| Name.Prefix)) -> None
-                | exception Failure "nth" -> None
+                | exception Failure failure when failure = "nth" -> None
               end
            | Apply ({term=Constant (Name.Ident (_, Name.Infix fixity) as op);_},
                     _, e1) ->

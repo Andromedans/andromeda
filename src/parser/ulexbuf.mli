@@ -10,6 +10,8 @@ type t = private {
 type error =
   | SysError of string
   | Unexpected of string
+  | MalformedUTF8
+  | BadNumeral of string
   | UnclosedComment
 
 val print_error : error -> Format.formatter -> unit
@@ -31,4 +33,3 @@ val from_string : ?fn:string -> string -> t
 
 val reached_end_of_input : t -> unit
 val set_line_limit : int option -> t -> unit
-
