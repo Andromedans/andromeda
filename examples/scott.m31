@@ -40,4 +40,6 @@ do whnf Ω
 (* Notice that [Ω] does not diverge even though a beta-reduction happens. *)
 do refl Ω : (λ x : D', x) Ω ≡ Ω
 
-(* do refl (δ δ) : (λ x : D, x) (δ δ) ≡ (δ δ) *)
+(* This makes it spin. *)
+let _ = fun _ =>  refl (δ δ) : (λ x : D, x) (δ δ) ≡ (δ δ)
+

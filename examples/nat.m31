@@ -40,6 +40,7 @@ let plus_S =
     (λ n m, refl (n + (S m))) : ∏ (n m : nat), n + (S m) ≡ S (n + m)
 
 now betas = add_betas [plus_O, plus_S]
+now reducing = add_reducing ( + ) [lazy, eager]
 
 constant ( * ) : nat → nat → nat
 constant mult_def : 
@@ -54,6 +55,7 @@ let mult_S =
     (λ n m, refl (n * (S m))) : ∏ (n m : nat), n * (S m) ≡ n * m + n
 
 now betas = add_betas [mult_O, mult_S]
+now reducing = add_reducing ( * ) [lazy, eager]
 
 let one = S O
 let two = S one

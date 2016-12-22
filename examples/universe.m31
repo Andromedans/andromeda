@@ -20,6 +20,12 @@ constant eq : ∏ (a : U), El a → El a → U
 constant El_eq : ∏ (a : U) (x y : El a), El (eq a x y) ≡ (x ≡ y)
 now betas = add_beta El_eq
 
+(* A random basic type *)
+constant B : Type
+constant b : U
+constant El_b : El b ≡ B
+now betas = add_beta El_b
+
 (* The unit type *)
 constant Unit : Type
 constant tt : Unit
@@ -30,8 +36,7 @@ now etas = add_eta Unit_eta
 constant unit : U
 constant El_unit : El unit ≡ Unit
 now betas = add_beta El_unit
-
-let whnf_e e = match whnf e with |- _ : _ == ?e => e end
+now reducing = add_reducing El [eager]
 
 (* Reverse-engineer the name of a type with a proof that
    it is correctly reverse-engineered *)
@@ -39,6 +44,7 @@ let rec name_of_eq T =
   match T with
   | ⊢ El _ => Some (refl T)
   | ⊢ Unit => Some El_unit
+  | ⊢ B => Some El_b
   | ⊢ (?x ≡ ?y) =>
       let A = typeof x in
       match name_of_eq A with
@@ -84,9 +90,30 @@ match name_of_eq T with
 end
 
 (* tests *)
+
 do
-  now reducing = add_reducing El [eager] in
-  handle 
+  handle
+    (λ x, x) : pi b (λ _, b)
+  with
+  | coerce (⊢ ?t : U) (⊢ Type) ⇒ yield (Coercible (El t))
+  end
+
+let universe_handler =
+handler
+  | coerce (⊢ ?a : U) (⊢ Type) => yield (Coercible (El a))
+  | coerce (⊢ ?T : Type) (⊢ U) =>
+    match name_of T with
+    | None => yield NotCoercible
+    | Some ?name => yield (Coercible name)
+    end
+  end
+
+do
+  with universe_handler handle
+    (∏ (x : b), x ≡ x) : U
+
+do
+  with universe_handler handle
     let woo = (Π(x:Unit), x ≡ x) : U in
     let woot = (Unit -> Unit) : U in
     let wooot = (λ (x : Type), x)(Unit -> Unit) : U in 
@@ -97,11 +124,3 @@ do
     let quux = (λ x, x) : arrow unit unit in
     let quuux = quux tt in
       (woo, woot, woot, foo, bar, baz, qux, quux, quuux)
-  with
-  | coerce (⊢ ?a : U) (⊢ Type) => yield (Coercible (El a))
-  | coerce (⊢ ?T : Type) (⊢ U) =>
-    match name_of T with
-    | None => yield NotCoercible
-    | Some ?name => yield (Coercible name)
-    end
-  end
