@@ -193,12 +193,15 @@ let run
   try
     parser lexer
   with
-  | Parser.Error
-  | Sedlexing.MalFormed
-  | Sedlexing.InvalidCodepoint _ ->
+  | Parser.Error ->
      let w = Ulexbuf.lexeme lexbuf in
      let loc = loc_of lexbuf in
      Ulexbuf.error ~loc (Ulexbuf.Unexpected w)
+  | Sedlexing.MalFormed ->
+     let loc = loc_of lexbuf in
+     Ulexbuf.error ~loc Ulexbuf.MalformedUTF8
+  (* | Sedlexing.InvalidCodepoint _ -> *)
+  (*    assert false (\* Shouldn't happen with UTF8 *\) *)
 
 
 let read_file ?line_limit parse fn =

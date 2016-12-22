@@ -9,11 +9,13 @@ type t = {
 type error =
   | SysError of string
   | Unexpected of string
+  | MalformedUTF8
   | UnclosedComment
 
 let print_error err ppf = match err with
   | SysError s -> Format.fprintf ppf "System error: %s" s
   | Unexpected s -> Format.fprintf ppf "Unexpected %s" s
+  | MalformedUTF8 -> Format.fprintf ppf "Malformed UTF8"
   | UnclosedComment -> Format.fprintf ppf "Input ended inside unclosed comment"
 
 exception Error of error Location.located
