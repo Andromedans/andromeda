@@ -93,6 +93,11 @@ let update_eoi ({ Ulexbuf.pos_end; line_limit;_ } as lexbuf) =
 
 let loc_of lex = Location.make lex.Ulexbuf.pos_start lex.Ulexbuf.pos_end
 
+let safe_int_of_string lexbuf =
+  let s = Ulexbuf.lexeme lexbuf in
+  try int_of_string s
+  with Failure _ -> Ulexbuf.error ~loc:(loc_of lexbuf) (Ulexbuf.BadNumeral s)
+
 let rec token ({ Ulexbuf.end_of_input;_ } as lexbuf) =
   if end_of_input then EOF else token_aux lexbuf
 
@@ -155,7 +160,7 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
     begin try List.assoc n reserved
     with Not_found -> NAME (Name.make n)
     end
-  | numeral                  -> f (); let k = int_of_string (Ulexbuf.lexeme lexbuf) in NUMERAL k
+  | numeral                  -> f (); let k = safe_int_of_string lexbuf in NUMERAL k
   | any -> f ();
      let w = Ulexbuf.lexeme lexbuf in
      let loc = loc_of lexbuf in

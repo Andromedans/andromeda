@@ -11,6 +11,7 @@ type error =
   | SysError of string
   | Unexpected of string
   | MalformedUTF8
+  | BadNumeral of string
   | UnclosedComment
 
 val print_error : error -> Format.formatter -> unit
