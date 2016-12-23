@@ -8,7 +8,7 @@ type t
 val empty : t
 
 (** Lookup a bound variable by its De Bruijn index and instantiate its type parameters with fresh metavariables. *)
-val lookup_var : Syntax.bound -> t -> Mlty.ty
+val lookup_var : Dsyntax.bound -> t -> Mlty.ty
 
 (** Lookup an operation, returning the expected types of its arguments and the type it returns. *)
 val lookup_op : Name.operation -> t -> Mlty.ty list * Mlty.ty
@@ -35,11 +35,10 @@ val add_let : Name.ident -> Mlty.ty_schema -> t -> t
 val op_cases : Name.operation -> output:Mlty.ty -> t -> Mlty.ty list * t
 
 (** If [x ps] is a type alias for [t] then [unfold ctx x ts] returns [Some] of [t] with the parameters [ps] instantiated with the types [ts], otherwise it returns [None] *)
-val unfold : t -> Syntax.level -> Mlty.ty list -> Mlty.ty option
+val unfold : t -> Dsyntax.level -> Mlty.ty list -> Mlty.ty option
 
 (** Produce the set of all metavariables appearing in the context. *)
 val gather_known : Substitution.t -> t -> Mlty.MetaSet.t
 
 (** [predefined_type x ts ctx] creates the type [x ts] assuming the type definition for [x] can be found in [ctx]. *)
 val predefined_type : Name.ty -> Mlty.ty list -> t -> Mlty.ty
-

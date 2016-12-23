@@ -17,7 +17,7 @@ val return : 'a -> 'a tyenvM
 val (>>=) : 'a tyenvM -> ('a -> 'b tyenvM) -> 'b tyenvM
 
 (** Lookup a bound variable by its De Bruijn index and instantiate its type parameters with fresh metavariables. *)
-val lookup_var : Syntax.bound -> Mlty.ty tyenvM
+val lookup_var : Rsyntax.bound -> Mlty.ty tyenvM
 
 (** Lookup an operation, returning the expected types of its arguments and the type it returns. *)
 val lookup_op : Name.operation -> (Mlty.ty list * Mlty.ty) tyenvM
@@ -75,4 +75,3 @@ val topadd_operation : Name.operation -> Mlty.ty list * Mlty.ty -> t -> t
 
 (** Add a variable with polymorphic type in the environment. *)
 val topadd_let : Name.ty -> Mlty.ty_schema -> t -> t
-

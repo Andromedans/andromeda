@@ -10,108 +10,109 @@ type generalizable =
   | Ungeneralizable
 
 let rec generalizable c = match c.Location.thing with
-(* yes *)
-  | Syntax.Bound _ | Syntax.Function _ | Syntax.Handler _ | Syntax.External _ -> Generalizable
-  | Syntax.Constructor (_, cs) | Syntax.Tuple cs ->
+  (* yes *)
+  | Rsyntax.Bound _ | Rsyntax.Function _ | Rsyntax.Handler _ | Rsyntax.External _ -> Generalizable
+  | Rsyntax.Constructor (_, cs) | Rsyntax.Tuple cs ->
     if List.for_all (fun c -> generalizable c = Generalizable) cs
     then Generalizable
     else Ungeneralizable
 
-  | Syntax.Let (_, c) | Syntax.LetRec (_, c) | Syntax.Sequence (_, c) ->
+  | Rsyntax.Let (_, c) | Rsyntax.LetRec (_, c) | Rsyntax.Sequence (_, c) ->
     generalizable c
 
-(* no *)
+  (* no *)
   | _ -> Ungeneralizable
 
 let rec ml_ty params {Location.thing=t; loc} =
   match t with
 
-  | Syntax.ML_Arrow (t1, t2) ->
+  | Dsyntax.ML_Arrow (t1, t2) ->
     let t1 = ml_ty params t1
     and t2 = ml_ty params t2 in
     Mlty.Arrow (t1, t2)
 
-  | Syntax.ML_Prod ts ->
+  | Dsyntax.ML_Prod ts ->
     let ts = List.map (ml_ty params) ts in
     Mlty.Prod ts
 
-  | Syntax.ML_TyApply (x, k, ts) ->
+  | Dsyntax.ML_TyApply (x, k, ts) ->
     let ts = List.map (ml_ty params) ts in
     Mlty.App (x, k, ts)
 
-  | Syntax.ML_Handler (t1, t2) ->
+  | Dsyntax.ML_Handler (t1, t2) ->
     let t1 = ml_ty params t1
     and t2 = ml_ty params t2 in
     Mlty.Handler (t1, t2)
 
-  | Syntax.ML_Judgment ->
+  | Dsyntax.ML_Judgment ->
      Mlty.Jdg
 
-  | Syntax.ML_String ->
+  | Dsyntax.ML_String ->
      Mlty.String
 
-  | Syntax.ML_Bound p ->
+  | Dsyntax.ML_Bound p ->
      Mlty.Param (List.nth params p)
 
-  | Syntax.ML_Anonymous ->
+  | Dsyntax.ML_Anonymous ->
      Mlty.fresh_type ()
 
-let ml_schema (Syntax.ML_Forall (params, t)) =
+let ml_schema (Dsyntax.ML_Forall (params, t)) =
   let params = List.map (fun _ -> Mlty.fresh_param ()) params in
   let t = ml_ty params t in
   (params, t)
 
 let rec tt_pattern xs {Location.thing = p; loc} =
   match p with
-  | Syntax.Tt_Anonymous -> Tyenv.return ()
+  | Pattern.Tt_Anonymous -> Tyenv.return ()
 
-  | Syntax.Tt_As (p, k) ->
+  | Pattern.Tt_As (p, k) ->
     let _, t = List.nth xs k in
     Tyenv.add_equation ~loc t Mlty.Jdg >>= fun () ->
     tt_pattern xs p
 
-  | Syntax.Tt_Bound k ->
+  | Pattern.Tt_Bound k ->
     Tyenv.lookup_var k >>= fun t ->
     Tyenv.add_equation ~loc t Mlty.Jdg
 
-  | Syntax.Tt_Type -> Tyenv.return ()
+  | Pattern.Tt_Type -> Tyenv.return ()
 
-  | Syntax.Tt_Constant _ -> Tyenv.return ()
+  | Pattern.Tt_Constant _ -> Tyenv.return ()
 
-  | Syntax.Tt_Lambda (x, _, popt, p)
-  | Syntax.Tt_Prod (x, _, popt, p) ->
+  | Pattern.Tt_Lambda (x, _, popt, p)
+  | Pattern.Tt_Prod (x, _, popt, p) ->
     begin match popt with
       | Some pt -> tt_pattern xs pt
       | None -> Tyenv.return ()
     end >>= fun () ->
     Tyenv.add_var x Mlty.Jdg (tt_pattern xs p)
 
-  | Syntax.Tt_Apply (p1, p2)
-  | Syntax.Tt_Eq (p1, p2) ->
+  | Pattern.Tt_Apply (p1, p2)
+  | Pattern.Tt_Eq (p1, p2) ->
     tt_pattern xs p1 >>= fun () ->
     tt_pattern xs p2
 
-  | Syntax.Tt_Refl p | Syntax.Tt_GenAtom p | Syntax.Tt_GenConstant p ->
+  | Pattern.Tt_Refl p | Pattern.Tt_GenAtom p | Pattern.Tt_GenConstant p ->
     tt_pattern xs p
 
 
-let rec pattern xs {Location.thing = p; loc} =
+let rec pattern xs {Location.thing=p; loc} =
   match p with
-  | Syntax.Patt_Anonymous -> Tyenv.return (Mlty.fresh_type ())
+  | Pattern.Patt_Anonymous ->
+     Tyenv.return (Mlty.fresh_type ())
 
-  | Syntax.Patt_As (p, k) ->
+  | Pattern.Patt_As (p, k) ->
     let _, t = List.nth xs k in
     check_pattern xs p t >>= fun () ->
     Tyenv.return t
 
-  | Syntax.Patt_Bound k -> Tyenv.lookup_var k
+  | Pattern.Patt_Bound k -> Tyenv.lookup_var k
 
-  | Syntax.Patt_Jdg (p1, p2) ->
+  | Pattern.Patt_Jdg (p1, p2) ->
     tt_pattern xs p1 >>= fun () ->
     tt_pattern xs p2 >>= fun () ->
     Tyenv.return Mlty.Jdg
 
-  | Syntax.Patt_Constructor (c, ps) ->
+  | Pattern.Patt_Constructor (c, ps) ->
     Tyenv.lookup_constructor c >>= fun (ts, out) ->
     let tps = List.combine ts ps in
     let rec fold = function
@@ -123,7 +124,7 @@ let rec pattern xs {Location.thing = p; loc} =
     in
     fold tps
 
-  | Syntax.Patt_Tuple ps ->
+  | Pattern.Patt_Tuple ps ->
     let rec fold ts = function
       | [] ->
         let ts = List.rev ts in
@@ -153,7 +154,7 @@ let match_op_case xs ps popt argts m =
   let xs = List.map (fun x -> x, Mlty.fresh_type ()) xs in
   let pts = List.combine ps argts in
   begin match popt with
-    | Some p -> 
+    | Some p ->
        Tyenv.predefined_type Name.Predefined.option [Mlty.Jdg] >>= fun t ->
        Tyenv.return ((p, t) :: pts)
     | None ->
@@ -173,96 +174,102 @@ let match_op_case xs ps popt argts m =
   in
   add_vars (List.rev xs)
 
-let rec comp ({Location.thing=c; loc} : _ Syntax.comp) : (Mlty.ty_schema Syntax.comp * Mlty.ty) Tyenv.tyenvM =
+let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty) Tyenv.tyenvM =
   match c with
-  | Syntax.Type ->
-    return (locate ~loc Syntax.Type, Mlty.Jdg)
+  | Dsyntax.Type ->
+    return (locate ~loc Rsyntax.Type, Mlty.Jdg)
 
-  | Syntax.Bound k ->
+  | Dsyntax.Bound k ->
     Tyenv.lookup_var k >>= fun t ->
-    return (locate ~loc (Syntax.Bound k), t)
+    return (locate ~loc (Rsyntax.Bound k), t)
 
-  | Syntax.Function (x, c) ->
-    let a = Mlty.fresh_type () in
-    Tyenv.add_var x a (comp c) >>= fun (c, b) ->
-    Tyenv.return (locate ~loc (Syntax.Function (x, c)), Mlty.Arrow (a, b))
+  | Dsyntax.Function (x, annot, c) ->
+     let a =
+       begin
+         match annot with
+         | Dsyntax.Arg_annot_none -> Mlty.fresh_type ()
+         | Dsyntax.Arg_annot_ty t -> ml_ty [] t
+       end
+     in
+     Tyenv.add_var x a (comp c) >>= fun (c, b) ->
+     Tyenv.return (locate ~loc (Rsyntax.Function (x, c)), Mlty.Arrow (a, b))
 
-  | Syntax.Handler h ->
-    handler ~loc h >>= fun (h, t) ->
-    return (locate ~loc (Syntax.Handler h), t)
+  | Dsyntax.Handler h ->
+     handler ~loc h >>= fun (h, t) ->
+     return (locate ~loc (Rsyntax.Handler h), t)
 
-  | Syntax.Constructor (c, cs) ->
+  | Dsyntax.Constructor (c, cs) ->
     Tyenv.lookup_constructor c >>= fun (ts, out) ->
     let tcs = List.combine ts cs in
     let rec fold cs = function
       | [] ->
         let cs = List.rev cs in
-        Tyenv.return (locate ~loc (Syntax.Constructor (c, cs)), out)
+        Tyenv.return (locate ~loc (Rsyntax.Constructor (c, cs)), out)
       | (t, c) :: tcs ->
         check_comp c t >>= fun c ->
         fold (c :: cs) tcs
     in
     fold [] tcs
 
-  | Syntax.Tuple cs ->
+  | Dsyntax.Tuple cs ->
     let rec fold annot ts = function
       | [] ->
         let ts = List.rev ts
         and cs = List.rev annot in
-        Tyenv.return (locate ~loc (Syntax.Tuple cs), Mlty.Prod ts)
+        Tyenv.return (locate ~loc (Rsyntax.Tuple cs), Mlty.Prod ts)
       | c :: cs ->
         comp c >>= fun (c, t) ->
         fold (c :: annot) (t :: ts) cs
     in
     fold [] [] cs
 
-  | Syntax.Operation (op, cs) ->
+  | Dsyntax.Operation (op, cs) ->
     Tyenv.lookup_op op >>= fun (expected, out) ->
     let tcs = List.combine expected cs in
     let rec fold cs = function
       | [] ->
         let cs = List.rev cs in
-        Tyenv.return (locate ~loc (Syntax.Operation (op, cs)), out)
+        Tyenv.return (locate ~loc (Rsyntax.Operation (op, cs)), out)
       | (t, c) :: tcs ->
         check_comp c t >>= fun c ->
         fold (c :: cs) tcs
     in
     fold [] tcs
 
-  | Syntax.With (h, c) ->
+  | Dsyntax.With (h, c) ->
     comp h >>= fun (h, th) ->
     Tyenv.as_handler ~loc:h.Location.loc th >>= fun (a, b) ->
     check_comp c a >>= fun c ->
-    Tyenv.return (locate ~loc (Syntax.With (h, c)), b)
+    Tyenv.return (locate ~loc (Rsyntax.With (h, c)), b)
 
-  | Syntax.Let (xcs, c) ->
+  | Dsyntax.Let (xcs, c) ->
     let_clauses xcs >>= fun clauses ->
     let rec fold = function
       | [] ->
         comp c >>= fun (c, t) ->
-        return (locate ~loc (Syntax.Let (clauses, c)), t)
+        return (locate ~loc (Rsyntax.Let (clauses, c)), t)
       | (x, s, _) :: rem ->
         Tyenv.add_let x s (fold rem)
     in
     fold clauses
 
-  | Syntax.LetRec (xycs, c) ->
+  | Dsyntax.LetRec (xycs, c) ->
     let_rec_clauses xycs >>= fun clauses ->
     let rec fold = function
       | [] ->
         comp c >>= fun (c, t) ->
-        return (locate ~loc (Syntax.LetRec (clauses, c)), t)
+        return (locate ~loc (Rsyntax.LetRec (clauses, c)), t)
       | (x, _, s, _) :: rem ->
         Tyenv.add_let x s (fold rem)
     in
     fold clauses
 
-  | Syntax.MLAscribe (c, {Location.thing=sch; _}) ->
+  | Dsyntax.MLAscribe (c, {Location.thing=sch; _}) ->
       let sch = ml_schema sch in
       comp c >>= fun (c, t) ->
        begin
          match generalizable c with
-         | Generalizable -> 
+         | Generalizable ->
             Tyenv.generalizes_to ~loc:c.Location.loc t sch
          | Ungeneralizable ->
             begin
@@ -273,164 +280,164 @@ let rec comp ({Location.thing=c; loc} : _ Syntax.comp) : (Mlty.ty_schema Syntax.
                  Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
             end
        end >>= fun () -> Tyenv.return (c, t)
-     
-  | Syntax.Now (x, c1, c2) ->
+
+  | Dsyntax.Now (x, c1, c2) ->
     Tyenv.lookup_var x >>= fun tx ->
     check_comp c1 tx >>= fun c1 ->
     comp c2 >>= fun (c2, t) ->
-    return (locate ~loc (Syntax.Now (x, c1, c2)), t)
+    return (locate ~loc (Rsyntax.Now (x, c1, c2)), t)
 
-  | Syntax.Lookup c ->
+  | Dsyntax.Lookup c ->
     comp c >>= fun (c, t) ->
     Tyenv.as_ref ~loc:c.Location.loc t >>= fun t ->
-    return (locate ~loc (Syntax.Lookup c), t)
+    return (locate ~loc (Rsyntax.Lookup c), t)
 
-  | Syntax.Update (c1, c2) ->
+  | Dsyntax.Update (c1, c2) ->
     comp c1 >>= fun (c1, t1) ->
     Tyenv.as_ref ~loc:c1.Location.loc t1 >>= fun t ->
     check_comp c2 t >>= fun c2 ->
-    Tyenv.return (locate ~loc (Syntax.Update (c1, c2)), Mlty.unit_ty)
+    Tyenv.return (locate ~loc (Rsyntax.Update (c1, c2)), Mlty.unit_ty)
 
-  | Syntax.Ref c ->
+  | Dsyntax.Ref c ->
     comp c >>= fun (c, t) ->
-    Tyenv.return (locate ~loc (Syntax.Ref c), Mlty.Ref t)
+    Tyenv.return (locate ~loc (Rsyntax.Ref c), Mlty.Ref t)
 
-  | Syntax.Sequence (c1, c2) ->
+  | Dsyntax.Sequence (c1, c2) ->
     comp c1 >>= fun (c1, _) ->
     (* TODO warn if not unit? *)
     comp c2 >>= fun (c2, t) ->
-    return (locate ~loc (Syntax.Sequence (c1, c2)), t)
+    return (locate ~loc (Rsyntax.Sequence (c1, c2)), t)
 
-  | Syntax.Assume ((x, a), c) ->
+  | Dsyntax.Assume ((x, a), c) ->
     check_comp a Mlty.Jdg >>= fun a ->
     Tyenv.add_var x Mlty.Jdg (comp c) >>= fun (c, t) ->
-    return (locate ~loc (Syntax.Assume ((x, a), c)), t)
+    return (locate ~loc (Rsyntax.Assume ((x, a), c)), t)
 
-  | Syntax.Where (c1, c2, c3) ->
+  | Dsyntax.Where (c1, c2, c3) ->
     check_comp c1 Mlty.Jdg >>= fun c1 ->
     check_comp c2 Mlty.Jdg >>= fun c2 ->
     check_comp c3 Mlty.Jdg >>= fun c3 ->
-    Tyenv.return (locate ~loc (Syntax.Where (c1, c2, c3)), Mlty.Jdg)
+    Tyenv.return (locate ~loc (Rsyntax.Where (c1, c2, c3)), Mlty.Jdg)
 
-  | Syntax.Match (c, cases) ->
+  | Dsyntax.Match (c, cases) ->
     comp c >>= fun (c, tc) ->
     match_cases ~loc tc cases >>= fun (cases, t) ->
-    return (locate ~loc (Syntax.Match (c, cases)), t)
+    return (locate ~loc (Rsyntax.Match (c, cases)), t)
 
-  | Syntax.Ascribe (c1, c2) ->
+  | Dsyntax.Ascribe (c1, c2) ->
     check_comp c1 Mlty.Jdg >>= fun c1 ->
     check_comp c2 Mlty.Jdg >>= fun c2 ->
-    Tyenv.return (locate ~loc (Syntax.Ascribe (c1, c2)), Mlty.Jdg)
+    Tyenv.return (locate ~loc (Rsyntax.Ascribe (c1, c2)), Mlty.Jdg)
 
-  | Syntax.External s ->
+  | Dsyntax.External s ->
     begin match External.lookup_ty s with
       | None ->
         Mlty.error ~loc (Mlty.UnknownExternal s)
       | Some (ps, t) ->
          let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
          let t = Mlty.instantiate pus t in
-         Tyenv.return (locate ~loc (Syntax.External s), t)
+         Tyenv.return (locate ~loc (Rsyntax.External s), t)
     end
 
-  | Syntax.Constant c -> Tyenv.return (locate ~loc (Syntax.Constant c), Mlty.Jdg)
+  | Dsyntax.Constant c -> Tyenv.return (locate ~loc (Rsyntax.Constant c), Mlty.Jdg)
 
-  | Syntax.Lambda (x, copt, c) ->
+  | Dsyntax.Lambda (x, copt, c) ->
     begin match copt with
       | Some ct -> check_comp ct Mlty.Jdg >>= fun ct -> return (Some ct)
       | None -> Tyenv.return None
     end >>= fun copt ->
     Tyenv.add_var x Mlty.Jdg (check_comp c Mlty.Jdg) >>= fun c ->
-    Tyenv.return (locate ~loc (Syntax.Lambda (x, copt, c)), Mlty.Jdg)
+    Tyenv.return (locate ~loc (Rsyntax.Lambda (x, copt, c)), Mlty.Jdg)
 
-  | Syntax.Apply (c1, c2) ->
+  | Dsyntax.Apply (c1, c2) ->
     comp c1 >>= fun (c1, t1) ->
     comp c2 >>= fun (c2, t2) ->
     let out = Mlty.fresh_type () in
     Tyenv.add_application ~loc t1 t2 out >>= fun () ->
-    Tyenv.return (locate ~loc (Syntax.Apply (c1, c2)), out)
+    Tyenv.return (locate ~loc (Rsyntax.Apply (c1, c2)), out)
 
-  | Syntax.Prod (x, ct, c) ->
+  | Dsyntax.Prod (x, ct, c) ->
     check_comp ct Mlty.Jdg >>= fun ct ->
     Tyenv.add_var x Mlty.Jdg (check_comp c Mlty.Jdg) >>= fun c ->
-    Tyenv.return (locate ~loc (Syntax.Prod (x, ct, c)), Mlty.Jdg)
+    Tyenv.return (locate ~loc (Rsyntax.Prod (x, ct, c)), Mlty.Jdg)
 
-  | Syntax.Eq (c1, c2) ->
+  | Dsyntax.Eq (c1, c2) ->
     check_comp c1 Mlty.Jdg >>= fun c1 ->
     check_comp c2 Mlty.Jdg >>= fun c2 ->
-    Tyenv.return (locate ~loc (Syntax.Eq (c1, c2)), Mlty.Jdg)
+    Tyenv.return (locate ~loc (Rsyntax.Eq (c1, c2)), Mlty.Jdg)
 
-  | Syntax.Refl c ->
+  | Dsyntax.Refl c ->
     check_comp c Mlty.Jdg >>= fun c ->
-    Tyenv.return (locate ~loc (Syntax.Refl c), Mlty.Jdg)
+    Tyenv.return (locate ~loc (Rsyntax.Refl c), Mlty.Jdg)
 
-  | Syntax.Yield c ->
+  | Dsyntax.Yield c ->
     Tyenv.lookup_continuation >>= fun (a, b) ->
     check_comp c a >>= fun c ->
-    Tyenv.return (locate ~loc (Syntax.Yield c), b)
+    Tyenv.return (locate ~loc (Rsyntax.Yield c), b)
 
-  | Syntax.CongrProd (c1, c2, c3) ->
+  | Dsyntax.CongrProd (c1, c2, c3) ->
     check_comp c1 Mlty.Jdg >>= fun c1 ->
     check_comp c2 Mlty.Jdg >>= fun c2 ->
     check_comp c3 Mlty.Jdg >>= fun c3 ->
-    return (locate ~loc (Syntax.CongrProd (c1, c2, c3)), Mlty.Jdg)
+    return (locate ~loc (Rsyntax.CongrProd (c1, c2, c3)), Mlty.Jdg)
 
-  | Syntax.CongrApply (c1, c2, c3, c4, c5) ->
-    check_comp c1 Mlty.Jdg >>= fun c1 ->
-    check_comp c2 Mlty.Jdg >>= fun c2 ->
-    check_comp c3 Mlty.Jdg >>= fun c3 ->
-    check_comp c4 Mlty.Jdg >>= fun c4 ->
-    check_comp c5 Mlty.Jdg >>= fun c5 ->
-    return (locate ~loc (Syntax.CongrApply (c1, c2, c3, c4, c5)), Mlty.Jdg)
-
-  | Syntax.CongrLambda (c1, c2, c3, c4) ->
-    check_comp c1 Mlty.Jdg >>= fun c1 ->
-    check_comp c2 Mlty.Jdg >>= fun c2 ->
-    check_comp c3 Mlty.Jdg >>= fun c3 ->
-    check_comp c4 Mlty.Jdg >>= fun c4 ->
-    return (locate ~loc (Syntax.CongrLambda (c1, c2, c3, c4)), Mlty.Jdg)
-
-  | Syntax.CongrEq (c1, c2, c3) ->
-    check_comp c1 Mlty.Jdg >>= fun c1 ->
-    check_comp c2 Mlty.Jdg >>= fun c2 ->
-    check_comp c3 Mlty.Jdg >>= fun c3 ->
-    return (locate ~loc (Syntax.CongrEq (c1, c2, c3)), Mlty.Jdg)
-
-  | Syntax.CongrRefl (c1, c2) ->
-    check_comp c1 Mlty.Jdg >>= fun c1 ->
-    check_comp c2 Mlty.Jdg >>= fun c2 ->
-    return (locate ~loc (Syntax.CongrRefl (c1, c2)), Mlty.Jdg)
-
-  | Syntax.BetaStep (c1, c2, c3, c4, c5) ->
+  | Dsyntax.CongrApply (c1, c2, c3, c4, c5) ->
     check_comp c1 Mlty.Jdg >>= fun c1 ->
     check_comp c2 Mlty.Jdg >>= fun c2 ->
     check_comp c3 Mlty.Jdg >>= fun c3 ->
     check_comp c4 Mlty.Jdg >>= fun c4 ->
     check_comp c5 Mlty.Jdg >>= fun c5 ->
-    return (locate ~loc (Syntax.BetaStep (c1, c2, c3, c4, c5)), Mlty.Jdg)
+    return (locate ~loc (Rsyntax.CongrApply (c1, c2, c3, c4, c5)), Mlty.Jdg)
 
-  | Syntax.String s -> Tyenv.return (locate ~loc (Syntax.String s), Mlty.String)
+  | Dsyntax.CongrLambda (c1, c2, c3, c4) ->
+    check_comp c1 Mlty.Jdg >>= fun c1 ->
+    check_comp c2 Mlty.Jdg >>= fun c2 ->
+    check_comp c3 Mlty.Jdg >>= fun c3 ->
+    check_comp c4 Mlty.Jdg >>= fun c4 ->
+    return (locate ~loc (Rsyntax.CongrLambda (c1, c2, c3, c4)), Mlty.Jdg)
 
-  | Syntax.Occurs (c1, c2) ->
+  | Dsyntax.CongrEq (c1, c2, c3) ->
+    check_comp c1 Mlty.Jdg >>= fun c1 ->
+    check_comp c2 Mlty.Jdg >>= fun c2 ->
+    check_comp c3 Mlty.Jdg >>= fun c3 ->
+    return (locate ~loc (Rsyntax.CongrEq (c1, c2, c3)), Mlty.Jdg)
+
+  | Dsyntax.CongrRefl (c1, c2) ->
+    check_comp c1 Mlty.Jdg >>= fun c1 ->
+    check_comp c2 Mlty.Jdg >>= fun c2 ->
+    return (locate ~loc (Rsyntax.CongrRefl (c1, c2)), Mlty.Jdg)
+
+  | Dsyntax.BetaStep (c1, c2, c3, c4, c5) ->
+    check_comp c1 Mlty.Jdg >>= fun c1 ->
+    check_comp c2 Mlty.Jdg >>= fun c2 ->
+    check_comp c3 Mlty.Jdg >>= fun c3 ->
+    check_comp c4 Mlty.Jdg >>= fun c4 ->
+    check_comp c5 Mlty.Jdg >>= fun c5 ->
+    return (locate ~loc (Rsyntax.BetaStep (c1, c2, c3, c4, c5)), Mlty.Jdg)
+
+  | Dsyntax.String s -> Tyenv.return (locate ~loc (Rsyntax.String s), Mlty.String)
+
+  | Dsyntax.Occurs (c1, c2) ->
     check_comp c1 Mlty.Jdg >>= fun c1 ->
     check_comp c2 Mlty.Jdg >>= fun c2 ->
     Tyenv.predefined_type Name.Predefined.option [Mlty.Jdg] >>= fun t ->
-    return (locate ~loc (Syntax.Occurs (c1, c2)), t)
+    return (locate ~loc (Rsyntax.Occurs (c1, c2)), t)
 
-  | Syntax.Context c ->
+  | Dsyntax.Context c ->
     check_comp c Mlty.Jdg >>= fun c ->
     Tyenv.predefined_type Name.Predefined.list [Mlty.Jdg] >>= fun t ->
-    return (locate ~loc (Syntax.Context c), t)
+    return (locate ~loc (Rsyntax.Context c), t)
 
-  | Syntax.Natural c ->
+  | Dsyntax.Natural c ->
     check_comp c Mlty.Jdg >>= fun c ->
-    return (locate ~loc (Syntax.Natural c), Mlty.Jdg)
+    return (locate ~loc (Rsyntax.Natural c), Mlty.Jdg)
 
 and check_comp c t =
   comp c >>= fun (c, t') ->
   Tyenv.add_equation ~loc:c.Location.loc t' t >>= fun () ->
   return c
 
-and handler ~loc {Syntax.handler_val=handler_val;handler_ops;handler_finally} =
+and handler ~loc {Dsyntax.handler_val=handler_val;handler_ops;handler_finally} =
   let input = Mlty.fresh_type () in
   begin match handler_val with
     | [] -> Tyenv.return ([], input)
@@ -448,7 +455,7 @@ and handler ~loc {Syntax.handler_val=handler_val;handler_ops;handler_finally} =
       fold ((op, cases) :: ops) rem
   in
   fold [] (Name.IdentMap.bindings handler_ops) >>= fun handler_ops ->
-  Tyenv.return ({Syntax.handler_val=handler_val;handler_ops;handler_finally}, Mlty.Handler (input, final))
+  Tyenv.return ({Rsyntax.handler_val=handler_val;handler_ops;handler_finally}, Mlty.Handler (input, final))
 
 and match_cases ~loc t cases =
   match cases with
@@ -476,12 +483,12 @@ and match_op_cases op cases output =
   in
   fold [] cases)
 
-and let_clauses (xcs : _ Syntax.let_clause list) : Mlty.ty_schema Syntax.let_clause list Tyenv.tyenvM =
+and let_clauses (xcs : Dsyntax.let_clause list) : Rsyntax.let_clause list Tyenv.tyenvM =
   let rec fold xs = function
 
     | [] -> Tyenv.return (List.rev xs)
 
-    | (x, None, c) :: xcs ->
+    | (x, Dsyntax.Let_annot_none, c) :: xcs ->
       comp c >>= fun (c, t) ->
       begin
         match generalizable c with
@@ -491,12 +498,12 @@ and let_clauses (xcs : _ Syntax.let_clause list) : Mlty.ty_schema Syntax.let_cla
       Tyenv.normalize_schema sch >>= fun sch ->
       fold ((x, sch, c) :: xs) xcs
 
-    | (x, Some {Location.thing=sch; _}, c) :: xcs ->
+    | (x, Dsyntax.Let_annot_schema {Location.thing=sch; _}, c) :: xcs ->
       let sch = ml_schema sch in
       comp c >>= fun (c, t) ->
        begin
          match generalizable c with
-         | Generalizable -> 
+         | Generalizable ->
             Tyenv.generalizes_to ~loc:c.Location.loc t sch
          | Ungeneralizable ->
             begin
@@ -511,21 +518,21 @@ and let_clauses (xcs : _ Syntax.let_clause list) : Mlty.ty_schema Syntax.let_cla
   in
   fold [] xcs
 
-and let_rec_clauses (fycs : _ Syntax.letrec_clause list) : Mlty.ty_schema Syntax.letrec_clause list Tyenv.tyenvM =
+and let_rec_clauses (fycs : Dsyntax.letrec_clause list) : Rsyntax.letrec_clause list Tyenv.tyenvM =
   let rec bind_functions acc = function
-    | (f, y, None, c) :: rem ->
+    | (f, y, Dsyntax.Let_annot_none, c) :: rem ->
        let a = Mlty.fresh_type ()
        and b = Mlty.fresh_type () in
        let sch = Mlty.ungeneralized_schema (Mlty.Arrow (a, b)) in
        Tyenv.add_let f sch (bind_functions ((f, None, y, a, c, b) :: acc) rem)
-       
-    | (f, y, Some sch, c) :: rem ->
-       let sch = ml_schema sch.Location.thing in
+
+    | (f, y, Dsyntax.Let_annot_schema {Location.thing=sch; _}, c) :: rem ->
+       let sch = ml_schema sch in
        let a = Mlty.fresh_type ()
        and b = Mlty.fresh_type () in
        Tyenv.add_let f sch (bind_functions ((f, Some sch, y, a, c, b) :: acc) rem)
 
-    | [] -> 
+    | [] ->
        let rec check_bodies acc = function
          | [] -> Tyenv.return (List.rev acc)
 
@@ -561,7 +568,7 @@ let top_handler ~loc lst =
       let rec bind = function
         | [] ->
           let bindy m = match y with
-            | Some y -> 
+            | Some y ->
                Tyenv.predefined_type Name.Predefined.option [Mlty.Jdg] >>= fun jdg_opt ->
                Tyenv.add_var y jdg_opt m
             | None -> m
@@ -579,76 +586,73 @@ let add_tydef env (t, (params, def)) =
   let params = List.map (fun _ -> Mlty.fresh_param ()) params in
   match def with
 
-    | Syntax.ML_Alias t' ->
+    | Dsyntax.ML_Alias t' ->
        let t' = ml_ty params t' in
        Tyenv.topadd_tydef t (Mlty.Alias (params, t')) env
 
-    | Syntax.ML_Sum constructors ->
+    | Dsyntax.ML_Sum constructors ->
        let constructors = List.map (fun (c, ts) -> c, List.map (ml_ty params) ts) constructors in
        Tyenv.topadd_tydef t (Mlty.Sum (params, constructors)) env
 
-let add_operation op (args, out) env =
-  let args = List.map (ml_ty []) args
-  and out = ml_ty [] out in
-  Tyenv.topadd_operation op (args, out) env
-
-let rec toplevel env ({Location.thing=c; loc} : _ Syntax.toplevel) =
+let rec toplevel env ({Location.thing=c; loc} : Dsyntax.toplevel) =
   match c with
   (* Desugar is the only place where recursion/nonrecursion matters *)
-  | Syntax.DefMLType tydefs ->
+  | Dsyntax.DefMLType tydefs ->
     let env = List.fold_left add_tydef env tydefs in
-    env, locate ~loc (Syntax.DefMLType tydefs)
+    env, locate ~loc (Rsyntax.DefMLType tydefs)
 
-  | Syntax.DefMLTypeRec tydefs ->
+  | Dsyntax.DefMLTypeRec tydefs ->
     let env = List.fold_left add_tydef env tydefs in
-    env, locate ~loc (Syntax.DefMLTypeRec tydefs)
+    env, locate ~loc (Rsyntax.DefMLTypeRec tydefs)
 
-  | Syntax.DeclOperation (op, opty) ->
-    let env = add_operation op opty env in
-    env, locate ~loc (Syntax.DeclOperation (op, opty))
+  | Dsyntax.DeclOperation (op, (tys_in, ty_out)) ->
+    let tys_in = List.map (ml_ty []) tys_in in
+    let ty_out = ml_ty [] ty_out in
+    let env = Tyenv.topadd_operation op (tys_in, ty_out) env in
+    env, locate ~loc (Rsyntax.DeclOperation (op, (tys_in, ty_out)))
 
-  | Syntax.DeclConstants (cs, t) ->
+  | Dsyntax.DeclConstants (cs, t) ->
     let env, t = Tyenv.at_toplevel env (check_comp t Mlty.Jdg) in
-    env, locate ~loc (Syntax.DeclConstants (cs, t))
+    env, locate ~loc (Rsyntax.DeclConstants (cs, t))
 
-  | Syntax.TopHandle lst ->
+  | Dsyntax.TopHandle lst ->
     let env, lst = Tyenv.at_toplevel env (top_handler ~loc lst) in
-    env, locate ~loc (Syntax.TopHandle lst)
+    env, locate ~loc (Rsyntax.TopHandle lst)
 
-  | Syntax.TopLet xcs ->
+  | Dsyntax.TopLet xcs ->
     let env, xcs = Tyenv.at_toplevel env (let_clauses xcs) in
     let env = List.fold_left (fun env (x, s, _) -> Tyenv.topadd_let x s env) env xcs in
-    env, locate ~loc (Syntax.TopLet xcs)
+    env, locate ~loc (Rsyntax.TopLet xcs)
 
-  | Syntax.TopLetRec xycs ->
+  | Dsyntax.TopLetRec xycs ->
     let env, xycs = Tyenv.at_toplevel env (let_rec_clauses xycs) in
     let env = List.fold_left (fun env (x, _, s, _) -> Tyenv.topadd_let x s env) env xycs in
-    env, locate ~loc (Syntax.TopLetRec xycs)
+    env, locate ~loc (Rsyntax.TopLetRec xycs)
 
-  | Syntax.TopDynamic (x, _, c) ->
+  | Dsyntax.TopDynamic (x, _, c) ->
     let env, (c, t) = Tyenv.at_toplevel env (comp c) in
     let s = Mlty.ungeneralized_schema t in
     let env = Tyenv.topadd_let x s env in
-    env, locate ~loc (Syntax.TopDynamic (x, s, c))
+    env, locate ~loc (Rsyntax.TopDynamic (x, s, c))
 
-  | Syntax.TopNow (x, c) ->
+  | Dsyntax.TopNow (x, c) ->
     let env, c = Tyenv.at_toplevel env (Tyenv.lookup_var x >>= fun tx ->
       check_comp c tx)
     in
-    env, locate ~loc (Syntax.TopNow (x, c))
+    env, locate ~loc (Rsyntax.TopNow (x, c))
 
-  | Syntax.TopDo c ->
+  | Dsyntax.TopDo c ->
     let env, (c, _) = Tyenv.at_toplevel env (comp c) in
-    env, locate ~loc (Syntax.TopDo c)
+    env, locate ~loc (Rsyntax.TopDo c)
 
-  | Syntax.TopFail c ->
+  | Dsyntax.TopFail c ->
     let env, (c, _) = Tyenv.at_toplevel env (comp c) in
-    env, locate ~loc (Syntax.TopFail c)
+    env, locate ~loc (Rsyntax.TopFail c)
 
-  | Syntax.Verbosity v ->
-    env, locate ~loc (Syntax.Verbosity v)
+  | Dsyntax.Verbosity v ->
+    env, locate ~loc (Rsyntax.Verbosity v)
 
-  | Syntax.Included fcs ->
+  | Dsyntax.Included fcs ->
     let rec fold_files env fcs = function
       | [] ->
         let fcs = List.rev fcs in
@@ -663,5 +667,4 @@ let rec toplevel env ({Location.thing=c; loc} : _ Syntax.toplevel) =
         fold_files env ((f, cs) :: fcs) rem
     in
     let env, fcs = fold_files env [] fcs in
-    env, locate ~loc (Syntax.Included fcs)
-
+    env, locate ~loc (Rsyntax.Included fcs)

@@ -35,7 +35,7 @@ type ty =
   | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
-  | App of Name.ident * Syntax.level * ty list
+  | App of Name.ident * Dsyntax.level * ty list
   | Ref of ty
 
 let unit_ty = Prod []
@@ -212,11 +212,11 @@ let instantiate pus t =
            List.assoc p pus
          with Not_found -> t
        end
-       
+
     | Prod ts ->
        let ts = List.map inst ts in
        Prod ts
-            
+
     | Ref t ->
        let t = inst t in
        Ref t

@@ -169,16 +169,16 @@ let mlty ctx params ty =
       | Input.ML_Arrow (ty1, ty2) ->
          let ty1 = mlty ty1
          and ty2 = mlty ty2 in
-         Syntax.ML_Arrow (ty1, ty2)
+         Dsyntax.ML_Arrow (ty1, ty2)
 
       | Input.ML_Handler (ty1, ty2) ->
          let ty1 = mlty ty1
          and ty2 = mlty ty2 in
-         Syntax.ML_Handler (ty1, ty2)
+         Dsyntax.ML_Handler (ty1, ty2)
 
       | Input.ML_Prod tys ->
          let tys = List.map mlty tys in
-         Syntax.ML_Prod tys
+         Dsyntax.ML_Prod tys
 
       | Input.ML_TyApply (x, args) ->
          begin
@@ -187,7 +187,7 @@ let mlty ctx params ty =
               (* It is a type parameter *)
               begin
                 match args with
-                | [] -> Syntax.ML_Bound k
+                | [] -> Dsyntax.ML_Bound k
                 | _::_ -> error ~loc AppliedTyParam
               end
            | None ->
@@ -198,18 +198,18 @@ let mlty ctx params ty =
                 if arity = n
                 then
                   let args = List.map mlty args in
-                  Syntax.ML_TyApply (x, level, args)
+                  Dsyntax.ML_TyApply (x, level, args)
                 else
                   error ~loc (ArityMismatch (x, n, arity))
               end
          end
 
       | Input.ML_Anonymous ->
-         Syntax.ML_Anonymous
+         Dsyntax.ML_Anonymous
 
-      | Input.ML_Judgment -> Syntax.ML_Judgment
+      | Input.ML_Judgment -> Dsyntax.ML_Judgment
 
-      | Input.ML_String -> Syntax.ML_String
+      | Input.ML_String -> Dsyntax.ML_String
       end
     in
     locate ty' loc
@@ -219,46 +219,46 @@ let mlty ctx params ty =
 (* TODO improve locs *)
 let mk_lambda ~loc ys c =
   List.fold_left
-    (fun c (y,u) -> locate (Syntax.Lambda (y,u,c)) loc)
+    (fun c (y,u) -> locate (Dsyntax.Lambda (y,u,c)) loc)
     c ys
 
 let mk_prod ~loc ys t =
   List.fold_left
-    (fun c (y,u) -> locate (Syntax.Prod (y,u,c)) loc)
+    (fun c (y,u) -> locate (Dsyntax.Prod (y,u,c)) loc)
     t ys
 
 (* n is the length of vars *)
 let rec tt_pattern bound vars n {Location.thing=p;loc} =
   match p with
   | Input.Tt_Anonymous ->
-     (locate Syntax.Tt_Anonymous loc), vars, n
+     (locate Pattern.Tt_Anonymous loc), vars, n
 
   | Input.Tt_As (p,x) ->
      begin match Name.assoc_ident x vars with
      | Some i ->
         let p, vars, n = tt_pattern bound vars n p in
-        (locate (Syntax.Tt_As (p,i)) loc), vars, n
+        (locate (Pattern.Tt_As (p,i)) loc), vars, n
      | None ->
         let i = n in
         let p, vars, n = tt_pattern bound ((x,n)::vars) (n+1) p in
-        (locate (Syntax.Tt_As (p,i)) loc), vars, n
+        (locate (Pattern.Tt_As (p,i)) loc), vars, n
      end
 
   | Input.Tt_Var x ->
      begin match Name.assoc_ident x vars with
      | Some i ->
-        locate (Syntax.Tt_As ((locate Syntax.Tt_Anonymous loc), i)) loc, vars, n
+        locate (Pattern.Tt_As ((locate Pattern.Tt_Anonymous loc), i)) loc, vars, n
      | None ->
-        locate (Syntax.Tt_As ((locate Syntax.Tt_Anonymous loc), n)) loc, ((x,n)::vars), (n+1)
+        locate (Pattern.Tt_As ((locate Pattern.Tt_Anonymous loc), n)) loc, ((x,n)::vars), (n+1)
      end
 
   | Input.Tt_Type ->
-     (locate Syntax.Tt_Type loc), vars, n
+     (locate Pattern.Tt_Type loc), vars, n
 
   | Input.Tt_Name x ->
      begin match Ctx.find ~loc x bound with
-     | Variable (i,_) -> locate (Syntax.Tt_Bound i) loc, vars, n
-     | Constant -> locate (Syntax.Tt_Constant x) loc, vars, n
+     | Variable (i,_) -> locate (Pattern.Tt_Bound i) loc, vars, n
+     | Constant -> locate (Pattern.Tt_Constant x) loc, vars, n
      | Constructor _ | Operation _ as info -> error ~loc (InvalidTermPatternName (x, info))
      end
 
@@ -288,7 +288,7 @@ let rec tt_pattern bound vars n {Location.thing=p;loc} =
           in
           let bound = Ctx.add_lexical x bound in
           let p, vars, n = fold bound vars n lst in
-          locate (Syntax.Tt_Lambda (x,bopt,popt,p)) loc, vars, n
+          locate (Pattern.Tt_Lambda (x,bopt,popt,p)) loc, vars, n
      in
      fold bound vars n lst
 
@@ -297,7 +297,7 @@ let rec tt_pattern bound vars n {Location.thing=p;loc} =
        | [] -> p, vars, n
        | q :: lst ->
           let q, vars, n = tt_pattern bound vars n q in
-          let p = locate (Syntax.Tt_Apply (p, q)) loc in
+          let p = locate (Pattern.Tt_Apply (p, q)) loc in
           fold p vars n lst
      in
      let p, vars, n = tt_pattern bound vars n p in
@@ -329,74 +329,74 @@ let rec tt_pattern bound vars n {Location.thing=p;loc} =
           in
           let bound = Ctx.add_lexical x bound in
           let p, vars, n = fold bound vars n lst in
-          locate (Syntax.Tt_Prod (x,bopt,popt,p)) loc, vars, n
+          locate (Pattern.Tt_Prod (x,bopt,popt,p)) loc, vars, n
      in
      fold bound vars n lst
 
   | Input.Tt_Eq (p1,p2) ->
      let p1, vars, n = tt_pattern bound vars n p1 in
      let p2, vars, n = tt_pattern bound vars n p2 in
-     locate (Syntax.Tt_Eq (p1,p2)) loc, vars, n
+     locate (Pattern.Tt_Eq (p1,p2)) loc, vars, n
 
   | Input.Tt_Refl p ->
      let p, vars, n = tt_pattern bound vars n p in
-     locate (Syntax.Tt_Refl p) loc, vars, n
+     locate (Pattern.Tt_Refl p) loc, vars, n
 
   | Input.Tt_GenAtom p ->
      let p, vars, n = tt_pattern bound vars n p in
-     locate (Syntax.Tt_GenAtom p) loc, vars, n
+     locate (Pattern.Tt_GenAtom p) loc, vars, n
 
   | Input.Tt_GenConstant p ->
      let p, vars, n = tt_pattern bound vars n p in
-     locate (Syntax.Tt_GenConstant p) loc, vars, n
+     locate (Pattern.Tt_GenConstant p) loc, vars, n
 
 and pattern bound vars n {Location.thing=p; loc} =
   match p with
-  | Input.Patt_Anonymous -> locate Syntax.Patt_Anonymous loc, vars, n
+  | Input.Patt_Anonymous -> locate Pattern.Patt_Anonymous loc, vars, n
 
   | Input.Patt_As (p,x) ->
      begin match Name.assoc_ident x vars with
      | Some i ->
         let p, vars, n = pattern bound vars n p in
-        locate (Syntax.Patt_As (p,i)) loc, vars, n
+        locate (Pattern.Patt_As (p,i)) loc, vars, n
      | None ->
         let i = n in
         let p, vars, n = pattern bound ((x,i)::vars) (n+1) p in
-        locate (Syntax.Patt_As (p,i)) loc, vars, n
+        locate (Pattern.Patt_As (p,i)) loc, vars, n
      end
 
   | Input.Patt_Var x ->
      begin match Name.assoc_ident x vars with
      | Some i ->
-        locate (Syntax.Patt_As (locate Syntax.Patt_Anonymous loc, i)) loc, vars, n
+        locate (Pattern.Patt_As (locate Pattern.Patt_Anonymous loc, i)) loc, vars, n
      | None ->
-        locate (Syntax.Patt_As (locate Syntax.Patt_Anonymous loc, n)) loc, ((x,n)::vars), (n+1)
+        locate (Pattern.Patt_As (locate Pattern.Patt_Anonymous loc, n)) loc, ((x,n)::vars), (n+1)
      end
 
   | Input.Patt_Name x ->
      begin match Ctx.find ~loc x bound with
      | Variable (i,_) ->
-        locate (Syntax.Patt_Bound i) loc, vars, n
+        locate (Pattern.Patt_Bound i) loc, vars, n
      | Constructor k ->
         if k = 0
-        then locate (Syntax.Patt_Constructor (x,[])) loc, vars, n
+        then locate (Pattern.Patt_Constructor (x,[])) loc, vars, n
         else error ~loc (ArityMismatch (x, 0, k))
      | Constant ->
-        let p = locate (Syntax.Tt_Constant x) loc in
-        let pt = locate Syntax.Tt_Anonymous loc in
-        locate (Syntax.Patt_Jdg (p, pt)) loc, vars, n
+        let p = locate (Pattern.Tt_Constant x) loc in
+        let pt = locate Pattern.Tt_Anonymous loc in
+        locate (Pattern.Patt_Jdg (p, pt)) loc, vars, n
      | Operation _ as info -> error ~loc (InvalidPatternName (x, info))
      end
 
   | Input.Patt_Jdg (p1, Some p2) ->
      let p1, vars, n = tt_pattern bound vars n p1 in
      let p2, vars, n = tt_pattern bound vars n p2 in
-     locate (Syntax.Patt_Jdg (p1,p2)) loc, vars, n
+     locate (Pattern.Patt_Jdg (p1,p2)) loc, vars, n
 
   | Input.Patt_Jdg (p1, None) ->
      let p1, vars, n = tt_pattern bound vars n p1
-     and p2 = Location.locate (Syntax.Tt_Anonymous) Location.unknown in
-     locate (Syntax.Patt_Jdg (p1, p2)) loc, vars, n
+     and p2 = Location.locate (Pattern.Tt_Anonymous) Location.unknown in
+     locate (Pattern.Patt_Jdg (p1, p2)) loc, vars, n
 
   | Input.Patt_Constr (c,ps) ->
      begin match Ctx.find ~loc c bound with
@@ -407,7 +407,7 @@ and pattern bound vars n {Location.thing=p; loc} =
           let rec fold vars n ps = function
             | [] ->
                let ps = List.rev ps in
-               locate (Syntax.Patt_Constructor (c,ps)) loc, vars, n
+               locate (Pattern.Patt_Constructor (c,ps)) loc, vars, n
             | p::rem ->
                let p, vars, n = pattern bound vars n p in
                fold vars n (p::ps) rem
@@ -421,11 +421,11 @@ and pattern bound vars n {Location.thing=p; loc} =
 
   | Input.Patt_List ps ->
      let rec fold ~loc vars n = function
-       | [] -> locate (Syntax.Patt_Constructor (Name.Predefined.nil, [])) loc, vars, n
+       | [] -> locate (Pattern.Patt_Constructor (Name.Predefined.nil, [])) loc, vars, n
        | p :: ps ->
           let p, vars, n = pattern bound vars n p in
           let ps, vars, n = fold ~loc:(p.Location.loc) vars n ps in
-          locate (Syntax.Patt_Constructor (Name.Predefined.cons, [p ; ps])) loc, vars, n
+          locate (Pattern.Patt_Constructor (Name.Predefined.cons, [p ; ps])) loc, vars, n
      in
      fold ~loc vars n ps
 
@@ -433,7 +433,7 @@ and pattern bound vars n {Location.thing=p; loc} =
      let rec fold vars n ps = function
        | [] ->
           let ps = List.rev ps in
-          locate (Syntax.Patt_Tuple ps) loc, vars, n
+          locate (Pattern.Patt_Tuple ps) loc, vars, n
        | p::rem ->
           let p, vars, n = pattern bound vars n p in
           fold vars n (p::ps) rem
@@ -445,76 +445,76 @@ let rec comp ~yield bound {Location.thing=c';loc} =
   | Input.Handle (c, hcs) ->
      let c = comp ~yield bound c
      and h = handler ~loc bound hcs in
-     locate (Syntax.With (h, c)) loc
+     locate (Dsyntax.With (h, c)) loc
 
   | Input.With (c1, c2) ->
      let c1 = comp ~yield bound c1
      and c2 = comp ~yield bound c2 in
-     locate (Syntax.With (c1, c2)) loc
+     locate (Dsyntax.With (c1, c2)) loc
 
   | Input.Let (lst, c) ->
      let bound, lst = let_clauses ~loc ~yield bound lst in
      let c = comp ~yield bound c in
-     locate (Syntax.Let (lst, c)) loc
+     locate (Dsyntax.Let (lst, c)) loc
 
   | Input.LetRec (lst, c) ->
      let bound, lst = letrec_clauses ~loc ~yield bound lst in
      let c = comp ~yield bound c in
-     locate (Syntax.LetRec (lst, c)) loc
+     locate (Dsyntax.LetRec (lst, c)) loc
 
   | Input.MLAscribe (c, sch) ->
      let c = comp ~yield bound c in
-     let sch = ml_schema ~yield bound sch in
-     locate (Syntax.MLAscribe (c, sch)) loc
+     let sch = ml_schema bound sch in
+     locate (Dsyntax.MLAscribe (c, sch)) loc
 
   | Input.Now (x,c1,c2) ->
      let y = Ctx.get_dynamic ~loc x bound
      and c1 = comp ~yield bound c1
      and c2 = comp ~yield bound c2 in
-     locate (Syntax.Now (y,c1,c2)) loc
+     locate (Dsyntax.Now (y,c1,c2)) loc
 
   | Input.Lookup c ->
      let c = comp ~yield bound c in
-     locate (Syntax.Lookup c) loc
+     locate (Dsyntax.Lookup c) loc
 
   | Input.Ref c ->
      let c = comp ~yield bound c in
-     locate (Syntax.Ref c) loc
+     locate (Dsyntax.Ref c) loc
 
   | Input.Update (c1, c2) ->
      let c1 = comp ~yield bound c1
      and c2 = comp ~yield bound c2 in
-     locate (Syntax.Update (c1, c2)) loc
+     locate (Dsyntax.Update (c1, c2)) loc
 
   | Input.Sequence (c1, c2) ->
      let c1 = comp ~yield bound c1
      and c2 = comp ~yield bound c2 in
-     locate (Syntax.Sequence (c1, c2)) loc
+     locate (Dsyntax.Sequence (c1, c2)) loc
 
   | Input.Assume ((x, t), c) ->
      let t = comp ~yield bound t in
      let bound = Ctx.add_lexical x bound in
      let c = comp ~yield bound c in
-     locate (Syntax.Assume ((x, t), c)) loc
+     locate (Dsyntax.Assume ((x, t), c)) loc
 
   | Input.Where (c1, c2, c3) ->
      let c1 = comp ~yield bound c1
      and c2 = comp ~yield bound c2
      and c3 = comp ~yield bound c3 in
-     locate (Syntax.Where (c1, c2, c3)) loc
+     locate (Dsyntax.Where (c1, c2, c3)) loc
 
   | Input.Match (c, cases) ->
      let c = comp ~yield bound c
      and cases = List.map (match_case ~yield bound) cases in
-     locate (Syntax.Match (c, cases)) loc
+     locate (Dsyntax.Match (c, cases)) loc
 
   | Input.Ascribe (c, t) ->
      let t = comp ~yield bound t
      and c = comp ~yield bound c in
-     locate (Syntax.Ascribe (c, t)) loc
+     locate (Dsyntax.Ascribe (c, t)) loc
 
   | Input.External s ->
-     locate (Syntax.External s) loc
+     locate (Dsyntax.External s) loc
 
   | Input.Lambda (xs, c) ->
      let rec fold bound ys = function
@@ -550,42 +550,43 @@ let rec comp ~yield bound {Location.thing=c';loc} =
   | Input.Eq (c1, c2) ->
      let c1 = comp ~yield bound c1
      and c2 = comp ~yield bound c2 in
-     locate (Syntax.Eq (c1, c2)) loc
+     locate (Dsyntax.Eq (c1, c2)) loc
 
   | Input.Refl c ->
      let c = comp ~yield bound c in
-     locate (Syntax.Refl c) loc
+     locate (Dsyntax.Refl c) loc
 
   | Input.Var x ->
      begin match Ctx.find ~loc x bound with
-     | Variable (i,_) -> locate (Syntax.Bound i) loc
-     | Constant -> locate (Syntax.Constant x) loc
+     | Variable (i,_) -> locate (Dsyntax.Bound i) loc
+     | Constant -> locate (Dsyntax.Constant x) loc
      | Constructor k ->
-        if k = 0 then locate (Syntax.Constructor (x, [])) loc
+        if k = 0 then locate (Dsyntax.Constructor (x, [])) loc
         else error ~loc (ArityMismatch (x, 0, k))
      | Operation k ->
-        if k = 0 then locate (Syntax.Operation (x, [])) loc
+        if k = 0 then locate (Dsyntax.Operation (x, [])) loc
         else error ~loc (ArityMismatch (x, 0, k))
      end
 
   | Input.Type ->
-     locate Syntax.Type loc
+     locate Dsyntax.Type loc
 
   | Input.Yield c ->
      if yield
      then
        let c = comp ~yield bound c in
-       locate (Syntax.Yield c) loc
+       locate (Dsyntax.Yield c) loc
      else
       error ~loc UnboundYield
 
   | Input.Function (xs, c) ->
      let rec fold bound = function
        | [] -> comp ~yield bound c
-       | x :: xs ->
+       | (x, t) :: xs ->
           let bound = Ctx.add_lexical x bound in
           let c = fold bound xs in
-          locate (Syntax.Function (x, c)) loc
+          let t = arg_annotation bound t in
+          locate (Dsyntax.Function (x, t, c)) loc
      in
      fold bound xs
 
@@ -594,23 +595,23 @@ let rec comp ~yield bound {Location.thing=c';loc} =
 
   | Input.List cs ->
      let rec fold ~loc = function
-       | [] -> locate (Syntax.Constructor (Name.Predefined.nil, [])) loc
+       | [] -> locate (Dsyntax.Constructor (Name.Predefined.nil, [])) loc
        | c :: cs ->
           let c = comp ~yield bound c in
           let cs = fold ~loc:(c.Location.loc) cs in
-          locate (Syntax.Constructor (Name.Predefined.cons, [c ; cs])) loc
+          locate (Dsyntax.Constructor (Name.Predefined.cons, [c ; cs])) loc
      in
      fold ~loc cs
 
   | Input.Tuple cs ->
      let lst = List.map (comp ~yield bound) cs in
-     locate (Syntax.Tuple lst) loc
+     locate (Dsyntax.Tuple lst) loc
 
   | Input.CongrProd (e1, e2, e3) ->
      let e1 = comp ~yield bound e1
      and e2 = comp ~yield bound e2
      and e3 = comp ~yield bound e3 in
-     locate (Syntax.CongrProd (e1, e2, e3)) loc
+     locate (Dsyntax.CongrProd (e1, e2, e3)) loc
 
   | Input.CongrApply (e1, e2, e3, e4, e5) ->
      let e1 = comp ~yield bound e1
@@ -618,25 +619,25 @@ let rec comp ~yield bound {Location.thing=c';loc} =
      and e3 = comp ~yield bound e3
      and e4 = comp ~yield bound e4
      and e5 = comp ~yield bound e5 in
-     locate (Syntax.CongrApply (e1, e2, e3, e4, e5)) loc
+     locate (Dsyntax.CongrApply (e1, e2, e3, e4, e5)) loc
 
   | Input.CongrLambda (e1, e2, e3, e4) ->
      let e1 = comp ~yield bound e1
      and e2 = comp ~yield bound e2
      and e3 = comp ~yield bound e3
      and e4 = comp ~yield bound e4 in
-     locate (Syntax.CongrLambda (e1, e2, e3, e4)) loc
+     locate (Dsyntax.CongrLambda (e1, e2, e3, e4)) loc
 
   | Input.CongrEq (e1, e2, e3) ->
      let e1 = comp ~yield bound e1
      and e2 = comp ~yield bound e2
      and e3 = comp ~yield bound e3 in
-     locate (Syntax.CongrEq (e1, e2, e3)) loc
+     locate (Dsyntax.CongrEq (e1, e2, e3)) loc
 
   | Input.CongrRefl (e1, e2) ->
      let e1 = comp ~yield bound e1
      and e2 = comp ~yield bound e2 in
-     locate (Syntax.CongrRefl (e1, e2)) loc
+     locate (Dsyntax.CongrRefl (e1, e2)) loc
 
   | Input.BetaStep (e1, e2, e3, e4, e5) ->
      let e1 = comp ~yield bound e1
@@ -644,41 +645,38 @@ let rec comp ~yield bound {Location.thing=c';loc} =
      and e3 = comp ~yield bound e3
      and e4 = comp ~yield bound e4
      and e5 = comp ~yield bound e5 in
-     locate (Syntax.BetaStep (e1, e2, e3, e4, e5)) loc
+     locate (Dsyntax.BetaStep (e1, e2, e3, e4, e5)) loc
 
   | Input.String s ->
-     locate (Syntax.String s) loc
+     locate (Dsyntax.String s) loc
 
   | Input.Context c ->
      let c = comp ~yield bound c in
-     locate (Syntax.Context c) loc
+     locate (Dsyntax.Context c) loc
 
   | Input.Occurs (c1,c2) ->
      let c1 = comp ~yield bound c1
      and c2 = comp ~yield bound c2 in
-     locate (Syntax.Occurs (c1,c2)) loc
+     locate (Dsyntax.Occurs (c1,c2)) loc
 
   | Input.Natural c ->
      let c = comp ~yield bound c in
-     locate (Syntax.Natural c) loc
+     locate (Dsyntax.Natural c) loc
 
 and let_clauses ~loc ~yield bound lst =
   let rec fold bound' lst' = function
     | [] ->
        let lst' = List.rev lst' in
        bound', lst'
-    | (x, ys, t_opt, c) :: xcs ->
+    | (x, ys, sch, c) :: xcs ->
        if List.exists (fun (y, _, _, _) -> Name.eq_ident x y) xcs
        then
          error ~loc (ParallelShadowing x)
        else
          let c = let_clause ~yield bound ys c in
-         let t_opt = match t_opt with
-           | Some sch -> Some (ml_schema ~yield bound sch)
-           | None -> None
-         in
+         let sch = let_annotation bound sch in
          let bound' = Ctx.add_lexical x bound' in
-         let lst' = (x, t_opt, c) :: lst' in
+         let lst' = (x, sch, c) :: lst' in
          fold bound' lst' xcs
   in
   fold bound [] lst
@@ -691,18 +689,14 @@ and letrec_clauses ~loc ~yield bound lst =
     | [] ->
        let lst' = List.rev lst' in
        bound, lst'
-    | (f, y, ys, t_opt, c) :: xcs ->
+    | (f, yt, ys, sch, c) :: xcs ->
        if List.exists (fun (g, _, _, _, _) -> Name.eq_ident f g) xcs
        then
          error ~loc (ParallelShadowing f)
        else
-         let y, c = letrec_clause ~yield bound y ys c in
-         let t_opt = match t_opt with
-           | Some {Location.thing=Input.ML_Forall (params, t); loc} ->
-             Some (locate (Syntax.ML_Forall (params, mlty bound params t)) loc)
-           | None -> None
-         in
-         let lst' = (f, y, t_opt, c) :: lst' in
+         let yt, c = letrec_clause ~yield bound yt ys c in
+         let sch = let_annotation bound sch in
+         let lst' = (f, yt, sch, c) :: lst' in
          fold lst' xcs
   in
   fold [] lst
@@ -711,20 +705,34 @@ and let_clause ~yield bound ys c =
   let rec fold bound = function
     | [] ->
        comp ~yield bound c
-    | y :: ys ->
+    | (y, t) :: ys ->
        let bound = Ctx.add_lexical y bound in
        let c = fold bound ys in
-       locate (Syntax.Function (y, c)) (c.Location.loc) (* XXX improve location *)
+       let t = arg_annotation bound t in
+       locate (Dsyntax.Function (y, t, c)) (c.Location.loc) (* XXX improve location *)
   in
   fold bound ys
 
-and letrec_clause ~yield bound y ys c =
+and letrec_clause ~yield bound (y, t) ys c =
+  let t = arg_annotation bound t in
   let bound = Ctx.add_lexical y bound in
   let c = let_clause ~yield bound ys c in
-  y, c
+  (y, t), c
 
-and ml_schema ~yield bound {Location.thing=Input.ML_Forall (params, t); loc} =
-  locate (Syntax.ML_Forall (params, mlty bound params t)) loc
+and ml_schema bound {Location.thing=Input.ML_Forall (params, t); loc} =
+  locate (Dsyntax.ML_Forall (params, mlty bound params t)) loc
+
+and arg_annotation bound = function
+  | Input.Arg_annot_none -> Dsyntax.Arg_annot_none
+  | Input.Arg_annot_ty t ->
+     let t = mlty bound [] t in
+     Dsyntax.Arg_annot_ty t
+
+and let_annotation bound = function
+  | Input.Let_annot_none -> Dsyntax.Let_annot_none
+  | Input.Let_annot_schema sch ->
+     let sch = ml_schema bound sch in
+     Dsyntax.Let_annot_schema sch
 
 (* Desugar a spine. This function is a bit messy because we need to untangle
    to env. But it's worth doing to make users happy. TODO outdated comment *)
@@ -755,9 +763,9 @@ and spine ~yield bound ({Location.thing=c';loc} as c) cs =
     | Input.Var x ->
        begin match Ctx.find ~loc x bound with
        | Variable (i,_) ->
-          locate (Syntax.Bound i) loc, cs
+          locate (Dsyntax.Bound i) loc, cs
        | Constant ->
-          locate (Syntax.Constant x) loc, cs
+          locate (Dsyntax.Constant x) loc, cs
        | Constructor k ->
           let cs', cs = split x k cs in
           data ~loc ~yield bound x cs', cs
@@ -772,7 +780,7 @@ and spine ~yield bound ({Location.thing=c';loc} as c) cs =
   (* TODO improve locs *)
   List.fold_left (fun h c ->
       let c = comp ~yield bound c in
-      locate (Syntax.Apply (h,c)) loc) c cs
+      locate (Dsyntax.Apply (h,c)) loc) c cs
 
 (* Desugar handler cases. *)
 and handler ~loc bound hcs =
@@ -805,7 +813,7 @@ and handler ~loc bound hcs =
 
   in
   let handler_val, handler_ops, handler_finally = fold [] Name.IdentMap.empty [] hcs in
-  locate (Syntax.Handler (Syntax.{ handler_val ; handler_ops ; handler_finally })) loc
+  locate (Dsyntax.Handler (Dsyntax.{ handler_val ; handler_ops ; handler_finally })) loc
 
 (* Desugar a match case *)
 and match_case ~yield bound (p, c) =
@@ -843,11 +851,11 @@ and match_op_case ~yield bound (ps, pt, c) =
 
 and data ~loc ~yield bound x cs =
   let cs = List.map (comp ~yield bound) cs in
-  locate (Syntax.Constructor (x, cs)) loc
+  locate (Dsyntax.Constructor (x, cs)) loc
 
 and operation ~loc ~yield bound x cs =
   let cs = List.map (comp ~yield bound) cs in
-  locate (Syntax.Operation (x, cs)) loc
+  locate (Dsyntax.Operation (x, cs)) loc
 
 
 let decl_operation ~loc ctx args res =
@@ -860,10 +868,10 @@ let mlty_def ~loc ctx outctx params def =
   match def with
   | Input.ML_Alias ty ->
      let ty = mlty ctx params ty in
-     outctx, Syntax.ML_Alias ty
+     outctx, Dsyntax.ML_Alias ty
   | Input.ML_Sum lst ->
     let rec fold outctx res = function
-      | [] -> outctx, Syntax.ML_Sum (List.rev res)
+      | [] -> outctx, Dsyntax.ML_Sum (List.rev res)
       | (c, args) :: lst ->
         let args = List.map (mlty ctx params) args in
         let outctx = Ctx.add_constructor ~loc c (List.length args) outctx in
@@ -875,10 +883,10 @@ let mlty_rec_def ~loc ctx params def =
   match def with
   | Input.ML_Alias ty ->
      let ty = mlty ctx params ty in
-     ctx, Syntax.ML_Alias ty
+     ctx, Dsyntax.ML_Alias ty
   | Input.ML_Sum lst ->
     let rec fold ctx res = function
-      | [] -> ctx, Syntax.ML_Sum (List.rev res)
+      | [] -> ctx, Dsyntax.ML_Sum (List.rev res)
       | (c, args) :: lst ->
         let args = List.map (mlty ctx params) args in
         let ctx = Ctx.add_constructor ~loc c (List.length args) ctx in
@@ -916,20 +924,20 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
     | Input.DeclOperation (op, (args, res)) ->
        let args, res = decl_operation ~loc ctx args res in
        let ctx = Ctx.add_operation ~loc op (List.length args) ctx in
-       (ctx, locate (Syntax.DeclOperation (op, (args, res))) loc)
+       (ctx, locate (Dsyntax.DeclOperation (op, (args, res))) loc)
 
     | Input.DefMLType lst ->
        let ctx, lst = mlty_defs ~loc ctx lst in
-       (ctx, locate (Syntax.DefMLType lst) loc)
+       (ctx, locate (Dsyntax.DefMLType lst) loc)
 
     | Input.DefMLTypeRec lst ->
        let ctx, lst = mlty_rec_defs ~loc ctx lst in
-       (ctx, locate (Syntax.DefMLTypeRec lst) loc)
+       (ctx, locate (Dsyntax.DefMLTypeRec lst) loc)
 
     | Input.DeclConstants (xs, u) ->
        let u = comp ~yield:false ctx u
        and ctx = List.fold_left (fun ctx x -> Ctx.add_constant ~loc x ctx) ctx xs in
-       (ctx, locate (Syntax.DeclConstants (xs, u)) loc)
+       (ctx, locate (Dsyntax.DeclConstants (xs, u)) loc)
 
     | Input.TopHandle lst ->
        let lst =
@@ -957,40 +965,41 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
            )
            lst
        in
-       (ctx, locate (Syntax.TopHandle lst) loc)
+       (ctx, locate (Dsyntax.TopHandle lst) loc)
 
     | Input.TopLet lst ->
        let ctx, lst = let_clauses ~loc ~yield:false ctx lst in
-       (ctx, locate (Syntax.TopLet lst) loc)
+       (ctx, locate (Dsyntax.TopLet lst) loc)
 
     | Input.TopLetRec lst ->
        let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
-       (ctx, locate (Syntax.TopLetRec lst) loc)
+       (ctx, locate (Dsyntax.TopLetRec lst) loc)
 
-    | Input.TopDynamic (x, c) ->
+    | Input.TopDynamic (x, sch, c) ->
        let c = comp ~yield:false ctx c in
        let ctx = Ctx.add_dynamic x ctx in
-       (ctx, locate (Syntax.TopDynamic (x, None, c)) loc)
+       let sch = let_annotation bound sch in
+       (ctx, locate (Dsyntax.TopDynamic (x, sch, c)) loc)
 
     | Input.TopNow (x, c) ->
        let y = Ctx.get_dynamic ~loc x ctx in
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Syntax.TopNow (y, c)) loc)
+       (ctx, locate (Dsyntax.TopNow (y, c)) loc)
 
     | Input.TopDo c ->
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Syntax.TopDo c) loc)
+       (ctx, locate (Dsyntax.TopDo c) loc)
 
     | Input.TopFail c ->
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Syntax.TopFail c) loc)
+       (ctx, locate (Dsyntax.TopFail c) loc)
 
     | Input.Verbosity n ->
-       (ctx, locate (Syntax.Verbosity n) loc)
+       (ctx, locate (Dsyntax.Verbosity n) loc)
 
     | Input.Require fs ->
       let rec fold ctx res = function
-        | [] -> (ctx, locate (Syntax.Included (List.rev res)) loc)
+        | [] -> (ctx, locate (Dsyntax.Included (List.rev res)) loc)
         | fn::fs ->
           let fn =
             if Filename.is_relative fn
@@ -1020,4 +1029,3 @@ and file ctx fn =
       (ctx,[]) cmds
     in
     ctx, List.rev cmds
-
