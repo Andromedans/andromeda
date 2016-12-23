@@ -120,6 +120,9 @@ let rec infer {Location.thing=c'; loc} =
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (infer c)
 
+  | Syntax.MLAscribe (c, _) ->
+     infer c
+
   | Syntax.Now (x,c1,c2) ->
     infer c1 >>= fun v ->
     Runtime.now ~loc x v (infer c2)
@@ -388,6 +391,9 @@ and check ({Location.thing=c';loc} as c) t_check =
 
   | Syntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (check c t_check)
+
+  | Syntax.MLAscribe (c, _) ->
+     check c t_check
 
   | Syntax.Now (x,c1,c2) ->
     infer c1 >>= fun v ->

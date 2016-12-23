@@ -23,7 +23,7 @@
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
 %token LBRACK RBRACK
-%token COLON COMMA
+%token COLON COMMA COLONGE
 %token ARROW DARROW
 
 (* Things specific to toplevel *)
@@ -209,6 +209,7 @@ plain_simple_term:
   | EXTERNAL s=QUOTED_STRING                            { External s }
   | s=QUOTED_STRING                                     { String s }
   | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
+  | LPAREN c=term COLONGE t=ml_schema RPAREN            { MLAscribe (c, t) }
   | LPAREN lst=separated_list(COMMA, term) RPAREN       { match lst with
                                                           | [{Location.thing=e;loc=_}] -> e
                                                           | _ -> Tuple lst }

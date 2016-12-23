@@ -60,6 +60,7 @@ and 'annot comp' =
   | With of 'annot comp * 'annot comp
   | Let of 'annot let_clause list * 'annot comp
   | LetRec of 'annot letrec_clause list * 'annot comp
+  | MLAscribe of 'annot comp * ml_schema
   | Now of bound * 'annot comp * 'annot comp
   | Lookup of 'annot comp
   | Update of 'annot comp * 'annot comp
@@ -127,4 +128,3 @@ and 'annot toplevel' =
   | TopFail of 'annot comp
   | Verbosity of int
   | Included of (string * 'annot toplevel list) list
-

@@ -54,12 +54,10 @@ and pattern' =
 (** Sugared terms *)
 type term = term' Location.located
 and term' =
-  (* expressions *)
   | Var of Name.ident
   | Type
   | Function of Name.ident list * comp
   | Handler of handle_case list
-  (* computations *)
   | Handle of comp * handle_case list
   | With of expr * comp
   | List of comp list
@@ -67,6 +65,7 @@ and term' =
   | Match of comp * match_case list
   | Let of let_clause list  * comp
   | LetRec of letrec_clause list * comp
+  | MLAscribe of comp * ml_schema
   | Now of Name.ident * comp * comp
   | Lookup of comp
   | Update of comp * comp

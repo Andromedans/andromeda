@@ -120,6 +120,7 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ']'                      -> f (); RBRACK
   | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
+  | ":>"                     -> f (); COLONGE
   | ','                      -> f (); COMMA
   | '?', name                -> f (); PATTVAR (let s = Ulexbuf.lexeme lexbuf in
                                                let s = String.sub s 1 (String.length s - 1) in

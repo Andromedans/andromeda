@@ -257,6 +257,23 @@ let rec comp ({Location.thing=c; loc} : _ Syntax.comp) : (Mlty.ty_schema Syntax.
     in
     fold clauses
 
+  | Syntax.MLAscribe (c, {Location.thing=sch; _}) ->
+      let sch = ml_schema sch in
+      comp c >>= fun (c, t) ->
+       begin
+         match generalizable c with
+         | Generalizable -> 
+            Tyenv.generalizes_to ~loc:c.Location.loc t sch
+         | Ungeneralizable ->
+            begin
+              match sch with
+              | ([], tsch) ->
+                 Tyenv.add_equation ~loc:c.Location.loc t tsch
+              | (_::_, _) ->
+                 Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
+            end
+       end >>= fun () -> Tyenv.return (c, t)
+     
   | Syntax.Now (x, c1, c2) ->
     Tyenv.lookup_var x >>= fun tx ->
     check_comp c1 tx >>= fun c1 ->
