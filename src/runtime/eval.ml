@@ -633,12 +633,19 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   Runtime.catch (lazy (match c with
 
     | Rsyntax.DefMLType lst
+
     | Rsyntax.DefMLTypeRec lst ->
-      (if not quiet then Format.printf "ML type%s %t declared.@.@." (match lst with [_] -> "" | _ -> "s") (Print.sequence (fun (t,_) -> Name.print_ident t) " " lst));
+      (if not quiet then
+         Format.printf "ML type%s %t declared.@.@."
+                       (match lst with [_] -> "" | _ -> "s")
+                       (Print.sequence (fun (t,_) -> Name.print_ident t)
+                                       " " lst)) ;
       return ()
 
     | Rsyntax.DeclOperation (x, k) ->
-       if not quiet then Format.printf "Operation %t is declared.@.@." (Name.print_ident x) ;
+       (if not quiet then
+         Format.printf "Operation %t is declared.@.@."
+                       (Name.print_ident x)) ;
        return ()
 
     | Rsyntax.DeclConstants (xs, c) ->
