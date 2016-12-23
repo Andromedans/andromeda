@@ -22,6 +22,9 @@ constant a, b : A
 constant ( + ), ( * ), ( ^ ), ( - ), ( <= ) :
   (* non-dependent product type *) A -> A -> A
 
+(** Inlined ML-ascriptions *)
+let mlascribed = ((fun x => x) :> list judgment -> list judgment)
+
 (* Infixes and prefixes are printed as such. *)
 do lambda (x y z w : A), x + y * z ^ x ^ y - (z ^ x) ^ y <= w
 

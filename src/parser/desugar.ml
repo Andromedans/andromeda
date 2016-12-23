@@ -462,6 +462,11 @@ let rec comp ~yield bound {Location.thing=c';loc} =
      let c = comp ~yield bound c in
      locate (Syntax.LetRec (lst, c)) loc
 
+  | Input.MLAscribe (c, sch) ->
+     let c = comp ~yield bound c in
+     let sch = ml_schema ~yield bound sch in
+     locate (Syntax.MLAscribe (c, sch)) loc
+
   | Input.Now (x,c1,c2) ->
      let y = Ctx.get_dynamic ~loc x bound
      and c1 = comp ~yield bound c1
@@ -669,8 +674,7 @@ and let_clauses ~loc ~yield bound lst =
        else
          let c = let_clause ~yield bound ys c in
          let t_opt = match t_opt with
-           | Some {Location.thing=Input.ML_Forall (params, t); loc} ->
-             Some (locate (Syntax.ML_Forall (params, mlty bound params t)) loc)
+           | Some sch -> Some (ml_schema ~yield bound sch)
            | None -> None
          in
          let bound' = Ctx.add_lexical x bound' in
@@ -719,6 +723,8 @@ and letrec_clause ~yield bound y ys c =
   let c = let_clause ~yield bound ys c in
   y, c
 
+and ml_schema ~yield bound {Location.thing=Input.ML_Forall (params, t); loc} =
+  locate (Syntax.ML_Forall (params, mlty bound params t)) loc
 
 (* Desugar a spine. This function is a bit messy because we need to untangle
    to env. But it's worth doing to make users happy. TODO outdated comment *)

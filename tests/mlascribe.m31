@@ -1,0 +1,7 @@
+mltype cow = Bull end
+
+let id x = x
+
+let f = (id id :> cow -> cow)
+let l = ([] :> list judgment)
+
