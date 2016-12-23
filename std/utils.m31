@@ -10,7 +10,7 @@ let rev =
   fun x => rev [] x
 
 (** Fold over a list *)
-let rec fold f acc lst : forall a b, (a -> b -> a) -> a -> list b -> a =
+let rec fold f acc lst :> forall a b, (a -> b -> a) -> a -> list b -> a =
 match lst with
   | [] => acc
   | ?x :: ?tl => fold f (f acc x) tl

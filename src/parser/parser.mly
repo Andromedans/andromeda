@@ -244,7 +244,7 @@ let_clause:
        { (x, ys, u, c) }
 
 return_type:
-  | COLON t=ml_schema { t }
+  | COLONGE t=ml_schema { t }
 
 typed_binder:
   | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }

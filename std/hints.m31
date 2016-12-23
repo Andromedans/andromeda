@@ -203,7 +203,7 @@ let generic_matcher pat e =
       end
   end
 
-let spine h es : judgement → list judgement → judgement = 
+let spine h es :> judgement → list judgement → judgement = 
   fold (fun h e => h e) h es
 
 (* A beta hint is a term `e` whose type is a universally quantified equation

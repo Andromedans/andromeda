@@ -1,4 +1,4 @@
-let rec f x : forall a, a -> a =
+let rec f x :> forall a, a -> a =
     let _ = f "foo" in
     let _ = f () in
     x
