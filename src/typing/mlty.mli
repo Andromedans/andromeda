@@ -18,7 +18,7 @@ module MetaSet : Set.S with type elt = meta
 
 (** The type of ML types. *)
 type ty =
-  | Jdg
+  | Judgment
   | String
   | Meta of meta
   | Param of param

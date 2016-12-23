@@ -14,6 +14,7 @@ and ml_ty' =
   | ML_Prod of ml_ty list
   | ML_TyApply of Name.ident * level * ml_ty list
   | ML_Handler of ml_ty * ml_ty
+  | ML_Ref of ml_ty
   | ML_Judgment
   | ML_String
   | ML_Bound of bound
@@ -105,7 +106,7 @@ and toplevel' =
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
-  | TopDynamic of Name.ident * let_annotation * comp
+  | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of bound * comp
   | TopDo of comp
   | TopFail of comp

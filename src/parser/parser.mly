@@ -113,7 +113,7 @@ plain_topcomp:
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
-  | DYNAMIC x=var_name u=let_annotation EQ c=term     { TopDynamic (x, u, c) }
+  | DYNAMIC x=var_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
   | NOW x=var_name EQ c=term                          { TopNow (x,c) }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
@@ -250,6 +250,10 @@ ml_arg:
 let_annotation:
   |                       { Let_annot_none }
   | COLONGT sch=ml_schema { Let_annot_schema sch }
+
+dyn_annotation:
+  |                { Arg_annot_none }
+  | COLONGT t=mlty { Arg_annot_ty t }
 
 typed_binder:
   | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }
@@ -490,8 +494,9 @@ plain_prod_mlty:
 
 app_mlty: mark_location(plain_app_mlty) { $1 }
 plain_app_mlty:
-  | plain_simple_mlty                   { $1 }
-  | c=var_name args=nonempty_list(simple_mlty)   { ML_TyApply (c, args) }
+  | plain_simple_mlty                          { $1 }
+  | REF t=simple_mlty                          { ML_Ref t }
+  | c=var_name args=nonempty_list(simple_mlty) { ML_TyApply (c, args) }
 
 simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:

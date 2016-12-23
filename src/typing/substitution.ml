@@ -18,7 +18,7 @@ let apply (s : t) t =
   else begin
       let rec app = function
 
-        | Mlty.Jdg | Mlty.String | Mlty.Param _ as t -> t
+        | Mlty.Judgment | Mlty.String | Mlty.Param _ as t -> t
 
         | Mlty.Meta m as orig ->
            begin match lookup m s with
@@ -67,4 +67,3 @@ let add m t s =
     Some (MetaMap.add m t s)
 
 let partition = MetaMap.partition
-

@@ -85,7 +85,7 @@ let rec whnf ctx s = function
            | None -> t
      end
 
-  | (Mlty.Jdg | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
+  | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
      Mlty.Handler _ | Mlty.Ref _) as t -> t
 
 let rec unifiable ctx s t t' =
@@ -95,7 +95,7 @@ let rec unifiable ctx s t t' =
   in
   match whnf ctx s t, whnf ctx s t' with
 
-  | Mlty.Jdg, Mlty.Jdg
+  | Mlty.Judgment, Mlty.Judgment
   | Mlty.String, Mlty.String ->
      Some s
 
@@ -142,7 +142,7 @@ let rec unifiable ctx s t t' =
      in
      fold s ts ts'
 
-  | (Mlty.Jdg | Mlty.String | Mlty.Ref _ | Mlty.Prod _ | Mlty.Param _ |
+  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Prod _ | Mlty.Param _ |
      Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _), _ -> None
 
 let rec add_equation ~loc t t' env =
@@ -169,8 +169,8 @@ and add_application ~loc h arg out env =
   and out = whnf env.context s out in
   match h with
 
-  | Mlty.Jdg ->
-     (>>=) (add_equation ~loc arg Mlty.Jdg) (fun () -> add_equation ~loc out Mlty.Jdg) env
+  | Mlty.Judgment ->
+     (>>=) (add_equation ~loc arg Mlty.Judgment) (fun () -> add_equation ~loc out Mlty.Judgment) env
 
   | Mlty.Arrow (a, b) ->
      (>>=) (add_equation ~loc arg a) (fun () -> add_equation ~loc out b) env
@@ -178,7 +178,7 @@ and add_application ~loc h arg out env =
   | Mlty.Meta m ->
      begin
        match arg, out with
-       | (Mlty.Jdg | Mlty.Meta _), (Mlty.Jdg | Mlty.Meta _) ->
+       | (Mlty.Judgment | Mlty.Meta _), (Mlty.Judgment | Mlty.Meta _) ->
           let unsolved = AppConstraint (loc, h, arg, out) :: env.unsolved in
           (), s, unsolved
        | _, _ ->
@@ -207,7 +207,7 @@ let as_handler ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Jdg | Mlty.String | Mlty.Ref _ | Mlty.Param _ | Mlty.Prod _ |
+  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Param _ | Mlty.Prod _ |
      Mlty.Arrow _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.HandlerExpected t)
 
@@ -224,7 +224,7 @@ let as_ref ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Jdg | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
+  | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
      Mlty.Arrow _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.RefExpected t)
 
@@ -284,4 +284,3 @@ let topadd_operation op opty env =
   { env with context }
 
 let topadd_let x s env = add_let x s (fun env -> env) env
-

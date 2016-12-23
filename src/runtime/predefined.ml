@@ -51,7 +51,7 @@ let predefined_ops = let open Input in
 let predefined_bound = let open Input in
   let unloc x = Location.locate x Location.unknown in
   let un_ml_judg = unloc ML_Judgment in
-  let decl_hyps = TopDynamic (Name.Predefined.hypotheses, Let_annot_none, unloc (List [])) in
+  let decl_hyps = TopDynamic (Name.Predefined.hypotheses, Arg_annot_none, unloc (List [])) in
   let force_hyps_type =
     TopDo (unloc
              (Let ([Name.anonymous (), [],

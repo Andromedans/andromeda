@@ -173,6 +173,10 @@ let mlty ctx params ty =
          and ty2 = mlty ty2 in
          Dsyntax.ML_Handler (ty1, ty2)
 
+      | Input.ML_Ref t ->
+         let t = mlty t in
+         Dsyntax.ML_Ref t
+
       | Input.ML_Prod tys ->
          let tys = List.map mlty tys in
          Dsyntax.ML_Prod tys
@@ -978,11 +982,11 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
        let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
        (ctx, locate (Dsyntax.TopLetRec lst) loc)
 
-    | Input.TopDynamic (x, sch, c) ->
+    | Input.TopDynamic (x, annot, c) ->
        let c = comp ~yield:false ctx c in
        let ctx = Ctx.add_dynamic x ctx in
-       let sch = let_annotation ctx sch in
-       (ctx, locate (Dsyntax.TopDynamic (x, sch, c)) loc)
+       let annot = arg_annotation ctx annot in
+       (ctx, locate (Dsyntax.TopDynamic (x, annot, c)) loc)
 
     | Input.TopNow (x, c) ->
        let y = Ctx.get_dynamic ~loc x ctx in
