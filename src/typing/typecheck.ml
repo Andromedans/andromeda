@@ -520,17 +520,24 @@ and let_clauses (xcs : Dsyntax.let_clause list) : Rsyntax.let_clause list Tyenv.
 
 and let_rec_clauses (fycs : Dsyntax.letrec_clause list) : Rsyntax.letrec_clause list Tyenv.tyenvM =
   let rec bind_functions acc = function
-    | (f, y, Dsyntax.Let_annot_none, c) :: rem ->
-       let a = Mlty.fresh_type ()
+    | (f, (y, a), annot, c) :: rem ->
+       let a =
+         begin
+           match a with
+           | Dsyntax.Arg_annot_none -> Mlty.fresh_type ()
+           | Dsyntax.Arg_annot_ty t -> ml_ty [] t
+         end
        and b = Mlty.fresh_type () in
-       let sch = Mlty.ungeneralized_schema (Mlty.Arrow (a, b)) in
-       Tyenv.add_let f sch (bind_functions ((f, None, y, a, c, b) :: acc) rem)
-
-    | (f, y, Dsyntax.Let_annot_schema {Location.thing=sch; _}, c) :: rem ->
-       let sch = ml_schema sch in
-       let a = Mlty.fresh_type ()
-       and b = Mlty.fresh_type () in
-       Tyenv.add_let f sch (bind_functions ((f, Some sch, y, a, c, b) :: acc) rem)
+       let sch, schopt =
+         begin
+           match annot with
+           | Dsyntax.Let_annot_none ->
+              Mlty.ungeneralized_schema (Mlty.Arrow (a, b)), None
+           | Dsyntax.Let_annot_schema {Location.thing=sch; _} ->
+              let sch = ml_schema sch in sch, Some sch
+         end
+       in
+       Tyenv.add_let f sch (bind_functions ((f, schopt, y, a, c, b) :: acc) rem)
 
     | [] ->
        let rec check_bodies acc = function
