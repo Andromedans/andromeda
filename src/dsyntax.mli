@@ -74,7 +74,7 @@ and comp' =
 
 and let_clause = Name.ident * let_annotation * comp
 
-and letrec_clause = Name.ident * (Name.ident * let_annotation) * comp
+and letrec_clause = Name.ident * (Name.ident * arg_annotation) * let_annotation * comp
 
 and handler = {
   handler_val: match_case list;
