@@ -19,15 +19,15 @@ and ml_ty' =
 type ml_schema = ml_schema' Location.located
 and ml_schema' = ML_Forall of Name.ty list * ml_ty
 
-(** Annotation of a let-binding *)
-type let_annotation =
-  | Let_annot_none
-  | Let_annot_schema of ml_schema
-
 (** Annotation of an ML-function argument *)
 type arg_annotation =
   | Arg_annot_none
   | Arg_annot_ty of ml_ty
+
+(** Annotation of a let-binding *)
+type let_annotation =
+  | Let_annot_none
+  | Let_annot_schema of ml_schema
 
 (** A binder in a pattern may or may not bind the bound variable
     as a pattern variable. *)
@@ -115,7 +115,9 @@ and comp = term
 (** Sugared expressions *)
 and expr = term
 
-and let_clause = Name.ident * ml_arg list * let_annotation * comp
+and let_clause =
+  | Let_clause_ML of Name.ident * ml_arg list * let_annotation * comp
+  | Let_clause_tt of Name.ident * ty * comp
 
 and letrec_clause = Name.ident * ml_arg * ml_arg list * let_annotation * comp
 

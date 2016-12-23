@@ -54,10 +54,13 @@ let predefined_bound = let open Input in
   let decl_hyps = TopDynamic (Name.Predefined.hypotheses, Arg_annot_none, unloc (List [])) in
   let force_hyps_type =
     TopDo (unloc
-             (Let ([Name.anonymous (), [],
-                    Let_annot_schema (unloc (ML_Forall ([],
+             (Let ([Let_clause_ML
+                      (Name.anonymous (), [],
+                       Let_annot_schema (unloc (ML_Forall ([],
                                             unloc (ML_TyApply (Name.Predefined.list, [un_ml_judg]))))),
-                    unloc (Var Name.Predefined.hypotheses)], unloc (Tuple [])))) in
+                       unloc (Var Name.Predefined.hypotheses))],
+                   unloc (Tuple []))))
+  in
   [unloc decl_hyps; unloc force_hyps_type]
 
 let predefined_bound_names =

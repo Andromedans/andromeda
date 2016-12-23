@@ -669,17 +669,28 @@ and let_clauses ~loc ~yield ctx lst =
     | [] ->
        let lst' = List.rev lst' in
        ctx', lst'
-    | (x, ys, sch, c) :: xcs ->
-       if List.exists (fun (y, _, _, _) -> Name.eq_ident x y) xcs
-       then
-         error ~loc (ParallelShadowing x)
-       else
-         let c = let_clause ~yield ctx ys c in
-         let sch = let_annotation ctx sch in
-         let ctx' = Ctx.add_lexical x ctx' in
-         let lst' = (x, sch, c) :: lst' in
-         fold ctx' lst' xcs
+    | Input.Let_clause_ML (x, ys, sch, c) :: xcs ->
+       let c = let_clause ~yield ctx ys c in
+       let sch = let_annotation ctx sch in
+       let ctx' = Ctx.add_lexical x ctx' in
+       let lst' = (x, sch, c) :: lst' in
+       fold ctx' lst' xcs
+    | Input.Let_clause_tt (x, t, c) :: xcs ->
+       let c = let_clause_tt ~yield ctx c t in
+       let sch = Dsyntax.Let_annot_none in
+       let ctx' = Ctx.add_lexical x ctx' in
+       let lst' = (x, sch, c) :: lst' in
+       fold ctx' lst' xcs
   in
+  let rec check_unique forbidden = function
+    | [] -> ()
+    | Input.Let_clause_ML (x, _, _, _) :: lst
+    | Input.Let_clause_tt (x, _, _) :: lst ->
+       if List.mem x forbidden
+       then error ~loc (ParallelShadowing x)
+       else check_unique (x :: forbidden) lst
+  in
+  check_unique [] lst ;
   fold ctx [] lst
 
 and letrec_clauses ~loc ~yield ctx lst =
@@ -713,6 +724,11 @@ and let_clause ~yield ctx ys c =
        locate (Dsyntax.Function (y, t, c)) (c.Location.loc) (* XXX improve location *)
   in
   fold ctx ys
+
+and let_clause_tt ~yield ctx c t =
+  let c = comp ~yield ctx c
+  and t = comp ~yield ctx t in
+  locate (Dsyntax.Ascribe (c, t)) (c.Location.loc)
 
 and letrec_clause ~yield ctx (y, t) ys c =
   let t = arg_annotation ctx t in

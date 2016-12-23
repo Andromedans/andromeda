@@ -241,7 +241,9 @@ recursive_clause:
 
 let_clause:
   | x=name ys=ml_arg* u=let_annotation EQ c=term
-       { (x, ys, u, c) }
+       { Let_clause_ML (x, ys, u, c) }
+  | x=name COLON t=ty_term EQ c=term
+       { Let_clause_tt (x, t, c) }
 
 ml_arg:
   | x=name                              { (x, Arg_annot_none) }
