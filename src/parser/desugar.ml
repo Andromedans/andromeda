@@ -1,10 +1,5 @@
 (** Conversion from sugared to desugared input syntax *)
 
-(** A let-bound name has lexical scoping and a dynamic-bound name dynamic scoping. *)
-type scoping =
-  | Lexical
-  | Dynamic
-
 (** The arity of an operation or a data constructor. *)
 type arity = int
 
@@ -12,14 +7,13 @@ type unknown = Unknown
 
 (** Information about names *)
 type 'index info =
-  | Variable of 'index * scoping
+  | Variable of 'index
   | Constant
   | Constructor of arity
   | Operation of arity
 
 let print_info info ppf = match info with
-  | Variable (_, Lexical) -> Format.fprintf ppf "a lexical variable"
-  | Variable (_, Dynamic) -> Format.fprintf ppf "a dynamic variable"
+  | Variable _ -> Format.fprintf ppf "a variable"
   | Constant -> Format.fprintf ppf "a constant"
   | Constructor _ -> Format.fprintf ppf "an AML constructor"
   | Operation _ -> Format.fprintf ppf "an operation"
@@ -27,7 +21,6 @@ let print_info info ppf = match info with
 type error =
   | UnknownName of Name.ident
   | UnknownTypeName of Name.ident
-  | DynamicExpected : Name.ident * 'a info -> error
   | OperationExpected : Name.ident * 'a info -> error
   | ConstantAlreadyDeclared of Name.ident
   | OperationAlreadyDeclared of Name.ident
@@ -43,7 +36,6 @@ type error =
 let print_error err ppf = match err with
   | UnknownName x -> Format.fprintf ppf "Unknown name %t." (Name.print_ident x)
   | UnknownTypeName x -> Format.fprintf ppf "Unknown type name %t." (Name.print_ident x)
-  | DynamicExpected (x,info) -> Format.fprintf ppf "%t should be a dynamic variable, but is %t." (Name.print_ident x) (print_info info)
   | OperationExpected (x, info) -> Format.fprintf ppf "%t should be an operation, but is %t." (Name.print_ident x) (print_info info)
   | ConstantAlreadyDeclared x -> Format.fprintf ppf "A constant %t is already declared." (Name.print_ident x)
   | OperationAlreadyDeclared x -> Format.fprintf ppf "An operation %t is already declared." (Name.print_ident x)
@@ -78,7 +70,7 @@ module Ctx = struct
 
   let find ~loc x {bound; _} =
     let at_index i = function
-      | Variable (Unknown, s) -> Variable (i, s)
+      | Variable Unknown -> Variable i
       | Constant -> Constant
       | Constructor k -> Constructor k
       | Operation k -> Operation k
@@ -92,23 +84,14 @@ module Ctx = struct
     in
     search 0 bound
 
-  let get_dynamic ~loc x ctx =
-    match find ~loc x ctx with
-    | Variable (i, Dynamic) -> i
-    | Variable (_, Lexical) | Constant | Operation _ | Constructor _ as info ->
-      error ~loc (DynamicExpected (x, info))
-
   let get_operation ~loc x ctx =
     match find ~loc x ctx with
     | Operation k -> k
     | Variable _ | Constant | Constructor _ as info ->
       error ~loc (OperationExpected (x, info))
 
-  let add_lexical x ctx =
-    { ctx with bound = (x, Variable (Unknown, Lexical)) :: ctx.bound }
-
-  let add_dynamic x ctx =
-    { ctx with bound = (x, Variable (Unknown, Dynamic)) :: ctx.bound }
+  let add_variable x ctx =
+    { ctx with bound = (x, Variable Unknown) :: ctx.bound }
 
   let add_operation ~loc op k ctx =
     if List.exists (function (op', Operation _) -> Name.eq_ident op op' | _ -> false) ctx.bound
@@ -176,6 +159,10 @@ let mlty ctx params ty =
       | Input.ML_Ref t ->
          let t = mlty t in
          Dsyntax.ML_Ref t
+
+      | Input.ML_Dynamic t ->
+         let t = mlty t in
+         Dsyntax.ML_Dynamic t
 
       | Input.ML_Prod tys ->
          let tys = List.map mlty tys in
@@ -258,7 +245,7 @@ let rec tt_pattern ctx vars n {Location.thing=p;loc} =
 
   | Input.Tt_Name x ->
      begin match Ctx.find ~loc x ctx with
-     | Variable (i,_) -> locate (Pattern.Tt_Bound i) loc, vars, n
+     | Variable i -> locate (Pattern.Tt_Bound i) loc, vars, n
      | Constant -> locate (Pattern.Tt_Constant x) loc, vars, n
      | Constructor _ | Operation _ as info -> error ~loc (InvalidTermPatternName (x, info))
      end
@@ -287,7 +274,7 @@ let rec tt_pattern ctx vars n {Location.thing=p;loc} =
               | Input.NonPattVar x -> x, None, vars, n
             end
           in
-          let ctx = Ctx.add_lexical x ctx in
+          let ctx = Ctx.add_variable x ctx in
           let p, vars, n = fold ctx vars n lst in
           locate (Pattern.Tt_Lambda (x,bopt,popt,p)) loc, vars, n
      in
@@ -328,7 +315,7 @@ let rec tt_pattern ctx vars n {Location.thing=p;loc} =
               | Input.NonPattVar x -> x, None, vars, n
             end
           in
-          let ctx = Ctx.add_lexical x ctx in
+          let ctx = Ctx.add_variable x ctx in
           let p, vars, n = fold ctx vars n lst in
           locate (Pattern.Tt_Prod (x,bopt,popt,p)) loc, vars, n
      in
@@ -376,7 +363,7 @@ and pattern ctx vars n {Location.thing=p; loc} =
 
   | Input.Patt_Name x ->
      begin match Ctx.find ~loc x ctx with
-     | Variable (i,_) ->
+     | Variable i ->
         locate (Pattern.Patt_Bound i) loc, vars, n
      | Constructor k ->
         if k = 0
@@ -469,10 +456,14 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      locate (Dsyntax.MLAscribe (c, sch)) loc
 
   | Input.Now (x,c1,c2) ->
-     let y = Ctx.get_dynamic ~loc x ctx
+     let x = comp ~yield ctx x
      and c1 = comp ~yield ctx c1
      and c2 = comp ~yield ctx c2 in
-     locate (Dsyntax.Now (y,c1,c2)) loc
+     locate (Dsyntax.Now (x,c1,c2)) loc
+
+  | Input.Current c ->
+     let c = comp ~yield ctx c in
+     locate (Dsyntax.Current c) loc
 
   | Input.Lookup c ->
      let c = comp ~yield ctx c in
@@ -494,7 +485,7 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
 
   | Input.Assume ((x, t), c) ->
      let t = comp ~yield ctx t in
-     let ctx = Ctx.add_lexical x ctx in
+     let ctx = Ctx.add_variable x ctx in
      let c = comp ~yield ctx c in
      locate (Dsyntax.Assume ((x, t), c)) loc
 
@@ -523,12 +514,12 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
           let c = comp ~yield ctx c in
           mk_lambda ~loc ys c
        | (x, None) :: xs ->
-          let ctx = Ctx.add_lexical x ctx
+          let ctx = Ctx.add_variable x ctx
           and ys = (x, None) :: ys in
           fold ctx ys xs
        | (x, Some t) :: xs ->
           let ys = (let t = comp ~yield ctx t in (x, Some t) :: ys)
-          and ctx = Ctx.add_lexical x ctx in
+          and ctx = Ctx.add_variable x ctx in
           fold ctx ys xs
      in
      fold ctx [] xs
@@ -543,7 +534,7 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
           mk_prod ~loc ys c
        | (x,t) :: xs ->
           let ys = (let t = comp ~yield ctx t in (x, t) :: ys) in
-          let ctx = Ctx.add_lexical x ctx in
+          let ctx = Ctx.add_variable x ctx in
           fold ctx ys xs
      in
      fold ctx [] xs
@@ -559,7 +550,7 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
 
   | Input.Var x ->
      begin match Ctx.find ~loc x ctx with
-     | Variable (i,_) -> locate (Dsyntax.Bound i) loc
+     | Variable i -> locate (Dsyntax.Bound i) loc
      | Constant -> locate (Dsyntax.Constant x) loc
      | Constructor k ->
         if k = 0 then locate (Dsyntax.Constructor (x, [])) loc
@@ -584,7 +575,7 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      let rec fold ctx = function
        | [] -> comp ~yield ctx c
        | (x, t) :: xs ->
-          let ctx = Ctx.add_lexical x ctx in
+          let ctx = Ctx.add_variable x ctx in
           let c = fold ctx xs in
           let t = arg_annotation ctx t in
           locate (Dsyntax.Function (x, t, c)) loc
@@ -672,13 +663,13 @@ and let_clauses ~loc ~yield ctx lst =
     | Input.Let_clause_ML (x, ys, sch, c) :: xcs ->
        let c = let_clause ~yield ctx ys c in
        let sch = let_annotation ctx sch in
-       let ctx' = Ctx.add_lexical x ctx' in
+       let ctx' = Ctx.add_variable x ctx' in
        let lst' = (x, sch, c) :: lst' in
        fold ctx' lst' xcs
     | Input.Let_clause_tt (x, t, c) :: xcs ->
        let c = let_clause_tt ~yield ctx c t in
        let sch = Dsyntax.Let_annot_none in
-       let ctx' = Ctx.add_lexical x ctx' in
+       let ctx' = Ctx.add_variable x ctx' in
        let lst' = (x, sch, c) :: lst' in
        fold ctx' lst' xcs
   in
@@ -695,7 +686,7 @@ and let_clauses ~loc ~yield ctx lst =
 
 and letrec_clauses ~loc ~yield ctx lst =
   let ctx =
-    List.fold_left (fun ctx (f, _, _, _, _) -> Ctx.add_lexical f ctx) ctx lst
+    List.fold_left (fun ctx (f, _, _, _, _) -> Ctx.add_variable f ctx) ctx lst
   in
   let rec fold lst' = function
     | [] ->
@@ -718,7 +709,7 @@ and let_clause ~yield ctx ys c =
     | [] ->
        comp ~yield ctx c
     | (y, t) :: ys ->
-       let ctx = Ctx.add_lexical y ctx in
+       let ctx = Ctx.add_variable y ctx in
        let c = fold ctx ys in
        let t = arg_annotation ctx t in
        locate (Dsyntax.Function (y, t, c)) (c.Location.loc) (* XXX improve location *)
@@ -732,7 +723,7 @@ and let_clause_tt ~yield ctx c t =
 
 and letrec_clause ~yield ctx (y, t) ys c =
   let t = arg_annotation ctx t in
-  let ctx = Ctx.add_lexical y ctx in
+  let ctx = Ctx.add_variable y ctx in
   let c = let_clause ~yield ctx ys c in
   (y, t), c
 
@@ -785,7 +776,7 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
     match c' with
     | Input.Var x ->
        begin match Ctx.find ~loc x ctx with
-       | Variable (i,_) ->
+       | Variable i ->
           locate (Dsyntax.Bound i) loc, cs
        | Constant ->
           locate (Dsyntax.Constant x) loc, cs
@@ -843,7 +834,7 @@ and match_case ~yield ctx (p, c) =
   let p, vars, _ = pattern ctx [] 0 p in
   let rec fold xs ctx = function
     | [] -> xs, ctx
-    | (x,_)::rem -> fold (x::xs) (Ctx.add_lexical x ctx) rem
+    | (x,_)::rem -> fold (x::xs) (Ctx.add_variable x ctx) rem
   in
   let xs, ctx = fold [] ctx vars in
   let c = comp ~yield ctx c in
@@ -866,7 +857,7 @@ and match_op_case ~yield ctx (ps, pt, c) =
   in
   let rec fold xs ctx = function
     | [] -> xs, ctx
-    | (x,_)::rem -> fold (x::xs) (Ctx.add_lexical x ctx) rem
+    | (x,_)::rem -> fold (x::xs) (Ctx.add_variable x ctx) rem
   in
   let xs, ctx = fold [] ctx vars in
   let c = comp ~yield ctx c in
@@ -974,14 +965,14 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
                   | [] -> ctx, List.rev xs'
                   | None :: xs ->
                      let x = Name.anonymous () in
-                     fold (Ctx.add_lexical x ctx) (x::xs') xs
+                     fold (Ctx.add_variable x ctx) (x::xs') xs
                   | Some x :: xs ->
                     if List.exists (function None -> false | Some y -> Name.eq_ident x y) xs
                     then error ~loc (ParallelShadowing x)
-                    else fold (Ctx.add_lexical x ctx) (x::xs') xs
+                    else fold (Ctx.add_variable x ctx) (x::xs') xs
                 in
                 let ctx, xs = fold ctx [] xs in
-                let ctx = match y with | Some y -> Ctx.add_lexical y ctx | None -> ctx in
+                let ctx = match y with | Some y -> Ctx.add_variable y ctx | None -> ctx in
                 op, (xs, y, comp ~yield:false ctx c)
               else
                 error ~loc (ArityMismatch (op, n, k))
@@ -1000,14 +991,14 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
 
     | Input.TopDynamic (x, annot, c) ->
        let c = comp ~yield:false ctx c in
-       let ctx = Ctx.add_dynamic x ctx in
+       let ctx = Ctx.add_variable x ctx in
        let annot = arg_annotation ctx annot in
        (ctx, locate (Dsyntax.TopDynamic (x, annot, c)) loc)
 
     | Input.TopNow (x, c) ->
-       let y = Ctx.get_dynamic ~loc x ctx in
+       let x = comp ~yield:false ctx x in
        let c = comp ~yield:false ctx c in
-       (ctx, locate (Dsyntax.TopNow (y, c)) loc)
+       (ctx, locate (Dsyntax.TopNow (x, c)) loc)
 
     | Input.TopDo c ->
        let c = comp ~yield:false ctx c in

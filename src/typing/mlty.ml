@@ -37,6 +37,7 @@ type ty =
   | Handler of ty * ty
   | App of Name.ident * Dsyntax.level * ty list
   | Ref of ty
+  | Dynamic of ty
 
 let unit_ty = Prod []
 
@@ -62,6 +63,7 @@ type error =
   | UnsolvedApp of ty * ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
+  | DynamicExpected of ty
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty
@@ -136,7 +138,10 @@ let rec print_ty ~penv ?max_level t ppf =
                  (Print.sequence (print_ty ~penv ~max_level:Level.ml_app_arg) "" ts)
 
   | Ref t -> Print.print ?max_level ~at_level:Level.ml_app ppf "@[ref@ %t@]"
-                         (print_ty ~penv ~max_level:Level.ml_app_arg t)
+                        (print_ty ~penv ~max_level:Level.ml_app_arg t)
+
+  | Dynamic t -> Print.print ?max_level~at_level:Level.ml_app ppf "@[dynamic@ %t@]"
+                        (print_ty ~penv ~max_level:Level.ml_app_arg t)
 
 let print_ty_schema ~penv ?max_level (ms, t) ppf =
   match ms with
@@ -171,6 +176,9 @@ let print_error err ppf =
   | RefExpected t ->
     Format.fprintf ppf "Expected a reference but got %t"
       (print_ty ~penv t)
+  | DynamicExpected t ->
+    Format.fprintf ppf "Expected a dynamic but got %t"
+      (print_ty ~penv t)
   | UnknownExternal s ->
     Format.fprintf ppf "Unknown external %s" s
   | ValueRestriction ->
@@ -187,7 +195,7 @@ let rec occurs m = function
     List.exists (occurs m) ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     occurs m t1 || occurs m t2
-  | Ref t -> occurs m t
+  | Ref t | Dynamic t -> occurs m t
 
 let rec occuring = function
   | Judgment | String | Param _ -> MetaSet.empty
@@ -196,7 +204,7 @@ let rec occuring = function
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     MetaSet.union (occuring t1) (occuring t2)
-  | Ref t -> occuring t
+  | Ref t | Dynamic t -> occuring t
 
 let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
   occuring t
@@ -217,10 +225,6 @@ let instantiate pus t =
        let ts = List.map inst ts in
        Prod ts
 
-    | Ref t ->
-       let t = inst t in
-       Ref t
-
     | Arrow (t1, t2) ->
        let t1 = inst t1
        and t2 = inst t2 in
@@ -235,6 +239,14 @@ let instantiate pus t =
        let ts = List.map inst ts in
        App (x, lvl, ts)
 
+    | Ref t ->
+       let t = inst t in
+       Ref t
+
+    | Dynamic t ->
+       let t = inst t in
+       Dynamic t
+
   in
   inst t
 
@@ -246,6 +258,6 @@ let params_occur ps t =
     List.exists occurs ts
   | Arrow (t1, t2) | Handler (t1, t2) ->
     occurs t1 || occurs t2
-  | Ref t -> occurs t
+  | Ref t | Dynamic t -> occurs t
   in
   occurs t

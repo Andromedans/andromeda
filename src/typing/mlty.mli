@@ -27,6 +27,7 @@ type ty =
   | Handler of ty * ty
   | App of Name.ident * Dsyntax.level * ty list
   | Ref of ty
+  | Dynamic of ty
 
 (** The unit type encoded as an empty product. *)
 val unit_ty : ty
@@ -65,6 +66,7 @@ type error =
   | UnsolvedApp of ty * ty * ty
   | HandlerExpected of ty
   | RefExpected of ty
+  | DynamicExpected of ty
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty

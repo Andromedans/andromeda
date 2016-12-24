@@ -87,4 +87,3 @@ let initial =
   in
   let (), runtime = Runtime.exec comp Runtime.empty in
   {desugar;typing;runtime}
-

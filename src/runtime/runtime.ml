@@ -1,6 +1,7 @@
 (** Runtime values and computations *)
 
 type ref = Store.Ref.key
+type dyn = Store.Dyn.key
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
@@ -32,7 +33,7 @@ and lexical = {
   (* for printing only *)
   forbidden : Name.ident list;
 
-  bound : bound list;
+  bound : value list;
   (* current continuation if we're handling an operation *)
   continuation : value continuation option;
 
@@ -42,10 +43,6 @@ and lexical = {
 
 and state = value Store.Ref.t
 
-and bound =
-  | Val of value
-  | Dyn of Store.Dyn.key
-
 and value =
   | Term of Jdg.term
   | Closure of (value, value) closure
@@ -53,6 +50,7 @@ and value =
   | Tag of Name.ident * value list
   | Tuple of value list
   | Ref of ref
+  | Dyn of dyn
   | String of string
 
 (* It's important not to confuse the closure and the underlying ocaml function *)
@@ -100,6 +98,7 @@ type error =
   | HandlerExpected of value
   | FunctionExpected of Jdg.term
   | RefExpected of value
+  | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvertible of Jdg.ty * Jdg.ty * Jdg.eq_ty
@@ -208,32 +207,38 @@ let name_of v =
     | Tag _ -> "a data tag"
     | Tuple _ -> "a tuple"
     | Ref _ -> "a reference"
+    | Dyn _ -> "a dynamic variable"
     | String _ -> "a string"
 
 (** Coerce values *)
 let as_term ~loc = function
   | Term e -> e
-  | (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (TermExpected v)
 
 let as_closure ~loc = function
   | Closure f -> f
-  | (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (ClosureExpected v)
 
 let as_handler ~loc = function
   | Handler h -> h
-  | (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (HandlerExpected v)
 
 let as_ref ~loc = function
   | Ref v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | String _) as v ->
     error ~loc (RefExpected v)
+
+let as_dyn ~loc = function
+  | Dyn v -> v
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+    error ~loc (DynExpected v)
 
 let as_string ~loc = function
   | String v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _) as v ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | Ref _) as v ->
     error ~loc (StringExpected v)
 
 (** Operations *)
@@ -254,16 +259,18 @@ let index_of_level k env =
   let n = List.length env.lexical.bound - k - 1 in
   Return n, env.state
 
-let get_bound ~loc k env =
-  match List.nth env.lexical.bound k with
-  | Val v -> v
-  | Dyn y -> Store.Dyn.lookup y env.dynamic.vars
+let get_bound ~loc k env = List.nth env.lexical.bound k
 
 let lookup_bound ~loc k env =
   Return (get_bound ~loc k env), env.state
 
+let get_dyn dyn env = Store.Dyn.lookup dyn env.dynamic.vars
+
+let lookup_dyn dyn env =
+  Return (get_dyn dyn env), env.state
+
 let add_bound0 v env = {env with lexical = { env.lexical with
-                                             bound = (Val v) :: env.lexical.bound } }
+                                             bound = v :: env.lexical.bound } }
 
 let add_free ~loc x jt m env =
   let jy = Jdg.Ctx.add_fresh jt x in
@@ -304,17 +311,15 @@ let push_bound = add_bound0
 let add_topbound v env =
   (), add_bound0 v env
 
-let now0 ~loc x v env =
-  match List.nth env.lexical.bound x with
-    | Dyn y -> { env with dynamic = {env.dynamic with vars = Store.Dyn.update y v env.dynamic.vars } }
-    | Val _ -> assert false
+let now0 x v env =
+  { env with dynamic = {env.dynamic with vars = Store.Dyn.update x v env.dynamic.vars } }
 
-let now ~loc x v m env =
-  let env = now0 ~loc x v env in
+let now x v m env =
+  let env = now0 x v env in
   m env
 
-let top_now ~loc x v env =
-  let env = now0 ~loc x v env in
+let top_now x v env =
+  let env = now0 x v env in
   (), env
 
 let add_dynamic0 ~loc x v env =
@@ -369,7 +374,7 @@ let rec as_list_opt = function
        | None -> None
        | Some xs -> Some (x :: xs)
      end
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) ->
+  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
      None
 
 let rec print_value ?max_level ~penv v ppf =
@@ -394,6 +399,9 @@ let rec print_value ?max_level ~penv v ppf =
 
   | Ref v -> Print.print ?max_level ~at_level:Level.highest ppf "ref<%t>"
                   (Store.Ref.print_key v)
+
+  | Dyn v -> Print.print ?max_level ~at_level:Level.highest ppf "dyn<%t>"
+                  (Store.Dyn.print_key v)
 
   | String s -> Format.fprintf ppf "\"%s\"" s
 
@@ -543,6 +551,9 @@ let print_error ~penv err ppf =
   | RefExpected v ->
      Format.fprintf ppf "expected a reference but got %s" (name_of v)
 
+  | DynExpected v ->
+     Format.fprintf ppf "expected a dynamic variable but got %s" (name_of v)
+
   | StringExpected v ->
      Format.fprintf ppf "expected a string but got %s" (name_of v)
 
@@ -663,6 +674,10 @@ let rec equal_value v1 v2 =
        (* XXX should we compare references by value instead? *)
        Store.Ref.key_eq v1 v2
 
+    | Dyn v1, Dyn v2 ->
+       (* XXX should we compare dynamics by value instead? *)
+       Store.Dyn.key_eq v1 v2
+
     | String s1, String s2 ->
       s1 = s2
 
@@ -672,13 +687,14 @@ let rec equal_value v1 v2 =
        false
 
     (* At some level the following is a bit ridiculous *)
-    | Term _, (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Closure _, (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Handler _, (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | String _)
-    | Tag _, (Term _ | Closure _ | Handler _ | Tuple _ | Ref _ | String _)
-    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _ | String _)
-    | String _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _)
-    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _) ->
+    | Term _, (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Closure _, (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Handler _, (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Tag _, (Term _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
+    | String _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _)
+    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Dyn _)
+    | Dyn _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ref _) ->
        false
 
 
@@ -703,6 +719,8 @@ struct
     | Tuple lst -> Json.tag "Tuple" [Json.List (List.map value lst)]
 
     | Ref r -> Json.tag "<ref>" []
+
+    | Dyn r -> Json.tag "<dyn>" []
 
     | String s -> Json.tag "String" [Json.String s]
 

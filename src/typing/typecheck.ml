@@ -48,6 +48,10 @@ let rec ml_ty params {Location.thing=t; loc} =
      let t = ml_ty params t in
      Mlty.Ref t
 
+  | Dsyntax.ML_Dynamic t ->
+     let t = ml_ty params t in
+     Mlty.Dynamic t
+
   | Dsyntax.ML_Judgment ->
      Mlty.Judgment
 
@@ -286,10 +290,16 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
        end >>= fun () -> Tyenv.return (c, t)
 
   | Dsyntax.Now (x, c1, c2) ->
-    Tyenv.lookup_var x >>= fun tx ->
-    check_comp c1 tx >>= fun c1 ->
-    comp c2 >>= fun (c2, t) ->
-    return (locate ~loc (Rsyntax.Now (x, c1, c2)), t)
+     comp x >>= fun (x, tx) ->
+     Tyenv.as_dynamic ~loc:x.Location.loc tx >>= fun tx ->
+     check_comp c1 tx >>= fun c1 ->
+     comp c2 >>= fun (c2, t) ->
+     return (locate ~loc (Rsyntax.Now (x, c1, c2)), t)
+
+  | Dsyntax.Current c ->
+     comp c >>= fun (c, t) ->
+     Tyenv.as_dynamic ~loc:c.Location.loc t >>= fun t ->
+     return (locate ~loc (Rsyntax.Current c), t)
 
   | Dsyntax.Lookup c ->
     comp c >>= fun (c, t) ->
@@ -650,18 +660,21 @@ let rec toplevel env ({Location.thing=c; loc} : Dsyntax.toplevel) =
          | Dsyntax.Arg_annot_ty t' ->
             let t' = ml_ty [] t' in
             Tyenv.add_equation ~loc:c.Location.loc t t' >>= fun () ->
-            return (c, t)
+            return (c, t')
         )
         in
-    let sch = Mlty.ungeneralized_schema t in
+    let sch = Mlty.ungeneralized_schema (Mlty.Dynamic t) in
     let env = Tyenv.topadd_let x sch env in
-    env, locate ~loc (Rsyntax.TopDynamic (x, sch, c))
+    env, locate ~loc (Rsyntax.TopDynamic (x, t, c))
 
   | Dsyntax.TopNow (x, c) ->
-    let env, c = Tyenv.at_toplevel env (Tyenv.lookup_var x >>= fun tx ->
-      check_comp c tx)
-    in
-    env, locate ~loc (Rsyntax.TopNow (x, c))
+     let env, (x, c) =
+       Tyenv.at_toplevel env (comp x >>= fun (x, tx) ->
+                              Tyenv.as_dynamic ~loc:x.Location.loc tx >>= fun tx ->
+                              check_comp c tx >>= fun c ->
+                              return (x,c))
+     in
+     env, locate ~loc (Rsyntax.TopNow (x, c))
 
   | Dsyntax.TopDo c ->
     let env, (c, _) = Tyenv.at_toplevel env (comp c) in

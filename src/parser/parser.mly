@@ -34,7 +34,7 @@
 %token LET REC EQ AND IN
 
 (* Dynamic variables *)
-%token DYNAMIC NOW
+%token DYNAMIC NOW CURRENT
 
 (* Meta-level programming *)
 %token OPERATION
@@ -114,7 +114,7 @@ plain_topcomp:
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
   | DYNAMIC x=var_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
-  | NOW x=var_name EQ c=term                          { TopNow (x,c) }
+  | NOW x=term EQ c=term                              { TopNow (x,c) }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
@@ -137,7 +137,8 @@ plain_term:
   | LET a=separated_nonempty_list(AND,let_clause) IN c=term      { Let (a, c) }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause) IN c=term
                                                                  { LetRec (lst, c) }
-  | NOW x=var_name EQ c1=term IN c2=term                         { Now (x,c1,c2) }
+  | NOW x=term EQ c1=term IN c2=term                             { Now (x,c1,c2) }
+  | CURRENT c=term                                               { Current c }
   | ASSUME x=var_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
   | c1=equal_term WHERE e=simple_term EQ c2=term                 { Where (c1, e, c2) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
@@ -498,6 +499,7 @@ app_mlty: mark_location(plain_app_mlty) { $1 }
 plain_app_mlty:
   | plain_simple_mlty                          { $1 }
   | REF t=simple_mlty                          { ML_Ref t }
+  | DYNAMIC t=simple_mlty                      { ML_Dynamic t }
   | c=var_name args=nonempty_list(simple_mlty) { ML_TyApply (c, args) }
 
 simple_mlty: mark_location(plain_simple_mlty) { $1 }
