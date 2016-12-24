@@ -18,14 +18,14 @@ module MetaSet : Set.S with type elt = meta
 
 (** The type of ML types. *)
 type ty =
-  | Jdg
+  | Judgment
   | String
   | Meta of meta
   | Param of param
   | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
-  | App of Name.ident * Syntax.level * ty list
+  | App of Name.ident * Dsyntax.level * ty list
   | Ref of ty
 
 (** The unit type encoded as an empty product. *)
@@ -103,4 +103,3 @@ val instantiate : (param * ty) list -> ty -> ty
 
 (** Do any of the given parameters appear in the given type? *)
 val params_occur : param list -> ty -> bool
-

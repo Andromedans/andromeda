@@ -165,7 +165,7 @@ val add_bound_rec :
   (value -> value comp) list -> 'a comp -> 'a comp
 
 (** [index_of_level n] gives the De Bruijn index of the variable whose De Bruijn level is [n]. *)
-val index_of_level : Syntax.level -> Syntax.bound comp
+val index_of_level : Rsyntax.level -> Rsyntax.bound comp
 
 (** [add_free ~loc x (ctx,t) f] generates a fresh atom [y] from identifier [x],
     then it extends [ctx] to [ctx' = ctx, y : t]

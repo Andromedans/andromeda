@@ -1,6 +1,3 @@
-;; Source files should have newlines at the end.
-(setq require-final-newline t)
-
 ;; Support for compiling in subdirectories from Emacs. Adapted from Coq source.
 ((nil
   . ((eval

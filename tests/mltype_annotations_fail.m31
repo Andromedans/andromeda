@@ -1,0 +1,3 @@
+let id x :> forall a, a -> a = x
+
+let g :> forall b, b -> b = id id

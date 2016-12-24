@@ -1,3 +1,14 @@
+val id : ∀ α, α → α
 
-File "./mltype_annotations.m31", line 5, characters 28-28:
-Cannot generalize α in α → α
+val f : ?α → ?α
+
+Constant cow is declared.
+
+val x : judgment
+
+⊢ cow → cow : Type
+
+val idt : judgment
+
+⊢ λ (x : cow), x : cow → cow
+

@@ -23,7 +23,7 @@
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
 %token LBRACK RBRACK
-%token COLON COMMA
+%token COLON COMMA COLONGT
 %token ARROW DARROW
 
 (* Things specific to toplevel *)
@@ -111,9 +111,9 @@ commandline:
 topcomp: mark_location(plain_topcomp) { $1 }
 plain_topcomp:
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
-  | LET REC lst = separated_nonempty_list(AND, recursive_clause)
+  | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
-  | DYNAMIC x=var_name EQ c=term                      { TopDynamic (x,c) }
+  | DYNAMIC x=var_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
   | NOW x=var_name EQ c=term                          { TopNow (x,c) }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
@@ -154,7 +154,7 @@ plain_ty_term:
   | e=plain_equal_term                               { e }
   | PROD a=prod_abstraction COMMA e=term             { Prod (a, e) }
   | LAMBDA a=lambda_abstraction COMMA e=term         { Lambda (a, e) }
-  | FUNCTION xs=name+ DARROW e=term                  { Function (xs, e) }
+  | FUNCTION xs=ml_arg+ DARROW e=term                { Function (xs, e) }
   | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous (), t1)], t2) }
 
 equal_term: mark_location(plain_equal_term) { $1 }
@@ -209,6 +209,7 @@ plain_simple_term:
   | EXTERNAL s=QUOTED_STRING                            { External s }
   | s=QUOTED_STRING                                     { String s }
   | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
+  | LPAREN c=term COLONGT t=ml_schema RPAREN            { MLAscribe (c, t) }
   | LPAREN lst=separated_list(COMMA, term) RPAREN       { match lst with
                                                           | [{Location.thing=e;loc=_}] -> e
                                                           | _ -> Tuple lst }
@@ -235,15 +236,26 @@ name:
   | UNDERSCORE { Name.anonymous () }
 
 recursive_clause:
-  | f=name y=name ys=name* u=return_type? EQ c=term
+  | f=name y=ml_arg ys=ml_arg* u=let_annotation EQ c=term
        { (f, y, ys, u, c) }
 
 let_clause:
-  | x=name ys=name* u=return_type? EQ c=term
-       { (x, ys, u, c) }
+  | x=name ys=ml_arg* u=let_annotation EQ c=term
+       { Let_clause_ML (x, ys, u, c) }
+  | x=name COLON t=ty_term EQ c=term
+       { Let_clause_tt (x, t, c) }
 
-return_type:
-  | COLON t=ml_schema { t }
+ml_arg:
+  | x=name                              { (x, Arg_annot_none) }
+  | LPAREN x=NAME COLONGT t=mlty RPAREN { (x, Arg_annot_ty t) }
+
+let_annotation:
+  |                       { Let_annot_none }
+  | COLONGT sch=ml_schema { Let_annot_schema sch }
+
+dyn_annotation:
+  |                { Arg_annot_none }
+  | COLONGT t=mlty { Arg_annot_ty t }
 
 typed_binder:
   | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }
@@ -484,8 +496,9 @@ plain_prod_mlty:
 
 app_mlty: mark_location(plain_app_mlty) { $1 }
 plain_app_mlty:
-  | plain_simple_mlty                   { $1 }
-  | c=var_name args=nonempty_list(simple_mlty)   { ML_TyApply (c, args) }
+  | plain_simple_mlty                          { $1 }
+  | REF t=simple_mlty                          { ML_Ref t }
+  | c=var_name args=nonempty_list(simple_mlty) { ML_TyApply (c, args) }
 
 simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:

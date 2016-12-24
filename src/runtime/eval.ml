@@ -35,24 +35,24 @@ let jdg_form ~loc s =
   Runtime.return (Jdg.form ~loc signature s)
 
 (** Evaluate a computation -- infer mode. *)
-(*   infer : 'annot Syntax.comp -> Runtime.value Runtime.comp *)
+(*   infer : Rsyntax.comp -> Runtime.value Runtime.comp *)
 let rec infer {Location.thing=c'; loc} =
   match c' with
-    | Syntax.Bound i ->
+    | Rsyntax.Bound i ->
        Runtime.lookup_bound ~loc i
 
-    | Syntax.Type ->
+    | Rsyntax.Type ->
       jdg_form ~loc Jdg.Type >>=
       Runtime.return_term
 
-    | Syntax.Function (_, c) ->
+    | Rsyntax.Function (_, c) ->
        let f v =
          Runtime.add_bound v
            (infer c)
        in
        Runtime.return_closure f
 
-    | Syntax.Constructor (t, cs) ->
+    | Rsyntax.Constructor (t, cs) ->
        let rec fold vs = function
          | [] ->
             let vs = List.rev vs in
@@ -64,14 +64,14 @@ let rec infer {Location.thing=c'; loc} =
        in
        fold [] cs
 
-    | Syntax.Tuple cs ->
+    | Rsyntax.Tuple cs ->
       let rec fold vs = function
         | [] -> Runtime.return (Runtime.mk_tuple (List.rev vs))
         | c :: cs -> (infer c >>= fun v -> fold (v :: vs) cs)
       in
       fold [] cs
 
-    | Syntax.Handler {Syntax.handler_val; handler_ops; handler_finally} ->
+    | Rsyntax.Handler {Rsyntax.handler_val; handler_ops; handler_finally} ->
         let handler_val =
           begin match handler_val with
           | [] -> None
@@ -99,7 +99,7 @@ let rec infer {Location.thing=c'; loc} =
         in
         Runtime.return_handler handler_val handler_ops handler_finally
 
-  | Syntax.Operation (op, cs) ->
+  | Rsyntax.Operation (op, cs) ->
      let rec fold vs = function
        | [] ->
           let vs = List.rev vs in
@@ -110,45 +110,48 @@ let rec infer {Location.thing=c'; loc} =
      in
      fold [] cs
 
-  | Syntax.With (c1, c2) ->
+  | Rsyntax.With (c1, c2) ->
      infer c1 >>= as_handler ~loc >>= fun h ->
      Runtime.handle_comp h (infer c2)
 
-  | Syntax.Let (xcs, c) ->
+  | Rsyntax.Let (xcs, c) ->
      let_bind xcs (infer c)
 
-  | Syntax.LetRec (fxcs, c) ->
+  | Rsyntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (infer c)
 
-  | Syntax.Now (x,c1,c2) ->
+  | Rsyntax.MLAscribe (c, _) ->
+     infer c
+
+  | Rsyntax.Now (x,c1,c2) ->
     infer c1 >>= fun v ->
     Runtime.now ~loc x v (infer c2)
 
-  | Syntax.Ref c ->
+  | Rsyntax.Ref c ->
      infer c >>= fun v ->
      Runtime.mk_ref v
 
-  | Syntax.Lookup c ->
+  | Rsyntax.Lookup c ->
      infer c >>= as_ref ~loc >>= fun x ->
      Runtime.lookup_ref x
 
-  | Syntax.Update (c1, c2) ->
+  | Rsyntax.Update (c1, c2) ->
      infer c1 >>= as_ref ~loc >>= fun x ->
      infer c2 >>= fun v ->
      Runtime.update_ref x v >>= fun () ->
      Runtime.return_unit
 
-  | Syntax.Sequence (c1, c2) ->
+  | Rsyntax.Sequence (c1, c2) ->
      infer c1 >>= fun v ->
      sequence ~loc v >>= fun () ->
      infer c2
 
-  | Syntax.Assume ((x, t), c) ->
+  | Rsyntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
      Runtime.add_free ~loc x t (fun _ ->
        infer c)
 
-  | Syntax.Where (c1, c2, c3) ->
+  | Rsyntax.Where (c1, c2, c3) ->
     infer c2 >>= as_atom ~loc >>= fun a ->
     infer c1 >>= as_term ~loc:(c1.Location.loc) >>= fun je ->
     begin match Jdg.occurs a je with
@@ -161,29 +164,29 @@ let rec infer {Location.thing=c'; loc} =
        Runtime.return_term j
     end
 
-  | Syntax.Match (c, cases) ->
+  | Rsyntax.Match (c, cases) ->
      infer c >>=
      match_cases ~loc cases infer
 
-  | Syntax.External s ->
+  | Rsyntax.External s ->
      begin match External.lookup s with
        | None -> Runtime.(error ~loc (UnknownExternal s))
        | Some v -> v loc
      end
 
-  | Syntax.Ascribe (c1, c2) ->
+  | Rsyntax.Ascribe (c1, c2) ->
      check_ty c2 >>= fun t ->
      check c1 t >>=
      Runtime.return_term
 
-  | Syntax.Constant x ->
+  | Rsyntax.Constant x ->
     jdg_form ~loc (Jdg.Constant x) >>=
     Runtime.return_term
 
-  | Syntax.Lambda (x, None, _) ->
+  | Rsyntax.Lambda (x, None, _) ->
     Runtime.(error ~loc (UnannotatedLambda x))
 
-  | Syntax.Lambda (x, Some u, c) ->
+  | Rsyntax.Lambda (x, Some u, c) ->
     check_ty u >>= fun ju ->
     Runtime.add_free ~loc:(u.Location.loc) x ju (fun jy ->
     let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
@@ -192,7 +195,7 @@ let rec infer {Location.thing=c'; loc} =
     jdg_form ~loc (Jdg.Lambda (jy, je)) >>=
     Runtime.return_term))
 
-  | Syntax.Apply (c1, c2) ->
+  | Rsyntax.Apply (c1, c2) ->
     infer c1 >>= begin function
       | Runtime.Term j ->
         apply ~loc j c2
@@ -204,7 +207,7 @@ let rec infer {Location.thing=c'; loc} =
         Runtime.(error ~loc (Inapplicable h))
     end
 
-  | Syntax.Prod (x,u,c) ->
+  | Rsyntax.Prod (x,u,c) ->
     check_ty u >>= fun ju ->
     Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
     let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
@@ -213,23 +216,23 @@ let rec infer {Location.thing=c'; loc} =
     jdg_form ~loc (Jdg.Prod (jy, jt)) >>=
     Runtime.return_term))
 
-  | Syntax.Eq (c1, c2) ->
+  | Rsyntax.Eq (c1, c2) ->
      infer c1 >>= as_term ~loc:c1.Location.loc >>= fun j1 ->
      let t1 = Jdg.typeof j1 in
      check c2 t1 >>= fun j2 ->
      jdg_form ~loc (Jdg.Eq (j1,j2)) >>=
      Runtime.return_term
 
-  | Syntax.Refl c ->
+  | Rsyntax.Refl c ->
      infer c >>= as_term ~loc:c.Location.loc >>= fun j ->
      jdg_form ~loc (Jdg.Refl j) >>=
      Runtime.return_term
 
-  | Syntax.Yield c ->
+  | Rsyntax.Yield c ->
     infer c >>= fun v ->
     Runtime.continue ~loc v
 
-  | Syntax.CongrProd (c1, c2, c3) ->
+  | Rsyntax.CongrProd (c1, c2, c3) ->
     infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
@@ -239,7 +242,7 @@ let rec infer {Location.thing=c'; loc} =
     let e = Jdg.refl_of_eq_ty ~loc eq in
     Runtime.return_term e
 
-  | Syntax.CongrApply (c1, c2, c3, c4, c5) ->
+  | Rsyntax.CongrApply (c1, c2, c3, c4, c5) ->
     infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun jh ->
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jarg ->
@@ -253,7 +256,7 @@ let rec infer {Location.thing=c'; loc} =
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
 
-  | Syntax.CongrLambda (c1, c2, c3, c4) ->
+  | Rsyntax.CongrLambda (c1, c2, c3, c4) ->
     infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
@@ -265,7 +268,7 @@ let rec infer {Location.thing=c'; loc} =
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
 
-  | Syntax.CongrEq (c1, c2, c3) ->
+  | Rsyntax.CongrEq (c1, c2, c3) ->
     infer c1 >>= as_term ~loc:c1.Location.loc >>= fun jt ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun jlhs ->
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jrhs ->
@@ -276,7 +279,7 @@ let rec infer {Location.thing=c'; loc} =
     let e = Jdg.refl_of_eq_ty ~loc eq in
     Runtime.return_term e
 
-  | Syntax.CongrRefl (c1, c2) ->
+  | Rsyntax.CongrRefl (c1, c2) ->
     infer c1 >>= as_term ~loc:c1.Location.loc >>= fun jt ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun je ->
     let eqt = Jdg.reflect_ty_eq ~loc:c1.Location.loc jt
@@ -285,7 +288,7 @@ let rec infer {Location.thing=c'; loc} =
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
 
-  | Syntax.BetaStep (c1, c2, c3, c4, c5) ->
+  | Rsyntax.BetaStep (c1, c2, c3, c4, c5) ->
     infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
     infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
     infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
@@ -297,10 +300,10 @@ let rec infer {Location.thing=c'; loc} =
     let e = Jdg.refl_of_eq ~loc eq in
     Runtime.return_term e
 
-  | Syntax.String s ->
+  | Rsyntax.String s ->
     Runtime.return (Runtime.mk_string s)
 
-  | Syntax.Occurs (c1,c2) ->
+  | Rsyntax.Occurs (c1,c2) ->
     infer c1 >>= as_atom ~loc >>= fun a ->
     infer c2 >>= as_term ~loc >>= fun j ->
     begin match Jdg.occurs a j with
@@ -311,14 +314,14 @@ let rec infer {Location.thing=c'; loc} =
         Runtime.return (Predefined.from_option None)
     end
 
-  | Syntax.Context c ->
+  | Rsyntax.Context c ->
     infer c >>= as_term ~loc >>= fun j ->
     let ctx = Jdg.contextof j in
     let xts = Jdg.Ctx.elements ctx in
     let js = List.map (fun j -> Runtime.mk_term (Jdg.atom_term ~loc j)) xts in
     Runtime.return (Predefined.mk_list js)
 
-  | Syntax.Natural c ->
+  | Rsyntax.Natural c ->
     infer c >>= as_term ~loc >>= fun j ->
     Runtime.lookup_typing_signature >>= fun signature ->
     let eq = Jdg.natural_eq ~loc signature j in
@@ -333,40 +336,40 @@ and check_default ~loc v t_check =
       | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (je, t_check)))
   end
 
-(* 'annot Syntax.comp -> Jdg.ty -> Jdg.term Runtime.comp *)
+(* 'annot Rsyntax.comp -> Jdg.ty -> Jdg.term Runtime.comp *)
 and check ({Location.thing=c';loc} as c) t_check =
   match c' with
-  | Syntax.Type
-  | Syntax.Bound _
-  | Syntax.Function _
-  | Syntax.Handler _
-  | Syntax.Ascribe _
-  | Syntax.External _
-  | Syntax.Constructor _
-  | Syntax.Tuple _
-  | Syntax.Where _
-  | Syntax.With _
-  | Syntax.Constant _
-  | Syntax.Prod _
-  | Syntax.Eq _
-  | Syntax.Apply _
-  | Syntax.Yield _
-  | Syntax.CongrProd _ | Syntax.CongrApply _ | Syntax.CongrLambda _ | Syntax.CongrEq _ | Syntax.CongrRefl _
-  | Syntax.BetaStep _
-  | Syntax.Ref _
-  | Syntax.Lookup _
-  | Syntax.Update _
-  | Syntax.String _
-  | Syntax.Occurs _
-  | Syntax.Context _
-  | Syntax.Natural _ ->
+  | Rsyntax.Type
+  | Rsyntax.Bound _
+  | Rsyntax.Function _
+  | Rsyntax.Handler _
+  | Rsyntax.Ascribe _
+  | Rsyntax.External _
+  | Rsyntax.Constructor _
+  | Rsyntax.Tuple _
+  | Rsyntax.Where _
+  | Rsyntax.With _
+  | Rsyntax.Constant _
+  | Rsyntax.Prod _
+  | Rsyntax.Eq _
+  | Rsyntax.Apply _
+  | Rsyntax.Yield _
+  | Rsyntax.CongrProd _ | Rsyntax.CongrApply _ | Rsyntax.CongrLambda _ | Rsyntax.CongrEq _ | Rsyntax.CongrRefl _
+  | Rsyntax.BetaStep _
+  | Rsyntax.Ref _
+  | Rsyntax.Lookup _
+  | Rsyntax.Update _
+  | Rsyntax.String _
+  | Rsyntax.Occurs _
+  | Rsyntax.Context _
+  | Rsyntax.Natural _ ->
     (** this is the [check-infer] rule, which applies for all term formers "foo"
         that don't have a "check-foo" rule *)
 
     infer c >>= fun v ->
     check_default ~loc v t_check
 
-  | Syntax.Operation (op, cs) ->
+  | Rsyntax.Operation (op, cs) ->
      let rec fold vs = function
        | [] ->
           let vs = List.rev vs in
@@ -378,34 +381,37 @@ and check ({Location.thing=c';loc} as c) t_check =
      in
      fold [] cs
 
-  | Syntax.Let (xcs, c) ->
+  | Rsyntax.Let (xcs, c) ->
      let_bind xcs (check c t_check)
 
-  | Syntax.Sequence (c1,c2) ->
+  | Rsyntax.Sequence (c1,c2) ->
     infer c1 >>= fun v ->
     sequence ~loc v >>= fun () ->
     check c2 t_check
 
-  | Syntax.LetRec (fxcs, c) ->
+  | Rsyntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (check c t_check)
 
-  | Syntax.Now (x,c1,c2) ->
+  | Rsyntax.MLAscribe (c, _) ->
+     check c t_check
+
+  | Rsyntax.Now (x,c1,c2) ->
     infer c1 >>= fun v ->
     Runtime.now ~loc x v (check c2 t_check)
 
-  | Syntax.Assume ((x, t), c) ->
+  | Rsyntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
      Runtime.add_free ~loc x t (fun _ ->
      check c t_check)
 
-  | Syntax.Match (c, cases) ->
+  | Rsyntax.Match (c, cases) ->
      infer c >>=
      match_cases ~loc cases (fun c -> check c t_check)
 
-  | Syntax.Lambda (x,u,c) ->
+  | Rsyntax.Lambda (x,u,c) ->
     check_lambda ~loc t_check x u c
 
-  | Syntax.Refl c ->
+  | Rsyntax.Refl c ->
     Equal.as_eq ~loc t_check >>= begin function
       | None -> Runtime.(error ~loc (EqualityTypeExpected t_check))
       | Some (eq, e1, e2) ->
@@ -425,7 +431,7 @@ and check ({Location.thing=c';loc} as c) t_check =
       end
 
 (* check_lambda: loc:Location.t -> Jdg.ty -> Name.ident
-                   -> 'annot Syntax.comp option -> 'annot Syntax.comp
+                   -> 'annot Rsyntax.comp option -> 'annot Rsyntax.comp
                    -> Jdg.term Runtime.comp *)
 and check_lambda ~loc t_check x u c =
   Equal.as_prod ~loc t_check >>= function
@@ -454,7 +460,7 @@ and check_lambda ~loc t_check x u c =
       let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
       Runtime.return lam))
 
-(* apply: loc:Location.t -> Jdg.term -> 'annot Syntax.comp
+(* apply: loc:Location.t -> Jdg.term -> 'annot Rsyntax.comp
                -> Runtime.value Runtime.comp *)
 and apply ~loc h c =
   Equal.coerce_fun ~loc h >>= function
@@ -495,7 +501,7 @@ and letrec_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun fxcs ->
 
 (* [match_cases loc cases eval v] tries for each case in [cases] to match [v]
    and if successful continues on the computation using [eval] with the pattern variables bound. *)
-and match_cases : type a. loc:_ -> _ -> ('annot Syntax.comp -> a Runtime.comp) -> _ -> a Runtime.comp
+and match_cases : type a. loc:_ -> _ -> (Rsyntax.comp -> a Runtime.comp) -> _ -> a Runtime.comp
  = fun ~loc cases eval v ->
   let rec fold = function
     | [] ->
@@ -541,12 +547,12 @@ and check_ty c : Jdg.ty Runtime.comp =
 
 (** Move to toplevel monad *)
 
-(* comp_value: 'a Syntax.comp -> Runtime.value Runtime.toplevel *)
+(* comp_value: 'a Rsyntax.comp -> Runtime.value Runtime.toplevel *)
 let comp_value c =
   let r = infer c in
   Runtime.top_handle ~loc:c.Location.loc r
 
-(* comp_ty: 'a Syntax.comp -> Jdg.ty Runtime.toplevel *)
+(* comp_ty: 'a Rsyntax.comp -> Jdg.ty Runtime.toplevel *)
 let comp_ty c =
   let r = check_ty c in
   Runtime.top_handle ~loc:(c.Location.loc) r
@@ -626,16 +632,23 @@ let print_error err ppf =
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
   Runtime.catch (lazy (match c with
 
-    | Syntax.DefMLType lst
-    | Syntax.DefMLTypeRec lst ->
-      (if not quiet then Format.printf "ML type%s %t declared.@.@." (match lst with [_] -> "" | _ -> "s") (Print.sequence (fun (t,_) -> Name.print_ident t) " " lst));
+    | Rsyntax.DefMLType lst
+
+    | Rsyntax.DefMLTypeRec lst ->
+      (if not quiet then
+         Format.printf "ML type%s %t declared.@.@."
+                       (match lst with [_] -> "" | _ -> "s")
+                       (Print.sequence (fun (t,_) -> Name.print_ident t)
+                                       " " lst)) ;
       return ()
 
-    | Syntax.DeclOperation (x, k) ->
-       if not quiet then Format.printf "Operation %t is declared.@.@." (Name.print_ident x) ;
+    | Rsyntax.DeclOperation (x, k) ->
+       (if not quiet then
+         Format.printf "Operation %t is declared.@.@."
+                       (Name.print_ident x)) ;
        return ()
 
-    | Syntax.DeclConstants (xs, c) ->
+    | Rsyntax.DeclConstants (xs, c) ->
       comp_ty c >>= fun t ->
       let t = Jdg.is_closed_ty ~loc t in
       let rec fold = function
@@ -647,28 +660,28 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
       in
       fold xs
 
-    | Syntax.TopHandle lst ->
+    | Rsyntax.TopHandle lst ->
        Runtime.top_fold (fun () (op, xc) ->
            comp_handle xc >>= fun f ->
            Runtime.add_handle op f) () lst
 
-    | Syntax.TopLet xcs ->
+    | Rsyntax.TopLet xcs ->
       let print_annot = print_annot () in
       toplet_bind ~loc ~quiet ~print_annot xcs
 
-    | Syntax.TopLetRec fxcs ->
+    | Rsyntax.TopLetRec fxcs ->
       let print_annot = print_annot () in
       topletrec_bind ~loc ~quiet ~print_annot fxcs
 
-    | Syntax.TopDynamic (x, annot, c) ->
+    | Rsyntax.TopDynamic (x, annot, c) ->
        comp_value c >>= fun v ->
        Runtime.add_dynamic ~loc x v
 
-    | Syntax.TopNow (x,c) ->
+    | Rsyntax.TopNow (x,c) ->
        comp_value c >>= fun v ->
        Runtime.top_now ~loc x v
 
-    | Syntax.TopDo c ->
+    | Rsyntax.TopDo c ->
        comp_value c >>= fun v ->
        Runtime.top_lookup_penv >>= fun penv ->
        (begin if not quiet then
@@ -676,7 +689,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
         end;
         return ())
 
-    | Syntax.TopFail c ->
+    | Rsyntax.TopFail c ->
        Runtime.catch (lazy (comp_value c)) >>= begin function
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
@@ -697,7 +710,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
          Runtime.error ~loc (Runtime.FailureFail v)
        end
 
-    | Syntax.Included lst ->
+    | Rsyntax.Included lst ->
       Runtime.top_fold (fun () (fn, cmds) ->
           (if not quiet then Format.printf "#including %s@." fn);
           Runtime.top_fold (fun () cmd -> toplevel ~quiet:true ~print_annot cmd) () cmds >>= fun () ->
@@ -705,7 +718,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
           return ())
         () lst
 
-    | Syntax.Verbosity i -> Config.verbosity := i; return ()
+    | Rsyntax.Verbosity i -> Config.verbosity := i; return ()
   )) >>= function
   | Runtime.CaughtJdg {Location.thing=err; loc}  ->
     Runtime.top_lookup_penv >>= fun penv ->

@@ -11,6 +11,7 @@ and ml_ty' =
   | ML_Prod of ml_ty list
   | ML_TyApply of Name.ty * ml_ty list
   | ML_Handler of ml_ty * ml_ty
+  | ML_Ref of ml_ty
   | ML_Judgment
   | ML_String
   | ML_Anonymous
@@ -18,11 +19,24 @@ and ml_ty' =
 type ml_schema = ml_schema' Location.located
 and ml_schema' = ML_Forall of Name.ty list * ml_ty
 
+(** Annotation of an ML-function argument *)
+type arg_annotation =
+  | Arg_annot_none
+  | Arg_annot_ty of ml_ty
+
+(** Annotation of a let-binding *)
+type let_annotation =
+  | Let_annot_none
+  | Let_annot_schema of ml_schema
+
 (** A binder in a pattern may or may not bind the bound variable
     as a pattern variable. *)
 type tt_variable =
   | PattVar of Name.ident
   | NonPattVar of Name.ident
+
+(* An argument of a function or a let-clause *)
+type ml_arg = Name.ident * arg_annotation
 
 (** Sugared term patterns *)
 type tt_pattern = tt_pattern' Location.located
@@ -54,12 +68,10 @@ and pattern' =
 (** Sugared terms *)
 type term = term' Location.located
 and term' =
-  (* expressions *)
   | Var of Name.ident
   | Type
-  | Function of Name.ident list * comp
+  | Function of ml_arg list * comp
   | Handler of handle_case list
-  (* computations *)
   | Handle of comp * handle_case list
   | With of expr * comp
   | List of comp list
@@ -67,6 +79,7 @@ and term' =
   | Match of comp * match_case list
   | Let of let_clause list  * comp
   | LetRec of letrec_clause list * comp
+  | MLAscribe of comp * ml_schema
   | Now of Name.ident * comp * comp
   | Lookup of comp
   | Update of comp * comp
@@ -102,9 +115,11 @@ and comp = term
 (** Sugared expressions *)
 and expr = term
 
-and let_clause = Name.ident * Name.ident list * ml_schema option * comp
+and let_clause =
+  | Let_clause_ML of Name.ident * ml_arg list * let_annotation * comp
+  | Let_clause_tt of Name.ident * ty * comp
 
-and letrec_clause = Name.ident * Name.ident * Name.ident list * ml_schema option * comp
+and letrec_clause = Name.ident * ml_arg * ml_arg list * let_annotation * comp
 
 (** Handle cases *)
 and handle_case =
@@ -134,10 +149,9 @@ and toplevel' =
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
-  | TopDynamic of Name.ident * comp
+  | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of Name.ident * comp
   | TopDo of comp (** evaluate a computation at top level *)
   | TopFail of comp
   | Verbosity of int
   | Require of string list
-

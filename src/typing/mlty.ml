@@ -28,14 +28,14 @@ module MetaOrd = struct
 end
 
 type ty =
-  | Jdg
+  | Judgment
   | String
   | Meta of meta
   | Param of param
   | Prod of ty list
   | Arrow of ty * ty
   | Handler of ty * ty
-  | App of Name.ident * Syntax.level * ty list
+  | App of Name.ident * Dsyntax.level * ty list
   | Ref of ty
 
 let unit_ty = Prod []
@@ -102,7 +102,7 @@ let print_param ~penv (p : param) ppf =
 let rec print_ty ~penv ?max_level t ppf =
   match t with
 
-  | Jdg -> Format.fprintf ppf "judgment"
+  | Judgment -> Format.fprintf ppf "judgment"
 
   | String -> Format.fprintf ppf "mlstring"
 
@@ -181,7 +181,7 @@ let print_error err ppf =
                     (print_ty ~penv ty)
 
 let rec occurs m = function
-  | Jdg | String | Param _ -> false
+  | Judgment | String | Param _ -> false
   | Meta m' -> m = m'
   | Prod ts  | App (_, _, ts) ->
     List.exists (occurs m) ts
@@ -190,7 +190,7 @@ let rec occurs m = function
   | Ref t -> occurs m t
 
 let rec occuring = function
-  | Jdg | String | Param _ -> MetaSet.empty
+  | Judgment | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
   | Prod ts  | App (_, _, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
@@ -204,7 +204,7 @@ let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
 let instantiate pus t =
   let rec inst = function
 
-    | Jdg | String | Meta _ as t -> t
+    | Judgment | String | Meta _ as t -> t
 
     | Param p as t ->
        begin
@@ -212,11 +212,11 @@ let instantiate pus t =
            List.assoc p pus
          with Not_found -> t
        end
-       
+
     | Prod ts ->
        let ts = List.map inst ts in
        Prod ts
-            
+
     | Ref t ->
        let t = inst t in
        Ref t
@@ -240,7 +240,7 @@ let instantiate pus t =
 
 let params_occur ps t =
   let rec occurs = function
-  | Jdg | String | Meta _ -> false
+  | Judgment | String | Meta _ -> false
   | Param p -> List.mem p ps
   | Prod ts  | App (_, _, ts) ->
     List.exists occurs ts

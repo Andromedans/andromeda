@@ -1,8 +1,11 @@
-let id : forall a, a -> a = fun x => x
+let id :> forall a, a -> a = fun x => x
 
 let f = id id
 
-let g : forall b, b -> b = f
+constant cow : Type
 
+let x : Type = cow -> cow
+do x
 
-
+let idt : cow -> cow = lambda x, x
+do idt

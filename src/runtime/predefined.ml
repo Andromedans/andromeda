@@ -51,13 +51,16 @@ let predefined_ops = let open Input in
 let predefined_bound = let open Input in
   let unloc x = Location.locate x Location.unknown in
   let un_ml_judg = unloc ML_Judgment in
-  let decl_hyps = TopDynamic (Name.Predefined.hypotheses, unloc (List [])) in
-  let force_hyps_type = 
+  let decl_hyps = TopDynamic (Name.Predefined.hypotheses, Arg_annot_none, unloc (List [])) in
+  let force_hyps_type =
     TopDo (unloc
-             (Let ([Name.anonymous (), [],
-                    Some (unloc (ML_Forall ([],
+             (Let ([Let_clause_ML
+                      (Name.anonymous (), [],
+                       Let_annot_schema (unloc (ML_Forall ([],
                                             unloc (ML_TyApply (Name.Predefined.list, [un_ml_judg]))))),
-                    unloc (Var Name.Predefined.hypotheses)], unloc (Tuple [])))) in
+                       unloc (Var Name.Predefined.hypotheses))],
+                   unloc (Tuple []))))
+  in
   [unloc decl_hyps; unloc force_hyps_type]
 
 let predefined_bound_names =
@@ -182,4 +185,3 @@ let add_abstracting j m =
   Runtime.lookup_bound ~loc k >>= fun hyps ->   (* Get the AML list of [hypotheses] *)
   let hyps = list_cons v hyps in                (* Add v to the front of that AML list *)
   Runtime.now ~loc k hyps m                     (* Run computation m in this dynamic scope *)
-

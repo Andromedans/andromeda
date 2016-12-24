@@ -12,7 +12,7 @@ handle
   | as_eq _ => None
 end
 
-let (|>) x f : Π α β, α → (α → β) → β = f x
+let (|>) x f :> Π α β, α → (α → β) → β = f x
 
 let failure x = print ("FAILURE", x); external "exit" ()
 
