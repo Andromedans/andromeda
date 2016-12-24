@@ -2,14 +2,14 @@
 
 let symmetric : Π (A : Type) (a b : A), a ≡ b -> b ≡ a =
   λ A a b p,
-        now betas = add_beta p betas in
+        now betas = add_beta p in
         refl b
 
 do symmetric
 
 let transitive : Π (A : Type) (a b c : A), a ≡ b -> b ≡ c -> a ≡ c =
   λ A a b c p q,
-     now betas = add_beta p betas in
+     now betas = add_beta p in
      q
 
 
@@ -24,7 +24,7 @@ let J : Π
      B a b p
   =
   λ A B r a b p,
-    now betas = add_beta p betas in
+    now betas = add_beta p in
     r b
 
 do J

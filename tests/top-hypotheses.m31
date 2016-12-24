@@ -19,7 +19,7 @@ handle
     match t with
       | None => Type
       | Some ?t =>
-          let xs = hypotheses in
+          let xs = current hypotheses in
           let t_abs = prodify xs t in
           assume happy : t_abs in 
           apply happy (rev xs)
@@ -28,4 +28,4 @@ end
 
 constant A : Type
 do lambda (B : A -> Type), B happy
-do hypotheses
+do current hypotheses

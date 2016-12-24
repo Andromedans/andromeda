@@ -3,7 +3,7 @@ dynamic fixed = None
 
 let fix f x =
  let g x =
-   let self = (match fixed with Some ?self => self end) in
+   let self = (match current fixed with Some ?self => self end) in
    f self x
  in
  now fixed = Some g in 
@@ -13,4 +13,4 @@ let iter f = fix (fun iter l => match l with [] => () | ?x :: ?l => f x; iter l 
 
 let _ = iter print [None,Some [],Some [None]]
 
-let _ = print ("fixed", fixed)
+let _ = print ("fixed", current fixed)

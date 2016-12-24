@@ -9,6 +9,6 @@ constant h : G'' == G
 
 (* this should work with a general hint! *)
 do
-  now hints = add_hint h hints in
+  now hints = add_hint h in
   (refl G'' : G'' == G)
 
