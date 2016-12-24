@@ -296,7 +296,7 @@ let process_eta =
 (** If e is applied to something, should that thing be reduced? *)
 let is_arg_reducing e =
   let compute_reducing e =
-    match assoc_find e reducing with
+    match assoc_find e (current reducing) with
     | Some ?v => v
     | None => []
     end
@@ -325,7 +325,7 @@ let apply_general_hint e1 e2 =
       end
   end
   in
-  fold hints
+  fold (current hints)
 
 
 (* Attempt to apply one of `betas` to a term `e`. Here `betas` is a list of beta hints previously
@@ -341,7 +341,7 @@ let apply_beta_hint e =
       end
   end
   in
-  fold betas
+  fold (current betas)
 
 let add_beta_to b betas =
   let b = process_beta b in
@@ -359,22 +359,22 @@ let add_hint_to h hints =
   let h = process_hint h in
   h :: hints
 
-let add_beta h = add_beta_to h betas
+let add_beta h = add_beta_to h (current betas)
 
-let add_reducing h l = add_reducing_to h l reducing
+let add_reducing h l = add_reducing_to h l (current reducing)
 
-let add_eta h = add_eta_to h etas
+let add_eta h = add_eta_to h (current etas)
 
-let add_hint h = add_hint_to h hints
+let add_hint h = add_hint_to h (current hints)
 
 let add_betas hs =
-  fold (fun betas b => add_beta_to b betas) betas hs
+  fold (fun betas b => add_beta_to b betas) (current betas) hs
 
 let add_etas hs =
-  fold (fun etas  b => add_eta_to  b etas) etas  hs
+  fold (fun etas  b => add_eta_to  b etas) (current etas) hs
 
 let add_hints hs =
-  fold (fun hints b => add_hint_to b hints) hints hs
+  fold (fun hints b => add_hint_to b hints) (current hints) hs
 
 
 (** uip is an eta rule *)

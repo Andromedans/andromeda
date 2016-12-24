@@ -156,7 +156,7 @@ and equal_term imps e1 e2 =
           match A' with
 
           | ⊢ forall (?x : ?C), ?D ⇒
-            match now hypotheses = x :: hypotheses in equal_term imps (e1' x) (e2' x) with
+            match now hypotheses = x :: (current hypotheses) in equal_term imps (e1' x) (e2' x) with
             | None => None
             | Some ?xi =>
               (* D == (lambda x, D) x *)
@@ -221,7 +221,7 @@ and equal_term_whnf imps e1 e2 =
       | Some ?eqA =>
         let x' = convert x eqA in
         let B0' = B' where y = x' in
-        match now hypotheses = x :: hypotheses in equal_ty imps B B0' with
+        match now hypotheses = x :: (current hypotheses) in equal_ty imps B B0' with
         | None => None
         | Some ?eqB =>
           Some (finalize_congr (congr_prod x eqA eqB))
@@ -235,11 +235,11 @@ and equal_term_whnf imps e1 e2 =
         let B = typeof body and B' = typeof body' in
         let x' = convert x (symmetry eqA) in
         let B0' = B' where y = x' in
-        match now hypotheses = x :: hypotheses in equal_ty imps B B0' with
+        match now hypotheses = x :: (current hypotheses) in equal_ty imps B B0' with
         | None => None
         | Some ?eqB =>
           let body0' = convert (body' where y = x') (symmetry eqB) in
-          match now hypotheses = x :: hypotheses in equal_term imps body body0' with
+          match now hypotheses = x :: (current hypotheses) in equal_term imps body body0' with
           | None => None
           | Some ?eqbody =>
             Some (finalize_congr (congr_lambda x eqA eqB eqbody))
@@ -370,7 +370,7 @@ and apply_eta_hint imps e1 e2 A =
       end
     end
   in
-  fold etas
+  fold (current etas)
 
 (* Try to make a equal to b by instantiating an imp in a.
    This will work if a is an imp applied to suitable atoms. *)
@@ -441,7 +441,7 @@ and whnf_term_no_betas imps e =
           | Some ?eqCA =>
             let D = typeof body in
             let B = B where x = convert y eqCA in
-            match now hypotheses = x :: hypotheses in equal_ty imps D B with
+            match now hypotheses = x :: (current hypotheses) in equal_ty imps D B with
             | None => zeta
             | Some ?eqDB =>
               let beta = beta_step y eqCA eqDB body a' in
@@ -593,7 +593,7 @@ handle
   | ? : ?Aopt ⇒
     match Aopt with
     | Some ?A =>
-      let xs = rev hypotheses in
+      let xs = rev (current hypotheses) in
       match mk_imp xs A with
       | (?imp, ?spine) =>
         imps := imp :: !imps ;
