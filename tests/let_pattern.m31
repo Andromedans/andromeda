@@ -1,0 +1,22 @@
+(* Let-patterns *)
+
+do let (?x, ?y) = ("foo", ["bar"]) in (y, x)
+
+do let () = () in ()
+
+do let (?a :: ?a :: _) = ["cow", "cow", "bar"] in a
+
+do let ((?x, ?y)) = ("yeah", []) in x :: y
+
+(* Toplevel let-patterns *)
+let (?x, ?y) = ("foo", ["bar"])
+
+do x
+do y
+
+let () = (fun x => x) ()
+
+let (?a :: ?a :: _) = ["cow", "cow", "bar"]
+
+do a
+
