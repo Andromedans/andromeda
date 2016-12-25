@@ -79,6 +79,7 @@ and term' =
   | Match of comp * match_case list
   | Let of let_clause list  * comp
   | LetRec of letrec_clause list * comp
+  | LetPatt of pattern * comp * comp
   | MLAscribe of comp * ml_schema
   | Now of Name.ident * comp * comp
   | Lookup of comp
@@ -149,6 +150,7 @@ and toplevel' =
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopLetPatt of pattern * comp
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of Name.ident * comp
   | TopDo of comp (** evaluate a computation at top level *)

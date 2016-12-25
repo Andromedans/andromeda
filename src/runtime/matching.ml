@@ -137,18 +137,28 @@ and multicollect_pattern env xvs ps vs =
   in
   fold xvs (ps, vs)
 
-let match_pattern p v =
-  (* collect values of pattern variables *)
-  Runtime.get_env >>= fun env ->
-  let r = begin try
+let match_pattern_env p v env =
+  try
     let xvs = collect_pattern env [] p v in
     (* return in decreasing de bruijn order: ready to fold with add_bound *)
     let xvs = List.sort (fun (k,_) (k',_) -> compare k k') xvs in
     let xvs = List.rev_map snd xvs in
     Some xvs
-  with Match_fail -> None
-  end in
+  with
+    Match_fail -> None
+
+let top_match_pattern p v =
+  let (>>=) = Runtime.top_bind in
+  Runtime.top_get_env >>= fun env ->
+    let r = match_pattern_env p v env  in
+    Runtime.top_return r
+
+let match_pattern p v =
+  (* collect values of pattern variables *)
+  Runtime.get_env >>= fun env ->
+  let r = match_pattern_env p v env  in
   return r
+
 
 let match_op_pattern ps pt vs checking =
   Runtime.get_env >>= fun env ->

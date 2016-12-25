@@ -120,6 +120,20 @@ let rec infer {Location.thing=c'; loc} =
   | Rsyntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (infer c)
 
+  | Rsyntax.LetPatt (c1, (xs, pt, c2)) ->
+     infer c1 >>= fun v1 ->
+      Matching.match_pattern pt v1 >>= begin function
+        | Some vs ->
+          let rec bind = function
+            | [] -> infer c2
+            | v::vs ->
+              Runtime.add_bound v (bind vs)
+          in
+          bind vs
+        | None -> Runtime.(error ~loc (MatchFail v1))
+      end
+
+
   | Rsyntax.MLAscribe (c, _) ->
      infer c
 
@@ -392,6 +406,19 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (check c t_check)
 
+  | Rsyntax.LetPatt (c1, (xs, pt, c2)) ->
+     infer c1 >>= fun v1 ->
+      Matching.match_pattern pt v1 >>= begin function
+        | Some vs ->
+          let rec bind = function
+            | [] -> check c2 t_check
+            | v::vs ->
+              Runtime.add_bound v (bind vs)
+          in
+          bind vs
+        | None -> Runtime.(error ~loc (MatchFail v1))
+      end
+
   | Rsyntax.MLAscribe (c, _) ->
      check c t_check
 
@@ -588,18 +615,20 @@ let toplet_bind ~loc ~quiet ~print_annot xcs =
          (fun cmd (x, v) -> Runtime.add_topbound v >>= fun () -> cmd)
          (return ())
          xvs
-    | (x, s, c) :: xcs ->
+    | (x, _, c) :: xcs ->
        comp_value c >>= fun v ->
        fold ((x, v) :: xvs) xcs
   in
   fold [] xcs >>= fun () ->
-  begin if not quiet then
-    Format.printf "%t@." (Print.sequence
-      (fun (x, annot, _) ppf -> Format.fprintf ppf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident x) (print_annot annot))
-      ""
-      xcs)
-  end;
-  return ()
+    if not quiet then
+      (List.iter
+         (fun (x, annot, _) ->
+           Format.printf "@[<hov 2>val %t :@ %t@]@."
+                         (Name.print_ident x)
+                         (print_annot annot))
+         xcs ;
+         Format.printf "@.") ;
+    return ()
 
 let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   let gs =
@@ -608,12 +637,13 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
       fxcs
   in
   Runtime.add_topbound_rec gs >>= fun () ->
-  begin if not quiet then
-    Format.printf "%t@." (Print.sequence
-      (fun (f, _, annot, _) ppf -> Format.fprintf ppf "@[<hov 2>val %t :@ %t@]@." (Name.print_ident f) (print_annot annot))
-      ""
-      fxcs)
-  end;
+  if not quiet then
+    (List.iter
+      (fun (f, _, annot, _) -> Format.printf "@[<hov 2>val %t :@ %t@]@."
+                                             (Name.print_ident f)
+                                             (print_annot annot))
+      fxcs ;
+     Format.printf "@.") ;
   return ()
 
 type error =
@@ -672,6 +702,21 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
     | Rsyntax.TopLetRec fxcs ->
       let print_annot = print_annot () in
       topletrec_bind ~loc ~quiet ~print_annot fxcs
+
+    | Rsyntax.TopLetPatt (xts, pt, c) ->
+       comp_value c >>= fun v ->
+       Matching.top_match_pattern pt v >>= begin function
+        | None -> Runtime.error ~loc (Runtime.MatchFail v)
+        | Some vs ->
+           if not quiet then
+             (List.iter
+                (fun (x, sch) -> Format.printf "@[<hov 2>val %t :@ %t@]@."
+                                               (Name.print_ident x)
+                                               (print_annot () sch))
+               xts ;
+              Format.printf "@.") ;
+           Runtime.top_fold (fun () v -> Runtime.add_topbound v) () (List.rev vs)
+      end
 
     | Rsyntax.TopDynamic (x, annot, c) ->
        comp_value c >>= fun v ->

@@ -113,6 +113,7 @@ plain_topcomp:
   | LET lst=separated_nonempty_list(AND, let_clause)  { TopLet lst }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause)
                                                       { TopLetRec lst }
+  | LET LPAREN pt=pattern RPAREN EQ c=term            { TopLetPatt (pt, c) }
   | DYNAMIC x=var_name u=dyn_annotation EQ c=term     { TopDynamic (x, u, c) }
   | NOW x=var_name EQ c=term                          { TopNow (x,c) }
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
@@ -137,6 +138,7 @@ plain_term:
   | LET a=separated_nonempty_list(AND,let_clause) IN c=term      { Let (a, c) }
   | LET REC lst=separated_nonempty_list(AND, recursive_clause) IN c=term
                                                                  { LetRec (lst, c) }
+  | LET LPAREN pt=pattern RPAREN EQ c1=term IN c2=term           { LetPatt (pt, c1, c2) }
   | NOW x=var_name EQ c1=term IN c2=term                         { Now (x,c1,c2) }
   | ASSUME x=var_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
   | c1=equal_term WHERE e=simple_term EQ c2=term                 { Where (c1, e, c2) }

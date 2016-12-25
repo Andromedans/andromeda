@@ -44,6 +44,7 @@ and comp' =
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
+  | LetPatt of comp * match_case
   | MLAscribe of comp * ml_schema
   | Now of bound * comp * comp
   | Lookup of comp
@@ -106,6 +107,7 @@ and toplevel' =
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
+  | TopLetPatt of match_case
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of bound * comp
   | TopDo of comp

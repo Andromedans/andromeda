@@ -53,9 +53,6 @@ type ty_def =
   | Alias of ty forall
   | Sum of constructor list forall
 
-(** Make a schema from a type without generalizing anything. *)
-let ungeneralized_schema (t : ty) : ty_schema = [], t
-
 type error =
   | InvalidApplication of ty * ty * ty
   | TypeMismatch of ty * ty

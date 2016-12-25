@@ -1,7 +1,6 @@
 ML type tree declared.
 
 val left : ∀ α, tree α → tree (mlstring * α)
-
 val right : ∀ β, tree β → tree (mlstring * β)
 
 val t : tree mlunit
@@ -27,9 +26,7 @@ val d : mlstring
 val f :
   ∀ α, α → mlstring * mlstring * (mlstring * mlstring * (mlstring *
           mlstring))
-
 val g : mlunit → mlstring * mlstring * (mlstring * mlstring)
-
 val h : mlunit → mlstring * mlstring
 
 (("f", "A", ("g", "A", ("h", "A"))), ("g", "A", ("h", "A")), ("h",

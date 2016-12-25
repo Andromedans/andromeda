@@ -463,6 +463,11 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      let c = comp ~yield ctx c in
      locate (Dsyntax.LetRec (lst, c)) loc
 
+  | Input.LetPatt (pt, c1, c2) ->
+     let c1 = comp ~yield ctx c1
+     and mcase = match_case ~yield ctx (pt, c2) in
+     locate (Dsyntax.LetPatt (c1, mcase)) loc
+
   | Input.MLAscribe (c, sch) ->
      let c = comp ~yield ctx c in
      let sch = ml_schema ctx sch in
@@ -997,6 +1002,16 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
     | Input.TopLetRec lst ->
        let ctx, lst = letrec_clauses ~loc ~yield:false ctx lst in
        (ctx, locate (Dsyntax.TopLetRec lst) loc)
+
+    | Input.TopLetPatt (pt, c) ->
+       let (xs, pt, c) = match_case ~yield:false ctx (pt, c) in
+       let rec fold ctx = function
+         | [] -> (ctx, locate (Dsyntax.TopLetPatt (xs, pt, c)) loc)
+         | x :: xs ->
+            let ctx = Ctx.add_lexical x ctx in
+            fold ctx xs
+       in
+       fold ctx xs
 
     | Input.TopDynamic (x, annot, c) ->
        let c = comp ~yield:false ctx c in

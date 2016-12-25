@@ -33,6 +33,7 @@ and comp' =
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
+  | LetPatt of comp * match_case
   | MLAscribe of comp * ml_schema
   | Now of bound * comp * comp
   | Lookup of comp
@@ -66,6 +67,8 @@ and let_clause = Name.ident * ml_schema * comp
 
 and letrec_clause = Name.ident * Name.ident * ml_schema * comp
 
+and letpatt_clause = (Name.ident * ml_schema) list * Pattern.pattern * comp
+
 and handler = {
   handler_val: match_case list;
   handler_ops: match_op_case list Name.IdentMap.t;
@@ -92,6 +95,7 @@ and toplevel' =
   | DeclConstants of Name.constant list * comp
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list
+  | TopLetPatt of letpatt_clause
   | TopLetRec of letrec_clause list
   | TopDynamic of Name.ident * ml_schema * comp
   | TopNow of bound * comp

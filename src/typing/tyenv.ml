@@ -49,6 +49,10 @@ let generalize t env =
   let t = Substitution.apply s t in
   return (ps, t) env
 
+let ungeneralize t env =
+  let t = Substitution.apply env.substitution t in
+  return ([], t) env
+
 let add_let x s m env =
   let context = Context.add_let x s env.context in
   m {env with context}
@@ -67,7 +71,8 @@ let lookup_continuation env =
   return (Context.lookup_continuation env.context) env
 
 let add_var x t m env =
-  let context = Context.add_var x (Mlty.ungeneralized_schema t) env.context in
+  let t = Substitution.apply env.substitution t in
+  let context = Context.add_var x ([], t) env.context in
   m {env with context}
 
 (* Whnf for meta instantiations and type aliases *)
@@ -269,9 +274,9 @@ let generalizes_to ~loc t (ps, u) env =
     in
     Mlty.error ~loc (Mlty.Ungeneralizable (ps, u))
 
-let normalize_schema (ps, t) env =
-  let t = Substitution.apply env.substitution t in
-  return (ps, t) env
+(* let normalize_schema (ps, t) env = *)
+(*   let t = Substitution.apply env.substitution t in *)
+(*   return (ps, t) env *)
 
 (* Toplevel functionality *)
 

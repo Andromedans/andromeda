@@ -245,6 +245,9 @@ type env
 (** Extract the current environment (for matching) *)
 val get_env : env comp
 
+(** Get the toplevel environment from the toplevel monad *)
+val top_get_env : env toplevel
+
 val get_typing_signature : env -> Jdg.Signature.t
 
 (** For matching *)
