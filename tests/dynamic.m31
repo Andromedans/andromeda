@@ -4,7 +4,7 @@ constant a, b : A
 
 dynamic x = a
 
-let f _ = print x
+let f _ = print (current x)
 
 do f ()
 

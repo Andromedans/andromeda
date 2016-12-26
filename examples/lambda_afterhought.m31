@@ -3,7 +3,7 @@ constant B : A -> Type
 
 constant pair : Π (x : A), B x → Type
 
-operation fresh 1
+operation fresh : judgment -> judgment
 
 do
    handle

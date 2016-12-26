@@ -4,13 +4,13 @@ val B : judgment
 
 ⊢ A → A → A : Type
 
-anon12₀ : A
-⊢ anon12₀ : A
+anon11₀ : A
+⊢ anon11₀ : A
 
-anon12₁ : A
-anon11₂ : A
-anon12₃ : A
-⊢ anon12₁ ≡ anon12₃ → anon11₂ ≡ anon11₂ : Type
+anon11₁ : A
+anon10₂ : A
+anon11₃ : A
+⊢ anon11₁ ≡ anon11₃ → anon10₂ ≡ anon10₂ : Type
 
 ⊢ A → A → A : Type
 

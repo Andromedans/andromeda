@@ -28,6 +28,10 @@ let as_ref ~loc v =
   let e = Runtime.as_ref ~loc v in
   Runtime.return e
 
+let as_dyn ~loc v =
+  let e = Runtime.as_dyn ~loc v in
+  Runtime.return e
+
 (** Form a judgement *)
 (* loc:Location.t -> Jdg.shape -> Jdg.term Runtime.comp *)
 let jdg_form ~loc s =
@@ -138,8 +142,14 @@ let rec infer {Location.thing=c'; loc} =
      infer c
 
   | Rsyntax.Now (x,c1,c2) ->
-    infer c1 >>= fun v ->
-    Runtime.now ~loc x v (infer c2)
+     let xloc = x.Location.loc in
+     infer x >>= as_dyn ~loc:xloc >>= fun x ->
+     infer c1 >>= fun v ->
+     Runtime.now x v (infer c2)
+
+  | Rsyntax.Current c ->
+     infer c >>= as_dyn ~loc:(c.Location.loc) >>= fun x ->
+     Runtime.lookup_dyn x
 
   | Rsyntax.Ref c ->
      infer c >>= fun v ->
@@ -217,7 +227,7 @@ let rec infer {Location.thing=c'; loc} =
         infer c2 >>= fun v ->
         Runtime.apply_closure f v
       | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-        Runtime.Ref _ | Runtime.String _ as h ->
+        Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _ as h ->
         Runtime.(error ~loc (Inapplicable h))
     end
 
@@ -373,6 +383,7 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Ref _
   | Rsyntax.Lookup _
   | Rsyntax.Update _
+  | Rsyntax.Current _
   | Rsyntax.String _
   | Rsyntax.Occurs _
   | Rsyntax.Context _
@@ -423,8 +434,10 @@ and check ({Location.thing=c';loc} as c) t_check =
      check c t_check
 
   | Rsyntax.Now (x,c1,c2) ->
-    infer c1 >>= fun v ->
-    Runtime.now ~loc x v (check c2 t_check)
+     let xloc = x.Location.loc in
+     infer x >>= as_dyn ~loc:xloc >>= fun x ->
+     infer c1 >>= fun v ->
+     Runtime.now x v (check c2 t_check)
 
   | Rsyntax.Assume ((x, t), c) ->
      check_ty t >>= fun t ->
@@ -723,8 +736,11 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
        Runtime.add_dynamic ~loc x v
 
     | Rsyntax.TopNow (x,c) ->
+       let xloc = x.Location.loc in
+       comp_value x >>= fun x ->
+       let x = Runtime.as_dyn ~loc:xloc x in
        comp_value c >>= fun v ->
-       Runtime.top_now ~loc x v
+       Runtime.top_now x v
 
     | Rsyntax.TopDo c ->
        comp_value c >>= fun v ->

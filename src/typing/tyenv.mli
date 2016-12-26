@@ -47,6 +47,9 @@ val as_handler : loc:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) tyenvM
 (** Express the given type as a reference type. *)
 val as_ref : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 
+(** Express the given type as a dynamic variable type. *)
+val as_dynamic : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
+
 (** [op_cases op output m] runs [m] with the expected types of the arguments of [op] and the continuation being from the output type of [op] to [output]. *)
 val op_cases : Name.operation -> output:Mlty.ty -> (Mlty.ty list -> 'a tyenvM) -> 'a tyenvM
 

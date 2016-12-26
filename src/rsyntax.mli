@@ -35,7 +35,8 @@ and comp' =
   | LetRec of letrec_clause list * comp
   | LetPatt of comp * match_case
   | MLAscribe of comp * ml_schema
-  | Now of bound * comp * comp
+  | Now of comp * comp * comp
+  | Current of comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -98,7 +99,7 @@ and toplevel' =
   | TopLetPatt of letpatt_clause
   | TopLetRec of letrec_clause list
   | TopDynamic of Name.ident * ml_schema * comp
-  | TopNow of bound * comp
+  | TopNow of comp * comp
   | TopDo of comp
   | TopFail of comp
   | Verbosity of int

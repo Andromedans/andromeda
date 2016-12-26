@@ -19,6 +19,7 @@ let reserved = [
   ("congr_refl", CONGR_REFL) ;
   ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
+  ("current", CURRENT) ;
   ("do", DO) ;
   ("dynamic", DYNAMIC) ;
   ("end", END) ;

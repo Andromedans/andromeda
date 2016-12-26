@@ -91,7 +91,7 @@ let rec whnf ctx s = function
      end
 
   | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
-     Mlty.Handler _ | Mlty.Ref _) as t -> t
+     Mlty.Handler _ | Mlty.Ref _ | Mlty.Dynamic _) as t -> t
 
 let rec unifiable ctx s t t' =
   let (>?=) m f = match m with
@@ -117,6 +117,9 @@ let rec unifiable ctx s t t' =
      Some s
 
   | Mlty.Ref t, Mlty.Ref t' ->
+     unifiable ctx s t t'
+
+  | Mlty.Dynamic t, Mlty.Dynamic t' ->
      unifiable ctx s t t'
 
   | Mlty.Prod ts, Mlty.Prod ts' ->
@@ -147,7 +150,7 @@ let rec unifiable ctx s t t' =
      in
      fold s ts ts'
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Prod _ | Mlty.Param _ |
+  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Prod _ | Mlty.Param _ |
      Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _), _ -> None
 
 let rec add_equation ~loc t t' env =
@@ -195,7 +198,8 @@ and add_application ~loc h arg out env =
           end
      end
 
-  | (Mlty.String | Mlty.Ref _ | Mlty.Param _ | Mlty.Prod _ |  Mlty.Handler _ | Mlty.App _) ->
+  | (Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Param _ | Mlty.Prod _
+     |  Mlty.Handler _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.InvalidApplication (h, arg, out))
 
 let as_handler ~loc t env =
@@ -212,8 +216,8 @@ let as_handler ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Param _ | Mlty.Prod _ |
-     Mlty.Arrow _ | Mlty.App _) ->
+  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ |  Mlty.Param _ |
+     Mlty.Prod _ | Mlty.Arrow _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.HandlerExpected t)
 
 let as_ref ~loc t env =
@@ -230,8 +234,25 @@ let as_ref ~loc t env =
      end
 
   | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
-     Mlty.Arrow _ | Mlty.App _) ->
+     Mlty.Arrow _ | Mlty.App _ | Mlty.Dynamic _) ->
      Mlty.error ~loc (Mlty.RefExpected t)
+
+let as_dynamic ~loc t env =
+  let t = whnf env.context env.substitution t in
+  match t with
+
+  | Mlty.Dynamic t -> return t env
+
+  | Mlty.Meta m ->
+     let a = Mlty.fresh_type () in
+     begin match Substitution.add m (Mlty.Dynamic a) env.substitution with
+           | Some substitution -> return a {env with substitution}
+           | None -> assert false
+     end
+
+  | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
+     Mlty.Arrow _ | Mlty.App _ | Mlty.Ref _) ->
+     Mlty.error ~loc (Mlty.DynamicExpected t)
 
 let op_cases op ~output m env =
   let argts, context = Context.op_cases op ~output env.context in

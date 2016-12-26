@@ -206,7 +206,7 @@ do context dependent
    The list in debruijn index order can be accessed with `hypotheses`. *)
 operation emit : list judgement -> _
 do handle
-    lambda (x : A), emit hypotheses
+    lambda (x : A), emit (current hypotheses)
    with
    | val _ => []
    | emit ?v => v

@@ -15,6 +15,7 @@ and ml_ty' =
   | ML_TyApply of Name.ident * level * ml_ty list
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
+  | ML_Dynamic of ml_ty
   | ML_Judgment
   | ML_String
   | ML_Bound of bound
@@ -46,7 +47,8 @@ and comp' =
   | LetRec of letrec_clause list * comp
   | LetPatt of comp * match_case
   | MLAscribe of comp * ml_schema
-  | Now of bound * comp * comp
+  | Now of comp * comp * comp
+  | Current of comp
   | Lookup of comp
   | Update of comp * comp
   | Ref of comp
@@ -109,7 +111,7 @@ and toplevel' =
   | TopLetRec of letrec_clause list
   | TopLetPatt of match_case
   | TopDynamic of Name.ident * arg_annotation * comp
-  | TopNow of bound * comp
+  | TopNow of comp * comp
   | TopDo of comp
   | TopFail of comp
   | Verbosity of int
