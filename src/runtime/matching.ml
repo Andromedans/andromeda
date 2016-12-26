@@ -119,11 +119,15 @@ and collect_pattern env xvs {Location.thing=p;loc} v =
     multicollect_pattern env xvs ps vs
 
   | Pattern.Patt_Jdg _, (Runtime.Closure _ | Runtime.Handler _ |
-                        Runtime.Tag _ | Runtime.Ref _ | Runtime.Tuple _ | Runtime.String _)
+                         Runtime.Tag _ | Runtime.Ref _ | Runtime.Dyn _|
+                         Runtime.Tuple _ | Runtime.String _)
   | Pattern.Patt_Constructor _, (Runtime.Term _ | Runtime.Closure _ |
-                        Runtime.Handler _ | Runtime.Tag _ | Runtime.Ref _ | Runtime.Tuple _ | Runtime.String _)
-  | Pattern.Patt_Tuple _, (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Ref _ |
-                          Runtime.String _) ->
+                                 Runtime.Handler _ | Runtime.Tag _ |
+                                 Runtime.Ref _ | Runtime.Dyn _ |
+                                 Runtime.Tuple _ | Runtime.String _)
+  | Pattern.Patt_Tuple _, (Runtime.Term _ | Runtime.Closure _ |
+                           Runtime.Handler _ | Runtime.Tag _ |
+                           Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) ->
      raise Match_fail
 
 and multicollect_pattern env xvs ps vs =

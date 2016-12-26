@@ -2,6 +2,12 @@
 
 (** {6 Values} *)
 
+(** An AML reference cell. *)
+type ref
+
+(** An AML dynamic variable. *)
+type dyn
+
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value = private
   | Term of Jdg.term                 (** A *typing* judgment built by the nucleus *)
@@ -10,6 +16,7 @@ type value = private
   | Tag of Name.ident * value list   (** Application of a data constructor *)
   | Tuple of value list              (** Tuple of values *)
   | Ref of ref                       (** Ref cell *)
+  | Dyn of dyn                       (** Dynamic variable *)
   | String of string                 (** String constant (opaque, not a list) *)
 
 and operation_args = { args : value list; checking : Jdg.ty option}
@@ -20,9 +27,6 @@ and handler
 
 (** Maps an ['a] to a ['b comp]. In practice ['b] is usually [value] *)
 and ('a,'b) closure
-
-(** An AML reference cell. *)
-and ref
 
 (** a descriptive name of a value, e.g. the name of [Handler _] is ["a handler"] *)
 val name_of : value -> string
@@ -41,6 +45,7 @@ val as_term : loc:Location.t -> value -> Jdg.term   (** Fails with [TermExpected
 val as_closure : loc:Location.t -> value -> (value,value) closure (** Fails with [ClosureExpected] *)
 val as_handler : loc:Location.t -> value -> handler (** Fails with [HandlerExpected] *)
 val as_ref : loc:Location.t -> value -> ref         (** Fails with [RefExpected] *)
+val as_dyn : loc:Location.t -> value -> dyn         (** Fails with [DynExpected] *)
 val as_string : loc:Location.t -> value -> string   (** Fails with [StringExpected] *)
 
 (** {b Other operations} *)
@@ -81,6 +86,7 @@ type error =
   | HandlerExpected of value
   | FunctionExpected of Jdg.term
   | RefExpected of value
+  | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvertible of Jdg.ty * Jdg.ty * Jdg.eq_ty
@@ -145,7 +151,7 @@ val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
 val handle_comp : handler -> value comp -> value comp
 
 (** Wrap the given computation with a dynamic variable binding. *)
-val now : loc:Location.t -> int -> value -> 'a comp -> 'a comp
+val now : dyn -> value -> 'a comp -> 'a comp
 
 (** Lookup the current continuation. Only usable while handling an operation. *)
 val continue : loc:Location.t -> value -> value comp
@@ -175,6 +181,9 @@ val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Jdg.atom -> 'a comp) ->
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
+
+(** Lookup the current value of a dynamic variable. *)
+val lookup_dyn : dyn -> value comp
 
 (** {6 Toplevel} *)
 
@@ -210,7 +219,7 @@ val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel
 
 (** Modify the value bound by a dynamic variable *)
-val top_now : loc:Location.t -> int -> value -> unit toplevel
+val top_now : dyn -> value -> unit toplevel
 
 (** Handle a computation at the toplevel. *)
 val top_handle : loc:Location.t -> 'a comp -> 'a toplevel

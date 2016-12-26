@@ -51,17 +51,10 @@ let predefined_ops = let open Input in
 let predefined_bound = let open Input in
   let unloc x = Location.locate x Location.unknown in
   let un_ml_judg = unloc ML_Judgment in
-  let decl_hyps = TopDynamic (Name.Predefined.hypotheses, Arg_annot_none, unloc (List [])) in
-  let force_hyps_type =
-    TopDo (unloc
-             (Let ([Let_clause_ML
-                      (Name.anonymous (), [],
-                       Let_annot_schema (unloc (ML_Forall ([],
-                                            unloc (ML_TyApply (Name.Predefined.list, [un_ml_judg]))))),
-                       unloc (Var Name.Predefined.hypotheses))],
-                   unloc (Tuple []))))
-  in
-  [unloc decl_hyps; unloc force_hyps_type]
+  let hyps_annot = unloc (ML_TyApply (Name.Predefined.list, [un_ml_judg])) in
+  let decl_hyps = TopDynamic
+                    (Name.Predefined.hypotheses, Arg_annot_ty hyps_annot, unloc (List [])) in
+  [unloc decl_hyps]
 
 let predefined_bound_names =
   [Name.Predefined.hypotheses]
@@ -98,7 +91,7 @@ let as_option ~loc = function
   | Runtime.Tag (t,[]) when (Name.eq_ident t Name.Predefined.none)  -> None
   | Runtime.Tag (t,[x]) when (Name.eq_ident t Name.Predefined.some) -> Some x
   | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-     Runtime.Ref _ | Runtime.String _) as v ->
+     Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
      Runtime.(error ~loc (OptionExpected v))
 
 
@@ -118,7 +111,7 @@ let as_coercible ~loc = function
     let j = Runtime.as_term ~loc v in
     Coercible j
   | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-     Runtime.Ref _ | Runtime.String _) as v ->
+     Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
      Runtime.(error ~loc (CoercibleExpected v))
 
 
@@ -182,6 +175,8 @@ let add_abstracting j m =
   let v = Runtime.mk_term j in                  (* The given variable as an AML value *)
   Runtime.index_of_level k >>= fun k ->         (* Switch k from counting from the
                                                    beginning to counting from the end *)
-  Runtime.lookup_bound ~loc k >>= fun hyps ->   (* Get the AML list of [hypotheses] *)
+  Runtime.lookup_bound ~loc k >>= fun hypsx ->   (* Get the AML list of [hypotheses] *)
+  let hypsx = Runtime.as_dyn ~loc hypsx in
+  Runtime.lookup_dyn hypsx >>= fun hyps ->
   let hyps = list_cons v hyps in                (* Add v to the front of that AML list *)
-  Runtime.now ~loc k hyps m                     (* Run computation m in this dynamic scope *)
+  Runtime.now hypsx hyps m                     (* Run computation m in this dynamic scope *)
