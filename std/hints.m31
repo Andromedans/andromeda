@@ -16,17 +16,16 @@ let (>?=) m f = match m with
    and `Some (Some v)` if it is instantiated to `v`.
    If it's a rigid variable, return `None` if it is the second of the pair and `Some y` if `y` is the second of the pair. *)
 let atom_find x quants =
-  match quants with
-  (?vars,?rigids) =>
-    let u = assoc_find x vars in
-    match u with
-      | (Some _) as ?v => v
-      | None => match assoc_find x rigids with
-          | Some ?y => Some (Some y)
-          | None => None
-        end
-    end
+  let (?vars,?rigids) = quants in
+  let u = assoc_find x vars in
+  match u with
+    | (Some _) as ?v => v
+    | None => match assoc_find x rigids with
+        | Some ?y => Some (Some y)
+        | None => None
+      end
   end
+
 
 (* Are we allowed to use `e` to instantiate some pattern variable? *)
 let rec rigid_occurs e rigids = match rigids with
@@ -43,24 +42,22 @@ let rec rigid_occurs e rigids = match rigids with
 
 (* try to instantiate `x` with `e` *)
 let atom_update x e quants =
-  match quants with
-  (?vars,?rigids) =>
-    match rigid_occurs e rigids with
-      | Some ?y =>
-        None
-      | None =>
-        Some (assoc_update x (Some e) vars,rigids)
-    end
-  end
+  let (?vars,?rigids) = quants in
+  match rigid_occurs e rigids with
+   | Some ?y =>
+     None
+   | None =>
+     Some (assoc_update x (Some e) vars,rigids)
+ end
 
-let add_paired_rigids x y quants = match quants with (?vars,?rigids) => (vars,(x,y)::rigids) end
+let add_paired_rigids x y quants = 
+  let (?vars,?rigids) = quants in
+  (vars, (x, y) :: rigids)
 
 (* After going under a binder, we can remove its hypothesis from the instantiation.
    Not doing so doesn't affect correctness but dirties the instantiation. *)
 let pop_rigid quants =
-  match quants with
-    (?vars, _ :: ?rigids) => (vars,rigids)
-  end
+  let (?vars, _ :: ?rigids) = quants in (vars,rigids)
 
 (* Return `(quants',x',y')` where `x'` is `x` fully instantiated by `quants'` (resp `y'`, `y`)
    and `quants'` is `quants` possibly updated to make `x'` and `y'` equal.
@@ -120,27 +117,23 @@ let rec collector quants lhs rhs =
             Some quants
 
           | ((|- lambda (?x1 : ?a1), ?e1), (|- lambda (?x2 : ?a2), ?e2)) =>
-            match (e1, e2) with
-              ((|- _ : ?b1), (|- _ : ?b2)) =>
-                collector quants a1 a2 >?= (fun quants =>
-                let quants = add_paired_rigids x1 x2 quants in
-                collector quants b1 b2 >?= (fun quants =>
-                collector quants e1 e2 >?= (fun quants =>
-                let quants = pop_rigid quants in
-                Some quants)))
-            end
+              let ((|- _ : ?b1), (|- _ : ?b2)) = (e1, e2) in
+              collector quants a1 a2 >?= (fun quants =>
+              let quants = add_paired_rigids x1 x2 quants in
+              collector quants b1 b2 >?= (fun quants =>
+              collector quants e1 e2 >?= (fun quants =>
+              let quants = pop_rigid quants in
+              Some quants)))
 
           | ((|- ?l1 ?r1), (|- ?l2 ?r2)) =>
             (* extract annotations *)
-            match (l1, l2) with
-              ((|- _ : forall (?x1 : ?a1), ?b1), (|- _ : forall (?x2 : ?a2), ?b2)) =>
-                collector quants a1 a2 >?= (fun quants =>
-                let quants = add_paired_rigids x1 x2 quants in
-                collector quants b1 b2 >?= (fun quants =>
-                collector quants l1 l2 >?= (fun quants =>
-                let quants = pop_rigid quants in
-                collector quants r1 r2)))
-            end
+            let ((|- _ : forall (?x1 : ?a1), ?b1), (|- _ : forall (?x2 : ?a2), ?b2)) = (l1, l2) in
+            collector quants a1 a2 >?= (fun quants =>
+            let quants = add_paired_rigids x1 x2 quants in
+            collector quants b1 b2 >?= (fun quants =>
+            collector quants l1 l2 >?= (fun quants =>
+            let quants = pop_rigid quants in
+            collector quants r1 r2)))
 
           | ((|- forall (?x1 : ?a1), ?b1), (|- forall (?x2 : ?a2), ?b2)) =>
             collector quants a1 a2 >?= (fun quants =>
@@ -150,19 +143,15 @@ let rec collector quants lhs rhs =
             Some quants))
 
           | ((|- ?l1 == ?r1), (|- ?l2 == ?r2)) =>
-            match (l1, l2) with
-              ((|- _ : ?t1), (|- _ : ?t2)) =>
-                collector quants t1 t2 >?= (fun quants =>
-                collector quants l1 l2 >?= (fun quants =>
-                collector quants r1 r2))
-            end
+            let ((|- _ : ?t1), (|- _ : ?t2)) = (l1, l2) in
+            collector quants t1 t2 >?= (fun quants =>
+            collector quants l1 l2 >?= (fun quants =>
+            collector quants r1 r2))
 
           | ((|- refl ?e1), (|- refl ?e2)) =>
-            match (e1, e2) with
-              ((|- _ : ?t1), (|- _ : ?t2)) =>
-                collector quants t1 t2 >?= (fun quants =>
-                collector quants e1 e2)
-            end
+            let ((|- _ : ?t1), (|- _ : ?t2)) = (e1, e2) in
+            collector quants t1 t2 >?= (fun quants =>
+            collector quants e1 e2)
 
           | _ => None
         end
@@ -194,13 +183,11 @@ let apply_quants =
    `f` may be either a closure or a term with a product type.
 *)
 let generic_matcher pat e =
-  match pat with
-    | (?f, (?quants, ?lhs)) =>
-      match collector (quants,[]) lhs e with
-        | Some (?quants,_) =>
-          apply_quants f quants
-        | None => None
-      end
+  let (?f, (?quants, ?lhs)) = pat in
+  match collector (quants,[]) lhs e with
+   | Some (?quants,_) =>
+     apply_quants f quants
+   | None => None
   end
 
 let spine h es :> judgement → list judgement → judgement = 
@@ -220,9 +207,7 @@ let process_beta =
     | |- ?lhs == _ => (fun lst => Some (spine e lst), (rev quants, lhs))
     end
   in
-  fun e => match e with
-    | |- ?e : ?b => deep [] e b
-    end
+  fun e => let (|- ?e : ?b) = e in deep [] e b
 
 (* A general hint is a term `e` of type `forall [xs], lhs == rhs`.
   It is used by matching `lhs == rhs` against an equality type to be verified. *)
@@ -233,9 +218,7 @@ let process_hint =
     | |- _ == _ => (fun lst => Some (spine e lst), (rev quants, h))
     end
   in
-  fun h => match h with
-    | |- ?e : ?h => deep [] e h
-    end
+  fun h => let (|- ?e : ?h) = h in deep [] e h
 
 let process_reducing c l =
   let _ = match c with
@@ -258,7 +241,7 @@ let process_reducing c l =
   This is necessary eg for `funext` (which has `eq : forall x, f x == g x`)
 *)
 let finalize_eta e xs eqs a b =
-  let T = match a with |- _ : ?T => T end in
+  let (|- _ : ?T) = a in
   let f ea eb quants =
     let e = spine e quants in
     let e = e ea eb in
@@ -283,15 +266,11 @@ let process_eta =
     | |- forall (?x : _), ?h =>
       deep ((x, None) :: quants) e h
     | |- ?a == ?b =>
-      match eta_split_quants quants a b with
-        | (?xs, ?eqs) =>
-          finalize_eta e xs eqs a b
-      end
+      let (?xs, ?eqs) = eta_split_quants quants a b in
+      finalize_eta e xs eqs a b
     end
   in
-  fun h => match h with
-    | |- ?e : ?t => deep [] e t
-    end
+  fun h => let (|- ?e : ?t) = h in deep [] e t
 
 (** If e is applied to something, should that thing be reduced? *)
 let is_arg_reducing e =
@@ -303,7 +282,7 @@ let is_arg_reducing e =
   in
   let rec fold e =
     match e with
-    | |- ?e1 _ => match fold e1 with [] => [] | _::?l => l end
+    | |- ?e1 _ => match fold e1 with [] => [] | _ :: ?l => l end
     | _ => compute_reducing e
     end
   in

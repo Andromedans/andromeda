@@ -6,8 +6,6 @@ require "snf.m31"
 
 let resolve e = 
   let e' = resolve e in
-  match snf e' with
-  |- _ : _ == ?e'' => 
-     convert e'' (snf (typeof e''))
-  end
+  let (|- _ : _ == ?e'') = snf e' in
+  convert e'' (snf (typeof e''))
 
