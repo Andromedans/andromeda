@@ -3,51 +3,51 @@ require "base.m31"
 (** Reverse a list *)
 let rev =
   let rec rev acc lst = match lst with
-    | [] => acc
-    | ?x :: ?tl => rev (x :: acc) tl
+    | [] ⇒ acc
+    | ?x :: ?tl ⇒ rev (x :: acc) tl
     end
   in
-  fun x => rev [] x
+  fun x ⇒ rev [] x
 
 (** Fold over a list *)
 let rec fold f acc lst :> forall a b, (a -> b -> a) -> a -> list b -> a =
 match lst with
-  | [] => acc
-  | ?x :: ?tl => fold f (f acc x) tl
+  | [] ⇒ acc
+  | ?x :: ?tl ⇒ fold f (f acc x) tl
   end
 
 (** `list_map f l` applies `f` to each element of `l`  *)
-let rec list_map f l = fold (fun acc x => f x :: acc) [] l |> rev
+let rec list_map f l = fold (fun acc x ⇒ f x :: acc) [] l |> rev
 
 (** Find in an associative list. *)
 let rec assoc_find x lst = match lst with
-  | [] => None
-  | (x, ?v) :: _ => Some v
-  | (_,_) :: ?lst => assoc_find x lst
+  | [] ⇒ None
+  | (x, ?v) :: _ ⇒ Some v
+  | (_,_) :: ?lst ⇒ assoc_find x lst
   end
 
 (** Append two lists, reverse the first one *)
-let rev_append l1 l2 = fold (fun acc x => x :: acc) l2 l1
+let rev_append l1 l2 = fold (fun acc x ⇒ x :: acc) l2 l1
 
 (** Append two lists *)
 let rec append l1 l2 =
   match l1 with
-  | [] => l2
-  | ?x :: ?l1 => x :: (append l1 l2)
+  | [] ⇒ l2
+  | ?x :: ?l1 ⇒ x :: (append l1 l2)
   end
 
 (** Does an element appear in a list? *)
 let rec mem x lst =
   match lst with
-  | [] => mlfalse
-  | x :: _ => mltrue
-  | _ :: ?lst => mem x lst
+  | [] ⇒ mlfalse
+  | x :: _ ⇒ mltrue
+  | _ :: ?lst ⇒ mem x lst
   end
 
 (* Update a key-value in an associative list, fail if the key is not present. *)
 let assoc_update x v lst =
   let rec aux acc lst = match lst with
-    | ((x as ?x), _) :: ?lst => rev_append acc ((x, v) :: lst)
-    | ?y :: ?lst => aux (y :: acc) lst
+    | ((x as ?x), _) :: ?lst ⇒ rev_append acc ((x, v) :: lst)
+    | ?y :: ?lst ⇒ aux (y :: acc) lst
     end
   in aux [] lst

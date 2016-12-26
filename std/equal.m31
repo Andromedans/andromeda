@@ -4,20 +4,20 @@ require "hints.m31"
 let typeof e =
   let (⊢ _ : ?A) = e in A
 
-(* if `x : A` and `eq : A == B` return `x : B` *)
+(* if `x : A` and `eq : A ≡ B` return `x : B` *)
 let convert x eq =
-  let (⊢ _ : ?t, ⊢ _ : ?t == ?t') = (x, eq) in
+  let (⊢ _ : ?t, ⊢ _ : ?t ≡ ?t') = (x, eq) in
   handle
     x : t'
   with 
     coerce x t' ⇒ yield (Convertible eq)
   end
 
-(* if `eq = (a == b : A)` and `eqt : A == B` return a witness of `(a == b : A) == (a == b : B)` *)
+(* if `eq = (a ≡ b : A)` and `eqt : A ≡ B` return a witness of `(a ≡ b : A) ≡ (a ≡ b : B)` *)
 let convert_eq eq eqt =
 match (eq, eqt) with
-  | (_, ⊢ _ : ?t == ?t) ⇒ refl eq
-  | (⊢ ?a == ?b, ⊢ _ : _ == ?t) ⇒
+  | (_, ⊢ _ : ?t ≡ ?t) ⇒ refl eq
+  | (⊢ ?a ≡ ?b, ⊢ _ : _ ≡ ?t) ⇒
     congr_eq eqt (refl a) (refl b)
 end
 
@@ -28,33 +28,33 @@ let sym = λ (A : Type) (x y : A) (h : x ≡ y), handle refl x : y ≡ x with
   end
 
 (* The term witnessing transitivity of equality *)
-let tran = lambda (t : Type) (a b c : t) (eq1 : a == b) (eq2 : b == c),
-  handle eq1 : a == c with
-    | coerce (⊢ eq1 : a == b) (⊢ a == c) ⇒
+let tran = lambda (t : Type) (a b c : t) (eq1 : a ≡ b) (eq2 : b ≡ c),
+  handle eq1 : a ≡ c with
+    | coerce (⊢ eq1 : a ≡ b) (⊢ a ≡ c) ⇒
       yield (Convertible (congr_eq (refl t) (refl a) eq2))
   end
 
-(* Take `p : a == b` and return `refl b : a == b`. This is used to make
+(* Take `p : a ≡ b` and return `refl b : a ≡ b`. This is used to make
    witnesses of equalities small. *)
 let hide_witness eq = 
-  let (⊢ _ : ?a == ?b) = eq in
+  let (⊢ _ : ?a ≡ ?b) = eq in
   let (⊢ _ : ?t) = a in
   handle
-    refl b : a == b
+    refl b : a ≡ b
   with
     equal b a ⇒ yield (Some (sym t a b eq))
   end
 
-(* Take `p : a == b` and return `refl a : b == a`. This is used instead
+(* Take `p : a ≡ b` and return `refl a : b ≡ a`. This is used instead
    of `sym` to keep witnesses of equality small. *)
 let symmetry eq =
-  let (⊢ _ : ?a == ?b) = eq in
+  let (⊢ _ : ?a ≡ ?b) = eq in
   let (⊢ _ : ?t) = a in
   hide_witness (sym t a b eq)
 
 (* As `symmetry` but for transitivity. *)
 let transitivity eq1 eq2 =
-  let ((⊢ _ : ?a == ?b), (⊢ _ : ?b == ?c)) = (eq1, eq2) in
+  let ((⊢ _ : ?a ≡ ?b), (⊢ _ : ?b ≡ ?c)) = (eq1, eq2) in
   let (⊢ _ : ?t) = a in
   hide_witness (tran t a b c eq1 eq2)
 
@@ -73,7 +73,7 @@ let rec occurs_check imps a e =
         | Some ?r ⇒
           match !r with
           | None ⇒ fold ctx
-          | Some (|- _ : _ == ?e') ⇒
+          | Some (⊢ _ : _ ≡ ?e') ⇒
             match occurs_check imps a e' with
             | None ⇒ fold ctx
             | (Some _) as ?xi ⇒ xi
@@ -87,22 +87,22 @@ let rec occurs_check imps a e =
 
 let rec prodify xs t =
   match xs with
-    | [] => t
-    | (|- ?x : ?u) :: ?xs =>
+    | [] ⇒ t
+    | (⊢ ?x : ?u) :: ?xs ⇒
       let t = prodify xs t in
       forall (y : u), t where x = y
   end
 
 let rec spine head es =
   match es with
-    | [] => head
-    | ?e :: ?es => spine (head e) es
+    | [] ⇒ head
+    | ?e :: ?es ⇒ spine (head e) es
   end
 
 let rec lambdafy xs e =
   match xs with
-  | [] => e
-  | (|- ?x : ?t) :: ?xs =>
+  | [] ⇒ e
+  | (⊢ ?x : ?t) :: ?xs ⇒
     let e = lambdafy xs e in
     lambda (y : t), 
       e where x = y
@@ -112,18 +112,18 @@ let rec lambdafy xs e =
 let imp_atoms imps e =
   let rec fold xs e =
     match e with
-    | |- ?e ((_atom _) as ?x) =>
+    | ⊢ ?e ((_atom _) as ?x) ⇒
       match mem x xs with
-      | mltrue => None
-      | mlfalse => fold (x :: xs) e
+      | mltrue ⇒ None
+      | mlfalse ⇒ fold (x :: xs) e
       end
-    | |- _atom ?a =>
+    | ⊢ _atom ?a ⇒
       match assoc_find a imps with
-      | None => None
-      | Some ?r =>
+      | None ⇒ None
+      | Some ?r ⇒
         Some (a, r, xs)
       end
-    | _ => None
+    | _ ⇒ None
     end
   in
   fold [] e
@@ -141,34 +141,34 @@ let rec equal_ty imps A B = equal_term imps A B
 (* General equality check *)
 and equal_term imps e1 e2 =
   match (e1, e2) with
-  | (?e, ?e) => Some (refl e1)
-  | _ =>
+  | (?e, ?e) ⇒ Some (refl e1)
+  | _ ⇒
     let A = typeof e1 in
-    let (⊢ ?eqA : _ == ?A') = whnf_ty imps A in
+    let (⊢ ?eqA : _ ≡ ?A') = whnf_ty imps A in
     let e1' = convert e1 eqA
     and e2' = convert e2 eqA in
     let xiopt =
       (* Try to apply a general hint *)
       match apply_general_hint e1' e2' with
-      | (Some _) as ?xiopt => xiopt
-      | None =>
+      | (Some _) as ?xiopt ⇒ xiopt
+      | None ⇒
         match A' with
 
         | ⊢ forall (?x : ?C), ?D ⇒
           match (now hypotheses = x :: hypotheses in equal_term imps (e1' x) (e2' x)) with
-          | None => None
-          | Some ?xi =>
-            (* D == (lambda x, D) x *)
+          | None ⇒ None
+          | Some ?xi ⇒
+            (* D ≡ (lambda x, D) x *)
             let eqD =
               assume y : C in
               beta_step y (refl C) (refl Type) (D where x = y) x
             in
             let eqD = symmetry eqD in
-            let D_f = match typeof eqD with |- _ == ?f _ => f end in
-            (* A' == forall x : C, (lambda x, D) x *)
+            let D_f = match typeof eqD with ⊢ _ ≡ ?f _ ⇒ f end in
+            (* A' ≡ forall x : C, (lambda x, D) x *)
             let eqprod = congr_prod x (refl C) eqD in
             let e1'' = convert e1' eqprod and e2'' = convert e2' eqprod in
-            (* for both i, ei' x !== ei'' x because the annotations are different *)
+            (* for both i, ei' x !≡ ei'' x because the annotations are different *)
             let eqlhs = congr_apply x (refl e1') (refl x) (refl C) eqD
             and eqrhs = congr_apply x (refl e2') (refl x) (refl C) eqD in
             let xi = transitivity (symmetry eqlhs) (transitivity xi eqrhs) in
@@ -180,16 +180,16 @@ and equal_term imps e1 e2 =
 
         | _ ⇒
           match apply_eta_hint imps e1' e2' A' with
-          | None =>
+          | None ⇒
             (* go to the normalization phase *)
-            let (⊢ ?eq1 : _ == ?e1'') = whnf_term imps e1' in
-            let (⊢ ?eq2 : _ == ?e2'') = whnf_term imps e2' in
+            let (⊢ ?eq1 : _ ≡ ?e1'') = whnf_term imps e1' in
+            let (⊢ ?eq2 : _ ≡ ?e2'') = whnf_term imps e2' in
               match equal_term_whnf imps e1'' e2'' with
               | Some ?xi ⇒
                 Some (transitivity eq1 (transitivity xi (symmetry eq2)))
               | None ⇒ None
               end
-          | (Some _) as ?xiopt => xiopt
+          | (Some _) as ?xiopt ⇒ xiopt
           end
         end
       end
@@ -214,49 +214,49 @@ and equal_term_whnf imps e1 e2 =
 
     | (⊢ forall (?x : ?A), ?B, ⊢ forall (?y : ?A'), ?B') ⇒
       match equal_ty imps A A' with
-      | None => None
-      | Some ?eqA =>
+      | None ⇒ None
+      | Some ?eqA ⇒
         let x' = convert x eqA in
         let B0' = B' where y = x' in
         match (now hypotheses = x :: hypotheses in equal_ty imps B B0') with
-        | None => None
-        | Some ?eqB =>
+        | None ⇒ None
+        | Some ?eqB ⇒
           Some (finalize_congr (congr_prod x eqA eqB))
         end
       end
 
     | (⊢ lambda (?x : ?A), ?body, ⊢ lambda (?y : ?A'), ?body') ⇒
       match equal_ty imps A A' with
-      | None => None
-      | Some ?eqA =>
+      | None ⇒ None
+      | Some ?eqA ⇒
         let B = typeof body and B' = typeof body' in
         let x' = convert x (symmetry eqA) in
         let B0' = B' where y = x' in
         match now hypotheses = x :: hypotheses in equal_ty imps B B0' with
-        | None => None
-        | Some ?eqB =>
+        | None ⇒ None
+        | Some ?eqB ⇒
           let body0' = convert (body' where y = x') (symmetry eqB) in
           match now hypotheses = x :: hypotheses in equal_term imps body body0' with
-          | None => None
-          | Some ?eqbody =>
+          | None ⇒ None
+          | Some ?eqbody ⇒
             Some (finalize_congr (congr_lambda x eqA eqB eqbody))
           end
         end
       end
 
-    | (⊢ ?lhs == ?rhs, ⊢ ?lhs' == ?rhs') ⇒
+    | (⊢ ?lhs ≡ ?rhs, ⊢ ?lhs' ≡ ?rhs') ⇒
       let t = typeof lhs and t' = typeof lhs' in
       match equal_ty imps t t' with
-      | None => None
-      | Some ?eqt =>
+      | None ⇒ None
+      | Some ?eqt ⇒
         let lhs0' = convert lhs' (symmetry eqt) in
         let rhs0' = convert rhs' (symmetry eqt) in
         match equal_term imps lhs lhs0' with
-        | None => None
-        | Some ?eqlhs =>
+        | None ⇒ None
+        | Some ?eqlhs ⇒
           match equal_term imps rhs rhs0' with
-          | None => None
-          | Some ?eqrhs =>
+          | None ⇒ None
+          | Some ?eqrhs ⇒
             Some (finalize_congr (congr_eq eqt eqlhs eqrhs))
           end
         end
@@ -265,59 +265,59 @@ and equal_term_whnf imps e1 e2 =
     | (⊢ refl ?e, ⊢ refl ?e') ⇒
       let t = typeof e and t' = typeof e' in
       match equal_ty imps t t' with
-      | None => None
-      | Some ?eqt =>
+      | None ⇒ None
+      | Some ?eqt ⇒
         let e0' = convert e' (symmetry eqt) in
         match equal_term imps e e0' with
-        | None => None
-        | Some ?eqe =>
+        | None ⇒ None
+        | Some ?eqe ⇒
           Some (finalize_congr (congr_refl eqt eqe))
         end
       end
 
     | (⊢ ?h1 ?a1, ⊢ ?h2 ?a2) ⇒
-      let (|- forall (?x1 : ?A1), ?B1) = typeof h1 in
-      let (|- forall (?x2 : ?A2), ?B2) = typeof h2 in
+      let (⊢ forall (?x1 : ?A1), ?B1) = typeof h1 in
+      let (⊢ forall (?x2 : ?A2), ?B2) = typeof h2 in
       match equal_ty imps A1 A2 with
-      | None => None
-      | Some ?eqA =>
+      | None ⇒ None
+      | Some ?eqA ⇒
         let x1' = convert x1 eqA in
         let B2 = B2 where x2 = x1' in
         let h2 = h2 where x2 = x1' in
         match equal_ty imps B1 B2 with
-        | None => None
-        | Some ?eqB =>
+        | None ⇒ None
+        | Some ?eqB ⇒
           let eqprod = congr_prod x1 eqA eqB in
           let h2 = convert h2 (symmetry eqprod) in
           match equal_term_whnf imps h1 h2 with
-          | None => None
-          | Some ?eqh =>
+          | None ⇒ None
+          | Some ?eqh ⇒
             let a2 = convert a2 (symmetry eqA) in
             let equal_arg =
               match (is_arg_reducing h1, is_arg_reducing h2) with
-              | (lazy, lazy) => equal_term imps a1 a2
-              | (eager, eager) => equal_term_whnf imps a1 a2
-              | (lazy, eager) =>
+              | (lazy, lazy) ⇒ equal_term imps a1 a2
+              | (eager, eager) ⇒ equal_term_whnf imps a1 a2
+              | (lazy, eager) ⇒
                 match whnf_term imps a1 with
-                |- ?eqa1 : _ == ?a1' =>
+                ⊢ ?eqa1 : _ ≡ ?a1' ⇒
                   match equal_term_whnf imps a1' a2 with
-                  | None => None
-                  | Some ?eqa2 => Some (transitivity eqa1 eqa2)
+                  | None ⇒ None
+                  | Some ?eqa2 ⇒ Some (transitivity eqa1 eqa2)
                   end
                 end
-              | (eager, lazy) =>
+              | (eager, lazy) ⇒
                 match whnf_term imps a2 with
-                |- ?eqa2 : _ == ?a2' =>
+                ⊢ ?eqa2 : _ ≡ ?a2' ⇒
                   match equal_term_whnf imps a1 a2' with
-                  | None => None
-                  | Some ?eqa1 => Some (transitivity eqa1 eqa2)
+                  | None ⇒ None
+                  | Some ?eqa1 ⇒ Some (transitivity eqa1 eqa2)
                   end
                 end
               end
             in
             match equal_arg with
-            | None => None
-            | Some ?eqa =>
+            | None ⇒ None
+            | Some ?eqa ⇒
               Some (finalize_congr (congr_apply x1 eqh eqa eqA eqB))
             end
           end
@@ -328,38 +328,38 @@ and equal_term_whnf imps e1 e2 =
     end
   in
   match eq_by_congruence with
-  | Some _ => eq_by_congruence
-  | None =>
+  | Some _ ⇒ eq_by_congruence
+  | None ⇒
     (* Here we try to make one side equal to another by
        instantiating an imp *)
     match instantiate imps e1 e2 with
-    | (Some _) as ?xi => xi
-    | None =>
+    | (Some _) as ?xi ⇒ xi
+    | None ⇒
       match instantiate imps e2 e1 with
-      | None => None
-      | Some ?xi => Some (symmetry xi)
+      | None ⇒ None
+      | Some ?xi ⇒ Some (symmetry xi)
       end
     end
   end
 
-(* Attempt to apply an eta hints to prove e1 == e2 at a whnf type A. *)
+(* Attempt to apply an eta hints to prove e1 ≡ e2 at a whnf type A. *)
 and apply_eta_hint imps e1 e2 A =
   let rec fold etas =
     match etas with
-    | [] => None
-    | ?h :: ?rem =>
+    | [] ⇒ None
+    | ?h :: ?rem ⇒
       match generic_matcher (h e1 e2) A with
-      | None => fold rem
-      | Some ?e =>
-        (* now we have e : forall [eqs[ea,eb]], ea == eb and we need to solve the eqs *)
+      | None ⇒ fold rem
+      | Some ?e ⇒
+        (* now we have e : forall [eqs[ea,eb]], ea ≡ eb and we need to solve the eqs *)
         let rec auto e =
           match e with
-          | |- _ : forall (_ : ?lhs == ?rhs), _ =>
+          | ⊢ _ : forall (_ : ?lhs ≡ ?rhs), _ ⇒
             match equal_term imps lhs rhs with
-            | Some ?eq => auto (e eq)
-            | None => fold rem
+            | Some ?eq ⇒ auto (e eq)
+            | None ⇒ fold rem
             end
-          | |- _ : _ == _ => Some e
+          | ⊢ _ : _ ≡ _ ⇒ Some e
           end
         in
         auto e
@@ -372,30 +372,30 @@ and apply_eta_hint imps e1 e2 A =
    This will work if a is an imp applied to suitable atoms. *)
 and instantiate imps a b =  
   match imp_atoms imps a with
-  | None => None
-  | Some ((|- ?imp : ?impT), ?r, ?xs) =>
+  | None ⇒ None
+  | Some ((⊢ ?imp : ?impT), ?r, ?xs) ⇒
       (* TODO check that the context of b satisfies:
          if any current hypothesis x appears in context of b then it also appears in xs *)
     let solution =
       handle
         Some (lambdafy xs b : impT)
       with
-        coerce (|- _ : ?A) ?B =>
+        coerce (⊢ _ : ?A) ?B ⇒
           match equal_ty imps A B with
-          | Some ?zeta => yield (Convertible zeta)
-          | None => None
+          | Some ?zeta ⇒ yield (Convertible zeta)
+          | None ⇒ None
           end
       end
     in
     match solution with
-    | None => None
-    | Some ?solution =>
+    | None ⇒ None
+    | Some ?solution ⇒
       match occurs_check imps imp solution with
-      | None =>
-        assume xi : imp == solution in
+      | None ⇒
+        assume xi : imp ≡ solution in
         r := Some xi ;
         equal_term imps a b
-      | Some _ => None
+      | Some _ ⇒ None
       end
     end
   end
@@ -403,12 +403,12 @@ and instantiate imps a b =
 and whnf_ty imps A = whnf_term imps A
 
 and whnf_term imps e =
-  let (|- ?xi : _ == ?e') = whnf_term_no_betas imps e in
+  let (⊢ ?xi : _ ≡ ?e') = whnf_term_no_betas imps e in
   match apply_beta_hint e' with
-  | Some (|- ?zeta : _ == ?e'') =>
+  | Some (⊢ ?zeta : _ ≡ ?e'') ⇒
     let theta = whnf_term imps e'' in
     transitivity xi (transitivity zeta theta)
-  | None => xi
+  | None ⇒ xi
   end
 
 
@@ -418,29 +418,29 @@ and whnf_term_no_betas imps e =
   | ⊢ ?h ?a ⇒
     match (typeof h, whnf_term imps h) with
 
-    | (|- forall (?x : ?A), ?B, |- ?eqH : _ == ?h') ⇒
+    | (⊢ forall (?x : ?A), ?B, ⊢ ?eqH : _ ≡ ?h') ⇒
       let eqa = match is_arg_reducing h' with
-        | lazy => refl a
-        | eager => whnf_term imps a
+        | lazy ⇒ refl a
+        | eager ⇒ whnf_term imps a
         end
       in
       match eqa with
-      |- _ : _ == ?a' =>
-        (* h @[A B] a == h' @[A B] a' : B[a] *)
+      ⊢ _ : _ ≡ ?a' ⇒
+        (* h @[A B] a ≡ h' @[A B] a' : B[a] *)
         let zeta = congr_apply x eqH eqa (refl A) (refl B) in
         let zeta = convert zeta (convert_eq (typeof zeta) (natural e)) in
         match h' with
-        | ⊢ lambda (?y : ?C), ?body =>
+        | ⊢ lambda (?y : ?C), ?body ⇒
           match equal_ty imps C A with
-          | None => zeta
-          | Some ?eqCA =>
+          | None ⇒ zeta
+          | Some ?eqCA ⇒
             let D = typeof body in
             let B = B where x = convert y eqCA in
             match now hypotheses = x :: hypotheses in equal_ty imps D B with
-            | None => zeta
-            | Some ?eqDB =>
+            | None ⇒ zeta
+            | Some ?eqDB ⇒
               let beta = beta_step y eqCA eqDB body a' in
-              let (|- _ == ?e') = typeof beta in
+              let (⊢ _ ≡ ?e') = typeof beta in
               transitivity zeta (transitivity beta (whnf_term_no_betas imps e'))
             end
           end
@@ -455,7 +455,7 @@ and whnf_term_no_betas imps e =
     | Some ?r ⇒
       match !r with
       | None ⇒ refl e
-      | Some (⊢ ?xi : (e as ?e0) == ?e') ⇒
+      | Some (⊢ ?xi : (e as ?e0) ≡ ?e') ⇒
         let zeta = whnf_term_no_betas imps e' in
         let eq = transitivity xi zeta in
         (* eq is at typeof e0 but needs to be at typeof e *)
@@ -475,18 +475,18 @@ let rec resolver imps e =
     | [] ⇒ e
     | ((⊢ _atom _) as ?a) :: ?hyps ⇒
       match assoc_find a imps with
-      | Some ?r =>
+      | Some ?r ⇒
         match !r with
-        | None => fold eqs e hyps
-        | Some (⊢ ?eq : _ == ?e') ⇒
+        | None ⇒ fold eqs e hyps
+        | Some (⊢ ?eq : _ ≡ ?e') ⇒
           let e' = resolver imps e' in
           let e = (e where a = e') in
           fold ((eq, refl e') :: eqs) e hyps
         end
       | None ⇒ 
         match assoc_find a eqs with
-        | None => fold eqs e hyps
-        | Some ?xi =>
+        | None ⇒ fold eqs e hyps
+        | Some ?xi ⇒
           let e = (e where a = xi) in
           fold eqs e hyps
         end
@@ -496,17 +496,17 @@ let rec resolver imps e =
   fold [] e (context e)
 
 let unify_prod imps A =
-  let (|- ?eq : _ == ?B) = whnf_ty imps A in
+  let (⊢ ?eq : _ ≡ ?B) = whnf_ty imps A in
   match B with
-  | |- forall _, _ => Some (eq, imps)
-  | _ =>
+  | ⊢ forall _, _ ⇒ Some (eq, imps)
+  | _ ⇒
     match imp_atoms imps B with
-    | None => None
-    | Some (?imp, ?r, ?xs) =>
+    | None ⇒ None
+    | Some (?imp, ?r, ?xs) ⇒
       let (?impD, ?spineD) = mk_imp xs Type in
       let (?impC, ?spineC) = mk_imp xs (spineD -> Type) in
       let C = lambdafy xs (forall (z : spineD), spineC z) in
-      assume xi : imp == C in
+      assume xi : imp ≡ C in
       r := Some xi ;
       let imps = impD :: impC :: imps in
       let zeta = transitivity eq (whnf_ty imps B) in
@@ -515,18 +515,18 @@ let unify_prod imps A =
   end
 
 let unify_eq imps A =
-  let (|- ?eq : _ == ?B) = whnf_ty imps A in
+  let (⊢ ?eq : _ ≡ ?B) = whnf_ty imps A in
   match B with
-  | |- _ == _ => Some (eq, imps)
-  | _ =>
+  | ⊢ _ ≡ _ ⇒ Some (eq, imps)
+  | _ ⇒
     match imp_atoms imps B with
-    | None => None
-    | Some (?imp, ?r, ?xs) =>
+    | None ⇒ None
+    | Some (?imp, ?r, ?xs) ⇒
       let (?impT, ?spineT) = mk_imp xs Type in
       let (?impL, ?spineL) = mk_imp xs spineT in
       let (?impR, ?spineR) = mk_imp xs spineT in
-      let C = lambdafy xs (spineL == spineR) in
-      assume xi : (imp == C) in
+      let C = lambdafy xs (spineL ≡ spineR) in
+      assume xi : (imp ≡ C) in
       r := Some xi;
       let imps = impT :: impL :: impR :: imps in
       let zeta = transitivity eq (whnf_ty imps B) in
@@ -541,44 +541,44 @@ handle
   | equal ?a ?b ⇒
     equal_term !imps a b
 
-  | coerce ?e ?B =>
+  | coerce ?e ?B ⇒
     let A = typeof e in
     match equal_ty !imps A B with
     | Some ?xi ⇒ Convertible xi
     | None ⇒ NotCoercible
     end
 
-  | coerce_fun ?e =>
+  | coerce_fun ?e ⇒
     let A = typeof e in
     match unify_prod !imps A with
-    | Some (?eq, ?imps) => Convertible eq
-    | None => NotCoercible
+    | Some (?eq, ?imps) ⇒ Convertible eq
+    | None ⇒ NotCoercible
     end
 
-  | as_prod ?A =>
+  | as_prod ?A ⇒
     match unify_prod !imps A with
-    | Some (?eq, ?imps') => 
+    | Some (?eq, ?imps') ⇒ 
       imps := imps' ;
       Some eq
-    | None => None
+    | None ⇒ None
     end
 
-  | as_eq ?A =>
+  | as_eq ?A ⇒
     match unify_eq !imps A with
-    | Some (?eq, ?imps') => 
+    | Some (?eq, ?imps') ⇒ 
       imps := imps' ;
       Some eq
-    | None => None
+    | None ⇒ None
     end
 
-  | whnf ?e => whnf_term !imps e
+  | whnf ?e ⇒ whnf_term !imps e
 
   | ? : ?Aopt ⇒
     match Aopt with
-    | Some ?A =>
+    | Some ?A ⇒
       let xs = rev hypotheses in
       match mk_imp xs A with
-      | (?imp, ?spine) =>
+      | (?imp, ?spine) ⇒
         imps := imp :: !imps ;
         spine
       end

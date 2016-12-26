@@ -1,12 +1,12 @@
 
 let rec snf_term imps e =
   match snf_term_no_betas imps e with
-  | |- ?xi : _ == ?e' =>
+  | ⊢ ?xi : _ ≡ ?e' ⇒
     match apply_beta_hint e' with
-    | Some (|- ?zeta : _ == ?e'') =>
+    | Some (⊢ ?zeta : _ ≡ ?e'') ⇒
       let theta = snf_term imps e'' in
       transitivity xi (transitivity zeta theta)
-    | None => xi
+    | None ⇒ xi
     end
   end
 
@@ -16,26 +16,26 @@ and snf_term_no_betas imps e =
   | ⊢ ?h ?a ⇒
     match (typeof h, snf_term imps h) with
 
-    | (|- forall (?x : ?A), ?B, |- ?eqH : _ == ?h') ⇒
+    | (⊢ forall (?x : ?A), ?B, ⊢ ?eqH : _ ≡ ?h') ⇒
       let eqa = snf_term imps a in
       match eqa with
-      |- _ : _ == ?a' =>
-        (* h @[A B] a == h' @[A B] a' : B[a] *)
+      ⊢ _ : _ ≡ ?a' ⇒
+        (* h @[A B] a ≡ h' @[A B] a' : B[a] *)
         let zeta = congr_apply x eqH eqa (refl A) (refl B) in
         let zeta = convert zeta (convert_eq (typeof zeta) (natural e)) in
         match h' with
-        | ⊢ lambda (?y : ?C), ?body =>
+        | ⊢ lambda (?y : ?C), ?body ⇒
           match equal_ty imps C A with
-          | None => zeta
-          | Some ?eqCA =>
+          | None ⇒ zeta
+          | Some ?eqCA ⇒
             let D = typeof body in
             let B = B where x = convert y eqCA in
             match now hypotheses = x :: hypotheses in equal_ty imps D B with
-            | None => zeta
-            | Some ?eqDB =>
+            | None ⇒ zeta
+            | Some ?eqDB ⇒
               let beta = beta_step y eqCA eqDB body a' in
               match typeof beta with
-              |- _ == ?e' =>
+              ⊢ _ ≡ ?e' ⇒
                 transitivity zeta (transitivity beta (snf_term_no_betas imps e'))
               end
             end
@@ -51,7 +51,7 @@ and snf_term_no_betas imps e =
     | Some ?r ⇒
       match !r with
       | None ⇒ refl e
-      | Some (⊢ ?xi : (e as ?e0) == ?e') ⇒
+      | Some (⊢ ?xi : (e as ?e0) ≡ ?e') ⇒
         let zeta = snf_term_no_betas imps e' in
         let eq = transitivity xi zeta in
         (* eq is at typeof e0 but needs to be at typeof e *)
@@ -59,31 +59,31 @@ and snf_term_no_betas imps e =
       end
     end
 
-  | ⊢ Type => refl e
+  | ⊢ Type ⇒ refl e
   
-  | ⊢ _constant _ => refl e
+  | ⊢ _constant _ ⇒ refl e
   
-  | ⊢ forall (?x : ?A), ?B =>
+  | ⊢ forall (?x : ?A), ?B ⇒
     let eqA = snf_term imps A in
     let eqB = snf_term imps B in
     let xi = congr_prod x eqA eqB in
     convert xi (convert_eq (typeof xi) (natural e))
   
-  | ⊢ lambda (?x : ?A), ?body =>
+  | ⊢ lambda (?x : ?A), ?body ⇒
     let eqA = snf_term imps A in
     let eqB = snf_term imps (typeof body) in
     let eqbody = snf_term imps body in
     let xi = congr_lambda x eqA eqB eqbody in
     convert xi (convert_eq (typeof xi) (natural e))
 
-  | ⊢ ?a == ?b =>
+  | ⊢ ?a ≡ ?b ⇒
     let eqT = snf_term imps (typeof a) in
     let eqa = snf_term imps a in
     let eqb = snf_term imps b in
     let xi = congr_eq eqT eqa eqb in
     convert xi (convert_eq (typeof xi) (natural e))
 
-  | ⊢ refl ?a =>
+  | ⊢ refl ?a ⇒
     let eqT = snf_term imps (typeof a) in
     let eqa = snf_term imps a in
     let xi = congr_refl eqT eqa in
