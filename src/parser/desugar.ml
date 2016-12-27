@@ -792,9 +792,9 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
   in
 
   (* TODO improve locs *)
-  List.fold_left (fun h c ->
-      let c = comp ~yield ctx c in
-      locate (Dsyntax.Apply (h,c)) loc) c cs
+  List.fold_left (fun h arg ->
+      let arg = comp ~yield ctx arg in
+      locate (Dsyntax.Apply (h, arg)) (Location.union loc arg.Location.loc)) c cs
 
 (* Desugar handler cases. *)
 and handler ~loc ctx hcs =

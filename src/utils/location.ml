@@ -1,16 +1,16 @@
 (** Source code locations *)
 
-type t =
-  | Unknown
-  | Known of known
-
-and known = {
+type known = {
   filename: string;
   start_line: int;
   start_col: int;
   end_line: int;
   end_col: int;
 }
+
+type t =
+  | Unknown
+  | Known of known
 
 (** Type of located things. *)
 type 'a located = { thing: 'a; loc: t}
@@ -45,6 +45,27 @@ let make start_lexpos end_lexpos =
   Known {filename = start_filename; start_line; start_col; end_line; end_col}
 
 let locate x loc = { thing = x; loc }
+
+let union l1 l2 =
+  match l1, l2 with
+  | Known {filename = fn1;
+           start_line = sl1; start_col = sc1;
+           end_line = el1; end_col = ec1},
+    Known {filename = fn2;
+           start_line = sl2; start_col = sc2;
+           end_line = el2; end_col = ec2} ->
+     assert (fn1 = fn2);
+     let (sl, sc) = if (sl1 < sl2) || (sl1 = sl2 && sc1 < sc2)
+       then (sl1, sc1) else (sl2, sc2)
+     and (el, ec) = if (el1 > el2) || (el1 = el2 && ec1 > ec2)
+       then (el1, ec1) else (el2, ec2) in
+     Known { filename = fn1;
+             start_line = sl; start_col = sc;
+             end_line = el; end_col = ec; }
+  | Unknown, l | l, Unknown ->
+     (* We should record the fact that we made this location up. *)
+     l
+
 
 module Json =
 struct
