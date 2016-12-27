@@ -1,0 +1,9 @@
+fail Type Type
+
+let f = Type
+
+fail f f
+
+constant g : Type → Type
+
+fail (g Type) : Type → Type
