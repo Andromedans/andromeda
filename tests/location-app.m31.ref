@@ -1,0 +1,21 @@
+Successfully failed command with runtime error:
+File "./location-app.m31", line 1, characters 6-9:
+Application of the non-function:
+   ⊢ Type : Type
+
+
+val f : judgment
+
+Successfully failed command with runtime error:
+File "./location-app.m31", line 5, characters 6-6:
+Application of the non-function:
+   ⊢ Type : Type
+
+
+Constant g is declared.
+
+Successfully failed command with runtime error:
+File "./location-app.m31", line 9, characters 7-12: The term
+   ⊢ g Type : Type is expected by its surroundings to have type
+   ⊢ Type → Type  type
+

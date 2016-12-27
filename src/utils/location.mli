@@ -36,6 +36,11 @@ val make : Lexing.position -> Lexing.position -> t
 (** Create a located thing. *)
 val locate : 'a -> t -> 'a located
 
+(** [union l1 l2] combines l1 and l2 to span from (min l1.beg l2.beg) to the
+    end of (max l1.end l2.end). l1 and l2 have to come from the same file.
+    If either l1 or l2 is Unknown, the other one is used. *)
+val union : t -> t -> t
+
 (** Conversion to JSON *)
 module Json :
 sig

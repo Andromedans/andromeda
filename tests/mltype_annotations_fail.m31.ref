@@ -1,3 +1,3 @@
 
-File "./mltype_annotations_fail.m31", line 3, characters 29-30:
+File "./mltype_annotations_fail.m31", line 3, characters 29-33:
 This computation cannot be polymorphic (value restriction)

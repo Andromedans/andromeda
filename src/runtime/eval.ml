@@ -222,7 +222,7 @@ let rec infer {Location.thing=c'; loc} =
   | Rsyntax.Apply (c1, c2) ->
     infer c1 >>= begin function
       | Runtime.Term j ->
-        apply ~loc j c2
+        apply ~loc ~loc_head:(c1.Location.loc) j c2
       | Runtime.Closure f ->
         infer c2 >>= fun v ->
         Runtime.apply_closure f v
@@ -500,16 +500,16 @@ and check_lambda ~loc t_check x u c =
       let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
       Runtime.return lam))
 
-(* apply: loc:Location.t -> Jdg.term -> 'annot Rsyntax.comp
+(* apply: loc:Location.t -> loc_head:Location.t -> Jdg.term -> 'annot Rsyntax.comp
                -> Runtime.value Runtime.comp *)
-and apply ~loc h c =
+and apply ~loc ~loc_head h c =
   Equal.coerce_fun ~loc h >>= function
     | Some (h, a, _) ->
-      check c (Jdg.atom_ty a) >>= fun e ->
-      jdg_form ~loc (Jdg.Apply (h, e)) >>= fun j ->
-      Runtime.return_term j
+       check c (Jdg.atom_ty a) >>= fun e ->
+       jdg_form ~loc (Jdg.Apply (h, e)) >>= fun j ->
+       Runtime.return_term j
     | None ->
-       Runtime.(error ~loc (FunctionExpected h))
+       Runtime.(error ~loc:loc_head (FunctionExpected h))
 
 (* sequence: loc:Location.t -> Runtime.value -> unit Runtime.comp *)
 and sequence ~loc v =
