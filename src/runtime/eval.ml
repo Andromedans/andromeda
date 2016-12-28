@@ -178,12 +178,6 @@ let rec infer {Location.thing=c'; loc} =
      infer c >>=
      match_cases ~loc cases infer
 
-  | Rsyntax.External s ->
-     begin match External.lookup s with
-       | None -> Runtime.(error ~loc (UnknownExternal s))
-       | Some v -> v loc
-     end
-
   | Rsyntax.Ascribe (c1, c2) ->
      check_ty c2 >>= fun t ->
      check c1 t >>=
@@ -354,7 +348,6 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Function _
   | Rsyntax.Handler _
   | Rsyntax.Ascribe _
-  | Rsyntax.External _
   | Rsyntax.Constructor _
   | Rsyntax.Tuple _
   | Rsyntax.Where _
@@ -598,7 +591,7 @@ let toplet_bind ~loc ~quiet ~print_annot xcs =
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (fun cmd (x, v) -> Runtime.add_topbound v >>= fun () -> cmd)
+         (fun cmd (_, v) -> Runtime.add_topbound v >>= fun () -> cmd)
          (return ())
          xvs
     | (x, s, c) :: xcs ->
@@ -672,6 +665,18 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
            fold xs)
       in
       fold xs
+
+    | Rsyntax.DeclExternal (x, sch, s) ->
+       begin
+         match External.lookup s with
+         | None -> Runtime.error ~loc (Runtime.UnknownExternal s)
+         | Some v ->
+            Runtime.add_topbound v >>= (fun () ->
+             if not quiet then
+               Format.printf "@[<hov 2>val %t :@ %t@]@.@."
+                             (Name.print_ident x) (print_annot () sch) ;
+             return ())
+       end
 
     | Rsyntax.TopHandle lst ->
        Runtime.top_fold (fun () (op, xc) ->

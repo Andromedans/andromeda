@@ -90,7 +90,6 @@ and term' =
   | Assume of (Name.ident * comp) * comp
   | Where of comp * expr * comp
   | Ascribe of comp * ty
-  | External of string
   | Lambda of (Name.ident * comp option) list * comp
   | Spine of comp * comp list
   | Prod of (Name.ident * ty) list * comp
@@ -148,6 +147,7 @@ and toplevel' =
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
   | DeclOperation of Name.ident * (ml_ty list * ml_ty)
   | DeclConstants of Name.ident list * ty
+  | DeclExternal of Name.ident * ml_schema * string
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list

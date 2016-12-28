@@ -110,6 +110,7 @@ val error : loc:Location.t -> error -> 'a
 (** computations provide a dynamically scoped environment and operations *)
 type 'a comp
 
+val mk_closure : (value -> value comp) -> value
 
 (** {b Monadic structure} *)
 

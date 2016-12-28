@@ -13,7 +13,7 @@ let rec snf t =
   | _ => match whnf t with |- _ : _ == ?e => e end
   end
 
-let time = external "time"
+external time : forall a, mlunit -> (a -> a) = "time"
 
 let t_2_7 =
   time () (snf (exp two seven))
