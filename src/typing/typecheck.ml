@@ -256,8 +256,14 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
       | [] ->
         comp c >>= fun (c, t) ->
         return (locate ~loc (Rsyntax.Let (clauses, c)), t)
-      | (x, s, _) :: rem ->
-        Tyenv.add_let x s (fold rem)
+      | Rsyntax.Let_clause_ML (x, sch, _) :: rem ->
+        Tyenv.add_let x sch (fold rem)
+      | Rsyntax.Let_clause_patt (xts, _, _) :: rem ->
+         let rec fold' = function
+           | [] -> fold rem
+           | (x, t) :: xts -> Tyenv.add_let x t (fold' xts)
+         in
+         fold' (List.rev xts)
     in
     fold clauses
 
@@ -271,13 +277,6 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
         Tyenv.add_let x s (fold rem)
     in
     fold clauses
-
-  | Dsyntax.LetPatt (c1, (xs, pt, c2)) ->
-     comp c1 >>= fun (c1, t1) ->
-     begin
-       match_case xs pt t1 (comp c2) >>= fun (c2, t2) ->
-       return (locate ~loc (Rsyntax.LetPatt (c1, (xs, pt, c2))), t2)
-     end
 
   | Dsyntax.MLAscribe (c, {Location.thing=sch; _}) ->
       let sch = ml_schema sch in
@@ -504,21 +503,21 @@ and match_op_cases op cases output =
   in
   fold [] cases)
 
-and let_clauses (xcs : Dsyntax.let_clause list) : Rsyntax.let_clause list Tyenv.tyenvM =
-  let rec fold xscs = function
+and let_clauses (clauses_in : Dsyntax.let_clause list) : Rsyntax.let_clause list Tyenv.tyenvM =
+  let rec fold clauses_out = function
 
-    | [] -> Tyenv.return (List.rev xscs)
+    | [] -> Tyenv.return (List.rev clauses_out)
 
-    | (x, Dsyntax.Let_annot_none, c) :: xcs ->
+    | Dsyntax.Let_clause_ML (x, Dsyntax.Let_annot_none, c) :: clauses_in ->
       comp c >>= fun (c, t) ->
       begin
         match generalizable c with
         | Generalizable -> Tyenv.generalize t
         | Ungeneralizable -> Tyenv.ungeneralize t
       end >>= fun sch ->
-      fold ((x, sch, c) :: xscs) xcs
+      fold (Rsyntax.Let_clause_ML (x, sch, c) :: clauses_out) clauses_in
 
-    | (x, Dsyntax.Let_annot_schema {Location.thing=sch; _}, c) :: xcs ->
+    | Dsyntax.Let_clause_ML (x, Dsyntax.Let_annot_schema {Location.thing=sch; _}, c) :: clauses_in ->
       let sch = ml_schema sch in
       comp c >>= fun (c, t) ->
        begin
@@ -534,9 +533,19 @@ and let_clauses (xcs : Dsyntax.let_clause list) : Rsyntax.let_clause list Tyenv.
                  Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
             end
        end >>= fun () ->
-       fold ((x, sch, c) :: xscs) xcs
+       fold (Rsyntax.Let_clause_ML (x, sch, c) :: clauses_out) clauses_in
+
+  | Dsyntax.Let_clause_patt (xs, pt, c) :: clauses_in ->
+     comp c >>= fun (c, t) ->
+     let xts = List.map (fun x -> x, Mlty.fresh_type ()) xs in
+     check_pattern xts pt t >>= fun () ->
+     let rec fold' xss = function
+       | [] -> fold (Rsyntax.Let_clause_patt (List.rev xss, pt, c) :: clauses_out) clauses_in
+       | (x,t) :: xts -> Tyenv.ungeneralize t >>= fun sch -> fold' ((x,sch) :: xss) xts
+     in
+     fold' [] xts
   in
-  fold [] xcs
+  fold [] clauses_in
 
 and let_rec_clauses (fycs : Dsyntax.letrec_clause list) : Rsyntax.letrec_clause list Tyenv.tyenvM =
   let rec bind_functions acc = function
@@ -645,37 +654,26 @@ let rec toplevel env ({Location.thing=c; loc} : Dsyntax.toplevel) =
     let env, lst = Tyenv.at_toplevel env (top_handler ~loc lst) in
     env, locate ~loc (Rsyntax.TopHandle lst)
 
-  | Dsyntax.TopLet xcs ->
-    let env, xcs = Tyenv.at_toplevel env (let_clauses xcs) in
-    let env = List.fold_left (fun env (x, s, _) -> Tyenv.topadd_let x s env) env xcs in
-    env, locate ~loc (Rsyntax.TopLet xcs)
+  | Dsyntax.TopLet clauses ->
+     let rec fold env = function
+       | [] -> env
+       | Rsyntax.Let_clause_ML (x, sch, _) :: clauses ->
+          let env = Tyenv.topadd_let x sch env in
+          fold env clauses
+       | Rsyntax.Let_clause_patt (xss, _, _) :: clauses ->
+          let env =
+            List.fold_left (fun env (x, sch) -> Tyenv.topadd_let x sch env) env xss
+          in
+          fold env clauses
+     in
+     let env, clauses = Tyenv.at_toplevel env (let_clauses clauses) in
+     let env = fold env clauses in
+     env, locate ~loc (Rsyntax.TopLet clauses)
 
   | Dsyntax.TopLetRec xycs ->
     let env, xycs = Tyenv.at_toplevel env (let_rec_clauses xycs) in
     let env = List.fold_left (fun env (x, _, s, _) -> Tyenv.topadd_let x s env) env xycs in
     env, locate ~loc (Rsyntax.TopLetRec xycs)
-
-  | Dsyntax.TopLetPatt (xs, pt, c) ->
-     let env, (xss, c) = Tyenv.at_toplevel env
-       (comp c >>= fun (c, t) ->
-        let xts = List.map (fun x -> x, Mlty.fresh_type ()) xs in
-        check_pattern xts pt t >>= fun () ->
-        let rec fold xss = function
-          | [] -> return (List.rev xss, c)
-          | (x, t) :: xts ->
-             Tyenv.ungeneralize t >>= fun sch ->
-             fold ((x, sch) :: xss) xts
-        in
-        fold [] xts)
-     in
-     let rec fold env = function
-       | [] -> env, locate ~loc (Rsyntax.TopLetPatt (xss, pt, c))
-       | (x,s) :: xss ->
-          let env = Tyenv.topadd_let x s env in
-          fold env xss
-     in
-     fold env xss
-
 
   | Dsyntax.TopDynamic (x, annot, c) ->
     let env, (c, sch) =

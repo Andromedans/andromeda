@@ -127,7 +127,8 @@ let rec collector quants lhs rhs =
 
           | ((⊢ ?l1 ?r1), (⊢ ?l2 ?r2)) ⇒
             (* extract annotations *)
-            let ((⊢ _ : forall (?x1 : ?a1), ?b1), (⊢ _ : forall (?x2 : ?a2), ?b2)) = (l1, l2) in
+            let (⊢ _ : forall (?x1 : ?a1), ?b1) = l1
+            and (⊢ _ : forall (?x2 : ?a2), ?b2) = l2 in
             collector quants a1 a2 >?= (fun quants ⇒
             let quants = add_paired_rigids x1 x2 quants in
             collector quants b1 b2 >?= (fun quants ⇒
@@ -143,13 +144,15 @@ let rec collector quants lhs rhs =
             Some quants))
 
           | ((⊢ ?l1 ≡ ?r1), (⊢ ?l2 ≡ ?r2)) ⇒
-            let ((⊢ _ : ?t1), (⊢ _ : ?t2)) = (l1, l2) in
+            let (⊢ _ : ?t1) = l1
+            and (⊢ _ : ?t2) = l2 in
             collector quants t1 t2 >?= (fun quants ⇒
             collector quants l1 l2 >?= (fun quants ⇒
             collector quants r1 r2))
 
           | ((⊢ refl ?e1), (⊢ refl ?e2)) ⇒
-            let ((⊢ _ : ?t1), (⊢ _ : ?t2)) = (e1, e2) in
+            let (⊢ _ : ?t1) = e1
+            and (⊢ _ : ?t2) = e2 in
             collector quants t1 t2 >?= (fun quants ⇒
             collector quants e1 e2)
 

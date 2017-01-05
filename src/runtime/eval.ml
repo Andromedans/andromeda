@@ -119,24 +119,10 @@ let rec infer {Location.thing=c'; loc} =
      Runtime.handle_comp h (infer c2)
 
   | Rsyntax.Let (xcs, c) ->
-     let_bind xcs (infer c)
+     let_bind ~loc xcs (infer c)
 
   | Rsyntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (infer c)
-
-  | Rsyntax.LetPatt (c1, (xs, pt, c2)) ->
-     infer c1 >>= fun v1 ->
-      Matching.match_pattern pt v1 >>= begin function
-        | Some vs ->
-          let rec bind = function
-            | [] -> infer c2
-            | v::vs ->
-              Runtime.add_bound v (bind vs)
-          in
-          bind vs
-        | None -> Runtime.(error ~loc (MatchFail v1))
-      end
-
 
   | Rsyntax.MLAscribe (c, _) ->
      infer c
@@ -407,7 +393,7 @@ and check ({Location.thing=c';loc} as c) t_check =
      fold [] cs
 
   | Rsyntax.Let (xcs, c) ->
-     let_bind xcs (check c t_check)
+     let_bind ~loc xcs (check c t_check)
 
   | Rsyntax.Sequence (c1,c2) ->
     infer c1 >>= fun v ->
@@ -416,19 +402,6 @@ and check ({Location.thing=c';loc} as c) t_check =
 
   | Rsyntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (check c t_check)
-
-  | Rsyntax.LetPatt (c1, (xs, pt, c2)) ->
-     infer c1 >>= fun v1 ->
-      Matching.match_pattern pt v1 >>= begin function
-        | Some vs ->
-          let rec bind = function
-            | [] -> check c2 t_check
-            | v::vs ->
-              Runtime.add_bound v (bind vs)
-          in
-          bind vs
-        | None -> Runtime.(error ~loc (MatchFail v1))
-      end
 
   | Rsyntax.MLAscribe (c, _) ->
      check c t_check
@@ -520,16 +493,27 @@ and sequence ~loc v =
       Print.warning "%t: Sequence:@ The value %t should be ()" (Location.print loc) (Runtime.print_value ~penv v);
       Runtime.return ()
 
-and let_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun xcs cmd ->
+and let_bind : 'a. loc:_ -> _ -> 'a Runtime.comp -> 'a Runtime.comp =
+  fun ~loc clauses cmd ->
   let rec fold vs = function
     | [] ->
       (* parallel let: only bind at the end *)
-      List.fold_left  (fun cmd v -> Runtime.add_bound v cmd) cmd vs
-    | (_, _, c) :: xcs ->
+      List.fold_left (fun cmd v -> Runtime.add_bound v cmd) cmd vs
+    | Rsyntax.Let_clause_ML (_, _, c) :: clauses ->
       infer c >>= fun v ->
-      fold (v :: vs) xcs
-    in
-  fold [] xcs
+      fold (v :: vs) clauses
+    | Rsyntax.Let_clause_patt (xs, pt, c) :: clauses ->
+       infer c >>= fun v ->
+       Matching.match_pattern pt v >>= begin function
+        | Some us -> fold (List.rev us @ vs) clauses
+        | None ->
+           Runtime.lookup_penv >>= fun penv ->
+           Runtime.(error ~loc (MatchFail v))
+       end
+
+
+  in
+  fold [] clauses
 
 and letrec_bind : 'a. _ -> 'a Runtime.comp -> 'a Runtime.comp = fun fxcs ->
   let gs =
@@ -547,7 +531,7 @@ and match_cases : type a. loc:_ -> _ -> (Rsyntax.comp -> a Runtime.comp) -> _ ->
     | [] ->
       Runtime.lookup_penv >>= fun penv ->
       Runtime.(error ~loc (MatchFail v))
-    | (xs, p, c) :: cases ->
+    | (_, p, c) :: cases ->
       Matching.match_pattern p v >>= begin function
         | Some vs ->
           let rec bind = function
@@ -620,26 +604,39 @@ let comp_handle (xs,y,c) =
 let (>>=) = Runtime.top_bind
 let return = Runtime.top_return
 
-let toplet_bind ~loc ~quiet ~print_annot xcs =
-  let rec fold xvs = function
+let toplet_bind ~loc ~quiet ~print_annot clauses =
+  let rec fold vs = function
     | [] ->
        (* parallel let: only bind at the end *)
        List.fold_left
-         (fun cmd (x, v) -> Runtime.add_topbound v >>= fun () -> cmd)
+         (fun cmd v -> Runtime.add_topbound v >>= fun () -> cmd)
          (return ())
-         xvs
-    | (x, _, c) :: xcs ->
+         vs
+    | Rsyntax.Let_clause_ML (x, _, c) :: clauses ->
        comp_value c >>= fun v ->
-       fold ((x, v) :: xvs) xcs
+       fold (v :: vs) clauses
+
+    | Rsyntax.Let_clause_patt (_, pt, c) :: clauses ->
+       comp_value c >>= fun v ->
+       Matching.top_match_pattern pt v >>= begin function
+        | None -> Runtime.error ~loc (Runtime.MatchFail v)
+        | Some us -> fold (List.rev us @ vs) clauses
+       end
   in
-  fold [] xcs >>= fun () ->
+  fold [] clauses >>= fun () ->
     if not quiet then
-      (List.iter
-         (fun (x, annot, _) ->
+      (List.iter (function
+       | Rsyntax.Let_clause_ML (x, annot, _) ->
            Format.printf "@[<hov 2>val %t :@ %t@]@."
                          (Name.print_ident x)
-                         (print_annot annot))
-         xcs ;
+                         (print_annot annot)
+       | Rsyntax.Let_clause_patt (xts, _, _) ->
+          List.iter
+            (fun (x, sch) -> Format.printf "@[<hov 2>val %t :@ %t@]@."
+                                               (Name.print_ident x)
+                                               (print_annot sch))
+               xts)
+         clauses ;
          Format.printf "@.") ;
     return ()
 
@@ -708,28 +705,13 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
            comp_handle xc >>= fun f ->
            Runtime.add_handle op f) () lst
 
-    | Rsyntax.TopLet xcs ->
+    | Rsyntax.TopLet clauses ->
       let print_annot = print_annot () in
-      toplet_bind ~loc ~quiet ~print_annot xcs
+      toplet_bind ~loc ~quiet ~print_annot clauses
 
     | Rsyntax.TopLetRec fxcs ->
       let print_annot = print_annot () in
       topletrec_bind ~loc ~quiet ~print_annot fxcs
-
-    | Rsyntax.TopLetPatt (xts, pt, c) ->
-       comp_value c >>= fun v ->
-       Matching.top_match_pattern pt v >>= begin function
-        | None -> Runtime.error ~loc (Runtime.MatchFail v)
-        | Some vs ->
-           if not quiet then
-             (List.iter
-                (fun (x, sch) -> Format.printf "@[<hov 2>val %t :@ %t@]@."
-                                               (Name.print_ident x)
-                                               (print_annot () sch))
-               xts ;
-              Format.printf "@.") ;
-           Runtime.top_fold (fun () v -> Runtime.add_topbound v) () (List.rev vs)
-      end
 
     | Rsyntax.TopDynamic (x, annot, c) ->
        comp_value c >>= fun v ->

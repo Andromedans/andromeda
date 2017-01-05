@@ -80,7 +80,6 @@ and term' =
   | Match of comp * match_case list
   | Let of let_clause list  * comp
   | LetRec of letrec_clause list * comp
-  | LetPatt of pattern * comp * comp
   | MLAscribe of comp * ml_schema
   | Now of comp * comp * comp
   | Current of comp
@@ -121,6 +120,8 @@ and expr = term
 and let_clause =
   | Let_clause_ML of Name.ident * ml_arg list * let_annotation * comp
   | Let_clause_tt of Name.ident * ty * comp
+  | Let_clause_patt of pattern * comp
+
 
 and letrec_clause = Name.ident * ml_arg * ml_arg list * let_annotation * comp
 
@@ -152,7 +153,6 @@ and toplevel' =
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
-  | TopLetPatt of pattern * comp
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of comp * comp
   | TopDo of comp (** evaluate a computation at top level *)

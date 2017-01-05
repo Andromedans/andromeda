@@ -45,7 +45,6 @@ and comp' =
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
-  | LetPatt of comp * match_case
   | MLAscribe of comp * ml_schema
   | Now of comp * comp * comp
   | Current of comp
@@ -76,7 +75,9 @@ and comp' =
   | Context of comp
   | Natural of comp
 
-and let_clause = Name.ident * let_annotation * comp
+and let_clause =
+  | Let_clause_ML of Name.ident * let_annotation * comp
+  | Let_clause_patt of Name.ident list * Pattern.pattern * comp
 
 and letrec_clause = Name.ident * (Name.ident * arg_annotation) * let_annotation * comp
 
@@ -109,7 +110,6 @@ and toplevel' =
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list
-  | TopLetPatt of match_case
   | TopDynamic of Name.ident * arg_annotation * comp
   | TopNow of comp * comp
   | TopDo of comp

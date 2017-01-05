@@ -6,7 +6,8 @@ let typeof e =
 
 (* if `x : A` and `eq : A ≡ B` return `x : B` *)
 let convert x eq =
-  let (⊢ _ : ?t, ⊢ _ : ?t ≡ ?t') = (x, eq) in
+  let (⊢ _ : ?t) = x in
+  let (⊢ _ : t ≡ ?t') = eq in
   handle
     x : t'
   with 
@@ -54,7 +55,8 @@ let symmetry eq =
 
 (* As `symmetry` but for transitivity. *)
 let transitivity eq1 eq2 =
-  let ((⊢ _ : ?a ≡ ?b), (⊢ _ : ?b ≡ ?c)) = (eq1, eq2) in
+  let (⊢ _ : ?a ≡ ?b) = eq1 in
+  let (⊢ _ : b ≡ ?c) = eq2 in
   let (⊢ _ : ?t) = a in
   hide_witness (tran t a b c eq1 eq2)
 
@@ -182,8 +184,8 @@ and equal_term imps e1 e2 =
           match apply_eta_hint imps e1' e2' A' with
           | None ⇒
             (* go to the normalization phase *)
-            let (⊢ ?eq1 : _ ≡ ?e1'') = whnf_term imps e1' in
-            let (⊢ ?eq2 : _ ≡ ?e2'') = whnf_term imps e2' in
+            let (⊢ ?eq1 : _ ≡ ?e1'') = whnf_term imps e1'
+            and (⊢ ?eq2 : _ ≡ ?e2'') = whnf_term imps e2' in
               match equal_term_whnf imps e1'' e2'' with
               | Some ?xi ⇒
                 Some (transitivity eq1 (transitivity xi (symmetry eq2)))
@@ -276,8 +278,8 @@ and equal_term_whnf imps e1 e2 =
       end
 
     | (⊢ ?h1 ?a1, ⊢ ?h2 ?a2) ⇒
-      let (⊢ forall (?x1 : ?A1), ?B1) = typeof h1 in
-      let (⊢ forall (?x2 : ?A2), ?B2) = typeof h2 in
+      let (⊢ forall (?x1 : ?A1), ?B1) = typeof h1
+      and (⊢ forall (?x2 : ?A2), ?B2) = typeof h2 in
       match equal_ty imps A1 A2 with
       | None ⇒ None
       | Some ?eqA ⇒
