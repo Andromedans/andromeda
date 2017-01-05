@@ -85,7 +85,7 @@ let print_meta ~penv (m : meta) ppf =
       penv.metas <- (m, s) :: penv.metas;
       s
   in
-  Format.fprintf ppf "?%s" s
+  Format.fprintf ppf "_%s" s
 
 let print_param ~penv (p : param) ppf =
   let s =
