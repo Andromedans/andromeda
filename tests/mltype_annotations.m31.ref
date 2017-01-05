@@ -1,6 +1,6 @@
 val id : ∀ α, α → α
 
-val f : ?α → ?α
+val f : _α → _α
 
 Constant cow is declared.
 

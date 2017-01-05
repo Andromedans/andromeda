@@ -55,10 +55,6 @@ type ty_def =
   | Alias of ty forall
   | Sum of constructor list forall
 
-(** Make a schema from a type without generalizing anything. *)
-val ungeneralized_schema : ty -> ty_schema
-
-
 (** The errors reported by type inference. *)
 type error =
   | InvalidApplication of ty * ty * ty

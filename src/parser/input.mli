@@ -120,6 +120,8 @@ and expr = term
 and let_clause =
   | Let_clause_ML of Name.ident * ml_arg list * let_annotation * comp
   | Let_clause_tt of Name.ident * ty * comp
+  | Let_clause_patt of pattern * let_annotation * comp
+
 
 and letrec_clause = Name.ident * ml_arg * ml_arg list * let_annotation * comp
 

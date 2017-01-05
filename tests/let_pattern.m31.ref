@@ -1,0 +1,28 @@
+(["bar"],
+"foo")
+
+(["bar"],
+"foo")
+
+()
+
+"cow"
+
+["yeah"]
+
+["yeah"]
+
+["yeah"]
+
+val x : mlstring
+val y : list mlstring
+
+"foo"
+
+["bar"]
+
+
+val a : mlstring
+
+"cow"
+

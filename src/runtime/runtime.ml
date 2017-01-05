@@ -250,6 +250,8 @@ let operation op ?checking vs env =
 
 let get_env env = Return env, env.state
 
+let top_get_env env = env, env
+
 let get_typing_signature env = env.dynamic.signature
 
 let lookup_typing_signature env =
@@ -364,7 +366,6 @@ let lookup_penv env =
 
 let top_lookup_penv env =
   get_penv env, env
-
 
 let rec as_list_opt = function
   | Tag (t, []) when Name.eq_ident t Name.Predefined.nil -> Some []

@@ -245,6 +245,8 @@ let_clause:
        { Let_clause_ML (x, ys, u, c) }
   | x=name COLON t=ty_term EQ c=term
        { Let_clause_tt (x, t, c) }
+  | LPAREN pt=let_pattern RPAREN u=let_annotation EQ c=term
+       { Let_clause_patt (pt, u, c) }
 
 ml_arg:
   | x=name                              { (x, Arg_annot_none) }
@@ -437,6 +439,14 @@ tt_name:
 patt_var:
   | x=PATTVAR                    { x }
 
+let_pattern: mark_location(plain_let_pattern) { $1 }
+plain_let_pattern:
+  | ps=separated_list(COMMA, pattern)
+    { match ps with
+      | [{Location.thing=p;_}] -> p
+      | _ -> Patt_Tuple ps
+    }
+
 (* TODO It is likely that tt_typed_binder and typed_binder share enough structure that
    they could be unified and presented as two instances of the same thing. *)
 tt_typed_binder:
@@ -464,7 +474,6 @@ raw_tt_abstraction:
     { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
 
 (***)
-
 
 (* ML types *)
 

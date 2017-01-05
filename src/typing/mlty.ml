@@ -54,9 +54,6 @@ type ty_def =
   | Alias of ty forall
   | Sum of constructor list forall
 
-(** Make a schema from a type without generalizing anything. *)
-let ungeneralized_schema (t : ty) : ty_schema = [], t
-
 type error =
   | InvalidApplication of ty * ty * ty
   | TypeMismatch of ty * ty
@@ -88,7 +85,7 @@ let print_meta ~penv (m : meta) ppf =
       penv.metas <- (m, s) :: penv.metas;
       s
   in
-  Format.fprintf ppf "?%s" s
+  Format.fprintf ppf "_%s" s
 
 let print_param ~penv (p : param) ppf =
   let s =

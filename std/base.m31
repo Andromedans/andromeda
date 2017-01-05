@@ -7,9 +7,9 @@ let debug x = print (!! x)
 
 (* Top-level handlers default to failure. *)
 handle
-  | equal _ _ => None
-  | as_prod _ => None
-  | as_eq _ => None
+  | equal _ _ ⇒ None
+  | as_prod _ ⇒ None
+  | as_eq _ ⇒ None
 end
 
 let (|>) x f :> Π α β, α → (α → β) → β = f x
@@ -26,8 +26,8 @@ mltype eagerness =
   end
 
 constant funext : forall (A : Type) (B : A -> Type) (f g : forall x : A, B x),
-  (forall x : A, f x == g x) -> f == g
+  (forall x : A, f x ≡ g x) -> f ≡ g
 
-constant uip : forall (A : Type) (lhs rhs : A) (p q : lhs == rhs), p == q
+constant uip : forall (A : Type) (lhs rhs : A) (p q : lhs ≡ rhs), p ≡ q
 
 mltype empty = end

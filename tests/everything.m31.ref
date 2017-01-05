@@ -51,7 +51,6 @@ File "./everything.m31", line 99, characters 13-25: cannot infer the type of
 x
 
 val f : ∀ α, α → mlstring * (mlstring * α)
-
 val g : ∀ β, β → mlstring * β
 
 ("f", ("g",
