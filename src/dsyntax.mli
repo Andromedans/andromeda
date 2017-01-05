@@ -77,7 +77,7 @@ and comp' =
 
 and let_clause =
   | Let_clause_ML of Name.ident * let_annotation * comp
-  | Let_clause_patt of Name.ident list * Pattern.pattern * comp
+  | Let_clause_patt of Name.ident list * Pattern.pattern * let_annotation * comp
 
 and letrec_clause = Name.ident * (Name.ident * arg_annotation) * let_annotation * comp
 

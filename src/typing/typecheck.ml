@@ -11,17 +11,48 @@ type generalizable =
 
 let rec generalizable c = match c.Location.thing with
   (* yes *)
-  | Rsyntax.Bound _ | Rsyntax.Function _ | Rsyntax.Handler _ | Rsyntax.External _ -> Generalizable
+  | Rsyntax.Bound _ | Rsyntax.Function _ | Rsyntax.Handler _| Rsyntax.String _ ->
+     Generalizable
   | Rsyntax.Constructor (_, cs) | Rsyntax.Tuple cs ->
     if List.for_all (fun c -> generalizable c = Generalizable) cs
     then Generalizable
     else Ungeneralizable
+  | Rsyntax.Let (_, c)
+  | Rsyntax.LetRec (_, c)
+  | Rsyntax.Sequence (_, c) -> generalizable c
 
-  | Rsyntax.Let (_, c) | Rsyntax.LetRec (_, c) | Rsyntax.Sequence (_, c) ->
-    generalizable c
+  | Rsyntax.External _ -> Generalizable (* XXX this should probably not be the case, it depends *)
 
   (* no *)
-  | _ -> Ungeneralizable
+  | Rsyntax.Type
+  | Rsyntax.Operation _
+  | Rsyntax.With _
+  | Rsyntax.Now _
+  | Rsyntax.Current _
+  | Rsyntax.Lookup _
+  | Rsyntax.Update _
+  | Rsyntax.Ref _
+  | Rsyntax.Assume _
+  | Rsyntax.Where _
+  | Rsyntax.Match _
+  | Rsyntax.Ascribe _
+  | Rsyntax.Constant _
+  | Rsyntax.Lambda _
+  | Rsyntax.Apply _
+  | Rsyntax.Prod _
+  | Rsyntax.Eq _
+  | Rsyntax.Refl _
+  | Rsyntax.Yield _
+  | Rsyntax.CongrProd _
+  | Rsyntax.CongrApply _
+  | Rsyntax.CongrLambda _
+  | Rsyntax.CongrEq _
+  | Rsyntax.CongrRefl _
+  | Rsyntax.BetaStep _
+  | Rsyntax.Occurs _
+  | Rsyntax.Context _
+  | Rsyntax.Natural _ -> Ungeneralizable
+
 
 let rec ml_ty params {Location.thing=t; loc} =
   match t with
@@ -64,7 +95,7 @@ let rec ml_ty params {Location.thing=t; loc} =
   | Dsyntax.ML_Anonymous ->
      Mlty.fresh_type ()
 
-let ml_schema (Dsyntax.ML_Forall (params, t)) =
+let ml_schema {Location.thing=(Dsyntax.ML_Forall (params, t));_} =
   let params = List.map (fun _ -> Mlty.fresh_param ()) params in
   let t = ml_ty params t in
   (params, t)
@@ -278,7 +309,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     in
     fold clauses
 
-  | Dsyntax.MLAscribe (c, {Location.thing=sch; _}) ->
+  | Dsyntax.MLAscribe (c, sch) ->
       let sch = ml_schema sch in
       comp c >>= fun (c, t) ->
        begin
@@ -508,42 +539,69 @@ and let_clauses (clauses_in : Dsyntax.let_clause list) : Rsyntax.let_clause list
 
     | [] -> Tyenv.return (List.rev clauses_out)
 
-    | Dsyntax.Let_clause_ML (x, Dsyntax.Let_annot_none, c) :: clauses_in ->
-      comp c >>= fun (c, t) ->
-      begin
-        match generalizable c with
-        | Generalizable -> Tyenv.generalize t
-        | Ungeneralizable -> Tyenv.ungeneralize t
-      end >>= fun sch ->
-      fold (Rsyntax.Let_clause_ML (x, sch, c) :: clauses_out) clauses_in
-
-    | Dsyntax.Let_clause_ML (x, Dsyntax.Let_annot_schema {Location.thing=sch; _}, c) :: clauses_in ->
-      let sch = ml_schema sch in
+    | Dsyntax.Let_clause_ML (x, annot, c) :: clauses_in ->
       comp c >>= fun (c, t) ->
        begin
          match generalizable c with
          | Generalizable ->
-            Tyenv.generalizes_to ~loc:c.Location.loc t sch
-         | Ungeneralizable ->
-            begin
-              match sch with
-              | ([], tsch) ->
-                 Tyenv.add_equation ~loc:c.Location.loc t tsch
-              | (_::_, _) ->
-                 Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
+            begin match annot with
+            | Dsyntax.Let_annot_schema sch ->
+               let sch = ml_schema sch in
+               Tyenv.generalizes_to ~loc:c.Location.loc t sch >>= fun () ->
+               return sch
+            | Dsyntax.Let_annot_none ->
+               Tyenv.generalize t
             end
-       end >>= fun () ->
+         | Ungeneralizable ->
+            begin match annot with
+            | Dsyntax.Let_annot_schema sch ->
+               let sch = ml_schema sch in
+               begin match sch with
+               | ([], tsch) ->
+                  Tyenv.add_equation ~loc:c.Location.loc t tsch >>= fun () ->
+                  return sch
+               | (_::_, _) ->
+                  Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
+              end
+            | Dsyntax.Let_annot_none ->
+               Tyenv.ungeneralize t
+            end
+       end >>= fun sch ->
        fold (Rsyntax.Let_clause_ML (x, sch, c) :: clauses_out) clauses_in
 
-  | Dsyntax.Let_clause_patt (xs, pt, c) :: clauses_in ->
+  | Dsyntax.Let_clause_patt (xs, pt, annot, c) :: clauses_in ->
      comp c >>= fun (c, t) ->
      let xts = List.map (fun x -> x, Mlty.fresh_type ()) xs in
      check_pattern xts pt t >>= fun () ->
-     let rec fold' xss = function
-       | [] -> fold (Rsyntax.Let_clause_patt (List.rev xss, pt, c) :: clauses_out) clauses_in
-       | (x,t) :: xts -> Tyenv.ungeneralize t >>= fun sch -> fold' ((x,sch) :: xss) xts
-     in
-     fold' [] xts
+     begin match generalizable c with
+     | Generalizable ->
+        begin match annot with
+        | Dsyntax.Let_annot_schema sch ->
+           let sch = ml_schema sch in
+           Tyenv.generalizes_to ~loc:c.Location.loc t sch
+        | Dsyntax.Let_annot_none -> Tyenv.return ()
+        end >>= fun () ->
+        let rec fold' xss = function
+          | [] -> fold (Rsyntax.Let_clause_patt (List.rev xss, pt, c) :: clauses_out) clauses_in
+          | (x,t) :: xts -> Tyenv.generalize t >>= fun sch -> fold' ((x,sch) :: xss) xts
+        in
+        fold' [] xts
+     | Ungeneralizable ->
+        begin match annot with
+        | Dsyntax.Let_annot_schema sch ->
+           let sch = ml_schema sch in
+           begin match sch with
+           | ([], tsch) -> Tyenv.add_equation ~loc:c.Location.loc t tsch
+           | (_::_, _) -> Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
+           end
+        | Dsyntax.Let_annot_none -> Tyenv.return ()
+        end >>= fun () ->
+        let rec fold' xss = function
+          | [] -> fold (Rsyntax.Let_clause_patt (List.rev xss, pt, c) :: clauses_out) clauses_in
+          | (x,t) :: xts -> Tyenv.ungeneralize t >>= fun sch -> fold' ((x,sch) :: xss) xts
+        in
+        fold' [] xts
+     end
   in
   fold [] clauses_in
 
@@ -562,7 +620,7 @@ and let_rec_clauses (fycs : Dsyntax.letrec_clause list) : Rsyntax.letrec_clause 
          | Dsyntax.Let_annot_none ->
             Tyenv.ungeneralize (Mlty.Arrow (a, b)) >>= fun sch ->
             return (sch, None)
-         | Dsyntax.Let_annot_schema {Location.thing=sch; _} ->
+         | Dsyntax.Let_annot_schema sch ->
             let sch = ml_schema sch in
             return (sch, Some sch)
        end >>= fun (sch, schopt) ->
@@ -662,7 +720,7 @@ let rec toplevel env ({Location.thing=c; loc} : Dsyntax.toplevel) =
           fold env clauses
        | Rsyntax.Let_clause_patt (xss, _, _) :: clauses ->
           let env =
-            List.fold_left (fun env (x, sch) -> Tyenv.topadd_let x sch env) env xss
+            List.fold_right (fun (x, sch) env -> Tyenv.topadd_let x sch env) xss env
           in
           fold env clauses
      in

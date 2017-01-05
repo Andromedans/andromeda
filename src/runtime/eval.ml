@@ -124,9 +124,6 @@ let rec infer {Location.thing=c'; loc} =
   | Rsyntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (infer c)
 
-  | Rsyntax.MLAscribe (c, _) ->
-     infer c
-
   | Rsyntax.Now (x,c1,c2) ->
      let xloc = x.Location.loc in
      infer x >>= as_dyn ~loc:xloc >>= fun x ->
@@ -402,9 +399,6 @@ and check ({Location.thing=c';loc} as c) t_check =
 
   | Rsyntax.LetRec (fxcs, c) ->
      letrec_bind fxcs (check c t_check)
-
-  | Rsyntax.MLAscribe (c, _) ->
-     check c t_check
 
   | Rsyntax.Now (x,c1,c2) ->
      let xloc = x.Location.loc in

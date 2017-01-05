@@ -33,7 +33,6 @@ and comp' =
   | With of comp * comp
   | Let of let_clause list * comp
   | LetRec of letrec_clause list * comp
-  | MLAscribe of comp * ml_schema
   | Now of comp * comp * comp
   | Current of comp
   | Lookup of comp

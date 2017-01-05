@@ -10,11 +10,10 @@ let (>?=) m f = match m with
   | None ⇒ None
   end
 
-(* Get information about an atom.
-   If it's a pattern variable,
-   return `Some None` if it isn't instantiated
-   and `Some (Some v)` if it is instantiated to `v`.
-   If it's a rigid variable, return `None` if it is the second of the pair and `Some y` if `y` is the second of the pair. *)
+(* Get information about an atom. If it's a pattern variable, return `Some None` if it
+   isn't instantiated and `Some (Some v)` if it is instantiated to `v`. If it's a rigid
+   variable, return `None` if it is the second of the pair and `Some y` if `y` is the
+   second of the pair. *)
 let atom_find x quants =
   let (?vars,?rigids) = quants in
   let u = assoc_find x vars in

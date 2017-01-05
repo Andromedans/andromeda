@@ -1,6 +1,6 @@
 ML type fruit declared.
 
-val x : ref (list ?α)
+val x : ref (list _α)
 
 ()
 

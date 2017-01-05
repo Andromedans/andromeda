@@ -245,8 +245,8 @@ let_clause:
        { Let_clause_ML (x, ys, u, c) }
   | x=name COLON t=ty_term EQ c=term
        { Let_clause_tt (x, t, c) }
-  | LPAREN pt=let_pattern RPAREN EQ c=term
-       { Let_clause_patt (pt, c) }
+  | LPAREN pt=let_pattern RPAREN u=let_annotation EQ c=term
+       { Let_clause_patt (pt, u, c) }
 
 ml_arg:
   | x=name                              { (x, Arg_annot_none) }

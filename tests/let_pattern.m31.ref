@@ -1,9 +1,16 @@
 (["bar"],
 "foo")
 
+(["bar"],
+"foo")
+
 ()
 
 "cow"
+
+["yeah"]
+
+["yeah"]
 
 ["yeah"]
 

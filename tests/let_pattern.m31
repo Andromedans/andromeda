@@ -2,11 +2,17 @@
 
 do let (?x, ?y) = ("foo", ["bar"]) in (y, x)
 
+do let (?x, ?y) :> mlstring * list mlstring = ("foo", ["bar"]) in (y, x)
+
 do let () = () in ()
 
 do let (?a :: ?a :: _) = ["cow", "cow", "bar"] in a
 
-do let ((?x, ?y)) = ("yeah", []) in x :: y
+do let ((?x1, ?y1)) = ("yeah", []) in x1 :: y1
+
+do let (?x2, ?y2) = ("yeah", []) in x2 :: y2
+
+do let (?x3, ?y3) :> forall a, mlstring * list a = ("yeah", []) in x3 :: y3
 
 (* Toplevel let-patterns *)
 let (?x, ?y) = ("foo", ["bar"])

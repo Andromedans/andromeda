@@ -672,10 +672,11 @@ and let_clauses ~loc ~yield ctx lst =
        let ctx' = Ctx.add_variable x ctx' in
        let lst' = Dsyntax.Let_clause_ML (x, sch, c) :: lst' in
        fold ctx' lst' clauses
-    | Input.Let_clause_patt (pt, c) :: clauses ->
+    | Input.Let_clause_patt (pt, sch, c) :: clauses ->
      let c = comp ~yield ctx c in
+     let sch = let_annotation ctx sch in
      let ctx', xs, pt = bind_pattern ~yield ctx' pt in
-     let lst' = Dsyntax.Let_clause_patt (xs, pt, c) :: lst' in
+     let lst' = Dsyntax.Let_clause_patt (xs, pt, sch, c) :: lst' in
      fold ctx' lst' clauses
   in
   let rec check_unique forbidden = function
@@ -685,7 +686,7 @@ and let_clauses ~loc ~yield ctx lst =
        if List.mem x forbidden
        then error ~loc (ParallelShadowing x)
        else check_unique (x :: forbidden) lst
-    | Input.Let_clause_patt (pt, _) :: lst ->
+    | Input.Let_clause_patt (pt, _, _) :: lst ->
        let _, vars, _ = pattern ctx [] 0 pt in
        let xs = List.map fst vars in
        begin
