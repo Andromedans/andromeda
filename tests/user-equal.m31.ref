@@ -6,10 +6,10 @@ Constant b is declared.
 
 Constant f is declared.
 
-val test : judgment
+val test :> judgment
 
 ⊢ refl (f b a) : (λ (x : A) (y : A), f y x) a b ≡ f b a
-val _ : mlunit
+val _ :> mlunit
 
 Constant eq is declared.
 

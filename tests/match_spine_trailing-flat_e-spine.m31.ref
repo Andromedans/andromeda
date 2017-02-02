@@ -6,7 +6,7 @@ Constant Unit_rect is declared.
 
 Constant Unit_iota_top is declared.
 
-val it : judgment
+val it :> judgment
 
 ⊢ refl top
   : top ≡ Unit_rect (λ (_ : Unit), Unit → Unit) (λ (x : Unit), x) top

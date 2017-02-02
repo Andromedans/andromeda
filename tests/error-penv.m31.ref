@@ -4,11 +4,11 @@ Constant ( + ) is declared.
 
 Constant a is declared.
 
-val b : judgment
+val b :> judgment
 
 ⊢ λ (a0 : A), a0 + a : A → A
 
-val lam : judgment
+val lam :> judgment
 
 
 File "./error-penv.m31", line 12, characters 4-6:

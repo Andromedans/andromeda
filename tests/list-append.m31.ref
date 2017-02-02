@@ -1,6 +1,6 @@
-val append : ∀ α, list α → list α → list α
+val append :> ∀ α, list α → list α → list α
 
-val append' : ∀ α, list α → list α → list α
+val append' :> ∀ α, list α → list α → list α
 
 ML type letters declared.
 

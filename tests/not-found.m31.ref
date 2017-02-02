@@ -6,7 +6,7 @@ Constant sig_ind is declared.
 
 Constant sig_ind_beta is declared.
 
-val projT1' : judgment
+val projT1' :> judgment
 
-val projT2' : judgment
+val projT2' :> judgment
 

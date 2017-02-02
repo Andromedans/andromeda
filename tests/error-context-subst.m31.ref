@@ -4,9 +4,9 @@ Constant C is declared.
 
 Constant pair is declared.
 
-val T : judgment
+val T :> judgment
 
-val x : judgment
+val x :> judgment
 
 
 File "./error-context-subst.m31", line 9, characters 4-39:

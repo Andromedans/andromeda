@@ -2,7 +2,7 @@ Constant T is declared.
 
 Constant ( * ) is declared.
 
-val x : judgment
+val x :> judgment
 
 x₀ : T
 ⊢ x₀ : T

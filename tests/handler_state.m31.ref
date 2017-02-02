@@ -6,7 +6,7 @@ Operation lookup is declared.
 
 Operation update is declared.
 
-val state : ∀ α, judgment → α ⇒ α
+val state :> ∀ α, judgment → α ⇒ α
 
 Constant N is declared.
 

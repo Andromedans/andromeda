@@ -1,8 +1,8 @@
 ML type cow declared.
 
-val id : ∀ α, α → α
+val id :> ∀ α, α → α
 
-val f : cow → cow
+val f :> cow → cow
 
-val l : list judgment
+val l :> list judgment
 
