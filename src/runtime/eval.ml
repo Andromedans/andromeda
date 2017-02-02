@@ -673,8 +673,10 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
          | Some v ->
             Runtime.add_topbound v >>= (fun () ->
              if not quiet then
-               Format.printf "@[<hov 2>val %t :@ %t@]@.@."
-                             (Name.print_ident x) (print_annot () sch) ;
+               Format.printf "@[<hov 2>external %t :@ %t = \"%s\"@]@.@."
+                             (Name.print_ident x)
+                             (print_annot () sch)
+                             s ;
              return ())
        end
 

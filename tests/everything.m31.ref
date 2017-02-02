@@ -57,7 +57,7 @@ val g : ∀ β, β → mlstring * β
 ("f", ("g",
 "foo"))
 
-val everything_print : ∀ α, α → mlunit
+external everything_print : ∀ α, α → mlunit = "print"
 
 ((),
 ())

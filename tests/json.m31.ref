@@ -1,6 +1,6 @@
-val printj : ∀ α, α → mlunit
+external printj : ∀ α, α → mlunit = "print_json"
 
-val config : mlstring → mlunit
+external config : mlstring → mlunit = "config"
 
 ()
 
