@@ -621,12 +621,12 @@ let toplet_bind ~loc ~quiet ~print_annot clauses =
     if not quiet then
       (List.iter (function
        | Rsyntax.Let_clause_ML (x, annot, _) ->
-           Format.printf "@[<hov 2>val %t :@ %t@]@."
+           Format.printf "@[<hov 2>val %t :>@ %t@]@."
                          (Name.print_ident x)
                          (print_annot annot)
        | Rsyntax.Let_clause_patt (xts, _, _) ->
           List.iter
-            (fun (x, sch) -> Format.printf "@[<hov 2>val %t :@ %t@]@."
+            (fun (x, sch) -> Format.printf "@[<hov 2>val %t :>@ %t@]@."
                                                (Name.print_ident x)
                                                (print_annot sch))
                xts)
@@ -643,7 +643,7 @@ let topletrec_bind ~loc ~quiet ~print_annot fxcs =
   Runtime.add_topbound_rec gs >>= fun () ->
   if not quiet then
     (List.iter
-      (fun (f, _, annot, _) -> Format.printf "@[<hov 2>val %t :@ %t@]@."
+      (fun (f, _, annot, _) -> Format.printf "@[<hov 2>val %t :>@ %t@]@."
                                              (Name.print_ident f)
                                              (print_annot annot))
       fxcs ;
