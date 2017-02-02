@@ -1,8 +1,8 @@
-val id : judgment
+val id :> judgment
 
 ⊢ λ (A : Type) (x : A), x : Π (A : Type), A → A
 
-val compose : judgment
+val compose :> judgment
 
 ⊢ λ (A : Type) (B : Type) (C : Type) (g : B → C) (f : A → B) (x : A),
         g (f x)

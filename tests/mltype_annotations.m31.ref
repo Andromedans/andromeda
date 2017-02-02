@@ -1,14 +1,14 @@
-val id : ∀ α, α → α
+val id :> ∀ α, α → α
 
-val f : _α → _α
+val f :> _α → _α
 
 Constant cow is declared.
 
-val x : judgment
+val x :> judgment
 
 ⊢ cow → cow : Type
 
-val idt : judgment
+val idt :> judgment
 
 ⊢ λ (x : cow), x : cow → cow
 

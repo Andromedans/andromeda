@@ -4,7 +4,7 @@ Application of the non-function:
    ⊢ Type : Type
 
 
-val f : judgment
+val f :> judgment
 
 Successfully failed command with runtime error:
 File "./location-app.m31", line 5, characters 6-6:

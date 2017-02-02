@@ -14,15 +14,15 @@
 
 ["yeah"]
 
-val x : mlstring
-val y : list mlstring
+val x :> mlstring
+val y :> list mlstring
 
 "foo"
 
 ["bar"]
 
 
-val a : mlstring
+val a :> mlstring
 
 "cow"
 

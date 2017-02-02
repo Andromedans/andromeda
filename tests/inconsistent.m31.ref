@@ -1,42 +1,42 @@
-val bool : judgment
+val bool :> judgment
 
-val p2b : judgment
+val p2b :> judgment
 
-val b2p : judgment
+val b2p :> judgment
 
-val p2p1 : judgment
+val p2p1 :> judgment
 
-val p2p2 : judgment
+val p2p2 :> judgment
 
-val B : judgment
+val B :> judgment
 
-val V : judgment
+val V :> judgment
 
-val U : judgment
+val U :> judgment
 
-val sb : judgment
+val sb :> judgment
 
-val le : judgment
+val le :> judgment
 
-val induct : judgment
+val induct :> judgment
 
-val WF : judgment
+val WF :> judgment
 
-val I : judgment
+val I :> judgment
 
-val Omega : judgment
+val Omega :> judgment
 
-val lemma1 : judgment
+val lemma1 :> judgment
 
-val lemma2 : judgment
+val lemma2 :> judgment
 
-val paradox : judgment
+val paradox :> judgment
 
-val instantiated : judgment
+val instantiated :> judgment
 
-val inhab : judgment
+val inhab :> judgment
 
-val short_inhab : judgment
+val short_inhab :> judgment
 
 ⊢ Type : Π (A : Type), A
 

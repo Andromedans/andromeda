@@ -1,6 +1,6 @@
 Constant A is declared.
 
-val B : judgment
+val B :> judgment
 
 ⊢ A → A → A : Type
 

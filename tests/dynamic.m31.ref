@@ -3,7 +3,7 @@ Constant A is declared.
 Constant a is declared.
 Constant b is declared.
 
-val f : ∀ α, α → mlunit
+val f :> ∀ α, α → mlunit
 
 ⊢ a : A
 ()

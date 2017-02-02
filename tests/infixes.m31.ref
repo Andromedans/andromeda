@@ -10,7 +10,7 @@ Constant ( - ) is declared.
 Constant ( ^ ) is declared.
 Constant ( / ) is declared.
 
-val s : judgment
+val s :> judgment
 
 ⊢ refl (a + b - (c ^ d ^ d)) : a + b - (c ^ d ^ d) ≡ a + b - (c ^ d ^ d)
 
@@ -31,7 +31,7 @@ val s : judgment
 
 ML type suspended declared.
 
-val x : suspended judgment judgment
+val x :> suspended judgment judgment
 
 ⊢ a : A
 

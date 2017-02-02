@@ -1,8 +1,8 @@
 ML type nat declared.
 
-val length : ∀ α, list α → nat
+val length :> ∀ α, list α → nat
 
-val mylist : list mlstring
+val mylist :> list mlstring
 
 s (s (s
 z))

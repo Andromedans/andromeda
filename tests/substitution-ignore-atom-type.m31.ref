@@ -1,6 +1,6 @@
-val T : judgment
+val T :> judgment
 
-val P : judgment
+val P :> judgment
 
 Constant A is declared.
 
