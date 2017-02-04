@@ -17,7 +17,7 @@ Constant B is declared.
 
 Constant a is declared.
 
-val h : judgment
+val h :> judgment
 
 ["Term",
  {"context" : {},

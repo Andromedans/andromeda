@@ -1,13 +1,13 @@
 Operation inhab is declared.
 
-val h : ∀ α, α ⇒ α
+val h :> ∀ α, α ⇒ α
 
 Constant A is declared.
 
 x_inhab₀ : A
 ⊢ x_inhab₀ : A
 
-val h' : ∀ α, α ⇒ α
+val h' :> ∀ α, α ⇒ α
 
 y_inhab₁ : A
 ⊢ y_inhab₁ : A

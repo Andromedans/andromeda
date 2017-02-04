@@ -1,6 +1,6 @@
 Operation Conjure is declared.
 
-val conjure : judgment → judgment
+val conjure :> judgment → judgment
 
 Constant A is declared.
 

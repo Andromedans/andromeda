@@ -53,17 +53,22 @@ val as_dynamic : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 (** [op_cases op output m] runs [m] with the expected types of the arguments of [op] and the continuation being from the output type of [op] to [output]. *)
 val op_cases : Name.operation -> output:Mlty.ty -> (Mlty.ty list -> 'a tyenvM) -> 'a tyenvM
 
-(** [predefined_type x ts] creates the type [x ts] assuming the type definition for [x] can be found in the environment. *)
+(** [predefined_type x ts] creates the type [x ts] assuming the type definition for [x]
+    can be found in the environment. *)
 val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty tyenvM
 
 (** Generalize the given type as much as possible in the current environment. *)
 val generalize : Mlty.ty -> Mlty.ty_schema tyenvM
 
-(** Check that the given type can be generalized to the given schema in the current environment, possibly solving unification problems. *)
+(** Check that the given type can be generalized to the given schema in the current
+    environment, possibly solving unification problems. *)
 val generalizes_to : loc:Location.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
 
+(** Return the given type as a schema without generalizing anything. *)
+val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM
+
 (** Apply the current substitution to the given schema. *)
-val normalize_schema : Mlty.ty_schema -> Mlty.ty_schema tyenvM
+(* val normalize_schema : Mlty.ty_schema -> Mlty.ty_schema tyenvM *)
 
 (** Toplevel functionality *)
 

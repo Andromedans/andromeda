@@ -1,42 +1,42 @@
-val Nat : judgment
+val Nat :> judgment
 
 ⊢ Π (X : Type), (X → X) → X → X : Type
 
-val zero : judgment
+val zero :> judgment
 
 ⊢ λ (A : Type) (_ : A → A) (z : A), z
   : Π (X : Type), (X → X) → X → X
 
-val one : judgment
+val one :> judgment
 
 ⊢ λ (A : Type) (s : A → A) (z : A), s z
   : Π (X : Type), (X → X) → X → X
 
-val two : judgment
+val two :> judgment
 
 ⊢ λ (A : Type) (s : A → A) (z : A), s (s z)
   : Π (X : Type), (X → X) → X → X
 
-val three : judgment
+val three :> judgment
 
 ⊢ λ (A : Type) (s : A → A) (z : A), s (s (s z))
   : Π (X : Type), (X → X) → X → X
 
-val succ : judgment
+val succ :> judgment
 
 ⊢ λ (n : Π (X : Type), (X → X) → X → X) (B : Type) (s : B → B)
     (z : B), s (n B s z)
   : (Π (X : Type), (X → X) → X → X) →
     Π (X : Type), (X → X) → X → X
 
-val succ' : judgment
+val succ' :> judgment
 
 ⊢ λ (n : Π (X : Type), (X → X) → X → X) (A : Type) (s : A → A)
     (z : A), n A s (s z)
   : (Π (X : Type), (X → X) → X → X) →
     Π (X : Type), (X → X) → X → X
 
-val add : judgment
+val add :> judgment
 
 ⊢ λ (m : Π (X : Type), (X → X) → X → X)
     (n : Π (X : Type), (X → X) → X → X) (A : Type) (s : A → A)
@@ -45,7 +45,7 @@ val add : judgment
     (Π (X : Type), (X → X) → X → X) →
     Π (X : Type), (X → X) → X → X
 
-val mult : judgment
+val mult :> judgment
 
 ⊢ λ (m : Π (X : Type), (X → X) → X → X)
     (n : Π (X : Type), (X → X) → X → X) (A : Type) (s : A → A), m A

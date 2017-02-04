@@ -17,7 +17,7 @@ Constant ( ^ ) is declared.
 Constant ( - ) is declared.
 Constant ( <= ) is declared.
 
-val mlascribed : list judgment → list judgment
+val mlascribed :> list judgment → list judgment
 
 ⊢ λ (x : A) (y : A) (z : A) (w : A), x + y * z ^ x ^ y - (z ^ x) ^ y <= w
   : A → A → A → A → A
@@ -26,7 +26,7 @@ t₀ : Type
 x₁ : t₀
 ⊢ x₁ : t₀
 
-val x0 : dummy
+val x0 :> dummy
 
 dummy
 
@@ -50,9 +50,8 @@ Successfully failed command with runtime error:
 File "./everything.m31", line 99, characters 13-25: cannot infer the type of
 x
 
-val f : ∀ α, α → mlstring * (mlstring * α)
-
-val g : ∀ β, β → mlstring * β
+val f :> ∀ α, α → mlstring * (mlstring * α)
+val g :> ∀ β, β → mlstring * β
 
 ("f", ("g",
 "foo"))
@@ -67,7 +66,7 @@ Operation get is declared.
 
 Operation set is declared.
 
-val state_h : ∀ α, judgment → α ⇒ α
+val state_h :> ∀ α, judgment → α ⇒ α
 
 ⊢ b : A
 
@@ -87,7 +86,7 @@ Some
 (⊢ a : A, ⊢ b : A,
 ⊢ A : Type)
 
-val register : ref judgment
+val register :> ref judgment
 
 ()
 
@@ -101,13 +100,13 @@ x₂ : A
 "this will happen"
 ()
 
-val alpha_equal : ∀ α, α → α → mlunit
+val alpha_equal :> ∀ α, α → α → mlunit
 
-val Tvar : judgment
+val Tvar :> judgment
 
-val yvar : ref judgment
+val yvar :> ref judgment
 
-val dependent : judgment
+val dependent :> judgment
 
 Some
 (⊢ Type : Type)

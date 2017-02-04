@@ -16,17 +16,17 @@ Constant times_Z is declared.
 
 Constant times_S is declared.
 
-val one : judgment
+val one :> judgment
 
-val two : judgment
+val two :> judgment
 
-val three : judgment
+val three :> judgment
 
-val four : judgment
+val four :> judgment
 
-val five : judgment
+val five :> judgment
 
-val ten : judgment
+val ten :> judgment
 
 ⊢ refl (plus (S (S (S (S (S Z))))) (S (S (S (S Z)))))
   : plus (S (S (S (S Z)))) (S (S (S (S (S Z))))) ≡ plus (plus (S (S Z)) (S

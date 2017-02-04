@@ -1,10 +1,9 @@
 ML type tree declared.
 
-val left : ∀ α, tree α → tree (mlstring * α)
+val left :> ∀ α, tree α → tree (mlstring * α)
+val right :> ∀ β, tree β → tree (mlstring * β)
 
-val right : ∀ β, tree β → tree (mlstring * β)
-
-val t : tree mlunit
+val t :> tree mlunit
 
 Node (Node (Node (Leaf ("left", ())) (Leaf ("right", ()))) (Node (Leaf
 ("left", ())) (Leaf ("right", ())))) (Node (Node (Node (Leaf ("left", ()))
@@ -16,21 +15,19 @@ Node (Node (Node (Leaf ("left", ())) (Leaf ("right", ()))) (Node (Leaf
 (("f", "A", ("g", "A", ("h", "A"))), ("g", "A", ("h", "A")), ("h",
 "A"))
 
-val a : mlstring
+val a :> mlstring
 
-val b : mlstring
+val b :> mlstring
 
-val c : mlstring
+val c :> mlstring
 
-val d : mlstring
+val d :> mlstring
 
-val f :
+val f :>
   ∀ α, α → mlstring * mlstring * (mlstring * mlstring * (mlstring *
           mlstring))
-
-val g : mlunit → mlstring * mlstring * (mlstring * mlstring)
-
-val h : mlunit → mlstring * mlstring
+val g :> mlunit → mlstring * mlstring * (mlstring * mlstring)
+val h :> mlunit → mlstring * mlstring
 
 (("f", "A", ("g", "A", ("h", "A"))), ("g", "A", ("h", "A")), ("h",
 "A"))

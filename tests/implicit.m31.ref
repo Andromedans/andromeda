@@ -12,7 +12,7 @@ Constant h_def is declared.
 
 ⊢ refl (f (f (g (h a)))) : h (g (h a)) ≡ f (f (g (h a)))
 
-val id : judgment
+val id :> judgment
 
 imp₀ : Type
 xi₁ : imp₀ ≡ A

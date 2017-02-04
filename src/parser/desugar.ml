@@ -657,18 +657,24 @@ and let_clauses ~loc ~yield ctx lst =
     | [] ->
        let lst' = List.rev lst' in
        ctx', lst'
-    | Input.Let_clause_ML (x, ys, sch, c) :: xcs ->
+    | Input.Let_clause_ML (x, ys, sch, c) :: clauses ->
        let c = let_clause ~yield ctx ys c in
        let sch = let_annotation ctx sch in
        let ctx' = Ctx.add_variable x ctx' in
-       let lst' = (x, sch, c) :: lst' in
-       fold ctx' lst' xcs
-    | Input.Let_clause_tt (x, t, c) :: xcs ->
+       let lst' = Dsyntax.Let_clause_ML (x, sch, c) :: lst' in
+       fold ctx' lst' clauses
+    | Input.Let_clause_tt (x, t, c) :: clauses ->
        let c = let_clause_tt ~yield ctx c t in
        let sch = Dsyntax.Let_annot_none in
        let ctx' = Ctx.add_variable x ctx' in
-       let lst' = (x, sch, c) :: lst' in
-       fold ctx' lst' xcs
+       let lst' = Dsyntax.Let_clause_ML (x, sch, c) :: lst' in
+       fold ctx' lst' clauses
+    | Input.Let_clause_patt (pt, sch, c) :: clauses ->
+     let c = comp ~yield ctx c in
+     let sch = let_annotation ctx sch in
+     let ctx', xs, pt = bind_pattern ~yield ctx' pt in
+     let lst' = Dsyntax.Let_clause_patt (xs, pt, sch, c) :: lst' in
+     fold ctx' lst' clauses
   in
   let rec check_unique forbidden = function
     | [] -> ()
@@ -677,6 +683,16 @@ and let_clauses ~loc ~yield ctx lst =
        if List.mem x forbidden
        then error ~loc (ParallelShadowing x)
        else check_unique (x :: forbidden) lst
+    | Input.Let_clause_patt (pt, _, _) :: lst ->
+       let _, vars, _ = pattern ctx [] 0 pt in
+       let xs = List.map fst vars in
+       begin
+         try
+           let x = List.find (fun x -> List.mem x forbidden) xs in
+           error ~loc (ParallelShadowing x)
+         with Not_found ->
+           check_unique (xs @ forbidden) lst
+       end
   in
   check_unique [] lst ;
   fold ctx [] lst
@@ -826,14 +842,19 @@ and handler ~loc ctx hcs =
   let handler_val, handler_ops, handler_finally = fold [] Name.IdentMap.empty [] hcs in
   locate (Dsyntax.Handler (Dsyntax.{ handler_val ; handler_ops ; handler_finally })) loc
 
-(* Desugar a match case *)
-and match_case ~yield ctx (p, c) =
+(* Desugar a pattern and bind its variables *)
+and bind_pattern ~yield ctx p =
   let p, vars, _ = pattern ctx [] 0 p in
   let rec fold xs ctx = function
     | [] -> xs, ctx
     | (x,_)::rem -> fold (x::xs) (Ctx.add_variable x ctx) rem
   in
   let xs, ctx = fold [] ctx vars in
+  (ctx, xs, p)
+
+(* Desugar a match case *)
+and match_case ~yield ctx (p, c) =
+  let ctx, xs, p = bind_pattern ~yield ctx p in
   let c = comp ~yield ctx c in
   (xs, p, c)
 

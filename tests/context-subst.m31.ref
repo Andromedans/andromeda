@@ -1,10 +1,10 @@
 Constant A is declared.
 
-val x : judgment
+val x :> judgment
 
-val P : judgment
+val P :> judgment
 
-val y : judgment
+val y :> judgment
 
 x₀ : A
 y₁ : (λ (_ : A), A) x₀

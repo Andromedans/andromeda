@@ -1,15 +1,15 @@
-val fix : ((?α → ?β) → ?γ) → ?α → ?β
+val fix :> ((_α → _β) → _γ) → _α → _β
 
-val iter : ?α → list ?β → mlunit
+val iter :> _α → list _β → mlunit
 
 None
 Some
 []
 Some
 [None]
-val _ : mlunit
+val _ :> mlunit
 
 ("fixed",
 None)
-val _ : mlunit
+val _ :> mlunit
 

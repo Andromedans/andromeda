@@ -2,9 +2,9 @@ Constant A is declared.
 
 Constant a is declared.
 
-val x : judgment
+val x :> judgment
 
-val quants : ∀ α β, list (judgment * option α) * list β
+val quants :> ∀ α β, list (judgment * option α) * list β
 
 Some ([(x₀ : A
         ⊢ x₀ : A, Some (⊢ a : A))],

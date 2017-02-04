@@ -1,8 +1,8 @@
-val f : judgment
+val f :> judgment
 
-val x : judgment
+val x :> judgment
 
-val y : judgment
+val y :> judgment
 
 
 File "./error_apply_non_function.m31", line 9, characters 9-9:

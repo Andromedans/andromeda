@@ -4,7 +4,7 @@ Constant B is declared.
 
 Constant f is declared.
 
-val foo : judgment
+val foo :> judgment
 
 ⊢ refl (λ (x : A) (y : B x), f x (f x y))
   : (λ (x : A) (y : B x), f x (f x y)) ≡

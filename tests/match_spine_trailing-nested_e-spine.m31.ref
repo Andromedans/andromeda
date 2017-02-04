@@ -6,7 +6,7 @@ Constant unit_rect is declared.
 
 Constant unit_iota_top is declared.
 
-val it : judgment
+val it :> judgment
 
 ⊢ refl top
   : (λ (T : Type), unit_rect (λ (_ : unit), T → T) (λ (x : T), x)) unit

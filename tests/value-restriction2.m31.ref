@@ -1,6 +1,6 @@
-val l : ref (list ?α)
+val l :> ref (list _α)
 
 ()
 
-val _ : ref (list (list ?α))
+val _ :> ref (list (list _α))
 
