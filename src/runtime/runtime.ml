@@ -124,6 +124,8 @@ let mk_string s = String s
 let mk_closure0 f {lexical;_} = Clos (fun v env -> f v {env with lexical})
 let mk_closure_ref g r = Clos (fun v env -> g v {env with lexical = (!r).lexical})
 
+let mk_closure f = Closure (Clos f)
+
 let apply_closure (Clos f) v env = f v env
 
 let mk_cont f env = Continuation (fun v state -> f v {env with state})

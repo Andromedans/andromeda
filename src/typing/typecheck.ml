@@ -21,8 +21,6 @@ let rec generalizable c = match c.Location.thing with
   | Rsyntax.LetRec (_, c)
   | Rsyntax.Sequence (_, c) -> generalizable c
 
-  | Rsyntax.External _ -> Generalizable (* XXX this should probably not be the case, it depends *)
-
   (* no *)
   | Rsyntax.Type
   | Rsyntax.Operation _
@@ -95,7 +93,7 @@ let rec ml_ty params {Location.thing=t; loc} =
   | Dsyntax.ML_Anonymous ->
      Mlty.fresh_type ()
 
-let ml_schema {Location.thing=(Dsyntax.ML_Forall (params, t));_} =
+let ml_schema {Location.thing=(Dsyntax.ML_Forall (params, t)); _} =
   let params = List.map (fun _ -> Mlty.fresh_param ()) params in
   let t = ml_ty params t in
   (params, t)
@@ -379,16 +377,6 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     check_comp c1 Mlty.Judgment >>= fun c1 ->
     check_comp c2 Mlty.Judgment >>= fun c2 ->
     Tyenv.return (locate ~loc (Rsyntax.Ascribe (c1, c2)), Mlty.Judgment)
-
-  | Dsyntax.External s ->
-    begin match External.lookup_ty s with
-      | None ->
-        Mlty.error ~loc (Mlty.UnknownExternal s)
-      | Some (ps, t) ->
-         let pus = List.map (fun p -> (p, Mlty.fresh_type ())) ps in
-         let t = Mlty.instantiate pus t in
-         Tyenv.return (locate ~loc (Rsyntax.External s), t)
-    end
 
   | Dsyntax.Constant c -> Tyenv.return (locate ~loc (Rsyntax.Constant c), Mlty.Judgment)
 
@@ -707,6 +695,11 @@ let rec toplevel env ({Location.thing=c; loc} : Dsyntax.toplevel) =
   | Dsyntax.DeclConstants (cs, t) ->
     let env, t = Tyenv.at_toplevel env (check_comp t Mlty.Judgment) in
     env, locate ~loc (Rsyntax.DeclConstants (cs, t))
+
+  | Dsyntax.DeclExternal (x, sch, s) ->
+     let sch = ml_schema sch in
+     let env = Tyenv.topadd_let x sch env in
+     env, locate ~loc (Rsyntax.DeclExternal (x, sch, s))
 
   | Dsyntax.TopHandle lst ->
     let env, lst = Tyenv.at_toplevel env (top_handler ~loc lst) in

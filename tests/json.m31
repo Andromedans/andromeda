@@ -1,7 +1,8 @@
-let printj = external "print_json"
+external printj : forall a, a -> mlunit = "print_json"
 
 (* without locations *)
-do external "config" "no-json-location"
+external config : mlstring -> mlunit = "config"
+do config "no-json-location"
 
 do printj Type
 
@@ -21,7 +22,7 @@ do assume g : A → A in
    printj (g b)
 
 (* with locations *)
-do external "config" "json-location"
+do config "json-location"
 
 do printj Type
 

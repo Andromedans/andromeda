@@ -43,7 +43,6 @@ and comp' =
   | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | External of string
   | Constant of Name.ident
   | Lambda of Name.ident * comp option * comp
   | Apply of comp * comp
@@ -92,6 +91,7 @@ and toplevel' =
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
   | DeclOperation of Name.operation * (ml_ty list * ml_ty)
   | DeclConstants of Name.constant list * comp
+  | DeclExternal of Name.ident * ml_schema * string
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list
   | TopLetRec of letrec_clause list

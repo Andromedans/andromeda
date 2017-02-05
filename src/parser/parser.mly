@@ -118,11 +118,14 @@ plain_topcomp:
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
-  | CONSTANT xs=separated_nonempty_list(COMMA, var_name) COLON u=term  { DeclConstants (xs, u) }
+  | CONSTANT xs=separated_nonempty_list(COMMA, var_name) COLON u=term
+                                                      { DeclConstants (xs, u) }
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=var_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
   | VERBOSITY n=NUMERAL                               { Verbosity n }
+  | EXTERNAL n=var_name COLON sch=ml_schema EQ s=QUOTED_STRING
+                                                      { DeclExternal (n, sch, s) }
 
 (* Toplevel directive. *)
 topdirective: mark_location(plain_topdirective)      { $1 }
@@ -207,7 +210,6 @@ simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                                { Type }
   | x=var_name                                          { Var x }
-  | EXTERNAL s=QUOTED_STRING                            { External s }
   | s=QUOTED_STRING                                     { String s }
   | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
   | LPAREN c=term COLONGT t=ml_schema RPAREN            { MLAscribe (c, t) }

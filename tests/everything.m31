@@ -111,7 +111,8 @@ do let rec f x = ("f", g x)
 
 (** Externals *)
 (* Some functions are provided by the kernel without using up a keyword: *)
-do external "print" ((),())
+external everything_print : forall a, a -> mlunit = "print"
+do everything_print ((),())
 
 (** General handlers *)
 (* Handlers can be used to provide a wide range of effects.

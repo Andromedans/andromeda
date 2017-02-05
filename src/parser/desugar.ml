@@ -505,9 +505,6 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      and c = comp ~yield ctx c in
      locate (Dsyntax.Ascribe (c, t)) loc
 
-  | Input.External s ->
-     locate (Dsyntax.External s) loc
-
   | Input.Lambda (xs, c) ->
      let rec fold ctx ys = function
        | [] ->
@@ -973,6 +970,11 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
        let u = comp ~yield:false ctx u
        and ctx = List.fold_left (fun ctx x -> Ctx.add_constant ~loc x ctx) ctx xs in
        (ctx, locate (Dsyntax.DeclConstants (xs, u)) loc)
+
+    | Input.DeclExternal (x, sch, s) ->
+       let sch = ml_schema ctx sch in
+       let ctx = Ctx.add_variable x ctx in
+       (ctx, locate (Dsyntax.DeclExternal (x, sch, s)) loc)
 
     | Input.TopHandle lst ->
        let lst =
