@@ -93,9 +93,11 @@ uninstall-emacs:
 	rm -f $(SHARE_DIR)/emacs/site-lisp/andromeda.el $(SHARE_DIR)/emacs/site-lisp/andromeda-autoloads.el
 
 install-lib:
-	install -d $(LIB_DIR)
+	install -d $(LIB_DIR)/std
 	install -m 644 prelude.m31 $(LIB_DIR)/prelude.m31
+	cp -r std/* $(LIB_DIR)/std/
 uninstall-lib:
+	rm -rf $(LIB_DIR)/std/*
 	rm -f $(LIB_DIR)/prelude.m31
 	rmdir $(LIB_DIR) || true
 
