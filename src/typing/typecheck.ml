@@ -81,8 +81,13 @@ let rec ml_ty params {Location.thing=t; loc} =
      let t = ml_ty params t in
      Mlty.Dynamic t
 
-  | Dsyntax.ML_Judgment ->
-     Mlty.Judgment
+  | Dsyntax.ML_IsTerm -> Mlty.IsTerm
+
+  | Dsyntax.ML_IsType -> Mlty.IsType
+
+  | Dsyntax.ML_EqTerm -> Mlty.EqTerm
+
+  | Dsyntax.ML_EqType -> Mlty.EqType
 
   | Dsyntax.ML_String ->
      Mlty.String

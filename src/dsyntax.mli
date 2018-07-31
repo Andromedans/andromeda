@@ -16,7 +16,10 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
-  | ML_Judgment
+  | ML_IsType
+  | ML_IsTerm
+  | ML_EqType
+  | ML_EqTerm
   | ML_String
   | ML_Bound of bound
   | ML_Anonymous

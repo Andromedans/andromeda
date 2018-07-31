@@ -28,7 +28,10 @@ module MetaOrd = struct
 end
 
 type ty =
-  | Judgment
+  | IsType
+  | IsTerm
+  | EqType
+  | EqTerm
   | String
   | Meta of meta
   | Param of param
@@ -101,7 +104,13 @@ let print_param ~penv (p : param) ppf =
 let rec print_ty ~penv ?max_level t ppf =
   match t with
 
-  | Judgment -> Format.fprintf ppf "judgment"
+  | IsType -> Format.fprintf ppf "is_type"
+
+  | IsTerm -> Format.fprintf ppf "is_term"
+
+  | EqType -> Format.fprintf ppf "eq_type"
+
+  | EqTerm -> Format.fprintf ppf "eq_term"
 
   | String -> Format.fprintf ppf "mlstring"
 
@@ -186,7 +195,7 @@ let print_error err ppf =
                     (print_ty ~penv ty)
 
 let rec occurs m = function
-  | Judgment | String | Param _ -> false
+  | IsType | IsTerm | EqType | EqTerm | String | Param _ -> false
   | Meta m' -> m = m'
   | Prod ts  | App (_, _, ts) ->
     List.exists (occurs m) ts
@@ -195,7 +204,7 @@ let rec occurs m = function
   | Ref t | Dynamic t -> occurs m t
 
 let rec occuring = function
-  | Judgment | String | Param _ -> MetaSet.empty
+  | IsType | IsTerm | EqType | EqTerm | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
   | Prod ts  | App (_, _, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
@@ -209,7 +218,7 @@ let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
 let instantiate pus t =
   let rec inst = function
 
-    | Judgment | String | Meta _ as t -> t
+    | IsType | IsTerm | EqType | EqTerm | String | Meta _ as t -> t
 
     | Param p as t ->
        begin
@@ -249,7 +258,7 @@ let instantiate pus t =
 
 let params_occur ps t =
   let rec occurs = function
-  | Judgment | String | Meta _ -> false
+  | IsType | IsTerm | EqType | EqTerm | String | Meta _ -> false
   | Param p -> List.mem p ps
   | Prod ts  | App (_, _, ts) ->
     List.exists occurs ts

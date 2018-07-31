@@ -6,22 +6,32 @@ type 'a located = 'a Location.located
 type bound = int
 
 
-(** Patterns *)
-type tt_pattern = tt_pattern' located
-and tt_pattern' =
-  | Tt_Anonymous
-  | Tt_As of tt_pattern * bound
-  | Tt_Bound of bound
-  | Tt_Type
-  | Tt_Constant of Name.ident
-  | Tt_Lambda of Name.ident * bound option * tt_pattern option * tt_pattern
-  | Tt_Apply of tt_pattern * tt_pattern
-  | Tt_Prod of Name.ident * bound option * tt_pattern option * tt_pattern
-  | Tt_Eq of tt_pattern * tt_pattern
-  | Tt_Refl of tt_pattern
-  | Tt_GenAtom of tt_pattern
-  | Tt_GenConstant of tt_pattern
+(** Type pattern *)
+type is_term_pattern = is_term_pattern' located
+and is_term_pattern' =
+  | Term_Anonymous
+  | Term_As of is_term_pattern * bound
+  | Term_Bound of bound
+  | Term_Type
+  | Term_Constant of Name.ident
+  | Term_Lambda of Name.ident * bound option * is_type_pattern option * is_term_pattern
+  | Term_Apply of is_term_pattern * is_term_pattern
+  | Term_Refl of is_term_pattern
+  | Term_GenAtom of is_term_pattern
+  | Term_GenConstant of is_term_pattern
 
+and is_type_pattern = is_type_pattern' located
+and is_type_pattern' =
+  | Tt_Prod of Name.ident * bound option * is_type_pattern option * is_type_pattern
+  | Tt_Eq of is_type_pattern * is_type_pattern
+
+type eq_term = eq_term' located
+and eq_term' = is_term_pattern * is_term_pattern * is_type_pattern
+
+type eq_type = eq_type' located
+and eq_type' = is_type_pattern * is_type_pattern
+
+(** AML pattern *)
 type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous

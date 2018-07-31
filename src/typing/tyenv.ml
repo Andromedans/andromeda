@@ -1,3 +1,9 @@
+(* Application is over-loaded, as [e1 e2] could mean that we're applying an AML
+   function [e1] to an AML arguement [e2], or that we're applying a judgement
+   [e1] to a judgement [e2]. If [e1 : t1], [e2 : t2] and [e1 e2 : t3] then
+   [AppConstraint (_, t1, t2, t3)] represents the contraint that applying
+   something of type [t1] to something of type [t2] gives something of type
+   [t3]. *)
 type constrain =
   | AppConstraint of Location.t * Mlty.ty * Mlty.ty * Mlty.ty
 
@@ -90,7 +96,8 @@ let rec whnf ctx s = function
            | None -> t
      end
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
+  | (Mlty.IsType | Mlty.IsTerm | Mlty.EqType | Mlty.EqTerm |
+     Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
      Mlty.Handler _ | Mlty.Ref _ | Mlty.Dynamic _) as t -> t
 
 let rec unifiable ctx s t t' =
@@ -99,8 +106,10 @@ let rec unifiable ctx s t t' =
     | None -> None
   in
   match whnf ctx s t, whnf ctx s t' with
-
-  | Mlty.Judgment, Mlty.Judgment
+  | Mlty.IsType, Mlty.IsType
+  | Mlty.IsTerm, Mlty.IsTerm
+  | Mlty.EqType, Mlty.EqType
+  | Mlty.EqTerm, Mlty.EqTerm
   | Mlty.String, Mlty.String ->
      Some s
 
@@ -150,7 +159,8 @@ let rec unifiable ctx s t t' =
      in
      fold s ts ts'
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Prod _ | Mlty.Param _ |
+  | (Mlty.IsType | Mlty.IsTerm | Mlty.EqType | Mlty.EqTerm |
+     Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Prod _ | Mlty.Param _ |
      Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _), _ -> None
 
 let rec add_equation ~loc t t' env =
@@ -177,8 +187,8 @@ and add_application ~loc h arg out env =
   and out = whnf env.context s out in
   match h with
 
-  | Mlty.Judgment ->
-     (>>=) (add_equation ~loc arg Mlty.Judgment) (fun () -> add_equation ~loc out Mlty.Judgment) env
+  | Mlty.IsTerm ->
+     (>>=) (add_equation ~loc arg Mlty.IsTerm) (fun () -> add_equation ~loc out Mlty.IsTerm) env
 
   | Mlty.Arrow (a, b) ->
      (>>=) (add_equation ~loc arg a) (fun () -> add_equation ~loc out b) env
@@ -186,7 +196,7 @@ and add_application ~loc h arg out env =
   | Mlty.Meta m ->
      begin
        match arg, out with
-       | (Mlty.Judgment | Mlty.Meta _), (Mlty.Judgment | Mlty.Meta _) ->
+       | (Mlty.IsTerm | Mlty.Meta _), (Mlty.IsTerm | Mlty.Meta _) ->
           let unsolved = AppConstraint (loc, h, arg, out) :: env.unsolved in
           (), s, unsolved
        | _, _ ->
@@ -198,7 +208,8 @@ and add_application ~loc h arg out env =
           end
      end
 
-  | (Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Param _ | Mlty.Prod _
+  | (Mlty.IsType | Mlty.EqTerm | Mlty.EqType
+     | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Param _ | Mlty.Prod _
      |  Mlty.Handler _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.InvalidApplication (h, arg, out))
 
@@ -216,7 +227,8 @@ let as_handler ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ |  Mlty.Param _ |
+  | (Mlty.IsTerm | Mlty.IsType | Mlty.EqTerm | Mlty.EqType |
+     Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ |  Mlty.Param _ |
      Mlty.Prod _ | Mlty.Arrow _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.HandlerExpected t)
 
@@ -233,7 +245,8 @@ let as_ref ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
+  | (Mlty.IsTerm | Mlty.IsType | Mlty.EqTerm | Mlty.EqType |
+     Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
      Mlty.Arrow _ | Mlty.App _ | Mlty.Dynamic _) ->
      Mlty.error ~loc (Mlty.RefExpected t)
 
@@ -250,7 +263,8 @@ let as_dynamic ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.Judgment | Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
+  | (Mlty.IsTerm | Mlty.IsType | Mlty.EqTerm | Mlty.EqType |
+     Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
      Mlty.Arrow _ | Mlty.App _ | Mlty.Ref _) ->
      Mlty.error ~loc (Mlty.DynamicExpected t)
 
