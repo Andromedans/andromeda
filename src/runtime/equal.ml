@@ -1,4 +1,4 @@
-(** Equality checking and weak-head-normal-forms *)
+(** Equality checking and coercions *)
 
 (** An option monad on top of Runtime.comp, which only uses Runtime.bind when necessary. *)
 module Opt = struct
@@ -31,7 +31,7 @@ let (>!=) m f = (Opt.lift m) >?= f
 
 module Internals = struct
 
-(** Compare two types *)
+(** Compare two terms *)
 let equal ~loc j1 j2 =
   match Jdg.alpha_equal_eq_term ~loc j1 j2 with
     | Some eq -> Opt.return eq
@@ -49,6 +49,7 @@ let equal ~loc j1 j2 =
         | None -> Opt.fail
       end
 
+(** Compare two types *)
 let equal_ty ~loc j1 j2 =
   equal ~loc (Jdg.term_of_ty j1) (Jdg.term_of_ty j2) >?= fun eq ->
   let eq = Jdg.is_type_equality ~loc eq in

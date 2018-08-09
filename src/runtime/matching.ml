@@ -16,118 +16,171 @@ let update k v xvs =
     Not_found ->
       (k,v) :: xvs
 
-let rec collect_tt_pattern env xvs p j =
+let rec collect_is_term env xvs p j =
   let loc = p.Location.loc in
   match p.Location.thing, Jdg.shape j with
-  | Pattern.Tt_Anonymous, _ -> xvs
+  | Pattern.Term_Anonymous, _ -> xvs
 
-  | Pattern.Tt_As (p,k), _ ->
-     let v = Runtime.mk_term j in
+  | Pattern.Term_As (p,k), _ ->
+     let v = Runtime.mk_is_term j in
      let xvs = update k v xvs in
-     collect_tt_pattern env xvs p j
+     collect_is_term env xvs p j
 
-  | Pattern.Tt_Bound k, _ ->
+  | Pattern.Term_Bound k, _ ->
      let v' = Runtime.get_bound ~loc k env in
-     if Runtime.equal_value (Runtime.mk_term j) v'
+     if Runtime.equal_value (Runtime.mk_is_term j) v'
      then xvs
      else raise Match_fail
 
-  | Pattern.Tt_Type, Jdg.Type ->
-     xvs
-
-  | Pattern.Tt_Constant x, Jdg.Constant y ->
+  | Pattern.Term_Constant x, Jdg.Constant y ->
      if Name.eq_ident x y
      then xvs
      else raise Match_fail
 
-  | Pattern.Tt_Lambda (x,bopt,popt,p), Jdg.Lambda (jy,je) ->
+  | Pattern.Term_Lambda (x,bopt,popt,p), Jdg.Lambda (jy,je) ->
      let xvs = begin match popt with
-       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty jy))
+       | Some pt -> collect_is_type env xvs pt (Jdg.atom_ty jy)
        | None -> xvs
      end in
-     let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
+     let yt = Runtime.mk_is_term (Jdg.atom_term ~loc jy) in
      let env = Runtime.push_bound yt env in
      let xvs = match bopt with
        | None -> xvs
        | Some k -> update k yt xvs
      in
-     collect_tt_pattern env xvs p je
+     collect_is_term env xvs p je
 
-  | Pattern.Tt_Apply (p1,p2), Jdg.Apply (je1,je2) ->
-    let xvs = collect_tt_pattern env xvs p1 je1 in
-    let xvs = collect_tt_pattern env xvs p2 je2 in
+  | Pattern.Term_Apply (p1,p2), Jdg.Apply (je1,je2) ->
+    let xvs = collect_is_term env xvs p1 je1 in
+    let xvs = collect_is_term env xvs p2 je2 in
     xvs
 
-  | Pattern.Tt_Prod (x,bopt,popt,p), Jdg.Prod (jy,jb) ->
+  | Pattern.Term_GenAtom p, Jdg.Atom x ->
+    let j = Jdg.atom_term ~loc x in
+    collect_is_term env xvs p j
+
+  | Pattern.Term_GenConstant p, Jdg.Constant c ->
+    let signature = Runtime.get_typing_signature env in
+    let j = Jdg.form ~loc signature (Jdg.Constant c) in
+    collect_is_term env xvs p j
+
+  | (Pattern.Term_Constant _ | Pattern.Term_Apply _ | Pattern.Term_Lambda _ |
+     Pattern.Term_GenAtom _ | Pattern.Term_GenConstant _) , _ ->
+     raise Match_fail
+
+and collect_is_type env xvs p j =
+  let loc = p.Location.loc in
+  match p.Location.thing, Jdg.shape_ty j with
+
+  | Pattern.Type_Anonymous, _ -> xvs
+
+  | Pattern.Type_As (p,k), _ ->
+     let v = Runtime.mk_is_type j in
+     let xvs = update k v xvs in
+     collect_is_type env xvs p j
+
+  | Pattern.Type_Bound k, _ ->
+     let v' = Runtime.get_bound ~loc k env in
+     if Runtime.equal_value (Runtime.mk_is_type j) v'
+     then xvs
+     else raise Match_fail
+
+  | Pattern.Type_Type, Jdg.Type ->
+     xvs
+
+  | Pattern.Type_Prod (x,bopt,popt,p), Jdg.Prod (jy,jb) ->
      let xvs = begin match popt with
-       | Some pt -> collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.atom_ty jy))
+       | Some pt -> collect_is_type env xvs pt (Jdg.atom_ty jy)
        | None -> xvs
      end in
-     let yt = Runtime.mk_term (Jdg.atom_term ~loc jy) in
+     let yt = Runtime.mk_is_term (Jdg.atom_term ~loc jy) in
      let env = Runtime.push_bound yt env in
      let xvs = match bopt with
        | None -> xvs
        | Some k -> update k yt xvs
      in
-     collect_tt_pattern env xvs p (Jdg.term_of_ty jb)
+     collect_is_type env xvs p jb
 
-  | Pattern.Tt_Eq (p1,p2), Jdg.Eq (je1,je2) ->
-     let xvs = collect_tt_pattern env xvs p1 je1 in
-     let xvs = collect_tt_pattern env xvs p2 je2 in
-     xvs
+  | Pattern.Type_El p, Jdg.El j ->
+     collect_is_term env xvs p j
 
-  | Pattern.Tt_Refl p, Jdg.Refl je ->
-     collect_tt_pattern env xvs p je
-
-  | Pattern.Tt_GenAtom p, Jdg.Atom x ->
-    let j = Jdg.atom_term ~loc x in
-    collect_tt_pattern env xvs p j
-
-  | Pattern.Tt_GenConstant p, Jdg.Constant c ->
-    let signature = Runtime.get_typing_signature env in
-    let j = Jdg.form ~loc signature (Jdg.Constant c) in
-    collect_tt_pattern env xvs p j
-
-  | (Pattern.Tt_Type | Pattern.Tt_Constant _ | Pattern.Tt_Apply _
-     | Pattern.Tt_Lambda _ | Pattern.Tt_Prod _
-     | Pattern.Tt_Eq _ | Pattern.Tt_Refl _
-     | Pattern.Tt_GenAtom _ | Pattern.Tt_GenConstant _) , _ ->
+  | (Pattern.Type_Type | Pattern.Type_Prod _ | Pattern.Type_El _), _ ->
      raise Match_fail
+
+and collect_eq_type env xvs pt1 pt2 jeq =
+  let (t1, t2) = Jdg.shape_eq_ty jeq in
+  let xvs = collect_is_type env xvs pt1 t1 in
+  let xvs = collect_is_type env xvs pt2 t2 in
+  xvs
+
+and collect_eq_term env xvs p1 p2 pt jeq =
+  let (e1, e2, t) = Jdg.shape_eq_term jeq in
+  let xvs = collect_is_term env xvs p1 e1 in
+  let xvs = collect_is_term env xvs p2 e2 in
+  let xvs = collect_is_type env xvs pt t in
+  xvs
 
 and collect_pattern env xvs {Location.thing=p;loc} v =
   match p, v with
-  | Pattern.Patt_Anonymous, _ -> xvs
+  | Pattern.Anonymous, _ -> xvs
 
-  | Pattern.Patt_As (p,k), v ->
+  | Pattern.As (p,k), v ->
      let xvs = update k v xvs in
      collect_pattern env xvs p v
 
-  | Pattern.Patt_Bound k, v ->
+  | Pattern.Bound k, v ->
      let v' = Runtime.get_bound ~loc k env in
      if Runtime.equal_value v v'
      then xvs
      else raise Match_fail
 
-  | Pattern.Patt_Jdg (pe, pt), Runtime.Term j ->
-     let xvs = collect_tt_pattern env xvs pt (Jdg.term_of_ty (Jdg.typeof j)) in
-     collect_tt_pattern env xvs pe j
+  | Pattern.IsType pt, Runtime.IsType j ->
+     collect_is_type env xvs pt j
 
-  | Pattern.Patt_Constructor (tag, ps), Runtime.Tag (tag', vs) when Name.eq_ident tag tag' ->
+  | Pattern.IsTerm (pe, pt), Runtime.IsTerm j ->
+     let xvs = collect_is_type env xvs pt (Jdg.typeof j) in
+     collect_is_term env xvs pe j
+
+  | Pattern.EqType (pt1, pt2), Runtime.EqType j ->
+     collect_eq_type env xvs pt1 pt2 j
+
+  | Pattern.EqTerm (p1, p2, pt), Runtime.EqTerm j ->
+     collect_eq_term env xvs p1 p2 pt j
+
+  | Pattern.Constructor (tag, ps), Runtime.Tag (tag', vs) when Name.eq_ident tag tag' ->
     multicollect_pattern env xvs ps vs
 
-  | Pattern.Patt_Tuple ps, Runtime.Tuple vs ->
+  | Pattern.Tuple ps, Runtime.Tuple vs ->
     multicollect_pattern env xvs ps vs
 
-  | Pattern.Patt_Jdg _, (Runtime.Closure _ | Runtime.Handler _ |
-                         Runtime.Tag _ | Runtime.Ref _ | Runtime.Dyn _|
-                         Runtime.Tuple _ | Runtime.String _)
-  | Pattern.Patt_Constructor _, (Runtime.Term _ | Runtime.Closure _ |
-                                 Runtime.Handler _ | Runtime.Tag _ |
-                                 Runtime.Ref _ | Runtime.Dyn _ |
-                                 Runtime.Tuple _ | Runtime.String _)
-  | Pattern.Patt_Tuple _, (Runtime.Term _ | Runtime.Closure _ |
-                           Runtime.Handler _ | Runtime.Tag _ |
-                           Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) ->
+  | Pattern.IsTerm _, (Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
+                       Runtime.Closure _ | Runtime.Handler _ |
+                       Runtime.Tag _ | Runtime.Ref _ | Runtime.Dyn _|
+                       Runtime.Tuple _ | Runtime.String _)
+
+  | Pattern.IsType _, (Runtime.IsTerm _ | Runtime.EqTerm _ | Runtime.EqType _ |
+                       Runtime.Closure _ | Runtime.Handler _ |
+                       Runtime.Tag _ | Runtime.Ref _ | Runtime.Dyn _|
+                       Runtime.Tuple _ | Runtime.String _)
+
+  | Pattern.EqTerm _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqType _ |
+                       Runtime.Closure _ | Runtime.Handler _ |
+                       Runtime.Tag _ | Runtime.Ref _ | Runtime.Dyn _|
+                       Runtime.Tuple _ | Runtime.String _)
+
+  | Pattern.EqType _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ |
+                       Runtime.Closure _ | Runtime.Handler _ |
+                       Runtime.Tag _ | Runtime.Ref _ | Runtime.Dyn _|
+                       Runtime.Tuple _ | Runtime.String _)
+
+  | Pattern.Constructor _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
+                            Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
+                            Runtime.Ref _ | Runtime.Dyn _ |
+                            Runtime.Tuple _ | Runtime.String _)
+
+  | Pattern.Tuple _, (Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
+                      Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
+                      Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) ->
      raise Match_fail
 
 and multicollect_pattern env xvs ps vs =
@@ -172,7 +225,7 @@ let match_op_pattern ps pt vs checking =
       | None -> xvs
       | Some p ->
         let v = match checking with
-          | Some j -> Predefined.from_option (Some (Runtime.mk_term (Jdg.term_of_ty j)))
+          | Some j -> Predefined.from_option (Some (Runtime.mk_is_term j))
           | None -> Predefined.from_option None
        in
        collect_pattern env xvs p v

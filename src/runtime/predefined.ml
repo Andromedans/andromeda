@@ -90,7 +90,8 @@ let from_option = function
 let as_option ~loc = function
   | Runtime.Tag (t,[]) when (Name.eq_ident t Name.Predefined.none)  -> None
   | Runtime.Tag (t,[x]) when (Name.eq_ident t Name.Predefined.some) -> Some x
-  | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
+  | (Runtime.IsType _ | Runtime.IsTerm _ | Runtime.EqType _ | Runtime.EqTerm _ |
+     Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
      Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
      Runtime.(error ~loc (OptionExpected v))
 
@@ -104,13 +105,13 @@ let as_coercible ~loc = function
   | Runtime.Tag (t, []) when Name.eq_ident t Name.Predefined.notcoercible ->
     NotCoercible
   | Runtime.Tag (t, [v]) when Name.eq_ident t Name.Predefined.convertible ->
-    let j = Runtime.as_term ~loc v in
-    let jeq = Jdg.reflect_ty_eq ~loc j in
-    Convertible jeq
+    let eq = Runtime.as_eq_type ~loc v in
+    Convertible eq
   | Runtime.Tag (t, [v]) when Name.eq_ident t Name.Predefined.coercible_constructor ->
-    let j = Runtime.as_term ~loc v in
+    let j = Runtime.as_is_term ~loc v in
     Coercible j
-  | (Runtime.Term _ | Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
+  | (Runtime.IsType _ | Runtime.IsTerm _ | Runtime.EqType _ | Runtime.EqTerm _ |
+     Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
      Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
      Runtime.(error ~loc (CoercibleExpected v))
 
@@ -124,35 +125,35 @@ let as_coercible ~loc = function
  *)
 let as_term_option ~loc v =
   match as_option ~loc v with
-    | Some v -> Some (Runtime.as_term ~loc v)
+    | Some v -> Some (Runtime.as_is_term ~loc v)
     | None -> None
 
 let (>>=) = Runtime.bind
 
 let operation_equal ~loc j1 j2 =
-  let v1 = Runtime.mk_term j1
-  and v2 = Runtime.mk_term j2 in
+  let v1 = Runtime.mk_is_term j1
+  and v2 = Runtime.mk_is_term j2 in
   Runtime.operation Name.Predefined.equal [v1;v2] >>= fun v ->
   Runtime.return (as_term_option ~loc v)
 
 let operation_coerce ~loc j1 j2 =
-  let v1 = Runtime.mk_term j1
-  and v2 = Runtime.mk_term (Jdg.term_of_ty j2) in
+  let v1 = Runtime.mk_is_term j1
+  and v2 = Runtime.mk_is_type j2 in
   Runtime.operation Name.Predefined.coerce [v1;v2] >>= fun v ->
   Runtime.return (as_coercible ~loc v)
 
 let operation_coerce_fun ~loc j =
-  let v = Runtime.mk_term j in
+  let v = Runtime.mk_is_term j in
   Runtime.operation Name.Predefined.coerce_fun [v] >>= fun v ->
   Runtime.return (as_coercible ~loc v)
 
 let operation_as_prod ~loc j =
-  let v = Runtime.mk_term (Jdg.term_of_ty j) in
+  let v = Runtime.mk_is_type j in
   Runtime.operation Name.Predefined.as_prod [v] >>= fun v ->
   Runtime.return (as_term_option ~loc v)
 
 let operation_as_eq ~loc j =
-  let v = Runtime.mk_term (Jdg.term_of_ty j) in
+  let v = Runtime.mk_is_type j in
   Runtime.operation Name.Predefined.as_eq [v] >>= fun v ->
   Runtime.return (as_term_option ~loc v)
 
@@ -172,7 +173,7 @@ let add_abstracting j m =
     | Some k -> k
     | None -> assert false
   in
-  let v = Runtime.mk_term j in                  (* The given variable as an AML value *)
+  let v = Runtime.mk_is_term j in               (* The given variable as an AML value *)
   Runtime.index_of_level k >>= fun k ->         (* Switch k from counting from the
                                                    beginning to counting from the end *)
   Runtime.lookup_bound ~loc k >>= fun hypsx ->   (* Get the AML list of [hypotheses] *)

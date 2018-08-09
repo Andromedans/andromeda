@@ -10,7 +10,10 @@ type dyn
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value = private
-  | Term of Jdg.term                 (** A *typing* judgment built by the nucleus *)
+  | IsTerm of Jdg.term               (** A term judgment *)
+  | IsType of Jdg.ty                 (** A type judgment *)
+  | EqTerm of Jdg.eq_term            (** A term equality *)
+  | EqType of Jdg.eq_ty              (** A type equality *)
   | Closure of (value,value) closure (** An AML function *)
   | Handler of handler               (** Handler value *)
   | Tag of Name.ident * value list   (** Application of a data constructor *)
@@ -33,20 +36,26 @@ val name_of : value -> string
 
 (** {b Value construction} *)
 
-val mk_term    : Jdg.term   -> value                (** Builds a [Term] value *)
-val mk_handler : handler    -> value                (** Builds a [Handler] value *)
-val mk_tag     : Name.ident -> value list -> value  (** Builds a [Tag] value *)
-val mk_tuple   : value list -> value                (** Builds a [Tuple] value *)
-val mk_string  : string     -> value                (** Builds a [String] value *)
+val mk_is_term : Jdg.term -> value                 (** Build an [IsTerm] value *)
+val mk_is_type : Jdg.ty -> value                   (** Build an [IsType] value *)
+val mk_eq_term : Jdg.eq_term -> value              (** Build an [EqTerm] value *)
+val mk_eq_type : Jdg.eq_ty -> value                (** Build an [EqType] value *)
+val mk_handler : handler -> value                  (** Build a [Handler] value *)
+val mk_tag     : Name.ident -> value list -> value (** Build a [Tag] value *)
+val mk_tuple   : value list -> value               (** Build a [Tuple] value *)
+val mk_string  : string -> value                   (** Build a [String] value *)
 
 (** {b Value extraction} *)
 
-val as_term : loc:Location.t -> value -> Jdg.term   (** Fails with [TermExpected] *)
-val as_closure : loc:Location.t -> value -> (value,value) closure (** Fails with [ClosureExpected] *)
-val as_handler : loc:Location.t -> value -> handler (** Fails with [HandlerExpected] *)
-val as_ref : loc:Location.t -> value -> ref         (** Fails with [RefExpected] *)
-val as_dyn : loc:Location.t -> value -> dyn         (** Fails with [DynExpected] *)
-val as_string : loc:Location.t -> value -> string   (** Fails with [StringExpected] *)
+val as_is_term : loc:Location.t -> value -> Jdg.term    (** Convert, or fail with [IsTermExpected] *)
+val as_is_type : loc:Location.t -> value -> Jdg.ty      (** Convert, or fail with [IsTypeExpected] *)
+val as_eq_term : loc:Location.t -> value -> Jdg.eq_term (** Convert, or fail with [EqTermExpected] *)
+val as_eq_type : loc:Location.t -> value -> Jdg.eq_ty   (** Convert, or fail with [EqTypeExpected] *)
+val as_closure : loc:Location.t -> value -> (value,value) closure (** Convert, or fail with [ClosureExpected] *)
+val as_handler : loc:Location.t -> value -> handler     (** Convert, or fail with [HandlerExpected] *)
+val as_ref : loc:Location.t -> value -> ref             (** Convert, or fail with [RefExpected] *)
+val as_dyn : loc:Location.t -> value -> dyn             (** Convert, or fail with [DynExpected] *)
+val as_string : loc:Location.t -> value -> string       (** Convert, or fail with [StringExpected] *)
 
 (** {b Other operations} *)
 
@@ -81,7 +90,10 @@ type error =
   | InvalidAsProduct of Jdg.ty
   | ListExpected of value
   | OptionExpected of value
-  | TermExpected of value
+  | IsTypeExpected of value
+  | IsTermExpected of value
+  | EqTypeExpected of value
+  | EqTermExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
   | FunctionExpected of Jdg.term
@@ -122,7 +134,11 @@ val return : 'a -> 'a comp
 
 val return_unit : value comp
 
-val return_term : Jdg.term -> value comp
+val return_is_term : Jdg.term -> value comp
+val return_is_type : Jdg.ty -> value comp
+val return_eq_term : Jdg.eq_term -> value comp
+val return_eq_type : Jdg.eq_ty -> value comp
+
 val return_closure : (value -> value comp) -> value comp
 val return_handler :
    (value -> value comp) option ->

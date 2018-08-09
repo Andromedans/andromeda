@@ -4,112 +4,114 @@ type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
 type bound = int
 
-type term = {
-  term : term';
-  (* raw term *)
-
-  assumptions : Assumption.t;
-  (* set of atoms on which the term depends *)
-
-  loc : Location.t
-  (* the location in input where the term appeared, as much as that makes sense *)
+(** A thing labeled with some assumptions. *)
+type 'a assumptions = {
+  thing : 'a ;
+  assumptions : Assumption.t
 }
 
+type term = (term' assumptions) Location.located
+
 and term' =
-  | Type
   | Atom of Name.atom
   | Bound of bound
   | Constant of Name.constant
   | Lambda of (term * ty) ty_abstraction
   | Apply of term * ty ty_abstraction * term
-  | Prod of ty ty_abstraction
-  | Eq of ty * term * term
-  | Refl of ty * term
 
-and ty = Ty of term
+and ty = (ty' assumptions) Location.located
+
+and ty' =
+  | Type
+  | Prod of ty ty_abstraction
+  | El of term
 
 and 'a ty_abstraction = (ty, 'a) abstraction
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
 
-(* Helpers *)
-let ty_hyps (Ty e) = e.assumptions
+(* Helper functions *)
+
+let ty_hyps {Location.thing={assumptions=a;_};_} = a
+
 let rec hyp_union acc = function
   | [] -> acc
   | x::rem -> hyp_union (Assumption.union acc x) rem
 
-let mk_atom ~loc x = {
-  term = Atom x;
-  assumptions = Assumption.singleton x;
-  loc = loc
-}
+let mk_atom ~loc x =
+  Location.locate
+    { thing = Atom x
+    ; assumptions = Assumption.singleton x
+    }
+    loc
 
-let mk_constant ~loc x = {
-  term = Constant x;
-  assumptions=Assumption.empty;
-  loc = loc
-}
+let mk_constant ~loc x =
+  Location.locate
+    { thing = Constant x
+    ; assumptions = Assumption.empty
+    }
+    loc
 
-let mk_lambda ~loc x a e b = {
-  term = Lambda ((x, a), (e, b)) ;
-  assumptions=hyp_union (ty_hyps a) (List.map Assumption.bind1 [ty_hyps b;e.assumptions]) ;
-  loc = loc
-}
+let mk_lambda ~loc x a e b =
+  Location.locate
+    { thing = Lambda ((x, a), (e, b))
+    ; assumptions = hyp_union (ty_hyps a) (List.map Assumption.bind1 [ty_hyps b; e.Location.thing.assumptions]) ;
+    }
+    loc
 
-let mk_prod ~loc x a b = {
-  term = Prod ((x, a), b) ;
-  assumptions=hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b)] ;
-  loc = loc
-}
+let mk_apply ~loc e1 x a b e2 =
+  Location.locate
+  { thing = Apply (e1, ((x, a),b), e2)
+  ; assumptions = hyp_union (ty_hyps a)
+                    [Assumption.bind1 (ty_hyps b);
+                     e1.Location.thing.assumptions;
+                     e2.Location.thing.assumptions]
+  }
+  loc
 
-let mk_apply ~loc e1 x a b e2 = {
-  term = Apply (e1, ((x, a),b), e2);
-  assumptions = hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b);e1.assumptions;e2.assumptions] ;
-  loc = loc
-}
+let mk_prod ~loc x a b =
+  Location.locate
+    { thing = Prod ((x, a), b)
+    ; assumptions=hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b)]
+    }
+    loc
 
 let mk_type ~loc =
-  { term = Type;
-    assumptions = Assumption.empty;
-    loc = loc }
+  Location.locate
+    { thing = Type
+    ; assumptions = Assumption.empty;
+    }
+    loc
 
-let mk_eq ~loc t e1 e2 =
-  { term = Eq (t, e1, e2);
-    assumptions = hyp_union (ty_hyps t) [e1.assumptions;e2.assumptions];
-    loc = loc }
-
-let mk_refl ~loc t e =
-  { term = Refl (t, e);
-    assumptions = hyp_union (ty_hyps t) [e.assumptions];
-    loc = loc }
-
-(** Convert a term to a type. *)
-let ty e = Ty e
-
-let mk_eq_ty ~loc t e1 e2 = ty (mk_eq ~loc t e1 e2)
-let mk_prod_ty ~loc x a b = ty (mk_prod ~loc x a b)
-let mk_type_ty ~loc = ty (mk_type ~loc)
+let mk_el ~loc e =
+  Location.locate
+    { thing = El e
+    ; assumptions = e.Location.thing.assumptions
+    }
+    loc
 
 (** The [Type] constant, without a location. *)
-let typ = Ty (mk_type ~loc:Location.unknown)
+let typ = mk_type ~loc:Location.unknown
 
-let mention_atoms a e =
-  { e with assumptions = Assumption.add_atoms a e.assumptions }
+let mention_atoms a {Location.thing=e; loc} =
+  Location.locate { e with assumptions = Assumption.add_atoms a e.assumptions } loc
 
-let mention_atoms_ty a (Ty e) = Ty (mention_atoms a e)
+let mention_atoms_ty a {Location.thing=e; loc} =
+  Location.locate { e with assumptions = Assumption.add_atoms a e.assumptions } loc
 
-let mention a e =
-  { e with assumptions = Assumption.union e.assumptions a }
+let mention a {Location.thing=e; loc} =
+  Location.locate { e with assumptions = Assumption.union e.assumptions a } loc
 
-let gather_assumptions {assumptions;_} = assumptions
+let gather_assumptions {Location.thing={assumptions;_};_} = assumptions
 
-let assumptions_term ({loc;_} as e) =
+let assumptions e =
   let a = gather_assumptions e in
-  Assumption.as_atom_set ~loc a
+  Assumption.as_atom_set ~loc:e.Location.loc a
 
-let assumptions_ty (Ty t) = assumptions_term t
+let assumptions_term = assumptions
 
+let assumptions_ty = assumptions
 
 (** Generic fold on a term. The functions [atom], [bound] and
     [hyps] tell it what to do with atoms, bound variables, and
@@ -125,58 +127,56 @@ let assumptions_ty (Ty t) = assumptions_term t
     - abstraction, which changes atoms to bound variables
     So if a variable which will change appears, it will be in the assumptions and the assumptions will change.
     *)
-let rec at_var atom bound hyps ~lvl ({term=e';assumptions=hs;loc} as e) =
+let rec at_var atom bound hyps ~lvl ({Location.loc=loc;thing={thing=e';assumptions=hs}} as e) =
   let assumptions = hyps ~lvl hs in
   if Assumption.equal assumptions hs
   then e
   else
   match e' with
-    | (Type | Constant _) as term -> {term;assumptions;loc}
+    | Constant _ as term -> Location.locate {thing=term;assumptions} loc
     | Atom x -> atom ~lvl x assumptions loc
     | Bound k -> bound ~lvl k assumptions loc
-    | Prod ((x,a),b) ->
-      let a = at_var_ty atom bound hyps ~lvl a
-      and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b in
-      let term = Prod ((x,a),b) in
-      {term;assumptions;loc}
     | Lambda ((x,a),(e,b)) ->
       let a = at_var_ty atom bound hyps ~lvl a
       and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b
       and e = at_var atom bound hyps ~lvl:(lvl+1) e in
       let term = Lambda ((x,a),(e,b)) in
-      {term;assumptions;loc}
+      Location.locate {thing=term;assumptions} loc
     | Apply (e1,((x,a),b),e2) ->
       let a = at_var_ty atom bound hyps ~lvl a
       and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b
       and e1 = at_var atom bound hyps ~lvl e1
       and e2 = at_var atom bound hyps ~lvl e2 in
       let term = Apply (e1,((x,a),b),e2) in
-      {term;assumptions;loc}
-    | Eq (a,e1,e2) ->
-      let a = at_var_ty atom bound hyps ~lvl a
-      and e1 = at_var atom bound hyps ~lvl e1
-      and e2 = at_var atom bound hyps ~lvl e2 in
-      let term = Eq (a,e1,e2) in
-      {term;assumptions;loc}
-    | Refl (a,e) ->
-      let a = at_var_ty atom bound hyps ~lvl a
-      and e = at_var atom bound hyps ~lvl e in
-      let term = Refl (a,e) in
-      {term;assumptions;loc}
+      Location.locate {thing=term;assumptions} loc
 
-and at_var_ty atom bound hyps ~lvl (Ty a) =
-  Ty (at_var atom bound hyps ~lvl a)
+and at_var_ty atom bound hyps ~lvl ({Location.loc=loc;thing={thing=t';assumptions=hs}} as t) =
+  let assumptions = hyps ~lvl hs in
+  if Assumption.equal assumptions hs
+  then t
+  else
+  match t' with
+  | Type as ty -> Location.locate {thing=ty;assumptions} loc
+  | Prod ((x,a),b) ->
+     let a = at_var_ty atom bound hyps ~lvl a
+     and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b in
+     let ty = Prod ((x,a),b) in
+     Location.locate {thing=ty;assumptions} loc
+  | El e ->
+     let e = at_var atom bound hyps ~lvl e in
+     let term = El e in
+     Location.locate {thing=term;assumptions} loc
 
 (** Instantiate *)
 let instantiate_atom ~lvl x assumptions loc =
-  {term=Atom x;assumptions;loc}
+  Location.locate {thing = Atom x; assumptions} loc
 
 let instantiate_bound es ~lvl k assumptions loc =
   if k < lvl
   then
-    {term=Bound k;assumptions;loc}
+    Location.locate {thing = Bound k; assumptions} loc
     (* this is a variable bound in an abstraction inside the
-    instantiated term, so we leave it as it is *)
+       instantiated term, so we leave it as it is *)
   else
     let n = List.length es in
     if k < lvl + n
@@ -184,7 +184,7 @@ let instantiate_bound es ~lvl k assumptions loc =
       let e = List.nth es (k - lvl) in
       mention assumptions e
     else
-      {term = Bound (k - n); assumptions; loc}
+      Location.locate {thing = Bound (k - n); assumptions} loc
       (* this is a variable bound in an abstraction outside the
          instantiated term, so it remains bound, but its index decreases
          by the number of bound variables replaced by terms *)
@@ -194,63 +194,69 @@ let instantiate_hyps es =
   fun ~lvl h -> Assumption.instantiate hs lvl h
 
 let instantiate es ?(lvl=0) e =
-  if es = [] then e else
-  at_var instantiate_atom (instantiate_bound es) (instantiate_hyps es) ~lvl e
+  match es with
+  | [] -> e
+  | _::_ -> at_var instantiate_atom (instantiate_bound es) (instantiate_hyps es) ~lvl e
 
-let instantiate_ty es ?(lvl=0) (Ty t) =
-  let t = instantiate es ~lvl t
-  in Ty t
+let instantiate_ty es ?(lvl=0) t =
+  match es with
+  | [] -> t
+  | _::_ -> at_var_ty instantiate_atom (instantiate_bound es) (instantiate_hyps es) ~lvl t
 
 let unabstract xs ?(lvl=0) e =
   let es = List.map (mk_atom ~loc:Location.unknown) xs
   in instantiate es ~lvl e
 
-let unabstract_ty xs ?(lvl=0) (Ty t) =
-  let t = unabstract xs ~lvl t
-  in Ty t
-
+let unabstract_ty xs ?(lvl=0) t =
+  let es = List.map (mk_atom ~loc:Location.unknown) xs
+  in instantiate_ty es ~lvl t
 
 (** Abstract *)
 let abstract_atom xs ~lvl x assumptions loc =
   begin
     match Name.index_of_atom x xs with
-      | None -> {term=Atom x;assumptions;loc}
-      | Some k -> {term = Bound (lvl + k); assumptions; loc}
+      | None -> Location.locate {thing = Atom x; assumptions} loc
+      | Some k -> Location.locate {thing = Bound (lvl + k); assumptions} loc
   end
 
 let abstract_bound ~lvl k assumptions loc =
-  {term=Bound k;assumptions;loc}
+  Location.locate {thing = Bound k; assumptions} loc
 
 let abstract_hyps xs ~lvl h =
   Assumption.abstract xs lvl h
 
 let abstract xs ?(lvl=0) e =
-  if xs = [] then e else
-  at_var (abstract_atom xs) abstract_bound (abstract_hyps xs) ~lvl e
+  match xs with
+  | [] -> e
+  | _::_ -> at_var (abstract_atom xs) abstract_bound (abstract_hyps xs) ~lvl e
 
-let abstract_ty xs ?(lvl=0) (Ty t) =
-  let t = abstract xs ~lvl t
-  in Ty t
+let abstract_ty xs ?(lvl=0) t =
+  match xs with
+  | [] -> t
+  | _::_ -> at_var_ty (abstract_atom xs) abstract_bound (abstract_hyps xs) ~lvl t
 
 (** Substitute *)
-let substitute xs es t =
-  if xs = [] && es = []
-  then t
-  else
-    let t = abstract xs ~lvl:0 t in
-    instantiate es ~lvl:0 t
+let substitute xs es e =
+  match xs, es with
+  | [], [] -> e
+  | _, _ ->
+    let e = abstract xs ~lvl:0 e in
+    instantiate es ~lvl:0 e
 
-let substitute_ty xs es (Ty ty) =
-  Ty (substitute xs es ty)
+let substitute_ty xs es t =
+  match xs, es with
+  | [], [] -> t
+  | _, _ ->
+    let t = abstract_ty xs ~lvl:0 t in
+    instantiate_ty es ~lvl:0 t
 
 (** Occurs (for printing) *)
 let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
   occurs_u k u || occurs_v (k+1) v
 
 (* How many times does bound variable [k] occur in an expression? Used only for printing. *)
-let rec occurs k {term=e';loc;_} =
+let rec occurs k {Location.loc;thing={thing=e';_}} =
   match e' with
-  | Type -> false
   | Atom _ -> false
   | Bound m -> k = m
   | Constant x -> false
@@ -259,14 +265,13 @@ let rec occurs k {term=e';loc;_} =
     occurs k e1 ||
     occurs_abstraction occurs_ty occurs_ty k xtst ||
     occurs k e2
+
+and occurs_ty k {Location.loc;thing={thing=t';_}} =
+  match t' with
+  | Type -> false
   | Prod a ->
     occurs_abstraction occurs_ty occurs_ty k a
-  | Eq (t, e1, e2) ->
-    occurs_ty k t || occurs k e1 || occurs k e2
-  | Refl (t, e) ->
-    occurs_ty k t || occurs k e
-
-and occurs_ty k (Ty t) = occurs k t
+  | El e -> occurs k e
 
 and occurs_term_ty k (e, t) =
   occurs k e || occurs_ty k t
@@ -277,7 +282,7 @@ let alpha_equal_abstraction alpha_equal_u alpha_equal_v ((x,u), v) ((x,u'), v') 
   alpha_equal_u u u' &&
   alpha_equal_v v v'
 
-let rec alpha_equal {term=e1;_} {term=e2;_} =
+let rec alpha_equal {Location.thing={thing=e1;_};_} {Location.thing={thing=e2;_};_} =
   e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
@@ -295,26 +300,20 @@ let rec alpha_equal {term=e1;_} {term=e2;_} =
       alpha_equal_abstraction alpha_equal_ty alpha_equal_ty xts xts' &&
       alpha_equal e2 e2'
 
-    | Type, Type -> true
-
-    | Prod abs, Prod abs' ->
-      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty abs abs'
-
-    | Eq (t, e1, e2), Eq (t', e1', e2') ->
-      alpha_equal_ty t t' &&
-      alpha_equal e1 e1' &&
-      alpha_equal e2 e2'
-
-    | Refl (t, e), Refl (t', e') ->
-      alpha_equal_ty t t' &&
-      alpha_equal e e'
-
-    | (Atom _ | Bound _ | Constant _ | Lambda _ | Apply _ |
-        Type | Prod _ | Eq _ | Refl _), _ ->
+    | (Atom _ | Bound _ | Constant _ | Lambda _ | Apply _), _ ->
       false
   end
 
-and alpha_equal_ty (Ty t1) (Ty t2) = alpha_equal t1 t2
+and alpha_equal_ty {Location.thing={thing=t1;_};_} {Location.thing={thing=t2;_};_} =
+  match t1, t2 with
+  | Type, Type -> true
+
+  | Prod abs, Prod abs' ->
+     alpha_equal_abstraction alpha_equal_ty alpha_equal_ty abs abs'
+
+  | El e1, El e2 -> alpha_equal e1 e2
+
+  | (Type | Prod _ | El _), _ -> false
 
 and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
 
@@ -344,46 +343,37 @@ let print_binders ~penv print_u print_v xus ppf =
   Print.print ppf ",@ %t" (print_v ~penv) ;
   Format.pp_close_box ppf ()
 
-let rec print_term ?max_level ~penv {term=e;_} ppf =
+let rec print_term ?max_level ~penv {Location.thing={thing=e;_};_} ppf =
     print_term' ~penv ?max_level e ppf
 
 and print_term' ~penv ?max_level e ppf =
-  let print ?at_level = Print.print ?max_level ?at_level ppf in
-    match e with
-      | Type ->
-        Format.fprintf ppf "Type"
+  match e with
+  | Atom x ->
+     Name.print_atom ~printer:(penv.atoms) x ppf
 
-      | Atom x ->
-        Name.print_atom ~printer:(penv.atoms) x ppf
+  | Constant x ->
+     Name.print_ident x ppf
 
-      | Constant x ->
-         Name.print_ident x ppf
+  | Bound k -> Name.print_debruijn penv.forbidden k ppf
 
-      | Bound k -> Name.print_debruijn penv.forbidden k ppf
+  | Lambda a -> print_lambda ?max_level ~penv a ppf
 
-      | Lambda a -> print_lambda ?max_level ~penv a ppf
+  | Apply (e1, _, e2) -> print_app ?max_level ~penv e1 e2 ppf
 
-      | Apply (e1, _, e2) -> print_app ?max_level ~penv e1 e2 ppf
+and print_ty ?max_level ~penv {Location.thing={thing=t;_};_} ppf =
+  match t with
 
-      | Prod xts -> print_prod ?max_level ~penv xts ppf
+  | Type -> Format.fprintf ppf "Type"
 
-      | Eq (t, e1, e2) ->
-        print ~at_level:Level.eq "%t@ %s@ %t"
-          (print_term ~max_level:Level.eq_left ~penv e1)
-          (Print.char_equal ())
-          (print_term ~max_level:Level.eq_right ~penv e2)
+  | Prod xts -> print_prod ?max_level ~penv xts ppf
 
-      | Refl (t, e) ->
-        print ~at_level:Level.app "refl@ %t"
-          (print_term ~max_level:Level.app_right ~penv  e)
-
-and print_ty ?max_level ~penv (Ty t) ppf = print_term ?max_level ~penv t ppf
+  | El e -> Format.fprintf ppf "El@ %t" (print_term ~max_level:Level.el_arg ~penv e)
 
 (** [print_app e1 e2 ppf] prints the application [e1 e2] using formatter [ppf],
     possibly as a prefix or infix operator. *)
 and print_app ?max_level ~penv e1 e2 ppf =
   let e1_prefix =
-    match e1.term with
+    match e1.Location.thing.thing with
     | Bound k ->
        begin
          match List.nth penv.forbidden k with
@@ -396,8 +386,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
 
     | Constant (Name.Ident (_, (Name.Word | Name.Anonymous _| Name.Infix _)))
     | Atom (Name.Atom (_, (Name.Word | Name.Anonymous _| Name.Infix _), _))
-    | Type | Lambda _ | Apply _ | Prod _ | Eq _ | Refl _ ->
-      None
+    | Lambda _ | Apply _ -> None
   in
   match e1_prefix with
   | Some (As_atom op) ->
@@ -415,8 +404,8 @@ and print_app ?max_level ~penv e1 e2 ppf =
      begin
        let e1_infix =
          begin
-           match e1.term with
-           | Apply ({term=Bound k; _}, _, e1) ->
+           match e1.Location.thing.thing with
+           | Apply ({Location.thing={thing=Bound k; _};_}, _, e1) ->
               begin
                 match List.nth penv.forbidden k with
                 | Name.Ident (_, Name.Infix fixity) as op ->
@@ -424,17 +413,16 @@ and print_app ?max_level ~penv e1 e2 ppf =
                 | Name.Ident (_, (Name.Word | Name.Anonymous _| Name.Prefix)) -> None
                 | exception Failure failure when failure = "nth" -> None
               end
-           | Apply ({term=Constant (Name.Ident (_, Name.Infix fixity) as op);_},
+           | Apply ({Location.thing={thing=Constant (Name.Ident (_, Name.Infix fixity) as op);_};_},
                     _, e1) ->
               Some (As_ident op, fixity, e1)
-           | Apply ({term=Atom (Name.Atom (_, Name.Infix fixity, _) as op);_},
+           | Apply ({Location.thing={thing=Atom (Name.Atom (_, Name.Infix fixity, _) as op);_};_},
                     _, e1) ->
               Some (As_atom op, fixity, e1)
 
            | Apply _ (* Spelling out exactly which cases are not covered is quite
                         verbose, so we do not do it. *)
-           | Type | Lambda _ | Prod _ | Eq _ | Refl _
-           | Atom _ | Constant _ | Bound _ ->
+           | Lambda _ | Atom _ | Constant _ | Bound _ ->
              None
          end
        in
@@ -459,7 +447,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
 and print_lambda ?max_level ~penv ((x, u), (e, _)) ppf =
   let x = (if not (occurs 0 e) then Name.anonymous () else x) in
   let rec collect xus e =
-    match e.term with
+    match e.Location.thing.thing with
     | Lambda ((x, u), (e, _)) ->
        let x = (if not (occurs 0 e) then Name.anonymous () else x) in
        collect ((x, u) :: xus) e
@@ -482,8 +470,8 @@ and print_prod ?max_level ~penv ((x, u), t) ppf =
           (Print.char_arrow ())
           (print_ty ~max_level:Level.arr_right ~penv:(add_forbidden (Name.anonymous ()) penv) t)
   else
-    let rec collect xus ((Ty t) as t_ty) =
-      match t.term with
+    let rec collect xus ({Location.thing={thing=t;_};_} as t_ty) =
+      match t with
       | Prod ((x, u), t_ty) when occurs_ty 0 t_ty ->
          collect ((x, u) :: xus) t_ty
       | _ ->
@@ -503,16 +491,13 @@ and print_prod ?max_level ~penv ((x, u), t) ppf =
 module Json =
 struct
 
-  let rec term {term=e; assumptions=asm; loc} =
+  let rec term {Location.loc;thing={thing=e; assumptions=asm}} =
     if !Config.json_location
     then Json.tuple [term' e; Assumption.Json.assumptions asm; Location.Json.location loc]
     else Json.tuple [term' e; Assumption.Json.assumptions asm]
 
-
   and term' e =
     match e with
-
-      | Type -> Json.tag "Type" []
 
       | Atom a -> Json.tag "Atom" [Name.Json.atom a]
 
@@ -525,14 +510,17 @@ struct
 
       | Apply (e1, (xt, u), e2) -> Json.tag "Apply" [term e1; abstraction xt (ty u); term e2]
 
-      | Prod (xt, u) -> Json.tag "Prod" [abstraction xt (ty u)]
-
-      | Eq (t, e1, e2) -> Json.tag "Eq" [ty t; term e1; term e2]
-
-      | Refl (t, e) -> Json.tag "Refl" [ty t; term e]
-
   and abstraction (x, t) d = Json.tuple [Name.Json.ident x; ty t; d]
 
-  and ty (Ty e) = term e
+  and ty {Location.loc;thing={thing=t; assumptions=asm}} =
+    if !Config.json_location
+    then Json.tuple [ty' t; Assumption.Json.assumptions asm; Location.Json.location loc]
+    else Json.tuple [ty' t; Assumption.Json.assumptions asm]
+
+  and ty' t =
+    match t with
+      | Type -> Json.tag "Type" []
+      | Prod (xt, u) -> Json.tag "Prod" [abstraction xt (ty u)]
+      | El e -> Json.tag "El" [term e]
 
 end

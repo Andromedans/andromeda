@@ -5,6 +5,12 @@ type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
 
 type bound
 
+(** A thing labeled with some assumptions. *)
+type 'a assumptions = {
+  thing : 'a ;
+  assumptions : Assumption.t
+}
+
 (** The type of TT terms.
     (For details on the mutual definition with [term'], see module Location.)
 
@@ -12,11 +18,8 @@ type bound
     indices for bound variables. In terms of type [term], bound variables are
     not allowed to appear "bare", i.e., without an associated binder.
 *)
-type term = { term : term' ; assumptions : Assumption.t; loc : Location.t}
+type term = (term' assumptions) Location.located
 and term' = private
-  (** term denoting the type of types *)
-  | Type
-
   (** a free variable *)
   | Atom of Name.atom
 
@@ -32,20 +35,21 @@ and term' = private
   (** an application tagged with the type at wich it happens *)
   | Apply of term * ty ty_abstraction * term
 
-  (** a dependent product [forall (x1 : t1), t] *)
-  | Prod of ty ty_abstraction
-
-  (** strict equality type [e1 == e2] where [e1] and [e2] have type [t]. *)
-  | Eq of ty * term * term
-
-  (** reflexivity [refl e] where [e] has type [t]. *)
-  | Refl of ty * term
-
 (** Since we have [Type : Type] we do not distinguish terms from types,
     so the type of type [ty] is just a synonym for the type of terms.
     However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
-and ty = private
-    | Ty of term
+
+and ty = (ty' assumptions) Location.located
+and ty' = private
+
+  (** the universe *)
+  | Type
+
+  (** a dependent product [forall (x1 : t1), t] *)
+  | Prod of ty ty_abstraction
+
+  (** The extension of an element of the universe. *)
+  | El of term
 
 (** A ['a ty_abstraction] is a n abstraction where the [a1, ..., an] are types *)
 and 'a ty_abstraction = (ty, 'a) abstraction
@@ -55,18 +59,12 @@ val mk_atom: loc:Location.t -> Name.atom -> term
 val mk_constant: loc:Location.t -> Name.ident -> term
 val mk_lambda: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
 val mk_apply: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
-val mk_type: loc:Location.t -> term
-val mk_type_ty: loc:Location.t -> ty
-val mk_prod: loc:Location.t -> Name.ident -> ty -> ty -> term
-val mk_prod_ty: loc:Location.t -> Name.ident -> ty -> ty -> ty
-val mk_eq: loc:Location.t -> ty -> term -> term -> term
-val mk_eq_ty: loc:Location.t -> ty -> term -> term -> ty
-val mk_refl: loc:Location.t -> ty -> term -> term
 
-(** Coerce a value to a type (does not check whether this is legal). *)
-val ty : term -> ty
+val mk_type: loc:Location.t -> ty
+val mk_prod: loc:Location.t -> Name.ident -> ty -> ty -> ty
+val mk_el: loc:Location.t -> term -> ty
 
-(** The type Type *)
+(** The type Type (without location) *)
 val typ : ty
 
 (** Add the given set of atoms as assumption to a term. *)

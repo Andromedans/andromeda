@@ -44,7 +44,10 @@ and lexical = {
 and state = value Store.Ref.t
 
 and value =
-  | Term of Jdg.term
+  | IsTerm of Jdg.term
+  | IsType of Jdg.ty
+  | EqTerm of Jdg.eq_term
+  | EqType of Jdg.eq_ty
   | Closure of (value, value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -93,7 +96,10 @@ type error =
   | InvalidAsProduct of Jdg.ty
   | ListExpected of value
   | OptionExpected of value
-  | TermExpected of value
+  | IsTypeExpected of value
+  | IsTermExpected of value
+  | EqTypeExpected of value
+  | EqTermExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
   | FunctionExpected of Jdg.term
@@ -113,8 +119,11 @@ let error ~loc err = raise (Error (Location.locate err loc))
 
 
 (** Make values *)
-let mk_term j =
-  Term j
+
+let mk_is_term t = IsTerm t
+let mk_is_type t = IsType t
+let mk_eq_term eq = EqTerm eq
+let mk_eq_type eq = EqType eq
 
 let mk_handler h = Handler h
 let mk_tag t lst = Tag (t, lst)
@@ -180,7 +189,10 @@ let top_return_closure f env = mk_closure0 f env, env
 
 let return x env = Return x, env.state
 
-let return_term e = return (mk_term e)
+let return_is_term e = return (mk_is_term e)
+let return_is_type e = return (mk_is_type e)
+let return_eq_term e = return (mk_eq_term e)
+let return_eq_type e = return (mk_eq_type e)
 
 let return_closure f env = Return (Closure (mk_closure0 f env)), env.state
 
@@ -203,7 +215,10 @@ let rec top_fold f acc = function
 
 let name_of v =
   match v with
-    | Term _ -> "a term"
+    | IsTerm _ -> "a term"
+    | IsType _ -> "a type"
+    | EqTerm _ -> "a term equality"
+    | EqType _ -> "a type equality"
     | Closure _ -> "a function"
     | Handler _ -> "a handler"
     | Tag _ -> "a data tag"
@@ -213,34 +228,58 @@ let name_of v =
     | String _ -> "a string"
 
 (** Coerce values *)
-let as_term ~loc = function
-  | Term e -> e
-  | (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (TermExpected v)
+let as_is_term ~loc = function
+  | IsTerm e -> e
+  | (IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTermExpected v)
+
+let as_is_type ~loc = function
+  | IsType t -> t
+  | (IsTerm _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTypeExpected v)
+
+let as_eq_type ~loc = function
+  | EqType eq -> eq
+  | (IsType _ | IsTerm _ | EqTerm _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (EqTypeExpected v)
+
+let as_eq_term ~loc = function
+  | EqTerm eq -> eq
+  | (IsType _ | IsTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (EqTermExpected v)
 
 let as_closure ~loc = function
   | Closure f -> f
-  | (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (ClosureExpected v)
 
 let as_handler ~loc = function
   | Handler h -> h
-  | (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (HandlerExpected v)
 
 let as_ref ~loc = function
   | Ref v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | String _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | String _) as v ->
     error ~loc (RefExpected v)
 
 let as_dyn ~loc = function
   | Dyn v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | String _) as v ->
     error ~loc (DynExpected v)
 
 let as_string ~loc = function
   | String v -> v
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | Ref _) as v ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Dyn _ | Ref _) as v ->
     error ~loc (StringExpected v)
 
 (** Operations *)
@@ -278,7 +317,7 @@ let add_bound0 v env = {env with lexical = { env.lexical with
 
 let add_free ~loc x jt m env =
   let jy = Jdg.Ctx.add_fresh jt x in
-  let y_val = mk_term (Jdg.atom_term ~loc jy) in
+  let y_val = mk_is_term (Jdg.atom_term ~loc jy) in
   let env = add_bound0 y_val env in
   m jy env
 
@@ -377,13 +416,20 @@ let rec as_list_opt = function
        | None -> None
        | Some xs -> Some (x :: xs)
      end
-  | (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
+  | (IsTerm _ | IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) ->
      None
 
 let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | Term e -> Jdg.print_term ~penv:penv ?max_level e ppf
+  | IsTerm e -> Jdg.print_term ~penv:penv ?max_level e ppf
+
+  | IsType t -> Jdg.print_ty ~penv:penv ?max_level t ppf
+
+  | EqTerm eq -> Jdg.print_eq_term ~penv:penv ?max_level eq ppf
+
+  | EqType eq -> Jdg.print_eq_ty ~penv:penv ?max_level eq ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 
@@ -542,8 +588,17 @@ let print_error ~penv err ppf =
   | OptionExpected v ->
      Format.fprintf ppf "expected an option but got %s" (name_of v)
 
-  | TermExpected v ->
+  | IsTypeExpected v ->
+     Format.fprintf ppf "expected a type but got %s" (name_of v)
+
+  | IsTermExpected v ->
      Format.fprintf ppf "expected a term but got %s" (name_of v)
+
+  | EqTypeExpected v ->
+     Format.fprintf ppf "expected a type equality but got %s" (name_of v)
+
+  | EqTermExpected v ->
+     Format.fprintf ppf "expected a term equality but got %s" (name_of v)
 
   | ClosureExpected v ->
      Format.fprintf ppf "expected a function but got %s" (name_of v)
@@ -650,8 +705,19 @@ let top_handle ~loc r env =
 (** Equality *)
 let rec equal_value v1 v2 =
   match v1, v2 with
-    | Term j1, Term j2 ->
-      Jdg.alpha_equal j1 j2
+    | IsTerm e1, IsTerm e2 ->
+      Jdg.alpha_equal e1 e2
+
+    | IsType t1, IsType t2 ->
+      Jdg.alpha_equal_ty t1 t2
+
+    | EqTerm eq1, EqTerm eq2 ->
+       (* XXX: should we even compare equality judgements for equlity? That will lead to comparison of contexts. *)
+       eq1 == eq2
+
+    | EqType eq1, EqType eq2 ->
+       (* XXX: should we even compare equality judgements for equlity? That will lead to comparison of contexts. *)
+       eq1 == eq2
 
     | Tag (t1,vs1), Tag (t2,vs2) ->
       Name.eq_ident t1 t2 &&
@@ -690,14 +756,17 @@ let rec equal_value v1 v2 =
        false
 
     (* At some level the following is a bit ridiculous *)
-    | Term _, (Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Closure _, (Term _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Handler _, (Term _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tag _, (Term _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _)
-    | Tuple _, (Term _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
-    | String _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _)
-    | Ref _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Dyn _)
-    | Dyn _, (Term _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ref _) ->
+    | IsTerm _, (IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | IsType _, (IsTerm _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | EqTerm _, (IsTerm _ | IsType _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | EqType _, (IsTerm _ | IsType _ | EqTerm _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Closure _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Handler _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Tag _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tuple _ | Ref _ | Dyn _ | String _)
+    | Tuple _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Ref _ | Dyn _ | String _)
+    | String _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _)
+    | Ref _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Dyn _)
+    | Dyn _, (IsTerm _ | IsType _ | EqTerm _ | EqType _ | Closure _ | Handler _ | Tag _ | Tuple _ | String _ | Ref _) ->
        false
 
 
@@ -711,7 +780,13 @@ struct
   let rec value v =
     match v with
 
-    | Term e -> Json.tag "Term" [Jdg.Json.term e]
+    | IsTerm e -> Json.tag "IsTerm" [Jdg.Json.term e]
+
+    | IsType t -> Json.tag "IsType" [Jdg.Json.ty t]
+
+    | EqType eq -> Json.tag "EqType" [Jdg.Json.eq_ty eq]
+
+    | EqTerm eq -> Json.tag "EqTerm" [Jdg.Json.eq_term eq]
 
     | Closure _ -> Json.tag "<fun>" []
 
