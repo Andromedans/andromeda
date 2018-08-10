@@ -37,14 +37,14 @@ module Predefined : sig
   (** The name of the [None] constructor *)
   val none : constructor
 
-  (** The name of the [equal] operation *)
-  val equal : operation
+  (** The name of the [equal_term] operation *)
+  val equal_term : operation
+
+  (** The name of the [equal_type] operation *)
+  val equal_type : operation
 
   (** The name of the [as_prod] operation *)
   val as_prod : operation
-
-  (** The name of the [as_eq] operation *)
-  val as_eq : operation
 
   (** The name of the [coercible] type *)
   val coercible_ty : ty

@@ -63,14 +63,10 @@ and comp' =
   | Lambda of Name.ident * comp option * comp
   | Apply of comp * comp
   | Prod of Name.ident * comp * comp
-  | Eq of comp * comp
-  | Refl of comp
   | Yield of comp
   | CongrProd of comp * comp * comp
   | CongrApply of comp * comp * comp * comp * comp
   | CongrLambda of comp * comp * comp * comp
-  | CongrEq of comp * comp * comp
-  | CongrRefl of comp * comp
   | BetaStep of comp * comp * comp * comp * comp
   | String of string
   | Occurs of comp * comp

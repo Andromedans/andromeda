@@ -53,14 +53,14 @@ module Predefined = struct
 
   let none = make "None"
 
-  let equal = make "equal"
+  let equal_term = make "equal_term"
+
+  let equal_type = make "equal_type"
 
   let as_prod = make "as_prod"
 
-  let as_eq = make "as_eq"
-
   let coercible_ty = make "coercible"
- 
+
   let coercible_constructor = make "Coercible"
 
   let convertible = make "Convertible"
@@ -185,7 +185,7 @@ type atom_printer = { mutable reindex : atom AtomMap.t; mutable next : int }
 
 let global_printer = { reindex = AtomMap.empty; next = 0 }
 
-let atom_printer () = 
+let atom_printer () =
   if !Config.global_atom_printer
   then global_printer
   else { reindex = AtomMap.empty; next = 0 }

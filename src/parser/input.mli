@@ -13,7 +13,10 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
-  | ML_Judgment
+  | ML_IsType
+  | ML_IsTerm
+  | ML_EqType
+  | ML_EqTerm
   | ML_String
   | ML_Anonymous
 
@@ -40,20 +43,24 @@ type tt_variable =
 type ml_arg = Name.ident * arg_annotation
 
 (** Sugared term patterns *)
-type tt_pattern = tt_pattern' Location.located
-and tt_pattern' =
-  | Tt_Anonymous
-  | Tt_As of tt_pattern * Name.ident
-  | Tt_Var of Name.ident (* pattern variable *)
-  | Tt_Type
-  | Tt_Name of Name.ident
-  | Tt_Lambda of (tt_variable * tt_pattern option) list * tt_pattern
-  | Tt_Spine of tt_pattern * tt_pattern list
-  | Tt_Prod of (tt_variable * tt_pattern option) list * tt_pattern
-  | Tt_Eq of tt_pattern * tt_pattern
-  | Tt_Refl of tt_pattern
-  | Tt_GenAtom of tt_pattern
-  | Tt_GenConstant of tt_pattern
+type is_term_pattern = is_term_pattern' Location.located
+and is_term_pattern' =
+  | Patt_IsTerm_Anonymous
+  | Patt_IsTerm_As of is_term_pattern * Name.ident
+  | Patt_IsTerm_Var of Name.ident (* pattern variable *)
+  | Patt_IsTerm_Name of Name.ident
+  | Patt_IsTerm_Lambda of (tt_variable * is_type_pattern option) list * is_term_pattern
+  | Patt_IsTerm_Spine of is_term_pattern * is_term_pattern list
+  | Patt_IsTerm_GenAtom of is_term_pattern
+  | Patt_IsTerm_GenConstant of is_term_pattern
+
+and is_type_pattern = is_type_pattern' Location.located
+and is_type_pattern' =
+  | Patt_IsType_Anonymous
+  | Patt_IsType_Var of Name.ident (* pattern variable *)
+  | Patt_IsType_Type
+  | Patt_IsType_Prod of (tt_variable * is_type_pattern option) list * is_type_pattern
+  | Patt_IsType_El of is_term_pattern
 
 and pattern = pattern' Location.located
 and pattern' =
@@ -61,7 +68,8 @@ and pattern' =
   | Patt_As of pattern * Name.ident
   | Patt_Var of Name.ident
   | Patt_Name of Name.ident
-  | Patt_Jdg of tt_pattern * tt_pattern option
+  | Patt_IsTerm of is_term_pattern * is_type_pattern option
+  | Patt_IsType of is_type_pattern
   | Patt_Constr of Name.ident * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list

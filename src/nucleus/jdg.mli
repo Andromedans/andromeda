@@ -135,9 +135,18 @@ val convert_eq : loc:Location.t -> eq_term -> eq_ty -> eq_term
 
 (** Constructors *)
 
+(** Construct the judgment [e == e : A] from [e : A] *)
 val reflexivity : term -> eq_term
 
+(** Construct the jdugment [A == A] from [A type] *)
 val reflexivity_ty : ty -> eq_ty
+
+(** Given two terms [e1 : A1] and [e2 : A2] construct [e1 == e2 : A1],
+    provided [A1] and [A2] are alpha equal and [e1] and [e2] are alpha equal *)
+val mk_alpha_equal : loc:Location.t -> term -> term -> eq_term option
+
+(** Given two types [A] and [B] construct [A == B] provided the types are alpha equal *)
+val mk_alpha_equal_ty : loc:Location.t -> ty -> ty -> eq_ty option
 
 (** Test whether terms are alpha-equal. They may have different types and incompatible contexts even if [true] is returned. *)
 val alpha_equal : term -> term -> bool

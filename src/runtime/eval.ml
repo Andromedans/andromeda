@@ -5,15 +5,28 @@ let (>>=) = Runtime.bind
 
 (** A computation filter that verifies the result is a term,
     and fails otherwise. *)
-(* as_term : loc:Location.t -> Runtime.value -> Jdg.term Runtime.comp *)
-let as_term ~loc v =
-  let e = Runtime.as_term ~loc v in
+(* as_is_term : loc:Location.t -> Runtime.value -> Jdg.term Runtime.comp *)
+let as_is_term ~loc v =
+  let e = Runtime.as_is_term ~loc v in
     Runtime.return e
 
-(** Returns the atom with its natural type in [ctx] *)
-(* as_atom: loc:Location.t -> Runtime.value -> Jdg.term Runtime.comp *)
+(** A computation filter that verifies the result is a type,
+    and fails otherwise. *)
+(* as_is_type : loc:Location.t -> Runtime.value -> Jdg.term Runtime.comp *)
+let as_is_type ~loc v =
+  let e = Runtime.as_is_type ~loc v in
+    Runtime.return e
+
+let as_eq_type ~loc v =
+  let e = Runtime.as_eq_type ~loc v in
+    Runtime.return e
+
+let as_eq_term ~loc v =
+  let e = Runtime.as_eq_term ~loc v in
+    Runtime.return e
+
 let as_atom ~loc v =
-  as_term ~loc v >>= fun j ->
+  as_is_term ~loc v >>= fun j ->
   match Jdg.shape j with
     | Jdg.Atom x -> Runtime.return x
     | _ -> Runtime.(error ~loc (ExpectedAtom j))
@@ -32,11 +45,17 @@ let as_dyn ~loc v =
   let e = Runtime.as_dyn ~loc v in
   Runtime.return e
 
-(** Form a judgement *)
+(** Form a term judgement *)
 (* loc:Location.t -> Jdg.shape -> Jdg.term Runtime.comp *)
-let jdg_form ~loc s =
+let form_is_term ~loc s =
   Runtime.lookup_typing_signature >>= fun signature ->
   Runtime.return (Jdg.form ~loc signature s)
+
+(** Form a type judgement *)
+(* loc:Location.t -> Jdg.shape_ty -> Jdg.ty Runtime.comp *)
+let form_is_type ~loc s =
+  Runtime.lookup_typing_signature >>= fun signature ->
+  Runtime.return (Jdg.form_ty ~loc signature s)
 
 (** Evaluate a computation -- infer mode. *)
 (*   infer : Rsyntax.comp -> Runtime.value Runtime.comp *)
@@ -46,8 +65,8 @@ let rec infer {Location.thing=c'; loc} =
        Runtime.lookup_bound ~loc i
 
     | Rsyntax.Type ->
-      jdg_form ~loc Jdg.Type >>=
-      Runtime.return_term
+      form_is_type ~loc Jdg.Type >>=
+      Runtime.return_is_type
 
     | Rsyntax.Function (_, c) ->
        let f v =
@@ -153,22 +172,22 @@ let rec infer {Location.thing=c'; loc} =
      sequence ~loc v >>= fun () ->
      infer c2
 
-  | Rsyntax.Assume ((x, t), c) ->
-     check_ty t >>= fun t ->
+  | Rsyntax.Assume ((x, c1), c2) ->
+     check_is_type c1 >>= fun t ->
      Runtime.add_free ~loc x t (fun _ ->
-       infer c)
+       infer c2)
 
   | Rsyntax.Where (c1, c2, c3) ->
-    infer c2 >>= as_atom ~loc >>= fun a ->
-    infer c1 >>= as_term ~loc:(c1.Location.loc) >>= fun je ->
+    check_atom c2 >>= fun a ->
+    check_is_term c1 >>= fun je ->
     begin match Jdg.occurs a je with
     | None ->
        check c3 (Jdg.atom_ty a) >>= fun _ ->
-       Runtime.return_term je
+       Runtime.return_is_term je
     | Some a ->
        check c3 (Jdg.atom_ty a) >>= fun js ->
        let j = Jdg.substitute ~loc je a js in
-       Runtime.return_term j
+       Runtime.return_is_term j
     end
 
   | Rsyntax.Match (c, cases) ->
@@ -176,168 +195,121 @@ let rec infer {Location.thing=c'; loc} =
      match_cases ~loc cases infer
 
   | Rsyntax.Ascribe (c1, c2) ->
-     check_ty c2 >>= fun t ->
+     check_is_type c2 >>= fun t ->
      check c1 t >>=
-     Runtime.return_term
+     Runtime.return_is_term
 
   | Rsyntax.Constant x ->
-    jdg_form ~loc (Jdg.Constant x) >>=
-    Runtime.return_term
+    form_is_term ~loc (Jdg.Constant x) >>=
+    Runtime.return_is_term
 
   | Rsyntax.Lambda (x, None, _) ->
     Runtime.(error ~loc (UnannotatedLambda x))
 
   | Rsyntax.Lambda (x, Some u, c) ->
-    check_ty u >>= fun ju ->
+    check_is_type u >>= fun ju ->
     Runtime.add_free ~loc:(u.Location.loc) x ju (fun jy ->
     let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
     Predefined.add_abstracting vy
-    (infer c >>= as_term ~loc:(c.Location.loc) >>= fun je ->
-    jdg_form ~loc (Jdg.Lambda (jy, je)) >>=
-    Runtime.return_term))
+    (check_is_term c >>= fun je ->
+    form_is_term ~loc (Jdg.Lambda (jy, je)) >>=
+    Runtime.return_is_term))
 
   | Rsyntax.Apply (c1, c2) ->
     infer c1 >>= begin function
-      | Runtime.Term j ->
+      | Runtime.IsTerm j ->
         apply ~loc ~loc_head:(c1.Location.loc) j c2
       | Runtime.Closure f ->
         infer c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
+      | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
+        Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
         Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _ as h ->
         Runtime.(error ~loc (Inapplicable h))
     end
 
   | Rsyntax.Prod (x,u,c) ->
-    check_ty u >>= fun ju ->
+    check_is_type u >>= fun ju ->
     Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
     let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
     Predefined.add_abstracting vy
-    (check_ty c >>= fun jt ->
-    jdg_form ~loc (Jdg.Prod (jy, jt)) >>=
-    Runtime.return_term))
-
-  | Rsyntax.Eq (c1, c2) ->
-     infer c1 >>= as_term ~loc:c1.Location.loc >>= fun j1 ->
-     let t1 = Jdg.typeof j1 in
-     check c2 t1 >>= fun j2 ->
-     jdg_form ~loc (Jdg.Eq (j1,j2)) >>=
-     Runtime.return_term
-
-  | Rsyntax.Refl c ->
-     infer c >>= as_term ~loc:c.Location.loc >>= fun j ->
-     jdg_form ~loc (Jdg.Refl j) >>=
-     Runtime.return_term
+    (check_is_type c >>= fun jt ->
+    form_is_type ~loc (Jdg.Prod (jy, jt)) >>=
+    Runtime.return_is_type))
 
   | Rsyntax.Yield c ->
     infer c >>= fun v ->
     Runtime.continue ~loc v
 
   | Rsyntax.CongrProd (c1, c2, c3) ->
-    infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
-    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
-    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
-    let eqa = Jdg.reflect_ty_eq ~loc:c2.Location.loc ja
-    and eqb = Jdg.reflect_ty_eq ~loc:c3.Location.loc jb in
-    let eq = Jdg.congr_prod_ty ~loc eqa x x eqb in
-    let e = Jdg.refl_of_eq_ty ~loc eq in
-    Runtime.return_term e
+    check_atom c1 >>= fun x ->
+    check_eq_type c2 >>= fun eqa ->
+    check_eq_type c3 >>= fun eqb ->
+    let eq = Jdg.congr_prod ~loc eqa x x eqb in
+    Runtime.return_eq_type eq
 
   | Rsyntax.CongrApply (c1, c2, c3, c4, c5) ->
-    infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
-    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun jh ->
-    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jarg ->
-    infer c4 >>= as_term ~loc:c4.Location.loc >>= fun ja ->
-    infer c5 >>= as_term ~loc:c5.Location.loc >>= fun jb ->
-    let eqh = Jdg.reflect ~loc:c2.Location.loc jh
-    and eqarg = Jdg.reflect ~loc:c3.Location.loc jarg
-    and eqa = Jdg.reflect_ty_eq ~loc:c4.Location.loc ja
-    and eqb = Jdg.reflect_ty_eq ~loc:c5.Location.loc jb in
+    check_atom c1 >>= fun x ->
+    check_eq_term c2 >>= fun eqh ->
+    check_eq_term c3 >>= fun eqarg ->
+    check_eq_type c4 >>= fun eqa ->
+    check_eq_type c5 >>= fun eqb ->
     let eq = Jdg.congr_apply ~loc eqa x x eqb eqh eqarg in
-    let e = Jdg.refl_of_eq ~loc eq in
-    Runtime.return_term e
+    Runtime.return_eq_term eq
 
   | Rsyntax.CongrLambda (c1, c2, c3, c4) ->
-    infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
-    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
-    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
-    infer c4 >>= as_term ~loc:c4.Location.loc >>= fun jbody ->
-    let eqbody = Jdg.reflect ~loc:c4.Location.loc jbody
-    and eqa = Jdg.reflect_ty_eq ~loc:c2.Location.loc ja
-    and eqb = Jdg.reflect_ty_eq ~loc:c3.Location.loc jb in
+    check_atom c1 >>= fun x ->
+    check_eq_type c2 >>= fun eqa ->
+    check_eq_type c3 >>= fun eqb ->
+    check_eq_term c4 >>= fun eqbody ->
     let eq = Jdg.congr_lambda ~loc eqa x x eqb eqbody in
-    let e = Jdg.refl_of_eq ~loc eq in
-    Runtime.return_term e
-
-  | Rsyntax.CongrEq (c1, c2, c3) ->
-    infer c1 >>= as_term ~loc:c1.Location.loc >>= fun jt ->
-    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun jlhs ->
-    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jrhs ->
-    let eqt = Jdg.reflect_ty_eq ~loc:c1.Location.loc jt
-    and eqlhs = Jdg.reflect ~loc:c2.Location.loc jlhs
-    and eqrhs = Jdg.reflect  ~loc:c3.Location.loc jrhs in
-    let eq = Jdg.congr_eq_ty ~loc eqt eqlhs eqrhs in
-    let e = Jdg.refl_of_eq_ty ~loc eq in
-    Runtime.return_term e
-
-  | Rsyntax.CongrRefl (c1, c2) ->
-    infer c1 >>= as_term ~loc:c1.Location.loc >>= fun jt ->
-    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun je ->
-    let eqt = Jdg.reflect_ty_eq ~loc:c1.Location.loc jt
-    and eqe = Jdg.reflect ~loc:c2.Location.loc je in
-    let eq = Jdg.congr_refl ~loc eqt eqe in
-    let e = Jdg.refl_of_eq ~loc eq in
-    Runtime.return_term e
+    Runtime.return_eq_term eq
 
   | Rsyntax.BetaStep (c1, c2, c3, c4, c5) ->
-    infer c1 >>= as_atom ~loc:c1.Location.loc >>= fun x ->
-    infer c2 >>= as_term ~loc:c2.Location.loc >>= fun ja ->
-    infer c3 >>= as_term ~loc:c3.Location.loc >>= fun jb ->
-    infer c4 >>= as_term ~loc:c4.Location.loc >>= fun jbody ->
-    infer c5 >>= as_term ~loc:c5.Location.loc >>= fun jarg ->
-    let eqa = Jdg.reflect_ty_eq ~loc:c2.Location.loc ja
-    and eqb = Jdg.reflect_ty_eq ~loc:c3.Location.loc jb in
+    check_atom c1 >>= fun x ->
+    check_eq_type c2 >>= fun eqa ->
+    check_eq_type c3 >>= fun eqb ->
+    check_is_term c4 >>= fun jbody ->
+    check_is_term c5 >>= fun jarg ->
     let eq = Jdg.beta ~loc eqa x x eqb jbody jarg in
-    let e = Jdg.refl_of_eq ~loc eq in
-    Runtime.return_term e
+    Runtime.return_eq_term eq
 
   | Rsyntax.String s ->
     Runtime.return (Runtime.mk_string s)
 
   | Rsyntax.Occurs (c1,c2) ->
-    infer c1 >>= as_atom ~loc >>= fun a ->
-    infer c2 >>= as_term ~loc >>= fun j ->
+    check_atom c1 >>= fun a ->
+    check_is_term c2 >>= fun j ->
     begin match Jdg.occurs a j with
       | Some jx ->
-        let j = Jdg.term_of_ty (Jdg.atom_ty jx) in
-        Runtime.return (Predefined.from_option (Some (Runtime.mk_term j)))
+        let j = Jdg.atom_ty jx in
+        Runtime.return (Predefined.from_option (Some (Runtime.mk_is_type j)))
       | None ->
         Runtime.return (Predefined.from_option None)
     end
 
   | Rsyntax.Context c ->
-    infer c >>= as_term ~loc >>= fun j ->
+    check_is_term c >>= fun j ->
     let ctx = Jdg.contextof j in
     let xts = Jdg.Ctx.elements ctx in
-    let js = List.map (fun j -> Runtime.mk_term (Jdg.atom_term ~loc j)) xts in
+    let js = List.map (fun j -> Runtime.mk_is_term (Jdg.atom_term ~loc j)) xts in
     Runtime.return (Predefined.mk_list js)
 
   | Rsyntax.Natural c ->
-    infer c >>= as_term ~loc >>= fun j ->
+    check_is_term c >>= fun j ->
     Runtime.lookup_typing_signature >>= fun signature ->
     let eq = Jdg.natural_eq ~loc signature j in
-    let e = Jdg.refl_of_eq_ty ~loc eq in
-    Runtime.return_term e
+    Runtime.return_eq_type eq
 
 and check_default ~loc v t_check =
-  as_term ~loc v >>= fun je ->
+  as_is_term ~loc v >>= fun je ->
   Equal.coerce ~loc je t_check >>=
     begin function
       | Some je -> Runtime.return je
       | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (je, t_check)))
   end
 
-(* 'annot Rsyntax.comp -> Jdg.ty -> Jdg.term Runtime.comp *)
+(* Rsyntax.comp -> Jdg.ty -> Jdg.term Runtime.comp *)
 and check ({Location.thing=c';loc} as c) t_check =
   match c' with
   | Rsyntax.Type
@@ -351,10 +323,9 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.With _
   | Rsyntax.Constant _
   | Rsyntax.Prod _
-  | Rsyntax.Eq _
   | Rsyntax.Apply _
   | Rsyntax.Yield _
-  | Rsyntax.CongrProd _ | Rsyntax.CongrApply _ | Rsyntax.CongrLambda _ | Rsyntax.CongrEq _ | Rsyntax.CongrRefl _
+  | Rsyntax.CongrProd _ | Rsyntax.CongrApply _ | Rsyntax.CongrLambda _
   | Rsyntax.BetaStep _
   | Rsyntax.Ref _
   | Rsyntax.Lookup _
@@ -400,7 +371,7 @@ and check ({Location.thing=c';loc} as c) t_check =
      Runtime.now x v (check c2 t_check)
 
   | Rsyntax.Assume ((x, t), c) ->
-     check_ty t >>= fun t ->
+     check_is_type t >>= fun t ->
      Runtime.add_free ~loc x t (fun _ ->
      check c t_check)
 
@@ -411,25 +382,6 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Lambda (x,u,c) ->
     check_lambda ~loc t_check x u c
 
-  | Rsyntax.Refl c ->
-    Equal.as_eq ~loc t_check >>= begin function
-      | None -> Runtime.(error ~loc (EqualityTypeExpected t_check))
-      | Some (eq, e1, e2) ->
-        let t = Jdg.typeof e1 in
-        check c t >>= fun e ->
-        Equal.equal ~loc e e1 >>= begin function
-          | None -> Runtime.(error ~loc (EqualityFail (e, e1)))
-          | Some eq1 ->
-            Equal.equal ~loc e e2 >>= begin function
-              | None -> Runtime.(error ~loc (EqualityFail (e, e2)))
-              | Some eq2 ->
-                let j = Jdg.mk_refl ~loc eq1 eq2 in
-                let j = Jdg.convert ~loc j (Jdg.symmetry_ty eq) in
-                Runtime.return j
-              end
-          end
-      end
-
 (* check_lambda: loc:Location.t -> Jdg.ty -> Name.ident
                    -> 'annot Rsyntax.comp option -> 'annot Rsyntax.comp
                    -> Jdg.term Runtime.comp *)
@@ -439,7 +391,7 @@ and check_lambda ~loc t_check x u c =
     | Some (eq, a, b) ->
       begin match u with
         | Some u ->
-          check_ty u >>= fun ju ->
+          check_is_type u >>= fun ju ->
           Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.atom_ty a) >>= begin function
             | Some equ -> Runtime.return (ju, equ)
             | None ->
@@ -454,8 +406,8 @@ and check_lambda ~loc t_check x u c =
       Predefined.add_abstracting (Jdg.atom_term ~loc jy)
       (let b = Jdg.substitute_ty ~loc b a (Jdg.convert ~loc (Jdg.atom_term ~loc jy) equ) in
       check c b >>= fun e ->
-      jdg_form ~loc (Jdg.Lambda (jy, e)) >>= fun lam ->
-      let eq_prod = Jdg.congr_prod_ty ~loc equ jy a (Jdg.reflexivity_ty b) in
+      form_is_term ~loc (Jdg.Lambda (jy, e)) >>= fun lam ->
+      let eq_prod = Jdg.congr_prod ~loc equ jy a (Jdg.reflexivity_ty b) in
       let lam = Jdg.convert ~loc lam eq_prod in
       let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
       Runtime.return lam))
@@ -466,8 +418,8 @@ and apply ~loc ~loc_head h c =
   Equal.coerce_fun ~loc h >>= function
     | Some (h, a, _) ->
        check c (Jdg.atom_ty a) >>= fun e ->
-       jdg_form ~loc (Jdg.Apply (h, e)) >>= fun j ->
-       Runtime.return_term j
+       form_is_term ~loc (Jdg.Apply (h, e)) >>= fun j ->
+       Runtime.return_is_term j
     | None ->
        Runtime.(error ~loc:loc_head (FunctionExpected h))
 
@@ -551,10 +503,20 @@ and match_op_cases ~loc op cases vs checking =
   in
   fold cases
 
-and check_ty c : Jdg.ty Runtime.comp =
-  check c Jdg.ty_ty >>= fun j ->
-  Runtime.return (Jdg.is_ty ~loc:c.Location.loc j)
+and check_is_type c : Jdg.ty Runtime.comp =
+  infer c >>= as_is_type ~loc:(c.Location.loc)
 
+and check_is_term c =
+  infer c >>= as_is_term ~loc:c.Location.loc
+
+and check_eq_type c =
+  infer c >>= as_eq_type ~loc:c.Location.loc
+
+and check_eq_term c =
+  infer c >>= as_eq_term ~loc:c.Location.loc
+
+and check_atom c =
+  infer c >>= as_atom ~loc:c.Location.loc
 
 (** Move to toplevel monad *)
 
@@ -565,7 +527,7 @@ let comp_value c =
 
 (* comp_ty: 'a Rsyntax.comp -> Jdg.ty Runtime.toplevel *)
 let comp_ty c =
-  let r = check_ty c in
+  let r = check_is_type c in
   Runtime.top_handle ~loc:(c.Location.loc) r
 
 let comp_handle (xs,y,c) =
@@ -575,7 +537,7 @@ let comp_handle (xs,y,c) =
            begin match y with
            | Some _ ->
               let checking = match checking with
-                | Some jt -> Some (Runtime.mk_term (Jdg.term_of_ty jt))
+                | Some jt -> Some (Runtime.mk_is_type jt)
                 | None -> None
               in
               let vy = Predefined.from_option checking in

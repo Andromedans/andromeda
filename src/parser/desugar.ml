@@ -195,7 +195,13 @@ let mlty ctx params ty =
       | Input.ML_Anonymous ->
          Dsyntax.ML_Anonymous
 
-      | Input.ML_Judgment -> Dsyntax.ML_Judgment
+      | Input.ML_IsType -> Dsyntax.ML_IsType
+
+      | Input.ML_IsTerm -> Dsyntax.ML_IsTerm
+
+      | Input.ML_EqType -> Dsyntax.ML_EqType
+
+      | Input.ML_EqTerm -> Dsyntax.ML_EqTerm
 
       | Input.ML_String -> Dsyntax.ML_String
       end

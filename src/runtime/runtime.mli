@@ -83,7 +83,8 @@ type error =
   | UnannotatedLambda of Name.ident
   | MatchFail of value
   | FailureFail of value
-  | InvalidEqual of Jdg.ty
+  | InvalidEqualTerm of Jdg.term * Jdg.term
+  | InvalidEqualType of Jdg.ty * Jdg.ty
   | EqualityTypeExpected of Jdg.ty
   | InvalidAsEquality of Jdg.ty
   | ProductExpected of Jdg.ty

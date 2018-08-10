@@ -225,7 +225,7 @@ let match_op_pattern ps pt vs checking =
       | None -> xvs
       | Some p ->
         let v = match checking with
-          | Some j -> Predefined.from_option (Some (Runtime.mk_is_term j))
+          | Some j -> Predefined.from_option (Some (Runtime.mk_is_type j))
           | None -> Predefined.from_option None
        in
        collect_pattern env xvs p v

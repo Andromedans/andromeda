@@ -21,11 +21,15 @@ val definitions : Input.toplevel list
 
 (** {6 Runtime computations to invoke operations} *)
 
-(** A computation that, when run, invokes the [equal] operation on the given
-    terms (wrapped as AML values), and then returns the resulting term if any
-    (unwrapped from an AML value to a type theoretical judgment
+(** A computation that, when run, invokes the [eq_term] operation on the given
+    terms (wrapped as AML values), and then returns the resulting term equation if any.
  *)
-val operation_equal : loc:Location.t -> Jdg.term -> Jdg.term -> Jdg.term option Runtime.comp
+val operation_equal_term : loc:Location.t -> Jdg.term -> Jdg.term -> Jdg.eq_term option Runtime.comp
+
+(** A computation that, when run, invokes the [eq_type] operation on the given
+    terms (wrapped as AML values), and then returns the resulting term equation if any.
+ *)
+val operation_equal_type : loc:Location.t -> Jdg.ty -> Jdg.ty -> Jdg.eq_ty option Runtime.comp
 
 (** A computation that, when run, invokes the [coerce] operation
     on the given type theory term and desired type, and decodes
@@ -42,13 +46,7 @@ val operation_coerce_fun : loc:Location.t -> Jdg.term -> coercible Runtime.comp
     given type; unwraps the resulting evidence (if any) that the given
     type is equal to a Pi type.
  *)
-val operation_as_prod : loc:Location.t -> Jdg.ty -> Jdg.term option Runtime.comp
-
-(** A computation that, when run, invokes the [as_eq] operration on the
-    given type; unwraps the resulting evidence (if any) that the given
-    type is equal to an == type.
- *)
-val operation_as_eq : loc:Location.t -> Jdg.ty -> Jdg.term option Runtime.comp
+val operation_as_prod : loc:Location.t -> Jdg.ty -> Jdg.eq_ty option Runtime.comp
 
 (** {6 translation between AML and ML values} *)
 
@@ -77,4 +75,3 @@ val as_option : loc:Location.t -> Runtime.value -> Runtime.value option
     dynamic variable [hypotheses] to run the given computation.
  *)
 val add_abstracting : Jdg.term -> 'a Runtime.comp -> 'a Runtime.comp
-

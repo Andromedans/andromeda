@@ -56,7 +56,8 @@
 %token UATOM UCONSTANT
 
 (* Meta types *)
-%token JUDGMENT MLUNIT MLSTRING
+%token MLUNIT MLSTRING
+%token MLISTYPE MLISTERM MLEQTYPE MLEQTERM
 %token MLTYPE
 %token OF
 
@@ -517,7 +518,10 @@ simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
   | c=var_name                          { ML_TyApply (c, []) }
-  | JUDGMENT                            { ML_Judgment }
+  | MLISTYPE                           { ML_IsType }
+  | MLISTERM                           { ML_IsTerm }
+  | MLEQTYPE                           { ML_IsType }
+  | MLEQTERM                           { ML_IsTerm }
   | MLUNIT                              { ML_Prod [] }
   | MLSTRING                            { ML_String }
   | UNDERSCORE                          { ML_Anonymous }

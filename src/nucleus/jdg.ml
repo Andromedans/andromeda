@@ -45,6 +45,7 @@ type error =
   | SubstitutionInvalidType of Name.atom * TT.ty * TT.ty
   | InvalidApplication
   | NotAType
+  | AlphaEqualTypeMismatch of TT.ty * TT.ty
   | InvalidConvert of TT.ty * TT.ty
   | RuleInputMismatch of string * TT.ty * string * TT.ty * string
 
@@ -357,6 +358,10 @@ let print_error ~penv err ppf = match err with
     Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
       (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
 
+  | AlphaEqualTypeMismatch (t1, t2) ->
+    Format.fprintf ppf "Alpha equality only produces witnesses of equality between terms at alpha equal types, but got@ %t@ and@ %t@."
+      (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
+
   | RuleInputMismatch (rule, t1, desc1, t2, desc2) ->
     Format.fprintf ppf "@[<v>In the %s rule, the following types should be identical\
 :@,   @[<hov>%t@]@ (%s) and@,   @[<hov>%t@]@ (%s)@]@."
@@ -531,6 +536,25 @@ let reflexivity (Term (ctx, e, t)) =
 
 let reflexivity_ty (Ty (ctx, t)) =
   EqTy (ctx, t, t)
+
+let mk_alpha_equal_ty ~loc (Ty (ctx1, t1)) (Ty (ctx2, t2)) =
+  match TT.alpha_equal_ty t1 t2 with
+  | false -> None
+  | true ->
+     let ctx = Ctx.join ~loc ctx1 ctx2 in
+     Some (EqTy (ctx, t1, t2))
+
+let mk_alpha_equal ~loc (Term (ctx1, e1, ty1)) (Term (ctx2, e2, ty2)) =
+  match TT.alpha_equal_ty ty1 ty2 with
+  | false -> error ~loc (AlphaEqualTypeMismatch (ty1, ty2))
+  | true ->
+     begin match TT.alpha_equal e1 e2 with
+     | false -> None
+     | true ->
+        let ctx = Ctx.join ~loc ctx1 ctx2 in
+        let e2 = TT.mention_atoms (TT.assumptions_term e1) e2 in
+        Some (EqTerm (ctx, e1, e2, ty1))
+     end
 
 let alpha_equal (Term (_, e1, _)) (Term (_, e2, _)) =
   TT.alpha_equal e1 e2

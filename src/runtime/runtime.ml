@@ -89,7 +89,8 @@ type error =
   | UnannotatedLambda of Name.ident
   | MatchFail of value
   | FailureFail of value
-  | InvalidEqual of Jdg.ty
+  | InvalidEqualTerm of Jdg.term * Jdg.term
+  | InvalidEqualType of Jdg.ty * Jdg.ty
   | EqualityTypeExpected of Jdg.ty
   | InvalidAsEquality of Jdg.ty
   | ProductExpected of Jdg.ty
@@ -558,9 +559,15 @@ let print_error ~penv err ppf =
      Format.fprintf ppf "expected to fail but computed@ %t"
                     (print_value ~penv v)
 
-  | InvalidEqual j ->
-     Format.fprintf ppf "this should be a witness of %t"
-                    (Jdg.print_ty ~penv:penv j)
+  | InvalidEqualTerm (e1, e2) ->
+     Format.fprintf ppf "this should be equality of terms %t@ and@ %t"
+                    (Jdg.print_term ~penv:penv e1)
+                    (Jdg.print_term ~penv:penv e2)
+
+  | InvalidEqualType (t1, t2) ->
+     Format.fprintf ppf "this should be equality of types %t@ and@ %t"
+                    (Jdg.print_ty ~penv:penv t1)
+                    (Jdg.print_ty ~penv:penv t2)
 
   | EqualityTypeExpected j ->
      Format.fprintf ppf "expected an equality type but got@ %t"
