@@ -43,6 +43,8 @@ let rec generalizable c = match c.Location.thing with
   | Rsyntax.CongrProd _
   | Rsyntax.CongrApply _
   | Rsyntax.CongrLambda _
+  | Rsyntax.Reflexivity_term _
+  | Rsyntax.Reflexivity_type _
   | Rsyntax.BetaStep _
   | Rsyntax.Occurs _
   | Rsyntax.Context _
@@ -467,6 +469,14 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     check_comp c3 Mlty.EqType >>= fun c3 ->
     check_comp c4 Mlty.EqTerm >>= fun c4 ->
     return (locate ~loc (Rsyntax.CongrLambda (c1, c2, c3, c4)), Mlty.EqTerm)
+
+  | Dsyntax.Reflexivity_term c ->
+     check_comp c Mlty.IsTerm >>= fun c ->
+     return (locate ~loc (Rsyntax.Reflexivity_term c), Mlty.EqTerm)
+
+  | Dsyntax.Reflexivity_type c ->
+     check_comp c Mlty.IsType >>= fun c ->
+     return (locate ~loc (Rsyntax.Reflexivity_type c), Mlty.EqType)
 
   | Dsyntax.BetaStep (c1, c2, c3, c4, c5) ->
     check_comp c1 Mlty.IsTerm >>= fun c1 ->

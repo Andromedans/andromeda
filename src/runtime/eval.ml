@@ -270,6 +270,16 @@ let rec infer {Location.thing=c'; loc} =
     let eq = Jdg.congr_lambda ~loc eqa x x eqb eqbody in
     Runtime.return_eq_term eq
 
+  | Rsyntax.Reflexivity_term c ->
+     check_is_term c >>= fun je ->
+     let eq = Jdg.reflexivity je in
+     Runtime.return_eq_term eq
+
+  | Rsyntax.Reflexivity_type c ->
+     check_is_type c >>= fun jt ->
+     let eq = Jdg.reflexivity_ty jt in
+     Runtime.return_eq_type eq
+
   | Rsyntax.BetaStep (c1, c2, c3, c4, c5) ->
     check_atom c1 >>= fun x ->
     check_eq_type c2 >>= fun eqa ->
@@ -332,6 +342,7 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Apply _
   | Rsyntax.Yield _
   | Rsyntax.CongrProd _ | Rsyntax.CongrApply _ | Rsyntax.CongrLambda _
+  | Rsyntax.Reflexivity_term _ | Rsyntax.Reflexivity_type _
   | Rsyntax.BetaStep _
   | Rsyntax.Ref _
   | Rsyntax.Lookup _
