@@ -28,6 +28,7 @@ type error =
   | InvalidTermPatternName : Name.ident * 'a info -> error
   | InvalidPatternName : Name.ident * 'a info -> error
   | InvalidAppliedPatternName : Name.ident * 'a info -> error
+  | TermPatternExpected
   | ArityMismatch of Name.ident * int * int
   | UnboundYield
   | ParallelShadowing of Name.ident
@@ -43,6 +44,7 @@ let print_error err ppf = match err with
   | InvalidTermPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a term pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidAppliedPatternName (x, info) -> Format.fprintf ppf "%t cannot be applied in a pattern as it is %t." (Name.print_ident x) (print_info info)
+  | TermPatternExpected -> Format.fprintf ppf "This pattern should match terms but it matches types."
   | ArityMismatch (x, used, expected) -> Format.fprintf ppf "%t expects %d arguments but is used with %d." (Name.print_ident x) expected used
   | UnboundYield -> Format.fprintf ppf "yield may only appear in a handler's operation cases."
   | ParallelShadowing x -> Format.fprintf ppf "%t is bound more than once." (Name.print_ident x)
@@ -222,48 +224,45 @@ let mk_prod ~loc ys t =
     t ys
 
 (* n is the length of vars *)
-let rec tt_pattern ctx vars n {Location.thing=p;loc} =
+let rec term_pattern ctx vars n {Location.thing=p;loc} =
   match p with
-  | Input.Tt_Anonymous ->
-     (locate Pattern.Tt_Anonymous loc), vars, n
+  | Input.Patt_TT_Anonymous ->
+     (locate Pattern.Term_Anonymous loc), vars, n
 
-  | Input.Tt_As (p,x) ->
+  | Input.Patt_TT_As (p,x) ->
      begin match Name.assoc_ident x vars with
      | Some i ->
-        let p, vars, n = tt_pattern ctx vars n p in
-        (locate (Pattern.Tt_As (p,i)) loc), vars, n
+        let p, vars, n = term_pattern ctx vars n p in
+        (locate (Pattern.Term_As (p,i)) loc), vars, n
      | None ->
         let i = n in
-        let p, vars, n = tt_pattern ctx ((x,n)::vars) (n+1) p in
-        (locate (Pattern.Tt_As (p,i)) loc), vars, n
+        let p, vars, n = term_pattern ctx ((x,n)::vars) (n+1) p in
+        (locate (Pattern.Term_As (p,i)) loc), vars, n
      end
 
-  | Input.Tt_Var x ->
+  | Input.Patt_TT_Var x ->
      begin match Name.assoc_ident x vars with
      | Some i ->
-        locate (Pattern.Tt_As ((locate Pattern.Tt_Anonymous loc), i)) loc, vars, n
+        locate (Pattern.Term_As ((locate Pattern.Term_Anonymous loc), i)) loc, vars, n
      | None ->
-        locate (Pattern.Tt_As ((locate Pattern.Tt_Anonymous loc), n)) loc, ((x,n)::vars), (n+1)
+        locate (Pattern.Term_As ((locate Pattern.Term_Anonymous loc), n)) loc, ((x,n)::vars), (n+1)
      end
 
-  | Input.Tt_Type ->
-     (locate Pattern.Tt_Type loc), vars, n
-
-  | Input.Tt_Name x ->
+  | Input.Patt_TT_Name x ->
      begin match Ctx.find ~loc x ctx with
-     | Variable i -> locate (Pattern.Tt_Bound i) loc, vars, n
-     | Constant -> locate (Pattern.Tt_Constant x) loc, vars, n
+     | Variable i -> locate (Pattern.Term_Bound i) loc, vars, n
+     | Constant -> locate (Pattern.Term_Constant x) loc, vars, n
      | Constructor _ | Operation _ as info -> error ~loc (InvalidTermPatternName (x, info))
      end
 
-  | Input.Tt_Lambda (lst, p) ->
+  | Input.Patt_TT_Lambda (lst, p) ->
      let rec fold ctx vars n = function
-       | [] -> tt_pattern ctx vars n p
+       | [] -> term_pattern ctx vars n p
        | (x, popt) :: lst ->
           let popt, vars, n = match popt with
             | None -> None, vars, n
             | Some p ->
-               let p, vars, n = tt_pattern ctx vars n p in
+               let p, vars, n = type_pattern ctx vars n p in
                Some p, vars, n
           in
           let x, bopt, vars, n =
@@ -282,29 +281,74 @@ let rec tt_pattern ctx vars n {Location.thing=p;loc} =
           in
           let ctx = Ctx.add_variable x ctx in
           let p, vars, n = fold ctx vars n lst in
-          locate (Pattern.Tt_Lambda (x,bopt,popt,p)) loc, vars, n
+          locate (Pattern.Term_Lambda (x,bopt,popt,p)) loc, vars, n
      in
      fold ctx vars n lst
 
-  | Input.Tt_Spine (p, ps) ->
+  | Input.Patt_TT_Spine (p, ps) ->
      let rec fold p vars n = function
        | [] -> p, vars, n
        | q :: lst ->
-          let q, vars, n = tt_pattern ctx vars n q in
-          let p = locate (Pattern.Tt_Apply (p, q)) loc in
+          let q, vars, n = term_pattern ctx vars n q in
+          let p = locate (Pattern.Term_Apply (p, q)) loc in
           fold p vars n lst
      in
-     let p, vars, n = tt_pattern ctx vars n p in
+     let p, vars, n = term_pattern ctx vars n p in
      fold p vars n ps
 
-  | Input.Tt_Prod (lst, p) ->
+  | Input.Patt_TT_GenAtom p ->
+     let p, vars, n = term_pattern ctx vars n p in
+     locate (Pattern.Term_GenAtom p) loc, vars, n
+
+  | Input.Patt_TT_GenConstant p ->
+     let p, vars, n = term_pattern ctx vars n p in
+     locate (Pattern.Term_GenConstant p) loc, vars, n
+
+  | Input.Patt_TT_Type | Input.Patt_TT_Prod _ | Input.Patt_TT_El _ ->
+     error ~loc TermPatternExpected
+
+and type_pattern ctx vars n ({Location.thing=p';loc} as p) =
+  match p' with
+
+  | Input.Patt_TT_Anonymous ->
+     (locate Pattern.Type_Anonymous loc), vars, n
+
+  | Input.Patt_TT_As (p,x) ->
+     begin match Name.assoc_ident x vars with
+     | Some i ->
+        let p, vars, n = type_pattern ctx vars n p in
+        (locate (Pattern.Type_As (p,i)) loc), vars, n
+     | None ->
+        let i = n in
+        let p, vars, n = type_pattern ctx ((x,n)::vars) (n+1) p in
+        (locate (Pattern.Type_As (p,i)) loc), vars, n
+     end
+
+  | Input.Patt_TT_Var x ->
+     begin match Name.assoc_ident x vars with
+     | Some i ->
+        locate (Pattern.Type_As ((locate Pattern.Type_Anonymous loc), i)) loc, vars, n
+     | None ->
+        locate (Pattern.Type_As ((locate Pattern.Type_Anonymous loc), n)) loc, ((x,n)::vars), (n+1)
+     end
+
+  | Input.Patt_TT_Name x ->
+     begin match Ctx.find ~loc x ctx with
+     | Variable i -> locate (Pattern.Type_Bound i) loc, vars, n
+     | Constant ->
+        let pc = locate (Pattern.Term_Constant x) loc in
+        locate (Pattern.Type_El pc) loc, vars, n
+     | Constructor _ | Operation _ as info -> error ~loc (InvalidTermPatternName (x, info))
+     end
+
+  | Input.Patt_TT_Prod (lst, p) ->
      let rec fold ctx vars n = function
-       | [] -> tt_pattern ctx vars n p
+       | [] -> type_pattern ctx vars n p
        | (x, popt) :: lst ->
           let popt, vars, n = match popt with
             | None -> None, vars, n
             | Some p ->
-               let p, vars, n = tt_pattern ctx vars n p in
+               let p, vars, n = type_pattern ctx vars n p in
                Some p, vars, n
           in
           let x, bopt, vars, n =
@@ -323,74 +367,78 @@ let rec tt_pattern ctx vars n {Location.thing=p;loc} =
           in
           let ctx = Ctx.add_variable x ctx in
           let p, vars, n = fold ctx vars n lst in
-          locate (Pattern.Tt_Prod (x,bopt,popt,p)) loc, vars, n
+          locate (Pattern.Type_Prod (x,bopt,popt,p)) loc, vars, n
      in
      fold ctx vars n lst
 
-  | Input.Tt_Eq (p1,p2) ->
-     let p1, vars, n = tt_pattern ctx vars n p1 in
-     let p2, vars, n = tt_pattern ctx vars n p2 in
-     locate (Pattern.Tt_Eq (p1,p2)) loc, vars, n
+  | Input.Patt_TT_Type ->
+     (locate Pattern.Type_Type loc), vars, n
 
-  | Input.Tt_Refl p ->
-     let p, vars, n = tt_pattern ctx vars n p in
-     locate (Pattern.Tt_Refl p) loc, vars, n
+  | Input.Patt_TT_El p ->
+     let p, vars, n = term_pattern ctx vars n p in
+     locate (Pattern.Type_El p) loc, vars, n
 
-  | Input.Tt_GenAtom p ->
-     let p, vars, n = tt_pattern ctx vars n p in
-     locate (Pattern.Tt_GenAtom p) loc, vars, n
+  | (Input.Patt_TT_Lambda _ | Input.Patt_TT_Spine _ | Input.Patt_TT_GenAtom _ | Input.Patt_TT_GenConstant _) ->
+     let p, vars, n = term_pattern ctx vars n p in
+     locate (Pattern.Type_El p) loc, vars, n
 
-  | Input.Tt_GenConstant p ->
-     let p, vars, n = tt_pattern ctx vars n p in
-     locate (Pattern.Tt_GenConstant p) loc, vars, n
-
-and pattern ctx vars n {Location.thing=p; loc} =
+let rec pattern ctx vars n {Location.thing=p; loc} =
   match p with
-  | Input.Patt_Anonymous -> locate Pattern.Patt_Anonymous loc, vars, n
+  | Input.Patt_Anonymous -> locate Pattern.Anonymous loc, vars, n
 
   | Input.Patt_As (p,x) ->
      begin match Name.assoc_ident x vars with
      | Some i ->
         let p, vars, n = pattern ctx vars n p in
-        locate (Pattern.Patt_As (p,i)) loc, vars, n
+        locate (Pattern.As (p,i)) loc, vars, n
      | None ->
         let i = n in
         let p, vars, n = pattern ctx ((x,i)::vars) (n+1) p in
-        locate (Pattern.Patt_As (p,i)) loc, vars, n
+        locate (Pattern.As (p,i)) loc, vars, n
      end
 
   | Input.Patt_Var x ->
      begin match Name.assoc_ident x vars with
      | Some i ->
-        locate (Pattern.Patt_As (locate Pattern.Patt_Anonymous loc, i)) loc, vars, n
+        locate (Pattern.As (locate Pattern.Anonymous loc, i)) loc, vars, n
      | None ->
-        locate (Pattern.Patt_As (locate Pattern.Patt_Anonymous loc, n)) loc, ((x,n)::vars), (n+1)
+        locate (Pattern.As (locate Pattern.Anonymous loc, n)) loc, ((x,n)::vars), (n+1)
      end
 
   | Input.Patt_Name x ->
      begin match Ctx.find ~loc x ctx with
      | Variable i ->
-        locate (Pattern.Patt_Bound i) loc, vars, n
+        locate (Pattern.Bound i) loc, vars, n
      | Constructor k ->
         if k = 0
-        then locate (Pattern.Patt_Constructor (x,[])) loc, vars, n
+        then locate (Pattern.Constructor (x,[])) loc, vars, n
         else error ~loc (ArityMismatch (x, 0, k))
      | Constant ->
-        let p = locate (Pattern.Tt_Constant x) loc in
-        let pt = locate Pattern.Tt_Anonymous loc in
-        locate (Pattern.Patt_Jdg (p, pt)) loc, vars, n
+        let p = locate (Pattern.Term_Constant x) loc in
+        let pt = locate Pattern.Type_Anonymous loc in
+        locate (Pattern.IsTerm (p, pt)) loc, vars, n
      | Operation _ as info -> error ~loc (InvalidPatternName (x, info))
      end
 
-  | Input.Patt_Jdg (p1, Some p2) ->
-     let p1, vars, n = tt_pattern ctx vars n p1 in
-     let p2, vars, n = tt_pattern ctx vars n p2 in
-     locate (Pattern.Patt_Jdg (p1,p2)) loc, vars, n
+  | Input.Patt_IsTerm (pe, pt) ->
+     let pe, vars, n = term_pattern ctx vars n pe in
+     let pt, vars, n = type_pattern ctx vars n pt in
+     locate (Pattern.IsTerm (pe, pt)) loc, vars, n
 
-  | Input.Patt_Jdg (p1, None) ->
-     let p1, vars, n = tt_pattern ctx vars n p1
-     and p2 = Location.locate (Pattern.Tt_Anonymous) Location.unknown in
-     locate (Pattern.Patt_Jdg (p1, p2)) loc, vars, n
+  | Input.Patt_IsType pt ->
+     let pt, vars, n = type_pattern ctx vars n pt in
+     locate (Pattern.IsType pt) loc, vars, n
+
+  | Input.Patt_EqTerm (pe1, pe2, pt) ->
+     let pe1, vars, n = term_pattern ctx vars n pe1 in
+     let pe2, vars, n = term_pattern ctx vars n pe2 in
+     let pt, vars, n = type_pattern ctx vars n pt in
+     locate (Pattern.EqTerm (pe1, pe2, pt)) loc, vars, n
+
+  | Input.Patt_EqType (pt1, pt2) ->
+     let pt1, vars, n = type_pattern ctx vars n pt1 in
+     let pt2, vars, n = type_pattern ctx vars n pt2 in
+     locate (Pattern.EqType (pt1, pt2)) loc, vars, n
 
   | Input.Patt_Constr (c,ps) ->
      begin match Ctx.find ~loc c ctx with
@@ -401,7 +449,7 @@ and pattern ctx vars n {Location.thing=p; loc} =
           let rec fold vars n ps = function
             | [] ->
                let ps = List.rev ps in
-               locate (Pattern.Patt_Constructor (c,ps)) loc, vars, n
+               locate (Pattern.Constructor (c,ps)) loc, vars, n
             | p::rem ->
                let p, vars, n = pattern ctx vars n p in
                fold vars n (p::ps) rem
@@ -415,11 +463,11 @@ and pattern ctx vars n {Location.thing=p; loc} =
 
   | Input.Patt_List ps ->
      let rec fold ~loc vars n = function
-       | [] -> locate (Pattern.Patt_Constructor (Name.Predefined.nil, [])) loc, vars, n
+       | [] -> locate (Pattern.Constructor (Name.Predefined.nil, [])) loc, vars, n
        | p :: ps ->
           let p, vars, n = pattern ctx vars n p in
           let ps, vars, n = fold ~loc:(p.Location.loc) vars n ps in
-          locate (Pattern.Patt_Constructor (Name.Predefined.cons, [p ; ps])) loc, vars, n
+          locate (Pattern.Constructor (Name.Predefined.cons, [p ; ps])) loc, vars, n
      in
      fold ~loc vars n ps
 
@@ -427,7 +475,7 @@ and pattern ctx vars n {Location.thing=p; loc} =
      let rec fold vars n ps = function
        | [] ->
           let ps = List.rev ps in
-          locate (Pattern.Patt_Tuple ps) loc, vars, n
+          locate (Pattern.Tuple ps) loc, vars, n
        | p::rem ->
           let p, vars, n = pattern ctx vars n p in
           fold vars n (p::ps) rem
@@ -542,15 +590,6 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      in
      fold ctx [] xs
 
-  | Input.Eq (c1, c2) ->
-     let c1 = comp ~yield ctx c1
-     and c2 = comp ~yield ctx c2 in
-     locate (Dsyntax.Eq (c1, c2)) loc
-
-  | Input.Refl c ->
-     let c = comp ~yield ctx c in
-     locate (Dsyntax.Refl c) loc
-
   | Input.Var x ->
      begin match Ctx.find ~loc x ctx with
      | Variable i -> locate (Dsyntax.Bound i) loc
@@ -622,17 +661,6 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      and e3 = comp ~yield ctx e3
      and e4 = comp ~yield ctx e4 in
      locate (Dsyntax.CongrLambda (e1, e2, e3, e4)) loc
-
-  | Input.CongrEq (e1, e2, e3) ->
-     let e1 = comp ~yield ctx e1
-     and e2 = comp ~yield ctx e2
-     and e3 = comp ~yield ctx e3 in
-     locate (Dsyntax.CongrEq (e1, e2, e3)) loc
-
-  | Input.CongrRefl (e1, e2) ->
-     let e1 = comp ~yield ctx e1
-     and e2 = comp ~yield ctx e2 in
-     locate (Dsyntax.CongrRefl (e1, e2)) loc
 
   | Input.BetaStep (e1, e2, e3, e4, e5) ->
      let e1 = comp ~yield ctx e1

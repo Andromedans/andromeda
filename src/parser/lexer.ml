@@ -3,6 +3,7 @@ open Parser
 
 let reserved = [
   ("Type", TYPE) ;
+  ("El", EL) ;
   ("is_type", MLISTYPE) ;
   ("is_term", MLISTERM) ;
   ("eq_type", MLEQTYPE) ;
@@ -17,8 +18,6 @@ let reserved = [
   ("congr_prod", CONGR_PROD) ;
   ("congr_apply", CONGR_APPLY) ;
   ("congr_lambda", CONGR_LAMBDA) ;
-  ("congr_eq", CONGR_EQ) ;
-  ("congr_refl", CONGR_REFL) ;
   ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("current", CURRENT) ;
@@ -46,7 +45,6 @@ let reserved = [
   ("operation", OPERATION) ;
   ("rec", REC) ;
   ("ref", REF) ;
-  ("refl", REFL) ;
   ("require", REQUIRE) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;

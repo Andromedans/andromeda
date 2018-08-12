@@ -2,18 +2,14 @@
   open Input
 %}
 
-(* Type *)
-%token TYPE
+(* Type and El *)
+%token TYPE EL
 
 (* Products *)
 %token PROD LAMBDA
 
 (* Infix operations *)
 %token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
-
-(* Equality types *)
-%token EQEQ
-%token REFL
 
 (* Names and numerals *)
 %token UNDERSCORE
@@ -41,12 +37,12 @@
 %token <Name.ident> PATTVAR
 %token MATCH
 %token AS
-%token VDASH
+%token VDASH EQEQ
 
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 %token SEMICOLON
 
-%token CONGR_PROD CONGR_APPLY CONGR_LAMBDA CONGR_EQ CONGR_REFL
+%token CONGR_PROD CONGR_APPLY CONGR_LAMBDA
 %token BETA_STEP
 
 %token NATURAL
@@ -144,28 +140,23 @@ plain_term:
   | NOW x=term EQ c1=term IN c2=term                             { Now (x,c1,c2) }
   | CURRENT c=term                                               { Current c }
   | ASSUME x=var_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
-  | c1=equal_term WHERE e=simple_term EQ c2=term                 { Where (c1, e, c2) }
+  | c1=binop_term WHERE e=simple_term EQ c2=term                 { Where (c1, e, c2) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_cases END                     { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                    { With (h, c) }
   | HANDLER hcs=handler_cases END                                { Handler (hcs) }
   | e=app_term COLON t=ty_term                                   { Ascribe (e, t) }
-  | e1=equal_term SEMICOLON e2=term                              { Sequence (e1, e2) }
+  | e1=binop_term SEMICOLON e2=term                              { Sequence (e1, e2) }
   | CONTEXT c=prefix_term                                        { Context c }
   | OCCURS c1=prefix_term c2=prefix_term                         { Occurs (c1,c2) }
 
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
-  | e=plain_equal_term                               { e }
+  | e=plain_binop_term                               { e }
   | PROD a=prod_abstraction COMMA e=term             { Prod (a, e) }
   | LAMBDA a=lambda_abstraction COMMA e=term         { Lambda (a, e) }
   | FUNCTION xs=ml_arg+ DARROW e=term                { Function (xs, e) }
-  | t1=equal_term ARROW t2=ty_term                   { Prod ([(Name.anonymous (), t1)], t2) }
-
-equal_term: mark_location(plain_equal_term) { $1 }
-plain_equal_term:
-  | e=plain_binop_term                               { e }
-  | e1=binop_term EQEQ e2=binop_term                 { Eq (e1, e2) }
+  | t1=binop_term ARROW t2=ty_term                   { Prod ([(Name.anonymous (), t1)], t2) }
 
 binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
@@ -186,10 +177,6 @@ plain_app_term:
     { CongrApply (e1, e2, e3, e4, e5) }
   | CONGR_LAMBDA e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term
     { CongrLambda (e1, e2, e3, e4) }
-  | CONGR_EQ e1=prefix_term e2=prefix_term e3=prefix_term
-    { CongrEq (e1, e2, e3) }
-  | CONGR_REFL e1=prefix_term e2=prefix_term
-    { CongrRefl (e1, e2) }
   | BETA_STEP e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
     { BetaStep (e1, e2, e3, e4, e5) }
 
@@ -205,14 +192,13 @@ plain_prefix_term:
     }
   | NATURAL t=prefix_term                      { Natural t }
   | YIELD e=prefix_term                        { Yield e }
-  | REFL e=prefix_term                         { Refl e }
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
   | TYPE                                                { Type }
   | x=var_name                                          { Var x }
   | s=QUOTED_STRING                                     { String s }
-  | LBRACK lst=separated_list(COMMA, equal_term) RBRACK { List lst }
+  | LBRACK lst=separated_list(COMMA, binop_term) RBRACK { List lst }
   | LPAREN c=term COLONGT t=ml_schema RPAREN            { MLAscribe (c, t) }
   | LPAREN lst=separated_list(COMMA, term) RPAREN       { match lst with
                                                           | [{Location.thing=e;loc=_}] -> e
@@ -349,10 +335,12 @@ match_case:
 
 pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
-  | p=plain_binop_pattern                   { p }
-  | p=simple_pattern AS x=patt_var          { Patt_As (p,x) }
-  | VDASH e1=tt_pattern COLON e2=tt_pattern { Patt_Jdg (e1, Some e2) }
-  | VDASH e1=tt_pattern                     { Patt_Jdg (e1, None) }
+  | p=plain_binop_pattern                     { p }
+  | p=simple_pattern AS x=patt_var            { Patt_As (p,x) }
+  | VDASH pe=tt_pattern COLON pt=tt_pattern { Patt_IsTerm (pe, pt) }
+  | VDASH pt=tt_pattern                       { Patt_IsType pt }
+  | VDASH pe1=tt_pattern EQEQ pe2=tt_pattern COLON pt=tt_pattern  { Patt_EqTerm (pe1, pe2, pt) }
+  | VDASH pt1=tt_pattern EQEQ pt2=tt_pattern  { Patt_EqType (pt1, pt2) }
 
 binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
@@ -387,51 +375,51 @@ plain_simple_pattern:
     }
   | LBRACK ps=separated_list(COMMA, pattern) RBRACK { Patt_List ps }
 
+(* Term or type pattern (disambiguation is performed during desugaring) *)
 tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
-  | p=plain_equal_tt_pattern                     { p }
-  | LAMBDA a=tt_abstraction COMMA p=tt_pattern   { Tt_Lambda (a, p) }
-  | PROD a=tt_abstraction COMMA p=tt_pattern     { Tt_Prod (a, p) }
-  | p1=equal_tt_pattern ARROW p2=tt_pattern      { Tt_Prod ([(NonPattVar (Name.anonymous ()), Some p1)], p2) }
-  | p=app_tt_pattern AS x=patt_var               { Tt_As (p,x) }
-
-equal_tt_pattern: mark_location(plain_equal_tt_pattern) { $1 }
-plain_equal_tt_pattern:
-  | p=plain_binop_tt_pattern                      { p }
-  | p1=binop_tt_pattern EQEQ p2=binop_tt_pattern  { Tt_Eq (p1, p2) }
+  | LAMBDA a=tt_abstraction COMMA p=tt_pattern   { Patt_TT_Lambda (a, p) }
+  | p=app_tt_pattern AS x=patt_var               { Patt_TT_As (p,x) }
+  | p=plain_binop_tt_pattern                     { p }
+  | PROD a=tt_abstraction COMMA p=tt_pattern     { Patt_TT_Prod (a, p) }
+  | p1=simple_tt_pattern ARROW p2=tt_pattern     { Patt_TT_Prod ([(NonPattVar (Name.anonymous ()), Some p1)], p2) }
 
 binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
 plain_binop_tt_pattern:
   | p=plain_app_tt_pattern                        { p }
   | e1=binop_tt_pattern oploc=infix e2=binop_tt_pattern
     { let (op, loc) = oploc in
-      let op = Location.locate (Tt_Name op) loc in
-      Tt_Spine (op, [e1; e2])
+      let op = Location.locate (Patt_TT_Name op) loc in
+      Patt_TT_Spine (op, [e1; e2])
     }
 
 app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
 plain_app_tt_pattern:
   | p=plain_prefix_tt_pattern                                { p }
-  | p=prefix_tt_pattern ps=nonempty_list(prefix_tt_pattern)  { Tt_Spine (p, ps) }
+  | p=prefix_tt_pattern ps=nonempty_list(prefix_tt_pattern)  { Patt_TT_Spine (p, ps) }
+  | EL pe=prefix_tt_pattern                                  { Patt_TT_El pe }
 
 prefix_tt_pattern: op=mark_location(plain_prefix_tt_pattern) { op }
 plain_prefix_tt_pattern:
   | p=plain_simple_tt_pattern        { p }
-  | REFL p=prefix_tt_pattern         { Tt_Refl p }
-  | UATOM p=prefix_tt_pattern        { Tt_GenAtom p }
-  | UCONSTANT p=prefix_tt_pattern    { Tt_GenConstant p }
+  | UATOM p=prefix_tt_pattern        { Patt_TT_GenAtom p }
+  | UCONSTANT p=prefix_tt_pattern    { Patt_TT_GenConstant p }
   | oploc=prefix e=prefix_tt_pattern
     { let (op, loc) = oploc in
-      let op = Location.locate (Tt_Name op) loc in
-      Tt_Spine (op, [e])
+      let op = Location.locate (Patt_TT_Name op) loc in
+      Patt_TT_Spine (op, [e])
     }
 
+simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
 plain_simple_tt_pattern:
-  | UNDERSCORE                                                           { Tt_Anonymous }
-  | TYPE                                                                 { Tt_Type }
-  | x=patt_var                                                           { Tt_Var x }
-  | x=var_name                                                           { Tt_Name x }
-  | LPAREN p=plain_tt_pattern RPAREN                                     { p }
+  | UNDERSCORE                        { Patt_TT_Anonymous }
+  | x=patt_var                        { Patt_TT_Var x }
+  | x=var_name                        { Patt_TT_Name x }
+  | TYPE                              { Patt_TT_Type }
+  | LPAREN p=plain_tt_pattern RPAREN  { p }
+
+
+
 
 (* The TT pattern for abstraction follows the lambda abstraction syntax *)
 tt_name:

@@ -5,7 +5,6 @@ type 'a located = 'a Location.located
 (** Bound variables are de Bruijn indices *)
 type bound = int
 
-
 (** Term pattern *)
 type is_term = is_term' located
 and is_term' =
@@ -27,14 +26,6 @@ and is_type' =
   | Type_Type
   | Type_Prod of Name.ident * bound option * is_type option * is_type
   | Type_El of is_term
-
-(** Term equality pattern *)
-type eq_term = eq_term' located
-and eq_term' = EqTerm of is_term * is_term * is_type
-
-(** Type equality pattern *)
-type eq_type = eq_type' located
-and eq_type' = EqType of is_type * is_type
 
 (** AML pattern *)
 type aml = aml' located

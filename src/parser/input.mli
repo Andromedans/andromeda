@@ -43,24 +43,19 @@ type tt_variable =
 type ml_arg = Name.ident * arg_annotation
 
 (** Sugared term patterns *)
-type is_term_pattern = is_term_pattern' Location.located
-and is_term_pattern' =
-  | Patt_IsTerm_Anonymous
-  | Patt_IsTerm_As of is_term_pattern * Name.ident
-  | Patt_IsTerm_Var of Name.ident (* pattern variable *)
-  | Patt_IsTerm_Name of Name.ident
-  | Patt_IsTerm_Lambda of (tt_variable * is_type_pattern option) list * is_term_pattern
-  | Patt_IsTerm_Spine of is_term_pattern * is_term_pattern list
-  | Patt_IsTerm_GenAtom of is_term_pattern
-  | Patt_IsTerm_GenConstant of is_term_pattern
-
-and is_type_pattern = is_type_pattern' Location.located
-and is_type_pattern' =
-  | Patt_IsType_Anonymous
-  | Patt_IsType_Var of Name.ident (* pattern variable *)
-  | Patt_IsType_Type
-  | Patt_IsType_Prod of (tt_variable * is_type_pattern option) list * is_type_pattern
-  | Patt_IsType_El of is_term_pattern
+type tt_pattern = tt_pattern' Location.located
+and tt_pattern' =
+  | Patt_TT_Anonymous
+  | Patt_TT_As of tt_pattern * Name.ident
+  | Patt_TT_Var of Name.ident (* pattern variable *)
+  | Patt_TT_Name of Name.ident
+  | Patt_TT_Lambda of (tt_variable * tt_pattern option) list * tt_pattern
+  | Patt_TT_Spine of tt_pattern * tt_pattern list
+  | Patt_TT_GenAtom of tt_pattern
+  | Patt_TT_GenConstant of tt_pattern
+  | Patt_TT_Type
+  | Patt_TT_Prod of (tt_variable * tt_pattern option) list * tt_pattern
+  | Patt_TT_El of tt_pattern
 
 and pattern = pattern' Location.located
 and pattern' =
@@ -68,8 +63,10 @@ and pattern' =
   | Patt_As of pattern * Name.ident
   | Patt_Var of Name.ident
   | Patt_Name of Name.ident
-  | Patt_IsTerm of is_term_pattern * is_type_pattern option
-  | Patt_IsType of is_type_pattern
+  | Patt_IsTerm of tt_pattern * tt_pattern
+  | Patt_IsType of tt_pattern
+  | Patt_EqTerm of tt_pattern * tt_pattern * tt_pattern
+  | Patt_EqType of tt_pattern * tt_pattern
   | Patt_Constr of Name.ident * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
@@ -101,14 +98,10 @@ and term' =
   | Lambda of (Name.ident * comp option) list * comp
   | Spine of comp * comp list
   | Prod of (Name.ident * ty) list * comp
-  | Eq of comp * comp
-  | Refl of comp
   | Yield of comp
   | CongrProd of comp * comp * comp
   | CongrApply of comp * comp * comp * comp * comp
   | CongrLambda of comp * comp * comp * comp
-  | CongrEq of comp * comp * comp
-  | CongrRefl of comp * comp
   | BetaStep of comp * comp * comp * comp * comp
   | String of string
   | Context of comp
