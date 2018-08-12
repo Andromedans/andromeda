@@ -187,7 +187,7 @@ let rec pattern xts {Location.thing=p; loc} =
   | Pattern.EqType (p1, p2) ->
     is_type_pattern xts p1 >>= fun () ->
     is_type_pattern xts p2 >>= fun () ->
-    Tyenv.return Mlty.EqTerm
+    Tyenv.return Mlty.EqType
 
   | Pattern.Constructor (c, ps) ->
     Tyenv.lookup_constructor c >>= fun (ts, out) ->
