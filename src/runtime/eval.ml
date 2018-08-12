@@ -68,6 +68,11 @@ let rec infer {Location.thing=c'; loc} =
       form_is_type ~loc Jdg.Type >>=
       Runtime.return_is_type
 
+    | Rsyntax.El c ->
+       check_is_term c >>= fun e ->
+       form_is_type ~loc (Jdg.El e) >>=
+       Runtime.return_is_type
+
     | Rsyntax.Function (_, c) ->
        let f v =
          Runtime.add_bound v
@@ -313,6 +318,7 @@ and check_default ~loc v t_check =
 and check ({Location.thing=c';loc} as c) t_check =
   match c' with
   | Rsyntax.Type
+  | Rsyntax.El _
   | Rsyntax.Bound _
   | Rsyntax.Function _
   | Rsyntax.Handler _

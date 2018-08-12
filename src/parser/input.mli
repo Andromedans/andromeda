@@ -76,6 +76,7 @@ type term = term' Location.located
 and term' =
   | Var of Name.ident
   | Type
+  | El of comp
   | Function of ml_arg list * comp
   | Handler of handle_case list
   | Handle of comp * handle_case list

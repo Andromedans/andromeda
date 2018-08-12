@@ -605,6 +605,10 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
   | Input.Type ->
      locate Dsyntax.Type loc
 
+  | Input.El c ->
+     let c = comp ~yield ctx c in
+     locate (Dsyntax.El c) loc
+
   | Input.Yield c ->
      if yield
      then

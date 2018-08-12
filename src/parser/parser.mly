@@ -172,6 +172,7 @@ app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_prefix_term                             { e }
   | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
+  | EL e=prefix_term                                { El e }
   | CONGR_PROD e1=prefix_term e2=prefix_term e3=prefix_term { CongrProd (e1, e2, e3) }
   | CONGR_APPLY e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
     { CongrApply (e1, e2, e3, e4, e5) }

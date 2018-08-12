@@ -23,6 +23,7 @@ let rec generalizable c = match c.Location.thing with
 
   (* no *)
   | Rsyntax.Type
+  | Rsyntax.El _
   | Rsyntax.Operation _
   | Rsyntax.With _
   | Rsyntax.Now _
@@ -251,7 +252,11 @@ let match_op_case xs ps popt argts m =
 let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty) Tyenv.tyenvM =
   match c with
   | Dsyntax.Type ->
-    return (locate ~loc Rsyntax.Type, Mlty.IsTerm)
+    return (locate ~loc Rsyntax.Type, Mlty.IsType)
+
+  | Dsyntax.El c ->
+    check_comp c Mlty.IsTerm >>= fun c ->
+    Tyenv.return (locate ~loc (Rsyntax.El c), Mlty.IsType)
 
   | Dsyntax.Bound k ->
     Tyenv.lookup_var k >>= fun t ->
@@ -422,7 +427,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
       | Some ct -> check_comp ct Mlty.IsType >>= fun ct -> return (Some ct)
       | None -> Tyenv.return None
     end >>= fun copt ->
-    Tyenv.add_var x Mlty.IsTerm (check_comp c Mlty.IsType) >>= fun c ->
+    Tyenv.add_var x Mlty.IsTerm (check_comp c Mlty.IsTerm) >>= fun c ->
     Tyenv.return (locate ~loc (Rsyntax.Lambda (x, copt, c)), Mlty.IsTerm)
 
   | Dsyntax.Apply (c1, c2) ->

@@ -24,6 +24,7 @@ type let_annotation =
 type comp = comp' located
 and comp' =
   | Type
+  | El of comp
   | Bound of bound
   | Function of Name.ident * comp
   | Handler of handler
