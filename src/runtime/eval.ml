@@ -275,9 +275,32 @@ let rec infer {Location.thing=c'; loc} =
      let eq = Jdg.reflexivity je in
      Runtime.return_eq_term eq
 
+  | Rsyntax.Symmetry_term c ->
+     check_eq_term c >>= fun jeq ->
+     let eq = Jdg.symmetry jeq in
+     Runtime.return_eq_term eq
+
+  | Rsyntax.Transitivity_term (c1, c2) ->
+     check_eq_term c1 >>= fun jeq1 ->
+     check_eq_term c2 >>= fun jeq2 ->
+     let eq = Jdg.transitivity_term ~loc jeq1 jeq2 in
+     Runtime.return_eq_term eq
+
+
   | Rsyntax.Reflexivity_type c ->
      check_is_type c >>= fun jt ->
      let eq = Jdg.reflexivity_ty jt in
+     Runtime.return_eq_type eq
+
+  | Rsyntax.Symmetry_type c ->
+     check_eq_type c >>= fun jeq ->
+     let eq = Jdg.symmetry_ty jeq in
+     Runtime.return_eq_type eq
+
+  | Rsyntax.Transitivity_type (c1, c2) ->
+     check_eq_type c1 >>= fun jeq1 ->
+     check_eq_type c2 >>= fun jeq2 ->
+     let eq = Jdg.transitivity_ty ~loc jeq1 jeq2 in
      Runtime.return_eq_type eq
 
   | Rsyntax.BetaStep (c1, c2, c3, c4, c5) ->
@@ -343,6 +366,8 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Yield _
   | Rsyntax.CongrProd _ | Rsyntax.CongrApply _ | Rsyntax.CongrLambda _
   | Rsyntax.Reflexivity_term _ | Rsyntax.Reflexivity_type _
+  | Rsyntax.Symmetry_term _ | Rsyntax.Symmetry_type _
+  | Rsyntax.Transitivity_term _ | Rsyntax.Transitivity_type _
   | Rsyntax.BetaStep _
   | Rsyntax.Ref _
   | Rsyntax.Lookup _

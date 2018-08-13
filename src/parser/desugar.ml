@@ -670,9 +670,27 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      let e = comp ~yield ctx e
      in locate (Dsyntax.Reflexivity_term e) loc
 
+  | Input.Symmetry_term e ->
+     let e = comp ~yield ctx e
+     in locate (Dsyntax.Symmetry_term e) loc
+
+  | Input.Transitivity_term (e1, e2) ->
+     let e1 = comp ~yield ctx e1
+     and e2 = comp ~yield ctx e2 in
+     locate (Dsyntax.Transitivity_term (e1, e2)) loc
+
   | Input.Reflexivity_type e ->
      let e = comp ~yield ctx e
      in locate (Dsyntax.Reflexivity_type e) loc
+
+  | Input.Symmetry_type e ->
+     let e = comp ~yield ctx e
+     in locate (Dsyntax.Symmetry_type e) loc
+
+  | Input.Transitivity_type (e1, e2) ->
+     let e1 = comp ~yield ctx e1
+     and e2 = comp ~yield ctx e2 in
+     locate (Dsyntax.Transitivity_type (e1, e2)) loc
 
   | Input.BetaStep (e1, e2, e3, e4, e5) ->
      let e1 = comp ~yield ctx e1

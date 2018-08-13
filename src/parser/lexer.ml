@@ -45,8 +45,12 @@ let reserved = [
   ("operation", OPERATION) ;
   ("rec", REC) ;
   ("ref", REF) ;
-  ("reflexivity_term", REFLEXIVITY_TERM) ;
   ("reflexivity_type", REFLEXIVITY_TYPE) ;
+  ("symmetry_type", SYMMETRY_TYPE) ;
+  ("transitivity_type", TRANSITIVITY_TYPE) ;
+  ("reflexivity_term", REFLEXIVITY_TERM) ;
+  ("symmetry_term", SYMMETRY_TERM) ;
+  ("transitivity_term", TRANSITIVITY_TERM) ;
   ("require", REQUIRE) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;

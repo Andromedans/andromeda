@@ -52,8 +52,12 @@ and comp' =
   | CongrProd of comp * comp * comp
   | CongrApply of comp * comp * comp * comp * comp
   | CongrLambda of comp * comp * comp * comp
-  | Reflexivity_term of comp
   | Reflexivity_type of comp
+  | Symmetry_type of comp
+  | Transitivity_type of comp * comp
+  | Reflexivity_term of comp
+  | Symmetry_term of comp
+  | Transitivity_term of comp * comp
   | BetaStep of comp * comp * comp * comp * comp
   | String of string
   | Occurs of comp * comp

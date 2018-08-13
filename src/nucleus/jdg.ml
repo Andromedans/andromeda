@@ -46,6 +46,7 @@ type error =
   | InvalidApplication
   | NotAType
   | AlphaEqualTypeMismatch of TT.ty * TT.ty
+  | AlphaEqualTermMismatch of TT.term * TT.term
   | InvalidConvert of TT.ty * TT.ty
   | RuleInputMismatch of string * TT.ty * string * TT.ty * string
 
@@ -359,8 +360,12 @@ let print_error ~penv err ppf = match err with
       (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
 
   | AlphaEqualTypeMismatch (t1, t2) ->
-    Format.fprintf ppf "Alpha equality only produces witnesses of equality between terms at alpha equal types, but got@ %t@ and@ %t@."
+    Format.fprintf ppf "The types@ %t@ and@ %t@ should be alpha equal."
       (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
+
+  | AlphaEqualTermMismatch (e1, e2) ->
+    Format.fprintf ppf "The terms@ %t@ and@ %t@ should be alpha equal."
+      (TT.print_term ~penv e1) (TT.print_term ~penv e2)
 
   | RuleInputMismatch (rule, t1, desc1, t2, desc2) ->
     Format.fprintf ppf "@[<v>In the %s rule, the following types should be identical\
@@ -573,6 +578,25 @@ let alpha_equal_eq_ty ~loc (Ty (ctx1, t1)) (Ty (ctx2, t2)) =
 let symmetry (EqTerm (ctx, e1, e2, t)) = EqTerm (ctx, e2, e1, t)
 
 let symmetry_ty (EqTy (ctx, t1, t2)) = EqTy (ctx, t2, t1)
+
+let transitivity_term ~loc (EqTerm (ctx, e1, e2, t)) (EqTerm (ctx', e1', e2', t')) =
+  match TT.alpha_equal_ty t t' with
+  | false -> error ~loc (AlphaEqualTypeMismatch (t, t'))
+  | true ->
+     begin match TT.alpha_equal e2 e1' with
+     | false -> error ~loc (AlphaEqualTermMismatch (e2, e1'))
+     | true ->
+        let ctx = Ctx.join ~loc ctx ctx' in
+        EqTerm (ctx, e1, e2', t)
+     end
+
+let transitivity_ty ~loc (EqTy (ctx1, t1, t2)) (EqTy (ctx2, u1, u2)) =
+  begin match TT.alpha_equal_ty t2 u1 with
+     | false -> error ~loc (AlphaEqualTypeMismatch (t2, u1))
+     | true ->
+        let ctx = Ctx.join ~loc ctx1 ctx2 in
+        EqTy (ctx, t1, u2)
+     end
 
 (** Beta *)
 

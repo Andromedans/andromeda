@@ -163,6 +163,12 @@ val symmetry : eq_term -> eq_term
 (** If [A == B] then [B == A] *)
 val symmetry_ty : eq_ty -> eq_ty
 
+(** If [e1 == e2 : A] and [e2 == e3 : A] then [e1 == e2 : A] *)
+val transitivity_term : loc:Location.t -> eq_term -> eq_term -> eq_term
+
+(** If [A == B] and [B == C] then [A == C] *)
+val transitivity_ty : loc:Location.t -> eq_ty -> eq_ty -> eq_ty
+
 (** Beta reduction *)
 
 (** If [A1 == A2], [B1 == B2], [e1 : B1] and [e2 : A2] then [(lambda A1 B1 e1) @[A2 B2] e2 == e1[e2] : B2[e2]]. *)
