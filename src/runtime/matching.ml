@@ -37,7 +37,7 @@ let rec collect_is_term env xvs p j =
      then xvs
      else raise Match_fail
 
-  | Pattern.Term_Lambda (x,bopt,popt,p), Jdg.Lambda (jy,je) ->
+  | Pattern.Term_Abstract (x,bopt,popt,p), Jdg.Abstract (jy,je) ->
      let xvs = begin match popt with
        | Some pt -> collect_is_type env xvs pt (Jdg.atom_ty jy)
        | None -> xvs
@@ -64,7 +64,7 @@ let rec collect_is_term env xvs p j =
     let j = Jdg.form ~loc signature (Jdg.Constant c) in
     collect_is_term env xvs p j
 
-  | (Pattern.Term_Constant _ | Pattern.Term_Apply _ | Pattern.Term_Lambda _ |
+  | (Pattern.Term_Constant _ | Pattern.Term_Apply _ | Pattern.Term_Abstract _ |
      Pattern.Term_GenAtom _ | Pattern.Term_GenConstant _) , _ ->
      raise Match_fail
 

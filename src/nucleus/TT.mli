@@ -30,7 +30,7 @@ and term' = private
   | Constant of Name.constant
 
   (** a lambda abstraction [fun (x1 : t1) -> e : t] *)
-  | Lambda of (term * ty) ty_abstraction
+  | Abstract of (term * ty) ty_abstraction
 
   (** an application tagged with the type at wich it happens *)
   | Apply of term * ty ty_abstraction * term
@@ -57,7 +57,7 @@ and 'a ty_abstraction = (ty, 'a) abstraction
 (** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
 val mk_constant: loc:Location.t -> Name.ident -> term
-val mk_lambda: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
+val mk_abstract: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
 val mk_apply: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
 
 val mk_type: loc:Location.t -> ty

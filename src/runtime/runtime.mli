@@ -80,7 +80,7 @@ type error =
   | AnnotationMismatch of Jdg.ty * Jdg.ty
   | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
   | EqualityFail of Jdg.term * Jdg.term
-  | UnannotatedLambda of Name.ident
+  | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
   | InvalidEqualTerm of Jdg.term * Jdg.term

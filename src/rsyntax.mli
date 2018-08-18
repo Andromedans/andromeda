@@ -45,13 +45,13 @@ and comp' =
   | Match of comp * match_case list
   | Ascribe of comp * comp
   | Constant of Name.ident
-  | Lambda of Name.ident * comp option * comp
+  | Abstract of Name.ident * comp option * comp
   | Apply of comp * comp
   | Prod of Name.ident * comp * comp
   | Yield of comp
   | CongrProd of comp * comp * comp
   | CongrApply of comp * comp * comp * comp * comp
-  | CongrLambda of comp * comp * comp * comp
+  | CongrAbstract of comp * comp * comp * comp
   | Reflexivity_type of comp
   | Symmetry_type of comp
   | Transitivity_type of comp * comp

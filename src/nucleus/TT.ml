@@ -16,7 +16,7 @@ and term' =
   | Atom of Name.atom
   | Bound of bound
   | Constant of Name.constant
-  | Lambda of (term * ty) ty_abstraction
+  | Abstract of (term * ty) ty_abstraction
   | Apply of term * ty ty_abstraction * term
 
 and ty = (ty' assumptions) Location.located
@@ -53,9 +53,9 @@ let mk_constant ~loc x =
     }
     loc
 
-let mk_lambda ~loc x a e b =
+let mk_abstract ~loc x a e b =
   Location.locate
-    { thing = Lambda ((x, a), (e, b))
+    { thing = Abstract ((x, a), (e, b))
     ; assumptions = hyp_union (ty_hyps a) (List.map Assumption.bind1 [ty_hyps b; e.Location.thing.assumptions]) ;
     }
     loc
@@ -136,11 +136,11 @@ let rec at_var atom bound hyps ~lvl ({Location.loc=loc;thing={thing=e';assumptio
     | Constant _ as term -> Location.locate {thing=term;assumptions} loc
     | Atom x -> atom ~lvl x assumptions loc
     | Bound k -> bound ~lvl k assumptions loc
-    | Lambda ((x,a),(e,b)) ->
+    | Abstract ((x,a),(e,b)) ->
       let a = at_var_ty atom bound hyps ~lvl a
       and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b
       and e = at_var atom bound hyps ~lvl:(lvl+1) e in
-      let term = Lambda ((x,a),(e,b)) in
+      let term = Abstract ((x,a),(e,b)) in
       Location.locate {thing=term;assumptions} loc
     | Apply (e1,((x,a),b),e2) ->
       let a = at_var_ty atom bound hyps ~lvl a
@@ -260,7 +260,7 @@ let rec occurs k {Location.loc;thing={thing=e';_}} =
   | Atom _ -> false
   | Bound m -> k = m
   | Constant x -> false
-  | Lambda a -> occurs_abstraction occurs_ty occurs_term_ty k a
+  | Abstract a -> occurs_abstraction occurs_ty occurs_term_ty k a
   | Apply (e1, xtst, e2) ->
     occurs k e1 ||
     occurs_abstraction occurs_ty occurs_ty k xtst ||
@@ -292,7 +292,7 @@ let rec alpha_equal {Location.thing={thing=e1;_};_} {Location.thing={thing=e2;_}
 
     | Constant x, Constant y -> Name.eq_ident x y
 
-    | Lambda abs, Lambda abs' ->
+    | Abstract abs, Abstract abs' ->
       alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
 
     | Apply (e1, xts, e2), Apply (e1', xts', e2') ->
@@ -300,7 +300,7 @@ let rec alpha_equal {Location.thing={thing=e1;_};_} {Location.thing={thing=e2;_}
       alpha_equal_abstraction alpha_equal_ty alpha_equal_ty xts xts' &&
       alpha_equal e2 e2'
 
-    | (Atom _ | Bound _ | Constant _ | Lambda _ | Apply _), _ ->
+    | (Atom _ | Bound _ | Constant _ | Abstract _ | Apply _), _ ->
       false
   end
 
@@ -334,13 +334,13 @@ let print_binders ~penv print_u print_v xus ppf =
     | [] -> penv
     | (x,u) :: xus ->
        let y = Name.refresh penv.forbidden x in
-       Print.print ppf "@;<1 -4>(%t : %t)"
+       Print.print ppf "@;<1 -4>{%t : %t}"
                    (Name.print_ident y)
                    (print_u ~penv u) ;
        fold ~penv:(add_forbidden y penv) xus
   in
   let penv = fold ~penv xus in
-  Print.print ppf ",@ %t" (print_v ~penv) ;
+  Print.print ppf "@ %t" (print_v ~penv) ;
   Format.pp_close_box ppf ()
 
 let rec print_term ?max_level ~penv {Location.thing={thing=e;_};_} ppf =
@@ -356,7 +356,7 @@ and print_term' ~penv ?max_level e ppf =
 
   | Bound k -> Name.print_debruijn penv.forbidden k ppf
 
-  | Lambda a -> print_lambda ?max_level ~penv a ppf
+  | Abstract a -> print_abstract ?max_level ~penv a ppf
 
   | Apply (e1, _, e2) -> print_app ?max_level ~penv e1 e2 ppf
 
@@ -386,7 +386,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
 
     | Constant (Name.Ident (_, (Name.Word | Name.Anonymous _| Name.Infix _)))
     | Atom (Name.Atom (_, (Name.Word | Name.Anonymous _| Name.Infix _), _))
-    | Lambda _ | Apply _ -> None
+    | Abstract _ | Apply _ -> None
   in
   match e1_prefix with
   | Some (As_atom op) ->
@@ -422,7 +422,7 @@ and print_app ?max_level ~penv e1 e2 ppf =
 
            | Apply _ (* Spelling out exactly which cases are not covered is quite
                         verbose, so we do not do it. *)
-           | Lambda _ | Atom _ | Constant _ | Bound _ ->
+           | Abstract _ | Atom _ | Constant _ | Bound _ ->
              None
          end
        in
@@ -443,26 +443,25 @@ and print_app ?max_level ~penv e1 e2 ppf =
      end
 
 
-(** [print_lambda a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
-and print_lambda ?max_level ~penv ((x, u), (e, _)) ppf =
+(** [print_abstract ?max_level ~pend ((x,u), (e,t)) ppf] prints an abstraction using formatter [ppf]. *)
+and print_abstract ?max_level ~penv ((x, u), (e, _)) ppf =
   let x = (if not (occurs 0 e) then Name.anonymous () else x) in
   let rec collect xus e =
     match e.Location.thing.thing with
-    | Lambda ((x, u), (e, _)) ->
+    | Abstract ((x, u), (e, _)) ->
        let x = (if not (occurs 0 e) then Name.anonymous () else x) in
        collect ((x, u) :: xus) e
     | _ ->
        (List.rev xus, e)
   in
   let xus, e = collect [(x,u)] e in
-  Print.print ?max_level ~at_level:Level.binder ppf "%s%t"
-    (Print.char_lambda ())
+  Print.print ?max_level ~at_level:Level.binder ppf "%t"
     (print_binders ~penv
                    (print_ty ~max_level:Level.ascription)
                    (fun ~penv -> print_term ~max_level:Level.in_binder ~penv e)
                    xus)
 
-(** [print_prod a e t ppf] prints a lambda abstraction using formatter [ppf]. *)
+(** [print_prod a e t ppf] prints a abstract abstraction using formatter [ppf]. *)
 and print_prod ?max_level ~penv ((x, u), t) ppf =
   if not (occurs_ty 0 t) then
     Print.print ?max_level ~at_level:Level.arr ppf "%t@ %s@ %t"
@@ -505,8 +504,8 @@ struct
 
       | Constant c -> Json.tag "Constant" [Name.Json.ident c]
 
-      | Lambda (xt, (e, u)) ->
-         Json.tag "Lambda" [abstraction xt (Json.tuple [term e; ty u])]
+      | Abstract (xt, (e, u)) ->
+         Json.tag "Abstract" [abstraction xt (Json.tuple [term e; ty u])]
 
       | Apply (e1, (xt, u), e2) -> Json.tag "Apply" [term e1; abstraction xt (ty u); term e2]
 

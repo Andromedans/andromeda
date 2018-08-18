@@ -81,7 +81,7 @@ type 'a abstraction = atom * 'a
 type shape =
   | Atom of atom
   | Constant of Name.constant
-  | Lambda of term abstraction
+  | Abstract of term abstraction
     (** Apply (j1,j2) means (up to alpha equivalence)
         - j1 = ctx1 |- e1 : forall x: A,B
         - j2 = ctx2 |- e2 : A
@@ -180,9 +180,9 @@ val beta : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> term -> term -> e
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side product. *)
 val congr_prod : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_ty
 
-(** If [A1 == A2], [B1 == B2] and [e1 == e2 : B1] then [lambda A1. B1. e1 == lambda A2. B2. e2 : prod A1 B1].
+(** If [A1 == A2], [B1 == B2] and [e1 == e2 : B1] then [{x : A1} (e1 : B1) == {x : A2} (e2 : B2) : {x : A1} B1].
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side. *)
-val congr_lambda : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term
+val congr_abstract : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term
 
 (** If [A1 == A2], [B1 == B2], [h1 == h2 : prod A1 B1] and [e1 == e2 : A1], then [h1 @ [A1 . B1] e1 == h2 @ [A2 . B2] e2 : B1[e1]].
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side. *)

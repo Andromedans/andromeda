@@ -213,9 +213,9 @@ let mlty ctx params ty =
   mlty ty
 
 (* TODO improve locs *)
-let mk_lambda ~loc ys c =
+let mk_abstract ~loc ys c =
   List.fold_left
-    (fun c (y,u) -> locate (Dsyntax.Lambda (y,u,c)) loc)
+    (fun c (y,u) -> locate (Dsyntax.Abstract (y,u,c)) loc)
     c ys
 
 let mk_prod ~loc ys t =
@@ -255,7 +255,7 @@ let rec term_pattern ctx vars n {Location.thing=p;loc} =
      | Constructor _ | Operation _ as info -> error ~loc (InvalidTermPatternName (x, info))
      end
 
-  | Input.Patt_TT_Lambda (lst, p) ->
+  | Input.Patt_TT_Abstract (lst, p) ->
      let rec fold ctx vars n = function
        | [] -> term_pattern ctx vars n p
        | (x, popt) :: lst ->
@@ -281,7 +281,7 @@ let rec term_pattern ctx vars n {Location.thing=p;loc} =
           in
           let ctx = Ctx.add_variable x ctx in
           let p, vars, n = fold ctx vars n lst in
-          locate (Pattern.Term_Lambda (x,bopt,popt,p)) loc, vars, n
+          locate (Pattern.Term_Abstract (x,bopt,popt,p)) loc, vars, n
      in
      fold ctx vars n lst
 
@@ -378,7 +378,7 @@ and type_pattern ctx vars n ({Location.thing=p';loc} as p) =
      let p, vars, n = term_pattern ctx vars n p in
      locate (Pattern.Type_El p) loc, vars, n
 
-  | (Input.Patt_TT_Lambda _ | Input.Patt_TT_Spine _ | Input.Patt_TT_GenAtom _ | Input.Patt_TT_GenConstant _) ->
+  | (Input.Patt_TT_Abstract _ | Input.Patt_TT_Spine _ | Input.Patt_TT_GenAtom _ | Input.Patt_TT_GenConstant _) ->
      let p, vars, n = term_pattern ctx vars n p in
      locate (Pattern.Type_El p) loc, vars, n
 
@@ -559,11 +559,11 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      and c = comp ~yield ctx c in
      locate (Dsyntax.Ascribe (c, t)) loc
 
-  | Input.Lambda (xs, c) ->
+  | Input.Abstract (xs, c) ->
      let rec fold ctx ys = function
        | [] ->
           let c = comp ~yield ctx c in
-          mk_lambda ~loc ys c
+          mk_abstract ~loc ys c
        | (x, None) :: xs ->
           let ctx = Ctx.add_variable x ctx
           and ys = (x, None) :: ys in
@@ -659,12 +659,12 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      and e5 = comp ~yield ctx e5 in
      locate (Dsyntax.CongrApply (e1, e2, e3, e4, e5)) loc
 
-  | Input.CongrLambda (e1, e2, e3, e4) ->
+  | Input.CongrAbstract (e1, e2, e3, e4) ->
      let e1 = comp ~yield ctx e1
      and e2 = comp ~yield ctx e2
      and e3 = comp ~yield ctx e3
      and e4 = comp ~yield ctx e4 in
-     locate (Dsyntax.CongrLambda (e1, e2, e3, e4)) loc
+     locate (Dsyntax.CongrAbstract (e1, e2, e3, e4)) loc
 
   | Input.Reflexivity_term e ->
      let e = comp ~yield ctx e

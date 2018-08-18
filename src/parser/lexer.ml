@@ -17,7 +17,7 @@ let reserved = [
   ("beta_step", BETA_STEP) ;
   ("congr_prod", CONGR_PROD) ;
   ("congr_apply", CONGR_APPLY) ;
-  ("congr_lambda", CONGR_LAMBDA) ;
+  ("congr_abstract", CONGR_ABSTRACT) ;
   ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("current", CURRENT) ;
@@ -32,7 +32,6 @@ let reserved = [
   ("handle", HANDLE) ;
   ("handler", HANDLER) ;
   ("in", IN) ;
-  ("lambda", LAMBDA) ;
   ("let", LET) ;
   ("match", MATCH) ;
   ("mlstring", MLSTRING) ;
@@ -58,7 +57,6 @@ let reserved = [
   ("with", WITH) ;
   ("yield", YIELD) ;
   ("Π", PROD) ;
-  ("λ", LAMBDA) ;
   ("∀", PROD) ;
   ("∏", PROD) ;
   ("⊢", VDASH) ;
@@ -125,6 +123,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ')'                      -> f (); RPAREN
   | '['                      -> f (); LBRACK
   | ']'                      -> f (); RBRACK
+  | '{'                      -> f (); LBRACE
+  | '}'                      -> f (); RBRACE
   | "="                      -> f (); EQ
   | ':'                      -> f (); COLON
   | ":>"                     -> f (); COLONGT

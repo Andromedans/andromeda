@@ -208,16 +208,16 @@ let rec infer {Location.thing=c'; loc} =
     form_is_term ~loc (Jdg.Constant x) >>=
     Runtime.return_is_term
 
-  | Rsyntax.Lambda (x, None, _) ->
-    Runtime.(error ~loc (UnannotatedLambda x))
+  | Rsyntax.Abstract (x, None, _) ->
+    Runtime.(error ~loc (UnannotatedAbstract x))
 
-  | Rsyntax.Lambda (x, Some u, c) ->
+  | Rsyntax.Abstract (x, Some u, c) ->
     check_is_type u >>= fun ju ->
     Runtime.add_free ~loc:(u.Location.loc) x ju (fun jy ->
     let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
     Predefined.add_abstracting vy
     (check_is_term c >>= fun je ->
-    form_is_term ~loc (Jdg.Lambda (jy, je)) >>=
+    form_is_term ~loc (Jdg.Abstract (jy, je)) >>=
     Runtime.return_is_term))
 
   | Rsyntax.Apply (c1, c2) ->
@@ -262,12 +262,12 @@ let rec infer {Location.thing=c'; loc} =
     let eq = Jdg.congr_apply ~loc eqa x x eqb eqh eqarg in
     Runtime.return_eq_term eq
 
-  | Rsyntax.CongrLambda (c1, c2, c3, c4) ->
+  | Rsyntax.CongrAbstract (c1, c2, c3, c4) ->
     check_atom c1 >>= fun x ->
     check_eq_type c2 >>= fun eqa ->
     check_eq_type c3 >>= fun eqb ->
     check_eq_term c4 >>= fun eqbody ->
-    let eq = Jdg.congr_lambda ~loc eqa x x eqb eqbody in
+    let eq = Jdg.congr_abstract ~loc eqa x x eqb eqbody in
     Runtime.return_eq_term eq
 
   | Rsyntax.Reflexivity_term c ->
@@ -364,7 +364,7 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Prod _
   | Rsyntax.Apply _
   | Rsyntax.Yield _
-  | Rsyntax.CongrProd _ | Rsyntax.CongrApply _ | Rsyntax.CongrLambda _
+  | Rsyntax.CongrProd _ | Rsyntax.CongrApply _ | Rsyntax.CongrAbstract _
   | Rsyntax.Reflexivity_term _ | Rsyntax.Reflexivity_type _
   | Rsyntax.Symmetry_term _ | Rsyntax.Symmetry_type _
   | Rsyntax.Transitivity_term _ | Rsyntax.Transitivity_type _
@@ -421,13 +421,13 @@ and check ({Location.thing=c';loc} as c) t_check =
      infer c >>=
      match_cases ~loc cases (fun c -> check c t_check)
 
-  | Rsyntax.Lambda (x,u,c) ->
-    check_lambda ~loc t_check x u c
+  | Rsyntax.Abstract (x,u,c) ->
+    check_abstract ~loc t_check x u c
 
-(* check_lambda: loc:Location.t -> Jdg.ty -> Name.ident
+(* check_abstract: loc:Location.t -> Jdg.ty -> Name.ident
                    -> 'annot Rsyntax.comp option -> 'annot Rsyntax.comp
                    -> Jdg.term Runtime.comp *)
-and check_lambda ~loc t_check x u c =
+and check_abstract ~loc t_check x u c =
   Equal.as_prod ~loc t_check >>= function
     | None -> Runtime.(error ~loc (ProductExpected t_check))
     | Some (eq, a, b) ->
@@ -448,7 +448,7 @@ and check_lambda ~loc t_check x u c =
       Predefined.add_abstracting (Jdg.atom_term ~loc jy)
       (let b = Jdg.substitute_ty ~loc b a (Jdg.convert ~loc (Jdg.atom_term ~loc jy) equ) in
       check c b >>= fun e ->
-      form_is_term ~loc (Jdg.Lambda (jy, e)) >>= fun lam ->
+      form_is_term ~loc (Jdg.Abstract (jy, e)) >>= fun lam ->
       let eq_prod = Jdg.congr_prod ~loc equ jy a (Jdg.reflexivity_ty b) in
       let lam = Jdg.convert ~loc lam eq_prod in
       let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in

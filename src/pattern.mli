@@ -12,7 +12,7 @@ and is_term' =
   | Term_As of is_term * bound
   | Term_Bound of bound
   | Term_Constant of Name.ident
-  | Term_Lambda of Name.ident * bound option * is_type option * is_term
+  | Term_Abstract of Name.ident * bound option * is_type option * is_term
   | Term_Apply of is_term * is_term
   | Term_GenAtom of is_term
   | Term_GenConstant of is_term

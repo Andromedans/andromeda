@@ -5,8 +5,8 @@
 (* Type and El *)
 %token TYPE EL
 
-(* Products *)
-%token PROD LAMBDA
+(* Abstractions *)
+%token PROD
 
 (* Infix operations *)
 %token <Name.ident * Location.t> PREFIXOP INFIXOP0 INFIXOP1 INFIXCONS INFIXOP2 STAR INFIXOP3 INFIXOP4
@@ -19,6 +19,7 @@
 (* Parentheses & punctuations *)
 %token LPAREN RPAREN
 %token LBRACK RBRACK
+%token LBRACE RBRACE
 %token COLON COMMA COLONGT
 %token ARROW DARROW
 
@@ -42,7 +43,7 @@
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 %token SEMICOLON
 
-%token CONGR_PROD CONGR_APPLY CONGR_LAMBDA
+%token CONGR_PROD CONGR_APPLY CONGR_ABSTRACT
 %token REFLEXIVITY_TERM REFLEXIVITY_TYPE
 %token SYMMETRY_TERM SYMMETRY_TYPE
 %token TRANSITIVITY_TERM TRANSITIVITY_TYPE
@@ -157,7 +158,7 @@ ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_binop_term                               { e }
   | PROD a=prod_abstraction COMMA e=term             { Prod (a, e) }
-  | LAMBDA a=lambda_abstraction COMMA e=term         { Lambda (a, e) }
+  | a=abstraction e=binop_term                       { Abstract (a, e) }
   | FUNCTION xs=ml_arg+ DARROW e=term                { Function (xs, e) }
   | t1=binop_term ARROW t2=ty_term                   { Prod ([(Name.anonymous (), t1)], t2) }
 
@@ -185,8 +186,8 @@ plain_app_term:
   | CONGR_PROD e1=prefix_term e2=prefix_term e3=prefix_term { CongrProd (e1, e2, e3) }
   | CONGR_APPLY e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
     { CongrApply (e1, e2, e3, e4, e5) }
-  | CONGR_LAMBDA e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term
-    { CongrLambda (e1, e2, e3, e4) }
+  | CONGR_ABSTRACT e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term
+    { CongrAbstract (e1, e2, e3, e4) }
   | BETA_STEP e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
     { BetaStep (e1, e2, e3, e4, e5) }
 
@@ -260,11 +261,11 @@ dyn_annotation:
   | COLONGT t=mlty { Arg_annot_ty t }
 
 typed_binder:
-  | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, t)) xs }
+  | LBRACE xs=name+ COLON t=ty_term RBRACE         { List.map (fun x -> (x, t)) xs }
 
 maybe_typed_binder:
-  | x=name                                         { [(x, None)] }
-  | LPAREN xs=name+ COLON t=ty_term RPAREN         { List.map (fun x -> (x, Some t)) xs }
+  | LBRACE xs=name+ RBRACE                         { List.map (fun x -> (x, None)) xs }
+  | LBRACE xs=name+ COLON t=ty_term RBRACE         { List.map (fun x -> (x, Some t)) xs }
 
 prod_abstraction:
   | lst=nonempty_list(typed_binder)
@@ -272,22 +273,9 @@ prod_abstraction:
   | lst=nonempty_list(name) COLON t=ty_term
     { List.map (fun x -> (x, t)) lst }
 
-lambda_abstraction:
-  | lam=raw_nonempty_lambda_abstraction { fst lam }
-
-raw_nonempty_lambda_abstraction:
-  | x=name lam=raw_lambda_abstraction
-    { let (l,t) = lam in ((x,t)::l,t) }
-  | xs=typed_binder ys=maybe_typed_binder*
-    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
-
-raw_lambda_abstraction:
-  | { ([],None) }
-  | COLON t=ty_term { ([],Some t) }
-  | x=name lam=raw_lambda_abstraction
-    { let (l,t) = lam in ((x,t)::l,t) }
-  | xs=typed_binder ys=maybe_typed_binder*
-    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
+abstraction:
+  | lst=nonempty_list(maybe_typed_binder)
+    { List.concat lst }
 
 handler_cases:
   | BAR lst=separated_nonempty_list(BAR, handler_case)  { lst }
@@ -347,7 +335,7 @@ pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
   | p=plain_binop_pattern                     { p }
   | p=simple_pattern AS x=patt_var            { Patt_As (p,x) }
-  | VDASH pe=tt_pattern COLON pt=tt_pattern { Patt_IsTerm (pe, pt) }
+  | VDASH pe=tt_pattern COLON pt=tt_pattern   { Patt_IsTerm (pe, pt) }
   | VDASH pt=tt_pattern                       { Patt_IsType pt }
   | VDASH pe1=tt_pattern EQEQ pe2=tt_pattern COLON pt=tt_pattern  { Patt_EqTerm (pe1, pe2, pt) }
   | VDASH pt1=tt_pattern EQEQ pt2=tt_pattern  { Patt_EqType (pt1, pt2) }
@@ -388,11 +376,11 @@ plain_simple_pattern:
 (* Term or type pattern (disambiguation is performed during desugaring) *)
 tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
-  | LAMBDA a=tt_abstraction COMMA p=tt_pattern   { Patt_TT_Lambda (a, p) }
-  | p=app_tt_pattern AS x=patt_var               { Patt_TT_As (p,x) }
-  | p=plain_binop_tt_pattern                     { p }
-  | PROD a=tt_abstraction COMMA p=tt_pattern     { Patt_TT_Prod (a, p) }
-  | p1=simple_tt_pattern ARROW p2=tt_pattern     { Patt_TT_Prod ([(NonPattVar (Name.anonymous ()), Some p1)], p2) }
+  | a=tt_abstraction p=binop_tt_pattern           { Patt_TT_Abstract (a, p) }
+  | p=app_tt_pattern AS x=patt_var                { Patt_TT_As (p,x) }
+  | p=plain_binop_tt_pattern                      { p }
+  | PROD a=tt_abstraction COMMA p=tt_pattern      { Patt_TT_Prod (a, p) }
+  | p1=simple_tt_pattern ARROW p2=tt_pattern      { Patt_TT_Prod ([(NonPattVar (Name.anonymous ()), Some p1)], p2) }
 
 binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
 plain_binop_tt_pattern:
@@ -448,31 +436,13 @@ plain_let_pattern:
       | _ -> Patt_Tuple ps
     }
 
-(* TODO It is likely that tt_typed_binder and typed_binder share enough structure that
-   they could be unified and presented as two instances of the same thing. *)
-tt_typed_binder:
-  | LPAREN xs=tt_name+ COLON t=tt_pattern RPAREN         { List.map (fun x -> (x, t)) xs }
-
 tt_maybe_typed_binder:
-  | x=tt_name                                            { [(x, None)] }
-  | LPAREN xs=tt_name+ COLON t=tt_pattern RPAREN         { List.map (fun x -> (x, Some t)) xs }
+  | LBRACE xs=tt_name+ RBRACE                            { List.map (fun x -> (x, None)) xs }
+  | LBRACE xs=tt_name+ COLON t=tt_pattern RBRACE         { List.map (fun x -> (x, Some t)) xs }
 
 tt_abstraction:
-  | lam=raw_nonempty_tt_abstraction { fst lam }
-
-raw_nonempty_tt_abstraction:
-  | x=tt_name lam=raw_tt_abstraction
-    { let (l,t) = lam in ((x,t)::l,t) }
-  | xs=tt_typed_binder ys=tt_maybe_typed_binder*
-    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
-
-raw_tt_abstraction:
-  | { ([],None) }
-  | COLON t=tt_pattern { ([],Some t) }
-  | x=tt_name lam=raw_tt_abstraction
-    { let (l,t) = lam in ((x,t)::l,t) }
-  | xs=tt_typed_binder ys=tt_maybe_typed_binder*
-    { ((List.map (fun (x,t) -> (x,Some t)) xs) @ (List.concat ys), None) }
+  | lst=nonempty_list(tt_maybe_typed_binder)
+    { List.concat lst }
 
 (***)
 

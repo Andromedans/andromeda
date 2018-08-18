@@ -378,7 +378,7 @@ type 'a abstraction = atom * 'a
 type shape =
   | Atom of atom
   | Constant of Name.constant
-  | Lambda of term abstraction
+  | Abstract of term abstraction
   | Apply of term * term
 
 and shape_ty =
@@ -396,13 +396,13 @@ let shape (Term (ctx,e,t)) =
 
     | TT.Constant c -> Constant c
 
-    | TT.Lambda ((x,a),(e,b)) ->
+    | TT.Abstract ((x,a),(e,b)) ->
       let ja = WeakTy (ctx, a) in
       let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
       let b = TT.unabstract_ty [y] b
       and e = TT.unabstract [y] e in
       let je = WeakTerm (ctx, e, b) in
-      Lambda (strengthen_atom jy, strengthen je)
+      Abstract (strengthen_atom jy, strengthen je)
 
 
     | TT.Apply (e1,((x,a),b),e2) ->
@@ -451,13 +451,13 @@ let form ~loc env = function
     let t = Signature.constant_type c env in
     Term (Ctx.empty, TT.mk_constant ~loc c,t)
 
-  | Lambda ((JAtom (ctxa,x,a)),(Term (ctxe,e,b))) ->
+  | Abstract ((JAtom (ctxa,x,a)),(Term (ctxe,e,b))) ->
     let ctx = Ctx.join ~loc ctxe ctxa in
     let ctx = Ctx.abstract ~loc ctx x a in
     let b = TT.abstract_ty [x] b
     and e = TT.abstract [x] e in
     let x = Name.ident_of_atom x in
-    Term (ctx, TT.mk_lambda ~loc x a e b, TT.mk_prod ~loc x a b)
+    Term (ctx, TT.mk_abstract ~loc x a e b, TT.mk_prod ~loc x a b)
 
   | Apply (Term (ctx1,e1,t1), Term (ctx2,e2,t2)) ->
     let ctx = Ctx.join ~loc ctx2 ctx1 in
@@ -598,8 +598,7 @@ let transitivity_ty ~loc (EqTy (ctx1, t1, t2)) (EqTy (ctx2, u1, u2)) =
         EqTy (ctx, t1, u2)
      end
 
-(** Beta *)
-
+(** Beta step, in the future this will be expressible. *)
 let beta ~loc (EqTy (ctxa, a1, a2))
               (JAtom (_, x, _)) (JAtom (_, y, _))
               (EqTy (ctxb, b1, b2))
@@ -624,7 +623,7 @@ let beta ~loc (EqTy (ctxa, a1, a2))
     and e1 = TT.abstract [x] e1
     and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
     let ctx = Ctx.join ~loc ctxa ctxb
-    and lam = TT.mk_lambda ~loc (Name.ident_of_atom x) a1 e1 b1
+    and lam = TT.mk_abstract ~loc (Name.ident_of_atom x) a1 e1 b1
     and e_s = TT.mention_atoms hypsb (TT.instantiate [TT.mention_atoms hypsa e2] e1) in
     let app = TT.mk_apply ~loc lam (Name.ident_of_atom y) a2 b2 e2
     and ty = TT.instantiate_ty [e2] b2 in
@@ -645,12 +644,12 @@ let congr_prod ~loc (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) 
   and rhs = TT.mk_prod ~loc (Name.ident_of_atom y) ta2 b2 in
   EqTy (ctx, lhs, rhs)
 
-let congr_lambda ~loc (EqTy (ctxa, ta1, ta2))
+let congr_abstract ~loc (EqTy (ctxa, ta1, ta2))
                  (JAtom (_, x, _)) (JAtom (_, y, _))
                  (EqTy (ctxb, b1, b2))
                  (EqTerm (ctxe, e1, e2, ty_e)) =
   if not (TT.alpha_equal_ty b1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-lambda",
+  then error ~loc (RuleInputMismatch ("congr-abstract",
             b1, "The left-hand-side in the equality between body types",
             ty_e, "The type at which the body terms are compared"))
   else
@@ -665,8 +664,8 @@ let congr_lambda ~loc (EqTy (ctxa, ta1, ta2))
     and e2 = TT.abstract [y] (TT.substitute [x] [y_mentions] e2)
     and b1 = TT.abstract_ty [x] b1
     and b2 = TT.abstract_ty [x] (TT.substitute_ty [x] [y_mentions] b2) in
-    let lhs = TT.mk_lambda ~loc (Name.ident_of_atom x) ta1 e1 b1
-    and rhs = TT.mention_atoms hypsab (TT.mk_lambda ~loc (Name.ident_of_atom y) ta2 e2 b2)
+    let lhs = TT.mk_abstract ~loc (Name.ident_of_atom x) ta1 e1 b1
+    and rhs = TT.mention_atoms hypsab (TT.mk_abstract ~loc (Name.ident_of_atom y) ta2 e2 b2)
     and ty = TT.mk_prod ~loc (Name.ident_of_atom x) ta1 b1 in
     EqTerm (ctx, lhs, rhs, ty)
 
@@ -718,7 +717,7 @@ let natural_ty ~loc env ctx e =
     | TT.Constant c ->
       Signature.constant_type c env
 
-    | TT.Lambda ((x,a),(_,b)) ->
+    | TT.Abstract ((x,a),(_,b)) ->
       TT.mk_prod ~loc x a b
 
     | TT.Apply (_,(_,b),e2) ->

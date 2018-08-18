@@ -36,13 +36,13 @@ let rec generalizable c = match c.Location.thing with
   | Rsyntax.Match _
   | Rsyntax.Ascribe _
   | Rsyntax.Constant _
-  | Rsyntax.Lambda _
+  | Rsyntax.Abstract _
   | Rsyntax.Apply _
   | Rsyntax.Prod _
   | Rsyntax.Yield _
   | Rsyntax.CongrProd _
   | Rsyntax.CongrApply _
-  | Rsyntax.CongrLambda _
+  | Rsyntax.CongrAbstract _
   | Rsyntax.Reflexivity_term _
   | Rsyntax.Reflexivity_type _
   | Rsyntax.Symmetry_term _
@@ -121,7 +121,7 @@ let rec is_term_pattern xs {Location.thing = p; loc} =
 
   | Pattern.Term_Constant _ -> Tyenv.return ()
 
-  | Pattern.Term_Lambda (x, _, popt, p) ->
+  | Pattern.Term_Abstract (x, _, popt, p) ->
     begin match popt with
       | Some pt -> is_type_pattern xs pt
       | None -> Tyenv.return ()
@@ -428,13 +428,13 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
 
   | Dsyntax.Constant c -> Tyenv.return (locate ~loc (Rsyntax.Constant c), Mlty.IsTerm)
 
-  | Dsyntax.Lambda (x, copt, c) ->
+  | Dsyntax.Abstract (x, copt, c) ->
     begin match copt with
       | Some ct -> check_comp ct Mlty.IsType >>= fun ct -> return (Some ct)
       | None -> Tyenv.return None
     end >>= fun copt ->
     Tyenv.add_var x Mlty.IsTerm (check_comp c Mlty.IsTerm) >>= fun c ->
-    Tyenv.return (locate ~loc (Rsyntax.Lambda (x, copt, c)), Mlty.IsTerm)
+    Tyenv.return (locate ~loc (Rsyntax.Abstract (x, copt, c)), Mlty.IsTerm)
 
   | Dsyntax.Apply (c1, c2) ->
     comp c1 >>= fun (c1, t1) ->
@@ -467,12 +467,12 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     check_comp c5 Mlty.EqType >>= fun c5 ->
     return (locate ~loc (Rsyntax.CongrApply (c1, c2, c3, c4, c5)), Mlty.EqTerm)
 
-  | Dsyntax.CongrLambda (c1, c2, c3, c4) ->
+  | Dsyntax.CongrAbstract (c1, c2, c3, c4) ->
     check_comp c1 Mlty.IsTerm >>= fun c1 ->
     check_comp c2 Mlty.EqType >>= fun c2 ->
     check_comp c3 Mlty.EqType >>= fun c3 ->
     check_comp c4 Mlty.EqTerm >>= fun c4 ->
-    return (locate ~loc (Rsyntax.CongrLambda (c1, c2, c3, c4)), Mlty.EqTerm)
+    return (locate ~loc (Rsyntax.CongrAbstract (c1, c2, c3, c4)), Mlty.EqTerm)
 
   | Dsyntax.Reflexivity_type c ->
      check_comp c Mlty.IsType >>= fun c ->

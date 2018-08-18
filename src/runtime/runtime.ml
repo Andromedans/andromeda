@@ -86,7 +86,7 @@ type error =
   | AnnotationMismatch of Jdg.ty * Jdg.ty
   | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
   | EqualityFail of Jdg.term * Jdg.term
-  | UnannotatedLambda of Name.ident
+  | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
   | InvalidEqualTerm of Jdg.term * Jdg.term
@@ -548,7 +548,7 @@ let print_error ~penv err ppf =
                     (Jdg.print_term ~penv:penv e1)
                     (Jdg.print_term ~penv:penv e2)
 
-  | UnannotatedLambda x ->
+  | UnannotatedAbstract x ->
      Format.fprintf ppf "cannot infer the type of@ %t" (Name.print_ident x)
 
   | MatchFail v ->
