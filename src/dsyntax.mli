@@ -61,12 +61,11 @@ and comp' =
   | Match of comp * match_case list
   | Ascribe of comp * comp
   | Constant of Name.ident
-  | Abstract of Name.ident * comp option * comp
   | Apply of comp * comp
-  | Prod of Name.ident * comp * comp
+  | Abstract of Name.ident * comp option * comp
+  | AbstractTy of Name.ident * comp * comp
   | Yield of comp
-  | CongrProd of comp * comp * comp
-  | CongrApply of comp * comp * comp * comp * comp
+  | CongrAbstractTy of comp * comp * comp
   | CongrAbstract of comp * comp * comp * comp
   | Reflexivity_type of comp
   | Symmetry_type of comp
@@ -74,7 +73,6 @@ and comp' =
   | Reflexivity_term of comp
   | Symmetry_term of comp
   | Transitivity_term of comp * comp
-  | BetaStep of comp * comp * comp * comp * comp
   | String of string
   | Occurs of comp * comp
   | Context of comp

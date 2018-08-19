@@ -13,7 +13,6 @@ and is_term' =
   | Term_Bound of bound
   | Term_Constant of Name.ident
   | Term_Abstract of Name.ident * bound option * is_type option * is_term
-  | Term_Apply of is_term * is_term
   | Term_GenAtom of is_term
   | Term_GenConstant of is_term
 
@@ -24,7 +23,7 @@ and is_type' =
   | Type_As of is_type * bound
   | Type_Bound of bound
   | Type_Type
-  | Type_Prod of Name.ident * bound option * is_type option * is_type
+  | Type_AbstractTy of Name.ident * bound option * is_type option * is_type
   | Type_El of is_term
 
 (** AML pattern *)

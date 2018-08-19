@@ -14,10 +14,8 @@ let reserved = [
   ("and", AND) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
-  ("beta_step", BETA_STEP) ;
-  ("congr_prod", CONGR_PROD) ;
-  ("congr_apply", CONGR_APPLY) ;
   ("congr_abstract", CONGR_ABSTRACT) ;
+  ("congr_abstract_ty", CONGR_ABSTRACT_TY) ;
   ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("current", CURRENT) ;

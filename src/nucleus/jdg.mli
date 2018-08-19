@@ -82,15 +82,10 @@ type shape =
   | Atom of atom
   | Constant of Name.constant
   | Abstract of term abstraction
-    (** Apply (j1,j2) means (up to alpha equivalence)
-        - j1 = ctx1 |- e1 : forall x: A,B
-        - j2 = ctx2 |- e2 : A
-        - ctx1 and ctx2 joinable *)
-  | Apply of term * term
 
 and shape_ty =
   | Type (* universe *)
-  | Prod of ty abstraction
+  | AbstractTy of ty abstraction
   | El of term
 
 (* Inversion principles *)
@@ -99,8 +94,8 @@ val shape_ty : ty -> shape_ty
 val shape_eq_ty : eq_ty -> ty * ty
 val shape_eq_term : eq_term -> term * term * ty
 
-(** Deconstruct a type judgment into a product, if possible. *)
-val shape_prod : ty -> (atom * ty) option
+(** Deconstruct a type judgment into a type abstraction, if possible. *)
+val shape_abstract_ty : ty -> (atom * ty) option
 
 (** Construct a term judgement using the appropriate formation rule. The type is the natural type. *)
 val form : loc:Location.t -> Signature.t -> shape -> term
@@ -169,24 +164,15 @@ val transitivity_term : loc:Location.t -> eq_term -> eq_term -> eq_term
 (** If [A == B] and [B == C] then [A == C] *)
 val transitivity_ty : loc:Location.t -> eq_ty -> eq_ty -> eq_ty
 
-(** Beta reduction *)
-
-(** If [A1 == A2], [B1 == B2], [e1 : B1] and [e2 : A2] then [(lambda A1 B1 e1) @[A2 B2] e2 == e1[e2] : B2[e2]]. *)
-val beta : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> term -> term -> eq_term
-
 (** Congruence rules *)
 
-(** If [A1 == A2] and [B1 == B2] then [prod A1 B1 == prod A2 B2].
+(** If [A1 == A2] and [B1 == B2] then [{x : A1} B1 == {x : A2} B2].
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side product. *)
-val congr_prod : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_ty
+val congr_abstract_ty : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_ty
 
 (** If [A1 == A2], [B1 == B2] and [e1 == e2 : B1] then [{x : A1} (e1 : B1) == {x : A2} (e2 : B2) : {x : A1} B1].
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side. *)
 val congr_abstract : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term
-
-(** If [A1 == A2], [B1 == B2], [h1 == h2 : prod A1 B1] and [e1 == e2 : A1], then [h1 @ [A1 . B1] e1 == h2 @ [A2 . B2] e2 : B1[e1]].
-    The first atom is used to abstract both sides. The second is used only for the name in the right hand side. *)
-val congr_apply : loc:Location.t -> eq_ty -> atom -> atom -> eq_ty -> eq_term -> eq_term -> eq_term
 
 (** Derivable rules *)
 

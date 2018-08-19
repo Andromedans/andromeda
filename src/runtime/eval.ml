@@ -220,6 +220,19 @@ let rec infer {Location.thing=c'; loc} =
     form_is_term ~loc (Jdg.Abstract (jy, je)) >>=
     Runtime.return_is_term))
 
+  | Rsyntax.AbstractTy (x,u,c) ->
+    check_is_type u >>= fun ju ->
+    Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
+    let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
+    Predefined.add_abstracting vy
+    (check_is_type c >>= fun jt ->
+    form_is_type ~loc (Jdg.AbstractTy (jy, jt)) >>=
+    Runtime.return_is_type))
+
+  | Rsyntax.Yield c ->
+    infer c >>= fun v ->
+    Runtime.continue ~loc v
+
   | Rsyntax.Apply (c1, c2) ->
     infer c1 >>= begin function
       | Runtime.IsTerm j ->
@@ -233,34 +246,12 @@ let rec infer {Location.thing=c'; loc} =
         Runtime.(error ~loc (Inapplicable h))
     end
 
-  | Rsyntax.Prod (x,u,c) ->
-    check_is_type u >>= fun ju ->
-    Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
-    let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
-    Predefined.add_abstracting vy
-    (check_is_type c >>= fun jt ->
-    form_is_type ~loc (Jdg.Prod (jy, jt)) >>=
-    Runtime.return_is_type))
-
-  | Rsyntax.Yield c ->
-    infer c >>= fun v ->
-    Runtime.continue ~loc v
-
-  | Rsyntax.CongrProd (c1, c2, c3) ->
+  | Rsyntax.CongrAbstractTy (c1, c2, c3) ->
     check_atom c1 >>= fun x ->
     check_eq_type c2 >>= fun eqa ->
     check_eq_type c3 >>= fun eqb ->
-    let eq = Jdg.congr_prod ~loc eqa x x eqb in
+    let eq = Jdg.congr_abstract_ty ~loc eqa x x eqb in
     Runtime.return_eq_type eq
-
-  | Rsyntax.CongrApply (c1, c2, c3, c4, c5) ->
-    check_atom c1 >>= fun x ->
-    check_eq_term c2 >>= fun eqh ->
-    check_eq_term c3 >>= fun eqarg ->
-    check_eq_type c4 >>= fun eqa ->
-    check_eq_type c5 >>= fun eqb ->
-    let eq = Jdg.congr_apply ~loc eqa x x eqb eqh eqarg in
-    Runtime.return_eq_term eq
 
   | Rsyntax.CongrAbstract (c1, c2, c3, c4) ->
     check_atom c1 >>= fun x ->
@@ -302,15 +293,6 @@ let rec infer {Location.thing=c'; loc} =
      check_eq_type c2 >>= fun jeq2 ->
      let eq = Jdg.transitivity_ty ~loc jeq1 jeq2 in
      Runtime.return_eq_type eq
-
-  | Rsyntax.BetaStep (c1, c2, c3, c4, c5) ->
-    check_atom c1 >>= fun x ->
-    check_eq_type c2 >>= fun eqa ->
-    check_eq_type c3 >>= fun eqb ->
-    check_is_term c4 >>= fun jbody ->
-    check_is_term c5 >>= fun jarg ->
-    let eq = Jdg.beta ~loc eqa x x eqb jbody jarg in
-    Runtime.return_eq_term eq
 
   | Rsyntax.String s ->
     Runtime.return (Runtime.mk_string s)
@@ -361,14 +343,13 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Where _
   | Rsyntax.With _
   | Rsyntax.Constant _
-  | Rsyntax.Prod _
-  | Rsyntax.Apply _
+  | Rsyntax.AbstractTy _
   | Rsyntax.Yield _
-  | Rsyntax.CongrProd _ | Rsyntax.CongrApply _ | Rsyntax.CongrAbstract _
+  | Rsyntax.Apply _
+  | Rsyntax.CongrAbstractTy _ | Rsyntax.CongrAbstract _
   | Rsyntax.Reflexivity_term _ | Rsyntax.Reflexivity_type _
   | Rsyntax.Symmetry_term _ | Rsyntax.Symmetry_type _
   | Rsyntax.Transitivity_term _ | Rsyntax.Transitivity_type _
-  | Rsyntax.BetaStep _
   | Rsyntax.Ref _
   | Rsyntax.Lookup _
   | Rsyntax.Update _
@@ -449,7 +430,7 @@ and check_abstract ~loc t_check x u c =
       (let b = Jdg.substitute_ty ~loc b a (Jdg.convert ~loc (Jdg.atom_term ~loc jy) equ) in
       check c b >>= fun e ->
       form_is_term ~loc (Jdg.Abstract (jy, e)) >>= fun lam ->
-      let eq_prod = Jdg.congr_prod ~loc equ jy a (Jdg.reflexivity_ty b) in
+      let eq_prod = Jdg.congr_abstract_ty ~loc equ jy a (Jdg.reflexivity_ty b) in
       let lam = Jdg.convert ~loc lam eq_prod in
       let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
       Runtime.return lam))
@@ -460,8 +441,9 @@ and apply ~loc ~loc_head h c =
   Equal.coerce_fun ~loc h >>= function
     | Some (h, a, _) ->
        check c (Jdg.atom_ty a) >>= fun e ->
-       form_is_term ~loc (Jdg.Apply (h, e)) >>= fun j ->
-       Runtime.return_is_term j
+       failwith "currently application is kind of broken"
+       (* form_is_term ~loc (Jdg.Apply (h, e)) >>= fun j ->
+        * Runtime.return_is_term j *)
     | None ->
        Runtime.(error ~loc:loc_head (FunctionExpected h))
 

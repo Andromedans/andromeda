@@ -218,11 +218,6 @@ let mk_abstract ~loc ys c =
     (fun c (y,u) -> locate (Dsyntax.Abstract (y,u,c)) loc)
     c ys
 
-let mk_prod ~loc ys t =
-  List.fold_left
-    (fun c (y,u) -> locate (Dsyntax.Prod (y,u,c)) loc)
-    t ys
-
 (* n is the length of vars *)
 let rec term_pattern ctx vars n {Location.thing=p;loc} =
   match p with
@@ -285,16 +280,17 @@ let rec term_pattern ctx vars n {Location.thing=p;loc} =
      in
      fold ctx vars n lst
 
-  | Input.Patt_TT_Spine (p, ps) ->
-     let rec fold p vars n = function
-       | [] -> p, vars, n
-       | q :: lst ->
-          let q, vars, n = term_pattern ctx vars n q in
-          let p = locate (Pattern.Term_Apply (p, q)) loc in
-          fold p vars n lst
-     in
-     let p, vars, n = term_pattern ctx vars n p in
-     fold p vars n ps
+  | Input.Patt_TT_Spine (p, ps) -> failwith "not implemented at the moment"
+  (* | Input.Patt_TT_Spine (p, ps) ->
+   *    let rec fold p vars n = function
+   *      | [] -> p, vars, n
+   *      | q :: lst ->
+   *         let q, vars, n = term_pattern ctx vars n q in
+   *         let p = locate (Pattern.Term_Apply (p, q)) loc in
+   *         fold p vars n lst
+   *    in
+   *    let p, vars, n = term_pattern ctx vars n p in
+   *    fold p vars n ps *)
 
   | Input.Patt_TT_GenAtom p ->
      let p, vars, n = term_pattern ctx vars n p in
@@ -304,7 +300,7 @@ let rec term_pattern ctx vars n {Location.thing=p;loc} =
      let p, vars, n = term_pattern ctx vars n p in
      locate (Pattern.Term_GenConstant p) loc, vars, n
 
-  | Input.Patt_TT_Type | Input.Patt_TT_Prod _ | Input.Patt_TT_El _ ->
+  | Input.Patt_TT_Type | Input.Patt_TT_El _ ->
      error ~loc TermPatternExpected
 
 and type_pattern ctx vars n ({Location.thing=p';loc} as p) =
@@ -341,7 +337,7 @@ and type_pattern ctx vars n ({Location.thing=p';loc} as p) =
      | Constructor _ | Operation _ as info -> error ~loc (InvalidTermPatternName (x, info))
      end
 
-  | Input.Patt_TT_Prod (lst, p) ->
+  | Input.Patt_TT_Abstract (lst, p) ->
      let rec fold ctx vars n = function
        | [] -> type_pattern ctx vars n p
        | (x, popt) :: lst ->
@@ -367,7 +363,7 @@ and type_pattern ctx vars n ({Location.thing=p';loc} as p) =
           in
           let ctx = Ctx.add_variable x ctx in
           let p, vars, n = fold ctx vars n lst in
-          locate (Pattern.Type_Prod (x,bopt,popt,p)) loc, vars, n
+          locate (Pattern.Type_AbstractTy (x,bopt,popt,p)) loc, vars, n
      in
      fold ctx vars n lst
 
@@ -378,7 +374,7 @@ and type_pattern ctx vars n ({Location.thing=p';loc} as p) =
      let p, vars, n = term_pattern ctx vars n p in
      locate (Pattern.Type_El p) loc, vars, n
 
-  | (Input.Patt_TT_Abstract _ | Input.Patt_TT_Spine _ | Input.Patt_TT_GenAtom _ | Input.Patt_TT_GenConstant _) ->
+  | (Input.Patt_TT_GenAtom _ | Input.Patt_TT_Spine _ | Input.Patt_TT_GenConstant _) ->
      let p, vars, n = term_pattern ctx vars n p in
      locate (Pattern.Type_El p) loc, vars, n
 
@@ -559,6 +555,7 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      and c = comp ~yield ctx c in
      locate (Dsyntax.Ascribe (c, t)) loc
 
+
   | Input.Abstract (xs, c) ->
      let rec fold ctx ys = function
        | [] ->
@@ -577,18 +574,6 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
 
   | Input.Spine (e, cs) ->
      spine ~yield ctx e cs
-
-  | Input.Prod (xs, c) ->
-     let rec fold ctx ys = function
-       | [] ->
-          let c = comp ~yield ctx c in
-          mk_prod ~loc ys c
-       | (x,t) :: xs ->
-          let ys = (let t = comp ~yield ctx t in (x, t) :: ys) in
-          let ctx = Ctx.add_variable x ctx in
-          fold ctx ys xs
-     in
-     fold ctx [] xs
 
   | Input.Var x ->
      begin match Ctx.find ~loc x ctx with
@@ -645,19 +630,11 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      let lst = List.map (comp ~yield ctx) cs in
      locate (Dsyntax.Tuple lst) loc
 
-  | Input.CongrProd (e1, e2, e3) ->
+  | Input.CongrAbstractTy (e1, e2, e3) ->
      let e1 = comp ~yield ctx e1
      and e2 = comp ~yield ctx e2
      and e3 = comp ~yield ctx e3 in
-     locate (Dsyntax.CongrProd (e1, e2, e3)) loc
-
-  | Input.CongrApply (e1, e2, e3, e4, e5) ->
-     let e1 = comp ~yield ctx e1
-     and e2 = comp ~yield ctx e2
-     and e3 = comp ~yield ctx e3
-     and e4 = comp ~yield ctx e4
-     and e5 = comp ~yield ctx e5 in
-     locate (Dsyntax.CongrApply (e1, e2, e3, e4, e5)) loc
+     locate (Dsyntax.CongrAbstractTy (e1, e2, e3)) loc
 
   | Input.CongrAbstract (e1, e2, e3, e4) ->
      let e1 = comp ~yield ctx e1
@@ -691,14 +668,6 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      let e1 = comp ~yield ctx e1
      and e2 = comp ~yield ctx e2 in
      locate (Dsyntax.Transitivity_type (e1, e2)) loc
-
-  | Input.BetaStep (e1, e2, e3, e4, e5) ->
-     let e1 = comp ~yield ctx e1
-     and e2 = comp ~yield ctx e2
-     and e3 = comp ~yield ctx e3
-     and e4 = comp ~yield ctx e4
-     and e5 = comp ~yield ctx e5 in
-     locate (Dsyntax.BetaStep (e1, e2, e3, e4, e5)) loc
 
   | Input.String s ->
      locate (Dsyntax.String s) loc

@@ -43,11 +43,10 @@
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 %token SEMICOLON
 
-%token CONGR_PROD CONGR_APPLY CONGR_ABSTRACT
+%token CONGR_ABSTRACT_TY CONGR_ABSTRACT
 %token REFLEXIVITY_TERM REFLEXIVITY_TYPE
 %token SYMMETRY_TERM SYMMETRY_TYPE
 %token TRANSITIVITY_TERM TRANSITIVITY_TYPE
-%token BETA_STEP
 
 %token NATURAL
 
@@ -157,10 +156,8 @@ plain_term:
 ty_term: mark_location(plain_ty_term) { $1 }
 plain_ty_term:
   | e=plain_binop_term                               { e }
-  | PROD a=prod_abstraction COMMA e=term             { Prod (a, e) }
   | a=abstraction e=binop_term                       { Abstract (a, e) }
   | FUNCTION xs=ml_arg+ DARROW e=term                { Function (xs, e) }
-  | t1=binop_term ARROW t2=ty_term                   { Prod ([(Name.anonymous (), t1)], t2) }
 
 binop_term: mark_location(plain_binop_term) { $1 }
 plain_binop_term:
@@ -183,13 +180,9 @@ plain_app_term:
   | REFLEXIVITY_TERM e=prefix_term                  { Reflexivity_term e }
   | SYMMETRY_TERM e=prefix_term                     { Symmetry_term e }
   | TRANSITIVITY_TERM e1=prefix_term e2=prefix_term { Transitivity_term (e1, e2) }
-  | CONGR_PROD e1=prefix_term e2=prefix_term e3=prefix_term { CongrProd (e1, e2, e3) }
-  | CONGR_APPLY e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
-    { CongrApply (e1, e2, e3, e4, e5) }
+  | CONGR_ABSTRACT_TY e1=prefix_term e2=prefix_term e3=prefix_term { CongrAbstractTy (e1, e2, e3) }
   | CONGR_ABSTRACT e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term
     { CongrAbstract (e1, e2, e3, e4) }
-  | BETA_STEP e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term e5=prefix_term
-    { BetaStep (e1, e2, e3, e4, e5) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:
@@ -260,18 +253,9 @@ dyn_annotation:
   |                { Arg_annot_none }
   | COLONGT t=mlty { Arg_annot_ty t }
 
-typed_binder:
-  | LBRACE xs=name+ COLON t=ty_term RBRACE         { List.map (fun x -> (x, t)) xs }
-
 maybe_typed_binder:
   | LBRACE xs=name+ RBRACE                         { List.map (fun x -> (x, None)) xs }
   | LBRACE xs=name+ COLON t=ty_term RBRACE         { List.map (fun x -> (x, Some t)) xs }
-
-prod_abstraction:
-  | lst=nonempty_list(typed_binder)
-    { List.concat lst }
-  | lst=nonempty_list(name) COLON t=ty_term
-    { List.map (fun x -> (x, t)) lst }
 
 abstraction:
   | lst=nonempty_list(maybe_typed_binder)
@@ -379,8 +363,6 @@ plain_tt_pattern:
   | a=tt_abstraction p=binop_tt_pattern           { Patt_TT_Abstract (a, p) }
   | p=app_tt_pattern AS x=patt_var                { Patt_TT_As (p,x) }
   | p=plain_binop_tt_pattern                      { p }
-  | PROD a=tt_abstraction COMMA p=tt_pattern      { Patt_TT_Prod (a, p) }
-  | p1=simple_tt_pattern ARROW p2=tt_pattern      { Patt_TT_Prod ([(NonPattVar (Name.anonymous ()), Some p1)], p2) }
 
 binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
 plain_binop_tt_pattern:
@@ -408,7 +390,7 @@ plain_prefix_tt_pattern:
       Patt_TT_Spine (op, [e])
     }
 
-simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 }
+(* simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 } *)
 plain_simple_tt_pattern:
   | UNDERSCORE                        { Patt_TT_Anonymous }
   | x=patt_var                        { Patt_TT_Var x }

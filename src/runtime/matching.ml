@@ -50,11 +50,6 @@ let rec collect_is_term env xvs p j =
      in
      collect_is_term env xvs p je
 
-  | Pattern.Term_Apply (p1,p2), Jdg.Apply (je1,je2) ->
-    let xvs = collect_is_term env xvs p1 je1 in
-    let xvs = collect_is_term env xvs p2 je2 in
-    xvs
-
   | Pattern.Term_GenAtom p, Jdg.Atom x ->
     let j = Jdg.atom_term ~loc x in
     collect_is_term env xvs p j
@@ -64,7 +59,7 @@ let rec collect_is_term env xvs p j =
     let j = Jdg.form ~loc signature (Jdg.Constant c) in
     collect_is_term env xvs p j
 
-  | (Pattern.Term_Constant _ | Pattern.Term_Apply _ | Pattern.Term_Abstract _ |
+  | (Pattern.Term_Constant _ | Pattern.Term_Abstract _ |
      Pattern.Term_GenAtom _ | Pattern.Term_GenConstant _) , _ ->
      raise Match_fail
 
@@ -88,7 +83,7 @@ and collect_is_type env xvs p j =
   | Pattern.Type_Type, Jdg.Type ->
      xvs
 
-  | Pattern.Type_Prod (x,bopt,popt,p), Jdg.Prod (jy,jb) ->
+  | Pattern.Type_AbstractTy (x,bopt,popt,p), Jdg.AbstractTy (jy,jb) ->
      let xvs = begin match popt with
        | Some pt -> collect_is_type env xvs pt (Jdg.atom_ty jy)
        | None -> xvs
@@ -104,7 +99,7 @@ and collect_is_type env xvs p j =
   | Pattern.Type_El p, Jdg.El j ->
      collect_is_term env xvs p j
 
-  | (Pattern.Type_Type | Pattern.Type_Prod _ | Pattern.Type_El _), _ ->
+  | (Pattern.Type_Type | Pattern.Type_AbstractTy _ | Pattern.Type_El _), _ ->
      raise Match_fail
 
 and collect_eq_type env xvs pt1 pt2 jeq =

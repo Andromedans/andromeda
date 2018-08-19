@@ -32,9 +32,6 @@ and term' = private
   (** a lambda abstraction [fun (x1 : t1) -> e : t] *)
   | Abstract of (term * ty) ty_abstraction
 
-  (** an application tagged with the type at wich it happens *)
-  | Apply of term * ty ty_abstraction * term
-
 (** Since we have [Type : Type] we do not distinguish terms from types,
     so the type of type [ty] is just a synonym for the type of terms.
     However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
@@ -46,7 +43,7 @@ and ty' = private
   | Type
 
   (** a dependent product [forall (x1 : t1), t] *)
-  | Prod of ty ty_abstraction
+  | AbstractTy of ty ty_abstraction
 
   (** The extension of an element of the universe. *)
   | El of term
@@ -58,10 +55,9 @@ and 'a ty_abstraction = (ty, 'a) abstraction
 val mk_atom: loc:Location.t -> Name.atom -> term
 val mk_constant: loc:Location.t -> Name.ident -> term
 val mk_abstract: loc:Location.t -> Name.ident -> ty -> term -> ty -> term
-val mk_apply: loc:Location.t -> term -> Name.ident -> ty -> ty -> term -> term
 
 val mk_type: loc:Location.t -> ty
-val mk_prod: loc:Location.t -> Name.ident -> ty -> ty -> ty
+val mk_abstract_ty: loc:Location.t -> Name.ident -> ty -> ty -> ty
 val mk_el: loc:Location.t -> term -> ty
 
 (** The type Type (without location) *)

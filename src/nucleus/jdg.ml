@@ -43,7 +43,6 @@ type error =
   | InvalidJoin of ctx * ctx * Name.atom
   | SubstitutionDependency of Name.atom * TT.term * Name.atom
   | SubstitutionInvalidType of Name.atom * TT.ty * TT.ty
-  | InvalidApplication
   | NotAType
   | AlphaEqualTypeMismatch of TT.ty * TT.ty
   | AlphaEqualTermMismatch of TT.term * TT.term
@@ -320,8 +319,6 @@ let print_error ~penv err ppf = match err with
   | ConstantDependency ->
      Format.fprintf ppf "constants may not depend on assumptions"
 
-  | InvalidApplication -> Format.fprintf ppf "Invalid application."
-
   | NotAType -> Format.fprintf ppf "Not a type."
 
   | AbstractDependency (ctx, x, needed_by_l) ->
@@ -379,11 +376,10 @@ type shape =
   | Atom of atom
   | Constant of Name.constant
   | Abstract of term abstraction
-  | Apply of term * term
 
 and shape_ty =
   | Type
-  | Prod of ty abstraction
+  | AbstractTy of ty abstraction
   | El of term
 
 let shape (Term (ctx,e,t)) =
@@ -404,13 +400,6 @@ let shape (Term (ctx,e,t)) =
       let je = WeakTerm (ctx, e, b) in
       Abstract (strengthen_atom jy, strengthen je)
 
-
-    | TT.Apply (e1,((x,a),b),e2) ->
-      let je2 = WeakTerm (ctx, e2, a) in
-      let prod = TT.mk_prod ~loc:e.Location.loc x a b in
-      let je1 = WeakTerm (ctx, e1, prod) in
-      Apply (strengthen je1, strengthen je2)
-
     | TT.Bound _ -> assert false
 
 let shape_ty (Ty (ctx, ty)) =
@@ -418,12 +407,12 @@ let shape_ty (Ty (ctx, ty)) =
 
   | TT.Type -> Type
 
-  | TT.Prod ((x,a),b) ->
+  | TT.AbstractTy ((x,a),b) ->
      let ja = WeakTy (ctx, a) in
      let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
      let b = TT.unabstract_ty [y] b in
      let jb = WeakTy (ctx, b) in
-     Prod (strengthen_atom jy, strengthen_ty jb)
+     AbstractTy (strengthen_atom jy, strengthen_ty jb)
 
   | TT.El e -> El (Term (ctx, e, TT.mk_type ~loc:e.Location.loc))
 
@@ -438,9 +427,9 @@ let shape_eq_term (EqTerm (ctx, e1, e2, ty)) =
   and jt = strengthen_ty (WeakTy (ctx, ty))
   in (j1, j2, jt)
 
-let shape_prod j =
+let shape_abstract_ty j =
   match shape_ty j with
-  | Prod (a, b) -> Some (a, b)
+  | AbstractTy (a, b) -> Some (a, b)
   | (Type | El _) -> None
 
 (** Construct judgements *)
@@ -457,30 +446,17 @@ let form ~loc env = function
     let b = TT.abstract_ty [x] b
     and e = TT.abstract [x] e in
     let x = Name.ident_of_atom x in
-    Term (ctx, TT.mk_abstract ~loc x a e b, TT.mk_prod ~loc x a b)
-
-  | Apply (Term (ctx1,e1,t1), Term (ctx2,e2,t2)) ->
-    let ctx = Ctx.join ~loc ctx2 ctx1 in
-    begin match t1.Location.thing.TT.thing with
-      | TT.Prod ((x,a),b) ->
-        if TT.alpha_equal_ty a t2
-        then
-          let out = TT.instantiate_ty [e2] b in
-          Term (ctx, TT.mk_apply ~loc e1 x a b e2, out)
-        else
-          error ~loc InvalidApplication
-      | _ -> error ~loc InvalidApplication
-    end
+    Term (ctx, TT.mk_abstract ~loc x a e b, TT.mk_abstract_ty ~loc x a b)
 
 let form_ty ~loc env = function
   | Type ->
     Ty (Ctx.empty, TT.mk_type ~loc)
 
-  | Prod ((JAtom (ctxa,x,a)),(Ty (ctxb,b))) ->
+  | AbstractTy ((JAtom (ctxa,x,a)),(Ty (ctxb,b))) ->
     let ctx = Ctx.join ~loc ctxb ctxa in
     let ctx = Ctx.abstract ~loc ctx x a in
     let b = TT.abstract_ty [x] b in
-    Ty (ctx, TT.mk_prod ~loc (Name.ident_of_atom x) a b)
+    Ty (ctx, TT.mk_abstract_ty ~loc (Name.ident_of_atom x) a b)
 
   | El (Term (ctx, e, t)) ->
      if TT.alpha_equal_ty t TT.typ
@@ -598,41 +574,9 @@ let transitivity_ty ~loc (EqTy (ctx1, t1, t2)) (EqTy (ctx2, u1, u2)) =
         EqTy (ctx, t1, u2)
      end
 
-(** Beta step, in the future this will be expressible. *)
-let beta ~loc (EqTy (ctxa, a1, a2))
-              (JAtom (_, x, _)) (JAtom (_, y, _))
-              (EqTy (ctxb, b1, b2))
-              (Term (ctx1, e1, t1))
-              (Term (ctx2, e2, t2)) =
-  if not (TT.alpha_equal_ty b1 t1)
-  then error ~loc (RuleInputMismatch ("beta",
-          b1, "the given type family ('B')",
-          t1, "the type of the expression being substituted into ('e1')"))
-  else if not (TT.alpha_equal_ty a2 t2)
-  then error ~loc (RuleInputMismatch ("beta",
-          a2, "the given parameter type ('A')",
-          t2, "the type of the expression to be substituted ('e2')"))
-  else
-    let ctxa = Ctx.join ~loc ctxa ctx2
-    and ctxb = Ctx.abstract ~loc (Ctx.join ~loc ctxb ctx1) x a1 in
-
-    let hypsa = Ctx.as_set ctxa
-    and hypsb = Ctx.as_set ctxb in
-
-    let b1 = TT.abstract_ty [x] b1
-    and e1 = TT.abstract [x] e1
-    and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
-    let ctx = Ctx.join ~loc ctxa ctxb
-    and lam = TT.mk_abstract ~loc (Name.ident_of_atom x) a1 e1 b1
-    and e_s = TT.mention_atoms hypsb (TT.instantiate [TT.mention_atoms hypsa e2] e1) in
-    let app = TT.mk_apply ~loc lam (Name.ident_of_atom y) a2 b2 e2
-    and ty = TT.instantiate_ty [e2] b2 in
-    EqTerm (ctx, app, e_s, ty)
-
-
 (** Congruence *)
 
-let congr_prod ~loc (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) (EqTy (ctxb, b1, b2)) =
+let congr_abstract_ty ~loc (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) (EqTy (ctxb, b1, b2)) =
   let ctxb = Ctx.abstract ~loc ctxb x ta1 in
 
   let hypsa = Ctx.as_set ctxa in
@@ -640,8 +584,8 @@ let congr_prod ~loc (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) 
   let b1 = TT.abstract_ty [x] b1
   and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
   let ctx = Ctx.join ~loc ctxa ctxb in
-  let lhs = TT.mk_prod ~loc (Name.ident_of_atom x) ta1 b1
-  and rhs = TT.mk_prod ~loc (Name.ident_of_atom y) ta2 b2 in
+  let lhs = TT.mk_abstract_ty ~loc (Name.ident_of_atom x) ta1 b1
+  and rhs = TT.mk_abstract_ty ~loc (Name.ident_of_atom y) ta2 b2 in
   EqTy (ctx, lhs, rhs)
 
 let congr_abstract ~loc (EqTy (ctxa, ta1, ta2))
@@ -666,42 +610,7 @@ let congr_abstract ~loc (EqTy (ctxa, ta1, ta2))
     and b2 = TT.abstract_ty [x] (TT.substitute_ty [x] [y_mentions] b2) in
     let lhs = TT.mk_abstract ~loc (Name.ident_of_atom x) ta1 e1 b1
     and rhs = TT.mention_atoms hypsab (TT.mk_abstract ~loc (Name.ident_of_atom y) ta2 e2 b2)
-    and ty = TT.mk_prod ~loc (Name.ident_of_atom x) ta1 b1 in
-    EqTerm (ctx, lhs, rhs, ty)
-
-let congr_apply ~loc (EqTy (ctxa, ta1, ta2))
-                (JAtom (_, x, _)) (JAtom (_, y, _))
-                (EqTy (ctxb, b1, b2))
-                (EqTerm (ctxh, h1, h2, ty_h))
-                (EqTerm (ctxe, e1, e2, ty_e)) =
-  let b1 = TT.abstract_ty [x] b1 in
-  let prod1 = TT.mk_prod ~loc (Name.ident_of_atom x) ta1 b1 in
-  if not (TT.alpha_equal_ty prod1 ty_h)
-  then error ~loc (RuleInputMismatch ("congr-apply", prod1,
-       "the Pi inferred from the left-hand-sides of the type equalities",
-       ty_h,
-       "the type at which the functions are equal"))
-  else if not (TT.alpha_equal_ty ta1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-apply", ta1,
-       "the parameter type on the left-hand-side of the type equality",
-       ty_e,
-       "the type at which the arguments are equal"))
-  else
-    let ctxb = Ctx.abstract ~loc ctxb x ta1 in
-
-    let hypsa = Ctx.as_set ctxa
-    and hypsb = Ctx.as_set ctxb
-    and hypse = Ctx.as_set ctxe in
-    let hypsab = AtomSet.union hypsa hypsb in
-    let hypsabe = AtomSet.union hypsab hypse in
-
-    let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
-    let b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [y_mentions] b2) in
-    let ctx = Ctx.join ~loc ctxa (Ctx.join ~loc ctxb (Ctx.join ~loc ctxh ctxe)) in
-    let lhs = TT.mk_apply ~loc h1 (Name.ident_of_atom x) ta1 b1 e1
-    and rhs = TT.mk_apply ~loc (TT.mention_atoms hypsab h2) (Name.ident_of_atom y) ta2 (TT.mention_atoms_ty hypsa b2) (TT.mention_atoms hypsa e2)
-    and ty = TT.instantiate_ty [e1] b1 in
-    let rhs = TT.mention_atoms hypsabe rhs in
+    and ty = TT.mk_abstract_ty ~loc (Name.ident_of_atom x) ta1 b1 in
     EqTerm (ctx, lhs, rhs, ty)
 
 (** Derivables *)
@@ -718,10 +627,7 @@ let natural_ty ~loc env ctx e =
       Signature.constant_type c env
 
     | TT.Abstract ((x,a),(_,b)) ->
-      TT.mk_prod ~loc x a b
-
-    | TT.Apply (_,(_,b),e2) ->
-      TT.instantiate_ty [e2] b
+      TT.mk_abstract_ty ~loc x a b
 
     | TT.Bound _ -> assert false
 

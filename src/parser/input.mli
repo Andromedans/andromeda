@@ -54,7 +54,6 @@ and tt_pattern' =
   | Patt_TT_GenAtom of tt_pattern
   | Patt_TT_GenConstant of tt_pattern
   | Patt_TT_Type
-  | Patt_TT_Prod of (tt_variable * tt_pattern option) list * tt_pattern
   | Patt_TT_El of tt_pattern
 
 and pattern = pattern' Location.located
@@ -98,10 +97,8 @@ and term' =
   | Ascribe of comp * ty
   | Abstract of (Name.ident * comp option) list * comp
   | Spine of comp * comp list
-  | Prod of (Name.ident * ty) list * comp
   | Yield of comp
-  | CongrProd of comp * comp * comp
-  | CongrApply of comp * comp * comp * comp * comp
+  | CongrAbstractTy of comp * comp * comp
   | CongrAbstract of comp * comp * comp * comp
   | Reflexivity_type of comp
   | Symmetry_type of comp
@@ -109,7 +106,6 @@ and term' =
   | Reflexivity_term of comp
   | Symmetry_term of comp
   | Transitivity_term of comp * comp
-  | BetaStep of comp * comp * comp * comp * comp
   | String of string
   | Context of comp
   | Occurs of comp * comp

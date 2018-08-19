@@ -104,7 +104,7 @@ let coerce ~loc je jt =
 
 let coerce_fun ~loc je =
   let jt = Jdg.typeof je in
-  match Jdg.shape_prod jt with
+  match Jdg.shape_abstract_ty jt with
 
   | Some (a, b) -> Opt.return (je, a, b)
 
@@ -122,7 +122,7 @@ let coerce_fun ~loc je =
             match Jdg.alpha_equal_eq_ty ~loc jt eq_lhs with
               | Some _ ->
                  begin
-                   match Jdg.shape_prod eq_rhs with
+                   match Jdg.shape_abstract_ty eq_rhs with
                    | Some (a, b) ->
                       let je = Jdg.convert ~loc je eq in
                       Opt.return (je, a, b)
@@ -137,7 +137,7 @@ let coerce_fun ~loc je =
        | Predefined.Coercible je ->
           begin
             let jt = Jdg.typeof je in
-            match Jdg.shape_prod jt with
+            match Jdg.shape_abstract_ty jt with
             | Some (a, b) ->
                Opt.return (je, a, b)
             | None ->
@@ -148,7 +148,7 @@ let coerce_fun ~loc je =
 
 let as_prod_alpha t =
   match Jdg.shape_ty t with
-    | Jdg.Prod (a, b) -> Some (a, b)
+    | Jdg.AbstractTy (a, b) -> Some (a, b)
     | _ -> None
 
 let as_prod ~loc t =

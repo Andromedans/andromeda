@@ -37,11 +37,10 @@ let rec generalizable c = match c.Location.thing with
   | Rsyntax.Ascribe _
   | Rsyntax.Constant _
   | Rsyntax.Abstract _
-  | Rsyntax.Apply _
-  | Rsyntax.Prod _
+  | Rsyntax.AbstractTy _
   | Rsyntax.Yield _
-  | Rsyntax.CongrProd _
-  | Rsyntax.CongrApply _
+  | Rsyntax.Apply _
+  | Rsyntax.CongrAbstractTy _
   | Rsyntax.CongrAbstract _
   | Rsyntax.Reflexivity_term _
   | Rsyntax.Reflexivity_type _
@@ -49,7 +48,6 @@ let rec generalizable c = match c.Location.thing with
   | Rsyntax.Symmetry_type _
   | Rsyntax.Transitivity_term _
   | Rsyntax.Transitivity_type _
-  | Rsyntax.BetaStep _
   | Rsyntax.Occurs _
   | Rsyntax.Context _
   | Rsyntax.Natural _ -> Ungeneralizable
@@ -128,10 +126,6 @@ let rec is_term_pattern xs {Location.thing = p; loc} =
     end >>= fun () ->
     Tyenv.add_var x Mlty.IsTerm (is_term_pattern xs p)
 
-  | Pattern.Term_Apply (p1, p2) ->
-    is_term_pattern xs p1 >>= fun () ->
-    is_term_pattern xs p2
-
   | Pattern.Term_GenAtom p | Pattern.Term_GenConstant p ->
     is_term_pattern xs p
 
@@ -151,7 +145,7 @@ and is_type_pattern xs {Location.thing = p; loc} =
 
   | Pattern.Type_Type -> Tyenv.return ()
 
-  | Pattern.Type_Prod (x, _, popt, p) ->
+  | Pattern.Type_AbstractTy (x, _, popt, p) ->
     begin match popt with
       | Some pt -> is_type_pattern xs pt
       | None -> Tyenv.return ()
@@ -437,35 +431,27 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     Tyenv.return (locate ~loc (Rsyntax.Abstract (x, copt, c)), Mlty.IsTerm)
 
   | Dsyntax.Apply (c1, c2) ->
-    comp c1 >>= fun (c1, t1) ->
-    comp c2 >>= fun (c2, t2) ->
-    let out = Mlty.fresh_type () in
-    Tyenv.add_application ~loc t1 t2 out >>= fun () ->
-    Tyenv.return (locate ~loc (Rsyntax.Apply (c1, c2)), out)
+     comp c1 >>= fun (c1, t1) ->
+     comp c2 >>= fun (c2, t2) ->
+     let out = Mlty.fresh_type () in
+     Tyenv.add_application ~loc t1 t2 out >>= fun () ->
+     Tyenv.return (locate ~loc (Rsyntax.Apply (c1, c2)), out)
 
-  | Dsyntax.Prod (x, ct, c) ->
+  | Dsyntax.AbstractTy (x, ct, c) ->
     check_comp ct Mlty.IsType >>= fun ct ->
     Tyenv.add_var x Mlty.IsTerm (check_comp c Mlty.IsType) >>= fun c ->
-    Tyenv.return (locate ~loc (Rsyntax.Prod (x, ct, c)), Mlty.IsType)
+    Tyenv.return (locate ~loc (Rsyntax.AbstractTy (x, ct, c)), Mlty.IsType)
 
   | Dsyntax.Yield c ->
     Tyenv.lookup_continuation >>= fun (a, b) ->
     check_comp c a >>= fun c ->
     Tyenv.return (locate ~loc (Rsyntax.Yield c), b)
 
-  | Dsyntax.CongrProd (c1, c2, c3) ->
+  | Dsyntax.CongrAbstractTy (c1, c2, c3) ->
     check_comp c1 Mlty.IsTerm >>= fun c1 ->
     check_comp c2 Mlty.EqType >>= fun c2 ->
     check_comp c3 Mlty.EqType >>= fun c3 ->
-    return (locate ~loc (Rsyntax.CongrProd (c1, c2, c3)), Mlty.EqType)
-
-  | Dsyntax.CongrApply (c1, c2, c3, c4, c5) ->
-    check_comp c1 Mlty.IsTerm >>= fun c1 ->
-    check_comp c2 Mlty.EqTerm >>= fun c2 ->
-    check_comp c3 Mlty.EqTerm >>= fun c3 ->
-    check_comp c4 Mlty.EqType >>= fun c4 ->
-    check_comp c5 Mlty.EqType >>= fun c5 ->
-    return (locate ~loc (Rsyntax.CongrApply (c1, c2, c3, c4, c5)), Mlty.EqTerm)
+    return (locate ~loc (Rsyntax.CongrAbstractTy (c1, c2, c3)), Mlty.EqType)
 
   | Dsyntax.CongrAbstract (c1, c2, c3, c4) ->
     check_comp c1 Mlty.IsTerm >>= fun c1 ->
@@ -499,14 +485,6 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
      check_comp c1 Mlty.EqTerm >>= fun c1 ->
      check_comp c2 Mlty.EqTerm >>= fun c2 ->
      return (locate ~loc (Rsyntax.Transitivity_term (c1, c2)), Mlty.EqTerm)
-
-  | Dsyntax.BetaStep (c1, c2, c3, c4, c5) ->
-    check_comp c1 Mlty.IsTerm >>= fun c1 ->
-    check_comp c2 Mlty.EqType >>= fun c2 ->
-    check_comp c3 Mlty.EqType >>= fun c3 ->
-    check_comp c4 Mlty.IsTerm >>= fun c4 ->
-    check_comp c5 Mlty.IsTerm >>= fun c5 ->
-    return (locate ~loc (Rsyntax.BetaStep (c1, c2, c3, c4, c5)), Mlty.EqTerm)
 
   | Dsyntax.String s -> Tyenv.return (locate ~loc (Rsyntax.String s), Mlty.String)
 
