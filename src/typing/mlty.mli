@@ -63,7 +63,6 @@ type error =
   | InvalidApplication of ty * ty * ty
   | TypeMismatch of ty * ty
   | UnsolvedApp of ty * ty * ty
-  | JudgementExpected of ty
   | HandlerExpected of ty
   | RefExpected of ty
   | DynamicExpected of ty

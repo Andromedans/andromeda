@@ -37,7 +37,6 @@ let rec generalizable c = match c.Location.thing with
   | Rsyntax.Ascribe _
   | Rsyntax.Constant _
   | Rsyntax.Abstract _
-  | Rsyntax.AbstractTy _
   | Rsyntax.Yield _
   | Rsyntax.Apply _
   | Rsyntax.CongrAbstractTy _
@@ -428,16 +427,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
       | None -> Tyenv.return None
     end >>= fun copt ->
     Tyenv.add_var x Mlty.IsTerm (comp c) >>= fun (c,t) ->
-    begin match t with
-    | Mlty.IsTerm ->
-       Tyenv.return (locate ~loc (Rsyntax.Abstract (x, copt, c)), Mlty.IsTerm)
-    | Mlty.IsType ->
-          Tyenv.return (locate ~loc (Rsyntax.AbstractTy (x, copt, c)), Mlty.IsType)
-    | (Mlty.EqType | Mlty.EqTerm | Mlty.String | Mlty.Meta _ | Mlty.Param _ |
-       Mlty.Prod _ | Mlty.Arrow (_, _) | Mlty.Handler (_, _) | Mlty.App (_, _, _) |
-       Mlty.Ref _| Mlty.Dynamic _) ->
-       Mlty.error ~loc (Mlty.JudgementExpected t)
-    end
+    Tyenv.return (locate ~loc (Rsyntax.Abstract (x, copt, c)), t)
 
   | Dsyntax.Apply (c1, c2) ->
      comp c1 >>= fun (c1, t1) ->

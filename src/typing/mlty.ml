@@ -61,7 +61,6 @@ type error =
   | InvalidApplication of ty * ty * ty
   | TypeMismatch of ty * ty
   | UnsolvedApp of ty * ty * ty
-  | JudgementExpected of ty
   | HandlerExpected of ty
   | RefExpected of ty
   | DynamicExpected of ty
@@ -177,9 +176,6 @@ let print_error err ppf =
       (print_ty ~penv h)
       (print_ty ~penv arg)
       (print_ty ~penv out)
-  | JudgementExpected t ->
-     Format.fprintf ppf "Expected a judgement but got %t"
-    (print_ty ~penv t)
   | HandlerExpected t ->
     Format.fprintf ppf "Expected a handler but got %t"
       (print_ty ~penv t)

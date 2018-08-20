@@ -85,27 +85,22 @@ type error =
   | FailureFail of value
   | InvalidEqualTerm of Jdg.term * Jdg.term
   | InvalidEqualType of Jdg.ty * Jdg.ty
-  | EqualityTypeExpected of Jdg.ty
-  | InvalidAsEquality of Jdg.ty
-  | ProductExpected of Jdg.ty
-  | InvalidAsProduct of Jdg.ty
   | ListExpected of value
   | OptionExpected of value
   | IsTypeExpected of value
   | IsTermExpected of value
+  | IsTypeOrTermExpected of value
+  | AbstractTyExpected of Jdg.ty
   | EqTypeExpected of value
   | EqTermExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
-  | FunctionExpected of Jdg.term
   | RefExpected of value
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvertible of Jdg.ty * Jdg.ty * Jdg.eq_ty
   | InvalidCoerce of Jdg.ty * Jdg.term
-  | InvalidFunConvertible of Jdg.ty * Jdg.eq_ty
-  | InvalidFunCoerce of Jdg.term
   | UnhandledOperation of Name.operation * value list
 
 (** The exception that is raised on runtime error *)

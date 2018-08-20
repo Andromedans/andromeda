@@ -100,95 +100,7 @@ let coerce ~loc je jt =
                Runtime.(error ~loc (InvalidCoerce (jt, je)))
           end
        end
-
-
-let coerce_fun ~loc je =
-  let jt = Jdg.typeof je in
-  match Jdg.shape_abstract_ty jt with
-
-  | Some (a, b) -> Opt.return (je, a, b)
-
-  | None ->
-     Predefined.operation_coerce_fun ~loc je >!=
-     begin function
-
-       | Predefined.NotCoercible ->
-          Opt.fail
-
-       | Predefined.Convertible eq ->
-          let eq_lhs = Jdg.eq_ty_side Jdg.LEFT eq
-          and eq_rhs = Jdg.eq_ty_side Jdg.RIGHT eq in
-          begin
-            match Jdg.alpha_equal_eq_ty ~loc jt eq_lhs with
-              | Some _ ->
-                 begin
-                   match Jdg.shape_abstract_ty eq_rhs with
-                   | Some (a, b) ->
-                      let je = Jdg.convert ~loc je eq in
-                      Opt.return (je, a, b)
-                   | None ->
-                      Runtime.(error ~loc (InvalidFunConvertible (jt, eq)))
-                 end
-
-              | None ->
-                 Runtime.(error ~loc (InvalidFunConvertible (jt, eq)))
-          end
-
-       | Predefined.Coercible je ->
-          begin
-            let jt = Jdg.typeof je in
-            match Jdg.shape_abstract_ty jt with
-            | Some (a, b) ->
-               Opt.return (je, a, b)
-            | None ->
-               Runtime.(error ~loc (InvalidFunCoerce je))
-          end
-
-     end
-
-let as_prod_alpha t =
-  match Jdg.shape_ty t with
-    | Jdg.AbstractTy (a, b) -> Some (a, b)
-    | _ -> None
-
-let as_prod ~loc t =
-  match as_prod_alpha t with
-    | Some (a, b) -> Opt.return (Jdg.reflexivity_ty t, a, b)
-    | None ->
-      Predefined.operation_as_prod ~loc t >!=
-      begin function
-        | None -> Opt.fail
-        | Some juser ->
-           let (t1, t2) = Jdg.shape_eq_ty juser in
-           begin match Jdg.alpha_equal_ty t t1 with
-           | false -> Opt.lift Runtime.(error ~loc (InvalidAsProduct t))
-           | true -> failwith "foo"
-           end
-      end
 end
-;;
-          (* begin match as_eq_alpha jt with
- *             | None ->
- *                Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
- *             | Some (e1, e2) ->
- *               begin match Jdg.alpha_equal_eq_ty ~loc Jdg.ty_ty (Jdg.typeof e1) with
- *                 | None -> Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
- *                 | Some _ ->
- *                   begin match Jdg.alpha_equal_eq_ty ~loc t (Jdg.is_ty ~loc e1) with
- *                     | None -> Opt.lift Runtime.(error ~loc (InvalidAsProduct jt))
- *                     | Some _ ->
- *                       begin match as_prod_alpha (Jdg.is_ty ~loc e2) with
- *                         | None ->
- *                           Runtime.(error ~loc (InvalidAsProduct jt))
- *
- *                         | Some (a, b) ->
- *                           let eq = Jdg.is_type_equality ~loc (Jdg.reflect ~loc juser) in
- *                           Opt.return (eq, a, b)
- *                       end
- *                   end
- *               end
- *           end
- * end *)
 
 (** Expose without the monad stuff *)
 
@@ -197,7 +109,3 @@ let equal ~loc j1 j2 = Opt.run (Internals.equal ~loc j1 j2)
 let equal_ty ~loc j1 j2 = Opt.run (Internals.equal_ty ~loc j1 j2)
 
 let coerce ~loc je jt = Opt.run (Internals.coerce ~loc je jt)
-
-let coerce_fun ~loc je = Opt.run (Internals.coerce_fun ~loc je)
-
-let as_prod ~loc j = Opt.run (Internals.as_prod ~loc j)

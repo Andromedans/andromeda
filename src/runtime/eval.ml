@@ -212,25 +212,17 @@ let rec infer {Location.thing=c'; loc} =
     Runtime.(error ~loc (UnannotatedAbstract x))
 
   | Rsyntax.Abstract (x, Some u, c) ->
-    check_is_type u >>= fun ju ->
-    Runtime.add_free ~loc:(u.Location.loc) x ju (fun jy ->
-    let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
-    Predefined.add_abstracting vy
-    (check_is_term c >>= fun je ->
-    form_is_term ~loc (Jdg.Abstract (jy, je)) >>=
-    Runtime.return_is_term))
-
-  | Rsyntax.AbstractTy (x, None, _) ->
-     Runtime.(error ~loc (UnannotatedAbstract x))
-
-  | Rsyntax.AbstractTy (x,Some u,c) ->
-    check_is_type u >>= fun ju ->
-    Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
-    let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
-    Predefined.add_abstracting vy
-    (check_is_type c >>= fun jt ->
-    form_is_type ~loc (Jdg.AbstractTy (jy, jt)) >>=
-    Runtime.return_is_type))
+     check_is_type u >>= fun ju ->
+     Runtime.add_free ~loc:(u.Location.loc) x ju (fun jy ->
+         let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in
+         Predefined.add_abstracting vy
+      (infer c >>= function
+       | Runtime.IsTerm je -> form_is_term ~loc (Jdg.Abstract (jy, je)) >>= Runtime.return_is_term
+       | Runtime.IsType jt -> form_is_type ~loc (Jdg.AbstractTy (jy, jt)) >>= Runtime.return_is_type
+       | (Runtime.EqTerm _ | Runtime.EqType _ | Runtime.Closure _ | Runtime.Handler _ |
+          Runtime.Tag _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
+          Runtime.(error ~loc (IsTypeOrTermExpected v))
+      ))
 
   | Rsyntax.Yield c ->
     infer c >>= fun v ->
@@ -238,12 +230,10 @@ let rec infer {Location.thing=c'; loc} =
 
   | Rsyntax.Apply (c1, c2) ->
     infer c1 >>= begin function
-      | Runtime.IsTerm j ->
-        apply ~loc ~loc_head:(c1.Location.loc) j c2
       | Runtime.Closure f ->
         infer c2 >>= fun v ->
         Runtime.apply_closure f v
-      | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
+      | Runtime.IsTerm _ | Runtime.IsType _ | Runtime.EqTerm _ | Runtime.EqType _ |
         Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
         Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _ as h ->
         Runtime.(error ~loc (Inapplicable h))
@@ -346,7 +336,6 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Where _
   | Rsyntax.With _
   | Rsyntax.Constant _
-  | Rsyntax.AbstractTy _
   | Rsyntax.Yield _
   | Rsyntax.Apply _
   | Rsyntax.CongrAbstractTy _ | Rsyntax.CongrAbstract _
@@ -405,50 +394,40 @@ and check ({Location.thing=c';loc} as c) t_check =
      infer c >>=
      match_cases ~loc cases (fun c -> check c t_check)
 
-  | Rsyntax.Abstract (x,u,c) ->
+  | Rsyntax.Abstract (x, u, c) ->
     check_abstract ~loc t_check x u c
 
-(* check_abstract: loc:Location.t -> Jdg.ty -> Name.ident
-                   -> 'annot Rsyntax.comp option -> 'annot Rsyntax.comp
-                   -> Jdg.term Runtime.comp *)
 and check_abstract ~loc t_check x u c =
-  Equal.as_prod ~loc t_check >>= function
-    | None -> Runtime.(error ~loc (ProductExpected t_check))
-    | Some (eq, a, b) ->
-      begin match u with
-        | Some u ->
-          check_is_type u >>= fun ju ->
-          Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.atom_ty a) >>= begin function
+  match Jdg.shape_ty t_check with
+
+  | (Jdg.Type | Jdg.El _) ->
+     Runtime.(error ~loc (AbstractTyExpected t_check))
+
+  | Jdg.AbstractTy (a, b) ->
+     begin match u with
+     | Some u ->
+        check_is_type u >>= fun ju ->
+        Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.atom_ty a) >>=
+          begin function
             | Some equ -> Runtime.return (ju, equ)
             | None ->
-              Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Jdg.atom_ty a))))
-            end
-        | None ->
-          let ju = Jdg.atom_ty a in
-          let equ = Jdg.reflexivity_ty ju in
-          Runtime.return (ju, equ)
-      end >>= fun (ju, equ) -> (* equ : ju == typeof a *)
-      Runtime.add_free ~loc x ju (fun jy ->
-      Predefined.add_abstracting (Jdg.atom_term ~loc jy)
-      (let b = Jdg.substitute_ty ~loc b a (Jdg.convert ~loc (Jdg.atom_term ~loc jy) equ) in
-      check c b >>= fun e ->
-      form_is_term ~loc (Jdg.Abstract (jy, e)) >>= fun lam ->
-      let eq_prod = Jdg.congr_abstract_ty ~loc equ jy a (Jdg.reflexivity_ty b) in
-      let lam = Jdg.convert ~loc lam eq_prod in
-      let lam = Jdg.convert ~loc lam (Jdg.symmetry_ty eq) in
-      Runtime.return lam))
-
-(* apply: loc:Location.t -> loc_head:Location.t -> Jdg.term -> 'annot Rsyntax.comp
-               -> Runtime.value Runtime.comp *)
-and apply ~loc ~loc_head h c =
-  Equal.coerce_fun ~loc h >>= function
-    | Some (h, a, _) ->
-       check c (Jdg.atom_ty a) >>= fun e ->
-       failwith "currently application is kind of broken"
-       (* form_is_term ~loc (Jdg.Apply (h, e)) >>= fun j ->
-        * Runtime.return_is_term j *)
-    | None ->
-       Runtime.(error ~loc:loc_head (FunctionExpected h))
+               Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Jdg.atom_ty a))))
+          end
+     | None ->
+        let ju = Jdg.atom_ty a in
+        let equ = Jdg.reflexivity_ty ju in
+        Runtime.return (ju, equ)
+     end >>= fun (ju, equ) -> (* equ : ju == typeof a *)
+     Runtime.add_free ~loc x ju (
+         fun jy -> (* jy is a free variable of type ju *)
+         let ja = Jdg.atom_term ~loc jy in
+         Predefined.add_abstracting ja
+           (let b = Jdg.substitute_ty ~loc b a (Jdg.convert ~loc ja equ) in
+            check c b >>= fun e ->
+            form_is_term ~loc (Jdg.Abstract (jy, e)) >>= fun abstr ->
+            let eq_abstr = Jdg.congr_abstract_ty ~loc equ jy a (Jdg.reflexivity_ty b) in
+            let abstr = Jdg.convert ~loc abstr eq_abstr in
+            Runtime.return abstr))
 
 (* sequence: loc:Location.t -> Runtime.value -> unit Runtime.comp *)
 and sequence ~loc v =

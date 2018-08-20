@@ -91,27 +91,22 @@ type error =
   | FailureFail of value
   | InvalidEqualTerm of Jdg.term * Jdg.term
   | InvalidEqualType of Jdg.ty * Jdg.ty
-  | EqualityTypeExpected of Jdg.ty
-  | InvalidAsEquality of Jdg.ty
-  | ProductExpected of Jdg.ty
-  | InvalidAsProduct of Jdg.ty
   | ListExpected of value
   | OptionExpected of value
   | IsTypeExpected of value
   | IsTermExpected of value
+  | IsTypeOrTermExpected of value
+  | AbstractTyExpected of Jdg.ty
   | EqTypeExpected of value
   | EqTermExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
-  | FunctionExpected of Jdg.term
   | RefExpected of value
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
   | InvalidConvertible of Jdg.ty * Jdg.ty * Jdg.eq_ty
   | InvalidCoerce of Jdg.ty * Jdg.term
-  | InvalidFunConvertible of Jdg.ty * Jdg.eq_ty
-  | InvalidFunCoerce of Jdg.term
   | UnhandledOperation of Name.operation * value list
 
 exception Error of error Location.located
@@ -569,26 +564,6 @@ let print_error ~penv err ppf =
                     (Jdg.print_ty ~penv:penv t1)
                     (Jdg.print_ty ~penv:penv t2)
 
-  | EqualityTypeExpected j ->
-     Format.fprintf ppf "expected an equality type but got@ %t"
-                    (Jdg.print_ty ~penv:penv j)
-
-  | InvalidAsEquality j ->
-     Format.fprintf ppf "this should be an equality between %t and an equality"
-                    (Jdg.print_ty ~penv:penv j)
-
-  | ProductExpected j ->
-     Format.fprintf ppf "expected a product but got@ %t"
-                    (Jdg.print_ty ~penv:penv j)
-
-  | InvalidAsProduct j ->
-     Format.fprintf ppf "this should be an equality between %t and a product"
-                    (Jdg.print_ty ~penv:penv j)
-
-  | FunctionExpected t ->
-     Format.fprintf ppf "@[<v>Application of the non-function:@    @[<hov>%t@]@]@."
-                    (Jdg.print_term ~penv:penv t)
-
   | ListExpected v ->
      Format.fprintf ppf "expected a list but got %s" (name_of v)
 
@@ -600,6 +575,13 @@ let print_error ~penv err ppf =
 
   | IsTermExpected v ->
      Format.fprintf ppf "expected a term but got %s" (name_of v)
+
+  | IsTypeOrTermExpected v ->
+     Format.fprintf ppf "expected a term or a type but got %s" (name_of v)
+
+  | AbstractTyExpected t ->
+     Format.fprintf ppf "expected an abstracted type but got %t"
+                    (Jdg.print_ty ~penv:penv t)
 
   | EqTypeExpected v ->
      Format.fprintf ppf "expected a type equality but got %s" (name_of v)
@@ -634,15 +616,6 @@ let print_error ~penv err ppf =
   | InvalidCoerce (t, e) ->
      Format.fprintf ppf "expected a term of type %t but got %t"
                     (Jdg.print_ty ~penv t)
-                    (Jdg.print_term ~penv e)
-
-  | InvalidFunConvertible (t, eq) ->
-     Format.fprintf ppf "expected a witness of equality between %t and a product but got %t"
-                    (Jdg.print_ty ~penv t)
-                    (Jdg.print_eq_ty ~penv eq)
-
-  | InvalidFunCoerce e ->
-     Format.fprintf ppf "expected a term of a product type got %t"
                     (Jdg.print_term ~penv e)
 
   | UnhandledOperation (op, vs) ->
