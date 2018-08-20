@@ -220,7 +220,10 @@ let rec infer {Location.thing=c'; loc} =
     form_is_term ~loc (Jdg.Abstract (jy, je)) >>=
     Runtime.return_is_term))
 
-  | Rsyntax.AbstractTy (x,u,c) ->
+  | Rsyntax.AbstractTy (x, None, _) ->
+     Runtime.(error ~loc (UnannotatedAbstract x))
+
+  | Rsyntax.AbstractTy (x,Some u,c) ->
     check_is_type u >>= fun ju ->
     Runtime.add_free ~loc:u.Location.loc x ju (fun jy ->
     let vy = Jdg.atom_term ~loc:(u.Location.loc) jy in

@@ -47,7 +47,7 @@ and comp' =
   | Constant of Name.ident
   | Apply of comp * comp
   | Abstract of Name.ident * comp option * comp
-  | AbstractTy of Name.ident * comp * comp
+  | AbstractTy of Name.ident * comp option * comp
   | Yield of comp
   | CongrAbstractTy of comp * comp * comp
   | CongrAbstract of comp * comp * comp * comp
