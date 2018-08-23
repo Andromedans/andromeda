@@ -32,6 +32,7 @@ type error =
   | UnboundYield
   | ParallelShadowing of Name.ident
   | AppliedTyParam
+  | RequiredFileMissing of string
 
 let print_error err ppf = match err with
   | UnknownName x -> Format.fprintf ppf "Unknown name %t." (Name.print_ident x)
@@ -47,6 +48,7 @@ let print_error err ppf = match err with
   | UnboundYield -> Format.fprintf ppf "yield may only appear in a handler's operation cases."
   | ParallelShadowing x -> Format.fprintf ppf "%t is bound more than once." (Name.print_ident x)
   | AppliedTyParam -> Format.fprintf ppf "AML type parameters cannot be applied."
+  | RequiredFileMissing fn -> Format.fprintf ppf "Required file \"%s\" does not exist." fn
 
 exception Error of error Location.located
 
@@ -1047,8 +1049,12 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
           then
             fold ctx res fs
           else
-            let ctx, cmds = file ctx fn in
-            fold ctx ((fn, cmds)::res) fs
+            begin if Sys.file_exists fn then
+                let ctx, cmds = file ctx fn in
+                fold ctx ((fn, cmds)::res) fs
+              else
+                error ~loc (RequiredFileMissing fn)
+            end
       in
       fold ctx [] fs
 
