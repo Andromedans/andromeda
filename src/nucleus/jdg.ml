@@ -234,11 +234,11 @@ module Signature = struct
     constants = ConstantMap.empty;
   }
 
-  let constant_type c env =
-    ConstantMap.find c env.constants
+  let constant_type c sgn =
+    ConstantMap.find c sgn.constants
 
-  let add_constant c t env =
-    {constants = ConstantMap.add c t env.constants}
+  let add_constant c t sgn =
+    {constants = ConstantMap.add c t sgn.constants}
 
 end
 
@@ -445,11 +445,11 @@ let shape_abstract_ty j =
   | (TyConstructor _ | Type | El _) -> None
 
 (** Construct judgements *)
-let form ~loc env = function
+let form ~loc sgn = function
   | Atom x -> atom_term ~loc x
 
   | Constant c ->
-    let t = Signature.constant_type c env in
+    let t = Signature.constant_type c sgn in
     Term (Ctx.empty, TT.mk_constant ~loc c,t)
 
  | TermConstructor (c, args) ->
@@ -463,7 +463,7 @@ let form ~loc env = function
     let x = Name.ident_of_atom x in
     Term (ctx, TT.mk_abstract ~loc x a e b, TT.mk_abstract_ty ~loc x a b)
 
-let form_ty ~loc env = function
+let form_ty ~loc sgn = function
   | Type ->
     Ty (Ctx.empty, TT.mk_type ~loc)
 
@@ -633,7 +633,7 @@ let congr_abstract ~loc (EqTy (ctxa, ta1, ta2))
 
 (** Derivables *)
 
-let natural_ty ~loc env ctx e =
+let natural_ty ~loc sgn ctx e =
   match e.Location.thing.TT.thing with
     | TT.Atom x ->
       begin match Ctx.lookup_atom x ctx with
@@ -642,7 +642,7 @@ let natural_ty ~loc env ctx e =
       end
 
     | TT.Constant c ->
-      Signature.constant_type c env
+      Signature.constant_type c sgn
 
     | TT.TermConstructor (c, args) ->
        assert false (* XXX to do *)
@@ -652,8 +652,8 @@ let natural_ty ~loc env ctx e =
 
     | TT.Bound _ -> assert false
 
-let natural_eq ~loc env (Term (ctx, e, derived)) =
-  let natural = natural_ty ~loc env ctx e in
+let natural_eq ~loc sgn (Term (ctx, e, derived)) =
+  let natural = natural_ty ~loc sgn ctx e in
   EqTy (ctx, natural, derived)
 
 module Json =
