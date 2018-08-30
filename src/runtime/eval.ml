@@ -400,7 +400,7 @@ and check ({Location.thing=c';loc} as c) t_check =
 and check_abstract ~loc t_check x u c =
   match Jdg.shape_ty t_check with
 
-  | (Jdg.Type | Jdg.El _) ->
+  | (Jdg.TyConstructor _ | Jdg.Type | Jdg.El _) ->
      Runtime.(error ~loc (AbstractTyExpected t_check))
 
   | Jdg.AbstractTy (a, b) ->

@@ -13,29 +13,30 @@ type atom = private Atom of string * fixity * int
 
 (** Aliases with different semantics *)
 type constant = ident
-type operation = ident
-
-type ty = ident
 type constructor = ident
+
+type operation = ident
+type ty = ident
+type aml_constructor = ident
 
 module Predefined : sig
   (** The name of the list type *)
   val list : ty
 
   (** The name [[]] constructor *)
-  val nil : constructor
+  val nil : aml_constructor
 
   (** The name of the [::] constructor *)
-  val cons : constructor
+  val cons : aml_constructor
 
   (** The name of the option type *)
   val option : ty
 
   (** The name of the [Some] constructor *)
-  val some : constructor
+  val some : aml_constructor
 
   (** The name of the [None] constructor *)
-  val none : constructor
+  val none : aml_constructor
 
   (** The name of the [equal_term] operation *)
   val equal_term : operation
@@ -50,13 +51,13 @@ module Predefined : sig
   val coercible_ty : ty
 
   (** The name of the [Coercible] constructor *)
-  val coercible_constructor : constructor
+  val coercible_constructor : aml_constructor
 
   (** The name of the [Convertible] constructor *)
-  val convertible : constructor
+  val convertible : aml_constructor
 
   (** The name of the [NotCoercible] constructor *)
-  val notcoercible : constructor
+  val notcoercible : aml_constructor
 
   (** The name of the [coerce] operation *)
   val coerce : operation

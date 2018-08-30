@@ -16,14 +16,20 @@ and term' =
   | Atom of Name.atom
   | Bound of bound
   | Constant of Name.constant
+  | TermConstructor of Name.constructor * argument list
   | Abstract of (term * ty) ty_abstraction
 
 and ty = (ty' assumptions) Location.located
 
 and ty' =
   | Type
+  | TyConstructor of Name.constructor * argument list
   | AbstractTy of ty ty_abstraction
   | El of term
+
+and argument =
+  | TermArgument of term
+  | TyArgument of ty
 
 and 'a ty_abstraction = (ty, 'a) abstraction
 
@@ -123,6 +129,9 @@ let rec at_var atom bound hyps ~lvl ({Location.loc=loc;thing={thing=e';assumptio
   else
   match e' with
     | Constant _ as term -> Location.locate {thing=term;assumptions} loc
+    | TermConstructor (c, args) ->
+       let args = at_arguments atom bound hyps ~lvl args in
+       Location.locate {thing=TermConstructor(c, args); assumptions} loc
     | Atom x -> atom ~lvl x assumptions loc
     | Bound k -> bound ~lvl k assumptions loc
     | Abstract ((x,a),(e,b)) ->
@@ -139,6 +148,9 @@ and at_var_ty atom bound hyps ~lvl ({Location.loc=loc;thing={thing=t';assumption
   else
   match t' with
   | Type as ty -> Location.locate {thing=ty;assumptions} loc
+    | TyConstructor (c, args) ->
+       let args = at_arguments atom bound hyps ~lvl args in
+       Location.locate {thing=TyConstructor(c, args); assumptions} loc
   | AbstractTy ((x,a),b) ->
      let a = at_var_ty atom bound hyps ~lvl a
      and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b in
@@ -148,6 +160,13 @@ and at_var_ty atom bound hyps ~lvl ({Location.loc=loc;thing={thing=t';assumption
      let e = at_var atom bound hyps ~lvl e in
      let term = El e in
      Location.locate {thing=term;assumptions} loc
+
+and at_arguments atom bound hyps ~lvl args =
+  List.map
+  (function
+   | TermArgument e -> TermArgument (at_var atom bound hyps ~lvl e)
+   | TyArgument t -> TyArgument (at_var_ty atom bound hyps ~lvl t))
+  args
 
 (** Instantiate *)
 let instantiate_atom ~lvl x assumptions loc =
@@ -236,23 +255,30 @@ let substitute_ty xs es t =
 let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
   occurs_u k u || occurs_v (k+1) v
 
-(* How many times does bound variable [k] occur in an expression? Used only for printing. *)
+(* Does the bound variable [k] occur in an expression? Used only for printing. *)
 let rec occurs k {Location.loc;thing={thing=e';_}} =
   match e' with
   | Atom _ -> false
   | Bound m -> k = m
   | Constant x -> false
+  | TermConstructor (_, args) -> occurs_args k args
   | Abstract a -> occurs_abstraction occurs_ty occurs_term_ty k a
 
 and occurs_ty k {Location.loc;thing={thing=t';_}} =
   match t' with
   | Type -> false
-  | AbstractTy a ->
-    occurs_abstraction occurs_ty occurs_ty k a
+  | TyConstructor (_, args) -> occurs_args k args
+  | AbstractTy a -> occurs_abstraction occurs_ty occurs_ty k a
   | El e -> occurs k e
 
 and occurs_term_ty k (e, t) =
   occurs k e || occurs_ty k t
+
+and occurs_args k = function
+  | [] -> false
+  | (TermArgument e) :: args -> occurs k e || occurs_args k args
+  | (TyArgument e) :: args -> occurs_ty k e || occurs_args k args
+
 
 (****** Alpha equality ******)
 
@@ -270,10 +296,13 @@ let rec alpha_equal {Location.thing={thing=e1;_};_} {Location.thing={thing=e2;_}
 
     | Constant x, Constant y -> Name.eq_ident x y
 
+    | TermConstructor (c, args), TermConstructor (c', args') ->
+       Name.eq_ident c c' && alpha_equal_args args args'
+
     | Abstract abs, Abstract abs' ->
       alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
 
-    | (Atom _ | Bound _ | Constant _ | Abstract _), _ ->
+    | (Atom _ | Bound _ | TermConstructor _  | Constant _ | Abstract _), _ ->
       false
   end
 
@@ -281,12 +310,29 @@ and alpha_equal_ty {Location.thing={thing=t1;_};_} {Location.thing={thing=t2;_};
   match t1, t2 with
   | Type, Type -> true
 
+  | TyConstructor (c, args), TyConstructor (c', args') ->
+     Name.eq_ident c c' && alpha_equal_args args args'
+
   | AbstractTy abs, AbstractTy abs' ->
      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty abs abs'
 
   | El e1, El e2 -> alpha_equal e1 e2
 
-  | (Type | AbstractTy _ | El _), _ -> false
+  | (Type | TyConstructor _ | AbstractTy _ | El _), _ -> false
+
+and alpha_equal_args args args' =
+  match args, args' with
+  | [], [] -> true
+  | (TermArgument e)::args, (TermArgument e')::args' -> alpha_equal e e' && alpha_equal_args args args'
+  | (TyArgument t)::args, (TyArgument t')::args' -> alpha_equal_ty t t' && alpha_equal_args args args'
+  | (TermArgument _)::_, (TyArgument _)::_
+  | (TyArgument _)::_, (TermArgument _)::_
+  | (_::_), []
+  | [], (_::_) ->
+     (* we should never get here, because that implies that a constructor
+        was applied in two different ways, and somehow the nucleus was happy
+        with that *)
+     assert false
 
 and alpha_equal_term_ty (e, t) (e', t') = alpha_equal e e' && alpha_equal_ty t t'
 
@@ -320,6 +366,9 @@ and print_term' ~penv ?max_level e ppf =
   | Atom x ->
      Name.print_atom ~printer:(penv.atoms) x ppf
 
+  | TermConstructor (c, args) ->
+     print_constructor ?max_level ~penv c args ppf
+
   | Constant x ->
      Name.print_ident x ppf
 
@@ -332,9 +381,25 @@ and print_ty ?max_level ~penv {Location.thing={thing=t;_};_} ppf =
 
   | Type -> Format.fprintf ppf "Type"
 
+  | TyConstructor (c, args) ->
+     print_constructor ?max_level ~penv c args ppf
+
   | AbstractTy xts -> print_abstract_ty ?max_level ~penv xts ppf
 
   | El e -> Format.fprintf ppf "El@ %t" (print_term ~max_level:Level.el_arg ~penv e)
+
+and print_constructor ?max_level ~penv c args ppf =
+  Format.pp_open_hovbox ppf 2 ;
+  Print.print ~at_level:Level.app ?max_level ppf "%t@ %t"
+    (Name.print_ident c)
+    (Print.sequence (print_arg ~penv) "" args) ;
+  Format.pp_close_box ppf ()
+
+and print_arg ~penv arg ppf =
+  match arg with
+  | TermArgument e -> print_term ~max_level:Level.app_right ~penv e ppf
+  | TyArgument t -> print_ty ~max_level:Level.app_right ~penv t ppf
+
 
 (** [print_abstract ?max_level ~pend ((x,u), (e,t)) ppf] prints an abstraction using formatter [ppf]. *)
 and print_abstract ?max_level ~penv ((x, u), (e, _)) ppf =
@@ -392,6 +457,8 @@ struct
 
       | Constant c -> Json.tag "Constant" [Name.Json.ident c]
 
+      | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Name.Json.ident c :: args lst)
+
       | Abstract (xt, (e, u)) ->
          Json.tag "Abstract" [abstraction xt (Json.tuple [term e; ty u])]
 
@@ -405,7 +472,18 @@ struct
   and ty' t =
     match t with
       | Type -> Json.tag "Type" []
+
+      | TyConstructor (c, lst) -> Json.tag "TyConstructor" (Name.Json.ident c :: args lst)
+
       | AbstractTy (xt, u) -> Json.tag "AbstractTy" [abstraction xt (ty u)]
+
       | El e -> Json.tag "El" [term e]
+
+  and args lst =
+    (List.map
+       (function
+        | TermArgument e -> term e
+        | TyArgument t -> ty t)
+       lst)
 
 end

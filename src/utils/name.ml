@@ -11,10 +11,11 @@ type ident = Ident of string * fixity
 type atom = Atom of string * fixity * int
 
 type constant = ident
-type operation = ident
-
-type ty = ident
 type constructor = ident
+
+type operation = ident
+type ty = ident
+type aml_constructor = ident
 
 let print_ident ?(parentheses=true) x ppf =
   match x with

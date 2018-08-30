@@ -140,7 +140,7 @@ and match_op_case = pattern list * pattern option * comp
 
 type top_op_case = Name.ident option list * Name.ident option * comp
 
-type constructor_decl = Name.constructor * ml_ty list
+type constructor_decl = Name.aml_constructor * ml_ty list
 
 type ml_tydef =
   | ML_Sum of constructor_decl list

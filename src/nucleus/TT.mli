@@ -29,24 +29,30 @@ and term' = private
   (** a constant *)
   | Constant of Name.constant
 
+  | TermConstructor of Name.constant * argument list
+
   (** a lambda abstraction [fun (x1 : t1) -> e : t] *)
   | Abstract of (term * ty) ty_abstraction
 
-(** Since we have [Type : Type] we do not distinguish terms from types,
-    so the type of type [ty] is just a synonym for the type of terms.
-    However, we tag types with the [Ty] constructor to avoid nasty bugs. *)
-
+(** The type of TT types. *)
 and ty = (ty' assumptions) Location.located
 and ty' = private
 
-  (** the universe *)
+(** the universe *)
   | Type
+
+  | TyConstructor of Name.constant * argument list
 
   (** a dependent product [forall (x1 : t1), t] *)
   | AbstractTy of ty ty_abstraction
 
   (** The extension of an element of the universe. *)
   | El of term
+
+(** an argument of a term or type constructor *)
+and argument =
+  | TermArgument of term
+  | TyArgument of ty
 
 (** A ['a ty_abstraction] is a n abstraction where the [a1, ..., an] are types *)
 and 'a ty_abstraction = (ty, 'a) abstraction

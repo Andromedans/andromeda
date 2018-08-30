@@ -51,7 +51,7 @@ type 'a forall = param list * 'a
 type ty_schema = ty forall
 
 (** A constructor name and the expected types of its arguments. *)
-type constructor = Name.constructor * ty list
+type constructor = Name.aml_constructor * ty list
 
 (** The type of type definitions. *)
 type ty_def =

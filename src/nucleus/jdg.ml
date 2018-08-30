@@ -372,13 +372,19 @@ let print_error ~penv err ppf = match err with
 (** Destructors *)
 type 'a abstraction = atom * 'a
 
+type argument =
+  | TermArgument of term
+  | TyArgument of ty
+
 type shape =
   | Atom of atom
   | Constant of Name.constant
+  | TermConstructor of Name.constructor * argument list
   | Abstract of term abstraction
 
 and shape_ty =
   | Type
+  | TyConstructor of Name.constructor * argument list
   | AbstractTy of ty abstraction
   | El of term
 
@@ -391,6 +397,9 @@ let shape (Term (ctx,e,t)) =
       end
 
     | TT.Constant c -> Constant c
+
+    | TT.TermConstructor (c, args) ->
+       assert false (* XXX to do *)
 
     | TT.Abstract ((x,a),(e,b)) ->
       let ja = WeakTy (ctx, a) in
@@ -406,6 +415,9 @@ let shape_ty (Ty (ctx, ty)) =
   match ty.Location.thing.TT.thing with
 
   | TT.Type -> Type
+
+  | TT.TyConstructor (c, args) ->
+     assert false (* XXX to do *)
 
   | TT.AbstractTy ((x,a),b) ->
      let ja = WeakTy (ctx, a) in
@@ -430,7 +442,7 @@ let shape_eq_term (EqTerm (ctx, e1, e2, ty)) =
 let shape_abstract_ty j =
   match shape_ty j with
   | AbstractTy (a, b) -> Some (a, b)
-  | (Type | El _) -> None
+  | (TyConstructor _ | Type | El _) -> None
 
 (** Construct judgements *)
 let form ~loc env = function
@@ -439,6 +451,9 @@ let form ~loc env = function
   | Constant c ->
     let t = Signature.constant_type c env in
     Term (Ctx.empty, TT.mk_constant ~loc c,t)
+
+ | TermConstructor (c, args) ->
+    assert false (* XXX to do *)
 
   | Abstract ((JAtom (ctxa,x,a)),(Term (ctxe,e,b))) ->
     let ctx = Ctx.join ~loc ctxe ctxa in
@@ -451,6 +466,9 @@ let form ~loc env = function
 let form_ty ~loc env = function
   | Type ->
     Ty (Ctx.empty, TT.mk_type ~loc)
+
+  | TyConstructor (c, args) ->
+     assert false (* XXX to do *)
 
   | AbstractTy ((JAtom (ctxa,x,a)),(Ty (ctxb,b))) ->
     let ctx = Ctx.join ~loc ctxb ctxa in
@@ -625,6 +643,9 @@ let natural_ty ~loc env ctx e =
 
     | TT.Constant c ->
       Signature.constant_type c env
+
+    | TT.TermConstructor (c, args) ->
+       assert false (* XXX to do *)
 
     | TT.Abstract ((x,a),(_,b)) ->
       TT.mk_abstract_ty ~loc x a b

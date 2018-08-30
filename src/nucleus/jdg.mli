@@ -77,14 +77,20 @@ val print_eq_ty : penv:TT.print_env -> ?max_level:Level.t -> eq_ty -> Format.for
 (** The atom is used in the second component *)
 type 'a abstraction = atom * 'a
 
+type argument =
+  | TermArgument of term
+  | TyArgument of ty
+
 (** Contains enough information to construct a new judgement *)
 type shape =
   | Atom of atom
   | Constant of Name.constant
+  | TermConstructor of Name.constructor * argument list
   | Abstract of term abstraction
 
 and shape_ty =
   | Type (* universe *)
+  | TyConstructor of Name.constructor * argument list
   | AbstractTy of ty abstraction
   | El of term
 

@@ -96,7 +96,7 @@ and match_op_case = Name.ident list * Pattern.aml list * Pattern.aml option * co
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
-type constructor_decl = Name.constructor * ml_ty list
+type constructor_decl = Name.aml_constructor * ml_ty list
 
 type ml_tydef =
   | ML_Sum of constructor_decl list
