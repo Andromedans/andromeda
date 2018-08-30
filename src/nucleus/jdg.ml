@@ -226,9 +226,9 @@ end
 module Signature = struct
   module ConstantMap = Name.IdentMap
 
-  type t = {
-    constants : TT.ty ConstantMap.t;
-  }
+  type t =
+    { constants : TT.ty ConstantMap.t
+    }
 
   let empty = {
     constants = ConstantMap.empty;
@@ -373,8 +373,10 @@ let print_error ~penv err ppf = match err with
 type 'a abstraction = atom * 'a
 
 type argument =
-  | TermArgument of term
-  | TyArgument of ty
+  | ArgIsType of ty
+  | ArgIsTerm of term
+  | ArgEqType of eq_ty
+  | ArgEqTerm of eq_term
 
 type shape =
   | Atom of atom

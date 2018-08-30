@@ -28,8 +28,10 @@ and ty' =
   | El of term
 
 and argument =
-  | TermArgument of term
-  | TyArgument of ty
+  | ArgIsTerm of term
+  | ArgIsType of ty
+  | ArgEqType
+  | ArgEqTerm
 
 and 'a ty_abstraction = (ty, 'a) abstraction
 
@@ -164,8 +166,10 @@ and at_var_ty atom bound hyps ~lvl ({Location.loc=loc;thing={thing=t';assumption
 and at_arguments atom bound hyps ~lvl args =
   List.map
   (function
-   | TermArgument e -> TermArgument (at_var atom bound hyps ~lvl e)
-   | TyArgument t -> TyArgument (at_var_ty atom bound hyps ~lvl t))
+   | ArgIsTerm e -> ArgIsTerm (at_var atom bound hyps ~lvl e)
+   | ArgIsType t -> ArgIsType (at_var_ty atom bound hyps ~lvl t)
+   | ArgEqType -> ArgEqType
+   | ArgEqTerm -> ArgEqTerm)
   args
 
 (** Instantiate *)
@@ -276,8 +280,9 @@ and occurs_term_ty k (e, t) =
 
 and occurs_args k = function
   | [] -> false
-  | (TermArgument e) :: args -> occurs k e || occurs_args k args
-  | (TyArgument e) :: args -> occurs_ty k e || occurs_args k args
+  | (ArgIsTerm e) :: args -> occurs k e || occurs_args k args
+  | (ArgIsType e) :: args -> occurs_ty k e || occurs_args k args
+  | (ArgEqType | ArgEqTerm) :: args -> occurs_args k args
 
 
 (****** Alpha equality ******)
@@ -323,10 +328,11 @@ and alpha_equal_ty {Location.thing={thing=t1;_};_} {Location.thing={thing=t2;_};
 and alpha_equal_args args args' =
   match args, args' with
   | [], [] -> true
-  | (TermArgument e)::args, (TermArgument e')::args' -> alpha_equal e e' && alpha_equal_args args args'
-  | (TyArgument t)::args, (TyArgument t')::args' -> alpha_equal_ty t t' && alpha_equal_args args args'
-  | (TermArgument _)::_, (TyArgument _)::_
-  | (TyArgument _)::_, (TermArgument _)::_
+  | (ArgIsTerm e)::args, (ArgIsTerm e')::args' -> alpha_equal e e' && alpha_equal_args args args'
+  | (ArgIsType t)::args, (ArgIsType t')::args' -> alpha_equal_ty t t' && alpha_equal_args args args'
+  | ArgEqType :: args, ArgEqType :: args' -> alpha_equal_args args args'
+  | ArgEqTerm :: args, ArgEqTerm :: args' -> alpha_equal_args args args'
+  | (ArgIsTerm _ | ArgIsType _ | ArgEqType | ArgEqTerm)::_, _::_
   | (_::_), []
   | [], (_::_) ->
      (* we should never get here, because that implies that a constructor
@@ -397,8 +403,10 @@ and print_constructor ?max_level ~penv c args ppf =
 
 and print_arg ~penv arg ppf =
   match arg with
-  | TermArgument e -> print_term ~max_level:Level.app_right ~penv e ppf
-  | TyArgument t -> print_ty ~max_level:Level.app_right ~penv t ppf
+  | ArgIsTerm e -> print_term ~max_level:Level.app_right ~penv e ppf
+  | ArgIsType t -> print_ty ~max_level:Level.app_right ~penv t ppf
+  | ArgEqType -> ()
+  | ArgEqTerm -> ()
 
 
 (** [print_abstract ?max_level ~pend ((x,u), (e,t)) ppf] prints an abstraction using formatter [ppf]. *)
@@ -482,8 +490,10 @@ struct
   and args lst =
     (List.map
        (function
-        | TermArgument e -> term e
-        | TyArgument t -> ty t)
+        | ArgIsTerm e -> term e
+        | ArgIsType t -> ty t
+        | ArgEqType -> Json.tag "ArgIsType" []
+        | ArgEqTerm -> Json.tag "ArgEqTerm" [])
        lst)
 
 end

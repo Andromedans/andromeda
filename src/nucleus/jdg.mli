@@ -78,8 +78,10 @@ val print_eq_ty : penv:TT.print_env -> ?max_level:Level.t -> eq_ty -> Format.for
 type 'a abstraction = atom * 'a
 
 type argument =
-  | TermArgument of term
-  | TyArgument of ty
+  | ArgIsType of ty
+  | ArgIsTerm of term
+  | ArgEqType of eq_ty
+  | ArgEqTerm of eq_term
 
 (** Contains enough information to construct a new judgement *)
 type shape =

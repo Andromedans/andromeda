@@ -51,8 +51,10 @@ and ty' = private
 
 (** an argument of a term or type constructor *)
 and argument =
-  | TermArgument of term
-  | TyArgument of ty
+  | ArgIsTerm of term
+  | ArgIsType of ty
+  | ArgEqType (* no data here, equations are proof irrelevant *)
+  | ArgEqTerm (* no data here, equations are proof irrelevant *)
 
 (** A ['a ty_abstraction] is a n abstraction where the [a1, ..., an] are types *)
 and 'a ty_abstraction = (ty, 'a) abstraction
