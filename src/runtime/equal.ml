@@ -40,7 +40,7 @@ let equal ~loc j1 j2 =
         begin function
           | None -> Opt.fail
           | Some juser ->
-             let (k1, k2, _) = Jdg.shape_eq_term juser in
+             let (k1, k2, _) = Jdg.invert_eq_term juser in
              begin
                match Jdg.alpha_equal_is_term j1 k1 && Jdg.alpha_equal_is_term j2 k2 with
                | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualTerm (j1, j2))))
@@ -57,7 +57,7 @@ let equal_ty ~loc j1 j2 =
         begin function
           | None -> Opt.fail
           | Some juser ->
-             let (k1, k2) = Jdg.shape_eq_type juser in
+             let (k1, k2) = Jdg.invert_eq_type juser in
              begin
                match Jdg.alpha_equal_is_type j1 k1 && Jdg.alpha_equal_is_type j2 k2 with
                | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualType (j1, j2))))

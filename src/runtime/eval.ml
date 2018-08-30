@@ -27,7 +27,7 @@ let as_eq_term ~loc v =
 
 let as_atom ~loc v =
   as_is_term ~loc v >>= fun j ->
-  match Jdg.shape_is_term j with
+  match Jdg.invert_is_term j with
     | Jdg.Atom x -> Runtime.return x
     | _ -> Runtime.(error ~loc (ExpectedAtom j))
 
@@ -398,7 +398,7 @@ and check ({Location.thing=c';loc} as c) t_check =
     check_abstract ~loc t_check x u c
 
 and check_abstract ~loc t_check x u c =
-  match Jdg.shape_is_type t_check with
+  match Jdg.invert_is_type t_check with
 
   | (Jdg.TyConstructor _ | Jdg.Type | Jdg.El _) ->
      Runtime.(error ~loc (AbstractTyExpected t_check))

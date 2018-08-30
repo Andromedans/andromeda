@@ -18,7 +18,7 @@ let update k v xvs =
 
 let rec collect_is_term env xvs p j =
   let loc = p.Location.loc in
-  match p.Location.thing, Jdg.shape_is_term j with
+  match p.Location.thing, Jdg.invert_is_term j with
   | Pattern.Term_Anonymous, _ -> xvs
 
   | Pattern.Term_As (p,k), _ ->
@@ -65,7 +65,7 @@ let rec collect_is_term env xvs p j =
 
 and collect_is_type env xvs p j =
   let loc = p.Location.loc in
-  match p.Location.thing, Jdg.shape_is_type j with
+  match p.Location.thing, Jdg.invert_is_type j with
 
   | Pattern.Type_Anonymous, _ -> xvs
 
@@ -103,13 +103,13 @@ and collect_is_type env xvs p j =
      raise Match_fail
 
 and collect_eq_type env xvs pt1 pt2 jeq =
-  let (t1, t2) = Jdg.shape_eq_type jeq in
+  let (t1, t2) = Jdg.invert_eq_type jeq in
   let xvs = collect_is_type env xvs pt1 t1 in
   let xvs = collect_is_type env xvs pt2 t2 in
   xvs
 
 and collect_eq_term env xvs p1 p2 pt jeq =
-  let (e1, e2, t) = Jdg.shape_eq_term jeq in
+  let (e1, e2, t) = Jdg.invert_eq_term jeq in
   let xvs = collect_is_term env xvs p1 e1 in
   let xvs = collect_is_term env xvs p2 e2 in
   let xvs = collect_is_type env xvs pt t in

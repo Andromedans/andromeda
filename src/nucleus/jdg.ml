@@ -390,7 +390,7 @@ and shape_is_type =
   | AbstractTy of is_type abstraction
   | El of is_term
 
-let shape_is_term (IsTerm (ctx,e,t)) =
+let invert_is_term (IsTerm (ctx,e,t)) =
   match e.Location.thing.TT.thing with
     | TT.Atom x ->
       begin match Ctx.lookup_atom x ctx with
@@ -413,7 +413,7 @@ let shape_is_term (IsTerm (ctx,e,t)) =
 
     | TT.Bound _ -> assert false
 
-let shape_is_type (IsType (ctx, ty)) =
+let invert_is_type (IsType (ctx, ty)) =
   match ty.Location.thing.TT.thing with
 
   | TT.Type -> Type
@@ -430,19 +430,19 @@ let shape_is_type (IsType (ctx, ty)) =
 
   | TT.El e -> El (IsTerm (ctx, e, TT.mk_type ~loc:e.Location.loc))
 
-let shape_eq_type (EqType (ctx, ty1, ty2)) =
+let invert_eq_type (EqType (ctx, ty1, ty2)) =
   let j1 = strengthen_ty (WeakType (ctx, ty1))
   and j2 = strengthen_ty (WeakType (ctx, ty2))
   in j1, j2
 
-let shape_eq_term (EqTerm (ctx, e1, e2, ty)) =
+let invert_eq_term (EqTerm (ctx, e1, e2, ty)) =
   let j1 = strengthen (WeakTerm (ctx, e1, ty))
   and j2 = strengthen (WeakTerm (ctx, e2, ty))
   and jt = strengthen_ty (WeakType (ctx, ty))
   in (j1, j2, jt)
 
-let shape_abstract_ty j =
-  match shape_is_type j with
+let invert_abstract_ty j =
+  match invert_is_type j with
   | AbstractTy (a, b) -> Some (a, b)
   | (TyConstructor _ | Type | El _) -> None
 

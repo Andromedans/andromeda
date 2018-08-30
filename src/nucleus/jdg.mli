@@ -47,6 +47,7 @@ val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
 (** The jdugement that [Type] is a type. *)
 val ty_ty : is_type
 
+(** Verify that a type is closed and return it as a closed type. *)
 val is_closed_ty : loc:Location.t -> is_type -> closed_ty
 
 (** The type judgement of a term judgement. *)
@@ -69,14 +70,18 @@ val print_is_term : penv:TT.print_env -> ?max_level:Level.t -> is_term -> Format
 (** Print the judgement that something is a type. *)
 val print_is_type : penv:TT.print_env -> ?max_level:Level.t -> is_type -> Format.formatter -> unit
 
+(** Print the judgement that terms are equal. *)
 val print_eq_term : penv:TT.print_env -> ?max_level:Level.t -> eq_term -> Format.formatter -> unit
 
+(** Print the judgement that types are equal. *)
 val print_eq_type : penv:TT.print_env -> ?max_level:Level.t -> eq_type -> Format.formatter -> unit
 
 (** Destructors *)
+
 (** The atom is used in the second component *)
 type 'a abstraction = is_atom * 'a
 
+(** An argument to a term or type constructor *)
 type argument =
   | ArgIsType of is_type
   | ArgIsTerm of is_term
@@ -97,13 +102,13 @@ and shape_is_type =
   | El of is_term
 
 (* Inversion principles *)
-val shape_is_term : is_term -> shape_is_term
-val shape_is_type : is_type -> shape_is_type
-val shape_eq_type : eq_type -> is_type * is_type
-val shape_eq_term : eq_term -> is_term * is_term * is_type
+val invert_is_term : is_term -> shape_is_term
+val invert_is_type : is_type -> shape_is_type
+val invert_eq_type : eq_type -> is_type * is_type
+val invert_eq_term : eq_term -> is_term * is_term * is_type
 
 (** Deconstruct a type judgment into a type abstraction, if possible. *)
-val shape_abstract_ty : is_type -> (is_atom * is_type) option
+val invert_abstract_ty : is_type -> (is_atom * is_type) option
 
 (** Construct a term judgement using the appropriate formation rule. The type is the natural type. *)
 val form : loc:Location.t -> Signature.t -> shape_is_term -> is_term
