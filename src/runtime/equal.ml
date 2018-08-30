@@ -42,7 +42,7 @@ let equal ~loc j1 j2 =
           | Some juser ->
              let (k1, k2, _) = Jdg.shape_eq_term juser in
              begin
-               match Jdg.alpha_equal j1 k1 && Jdg.alpha_equal j2 k2 with
+               match Jdg.alpha_equal_is_term j1 k1 && Jdg.alpha_equal_is_term j2 k2 with
                | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualTerm (j1, j2))))
                | true -> Opt.return juser
              end
@@ -57,9 +57,9 @@ let equal_ty ~loc j1 j2 =
         begin function
           | None -> Opt.fail
           | Some juser ->
-             let (k1, k2) = Jdg.shape_eq_ty juser in
+             let (k1, k2) = Jdg.shape_eq_type juser in
              begin
-               match Jdg.alpha_equal_ty j1 k1 && Jdg.alpha_equal_ty j2 k2 with
+               match Jdg.alpha_equal_is_type j1 k1 && Jdg.alpha_equal_is_type j2 k2 with
                | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualType (j1, j2))))
                | true -> Opt.return juser
              end
@@ -67,7 +67,7 @@ let equal_ty ~loc j1 j2 =
 
 let coerce ~loc je jt =
   let je_ty = Jdg.typeof je in
-  match Jdg.alpha_equal_eq_ty ~loc je_ty jt with
+  match Jdg.alpha_equal_eq_type ~loc je_ty jt with
 
   | Some _ ->
      Opt.return je
@@ -79,11 +79,11 @@ let coerce ~loc je jt =
        | Predefined.NotCoercible -> Opt.fail
 
        | Predefined.Convertible eq ->
-          let eq_lhs = Jdg.eq_ty_side Jdg.LEFT eq
-          and eq_rhs = Jdg.eq_ty_side Jdg.RIGHT eq in
+          let eq_lhs = Jdg.eq_type_side Jdg.LEFT eq
+          and eq_rhs = Jdg.eq_type_side Jdg.RIGHT eq in
           begin
-            match Jdg.alpha_equal_eq_ty ~loc je_ty eq_lhs,
-                  Jdg.alpha_equal_eq_ty ~loc jt eq_rhs
+            match Jdg.alpha_equal_eq_type ~loc je_ty eq_lhs,
+                  Jdg.alpha_equal_eq_type ~loc jt eq_rhs
             with
             | Some _, Some _ ->
                Opt.return (Jdg.convert ~loc je eq)
@@ -93,7 +93,7 @@ let coerce ~loc je jt =
 
        | Predefined.Coercible je ->
           begin
-            match Jdg.alpha_equal_eq_ty ~loc (Jdg.typeof je) jt with
+            match Jdg.alpha_equal_eq_type ~loc (Jdg.typeof je) jt with
             | Some _ ->
                Opt.return je
             | None ->

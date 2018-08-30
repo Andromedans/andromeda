@@ -18,7 +18,7 @@ let update k v xvs =
 
 let rec collect_is_term env xvs p j =
   let loc = p.Location.loc in
-  match p.Location.thing, Jdg.shape j with
+  match p.Location.thing, Jdg.shape_is_term j with
   | Pattern.Term_Anonymous, _ -> xvs
 
   | Pattern.Term_As (p,k), _ ->
@@ -39,10 +39,10 @@ let rec collect_is_term env xvs p j =
 
   | Pattern.Term_Abstract (x,bopt,popt,p), Jdg.Abstract (jy,je) ->
      let xvs = begin match popt with
-       | Some pt -> collect_is_type env xvs pt (Jdg.atom_ty jy)
+       | Some pt -> collect_is_type env xvs pt (Jdg.atom_is_type jy)
        | None -> xvs
      end in
-     let yt = Runtime.mk_is_term (Jdg.atom_term ~loc jy) in
+     let yt = Runtime.mk_is_term (Jdg.atom_is_term ~loc jy) in
      let env = Runtime.push_bound yt env in
      let xvs = match bopt with
        | None -> xvs
@@ -51,7 +51,7 @@ let rec collect_is_term env xvs p j =
      collect_is_term env xvs p je
 
   | Pattern.Term_GenAtom p, Jdg.Atom x ->
-    let j = Jdg.atom_term ~loc x in
+    let j = Jdg.atom_is_term ~loc x in
     collect_is_term env xvs p j
 
   | Pattern.Term_GenConstant p, Jdg.Constant c ->
@@ -65,7 +65,7 @@ let rec collect_is_term env xvs p j =
 
 and collect_is_type env xvs p j =
   let loc = p.Location.loc in
-  match p.Location.thing, Jdg.shape_ty j with
+  match p.Location.thing, Jdg.shape_is_type j with
 
   | Pattern.Type_Anonymous, _ -> xvs
 
@@ -85,10 +85,10 @@ and collect_is_type env xvs p j =
 
   | Pattern.Type_AbstractTy (x,bopt,popt,p), Jdg.AbstractTy (jy,jb) ->
      let xvs = begin match popt with
-       | Some pt -> collect_is_type env xvs pt (Jdg.atom_ty jy)
+       | Some pt -> collect_is_type env xvs pt (Jdg.atom_is_type jy)
        | None -> xvs
      end in
-     let yt = Runtime.mk_is_term (Jdg.atom_term ~loc jy) in
+     let yt = Runtime.mk_is_term (Jdg.atom_is_term ~loc jy) in
      let env = Runtime.push_bound yt env in
      let xvs = match bopt with
        | None -> xvs
@@ -103,7 +103,7 @@ and collect_is_type env xvs p j =
      raise Match_fail
 
 and collect_eq_type env xvs pt1 pt2 jeq =
-  let (t1, t2) = Jdg.shape_eq_ty jeq in
+  let (t1, t2) = Jdg.shape_eq_type jeq in
   let xvs = collect_is_type env xvs pt1 t1 in
   let xvs = collect_is_type env xvs pt2 t2 in
   xvs

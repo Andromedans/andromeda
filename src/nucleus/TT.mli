@@ -1,4 +1,4 @@
-(** Abstract syntax of value types and terms *)
+(** Abstract syntax of type-theoretic types and terms *)
 
 (** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
 type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
@@ -12,11 +12,9 @@ type 'a assumptions = {
 }
 
 (** The type of TT terms.
-    (For details on the mutual definition with [term'], see module Location.)
 
     We use locally nameless syntax: names for free variables and deBruijn
-    indices for bound variables. In terms of type [term], bound variables are
-    not allowed to appear "bare", i.e., without an associated binder.
+    indices for bound variables.
 *)
 type term = (term' assumptions) Location.located
 and term' = private
@@ -32,7 +30,7 @@ and term' = private
   | TermConstructor of Name.constant * argument list
 
   (** a lambda abstraction [fun (x1 : t1) -> e : t] *)
-  | Abstract of (term * ty) ty_abstraction
+  | TermAbstract of (term * ty) type_abstraction
 
 (** The type of TT types. *)
 and ty = (ty' assumptions) Location.located
@@ -41,10 +39,10 @@ and ty' = private
 (** the universe *)
   | Type
 
-  | TyConstructor of Name.constant * argument list
+  | TypeConstructor of Name.constant * argument list
 
   (** a dependent product [forall (x1 : t1), t] *)
-  | AbstractTy of ty ty_abstraction
+  | TypeAbstract of ty type_abstraction
 
   (** The extension of an element of the universe. *)
   | El of term
@@ -56,8 +54,8 @@ and argument =
   | ArgEqType (* no data here, equations are proof irrelevant *)
   | ArgEqTerm (* no data here, equations are proof irrelevant *)
 
-(** A ['a ty_abstraction] is a n abstraction where the [a1, ..., an] are types *)
-and 'a ty_abstraction = (ty, 'a) abstraction
+(** A ['a type_abstraction] is a n abstraction where the [a1, ..., an] are types *)
+and 'a type_abstraction = (ty, 'a) abstraction
 
 (** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term

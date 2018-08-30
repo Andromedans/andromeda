@@ -10,10 +10,10 @@ type dyn
 
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value = private
-  | IsTerm of Jdg.term               (** A term judgment *)
-  | IsType of Jdg.ty                 (** A type judgment *)
+  | IsTerm of Jdg.is_term            (** A term judgment *)
+  | IsType of Jdg.is_type            (** A type judgment *)
   | EqTerm of Jdg.eq_term            (** A term equality *)
-  | EqType of Jdg.eq_ty              (** A type equality *)
+  | EqType of Jdg.eq_type            (** A type equality *)
   | Closure of (value,value) closure (** An AML function *)
   | Handler of handler               (** Handler value *)
   | Tag of Name.ident * value list   (** Application of a data constructor *)
@@ -22,7 +22,7 @@ type value = private
   | Dyn of dyn                       (** Dynamic variable *)
   | String of string                 (** String constant (opaque, not a list) *)
 
-and operation_args = { args : value list; checking : Jdg.ty option}
+and operation_args = { args : value list; checking : Jdg.is_type option}
 
 (** A handler contains AML code for handling zero or more operations,
     plus the default case *)
@@ -36,26 +36,60 @@ val name_of : value -> string
 
 (** {b Value construction} *)
 
-val mk_is_term : Jdg.term -> value                 (** Build an [IsTerm] value *)
-val mk_is_type : Jdg.ty -> value                   (** Build an [IsType] value *)
-val mk_eq_term : Jdg.eq_term -> value              (** Build an [EqTerm] value *)
-val mk_eq_type : Jdg.eq_ty -> value                (** Build an [EqType] value *)
-val mk_handler : handler -> value                  (** Build a [Handler] value *)
-val mk_tag     : Name.ident -> value list -> value (** Build a [Tag] value *)
-val mk_tuple   : value list -> value               (** Build a [Tuple] value *)
-val mk_string  : string -> value                   (** Build a [String] value *)
+(** Build an [IsTerm] value *)
+val mk_is_term : Jdg.is_term -> value
+
+(** Build an [IsType] value *)
+val mk_is_type : Jdg.is_type-> value
+
+(** Build an [EqTerm] value *)
+val mk_eq_term : Jdg.eq_term -> value
+
+(** Build an [EqType] value *)
+val mk_eq_type : Jdg.eq_type -> value
+
+(** Build a [Handler] value *)
+val mk_handler : handler -> value
+
+(** Build a [Tag] value *)
+val mk_tag     : Name.ident -> value list -> value
+
+(** Build a [Tuple] value *)
+val mk_tuple   : value list -> value
+
+(** Build a [String] value *)
+val mk_string  : string -> value
+
 
 (** {b Value extraction} *)
 
-val as_is_term : loc:Location.t -> value -> Jdg.term    (** Convert, or fail with [IsTermExpected] *)
-val as_is_type : loc:Location.t -> value -> Jdg.ty      (** Convert, or fail with [IsTypeExpected] *)
-val as_eq_term : loc:Location.t -> value -> Jdg.eq_term (** Convert, or fail with [EqTermExpected] *)
-val as_eq_type : loc:Location.t -> value -> Jdg.eq_ty   (** Convert, or fail with [EqTypeExpected] *)
-val as_closure : loc:Location.t -> value -> (value,value) closure (** Convert, or fail with [ClosureExpected] *)
-val as_handler : loc:Location.t -> value -> handler     (** Convert, or fail with [HandlerExpected] *)
-val as_ref : loc:Location.t -> value -> ref             (** Convert, or fail with [RefExpected] *)
-val as_dyn : loc:Location.t -> value -> dyn             (** Convert, or fail with [DynExpected] *)
-val as_string : loc:Location.t -> value -> string       (** Convert, or fail with [StringExpected] *)
+(** Convert, or fail with [IsTermExpected] *)
+val as_is_term : loc:Location.t -> value -> Jdg.is_term
+
+(** Convert, or fail with [IsTypeExpected] *)
+val as_is_type : loc:Location.t -> value -> Jdg.is_type
+
+(** Convert, or fail with [EqTermExpected] *)
+val as_eq_term : loc:Location.t -> value -> Jdg.eq_term
+
+(** Convert, or fail with [EqTypeExpected] *)
+val as_eq_type : loc:Location.t -> value -> Jdg.eq_type
+
+(** Convert, or fail with [ClosureExpected] *)
+val as_closure : loc:Location.t -> value -> (value,value) closure
+
+(** Convert, or fail with [HandlerExpected] *)
+val as_handler : loc:Location.t -> value -> handler
+
+(** Convert, or fail with [RefExpected] *)
+val as_ref : loc:Location.t -> value -> ref
+
+(** Convert, or fail with [DynExpected] *)
+val as_dyn : loc:Location.t -> value -> dyn
+
+(** Convert, or fail with [StringExpected] *)
+val as_string : loc:Location.t -> value -> string
+
 
 (** {b Other operations} *)
 
@@ -73,24 +107,24 @@ val print_value : ?max_level:Level.t -> penv:TT.print_env -> value -> Format.for
 
 (** The runtime errors *)
 type error =
-  | ExpectedAtom of Jdg.term
+  | ExpectedAtom of Jdg.is_term
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | AnnotationMismatch of Jdg.ty * Jdg.ty
-  | TypeMismatchCheckingMode of Jdg.term * Jdg.ty
-  | EqualityFail of Jdg.term * Jdg.term
+  | AnnotationMismatch of Jdg.is_type * Jdg.is_type
+  | TypeMismatchCheckingMode of Jdg.is_term * Jdg.is_type
+  | EqualityFail of Jdg.is_term * Jdg.is_term
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
-  | InvalidEqualTerm of Jdg.term * Jdg.term
-  | InvalidEqualType of Jdg.ty * Jdg.ty
+  | InvalidEqualTerm of Jdg.is_term * Jdg.is_term
+  | InvalidEqualType of Jdg.is_type * Jdg.is_type
   | ListExpected of value
   | OptionExpected of value
   | IsTypeExpected of value
   | IsTermExpected of value
   | IsTypeOrTermExpected of value
-  | AbstractTyExpected of Jdg.ty
+  | AbstractTyExpected of Jdg.is_type
   | EqTypeExpected of value
   | EqTermExpected of value
   | ClosureExpected of value
@@ -99,8 +133,8 @@ type error =
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
-  | InvalidConvertible of Jdg.ty * Jdg.ty * Jdg.eq_ty
-  | InvalidCoerce of Jdg.ty * Jdg.term
+  | InvalidConvertible of Jdg.is_type * Jdg.is_type * Jdg.eq_type
+  | InvalidCoerce of Jdg.is_type * Jdg.is_term
   | UnhandledOperation of Name.operation * value list
 
 (** The exception that is raised on runtime error *)
@@ -130,10 +164,10 @@ val return : 'a -> 'a comp
 
 val return_unit : value comp
 
-val return_is_term : Jdg.term -> value comp
-val return_is_type : Jdg.ty -> value comp
+val return_is_term : Jdg.is_term -> value comp
+val return_is_type : Jdg.is_type -> value comp
 val return_eq_term : Jdg.eq_term -> value comp
-val return_eq_type : Jdg.eq_ty -> value comp
+val return_eq_type : Jdg.eq_type -> value comp
 
 val return_closure : (value -> value comp) -> value comp
 val return_handler :
@@ -158,7 +192,7 @@ val lookup_ref : ref -> value comp
 val update_ref : ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
-val operation : Name.operation -> ?checking:Jdg.ty -> value list -> value comp
+val operation : Name.operation -> ?checking:Jdg.is_type -> value list -> value comp
 
 (** Wrap the given computation with a handler. *)
 val handle_comp : handler -> value comp -> value comp
@@ -190,7 +224,7 @@ val index_of_level : Rsyntax.level -> Rsyntax.bound comp
     then it extends [ctx] to [ctx' = ctx, y : t]
     and runs [f (ctx' |- y : t)] in the environment with [x] bound to [ctx' |- y : t].
     NB: This is an effectful computation, as it increases a global counter. *)
-val add_free: loc:Location.t -> Name.ident -> Jdg.ty -> (Jdg.atom -> 'a comp) -> 'a comp
+val add_free: loc:Location.t -> Name.ident -> Jdg.is_type -> (Jdg.is_atom -> 'a comp) -> 'a comp
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
@@ -229,7 +263,7 @@ val add_topbound_rec : (value -> value comp) list -> unit toplevel
 val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
-val add_handle : Name.ident -> (value list * Jdg.ty option,value) closure -> unit toplevel
+val add_handle : Name.ident -> (value list * Jdg.is_type option,value) closure -> unit toplevel
 
 (** Modify the value bound by a dynamic variable *)
 val top_now : dyn -> value -> unit toplevel

@@ -17,14 +17,14 @@ and term' =
   | Bound of bound
   | Constant of Name.constant
   | TermConstructor of Name.constructor * argument list
-  | Abstract of (term * ty) ty_abstraction
+  | TermAbstract of (term * ty) type_abstraction
 
 and ty = (ty' assumptions) Location.located
 
 and ty' =
   | Type
-  | TyConstructor of Name.constructor * argument list
-  | AbstractTy of ty ty_abstraction
+  | TypeConstructor of Name.constructor * argument list
+  | TypeAbstract of ty type_abstraction
   | El of term
 
 and argument =
@@ -33,7 +33,7 @@ and argument =
   | ArgEqType
   | ArgEqTerm
 
-and 'a ty_abstraction = (ty, 'a) abstraction
+and 'a type_abstraction = (ty, 'a) abstraction
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
@@ -62,14 +62,14 @@ let mk_constant ~loc x =
 
 let mk_abstract ~loc x a e b =
   Location.locate
-    { thing = Abstract ((x, a), (e, b))
+    { thing = TermAbstract ((x, a), (e, b))
     ; assumptions = hyp_union (ty_hyps a) (List.map Assumption.bind1 [ty_hyps b; e.Location.thing.assumptions]) ;
     }
     loc
 
 let mk_abstract_ty ~loc x a b =
   Location.locate
-    { thing = AbstractTy ((x, a), b)
+    { thing = TypeAbstract ((x, a), b)
     ; assumptions=hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b)]
     }
     loc
@@ -136,11 +136,11 @@ let rec at_var atom bound hyps ~lvl ({Location.loc=loc;thing={thing=e';assumptio
        Location.locate {thing=TermConstructor(c, args); assumptions} loc
     | Atom x -> atom ~lvl x assumptions loc
     | Bound k -> bound ~lvl k assumptions loc
-    | Abstract ((x,a),(e,b)) ->
+    | TermAbstract ((x,a),(e,b)) ->
       let a = at_var_ty atom bound hyps ~lvl a
       and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b
       and e = at_var atom bound hyps ~lvl:(lvl+1) e in
-      let term = Abstract ((x,a),(e,b)) in
+      let term = TermAbstract ((x,a),(e,b)) in
       Location.locate {thing=term;assumptions} loc
 
 and at_var_ty atom bound hyps ~lvl ({Location.loc=loc;thing={thing=t';assumptions=hs}} as t) =
@@ -150,13 +150,13 @@ and at_var_ty atom bound hyps ~lvl ({Location.loc=loc;thing={thing=t';assumption
   else
   match t' with
   | Type as ty -> Location.locate {thing=ty;assumptions} loc
-    | TyConstructor (c, args) ->
+    | TypeConstructor (c, args) ->
        let args = at_arguments atom bound hyps ~lvl args in
-       Location.locate {thing=TyConstructor(c, args); assumptions} loc
-  | AbstractTy ((x,a),b) ->
+       Location.locate {thing=TypeConstructor(c, args); assumptions} loc
+  | TypeAbstract ((x,a),b) ->
      let a = at_var_ty atom bound hyps ~lvl a
      and b = at_var_ty atom bound hyps ~lvl:(lvl+1) b in
-     let ty = AbstractTy ((x,a),b) in
+     let ty = TypeAbstract ((x,a),b) in
      Location.locate {thing=ty;assumptions} loc
   | El e ->
      let e = at_var atom bound hyps ~lvl e in
@@ -266,13 +266,13 @@ let rec occurs k {Location.loc;thing={thing=e';_}} =
   | Bound m -> k = m
   | Constant x -> false
   | TermConstructor (_, args) -> occurs_args k args
-  | Abstract a -> occurs_abstraction occurs_ty occurs_term_ty k a
+  | TermAbstract a -> occurs_abstraction occurs_ty occurs_term_ty k a
 
 and occurs_ty k {Location.loc;thing={thing=t';_}} =
   match t' with
   | Type -> false
-  | TyConstructor (_, args) -> occurs_args k args
-  | AbstractTy a -> occurs_abstraction occurs_ty occurs_ty k a
+  | TypeConstructor (_, args) -> occurs_args k args
+  | TypeAbstract a -> occurs_abstraction occurs_ty occurs_ty k a
   | El e -> occurs k e
 
 and occurs_term_ty k (e, t) =
@@ -304,10 +304,10 @@ let rec alpha_equal {Location.thing={thing=e1;_};_} {Location.thing={thing=e2;_}
     | TermConstructor (c, args), TermConstructor (c', args') ->
        Name.eq_ident c c' && alpha_equal_args args args'
 
-    | Abstract abs, Abstract abs' ->
+    | TermAbstract abs, TermAbstract abs' ->
       alpha_equal_abstraction alpha_equal_ty alpha_equal_term_ty abs abs'
 
-    | (Atom _ | Bound _ | TermConstructor _  | Constant _ | Abstract _), _ ->
+    | (Atom _ | Bound _ | TermConstructor _  | Constant _ | TermAbstract _), _ ->
       false
   end
 
@@ -315,15 +315,15 @@ and alpha_equal_ty {Location.thing={thing=t1;_};_} {Location.thing={thing=t2;_};
   match t1, t2 with
   | Type, Type -> true
 
-  | TyConstructor (c, args), TyConstructor (c', args') ->
+  | TypeConstructor (c, args), TypeConstructor (c', args') ->
      Name.eq_ident c c' && alpha_equal_args args args'
 
-  | AbstractTy abs, AbstractTy abs' ->
+  | TypeAbstract abs, TypeAbstract abs' ->
      alpha_equal_abstraction alpha_equal_ty alpha_equal_ty abs abs'
 
   | El e1, El e2 -> alpha_equal e1 e2
 
-  | (Type | TyConstructor _ | AbstractTy _ | El _), _ -> false
+  | (Type | TypeConstructor _ | TypeAbstract _ | El _), _ -> false
 
 and alpha_equal_args args args' =
   match args, args' with
@@ -380,17 +380,17 @@ and print_term' ~penv ?max_level e ppf =
 
   | Bound k -> Name.print_debruijn penv.forbidden k ppf
 
-  | Abstract a -> print_abstract ?max_level ~penv a ppf
+  | TermAbstract a -> print_abstract ?max_level ~penv a ppf
 
 and print_ty ?max_level ~penv {Location.thing={thing=t;_};_} ppf =
   match t with
 
   | Type -> Format.fprintf ppf "Type"
 
-  | TyConstructor (c, args) ->
+  | TypeConstructor (c, args) ->
      print_constructor ?max_level ~penv c args ppf
 
-  | AbstractTy xts -> print_abstract_ty ?max_level ~penv xts ppf
+  | TypeAbstract xts -> print_abstract_ty ?max_level ~penv xts ppf
 
   | El e -> Format.fprintf ppf "El@ %t" (print_term ~max_level:Level.el_arg ~penv e)
 
@@ -414,7 +414,7 @@ and print_abstract ?max_level ~penv ((x, u), (e, _)) ppf =
   let x = (if not (occurs 0 e) then Name.anonymous () else x) in
   let rec collect xus e =
     match e.Location.thing.thing with
-    | Abstract ((x, u), (e, _)) ->
+    | TermAbstract ((x, u), (e, _)) ->
        let x = (if not (occurs 0 e) then Name.anonymous () else x) in
        collect ((x, u) :: xus) e
     | _ ->
@@ -432,7 +432,7 @@ and print_abstract_ty ?max_level ~penv ((x, u), t) ppf =
   let x = (if not (occurs_ty 0 t) then Name.anonymous () else x) in
   let rec collect xus ({Location.thing={thing=t;_};_} as t_ty) =
     match t with
-    | AbstractTy ((x, u), t_ty) ->
+    | TypeAbstract ((x, u), t_ty) ->
        let x = (if not (occurs_ty 0 t_ty) then Name.anonymous () else x) in
        collect ((x, u) :: xus) t_ty
     | _ ->
@@ -467,8 +467,8 @@ struct
 
       | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Name.Json.ident c :: args lst)
 
-      | Abstract (xt, (e, u)) ->
-         Json.tag "Abstract" [abstraction xt (Json.tuple [term e; ty u])]
+      | TermAbstract (xt, (e, u)) ->
+         Json.tag "TermAbstract" [abstraction xt (Json.tuple [term e; ty u])]
 
   and abstraction (x, t) d = Json.tuple [Name.Json.ident x; ty t; d]
 
@@ -481,9 +481,9 @@ struct
     match t with
       | Type -> Json.tag "Type" []
 
-      | TyConstructor (c, lst) -> Json.tag "TyConstructor" (Name.Json.ident c :: args lst)
+      | TypeConstructor (c, lst) -> Json.tag "TypeConstructor" (Name.Json.ident c :: args lst)
 
-      | AbstractTy (xt, u) -> Json.tag "AbstractTy" [abstraction xt (ty u)]
+      | TypeAbstract (xt, u) -> Json.tag "TypeAbstract" [abstraction xt (ty u)]
 
       | El e -> Json.tag "El" [term e]
 

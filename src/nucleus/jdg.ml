@@ -16,21 +16,21 @@ type ctx = node AtomMap.t
 
 (* Every judgement except the judgement that something is a valid context enforces that its context is minimal. *)
 
-type term = Term of ctx * TT.term * TT.ty
+type is_term = IsTerm of ctx * TT.term * TT.ty
 
-type atom = JAtom of ctx * Name.atom * TT.ty
+type is_atom = IsAtom of ctx * Name.atom * TT.ty
 
-type ty = Ty of ctx * TT.ty
+type is_type = IsType of ctx * TT.ty
 
 type closed_ty = TT.ty
 
 type eq_term = EqTerm of ctx * TT.term * TT.term * TT.ty
 
-type eq_ty = EqTy of ctx * TT.ty * TT.ty
+type eq_type = EqType of ctx * TT.ty * TT.ty
 
 (* The following do not guarantee a minimal context. *)
 (* XXX: can we have a single type 'a term with some value for 'a guaranteeing strength? Then some functions like typeof can be polymorphic. *)
-type weakty = WeakTy of ctx * TT.ty
+type weakty = WeakType of ctx * TT.ty
 
 type weakterm = WeakTerm of ctx * TT.term * TT.ty
 
@@ -108,18 +108,18 @@ module Ctx = struct
       | None -> None
       | Some {ty;_} ->
         let ctx = restrict ctx (AtomSet.singleton x) in
-        Some (JAtom (ctx, x, ty))
+        Some (IsAtom (ctx, x, ty))
 
-  let add_fresh (Ty (ctx, ty)) x =
+  let add_fresh (IsType (ctx, ty)) x =
     let y = Name.fresh x in
     let ctx = AtomMap.mapi
       (fun z node -> {node with needed_by = AtomSet.add y node.needed_by})
       ctx
     in
     let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
-    JAtom (ctx, y, ty)
+    IsAtom (ctx, y, ty)
 
-  let add_weak (WeakTy (ctx, ty)) x =
+  let add_weak (WeakType (ctx, ty)) x =
     let y = Name.fresh x in
     let aset = TT.assumptions_ty ty in
     let needs = recursive_assumptions ctx aset in
@@ -174,7 +174,7 @@ module Ctx = struct
       ctx2 ctx1
 
   (* substitute x by e in ctx *)
-  let substitute ~loc ctx x (Term (ctxe, e, t)) =
+  let substitute ~loc ctx x (IsTerm (ctxe, e, t)) =
     let ctx = join ~loc ctx ctxe in
     match lookup x ctx with
       | None -> ctx
@@ -216,7 +216,7 @@ module Ctx = struct
       else
         let {needed_by;ty} = AtomMap.find x ctx in
         let (handled, xts) = AtomSet.fold process needed_by handled_ys  in
-        (AtomSet.add x handled, (JAtom (restrict ctx (AtomSet.singleton x), x, ty)) :: xts)
+        (AtomSet.add x handled, (IsAtom (restrict ctx (AtomSet.singleton x), x, ty)) :: xts)
     in
     let _, xts = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
     xts
@@ -247,41 +247,41 @@ end
 let strengthen (WeakTerm (ctx, e, t)) =
   let hyps = AtomSet.union (TT.assumptions_term e) (TT.assumptions_ty t) in
   let ctx = Ctx.restrict ctx hyps in
-  Term (ctx,e,t)
+  IsTerm (ctx,e,t)
 
-let strengthen_ty (WeakTy (ctx, t)) =
+let strengthen_ty (WeakType (ctx, t)) =
   let hyps = TT.assumptions_ty t in
   let ctx = Ctx.restrict ctx hyps in
-  Ty (ctx, t)
+  IsType (ctx, t)
 
 let strengthen_atom (WeakAtom (ctx, x, t)) =
   let hyps = AtomSet.singleton x in
   let ctx = Ctx.restrict ctx hyps in
-  JAtom (ctx, x, t)
+  IsAtom (ctx, x, t)
 
-let typeof (Term (ctx, _, t)) =
-  strengthen_ty (WeakTy (ctx, t))
+let typeof (IsTerm (ctx, _, t)) =
+  strengthen_ty (WeakType (ctx, t))
 
-let atom_ty (JAtom (ctx,x,t)) =
-  strengthen_ty (WeakTy (ctx, t))
+let atom_is_type (IsAtom (ctx,x,t)) =
+  strengthen_ty (WeakType (ctx, t))
 
-let atom_term ~loc (JAtom (ctx,x,t)) =
-  Term (ctx, TT.mk_atom ~loc x, t)
+let atom_is_term ~loc (IsAtom (ctx,x,t)) =
+  IsTerm (ctx, TT.mk_atom ~loc x, t)
 
-let ty_ty = Ty (Ctx.empty, TT.typ)
+let ty_ty = IsType (Ctx.empty, TT.typ)
 
-let is_closed_ty ~loc (Ty (ctx, t)) =
+let is_closed_ty ~loc (IsType (ctx, t)) =
   if Ctx.is_empty ctx
   then t
   else error ~loc ConstantDependency
 
-let occurs (JAtom (_, x, _)) (Term (ctx, _, _)) =
+let occurs (IsAtom (_, x, _)) (IsTerm (ctx, _, _)) =
   Ctx.lookup_atom x ctx
 
-let contextof (Term (ctx, _, _)) =
+let contextof (IsTerm (ctx, _, _)) =
   ctx
 
-let print_term ~penv ?max_level (Term (ctx, e, t)) ppf =
+let print_is_term ~penv ?max_level (IsTerm (ctx, e, t)) ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%t%s @[<hv>@[<hov>%t@]@;<1 -2>: @[<hov>%t@]@]"
               (Ctx.print ~penv ctx)
@@ -289,7 +289,7 @@ let print_term ~penv ?max_level (Term (ctx, e, t)) ppf =
               (TT.print_term ~penv ~max_level:Level.highest e)
               (TT.print_ty ~penv ~max_level:Level.highest t)
 
-let print_ty ~penv ?max_level (Ty (ctx, t)) ppf =
+let print_is_type ~penv ?max_level (IsType (ctx, t)) ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%t%s @[<hov>%t@] @ type"
               (Ctx.print ~penv ctx)
@@ -306,7 +306,7 @@ let print_eq_term ~penv ?max_level (EqTerm (ctx, e1, e2, t)) ppf =
               (TT.print_term ~penv e2)
               (TT.print_ty ~penv t)
 
-let print_eq_ty ~penv ?max_level (EqTy (ctx, t1, t2)) ppf =
+let print_eq_type ~penv ?max_level (EqType (ctx, t1, t2)) ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%t%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
               (Ctx.print ~penv ctx)
@@ -370,27 +370,27 @@ let print_error ~penv err ppf = match err with
       rule (TT.print_ty ~penv t1) desc1 (TT.print_ty ~penv t2) desc2
 
 (** Destructors *)
-type 'a abstraction = atom * 'a
+type 'a abstraction = is_atom * 'a
 
 type argument =
-  | ArgIsType of ty
-  | ArgIsTerm of term
-  | ArgEqType of eq_ty
+  | ArgIsType of is_type
+  | ArgIsTerm of is_term
+  | ArgEqType of eq_type
   | ArgEqTerm of eq_term
 
-type shape =
-  | Atom of atom
+type shape_is_term =
+  | Atom of is_atom
   | Constant of Name.constant
   | TermConstructor of Name.constructor * argument list
-  | Abstract of term abstraction
+  | Abstract of is_term abstraction
 
-and shape_ty =
+and shape_is_type =
   | Type
   | TyConstructor of Name.constructor * argument list
-  | AbstractTy of ty abstraction
-  | El of term
+  | AbstractTy of is_type abstraction
+  | El of is_term
 
-let shape (Term (ctx,e,t)) =
+let shape_is_term (IsTerm (ctx,e,t)) =
   match e.Location.thing.TT.thing with
     | TT.Atom x ->
       begin match Ctx.lookup_atom x ctx with
@@ -403,8 +403,8 @@ let shape (Term (ctx,e,t)) =
     | TT.TermConstructor (c, args) ->
        assert false (* XXX to do *)
 
-    | TT.Abstract ((x,a),(e,b)) ->
-      let ja = WeakTy (ctx, a) in
+    | TT.TermAbstract ((x,a),(e,b)) ->
+      let ja = WeakType (ctx, a) in
       let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
       let b = TT.unabstract_ty [y] b
       and e = TT.unabstract [y] e in
@@ -413,85 +413,85 @@ let shape (Term (ctx,e,t)) =
 
     | TT.Bound _ -> assert false
 
-let shape_ty (Ty (ctx, ty)) =
+let shape_is_type (IsType (ctx, ty)) =
   match ty.Location.thing.TT.thing with
 
   | TT.Type -> Type
 
-  | TT.TyConstructor (c, args) ->
+  | TT.TypeConstructor (c, args) ->
      assert false (* XXX to do *)
 
-  | TT.AbstractTy ((x,a),b) ->
-     let ja = WeakTy (ctx, a) in
+  | TT.TypeAbstract ((x,a),b) ->
+     let ja = WeakType (ctx, a) in
      let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
      let b = TT.unabstract_ty [y] b in
-     let jb = WeakTy (ctx, b) in
+     let jb = WeakType (ctx, b) in
      AbstractTy (strengthen_atom jy, strengthen_ty jb)
 
-  | TT.El e -> El (Term (ctx, e, TT.mk_type ~loc:e.Location.loc))
+  | TT.El e -> El (IsTerm (ctx, e, TT.mk_type ~loc:e.Location.loc))
 
-let shape_eq_ty (EqTy (ctx, ty1, ty2)) =
-  let j1 = strengthen_ty (WeakTy (ctx, ty1))
-  and j2 = strengthen_ty (WeakTy (ctx, ty2))
+let shape_eq_type (EqType (ctx, ty1, ty2)) =
+  let j1 = strengthen_ty (WeakType (ctx, ty1))
+  and j2 = strengthen_ty (WeakType (ctx, ty2))
   in j1, j2
 
 let shape_eq_term (EqTerm (ctx, e1, e2, ty)) =
   let j1 = strengthen (WeakTerm (ctx, e1, ty))
   and j2 = strengthen (WeakTerm (ctx, e2, ty))
-  and jt = strengthen_ty (WeakTy (ctx, ty))
+  and jt = strengthen_ty (WeakType (ctx, ty))
   in (j1, j2, jt)
 
 let shape_abstract_ty j =
-  match shape_ty j with
+  match shape_is_type j with
   | AbstractTy (a, b) -> Some (a, b)
   | (TyConstructor _ | Type | El _) -> None
 
 (** Construct judgements *)
 let form ~loc sgn = function
-  | Atom x -> atom_term ~loc x
+  | Atom x -> atom_is_term ~loc x
 
   | Constant c ->
     let t = Signature.constant_type c sgn in
-    Term (Ctx.empty, TT.mk_constant ~loc c,t)
+    IsTerm (Ctx.empty, TT.mk_constant ~loc c,t)
 
  | TermConstructor (c, args) ->
     assert false (* XXX to do *)
 
-  | Abstract ((JAtom (ctxa,x,a)),(Term (ctxe,e,b))) ->
+  | Abstract ((IsAtom (ctxa,x,a)),(IsTerm (ctxe,e,b))) ->
     let ctx = Ctx.join ~loc ctxe ctxa in
     let ctx = Ctx.abstract ~loc ctx x a in
     let b = TT.abstract_ty [x] b
     and e = TT.abstract [x] e in
     let x = Name.ident_of_atom x in
-    Term (ctx, TT.mk_abstract ~loc x a e b, TT.mk_abstract_ty ~loc x a b)
+    IsTerm (ctx, TT.mk_abstract ~loc x a e b, TT.mk_abstract_ty ~loc x a b)
 
 let form_ty ~loc sgn = function
   | Type ->
-    Ty (Ctx.empty, TT.mk_type ~loc)
+    IsType (Ctx.empty, TT.mk_type ~loc)
 
   | TyConstructor (c, args) ->
      assert false (* XXX to do *)
 
-  | AbstractTy ((JAtom (ctxa,x,a)),(Ty (ctxb,b))) ->
+  | AbstractTy ((IsAtom (ctxa,x,a)),(IsType (ctxb,b))) ->
     let ctx = Ctx.join ~loc ctxb ctxa in
     let ctx = Ctx.abstract ~loc ctx x a in
     let b = TT.abstract_ty [x] b in
-    Ty (ctx, TT.mk_abstract_ty ~loc (Name.ident_of_atom x) a b)
+    IsType (ctx, TT.mk_abstract_ty ~loc (Name.ident_of_atom x) a b)
 
-  | El (Term (ctx, e, t)) ->
+  | El (IsTerm (ctx, e, t)) ->
      if TT.alpha_equal_ty t TT.typ
      then
-       Ty (ctx, TT.mk_el ~loc e)
+       IsType (ctx, TT.mk_el ~loc e)
      else
        error ~loc NotAType
 
 (** Substitution *)
-let substitute_ty ~loc (Ty (ctxt, t)) (JAtom (_, a, _)) (Term (_, s, _) as js) =
+let substitute_ty ~loc (IsType (ctxt, t)) (IsAtom (_, a, _)) (IsTerm (_, s, _) as js) =
   let ctxt = Ctx.substitute ~loc ctxt a js in
   let t = TT.substitute_ty [a] [s] t in
-  strengthen_ty (WeakTy (ctxt, t))
+  strengthen_ty (WeakType (ctxt, t))
 
-let substitute ~loc (Term (ctxe, e, t)) (JAtom (_, a, _)) (Term (_, s, _) as js) =
+let substitute ~loc (IsTerm (ctxe, e, t)) (IsAtom (_, a, _)) (IsTerm (_, s, _) as js) =
   let ctxe = Ctx.substitute ~loc ctxe a js in
   let t = TT.substitute_ty [a] [s] t
   and e = TT.substitute [a] [s] e in
@@ -506,21 +506,21 @@ let eq_term_side side (EqTerm (ctx, lhs, rhs, ty)) =
   strengthen (WeakTerm (ctx, term, ty))
 
 let eq_term_typeof (EqTerm (ctx, _, _, ty)) =
-  strengthen_ty (WeakTy (ctx, ty))
+  strengthen_ty (WeakType (ctx, ty))
 
-let eq_ty_side side (EqTy (ctx, lhs, rhs)) : ty =
+let eq_type_side side (EqType (ctx, lhs, rhs)) =
   let ty = match side with LEFT -> lhs | RIGHT -> rhs in
-  strengthen_ty (WeakTy (ctx, ty))
+  strengthen_ty (WeakType (ctx, ty))
 
-let convert ~loc (Term (ctx1, e, t)) (EqTy (ctx2, t1, t2)) =
+let convert ~loc (IsTerm (ctx1, e, t)) (EqType (ctx2, t1, t2)) =
   if not (TT.alpha_equal_ty t t1)
   then error ~loc (InvalidConvert (t, t1))
   else
     let ctx = Ctx.join ~loc ctx1 ctx2 in
     let e = TT.mention_atoms (Ctx.as_set ctx2) e in
-    Term (ctx, e, t2)
+    IsTerm (ctx, e, t2)
 
-let convert_eq ~loc (EqTerm (ctx1, e1, e2, ty)) (EqTy (ctx2, t1, t2)) =
+let convert_eq ~loc (EqTerm (ctx1, e1, e2, ty)) (EqType (ctx2, t1, t2)) =
   if not (TT.alpha_equal_ty ty t1)
   then error ~loc (InvalidConvert (ty, t1))
   else
@@ -532,20 +532,20 @@ let convert_eq ~loc (EqTerm (ctx1, e1, e2, ty)) (EqTy (ctx2, t1, t2)) =
 
 (** Constructors *)
 
-let reflexivity (Term (ctx, e, t)) =
+let reflexivity (IsTerm (ctx, e, t)) =
   EqTerm (ctx, e, e, t)
 
-let reflexivity_ty (Ty (ctx, t)) =
-  EqTy (ctx, t, t)
+let reflexivity_ty (IsType (ctx, t)) =
+  EqType (ctx, t, t)
 
-let mk_alpha_equal_ty ~loc (Ty (ctx1, t1)) (Ty (ctx2, t2)) =
+let mk_alpha_equal_ty ~loc (IsType (ctx1, t1)) (IsType (ctx2, t2)) =
   match TT.alpha_equal_ty t1 t2 with
   | false -> None
   | true ->
      let ctx = Ctx.join ~loc ctx1 ctx2 in
-     Some (EqTy (ctx, t1, t2))
+     Some (EqType (ctx, t1, t2))
 
-let mk_alpha_equal ~loc (Term (ctx1, e1, ty1)) (Term (ctx2, e2, ty2)) =
+let mk_alpha_equal ~loc (IsTerm (ctx1, e1, ty1)) (IsTerm (ctx2, e2, ty2)) =
   match TT.alpha_equal_ty ty1 ty2 with
   | false -> error ~loc (AlphaEqualTypeMismatch (ty1, ty2))
   | true ->
@@ -557,23 +557,23 @@ let mk_alpha_equal ~loc (Term (ctx1, e1, ty1)) (Term (ctx2, e2, ty2)) =
         Some (EqTerm (ctx, e1, e2, ty1))
      end
 
-let alpha_equal (Term (_, e1, _)) (Term (_, e2, _)) =
+let alpha_equal_is_term (IsTerm (_, e1, _)) (IsTerm (_, e2, _)) =
   TT.alpha_equal e1 e2
 
-let alpha_equal_ty (Ty (_, t1)) (Ty (_, t2)) =
+let alpha_equal_is_type (IsType (_, t1)) (IsType (_, t2)) =
   TT.alpha_equal_ty t1 t2
 
-let alpha_equal_eq_ty ~loc (Ty (ctx1, t1)) (Ty (ctx2, t2)) =
+let alpha_equal_eq_type ~loc (IsType (ctx1, t1)) (IsType (ctx2, t2)) =
   if not (TT.alpha_equal_ty t1 t2)
   then
     None
   else
     let ctx = Ctx.join ~loc ctx1 ctx2 in
-    Some (EqTy (ctx, t1, t2))
+    Some (EqType (ctx, t1, t2))
 
-let symmetry (EqTerm (ctx, e1, e2, t)) = EqTerm (ctx, e2, e1, t)
+let symmetry_term (EqTerm (ctx, e1, e2, t)) = EqTerm (ctx, e2, e1, t)
 
-let symmetry_ty (EqTy (ctx, t1, t2)) = EqTy (ctx, t2, t1)
+let symmetry_type (EqType (ctx, t1, t2)) = EqType (ctx, t2, t1)
 
 let transitivity_term ~loc (EqTerm (ctx, e1, e2, t)) (EqTerm (ctx', e1', e2', t')) =
   match TT.alpha_equal_ty t t' with
@@ -586,17 +586,17 @@ let transitivity_term ~loc (EqTerm (ctx, e1, e2, t)) (EqTerm (ctx', e1', e2', t'
         EqTerm (ctx, e1, e2', t)
      end
 
-let transitivity_ty ~loc (EqTy (ctx1, t1, t2)) (EqTy (ctx2, u1, u2)) =
+let transitivity_type ~loc (EqType (ctx1, t1, t2)) (EqType (ctx2, u1, u2)) =
   begin match TT.alpha_equal_ty t2 u1 with
      | false -> error ~loc (AlphaEqualTypeMismatch (t2, u1))
      | true ->
         let ctx = Ctx.join ~loc ctx1 ctx2 in
-        EqTy (ctx, t1, u2)
+        EqType (ctx, t1, u2)
      end
 
 (** Congruence *)
 
-let congr_abstract_ty ~loc (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, y, _)) (EqTy (ctxb, b1, b2)) =
+let congr_abstract_type ~loc (EqType (ctxa, ta1, ta2)) (IsAtom (_, x, _)) (IsAtom (_, y, _)) (EqType (ctxb, b1, b2)) =
   let ctxb = Ctx.abstract ~loc ctxb x ta1 in
 
   let hypsa = Ctx.as_set ctxa in
@@ -606,11 +606,11 @@ let congr_abstract_ty ~loc (EqTy (ctxa, ta1, ta2)) (JAtom (_, x, _)) (JAtom (_, 
   let ctx = Ctx.join ~loc ctxa ctxb in
   let lhs = TT.mk_abstract_ty ~loc (Name.ident_of_atom x) ta1 b1
   and rhs = TT.mk_abstract_ty ~loc (Name.ident_of_atom y) ta2 b2 in
-  EqTy (ctx, lhs, rhs)
+  EqType (ctx, lhs, rhs)
 
-let congr_abstract ~loc (EqTy (ctxa, ta1, ta2))
-                 (JAtom (_, x, _)) (JAtom (_, y, _))
-                 (EqTy (ctxb, b1, b2))
+let congr_abstract_term ~loc (EqType (ctxa, ta1, ta2))
+                 (IsAtom (_, x, _)) (IsAtom (_, y, _))
+                 (EqType (ctxb, b1, b2))
                  (EqTerm (ctxe, e1, e2, ty_e)) =
   if not (TT.alpha_equal_ty b1 ty_e)
   then error ~loc (RuleInputMismatch ("congr-abstract",
@@ -635,11 +635,11 @@ let congr_abstract ~loc (EqTy (ctxa, ta1, ta2))
 
 (** Derivables *)
 
-let natural_ty ~loc sgn ctx e =
+let natural_type ~loc sgn ctx e =
   match e.Location.thing.TT.thing with
     | TT.Atom x ->
       begin match Ctx.lookup_atom x ctx with
-        | Some (JAtom (_, _, t)) -> t
+        | Some (IsAtom (_, _, t)) -> t
         | None -> assert false
       end
 
@@ -649,14 +649,14 @@ let natural_ty ~loc sgn ctx e =
     | TT.TermConstructor (c, args) ->
        assert false (* XXX to do *)
 
-    | TT.Abstract ((x,a),(_,b)) ->
+    | TT.TermAbstract ((x,a),(_,b)) ->
       TT.mk_abstract_ty ~loc x a b
 
     | TT.Bound _ -> assert false
 
-let natural_eq ~loc sgn (Term (ctx, e, derived)) =
-  let natural = natural_ty ~loc sgn ctx e in
-  EqTy (ctx, natural, derived)
+let natural_eq_type ~loc sgn (IsTerm (ctx, e, derived)) =
+  let natural = natural_type ~loc sgn ctx e in
+  EqType (ctx, natural, derived)
 
 module Json =
 struct
@@ -672,22 +672,22 @@ struct
     in
     Json.Dict dict
 
-  let term (Term (ctx, e, ty)) =
+  let is_term (IsTerm (ctx, e, ty)) =
     Json.record [("context", context ctx);
                  ("term", TT.Json.term e);
-                 ("ty", TT.Json.ty ty)]
+                 ("type", TT.Json.ty ty)]
 
-  let ty (Ty (ctx, ty)) =
+  let is_type (IsType (ctx, ty)) =
     Json.record [("context", context ctx);
-                 ("ty", TT.Json.ty ty)]
+                 ("type", TT.Json.ty ty)]
 
   let eq_term (EqTerm (ctx, e1, e2, t)) =
     Json.record [("context", context ctx);
                  ("lhs", TT.Json.term e1);
                  ("rhs", TT.Json.term e2);
-                 ("ty", TT.Json.ty t)]
+                 ("type", TT.Json.ty t)]
 
-  let eq_ty (EqTy (ctx, t1, t2)) =
+  let eq_type (EqType (ctx, t1, t2)) =
     Json.record [("context", context ctx);
                  ("lhs", TT.Json.ty t1);
                  ("rhs", TT.Json.ty t2)]
