@@ -10,9 +10,6 @@ type is_atom
 (** Judgements [ctx |- t type] *)
 type is_type
 
-(** Judgements [|- t type] *)
-type closed_ty
-
 (** Judgements [ctx |- e1 == e2 : t] *)
 type eq_term
 
@@ -46,7 +43,7 @@ module Ctx : sig
   (** The type of contexts. *)
   type t = ctx
 
-  val add_fresh : is_type -> Name.ident -> is_atom
+  val add_fresh : loc:Location.t -> is_type -> Name.ident -> is_atom
 
   (** [elements ctx] returns the elements of [ctx] sorted into a list so that all dependencies
       point forward in the list, ie the first atom does not depend on any atom, etc. *)
@@ -56,48 +53,50 @@ end
 
 module Rule : sig
 
-  (** A rule concluding that something is a type. *)
-  type is_type
+  module Schema : sig
+    (** A rule concluding that something is a type. *)
+    type is_type
 
-  (** A rule concluding that something is a term. *)
-  type is_term
+    (** A rule concluding that something is a term. *)
+    type is_term
 
-  (** A rule concluding that two types are equal. *)
-  type eq_type
+    (** A rule concluding that two types are equal. *)
+    type eq_type
 
-  (** A rule concluding that two terms are equal. *)
-  type eq_term
+    (** A rule concluding that two terms are equal. *)
+    type eq_term
+  end
 
   (** Given a type rule and a list of judgments, match the rule premises against the given
    judgments, make sure they fit the rule, and return the list of arguments that the type
    constructor should be applied to.
    *)
-  val form_is_type : is_type -> argument list -> TT.argument list
+  val form_is_type : Schema.is_type -> argument list -> TT.argument list
 
   (** Given a term rule and a list of judgments, match the rule premises against the given
    judgments, make sure they fit the rule, and return the list of arguments that the term
    constructor should be applied to, together with the natural type of the resulting term.
    *)
-  val form_is_term : is_term -> argument list -> TT.argument list * TT.ty
+  val form_is_term : Schema.is_term -> argument list -> TT.argument list * TT.ty
 
   (** Given an equality type rule and a list of judgments, match the rule premises against the given
    judgments, make sure they fit the rule, and return the conclusion of the instance of the rule
    so obtained. *)
-  val form_eq_type : eq_type -> argument list -> TT.ty * TT.ty
+  val form_eq_type : Schema.eq_type -> argument list -> TT.ty * TT.ty
 
   (** Given an terms equality type rule and a list of judgments, match the rule premises
    against the given judgments, make sure they fit the rule, and return the conclusion of
    the instance of the rule so obtained. *)
-  val form_eq_term : eq_term -> argument list -> TT.term * TT.term * TT.ty
+  val form_eq_term : Schema.eq_term -> argument list -> TT.term * TT.term * TT.ty
 
   (** Given a term judgment and the arguments of the corresponding term constructor, match
    the arguments against the rule to invert them to the premises of the rule, as well as
    to the natural type of the conclusion. *)
-  val invert_is_term : is_term -> TT.argument list -> argument list * TT.ty
+  val invert_is_term : Schema.is_term -> TT.argument list -> argument list * TT.ty
 
   (** Given a type judgment and the arguments of the corresponding term constructor, match
    the arguments against the rule to invert them to the premises of the rule. *)
-  val invert_is_type : is_type -> TT.argument list -> argument list
+  val invert_is_type : Schema.is_type -> TT.argument list -> argument list
 
 end
 
@@ -106,7 +105,7 @@ module Signature : sig
 
   val empty : t
 
-  val add_constant : Name.constant -> closed_ty -> t -> t
+  val add_constant : Name.constant -> is_type -> t -> t
 end
 
 (** An error emitted by the nucleus *)
@@ -119,9 +118,6 @@ val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
 
 (** The jdugement that [Type] is a type. *)
 val ty_ty : is_type
-
-(** Verify that a type is closed and return it as a closed type. *)
-val is_closed_ty : loc:Location.t -> is_type -> closed_ty
 
 (** The type judgement of a term judgement. *)
 val typeof : is_term -> is_type

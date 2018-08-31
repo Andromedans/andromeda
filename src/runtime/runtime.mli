@@ -251,7 +251,7 @@ val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 (** {b Monadic interface} *)
 
 (** Add a constant of a given type to the environment. *)
-val add_constant : loc:Location.t -> Name.ident -> Jdg.closed_ty -> unit toplevel
+val add_constant : loc:Location.t -> Name.ident -> Jdg.is_type -> unit toplevel
 
 (** Add a bound variable with the given name to the environment. *)
 val add_topbound : value -> unit toplevel

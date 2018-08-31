@@ -7,26 +7,49 @@ module AtomMap = Name.AtomMap
    We can think of it as a directed graph whose vertices are the atoms, labelled by
    the type, and the sets of atoms are the two directions of edges. *)
 
-(* XXX rename this to entry *)
-type node =
+type 'a abstraction =
+  | Abstracted of ('a abstraction) TT.type_abstraction
+  | NotAbstracted of 'a
+
+type ctx_entry =
   { ty : TT.ty; (* type of x *)
     needed_by : AtomSet.t } (* atoms which depend on x *)
 
-type ctx = node AtomMap.t
+type ctx = ctx_entry AtomMap.t
 
 (* Every judgement except the judgement that something is a valid context enforces that its context is minimal. *)
 
-type is_term = IsTerm of ctx * TT.term * TT.ty
+type is_term = IsTerm of ctx * (TT.term * TT.ty) abstraction
 
 type is_atom = IsAtom of ctx * Name.atom * TT.ty
 
-type is_type = IsType of ctx * TT.ty
-
-type closed_ty = TT.ty
+type is_type = IsType of ctx * TT.ty abstraction
 
 type eq_term = EqTerm of ctx * TT.term * TT.term * TT.ty
 
 type eq_type = EqType of ctx * TT.ty * TT.ty
+
+type 'a abstraction = is_atom * 'a
+
+type argument =
+  | ArgIsType of is_type
+  | ArgIsTerm of is_term
+  | ArgEqType of eq_type
+  | ArgEqTerm of eq_term
+
+type shape_is_term =
+  | TermAtom of is_atom
+  | TermConstructor of Name.constructor * argument list
+  | TermAbstract of is_atom * is_term
+  (* obsolete *)
+  | Constant of Name.constant
+
+and shape_is_type =
+  | TypeConstructor of Name.constructor * argument list
+  | TypeAbstract of is_atom * is_type
+  (* obsolete *)
+  | Type
+  | El of is_term
 
 (* The following do not guarantee a minimal context. *)
 (* XXX: can we have a single type 'a term with some value for 'a guaranteeing strength? Then some functions like typeof can be polymorphic. *)
@@ -48,10 +71,15 @@ type error =
   | AlphaEqualTermMismatch of TT.term * TT.term
   | InvalidConvert of TT.ty * TT.ty
   | RuleInputMismatch of string * TT.ty * string * TT.ty * string
+  | NotAbstractedExpected
 
 exception Error of error Location.located
 
 let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
+
+let not_abstracted ~loc = function
+  | NotAbstracted x -> x
+  | Abstracted _ -> error ~loc NotAbstractedExpected
 
 module Ctx = struct
   type t = ctx
@@ -110,13 +138,14 @@ module Ctx = struct
         let ctx = restrict ctx (AtomSet.singleton x) in
         Some (IsAtom (ctx, x, ty))
 
-  let add_fresh (IsType (ctx, ty)) x =
+  let add_fresh ~loc (IsType (ctx, ty)) x =
+    let ty = not_abstracted ~loc ty in
     let y = Name.fresh x in
     let ctx = AtomMap.mapi
       (fun z node -> {node with needed_by = AtomSet.add y node.needed_by})
       ctx
     in
-    let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
+    let ctx = AtomMap.add y {ty; needed_by = AtomSet.empty} ctx in
     IsAtom (ctx, y, ty)
 
   let add_weak (WeakType (ctx, ty)) x =
@@ -225,54 +254,134 @@ end
 
 module Rule = struct
 
-  type meta = int (* meta-variables appearing in rules *)
+  module Schema = struct
 
-  type term =
-    | TermConstant of TT.term (* match a specific term *)
-    | TermMeta of meta (* a meta-variable matching a term *)
-    | TermConstructor of Name.constructor * argument list
-    | TermAbstract of (ty, term) TT.abstraction
+    type meta = int (* meta-variables appearing in rules *)
 
-  and ty =
-    | TyConstant of TT.ty (* match a specific type *)
-    | TyMeta of meta (* a meta-variable matching a type *)
-    | TyConstructor of Name.constructor * argument list
-    | TyAbstract of (ty, ty) TT.abstraction
+    type term =
+      | TermMeta of meta (* a meta-variable matching a term *)
+      | TermConstructor of Name.constructor * argument list
+      | TermAbstract of (ty, term) TT.abstraction
 
-  and argument =
-    | TermArgument of term
-    | TyArgument of ty
+    and ty =
+      | TyConstant of TT.ty (* match a specific type *)
+      | TyMeta of meta (* a meta-variable matching a type *)
+      | TyConstructor of Name.constructor * argument list
+      | TyAbstract of (ty, ty) TT.abstraction
 
-  type premise =
-    | PremiseAbstract of (ty, premise) TT.abstraction
-    | PremiseIsType
-    | PremiseIsTerm of ty
-    | PremiseEqType of ty * ty
-    | PremiseEqTerm of term * term * ty
+    type 'a premise_abstraction =
+      | PremiseAbstract of (ty, 'a premise_abstraction) TT.abstraction
+      | PremiseBoundary of 'a
 
-  type is_type =
-    | IsTypePremise of (premise, is_type) TT.abstraction
-    | IsTypeConclusion
+    type boundary_is_type = BoundaryIsType
 
-  type is_term =
-    | IsTermPremise of (premise, is_term) TT.abstraction
-    | IsTermConclusion of ty
+    type boundary_is_term = BoundaryIsTerm of ty
 
-  type eq_term =
-    | EqTermPremise of (premise, eq_term) TT.abstraction
-    | EqTermConclusion of term * term * ty
+    type boundary_eq_type = BoundaryEqType of ty * ty
 
-  type eq_type =
-    | EqTypePremise of (premise, eq_type) TT.abstraction
-    | EqTypeConclusion of ty * ty
+    type boundary_eq_term = BoundaryEqTerm of term * term * ty
 
-  let form_is_type rule premises = failwith "Rule.form_is_type is not implemented"
+    type premise =
+      | PremiseIsType of boundary_is_type premise_abstraction
+      | PremiseIsTerm of boundary_is_term premise_abstraction
+      | PremiseEqType of boundary_eq_type premise_abstraction
+      | PremiseEqTerm of boundary_eq_term premise_abstraction
+
+    type is_type =
+      | IsTypePremise of (premise, is_type) TT.abstraction
+      | IsTypeConclusion
+
+    type is_term =
+      | IsTermPremise of (premise, is_term) TT.abstraction
+      | IsTermConclusion of ty
+
+    type eq_term =
+      | EqTermPremise of (premise, eq_term) TT.abstraction
+      | EqTermConclusion of term * term * ty
+
+    type eq_type =
+      | EqTypePremise of (premise, eq_type) TT.abstraction
+      | EqTypeConclusion of ty * ty
+
+  end
+
+  let rec check_ty metas t_schema t =
+    match t_schema, t.Location.thing.TT.thing with
+
+    | Schema.TyConstant t1, t2 ->
+       begin match (TT.alpha_equal_ty t1 t2) with
+         | true -> ()
+         | false -> failwith "match fail of some sort" (* TODO error *)
+       end
+
+    | Schema.TyMeta m, t2 ->
+       let t1 = lookup m metas in
+       begin match (TT.alpha_equal_ty t1 t2) with
+         | true -> ()
+         | false -> failwith "match fail of some sort" (* TODO error *)
+       end
+
+    | Schema.TyConstructor (c1, args_schema), TT.TypeConstructor (c2, args) ->
+       ()
+
+    | Schema.TyAbstract ((_, t1_schema), t2_schema), TT.TypeAbstract ((_, t1), t2) ->
+       check_ty metas t1_schema t1 ;
+       check_ty metas t2_schema t2
+
+  let rec check_is_type metas ty_schema {Location.thing={TT.thing=ty'}} =
+    match ty_schema, ty' with
+
+    | Schema.PremiseAbstract ((_, t_schema), ty_schema), TT.TypeAbstract ((_, t), ty) ->
+       check_ty metas t_schema t ;
+       check_is_type metas ty_schema ty
+
+    |  Schema.PremiseBoundary Schema.BoundaryIsType, TT.TypeConstructor _ ->
+        ()
+
+  let match_premise metas premise_schema premise =
+    match premise_schema, premise with
+
+    | Schema.PremiseIsType ty_schema, ArgIsType (IsType (_, ty)) ->
+       check_is_type metas ty_schema ty ;
+       TT.ArgIsType ty
+
+    | Schema.PremiseIsTerm term_schema, ArgIsTerm (IsTerm (_, term, ty)) ->
+       check_abstraction check_term metas term_schema ty ;
+       TT.ArgIsTerm term
+
+    | _, _ -> failwith "later"
+
+  let rec form_is_type' metas rule_schema premises =
+    match rule_schema, premises with
+
+    | Schema.IsTypeConclusion, [] -> List.rev metas
+
+    | Schema.IsTypePremise ((_, premise_schema), rule_schema), premise :: premises ->
+       let m = match_premise metas premise_schema premise in
+       form_is_type' (m :: metas) rule_schema premises
+
+    | Schema.IsTypePremise _, [] ->
+       (* TODO define a proper error *)
+       failwith "this type constructor is applied to too few arguments"
+
+    | Schema.IsTypeConclusion, _::_ ->
+       (* TODO define a proper error *)
+       failwith "this type constructor is applied to too many arguments"
+
+
+
+
+  let form_is_type rule premises = form_is_type' [] rule premises
 
   let form_is_term rule premises = failwith "Rule.form_is_term is not implemented"
 
   let form_eq_type rule premises = failwith "Rule.form_eq_type is not implemented"
 
   let form_eq_term rule premises = failwith "Rule.form_eq_term is not implemented"
+
+  let invert_is_term rule args = failwith "Rule.invert_is_term is not implemented"
+
+  let invert_is_type rule args = failwith "Rule.invert_is_type is not implemented"
 
 end
 
@@ -424,25 +533,6 @@ let print_error ~penv err ppf = match err with
       rule (TT.print_ty ~penv t1) desc1 (TT.print_ty ~penv t2) desc2
 
 (** Destructors *)
-type 'a abstraction = is_atom * 'a
-
-type argument =
-  | ArgIsType of is_type
-  | ArgIsTerm of is_term
-  | ArgEqType of eq_type
-  | ArgEqTerm of eq_term
-
-type shape_is_term =
-  | Atom of is_atom
-  | Constant of Name.constant
-  | TermConstructor of Name.constructor * argument list
-  | Abstract of is_term abstraction
-
-and shape_is_type =
-  | Type
-  | TyConstructor of Name.constructor * argument list
-  | AbstractTy of is_type abstraction
-  | El of is_term
 
 let invert_is_term (IsTerm (ctx,e,t)) =
   match e.Location.thing.TT.thing with
