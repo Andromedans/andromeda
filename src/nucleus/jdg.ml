@@ -447,7 +447,7 @@ let invert_abstract_ty j =
   | (TyConstructor _ | Type | El _) -> None
 
 (** Construct judgements *)
-let form ~loc sgn = function
+let form_is_term ~loc sgn = function
   | Atom x -> atom_is_term ~loc x
 
   | Constant c ->
@@ -465,7 +465,7 @@ let form ~loc sgn = function
     let x = Name.ident_of_atom x in
     IsTerm (ctx, TT.mk_abstract ~loc x a e b, TT.mk_abstract_ty ~loc x a b)
 
-let form_ty ~loc sgn = function
+let form_is_type ~loc sgn = function
   | Type ->
     IsType (Ctx.empty, TT.mk_type ~loc)
 

@@ -38,10 +38,12 @@ module Signature : sig
   val add_constant : Name.constant -> closed_ty -> t -> t
 end
 
+(** An error emitted by the nucleus *)
 type error
 
 exception Error of error Location.located
 
+(** Print a nucleus error *)
 val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
 
 (** The jdugement that [Type] is a type. *)
@@ -62,6 +64,7 @@ val atom_is_term : loc:Location.t -> is_atom -> is_term
 (** Does this atom occur in this judgement, and if so with what type? *)
 val occurs : is_atom -> is_term -> is_atom option
 
+(** The context associated with a term judgement. *)
 val contextof : is_term -> Ctx.t
 
 (** Print the judgement that something is a term. *)
@@ -111,10 +114,10 @@ val invert_eq_term : eq_term -> is_term * is_term * is_type
 val invert_abstract_ty : is_type -> (is_atom * is_type) option
 
 (** Construct a term judgement using the appropriate formation rule. The type is the natural type. *)
-val form : loc:Location.t -> Signature.t -> shape_is_term -> is_term
+val form_is_term : loc:Location.t -> Signature.t -> shape_is_term -> is_term
 
 (** Construct a type judgement using the appropriate formation rule. *)
-val form_ty : loc:Location.t -> Signature.t -> shape_is_type -> is_type
+val form_is_type : loc:Location.t -> Signature.t -> shape_is_type -> is_type
 
 (** Substitution *)
 

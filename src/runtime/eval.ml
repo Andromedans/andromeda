@@ -49,13 +49,13 @@ let as_dyn ~loc v =
 (* loc:Location.t -> Jdg.shape -> Jdg.is_term Runtime.comp *)
 let form_is_term ~loc s =
   Runtime.lookup_typing_signature >>= fun signature ->
-  Runtime.return (Jdg.form ~loc signature s)
+  Runtime.return (Jdg.form_is_term ~loc signature s)
 
 (** Form a type judgement *)
 (* loc:Location.t -> Jdg.shape_ty -> Jdg.is_type Runtime.comp *)
 let form_is_type ~loc s =
   Runtime.lookup_typing_signature >>= fun signature ->
-  Runtime.return (Jdg.form_ty ~loc signature s)
+  Runtime.return (Jdg.form_is_type ~loc signature s)
 
 (** Evaluate a computation -- infer mode. *)
 (*   infer : Rsyntax.comp -> Runtime.value Runtime.comp *)

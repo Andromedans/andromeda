@@ -56,7 +56,7 @@ let rec collect_is_term env xvs p j =
 
   | Pattern.Term_GenConstant p, Jdg.Constant c ->
     let signature = Runtime.get_typing_signature env in
-    let j = Jdg.form ~loc signature (Jdg.Constant c) in
+    let j = Jdg.form_is_term ~loc signature (Jdg.Constant c) in
     collect_is_term env xvs p j
 
   | (Pattern.Term_Constant _ | Pattern.Term_Abstract _ |
