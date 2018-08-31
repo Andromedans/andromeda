@@ -1,3 +1,4 @@
+(** A judgement context. *)
 type ctx
 
 (** Judgements [ctx |- e : t] *)
@@ -18,6 +19,29 @@ type eq_term
 (** Judgements [ctx |- t1 == t2] *)
 type eq_type
 
+(** The atom is used in the second component *)
+type 'a abstraction = is_atom * 'a
+
+(** An argument to a term or type constructor *)
+type argument =
+  | ArgIsType of is_type
+  | ArgIsTerm of is_term
+  | ArgEqType of eq_type
+  | ArgEqTerm of eq_term
+
+(** Contains enough information to construct a new judgement *)
+type shape_is_term =
+  | Atom of is_atom
+  | Constant of Name.constant
+  | TermConstructor of Name.constructor * argument list
+  | Abstract of is_term abstraction
+
+and shape_is_type =
+  | Type (* universe *)
+  | TyConstructor of Name.constructor * argument list
+  | AbstractTy of is_type abstraction
+  | El of is_term
+
 module Ctx : sig
   (** The type of contexts. *)
   type t = ctx
@@ -27,6 +51,53 @@ module Ctx : sig
   (** [elements ctx] returns the elements of [ctx] sorted into a list so that all dependencies
       point forward in the list, ie the first atom does not depend on any atom, etc. *)
   val elements : t -> is_atom list
+
+end
+
+module Rule : sig
+
+  (** A rule concluding that something is a type. *)
+  type is_type
+
+  (** A rule concluding that something is a term. *)
+  type is_term
+
+  (** A rule concluding that two types are equal. *)
+  type eq_type
+
+  (** A rule concluding that two terms are equal. *)
+  type eq_term
+
+  (** Given a type rule and a list of judgments, match the rule premises against the given
+   judgments, make sure they fit the rule, and return the list of arguments that the type
+   constructor should be applied to.
+   *)
+  val form_is_type : is_type -> argument list -> TT.argument list
+
+  (** Given a term rule and a list of judgments, match the rule premises against the given
+   judgments, make sure they fit the rule, and return the list of arguments that the term
+   constructor should be applied to, together with the natural type of the resulting term.
+   *)
+  val form_is_term : is_term -> argument list -> TT.argument list * TT.ty
+
+  (** Given an equality type rule and a list of judgments, match the rule premises against the given
+   judgments, make sure they fit the rule, and return the conclusion of the instance of the rule
+   so obtained. *)
+  val form_eq_type : eq_type -> argument list -> TT.ty * TT.ty
+
+  (** Given an terms equality type rule and a list of judgments, match the rule premises
+   against the given judgments, make sure they fit the rule, and return the conclusion of
+   the instance of the rule so obtained. *)
+  val form_eq_term : eq_term -> argument list -> TT.term * TT.term * TT.ty
+
+  (** Given a term judgment and the arguments of the corresponding term constructor, match
+   the arguments against the rule to invert them to the premises of the rule, as well as
+   to the natural type of the conclusion. *)
+  val invert_is_term : is_term -> TT.argument list -> argument list * TT.ty
+
+  (** Given a type judgment and the arguments of the corresponding term constructor, match
+   the arguments against the rule to invert them to the premises of the rule. *)
+  val invert_is_type : is_type -> TT.argument list -> argument list
 
 end
 
@@ -80,29 +151,6 @@ val print_eq_term : penv:TT.print_env -> ?max_level:Level.t -> eq_term -> Format
 val print_eq_type : penv:TT.print_env -> ?max_level:Level.t -> eq_type -> Format.formatter -> unit
 
 (** Destructors *)
-
-(** The atom is used in the second component *)
-type 'a abstraction = is_atom * 'a
-
-(** An argument to a term or type constructor *)
-type argument =
-  | ArgIsType of is_type
-  | ArgIsTerm of is_term
-  | ArgEqType of eq_type
-  | ArgEqTerm of eq_term
-
-(** Contains enough information to construct a new judgement *)
-type shape_is_term =
-  | Atom of is_atom
-  | Constant of Name.constant
-  | TermConstructor of Name.constructor * argument list
-  | Abstract of is_term abstraction
-
-and shape_is_type =
-  | Type (* universe *)
-  | TyConstructor of Name.constructor * argument list
-  | AbstractTy of is_type abstraction
-  | El of is_term
 
 (* Inversion principles *)
 val invert_is_term : is_term -> shape_is_term

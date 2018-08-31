@@ -223,6 +223,60 @@ module Ctx = struct
 
 end
 
+module Rule = struct
+
+  type meta = int (* meta-variables appearing in rules *)
+
+  type term =
+    | TermConstant of TT.term (* match a specific term *)
+    | TermMeta of meta (* a meta-variable matching a term *)
+    | TermConstructor of Name.constructor * argument list
+    | TermAbstract of (ty, term) TT.abstraction
+
+  and ty =
+    | TyConstant of TT.ty (* match a specific type *)
+    | TyMeta of meta (* a meta-variable matching a type *)
+    | TyConstructor of Name.constructor * argument list
+    | TyAbstract of (ty, ty) TT.abstraction
+
+  and argument =
+    | TermArgument of term
+    | TyArgument of ty
+
+  type premise =
+    | PremiseAbstract of (ty, premise) TT.abstraction
+    | PremiseIsType
+    | PremiseIsTerm of ty
+    | PremiseEqType of ty * ty
+    | PremiseEqTerm of term * term * ty
+
+  type is_type =
+    | IsTypePremise of (premise, is_type) TT.abstraction
+    | IsTypeConclusion
+
+  type is_term =
+    | IsTermPremise of (premise, is_term) TT.abstraction
+    | IsTermConclusion of ty
+
+  type eq_term =
+    | EqTermPremise of (premise, eq_term) TT.abstraction
+    | EqTermConclusion of term * term * ty
+
+  type eq_type =
+    | EqTypePremise of (premise, eq_type) TT.abstraction
+    | EqTypeConclusion of ty * ty
+
+  let form_is_type rule premises = failwith "Rule.form_is_type is not implemented"
+
+  let form_is_term rule premises = failwith "Rule.form_is_term is not implemented"
+
+  let form_eq_type rule premises = failwith "Rule.form_eq_type is not implemented"
+
+  let form_eq_term rule premises = failwith "Rule.form_eq_term is not implemented"
+
+end
+
+
 module Signature = struct
   module ConstantMap = Name.IdentMap
 
