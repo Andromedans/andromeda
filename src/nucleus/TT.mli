@@ -1,8 +1,5 @@
 (** Abstract syntax of type-theoretic types and terms *)
 
-(** An [('a, 'b) abstraction] is a ['b] bound by (x, 'a) *)
-type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
-
 type bound
 
 (** A thing labeled with some assumptions. *)
@@ -43,25 +40,33 @@ and ty' = private
   | El of term (* obsolete *)
 
 (** an argument of a term or type constructor *)
-and argument =
-  | ArgIsTerm of term argument_abstraction
-  | ArgIsType of ty argument_abstraction
+and argument = private
+  | ArgIsTerm of term abstraction
+  | ArgIsType of ty abstraction
   | ArgEqType (* no data here, equations are proof irrelevant *)
   | ArgEqTerm (* no data here, equations are proof irrelevant *)
 
-and 'a argument_abstraction =
-  | ArgAbstract of Name.ident * 'a argument_abstraction
-  | ArgNotAbstract of 'a
+and 'a abstraction = private
+  | Abstract of Name.ident * 'a abstraction
+  | NotAbstract of 'a
 
 (** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
-val mk_constant: loc:Location.t -> Name.ident -> term
 
+(** Obsolete *)
+val mk_constant: loc:Location.t -> Name.ident -> term
 val mk_type: loc:Location.t -> ty
 val mk_el: loc:Location.t -> term -> ty
+val typ : ty (** The type Type (without location) *)
 
-(** The type Type (without location) *)
-val typ : ty
+(** Make a non-abstracted constructor argument *)
+val mk_not_abstract : 'a -> 'a abstraction
+
+(** Abstract a term argument *)
+val mk_abstract_term : Name.atom -> ty -> term abstraction -> term abstraction
+
+(** Abstract a type argument *)
+val mk_abstract_type : Name.atom -> ty -> ty abstraction -> ty abstraction
 
 (** Add the given set of atoms as assumption to a term. *)
 val mention_atoms : Name.AtomSet.t -> term -> term

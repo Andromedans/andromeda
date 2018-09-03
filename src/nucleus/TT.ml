@@ -1,7 +1,5 @@
 (** The abstract syntax of Andromedan type theory (TT). *)
 
-type ('a, 'b) abstraction = (Name.ident * 'a) * 'b
-
 type bound = int
 
 (** A thing labeled with some assumptions. *)
@@ -27,26 +25,30 @@ and ty' =
   | Type
   | El of term
 
+(** An argument of a term or a type constructor *)
 and argument =
-  | ArgIsTerm of term argument_abstraction
-  | ArgIsType of ty argument_abstraction
+  | ArgIsTerm of term abstraction
+  | ArgIsType of ty abstraction
   | ArgEqType
   | ArgEqTerm
 
-and 'a argument_abstraction =
-  | ArgAbstract of Name.ident * 'a argument_abstraction
-  | ArgNotAbstract of 'a
+(** An abstracted entity. Note that abstractions only ever appear as arguments
+   to constructors. Thus we do not carry any type information for the abstracted
+   variable, as it can be recovered from the constructor. *)
+and 'a abstraction =
+  | Abstract of Name.ident * 'a abstraction
+  | NotAbstract of 'a
 
 (** We disallow direct creation of terms (using the [private] qualifier in the interface
     file), so we provide these constructors instead. *)
 
 (* Helper functions *)
 
-let ty_hyps {Location.thing={assumptions=a;_};_} = a
-
-let rec hyp_union acc = function
-  | [] -> acc
-  | x::rem -> hyp_union (Assumption.union acc x) rem
+(* let ty_hyps {Location.thing={assumptions=a;_};_} = a
+ *
+ * let rec hyp_union acc = function
+ *   | [] -> acc
+ *   | x::rem -> hyp_union (Assumption.union acc x) rem *)
 
 let mk_atom ~loc x =
   Location.locate
@@ -62,19 +64,21 @@ let mk_constant ~loc x =
     }
     loc
 
-let mk_abstract ~loc x a e b =
-  Location.locate
-    { thing = TermAbstract ((x, a), (e, b))
-    ; assumptions = hyp_union (ty_hyps a) (List.map Assumption.bind1 [ty_hyps b; e.Location.thing.assumptions]) ;
-    }
-    loc
+let mk_not_abstract x = assert false
 
-let mk_abstract_ty ~loc x a b =
-  Location.locate
-    { thing = TypeAbstract ((x, a), b)
-    ; assumptions=hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b)]
-    }
-    loc
+let mk_abstract_term x t abstr = assert false
+  (* Location.locate
+   *   { thing = TermAbstract ((x, a), (e, b))
+   *   ; assumptions = hyp_union (ty_hyps a) (List.map Assumption.bind1 [ty_hyps b; e.Location.thing.assumptions]) ;
+   *   }
+   *   loc *)
+
+let mk_abstract_type x t abstr = assert false
+  (* Location.locate
+   *   { thing = TypeAbstract ((x, a), b)
+   *   ; assumptions=hyp_union (ty_hyps a) [Assumption.bind1 (ty_hyps b)]
+   *   }
+   *   loc *)
 
 let mk_type ~loc =
   Location.locate
@@ -179,16 +183,16 @@ and instantiate_arguments es ~lvl args =
   List.map (instantiate_argument es ~lvl) args
 
 and instantiate_argument es ~lvl = function
-    | ArgIsType t -> ArgIsType (instantiate_argument_abstraction (instantiate_type es) ~lvl t)
-    | ArgIsTerm e -> ArgIsTerm (instantiate_argument_abstraction (instantiate_term es) ~lvl e)
+    | ArgIsType t -> ArgIsType (instantiate_abstraction (instantiate_type es) ~lvl t)
+    | ArgIsTerm e -> ArgIsTerm (instantiate_abstraction (instantiate_term es) ~lvl e)
     | ArgEqType -> ArgEqType
     | ArgEqTerm -> ArgEqTerm
 
-and instantiate_argument_abstraction : 'a . (?lvl:bound -> 'a -> 'a) -> lvl:bound -> 'a argument_abstraction -> 'a argument_abstraction =
+and instantiate_abstraction : 'a . (?lvl:bound -> 'a -> 'a) -> lvl:bound -> 'a abstraction -> 'a abstraction =
   fun inst_u ~lvl ->
   function
-  | ArgAbstract (x, a) -> ArgAbstract (x, instantiate_argument_abstraction inst_u ~lvl:(lvl+1) a)
-  | ArgNotAbstract u -> ArgNotAbstract (inst_u ~lvl u)
+  | Abstract (x, a) -> Abstract (x, instantiate_abstraction inst_u ~lvl:(lvl+1) a)
+  | NotAbstract u -> NotAbstract (inst_u ~lvl u)
 
 
 let unabstract_term xs ?(lvl=0) e =
@@ -243,16 +247,16 @@ and abstract_arguments xs ~lvl args =
   List.map (abstract_argument xs ~lvl) args
 
 and abstract_argument xs ~lvl = function
-    | ArgIsType t -> ArgIsType (abstract_argument_abstraction (abstract_type xs) ~lvl t)
-    | ArgIsTerm e -> ArgIsTerm (abstract_argument_abstraction (abstract_term xs) ~lvl e)
+    | ArgIsType t -> ArgIsType (abstract_abstraction (abstract_type xs) ~lvl t)
+    | ArgIsTerm e -> ArgIsTerm (abstract_abstraction (abstract_term xs) ~lvl e)
     | ArgEqType -> ArgEqType
     | ArgEqTerm -> ArgEqTerm
 
-and abstract_argument_abstraction : 'a . (?lvl:int -> 'a -> 'a) -> lvl:int -> 'a argument_abstraction -> 'a argument_abstraction =
+and abstract_abstraction : 'a . (?lvl:int -> 'a -> 'a) -> lvl:int -> 'a abstraction -> 'a abstraction =
   fun inst_u ~lvl ->
   function
-  | ArgAbstract (x, a) -> ArgAbstract (x, abstract_argument_abstraction inst_u ~lvl:(lvl+1) a)
-  | ArgNotAbstract u -> ArgNotAbstract (inst_u ~lvl u)
+  | Abstract (x, a) -> Abstract (x, abstract_abstraction inst_u ~lvl:(lvl+1) a)
+  | NotAbstract u -> NotAbstract (inst_u ~lvl u)
 
 
 (** Substitute *)
@@ -270,10 +274,6 @@ let substitute_type xs es t =
     let t = abstract_type xs ~lvl:0 t in
     instantiate_type es ~lvl:0 t
 
-(** Occurs (for printing) *)
-let occurs_abstraction occurs_u occurs_v k ((x,u), v) =
-  occurs_u k u || occurs_v (k+1) v
-
 (* Does the bound variable [k] occur in an expression? Used only for printing. *)
 let rec occurs_term k {Location.loc;thing={thing=e';_}} =
   match e' with
@@ -290,15 +290,15 @@ and occurs_type k {Location.loc;thing={thing=t';_}} =
 
 and occurs_args k = function
   | [] -> false
-  | (ArgIsTerm e) :: args -> occurs_argument_abstraction occurs_term k e || occurs_args k args
-  | (ArgIsType e) :: args -> occurs_argument_abstraction occurs_type k e || occurs_args k args
+  | (ArgIsTerm e) :: args -> occurs_abstraction occurs_term k e || occurs_args k args
+  | (ArgIsType e) :: args -> occurs_abstraction occurs_type k e || occurs_args k args
   | (ArgEqType | ArgEqTerm) :: args -> occurs_args k args
 
-and occurs_argument_abstraction : 'a . (bound -> 'a -> bool) -> bound -> 'a argument_abstraction -> bool =
+and occurs_abstraction : 'a . (bound -> 'a -> bool) -> bound -> 'a abstraction -> bool =
   fun occurs_u k ->
   function
-  | ArgAbstract (_, a) -> occurs_argument_abstraction occurs_u (k+1) a
-  | ArgNotAbstract u -> occurs_u k u
+  | Abstract (_, a) -> occurs_abstraction occurs_u (k+1) a
+  | NotAbstract u -> occurs_u k u
 
 (****** Alpha equality ******)
 
@@ -345,12 +345,12 @@ and alpha_equal_args args args' =
         with that *)
      assert false
 
-and alpha_equal_abstraction : 'a . ('a -> 'a -> bool) -> 'a argument_abstraction -> 'a argument_abstraction -> bool =
+and alpha_equal_abstraction : 'a . ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool =
   fun equal_u u u' ->
   match u, u' with
-  | ArgAbstract (_, a), ArgAbstract(_, a') -> alpha_equal_abstraction equal_u a a'
-  | ArgNotAbstract u, ArgNotAbstract u' -> equal_u u u'
-  | (ArgAbstract _ | ArgNotAbstract _), _ -> false
+  | Abstract (_, a), Abstract(_, a') -> alpha_equal_abstraction equal_u a a'
+  | NotAbstract u, NotAbstract u' -> equal_u u u'
+  | (Abstract _ | NotAbstract _), _ -> false
 
 (****** Printing routines *****)
 type print_env =
@@ -405,19 +405,19 @@ and print_abstraction :
            (?max_level:Level.t -> penv:print_env -> 'a -> Format.formatter -> unit) ->
            ?max_level:Level.t ->
            penv:print_env ->
-           'a argument_abstraction ->
+           'a abstraction ->
            Format.formatter -> unit =
   fun occurs_u print_u ?max_level ~penv abstr ppf ->
   let rec fold penv xs = function
 
-    | ArgNotAbstract e ->
+    | NotAbstract e ->
        let xs = List.rev xs in
        Print.print ?max_level ppf ~at_level:Level.binder "@[<hov 2>{%t}@ %t@]"
               (Print.sequence (Name.print_ident ~parentheses:true) "" xs)
               (print_u ~penv e)
 
-    | ArgAbstract (x, abstr) ->
-       let x = (if occurs_argument_abstraction occurs_u 0 abstr then Name.refresh penv.forbidden x else Name.anonymous ()) in
+    | Abstract (x, abstr) ->
+       let x = (if occurs_abstraction occurs_u 0 abstr then Name.refresh penv.forbidden x else Name.anonymous ()) in
        let penv = add_forbidden x penv in
        fold penv (x :: xs) abstr
   in
@@ -444,8 +444,6 @@ struct
 
       | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Name.Json.ident c :: args lst)
 
-  and abstraction (x, t) d = Json.tuple [Name.Json.ident x; ty t; d]
-
   and ty {Location.loc;thing={thing=t; assumptions=asm}} =
     if !Config.json_location
     then Json.tuple [ty' t; Assumption.Json.assumptions asm; Location.Json.location loc]
@@ -462,18 +460,18 @@ struct
   and args lst =
     (List.map
        (function
-        | ArgIsTerm abstr -> Json.tag "ArgIsTerm" (argument_abstraction term [] abstr)
-        | ArgIsType abstr -> Json.tag "ArgIsType" (argument_abstraction ty [] abstr)
+        | ArgIsTerm abstr -> Json.tag "ArgIsTerm" (abstraction term [] abstr)
+        | ArgIsType abstr -> Json.tag "ArgIsType" (abstraction ty [] abstr)
         | ArgEqType -> Json.tag "ArgIsType" []
         | ArgEqTerm -> Json.tag "ArgEqTerm" [])
        lst)
 
-  and argument_abstraction : 'a . ('a -> Json.t) -> Name.ident list -> 'a argument_abstraction -> Json.t list =
+  and abstraction : 'a . ('a -> Json.t) -> Name.ident list -> 'a abstraction -> Json.t list =
     fun json_u xs ->
     function
-    | ArgAbstract (x, abstr) ->
-       argument_abstraction json_u (x::xs) abstr
-    | ArgNotAbstract u ->
+    | Abstract (x, abstr) ->
+       abstraction json_u (x::xs) abstr
+    | NotAbstract u ->
        let xs = List.map Name.Json.ident (List.rev xs) in
        [Json.tuple xs ; json_u u]
 end

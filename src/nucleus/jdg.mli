@@ -1,43 +1,43 @@
 (** A judgement context. *)
 type ctx
 
-(** Judgements [ctx |- e : t] *)
+(** Possibly abstracted judgement that something is a term, i.e.,
+    [ctx |- e : t] or [ctx |- {x1 : t1} .... {xn : tn} (e : t)] *)
 type is_term
 
-(** Judgements [(x : t) in ctx] *)
+(** Judgement [(x : t) in ctx] *)
 type is_atom
 
-(** Judgements [ctx |- t type] *)
+(** Possibly abstracted judgement [ctx |- t type] *)
 type is_type
 
-(** Judgements [ctx |- e1 == e2 : t] *)
+(** Possibly abstracted judgement [ctx |- e1 == e2 : t] *)
 type eq_term
 
-(** Judgements [ctx |- t1 == t2] *)
+(** Possibly abstracted judgement [ctx |- t1 == t2] *)
 type eq_type
 
-(** The atom is used in the second component *)
-type 'a abstraction = is_atom * 'a
-
 (** An argument to a term or type constructor *)
-type argument =
-  | ArgIsType of is_type
-  | ArgIsTerm of is_term
-  | ArgEqType of eq_type
-  | ArgEqTerm of eq_term
+type premise =
+  | PremiseIsType of is_type
+  | PremiseIsTerm of is_term
+  | PremiseEqType of eq_type
+  | PremiseEqTerm of eq_term
 
 (** Contains enough information to construct a new judgement *)
 type shape_is_term =
   | Atom of is_atom
+  | TermConstructor of Name.constructor * premise list
+  | TermAbstract of is_atom * is_term
+  (* obsolete *)
   | Constant of Name.constant
-  | TermConstructor of Name.constructor * argument list
-  | Abstract of is_term abstraction
 
 and shape_is_type =
-  | Type (* universe *)
-  | TyConstructor of Name.constructor * argument list
-  | AbstractTy of is_type abstraction
+  | TypeConstructor of Name.constructor * premise list
+  | TypeAbstract of is_atom * is_type
+  (* obsolete *)
   | El of is_term
+  | Type (* universe *)
 
 module Ctx : sig
   (** The type of contexts. *)
@@ -67,36 +67,36 @@ module Rule : sig
     type eq_term
   end
 
-  (** Given a type rule and a list of judgments, match the rule premises against the given
-   judgments, make sure they fit the rule, and return the list of arguments that the type
+  (** Given a type rule and a list of premises, match the rule against the given
+   premises, make sure they fit the rule, and return the list of arguments that the type
    constructor should be applied to.
    *)
-  val form_is_type : Schema.is_type -> argument list -> TT.argument list
+  val form_is_type : Schema.is_type -> premise list -> TT.argument list
 
-  (** Given a term rule and a list of judgments, match the rule premises against the given
-   judgments, make sure they fit the rule, and return the list of arguments that the term
+  (** Given a term rule and a list of premises, match the rule against the given
+   premises, make sure they fit the rule, and return the list of arguments that the term
    constructor should be applied to, together with the natural type of the resulting term.
    *)
-  val form_is_term : Schema.is_term -> argument list -> TT.argument list * TT.ty
+  val form_is_term : Schema.is_term -> premise list -> TT.argument list * TT.ty
 
-  (** Given an equality type rule and a list of judgments, match the rule premises against the given
-   judgments, make sure they fit the rule, and return the conclusion of the instance of the rule
+  (** Given an equality type rule and a list of premises, match the rule against the given
+   premises, make sure they fit the rule, and return the conclusion of the instance of the rule
    so obtained. *)
-  val form_eq_type : Schema.eq_type -> argument list -> TT.ty * TT.ty
+  val form_eq_type : Schema.eq_type -> premise list -> TT.ty * TT.ty
 
-  (** Given an terms equality type rule and a list of judgments, match the rule premises
-   against the given judgments, make sure they fit the rule, and return the conclusion of
+  (** Given an terms equality type rule and a list of premises, match the rule
+   against the given premises, make sure they fit the rule, and return the conclusion of
    the instance of the rule so obtained. *)
-  val form_eq_term : Schema.eq_term -> argument list -> TT.term * TT.term * TT.ty
+  val form_eq_term : Schema.eq_term -> premise list -> TT.term * TT.term * TT.ty
 
   (** Given a term judgment and the arguments of the corresponding term constructor, match
    the arguments against the rule to invert them to the premises of the rule, as well as
    to the natural type of the conclusion. *)
-  val invert_is_term : Schema.is_term -> TT.argument list -> argument list * TT.ty
+  val invert_is_term : Schema.is_term -> TT.argument list -> premise list * TT.ty
 
   (** Given a type judgment and the arguments of the corresponding term constructor, match
    the arguments against the rule to invert them to the premises of the rule. *)
-  val invert_is_type : Schema.is_type -> TT.argument list -> argument list
+  val invert_is_type : Schema.is_type -> TT.argument list -> premise list
 
 end
 

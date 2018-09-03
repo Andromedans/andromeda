@@ -8,8 +8,8 @@ module AtomMap = Name.AtomMap
    the type, and the sets of atoms are the two directions of edges. *)
 
 type 'a abstraction =
-  | Abstracted of ('a abstraction) TT.type_abstraction
-  | NotAbstracted of 'a
+  | Abstract of (Name.ident * TT.ty) * 'a abstraction
+  | NotAbstract of 'a
 
 type ctx_entry =
   { ty : TT.ty; (* type of x *)
@@ -17,47 +17,54 @@ type ctx_entry =
 
 type ctx = ctx_entry AtomMap.t
 
-(* Every judgement except the judgement that something is a valid context enforces that its context is minimal. *)
-
-type is_term = IsTerm of ctx * (TT.term * TT.ty) abstraction
+(** Every judgement enforces that its context is minimal (strengthened). *)
 
 type is_atom = IsAtom of ctx * Name.atom * TT.ty
 
+type is_term = IsTerm of ctx * (TT.term * TT.ty) abstraction
+
 type is_type = IsType of ctx * TT.ty abstraction
 
-type eq_term = EqTerm of ctx * TT.term * TT.term * TT.ty
+type eq_term = EqTerm of ctx * (TT.term * TT.term * TT.ty) abstraction
 
-type eq_type = EqType of ctx * TT.ty * TT.ty
+type eq_type = EqType of ctx * (TT.ty * TT.ty) abstraction
 
-type 'a abstraction = is_atom * 'a
+(** Shapes (defined below) are used to construct and invert judgements. The
+   [form_XYZ] functions below take a shape and construct a judgement from it,
+   whereas the [invert_XYZ] functions do the opposite. We can think of shapes as
+   "stumps", i.e., the lowest level of a derivation tree. *)
 
-type argument =
-  | ArgIsType of is_type
-  | ArgIsTerm of is_term
-  | ArgEqType of eq_type
-  | ArgEqTerm of eq_term
+(** Premises of a constructor. *)
+type premise =
+  | PremiseIsType of is_type
+  | PremiseIsTerm of is_term
+  | PremiseEqType of eq_type
+  | PremiseEqTerm of eq_term
 
 type shape_is_term =
   | TermAtom of is_atom
-  | TermConstructor of Name.constructor * argument list
+  | TermConstructor of Name.constructor * premise list
   | TermAbstract of is_atom * is_term
   (* obsolete *)
   | Constant of Name.constant
 
 and shape_is_type =
-  | TypeConstructor of Name.constructor * argument list
+  | TypeConstructor of Name.constructor * premise list
   | TypeAbstract of is_atom * is_type
   (* obsolete *)
   | Type
   | El of is_term
 
-(* The following do not guarantee a minimal context. *)
-(* XXX: can we have a single type 'a term with some value for 'a guaranteeing strength? Then some functions like typeof can be polymorphic. *)
-type weakty = WeakType of ctx * TT.ty
+(** Auxiliary datatypes used for judgements whose context are not necessarily
+   minimal. *)
 
-type weakterm = WeakTerm of ctx * TT.term * TT.ty
+type weak_is_type = WeakIsType of ctx * TT.ty
 
-type weakatom = WeakAtom of ctx * Name.atom * TT.ty
+type weak_is_term = WeakIsTerm of ctx * TT.term * TT.ty
+
+type weak_is_atom = WeakIsAtom of ctx * Name.atom * TT.ty
+
+(** Error messages emitted by this module. *)
 
 type error =
   | ConstantDependency
@@ -71,15 +78,15 @@ type error =
   | AlphaEqualTermMismatch of TT.term * TT.term
   | InvalidConvert of TT.ty * TT.ty
   | RuleInputMismatch of string * TT.ty * string * TT.ty * string
-  | NotAbstractedExpected
+  | NotAbstractExpected
 
 exception Error of error Location.located
 
 let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
 let not_abstracted ~loc = function
-  | NotAbstracted x -> x
-  | Abstracted _ -> error ~loc NotAbstractedExpected
+  | NotAbstract x -> x
+  | Abstract _ -> error ~loc NotAbstractExpected
 
 module Ctx = struct
   type t = ctx
@@ -91,7 +98,7 @@ module Ctx = struct
   let print_entry ~penv ppf x {ty; needed_by;} =
     Format.fprintf ppf "%t : @[<hov>%t@]@ "
       (Name.print_atom ~printer:(penv.TT.atoms) x)
-      (TT.print_ty ~penv ty)
+      (TT.print_type ~penv ty)
 
   let print ~penv ctx ppf =
     Format.pp_open_vbox ppf 0 ;
@@ -148,7 +155,7 @@ module Ctx = struct
     let ctx = AtomMap.add y {ty; needed_by = AtomSet.empty} ctx in
     IsAtom (ctx, y, ty)
 
-  let add_weak (WeakType (ctx, ty)) x =
+  let add_weak (WeakIsType (ctx, ty)) x =
     let y = Name.fresh x in
     let aset = TT.assumptions_ty ty in
     let needs = recursive_assumptions ctx aset in
@@ -159,7 +166,7 @@ module Ctx = struct
                            ctx
     in
     let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
-    WeakAtom (ctx, y, ty)
+    WeakIsAtom (ctx, y, ty)
 
   let abstract ~loc (ctx : t) x ty =
     match lookup x ctx with
@@ -219,7 +226,7 @@ module Ctx = struct
               then
                 error ~loc (SubstitutionDependency (x, e, y))
               else
-                let ty = TT.substitute_ty [x] [e] ynode.ty in
+                let ty = TT.substitute_type [x] [e] ynode.ty in
                 AtomMap.add y {ynode with ty} ctx)
             xnode.needed_by ctx
           in
@@ -259,115 +266,104 @@ module Rule = struct
     type meta = int (* meta-variables appearing in rules *)
 
     type term =
-      | TermMeta of meta (* a meta-variable matching a term *)
-      | TermConstructor of Name.constructor * argument list
-      | TermAbstract of (ty, term) TT.abstraction
+      | TermMeta of meta (* a previously matched meta-variable *)
+      | TermConstructor of Name.constructor * premise list
 
     and ty =
-      | TyConstant of TT.ty (* match a specific type *)
-      | TyMeta of meta (* a meta-variable matching a type *)
-      | TyConstructor of Name.constructor * argument list
-      | TyAbstract of (ty, ty) TT.abstraction
+      | TypeMeta of meta (* a previously matched meta-variable *)
+      | TypeConstructor of Name.constructor * premise list
 
     type 'a premise_abstraction =
-      | PremiseAbstract of (ty, 'a premise_abstraction) TT.abstraction
-      | PremiseBoundary of 'a
-
-    type boundary_is_type = BoundaryIsType
-
-    type boundary_is_term = BoundaryIsTerm of ty
-
-    type boundary_eq_type = BoundaryEqType of ty * ty
-
-    type boundary_eq_term = BoundaryEqTerm of term * term * ty
+      | PremiseNotAbstract of 'a
+      | PremiseAbstract of (Name.ident * ty) * 'a premise_abstraction
 
     type premise =
-      | PremiseIsType of boundary_is_type premise_abstraction
-      | PremiseIsTerm of boundary_is_term premise_abstraction
-      | PremiseEqType of boundary_eq_type premise_abstraction
-      | PremiseEqTerm of boundary_eq_term premise_abstraction
+      | PremiseIsType of unit premise_abstraction
+      | PremiseIsTerm of ty premise_abstraction
+      | PremiseEqType of (ty * ty) premise_abstraction
+      | PremiseEqTerm of (term * term * ty) premise_abstraction
 
-    type is_type =
-      | IsTypePremise of (premise, is_type) TT.abstraction
-      | IsTypeConclusion
+    type 'a rule_abstraction =
+      | RuleNotAbstract of 'a
+      | RuleAbstract of (Name.ident * premise) * 'a rule_abstraction
 
-    type is_term =
-      | IsTermPremise of (premise, is_term) TT.abstraction
-      | IsTermConclusion of ty
+    type is_type = unit rule_abstraction
 
-    type eq_term =
-      | EqTermPremise of (premise, eq_term) TT.abstraction
-      | EqTermConclusion of term * term * ty
+    type is_term = ty rule_abstraction
 
-    type eq_type =
-      | EqTypePremise of (premise, eq_type) TT.abstraction
-      | EqTypeConclusion of ty * ty
+    type eq_term = (ty * ty) rule_abstraction
+
+    type eq_type = (term * term * ty) rule_abstraction
 
   end
 
-  let rec check_ty metas t_schema t =
+
+  let rec match_type metas t_schema t =
     match t_schema, t.Location.thing.TT.thing with
 
-    | Schema.TyConstant t1, t2 ->
-       begin match (TT.alpha_equal_ty t1 t2) with
-         | true -> ()
-         | false -> failwith "match fail of some sort" (* TODO error *)
-       end
+    | Schema.TypeMeta k, t' ->
+       failwith "not done" ;
+       t
 
-    | Schema.TyMeta m, t2 ->
-       let t1 = lookup m metas in
-       begin match (TT.alpha_equal_ty t1 t2) with
-         | true -> ()
-         | false -> failwith "match fail of some sort" (* TODO error *)
-       end
+    | Schema.TypeConstructor (c, premises), TT.TypeConstructor (c', args) ->
+       failwith "not done"
 
-    | Schema.TyConstructor (c1, args_schema), TT.TypeConstructor (c2, args) ->
-       ()
+    | _, _ -> failwith "not done"
 
-    | Schema.TyAbstract ((_, t1_schema), t2_schema), TT.TypeAbstract ((_, t1), t2) ->
-       check_ty metas t1_schema t1 ;
-       check_ty metas t2_schema t2
+  let rec match_premise_abstraction metas match_jdg schema abstr =
+    match schema, abstr with
 
-  let rec check_is_type metas ty_schema {Location.thing={TT.thing=ty'}} =
-    match ty_schema, ty' with
+    | Schema.PremiseNotAbstract jdg_schema, NotAbstract jdg ->
+       match_jdg metas jdg_schema jdg
 
-    | Schema.PremiseAbstract ((_, t_schema), ty_schema), TT.TypeAbstract ((_, t), ty) ->
-       check_ty metas t_schema t ;
-       check_is_type metas ty_schema ty
+    | Schema.PremiseAbstract ((_, t_schema), schema), Abstract ((x, t), abstr) ->
+       check_type metas t_schema t ;
+       let abstr = match_premise_abstraction metas match_jdg schema abstr in
+       TT.mk_abstract x abstr
 
-    |  Schema.PremiseBoundary Schema.BoundaryIsType, TT.TypeConstructor _ ->
-        ()
+    | _, _ ->
+       failwith "premise match fail"
+
+  let rec match_is_type metas ty_schema (IsType (ctx, abstr)) =
+
+
 
   let match_premise metas premise_schema premise =
     match premise_schema, premise with
 
-    | Schema.PremiseIsType ty_schema, ArgIsType (IsType (_, ty)) ->
-       check_is_type metas ty_schema ty ;
-       TT.ArgIsType ty
+    | Schema.PremiseIsType type_schema, PremiseIsType t ->
+       let t = match_is_type metas type_schema t in
+       TT.mk_arg_is_type t
 
-    | Schema.PremiseIsTerm term_schema, ArgIsTerm (IsTerm (_, term, ty)) ->
-       check_abstraction check_term metas term_schema ty ;
-       TT.ArgIsTerm term
+    | Schema.PremiseIsTerm term_schema, PremiseIsTerm e ->
+       let e = match_is_term metas term_schema e in
+       TT.mk_arg_is_term e
 
-    | _, _ -> failwith "later"
+    | Schema.PremiseEqType eqty_schema, PremiseEqType eqty ->
+       let eqty = match_eq_type metas eqty_schema eqty in
+       TT.mk_arg_eq_type eqty
+
+    | Schema.PremiseEqTerm eqterm_schmea, PremiseEqTerm eqterm ->
+       let eqterm = match_eq_term metas eqterm_schema eqterm in
+       TT.mk_arg_eq_term eqterm
+
+    | _, _ ->
+       failwith "wrong premise form"
 
   let rec form_is_type' metas rule_schema premises =
     match rule_schema, premises with
 
-    | Schema.IsTypeConclusion, [] -> List.rev metas
+    | Schema.RuleNotAbstract (), [] -> List.rev metas
 
-    | Schema.IsTypePremise ((_, premise_schema), rule_schema), premise :: premises ->
+    | Schema.RuleAbstract ((_, premise_schema), rule_schema), premise :: premises ->
        let m = match_premise metas premise_schema premise in
        form_is_type' (m :: metas) rule_schema premises
 
-    | Schema.IsTypePremise _, [] ->
-       (* TODO define a proper error *)
-       failwith "this type constructor is applied to too few arguments"
-
-    | Schema.IsTypeConclusion, _::_ ->
-       (* TODO define a proper error *)
+    | Schema.RuleNotAbstract (), _::_ ->
        failwith "this type constructor is applied to too many arguments"
 
+    | Schema.RuleAbstract _, [] ->
+       failwith "this type constructor is applied to too few arguments"
 
 
 
@@ -407,26 +403,26 @@ end
 
 (** Judgements *)
 
-let strengthen (WeakTerm (ctx, e, t)) =
+let strengthen (WeakIsTerm (ctx, e, t)) =
   let hyps = AtomSet.union (TT.assumptions_term e) (TT.assumptions_ty t) in
   let ctx = Ctx.restrict ctx hyps in
   IsTerm (ctx,e,t)
 
-let strengthen_ty (WeakType (ctx, t)) =
+let strengthen_ty (WeakIsType (ctx, t)) =
   let hyps = TT.assumptions_ty t in
   let ctx = Ctx.restrict ctx hyps in
   IsType (ctx, t)
 
-let strengthen_atom (WeakAtom (ctx, x, t)) =
+let strengthen_atom (WeakIsAtom (ctx, x, t)) =
   let hyps = AtomSet.singleton x in
   let ctx = Ctx.restrict ctx hyps in
   IsAtom (ctx, x, t)
 
 let typeof (IsTerm (ctx, _, t)) =
-  strengthen_ty (WeakType (ctx, t))
+  strengthen_ty (WeakIsType (ctx, t))
 
 let atom_is_type (IsAtom (ctx,x,t)) =
-  strengthen_ty (WeakType (ctx, t))
+  strengthen_ty (WeakIsType (ctx, t))
 
 let atom_is_term ~loc (IsAtom (ctx,x,t)) =
   IsTerm (ctx, TT.mk_atom ~loc x, t)
@@ -548,11 +544,11 @@ let invert_is_term (IsTerm (ctx,e,t)) =
        assert false (* XXX to do *)
 
     | TT.TermAbstract ((x,a),(e,b)) ->
-      let ja = WeakType (ctx, a) in
-      let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
+      let ja = WeakIsType (ctx, a) in
+      let WeakIsAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
       let b = TT.unabstract_ty [y] b
       and e = TT.unabstract [y] e in
-      let je = WeakTerm (ctx, e, b) in
+      let je = WeakIsTerm (ctx, e, b) in
       Abstract (strengthen_atom jy, strengthen je)
 
     | TT.Bound _ -> assert false
@@ -566,23 +562,23 @@ let invert_is_type (IsType (ctx, ty)) =
      assert false (* XXX to do *)
 
   | TT.TypeAbstract ((x,a),b) ->
-     let ja = WeakType (ctx, a) in
-     let WeakAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
+     let ja = WeakIsType (ctx, a) in
+     let WeakIsAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
      let b = TT.unabstract_ty [y] b in
-     let jb = WeakType (ctx, b) in
+     let jb = WeakIsType (ctx, b) in
      AbstractTy (strengthen_atom jy, strengthen_ty jb)
 
   | TT.El e -> El (IsTerm (ctx, e, TT.mk_type ~loc:e.Location.loc))
 
 let invert_eq_type (EqType (ctx, ty1, ty2)) =
-  let j1 = strengthen_ty (WeakType (ctx, ty1))
-  and j2 = strengthen_ty (WeakType (ctx, ty2))
+  let j1 = strengthen_ty (WeakIsType (ctx, ty1))
+  and j2 = strengthen_ty (WeakIsType (ctx, ty2))
   in j1, j2
 
 let invert_eq_term (EqTerm (ctx, e1, e2, ty)) =
-  let j1 = strengthen (WeakTerm (ctx, e1, ty))
-  and j2 = strengthen (WeakTerm (ctx, e2, ty))
-  and jt = strengthen_ty (WeakType (ctx, ty))
+  let j1 = strengthen (WeakIsTerm (ctx, e1, ty))
+  and j2 = strengthen (WeakIsTerm (ctx, e2, ty))
+  and jt = strengthen_ty (WeakIsType (ctx, ty))
   in (j1, j2, jt)
 
 let invert_abstract_ty j =
@@ -633,13 +629,13 @@ let form_is_type ~loc sgn = function
 let substitute_ty ~loc (IsType (ctxt, t)) (IsAtom (_, a, _)) (IsTerm (_, s, _) as js) =
   let ctxt = Ctx.substitute ~loc ctxt a js in
   let t = TT.substitute_ty [a] [s] t in
-  strengthen_ty (WeakType (ctxt, t))
+  strengthen_ty (WeakIsType (ctxt, t))
 
 let substitute ~loc (IsTerm (ctxe, e, t)) (IsAtom (_, a, _)) (IsTerm (_, s, _) as js) =
   let ctxe = Ctx.substitute ~loc ctxe a js in
   let t = TT.substitute_ty [a] [s] t
   and e = TT.substitute [a] [s] e in
-  strengthen (WeakTerm (ctxe, e, t))
+  strengthen (WeakIsTerm (ctxe, e, t))
 
 (** Conversion *)
 
@@ -647,14 +643,14 @@ type side = LEFT | RIGHT
 
 let eq_term_side side (EqTerm (ctx, lhs, rhs, ty)) =
   let term = match side with LEFT -> lhs | RIGHT -> rhs in
-  strengthen (WeakTerm (ctx, term, ty))
+  strengthen (WeakIsTerm (ctx, term, ty))
 
 let eq_term_typeof (EqTerm (ctx, _, _, ty)) =
-  strengthen_ty (WeakType (ctx, ty))
+  strengthen_ty (WeakIsType (ctx, ty))
 
 let eq_type_side side (EqType (ctx, lhs, rhs)) =
   let ty = match side with LEFT -> lhs | RIGHT -> rhs in
-  strengthen_ty (WeakType (ctx, ty))
+  strengthen_ty (WeakIsType (ctx, ty))
 
 let convert ~loc (IsTerm (ctx1, e, t)) (EqType (ctx2, t1, t2)) =
   if not (TT.alpha_equal_ty t t1)
