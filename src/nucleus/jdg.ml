@@ -273,11 +273,11 @@ module Rule = struct
       | TypeMeta of meta (* a previously matched meta-variable *)
       | TypeConstructor of Name.constructor * premise list
 
-    type 'a premise_abstraction =
+    and 'a premise_abstraction =
       | PremiseNotAbstract of 'a
       | PremiseAbstract of (Name.ident * ty) * 'a premise_abstraction
 
-    type premise =
+    and premise =
       | PremiseIsType of unit premise_abstraction
       | PremiseIsTerm of ty premise_abstraction
       | PremiseEqType of (ty * ty) premise_abstraction
@@ -297,18 +297,21 @@ module Rule = struct
 
   end
 
-
-  let rec match_type metas t_schema t =
+  let rec check_type metas t_schema t =
     match t_schema, t.Location.thing.TT.thing with
 
-    | Schema.TypeMeta k, t' ->
-       failwith "not done" ;
-       t
+      | Schema.TypeMeta m, t ->
+         (* lookup m and compare with t, they should be equal *)
+         assert false
 
-    | Schema.TypeConstructor (c, premises), TT.TypeConstructor (c', args) ->
-       failwith "not done"
+      | Schema.TypeConstructor (c, premises), TT.TypeConstructor (c', args) ->
+         begin
+           match Name.eq_ident c c' with
+           | false -> failwith "match failure, we wish we had a location"
+           | true -> check_premises metas premises args
+         end
 
-    | _, _ -> failwith "not done"
+      | _, _ -> failwith "put an error message here"
 
   let rec match_premise_abstraction metas match_jdg schema abstr =
     match schema, abstr with
@@ -325,7 +328,7 @@ module Rule = struct
        failwith "premise match fail"
 
   let rec match_is_type metas ty_schema (IsType (ctx, abstr)) =
-
+    assert false
 
 
   let match_premise metas premise_schema premise =

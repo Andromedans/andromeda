@@ -71,6 +71,7 @@ module Rule : sig
    premises, make sure they fit the rule, and return the list of arguments that the type
    constructor should be applied to.
    *)
+  (* XXX TODO what about context joins? *)
   val form_is_type : Schema.is_type -> premise list -> TT.argument list
 
   (** Given a term rule and a list of premises, match the rule against the given
@@ -82,6 +83,7 @@ module Rule : sig
   (** Given an equality type rule and a list of premises, match the rule against the given
    premises, make sure they fit the rule, and return the conclusion of the instance of the rule
    so obtained. *)
+  (* XXX TODO what about context joins and assumption sets? *)
   val form_eq_type : Schema.eq_type -> premise list -> TT.ty * TT.ty
 
   (** Given an terms equality type rule and a list of premises, match the rule
