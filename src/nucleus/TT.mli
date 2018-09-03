@@ -50,8 +50,11 @@ and 'a abstraction = private
   | Abstract of Name.ident * 'a abstraction
   | NotAbstract of 'a
 
-(** Term constructors, these do not check for legality of constructions. *)
+(** Constructors, these do not check for legality of constructions. *)
 val mk_atom: loc:Location.t -> Name.atom -> term
+
+(** Create a fully applied type constructor *)
+val mk_type_constructor : loc:Location.t -> Name.constant -> argument list -> ty
 
 (** Obsolete *)
 val mk_constant: loc:Location.t -> Name.ident -> term

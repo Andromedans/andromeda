@@ -327,15 +327,15 @@ module Rule = struct
     | _, _ ->
        failwith "premise match fail"
 
-  let rec match_is_type metas ty_schema (IsType (ctx, abstr)) =
+  let rec match_is_type metas_ctx metas ty_schema (IsType (ctx, abstr)) =
     assert false
 
 
-  let match_premise metas premise_schema premise =
+  let match_premise ~loc metas_ctx metas premise_schema premise =
     match premise_schema, premise with
 
     | Schema.PremiseIsType type_schema, PremiseIsType t ->
-       let t = match_is_type metas type_schema t in
+       let t = match_is_type metas_ctx metas type_schema t in
        TT.mk_arg_is_type t
 
     | Schema.PremiseIsTerm term_schema, PremiseIsTerm e ->
@@ -353,14 +353,14 @@ module Rule = struct
     | _, _ ->
        failwith "wrong premise form"
 
-  let rec form_is_type' metas rule_schema premises =
+  let rec form_is_type' ~loc metas_ctx metas rule_schema premises =
     match rule_schema, premises with
 
     | Schema.RuleNotAbstract (), [] -> List.rev metas
 
     | Schema.RuleAbstract ((_, premise_schema), rule_schema), premise :: premises ->
-       let m = match_premise metas premise_schema premise in
-       form_is_type' (m :: metas) rule_schema premises
+       let ctx, m = match_premise ~loc metas_ctx metas premise_schema premise in
+       form_is_type' ~loc ctx (m :: metas) rule_schema premises
 
     | Schema.RuleNotAbstract (), _::_ ->
        failwith "this type constructor is applied to too many arguments"
@@ -369,8 +369,11 @@ module Rule = struct
        failwith "this type constructor is applied to too few arguments"
 
 
-
-  let form_is_type rule premises = form_is_type' [] rule premises
+  (* Given a type rule and a list of premises, match the rule against the given
+   premises, make sure they fit the rule, and form the type. *)
+  let form_is_type ~loc (rule : Schema.is_type) premises =
+    let ctx, args = form_is_type' ~loc Ctx.empty [] rule premises in
+    TT.mk_type_constructor ~loc ctx args
 
   let form_is_term rule premises = failwith "Rule.form_is_term is not implemented"
 
@@ -613,7 +616,7 @@ let form_is_type ~loc sgn = function
     IsType (Ctx.empty, TT.mk_type ~loc)
 
   | TyConstructor (c, args) ->
-     assert false (* XXX to do *)
+     Rule.form_is_type ~loc c args
 
   | AbstractTy ((IsAtom (ctxa,x,a)),(IsType (ctxb,b))) ->
     let ctx = Ctx.join ~loc ctxb ctxa in
