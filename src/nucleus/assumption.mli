@@ -28,7 +28,7 @@ val abstract : Name.atom list -> int -> t -> t
 val bind1 : t -> t
 
 (** If [a] has no bound assumptions, [as_atom_set a] returns the set of free assumptions. *)
-val as_atom_set : loc:Location.t -> t -> Name.AtomSet.t
+val as_atom_set : t -> Name.AtomSet.t
 
 val equal : t -> t -> bool
 

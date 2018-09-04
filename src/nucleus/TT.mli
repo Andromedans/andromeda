@@ -13,7 +13,7 @@ type 'a assumptions = {
     We use locally nameless syntax: names for free variables and deBruijn
     indices for bound variables.
 *)
-type term = (term' assumptions) Location.located
+type term = term' assumptions
 and term' = private
   (** a free variable *)
   | Atom of Name.atom
@@ -28,7 +28,7 @@ and term' = private
 
 
 (** The type of TT types. *)
-and ty = (ty' assumptions) Location.located
+and ty = ty' assumptions
 and ty' = private
 
 (** the universe *)
@@ -51,13 +51,12 @@ and 'a abstraction = private
   | NotAbstract of 'a
 
 (** Term constructors, these do not check for legality of constructions. *)
-val mk_atom: loc:Location.t -> Name.atom -> term
+val mk_atom: Name.atom -> term
 
 (** Obsolete *)
-val mk_constant: loc:Location.t -> Name.ident -> term
-val mk_type: loc:Location.t -> ty
-val mk_el: loc:Location.t -> term -> ty
-val typ : ty (** The type Type (without location) *)
+val mk_constant: Name.ident -> term
+val mk_el: term -> ty
+val typ : ty
 
 (** Make a non-abstracted constructor argument *)
 val mk_not_abstract : 'a -> 'a abstraction

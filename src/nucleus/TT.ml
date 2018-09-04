@@ -8,7 +8,7 @@ type 'a assumptions = {
   assumptions : Assumption.t
 }
 
-type term = (term' assumptions) Location.located
+type term = term' assumptions
 
 and term' =
   | Atom of Name.atom
@@ -17,7 +17,7 @@ and term' =
   (* obsolete *)
   | Constant of Name.constant
 
-and ty = (ty' assumptions) Location.located
+and ty = ty' assumptions
 
 and ty' =
   | TypeConstructor of Name.constructor * argument list
@@ -50,19 +50,15 @@ and 'a abstraction =
  *   | [] -> acc
  *   | x::rem -> hyp_union (Assumption.union acc x) rem *)
 
-let mk_atom ~loc x =
-  Location.locate
-    { thing = Atom x
-    ; assumptions = Assumption.singleton x
-    }
-    loc
+let mk_atom x =
+  { thing = Atom x
+  ; assumptions = Assumption.singleton x
+  }
 
-let mk_constant ~loc x =
-  Location.locate
-    { thing = Constant x
-    ; assumptions = Assumption.empty
-    }
-    loc
+let mk_constant x =
+  { thing = Constant x
+  ; assumptions = Assumption.empty
+  }
 
 let mk_not_abstract x = assert false
 
@@ -80,50 +76,44 @@ let mk_abstract_type x t abstr = assert false
    *   }
    *   loc *)
 
-let mk_type ~loc =
-  Location.locate
-    { thing = Type
-    ; assumptions = Assumption.empty;
-    }
-    loc
+let mk_el e =
+  { thing = El e
+  ; assumptions = e.assumptions
+  }
 
-let mk_el ~loc e =
-  Location.locate
-    { thing = El e
-    ; assumptions = e.Location.thing.assumptions
-    }
-    loc
+(** The [Type] constant. *)
+let typ =
+  { thing = Type
+  ; assumptions = Assumption.empty
+  }
 
-(** The [Type] constant, without a location. *)
-let typ = mk_type ~loc:Location.unknown
+let mention_atoms a e =
+  { e with assumptions = Assumption.add_atoms a e.assumptions }
 
-let mention_atoms a {Location.thing=e; loc} =
-  Location.locate { e with assumptions = Assumption.add_atoms a e.assumptions } loc
+let mention_atoms_ty a e =
+  { e with assumptions = Assumption.add_atoms a e.assumptions }
 
-let mention_atoms_ty a {Location.thing=e; loc} =
-  Location.locate { e with assumptions = Assumption.add_atoms a e.assumptions } loc
+let mention a e =
+  { e with assumptions = Assumption.union e.assumptions a }
 
-let mention a {Location.thing=e; loc} =
-  Location.locate { e with assumptions = Assumption.union e.assumptions a } loc
-
-let gather_assumptions {Location.thing={assumptions;_};_} = assumptions
+let gather_assumptions {assumptions;_} = assumptions
 
 let assumptions e =
   let a = gather_assumptions e in
-  Assumption.as_atom_set ~loc:e.Location.loc a
+  Assumption.as_atom_set a
 
 let assumptions_term = assumptions
 
 let assumptions_ty = assumptions
 
 (** Instantiate *)
-let instantiate_atom x ~lvl assumptions loc =
-  Location.locate {thing = Atom x; assumptions} loc
+let instantiate_atom x ~lvl assumptions =
+  {thing = Atom x; assumptions}
 
-let instantiate_bound es ~lvl k assumptions loc =
+let instantiate_bound es ~lvl k assumptions =
   if k < lvl
   then
-    Location.locate {thing = Bound k; assumptions} loc
+    {thing = Bound k; assumptions}
     (* this is a variable bound in an abstraction inside the
        instantiated term, so we leave it as it is *)
   else
@@ -133,7 +123,7 @@ let instantiate_bound es ~lvl k assumptions loc =
       let e = List.nth es (k - lvl) in
       mention assumptions e
     else
-      Location.locate {thing = Bound (k - n); assumptions} loc
+      {thing = Bound (k - n); assumptions}
       (* this is a variable bound in an abstraction outside the
          instantiated term, so it remains bound, but its index decreases
          by the number of bound variables replaced by terms *)
@@ -142,7 +132,7 @@ let instantiate_hyps es ~lvl h =
   let hs = List.map gather_assumptions es in
   Assumption.instantiate hs lvl h
 
-let rec instantiate_term es ?(lvl=0) ({Location.loc=loc;thing={thing=e';assumptions=hs}} as e) =
+let rec instantiate_term es ?(lvl=0) ({thing=e';assumptions=hs} as e) =
   match es with
   | [] -> e
   | _::_ ->
@@ -152,15 +142,15 @@ let rec instantiate_term es ?(lvl=0) ({Location.loc=loc;thing={thing=e';assumpti
        then e
        else
          match e' with
-         | Constant _ as term -> Location.locate {thing=term; assumptions} loc
+         | Constant _ as term -> {thing = term; assumptions}
          | TermConstructor (c, args) ->
             let args = instantiate_arguments es ~lvl args in
-            Location.locate {thing=TermConstructor(c, args); assumptions} loc
-         | Atom x -> instantiate_atom x ~lvl assumptions loc
-         | Bound k -> instantiate_bound es ~lvl k assumptions loc
+            {thing  =TermConstructor(c, args); assumptions}
+         | Atom x -> instantiate_atom x ~lvl assumptions
+         | Bound k -> instantiate_bound es ~lvl k assumptions
      end
 
-and instantiate_type es ?(lvl=0) ({Location.loc=loc;thing={thing=t';assumptions=hs}} as t) =
+and instantiate_type es ?(lvl=0) ({thing=t';assumptions=hs} as t) =
   match es with
   | [] -> t
   | _::_ ->
@@ -170,13 +160,13 @@ and instantiate_type es ?(lvl=0) ({Location.loc=loc;thing={thing=t';assumptions=
        then t
        else
          match t' with
-         | Type as ty -> Location.locate {thing=ty;assumptions} loc
+         | Type as ty -> {thing=ty;assumptions}
          | TypeConstructor (c, args) ->
             let args = instantiate_arguments es ~lvl args in
-            Location.locate {thing=TypeConstructor(c, args); assumptions} loc
+            {thing = TypeConstructor(c, args); assumptions}
          | El e ->
-            let e = instantiate_term es ~lvl e in
-            Location.locate {thing=El e;assumptions} loc
+            let e = instantiate_term es e in
+            {thing = El e; assumptions}
      end
 
 and instantiate_arguments es ~lvl args =
@@ -196,28 +186,28 @@ and instantiate_abstraction : 'a . (?lvl:bound -> 'a -> 'a) -> lvl:bound -> 'a a
 
 
 let unabstract_term xs ?(lvl=0) e =
-  let es = List.map (mk_atom ~loc:Location.unknown) xs
+  let es = List.map mk_atom xs
   in instantiate_term es ~lvl e
 
 let unabstract_type xs ?(lvl=0) t =
-  let es = List.map (mk_atom ~loc:Location.unknown) xs
+  let es = List.map mk_atom xs
   in instantiate_type es ~lvl t
 
 (** Abstract *)
-let abstract_atom xs ~lvl x assumptions loc =
+let abstract_atom xs ~lvl x assumptions =
   begin
     match Name.index_of_atom x xs with
-      | None -> Location.locate {thing = Atom x; assumptions} loc
-      | Some k -> Location.locate {thing = Bound (lvl + k); assumptions} loc
+      | None -> {thing = Atom x; assumptions}
+      | Some k -> {thing = Bound (lvl + k); assumptions}
   end
 
-let abstract_bound ~lvl k assumptions loc =
-  Location.locate {thing = Bound k; assumptions} loc
+let abstract_bound ~lvl k assumptions =
+  {thing = Bound k; assumptions}
 
 let abstract_hyps xs ~lvl h =
   Assumption.abstract xs lvl h
 
-let rec abstract_term xs ?(lvl=0) ({Location.loc=loc;thing={thing=e';assumptions=hs}} as e) =
+let rec abstract_term xs ?(lvl=0) ({thing=e';assumptions=hs} as e) =
   match xs with
   | [] -> e
   | _::_ ->
@@ -227,12 +217,12 @@ let rec abstract_term xs ?(lvl=0) ({Location.loc=loc;thing={thing=e';assumptions
          then e
          else
            match e' with
-           | Constant _ as term -> Location.locate {thing=term;assumptions} loc
+           | Constant _ as term -> {thing = term; assumptions}
            | TermConstructor (c, args) ->
               let args = abstract_arguments xs ~lvl args in
-              Location.locate {thing=TermConstructor(c, args); assumptions} loc
-           | Atom x -> abstract_atom xs ~lvl x assumptions loc
-           | Bound k -> abstract_bound ~lvl k assumptions loc
+              {thing = TermConstructor(c, args); assumptions}
+           | Atom x -> abstract_atom xs ~lvl x assumptions
+           | Bound k -> abstract_bound ~lvl k assumptions
      end
      (* WAS: at_var (abstract_atom xs) abstract_bound (abstract_hyps xs) ~lvl e *)
 
@@ -275,14 +265,14 @@ let substitute_type xs es t =
     instantiate_type es ~lvl:0 t
 
 (* Does the bound variable [k] occur in an expression? Used only for printing. *)
-let rec occurs_term k {Location.loc;thing={thing=e';_}} =
+let rec occurs_term k {thing=e';_} =
   match e' with
   | Atom _ -> false
   | Bound m -> k = m
   | Constant x -> false
   | TermConstructor (_, args) -> occurs_args k args
 
-and occurs_type k {Location.loc;thing={thing=t';_}} =
+and occurs_type k {thing=t';_} =
   match t' with
   | Type -> false
   | TypeConstructor (_, args) -> occurs_args k args
@@ -302,7 +292,7 @@ and occurs_abstraction : 'a . (bound -> 'a -> bool) -> bound -> 'a abstraction -
 
 (****** Alpha equality ******)
 
-let rec alpha_equal {Location.thing={thing=e1;_};_} {Location.thing={thing=e2;_};_} =
+let rec alpha_equal {thing=e1;_} {thing=e2;_} =
   e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
@@ -319,7 +309,7 @@ let rec alpha_equal {Location.thing={thing=e1;_};_} {Location.thing={thing=e2;_}
       false
   end
 
-and alpha_equal_ty {Location.thing={thing=t1;_};_} {Location.thing={thing=t2;_};_} =
+and alpha_equal_ty {thing=t1;_} {thing=t2;_} =
   match t1, t2 with
   | Type, Type -> true
 
@@ -359,7 +349,7 @@ type print_env =
 
 let add_forbidden x penv = { penv with forbidden = x :: penv.forbidden }
 
-let rec print_term ?max_level ~penv {Location.thing={thing=e;_};_} ppf =
+let rec print_term ?max_level ~penv {thing=e;_} ppf =
     print_term' ~penv ?max_level e ppf
 
 and print_term' ~penv ?max_level e ppf =
@@ -375,7 +365,7 @@ and print_term' ~penv ?max_level e ppf =
 
   | Bound k -> Name.print_debruijn penv.forbidden k ppf
 
-and print_type ?max_level ~penv {Location.thing={thing=t;_};_} ppf =
+and print_type ?max_level ~penv {thing=t;_} ppf =
   match t with
 
   | Type -> Format.fprintf ppf "Type"
@@ -428,10 +418,8 @@ and print_abstraction :
 module Json =
 struct
 
-  let rec term {Location.loc;thing={thing=e; assumptions=asm}} =
-    if !Config.json_location
-    then Json.tuple [term' e; Assumption.Json.assumptions asm; Location.Json.location loc]
-    else Json.tuple [term' e; Assumption.Json.assumptions asm]
+  let rec term {thing=e; assumptions=asm} =
+    Json.tuple [term' e; Assumption.Json.assumptions asm]
 
   and term' e =
     match e with
@@ -444,10 +432,8 @@ struct
 
       | TermConstructor (c, lst) -> Json.tag "TermConstructor" (Name.Json.ident c :: args lst)
 
-  and ty {Location.loc;thing={thing=t; assumptions=asm}} =
-    if !Config.json_location
-    then Json.tuple [ty' t; Assumption.Json.assumptions asm; Location.Json.location loc]
-    else Json.tuple [ty' t; Assumption.Json.assumptions asm]
+  and ty {thing=t; assumptions=asm} =
+    Json.tuple [ty' t; Assumption.Json.assumptions asm]
 
   and ty' t =
     match t with
