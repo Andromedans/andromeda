@@ -128,27 +128,22 @@ let instantiate_bound es ~lvl k assumptions =
          instantiated term, so it remains bound, but its index decreases
          by the number of bound variables replaced by terms *)
 
-let instantiate_hyps es ~lvl h =
-  let hs = List.map gather_assumptions es in
+let instantiate_hyps e0 ~lvl h =
+  let hs = List.map gather_assumptions [e0] in
   Assumption.instantiate hs lvl h
 
-let rec instantiate_term es ?(lvl=0) ({thing=e';assumptions=hs} as e) =
-  match es with
-  | [] -> e
-  | _::_ ->
-     begin
-       let assumptions = instantiate_hyps es ~lvl hs in
-       if Assumption.equal assumptions hs
-       then e
-       else
-         match e' with
-         | Constant _ as term -> {thing = term; assumptions}
-         | TermConstructor (c, args) ->
-            let args = instantiate_arguments es ~lvl args in
-            {thing  =TermConstructor(c, args); assumptions}
-         | Atom x -> instantiate_atom x ~lvl assumptions
-         | Bound k -> instantiate_bound es ~lvl k assumptions
-     end
+let rec instantiate_term e0 ?(lvl=0) ({thing=e';assumptions=hs} as e) =
+  let assumptions = instantiate_hyps e0 ~lvl hs in
+  if Assumption.equal assumptions hs
+  then e
+  else
+    match e' with
+    | Constant _ as term -> {thing = term; assumptions}
+    | TermConstructor (c, args) ->
+       let args = instantiate_arguments e0 ~lvl args in
+       {thing  =TermConstructor(c, args); assumptions}
+    | Atom x -> instantiate_atom x ~lvl assumptions
+    | Bound k -> instantiate_bound e0 ~lvl k assumptions
 
 and instantiate_type es ?(lvl=0) ({thing=t';assumptions=hs} as t) =
   match es with
