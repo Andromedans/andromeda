@@ -29,6 +29,10 @@ type eq_term = EqTerm of ctx * (TT.term * TT.term * TT.ty) abstraction
 
 type eq_type = EqType of ctx * (TT.ty * TT.ty) abstraction
 
+(* XXX Ctx.substitute expects closed judgements. If there are other places in
+   the code where abstracted judgements are an error, we should have a type
+   for each closed judgement form. *)
+
 (** Shapes (defined below) are used to construct and invert judgements. The
    [form_XYZ] functions below take a shape and construct a judgement from it,
    whereas the [invert_XYZ] functions do the opposite. We can think of shapes as
@@ -78,6 +82,7 @@ type error =
   | AlphaEqualTermMismatch of TT.term * TT.term
   | InvalidConvert of TT.ty * TT.ty
   | RuleInputMismatch of string * TT.ty * string * TT.ty * string
+  | SubstitutionAbstractedTerm of Name.atom * is_term
   | NotAbstractExpected
 
 exception Error of error Location.located
@@ -210,11 +215,15 @@ module Ctx = struct
       ctx2 ctx1
 
   (* substitute x by e in ctx *)
-  let substitute ~loc ctx x (IsTerm (ctxe, e, t)) =
+  let substitute ~loc ctx x (IsTerm (ctxe, abstr_e_t) as j_tm) =
     let ctx = join ~loc ctx ctxe in
     match lookup x ctx with
       | None -> ctx
       | Some xnode ->
+         let (e, t) = begin match abstr_e_t with
+           | Abstract (_, _) -> error ~loc (SubstitutionAbstractedTerm (x, j_tm))
+           | NotAbstract (e, t) -> (e, t)
+         end in
         if not (TT.alpha_equal_ty xnode.ty t)
         then
           error ~loc (SubstitutionInvalidType (x, xnode.ty, t))
@@ -308,7 +317,7 @@ module Rule = struct
          begin
            match Name.eq_ident c c' with
            | false -> failwith "match failure, we wish we had a location"
-           | true -> check_premises metas premises args
+           | true -> match_premise metas premises args
          end
 
       | _, _ -> failwith "put an error message here"
@@ -330,6 +339,9 @@ module Rule = struct
   let rec match_is_type metas_ctx metas ty_schema (IsType (ctx, abstr)) =
     assert false
 
+  let rec match_eq_term = failwith "todo"
+  let rec match_eq_type = failwith "todo"
+  let rec match_is_term = failwith "todo"
 
   let match_premise ~loc metas_ctx metas premise_schema premise =
     match premise_schema, premise with
@@ -353,13 +365,15 @@ module Rule = struct
     | _, _ ->
        failwith "wrong premise form"
 
-  let rec form_is_type' ~loc metas_ctx metas rule_schema premises =
+  (* Form a type according to [rule_schema]. Previously provided premises may
+     be referred to by de Bruijn indices pointing into [metas]. *)
+  let rec form_is_type' ~loc ctx metas rule_schema premises =
     match rule_schema, premises with
 
     | Schema.RuleNotAbstract (), [] -> List.rev metas
 
     | Schema.RuleAbstract ((_, premise_schema), rule_schema), premise :: premises ->
-       let ctx, m = match_premise ~loc metas_ctx metas premise_schema premise in
+       let ctx, m = match_premise ~loc ctx metas premise_schema premise in
        form_is_type' ~loc ctx (m :: metas) rule_schema premises
 
     | Schema.RuleNotAbstract (), _::_ ->

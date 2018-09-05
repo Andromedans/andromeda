@@ -69,7 +69,35 @@ module Rule : sig
 
   (** Given a type formation rule and a list of premises, match the rule
    against the given premises, make sure they fit the rule, and return the
-   judgement corresponding to the conclusion of the rule. *)
+   judgement corresponding to the conclusion of the rule.
+
+      The head of the conclusion (the parts in square brackets) is not really
+   there because it is fully prescribed by the premises and the judgement
+   class; we just specify it here for readability.
+
+
+      Schema:
+      ⊢ A type    x:A ⊢ B type
+      ————————————————————————
+      ⊢ [Π A B] type
+
+      Instance:
+      Γ₁ ⊢ A₁ type    Γ₂ ⊢ {y:A₂} B₁ type
+      ——————————————————————————————————— {Γ₁,Γ₂}↑Δ, A₁ =α= A₂
+      Δ ⊢ Π A B type
+
+      Schema:
+      ⊢ A type    x:A ⊢ B type   y:A ⊢ s : B{y}
+      —————————————————————————————————————————
+      ⊢ (λ A B s) : Π A B
+
+      Instance:
+      Γ₁ ⊢ A₁ type    Γ₂, x:A₂ ⊢ B₁ type   Γ₃, y:A₃ ⊢ s : B₂{y}
+      ————————————————————————————————————————————————————————— {Γ₁,Γ₂,Γ₃}↑Δ, 
+      ⊢ (λ A B s) : Π A B
+
+
+  *)
   val form_is_type : Schema.is_type -> premise list -> is_type
 
   (** Given a term rule and a list of premises, match the rule against the given
