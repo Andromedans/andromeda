@@ -53,6 +53,9 @@ and 'a abstraction = private
 (** Term constructors, these do not check for legality of constructions. *)
 val mk_atom: Name.atom -> term
 
+(** Create a fully applied type constructor *)
+val mk_type_constructor : loc:Location.t -> Name.constant -> argument list -> ty
+
 (** Obsolete *)
 val mk_constant: Name.ident -> term
 val mk_el: term -> ty

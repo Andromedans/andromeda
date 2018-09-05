@@ -67,12 +67,10 @@ module Rule : sig
     type eq_term
   end
 
-  (** Given a type rule and a list of premises, match the rule against the given
-   premises, make sure they fit the rule, and return the list of arguments that the type
-   constructor should be applied to.
-   *)
-  (* XXX TODO what about context joins? *)
-  val form_is_type : Schema.is_type -> premise list -> TT.argument list
+  (** Given a type formation rule and a list of premises, match the rule
+   against the given premises, make sure they fit the rule, and return the
+   judgement corresponding to the conclusion of the rule. *)
+  val form_is_type : Schema.is_type -> premise list -> is_type
 
   (** Given a term rule and a list of premises, match the rule against the given
    premises, make sure they fit the rule, and return the list of arguments that the term
