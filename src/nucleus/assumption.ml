@@ -46,17 +46,14 @@ let instantiate l lvl {free;bound;} =
   and bound = BoundSet.union bound acc.bound in
   {free;bound;}
 
-let abstract l lvl a =
-  let acc,_ = List.fold_left (fun (acc,n) xn ->
-      if AtomSet.mem xn acc.free
-      then
-        let free = AtomSet.remove xn acc.free
-        and bound = BoundSet.add (lvl+n) acc.bound in
-        ({free;bound;},n+1)
-      else (acc,n+1))
-    (a,0) l
-  in
-  acc
+let abstract x lvl a =
+  if AtomSet.mem x a.free
+  then
+    { free = AtomSet.remove x a.free
+    ; bound = BoundSet.add lvl a.bound
+    }
+  else
+    a
 
 let bind1 {free;bound} =
   let bound = BoundSet.fold (fun n bound ->

@@ -20,9 +20,9 @@ val union : t -> t -> t
     by lvl+k-n for k>n and leaves k<lvl unchanged*)
 val instantiate : t list -> int -> t -> t
 
-(** [abstract a lvl l] where [l] is [x0 ... xn]
-    replaces the free variables [x0 ... xn] by the bound variables [lvl ... lvl+n] respectively. *)
-val abstract : Name.atom list -> int -> t -> t
+(** [abstract x lvl l]
+    replaces the free variable [x] by the bound variables [lvl]. *)
+val abstract : Name.atom -> int -> t -> t
 
 (** If [hyps] are the assumptions on a term, [bind hyps] are the assumptions after putting the term under a binder. *)
 val bind1 : t -> t
