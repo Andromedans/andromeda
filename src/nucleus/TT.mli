@@ -13,7 +13,7 @@ type 'a assumptions = {
     We use locally nameless syntax: names for free variables and deBruijn
     indices for bound variables.
 *)
-type term = (term' assumptions) Location.located
+type term = term' assumptions
 and term' = private
   (** a free variable *)
   | Atom of Name.atom
@@ -28,7 +28,7 @@ and term' = private
 
 
 (** The type of TT types. *)
-and ty = (ty' assumptions) Location.located
+and ty = ty' assumptions
 and ty' = private
 
 (** the universe *)
@@ -50,8 +50,8 @@ and 'a abstraction = private
   | Abstract of Name.ident * 'a abstraction
   | NotAbstract of 'a
 
-(** Constructors, these do not check for legality of constructions. *)
-val mk_atom: loc:Location.t -> Name.atom -> term
+(** Term constructors, these do not check for legality of constructions. *)
+val mk_atom: Name.atom -> term
 
 (** Create a fully applied type constructor *)
 val mk_type_constructor : loc:Location.t -> Name.constant -> argument list -> ty
@@ -62,10 +62,9 @@ val mk_arg_eq_type : unit -> argument
 val mk_arg_eq_term : unit -> argument
 
 (** Obsolete *)
-val mk_constant: loc:Location.t -> Name.ident -> term
-val mk_type: loc:Location.t -> ty
-val mk_el: loc:Location.t -> term -> ty
-val typ : ty (** The type Type (without location) *)
+val mk_constant: Name.ident -> term
+val mk_el: term -> ty
+val typ : ty
 
 (** Make a non-abstracted constructor argument *)
 val mk_not_abstract : 'a -> 'a abstraction
@@ -84,26 +83,22 @@ val mention_atoms_ty : Name.AtomSet.t -> ty -> ty
 (** Add an assumption to a term. *)
 val mention : Assumption.t -> term -> term
 
-(** [instantiate_term [e0,...,e{n-1}] k e] replaces bound variables indexed by [k, ..., k+n-1]
-    with terms [e0, ..., e{n-1}]. *)
-val instantiate_term: term list -> ?lvl:int -> term -> term
+(** [instantiate_term e0 k e] replaces bound variable [k] with term [e0] in term [e]. *)
+val instantiate_term: term -> ?lvl:int -> term -> term
 
-val instantiate_type: term list -> ?lvl:int -> ty -> ty
+(** [instantiate_term e0 k t] replaces bound variable [k] with term [e0] in type [t]. *)
+val instantiate_type: term -> ?lvl:int -> ty -> ty
 
-(** [unabstract_term [x0,...,x{n-1}] k e] replaces bound variables in [e] indexed by [k, ..., k+n-1]
-    with names [x0, ..., x{n-1}]. *)
-val unabstract_term: Name.atom list -> ?lvl:int -> term -> term
+(** [unabstract_term x0 k e] replaces bound variable [k] in [e] with name [x0]. *)
+val unabstract_term: Name.atom -> ?lvl:int -> term -> term
 
-(** [unabstract_ty [x0,...,x{n-1}] k t] replaces bound variables in [t] indexed by [k, ..., k+n-1]
-    with names [x0, ..., x{n-1}]. *)
-val unabstract_type: Name.atom list -> ?lvl:int -> ty -> ty
+(** [unabstract_ty x0 k t] replaces bound variable [k] in [t] with name [x0]. *)
+val unabstract_type: Name.atom -> ?lvl:int -> ty -> ty
 
-(** [abstract_term xs k e] replaces names [xs] in term [e] with bound variables [k, ..., k+n-1] where
-    [xs] is the list [x0,...,x{n-1}]. *)
+(** [abstract_term x0 k e] replaces name [x0] in term [e] with bound variable [k] (default [0]) where. *)
 val abstract_term : Name.atom list -> ?lvl:int -> term -> term
 
-(** [abstract_type xs k t] replaces names [xs] in type [t] with bound variables [k, ..., k+n-1] where
-    [xs] is the list [x0,...,x{n-1}]. *)
+(** [abstract_term x0 k t] replaces name [x0] in type [t] with bound variable [k] (default [0]) where. *)
 val abstract_type : Name.atom list -> ?lvl:int -> ty -> ty
 
 (** abstract followed by instantiate *)

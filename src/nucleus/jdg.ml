@@ -215,43 +215,44 @@ module Ctx = struct
       ctx2 ctx1
 
   (* substitute x by e in ctx *)
-  let substitute ~loc ctx x (IsTerm (ctxe, abstr_e_t) as j_tm) =
-    let ctx = join ~loc ctx ctxe in
-    match lookup x ctx with
-      | None -> ctx
-      | Some xnode ->
-         let (e, t) = begin match abstr_e_t with
-           | Abstract (_, _) -> error ~loc (SubstitutionAbstractedTerm (x, j_tm))
-           | NotAbstract (e, t) -> (e, t)
-         end in
-        if not (TT.alpha_equal_ty xnode.ty t)
-        then
-          error ~loc (SubstitutionInvalidType (x, xnode.ty, t))
-        else
-          let deps = recursive_assumptions ctx (TT.assumptions_term e) in
-          let ctx = AtomSet.fold (fun y ctx ->
-              let ynode = AtomMap.find y ctx in
-              if AtomSet.mem y deps
-              then
-                error ~loc (SubstitutionDependency (x, e, y))
-              else
-                let ty = TT.substitute_type [x] [e] ynode.ty in
-                AtomMap.add y {ynode with ty} ctx)
-            xnode.needed_by ctx
-          in
-          let ctx = AtomSet.fold (fun z ctx ->
-              let znode = AtomMap.find z ctx in
-              let needed_by = AtomSet.union znode.needed_by xnode.needed_by in
-              AtomMap.add z {znode with needed_by} ctx)
-            deps ctx
-          in
-          if AtomSet.mem x deps
-          then ctx
-          else
-            (* we can remove x *)
-            let ctx = AtomMap.remove x ctx in
-            let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
-            ctx
+  let substitute ~loc ctx x _ = failwith "subsitition is not implemented, will likely go away, as it is the only source of context join failures"
+  (* let substitute ~loc ctx x (IsTerm (ctxe, abstr_e_t) as j_tm) = *)
+  (*   let ctx = join ~loc ctx ctxe in *)
+  (*   match lookup x ctx with *)
+  (*     | None -> ctx *)
+  (*     | Some xnode -> *)
+  (*        let (e, t) = begin match abstr_e_t with *)
+  (*          | Abstract (_, _) -> error ~loc (SubstitutionAbstractedTerm (x, j_tm)) *)
+  (*          | NotAbstract (e, t) -> (e, t) *)
+  (*        end in *)
+  (*       if not (TT.alpha_equal_ty xnode.ty t) *)
+  (*       then *)
+  (*         error ~loc (SubstitutionInvalidType (x, xnode.ty, t)) *)
+  (*       else *)
+  (*         let deps = recursive_assumptions ctx (TT.assumptions_term e) in *)
+  (*         let ctx = AtomSet.fold (fun y ctx -> *)
+  (*             let ynode = AtomMap.find y ctx in *)
+  (*             if AtomSet.mem y deps *)
+  (*             then *)
+  (*               error ~loc (SubstitutionDependency (x, e, y)) *)
+  (*             else *)
+  (*               let ty = TT.substitute_type [x] [e] ynode.ty in *)
+  (*               AtomMap.add y {ynode with ty} ctx) *)
+  (*           xnode.needed_by ctx *)
+  (*         in *)
+  (*         let ctx = AtomSet.fold (fun z ctx -> *)
+  (*             let znode = AtomMap.find z ctx in *)
+  (*             let needed_by = AtomSet.union znode.needed_by xnode.needed_by in *)
+  (*             AtomMap.add z {znode with needed_by} ctx) *)
+  (*           deps ctx *)
+  (*         in *)
+  (*         if AtomSet.mem x deps *)
+  (*         then ctx *)
+  (*         else *)
+  (*           (\* we can remove x *\) *)
+  (*           let ctx = AtomMap.remove x ctx in *)
+  (*           let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in *)
+  (*           ctx *)
 
 
   let elements ctx =
@@ -274,15 +275,25 @@ module Rule = struct
 
     type meta = int (* meta-variables appearing in rules *)
 
+    type 'a abstraction =
+      | NotAbstract of 'a
+      | Abstract of Name.ident * 'a abstraction
+
     type term =
       | TermMeta of meta (* a previously matched meta-variable *)
-      | TermConstructor of Name.constructor * premise list
+      | TermConstructor of Name.constructor * argument list
 
     and ty =
       | TypeMeta of meta (* a previously matched meta-variable *)
-      | TypeConstructor of Name.constructor * premise list
+      | TypeConstructor of Name.constructor * argument list
 
-    and 'a premise_abstraction =
+    and argument =
+      | ArgIsType of ty abstraction
+      | ArgIsTerm of term abstraction
+      | ArgEqType
+      | ArgEqTerm
+
+    type 'a premise_abstraction =
       | PremiseNotAbstract of 'a
       | PremiseAbstract of (Name.ident * ty) * 'a premise_abstraction
 
@@ -307,7 +318,7 @@ module Rule = struct
   end
 
   let rec check_type metas t_schema t =
-    match t_schema, t.Location.thing.TT.thing with
+    match t_schema, t.TT.thing with
 
       | Schema.TypeMeta m, t ->
          (* lookup m and compare with t, they should be equal *)
@@ -322,45 +333,95 @@ module Rule = struct
 
       | _, _ -> failwith "put an error message here"
 
-  let rec match_premise_abstraction metas match_jdg schema abstr =
-    match schema, abstr with
+  and check_term metas e_schema e =
+    match e_schema, e.TT.thing with
 
-    | Schema.PremiseNotAbstract jdg_schema, NotAbstract jdg ->
-       match_jdg metas jdg_schema jdg
+    | Schema.TermMeta m, e ->
+       assert false
 
-    | Schema.PremiseAbstract ((_, t_schema), schema), Abstract ((x, t), abstr) ->
-       check_type metas t_schema t ;
-       let abstr = match_premise_abstraction metas match_jdg schema abstr in
-       TT.mk_abstract x abstr
+    | Schema.TermConstructor (c, premises), TT.TermConstructor (c', args) ->
+         begin
+           match Name.eq_ident c c' with
+           | false -> failwith "match failure, we wish we had a location"
+           | true -> check_premises metas premises args
+         end
 
-    | _, _ ->
-       failwith "premise match fail"
+    | _, _ -> failwith "put an error message here" (* Consider other values, such as TT.Atom! *)
 
-  let rec match_is_type metas_ctx metas ty_schema (IsType (ctx, abstr)) =
-    assert false
+  and check_premises metas premises args =
+    match premises, args with
+    | [], [] -> ()
+    | premise :: premises, arg :: args -> check_premise metas premise arg
+    | [], _::_ -> failwith "too many arguments are applied to this constructor"
+    | _::_, [] -> failwith "too few arguments are applied to this constructor"
 
-  let rec match_eq_term = failwith "todo"
+  and check_premise metas premise arg =
+    match premise, arg with
+    | Schema.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type metas t_schema t
+    | Schema.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term metas e_schema e
+    | Schema.ArgEqType, TT.ArgEqType -> ()
+    | Schema.ArgEqTerm, TT.ArgEqTerm -> ()
+    | _, _ -> failwith "place an error message here"
+
+  and check_abstraction : 'a 'b . (TT.argument list -> 'a -> 'b -> unit) -> TT.argument list -> 'a Schema.abstraction -> 'b TT.abstraction -> unit =
+    fun check_u metas abstr_schema abstr ->
+    let rec fold metas abstr_schema abstr =
+      match abstr_schema, abstr with
+      | Schema.NotAbstract u_schema, TT.NotAbstract u -> check_u metas u_schema u
+      | Schema.Abstract (_, abstr_schema), TT.Abstract (_, abstr) -> fold metas abstr_schema abstr
+      | _, _ -> failwith "place an error message here"
+    in
+    fold metas abstr_schema abstr
+
+  let rec match_premise_abstraction match_jdg metas schema abstr =
+      match schema, abstr with
+
+      | Schema.PremiseNotAbstract jdg_schema, NotAbstract jdg ->
+         let jdg = match_jdg metas jdg_schema jdg in
+         TT.mk_not_abstract jdg
+
+      | Schema.PremiseAbstract ((_, t_schema), schema), Abstract ((x, t), abstr) ->
+         check_type metas t_schema t ;
+         let abstr = match_premise_abstraction match_jdg metas schema abstr in
+         TT.mk_abstract x abstr
+
+      | _, _ ->
+         failwith "premise match fail"
+
+  let match_is_type metas () t =
+    TT.mk_arg_is_type t
+
+  let match_is_term metas t_schema (e, t) =
+    check_type metas t_schema t ;
+    TT.mk_arg_eq_term e
+
+  let match_eq_type metas (t1_schema, t2_schema) (t1, t2) =
+    check_type metas t1_schema t1 ;
+    check_type metas t2_schema t2 ;
+    TT.arg_eq_type
+
+  let match_eq_term metas (e1_schema, e2_schema, t_schema) (e1, e2, t) =
+    check_type metas t_schema t ;
+    check_term metas e1_schema e1 ;
+    check_term metas e2_schema e2 ;
+    TT.arg_eq_term
   let rec match_eq_type = failwith "todo"
   let rec match_is_term = failwith "todo"
 
   let match_premise ~loc metas_ctx metas premise_schema premise =
     match premise_schema, premise with
 
-    | Schema.PremiseIsType type_schema, PremiseIsType t ->
-       let t = match_is_type metas_ctx metas type_schema t in
-       TT.mk_arg_is_type t
+    | Schema.PremiseIsType t_schema, PremiseIsType (IsType (ctx, abstr)) ->
+       match_premise_abstraction match_is_type metas t_schema abstr
 
-    | Schema.PremiseIsTerm term_schema, PremiseIsTerm e ->
-       let e = match_is_term metas term_schema e in
-       TT.mk_arg_is_term e
+    | Schema.PremiseIsTerm e_schema, PremiseIsTerm (IsTerm (ctx, abstr)) ->
+       match_premise_abstraction match_is_term metas e_schema abstr
 
-    | Schema.PremiseEqType eqty_schema, PremiseEqType eqty ->
-       let eqty = match_eq_type metas eqty_schema eqty in
-       TT.mk_arg_eq_type eqty
+    | Schema.PremiseEqType eqty_schema, PremiseEqType (EqType (ctx, eqty)) ->
+       match_premise_abstraction match_eq_type metas eqty_schema eqty
 
-    | Schema.PremiseEqTerm eqterm_schmea, PremiseEqTerm eqterm ->
-       let eqterm = match_eq_term metas eqterm_schema eqterm in
-       TT.mk_arg_eq_term eqterm
+    | Schema.PremiseEqTerm eqterm_schema, PremiseEqTerm (EqTerm (ctx, eqterm)) ->
+       match_premise_abstraction match_eq_term metas eqterm_schema eqterm
 
     | _, _ ->
        failwith "wrong premise form"

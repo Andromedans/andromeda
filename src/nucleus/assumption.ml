@@ -67,7 +67,7 @@ let bind1 {free;bound} =
   in
   {free;bound}
 
-let as_atom_set ~loc {free;bound;} =
+let as_atom_set {free;bound;} =
   assert (BoundSet.is_empty bound) ;
   free
 
