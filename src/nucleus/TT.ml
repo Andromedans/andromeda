@@ -55,8 +55,14 @@ let mk_atom x =
   ; assumptions = Assumption.singleton x
   }
 
+(* obsolete *)
+let mk_constant x =
+  { thing = Constant x
+  ; assumptions = Assumption.empty
+  }
+
 (* XXX here we have to collect assumptions from the args *)
-let mk_type_constructor ~loc c args = failwith "todo"
+let mk_type_constructor c args = failwith "todo"
 
 let mk_arg_is_type = failwith "todo"
 let mk_arg_is_term = failwith "todo"
@@ -114,23 +120,21 @@ let assumptions_ty = assumptions
 let instantiate_atom x ~lvl assumptions =
   {thing = Atom x; assumptions}
 
-let instantiate_bound es ~lvl k assumptions =
+let instantiate_bound e0 ~lvl k assumptions =
   if k < lvl
   then
     {thing = Bound k; assumptions}
     (* this is a variable bound in an abstraction inside the
        instantiated term, so we leave it as it is *)
   else
-    let n = List.length es in
-    if k < lvl + n
+    if k = lvl
     then (* variable corresponds to a substituted term, replace it *)
-      let e = List.nth es (k - lvl) in
-      mention assumptions e
+      mention assumptions e0
     else
-      {thing = Bound (k - n); assumptions}
+      {thing = Bound (k - 1); assumptions}
       (* this is a variable bound in an abstraction outside the
          instantiated term, so it remains bound, but its index decreases
-         by the number of bound variables replaced by terms *)
+         by 1. *)
 
 let instantiate_hyps e0 ~lvl h =
   let hs = List.map gather_assumptions [e0] in
@@ -149,24 +153,19 @@ let rec instantiate_term e0 ?(lvl=0) ({thing=e';assumptions=hs} as e) =
     | Atom x -> instantiate_atom x ~lvl assumptions
     | Bound k -> instantiate_bound e0 ~lvl k assumptions
 
-and instantiate_type es ?(lvl=0) ({thing=t';assumptions=hs} as t) =
-  match es with
-  | [] -> t
-  | _::_ ->
-     begin
-       let assumptions = instantiate_hyps ~lvl es hs in
-       if Assumption.equal assumptions hs
-       then t
-       else
-         match t' with
-         | Type as ty -> {thing=ty;assumptions}
-         | TypeConstructor (c, args) ->
-            let args = instantiate_arguments es ~lvl args in
-            {thing = TypeConstructor(c, args); assumptions}
-         | El e ->
-            let e = instantiate_term es e in
-            {thing = El e; assumptions}
-     end
+and instantiate_type e0 ?(lvl=0) ({thing=t';assumptions=hs} as t) =
+  let assumptions = instantiate_hyps ~lvl e0 hs in
+  if Assumption.equal assumptions hs
+  then t
+  else
+    match t' with
+    | Type as ty -> {thing=ty;assumptions}
+    | TypeConstructor (c, args) ->
+       let args = instantiate_arguments e0 ~lvl args in
+       {thing = TypeConstructor(c, args); assumptions}
+    | El e ->
+       let e = instantiate_term e0 e in
+       {thing = El e; assumptions}
 
 and instantiate_arguments es ~lvl args =
   List.map (instantiate_argument es ~lvl) args
@@ -184,60 +183,63 @@ and instantiate_abstraction : 'a . (?lvl:bound -> 'a -> 'a) -> lvl:bound -> 'a a
   | NotAbstract u -> NotAbstract (inst_u ~lvl u)
 
 
-let unabstract_term xs ?(lvl=0) e =
-  let es = List.map mk_atom xs
-  in instantiate_term es ~lvl e
+let unabstract_term x ?(lvl=0) e =
+  let e = mk_atom x in
+  instantiate_term e ~lvl e
 
-let unabstract_type xs ?(lvl=0) t =
-  let es = List.map mk_atom xs
-  in instantiate_type es ~lvl t
+let unabstract_type x ?(lvl=0) t =
+  let e = mk_atom x in
+  instantiate_type e ~lvl t
 
 (** Abstract *)
-let abstract_atom xs ~lvl x assumptions =
+let abstract_atom x ~lvl y assumptions =
   begin
-    match Name.index_of_atom x xs with
-      | None -> {thing = Atom x; assumptions}
-      | Some k -> {thing = Bound (lvl + k); assumptions}
+    match Name.eq_atom x y with
+      | false -> {thing = Atom y; assumptions}
+      | true -> {thing = Bound lvl; assumptions}
   end
 
 let abstract_bound ~lvl k assumptions =
   {thing = Bound k; assumptions}
 
-let abstract_hyps xs ~lvl h =
-  Assumption.abstract xs lvl h
+let abstract_hyps x ~lvl h =
+  Assumption.abstract x lvl h
 
-let rec abstract_term xs ?(lvl=0) ({thing=e';assumptions=hs} as e) =
-  match xs with
-  | [] -> e
-  | _::_ ->
-     begin
-         let assumptions = abstract_hyps xs ~lvl hs in
-         if Assumption.equal assumptions hs
-         then e
-         else
-           match e' with
-           | Constant _ as term -> {thing = term; assumptions}
-           | TermConstructor (c, args) ->
-              let args = abstract_arguments xs ~lvl args in
-              {thing = TermConstructor(c, args); assumptions}
-           | Atom x -> abstract_atom xs ~lvl x assumptions
-           | Bound k -> abstract_bound ~lvl k assumptions
-     end
-     (* WAS: at_var (abstract_atom xs) abstract_bound (abstract_hyps xs) ~lvl e *)
+let rec abstract_term x ?(lvl=0) ({thing=e';assumptions=hs} as e) =
+  let assumptions = abstract_hyps x ~lvl hs in
+  if Assumption.equal assumptions hs
+  then e
+  else
+    match e' with
+    | Constant _ as term -> {thing = term; assumptions}
+    | TermConstructor (c, args) ->
+       let args = abstract_arguments x ~lvl args in
+       {thing = TermConstructor (c, args); assumptions}
+    | Atom y -> abstract_atom x ~lvl y assumptions
+    | Bound k -> abstract_bound ~lvl k assumptions
 
-and abstract_type xs ?(lvl=0) t =
-  match xs with
-  | [] -> t
-  | _::_ ->
-     assert false
-     (* WAS: at_var_ty (abstract_atom xs) abstract_bound (abstract_hyps xs) ~lvl t *)
+and abstract_type x ?(lvl=0) ({thing=t';assumptions=hs} as t) =
+  let assumptions = abstract_hyps x ~lvl hs in
+  if Assumption.equal assumptions hs
+  then t
+  else
+    match t' with
+    | TypeConstructor (c, args) ->
+       let args = abstract_arguments x ~lvl args in
+       {thing = TypeConstructor (c, args); assumptions}
 
-and abstract_arguments xs ~lvl args =
-  List.map (abstract_argument xs ~lvl) args
+    | Type -> t
 
-and abstract_argument xs ~lvl = function
-    | ArgIsType t -> ArgIsType (abstract_abstraction (abstract_type xs) ~lvl t)
-    | ArgIsTerm e -> ArgIsTerm (abstract_abstraction (abstract_term xs) ~lvl e)
+    | El e ->
+       let e = abstract_term x ~lvl e in
+       {thing = El e; assumptions}
+
+and abstract_arguments x ~lvl args =
+  List.map (abstract_argument x ~lvl) args
+
+and abstract_argument x ~lvl = function
+    | ArgIsType t -> ArgIsType (abstract_abstraction (abstract_type x) ~lvl t)
+    | ArgIsTerm e -> ArgIsTerm (abstract_abstraction (abstract_term x) ~lvl e)
     | ArgEqType -> ArgEqType
     | ArgEqTerm -> ArgEqTerm
 
@@ -249,19 +251,13 @@ and abstract_abstraction : 'a . (?lvl:int -> 'a -> 'a) -> lvl:int -> 'a abstract
 
 
 (** Substitute *)
-let substitute_term xs es e =
-  match xs, es with
-  | [], [] -> e
-  | _, _ ->
-    let e = abstract_term xs ~lvl:0 e in
-    instantiate_term es ~lvl:0 e
+let substitute_term x e0 e =
+  let e = abstract_term x ~lvl:0 e in
+  instantiate_term e0 ~lvl:0 e
 
-let substitute_type xs es t =
-  match xs, es with
-  | [], [] -> t
-  | _, _ ->
-    let t = abstract_type xs ~lvl:0 t in
-    instantiate_type es ~lvl:0 t
+let substitute_type x e0 t =
+  let t = abstract_type x ~lvl:0 t in
+  instantiate_type e0 ~lvl:0 t
 
 (* Does the bound variable [k] occur in an expression? Used only for printing. *)
 let rec occurs_term k {thing=e';_} =

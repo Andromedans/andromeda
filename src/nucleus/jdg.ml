@@ -236,7 +236,7 @@ module Ctx = struct
   (*             then *)
   (*               error ~loc (SubstitutionDependency (x, e, y)) *)
   (*             else *)
-  (*               let ty = TT.substitute_type [x] [e] ynode.ty in *)
+  (*               let ty = TT.substitute_type x e ynode.ty in *)
   (*               AtomMap.add y {ynode with ty} ctx) *)
   (*           xnode.needed_by ctx *)
   (*         in *)
@@ -527,14 +527,14 @@ let print_is_term ~penv ?max_level (IsTerm (ctx, e, t)) ppf =
               (Ctx.print ~penv ctx)
               (Print.char_vdash ())
               (TT.print_term ~penv ~max_level:Level.highest e)
-              (TT.print_ty ~penv ~max_level:Level.highest t)
+              (TT.print_type ~penv ~max_level:Level.highest t)
 
 let print_is_type ~penv ?max_level (IsType (ctx, t)) ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%t%s @[<hov>%t@] @ type"
               (Ctx.print ~penv ctx)
               (Print.char_vdash ())
-              (TT.print_ty ~penv ~max_level:Level.highest t)
+              (TT.print_type ~penv ~max_level:Level.highest t)
 
 let print_eq_term ~penv ?max_level (EqTerm (ctx, e1, e2, t)) ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
@@ -544,16 +544,16 @@ let print_eq_term ~penv ?max_level (EqTerm (ctx, e1, e2, t)) ppf =
               (TT.print_term ~penv e1)
               (Print.char_equal ())
               (TT.print_term ~penv e2)
-              (TT.print_ty ~penv t)
+              (TT.print_type ~penv t)
 
 let print_eq_type ~penv ?max_level (EqType (ctx, t1, t2)) ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%t%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
               (Ctx.print ~penv ctx)
               (Print.char_vdash ())
-              (TT.print_ty ~penv t1)
+              (TT.print_type ~penv t1)
               (Print.char_equal ())
-              (TT.print_ty ~penv t2)
+              (TT.print_type ~penv t2)
 
 let print_error ~penv err ppf = match err with
   | ConstantDependency ->
@@ -571,8 +571,8 @@ let print_error ~penv err ppf = match err with
   | AbstractInvalidType (x, t1, t2) ->
      Format.fprintf ppf "cannot abstract@ %t@ with type@ %t@ because it must have type@ %t"
         (Name.print_atom ~printer:penv.TT.atoms x)
-        (TT.print_ty ~penv t1)
-        (TT.print_ty ~penv t2)
+        (TT.print_type ~penv t1)
+        (TT.print_type ~penv t2)
 
   | InvalidJoin (ctx1, ctx2, x) ->
      Format.fprintf ppf "cannot join contexts@ %t and@ %t at %t"
@@ -588,17 +588,17 @@ let print_error ~penv err ppf = match err with
 
   | SubstitutionInvalidType (x, x_ty, t) ->
      Format.fprintf ppf "cannot substitute term of type %t for %t of type %t"
-                    (TT.print_ty ~penv t)
+                    (TT.print_type ~penv t)
                     (Name.print_atom ~printer:penv.TT.atoms x)
-                    (TT.print_ty ~penv x_ty)
+                    (TT.print_type ~penv x_ty)
 
   | InvalidConvert (t1, t2) ->
     Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
-      (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
+      (TT.print_type ~penv t1) (TT.print_type ~penv t2)
 
   | AlphaEqualTypeMismatch (t1, t2) ->
     Format.fprintf ppf "The types@ %t@ and@ %t@ should be alpha equal."
-      (TT.print_ty ~penv t1) (TT.print_ty ~penv t2)
+      (TT.print_type ~penv t1) (TT.print_type ~penv t2)
 
   | AlphaEqualTermMismatch (e1, e2) ->
     Format.fprintf ppf "The terms@ %t@ and@ %t@ should be alpha equal."
@@ -607,7 +607,7 @@ let print_error ~penv err ppf = match err with
   | RuleInputMismatch (rule, t1, desc1, t2, desc2) ->
     Format.fprintf ppf "@[<v>In the %s rule, the following types should be identical\
 :@,   @[<hov>%t@]@ (%s) and@,   @[<hov>%t@]@ (%s)@]@."
-      rule (TT.print_ty ~penv t1) desc1 (TT.print_ty ~penv t2) desc2
+      rule (TT.print_type ~penv t1) desc1 (TT.print_type ~penv t2) desc2
 
 (** Destructors *)
 
@@ -615,7 +615,7 @@ let invert_is_term (IsTerm (ctx,e,t)) =
   match e.Location.thing.TT.thing with
     | TT.Atom x ->
       begin match Ctx.lookup_atom x ctx with
-        | Some j -> Atom j
+        | Some j -> IsAtom j
         | None -> assert false
       end
 
@@ -623,14 +623,6 @@ let invert_is_term (IsTerm (ctx,e,t)) =
 
     | TT.TermConstructor (c, args) ->
        assert false (* XXX to do *)
-
-    | TT.TermAbstract ((x,a),(e,b)) ->
-      let ja = WeakIsType (ctx, a) in
-      let WeakIsAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
-      let b = TT.unabstract_ty [y] b
-      and e = TT.unabstract [y] e in
-      let je = WeakIsTerm (ctx, e, b) in
-      Abstract (strengthen_atom jy, strengthen je)
 
     | TT.Bound _ -> assert false
 
@@ -641,13 +633,6 @@ let invert_is_type (IsType (ctx, ty)) =
 
   | TT.TypeConstructor (c, args) ->
      assert false (* XXX to do *)
-
-  | TT.TypeAbstract ((x,a),b) ->
-     let ja = WeakIsType (ctx, a) in
-     let WeakIsAtom (ctx, y, _) as jy = Ctx.add_weak ja x in
-     let b = TT.unabstract_ty [y] b in
-     let jb = WeakIsType (ctx, b) in
-     AbstractTy (strengthen_atom jy, strengthen_ty jb)
 
   | TT.El e -> El (IsTerm (ctx, e, TT.mk_type ~loc:e.Location.loc))
 
@@ -669,7 +654,7 @@ let invert_abstract_ty j =
 
 (** Construct judgements *)
 let form_is_term ~loc sgn = function
-  | Atom x -> atom_is_term ~loc x
+  | IsAtom x -> atom_is_term ~loc x
 
   | Constant c ->
     let t = Signature.constant_type c sgn in
@@ -681,8 +666,8 @@ let form_is_term ~loc sgn = function
   | Abstract ((IsAtom (ctxa,x,a)),(IsTerm (ctxe,e,b))) ->
     let ctx = Ctx.join ~loc ctxe ctxa in
     let ctx = Ctx.abstract ~loc ctx x a in
-    let b = TT.abstract_ty [x] b
-    and e = TT.abstract [x] e in
+    let b = TT.abstract_ty x b
+    and e = TT.abstract x e in
     let x = Name.ident_of_atom x in
     IsTerm (ctx, TT.mk_abstract ~loc x a e b, TT.mk_abstract_ty ~loc x a b)
 
@@ -696,7 +681,7 @@ let form_is_type ~loc sgn = function
   | AbstractTy ((IsAtom (ctxa,x,a)),(IsType (ctxb,b))) ->
     let ctx = Ctx.join ~loc ctxb ctxa in
     let ctx = Ctx.abstract ~loc ctx x a in
-    let b = TT.abstract_ty [x] b in
+    let b = TT.abstract_ty x b in
     IsType (ctx, TT.mk_abstract_ty ~loc (Name.ident_of_atom x) a b)
 
   | El (IsTerm (ctx, e, t)) ->
@@ -709,13 +694,13 @@ let form_is_type ~loc sgn = function
 (** Substitution *)
 let substitute_ty ~loc (IsType (ctxt, t)) (IsAtom (_, a, _)) (IsTerm (_, s, _) as js) =
   let ctxt = Ctx.substitute ~loc ctxt a js in
-  let t = TT.substitute_ty [a] [s] t in
+  let t = TT.substitute_ty a s t in
   strengthen_ty (WeakIsType (ctxt, t))
 
 let substitute ~loc (IsTerm (ctxe, e, t)) (IsAtom (_, a, _)) (IsTerm (_, s, _) as js) =
   let ctxe = Ctx.substitute ~loc ctxe a js in
-  let t = TT.substitute_ty [a] [s] t
-  and e = TT.substitute [a] [s] e in
+  let t = TT.substitute_ty a s t
+  and e = TT.substitute a s e in
   strengthen (WeakIsTerm (ctxe, e, t))
 
 (** Conversion *)
@@ -822,8 +807,8 @@ let congr_abstract_type ~loc (EqType (ctxa, ta1, ta2)) (IsAtom (_, x, _)) (IsAto
 
   let hypsa = Ctx.as_set ctxa in
 
-  let b1 = TT.abstract_ty [x] b1
-  and b2 = TT.abstract_ty [y] (TT.substitute_ty [x] [TT.mention_atoms hypsa (TT.mk_atom ~loc y)] b2) in
+  let b1 = TT.abstract_ty x b1
+  and b2 = TT.abstract_ty y (TT.substitute_ty x (TT.mention_atoms hypsa (TT.mk_atom ~loc y)) b2) in
   let ctx = Ctx.join ~loc ctxa ctxb in
   let lhs = TT.mk_abstract_ty ~loc (Name.ident_of_atom x) ta1 b1
   and rhs = TT.mk_abstract_ty ~loc (Name.ident_of_atom y) ta2 b2 in
@@ -845,10 +830,10 @@ let congr_abstract_term ~loc (EqType (ctxa, ta1, ta2))
     let hypsab = AtomSet.union hypsa hypsb in
 
     let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
-    let e1 = TT.abstract [x] e1
-    and e2 = TT.abstract [y] (TT.substitute [x] [y_mentions] e2)
-    and b1 = TT.abstract_ty [x] b1
-    and b2 = TT.abstract_ty [x] (TT.substitute_ty [x] [y_mentions] b2) in
+    let e1 = TT.abstract x e1
+    and e2 = TT.abstract y (TT.substitute x y_mentions e2)
+    and b1 = TT.abstract_ty x b1
+    and b2 = TT.abstract_ty x (TT.substitute_ty x y_mentions b2) in
     let lhs = TT.mk_abstract ~loc (Name.ident_of_atom x) ta1 e1 b1
     and rhs = TT.mention_atoms hypsab (TT.mk_abstract ~loc (Name.ident_of_atom y) ta2 e2 b2)
     and ty = TT.mk_abstract_ty ~loc (Name.ident_of_atom x) ta1 b1 in

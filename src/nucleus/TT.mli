@@ -54,7 +54,7 @@ and 'a abstraction = private
 val mk_atom: Name.atom -> term
 
 (** Create a fully applied type constructor *)
-val mk_type_constructor : loc:Location.t -> Name.constant -> argument list -> ty
+val mk_type_constructor : Name.constant -> argument list -> ty
 
 val mk_arg_is_type : ty abstraction -> argument
 val mk_arg_is_term : term abstraction -> argument
@@ -96,15 +96,15 @@ val unabstract_term: Name.atom -> ?lvl:int -> term -> term
 val unabstract_type: Name.atom -> ?lvl:int -> ty -> ty
 
 (** [abstract_term x0 k e] replaces name [x0] in term [e] with bound variable [k] (default [0]) where. *)
-val abstract_term : Name.atom list -> ?lvl:int -> term -> term
+val abstract_term : Name.atom -> ?lvl:int -> term -> term
 
 (** [abstract_term x0 k t] replaces name [x0] in type [t] with bound variable [k] (default [0]) where. *)
-val abstract_type : Name.atom list -> ?lvl:int -> ty -> ty
+val abstract_type : Name.atom -> ?lvl:int -> ty -> ty
 
 (** abstract followed by instantiate *)
-val substitute_term : Name.atom list -> term list -> term -> term
+val substitute_term : Name.atom -> term -> term -> term
 
-val substitute_type : Name.atom list -> term list -> ty -> ty
+val substitute_type : Name.atom -> term -> ty -> ty
 
 (** The asssumptions used by a term. *)
 val assumptions_term : term -> Name.AtomSet.t
