@@ -60,6 +60,11 @@ let mk_atom ~loc x =
 (* XXX here we have to collect assumptions from the args *)
 let mk_type_constructor ~loc c args = failwith "todo"
 
+let mk_arg_is_type = failwith "todo"
+let mk_arg_is_term = failwith "todo"
+let mk_arg_eq_type = failwith "todo"
+let mk_arg_eq_term = failwith "todo"
+
 
 let mk_constant ~loc x =
   Location.locate

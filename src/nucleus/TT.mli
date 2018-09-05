@@ -56,6 +56,11 @@ val mk_atom: loc:Location.t -> Name.atom -> term
 (** Create a fully applied type constructor *)
 val mk_type_constructor : loc:Location.t -> Name.constant -> argument list -> ty
 
+val mk_arg_is_type : ty abstraction -> argument
+val mk_arg_is_term : term abstraction -> argument
+val mk_arg_eq_type : unit -> argument
+val mk_arg_eq_term : unit -> argument
+
 (** Obsolete *)
 val mk_constant: loc:Location.t -> Name.ident -> term
 val mk_type: loc:Location.t -> ty
