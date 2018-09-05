@@ -69,6 +69,8 @@ val typ : ty
 (** Make a non-abstracted constructor argument *)
 val mk_not_abstract : 'a -> 'a abstraction
 
+val abstract_argument : Name.ident -> argument -> argument
+
 (** Abstract a term argument *)
 val mk_abstract_term : Name.atom -> ty -> term abstraction -> term abstraction
 

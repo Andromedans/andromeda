@@ -317,7 +317,9 @@ module Rule = struct
 
   end
 
-  let rec check_type metas t_schema t =
+  let rec check_type
+    : TT.argument list -> Schema.ty -> TT.ty -> unit
+    = fun metas t_schema t ->
     match t_schema, t.TT.thing with
 
       | Schema.TypeMeta m, t ->
@@ -363,7 +365,9 @@ module Rule = struct
     | Schema.ArgEqTerm, TT.ArgEqTerm -> ()
     | _, _ -> failwith "place an error message here"
 
-  and check_abstraction : 'a 'b . (TT.argument list -> 'a -> 'b -> unit) -> TT.argument list -> 'a Schema.abstraction -> 'b TT.abstraction -> unit =
+  and check_abstraction
+    : 'a 'b . (TT.argument list -> 'a -> 'b -> unit) -> TT.argument list ->
+      'a Schema.abstraction -> 'b TT.abstraction -> unit =
     fun check_u metas abstr_schema abstr ->
     let rec fold metas abstr_schema abstr =
       match abstr_schema, abstr with
@@ -373,17 +377,24 @@ module Rule = struct
     in
     fold metas abstr_schema abstr
 
-  let rec match_premise_abstraction match_jdg metas schema abstr =
+  let rec match_premise_abstraction
+    : (TT.argument list -> 'schema_jdg_form -> 'premise_jdg_form -> TT.argument)
+        -> TT.argument list
+        -> 'schema_jdg_form Schema.premise_abstraction
+        -> 'premise_jdg_form abstraction
+        -> TT.argument
+      = fun match_jdg metas schema abstr ->
       match schema, abstr with
 
       | Schema.PremiseNotAbstract jdg_schema, NotAbstract jdg ->
          let jdg = match_jdg metas jdg_schema jdg in
-         TT.mk_not_abstract jdg
+         jdg
 
       | Schema.PremiseAbstract ((_, t_schema), schema), Abstract ((x, t), abstr) ->
          check_type metas t_schema t ;
          let abstr = match_premise_abstraction match_jdg metas schema abstr in
-         TT.mk_abstract x abstr
+         (* [abstr] is a TT.argument, we need to abstract it by [x] *)
+         TT.abstract_argument x abstr
 
       | _, _ ->
          failwith "premise match fail"
@@ -398,40 +409,45 @@ module Rule = struct
   let match_eq_type metas (t1_schema, t2_schema) (t1, t2) =
     check_type metas t1_schema t1 ;
     check_type metas t2_schema t2 ;
-    TT.arg_eq_type
+    TT.mk_arg_eq_type ()
 
   let match_eq_term metas (e1_schema, e2_schema, t_schema) (e1, e2, t) =
     check_type metas t_schema t ;
     check_term metas e1_schema e1 ;
     check_term metas e2_schema e2 ;
-    TT.arg_eq_term
+    TT.mk_arg_eq_term ()
+
   let rec match_eq_type = failwith "todo"
   let rec match_is_term = failwith "todo"
 
   let match_premise ~loc metas_ctx metas premise_schema premise =
-    match premise_schema, premise with
+    let ctx, m =
+      match premise_schema, premise with
 
-    | Schema.PremiseIsType t_schema, PremiseIsType (IsType (ctx, abstr)) ->
-       match_premise_abstraction match_is_type metas t_schema abstr
+      | Schema.PremiseIsType t_schema, PremiseIsType (IsType (ctx, abstr)) ->
+         ctx, match_premise_abstraction match_is_type metas t_schema abstr
 
-    | Schema.PremiseIsTerm e_schema, PremiseIsTerm (IsTerm (ctx, abstr)) ->
-       match_premise_abstraction match_is_term metas e_schema abstr
+      | Schema.PremiseIsTerm e_schema, PremiseIsTerm (IsTerm (ctx, abstr)) ->
+         ctx, match_premise_abstraction match_is_term metas e_schema abstr
 
-    | Schema.PremiseEqType eqty_schema, PremiseEqType (EqType (ctx, eqty)) ->
-       match_premise_abstraction match_eq_type metas eqty_schema eqty
+      | Schema.PremiseEqType eqty_schema, PremiseEqType (EqType (ctx, eqty)) ->
+         ctx, match_premise_abstraction match_eq_type metas eqty_schema eqty
 
-    | Schema.PremiseEqTerm eqterm_schema, PremiseEqTerm (EqTerm (ctx, eqterm)) ->
-       match_premise_abstraction match_eq_term metas eqterm_schema eqterm
+      | Schema.PremiseEqTerm eqterm_schema, PremiseEqTerm (EqTerm (ctx, eqterm)) ->
+         ctx, match_premise_abstraction match_eq_term metas eqterm_schema eqterm
 
-    | _, _ ->
-       failwith "wrong premise form"
+      | _, _ ->
+         failwith "wrong premise form"
+    in
+    let ctx = Ctx.join ~loc metas_ctx ctx in
+    ctx, m
 
   (* Form a type according to [rule_schema]. Previously provided premises may
      be referred to by de Bruijn indices pointing into [metas]. *)
   let rec form_is_type' ~loc ctx metas rule_schema premises =
     match rule_schema, premises with
 
-    | Schema.RuleNotAbstract (), [] -> List.rev metas
+    | Schema.RuleNotAbstract (), [] -> ctx, List.rev metas
 
     | Schema.RuleAbstract ((_, premise_schema), rule_schema), premise :: premises ->
        let ctx, m = match_premise ~loc ctx metas premise_schema premise in
