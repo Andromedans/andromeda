@@ -274,6 +274,7 @@ module Rule = struct
   module Schema = struct
 
     type meta = int (* meta-variables appearing in rules *)
+    type bound = int
 
     type 'a abstraction =
       | NotAbstract of 'a
@@ -281,10 +282,13 @@ module Rule = struct
 
     type term =
       | TermMeta of meta (* a previously matched meta-variable *)
+      | TermBound of bound
+      | TermInstantiate of term * argument list
       | TermConstructor of Name.constructor * argument list
 
     and ty =
       | TypeMeta of meta (* a previously matched meta-variable *)
+      | TypeInstantiate of ty * argument list
       | TypeConstructor of Name.constructor * argument list
 
     and argument =
@@ -298,8 +302,8 @@ module Rule = struct
       | PremiseAbstract of (Name.ident * ty) * 'a premise_abstraction
 
     and premise =
-      | PremiseIsType of unit premise_abstraction
-      | PremiseIsTerm of ty premise_abstraction
+      | PremiseIsType of Name.ident premise_abstraction
+      | PremiseIsTerm of (Name.ident * ty) premise_abstraction
       | PremiseEqType of (ty * ty) premise_abstraction
       | PremiseEqTerm of (term * term * ty) premise_abstraction
 
