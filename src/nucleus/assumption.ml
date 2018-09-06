@@ -14,46 +14,41 @@ let is_empty {free;bound} =
 
 let mem_atom x s = AtomSet.mem x s.free
 
-let singleton x =
-  let free = AtomSet.add x AtomSet.empty in
-  {free;bound=BoundSet.empty;}
+let singleton_free x =
+  {free = AtomSet.singleton x; bound = BoundSet.empty}
 
-let add_atoms a {free;bound;} =
-  {free=AtomSet.union free a;bound;}
+let singleton_bound k =
+  {free = AtomSet.empty; bound = BoundSet.singleton k}
+
+let add_atoms a {free;bound} =
+  {free = AtomSet.union free a; bound}
+
+let add_free a asmp = {asmp with free = AtomSet.add a asmp.free}
+
+let add_bound k asmp = {asmp with bound = BoundSet.add k asmp.bound}
 
 let union a1 a2 =
   {free=AtomSet.union a1.free a2.free; bound=BoundSet.union a1.bound a2.bound}
 
-let instantiate l lvl {free;bound;} =
-  let acc, n = List.fold_left (fun (acc,n) an ->
-      if BoundSet.mem (n+lvl) bound
-      then
-        let free = AtomSet.union acc.free an.free
-        and bound = BoundSet.union acc.bound an.bound in
-        ({free;bound;},n+1)
-      else (acc,n+1))
-    (empty,0) l
-  in
-  let bound = BoundSet.fold (fun k bound ->
-      if k < lvl
-      then BoundSet.add k bound
-      else if k < lvl+n
-      then bound
-      else BoundSet.add (k-n) bound)
-    bound BoundSet.empty
-  in
-  let free = AtomSet.union free acc.free
-  and bound = BoundSet.union bound acc.bound in
-  {free;bound;}
-
-let abstract x lvl a =
-  if AtomSet.mem x a.free
+let instantiate l0 ~lvl asmp =
+  if BoundSet.mem lvl asmp.bound
   then
-    { free = AtomSet.remove x a.free
-    ; bound = BoundSet.add lvl a.bound
+    { free = AtomSet.union asmp.free l0.free
+    ; bound = BoundSet.union (BoundSet.remove lvl asmp.bound) l0.bound }
+    (* XXX think whether the above is correct, in particular:
+       1. could tehre be bound variables larger than lvl in asmp.bound, and if so, should they be shifted?
+       2. do we need to reindex the bound variables of l0 or some such? *)
+  else
+    asmp
+
+let abstract x ~lvl abstr =
+  if AtomSet.mem x abstr.free
+  then
+    { free = AtomSet.remove x abstr.free
+    ; bound = BoundSet.add lvl abstr.bound
     }
   else
-    a
+    abstr
 
 let bind1 {free;bound} =
   let bound = BoundSet.fold (fun n bound ->

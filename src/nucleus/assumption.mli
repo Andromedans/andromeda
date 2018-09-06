@@ -1,6 +1,7 @@
 (** Sets of assumptions *)
 module BoundSet : Set.S with type elt = int
 
+(** A pair of sets, corresponding to free and bound assumptions *)
 type t
 
 val empty : t
@@ -9,20 +10,23 @@ val is_empty : t -> bool
 
 val mem_atom : Name.atom -> t -> bool
 
-val singleton : Name.atom -> t
+val singleton_free : Name.atom -> t
+
+val singleton_bound : int -> t
 
 val add_atoms : Name.AtomSet.t -> t -> t
 
+val add_free : Name.atom -> t -> t
+
+val add_bound : int -> t -> t
+
 val union : t -> t -> t
 
-(** [instantiate l lvl a] where [l] is [a0 ... an]
-    replaces bound variable [lvl+k] by the assumptions [ak] for k<=n,
-    by lvl+k-n for k>n and leaves k<lvl unchanged*)
-val instantiate : t list -> int -> t -> t
+(** [instantiate a0 k a] replaces bound variable [k] with the assumptions of [a0] *)
+val instantiate : t -> lvl:int -> t -> t
 
-(** [abstract x lvl l]
-    replaces the free variable [x] by the bound variables [lvl]. *)
-val abstract : Name.atom -> int -> t -> t
+(** [abstract x k l] replaces the free variable [x] by the bound variables [k]. *)
+val abstract : Name.atom -> lvl:int -> t -> t
 
 (** If [hyps] are the assumptions on a term, [bind hyps] are the assumptions after putting the term under a binder. *)
 val bind1 : t -> t
