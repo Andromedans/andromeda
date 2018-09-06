@@ -15,8 +15,8 @@ and ty =
 and argument =
   | ArgIsTerm of term abstraction
   | ArgIsType of ty abstraction
-  | ArgEqType of Assumption.t
-  | ArgEqTerm of Assumption.t
+  | ArgEqType of Assumption.t abstraction
+  | ArgEqTerm of Assumption.t abstraction
 
 (** An abstracted entity. Note that abstractions only ever appear as arguments
    to constructors. Thus we do not carry any type information for the abstracted
@@ -55,11 +55,13 @@ and assumptions_arguments args =
   in
   fold Assumption.empty args
 
+and assumptions_assumptions asmp = asmp
+
 and assumptions_argument = function
   | ArgIsType abstr -> assumptions_abstraction assumptions_type abstr
   | ArgIsTerm abstr -> assumptions_abstraction assumptions_term abstr
-  | ArgEqType asmp -> asmp
-  | ArgEqTerm asmp -> asmp
+  | ArgEqType asmp -> assumptions_abstraction assumptions_assumptions asmp
+  | ArgEqTerm asmp -> assumptions_abstraction assumptions_assumptions asmp
 
 and assumptions_abstraction : 'a . ('a -> Assumption.t) -> 'a abstraction -> Assumption.t =
   fun assumptions_u -> function
@@ -122,7 +124,7 @@ let instantiate_bound e0 ~lvl k =
          instantiated term, so it remains bound, but its index decreases
          by 1. *)
 
-let rec instantiate_term e0 ?(lvl=0) e =
+let rec instantiate_term e0 ~lvl e =
     match e with
 
     | TermConstructor (c, args) ->
@@ -139,7 +141,7 @@ let rec instantiate_term e0 ?(lvl=0) e =
 
     | Bound k -> instantiate_bound e0 ~lvl k
 
-and instantiate_type e0 ?(lvl=0) t =
+and instantiate_type e0 ~lvl t =
   match t with
   | TypeConstructor (c, args) ->
      let args = instantiate_arguments e0 ~lvl args in
@@ -151,21 +153,23 @@ and instantiate_arguments e0 ~lvl args =
 and instantiate_argument e0 ~lvl = function
 
     | ArgIsType t ->
-       ArgIsType (instantiate_abstraction instantiate_type e0 ~lvl t)
+       let t = instantiate_abstraction instantiate_type e0 ~lvl t in
+       ArgIsType t
 
     | ArgIsTerm e ->
-       ArgIsTerm (instantiate_abstraction instantiate_term e0 ~lvl e)
+       let e = instantiate_abstraction instantiate_term e0 ~lvl e in
+       ArgIsTerm e
 
     | ArgEqType asmp ->
-       let asmp = Assumption.instantiate (assumptions_term e0) ~lvl asmp in
+       let asmp = instantiate_abstraction (fun e0 ~lvl -> Assumption.instantiate (assumptions_term e0) ~lvl) e0 ~lvl asmp in
        ArgEqType asmp
 
     | ArgEqTerm asmp ->
-       let asmp = Assumption.instantiate (assumptions_term e0) ~lvl asmp in
+       let asmp = instantiate_abstraction (fun e0 ~lvl -> Assumption.instantiate (assumptions_term e0) ~lvl) e0 ~lvl asmp in
        ArgEqTerm asmp
 
 and instantiate_abstraction :
-      'a . (term -> ?lvl:bound -> 'a -> 'a) -> term ->
+      'a . (term -> lvl:bound -> 'a -> 'a) -> term ->
            lvl:bound -> 'a abstraction -> 'a abstraction =
   fun inst_u e0 ~lvl ->
   function
@@ -182,17 +186,17 @@ and instantiate_assumptions e0 ~lvl asmp =
   let asmp' = assumptions_term e0 in
   Assumption.instantiate asmp' ~lvl asmp
 
-let unabstract_term x ?(lvl=0) e =
+let unabstract_term x ~lvl e =
   let e = mk_atom x in
   instantiate_term e ~lvl e
 
-let unabstract_type x ?(lvl=0) t =
+let unabstract_type x ~lvl t =
   let e = mk_atom x in
   instantiate_type e ~lvl t
 
 (** Abstract *)
 
-let rec abstract_term x ?(lvl=0) = function
+let rec abstract_term x ~lvl = function
   | (Atom y) as e ->
      begin match Name.eq_atom x y with
      | false -> e
@@ -210,7 +214,7 @@ let rec abstract_term x ?(lvl=0) = function
      and t = abstract_type x ~lvl t in
      TermConvert (c, asmp, t)
 
-and abstract_type x ?(lvl=0) = function
+and abstract_type x ~lvl = function
   | TypeConstructor (c, args) ->
      let args = abstract_arguments x ~lvl args in
      TypeConstructor (c, args)
@@ -225,15 +229,15 @@ and abstract_argument x ~lvl = function
     | ArgIsTerm e -> ArgIsTerm (abstract_abstraction abstract_term x ~lvl e)
 
     | ArgEqType asmp ->
-       let asmp = Assumption.abstract x ~lvl asmp in
+       let asmp = abstract_abstraction Assumption.abstract x ~lvl asmp in
        ArgEqType asmp
 
     | ArgEqTerm asmp ->
-       let asmp = Assumption.abstract x ~lvl asmp in
+       let asmp = abstract_abstraction Assumption.abstract x ~lvl asmp in
        ArgEqTerm asmp
 
 and abstract_abstraction :
-      'a . (Name.atom -> ?lvl:int -> 'a -> 'a) -> Name.atom -> lvl:int -> 'a abstraction -> 'a abstraction =
+      'a . (Name.atom -> lvl:int -> 'a -> 'a) -> Name.atom -> lvl:int -> 'a abstraction -> 'a abstraction =
   fun inst_u x ~lvl ->
   function
   | NotAbstract u ->
@@ -268,7 +272,7 @@ and occurs_args k = function
   | [] -> false
   | (ArgIsTerm e) :: args -> occurs_abstraction occurs_term k e || occurs_args k args
   | (ArgIsType e) :: args -> occurs_abstraction occurs_type k e || occurs_args k args
-  | (ArgEqType asmp | ArgEqTerm asmp) :: args -> occurs_assumptions k asmp || occurs_args k args
+  | (ArgEqType asmp | ArgEqTerm asmp) :: args -> occurs_abstraction occurs_assumptions k asmp || occurs_args k args
 
 and occurs_abstraction : 'a . (bound -> 'a -> bool) -> bound -> 'a abstraction -> bool =
   fun occurs_u k ->
