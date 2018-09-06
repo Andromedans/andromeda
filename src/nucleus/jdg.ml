@@ -328,7 +328,7 @@ module Rule = struct
          begin
            match Name.eq_ident c c' with
            | false -> failwith "match failure, we wish we had a location"
-           | true -> match_premise metas premises args
+           | true -> check_premises metas premises args
          end
 
       | _, _ -> failwith "put an error message here"
@@ -363,7 +363,9 @@ module Rule = struct
     | Schema.ArgEqTerm, TT.ArgEqTerm -> ()
     | _, _ -> failwith "place an error message here"
 
-  and check_abstraction : 'a 'b . (TT.argument list -> 'a -> 'b -> unit) -> TT.argument list -> 'a Schema.abstraction -> 'b TT.abstraction -> unit =
+  and check_abstraction :
+    'a 'b . (TT.argument list -> 'a -> 'b -> unit) -> TT.argument list ->
+            'a Schema.abstraction -> 'b TT.abstraction -> unit =
     fun check_u metas abstr_schema abstr ->
     let rec fold metas abstr_schema abstr =
       match abstr_schema, abstr with
@@ -398,14 +400,16 @@ module Rule = struct
   let match_eq_type metas (t1_schema, t2_schema) (t1, t2) =
     check_type metas t1_schema t1 ;
     check_type metas t2_schema t2 ;
-    TT.arg_eq_type
+    TT.mk_arg_eq_type ()
 
   let match_eq_term metas (e1_schema, e2_schema, t_schema) (e1, e2, t) =
     check_type metas t_schema t ;
     check_term metas e1_schema e1 ;
     check_term metas e2_schema e2 ;
-    TT.arg_eq_term
+    TT.mk_arg_eq_term ()
+
   let rec match_eq_type = failwith "todo"
+
   let rec match_is_term = failwith "todo"
 
   let match_premise ~loc metas_ctx metas premise_schema premise =
