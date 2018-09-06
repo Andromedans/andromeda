@@ -56,8 +56,8 @@ val mk_atom: Name.atom -> term
 (** Create a fully applied type constructor *)
 val mk_type_constructor : Name.constant -> argument list -> ty
 
-val mk_arg_is_type : ty abstraction -> argument
-val mk_arg_is_term : term abstraction -> argument
+val mk_arg_is_type : ty -> argument
+val mk_arg_is_term : term -> argument
 val mk_arg_eq_type : unit -> argument
 val mk_arg_eq_term : unit -> argument
 
@@ -69,7 +69,7 @@ val typ : ty
 (** Make a non-abstracted constructor argument *)
 val mk_not_abstract : 'a -> 'a abstraction
 
-val abstract_argument : Name.ident -> argument -> argument
+val mk_abstract_argument : Name.ident -> argument -> argument
 
 (** Abstract a term argument *)
 val mk_abstract_term : Name.atom -> ty -> term abstraction -> term abstraction

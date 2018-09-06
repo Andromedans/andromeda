@@ -334,7 +334,7 @@ module Rule = struct
          begin
            match Name.eq_ident c c' with
            | false -> failwith "match failure, we wish we had a location"
-           | true -> match_premise metas premises args
+           | true -> check_premises metas premises args
          end
 
       | _, _ -> failwith "put an error message here"
@@ -361,7 +361,9 @@ module Rule = struct
     | [], _::_ -> failwith "too many arguments are applied to this constructor"
     | _::_, [] -> failwith "too few arguments are applied to this constructor"
 
-  and check_premise metas premise arg =
+  and check_premise
+    : TT.argument list -> Schema.argument -> TT.argument -> unit
+    = fun metas premise arg ->
     match premise, arg with
     | Schema.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type metas t_schema t
     | Schema.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term metas e_schema e
@@ -398,12 +400,14 @@ module Rule = struct
          check_type metas t_schema t ;
          let abstr = match_premise_abstraction match_jdg metas schema abstr in
          (* [abstr] is a TT.argument, we need to abstract it by [x] *)
-         TT.abstract_argument x abstr
+         TT.mk_abstract_argument x abstr
 
       | _, _ ->
          failwith "premise match fail"
 
-  let match_is_type metas () t =
+  let match_is_type
+    : TT.argument list -> Name.ident -> TT.ty -> TT.argument
+    = fun metas _x t ->
     TT.mk_arg_is_type t
 
   let match_is_term metas t_schema (e, t) =
@@ -466,9 +470,9 @@ module Rule = struct
 
   (* Given a type rule and a list of premises, match the rule against the given
    premises, make sure they fit the rule, and form the type. *)
-  let form_is_type ~loc (rule : Schema.is_type) premises =
+  let form_is_type ~loc c (rule : Schema.is_type) premises =
     let ctx, args = form_is_type' ~loc Ctx.empty [] rule premises in
-    TT.mk_type_constructor ~loc ctx args
+    TT.mk_type_constructor c args
 
   let form_is_term rule premises = failwith "Rule.form_is_term is not implemented"
 

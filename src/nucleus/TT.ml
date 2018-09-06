@@ -61,6 +61,13 @@ let mk_constant x =
   ; assumptions = Assumption.empty
   }
 
+(* XXX We don't actually abstract [x] because we never unabstracted it. Seems sketchy. *)
+let mk_abstract_argument x = function
+  | ArgIsType abstr -> ArgIsType (Abstract (x, abstr))
+  | ArgIsTerm abstr -> ArgIsTerm (Abstract (x, abstr))
+  | ArgEqType -> ArgEqType
+  | ArgEqTerm -> ArgEqTerm
+
 (* XXX here we have to collect assumptions from the args *)
 let mk_type_constructor c args = failwith "todo"
 
