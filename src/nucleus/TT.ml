@@ -71,13 +71,26 @@ let mk_abstract_argument x = function
 (* XXX here we have to collect assumptions from the args *)
 let mk_type_constructor c args = failwith "todo"
 
-let mk_arg_is_type = failwith "todo"
-let mk_arg_is_term = failwith "todo"
-let mk_arg_eq_type = failwith "todo"
-let mk_arg_eq_term = failwith "todo"
+let mk_arg_is_type t = ArgIsType t
+let mk_arg_is_term e = ArgIsTerm e
+let mk_arg_eq_type () = ArgEqType
+let mk_arg_eq_term () = ArgEqTerm
 
+let mk_not_abstract e = NotAbstract e
 
-let mk_not_abstract x = assert false
+let mk_abstract abstract_u x t abstr =
+  let rec fold lvl = function
+
+    | NotAbstract u ->
+       let u = abstract_u lvl u in
+       NotAbstract u
+
+    | Abstract (y, abstr) ->
+       let abstr = fold (lvl + 1) abstr in
+       Abstract (y, abstr)
+
+  in
+
 
 let mk_abstract_term x t abstr = assert false
   (* Location.locate

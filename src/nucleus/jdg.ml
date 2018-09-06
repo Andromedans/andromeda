@@ -371,9 +371,9 @@ module Rule = struct
     | Schema.ArgEqTerm, TT.ArgEqTerm -> ()
     | _, _ -> failwith "place an error message here"
 
-  and check_abstraction
-    : 'a 'b . (TT.argument list -> 'a -> 'b -> unit) -> TT.argument list ->
-      'a Schema.abstraction -> 'b TT.abstraction -> unit =
+  and check_abstraction :
+    'a 'b . (TT.argument list -> 'a -> 'b -> unit) -> TT.argument list ->
+            'a Schema.abstraction -> 'b TT.abstraction -> unit =
     fun check_u metas abstr_schema abstr ->
     let rec fold metas abstr_schema abstr =
       match abstr_schema, abstr with
@@ -426,6 +426,7 @@ module Rule = struct
     TT.mk_arg_eq_term ()
 
   let rec match_eq_type = failwith "todo"
+
   let rec match_is_term = failwith "todo"
 
   let match_premise ~loc metas_ctx metas premise_schema premise =
