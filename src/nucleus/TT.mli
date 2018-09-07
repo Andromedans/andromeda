@@ -58,6 +58,8 @@ val mk_arg_eq_term : eq_term abstraction -> argument
 (** Make a non-abstracted constructor argument *)
 val mk_not_abstract : 'a -> 'a abstraction
 
+val mk_abstract_argument : Name.ident -> argument -> argument
+
 (** Abstract a term argument *)
 val mk_abstract : Name.ident -> 'a abstraction -> 'a abstraction
 

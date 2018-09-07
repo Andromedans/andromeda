@@ -76,25 +76,75 @@ module Rule : sig
    class; we just specify it here for readability.
 
 
-      Schema:
+      Input:
       ⊢ A type    x:A ⊢ B type
       ————————————————————————
       ⊢ [Π A B] type
 
+      Processed to schema:
+      ⊢ A type    {x : MV 0} ⊢ B type
+      ———————————————————————————————
+      ⊢ [Π A B] type
+
       Instance:
-      Γ₁ ⊢ A₁ type    Γ₂ ⊢ {y:A₂} B₁ type
+      Γ₁ ⊢ A₁ type    Γ₂ | {y:A₂} ⊢ B₁ type
       ——————————————————————————————————— {Γ₁,Γ₂}↑Δ, A₁ =α= A₂
       Δ ⊢ Π A B type
 
-      Schema:
+
+      Input:
       ⊢ A type    x:A ⊢ B type   y:A ⊢ s : B{y}
       —————————————————————————————————————————
-      ⊢ (λ A B s) : Π A B
+      ⊢ [λ A B s] : Π A B
+
+      Processed to schema:
+      ⊢ A type    {x : MV 0} ⊢ B type   {y : MV 1} ⊢ s : (MV 0){y}
+      ————————————————————————————————————————————————————————————
+      ⊢ [λ A B s] : Π (MV 2) (MV 1)
 
       Instance:
-      Γ₁ ⊢ A₁ type    Γ₂, x:A₂ ⊢ B₁ type   Γ₃, y:A₃ ⊢ s : B₂{y}
-      ————————————————————————————————————————————————————————— {Γ₁,Γ₂,Γ₃}↑Δ, 
-      ⊢ (λ A B s) : Π A B
+      Γ₁ ⊢ A₁ type    Γ₂ | {x:A₂} ⊢ B₁ type   Γ₃ | {y:A₃} ⊢ s : B₂
+      ————————————————————————————————————————————————————————————
+      check: {Γ₁,Γ₂,Γ₃}↑Δ, A₁ =α= A₂ =α= A₃, B₁ =α= B₂
+      Δ ⊢ λ A₁ B₁ s : Π A₁ B₁
+
+      example: [A := nat, B := nat, s := Bound 0]
+         gives   [λ nat nat (Bound 0) : Π nat ({0:nat} nat)]
+
+
+      Input:
+      ⊢ A type   ⊢ u : A   ⊢ v : A
+      ————————————————————————————
+      ⊢ [Id A u v]  type
+
+      Processed to Schema:
+      ⊢ A type   ⊢ u : MV 0   ⊢ v : MV 1
+      ——————————————————————————————————
+      ⊢ [Id A u v]  type
+
+      Instance:
+      Γ₁ ⊢ A₁ type   Γ₂ ⊢ u : A₂   Γ₃ ⊢ v : A₃
+      ———————————————————————————————————————— {Γ₁, Γ₂, Γ₃} ↑ Δ, Α₁ =α= A₂, A₁ =α= A₃
+      Δ ⊢ Id A₁ u v  type
+
+
+      Input:
+      ⊢ A type    ⊢ u : A     x : A, p : Id A u x ⊢ C type
+      ⊢ w : C{u, refl A u}    ⊢ v : A     ⊢ p : Id A u v
+      ————————————————————————————————————————————————————
+      ⊢ [J A u C w v p] : C{v, p}
+
+      Schema:
+      ⊢ A type    ⊢ u : MV 0     {x : A, p : Id (MV 1) (MV 0) (Bound 0)} ⊢ C type
+      ⊢ w : C{u, refl A u}       ⊢ v : A     ⊢ p : Id A u v
+      ————————————————————————————————————————————————————————————————————————————
+      ⊢ [J A u C w v p] : C{v, p}
+
+      Instance:
+      ⊢ A₁ type    ⊢ u₁ : A₂     x : A₃, h : Id A u x ⊢ C type    ⊢ w : C{u, refl A u}
+      ⊢ v : A     ⊢ p : Id A u v
+      ————————————————————————————————————————————————————————————————————————————————
+      ⊢ [J A u C w v p] : C{v, p}
 
 
   *)
