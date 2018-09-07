@@ -28,16 +28,12 @@ type premise =
 type shape_is_term =
   | Atom of is_atom
   | TermConstructor of Name.constructor * premise list
+  | TermConvert of is_term * eq_type
   | TermAbstract of is_atom * is_term
-  (* obsolete *)
-  | Constant of Name.constant
 
 and shape_is_type =
   | TypeConstructor of Name.constructor * premise list
   | TypeAbstract of is_atom * is_type
-  (* obsolete *)
-  | El of is_term
-  | Type (* universe *)
 
 module Ctx : sig
   (** The type of contexts. *)
