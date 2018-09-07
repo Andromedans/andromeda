@@ -49,15 +49,10 @@ type shape_is_term =
   | TermAtom of is_atom
   | TermConstructor of Name.constructor * premise list
   | TermAbstract of is_atom * is_term
-  (* obsolete *)
-  | Constant of Name.constant
 
 and shape_is_type =
   | TypeConstructor of Name.constructor * premise list
   | TypeAbstract of is_atom * is_type
-  (* obsolete *)
-  | Type
-  | El of is_term
 
 (** Auxiliary datatypes used for judgements whose context are not necessarily
    minimal. *)
@@ -644,8 +639,6 @@ let invert_is_term (IsTerm (ctx,e,t)) =
         | None -> assert false
       end
 
-    | TT.Constant c -> Constant c
-
     | TT.TermConstructor (c, args) ->
        assert false (* XXX to do *)
 
@@ -654,12 +647,8 @@ let invert_is_term (IsTerm (ctx,e,t)) =
 let invert_is_type (IsType (ctx, ty)) =
   match ty.Location.thing.TT.thing with
 
-  | TT.Type -> Type
-
   | TT.TypeConstructor (c, args) ->
      assert false (* XXX to do *)
-
-  | TT.El e -> El (IsTerm (ctx, e, TT.mk_type ~loc:e.Location.loc))
 
 let invert_eq_type (EqType (ctx, ty1, ty2)) =
   let j1 = strengthen_ty (WeakIsType (ctx, ty1))
@@ -672,18 +661,9 @@ let invert_eq_term (EqTerm (ctx, e1, e2, ty)) =
   and jt = strengthen_ty (WeakIsType (ctx, ty))
   in (j1, j2, jt)
 
-let invert_abstract_ty j =
-  match invert_is_type j with
-  | AbstractTy (a, b) -> Some (a, b)
-  | (TyConstructor _ | Type | El _) -> None
-
 (** Construct judgements *)
 let form_is_term ~loc sgn = function
   | IsAtom x -> atom_is_term ~loc x
-
-  | Constant c ->
-    let t = Signature.constant_type c sgn in
-    IsTerm (Ctx.empty, TT.mk_constant ~loc c,t)
 
  | TermConstructor (c, args) ->
     assert false (* XXX to do *)
@@ -697,10 +677,7 @@ let form_is_term ~loc sgn = function
     IsTerm (ctx, TT.mk_abstract ~loc x a e b, TT.mk_abstract_ty ~loc x a b)
 
 let form_is_type ~loc sgn = function
-  | Type ->
-    IsType (Ctx.empty, TT.mk_type ~loc)
-
-  | TyConstructor (c, args) ->
+  | TypeConstructor (c, args) ->
      Rule.form_is_type ~loc c args
 
   | AbstractTy ((IsAtom (ctxa,x,a)),(IsType (ctxb,b))) ->
@@ -708,13 +685,6 @@ let form_is_type ~loc sgn = function
     let ctx = Ctx.abstract ~loc ctx x a in
     let b = TT.abstract_ty x b in
     IsType (ctx, TT.mk_abstract_ty ~loc (Name.ident_of_atom x) a b)
-
-  | El (IsTerm (ctx, e, t)) ->
-     if TT.alpha_equal_ty t TT.typ
-     then
-       IsType (ctx, TT.mk_el ~loc e)
-     else
-       error ~loc NotAType
 
 (** Substitution *)
 let substitute_ty ~loc (IsType (ctxt, t)) (IsAtom (_, a, _)) (IsTerm (_, s, _) as js) =
@@ -873,9 +843,6 @@ let natural_type ~loc sgn ctx e =
         | Some (IsAtom (_, _, t)) -> t
         | None -> assert false
       end
-
-    | TT.Constant c ->
-      Signature.constant_type c sgn
 
     | TT.TermConstructor (c, args) ->
        assert false (* XXX to do *)
