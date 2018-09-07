@@ -11,62 +11,72 @@ type term =
 and ty =
   | TypeConstructor of Name.constructor * argument list
 
+and eq_type = EqType of Assumption.t
+
+and eq_term = EqTerm of Assumption.t
+
 (** An argument of a term or a type constructor *)
 and argument =
   | ArgIsTerm of term abstraction
   | ArgIsType of ty abstraction
-  | ArgEqType of Assumption.t abstraction
-  | ArgEqTerm of Assumption.t abstraction
+  | ArgEqType of eq_type abstraction
+  | ArgEqTerm of eq_term abstraction
 
 (** An abstracted entity. Note that abstractions only ever appear as arguments
    to constructors. Thus we do not carry any type information for the abstracted
    variable, as it can be recovered from the constructor. *)
 and 'a abstraction =
-  | Abstract of Name.ident * Assumption.t * 'a abstraction
+  | Abstract of Name.ident * 'a abstraction
   | NotAbstract of 'a
-
-(** We disallow direct creation of terms (using the [private] qualifier in the interface
-    file), so we provide these constructors instead. *)
-
 
 (** Manipulation of assumptions. *)
 
 (** The assumptions of a term [e] are the atoms and bound variables appearing in [e]. *)
-let rec assumptions_term = function
+let rec assumptions_term ~lvl = function
 
   | Atom x -> Assumption.singleton_free x
 
-  | Bound k -> Assumption.singleton_bound k
+  | Bound k ->
+     if k < lvl then
+       Assumption.empty
+     else
+       Assumption.singleton_bound (k - lvl)
 
   | TermConstructor (_, args) ->
-     assumptions_arguments args
+     assumptions_arguments ~lvl args
 
   | TermConvert (e, asmp', t) ->
-     let asmp = Assumption.union (assumptions_term e) (assumptions_type t) in
-     Assumption.union asmp asmp'
+     Assumption.union
+       asmp'
+       (Assumption.union (assumptions_term ~lvl e) (assumptions_type ~lvl t))
 
-and assumptions_type = function
-  | TypeConstructor (_, args) -> assumptions_arguments args
+and assumptions_type ~lvl = function
+  | TypeConstructor (_, args) -> assumptions_arguments ~lvl args
 
-and assumptions_arguments args =
+and assumptions_arguments ~lvl args =
   let rec fold asmp = function
     | [] -> asmp
-    | arg :: args -> Assumption.union (assumptions_argument arg) (fold asmp args)
+    | arg :: args -> Assumption.union (assumptions_argument ~lvl arg) (fold asmp args)
   in
   fold Assumption.empty args
 
-and assumptions_assumptions asmp = asmp
+and assumptions_eq_type ~lvl (EqType asmp) =
+  Assumption.shift lvl asmp
 
-and assumptions_argument = function
-  | ArgIsType abstr -> assumptions_abstraction assumptions_type abstr
-  | ArgIsTerm abstr -> assumptions_abstraction assumptions_term abstr
-  | ArgEqType asmp -> assumptions_abstraction assumptions_assumptions asmp
-  | ArgEqTerm asmp -> assumptions_abstraction assumptions_assumptions asmp
+and assumptions_eq_term ~lvl (EqTerm asmp) =
+  Assumption.shift lvl asmp
 
-and assumptions_abstraction : 'a . ('a -> Assumption.t) -> 'a abstraction -> Assumption.t =
-  fun assumptions_u -> function
-  | NotAbstract u -> assumptions_u u
-  | Abstract (_, asmp, abstr) -> Assumption.union asmp (assumptions_abstraction assumptions_u abstr)
+and assumptions_argument ~lvl = function
+  | ArgIsType abstr -> assumptions_abstraction assumptions_type ~lvl abstr
+  | ArgIsTerm abstr -> assumptions_abstraction assumptions_term ~lvl abstr
+  | ArgEqType asmp -> assumptions_abstraction assumptions_eq_type ~lvl asmp
+  | ArgEqTerm asmp -> assumptions_abstraction assumptions_eq_term ~lvl asmp
+
+and assumptions_abstraction
+ : 'a . (lvl:bound -> 'a -> Assumption.t) -> lvl:bound -> 'a abstraction -> Assumption.t
+ = fun assumptions_u ~lvl -> function
+  | NotAbstract u -> assumptions_u ~lvl u
+  | Abstract (_, abstr) -> assumptions_abstraction assumptions_u ~lvl:(lvl+1) abstr
 
 (* Helper functions *)
 
@@ -87,45 +97,11 @@ let mk_arg_eq_term s = ArgEqTerm s
 
 let mk_not_abstract e = NotAbstract e
 
-let mk_abstract :
-  'a . (lvl:int -> 'a -> 'a) -> Name.atom -> ty -> 'a abstraction -> 'a abstraction =
-  fun abstract_u x t abstr ->
-  let rec fold lvl = function
-
-    | NotAbstract u ->
-       let u = abstract_u ~lvl u in
-       NotAbstract u
-
-    | Abstract (y, asmp, abstr) ->
-       let abstr = fold (lvl + 1) abstr
-       and asmp = Assumption.abstract x ~lvl asmp in
-       Abstract (y, asmp, abstr)
-
-  in
-  let abstr = fold 0 abstr in
-  let asmp = assumptions_type t in
-  Abstract (Name.ident_of_atom x, asmp, abstr)
+let mk_abstract x abstr = Abstract (x, abstr)
 
 (** Instantiate *)
 
-let instantiate_bound e0 ~lvl k =
-  if k < lvl
-  then
-    Bound k
-    (* this is a variable bound in an abstraction inside the
-       instantiated term, so we leave it as it is *)
-  else
-    if k = lvl
-    then (* variable corresponds to a substituted term, replace it *)
-      e0
-    else
-      Bound (k - 1)
-      (* this is a variable bound in an abstraction outside the
-         instantiated term, so it remains bound, but its index decreases
-         by 1. *)
-
-let rec instantiate_term e0 ~lvl e =
-    match e with
+let rec instantiate_term e0 ~lvl = function
 
     | TermConstructor (c, args) ->
        let args = instantiate_arguments e0 ~lvl args in
@@ -137,12 +113,18 @@ let rec instantiate_term e0 ~lvl e =
        and t = instantiate_type e0 ~lvl t in
        TermConvert (e, asmp, t)
 
-    | Atom _ -> e
+    | Atom _ as e -> e
 
-    | Bound k -> instantiate_bound e0 ~lvl k
+    | Bound k as e ->
+       if k < lvl then
+         e
+       else
+         if k = lvl then
+           e0
+         else
+           Bound (k - 1)
 
-and instantiate_type e0 ~lvl t =
-  match t with
+and instantiate_type e0 ~lvl = function
   | TypeConstructor (c, args) ->
      let args = instantiate_arguments e0 ~lvl args in
      TypeConstructor (c, args)
@@ -161,12 +143,24 @@ and instantiate_argument e0 ~lvl = function
        ArgIsTerm e
 
     | ArgEqType asmp ->
-       let asmp = instantiate_abstraction (fun e0 ~lvl -> Assumption.instantiate (assumptions_term e0) ~lvl) e0 ~lvl asmp in
+       let asmp = instantiate_abstraction instantiate_eq_type e0 ~lvl asmp in
        ArgEqType asmp
 
     | ArgEqTerm asmp ->
-       let asmp = instantiate_abstraction (fun e0 ~lvl -> Assumption.instantiate (assumptions_term e0) ~lvl) e0 ~lvl asmp in
+       let asmp = instantiate_abstraction instantiate_eq_term e0 ~lvl asmp in
        ArgEqTerm asmp
+
+and instantiate_eq_type e0 ~lvl (EqType asmp) =
+  let asmp = assumptions_term ~lvl e0 in
+  EqType asmp
+
+and instantiate_eq_term e0 ~lvl (EqTerm asmp) =
+  let asmp = assumptions_term ~lvl e0 in
+  EqTerm asmp
+
+and instantiate_assumptions e0 ~lvl asmp =
+  let asmp' = assumptions_term ~lvl e0 in
+  Assumption.instantiate asmp' ~lvl asmp
 
 and instantiate_abstraction :
       'a . (term -> lvl:bound -> 'a -> 'a) -> term ->
@@ -177,22 +171,18 @@ and instantiate_abstraction :
      let u = inst_u e0 ~lvl u in
      NotAbstract u
 
-  | Abstract (x, asmp, abstr) ->
-     let asmp = instantiate_assumptions e0 ~lvl asmp
-     and abstr = instantiate_abstraction inst_u e0 ~lvl:(lvl+1) abstr in
-     Abstract (x, asmp, abstr)
-
-and instantiate_assumptions e0 ~lvl asmp =
-  let asmp' = assumptions_term e0 in
-  Assumption.instantiate asmp' ~lvl asmp
+  | Abstract (x, abstr) ->
+     let e0 = e0 (* XXX shift e0 by 1 *) in
+     let abstr = instantiate_abstraction inst_u e0 ~lvl:(lvl+1) abstr in
+     Abstract (x, abstr)
 
 let unabstract_term x ~lvl e =
-  let e = mk_atom x in
-  instantiate_term e ~lvl e
+  let e0 = mk_atom x in
+  instantiate_term e0 ~lvl e
 
 let unabstract_type x ~lvl t =
-  let e = mk_atom x in
-  instantiate_type e ~lvl t
+  let e0 = mk_atom x in
+  instantiate_type e0 ~lvl t
 
 (** Abstract *)
 
@@ -203,7 +193,14 @@ let rec abstract_term x ~lvl = function
      | true -> Bound lvl
      end
 
-  | Bound _ as e -> e (* XXX shouldn't we shift bound variables above lvl? *)
+  | Bound k as e ->
+     if k < lvl then
+       e
+     else
+       assert false
+       (* we should never get here because abstracting
+          should always introduce a highest-level bound
+          index. *)
 
   | TermConstructor (c, args) ->
      let args = abstract_arguments x ~lvl args in
@@ -229,12 +226,20 @@ and abstract_argument x ~lvl = function
     | ArgIsTerm e -> ArgIsTerm (abstract_abstraction abstract_term x ~lvl e)
 
     | ArgEqType asmp ->
-       let asmp = abstract_abstraction Assumption.abstract x ~lvl asmp in
+       let asmp = abstract_abstraction abstract_eq_type x ~lvl asmp in
        ArgEqType asmp
 
     | ArgEqTerm asmp ->
-       let asmp = abstract_abstraction Assumption.abstract x ~lvl asmp in
+       let asmp = abstract_abstraction abstract_eq_term x ~lvl asmp in
        ArgEqTerm asmp
+
+and abstract_eq_type x ~lvl (EqType asmp) =
+  let asmp = Assumption.abstract x ~lvl asmp in
+  EqType asmp
+
+and abstract_eq_term x ~lvl (EqTerm asmp) =
+  let asmp = Assumption.abstract x ~lvl asmp in
+  EqTerm asmp
 
 and abstract_abstraction :
       'a . (Name.atom -> lvl:int -> 'a -> 'a) -> Name.atom -> lvl:int -> 'a abstraction -> 'a abstraction =
@@ -244,10 +249,9 @@ and abstract_abstraction :
      let u = inst_u x ~lvl u in
      NotAbstract u
 
-  | Abstract (y, asmp, abstr) ->
-     let asmp = Assumption.abstract x ~lvl asmp
-     and abstr = abstract_abstraction inst_u x ~lvl:(lvl+1) abstr in
-     Abstract (y, asmp, abstr)
+  | Abstract (y, abstr) ->
+     let abstr = abstract_abstraction inst_u x ~lvl:(lvl+1) abstr in
+     Abstract (y, abstr)
 
 (** Substitute *)
 let substitute_term x e0 e =
@@ -270,19 +274,26 @@ and occurs_type k = function
 
 and occurs_args k = function
   | [] -> false
-  | (ArgIsTerm e) :: args -> occurs_abstraction occurs_term k e || occurs_args k args
-  | (ArgIsType e) :: args -> occurs_abstraction occurs_type k e || occurs_args k args
-  | (ArgEqType asmp | ArgEqTerm asmp) :: args -> occurs_abstraction occurs_assumptions k asmp || occurs_args k args
+  | arg :: args -> occurs_arg k arg || occurs_args k args
+
+and occurs_arg k = function
+  | ArgIsType t  -> occurs_abstraction occurs_type k t
+  | ArgIsTerm e  -> occurs_abstraction occurs_term k e
+  | ArgEqType abstr -> occurs_abstraction occurs_eq_type k abstr
+  | ArgEqTerm abstr -> occurs_abstraction occurs_eq_term k abstr
+
+and occurs_eq_type k (EqType asmp) = occurs_assumptions k asmp
+
+and occurs_eq_term k (EqTerm asmp) = occurs_assumptions k asmp
 
 and occurs_abstraction : 'a . (bound -> 'a -> bool) -> bound -> 'a abstraction -> bool =
   fun occurs_u k ->
   function
   | NotAbstract u -> occurs_u k u
-  | Abstract (_, asmp, abstr) -> occurs_assumptions k asmp || occurs_abstraction occurs_u (k+1) abstr
-
+  | Abstract (_, abstr) -> occurs_abstraction occurs_u (k+1) abstr
 
 and occurs_assumptions k asmp =
-  assert false
+  Assumption.mem_bound k asmp
 
 (****** Alpha equality ******)
 
@@ -327,7 +338,7 @@ and alpha_equal_args args args' =
 and alpha_equal_abstraction : 'a . ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool =
   fun equal_u u u' ->
   match u, u' with
-  | Abstract (_, _, abstr), Abstract(_, _, abstr') -> alpha_equal_abstraction equal_u abstr abstr'
+  | Abstract (_, abstr), Abstract(_, abstr') -> alpha_equal_abstraction equal_u abstr abstr'
   | NotAbstract u, NotAbstract u' -> equal_u u u'
   | (Abstract _ | NotAbstract _), _ -> false
 
@@ -387,7 +398,7 @@ and print_abstraction :
               (Print.sequence (Name.print_ident ~parentheses:true) "" xs)
               (print_u ~penv e)
 
-    | Abstract (x, _, abstr) ->
+    | Abstract (x, abstr) ->
        let x = (if occurs_abstraction occurs_u 0 abstr then Name.refresh penv.forbidden x else Name.anonymous ()) in
        let penv = add_forbidden x penv in
        fold penv (x :: xs) abstr
@@ -425,7 +436,7 @@ struct
   and abstraction : 'a . ('a -> Json.t) -> Name.ident list -> 'a abstraction -> Json.t list =
     fun json_u xs ->
     function
-    | Abstract (x, asmp, abstr) ->
+    | Abstract (x, abstr) ->
        abstraction json_u (x::xs) abstr
     | NotAbstract u ->
        let xs = List.map Name.Json.ident (List.rev xs) in

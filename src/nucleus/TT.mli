@@ -21,7 +21,6 @@ type term = private
   (** a term conversion *)
   | TermConvert of term * Assumption.t * ty
 
-
 (** The type of TT types. *)
 and ty = private
 
@@ -29,15 +28,20 @@ and ty = private
   (** a type constructor *)
   | TypeConstructor of Name.constant * argument list
 
+
+and eq_type = EqType of Assumption.t
+
+and eq_term = EqTerm of Assumption.t
+
 (** an argument of a term or type constructor *)
 and argument = private
   | ArgIsTerm of term abstraction
   | ArgIsType of ty abstraction
-  | ArgEqType of Assumption.t abstraction
-  | ArgEqTerm of Assumption.t abstraction
+  | ArgEqType of eq_type abstraction
+  | ArgEqTerm of eq_term abstraction
 
 and 'a abstraction = private
-  | Abstract of Name.ident * Assumption.t * 'a abstraction
+  | Abstract of Name.ident * 'a abstraction
   | NotAbstract of 'a
 
 (** Term constructors, these do not check for legality of constructions. *)
@@ -48,14 +52,14 @@ val mk_type_constructor : Name.constant -> argument list -> ty
 
 val mk_arg_is_type : ty abstraction -> argument
 val mk_arg_is_term : term abstraction -> argument
-val mk_arg_eq_type : Assumption.t abstraction -> argument
-val mk_arg_eq_term : Assumption.t abstraction -> argument
+val mk_arg_eq_type : eq_type abstraction -> argument
+val mk_arg_eq_term : eq_term abstraction -> argument
 
 (** Make a non-abstracted constructor argument *)
 val mk_not_abstract : 'a -> 'a abstraction
 
 (** Abstract a term argument *)
-val mk_abstract : (lvl:int -> 'a -> 'a) -> Name.atom -> ty -> 'a abstraction -> 'a abstraction
+val mk_abstract : Name.ident -> 'a abstraction -> 'a abstraction
 
 (** [instantiate_term e0 k e] replaces bound variable [k] with term [e0] in term [e]. *)
 val instantiate_term: term -> lvl:int -> term -> term
@@ -81,10 +85,10 @@ val substitute_term : Name.atom -> term -> term -> term
 val substitute_type : Name.atom -> term -> ty -> ty
 
 (** The asssumptions used by a term. *)
-val assumptions_term : term -> Assumption.t
+val assumptions_term : lvl:bound -> term -> Assumption.t
 
 (** The assumptions used by a type. *)
-val assumptions_type : ty -> Assumption.t
+val assumptions_type : lvl:bound -> ty -> Assumption.t
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool
