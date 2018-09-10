@@ -310,9 +310,6 @@ val congr_abstract_term : loc:Location.t -> eq_type -> is_atom -> is_atom -> eq_
 
 (** Derivable rules *)
 
-(** If [e : B] and [A] is the natural type of [e] then [A == B] *)
-val natural_eq_type : loc:Location.t -> Signature.t -> is_term -> eq_type
-
 module Json :
 sig
   val is_term : is_term -> Json.t

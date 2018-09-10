@@ -230,4 +230,6 @@ struct
 
   let atomset s = Json.List (List.map atom (AtomSet.elements s))
 
+  let atommap s = Json.List (List.map (fun (x, _) -> atom x) (AtomMap.bindings s))
+
 end

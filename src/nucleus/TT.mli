@@ -8,78 +8,80 @@ type bound
     indices for bound variables.
 *)
 
+(** An abstracted entity. *)
+type ('a, 'b) abstraction = private
+  | Abstract of Name.ident * 'a * ('a,'b) abstraction
+  | NotAbstract of 'b
+
+(** An abstracted argument of a constructor (does not carry any type information). *)
+type 'a argument_abstraction = (unit, 'a) abstraction
+
 type term = private
   (** a free variable *)
-  | Atom of Name.atom
+  | TermAtom of Name.atom * ty
 
   (** a bound variable *)
-  | Bound of bound
+  | TermBound of bound
 
   (** a term constructor *)
   | TermConstructor of Name.constant * argument list
 
   (** a term conversion *)
-  | TermConvert of term * Assumption.t * ty
+  | TermConvert of term * assumption * ty
 
 (** The type of TT types. *)
 and ty = private
-
-(** the universe *)
   (** a type constructor *)
   | TypeConstructor of Name.constant * argument list
 
+and eq_type = private EqType of assumption
 
-and eq_type = EqType of Assumption.t
+and eq_term = private EqTerm of assumption
 
-and eq_term = EqTerm of Assumption.t
+and assumption = ty Assumption.t
 
 (** an argument of a term or type constructor *)
 and argument = private
-  | ArgIsTerm of term abstraction
-  | ArgIsType of ty abstraction
-  | ArgEqType of eq_type abstraction
-  | ArgEqTerm of eq_term abstraction
-
-and 'a abstraction = private
-  | Abstract of Name.ident * 'a abstraction
-  | NotAbstract of 'a
+  | ArgIsTerm of term argument_abstraction
+  | ArgIsType of ty argument_abstraction
+  | ArgEqType of eq_type argument_abstraction
+  | ArgEqTerm of eq_term argument_abstraction
 
 (** Term constructors, these do not check for legality of constructions. *)
-val mk_atom: Name.atom -> term
+val mk_atom: Name.ident -> ty -> term
 
 (** Create a fully applied type constructor *)
 val mk_type_constructor : Name.constant -> argument list -> ty
 
-val mk_arg_is_type : ty abstraction -> argument
-val mk_arg_is_term : term abstraction -> argument
-val mk_arg_eq_type : eq_type abstraction -> argument
-val mk_arg_eq_term : eq_term abstraction -> argument
+val mk_arg_is_type : ty argument_abstraction -> argument
+val mk_arg_is_term : term argument_abstraction -> argument
+val mk_arg_eq_type : eq_type argument_abstraction -> argument
+val mk_arg_eq_term : eq_term argument_abstraction -> argument
 
 (** Make a non-abstracted constructor argument *)
-val mk_not_abstract : 'a -> 'a abstraction
-
-val mk_abstract_argument : Name.ident -> argument -> argument
+val mk_not_abstract : 'b -> ('a, 'b) abstraction
 
 (** Abstract a term argument *)
-val mk_abstract : Name.ident -> 'a abstraction -> 'a abstraction
+val mk_abstract : Name.ident -> 'a -> ('a, 'b) abstraction -> ('a, 'b) abstraction
 
-(** [instantiate_term e0 k e] replaces bound variable [k] with term [e0] in term [e]. *)
-val instantiate_term: term -> lvl:int -> term -> term
+(** [instantiate_term e0 ~lvl:k e] replaces bound variable [k] (defualt [0])  with term [e0] in term [e]. *)
+val instantiate_term: term -> ?lvl:bound -> term -> term
 
-(** [instantiate_term e0 k t] replaces bound variable [k] with term [e0] in type [t]. *)
-val instantiate_type: term -> lvl:int -> ty -> ty
+(** [instantiate_term e0 ~lvl:k t] replaces bound variable [k] (default [0]) with term [e0] in type [t]. *)
+val instantiate_type: term -> ?lvl:bound -> ty -> ty
 
-(** [unabstract_term x0 k e] replaces bound variable [k] in [e] with name [x0]. *)
-val unabstract_term: Name.atom -> lvl:int -> term -> term
+(** [instantiate_abstraction inst_u inst_v e0 ~lvl:k abstr] instantiates bound variable
+    [k] (default [0]) with term [e0] in the given abstraction. *)
+val instantiate_abstraction :
+  (term -> ?lvl:bound -> 'a -> 'a) ->
+  (term -> ?lvl:bound -> 'b -> 'b) ->
+  term -> ?lvl:bound -> ('a, 'b) abstraction -> ('a, 'b) abstraction
 
-(** [unabstract_ty x0 k t] replaces bound variable [k] in [t] with name [x0]. *)
-val unabstract_type: Name.atom -> lvl:int -> ty -> ty
+(** [abstract_term x0 ~lvl:k e] replaces atom [x0] in term [e] with bound variable [k] (default [0]). *)
+val abstract_term : Name.atom -> ?lvl:bound -> term -> term
 
-(** [abstract_term x0 k e] replaces name [x0] in term [e] with bound variable [k] (default [0]) where. *)
-val abstract_term : Name.atom -> lvl:int -> term -> term
-
-(** [abstract_term x0 k t] replaces name [x0] in type [t] with bound variable [k] (default [0]) where. *)
-val abstract_type : Name.atom -> lvl:int -> ty -> ty
+(** [abstract_term x0 ~lvl:k t] replaces atom [x0] in type [t] with bound variable [k] (default [0]). *)
+val abstract_type : Name.atom -> ?lvl:bound -> ty -> ty
 
 (** abstract followed by instantiate *)
 val substitute_term : Name.atom -> term -> term -> term
@@ -87,10 +89,10 @@ val substitute_term : Name.atom -> term -> term -> term
 val substitute_type : Name.atom -> term -> ty -> ty
 
 (** The asssumptions used by a term. *)
-val assumptions_term : lvl:bound -> term -> Assumption.t
+val assumptions_term : lvl:bound -> term -> assumption
 
 (** The assumptions used by a type. *)
-val assumptions_type : lvl:bound -> ty -> Assumption.t
+val assumptions_type : lvl:bound -> ty -> assumption
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool
@@ -98,11 +100,33 @@ val alpha_equal: term -> term -> bool
 (** [alpha_equal_ty t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
 val alpha_equal_ty: ty -> ty -> bool
 
-type print_env =
+val occurs_term : bound -> term -> bool
+
+val occurs_type : bound -> ty -> bool
+
+val occurs_eq_type : bound -> eq_type -> bool
+
+val occurs_eq_term : bound -> eq_term -> bool
+
+type print_env = private
   { forbidden : Name.ident list ;
     atoms : Name.atom_printer ; }
 
+(** Forbid the given identifier from being used as a bound variable. *)
+val add_forbidden : Name.ident -> print_env -> print_env
+
+val print_abstraction :
+   (bound -> 'a -> bool) ->
+   (penv:print_env -> Name.ident * 'a -> Format.formatter -> unit) ->
+   (bound -> 'b -> bool) ->
+   (?max_level:Level.t -> penv:print_env -> 'b -> Format.formatter -> unit) ->
+   ?max_level:Level.t ->
+   penv:print_env ->
+   ('a, 'b) abstraction ->
+   Format.formatter -> unit
+
 val print_type : ?max_level:Level.t -> penv:print_env -> ty -> Format.formatter -> unit
+
 val print_term : ?max_level:Level.t -> penv:print_env -> term -> Format.formatter -> unit
 
 module Json :

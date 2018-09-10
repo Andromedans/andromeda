@@ -144,4 +144,7 @@ sig
 
   (** Convert a set of atoms to JSON. *)
   val atomset : AtomSet.t -> Json.t
+
+  (** Convert a map of atoms to JSON (dropping the values). *)
+  val atommap : 'a AtomMap.t -> Json.t
 end

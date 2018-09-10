@@ -1,37 +1,16 @@
-module AtomSet = Name.AtomSet
-module AtomMap = Name.AtomMap
-
-(** Start with the types. *)
-
-(* A Ctx is a map which assigns to an atom its type and the dependencies and dependants respectively.
-   We can think of it as a directed graph whose vertices are the atoms, labelled by
-   the type, and the sets of atoms are the two directions of edges. *)
-
-type 'a abstraction =
-  | Abstract of (Name.ident * TT.ty) * 'a abstraction
-  | NotAbstract of 'a
-
-type ctx_entry =
-  { ty : TT.ty; (* type of x *)
-    needed_by : AtomSet.t } (* atoms which depend on x *)
-
-type ctx = ctx_entry AtomMap.t
+type 'a abstraction = (TT.ty, 'a) TT.abstraction
 
 (** Every judgement enforces that its context is minimal (strengthened). *)
 
-type is_atom = IsAtom of ctx * Name.atom * TT.ty
+type is_atom = IsAtom of Name.atom * TT.ty
 
-type is_term = IsTerm of ctx * (TT.term * TT.ty) abstraction
+type is_term = IsTerm of TT.term abstraction
 
-type is_type = IsType of ctx * TT.ty abstraction
+type is_type = IsType of TT.ty abstraction
 
-type eq_term = EqTerm of ctx * (TT.term * TT.term * TT.ty) abstraction
+type eq_term = EqTerm of (TT.term * TT.term * TT.ty) abstraction
 
-type eq_type = EqType of ctx * (TT.ty * TT.ty) abstraction
-
-(* XXX Ctx.substitute expects closed judgements. If there are other places in
-   the code where abstracted judgements are an error, we should have a type
-   for each closed judgement form. *)
+type eq_type = EqType of (TT.ty * TT.ty) abstraction
 
 (** Shapes (defined below) are used to construct and invert judgements. The
    [form_XYZ] functions below take a shape and construct a judgement from it,
@@ -48,28 +27,19 @@ type premise =
 type shape_is_term =
   | TermAtom of is_atom
   | TermConstructor of Name.constructor * premise list
+  | TermConvert of is_term * eq_type
   | TermAbstract of is_atom * is_term
 
 and shape_is_type =
   | TypeConstructor of Name.constructor * premise list
   | TypeAbstract of is_atom * is_type
 
-(** Auxiliary datatypes used for judgements whose context are not necessarily
-   minimal. *)
-
-type weak_is_type = WeakIsType of ctx * TT.ty
-
-type weak_is_term = WeakIsTerm of ctx * TT.term * TT.ty
-
-type weak_is_atom = WeakIsAtom of ctx * Name.atom * TT.ty
-
 (** Error messages emitted by this module. *)
 
 type error =
   | ConstantDependency
-  | AbstractDependency of ctx * Name.atom * Name.atom list
+  | AbstractDependency of Name.atom * Name.atom list
   | AbstractInvalidType of Name.atom * TT.ty * TT.ty
-  | InvalidJoin of ctx * ctx * Name.atom
   | SubstitutionDependency of Name.atom * TT.term * Name.atom
   | SubstitutionInvalidType of Name.atom * TT.ty * TT.ty
   | NotAType
@@ -83,186 +53,6 @@ type error =
 exception Error of error Location.located
 
 let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
-
-let not_abstracted ~loc = function
-  | NotAbstract x -> x
-  | Abstract _ -> error ~loc NotAbstractExpected
-
-module Ctx = struct
-  type t = ctx
-
-  let empty = AtomMap.empty
-
-  let is_empty = AtomMap.is_empty
-
-  let print_entry ~penv ppf x {ty; needed_by;} =
-    Format.fprintf ppf "%t : @[<hov>%t@]@ "
-      (Name.print_atom ~printer:(penv.TT.atoms) x)
-      (TT.print_type ~penv ty)
-
-  let print ~penv ctx ppf =
-    Format.pp_open_vbox ppf 0 ;
-    AtomMap.iter (print_entry ~penv ppf) ctx ;
-    Format.pp_close_box ppf ()
-
-  let as_set ctx =
-    AtomMap.fold (fun x _ acc -> AtomSet.add x acc) ctx AtomSet.empty
-
-  let lookup x (ctx : t) =
-    try Some (AtomMap.find x ctx)
-    with Not_found -> None
-
-  let recursive_assumptions ctx aset =
-    let rec fold visited = function
-      | [] -> visited
-      | x::rem ->
-        if AtomSet.mem x visited
-        then fold visited rem
-        else
-          let visited = AtomSet.add x visited in
-          let {ty;_} = AtomMap.find x ctx in
-          let aset = TT.assumptions_ty ty in
-          let rem = List.rev_append (AtomSet.elements aset) rem in
-          fold visited rem
-    in
-    fold AtomSet.empty (AtomSet.elements aset)
-
-  let restrict ctx aset =
-    let domain = recursive_assumptions ctx aset in
-    let res = AtomMap.fold (fun x node res ->
-        if AtomSet.mem x domain
-        then
-          AtomMap.add x {node with needed_by = AtomSet.inter node.needed_by domain} res
-        else res)
-      ctx empty
-    in
-    res
-
-  let lookup_atom x ctx =
-    match lookup x ctx with
-      | None -> None
-      | Some {ty;_} ->
-        let ctx = restrict ctx (AtomSet.singleton x) in
-        Some (IsAtom (ctx, x, ty))
-
-  let add_fresh ~loc (IsType (ctx, ty)) x =
-    let ty = not_abstracted ~loc ty in
-    let y = Name.fresh x in
-    let ctx = AtomMap.mapi
-      (fun z node -> {node with needed_by = AtomSet.add y node.needed_by})
-      ctx
-    in
-    let ctx = AtomMap.add y {ty; needed_by = AtomSet.empty} ctx in
-    IsAtom (ctx, y, ty)
-
-  let add_weak (WeakIsType (ctx, ty)) x =
-    let y = Name.fresh x in
-    let aset = TT.assumptions_ty ty in
-    let needs = recursive_assumptions ctx aset in
-    let ctx = AtomMap.mapi (fun z node ->
-                            if AtomSet.mem z needs
-                            then {node with needed_by = AtomSet.add y node.needed_by}
-                            else node)
-                           ctx
-    in
-    let ctx = AtomMap.add y {ty;needed_by = AtomSet.empty;} ctx in
-    WeakIsAtom (ctx, y, ty)
-
-  let abstract ~loc (ctx : t) x ty =
-    match lookup x ctx with
-    | None ->
-       ctx
-    | Some node ->
-      if TT.alpha_equal_ty node.ty ty
-      then
-        if AtomSet.is_empty node.needed_by
-        then
-          let ctx = AtomMap.remove x ctx in
-          let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in
-          ctx
-        else
-          let needed_by_l = AtomSet.elements node.needed_by in
-          error ~loc (AbstractDependency (ctx, x, needed_by_l))
-      else
-        error ~loc (AbstractInvalidType (x, ty, node.ty))
-
-  let join ~loc ctx1 ctx2 =
-    AtomMap.fold (fun x node res ->
-        match lookup x res with
-          | Some node' ->
-            if TT.alpha_equal_ty node.ty node'.ty
-            then
-              (* for every node which needs x and is only in ctx2, we need to add it as a dependent. *)
-              let extra = AtomSet.fold (fun y extra ->
-                  if AtomMap.mem y ctx1
-                  then extra
-                  else AtomSet.add y extra)
-                node.needed_by AtomSet.empty
-              in
-              if AtomSet.is_empty extra
-              then res
-              else AtomMap.add x {node' with needed_by = AtomSet.union node'.needed_by extra} res
-            else
-              error ~loc (InvalidJoin (ctx1, ctx2, x))
-          | None ->
-            (* dependencies are handled above *)
-            AtomMap.add x node res)
-      ctx2 ctx1
-
-  (* substitute x by e in ctx *)
-  let substitute ~loc ctx x _ = failwith "subsitition is not implemented, will likely go away, as it is the only source of context join failures"
-  (* let substitute ~loc ctx x (IsTerm (ctxe, abstr_e_t) as j_tm) = *)
-  (*   let ctx = join ~loc ctx ctxe in *)
-  (*   match lookup x ctx with *)
-  (*     | None -> ctx *)
-  (*     | Some xnode -> *)
-  (*        let (e, t) = begin match abstr_e_t with *)
-  (*          | Abstract (_, _) -> error ~loc (SubstitutionAbstractedTerm (x, j_tm)) *)
-  (*          | NotAbstract (e, t) -> (e, t) *)
-  (*        end in *)
-  (*       if not (TT.alpha_equal_ty xnode.ty t) *)
-  (*       then *)
-  (*         error ~loc (SubstitutionInvalidType (x, xnode.ty, t)) *)
-  (*       else *)
-  (*         let deps = recursive_assumptions ctx (TT.assumptions_term e) in *)
-  (*         let ctx = AtomSet.fold (fun y ctx -> *)
-  (*             let ynode = AtomMap.find y ctx in *)
-  (*             if AtomSet.mem y deps *)
-  (*             then *)
-  (*               error ~loc (SubstitutionDependency (x, e, y)) *)
-  (*             else *)
-  (*               let ty = TT.substitute_type x e ynode.ty in *)
-  (*               AtomMap.add y {ynode with ty} ctx) *)
-  (*           xnode.needed_by ctx *)
-  (*         in *)
-  (*         let ctx = AtomSet.fold (fun z ctx -> *)
-  (*             let znode = AtomMap.find z ctx in *)
-  (*             let needed_by = AtomSet.union znode.needed_by xnode.needed_by in *)
-  (*             AtomMap.add z {znode with needed_by} ctx) *)
-  (*           deps ctx *)
-  (*         in *)
-  (*         if AtomSet.mem x deps *)
-  (*         then ctx *)
-  (*         else *)
-  (*           (\* we can remove x *\) *)
-  (*           let ctx = AtomMap.remove x ctx in *)
-  (*           let ctx = AtomMap.map (fun node -> {node with needed_by = AtomSet.remove x node.needed_by}) ctx in *)
-  (*           ctx *)
-
-
-  let elements ctx =
-    let rec process x ((handled, _) as handled_ys) =
-      if AtomSet.mem x handled
-      then handled_ys
-      else
-        let {needed_by;ty} = AtomMap.find x ctx in
-        let (handled, xts) = AtomSet.fold process needed_by handled_ys  in
-        (AtomSet.add x handled, (IsAtom (restrict ctx (AtomSet.singleton x), x, ty)) :: xts)
-    in
-    let _, xts = AtomMap.fold (fun x _ -> process x) ctx (AtomSet.empty, []) in
-    xts
-
-end
 
 module Rule = struct
 
@@ -289,8 +79,8 @@ module Rule = struct
     and argument =
       | ArgIsType of ty abstraction
       | ArgIsTerm of term abstraction
-      | ArgEqType
-      | ArgEqTerm
+      | ArgEqType of unit abstraction
+      | ArgEqTerm of unit abstraction
 
     type 'a premise_abstraction =
       | PremiseNotAbstract of 'a
@@ -319,7 +109,7 @@ module Rule = struct
   let rec check_type
     : TT.argument list -> Schema.ty -> TT.ty -> unit
     = fun metas t_schema t ->
-    match t_schema, t.TT.thing with
+    match t_schema, t with
 
       | Schema.TypeMeta m, t ->
          (* lookup m and compare with t, they should be equal *)
@@ -335,7 +125,7 @@ module Rule = struct
       | _, _ -> failwith "put an error message here"
 
   and check_term metas e_schema e =
-    match e_schema, e.TT.thing with
+    match e_schema, e with
 
     | Schema.TermMeta m, e ->
        assert false
@@ -362,9 +152,13 @@ module Rule = struct
     match premise, arg with
     | Schema.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type metas t_schema t
     | Schema.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term metas e_schema e
-    | Schema.ArgEqType, TT.ArgEqType -> ()
-    | Schema.ArgEqTerm, TT.ArgEqTerm -> ()
+    | Schema.ArgEqType eq_schema, TT.ArgEqType eq -> check_abstraction check_eq_type metas eq_schema eq
+    | Schema.ArgEqTerm eq_schema, TT.ArgEqTerm eq -> check_abstraction check_eq_term metas eq_schema eq
     | _, _ -> failwith "place an error message here"
+
+  and check_eq_type _metas () _ = ()
+
+  and check_eq_term _metas () _ = ()
 
   and check_abstraction :
     'a 'b . (TT.argument list -> 'a -> 'b -> unit) -> TT.argument list ->
@@ -482,7 +276,6 @@ module Rule = struct
 
 end
 
-
 module Signature = struct
   module ConstantMap = Name.IdentMap
 
@@ -504,101 +297,99 @@ end
 
 (** Judgements *)
 
-let strengthen (WeakIsTerm (ctx, e, t)) =
-  let hyps = AtomSet.union (TT.assumptions_term e) (TT.assumptions_ty t) in
-  let ctx = Ctx.restrict ctx hyps in
-  IsTerm (ctx,e,t)
+let typeof (IsTerm (_, t)) = IsType t
 
-let strengthen_ty (WeakIsType (ctx, t)) =
-  let hyps = TT.assumptions_ty t in
-  let ctx = Ctx.restrict ctx hyps in
-  IsType (ctx, t)
+let atom_is_type (IsAtom (x,t)) = IsType t
 
-let strengthen_atom (WeakIsAtom (ctx, x, t)) =
-  let hyps = AtomSet.singleton x in
-  let ctx = Ctx.restrict ctx hyps in
-  IsAtom (ctx, x, t)
-
-let typeof (IsTerm (ctx, _, t)) =
-  strengthen_ty (WeakIsType (ctx, t))
-
-let atom_is_type (IsAtom (ctx,x,t)) =
-  strengthen_ty (WeakIsType (ctx, t))
-
-let atom_is_term ~loc (IsAtom (ctx,x,t)) =
-  IsTerm (ctx, TT.mk_atom ~loc x, t)
-
-let ty_ty = IsType (Ctx.empty, TT.typ)
+let atom_is_term (IsAtom (x,t)) = IsTerm (TT.mk_not_abstract (TT.mk_atom x, t))
 
 let is_closed_ty ~loc (IsType (ctx, t)) =
   if Ctx.is_empty ctx
   then t
   else error ~loc ConstantDependency
 
-let occurs (IsAtom (_, x, _)) (IsTerm (ctx, _, _)) =
-  Ctx.lookup_atom x ctx
+(** Printing *)
 
-let contextof (IsTerm (ctx, _, _)) =
-  ctx
+let print_binder ~penv (x,t) ppf =
+  Print.print ppf "(%t@ :@ %t)"
+    (Name.print_ident ~parentheses:true x)
+    (TT.print_type ~penv t)
 
-let print_is_term ~penv ?max_level (IsTerm (ctx, e, t)) ppf =
+(** [print_abstraction occurs_v print_v ?max_level ~penv abstr ppf] prints an abstraction using formatter [ppf]. *)
+let print_abstraction occurs_v print_v ~penv ?max_level abstr ppf =
+  TT.print_abstraction
+    TT.occurs_type
+    print_binder
+    occurs_v
+    print_v
+    ?max_level
+    ~penv
+    abstr
+    ppf
+
+let print_is_type ~penv ?max_level (IsType abstr) ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%t%s @[<hv>@[<hov>%t@]@;<1 -2>: @[<hov>%t@]@]"
-              (Ctx.print ~penv ctx)
+              "%s @[<hv>%t@]"
               (Print.char_vdash ())
-              (TT.print_term ~penv ~max_level:Level.highest e)
-              (TT.print_type ~penv ~max_level:Level.highest t)
+              (print_abstraction
+                 TT.occurs_type
+                 (fun ?max_level ~penv t ppf ->
+                   Print.print ppf "@[<hv>@[<hov>%t@]@;<1 -2>: type@]"
+                     (TT.print_type ~max_level:Level.highest ~penv t)
+                 )
+                 ~max_level:Level.highest
+                 ~penv
+                 abstr)
 
-let print_is_type ~penv ?max_level (IsType (ctx, t)) ppf =
+let print_eq_term ~penv ?max_level (EqTerm abstr) ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%t%s @[<hov>%t@] @ type"
-              (Ctx.print ~penv ctx)
+              "%s @[<hv>%t@]"
               (Print.char_vdash ())
-              (TT.print_type ~penv ~max_level:Level.highest t)
+              (print_abstraction
+                 (fun k (e1, e2, t) -> TT.occurs_term k e1 || TT.occurs_term k e2 || TT.occurs_type k t)
+                 (fun ?max_level ~penv (e1, e2, t) ppf ->
+                   Print.print ppf "@[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]@]"
+                     (TT.print_term ~penv e1)
+                     (Print.char_equal ())
+                     (TT.print_term ~penv e2)
+                     (TT.print_type ~penv t)
+                 )
+                 ~penv
+                 ~max_level:Level.highest
+                 abstr)
 
-let print_eq_term ~penv ?max_level (EqTerm (ctx, e1, e2, t)) ppf =
+let print_eq_type ~penv ?max_level (EqType abstr) ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%t%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]@]"
-              (Ctx.print ~penv ctx)
+              "%s @[<hv>%t@]"
               (Print.char_vdash ())
-              (TT.print_term ~penv e1)
-              (Print.char_equal ())
-              (TT.print_term ~penv e2)
-              (TT.print_type ~penv t)
+              (print_abstraction
+                 (fun k (t1, t2) -> TT.occurs_type k t1 || TT.occurs_type k t2)
+                 (fun ?max_level ~penv (t1, t2) ppf ->
+                   Print.print ppf "@[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
+                     (TT.print_type ~penv t1)
+                     (Print.char_equal ())
+                     (TT.print_type ~penv t2)
+                 )
+                 ~penv
+                 ~max_level:Level.highest
+                 abstr)
 
-let print_eq_type ~penv ?max_level (EqType (ctx, t1, t2)) ppf =
-  Print.print ?max_level ~at_level:Level.jdg ppf
-              "%t%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
-              (Ctx.print ~penv ctx)
-              (Print.char_vdash ())
-              (TT.print_type ~penv t1)
-              (Print.char_equal ())
-              (TT.print_type ~penv t2)
+let print_error ~penv err ppf =
+  match err with
 
-let print_error ~penv err ppf = match err with
   | ConstantDependency ->
      Format.fprintf ppf "constants may not depend on assumptions"
 
   | NotAType -> Format.fprintf ppf "Not a type."
-
-  | AbstractDependency (ctx, x, needed_by_l) ->
-     Format.fprintf ppf "@[<hov>cannot abstract@ %t@ because@ %t@ depend%s on it, in context@,   @[<hov>%t@]@]"
-          (Name.print_atom ~printer:penv.TT.atoms x)
-          (Print.sequence (Name.print_atom ~printer:penv.TT.atoms ~parentheses:true) "," needed_by_l)
-           (match needed_by_l with [_] -> "s" | _ -> "")
-          (Ctx.print ~penv ctx)
 
   | AbstractInvalidType (x, t1, t2) ->
      Format.fprintf ppf "cannot abstract@ %t@ with type@ %t@ because it must have type@ %t"
         (Name.print_atom ~printer:penv.TT.atoms x)
         (TT.print_type ~penv t1)
         (TT.print_type ~penv t2)
-
-  | InvalidJoin (ctx1, ctx2, x) ->
-     Format.fprintf ppf "cannot join contexts@ %t and@ %t at %t"
-                    (Ctx.print ~penv ctx1)
-                    (Ctx.print ~penv ctx2)
-                    (Name.print_atom ~printer:penv.TT.atoms x ~parentheses:true)
 
   | SubstitutionDependency (x, e, y) ->
      Format.fprintf ppf "cannot substitute@ %t@ with@ %t,@ dependency cycle at@ %t"
@@ -631,18 +422,36 @@ let print_error ~penv err ppf = match err with
 
 (** Destructors *)
 
-let invert_is_term (IsTerm (ctx,e,t)) =
-  match e.Location.thing.TT.thing with
-    | TT.Atom x ->
-      begin match Ctx.lookup_atom x ctx with
-        | Some j -> IsAtom j
-        | None -> assert false
-      end
+let natural_type = function
+  | TT.TermAtom (_, t) -> t
+  | TT.TermBound _ -> assert false
+  | TT.TermConstructor _ -> failwith "should look it up in the signature"
+  | TT.TermConvert (_, _, t) -> t (* XXX what happens with assumptions? *)
 
-    | TT.TermConstructor (c, args) ->
-       assert false (* XXX to do *)
+let invert_is_term (IsTerm e) =
+  match e with
 
-    | TT.Bound _ -> assert false
+  | Abstract ((x, t), abstr) ->
+     let x = TT.mk_atom x t in
+     let abstr =
+       TT.instantiate_abstraction
+         (fun e0 ?lvl (e, t) -> (TT.instantiate_term e0 ?lvl e, TT.instantiate_type e0 ?lvl t))
+         x
+     in
+     TermAbstract ((x, t), abstr)
+
+    | NotAbstract (TT.TermAtom (x, t)) ->
+       TermAtom (IsAtom (x, t))
+
+    | NotAbstract (TT.TermConstructor (c, args)) ->
+       TermConstructor (c, args)
+
+    | NotAbstract (TT.TermConvert (e, asmp, ty)) ->
+       (* XXX what happens with assumptions? *)
+       let te = natural_type e in
+       TermConvert (IsTerm (NotAbstract e), (EqType (NotAbstract (te, ty))))
+
+    | NotAbstract (TT.TermBound _) -> assert false
 
 let invert_is_type (IsType (ctx, ty)) =
   match ty.Location.thing.TT.thing with
@@ -852,42 +661,32 @@ let natural_type ~loc sgn ctx e =
 
     | TT.Bound _ -> assert false
 
-let natural_eq_type ~loc sgn (IsTerm (ctx, e, derived)) =
-  let natural = natural_type ~loc sgn ctx e in
-  EqType (ctx, natural, derived)
-
 module Json =
 struct
 
-  let context ctx =
-    let dict =
-      AtomMap.fold
-        (fun x {ty; needed_by} dict ->
-         (Name.Json.atom x,
-          Json.tuple [TT.Json.ty ty; Name.Json.atomset needed_by]) :: dict)
-        ctx
-        []
-    in
-    Json.Dict dict
+  let rec abstraction json_u = function
+    | NotAbstract u -> Json.tag "NotAbstract" [json_u u]
+    | Abstract ((x, t), abstr) ->
+       Json.tag "Abstract" [Name.Json.ident x; TT.Json.ty t; abstraction json_u abstr]
 
-  let is_term (IsTerm (ctx, e, ty)) =
-    Json.record [("context", context ctx);
-                 ("term", TT.Json.term e);
-                 ("type", TT.Json.ty ty)]
+  let is_term (IsTerm abstr) =
+    abstraction
+      (fun (e, ty) -> Json.tag "IsTerm" [TT.Json.term e; TT.Json.ty ty])
+      abstr
 
-  let is_type (IsType (ctx, ty)) =
-    Json.record [("context", context ctx);
-                 ("type", TT.Json.ty ty)]
+  let is_type (IsType abstr) =
+    abstraction
+      (fun ty -> Json.tag "IsType" [TT.Json.ty ty])
+      abstr
 
-  let eq_term (EqTerm (ctx, e1, e2, t)) =
-    Json.record [("context", context ctx);
-                 ("lhs", TT.Json.term e1);
-                 ("rhs", TT.Json.term e2);
-                 ("type", TT.Json.ty t)]
+  let eq_term (EqTerm abstr) =
+    abstraction
+      (fun (e1, e2, t) -> Json.tag "EqTerm" [TT.Json.term e1; TT.Json.term e2; TT.Json.ty t])
+      abstr
 
-  let eq_type (EqType (ctx, t1, t2)) =
-    Json.record [("context", context ctx);
-                 ("lhs", TT.Json.ty t1);
-                 ("rhs", TT.Json.ty t2)]
+  let eq_type (EqType abstr) =
+    abstraction
+      (fun (t1, t2) -> Json.tag "EqType" [TT.Json.ty t1; TT.Json.ty t2])
+      abstr
 
 end
