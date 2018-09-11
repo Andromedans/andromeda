@@ -48,7 +48,12 @@ and argument = private
   | ArgEqTerm of eq_term argument_abstraction
 
 (** Term constructors, these do not check for legality of constructions. *)
-val mk_atom: Name.ident -> ty -> term
+
+(** Create an atom of the given type. *)
+val mk_atom : Name.atom -> ty -> term
+
+(** Create an atom of the given type, with a fresh name. *)
+val fresh_atom : Name.ident -> ty -> term
 
 (** Create a fully applied type constructor *)
 val mk_type_constructor : Name.constant -> argument list -> ty

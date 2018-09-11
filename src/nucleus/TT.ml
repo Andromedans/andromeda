@@ -33,7 +33,6 @@ and argument =
   | ArgEqType of eq_type argument_abstraction
   | ArgEqTerm of eq_term argument_abstraction
 
-
 (** Manipulation of assumptions. *)
 
 (** The assumptions of a term [e] are the atoms and bound variables appearing in [e]. *)
@@ -92,15 +91,11 @@ and assumptions_abstraction
 
 (* Helper functions *)
 
-(* let ty_hyps {Location.thing={assumptions=a;_};_} = a
- *
- * let rec hyp_union acc = function
- *   | [] -> acc
- *   | x::rem -> hyp_union (Assumption.union acc x) rem *)
+let mk_atom x t = TermAtom (x, t)
 
-let mk_atom x t =
+let fresh_atom x t =
   let x = Name.fresh x in
-  TermAtom (x, t)
+  mk_atom x t
 
 let mk_type_constructor c args = failwith "todo"
 

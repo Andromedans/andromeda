@@ -225,8 +225,8 @@ val print_eq_type : penv:TT.print_env -> ?max_level:Level.t -> eq_type -> Format
 (* Inversion principles *)
 val invert_is_term : is_term -> shape_is_term
 val invert_is_type : is_type -> shape_is_type
-val invert_eq_type : eq_type -> is_type * is_type
-val invert_eq_term : eq_term -> is_term * is_term * is_type
+val invert_eq_type : eq_type -> TT.assumption * is_type * is_type
+val invert_eq_term : eq_term -> TT.assumption * is_term * is_term * is_type
 
 (** Deconstruct a type judgment into a type abstraction, if possible. *)
 val invert_abstract_ty : is_type -> (is_atom * is_type) option

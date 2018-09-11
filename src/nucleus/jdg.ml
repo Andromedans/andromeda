@@ -2,15 +2,15 @@ type 'a abstraction = (TT.ty, 'a) TT.abstraction
 
 (** Every judgement enforces that its context is minimal (strengthened). *)
 
-type is_atom = IsAtom of Name.atom * TT.ty
+type is_atom = Name.atom * TT.ty
 
-type is_term = IsTerm of TT.term abstraction
+type is_term = TT.term
 
-type is_type = IsType of TT.ty abstraction
+type is_type = TT.ty
 
-type eq_term = EqTerm of (TT.term * TT.term * TT.ty) abstraction
+type eq_term = TT.assumption * TT.term * TT.term * TT.ty
 
-type eq_type = EqType of (TT.ty * TT.ty) abstraction
+type eq_type = TT.assumption * TT.ty * TT.ty
 
 (** Shapes (defined below) are used to construct and invert judgements. The
    [form_XYZ] functions below take a shape and construct a judgement from it,
@@ -19,10 +19,10 @@ type eq_type = EqType of (TT.ty * TT.ty) abstraction
 
 (** Premises of a constructor. *)
 type premise =
-  | PremiseIsType of is_type
-  | PremiseIsTerm of is_term
-  | PremiseEqType of eq_type
-  | PremiseEqTerm of eq_term
+  | PremiseIsType of is_type abstraction
+  | PremiseIsTerm of is_term abstraction
+  | PremiseEqType of eq_type abstraction
+  | PremiseEqTerm of eq_term abstraction
 
 type shape_is_term =
   | TermAtom of is_atom
@@ -297,16 +297,21 @@ end
 
 (** Judgements *)
 
-let typeof (IsTerm (_, t)) = IsType t
+let natural_type sgn = function
+  | TT.TermAtom (_, t) -> t
 
-let atom_is_type (IsAtom (x,t)) = IsType t
+  | TT.TermBound k ->
+     lookup_bound k ctx (* XXX shifting *)
 
-let atom_is_term (IsAtom (x,t)) = IsTerm (TT.mk_not_abstract (TT.mk_atom x, t))
+  | TT.TermConstructor (c, args) ->
+     let sch = Signature.lookup_term_constructor c sgn in
+     instantiate_schema sch args
 
-let is_closed_ty ~loc (IsType (ctx, t)) =
-  if Ctx.is_empty ctx
-  then t
-  else error ~loc ConstantDependency
+  | TT.TermConvert (_, _, t) -> t
+
+let atom_is_type (x,t) = TT.mk_not_abstract t
+
+let atom_is_term (x,t) = TT.mk_not_abstract (TT.mk_atom x t)
 
 (** Printing *)
 
@@ -327,7 +332,7 @@ let print_abstraction occurs_v print_v ~penv ?max_level abstr ppf =
     abstr
     ppf
 
-let print_is_type ~penv ?max_level (IsType abstr) ppf =
+let print_is_type ~penv ?max_level abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hv>%t@]"
@@ -342,7 +347,7 @@ let print_is_type ~penv ?max_level (IsType abstr) ppf =
                  ~penv
                  abstr)
 
-let print_eq_term ~penv ?max_level (EqTerm abstr) ppf =
+let print_eq_term ~penv ?max_level abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hv>%t@]"
@@ -360,7 +365,7 @@ let print_eq_term ~penv ?max_level (EqTerm abstr) ppf =
                  ~max_level:Level.highest
                  abstr)
 
-let print_eq_type ~penv ?max_level (EqType abstr) ppf =
+let print_eq_type ~penv ?max_level abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hv>%t@]"
@@ -422,68 +427,57 @@ let print_error ~penv err ppf =
 
 (** Destructors *)
 
-let natural_type = function
-  | TT.TermAtom (_, t) -> t
+let invert_abstraction sgn inst_v invert_v = function
+  | TT.Abstract (x, t, abstr) ->
+     let a = TT.fresh_atom x t in
+     let abstr = TT.instantiate_abstraction TT.instantiate_type inst_v a abstr in
+     (a, abstr)
+  | TT.NotAbstract v -> invert_v sgn v
+
+let rec invert_is_term sgn = function
+
+  | TT.TermAtom (x, t) -> TermAtom (x, t)
+
   | TT.TermBound _ -> assert false
-  | TT.TermConstructor _ -> failwith "should look it up in the signature"
-  | TT.TermConvert (_, _, t) -> t (* XXX what happens with assumptions? *)
 
-let invert_is_term (IsTerm e) =
-  match e with
+  | TT.TermConstructor (c, args) ->
+     let sch_args = Signature.lookup_term_constructor c sgn in
+     let premises = invert_args sch_args args in
+     TermConstructor (c, premises)
 
-  | Abstract ((x, t), abstr) ->
-     let x = TT.mk_atom x t in
-     let abstr =
-       TT.instantiate_abstraction
-         (fun e0 ?lvl (e, t) -> (TT.instantiate_term e0 ?lvl e, TT.instantiate_type e0 ?lvl t))
-         x
-     in
-     TermAbstract ((x, t), abstr)
+  | TT.TermConvert (e, asmp, t) ->
+        let t' = natural_type e in
+        TermConvert (e, (asmp, t', t))
 
-    | NotAbstract (TT.TermAtom (x, t)) ->
-       TermAtom (IsAtom (x, t))
-
-    | NotAbstract (TT.TermConstructor (c, args)) ->
-       TermConstructor (c, args)
-
-    | NotAbstract (TT.TermConvert (e, asmp, ty)) ->
-       (* XXX what happens with assumptions? *)
-       let te = natural_type e in
-       TermConvert (IsTerm (NotAbstract e), (EqType (NotAbstract (te, ty))))
-
-    | NotAbstract (TT.TermBound _) -> assert false
-
-let invert_is_type (IsType (ctx, ty)) =
-  match ty.Location.thing.TT.thing with
-
+and invert_is_type = function
   | TT.TypeConstructor (c, args) ->
-     assert false (* XXX to do *)
+     let sch = Signature.lookup_type_constructor c sgn in
+     let premises = invert_args sch args in
+     TypeConstructor (c, premises)
 
-let invert_eq_type (EqType (ctx, ty1, ty2)) =
-  let j1 = strengthen_ty (WeakIsType (ctx, ty1))
-  and j2 = strengthen_ty (WeakIsType (ctx, ty2))
-  in j1, j2
+and invert_eq_type eq = eq
 
-let invert_eq_term (EqTerm (ctx, e1, e2, ty)) =
-  let j1 = strengthen (WeakIsTerm (ctx, e1, ty))
-  and j2 = strengthen (WeakIsTerm (ctx, e2, ty))
-  and jt = strengthen_ty (WeakIsType (ctx, ty))
-  in (j1, j2, jt)
+let invert_eq_term eq = eq
+
+and invert_args sch args = failwith "invert_args not implemented"
+
+and invert_arg sch arg = failwith "invert_arg not implemented"
 
 (** Construct judgements *)
-let form_is_term ~loc sgn = function
-  | IsAtom x -> atom_is_term ~loc x
+let form_is_term sgn = function
+  | TermAtom (x, t) -> TT.mk_not_abstract (TT.mk_atom x t)
 
  | TermConstructor (c, args) ->
-    assert false (* XXX to do *)
+    let sch = Signature.lookup_term_constructor c sgn in
+    let args = form_args sch args in
+    TT.mk_not_abstract (TT.mk_term_constructor c args)
 
-  | Abstract ((IsAtom (ctxa,x,a)),(IsTerm (ctxe,e,b))) ->
-    let ctx = Ctx.join ~loc ctxe ctxa in
-    let ctx = Ctx.abstract ~loc ctx x a in
-    let b = TT.abstract_ty x b
-    and e = TT.abstract x e in
-    let x = Name.ident_of_atom x in
-    IsTerm (ctx, TT.mk_abstract ~loc x a e b, TT.mk_abstract_ty ~loc x a b)
+  | TermAbstract ((x, t), e) ->
+     let x = Name.ident_of_atom x in
+     TT.mk_abstract x t e
+
+  | TermConvert (e, (asmp, ty1, ty2)) ->
+
 
 let form_is_type ~loc sgn = function
   | TypeConstructor (c, args) ->
@@ -642,24 +636,6 @@ let congr_abstract_term ~loc (EqType (ctxa, ta1, ta2))
     and rhs = TT.mention_atoms hypsab (TT.mk_abstract ~loc (Name.ident_of_atom y) ta2 e2 b2)
     and ty = TT.mk_abstract_ty ~loc (Name.ident_of_atom x) ta1 b1 in
     EqTerm (ctx, lhs, rhs, ty)
-
-(** Derivables *)
-
-let natural_type ~loc sgn ctx e =
-  match e.Location.thing.TT.thing with
-    | TT.Atom x ->
-      begin match Ctx.lookup_atom x ctx with
-        | Some (IsAtom (_, _, t)) -> t
-        | None -> assert false
-      end
-
-    | TT.TermConstructor (c, args) ->
-       assert false (* XXX to do *)
-
-    | TT.TermAbstract ((x,a),(_,b)) ->
-      TT.mk_abstract_ty ~loc x a b
-
-    | TT.Bound _ -> assert false
 
 module Json =
 struct
