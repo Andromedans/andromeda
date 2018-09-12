@@ -20,9 +20,9 @@ type term =
 and ty =
   | TypeConstructor of Name.constructor * argument list
 
-and eq_type = EqType of assumption
+and eq_type = EqType of assumption * ty * ty
 
-and eq_term = EqTerm of assumption
+and eq_term = EqTerm of assumption * term * term * ty
 
 and assumption = ty Assumption.t
 
@@ -30,8 +30,8 @@ and assumption = ty Assumption.t
 and argument =
   | ArgIsTerm of term argument_abstraction
   | ArgIsType of ty argument_abstraction
-  | ArgEqType of eq_type argument_abstraction
-  | ArgEqTerm of eq_term argument_abstraction
+  | ArgEqType of assumption argument_abstraction
+  | ArgEqTerm of assumption argument_abstraction
 
 (** Manipulation of assumptions. *)
 
@@ -64,19 +64,25 @@ and assumptions_arguments ~lvl args =
   in
   fold Assumption.empty args
 
-and assumptions_eq_type ~lvl (EqType asmp) =
-  Assumption.shift lvl asmp
+and assumptions_eq_type ~lvl (EqType (asmp, t1, t2)) =
+  Assumption.union
+    (assumptions_assumptions ~lvl asmp)
+    (Assumption.union (assumptions_type ~lvl t1) (assumptions_type ~lvl t2))
 
-and assumptions_eq_term ~lvl (EqTerm asmp) =
-  Assumption.shift lvl asmp
+and assumptions_eq_term ~lvl (EqTerm (asmp, e1, e2, t)) =
+  Assumption.union
+    (Assumption.union (assumptions_assumptions ~lvl asmp) (assumptions_type ~lvl t))
+    (Assumption.union (assumptions_term ~lvl e1) (assumptions_term ~lvl e2))
 
 and assumptions_argument ~lvl = function
   | ArgIsType abstr -> assumptions_abstraction assumptions_unit assumptions_type ~lvl abstr
   | ArgIsTerm abstr -> assumptions_abstraction assumptions_unit assumptions_term ~lvl abstr
-  | ArgEqType asmp -> assumptions_abstraction assumptions_unit assumptions_eq_type ~lvl asmp
-  | ArgEqTerm asmp -> assumptions_abstraction assumptions_unit assumptions_eq_term ~lvl asmp
+  | ArgEqType abstr -> assumptions_abstraction assumptions_unit assumptions_assumptions ~lvl abstr
+  | ArgEqTerm abstr -> assumptions_abstraction assumptions_unit assumptions_assumptions ~lvl abstr
 
 and assumptions_unit ~lvl _ = Assumption.empty
+
+and assumptions_assumptions ~lvl asmp = Assumption.shift ~lvl asmp
 
 and assumptions_abstraction
   : 'a 'b . (lvl:bound -> 'a -> assumption) ->
@@ -168,20 +174,25 @@ and instantiate_argument e0 ?(lvl=0) = function
        ArgIsTerm e
 
     | ArgEqType asmp ->
-       let asmp = instantiate_abstraction instantiate_unit instantiate_eq_type e0 ~lvl asmp in
+       let asmp = instantiate_abstraction instantiate_unit instantiate_assumptions e0 ~lvl asmp in
        ArgEqType asmp
 
     | ArgEqTerm asmp ->
-       let asmp = instantiate_abstraction instantiate_unit instantiate_eq_term e0 ~lvl asmp in
+       let asmp = instantiate_abstraction instantiate_unit instantiate_assumptions e0 ~lvl asmp in
        ArgEqTerm asmp
 
-and instantiate_eq_type e0 ?(lvl=0) (EqType asmp) =
-  let asmp = assumptions_term ~lvl e0 in
-  EqType asmp
+and instantiate_eq_type e0 ?(lvl=0) (EqType (asmp, t1, t2)) =
+  let asmp = instantiate_assumptions e0 ~lvl asmp
+  and t1 = instantiate_type e0 ~lvl t1
+  and t2 = instantiate_type e0 ~lvl t2 in
+  EqType (asmp, t1, t2)
 
-and instantiate_eq_term e0 ?(lvl=0) (EqTerm asmp) =
-  let asmp = assumptions_term ~lvl e0 in
-  EqTerm asmp
+and instantiate_eq_term e0 ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
+  let asmp = instantiate_assumptions e0 ~lvl asmp
+  and e1 = instantiate_term e0 ~lvl e1
+  and e2 = instantiate_term e0 ~lvl e2
+  and t = instantiate_type e0 ~lvl t in
+  EqTerm (asmp, e1, e2, t)
 
 and instantiate_assumptions e0 ?(lvl=0) asmp =
   let asmp' = assumptions_term ~lvl e0 in
@@ -231,20 +242,28 @@ and abstract_argument x ?(lvl=0) = function
     | ArgIsTerm e -> ArgIsTerm (abstract_abstraction abstract_unit abstract_term x ~lvl e)
 
     | ArgEqType asmp ->
-       let asmp = abstract_abstraction abstract_unit abstract_eq_type x ~lvl asmp in
+       let asmp = abstract_abstraction abstract_unit abstract_assumptions x ~lvl asmp in
        ArgEqType asmp
 
     | ArgEqTerm asmp ->
-       let asmp = abstract_abstraction abstract_unit abstract_eq_term x ~lvl asmp in
+       let asmp = abstract_abstraction abstract_unit abstract_assumptions x ~lvl asmp in
        ArgEqTerm asmp
 
-and abstract_eq_type x ?(lvl=0) (EqType asmp) =
-  let asmp = Assumption.abstract x ~lvl asmp in
-  EqType asmp
+and abstract_assumptions x ?(lvl=0) asmp =
+  Assumption.abstract x ~lvl asmp
 
-and abstract_eq_term x ?(lvl=0) (EqTerm asmp) =
-  let asmp = Assumption.abstract x ~lvl asmp in
-  EqTerm asmp
+and abstract_eq_type x ?(lvl=0) (EqType (asmp, t1, t2)) =
+  let asmp = abstract_assumptions x ~lvl asmp
+  and t1 = abstract_type x ~lvl t1
+  and t2 = abstract_type x ~lvl t2
+  in EqType (asmp, t1, t2)
+
+and abstract_eq_term x ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
+  let asmp = abstract_assumptions x ~lvl asmp
+  and e1 = abstract_term x ~lvl e1
+  and e2 = abstract_term x ~lvl e2
+  and t = abstract_type x ~lvl t
+  in EqTerm (asmp, e1, e2, t)
 
 and abstract_unit _ ?(lvl=0) () = ()
 
@@ -289,12 +308,14 @@ and occurs_args k = function
 and occurs_arg k = function
   | ArgIsType t  -> occurs_abstraction occurs_unit occurs_type k t
   | ArgIsTerm e  -> occurs_abstraction occurs_unit occurs_term k e
-  | ArgEqType abstr -> occurs_abstraction occurs_unit occurs_eq_type k abstr
-  | ArgEqTerm abstr -> occurs_abstraction occurs_unit occurs_eq_term k abstr
+  | ArgEqType abstr -> occurs_abstraction occurs_unit occurs_assumptions k abstr
+  | ArgEqTerm abstr -> occurs_abstraction occurs_unit occurs_assumptions k abstr
 
-and occurs_eq_type k (EqType asmp) = occurs_assumptions k asmp
+and occurs_eq_type k (EqType (asmp, t1, t2)) =
+  occurs_assumptions k asmp || occurs_type k t1 || occurs_type k t2
 
-and occurs_eq_term k (EqTerm asmp) = occurs_assumptions k asmp
+and occurs_eq_term k (EqTerm (asmp, e1, e2, t)) =
+  occurs_assumptions k asmp || occurs_term k e1 || occurs_term k e2 || occurs_type k t
 
 and occurs_unit _ _ = false
 

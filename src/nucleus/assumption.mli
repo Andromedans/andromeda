@@ -13,7 +13,7 @@ val mem_atom : Name.atom -> 'a t -> bool
 val mem_bound : int -> 'a t -> bool
 
 (** [shift lvl asmp] removes bound variables below [lvl] and subtracts [lvl] from the other ones. *)
-val shift : int -> 'a t -> 'a t
+val shift : lvl:int -> 'a t -> 'a t
 
 val singleton_free : Name.atom -> 'a -> 'a t
 

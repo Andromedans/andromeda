@@ -16,7 +16,7 @@ let mem_atom x s = AtomMap.mem x s.free
 
 let mem_bound k s = BoundSet.mem k s.bound
 
-let shift lvl s =
+let shift ~lvl s =
   { s with
     bound = BoundSet.fold
               (fun k s -> if k < lvl then s else BoundSet.add (k - lvl) s)

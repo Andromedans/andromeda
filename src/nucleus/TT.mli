@@ -2,11 +2,8 @@
 
 type bound
 
-(** The type of TT terms.
-
-    We use locally nameless syntax: names for free variables and deBruijn
-    indices for bound variables.
-*)
+(** We use locally nameless syntax: names for free variables and deBruijn
+   indices for bound variables. *)
 
 (** An abstracted entity. *)
 type ('a, 'b) abstraction = private
@@ -34,18 +31,18 @@ and ty = private
   (** a type constructor *)
   | TypeConstructor of Name.constant * argument list
 
-and eq_type = private EqType of assumption
+and eq_type = private EqType of assumption * ty * ty
 
-and eq_term = private EqTerm of assumption
+and eq_term = private EqTerm of assumption * term * term * ty
 
 and assumption = ty Assumption.t
 
-(** an argument of a term or type constructor *)
+(** An argument of a term or type constructor. *)
 and argument = private
   | ArgIsTerm of term argument_abstraction
   | ArgIsType of ty argument_abstraction
-  | ArgEqType of eq_type argument_abstraction
-  | ArgEqTerm of eq_term argument_abstraction
+  | ArgEqType of assumption argument_abstraction
+  | ArgEqTerm of assumption argument_abstraction
 
 (** Term constructors, these do not check for legality of constructions. *)
 

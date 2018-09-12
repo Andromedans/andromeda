@@ -1,21 +1,20 @@
-(** A judgement context. *)
-type ctx
+(** Judgements can be abstracted *)
+type 'a abstraction = (TT.ty, 'a) TT.abstraction
 
-(** Possibly abstracted judgement that something is a term, i.e.,
-    [ctx |- e : t] or [ctx |- {x1 : t1} .... {xn : tn} (e : t)] *)
+(** Judgement that something is a term. *)
 type is_term
 
-(** Judgement [(x : t) in ctx] *)
+(** Judgement that somethin is an atom. *)
 type is_atom
 
-(** Possibly abstracted judgement [ctx |- t type] *)
+(** Judgement that something is a type. *)
 type is_type
 
-(** Possibly abstracted judgement [ctx |- e1 == e2 : t] *)
-type eq_term
-
-(** Possibly abstracted judgement [ctx |- t1 == t2] *)
+(** Judgement that something is a type equality. *)
 type eq_type
+
+(** Judgement that something is a term equality. *)
+type eq_term
 
 (** An argument to a term or type constructor *)
 type premise =
@@ -24,16 +23,24 @@ type premise =
   | PremiseEqType of eq_type
   | PremiseEqTerm of eq_term
 
-(** Contains enough information to construct a new judgement *)
-type shape_is_term =
-  | Atom of is_atom
+(** A shape is the data needed to form a judgement, or to invert it. Shapes of
+   equations are special, because they allow only partial inversion. *)
+
+type shape_is_type =
+  | TypeConstructor of Name.constructor * premise list
+
+and shape_is_term =
+  | TermAtom of Name.atom * TT.ty
   | TermConstructor of Name.constructor * premise list
   | TermConvert of is_term * eq_type
-  | TermAbstract of is_atom * is_term
 
-and shape_is_type =
-  | TypeConstructor of Name.constructor * premise list
-  | TypeAbstract of is_atom * is_type
+and shape_eq_type =
+  | EqType of TT.eq_type * is_type * is_type
+
+and shape_eq_term =
+  | EqTerm of TT.eq_term * is_term * is_term * is_type
+
+type ctx
 
 module Ctx : sig
   (** The type of contexts. *)

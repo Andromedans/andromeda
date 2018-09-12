@@ -8,9 +8,10 @@ type is_term = TT.term
 
 type is_type = TT.ty
 
-type eq_term = TT.assumption * TT.term * TT.term * TT.ty
+type eq_type = TT.eq_type
 
-type eq_type = TT.assumption * TT.ty * TT.ty
+type eq_term = TT.eq_term
+
 
 (** Shapes (defined below) are used to construct and invert judgements. The
    [form_XYZ] functions below take a shape and construct a judgement from it,
@@ -28,7 +29,6 @@ type shape_is_term =
   | TermAtom of is_atom
   | TermConstructor of Name.constructor * premise list
   | TermConvert of is_term * eq_type
-  | TermAbstract of is_atom * is_term
 
 and shape_is_type =
   | TypeConstructor of Name.constructor * premise list
@@ -447,7 +447,9 @@ let rec invert_is_term sgn = function
 
   | TT.TermConvert (e, asmp, t) ->
         let t' = natural_type e in
-        TermConvert (e, (asmp, t', t))
+        let e = TT.mk_not_abstract e in
+        let eq = TT.mk_not_abstract (TT.mk_eq_type asmp t' t) in
+        TermConvert (e, eq)
 
 and invert_is_type = function
   | TT.TypeConstructor (c, args) ->
