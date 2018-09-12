@@ -1,8 +1,6 @@
-type 'a abstraction = (TT.ty, 'a) TT.abstraction
+type 'a abstraction = 'a TT.abstraction
 
 (** Every judgement enforces that its context is minimal (strengthened). *)
-
-type is_atom = Name.atom * TT.ty
 
 type is_term = TT.term
 
@@ -13,9 +11,9 @@ type eq_type = TT.eq_type
 type eq_term = TT.eq_term
 
 
-(** Shapes (defined below) are used to construct and invert judgements. The
-   [form_XYZ] functions below take a shape and construct a judgement from it,
-   whereas the [invert_XYZ] functions do the opposite. We can think of shapes as
+(** Stumps (defined below) are used to construct and invert judgements. The
+   [form_XYZ] functions below take a stump and construct a judgement from it,
+   whereas the [invert_XYZ] functions do the opposite. We can think of stumps as
    "stumps", i.e., the lowest level of a derivation tree. *)
 
 (** Premises of a constructor. *)
@@ -25,14 +23,19 @@ type premise =
   | PremiseEqType of eq_type abstraction
   | PremiseEqTerm of eq_term abstraction
 
-type shape_is_term =
-  | TermAtom of is_atom
+type stump_is_type =
+  | TypeConstructor of Name.constructor * premise list
+
+type stump_is_term =
+  | TermAtom of is_type TT.atom
   | TermConstructor of Name.constructor * premise list
   | TermConvert of is_term * eq_type
 
-and shape_is_type =
-  | TypeConstructor of Name.constructor * premise list
-  | TypeAbstract of is_atom * is_type
+type stump_eq_type =
+  | EqType of TT.assumption * is_type * is_type
+
+type stump_eq_term =
+  | EqTerm of TT.assumption * is_term * is_term * is_type
 
 (** Error messages emitted by this module. *)
 
@@ -301,7 +304,7 @@ let natural_type sgn = function
   | TT.TermAtom (_, t) -> t
 
   | TT.TermBound k ->
-     lookup_bound k ctx (* XXX shifting *)
+     lookup_bound k ctx (* XXX shifting, do we need this case? *)
 
   | TT.TermConstructor (c, args) ->
      let sch = Signature.lookup_term_constructor c sgn in
@@ -314,11 +317,6 @@ let atom_is_type (x,t) = TT.mk_not_abstract t
 let atom_is_term (x,t) = TT.mk_not_abstract (TT.mk_atom x t)
 
 (** Printing *)
-
-let print_binder ~penv (x,t) ppf =
-  Print.print ppf "(%t@ :@ %t)"
-    (Name.print_ident ~parentheses:true x)
-    (TT.print_type ~penv t)
 
 (** [print_abstraction occurs_v print_v ?max_level ~penv abstr ppf] prints an abstraction using formatter [ppf]. *)
 let print_abstraction occurs_v print_v ~penv ?max_level abstr ppf =
@@ -427,22 +425,22 @@ let print_error ~penv err ppf =
 
 (** Destructors *)
 
-let invert_abstraction sgn inst_v invert_v = function
-  | TT.Abstract (x, t, abstr) ->
-     let a = TT.fresh_atom x t in
-     let abstr = TT.instantiate_abstraction TT.instantiate_type inst_v a abstr in
-     (a, abstr)
-  | TT.NotAbstract v -> invert_v sgn v
+let invert_arg = function
+  | TT.ArgIsTerm abstr -> PremiseIsTerm abstr
+  | TT.ArgIsType abstr -> PremiseIsType abstr
+  | TT.ArgEqType abstr -> PremiseEqType abstr
+  | TT.ArgEqTerm abstr -> PremiseEqTerm abstr
 
-let rec invert_is_term sgn = function
+let invert_args args = List.map invert_arg args
 
-  | TT.TermAtom (x, t) -> TermAtom (x, t)
+let invert_is_term sgn = function
+
+  | TT.TermAtom a -> TermAtom a
 
   | TT.TermBound _ -> assert false
 
   | TT.TermConstructor (c, args) ->
-     let sch_args = Signature.lookup_term_constructor c sgn in
-     let premises = invert_args sch_args args in
+     let premises = invert_args args in
      TermConstructor (c, premises)
 
   | TT.TermConvert (e, asmp, t) ->
@@ -451,19 +449,21 @@ let rec invert_is_term sgn = function
         let eq = TT.mk_not_abstract (TT.mk_eq_type asmp t' t) in
         TermConvert (e, eq)
 
-and invert_is_type = function
+let invert_is_type = function
   | TT.TypeConstructor (c, args) ->
-     let sch = Signature.lookup_type_constructor c sgn in
-     let premises = invert_args sch args in
+     let premises = invert_args args in
      TypeConstructor (c, premises)
 
-and invert_eq_type eq = eq
+let invert_eq_type eq = eq
 
 let invert_eq_term eq = eq
 
-and invert_args sch args = failwith "invert_args not implemented"
-
-and invert_arg sch arg = failwith "invert_arg not implemented"
+let invert_abstraction inst_v invert_v = function
+  | TT.Abstract (x, t, abstr) ->
+     let a = TT.mk_atom x t in
+     let abstr = TT.instantiate_abstraction inst_v a abstr in
+     (Some a, abstr)
+  | TT.NotAbstract v -> (None, invert_v v)
 
 (** Construct judgements *)
 let form_is_term sgn = function
@@ -477,8 +477,6 @@ let form_is_term sgn = function
   | TermAbstract ((x, t), e) ->
      let x = Name.ident_of_atom x in
      TT.mk_abstract x t e
-
-  | TermConvert (e, (asmp, ty1, ty2)) ->
 
 
 let form_is_type ~loc sgn = function

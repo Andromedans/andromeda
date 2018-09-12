@@ -1,5 +1,5 @@
 (** Judgements can be abstracted *)
-type 'a abstraction = (TT.ty, 'a) TT.abstraction
+type 'a abstraction = 'a TT.abstraction
 
 (** Judgement that something is a term. *)
 type is_term
@@ -23,22 +23,22 @@ type premise =
   | PremiseEqType of eq_type
   | PremiseEqTerm of eq_term
 
-(** A shape is the data needed to form a judgement, or to invert it. Shapes of
+(** A stump is the data needed to form a judgement, or to invert it. Stumps of
    equations are special, because they allow only partial inversion. *)
 
-type shape_is_type =
+type stump_is_type =
   | TypeConstructor of Name.constructor * premise list
 
-and shape_is_term =
-  | TermAtom of Name.atom * TT.ty
+type stump_is_term =
+  | TermAtom of is_type TT.atom
   | TermConstructor of Name.constructor * premise list
   | TermConvert of is_term * eq_type
 
-and shape_eq_type =
-  | EqType of TT.eq_type * is_type * is_type
+type stump_eq_type =
+  | EqType of TT.assumption * is_type * is_type
 
-and shape_eq_term =
-  | EqTerm of TT.eq_term * is_term * is_term * is_type
+type stump_eq_term =
+  | EqTerm of TT.assumption * is_term * is_term * is_type
 
 type ctx
 
@@ -230,8 +230,8 @@ val print_eq_type : penv:TT.print_env -> ?max_level:Level.t -> eq_type -> Format
 (** Destructors *)
 
 (* Inversion principles *)
-val invert_is_term : is_term -> shape_is_term
-val invert_is_type : is_type -> shape_is_type
+val invert_is_term : is_term -> stump_is_term
+val invert_is_type : is_type -> stump_is_type
 val invert_eq_type : eq_type -> TT.assumption * is_type * is_type
 val invert_eq_term : eq_term -> TT.assumption * is_term * is_term * is_type
 
@@ -239,10 +239,10 @@ val invert_eq_term : eq_term -> TT.assumption * is_term * is_term * is_type
 val invert_abstract_ty : is_type -> (is_atom * is_type) option
 
 (** Construct a term judgement using the appropriate formation rule. The type is the natural type. *)
-val form_is_term : loc:Location.t -> Signature.t -> shape_is_term -> is_term
+val form_is_term : loc:Location.t -> Signature.t -> stump_is_term -> is_term
 
 (** Construct a type judgement using the appropriate formation rule. *)
-val form_is_type : loc:Location.t -> Signature.t -> shape_is_type -> is_type
+val form_is_type : loc:Location.t -> Signature.t -> stump_is_type -> is_type
 
 (** Substitution *)
 

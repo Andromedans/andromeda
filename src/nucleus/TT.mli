@@ -5,17 +5,14 @@ type bound
 (** We use locally nameless syntax: names for free variables and deBruijn
    indices for bound variables. *)
 
-(** An abstracted entity. *)
-type ('a, 'b) abstraction = private
-  | Abstract of Name.ident * 'a * ('a,'b) abstraction
-  | NotAbstract of 'b
+(** The type of TT types. *)
+type ty = private
+  (** a type constructor *)
+  | TypeConstructor of Name.constant * argument list
 
-(** An abstracted argument of a constructor (does not carry any type information). *)
-type 'a argument_abstraction = (unit, 'a) abstraction
-
-type term = private
+and term = private
   (** a free variable *)
-  | TermAtom of Name.atom * ty
+  | TermAtom of ty atom
 
   (** a bound variable *)
   | TermBound of bound
@@ -26,45 +23,45 @@ type term = private
   (** a term conversion *)
   | TermConvert of term * assumption * ty
 
-(** The type of TT types. *)
-and ty = private
-  (** a type constructor *)
-  | TypeConstructor of Name.constant * argument list
-
 and eq_type = private EqType of assumption * ty * ty
 
 and eq_term = private EqTerm of assumption * term * term * ty
 
 and assumption = ty Assumption.t
 
+and 't atom = private { atom_name : Name.atom ; atom_type : 't }
+
 (** An argument of a term or type constructor. *)
 and argument = private
-  | ArgIsTerm of term argument_abstraction
-  | ArgIsType of ty argument_abstraction
-  | ArgEqType of assumption argument_abstraction
-  | ArgEqTerm of assumption argument_abstraction
+  | ArgIsTerm of term abstraction
+  | ArgIsType of ty abstraction
+  | ArgEqType of eq_type abstraction
+  | ArgEqTerm of eq_term abstraction
+
+(** An abstracted entity. *)
+and 'a abstraction = private
+  | Abstract of Name.ident * ty * 'a abstraction
+  | NotAbstract of 'a
+
 
 (** Term constructors, these do not check for legality of constructions. *)
 
-(** Create an atom of the given type. *)
-val mk_atom : Name.atom -> ty -> term
-
-(** Create an atom of the given type, with a fresh name. *)
-val fresh_atom : Name.ident -> ty -> term
+(** Create a fresh atom of the given type. *)
+val mk_atom : Name.ident -> 't -> 't atom
 
 (** Create a fully applied type constructor *)
 val mk_type_constructor : Name.constant -> argument list -> ty
 
-val mk_arg_is_type : ty argument_abstraction -> argument
-val mk_arg_is_term : term argument_abstraction -> argument
-val mk_arg_eq_type : eq_type argument_abstraction -> argument
-val mk_arg_eq_term : eq_term argument_abstraction -> argument
+val mk_arg_is_type : ty abstraction -> argument
+val mk_arg_is_term : term abstraction -> argument
+val mk_arg_eq_type : eq_type abstraction -> argument
+val mk_arg_eq_term : eq_term abstraction -> argument
 
 (** Make a non-abstracted constructor argument *)
-val mk_not_abstract : 'b -> ('a, 'b) abstraction
+val mk_not_abstract : 'a -> 'a abstraction
 
 (** Abstract a term argument *)
-val mk_abstract : Name.ident -> 'a -> ('a, 'b) abstraction -> ('a, 'b) abstraction
+val mk_abstract : Name.ident -> ty -> 'a abstraction -> 'a abstraction
 
 (** [instantiate_term e0 ~lvl:k e] replaces bound variable [k] (defualt [0])  with term [e0] in term [e]. *)
 val instantiate_term: term -> ?lvl:bound -> term -> term
@@ -76,8 +73,7 @@ val instantiate_type: term -> ?lvl:bound -> ty -> ty
     [k] (default [0]) with term [e0] in the given abstraction. *)
 val instantiate_abstraction :
   (term -> ?lvl:bound -> 'a -> 'a) ->
-  (term -> ?lvl:bound -> 'b -> 'b) ->
-  term -> ?lvl:bound -> ('a, 'b) abstraction -> ('a, 'b) abstraction
+  term -> ?lvl:bound -> 'a abstraction -> 'a abstraction
 
 (** [abstract_term x0 ~lvl:k e] replaces atom [x0] in term [e] with bound variable [k] (default [0]). *)
 val abstract_term : Name.atom -> ?lvl:bound -> term -> term
@@ -117,14 +113,13 @@ type print_env = private
 (** Forbid the given identifier from being used as a bound variable. *)
 val add_forbidden : Name.ident -> print_env -> print_env
 
+(** [print_abstraction occurs_v print_v ?max_level ~penv abstr ppf] prints an abstraction using formatter [ppf]. *)
 val print_abstraction :
    (bound -> 'a -> bool) ->
-   (penv:print_env -> Name.ident * 'a -> Format.formatter -> unit) ->
-   (bound -> 'b -> bool) ->
-   (?max_level:Level.t -> penv:print_env -> 'b -> Format.formatter -> unit) ->
+   (?max_level:Level.t -> penv:print_env -> 'a -> Format.formatter -> unit) ->
    ?max_level:Level.t ->
    penv:print_env ->
-   ('a, 'b) abstraction ->
+   'a abstraction ->
    Format.formatter -> unit
 
 val print_type : ?max_level:Level.t -> penv:print_env -> ty -> Format.formatter -> unit
