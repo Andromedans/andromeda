@@ -79,8 +79,8 @@ and assumptions_eq_term ~lvl (EqTerm (asmp, e1, e2, t)) =
 and assumptions_argument ~lvl = function
   | ArgIsType abstr -> assumptions_abstraction assumptions_type ~lvl abstr
   | ArgIsTerm abstr -> assumptions_abstraction assumptions_term ~lvl abstr
-  | ArgEqType abstr -> assumptions_abstraction assumptions_assumptions ~lvl abstr
-  | ArgEqTerm abstr -> assumptions_abstraction assumptions_assumptions ~lvl abstr
+  | ArgEqType abstr -> assumptions_abstraction assumptions_eq_type ~lvl abstr
+  | ArgEqTerm abstr -> assumptions_abstraction assumptions_eq_term ~lvl abstr
 
 and assumptions_assumptions ~lvl asmp = Assumption.shift ~lvl asmp
 
@@ -96,16 +96,26 @@ and assumptions_abstraction
 
 (* Helper functions *)
 
-let mk_atom x t =
+let fresh_atom x t =
   let x = Name.fresh x in
   { atom_name = x; atom_type = t }
 
-let mk_type_constructor c args = failwith "todo"
+let mk_atom a = TermAtom a
+
+let mk_type_constructor c args = TypeConstructor (c, args)
+
+let mk_term_constructor c args = TermConstructor (c, args)
+
+let mk_term_convert e asmp t = TermConvert (e, asmp, t)
 
 let mk_arg_is_type t = ArgIsType t
 let mk_arg_is_term e = ArgIsTerm e
 let mk_arg_eq_type s = ArgEqType s
 let mk_arg_eq_term s = ArgEqTerm s
+
+let mk_eq_type asmp t1 t2 = EqType (asmp, t1, t2)
+
+let mk_eq_term asmp e1 e2 t = EqTerm (asmp, e1, e2, t)
 
 let mk_not_abstract e = NotAbstract e
 
@@ -170,11 +180,11 @@ and instantiate_argument e0 ?(lvl=0) = function
        ArgIsTerm e
 
     | ArgEqType asmp ->
-       let asmp = instantiate_abstraction instantiate_assumptions e0 ~lvl asmp in
+       let asmp = instantiate_abstraction instantiate_eq_type e0 ~lvl asmp in
        ArgEqType asmp
 
     | ArgEqTerm asmp ->
-       let asmp = instantiate_abstraction instantiate_assumptions e0 ~lvl asmp in
+       let asmp = instantiate_abstraction instantiate_eq_term e0 ~lvl asmp in
        ArgEqTerm asmp
 
 and instantiate_eq_type e0 ?(lvl=0) (EqType (asmp, t1, t2)) =
@@ -236,11 +246,11 @@ and abstract_argument x ?(lvl=0) = function
     | ArgIsTerm e -> ArgIsTerm (abstract_abstraction abstract_term x ~lvl e)
 
     | ArgEqType asmp ->
-       let asmp = abstract_abstraction abstract_assumptions x ~lvl asmp in
+       let asmp = abstract_abstraction abstract_eq_type x ~lvl asmp in
        ArgEqType asmp
 
     | ArgEqTerm asmp ->
-       let asmp = abstract_abstraction abstract_assumptions x ~lvl asmp in
+       let asmp = abstract_abstraction abstract_eq_term x ~lvl asmp in
        ArgEqTerm asmp
 
 and abstract_assumptions x ?(lvl=0) asmp =
@@ -299,8 +309,8 @@ and occurs_args k = function
 and occurs_arg k = function
   | ArgIsType t  -> occurs_abstraction occurs_type k t
   | ArgIsTerm e  -> occurs_abstraction occurs_term k e
-  | ArgEqType abstr -> occurs_abstraction occurs_assumptions k abstr
-  | ArgEqTerm abstr -> occurs_abstraction occurs_assumptions k abstr
+  | ArgEqType abstr -> occurs_abstraction occurs_eq_type k abstr
+  | ArgEqTerm abstr -> occurs_abstraction occurs_eq_term k abstr
 
 and occurs_eq_type k (EqType (asmp, t1, t2)) =
   occurs_assumptions k asmp || occurs_type k t1 || occurs_type k t2
@@ -353,7 +363,7 @@ and alpha_equal_args args args' =
      alpha_equal_abstraction alpha_equal e e' && alpha_equal_args args args'
 
   | (ArgIsType t)::args, (ArgIsType t')::args' ->
-     alpha_equal_abstraction alpha_equal_ty t t' && alpha_equal_args args args'
+     alpha_equal_abstraction alpha_equal_type t t' && alpha_equal_args args args'
 
   | ArgEqType _ :: args, ArgEqType _ :: args' -> alpha_equal_args args args'
 

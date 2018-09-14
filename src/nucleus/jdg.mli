@@ -247,7 +247,7 @@ val form_is_type : loc:Location.t -> Signature.t -> stump_is_type -> is_type
 (** Substitution *)
 
 (** [substitute_ty t a v] substitutes [a] with [v] in [t]. *)
-val substitute_ty : loc:Location.t -> is_type -> is_atom -> is_term -> is_type
+val substitute_ty : loc:Location.t -> is_atom -> is_term -> is_type -> is_type
 
 (** [substitute e a v] substitutes [a] with [v] in [e]. *)
 val substitute : loc:Location.t -> is_term -> is_atom -> is_term -> is_term

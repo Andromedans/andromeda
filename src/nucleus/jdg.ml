@@ -69,13 +69,12 @@ module Rule = struct
       | Abstract of Name.ident * 'a abstraction
 
     type term =
-      | TermMeta of meta (* a previously matched meta-variable *)
+      | TermMeta of meta * argument list (* a previously matched meta-variable, instantiated *)
       | TermBound of bound
-      | TermInstantiate of term * argument list
       | TermConstructor of Name.constructor * argument list
 
     and ty =
-      | TypeMeta of meta (* a previously matched meta-variable *)
+      | TypeMeta of meta * argument list (* a previously matched meta-variable, instantiated *)
       | TypeInstantiate of ty * argument list
       | TypeConstructor of Name.constructor * argument list
 
@@ -318,24 +317,12 @@ let atom_is_term (x,t) = TT.mk_not_abstract (TT.mk_atom x t)
 
 (** Printing *)
 
-(** [print_abstraction occurs_v print_v ?max_level ~penv abstr ppf] prints an abstraction using formatter [ppf]. *)
-let print_abstraction occurs_v print_v ~penv ?max_level abstr ppf =
-  TT.print_abstraction
-    TT.occurs_type
-    print_binder
-    occurs_v
-    print_v
-    ?max_level
-    ~penv
-    abstr
-    ppf
-
 let print_is_type ~penv ?max_level abstr ppf =
   (* TODO: print invisible assumptions, or maybe the entire context *)
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hv>%t@]"
               (Print.char_vdash ())
-              (print_abstraction
+              (TT.print_abstraction
                  TT.occurs_type
                  (fun ?max_level ~penv t ppf ->
                    Print.print ppf "@[<hv>@[<hov>%t@]@;<1 -2>: type@]"
@@ -350,7 +337,7 @@ let print_eq_term ~penv ?max_level abstr ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hv>%t@]"
               (Print.char_vdash ())
-              (print_abstraction
+              (TT.print_abstraction
                  (fun k (e1, e2, t) -> TT.occurs_term k e1 || TT.occurs_term k e2 || TT.occurs_type k t)
                  (fun ?max_level ~penv (e1, e2, t) ppf ->
                    Print.print ppf "@[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]@]"
@@ -368,7 +355,7 @@ let print_eq_type ~penv ?max_level abstr ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
               "%s @[<hv>%t@]"
               (Print.char_vdash ())
-              (print_abstraction
+              (TT.print_abstraction
                  (fun k (t1, t2) -> TT.occurs_type k t1 || TT.occurs_type k t2)
                  (fun ?max_level ~penv (t1, t2) ppf ->
                    Print.print ppf "@[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
@@ -445,8 +432,7 @@ let invert_is_term sgn = function
 
   | TT.TermConvert (e, asmp, t) ->
         let t' = natural_type e in
-        let e = TT.mk_not_abstract e in
-        let eq = TT.mk_not_abstract (TT.mk_eq_type asmp t' t) in
+        let eq = TT.mk_eq_type asmp t' t in
         TermConvert (e, eq)
 
 let invert_is_type = function
@@ -460,46 +446,46 @@ let invert_eq_term eq = eq
 
 let invert_abstraction inst_v invert_v = function
   | TT.Abstract (x, t, abstr) ->
-     let a = TT.mk_atom x t in
+     let a = TT.mk_atom (TT.fresh_atom x t) in
      let abstr = TT.instantiate_abstraction inst_v a abstr in
      (Some a, abstr)
   | TT.NotAbstract v -> (None, invert_v v)
 
 (** Construct judgements *)
-let form_is_term sgn = function
-  | TermAtom (x, t) -> TT.mk_not_abstract (TT.mk_atom x t)
+let form_is_term ~loc sgn = function
+  | TermAtom a -> TT.mk_atom a
 
  | TermConstructor (c, args) ->
     let sch = Signature.lookup_term_constructor c sgn in
     let args = form_args sch args in
-    TT.mk_not_abstract (TT.mk_term_constructor c args)
+    TT.mk_term_constructor c args
 
-  | TermAbstract ((x, t), e) ->
-     let x = Name.ident_of_atom x in
-     TT.mk_abstract x t e
-
+ | TermConvert (e, TT.EqType (asmp, t1, t2)) ->
+    let (asmp0, t0) =
+      begin match e with
+      | TermConvert (e, asmp0, t0) -> asmp0, t0
+      | TermAtom _ | TermBound _ | TermConstructor _ ->
+         Assumption.empty, natural_type sgn e
+      end
+    in
+    begin match TT.alpha_equal_type t0 t1 with
+      | false ->
+         error ~loc (InvalidConvert (t0, t1))
+      | true ->
+         let asmp = Assumption.union asmp asmp in
+         TT.mk_term_convert e asmp t2
+    end
 
 let form_is_type ~loc sgn = function
   | TypeConstructor (c, args) ->
-     Rule.form_is_type ~loc c args
-
-  | AbstractTy ((IsAtom (ctxa,x,a)),(IsType (ctxb,b))) ->
-    let ctx = Ctx.join ~loc ctxb ctxa in
-    let ctx = Ctx.abstract ~loc ctx x a in
-    let b = TT.abstract_ty x b in
-    IsType (ctx, TT.mk_abstract_ty ~loc (Name.ident_of_atom x) a b)
+     Rule.form_is_type ~loc sgn c args
 
 (** Substitution *)
-let substitute_ty ~loc (IsType (ctxt, t)) (IsAtom (_, a, _)) (IsTerm (_, s, _) as js) =
-  let ctxt = Ctx.substitute ~loc ctxt a js in
-  let t = TT.substitute_ty a s t in
-  strengthen_ty (WeakIsType (ctxt, t))
+let substitute_ty ~loc a e0 t =
+  TT.substitute_type a e0 t
 
-let substitute ~loc (IsTerm (ctxe, e, t)) (IsAtom (_, a, _)) (IsTerm (_, s, _) as js) =
-  let ctxe = Ctx.substitute ~loc ctxe a js in
-  let t = TT.substitute_ty a s t
-  and e = TT.substitute a s e in
-  strengthen (WeakIsTerm (ctxe, e, t))
+let substitute_term ~loc a e0 e =
+  TT.substitute_term a e0 e
 
 (** Conversion *)
 

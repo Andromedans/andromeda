@@ -47,15 +47,26 @@ and 'a abstraction = private
 (** Term constructors, these do not check for legality of constructions. *)
 
 (** Create a fresh atom of the given type. *)
-val mk_atom : Name.ident -> 't -> 't atom
+val fresh_atom : Name.ident -> 't -> 't atom
+
+(** Create the judgement that an atom has its type. *)
+val mk_atom : ty atom -> term
 
 (** Create a fully applied type constructor *)
-val mk_type_constructor : Name.constant -> argument list -> ty
+val mk_type_constructor : Name.constructor -> argument list -> ty
+
+(** Create a fully applied term constructor *)
+val mk_term_constructor : Name.constructor -> argument list -> term
 
 val mk_arg_is_type : ty abstraction -> argument
 val mk_arg_is_term : term abstraction -> argument
 val mk_arg_eq_type : eq_type abstraction -> argument
 val mk_arg_eq_term : eq_term abstraction -> argument
+
+val mk_eq_type : assumption -> ty -> ty -> eq_type
+val mk_eq_term : assumption -> term -> term -> ty -> eq_term
+
+val mk_term_convert : term -> assumption -> ty -> term
 
 (** Make a non-abstracted constructor argument *)
 val mk_not_abstract : 'a -> 'a abstraction
@@ -95,8 +106,8 @@ val assumptions_type : lvl:bound -> ty -> assumption
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool
 
-(** [alpha_equal_ty t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
-val alpha_equal_ty: ty -> ty -> bool
+(** [alpha_equal_type t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
+val alpha_equal_type : ty -> ty -> bool
 
 val occurs_term : bound -> term -> bool
 
