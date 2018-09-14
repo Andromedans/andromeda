@@ -299,8 +299,10 @@ end
 
 (** Judgements *)
 
-let natural_type sgn = function
-  | TT.TermAtom (_, t) -> t
+(** [typeof sgn e] gives the judgment that the type [t] of [e] is derivable.
+    Note that the output gives no evidence that [e] actually has type [t]. *)
+let typeof sgn = function
+  | TT.TermAtom {atom_type=t; _} -> t
 
   | TT.TermBound k ->
      lookup_bound k ctx (* XXX shifting, do we need this case? *)
@@ -309,7 +311,24 @@ let natural_type sgn = function
      let sch = Signature.lookup_term_constructor c sgn in
      instantiate_schema sch args
 
-  | TT.TermConvert (_, _, t) -> t
+  | TT.TermConvert (e, _, t) -> t
+
+(** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
+    We maintain the invariant that no further assumptions are needed (apart from those
+    already present in [e]) to derive that [e] actually has type [t]. *)
+let natural_type sgn = function
+  | TT.TermAtom {atom_type=t; _} -> t
+
+  | TT.TermBound k ->
+     lookup_bound k ctx (* XXX shifting, do we need this case? *)
+
+  | TT.TermConstructor (c, args) ->
+     let sch = Signature.lookup_term_constructor c sgn in
+     instantiate_schema sch args
+
+  | TT.TermConvert (e, _, _) -> typeof sgn e
+
+
 
 let atom_is_type (x,t) = TT.mk_not_abstract t
 
@@ -431,7 +450,7 @@ let invert_is_term sgn = function
      TermConstructor (c, premises)
 
   | TT.TermConvert (e, asmp, t) ->
-        let t' = natural_type e in
+        let t' = natural_type sgn e in
         let eq = TT.mk_eq_type asmp t' t in
         TermConvert (e, eq)
 
@@ -461,19 +480,33 @@ let form_is_term ~loc sgn = function
     TT.mk_term_constructor c args
 
  | TermConvert (e, TT.EqType (asmp, t1, t2)) ->
-    let (asmp0, t0) =
-      begin match e with
-      | TermConvert (e, asmp0, t0) -> asmp0, t0
-      | TermAtom _ | TermBound _ | TermConstructor _ ->
-         Assumption.empty, natural_type sgn e
-      end
-    in
-    begin match TT.alpha_equal_type t0 t1 with
-      | false ->
-         error ~loc (InvalidConvert (t0, t1))
-      | true ->
-         let asmp = Assumption.union asmp asmp in
+    begin match e with
+    | TT.TermConvert (e, asmp0, t0) ->
+       if TT.alpha_equal_type t0 t1 then
+         (* here we rely on transitivity of equality *)
+         let asmp = Assumption.union asmp0 (Assumption.union asmp (TT.assumptions_type t1))
+         (* we could have used the assumptions of [t0] instead, because [t0] and [t1] are
+            alpha equal, and so either can derive the type. Possible optimizations:
+              (i) pick the smaller of the assumptions of [t0] or of [t1],
+             (ii) pick the asumptions that are included in [t2]
+            (iii) remove assumptions already present in [t2] from the assumption set
+          *)
+         in
+         (* [e] itself is not a [TermConvert] by the maintained invariant. *)
          TT.mk_term_convert e asmp t2
+       else
+         error ~loc (InvalidConvert (t0, t1))
+
+    | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
+       let t0 = natural_type sgn e in
+       if TT.alpha_equal_type t0 t1 then
+         (* We need not include assumptions of [t1] because [t0] is alpha-equal
+            to [t1] so we can use [t0] in place of [t1] if so desired. *)
+         (* [e] is not a [TermConvert] by the above pattern-check *)
+         TT.mk_term_convert e asmp t2
+       else
+         error ~loc (InvalidConvert (t0, t1))
+
     end
 
 let form_is_type ~loc sgn = function
@@ -489,36 +522,14 @@ let substitute_term ~loc a e0 e =
 
 (** Conversion *)
 
-type side = LEFT | RIGHT
-
-let eq_term_side side (EqTerm (ctx, lhs, rhs, ty)) =
-  let term = match side with LEFT -> lhs | RIGHT -> rhs in
-  strengthen (WeakIsTerm (ctx, term, ty))
-
-let eq_term_typeof (EqTerm (ctx, _, _, ty)) =
-  strengthen_ty (WeakIsType (ctx, ty))
-
-let eq_type_side side (EqType (ctx, lhs, rhs)) =
-  let ty = match side with LEFT -> lhs | RIGHT -> rhs in
-  strengthen_ty (WeakIsType (ctx, ty))
-
-let convert ~loc (IsTerm (ctx1, e, t)) (EqType (ctx2, t1, t2)) =
-  if not (TT.alpha_equal_ty t t1)
-  then error ~loc (InvalidConvert (t, t1))
+let convert_eq_term ~loc (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, t2)) =
+  if TT.alpha_equal_type t0 t1 then
+    (* We could have used the assumptions of [t0] instead of [t1], see comments in [form_is_term]
+       about possible optimizations. *)
+    let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t1)) in
+    TT.mk_eq_term asmp e1 e2 t2
   else
-    let ctx = Ctx.join ~loc ctx1 ctx2 in
-    let e = TT.mention_atoms (Ctx.as_set ctx2) e in
-    IsTerm (ctx, e, t2)
-
-let convert_eq ~loc (EqTerm (ctx1, e1, e2, ty)) (EqType (ctx2, t1, t2)) =
-  if not (TT.alpha_equal_ty ty t1)
-  then error ~loc (InvalidConvert (ty, t1))
-  else
-    let hyps2 = Ctx.as_set ctx2 in
-    let e1 = TT.mention_atoms hyps2 e1
-    and e2 = TT.mention_atoms hyps2 e2
-    and ctx = Ctx.join ~loc ctx1 ctx2 in
-    EqTerm (ctx, e1, e2, t2)
+    error ~loc (InvalidConvert (t0, t1))
 
 (** Constructors *)
 

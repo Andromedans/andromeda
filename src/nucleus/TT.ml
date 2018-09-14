@@ -37,7 +37,7 @@ and 'a abstraction =
 (** Manipulation of assumptions. *)
 
 (** The assumptions of a term [e] are the atoms and bound variables appearing in [e]. *)
-let rec assumptions_term ~lvl = function
+let rec assumptions_term ?(lvl=0) = function
 
   | TermAtom {atom_name=x; atom_type=t} ->
      Assumption.add_free x t (assumptions_type ~lvl t)
@@ -56,7 +56,7 @@ let rec assumptions_term ~lvl = function
        asmp'
        (Assumption.union (assumptions_term ~lvl e) (assumptions_type ~lvl t))
 
-and assumptions_type ~lvl = function
+and assumptions_type ?(lvl=0) = function
   | TypeConstructor (_, args) -> assumptions_arguments ~lvl args
 
 and assumptions_arguments ~lvl args =
@@ -66,28 +66,28 @@ and assumptions_arguments ~lvl args =
   in
   fold Assumption.empty args
 
-and assumptions_eq_type ~lvl (EqType (asmp, t1, t2)) =
+and assumptions_eq_type ?(lvl=0) (EqType (asmp, t1, t2)) =
   Assumption.union
     (assumptions_assumptions ~lvl asmp)
     (Assumption.union (assumptions_type ~lvl t1) (assumptions_type ~lvl t2))
 
-and assumptions_eq_term ~lvl (EqTerm (asmp, e1, e2, t)) =
+and assumptions_eq_term ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
   Assumption.union
     (Assumption.union (assumptions_assumptions ~lvl asmp) (assumptions_type ~lvl t))
     (Assumption.union (assumptions_term ~lvl e1) (assumptions_term ~lvl e2))
 
-and assumptions_argument ~lvl = function
+and assumptions_argument ?(lvl=0) = function
   | ArgIsType abstr -> assumptions_abstraction assumptions_type ~lvl abstr
   | ArgIsTerm abstr -> assumptions_abstraction assumptions_term ~lvl abstr
   | ArgEqType abstr -> assumptions_abstraction assumptions_eq_type ~lvl abstr
   | ArgEqTerm abstr -> assumptions_abstraction assumptions_eq_term ~lvl abstr
 
-and assumptions_assumptions ~lvl asmp = Assumption.shift ~lvl asmp
+and assumptions_assumptions ?(lvl=0) asmp = Assumption.shift ~lvl asmp
 
 and assumptions_abstraction
-  : 'a .(lvl:bound -> 'a -> assumption) ->
-        lvl:bound -> 'a abstraction -> assumption
- = fun asmp_v ~lvl -> function
+  : 'a . (?lvl:bound -> 'a -> assumption) ->
+        ?lvl:bound -> 'a abstraction -> assumption
+ = fun asmp_v ?(lvl=0) -> function
   | NotAbstract v -> asmp_v ~lvl v
   | Abstract (x, u, abstr) ->
      Assumption.union
@@ -106,7 +106,10 @@ let mk_type_constructor c args = TypeConstructor (c, args)
 
 let mk_term_constructor c args = TermConstructor (c, args)
 
-let mk_term_convert e asmp t = TermConvert (e, asmp, t)
+let mk_term_convert e asmp t =
+  match e with
+  | TermConvert _ -> assert false
+  | _ -> TermConvert (e, asmp, t)
 
 let mk_arg_is_type t = ArgIsType t
 let mk_arg_is_term e = ArgIsTerm e

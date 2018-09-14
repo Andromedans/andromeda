@@ -20,7 +20,8 @@ and term = private
   (** a term constructor *)
   | TermConstructor of Name.constant * argument list
 
-  (** a term conversion *)
+  (** a term conversion from the natural type of the term to the given type, we do not
+     allow two consecutive conversions *)
   | TermConvert of term * assumption * ty
 
 and eq_type = private EqType of assumption * ty * ty
@@ -66,6 +67,8 @@ val mk_arg_eq_term : eq_term abstraction -> argument
 val mk_eq_type : assumption -> ty -> ty -> eq_type
 val mk_eq_term : assumption -> term -> term -> ty -> eq_term
 
+(** Make a term conversion. It is illegal to pile a term conversion on top of another term
+   conversion. *)
 val mk_term_convert : term -> assumption -> ty -> term
 
 (** Make a non-abstracted constructor argument *)
@@ -97,11 +100,11 @@ val substitute_term : Name.atom -> term -> term -> term
 
 val substitute_type : Name.atom -> term -> ty -> ty
 
-(** The asssumptions used by a term. *)
-val assumptions_term : lvl:bound -> term -> assumption
+(** The asssumptions used by a term. Caveat: alpha-equal terms may have different assumptions. *)
+val assumptions_term : ?lvl:bound -> term -> assumption
 
-(** The assumptions used by a type. *)
-val assumptions_type : lvl:bound -> ty -> assumption
+(** The assumptions used by a type. Caveat: alpha-equal types may have different assumptions. *)
+val assumptions_type : ?lvl:bound -> ty -> assumption
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool

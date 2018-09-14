@@ -40,20 +40,6 @@ type stump_eq_type =
 type stump_eq_term =
   | EqTerm of TT.assumption * is_term * is_term * is_type
 
-type ctx
-
-module Ctx : sig
-  (** The type of contexts. *)
-  type t = ctx
-
-  val add_fresh : loc:Location.t -> is_type -> Name.ident -> is_atom
-
-  (** [elements ctx] returns the elements of [ctx] sorted into a list so that all dependencies
-      point forward in the list, ie the first atom does not depend on any atom, etc. *)
-  val elements : t -> is_atom list
-
-end
-
 module Rule : sig
 
   module Schema : sig
@@ -197,9 +183,6 @@ exception Error of error Location.located
 (** Print a nucleus error *)
 val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
 
-(** The jdugement that [Type] is a type. *)
-val ty_ty : is_type
-
 (** The type judgement of a term judgement. *)
 val typeof : is_term -> is_type
 
@@ -255,19 +238,9 @@ val substitute : loc:Location.t -> is_term -> is_atom -> is_term -> is_term
 (** Conversion *)
 
 (** Destructors *)
-type side = LEFT | RIGHT
-
-val eq_term_side : side -> eq_term -> is_term
-
-val eq_term_typeof : eq_term -> is_type
-
-val eq_type_side : side -> eq_type -> is_type
-
-(** The conversion rule: if [e : A] and [A == B] then [e : B] *)
-val convert : loc:Location.t -> is_term -> eq_type -> is_term
 
 (** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
-val convert_eq : loc:Location.t -> eq_term -> eq_type -> eq_term
+val convert_eq_term : loc:Location.t -> eq_term -> eq_type -> eq_term
 
 (** Constructors *)
 
