@@ -4,7 +4,7 @@ type 'a abstraction = 'a TT.abstraction
 (** Judgement that something is a term. *)
 type is_term
 
-(** Judgement that somethin is an atom. *)
+(** Judgement that something is an atom. *)
 type is_atom
 
 (** Judgement that something is a type. *)
@@ -196,7 +196,7 @@ val atom_is_term : loc:Location.t -> is_atom -> is_term
 val occurs : is_atom -> is_term -> is_atom option
 
 (** The context associated with a term judgement. *)
-val contextof : is_term -> Ctx.t
+val contextof : is_term -> is_atom list
 
 (** Print the judgement that something is a term. *)
 val print_is_term : penv:TT.print_env -> ?max_level:Level.t -> is_term -> Format.formatter -> unit

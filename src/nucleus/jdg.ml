@@ -6,6 +6,8 @@ type is_term = TT.term
 
 type is_type = TT.ty
 
+type is_atom = is_type TT.atom
+
 type eq_type = TT.eq_type
 
 type eq_term = TT.eq_term
@@ -23,11 +25,18 @@ type premise =
   | PremiseEqType of eq_type abstraction
   | PremiseEqTerm of eq_term abstraction
 
+(** Premise of a congruence rule. *)
+type congr_premise =
+  | CongrEqType of eq_type abstraction
+  | CongrEqTerm of eq_term abstraction
+  | CongrEqEqType of eq_type abstraction * eq_type abstraction
+  | CongEqEqTerm of eq_term abstraction * eq_term abstraction
+
 type stump_is_type =
   | TypeConstructor of Name.constructor * premise list
 
 type stump_is_term =
-  | TermAtom of is_type TT.atom
+  | TermAtom of is_atom
   | TermConstructor of Name.constructor * premise list
   | TermConvert of is_term * eq_type
 
@@ -300,7 +309,9 @@ end
 (** Judgements *)
 
 (** [typeof sgn e] gives the judgment that the type [t] of [e] is derivable.
-    Note that the output gives no evidence that [e] actually has type [t]. *)
+    Note that [t] itself gives no evidence that [e] actually has type [t].
+    However, the assumptions of [e] are sufficient to show that [e] has
+    type [t].  *)
 let typeof sgn = function
   | TT.TermAtom {atom_type=t; _} -> t
 
@@ -329,10 +340,9 @@ let natural_type sgn = function
   | TT.TermConvert (e, _, _) -> typeof sgn e
 
 
+let atom_is_type {TT.atom_type=t;_} = t
 
-let atom_is_type (x,t) = TT.mk_not_abstract t
-
-let atom_is_term (x,t) = TT.mk_not_abstract (TT.mk_atom x t)
+let atom_is_term = TT.mk_atom
 
 (** Printing *)
 
@@ -533,133 +543,122 @@ let convert_eq_term ~loc (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, 
 
 (** Constructors *)
 
-let reflexivity (IsTerm (ctx, e, t)) =
-  EqTerm (ctx, e, e, t)
+let reflexivity sgn e =
+  let t = typeof sgn e in
+  EqTerm (Assumption.empty, e, e, t)
 
-let reflexivity_ty (IsType (ctx, t)) =
-  EqType (ctx, t, t)
+let reflexivity_type sgn t =
+  EqType (Assumption.empty, t, t)
 
-let mk_alpha_equal_ty ~loc (IsType (ctx1, t1)) (IsType (ctx2, t2)) =
-  match TT.alpha_equal_ty t1 t2 with
+let mk_alpha_eq_type t1 t2 =
+  match TT.alpha_equal_type t1 t2 with
   | false -> None
-  | true ->
-     let ctx = Ctx.join ~loc ctx1 ctx2 in
-     Some (EqType (ctx, t1, t2))
+  | true -> Some (EqType (Assumption.empty, t1, t2))
 
-let mk_alpha_equal ~loc (IsTerm (ctx1, e1, ty1)) (IsTerm (ctx2, e2, ty2)) =
-  match TT.alpha_equal_ty ty1 ty2 with
-  | false -> error ~loc (AlphaEqualTypeMismatch (ty1, ty2))
+let mk_alpha_equal_term ~loc sgn e1 e2 =
+  let t1 = typeof sgn e1
+  and t2 = typeof sgn e2
+  in
+  match TT.alpha_equal_type t1 t2 with
+  | false -> error ~loc (AlphaEqualTypeMismatch (t1, t2))
   | true ->
      begin match TT.alpha_equal e1 e2 with
      | false -> None
      | true ->
-        let ctx = Ctx.join ~loc ctx1 ctx2 in
-        let e2 = TT.mention_atoms (TT.assumptions_term e1) e2 in
-        Some (EqTerm (ctx, e1, e2, ty1))
+        (* We may keep the assumptions empty here. One might worry
+           that the assumptions needed for [e2 : t2] have to be included,
+           but this does not seem to be the case: we have [e2 : t2] and
+           [t1 == t2] (without assumptions as they are alpha-equal!),
+           hence by conversion [e2 : t1], and whatever assumptions are
+           required for [e2 : t2], they're already present in [e2]. *)
+        Some (EqTerm (Assumption.empty, e1, e2, t1))
      end
 
-let alpha_equal_is_term (IsTerm (_, e1, _)) (IsTerm (_, e2, _)) =
-  TT.alpha_equal e1 e2
+let alpha_equal_is_term = TT.alpha_equal
 
-let alpha_equal_is_type (IsType (_, t1)) (IsType (_, t2)) =
-  TT.alpha_equal_ty t1 t2
+let alpha_equal_is_type = TT.alpha_equal_type
 
-let alpha_equal_eq_type ~loc (IsType (ctx1, t1)) (IsType (ctx2, t2)) =
-  if not (TT.alpha_equal_ty t1 t2)
-  then
-    None
-  else
-    let ctx = Ctx.join ~loc ctx1 ctx2 in
-    Some (EqType (ctx, t1, t2))
+let symmetry_term (EqTerm (asmp, e1, e2, t)) = EqTerm (asmp, e2, e1, t)
 
-let symmetry_term (EqTerm (ctx, e1, e2, t)) = EqTerm (ctx, e2, e1, t)
+let symmetry_type (EqType (asmp, t1, t2)) = EqType (asmp, t2, t1)
 
-let symmetry_type (EqType (ctx, t1, t2)) = EqType (ctx, t2, t1)
-
-let transitivity_term ~loc (EqTerm (ctx, e1, e2, t)) (EqTerm (ctx', e1', e2', t')) =
-  match TT.alpha_equal_ty t t' with
+let transitivity_term ~loc (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) =
+  match TT.alpha_equal_type t t' with
   | false -> error ~loc (AlphaEqualTypeMismatch (t, t'))
   | true ->
      begin match TT.alpha_equal e2 e1' with
      | false -> error ~loc (AlphaEqualTermMismatch (e2, e1'))
      | true ->
-        let ctx = Ctx.join ~loc ctx ctx' in
-        EqTerm (ctx, e1, e2', t)
+        (* XXX could use assumptions of [e1'] instead, or whichever is better. *)
+        let asmp = Assumption.union asmp (Assumption.union asmp' (TT.assumptions_term e2))
+        in EqTerm (asmp, e1, e2', t)
      end
 
-let transitivity_type ~loc (EqType (ctx1, t1, t2)) (EqType (ctx2, u1, u2)) =
-  begin match TT.alpha_equal_ty t2 u1 with
+let transitivity_type ~loc (EqType (asmp1, t1, t2)) (EqType (asmp2, u1, u2)) =
+  begin match TT.alpha_equal_type t2 u1 with
      | false -> error ~loc (AlphaEqualTypeMismatch (t2, u1))
      | true ->
-        let ctx = Ctx.join ~loc ctx1 ctx2 in
-        EqType (ctx, t1, u2)
+        (* XXX could use assumptions of [u1] instead, or whichever is better. *)
+        let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t2))
+        in EqType (asmp, t1, u2)
      end
 
 (** Congruence *)
 
-let congr_abstract_type ~loc (EqType (ctxa, ta1, ta2)) (IsAtom (_, x, _)) (IsAtom (_, y, _)) (EqType (ctxb, b1, b2)) =
-  let ctxb = Ctx.abstract ~loc ctxb x ta1 in
+(** Given a list of (possibly abstracted) equations between arguments, create an equation
+   between [c] applied to the arguments of the left-hand sides and the right-hand sides,
+   respectively. *)
+let congruence_term_constructor sgn c eqs =
+  let (asmp, lhs, rhs) =
+    List.fold_left
+      (fun (asmp, lhs, rhs) (EqTerm (asmp', e1, e2, t)) ->
+        let asmp = Assumption.union asmp asmp'
+        and e1 =
 
-  let hypsa = Ctx.as_set ctxa in
+        (Assumption.union asmp asmp', e1 :: lhs, t2:: rhs))
+      (Assumption.empty, [], [])
+      eqs
+  in
+  let t1 = form_type_constructor c lhs
+  and t2 = form_type_constructor c rhs
+  in EqType (asmp, t1, t2)
 
-  let b1 = TT.abstract_ty x b1
-  and b2 = TT.abstract_ty y (TT.substitute_ty x (TT.mention_atoms hypsa (TT.mk_atom ~loc y)) b2) in
-  let ctx = Ctx.join ~loc ctxa ctxb in
-  let lhs = TT.mk_abstract_ty ~loc (Name.ident_of_atom x) ta1 b1
-  and rhs = TT.mk_abstract_ty ~loc (Name.ident_of_atom y) ta2 b2 in
-  EqType (ctx, lhs, rhs)
 
-let congr_abstract_term ~loc (EqType (ctxa, ta1, ta2))
-                 (IsAtom (_, x, _)) (IsAtom (_, y, _))
-                 (EqType (ctxb, b1, b2))
-                 (EqTerm (ctxe, e1, e2, ty_e)) =
-  if not (TT.alpha_equal_ty b1 ty_e)
-  then error ~loc (RuleInputMismatch ("congr-abstract",
-            b1, "The left-hand-side in the equality between body types",
-            ty_e, "The type at which the body terms are compared"))
-  else
-    let ctx = Ctx.join ~loc ctxa (Ctx.abstract ~loc (Ctx.join ~loc ctxb ctxe) x ta1) in
+(** Given a list of (possibly abstracted) equations between arguments, create an equation
+   between [c] applied to the arguments of the left-hand sides and the right-hand sides,
+   respectively. *)
+let congruence_type_constructor sgn c eqs =
+  let (asmp, lhs, rhs) =
+    List.fold_left
+      (fun (asmp, lhs, rhs) (EqType (asmp', t1, t2)) ->
+        (Assumption.union asmp asmp', t1 :: lhs, t2:: rhs))
+      (Assumption.empty, [], [])
+      eqs
+  in
+  let t1 = form_type_constructor sgn c lhs
+  and t2 = form_type_constructor sgn c rhs
+  in EqType (asmp, t1, t2)
 
-    let hypsa = Ctx.as_set ctxa
-    and hypsb = AtomSet.remove x (Ctx.as_set ctxb) in
-    let hypsab = AtomSet.union hypsa hypsb in
 
-    let y_mentions = TT.mention_atoms hypsa (TT.mk_atom ~loc y) in
-    let e1 = TT.abstract x e1
-    and e2 = TT.abstract y (TT.substitute x y_mentions e2)
-    and b1 = TT.abstract_ty x b1
-    and b2 = TT.abstract_ty x (TT.substitute_ty x y_mentions b2) in
-    let lhs = TT.mk_abstract ~loc (Name.ident_of_atom x) ta1 e1 b1
-    and rhs = TT.mention_atoms hypsab (TT.mk_abstract ~loc (Name.ident_of_atom y) ta2 e2 b2)
-    and ty = TT.mk_abstract_ty ~loc (Name.ident_of_atom x) ta1 b1 in
-    EqTerm (ctx, lhs, rhs, ty)
+
+  failwith "congruence_type_constructor"
 
 module Json =
 struct
 
   let rec abstraction json_u = function
-    | NotAbstract u -> Json.tag "NotAbstract" [json_u u]
-    | Abstract ((x, t), abstr) ->
+    | TT.NotAbstract u -> Json.tag "NotAbstract" [json_u u]
+    | TT.Abstract (x, t, abstr) ->
        Json.tag "Abstract" [Name.Json.ident x; TT.Json.ty t; abstraction json_u abstr]
 
-  let is_term (IsTerm abstr) =
-    abstraction
-      (fun (e, ty) -> Json.tag "IsTerm" [TT.Json.term e; TT.Json.ty ty])
-      abstr
+  let is_term e = Json.tag "IsTerm" [TT.Json.term e]
 
-  let is_type (IsType abstr) =
-    abstraction
-      (fun ty -> Json.tag "IsType" [TT.Json.ty ty])
-      abstr
+  let is_type t = Json.tag "IsType" [TT.Json.ty t]
 
-  let eq_term (EqTerm abstr) =
-    abstraction
-      (fun (e1, e2, t) -> Json.tag "EqTerm" [TT.Json.term e1; TT.Json.term e2; TT.Json.ty t])
-      abstr
+  let eq_term (EqTerm (asmp, e1, e2, t)) =
+    Json.tag "EqTerm" [Assumption.Json.assumptions asmp; TT.Json.term e1; TT.Json.term e2; TT.Json.ty t]
 
-  let eq_type (EqType abstr) =
-    abstraction
-      (fun (t1, t2) -> Json.tag "EqType" [TT.Json.ty t1; TT.Json.ty t2])
-      abstr
+  let eq_type (EqType (asmp, t1, t2)) =
+    Json.tag "EqType" [Assumption.Json.assumptions asmp; TT.Json.ty t1; TT.Json.ty t2]
 
 end
