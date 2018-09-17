@@ -18,10 +18,10 @@ type eq_term
 
 (** An argument to a term or type constructor *)
 type premise =
-  | PremiseIsType of is_type
-  | PremiseIsTerm of is_term
-  | PremiseEqType of eq_type
-  | PremiseEqTerm of eq_term
+  | PremiseIsType of is_type abstraction
+  | PremiseIsTerm of is_term abstraction
+  | PremiseEqType of eq_type abstraction
+  | PremiseEqTerm of eq_term abstraction
 
 (** A stump is the data needed to form a judgement, or to invert it. Stumps of
    equations are special, because they allow only partial inversion. *)
