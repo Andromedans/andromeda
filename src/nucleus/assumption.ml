@@ -56,7 +56,7 @@ let instantiate asmp0 ~lvl asmp =
 
 let fully_instantiate asmps ~lvl asmp =
   let rec fold asmp = function
-    | [] -> asmps
+    | [] -> asmp
     | asmp0 :: asmps ->
        let asmp = instantiate asmp0 ~lvl asmp
        in fold asmp asmps

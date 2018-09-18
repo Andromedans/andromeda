@@ -276,6 +276,9 @@ module Rule = struct
 
     | _, _ -> failwith "TODO please reasonable error in Jdg.check_abstraction"
 
+
+  let typeof _ = failwith "todo"
+
   let check_premise ~loc metas s p =
     match s, p with
 
@@ -341,16 +344,16 @@ module Rule = struct
   let form_eq_type ~loc ((schema_premises, (lhs_schema, rhs_schema))  : Schema.eq_type) premises =
     let args = match_premises ~loc schema_premises premises in
     let asmp = TT.assumptions_arguments args
-    and lhs = meta_instantiate_type args lhs_schema
-    and rhs = meta_instantiate_type args rhs_schema
+    and lhs = meta_instantiate_is_type ~lvl:0 args lhs_schema
+    and rhs = meta_instantiate_is_type ~lvl:0 args rhs_schema
     in TT.mk_eq_type asmp lhs rhs
 
   let form_eq_term ~loc c ((schema_premises, (e1_schema, e2_schema, t_schema)) : Schema.eq_term) premises =
     let args = match_premises ~loc schema_premises premises in
     let asmp = TT.assumptions_arguments args
-    and e1 = meta_instantiate_is_term args e1_schema
-    and e2 = meta_instantiate_is_term args e2_schema
-    and t = meta_instantiate_type args t_schema
+    and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema
+    and e2 = meta_instantiate_is_term ~lvl:0 args e2_schema
+    and t = meta_instantiate_is_type ~lvl:0 args t_schema
     in TT.mk_eq_term asmp e1 e2 t
 
   let invert_is_term rule args = failwith "Rule.invert_is_term is not implemented"
@@ -386,7 +389,7 @@ end
     However, the assumptions of [e] are sufficient to show that [e] has
     type [t].  *)
 let typeof sgn = function
-  | TT.TermAtom {atom_type=t; _} -> t
+  | TT.TermAtom {TT.atom_type=t; _} -> t
 
   | TT.TermBound k ->
      lookup_bound k ctx (* XXX shifting, do we need this case? *)
@@ -401,7 +404,7 @@ let typeof sgn = function
     We maintain the invariant that no further assumptions are needed (apart from those
     already present in [e]) to derive that [e] actually has type [t]. *)
 let natural_type sgn = function
-  | TT.TermAtom {atom_type=t; _} -> t
+  | TT.TermAtom {TT.atom_type=t; _} -> t
 
   | TT.TermBound k ->
      lookup_bound k ctx (* XXX shifting, do we need this case? *)
@@ -686,16 +689,14 @@ let congruence_term_constructor sgn c eqs =
   let (asmp, lhs, rhs) =
     List.fold_left
       (fun (asmp, lhs, rhs) (EqTerm (asmp', e1, e2, t)) ->
-        let asmp = Assumption.union asmp asmp'
-        and e1 =
-
-        (Assumption.union asmp asmp', e1 :: lhs, t2:: rhs))
+        (Assumption.union asmp asmp', e1 :: lhs, e2 :: rhs))
       (Assumption.empty, [], [])
       eqs
   in
-  let t1 = form_type_constructor c lhs
-  and t2 = form_type_constructor c rhs
-  in EqType (asmp, t1, t2)
+  let e1 = form_is_term c lhs
+  and e2 = form_is_term c rhs in
+  let t = typeof e1 in
+  EqTerm (asmp, e1, e2, t)
 
 
 (** Given a list of (possibly abstracted) equations between arguments, create an equation
@@ -705,12 +706,12 @@ let congruence_type_constructor sgn c eqs =
   let (asmp, lhs, rhs) =
     List.fold_left
       (fun (asmp, lhs, rhs) (EqType (asmp', t1, t2)) ->
-        (Assumption.union asmp asmp', t1 :: lhs, t2:: rhs))
+        (Assumption.union asmp asmp', t1 :: lhs, t2 :: rhs))
       (Assumption.empty, [], [])
       eqs
   in
-  let t1 = form_type_constructor sgn c lhs
-  and t2 = form_type_constructor sgn c rhs
+  let t1 = form_is_type sgn c (List.rev lhs)
+  and t2 = form_is_type sgn c (List.rev rhs)
   in EqType (asmp, t1, t2)
 
 

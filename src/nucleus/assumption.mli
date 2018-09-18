@@ -32,7 +32,7 @@ val union : 'a t -> 'a t -> 'a t
 val instantiate : 'a t -> lvl:int -> 'a t -> 'a t
 
 (** [fully_instantiate asmps ~lvl:k asmp] replaces bound variables in [asmp] with assumptions [asmps]. *)
-val fully_instantiate : 'a t list -> ?lvl:int -> 'a t -> 'a t
+val fully_instantiate : 'a t list -> lvl:int -> 'a t -> 'a t
 
 (** [abstract x k l] replaces the free variable [x] by the bound variables [k]. *)
 val abstract : Name.atom -> lvl:int -> 'a t -> 'a t
