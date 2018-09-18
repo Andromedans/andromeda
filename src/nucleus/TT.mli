@@ -127,7 +127,7 @@ val assumptions_term : ?lvl:bound -> term -> assumption
 (** The assumptions used by a type. Caveat: alpha-equal types may have different assumptions. *)
 val assumptions_type : ?lvl:bound -> ty -> assumption
 
-val assumptions_arguments : ?lvl:bound -> argument list -> assumption
+val assumptions_arguments : argument list -> assumption
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool

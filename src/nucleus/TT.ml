@@ -96,6 +96,8 @@ and assumptions_abstraction
        (assumptions_type ~lvl u)
        (assumptions_abstraction asmp_v ~lvl:(lvl+1) abstr)
 
+let assumptions_arguments = assumptions_arguments ~lvl:0
+
 (* Helper functions *)
 
 let fresh_atom x t =
