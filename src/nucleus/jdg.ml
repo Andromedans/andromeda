@@ -125,7 +125,17 @@ module Rule = struct
     | TT.ArgIsType t_abstr -> t_abstr
     | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "type expected"
 
-  let rec meta_instantiate_is_term ~lvl metas = function
+  let rec meta_instantiate_is_type ~lvl metas = function
+      | Schema.TypeConstructor (c, args) ->
+       let args = meta_instantiate_args ~lvl metas args
+       in TT.mk_type_constructor c args
+
+      | Schema.TypeMeta (k, es_schema) ->
+         let t_abstr = lookup_type_meta k metas in
+         let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
+         apply_abstraction (TT.fully_instantiate_type ?lvl:None) t_abstr es
+
+  and meta_instantiate_is_term ~lvl metas = function
     | Schema.TermBound k -> TT.mk_bound k
 
     | Schema.TermConstructor (c, args) ->
@@ -135,21 +145,21 @@ module Rule = struct
     | Schema.TermMeta (k, es_schema) ->
        let e_abstr = lookup_term_meta k metas in
        let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
-       apply_abstraction TT.fully_instantiate_term e_abstr es
+       apply_abstraction (TT.fully_instantiate_term ?lvl:None) e_abstr es
 
-    and meta_instantiate_is_type ~lvl metas = function
-      | Schema.TypeConstructor (c, args) ->
-       let args = meta_instantiate_args ~lvl metas args
-       in TT.mk_type_constructor c args
+    and meta_instantiate_eq_type ~lvl metas (Schema.EqType (asmp, t1, t2)) =
+      let asmp = meta_instantiate_assumptions ~lvl metas asmp
+      and t1 = meta_instantiate_is_type ~lvl metas t1
+      and t2 = meta_instantiate_is_type ~lvl metas t2 in
+      TT.mk_eq_type asmp t1 t2
 
-      | Schema.TypeMeta (k, es_schema) ->
-         let t_abstr = lookup_type_meta k metas in
-         let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
-         apply_abstraction TT.fully_instantiate_type t_abstr es
+    and meta_instantiate_eq_term ~lvl metas (Schema.EqTerm (asmp, e1, e2, t)) =
+      let asmp = meta_instantiate_assumptions ~lvl metas asmp
+      and e1 = meta_instantiate_is_term ~lvl metas e1
+      and e2 = meta_instantiate_is_term ~lvl metas e2
+      and t = meta_instantiate_is_type ~lvl metas t in
+      TT.mk_eq_term asmp e1 e2 t
 
-    and meta_instantiate_eq_type ~lvl metas _ = (??)
-
-    and meta_instantiate_eq_term ~lvl metas _ = (??)
 
     and meta_instantiate_args ~lvl metas args =
       List.map (meta_instantiate_arg ~lvl metas) args
@@ -185,6 +195,10 @@ module Rule = struct
            and abstr = meta_instantiate_abstraction inst_u ~lvl:(lvl+1) metas abstr
            in TT.mk_abstract x t abstr
 
+  let meta_instantiate_terms metas es_schema =
+    List.map
+      (fun e_schema -> meta_instantiate_is_term ~lvl:0 metas e_schema)
+      es_schema
 
 
   let rec check_type ~loc (metas : TT.argument list) (schema : Schema.ty) (premise : TT.ty) =
@@ -202,8 +216,8 @@ module Rule = struct
          match List.nth metas k with
 
          | TT.ArgIsType abstr ->
-            let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
-            let ty' = apply_abstraction TT.fully_instantiate_type abstr es in
+            let es = meta_instantiate_terms metas es_schema in
+            let ty' = apply_abstraction (TT.fully_instantiate_type ?lvl:None) abstr es in
             if not (TT.alpha_equal_type ty ty') then
               failwith "type mismatch"
 
@@ -224,15 +238,17 @@ module Rule = struct
        else
          failwith "mismatch"
 
-    | Schema.TermMeta (k, args), e ->
-       let args = List.map (instantiate_argument metas) args in
+    | Schema.TermMeta (k, es_schema), e ->
        begin
          (* XXX TODO List.nth could fail miserably here *)
          match List.nth metas k with
+
          | TT.ArgIsTerm abstr ->
-            let e' = instantiate_abstraction instantiate_type abstr args in
+            let es = meta_instantiate_terms metas es_schema in
+            let e' = apply_abstraction (TT.fully_instantiate_term ?lvl:None) abstr es in
             if not (TT.alpha_equal e e') then
               failwith "term mismatch"
+
          | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ ->
             failwith "expected a term meta-variable but got something else"
        end
