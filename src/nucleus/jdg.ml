@@ -82,15 +82,21 @@ module Rule = struct
       | TypeConstructor of Name.constructor * argument list
       | TypeMeta of meta * term list
 
+    and eq_type = EqType of assumption * ty * ty
+
+    and eq_term = EqTerm of assumption * term * term * ty
+
     and argument =
       | ArgIsType of ty abstraction
       | ArgIsTerm of term abstraction
-      | ArgEqType (* XXX what should stand here? *)
-      | ArgEqTerm (* XXX what should stand here? *)
+      | ArgEqType of eq_type abstraction
+      | ArgEqTerm of eq_term abstraction
 
     and 'a abstraction =
       | NotAbstract of 'a
       | Abstract of Name.ident * ty * 'a abstraction
+
+    and assumption = ()
 
     type premise =
       | PremiseIsType of Name.ident * unit abstraction
@@ -98,10 +104,10 @@ module Rule = struct
       | PremiseEqType of (ty * ty) abstraction
       | PremiseEqTerm of (term * term * ty) abstraction
 
-    type is_type = premise list
-    type is_term = premise list * ty
-    type eq_type = premise list * (ty * ty)
-    type eq_term = premise list * (term * term * ty)
+    type is_type_rule = premise list
+    type is_term_rule = premise list * ty
+    type eq_type_rule = premise list * (ty * ty)
+    type eq_term_rule = premise list * (term * term * ty)
 
   end
 
@@ -160,6 +166,8 @@ module Rule = struct
       and t = meta_instantiate_is_type ~lvl metas t in
       TT.mk_eq_term asmp e1 e2 t
 
+    and meta_instantiate_assumptions ~lvl metas asmp =
+      failwith "todo"
 
     and meta_instantiate_args ~lvl metas args =
       List.map (meta_instantiate_arg ~lvl metas) args
@@ -174,6 +182,9 @@ module Rule = struct
          in TT.mk_arg_is_term abstr
 
       | Schema.ArgEqType abstr ->
+         (* XXX could do this lazily so that it's discarded when it's an
+            argument in a premise, and computed only when it's an argument in
+            a constructor in the output of a rule *)
          let abstr = meta_instantiate_abstraction meta_instantiate_eq_type ~lvl metas abstr
          in TT.mk_arg_eq_type abstr
 
@@ -271,8 +282,8 @@ module Rule = struct
     match arg_schema, arg with
     | Schema.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type ~loc metas t_schema t
     | Schema.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term ~loc metas e_schema e
-    | Schema.ArgEqType, TT.ArgEqType _ -> ()
-    | Schema.ArgEqTerm, TT.ArgEqTerm _ -> ()
+    | Schema.ArgEqType _, TT.ArgEqType _ -> ()
+    | Schema.ArgEqTerm _, TT.ArgEqTerm _ -> ()
     | _, _ -> failwith "check_arg failed"
 
   and check_abstraction
@@ -349,22 +360,22 @@ module Rule = struct
     in
     fold [] (schema_premises, premises)
 
-  let form_is_type ~loc c (schema_premises as _rule : Schema.is_type) premises =
+  let form_is_type ~loc c schema_premises premises =
     let args = match_premises ~loc schema_premises premises in
     TT.mk_type_constructor c args
 
-  let form_is_term ~loc c ((schema_premises, _) as _rule : Schema.is_term) premises =
+  let form_is_term ~loc c (schema_premises, _) premises =
     let args = match_premises ~loc schema_premises premises in
     TT.mk_term_constructor c args
 
-  let form_eq_type ~loc ((schema_premises, (lhs_schema, rhs_schema))  : Schema.eq_type) premises =
+  let form_eq_type ~loc (schema_premises, (lhs_schema, rhs_schema)) premises =
     let args = match_premises ~loc schema_premises premises in
     let asmp = TT.assumptions_arguments args
     and lhs = meta_instantiate_is_type ~lvl:0 args lhs_schema
     and rhs = meta_instantiate_is_type ~lvl:0 args rhs_schema
     in TT.mk_eq_type asmp lhs rhs
 
-  let form_eq_term ~loc c ((schema_premises, (e1_schema, e2_schema, t_schema)) : Schema.eq_term) premises =
+  let form_eq_term ~loc c (schema_premises, (e1_schema, e2_schema, t_schema)) premises =
     let args = match_premises ~loc schema_premises premises in
     let asmp = TT.assumptions_arguments args
     and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema
