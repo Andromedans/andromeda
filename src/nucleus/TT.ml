@@ -34,6 +34,8 @@ and 'a abstraction =
   | NotAbstract of 'a
 
 
+let equal_bound (i : bound) (j : bound) = (i = j)
+
 (** Manipulation of assumptions. *)
 
 (** The assumptions of a term [e] are the atoms and bound variables appearing in [e]. *)
@@ -82,7 +84,7 @@ and assumptions_argument ?(lvl=0) = function
   | ArgEqType abstr -> assumptions_abstraction assumptions_eq_type ~lvl abstr
   | ArgEqTerm abstr -> assumptions_abstraction assumptions_eq_term ~lvl abstr
 
-and assumptions_assumptions ?(lvl=0) asmp = Assumption.shift ~lvl asmp
+and assumptions_assumptions ?(lvl=0) asmp = Assumption.at_level ~lvl asmp
 
 and assumptions_abstraction
   : 'a . (?lvl:bound -> 'a -> assumption) ->
@@ -101,6 +103,8 @@ let fresh_atom x t =
   { atom_name = x; atom_type = t }
 
 let mk_atom a = TermAtom a
+
+let mk_bound k = TermBound k
 
 let mk_type_constructor c args = TypeConstructor (c, args)
 
@@ -124,6 +128,79 @@ let mk_not_abstract e = NotAbstract e
 
 let mk_abstract x t abstr = Abstract (x, t, abstr)
 
+(** Shifting of bound variables *)
+let rec shift_term ~lvl k = function
+
+  | TermAtom _ as e ->
+     e (* no bound variables in atoms *)
+
+  | TermBound j as e ->
+     if j < lvl then
+       e
+     else
+       TermBound (j + k)
+
+  | TermConstructor (c, args) ->
+     let args = shift_args ~lvl k args
+     in TermConstructor (c, args)
+
+  | TermConvert (e, asmp, t) ->
+     let e = shift_term ~lvl k e
+     and asmp = Assumption.shift ~lvl k asmp
+     and t = shift_type ~lvl k t
+     in TermConvert (e, asmp, t)
+
+and shift_type ~lvl k (TypeConstructor (c, args)) =
+     let args = shift_args ~lvl k args
+     in TypeConstructor (c, args)
+
+and shift_eq_type ~lvl k (EqType (asmp, t1, t2)) =
+  let asmp = Assumption.shift ~lvl k asmp
+  and t1 = shift_type ~lvl k t1
+  and t2 = shift_type ~lvl k t2
+  in EqType (asmp, t1, t2)
+
+and shift_eq_term ~lvl k (EqTerm (asmp, e1, e2, t)) =
+  let asmp = Assumption.shift ~lvl k asmp
+  and e1 = shift_term ~lvl k e1
+  and e2 = shift_term ~lvl k e2
+  and t = shift_type ~lvl k t
+  in EqTerm (asmp, e1, e2, t)
+
+and shift_args ~lvl k args =
+  List.map (shift_arg ~lvl k) args
+
+and shift_arg ~lvl k = function
+   | ArgIsTerm abstr ->
+      let abstr = shift_abstraction shift_term ~lvl k abstr in
+      ArgIsTerm abstr
+
+   | ArgIsType abstr ->
+      let abstr = shift_abstraction shift_type ~lvl k abstr in
+      ArgIsType abstr
+
+   | ArgEqType abstr ->
+      let abstr = shift_abstraction shift_eq_type ~lvl k abstr in
+      ArgEqType abstr
+
+   | ArgEqTerm abstr ->
+      let abstr = shift_abstraction shift_eq_term ~lvl k abstr in
+      ArgEqTerm abstr
+
+and shift_abstraction
+  : 'a . (lvl:bound -> int -> 'a -> 'a) ->
+         lvl:bound -> int -> 'a abstraction -> 'a abstraction
+  = fun shift_u ~lvl k -> function
+  | NotAbstract u ->
+     let u = shift_u ~lvl k u
+     in NotAbstract u
+
+  | Abstract (x, t, abstr) ->
+     let t = shift_type ~lvl k t
+     and abstr = shift_abstraction shift_u ~lvl:(lvl+1) k abstr
+     in Abstract (x, t, abstr)
+
+
 (** Instantiate *)
 
 let rec instantiate_abstraction
@@ -143,6 +220,8 @@ let rec instantiate_abstraction
 
 and instantiate_term e0 ?(lvl=0) = function
 
+    | TermAtom _ as e -> e (* there are no bound variables in an atom type *)
+
     | TermConstructor (c, args) ->
        let args = instantiate_arguments e0 ~lvl args in
        TermConstructor (c, args)
@@ -153,16 +232,14 @@ and instantiate_term e0 ?(lvl=0) = function
        and t = instantiate_type e0 ~lvl t in
        TermConvert (e, asmp, t)
 
-    | TermAtom _ as e -> e
-
     | TermBound k as e ->
        if k < lvl then
          e
-       else
-         if k = lvl then
-           e0
-         else
-           TermBound (k - 1)
+       else begin
+         (* We should only ever instantiate the highest occurring bound variable. *)
+         assert (k = lvl) ;
+         shift_term ~lvl:0 lvl e0
+       end
 
 and instantiate_type e0 ?(lvl=0) = function
   | TypeConstructor (c, args) ->
@@ -204,8 +281,86 @@ and instantiate_eq_term e0 ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
   EqTerm (asmp, e1, e2, t)
 
 and instantiate_assumptions e0 ?(lvl=0) asmp =
-  let asmp' = assumptions_term ~lvl e0 in
-  Assumption.instantiate asmp' ~lvl asmp
+  let asmp0 = assumptions_term ~lvl e0 in
+  Assumption.instantiate ~lvl asmp0 asmp
+
+let rec fully_instantiate_type ?(lvl=0) es (TypeConstructor (c, args)) =
+  let args = fully_instantiate_args ~lvl es args in
+  TypeConstructor (c, args)
+
+and fully_instantiate_term ?(lvl=0) es = function
+
+  | TermAtom _ as e -> e (* there are no bound variables in an atom type *)
+
+  | (TermBound k) as e ->
+     if k < lvl then
+       e
+     else
+       (* XXX can fail here, should we report an error or die? *)
+       let e = List.nth es (k - lvl)
+       in shift_term ~lvl:0 lvl e
+
+  | TermConstructor (c, args) ->
+     let args = fully_instantiate_args ~lvl es args in
+     TermConstructor (c, args)
+
+  | TermConvert (e, asmp, t) ->
+     let e = fully_instantiate_term ~lvl es e
+     and asmp = fully_instantiate_assumptions ~lvl es asmp
+     and t = fully_instantiate_type ~lvl es t
+     in TermConvert (e, asmp, t)
+
+and fully_instantiate_eq_type ?(lvl=0) es (EqType (asmp, t1, t2)) =
+  let asmp = fully_instantiate_assumptions ~lvl es asmp
+  and t1 = fully_instantiate_type ~lvl es t1
+  and t2 = fully_instantiate_type ~lvl es t2
+  in EqType (asmp, t1, t2)
+
+and fully_instantiate_eq_term ?(lvl=0) es (EqTerm (asmp, e1, e2, t)) =
+  let asmp = fully_instantiate_assumptions ~lvl es asmp
+  and e1 = fully_instantiate_term ~lvl es e1
+  and e2 = fully_instantiate_term ~lvl es e2
+  and t = fully_instantiate_type ~lvl es t
+  in EqTerm (asmp, e1, e2, t)
+
+
+and fully_instantiate_assumptions ~lvl es asmp =
+  let asmps = List.map (assumptions_term ~lvl) es in
+  Assumption.fully_instantiate asmps ~lvl asmp
+
+and fully_instantiate_args ?(lvl=0) es args =
+  List.map (fully_instantiate_arg ~lvl es) args
+
+and fully_instantiate_arg ?(lvl=0) es = function
+  | ArgIsType abstr ->
+     let abstr = fully_instantiate_abstraction fully_instantiate_type ~lvl es abstr in
+     ArgIsType abstr
+
+  | ArgIsTerm abstr ->
+     let abstr = fully_instantiate_abstraction fully_instantiate_term ~lvl es abstr in
+     ArgIsTerm abstr
+
+  | ArgEqType abstr ->
+     let abstr = fully_instantiate_abstraction fully_instantiate_eq_type ~lvl es abstr in
+     ArgEqType abstr
+
+  | ArgEqTerm abstr ->
+     let abstr = fully_instantiate_abstraction fully_instantiate_eq_term ~lvl es abstr in
+     ArgEqTerm abstr
+
+and fully_instantiate_abstraction
+  : 'a . (?lvl:int -> term list -> 'a -> 'a) ->
+         ?lvl:int -> term list -> 'a abstraction -> 'a abstraction
+  = fun inst_u ?(lvl=0) es -> function
+
+  | NotAbstract u ->
+     let u = inst_u ~lvl es u in
+     NotAbstract u
+
+  | Abstract (x, t, abstr) ->
+     let t = fully_instantiate_type ~lvl es t
+     and abstr = fully_instantiate_abstraction inst_u ~lvl:(lvl+1) es abstr
+     in Abstract (x, t, abstr)
 
 (** Abstract *)
 

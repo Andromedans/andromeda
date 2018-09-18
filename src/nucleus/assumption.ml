@@ -16,11 +16,19 @@ let mem_atom x s = AtomMap.mem x s.free
 
 let mem_bound k s = BoundSet.mem k s.bound
 
-let shift ~lvl s =
+let at_level ~lvl s =
   { s with
     bound = BoundSet.fold
               (fun k s -> if k < lvl then s else BoundSet.add (k - lvl) s)
               s.bound BoundSet.empty }
+
+let shift ~lvl k s =
+  { s with
+    bound =
+      BoundSet.fold
+        (fun j s -> BoundSet.add (if j < lvl then j else j + k) s)
+        s.bound
+        BoundSet.empty }
 
 let singleton_free x t =
   {free = AtomMap.add x t AtomMap.empty; bound = BoundSet.empty}
@@ -37,16 +45,23 @@ let union a1 a2 =
   ; bound = BoundSet.union a1.bound a2.bound
   }
 
-let instantiate l0 ~lvl asmp =
-  if BoundSet.mem lvl asmp.bound
-  then
-    { free = AtomMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) asmp.free l0.free
-    ; bound = BoundSet.union (BoundSet.remove lvl asmp.bound) l0.bound }
-    (* XXX think whether the above is correct, in particular:
-       1. could tehre be bound variables larger than lvl in asmp.bound, and if so, should they be shifted?
-       2. do we need to reindex the bound variables of l0 or some such? *)
-  else
-    asmp
+let instantiate asmp0 ~lvl asmp =
+  match BoundSet.mem lvl asmp.bound with
+  | false -> asmp
+  | true ->
+     let bound0 = BoundSet.map (fun k -> lvl + k) asmp0.bound
+     in
+     { free = AtomMap.union (fun _ t1 t2 -> assert (t1 == t2) ; Some t1) asmp.free asmp0.free
+     ; bound = BoundSet.union (BoundSet.remove lvl asmp.bound) bound0 }
+
+let fully_instantiate asmps ~lvl asmp =
+  let rec fold asmp = function
+    | [] -> asmps
+    | asmp0 :: asmps ->
+       let asmp = instantiate asmp0 ~lvl asmp
+       in fold asmp asmps
+  in
+  fold asmp asmps
 
 let abstract x ~lvl abstr =
   if AtomMap.mem x abstr.free

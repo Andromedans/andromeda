@@ -1,6 +1,11 @@
 (** Abstract syntax of type-theoretic types and terms *)
 
+(** The type of bound variables. This type must necessarily be abstract and it must have
+   no constructors. We rely on this fact in the [instantiate_XYZ] functions below so that
+   from the outside nobody can even pass in any level other than the default one. *)
 type bound
+
+val equal_bound : bound -> bound -> bool
 
 (** We use locally nameless syntax: names for free variables and deBruijn
    indices for bound variables. *)
@@ -53,6 +58,9 @@ val fresh_atom : Name.ident -> 't -> 't atom
 (** Create the judgement that an atom has its type. *)
 val mk_atom : ty atom -> term
 
+(** Create a bound variable (it's a hole in a derivation?) *)
+val mk_bound : bound -> term
+
 (** Create a fully applied type constructor *)
 val mk_type_constructor : Name.constructor -> argument list -> ty
 
@@ -77,17 +85,30 @@ val mk_not_abstract : 'a -> 'a abstraction
 (** Abstract a term argument *)
 val mk_abstract : Name.ident -> ty -> 'a abstraction -> 'a abstraction
 
-(** [instantiate_term e0 ~lvl:k e] replaces bound variable [k] (defualt [0])  with term [e0] in term [e]. *)
+(** [instantiate_term e0 ~lvl:k e] replaces bound variable [k] (defualt [0]) with term
+   [e0] in term [e]. Even though [lvl] is an optional argument here, it is of abstract
+   type [bound] which prevents us from passing in any value of [lvl] other than the
+   default one. *)
 val instantiate_term: term -> ?lvl:bound -> term -> term
 
 (** [instantiate_term e0 ~lvl:k t] replaces bound variable [k] (default [0]) with term [e0] in type [t]. *)
 val instantiate_type: term -> ?lvl:bound -> ty -> ty
 
-(** [instantiate_abstraction inst_u inst_v e0 ~lvl:k abstr] instantiates bound variable
-    [k] (default [0]) with term [e0] in the given abstraction. *)
+(** [instantiate_abstraction inst_u e0 ~lvl:k abstr] instantiates bound variable [k]
+   (default [0]) with term [e0] in the given abstraction. *)
 val instantiate_abstraction :
   (term -> ?lvl:bound -> 'a -> 'a) ->
   term -> ?lvl:bound -> 'a abstraction -> 'a abstraction
+
+(** [fully_instantiate_abstraction inst_u ~lvl:k es abstr] fully instantiates abstraction [abstr] with the given terms
+    [es]. All bound variables are eliminated. *)
+val fully_instantiate_abstraction : (?lvl:bound -> term list -> 'a -> 'a) -> ?lvl:bound -> term list -> 'a abstraction -> 'a abstraction
+
+(** [fully_instantiate_type ~lvl:k es t] fully instantiates type [t] with the given [es]. All bound variables are eliminated. *)
+val fully_instantiate_type : ?lvl:bound -> term list -> ty -> ty
+
+(** [fully_instantiate_term ~lvl:k es e] fully instantiates term [e] with the given [es]. All bound variables are eliminated. *)
+val fully_instantiate_term : ?lvl:bound -> term list -> term -> term
 
 (** [abstract_term x0 ~lvl:k e] replaces atom [x0] in term [e] with bound variable [k] (default [0]). *)
 val abstract_term : Name.atom -> ?lvl:bound -> term -> term
@@ -105,6 +126,8 @@ val assumptions_term : ?lvl:bound -> term -> assumption
 
 (** The assumptions used by a type. Caveat: alpha-equal types may have different assumptions. *)
 val assumptions_type : ?lvl:bound -> ty -> assumption
+
+val assumptions_arguments : ?lvl:bound -> argument list -> assumption
 
 (** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal: term -> term -> bool
