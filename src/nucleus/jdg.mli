@@ -80,7 +80,7 @@ val invert_is_type : Rule.is_type -> TT.argument list -> premise list
 (** An error emitted by the nucleus *)
 type error
 
-exception Error of error Location.located
+exception Error of error
 
 (** Print a nucleus error *)
 val print_error : penv:TT.print_env -> error -> Format.formatter -> unit
@@ -92,7 +92,7 @@ val typeof : is_term -> is_type
 val atom_is_type : is_atom -> is_type
 
 (** Convert atom judgement to term judgement *)
-val atom_is_term : loc:Location.t -> is_atom -> is_term
+val atom_is_term : is_atom -> is_term
 
 (** Does this atom occur in this judgement, and if so with what type? *)
 val occurs : is_atom -> is_term -> is_atom option
@@ -124,25 +124,25 @@ val invert_eq_term : eq_term -> TT.assumption * is_term * is_term * is_type
 val invert_abstract_ty : is_type -> (is_atom * is_type) option
 
 (** Construct a term judgement using the appropriate formation rule. The type is the natural type. *)
-val form_is_term : loc:Location.t -> Signature.t -> stump_is_term -> is_term
+val form_is_term : Signature.t -> stump_is_term -> is_term
 
 (** Construct a type judgement using the appropriate formation rule. *)
-val form_is_type : loc:Location.t -> Signature.t -> stump_is_type -> is_type
+val form_is_type : Signature.t -> stump_is_type -> is_type
 
 (** Substitution *)
 
 (** [substitute_ty t a v] substitutes [a] with [v] in [t]. *)
-val substitute_ty : loc:Location.t -> is_atom -> is_term -> is_type -> is_type
+val substitute_ty : is_atom -> is_term -> is_type -> is_type
 
 (** [substitute e a v] substitutes [a] with [v] in [e]. *)
-val substitute : loc:Location.t -> is_term -> is_atom -> is_term -> is_term
+val substitute : is_term -> is_atom -> is_term -> is_term
 
 (** Conversion *)
 
 (** Destructors *)
 
 (** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
-val convert_eq_term : loc:Location.t -> eq_term -> eq_type -> eq_term
+val convert_eq_term : eq_term -> eq_type -> eq_term
 
 (** Constructors *)
 
@@ -154,10 +154,10 @@ val reflexivity_ty : is_type -> eq_type
 
 (** Given two terms [e1 : A1] and [e2 : A2] construct [e1 == e2 : A1],
     provided [A1] and [A2] are alpha equal and [e1] and [e2] are alpha equal *)
-val mk_alpha_equal : loc:Location.t -> is_term -> is_term -> eq_term option
+val mk_alpha_equal : is_term -> is_term -> eq_term option
 
 (** Given two types [A] and [B] construct [A == B] provided the types are alpha equal *)
-val mk_alpha_equal_ty : loc:Location.t -> is_type -> is_type -> eq_type option
+val mk_alpha_equal_ty : is_type -> is_type -> eq_type option
 
 (** Test whether terms are alpha-equal. They may have different types and incompatible contexts even if [true] is returned. *)
 val alpha_equal_is_term : is_term -> is_term -> bool
@@ -166,7 +166,7 @@ val alpha_equal_is_term : is_term -> is_term -> bool
 val alpha_equal_is_type : is_type -> is_type -> bool
 
 (** Form an equality of two alpha-equal types. They must also have compatible contexts. *)
-val alpha_equal_eq_type : loc:Location.t -> is_type -> is_type -> eq_type option
+val alpha_equal_eq_type : is_type -> is_type -> eq_type option
 
 (** If [e1 == e2 : A] then [e2 == e1 : A] *)
 val symmetry_term : eq_term -> eq_term
@@ -175,20 +175,20 @@ val symmetry_term : eq_term -> eq_term
 val symmetry_type : eq_type -> eq_type
 
 (** If [e1 == e2 : A] and [e2 == e3 : A] then [e1 == e2 : A] *)
-val transitivity_term : loc:Location.t -> eq_term -> eq_term -> eq_term
+val transitivity_term : eq_term -> eq_term -> eq_term
 
 (** If [A == B] and [B == C] then [A == C] *)
-val transitivity_type : loc:Location.t -> eq_type -> eq_type -> eq_type
+val transitivity_type : eq_type -> eq_type -> eq_type
 
 (** Congruence rules *)
 
 (** If [A1 == A2] and [B1 == B2] then [{x : A1} B1 == {x : A2} B2].
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side product. *)
-val congr_abstract_type : loc:Location.t -> eq_type -> is_atom -> is_atom -> eq_type -> eq_type
+val congr_abstract_type : eq_type -> is_atom -> is_atom -> eq_type -> eq_type
 
 (** If [A1 == A2], [B1 == B2] and [e1 == e2 : B1] then [{x : A1} (e1 : B1) == {x : A2} (e2 : B2) : {x : A1} B1].
     The first atom is used to abstract both sides. The second is used only for the name in the right hand side. *)
-val congr_abstract_term : loc:Location.t -> eq_type -> is_atom -> is_atom -> eq_type -> eq_term -> eq_term
+val congr_abstract_term : eq_type -> is_atom -> is_atom -> eq_type -> eq_term -> eq_term
 
 (** Derivable rules *)
 

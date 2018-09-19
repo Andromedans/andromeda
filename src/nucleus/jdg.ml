@@ -52,9 +52,9 @@ type error =
   | InvalidConvert of TT.ty * TT.ty
   | RuleInputMismatch of string * TT.ty * string * TT.ty * string
 
-exception Error of error Location.located
+exception Error of error
 
-let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
+let error err = Pervasives.raise (Error err)
 
 
 module Signature = struct
@@ -184,12 +184,12 @@ let meta_instantiate_terms metas es_schema =
     es_schema
 
 
-let rec check_type ~loc (metas : TT.argument list) (schema : Rule.ty) (premise : TT.ty) =
+let rec check_type (metas : TT.argument list) (schema : Rule.ty) (premise : TT.ty) =
   match schema, premise with
 
   | Rule.TypeConstructor (c_schema, args_schema), TT.TypeConstructor (c, args) ->
      if Name.eq_ident c_schema c then
-       check_args ~loc metas args_schema args
+       check_args metas args_schema args
      else
        failwith "some mismatch"
 
@@ -208,7 +208,7 @@ let rec check_type ~loc (metas : TT.argument list) (schema : Rule.ty) (premise :
           failwith "expected a type meta-variable but got something else"
      end
 
-and check_term ~loc (metas : TT.argument list) (schema : Rule.term) (premise : TT.term) =
+and check_term (metas : TT.argument list) (schema : Rule.term) (premise : TT.term) =
   match schema, premise with
 
   | Rule.TermBound k, TT.TermBound n ->
@@ -217,7 +217,7 @@ and check_term ~loc (metas : TT.argument list) (schema : Rule.term) (premise : T
 
   | Rule.TermConstructor (c, args_schema), TT.TermConstructor (c', args) ->
      if Name.eq_ident c c' then
-       check_args ~loc metas args_schema args
+       check_args metas args_schema args
      else
        failwith "mismatch"
 
@@ -239,39 +239,38 @@ and check_term ~loc (metas : TT.argument list) (schema : Rule.term) (premise : T
   | _, _ -> failwith "other cases are errors"
 
 
-and check_args ~loc metas args_schema args =
+and check_args metas args_schema args =
   match args_schema, args with
 
   | [], [] -> ()
 
   | arg_schema :: args_schema, arg :: args ->
-     check_arg ~loc metas arg_schema arg ;
-     check_args ~loc metas args_schema args
+     check_arg metas arg_schema arg ;
+     check_args metas args_schema args
 
   | [], _::_ | _::_, [] -> failwith "too many or too few arguments"
 
-and check_arg ~loc metas arg_schema arg =
+and check_arg metas arg_schema arg =
   match arg_schema, arg with
-  | Rule.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type ~loc metas t_schema t
-  | Rule.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term ~loc metas e_schema e
+  | Rule.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type metas t_schema t
+  | Rule.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term metas e_schema e
   | Rule.ArgEqType _, TT.ArgEqType _ -> ()
   | Rule.ArgEqTerm _, TT.ArgEqTerm _ -> ()
   | _, _ -> failwith "check_arg failed"
 
 and check_abstraction
-    : 'a 'b . (loc:Location.t -> TT.argument list -> 'a -> 'b -> unit) ->
-      loc:Location.t ->
+    : 'a 'b . (TT.argument list -> 'a -> 'b -> unit) ->
       TT.argument list ->
       'a Rule.abstraction -> 'b TT.abstraction -> unit
-  =  fun check_u ~loc metas s_abstr p_abstr ->
+  =  fun check_u metas s_abstr p_abstr ->
   match s_abstr, p_abstr with
 
   | Rule.NotAbstract u_schema, TT.NotAbstract u ->
-     check_u ~loc metas u_schema u
+     check_u metas u_schema u
 
   | Rule.Abstract (_, t_schema, s_abstr), TT.Abstract (_, t, p_abstr) ->
-     check_type ~loc metas t_schema t ;
-     check_abstraction check_u ~loc metas s_abstr p_abstr
+     check_type metas t_schema t ;
+     check_abstraction check_u metas s_abstr p_abstr
 
   | _, _ -> failwith "TODO please reasonable error in Jdg.check_abstraction"
 
@@ -299,33 +298,33 @@ let typeof sgn = function
   | TT.TermConvert (e, _, t) -> t
 
 
-let check_premise ~loc metas s p =
+let check_premise metas s p =
   match s, p with
 
   | Rule.PremiseIsType (_, s_abstr), PremiseIsType p_abstr ->
      check_abstraction
-       (fun ~loc _ _ _ -> ())
-       ~loc metas s_abstr p_abstr
+       (fun _ _ _ -> ())
+       metas s_abstr p_abstr
 
   | Rule.PremiseIsTerm (_, s_abstr), PremiseIsTerm p_abstr ->
      check_abstraction
-       (fun ~loc metas t_schema e -> check_type ~loc metas t_schema (typeof sgn e))
-       ~loc metas s_abstr p_abstr
+       (fun metas t_schema e -> check_type metas t_schema (typeof sgn e))
+       metas s_abstr p_abstr
 
   | Rule.PremiseEqType s_abstr, PremiseEqType p_abstr ->
      check_abstraction
-       (fun ~loc metas (t1_schema, t2_schema) (TT.EqType (_asmp, t1, t2)) ->
-         check_type ~loc metas t1_schema t1 ;
-         check_type ~loc metas t2_schema t2)
-       ~loc metas s_abstr p_abstr
+       (fun metas (t1_schema, t2_schema) (TT.EqType (_asmp, t1, t2)) ->
+         check_type metas t1_schema t1 ;
+         check_type metas t2_schema t2)
+       metas s_abstr p_abstr
 
   | Rule.PremiseEqTerm s_abstr, PremiseEqTerm p_abstr ->
      check_abstraction
-       (fun ~loc metas (e1_schema, e2_schema, t_schema) (TT.EqTerm (_asmp, e1, e2, t)) ->
-         check_term ~loc metas e1_schema e1 ;
-         check_term ~loc metas e2_schema e2 ;
-         check_type ~loc metas t_schema t)
-       ~loc metas
+       (fun metas (e1_schema, e2_schema, t_schema) (TT.EqTerm (_asmp, e1, e2, t)) ->
+         check_term metas e1_schema e1 ;
+         check_term metas e2_schema e2 ;
+         check_type metas t_schema t)
+       metas
        s_abstr p_abstr
 
   | _, _ -> failwith "TODO better error in check_premise"
@@ -336,42 +335,41 @@ let arg_of_premise = function
   | PremiseEqType eq -> TT.mk_arg_eq_type eq
   | PremiseEqTerm eq-> TT.mk_arg_eq_term eq
 
-let match_premise ~loc metas (s : Rule.premise) (p : premise) : TT.argument =
-  check_premise ~loc metas s p ;
+let match_premise metas (s : Rule.premise) (p : premise) : TT.argument =
+  check_premise metas s p ;
   arg_of_premise p
 
-let match_premises ~loc
-                   (schema_premises : Rule.premise list) (premises : premise list) =
+let match_premises (schema_premises : Rule.premise list) (premises : premise list) =
   let rec fold args = function
     | [], [] -> List.rev args
     | [], _::_ -> failwith "too many arguments"
     | _::_, [] -> failwith "too few arguments"
     | s :: ss, p :: ps ->
        let metas = args in (* args also serves as the list of collected metas *)
-       let arg = match_premise ~loc metas s p in
+       let arg = match_premise metas s p in
        fold (arg :: args) (ss, ps)
   in
   fold [] (schema_premises, premises)
 
-let form_is_type_rule ~loc sgn c premises =
+let form_is_type_rule sgn c premises =
   let schema_premises = Signature.lookup_is_type_rule c sgn in
-  let args = match_premises ~loc schema_premises premises in
+  let args = match_premises schema_premises premises in
   TT.mk_type_constructor c args
 
-let form_is_term_rule ~loc sgn c premises =
+let form_is_term_rule sgn c premises =
   let (schema_premises, _) = Signature.lookup_is_term_rule c sgn in
-  let args = match_premises ~loc schema_premises premises in
+  let args = match_premises schema_premises premises in
   TT.mk_term_constructor c args
 
-let form_eq_type_rule ~loc (schema_premises, (lhs_schema, rhs_schema)) premises =
-  let args = match_premises ~loc schema_premises premises in
+let form_eq_type_rule (schema_premises, (lhs_schema, rhs_schema)) premises =
+  let args = match_premises schema_premises premises in
   let asmp = TT.assumptions_arguments args
   and lhs = meta_instantiate_is_type ~lvl:0 args lhs_schema
   and rhs = meta_instantiate_is_type ~lvl:0 args rhs_schema
   in TT.mk_eq_type asmp lhs rhs
 
-let form_eq_term_rule ~loc c (schema_premises, (e1_schema, e2_schema, t_schema)) premises =
-  let args = match_premises ~loc schema_premises premises in
+let form_eq_term_rule c (schema_premises, (e1_schema, e2_schema, t_schema)) premises =
+  let args = match_premises schema_premises premises in
   let asmp = TT.assumptions_arguments args
   and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema
   and e2 = meta_instantiate_is_term ~lvl:0 args e2_schema
@@ -557,7 +555,7 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
        (* [e] itself is not a [TermConvert] by the maintained invariant. *)
        TT.mk_term_convert e asmp t2
      else
-       error ~loc (InvalidConvert (t0, t1))
+       error (InvalidConvert (t0, t1))
 
   | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
      let t0 = natural_type sgn e in
@@ -567,26 +565,26 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
        (* [e] is not a [TermConvert] by the above pattern-check *)
        TT.mk_term_convert e asmp t2
      else
-       error ~loc (InvalidConvert (t0, t1))
+       error (InvalidConvert (t0, t1))
 
 
 (** Substitution *)
-let substitute_ty ~loc a e0 t =
+let substitute_ty a e0 t =
   TT.substitute_type a e0 t
 
-let substitute_term ~loc a e0 e =
+let substitute_term a e0 e =
   TT.substitute_term a e0 e
 
 (** Conversion *)
 
-let convert_eq_term ~loc (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, t2)) =
+let convert_eq_term (TT.EqTerm (asmp1, e1, e2, t0)) (TT.EqType (asmp2, t1, t2)) =
   if TT.alpha_equal_type t0 t1 then
     (* We could have used the assumptions of [t0] instead of [t1], see comments in [form_is_term]
        about possible optimizations. *)
     let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t1)) in
     TT.mk_eq_term asmp e1 e2 t2
   else
-    error ~loc (InvalidConvert (t0, t1))
+    error (InvalidConvert (t0, t1))
 
 (** Constructors *)
 
@@ -602,12 +600,12 @@ let mk_alpha_eq_type t1 t2 =
   | false -> None
   | true -> Some (EqType (Assumption.empty, t1, t2))
 
-let mk_alpha_equal_term ~loc sgn e1 e2 =
+let mk_alpha_equal_term sgn e1 e2 =
   let t1 = typeof sgn e1
   and t2 = typeof sgn e2
   in
   match TT.alpha_equal_type t1 t2 with
-  | false -> error ~loc (AlphaEqualTypeMismatch (t1, t2))
+  | false -> error (AlphaEqualTypeMismatch (t1, t2))
   | true ->
      begin match TT.alpha_equal e1 e2 with
      | false -> None
@@ -629,21 +627,21 @@ let symmetry_term (EqTerm (asmp, e1, e2, t)) = EqTerm (asmp, e2, e1, t)
 
 let symmetry_type (EqType (asmp, t1, t2)) = EqType (asmp, t2, t1)
 
-let transitivity_term ~loc (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) =
+let transitivity_term (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', t')) =
   match TT.alpha_equal_type t t' with
-  | false -> error ~loc (AlphaEqualTypeMismatch (t, t'))
+  | false -> error (AlphaEqualTypeMismatch (t, t'))
   | true ->
      begin match TT.alpha_equal e2 e1' with
-     | false -> error ~loc (AlphaEqualTermMismatch (e2, e1'))
+     | false -> error (AlphaEqualTermMismatch (e2, e1'))
      | true ->
         (* XXX could use assumptions of [e1'] instead, or whichever is better. *)
         let asmp = Assumption.union asmp (Assumption.union asmp' (TT.assumptions_term e2))
         in EqTerm (asmp, e1, e2', t)
      end
 
-let transitivity_type ~loc (EqType (asmp1, t1, t2)) (EqType (asmp2, u1, u2)) =
+let transitivity_type (EqType (asmp1, t1, t2)) (EqType (asmp2, u1, u2)) =
   begin match TT.alpha_equal_type t2 u1 with
-  | false -> error ~loc (AlphaEqualTypeMismatch (t2, u1))
+  | false -> error (AlphaEqualTypeMismatch (t2, u1))
   | true ->
      (* XXX could use assumptions of [u1] instead, or whichever is better. *)
      let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t2))
@@ -673,7 +671,7 @@ let congruence_term_constructor sgn c eqs =
 (** Given a list of (possibly abstracted) equations between arguments, create an equation
    between [c] applied to the arguments of the left-hand sides and the right-hand sides,
    respectively. *)
-let congruence_type_constructor ~loc sgn c eqs =
+let congruence_type_constructor sgn c eqs =
   let (asmp, lhs, rhs) =
     List.fold_left
       (fun (asmp, lhs, rhs) (EqType (asmp', t1, t2)) ->
@@ -681,8 +679,8 @@ let congruence_type_constructor ~loc sgn c eqs =
       (Assumption.empty, [], [])
       eqs
   in
-  let t1 = Rule.form_is_type ~loc sgn c (List.rev lhs)
-  and t2 = Rule.form_is_type ~loc sgn c (List.rev rhs)
+  let t1 = Rule.form_is_type sgn c (List.rev lhs)
+  and t2 = Rule.form_is_type sgn c (List.rev rhs)
   in EqType (asmp, t1, t2)
 
 
