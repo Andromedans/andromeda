@@ -1,7 +1,7 @@
 (** Runtime values and computations *)
 
-type ref = Store.Ref.key
-type dyn = Store.Dyn.key
+type ref = Store.Ref.key (* TODO rename to aml_ref, or just get rid of this *)
+type dyn = Store.Dyn.key (* TODO rename to aml_dyn, or just get rid of this *)
 
 (** This module defines 2 monads:
     - the computation monad [comp], providing operations and an environment of which part is dynamically scoped.
@@ -170,12 +170,12 @@ type 'a caught =
   | CaughtRuntime of error Location.located
   | Value of 'a
 
-let catch m env =
+let catch ~loc m env =
   try
     let x, env = Lazy.force m env in
     Value x, env
   with
-    | Jdg.Error err -> CaughtJdg err, env
+    | Jdg.Error err -> CaughtJdg (Location.locate err loc), env
     | Error err -> CaughtRuntime err, env
 
 (** Returns *)

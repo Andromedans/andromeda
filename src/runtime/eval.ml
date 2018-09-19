@@ -625,7 +625,7 @@ let print_error err ppf =
     | JdgError (penv, err) -> Jdg.print_error ~penv err ppf
 
 let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
-  Runtime.catch (lazy (match c with
+  Runtime.catch ~loc (lazy (match c with
 
     | Rsyntax.DefMLType lst
 
@@ -702,7 +702,7 @@ let rec toplevel ~quiet ~print_annot {Location.thing=c;loc} =
         return ())
 
     | Rsyntax.TopFail c ->
-       Runtime.catch (lazy (comp_value c)) >>= begin function
+       Runtime.catch ~loc (lazy (comp_value c)) >>= begin function
 
        | Runtime.CaughtRuntime {Location.thing=err; loc}  ->
          Runtime.top_lookup_penv >>= fun penv ->

@@ -280,7 +280,7 @@ type 'a caught =
   | Value of 'a
 
 (** Catch Error exceptions. The state is not changed if an exception occurs. *)
-val catch : 'a toplevel Lazy.t -> 'a caught toplevel
+val catch : loc:Location.t -> 'a toplevel Lazy.t -> 'a caught toplevel
 
 (** {6 Running a toplevel computation} *)
 
