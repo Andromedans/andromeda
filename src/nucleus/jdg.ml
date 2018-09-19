@@ -50,7 +50,6 @@ type stump_eq_term =
 
 type error =
   | ConstantDependency
-  | AbstractDependency of Name.atom * Name.atom list
   | AbstractInvalidType of Name.atom * TT.ty * TT.ty
   | SubstitutionDependency of Name.atom * TT.term * Name.atom
   | SubstitutionInvalidType of Name.atom * TT.ty * TT.ty
@@ -59,8 +58,6 @@ type error =
   | AlphaEqualTermMismatch of TT.term * TT.term
   | InvalidConvert of TT.ty * TT.ty
   | RuleInputMismatch of string * TT.ty * string * TT.ty * string
-  | SubstitutionAbstractedTerm of Name.atom * is_term
-  | NotAbstractExpected
 
 exception Error of error Location.located
 
@@ -108,6 +105,28 @@ module Rule = struct
     type is_term_rule = premise list * ty
     type eq_type_rule = premise list * (ty * ty)
     type eq_term_rule = premise list * (term * term * ty)
+
+    type rule =
+      | RuleIsType of is_type_rule
+      | RuleIsTerm of is_term_rule
+      | RuleEqType of eq_type_rule
+      | RuleEqTerm of eq_term_rule
+
+    let lookup_is_term_rule c rules =
+      try
+        begin match Name.IdentMap.find c rules with
+        | RuleIsTerm r -> r
+        | RuleIsType _ | RuleEqType _ | RuleEqTerm _ -> failwith "not a term rule"
+        end
+      with Not_found -> failwith "no such rule"
+
+    let lookup_is_type_rule c rules =
+      try
+        begin match Name.IdentMap.find c rules with
+        | RuleIsType r -> r
+        | RuleIsTerm _ | RuleEqType _ | RuleEqTerm _ -> failwith "not a term rule"
+        end
+      with Not_found -> failwith "no such rule"
 
   end
 
@@ -304,7 +323,28 @@ module Rule = struct
     | _, _ -> failwith "TODO please reasonable error in Jdg.check_abstraction"
 
 
-  let typeof _ = failwith "todo"
+  (** [typeof sgn e] gives a type judgment [t], where [t] is the type of [e].
+      Note that [t] itself gives no evidence that [e] actually has type [t].
+      However, the assumptions of [e] are sufficient to show that [e] has
+      type [t].  *)
+  let typeof sgn = function
+  | TT.TermAtom {TT.atom_type=t; _} -> t
+
+  | TT.TermBound k ->
+     (* We should never get here. If ever we need to compute the type of a
+        term with bound variables, then we should have unabstracted the term
+        beforehand, and asked about the type of the unabstracted version. *)
+     assert false
+
+  | TT.TermConstructor (c, args) ->
+     let (_, t_schema) = Schema.lookup_is_term_rule c sgn in
+     (* we need not re-check that the premises match the arguments because
+        we are computing the type of a term that was previously determined
+        to be valid. *)
+     meta_instantiate_is_type ~lvl:0 args t_schema
+
+  | TT.TermConvert (e, _, t) -> t
+
 
   let check_premise ~loc metas s p =
     match s, p with
@@ -316,7 +356,7 @@ module Rule = struct
 
     | Schema.PremiseIsTerm (_, s_abstr), PremiseIsTerm p_abstr ->
        check_abstraction
-         (fun ~loc metas t_schema e -> check_type ~loc metas t_schema (typeof e))
+         (fun ~loc metas t_schema e -> check_type ~loc metas t_schema (typeof sgn e))
          ~loc metas s_abstr p_abstr
 
     | Schema.PremiseEqType s_abstr, PremiseEqType p_abstr ->
@@ -360,11 +400,13 @@ module Rule = struct
     in
     fold [] (schema_premises, premises)
 
-  let form_is_type ~loc c schema_premises premises =
+  let form_is_type ~loc rules c premises =
+    let schema_premises = Schema.lookup_is_type_rule c rules in
     let args = match_premises ~loc schema_premises premises in
     TT.mk_type_constructor c args
 
-  let form_is_term ~loc c (schema_premises, _) premises =
+  let form_is_term ~loc rules c premises =
+    let (schema_premises, _) = Schema.lookup_is_term_rule c rules in
     let args = match_premises ~loc schema_premises premises in
     TT.mk_term_constructor c args
 
@@ -391,56 +433,31 @@ module Rule = struct
 end
 
 module Signature = struct
-  module ConstantMap = Name.IdentMap
+  module RuleMap = Name.IdentMap
 
   type t =
-    { constants : TT.ty ConstantMap.t
+    { constructors : Rule.Schema.rule RuleMap.t
     }
 
   let empty = {
-    constants = ConstantMap.empty;
+    constructors = RuleMap.empty;
   }
 
-  let constant_type c sgn =
-    ConstantMap.find c sgn.constants
-
-  let add_constant c t sgn =
-    {constants = ConstantMap.add c t sgn.constants}
+  let add_rule c r sgn =
+    { constructors = RuleMap.add c r sgn.constructors }
 
 end
 
 (** Judgements *)
 
-(** [typeof sgn e] gives the judgment that the type [t] of [e] is derivable.
-    Note that [t] itself gives no evidence that [e] actually has type [t].
-    However, the assumptions of [e] are sufficient to show that [e] has
-    type [t].  *)
-let typeof sgn = function
-  | TT.TermAtom {TT.atom_type=t; _} -> t
-
-  | TT.TermBound k ->
-     lookup_bound k ctx (* XXX shifting, do we need this case? *)
-
-  | TT.TermConstructor (c, args) ->
-     let sch = Signature.lookup_term_constructor c sgn in
-     instantiate_schema sch args
-
-  | TT.TermConvert (e, _, t) -> t
-
 (** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
     We maintain the invariant that no further assumptions are needed (apart from those
     already present in [e]) to derive that [e] actually has type [t]. *)
 let natural_type sgn = function
-  | TT.TermAtom {TT.atom_type=t; _} -> t
+  | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
+     Rule.typeof sgn e
 
-  | TT.TermBound k ->
-     lookup_bound k ctx (* XXX shifting, do we need this case? *)
-
-  | TT.TermConstructor (c, args) ->
-     let sch = Signature.lookup_term_constructor c sgn in
-     instantiate_schema sch args
-
-  | TT.TermConvert (e, _, _) -> typeof sgn e
+  | TT.TermConvert (e, _, _) -> Rule.typeof sgn e
 
 
 let atom_is_type {TT.atom_type=t;_} = t
@@ -587,10 +604,8 @@ let invert_abstraction inst_v invert_v = function
 let form_is_term ~loc sgn = function
   | TermAtom a -> TT.mk_atom a
 
- | TermConstructor (c, args) ->
-    let sch = Signature.lookup_term_constructor c sgn in
-    let args = form_args sch args in
-    TT.mk_term_constructor c args
+ | TermConstructor (c, premises) ->
+    Rule.form_is_term ~loc sgn.Signature.constructors c premises
 
  | TermConvert (e, TT.EqType (asmp, t1, t2)) ->
     begin match e with
@@ -622,9 +637,8 @@ let form_is_term ~loc sgn = function
 
     end
 
-let form_is_type ~loc sgn = function
-  | TypeConstructor (c, args) ->
-     Rule.form_is_type ~loc sgn c args
+let form_is_type ~loc sgn (TypeConstructor (c, args)) =
+  Rule.form_is_type ~loc sgn.Signature.constructors c args
 
 (** Substitution *)
 let substitute_ty ~loc a e0 t =
@@ -729,7 +743,7 @@ let congruence_term_constructor sgn c eqs =
 (** Given a list of (possibly abstracted) equations between arguments, create an equation
    between [c] applied to the arguments of the left-hand sides and the right-hand sides,
    respectively. *)
-let congruence_type_constructor sgn c eqs =
+let congruence_type_constructor ~loc sgn c eqs =
   let (asmp, lhs, rhs) =
     List.fold_left
       (fun (asmp, lhs, rhs) (EqType (asmp', t1, t2)) ->
@@ -737,8 +751,8 @@ let congruence_type_constructor sgn c eqs =
       (Assumption.empty, [], [])
       eqs
   in
-  let t1 = form_is_type sgn c (List.rev lhs)
-  and t2 = form_is_type sgn c (List.rev rhs)
+  let t1 = Rule.form_is_type ~loc sgn c (List.rev lhs)
+  and t2 = Rule.form_is_type ~loc sgn c (List.rev rhs)
   in EqType (asmp, t1, t2)
 
 
