@@ -187,10 +187,10 @@ let rec infer {Location.thing=c'; loc} =
     check_is_term c1 >>= fun je ->
     begin match Jdg.occurs a je with
     | None ->
-       check c3 (Jdg.atom_is_type a) >>= fun _ ->
+       check c3 (Jdg.type_of_atom a) >>= fun _ ->
        Runtime.return_is_term je
     | Some a ->
-       check c3 (Jdg.atom_is_type a) >>= fun js ->
+       check c3 (Jdg.type_of_atom a) >>= fun js ->
        let j = Jdg.substitute ~loc je a js in
        Runtime.return_is_term j
     end
@@ -295,7 +295,7 @@ let rec infer {Location.thing=c'; loc} =
     check_is_term c2 >>= fun j ->
     begin match Jdg.occurs a j with
       | Some jx ->
-        let j = Jdg.atom_is_type jx in
+        let j = Jdg.type_of_atom jx in
         Runtime.return (Predefined.from_option (Some (Runtime.mk_is_type j)))
       | None ->
         Runtime.return (Predefined.from_option None)
@@ -407,14 +407,14 @@ and check_abstract ~loc t_check x u c =
      begin match u with
      | Some u ->
         check_is_type u >>= fun ju ->
-        Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.atom_is_type a) >>=
+        Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.type_of_atom a) >>=
           begin function
             | Some equ -> Runtime.return (ju, equ)
             | None ->
-               Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Jdg.atom_is_type a))))
+               Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Jdg.type_of_atom a))))
           end
      | None ->
-        let ju = Jdg.atom_is_type a in
+        let ju = Jdg.type_of_atom a in
         let equ = Jdg.reflexivity_ty ju in
         Runtime.return (ju, equ)
      end >>= fun (ju, equ) -> (* equ : ju == typeof a *)

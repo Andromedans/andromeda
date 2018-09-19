@@ -117,9 +117,9 @@ val abstract_term : Name.atom -> ?lvl:bound -> term -> term
 val abstract_type : Name.atom -> ?lvl:bound -> ty -> ty
 
 (** abstract followed by instantiate *)
-val substitute_term : Name.atom -> term -> term -> term
+val substitute_term : term -> Name.atom -> term -> term
 
-val substitute_type : Name.atom -> term -> ty -> ty
+val substitute_type : term -> Name.atom -> ty -> ty
 
 (** The asssumptions used by a term. Caveat: alpha-equal terms may have different assumptions. *)
 val assumptions_term : ?lvl:bound -> term -> assumption
@@ -127,10 +127,17 @@ val assumptions_term : ?lvl:bound -> term -> assumption
 (** The assumptions used by a type. Caveat: alpha-equal types may have different assumptions. *)
 val assumptions_type : ?lvl:bound -> ty -> assumption
 
+val assumptions_eq_type : ?lvl:bound -> eq_type -> assumption
+
+val assumptions_eq_term : ?lvl:bound -> eq_term -> assumption
+
 val assumptions_arguments : argument list -> assumption
 
-(** [alpha_equal e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
-val alpha_equal: term -> term -> bool
+val assumptions_abstraction :
+  (?lvl:bound -> 'a -> assumption) -> ?lvl:bound -> 'a abstraction -> assumption
+
+(** [alpha_equal_term e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
+val alpha_equal_term : term -> term -> bool
 
 (** [alpha_equal_type t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
 val alpha_equal_type : ty -> ty -> bool

@@ -67,7 +67,7 @@ let equal_ty ~loc j1 j2 =
 
 let coerce ~loc je jt =
   let je_ty = Jdg.typeof je in
-  match Jdg.alpha_equal_eq_type ~loc je_ty jt with
+  match Jdg.mk_equal_eq_type ~loc je_ty jt with
 
   | Some _ ->
      Opt.return je
@@ -82,8 +82,8 @@ let coerce ~loc je jt =
           let eq_lhs = Jdg.eq_type_side Jdg.LEFT eq
           and eq_rhs = Jdg.eq_type_side Jdg.RIGHT eq in
           begin
-            match Jdg.alpha_equal_eq_type ~loc je_ty eq_lhs,
-                  Jdg.alpha_equal_eq_type ~loc jt eq_rhs
+            match Jdg.mk_equal_eq_type ~loc je_ty eq_lhs,
+                  Jdg.mk_equal_eq_type ~loc jt eq_rhs
             with
             | Some _, Some _ ->
                Opt.return (Jdg.convert ~loc je eq)
@@ -93,7 +93,7 @@ let coerce ~loc je jt =
 
        | Predefined.Coercible je ->
           begin
-            match Jdg.alpha_equal_eq_type ~loc (Jdg.typeof je) jt with
+            match Jdg.mk_alpha_equal_type ~loc (Jdg.typeof je) jt with
             | Some _ ->
                Opt.return je
             | None ->

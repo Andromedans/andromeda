@@ -369,7 +369,7 @@ and fully_instantiate_abstraction
 let rec abstract_term x ?(lvl=0) = function
   | (TermAtom {atom_name=y; atom_type=t}) as e ->
      begin match Name.eq_atom x y with
-     | false -> e (* XXX check that t does not depend on x !!! *)
+     | false -> ignore e ; failwith "(* XXX check that t does not depend on x, then give me e !!! *)"
      | true -> TermBound lvl
      end
 
@@ -444,11 +444,11 @@ and abstract_abstraction
      Abstract (y, u, abstr)
 
 (** Substitute *)
-let substitute_term x e0 e =
+let substitute_term e0 x e =
   let e = abstract_term x e in
   instantiate_term e0 e
 
-let substitute_type x e0 t =
+let substitute_type e0 x t =
   let t = abstract_type x t in
   instantiate_type e0 t
 
@@ -491,7 +491,7 @@ and occurs_assumptions k asmp =
 
 (****** Alpha equality ******)
 
-let rec alpha_equal e1 e2 =
+let rec alpha_equal_term e1 e2 =
   e1 == e2 || (* a shortcut in case the terms are identical *)
   begin match e1, e2 with
 
@@ -503,7 +503,7 @@ let rec alpha_equal e1 e2 =
        Name.eq_ident c c' && alpha_equal_args args args'
 
     | TermConvert (e1, _, _), TermConvert (e2, _, _) ->
-       alpha_equal e1 e2
+       alpha_equal_term e1 e2
 
     | (TermAtom _ | TermBound _ | TermConstructor _  | TermConvert _), _ ->
       false
@@ -520,7 +520,7 @@ and alpha_equal_args args args' =
   | [], [] -> true
 
   | (ArgIsTerm e)::args, (ArgIsTerm e')::args' ->
-     alpha_equal_abstraction alpha_equal e e' && alpha_equal_args args args'
+     alpha_equal_abstraction alpha_equal_term e e' && alpha_equal_args args args'
 
   | (ArgIsType t)::args, (ArgIsType t')::args' ->
      alpha_equal_abstraction alpha_equal_type t t' && alpha_equal_args args args'

@@ -39,7 +39,7 @@ let rec collect_is_term env xvs p j =
 
   | Pattern.Term_Abstract (x,bopt,popt,p), Jdg.Abstract (jy,je) ->
      let xvs = begin match popt with
-       | Some pt -> collect_is_type env xvs pt (Jdg.atom_is_type jy)
+       | Some pt -> collect_is_type env xvs pt (Jdg.type_of_atom jy)
        | None -> xvs
      end in
      let yt = Runtime.mk_is_term (Jdg.atom_is_term ~loc jy) in
@@ -85,7 +85,7 @@ and collect_is_type env xvs p j =
 
   | Pattern.Type_AbstractTy (x,bopt,popt,p), Jdg.AbstractTy (jy,jb) ->
      let xvs = begin match popt with
-       | Some pt -> collect_is_type env xvs pt (Jdg.atom_is_type jy)
+       | Some pt -> collect_is_type env xvs pt (Jdg.type_of_atom jy)
        | None -> xvs
      end in
      let yt = Runtime.mk_is_term (Jdg.atom_is_term ~loc jy) in
