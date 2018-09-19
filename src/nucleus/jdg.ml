@@ -25,13 +25,6 @@ type premise =
   | PremiseEqType of eq_type abstraction
   | PremiseEqTerm of eq_term abstraction
 
-(** Premise of a congruence rule. *)
-type congr_premise =
-  | CongrEqType of eq_type abstraction
-  | CongrEqTerm of eq_term abstraction
-  | CongrEqEqType of eq_type abstraction * eq_type abstraction
-  | CongEqEqTerm of eq_term abstraction * eq_term abstraction
-
 type stump_is_type =
   | TypeConstructor of Name.constructor * premise list
 
@@ -63,271 +56,231 @@ exception Error of error Location.located
 
 let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 
-module Rule = struct
 
-  module Schema = struct
+module Signature = struct
+  module RuleMap = Name.IdentMap
 
-    type meta = int  (* meta-variables appearing in rules *)
-    type bound = TT.bound
+  type t =
+    { is_type : Rule.is_type_rule RuleMap.t
+    ; is_term : Rule.is_term_rule RuleMap.t
+    ; eq_type : Rule.eq_type_rule RuleMap.t
+    ; eq_term : Rule.eq_term_rule RuleMap.t
+    }
 
-    type term =
-      | TermBound of bound
-      | TermConstructor of Name.constructor * argument list
-      | TermMeta of meta * term list
+  let empty =
+    { is_type = RuleMap.empty
+    ; is_term = RuleMap.empty
+    ; eq_type = RuleMap.empty
+    ; eq_term = RuleMap.empty
+    }
 
-    and ty =
-      | TypeConstructor of Name.constructor * argument list
-      | TypeMeta of meta * term list
+  let lookup_is_type_rule c sgn = RuleMap.find c sgn.is_type
+  let lookup_is_term_rule c sgn = RuleMap.find c sgn.is_term
+  let lookup_eq_type_rule c sgn = RuleMap.find c sgn.eq_type
+  let lookup_eq_term_rule c sgn = RuleMap.find c sgn.eq_term
+end
 
-    and eq_type = EqType of assumption * ty * ty
+(** Manipulation of rules of inference. *)
 
-    and eq_term = EqTerm of assumption * term * term * ty
+(** [fully_apply_abstraction inst_u abstr args] fully applies an abstraction to the given arguments. *)
+let fully_apply_abstraction inst_u abstr args =
+  let rec fold es abstr args =
+    match abstr, args with
+    | TT.NotAbstract u, [] -> inst_u es u
+    | TT.Abstract (_, _, abstr), e :: args -> fold (e :: es) abstr args
+    | TT.Abstract _, [] -> failwith "too few arguments"
+    | TT.NotAbstract _, _::_ -> failwith "too many arguments"
+  in
+  fold [] abstr args
 
-    and argument =
-      | ArgIsType of ty abstraction
-      | ArgIsTerm of term abstraction
-      | ArgEqType of eq_type abstraction
-      | ArgEqTerm of eq_term abstraction
+let lookup_term_meta k metas =
+  match List.nth metas k with
+  | TT.ArgIsTerm e_abstr -> e_abstr
+  | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "term expected"
 
-    and 'a abstraction =
-      | NotAbstract of 'a
-      | Abstract of Name.ident * ty * 'a abstraction
+let lookup_type_meta k metas =
+  match List.nth metas k with
+  | TT.ArgIsType t_abstr -> t_abstr
+  | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "type expected"
 
-    and assumption = ()
+let rec meta_instantiate_is_type ~lvl metas = function
+  | Rule.TypeConstructor (c, args) ->
+     let args = meta_instantiate_args ~lvl metas args
+     in TT.mk_type_constructor c args
 
-    type premise =
-      | PremiseIsType of Name.ident * unit abstraction
-      | PremiseIsTerm of Name.ident * ty abstraction
-      | PremiseEqType of (ty * ty) abstraction
-      | PremiseEqTerm of (term * term * ty) abstraction
+  | Rule.TypeMeta (k, es_schema) ->
+     let t_abstr = lookup_type_meta k metas in
+     let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
+     fully_apply_abstraction (TT.fully_instantiate_type ?lvl:None) t_abstr es
 
-    type is_type_rule = premise list
-    type is_term_rule = premise list * ty
-    type eq_type_rule = premise list * (ty * ty)
-    type eq_term_rule = premise list * (term * term * ty)
+and meta_instantiate_is_term ~lvl metas = function
+  | Rule.TermBound k -> TT.mk_bound k
 
-    type rule =
-      | RuleIsType of is_type_rule
-      | RuleIsTerm of is_term_rule
-      | RuleEqType of eq_type_rule
-      | RuleEqTerm of eq_term_rule
+  | Rule.TermConstructor (c, args) ->
+     let args = meta_instantiate_args ~lvl metas args
+     in TT.mk_term_constructor c args
 
-    let lookup_is_term_rule c rules =
-      try
-        begin match Name.IdentMap.find c rules with
-        | RuleIsTerm r -> r
-        | RuleIsType _ | RuleEqType _ | RuleEqTerm _ -> failwith "not a term rule"
-        end
-      with Not_found -> failwith "no such rule"
+  | Rule.TermMeta (k, es_schema) ->
+     let e_abstr = lookup_term_meta k metas in
+     let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
+     fully_apply_abstraction (TT.fully_instantiate_term ?lvl:None) e_abstr es
 
-    let lookup_is_type_rule c rules =
-      try
-        begin match Name.IdentMap.find c rules with
-        | RuleIsType r -> r
-        | RuleIsTerm _ | RuleEqType _ | RuleEqTerm _ -> failwith "not a term rule"
-        end
-      with Not_found -> failwith "no such rule"
+and meta_instantiate_eq_type ~lvl metas (Rule.EqType (asmp, t1, t2)) =
+  let asmp = meta_instantiate_assumptions ~lvl metas asmp
+  and t1 = meta_instantiate_is_type ~lvl metas t1
+  and t2 = meta_instantiate_is_type ~lvl metas t2 in
+  TT.mk_eq_type asmp t1 t2
 
-  end
+and meta_instantiate_eq_term ~lvl metas (Rule.EqTerm (asmp, e1, e2, t)) =
+  let asmp = meta_instantiate_assumptions ~lvl metas asmp
+  and e1 = meta_instantiate_is_term ~lvl metas e1
+  and e2 = meta_instantiate_is_term ~lvl metas e2
+  and t = meta_instantiate_is_type ~lvl metas t in
+  TT.mk_eq_term asmp e1 e2 t
 
-  let apply_abstraction inst_u abstr args =
-    let rec fold es abstr args =
-      match abstr, args with
-      | TT.NotAbstract u, [] -> inst_u es u
-      | TT.Abstract (_, _, abstr), e :: args -> fold (e :: es) abstr args
-      | TT.Abstract _, [] -> failwith "too few arguments"
-      | TT.NotAbstract _, _::_ -> failwith "too many arguments"
-    in
-    fold [] abstr args
+and meta_instantiate_assumptions ~lvl metas asmp =
+  failwith "todo"
 
-  let lookup_term_meta k metas =
-    match List.nth metas k with
-    | TT.ArgIsTerm e_abstr -> e_abstr
-    | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "term expected"
+and meta_instantiate_args ~lvl metas args =
+  List.map (meta_instantiate_arg ~lvl metas) args
 
-  let lookup_type_meta k metas =
-    match List.nth metas k with
-    | TT.ArgIsType t_abstr -> t_abstr
-    | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ -> failwith "type expected"
+and meta_instantiate_arg ~lvl metas = function
+  | Rule.ArgIsType abstr ->
+     let abstr = meta_instantiate_abstraction meta_instantiate_is_type ~lvl metas abstr
+     in TT.mk_arg_is_type abstr
 
-  let rec meta_instantiate_is_type ~lvl metas = function
-      | Schema.TypeConstructor (c, args) ->
-       let args = meta_instantiate_args ~lvl metas args
-       in TT.mk_type_constructor c args
+  | Rule.ArgIsTerm abstr ->
+     let abstr = meta_instantiate_abstraction meta_instantiate_is_term ~lvl metas abstr
+     in TT.mk_arg_is_term abstr
 
-      | Schema.TypeMeta (k, es_schema) ->
-         let t_abstr = lookup_type_meta k metas in
-         let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
-         apply_abstraction (TT.fully_instantiate_type ?lvl:None) t_abstr es
-
-  and meta_instantiate_is_term ~lvl metas = function
-    | Schema.TermBound k -> TT.mk_bound k
-
-    | Schema.TermConstructor (c, args) ->
-       let args = meta_instantiate_args ~lvl metas args
-       in TT.mk_term_constructor c args
-
-    | Schema.TermMeta (k, es_schema) ->
-       let e_abstr = lookup_term_meta k metas in
-       let es = List.map (fun e_schema -> meta_instantiate_is_term ~lvl metas e_schema) es_schema in
-       apply_abstraction (TT.fully_instantiate_term ?lvl:None) e_abstr es
-
-    and meta_instantiate_eq_type ~lvl metas (Schema.EqType (asmp, t1, t2)) =
-      let asmp = meta_instantiate_assumptions ~lvl metas asmp
-      and t1 = meta_instantiate_is_type ~lvl metas t1
-      and t2 = meta_instantiate_is_type ~lvl metas t2 in
-      TT.mk_eq_type asmp t1 t2
-
-    and meta_instantiate_eq_term ~lvl metas (Schema.EqTerm (asmp, e1, e2, t)) =
-      let asmp = meta_instantiate_assumptions ~lvl metas asmp
-      and e1 = meta_instantiate_is_term ~lvl metas e1
-      and e2 = meta_instantiate_is_term ~lvl metas e2
-      and t = meta_instantiate_is_type ~lvl metas t in
-      TT.mk_eq_term asmp e1 e2 t
-
-    and meta_instantiate_assumptions ~lvl metas asmp =
-      failwith "todo"
-
-    and meta_instantiate_args ~lvl metas args =
-      List.map (meta_instantiate_arg ~lvl metas) args
-
-    and meta_instantiate_arg ~lvl metas = function
-      | Schema.ArgIsType abstr ->
-         let abstr = meta_instantiate_abstraction meta_instantiate_is_type ~lvl metas abstr
-         in TT.mk_arg_is_type abstr
-
-      | Schema.ArgIsTerm abstr ->
-         let abstr = meta_instantiate_abstraction meta_instantiate_is_term ~lvl metas abstr
-         in TT.mk_arg_is_term abstr
-
-      | Schema.ArgEqType abstr ->
-         (* XXX could do this lazily so that it's discarded when it's an
+  | Rule.ArgEqType abstr ->
+     (* XXX could do this lazily so that it's discarded when it's an
             argument in a premise, and computed only when it's an argument in
             a constructor in the output of a rule *)
-         let abstr = meta_instantiate_abstraction meta_instantiate_eq_type ~lvl metas abstr
-         in TT.mk_arg_eq_type abstr
+     let abstr = meta_instantiate_abstraction meta_instantiate_eq_type ~lvl metas abstr
+     in TT.mk_arg_eq_type abstr
 
-      | Schema.ArgEqTerm abstr ->
-         let abstr = meta_instantiate_abstraction meta_instantiate_eq_term ~lvl metas abstr
-         in TT.mk_arg_eq_term abstr
+  | Rule.ArgEqTerm abstr ->
+     let abstr = meta_instantiate_abstraction meta_instantiate_eq_term ~lvl metas abstr
+     in TT.mk_arg_eq_term abstr
 
-    and meta_instantiate_abstraction
-        : 'a 'b . (lvl:int -> TT.argument list -> 'a -> 'b) ->
-                  lvl:int -> TT.argument list -> 'a Schema.abstraction -> 'b TT.abstraction
-      = fun inst_u ~lvl metas -> function
+and meta_instantiate_abstraction
+    : 'a 'b . (lvl:int -> TT.argument list -> 'a -> 'b) ->
+      lvl:int -> TT.argument list -> 'a Rule.abstraction -> 'b TT.abstraction
+  = fun inst_u ~lvl metas -> function
 
-        | Schema.NotAbstract u ->
-           let u = inst_u ~lvl metas u
-           in TT.mk_not_abstract u
+                          | Rule.NotAbstract u ->
+                             let u = inst_u ~lvl metas u
+                             in TT.mk_not_abstract u
 
-        | Schema.Abstract (x, t, abstr) ->
-           let t = meta_instantiate_is_type ~lvl metas t
-           and abstr = meta_instantiate_abstraction inst_u ~lvl:(lvl+1) metas abstr
-           in TT.mk_abstract x t abstr
+                          | Rule.Abstract (x, t, abstr) ->
+                             let t = meta_instantiate_is_type ~lvl metas t
+                             and abstr = meta_instantiate_abstraction inst_u ~lvl:(lvl+1) metas abstr
+                             in TT.mk_abstract x t abstr
 
-  let meta_instantiate_terms metas es_schema =
-    List.map
-      (fun e_schema -> meta_instantiate_is_term ~lvl:0 metas e_schema)
-      es_schema
-
-
-  let rec check_type ~loc (metas : TT.argument list) (schema : Schema.ty) (premise : TT.ty) =
-    match schema, premise with
-
-    | Schema.TypeConstructor (c_schema, args_schema), TT.TypeConstructor (c, args) ->
-       if Name.eq_ident c_schema c then
-         check_args ~loc metas args_schema args
-       else
-         failwith "some mismatch"
-
-    | Schema.TypeMeta (k, es_schema), ty ->
-       begin
-         (* XXX TODO List.nth could fail miserably here *)
-         match List.nth metas k with
-
-         | TT.ArgIsType abstr ->
-            let es = meta_instantiate_terms metas es_schema in
-            let ty' = apply_abstraction (TT.fully_instantiate_type ?lvl:None) abstr es in
-            if not (TT.alpha_equal_type ty ty') then
-              failwith "type mismatch"
-
-         | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ ->
-            failwith "expected a type meta-variable but got something else"
-       end
-
-  and check_term ~loc (metas : TT.argument list) (schema : Schema.term) (premise : TT.term) =
-    match schema, premise with
-
-    | Schema.TermBound k, TT.TermBound n ->
-       if not (TT.equal_bound k n) then
-         failwith "mismatch"
-
-    | Schema.TermConstructor (c, args_schema), TT.TermConstructor (c', args) ->
-       if Name.eq_ident c c' then
-         check_args ~loc metas args_schema args
-       else
-         failwith "mismatch"
-
-    | Schema.TermMeta (k, es_schema), e ->
-       begin
-         (* XXX TODO List.nth could fail miserably here *)
-         match List.nth metas k with
-
-         | TT.ArgIsTerm abstr ->
-            let es = meta_instantiate_terms metas es_schema in
-            let e' = apply_abstraction (TT.fully_instantiate_term ?lvl:None) abstr es in
-            if not (TT.alpha_equal e e') then
-              failwith "term mismatch"
-
-         | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ ->
-            failwith "expected a term meta-variable but got something else"
-       end
-
-    | _, _ -> failwith "other cases are errors"
+let meta_instantiate_terms metas es_schema =
+  List.map
+    (fun e_schema -> meta_instantiate_is_term ~lvl:0 metas e_schema)
+    es_schema
 
 
-  and check_args ~loc metas args_schema args =
-    match args_schema, args with
+let rec check_type ~loc (metas : TT.argument list) (schema : Rule.ty) (premise : TT.ty) =
+  match schema, premise with
 
-    | [], [] -> ()
-
-    | arg_schema :: args_schema, arg :: args ->
-       check_arg ~loc metas arg_schema arg ;
+  | Rule.TypeConstructor (c_schema, args_schema), TT.TypeConstructor (c, args) ->
+     if Name.eq_ident c_schema c then
        check_args ~loc metas args_schema args
+     else
+       failwith "some mismatch"
 
-    | [], _::_ | _::_, [] -> failwith "too many or too few arguments"
+  | Rule.TypeMeta (k, es_schema), ty ->
+     begin
+       (* XXX TODO List.nth could fail miserably here *)
+       match List.nth metas k with
 
-  and check_arg ~loc metas arg_schema arg =
-    match arg_schema, arg with
-    | Schema.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type ~loc metas t_schema t
-    | Schema.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term ~loc metas e_schema e
-    | Schema.ArgEqType _, TT.ArgEqType _ -> ()
-    | Schema.ArgEqTerm _, TT.ArgEqTerm _ -> ()
-    | _, _ -> failwith "check_arg failed"
+       | TT.ArgIsType abstr ->
+          let es = meta_instantiate_terms metas es_schema in
+          let ty' = fully_apply_abstraction (TT.fully_instantiate_type ?lvl:None) abstr es in
+          if not (TT.alpha_equal_type ty ty') then
+            failwith "type mismatch"
 
-  and check_abstraction
-      : 'a 'b . (loc:Location.t -> TT.argument list -> 'a -> 'b -> unit) ->
-                loc:Location.t ->
-                TT.argument list ->
-                'a Schema.abstraction -> 'b TT.abstraction -> unit
-    =  fun check_u ~loc metas s_abstr p_abstr ->
-    match s_abstr, p_abstr with
+       | TT.ArgIsTerm _ | TT.ArgEqType _ | TT.ArgEqTerm _ ->
+          failwith "expected a type meta-variable but got something else"
+     end
 
-    | Schema.NotAbstract u_schema, TT.NotAbstract u ->
-       check_u ~loc metas u_schema u
+and check_term ~loc (metas : TT.argument list) (schema : Rule.term) (premise : TT.term) =
+  match schema, premise with
 
-    | Schema.Abstract (_, t_schema, s_abstr), TT.Abstract (_, t, p_abstr) ->
-       check_type ~loc metas t_schema t ;
-       check_abstraction check_u ~loc metas s_abstr p_abstr
+  | Rule.TermBound k, TT.TermBound n ->
+     if not (TT.equal_bound k n) then
+       failwith "mismatch"
 
-    | _, _ -> failwith "TODO please reasonable error in Jdg.check_abstraction"
+  | Rule.TermConstructor (c, args_schema), TT.TermConstructor (c', args) ->
+     if Name.eq_ident c c' then
+       check_args ~loc metas args_schema args
+     else
+       failwith "mismatch"
+
+  | Rule.TermMeta (k, es_schema), e ->
+     begin
+       (* XXX TODO List.nth could fail miserably here *)
+       match List.nth metas k with
+
+       | TT.ArgIsTerm abstr ->
+          let es = meta_instantiate_terms metas es_schema in
+          let e' = fully_apply_abstraction (TT.fully_instantiate_term ?lvl:None) abstr es in
+          if not (TT.alpha_equal e e') then
+            failwith "term mismatch"
+
+       | TT.ArgIsType _ | TT.ArgEqType _ | TT.ArgEqTerm _ ->
+          failwith "expected a term meta-variable but got something else"
+     end
+
+  | _, _ -> failwith "other cases are errors"
 
 
-  (** [typeof sgn e] gives a type judgment [t], where [t] is the type of [e].
+and check_args ~loc metas args_schema args =
+  match args_schema, args with
+
+  | [], [] -> ()
+
+  | arg_schema :: args_schema, arg :: args ->
+     check_arg ~loc metas arg_schema arg ;
+     check_args ~loc metas args_schema args
+
+  | [], _::_ | _::_, [] -> failwith "too many or too few arguments"
+
+and check_arg ~loc metas arg_schema arg =
+  match arg_schema, arg with
+  | Rule.ArgIsType t_schema, TT.ArgIsType t -> check_abstraction check_type ~loc metas t_schema t
+  | Rule.ArgIsTerm e_schema, TT.ArgIsTerm e -> check_abstraction check_term ~loc metas e_schema e
+  | Rule.ArgEqType _, TT.ArgEqType _ -> ()
+  | Rule.ArgEqTerm _, TT.ArgEqTerm _ -> ()
+  | _, _ -> failwith "check_arg failed"
+
+and check_abstraction
+    : 'a 'b . (loc:Location.t -> TT.argument list -> 'a -> 'b -> unit) ->
+      loc:Location.t ->
+      TT.argument list ->
+      'a Rule.abstraction -> 'b TT.abstraction -> unit
+  =  fun check_u ~loc metas s_abstr p_abstr ->
+  match s_abstr, p_abstr with
+
+  | Rule.NotAbstract u_schema, TT.NotAbstract u ->
+     check_u ~loc metas u_schema u
+
+  | Rule.Abstract (_, t_schema, s_abstr), TT.Abstract (_, t, p_abstr) ->
+     check_type ~loc metas t_schema t ;
+     check_abstraction check_u ~loc metas s_abstr p_abstr
+
+  | _, _ -> failwith "TODO please reasonable error in Jdg.check_abstraction"
+
+
+(** [typeof sgn e] gives a type judgment [t], where [t] is the type of [e].
       Note that [t] itself gives no evidence that [e] actually has type [t].
       However, the assumptions of [e] are sufficient to show that [e] has
       type [t].  *)
-  let typeof sgn = function
+let typeof sgn = function
   | TT.TermAtom {TT.atom_type=t; _} -> t
 
   | TT.TermBound k ->
@@ -337,7 +290,7 @@ module Rule = struct
      assert false
 
   | TT.TermConstructor (c, args) ->
-     let (_, t_schema) = Schema.lookup_is_term_rule c sgn in
+     let (_premises_schema, t_schema) = Signature.lookup_is_term_rule c sgn in
      (* we need not re-check that the premises match the arguments because
         we are computing the type of a term that was previously determined
         to be valid. *)
@@ -346,107 +299,91 @@ module Rule = struct
   | TT.TermConvert (e, _, t) -> t
 
 
-  let check_premise ~loc metas s p =
-    match s, p with
+let check_premise ~loc metas s p =
+  match s, p with
 
-    | Schema.PremiseIsType (_, s_abstr), PremiseIsType p_abstr ->
-       check_abstraction
-         (fun ~loc _ _ _ -> ())
-         ~loc metas s_abstr p_abstr
+  | Rule.PremiseIsType (_, s_abstr), PremiseIsType p_abstr ->
+     check_abstraction
+       (fun ~loc _ _ _ -> ())
+       ~loc metas s_abstr p_abstr
 
-    | Schema.PremiseIsTerm (_, s_abstr), PremiseIsTerm p_abstr ->
-       check_abstraction
-         (fun ~loc metas t_schema e -> check_type ~loc metas t_schema (typeof sgn e))
-         ~loc metas s_abstr p_abstr
+  | Rule.PremiseIsTerm (_, s_abstr), PremiseIsTerm p_abstr ->
+     check_abstraction
+       (fun ~loc metas t_schema e -> check_type ~loc metas t_schema (typeof sgn e))
+       ~loc metas s_abstr p_abstr
 
-    | Schema.PremiseEqType s_abstr, PremiseEqType p_abstr ->
-       check_abstraction
-         (fun ~loc metas (t1_schema, t2_schema) (TT.EqType (_asmp, t1, t2)) ->
-           check_type ~loc metas t1_schema t1 ;
-           check_type ~loc metas t2_schema t2)
-         ~loc metas s_abstr p_abstr
+  | Rule.PremiseEqType s_abstr, PremiseEqType p_abstr ->
+     check_abstraction
+       (fun ~loc metas (t1_schema, t2_schema) (TT.EqType (_asmp, t1, t2)) ->
+         check_type ~loc metas t1_schema t1 ;
+         check_type ~loc metas t2_schema t2)
+       ~loc metas s_abstr p_abstr
 
-    | Schema.PremiseEqTerm s_abstr, PremiseEqTerm p_abstr ->
-       check_abstraction
-         (fun ~loc metas (e1_schema, e2_schema, t_schema) (TT.EqTerm (_asmp, e1, e2, t)) ->
-           check_term ~loc metas e1_schema e1 ;
-           check_term ~loc metas e2_schema e2 ;
-           check_type ~loc metas t_schema t)
-         ~loc metas
-         s_abstr p_abstr
+  | Rule.PremiseEqTerm s_abstr, PremiseEqTerm p_abstr ->
+     check_abstraction
+       (fun ~loc metas (e1_schema, e2_schema, t_schema) (TT.EqTerm (_asmp, e1, e2, t)) ->
+         check_term ~loc metas e1_schema e1 ;
+         check_term ~loc metas e2_schema e2 ;
+         check_type ~loc metas t_schema t)
+       ~loc metas
+       s_abstr p_abstr
 
-    | _, _ -> failwith "TODO better error in check_premise"
+  | _, _ -> failwith "TODO better error in check_premise"
 
-  let arg_of_premise = function
-    | PremiseIsType t -> TT.mk_arg_is_type t
-    | PremiseIsTerm e -> TT.mk_arg_is_term e
-    | PremiseEqType eq -> TT.mk_arg_eq_type eq
-    | PremiseEqTerm eq-> TT.mk_arg_eq_term eq
+let arg_of_premise = function
+  | PremiseIsType t -> TT.mk_arg_is_type t
+  | PremiseIsTerm e -> TT.mk_arg_is_term e
+  | PremiseEqType eq -> TT.mk_arg_eq_type eq
+  | PremiseEqTerm eq-> TT.mk_arg_eq_term eq
 
-  let match_premise ~loc metas (s : Schema.premise) (p : premise) : TT.argument =
-    check_premise ~loc metas s p ;
-    arg_of_premise p
+let match_premise ~loc metas (s : Rule.premise) (p : premise) : TT.argument =
+  check_premise ~loc metas s p ;
+  arg_of_premise p
 
-  let match_premises ~loc
-      (schema_premises : Schema.premise list) (premises : premise list) =
-    let rec fold args = function
-      | [], [] -> List.rev args
-      | [], _::_ -> failwith "too many arguments"
-      | _::_, [] -> failwith "too few arguments"
-      | s :: ss, p :: ps ->
-         let metas = args in (* args also serves as the list of collected metas *)
-         let arg = match_premise ~loc metas s p in
-         fold (arg :: args) (ss, ps)
-    in
-    fold [] (schema_premises, premises)
+let match_premises ~loc
+                   (schema_premises : Rule.premise list) (premises : premise list) =
+  let rec fold args = function
+    | [], [] -> List.rev args
+    | [], _::_ -> failwith "too many arguments"
+    | _::_, [] -> failwith "too few arguments"
+    | s :: ss, p :: ps ->
+       let metas = args in (* args also serves as the list of collected metas *)
+       let arg = match_premise ~loc metas s p in
+       fold (arg :: args) (ss, ps)
+  in
+  fold [] (schema_premises, premises)
 
-  let form_is_type ~loc rules c premises =
-    let schema_premises = Schema.lookup_is_type_rule c rules in
-    let args = match_premises ~loc schema_premises premises in
-    TT.mk_type_constructor c args
+let form_is_type_rule ~loc sgn c premises =
+  let schema_premises = Signature.lookup_is_type_rule c sgn in
+  let args = match_premises ~loc schema_premises premises in
+  TT.mk_type_constructor c args
 
-  let form_is_term ~loc rules c premises =
-    let (schema_premises, _) = Schema.lookup_is_term_rule c rules in
-    let args = match_premises ~loc schema_premises premises in
-    TT.mk_term_constructor c args
+let form_is_term_rule ~loc sgn c premises =
+  let (schema_premises, _) = Signature.lookup_is_term_rule c sgn in
+  let args = match_premises ~loc schema_premises premises in
+  TT.mk_term_constructor c args
 
-  let form_eq_type ~loc (schema_premises, (lhs_schema, rhs_schema)) premises =
-    let args = match_premises ~loc schema_premises premises in
-    let asmp = TT.assumptions_arguments args
-    and lhs = meta_instantiate_is_type ~lvl:0 args lhs_schema
-    and rhs = meta_instantiate_is_type ~lvl:0 args rhs_schema
-    in TT.mk_eq_type asmp lhs rhs
+let form_eq_type_rule ~loc (schema_premises, (lhs_schema, rhs_schema)) premises =
+  let args = match_premises ~loc schema_premises premises in
+  let asmp = TT.assumptions_arguments args
+  and lhs = meta_instantiate_is_type ~lvl:0 args lhs_schema
+  and rhs = meta_instantiate_is_type ~lvl:0 args rhs_schema
+  in TT.mk_eq_type asmp lhs rhs
 
-  let form_eq_term ~loc c (schema_premises, (e1_schema, e2_schema, t_schema)) premises =
-    let args = match_premises ~loc schema_premises premises in
-    let asmp = TT.assumptions_arguments args
-    and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema
-    and e2 = meta_instantiate_is_term ~lvl:0 args e2_schema
-    and t = meta_instantiate_is_type ~lvl:0 args t_schema
-    in TT.mk_eq_term asmp e1 e2 t
+let form_eq_term_rule ~loc c (schema_premises, (e1_schema, e2_schema, t_schema)) premises =
+  let args = match_premises ~loc schema_premises premises in
+  let asmp = TT.assumptions_arguments args
+  and e1 = meta_instantiate_is_term ~lvl:0 args e1_schema
+  and e2 = meta_instantiate_is_term ~lvl:0 args e2_schema
+  and t = meta_instantiate_is_type ~lvl:0 args t_schema
+  in TT.mk_eq_term asmp e1 e2 t
 
-  let invert_is_term rule args = failwith "Rule.invert_is_term is not implemented"
+let invert_is_term rule args = failwith "Rule.invert_is_term is not implemented"
 
-  let invert_is_type rule args = failwith "Rule.invert_is_type is not implemented"
+let invert_is_type rule args = failwith "Rule.invert_is_type is not implemented"
 
 
-end
-
-module Signature = struct
-  module RuleMap = Name.IdentMap
-
-  type t =
-    { constructors : Rule.Schema.rule RuleMap.t
-    }
-
-  let empty = {
-    constructors = RuleMap.empty;
-  }
-
-  let add_rule c r sgn =
-    { constructors = RuleMap.add c r sgn.constructors }
-
-end
+(*************** END RULE *******************)
 
 (** Judgements *)
 
@@ -455,9 +392,9 @@ end
     already present in [e]) to derive that [e] actually has type [t]. *)
 let natural_type sgn = function
   | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
-     Rule.typeof sgn e
+     typeof sgn e
 
-  | TT.TermConvert (e, _, _) -> Rule.typeof sgn e
+  | TT.TermConvert (e, _, _) -> typeof sgn e
 
 
 let atom_is_type {TT.atom_type=t;_} = t
@@ -475,7 +412,7 @@ let print_is_type ~penv ?max_level abstr ppf =
                  TT.occurs_type
                  (fun ?max_level ~penv t ppf ->
                    Print.print ppf "@[<hv>@[<hov>%t@]@;<1 -2>: type@]"
-                     (TT.print_type ~max_level:Level.highest ~penv t)
+                               (TT.print_type ~max_level:Level.highest ~penv t)
                  )
                  ~max_level:Level.highest
                  ~penv
@@ -490,10 +427,10 @@ let print_eq_term ~penv ?max_level abstr ppf =
                  (fun k (e1, e2, t) -> TT.occurs_term k e1 || TT.occurs_term k e2 || TT.occurs_type k t)
                  (fun ?max_level ~penv (e1, e2, t) ppf ->
                    Print.print ppf "@[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]@]"
-                     (TT.print_term ~penv e1)
-                     (Print.char_equal ())
-                     (TT.print_term ~penv e2)
-                     (TT.print_type ~penv t)
+                               (TT.print_term ~penv e1)
+                               (Print.char_equal ())
+                               (TT.print_term ~penv e2)
+                               (TT.print_type ~penv t)
                  )
                  ~penv
                  ~max_level:Level.highest
@@ -508,9 +445,9 @@ let print_eq_type ~penv ?max_level abstr ppf =
                  (fun k (t1, t2) -> TT.occurs_type k t1 || TT.occurs_type k t2)
                  (fun ?max_level ~penv (t1, t2) ppf ->
                    Print.print ppf "@[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
-                     (TT.print_type ~penv t1)
-                     (Print.char_equal ())
-                     (TT.print_type ~penv t2)
+                               (TT.print_type ~penv t1)
+                               (Print.char_equal ())
+                               (TT.print_type ~penv t2)
                  )
                  ~penv
                  ~max_level:Level.highest
@@ -526,15 +463,15 @@ let print_error ~penv err ppf =
 
   | AbstractInvalidType (x, t1, t2) ->
      Format.fprintf ppf "cannot abstract@ %t@ with type@ %t@ because it must have type@ %t"
-        (Name.print_atom ~printer:penv.TT.atoms x)
-        (TT.print_type ~penv t1)
-        (TT.print_type ~penv t2)
+                    (Name.print_atom ~printer:penv.TT.atoms x)
+                    (TT.print_type ~penv t1)
+                    (TT.print_type ~penv t2)
 
   | SubstitutionDependency (x, e, y) ->
      Format.fprintf ppf "cannot substitute@ %t@ with@ %t,@ dependency cycle at@ %t"
-                (Name.print_atom ~printer:penv.TT.atoms x)
-                (TT.print_term ~penv e)
-                (Name.print_atom ~printer:penv.TT.atoms y)
+                    (Name.print_atom ~printer:penv.TT.atoms x)
+                    (TT.print_term ~penv e)
+                    (Name.print_atom ~printer:penv.TT.atoms y)
 
   | SubstitutionInvalidType (x, x_ty, t) ->
      Format.fprintf ppf "cannot substitute term of type %t for %t of type %t"
@@ -543,21 +480,21 @@ let print_error ~penv err ppf =
                     (TT.print_type ~penv x_ty)
 
   | InvalidConvert (t1, t2) ->
-    Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
-      (TT.print_type ~penv t1) (TT.print_type ~penv t2)
+     Format.fprintf ppf "Trying to convert something at@ %t@ using an equality on@ %t@."
+                    (TT.print_type ~penv t1) (TT.print_type ~penv t2)
 
   | AlphaEqualTypeMismatch (t1, t2) ->
-    Format.fprintf ppf "The types@ %t@ and@ %t@ should be alpha equal."
-      (TT.print_type ~penv t1) (TT.print_type ~penv t2)
+     Format.fprintf ppf "The types@ %t@ and@ %t@ should be alpha equal."
+                    (TT.print_type ~penv t1) (TT.print_type ~penv t2)
 
   | AlphaEqualTermMismatch (e1, e2) ->
-    Format.fprintf ppf "The terms@ %t@ and@ %t@ should be alpha equal."
-      (TT.print_term ~penv e1) (TT.print_term ~penv e2)
+     Format.fprintf ppf "The terms@ %t@ and@ %t@ should be alpha equal."
+                    (TT.print_term ~penv e1) (TT.print_term ~penv e2)
 
   | RuleInputMismatch (rule, t1, desc1, t2, desc2) ->
-    Format.fprintf ppf "@[<v>In the %s rule, the following types should be identical\
-:@,   @[<hov>%t@]@ (%s) and@,   @[<hov>%t@]@ (%s)@]@."
-      rule (TT.print_type ~penv t1) desc1 (TT.print_type ~penv t2) desc2
+     Format.fprintf ppf "@[<v>In the %s rule, the following types should be identical\
+                         :@,   @[<hov>%t@]@ (%s) and@,   @[<hov>%t@]@ (%s)@]@."
+                    rule (TT.print_type ~penv t1) desc1 (TT.print_type ~penv t2) desc2
 
 (** Destructors *)
 
@@ -580,9 +517,9 @@ let invert_is_term sgn = function
      TermConstructor (c, premises)
 
   | TT.TermConvert (e, asmp, t) ->
-        let t' = natural_type sgn e in
-        let eq = TT.mk_eq_type asmp t' t in
-        TermConvert (e, eq)
+     let t' = natural_type sgn e in
+     let eq = TT.mk_eq_type asmp t' t in
+     TermConvert (e, eq)
 
 let invert_is_type = function
   | TT.TypeConstructor (c, args) ->
@@ -601,44 +538,37 @@ let invert_abstraction inst_v invert_v = function
   | TT.NotAbstract v -> (None, invert_v v)
 
 (** Construct judgements *)
-let form_is_term ~loc sgn = function
-  | TermAtom a -> TT.mk_atom a
 
- | TermConstructor (c, premises) ->
-    Rule.form_is_term ~loc sgn.Signature.constructors c premises
+let form_is_term_atom = TT.mk_atom
 
- | TermConvert (e, TT.EqType (asmp, t1, t2)) ->
-    begin match e with
-    | TT.TermConvert (e, asmp0, t0) ->
-       if TT.alpha_equal_type t0 t1 then
-         (* here we rely on transitivity of equality *)
-         let asmp = Assumption.union asmp0 (Assumption.union asmp (TT.assumptions_type t1))
-         (* we could have used the assumptions of [t0] instead, because [t0] and [t1] are
+let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
+  match e with
+  | TT.TermConvert (e, asmp0, t0) ->
+     if TT.alpha_equal_type t0 t1 then
+       (* here we rely on transitivity of equality *)
+       let asmp = Assumption.union asmp0 (Assumption.union asmp (TT.assumptions_type t1))
+       (* we could have used the assumptions of [t0] instead, because [t0] and [t1] are
             alpha equal, and so either can derive the type. Possible optimizations:
               (i) pick the smaller of the assumptions of [t0] or of [t1],
              (ii) pick the asumptions that are included in [t2]
             (iii) remove assumptions already present in [t2] from the assumption set
-          *)
-         in
-         (* [e] itself is not a [TermConvert] by the maintained invariant. *)
-         TT.mk_term_convert e asmp t2
-       else
-         error ~loc (InvalidConvert (t0, t1))
+        *)
+       in
+       (* [e] itself is not a [TermConvert] by the maintained invariant. *)
+       TT.mk_term_convert e asmp t2
+     else
+       error ~loc (InvalidConvert (t0, t1))
 
-    | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
-       let t0 = natural_type sgn e in
-       if TT.alpha_equal_type t0 t1 then
-         (* We need not include assumptions of [t1] because [t0] is alpha-equal
+  | (TT.TermAtom _ | TT.TermBound _ | TT.TermConstructor _) as e ->
+     let t0 = natural_type sgn e in
+     if TT.alpha_equal_type t0 t1 then
+       (* We need not include assumptions of [t1] because [t0] is alpha-equal
             to [t1] so we can use [t0] in place of [t1] if so desired. *)
-         (* [e] is not a [TermConvert] by the above pattern-check *)
-         TT.mk_term_convert e asmp t2
-       else
-         error ~loc (InvalidConvert (t0, t1))
+       (* [e] is not a [TermConvert] by the above pattern-check *)
+       TT.mk_term_convert e asmp t2
+     else
+       error ~loc (InvalidConvert (t0, t1))
 
-    end
-
-let form_is_type ~loc sgn (TypeConstructor (c, args)) =
-  Rule.form_is_type ~loc sgn.Signature.constructors c args
 
 (** Substitution *)
 let substitute_ty ~loc a e0 t =
@@ -713,12 +643,12 @@ let transitivity_term ~loc (EqTerm (asmp, e1, e2, t)) (EqTerm (asmp', e1', e2', 
 
 let transitivity_type ~loc (EqType (asmp1, t1, t2)) (EqType (asmp2, u1, u2)) =
   begin match TT.alpha_equal_type t2 u1 with
-     | false -> error ~loc (AlphaEqualTypeMismatch (t2, u1))
-     | true ->
-        (* XXX could use assumptions of [u1] instead, or whichever is better. *)
-        let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t2))
-        in EqType (asmp, t1, u2)
-     end
+  | false -> error ~loc (AlphaEqualTypeMismatch (t2, u1))
+  | true ->
+     (* XXX could use assumptions of [u1] instead, or whichever is better. *)
+     let asmp = Assumption.union asmp1 (Assumption.union asmp2 (TT.assumptions_type t2))
+     in EqType (asmp, t1, u2)
+  end
 
 (** Congruence *)
 
@@ -757,21 +687,21 @@ let congruence_type_constructor ~loc sgn c eqs =
 
 
 module Json =
-struct
+  struct
 
-  let rec abstraction json_u = function
-    | TT.NotAbstract u -> Json.tag "NotAbstract" [json_u u]
-    | TT.Abstract (x, t, abstr) ->
-       Json.tag "Abstract" [Name.Json.ident x; TT.Json.ty t; abstraction json_u abstr]
+    let rec abstraction json_u = function
+      | TT.NotAbstract u -> Json.tag "NotAbstract" [json_u u]
+      | TT.Abstract (x, t, abstr) ->
+         Json.tag "Abstract" [Name.Json.ident x; TT.Json.ty t; abstraction json_u abstr]
 
-  let is_term e = Json.tag "IsTerm" [TT.Json.term e]
+    let is_term e = Json.tag "IsTerm" [TT.Json.term e]
 
-  let is_type t = Json.tag "IsType" [TT.Json.ty t]
+    let is_type t = Json.tag "IsType" [TT.Json.ty t]
 
-  let eq_term (EqTerm (asmp, e1, e2, t)) =
-    Json.tag "EqTerm" [Assumption.Json.assumptions asmp; TT.Json.term e1; TT.Json.term e2; TT.Json.ty t]
+    let eq_term (EqTerm (asmp, e1, e2, t)) =
+      Json.tag "EqTerm" [Assumption.Json.assumptions asmp; TT.Json.term e1; TT.Json.term e2; TT.Json.ty t]
 
-  let eq_type (EqType (asmp, t1, t2)) =
-    Json.tag "EqType" [Assumption.Json.assumptions asmp; TT.Json.ty t1; TT.Json.ty t2]
+    let eq_type (EqType (asmp, t1, t2)) =
+      Json.tag "EqType" [Assumption.Json.assumptions asmp; TT.Json.ty t1; TT.Json.ty t2]
 
-end
+  end
