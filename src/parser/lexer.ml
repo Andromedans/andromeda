@@ -13,7 +13,6 @@ let reserved = [
   ("assume", ASSUME) ;
   ("congr_abstract", CONGR_ABSTRACT) ;
   ("congr_abstract_ty", CONGR_ABSTRACT_TY) ;
-  ("constant", CONSTANT) ;
   ("context", CONTEXT) ;
   ("current", CURRENT) ;
   ("do", DO) ;
@@ -46,7 +45,6 @@ let reserved = [
   ("symmetry_term", SYMMETRY_TERM) ;
   ("transitivity_term", TRANSITIVITY_TERM) ;
   ("require", REQUIRE) ;
-  ("type", TYPE) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;
   ("where", WHERE) ;

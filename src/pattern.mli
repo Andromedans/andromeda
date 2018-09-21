@@ -23,7 +23,6 @@ and is_term' =
   | Term_As of is_term * is_term
   | Term_Constructor of Name.constructor * argument list
   | Term_GenAtom of is_term
-  | Term_GenConstant of is_term
 
 (** Term equality pattern *)
 and eq_term = eq_term' located
@@ -36,7 +35,6 @@ and eq_term' =
 
 (** Type equality pattern *)
 and eq_type = eq_type' located
-
 and eq_type' =
   | EqType_Anonymous
   | EqType_Var of bound

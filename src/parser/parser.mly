@@ -22,7 +22,6 @@
 
 (* Things specific to toplevel *)
 %token DO FAIL
-%token CONSTANT
 
 (* Let binding *)
 %token LET REC EQ AND IN
@@ -36,7 +35,6 @@
 %token MATCH
 %token AS
 %token VDASH EQEQ
-%token TYPE
 
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 %token SEMICOLON
@@ -116,8 +114,6 @@ plain_topcomp:
   | HANDLE lst=top_handler_cases END                  { TopHandle lst }
   | DO c=term                                         { TopDo c }
   | FAIL c=term                                       { TopFail c }
-  | CONSTANT xs=separated_nonempty_list(COMMA, var_name) COLON u=term
-                                                      { DeclConstants (xs, u) }
   | MLTYPE lst=mlty_defs                              { DefMLType lst }
   | MLTYPE REC lst=mlty_defs                          { DefMLTypeRec lst }
   | OPERATION op=var_name COLON opsig=op_mlsig        { DeclOperation (op, opsig) }
@@ -196,7 +192,6 @@ plain_prefix_term:
 
 simple_term: mark_location(plain_simple_term) { $1 }
 plain_simple_term:
-  | TYPE                                                { Type }
   | x=var_name                                          { Var x }
   | s=QUOTED_STRING                                     { String s }
   | LBRACK lst=separated_list(COMMA, binop_term) RBRACK { List lst }
@@ -314,9 +309,9 @@ match_case:
 
 pattern: mark_location(plain_pattern) { $1 }
 plain_pattern:
-  | p=plain_binop_pattern                                          { p }
-  | p=simple_pattern AS x=patt_var                                 { Patt_As (p,x) }
-  | VDASH p=tt_abstracted_pattern                                  { Patt_Judgement p }
+  | p=plain_binop_pattern                             { p }
+  | p1=binop_pattern AS p2=binop_pattern              { Patt_As (p1, p2) }
+  | VDASH p=abstracted_tt_pattern                     { Patt_Judgement p }
 
 binop_pattern: mark_location(plain_binop_pattern) { $1 }
 plain_binop_pattern:
@@ -353,21 +348,17 @@ plain_simple_pattern:
 
 (* Judgement pattern (further disambiguation is performed during desugaring) *)
 
-tt_abstracted_pattern: mark_location(plain_tt_abstracted_pattern) { $1 }
-plain_tt_abstracted_pattern:
-  | abstr=tt_abstraction p=tt_top_pattern       { (abstr, p) }
-
-tt_top_pattern: mark_location(plain_tt_top_pattern) { $1 }
-plain_tt_top_pattern:
-  | p=tt_pattern TYPE                                    { Patt_TT_IsType p }
-  | p1=tt_pattern COLON p2=tt_pattern                    { Patt_TT_IsTerm (p1, p2) }
-  | p1=tt_pattern EQEQ p2=tt_pattern                     { Patt_TT_EqType (p1, p2) }
-  | p1=tt_pattern EQEQ p2=tt_pattern COLON p3=tt_pattern { Patt_TT_EqTerm (p1, p2, p3) }
+abstracted_tt_pattern: mark_location(plain_abstracted_tt_pattern) { $1 }
+plain_abstracted_tt_pattern:
+  | abstr=tt_abstraction p=tt_pattern                             { Patt_TT_Abstraction (abstr, p) }
 
 tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
-  | p1=app_tt_pattern AS p2=app_tt_pattern        { Patt_TT_As (p1, p2) }
-  | p=plain_binop_tt_pattern                      { p }
+  | p1=binop_tt_pattern AS p2=binop_tt_pattern                        { Patt_TT_As (p1, p2) }
+  | p=plain_binop_tt_pattern                                          { p }
+  | p1=binop_tt_pattern COLON p2=binop_tt_pattern                     { Patt_TT_IsTerm (p1, p2) }
+  | p1=binop_tt_pattern EQEQ  p2=binop_tt_pattern                     { Patt_TT_EqType (p1, p2) }
+  | p1=binop_tt_pattern EQEQ  p2=binop_tt_pattern COLON p3=tt_pattern { Patt_TT_EqTerm (p1, p2, p3) }
 
 binop_tt_pattern: mark_location(plain_binop_tt_pattern) { $1 }
 plain_binop_tt_pattern:
@@ -377,14 +368,10 @@ plain_binop_tt_pattern:
       Patt_TT_Constructor (op, [e1; e2])
     }
 
-app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 }
+(* app_tt_pattern: mark_location(plain_app_tt_pattern) { $1 } *)
 plain_app_tt_pattern:
-  | p=plain_prefix_tt_pattern              { p }
-  | c=var_name ps=list(prefix_tt_pattern)  { Patt_TT_Constructor (c, ps) }
-
-arg_tt_pattern: mark_location(arg_tt_pattern') { $1 }
-arg_tt_pattern':
-
+  | p=plain_prefix_tt_pattern                       { p }
+  | c=var_name ps=nonempty_list(prefix_tt_pattern)  { Patt_TT_Constructor (c, ps) }
 
 prefix_tt_pattern: op=mark_location(plain_prefix_tt_pattern) { op }
 plain_prefix_tt_pattern:
@@ -400,10 +387,8 @@ plain_simple_tt_pattern:
   | UNDERSCORE                        { Patt_TT_Anonymous }
   | x=patt_var                        { Patt_TT_Var x }
   | x=var_name                        { Patt_TT_Interpolate x }
-  | LPAREN p=plain_tt_pattern RPAREN  { p }
+  | LPAREN p=plain_abstracted_tt_pattern RPAREN  { p }
 
-
-(* The TT pattern for abstraction *)
 tt_name:
   | x=var_name      { NonPattVar x }
   | UNDERSCORE      { PattVar (Name.anonymous ()) }
@@ -425,7 +410,7 @@ tt_maybe_typed_binder:
   | LBRACE xs=tt_name+ COLON t=tt_pattern RBRACE         { List.map (fun x -> (x, Some t)) xs }
 
 tt_abstraction:
-  | lst=list(tt_maybe_typed_binder)
+  | lst=nonempty_list(tt_maybe_typed_binder)
     { List.concat lst }
 
 (***)

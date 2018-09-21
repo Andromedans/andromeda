@@ -7,6 +7,9 @@
 
 type 'a located = 'a Location.located
 
+(** Bound variables are de Bruijn indices *)
+type bound = int
+
 type ml_abstraction =
   | ML_NotAbstract
   | ML_Abstract of ml_abstraction
@@ -39,14 +42,14 @@ type let_annotation =
   | Let_annot_none
   | Let_annot_schema of ml_schema
 
+(* An argument of a function or a let-clause *)
+type ml_arg = Name.ident * arg_annotation
+
 (** A binder in a pattern may or may not bind the bound variable
     as a pattern variable. *)
 type tt_variable =
   | PattVar of Name.ident
   | NonPattVar of Name.ident
-
-(* An argument of a function or a let-clause *)
-type ml_arg = Name.ident * arg_annotation
 
 (** Sugared term patterns *)
 type tt_pattern = tt_pattern' located
@@ -55,29 +58,20 @@ and tt_pattern' =
   | Patt_TT_Var of Name.ident (* pattern variable *)
   | Patt_TT_Interpolate of Name.ident (* interpolated value *)
   | Patt_TT_As of tt_pattern * tt_pattern
-  | Patt_TT_Constructor of Name.ident * tt_abstracted_pattern list
-  | Patt_TT_Equality of tt_pattern * tt_pattern * tt_pattern
+  | Patt_TT_Constructor of Name.ident * tt_pattern list
   | Patt_TT_GenAtom of tt_pattern
-
-and tt_abstraction = (tt_variable * tt_pattern option) list
-
-and tt_abstracted_pattern = tt_abstracted_pattern' located
-and tt_abstracted_pattern' = tt_abstraction * tt_top_pattern
-
-and tt_top_pattern = tt_top_pattern' located
-and tt_top_pattern' =
-  | Patt_TT_IsType of tt_pattern
   | Patt_TT_IsTerm of tt_pattern * tt_pattern
   | Patt_TT_EqType of tt_pattern * tt_pattern
   | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
+  | Patt_TT_Abstraction of (tt_variable * tt_pattern option) list * tt_pattern
 
-and pattern = pattern' located
+type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
-  | Patt_As of pattern * Name.ident
   | Patt_Var of Name.ident
   | Patt_Interpolate of Name.ident
-  | Patt_Judgement of tt_top_pattern
+  | Patt_As of pattern * pattern
+  | Patt_Judgement of tt_pattern
   | Patt_Constr of Name.ident * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
@@ -86,8 +80,6 @@ and pattern' =
 type term = term' located
 and term' =
   | Var of Name.ident
-  | Type
-  | El of comp
   | Function of ml_arg list * comp
   | Handler of handle_case list
   | Handle of comp * handle_case list
@@ -164,7 +156,6 @@ and toplevel' =
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
   | DeclOperation of Name.ident * (ml_ty list * ml_ty)
-  | DeclConstants of Name.ident list * ty
   | DeclExternal of Name.ident * ml_schema * string
   | TopHandle of (Name.ident * top_op_case) list
   | TopLet of let_clause list

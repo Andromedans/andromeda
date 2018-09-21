@@ -39,15 +39,42 @@ type let_annotation =
   | Let_annot_none
   | Let_annot_schema of ml_schema
 
+type tt_variable =
+  | PattVar of Name.ident
+  | NonPattVar of Name.ident
+
+type tt_pattern = tt_pattern' located
+and tt_pattern' =
+  | Patt_TT_Anonymous
+  | Patt_TT_NewVar of bound (* new pattern variable *)
+  | Patt_TT_EqVar of bound (* must be equal to the given pattern variable *)
+  | Patt_TT_Interpolate of bound (* interpolated value *)
+  | Patt_TT_As of tt_pattern * tt_pattern
+  | Patt_TT_Constructor of Name.ident * tt_pattern list
+  | Patt_TT_GenAtom of tt_pattern
+  | Patt_TT_IsTerm of tt_pattern * tt_pattern
+  | Patt_TT_EqType of tt_pattern * tt_pattern
+  | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
+  | Patt_TT_Abstraction of Name.ident * bound option * tt_pattern option * tt_pattern
+
+type ml_pattern = ml_pattern' located
+and ml_pattern' =
+  | Patt_Anonymous
+  | Patt_NewVar of bound
+  | Patt_EquVar of bound
+  | Patt_Interpolate of bound
+  | Patt_As of ml_pattern * ml_pattern
+  | Patt_Judgement of tt_pattern
+  | Patt_Constr of Name.ident * ml_pattern list
+  | Patt_Tuple of ml_pattern list
+
 (** Desugared computations *)
 type comp = comp' located
 and comp' =
-  | Type
-  | El of comp
   | Bound of bound
   | Function of Name.ident * arg_annotation * comp
   | Handler of handler
-  | Constructor of Name.ident * comp list
+  | AML_Constructor of Name.ident * comp list
   | Tuple of comp list
   | Operation of Name.ident * comp list
   | With of comp * comp
@@ -64,7 +91,7 @@ and comp' =
   | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | Constant of Name.ident
+  | TT_Constructor of Name.ident * comp list
   | Apply of comp * comp
   | Abstract of Name.ident * comp option * comp
   | Yield of comp
@@ -83,7 +110,7 @@ and comp' =
 
 and let_clause =
   | Let_clause_ML of Name.ident * let_annotation * comp
-  | Let_clause_patt of Name.ident list * Pattern.aml * let_annotation * comp
+  | Let_clause_patt of Name.ident list * ml_pattern * let_annotation * comp
 
 and letrec_clause = Name.ident * (Name.ident * arg_annotation) * let_annotation * comp
 
@@ -93,10 +120,10 @@ and handler = {
   handler_finally : match_case list;
 }
 
-and match_case = Name.ident list * Pattern.aml * comp
+and match_case = Name.ident list * ml_pattern * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
-and match_op_case = Name.ident list * Pattern.aml list * Pattern.aml option * comp
+and match_op_case = Name.ident list * ml_pattern list * ml_pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
