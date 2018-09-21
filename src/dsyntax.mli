@@ -47,7 +47,7 @@ type tt_pattern = tt_pattern' located
 and tt_pattern' =
   | Patt_TT_Anonymous
   | Patt_TT_NewVar of bound (* new pattern variable *)
-  | Patt_TT_EqVar of bound (* must be equal to the given pattern variable *)
+  | Patt_TT_EquVar of bound (* must be equal to the given pattern variable *)
   | Patt_TT_Interpolate of bound (* interpolated value *)
   | Patt_TT_As of tt_pattern * tt_pattern
   | Patt_TT_Constructor of Name.ident * tt_pattern list

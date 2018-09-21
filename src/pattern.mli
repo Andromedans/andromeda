@@ -9,7 +9,8 @@ type bound = int
 type is_type = is_type' located
 and is_type' =
   | Type_Anonymous
-  | Type_Var of bound
+  | Type_NewVar of bound
+  | Type_EquVar of bound
   | Type_Interpolate of bound
   | Type_As of is_type * is_type
   | Type_Constructor of Name.constructor * argument list
@@ -18,7 +19,8 @@ and is_type' =
 and is_term = is_term' located
 and is_term' =
   | Term_Anonymous
-  | Term_Var of bound
+  | Term_NewVar of bound
+  | Term_Equar of bound
   | Term_Interpolate of bound
   | Term_As of is_term * is_term
   | Term_Constructor of Name.constructor * argument list
@@ -28,7 +30,8 @@ and is_term' =
 and eq_term = eq_term' located
 and eq_term' =
   | EqTerm_Anonymous
-  | EqTerm_Var of bound
+  | EqTerm_NewVar of bound
+  | EqTerm_EquVar of bound
   | EqTerm_Interpolate of bound
   | EqTerm_As of eq_term * eq_term
   | EqTerm_Eq of is_term * is_term * is_type
@@ -37,7 +40,8 @@ and eq_term' =
 and eq_type = eq_type' located
 and eq_type' =
   | EqType_Anonymous
-  | EqType_Var of bound
+  | EqType_NewVar of bound
+  | EqType_EquVar of bound
   | EqType_Interpolate of bound
   | EqType_As of eq_type * eq_type
   | EqType_Eq of is_type * is_type
@@ -58,9 +62,11 @@ and 'a abstraction =
 type aml = aml' located
 and aml' =
   | Anonymous
-  | As of aml * bound
-  | Bound of bound
-  | IsTerm of (is_term * is_type) abstraction
+  | NewVar of bound
+  | EquVar of bound
+  | Interpolate of bound
+  | As of aml * aml
+  | IsTerm of is_term abstraction
   | IsType of is_type abstraction
   | EqTerm of (is_term * is_term * is_type) abstraction
   | EqType of (is_type * is_type) abstraction

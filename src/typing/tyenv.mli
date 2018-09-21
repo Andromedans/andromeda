@@ -22,8 +22,8 @@ val lookup_var : Rsyntax.bound -> Mlty.ty tyenvM
 (** Lookup an operation, returning the expected types of its arguments and the type it returns. *)
 val lookup_op : Name.operation -> (Mlty.ty list * Mlty.ty) tyenvM
 
-(** Lookup a ML constructor, returning the expected types of its arguments and the type it returns. *)
-val lookup_constructor : Name.constructor -> (Mlty.ty list * Mlty.ty) tyenvM
+(** Lookup an AML constructor, returning the expected types of its arguments and the type it returns. *)
+val lookup_aml_constructor : Name.constructor -> (Mlty.ty list * Mlty.ty) tyenvM
 
 (** Lookup the continuation, returning the expected type of its argument and the type it returns. *)
 val lookup_continuation : (Mlty.ty * Mlty.ty) tyenvM

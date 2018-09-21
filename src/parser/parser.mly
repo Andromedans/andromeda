@@ -334,7 +334,7 @@ plain_prefix_pattern:
       Patt_Constr (op, [e])
     }
 
-simple_pattern: mark_location(plain_simple_pattern) { $1 }
+(* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
   | x=patt_var                     { Patt_Var x }

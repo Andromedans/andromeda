@@ -23,12 +23,10 @@ type let_annotation =
 (** Computations *)
 type comp = comp' located
 and comp' =
-  | Type
-  | El of comp
   | Bound of bound
   | Function of Name.ident * comp
   | Handler of handler
-  | Constructor of Name.ident * comp list
+  | AML_Constructor of Name.ident * comp list
   | Tuple of comp list
   | Operation of Name.ident * comp list
   | With of comp * comp
@@ -44,7 +42,7 @@ and comp' =
   | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | Constant of Name.ident
+  | TT_Constructor of Name.ident * comp list
   | Apply of comp * comp
   | Abstract of Name.ident * comp option * comp
   | Yield of comp

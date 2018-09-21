@@ -239,9 +239,9 @@ let rec tt_pattern ctx vars n {Location.thing=p';loc} =
   | Input.Patt_TT_Var x ->
      begin match Name.assoc_ident x vars with
      | Some i ->
-        (locate (Dsyntax.Patt_TT_EqVar i) loc), vars, n
+        (locate (Dsyntax.Patt_TT_EquVar i) loc), vars, n
      | None ->
-        (locate (Dsyntax.Patt_TT_NewVar n) loc), vars, (n+1)
+        (locate (Dsyntax.Patt_TT_NewVar n) loc), (x,n)::vars, (n+1)
      end
 
   | Input.Patt_TT_Interpolate x ->

@@ -9,11 +9,12 @@ type generalizable =
   | Generalizable
   | Ungeneralizable
 
-let rec generalizable c = match c.Location.thing with
+let rec generalizable c =
+  match c.Location.thing with
   (* yes *)
   | Rsyntax.Bound _ | Rsyntax.Function _ | Rsyntax.Handler _| Rsyntax.String _ ->
      Generalizable
-  | Rsyntax.Constructor (_, cs) | Rsyntax.Tuple cs ->
+  | Rsyntax.AML_Constructor (_, cs) | Rsyntax.Tuple cs ->
     if List.for_all (fun c -> generalizable c = Generalizable) cs
     then Generalizable
     else Ungeneralizable
@@ -22,8 +23,6 @@ let rec generalizable c = match c.Location.thing with
   | Rsyntax.Sequence (_, c) -> generalizable c
 
   (* no *)
-  | Rsyntax.Type
-  | Rsyntax.El _
   | Rsyntax.Operation _
   | Rsyntax.With _
   | Rsyntax.Now _
@@ -35,7 +34,7 @@ let rec generalizable c = match c.Location.thing with
   | Rsyntax.Where _
   | Rsyntax.Match _
   | Rsyntax.Ascribe _
-  | Rsyntax.Constant _
+  | Rsyntax.TT_Constructor _
   | Rsyntax.Abstract _
   | Rsyntax.Yield _
   | Rsyntax.Apply _
@@ -115,115 +114,138 @@ let ml_schema {Location.thing=(Dsyntax.ML_Forall (params, t)); _} =
   let t = ml_ty params t in
   (params, t)
 
-let rec is_term_pattern xs {Location.thing = p; loc} =
+(** Infer the type of a TT pattern, if possible. If [None] is returned
+    the typing environent is guaranteed to not have changed. *)
+let rec tt_pattern xs {Location.thing=p';loc} =
+  match p' with
+  | Dsyntax.Patt_TT_Anonymous
+  | Dsyntax.Patt_TT_NewVar _
+  | Dsyntax.Patt_TT_EquVar _ ->
+     Tyenv.return None
+
+  | Dsyntax.Patt_TT_Interpolate k ->
+     Tyenv.lookup_var k >>= fun t ->
+     Tyenv.return (Some (locate ~loc (Pattern.Interpolate k), t))
+
+  | Dsyntax.Term_As (p1, p2) ->
+     begin
+       tt_pattern xs p1 >>=
+         function
+         | None ->
+            begin tt_pattern xs p2 >>=
+              function
+              | None -> Tyenv.return None
+              | Some (p2, t) ->
+                 check_tt_pattern p1 t >>= fun p1 ->
+                 Tyenv.return (Some (locate ~loc (Pattern.TT_As (p1, p2), t)))
+            end
+         | Some (p1, t) ->
+            check_tt_pattern p2 t >>= fun p2 ->
+            Tyenv.return (Some (locate ~loc (Pattern.TT_As (p1, p2), t)))
+     end
+
+  | Dsyntax.TT_Constructor (c, ps) ->
+     failwith "not done"
+
+  | Dsyntax.Patt_TT_GenAtom _
+  | Dsyntax.Patt_TT_IsTerm _
+  | Dsyntax.Patt_TT_EqType _
+  | Dsyntax.Patt_TT_EqTerm _
+  | Dsyntax.Patt_TT_Abstraction _ ->
+     failwith "not finished"
+
+(** Check the type of a pattern. *)
+and check_tt_pattern xts {Location.thing=p';loc} t =
+  match p' with
+  | Dsyntax.Patt_TT_Anonymous
+  | Dsyntax.Patt_TT_NewVar _
+  | Dsyntax.Patt_TT_EquVar _
+  | Dsyntax.Patt_TT_Interpolate _
+  | Dsyntax.Term_As _
+  | Dsyntax.TT_Constructor _
+  | Dsyntax.Patt_TT_GenAtom _
+  | Dsyntax.Patt_TT_IsTerm _
+  | Dsyntax.Patt_TT_EqType _
+  | Dsyntax.Patt_TT_EqTerm _
+  | Dsyntax.Patt_TT_Abstraction _ ->
+     failwith "not finished"
+
+(** Infer the type of a pattern *)
+let rec pattern xts {Location.thing=p;loc} =
   match p with
-  | Pattern.Term_Anonymous -> Tyenv.return ()
+  | Dsyntax.Patt_Anonymous ->
+     Tyenv.return (locate ~loc Pattern.Anonymous, Mlty.fresh_type ())
 
-  | Pattern.Term_As (p, k) ->
-    let _, t = List.nth xs k in
-    Tyenv.add_equation ~loc t (Mlty.IsTerm Mlty.NotAbstract) >>= fun () ->
-    is_term_pattern xs p
+  | Dsyntax.Patt_NewVar k ->
+     Tyenv.return (locate ~loc (Pattern.NewVar k), Mlty.fresh_type ())
 
-  | Pattern.Term_Bound k ->
-    Tyenv.lookup_var k >>= fun t ->
-    Tyenv.add_equation ~loc t Mlty.IsTerm
+  | Dsyntax.Patt_EquVar k ->
+     Tyenv.return (locate ~loc (Pattern.EquVar k), Mlty.fresh_type ())
 
-  | Pattern.Term_Constant _ -> Tyenv.return ()
+  | Dsyntax.Patt_Interpolate k ->
+     Tyenv.lookup_var k >>= fun t ->
+     Tyenv.return (locate ~loc (Pattern.Interpolate k), t)
 
-  | Pattern.Term_Abstract (x, _, popt, p) ->
-    begin match popt with
-      | Some pt -> is_type_pattern xs pt
-      | None -> Tyenv.return ()
-    end >>= fun () ->
-    Tyenv.add_var x Mlty.IsTerm (is_term_pattern xs p)
+  | Dsyntax.Patt_As (p1, p2) ->
+     pattern xts p1 >>= fun (p1, t1) ->
+     check_pattern xts p2 t1 >>= fun p2 ->
+     Tyenv.return (locate ~loc (Pattern.As (p1, p2)), t1)
 
-  | Pattern.Term_GenAtom p | Pattern.Term_GenConstant p ->
-    is_term_pattern xs p
+  | Dsyntax.Patt_Judgement p ->
+     tt_pattern ~loc xts p
 
-and is_type_pattern xs {Location.thing = p; loc} =
-  match p with
-
-  | Pattern.Type_Anonymous -> Tyenv.return ()
-
-  | Pattern.Type_As (pt, k) ->
-    let _, t = List.nth xs k in
-    Tyenv.add_equation ~loc t Mlty.IsType >>= fun () ->
-    is_type_pattern xs pt
-
-  | Pattern.Type_Bound k ->
-    Tyenv.lookup_var k >>= fun t ->
-    Tyenv.add_equation ~loc t Mlty.IsType
-
-  | Pattern.Type_Type -> Tyenv.return ()
-
-  | Pattern.Type_AbstractTy (x, _, popt, p) ->
-    begin match popt with
-      | Some pt -> is_type_pattern xs pt
-      | None -> Tyenv.return ()
-    end >>= fun () ->
-    Tyenv.add_var x Mlty.IsType (is_type_pattern xs p)
-
-  | Pattern.Type_El p ->
-     is_term_pattern xs p
-
-let rec pattern xts {Location.thing=p; loc} =
-  match p with
-  | Pattern.Anonymous ->
-     Tyenv.return (Mlty.fresh_type ())
-
-  | Pattern.As (p, k) ->
-    let _, t = List.nth xts k in
-    check_pattern xts p t >>= fun () ->
-    Tyenv.return t
-
-  | Pattern.Bound k -> Tyenv.lookup_var k
-
-  | Pattern.IsTerm (p1, p2) ->
-    is_term_pattern xts p1 >>= fun () ->
-    is_type_pattern xts p2 >>= fun () ->
-    Tyenv.return Mlty.IsTerm
-
-  | Pattern.IsType pt ->
-    is_type_pattern xts pt >>= fun () ->
-    Tyenv.return Mlty.IsType
-
-  | Pattern.EqTerm (p1, p2, pt) ->
-    is_term_pattern xts p1 >>= fun () ->
-    is_term_pattern xts p2 >>= fun () ->
-    is_type_pattern xts pt >>= fun () ->
-    Tyenv.return Mlty.EqTerm
-
-  | Pattern.EqType (p1, p2) ->
-    is_type_pattern xts p1 >>= fun () ->
-    is_type_pattern xts p2 >>= fun () ->
-    Tyenv.return Mlty.EqType
-
-  | Pattern.Constructor (c, ps) ->
-    Tyenv.lookup_constructor c >>= fun (ts, out) ->
-    let tps = List.combine ts ps in
-    let rec fold = function
-      | [] ->
-        Tyenv.return out
-      | (t, p) :: tps ->
-        check_pattern xts p t >>= fun () ->
-        fold tps
+  | Dsyntax.Patt_Constr (c, ps) ->
+    Tyenv.lookup_aml_constructor c >>= fun (ts, out) ->
+    let rec fold qs ps ts =
+      match ps, ts with
+      | [], [] ->
+         let qs = List.rev qs in
+         Tyenv.return (locate ~loc (Pattern.Constructor (c, qs)), out)
+      | p::ps, t::ts ->
+        check_pattern xts p t >>= fun q ->
+        fold (q::qs) ps ts
+      | [], _::_ | _::_, [] ->
+         assert false
     in
-    fold tps
+    fold [] ps ts
 
-  | Pattern.Tuple ps ->
-    let rec fold ts = function
+  | Dsyntax.Patt_Tuple ps ->
+    let rec fold qs ts = function
       | [] ->
-        let ts = List.rev ts in
-        Tyenv.return (Mlty.Prod ts)
+         let qs = List.rev qs
+         and ts = List.rev ts in
+         Tyenv.return (locate ~loc (Pattern.Tuple qs), Mlty.Prod ts)
       | p :: ps ->
-        pattern xts p >>= fun t ->
-        fold (t :: ts) ps
+         pattern xts p >>= fun (q, t) ->
+         fold (q :: qs) (t :: ts) ps
     in
-    fold [] ps
+    fold [] [] ps
 
-and check_pattern xts p t =
-  pattern xts p >>= fun t' ->
-  Tyenv.add_equation ~loc:p.Location.loc t' t
+and check_pattern xts {Location.thing=p'; loc} t =
+  match p' with
+  | Dsyntax.Patt_Anonymous ->
+     Tyenv.return (locate ~loc Pattern.Anonymous)
+
+  | Dsyntax.Patt_NewVar k ->
+     Tyenv.return (locate ~loc (Pattern.NewVar k))
+
+  | Dsyntax.Patt_EquVar k ->
+     Tyenv.return (locate ~loc (Pattern.EquVar k))
+
+  | Dsyntax.Patt_Interpolate _
+  | Dsyntax.Patt_Constr _
+  | Dsyntax.Patt_Tuple _ ->
+     pattern xts p >>= fun (p, t') ->
+     Tyenv.add_equation ~loc:p.Location.loc t' t >>= fun () ->
+     Tyenv.return p
+
+  | Dsyntax.Patt_As (p1, p2) ->
+     check_pattern xts p1 t >>= fun p1 ->
+     check_pattern xts p2 t >>= fun p2 ->
+     Tyenv.return (locate ~loc (Pattern.As (p1, p2)))
+
+  | Dsyntax.Patt_Judgement _ ->
+     check_tt_pattern ~loc xts p t
 
 let match_case xs p t m =
   (* add a fresh type to each [x] *)
@@ -262,13 +284,6 @@ let match_op_case xs ps popt argts m =
 
 let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty) Tyenv.tyenvM =
   match c with
-  | Dsyntax.Type ->
-    return (locate ~loc Rsyntax.Type, Mlty.IsType)
-
-  | Dsyntax.El c ->
-    check_comp c Mlty.IsTerm >>= fun c ->
-    Tyenv.return (locate ~loc (Rsyntax.El c), Mlty.IsType)
-
   | Dsyntax.Bound k ->
     Tyenv.lookup_var k >>= fun t ->
     return (locate ~loc (Rsyntax.Bound k), t)

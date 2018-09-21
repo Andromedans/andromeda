@@ -70,7 +70,7 @@ let lookup_var k env =
 let lookup_op op env =
   return (Context.lookup_op op env.context) env
 
-let lookup_constructor c env =
+let lookup_aml_constructor c env =
   return (Context.lookup_constructor c env.context) env
 
 let lookup_continuation env =
