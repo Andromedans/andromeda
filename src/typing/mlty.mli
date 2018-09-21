@@ -16,12 +16,16 @@ end
 (** Sets of metavariables. *)
 module MetaSet : Set.S with type elt = meta
 
+type abstraction_level =
+  | NotAbstract
+  | Abstract of abstraction_level
+
 (** The type of ML types. *)
 type ty =
-  | IsType
-  | IsTerm
-  | EqType
-  | EqTerm
+  | IsType of abstraction_level
+  | IsTerm of abstraction_level
+  | EqType of abstraction_level
+  | EqTerm of abstraction_level
   | String
   | Meta of meta
   | Param of param
@@ -69,6 +73,7 @@ type error =
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty
+  | JudgementExpected of ty
 
 exception Error of error Location.located
 

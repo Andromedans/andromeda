@@ -5,7 +5,13 @@
     However, we define type aliases for these for better readability.
     There are no de Bruijn indices either. *)
 
-type ml_ty = ml_ty' Location.located
+type 'a located = 'a Location.located
+
+type ml_abstraction =
+  | ML_NotAbstract
+  | ML_Abstract of ml_abstraction
+
+type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
   | ML_Prod of ml_ty list
@@ -13,14 +19,14 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
-  | ML_IsType
-  | ML_IsTerm
-  | ML_EqType
-  | ML_EqTerm
+  | ML_IsType of ml_abstraction
+  | ML_IsTerm of ml_abstraction
+  | ML_EqType of ml_abstraction
+  | ML_EqTerm of ml_abstraction
   | ML_String
   | ML_Anonymous
 
-type ml_schema = ml_schema' Location.located
+type ml_schema = ml_schema' located
 and ml_schema' = ML_Forall of Name.ty list * ml_ty
 
 (** Annotation of an ML-function argument *)
@@ -43,35 +49,41 @@ type tt_variable =
 type ml_arg = Name.ident * arg_annotation
 
 (** Sugared term patterns *)
-type tt_pattern = tt_pattern' Location.located
+type tt_pattern = tt_pattern' located
 and tt_pattern' =
   | Patt_TT_Anonymous
-  | Patt_TT_As of tt_pattern * Name.ident
   | Patt_TT_Var of Name.ident (* pattern variable *)
-  | Patt_TT_Name of Name.ident
-  | Patt_TT_Abstract of (tt_variable * tt_pattern option) list * tt_pattern
-  | Patt_TT_Spine of tt_pattern * tt_pattern list
+  | Patt_TT_Interpolate of Name.ident (* interpolated value *)
+  | Patt_TT_As of tt_pattern * tt_pattern
+  | Patt_TT_Constructor of Name.ident * tt_abstracted_pattern list
+  | Patt_TT_Equality of tt_pattern * tt_pattern * tt_pattern
   | Patt_TT_GenAtom of tt_pattern
-  | Patt_TT_GenConstant of tt_pattern
-  | Patt_TT_Type
-  | Patt_TT_El of tt_pattern
 
-and pattern = pattern' Location.located
+and tt_abstraction = (tt_variable * tt_pattern option) list
+
+and tt_abstracted_pattern = tt_abstracted_pattern' located
+and tt_abstracted_pattern' = tt_abstraction * tt_top_pattern
+
+and tt_top_pattern = tt_top_pattern' located
+and tt_top_pattern' =
+  | Patt_TT_IsType of tt_pattern
+  | Patt_TT_IsTerm of tt_pattern * tt_pattern
+  | Patt_TT_EqType of tt_pattern * tt_pattern
+  | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
+
+and pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
   | Patt_As of pattern * Name.ident
   | Patt_Var of Name.ident
-  | Patt_Name of Name.ident
-  | Patt_IsTerm of tt_pattern * tt_pattern
-  | Patt_IsType of tt_pattern
-  | Patt_EqTerm of tt_pattern * tt_pattern * tt_pattern
-  | Patt_EqType of tt_pattern * tt_pattern
+  | Patt_Interpolate of Name.ident
+  | Patt_Judgement of tt_top_pattern
   | Patt_Constr of Name.ident * pattern list
   | Patt_List of pattern list
   | Patt_Tuple of pattern list
 
 (** Sugared terms *)
-type term = term' Location.located
+type term = term' located
 and term' =
   | Var of Name.ident
   | Type
@@ -147,7 +159,7 @@ type ml_tydef =
   | ML_Alias of ml_ty
 
 (** Sugared toplevel commands *)
-type toplevel = toplevel' Location.located
+type toplevel = toplevel' located
 and toplevel' =
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list

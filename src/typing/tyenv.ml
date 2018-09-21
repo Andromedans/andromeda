@@ -96,20 +96,29 @@ let rec whnf ctx s = function
            | None -> t
      end
 
-  | (Mlty.IsType | Mlty.IsTerm | Mlty.EqType | Mlty.EqTerm |
+  | (Mlty.IsType _ | Mlty.IsTerm _ | Mlty.EqType _ | Mlty.EqTerm _ |
      Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Arrow _ |
      Mlty.Handler _ | Mlty.Ref _ | Mlty.Dynamic _) as t -> t
 
 let rec unifiable ctx s t t' =
+  let rec unifiable_abstraction s abstr1 abstr2 =
+    match abstr1, abstr2 with
+    | Mlty.NotAbstract, Mlty.NotAbstract -> Some s
+    | Mlty.Abstract abstr1, Mlty.Abstract abstr2 -> unifiable_abstraction s abstr1 abstr2
+    | Mlty.NotAbstract, Mlty.Abstract _
+    | Mlty.Abstract _, Mlty.NotAbstract -> None
+  in
   let (>?=) m f = match m with
     | Some x -> f x
     | None -> None
   in
   match whnf ctx s t, whnf ctx s t' with
-  | Mlty.IsType, Mlty.IsType
-  | Mlty.IsTerm, Mlty.IsTerm
-  | Mlty.EqType, Mlty.EqType
-  | Mlty.EqTerm, Mlty.EqTerm
+  | Mlty.IsType abstr1, Mlty.IsType abstr2
+  | Mlty.IsTerm abstr1, Mlty.IsTerm abstr2
+  | Mlty.EqType abstr1, Mlty.EqType abstr2
+  | Mlty.EqTerm abstr1, Mlty.EqTerm abstr2 ->
+     unifiable_abstraction s abstr1 abstr2
+
   | Mlty.String, Mlty.String ->
      Some s
 
@@ -159,7 +168,7 @@ let rec unifiable ctx s t t' =
      in
      fold s ts ts'
 
-  | (Mlty.IsType | Mlty.IsTerm | Mlty.EqType | Mlty.EqTerm |
+  | (Mlty.IsType _ | Mlty.IsTerm _ | Mlty.EqType _ | Mlty.EqTerm _ |
      Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Prod _ | Mlty.Param _ |
      Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _), _ -> None
 
@@ -187,8 +196,8 @@ and add_application ~loc h arg out env =
   and out = whnf env.context s out in
   match h with
 
-  | Mlty.IsTerm ->
-     (>>=) (add_equation ~loc arg Mlty.IsTerm) (fun () -> add_equation ~loc out Mlty.IsTerm) env
+  | Mlty.IsTerm Mlty.NotAbstract as t->
+     (>>=) (add_equation ~loc arg t) (fun () -> add_equation ~loc out t) env
 
   | Mlty.Arrow (a, b) ->
      (>>=) (add_equation ~loc arg a) (fun () -> add_equation ~loc out b) env
@@ -196,7 +205,7 @@ and add_application ~loc h arg out env =
   | Mlty.Meta m ->
      begin
        match arg, out with
-       | (Mlty.IsTerm | Mlty.Meta _), (Mlty.IsTerm | Mlty.Meta _) ->
+       | (Mlty.IsTerm Mlty.NotAbstract | Mlty.Meta _), (Mlty.IsTerm Mlty.NotAbstract | Mlty.Meta _) ->
           let unsolved = AppConstraint (loc, h, arg, out) :: env.unsolved in
           (), s, unsolved
        | _, _ ->
@@ -208,7 +217,7 @@ and add_application ~loc h arg out env =
           end
      end
 
-  | (Mlty.IsType | Mlty.EqTerm | Mlty.EqType
+  | (Mlty.IsTerm (Mlty.Abstract _) | Mlty.IsType _ | Mlty.EqTerm _ | Mlty.EqType _
      | Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ | Mlty.Param _ | Mlty.Prod _
      |  Mlty.Handler _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.InvalidApplication (h, arg, out))
@@ -227,7 +236,7 @@ let as_handler ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.IsTerm | Mlty.IsType | Mlty.EqTerm | Mlty.EqType |
+  | (Mlty.IsTerm _ | Mlty.IsType _ | Mlty.EqTerm _ | Mlty.EqType _ |
      Mlty.String | Mlty.Ref _ | Mlty.Dynamic _ |  Mlty.Param _ |
      Mlty.Prod _ | Mlty.Arrow _ | Mlty.App _) ->
      Mlty.error ~loc (Mlty.HandlerExpected t)
@@ -245,7 +254,7 @@ let as_ref ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.IsTerm | Mlty.IsType | Mlty.EqTerm | Mlty.EqType |
+  | (Mlty.IsTerm _ | Mlty.IsType _ | Mlty.EqTerm _ | Mlty.EqType _ |
      Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
      Mlty.Arrow _ | Mlty.App _ | Mlty.Dynamic _) ->
      Mlty.error ~loc (Mlty.RefExpected t)
@@ -263,7 +272,7 @@ let as_dynamic ~loc t env =
            | None -> assert false
      end
 
-  | (Mlty.IsTerm | Mlty.IsType | Mlty.EqTerm | Mlty.EqType |
+  | (Mlty.IsTerm _ | Mlty.IsType _ | Mlty.EqTerm _ | Mlty.EqType _ |
      Mlty.String | Mlty.Param _ | Mlty.Prod _ | Mlty.Handler _ |
      Mlty.Arrow _ | Mlty.App _ | Mlty.Ref _) ->
      Mlty.error ~loc (Mlty.DynamicExpected t)

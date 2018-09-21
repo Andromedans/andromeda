@@ -52,6 +52,10 @@ let rec generalizable c = match c.Location.thing with
   | Rsyntax.Natural _ -> Ungeneralizable
 
 
+let rec ml_abstraction = function
+  | Dsyntax.ML_NotAbstract -> Mlty.NotAbstract
+  | Dsyntax.ML_Abstract abstr -> Mlty.Abstract (ml_abstraction abstr)
+
 let rec ml_ty params {Location.thing=t; loc} =
   match t with
 
@@ -81,13 +85,21 @@ let rec ml_ty params {Location.thing=t; loc} =
      let t = ml_ty params t in
      Mlty.Dynamic t
 
-  | Dsyntax.ML_IsTerm -> Mlty.IsTerm
+  | Dsyntax.ML_IsTerm abstr ->
+     let abstr = ml_abstraction abstr
+     in Mlty.IsTerm abstr
 
-  | Dsyntax.ML_IsType -> Mlty.IsType
+  | Dsyntax.ML_IsType abstr ->
+     let abstr = ml_abstraction abstr
+     in Mlty.IsType abstr
 
-  | Dsyntax.ML_EqTerm -> Mlty.EqTerm
+  | Dsyntax.ML_EqTerm abstr ->
+     let abstr = ml_abstraction abstr
+     in Mlty.EqTerm abstr
 
-  | Dsyntax.ML_EqType -> Mlty.EqType
+  | Dsyntax.ML_EqType abstr ->
+     let abstr = ml_abstraction abstr
+     in Mlty.EqType abstr
 
   | Dsyntax.ML_String ->
      Mlty.String
@@ -109,7 +121,7 @@ let rec is_term_pattern xs {Location.thing = p; loc} =
 
   | Pattern.Term_As (p, k) ->
     let _, t = List.nth xs k in
-    Tyenv.add_equation ~loc t Mlty.IsTerm >>= fun () ->
+    Tyenv.add_equation ~loc t (Mlty.IsTerm Mlty.NotAbstract) >>= fun () ->
     is_term_pattern xs p
 
   | Pattern.Term_Bound k ->
@@ -423,10 +435,20 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
 
   | Dsyntax.Abstract (x, copt, c) ->
     begin match copt with
-      | Some ct -> check_comp ct Mlty.IsType >>= fun ct -> return (Some ct)
+      | Some ct -> check_comp ct (Mlty.IsType Mlty.NotAbstract) >>= fun ct -> return (Some ct)
       | None -> Tyenv.return None
     end >>= fun copt ->
-    Tyenv.add_var x Mlty.IsTerm (comp c) >>= fun (c,t) ->
+    Tyenv.add_var x (Mlty.IsTerm Mlty.NotAbstract) (comp c) >>= fun (c,t) ->
+    let t =
+      begin match t with
+      | Mlty.IsType abstr -> Mlty.IsType (Mlty.Abstract abstr)
+      | Mlty.IsTerm abstr -> Mlty.IsType (Mlty.Abstract abstr)
+      | Mlty.EqType abstr -> Mlty.IsType (Mlty.Abstract abstr)
+      | Mlty.EqTerm abstr -> Mlty.IsType (Mlty.Abstract abstr)
+      | (String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _ | App _ | Ref _|Dynamic _) as t ->
+         Mlty.error ~loc (Mlty.JudgementExpected t)
+      end
+    in
     Tyenv.return (locate ~loc (Rsyntax.Abstract (x, copt, c)), t)
 
   | Dsyntax.Apply (c1, c2) ->

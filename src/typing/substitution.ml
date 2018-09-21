@@ -17,10 +17,10 @@ let apply (s : t) t =
   then t
   else begin
       let rec app = function
-        | Mlty.IsType
-        | Mlty.IsTerm
-        | Mlty.EqType
-        | Mlty.EqTerm
+        | Mlty.IsType _
+        | Mlty.IsTerm _
+        | Mlty.EqType _
+        | Mlty.EqTerm _
         | Mlty.String
         | Mlty.Param _ as t -> t
 

@@ -98,4 +98,3 @@ let predefined_type x ts {types;_} =
     | _ :: types -> search (k + 1) types
   in
   search 0 (List.rev types)
-

@@ -8,6 +8,10 @@ type level = int
 
 type 'a located = 'a Location.located
 
+type ml_abstraction =
+  | ML_NotAbstract
+  | ML_Abstract of ml_abstraction
+
 type ml_ty = ml_ty' located
 and ml_ty' =
   | ML_Arrow of ml_ty * ml_ty
@@ -16,10 +20,10 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
-  | ML_IsType
-  | ML_IsTerm
-  | ML_EqType
-  | ML_EqTerm
+  | ML_IsType of ml_abstraction
+  | ML_IsTerm of ml_abstraction
+  | ML_EqType of ml_abstraction
+  | ML_EqTerm of ml_abstraction
   | ML_String
   | ML_Bound of bound
   | ML_Anonymous

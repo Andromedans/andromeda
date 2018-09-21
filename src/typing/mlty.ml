@@ -27,11 +27,15 @@ module MetaOrd = struct
   let compare = compare
 end
 
+type abstraction_level =
+  | NotAbstract
+  | Abstract of abstraction_level
+
 type ty =
-  | IsType
-  | IsTerm
-  | EqType
-  | EqTerm
+  | IsType of abstraction_level
+  | IsTerm of abstraction_level
+  | EqType of abstraction_level
+  | EqTerm of abstraction_level
   | String
   | Meta of meta
   | Param of param
@@ -67,6 +71,7 @@ type error =
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty
+  | JudgementExpected of ty
 
 exception Error of error Location.located
 
@@ -101,16 +106,21 @@ let print_param ~penv (p : param) ppf =
   in
   Format.fprintf ppf "%s" s
 
+let rec print_abstraction_level abstr ppf =
+  match abstr with
+  | NotAbstract -> Format.fprintf ppf ""
+  | Abstract abstr -> Format.fprintf ppf "{}%t" (print_abstraction_level abstr)
+
 let rec print_ty ~penv ?max_level t ppf =
   match t with
 
-  | IsType -> Format.fprintf ppf "is_type"
+  | IsType abstr -> Format.fprintf ppf "%tis_type" (print_abstraction_level abstr)
 
-  | IsTerm -> Format.fprintf ppf "is_term"
+  | IsTerm abstr -> Format.fprintf ppf "%tis_term" (print_abstraction_level abstr)
 
-  | EqType -> Format.fprintf ppf "eq_type"
+  | EqType abstr -> Format.fprintf ppf "%teq_type" (print_abstraction_level abstr)
 
-  | EqTerm -> Format.fprintf ppf "eq_term"
+  | EqTerm abstr -> Format.fprintf ppf "%teq_term" (print_abstraction_level abstr)
 
   | String -> Format.fprintf ppf "mlstring"
 
@@ -193,9 +203,13 @@ let print_error err ppf =
      Format.fprintf ppf "Cannot generalize %t in %t"
                     (Print.sequence (print_param ~penv) "," ps)
                     (print_ty ~penv ty)
+  | JudgementExpected t ->
+    Format.fprintf ppf "Expected a judgement but got %t"
+      (print_ty ~penv t)
+
 
 let rec occurs m = function
-  | IsType | IsTerm | EqType | EqTerm | String | Param _ -> false
+  | IsType _ | IsTerm _ | EqType _ | EqTerm _ | String | Param _ -> false
   | Meta m' -> m = m'
   | Prod ts  | App (_, _, ts) ->
     List.exists (occurs m) ts
@@ -204,7 +218,7 @@ let rec occurs m = function
   | Ref t | Dynamic t -> occurs m t
 
 let rec occuring = function
-  | IsType | IsTerm | EqType | EqTerm | String | Param _ -> MetaSet.empty
+  | IsType _ | IsTerm _ | EqType _ | EqTerm _ | String | Param _ -> MetaSet.empty
   | Meta m -> MetaSet.singleton m
   | Prod ts  | App (_, _, ts) ->
     List.fold_left (fun s t -> MetaSet.union s (occuring t)) MetaSet.empty ts
@@ -218,7 +232,7 @@ let occuring_schema ((_, t) : ty_schema) : MetaSet.t =
 let instantiate pus t =
   let rec inst = function
 
-    | IsType | IsTerm | EqType | EqTerm | String | Meta _ as t -> t
+    | IsType _ | IsTerm _ | EqType _ | EqTerm _ | String | Meta _ as t -> t
 
     | Param p as t ->
        begin
@@ -258,7 +272,7 @@ let instantiate pus t =
 
 let params_occur ps t =
   let rec occurs = function
-  | IsType | IsTerm | EqType | EqTerm | String | Meta _ -> false
+  | IsType _ | IsTerm _ | EqType _ | EqTerm _ | String | Meta _ -> false
   | Param p -> List.mem p ps
   | Prod ts  | App (_, _, ts) ->
     List.exists occurs ts

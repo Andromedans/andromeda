@@ -2,15 +2,12 @@
 open Parser
 
 let reserved = [
-  ("Type", TYPE) ;
-  ("El", EL) ;
   ("is_type", MLISTYPE) ;
   ("is_term", MLISTERM) ;
   ("eq_type", MLEQTYPE) ;
   ("eq_term", MLEQTERM) ;
   ("_", UNDERSCORE) ;
   ("_atom", UATOM) ;
-  ("_constant", UCONSTANT) ;
   ("and", AND) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
@@ -49,6 +46,7 @@ let reserved = [
   ("symmetry_term", SYMMETRY_TERM) ;
   ("transitivity_term", TRANSITIVITY_TERM) ;
   ("require", REQUIRE) ;
+  ("type", TYPE) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;
   ("where", WHERE) ;
