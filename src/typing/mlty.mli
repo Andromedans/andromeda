@@ -16,16 +16,21 @@ end
 (** Sets of metavariables. *)
 module MetaSet : Set.S with type elt = meta
 
-type abstraction_level =
-  | NotAbstract
-  | Abstract of abstraction_level
+(** AML typing keeps track of judgement forms *)
+type judgement =
+  | IsType
+  | IsTerm
+  | EqType
+  | EqTerm
+
+(** AML typing keeps track of TT abstractions (without dependencies) *)
+type abstracted_judgement =
+  | NotAbstract of judgement
+  | Abstract of judgement * abstracted_judgement
 
 (** The type of ML types. *)
 type ty =
-  | IsType of abstraction_level
-  | IsTerm of abstraction_level
-  | EqType of abstraction_level
-  | EqTerm of abstraction_level
+  | Judgement of abstracted_judgement
   | String
   | Meta of meta
   | Param of param
@@ -35,6 +40,9 @@ type ty =
   | App of Name.ident * Dsyntax.level * ty list
   | Ref of ty
   | Dynamic of ty
+
+(** The AML type of a TT constructor. *)
+type tt_constructor_ty = abstracted_judgement list * judgement
 
 (** The unit type encoded as an empty product. *)
 val unit_ty : ty
@@ -54,13 +62,13 @@ type 'a forall = param list * 'a
 (** The type of type schemas, i.e. polymorphic types. *)
 type ty_schema = ty forall
 
-(** A constructor name and the expected types of its arguments. *)
-type constructor = Name.aml_constructor * ty list
+(** An AML constructor name and the expected types of its arguments. *)
+type aml_constructor = Name.aml_constructor * ty list
 
 (** The type of type definitions. *)
 type ty_def =
   | Alias of ty forall
-  | Sum of constructor list forall
+  | Sum of aml_constructor list forall
 
 (** The errors reported by type inference. *)
 type error =
@@ -74,6 +82,7 @@ type error =
   | ValueRestriction
   | Ungeneralizable of param list * ty
   | JudgementExpected of ty
+  | UnknownJudgementForm
 
 exception Error of error Location.located
 

@@ -13,8 +13,11 @@ val lookup_var : Dsyntax.bound -> t -> Mlty.ty
 (** Lookup an operation, returning the expected types of its arguments and the type it returns. *)
 val lookup_op : Name.operation -> t -> Mlty.ty list * Mlty.ty
 
-(** Lookup a ML constructor, returning the expected types of its arguments and the type it returns. *)
-val lookup_constructor : Name.constructor -> t -> Mlty.ty list * Mlty.ty
+(** Lookup an AML constructor, returning the expected types of its arguments and the type it returns. *)
+val lookup_aml_constructor : Name.constructor -> t -> Mlty.ty list * Mlty.ty
+
+(** Lookup an TT constructor, returning the expected types of its arguments and the type it returns. *)
+val lookup_tt_constructor : Name.constructor -> t -> Mlty.tt_constructor_ty
 
 (** Lookup the continuation, returning the expected type of its argument and the type it returns. *)
 val lookup_continuation : t -> Mlty.ty * Mlty.ty

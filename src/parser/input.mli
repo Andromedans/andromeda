@@ -10,9 +10,15 @@ type 'a located = 'a Location.located
 (** Bound variables are de Bruijn indices *)
 type bound = int
 
-type ml_abstraction =
-  | ML_NotAbstract
-  | ML_Abstract of ml_abstraction
+type ml_judgement =
+  | ML_IsType
+  | ML_IsTerm
+  | ML_EqType
+  | ML_EqTerm
+
+type ml_abstracted_judgement =
+  | ML_NotAbstract of ml_judgement
+  | ML_Abstract of ml_judgement * ml_abstracted_judgement
 
 type ml_ty = ml_ty' located
 and ml_ty' =
@@ -22,10 +28,7 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
-  | ML_IsType of ml_abstraction
-  | ML_IsTerm of ml_abstraction
-  | ML_EqType of ml_abstraction
-  | ML_EqTerm of ml_abstraction
+  | ML_Judgement of ml_abstracted_judgement
   | ML_String
   | ML_Anonymous
 

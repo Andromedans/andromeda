@@ -4,6 +4,11 @@ let return = Tyenv.return
 
 let locate ~loc v = Location.locate v loc
 
+let judgement_mismatch ~loc jdg_expected jdg_actual =
+  let t1 = Mlty.Judgement (Mlty.NotAbstract jdg_expected)
+  and t2 = Mlty.Judgement (Mlty.NotAbstract jdg_actual)
+  in Mlty.error ~loc (Mlty.TypeMismatch (t1, t2))
+
 (** Is a computation generalizable *)
 type generalizable =
   | Generalizable
@@ -50,10 +55,20 @@ let rec generalizable c =
   | Rsyntax.Context _
   | Rsyntax.Natural _ -> Ungeneralizable
 
+let rec tt_judgement = function
+  | Dsyntax.ML_IsType -> Mlty.IsType
+  | Dsyntax.ML_IsTerm -> Mlty.IsTerm
+  | Dsyntax.ML_EqType -> Mlty.EqType
+  | Dsyntax.ML_EqTerm -> Mlty.EqTerm
 
-let rec ml_abstraction = function
-  | Dsyntax.ML_NotAbstract -> Mlty.NotAbstract
-  | Dsyntax.ML_Abstract abstr -> Mlty.Abstract (ml_abstraction abstr)
+let rec tt_abstracted_judgement = function
+  | Dsyntax.ML_NotAbstract frm ->
+     let frm = tt_judgement frm
+     in Mlty.NotAbstract frm
+  | Dsyntax.ML_Abstract (frm, abstr) ->
+     let frm = tt_judgement frm
+     and abstr = tt_abstracted_judgement abstr
+     in Mlty.Abstract (frm, abstr)
 
 let rec ml_ty params {Location.thing=t; loc} =
   match t with
@@ -84,21 +99,9 @@ let rec ml_ty params {Location.thing=t; loc} =
      let t = ml_ty params t in
      Mlty.Dynamic t
 
-  | Dsyntax.ML_IsTerm abstr ->
-     let abstr = ml_abstraction abstr
-     in Mlty.IsTerm abstr
-
-  | Dsyntax.ML_IsType abstr ->
-     let abstr = ml_abstraction abstr
-     in Mlty.IsType abstr
-
-  | Dsyntax.ML_EqTerm abstr ->
-     let abstr = ml_abstraction abstr
-     in Mlty.EqTerm abstr
-
-  | Dsyntax.ML_EqType abstr ->
-     let abstr = ml_abstraction abstr
-     in Mlty.EqType abstr
+  | Dsyntax.ML_Judgement abstr ->
+     let abstr = tt_abstracted_judgement abstr
+     in Mlty.Judgement abstr
 
   | Dsyntax.ML_String ->
      Mlty.String
@@ -114,9 +117,31 @@ let ml_schema {Location.thing=(Dsyntax.ML_Forall (params, t)); _} =
   let t = ml_ty params t in
   (params, t)
 
-(** Infer the type of a TT pattern, if possible. If [None] is returned
-    the typing environent is guaranteed to not have changed. *)
-let rec tt_pattern xs {Location.thing=p';loc} =
+(** Type inference for TT patterns is a bit annoying because we cannot tell
+    which judgement form a TT pattern might match (consider a pattern variable).
+    Thus, we first attempt to discover which judgement form it must be,
+    using the auxiliary function [tt_patter_infer_form] below. *)
+
+(** Compute the judgement form from an AML type, if possible. *)
+let tt_form_from_type = function
+  | Mlty.Judgement abstr ->
+     let rec form = function
+       | Mlty.NotAbstract frm -> Some frm
+       | Mlty.Abstract (_, abstr) -> form abstr
+     in
+     form abstr
+  | Mlty.String
+  | Mlty.Meta _
+  | Mlty.Param _
+  | Mlty.Prod _
+  | Mlty.Arrow (_, _)
+  | Mlty.Handler (_, _)
+  | Mlty.App (_, _, _)
+  | Mlty.Ref _
+  | Mlty.Dynamic _ -> None
+
+(** Infer the judgement form from a pattern. *)
+let rec tt_infer_form {Location.thing=p';_} =
   match p' with
   | Dsyntax.Patt_TT_Anonymous
   | Dsyntax.Patt_TT_NewVar _
@@ -125,43 +150,105 @@ let rec tt_pattern xs {Location.thing=p';loc} =
 
   | Dsyntax.Patt_TT_Interpolate k ->
      Tyenv.lookup_var k >>= fun t ->
-     Tyenv.return (Some (locate ~loc (Pattern.Interpolate k), t))
+     Tyenv.return (tt_form_from_type t)
 
-  | Dsyntax.Term_As (p1, p2) ->
+  | Dsyntax.Patt_TT_As (p1, p2) ->
      begin
-       tt_pattern xs p1 >>=
+       tt_infer_form p1 >>=
          function
+         | Some _ as f -> Tyenv.return f
          | None ->
-            begin tt_pattern xs p2 >>=
+            begin tt_infer_form p2 >>=
               function
               | None -> Tyenv.return None
-              | Some (p2, t) ->
-                 check_tt_pattern p1 t >>= fun p1 ->
-                 Tyenv.return (Some (locate ~loc (Pattern.TT_As (p1, p2), t)))
+              | Some _ as f -> Tyenv.return f
             end
-         | Some (p1, t) ->
-            check_tt_pattern p2 t >>= fun p2 ->
-            Tyenv.return (Some (locate ~loc (Pattern.TT_As (p1, p2), t)))
      end
 
-  | Dsyntax.TT_Constructor (c, ps) ->
-     failwith "not done"
+  | Dsyntax.Patt_TT_Constructor (c, ps) ->
+     Tyenv.lookup_tt_constructor c >>= fun (_, t) ->
+     Tyenv.return (Some t)
+
+  | Dsyntax.Patt_TT_GenAtom _ ->
+     Tyenv.return (Some Mlty.IsTerm)
+
+  | Dsyntax.Patt_TT_IsTerm _ ->
+     Tyenv.return (Some Mlty.IsTerm)
+
+  | Dsyntax.Patt_TT_EqType _ ->
+     Tyenv.return (Some Mlty.EqType)
+
+  | Dsyntax.Patt_TT_EqTerm _ ->
+     Tyenv.return (Some Mlty.EqTerm)
+
+  | Dsyntax.Patt_TT_Abstraction (_, _, _, abstr) ->
+     tt_infer_form abstr
+
+let rec is_type_pattern {Location.thing=p';loc} =
+  match p' with
+
+  | Dsyntax.Patt_TT_Anonymous ->
+     Tyenv.return (locate ~loc Pattern.IsType_Anonymous)
+
+  | Dsyntax.Patt_TT_NewVar (x, k) ->
+     let t = Mlty.Judgement (Mlty.NotAbstract Mlty.IsType) in
+     Tyenv.add_var x t (Tyenv.return (locate ~loc (Pattern.IsType_NewVar k)))
+
+  | Dsyntax.Patt_TT_EquVar k ->
+     check_var k (Mlty.NotAbstract Mlty.IsType) >>= fun () ->
+     Tyenv.return (locate ~loc (Pattern.IsType_EquVar k))
+
+  | Dsyntax.Patt_TT_Interpolate k ->
+     check_var k (Mlty.NotAbstract Mlty.IsType) >>= fun () ->
+     Tyenv.return (locate ~loc (Pattern.IsType_Interpolate k))
+
+  | Dsyntax.Patt_TT_As (p1, p2) ->
+     is_type_pattern p1 >>= fun p1 ->
+     is_type_pattern p2 >>= fun p2 ->
+     Tyenv.return (locate ~loc (Pattern.IsType_As (p1, p2)))
+
+  | Dsyntax.Patt_TT_Constructor (c, ps) ->
+     Tyenv.lookup_tt_constructor c >>=
+       begin function
+         |  (args, Mlty.IsType) ->
+             check_tt_args args ps >>= fun ps ->
+             Tyenv.return (locate ~loc (Pattern.IsType_Constructor (c, ps)))
+         | (_, ((Mlty.IsTerm | Mlty.EqType | Mlty.EqTerm) as frm)) ->
+            judgement_mismatch ~loc Mlty.IsType frm
+       end
 
   | Dsyntax.Patt_TT_GenAtom _
-  | Dsyntax.Patt_TT_IsTerm _
-  | Dsyntax.Patt_TT_EqType _
-  | Dsyntax.Patt_TT_EqTerm _
+  | Dsyntax.Patt_TT_IsTerm _ ->
+     judgement_mismatch ~loc Mlty.IsType Mlty.IsTerm
+
+  | Dsyntax.Patt_TT_EqType _ ->
+     judgement_mismatch ~loc Mlty.IsType Mlty.EqType
+
+  | Dsyntax.Patt_TT_EqTerm _ ->
+     judgement_mismatch ~loc Mlty.IsType Mlty.EqTerm
+
   | Dsyntax.Patt_TT_Abstraction _ ->
-     failwith "not finished"
+     Mlty.err ~loc (Mlty.ExpectedJudgementButAbstraction Mlty.IsType
+
+
+
+(** Infer the type of a TT pattern. *)
+let rec tt_pattern p =
+  tt_infer_form p >>= function
+  | None ->  Mlty.error ~loc:p.Location.loc Mlty.UnknownJudgementForm
+  | Some (Mlty.IsType) -> tt_is_type_pattern p
+  | Some (Mlty.IsTerm) -> tt_is_term_pattern p
+  | Some (Mlty.EqType) -> tt_eq_type_pattern p
+  | Some (Mlty.EqTerm) -> tt_eq_term_pattern p
 
 (** Check the type of a pattern. *)
-and check_tt_pattern xts {Location.thing=p';loc} t =
+and check_tt_pattern {Location.thing=p';loc} t =
   match p' with
   | Dsyntax.Patt_TT_Anonymous
   | Dsyntax.Patt_TT_NewVar _
   | Dsyntax.Patt_TT_EquVar _
   | Dsyntax.Patt_TT_Interpolate _
-  | Dsyntax.Term_As _
+  | Dsyntax.Patt_TT_As _
   | Dsyntax.TT_Constructor _
   | Dsyntax.Patt_TT_GenAtom _
   | Dsyntax.Patt_TT_IsTerm _
@@ -171,12 +258,14 @@ and check_tt_pattern xts {Location.thing=p';loc} t =
      failwith "not finished"
 
 (** Infer the type of a pattern *)
-let rec pattern xts {Location.thing=p;loc} =
+let rec pattern {Location.thing=p;loc} =
   match p with
   | Dsyntax.Patt_Anonymous ->
      Tyenv.return (locate ~loc Pattern.Anonymous, Mlty.fresh_type ())
 
-  | Dsyntax.Patt_NewVar k ->
+  | Dsyntax.Patt_NewVar (x, k) ->
+     let t = Mlty.fresh_type () in
+     Tyenv.add_var x t
      Tyenv.return (locate ~loc (Pattern.NewVar k), Mlty.fresh_type ())
 
   | Dsyntax.Patt_EquVar k ->
@@ -187,12 +276,12 @@ let rec pattern xts {Location.thing=p;loc} =
      Tyenv.return (locate ~loc (Pattern.Interpolate k), t)
 
   | Dsyntax.Patt_As (p1, p2) ->
-     pattern xts p1 >>= fun (p1, t1) ->
-     check_pattern xts p2 t1 >>= fun p2 ->
+     pattern p1 >>= fun (p1, t1) ->
+     check_pattern p2 t1 >>= fun p2 ->
      Tyenv.return (locate ~loc (Pattern.As (p1, p2)), t1)
 
   | Dsyntax.Patt_Judgement p ->
-     tt_pattern ~loc xts p
+     tt_pattern ~loc p
 
   | Dsyntax.Patt_Constr (c, ps) ->
     Tyenv.lookup_aml_constructor c >>= fun (ts, out) ->
@@ -202,7 +291,7 @@ let rec pattern xts {Location.thing=p;loc} =
          let qs = List.rev qs in
          Tyenv.return (locate ~loc (Pattern.Constructor (c, qs)), out)
       | p::ps, t::ts ->
-        check_pattern xts p t >>= fun q ->
+        check_pattern p t >>= fun q ->
         fold (q::qs) ps ts
       | [], _::_ | _::_, [] ->
          assert false
@@ -216,12 +305,12 @@ let rec pattern xts {Location.thing=p;loc} =
          and ts = List.rev ts in
          Tyenv.return (locate ~loc (Pattern.Tuple qs), Mlty.Prod ts)
       | p :: ps ->
-         pattern xts p >>= fun (q, t) ->
+         pattern p >>= fun (q, t) ->
          fold (q :: qs) (t :: ts) ps
     in
     fold [] [] ps
 
-and check_pattern xts {Location.thing=p'; loc} t =
+and check_pattern {Location.thing=p'; loc} t =
   match p' with
   | Dsyntax.Patt_Anonymous ->
      Tyenv.return (locate ~loc Pattern.Anonymous)
@@ -235,31 +324,29 @@ and check_pattern xts {Location.thing=p'; loc} t =
   | Dsyntax.Patt_Interpolate _
   | Dsyntax.Patt_Constr _
   | Dsyntax.Patt_Tuple _ ->
-     pattern xts p >>= fun (p, t') ->
+     pattern p >>= fun (p, t') ->
      Tyenv.add_equation ~loc:p.Location.loc t' t >>= fun () ->
      Tyenv.return p
 
   | Dsyntax.Patt_As (p1, p2) ->
-     check_pattern xts p1 t >>= fun p1 ->
-     check_pattern xts p2 t >>= fun p2 ->
+     check_pattern p1 t >>= fun p1 ->
+     check_pattern p2 t >>= fun p2 ->
      Tyenv.return (locate ~loc (Pattern.As (p1, p2)))
 
   | Dsyntax.Patt_Judgement _ ->
-     check_tt_pattern ~loc xts p t
+     check_tt_pattern ~loc p t
 
 let match_case xs p t m =
-  (* add a fresh type to each [x] *)
-  let xts = List.map (fun x -> x, Mlty.fresh_type ()) xs in
-  check_pattern xts p t >>= fun () ->
+  check_pattern p t >>= fun () ->
   let rec add_vars = function
     | [] -> m
-    | (x, t) :: xts ->
+    | x :: xs ->
+      let t = Mlty.fresh_type () in
       Tyenv.add_var x t (add_vars xts)
   in
-  add_vars (List.rev xts)
+  add_vars (List.rev xs)
 
 let match_op_case xs ps popt argts m =
-  let xs = List.map (fun x -> x, Mlty.fresh_type ()) xs in
   let pts = List.combine ps argts in
   begin match popt with
     | Some p ->
@@ -271,14 +358,15 @@ let match_op_case xs ps popt argts m =
   let rec fold = function
     | [] -> Tyenv.return ()
     | (p, t) :: pts ->
-      check_pattern xs p t >>= fun () ->
+      check_pattern p t >>= fun () ->
       fold pts
   in
   fold pts >>= fun () ->
   let rec add_vars = function
     | [] -> m
-    | (x, t) :: xs ->
-      Tyenv.add_var x t (add_vars xs)
+    | x :: xs ->
+       let t = Mlty.fresh_type () in
+       Tyenv.add_var x t (add_vars xs)
   in
   add_vars (List.rev xs)
 

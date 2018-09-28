@@ -25,6 +25,9 @@ val lookup_op : Name.operation -> (Mlty.ty list * Mlty.ty) tyenvM
 (** Lookup an AML constructor, returning the expected types of its arguments and the type it returns. *)
 val lookup_aml_constructor : Name.constructor -> (Mlty.ty list * Mlty.ty) tyenvM
 
+(** Lookup a TT constructor, returning its expected form. *)
+val lookup_tt_constructor : Name.constructor -> Mlty.tt_constructor_ty tyenvM
+
 (** Lookup the continuation, returning the expected type of its argument and the type it returns. *)
 val lookup_continuation : (Mlty.ty * Mlty.ty) tyenvM
 

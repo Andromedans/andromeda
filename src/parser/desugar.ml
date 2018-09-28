@@ -143,9 +143,22 @@ end (* module Ctx *)
 
 let locate = Location.locate
 
-let rec mlty_abstraction = function
-  | Input.ML_NotAbstract -> Dsyntax.ML_NotAbstract
-  | Input.ML_Abstract abstr -> Dsyntax.ML_Abstract (mlty_abstraction abstr)
+let rec mlty_judgement = function
+  | Input.ML_IsType -> Dsyntax.ML_IsType
+  | Input.ML_IsTerm -> Dsyntax.ML_IsTerm
+  | Input.ML_EqType -> Dsyntax.ML_EqType
+  | Input.ML_EqTerm -> Dsyntax.ML_EqTerm
+
+let rec mlty_abstracted_judgement = function
+
+  | Input.ML_NotAbstract frm ->
+     let frm = mlty_judgement frm
+     in Dsyntax.ML_NotAbstract frm
+
+  | Input.ML_Abstract (frm, abstr) ->
+     let frm = mlty_judgement frm
+     and abstr = mlty_abstracted_judgement abstr
+     in Dsyntax.ML_Abstract (frm, abstr)
 
 let mlty ctx params ty =
   let rec mlty ({Location.thing=ty';loc}) =
@@ -201,21 +214,9 @@ let mlty ctx params ty =
       | Input.ML_Anonymous ->
          Dsyntax.ML_Anonymous
 
-      | Input.ML_IsType abstr ->
-         let abstr = mlty_abstraction abstr
-         in Dsyntax.ML_IsType abstr
-
-      | Input.ML_IsTerm abstr ->
-         let abstr = mlty_abstraction abstr
-         in Dsyntax.ML_IsTerm abstr
-
-      | Input.ML_EqType abstr ->
-         let abstr = mlty_abstraction abstr
-         in Dsyntax.ML_EqType abstr
-
-      | Input.ML_EqTerm abstr ->
-         let abstr = mlty_abstraction abstr
-         in Dsyntax.ML_EqTerm abstr
+      | Input.ML_Judgement abstr ->
+         let abstr = mlty_abstracted_judgement abstr
+         in Dsyntax.ML_Judgement abstr
 
       | Input.ML_String -> Dsyntax.ML_String
       end

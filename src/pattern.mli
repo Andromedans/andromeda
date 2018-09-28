@@ -8,23 +8,23 @@ type bound = int
 (** Type pattern *)
 type is_type = is_type' located
 and is_type' =
-  | Type_Anonymous
-  | Type_NewVar of bound
-  | Type_EquVar of bound
-  | Type_Interpolate of bound
-  | Type_As of is_type * is_type
-  | Type_Constructor of Name.constructor * argument list
+  | IsType_Anonymous
+  | IsType_NewVar of bound
+  | IsType_EquVar of bound
+  | IsType_Interpolate of bound
+  | IsType_As of is_type * is_type
+  | IsType_Constructor of Name.constructor * argument list
 
 (** Term pattern *)
 and is_term = is_term' located
 and is_term' =
-  | Term_Anonymous
-  | Term_NewVar of bound
-  | Term_Equar of bound
-  | Term_Interpolate of bound
-  | Term_As of is_term * is_term
-  | Term_Constructor of Name.constructor * argument list
-  | Term_GenAtom of is_term
+  | IsTerm_Anonymous
+  | IsTerm_NewVar of bound
+  | IsTerm_Equar of bound
+  | IsTerm_Interpolate of bound
+  | IsTerm_As of is_term * is_term
+  | IsTerm_Constructor of Name.constructor * argument list
+  | IsTerm_GenAtom of is_term
 
 (** Term equality pattern *)
 and eq_term = eq_term' located

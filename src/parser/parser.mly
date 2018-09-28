@@ -455,17 +455,21 @@ simple_mlty: mark_location(plain_simple_mlty) { $1 }
 plain_simple_mlty:
   | LPAREN t=plain_mlty RPAREN          { t }
   | c=var_name                          { ML_TyApply (c, []) }
-  | abstr=mlty_abstraction MLISTYPE     { ML_IsType abstr }
-  | abstr=mlty_abstraction MLISTERM     { ML_IsTerm abstr }
-  | abstr=mlty_abstraction MLEQTYPE     { ML_IsType abstr }
-  | abstr=mlty_abstraction MLEQTERM     { ML_IsTerm abstr }
+  | abstr=mlty_abstracted_judgement     { ML_Judgement abstr }
   | MLUNIT                              { ML_Prod [] }
   | MLSTRING                            { ML_String }
   | UNDERSCORE                          { ML_Anonymous }
 
-mlty_abstraction:
-  |                                      { ML_NotAbstract }
-  | LBRACE RBRACE abstr=mlty_abstraction { ML_Abstract abstr }
+mlty_judgement:
+  | MLISTYPE { ML_IsType }
+  | MLISTERM { ML_IsTerm }
+  | MLEQTYPE { ML_EqType }
+  | MLEQTERM { ML_EqTerm }
+
+mlty_abstracted_judgement:
+  | frm=mlty_judgement                                      { ML_NotAbstract frm }
+  | LBRACE frm=mlty_judgement RBRACE abstr=mlty_abstracted_judgement
+                                                            { ML_Abstract (frm, abstr) }
 
 mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }

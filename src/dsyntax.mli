@@ -8,9 +8,15 @@ type level = int
 
 type 'a located = 'a Location.located
 
-type ml_abstraction =
-  | ML_NotAbstract
-  | ML_Abstract of ml_abstraction
+type ml_judgement =
+  | ML_IsType
+  | ML_IsTerm
+  | ML_EqType
+  | ML_EqTerm
+
+type ml_abstracted_judgement =
+  | ML_NotAbstract of ml_judgement
+  | ML_Abstract of ml_judgement * ml_abstracted_judgement
 
 type ml_ty = ml_ty' located
 and ml_ty' =
@@ -20,10 +26,7 @@ and ml_ty' =
   | ML_Handler of ml_ty * ml_ty
   | ML_Ref of ml_ty
   | ML_Dynamic of ml_ty
-  | ML_IsType of ml_abstraction
-  | ML_IsTerm of ml_abstraction
-  | ML_EqType of ml_abstraction
-  | ML_EqTerm of ml_abstraction
+  | ML_Judgement of ml_abstracted_judgement
   | ML_String
   | ML_Bound of bound
   | ML_Anonymous
@@ -46,7 +49,7 @@ type tt_variable =
 type tt_pattern = tt_pattern' located
 and tt_pattern' =
   | Patt_TT_Anonymous
-  | Patt_TT_NewVar of bound (* new pattern variable *)
+  | Patt_TT_NewVar of Name.ident * bound (* new pattern variable *)
   | Patt_TT_EquVar of bound (* must be equal to the given pattern variable *)
   | Patt_TT_Interpolate of bound (* interpolated value *)
   | Patt_TT_As of tt_pattern * tt_pattern
@@ -60,7 +63,7 @@ and tt_pattern' =
 type ml_pattern = ml_pattern' located
 and ml_pattern' =
   | Patt_Anonymous
-  | Patt_NewVar of bound
+  | Patt_NewVar of Name.ident * bound
   | Patt_EquVar of bound
   | Patt_Interpolate of bound
   | Patt_As of ml_pattern * ml_pattern

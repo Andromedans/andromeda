@@ -5,6 +5,7 @@ type t = {
   types : (Name.ident * Mlty.ty_def) list; (* types are accessed by De Bruijn level, the name is for printing *)
   variables : (Name.ident * Mlty.ty_schema) list; (* variables are accessed by De Bruijn index, the name is for printing *)
   operations : (Mlty.ty list * Mlty.ty) OperationMap.t;
+  tt_constructors : Mlty.tt_constructor_ty Name.IdentMap.t ; (* constructors are accessed by their names *)
   continuation : (Mlty.ty * Mlty.ty) option;
 }
 
@@ -12,6 +13,7 @@ let empty = {
   types = [];
   variables = [];
   operations = OperationMap.empty;
+  tt_constructors = Name.IdentMap.empty;
   continuation = None;
 }
 
@@ -23,7 +25,10 @@ let lookup_var k {variables;_} =
 let lookup_op op {operations;_} =
   OperationMap.find op operations
 
-let lookup_constructor c {types;_} =
+let lookup_tt_constructor c {tt_constructors;_} =
+  Name.IdentMap.find c tt_constructors
+
+let lookup_aml_constructor c {types;_} =
   let rec fold = function
     | [] -> raise Not_found
     | (_, Mlty.Alias _) :: types -> fold types
@@ -75,7 +80,7 @@ let unfold ctx x ts =
        let pus = List.combine ps ts in
        Some (Mlty.instantiate pus t)
 
-let gather_known s {types = _; variables; operations = _; continuation} =
+let gather_known s {variables;continuation;_} =
   let subst = Substitution.apply s in
   let known =
     List.fold_left
