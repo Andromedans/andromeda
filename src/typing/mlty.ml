@@ -78,6 +78,7 @@ type error =
   | Ungeneralizable of param list * ty
   | JudgementExpected of ty
   | UnknownJudgementForm
+  | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located
 
@@ -230,6 +231,10 @@ let print_error err ppf =
 
   | UnknownJudgementForm ->
      Format.fprintf ppf "Cannot determine the type of this judgement pattern"
+
+  | UnexpectedJudgementAbstraction jdg_actual ->
+     Format.fprintf ppf "Expected %t but got an abstraction"
+       (print_judgement jdg_actual)
 
 let rec occurs m = function
   | Judgement _ | String | Param _ -> false

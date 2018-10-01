@@ -228,9 +228,7 @@ let rec is_type_pattern {Location.thing=p';loc} =
      judgement_mismatch ~loc Mlty.IsType Mlty.EqTerm
 
   | Dsyntax.Patt_TT_Abstraction _ ->
-     Mlty.err ~loc (Mlty.ExpectedJudgementButAbstraction Mlty.IsType
-
-
+     Mlty.error ~loc (Mlty.UnexpectedJudgementAbstraction Mlty.IsType)
 
 (** Infer the type of a TT pattern. *)
 let rec tt_pattern p =
