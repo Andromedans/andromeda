@@ -390,9 +390,8 @@ plain_simple_tt_pattern:
   | LPAREN p=plain_abstracted_tt_pattern RPAREN  { p }
 
 tt_name:
-  | x=var_name      { NonPattVar x }
-  | UNDERSCORE      { PattVar (Name.anonymous ()) }
-  | x=PATTVAR       { PattVar x }
+  | UNDERSCORE      { None }
+  | x=PATTVAR       { Some x }
 
 patt_var:
   | x=PATTVAR                    { x }

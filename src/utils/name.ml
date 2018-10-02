@@ -112,7 +112,13 @@ let refresh xs ((Ident (s, fixity)) as x) =
 
 let eq_ident (x : ident) (y : ident) = (x = y)
 
+(* XXX why do we compare fixities? *)
 let compare_ident (x : ident) (y : ident) = Pervasives.compare x y
+
+module IdentSet = Set.Make (struct
+                    type t = ident
+                    let compare = compare_ident
+                  end)
 
 module IdentMap = Map.Make (struct
                     type t = ident

@@ -48,12 +48,6 @@ type let_annotation =
 (* An argument of a function or a let-clause *)
 type ml_arg = Name.ident * arg_annotation
 
-(** A binder in a pattern may or may not bind the bound variable
-    as a pattern variable. *)
-type tt_variable =
-  | PattVar of Name.ident
-  | NonPattVar of Name.ident
-
 (** Sugared term patterns *)
 type tt_pattern = tt_pattern' located
 and tt_pattern' =
@@ -66,7 +60,7 @@ and tt_pattern' =
   | Patt_TT_IsTerm of tt_pattern * tt_pattern
   | Patt_TT_EqType of tt_pattern * tt_pattern
   | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
-  | Patt_TT_Abstraction of (tt_variable * tt_pattern option) list * tt_pattern
+  | Patt_TT_Abstraction of (Name.ident option * tt_pattern option) list * tt_pattern
 
 type pattern = pattern' located
 and pattern' =

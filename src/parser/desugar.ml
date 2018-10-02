@@ -3,19 +3,17 @@
 (** The arity of an operation or a data constructor. *)
 type arity = int
 
-type unknown = Unknown
-
 (** Information about names *)
-type 'index info =
-  | Variable of 'index
-  | TT_Constructor of arity
-  | AML_Constructor of arity
+type 'a info =
+  | Variable of 'a
+  | TTConstructor of arity
+  | AMLConstructor of arity
   | Operation of arity
 
 let print_info info ppf = match info with
   | Variable _ -> Format.fprintf ppf "a variable"
-  | TT_Constructor _ -> Format.fprintf ppf "a constructor"
-  | AML_Constructor _ -> Format.fprintf ppf "an AML constructor"
+  | TTConstructor _ -> Format.fprintf ppf "a constructor"
+  | AMLConstructor _ -> Format.fprintf ppf "an AML constructor"
   | Operation _ -> Format.fprintf ppf "an operation"
 
 type error =
@@ -28,6 +26,7 @@ type error =
   | InvalidTermPatternName : Name.ident * 'a info -> error
   | InvalidPatternName : Name.ident * 'a info -> error
   | InvalidAppliedPatternName : Name.ident * 'a info -> error
+  | NonlinearPattern : Name.ident -> error
   | TermPatternExpected
   | ArityMismatch of Name.ident * int * int
   | UnboundYield
@@ -44,6 +43,7 @@ let print_error err ppf = match err with
   | InvalidTermPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a term pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidAppliedPatternName (x, info) -> Format.fprintf ppf "%t cannot be applied in a pattern as it is %t." (Name.print_ident x) (print_info info)
+  | NonlinearPattern x -> Format.fprintf ppf "non-linear pattern variable %t is not allowed (but you may interpolate it)." (Name.print_ident x)
   | TermPatternExpected -> Format.fprintf ppf "This pattern should match terms but it matches types."
   | ArityMismatch (x, used, expected) -> Format.fprintf ppf "%t expects %d arguments but is used with %d." (Name.print_ident x) expected used
   | UnboundYield -> Format.fprintf ppf "yield may only appear in a handler's operation cases."
@@ -58,7 +58,7 @@ let error ~loc err = Pervasives.raise (Error (Location.locate err loc))
 module Ctx = struct
 
   type t = {
-      bound : (Name.ident * unknown info) list;
+      bound : (Name.ident * unit info) list;
       tydefs : (Name.ident * arity) list;
       files : string list;
     }
@@ -69,30 +69,35 @@ module Ctx = struct
       files = [];
     }
 
-  let find ~loc x {bound; _} =
+  let find_opt x {bound; _} =
     let at_index i = function
-      | Variable Unknown -> Variable i
-      | TT_Constructor k -> TT_Constructor k
-      | AML_Constructor k -> AML_Constructor k
+      | Variable () -> Variable i
+      | TTConstructor k -> TTConstructor k
+      | AMLConstructor k -> AMLConstructor k
       | Operation k -> Operation k
     in
     let rec search i = function
-      | [] -> error ~loc (UnknownName x)
-      | (y, info) :: _ when Name.eq_ident y x -> at_index i info
+      | [] -> None
+      | (y, info) :: _ when Name.eq_ident y x -> Some (at_index i info)
       | (_, Variable _) :: bound -> search (i+1) bound
-      | (_, (TT_Constructor _ | AML_Constructor _ | Operation _)) :: bound ->
+      | (_, (TTConstructor _ | AMLConstructor _ | Operation _)) :: bound ->
          search i bound
     in
     search 0 bound
 
+  let find ~loc x ctx =
+    match find_opt x ctx with
+    | None -> error ~loc (UnknownName x)
+    | Some info -> info
+
   let get_operation ~loc x ctx =
     match find ~loc x ctx with
     | Operation k -> k
-    | Variable _ | TT_Constructor _ | AML_Constructor _ as info ->
+    | Variable _ | TTConstructor _ | AMLConstructor _ as info ->
       error ~loc (OperationExpected (x, info))
 
   let add_variable x ctx =
-    { ctx with bound = (x, Variable Unknown) :: ctx.bound }
+    { ctx with bound = (x, Variable ()) :: ctx.bound }
 
   let add_operation ~loc op k ctx =
     if List.exists (function (op', Operation _) -> Name.eq_ident op op' | _ -> false) ctx.bound
@@ -102,18 +107,18 @@ module Ctx = struct
       { ctx with bound = (op, Operation k) :: ctx.bound }
 
   let add_aml_constructor ~loc c k ctx =
-    if List.exists (function (c', AML_Constructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
+    if List.exists (function (c', AMLConstructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
     then
       error ~loc (AMLConstructorAlreadyDeclared c)
     else
-      { ctx with bound = (c, AML_Constructor k) :: ctx.bound }
+      { ctx with bound = (c, AMLConstructor k) :: ctx.bound }
 
   let add_tt_constructor ~loc c k ctx =
-    if List.exists (function (c', TT_Constructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
+    if List.exists (function (c', TTConstructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
     then
       error ~loc (TTConstructorAlreadyDeclared c)
     else
-      { ctx with bound = (c, TT_Constructor k) :: ctx.bound }
+      { ctx with bound = (c, TTConstructor k) :: ctx.bound }
 
 
   (* Add to the context the fact that [ty] is a type constructor with
@@ -232,179 +237,266 @@ let mk_abstract ~loc ys c =
     c ys
 
 (* n is the length of vars *)
-let rec tt_pattern ctx vars n {Location.thing=p';loc} =
+let rec tt_pattern ctx {Location.thing=p';loc} =
   match p' with
   | Input.Patt_TT_Anonymous ->
-     (locate Dsyntax.Patt_TT_Anonymous loc), vars, n
+     ctx, locate Dsyntax.Patt_TT_Anonymous loc
 
+  (* pattern of the form [?x] *)
   | Input.Patt_TT_Var x ->
-     begin match Name.assoc_ident x vars with
-     | Some i ->
-        (locate (Dsyntax.Patt_TT_EquVar i) loc), vars, n
-     | None ->
-        (locate (Dsyntax.Patt_TT_NewVar n) loc), (x,n)::vars, (n+1)
-     end
+     (* NB: a pattern variable always shadows whatever it can *)
+     let ctx = Ctx.add_variable x ctx in
+     ctx, (locate (Dsyntax.Patt_TT_Var x) loc)
 
+  (* pattern of the form [x] *)
   | Input.Patt_TT_Interpolate x ->
      begin match Ctx.find ~loc x ctx with
-     | Variable i -> locate (Dsyntax.Patt_TT_Interpolate i) loc, vars, n
-     | TT_Constructor k -> tt_constructor ~loc ctx vars n x k []
-     | (AML_Constructor _ | Operation _) as info ->
+     | Variable i ->
+        ctx, locate (Dsyntax.Patt_TT_Interpolate i) loc
+
+     | TTConstructor k ->
+        tt_constructor ~loc ctx x k []
+
+     | (AMLConstructor _ | Operation _) as info ->
         error ~loc (InvalidTermPatternName (x, info))
      end
 
   | Input.Patt_TT_As (p1, p2) ->
-     let p1, vars, n = tt_pattern ctx vars n p1 in
-     let p2, vars, n = tt_pattern ctx vars n p2 in
-     (locate (Dsyntax.Patt_TT_As (p1, p2)) loc), vars, n
+     let ctx, p1 = tt_pattern ctx p1 in
+     let ctx, p2 = tt_pattern ctx p2 in
+     ctx, locate (Dsyntax.Patt_TT_As (p1, p2)) loc
 
   | Input.Patt_TT_Constructor (c, ps) ->
      begin match Ctx.find ~loc c ctx with
-     | TT_Constructor k -> tt_constructor ~loc ctx vars n c k ps
-     | (AML_Constructor _ | Operation _ | Variable _) as info ->
+     | TTConstructor k -> tt_constructor ~loc ctx c k ps
+     | (AMLConstructor _ | Operation _ | Variable _) as info ->
         error ~loc (InvalidTermPatternName (c, info))
      end
 
   | Input.Patt_TT_GenAtom p ->
-     let p, vars, n = tt_pattern ctx vars n p in
-     locate (Dsyntax.Patt_TT_GenAtom p) loc, vars, n
+     let ctx, p = tt_pattern ctx p in
+     ctx, locate (Dsyntax.Patt_TT_GenAtom p) loc
 
   | Input.Patt_TT_IsTerm (p1, p2) ->
-     let p1, vars, n = tt_pattern ctx vars n p1 in
-     let p2, vars, n = tt_pattern ctx vars n p2 in
-     locate (Dsyntax.Patt_TT_IsTerm (p1, p2)) loc, vars, n
+     let ctx, p1 = tt_pattern ctx p1 in
+     let ctx, p2 = tt_pattern ctx p2 in
+     ctx, locate (Dsyntax.Patt_TT_IsTerm (p1, p2)) loc
 
   | Input.Patt_TT_EqType (p1, p2) ->
-     let p1, vars, n = tt_pattern ctx vars n p1 in
-     let p2, vars, n = tt_pattern ctx vars n p2 in
-     locate (Dsyntax.Patt_TT_EqType (p1, p2)) loc, vars, n
+     let ctx, p1 = tt_pattern ctx p1 in
+     let ctx, p2 = tt_pattern ctx p2 in
+     ctx, locate (Dsyntax.Patt_TT_EqType (p1, p2)) loc
 
   | Input.Patt_TT_EqTerm (p1, p2, p3) ->
-     let p1, vars, n = tt_pattern ctx vars n p1 in
-     let p2, vars, n = tt_pattern ctx vars n p2 in
-     let p3, vars, n = tt_pattern ctx vars n p3 in
-     locate (Dsyntax.Patt_TT_EqTerm (p1, p2, p3)) loc, vars, n
+     let ctx, p1 = tt_pattern ctx p1 in
+     let ctx, p2 = tt_pattern ctx p2 in
+     let ctx, p3 = tt_pattern ctx p3 in
+     ctx, locate (Dsyntax.Patt_TT_EqTerm (p1, p2, p3)) loc
 
   | Input.Patt_TT_Abstraction (abstr, p0) ->
-     let rec fold ctx vars n = function
-       | [] -> tt_pattern ctx vars n p0
-       | (x, popt) :: abstr ->
-          let popt, vars, n =
+     let rec fold ctx = function
+       | [] -> tt_pattern ctx p0
+       | (xopt, popt) :: abstr ->
+          let ctx, popt =
             match popt with
-            | None -> None, vars, n
+            | None -> ctx, None
             | Some p ->
-               let p, vars, n = tt_pattern ctx vars n p in
-               Some p, vars, n
+               let ctx, p = tt_pattern ctx p in
+               ctx, Some p
           in
-          let x, bopt, vars, n =
+          let ctx, xopt =
             begin
-              match x with
-              | Input.PattVar x ->
-                 begin
-                   match Name.assoc_ident x vars with
-                   | Some i -> x, Some i, vars, n (* previously seen pattern variable *)
-                             (* XXX it might be a good idea to warn if x is already
-                             a pattern variable, since that should never match. *)
-                   | None -> x, Some n, ((x,n)::vars), (n+1) (* new pattern variable *)
-                 end
-              | Input.NonPattVar x -> x, None, vars, n
+              match xopt with
+              | Some x ->
+                 let ctx = Ctx.add_variable x ctx in
+                 ctx, xopt
+              | None -> ctx, xopt
             end
           in
-          let ctx = Ctx.add_variable x ctx in
-          let p, vars, n = fold ctx vars n abstr in
-          locate (Dsyntax.Patt_TT_Abstraction (x,bopt,popt,p)) loc, vars, n
+          let ctx, p = fold ctx abstr in
+          ctx, locate (Dsyntax.Patt_TT_Abstraction (xopt, popt,p)) loc
      in
-     fold ctx vars n abstr
+     fold ctx abstr
 
-and tt_constructor ~loc ctx vars n c k ps =
+and tt_constructor ~loc ctx c k ps =
   let k' = List.length ps in
   if k <> k' then
     error ~loc (ArityMismatch (c, k, k'))
   else
-    let rec fold vars n ps = function
+    let rec fold ctx ps = function
        | [] ->
-          let ps = List.rev ps
-          in (locate (Dsyntax.Patt_TT_Constructor (c, ps)) loc, vars, n)
+          let ps = List.rev ps in
+          ctx, locate (Dsyntax.Patt_TT_Constructor (c, ps)) loc
        | q :: qs ->
-          let p, vars, n = tt_pattern ctx vars n q in
-          fold vars n (p :: ps) qs
+          let ctx, p = tt_pattern ctx q in
+          fold ctx (p :: ps) qs
      in
-     fold vars n [] ps
+     fold ctx [] ps
 
-let rec pattern ctx vars n {Location.thing=p; loc} =
+let rec pattern ctx {Location.thing=p; loc} =
   match p with
-  | Input.Patt_Anonymous -> locate Dsyntax.Patt_Anonymous loc, vars, n
+  | Input.Patt_Anonymous ->
+     ctx, locate Dsyntax.Patt_Anonymous loc
 
   | Input.Patt_Var x ->
-     begin match Name.assoc_ident x vars with
-     | Some i ->
-        locate (Dsyntax.Patt_EquVar i) loc, vars, n
-     | None ->
-        locate (Dsyntax.Patt_NewVar n) loc, ((x,n)::vars), (n+1)
-     end
+     let ctx = Ctx.add_variable x ctx in
+     ctx, locate (Dsyntax.Patt_Var x) loc
 
   | Input.Patt_Interpolate x ->
      begin match Ctx.find ~loc x ctx with
+
      | Variable i ->
-        locate (Dsyntax.Patt_Interpolate i) loc, vars, n
-     | AML_Constructor k ->
+        ctx, locate (Dsyntax.Patt_Interpolate i) loc
+
+     | AMLConstructor k ->
         if k = 0
-        then locate (Dsyntax.Patt_Constr (x,[])) loc, vars, n
+        then ctx, locate (Dsyntax.Patt_Constr (x,[])) loc
         else error ~loc (ArityMismatch (x, 0, k))
-     | (TT_Constructor _ | Operation _) as info ->
+
+     | (TTConstructor _ | Operation _) as info ->
         error ~loc (InvalidPatternName (x, info))
+
      end
 
   | Input.Patt_As (p1, p2) ->
-     let p1, vars, n = pattern ctx vars n p1 in
-     let p2, vars, n = pattern ctx vars n p2 in
-     locate (Dsyntax.Patt_As (p1, p2)) loc, vars, n
+     let ctx, p1 = pattern ctx p1 in
+     let ctx, p2 = pattern ctx p2 in
+     ctx, locate (Dsyntax.Patt_As (p1, p2)) loc
 
   | Input.Patt_Judgement p ->
-     let p, vars, n = tt_pattern ctx vars n p in
-     locate (Dsyntax.Patt_Judgement p) loc, vars, n
+     let ctx, p = tt_pattern ctx p in
+     ctx, locate (Dsyntax.Patt_Judgement p) loc
 
   | Input.Patt_Constr (c,ps) ->
      begin match Ctx.find ~loc c ctx with
-     | AML_Constructor k ->
+     | AMLConstructor k ->
         let len = List.length ps in
         if k = len
         then
-          let rec fold vars n ps = function
+          let rec fold ctx ps = function
             | [] ->
                let ps = List.rev ps in
-               locate (Dsyntax.Patt_Constr (c, ps)) loc, vars, n
+               ctx, locate (Dsyntax.Patt_Constr (c, ps)) loc
             | p::rem ->
-               let p, vars, n = pattern ctx vars n p in
-               fold vars n (p::ps) rem
+               let ctx, p = pattern ctx p in
+               fold ctx (p::ps) rem
           in
-          fold vars n [] ps
+          fold ctx [] ps
         else
-          error ~loc (ArityMismatch (c, n, k))
-     | (Variable _ | TT_Constructor _ | Operation _) as info ->
+          error ~loc (ArityMismatch (c, List.length ps, k))
+     | (Variable _ | TTConstructor _ | Operation _) as info ->
         error ~loc (InvalidAppliedPatternName (c, info))
      end
 
   | Input.Patt_List ps ->
-     let rec fold ~loc vars n = function
-       | [] -> locate (Dsyntax.Patt_Constr (Name.Predefined.nil, [])) loc, vars, n
+     let rec fold ~loc ctx = function
+       | [] -> ctx, locate (Dsyntax.Patt_Constr (Name.Predefined.nil, [])) loc
        | p :: ps ->
-          let p, vars, n = pattern ctx vars n p in
-          let ps, vars, n = fold ~loc:(p.Location.loc) vars n ps in
-          locate (Dsyntax.Patt_Constr (Name.Predefined.cons, [p ; ps])) loc, vars, n
+          let ctx, p = pattern ctx  p in
+          let ctx, ps = fold ~loc:(p.Location.loc) ctx ps in
+          ctx, locate (Dsyntax.Patt_Constr (Name.Predefined.cons, [p ; ps])) loc
      in
-     fold ~loc vars n ps
+     fold ~loc ctx ps
 
   | Input.Patt_Tuple ps ->
-     let rec fold vars n ps = function
+     let rec fold ctx ps = function
        | [] ->
           let ps = List.rev ps in
-          locate (Dsyntax.Patt_Tuple ps) loc, vars, n
+          ctx, locate (Dsyntax.Patt_Tuple ps) loc
        | p::rem ->
-          let p, vars, n = pattern ctx vars n p in
-          fold vars n (p::ps) rem
+          let ctx, p = pattern ctx p in
+          fold ctx (p::ps) rem
      in
-     fold vars n [] ps
+     fold ctx [] ps
+
+
+
+(** Verify that a pattern is linear and that it does not bind anything
+    in the given set of forbidden names. Return the set of forbidden names
+    extended with the names that this pattern binds. *)
+
+let check_linear_pattern_variable ~loc forbidden x =
+     if Name.IdentSet.mem x forbidden then
+       error ~loc (NonlinearPattern x)
+     else
+       Name.IdentSet.add x forbidden
+
+
+let rec check_linear_tt forbidden {Location.thing=p';loc} =
+  match p' with
+
+  | Input.Patt_TT_Anonymous -> forbidden
+
+  | Input.Patt_TT_Var x ->
+     check_linear_pattern_variable ~loc forbidden x
+
+  | Input.Patt_TT_Interpolate _ ->
+     forbidden
+
+  | Input.Patt_TT_As (p1, p2)
+  | Input.Patt_TT_IsTerm (p1, p2)
+  | Input.Patt_TT_EqType (p1, p2) ->
+     let forbidden = check_linear_tt forbidden p1 in
+     check_linear_tt forbidden p2
+
+  | Input.Patt_TT_Constructor (_, ps) ->
+     List.fold_left check_linear_tt forbidden ps
+
+  | Input.Patt_TT_GenAtom p ->
+     check_linear_tt forbidden p
+
+  | Input.Patt_TT_EqTerm (p1, p2, p3) ->
+     let forbidden = check_linear_tt forbidden p1 in
+     let forbidden = check_linear_tt forbidden p2 in
+     check_linear_tt forbidden p3
+
+  | Input.Patt_TT_Abstraction (args, p) ->
+     let forbidden = check_linear_abstraction ~loc forbidden args in
+     check_linear_tt forbidden p
+
+and check_linear_abstraction ~loc forbidden = function
+  | [] -> forbidden
+  | (xopt, popt) :: args ->
+     let forbidden =
+       match xopt with
+       | None -> forbidden
+       | Some x -> check_linear_pattern_variable ~loc forbidden x
+     in
+     let forbidden =
+       match popt with
+       | None -> forbidden
+       | Some p -> check_linear_tt forbidden p
+     in
+     check_linear_abstraction ~loc forbidden args
+
+
+let rec check_linear forbidden {Location.thing=p';loc} =
+  match p' with
+
+  | Input.Patt_Anonymous -> forbidden
+
+  | Input.Patt_Var x ->
+     check_linear_pattern_variable ~loc forbidden x
+
+  | Input.Patt_Interpolate _ -> forbidden
+
+  | Input.Patt_As (p1, p2) ->
+     let forbidden = check_linear forbidden p1 in
+     check_linear forbidden p2
+
+  | Input.Patt_Judgement pt ->
+     check_linear_tt forbidden pt
+
+  | Input.Patt_Constr (_, ps)
+  | Input.Patt_List ps
+  | Input.Patt_Tuple ps ->
+     check_linear_list forbidden ps
+
+and check_linear_list forbidden = function
+  | [] -> forbidden
+  | p :: ps ->
+     let forbidden = check_linear forbidden p in
+     check_linear_list forbidden ps
 
 let rec comp ~yield ctx {Location.thing=c';loc} =
   match c' with
@@ -506,10 +598,10 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
   | Input.Var x ->
      begin match Ctx.find ~loc x ctx with
      | Variable i -> locate (Dsyntax.Bound i) loc
-     | TT_Constructor k ->
+     | TTConstructor k ->
         if k = 0 then locate (Dsyntax.TT_Constructor (x, [])) loc
         else error ~loc (ArityMismatch (x, 0, k))
-     | AML_Constructor k ->
+     | AMLConstructor k ->
         if k = 0 then locate (Dsyntax.AML_Constructor (x, [])) loc
         else error ~loc (ArityMismatch (x, 0, k))
      | Operation k ->
@@ -626,31 +718,24 @@ and let_clauses ~loc ~yield ctx lst =
        let lst' = Dsyntax.Let_clause_ML (x, sch, c) :: lst' in
        fold ctx' lst' clauses
     | Input.Let_clause_patt (pt, sch, c) :: clauses ->
-     let c = comp ~yield ctx c in
-     let sch = let_annotation ctx sch in
-     let ctx', xs, pt = bind_pattern ~yield ctx' pt in
-     let lst' = Dsyntax.Let_clause_patt (xs, pt, sch, c) :: lst' in
+       let c = comp ~yield ctx c in
+       let sch = let_annotation ctx sch in
+       let ctx', pt = bind_pattern ~yield ctx' pt in
+       let lst' = Dsyntax.Let_clause_patt (pt, sch, c) :: lst' in
      fold ctx' lst' clauses
   in
   let rec check_unique forbidden = function
     | [] -> ()
     | Input.Let_clause_ML (x, _, _, _) :: lst
     | Input.Let_clause_tt (x, _, _) :: lst ->
-       if List.mem x forbidden
+       if Name.IdentSet.mem x forbidden
        then error ~loc (ParallelShadowing x)
-       else check_unique (x :: forbidden) lst
+       else check_unique (Name.IdentSet.add x forbidden) lst
     | Input.Let_clause_patt (pt, _, _) :: lst ->
-       let _, vars, _ = pattern ctx [] 0 pt in
-       let xs = List.map fst vars in
-       begin
-         try
-           let x = List.find (fun x -> List.mem x forbidden) xs in
-           error ~loc (ParallelShadowing x)
-         with Not_found ->
-           check_unique (xs @ forbidden) lst
-       end
+       let forbidden = check_linear forbidden pt in
+       check_unique forbidden lst
   in
-  check_unique [] lst ;
+  check_unique Name.IdentSet.empty lst ;
   fold ctx [] lst
 
 and letrec_clauses ~loc ~yield ctx lst =
@@ -747,10 +832,10 @@ and spine ~yield ctx ({Location.thing=c';loc} as c) cs =
        begin match Ctx.find ~loc x ctx with
        | Variable i ->
           locate (Dsyntax.Bound i) loc, cs
-       | TT_Constructor k ->
+       | TTConstructor k ->
           let cs', cs = split x k cs in
           tt_constructor ~loc ~yield ctx x cs', cs
-       | AML_Constructor k ->
+       | AMLConstructor k ->
           let cs', cs = split x k cs in
           aml_constructor ~loc ~yield ctx x cs', cs
        | Operation k ->
@@ -802,18 +887,18 @@ and handler ~loc ctx hcs =
 (* Desugar a pattern and bind its variables *)
 and bind_pattern ~yield ctx p =
   let p, vars, _ = pattern ctx [] 0 p in
-  let rec fold xs ctx = function
-    | [] -> xs, ctx
-    | (x,_)::rem -> fold (x::xs) (Ctx.add_variable x ctx) rem
+  let rec fold ctx = function
+    | [] -> ctx
+    | (x,_)::rem -> fold (Ctx.add_variable x ctx) rem
   in
-  let xs, ctx = fold [] ctx vars in
-  (ctx, xs, p)
+  let ctx = fold ctx vars in
+  (ctx, p)
 
 (* Desugar a match case *)
 and match_case ~yield ctx (p, c) =
-  let ctx, xs, p = bind_pattern ~yield ctx p in
+  let ctx, p = bind_pattern ~yield ctx p in
   let c = comp ~yield ctx c in
-  (xs, p, c)
+  (p, c)
 
 and match_op_case ~yield ctx (ps, pt, c) =
   let rec fold_patterns ps vars n = function
@@ -840,11 +925,11 @@ and match_op_case ~yield ctx (ps, pt, c) =
 
 and aml_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
-  locate (Dsyntax.AML_Constructor (x, cs)) loc
+  locate (Dsyntax.AMLConstructor (x, cs)) loc
 
 and tt_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
-  locate (Dsyntax.TT_Constructor (x, cs)) loc
+  locate (Dsyntax.TTConstructor (x, cs)) loc
 
 and operation ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in

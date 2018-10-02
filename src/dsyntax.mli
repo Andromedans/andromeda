@@ -42,15 +42,10 @@ type let_annotation =
   | Let_annot_none
   | Let_annot_schema of ml_schema
 
-type tt_variable =
-  | PattVar of Name.ident
-  | NonPattVar of Name.ident
-
 type tt_pattern = tt_pattern' located
 and tt_pattern' =
   | Patt_TT_Anonymous
-  | Patt_TT_NewVar of Name.ident * bound (* new pattern variable *)
-  | Patt_TT_EquVar of bound (* must be equal to the given pattern variable *)
+  | Patt_TT_Var of Name.ident (* new pattern variable *)
   | Patt_TT_Interpolate of bound (* interpolated value *)
   | Patt_TT_As of tt_pattern * tt_pattern
   | Patt_TT_Constructor of Name.ident * tt_pattern list
@@ -58,13 +53,12 @@ and tt_pattern' =
   | Patt_TT_IsTerm of tt_pattern * tt_pattern
   | Patt_TT_EqType of tt_pattern * tt_pattern
   | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
-  | Patt_TT_Abstraction of Name.ident * bound option * tt_pattern option * tt_pattern
+  | Patt_TT_Abstraction of Name.ident option * tt_pattern option * tt_pattern
 
 type ml_pattern = ml_pattern' located
 and ml_pattern' =
   | Patt_Anonymous
-  | Patt_NewVar of Name.ident * bound
-  | Patt_EquVar of bound
+  | Patt_Var of Name.ident
   | Patt_Interpolate of bound
   | Patt_As of ml_pattern * ml_pattern
   | Patt_Judgement of tt_pattern
@@ -112,8 +106,8 @@ and comp' =
   | Natural of comp
 
 and let_clause =
-  | Let_clause_ML of Name.ident * let_annotation * comp
-  | Let_clause_patt of Name.ident list * ml_pattern * let_annotation * comp
+  | Let_clause_ML of Name.ident * let_annotation * comp (* [let (x :> t) = c] *)
+  | Let_clause_patt of ml_pattern * let_annotation * comp (* [let (?p :> t) = c] *)
 
 and letrec_clause = Name.ident * (Name.ident * arg_annotation) * let_annotation * comp
 
@@ -123,7 +117,7 @@ and handler = {
   handler_finally : match_case list;
 }
 
-and match_case = Name.ident list * ml_pattern * comp
+and match_case = ml_pattern * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
 and match_op_case = Name.ident list * ml_pattern list * ml_pattern option * comp

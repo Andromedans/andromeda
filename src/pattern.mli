@@ -20,7 +20,7 @@ and is_term = is_term' located
 and is_term' =
   | IsTerm_Anonymous
   | IsTerm_NewVar of bound
-  | IsTerm_Equar of bound
+  | IsTerm_EquVar of bound
   | IsTerm_Interpolate of bound
   | IsTerm_As of is_term * is_term
   | IsTerm_Constructor of Name.constructor * argument list

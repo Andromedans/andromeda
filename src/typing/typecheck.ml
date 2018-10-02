@@ -184,6 +184,7 @@ let rec tt_infer_form {Location.thing=p';_} =
   | Dsyntax.Patt_TT_Abstraction (_, _, _, abstr) ->
      tt_infer_form abstr
 
+(** Check that a TT pattern matched type judgements, and return the processed pattern. *)
 let rec is_type_pattern {Location.thing=p';loc} =
   match p' with
 
@@ -234,10 +235,10 @@ let rec is_type_pattern {Location.thing=p';loc} =
 let rec tt_pattern p =
   tt_infer_form p >>= function
   | None ->  Mlty.error ~loc:p.Location.loc Mlty.UnknownJudgementForm
-  | Some (Mlty.IsType) -> tt_is_type_pattern p
-  | Some (Mlty.IsTerm) -> tt_is_term_pattern p
-  | Some (Mlty.EqType) -> tt_eq_type_pattern p
-  | Some (Mlty.EqTerm) -> tt_eq_term_pattern p
+  | Some Mlty.IsType -> is_type_pattern p
+  | Some Mlty.IsTerm -> tt_is_term_pattern p
+  | Some Mlty.EqType -> tt_eq_type_pattern p
+  | Some Mlty.EqTerm -> tt_eq_term_pattern p
 
 (** Check the type of a pattern. *)
 and check_tt_pattern {Location.thing=p';loc} t =
@@ -247,7 +248,7 @@ and check_tt_pattern {Location.thing=p';loc} t =
   | Dsyntax.Patt_TT_EquVar _
   | Dsyntax.Patt_TT_Interpolate _
   | Dsyntax.Patt_TT_As _
-  | Dsyntax.TT_Constructor _
+  | Dsyntax.Patt_TT_Constructor _
   | Dsyntax.Patt_TT_GenAtom _
   | Dsyntax.Patt_TT_IsTerm _
   | Dsyntax.Patt_TT_EqType _
@@ -308,31 +309,34 @@ let rec pattern {Location.thing=p;loc} =
     in
     fold [] [] ps
 
-and check_pattern {Location.thing=p'; loc} t =
+and check_pattern ({Location.thing=p'; loc} as p) t =
   match p' with
   | Dsyntax.Patt_Anonymous ->
      Tyenv.return (locate ~loc Pattern.Anonymous)
 
-  | Dsyntax.Patt_NewVar k ->
-     Tyenv.return (locate ~loc (Pattern.NewVar k))
+  | Dsyntax.Patt_NewVar (x, k) ->
+     Tyenv.add_var x t (Tyenv.return (locate ~loc (Pattern.NewVar k)))
 
+  | Dsyntax.Patt_Interpolate k
   | Dsyntax.Patt_EquVar k ->
+     check_var k t >>= fun () ->
      Tyenv.return (locate ~loc (Pattern.EquVar k))
-
-  | Dsyntax.Patt_Interpolate _
-  | Dsyntax.Patt_Constr _
-  | Dsyntax.Patt_Tuple _ ->
-     pattern p >>= fun (p, t') ->
-     Tyenv.add_equation ~loc:p.Location.loc t' t >>= fun () ->
-     Tyenv.return p
 
   | Dsyntax.Patt_As (p1, p2) ->
      check_pattern p1 t >>= fun p1 ->
      check_pattern p2 t >>= fun p2 ->
      Tyenv.return (locate ~loc (Pattern.As (p1, p2)))
 
-  | Dsyntax.Patt_Judgement _ ->
-     check_tt_pattern ~loc p t
+  | Dsyntax.Patt_Judgement p ->
+     check_tt_pattern p t
+
+  | Dsyntax.Patt_Tuple ps ->
+     check_tuple ps t
+
+  | Dsyntax.Patt_Constr _ ->
+     pattern p >>= fun (p, t') ->
+     Tyenv.add_equation ~loc:p.Location.loc t' t >>= fun () ->
+     Tyenv.return p
 
 let match_case xs p t m =
   check_pattern p t >>= fun () ->
