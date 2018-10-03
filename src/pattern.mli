@@ -52,7 +52,7 @@ and argument =
 (** An abstracted pattern *)
 and 'a abstraction =
   | NotAbstract of 'a
-  | Abstract of Name.ident * bound option * is_type option * 'a
+  | Abstract of Name.ident * bound option * is_type * 'a abstraction
 
 (** AML pattern *)
 type aml = aml' located
