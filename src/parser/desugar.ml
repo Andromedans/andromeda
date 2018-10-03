@@ -90,6 +90,8 @@ module Ctx = struct
     | None -> error ~loc (UnknownName x)
     | Some info -> info
 
+  (* XXX we allow shadowing an operation by a variable, if anything we should
+     complain there *)
   let get_operation ~loc x ctx =
     match find ~loc x ctx with
     | Operation k -> k
@@ -720,7 +722,7 @@ and let_clauses ~loc ~yield ctx lst =
     | Input.Let_clause_patt (pt, sch, c) :: clauses ->
        let c = comp ~yield ctx c in
        let sch = let_annotation ctx sch in
-       let ctx', pt = bind_pattern ~yield ctx' pt in
+       let ctx', pt = pattern ctx' pt in
        let lst' = Dsyntax.Let_clause_patt (pt, sch, c) :: lst' in
      fold ctx' lst' clauses
   in
@@ -884,19 +886,9 @@ and handler ~loc ctx hcs =
   let handler_val, handler_ops, handler_finally = fold [] Name.IdentMap.empty [] hcs in
   locate (Dsyntax.Handler (Dsyntax.{ handler_val ; handler_ops ; handler_finally })) loc
 
-(* Desugar a pattern and bind its variables *)
-and bind_pattern ~yield ctx p =
-  let p, vars, _ = pattern ctx [] 0 p in
-  let rec fold ctx = function
-    | [] -> ctx
-    | (x,_)::rem -> fold (Ctx.add_variable x ctx) rem
-  in
-  let ctx = fold ctx vars in
-  (ctx, p)
-
 (* Desugar a match case *)
 and match_case ~yield ctx (p, c) =
-  let ctx, p = bind_pattern ~yield ctx p in
+  let ctx, p = pattern ctx p in
   let c = comp ~yield ctx c in
   (p, c)
 
@@ -904,13 +896,13 @@ and match_op_case ~yield ctx (ps, pt, c) =
   let rec fold_patterns ps vars n = function
     | [] -> List.rev ps, vars, n
     | p::rem ->
-       let p, vars, n = pattern ctx vars n p in
+       let ctx, p = pattern ctx p in
        fold_patterns (p::ps) vars n rem
   in
   let ps, vars, n = fold_patterns [] [] 0 ps in
   let pt, vars = match pt with
     | Some p ->
-       let p, vars, n = pattern ctx vars n p in
+       let ctx, p = pattern ctx p in
        Some p, vars
     | None ->
        None, vars
@@ -925,11 +917,11 @@ and match_op_case ~yield ctx (ps, pt, c) =
 
 and aml_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
-  locate (Dsyntax.AMLConstructor (x, cs)) loc
+  locate (Dsyntax.AML_Constructor (x, cs)) loc
 
 and tt_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
-  locate (Dsyntax.TTConstructor (x, cs)) loc
+  locate (Dsyntax.TT_Constructor (x, cs)) loc
 
 and operation ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
