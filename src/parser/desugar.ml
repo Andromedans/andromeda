@@ -311,8 +311,8 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
               match xopt with
               | Some x ->
                  let ctx = Ctx.add_variable x ctx in
-                 ctx, xopt
-              | None -> ctx, xopt
+                 ctx, x
+              | None -> ctx, Name.anonymous ()
             end
           in
           let ctx, p = fold ctx abstr in

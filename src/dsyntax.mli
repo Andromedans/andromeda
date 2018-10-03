@@ -8,6 +8,7 @@ type level = int
 
 type 'a located = 'a Location.located
 
+(* The types called ml_* are AML types *)
 type ml_judgement =
   | ML_IsType
   | ML_IsTerm
@@ -53,7 +54,7 @@ and tt_pattern' =
   | Patt_TT_IsTerm of tt_pattern * tt_pattern
   | Patt_TT_EqType of tt_pattern * tt_pattern
   | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern
-  | Patt_TT_Abstraction of Name.ident option * tt_pattern * tt_pattern
+  | Patt_TT_Abstraction of Name.ident * tt_pattern * tt_pattern
 
 type ml_pattern = ml_pattern' located
 and ml_pattern' =

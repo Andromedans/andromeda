@@ -52,7 +52,7 @@ and argument =
 (** An abstracted pattern *)
 and 'a abstraction =
   | NotAbstract of 'a
-  | Abstract of Name.ident * bound option * is_type * 'a abstraction
+  | Abstract of Name.ident * is_type * 'a abstraction
 
 (** AML pattern *)
 type aml = aml' located
@@ -61,7 +61,7 @@ and aml' =
   | NewVar of bound
   | Interpolate of bound
   | As of aml * aml
-  | IsTerm of is_term abstraction
+  | IsTerm of is_term abstraction (* XXX should these be abstractions? *)
   | IsType of is_type abstraction
   | EqTerm of (is_term * is_term * is_type) abstraction
   | EqType of (is_type * is_type) abstraction

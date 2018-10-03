@@ -122,9 +122,9 @@ let ml_schema {Location.thing=(Dsyntax.ML_Forall (params, t)); _} =
     using the auxiliary function [tt_patter_infer_form] below. *)
 
 (** Compute the judgement form from an AML type, if possible. *)
-let rec tt_form_from_abstraction = function
+let rec tt_jdg_form_from_abstraction = function
   | Mlty.NotAbstract frm -> frm
-  | Mlty.Abstract (_, abstr) -> tt_form_from_abstraction abstr
+  | Mlty.Abstract abstr -> tt_jdg_form_from_abstraction abstr
 
 (** Infer the judgement form from a pattern. *)
 let rec tt_infer_form {Location.thing=p';_} =
@@ -136,7 +136,7 @@ let rec tt_infer_form {Location.thing=p';_} =
   | Dsyntax.Patt_TT_Interpolate k ->
      Tyenv.lookup_var k >>= begin function
      | Mlty.Judgement abstr ->
-        Tyenv.return (Some (tt_form_from_abstraction abstr))
+        Tyenv.return (Some (tt_jdg_form_from_abstraction abstr))
      | Mlty.String | Mlty.Meta _
      | Mlty.Param _ | Mlty.Prod _
      | Mlty.Arrow _ | Mlty.Handler _
@@ -225,41 +225,61 @@ let rec tt_is_type_pattern {Location.thing=p';loc} =
   | Dsyntax.Patt_TT_Abstraction _ ->
      Mlty.error ~loc (Mlty.UnexpectedJudgementAbstraction Mlty.IsType)
 
+and tt_is_term_pattern {Location.thing=p';loc}
+  : Pattern.is_term Tyenv.tyenvM
+  = failwith "todo"
+and tt_eq_type_pattern {Location.thing=p';loc}
+  : Pattern.eq_type Tyenv.tyenvM
+  = failwith "todo"
+and tt_eq_term_pattern {Location.thing=p';loc}
+  : Pattern.eq_term Tyenv.tyenvM
+  = failwith "todo"
+
 and check_tt_args args ps =
-  match (args, ps) with
-  | [], [] -> Tyenv.return ()
 
-  | arg :: args, p :: ps ->
-     check_tt_arg arg p >>= fun () ->
-     check_tt_args args ps
+  let rec fold ps_out args ps =
+    begin match (args, ps) with
 
-  | [], _::_
-  | _::_, [] ->
-     assert false               (* desugar already checked arities *)
+    | [], [] -> Tyenv.return (List.rev ps_out)
 
-and check_tt_arg arg p =
-  match tt_form_from_abstraction arg with
-  | Mlty.IsType ->
-     let arg = tt_abstraction_pattern tt_is_type_pattern arg p in
-     Pattern.ArgIsType arg
+    | arg :: args, p :: ps ->
+       check_tt_arg arg p >>= fun p ->
+       fold (p :: ps_out) args ps
+
+    | [], _::_
+    | _::_, [] ->
+       assert false               (* desugar already checked arities *)
+    end
+  in
+  fold [] args ps
+
+and check_tt_arg
+  : Mlty.abstracted_judgement
+    -> Dsyntax.tt_pattern
+    -> Pattern.argument Tyenv.tyenvM
+  = fun arg p ->
+  match tt_jdg_form_from_abstraction arg with
+    | Mlty.IsType ->
+     tt_abstraction_pattern tt_is_type_pattern arg p >>= fun arg ->
+     Tyenv.return (Pattern.ArgIsType arg)
 
   | Mlty.IsTerm ->
-     let arg = tt_abstraction_pattern tt_is_term_pattern arg p in
-     Pattern.ArgIsTerm arg
+     tt_abstraction_pattern tt_is_term_pattern arg p >>= fun arg ->
+     Tyenv.return (Pattern.ArgIsTerm arg)
 
   | Mlty.EqType ->
-     let arg = tt_abstraction_pattern tt_eq_type_pattern arg p in
-     Pattern.ArgEqType arg
+     tt_abstraction_pattern tt_eq_type_pattern arg p >>= fun arg ->
+     Tyenv.return (Pattern.ArgEqType arg)
 
   | Mlty.EqTerm ->
-     let arg = tt_abstraction_pattern tt_eq_term_pattern arg p in
-     Pattern.ArgEqTerm arg
+     tt_abstraction_pattern tt_eq_term_pattern arg p >>= fun arg ->
+     Tyenv.return (Pattern.ArgEqTerm arg)
 
 and tt_abstraction_pattern
-  : (Dsyntax.tt_pattern -> 'a Tyenv.tyenvM)
-  -> Mlty.abstracted_judgement
-  -> Dsyntax.tt_pattern
-  -> 'a Pattern.abstraction Tyenv.tyenvM
+  : type a. (Dsyntax.tt_pattern -> a Tyenv.tyenvM)
+            -> Mlty.abstracted_judgement
+            -> Dsyntax.tt_pattern
+            -> a Pattern.abstraction Tyenv.tyenvM
   = fun patt_u abstr p ->
   match abstr with
 
@@ -274,13 +294,9 @@ and tt_abstraction_pattern
      | Dsyntax.Patt_TT_Abstraction (x, p_ty, p) ->
 
         tt_is_type_pattern p_ty >>= fun p_ty ->
-
         tt_abstraction_pattern patt_u abstr p >>= fun p ->
-
-        let p = Pattern.Abstract (x, (???), p_ty, p) in
-
-        Obj.magic ()
-        (* Tyenv.return p *)
+        let p = Pattern.Abstract (x, p_ty, p) in
+        Tyenv.return p
 
      (* possible *)
      | Dsyntax.Patt_TT_Anonymous
