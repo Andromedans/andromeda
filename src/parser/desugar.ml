@@ -301,10 +301,10 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
        | (xopt, popt) :: abstr ->
           let ctx, popt =
             match popt with
-            | None -> ctx, None
+            | None -> ctx, Dsyntax.Patt_TT_Anonymous
             | Some p ->
                let ctx, p = tt_pattern ctx p in
-               ctx, Some p
+               ctx, p
           in
           let ctx, xopt =
             begin

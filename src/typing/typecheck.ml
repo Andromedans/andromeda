@@ -181,7 +181,7 @@ let rec tt_infer_form {Location.thing=p';_} =
   | Dsyntax.Patt_TT_EqTerm _ ->
      Tyenv.return (Some Mlty.EqTerm)
 
-  | Dsyntax.Patt_TT_Abstraction (_, _, _, abstr) ->
+  | Dsyntax.Patt_TT_Abstraction (_, _, abstr) ->
      tt_infer_form abstr
 
 (** Check that a TT pattern matched type judgements, and return the processed pattern. *)
