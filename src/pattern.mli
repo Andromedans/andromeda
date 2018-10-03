@@ -9,8 +9,7 @@ type bound = int
 type is_type = is_type' located
 and is_type' =
   | IsType_Anonymous
-  | IsType_NewVar of bound
-  | IsType_EquVar of bound
+  | IsType_Var of Name.ident    (* XXX are the idents used anywhere? *)
   | IsType_Interpolate of bound
   | IsType_As of is_type * is_type
   | IsType_Constructor of Name.constructor * argument list
@@ -19,8 +18,7 @@ and is_type' =
 and is_term = is_term' located
 and is_term' =
   | IsTerm_Anonymous
-  | IsTerm_NewVar of bound
-  | IsTerm_EquVar of bound
+  | IsTerm_Var of Name.ident
   | IsTerm_Interpolate of bound
   | IsTerm_As of is_term * is_term
   | IsTerm_Constructor of Name.constructor * argument list
@@ -30,8 +28,7 @@ and is_term' =
 and eq_term = eq_term' located
 and eq_term' =
   | EqTerm_Anonymous
-  | EqTerm_NewVar of bound
-  | EqTerm_EquVar of bound
+  | EqTerm_Var of Name.ident
   | EqTerm_Interpolate of bound
   | EqTerm_As of eq_term * eq_term
   | EqTerm_Eq of is_term * is_term * is_type
@@ -40,8 +37,7 @@ and eq_term' =
 and eq_type = eq_type' located
 and eq_type' =
   | EqType_Anonymous
-  | EqType_NewVar of bound
-  | EqType_EquVar of bound
+  | EqType_Var of Name.ident
   | EqType_Interpolate of bound
   | EqType_As of eq_type * eq_type
   | EqType_Eq of is_type * is_type
@@ -63,7 +59,6 @@ type aml = aml' located
 and aml' =
   | Anonymous
   | NewVar of bound
-  | EquVar of bound
   | Interpolate of bound
   | As of aml * aml
   | IsTerm of is_term abstraction
