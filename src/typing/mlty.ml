@@ -35,7 +35,7 @@ type judgement =
 
 type abstracted_judgement =
   | NotAbstract of judgement
-  | Abstract of judgement * abstracted_judgement
+  | Abstract of abstracted_judgement
 
 type ty =
   | Judgement of abstracted_judgement
@@ -124,9 +124,8 @@ let print_judgement frm ppf =
 let rec print_abstracted_judgement abstr ppf =
   match abstr with
   | NotAbstract frm -> print_judgement frm ppf
-  | Abstract (frm, abstr) ->
-     Format.fprintf ppf "{%t}@ %t"
-       (print_judgement frm)
+  | Abstract abstr ->
+     Format.fprintf ppf "{}%t"
        (print_abstracted_judgement abstr)
 
 let rec print_ty ~penv ?max_level t ppf =

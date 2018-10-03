@@ -16,7 +16,7 @@ type ml_judgement =
 
 type ml_abstracted_judgement =
   | ML_NotAbstract of ml_judgement
-  | ML_Abstract of ml_judgement * ml_abstracted_judgement
+  | ML_Abstract of ml_abstracted_judgement
 
 type ml_ty = ml_ty' located
 and ml_ty' =

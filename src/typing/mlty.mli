@@ -26,7 +26,7 @@ type judgement =
 (** AML typing keeps track of TT abstractions (without dependencies) *)
 type abstracted_judgement =
   | NotAbstract of judgement
-  | Abstract of judgement * abstracted_judgement
+  | Abstract of abstracted_judgement
 
 (** The type of ML types. *)
 type ty =
