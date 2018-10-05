@@ -51,6 +51,7 @@ and tt_pattern' =
   | Patt_TT_As of tt_pattern * tt_pattern
   | Patt_TT_Constructor of Name.ident * tt_pattern list
   | Patt_TT_GenAtom of tt_pattern
+  | Patt_TT_IsType of tt_pattern
   | Patt_TT_IsTerm of tt_pattern * tt_pattern
   | Patt_TT_EqType of tt_pattern * tt_pattern
   | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern

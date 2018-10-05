@@ -110,11 +110,8 @@ let rec unifiable ctx s t t' =
          Some s
        else
          None
-    | Mlty.Abstract (frm1, abstr1), Mlty.Abstract (frm2, abstr2) ->
-       if frm1 = frm2 then
-         unifiable_judgement_abstraction s abstr1 abstr2
-       else
-         None
+    | Mlty.Abstract abstr1, Mlty.Abstract abstr2 ->
+       unifiable_judgement_abstraction s abstr1 abstr2
     | Mlty.NotAbstract _, Mlty.Abstract _
     | Mlty.Abstract _, Mlty.NotAbstract _ -> None
   in

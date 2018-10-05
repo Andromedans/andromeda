@@ -18,7 +18,7 @@ type ml_judgement =
 
 type ml_abstracted_judgement =
   | ML_NotAbstract of ml_judgement
-  | ML_Abstract of ml_judgement * ml_abstracted_judgement
+  | ML_Abstract of ml_abstracted_judgement
 
 type ml_ty = ml_ty' located
 and ml_ty' =
@@ -57,6 +57,7 @@ and tt_pattern' =
   | Patt_TT_As of tt_pattern * tt_pattern
   | Patt_TT_Constructor of Name.ident * tt_pattern list
   | Patt_TT_GenAtom of tt_pattern
+  | Patt_TT_IsType of tt_pattern
   | Patt_TT_IsTerm of tt_pattern * tt_pattern
   | Patt_TT_EqType of tt_pattern * tt_pattern
   | Patt_TT_EqTerm of tt_pattern * tt_pattern * tt_pattern

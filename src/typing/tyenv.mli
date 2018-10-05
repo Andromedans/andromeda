@@ -34,7 +34,8 @@ val lookup_continuation : (Mlty.ty * Mlty.ty) tyenvM
 (** [add_var x t m] binds a variable with name [x] and monomorphic type [t] while computing in [m]. *)
 val add_var : Name.ident -> Mlty.ty -> 'a tyenvM -> 'a tyenvM
 
-(** Try to unify the given types. If successful, retry to solve the current unsolved constraints. *)
+(** [add_equation ~loc t1 t2] try to unify the actual type [t1] with the expected type
+    [t2]. If successful, retry to solve the current unsolved constraints. *)
 val add_equation : loc:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
 
 (** [add_application h arg out] checks that a value of type [h] applied to a value of type [arg] will produce a value of type [out].

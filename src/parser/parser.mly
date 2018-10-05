@@ -33,7 +33,7 @@
 %token OPERATION
 %token <Name.ident> PATTVAR
 %token MATCH
-%token AS
+%token AS TYPE
 %token VDASH EQEQ
 
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
@@ -356,6 +356,7 @@ tt_pattern: mark_location(plain_tt_pattern) { $1 }
 plain_tt_pattern:
   | p1=binop_tt_pattern AS p2=binop_tt_pattern                        { Patt_TT_As (p1, p2) }
   | p=plain_binop_tt_pattern                                          { p }
+  | p=binop_tt_pattern TYPE                                           { Patt_TT_IsType p }
   | p1=binop_tt_pattern COLON p2=binop_tt_pattern                     { Patt_TT_IsTerm (p1, p2) }
   | p1=binop_tt_pattern EQEQ  p2=binop_tt_pattern                     { Patt_TT_EqType (p1, p2) }
   | p1=binop_tt_pattern EQEQ  p2=binop_tt_pattern COLON p3=tt_pattern { Patt_TT_EqTerm (p1, p2, p3) }
@@ -467,8 +468,7 @@ mlty_judgement:
 
 mlty_abstracted_judgement:
   | frm=mlty_judgement                                      { ML_NotAbstract frm }
-  | LBRACE frm=mlty_judgement RBRACE abstr=mlty_abstracted_judgement
-                                                            { ML_Abstract (frm, abstr) }
+  | LBRACE RBRACE abstr=mlty_abstracted_judgement           { ML_Abstract abstr }
 
 mlty_defs:
   | lst=separated_nonempty_list(AND, mlty_def) { lst }

@@ -159,13 +159,12 @@ let rec mlty_judgement = function
 let rec mlty_abstracted_judgement = function
 
   | Input.ML_NotAbstract frm ->
-     let frm = mlty_judgement frm
-     in Dsyntax.ML_NotAbstract frm
+     let frm = mlty_judgement frm in
+     Dsyntax.ML_NotAbstract frm
 
-  | Input.ML_Abstract (frm, abstr) ->
-     let frm = mlty_judgement frm
-     and abstr = mlty_abstracted_judgement abstr
-     in Dsyntax.ML_Abstract (frm, abstr)
+  | Input.ML_Abstract abstr ->
+     let abstr = mlty_abstracted_judgement abstr in
+     Dsyntax.ML_Abstract abstr
 
 let mlty ctx params ty =
   let rec mlty ({Location.thing=ty';loc}) =
@@ -279,6 +278,10 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
      let ctx, p = tt_pattern ctx p in
      ctx, locate (Dsyntax.Patt_TT_GenAtom p) loc
 
+  | Input.Patt_TT_IsType p ->
+     let ctx, p = tt_pattern ctx p in
+     ctx, locate (Dsyntax.Patt_TT_IsType p) loc
+
   | Input.Patt_TT_IsTerm (p1, p2) ->
      let ctx, p1 = tt_pattern ctx p1 in
      let ctx, p2 = tt_pattern ctx p2 in
@@ -301,7 +304,7 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
        | (xopt, popt) :: abstr ->
           let ctx, popt =
             match popt with
-            | None -> ctx, Dsyntax.Patt_TT_Anonymous
+            | None -> ctx, locate Dsyntax.Patt_TT_Anonymous loc
             | Some p ->
                let ctx, p = tt_pattern ctx p in
                ctx, p
@@ -445,6 +448,9 @@ let rec check_linear_tt forbidden {Location.thing=p';loc} =
      List.fold_left check_linear_tt forbidden ps
 
   | Input.Patt_TT_GenAtom p ->
+     check_linear_tt forbidden p
+
+  | Input.Patt_TT_IsType p ->
      check_linear_tt forbidden p
 
   | Input.Patt_TT_EqTerm (p1, p2, p3) ->
