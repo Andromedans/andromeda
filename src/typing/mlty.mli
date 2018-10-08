@@ -81,8 +81,9 @@ type error =
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty
+  | UnknownJudgementForm
   | JudgementExpected of ty
-  | UnexpectedJudgement of judgement
+  | UnexpectedJudgement of ty
   | UnexpectedJudgementAbstraction of judgement
 
 exception Error of error Location.located

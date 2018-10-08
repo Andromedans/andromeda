@@ -87,21 +87,12 @@ and comp' =
   | Ref of comp
   | Sequence of comp * comp
   | Assume of (Name.ident * comp) * comp
-  | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
   | TT_Constructor of Name.ident * comp list
   | Apply of comp * comp
   | Abstract of Name.ident * comp option * comp
   | Yield of comp
-  | CongrAbstractTy of comp * comp * comp
-  | CongrAbstract of comp * comp * comp * comp
-  | Reflexivity_type of comp
-  | Symmetry_type of comp
-  | Transitivity_type of comp * comp
-  | Reflexivity_term of comp
-  | Symmetry_term of comp
-  | Transitivity_term of comp * comp
   | String of string
   | Occurs of comp * comp
   | Context of comp
@@ -122,7 +113,7 @@ and handler = {
 and match_case = ml_pattern * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
-and match_op_case = Name.ident list * ml_pattern list * ml_pattern option * comp
+and match_op_case = ml_pattern list * ml_pattern option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 
@@ -138,7 +129,6 @@ and toplevel' =
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
   | DeclOperation of Name.operation * (ml_ty list * ml_ty)
-  | DeclConstants of Name.constant list * comp
   | DeclExternal of Name.ident * ml_schema * string
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list

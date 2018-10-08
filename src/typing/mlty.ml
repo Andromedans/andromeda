@@ -76,6 +76,7 @@ type error =
   | UnknownExternal of string
   | ValueRestriction
   | Ungeneralizable of param list * ty
+  | UnknownJudgementForm
   | JudgementExpected of ty
   | UnexpectedJudgement of ty
   | UnexpectedJudgementAbstraction of judgement
@@ -223,6 +224,9 @@ let print_error err ppf =
      Format.fprintf ppf "Cannot generalize %t in %t"
                     (Print.sequence (print_param ~penv) "," ps)
                     (print_ty ~penv ty)
+
+  | UnknownJudgementForm ->
+     Format.fprintf ppf "Cannot infer the judgement form"
 
   | JudgementExpected t ->
     Format.fprintf ppf "Expected a judgement but got %t"

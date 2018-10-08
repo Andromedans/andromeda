@@ -237,7 +237,6 @@ let mk_abstract ~loc ys c =
     (fun c (y,u) -> locate (Dsyntax.Abstract (y,u,c)) loc)
     c ys
 
-(* n is the length of vars *)
 let rec tt_pattern ctx {Location.thing=p';loc} =
   match p' with
   | Input.Patt_TT_Anonymous ->
@@ -899,27 +898,25 @@ and match_case ~yield ctx (p, c) =
   (p, c)
 
 and match_op_case ~yield ctx (ps, pt, c) =
-  let rec fold_patterns ps vars n = function
-    | [] -> List.rev ps, vars, n
-    | p::rem ->
-       let ctx, p = pattern ctx p in
-       fold_patterns (p::ps) vars n rem
+  let rec fold ctx qs = function
+    | [] ->
+       let qs = List.rev qs in
+       let ctx, pt =
+         begin match pt with
+         | None -> ctx, None
+         | Some p ->
+            let ctx, p = pattern ctx p in
+            ctx, Some p
+         end
+       in
+       let c = comp ~yield ctx c in
+       (qs, pt, c)
+
+    | p :: ps ->
+       let ctx, q = pattern ctx p in
+       fold ctx (q :: qs) ps
   in
-  let ps, vars, n = fold_patterns [] [] 0 ps in
-  let pt, vars = match pt with
-    | Some p ->
-       let ctx, p = pattern ctx p in
-       Some p, vars
-    | None ->
-       None, vars
-  in
-  let rec fold xs ctx = function
-    | [] -> xs, ctx
-    | (x,_)::rem -> fold (x::xs) (Ctx.add_variable x ctx) rem
-  in
-  let xs, ctx = fold [] ctx vars in
-  let c = comp ~yield ctx c in
-  (xs, ps, pt, c)
+  fold ctx [] ps
 
 and aml_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
@@ -1021,8 +1018,10 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
            (fun (op, (xs, y, c)) ->
               let k = Ctx.get_operation ~loc op ctx in
               let n = List.length xs in
-              if n = k
+              if n <> k
               then
+                error ~loc (ArityMismatch (op, n, k))
+              else
                 let rec fold ctx xs' = function
                   | [] -> ctx, List.rev xs'
                   | None :: xs ->
@@ -1036,8 +1035,6 @@ let rec toplevel ~basedir ctx {Location.thing=cmd; loc} =
                 let ctx, xs = fold ctx [] xs in
                 let ctx = match y with | Some y -> Ctx.add_variable y ctx | None -> ctx in
                 op, (xs, y, comp ~yield:false ctx c)
-              else
-                error ~loc (ArityMismatch (op, n, k))
            )
            lst
        in

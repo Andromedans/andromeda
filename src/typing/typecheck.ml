@@ -116,10 +116,6 @@ let ml_schema {Location.thing=(Dsyntax.ML_Forall (params, t)); _} =
   let t = ml_ty params t in
   (params, t)
 
-let check_var ~loc k t =
-  Tyenv.lookup_var k >>= fun t' ->
-  Tyenv.add_equation ~loc t' t
-
 (** Check a TT pattern against an abstracted judgement type and return the processed pattern. *)
 let rec check_tt_pattern ({Location.thing=p';loc} as p) t =
   match p' with
@@ -249,9 +245,6 @@ let rec pattern {Location.thing=p;loc} =
      let t = Mlty.fresh_type () in
      Tyenv.add_var x t (Tyenv.return (locate ~loc (Pattern.Var x), t))
 
-  | Dsyntax.Patt_EquVar k ->
-     Tyenv.return (locate ~loc (Pattern.EquVar k), Mlty.fresh_type ())
-
   | Dsyntax.Patt_Interpolate k ->
      Tyenv.lookup_var k >>= fun t ->
      Tyenv.return (locate ~loc (Pattern.Interpolate k), t)
@@ -262,7 +255,8 @@ let rec pattern {Location.thing=p;loc} =
      Tyenv.return (locate ~loc (Pattern.As (p1, p2)), t1)
 
   | Dsyntax.Patt_Judgement p ->
-     tt_pattern ~loc p
+     tt_pattern p >>= fun (p, t) ->
+     Tyenv.return (locate ~loc (Pattern.Judgement p), Mlty.Judgement t)
 
   | Dsyntax.Patt_Constr (c, ps) ->
     Tyenv.lookup_aml_constructor c >>= fun (ts, out) ->
@@ -270,7 +264,7 @@ let rec pattern {Location.thing=p;loc} =
       match ps, ts with
       | [], [] ->
          let qs = List.rev qs in
-         Tyenv.return (locate ~loc (Pattern.Constructor (c, qs)), out)
+         Tyenv.return (locate ~loc (Pattern.AMLConstructor (c, qs)), out)
       | p::ps, t::ts ->
         check_pattern p t >>= fun q ->
         fold (q::qs) ps ts
@@ -297,10 +291,11 @@ and check_pattern ({Location.thing=p'; loc} as p) t =
      Tyenv.return (locate ~loc Pattern.Anonymous)
 
   | Dsyntax.Patt_Var x ->
-     Tyenv.add_var x t (Tyenv.return (locate ~loc (Pattern.Var k)))
+     Tyenv.add_var x t (Tyenv.return (locate ~loc (Pattern.Var x)))
 
   | Dsyntax.Patt_Interpolate k ->
-     check_var ~loc k t >>= fun () ->
+     Tyenv.lookup_var k >>= fun t' ->
+     Tyenv.add_equation ~loc t' t >>= fun () ->
      Tyenv.return (locate ~loc (Pattern.Interpolate k))
 
   | Dsyntax.Patt_As (p1, p2) ->
@@ -309,7 +304,6 @@ and check_pattern ({Location.thing=p'; loc} as p) t =
      Tyenv.return (locate ~loc (Pattern.As (p1, p2)))
 
   | Dsyntax.Patt_Judgement p ->
-     (* XXX should we normalize t?! *)
      begin match t with
 
      | Mlty.Judgement t ->
@@ -322,46 +316,57 @@ and check_pattern ({Location.thing=p'; loc} as p) t =
      end
 
   | Dsyntax.Patt_Tuple ps ->
-     check_tuple ps t
+     begin match t with
+     | Mlty.Prod ts when (List.length ps = List.length ts) ->
+        let rec fold ps_out ps ts =
+          match ps, ts with
+          | [], [] ->
+             let ps_out = List.rev ps_out in
+             Tyenv.return (locate ~loc (Pattern.Tuple ps_out))
+          | p :: ps, t :: ts ->
+             check_pattern p t >>= fun p ->
+             fold (p :: ps_out) ps ts
+          | [], _::_ | _::_, [] -> assert false
+        in
+        fold [] ps ts
+
+     | Mlty.Prod _ | Mlty.Judgement _  | Mlty.String | Mlty.Meta _ | Mlty.Param _
+     | Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _ | Mlty.Ref _ | Mlty.Dynamic _ ->
+        pattern p >>= fun (p, t') ->
+        Tyenv.add_equation ~loc t' t >>= fun () ->
+        Tyenv.return p
+     end
+
 
   | Dsyntax.Patt_Constr _ ->
      pattern p >>= fun (p, t') ->
      Tyenv.add_equation ~loc:p.Location.loc t' t >>= fun () ->
      Tyenv.return p
 
-let match_case xs p t m =
-  check_pattern p t >>= fun () ->
-  let rec add_vars = function
-    | [] -> m
-    | x :: xs ->
-      let t = Mlty.fresh_type () in
-      Tyenv.add_var x t (add_vars xts)
-  in
-  add_vars (List.rev xs)
+let match_case p t m =
+  check_pattern p t >>= m
 
-let match_op_case xs ps popt argts m =
-  let pts = List.combine ps argts in
-  begin match popt with
-    | Some p ->
-       Tyenv.predefined_type Name.Predefined.option [Mlty.IsType] >>= fun t ->
-       Tyenv.return ((p, t) :: pts)
-    | None ->
-       Tyenv.return pts
-  end >>= fun pts ->
-  let rec fold = function
-    | [] -> Tyenv.return ()
-    | (p, t) :: pts ->
-      check_pattern p t >>= fun () ->
-      fold pts
+let match_op_case ps popt ts m =
+  let rec fold qs ps ts =
+    match ps, ts with
+    | [], [] ->
+       let qs = List.rev qs in
+       begin match popt with
+       | None -> Tyenv.return None
+       | Some p ->
+          check_tt_pattern p (Mlty.NotAbstract Mlty.IsType) >>= fun p ->
+          Tyenv.return (Some p)
+       end >>= fun popt ->
+       m (qs, popt)
+
+    | p :: ps, t :: ts ->
+       check_pattern p t >>= fun q ->
+       fold (q :: qs) ps ts
+
+    | [], _::_ | _::_, [] ->
+       assert false
   in
-  fold pts >>= fun () ->
-  let rec add_vars = function
-    | [] -> m
-    | x :: xs ->
-       let t = Mlty.fresh_type () in
-       Tyenv.add_var x t (add_vars xs)
-  in
-  add_vars (List.rev xs)
+  fold [] ps ts
 
 let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty) Tyenv.tyenvM =
   match c with
@@ -384,13 +389,27 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
      handler ~loc h >>= fun (h, t) ->
      return (locate ~loc (Rsyntax.Handler h), t)
 
-  | Dsyntax.Constructor (c, cs) ->
-    Tyenv.lookup_constructor c >>= fun (ts, out) ->
+  | Dsyntax.TT_Constructor (c, cs) ->
+    Tyenv.lookup_tt_constructor c >>= fun (ts, out) ->
+    let rec fold cs' cs ts =
+      match cs, ts with
+      | [], [] ->
+        let cs' = List.rev cs' in
+        Tyenv.return (locate ~loc (Rsyntax.AML_Constructor (c, cs')), Mlty.Judgement (Mlty.NotAbstract out))
+      | c :: cs, t :: ts ->
+        check_comp c (Mlty.Judgement t) >>= fun c' ->
+        fold (c' :: cs') cs ts
+      | [], _::_ | _::_, [] -> assert false
+    in
+    fold [] cs ts
+
+  | Dsyntax.AML_Constructor (c, cs) ->
+    Tyenv.lookup_aml_constructor c >>= fun (ts, out) ->
     let tcs = List.combine ts cs in
     let rec fold cs = function
       | [] ->
         let cs = List.rev cs in
-        Tyenv.return (locate ~loc (Rsyntax.Constructor (c, cs)), out)
+        Tyenv.return (locate ~loc (Rsyntax.AML_Constructor (c, cs)), out)
       | (t, c) :: tcs ->
         check_comp c t >>= fun c ->
         fold (c :: cs) tcs
@@ -507,15 +526,10 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     return (locate ~loc (Rsyntax.Sequence (c1, c2)), t)
 
   | Dsyntax.Assume ((x, a), c) ->
-    check_comp a Mlty.IsType >>= fun a ->
-    Tyenv.add_var x Mlty.IsTerm (comp c) >>= fun (c, t) ->
-    return (locate ~loc (Rsyntax.Assume ((x, a), c)), t)
-
-  | Dsyntax.Where (c1, c2, c3) ->
-    check_comp c1 Mlty.IsTerm >>= fun c1 ->
-    check_comp c2 Mlty.IsTerm >>= fun c2 ->
-    check_comp c3 Mlty.IsTerm >>= fun c3 ->
-    Tyenv.return (locate ~loc (Rsyntax.Where (c1, c2, c3)), Mlty.IsTerm)
+     let t = (Mlty.Judgement (Mlty.NotAbstract Mlty.IsType)) in
+     check_comp a t >>= fun a ->
+     Tyenv.add_var x t (comp c) >>= fun (c, t) ->
+     return (locate ~loc (Rsyntax.Assume ((x, a), c)), t)
 
   | Dsyntax.Match (c, cases) ->
     comp c >>= fun (c, tc) ->
@@ -523,29 +537,25 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     return (locate ~loc (Rsyntax.Match (c, cases)), t)
 
   | Dsyntax.Ascribe (c1, c2) ->
-    check_comp c1 Mlty.IsTerm >>= fun c1 ->
-    check_comp c2 Mlty.IsType >>= fun c2 ->
-    Tyenv.return (locate ~loc (Rsyntax.Ascribe (c1, c2)), Mlty.IsTerm)
-
-  | Dsyntax.Constant c -> Tyenv.return (locate ~loc (Rsyntax.Constant c), Mlty.IsTerm)
+     let t1 = Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm)
+     and t2 = Mlty.Judgement (Mlty.NotAbstract Mlty.IsType) in
+     check_comp c1 t1 >>= fun c1 ->
+     check_comp c2 t2 >>= fun c2 ->
+     Tyenv.return (locate ~loc (Rsyntax.Ascribe (c1, c2)), t1)
 
   | Dsyntax.Abstract (x, copt, c) ->
     begin match copt with
-      | Some ct -> check_comp ct (Mlty.IsType Mlty.NotAbstract) >>= fun ct -> return (Some ct)
+      | Some ct -> check_comp ct (Mlty.Judgement (Mlty.NotAbstract Mlty.IsType)) >>= fun ct -> return (Some ct)
       | None -> Tyenv.return None
     end >>= fun copt ->
-    Tyenv.add_var x (Mlty.IsTerm Mlty.NotAbstract) (comp c) >>= fun (c,t) ->
-    let t =
-      begin match t with
-      | Mlty.IsType abstr -> Mlty.IsType (Mlty.Abstract abstr)
-      | Mlty.IsTerm abstr -> Mlty.IsType (Mlty.Abstract abstr)
-      | Mlty.EqType abstr -> Mlty.IsType (Mlty.Abstract abstr)
-      | Mlty.EqTerm abstr -> Mlty.IsType (Mlty.Abstract abstr)
-      | (String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _ | App _ | Ref _|Dynamic _) as t ->
-         Mlty.error ~loc (Mlty.JudgementExpected t)
-      end
-    in
-    Tyenv.return (locate ~loc (Rsyntax.Abstract (x, copt, c)), t)
+    Tyenv.add_var x (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm)) (comp c) >>= fun (c,t) ->
+    begin match t with
+    | Mlty.Judgement t ->
+       Tyenv.return (locate ~loc (Rsyntax.Abstract (x, copt, c)), Mlty.Judgement (Mlty.Abstract t))
+
+    | (String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _ | App _ | Ref _|Dynamic _) as t ->
+       Mlty.error ~loc (Mlty.JudgementExpected t)
+    end
 
   | Dsyntax.Apply (c1, c2) ->
      comp c1 >>= fun (c1, t1) ->
@@ -559,61 +569,25 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     check_comp c a >>= fun c ->
     Tyenv.return (locate ~loc (Rsyntax.Yield c), b)
 
-  | Dsyntax.CongrAbstractTy (c1, c2, c3) ->
-    check_comp c1 Mlty.IsTerm >>= fun c1 ->
-    check_comp c2 Mlty.EqType >>= fun c2 ->
-    check_comp c3 Mlty.EqType >>= fun c3 ->
-    return (locate ~loc (Rsyntax.CongrAbstractTy (c1, c2, c3)), Mlty.EqType)
-
-  | Dsyntax.CongrAbstract (c1, c2, c3, c4) ->
-    check_comp c1 Mlty.IsTerm >>= fun c1 ->
-    check_comp c2 Mlty.EqType >>= fun c2 ->
-    check_comp c3 Mlty.EqType >>= fun c3 ->
-    check_comp c4 Mlty.EqTerm >>= fun c4 ->
-    return (locate ~loc (Rsyntax.CongrAbstract (c1, c2, c3, c4)), Mlty.EqTerm)
-
-  | Dsyntax.Reflexivity_type c ->
-     check_comp c Mlty.IsType >>= fun c ->
-     return (locate ~loc (Rsyntax.Reflexivity_type c), Mlty.EqType)
-
-  | Dsyntax.Symmetry_type c ->
-     check_comp c Mlty.EqType >>= fun c ->
-     return (locate ~loc (Rsyntax.Symmetry_type c), Mlty.EqType)
-
-  | Dsyntax.Transitivity_type (c1, c2) ->
-     check_comp c1 Mlty.EqType >>= fun c1 ->
-     check_comp c2 Mlty.EqType >>= fun c2 ->
-     return (locate ~loc (Rsyntax.Transitivity_type (c1, c2)), Mlty.EqType)
-
-  | Dsyntax.Reflexivity_term c ->
-     check_comp c Mlty.IsTerm >>= fun c ->
-     return (locate ~loc (Rsyntax.Reflexivity_term c), Mlty.EqTerm)
-
-  | Dsyntax.Symmetry_term c ->
-     check_comp c Mlty.EqTerm >>= fun c ->
-     return (locate ~loc (Rsyntax.Symmetry_term c), Mlty.EqTerm)
-
-  | Dsyntax.Transitivity_term (c1, c2) ->
-     check_comp c1 Mlty.EqTerm >>= fun c1 ->
-     check_comp c2 Mlty.EqTerm >>= fun c2 ->
-     return (locate ~loc (Rsyntax.Transitivity_term (c1, c2)), Mlty.EqTerm)
-
   | Dsyntax.String s -> Tyenv.return (locate ~loc (Rsyntax.String s), Mlty.String)
 
   | Dsyntax.Occurs (c1, c2) ->
-    check_comp c1 Mlty.IsTerm >>= fun c1 ->
-    check_comp c2 Mlty.IsTerm >>= fun c2 ->
-    Tyenv.predefined_type Name.Predefined.option [Mlty.IsType] >>= fun t ->
-    return (locate ~loc (Rsyntax.Occurs (c1, c2)), t)
+     let t = Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) in
+     check_comp c1 t >>= fun c1 ->
+     check_comp c2 t >>= fun c2 ->
+     Tyenv.predefined_type Name.Predefined.option [Mlty.Judgement (Mlty.NotAbstract Mlty.IsType)] >>= fun t ->
+     return (locate ~loc (Rsyntax.Occurs (c1, c2)), t)
 
   | Dsyntax.Context c ->
-    check_comp c Mlty.IsTerm >>= fun c ->
-    Tyenv.predefined_type Name.Predefined.list [Mlty.IsTerm] >>= fun t ->
-    return (locate ~loc (Rsyntax.Context c), t)
+     let t = Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) in
+     check_comp c t >>= fun c ->
+     Tyenv.predefined_type Name.Predefined.list [t] >>= fun t ->
+     return (locate ~loc (Rsyntax.Context c), t)
 
   | Dsyntax.Natural c ->
-    check_comp c Mlty.IsTerm >>= fun c ->
-    return (locate ~loc (Rsyntax.Natural c), Mlty.EqType)
+     let t = Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) in
+     check_comp c t >>= fun c ->
+     return (locate ~loc (Rsyntax.Natural c), Mlty.Judgement (Mlty.NotAbstract Mlty.EqType))
 
 and check_comp c t =
   comp c >>= fun (c, t') ->
@@ -640,21 +614,32 @@ and handler ~loc {Dsyntax.handler_val=handler_val;handler_ops;handler_finally} =
   fold [] (Name.IdentMap.bindings handler_ops) >>= fun handler_ops ->
   Tyenv.return ({Rsyntax.handler_val=handler_val;handler_ops;handler_finally}, Mlty.Handler (input, final))
 
-and match_cases ~loc t cases =
-  match cases with
-    | [] ->
-      Tyenv.return ([], Mlty.fresh_type ())
-    | (xs, p, c) :: others ->
-      match_case xs p t (comp c) >>= fun (c, out) ->
+and match_cases ~loc t = function
+  | [] ->
+     Tyenv.return ([], Mlty.fresh_type ())
+
+  | (p, c) :: cases ->
+     match_case p t
+       (fun p ->
+         comp c >>= fun (c, out) ->
+         let rec fold cases = function
+           | [] -> let cases = List.rev cases in
+                   Tyenv.return (cases, out)
+           | (p, c) :: cases ->
+              match_case p t (fun p ->
+       )
+
+;;
+      match_case p t (comp c) >>= fun (c, out) ->
       let rec fold cases = function
         | [] ->
           let cases = List.rev cases in
           Tyenv.return (cases, out)
-        | (xs, p, c) :: others ->
-          match_case xs p t (check_comp c out) >>= fun c ->
+        | (p, c) :: others ->
+          match_case p t (check_comp c out) >>= fun c ->
           fold ((xs, p, c) :: cases) others
       in
-      fold [xs, p, c] others
+      fold [(p, c)] others
 
 and match_op_cases op cases output =
   Tyenv.op_cases op ~output (fun argts ->
