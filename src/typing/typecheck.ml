@@ -124,7 +124,8 @@ let rec check_tt_pattern ({Location.thing=p';loc} as p) t =
      Tyenv.return (locate ~loc Pattern.TTAnonymous)
 
   | Dsyntax.Patt_TT_Var x ->
-     Tyenv.add_var x (Mlty.Judgement t) (Tyenv.return (locate ~loc (Pattern.TTVar x)))
+     Tyenv.add_var x (Mlty.Judgement t) >>= fun () ->
+     Tyenv.return (locate ~loc (Pattern.TTVar x))
 
   | Dsyntax.Patt_TT_As (p1, p2) ->
      check_tt_pattern p1 t >>= fun p1 ->
@@ -243,7 +244,8 @@ let rec pattern {Location.thing=p;loc} =
 
   | Dsyntax.Patt_Var x ->
      let t = Mlty.fresh_type () in
-     Tyenv.add_var x t (Tyenv.return (locate ~loc (Pattern.Var x), t))
+     Tyenv.add_var x t >>= fun () ->
+     Tyenv.return (locate ~loc (Pattern.Var x), t)
 
   | Dsyntax.Patt_Interpolate k ->
      Tyenv.lookup_var k >>= fun t ->
@@ -291,7 +293,8 @@ and check_pattern ({Location.thing=p'; loc} as p) t =
      Tyenv.return (locate ~loc Pattern.Anonymous)
 
   | Dsyntax.Patt_Var x ->
-     Tyenv.add_var x t (Tyenv.return (locate ~loc (Pattern.Var x)))
+     Tyenv.add_var x t >>= fun () ->
+     Tyenv.return (locate ~loc (Pattern.Var x))
 
   | Dsyntax.Patt_Interpolate k ->
      Tyenv.lookup_var k >>= fun t' ->
@@ -343,9 +346,6 @@ and check_pattern ({Location.thing=p'; loc} as p) t =
      Tyenv.add_equation ~loc:p.Location.loc t' t >>= fun () ->
      Tyenv.return p
 
-let match_case p t m =
-  check_pattern p t >>= m
-
 let match_op_case ps popt ts m =
   let rec fold qs ps ts =
     match ps, ts with
@@ -382,8 +382,12 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
          | Dsyntax.Arg_annot_ty t -> ml_ty [] t
        end
      in
-     Tyenv.add_var x a (comp c) >>= fun (c, b) ->
-     Tyenv.return (locate ~loc (Rsyntax.Function (x, c)), Mlty.Arrow (a, b))
+     Tyenv.locally
+       begin
+         Tyenv.add_var x a >>= fun () ->
+         comp c >>= fun (c, b) ->
+         Tyenv.return (locate ~loc (Rsyntax.Function (x, c)), Mlty.Arrow (a, b))
+       end
 
   | Dsyntax.Handler h ->
      handler ~loc h >>= fun (h, t) ->
@@ -448,32 +452,37 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     Tyenv.return (locate ~loc (Rsyntax.With (h, c)), b)
 
   | Dsyntax.Let (xcs, c) ->
-    let_clauses xcs >>= fun clauses ->
-    let rec fold = function
-      | [] ->
-        comp c >>= fun (c, t) ->
-        return (locate ~loc (Rsyntax.Let (clauses, c)), t)
-      | Rsyntax.Let_clause_ML (x, sch, _) :: rem ->
-        Tyenv.add_let x sch (fold rem)
-      | Rsyntax.Let_clause_patt (xts, _, _) :: rem ->
-         let rec fold' = function
-           | [] -> fold rem
-           | (x, t) :: xts -> Tyenv.add_let x t (fold' xts)
+     Tyenv.locally begin
+         let_clauses xcs >>= fun clauses ->
+         let rec fold = function
+           | [] ->
+              comp c >>= fun (c, t) ->
+              return (locate ~loc (Rsyntax.Let (clauses, c)), t)
+           | Rsyntax.Let_clause_ML (x, sch, _) :: clauses ->
+              Tyenv.add_let x sch >>= fun () -> fold clauses
+           | Rsyntax.Let_clause_patt (xts, _, _) :: clauses ->
+              let rec fold' = function
+                | [] -> fold clauses
+                | (x, t) :: xts ->
+                   Tyenv.add_let x t >>= fun () -> fold' xts
+              in
+              fold' (List.rev xts)
          in
-         fold' (List.rev xts)
-    in
-    fold clauses
+         fold clauses
+       end
 
   | Dsyntax.LetRec (xycs, c) ->
-    let_rec_clauses xycs >>= fun clauses ->
-    let rec fold = function
-      | [] ->
-        comp c >>= fun (c, t) ->
-        return (locate ~loc (Rsyntax.LetRec (clauses, c)), t)
-      | (x, _, s, _) :: rem ->
-        Tyenv.add_let x s (fold rem)
-    in
-    fold clauses
+     Tyenv.locally begin
+         let_rec_clauses xycs >>= fun clauses ->
+         let rec fold = function
+           | [] ->
+              comp c >>= fun (c, t) ->
+              return (locate ~loc (Rsyntax.LetRec (clauses, c)), t)
+           | (x, _, s, _) :: clauses ->
+              Tyenv.add_let x s >>= fun () -> fold clauses
+         in
+         fold clauses
+       end
 
   | Dsyntax.MLAscribe (c, sch) ->
       let sch = ml_schema sch in
@@ -528,8 +537,11 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
   | Dsyntax.Assume ((x, a), c) ->
      let t = (Mlty.Judgement (Mlty.NotAbstract Mlty.IsType)) in
      check_comp a t >>= fun a ->
-     Tyenv.add_var x t (comp c) >>= fun (c, t) ->
-     return (locate ~loc (Rsyntax.Assume ((x, a), c)), t)
+     Tyenv.locally begin
+         Tyenv.add_var x t >>= fun () ->
+         comp c >>= fun (c, t) ->
+         return (locate ~loc (Rsyntax.Assume ((x, a), c)), t)
+       end
 
   | Dsyntax.Match (c, cases) ->
     comp c >>= fun (c, tc) ->
@@ -548,14 +560,16 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
       | Some ct -> check_comp ct (Mlty.Judgement (Mlty.NotAbstract Mlty.IsType)) >>= fun ct -> return (Some ct)
       | None -> Tyenv.return None
     end >>= fun copt ->
-    Tyenv.add_var x (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm)) (comp c) >>= fun (c,t) ->
-    begin match t with
-    | Mlty.Judgement t ->
-       Tyenv.return (locate ~loc (Rsyntax.Abstract (x, copt, c)), Mlty.Judgement (Mlty.Abstract t))
-
-    | (String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _ | App _ | Ref _|Dynamic _) as t ->
-       Mlty.error ~loc (Mlty.JudgementExpected t)
-    end
+    Tyenv.locally begin
+        Tyenv.add_var x (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm)) >>= fun () ->
+        comp c >>= fun (c,t) ->
+        begin match t with
+        | Mlty.Judgement t ->
+           Tyenv.return (locate ~loc (Rsyntax.Abstract (x, copt, c)), Mlty.Judgement (Mlty.Abstract t))
+        | (String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _ | App _ | Ref _|Dynamic _) as t ->
+           Mlty.error ~loc (Mlty.JudgementExpected t)
+        end
+      end
 
   | Dsyntax.Apply (c1, c2) ->
      comp c1 >>= fun (c1, t1) ->
@@ -614,32 +628,37 @@ and handler ~loc {Dsyntax.handler_val=handler_val;handler_ops;handler_finally} =
   fold [] (Name.IdentMap.bindings handler_ops) >>= fun handler_ops ->
   Tyenv.return ({Rsyntax.handler_val=handler_val;handler_ops;handler_finally}, Mlty.Handler (input, final))
 
+and match_case p t c =
+  Tyenv.locally
+    begin
+      check_pattern p t >>= fun p ->
+      comp c >>= fun (c, tc) ->
+      Tyenv.return (p, c, tc)
+    end
+
+and check_match_case p tp c tc =
+  Tyenv.locally
+    begin
+      check_pattern p tp >>= fun p ->
+      check_comp c tc >>= fun c ->
+      Tyenv.return (p, c)
+    end
+
 and match_cases ~loc t = function
   | [] ->
      Tyenv.return ([], Mlty.fresh_type ())
 
-  | (p, c) :: cases ->
-     match_case p t
-       (fun p ->
-         comp c >>= fun (c, out) ->
-         let rec fold cases = function
-           | [] -> let cases = List.rev cases in
-                   Tyenv.return (cases, out)
-           | (p, c) :: cases ->
-              match_case p t (fun p ->
-       )
-
-;;
-      match_case p t (comp c) >>= fun (c, out) ->
-      let rec fold cases = function
-        | [] ->
+  | (p1, c1) :: cases ->
+     match_case p1 t c1 >>= fun (p1, c1, out) ->
+     let rec fold cases = function
+       | [] ->
           let cases = List.rev cases in
           Tyenv.return (cases, out)
-        | (p, c) :: others ->
-          match_case p t (check_comp c out) >>= fun c ->
-          fold ((xs, p, c) :: cases) others
+       | (p, c) :: others ->
+          check_match_case p t c out >>= fun (p, c) ->
+          fold ((p, c) :: cases) others
       in
-      fold [(p, c)] others
+      fold [(p1, c1)] cases
 
 and match_op_cases op cases output =
   Tyenv.op_cases op ~output (fun argts ->
@@ -652,8 +671,8 @@ and match_op_cases op cases output =
   fold [] cases)
 
 and let_clauses (clauses_in : Dsyntax.let_clause list) : Rsyntax.let_clause list Tyenv.tyenvM =
-  let rec fold clauses_out = function
 
+  let rec fold clauses_out = function
     | [] -> Tyenv.return (List.rev clauses_out)
 
     | Dsyntax.Let_clause_ML (x, annot, c) :: clauses_in ->
@@ -686,40 +705,45 @@ and let_clauses (clauses_in : Dsyntax.let_clause list) : Rsyntax.let_clause list
        end >>= fun sch ->
        fold (Rsyntax.Let_clause_ML (x, sch, c) :: clauses_out) clauses_in
 
-  | Dsyntax.Let_clause_patt (xs, pt, annot, c) :: clauses_in ->
-     comp c >>= fun (c, t) ->
-     let xts = List.map (fun x -> x, Mlty.fresh_type ()) xs in
-     check_pattern xts pt t >>= fun () ->
-     begin match generalizable c with
-     | Generalizable ->
-        begin match annot with
-        | Dsyntax.Let_annot_schema sch ->
-           let sch = ml_schema sch in
-           Tyenv.generalizes_to ~loc:c.Location.loc t sch
-        | Dsyntax.Let_annot_none -> Tyenv.return ()
-        end >>= fun () ->
-        let rec fold' xss = function
-          | [] -> fold (Rsyntax.Let_clause_patt (List.rev xss, pt, c) :: clauses_out) clauses_in
-          | (x,t) :: xts -> Tyenv.generalize t >>= fun sch -> fold' ((x,sch) :: xss) xts
-        in
-        fold' [] xts
-     | Ungeneralizable ->
-        begin match annot with
-        | Dsyntax.Let_annot_schema sch ->
-           let sch = ml_schema sch in
-           begin match sch with
-           | ([], tsch) -> Tyenv.add_equation ~loc:c.Location.loc t tsch
-           | (_::_, _) -> Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
+  | Dsyntax.Let_clause_patt (pt, annot, c) :: clauses_in ->
+     begin
+       comp c >>= fun (c, t) ->
+       Tyenv.locally
+         begin
+           check_pattern pt t >>= fun pt ->
+           begin match generalizable c with
+           | Generalizable ->
+              begin match annot with
+              | Dsyntax.Let_annot_schema sch ->
+                 let sch = ml_schema sch in
+                 Tyenv.generalizes_to ~loc:c.Location.loc t sch
+              | Dsyntax.Let_annot_none -> Tyenv.return ()
+              end >>= fun () ->
+              let rec fold' xss = function
+                | [] -> fold (Rsyntax.Let_clause_patt (List.rev xss, pt, c) :: clauses_out) clauses_in
+                | (x,t) :: xts -> Tyenv.generalize t >>= fun sch -> fold' ((x,sch) :: xss) xts
+              in
+              fold' [] xts
+           | Ungeneralizable ->
+              begin match annot with
+              | Dsyntax.Let_annot_schema sch ->
+                 let sch = ml_schema sch in
+                 begin match sch with
+                 | ([], tsch) -> Tyenv.add_equation ~loc:c.Location.loc t tsch
+                 | (_::_, _) -> Mlty.error ~loc:c.Location.loc Mlty.ValueRestriction
+                 end
+              | Dsyntax.Let_annot_none -> Tyenv.return ()
+              end >>= fun () ->
+              let rec fold' xss = function
+                | [] -> fold (Rsyntax.Let_clause_patt (List.rev xss, pt, c) :: clauses_out) clauses_in
+                | (x,t) :: xts -> Tyenv.ungeneralize t >>= fun sch -> fold' ((x,sch) :: xss) xts
+              in
+              fold' [] xts
            end
-        | Dsyntax.Let_annot_none -> Tyenv.return ()
-        end >>= fun () ->
-        let rec fold' xss = function
-          | [] -> fold (Rsyntax.Let_clause_patt (List.rev xss, pt, c) :: clauses_out) clauses_in
-          | (x,t) :: xts -> Tyenv.ungeneralize t >>= fun sch -> fold' ((x,sch) :: xss) xts
-        in
-        fold' [] xts
+         end
      end
   in
+
   fold [] clauses_in
 
 and let_rec_clauses (fycs : Dsyntax.letrec_clause list) : Rsyntax.letrec_clause list Tyenv.tyenvM =
@@ -792,47 +816,49 @@ let top_handler ~loc lst =
   in
   fold [] lst
 
-let add_tydef env (t, (params, def)) =
+let add_tydef (t, (params, def)) =
   let params = List.map (fun _ -> Mlty.fresh_param ()) params in
   match def with
 
     | Dsyntax.ML_Alias t' ->
        let t' = ml_ty params t' in
-       Tyenv.topadd_tydef t (Mlty.Alias (params, t')) env
+       Tyenv.add_tydef t (Mlty.Alias (params, t'))
 
     | Dsyntax.ML_Sum constructors ->
        let constructors = List.map (fun (c, ts) -> c, List.map (ml_ty params) ts) constructors in
-       Tyenv.topadd_tydef t (Mlty.Sum (params, constructors)) env
+       Tyenv.add_tydef t (Mlty.Sum (params, constructors))
 
-let rec toplevel env ({Location.thing=c; loc} : Dsyntax.toplevel) =
+let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
   match c with
   (* Desugar is the only place where recursion/nonrecursion matters *)
   | Dsyntax.DefMLType tydefs ->
-    let env = List.fold_left add_tydef env tydefs in
-    env, locate ~loc (Rsyntax.DefMLType tydefs)
+     let rec fold = function
+       | [] -> Tyenv.return (locate ~loc (Rsyntax.DefMLType tydefs))
+       | tydef :: tydefs -> add_tydef tydef >>= fun () -> fold tydefs
+     in
+     fold tydefs
 
   | Dsyntax.DefMLTypeRec tydefs ->
-    let env = List.fold_left add_tydef env tydefs in
-    env, locate ~loc (Rsyntax.DefMLTypeRec tydefs)
+     let rec fold = function
+       | [] -> Tyenv.return (locate ~loc (Rsyntax.DefMLTypeRec tydefs))
+       | tydef :: tydefs -> add_tydef tydef >>= fun () -> fold tydefs
+     in
+     fold tydefs
 
   | Dsyntax.DeclOperation (op, (tys_in, ty_out)) ->
     let tys_in = List.map (ml_ty []) tys_in in
     let ty_out = ml_ty [] ty_out in
-    let env = Tyenv.topadd_operation op (tys_in, ty_out) env in
-    env, locate ~loc (Rsyntax.DeclOperation (op, (tys_in, ty_out)))
-
-  | Dsyntax.DeclConstants (cs, t) ->
-    let env, t = Tyenv.at_toplevel env (check_comp t Mlty.IsType) in
-    env, locate ~loc (Rsyntax.DeclConstants (cs, t))
+    Tyenv.add_operation op (tys_in, ty_out) >>= fun () ->
+    Tyenv.return (locate ~loc (Rsyntax.DeclOperation (op, (tys_in, ty_out))))
 
   | Dsyntax.DeclExternal (x, sch, s) ->
      let sch = ml_schema sch in
-     let env = Tyenv.topadd_let x sch env in
-     env, locate ~loc (Rsyntax.DeclExternal (x, sch, s))
+     Tyenv.add_let x sch >>= fun () ->
+     Tyenv.return (locate ~loc (Rsyntax.DeclExternal (x, sch, s)))
 
   | Dsyntax.TopHandle lst ->
-    let env, lst = Tyenv.at_toplevel env (top_handler ~loc lst) in
-    env, locate ~loc (Rsyntax.TopHandle lst)
+     top_handler ~loc lst >>= fun lst ->
+     Tyenv.return (locate ~loc (Rsyntax.TopHandle lst))
 
   | Dsyntax.TopLet clauses ->
      let rec fold env = function

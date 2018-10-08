@@ -12,18 +12,23 @@ type t =
     substitution : Substitution.t;
     unsolved : constrain list }
 
-type 'a tyenvM = t -> 'a * Substitution.t * constrain list
+type 'a tyenvM = t -> 'a * t
 
 let empty =
   { context = Context.empty;
     substitution = Substitution.empty;
     unsolved = [] }
 
-let return x env = x, env.substitution, env.unsolved
+let return x env = x, env
 
 let (>>=) m f env =
-  let x, substitution, unsolved = m env in
-  f x {env with substitution; unsolved}
+  let x, env = m env in
+  f x env
+
+let locally m env =
+  let context = env.context in
+  let x, env = m env in
+  x, {env with context}
 
 let unsolved_known unsolved =
   List.fold_left
@@ -59,9 +64,14 @@ let ungeneralize t env =
   let t = Substitution.apply env.substitution t in
   return ([], t) env
 
-let add_let x s m env =
+let add_let x s env =
   let context = Context.add_let x s env.context in
-  m {env with context}
+  (), {env with context}
+
+let add_var x t env =
+  let t = Substitution.apply env.substitution t in
+  let context = Context.add_var x ([], t) env.context in
+  (), {env with context}
 
 let lookup_var k env =
   let t = Context.lookup_var k env.context in
@@ -78,11 +88,6 @@ let lookup_tt_constructor c env =
 
 let lookup_continuation env =
   return (Context.lookup_continuation env.context) env
-
-let add_var x t m env =
-  let t = Substitution.apply env.substitution t in
-  let context = Context.add_var x ([], t) env.context in
-  m {env with context}
 
 (* Whnf for meta instantiations and type aliases *)
 let rec whnf ctx s = function
@@ -214,12 +219,12 @@ and add_application ~loc h arg out env =
        | (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) | Mlty.Meta _),
          (Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) | Mlty.Meta _) ->
           let unsolved = AppConstraint (loc, h, arg, out) :: env.unsolved in
-          (), s, unsolved
+          (), { env with unsolved }
        | _, _ ->
           begin
             match Substitution.add m (Mlty.Arrow (arg, out)) s with
-            | Some s ->
-               (), s, env.unsolved
+            | Some substitution ->
+               (), { env with substitution }
             | None -> Mlty.error ~loc (Mlty.InvalidApplication (h, arg, out))
           end
      end
@@ -284,32 +289,28 @@ let op_cases op ~output m env =
   let argts, context = Context.op_cases op ~output env.context in
   m argts {env with context}
 
-let at_toplevel env m =
-  let x, substitution, unsolved = m env in
-  { env with substitution; unsolved }, x
-
 let predefined_type x ts env =
   let t = Context.predefined_type x ts env.context in
   return t env
 
 let generalizes_to ~loc t (ps, u) env =
-  let (), substitution, unsolved = add_equation ~loc t u env in
+  let (), env = add_equation ~loc t u env in
   (* NB: [s1] is the one that has [ps] appearing in the image *)
   let s1, s2 = Substitution.partition
             (fun _ t -> Mlty.params_occur ps t)
-            substitution
+            env.substitution
   in
   let s1dom = Substitution.domain s1 in
   let known =
     Mlty.MetaSet.union
       (* XXX is it [substitution] or one of [s1], [s2]? *)
       (Context.gather_known s2 env.context)
-      (unsolved_known unsolved)
+      (unsolved_known env.unsolved)
   in
   let ms = Mlty.MetaSet.inter s1dom known in
   if Mlty.MetaSet.is_empty ms
   then
-    (), s2, unsolved
+    (), {env with substitution=s2}
   else
     let ps =
       List.filter
@@ -327,12 +328,10 @@ let generalizes_to ~loc t (ps, u) env =
 
 (* Toplevel functionality *)
 
-let topadd_tydef t d env =
+let add_tydef t d env =
   let context = Context.add_tydef t d env.context in
-  { env with context }
+  (), { env with context }
 
-let topadd_operation op opty env =
+let add_operation op opty env =
   let context = Context.add_operation op opty env.context in
-  { env with context }
-
-let topadd_let x s env = add_let x s (fun env -> env) env
+  (), { env with context }

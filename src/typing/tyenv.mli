@@ -16,6 +16,10 @@ val return : 'a -> 'a tyenvM
 (** Monadic bind. *)
 val (>>=) : 'a tyenvM -> ('a -> 'b tyenvM) -> 'b tyenvM
 
+(** [locally m] runs the computation [m] and upon its completetion restores the context.
+    This is used to handle locally scoped variables in let bindings and match cases. *)
+val locally : 'a tyenvM -> 'a tyenvM
+
 (** Lookup a bound variable by its De Bruijn index and instantiate its type parameters with fresh metavariables. *)
 val lookup_var : Rsyntax.bound -> Mlty.ty tyenvM
 
@@ -31,9 +35,6 @@ val lookup_tt_constructor : Name.constructor -> Mlty.tt_constructor_ty tyenvM
 (** Lookup the continuation, returning the expected type of its argument and the type it returns. *)
 val lookup_continuation : (Mlty.ty * Mlty.ty) tyenvM
 
-(** [add_var x t m] binds a variable with name [x] and monomorphic type [t] while computing in [m]. *)
-val add_var : Name.ident -> Mlty.ty -> 'a tyenvM -> 'a tyenvM
-
 (** [add_equation ~loc t1 t2] try to unify the actual type [t1] with the expected type
     [t2]. If successful, retry to solve the current unsolved constraints. *)
 val add_equation : loc:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
@@ -41,9 +42,6 @@ val add_equation : loc:Location.t -> Mlty.ty -> Mlty.ty -> unit tyenvM
 (** [add_application h arg out] checks that a value of type [h] applied to a value of type [arg] will produce a value of type [out].
     Depending on the arguments, it may fail, or create a new unsolved constraint, or solve old ones. *)
 val add_application : loc:Location.t -> Mlty.ty -> Mlty.ty -> Mlty.ty -> unit tyenvM
-
-(** Bind a variable with a polymorphic type. *)
-val add_let : Name.ident -> Mlty.ty_schema -> 'a tyenvM -> 'a tyenvM
 
 (** Express the given type as a handler type. *)
 val as_handler : loc:Location.t -> Mlty.ty -> (Mlty.ty * Mlty.ty) tyenvM
@@ -74,16 +72,14 @@ val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM
 (** Apply the current substitution to the given schema. *)
 (* val normalize_schema : Mlty.ty_schema -> Mlty.ty_schema tyenvM *)
 
-(** Toplevel functionality *)
+(** Bind a variable with a polymorphic type. *)
+val add_let : Name.ident -> Mlty.ty_schema -> unit tyenvM
 
-(** Run the given computation with the given environment, outputting the modified environment and the result of the computation. *)
-val at_toplevel : t -> 'a tyenvM -> t * 'a
+(** [add_var x t m] binds a variable with name [x] and monomorphic type [t]. *)
+val add_var : Name.ident -> Mlty.ty -> unit tyenvM
 
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)
-val topadd_tydef : Name.ty -> Mlty.ty_def -> t -> t
+val add_tydef : Name.ty -> Mlty.ty_def -> unit tyenvM
 
 (** Declare a new operation. *)
-val topadd_operation : Name.operation -> Mlty.ty list * Mlty.ty -> t -> t
-
-(** Add a variable with polymorphic type in the environment. *)
-val topadd_let : Name.ty -> Mlty.ty_schema -> t -> t
+val add_operation : Name.operation -> Mlty.ty list * Mlty.ty -> unit tyenvM
