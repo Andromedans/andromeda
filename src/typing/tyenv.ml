@@ -10,14 +10,18 @@ type constrain =
 type t =
   { context : Context.t;
     substitution : Substitution.t;
-    unsolved : constrain list }
+    unsolved : constrain list;
+    local_vars : (Name.ident * Mlty.ty) list (* the variables bound since the last call to [locally] *)
+ }
 
 type 'a tyenvM = t -> 'a * t
 
 let empty =
   { context = Context.empty;
     substitution = Substitution.empty;
-    unsolved = [] }
+    unsolved = [];
+    local_vars = []
+  }
 
 let return x env = x, env
 
@@ -27,8 +31,9 @@ let (>>=) m f env =
 
 let locally m env =
   let context = env.context in
-  let x, env = m env in
-  x, {env with context}
+  let local_vars = env.local_vars in
+  let x, env = m {env with local_vars = []} in
+  (x, env.local_vars), {env with context; local_vars}
 
 let unsolved_known unsolved =
   List.fold_left

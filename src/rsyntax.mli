@@ -59,11 +59,8 @@ and comp' =
   | Context of comp
   | Natural of comp
 
-(* XXX the variable name is only used for printing toplevel let's *)
-(* TODO: remove Let_clause_ML and compile it into Let_clause_patt instead *)
 and let_clause =
-  | Let_clause_ML of Name.ident * ml_schema * comp
-  | Let_clause_patt of (Name.ident * ml_schema) list * Pattern.aml * comp
+  | Let_clause of Pattern.aml * ml_schema * comp
 
 and letrec_clause = Name.ident * Name.ident * ml_schema * comp
 

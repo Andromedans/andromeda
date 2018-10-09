@@ -99,10 +99,10 @@ and comp' =
   | Natural of comp
 
 and let_clause =
-  | Let_clause_ML of Name.ident * let_annotation * comp (* [let (x :> t) = c] *)
-  | Let_clause_patt of ml_pattern * let_annotation * comp (* [let (?p :> t) = c] *)
+  | Let_clause of ml_pattern * let_annotation * comp (* [let (?p :> t) = c] *)
 
-and letrec_clause = Name.ident * (Name.ident * arg_annotation) * let_annotation * comp
+and letrec_clause =
+  | Letrec_clause of Name.ident * (Name.ident * arg_annotation) * let_annotation * comp
 
 and handler = {
   handler_val: match_case list;

@@ -18,7 +18,7 @@ val (>>=) : 'a tyenvM -> ('a -> 'b tyenvM) -> 'b tyenvM
 
 (** [locally m] runs the computation [m] and upon its completetion restores the context.
     This is used to handle locally scoped variables in let bindings and match cases. *)
-val locally : 'a tyenvM -> 'a tyenvM
+val locally : 'a tyenvM -> ('a * (Name.ident * Mlty.ty) list) tyenvM
 
 (** Lookup a bound variable by its De Bruijn index and instantiate its type parameters with fresh metavariables. *)
 val lookup_var : Rsyntax.bound -> Mlty.ty tyenvM
@@ -72,10 +72,13 @@ val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM
 (** Apply the current substitution to the given schema. *)
 (* val normalize_schema : Mlty.ty_schema -> Mlty.ty_schema tyenvM *)
 
-(** Bind a variable with a polymorphic type. *)
+(** Bind a variable with a polymorphic type. NB: if the scope of the variable is local
+    then the call to the function should be suitable enclosed by [locally], see above. *)
 val add_let : Name.ident -> Mlty.ty_schema -> unit tyenvM
 
-(** [add_var x t m] binds a variable with name [x] and monomorphic type [t]. *)
+(** [add_var x t m] binds a variable with name [x] and monomorphic type [t]. NB: if the
+   scope of the variable is local then the call to the function should be suitable
+   enclosed by [locally], see above. *)
 val add_var : Name.ident -> Mlty.ty -> unit tyenvM
 
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)
