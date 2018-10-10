@@ -47,7 +47,6 @@ type tt_pattern = tt_pattern' located
 and tt_pattern' =
   | Patt_TT_Anonymous
   | Patt_TT_Var of Name.ident (* new pattern variable *)
-(*  | Patt_TT_Interpolate of bound (* interpolated value *) *)
   | Patt_TT_As of tt_pattern * tt_pattern
   | Patt_TT_Constructor of Name.ident * tt_pattern list
   | Patt_TT_GenAtom of tt_pattern
@@ -61,7 +60,6 @@ type ml_pattern = ml_pattern' located
 and ml_pattern' =
   | Patt_Anonymous
   | Patt_Var of Name.ident
-(*  | Patt_Interpolate of bound *)
   | Patt_As of ml_pattern * ml_pattern
   | Patt_Judgement of tt_pattern
   | Patt_Constr of Name.ident * ml_pattern list

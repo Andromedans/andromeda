@@ -53,7 +53,6 @@ type tt_pattern = tt_pattern' located
 and tt_pattern' =
   | Patt_TT_Anonymous
   | Patt_TT_Var of Name.ident (* pattern variable *)
-  | Patt_TT_Interpolate of Name.ident (* interpolated value *)
   | Patt_TT_As of tt_pattern * tt_pattern
   | Patt_TT_Constructor of Name.ident * tt_pattern list
   | Patt_TT_GenAtom of tt_pattern
@@ -67,7 +66,6 @@ type pattern = pattern' located
 and pattern' =
   | Patt_Anonymous
   | Patt_Var of Name.ident
-  | Patt_Interpolate of Name.ident
   | Patt_As of pattern * pattern
   | Patt_Judgement of tt_pattern
   | Patt_Constr of Name.ident * pattern list
@@ -99,14 +97,6 @@ and term' =
   | Abstract of (Name.ident * comp option) list * comp
   | Spine of comp * comp list
   | Yield of comp
-  | CongrAbstractTy of comp * comp * comp
-  | CongrAbstract of comp * comp * comp * comp
-  | Reflexivity_type of comp
-  | Symmetry_type of comp
-  | Transitivity_type of comp * comp
-  | Reflexivity_term of comp
-  | Symmetry_term of comp
-  | Transitivity_term of comp * comp
   | String of string
   | Context of comp
   | Occurs of comp * comp
@@ -126,7 +116,8 @@ and let_clause =
   | Let_clause_tt of Name.ident * ty * comp
   | Let_clause_patt of pattern * let_annotation * comp
 
-
+(* XXX we should be able to destruct the first argument of a recursive function with an
+   (irrefutable) pattern. Thus, [ml_arg] should be defined using patterns in place of variable names. *)
 and letrec_clause = Name.ident * ml_arg * ml_arg list * let_annotation * comp
 
 (** Handle cases *)

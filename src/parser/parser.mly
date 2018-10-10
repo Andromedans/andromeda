@@ -31,18 +31,12 @@
 
 (* Meta-level programming *)
 %token OPERATION
-%token <Name.ident> PATTVAR
 %token MATCH
 %token AS TYPE
 %token VDASH EQEQ
 
 %token HANDLE WITH HANDLER BAR VAL FINALLY END YIELD
 %token SEMICOLON
-
-%token CONGR_ABSTRACT_TY CONGR_ABSTRACT
-%token REFLEXIVITY_TERM REFLEXIVITY_TYPE
-%token SYMMETRY_TERM SYMMETRY_TYPE
-%token TRANSITIVITY_TERM TRANSITIVITY_TYPE
 
 %token NATURAL
 
@@ -163,15 +157,6 @@ app_term: mark_location(plain_app_term) { $1 }
 plain_app_term:
   | e=plain_prefix_term                             { e }
   | e=prefix_term es=nonempty_list(prefix_term)     { Spine (e, es) }
-  | REFLEXIVITY_TYPE e=prefix_term                  { Reflexivity_type e }
-  | SYMMETRY_TYPE e=prefix_term                     { Symmetry_type e }
-  | TRANSITIVITY_TYPE e1=prefix_term e2=prefix_term { Transitivity_type (e1, e2) }
-  | REFLEXIVITY_TERM e=prefix_term                  { Reflexivity_term e }
-  | SYMMETRY_TERM e=prefix_term                     { Symmetry_term e }
-  | TRANSITIVITY_TERM e1=prefix_term e2=prefix_term { Transitivity_term (e1, e2) }
-  | CONGR_ABSTRACT_TY e1=prefix_term e2=prefix_term e3=prefix_term { CongrAbstractTy (e1, e2, e3) }
-  | CONGR_ABSTRACT e1=prefix_term e2=prefix_term e3=prefix_term e4=prefix_term
-    { CongrAbstract (e1, e2, e3, e4) }
 
 prefix_term: mark_location(plain_prefix_term) { $1 }
 plain_prefix_term:
@@ -287,7 +272,7 @@ top_handler_case:
       (op, ([x1;x2], y, t)) }
 
 top_patt_maybe_var:
-  | x=patt_var                   { Some x }
+  | x=var_name                   { Some x }
   | UNDERSCORE                   { None }
 
 top_handler_checking:
@@ -333,8 +318,7 @@ plain_prefix_pattern:
 (* simple_pattern: mark_location(plain_simple_pattern) { $1 } *)
 plain_simple_pattern:
   | UNDERSCORE                     { Patt_Anonymous }
-  | x=patt_var                     { Patt_Var x }
-  | x=var_name                     { Patt_Interpolate x }
+  | x=var_name                     { Patt_Var x }
   | LPAREN ps=separated_list(COMMA, pattern) RPAREN
     { match ps with
       | [{Location.thing=p;loc=_}] -> p
@@ -382,16 +366,12 @@ plain_prefix_tt_pattern:
 (* simple_tt_pattern: mark_location(plain_simple_tt_pattern) { $1 } *)
 plain_simple_tt_pattern:
   | UNDERSCORE                        { Patt_TT_Anonymous }
-  | x=patt_var                        { Patt_TT_Var x }
-  | x=var_name                        { Patt_TT_Interpolate x }
+  | x=var_name                        { Patt_TT_Var x }
   | LPAREN p=plain_abstracted_tt_pattern RPAREN  { p }
 
 tt_name:
-  | UNDERSCORE      { None }
-  | x=PATTVAR       { Some x }
-
-patt_var:
-  | x=PATTVAR                    { x }
+  | UNDERSCORE       { None }
+  | x=var_name       { Some x }
 
 let_pattern: mark_location(plain_let_pattern) { $1 }
 plain_let_pattern:

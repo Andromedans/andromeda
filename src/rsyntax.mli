@@ -60,9 +60,10 @@ and comp' =
   | Natural of comp
 
 and let_clause =
-  | Let_clause of Pattern.aml * ml_schema * comp
+  | Let_clause of (Name.ident * Mlty.ty_schema) list * Pattern.aml * comp
 
-and letrec_clause = Name.ident * Name.ident * ml_schema * comp
+and letrec_clause =
+  | Letrec_clause of Name.ident * Name.ident * ml_schema * comp
 
 and handler = {
   handler_val: match_case list;

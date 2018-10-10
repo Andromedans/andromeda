@@ -248,19 +248,6 @@ let rec tt_pattern ctx {Location.thing=p';loc} =
      let ctx = Ctx.add_variable x ctx in
      ctx, (locate (Dsyntax.Patt_TT_Var x) loc)
 
-  (* pattern of the form [x] *)
-  | Input.Patt_TT_Interpolate x ->
-     begin match Ctx.find ~loc x ctx with
-     | Variable i ->
-        ctx, locate (Dsyntax.Patt_TT_Interpolate i) loc
-
-     | TTConstructor k ->
-        tt_constructor ~loc ctx x k []
-
-     | (AMLConstructor _ | Operation _) as info ->
-        error ~loc (InvalidTermPatternName (x, info))
-     end
-
   | Input.Patt_TT_As (p1, p2) ->
      let ctx, p1 = tt_pattern ctx p1 in
      let ctx, p2 = tt_pattern ctx p2 in
@@ -343,21 +330,20 @@ let rec pattern ctx {Location.thing=p; loc} =
      ctx, locate Dsyntax.Patt_Anonymous loc
 
   | Input.Patt_Var x ->
-     let ctx = Ctx.add_variable x ctx in
-     ctx, locate (Dsyntax.Patt_Var x) loc
+     begin match Ctx.find_opt x ctx with
 
-  | Input.Patt_Interpolate x ->
-     begin match Ctx.find ~loc x ctx with
+     | Some (Variable _)
+        (* We allow shadowing. *)
+     | None ->
+        let ctx = Ctx.add_variable x ctx in
+        ctx, locate (Dsyntax.Patt_Var x) loc
 
-     | Variable i ->
-        ctx, locate (Dsyntax.Patt_Interpolate i) loc
-
-     | AMLConstructor k ->
+     | Some (AMLConstructor k) ->
         if k = 0
         then ctx, locate (Dsyntax.Patt_Constr (x,[])) loc
         else error ~loc (ArityMismatch (x, 0, k))
 
-     | (TTConstructor _ | Operation _) as info ->
+     | Some ((TTConstructor _ | Operation _) as info) ->
         error ~loc (InvalidPatternName (x, info))
 
      end
@@ -433,9 +419,6 @@ let rec check_linear_tt ?(forbidden=Name.IdentSet.empty) {Location.thing=p';loc}
   | Input.Patt_TT_Var x ->
      check_linear_pattern_variable ~loc ~forbidden x
 
-  | Input.Patt_TT_Interpolate _ ->
-     forbidden
-
   | Input.Patt_TT_As (p1, p2)
   | Input.Patt_TT_IsTerm (p1, p2)
   | Input.Patt_TT_EqType (p1, p2) ->
@@ -483,8 +466,6 @@ let rec check_linear ?(forbidden=Name.IdentSet.empty) {Location.thing=p';loc} =
 
   | Input.Patt_Var x ->
      check_linear_pattern_variable ~loc ~forbidden x
-
-  | Input.Patt_Interpolate _ -> forbidden
 
   | Input.Patt_As (p1, p2) ->
      let forbidden = check_linear ~forbidden p1 in
@@ -645,45 +626,6 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      let lst = List.map (comp ~yield ctx) cs in
      locate (Dsyntax.Tuple lst) loc
 
-  | Input.CongrAbstractTy (e1, e2, e3) ->
-     let e1 = comp ~yield ctx e1
-     and e2 = comp ~yield ctx e2
-     and e3 = comp ~yield ctx e3 in
-     locate (Dsyntax.CongrAbstractTy (e1, e2, e3)) loc
-
-  | Input.CongrAbstract (e1, e2, e3, e4) ->
-     let e1 = comp ~yield ctx e1
-     and e2 = comp ~yield ctx e2
-     and e3 = comp ~yield ctx e3
-     and e4 = comp ~yield ctx e4 in
-     locate (Dsyntax.CongrAbstract (e1, e2, e3, e4)) loc
-
-  | Input.Reflexivity_term e ->
-     let e = comp ~yield ctx e
-     in locate (Dsyntax.Reflexivity_term e) loc
-
-  | Input.Symmetry_term e ->
-     let e = comp ~yield ctx e
-     in locate (Dsyntax.Symmetry_term e) loc
-
-  | Input.Transitivity_term (e1, e2) ->
-     let e1 = comp ~yield ctx e1
-     and e2 = comp ~yield ctx e2 in
-     locate (Dsyntax.Transitivity_term (e1, e2)) loc
-
-  | Input.Reflexivity_type e ->
-     let e = comp ~yield ctx e
-     in locate (Dsyntax.Reflexivity_type e) loc
-
-  | Input.Symmetry_type e ->
-     let e = comp ~yield ctx e
-     in locate (Dsyntax.Symmetry_type e) loc
-
-  | Input.Transitivity_type (e1, e2) ->
-     let e1 = comp ~yield ctx e1
-     and e2 = comp ~yield ctx e2 in
-     locate (Dsyntax.Transitivity_type (e1, e2)) loc
-
   | Input.String s ->
      locate (Dsyntax.String s) loc
 
@@ -709,19 +651,23 @@ and let_clauses ~loc ~yield ctx lst =
        let c = let_clause ~yield ctx ys c in
        let sch = let_annotation ctx sch in
        let ctx' = Ctx.add_variable x ctx' in
-       let lst' = Dsyntax.Let_clause_ML (x, sch, c) :: lst' in
+       (* XXX if x carried its location, we would use it here *)
+       let x = locate (Dsyntax.Patt_Var x) loc in
+       let lst' = Dsyntax.Let_clause (x, sch, c) :: lst' in
        fold ctx' lst' clauses
     | Input.Let_clause_tt (x, t, c) :: clauses ->
        let c = let_clause_tt ~yield ctx c t in
        let sch = Dsyntax.Let_annot_none in
        let ctx' = Ctx.add_variable x ctx' in
-       let lst' = Dsyntax.Let_clause_ML (x, sch, c) :: lst' in
+       (* XXX if x carried its location, we would use it here *)
+       let x = locate (Dsyntax.Patt_Var x) loc in
+       let lst' = Dsyntax.Let_clause (x, sch, c) :: lst' in
        fold ctx' lst' clauses
     | Input.Let_clause_patt (pt, sch, c) :: clauses ->
        let c = comp ~yield ctx c in
        let sch = let_annotation ctx sch in
        let ctx', pt = pattern ctx' pt in
-       let lst' = Dsyntax.Let_clause_patt (pt, sch, c) :: lst' in
+       let lst' = Dsyntax.Let_clause (pt, sch, c) :: lst' in
      fold ctx' lst' clauses
   in
   let rec check_unique forbidden = function
@@ -732,7 +678,7 @@ and let_clauses ~loc ~yield ctx lst =
        then error ~loc (ParallelShadowing x)
        else check_unique (Name.IdentSet.add x forbidden) lst
     | Input.Let_clause_patt (pt, _, _) :: lst ->
-       let forbidden = check_linear forbidden pt in
+       let forbidden = check_linear ~forbidden pt in
        check_unique forbidden lst
   in
   check_unique Name.IdentSet.empty lst ;
@@ -753,7 +699,7 @@ and letrec_clauses ~loc ~yield ctx lst =
        else
          let yt, c = letrec_clause ~yield ctx yt ys c in
          let sch = let_annotation ctx sch in
-         let lst' = (f, yt, sch, c) :: lst' in
+         let lst' = Dsyntax.Letrec_clause (f, yt, sch, c) :: lst' in
          fold lst' xcs
   in
   fold [] lst
@@ -899,8 +845,8 @@ and match_op_case ~yield ctx (ps, pt, c) =
          begin match pt with
          | None -> ctx, None
          | Some p ->
-            ignore (check_linear p) ;
-            let ctx, p = pattern ctx p in
+            ignore (check_linear_tt p) ;
+            let ctx, p = tt_pattern ctx p in
             ctx, Some p
          end
        in

@@ -150,7 +150,6 @@ let rec check_tt_pattern ({Location.thing=p';loc} as p) t =
      end
 
   (* inferring *)
-  | Dsyntax.Patt_TT_Interpolate _
   | Dsyntax.Patt_TT_Constructor _
   | Dsyntax.Patt_TT_GenAtom _
   | Dsyntax.Patt_TT_IsType _
@@ -165,17 +164,6 @@ let rec check_tt_pattern ({Location.thing=p';loc} as p) t =
 (** Infer the type of a TT pattern. *)
 and tt_pattern {Location.thing=p';loc} =
   match p' with
-
-  | Dsyntax.Patt_TT_Interpolate k ->
-     Tyenv.lookup_var k >>=
-       begin function
-         | Mlty.Judgement t ->
-            return (locate ~loc (Pattern.TTInterpolate k), t)
-
-         | (Mlty.String | Mlty.Meta _ | Mlty.Param _ | Mlty.Prod _
-         | Mlty.Arrow _ | Mlty.Handler _ | Mlty.App _ | Mlty.Ref _| Mlty.Dynamic _) as t ->
-            Mlty.error ~loc (Mlty.JudgementExpected t)
-       end
 
   | Dsyntax.Patt_TT_As (p1, p2) ->
      (* We insist that the first pattern be inferrable *)
@@ -252,10 +240,6 @@ let rec pattern {Location.thing=p;loc} =
      Tyenv.add_var x t >>= fun () ->
      return (locate ~loc (Pattern.Var x), t)
 
-  | Dsyntax.Patt_Interpolate k ->
-     Tyenv.lookup_var k >>= fun t ->
-     return (locate ~loc (Pattern.Interpolate k), t)
-
   | Dsyntax.Patt_As (p1, p2) ->
      pattern p1 >>= fun (p1, t1) ->
      check_pattern p2 t1 >>= fun p2 ->
@@ -300,11 +284,6 @@ and check_pattern ({Location.thing=p'; loc} as p) t =
   | Dsyntax.Patt_Var x ->
      Tyenv.add_var x t >>= fun () ->
      return_located ~loc (Pattern.Var x)
-
-  | Dsyntax.Patt_Interpolate k ->
-     Tyenv.lookup_var k >>= fun t' ->
-     Tyenv.add_equation ~loc t' t >>= fun () ->
-     return_located ~loc (Pattern.Interpolate k)
 
   | Dsyntax.Patt_As (p1, p2) ->
      check_pattern p1 t >>= fun p1 ->
@@ -698,7 +677,7 @@ and let_clauses (clauses_in : Dsyntax.let_clause list) (c_body : Dsyntax.comp)
           end >>= fun () ->
 
           let rec fold xss = function
-            | [] -> fold_lhs (Rsyntax.Let_clause_patt (List.rev xss, p, c) :: clauses_out) clauses_in
+            | [] -> fold_lhs (Rsyntax.Let_clause (List.rev xss, p, c) :: clauses_out) clauses_in
             | (x,t) :: xts -> Tyenv.generalize t >>= fun sch -> fold ((x,sch) :: xss) xts
           in
           fold [] xts
@@ -714,7 +693,7 @@ and let_clauses (clauses_in : Dsyntax.let_clause list) (c_body : Dsyntax.comp)
           | Dsyntax.Let_annot_none -> return ()
           end >>= fun () ->
           let rec fold xss = function
-            | [] -> fold_lhs (Rsyntax.Let_clause_patt (List.rev xss, p, c) :: clauses_out) clauses_in
+            | [] -> fold_lhs (Rsyntax.Let_clause (List.rev xss, p, c) :: clauses_out) clauses_in
             | (x,t) :: xts -> Tyenv.ungeneralize t >>= fun sch -> fold ((x,sch) :: xss) xts
           in
           fold [] xts
@@ -723,7 +702,7 @@ and let_clauses (clauses_in : Dsyntax.let_clause list) (c_body : Dsyntax.comp)
   fold_rhs [] clauses_in >>= fun pacts ->
   fold_lhs [] pacts
 
-and let_rec_clauses (fycs : Dsyntax.letrec_clause list) : Rsyntax.letrec_clause list Tyenv.tyenvM =
+and letrec_clauses (fycs : Dsyntax.letrec_clause list) : Rsyntax.letrec_clause list Tyenv.tyenvM =
   let rec bind_functions acc = function
     | (f, (y, a), annot, c) :: rem ->
        let a =

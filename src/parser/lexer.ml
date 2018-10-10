@@ -11,8 +11,6 @@ let reserved = [
   ("and", AND) ;
   ("as", AS) ;
   ("assume", ASSUME) ;
-  ("congr_abstract", CONGR_ABSTRACT) ;
-  ("congr_abstract_ty", CONGR_ABSTRACT_TY) ;
   ("context", CONTEXT) ;
   ("current", CURRENT) ;
   ("do", DO) ;
@@ -38,12 +36,6 @@ let reserved = [
   ("operation", OPERATION) ;
   ("rec", REC) ;
   ("ref", REF) ;
-  ("reflexivity_type", REFLEXIVITY_TYPE) ;
-  ("symmetry_type", SYMMETRY_TYPE) ;
-  ("transitivity_type", TRANSITIVITY_TYPE) ;
-  ("reflexivity_term", REFLEXIVITY_TERM) ;
-  ("symmetry_term", SYMMETRY_TERM) ;
-  ("transitivity_term", TRANSITIVITY_TERM) ;
   ("type", TYPE) ;
   ("require", REQUIRE) ;
   ("val", VAL) ;
@@ -123,9 +115,6 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | ':'                      -> f (); COLON
   | ":>"                     -> f (); COLONGT
   | ','                      -> f (); COMMA
-  | '?', name                -> f (); PATTVAR (let s = Ulexbuf.lexeme lexbuf in
-                                               let s = String.sub s 1 (String.length s - 1) in
-                                               Name.make s)
   | "|-"                     -> f (); VDASH
   | '|'                      -> f (); BAR
   | "->" | 8594 | 10230      -> f (); ARROW
@@ -134,7 +123,8 @@ and token_aux ({ Ulexbuf.stream;_ } as lexbuf) =
   | '!'                      -> f (); BANG
   | ":="                     -> f (); COLONEQ
   | ';'                      -> f (); SEMICOLON
-  (* Comes before prefixop because it also matches prefixop *)
+  (* Comes before prefixop because it also matches prefixop. It's a hack to allow
+     '?' as an identifier, which may not be so smart. *)
   | '?'                      -> f (); NAME (Name.make ~fixity:Name.Word "?")
   (* We record the location of operators here because menhir cannot handle %infix and
      mark_location simultaneously, it seems. *)
