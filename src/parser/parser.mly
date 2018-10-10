@@ -65,9 +65,6 @@
 (* Assumptions *)
 %token ASSUME CONTEXT OCCURS
 
-(* Substitution *)
-%token WHERE
-
 (* Toplevel directives *)
 %token VERBOSITY
 %token <string> QUOTED_STRING
@@ -137,7 +134,6 @@ plain_term:
   | NOW x=term EQ c1=term IN c2=term                             { Now (x,c1,c2) }
   | CURRENT c=term                                               { Current c }
   | ASSUME x=var_name COLON t=ty_term IN c=term                  { Assume ((x, t), c) }
-  | c1=binop_term WHERE e=simple_term EQ c2=term                 { Where (c1, e, c2) }
   | MATCH e=term WITH lst=match_cases END                        { Match (e, lst) }
   | HANDLE c=term WITH hcs=handler_cases END                     { Handle (c, hcs) }
   | WITH h=term HANDLE c=term                                    { With (h, c) }
@@ -190,7 +186,7 @@ plain_prefix_term:
   | NATURAL t=prefix_term                      { Natural t }
   | YIELD e=prefix_term                        { Yield e }
 
-simple_term: mark_location(plain_simple_term) { $1 }
+(* simple_term: mark_location(plain_simple_term) { $1 } *)
 plain_simple_term:
   | x=var_name                                          { Var x }
   | s=QUOTED_STRING                                     { String s }
@@ -271,8 +267,8 @@ handler_case:
   | FINALLY p=pattern DARROW t=term                             { CaseFinally (p, t) }
 
 handler_checking:
-  |                    { None }
-  | COLON pt=pattern { Some pt }
+  |                     { None }
+  | COLON pt=tt_pattern { Some pt }
 
 top_handler_cases:
   | BAR lst=separated_nonempty_list(BAR, top_handler_case)  { lst }

@@ -73,7 +73,7 @@ and handler = {
 and match_case = Pattern.aml * comp
 
 (** Match multiple patterns at once, with shared pattern variables *)
-and match_op_case = Pattern.aml list * Pattern.aml option * comp
+and match_op_case = Pattern.aml list * Pattern.judgement option * comp
 
 type top_op_case = Name.ident list * Name.ident option * comp
 

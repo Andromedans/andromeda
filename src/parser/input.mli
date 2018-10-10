@@ -95,7 +95,6 @@ and term' =
   | Ref of comp
   | Sequence of comp * comp
   | Assume of (Name.ident * comp) * comp
-  | Where of comp * expr * comp
   | Ascribe of comp * ty
   | Abstract of (Name.ident * comp option) list * comp
   | Spine of comp * comp list
@@ -138,7 +137,7 @@ and handle_case =
 
 and match_case = pattern * comp
 
-and match_op_case = pattern list * pattern option * comp
+and match_op_case = pattern list * tt_pattern option * comp
 
 type top_op_case = Name.ident option list * Name.ident option * comp
 

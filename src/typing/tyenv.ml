@@ -29,12 +29,6 @@ let (>>=) m f env =
   let x, env = m env in
   f x env
 
-let locally m env =
-  let context = env.context in
-  let local_vars = env.local_vars in
-  let x, env = m {env with local_vars = []} in
-  (x, env.local_vars), {env with context; local_vars}
-
 let unsolved_known unsolved =
   List.fold_left
     (fun known (AppConstraint (_, t1, t2, t3)) ->
@@ -69,13 +63,23 @@ let ungeneralize t env =
   let t = Substitution.apply env.substitution t in
   return ([], t) env
 
-let add_let x s env =
-  let context = Context.add_let x s env.context in
-  (), {env with context}
+let locally m env =
+  let context = env.context in
+  let local_vars = env.local_vars in
+  let x, env = m {env with local_vars = []} in
+  (* XXX should we apply the substition to the types of local vars that we're returning? *)
+  (x, env.local_vars), {env with context; local_vars}
 
 let add_var x t env =
   let t = Substitution.apply env.substitution t in
   let context = Context.add_var x ([], t) env.context in
+  (), {env with context}
+
+let locally_add_var x t m =
+  locally (add_var x t >>= fun () -> m) >>= fun (r, _) -> return r
+
+let add_let x s env =
+  let context = Context.add_let x s env.context in
   (), {env with context}
 
 let lookup_var k env =

@@ -48,7 +48,6 @@ let reserved = [
   ("require", REQUIRE) ;
   ("val", VAL) ;
   ("verbosity", VERBOSITY) ;
-  ("where", WHERE) ;
   ("with", WITH) ;
   ("yield", YIELD) ;
   ("Π", PROD) ;

@@ -16,10 +16,6 @@ val return : 'a -> 'a tyenvM
 (** Monadic bind. *)
 val (>>=) : 'a tyenvM -> ('a -> 'b tyenvM) -> 'b tyenvM
 
-(** [locally m] runs the computation [m] and upon its completetion restores the context.
-    This is used to handle locally scoped variables in let bindings and match cases. *)
-val locally : 'a tyenvM -> ('a * (Name.ident * Mlty.ty) list) tyenvM
-
 (** Lookup a bound variable by its De Bruijn index and instantiate its type parameters with fresh metavariables. *)
 val lookup_var : Rsyntax.bound -> Mlty.ty tyenvM
 
@@ -52,7 +48,8 @@ val as_ref : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 (** Express the given type as a dynamic variable type. *)
 val as_dynamic : loc:Location.t -> Mlty.ty -> Mlty.ty tyenvM
 
-(** [op_cases op output m] runs [m] with the expected types of the arguments of [op] and the continuation being from the output type of [op] to [output]. *)
+(** [op_cases op output m] runs [m] with the expected types of the arguments of [op] and
+   the continuation having the appropriate type. *)
 val op_cases : Name.operation -> output:Mlty.ty -> (Mlty.ty list -> 'a tyenvM) -> 'a tyenvM
 
 (** [predefined_type x ts] creates the type [x ts] assuming the type definition for [x]
@@ -76,9 +73,16 @@ val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM
     then the call to the function should be suitable enclosed by [locally], see above. *)
 val add_let : Name.ident -> Mlty.ty_schema -> unit tyenvM
 
+(** [locally m] runs the computation [m] and upon its completetion restores the context.
+    This is used to handle locally scoped variables in let bindings and match cases. *)
+val locally : 'a tyenvM -> ('a * (Name.ident * Mlty.ty) list) tyenvM
+
+(** [locally_add_var x t m] runs the computation [m] in the context extended with the
+    variable [x] of type [t]. It removes the variable from the context after [m] is done. *)
+val locally_add_var : Name.ident -> Mlty.ty -> 'a tyenvM -> 'a tyenvM
+
 (** [add_var x t m] binds a variable with name [x] and monomorphic type [t]. NB: if the
-   scope of the variable is local then the call to the function should be suitable
-   enclosed by [locally], see above. *)
+   scope of the variable is local then you probably want [locally_add_var], or even [locally]. *)
 val add_var : Name.ident -> Mlty.ty -> unit tyenvM
 
 (** Define a new type. The type definition may refer to not-yet-defined types, relying on the caller to add them afterwards. *)

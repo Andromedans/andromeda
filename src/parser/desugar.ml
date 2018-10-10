@@ -419,20 +419,19 @@ let rec pattern ctx {Location.thing=p; loc} =
     in the given set of forbidden names. Return the set of forbidden names
     extended with the names that this pattern binds. *)
 
-let check_linear_pattern_variable ~loc forbidden x =
+let check_linear_pattern_variable ~loc ~forbidden x =
      if Name.IdentSet.mem x forbidden then
        error ~loc (NonlinearPattern x)
      else
        Name.IdentSet.add x forbidden
 
-
-let rec check_linear_tt forbidden {Location.thing=p';loc} =
+let rec check_linear_tt ?(forbidden=Name.IdentSet.empty) {Location.thing=p';loc} =
   match p' with
 
   | Input.Patt_TT_Anonymous -> forbidden
 
   | Input.Patt_TT_Var x ->
-     check_linear_pattern_variable ~loc forbidden x
+     check_linear_pattern_variable ~loc ~forbidden x
 
   | Input.Patt_TT_Interpolate _ ->
      forbidden
@@ -440,70 +439,70 @@ let rec check_linear_tt forbidden {Location.thing=p';loc} =
   | Input.Patt_TT_As (p1, p2)
   | Input.Patt_TT_IsTerm (p1, p2)
   | Input.Patt_TT_EqType (p1, p2) ->
-     let forbidden = check_linear_tt forbidden p1 in
-     check_linear_tt forbidden p2
+     let forbidden = check_linear_tt ~forbidden p1 in
+     check_linear_tt ~forbidden p2
 
   | Input.Patt_TT_Constructor (_, ps) ->
-     List.fold_left check_linear_tt forbidden ps
+     List.fold_left (fun forbidden -> check_linear_tt ~forbidden) forbidden ps
 
   | Input.Patt_TT_GenAtom p ->
-     check_linear_tt forbidden p
+     check_linear_tt ~forbidden p
 
   | Input.Patt_TT_IsType p ->
-     check_linear_tt forbidden p
+     check_linear_tt ~forbidden p
 
   | Input.Patt_TT_EqTerm (p1, p2, p3) ->
-     let forbidden = check_linear_tt forbidden p1 in
-     let forbidden = check_linear_tt forbidden p2 in
-     check_linear_tt forbidden p3
+     let forbidden = check_linear_tt ~forbidden p1 in
+     let forbidden = check_linear_tt ~forbidden p2 in
+     check_linear_tt ~forbidden p3
 
   | Input.Patt_TT_Abstraction (args, p) ->
-     let forbidden = check_linear_abstraction ~loc forbidden args in
-     check_linear_tt forbidden p
+     let forbidden = check_linear_abstraction ~loc ~forbidden args in
+     check_linear_tt ~forbidden p
 
-and check_linear_abstraction ~loc forbidden = function
+and check_linear_abstraction ~loc ~forbidden = function
   | [] -> forbidden
   | (xopt, popt) :: args ->
      let forbidden =
        match xopt with
        | None -> forbidden
-       | Some x -> check_linear_pattern_variable ~loc forbidden x
+       | Some x -> check_linear_pattern_variable ~loc ~forbidden x
      in
      let forbidden =
        match popt with
        | None -> forbidden
-       | Some p -> check_linear_tt forbidden p
+       | Some p -> check_linear_tt ~forbidden p
      in
-     check_linear_abstraction ~loc forbidden args
+     check_linear_abstraction ~loc ~forbidden args
 
 
-let rec check_linear forbidden {Location.thing=p';loc} =
+let rec check_linear ?(forbidden=Name.IdentSet.empty) {Location.thing=p';loc} =
   match p' with
 
   | Input.Patt_Anonymous -> forbidden
 
   | Input.Patt_Var x ->
-     check_linear_pattern_variable ~loc forbidden x
+     check_linear_pattern_variable ~loc ~forbidden x
 
   | Input.Patt_Interpolate _ -> forbidden
 
   | Input.Patt_As (p1, p2) ->
-     let forbidden = check_linear forbidden p1 in
-     check_linear forbidden p2
+     let forbidden = check_linear ~forbidden p1 in
+     check_linear ~forbidden p2
 
   | Input.Patt_Judgement pt ->
-     check_linear_tt forbidden pt
+     check_linear_tt ~forbidden pt
 
   | Input.Patt_Constr (_, ps)
   | Input.Patt_List ps
   | Input.Patt_Tuple ps ->
-     check_linear_list forbidden ps
+     check_linear_list ~forbidden ps
 
-and check_linear_list forbidden = function
+and check_linear_list ~forbidden = function
   | [] -> forbidden
   | p :: ps ->
-     let forbidden = check_linear forbidden p in
-     check_linear_list forbidden ps
+     let forbidden = check_linear ~forbidden p in
+     check_linear_list ~forbidden ps
 
 let rec comp ~yield ctx {Location.thing=c';loc} =
   match c' with
@@ -565,12 +564,6 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
      let ctx = Ctx.add_variable x ctx in
      let c = comp ~yield ctx c in
      locate (Dsyntax.Assume ((x, t), c)) loc
-
-  | Input.Where (c1, c2, c3) ->
-     let c1 = comp ~yield ctx c1
-     and c2 = comp ~yield ctx c2
-     and c3 = comp ~yield ctx c3 in
-     locate (Dsyntax.Where (c1, c2, c3)) loc
 
   | Input.Match (c, cases) ->
      let c = comp ~yield ctx c
@@ -893,6 +886,7 @@ and handler ~loc ctx hcs =
 
 (* Desugar a match case *)
 and match_case ~yield ctx (p, c) =
+  ignore (check_linear p) ;
   let ctx, p = pattern ctx p in
   let c = comp ~yield ctx c in
   (p, c)
@@ -905,6 +899,7 @@ and match_op_case ~yield ctx (ps, pt, c) =
          begin match pt with
          | None -> ctx, None
          | Some p ->
+            ignore (check_linear p) ;
             let ctx, p = pattern ctx p in
             ctx, Some p
          end
