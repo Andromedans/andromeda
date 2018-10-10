@@ -65,10 +65,14 @@ let ungeneralize t env =
 
 let locally m env =
   let context = env.context in
+  let x, env = m env in
+  x, {env with context}
+
+let record_vars m env =
   let local_vars = env.local_vars in
   let x, env = m {env with local_vars = []} in
   (* XXX should we apply the substition to the types of local vars that we're returning? *)
-  (x, env.local_vars), {env with context; local_vars}
+  (env.local_vars, x), {env with local_vars}
 
 let add_var x t env =
   let t = Substitution.apply env.substitution t in
@@ -76,7 +80,7 @@ let add_var x t env =
   (), {env with context}
 
 let locally_add_var x t m =
-  locally (add_var x t >>= fun () -> m) >>= fun (r, _) -> return r
+  locally (add_var x t >>= fun () -> m)
 
 let add_let x s env =
   let context = Context.add_let x s env.context in

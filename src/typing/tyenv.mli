@@ -75,7 +75,11 @@ val add_let : Name.ident -> Mlty.ty_schema -> unit tyenvM
 
 (** [locally m] runs the computation [m] and upon its completetion restores the context.
     This is used to handle locally scoped variables in let bindings and match cases. *)
-val locally : 'a tyenvM -> ('a * (Name.ident * Mlty.ty) list) tyenvM
+val locally : 'a tyenvM -> 'a tyenvM
+
+(** [record_vars m] runs the computation [m] and records what variables were added by it, with their types.
+    It then returns the list of variables so added by [m], and the original result of [m]. *)
+val record_vars : 'a tyenvM -> ((Name.ident * Mlty.ty) list * 'a) tyenvM
 
 (** [locally_add_var x t m] runs the computation [m] in the context extended with the
     variable [x] of type [t]. It removes the variable from the context after [m] is done. *)

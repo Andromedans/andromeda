@@ -413,12 +413,14 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     return (locate ~loc (Rsyntax.With (h, c)), b)
 
   | Dsyntax.Let (clauses, c) ->
-     let_clauses clauses c >>= fun (clauses, c, t) ->
-     return (locate ~loc (Rsyntax.Let (clauses, c)), t)
+     let_clauses
+       clauses (comp c) >>= fun (clauses, (c, t)) ->
+         return (locate ~loc (Rsyntax.Let (clauses, c)), t)
 
   | Dsyntax.LetRec (clauses, c) ->
-     letrec_clauses clauses c >>= fun (clauses, c, t) ->
-     return (locate ~loc (Rsyntax.LetRec (clauses, c)), t)
+     letrec_clauses
+       clauses (comp c) >>= fun (clauses, (c, t)) ->
+         return (locate ~loc (Rsyntax.LetRec (clauses, c)), t)
 
   | Dsyntax.MLAscribe (c, sch) ->
       let sch = ml_schema sch in
@@ -572,7 +574,7 @@ and match_case p t c =
       check_pattern p t >>= fun p ->
       comp c >>= fun (c, tc) ->
       return (p, c, tc)
-    end >>= fun (r, _) -> return r
+    end
 
 and check_match_case p tp c tc =
   Tyenv.locally
@@ -580,7 +582,7 @@ and check_match_case p tp c tc =
       check_pattern p tp >>= fun p ->
       check_comp c tc >>= fun c ->
       return (p, c)
-    end >>= fun (r, _) -> return r
+    end
 
 and match_cases ~loc t = function
   | [] ->
@@ -645,13 +647,13 @@ and match_op_cases op cases t_out =
              | [], _::_ | _::_, [] ->
                 assert false
            in
-           Tyenv.locally (fold_args [] ps ts) >>= fun (case, _) ->
+           Tyenv.locally (fold_args [] ps ts) >>= fun case ->
            fold_cases (case :: cases) rem
       in
       fold_cases [] cases)
 
-and let_clauses (clauses_in : Dsyntax.let_clause list) (c_body : Dsyntax.comp)
-    : (Rsyntax.let_clause list * Rsyntax.comp * Mlty.ty) Tyenv.tyenvM
+and let_clauses (clauses_in : Dsyntax.let_clause list) (m : 'a Tyenv.tyenvM)
+    : (Rsyntax.let_clause list * 'a) Tyenv.tyenvM
   =
   let rec fold_rhs cts = function
     | [] -> return (List.rev cts)
@@ -664,7 +666,7 @@ and let_clauses (clauses_in : Dsyntax.let_clause list) (c_body : Dsyntax.comp)
     | [] -> return (List.rev clauses_out)
 
     | (p, annot, c, t) :: clauses_in ->
-       check_pattern p t >>= fun p ->
+       Tyenv.record_vars (check_pattern p t) >>= fun (xts, p) ->
        begin match generalizable c with
 
        | Generalizable ->
@@ -700,11 +702,21 @@ and let_clauses (clauses_in : Dsyntax.let_clause list) (c_body : Dsyntax.comp)
        end
   in
   fold_rhs [] clauses_in >>= fun pacts ->
-  fold_lhs [] pacts
+  Tyenv.locally
+    begin
+      fold_lhs [] pacts >>= fun clauses ->
+      m >>= fun x ->
+      return (clauses, x)
+    end
 
-and letrec_clauses (fycs : Dsyntax.letrec_clause list) : Rsyntax.letrec_clause list Tyenv.tyenvM =
+and letrec_clauses (fycs : Dsyntax.letrec_clause list) (m : 'a Tyenv.tyenvM)
+    : (Rsyntax.letrec_clause list * 'a) Tyenv.tyenvM
+  =
+
   let rec bind_functions acc = function
-    | (f, (y, a), annot, c) :: rem ->
+    | [] -> return (List.rev acc)
+
+    | Dsyntax.Letrec_clause (f, (y, a), annot, c) :: rem ->
        let a =
          begin
            match a with
@@ -721,33 +733,39 @@ and letrec_clauses (fycs : Dsyntax.letrec_clause list) : Rsyntax.letrec_clause l
             let sch = ml_schema sch in
             return (sch, Some sch)
        end >>= fun (sch, schopt) ->
-       Tyenv.add_let f sch (bind_functions ((f, schopt, y, a, c, b) :: acc) rem)
-
-    | [] ->
-       let rec check_bodies acc = function
-         | [] -> return (List.rev acc)
-
-         | (f, schopt, y, a, c, b) :: rem ->
-            Tyenv.add_var y a (check_comp c b) >>= fun c ->
-            check_bodies ((f, schopt, y, a, c, b) :: acc) rem
-       in
-       check_bodies [] (List.rev acc)
+       Tyenv.add_let f sch >>= fun () ->
+         bind_functions ((f, schopt, y, a, c, b) :: acc) rem
   in
-  bind_functions [] fycs >>= fun lst ->
-  let rec fold acc = function
+
+  let rec check_bodies acc = function
+    | [] -> return (List.rev acc)
+
+    | (f, schopt, y, a, c, b) :: rem ->
+       Tyenv.locally_add_var y a (check_comp c b) >>= fun c ->
+       check_bodies ((f, schopt, y, a, c, b) :: acc) rem
+  in
+
+  let rec generalize_funs acc = function
     | [] -> return (List.rev acc)
 
     | (f, Some sch, y, a, c, b) :: rem ->
        let t = Mlty.Arrow (a, b) in
        Tyenv.generalizes_to ~loc:c.Location.loc t sch >>= fun () ->
-       fold ((f, y, sch, c) :: acc) rem
+       generalize_funs (Rsyntax.Letrec_clause (f, y, sch, c) :: acc) rem
 
     | (f, None, y, a, c, b) :: rem ->
        let t = Mlty.Arrow (a, b) in
        Tyenv.generalize t >>= fun sch ->
-       fold ((f, y, sch, c) :: acc) rem
+       generalize_funs (Rsyntax.Letrec_clause (f, y, sch, c) :: acc) rem
+
   in
-  fold [] lst
+
+  bind_functions [] fycs >>=
+  check_bodies []  >>=
+  generalize_funs [] >>= fun clauses ->
+  m >>= fun x ->
+  return (clauses, x)
+
 
 let top_handler ~loc lst =
   let rec fold cases = function
@@ -817,7 +835,7 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
      return_located ~loc (Rsyntax.TopHandle lst)
 
   | Dsyntax.TopLet clauses ->
-     let_clauses clauses >>= fun clauses ->
+     let_clauses clauses (return ()) >>= fun (clauses, ()) ->
      return_located ~loc (Rsyntax.TopLet clauses)
 
   | Dsyntax.TopLetRec xycs ->
