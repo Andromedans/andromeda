@@ -652,9 +652,10 @@ and match_op_cases op cases t_out =
       in
       fold_cases [] cases)
 
-and let_clauses (clauses_in : Dsyntax.let_clause list) (m : 'a Tyenv.tyenvM)
-    : (Rsyntax.let_clause list * 'a) Tyenv.tyenvM
-  =
+and let_clauses
+  :  'a . Dsyntax.let_clause list -> 'a Tyenv.tyenvM ->
+          (Rsyntax.let_clause list * 'a) Tyenv.tyenvM
+  = fun clauses_in m ->
   let rec fold_rhs cts = function
     | [] -> return (List.rev cts)
     | Dsyntax.Let_clause (p, annot, c) :: clauses_in ->
@@ -709,9 +710,10 @@ and let_clauses (clauses_in : Dsyntax.let_clause list) (m : 'a Tyenv.tyenvM)
       return (clauses, x)
     end
 
-and letrec_clauses (fycs : Dsyntax.letrec_clause list) (m : 'a Tyenv.tyenvM)
-    : (Rsyntax.letrec_clause list * 'a) Tyenv.tyenvM
-  =
+and letrec_clauses
+  :  'a . Dsyntax.letrec_clause list -> 'a Tyenv.tyenvM ->
+          (Rsyntax.letrec_clause list * 'a) Tyenv.tyenvM
+  = fun fycs m ->
 
   let rec bind_functions acc = function
     | [] -> return (List.rev acc)
@@ -770,23 +772,24 @@ and letrec_clauses (fycs : Dsyntax.letrec_clause list) (m : 'a Tyenv.tyenvM)
 let top_handler ~loc lst =
   let rec fold cases = function
     | [] -> return (List.rev cases)
-    | (op, (xs, y, c)) :: lst ->
+    | (op, (xs, yopt, c)) :: lst ->
       Tyenv.lookup_op op >>= fun (argts, out) ->
       let xts = List.combine xs argts in
       let rec bind = function
         | [] ->
-          let bindy m = match y with
+          let bindy m = match yopt with
             | Some y ->
-               Tyenv.predefined_type Name.Predefined.option [Mlty.IsType] >>= fun jdg_opt ->
-               Tyenv.add_var y jdg_opt m
+               Tyenv.predefined_type
+                 Name.Predefined.option [Mlty.Judgement (Mlty.NotAbstract Mlty.IsType)] >>= fun jdg_opt ->
+               Tyenv.locally_add_var y jdg_opt m
             | None -> m
           in
           bindy (check_comp c out)
         | (x, t) :: xts ->
-          Tyenv.add_var x t (bind xts)
+          Tyenv.locally_add_var x t (bind xts)
       in
       bind xts >>= fun c ->
-      fold ((op, (xs, y, c)) :: cases) lst
+      fold ((op, (xs, yopt, c)) :: cases) lst
   in
   fold [] lst
 
@@ -838,62 +841,54 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
      let_clauses clauses (return ()) >>= fun (clauses, ()) ->
      return_located ~loc (Rsyntax.TopLet clauses)
 
-  | Dsyntax.TopLetRec xycs ->
-    let env, xycs = Tyenv.at_toplevel env (let_rec_clauses xycs) in
-    let env = List.fold_left (fun env (x, _, s, _) -> Tyenv.topadd_let x s env) env xycs in
-    env, locate ~loc (Rsyntax.TopLetRec xycs)
+  | Dsyntax.TopLetRec clauses ->
+     letrec_clauses clauses (return ()) >>= fun (clauses, ()) ->
+     return_located ~loc (Rsyntax.TopLetRec clauses)
 
   | Dsyntax.TopDynamic (x, annot, c) ->
-    let env, (c, sch) =
-      Tyenv.at_toplevel env
-        (comp c >>= fun (c, t) ->
-         match annot with
-         | Dsyntax.Arg_annot_none ->
-            Tyenv.ungeneralize (Mlty.Dynamic t) >>= fun sch ->
-            return (c, sch)
-         | Dsyntax.Arg_annot_ty t' ->
-            let t' = ml_ty [] t' in
-            Tyenv.add_equation ~loc:c.Location.loc t t' >>= fun () ->
-            Tyenv.ungeneralize (Mlty.Dynamic t') >>= fun sch ->
-            return (c, sch)
-        )
-    in
-    let env = Tyenv.topadd_let x sch env in
-    env, locate ~loc (Rsyntax.TopDynamic (x, sch, c))
+     comp c >>= fun (c, t) ->
+     begin match annot with
+     | Dsyntax.Arg_annot_none ->
+        Tyenv.ungeneralize (Mlty.Dynamic t) >>= fun sch ->
+        return (c, sch)
+     | Dsyntax.Arg_annot_ty t' ->
+        let t' = ml_ty [] t' in
+        Tyenv.add_equation ~loc:c.Location.loc t t' >>= fun () ->
+        Tyenv.ungeneralize (Mlty.Dynamic t') >>= fun sch ->
+        return (c, sch)
+     end >>= fun (c, sch) ->
+     Tyenv.add_let x sch >>= fun () ->
+     return_located ~loc (Rsyntax.TopDynamic (x, sch, c))
 
   | Dsyntax.TopNow (x, c) ->
-     let env, (x, c) =
-       Tyenv.at_toplevel env (comp x >>= fun (x, tx) ->
-                              Tyenv.as_dynamic ~loc:x.Location.loc tx >>= fun tx ->
-                              check_comp c tx >>= fun c ->
-                              return (x,c))
-     in
-     env, locate ~loc (Rsyntax.TopNow (x, c))
+       comp x >>= fun (x, tx) ->
+       Tyenv.as_dynamic ~loc:x.Location.loc tx >>= fun tx ->
+       check_comp c tx >>= fun c ->
+       return_located ~loc (Rsyntax.TopNow (x, c))
 
   | Dsyntax.TopDo c ->
-    let env, (c, _) = Tyenv.at_toplevel env (comp c) in
-    env, locate ~loc (Rsyntax.TopDo c)
+     comp c >>= fun (c, _) ->
+     return_located ~loc (Rsyntax.TopDo c)
 
   | Dsyntax.TopFail c ->
-    let env, (c, _) = Tyenv.at_toplevel env (comp c) in
-    env, locate ~loc (Rsyntax.TopFail c)
+     comp c >>= fun (c, _) ->
+     return_located ~loc (Rsyntax.TopFail c)
 
   | Dsyntax.Verbosity v ->
-    env, locate ~loc (Rsyntax.Verbosity v)
+    return_located ~loc (Rsyntax.Verbosity v)
 
   | Dsyntax.Included fcs ->
-    let rec fold_files env fcs = function
-      | [] ->
-        let fcs = List.rev fcs in
-        env, fcs
+    let rec fold_files fcs = function
+      | [] -> return (List.rev fcs)
       | (f, cs) :: rem ->
-        let env, cs = List.fold_left (fun (env, cs) c ->
-            let env, c = toplevel env c in
-            (env, c :: cs))
-          (env, []) cs
-        in
-        let cs = List.rev cs in
-        fold_files env ((f, cs) :: fcs) rem
+         let rec fold cs_out = function
+           | [] -> return (List.rev cs_out)
+           | c :: cs ->
+              toplevel c >>= fun c ->
+              fold (c :: cs_out) cs
+         in
+         fold [] cs >>= fun cs ->
+         fold_files ((f, cs) :: fcs) rem
     in
-    let env, fcs = fold_files env [] fcs in
-    env, locate ~loc (Rsyntax.Included fcs)
+    fold_files [] fcs >>= fun fcs ->
+    return_located ~loc (Rsyntax.Included fcs)
