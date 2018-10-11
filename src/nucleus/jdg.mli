@@ -74,7 +74,7 @@ val form_is_term_rule : Signature.t -> Name.constructor -> premise list -> is_te
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
 
-val form_is_term_convert : Signature.t -> TT.term -> TT.eq_type -> TT.term
+val form_is_term_convert : Signature.t -> is_term -> eq_type -> is_term
 
 (** Given an equality type rule and a list of premises, match the rule against the given
    premises, make sure they fit the rule, and return the conclusion of the instance of the rule
@@ -94,7 +94,7 @@ val invert_eq_type : Signature.t -> eq_type -> stump_eq_type
 
 val invert_eq_term : Signature.t -> eq_term -> stump_eq_term
 
-val invert_abstraction : (TT.term -> ?lvl:TT.bound -> 'a -> 'a) -> 'a TT.abstraction -> 'a stump_abstraction
+val invert_abstraction : (TT.term -> ?lvl:TT.bound -> 'a -> 'a) -> 'a abstraction -> 'a stump_abstraction
 
 (** An error emitted by the nucleus *)
 type error
