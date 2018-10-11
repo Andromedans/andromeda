@@ -39,21 +39,12 @@ and comp' =
   | Ref of comp
   | Sequence of comp * comp
   | Assume of (Name.ident * comp) * comp
-  | Where of comp * comp * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
   | TT_Constructor of Name.ident * comp list
   | Apply of comp * comp
   | Abstract of Name.ident * comp option * comp
   | Yield of comp
-  | CongrAbstractTy of comp * comp * comp
-  | CongrAbstract of comp * comp * comp * comp
-  | Reflexivity_type of comp
-  | Symmetry_type of comp
-  | Transitivity_type of comp * comp
-  | Reflexivity_term of comp
-  | Symmetry_term of comp
-  | Transitivity_term of comp * comp
   | String of string
   | Occurs of comp * comp
   | Context of comp
