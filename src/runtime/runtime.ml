@@ -168,12 +168,12 @@ let top_bind m f env =
 type 'a caught =
   | CaughtJdg of Jdg.error Location.located
   | CaughtRuntime of error Location.located
-  | Value of 'a
+  | Result of 'a
 
 let catch ~loc m env =
   try
     let x, env = Lazy.force m env in
-    Value x, env
+    Result x, env
   with
     | Jdg.Error err -> CaughtJdg (Location.locate err loc), env
     | Error err -> CaughtRuntime err, env
