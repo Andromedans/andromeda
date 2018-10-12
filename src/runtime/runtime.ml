@@ -100,8 +100,6 @@ type error =
   | OptionExpected of value
   | IsTypeExpected of value
   | IsTermExpected of value
-  | IsTypeOrTermExpected of value
-  | AbstractTyExpected of Jdg.is_type
   | EqTypeExpected of value
   | EqTermExpected of value
   | ClosureExpected of value
@@ -583,13 +581,6 @@ let print_error ~penv err ppf =
 
   | IsTermExpected v ->
      Format.fprintf ppf "expected a term but got %s" (name_of v)
-
-  | IsTypeOrTermExpected v ->
-     Format.fprintf ppf "expected a term or a type but got %s" (name_of v)
-
-  | AbstractTyExpected t ->
-     Format.fprintf ppf "expected an abstracted type but got %t"
-                    (Jdg.print_is_type ~penv:penv t)
 
   | EqTypeExpected v ->
      Format.fprintf ppf "expected a type equality but got %s" (name_of v)

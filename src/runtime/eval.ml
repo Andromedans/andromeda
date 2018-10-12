@@ -3,60 +3,47 @@
 (** Notation for the monadic bind *)
 let (>>=) = Runtime.bind
 
-(** A computation filter that verifies the result is a term,
-    and fails otherwise. *)
-(* as_is_term : loc:Location.t -> Runtime.value -> Jdg.is_term Runtime.comp *)
+let return = Runtime.return
+
+let as_is_term_abstraction ~loc v =
+  Runtime.as_is_term ~loc v
+
 let as_is_term ~loc v =
   let e = Runtime.as_is_term ~loc v in
-    Runtime.return e
+  match Jdg.invert_is_term_abstraction e with
+  | Jdg.NotAbstract e -> e
+  | Jdg.Abstract _ -> Runtime.(error ~loc (IsTermExpected v))
 
-(** A computation filter that verifies the result is a type,
-    and fails otherwise. *)
-(* as_is_type : loc:Location.t -> Runtime.value -> Jdg.is_term Runtime.comp *)
-let as_is_type ~loc v =
+let as_is_type_abstraction ~loc v =
   let e = Runtime.as_is_type ~loc v in
-    Runtime.return e
+    return e
 
-let as_eq_type ~loc v =
-  let e = Runtime.as_eq_type ~loc v in
-    Runtime.return e
-
-let as_eq_term ~loc v =
-  let e = Runtime.as_eq_term ~loc v in
-    Runtime.return e
+let as_is_type ~loc v =
+  let t = Runtime.as_is_type ~loc v in
+  match Jdg.invert_is_type_abstraction t with
+  | Jdg.NotAbstract t -> t
+  | Jdg.Abstract _ -> Runtime.(error ~loc (IsTypeExpected v))
 
 let as_atom ~loc v =
   Runtime.lookup_signature >>= fun sgn ->
-  as_is_term ~loc v >>= fun j ->
+  let j = as_is_term ~loc v in
   match Jdg.invert_is_term sgn j with
-    | Jdg.Atom x -> Runtime.return x
-    | _ -> Runtime.(error ~loc (ExpectedAtom j))
+    | Jdg.TermAtom x -> return x
+    | (Jdg.TermConstructor _ | Jdg.TermConvert _) -> Runtime.(error ~loc (ExpectedAtom j))
 
 (* as_handler: loc:Location.t -> Runtime.value -> Runtime.handler Runtime.comp *)
 let as_handler ~loc v =
   let e = Runtime.as_handler ~loc v in
-  Runtime.return e
+  return e
 
 (* as_ref: loc:Location.t -> Runtime.value -> Runtime.ref Runtime.comp *)
 let as_ref ~loc v =
   let e = Runtime.as_ref ~loc v in
-  Runtime.return e
+  return e
 
 let as_dyn ~loc v =
   let e = Runtime.as_dyn ~loc v in
-  Runtime.return e
-
-(** Form a term judgement *)
-(* loc:Location.t -> Jdg.shape -> Jdg.is_term Runtime.comp *)
-let form_is_term ~loc s =
-  Runtime.lookup_signature >>= fun signature ->
-  Runtime.return (Jdg.form_is_term ~loc signature s)
-
-(** Form a type judgement *)
-(* loc:Location.t -> Jdg.shape_ty -> Jdg.is_type Runtime.comp *)
-let form_is_type ~loc s =
-  Runtime.lookup_signature >>= fun signature ->
-  Runtime.return (Jdg.form_is_type ~loc signature s)
+  return e
 
 (** Evaluate a computation -- infer mode. *)
 (*   infer : Rsyntax.comp -> Runtime.value Runtime.comp *)
@@ -72,21 +59,30 @@ let rec infer {Location.thing=c'; loc} =
        in
        Runtime.return_closure f
 
-    | Rsyntax.AML_Constructor (t, cs) ->
+    | Rsyntax.AMLConstructor (t, cs) ->
        let rec fold vs = function
          | [] ->
             let vs = List.rev vs in
-            let v = Runtime.mk_tag t vs in
-            Runtime.return v
+            return vs
          | c :: cs ->
             infer c >>= fun v ->
             fold (v :: vs) cs
        in
-       fold [] cs
+       fold [] cs >>= fun vs ->
+       let v = Runtime.mk_tag t vs in
+       return v
+
+    | Rsyntax.IsTypeConstructor (c, cs) ->
+       Runtime.lookup_signature >>= fun sgn ->
+       let (ts, _) = Jdg.lookup_constructor_somehow_XXX sgn c in
+       check_premises cs ts >>= fun premises ->
+       let e = Jdg.form_is_type_rule sgn c premises in
+       let v = Runtime.mk_is_type e in
+       return v
 
     | Rsyntax.Tuple cs ->
       let rec fold vs = function
-        | [] -> Runtime.return (Runtime.mk_tuple (List.rev vs))
+        | [] -> return (Runtime.mk_tuple (List.rev vs))
         | c :: cs -> (infer c >>= fun v -> fold (v :: vs) cs)
       in
       fold [] cs
@@ -182,10 +178,6 @@ let rec infer {Location.thing=c'; loc} =
      check c1 t >>=
      Runtime.return_is_term
 
-  | Rsyntax.Constant x ->
-    form_is_term ~loc (Jdg.Constant x) >>=
-    Runtime.return_is_term
-
   | Rsyntax.Abstract (x, None, _) ->
     Runtime.(error ~loc (UnannotatedAbstract x))
 
@@ -218,7 +210,7 @@ let rec infer {Location.thing=c'; loc} =
     end
 
   | Rsyntax.String s ->
-    Runtime.return (Runtime.mk_string s)
+    return (Runtime.mk_string s)
 
   | Rsyntax.Occurs (c1,c2) ->
     check_atom c1 >>= fun a ->
@@ -226,9 +218,9 @@ let rec infer {Location.thing=c'; loc} =
     begin match Jdg.occurs a j with
       | Some jx ->
         let j = Jdg.type_of_atom jx in
-        Runtime.return (Predefined.from_option (Some (Runtime.mk_is_type j)))
+        return (Predefined.from_option (Some (Runtime.mk_is_type j)))
       | None ->
-        Runtime.return (Predefined.from_option None)
+        return (Predefined.from_option None)
     end
 
   | Rsyntax.Context c ->
@@ -236,7 +228,7 @@ let rec infer {Location.thing=c'; loc} =
     let ctx = Jdg.contextof j in
     let xts = Jdg.Ctx.elements ctx in
     let js = List.map (fun j -> Runtime.mk_is_term (Jdg.atom_is_term ~loc j)) xts in
-    Runtime.return (Predefined.mk_list js)
+    return (Predefined.mk_list js)
 
   | Rsyntax.Natural c ->
     check_is_term c >>= fun j ->
@@ -248,9 +240,38 @@ and check_default ~loc v t_check =
   as_is_term ~loc v >>= fun je ->
   Equal.coerce ~loc je t_check >>=
     begin function
-      | Some je -> Runtime.return je
+      | Some je -> return je
       | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (je, t_check)))
   end
+
+and check_premises premises t_premises =
+
+  let rec fold ps_out ps ts =
+    match ps, ts with
+
+    | [], [] ->
+       let ps_out = List.rev ps_out in
+       return ps_out
+
+    | p :: ps, t :: ts ->
+       check_premise p t >>= fun p ->
+       fold (p :: ps_out) ps ts
+
+    | [], _::_ | _::_, [] ->
+       (** desugar made sure this cannot happen *)
+       assert false
+  in
+  fold [] premises t_premises
+
+and check_premise c t =
+  check c t >>= function
+  | Runtime.IsType t -> return (Jdg.PremiseIsType t)
+  | Runtime.IsTerm e -> return (Jdg.PremiseIsTerm e)
+  | Runtime.EqType eq -> return (Jdg.PremiseEqType eq)
+  | Runtime.EqTerm eq -> return (Jdg.PremiseEqTerm eq)
+  | (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
+    Runtime.Ref _| Runtime.Dyn _| Runtime.String _) ->
+     assert false
 
 (* Rsyntax.comp -> Jdg.is_type -> Jdg.is_term Runtime.comp *)
 and check ({Location.thing=c';loc} as c) t_check =
@@ -261,8 +282,11 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Function _
   | Rsyntax.Handler _
   | Rsyntax.Ascribe _
-  | Rsyntax.AML_Constructor _
-  | Rsyntax.TT_Constructor _
+  | Rsyntax.AMLConstructor _
+  | Rsyntax.IsTypeConstructor _
+  | Rsyntax.IsTermConstructor _
+  | Rsyntax.EqTypeConstructor _
+  | Rsyntax.EqTermConstructor _
   | Rsyntax.Tuple _
   | Rsyntax.With _
   | Rsyntax.Yield _
@@ -331,14 +355,14 @@ and check_abstract ~loc t_check x u c =
         check_is_type u >>= fun ju ->
         Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.type_of_atom a) >>=
           begin function
-            | Some equ -> Runtime.return (ju, equ)
+            | Some equ -> return (ju, equ)
             | None ->
                Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Jdg.type_of_atom a))))
           end
      | None ->
         let ju = Jdg.type_of_atom a in
         let equ = Jdg.reflexivity_ty ju in
-        Runtime.return (ju, equ)
+        return (ju, equ)
      end >>= fun (ju, equ) -> (* equ : ju == typeof a *)
      Runtime.add_free ~loc x ju (
          fun jy -> (* jy is a free variable of type ju *)
@@ -349,16 +373,16 @@ and check_abstract ~loc t_check x u c =
             form_is_term ~loc (Jdg.Abstract (jy, e)) >>= fun abstr ->
             let eq_abstr = Jdg.congr_abstract_type ~loc equ jy a (Jdg.reflexivity_ty b) in
             let abstr = Jdg.convert ~loc abstr eq_abstr in
-            Runtime.return abstr))
+            return abstr))
 
 (* sequence: loc:Location.t -> Runtime.value -> unit Runtime.comp *)
 and sequence ~loc v =
   match v with
-    | Runtime.Tuple [] -> Runtime.return ()
+    | Runtime.Tuple [] -> return ()
     | _ ->
       Runtime.lookup_penv >>= fun penv ->
       Print.warning "%t: Sequence:@ The value %t should be ()" (Location.print loc) (Runtime.print_value ~penv v);
-      Runtime.return ()
+      return ()
 
 and let_bind
   : 'a. loc:Location.t -> Rsyntax.let_clause list -> 'a Runtime.comp -> 'a Runtime.comp
@@ -438,12 +462,6 @@ and check_is_type c : Jdg.is_type Runtime.comp =
 
 and check_is_term c =
   infer c >>= as_is_term ~loc:c.Location.loc
-
-and check_eq_type c =
-  infer c >>= as_eq_type ~loc:c.Location.loc
-
-and check_eq_term c =
-  infer c >>= as_eq_term ~loc:c.Location.loc
 
 and check_atom c =
   infer c >>= as_atom ~loc:c.Location.loc

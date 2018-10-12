@@ -583,7 +583,7 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
         if k = 0 then locate (Dsyntax.TT_Constructor (x, [])) loc
         else error ~loc (ArityMismatch (x, 0, k))
      | AMLConstructor k ->
-        if k = 0 then locate (Dsyntax.AML_Constructor (x, [])) loc
+        if k = 0 then locate (Dsyntax.AMLConstructor (x, [])) loc
         else error ~loc (ArityMismatch (x, 0, k))
      | Operation k ->
         if k = 0 then locate (Dsyntax.Operation (x, [])) loc
@@ -614,11 +614,11 @@ let rec comp ~yield ctx {Location.thing=c';loc} =
 
   | Input.List cs ->
      let rec fold ~loc = function
-       | [] -> locate (Dsyntax.AML_Constructor (Name.Predefined.nil, [])) loc
+       | [] -> locate (Dsyntax.AMLConstructor (Name.Predefined.nil, [])) loc
        | c :: cs ->
           let c = comp ~yield ctx c in
           let cs = fold ~loc:(c.Location.loc) cs in
-          locate (Dsyntax.AML_Constructor (Name.Predefined.cons, [c ; cs])) loc
+          locate (Dsyntax.AMLConstructor (Name.Predefined.cons, [c ; cs])) loc
      in
      fold ~loc cs
 
@@ -861,7 +861,7 @@ and match_op_case ~yield ctx (ps, pt, c) =
 
 and aml_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in
-  locate (Dsyntax.AML_Constructor (x, cs)) loc
+  locate (Dsyntax.AMLConstructor (x, cs)) loc
 
 and tt_constructor ~loc ~yield ctx x cs =
   let cs = List.map (comp ~yield ctx) cs in

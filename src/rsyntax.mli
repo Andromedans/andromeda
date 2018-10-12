@@ -26,7 +26,7 @@ and comp' =
   | Bound of bound
   | Function of Name.ident * comp
   | Handler of handler
-  | AML_Constructor of Name.ident * comp list
+  | AMLConstructor of Name.ident * comp list
   | Tuple of comp list
   | Operation of Name.ident * comp list
   | With of comp * comp
@@ -41,7 +41,10 @@ and comp' =
   | Assume of (Name.ident * comp) * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | TT_Constructor of Name.ident * comp list
+  | IsTypeConstructor of Name.ident * comp list
+  | IsTermConstructor of Name.ident * comp list
+  | EqTypeConstructor of Name.ident * comp list
+  | EqTermConstructor of Name.ident * comp list
   | Apply of comp * comp
   | Abstract of Name.ident * comp option * comp
   | Yield of comp

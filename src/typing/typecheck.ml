@@ -21,7 +21,7 @@ let rec generalizable c =
   (* yes *)
   | Rsyntax.Bound _ | Rsyntax.Function _ | Rsyntax.Handler _| Rsyntax.String _ ->
      Generalizable
-  | Rsyntax.AML_Constructor (_, cs) | Rsyntax.Tuple cs ->
+  | Rsyntax.AMLConstructor (_, cs) | Rsyntax.Tuple cs ->
     if List.for_all (fun c -> generalizable c = Generalizable) cs
     then Generalizable
     else Ungeneralizable
@@ -38,21 +38,15 @@ let rec generalizable c =
   | Rsyntax.Update _
   | Rsyntax.Ref _
   | Rsyntax.Assume _
-  | Rsyntax.Where _
   | Rsyntax.Match _
   | Rsyntax.Ascribe _
-  | Rsyntax.TT_Constructor _
+  | Rsyntax.IsTypeConstructor _
+  | Rsyntax.IsTermConstructor _
+  | Rsyntax.EqTypeConstructor _
+  | Rsyntax.EqTermConstructor _
   | Rsyntax.Abstract _
   | Rsyntax.Yield _
   | Rsyntax.Apply _
-  | Rsyntax.CongrAbstractTy _
-  | Rsyntax.CongrAbstract _
-  | Rsyntax.Reflexivity_term _
-  | Rsyntax.Reflexivity_type _
-  | Rsyntax.Symmetry_term _
-  | Rsyntax.Symmetry_type _
-  | Rsyntax.Transitivity_term _
-  | Rsyntax.Transitivity_type _
   | Rsyntax.Occurs _
   | Rsyntax.Context _
   | Rsyntax.Natural _ -> Ungeneralizable
@@ -356,11 +350,19 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
 
   | Dsyntax.TT_Constructor (c, cs) ->
     Tyenv.lookup_tt_constructor c >>= fun (ts, out) ->
-    let rec fold cs' cs ts =
+    let rec fold cs_out cs ts =
       match cs, ts with
       | [], [] ->
-        let cs' = List.rev cs' in
-        return (locate ~loc (Rsyntax.AML_Constructor (c, cs')), Mlty.Judgement (Mlty.NotAbstract out))
+        let cs_out = List.rev cs_out in
+        let e =
+          begin match out with
+          | Mlty.IsType -> Rsyntax.IsTypeConstructor (c, cs_out)
+          | Mlty.IsTerm -> Rsyntax.IsTermConstructor (c, cs_out)
+          | Mlty.EqType -> Rsyntax.EqTypeConstructor (c, cs_out)
+          | Mlty.EqTerm -> Rsyntax.EqTermConstructor (c, cs_out)
+          end
+        in
+        return (locate ~loc e, Mlty.Judgement (Mlty.NotAbstract out))
       | c :: cs, t :: ts ->
         check_comp c (Mlty.Judgement t) >>= fun c' ->
         fold (c' :: cs') cs ts
@@ -368,13 +370,13 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     in
     fold [] cs ts
 
-  | Dsyntax.AML_Constructor (c, cs) ->
+  | Dsyntax.AMLConstructor (c, cs) ->
     Tyenv.lookup_aml_constructor c >>= fun (ts, out) ->
     let tcs = List.combine ts cs in
     let rec fold cs = function
       | [] ->
         let cs = List.rev cs in
-        return (locate ~loc (Rsyntax.AML_Constructor (c, cs)), out)
+        return (locate ~loc (Rsyntax.AMLConstructor (c, cs)), out)
       | (t, c) :: tcs ->
         check_comp c t >>= fun c ->
         fold (c :: cs) tcs

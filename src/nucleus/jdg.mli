@@ -100,7 +100,9 @@ val invert_eq_type : Signature.t -> eq_type -> stump_eq_type
 
 val invert_eq_term : Signature.t -> eq_term -> stump_eq_term
 
-val invert_abstraction : (TT.term -> ?lvl:TT.bound -> 'a -> 'a) -> 'a abstraction -> 'a stump_abstraction
+val invert_is_term_abstraction : is_term abstraction -> is_term stump_abstraction
+
+val invert_is_type_abstraction : is_type abstraction -> is_type stump_abstraction
 
 (** An error emitted by the nucleus *)
 type error

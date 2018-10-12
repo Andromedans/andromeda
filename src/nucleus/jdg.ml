@@ -480,6 +480,12 @@ let invert_abstraction inst_v = function
      Abstract (a, abstr)
   | TT.NotAbstract v -> NotAbstract v
 
+let invert_is_type_abstraction t =
+  invert_abstraction TT.instantiate_type t
+
+let invert_is_term_abstraction t =
+  invert_abstraction TT.instantiate_term t
+
 (** Substitution *)
 let substitute_type e0 {TT.atom_name=a;_} t = TT.substitute_type e0 a t
 
