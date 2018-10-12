@@ -79,7 +79,6 @@ and toplevel' =
   | DefMLType of (Name.ty * (Name.ty list * ml_tydef)) list
   | DefMLTypeRec of (Name.ty * (Name.ty list * ml_tydef)) list
   | DeclOperation of Name.operation * (ml_ty list * ml_ty)
-  | DeclConstants of Name.constant list * comp
   | DeclExternal of Name.ident * ml_schema * string
   | TopHandle of (Name.operation * top_op_case) list
   | TopLet of let_clause list

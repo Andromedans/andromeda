@@ -50,7 +50,7 @@ let equal ~loc j1 j2 =
 
 (** Compare two types *)
 let equal_ty ~loc j1 j2 =
-  match Jdg.mk_alpha_equal_ty ~loc j1 j2 with
+  match Jdg.mk_alpha_equal_type j1 j2 with
     | Some eq -> Opt.return eq
     | None ->
       Predefined.operation_equal_type ~loc j1 j2 >!=

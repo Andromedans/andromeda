@@ -1,7 +1,7 @@
 type coercible =
   | NotCoercible
-  | Convertible of Jdg.eq_type
-  | Coercible of Jdg.is_term
+  | Convertible of Jdg.eq_type Jdg.abstraction
+  | Coercible of Jdg.is_term Jdg.abstraction
 
 (************************)
 (* Built-in Definitions *)
@@ -109,7 +109,6 @@ let as_coercible ~loc = function
     NotCoercible
   | Runtime.Tag (t, [v]) when Name.eq_ident t Name.Predefined.convertible ->
     let eq = Runtime.as_eq_type ~loc v in
-    let eq = Runtime.as_unabstracted
     Convertible eq
   | Runtime.Tag (t, [v]) when Name.eq_ident t Name.Predefined.coercible_constructor ->
     let j = Runtime.as_is_term ~loc v in

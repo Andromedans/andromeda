@@ -294,10 +294,10 @@ let get_env env = Return env, env.state
 
 let top_get_env env = env, env
 
-let get_typing_signature env = env.dynamic.signature
+let get_signature env = env.dynamic.signature
 
-let lookup_typing_signature env =
-  Return (get_typing_signature env), env.state
+let lookup_signature env =
+  Return env.dynamic.signature, env.state
 
 let index_of_level k env =
   let n = List.length env.lexical.bound - k - 1 in
@@ -318,7 +318,7 @@ let add_bound0 v env = {env with lexical = { env.lexical with
 
 let add_free x jt m env =
   let jy = Jdg.fresh_atom x jt in
-  let y_val = mk_is_term (Jdg.abstract_not_abstract (Jdg.form_is_term_atom jy)) in
+  let y_val = mk_is_term (Jdg.form_abstraction (Jdg.NotAbstract (Jdg.form_is_term_atom jy))) in
   let env = add_bound0 y_val env in
   m jy env
 

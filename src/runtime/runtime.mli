@@ -212,8 +212,8 @@ val continue : loc:Location.t -> value -> value comp
 (** Get the printing environment from the monad *)
 val lookup_penv : TT.print_env comp
 
-(** Gets the current constants *)
-val lookup_typing_signature : Jdg.Signature.t comp
+(** Gets the current rules of inference. *)
+val lookup_signature : Jdg.Signature.t comp
 
 (** Bound and free variable stuff *)
 
@@ -308,7 +308,7 @@ val get_env : env comp
 (** Get the toplevel environment from the toplevel monad *)
 val top_get_env : env toplevel
 
-val get_typing_signature : env -> Jdg.Signature.t
+val get_signature : env -> Jdg.Signature.t
 
 (** For matching *)
 val get_bound : loc:Location.t -> int -> env -> value
