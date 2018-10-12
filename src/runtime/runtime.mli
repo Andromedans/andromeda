@@ -230,7 +230,7 @@ val index_of_level : Rsyntax.level -> Rsyntax.bound comp
     then it extends [ctx] to [ctx' = ctx, y : t]
     and runs [f (ctx' |- y : t)] in the environment with [x] bound to [ctx' |- y : t].
     NB: This is an effectful computation, as it increases a global counter. *)
-val add_free: loc:Location.t -> Name.ident -> Jdg.is_type -> (Jdg.is_atom -> 'a comp) -> 'a comp
+val add_free: Name.ident -> Jdg.is_type -> (Jdg.is_atom -> 'a comp) -> 'a comp
 
 (** Lookup a free variable by its de Bruijn index *)
 val lookup_bound : loc:Location.t -> int -> value comp
@@ -255,9 +255,6 @@ val top_return_closure : ('a -> 'b comp) -> ('a,'b) closure toplevel
 val top_fold : ('a -> 'b -> 'a toplevel) -> 'a -> 'b list -> 'a toplevel
 
 (** {b Monadic interface} *)
-
-(** Add a constant of a given type to the environment. *)
-val add_constant : loc:Location.t -> Name.ident -> Jdg.is_type -> unit toplevel
 
 (** Add a bound variable with the given name to the environment. *)
 val add_topbound : value -> unit toplevel

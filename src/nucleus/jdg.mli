@@ -66,25 +66,32 @@ end
 val form_is_type_rule : Signature.t -> Name.constructor -> premise list -> is_type
 
 (** Given a term rule and a list of premises, match the rule against the given
-   premises, make sure they fit the rule, and return the list of arguments that the term
-   constructor should be applied to, together with the natural type of the resulting term.
- *)
+    premises, make sure they fit the rule, and return the list of arguments that
+    the term constructor should be applied to, together with the natural type of
+    the resulting term. *)
 val form_is_term_rule : Signature.t -> Name.constructor -> premise list -> is_term
 
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
 
+(** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
+val fresh_atom : Name.ident -> is_type -> is_atom
+
 val form_is_term_convert : Signature.t -> is_term -> eq_type -> is_term
 
-(** Given an equality type rule and a list of premises, match the rule against the given
-   premises, make sure they fit the rule, and return the conclusion of the instance of the rule
-   so obtained. *)
+(** Given an equality type rule and a list of premises, match the rule against
+    the given premises, make sure they fit the rule, and return the conclusion
+    of the instance of the rule so obtained. *)
 val form_eq_type_rule : Signature.t -> Name.constructor -> premise list -> eq_type
 
 (** Given an terms equality type rule and a list of premises, match the rule
-   against the given premises, make sure they fit the rule, and return the conclusion of
-   the instance of the rule so obtained. *)
+    against the given premises, make sure they fit the rule, and return the
+    conclusion of the instance of the rule so obtained. *)
 val form_eq_term_rule : Signature.t -> Name.constructor -> premise list -> eq_term
+
+(** Consider something not abstracted as trivially abstracted *)
+val abstract_not_abstract : 'a -> 'a abstraction
+
 
 val invert_is_type : Signature.t -> is_type -> stump_is_type
 
@@ -143,6 +150,9 @@ val alpha_equal_is_term : is_term -> is_term -> bool
 
 (** Test whether types are alpha-equal. They may have different contexts. *)
 val alpha_equal_is_type : is_type -> is_type -> bool
+
+val alpha_equal_abstraction
+  : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
 
 (** If [e1 == e2 : A] then [e2 == e1 : A] *)
 val symmetry_term : eq_term -> eq_term

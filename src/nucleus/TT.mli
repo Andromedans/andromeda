@@ -142,6 +142,9 @@ val alpha_equal_term : term -> term -> bool
 (** [alpha_equal_type t1 t2] returns [true] if types [t1] and [t2] are alpha equal. *)
 val alpha_equal_type : ty -> ty -> bool
 
+val alpha_equal_abstraction
+  : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
+
 val occurs_term : bound -> term -> bool
 
 val occurs_type : bound -> ty -> bool

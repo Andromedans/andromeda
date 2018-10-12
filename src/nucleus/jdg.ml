@@ -402,6 +402,8 @@ let type_of_atom {TT.atom_type=t;_} = t
 
 let form_is_term_atom = TT.mk_atom
 
+let fresh_atom = TT.fresh_atom
+
 let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
   match e with
   | TT.TermConvert (e, asmp0, t0) ->
@@ -429,6 +431,8 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
        TT.mk_term_convert e asmp t2
      else
        error (InvalidConvert (t0, t1))
+
+let abstract_not_abstract = TT.mk_not_abstract
 
 (** Destructors *)
 
@@ -505,6 +509,9 @@ let mk_alpha_equal_term sgn e1 e2 =
   let t1 = type_of_term sgn e1
   and t2 = type_of_term sgn e2
   in
+  (* XXX if e1 and e2 are α-equal, we may apply uniqueness of typing to
+     conclude that their types are equal, so we don't have to compute t1, t2,
+     and t1 =α= t2. *)
   match TT.alpha_equal_type t1 t2 with
   | false -> error (AlphaEqualTypeMismatch (t1, t2))
   | true ->
@@ -523,6 +530,8 @@ let mk_alpha_equal_term sgn e1 e2 =
 let alpha_equal_is_term = TT.alpha_equal_term
 
 let alpha_equal_is_type = TT.alpha_equal_type
+
+let alpha_equal_abstraction = TT.alpha_equal_abstraction
 
 let symmetry_term (TT.EqTerm (asmp, e1, e2, t)) = TT.mk_eq_term asmp e2 e1 t
 

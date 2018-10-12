@@ -38,7 +38,7 @@ and lexical = {
   continuation : value continuation option;
 
   (* toplevel handlers *)
-  handle : (Name.ident * (value list * Jdg.is_type option,value) closure) list;
+  handle : (Name.ident * (value list * is_type_abstraction option,value) closure) list;
 }
 
 and state = value Store.Ref.t
@@ -66,11 +66,11 @@ and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
-  | Operation of Name.ident * value list * Jdg.is_type option * dynamic * 'a continuation
+  | Operation of Name.ident * value list * is_type_abstraction option * dynamic * 'a continuation
 
 and 'a comp = env -> 'a result * state
 
-and operation_args = { args : value list; checking : Jdg.is_type option }
+and operation_args = { args : value list; checking : is_type_abstraction option }
 
 and handler = {
   handler_val: (value,value) closure option;
@@ -316,9 +316,9 @@ let lookup_dyn dyn env =
 let add_bound0 v env = {env with lexical = { env.lexical with
                                              bound = v :: env.lexical.bound } }
 
-let add_free ~loc x jt m env =
-  let jy = Jdg.Ctx.add_fresh jt x in
-  let y_val = mk_is_term (Jdg.atom_is_term ~loc jy) in
+let add_free x jt m env =
+  let jy = Jdg.fresh_atom x jt in
+  let y_val = mk_is_term (Jdg.abstract_not_abstract (Jdg.form_is_term_atom jy)) in
   let env = add_bound0 y_val env in
   m jy env
 
@@ -694,17 +694,17 @@ let top_handle ~loc r env =
 let rec equal_value v1 v2 =
   match v1, v2 with
     | IsTerm e1, IsTerm e2 ->
-      Jdg.alpha_equal_is_term e1 e2
+      Jdg.alpha_equal_abstraction Jdg.alpha_equal_is_term e1 e2
 
     | IsType t1, IsType t2 ->
-      Jdg.alpha_equal_is_type t1 t2
+      Jdg.alpha_equal_abstraction Jdg.alpha_equal_is_type t1 t2
 
     | EqTerm eq1, EqTerm eq2 ->
-       (* XXX: should we even compare equality judgements for equlity? That will lead to comparison of contexts. *)
+       (* XXX: should we even compare equality judgements for equality? That will lead to comparison of contexts. *)
        eq1 == eq2
 
     | EqType eq1, EqType eq2 ->
-       (* XXX: should we even compare equality judgements for equlity? That will lead to comparison of contexts. *)
+       (* XXX: should we even compare equality judgements for equality? That will lead to comparison of contexts. *)
        eq1 == eq2
 
     | Tag (t1,vs1), Tag (t2,vs2) ->
