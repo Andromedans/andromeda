@@ -89,9 +89,8 @@ val form_eq_type_rule : Signature.t -> Name.constructor -> premise list -> eq_ty
     conclusion of the instance of the rule so obtained. *)
 val form_eq_term_rule : Signature.t -> Name.constructor -> premise list -> eq_term
 
-(** Consider something not abstracted as trivially abstracted *)
-val abstract_not_abstract : 'a -> 'a abstraction
-
+(** Form an abstra *)
+val form_abstraction : 'a stump_abstraction -> 'a abstraction
 
 val invert_is_type : Signature.t -> is_type -> stump_is_type
 

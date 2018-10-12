@@ -432,7 +432,9 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
      else
        error (InvalidConvert (t0, t1))
 
-let abstract_not_abstract = TT.mk_not_abstract
+let rec form_abstraction = function
+  | NotAbstract u -> TT.mk_not_abstract u
+  | Abstract (x, u) -> TT.mk_abstract (Name.ident_of_atom x.atom_name) x.atom_type (form_abstraction u)
 
 (** Destructors *)
 

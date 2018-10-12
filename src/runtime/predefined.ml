@@ -1,4 +1,3 @@
-
 type coercible =
   | NotCoercible
   | Convertible of Jdg.eq_type
@@ -13,8 +12,8 @@ let name_alpha = Name.make (Name.greek 0)
 let predefined_aml_types = let open Input in
   let unloc x = Location.locate x Location.unknown in
   let ty_alpha = unloc (ML_TyApply (name_alpha, [])) in
-  let un_ml_is_term = unloc ML_IsTerm in
-  let un_ml_eq_type = unloc ML_EqType in
+  let un_ml_is_term = unloc (ML_Judgement (ML_NotAbstract ML_IsTerm)) in
+  let un_ml_eq_type = unloc (ML_Judgement (ML_NotAbstract ML_EqType)) in
   let decl_option = DefMLType [Name.Predefined.option, ([name_alpha],
     ML_Sum [
     (Name.Predefined.none, []);
@@ -36,10 +35,10 @@ let predefined_aml_types = let open Input in
 
 let predefined_ops = let open Input in
   let unloc x = Location.locate x Location.unknown in
-  let un_ml_is_type = unloc ML_IsType in
-  let un_ml_is_term = unloc ML_IsTerm in
-  let un_ml_eq_type = unloc ML_EqType in
-  let un_ml_eq_term = unloc ML_EqTerm in
+  let un_ml_is_type = unloc (ML_Judgement (ML_NotAbstract ML_IsType)) in
+  let un_ml_is_term = unloc (ML_Judgement (ML_NotAbstract ML_IsTerm)) in
+  let un_ml_eq_type = unloc (ML_Judgement (ML_NotAbstract ML_EqType)) in
+  let un_ml_eq_term = unloc (ML_Judgement (ML_NotAbstract ML_EqTerm)) in
   let decl_equal_term = DeclOperation (Name.Predefined.equal_term, ([un_ml_is_term; un_ml_is_term], unloc (ML_TyApply (Name.Predefined.option, [un_ml_eq_term]))))
   and decl_equal_type = DeclOperation (Name.Predefined.equal_type, ([un_ml_is_type; un_ml_is_type], unloc (ML_TyApply (Name.Predefined.option, [un_ml_eq_type]))))
   and decl_as_prod = DeclOperation (Name.Predefined.as_prod, ([un_ml_is_type], unloc (ML_TyApply (Name.Predefined.option, [un_ml_eq_type]))))
@@ -54,7 +53,7 @@ let predefined_ops = let open Input in
 
 let predefined_bound = let open Input in
   let unloc x = Location.locate x Location.unknown in
-  let un_ml_is_term = unloc ML_IsTerm in
+  let un_ml_is_term = unloc (ML_Judgement (ML_NotAbstract ML_IsTerm)) in
   let hyps_annot = unloc (ML_TyApply (Name.Predefined.list, [un_ml_is_term])) in
   let decl_hyps = TopDynamic
                     (Name.Predefined.hypotheses, Arg_annot_ty hyps_annot, unloc (List [])) in
@@ -110,6 +109,7 @@ let as_coercible ~loc = function
     NotCoercible
   | Runtime.Tag (t, [v]) when Name.eq_ident t Name.Predefined.convertible ->
     let eq = Runtime.as_eq_type ~loc v in
+    let eq = Runtime.as_unabstracted
     Convertible eq
   | Runtime.Tag (t, [v]) when Name.eq_ident t Name.Predefined.coercible_constructor ->
     let j = Runtime.as_is_term ~loc v in
