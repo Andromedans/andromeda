@@ -619,7 +619,7 @@ and print_arg ~penv arg ppf =
   match arg with
   | ArgIsTerm abstr -> print_abstraction occurs_term print_term ~penv abstr ppf
   | ArgIsType abstr -> print_abstraction occurs_type print_type ~penv abstr ppf
-  | ArgEqType _ -> ()
+  | ArgEqType _ -> () (* XXX should we print something to indicate the argument is there? *)
   | ArgEqTerm _ -> ()
 
 and print_binder ~penv (x,t) ppf =

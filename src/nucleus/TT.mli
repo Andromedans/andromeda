@@ -150,7 +150,10 @@ val occurs_eq_type : bound -> eq_type -> bool
 
 val occurs_eq_term : bound -> eq_term -> bool
 
-type print_env = private
+(* XXX Printing names is a trusted activity, thus the atom printing and all
+   trusted parts of name management should probably be moved to the nucleus,
+   at which time print_env can be made abstract. *)
+type print_env =
   { forbidden : Name.ident list ;
     atoms : Name.atom_printer ; }
 

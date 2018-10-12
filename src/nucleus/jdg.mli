@@ -164,22 +164,29 @@ val congruence_type_constructor :
 val congruence_term_constructor :
   Signature.t -> Name.constructor -> congruence_premise list -> eq_term
 
-
-(** Print the judgement that something is a term. *)
 val print_is_term :
-  penv:TT.print_env -> ?max_level:Level.t -> is_term abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> is_term -> Format.formatter -> unit
 
-(** Print the judgement that something is a type. *)
 val print_is_type :
-  penv:TT.print_env -> ?max_level:Level.t -> is_type abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> is_type -> Format.formatter -> unit
 
-(** Print the judgement that terms are equal. *)
 val print_eq_term :
-  penv:TT.print_env -> ?max_level:Level.t -> eq_term abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> eq_term -> Format.formatter -> unit
 
-(** Print the judgement that types are equal. *)
 val print_eq_type :
-  penv:TT.print_env -> ?max_level:Level.t -> eq_type abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> eq_type -> Format.formatter -> unit
+
+val print_is_term_abstraction :
+  ?max_level:Level.t -> penv:TT.print_env -> is_term abstraction -> Format.formatter -> unit
+
+val print_is_type_abstraction :
+  ?max_level:Level.t -> penv:TT.print_env -> is_type abstraction -> Format.formatter -> unit
+
+val print_eq_term_abstraction :
+  ?max_level:Level.t -> penv:TT.print_env -> eq_term abstraction -> Format.formatter -> unit
+
+val print_eq_type_abstraction :
+  ?max_level:Level.t -> penv:TT.print_env -> eq_type abstraction -> Format.formatter -> unit
 
 (** Print a nucleus error *)
 val print_error : penv:TT.print_env -> error -> Format.formatter -> unit

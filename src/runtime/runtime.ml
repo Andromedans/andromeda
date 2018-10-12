@@ -43,11 +43,16 @@ and lexical = {
 
 and state = value Store.Ref.t
 
+and is_term_abstraction = Jdg.is_term Jdg.abstraction
+and is_type_abstraction = Jdg.is_type Jdg.abstraction
+and eq_term_abstraction = Jdg.eq_term Jdg.abstraction
+and eq_type_abstraction = Jdg.eq_type Jdg.abstraction
+
 and value =
-  | IsTerm of Jdg.is_term
-  | IsType of Jdg.is_type
-  | EqTerm of Jdg.eq_term
-  | EqType of Jdg.eq_type
+  | IsTerm of is_term_abstraction
+  | IsType of is_type_abstraction
+  | EqTerm of eq_term_abstraction
+  | EqType of eq_type_abstraction
   | Closure of (value, value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -317,12 +322,15 @@ let add_free ~loc x jt m env =
   let env = add_bound0 y_val env in
   m jy env
 
+(* XXX This will get fancier once we have rules and we want to add them to the signature
 let add_constant0 ~loc x t env =
   { env with dynamic = {env.dynamic with signature =
                            Jdg.Signature.add_constant x t env.dynamic.signature };
              lexical = {env.lexical with forbidden = x :: env.lexical.forbidden } }
 
 let add_constant ~loc x t env = (), add_constant0 ~loc x t env
+*)
+
 
 (* XXX rename to bind_value *)
 let add_bound v m env =
@@ -419,13 +427,13 @@ let rec as_list_opt = function
 let rec print_value ?max_level ~penv v ppf =
   match v with
 
-  | IsTerm e -> Jdg.print_is_term ~penv:penv ?max_level e ppf
+  | IsTerm e -> Jdg.print_is_term_abstraction ~penv:penv ?max_level e ppf
 
-  | IsType t -> Jdg.print_is_type ~penv:penv ?max_level t ppf
+  | IsType t -> Jdg.print_is_type_abstraction ~penv:penv ?max_level t ppf
 
-  | EqTerm eq -> Jdg.print_eq_term ~penv:penv ?max_level eq ppf
+  | EqTerm eq -> Jdg.print_eq_term_abstraction ~penv:penv ?max_level eq ppf
 
-  | EqType eq -> Jdg.print_eq_type ~penv:penv ?max_level eq ppf
+  | EqType eq -> Jdg.print_eq_type_abstraction ~penv:penv ?max_level eq ppf
 
   | Closure f -> Format.fprintf ppf "<function>"
 
@@ -760,13 +768,13 @@ struct
   let rec value v =
     match v with
 
-    | IsTerm e -> Json.tag "IsTerm" [Jdg.Json.is_term e]
+    | IsTerm e -> Json.tag "IsTerm" [Jdg.Json.abstraction Jdg.Json.is_term e]
 
-    | IsType t -> Json.tag "IsType" [Jdg.Json.is_type t]
+    | IsType t -> Json.tag "IsType" [Jdg.Json.abstraction Jdg.Json.is_type t]
 
-    | EqType eq -> Json.tag "EqType" [Jdg.Json.eq_type eq]
+    | EqType eq -> Json.tag "EqType" [Jdg.Json.abstraction Jdg.Json.eq_type eq]
 
-    | EqTerm eq -> Json.tag "EqTerm" [Jdg.Json.eq_term eq]
+    | EqTerm eq -> Json.tag "EqTerm" [Jdg.Json.abstraction Jdg.Json.eq_term eq]
 
     | Closure _ -> Json.tag "<fun>" []
 

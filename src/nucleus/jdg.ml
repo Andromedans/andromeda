@@ -613,73 +613,56 @@ let congruence_term_constructor sgn c eqs =
 
 
 
-(** Convenience functions *)
+(** Printing functions *)
 
-let print_is_term ~penv ?max_level abstr ppf =
-  (* TODO: print invisible assumptions, or maybe the entire context *)
+let print_is_term ?max_level ~penv e ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
+              "%s @[<hv>@[<hov>%t@]@;<1 -2>@]"
               (Print.char_vdash ())
-              (TT.print_abstraction
-                 TT.occurs_term
-                 (fun ?max_level ~penv e ppf ->
-                   Print.print ppf "@[<hv>@[<hov>%t@]@;<1 -2>t@]"
-                               (TT.print_term ~max_level:Level.highest ~penv e)
-                               (* XXX print the type of the term also *)
-                  )
-                 ~max_level:Level.highest
-                 ~penv
-                 abstr)
+              (TT.print_term ~max_level:Level.highest ~penv e)
+              (* XXX print the type of the term also *)
 
-let print_is_type ~penv ?max_level abstr ppf =
-  (* TODO: print invisible assumptions, or maybe the entire context *)
+let print_is_type ?max_level ~penv t ppf =
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
+              "%s @[<hv>@[<hov>%t@]@;<1 -2> type@]"
               (Print.char_vdash ())
-              (TT.print_abstraction
-                 TT.occurs_type
-                 (fun ?max_level ~penv t ppf ->
-                   Print.print ppf "@[<hv>@[<hov>%t@]@;<1 -2>: type@]"
-                               (TT.print_type ~max_level:Level.highest ~penv t)
-                 )
-                 ~max_level:Level.highest
-                 ~penv
-                 abstr)
+              (TT.print_type ~max_level:Level.highest ~penv t)
 
-let print_eq_term ~penv ?max_level abstr ppf =
-  (* TODO: print invisible assumptions, or maybe the entire context *)
+let print_eq_type ?max_level ~penv (TT.EqType (_asmp, t1, t2)) ppf =
+  (* TODO: print _asmp? *)
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
+              "%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
               (Print.char_vdash ())
-              (TT.print_abstraction
-                 TT.occurs_eq_term
-                 (fun ?max_level ~penv (TT.EqTerm (_asmp, e1, e2, t)) ppf ->
-                   Print.print ppf "@[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]@]"
-                               (TT.print_term ~penv e1)
-                               (Print.char_equal ())
-                               (TT.print_term ~penv e2)
-                               (TT.print_type ~penv t)
-                 )
-                 ~penv
-                 ~max_level:Level.highest
-                 abstr)
+              (TT.print_type ~penv t1)
+              (Print.char_equal ())
+              (TT.print_type ~penv t2)
 
-let print_eq_type ~penv ?max_level abstr ppf =
-  (* TODO: print invisible assumptions, or maybe the entire context *)
+let print_eq_term ?max_level ~penv (TT.EqTerm (_asmp, e1, e2, t)) ppf =
+  (* TODO: print _asmp? *)
   Print.print ?max_level ~at_level:Level.jdg ppf
-              "%s @[<hv>%t@]"
+              "%s @[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@ :@ @[<hov>%t@]@]"
               (Print.char_vdash ())
-              (TT.print_abstraction
-                 TT.occurs_eq_type
-                 (fun ?max_level ~penv (TT.EqType (_asmp, t1, t2)) ppf ->
-                   Print.print ppf "@[<hv>@[<hov>%t@]@ %s@ @[<hov>%t@]@]"
-                               (TT.print_type ~penv t1)
-                               (Print.char_equal ())
-                               (TT.print_type ~penv t2)
-                 )
-                 ~penv
-                 ~max_level:Level.highest
-                 abstr)
+              (TT.print_term ~penv e1)
+              (Print.char_equal ())
+              (TT.print_term ~penv e2)
+              (TT.print_type ~penv t)
+
+
+let print_is_term_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  TT.print_abstraction TT.occurs_term print_is_term ?max_level ~penv abstr ppf
+
+let print_is_type_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  TT.print_abstraction TT.occurs_type print_is_type ?max_level ~penv abstr ppf
+
+let print_eq_type_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  TT.print_abstraction TT.occurs_eq_type print_eq_type ?max_level ~penv abstr ppf
+
+let print_eq_term_abstraction ?max_level ~penv abstr ppf =
+  (* TODO: print invisible assumptions, or maybe the entire context *)
+  TT.print_abstraction TT.occurs_eq_term print_eq_term ?max_level ~penv abstr ppf
 
 let print_error ~penv err ppf =
   match err with

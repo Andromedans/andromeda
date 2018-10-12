@@ -182,19 +182,6 @@ let rec infer {Location.thing=c'; loc} =
      Runtime.add_free ~loc x t (fun _ ->
        infer c2)
 
-  | Rsyntax.Where (c1, c2, c3) ->
-    check_atom c2 >>= fun a ->
-    check_is_term c1 >>= fun je ->
-    begin match Jdg.occurs a je with
-    | None ->
-       check c3 (Jdg.type_of_atom a) >>= fun _ ->
-       Runtime.return_is_term je
-    | Some a ->
-       check c3 (Jdg.type_of_atom a) >>= fun js ->
-       let j = Jdg.substitute ~loc je a js in
-       Runtime.return_is_term j
-    end
-
   | Rsyntax.Match (c, cases) ->
      infer c >>=
      match_cases ~loc cases infer
@@ -238,54 +225,6 @@ let rec infer {Location.thing=c'; loc} =
         Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _ as h ->
         Runtime.(error ~loc (Inapplicable h))
     end
-
-  | Rsyntax.CongrAbstractTy (c1, c2, c3) ->
-    check_atom c1 >>= fun x ->
-    check_eq_type c2 >>= fun eqa ->
-    check_eq_type c3 >>= fun eqb ->
-    let eq = Jdg.congr_abstract_type ~loc eqa x x eqb in
-    Runtime.return_eq_type eq
-
-  | Rsyntax.CongrAbstract (c1, c2, c3, c4) ->
-    check_atom c1 >>= fun x ->
-    check_eq_type c2 >>= fun eqa ->
-    check_eq_type c3 >>= fun eqb ->
-    check_eq_term c4 >>= fun eqbody ->
-    let eq = Jdg.congr_abstract_term ~loc eqa x x eqb eqbody in
-    Runtime.return_eq_term eq
-
-  | Rsyntax.Reflexivity_term c ->
-     check_is_term c >>= fun je ->
-     let eq = Jdg.reflexivity je in
-     Runtime.return_eq_term eq
-
-  | Rsyntax.Symmetry_term c ->
-     check_eq_term c >>= fun jeq ->
-     let eq = Jdg.symmetry_term jeq in
-     Runtime.return_eq_term eq
-
-  | Rsyntax.Transitivity_term (c1, c2) ->
-     check_eq_term c1 >>= fun jeq1 ->
-     check_eq_term c2 >>= fun jeq2 ->
-     let eq = Jdg.transitivity_term ~loc jeq1 jeq2 in
-     Runtime.return_eq_term eq
-
-
-  | Rsyntax.Reflexivity_type c ->
-     check_is_type c >>= fun jt ->
-     let eq = Jdg.reflexivity_ty jt in
-     Runtime.return_eq_type eq
-
-  | Rsyntax.Symmetry_type c ->
-     check_eq_type c >>= fun jeq ->
-     let eq = Jdg.symmetry_type jeq in
-     Runtime.return_eq_type eq
-
-  | Rsyntax.Transitivity_type (c1, c2) ->
-     check_eq_type c1 >>= fun jeq1 ->
-     check_eq_type c2 >>= fun jeq2 ->
-     let eq = Jdg.transitivity_type ~loc jeq1 jeq2 in
-     Runtime.return_eq_type eq
 
   | Rsyntax.String s ->
     Runtime.return (Runtime.mk_string s)
