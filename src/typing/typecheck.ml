@@ -894,3 +894,5 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
     in
     fold_files [] fcs >>= fun fcs ->
     return_located ~loc (Rsyntax.Included fcs)
+
+let toplevel env c = Tyenv.run env (toplevel c)
