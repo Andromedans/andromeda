@@ -12,6 +12,8 @@ let empty = { free = AtomMap.empty; bound = BoundSet.empty }
 let is_empty {free;bound} =
   AtomMap.is_empty free && BoundSet.is_empty bound
 
+let unpack {free; bound} = free, bound
+
 let mem_atom x s = AtomMap.mem x s.free
 
 let mem_bound k s = BoundSet.mem k s.bound

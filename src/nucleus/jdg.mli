@@ -25,6 +25,8 @@ type premise =
 
 (** A stump is obtained when we invert a judgement. *)
 
+type assumption = is_type Assumption.t
+
 type stump_is_type =
   | TypeConstructor of Name.constructor * premise list
 
@@ -34,10 +36,10 @@ type stump_is_term =
   | TermConvert of is_term * eq_type
 
 type stump_eq_type =
-  | EqType of TT.assumption * is_type * is_type
+  | EqType of assumption * is_type * is_type
 
 type stump_eq_term =
-  | EqTerm of TT.assumption * is_term * is_term * is_type
+  | EqTerm of assumption * is_term * is_term * is_type
 
 type 'a stump_abstraction =
   | NotAbstract of 'a
@@ -104,6 +106,11 @@ val invert_is_term_abstraction : is_term abstraction -> is_term stump_abstractio
 
 val invert_is_type_abstraction : is_type abstraction -> is_type stump_abstraction
 
+val context_is_type_abstraction : is_type abstraction -> is_atom list
+val context_is_term_abstraction : is_term abstraction -> is_atom list
+val context_eq_type_abstraction : eq_type abstraction -> is_atom list
+val context_eq_term_abstraction : eq_term abstraction -> is_atom list
+
 (** An error emitted by the nucleus *)
 type error
 
@@ -115,7 +122,7 @@ val type_of_term : Signature.t -> is_term -> is_type
 (** Typeof for atoms *)
 val type_of_atom : is_atom -> is_type
 
-(** Does this atom occur in this judgement, and if so with what type? *)
+(** Does this atom occur in this judgement? *)
 val occurs_is_type_abstraction : is_atom -> is_type abstraction -> bool
 val occurs_is_term_abstraction : is_atom -> is_term abstraction -> bool
 val occurs_eq_type_abstraction : is_atom -> eq_type abstraction -> bool
@@ -169,6 +176,9 @@ val transitivity_term : eq_term -> eq_term -> eq_term
 
 (** If [A == B] and [B == C] then [A == C] *)
 val transitivity_type : eq_type -> eq_type -> eq_type
+
+(** Given [e : A], compute the natural type of [e] as [B], return [B == A] *)
+val natural_type_eq : Signature.t -> is_term -> eq_type
 
 (** Congruence rules *)
 

@@ -46,10 +46,11 @@ let as_dyn ~loc v =
   let e = Runtime.as_dyn ~loc v in
   return e
 
+let form_not_abstract j = Jdg.form_abstraction (Jdg.NotAbstract j)
+
 (** Evaluate a computation -- infer mode. *)
 (*   infer : Rsyntax.comp -> Runtime.value Runtime.comp *)
 let rec infer {Location.thing=c'; loc} =
-  let not_abstr e = Jdg.form_abstraction (Jdg.NotAbstract e) in
   match c' with
     | Rsyntax.Bound i ->
        Runtime.lookup_bound ~loc i
@@ -79,28 +80,28 @@ let rec infer {Location.thing=c'; loc} =
        infer_premises [] cs >>= fun premises ->
        Runtime.lookup_signature >>= fun sgn ->
        let e = Jdg.form_is_type_rule sgn c premises in
-       let v = Runtime.mk_is_type (not_abstr e) in
+       let v = Runtime.mk_is_type (form_not_abstract e) in
        return v
 
     | Rsyntax.IsTermConstructor (c, cs) ->
        infer_premises [] cs >>= fun premises ->
        Runtime.lookup_signature >>= fun sgn ->
        let e = Jdg.form_is_term_rule sgn c premises in
-       let v = Runtime.mk_is_term (not_abstr e) in
+       let v = Runtime.mk_is_term (form_not_abstract e) in
        return v
 
     | Rsyntax.EqTypeConstructor (c, cs) ->
        infer_premises [] cs >>= fun premises ->
        Runtime.lookup_signature >>= fun sgn ->
        let e = Jdg.form_eq_type_rule sgn c premises in
-       let v = Runtime.mk_eq_type (not_abstr e) in
+       let v = Runtime.mk_eq_type (form_not_abstract e) in
        return v
 
     | Rsyntax.EqTermConstructor (c, cs) ->
        infer_premises [] cs >>= fun premises ->
        Runtime.lookup_signature >>= fun sgn ->
        let e = Jdg.form_eq_term_rule sgn c premises in
-       let v = Runtime.mk_eq_term (not_abstr e) in
+       let v = Runtime.mk_eq_term (form_not_abstract e) in
        return v
 
     | Rsyntax.Tuple cs ->
@@ -267,17 +268,17 @@ let rec infer {Location.thing=c'; loc} =
 
 
   | Rsyntax.Context c ->
-    check_is_term c >>= fun j ->
-    let ctx = Jdg.contextof j in
-    let xts = Jdg.Ctx.elements ctx in
-    let js = List.map (fun j -> Runtime.mk_is_term (Jdg.atom_is_term ~loc j)) xts in
+    check_is_term_abstraction c >>= fun j ->
+    let xts = Jdg.context_is_term_abstraction j in
+    let js = List.map (fun j -> Runtime.mk_is_term
+                          (form_not_abstract (Jdg.form_is_term_atom j))) xts in
     return (Predefined.mk_list js)
 
   | Rsyntax.Natural c ->
     check_is_term c >>= fun j ->
     Runtime.lookup_signature >>= fun signature ->
-    let eq = Jdg.natural_eq_type ~loc signature j in
-    Runtime.return_eq_type eq
+    let eq = Jdg.natural_type_eq signature j in
+    Runtime.return_eq_type (form_not_abstract eq)
 
 (* XXX premises should really be run in checking mode!!! *)
 and infer_premises ps_out = function

@@ -8,6 +8,8 @@ val empty : 'a t
 
 val is_empty : 'a t -> bool
 
+val unpack : 'a t -> 'a Name.AtomMap.t * BoundSet.t
+
 val mem_atom : Name.atom -> 'a t -> bool
 
 val mem_bound : int -> 'a t -> bool

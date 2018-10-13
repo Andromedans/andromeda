@@ -136,6 +136,12 @@ val assumptions_arguments : argument list -> assumption
 val assumptions_abstraction :
   (?lvl:bound -> 'a -> assumption) -> ?lvl:bound -> 'a abstraction -> assumption
 
+(** Compute the list of atoms occurring in an abstraction. Similar to
+    assumptions_XYZ functions, but allows use of the assumptions as atoms.
+    May only be called on closed terms. *)
+val context_abstraction :
+  (?lvl:bound -> 'a -> assumption) -> 'a abstraction -> ty atom list
+
 (** [alpha_equal_term e1 e2] returns [true] if term [e1] and [e2] are alpha equal. *)
 val alpha_equal_term : term -> term -> bool
 

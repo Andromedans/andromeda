@@ -542,8 +542,8 @@ let print_error ~penv err ppf =
 
   | TypeMismatchCheckingMode (v, t) ->
       Format.fprintf ppf "The term@,   @[<hov>%t@]@ is expected by its surroundings to have type@,   @[<hov>%t@]"
-                    (Jdg.print_is_term ~penv:penv v)
-                    (Jdg.print_is_type ~penv:penv t)
+                    (Jdg.print_is_term_abstraction ~penv:penv v)
+                    (Jdg.print_is_type_abstraction ~penv:penv t)
 
   | EqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
