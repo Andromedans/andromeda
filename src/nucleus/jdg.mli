@@ -29,7 +29,7 @@ type stump_is_type =
   | TypeConstructor of Name.constructor * premise list
 
 type stump_is_term =
-  | TermAtom of is_type TT.atom
+  | TermAtom of is_atom
   | TermConstructor of Name.constructor * premise list
   | TermConvert of is_term * eq_type
 
@@ -116,7 +116,10 @@ val type_of_term : Signature.t -> is_term -> is_type
 val type_of_atom : is_atom -> is_type
 
 (** Does this atom occur in this judgement, and if so with what type? *)
-(* XXX val occurs : is_atom -> is_term -> is_atom option *)
+val occurs_is_type_abstraction : is_atom -> is_type abstraction -> bool
+val occurs_is_term_abstraction : is_atom -> is_term abstraction -> bool
+val occurs_eq_type_abstraction : is_atom -> eq_type abstraction -> bool
+val occurs_eq_term_abstraction : is_atom -> eq_term abstraction -> bool
 
 (** Substitution *)
 

@@ -486,6 +486,15 @@ let invert_is_type_abstraction t =
 let invert_is_term_abstraction t =
   invert_abstraction TT.instantiate_term t
 
+let occurs_abstraction assumptions_u a abstr =
+  let asmp = TT.(assumptions_abstraction assumptions_u abstr) in
+  Assumption.mem_atom a.TT.atom_name asmp
+
+let occurs_is_type_abstraction = occurs_abstraction TT.assumptions_type
+let occurs_is_term_abstraction = occurs_abstraction TT.assumptions_term
+let occurs_eq_type_abstraction = occurs_abstraction TT.assumptions_eq_type
+let occurs_eq_term_abstraction = occurs_abstraction TT.assumptions_eq_term
+
 (** Substitution *)
 let substitute_type e0 {TT.atom_name=a;_} t = TT.substitute_type e0 a t
 

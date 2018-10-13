@@ -5,8 +5,7 @@ let (>>=) = Runtime.bind
 
 let return = Runtime.return
 
-let as_is_term_abstraction ~loc v =
-  Runtime.as_is_term ~loc v
+let as_is_term_abstraction = Runtime.as_is_term
 
 let as_is_term ~loc v =
   let e = Runtime.as_is_term ~loc v in
@@ -14,15 +13,17 @@ let as_is_term ~loc v =
   | Jdg.NotAbstract e -> e
   | Jdg.Abstract _ -> Runtime.(error ~loc (IsTermExpected v))
 
-let as_is_type_abstraction ~loc v =
-  let e = Runtime.as_is_type ~loc v in
-    return e
+let as_is_type_abstraction = Runtime.as_is_type
 
 let as_is_type ~loc v =
   let t = Runtime.as_is_type ~loc v in
   match Jdg.invert_is_type_abstraction t with
   | Jdg.NotAbstract t -> t
   | Jdg.Abstract _ -> Runtime.(error ~loc (IsTypeExpected v))
+
+let as_eq_type_abstraction = Runtime.as_eq_type
+
+let as_eq_term_abstraction = Runtime.as_eq_term
 
 let as_atom ~loc v =
   Runtime.lookup_signature >>= fun sgn ->
@@ -48,6 +49,7 @@ let as_dyn ~loc v =
 (** Evaluate a computation -- infer mode. *)
 (*   infer : Rsyntax.comp -> Runtime.value Runtime.comp *)
 let rec infer {Location.thing=c'; loc} =
+  let not_abstr e = Jdg.form_abstraction (Jdg.NotAbstract e) in
   match c' with
     | Rsyntax.Bound i ->
        Runtime.lookup_bound ~loc i
@@ -73,11 +75,32 @@ let rec infer {Location.thing=c'; loc} =
        return v
 
     | Rsyntax.IsTypeConstructor (c, cs) ->
+       (* XXX premises should really be run in checking mode!!! *)
+       infer_premises [] cs >>= fun premises ->
        Runtime.lookup_signature >>= fun sgn ->
-       let (ts, _) = Jdg.lookup_constructor_somehow_XXX sgn c in
-       check_premises cs ts >>= fun premises ->
        let e = Jdg.form_is_type_rule sgn c premises in
-       let v = Runtime.mk_is_type e in
+       let v = Runtime.mk_is_type (not_abstr e) in
+       return v
+
+    | Rsyntax.IsTermConstructor (c, cs) ->
+       infer_premises [] cs >>= fun premises ->
+       Runtime.lookup_signature >>= fun sgn ->
+       let e = Jdg.form_is_term_rule sgn c premises in
+       let v = Runtime.mk_is_term (not_abstr e) in
+       return v
+
+    | Rsyntax.EqTypeConstructor (c, cs) ->
+       infer_premises [] cs >>= fun premises ->
+       Runtime.lookup_signature >>= fun sgn ->
+       let e = Jdg.form_eq_type_rule sgn c premises in
+       let v = Runtime.mk_eq_type (not_abstr e) in
+       return v
+
+    | Rsyntax.EqTermConstructor (c, cs) ->
+       infer_premises [] cs >>= fun premises ->
+       Runtime.lookup_signature >>= fun sgn ->
+       let e = Jdg.form_eq_term_rule sgn c premises in
+       let v = Runtime.mk_eq_term (not_abstr e) in
        return v
 
     | Rsyntax.Tuple cs ->
@@ -174,7 +197,7 @@ let rec infer {Location.thing=c'; loc} =
      match_cases ~loc cases infer
 
   | Rsyntax.Ascribe (c1, c2) ->
-     check_is_type c2 >>= fun t ->
+     check_is_type_abstraction c2 >>= fun t ->
      check c1 t >>=
      Runtime.return_is_term
 
@@ -185,14 +208,28 @@ let rec infer {Location.thing=c'; loc} =
      check_is_type u >>= fun ju ->
      Runtime.add_free x ju (fun jy ->
          let vy = Jdg.form_is_term_atom jy in
-         Predefined.add_abstracting vy
-      (infer c >>= function
-       | Runtime.IsTerm je -> form_is_term ~loc (Jdg.Abstract (jy, je)) >>= Runtime.return_is_term
-       | Runtime.IsType jt -> form_is_type ~loc (Jdg.AbstractTy (jy, jt)) >>= Runtime.return_is_type
-       | (Runtime.EqTerm _ | Runtime.EqType _ | Runtime.Closure _ | Runtime.Handler _ |
-          Runtime.Tag _ | Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
-          Runtime.(error ~loc (IsTypeOrTermExpected v))
-      ))
+         let vy = Jdg.form_abstraction (Jdg.NotAbstract vy) in
+         let abstract j = Jdg.form_abstraction (Jdg.Abstract (jy, j)) in
+
+         Predefined.add_abstracting
+           vy
+           begin infer c >>=
+             function
+
+             | Runtime.IsType jdg -> Runtime.return_is_type (abstract jdg)
+
+             | Runtime.IsTerm jdg -> Runtime.return_is_term (abstract jdg)
+
+             | Runtime.EqType jdg -> Runtime.return_eq_type (abstract jdg)
+
+             | Runtime.EqTerm jdg -> Runtime.return_eq_term (abstract jdg)
+
+             | (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
+                Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _ |
+                Runtime.String _) as v ->
+                Runtime.(error ~loc (JudgementExpected v))
+
+           end)
 
   | Rsyntax.Yield c ->
     infer c >>= fun v ->
@@ -212,16 +249,22 @@ let rec infer {Location.thing=c'; loc} =
   | Rsyntax.String s ->
     return (Runtime.mk_string s)
 
-  | Rsyntax.Occurs (c1,c2) ->
-    check_atom c1 >>= fun a ->
-    check_is_term c2 >>= fun j ->
-    begin match Jdg.occurs a j with
-      | Some jx ->
-        let j = Jdg.type_of_atom jx in
-        return (Predefined.from_option (Some (Runtime.mk_is_type j)))
-      | None ->
-        return (Predefined.from_option None)
-    end
+  | Rsyntax.OccursIsTypeAbstraction (c1, c2) ->
+     check_is_type_abstraction c2 >>= fun abstr ->
+     occurs Jdg.occurs_is_type_abstraction c1 abstr
+
+  | Rsyntax.OccursIsTermAbstraction (c1,c2) ->
+     check_is_term_abstraction c2 >>= fun abstr ->
+     occurs Jdg.occurs_is_term_abstraction c1 abstr
+
+  | Rsyntax.OccursEqTypeAbstraction (c1, c2) ->
+     check_eq_type_abstraction c2 >>= fun abstr ->
+     occurs Jdg.occurs_eq_type_abstraction c1 abstr
+
+  | Rsyntax.OccursEqTermAbstraction (c1, c2) ->
+     check_eq_term_abstraction c2 >>= fun abstr ->
+     occurs Jdg.occurs_eq_term_abstraction c1 abstr
+
 
   | Rsyntax.Context c ->
     check_is_term c >>= fun j ->
@@ -236,8 +279,29 @@ let rec infer {Location.thing=c'; loc} =
     let eq = Jdg.natural_eq_type ~loc signature j in
     Runtime.return_eq_type eq
 
+(* XXX premises should really be run in checking mode!!! *)
+and infer_premises ps_out = function
+  | [] -> return (List.rev ps_out)
+  | p :: ps -> infer p >>= as_premise >>= fun p ->
+     infer_premises (p :: ps_out) ps
+
+and occurs
+  : 'a . (Jdg.is_atom -> 'a Jdg.abstraction -> bool)
+    -> Rsyntax.comp
+    -> 'a Jdg.abstraction -> Runtime.value Runtime.comp
+  = fun occurs_abstr c1 abstr ->
+  check_atom c1 >>= fun a ->
+  begin match occurs_abstr a abstr with
+  | true ->
+     let t = Jdg.type_of_atom a in
+     let t = Runtime.mk_is_type (Jdg.form_abstraction (Jdg.NotAbstract t)) in
+     return (Predefined.from_option (Some t))
+  | false ->
+     return (Predefined.from_option None)
+  end
+
 and check_default ~loc v t_check =
-  as_is_term ~loc v >>= fun je ->
+  let je = as_is_term_abstraction ~loc v in
   Equal.coerce ~loc je t_check >>=
     begin function
       | Some je -> return je
@@ -258,20 +322,23 @@ and check_premises premises t_premises =
        fold (p :: ps_out) ps ts
 
     | [], _::_ | _::_, [] ->
-       (** desugar made sure this cannot happen *)
+       (* desugar made sure this cannot happen *)
        assert false
   in
   fold [] premises t_premises
 
 and check_premise c t =
-  check c t >>= function
+  check c t >>= fun e -> as_premise (Runtime.mk_is_term e)
+
+and as_premise = function
   | Runtime.IsType t -> return (Jdg.PremiseIsType t)
   | Runtime.IsTerm e -> return (Jdg.PremiseIsTerm e)
   | Runtime.EqType eq -> return (Jdg.PremiseEqType eq)
   | Runtime.EqTerm eq -> return (Jdg.PremiseEqTerm eq)
   | (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
-    Runtime.Ref _| Runtime.Dyn _| Runtime.String _) ->
+     Runtime.Ref _| Runtime.Dyn _| Runtime.String _) ->
      assert false
+
 
 (* Rsyntax.comp -> Jdg.is_type -> Jdg.is_term Runtime.comp *)
 and check ({Location.thing=c';loc} as c) t_check =
@@ -296,7 +363,10 @@ and check ({Location.thing=c';loc} as c) t_check =
   | Rsyntax.Update _
   | Rsyntax.Current _
   | Rsyntax.String _
-  | Rsyntax.Occurs _
+  | Rsyntax.OccursIsTypeAbstraction _
+  | Rsyntax.OccursIsTermAbstraction _
+  | Rsyntax.OccursEqTypeAbstraction _
+  | Rsyntax.OccursEqTermAbstraction _
   | Rsyntax.Context _
   | Rsyntax.Natural _ ->
     infer c >>= fun v ->
@@ -344,7 +414,8 @@ and check ({Location.thing=c';loc} as c) t_check =
     check_abstract ~loc t_check x u c
 
 and check_abstract ~loc t_check x u c =
-  match Jdg.invert_is_type t_check with
+  Runtime.lookup_signature >>= fun sgn ->
+  match Jdg.invert_is_type sgn t_check with
 
   | Jdg.TypeConstructor _ ->
      Runtime.(error ~loc (AbstractTyExpected t_check))
@@ -458,13 +529,25 @@ and match_op_cases ~loc op cases vs checking =
   fold cases
 
 and check_is_type c : Jdg.is_type Runtime.comp =
-  infer c >>= as_is_type ~loc:(c.Location.loc)
+  infer c >>= fun v -> return (as_is_type ~loc:c.Location.loc v)
+
+and check_is_type_abstraction c =
+  infer c >>= fun v -> return (as_is_type_abstraction ~loc:c.Location.loc v)
 
 and check_is_term c =
-  infer c >>= as_is_term ~loc:c.Location.loc
+  infer c >>= fun v -> return (as_is_term ~loc:c.Location.loc v)
+
+and check_is_term_abstraction c =
+  infer c >>= fun v -> return (as_is_term_abstraction ~loc:c.Location.loc v)
+
+and check_eq_type_abstraction c =
+  infer c >>= fun v -> return (as_eq_type_abstraction ~loc:c.Location.loc v)
+
+and check_eq_term_abstraction c =
+  infer c >>= fun v -> return (as_eq_term_abstraction ~loc:c.Location.loc v)
 
 and check_atom c =
-  infer c >>= as_atom ~loc:c.Location.loc
+  infer c >>= fun v -> (as_atom ~loc:c.Location.loc v)
 
 (** Move to toplevel monad *)
 

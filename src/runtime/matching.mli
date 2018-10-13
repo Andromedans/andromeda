@@ -7,5 +7,5 @@ val top_match_pattern : Pattern.aml -> Runtime.value -> Runtime.value list optio
 
 val match_op_pattern :
   Pattern.aml list -> Pattern.judgement option ->
-  Runtime.value list -> Jdg.is_type option ->
+  Runtime.value list -> Jdg.is_type Jdg.abstraction option ->
   Runtime.value list option Runtime.comp

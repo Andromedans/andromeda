@@ -118,7 +118,7 @@ type error =
   | UnknownConfig of string
   | Inapplicable of value
   | AnnotationMismatch of Jdg.is_type * Jdg.is_type
-  | TypeMismatchCheckingMode of Jdg.is_term * Jdg.is_type
+  | TypeMismatchCheckingMode of is_term_abstraction * is_type_abstraction
   | EqualityFail of Jdg.is_term * Jdg.is_term
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
@@ -129,10 +129,9 @@ type error =
   | OptionExpected of value
   | IsTypeExpected of value
   | IsTermExpected of value
-  | IsTypeOrTermExpected of value
-  | AbstractTyExpected of Jdg.is_type
   | EqTypeExpected of value
   | EqTermExpected of value
+  | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
   | RefExpected of value
