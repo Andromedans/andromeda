@@ -131,7 +131,7 @@ let rec check_tt_pattern ({Location.thing=p';loc} as p) t =
      check_tt_pattern p2 t >>= fun p2 ->
      return_located ~loc (Pattern.TTAs (p1, p2))
 
-  | Dsyntax.Patt_TT_Abstraction (x, p1, p2) ->
+  | Dsyntax.Patt_TT_Abstraction (xopt, p1, p2) ->
      begin match t with
 
      | Mlty.NotAbstract t ->
@@ -139,8 +139,12 @@ let rec check_tt_pattern ({Location.thing=p';loc} as p) t =
 
      | Mlty.Abstract t ->
         check_tt_pattern p1 (Mlty.NotAbstract Mlty.IsType) >>= fun p1 ->
+        begin match xopt with
+        | None -> return ()
+        | Some x -> Tyenv.add_var x (Mlty.NotAbstract Mlty.IsType)
+        end >>= fun () ->
         check_tt_pattern p2 t >>= fun p2 ->
-        return_located ~loc (Pattern.TTAbstract (x, p1, p2))
+        return_located ~loc (Pattern.TTAbstract (xopt, p1, p2))
      end
 
   (* inferring *)

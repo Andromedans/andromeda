@@ -94,6 +94,14 @@ val instantiate_term: term -> ?lvl:bound -> term -> term
 (** [instantiate_term e0 ~lvl:k t] replaces bound variable [k] (default [0]) with term [e0] in type [t]. *)
 val instantiate_type: term -> ?lvl:bound -> ty -> ty
 
+(** [instantiate_eq_type e0 ~lvl:k eq] replaces bound variable [k] (default [0])
+   with term [e0] in equation [eq]. *)
+val instantiate_eq_type : term -> ?lvl:bound -> eq_type -> eq_type
+
+(** [instantiate_eq_term e0 ~lvl:k eq] replaces bound variable [k] (default [0])
+   with term [e0] in equation [eq]. *)
+val instantiate_eq_term : term -> ?lvl:bound -> eq_term -> eq_term
+
 (** [instantiate_abstraction inst_u e0 ~lvl:k abstr] instantiates bound variable [k]
    (default [0]) with term [e0] in the given abstraction. *)
 val instantiate_abstraction :
@@ -110,11 +118,44 @@ val fully_instantiate_type : ?lvl:bound -> term list -> ty -> ty
 (** [fully_instantiate_term ~lvl:k es e] fully instantiates term [e] with the given [es]. All bound variables are eliminated. *)
 val fully_instantiate_term : ?lvl:bound -> term list -> term -> term
 
-(** [abstract_term x0 ~lvl:k e] replaces atom [x0] in term [e] with bound variable [k] (default [0]). *)
-val abstract_term : Name.atom -> ?lvl:bound -> term -> term
+(** [unabstract_type x t1 t2] instantiates bound variable [0] in [t2] with a fresh atom of type [t1].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_type : Name.ident -> ty ->  ty -> ty atom * ty
+
+(** [unabstract_term x t e] instantiates bound variable [0] in [e] with a fresh atom of type [t].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_term : Name.ident -> ty ->  term -> ty atom * term
+
+(** [unabstract_eq_type x t eq] instantiates bound variable [0] in [eq] with a fresh atom of type [t].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_eq_type : Name.ident -> ty ->  eq_type -> ty atom * eq_type
+
+(** [unabstract_eq_term x t eq] instantiates bound variable [0] in [eq] with a fresh atom of type [t].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_eq_term : Name.ident -> ty ->  eq_term -> ty atom * eq_term
+
+(** [unabstract_abstraction inst_u x t abstr] instantiates bond variable [0] in [abstr] with a fresh atom of type [t].
+    The freshly generated atom is returned, as well as the type. *)
+val unabstract_abstraction :
+  (term -> ?lvl:bound -> 'a -> 'a) -> Name.ident -> ty -> 'a abstraction -> ty atom * 'a abstraction
 
 (** [abstract_term x0 ~lvl:k t] replaces atom [x0] in type [t] with bound variable [k] (default [0]). *)
 val abstract_type : Name.atom -> ?lvl:bound -> ty -> ty
+
+(** [abstract_term x0 ~lvl:k e] replaces atom [x0] in term [e] with bound variable [k] (default [0]). *)
+val abstract_term : Name.atom -> ?lvl:bound -> term -> term
+
+(** [abstract_eq_type x0 ~lvl:k eq] replaces atom [x0] in equation [eq] with bound variable [k] (default [0]). *)
+val abstract_eq_type : Name.atom -> ?lvl:bound -> eq_type -> eq_type
+
+(** [abstract_eq_term x0 ~lvl:k eq] replaces atom [x0] in equation [eq] with bound variable [k] (default [0]). *)
+val abstract_eq_term : Name.atom -> ?lvl:bound -> eq_term -> eq_term
+
+(** [abstract_abstraaction abstract_u x0 ~lvl:k abstr] replaces atom [x0] in
+   abstraction [abstr] with bound variable [k] (default [0]). *)
+val abstract_abstraction :
+  (Name.atom -> ?lvl:bound -> 'a -> 'a) ->
+  Name.atom -> ?lvl:bound -> 'a abstraction -> 'a abstraction
 
 (** abstract followed by instantiate *)
 val substitute_term : term -> Name.atom -> term -> term

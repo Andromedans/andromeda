@@ -10,14 +10,14 @@ type judgement = judgement' located
 and judgement' =
   | TTAnonymous
   | TTVar of Name.ident    (* XXX are the idents used anywhere? *)
-(*   | TTInterpolate of bound *)
   | TTAs of judgement * judgement
   | TTConstructor of Name.constructor * argument list
   | TTGenAtom of is_term
+  | TTIsType of is_type
   | TTIsTerm of is_term * is_type
   | TTEqType of is_type * is_type
   | TTEqTerm of is_term * is_term * is_type
-  | TTAbstract of Name.ident * is_type * judgement
+  | TTAbstract of Name.ident option * is_type * judgement
 
 and is_type = judgement
 and is_term = judgement
@@ -28,7 +28,6 @@ type aml = aml' located
 and aml' =
   | Anonymous
   | Var of Name.ident
-(*   | Interpolate of bound *)
   | As of aml * aml
   | Judgement of judgement
   | AMLConstructor of Name.ident * aml list

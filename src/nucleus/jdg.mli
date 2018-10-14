@@ -89,20 +89,24 @@ val form_eq_type_rule : Signature.t -> Name.constructor -> premise list -> eq_ty
     conclusion of the instance of the rule so obtained. *)
 val form_eq_term_rule : Signature.t -> Name.constructor -> premise list -> eq_term
 
-(** Form an abstra *)
+(** Form an abstraction *)
 val form_abstraction : 'a stump_abstraction -> 'a abstraction
 
-val invert_is_type : Signature.t -> is_type -> stump_is_type
+val invert_is_type : is_type -> stump_is_type
 
 val invert_is_term : Signature.t -> is_term -> stump_is_term
 
-val invert_eq_type : Signature.t -> eq_type -> stump_eq_type
+val invert_eq_type : eq_type -> stump_eq_type
 
-val invert_eq_term : Signature.t -> eq_term -> stump_eq_term
+val invert_eq_term : eq_term -> stump_eq_term
 
 val invert_is_term_abstraction : is_term abstraction -> is_term stump_abstraction
 
 val invert_is_type_abstraction : is_type abstraction -> is_type stump_abstraction
+
+val invert_eq_type_abstraction : eq_type abstraction -> eq_type stump_abstraction
+
+val invert_eq_term_abstraction : eq_term abstraction -> eq_term stump_abstraction
 
 (** An error emitted by the nucleus *)
 type error
@@ -111,6 +115,9 @@ exception Error of error
 
 (** The type judgement of a term judgement. *)
 val type_of_term : Signature.t -> is_term -> is_type
+
+(** The type judgement of an abstracted term judgement. *)
+val type_of_term_abstraction : Signature.t -> is_term abstraction -> is_type abstraction
 
 (** Typeof for atoms *)
 val type_of_atom : is_atom -> is_type

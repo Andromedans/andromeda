@@ -301,6 +301,17 @@ let type_of_term sgn = function
   | TT.TermConvert (e, _, t) -> t
 
 
+let rec type_of_term_abstraction sgn = function
+  | TT.NotAbstract e ->
+     let t = type_of_term sgn e in
+     TT.mk_not_abstract t
+
+  | TT.Abstract (x, t, abstr) ->
+     let a, abstr = TT.unabstract_abstraction TT.instantiate_term x t abstr in
+     let t_abstr = type_of_term_abstraction sgn abstr in
+     let t_abstr = TT.abstract_abstraction TT.abstract_type a.TT.atom_name t_abstr in
+     TT.mk_abstract x t t_abstr
+
 (** [natural_type sgn e] gives the judgment that the natural type [t] of [e] is derivable.
     We maintain the invariant that no further assumptions are needed (apart from those
     already present in [e]) to derive that [e] actually has type [t]. *)
@@ -464,14 +475,14 @@ let invert_is_term sgn = function
      let eq = TT.mk_eq_type asmp t' t in
      TermConvert (e, eq)
 
-let invert_is_type _sgn = function
+let invert_is_type = function
   | TT.TypeConstructor (c, args) ->
      let premises = invert_args args in
      TypeConstructor (c, premises)
 
-let invert_eq_type _sgn (TT.EqType (asmp, t1, t2)) = EqType (asmp, t1, t2)
+let invert_eq_type (TT.EqType (asmp, t1, t2)) = EqType (asmp, t1, t2)
 
-let invert_eq_term _sgn (TT.EqTerm (asmp, e1, e2, t)) = EqTerm (asmp, e1, e2, t)
+let invert_eq_term (TT.EqTerm (asmp, e1, e2, t)) = EqTerm (asmp, e1, e2, t)
 
 let invert_abstraction inst_v = function
   | TT.Abstract (x, t, abstr) ->
@@ -483,8 +494,14 @@ let invert_abstraction inst_v = function
 let invert_is_type_abstraction t =
   invert_abstraction TT.instantiate_type t
 
-let invert_is_term_abstraction t =
-  invert_abstraction TT.instantiate_term t
+let invert_is_term_abstraction e =
+  invert_abstraction TT.instantiate_term e
+
+let invert_eq_type_abstraction eq =
+  invert_abstraction TT.instantiate_eq_type eq
+
+let invert_eq_term_abstraction eq =
+  invert_abstraction TT.instantiate_eq_term eq
 
 (** Substitution *)
 let substitute_type e0 {TT.atom_name=a;_} t = TT.substitute_type e0 a t

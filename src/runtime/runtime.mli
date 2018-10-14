@@ -129,8 +129,6 @@ type error =
   | OptionExpected of value
   | IsTypeExpected of value
   | IsTermExpected of value
-  | IsTypeOrTermExpected of value
-  | AbstractTyExpected of Jdg.is_type
   | EqTypeExpected of value
   | EqTermExpected of value
   | ClosureExpected of value

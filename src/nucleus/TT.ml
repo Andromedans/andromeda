@@ -364,6 +364,28 @@ and fully_instantiate_abstraction
      and abstr = fully_instantiate_abstraction inst_u ~lvl:(lvl+1) es abstr
      in Abstract (x, t, abstr)
 
+(** Unabstract *)
+
+let unabstract_type x t1 t2 =
+  let a = fresh_atom x t1 in
+  a, instantiate_type (mk_atom a) t2
+
+let unabstract_term x t e =
+  let a = fresh_atom x t in
+  a, instantiate_term (mk_atom a) e
+
+let unabstract_eq_type x t eq =
+  let a = fresh_atom x t in
+  a, instantiate_eq_type (mk_atom a) eq
+
+let unabstract_eq_term x t eq =
+  let a = fresh_atom x t in
+  a, instantiate_eq_term (mk_atom a) eq
+
+let unabstract_abstraction instantiate_u x t abstr =
+  let a = fresh_atom x t in
+  a, instantiate_abstraction instantiate_u (mk_atom a) abstr
+
 (** Abstract *)
 
 let rec abstract_term x ?(lvl=0) = function
@@ -430,8 +452,8 @@ and abstract_eq_term x ?(lvl=0) (EqTerm (asmp, e1, e2, t)) =
   in EqTerm (asmp, e1, e2, t)
 
 and abstract_abstraction
-  : 'a .(Name.atom -> ?lvl:int -> 'a -> 'a) ->
-        Name.atom -> ?lvl:int -> 'a abstraction -> 'a abstraction
+  : 'a . (Name.atom -> ?lvl:int -> 'a -> 'a) ->
+         Name.atom -> ?lvl:int -> 'a abstraction -> 'a abstraction
   = fun abstr_v x ?(lvl=0) ->
   function
   | NotAbstract v ->
