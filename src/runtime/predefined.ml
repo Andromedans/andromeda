@@ -1,7 +1,7 @@
 type coercible =
   | NotCoercible
-  | Convertible of Jdg.eq_type
-  | Coercible of Jdg.is_term
+  | Convertible of Jdg.eq_type_abstraction
+  | Coercible of Jdg.is_term_abstraction
 
 (************************)
 (* Built-in Definitions *)

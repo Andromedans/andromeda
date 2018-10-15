@@ -16,12 +16,19 @@ type eq_type
 (** Judgement that something is a term equality. *)
 type eq_term
 
+(** Shorthands for abstracted judgements. *)
+type is_term_abstraction = is_term abstraction
+type is_type_abstraction = is_type abstraction
+type eq_type_abstraction = eq_type abstraction
+type eq_term_abstraction = eq_term abstraction
+
+
 (** An argument to a term or type constructor *)
 type premise =
-  | PremiseIsType of is_type abstraction
-  | PremiseIsTerm of is_term abstraction
-  | PremiseEqType of eq_type abstraction
-  | PremiseEqTerm of eq_term abstraction
+  | PremiseIsType of is_type_abstraction
+  | PremiseIsTerm of is_term_abstraction
+  | PremiseEqType of eq_type_abstraction
+  | PremiseEqTerm of eq_term_abstraction
 
 (** A stump is obtained when we invert a judgement. *)
 
@@ -50,10 +57,10 @@ type 'a stump_abstraction =
    two endpoints with a path between them, except that no paths between equalities are
    needed. *)
 type congruence_premise =
-  | CongrIsType of is_type abstraction * is_type abstraction * eq_type abstraction
-  | CongrIsTerm of is_term abstraction * is_term abstraction * eq_term abstraction
-  | CongrEqType of eq_type abstraction * eq_type abstraction
-  | CongrEqTerm of eq_term abstraction * eq_term abstraction
+  | CongrIsType of is_type_abstraction * is_type_abstraction * eq_type_abstraction
+  | CongrIsTerm of is_term_abstraction * is_term_abstraction * eq_term_abstraction
+  | CongrEqType of eq_type_abstraction * eq_type_abstraction
+  | CongrEqTerm of eq_term_abstraction * eq_term_abstraction
 
 
 module Signature : sig
@@ -107,18 +114,18 @@ val invert_eq_type : eq_type -> stump_eq_type
 
 val invert_eq_term : eq_term -> stump_eq_term
 
-val invert_is_term_abstraction : is_term abstraction -> is_term stump_abstraction
+val invert_is_term_abstraction : is_term_abstraction -> is_term stump_abstraction
 
-val invert_is_type_abstraction : is_type abstraction -> is_type stump_abstraction
+val invert_is_type_abstraction : is_type_abstraction -> is_type stump_abstraction
 
-val invert_eq_type_abstraction : eq_type abstraction -> eq_type stump_abstraction
+val invert_eq_type_abstraction : eq_type_abstraction -> eq_type stump_abstraction
 
-val invert_eq_term_abstraction : eq_term abstraction -> eq_term stump_abstraction
+val invert_eq_term_abstraction : eq_term_abstraction -> eq_term stump_abstraction
 
-val context_is_type_abstraction : is_type abstraction -> is_atom list
-val context_is_term_abstraction : is_term abstraction -> is_atom list
-val context_eq_type_abstraction : eq_type abstraction -> is_atom list
-val context_eq_term_abstraction : eq_term abstraction -> is_atom list
+val context_is_type_abstraction : is_type_abstraction -> is_atom list
+val context_is_term_abstraction : is_term_abstraction -> is_atom list
+val context_eq_type_abstraction : eq_type_abstraction -> is_atom list
+val context_eq_term_abstraction : eq_term_abstraction -> is_atom list
 
 (** An error emitted by the nucleus *)
 type error
@@ -129,16 +136,16 @@ exception Error of error
 val type_of_term : Signature.t -> is_term -> is_type
 
 (** The type judgement of an abstracted term judgement. *)
-val type_of_term_abstraction : Signature.t -> is_term abstraction -> is_type abstraction
+val type_of_term_abstraction : Signature.t -> is_term_abstraction -> is_type_abstraction
 
 (** Typeof for atoms *)
 val type_of_atom : is_atom -> is_type
 
 (** Does this atom occur in this judgement? *)
-val occurs_is_type_abstraction : is_atom -> is_type abstraction -> bool
-val occurs_is_term_abstraction : is_atom -> is_term abstraction -> bool
-val occurs_eq_type_abstraction : is_atom -> eq_type abstraction -> bool
-val occurs_eq_term_abstraction : is_atom -> eq_term abstraction -> bool
+val occurs_is_type_abstraction : is_atom -> is_type_abstraction -> bool
+val occurs_is_term_abstraction : is_atom -> is_term_abstraction -> bool
+val occurs_eq_type_abstraction : is_atom -> eq_type_abstraction -> bool
+val occurs_eq_term_abstraction : is_atom -> eq_term_abstraction -> bool
 
 (** [substitute_type t a v] substitutes [v] for [a] in [t]. *)
 val substitute_type : is_term -> is_atom -> is_type -> is_type
@@ -212,16 +219,16 @@ val print_eq_type :
   ?max_level:Level.t -> penv:TT.print_env -> eq_type -> Format.formatter -> unit
 
 val print_is_term_abstraction :
-  ?max_level:Level.t -> penv:TT.print_env -> is_term abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> is_term_abstraction -> Format.formatter -> unit
 
 val print_is_type_abstraction :
-  ?max_level:Level.t -> penv:TT.print_env -> is_type abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> is_type_abstraction -> Format.formatter -> unit
 
 val print_eq_term_abstraction :
-  ?max_level:Level.t -> penv:TT.print_env -> eq_term abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> eq_term_abstraction -> Format.formatter -> unit
 
 val print_eq_type_abstraction :
-  ?max_level:Level.t -> penv:TT.print_env -> eq_type abstraction -> Format.formatter -> unit
+  ?max_level:Level.t -> penv:TT.print_env -> eq_type_abstraction -> Format.formatter -> unit
 
 (** Print a nucleus error *)
 val print_error : penv:TT.print_env -> error -> Format.formatter -> unit

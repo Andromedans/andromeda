@@ -140,7 +140,7 @@ let rec check_tt_pattern ({Location.thing=p';loc} as p) t =
         check_tt_pattern p1 (Mlty.NotAbstract Mlty.IsType) >>= fun p1 ->
         begin match xopt with
         | None -> return ()
-        | Some x -> Tyenv.add_var x (Mlty.NotAbstract Mlty.IsType)
+        | Some x -> Tyenv.add_var x (Mlty.Judgement (Mlty.NotAbstract Mlty.IsType))
         end >>= fun () ->
         check_tt_pattern p2 t >>= fun p2 ->
         return_located ~loc (Pattern.TTAbstract (xopt, p1, p2))

@@ -8,27 +8,21 @@ type ref
 (** An AML dynamic variable. *)
 type dyn
 
-(** In runtime, judgements are always possibly abstracted. *)
-type is_term_abstraction = Jdg.is_term Jdg.abstraction
-type is_type_abstraction = Jdg.is_type Jdg.abstraction
-type eq_term_abstraction = Jdg.eq_term Jdg.abstraction
-type eq_type_abstraction = Jdg.eq_type Jdg.abstraction
-
 (** values are "finished" or "computed". They are inert pieces of data. *)
 type value = private
-  | IsTerm of is_term_abstraction    (** A term judgment *)
-  | IsType of is_type_abstraction    (** A type judgment *)
-  | EqTerm of eq_term_abstraction    (** A term equality *)
-  | EqType of eq_type_abstraction    (** A type equality *)
-  | Closure of (value,value) closure (** An AML function *)
-  | Handler of handler               (** Handler value *)
-  | Tag of Name.ident * value list   (** Application of a data constructor *)
-  | Tuple of value list              (** Tuple of values *)
-  | Ref of ref                       (** Ref cell *)
-  | Dyn of dyn                       (** Dynamic variable *)
-  | String of string                 (** String constant (opaque, not a list) *)
+  | IsTerm of Jdg.is_term_abstraction    (** A term judgment *)
+  | IsType of Jdg.is_type_abstraction    (** A type judgment *)
+  | EqTerm of Jdg.eq_term_abstraction    (** A term equality *)
+  | EqType of Jdg.eq_type_abstraction    (** A type equality *)
+  | Closure of (value,value) closure     (** An AML function *)
+  | Handler of handler                   (** Handler value *)
+  | Tag of Name.ident * value list       (** Application of a data constructor *)
+  | Tuple of value list                  (** Tuple of values *)
+  | Ref of ref                           (** Ref cell *)
+  | Dyn of dyn                           (** Dynamic variable *)
+  | String of string                     (** String constant (opaque, not a list) *)
 
-and operation_args = { args : value list; checking : is_type_abstraction option }
+and operation_args = { args : value list; checking : Jdg.is_type_abstraction option }
 
 (** A handler contains AML code for handling zero or more operations,
     plus the default case *)
@@ -43,16 +37,16 @@ val name_of : value -> string
 (** {b Value construction} *)
 
 (** Build an [IsTerm] value *)
-val mk_is_term : is_term_abstraction -> value
+val mk_is_term : Jdg.is_term_abstraction -> value
 
 (** Build an [IsType] value *)
-val mk_is_type : is_type_abstraction -> value
+val mk_is_type : Jdg.is_type_abstraction -> value
 
 (** Build an [EqTerm] value *)
-val mk_eq_term : eq_term_abstraction -> value
+val mk_eq_term : Jdg.eq_term_abstraction -> value
 
 (** Build an [EqType] value *)
-val mk_eq_type : eq_type_abstraction -> value
+val mk_eq_type : Jdg.eq_type_abstraction -> value
 
 (** Build a [Handler] value *)
 val mk_handler : handler -> value
@@ -80,6 +74,18 @@ val as_eq_term : loc:Location.t -> value -> Jdg.eq_term
 
 (** Convert, or fail with [EqTypeExpected] *)
 val as_eq_type : loc:Location.t -> value -> Jdg.eq_type
+
+(** Convert, or fail with [IsTermAbstractionExpected] *)
+val as_is_term_abstraction : loc:Location.t -> value -> Jdg.is_term_abstraction
+
+(** Convert, or fail with [IsTypeAbstractionExpected] *)
+val as_is_type_abstraction : loc:Location.t -> value -> Jdg.is_type_abstraction
+
+(** Convert, or fail with [EqTermAbstractionExpected] *)
+val as_eq_term_abstraction : loc:Location.t -> value -> Jdg.eq_term_abstraction
+
+(** Convert, or fail with [EqTypeAbstractionExpected] *)
+val as_eq_type_abstraction : loc:Location.t -> value -> Jdg.eq_type_abstraction
 
 (** Convert, or fail with [ClosureExpected] *)
 val as_closure : loc:Location.t -> value -> (value,value) closure
@@ -118,7 +124,7 @@ type error =
   | UnknownConfig of string
   | Inapplicable of value
   | AnnotationMismatch of Jdg.is_type * Jdg.is_type
-  | TypeMismatchCheckingMode of is_term_abstraction * is_type_abstraction
+  | TypeMismatchCheckingMode of Jdg.is_term_abstraction * Jdg.is_type_abstraction
   | EqualityFail of Jdg.is_term * Jdg.is_term
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
@@ -131,6 +137,10 @@ type error =
   | IsTermExpected of value
   | EqTypeExpected of value
   | EqTermExpected of value
+  | IsTypeAbstractionExpected of value
+  | IsTermAbstractionExpected of value
+  | EqTypeAbstractionExpected of value
+  | EqTermAbstractionExpected of value
   | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
@@ -169,10 +179,10 @@ val return : 'a -> 'a comp
 
 val return_unit : value comp
 
-val return_is_term : is_term_abstraction -> value comp
-val return_is_type : is_type_abstraction -> value comp
-val return_eq_term : eq_term_abstraction -> value comp
-val return_eq_type : eq_type_abstraction -> value comp
+val return_is_term : Jdg.is_term_abstraction -> value comp
+val return_is_type : Jdg.is_type_abstraction -> value comp
+val return_eq_term : Jdg.eq_term_abstraction -> value comp
+val return_eq_type : Jdg.eq_type_abstraction -> value comp
 
 val return_closure : (value -> value comp) -> value comp
 val return_handler :
@@ -197,7 +207,7 @@ val lookup_ref : ref -> value comp
 val update_ref : ref -> value -> unit comp
 
 (** A computation that invokes the specified operation. *)
-val operation : Name.operation -> ?checking:is_type_abstraction -> value list -> value comp
+val operation : Name.operation -> ?checking:Jdg.is_type_abstraction -> value list -> value comp
 
 (** Wrap the given computation with a handler. *)
 val handle_comp : handler -> value comp -> value comp
@@ -265,7 +275,7 @@ val add_topbound_rec : (value -> value comp) list -> unit toplevel
 val add_dynamic : loc:Location.t -> Name.ident -> value -> unit toplevel
 
 (** Add a top-level handler case to the environment. *)
-val add_handle : Name.ident -> (value list * is_type_abstraction option, value) closure
+val add_handle : Name.ident -> (value list * Jdg.is_type_abstraction option, value) closure
                  -> unit toplevel
 
 (** Modify the value bound by a dynamic variable *)

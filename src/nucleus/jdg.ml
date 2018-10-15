@@ -12,6 +12,11 @@ type eq_type = TT.eq_type
 
 type eq_term = TT.eq_term
 
+type is_term_abstraction = is_term abstraction
+type is_type_abstraction = is_type abstraction
+type eq_type_abstraction = eq_type abstraction
+type eq_term_abstraction = eq_term abstraction
+
 (** Stumps (defined below) are used to construct and invert judgements. The
    [form_XYZ] functions below take a stump and construct a judgement from it,
    whereas the [invert_XYZ] functions do the opposite. We can think of stumps as

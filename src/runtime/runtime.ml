@@ -38,21 +38,16 @@ and lexical = {
   continuation : value continuation option;
 
   (* toplevel handlers *)
-  handle : (Name.ident * (value list * is_type_abstraction option,value) closure) list;
+  handle : (Name.ident * (value list * Jdg.is_type_abstraction option,value) closure) list;
 }
 
 and state = value Store.Ref.t
 
-and is_term_abstraction = Jdg.is_term Jdg.abstraction
-and is_type_abstraction = Jdg.is_type Jdg.abstraction
-and eq_term_abstraction = Jdg.eq_term Jdg.abstraction
-and eq_type_abstraction = Jdg.eq_type Jdg.abstraction
-
 and value =
-  | IsTerm of is_term_abstraction
-  | IsType of is_type_abstraction
-  | EqTerm of eq_term_abstraction
-  | EqType of eq_type_abstraction
+  | IsTerm of Jdg.is_term_abstraction
+  | IsType of Jdg.is_type_abstraction
+  | EqTerm of Jdg.eq_term_abstraction
+  | EqType of Jdg.eq_type_abstraction
   | Closure of (value, value) closure
   | Handler of handler
   | Tag of Name.ident * value list
@@ -66,11 +61,11 @@ and ('a, 'b) closure = Clos of ('a -> 'b comp)
 
 and 'a result =
   | Return of 'a
-  | Operation of Name.ident * value list * is_type_abstraction option * dynamic * 'a continuation
+  | Operation of Name.ident * value list * Jdg.is_type_abstraction option * dynamic * 'a continuation
 
 and 'a comp = env -> 'a result * state
 
-and operation_args = { args : value list; checking : is_type_abstraction option }
+and operation_args = { args : value list; checking : Jdg.is_type_abstraction option }
 
 and handler = {
   handler_val: (value,value) closure option;
@@ -89,7 +84,7 @@ type error =
   | UnknownConfig of string
   | Inapplicable of value
   | AnnotationMismatch of Jdg.is_type * Jdg.is_type
-  | TypeMismatchCheckingMode of is_term_abstraction * is_type_abstraction
+  | TypeMismatchCheckingMode of Jdg.is_term_abstraction * Jdg.is_type_abstraction
   | EqualityFail of Jdg.is_term * Jdg.is_term
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
@@ -102,6 +97,10 @@ type error =
   | IsTermExpected of value
   | EqTypeExpected of value
   | EqTermExpected of value
+  | IsTypeAbstractionExpected of value
+  | IsTermAbstractionExpected of value
+  | EqTypeAbstractionExpected of value
+  | EqTermAbstractionExpected of value
   | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
@@ -228,15 +227,6 @@ let name_of v =
     | String _ -> "a string"
 
 (** Coerce values *)
-let as_is_term ~loc = function
-  | IsTerm e as v ->
-     begin match Jdg.invert_is_term_abstraction e with
-     | Jdg.NotAbstract e -> e
-     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
-     end
-  | (IsType _ | EqTerm _ | EqType _ |
-     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
-    error ~loc (IsTermExpected v)
 
 let as_is_type ~loc = function
   | IsType t as v ->
@@ -247,6 +237,16 @@ let as_is_type ~loc = function
   | (IsTerm _ | EqTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTypeExpected v)
+
+let as_is_term ~loc = function
+  | IsTerm e as v ->
+     begin match Jdg.invert_is_term_abstraction e with
+     | Jdg.NotAbstract e -> e
+     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
+     end
+  | (IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTermExpected v)
 
 let as_eq_type ~loc = function
   | EqType eq as v ->
@@ -267,6 +267,30 @@ let as_eq_term ~loc = function
   | (IsType _ | IsTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (EqTermExpected v)
+
+let as_is_type_abstraction ~loc = function
+  | IsType t -> t
+  | (IsTerm _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTypeAbstractionExpected v)
+
+let as_is_term_abstraction ~loc = function
+  | IsTerm e -> e
+  | (IsType _ | EqTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (IsTermAbstractionExpected v)
+
+let as_eq_type_abstraction ~loc = function
+  | EqType eq -> eq
+  | (IsType _ | IsTerm _ | EqTerm _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (EqTypeAbstractionExpected v)
+
+let as_eq_term_abstraction ~loc = function
+  | EqTerm eq -> eq
+  | (IsType _ | IsTerm _ | EqType _ |
+     Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
+    error ~loc (EqTermAbstractionExpected v)
 
 let as_closure ~loc = function
   | Closure f -> f
@@ -604,6 +628,19 @@ let print_error ~penv err ppf =
 
   | EqTermExpected v ->
      Format.fprintf ppf "expected a term equality but got %s" (name_of v)
+
+  | IsTypeAbstractionExpected v ->
+     Format.fprintf ppf "expected a possibly abstracted type but got %s" (name_of v)
+
+  | IsTermAbstractionExpected v ->
+     Format.fprintf ppf "expected a possibly abstracted term but got %s" (name_of v)
+
+  | EqTypeAbstractionExpected v ->
+     Format.fprintf ppf "expected a possibly abstracted type equality but got %s" (name_of v)
+
+  | EqTermAbstractionExpected v ->
+     Format.fprintf ppf "expected a possibly abstracted term equality but got %s" (name_of v)
+
 
   | JudgementExpected v ->
      Format.fprintf ppf "expected a judgement but got %s" (name_of v)
