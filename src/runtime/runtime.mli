@@ -123,7 +123,7 @@ type error =
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | AnnotationMismatch of Jdg.is_type * Jdg.is_type
+  | AnnotationMismatch of Jdg.is_type * Jdg.is_type_abstraction
   | TypeMismatchCheckingMode of Jdg.is_term_abstraction * Jdg.is_type_abstraction
   | EqualityFail of Jdg.is_term * Jdg.is_term
   | UnannotatedAbstract of Name.ident

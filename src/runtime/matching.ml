@@ -6,7 +6,7 @@ let return = Runtime.return
 
 exception Match_fail
 
-let add_var x (v : Runtime.value) xvs = (x, v) :: xvs
+let add_var x (v : Runtime.value) xvs = v :: xvs
 
 (* There is a lot of repetition in the [collect_is_XYZ] functions below,
    but this seems to be the price to pay for the discrepancy between the
@@ -284,9 +284,6 @@ and multicollect_pattern env xvs ps vs =
 let match_pattern_env p v env =
   try
     let xvs = collect_pattern env [] p v in
-    (* return in decreasing de bruijn order: ready to fold with add_bound *)
-    let xvs = List.sort (fun (k,_) (k',_) -> compare k k') xvs in
-    let xvs = List.rev_map snd xvs in
     Some xvs
   with
     Match_fail -> None

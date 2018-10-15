@@ -83,6 +83,8 @@ val form_is_term_rule : Signature.t -> Name.constructor -> premise list -> is_te
 (** Convert atom judgement to term judgement *)
 val form_is_term_atom : is_atom -> is_term
 
+val atom_name : is_atom -> Name.atom
+
 (** [fresh_atom x t] Create a fresh atom from name [x] with type [t] *)
 val fresh_atom : Name.ident -> is_type -> is_atom
 
@@ -102,9 +104,11 @@ val form_eq_term_rule : Signature.t -> Name.constructor -> premise list -> eq_te
 val form_not_abstract : 'a -> 'a abstraction
 
 (** Form an abstracted abstraction *)
-val form_abstract :
-  (Name.atom -> ?lvl:TT.bound -> 'a -> 'a) ->
-  TT.ty TT.atom -> 'a TT.abstraction -> 'a TT.abstraction
+val form_is_type_abstract : is_atom -> is_type_abstraction -> is_type_abstraction
+val form_is_term_abstract : is_atom -> is_term_abstraction -> is_term_abstraction
+val form_eq_type_abstract : is_atom -> eq_type_abstraction -> eq_type_abstraction
+val form_eq_term_abstract : is_atom -> eq_term_abstraction -> eq_term_abstraction
+
 
 val invert_is_type : is_type -> stump_is_type
 
@@ -205,6 +209,8 @@ val congruence_type_constructor :
 
 val congruence_term_constructor :
   Signature.t -> Name.constructor -> congruence_premise list -> eq_term
+
+(** Printing routines *)
 
 val print_is_term :
   ?max_level:Level.t -> penv:TT.print_env -> is_term -> Format.formatter -> unit

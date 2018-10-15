@@ -10,4 +10,4 @@ val top_match_pattern : Pattern.aml -> Runtime.value -> Runtime.value list optio
 val match_op_pattern :
   Pattern.aml list -> Pattern.is_type option ->
   Runtime.value list -> Jdg.is_type_abstraction option ->
-  (Name.ident * Runtime.value) list option Runtime.comp
+  Runtime.value list option Runtime.comp

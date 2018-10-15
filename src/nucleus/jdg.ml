@@ -285,6 +285,8 @@ and check_abstraction
   | _, _ -> failwith "TODO please reasonable error in Jdg.check_abstraction"
 
 
+let atom_name {TT.atom_name=n;_} = n
+
 (** [type_of_term sgn e] gives a type judgment [t], where [t] is the type of [e].
       Note that [t] itself gives no evidence that [e] actually has type [t].
       However, the assumptions of [e] are sufficient to show that [e] has
@@ -457,9 +459,22 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
 
 let form_not_abstract u = TT.mk_not_abstract u
 
-let form_abstract abstr_u {TT.atom_name=x; atom_type=t} abstr =
-  let abstr = TT.abstract_abstraction abstr_u x abstr in
+let form_is_type_abstract {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction TT.abstract_type x abstr in
   TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let form_is_term_abstract {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction TT.abstract_term x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let form_eq_type_abstract {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction TT.abstract_eq_type x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
+let form_eq_term_abstract {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction TT.abstract_eq_term x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
+
 
 (** Destructors *)
 
@@ -692,8 +707,6 @@ let congruence_term_constructor sgn c eqs =
   and e2 = form_is_term_rule sgn c rhs in
   let t = type_of_term sgn e1
   in TT.mk_eq_term asmp e1 e2 t
-
-
 
 (** Printing functions *)
 

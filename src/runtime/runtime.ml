@@ -83,7 +83,7 @@ type error =
   | UnknownExternal of string
   | UnknownConfig of string
   | Inapplicable of value
-  | AnnotationMismatch of Jdg.is_type * Jdg.is_type
+  | AnnotationMismatch of Jdg.is_type * Jdg.is_type_abstraction
   | TypeMismatchCheckingMode of Jdg.is_term_abstraction * Jdg.is_type_abstraction
   | EqualityFail of Jdg.is_term * Jdg.is_term
   | UnannotatedAbstract of Name.ident
@@ -578,7 +578,7 @@ let print_error ~penv err ppf =
       Format.fprintf ppf
       "@[<v>The type annotation is@,   @[<hov>%t@]@ but the surroundings imply it should be@,   @[<hov>%t@].@]"
                     (Jdg.print_is_type ~penv:penv t1)
-                    (Jdg.print_is_type ~penv:penv t2)
+                    (Jdg.print_is_type_abstraction ~penv:penv t2)
 
   | TypeMismatchCheckingMode (v, t) ->
       Format.fprintf ppf "The term@,   @[<hov>%t@]@ is expected by its surroundings to have type@,   @[<hov>%t@]"

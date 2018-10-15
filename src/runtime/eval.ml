@@ -184,24 +184,21 @@ let rec infer {Location.thing=c'; loc} =
     Runtime.(error ~loc (UnannotatedAbstract x))
 
   | Rsyntax.Abstract (x, Some u, c) ->
-     check_is_type u >>= fun ju ->
-     Runtime.add_free x ju (fun jy ->
-         let vy = Jdg.form_is_term_atom jy in
-         let vy = Jdg.form_not_abstract vy in
-         let abstract j = Jdg.form_abstract jy j in
-
+     check_is_type u >>= fun u ->
+     Runtime.add_free x u
+       (fun a ->
          Predefined.add_abstracting
-           vy
+           (Jdg.form_not_abstract (Jdg.form_is_term_atom a))
            begin infer c >>=
              function
 
-             | Runtime.IsType jdg -> Runtime.return_is_type (abstract jdg)
+             | Runtime.IsType abstr -> Runtime.return_is_type (Jdg.form_is_type_abstract a abstr)
 
-             | Runtime.IsTerm jdg -> Runtime.return_is_term (abstract jdg)
+             | Runtime.IsTerm abstr -> Runtime.return_is_term (Jdg.form_is_term_abstract a abstr)
 
-             | Runtime.EqType jdg -> Runtime.return_eq_type (abstract jdg)
+             | Runtime.EqType abstr -> Runtime.return_eq_type (Jdg.form_eq_type_abstract a abstr)
 
-             | Runtime.EqTerm jdg -> Runtime.return_eq_term (abstract jdg)
+             | Runtime.EqTerm abstr -> Runtime.return_eq_term (Jdg.form_eq_term_abstract a abstr)
 
              | (Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ |
                 Runtime.Tuple _ | Runtime.Ref _ | Runtime.Dyn _ |
@@ -280,12 +277,25 @@ and occurs
   end
 
 and check_default ~loc v t_check =
-  let e = Jdg.as_is_term_abstraction ~loc v in
-  Equal.coerce ~loc e t_check >>=
+  let abstr = Runtime.as_is_term_abstraction ~loc v in
+  begin match Jdg.invert_is_term_abstraction abstr, Jdg.invert_is_type_abstraction t_check with
+  | Jdg.NotAbstract e, Jdg.NotAbstract t ->
+     Runtime.lookup_signature >>= fun sgn ->
+     Equal.coerce ~loc sgn e t >>=
+       begin function
+       | None ->Runtime.(error ~loc (TypeMismatchCheckingMode (abstr, t_check)))
+       | Some e -> return (Runtime.mk_is_term (Jdg.form_not_abstract e))
+       end
+  | Jdg.Abstract (a, e), Jdg.Abstract (b, t) -> (??)
+  end
+(*
+
+  Equal.coerce ~loc sgn e t_check >>=
     begin function
       | Some je -> return je
       | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (e, t_check)))
   end
+*)
 
 and check_premises premises t_premises =
 
@@ -393,19 +403,18 @@ and check ({Location.thing=c';loc} as c) t_check =
     check_abstract ~loc t_check x u c
 
 and check_abstract ~loc t_check x u c =
-  Runtime.lookup_signature >>= fun sgn ->
-  match Jdg.invert_is_type sgn t_check with
+  match Jdg.invert_is_type_abstraction t_check with
 
-  | Jdg.TypeConstructor _ ->
-     Runtime.(error ~loc (AbstractTyExpected t_check))
+  | Jdg.NotAbstract _ ->
+     Runtime.(error ~loc (IsTypeAbstractionExpected t_check))
 
-  | Jdg.AbstractTy (a, b) ->
+  | Jdg.Abstract (a, t_check) ->
      begin match u with
      | Some u ->
-        check_is_type u >>= fun ju ->
-        Equal.equal_ty ~loc:(u.Location.loc) ju (Jdg.type_of_atom a) >>=
+        check_is_type u >>= fun u' ->
+        Equal.equal_type ~loc:(u.Location.loc) u' (Jdg.type_of_atom a) >>=
           begin function
-            | Some equ -> return (ju, equ)
+            | Some equ -> return (u', equ)
             | None ->
                Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Jdg.type_of_atom a))))
           end
@@ -475,14 +484,14 @@ and match_cases
       Runtime.(error ~loc (MatchFail v))
     | (p, c) :: cases ->
       Matching.match_pattern p v >>= begin function
+        | None -> fold cases
         | Some vs ->
           let rec bind = function
             | [] -> eval c
-            | v::vs ->
+            | v :: vs ->
               Runtime.add_bound v (bind vs)
           in
           bind vs
-        | None -> fold cases
       end
   in
   fold cases
@@ -508,22 +517,22 @@ and match_op_cases ~loc op cases vs checking =
   fold cases
 
 and check_is_type c : Jdg.is_type Runtime.comp =
-  infer c >>= fun v -> return (as_is_type ~loc:c.Location.loc v)
+  infer c >>= fun v -> return (Runtime.as_is_type ~loc:c.Location.loc v)
 
 and check_is_type_abstraction c =
-  infer c >>= fun v -> return (as_is_type_abstraction ~loc:c.Location.loc v)
+  infer c >>= fun v -> return (Runtime.as_is_type_abstraction ~loc:c.Location.loc v)
 
 and check_is_term c =
-  infer c >>= fun v -> return (as_is_term ~loc:c.Location.loc v)
+  infer c >>= fun v -> return (Runtime.as_is_term ~loc:c.Location.loc v)
 
 and check_is_term_abstraction c =
-  infer c >>= fun v -> return (as_is_term_abstraction ~loc:c.Location.loc v)
+  infer c >>= fun v -> return (Runtime.as_is_term_abstraction ~loc:c.Location.loc v)
 
 and check_eq_type_abstraction c =
-  infer c >>= fun v -> return (as_eq_type_abstraction ~loc:c.Location.loc v)
+  infer c >>= fun v -> return (Runtime.as_eq_type_abstraction ~loc:c.Location.loc v)
 
 and check_eq_term_abstraction c =
-  infer c >>= fun v -> return (as_eq_term_abstraction ~loc:c.Location.loc v)
+  infer c >>= fun v -> return (Runtime.as_eq_term_abstraction ~loc:c.Location.loc v)
 
 and check_atom c =
   infer c >>= fun v -> (as_atom ~loc:c.Location.loc v)
