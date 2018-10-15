@@ -29,6 +29,8 @@ let (>>=) m f env =
   let x, env = m env in
   f x env
 
+let run env m = let x, env = m env in env, x
+
 let unsolved_known unsolved =
   List.fold_left
     (fun known (AppConstraint (_, t1, t2, t3)) ->

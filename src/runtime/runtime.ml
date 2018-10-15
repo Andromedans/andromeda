@@ -89,7 +89,7 @@ type error =
   | UnknownConfig of string
   | Inapplicable of value
   | AnnotationMismatch of Jdg.is_type * Jdg.is_type
-  | TypeMismatchCheckingMode of Jdg.is_term * Jdg.is_type
+  | TypeMismatchCheckingMode of is_term_abstraction * is_type_abstraction
   | EqualityFail of Jdg.is_term * Jdg.is_term
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
@@ -102,6 +102,7 @@ type error =
   | IsTermExpected of value
   | EqTypeExpected of value
   | EqTermExpected of value
+  | JudgementExpected of value
   | ClosureExpected of value
   | HandlerExpected of value
   | RefExpected of value
@@ -557,8 +558,8 @@ let print_error ~penv err ppf =
 
   | TypeMismatchCheckingMode (v, t) ->
       Format.fprintf ppf "The term@,   @[<hov>%t@]@ is expected by its surroundings to have type@,   @[<hov>%t@]"
-                    (Jdg.print_is_term ~penv:penv v)
-                    (Jdg.print_is_type ~penv:penv t)
+                    (Jdg.print_is_term_abstraction ~penv:penv v)
+                    (Jdg.print_is_type_abstraction ~penv:penv t)
 
   | EqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
@@ -603,6 +604,9 @@ let print_error ~penv err ppf =
 
   | EqTermExpected v ->
      Format.fprintf ppf "expected a term equality but got %s" (name_of v)
+
+  | JudgementExpected v ->
+     Format.fprintf ppf "expected a judgement but got %s" (name_of v)
 
   | ClosureExpected v ->
      Format.fprintf ppf "expected a function but got %s" (name_of v)

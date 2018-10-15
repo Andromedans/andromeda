@@ -16,6 +16,8 @@ val return : 'a -> 'a tyenvM
 (** Monadic bind. *)
 val (>>=) : 'a tyenvM -> ('a -> 'b tyenvM) -> 'b tyenvM
 
+val run : t -> 'a tyenvM -> t * 'a
+
 (** Lookup a bound variable by its De Bruijn index and instantiate its type parameters with fresh metavariables. *)
 val lookup_var : Rsyntax.bound -> Mlty.ty tyenvM
 

@@ -98,6 +98,16 @@ and assumptions_abstraction
 
 let assumptions_arguments = assumptions_arguments ~lvl:0
 
+let context_u assumptions_u t =
+  let asmp = assumptions_u t in
+  let free, bound = Assumption.unpack asmp in
+  assert (Assumption.BoundSet.is_empty bound) ;
+  let free = Name.AtomMap.bindings free in
+  List.map (fun (atom_name, atom_type) -> {atom_name; atom_type}) free
+
+let context_abstraction assumptions_u =
+  context_u (assumptions_abstraction ?lvl:None assumptions_u)
+
 (* Helper functions *)
 
 let fresh_atom x t =

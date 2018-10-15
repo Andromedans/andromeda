@@ -41,15 +41,18 @@ and comp' =
   | Assume of (Name.ident * comp) * comp
   | Match of comp * match_case list
   | Ascribe of comp * comp
-  | IsTypeConstructor of Name.ident * comp list
-  | IsTermConstructor of Name.ident * comp list
-  | EqTypeConstructor of Name.ident * comp list
-  | EqTermConstructor of Name.ident * comp list
+  | IsTypeConstructor of Name.constructor * comp list
+  | IsTermConstructor of Name.constructor * comp list
+  | EqTypeConstructor of Name.constructor * comp list
+  | EqTermConstructor of Name.constructor * comp list
   | Apply of comp * comp
   | Abstract of Name.ident * comp option * comp
   | Yield of comp
   | String of string
-  | Occurs of comp * comp
+  | OccursIsTypeAbstraction of comp * comp
+  | OccursIsTermAbstraction of comp * comp
+  | OccursEqTypeAbstraction of comp * comp
+  | OccursEqTermAbstraction of comp * comp
   | Context of comp
   | Natural of comp
 

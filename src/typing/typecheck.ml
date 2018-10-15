@@ -1,3 +1,4 @@
+(** Bidirectional Hindley-Milner typechecking. *)
 
 let (>>=) = Tyenv.(>>=)
 let return = Tyenv.return
@@ -5,11 +6,6 @@ let return = Tyenv.return
 let locate ~loc v = Location.locate v loc
 
 let return_located ~loc v = return (locate ~loc v)
-
-let judgement_mismatch ~loc jdg_expected jdg_actual =
-  let t1 = Mlty.Judgement (Mlty.NotAbstract jdg_expected)
-  and t2 = Mlty.Judgement (Mlty.NotAbstract jdg_actual)
-  in Mlty.error ~loc (Mlty.TypeMismatch (t1, t2))
 
 (** Is a computation generalizable *)
 type generalizable =
@@ -47,7 +43,10 @@ let rec generalizable c =
   | Rsyntax.Abstract _
   | Rsyntax.Yield _
   | Rsyntax.Apply _
-  | Rsyntax.Occurs _
+  | Rsyntax.OccursIsTypeAbstraction _
+  | Rsyntax.OccursIsTermAbstraction _
+  | Rsyntax.OccursEqTypeAbstraction _
+  | Rsyntax.OccursEqTermAbstraction _
   | Rsyntax.Context _
   | Rsyntax.Natural _ -> Ungeneralizable
 
@@ -368,13 +367,13 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
         in
         return (locate ~loc e, Mlty.Judgement (Mlty.NotAbstract out))
       | c :: cs, t :: ts ->
-        check_comp c (Mlty.Judgement t) >>= fun c' ->
-        fold (c' :: cs') cs ts
+        check_comp c (Mlty.Judgement t) >>= fun c ->
+        fold (c :: cs_out) cs ts
       | [], _::_ | _::_, [] -> assert false
     in
     fold [] cs ts
 
-  | Dsyntax.AMLConstructor (c, cs) ->
+  | Dsyntax.AML_Constructor (c, cs) ->
     Tyenv.lookup_aml_constructor c >>= fun (ts, out) ->
     let tcs = List.combine ts cs in
     let rec fold cs = function
@@ -511,8 +510,10 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
         comp c >>= fun (c,t) ->
         begin match t with
         | Mlty.Judgement t ->
-           return (locate ~loc (Rsyntax.Abstract (x, copt, c)), Mlty.Judgement (Mlty.Abstract t))
-        | (String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _ | App _ | Ref _|Dynamic _) as t ->
+           let c = locate ~loc (Rsyntax.Abstract (x, copt, c))
+           and t = Mlty.Judgement (Mlty.Abstract t) in
+           return (c, t)
+        | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _ | Handler _ | App _ | Ref _|Dynamic _) as t ->
            Mlty.error ~loc (Mlty.JudgementExpected t)
         end
       end
@@ -534,9 +535,34 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
   | Dsyntax.Occurs (c1, c2) ->
      let t = Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) in
      check_comp c1 t >>= fun c1 ->
-     check_comp c2 t >>= fun c2 ->
-     Tyenv.predefined_type Name.Predefined.option [Mlty.Judgement (Mlty.NotAbstract Mlty.IsType)] >>= fun t ->
-     return (locate ~loc (Rsyntax.Occurs (c1, c2)), t)
+     comp c2 >>= fun (c2, t2) ->
+     begin match t2 with
+
+     | Mlty.Judgement abstr ->
+
+        Tyenv.predefined_type Name.Predefined.option
+          [Mlty.Judgement (Mlty.NotAbstract Mlty.IsType)] >>= fun t ->
+
+        let rec form = function
+          | Mlty.Abstract u -> form u
+          | Mlty.NotAbstract frm -> frm
+        in
+        begin match form abstr with
+        | Mlty.IsType ->
+           return (locate ~loc (Rsyntax.OccursIsTypeAbstraction (c1, c2)), t)
+        | Mlty.IsTerm ->
+           return (locate ~loc (Rsyntax.OccursIsTermAbstraction (c1, c2)), t)
+        | Mlty.EqType ->
+           return (locate ~loc (Rsyntax.OccursEqTypeAbstraction (c1, c2)), t)
+        | Mlty.EqTerm ->
+           return (locate ~loc (Rsyntax.OccursEqTermAbstraction (c1, c2)), t)
+        end
+
+     | Mlty.(String | Meta _ | Param _ | Prod _ | Arrow _
+     | Handler _ | App _ | Ref _ | Dynamic _) ->
+        Mlty.error ~loc:c2.Location.loc (Mlty.JudgementExpected t2)
+     end
+
 
   | Dsyntax.Context c ->
      let t = Mlty.Judgement (Mlty.NotAbstract Mlty.IsTerm) in
@@ -605,28 +631,6 @@ and match_cases ~loc t = function
           fold ((p, c) :: cases) others
       in
       fold [(p1, c1)] cases
-
-and match_op_case ps popt ts m =
-  let rec fold qs ps ts =
-    match ps, ts with
-    | [], [] ->
-       let qs = List.rev qs in
-       begin match popt with
-       | None -> return None
-       | Some p ->
-          check_tt_pattern p (Mlty.NotAbstract Mlty.IsType) >>= fun p ->
-          return (Some p)
-       end >>= fun popt ->
-       m (qs, popt)
-
-    | p :: ps, t :: ts ->
-       check_pattern p t >>= fun q ->
-       fold (q :: qs) ps ts
-
-    | [], _::_ | _::_, [] ->
-       assert false
-  in
-  fold [] ps ts
 
 and match_op_cases op cases t_out =
   Tyenv.op_cases
@@ -898,3 +902,5 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
     in
     fold_files [] fcs >>= fun fcs ->
     return_located ~loc (Rsyntax.Included fcs)
+
+let toplevel env c = Tyenv.run env (toplevel c)
