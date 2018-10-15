@@ -9,5 +9,5 @@ val top_match_pattern : Pattern.aml -> Runtime.value -> Runtime.value list optio
     the optional pattern [p_out] against the optional type [t_out]. *)
 val match_op_pattern :
   Pattern.aml list -> Pattern.is_type option ->
-  Runtime.value list -> Runtime.is_type_abstraction option ->
+  Runtime.value list -> Jdg.is_type_abstraction option ->
   (Name.ident * Runtime.value) list option Runtime.comp

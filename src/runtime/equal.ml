@@ -66,12 +66,11 @@ let equal_type ~loc t1 t2 =
 
 let coerce ~loc sgn e t =
   let t' = Jdg.type_of_term sgn e in
-  match Jdg.mk_alpha_equal_type t' t with
+  match Jdg.alpha_equal_type t' t with
 
-  | Some _ ->
-     Opt.return e
+  | true -> Opt.return e
 
-  | None ->
+  | false ->
      Predefined.operation_coerce ~loc e t >!=
        begin function
 
@@ -94,6 +93,7 @@ let coerce ~loc sgn e t =
             | false -> Runtime.(error ~loc (InvalidCoerce (t, e')))
           end
        end
+
 end
 
 (** Expose without the monad stuff *)

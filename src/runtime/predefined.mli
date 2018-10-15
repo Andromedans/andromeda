@@ -14,7 +14,7 @@ type coercible =
        - ['a list] and its constructors [[]] and [::]
        - ['a option] and its constructors [Some] and [None]
        - [coercible] and its constructors (as above)
-       - operations [equal], [as_prod], [as_eq], [coerce], [coerce_fun]
+       - operations [equal], [coerce]
        - the dynamic variable [hypotheses]
  *)
 val definitions : Input.toplevel list

@@ -171,8 +171,8 @@ val mk_alpha_equal_type : is_type -> is_type -> eq_type option
 
 (** Given two abstractions, construct an abstracted equality provided the abstracted entities are alpha equal. *)
 val mk_alpha_equal_abstraction :
-  ('a -> 'b -> 'c TT.abstraction option) ->
-  'a TT.abstraction -> 'b TT.abstraction -> 'c TT.abstraction option
+  ('a -> 'b -> 'c option) ->
+  'a abstraction -> 'b abstraction -> 'c abstraction option
 
 (** Test whether terms are alpha-equal. They may have different types and incompatible contexts even if [true] is returned. *)
 val alpha_equal_term : is_term -> is_term -> bool

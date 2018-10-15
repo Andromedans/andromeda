@@ -589,7 +589,11 @@ let mk_alpha_equal_term sgn e1 e2 =
 
 let rec mk_alpha_equal_abstraction equal_u abstr1 abstr2 =
   match abstr1, abstr2 with
-  | TT.NotAbstract u1, TT.NotAbstract u2 -> equal_u u1 u2
+  | TT.NotAbstract u1, TT.NotAbstract u2 ->
+     begin match equal_u u1 u2 with
+     | None -> None
+     | Some eq -> Some (TT.mk_not_abstract eq)
+     end
   | TT.Abstract (x1, t1, abstr1), TT.Abstract (_x2, t2, abstr2) ->
      begin match alpha_equal_type t1 t2 with
      | false -> None

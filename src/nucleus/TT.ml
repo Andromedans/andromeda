@@ -572,7 +572,7 @@ and alpha_equal_args args args' =
      assert false
 
 and alpha_equal_abstraction
-  : 'a .('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
+  : 'a . ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
   = fun equal_v e e' ->
   e == e' ||
   (* XXX try e = e' ? *)
