@@ -63,13 +63,13 @@ let rec collect_is_term env xvs {Location.thing=p';loc} v =
      begin match Jdg.invert_is_term_abstraction v with
      | Jdg.NotAbstract _ -> raise Match_fail
      | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.form_abstraction (Jdg.NotAbstract (Jdg.type_of_atom a)) in
+        let v1 = Jdg.form_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.form_abstraction (Jdg.NotAbstract (Jdg.form_is_term_atom a)) in
+             let e = Jdg.form_not_abstract (Jdg.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_is_term env xvs p2 v
@@ -108,13 +108,13 @@ and collect_is_type env xvs {Location.thing=p';loc} v =
      begin match Jdg.invert_is_type_abstraction v with
      | Jdg.NotAbstract _ -> raise Match_fail
      | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.form_abstraction (Jdg.NotAbstract (Jdg.type_of_atom a)) in
+        let v1 = Jdg.form_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.form_abstraction (Jdg.NotAbstract (Jdg.form_is_term_atom a)) in
+             let e = Jdg.form_not_abstract (Jdg.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_is_type env xvs p2 v
@@ -141,13 +141,13 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
      begin match Jdg.invert_eq_type_abstraction v with
      | Jdg.NotAbstract _ -> raise Match_fail
      | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.form_abstraction (Jdg.NotAbstract (Jdg.type_of_atom a)) in
+        let v1 = Jdg.form_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.form_abstraction (Jdg.NotAbstract (Jdg.form_is_term_atom a)) in
+             let e = Jdg.form_not_abstract (Jdg.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_eq_type env xvs p2 v
@@ -158,8 +158,8 @@ and collect_eq_type env xvs {Location.thing=p';loc} v =
      | Jdg.Abstract _ -> raise Match_fail
      | Jdg.NotAbstract eq ->
         let (Jdg.EqType (_asmp, t1, t2)) = Jdg.invert_eq_type eq in
-        let xvs = collect_is_type env xvs p1 (Jdg.form_abstraction (Jdg.NotAbstract t1)) in
-        collect_is_type env xvs p2 (Jdg.form_abstraction (Jdg.NotAbstract t2))
+        let xvs = collect_is_type env xvs p1 (Jdg.form_not_abstract t1) in
+        collect_is_type env xvs p2 (Jdg.form_not_abstract t2)
      end
 
   | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqTerm _ | Pattern.TTIsType _ |
@@ -183,13 +183,13 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
      begin match Jdg.invert_eq_term_abstraction v with
      | Jdg.NotAbstract _ -> raise Match_fail
      | Jdg.Abstract (a, v2) ->
-        let v1 = Jdg.form_abstraction (Jdg.NotAbstract (Jdg.type_of_atom a)) in
+        let v1 = Jdg.form_not_abstract (Jdg.type_of_atom a) in
         let xvs = collect_is_type env xvs p1 v1 in
         let xvs =
           match xopt with
           | None -> xvs
           | Some x ->
-             let e = Jdg.form_abstraction (Jdg.NotAbstract (Jdg.form_is_term_atom a)) in
+             let e = Jdg.form_not_abstract (Jdg.form_is_term_atom a) in
              add_var x (Runtime.mk_is_term e) xvs
         in
         collect_eq_term env xvs p2 v
@@ -200,9 +200,9 @@ and collect_eq_term env xvs {Location.thing=p';loc} v =
      | Jdg.Abstract _ -> raise Match_fail
      | Jdg.NotAbstract eq ->
         let (Jdg.EqTerm (_asmp, e1, e2, t)) = Jdg.invert_eq_term eq in
-        let xvs = collect_is_term env xvs p1 (Jdg.form_abstraction (Jdg.NotAbstract e1)) in
-        let xvs = collect_is_term env xvs p2 (Jdg.form_abstraction (Jdg.NotAbstract e2)) in
-        collect_is_type env xvs p2 (Jdg.form_abstraction (Jdg.NotAbstract t))
+        let xvs = collect_is_term env xvs p1 (Jdg.form_not_abstract e1) in
+        let xvs = collect_is_term env xvs p2 (Jdg.form_not_abstract e2) in
+        collect_is_type env xvs p2 (Jdg.form_not_abstract t)
      end
 
   | (Pattern.TTIsTerm _ | Pattern.TTGenAtom _ | Pattern.TTEqType _ | Pattern.TTIsType _ |
@@ -304,23 +304,22 @@ let match_pattern p v =
   return r
 
 
-let match_op_pattern ps pt vs checking =
+let match_op_pattern ps p_out vs t_out =
   Runtime.get_env >>= fun env ->
-  let r = begin try
-    let xvs = multicollect_pattern env [] ps vs in
-    let xvs = match pt with
-      | None -> xvs
-      | Some p ->
-        let v = match checking with
-          | Some j -> Predefined.from_option (Some (Runtime.mk_is_type j))
-          | None -> Predefined.from_option None
-       in
-       collect_pattern env xvs p v
-    in
-    (* return in decreasing de bruijn order: ready to fold with add_bound *)
-    let xvs = List.sort (fun (k,_) (k',_) -> compare k k') xvs in
-    let xvs = List.rev_map snd xvs in
-    Some xvs
-  with Match_fail -> None
-  end in
+  let r =
+    begin
+      try
+        let xvs = multicollect_pattern env [] ps vs in
+        let xvs =
+          match p_out with
+          | None -> xvs
+          | Some p ->
+             begin match t_out with
+             | Some t -> collect_is_type env xvs p t
+             | None -> xvs
+             end
+        in
+        Some xvs
+      with Match_fail -> None
+    end in
   return r

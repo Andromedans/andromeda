@@ -228,25 +228,41 @@ let name_of v =
 
 (** Coerce values *)
 let as_is_term ~loc = function
-  | IsTerm e -> e
+  | IsTerm e as v ->
+     begin match Jdg.invert_is_term_abstraction e with
+     | Jdg.NotAbstract e -> e
+     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
+     end
   | (IsType _ | EqTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTermExpected v)
 
 let as_is_type ~loc = function
-  | IsType t -> t
+  | IsType t as v ->
+     begin match Jdg.invert_is_type_abstraction t with
+     | Jdg.NotAbstract t -> t
+     | Jdg.Abstract _ -> error ~loc (IsTermExpected v)
+     end
   | (IsTerm _ | EqTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (IsTypeExpected v)
 
 let as_eq_type ~loc = function
-  | EqType eq -> eq
+  | EqType eq as v ->
+     begin match Jdg.invert_eq_type_abstraction eq with
+     | Jdg.NotAbstract eq -> eq
+     | Jdg.Abstract _ -> error ~loc (EqTypeExpected v)
+     end
   | (IsType _ | IsTerm _ | EqTerm _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (EqTypeExpected v)
 
 let as_eq_term ~loc = function
-  | EqTerm eq -> eq
+  | EqTerm eq as v ->
+     begin match Jdg.invert_eq_term_abstraction eq with
+     | Jdg.NotAbstract eq -> eq
+     | Jdg.Abstract _ -> error ~loc (EqTermExpected v)
+     end
   | (IsType _ | IsTerm _ | EqType _ |
      Closure _ | Handler _ | Tag _ | Tuple _ | Ref _ | Dyn _ | String _) as v ->
     error ~loc (EqTermExpected v)
@@ -316,7 +332,7 @@ let add_bound0 v env = {env with lexical = { env.lexical with
 
 let add_free x jt m env =
   let jy = Jdg.fresh_atom x jt in
-  let y_val = mk_is_term (Jdg.form_abstraction (Jdg.NotAbstract (Jdg.form_is_term_atom jy))) in
+  let y_val = mk_is_term (Jdg.form_not_abstract (Jdg.form_is_term_atom jy)) in
   let env = add_bound0 y_val env in
   m jy env
 
@@ -685,10 +701,10 @@ let top_handle ~loc r env =
 let rec equal_value v1 v2 =
   match v1, v2 with
     | IsTerm e1, IsTerm e2 ->
-      Jdg.alpha_equal_abstraction Jdg.alpha_equal_is_term e1 e2
+      Jdg.alpha_equal_abstraction Jdg.alpha_equal_term e1 e2
 
     | IsType t1, IsType t2 ->
-      Jdg.alpha_equal_abstraction Jdg.alpha_equal_is_type t1 t2
+      Jdg.alpha_equal_abstraction Jdg.alpha_equal_type t1 t2
 
     | EqTerm eq1, EqTerm eq2 ->
        (* XXX: should we even compare equality judgements for equality? That will lead to comparison of contexts. *)

@@ -1,7 +1,7 @@
 type coercible =
   | NotCoercible
-  | Convertible of Jdg.eq_type Jdg.abstraction
-  | Coercible of Jdg.is_term Jdg.abstraction
+  | Convertible of Jdg.eq_type
+  | Coercible of Jdg.is_term
 
 (************************)
 (* Built-in Definitions *)
@@ -111,8 +111,8 @@ let as_coercible ~loc = function
     let eq = Runtime.as_eq_type ~loc v in
     Convertible eq
   | Runtime.Tag (t, [v]) when Name.eq_ident t Name.Predefined.coercible_constructor ->
-    let j = Runtime.as_is_term ~loc v in
-    Coercible j
+    let e = Runtime.as_is_term ~loc v in
+    Coercible e
   | (Runtime.IsType _ | Runtime.IsTerm _ | Runtime.EqType _ | Runtime.EqTerm _ |
      Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
      Runtime.Ref _ | Runtime.Dyn _ | Runtime.String _) as v ->
@@ -139,33 +139,23 @@ let as_eq_type_option ~loc v =
 
 let (>>=) = Runtime.bind
 
-let operation_equal_term ~loc j1 j2 =
-  let v1 = Runtime.mk_is_term j1
-  and v2 = Runtime.mk_is_term j2 in
+let operation_equal_term ~loc e1 e2 =
+  let v1 = Runtime.mk_is_term (Jdg.form_not_abstract e1)
+  and v2 = Runtime.mk_is_term (Jdg.form_not_abstract e2) in
   Runtime.operation Name.Predefined.equal_term [v1;v2] >>= fun v ->
   Runtime.return (as_eq_term_option ~loc v)
 
-let operation_equal_type ~loc j1 j2 =
-  let v1 = Runtime.mk_is_type j1
-  and v2 = Runtime.mk_is_type j2 in
+let operation_equal_type ~loc t1 t2 =
+  let v1 = Runtime.mk_is_type (Jdg.form_not_abstract t1)
+  and v2 = Runtime.mk_is_type (Jdg.form_not_abstract t2) in
   Runtime.operation Name.Predefined.equal_type [v1;v2] >>= fun v ->
   Runtime.return (as_eq_type_option ~loc v)
 
-let operation_coerce ~loc j1 j2 =
-  let v1 = Runtime.mk_is_term j1
-  and v2 = Runtime.mk_is_type j2 in
+let operation_coerce ~loc e t =
+  let v1 = Runtime.mk_is_term (Jdg.form_not_abstract e)
+  and v2 = Runtime.mk_is_type (Jdg.form_not_abstract t) in
   Runtime.operation Name.Predefined.coerce [v1;v2] >>= fun v ->
   Runtime.return (as_coercible ~loc v)
-
-let operation_coerce_fun ~loc j =
-  let v = Runtime.mk_is_term j in
-  Runtime.operation Name.Predefined.coerce_fun [v] >>= fun v ->
-  Runtime.return (as_coercible ~loc v)
-
-let operation_as_prod ~loc j =
-  let v = Runtime.mk_is_type j in
-  Runtime.operation Name.Predefined.as_prod [v] >>= fun v ->
-  Runtime.return (as_eq_type_option ~loc v)
 
 (*********)
 (* Other *)

@@ -5,28 +5,9 @@ let (>>=) = Runtime.bind
 
 let return = Runtime.return
 
-let as_is_term_abstraction ~loc v =
-  Runtime.as_is_term ~loc v
-
-let as_is_term ~loc v =
-  let e = Runtime.as_is_term ~loc v in
-  match Jdg.invert_is_term_abstraction e with
-  | Jdg.NotAbstract e -> e
-  | Jdg.Abstract _ -> Runtime.(error ~loc (IsTermExpected v))
-
-let as_is_type_abstraction ~loc v =
-  let e = Runtime.as_is_type ~loc v in
-    return e
-
-let as_is_type ~loc v =
-  let t = Runtime.as_is_type ~loc v in
-  match Jdg.invert_is_type_abstraction t with
-  | Jdg.NotAbstract t -> t
-  | Jdg.Abstract _ -> Runtime.(error ~loc (IsTypeExpected v))
-
 let as_atom ~loc v =
   Runtime.lookup_signature >>= fun sgn ->
-  let j = as_is_term ~loc v in
+  let j = Runtime.as_is_term ~loc v in
   match Jdg.invert_is_term sgn j with
     | Jdg.TermAtom x -> return x
     | (Jdg.TermConstructor _ | Jdg.TermConvert _) -> Runtime.(error ~loc (ExpectedAtom j))

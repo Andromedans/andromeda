@@ -32,80 +32,74 @@ let (>!=) m f = (Opt.lift m) >?= f
 module Internals = struct
 
 (** Compare two terms *)
-let equal ~loc j1 j2 =
-  match Jdg.mk_alpha_equal ~loc j1 j2 with
+let equal ~loc sgn e1 e2 =
+  match Jdg.mk_alpha_equal_term sgn e1 e2 with
     | Some eq -> Opt.return eq
     | None ->
-      Predefined.operation_equal_term ~loc j1 j2 >!=
+      Predefined.operation_equal_term ~loc e1 e2 >!=
         begin function
           | None -> Opt.fail
-          | Some juser ->
-             let (k1, k2, _) = Jdg.invert_eq_term juser in
+          | Some eq ->
+             let (Jdg.EqTerm (_asmp, e1', e2', _)) = Jdg.invert_eq_term eq in
              begin
-               match Jdg.alpha_equal_is_term j1 k1 && Jdg.alpha_equal_is_term j2 k2 with
-               | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualTerm (j1, j2))))
-               | true -> Opt.return juser
+               match Jdg.alpha_equal_term e1 e1' && Jdg.alpha_equal_term e2 e2' with
+               | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualTerm (e1, e2))))
+               | true -> Opt.return eq
              end
         end
 
-(** Compare two types *)
-let equal_ty ~loc j1 j2 =
-  match Jdg.mk_alpha_equal_type j1 j2 with
+(* Compare two types *)
+let equal_type ~loc t1 t2 =
+  match Jdg.mk_alpha_equal_type t1 t2 with
     | Some eq -> Opt.return eq
     | None ->
-      Predefined.operation_equal_type ~loc j1 j2 >!=
+      Predefined.operation_equal_type ~loc t1 t2 >!=
         begin function
           | None -> Opt.fail
-          | Some juser ->
-             let (k1, k2) = Jdg.invert_eq_type juser in
-             begin
-               match Jdg.alpha_equal_is_type j1 k1 && Jdg.alpha_equal_is_type j2 k2 with
-               | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualType (j1, j2))))
-               | true -> Opt.return juser
+          | Some eq ->
+             let (Jdg.EqType (_asmp, t1', t2')) = Jdg.invert_eq_type eq in
+             begin match Jdg.alpha_equal_type t1 t1' && Jdg.alpha_equal_type t2 t2' with
+             | false -> Opt.lift (Runtime.(error ~loc (InvalidEqualType (t1, t2))))
+             | true -> Opt.return eq
              end
         end
 
-let coerce ~loc je jt =
-  let je_ty = Jdg.typeof je in
-  match Jdg.mk_equal_eq_type ~loc je_ty jt with
+let coerce ~loc sgn e t =
+  let t' = Jdg.type_of_term sgn e in
+  match Jdg.mk_alpha_equal_type t' t with
 
   | Some _ ->
-     Opt.return je
+     Opt.return e
 
   | None ->
-     Predefined.operation_coerce ~loc je jt >!=
+     Predefined.operation_coerce ~loc e t >!=
        begin function
 
        | Predefined.NotCoercible -> Opt.fail
 
        | Predefined.Convertible eq ->
-          let eq_lhs = Jdg.eq_type_side Jdg.LEFT eq
-          and eq_rhs = Jdg.eq_type_side Jdg.RIGHT eq in
-          begin
-            match Jdg.mk_equal_eq_type ~loc je_ty eq_lhs,
-                  Jdg.mk_equal_eq_type ~loc jt eq_rhs
-            with
-            | Some _, Some _ ->
-               Opt.return (Jdg.convert ~loc je eq)
-            | (None, Some _ | Some _, None | None, None) ->
-               Runtime.(error ~loc (InvalidConvertible (je_ty, jt, eq)))
+          let (Jdg.EqType (_asmp, u', u)) = Jdg.invert_eq_type eq in
+          begin match Jdg.alpha_equal_type t' u' && Jdg.alpha_equal_type t u with
+            | true ->
+               Opt.return (Jdg.form_is_term_convert sgn e eq)
+            | false ->
+               Runtime.(error ~loc (InvalidConvertible (t', t, eq)))
           end
 
-       | Predefined.Coercible je ->
+       | Predefined.Coercible e' ->
           begin
-            match Jdg.mk_alpha_equal_type ~loc (Jdg.typeof je) jt with
-            | Some _ ->
-               Opt.return je
-            | None ->
-               Runtime.(error ~loc (InvalidCoerce (jt, je)))
+            let u = Jdg.type_of_term sgn e' in
+            match Jdg.alpha_equal_type t u with
+            | true -> Opt.return e'
+            | false -> Runtime.(error ~loc (InvalidCoerce (t, e')))
           end
        end
 end
 
 (** Expose without the monad stuff *)
 
-let equal ~loc j1 j2 = Opt.run (Internals.equal ~loc j1 j2)
+let equal ~loc sgn j1 j2 = Opt.run (Internals.equal ~loc sgn j1 j2)
 
-let equal_ty ~loc j1 j2 = Opt.run (Internals.equal_ty ~loc j1 j2)
+let equal_type ~loc j1 j2 = Opt.run (Internals.equal_type ~loc j1 j2)
 
-let coerce ~loc je jt = Opt.run (Internals.coerce ~loc je jt)
+let coerce ~loc sgn je jt = Opt.run (Internals.coerce ~loc sgn je jt)

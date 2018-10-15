@@ -443,12 +443,11 @@ let form_is_term_convert sgn e (TT.EqType (asmp, t1, t2)) =
      else
        error (InvalidConvert (t0, t1))
 
-let form_abstraction = function
+let form_not_abstract u = TT.mk_not_abstract u
 
-  | NotAbstract u -> TT.mk_not_abstract u
-
-  | Abstract ({TT.atom_name=x; atom_type=t}, u) ->
-     TT.mk_abstract (Name.ident_of_atom x) t u
+let form_abstract abstr_u {TT.atom_name=x; atom_type=t} abstr =
+  let abstr = TT.abstract_abstraction abstr_u x abstr in
+  TT.mk_abstract (Name.ident_of_atom x) t abstr
 
 (** Destructors *)
 
@@ -528,11 +527,18 @@ let reflexivity_term sgn e =
 let reflexivity_type t =
   TT.mk_eq_type Assumption.empty t t
 
+let alpha_equal_term = TT.alpha_equal_term
+
+let alpha_equal_type = TT.alpha_equal_type
+
+let alpha_equal_abstraction = TT.alpha_equal_abstraction
+
 let mk_alpha_equal_type t1 t2 =
   match TT.alpha_equal_type t1 t2 with
   | false -> None
   | true -> Some (TT.mk_eq_type Assumption.empty t1 t2)
 
+(** Compare two terms for alpha equality. *)
 let mk_alpha_equal_term sgn e1 e2 =
   let t1 = type_of_term sgn e1
   and t2 = type_of_term sgn e2
@@ -555,11 +561,20 @@ let mk_alpha_equal_term sgn e1 e2 =
         Some (TT.mk_eq_term Assumption.empty e1 e2 t1)
      end
 
-let alpha_equal_is_term = TT.alpha_equal_term
-
-let alpha_equal_is_type = TT.alpha_equal_type
-
-let alpha_equal_abstraction = TT.alpha_equal_abstraction
+let rec mk_alpha_equal_abstraction equal_u abstr1 abstr2 =
+  match abstr1, abstr2 with
+  | TT.NotAbstract u1, TT.NotAbstract u2 -> equal_u u1 u2
+  | TT.Abstract (x1, t1, abstr1), TT.Abstract (_x2, t2, abstr2) ->
+     begin match alpha_equal_type t1 t2 with
+     | false -> None
+     | true ->
+        begin match mk_alpha_equal_abstraction equal_u abstr1 abstr2 with
+        | None -> None
+        | Some eq -> Some (TT.mk_abstract x1 t1 eq)
+        end
+     end
+  | (TT.NotAbstract _, TT.Abstract _)
+  | (TT.Abstract _, TT.NotAbstract _) -> None
 
 let symmetry_term (TT.EqTerm (asmp, e1, e2, t)) = TT.mk_eq_term asmp e2 e1 t
 

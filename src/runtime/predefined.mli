@@ -4,8 +4,8 @@
  *)
 type coercible =
   | NotCoercible
-  | Convertible of Jdg.eq_type Jdg.abstraction
-  | Coercible of Jdg.is_term Jdg.abstraction
+  | Convertible of Jdg.eq_type
+  | Coercible of Jdg.is_term
 
 (** {6 Built-in Definitions} *)
 
@@ -25,38 +25,20 @@ val definitions : Input.toplevel list
     terms (wrapped as AML values), and then returns the resulting term equation if any.
  *)
 val operation_equal_term :
-  loc:Location.t -> Jdg.is_term Jdg.abstraction -> Jdg.is_term  Jdg.abstraction ->
-  Jdg.eq_term Jdg.abstraction option Runtime.comp
+  loc:Location.t -> Jdg.is_term -> Jdg.is_term -> Jdg.eq_term option Runtime.comp
 
 (** A computation that, when run, invokes the [eq_type] operation on the given
     terms (wrapped as AML values), and then returns the resulting term equation if any.
  *)
 val operation_equal_type :
-  loc:Location.t -> Jdg.is_type Jdg.abstraction -> Jdg.is_type Jdg.abstraction ->
-  Jdg.eq_type Jdg.abstraction option Runtime.comp
+  loc:Location.t -> Jdg.is_type -> Jdg.is_type -> Jdg.eq_type option Runtime.comp
 
 (** A computation that, when run, invokes the [coerce] operation
     on the given type theory term and desired type, and decodes
     the resulting AML value as a value of the correponding ML type [coercible].
  *)
 val operation_coerce :
-  loc:Location.t -> Jdg.is_term Jdg.abstraction
-  -> Jdg.is_type Jdg.abstraction -> coercible Runtime.comp
-
-(** A computation that, when run, invokes the [coerce_fun] operation on the
-    given term and decodes the resulting AML value into the ML type [coercible].
- *)
-val operation_coerce_fun :
-  loc:Location.t -> Jdg.is_term Jdg.abstraction
-  -> coercible Runtime.comp
-
-(** A computation that, when run, invokes the [as_prod] operration on the
-    given type; unwraps the resulting evidence (if any) that the given
-    type is equal to a Pi type.
- *)
-val operation_as_prod :
-  loc:Location.t -> Jdg.is_type Jdg.abstraction
-  -> Jdg.eq_type Jdg.abstraction option Runtime.comp
+  loc:Location.t -> Jdg.is_term -> Jdg.is_type -> coercible Runtime.comp
 
 (** {6 translation between AML and ML values} *)
 

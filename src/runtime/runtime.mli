@@ -70,16 +70,16 @@ val mk_string  : string -> value
 (** {b Value extraction} *)
 
 (** Convert, or fail with [IsTermExpected] *)
-val as_is_term : loc:Location.t -> value -> is_term_abstraction
+val as_is_term : loc:Location.t -> value -> Jdg.is_term
 
 (** Convert, or fail with [IsTypeExpected] *)
-val as_is_type : loc:Location.t -> value -> is_type_abstraction
+val as_is_type : loc:Location.t -> value -> Jdg.is_type
 
 (** Convert, or fail with [EqTermExpected] *)
-val as_eq_term : loc:Location.t -> value -> eq_term_abstraction
+val as_eq_term : loc:Location.t -> value -> Jdg.eq_term
 
 (** Convert, or fail with [EqTypeExpected] *)
-val as_eq_type : loc:Location.t -> value -> eq_type_abstraction
+val as_eq_type : loc:Location.t -> value -> Jdg.eq_type
 
 (** Convert, or fail with [ClosureExpected] *)
 val as_closure : loc:Location.t -> value -> (value,value) closure

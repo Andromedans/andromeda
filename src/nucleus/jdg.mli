@@ -89,8 +89,13 @@ val form_eq_type_rule : Signature.t -> Name.constructor -> premise list -> eq_ty
     conclusion of the instance of the rule so obtained. *)
 val form_eq_term_rule : Signature.t -> Name.constructor -> premise list -> eq_term
 
-(** Form an abstraction *)
-val form_abstraction : 'a stump_abstraction -> 'a abstraction
+(** Form a non-abstracted abstraction *)
+val form_not_abstract : 'a -> 'a abstraction
+
+(** Form an abstracted abstraction *)
+val form_abstract :
+  (Name.atom -> ?lvl:TT.bound -> 'a -> 'a) ->
+  TT.ty TT.atom -> 'a TT.abstraction -> 'a TT.abstraction
 
 val invert_is_type : is_type -> stump_is_type
 
@@ -125,20 +130,14 @@ val type_of_atom : is_atom -> is_type
 (** Does this atom occur in this judgement, and if so with what type? *)
 (* XXX val occurs : is_atom -> is_term -> is_atom option *)
 
-(** Substitution *)
-
 (** [substitute_type t a v] substitutes [v] for [a] in [t]. *)
 val substitute_type : is_term -> is_atom -> is_type -> is_type
 
 (** [substitute_term e a v] substitutes [v] for [a] in [e]. *)
 val substitute_term : is_term -> is_atom -> is_term -> is_term
 
-(** Destructors *)
-
 (** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
 val convert_eq_term : eq_term -> eq_type -> eq_term
-
-(** Constructors *)
 
 (** Construct the judgment [e == e : A] from [e : A] *)
 val reflexivity_term : Signature.t -> is_term -> eq_term
@@ -153,11 +152,16 @@ val mk_alpha_equal_term : Signature.t -> is_term -> is_term -> eq_term option
 (** Given two types [A] and [B] construct [A == B] provided the types are alpha equal *)
 val mk_alpha_equal_type : is_type -> is_type -> eq_type option
 
+(** Given two abstractions, construct an abstracted equality provided the abstracted entities are alpha equal. *)
+val mk_alpha_equal_abstraction :
+  ('a -> 'b -> 'c TT.abstraction option) ->
+  'a TT.abstraction -> 'b TT.abstraction -> 'c TT.abstraction option
+
 (** Test whether terms are alpha-equal. They may have different types and incompatible contexts even if [true] is returned. *)
-val alpha_equal_is_term : is_term -> is_term -> bool
+val alpha_equal_term : is_term -> is_term -> bool
 
 (** Test whether types are alpha-equal. They may have different contexts. *)
-val alpha_equal_is_type : is_type -> is_type -> bool
+val alpha_equal_type : is_type -> is_type -> bool
 
 val alpha_equal_abstraction
   : ('a -> 'a -> bool) -> 'a abstraction -> 'a abstraction -> bool
