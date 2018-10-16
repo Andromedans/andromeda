@@ -285,28 +285,6 @@ and check_default ~loc v t_check =
       | Some e -> return e
     end
 
-and check_premises premises t_premises =
-
-  let rec fold ps_out ps ts =
-    match ps, ts with
-
-    | [], [] ->
-       let ps_out = List.rev ps_out in
-       return ps_out
-
-    | p :: ps, t :: ts ->
-       check_premise p t >>= fun p ->
-       fold (p :: ps_out) ps ts
-
-    | [], _::_ | _::_, [] ->
-       (* desugar made sure this cannot happen *)
-       assert false
-  in
-  fold [] premises t_premises
-
-and check_premise c t =
-  check c t >>= fun e -> as_premise (Runtime.mk_is_term e)
-
 and as_premise = function
   | Runtime.IsType t -> return (Jdg.PremiseIsType t)
   | Runtime.IsTerm e -> return (Jdg.PremiseIsTerm e)
@@ -585,11 +563,6 @@ and check_atom c =
 let comp_value c =
   let r = infer c in
   Runtime.top_handle ~loc:c.Location.loc r
-
-(* comp_ty: 'a Rsyntax.comp -> Jdg.is_type Runtime.toplevel *)
-let comp_ty c =
-  let r = check_is_type c in
-  Runtime.top_handle ~loc:(c.Location.loc) r
 
 let comp_handle (xs,y,c) =
   Runtime.top_return_closure (fun (vs,checking) ->

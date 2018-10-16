@@ -21,7 +21,6 @@ type error =
   | UnknownTypeName of Name.ident
   | OperationExpected : Name.ident * 'a info -> error
   | OperationAlreadyDeclared of Name.ident
-  | TTConstructorAlreadyDeclared of Name.ident
   | AMLConstructorAlreadyDeclared of Name.ident
   | InvalidTermPatternName : Name.ident * 'a info -> error
   | InvalidPatternName : Name.ident * 'a info -> error
@@ -37,7 +36,6 @@ let print_error err ppf = match err with
   | UnknownTypeName x -> Format.fprintf ppf "Unknown type name %t." (Name.print_ident x)
   | OperationExpected (x, info) -> Format.fprintf ppf "%t should be an operation, but is %t." (Name.print_ident x) (print_info info)
   | OperationAlreadyDeclared x -> Format.fprintf ppf "An operation %t is already declared." (Name.print_ident x)
-  | TTConstructorAlreadyDeclared x -> Format.fprintf ppf "The constructor %t is already declared." (Name.print_ident x)
   | AMLConstructorAlreadyDeclared x -> Format.fprintf ppf "The AML constructor %t is already declared." (Name.print_ident x)
   | InvalidTermPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a term pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a pattern as it is %t." (Name.print_ident x) (print_info info)
@@ -112,13 +110,6 @@ module Ctx = struct
       error ~loc (AMLConstructorAlreadyDeclared c)
     else
       { ctx with bound = (c, AMLConstructor k) :: ctx.bound }
-
-  let add_tt_constructor ~loc c k ctx =
-    if List.exists (function (c', TTConstructor _) -> Name.eq_ident c c' | _ -> false) ctx.bound
-    then
-      error ~loc (TTConstructorAlreadyDeclared c)
-    else
-      { ctx with bound = (c, TTConstructor k) :: ctx.bound }
 
 
   (* Add to the context the fact that [ty] is a type constructor with
