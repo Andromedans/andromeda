@@ -118,13 +118,17 @@ val invert_eq_type : eq_type -> stump_eq_type
 
 val invert_eq_term : eq_term -> stump_eq_term
 
-val invert_is_term_abstraction : is_term_abstraction -> is_term stump_abstraction
+val invert_is_term_abstraction :
+  ?atom_name:Name.ident -> is_term_abstraction -> is_term stump_abstraction
 
-val invert_is_type_abstraction : is_type_abstraction -> is_type stump_abstraction
+val invert_is_type_abstraction :
+  ?atom_name:Name.ident -> is_type_abstraction -> is_type stump_abstraction
 
-val invert_eq_type_abstraction : eq_type_abstraction -> eq_type stump_abstraction
+val invert_eq_type_abstraction :
+  ?atom_name:Name.ident -> eq_type_abstraction -> eq_type stump_abstraction
 
-val invert_eq_term_abstraction : eq_term_abstraction -> eq_term stump_abstraction
+val invert_eq_term_abstraction :
+  ?atom_name:Name.ident -> eq_term_abstraction -> eq_term stump_abstraction
 
 val context_is_type_abstraction : is_type_abstraction -> is_atom list
 val context_is_term_abstraction : is_term_abstraction -> is_atom list
@@ -151,11 +155,17 @@ val occurs_is_term_abstraction : is_atom -> is_term_abstraction -> bool
 val occurs_eq_type_abstraction : is_atom -> eq_type_abstraction -> bool
 val occurs_eq_term_abstraction : is_atom -> eq_term_abstraction -> bool
 
-(** [substitute_type t a v] substitutes [v] for [a] in [t]. *)
-val substitute_type : is_term -> is_atom -> is_type -> is_type
+val apply_is_type_abstraction :
+  Signature.t -> is_type_abstraction -> is_term -> is_type_abstraction
 
-(** [substitute_term e a v] substitutes [v] for [a] in [e]. *)
-val substitute_term : is_term -> is_atom -> is_term -> is_term
+val apply_is_term_abstraction :
+  Signature.t -> is_term_abstraction -> is_term -> is_term_abstraction
+
+val apply_eq_type_abstraction :
+  Signature.t -> eq_type_abstraction -> is_term -> eq_type_abstraction
+
+val apply_eq_term_abstraction :
+  Signature.t -> eq_term_abstraction -> is_term -> eq_term_abstraction
 
 (** If [e1 == e2 : A] and [A == B] then [e1 == e2 : B] *)
 val convert_eq_term : eq_term -> eq_type -> eq_term

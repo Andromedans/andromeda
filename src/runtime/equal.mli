@@ -11,5 +11,5 @@ val equal_type :
 
 (** Coerce the given term to the given type, if possible *)
 val coerce :
-  loc:Location.t -> Jdg.Signature.t -> Jdg.is_term -> Jdg.is_type ->
-  Jdg.is_term option Runtime.comp
+  loc:Location.t -> Jdg.Signature.t -> Jdg.is_term_abstraction -> Jdg.is_type_abstraction ->
+  Jdg.is_term_abstraction option Runtime.comp

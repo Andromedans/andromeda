@@ -65,8 +65,8 @@ let equal_type ~loc t1 t2 =
         end
 
 let coerce ~loc sgn e t =
-  let t' = Jdg.type_of_term sgn e in
-  match Jdg.alpha_equal_type t' t with
+  let t' = Jdg.type_of_term_abstraction sgn e in
+  match Jdg.alpha_equal_abstraction Jdg.alpha_equal_type t' t with
 
   | true -> Opt.return e
 
@@ -77,18 +77,21 @@ let coerce ~loc sgn e t =
        | Predefined.NotCoercible -> Opt.fail
 
        | Predefined.Convertible eq ->
+          failwith "TODO: convert e along eq if possible"
+          (*
           let (Jdg.EqType (_asmp, u', u)) = Jdg.invert_eq_type eq in
           begin match Jdg.alpha_equal_type t' u' && Jdg.alpha_equal_type t u with
             | true ->
-               Opt.return (Jdg.form_is_term_convert sgn e eq)
+               Opt.return (Jdg.form_is_term_abstraction_convert sgn e eq)
             | false ->
                Runtime.(error ~loc (InvalidConvertible (t', t, eq)))
           end
+          *)
 
        | Predefined.Coercible e' ->
           begin
-            let u = Jdg.type_of_term sgn e' in
-            match Jdg.alpha_equal_type t u with
+            let u = Jdg.type_of_term_abstraction sgn e' in
+            match Jdg.alpha_equal_abstraction Jdg.alpha_equal_type t u with
             | true -> Opt.return e'
             | false -> Runtime.(error ~loc (InvalidCoerce (t, e')))
           end

@@ -278,24 +278,12 @@ and occurs
 
 and check_default ~loc v t_check =
   let abstr = Runtime.as_is_term_abstraction ~loc v in
-  begin match Jdg.invert_is_term_abstraction abstr, Jdg.invert_is_type_abstraction t_check with
-  | Jdg.NotAbstract e, Jdg.NotAbstract t ->
-     Runtime.lookup_signature >>= fun sgn ->
-     Equal.coerce ~loc sgn e t >>=
-       begin function
-       | None ->Runtime.(error ~loc (TypeMismatchCheckingMode (abstr, t_check)))
-       | Some e -> return (Runtime.mk_is_term (Jdg.form_not_abstract e))
-       end
-  | Jdg.Abstract (a, e), Jdg.Abstract (b, t) -> (??)
-  end
-(*
-
-  Equal.coerce ~loc sgn e t_check >>=
+  Runtime.lookup_signature >>= fun sgn ->
+  Equal.coerce ~loc sgn abstr t_check >>=
     begin function
-      | Some je -> return je
-      | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (e, t_check)))
-  end
-*)
+      | None -> Runtime.(error ~loc (TypeMismatchCheckingMode (abstr, t_check)))
+      | Some e -> return e
+    end
 
 and check_premises premises t_premises =
 
@@ -399,18 +387,72 @@ and check ({Location.thing=c';loc} as c) t_check =
      infer c >>=
      match_cases ~loc cases (fun c -> check c t_check)
 
-  | Rsyntax.Abstract (x, u, c) ->
-    check_abstract ~loc t_check x u c
+  | Rsyntax.Abstract (x, uopt, c) ->
+    check_abstract ~loc t_check x uopt c
 
-and check_abstract ~loc t_check x u c =
-  match Jdg.invert_is_type_abstraction t_check with
+and check_abstract ~loc t_check x uopt c =
+  match Jdg.invert_is_type_abstraction ~atom_name:x t_check with
 
-  | Jdg.NotAbstract _ ->
-     Runtime.(error ~loc (IsTypeAbstractionExpected t_check))
+  | Jdg.NotAbstract t ->
+     Runtime.(error ~loc (UnexpectedAbstraction t))
 
-  | Jdg.Abstract (a, t_check) ->
-     begin match u with
-     | Some u ->
+  | Jdg.Abstract (a, t_check') ->
+     (* NB: [a] is a fresh atom at this point. *)
+     begin match uopt with
+
+     | None ->
+        Runtime.add_bound
+          (Runtime.mk_is_term (Jdg.form_not_abstract (Jdg.form_is_term_atom a)))
+          begin
+            check c t_check' >>= fun e ->
+            return (Jdg.form_is_term_abstract a e)
+          end
+
+     (* | Some ({Location.loc=u_loc} as u) -> *)
+     (*    check_is_type u >>= fun u -> *)
+     (*    let a_type = Jdg.type_of_atom a in *)
+     (*    Equal.equal_type ~loc:u_loc a_type u >>= *)
+     (*      begin function *)
+     (*        | None -> *)
+     (*           Runtime.(error ~loc:u_loc (AnnotationMismatch (u, a_type))) *)
+     (*        | Some eq (\* : a_type == u *\) -> *)
+     (*           Runtime.lookup_signature >>= fun sgn -> *)
+     (*           Runtime.add_free x u *)
+     (*           (fun a' -> *)
+     (*             let t_check' = *)
+     (*              Jdg.apply_is_type_abstraction t_check (conv a' eq) *)
+
+     (*             in *)
+     (*             check c t_check' >>= fun e -> *)
+     (*             let e = (??) in *)
+     (*             return (Jdg.form_is_term_abstract a e) *)
+     (*           ) *)
+     (*      end *)
+
+     | Some ({Location.loc=u_loc;_} as u) ->
+        check_is_type u >>= fun u ->
+        let a_type = Jdg.type_of_atom a in
+        Equal.equal_type ~loc:u_loc a_type u >>=
+          begin function
+            | None ->
+               Runtime.(error ~loc:u_loc (TypeEqualityFail (u, a_type)))
+            | Some eq (* : a_type == u *) ->
+               Runtime.lookup_signature >>= fun sgn ->
+               let a' =
+                 Jdg.form_not_abstract
+                   (Jdg.form_is_term_convert sgn
+                      (Jdg.form_is_term_atom a)
+                      eq)
+               in
+               Runtime.add_bound (Runtime.mk_is_term a')
+               begin
+                 check c t_check >>= fun e ->
+                 return (Jdg.form_is_term_abstract a e)
+               end
+          end
+     end
+(*
+
         check_is_type u >>= fun u' ->
         Equal.equal_type ~loc:(u.Location.loc) u' (Jdg.type_of_atom a) >>=
           begin function
@@ -418,10 +460,9 @@ and check_abstract ~loc t_check x u c =
             | None ->
                Runtime.(error ~loc:(u.Location.loc) (AnnotationMismatch (ju, (Jdg.type_of_atom a))))
           end
-     | None ->
-        let ju = Jdg.type_of_atom a in
-        let equ = Jdg.reflexivity_ty ju in
-        return (ju, equ)
+
+
+
      end >>= fun (ju, equ) -> (* equ : ju == typeof a *)
      Runtime.add_free ~loc x ju (
          fun jy -> (* jy is a free variable of type ju *)
@@ -433,6 +474,7 @@ and check_abstract ~loc t_check x u c =
             let eq_abstr = Jdg.congr_abstract_type ~loc equ jy a (Jdg.reflexivity_ty b) in
             let abstr = Jdg.convert ~loc abstr eq_abstr in
             return abstr))
+*)
 
 (* sequence: loc:Location.t -> Runtime.value -> unit Runtime.comp *)
 and sequence ~loc v =

@@ -85,7 +85,9 @@ type error =
   | Inapplicable of value
   | AnnotationMismatch of Jdg.is_type * Jdg.is_type_abstraction
   | TypeMismatchCheckingMode of Jdg.is_term_abstraction * Jdg.is_type_abstraction
-  | EqualityFail of Jdg.is_term * Jdg.is_term
+  | UnexpectedAbstraction of Jdg.is_type
+  | TermEqualityFail of Jdg.is_term * Jdg.is_term
+  | TypeEqualityFail of Jdg.is_type * Jdg.is_type
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
@@ -108,8 +110,8 @@ type error =
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
-  | InvalidConvertible of Jdg.is_type * Jdg.is_type * Jdg.eq_type
-  | InvalidCoerce of Jdg.is_type * Jdg.is_term
+  | InvalidConvertible of Jdg.is_type_abstraction * Jdg.is_type_abstraction * Jdg.eq_type_abstraction
+  | InvalidCoerce of Jdg.is_type_abstraction * Jdg.is_term_abstraction
   | UnhandledOperation of Name.operation * value list
 
 exception Error of error Location.located
@@ -574,21 +576,31 @@ let print_error ~penv err ppf =
   | Inapplicable v ->
      Format.fprintf ppf "cannot apply %s" (name_of v)
 
+
   | AnnotationMismatch (t1, t2) ->
       Format.fprintf ppf
-      "@[<v>The type annotation is@,   @[<hov>%t@]@ but the surroundings imply it should be@,   @[<hov>%t@].@]"
+      "@[<v>The type annotation is@, @[<hov>%t@]@ but the surroundings imply it should be@, @[<hov>%t@].@]"
                     (Jdg.print_is_type ~penv:penv t1)
                     (Jdg.print_is_type_abstraction ~penv:penv t2)
 
   | TypeMismatchCheckingMode (v, t) ->
-      Format.fprintf ppf "The term@,   @[<hov>%t@]@ is expected by its surroundings to have type@,   @[<hov>%t@]"
+      Format.fprintf ppf "The term@, @[<hov>%t@]@ is expected by its surroundings to have type@, @[<hov>%t@]"
                     (Jdg.print_is_term_abstraction ~penv:penv v)
                     (Jdg.print_is_type_abstraction ~penv:penv t)
 
-  | EqualityFail (e1, e2) ->
+  | UnexpectedAbstraction t ->
+      Format.fprintf ppf "This term is an abstraction but the surroundings imply it shoule be@, @[<hov>%t@]"
+                    (Jdg.print_is_type ~penv:penv t)
+
+  | TermEqualityFail (e1, e2) ->
      Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
                     (Jdg.print_is_term ~penv:penv e1)
                     (Jdg.print_is_term ~penv:penv e2)
+
+  | TypeEqualityFail (t1, t2) ->
+     Format.fprintf ppf "failed to check that@ %t@ and@ %t@ are equal"
+                    (Jdg.print_is_type ~penv:penv t1)
+                    (Jdg.print_is_type ~penv:penv t2)
 
   | UnannotatedAbstract x ->
      Format.fprintf ppf "cannot infer the type of@ %t" (Name.print_ident x)
@@ -665,14 +677,14 @@ let print_error ~penv err ppf =
 
   | InvalidConvertible (t1, t2, eq) ->
      Format.fprintf ppf "expected a witness of equality between %t and %t but got %t"
-                    (Jdg.print_is_type ~penv t1)
-                    (Jdg.print_is_type ~penv t2)
-                    (Jdg.print_eq_type ~penv eq)
+                    (Jdg.print_is_type_abstraction ~penv t1)
+                    (Jdg.print_is_type_abstraction ~penv t2)
+                    (Jdg.print_eq_type_abstraction ~penv eq)
 
   | InvalidCoerce (t, e) ->
      Format.fprintf ppf "expected a term of type %t but got %t"
-                    (Jdg.print_is_type ~penv t)
-                    (Jdg.print_is_term ~penv e)
+                    (Jdg.print_is_type_abstraction ~penv t)
+                    (Jdg.print_is_term_abstraction ~penv e)
 
   | UnhandledOperation (op, vs) ->
      Format.fprintf ppf "@[<v>Unhandled operation:@.   @[<hov>%t@]@]@."

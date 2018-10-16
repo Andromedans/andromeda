@@ -71,7 +71,7 @@ and comp' =
   | Bound of bound
   | Function of Name.ident * arg_annotation * comp
   | Handler of handler
-  | AML_Constructor of Name.ident * comp list
+  | AMLConstructor of Name.ident * comp list
   | Tuple of comp list
   | Operation of Name.ident * comp list
   | With of comp * comp

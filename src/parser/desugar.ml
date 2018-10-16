@@ -27,7 +27,6 @@ type error =
   | InvalidPatternName : Name.ident * 'a info -> error
   | InvalidAppliedPatternName : Name.ident * 'a info -> error
   | NonlinearPattern : Name.ident -> error
-  | TermPatternExpected
   | ArityMismatch of Name.ident * int * int
   | UnboundYield
   | ParallelShadowing of Name.ident
@@ -44,7 +43,6 @@ let print_error err ppf = match err with
   | InvalidPatternName (x, info) -> Format.fprintf ppf "%t cannot be used in a pattern as it is %t." (Name.print_ident x) (print_info info)
   | InvalidAppliedPatternName (x, info) -> Format.fprintf ppf "%t cannot be applied in a pattern as it is %t." (Name.print_ident x) (print_info info)
   | NonlinearPattern x -> Format.fprintf ppf "non-linear pattern variable %t is not allowed (but you may interpolate it)." (Name.print_ident x)
-  | TermPatternExpected -> Format.fprintf ppf "This pattern should match terms but it matches types."
   | ArityMismatch (x, used, expected) -> Format.fprintf ppf "%t expects %d arguments but is used with %d." (Name.print_ident x) expected used
   | UnboundYield -> Format.fprintf ppf "yield may only appear in a handler's operation cases."
   | ParallelShadowing x -> Format.fprintf ppf "%t is bound more than once." (Name.print_ident x)
@@ -150,7 +148,7 @@ end (* module Ctx *)
 
 let locate = Location.locate
 
-let rec mlty_judgement = function
+let mlty_judgement = function
   | Input.ML_IsType -> Dsyntax.ML_IsType
   | Input.ML_IsTerm -> Dsyntax.ML_IsTerm
   | Input.ML_EqType -> Dsyntax.ML_EqType

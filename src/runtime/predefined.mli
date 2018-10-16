@@ -4,8 +4,8 @@
  *)
 type coercible =
   | NotCoercible
-  | Convertible of Jdg.eq_type
-  | Coercible of Jdg.is_term
+  | Convertible of Jdg.eq_type_abstraction
+  | Coercible of Jdg.is_term_abstraction
 
 (** {6 Built-in Definitions} *)
 
@@ -38,7 +38,7 @@ val operation_equal_type :
     the resulting AML value as a value of the correponding ML type [coercible].
  *)
 val operation_coerce :
-  loc:Location.t -> Jdg.is_term -> Jdg.is_type -> coercible Runtime.comp
+  loc:Location.t -> Jdg.is_term_abstraction -> Jdg.is_type_abstraction -> coercible Runtime.comp
 
 (** {6 translation between AML and ML values} *)
 

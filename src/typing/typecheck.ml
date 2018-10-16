@@ -373,7 +373,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     in
     fold [] cs ts
 
-  | Dsyntax.AML_Constructor (c, cs) ->
+  | Dsyntax.AMLConstructor (c, cs) ->
     Tyenv.lookup_aml_constructor c >>= fun (ts, out) ->
     let tcs = List.combine ts cs in
     let rec fold cs = function

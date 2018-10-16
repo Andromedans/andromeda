@@ -125,7 +125,9 @@ type error =
   | Inapplicable of value
   | AnnotationMismatch of Jdg.is_type * Jdg.is_type_abstraction
   | TypeMismatchCheckingMode of Jdg.is_term_abstraction * Jdg.is_type_abstraction
-  | EqualityFail of Jdg.is_term * Jdg.is_term
+  | UnexpectedAbstraction of Jdg.is_type
+  | TermEqualityFail of Jdg.is_term * Jdg.is_term
+  | TypeEqualityFail of Jdg.is_type * Jdg.is_type
   | UnannotatedAbstract of Name.ident
   | MatchFail of value
   | FailureFail of value
@@ -148,8 +150,8 @@ type error =
   | DynExpected of value
   | StringExpected of value
   | CoercibleExpected of value
-  | InvalidConvertible of Jdg.is_type * Jdg.is_type * Jdg.eq_type
-  | InvalidCoerce of Jdg.is_type * Jdg.is_term
+  | InvalidConvertible of Jdg.is_type_abstraction * Jdg.is_type_abstraction * Jdg.eq_type_abstraction
+  | InvalidCoerce of Jdg.is_type_abstraction * Jdg.is_term_abstraction
   | UnhandledOperation of Name.operation * value list
 
 (** The exception that is raised on runtime error *)
@@ -235,9 +237,8 @@ val add_bound_rec :
 (** [index_of_level n] gives the De Bruijn index of the variable whose De Bruijn level is [n]. *)
 val index_of_level : Rsyntax.level -> Rsyntax.bound comp
 
-(** [add_free ~loc x (ctx,t) f] generates a fresh atom [y] from identifier [x],
-    then it extends [ctx] to [ctx' = ctx, y : t]
-    and runs [f (ctx' |- y : t)] in the environment with [x] bound to [ctx' |- y : t].
+(** [add_free ~loc x t f] generates a fresh atom [a] from identifier [x],
+    and runs [f a] in the environment extended with [a : t].
     NB: This is an effectful computation, as it increases a global counter. *)
 val add_free: Name.ident -> Jdg.is_type -> (Jdg.is_atom -> 'a comp) -> 'a comp
 

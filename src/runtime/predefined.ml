@@ -1,7 +1,7 @@
 type coercible =
   | NotCoercible
-  | Convertible of Jdg.eq_type
-  | Coercible of Jdg.is_term
+  | Convertible of Jdg.eq_type_abstraction
+  | Coercible of Jdg.is_term_abstraction
 
 (************************)
 (* Built-in Definitions *)
@@ -108,10 +108,10 @@ let as_coercible ~loc = function
   | Runtime.Tag (t, []) when Name.eq_ident t Name.Predefined.notcoercible ->
     NotCoercible
   | Runtime.Tag (t, [v]) when Name.eq_ident t Name.Predefined.convertible ->
-    let eq = Runtime.as_eq_type ~loc v in
+    let eq = Runtime.as_eq_type_abstraction ~loc v in
     Convertible eq
   | Runtime.Tag (t, [v]) when Name.eq_ident t Name.Predefined.coercible_constructor ->
-    let e = Runtime.as_is_term ~loc v in
+    let e = Runtime.as_is_term_abstraction ~loc v in
     Coercible e
   | (Runtime.IsType _ | Runtime.IsTerm _ | Runtime.EqType _ | Runtime.EqTerm _ |
      Runtime.Closure _ | Runtime.Handler _ | Runtime.Tag _ | Runtime.Tuple _ |
@@ -152,8 +152,8 @@ let operation_equal_type ~loc t1 t2 =
   Runtime.return (as_eq_type_option ~loc v)
 
 let operation_coerce ~loc e t =
-  let v1 = Runtime.mk_is_term (Jdg.form_not_abstract e)
-  and v2 = Runtime.mk_is_type (Jdg.form_not_abstract t) in
+  let v1 = Runtime.mk_is_term e
+  and v2 = Runtime.mk_is_type t in
   Runtime.operation Name.Predefined.coerce [v1;v2] >>= fun v ->
   Runtime.return (as_coercible ~loc v)
 

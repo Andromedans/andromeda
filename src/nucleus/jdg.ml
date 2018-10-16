@@ -510,24 +510,25 @@ let invert_eq_type (TT.EqType (asmp, t1, t2)) = EqType (asmp, t1, t2)
 
 let invert_eq_term (TT.EqTerm (asmp, e1, e2, t)) = EqTerm (asmp, e1, e2, t)
 
-let invert_abstraction inst_v = function
+let invert_abstraction ?atom_name inst_v = function
   | TT.Abstract (x, t, abstr) ->
+     let x = (match atom_name with None -> x | Some y -> y) in
      let a = TT.fresh_atom x t in
      let abstr = TT.instantiate_abstraction inst_v (TT.mk_atom a) abstr in
      Abstract (a, abstr)
   | TT.NotAbstract v -> NotAbstract v
 
-let invert_is_type_abstraction t =
-  invert_abstraction TT.instantiate_type t
+let invert_is_type_abstraction ?atom_name t =
+  invert_abstraction ?atom_name TT.instantiate_type t
 
-let invert_is_term_abstraction e =
-  invert_abstraction TT.instantiate_term e
+let invert_is_term_abstraction ?atom_name e =
+  invert_abstraction ?atom_name TT.instantiate_term e
 
-let invert_eq_type_abstraction eq =
-  invert_abstraction TT.instantiate_eq_type eq
+let invert_eq_type_abstraction ?atom_name eq =
+  invert_abstraction ?atom_name TT.instantiate_eq_type eq
 
-let invert_eq_term_abstraction eq =
-  invert_abstraction TT.instantiate_eq_term eq
+let invert_eq_term_abstraction ?atom_name eq =
+  invert_abstraction ?atom_name TT.instantiate_eq_term eq
 
 let context_is_type_abstraction = TT.context_abstraction TT.assumptions_type
 let context_is_term_abstraction = TT.context_abstraction TT.assumptions_term
@@ -543,10 +544,27 @@ let occurs_is_term_abstraction = occurs_abstraction TT.assumptions_term
 let occurs_eq_type_abstraction = occurs_abstraction TT.assumptions_eq_type
 let occurs_eq_term_abstraction = occurs_abstraction TT.assumptions_eq_term
 
-(** Substitution *)
-let substitute_type e0 {TT.atom_name=a;_} t = TT.substitute_type e0 a t
 
-let substitute_term e0 {TT.atom_name=a;_} e = TT.substitute_term e0 a e
+let apply_abstraction inst_u sgn abstr e0 =
+  match abstr with
+  | TT.NotAbstract _ -> failwith "foo"
+  | TT.Abstract (x, t, abstr) ->
+     begin match TT.alpha_equal_type t (type_of_term sgn e0) with
+     | false -> failwith "bar"
+     | true ->  TT.instantiate_abstraction inst_u e0 abstr
+     end
+
+let apply_is_type_abstraction sgn abstr e0 =
+  apply_abstraction TT.instantiate_type sgn abstr e0
+
+let apply_is_term_abstraction sgn abstr e0 =
+  apply_abstraction TT.instantiate_term sgn abstr e0
+
+let apply_eq_type_abstraction sgn abstr e0 =
+  apply_abstraction TT.instantiate_eq_type sgn abstr e0
+
+let apply_eq_term_abstraction sgn abstr e0 =
+  apply_abstraction TT.instantiate_eq_term sgn abstr e0
 
 (** Conversion *)
 
