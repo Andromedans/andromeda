@@ -418,7 +418,7 @@ let rec comp ({Location.thing=c; loc} : Dsyntax.comp) : (Rsyntax.comp * Mlty.ty)
     return (locate ~loc (Rsyntax.With (h, c)), b)
 
   | Dsyntax.Let (clauses, c) ->
-     let_clauses
+     let_clauses ~locally:true
        clauses (comp c) >>= fun (clauses, (c, t)) ->
          return (locate ~loc (Rsyntax.Let (clauses, c)), t)
 
@@ -663,9 +663,9 @@ and match_op_cases op cases t_out =
       fold_cases [] cases)
 
 and let_clauses
-  :  'a . Dsyntax.let_clause list -> 'a Tyenv.tyenvM ->
+  :  'a . locally:bool -> Dsyntax.let_clause list -> 'a Tyenv.tyenvM ->
           (Rsyntax.let_clause list * 'a) Tyenv.tyenvM
-  = fun clauses_in m ->
+  = fun ~locally clauses_in m ->
   let rec fold_rhs cts = function
     | [] -> return (List.rev cts)
     | Dsyntax.Let_clause (p, annot, c) :: clauses_in ->
@@ -691,7 +691,8 @@ and let_clauses
 
           let rec fold xss = function
             | [] -> fold_lhs (Rsyntax.Let_clause (List.rev xss, p, c) :: clauses_out) clauses_in
-            | (x,t) :: xts -> Tyenv.generalize t >>= fun sch -> fold ((x,sch) :: xss) xts
+            | (x,t) :: xts ->
+               Tyenv.generalize t >>= fun sch -> fold ((x,sch) :: xss) xts
           in
           fold [] xts
 
@@ -713,7 +714,7 @@ and let_clauses
        end
   in
   fold_rhs [] clauses_in >>= fun pacts ->
-  Tyenv.locally
+  (if locally then Tyenv.locally else fun mojo -> mojo)
     begin
       fold_lhs [] pacts >>= fun clauses ->
       m >>= fun x ->
@@ -848,7 +849,7 @@ let rec toplevel ({Location.thing=c; loc} : Dsyntax.toplevel) =
      return_located ~loc (Rsyntax.TopHandle lst)
 
   | Dsyntax.TopLet clauses ->
-     let_clauses clauses (return ()) >>= fun (clauses, ()) ->
+     let_clauses ~locally:false clauses (return ()) >>= fun (clauses, ()) ->
      return_located ~loc (Rsyntax.TopLet clauses)
 
   | Dsyntax.TopLetRec clauses ->

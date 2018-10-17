@@ -48,6 +48,7 @@ let gather_known env =
     (unsolved_known env.unsolved)
 
 let remove_known ~known s =
+  (* XXX: why isn't this just Mlty.MetaSet.diff s known ? *)
   Mlty.MetaSet.fold Mlty.MetaSet.remove known s
 
 let generalize t env =
@@ -74,12 +75,12 @@ let record_vars m env =
   let local_vars = env.local_vars in
   let x, env = m {env with local_vars = []} in
   (* XXX should we apply the substition to the types of local vars that we're returning? *)
-  (env.local_vars, x), {env with local_vars}
+  (List.rev env.local_vars, x), {env with local_vars}
 
 let add_var x t env =
   let t = Substitution.apply env.substitution t in
   let context = Context.add_var x ([], t) env.context in
-  (), {env with context}
+  (), {env with context; local_vars = (x,t) :: env.local_vars}
 
 let locally_add_var x t m =
   locally (add_var x t >>= fun () -> m)
