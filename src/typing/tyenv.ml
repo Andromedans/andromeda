@@ -31,6 +31,8 @@ let (>>=) m f env =
 
 let run env m = let x, env = m env in env, x
 
+let get_context env = env.context, env
+
 let unsolved_known unsolved =
   List.fold_left
     (fun known (AppConstraint (_, t1, t2, t3)) ->
@@ -40,10 +42,10 @@ let unsolved_known unsolved =
                             (Mlty.MetaSet.union (Mlty.occuring t2) (Mlty.occuring t3))))
     Mlty.MetaSet.empty unsolved
 
-let gather_known env =
+let gather_known ~known_context env =
   Mlty.MetaSet.union
     (Mlty.MetaSet.union
-       (Context.gather_known env.substitution env.context)
+       (Context.gather_known env.substitution known_context)
        (Substitution.domain env.substitution))
     (unsolved_known env.unsolved)
 
@@ -51,8 +53,9 @@ let remove_known ~known s =
   (* XXX: why isn't this just Mlty.MetaSet.diff s known ? *)
   Mlty.MetaSet.fold Mlty.MetaSet.remove known s
 
-let generalize t env =
-  let known = gather_known env in
+let generalize ?known_context t env =
+  let known_context = match known_context with None -> env.context | Some x -> x in
+  let known = gather_known ~known_context env in
   let t = Substitution.apply env.substitution t in
   let gen = Mlty.occuring t in
   let gen = remove_known ~known gen in
@@ -309,7 +312,8 @@ let predefined_type x ts env =
   let t = Context.predefined_type x ts env.context in
   return t env
 
-let generalizes_to ~loc t (ps, u) env =
+let generalizes_to ~loc ?known_context t (ps, u) env =
+  let known_context = match known_context with None -> env.context | Some x -> x in
   let (), env = add_equation ~loc t u env in
   (* NB: [s1] is the one that has [ps] appearing in the image *)
   let s1, s2 = Substitution.partition
@@ -320,7 +324,7 @@ let generalizes_to ~loc t (ps, u) env =
   let known =
     Mlty.MetaSet.union
       (* XXX is it [substitution] or one of [s1], [s2]? *)
-      (Context.gather_known s2 env.context)
+      (Context.gather_known s2 known_context)
       (unsolved_known env.unsolved)
   in
   let ms = Mlty.MetaSet.inter s1dom known in

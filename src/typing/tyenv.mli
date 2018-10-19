@@ -18,6 +18,11 @@ val (>>=) : 'a tyenvM -> ('a -> 'b tyenvM) -> 'b tyenvM
 
 val run : t -> 'a tyenvM -> t * 'a
 
+(** Return the typing context at the current stage. Only exposed for use with
+   [generalize] and [generalizes_to]. The context will likely become invalid at
+   a later point and should be used only with the greatest care. *)
+val get_context : Context.t tyenvM
+
 (** Lookup a bound variable by its De Bruijn index and instantiate its type parameters with fresh metavariables. *)
 val lookup_var : Rsyntax.bound -> Mlty.ty tyenvM
 
@@ -58,12 +63,18 @@ val op_cases : Name.operation -> output:Mlty.ty -> (Mlty.ty list -> 'a tyenvM) -
     can be found in the environment. *)
 val predefined_type : Name.ty -> Mlty.ty list -> Mlty.ty tyenvM
 
-(** Generalize the given type as much as possible in the current environment. *)
-val generalize : Mlty.ty -> Mlty.ty_schema tyenvM
+(** Generalize the given type as much as possible in the current environment,
+    but using only [known_context] as typing context, possibly solving
+    unification problems. If [known_context] is not provided, use the one from
+    the current typechecking environment. *)
+val generalize : ?known_context:Context.t -> Mlty.ty -> Mlty.ty_schema tyenvM
 
-(** Check that the given type can be generalized to the given schema in the current
-    environment, possibly solving unification problems. *)
-val generalizes_to : loc:Location.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
+(** Check that the given type can be generalized to the given schema in the
+    current environment but using only [known_context] as typing context,
+    possibly solving unification problems. If [known_context] is not provided,
+    use the one from the current typechecking environment. *)
+val generalizes_to
+  : loc:Location.t -> ?known_context:Context.t -> Mlty.ty -> Mlty.ty_schema -> unit tyenvM
 
 (** Return the given type as a schema without generalizing anything. *)
 val ungeneralize : Mlty.ty -> Mlty.ty_schema tyenvM

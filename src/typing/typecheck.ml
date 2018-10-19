@@ -677,6 +677,10 @@ and let_clauses
     | [] -> return (List.rev clauses_out)
 
     | (p, annot, c, t) :: clauses_in ->
+       (* We explicitly save the old context because [check_pattern] binds the
+          variables that we want to generalise, but [Tyenv.generalize] needs to
+          know about the [old_context]. *)
+       Tyenv.get_context >>= fun old_context ->
        Tyenv.record_vars (check_pattern p t) >>= fun (xts, p) ->
        begin match generalizable c with
 
@@ -684,7 +688,7 @@ and let_clauses
           begin match annot with
           | Dsyntax.Let_annot_schema sch ->
              let sch = ml_schema sch in
-             Tyenv.generalizes_to ~loc:c.Location.loc t sch
+             Tyenv.generalizes_to ~loc:c.Location.loc ~known_context:old_context t sch
 
           | Dsyntax.Let_annot_none -> return ()
           end >>= fun () ->
@@ -692,7 +696,7 @@ and let_clauses
           let rec fold xss = function
             | [] -> fold_lhs (Rsyntax.Let_clause (List.rev xss, p, c) :: clauses_out) clauses_in
             | (x,t) :: xts ->
-               Tyenv.generalize t >>= fun sch -> fold ((x,sch) :: xss) xts
+               Tyenv.generalize ~known_context:old_context t >>= fun sch -> fold ((x,sch) :: xss) xts
           in
           fold [] xts
 
