@@ -79,10 +79,14 @@ let record_vars m env =
   (* XXX should we apply the substition to the types of local vars that we're returning? *)
   (List.rev env.local_vars, x), {env with local_vars}
 
+let record_var x t env =
+  let t = Substitution.apply env.substitution t in
+  (), {env with local_vars = (x,t) :: env.local_vars}
+
 let add_var x t env =
   let t = Substitution.apply env.substitution t in
-  let context = Context.add_var x ([], t) env.context in
-  (), {env with context; local_vars = (x,t) :: env.local_vars}
+  let context = Context.add_let x ([], t) env.context in
+  (), {env with context}
 
 let locally_add_var x t m =
   locally (add_var x t >>= fun () -> m)

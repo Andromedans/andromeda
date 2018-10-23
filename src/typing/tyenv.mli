@@ -90,8 +90,15 @@ val add_let : Name.ident -> Mlty.ty_schema -> unit tyenvM
     This is used to handle locally scoped variables in let bindings and match cases. *)
 val locally : 'a tyenvM -> 'a tyenvM
 
-(** [record_vars m] runs the computation [m] and records what variables were added by it, with their types.
-    It then returns the list of variables so added by [m], and the original result of [m]. *)
+(** [record_var x t] records the fact that variable [x] of type [t] was found.
+    Later the so recorded variables are reported by [record_vars]. This is used
+    for collecting bound variables in match cases and let bindings. *)
+val record_var : Name.ident -> Mlty.ty -> unit tyenvM
+
+(** [record_vars m] runs the computation [m] and records what variables were registered
+   using [record_var]. It then returns the list of variables so added by [m], and the
+   original result of [m]. This is used for collecting bound variables in match cases
+   and let bindings. *)
 val record_vars : 'a tyenvM -> ((Name.ident * Mlty.ty) list * 'a) tyenvM
 
 (** [locally_add_var x t m] runs the computation [m] in the context extended with the

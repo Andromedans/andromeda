@@ -51,10 +51,6 @@ let lookup_continuation {continuation;_} =
     | Some cont -> cont
     | None -> assert false
 
-let add_var x t ctx =
-  let variables = (x, t) :: ctx.variables in
-  {ctx with variables}
-
 let add_tydef t d ctx =
   let types = (t, d) :: ctx.types in
   {ctx with types}
